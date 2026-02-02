@@ -1500,6 +1500,24 @@ mod x86_64_simd_avx10_compare_bf16;
 #[path = "x86_64/simd/avx10/copy_sign.rs"]
 mod x86_64_simd_avx10_copy_sign;
 
+// APX (Advanced Performance Extensions)
+#[path = "x86_64/apx/egpr.rs"]
+mod x86_64_apx_egpr;
+#[path = "x86_64/apx/rex2.rs"]
+mod x86_64_apx_rex2;
+#[path = "x86_64/apx/ndd.rs"]
+mod x86_64_apx_ndd;
+#[path = "x86_64/apx/nf.rs"]
+mod x86_64_apx_nf;
+#[path = "x86_64/apx/ccmp_ctest.rs"]
+mod x86_64_apx_ccmp_ctest;
+#[path = "x86_64/apx/push2_pop2.rs"]
+mod x86_64_apx_push2_pop2;
+#[path = "x86_64/apx/zu.rs"]
+mod x86_64_apx_zu;
+#[path = "x86_64/apx/combined.rs"]
+mod x86_64_apx_combined;
+
 // Stack Operations
 #[path = "x86_64/stack_operations/enter_extended.rs"]
 mod x86_64_stack_operations_enter_extended;
