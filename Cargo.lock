@@ -302,7 +302,7 @@ version = "0.13.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "de72cb02c55ecffcf75fe78295926f872eb6eb0a58d629c58a8c324dc26380f6"
 dependencies = [
- "vm-memory 0.16.2",
+ "vm-memory",
 ]
 
 [[package]]
@@ -435,7 +435,7 @@ dependencies = [
  "toml",
  "tracing",
  "tracing-subscriber",
- "vm-memory 0.17.2",
+ "vm-memory",
  "zstd",
 ]
 
@@ -741,26 +741,6 @@ checksum = "1fd5e56d48353c5f54ef50bd158a0452fc82f5383da840f7b8efc31695dd3b9d"
 dependencies = [
  "libc",
  "thiserror 1.0.69",
- "winapi",
-]
-
-[[package]]
-name = "vm-memory"
-version = "0.17.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e201ed63fdaba7bdafd07176f2060ffa6949aa05559acbc3f5189824bb285428"
-dependencies = [
- "vm-memory 0.18.0",
-]
-
-[[package]]
-name = "vm-memory"
-version = "0.18.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9b55e753c7725603745cb32b2287ef7ef3da05c03c7702cda3fa8abe25ae0465"
-dependencies = [
- "libc",
- "thiserror 2.0.17",
  "winapi",
 ]
 

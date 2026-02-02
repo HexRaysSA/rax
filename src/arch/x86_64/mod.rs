@@ -3,10 +3,10 @@
 mod native_imports {
     pub use linux_loader::cmdline::Cmdline;
     pub use linux_loader::configurator::linux::LinuxBootConfigurator;
-    pub use linux_loader::configurator::BootParams;
+    pub use linux_loader::configurator::{BootConfigurator, BootParams};
     pub use linux_loader::loader::bootparam::{boot_e820_entry, boot_params};
     pub use linux_loader::loader::elf::PvhBootCapability;
-    pub use linux_loader::loader::{load_cmdline, BzImage, KernelLoaderResult};
+    pub use linux_loader::loader::{load_cmdline, BzImage, KernelLoader, KernelLoaderResult};
 }
 
 // On non-x86 hosts, use our local bootparam module

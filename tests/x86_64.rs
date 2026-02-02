@@ -1470,6 +1470,36 @@ mod x86_64_simd_sse_unpcklps;
 #[path = "x86_64/simd/sse/xorps_xorpd.rs"]
 mod x86_64_simd_sse_xorps_xorpd;
 
+// AVX10.1 Tests
+#[path = "x86_64/simd/avx10/vnni.rs"]
+mod x86_64_simd_avx10_vnni;
+#[path = "x86_64/simd/avx10/ifma.rs"]
+mod x86_64_simd_avx10_ifma;
+#[path = "x86_64/simd/avx10/vbmi.rs"]
+mod x86_64_simd_avx10_vbmi;
+#[path = "x86_64/simd/avx10/vpopcntdq.rs"]
+mod x86_64_simd_avx10_vpopcntdq;
+#[path = "x86_64/simd/avx10/bitalg.rs"]
+mod x86_64_simd_avx10_bitalg;
+#[path = "x86_64/simd/avx10/bf16.rs"]
+mod x86_64_simd_avx10_bf16;
+#[path = "x86_64/simd/avx10/ymm_embedded_rounding.rs"]
+mod x86_64_simd_avx10_ymm_embedded_rounding;
+
+// AVX10.2 Tests
+#[path = "x86_64/simd/avx10/minmax.rs"]
+mod x86_64_simd_avx10_minmax;
+#[path = "x86_64/simd/avx10/saturation_convert.rs"]
+mod x86_64_simd_avx10_saturation_convert;
+#[path = "x86_64/simd/avx10/media_accel.rs"]
+mod x86_64_simd_avx10_media_accel;
+#[path = "x86_64/simd/avx10/vmpsadbw.rs"]
+mod x86_64_simd_avx10_vmpsadbw;
+#[path = "x86_64/simd/avx10/compare_bf16.rs"]
+mod x86_64_simd_avx10_compare_bf16;
+#[path = "x86_64/simd/avx10/copy_sign.rs"]
+mod x86_64_simd_avx10_copy_sign;
+
 // Stack Operations
 #[path = "x86_64/stack_operations/enter_extended.rs"]
 mod x86_64_stack_operations_enter_extended;

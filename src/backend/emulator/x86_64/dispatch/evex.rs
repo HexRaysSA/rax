@@ -439,49 +439,37 @@ impl X86_64Vcpu {
     }
 
     fn set_zmm_data(&mut self, zmm: usize, data: &[u8], vl: usize) {
+        // Helper to read u64 from data with zero-padding for short slices
+        let read_u64 = |offset: usize| -> u64 {
+            let mut bytes = [0u8; 8];
+            let end = (offset + 8).min(data.len());
+            if offset < data.len() {
+                bytes[..end - offset].copy_from_slice(&data[offset..end]);
+            }
+            u64::from_le_bytes(bytes)
+        };
+
         if zmm < 16 {
-            self.regs.xmm[zmm][0] = u64::from_le_bytes([
-                data[0], data[1], data[2], data[3], data[4], data[5], data[6], data[7],
-            ]);
-            self.regs.xmm[zmm][1] = u64::from_le_bytes([
-                data[8], data[9], data[10], data[11], data[12], data[13], data[14], data[15],
-            ]);
+            self.regs.xmm[zmm][0] = read_u64(0);
+            if vl > 8 {
+                self.regs.xmm[zmm][1] = read_u64(8);
+            } else {
+                self.regs.xmm[zmm][1] = 0;
+            }
             if vl > 16 {
-                self.regs.ymm_high[zmm][0] = u64::from_le_bytes([
-                    data[16], data[17], data[18], data[19], data[20], data[21], data[22], data[23],
-                ]);
-                self.regs.ymm_high[zmm][1] = u64::from_le_bytes([
-                    data[24], data[25], data[26], data[27], data[28], data[29], data[30], data[31],
-                ]);
+                self.regs.ymm_high[zmm][0] = read_u64(16);
+                self.regs.ymm_high[zmm][1] = read_u64(24);
             }
             if vl > 32 {
-                self.regs.zmm_high[zmm][0] = u64::from_le_bytes([
-                    data[32], data[33], data[34], data[35], data[36], data[37], data[38], data[39],
-                ]);
-                self.regs.zmm_high[zmm][1] = u64::from_le_bytes([
-                    data[40], data[41], data[42], data[43], data[44], data[45], data[46], data[47],
-                ]);
-                self.regs.zmm_high[zmm][2] = u64::from_le_bytes([
-                    data[48], data[49], data[50], data[51], data[52], data[53], data[54], data[55],
-                ]);
-                self.regs.zmm_high[zmm][3] = u64::from_le_bytes([
-                    data[56], data[57], data[58], data[59], data[60], data[61], data[62], data[63],
-                ]);
+                self.regs.zmm_high[zmm][0] = read_u64(32);
+                self.regs.zmm_high[zmm][1] = read_u64(40);
+                self.regs.zmm_high[zmm][2] = read_u64(48);
+                self.regs.zmm_high[zmm][3] = read_u64(56);
             }
         } else {
             let idx = zmm - 16;
             for i in 0..(vl / 8) {
-                let start = i * 8;
-                self.regs.zmm_ext[idx][i] = u64::from_le_bytes([
-                    data[start],
-                    data[start + 1],
-                    data[start + 2],
-                    data[start + 3],
-                    data[start + 4],
-                    data[start + 5],
-                    data[start + 6],
-                    data[start + 7],
-                ]);
+                self.regs.zmm_ext[idx][i] = read_u64(i * 8);
             }
         }
     }
@@ -1486,23 +1474,32 @@ impl X86_64Vcpu {
         let mut dst = [0u8; 64];
 
         // Process 128-bit lanes
+        // imm8 encoding: bits [2:0] select src1 offset, bits [5:3] select src2 offset
+        // Each lane uses the same block selection from imm8
         let num_lanes = vl / 16;
+        let src1_blk = (imm8 & 0x3) as usize;  // bits [1:0]
+        let src2_blk = ((imm8 >> 2) & 0x3) as usize;  // bits [3:2]
 
         for lane in 0..num_lanes {
             let lane_base = lane * 16;
-            let blk1 = ((imm8 >> (lane * 2)) & 0x3) as usize;
-            let blk2 = ((imm8 >> (lane * 2 + 4)) & 0x3) as usize;
 
-            // Source block offsets
-            let src1_offset = lane_base + (blk1 * 4);
-            let src2_offset = lane_base + (blk2 * 4);
+            // Source block offsets within the lane
+            let src1_offset = lane_base + (src1_blk * 4);
 
             // Calculate 8 SAD values per lane
             for i in 0..8 {
                 let mut sad: u16 = 0;
+                // src2 uses a sliding window of 4 consecutive bytes starting at blk2*4 + i
+                let src2_start = lane_base + (src2_blk * 4) + i;
                 for j in 0..4 {
                     let a = src1[src1_offset + j] as i16;
-                    let b = src2[src2_offset + i + j] as i16;
+                    let b_idx = src2_start + j;
+                    // Handle wrap-around within lane
+                    let b = if b_idx < lane_base + 16 {
+                        src2[b_idx] as i16
+                    } else {
+                        0  // Zero-pad beyond lane boundary
+                    };
                     sad += (a - b).unsigned_abs();
                 }
                 let dst_offset = lane_base + i * 2;

@@ -14,7 +14,7 @@ pub enum Error {
     #[error("Guest memory error: {0}")]
     GuestMemory(#[from] vm_memory::GuestMemoryError),
     #[error("Guest memory creation error: {0}")]
-    GuestMemoryCreate(#[from] vm_memory::mmap::FromRangesError),
+    GuestMemoryCreate(#[from] vm_memory::mmap::Error),
     #[error("Invalid configuration: {0}")]
     InvalidConfig(String),
     #[error("Device port range overlaps existing device: base=0x{base:x}, len=0x{len:x}")]
