@@ -638,56 +638,40 @@ fn diff_shift_reg() {
     run_family("shift_reg", cases, 40, 0x1004);
 }
 
-#[test]
-#[ignore]
-fn survey_spec_corpus() {
-    let oracle = match oracle_path() {
-        Some(p) => p,
-        None => {
-            eprintln!("[hexagon_diff] survey: toolchain unavailable -> skipping");
-            return;
-        }
-    };
+/// Per-instruction survey outcome.
+#[derive(Default, Clone)]
+struct Stat {
+    diverged: u32,
+    rejected: u32,
+    example: String,
+}
+
+/// Run the whole spec corpus (N inputs per instruction) through the oracle and
+/// rax, classifying each tag. Returns `None` if the toolchain/corpus is absent.
+fn corpus_results(n_inputs: usize, seed: u64) -> Option<std::collections::BTreeMap<String, Stat>> {
+    use std::collections::BTreeMap;
+    let oracle = oracle_path()?;
     let corpus = read_corpus();
     if corpus.is_empty() {
-        eprintln!("[hexagon_diff] survey: empty corpus (run tools/hexagon-diff/gen_cases.py)");
-        return;
+        return None;
     }
 
-    const N_INPUTS: usize = 5;
-    let mut rng = Rng::new(0xC0FFEE);
-    // Build the oracle batch: N inputs per instruction.
+    let mut rng = Rng::new(seed);
     let mut ocases: Vec<(Vec<u32>, HexState)> = Vec::new();
-    let mut meta: Vec<(usize, HexState)> = Vec::new(); // (corpus idx, input)
+    let mut meta: Vec<usize> = Vec::new();
     for (idx, (_, _, words)) in corpus.iter().enumerate() {
-        for _ in 0..N_INPUTS {
+        for _ in 0..n_inputs {
             let st = gen_input(&mut rng);
             ocases.push((words.clone(), st));
-            meta.push((idx, st));
+            meta.push(idx);
         }
     }
-    let outs = match run_oracle(&oracle, &ocases) {
-        Some(o) => o,
-        None => {
-            eprintln!("[hexagon_diff] survey: oracle run failed -> skipping");
-            return;
-        }
-    };
+    let outs = run_oracle(&oracle, &ocases)?;
 
-    use std::collections::BTreeMap;
-    #[derive(Default, Clone)]
-    struct Stat {
-        ok: u32,
-        diverged: u32,
-        rejected: u32,
-        example: String,
-    }
     let mut stats: BTreeMap<String, Stat> = BTreeMap::new();
     for (i, (words, st)) in ocases.iter().enumerate() {
-        let (idx, _) = meta[i];
-        let (tag, asm, _) = &corpus[idx];
+        let (tag, asm, _) = &corpus[meta[i]];
         let entry = stats.entry(tag.clone()).or_default();
-        let mut local = Vec::new();
         match run_rax(words, st) {
             None => entry.rejected += 1,
             Some(rax) => {
@@ -698,61 +682,89 @@ fn survey_spec_corpus() {
                     }
                 }
                 if rax.w[I_PRED] != outs[i].w[I_PRED] {
-                    diffs.push(format!(
-                        "P:rax={:#x},hw={:#x}",
-                        rax.w[I_PRED], outs[i].w[I_PRED]
-                    ));
+                    diffs.push(format!("P:rax={:#x},hw={:#x}", rax.w[I_PRED], outs[i].w[I_PRED]));
                 }
                 if rax.w[I_USR] != outs[i].w[I_USR] {
-                    diffs.push(format!(
-                        "USR:rax={:#x},hw={:#x}",
-                        rax.w[I_USR], outs[i].w[I_USR]
-                    ));
+                    diffs.push(format!("USR:rax={:#x},hw={:#x}", rax.w[I_USR], outs[i].w[I_USR]));
                 }
-                if diffs.is_empty() {
-                    entry.ok += 1;
-                } else {
+                if !diffs.is_empty() {
                     entry.diverged += 1;
-                    local = diffs;
+                    if entry.example.is_empty() {
+                        entry.example = format!("{asm}  ->  {}", diffs.join(" "));
+                    }
                 }
             }
         }
-        if !local.is_empty() && entry.example.is_empty() {
-            entry.example = format!("{asm}  ->  {}", local.join(" "));
-        }
     }
+    Some(stats)
+}
 
-    let mut n_ok = 0;
-    let mut n_div = 0;
-    let mut n_rej = 0;
-    let mut diverged_tags = Vec::new();
-    let mut rejected_tags = Vec::new();
+#[test]
+#[ignore]
+fn survey_spec_corpus() {
+    let stats = match corpus_results(5, 0xC0FFEE) {
+        Some(s) => s,
+        None => {
+            eprintln!("[hexagon_diff] survey: toolchain/corpus unavailable -> skipping");
+            return;
+        }
+    };
+    let (mut n_ok, mut n_div, mut n_rej) = (0, 0, 0);
+    let mut diverged = Vec::new();
+    let mut rejected = Vec::new();
     for (tag, s) in &stats {
-        // A tag is "fully ok" only if every input matched.
         if s.diverged > 0 {
             n_div += 1;
-            diverged_tags.push((tag.clone(), s.example.clone()));
+            diverged.push((tag.clone(), s.example.clone()));
         } else if s.rejected > 0 {
             n_rej += 1;
-            rejected_tags.push(tag.clone());
+            rejected.push(tag.clone());
         } else {
             n_ok += 1;
         }
     }
-
     eprintln!("\n==== Hexagon spec-corpus survey ({} instructions) ====", stats.len());
     eprintln!("  OK (rax == hw):       {n_ok}");
     eprintln!("  DIVERGED (rax bug):   {n_div}");
     eprintln!("  REJECTED (unimpl):    {n_rej}");
-    if !diverged_tags.is_empty() {
+    if !diverged.is_empty() {
         eprintln!("\n-- DIVERGED (implemented but wrong) --");
-        for (tag, ex) in diverged_tags.iter().take(60) {
+        for (tag, ex) in diverged.iter().take(60) {
             eprintln!("  {tag:24}  {ex}");
         }
     }
-    eprintln!("\n-- REJECTED (unimplemented), first 80 --");
-    for tag in rejected_tags.iter().take(80) {
+    eprintln!("\n-- REJECTED (unimplemented), first 100 --");
+    for tag in rejected.iter().take(100) {
         eprint!("{tag} ");
     }
     eprintln!();
+}
+
+/// Strict regression guard: no *implemented* instruction may diverge from the
+/// hardware oracle. Unimplemented (rejected) instructions are allowed; this
+/// test grows stronger automatically as coverage expands.
+#[test]
+fn diff_corpus_no_divergence() {
+    let stats = match corpus_results(5, 0xD1FF) {
+        Some(s) => s,
+        None => {
+            eprintln!("[hexagon_diff] corpus guard: toolchain/corpus unavailable -> skipping");
+            return;
+        }
+    };
+    let diverged: Vec<_> = stats
+        .iter()
+        .filter(|(_, s)| s.diverged > 0)
+        .map(|(t, s)| format!("  {t:24}  {}", s.example))
+        .collect();
+    if !diverged.is_empty() {
+        eprintln!(
+            "\n==== {} implemented instructions diverge from hardware ====",
+            diverged.len()
+        );
+        for line in &diverged {
+            eprintln!("{line}");
+        }
+        panic!("{} Hexagon instructions diverge from the oracle", diverged.len());
+    }
 }

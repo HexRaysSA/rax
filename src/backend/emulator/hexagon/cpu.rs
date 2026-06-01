@@ -317,6 +317,7 @@ impl HexagonVcpu {
         &mut self,
         insn: DecodedInsn,
         packet_pc: u32,
+        immext: Option<u32>,
         new_r: &mut [Option<u32>; 32],
         new_p: &mut [Option<u8>; 4],
         branch: &mut Option<BranchTarget>,
@@ -898,13 +899,50 @@ impl HexagonVcpu {
                 new_r[dst as usize] = Some(result);
             }
             DecodedInsn::Unknown(word) => {
-                return Err(Error::Emulator(format!(
-                    "unknown hexagon instruction 0x{word:08x}"
-                )));
+                // Fall through to the direct opcode-dispatch semantic layer,
+                // which handles instructions not modelled by the DecodedInsn IR.
+                if !self.try_sem(word, immext, new_r, new_p)? {
+                    return Err(Error::Emulator(format!(
+                        "unknown hexagon instruction 0x{word:08x}"
+                    )));
+                }
             }
         }
 
         Ok(None)
+    }
+
+    /// Attempt to execute `word` via the direct opcode-dispatch semantic layer.
+    /// Returns `Ok(true)` if a handler ran, `Ok(false)` if the opcode is not yet
+    /// modelled there (caller treats it as a genuine decode failure).
+    fn try_sem(
+        &mut self,
+        word: u32,
+        immext: Option<u32>,
+        new_r: &mut [Option<u32>; 32],
+        new_p: &mut [Option<u8>; 4],
+    ) -> Result<bool> {
+        let dop = match super::opcode::decode_word(word) {
+            Some(d) => d,
+            None => return Ok(false),
+        };
+        let usr_or = {
+            let mut ctx = super::sem::SemCtx {
+                regs: &self.regs,
+                new_r: &mut *new_r,
+                new_p: &mut *new_p,
+                immext,
+                usr_or: 0,
+            };
+            if !super::sem::dispatch(&dop, &mut ctx) {
+                return Ok(false);
+            }
+            ctx.usr_or
+        };
+        if usr_or != 0 {
+            self.regs.c[8] |= usr_or;
+        }
+        Ok(true)
     }
 
     fn finish_packet(
@@ -996,7 +1034,7 @@ impl HexagonVcpu {
         loop {
             if let Some(sub) = pending_subinsn.take() {
                 if let Some(exit) =
-                    self.execute_insn(sub.insn, packet_pc, &mut new_r, &mut new_p, &mut branch)?
+                    self.execute_insn(sub.insn, packet_pc, None, &mut new_r, &mut new_p, &mut branch)?
                 {
                     if matches!(exit, VcpuExit::Shutdown) {
                         self.finish_packet(
@@ -1063,7 +1101,7 @@ impl HexagonVcpu {
                 self.ensure_isa_supports(word, &slot0.insn, slot0.opcode)?;
 
                 if let Some(exit) =
-                    self.execute_insn(slot1.insn, packet_pc, &mut new_r, &mut new_p, &mut branch)?
+                    self.execute_insn(slot1.insn, packet_pc, None, &mut new_r, &mut new_p, &mut branch)?
                 {
                     if matches!(exit, VcpuExit::Shutdown) {
                         self.finish_packet(
@@ -1098,7 +1136,7 @@ impl HexagonVcpu {
                 }
 
                 if let Some(exit) =
-                    self.execute_insn(slot0.insn, packet_pc, &mut new_r, &mut new_p, &mut branch)?
+                    self.execute_insn(slot0.insn, packet_pc, None, &mut new_r, &mut new_p, &mut branch)?
                 {
                     if matches!(exit, VcpuExit::Shutdown) {
                         self.finish_packet(
@@ -1136,6 +1174,7 @@ impl HexagonVcpu {
                 break;
             }
 
+            let cur_immext = immext;
             let decoded = decode(word, immext, self._isa);
             immext = None;
             self.ensure_isa_supports(word, &decoded.insn, decoded.opcode)?;
@@ -1159,9 +1198,14 @@ impl HexagonVcpu {
                     continue;
                 }
                 insn => {
-                    if let Some(exit) =
-                        self.execute_insn(insn, packet_pc, &mut new_r, &mut new_p, &mut branch)?
-                    {
+                    if let Some(exit) = self.execute_insn(
+                        insn,
+                        packet_pc,
+                        cur_immext,
+                        &mut new_r,
+                        &mut new_p,
+                        &mut branch,
+                    )? {
                         if matches!(exit, VcpuExit::Shutdown) {
                             self.finish_packet(
                                 pc.wrapping_add(4),
