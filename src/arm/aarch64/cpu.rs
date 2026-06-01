@@ -3300,6 +3300,92 @@ impl AArch64Cpu {
         let datasize = if q == 1 { 16 } else { 8 };
         let elements = datasize / esize;
 
+        // ---- REV64 / REV32 / REV16: reverse elements within a container. ----
+        if (u == 0 && opcode == 0b00000)
+            || (u == 1 && opcode == 0b00000)
+            || (u == 0 && opcode == 0b00001)
+        {
+            let container = if opcode == 0b00001 {
+                16usize // REV16
+            } else if u == 1 {
+                32 // REV32
+            } else {
+                64 // REV64
+            };
+            let cbytes = container / 8;
+            if esize >= cbytes || (8 << size) > container {
+                return Err(ArmError::UndefinedInstruction(insn));
+            }
+            let epc = cbytes / esize; // elements per container
+            let src = self.v[rn].to_le_bytes();
+            let mut dst = [0u8; 16];
+            for c in 0..(datasize / cbytes) {
+                for i in 0..epc {
+                    let from = (c * epc + (epc - 1 - i)) * esize;
+                    let to = (c * epc + i) * esize;
+                    dst[to..to + esize].copy_from_slice(&src[from..from + esize]);
+                }
+            }
+            self.v[rd] = u128::from_le_bytes(dst);
+            return Ok(CpuExit::Continue);
+        }
+
+        // ---- NOT (size==00) / RBIT (size==01): per-byte, U==1 opcode 0b00101. ----
+        if u == 1 && opcode == 0b00101 {
+            if size > 0b01 {
+                return Err(ArmError::UndefinedInstruction(insn));
+            }
+            let src = self.v[rn].to_le_bytes();
+            let mut dst = [0u8; 16];
+            for b in 0..datasize {
+                dst[b] = if size == 0b00 {
+                    !src[b]
+                } else {
+                    src[b].reverse_bits()
+                };
+            }
+            self.v[rd] = u128::from_le_bytes(dst);
+            return Ok(CpuExit::Continue);
+        }
+
+        // ---- Same-size integer ops (CLS/CLZ/CNT/ABS/NEG/SQABS/SQNEG/CMxx#0/
+        //      SUQADD/USQADD). ----
+        {
+            let bits = (8u32) << size;
+            // Probe whether this (u, opcode) is one we handle here.
+            if adv_simd_two_reg_int(u, opcode, bits, 0, 0).is_some() {
+                // CNT is byte-only; NOT/RBIT handled above.
+                if opcode == 0b00101 && size != 0b00 {
+                    return Err(ArmError::UndefinedInstruction(insn));
+                }
+                // CLS/CLZ have no 64-bit element form.
+                if opcode == 0b00100 && size == 0b11 {
+                    return Err(ArmError::UndefinedInstruction(insn));
+                }
+                // 64-bit elements need the 2D (Q==1) arrangement.
+                if size == 0b11 && q == 0 {
+                    return Err(ArmError::UndefinedInstruction(insn));
+                }
+                let accumulate = opcode == 0b00011; // SUQADD / USQADD read Vd
+                let src = self.v[rn].to_le_bytes();
+                let old = self.v[rd].to_le_bytes();
+                let mut dst = [0u8; 16];
+                for e in 0..elements {
+                    let off = e * esize;
+                    let a = read_elem(&src, off, esize);
+                    let d = if accumulate {
+                        read_elem(&old, off, esize)
+                    } else {
+                        0
+                    };
+                    let r = adv_simd_two_reg_int(u, opcode, bits, a, d).unwrap();
+                    write_elem(&mut dst, off, esize, r);
+                }
+                self.v[rd] = u128::from_le_bytes(dst);
+                return Ok(CpuExit::Continue);
+            }
+        }
+
         let src = self.v[rn].to_le_bytes();
         let mut dst = [0u8; 16];
 
@@ -7023,6 +7109,83 @@ fn adv_simd_shift_imm_elem(u: u32, opcode: u32, bits: u32, shift: u32, a: u64, d
         }
         _ => a & m,
     }
+}
+
+/// Reverse the low `bits` bits of each byte, returning a value with `bits/8`
+/// bit-reversed bytes (RBIT operates per byte).
+#[inline]
+fn rbit_bytes(a: u64, bits: u32) -> u64 {
+    let mut out = 0u64;
+    for byte in 0..(bits / 8) {
+        let b = ((a >> (byte * 8)) & 0xFF) as u8;
+        out |= (b.reverse_bits() as u64) << (byte * 8);
+    }
+    out
+}
+
+/// Count leading sign bits (CLS): number of consecutive bits after the sign bit
+/// that equal the sign bit, within an element of `bits`.
+#[inline]
+fn count_leading_sign(a: u64, bits: u32) -> u64 {
+    let v = a & elem_mask(bits);
+    let sign = (v >> (bits - 1)) & 1;
+    let mut count = 0u64;
+    let mut i = bits as i32 - 2;
+    while i >= 0 {
+        if (v >> i) & 1 == sign {
+            count += 1;
+            i -= 1;
+        } else {
+            break;
+        }
+    }
+    count
+}
+
+/// Count leading zeros (CLZ) within an element of `bits`.
+#[inline]
+fn count_leading_zeros_elem(a: u64, bits: u32) -> u64 {
+    let v = a & elem_mask(bits);
+    if v == 0 {
+        return bits as u64;
+    }
+    let mut count = 0u64;
+    let mut i = bits as i32 - 1;
+    while i >= 0 {
+        if (v >> i) & 1 == 0 {
+            count += 1;
+            i -= 1;
+        } else {
+            break;
+        }
+    }
+    count
+}
+
+/// One element of an Advanced SIMD two-register-miscellaneous *integer* op that
+/// preserves element size (not REV / widening / narrowing / FP). `a` is the
+/// source element and `d` the current destination (for SUQADD/USQADD). Returns
+/// `Some(result)` or `None` if the opcode is handled elsewhere.
+fn adv_simd_two_reg_int(u: u32, opcode: u32, bits: u32, a: u64, d: u64) -> Option<u64> {
+    let m = elem_mask(bits);
+    let sa = sext_elem(a, bits);
+    Some(match (u, opcode) {
+        (0, 0b00011) => sat_signed(sext_elem(d, bits) + uext_elem(a, bits) as i128, bits), // SUQADD
+        (1, 0b00011) => sat_unsigned(uext_elem(d, bits) as i128 + sext_elem(a, bits), bits), // USQADD
+        (0, 0b00100) => count_leading_sign(a, bits) & m, // CLS
+        (1, 0b00100) => count_leading_zeros_elem(a, bits) & m, // CLZ
+        (0, 0b00101) => (a & 0xFF).count_ones() as u64,        // CNT (per byte; bits==8)
+        (0, 0b00111) => sat_signed(sext_elem(a, bits).abs(), bits), // SQABS
+        (1, 0b00111) => sat_signed(-sext_elem(a, bits), bits),      // SQNEG
+        (0, 0b01000) => bool_mask(sa > 0, bits),  // CMGT #0
+        (1, 0b01000) => bool_mask(sa >= 0, bits), // CMGE #0
+        (0, 0b01001) => bool_mask(sa == 0, bits), // CMEQ #0
+        (1, 0b01001) => bool_mask(sa <= 0, bits), // CMLE #0
+        (0, 0b01010) => bool_mask(sa < 0, bits),  // CMLT #0
+        (0, 0b01011) => (sa.unsigned_abs() as u64) & m, // ABS
+        (1, 0b01011) => ((-sa) as u64) & m,             // NEG
+        _ => return None,
+    })
 }
 
 /// Read an `esize`-byte little-endian element from `bytes` at `off`.

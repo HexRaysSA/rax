@@ -819,6 +819,46 @@ fn diff_simd_shift_fixedpoint() {
     run_batch("simd_shift_fixedpoint", batch);
 }
 
+/// Advanced SIMD two-register miscellaneous: `0 Q U 01110 size 10000 opcode 10 Rn Rd`.
+fn enc_two_reg(q: u32, u: u32, size: u32, opcode: u32) -> u32 {
+    (q << 30) | (u << 29) | (0b01110 << 24) | (size << 22) | (0b10000 << 17)
+        | (opcode << 12) | (0b10 << 10) | (RN << 5) | RD
+}
+
+#[test]
+fn diff_simd_two_reg_int() {
+    // (U, opcode, name) for the integer same-size / REV / NOT-RBIT ops.
+    let ops: &[(u32, u32, &str)] = &[
+        (0, 0b00000, "rev64"),
+        (1, 0b00000, "rev32"),
+        (0, 0b00001, "rev16"),
+        (0, 0b00011, "suqadd"),
+        (1, 0b00011, "usqadd"),
+        (0, 0b00100, "cls"),
+        (1, 0b00100, "clz"),
+        (0, 0b00101, "cnt"),
+        (1, 0b00101, "not_rbit"),
+        (0, 0b00111, "sqabs"),
+        (1, 0b00111, "sqneg"),
+        (0, 0b01000, "cmgt0"),
+        (1, 0b01000, "cmge0"),
+        (0, 0b01001, "cmeq0"),
+        (1, 0b01001, "cmle0"),
+        (0, 0b01010, "cmlt0"),
+        (0, 0b01011, "abs"),
+        (1, 0b01011, "neg"),
+    ];
+    let mut cases: Vec<(String, u32)> = Vec::new();
+    for &(u, opcode, name) in ops {
+        for size in 0..4 {
+            for q in 0..2 {
+                cases.push((format!("{name} sz{size} q{q}"), enc_two_reg(q, u, size, opcode)));
+            }
+        }
+    }
+    run_family("simd_two_reg_int", cases, 8, 0x6001);
+}
+
 /// Advanced SIMD vector x indexed element: `0 Q U 01111 size L M Rm opcode H 0 Rn Rd`.
 fn enc_indexed(q: u32, u: u32, size: u32, opcode: u32, vm: u32, index: u32) -> u32 {
     let (rm, mbit, lbit, hbit) = match size {
