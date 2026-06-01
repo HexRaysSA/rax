@@ -565,3 +565,47 @@ fn test_blendvpd_mask_alternating() {
     let (mut vcpu, _) = setup_vm(&code, None);
     run_until_hlt(&mut vcpu).unwrap();
 }
+
+
+// ============================================================================
+// Known-answer value tests (register-to-register via set_xmm/get_xmm)
+//
+// BLENDVPS selects per-dword and BLENDVPD per-qword from SRC when the high bit
+// of the corresponding element of mask XMM0 is set, else from DST.
+// ============================================================================
+
+#[test]
+fn kat_blendvps_value() {
+    // BLENDVPS XMM1, XMM2 (66 0F 38 14 CA), mask = XMM0.
+    // DST dwords A0..A3, SRC dwords B0..B3, mask lanes 0 and 2 high-bit set.
+    let code = [0x66, 0x0f, 0x38, 0x14, 0xca, 0xf4];
+    let (mut vcpu, mem) = crate::common::setup_vm(&code, None);
+    crate::common::set_xmm(&mem, &mut vcpu, 0, 0x00000000800000000000000080000000);
+    crate::common::set_xmm(&mem, &mut vcpu, 1, 0xAAAAAAA3_AAAAAAA2_AAAAAAA1_AAAAAAA0);
+    crate::common::set_xmm(&mem, &mut vcpu, 2, 0xBBBBBBB3_BBBBBBB2_BBBBBBB1_BBBBBBB0);
+    let regs = crate::common::run_until_hlt(&mut vcpu).unwrap();
+    assert_eq!(
+        crate::common::get_xmm(&regs, 1),
+        0xAAAAAAA3_BBBBBBB2_AAAAAAA1_BBBBBBB0,
+        "BLENDVPS got {:032x}",
+        crate::common::get_xmm(&regs, 1)
+    );
+}
+
+#[test]
+fn kat_blendvpd_value() {
+    // BLENDVPD XMM1, XMM2 (66 0F 38 15 CA), mask = XMM0.
+    // DST qwords D0,D1; SRC qwords S0,S1; mask qword1 high-bit set -> [D0, S1].
+    let code = [0x66, 0x0f, 0x38, 0x15, 0xca, 0xf4];
+    let (mut vcpu, mem) = crate::common::setup_vm(&code, None);
+    crate::common::set_xmm(&mem, &mut vcpu, 0, 0x80000000000000000000000000000000);
+    crate::common::set_xmm(&mem, &mut vcpu, 1, 0xDDDDDDDDDDDDDDD1_DDDDDDDDDDDDDDD0);
+    crate::common::set_xmm(&mem, &mut vcpu, 2, 0x5555555555555551_5555555555555550);
+    let regs = crate::common::run_until_hlt(&mut vcpu).unwrap();
+    assert_eq!(
+        crate::common::get_xmm(&regs, 1),
+        0x5555555555555551_DDDDDDDDDDDDDDD0,
+        "BLENDVPD got {:032x}",
+        crate::common::get_xmm(&regs, 1)
+    );
+}

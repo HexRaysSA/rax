@@ -451,3 +451,39 @@ fn test_pextrq_mem_xmm7_pos0() {
     let (mut vcpu, _) = setup_vm(&code, None);
     run_until_hlt(&mut vcpu).unwrap();
 }
+
+
+// ============================================================================
+// Known-answer value tests (XMM source -> GP register via get_regs)
+// ============================================================================
+
+#[test]
+fn kat_pextrb_value() {
+    // PEXTRB EAX, XMM0, 5 (66 0F 3A 14 C0 05): extract byte 5, zero-extended.
+    // XMM0 byte i = 0x10 + i, so byte5 = 0x15.
+    let code = [0x66, 0x0f, 0x3a, 0x14, 0xc0, 0x05, 0xf4];
+    let (mut vcpu, mem) = crate::common::setup_vm(&code, None);
+    crate::common::set_xmm(&mem, &mut vcpu, 0, 0x1F1E1D1C1B1A19181716151413121110);
+    let regs = crate::common::run_until_hlt(&mut vcpu).unwrap();
+    assert_eq!(regs.rax & 0xFFFF_FFFF, 0x15, "PEXTRB EAX = {:#x}", regs.rax);
+}
+
+#[test]
+fn kat_pextrd_value() {
+    // PEXTRD EAX, XMM0, 3 (66 0F 3A 16 C0 03): extract dword 3.
+    let code = [0x66, 0x0f, 0x3a, 0x16, 0xc0, 0x03, 0xf4];
+    let (mut vcpu, mem) = crate::common::setup_vm(&code, None);
+    crate::common::set_xmm(&mem, &mut vcpu, 0, 0x44444444_33333333_22222222_11111111);
+    let regs = crate::common::run_until_hlt(&mut vcpu).unwrap();
+    assert_eq!(regs.rax & 0xFFFF_FFFF, 0x44444444, "PEXTRD EAX = {:#x}", regs.rax);
+}
+
+#[test]
+fn kat_pextrq_value() {
+    // PEXTRQ RAX, XMM0, 1 (66 REX.W 0F 3A 16 C0 01): extract qword 1.
+    let code = [0x66, 0x48, 0x0f, 0x3a, 0x16, 0xc0, 0x01, 0xf4];
+    let (mut vcpu, mem) = crate::common::setup_vm(&code, None);
+    crate::common::set_xmm(&mem, &mut vcpu, 0, 0x1122334455667788_99AABBCCDDEEFF00);
+    let regs = crate::common::run_until_hlt(&mut vcpu).unwrap();
+    assert_eq!(regs.rax, 0x1122334455667788, "PEXTRQ RAX = {:#x}", regs.rax);
+}

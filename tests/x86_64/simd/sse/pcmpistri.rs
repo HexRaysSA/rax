@@ -1015,3 +1015,42 @@ fn test_pcmpistri_xmm0_xmm1_various_modes() {
     mem.write_slice(&data2, vm_memory::GuestAddress(ALIGNED_ADDR + 0x10)).unwrap();
     run_until_hlt(&mut vcpu).unwrap();
 }
+
+
+// ============================================================================
+// Known-answer value tests (implicit-length string compare, index in ECX).
+//
+// imm8 layout: [0]=word/byte, [1]=signed, [3:2]=aggregation, [5:4]=polarity,
+// [6]=output select. agg: 0=equal-any,1=ranges,2=equal-each,3=equal-ordered.
+// ============================================================================
+
+#[test]
+fn kat_pcmpistri_substring() {
+    // PCMPISTRI XMM0, XMM1, 0x0C (66 0F 3A 63 C1 0C): byte, equal-ordered
+    // (substring search). DST="ABC", SRC="ZZABCZZ" => first match at index 2.
+    let code = [0x66, 0x0f, 0x3a, 0x63, 0xc1, 0x0c, 0xf4];
+    let (mut vcpu, mem) = crate::common::setup_vm(&code, None);
+    crate::common::set_xmm(&mem, &mut vcpu, 0, 0x00000000000000000000000000434241); // "ABC"
+    crate::common::set_xmm(&mem, &mut vcpu, 1, 0x0000000000000000005a5a4342415a5a); // "ZZABCZZ"
+    let regs = crate::common::run_until_hlt(&mut vcpu).unwrap();
+    assert_eq!(regs.rcx & 0xFFFF_FFFF, 2, "PCMPISTRI ECX = {}", regs.rcx);
+    // src has a null terminator within 16 bytes => ZF set.
+    assert!(crate::common::zf_set(regs.rflags), "ZF should be set");
+    // dst has a null terminator within 16 bytes => SF set.
+    assert!(crate::common::sf_set(regs.rflags), "SF should be set");
+    // a match exists => CF set.
+    assert!(crate::common::cf_set(regs.rflags), "CF should be set");
+}
+
+#[test]
+fn kat_pcmpistri_equal_any_no_match() {
+    // PCMPISTRI XMM0, XMM1, 0x00: byte equal-any. DST="ABC", SRC="xyz" => no
+    // common chars, ECX = 16 (number of elements), CF clear.
+    let code = [0x66, 0x0f, 0x3a, 0x63, 0xc1, 0x00, 0xf4];
+    let (mut vcpu, mem) = crate::common::setup_vm(&code, None);
+    crate::common::set_xmm(&mem, &mut vcpu, 0, 0x00000000000000000000000000434241); // "ABC"
+    crate::common::set_xmm(&mem, &mut vcpu, 1, 0x0000000000000000000000007a7978); // "xyz"
+    let regs = crate::common::run_until_hlt(&mut vcpu).unwrap();
+    assert_eq!(regs.rcx & 0xFFFF_FFFF, 16, "PCMPISTRI ECX = {}", regs.rcx);
+    assert!(!crate::common::cf_set(regs.rflags), "CF should be clear (no match)");
+}

@@ -224,3 +224,28 @@ fn test_pcmpgtq_zero_comparison() {
     let (mut vcpu, _) = setup_vm(&code, None);
     run_until_hlt(&mut vcpu).unwrap();
 }
+
+
+// ============================================================================
+// Known-answer value tests (register-to-register via set_xmm/get_xmm)
+//
+// PCMPGTQ sets a qword lane to all-ones when DST > SRC under SIGNED 64-bit
+// comparison.
+// ============================================================================
+
+#[test]
+fn kat_pcmpgtq_value() {
+    // PCMPGTQ XMM0, XMM1 (66 0F 38 37 C1)
+    // qword0: 5 > 3 => all ones.  qword1: -1 > 0 ? no (signed) => zeros.
+    let code = [0x66, 0x0f, 0x38, 0x37, 0xc1, 0xf4];
+    let (mut vcpu, mem) = crate::common::setup_vm(&code, None);
+    crate::common::set_xmm(&mem, &mut vcpu, 0, 0xFFFFFFFFFFFFFFFF_0000000000000005);
+    crate::common::set_xmm(&mem, &mut vcpu, 1, 0x0000000000000000_0000000000000003);
+    let regs = crate::common::run_until_hlt(&mut vcpu).unwrap();
+    assert_eq!(
+        crate::common::get_xmm(&regs, 0),
+        0x0000000000000000_FFFFFFFFFFFFFFFF,
+        "PCMPGTQ got {:032x}",
+        crate::common::get_xmm(&regs, 0)
+    );
+}

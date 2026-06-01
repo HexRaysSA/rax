@@ -629,3 +629,32 @@ fn test_popcnt_32bit_progressive_bits() {
         assert_eq!(regs.rax & 0xFFFFFFFF, expected, "Pattern {} should have {} bits", idx, expected);
     }
 }
+
+// ============================================================================
+// Known-answer value tests (exact counts + ZF) for POPCNT.
+// ============================================================================
+
+#[test]
+fn kat_popcnt_r64_known() {
+    // POPCNT RAX, RCX (F3 REX.W 0F B8 C1). 0x0F0F0F0F0F0F0F0F has 32 bits set.
+    let code = [0xf3, 0x48, 0x0f, 0xb8, 0xc1, 0xf4];
+    let mut regs = Registers::default();
+    regs.rcx = 0x0F0F0F0F0F0F0F0F;
+    let (mut vcpu, _) = setup_vm(&code, Some(regs));
+    let regs = run_until_hlt(&mut vcpu).unwrap();
+    assert_eq!(regs.rax, 32, "POPCNT RAX = {}", regs.rax);
+    assert!(!zf_set(regs.rflags), "ZF should be clear");
+    assert!(!cf_set(regs.rflags) && !of_set(regs.rflags) && !sf_set(regs.rflags));
+}
+
+#[test]
+fn kat_popcnt_r32_known() {
+    // POPCNT EAX, ECX (F3 0F B8 C1). 0xABCD1234 has 15 bits set.
+    let code = [0xf3, 0x0f, 0xb8, 0xc1, 0xf4];
+    let mut regs = Registers::default();
+    regs.rcx = 0xABCD1234;
+    let (mut vcpu, _) = setup_vm(&code, Some(regs));
+    let regs = run_until_hlt(&mut vcpu).unwrap();
+    assert_eq!(regs.rax & 0xFFFF_FFFF, 0xABCD1234u32.count_ones() as u64);
+    assert_eq!(regs.rax & 0xFFFF_FFFF, 15);
+}

@@ -782,3 +782,63 @@ fn test_pmovsxbq_double_memory_load() {
     mem.write_slice(&data2, GuestAddress(ALIGNED_ADDR2)).unwrap();
     run_until_hlt(&mut vcpu).unwrap();
 }
+
+
+// ============================================================================
+// Known-answer value tests (register-to-register via set_xmm/get_xmm)
+//
+// PMOVSXBW/BD/BQ sign-extend the low packed bytes of the source into wider
+// elements of the destination.
+// ============================================================================
+
+#[test]
+fn kat_pmovsxbw_value() {
+    // PMOVSXBW XMM0, XMM1 (66 0F 38 20 C1): low 8 bytes -> 8 signed words.
+    // bytes lane0..7 = 0x01,0xFF,0x7F,0x80,0x00,0xFE,0x10,0x90
+    let code = [0x66, 0x0f, 0x38, 0x20, 0xc1, 0xf4];
+    let (mut vcpu, mem) = crate::common::setup_vm(&code, None);
+    // low qword bytes lane0..7 = 01, FF, 7F, 80, 00, FE, 10, 90
+    crate::common::set_xmm(&mem, &mut vcpu, 1, 0x0000000000000000_9010FE00807FFF01);
+    let regs = crate::common::run_until_hlt(&mut vcpu).unwrap();
+    // words: 0x0001,0xFFFF,0x007F,0xFF80,0x0000,0xFFFE,0x0010,0xFF90
+    assert_eq!(
+        crate::common::get_xmm(&regs, 0),
+        0xFF90_0010_FFFE_0000_FF80_007F_FFFF_0001,
+        "PMOVSXBW got {:032x}",
+        crate::common::get_xmm(&regs, 0)
+    );
+}
+
+#[test]
+fn kat_pmovsxbd_value() {
+    // PMOVSXBD XMM0, XMM1 (66 0F 38 21 C1): low 4 bytes -> 4 signed dwords.
+    // bytes lane0..3 = 0x01,0xFF,0x7F,0x80
+    let code = [0x66, 0x0f, 0x38, 0x21, 0xc1, 0xf4];
+    let (mut vcpu, mem) = crate::common::setup_vm(&code, None);
+    crate::common::set_xmm(&mem, &mut vcpu, 1, 0x000000000000000000000000807FFF01u128);
+    let regs = crate::common::run_until_hlt(&mut vcpu).unwrap();
+    // dwords: 0x00000001, 0xFFFFFFFF, 0x0000007F, 0xFFFFFF80
+    assert_eq!(
+        crate::common::get_xmm(&regs, 0),
+        0xFFFFFF80_0000007F_FFFFFFFF_00000001,
+        "PMOVSXBD got {:032x}",
+        crate::common::get_xmm(&regs, 0)
+    );
+}
+
+#[test]
+fn kat_pmovsxbq_value() {
+    // PMOVSXBQ XMM0, XMM1 (66 0F 38 22 C1): low 2 bytes -> 2 signed qwords.
+    // bytes lane0..1 = 0xFF, 0x7F
+    let code = [0x66, 0x0f, 0x38, 0x22, 0xc1, 0xf4];
+    let (mut vcpu, mem) = crate::common::setup_vm(&code, None);
+    crate::common::set_xmm(&mem, &mut vcpu, 1, 0x00000000000000000000000000007FFF);
+    let regs = crate::common::run_until_hlt(&mut vcpu).unwrap();
+    // qword0 = sign-extend 0xFF = -1, qword1 = sign-extend 0x7F = 0x7F
+    assert_eq!(
+        crate::common::get_xmm(&regs, 0),
+        0x000000000000007F_FFFFFFFFFFFFFFFF,
+        "PMOVSXBQ got {:032x}",
+        crate::common::get_xmm(&regs, 0)
+    );
+}

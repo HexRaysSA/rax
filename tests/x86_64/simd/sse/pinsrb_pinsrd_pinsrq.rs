@@ -444,3 +444,69 @@ fn test_pinsrq_xmm7_mem_pos0() {
     let (mut vcpu, _) = setup_vm(&code, None);
     run_until_hlt(&mut vcpu).unwrap();
 }
+
+
+// ============================================================================
+// Known-answer value tests (GP register -> XMM via set GP reg / get_xmm)
+//
+// PINSRB inserts a byte at imm8[3:0]; PINSRD a dword at imm8[1:0]; PINSRQ a
+// qword at imm8[0] (REX.W).
+// ============================================================================
+
+#[test]
+fn kat_pinsrb_value() {
+    // MOV EAX, 0x000000AB ; PINSRB XMM0, EAX, 3 (66 0F 3A 20 C0 03)
+    // Inserts byte 0xAB at byte position 3. XMM0 starts at 0.
+    let code = [
+        0xb8, 0xab, 0x00, 0x00, 0x00, // MOV EAX, 0xAB
+        0x66, 0x0f, 0x3a, 0x20, 0xc0, 0x03, // PINSRB XMM0, EAX, 3
+        0xf4,
+    ];
+    let (mut vcpu, mem) = crate::common::setup_vm(&code, None);
+    crate::common::set_xmm(&mem, &mut vcpu, 0, 0);
+    let regs = crate::common::run_until_hlt(&mut vcpu).unwrap();
+    assert_eq!(
+        crate::common::get_xmm(&regs, 0),
+        0x000000000000000000000000AB000000,
+        "PINSRB got {:032x}",
+        crate::common::get_xmm(&regs, 0)
+    );
+}
+
+#[test]
+fn kat_pinsrd_value() {
+    // MOV EAX, 0xDEADBEEF ; PINSRD XMM0, EAX, 2 (66 0F 3A 22 C0 02)
+    let code = [
+        0xb8, 0xef, 0xbe, 0xad, 0xde, // MOV EAX, 0xDEADBEEF
+        0x66, 0x0f, 0x3a, 0x22, 0xc0, 0x02, // PINSRD XMM0, EAX, 2
+        0xf4,
+    ];
+    let (mut vcpu, mem) = crate::common::setup_vm(&code, None);
+    crate::common::set_xmm(&mem, &mut vcpu, 0, 0);
+    let regs = crate::common::run_until_hlt(&mut vcpu).unwrap();
+    assert_eq!(
+        crate::common::get_xmm(&regs, 0),
+        0x00000000DEADBEEF_0000000000000000,
+        "PINSRD got {:032x}",
+        crate::common::get_xmm(&regs, 0)
+    );
+}
+
+#[test]
+fn kat_pinsrq_value() {
+    // MOV RAX, 0x1122334455667788 ; PINSRQ XMM0, RAX, 1 (66 REX.W 0F 3A 22 C0 01)
+    let code = [
+        0x48, 0xb8, 0x88, 0x77, 0x66, 0x55, 0x44, 0x33, 0x22, 0x11, // MOV RAX, imm64
+        0x66, 0x48, 0x0f, 0x3a, 0x22, 0xc0, 0x01, // PINSRQ XMM0, RAX, 1
+        0xf4,
+    ];
+    let (mut vcpu, mem) = crate::common::setup_vm(&code, None);
+    crate::common::set_xmm(&mem, &mut vcpu, 0, 0);
+    let regs = crate::common::run_until_hlt(&mut vcpu).unwrap();
+    assert_eq!(
+        crate::common::get_xmm(&regs, 0),
+        0x1122334455667788_0000000000000000,
+        "PINSRQ got {:032x}",
+        crate::common::get_xmm(&regs, 0)
+    );
+}

@@ -389,3 +389,34 @@ fn test_pmuldq_alternating_signs() {
                      GuestAddress(ALIGNED_ADDR2)).unwrap();
     run_until_hlt(&mut vcpu).unwrap();
 }
+
+
+// ============================================================================
+// Known-answer value tests (register-to-register via set_xmm/get_xmm)
+//
+// PMULDQ multiplies the LOW signed dword of each qword and produces a full
+// 64-bit signed product per qword lane. The upper dword of each qword source
+// is ignored.
+// ============================================================================
+
+#[test]
+fn kat_pmuldq_value() {
+    // PMULDQ XMM0, XMM1 (66 0F 38 28 C1)
+    // Result[63:0]   = SignExt(DST[31:0])  * SignExt(SRC[31:0])
+    // Result[127:64] = SignExt(DST[95:64]) * SignExt(SRC[95:64])
+    // qword0: low dwords -4 * 3 = -12 (0xFFFFFFFFFFFFFFF4)
+    // qword1: low dwords (bits 95:64) 0x40000000 * 0x40000000 = 0x1000000000000000
+    // The high dword of each qword (bits 127:96 / 63:32) is IGNORED.
+    let code = [0x66, 0x0f, 0x38, 0x28, 0xc1, 0xf4];
+    let (mut vcpu, mem) = crate::common::setup_vm(&code, None);
+    // lanes (hi->lo dwords): [ignored=DEADBEEF, used=40000000, ignored=CAFEBABE, used=FFFFFFFC]
+    crate::common::set_xmm(&mem, &mut vcpu, 0, 0xDEADBEEF_40000000_CAFEBABE_FFFFFFFC);
+    crate::common::set_xmm(&mem, &mut vcpu, 1, 0x11111111_40000000_22222222_00000003);
+    let regs = crate::common::run_until_hlt(&mut vcpu).unwrap();
+    assert_eq!(
+        crate::common::get_xmm(&regs, 0),
+        0x1000000000000000_FFFFFFFFFFFFFFF4,
+        "PMULDQ got {:032x}",
+        crate::common::get_xmm(&regs, 0)
+    );
+}

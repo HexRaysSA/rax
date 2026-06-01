@@ -553,3 +553,43 @@ fn test_blendpd_xmm5_xmm4_mask_0x3() {
     let (mut vcpu, _) = setup_vm(&code, None);
     run_until_hlt(&mut vcpu).unwrap();
 }
+
+
+// ============================================================================
+// Known-answer value tests (register-to-register via set_xmm/get_xmm)
+//
+// BLENDPS uses imm8[3:0] to pick per-dword from SRC (bit=1) or DST (bit=0).
+// BLENDPD uses imm8[1:0] to pick per-qword.
+// ============================================================================
+
+#[test]
+fn kat_blendps_value() {
+    // BLENDPS XMM0, XMM1, 0x0A (66 0F 3A 0C C1 0A): lanes 1 and 3 from src.
+    let code = [0x66, 0x0f, 0x3a, 0x0c, 0xc1, 0x0a, 0xf4];
+    let (mut vcpu, mem) = crate::common::setup_vm(&code, None);
+    crate::common::set_xmm(&mem, &mut vcpu, 0, 0xAAAAAAA3_AAAAAAA2_AAAAAAA1_AAAAAAA0);
+    crate::common::set_xmm(&mem, &mut vcpu, 1, 0xBBBBBBB3_BBBBBBB2_BBBBBBB1_BBBBBBB0);
+    let regs = crate::common::run_until_hlt(&mut vcpu).unwrap();
+    assert_eq!(
+        crate::common::get_xmm(&regs, 0),
+        0xBBBBBBB3_AAAAAAA2_BBBBBBB1_AAAAAAA0,
+        "BLENDPS got {:032x}",
+        crate::common::get_xmm(&regs, 0)
+    );
+}
+
+#[test]
+fn kat_blendpd_value() {
+    // BLENDPD XMM0, XMM1, 0x02 (66 0F 3A 0D C1 02): high qword from src.
+    let code = [0x66, 0x0f, 0x3a, 0x0d, 0xc1, 0x02, 0xf4];
+    let (mut vcpu, mem) = crate::common::setup_vm(&code, None);
+    crate::common::set_xmm(&mem, &mut vcpu, 0, 0xDDDDDDDDDDDDDDD1_DDDDDDDDDDDDDDD0);
+    crate::common::set_xmm(&mem, &mut vcpu, 1, 0x5555555555555551_5555555555555550);
+    let regs = crate::common::run_until_hlt(&mut vcpu).unwrap();
+    assert_eq!(
+        crate::common::get_xmm(&regs, 0),
+        0x5555555555555551_DDDDDDDDDDDDDDD0,
+        "BLENDPD got {:032x}",
+        crate::common::get_xmm(&regs, 0)
+    );
+}

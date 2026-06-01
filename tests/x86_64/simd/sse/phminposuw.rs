@@ -352,3 +352,42 @@ fn test_phminposuw_min_at_each_position() {
     let (mut vcpu, _) = setup_vm(&code, None);
     run_until_hlt(&mut vcpu).unwrap();
 }
+
+
+// ============================================================================
+// Known-answer value tests (register-to-register via set_xmm/get_xmm)
+//
+// PHMINPOSUW finds the minimum UNSIGNED 16-bit word of SRC; result low word =
+// min value, next word = its index (lowest index on ties), rest zero.
+// ============================================================================
+
+#[test]
+fn kat_phminposuw_value() {
+    // PHMINPOSUW XMM0, XMM1 (66 0F 38 41 C1)
+    // SRC words lane0..7 = [9,8,7,6,5,4,3,2] => min 2 at index 7.
+    let code = [0x66, 0x0f, 0x38, 0x41, 0xc1, 0xf4];
+    let (mut vcpu, mem) = crate::common::setup_vm(&code, None);
+    crate::common::set_xmm(&mem, &mut vcpu, 1, 0x00020003000400050006000700080009);
+    let regs = crate::common::run_until_hlt(&mut vcpu).unwrap();
+    assert_eq!(
+        crate::common::get_xmm(&regs, 0),
+        0x00000000000000000000000000070002,
+        "PHMINPOSUW got {:032x}",
+        crate::common::get_xmm(&regs, 0)
+    );
+}
+
+#[test]
+fn kat_phminposuw_tie_lowest_index() {
+    // Two minima (value 1) at index 2 and index 5 => lowest index (2) wins.
+    let code = [0x66, 0x0f, 0x38, 0x41, 0xc1, 0xf4];
+    let (mut vcpu, mem) = crate::common::setup_vm(&code, None);
+    crate::common::set_xmm(&mem, &mut vcpu, 1, 0x00020003000100050006000100080009);
+    let regs = crate::common::run_until_hlt(&mut vcpu).unwrap();
+    assert_eq!(
+        crate::common::get_xmm(&regs, 0),
+        0x00000000000000000000000000020001,
+        "PHMINPOSUW tie got {:032x}",
+        crate::common::get_xmm(&regs, 0)
+    );
+}

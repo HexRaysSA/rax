@@ -516,3 +516,44 @@ fn test_mpsadbw_xmm4_xmm6_offset_0x02() {
     let (mut vcpu, _) = setup_vm(&code, None);
     run_until_hlt(&mut vcpu).unwrap();
 }
+
+
+// ============================================================================
+// Known-answer value tests (register-to-register via set_xmm/get_xmm)
+//
+// MPSADBW computes 8 sums-of-absolute-differences. imm8[1:0] selects the SRC
+// 4-byte block offset (*4); imm8[2] selects the DST block offset (0 or 4).
+// DST byte i = i; SRC byte i = 0x10 + i (so |s-d| = 0x10 per pair for imm8=0).
+// ============================================================================
+
+#[test]
+fn kat_mpsadbw_imm0() {
+    // MPSADBW XMM0, XMM1, 0 (66 0F 3A 42 C1 00)
+    let code = [0x66, 0x0f, 0x3a, 0x42, 0xc1, 0x00, 0xf4];
+    let (mut vcpu, mem) = crate::common::setup_vm(&code, None);
+    crate::common::set_xmm(&mem, &mut vcpu, 0, 0x0F0E0D0C0B0A09080706050403020100);
+    crate::common::set_xmm(&mem, &mut vcpu, 1, 0x1F1E1D1C1B1A19181716151413121110);
+    let regs = crate::common::run_until_hlt(&mut vcpu).unwrap();
+    assert_eq!(
+        crate::common::get_xmm(&regs, 0),
+        0x00240028002c003000340038003c0040,
+        "MPSADBW imm0 got {:032x}",
+        crate::common::get_xmm(&regs, 0)
+    );
+}
+
+#[test]
+fn kat_mpsadbw_imm5() {
+    // MPSADBW XMM0, XMM1, 5 (66 0F 3A 42 C1 05): src offset=4, dst offset=4.
+    let code = [0x66, 0x0f, 0x3a, 0x42, 0xc1, 0x05, 0xf4];
+    let (mut vcpu, mem) = crate::common::setup_vm(&code, None);
+    crate::common::set_xmm(&mem, &mut vcpu, 0, 0x0F0E0D0C0B0A09080706050403020100);
+    crate::common::set_xmm(&mem, &mut vcpu, 1, 0x1F1E1D1C1B1A19181716151413121110);
+    let regs = crate::common::run_until_hlt(&mut vcpu).unwrap();
+    assert_eq!(
+        crate::common::get_xmm(&regs, 0),
+        0x00240028002c003000340038003c0040,
+        "MPSADBW imm5 got {:032x}",
+        crate::common::get_xmm(&regs, 0)
+    );
+}

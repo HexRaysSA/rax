@@ -728,3 +728,54 @@ fn test_pmovzxdq_alternating() {
     mem.write_slice(&data, GuestAddress(ALIGNED_ADDR)).unwrap();
     run_until_hlt(&mut vcpu).unwrap();
 }
+
+
+// ============================================================================
+// Known-answer value tests (register-to-register via set_xmm/get_xmm)
+// ============================================================================
+
+#[test]
+fn kat_pmovzxwd_value() {
+    // PMOVZXWD XMM0, XMM1 (66 0F 38 33 C1): low 4 words -> 4 zero-ext dwords.
+    // words 0x0001, 0xFFFF, 0x7FFF, 0x8000
+    let code = [0x66, 0x0f, 0x38, 0x33, 0xc1, 0xf4];
+    let (mut vcpu, mem) = crate::common::setup_vm(&code, None);
+    crate::common::set_xmm(&mem, &mut vcpu, 1, 0x0000000000000000_8000_7FFF_FFFF_0001);
+    let regs = crate::common::run_until_hlt(&mut vcpu).unwrap();
+    assert_eq!(
+        crate::common::get_xmm(&regs, 0),
+        0x00008000_00007FFF_0000FFFF_00000001,
+        "PMOVZXWD got {:032x}",
+        crate::common::get_xmm(&regs, 0)
+    );
+}
+
+#[test]
+fn kat_pmovzxwq_value() {
+    // PMOVZXWQ XMM0, XMM1 (66 0F 38 34 C1): low 2 words -> 2 zero-ext qwords.
+    let code = [0x66, 0x0f, 0x38, 0x34, 0xc1, 0xf4];
+    let (mut vcpu, mem) = crate::common::setup_vm(&code, None);
+    crate::common::set_xmm(&mem, &mut vcpu, 1, 0x000000000000000000000000_FFFF_7FFF);
+    let regs = crate::common::run_until_hlt(&mut vcpu).unwrap();
+    assert_eq!(
+        crate::common::get_xmm(&regs, 0),
+        0x000000000000FFFF_0000000000007FFF,
+        "PMOVZXWQ got {:032x}",
+        crate::common::get_xmm(&regs, 0)
+    );
+}
+
+#[test]
+fn kat_pmovzxdq_value() {
+    // PMOVZXDQ XMM0, XMM1 (66 0F 38 35 C1): low 2 dwords -> 2 zero-ext qwords.
+    let code = [0x66, 0x0f, 0x38, 0x35, 0xc1, 0xf4];
+    let (mut vcpu, mem) = crate::common::setup_vm(&code, None);
+    crate::common::set_xmm(&mem, &mut vcpu, 1, 0x0000000000000000_FFFFFFFF_7FFFFFFF);
+    let regs = crate::common::run_until_hlt(&mut vcpu).unwrap();
+    assert_eq!(
+        crate::common::get_xmm(&regs, 0),
+        0x00000000FFFFFFFF_000000007FFFFFFF,
+        "PMOVZXDQ got {:032x}",
+        crate::common::get_xmm(&regs, 0)
+    );
+}

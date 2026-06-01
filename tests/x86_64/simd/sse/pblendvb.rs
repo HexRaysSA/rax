@@ -392,3 +392,29 @@ fn test_pblendvb_xmm1_xmm2_mask_random_pattern() {
     let (mut vcpu, _) = setup_vm(&code, None);
     run_until_hlt(&mut vcpu).unwrap();
 }
+
+
+// ============================================================================
+// Known-answer value tests (register-to-register via set_xmm/get_xmm)
+//
+// PBLENDVB selects, per byte, SRC if the high bit (0x80) of the corresponding
+// byte of the implicit mask register XMM0 is set, else DST.
+// ============================================================================
+
+#[test]
+fn kat_pblendvb_value() {
+    // PBLENDVB XMM1, XMM2  (66 0F 38 10 CA), mask = XMM0.
+    // DST(XMM1)=all 0x11, SRC(XMM2)=all 0x22, mask even bytes 0x80 -> even from src.
+    let code = [0x66, 0x0f, 0x38, 0x10, 0xca, 0xf4];
+    let (mut vcpu, mem) = crate::common::setup_vm(&code, None);
+    crate::common::set_xmm(&mem, &mut vcpu, 0, 0x00800080008000800080008000800080);
+    crate::common::set_xmm(&mem, &mut vcpu, 1, 0x11111111111111111111111111111111);
+    crate::common::set_xmm(&mem, &mut vcpu, 2, 0x22222222222222222222222222222222);
+    let regs = crate::common::run_until_hlt(&mut vcpu).unwrap();
+    assert_eq!(
+        crate::common::get_xmm(&regs, 1),
+        0x11221122112211221122112211221122,
+        "PBLENDVB got {:032x}",
+        crate::common::get_xmm(&regs, 1)
+    );
+}

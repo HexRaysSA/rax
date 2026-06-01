@@ -333,3 +333,29 @@ fn test_insertps_xmm15_xmm14_src3_dst0_zmask_1110() {
     let (mut vcpu, _) = setup_vm(&code, None);
     run_until_hlt(&mut vcpu).unwrap();
 }
+
+
+// ============================================================================
+// Known-answer value tests (register-to-register via set_xmm/get_xmm)
+//
+// INSERTPS: imm8[7:6]=src elem select, imm8[5:4]=dst elem, imm8[3:0]=zero mask.
+// ============================================================================
+
+#[test]
+fn kat_insertps_value() {
+    // INSERTPS XMM0, XMM1, 0x91 (66 0F 3A 21 C1 91)
+    // imm8 = 10_01_0001: copy SRC dword[2] into DST dword[1], then zero dword[0].
+    // SRC dwords [B0,B1,B2,B3]; DST dwords [D0,D1,D2,D3].
+    let code = [0x66, 0x0f, 0x3a, 0x21, 0xc1, 0x91, 0xf4];
+    let (mut vcpu, mem) = crate::common::setup_vm(&code, None);
+    crate::common::set_xmm(&mem, &mut vcpu, 0, 0xDDDDDDD3_DDDDDDD2_DDDDDDD1_DDDDDDD0);
+    crate::common::set_xmm(&mem, &mut vcpu, 1, 0xBBBBBBB3_BBBBBBB2_BBBBBBB1_BBBBBBB0);
+    let regs = crate::common::run_until_hlt(&mut vcpu).unwrap();
+    // lane0 zeroed, lane1 = SRC[2] = 0xBBBBBBB2, lane2 = D2, lane3 = D3
+    assert_eq!(
+        crate::common::get_xmm(&regs, 0),
+        0xDDDDDDD3_DDDDDDD2_BBBBBBB2_00000000,
+        "INSERTPS got {:032x}",
+        crate::common::get_xmm(&regs, 0)
+    );
+}

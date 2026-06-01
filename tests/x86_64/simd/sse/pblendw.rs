@@ -393,3 +393,29 @@ fn test_pblendw_mem_displacement() {
     mem.write_slice(&[0xCC, 0xCC, 0xCC, 0xCC, 0xCC, 0xCC, 0xCC, 0xCC, 0xCC, 0xCC, 0xCC, 0xCC, 0xCC, 0xCC, 0xCC, 0xCC], vm_memory::GuestAddress(ALIGNED_ADDR)).unwrap();
     run_until_hlt(&mut vcpu).unwrap();
 }
+
+
+// ============================================================================
+// Known-answer value tests (register-to-register via set_xmm/get_xmm)
+//
+// PBLENDW: each of imm8's 8 bits selects one word from SRC (1) or DST (0).
+// ============================================================================
+
+#[test]
+fn kat_pblendw_value() {
+    // PBLENDW XMM0, XMM1, 0xB4 (66 0F 3A 0E C1 B4)
+    // imm8 0xB4 = 1011_0100: words 2,4,5,7 from src; others from dst.
+    // DST words all 0xAAAA, SRC words all 0xBBBB.
+    let code = [0x66, 0x0f, 0x3a, 0x0e, 0xc1, 0xb4, 0xf4];
+    let (mut vcpu, mem) = crate::common::setup_vm(&code, None);
+    crate::common::set_xmm(&mem, &mut vcpu, 0, 0xAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA);
+    crate::common::set_xmm(&mem, &mut vcpu, 1, 0xBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB);
+    let regs = crate::common::run_until_hlt(&mut vcpu).unwrap();
+    // words 7..0: B,A,B,B,A,B,A,A
+    assert_eq!(
+        crate::common::get_xmm(&regs, 0),
+        0xBBBB_AAAA_BBBB_BBBB_AAAA_BBBB_AAAA_AAAA,
+        "PBLENDW got {:032x}",
+        crate::common::get_xmm(&regs, 0)
+    );
+}

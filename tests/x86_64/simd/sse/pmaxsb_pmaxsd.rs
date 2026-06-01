@@ -588,3 +588,40 @@ fn test_pmaxsd_boundary_values() {
                      GuestAddress(ALIGNED_ADDR2)).unwrap();
     run_until_hlt(&mut vcpu).unwrap();
 }
+
+
+// ============================================================================
+// Known-answer value tests (register-to-register via set_xmm/get_xmm)
+//
+// PMAXSB: per-byte SIGNED maximum.  PMAXSD: per-dword SIGNED maximum.
+// ============================================================================
+
+#[test]
+fn kat_pmaxsb_value() {
+    let code = [0x66, 0x0f, 0x38, 0x3c, 0xc1, 0xf4]; // PMAXSB XMM0, XMM1
+    let (mut vcpu, mem) = crate::common::setup_vm(&code, None);
+    crate::common::set_xmm(&mem, &mut vcpu, 0, 0x7f8001020304050608090a0b0c0d0e0f);
+    crate::common::set_xmm(&mem, &mut vcpu, 1, 0x017ffe800504f8fbf0f11020304050aa);
+    let regs = crate::common::run_until_hlt(&mut vcpu).unwrap();
+    assert_eq!(
+        crate::common::get_xmm(&regs, 0),
+        0x7f7f010205040506080910203040500f,
+        "PMAXSB got {:032x}",
+        crate::common::get_xmm(&regs, 0)
+    );
+}
+
+#[test]
+fn kat_pmaxsd_value() {
+    let code = [0x66, 0x0f, 0x38, 0x3d, 0xc1, 0xf4]; // PMAXSD XMM0, XMM1
+    let (mut vcpu, mem) = crate::common::setup_vm(&code, None);
+    crate::common::set_xmm(&mem, &mut vcpu, 0, 0x7f8001020304050608090a0b0c0d0e0f);
+    crate::common::set_xmm(&mem, &mut vcpu, 1, 0x017ffe800504f8fbf0f11020304050aa);
+    let regs = crate::common::run_until_hlt(&mut vcpu).unwrap();
+    assert_eq!(
+        crate::common::get_xmm(&regs, 0),
+        0x7f8001020504f8fb08090a0b304050aa,
+        "PMAXSD got {:032x}",
+        crate::common::get_xmm(&regs, 0)
+    );
+}

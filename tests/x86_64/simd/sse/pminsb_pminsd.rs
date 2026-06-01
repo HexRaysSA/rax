@@ -588,3 +588,42 @@ fn test_pminsd_boundary_values() {
                      GuestAddress(ALIGNED_ADDR2)).unwrap();
     run_until_hlt(&mut vcpu).unwrap();
 }
+
+
+// ============================================================================
+// Known-answer value tests (register-to-register via set_xmm/get_xmm)
+//
+// PMINSB: per-byte SIGNED minimum.  PMINSD: per-dword SIGNED minimum.
+// DST = 0x7f8001020304050608090a0b0c0d0e0f
+// SRC = 0x017ffe800504f8fbf0f11020304050aa
+// ============================================================================
+
+#[test]
+fn kat_pminsb_value() {
+    let code = [0x66, 0x0f, 0x38, 0x38, 0xc1, 0xf4]; // PMINSB XMM0, XMM1
+    let (mut vcpu, mem) = crate::common::setup_vm(&code, None);
+    crate::common::set_xmm(&mem, &mut vcpu, 0, 0x7f8001020304050608090a0b0c0d0e0f);
+    crate::common::set_xmm(&mem, &mut vcpu, 1, 0x017ffe800504f8fbf0f11020304050aa);
+    let regs = crate::common::run_until_hlt(&mut vcpu).unwrap();
+    assert_eq!(
+        crate::common::get_xmm(&regs, 0),
+        0x0180fe800304f8fbf0f10a0b0c0d0eaa,
+        "PMINSB got {:032x}",
+        crate::common::get_xmm(&regs, 0)
+    );
+}
+
+#[test]
+fn kat_pminsd_value() {
+    let code = [0x66, 0x0f, 0x38, 0x39, 0xc1, 0xf4]; // PMINSD XMM0, XMM1
+    let (mut vcpu, mem) = crate::common::setup_vm(&code, None);
+    crate::common::set_xmm(&mem, &mut vcpu, 0, 0x7f8001020304050608090a0b0c0d0e0f);
+    crate::common::set_xmm(&mem, &mut vcpu, 1, 0x017ffe800504f8fbf0f11020304050aa);
+    let regs = crate::common::run_until_hlt(&mut vcpu).unwrap();
+    assert_eq!(
+        crate::common::get_xmm(&regs, 0),
+        0x017ffe8003040506f0f110200c0d0e0f,
+        "PMINSD got {:032x}",
+        crate::common::get_xmm(&regs, 0)
+    );
+}

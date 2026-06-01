@@ -680,3 +680,67 @@ fn test_crc32_multiple_sequences() {
     let (mut vcpu, _) = setup_vm(&code, None);
     run_until_hlt(&mut vcpu).unwrap();
 }
+
+// ============================================================================
+// Known-answer value tests (exact CRC32C accumulator results).
+//
+// The SSE4.2 CRC32 instruction uses the Castagnoli polynomial (CRC32C).
+// Expected values were computed with the reflected CRC32C reference algorithm.
+// ============================================================================
+
+#[test]
+fn kat_crc32_r8_known() {
+    // MOV EAX,0 ; MOV CL,0x41 ; CRC32 EAX, CL  => 0xB3109EBF
+    let code = [
+        0xb8, 0x00, 0x00, 0x00, 0x00,       // MOV EAX, 0
+        0xb1, 0x41,                         // MOV CL, 0x41
+        0xf2, 0x0f, 0x38, 0xf0, 0xc1,       // CRC32 EAX, CL
+        0xf4,
+    ];
+    let (mut vcpu, _) = setup_vm(&code, None);
+    let regs = run_until_hlt(&mut vcpu).unwrap();
+    assert_eq!(regs.rax & 0xFFFF_FFFF, 0xB3109EBF, "CRC32 r8 = {:#x}", regs.rax);
+}
+
+#[test]
+fn kat_crc32_r16_known() {
+    // MOV EAX,0 ; MOV CX,0xABCD ; CRC32 EAX, CX  => 0xFF2A1873
+    let code = [
+        0xb8, 0x00, 0x00, 0x00, 0x00,             // MOV EAX, 0
+        0x66, 0xb9, 0xcd, 0xab,                   // MOV CX, 0xABCD
+        0x66, 0xf2, 0x0f, 0x38, 0xf1, 0xc1,       // CRC32 EAX, CX
+        0xf4,
+    ];
+    let (mut vcpu, _) = setup_vm(&code, None);
+    let regs = run_until_hlt(&mut vcpu).unwrap();
+    assert_eq!(regs.rax & 0xFFFF_FFFF, 0xFF2A1873, "CRC32 r16 = {:#x}", regs.rax);
+}
+
+#[test]
+fn kat_crc32_r32_known() {
+    // MOV EAX,0 ; MOV ECX,0x12345678 ; CRC32 EAX, ECX => 0xFA745634
+    let code = [
+        0xb8, 0x00, 0x00, 0x00, 0x00,       // MOV EAX, 0
+        0xb9, 0x78, 0x56, 0x34, 0x12,       // MOV ECX, 0x12345678
+        0xf2, 0x0f, 0x38, 0xf1, 0xc1,       // CRC32 EAX, ECX
+        0xf4,
+    ];
+    let (mut vcpu, _) = setup_vm(&code, None);
+    let regs = run_until_hlt(&mut vcpu).unwrap();
+    assert_eq!(regs.rax & 0xFFFF_FFFF, 0xFA745634, "CRC32 r32 = {:#x}", regs.rax);
+}
+
+#[test]
+fn kat_crc32_r64_known() {
+    // MOV RAX,0 ; MOV RCX,0x1122334455667788 ; CRC32 RAX, RCX => 0x2371E39C
+    // (32-bit CRC zero-extended into the 64-bit destination)
+    let code = [
+        0x48, 0x31, 0xc0,                                           // XOR RAX, RAX
+        0x48, 0xb9, 0x88, 0x77, 0x66, 0x55, 0x44, 0x33, 0x22, 0x11, // MOV RCX, imm64
+        0xf2, 0x48, 0x0f, 0x38, 0xf1, 0xc1,                         // CRC32 RAX, RCX
+        0xf4,
+    ];
+    let (mut vcpu, _) = setup_vm(&code, None);
+    let regs = run_until_hlt(&mut vcpu).unwrap();
+    assert_eq!(regs.rax, 0x2371E39C, "CRC32 r64 = {:#x}", regs.rax);
+}

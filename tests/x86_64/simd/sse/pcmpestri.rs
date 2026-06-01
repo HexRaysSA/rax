@@ -742,3 +742,30 @@ fn test_pcmpestri_varying_lengths() {
     mem.write_slice(&data2, vm_memory::GuestAddress(ALIGNED_ADDR + 0x10)).unwrap();
     run_until_hlt(&mut vcpu).unwrap();
 }
+
+
+// ============================================================================
+// Known-answer value tests (explicit-length string compare, index in ECX).
+//
+// Lengths: EAX = number of valid elements in the XMM register operand (dst),
+// EDX = valid elements in the r/m operand (src).
+// ============================================================================
+
+#[test]
+fn kat_pcmpestri_equal_any() {
+    // EAX=5 (len of "aeiou"), EDX=5 (len of "hello").
+    // PCMPESTRI XMM0, XMM1, 0x00 (66 0F 3A 61 C1 00): byte, equal-any.
+    // Vowels in "hello": 'e'(idx1), 'o'(idx4) => LSB index = 1.
+    let code = [
+        0xb8, 0x05, 0x00, 0x00, 0x00,       // MOV EAX, 5
+        0xba, 0x05, 0x00, 0x00, 0x00,       // MOV EDX, 5
+        0x66, 0x0f, 0x3a, 0x61, 0xc1, 0x00, // PCMPESTRI XMM0, XMM1, 0
+        0xf4,
+    ];
+    let (mut vcpu, mem) = crate::common::setup_vm(&code, None);
+    crate::common::set_xmm(&mem, &mut vcpu, 0, 0x0000000000000000000000756f696561); // "aeiou"
+    crate::common::set_xmm(&mem, &mut vcpu, 1, 0x00000000000000000000006f6c6c6568); // "hello"
+    let regs = crate::common::run_until_hlt(&mut vcpu).unwrap();
+    assert_eq!(regs.rcx & 0xFFFF_FFFF, 1, "PCMPESTRI ECX = {}", regs.rcx);
+    assert!(crate::common::cf_set(regs.rflags), "CF should be set (match found)");
+}

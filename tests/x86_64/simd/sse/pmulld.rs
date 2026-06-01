@@ -514,3 +514,29 @@ fn test_pmulld_xmm4_xmm6() {
     let (mut vcpu, _) = setup_vm(&code, None);
     run_until_hlt(&mut vcpu).unwrap();
 }
+
+// ============================================================================
+// Known-answer value tests (register-to-register via set_xmm/get_xmm)
+//
+// PMULLD multiplies each pair of SIGNED dwords and stores the LOW 32 bits of
+// the 64-bit product into the corresponding dword lane.
+// ============================================================================
+
+#[test]
+fn kat_pmulld_value() {
+    // PMULLD XMM0, XMM1 (66 0F 38 40 C1)
+    // DST dwords (lane0..3): 2, -3, 0x10000, 0x7FFFFFFF
+    // SRC dwords (lane0..3): 5,  7, 0x10000, 2
+    // Products (low 32): 10, -21 (0xFFFFFFEB), 0x1_0000_0000->0, 0xFFFFFFFE
+    let code = [0x66, 0x0f, 0x38, 0x40, 0xc1, 0xf4];
+    let (mut vcpu, mem) = setup_vm(&code, None);
+    set_xmm(&mem, &mut vcpu, 0, 0x7FFFFFFF_00010000_FFFFFFFD_00000002);
+    set_xmm(&mem, &mut vcpu, 1, 0x00000002_00010000_00000007_00000005);
+    let regs = run_until_hlt(&mut vcpu).unwrap();
+    assert_eq!(
+        get_xmm(&regs, 0),
+        0xFFFFFFFE_00000000_FFFFFFEB_0000000A,
+        "PMULLD got {:032x}",
+        get_xmm(&regs, 0)
+    );
+}

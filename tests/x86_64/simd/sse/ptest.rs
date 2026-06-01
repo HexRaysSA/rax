@@ -494,3 +494,50 @@ fn test_ptest_xmm2_xmm5() {
     let (mut vcpu, _) = setup_vm(&code, None);
     run_until_hlt(&mut vcpu).unwrap();
 }
+
+
+// ============================================================================
+// Known-answer value tests (register-to-register via set_xmm/get_xmm)
+//
+// PTEST sets ZF = ((SRC AND DST) == 0) and CF = ((SRC AND NOT DST) == 0).
+// Here DST = XMM_reg (first operand), SRC = XMM/m128 (second operand).
+// ============================================================================
+
+#[test]
+fn kat_ptest_zf_set_cf_clear() {
+    // PTEST XMM0, XMM1 (66 0F 38 17 C1)
+    // DST and SRC are bitwise-DISJOINT => (SRC AND DST)==0 => ZF=1.
+    // SRC & ~DST = SRC (nonzero) => CF=0.
+    let code = [0x66, 0x0f, 0x38, 0x17, 0xc1, 0xf4];
+    let (mut vcpu, mem) = crate::common::setup_vm(&code, None);
+    crate::common::set_xmm(&mem, &mut vcpu, 0, 0x00FF00FF00FF00FF00FF00FF00FF00FF);
+    crate::common::set_xmm(&mem, &mut vcpu, 1, 0xFF00FF00FF00FF00FF00FF00FF00FF00);
+    let regs = crate::common::run_until_hlt(&mut vcpu).unwrap();
+    assert!(crate::common::zf_set(regs.rflags), "ZF should be set");
+    assert!(!crate::common::cf_set(regs.rflags), "CF should be clear");
+}
+
+#[test]
+fn kat_ptest_zf_clear_cf_set() {
+    // DST = SRC = same nonzero value.
+    // AND = value != 0 => ZF=0.  SRC & ~DST = 0 => CF=1.
+    let code = [0x66, 0x0f, 0x38, 0x17, 0xc1, 0xf4];
+    let (mut vcpu, mem) = crate::common::setup_vm(&code, None);
+    crate::common::set_xmm(&mem, &mut vcpu, 0, 0x0123456789ABCDEF_FEDCBA9876543210);
+    crate::common::set_xmm(&mem, &mut vcpu, 1, 0x0123456789ABCDEF_FEDCBA9876543210);
+    let regs = crate::common::run_until_hlt(&mut vcpu).unwrap();
+    assert!(!crate::common::zf_set(regs.rflags), "ZF should be clear");
+    assert!(crate::common::cf_set(regs.rflags), "CF should be set");
+}
+
+#[test]
+fn kat_ptest_both_set() {
+    // SRC = 0 => AND==0 (ZF=1) and SRC&~DST==0 (CF=1).
+    let code = [0x66, 0x0f, 0x38, 0x17, 0xc1, 0xf4];
+    let (mut vcpu, mem) = crate::common::setup_vm(&code, None);
+    crate::common::set_xmm(&mem, &mut vcpu, 0, 0xDEADBEEFDEADBEEFDEADBEEFDEADBEEF);
+    crate::common::set_xmm(&mem, &mut vcpu, 1, 0);
+    let regs = crate::common::run_until_hlt(&mut vcpu).unwrap();
+    assert!(crate::common::zf_set(regs.rflags), "ZF should be set");
+    assert!(crate::common::cf_set(regs.rflags), "CF should be set");
+}

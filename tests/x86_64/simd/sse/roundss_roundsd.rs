@@ -705,3 +705,45 @@ fn test_roundsd_upper_preservation() {
     let (mut vcpu, _) = setup_vm(&code, None);
     run_until_hlt(&mut vcpu).unwrap();
 }
+
+
+// ============================================================================
+// Known-answer value tests (register-to-register via set_xmm/get_xmm)
+//
+// ROUNDSS rounds only the low dword (upper 96 bits of DST preserved);
+// ROUNDSD rounds only the low qword (upper 64 bits preserved).
+// ============================================================================
+
+#[test]
+fn kat_roundss_ceil_low_preserves_upper() {
+    // ROUNDSS XMM0, XMM1, 2 (66 0F 3A 0A C1 02): ceil of low single.
+    // XMM1 low = 2.7 -> ceil 3.0 (0x40400000). Upper 96 bits of XMM0 preserved.
+    let code = [0x66, 0x0f, 0x3a, 0x0a, 0xc1, 0x02, 0xf4];
+    let (mut vcpu, mem) = crate::common::setup_vm(&code, None);
+    crate::common::set_xmm(&mem, &mut vcpu, 0, 0xCAFEBABE_DEADBEEF_FACEFEED_11111111);
+    crate::common::set_xmm(&mem, &mut vcpu, 1, 0x00000000_00000000_00000000_402ccccd);
+    let regs = crate::common::run_until_hlt(&mut vcpu).unwrap();
+    assert_eq!(
+        crate::common::get_xmm(&regs, 0),
+        0xCAFEBABE_DEADBEEF_FACEFEED_40400000,
+        "ROUNDSS got {:032x}",
+        crate::common::get_xmm(&regs, 0)
+    );
+}
+
+#[test]
+fn kat_roundsd_floor_low_preserves_upper() {
+    // ROUNDSD XMM0, XMM1, 1 (66 0F 3A 0B C1 01): floor of low double.
+    // XMM1 low = 2.7 -> floor 2.0 (0x4000000000000000). Upper 64 bits preserved.
+    let code = [0x66, 0x0f, 0x3a, 0x0b, 0xc1, 0x01, 0xf4];
+    let (mut vcpu, mem) = crate::common::setup_vm(&code, None);
+    crate::common::set_xmm(&mem, &mut vcpu, 0, 0xCAFEBABEDEADBEEF_400599999999999a);
+    crate::common::set_xmm(&mem, &mut vcpu, 1, 0x0000000000000000_400599999999999a);
+    let regs = crate::common::run_until_hlt(&mut vcpu).unwrap();
+    assert_eq!(
+        crate::common::get_xmm(&regs, 0),
+        0xCAFEBABEDEADBEEF_4000000000000000,
+        "ROUNDSD got {:032x}",
+        crate::common::get_xmm(&regs, 0)
+    );
+}

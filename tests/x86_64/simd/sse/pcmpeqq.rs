@@ -402,3 +402,27 @@ fn test_pcmpeqq_large_values() {
     let (mut vcpu, _) = setup_vm(&code, None);
     run_until_hlt(&mut vcpu).unwrap();
 }
+
+
+// ============================================================================
+// Known-answer value tests (register-to-register via set_xmm/get_xmm)
+//
+// PCMPEQQ sets a qword lane to all-ones when the two qwords are equal.
+// ============================================================================
+
+#[test]
+fn kat_pcmpeqq_value() {
+    // PCMPEQQ XMM0, XMM1 (66 0F 38 29 C1)
+    // qword0 equal, qword1 not equal.
+    let code = [0x66, 0x0f, 0x38, 0x29, 0xc1, 0xf4];
+    let (mut vcpu, mem) = crate::common::setup_vm(&code, None);
+    crate::common::set_xmm(&mem, &mut vcpu, 0, 0x0000000000000001_1122334455667788);
+    crate::common::set_xmm(&mem, &mut vcpu, 1, 0x0000000000000002_1122334455667788);
+    let regs = crate::common::run_until_hlt(&mut vcpu).unwrap();
+    assert_eq!(
+        crate::common::get_xmm(&regs, 0),
+        0x00000000000000000000000000000000u128 | 0xFFFFFFFFFFFFFFFFu128,
+        "PCMPEQQ got {:032x}",
+        crate::common::get_xmm(&regs, 0)
+    );
+}

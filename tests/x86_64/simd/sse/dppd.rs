@@ -515,3 +515,45 @@ fn test_dppd_xmm5_xmm7_mask_0x11() {
     let (mut vcpu, _) = setup_vm(&code, None);
     run_until_hlt(&mut vcpu).unwrap();
 }
+
+
+// ============================================================================
+// Known-answer value tests (register-to-register via set_xmm/get_xmm)
+//
+// DPPD computes a dot product over qword lanes selected by imm8[5:4] and
+// stores the result to qword lanes selected by imm8[1:0].
+// ============================================================================
+
+#[test]
+fn kat_dppd_full() {
+    // DPPD XMM0, XMM1, 0x31 (66 0F 3A 41 C1 31): both lanes in, result -> lane0.
+    // DST=[2.0,3.0], SRC=[4.0,5.0] => 8+15 = 23.0 (0x4037000000000000).
+    let code = [0x66, 0x0f, 0x3a, 0x41, 0xc1, 0x31, 0xf4];
+    let (mut vcpu, mem) = crate::common::setup_vm(&code, None);
+    crate::common::set_xmm(&mem, &mut vcpu, 0, 0x4008000000000000_4000000000000000);
+    crate::common::set_xmm(&mem, &mut vcpu, 1, 0x4014000000000000_4010000000000000);
+    let regs = crate::common::run_until_hlt(&mut vcpu).unwrap();
+    assert_eq!(
+        crate::common::get_xmm(&regs, 0),
+        0x0000000000000000_4037000000000000,
+        "DPPD got {:032x}",
+        crate::common::get_xmm(&regs, 0)
+    );
+}
+
+#[test]
+fn kat_dppd_low_lane_only() {
+    // DPPD XMM0, XMM1, 0x13 (66 0F 3A 41 C1 13): only lane0 in; result -> both lanes.
+    // 2.0*4.0 = 8.0 (0x4020000000000000) to both qwords.
+    let code = [0x66, 0x0f, 0x3a, 0x41, 0xc1, 0x13, 0xf4];
+    let (mut vcpu, mem) = crate::common::setup_vm(&code, None);
+    crate::common::set_xmm(&mem, &mut vcpu, 0, 0x4008000000000000_4000000000000000);
+    crate::common::set_xmm(&mem, &mut vcpu, 1, 0x4014000000000000_4010000000000000);
+    let regs = crate::common::run_until_hlt(&mut vcpu).unwrap();
+    assert_eq!(
+        crate::common::get_xmm(&regs, 0),
+        0x4020000000000000_4020000000000000,
+        "DPPD low got {:032x}",
+        crate::common::get_xmm(&regs, 0)
+    );
+}

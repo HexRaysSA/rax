@@ -275,3 +275,22 @@ fn test_extractps_mem_xmm2_pos2() {
     let (mut vcpu, _) = setup_vm(&code, None);
     run_until_hlt(&mut vcpu).unwrap();
 }
+
+
+// ============================================================================
+// Known-answer value tests (XMM source -> GP register via get_regs)
+//
+// EXTRACTPS extracts the dword at imm8[1:0] from the XMM source into r/m32.
+// ============================================================================
+
+#[test]
+fn kat_extractps_to_eax() {
+    // EXTRACTPS EAX, XMM0, 2 (66 0F 3A 17 C0 02)
+    // XMM0 dwords lane0..3 = 0x11111111,0x22222222,0x33333333,0x44444444
+    // -> EAX = lane2 = 0x33333333.
+    let code = [0x66, 0x0f, 0x3a, 0x17, 0xc0, 0x02, 0xf4];
+    let (mut vcpu, mem) = crate::common::setup_vm(&code, None);
+    crate::common::set_xmm(&mem, &mut vcpu, 0, 0x44444444_33333333_22222222_11111111);
+    let regs = crate::common::run_until_hlt(&mut vcpu).unwrap();
+    assert_eq!(regs.rax & 0xFFFF_FFFF, 0x33333333, "EXTRACTPS EAX = {:#x}", regs.rax);
+}

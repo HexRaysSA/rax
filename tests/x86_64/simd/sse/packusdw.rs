@@ -428,3 +428,29 @@ fn test_packusdw_bidirectional() {
     run_until_hlt(&mut vcpu).unwrap();
 }
 
+
+
+// ============================================================================
+// Known-answer value tests (register-to-register via set_xmm/get_xmm)
+//
+// PACKUSDW packs 4 signed dwords from DST (low result) and 4 from SRC (high
+// result) into 8 UNSIGNED-saturated words. Negative -> 0, >0xFFFF -> 0xFFFF.
+// ============================================================================
+
+#[test]
+fn kat_packusdw_value() {
+    // PACKUSDW XMM0, XMM1 (66 0F 38 2B C1)
+    // DST dwords: 0x12, -1, 0x10000, 5  -> 0x12, 0, 0xFFFF, 5
+    // SRC dwords: 0, 0x7FFFFFFF, 0xFFFF, 0x8000 -> 0, 0xFFFF, 0xFFFF, 0x8000
+    let code = [0x66, 0x0f, 0x38, 0x2b, 0xc1, 0xf4];
+    let (mut vcpu, mem) = crate::common::setup_vm(&code, None);
+    crate::common::set_xmm(&mem, &mut vcpu, 0, 0x00000005_00010000_FFFFFFFF_00000012);
+    crate::common::set_xmm(&mem, &mut vcpu, 1, 0x00008000_0000FFFF_7FFFFFFF_00000000);
+    let regs = crate::common::run_until_hlt(&mut vcpu).unwrap();
+    assert_eq!(
+        crate::common::get_xmm(&regs, 0),
+        0x8000FFFFFFFF0000_0005FFFF00000012,
+        "PACKUSDW got {:032x}",
+        crate::common::get_xmm(&regs, 0)
+    );
+}

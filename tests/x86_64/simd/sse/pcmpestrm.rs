@@ -759,3 +759,57 @@ fn test_pcmpestrm_varying_lengths() {
     mem.write_slice(&data2, vm_memory::GuestAddress(ALIGNED_ADDR + 0x10)).unwrap();
     run_until_hlt(&mut vcpu).unwrap();
 }
+
+
+// ============================================================================
+// Known-answer value tests (explicit-length string compare, mask in XMM0).
+// ============================================================================
+
+#[test]
+fn kat_pcmpestrm_equal_each_bitmask() {
+    // EAX=5, EDX=5. PCMPESTRM XMM1, XMM2, 0x08 (66 0F 3A 60 CA 08): byte,
+    // equal-each, bit-mask. "HELLO" vs "HEXLO" => mask 0x1B in XMM0 low.
+    let code = [
+        0xb8, 0x05, 0x00, 0x00, 0x00,       // MOV EAX, 5
+        0xba, 0x05, 0x00, 0x00, 0x00,       // MOV EDX, 5
+        0x66, 0x0f, 0x3a, 0x60, 0xca, 0x08, // PCMPESTRM XMM1, XMM2, 8
+        0xf4,
+    ];
+    let (mut vcpu, mem) = crate::common::setup_vm(&code, None);
+    crate::common::set_xmm(&mem, &mut vcpu, 1, 0x00000000000000000000004f4c4c4548); // "HELLO"
+    crate::common::set_xmm(&mem, &mut vcpu, 2, 0x00000000000000000000004f4c584548); // "HEXLO"
+    let regs = crate::common::run_until_hlt(&mut vcpu).unwrap();
+    assert_eq!(
+        crate::common::get_xmm(&regs, 0),
+        0x1B,
+        "PCMPESTRM mask got {:032x}",
+        crate::common::get_xmm(&regs, 0)
+    );
+}
+
+// NOTE: The expanded byte-mask form (imm8[6]=1) is intentionally exercised by a
+// separate #[ignore]d test that documents an emulator truncation bug; see
+// kat_pcmpestrm_expanded_mask_bug below.
+#[test]
+#[ignore = "BUG: pcmpxstrx truncates the 128-bit expanded mask to u16 in escape_3a.rs (dispatch file, out of allowed edit scope). Expected XMM0=0x000000ffff00ffff (bytes 0,1,3,4 -> 0xFF), actual is truncated to the low 16 bits (0xffff)."]
+fn kat_pcmpestrm_expanded_mask_bug() {
+    // EAX=5, EDX=5. PCMPESTRM XMM1, XMM2, 0x48 (66 0F 3A 60 CA 48): byte,
+    // equal-each, EXPANDED byte mask (imm8[6]=1). "HELLO" vs "HEXLO".
+    // Matches at byte positions 0,1,3,4 => those bytes 0xFF, others 0x00.
+    let code = [
+        0xb8, 0x05, 0x00, 0x00, 0x00,       // MOV EAX, 5
+        0xba, 0x05, 0x00, 0x00, 0x00,       // MOV EDX, 5
+        0x66, 0x0f, 0x3a, 0x60, 0xca, 0x48, // PCMPESTRM XMM1, XMM2, 0x48
+        0xf4,
+    ];
+    let (mut vcpu, mem) = crate::common::setup_vm(&code, None);
+    crate::common::set_xmm(&mem, &mut vcpu, 1, 0x00000000000000000000004f4c4c4548); // "HELLO"
+    crate::common::set_xmm(&mem, &mut vcpu, 2, 0x00000000000000000000004f4c584548); // "HEXLO"
+    let regs = crate::common::run_until_hlt(&mut vcpu).unwrap();
+    assert_eq!(
+        crate::common::get_xmm(&regs, 0),
+        0x0000000000000000000000ffff00ffff,
+        "PCMPESTRM expanded mask got {:032x}",
+        crate::common::get_xmm(&regs, 0)
+    );
+}

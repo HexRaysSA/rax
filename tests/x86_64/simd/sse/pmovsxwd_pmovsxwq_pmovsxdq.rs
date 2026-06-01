@@ -782,3 +782,56 @@ fn test_pmovsxdq_double_memory_load() {
     mem.write_slice(&data2, GuestAddress(ALIGNED_ADDR2)).unwrap();
     run_until_hlt(&mut vcpu).unwrap();
 }
+
+
+// ============================================================================
+// Known-answer value tests (register-to-register via set_xmm/get_xmm)
+// ============================================================================
+
+#[test]
+fn kat_pmovsxwd_value() {
+    // PMOVSXWD XMM0, XMM1 (66 0F 38 23 C1): low 4 words -> 4 signed dwords.
+    // words lane0..3 = 0x0001, 0xFFFF, 0x7FFF, 0x8000
+    let code = [0x66, 0x0f, 0x38, 0x23, 0xc1, 0xf4];
+    let (mut vcpu, mem) = crate::common::setup_vm(&code, None);
+    crate::common::set_xmm(&mem, &mut vcpu, 1, 0x0000000000000000_8000_7FFF_FFFF_0001);
+    let regs = crate::common::run_until_hlt(&mut vcpu).unwrap();
+    assert_eq!(
+        crate::common::get_xmm(&regs, 0),
+        0xFFFF8000_00007FFF_FFFFFFFF_00000001,
+        "PMOVSXWD got {:032x}",
+        crate::common::get_xmm(&regs, 0)
+    );
+}
+
+#[test]
+fn kat_pmovsxwq_value() {
+    // PMOVSXWQ XMM0, XMM1 (66 0F 38 24 C1): low 2 words -> 2 signed qwords.
+    // words lane0..1 = 0xFFFF, 0x7FFF
+    let code = [0x66, 0x0f, 0x38, 0x24, 0xc1, 0xf4];
+    let (mut vcpu, mem) = crate::common::setup_vm(&code, None);
+    crate::common::set_xmm(&mem, &mut vcpu, 1, 0x000000000000000000000000_7FFF_FFFF);
+    let regs = crate::common::run_until_hlt(&mut vcpu).unwrap();
+    assert_eq!(
+        crate::common::get_xmm(&regs, 0),
+        0x0000000000007FFF_FFFFFFFFFFFFFFFF,
+        "PMOVSXWQ got {:032x}",
+        crate::common::get_xmm(&regs, 0)
+    );
+}
+
+#[test]
+fn kat_pmovsxdq_value() {
+    // PMOVSXDQ XMM0, XMM1 (66 0F 38 25 C1): low 2 dwords -> 2 signed qwords.
+    // dwords lane0..1 = 0xFFFFFFFF, 0x7FFFFFFF
+    let code = [0x66, 0x0f, 0x38, 0x25, 0xc1, 0xf4];
+    let (mut vcpu, mem) = crate::common::setup_vm(&code, None);
+    crate::common::set_xmm(&mem, &mut vcpu, 1, 0x0000000000000000_7FFFFFFF_FFFFFFFF);
+    let regs = crate::common::run_until_hlt(&mut vcpu).unwrap();
+    assert_eq!(
+        crate::common::get_xmm(&regs, 0),
+        0x000000007FFFFFFF_FFFFFFFFFFFFFFFF,
+        "PMOVSXDQ got {:032x}",
+        crate::common::get_xmm(&regs, 0)
+    );
+}

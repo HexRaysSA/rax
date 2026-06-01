@@ -682,3 +682,87 @@ fn test_roundpd_xmm1_xmm2_mode_0x04() {
     let (mut vcpu, _) = setup_vm(&code, None);
     run_until_hlt(&mut vcpu).unwrap();
 }
+
+
+// ============================================================================
+// Known-answer value tests (register-to-register via set_xmm/get_xmm)
+//
+// ROUNDPS/ROUNDPD round each lane. imm8[1:0]: 0=nearest,1=floor,2=ceil,
+// 3=truncate. Inputs avoid x.5 so the round-nearest tie rule is irrelevant.
+// ============================================================================
+
+#[test]
+fn kat_roundps_floor() {
+    // ROUNDPS XMM0, XMM1, 1 (66 0F 3A 08 C1 01): floor.
+    // input lanes [2.7, -2.3, 4.5, -2.7] -> [2.0, -3.0, 4.0, -3.0]
+    let code = [0x66, 0x0f, 0x3a, 0x08, 0xc1, 0x01, 0xf4];
+    let (mut vcpu, mem) = crate::common::setup_vm(&code, None);
+    crate::common::set_xmm(&mem, &mut vcpu, 1, 0xc02ccccd40900000c0133333402ccccd);
+    let regs = crate::common::run_until_hlt(&mut vcpu).unwrap();
+    assert_eq!(
+        crate::common::get_xmm(&regs, 0),
+        0xc040000040800000c040000040000000,
+        "ROUNDPS floor got {:032x}",
+        crate::common::get_xmm(&regs, 0)
+    );
+}
+
+#[test]
+fn kat_roundps_ceil() {
+    // ROUNDPS XMM0, XMM1, 2 (66 0F 3A 08 C1 02): ceil.
+    let code = [0x66, 0x0f, 0x3a, 0x08, 0xc1, 0x02, 0xf4];
+    let (mut vcpu, mem) = crate::common::setup_vm(&code, None);
+    crate::common::set_xmm(&mem, &mut vcpu, 1, 0xc02ccccd40900000c0133333402ccccd);
+    let regs = crate::common::run_until_hlt(&mut vcpu).unwrap();
+    assert_eq!(
+        crate::common::get_xmm(&regs, 0),
+        0xc000000040a00000c000000040400000,
+        "ROUNDPS ceil got {:032x}",
+        crate::common::get_xmm(&regs, 0)
+    );
+}
+
+#[test]
+fn kat_roundps_trunc() {
+    // ROUNDPS XMM0, XMM1, 3 (66 0F 3A 08 C1 03): truncate toward zero.
+    let code = [0x66, 0x0f, 0x3a, 0x08, 0xc1, 0x03, 0xf4];
+    let (mut vcpu, mem) = crate::common::setup_vm(&code, None);
+    crate::common::set_xmm(&mem, &mut vcpu, 1, 0xc02ccccd40900000c0133333402ccccd);
+    let regs = crate::common::run_until_hlt(&mut vcpu).unwrap();
+    assert_eq!(
+        crate::common::get_xmm(&regs, 0),
+        0xc000000040800000c000000040000000,
+        "ROUNDPS trunc got {:032x}",
+        crate::common::get_xmm(&regs, 0)
+    );
+}
+
+#[test]
+fn kat_roundpd_floor() {
+    // ROUNDPD XMM0, XMM1, 1 (66 0F 3A 09 C1 01): floor of [2.7, -2.3].
+    let code = [0x66, 0x0f, 0x3a, 0x09, 0xc1, 0x01, 0xf4];
+    let (mut vcpu, mem) = crate::common::setup_vm(&code, None);
+    crate::common::set_xmm(&mem, &mut vcpu, 1, 0xc002666666666666400599999999999a);
+    let regs = crate::common::run_until_hlt(&mut vcpu).unwrap();
+    assert_eq!(
+        crate::common::get_xmm(&regs, 0),
+        0xc0080000000000004000000000000000,
+        "ROUNDPD floor got {:032x}",
+        crate::common::get_xmm(&regs, 0)
+    );
+}
+
+#[test]
+fn kat_roundpd_ceil() {
+    // ROUNDPD XMM0, XMM1, 2 (66 0F 3A 09 C1 02): ceil of [2.7, -2.3].
+    let code = [0x66, 0x0f, 0x3a, 0x09, 0xc1, 0x02, 0xf4];
+    let (mut vcpu, mem) = crate::common::setup_vm(&code, None);
+    crate::common::set_xmm(&mem, &mut vcpu, 1, 0xc002666666666666400599999999999a);
+    let regs = crate::common::run_until_hlt(&mut vcpu).unwrap();
+    assert_eq!(
+        crate::common::get_xmm(&regs, 0),
+        0xc0000000000000004008000000000000,
+        "ROUNDPD ceil got {:032x}",
+        crate::common::get_xmm(&regs, 0)
+    );
+}

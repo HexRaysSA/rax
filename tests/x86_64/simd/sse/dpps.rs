@@ -558,3 +558,45 @@ fn test_dpps_xmm1_xmm3_mask_0x6a() {
     let (mut vcpu, _) = setup_vm(&code, None);
     run_until_hlt(&mut vcpu).unwrap();
 }
+
+
+// ============================================================================
+// Known-answer value tests (register-to-register via set_xmm/get_xmm)
+//
+// DPPS computes a dot product over lanes selected by imm8[7:4] and broadcasts
+// the result to the lanes selected by imm8[3:0] (others zeroed).
+// ============================================================================
+
+#[test]
+fn kat_dpps_full() {
+    // DPPS XMM0, XMM1, 0xF1 (66 0F 3A 40 C1 F1): all 4 lanes in, result -> lane0.
+    // DST=[1,2,3,4], SRC=[5,6,7,8] => 5+12+21+32 = 70.0 (0x428C0000).
+    let code = [0x66, 0x0f, 0x3a, 0x40, 0xc1, 0xf1, 0xf4];
+    let (mut vcpu, mem) = crate::common::setup_vm(&code, None);
+    crate::common::set_xmm(&mem, &mut vcpu, 0, 0x40800000_40400000_40000000_3f800000);
+    crate::common::set_xmm(&mem, &mut vcpu, 1, 0x41000000_40e00000_40c00000_40a00000);
+    let regs = crate::common::run_until_hlt(&mut vcpu).unwrap();
+    assert_eq!(
+        crate::common::get_xmm(&regs, 0),
+        0x00000000_00000000_00000000_428c0000,
+        "DPPS got {:032x}",
+        crate::common::get_xmm(&regs, 0)
+    );
+}
+
+#[test]
+fn kat_dpps_partial_mask() {
+    // DPPS XMM0, XMM1, 0x33 (66 0F 3A 40 C1 33): lanes 0,1 in; result -> lanes 0,1.
+    // 1*5 + 2*6 = 17.0 (0x41880000) broadcast to lanes 0 and 1.
+    let code = [0x66, 0x0f, 0x3a, 0x40, 0xc1, 0x33, 0xf4];
+    let (mut vcpu, mem) = crate::common::setup_vm(&code, None);
+    crate::common::set_xmm(&mem, &mut vcpu, 0, 0x40800000_40400000_40000000_3f800000);
+    crate::common::set_xmm(&mem, &mut vcpu, 1, 0x41000000_40e00000_40c00000_40a00000);
+    let regs = crate::common::run_until_hlt(&mut vcpu).unwrap();
+    assert_eq!(
+        crate::common::get_xmm(&regs, 0),
+        0x00000000_00000000_41880000_41880000,
+        "DPPS partial got {:032x}",
+        crate::common::get_xmm(&regs, 0)
+    );
+}

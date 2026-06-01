@@ -588,3 +588,40 @@ fn test_pminud_boundary_values() {
                      GuestAddress(ALIGNED_ADDR2)).unwrap();
     run_until_hlt(&mut vcpu).unwrap();
 }
+
+
+// ============================================================================
+// Known-answer value tests (register-to-register via set_xmm/get_xmm)
+//
+// PMINUW: per-word UNSIGNED minimum.  PMINUD: per-dword UNSIGNED minimum.
+// ============================================================================
+
+#[test]
+fn kat_pminuw_value() {
+    let code = [0x66, 0x0f, 0x38, 0x3a, 0xc1, 0xf4]; // PMINUW XMM0, XMM1
+    let (mut vcpu, mem) = crate::common::setup_vm(&code, None);
+    crate::common::set_xmm(&mem, &mut vcpu, 0, 0x7f8001020304050608090a0b0c0d0e0f);
+    crate::common::set_xmm(&mem, &mut vcpu, 1, 0x017ffe800504f8fbf0f11020304050aa);
+    let regs = crate::common::run_until_hlt(&mut vcpu).unwrap();
+    assert_eq!(
+        crate::common::get_xmm(&regs, 0),
+        0x017f01020304050608090a0b0c0d0e0f,
+        "PMINUW got {:032x}",
+        crate::common::get_xmm(&regs, 0)
+    );
+}
+
+#[test]
+fn kat_pminud_value() {
+    let code = [0x66, 0x0f, 0x38, 0x3b, 0xc1, 0xf4]; // PMINUD XMM0, XMM1
+    let (mut vcpu, mem) = crate::common::setup_vm(&code, None);
+    crate::common::set_xmm(&mem, &mut vcpu, 0, 0x7f8001020304050608090a0b0c0d0e0f);
+    crate::common::set_xmm(&mem, &mut vcpu, 1, 0x017ffe800504f8fbf0f11020304050aa);
+    let regs = crate::common::run_until_hlt(&mut vcpu).unwrap();
+    assert_eq!(
+        crate::common::get_xmm(&regs, 0),
+        0x017ffe800304050608090a0b0c0d0e0f,
+        "PMINUD got {:032x}",
+        crate::common::get_xmm(&regs, 0)
+    );
+}

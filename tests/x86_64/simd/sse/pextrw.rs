@@ -327,3 +327,21 @@ fn test_pextrw_edx_xmm5_pos2() {
     let (mut vcpu, _) = setup_vm(&code, None);
     run_until_hlt(&mut vcpu).unwrap();
 }
+
+
+// ============================================================================
+// Known-answer value tests (XMM source -> GP register via get_regs)
+//
+// PEXTRW (0F 3A 15 form) extracts the word at imm8[2:0], zero-extended.
+// ============================================================================
+
+#[test]
+fn kat_pextrw_value() {
+    // PEXTRW EAX, XMM0, 5 (66 0F 3A 15 C0 05): extract word 5.
+    // words lane0..7 = 0x1100,0x3322,0x5544,0x7766,0x9988,0xBBAA,0xDDCC,0xFFEE
+    let code = [0x66, 0x0f, 0x3a, 0x15, 0xc0, 0x05, 0xf4];
+    let (mut vcpu, mem) = crate::common::setup_vm(&code, None);
+    crate::common::set_xmm(&mem, &mut vcpu, 0, 0xFFEEDDCCBBAA99887766554433221100);
+    let regs = crate::common::run_until_hlt(&mut vcpu).unwrap();
+    assert_eq!(regs.rax & 0xFFFF_FFFF, 0xBBAA, "PEXTRW EAX = {:#x}", regs.rax);
+}
