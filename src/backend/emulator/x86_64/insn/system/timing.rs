@@ -6,7 +6,6 @@ use crate::cpu::VcpuExit;
 use crate::error::Result;
 
 use super::super::super::cpu::{InsnContext, X86_64Vcpu};
-use super::super::super::timing;
 
 /// Performance monitoring counters (PMCs) for RDPMC.
 static PMC: [AtomicU64; 8] = [
@@ -20,16 +19,10 @@ static PMC: [AtomicU64; 8] = [
     AtomicU64::new(0),
 ];
 
-/// Get TSC value based on wall-clock time (scaled to emulated CPU frequency)
-#[inline]
-fn get_tsc() -> u64 {
-    timing::tsc()
-}
-
 /// RDTSC - Read Time-Stamp Counter (0x0F 0x31)
 /// Reads 64-bit TSC into EDX:EAX. Upper 32 bits of RAX and RDX are cleared.
 pub fn rdtsc(vcpu: &mut X86_64Vcpu, ctx: &mut InsnContext) -> Result<Option<VcpuExit>> {
-    let tsc = get_tsc();
+    let tsc = vcpu.tsc();
 
     // EDX:EAX = TSC, upper 32 bits of RAX and RDX are cleared
     vcpu.regs.rax = tsc & 0xFFFF_FFFF;
@@ -42,7 +35,7 @@ pub fn rdtsc(vcpu: &mut X86_64Vcpu, ctx: &mut InsnContext) -> Result<Option<Vcpu
 /// Reads 64-bit TSC into EDX:EAX, and IA32_TSC_AUX[31:0] into ECX.
 /// Upper 32 bits of RAX, RDX, and RCX are cleared.
 pub fn rdtscp(vcpu: &mut X86_64Vcpu, ctx: &mut InsnContext) -> Result<Option<VcpuExit>> {
-    let tsc = get_tsc();
+    let tsc = vcpu.tsc();
     // EDX:EAX = TSC, upper 32 bits cleared
     vcpu.regs.rax = tsc & 0xFFFF_FFFF;
     vcpu.regs.rdx = (tsc >> 32) & 0xFFFF_FFFF;

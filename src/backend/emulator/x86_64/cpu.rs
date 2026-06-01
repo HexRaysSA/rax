@@ -188,6 +188,10 @@ impl Default for LazyFlags {
 /// Emulated x86_64 vCPU.
 pub struct X86_64Vcpu {
     id: u32,
+    /// Per-vCPU retired-instruction counter. Drives RDTSC (insn_count*3000) and
+    /// is published to the global counter only at run() yield boundaries, so the
+    /// hot loop stays atomic-free.
+    pub(super) insn_count: u64,
     pub(super) regs: Registers,
     pub(super) sregs: SystemRegisters,
     pub(super) mmu: Mmu,
@@ -205,8 +209,6 @@ pub struct X86_64Vcpu {
     /// Single-step mode for GDB debugging.
     #[cfg(feature = "debug")]
     single_step: bool,
-    /// Guard flag to avoid recursion in bad RIP handling
-    in_bad_rip_handling: bool,
 }
 
 /// Pending I/O operation.
@@ -225,6 +227,10 @@ pub const MAX_INSN_LEN: usize = 15;
 
 /// Decode cache size (must be power of 2 for fast indexing)
 const DECODE_CACHE_SIZE: usize = 4096;
+
+/// How often run() performs periodic housekeeping (LAPIC poll, VMM yield,
+/// counter publish). Keeps clock reads and RefCell borrows off the per-insn path.
+const LAPIC_POLL_STRIDE: u64 = 1024;
 pub(super) const DECODE_CACHE_MASK: usize = DECODE_CACHE_SIZE - 1;
 
 /// Cached decoded instruction entry
@@ -248,6 +254,13 @@ pub(super) struct DecodeCacheEntry {
     pub(super) rep_prefix: Option<u8>,
     /// Segment override prefix (0x64=FS, 0x65=GS, etc.)
     pub(super) segment_override: Option<u8>,
+    /// Address-space + CPU-mode tag (CR3 base | cs.l | cs.db<<1): part of the key
+    /// so a hit never reuses stale bytes/decode across a context or mode switch.
+    pub(super) mode_tag: u64,
+    /// Raw instruction bytes captured at fill time (so hits skip the MMU fetch).
+    pub(super) bytes: [u8; MAX_INSN_LEN],
+    /// Number of valid bytes in `bytes`.
+    pub(super) bytes_len: usize,
 }
 
 impl Default for DecodeCacheEntry {
@@ -263,6 +276,9 @@ impl Default for DecodeCacheEntry {
             address_size_override: false,
             rep_prefix: None,
             segment_override: None,
+            mode_tag: 0,
+            bytes: [0; MAX_INSN_LEN],
+            bytes_len: 0,
         }
     }
 }
@@ -665,6 +681,7 @@ impl X86_64Vcpu {
 
         X86_64Vcpu {
             id,
+            insn_count: 0,
             regs: Registers::default(),
             sregs: SystemRegisters::default(),
             mmu: Mmu::new(mem),
@@ -677,7 +694,6 @@ impl X86_64Vcpu {
             lazy_flags: Cell::new(LazyFlags::default()),
             #[cfg(feature = "debug")]
             single_step: false,
-            in_bad_rip_handling: false,
         }
     }
 
@@ -1009,326 +1025,51 @@ impl X86_64Vcpu {
 
     /// Execute a single instruction.
     #[inline]
+    /// Per-vCPU timestamp counter, derived from retired instructions
+    /// (3000 cycles/insn) - replaces the global atomic the old RDTSC path read.
+    #[inline(always)]
+    pub(super) fn tsc(&self) -> u64 {
+        self.insn_count.wrapping_mul(3000)
+    }
+
     pub fn step(&mut self) -> Result<Option<VcpuExit>> {
-        // Increment global instruction counter for timing
-        super::timing::tick();
+        // Retired-instruction counter; drives TSC. Plain add - no atomics on the
+        // hot path (published to the global counter at run() yield boundaries).
+        self.insn_count = self.insn_count.wrapping_add(1);
 
         // Start profiling timer
         #[cfg(feature = "profiling")]
         let prof_start = profiling::begin_instruction();
 
-        // Update global RIP tracker for debugging
-        CURRENT_RIP.store(self.regs.rip, Ordering::Relaxed);
-
-        let rip = self.regs.rip;
-
-        // PROTECTION & RECOVERY: Check for RIP in heap (data sections)
-        // If we detect execution from heap, try to find and redirect to the correct function.
-        // This handles cases where static call patching left broken indirect calls.
-        let is_heap = rip >= 0xffff888000000000 && rip < 0xffffc90000000000;
-        if is_heap && !self.in_bad_rip_handling {
-            self.in_bad_rip_handling = true;
-
-            // This looks like we jumped to a work_struct instead of its function pointer.
-            // The work_struct layout is: data(8) + entry(16) + func(8)
-            // Try to read the function pointer at offset 24 and redirect there.
-            let func_offset = 24u64;
-            if let Ok(func_ptr) = self.mmu.read_u64(rip + func_offset, &self.sregs) {
-                // Check if this looks like a valid kernel text address
-                let is_kernel_func =
-                    func_ptr >= 0xffffffff81000000 && func_ptr < 0xffffffff84000000;
-                if is_kernel_func {
-                    eprintln!(
-                        "[RECOVERY] RIP in heap {:#x}, redirecting to func at offset {}: {:#x}",
-                        rip, func_offset, func_ptr
-                    );
-                    self.regs.rip = func_ptr;
-                    self.in_bad_rip_handling = false;
-                    return self.step(); // Retry with corrected RIP
-                }
-            }
-
-            // If recovery failed, log the error
-            eprintln!("[ERROR] RIP in heap: {:#x}", rip);
-            eprintln!(
-                "  RSP={:#x} RAX={:#x} RBX={:#x}",
-                self.regs.rsp, self.regs.rax, self.regs.rbx
-            );
-            for i in 0..8 {
-                if let Ok(v) = self.mmu.read_u64(self.regs.rsp + i * 8, &self.sregs) {
-                    eprintln!("  RSP+{:#04x}: {:#018x}", i * 8, v);
-                }
-            }
-            self.in_bad_rip_handling = false;
-        }
-
-        // WORKAROUND: Track recently patched addresses from text_poke_memcpy.
-        // Store them in a static set to know which addresses we patched.
-        use std::collections::HashSet;
-        use std::sync::LazyLock;
-        use std::sync::Mutex;
-        static PATCHED_ADDRS: LazyLock<Mutex<HashSet<u64>>> =
-            LazyLock::new(|| Mutex::new(HashSet::new()));
-
-        // WORKAROUND: Handle memcmp when called for text_poke verification.
-        // After we patch an address, the kernel verifies by calling memcmp.
-        // Return 0 (equal) for addresses we recently patched.
-        if rip == 0xffffffff82242010 {
-            // memcmp
-            let s1 = self.regs.rdi;
-            let s2 = self.regs.rsi;
-            let count = self.regs.rdx;
-
-            // Check if s1 is in kernel text and was recently patched
-            let is_kernel_text = s1 >= 0xffffffff81000000 && s1 < 0xffffffff84000000;
-            if is_kernel_text && count <= 32 {
-                // Check if this address (or an overlapping one) was patched
-                let patched = {
-                    let addrs = PATCHED_ADDRS.lock().unwrap();
-                    // Check if s1 or any address in range [s1, s1+count) was patched
-                    (0..count).any(|i| addrs.contains(&(s1 + i)))
-                };
-
-                if patched {
-                    // Silently return EQUAL for patched addresses
-
-                    // Return 0 (equal) - the patch was successful
-                    self.regs.rax = 0;
-                    if let Ok(ret_addr) = self.mmu.read_u64(self.regs.rsp, &self.sregs) {
-                        self.regs.rip = ret_addr;
-                        self.regs.rsp += 8;
-                        return Ok(None);
-                    }
-                }
-            }
-        }
-
-        // WORKAROUND: Handle text_poke_memcpy when destination is in poke area.
-        // The kernel uses a special memory mapping for self-modification that our
-        // emulator doesn't fully support. Detect and handle it here.
-        if rip == 0xffffffff812a79d0 {
-            // text_poke_memcpy
-            let dest = self.regs.rdi;
-            let src = self.regs.rsi;
-            // At function entry, count is in RDX (mov rcx, rdx copies it to rcx later)
-            let count = self.regs.rdx;
-            // RBX contains the actual kernel address being patched
-            let kernel_addr = self.regs.rbx;
-
-            // Check if destination is in poke area (low user-space addresses)
-            // and we have a valid kernel address in RBX
-            if dest < 0x800000000000 && count <= 256 && kernel_addr >= 0xffffffff81000000 {
-                use std::sync::atomic::{AtomicUsize, Ordering as AtomicOrdering};
-                static TPM_COUNT: AtomicUsize = AtomicUsize::new(0);
-                let n = TPM_COUNT.fetch_add(1, AtomicOrdering::Relaxed);
-
-                // Translate kernel_addr using page tables to get actual physical address
-                use super::mmu::AccessType;
-
-                // Try translating kernel_addr
-                let kernel_phys = self
-                    .mmu
-                    .translate(kernel_addr, AccessType::Read, &self.sregs)
-                    .ok();
-
-                // Only log first few patches
-                let should_log = n < 5;
-                let mut src_preview = [0u8; 16];
-                if should_log {
-                    let preview_len = (count as usize).min(16);
-                    for i in 0..preview_len {
-                        if let Ok(b) = self.mmu.read_u8(src + i as u64, &self.sregs) {
-                            src_preview[i] = b;
-                        }
-                    }
-                    eprintln!(
-                        "[text_poke_memcpy #{}] kernel_addr={:#x} count={} src={:02x?}",
-                        n,
-                        kernel_addr,
-                        count,
-                        &src_preview[..(count as usize).min(16)]
-                    );
-                }
-
-                // Use the kernel_addr physical address
-                if let Some(actual_phys) = kernel_phys {
-                    // WORKAROUND: Skip ALL 2-byte text_poke patches.
-                    // The kernel's static call/branch patching uses a 3-step protocol that
-                    // corrupts adjacent code in our emulator. The patches create 3-byte JMPs
-                    // that overwrite adjacent CALL instructions.
-                    //
-                    // By skipping all 2-byte patches, we leave the original vmlinux code intact.
-                    // The original code works correctly for single-CPU non-SMP operation.
-                    if count == 2 {
-                        if should_log {
-                            eprintln!(
-                                "[SKIP 2-BYTE #{}] kernel_addr={:#x} src={:02x?}",
-                                n,
-                                kernel_addr,
-                                &src_preview[..2]
-                            );
-                        }
-                        {
-                            let mut addrs = PATCHED_ADDRS.lock().unwrap();
-                            addrs.insert(kernel_addr);
-                            addrs.insert(kernel_addr + 1);
-                        }
-                        self.regs.rax = dest;
-                        if let Ok(ret_addr) = self.mmu.read_u64(self.regs.rsp, &self.sregs) {
-                            self.regs.rip = ret_addr;
-                            self.regs.rsp += 8;
-                            return Ok(None);
-                        }
-                    }
-
-                    // Read source bytes and write directly to physical address
-                    let mut success = true;
-
-                    for i in 0..count {
-                        let src_byte = self.mmu.read_u8(src + i, &self.sregs);
-                        match src_byte {
-                            Ok(byte) => {
-                                // Use actual physical address from page table translation
-                                let phys_addr = actual_phys + i;
-                                // Write directly to physical memory bypassing page table checks
-                                if self.mmu.write_phys(phys_addr, &[byte]).is_err() {
-                                    if should_log {
-                                        eprintln!("  Failed to write to phys {:#x}", phys_addr);
-                                    }
-                                    success = false;
-                                    break;
-                                }
-                            }
-                            Err(_) => {
-                                if should_log {
-                                    eprintln!("  Failed to read from src+{}", i);
-                                }
-                                success = false;
-                                break;
-                            }
-                        }
-                    }
-
-                    if success {
-                        // Invalidate TLB for this address to ensure fresh reads
-                        self.mmu.invlpg(kernel_addr);
-
-                        // Record patched addresses for memcmp verification bypass
-                        {
-                            let mut addrs = PATCHED_ADDRS.lock().unwrap();
-                            for i in 0..count {
-                                addrs.insert(kernel_addr + i);
-                            }
-                        }
-
-                        self.regs.rax = dest; // memcpy returns destination
-                        if let Ok(ret_addr) = self.mmu.read_u64(self.regs.rsp, &self.sregs) {
-                            self.regs.rip = ret_addr;
-                            self.regs.rsp += 8;
-                            return Ok(None);
-                        }
-                    }
-                } else if should_log {
-                    eprintln!(
-                        "[text_poke_memcpy #{} WORKAROUND] Failed to translate kernel_addr={:#x}",
-                        n, kernel_addr
-                    );
-                }
-            }
-        }
-
-        // WORKAROUND: Skip __stack_chk_fail by making it return immediately.
-        // During early boot, stack canary checks can fail due to gs.base transitions.
-        if rip == 0xffffffff82256ab0 {
-            use std::sync::atomic::{AtomicUsize, Ordering as AtomicOrdering};
-            static SCF_COUNT: AtomicUsize = AtomicUsize::new(0);
-            let count = SCF_COUNT.fetch_add(1, AtomicOrdering::Relaxed);
-
-            // Only bypass during early boot (first few failures)
-            if count < 100 {
-                eprintln!(
-                    "[__stack_chk_fail #{} BYPASSED - early boot workaround]",
-                    count
-                );
-                eprintln!(
-                    "  GS.base={:#x} RSP={:#x} CR3={:#x}",
-                    self.sregs.gs.base, self.regs.rsp, self.sregs.cr3
-                );
-
-                // Print stack contents for debugging
-                eprintln!("  Stack dump:");
-                for i in 0..8u64 {
-                    let addr = self.regs.rsp + i * 8;
-                    if let Ok(val) = self.mmu.read_u64(addr, &self.sregs) {
-                        eprintln!("    RSP+{:#04x}: {:#018x}", i * 8, val);
-                    }
-                }
-
-                // Read canary value from GS.base + 0x28
-                let canary_addr = self.sregs.gs.base.wrapping_add(0x28);
-                if let Ok(canary) = self.mmu.read_u64(canary_addr, &self.sregs) {
-                    eprintln!("  Canary at GS+0x28 ({:#x}): {:#x}", canary_addr, canary);
-                } else {
-                    eprintln!("  Canary at GS+0x28 ({:#x}): UNREADABLE", canary_addr);
-                }
-
-                // Find a return address by scanning the stack for kernel text addresses.
-                // Only accept addresses in .text (0xffffffff81000000-0xffffffff82268270)
-                // or .init.text (0xffffffff834a5000+), not .data (0xffffffff82c00000).
-                let is_code_addr = |addr: u64| -> bool {
-                    // .text section
-                    (addr >= 0xffffffff81000000 && addr < 0xffffffff82270000) ||
-                    // .init.text section
-                    (addr >= 0xffffffff834a5000 && addr < 0xffffffff8352e000)
-                };
-                let mut found = false;
-                for i in 0..32u64 {
-                    let stack_addr = self.regs.rsp + i * 8;
-                    if let Ok(val) = self.mmu.read_u64(stack_addr, &self.sregs) {
-                        // Look for kernel text address (not data section)
-                        if is_code_addr(val) {
-                            // Skip first entry (immediate return addr)
-                            if i > 0 {
-                                eprintln!("  Returning to {:#x} (found at RSP+{:#x})", val, i * 8);
-                                self.regs.rsp = stack_addr + 8;
-                                self.regs.rip = val;
-                                found = true;
-                                break;
-                            }
-                        }
-                    }
-                }
-                if found {
-                    return Ok(None);
-                }
-                eprintln!("  WARNING: No suitable return address found, continuing to panic");
-            }
-        }
-
-        // Debug: Track rep_stos_alternative progress
-        // Debug loop tracking disabled for performance
-
-        // Track RIP history for debugging crashes
+        // Crash-diagnostic RIP telemetry (debug builds only - these are atomics).
+        #[cfg(feature = "debug")]
         {
+            CURRENT_RIP.store(self.regs.rip, Ordering::Relaxed);
             let idx = RIP_IDX.fetch_add(1, Ordering::Relaxed) % 16;
             RIP_HISTORY[idx].store(self.regs.rip, Ordering::Relaxed);
         }
 
+        let rip = self.regs.rip;
+
         let cache_idx = Self::decode_cache_index(rip);
+        // Key on address space (CR3) + CPU mode so a hit can never dispatch stale
+        // bytes/decode across a context or mode switch.
+        let mode_tag = (self.sregs.cr3 & !0xFFF)
+            | (self.sregs.cs.l as u64)
+            | ((self.sregs.cs.db as u64) << 1);
 
         // Check decode cache for a hit (copy to avoid borrow issues)
         let cached = self.decode_cache[cache_idx];
-        if cached.rip == rip {
+        if cached.rip == rip && cached.mode_tag == mode_tag {
             // Cache hit! Record for profiling
             #[cfg(feature = "profiling")]
             profiling::record_cache_hit();
 
-            // Fetch bytes and reconstruct context from cached decode
-            let (bytes, bytes_len) = self.fetch()?;
-
+            // Reuse the cached instruction bytes - skip the MMU fetch +
+            // mark_code_page entirely (the page was marked when the entry filled).
             let mut ctx = InsnContext {
-                bytes,
-                bytes_len,
+                bytes: cached.bytes,
+                bytes_len: cached.bytes_len,
                 cursor: cached.cursor + 1, // Skip past opcode byte
                 rex: cached.rex,
                 rex2: None,
@@ -1389,9 +1130,10 @@ impl X86_64Vcpu {
         // Get opcode
         let opcode = ctx.consume_u8()?;
 
-        // Cache the decoded instruction
+        // Cache the decoded instruction (incl. raw bytes so hits skip fetch()).
         self.decode_cache[cache_idx] = DecodeCacheEntry {
             rip,
+            mode_tag,
             opcode,
             op_size: ctx.op_size,
             cursor: opcode_cursor,
@@ -1400,6 +1142,8 @@ impl X86_64Vcpu {
             address_size_override: ctx.address_size_override,
             rep_prefix: ctx.rep_prefix,
             segment_override: ctx.segment_override,
+            bytes: ctx.bytes,
+            bytes_len: ctx.bytes_len,
         };
 
         // Execute instruction
@@ -1711,14 +1455,6 @@ impl X86_64Vcpu {
     pub(super) fn write_mem(&mut self, addr: u64, value: u64, size: u8) -> Result<()> {
         // Check for self-modifying code
         self.check_smc(addr);
-
-        // Debug: catch when truncated blake2s address is written to memory
-        if size == 4 && value >= 0x83b49000 && value <= 0x83b4a000 {
-            eprintln!(
-                "[MEM WRITE TRUNC] addr={:#x} value={:#x} size={} RIP={:#x}",
-                addr, value, size, self.regs.rip
-            );
-        }
 
         match size {
             1 => self.mmu.write_u8(addr, value as u8, &self.sregs),
@@ -2082,33 +1818,32 @@ impl X86_64Vcpu {
 impl VCpu for X86_64Vcpu {
     fn run(&mut self) -> Result<VcpuExit> {
         let start_time = std::time::Instant::now();
-        let mut insn_count: u64 = 0;
+        let mut batch: u64 = 0;
         loop {
-            insn_count += 1;
-            let _ = increment_instruction_count();
-
-            // Periodically yield to VMM for interrupt handling (every ~1ms)
-            if insn_count % 100_000 == 0 {
+            // Periodic housekeeping on a stride keeps the per-instruction path
+            // free of clock reads, RefCell borrows and 64-bit division.
+            batch = batch.wrapping_add(1);
+            if batch % LAPIC_POLL_STRIDE == 0 {
+                // Deliver any due LAPIC timer interrupt.
+                if let Some(vector) = self.mmu.tick_lapic_timer() {
+                    if self.can_inject_interrupt()
+                        && self.inject_interrupt(vector).unwrap_or(false)
+                    {
+                        self.mmu.clear_lapic_pending();
+                        self.halted = false;
+                    }
+                }
+                // Yield to the VMM (~1ms slices) so timers/IRQs get serviced.
                 if start_time.elapsed().as_millis() >= 1 {
-                    // Return to VMM to process timers and interrupts
+                    publish_instruction_count(self.insn_count);
                     return Ok(VcpuExit::Hlt);
                 }
             }
 
-            // Check for pending LAPIC timer interrupts
-            if let Some(vector) = self.mmu.tick_lapic_timer() {
-                if self.can_inject_interrupt() {
-                    if self.inject_interrupt(vector).unwrap_or(false) {
-                        self.mmu.clear_lapic_pending(); // Only clear if injection succeeded
-                        self.halted = false; // Wake up from HLT
-                    }
-                }
-            }
-
             if self.halted {
-                // If halted but there's a pending interrupt, keep trying
+                publish_instruction_count(self.insn_count);
+                // If halted but an interrupt is pending, keep spinning lightly.
                 if self.mmu.has_lapic_pending() {
-                    // Spin briefly to avoid busy-waiting too aggressively
                     std::thread::yield_now();
                     continue;
                 }
@@ -2116,11 +1851,15 @@ impl VCpu for X86_64Vcpu {
             }
 
             match self.step() {
-                Ok(Some(exit)) => return Ok(exit),
+                Ok(Some(exit)) => {
+                    publish_instruction_count(self.insn_count);
+                    return Ok(exit);
+                }
                 Ok(None) => {
                     // Check for single-step mode (GDB debugging)
                     #[cfg(feature = "debug")]
                     if self.single_step {
+                        publish_instruction_count(self.insn_count);
                         return Ok(VcpuExit::GdbStep);
                     }
                     continue;
@@ -2154,7 +1893,10 @@ impl VCpu for X86_64Vcpu {
                         }
                     }
                 }
-                Err(e) => return Err(e),
+                Err(e) => {
+                    publish_instruction_count(self.insn_count);
+                    return Err(e);
+                }
             }
         }
     }
@@ -2214,9 +1956,9 @@ impl VCpu for X86_64Vcpu {
     }
 
     fn can_inject_interrupt(&self) -> bool {
-        // Check if interrupts are enabled (IF flag in RFLAGS)
-        let rflags = self.compute_materialized_rflags();
-        (rflags & flags::bits::IF) != 0
+        // IF is set/cleared only by STI/CLI/POPF/IRET (written straight to
+        // regs.rflags), never by the lazy ALU-flag engine - so read it directly.
+        (self.regs.rflags & flags::bits::IF) != 0
     }
 
     fn inject_interrupt(&mut self, vector: u8) -> Result<bool> {
@@ -2357,7 +2099,9 @@ pub fn get_total_instruction_count() -> u64 {
     GLOBAL_INSN_COUNT.load(std::sync::atomic::Ordering::Relaxed)
 }
 
-/// Increment the global instruction counter (called from run loop)
-pub fn increment_instruction_count() -> u64 {
-    GLOBAL_INSN_COUNT.fetch_add(1, std::sync::atomic::Ordering::Relaxed)
+/// Publish a vCPU's retired-instruction count to the global counter. Called at
+/// run() exit boundaries (not per-instruction) for snapshot/diagnostic readers.
+#[inline]
+pub fn publish_instruction_count(count: u64) {
+    GLOBAL_INSN_COUNT.store(count, std::sync::atomic::Ordering::Relaxed);
 }

@@ -310,16 +310,6 @@ impl X86_64Vcpu {
                     + 4
                     + ctx.rip_relative_offset as i64;
                 addr = rip_after.wrapping_add(disp) as u64;
-
-                // Debug: check if the computed address is in blake2s range (including full 64-bit)
-                if (addr >= 0x83b49000 && addr <= 0x83b4a000)
-                    || (addr >= 0xffffffff83b49000 && addr <= 0xffffffff83b4a000)
-                {
-                    eprintln!(
-                        "[RIP-REL] RIP={:#x} modrm_off={} rip_rel_off={} disp={:#x} -> addr={:#x}",
-                        self.regs.rip, modrm_offset, ctx.rip_relative_offset, disp, addr
-                    );
-                }
             } else {
                 // Compatibility/legacy mode: absolute [disp32]
                 addr = disp as u64;

@@ -67,15 +67,17 @@ impl X86_64Vcpu {
     fn threaded_step(&mut self) -> Result<Option<VcpuExit>> {
         let rip = self.regs.rip;
         let cache_idx = (rip as usize) & DECODE_CACHE_MASK;
+        let mode_tag = (self.sregs.cr3 & !0xFFF)
+            | (self.sregs.cs.l as u64)
+            | ((self.sregs.cs.db as u64) << 1);
 
         // Check decode cache
         let cached = self.decode_cache[cache_idx];
-        if cached.rip == rip {
-            // Cache hit - fast path
-            let (bytes, bytes_len) = self.fetch()?;
+        if cached.rip == rip && cached.mode_tag == mode_tag {
+            // Cache hit - fast path (reuse cached bytes, skip fetch)
             let mut ctx = InsnContext {
-                bytes,
-                bytes_len,
+                bytes: cached.bytes,
+                bytes_len: cached.bytes_len,
                 cursor: cached.cursor + 1,
                 rex: cached.rex,
                 rex2: None,
@@ -119,6 +121,7 @@ impl X86_64Vcpu {
         // Update cache
         self.decode_cache[cache_idx] = super::cpu::DecodeCacheEntry {
             rip,
+            mode_tag,
             opcode,
             op_size: ctx.op_size,
             cursor: opcode_cursor,
@@ -127,6 +130,8 @@ impl X86_64Vcpu {
             address_size_override: ctx.address_size_override,
             rep_prefix: ctx.rep_prefix,
             segment_override: ctx.segment_override,
+            bytes: ctx.bytes,
+            bytes_len: ctx.bytes_len,
         };
 
         self.dispatch_threaded(opcode, &mut ctx)
