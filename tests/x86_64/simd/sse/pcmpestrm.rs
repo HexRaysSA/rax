@@ -791,7 +791,6 @@ fn kat_pcmpestrm_equal_each_bitmask() {
 // separate #[ignore]d test that documents an emulator truncation bug; see
 // kat_pcmpestrm_expanded_mask_bug below.
 #[test]
-#[ignore = "BUG: pcmpxstrx truncates the 128-bit expanded mask to u16 in escape_3a.rs (dispatch file, out of allowed edit scope). Expected XMM0=0x000000ffff00ffff (bytes 0,1,3,4 -> 0xFF), actual is truncated to the low 16 bits (0xffff)."]
 fn kat_pcmpestrm_expanded_mask_bug() {
     // EAX=5, EDX=5. PCMPESTRM XMM1, XMM2, 0x48 (66 0F 3A 60 CA 48): byte,
     // equal-each, EXPANDED byte mask (imm8[6]=1). "HELLO" vs "HEXLO".

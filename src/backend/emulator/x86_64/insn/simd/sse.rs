@@ -1211,10 +1211,8 @@ pub fn movntq(vcpu: &mut X86_64Vcpu, ctx: &mut InsnContext) -> Result<Option<Vcp
 /// PMADDWD - Multiply and Add Packed Integers (0xF5)
 pub fn pmaddwd(vcpu: &mut X86_64Vcpu, ctx: &mut InsnContext) -> Result<Option<VcpuExit>> {
     if !ctx.operand_size_override {
-        return Err(Error::Emulator(format!(
-            "PMADDWD requires 66 prefix at RIP={:#x}",
-            vcpu.regs.rip
-        )));
+        // NP 0F F5 /r: MMX form, operates on 64-bit MM registers.
+        return pmaddwd_mmx(vcpu, ctx);
     }
 
     let (reg, rm, is_memory, addr, _) = vcpu.decode_modrm(ctx)?;
@@ -1256,6 +1254,42 @@ pub fn pmaddwd(vcpu: &mut X86_64Vcpu, ctx: &mut InsnContext) -> Result<Option<Vc
 
     vcpu.regs.xmm[xmm_dst][0] = result_lo;
     vcpu.regs.xmm[xmm_dst][1] = result_hi;
+    vcpu.regs.rip += ctx.cursor as u64;
+    Ok(None)
+}
+
+/// PMADDWD MMX form (NP 0F F5 /r): mm, mm/m64.
+/// Multiplies the four signed 16-bit words pairwise then adds adjacent products:
+///   DEST[31:0]  := s0*d0 + s1*d1
+///   DEST[63:32] := s2*d2 + s3*d3
+fn pmaddwd_mmx(vcpu: &mut X86_64Vcpu, ctx: &mut InsnContext) -> Result<Option<VcpuExit>> {
+    let (reg, rm, is_memory, addr, _) = vcpu.decode_modrm(ctx)?;
+    let mm_dst = (reg & 0x7) as usize;
+    let src = if is_memory {
+        vcpu.read_mem(addr, 8)?
+    } else {
+        vcpu.regs.mm[(rm & 0x7) as usize]
+    };
+    let dst = vcpu.regs.mm[mm_dst];
+
+    let mut d_words = [0i16; 4];
+    let mut s_words = [0i16; 4];
+    for i in 0..4 {
+        d_words[i] = ((dst >> (i * 16)) & 0xFFFF) as i16;
+        s_words[i] = ((src >> (i * 16)) & 0xFFFF) as i16;
+    }
+
+    let mut result = 0u64;
+    for i in 0..2 {
+        let a0 = d_words[i * 2] as i32;
+        let a1 = d_words[i * 2 + 1] as i32;
+        let b0 = s_words[i * 2] as i32;
+        let b1 = s_words[i * 2 + 1] as i32;
+        let sum = a0.wrapping_mul(b0).wrapping_add(a1.wrapping_mul(b1));
+        result |= (sum as u32 as u64) << (i * 32);
+    }
+
+    vcpu.regs.mm[mm_dst] = result;
     vcpu.regs.rip += ctx.cursor as u64;
     Ok(None)
 }
@@ -1584,6 +1618,72 @@ pub fn movhps_store(vcpu: &mut X86_64Vcpu, ctx: &mut InsnContext) -> Result<Opti
             vcpu.regs.rip
         )));
     }
+    vcpu.regs.rip += ctx.cursor as u64;
+    Ok(None)
+}
+
+// =============================================================================
+// SSE3 replicate moves: MOVDDUP / MOVSLDUP / MOVSHDUP (legacy encodings)
+// =============================================================================
+
+/// MOVDDUP xmm1, xmm2/m64 (F2 0F 12)
+/// Duplicates the low 64 bits of the source into both lanes of the destination:
+/// dst.lo = dst.hi = src.lo. The memory form loads 64 bits; the register form
+/// uses the source xmm low 64 bits.
+pub fn movddup(vcpu: &mut X86_64Vcpu, ctx: &mut InsnContext) -> Result<Option<VcpuExit>> {
+    let (reg, rm, is_memory, addr, _) = vcpu.decode_modrm(ctx)?;
+    let xmm_dst = reg as usize;
+
+    let src_lo = if is_memory {
+        vcpu.read_mem(addr, 8)?
+    } else {
+        vcpu.regs.xmm[rm as usize][0]
+    };
+
+    vcpu.regs.xmm[xmm_dst][0] = src_lo;
+    vcpu.regs.xmm[xmm_dst][1] = src_lo;
+    vcpu.regs.rip += ctx.cursor as u64;
+    Ok(None)
+}
+
+/// MOVSLDUP xmm1, xmm2/m128 (F3 0F 12)
+/// Duplicates the even-indexed (low) 32-bit floats:
+/// r0=s0, r1=s0, r2=s2, r3=s2.
+pub fn movsldup(vcpu: &mut X86_64Vcpu, ctx: &mut InsnContext) -> Result<Option<VcpuExit>> {
+    let (reg, rm, is_memory, addr, _) = vcpu.decode_modrm(ctx)?;
+    let xmm_dst = reg as usize;
+
+    let (src_lo, src_hi) = if is_memory {
+        (vcpu.read_mem(addr, 8)?, vcpu.read_mem(addr + 8, 8)?)
+    } else {
+        (vcpu.regs.xmm[rm as usize][0], vcpu.regs.xmm[rm as usize][1])
+    };
+
+    let s0 = src_lo & 0xFFFF_FFFF;
+    let s2 = src_hi & 0xFFFF_FFFF;
+    vcpu.regs.xmm[xmm_dst][0] = s0 | (s0 << 32);
+    vcpu.regs.xmm[xmm_dst][1] = s2 | (s2 << 32);
+    vcpu.regs.rip += ctx.cursor as u64;
+    Ok(None)
+}
+
+/// MOVSHDUP xmm1, xmm2/m128 (F3 0F 16)
+/// Duplicates the odd-indexed (high) 32-bit floats:
+/// r0=s1, r1=s1, r2=s3, r3=s3.
+pub fn movshdup(vcpu: &mut X86_64Vcpu, ctx: &mut InsnContext) -> Result<Option<VcpuExit>> {
+    let (reg, rm, is_memory, addr, _) = vcpu.decode_modrm(ctx)?;
+    let xmm_dst = reg as usize;
+
+    let (src_lo, src_hi) = if is_memory {
+        (vcpu.read_mem(addr, 8)?, vcpu.read_mem(addr + 8, 8)?)
+    } else {
+        (vcpu.regs.xmm[rm as usize][0], vcpu.regs.xmm[rm as usize][1])
+    };
+
+    let s1 = (src_lo >> 32) & 0xFFFF_FFFF;
+    let s3 = (src_hi >> 32) & 0xFFFF_FFFF;
+    vcpu.regs.xmm[xmm_dst][0] = s1 | (s1 << 32);
+    vcpu.regs.xmm[xmm_dst][1] = s3 | (s3 << 32);
     vcpu.regs.rip += ctx.cursor as u64;
     Ok(None)
 }

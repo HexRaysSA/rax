@@ -164,9 +164,28 @@ impl X86_64Vcpu {
             // MOVUPS/MOVUPD (0x10/0x11 unaligned), MOVAPS/MOVAPD (0x28/0x29 aligned)
             0x10 => insn::simd::movups_load(self, ctx),
             0x11 => insn::simd::movups_store(self, ctx),
-            0x12 => insn::simd::movlps_load(self, ctx),
+            0x12 => {
+                if ctx.rep_prefix == Some(0xF2) {
+                    // F2 0F 12: MOVDDUP xmm1, xmm2/m64
+                    insn::simd::movddup(self, ctx)
+                } else if ctx.rep_prefix == Some(0xF3) {
+                    // F3 0F 12: MOVSLDUP xmm1, xmm2/m128
+                    insn::simd::movsldup(self, ctx)
+                } else {
+                    // NP/66 0F 12: MOVLPS/MOVHLPS xmm, m64/xmm
+                    insn::simd::movlps_load(self, ctx)
+                }
+            }
             0x13 => insn::simd::movlps_store(self, ctx),
-            0x16 => insn::simd::movhps_load(self, ctx),
+            0x16 => {
+                if ctx.rep_prefix == Some(0xF3) {
+                    // F3 0F 16: MOVSHDUP xmm1, xmm2/m128
+                    insn::simd::movshdup(self, ctx)
+                } else {
+                    // NP/66 0F 16: MOVHPS/MOVLHPS xmm, m64/xmm
+                    insn::simd::movhps_load(self, ctx)
+                }
+            }
             0x17 => insn::simd::movhps_store(self, ctx),
             0x28 => insn::simd::movaps_load(self, ctx),
             0x29 => insn::simd::movaps_store(self, ctx),

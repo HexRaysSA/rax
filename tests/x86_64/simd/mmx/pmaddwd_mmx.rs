@@ -41,9 +41,6 @@ fn run_pmaddwd(mm0: u64, mm1: u64) -> u64 {
 }
 
 #[test]
-#[ignore = "BUG: emulator rejects NP 0F F5 (MMX PMADDWD), requires 66 prefix. \
-            Expected MM0 result 0x000000640000001F; actual: Emulator error \
-            'PMADDWD requires 66 prefix'."]
 fn test_pmaddwd_basic() {
     // MM0 words [2,3,100,-50], MM1 words [5,7,4,6]
     //   dword0 = 2*5 + 3*7 = 31
@@ -53,17 +50,12 @@ fn test_pmaddwd_basic() {
 }
 
 #[test]
-#[ignore = "BUG: emulator rejects NP 0F F5 (MMX PMADDWD), requires 66 prefix. \
-            Expected MM0 result 0x0; actual: Emulator error 'PMADDWD requires 66 prefix'."]
 fn test_pmaddwd_zero() {
     let r = run_pmaddwd(0x0000000000000000, 0x1234567890ABCDEF);
     assert_eq!(r, 0x0000000000000000, "PMADDWD with zero -> 0");
 }
 
 #[test]
-#[ignore = "BUG: emulator rejects NP 0F F5 (MMX PMADDWD), requires 66 prefix. \
-            Expected MM0 result 0x0000000280000000; actual: Emulator error \
-            'PMADDWD requires 66 prefix'."]
 fn test_pmaddwd_extreme() {
     // -32768 * -32768 + -32768 * -32768 = 2 * 2^30 = 2^31 = 0x80000000.
     // (This is the only input that overflows i32 for PMADDWD; result wraps to i32::MIN.)
@@ -73,9 +65,6 @@ fn test_pmaddwd_extreme() {
 }
 
 #[test]
-#[ignore = "BUG: emulator rejects NP 0F F5 (MMX PMADDWD), requires 66 prefix. \
-            Expected MM0 result 0xFFFFFFFEFFFFFFFE; actual: Emulator error \
-            'PMADDWD requires 66 prefix'."]
 fn test_pmaddwd_negative_products() {
     // MM0 [-1,-1,-1,-1], MM1 [1,1,1,1]
     //   dword0 = -1 + -1 = -2 = 0xFFFFFFFE

@@ -810,7 +810,7 @@ impl X86_64Vcpu {
                 let result =
                     self.pcmpxstrx(dst_lo, dst_hi, src_lo, src_hi, len1, len2, imm8, true)?;
                 self.regs.xmm[0][0] = result as u64;
-                self.regs.xmm[0][1] = 0;
+                self.regs.xmm[0][1] = (result >> 64) as u64;
                 self.regs.rip += ctx.cursor as u64;
                 Ok(None)
             }
@@ -864,7 +864,7 @@ impl X86_64Vcpu {
                 let result =
                     self.pcmpxstrx(dst_lo, dst_hi, src_lo, src_hi, len1, len2, imm8, true)?;
                 self.regs.xmm[0][0] = result as u64;
-                self.regs.xmm[0][1] = 0;
+                self.regs.xmm[0][1] = (result >> 64) as u64;
                 self.regs.rip += ctx.cursor as u64;
                 Ok(None)
             }
@@ -997,7 +997,7 @@ impl X86_64Vcpu {
         len2: i32,
         imm8: u8,
         return_mask: bool,
-    ) -> Result<u16> {
+    ) -> Result<u128> {
         let is_word = (imm8 & 0x01) != 0;
         let is_signed = (imm8 & 0x02) != 0;
         let agg_op = (imm8 >> 2) & 0x03;
@@ -1166,7 +1166,8 @@ impl X86_64Vcpu {
         if return_mask {
             // Return mask (for PCMPESTRM/PCMPISTRM)
             if output_sel != 0 {
-                // Expand to byte/word mask
+                // Expanded byte/word mask: each matching element becomes all-ones
+                // across the full 128-bit destination.
                 if is_word {
                     let mut result = 0u128;
                     for i in 0..8 {
@@ -1174,7 +1175,7 @@ impl X86_64Vcpu {
                             result |= 0xFFFFu128 << (i * 16);
                         }
                     }
-                    Ok(result as u16)
+                    Ok(result)
                 } else {
                     let mut result = 0u128;
                     for i in 0..16 {
@@ -1182,10 +1183,11 @@ impl X86_64Vcpu {
                             result |= 0xFFu128 << (i * 8);
                         }
                     }
-                    Ok(result as u16)
+                    Ok(result)
                 }
             } else {
-                Ok(int_res2)
+                // Bit mask: result is in the low bits, high bits zero.
+                Ok(int_res2 as u128)
             }
         } else {
             // Return index (for PCMPESTRI/PCMPISTRI)
@@ -1193,18 +1195,18 @@ impl X86_64Vcpu {
                 // MSB - find most significant set bit
                 for i in (0..num_elements as usize).rev() {
                     if int_res2 & (1 << i) != 0 {
-                        return Ok(i as u16);
+                        return Ok(i as u128);
                     }
                 }
-                Ok(num_elements as u16)
+                Ok(num_elements as u128)
             } else {
                 // LSB - find least significant set bit
                 for i in 0..num_elements as usize {
                     if int_res2 & (1 << i) != 0 {
-                        return Ok(i as u16);
+                        return Ok(i as u128);
                     }
                 }
-                Ok(num_elements as u16)
+                Ok(num_elements as u128)
             }
         }
     }

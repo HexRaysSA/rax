@@ -2670,13 +2670,6 @@ fn sse3_addsubps() {
 }
 
 #[test]
-#[ignore = "GENUINE DIVERGENCE: legacy-encoded MOVDDUP (F2 0F 12) is mis-decoded \
-as MOVLPS/MOVHLPS. dispatch/twobyte/dispatch/primary.rs maps opcode 0x12 \
-unconditionally to insn::simd::movlps_load without inspecting the mandatory \
-prefix, so F2 0F 12 (MOVDDUP), F3 0F 12 (MOVSLDUP) and F3 0F 16 (MOVSHDUP) all \
-behave like MOVLPS. Expected result.hi == result.lo == src.lo (KVM=[12.5,12.5]); \
-interp leaves the high lane untouched (=[12.5,99.0]). Note: the VEX form \
-(execute_vex_movddup) is handled correctly; only the legacy SSE3 encoding is broken."]
 fn sse3_movddup() {
     // MOVDDUP xmm0, xmm1 = F2 0F 12 C1. Duplicate the low f64 of the source.
     let a = [0u8; 16]; // dest, overwritten
