@@ -421,17 +421,44 @@ pub struct Mmu {
     /// Inline LAPIC for emulator (handles MMIO to 0xFEE00000)
     /// Uses RefCell for interior mutability since read_phys/write_phys take &self
     lapic: RefCell<InlineLapic>,
+    /// Cached host base pointer + length of the contiguous RAM region at GPA 0.
+    /// Lets read_phys/write_phys serve in-RAM accesses with a direct pointer copy,
+    /// skipping vm-memory's per-access region search + bounds-checked volatile copy.
+    /// Stored as usize (not a raw pointer) so Mmu remains Send.
+    ram_host_base: usize,
+    ram_len: u64,
 }
 
 impl Mmu {
     pub fn new(memory: Arc<GuestMemoryMmap>) -> Self {
+        // Cache the host pointer + length of the contiguous RAM region mapped at
+        // guest-physical 0 (rax allocates guest RAM as a single such region).
+        let (ram_host_base, ram_len) = {
+            use vm_memory::{Address, GuestMemory, GuestMemoryRegion};
+            memory
+                .iter()
+                .find(|r| r.start_addr().raw_value() == 0)
+                .map(|r| (r.as_ptr() as usize, r.len()))
+                .unwrap_or((0, 0))
+        };
         Mmu {
             memory,
             tlb: [TlbEntry::default(); TLB_SIZE],
             cached_cr3: 0,
             code_page_bitmap: Box::new([0u8; CODE_PAGE_BITMAP_SIZE]),
             lapic: RefCell::new(InlineLapic::new()),
+            ram_host_base,
+            ram_len,
         }
+    }
+
+    /// True when `[paddr, paddr+len)` lies entirely within the cached RAM region.
+    #[inline(always)]
+    fn in_ram(&self, paddr: u64, len: usize) -> bool {
+        self.ram_len != 0
+            && paddr
+                .checked_add(len as u64)
+                .map_or(false, |end| end <= self.ram_len)
     }
 
     /// Get the size of guest memory in bytes
@@ -895,6 +922,22 @@ impl Mmu {
             return Ok(());
         }
 
+        // Fast path: direct host-pointer copy for in-RAM physical addresses
+        // (LAPIC MMIO was already handled above).
+        if self.in_ram(paddr, buf.len()) {
+            // SAFETY: [paddr, paddr+len) is within the single contiguous RAM mmap
+            // region [0, ram_len); ram_host_base is that region's stable host base.
+            // `buf` is a caller-owned slice that never aliases guest memory.
+            unsafe {
+                std::ptr::copy_nonoverlapping(
+                    (self.ram_host_base + paddr as usize) as *const u8,
+                    buf.as_mut_ptr(),
+                    buf.len(),
+                );
+            }
+            return Ok(());
+        }
+
         self.memory
             .read_slice(buf, GuestAddress(paddr))
             .map_err(|e| Error::Emulator(format!("failed to read at {:#x}: {}", paddr, e)))
@@ -933,6 +976,22 @@ impl Mmu {
                 _ => return Ok(()),
             };
             self.lapic.borrow_mut().write(aligned_offset, value);
+            return Ok(());
+        }
+
+        // Fast path: direct host-pointer copy for in-RAM physical addresses
+        // (LAPIC MMIO was already handled above).
+        if self.in_ram(paddr, buf.len()) {
+            // SAFETY: [paddr, paddr+len) is within the single contiguous RAM mmap
+            // region [0, ram_len); ram_host_base is that region's stable host base.
+            // `buf` is a caller-owned slice that never aliases guest memory.
+            unsafe {
+                std::ptr::copy_nonoverlapping(
+                    buf.as_ptr(),
+                    (self.ram_host_base + paddr as usize) as *mut u8,
+                    buf.len(),
+                );
+            }
             return Ok(());
         }
 
