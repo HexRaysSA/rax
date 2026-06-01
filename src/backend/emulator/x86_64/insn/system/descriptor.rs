@@ -5,6 +5,7 @@ use crate::error::{Error, Result};
 
 use super::super::super::cpu::{InsnContext, X86_64Vcpu};
 use super::super::super::flags;
+use super::control_regs::{is_cpl0, raise_gp0};
 
 /// Group 6 - SLDT, STR, LLDT, LTR, VERR, VERW (0x0F 0x00)
 pub fn group6(vcpu: &mut X86_64Vcpu, ctx: &mut InsnContext) -> Result<Option<VcpuExit>> {
@@ -40,6 +41,10 @@ pub fn group6(vcpu: &mut X86_64Vcpu, ctx: &mut InsnContext) -> Result<Option<Vcp
         }
         // LLDT - Load Local Descriptor Table (0x0F 0x00 /2)
         2 => {
+            // Privileged: loading the LDTR requires CPL 0.
+            if !is_cpl0(vcpu) {
+                return raise_gp0(vcpu);
+            }
             let selector = if is_memory {
                 let (addr, extra) = vcpu.decode_modrm_addr(ctx, modrm_start)?;
                 ctx.cursor = modrm_start + 1 + extra;
@@ -53,6 +58,10 @@ pub fn group6(vcpu: &mut X86_64Vcpu, ctx: &mut InsnContext) -> Result<Option<Vcp
         }
         // LTR - Load Task Register (0x0F 0x00 /3)
         3 => {
+            // Privileged: loading the task register requires CPL 0.
+            if !is_cpl0(vcpu) {
+                return raise_gp0(vcpu);
+            }
             let selector = if is_memory {
                 let (addr, extra) = vcpu.decode_modrm_addr(ctx, modrm_start)?;
                 ctx.cursor = modrm_start + 1 + extra;

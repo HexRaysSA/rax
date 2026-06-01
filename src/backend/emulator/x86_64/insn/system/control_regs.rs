@@ -5,6 +5,38 @@ use crate::error::{Error, Result};
 
 use super::super::super::cpu::{InsnContext, X86_64Vcpu};
 
+/// Current Privilege Level of the executing code.
+///
+/// The CPL is the low two bits of the CS selector. In real mode (CR0.PE=0)
+/// there is no privilege concept and the processor effectively runs as ring 0;
+/// many rax test fixtures also leave CS unset (selector 0) while exercising
+/// privileged instructions, so a non-protected-mode vCPU must be treated as
+/// CPL 0 to avoid spurious faults.
+#[inline]
+pub(super) fn current_cpl(vcpu: &X86_64Vcpu) -> u8 {
+    // CR0.PE (bit 0) distinguishes protected mode from real mode.
+    if vcpu.sregs.cr0 & 1 == 0 {
+        return 0;
+    }
+    (vcpu.sregs.cs.selector & 0x3) as u8
+}
+
+/// Returns true if the current code is privileged (CPL == 0).
+#[inline]
+pub(super) fn is_cpl0(vcpu: &X86_64Vcpu) -> bool {
+    current_cpl(vcpu) == 0
+}
+
+/// Inject a #GP(0) (General Protection fault, vector 13, error code 0).
+///
+/// Exception delivery sets RIP to the fault handler, so callers MUST return
+/// without advancing RIP past the faulting instruction.
+#[inline]
+pub(super) fn raise_gp0(vcpu: &mut X86_64Vcpu) -> Result<Option<VcpuExit>> {
+    vcpu.inject_exception(13, Some(0))?;
+    Ok(None)
+}
+
 /// Group 7 - SGDT, SIDT, LGDT, LIDT, SMSW, LMSW, INVLPG, etc. (0x0F 0x01)
 /// Note: Register-form (mod=11) instructions like MONITOR, MWAIT, SWAPGS are
 /// handled in twobyte.rs dispatch before reaching this function.
@@ -50,6 +82,10 @@ pub fn group7(vcpu: &mut X86_64Vcpu, ctx: &mut InsnContext) -> Result<Option<Vcp
         }
         // LGDT m16&64
         2 => {
+            // Privileged: loading the GDTR requires CPL 0.
+            if !is_cpl0(vcpu) {
+                return raise_gp0(vcpu);
+            }
             if modrm >> 6 == 3 {
                 return Err(Error::Emulator(format!(
                     "unhandled 0F 01 modrm={:#04x} at RIP={:#x}",
@@ -67,6 +103,10 @@ pub fn group7(vcpu: &mut X86_64Vcpu, ctx: &mut InsnContext) -> Result<Option<Vcp
         }
         // LIDT m16&64
         3 => {
+            // Privileged: loading the IDTR requires CPL 0.
+            if !is_cpl0(vcpu) {
+                return raise_gp0(vcpu);
+            }
             if modrm >> 6 == 3 {
                 return Err(Error::Emulator(format!(
                     "unhandled 0F 01 modrm={:#04x} at RIP={:#x}",
@@ -148,6 +188,10 @@ pub fn clts(vcpu: &mut X86_64Vcpu, ctx: &mut InsnContext) -> Result<Option<VcpuE
 
 /// MOV r64, CRn (0x0F 0x20)
 pub fn mov_r_cr(vcpu: &mut X86_64Vcpu, ctx: &mut InsnContext) -> Result<Option<VcpuExit>> {
+    // Privileged: accessing control registers requires CPL 0.
+    if !is_cpl0(vcpu) {
+        return raise_gp0(vcpu);
+    }
     let modrm = ctx.consume_u8()?;
     let cr = (modrm >> 3) & 0x07;
     let rm = (modrm & 0x07) | ctx.rex_b();
@@ -165,6 +209,10 @@ pub fn mov_r_cr(vcpu: &mut X86_64Vcpu, ctx: &mut InsnContext) -> Result<Option<V
 
 /// MOV r64, DRn (0x0F 0x21)
 pub fn mov_r_dr(vcpu: &mut X86_64Vcpu, ctx: &mut InsnContext) -> Result<Option<VcpuExit>> {
+    // Privileged: accessing debug registers requires CPL 0.
+    if !is_cpl0(vcpu) {
+        return raise_gp0(vcpu);
+    }
     let modrm = ctx.consume_u8()?;
     let dr = (modrm >> 3) & 0x07;
     let rm = (modrm & 0x07) | ctx.rex_b();
@@ -198,6 +246,10 @@ pub fn mov_r_dr(vcpu: &mut X86_64Vcpu, ctx: &mut InsnContext) -> Result<Option<V
 
 /// MOV DRn, r64 (0x0F 0x23)
 pub fn mov_dr_r(vcpu: &mut X86_64Vcpu, ctx: &mut InsnContext) -> Result<Option<VcpuExit>> {
+    // Privileged: writing debug registers requires CPL 0.
+    if !is_cpl0(vcpu) {
+        return raise_gp0(vcpu);
+    }
     let modrm = ctx.consume_u8()?;
     let dr = (modrm >> 3) & 0x07;
     let rm = (modrm & 0x07) | ctx.rex_b();
@@ -231,6 +283,10 @@ pub fn mov_dr_r(vcpu: &mut X86_64Vcpu, ctx: &mut InsnContext) -> Result<Option<V
 
 /// MOV CRn, r64 (0x0F 0x22)
 pub fn mov_cr_r(vcpu: &mut X86_64Vcpu, ctx: &mut InsnContext) -> Result<Option<VcpuExit>> {
+    // Privileged: writing control registers requires CPL 0.
+    if !is_cpl0(vcpu) {
+        return raise_gp0(vcpu);
+    }
     let modrm = ctx.consume_u8()?;
     let cr = (modrm >> 3) & 0x07;
     let rm = (modrm & 0x07) | ctx.rex_b();

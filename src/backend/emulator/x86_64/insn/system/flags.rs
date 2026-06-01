@@ -5,10 +5,24 @@ use crate::error::Result;
 
 use super::super::super::cpu::{InsnContext, X86_64Vcpu};
 use super::super::super::flags;
+use super::control_regs::{current_cpl, raise_gp0};
+
+/// CLI/STI fault with #GP(0) when the current privilege level is numerically
+/// greater (less privileged) than the I/O privilege level (IOPL, bits 12-13 of
+/// RFLAGS). When CPL <= IOPL the instruction is permitted.
+#[inline]
+fn iopl_blocks(vcpu: &X86_64Vcpu) -> bool {
+    let iopl = ((vcpu.regs.rflags & flags::bits::IOPL_MASK) >> 12) as u8;
+    current_cpl(vcpu) > iopl
+}
 
 /// CLI - Clear Interrupt Flag (0xFA)
 pub fn cli(vcpu: &mut X86_64Vcpu, ctx: &mut InsnContext) -> Result<Option<VcpuExit>> {
     use super::super::super::cpu::log_if_transition;
+    // #GP(0) when CPL > IOPL (insufficient privilege to modify IF).
+    if iopl_blocks(vcpu) {
+        return raise_gp0(vcpu);
+    }
     let old_if = (vcpu.regs.rflags & flags::bits::IF) != 0;
     vcpu.regs.rflags &= !flags::bits::IF;
     log_if_transition(vcpu.regs.rip, old_if, false, "CLI");
@@ -19,6 +33,10 @@ pub fn cli(vcpu: &mut X86_64Vcpu, ctx: &mut InsnContext) -> Result<Option<VcpuEx
 /// STI - Set Interrupt Flag (0xFB)
 pub fn sti(vcpu: &mut X86_64Vcpu, ctx: &mut InsnContext) -> Result<Option<VcpuExit>> {
     use super::super::super::cpu::log_if_transition;
+    // #GP(0) when CPL > IOPL (insufficient privilege to modify IF).
+    if iopl_blocks(vcpu) {
+        return raise_gp0(vcpu);
+    }
     let old_if = (vcpu.regs.rflags & flags::bits::IF) != 0;
     vcpu.regs.rflags |= flags::bits::IF;
     log_if_transition(vcpu.regs.rip, old_if, true, "STI");

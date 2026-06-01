@@ -4,9 +4,14 @@ use crate::cpu::VcpuExit;
 use crate::error::Result;
 
 use super::super::super::cpu::{InsnContext, X86_64Vcpu};
+use super::control_regs::{is_cpl0, raise_gp0};
 
 /// WRMSR (0x0F 0x30)
 pub fn wrmsr(vcpu: &mut X86_64Vcpu, ctx: &mut InsnContext) -> Result<Option<VcpuExit>> {
+    // Privileged: WRMSR requires CPL 0.
+    if !is_cpl0(vcpu) {
+        return raise_gp0(vcpu);
+    }
     let ecx = vcpu.regs.rcx as u32;
     let value = ((vcpu.regs.rdx & 0xFFFF_FFFF) << 32) | (vcpu.regs.rax & 0xFFFF_FFFF);
 
@@ -45,6 +50,10 @@ pub fn wrmsr(vcpu: &mut X86_64Vcpu, ctx: &mut InsnContext) -> Result<Option<Vcpu
 
 /// RDMSR (0x0F 0x32)
 pub fn rdmsr(vcpu: &mut X86_64Vcpu, ctx: &mut InsnContext) -> Result<Option<VcpuExit>> {
+    // Privileged: RDMSR requires CPL 0.
+    if !is_cpl0(vcpu) {
+        return raise_gp0(vcpu);
+    }
     let ecx = vcpu.regs.rcx as u32;
 
     let value = match ecx {

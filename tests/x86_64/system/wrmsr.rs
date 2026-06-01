@@ -475,3 +475,155 @@ fn test_wrmsr_preserves_rax_rdx() {
     assert_eq!(regs.rax & 0xFFFFFFFF, 0x42, "RAX should be preserved");
     assert_eq!(regs.rdx & 0xFFFFFFFF, 0x99, "RDX should be preserved");
 }
+
+// ============================================================================
+// CPL / Privilege Enforcement Tests (#GP on privileged instructions at CPL 3)
+//
+// Privileged instructions (WRMSR/RDMSR, MOV CRx, LGDT/LIDT/LLDT/LTR, ...) must
+// raise #GP(0) when executed at CPL != 0. CLI/STI fault only when CPL > IOPL.
+//
+// Detection: setup_vm installs an IDT whose every vector points at an IRETQ
+// stub at INT_HANDLER_ADDR. We drop CPL to 3 (CS RPL=3), single-step the
+// faulting instruction, and verify RIP landed on the fault handler (i.e. the
+// #GP was delivered) rather than advancing past the instruction.
+// ============================================================================
+
+/// Drop the vCPU to ring 3 (CPL = 3) by setting the CS/SS selector RPL bits.
+/// Returns the vCPU ready to single-step the first instruction at CPL 3.
+fn make_cpl3(vcpu: &mut rax::backend::emulator::x86_64::X86_64Vcpu) {
+    let mut sregs = vcpu.get_sregs().unwrap();
+    sregs.cs.selector = 0x1B; // index 3, RPL 3
+    sregs.ss.selector = 0x1B;
+    sregs.cs.dpl = 3;
+    vcpu.set_sregs(&sregs).unwrap();
+}
+
+/// True if, after a single step, RIP has been redirected to the exception
+/// handler stub (meaning an exception such as #GP was delivered).
+fn faulted_to_handler(vcpu: &mut rax::backend::emulator::x86_64::X86_64Vcpu) -> bool {
+    let _ = vcpu.step();
+    vcpu.get_regs().unwrap().rip == INT_HANDLER_ADDR
+}
+
+#[test]
+fn test_wrmsr_cpl3_raises_gp() {
+    // WRMSR at CPL 3 must raise #GP(0).
+    let code = [
+        0x48, 0xC7, 0xC1, 0x00, 0x01, 0x00, 0x00, // MOV RCX, 0x100
+        0x0F, 0x30, // WRMSR
+        0xF4, // HLT
+    ];
+    let (mut vcpu, _) = setup_vm(&code, None);
+    // Pre-load RCX so the privilege check is the only thing that can fail,
+    // then drop to CPL 3 before executing WRMSR.
+    let mut regs = vcpu.get_regs().unwrap();
+    regs.rcx = 0x100;
+    regs.rip = 0x1000 + 7; // skip the MOV, point directly at WRMSR
+    vcpu.set_regs(&regs).unwrap();
+    make_cpl3(&mut vcpu);
+
+    assert!(
+        faulted_to_handler(&mut vcpu),
+        "WRMSR at CPL 3 should raise #GP and jump to the fault handler"
+    );
+}
+
+#[test]
+fn test_rdmsr_cpl3_raises_gp() {
+    // RDMSR at CPL 3 must raise #GP(0).
+    let code = [
+        0x0F, 0x32, // RDMSR
+        0xF4, // HLT
+    ];
+    let (mut vcpu, _) = setup_vm(&code, None);
+    make_cpl3(&mut vcpu);
+
+    assert!(
+        faulted_to_handler(&mut vcpu),
+        "RDMSR at CPL 3 should raise #GP and jump to the fault handler"
+    );
+}
+
+#[test]
+fn test_mov_cr0_cpl3_raises_gp() {
+    // MOV CR0, RAX at CPL 3 must raise #GP(0).
+    // 0F 22 C0 = MOV CR0, RAX
+    let code = [
+        0x0F, 0x22, 0xC0, // MOV CR0, RAX
+        0xF4, // HLT
+    ];
+    let (mut vcpu, _) = setup_vm(&code, None);
+    let cr0_before = vcpu.get_sregs().unwrap().cr0;
+    make_cpl3(&mut vcpu);
+
+    assert!(
+        faulted_to_handler(&mut vcpu),
+        "MOV CR0 at CPL 3 should raise #GP and jump to the fault handler"
+    );
+    // The write must not have taken effect.
+    assert_eq!(
+        vcpu.get_sregs().unwrap().cr0,
+        cr0_before,
+        "CR0 must be unchanged after a faulting MOV CR0 at CPL 3"
+    );
+}
+
+#[test]
+fn test_sti_cpl_gt_iopl_raises_gp() {
+    // STI with CPL (3) > IOPL (0) must raise #GP(0).
+    // 0xFB = STI
+    let code = [
+        0xFB, // STI
+        0xF4, // HLT
+    ];
+    let (mut vcpu, _) = setup_vm(&code, None);
+    // Ensure IOPL = 0 (default rflags has no IOPL bits set), then drop to CPL 3.
+    make_cpl3(&mut vcpu);
+
+    assert!(
+        faulted_to_handler(&mut vcpu),
+        "STI with CPL > IOPL should raise #GP and jump to the fault handler"
+    );
+}
+
+#[test]
+fn test_sti_cpl_le_iopl_allowed_at_cpl3() {
+    // STI with CPL (3) <= IOPL (3) must be permitted (no #GP).
+    // 0xFB = STI ; 0xF4 = HLT
+    let code = [0xFB, 0xF4];
+    let (mut vcpu, _) = setup_vm(&code, None);
+    // Set IOPL = 3 in RFLAGS (bits 12-13) so CPL 3 is allowed to modify IF.
+    let mut regs = vcpu.get_regs().unwrap();
+    regs.rflags |= 0x3000; // IOPL = 3
+    vcpu.set_regs(&regs).unwrap();
+    make_cpl3(&mut vcpu);
+
+    // Step STI - must NOT fault; RIP advances to the HLT (0x1001).
+    let _ = vcpu.step();
+    let rip = vcpu.get_regs().unwrap().rip;
+    assert_eq!(
+        rip, 0x1001,
+        "STI with CPL <= IOPL must execute and advance RIP, not fault (rip={:#x})",
+        rip
+    );
+    assert!(
+        vcpu.get_regs().unwrap().rflags & 0x200 != 0,
+        "STI should have set the IF flag"
+    );
+}
+
+#[test]
+fn test_wrmsr_cpl0_still_works() {
+    // Positive control: WRMSR at CPL 0 (default kernel mode) must succeed.
+    let code = [
+        0x48, 0xC7, 0xC1, 0x00, 0x01, 0x00, 0x00, // MOV RCX, 0x100
+        0x48, 0xC7, 0xC0, 0x01, 0x00, 0x00, 0x00, // MOV RAX, 1
+        0x48, 0xC7, 0xC2, 0x00, 0x00, 0x00, 0x00, // MOV RDX, 0
+        0x0F, 0x30, // WRMSR
+        0xF4, // HLT
+    ];
+    let (mut vcpu, _) = setup_vm(&code, None);
+    // setup_vm leaves CS selector 0x08 => CPL 0.
+    let regs = run_until_hlt(&mut vcpu).unwrap();
+    assert_eq!(regs.rcx, 0x100, "WRMSR at CPL 0 should run to HLT normally");
+}
