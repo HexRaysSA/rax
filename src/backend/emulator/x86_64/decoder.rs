@@ -219,6 +219,113 @@ mod tests {
         assert!(!rex2.r3);    // R3 cleared = register extension enabled
         assert!(!rex2.r4);    // R4 cleared = EGPR extension enabled
     }
+
+    // ---- 0x67 address-size override (ModR/M EA computation) ----
+
+    use std::sync::Arc;
+    use vm_memory::{GuestAddress, GuestMemoryMmap};
+
+    /// Build a minimal 64-bit vcpu (CS.L=1) for exercising decode_modrm_addr.
+    /// decode_modrm_addr only reads registers/sregs, so a tiny memory region is fine.
+    fn make_vcpu_64() -> X86_64Vcpu {
+        let mem = Arc::new(
+            GuestMemoryMmap::<()>::from_ranges(&[(GuestAddress(0), 0x10000)]).unwrap(),
+        );
+        let mut vcpu = X86_64Vcpu::new(0, mem);
+        vcpu.sregs.cs.l = true; // 64-bit mode
+        vcpu
+    }
+
+    /// Compute an effective address the way the decoder does at runtime.
+    /// `prefixes` are any legacy prefixes (e.g. 0x67); `modrm` is the ModR/M byte
+    /// plus any SIB/displacement bytes. A dummy opcode (0x8B) sits between them, as
+    /// in a real instruction, and decode_modrm_addr is invoked at the ModR/M offset.
+    fn ea(vcpu: &X86_64Vcpu, prefixes: &[u8], modrm: &[u8]) -> u64 {
+        use super::super::cpu::MAX_INSN_LEN;
+        let mut bytes = [0u8; MAX_INSN_LEN];
+        let mut len = 0;
+        for &b in prefixes {
+            bytes[len] = b;
+            len += 1;
+        }
+        bytes[len] = 0x8B; // dummy opcode (MOV r32, r/m32)
+        len += 1;
+        let modrm_offset = len;
+        for &b in modrm {
+            bytes[len] = b;
+            len += 1;
+        }
+        let ctx = Decoder::decode_prefixes(bytes, len, true).unwrap();
+        // After prefixes, cursor points at the opcode; ModR/M starts one byte later.
+        assert_eq!(ctx.cursor + 1, modrm_offset, "prefix scan / offset mismatch");
+        let (addr, _extra) = vcpu.decode_modrm_addr(&ctx, modrm_offset).unwrap();
+        addr
+    }
+
+    #[test]
+    fn test_addr67_reg_indirect_truncates_to_32_bits() {
+        // MOV r, [RBX] with 0x67: ModRM mod=00 reg=000 rm=011 (RBX) = 0x03.
+        let mut vcpu = make_vcpu_64();
+        // Low 32 bits = 0x2000, but a high bit is set above bit 31.
+        vcpu.regs.rbx = 0x1_0000_2000;
+
+        // Without override: full 64-bit register value is the EA.
+        assert_eq!(ea(&vcpu, &[], &[0x03]), 0x1_0000_2000);
+        // With 0x67: EA is truncated to 32 bits.
+        assert_eq!(ea(&vcpu, &[0x67], &[0x03]), 0x0000_2000);
+    }
+
+    #[test]
+    fn test_addr67_sib_base_index_scale_disp_truncates() {
+        // MOV r, [RBX + RCX*4 + 0x10] with 0x67:
+        //   ModRM mod=01 reg=000 rm=100(SIB) = 0x44
+        //   SIB   scale=01(*4? -> scale field 2) ... encode scale=2 (=*4): bits 7..6 = 10
+        //         index=001(RCX), base=011(RBX) -> (2<<6)|(1<<3)|3 = 0x8B
+        //   disp8 = 0x10
+        let mut vcpu = make_vcpu_64();
+        vcpu.regs.rbx = 0xFFFF_F000; // near top of 32-bit space
+        vcpu.regs.rcx = 0x0000_0500; // *4 = 0x1400
+
+        // 64-bit (no override): 0xFFFF_F000 + 0x1400 + 0x10 = 0x1_0000_0410
+        assert_eq!(
+            ea(&vcpu, &[], &[0x44, 0x8B, 0x10]),
+            0xFFFF_F000u64 + 0x1400 + 0x10
+        );
+        // With 0x67: same sum, then masked to 32 bits -> 0x0000_0410
+        assert_eq!(ea(&vcpu, &[0x67], &[0x44, 0x8B, 0x10]), 0x0000_0410);
+    }
+
+    #[test]
+    fn test_addr_plain_64bit_unaffected() {
+        // Plain 64-bit [base+index*scale+disp] must be byte-identical to before.
+        let mut vcpu = make_vcpu_64();
+        vcpu.regs.rax = 0x1234_5678_9000; // base RAX
+        vcpu.regs.rdx = 0x10; // index RDX
+        // [RAX + RDX*8 + 0x20]: ModRM mod=01 reg=000 rm=100 = 0x44
+        //   SIB scale=11(*8) index=010(RDX) base=000(RAX) = (3<<6)|(2<<3)|0 = 0xD0
+        //   disp8 = 0x20
+        let got = ea(&vcpu, &[], &[0x44, 0xD0, 0x20]);
+        assert_eq!(got, 0x1234_5678_9000u64 + 0x10 * 8 + 0x20);
+    }
+
+    #[test]
+    fn test_addr67_rip_relative_masks_to_32_bits() {
+        // RIP-relative [RIP+disp32]: ModRM mod=00 reg=000 rm=101 = 0x05.
+        // With 0x67 in 64-bit mode the EIP-relative result is masked to 32 bits.
+        let mut vcpu = make_vcpu_64();
+        vcpu.regs.rip = 0x1_0000_1000; // RIP with a bit above 31 set
+
+        // No prefix: opcode at offset 0, ModR/M at offset 1.
+        // rip_after = RIP + modrm_offset(1) + 1 (modrm) + 4 (disp32) = RIP + 6; disp32 = 0.
+        let no_override = ea(&vcpu, &[], &[0x05, 0x00, 0x00, 0x00, 0x00]);
+        assert!(no_override > 0xFFFF_FFFF, "64-bit RIP-rel should keep high bits");
+        assert_eq!(no_override, 0x1_0000_1000u64 + 6);
+
+        // With 0x67: opcode at offset 1, ModR/M at offset 2.
+        // rip_after = RIP + modrm_offset(2) + 1 + 4 = RIP + 7; disp32 = 0; masked to 32 bits.
+        let with_override = ea(&vcpu, &[0x67], &[0x05, 0x00, 0x00, 0x00, 0x00]);
+        assert_eq!(with_override, (0x1_0000_1000u64 + 7) & 0xFFFF_FFFF);
+    }
 }
 
 impl X86_64Vcpu {
@@ -260,6 +367,22 @@ impl X86_64Vcpu {
             ));
         }
 
+        // Address-size override (0x67) handling.
+        //
+        // In 64-bit mode (CS.L=1), the default address size is 64-bit and 0x67
+        // selects 32-bit addressing: base/index registers are read as 32-bit
+        // values and the final effective address is truncated to 32 bits before
+        // the segment base is applied. With no override, behavior is unchanged
+        // (64-bit register reads, no truncation).
+        //
+        // The 16-bit addressing case (legacy/compat 32-bit mode with 0x67) uses a
+        // different ModR/M encoding entirely and is DEFERRED; in that mode we fall
+        // back to the existing 32-bit ModR/M interpretation.
+        let addr_size_32 = ctx.address_size_override && self.sregs.cs.l;
+        // Register size to use for base/index reads: 4 (32-bit) when overridden in
+        // 64-bit mode, otherwise 8 (64-bit, the default).
+        let reg_size: u8 = if addr_size_32 { 4 } else { 8 };
+
         let mut addr: u64;
 
         if rm_field == 4 {
@@ -278,12 +401,12 @@ impl X86_64Vcpu {
                 // No base, disp32 follows
                 0
             } else {
-                self.get_reg(base_reg, 8)
+                self.get_reg(base_reg, reg_size)
             };
 
             // Add scaled index (index=4 means no index)
             if index != 4 {
-                addr = addr.wrapping_add(self.get_reg(index, 8).wrapping_mul(scale));
+                addr = addr.wrapping_add(self.get_reg(index, reg_size).wrapping_mul(scale));
             }
 
             // Handle displacement for base=5, mod=0 case
@@ -316,6 +439,10 @@ impl X86_64Vcpu {
                     + 1
                     + 4
                     + ctx.rip_relative_offset as i64;
+                // With 0x67 in 64-bit mode, RIP-relative addressing uses 32-bit
+                // EIP-relative semantics: the computed address is truncated to 32
+                // bits (per Intel SDM Vol. 2, ModR/M with address-size override).
+                // The shared truncation below applies the mask for this case too.
                 addr = rip_after.wrapping_add(disp) as u64;
             } else {
                 // Compatibility/legacy mode: absolute [disp32]
@@ -323,7 +450,7 @@ impl X86_64Vcpu {
             }
         } else {
             // Regular register indirect
-            addr = self.get_reg(rm, 8);
+            addr = self.get_reg(rm, reg_size);
         }
 
         // Handle displacement
@@ -353,6 +480,14 @@ impl X86_64Vcpu {
                 addr = (addr as i64).wrapping_add(disp) as u64;
             }
             _ => {}
+        }
+
+        // Truncate the effective address to 32 bits for the 64-bit-mode 0x67
+        // case, BEFORE applying the segment base. The base/index were already
+        // read as 32-bit values; this masks any displacement carry-out so the
+        // computed EA wraps within the 32-bit address space as hardware does.
+        if addr_size_32 {
+            addr &= 0xFFFF_FFFF;
         }
 
         // Apply segment override (in 64-bit mode, only FS and GS have non-zero bases)
