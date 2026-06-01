@@ -1,7 +1,9 @@
 pub mod bus;
 pub mod debug;
+pub mod fw_cfg;
 pub mod hpet;
 pub mod i8042;
+pub mod ioapic;
 pub mod lapic;
 pub mod map;
 pub mod pci;

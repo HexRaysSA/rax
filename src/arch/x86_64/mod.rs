@@ -99,10 +99,12 @@ use crate::arch::{Arch, BootInfo, X86_64BootInfo};
 use crate::backend::kvm::KvmVm;
 use crate::config::VmConfig;
 use crate::cpu::{CpuState, DescriptorTable, Registers, Segment, SystemRegisters, X86_64CpuState};
-use crate::devices::bus::{IoBus, IoRange, MmioBus};
+use crate::devices::bus::{IoBus, IoRange, MmioBus, MmioRange};
 use crate::devices::debug::DebugPort;
 use crate::devices::map::{X86_DEBUG_PORT_BASE, X86_DEBUG_PORT_LEN};
 use crate::devices::pci::{PciStub, PCI_CONFIG_ADDRESS};
+use crate::devices::fw_cfg::FwCfg;
+use crate::devices::ioapic::IoApic;
 use crate::devices::rtc::{RtcStub, RTC_ADDRESS};
 use crate::error::{Error, Result};
 use crate::memory::{align_down, PAGE_SIZE};
@@ -586,7 +588,7 @@ impl Arch for X86_64Arch {
         "x86_64"
     }
 
-    fn setup_devices(&self, io_bus: &mut IoBus, _mmio_bus: &mut MmioBus) -> Result<()> {
+    fn setup_devices(&self, io_bus: &mut IoBus, mmio_bus: &mut MmioBus) -> Result<()> {
         // PCI configuration space (stub - returns no devices)
         io_bus.register(
             IoRange {
@@ -611,6 +613,21 @@ impl Arch for X86_64Arch {
                 len: X86_DEBUG_PORT_LEN,
             },
             Box::new(DebugPort::new()),
+        )?;
+
+        // QEMU fw_cfg (selector 0x510, data 0x511) - reachable via PIO exits.
+        io_bus.register(
+            IoRange { base: 0x510, len: 2 },
+            Box::new(FwCfg::new()),
+        )?;
+
+        // I/O APIC MMIO window at 0xFEC00000 (24 redirection entries).
+        mmio_bus.register(
+            MmioRange {
+                base: 0xFEC0_0000,
+                len: 0x20,
+            },
+            Box::new(IoApic::new()),
         )?;
 
         Ok(())
