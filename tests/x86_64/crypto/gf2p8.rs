@@ -544,7 +544,6 @@ const GF2P8MULB_B: u128 = 0x02020202020202020202020202020202;
 const GF2P8MULB_RESULT: u128 = 0x1e1c1a18161412100e0c0a0806040200;
 
 #[test]
-#[ignore = "GFNI GF2P8MULB unimplemented: 66 0F 38 CF hits the escape_38 `_ => Err` arm"]
 fn kat_gf2p8mulb_intel_vector() {
     // GF2P8MULB XMM0, XMM1  (66 0F 38 CF C1)
     let code = [0x66, 0x0f, 0x38, 0xcf, 0xc1, 0xf4];
@@ -562,7 +561,6 @@ fn kat_gf2p8mulb_intel_vector() {
 }
 
 #[test]
-#[ignore = "GFNI GF2P8MULB unimplemented: 66 0F 38 CF hits the escape_38 `_ => Err` arm"]
 fn kat_gf2p8mulb_inverses() {
     // 0x53 * 0xCA = 0x01 in GF(2^8) (FIPS-197 multiplicative inverses).
     let code = [0x66, 0x0f, 0x38, 0xcf, 0xc1, 0xf4];
@@ -579,11 +577,13 @@ fn kat_gf2p8mulb_inverses() {
 // (rows 0x80,0x40,0x20,0x10,0x08,0x04,0x02,0x01 per qword) and imm8 = 0, the
 // transform is the identity, so output == input. With imm8 = 0xFF every output
 // byte is complemented.
-const GF2P8_IDENT_MATRIX: u128 = 0x8040201008040201_8040201008040201;
+// True GFNI identity matrix per qword (qword 0x0102040810204080): each output
+// bit i selects matrix.byte[7-i] = 1<<i, so the transform is the identity.
+// (0x8040201008040201 is the bit-REVERSAL matrix, not identity.)
+const GF2P8_IDENT_MATRIX: u128 = 0x0102040810204080_0102040810204080;
 const GF2P8_AFFINE_X: u128 = 0x0011223344556677_8899aabbccddeeff;
 
 #[test]
-#[ignore = "GFNI GF2P8AFFINEQB unimplemented: 66 0F 3A CE hits the escape_3a `_ => Err` arm"]
 fn kat_gf2p8affineqb_identity_imm0() {
     // GF2P8AFFINEQB XMM0, XMM1, 0x00  (66 0F 3A CE C1 00)
     let code = [0x66, 0x0f, 0x3a, 0xce, 0xc1, 0x00, 0xf4];
@@ -600,7 +600,6 @@ fn kat_gf2p8affineqb_identity_imm0() {
 }
 
 #[test]
-#[ignore = "GFNI GF2P8AFFINEQB unimplemented: 66 0F 3A CE hits the escape_3a `_ => Err` arm"]
 fn kat_gf2p8affineqb_identity_immff() {
     // imm8 = 0xFF complements every output byte: output == !x.
     let code = [0x66, 0x0f, 0x3a, 0xce, 0xc1, 0xff, 0xf4];

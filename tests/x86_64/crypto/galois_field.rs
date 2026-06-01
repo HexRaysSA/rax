@@ -189,7 +189,6 @@ fn test_encodekey256_edx_ebx() {
 // expected results and will validate the implementation once GFNI is added.
 
 #[test]
-#[ignore = "GFNI GF2P8MULB unimplemented: 66 0F 38 CF returns an emulator error"]
 fn kat_gf2p8mulb_fips_57x83() {
     // FIPS-197 §4.2 worked example: 0x57 * 0x83 = 0xC1 in GF(2^8).
     let code = [0x66, 0x0f, 0x38, 0xcf, 0xc1, 0xf4];
@@ -201,7 +200,6 @@ fn kat_gf2p8mulb_fips_57x83() {
 }
 
 #[test]
-#[ignore = "GFNI GF2P8MULB unimplemented: 66 0F 38 CF returns an emulator error"]
 fn kat_gf2p8mulb_by_two() {
     // Multiply each lane by 0x02 (xtime): byte i = 2*i reduced by 0x11B.
     // input  bytes 00..0f  -> u128 LE 0f0e..0100
@@ -215,15 +213,15 @@ fn kat_gf2p8mulb_by_two() {
 }
 
 #[test]
-#[ignore = "GFNI GF2P8AFFINEQB unimplemented: 66 0F 3A CE returns an emulator error"]
 fn kat_gf2p8affineqb_identity() {
-    // Bit-reflected identity matrix per qword (0x80,0x40,..,0x01) + imm8=0 is
-    // the identity transform: output == input.
+    // GFNI identity matrix per qword (qword 0x0102040810204080) + imm8=0 is the
+    // identity transform: output == input. (0x8040201008040201 would bit-REVERSE
+    // each byte, not preserve it.)
     let code = [0x66, 0x0f, 0x3a, 0xce, 0xc1, 0x00, 0xf4];
     let x: u128 = 0x0011223344556677_8899aabbccddeeff;
     let (mut vcpu, mem) = setup_vm(&code, None);
     set_xmm(&mem, &mut vcpu, 0, x);
-    set_xmm(&mem, &mut vcpu, 1, 0x8040201008040201_8040201008040201);
+    set_xmm(&mem, &mut vcpu, 1, 0x0102040810204080_0102040810204080);
     let regs = run_until_hlt(&mut vcpu).unwrap();
     assert_eq!(get_xmm(&regs, 0), x);
 }

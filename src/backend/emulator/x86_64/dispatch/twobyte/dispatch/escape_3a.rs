@@ -943,6 +943,10 @@ impl X86_64Vcpu {
                 Ok(None)
             }
 
+            // GFNI affine transforms (66 0F 3A CE/CF /r ib)
+            0xCE => insn::simd::gf2p8affineqb(self, ctx),
+            0xCF => insn::simd::gf2p8affineinvqb(self, ctx),
+
             _ => Err(Error::Emulator(format!(
                 "unimplemented 0x0F 0x3A opcode: {:#04x} at RIP={:#x}",
                 opcode3, self.regs.rip

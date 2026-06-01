@@ -77,8 +77,9 @@ pub fn cpuid(vcpu: &mut X86_64Vcpu, ctx: &mut InsnContext) -> Result<Option<Vcpu
             if subleaf == 0 {
                 // Note: AVX2 NOT advertised - we don't implement XSAVE properly
                 let ebx = 1u32 << 20; // SMAP
+                let ecx = 1u32 << 8; // GFNI (GF2P8MULB / GF2P8AFFINE[INV]QB)
                 let edx = 1u32 << 14; // SERIALIZE
-                (0, ebx, 0, edx)
+                (0, ebx, ecx, edx)
             } else {
                 (0, 0, 0, 0)
             }

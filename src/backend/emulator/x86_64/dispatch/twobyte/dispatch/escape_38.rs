@@ -72,6 +72,9 @@ impl X86_64Vcpu {
             0x40 => insn::simd::pmulld(self, ctx),
             0x41 => insn::simd::phminposuw(self, ctx),
 
+            // GFNI: GF2P8MULB xmm1, xmm2/m128 (66 0F 38 CF)
+            0xCF => insn::simd::gf2p8mulb(self, ctx),
+
             // ===== AES-NI Instructions (0xDB-0xDF) =====
 
             // AESIMC - AES Inverse Mix Columns (0xDB)
