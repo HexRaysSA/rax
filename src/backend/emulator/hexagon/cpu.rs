@@ -73,7 +73,7 @@ struct PacketState {
     pc: u32,
     immext: Option<u32>,
     new_r: [Option<u32>; 32],
-    new_p: [Option<bool>; 4],
+    new_p: [Option<u8>; 4],
     branch: Option<BranchTarget>,
     inst_index: usize,
     first_parse: Option<u32>,
@@ -268,7 +268,7 @@ impl HexagonVcpu {
         }
     }
 
-    fn commit_packet(&mut self, new_r: &[Option<u32>; 32], new_p: &[Option<bool>; 4]) {
+    fn commit_packet(&mut self, new_r: &[Option<u32>; 32], new_p: &[Option<u8>; 4]) {
         for (idx, val) in new_r.iter().enumerate() {
             if let Some(value) = val {
                 self.regs.r[idx] = *value;
@@ -281,16 +281,18 @@ impl HexagonVcpu {
         }
     }
 
-    fn eval_pred(&self, cond: PredCond, new_p: &[Option<bool>; 4]) -> bool {
+    fn eval_pred(&self, cond: PredCond, new_p: &[Option<u8>; 4]) -> bool {
         let val = if cond.pred_new {
             new_p[cond.pred as usize].unwrap_or(self.regs.p[cond.pred as usize])
         } else {
             self.regs.p[cond.pred as usize]
         };
+        // Conditional execution tests only the least-significant bit.
+        let lsb = val & 1 != 0;
         if cond.sense {
-            val
+            lsb
         } else {
-            !val
+            !lsb
         }
     }
 
@@ -316,7 +318,7 @@ impl HexagonVcpu {
         insn: DecodedInsn,
         packet_pc: u32,
         new_r: &mut [Option<u32>; 32],
-        new_p: &mut [Option<bool>; 4],
+        new_p: &mut [Option<u8>; 4],
         branch: &mut Option<BranchTarget>,
     ) -> Result<Option<VcpuExit>> {
         match insn {
@@ -736,7 +738,7 @@ impl HexagonVcpu {
                     CmpKind::Lte => (a as i32) <= (b as i32),
                     CmpKind::Lteu => a <= b,
                 };
-                new_p[pred as usize] = Some(result);
+                new_p[pred as usize] = Some(if result { 0xff } else { 0 });
             }
             DecodedInsn::CmpImm {
                 pred,
@@ -767,7 +769,7 @@ impl HexagonVcpu {
                         CmpKind::Lteu => a <= b as u32,
                     }
                 };
-                new_p[pred as usize] = Some(result);
+                new_p[pred as usize] = Some(if result { 0xff } else { 0 });
             }
             DecodedInsn::Mul { dst, src1, src2 } => {
                 let val = self.regs.r[src1 as usize].wrapping_mul(self.regs.r[src2 as usize]);
@@ -910,7 +912,7 @@ impl HexagonVcpu {
         pc: u32,
         packet_pc: u32,
         new_r: [Option<u32>; 32],
-        new_p: [Option<bool>; 4],
+        new_p: [Option<u8>; 4],
         branch: Option<BranchTarget>,
         first_parse: Option<u32>,
         second_parse: Option<u32>,
@@ -949,7 +951,7 @@ impl HexagonVcpu {
         pc: u32,
         immext: Option<u32>,
         new_r: [Option<u32>; 32],
-        new_p: [Option<bool>; 4],
+        new_p: [Option<u8>; 4],
         branch: Option<BranchTarget>,
         inst_index: usize,
         first_parse: Option<u32>,

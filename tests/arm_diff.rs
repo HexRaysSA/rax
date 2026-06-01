@@ -680,6 +680,245 @@ fn diff_fp_ccmp() {
     run_family("fp_ccmp", cases, 6, 0x3001);
 }
 
+/// Advanced SIMD shift-by-immediate: `0 Q U 011110 immh immb opcode 1 Rn Rd`.
+fn enc_shift_imm(q: u32, u: u32, opcode: u32, immhimmb: u32) -> u32 {
+    let immh = (immhimmb >> 3) & 0xF;
+    let immb = immhimmb & 0x7;
+    (q << 30) | (u << 29) | (0b011110 << 23) | (immh << 19) | (immb << 16)
+        | (opcode << 11) | (1 << 10) | (RN << 5) | RD
+}
+
+/// Integer shift-by-immediate cases: same-size, widening and narrowing forms
+/// across all element sizes and the full range of valid shift amounts.
+fn shift_imm_int_cases() -> Vec<(String, u32)> {
+    let mut v = Vec::new();
+    // Same-size ops: (opcode, U-options, is_left)
+    let same: &[(u32, &[u32], bool)] = &[
+        (0b00000, &[0, 1], false), // SSHR/USHR
+        (0b00010, &[0, 1], false), // SSRA/USRA
+        (0b00100, &[0, 1], false), // SRSHR/URSHR
+        (0b00110, &[0, 1], false), // SRSRA/URSRA
+        (0b01000, &[1], false),    // SRI
+        (0b01010, &[0, 1], true),  // SHL / SLI
+        (0b01100, &[1], true),     // SQSHLU
+        (0b01110, &[0, 1], true),  // SQSHL / UQSHL
+    ];
+    for &(opcode, us, is_left) in same {
+        for &bits in &[8u32, 16, 32, 64] {
+            for &u in us {
+                for q in 0..2 {
+                    if bits == 64 && q == 0 {
+                        continue; // 1D not valid
+                    }
+                    let shifts: Vec<u32> = if is_left {
+                        (0..bits).collect()
+                    } else {
+                        (1..=bits).collect()
+                    };
+                    for sh in shifts {
+                        let immhimmb = if is_left { bits + sh } else { 2 * bits - sh };
+                        v.push((
+                            format!("sh same op{opcode:05b} u{u} b{bits} q{q} #{sh}"),
+                            enc_shift_imm(q, u, opcode, immhimmb),
+                        ));
+                    }
+                }
+            }
+        }
+    }
+    // Widening SSHLL/USHLL (opcode 10100), source size 8/16/32.
+    for &bits in &[8u32, 16, 32] {
+        for u in 0..2 {
+            for q in 0..2 {
+                for sh in 0..bits {
+                    let immhimmb = bits + sh;
+                    v.push((
+                        format!("sshll u{u} b{bits} q{q} #{sh}"),
+                        enc_shift_imm(q, u, 0b10100, immhimmb),
+                    ));
+                }
+            }
+        }
+    }
+    // Narrowing (opcode 10000/10001/10010/10011), dest size 8/16/32.
+    for &opcode in &[0b10000u32, 0b10001, 0b10010, 0b10011] {
+        for &bits in &[8u32, 16, 32] {
+            for u in 0..2 {
+                for q in 0..2 {
+                    for sh in 1..=bits {
+                        let immhimmb = 2 * bits - sh;
+                        v.push((
+                            format!("narrow op{opcode:05b} u{u} b{bits} q{q} #{sh}"),
+                            enc_shift_imm(q, u, opcode, immhimmb),
+                        ));
+                    }
+                }
+            }
+        }
+    }
+    v
+}
+
+#[test]
+fn diff_simd_shift_imm() {
+    run_family("simd_shift_imm", shift_imm_int_cases(), 6, 0x4001);
+}
+
+/// Fixed-point convert (SCVTF/UCVTF/FCVTZS/FCVTZU), clean finite inputs.
+#[test]
+fn diff_simd_shift_fixedpoint() {
+    let mut cases: Vec<(String, u32)> = Vec::new();
+    for &opcode in &[0b11100u32, 0b11111] {
+        for &bits in &[32u32, 64] {
+            for u in 0..2 {
+                for q in 0..2 {
+                    if bits == 64 && q == 0 {
+                        continue;
+                    }
+                    for &fbits in &[1u32, bits / 2, bits - 1] {
+                        let immhimmb = 2 * bits - fbits;
+                        cases.push((
+                            format!("fxp op{opcode:05b} u{u} b{bits} q{q} f{fbits}"),
+                            enc_shift_imm(q, u, opcode, immhimmb),
+                        ));
+                    }
+                }
+            }
+        }
+    }
+    // Inputs: for FCVTZS/U the source lanes are floats; for SCVTF/UCVTF they are
+    // integers. Use small finite magnitudes so results are exact / unambiguous.
+    let mut rng = Rng::new(0x4002);
+    let mut batch: Vec<(String, u32, ArmState)> = Vec::new();
+    for (label, insn) in &cases {
+        let is_fcvt = label.contains("11111");
+        let bits64 = label.contains("b64");
+        for _ in 0..16 {
+            let mut st = ArmState::zeroed();
+            let mut packed: u128 = 0;
+            for lane in 0..4 {
+                let word: u64 = if is_fcvt {
+                    // small finite float values
+                    let val = ((rng.next() % 41) as i64 - 20) as f64 * 0.25;
+                    if bits64 { val.to_bits() } else { (val as f32).to_bits() as u64 }
+                } else {
+                    // small signed integers
+                    ((rng.next() % 4001) as i64 - 2000) as u64
+                };
+                if bits64 {
+                    packed |= (word as u128) << (64 * lane.min(1));
+                    if lane == 1 { break; }
+                } else {
+                    packed |= ((word as u32) as u128) << (32 * lane);
+                }
+            }
+            st.set_vreg(1, packed as u64, (packed >> 64) as u64);
+            batch.push((label.clone(), *insn, st));
+        }
+    }
+    run_batch("simd_shift_fixedpoint", batch);
+}
+
+/// Advanced SIMD vector x indexed element: `0 Q U 01111 size L M Rm opcode H 0 Rn Rd`.
+fn enc_indexed(q: u32, u: u32, size: u32, opcode: u32, vm: u32, index: u32) -> u32 {
+    let (rm, mbit, lbit, hbit) = match size {
+        0b01 => (vm & 0xF, index & 1, (index >> 1) & 1, (index >> 2) & 1),
+        0b10 => (vm & 0xF, (vm >> 4) & 1, index & 1, (index >> 1) & 1),
+        0b11 => (vm & 0xF, (vm >> 4) & 1, 0, index & 1),
+        _ => (0, 0, 0, 0),
+    };
+    (q << 30) | (u << 29) | (0b01111 << 24) | (size << 22) | (lbit << 21) | (mbit << 20)
+        | (rm << 16) | (opcode << 12) | (hbit << 11) | (RN << 5) | RD
+}
+
+#[test]
+fn diff_simd_indexed_int() {
+    // (U, opcode) for the integer indexed ops; widening forms produce 2x results.
+    let ops: &[(u32, u32, &str)] = &[
+        (0, 0b1000, "mul"),
+        (1, 0b0000, "mla"),
+        (1, 0b0100, "mls"),
+        (0, 0b1100, "sqdmulh"),
+        (0, 0b1101, "sqrdmulh"),
+        (1, 0b1101, "sqrdmlah"),
+        (1, 0b1111, "sqrdmlsh"),
+        (0, 0b0010, "smlal"),
+        (1, 0b0010, "umlal"),
+        (0, 0b0110, "smlsl"),
+        (1, 0b0110, "umlsl"),
+        (0, 0b1010, "smull"),
+        (1, 0b1010, "umull"),
+        (0, 0b0011, "sqdmlal"),
+        (0, 0b0111, "sqdmlsl"),
+        (0, 0b1011, "sqdmull"),
+    ];
+    let mut cases: Vec<(String, u32)> = Vec::new();
+    for &(u, opcode, name) in ops {
+        for &size in &[0b01u32, 0b10] {
+            let max_index = if size == 0b01 { 8 } else { 4 };
+            for q in 0..2 {
+                for &index in &[0u32, max_index - 1] {
+                    cases.push((
+                        format!("{name} sz{size} q{q} idx{index}"),
+                        enc_indexed(q, u, size, opcode, 2, index),
+                    ));
+                }
+            }
+        }
+    }
+    run_family("simd_indexed_int", cases, 8, 0x5001);
+}
+
+#[test]
+fn diff_simd_indexed_fp() {
+    let ops: &[(u32, u32, &str)] = &[
+        (0, 0b1001, "fmul"),
+        (0, 0b0001, "fmla"),
+        (0, 0b0101, "fmls"),
+        (1, 0b1001, "fmulx"),
+    ];
+    let mut cases: Vec<(String, u32)> = Vec::new();
+    for &(u, opcode, name) in ops {
+        // size 10 = f32 (index 0..3), size 11 = f64 (index 0..1, Q must be 1)
+        for &(size, qs, maxidx) in &[(0b10u32, &[0u32, 1][..], 4u32), (0b11u32, &[1u32][..], 2)] {
+            for &q in qs {
+                for index in 0..maxidx {
+                    cases.push((
+                        format!("{name} sz{size} q{q} idx{index}"),
+                        enc_indexed(q, u, size, opcode, 2, index),
+                    ));
+                }
+            }
+        }
+    }
+    // Clean finite FP inputs in v1 (Rn), v2 (Rm), v0 (Rd accumulator).
+    let mut rng = Rng::new(0x5002);
+    let mut batch: Vec<(String, u32, ArmState)> = Vec::new();
+    for (label, insn) in &cases {
+        let f64op = label.contains("sz11");
+        for _ in 0..16 {
+            let mut st = ArmState::zeroed();
+            for r in [0usize, 1, 2] {
+                let mut packed: u128 = 0;
+                if f64op {
+                    for lane in 0..2 {
+                        let val = ((rng.next() % 41) as i64 - 20) as f64 * 0.5;
+                        packed |= (val.to_bits() as u128) << (64 * lane);
+                    }
+                } else {
+                    for lane in 0..4 {
+                        let val = ((rng.next() % 41) as i64 - 20) as f32 * 0.5;
+                        packed |= (val.to_bits() as u128) << (32 * lane);
+                    }
+                }
+                st.set_vreg(r, packed as u64, (packed >> 64) as u64);
+            }
+            batch.push((label.clone(), *insn, st));
+        }
+    }
+    run_batch("simd_indexed_fp", batch);
+}
+
 /// FCSEL: scalar FP conditional select. Output is a bit-exact register copy.
 #[test]
 fn diff_fp_csel() {

@@ -1776,10 +1776,16 @@ impl AArch64Cpu {
             return self.exec_simd_across_lanes(insn);
         }
 
+        // Advanced SIMD vector x indexed element
+        // Encoding: 0_Q_U_01111_size_L_M_Rm_opcode_H_0_Rn_Rd  (bit10 = 0)
+        if (op_bits == 0b01111 || op_bits == 0b11111) && (insn >> 10) & 1 == 0 {
+            return self.exec_simd_indexed(insn);
+        }
+
         // Advanced SIMD shift by immediate
         // Encoding: 0_Q_U_0_1111_0_immh_immb_opcode_1_Rn_Rd
-        // bits[31:29] = 0 Q U, bits[28:23] = 0 1111 0
-        if (insn >> 23) & 0x3F == 0b011110 {
+        // bits[31:29] = 0 Q U, bits[28:23] = 0 1111 0, bit[10] = 1
+        if (insn >> 23) & 0x3F == 0b011110 && (insn >> 10) & 1 == 1 {
             return self.exec_simd_shift_imm(insn);
         }
 
@@ -2530,92 +2536,341 @@ impl AArch64Cpu {
         let opcode = (insn >> 11) & 0x1F;
         let rn = ((insn >> 5) & 0x1F) as usize;
         let rd = (insn & 0x1F) as usize;
+        let scalar = ((insn >> 24) & 0x1F) == 0b11110;
 
-        // Determine element size from immh
-        let (esize, shift) = if immh & 0b1000 != 0 {
-            (8, ((immh << 3) | immb) as usize)
+        // immh==0 belongs to the modified-immediate / other encoding.
+        if immh == 0 {
+            return Err(ArmError::UndefinedInstruction(insn));
+        }
+        let size_idx = if immh & 0b1000 != 0 {
+            3
         } else if immh & 0b0100 != 0 {
-            (4, ((immh << 3) | immb) as usize)
+            2
         } else if immh & 0b0010 != 0 {
-            (2, ((immh << 3) | immb) as usize)
-        } else if immh & 0b0001 != 0 {
-            (1, ((immh << 3) | immb) as usize)
+            1
         } else {
-            return Ok(CpuExit::Undefined(insn));
+            0
         };
+        let bits = 8u32 << size_idx; // element size the shift operates on
+        let immhimmb = ((immh << 3) | immb) as u32;
 
-        let datasize = if q == 1 { 16 } else { 8 };
-        let elements = datasize / esize;
-
-        let src = self.v[rn].to_le_bytes();
-        let mut dst = [0u8; 16];
-
-        for e in 0..elements {
-            let offset = e * esize;
-
-            match esize {
-                1 => {
-                    let val = src[offset];
-                    let result = match (u, opcode) {
-                        (0, 0b00000) => val >> (shift.min(7) as u32), // SSHR
-                        (1, 0b00000) => val >> (shift.min(7) as u32), // USHR
-                        (0, 0b01010) => val << (shift.min(7) as u32), // SHL
-                        (1, 0b01010) => val << (shift.min(7) as u32), // SHL
-                        _ => val,
-                    };
-                    dst[offset] = result;
+        match opcode {
+            // ---- Same element-size shifts ----
+            0b00000 | 0b00010 | 0b00100 | 0b00110 | 0b01000 | 0b01010 | 0b01100 | 0b01110 => {
+                // A few opcode slots are only allocated for one value of U.
+                let valid = match opcode {
+                    0b01000 => u == 1, // SRI (U==1 only)
+                    0b01100 => u == 1, // SQSHLU (U==1 only)
+                    _ => true,
+                };
+                if !valid {
+                    return Err(ArmError::UndefinedInstruction(insn));
                 }
-                2 => {
-                    let val = u16::from_le_bytes([src[offset], src[offset + 1]]);
-                    let result = match (u, opcode) {
-                        (0, 0b00000) => val >> (shift.min(15) as u32),
-                        (1, 0b00000) => val >> (shift.min(15) as u32),
-                        (0, 0b01010) => val << (shift.min(15) as u32),
-                        (1, 0b01010) => val << (shift.min(15) as u32),
-                        _ => val,
-                    };
-                    dst[offset..offset + 2].copy_from_slice(&result.to_le_bytes());
+                // 64-bit elements need 2D (Q==1) in the vector form.
+                if bits == 64 && q == 0 && !scalar {
+                    return Err(ArmError::UndefinedInstruction(insn));
                 }
-                4 => {
-                    let val = u32::from_le_bytes([
-                        src[offset],
-                        src[offset + 1],
-                        src[offset + 2],
-                        src[offset + 3],
-                    ]);
-                    let result = match (u, opcode) {
-                        (0, 0b00000) => val >> (shift.min(31) as u32),
-                        (1, 0b00000) => val >> (shift.min(31) as u32),
-                        (0, 0b01010) => val << (shift.min(31) as u32),
-                        (1, 0b01010) => val << (shift.min(31) as u32),
-                        _ => val,
-                    };
-                    dst[offset..offset + 4].copy_from_slice(&result.to_le_bytes());
+                let is_left = matches!(opcode, 0b01010 | 0b01100 | 0b01110);
+                let shift = if is_left {
+                    immhimmb - bits
+                } else {
+                    2 * bits - immhimmb
+                };
+                let esize = (bits / 8) as usize;
+                let datasize = if scalar {
+                    esize
+                } else if q == 1 {
+                    16
+                } else {
+                    8
+                };
+                let elements = datasize / esize;
+                let src = self.v[rn].to_le_bytes();
+                let old = self.v[rd].to_le_bytes();
+                let mut dst = [0u8; 16];
+                for e in 0..elements {
+                    let off = e * esize;
+                    let a = read_elem(&src, off, esize);
+                    let d = read_elem(&old, off, esize);
+                    let r = adv_simd_shift_imm_elem(u, opcode, bits, shift, a, d);
+                    write_elem(&mut dst, off, esize, r);
                 }
-                8 => {
-                    let val = u64::from_le_bytes([
-                        src[offset],
-                        src[offset + 1],
-                        src[offset + 2],
-                        src[offset + 3],
-                        src[offset + 4],
-                        src[offset + 5],
-                        src[offset + 6],
-                        src[offset + 7],
-                    ]);
-                    let result = match (u, opcode) {
-                        (0, 0b00000) => val >> (shift.min(63) as u32),
-                        (1, 0b00000) => val >> (shift.min(63) as u32),
-                        (0, 0b01010) => val << (shift.min(63) as u32),
-                        (1, 0b01010) => val << (shift.min(63) as u32),
-                        _ => val,
-                    };
-                    dst[offset..offset + 8].copy_from_slice(&result.to_le_bytes());
-                }
-                _ => return Ok(CpuExit::Undefined(insn)),
+                self.v[rd] = u128::from_le_bytes(dst);
+                Ok(CpuExit::Continue)
             }
+            // ---- Widening left shift: SSHLL / USHLL (SXTL/UXTL when shift==0) ----
+            0b10100 => {
+                if bits == 64 {
+                    return Err(ArmError::UndefinedInstruction(insn));
+                }
+                let shift = immhimmb - bits;
+                let esize = (bits / 8) as usize;
+                let elements = 8 / esize; // source elements per 64-bit half
+                let part = q as usize; // SSHLL2 uses the upper half of Vn
+                let src = self.v[rn].to_le_bytes();
+                let mut result: u128 = 0;
+                for e in 0..elements {
+                    let off = part * 8 + e * esize;
+                    let a = read_elem(&src, off, esize);
+                    let widened: u128 = if u == 0 {
+                        ((sext_elem(a, bits) << shift) as u128) & elem_mask_u128(2 * bits)
+                    } else {
+                        (uext_elem(a, bits) << shift) & elem_mask_u128(2 * bits)
+                    };
+                    result |= widened << (e * 2 * bits as usize);
+                }
+                self.v[rd] = result;
+                Ok(CpuExit::Continue)
+            }
+            // ---- Narrowing right shift ----
+            0b10000 | 0b10001 | 0b10010 | 0b10011 => {
+                if bits == 64 {
+                    return Err(ArmError::UndefinedInstruction(insn));
+                }
+                let rounding = opcode == 0b10001 || opcode == 0b10011;
+                let src_bits = 2 * bits;
+                let shift = 2 * bits - immhimmb;
+                let esize = (bits / 8) as usize;
+                let elements = 8 / esize; // dest elements packed into 64 bits
+                let part = q as usize; // the "2" forms write the upper 64 bits
+                let vn = self.v[rn];
+                let mut packed: u64 = 0;
+                for e in 0..elements {
+                    let s = ((vn >> (e * src_bits as usize)) & elem_mask_u128(src_bits)) as u64;
+                    let r: u64 = match (u, opcode) {
+                        (0, 0b10000) | (0, 0b10001) => {
+                            // SHRN / RSHRN: truncating narrow.
+                            simd_rshift(s, shift, src_bits, false, rounding) & elem_mask(bits)
+                        }
+                        (1, 0b10000) | (1, 0b10001) => {
+                            // SQSHRUN / SQRSHRUN: signed source, unsigned saturate.
+                            sat_unsigned(simd_rshift_full(s, shift, src_bits, true, rounding), bits)
+                        }
+                        (0, 0b10010) | (0, 0b10011) => {
+                            // SQSHRN / SQRSHRN: signed source, signed saturate.
+                            sat_signed(simd_rshift_full(s, shift, src_bits, true, rounding), bits)
+                        }
+                        _ => {
+                            // UQSHRN / UQRSHRN: unsigned source, unsigned saturate.
+                            sat_unsigned(simd_rshift_full(s, shift, src_bits, false, rounding), bits)
+                        }
+                    };
+                    packed |= (r & elem_mask(bits)) << (e * bits as usize);
+                }
+                let mut bytes = self.v[rd].to_le_bytes();
+                bytes[part * 8..part * 8 + 8].copy_from_slice(&packed.to_le_bytes());
+                if part == 0 {
+                    bytes[8..16].copy_from_slice(&[0u8; 8]);
+                }
+                self.v[rd] = u128::from_le_bytes(bytes);
+                Ok(CpuExit::Continue)
+            }
+            // ---- Fixed-point convert ----
+            0b11100 | 0b11111 => {
+                if size_idx < 1 {
+                    return Err(ArmError::UndefinedInstruction(insn)); // 8-bit not defined
+                }
+                if bits == 64 && q == 0 && !scalar {
+                    return Err(ArmError::UndefinedInstruction(insn));
+                }
+                let fbits = 2 * bits - immhimmb;
+                let esize = (bits / 8) as usize;
+                let datasize = if scalar {
+                    esize
+                } else if q == 1 {
+                    16
+                } else {
+                    8
+                };
+                let elements = datasize / esize;
+                let src = self.v[rn].to_le_bytes();
+                let mut dst = [0u8; 16];
+                let scale = (2.0f64).powi(fbits as i32);
+                for e in 0..elements {
+                    let off = e * esize;
+                    let a = read_elem(&src, off, esize);
+                    let r = fixed_point_convert(opcode, u, bits, a, scale);
+                    write_elem(&mut dst, off, esize, r);
+                }
+                self.v[rd] = u128::from_le_bytes(dst);
+                Ok(CpuExit::Continue)
+            }
+            _ => Err(ArmError::UndefinedInstruction(insn)),
+        }
+    }
+
+    /// Execute Advanced SIMD "vector x indexed element" instructions: the second
+    /// multiplicand is a single broadcast lane of Vm. Covers integer MUL/MLA/MLS,
+    /// the saturating doubling family, the widening L-forms, and FP FMUL/FMLA/
+    /// FMLS/FMULX. (FP16-indexed, FMLAL-indexed and FCMLA are not yet handled.)
+    fn exec_simd_indexed(&mut self, insn: u32) -> Result<CpuExit, ArmError> {
+        let q = (insn >> 30) & 1;
+        let u = (insn >> 29) & 1;
+        let size = (insn >> 22) & 0x3;
+        let l = (insn >> 21) & 1;
+        let m = (insn >> 20) & 1;
+        let opcode = (insn >> 12) & 0xF;
+        let h = (insn >> 11) & 1;
+        let rn = ((insn >> 5) & 0x1F) as usize;
+        let rd = (insn & 0x1F) as usize;
+        let scalar = ((insn >> 24) & 0x1F) == 0b11111;
+
+        // Element size, second-source register and broadcast lane index.
+        let (bits, vm_reg, index): (u32, usize, usize) = match size {
+            0b01 => (
+                16,
+                ((insn >> 16) & 0xF) as usize,
+                ((h << 2) | (l << 1) | m) as usize,
+            ),
+            0b10 => (
+                32,
+                ((m << 4) | ((insn >> 16) & 0xF)) as usize,
+                ((h << 1) | l) as usize,
+            ),
+            0b11 => (64, ((m << 4) | ((insn >> 16) & 0xF)) as usize, h as usize),
+            _ => return Err(ArmError::UndefinedInstruction(insn)),
+        };
+        let esize = (bits / 8) as usize;
+        let emask = elem_mask(bits);
+        let vm_elem = ((self.v[vm_reg] >> (index * bits as usize)) & (emask as u128)) as u64;
+
+        // ---- Floating-point indexed: FMLA/FMLS/FMUL/FMULX ----
+        let fp_kind = match (u, opcode) {
+            (0, 0b0001) => Some(FpKind::Mla),
+            (0, 0b0101) => Some(FpKind::Mls),
+            (0, 0b1001) => Some(FpKind::Mul),
+            (1, 0b1001) => Some(FpKind::Mulx),
+            _ => None,
+        };
+        if let Some(kind) = fp_kind {
+            if size == 0b01 {
+                return Err(ArmError::UndefinedInstruction(insn)); // FP16 indexed: TODO
+            }
+            if bits == 64 && q == 0 && !scalar {
+                return Err(ArmError::UndefinedInstruction(insn));
+            }
+            let datasize = if scalar { esize } else if q == 1 { 16 } else { 8 };
+            let elements = datasize / esize;
+            let vn = self.v[rn].to_le_bytes();
+            let vd_old = self.v[rd].to_le_bytes();
+            let mut dst = [0u8; 16];
+            for e in 0..elements {
+                let off = e * esize;
+                let a = read_elem(&vn, off, esize);
+                let d = read_elem(&vd_old, off, esize);
+                let r = if bits == 32 {
+                    fp_three_same_f32(kind, a as u32, vm_elem as u32, d as u32) as u64
+                } else {
+                    fp_three_same_f64(kind, a, vm_elem, d)
+                };
+                write_elem(&mut dst, off, esize, r);
+            }
+            self.v[rd] = u128::from_le_bytes(dst);
+            return Ok(CpuExit::Continue);
         }
 
+        // Integer indexed ops use 16- or 32-bit elements only.
+        if size != 0b01 && size != 0b10 {
+            return Err(ArmError::UndefinedInstruction(insn));
+        }
+
+        // ---- Widening L-forms: SMULL/UMULL/SMLAL/UMLAL/SMLSL/UMLSL/SQDMULL/SQDMLAL/SQDMLSL ----
+        let widening = matches!(opcode, 0b0010 | 0b0011 | 0b0110 | 0b0111 | 0b1010 | 0b1011);
+        if widening {
+            let dst_bits = 2 * bits;
+            let elements = 64 / bits as usize; // destination elements
+            let part = q as usize; // the "2" forms read the upper half of Vn
+            let signed = u == 0;
+            let sat_double = matches!(opcode, 0b0011 | 0b0111 | 0b1011);
+            let accum = matches!(opcode, 0b0010 | 0b0110 | 0b0011 | 0b0111);
+            let subtract = matches!(opcode, 0b0110 | 0b0111);
+            // SQDMULL/SQDMLAL/SQDMLSL are signed-only.
+            if sat_double && u == 1 {
+                return Err(ArmError::UndefinedInstruction(insn));
+            }
+            let vn = self.v[rn].to_le_bytes();
+            let vd_old = self.v[rd];
+            let dmin = -(1i128 << (dst_bits - 1));
+            let dmax = (1i128 << (dst_bits - 1)) - 1;
+            let mut result: u128 = 0;
+            for e in 0..elements {
+                let off = part * 8 + e * esize;
+                let a = read_elem(&vn, off, esize);
+                let (av, bv): (i128, i128) = if signed {
+                    (sext_elem(a, bits), sext_elem(vm_elem, bits))
+                } else {
+                    (uext_elem(a, bits) as i128, uext_elem(vm_elem, bits) as i128)
+                };
+                let mut prod = av * bv;
+                if sat_double {
+                    prod = (prod * 2).clamp(dmin, dmax);
+                }
+                let elem: u128 = if accum {
+                    let d = ((vd_old >> (e * dst_bits as usize)) & elem_mask_u128(dst_bits)) as u64;
+                    if sat_double {
+                        let acc = sext_elem(d, dst_bits) + if subtract { -prod } else { prod };
+                        sat_signed(acc, dst_bits) as u128
+                    } else {
+                        let r = if subtract {
+                            (d as i128).wrapping_sub(prod)
+                        } else {
+                            (d as i128).wrapping_add(prod)
+                        };
+                        (r as u128) & elem_mask_u128(dst_bits)
+                    }
+                } else {
+                    (prod as u128) & elem_mask_u128(dst_bits)
+                };
+                result |= elem << (e * dst_bits as usize);
+            }
+            self.v[rd] = result;
+            return Ok(CpuExit::Continue);
+        }
+
+        // ---- Same-size: MUL/MLA/MLS and the saturating doubling-high family ----
+        if bits == 64 && q == 0 && !scalar {
+            return Err(ArmError::UndefinedInstruction(insn));
+        }
+        let datasize = if scalar { esize } else if q == 1 { 16 } else { 8 };
+        let elements = datasize / esize;
+        let vn = self.v[rn].to_le_bytes();
+        let vd_old = self.v[rd].to_le_bytes();
+        let mut dst = [0u8; 16];
+        for e in 0..elements {
+            let off = e * esize;
+            let a = read_elem(&vn, off, esize);
+            let d = read_elem(&vd_old, off, esize);
+            let r = match (u, opcode) {
+                (0, 0b1000) => {
+                    ((uext_elem(a, bits) * uext_elem(vm_elem, bits)) as u64) & emask // MUL
+                }
+                (1, 0b0000) => {
+                    let p = (uext_elem(a, bits) * uext_elem(vm_elem, bits)) as u64;
+                    d.wrapping_add(p) & emask // MLA
+                }
+                (1, 0b0100) => {
+                    let p = (uext_elem(a, bits) * uext_elem(vm_elem, bits)) as u64;
+                    d.wrapping_sub(p) & emask // MLS
+                }
+                (0, 0b1100) => adv_simd_three_same_int(0, 0b10110, bits, a, vm_elem, 0), // SQDMULH
+                (0, 0b1101) => adv_simd_three_same_int(1, 0b10110, bits, a, vm_elem, 0), // SQRDMULH
+                (1, 0b1101) => {
+                    // SQRDMLAH: accumulate the (unsaturated) rounded doubling
+                    // product, then saturate once.
+                    let prod = sext_elem(a, bits) * sext_elem(vm_elem, bits);
+                    let rounded = (prod * 2 + (1i128 << (bits - 1))) >> bits;
+                    sat_signed(sext_elem(d, bits) + rounded, bits)
+                }
+                (1, 0b1111) => {
+                    // SQRDMLSH
+                    let prod = sext_elem(a, bits) * sext_elem(vm_elem, bits);
+                    let rounded = (prod * 2 + (1i128 << (bits - 1))) >> bits;
+                    sat_signed(sext_elem(d, bits) - rounded, bits)
+                }
+                _ => return Err(ArmError::UndefinedInstruction(insn)),
+            };
+            write_elem(&mut dst, off, esize, r);
+        }
         self.v[rd] = u128::from_le_bytes(dst);
         Ok(CpuExit::Continue)
     }
@@ -6625,6 +6880,151 @@ fn adv_simd_three_same_int(u: u32, opcode: u32, bits: u32, a: u64, b: u64, d: u6
     }
 }
 
+/// Mask covering the low `bits` bits, as u128 (`bits` up to 128).
+#[inline]
+fn elem_mask_u128(bits: u32) -> u128 {
+    if bits >= 128 {
+        u128::MAX
+    } else {
+        (1u128 << bits) - 1
+    }
+}
+
+/// Like `simd_rshift` but returns the full (untruncated, signed) shifted value
+/// so a narrowing op can saturate it to a smaller destination element.
+fn simd_rshift_full(a: u64, shift: u32, bits: u32, signed: bool, rounding: bool) -> i128 {
+    let round: i128 = if rounding { 1i128 << (shift - 1) } else { 0 };
+    if signed {
+        (sext_elem(a, bits) + round) >> shift
+    } else {
+        ((uext_elem(a, bits) as i128) + round) >> shift
+    }
+}
+
+/// One element of a NEON fixed-point <-> floating-point conversion (`bits` is
+/// 16, 32 or 64, `scale` is 2^fbits). Returns the raw result element.
+fn fixed_point_convert(opcode: u32, u: u32, bits: u32, a: u64, scale: f64) -> u64 {
+    if bits == 16 {
+        // FP16 variants (FEAT_FP16).
+        if opcode == 0b11100 {
+            let f = if u == 0 {
+                (a as u16 as i16 as f64) / scale
+            } else {
+                (a as u16 as f64) / scale
+            };
+            AArch64Cpu::f32_to_fp16(f as f32) as u64
+        } else {
+            let f = (AArch64Cpu::fp16_to_f32(a as u16) as f64) * scale;
+            let t = f.trunc();
+            if u == 0 {
+                (t.clamp(i16::MIN as f64, i16::MAX as f64) as i16 as u16) as u64
+            } else {
+                t.clamp(0.0, u16::MAX as f64) as u16 as u64
+            }
+        }
+    } else if opcode == 0b11100 {
+        // SCVTF / UCVTF: integer * 2^-fbits -> float
+        if bits == 32 {
+            let f = if u == 0 {
+                (a as u32 as i32 as f64) / scale
+            } else {
+                (a as u32 as f64) / scale
+            };
+            (f as f32).to_bits() as u64
+        } else {
+            let f = if u == 0 {
+                (a as i64 as f64) / scale
+            } else {
+                (a as f64) / scale
+            };
+            f.to_bits()
+        }
+    } else {
+        // FCVTZS / FCVTZU: float * 2^fbits -> integer (round toward zero)
+        if bits == 32 {
+            let f = (f32::from_bits(a as u32) as f64) * scale;
+            let t = f.trunc();
+            if u == 0 {
+                (t.clamp(i32::MIN as f64, i32::MAX as f64) as i32 as u32) as u64
+            } else {
+                t.clamp(0.0, u32::MAX as f64) as u32 as u64
+            }
+        } else {
+            let f = f64::from_bits(a) * scale;
+            let t = f.trunc();
+            if u == 0 {
+                (t.clamp(i64::MIN as f64, i64::MAX as f64) as i64) as u64
+            } else {
+                t.clamp(0.0, u64::MAX as f64) as u64
+            }
+        }
+    }
+}
+
+/// Right-shift the low `bits` bits of `a` by `shift` (1..=bits), arithmetic if
+/// `signed`, with optional rounding (SRSHR/URSHR). Result in the low `bits` bits.
+fn simd_rshift(a: u64, shift: u32, bits: u32, signed: bool, rounding: bool) -> u64 {
+    let m = elem_mask(bits);
+    let round: i128 = if rounding { 1i128 << (shift - 1) } else { 0 };
+    if signed {
+        let v = sext_elem(a, bits);
+        (((v + round) >> shift) as u64) & m
+    } else {
+        let v = uext_elem(a, bits) as i128;
+        (((v + round) >> shift) as u64) & m
+    }
+}
+
+/// One element of a same-size Advanced SIMD shift-by-immediate. `a` is the
+/// source element, `d` the current destination element (for the accumulating
+/// and insert forms). Returns the raw result element.
+fn adv_simd_shift_imm_elem(u: u32, opcode: u32, bits: u32, shift: u32, a: u64, d: u64) -> u64 {
+    let m = elem_mask(bits);
+    let signed = u == 0;
+    match opcode {
+        0b00000 => simd_rshift(a, shift, bits, signed, false), // SSHR / USHR
+        0b00010 => {
+            // SSRA / USRA: accumulate shifted value into destination.
+            (d.wrapping_add(simd_rshift(a, shift, bits, signed, false))) & m
+        }
+        0b00100 => simd_rshift(a, shift, bits, signed, true), // SRSHR / URSHR
+        0b00110 => {
+            // SRSRA / URSRA
+            (d.wrapping_add(simd_rshift(a, shift, bits, signed, true))) & m
+        }
+        0b01000 => {
+            // SRI (u==1): shift right and insert.
+            let low_mask = if shift >= bits { 0 } else { (1u64 << (bits - shift)) - 1 };
+            let shifted = (uext_elem(a, bits) >> shift) as u64 & low_mask;
+            shifted | (d & !low_mask & m)
+        }
+        0b01010 => {
+            if u == 0 {
+                // SHL
+                ((uext_elem(a, bits) << shift) as u64) & m
+            } else {
+                // SLI: shift left and insert.
+                let low_mask = (1u64 << shift) - 1;
+                let shifted = ((uext_elem(a, bits) << shift) as u64) & m & !low_mask;
+                shifted | (d & low_mask)
+            }
+        }
+        0b01100 => {
+            // SQSHLU: signed value, saturating left shift to unsigned range.
+            sat_unsigned(sext_elem(a, bits) << shift, bits)
+        }
+        0b01110 => {
+            // SQSHL / UQSHL: saturating left shift.
+            if signed {
+                sat_signed(sext_elem(a, bits) << shift, bits)
+            } else {
+                sat_unsigned((uext_elem(a, bits) as i128) << shift, bits)
+            }
+        }
+        _ => a & m,
+    }
+}
+
 /// Read an `esize`-byte little-endian element from `bytes` at `off`.
 #[inline]
 fn read_elem(bytes: &[u8], off: usize, esize: usize) -> u64 {
@@ -6765,8 +7165,8 @@ fn fp_three_same_f32(kind: FpKind, a: u32, b: u32, d: u32) -> u32 {
                 (x * y).to_bits()
             }
         }
-        Mla => (acc + x * y).to_bits(),
-        Mls => (acc - x * y).to_bits(),
+        Mla => x.mul_add(y, acc).to_bits(),
+        Mls => (-x).mul_add(y, acc).to_bits(),
         Max | Maxp => fp_max_f32(x, y).to_bits(),
         Min | Minp => fp_min_f32(x, y).to_bits(),
         MaxNm | MaxNmp => {
@@ -6818,8 +7218,8 @@ fn fp_three_same_f64(kind: FpKind, a: u64, b: u64, d: u64) -> u64 {
                 (x * y).to_bits()
             }
         }
-        Mla => (acc + x * y).to_bits(),
-        Mls => (acc - x * y).to_bits(),
+        Mla => x.mul_add(y, acc).to_bits(),
+        Mls => (-x).mul_add(y, acc).to_bits(),
         Max | Maxp => fp_max_f64(x, y).to_bits(),
         Min | Minp => fp_min_f64(x, y).to_bits(),
         MaxNm | MaxNmp => {

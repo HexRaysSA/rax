@@ -288,7 +288,7 @@ fn rax_regs_from_state(st: &HexState) -> HexagonRegisters {
         regs.r[i] = st.w[i];
     }
     for i in 0..4 {
-        regs.p[i] = (st.w[I_PRED] >> (8 * i)) & 0xff != 0;
+        regs.p[i] = ((st.w[I_PRED] >> (8 * i)) & 0xff) as u8;
     }
     regs.c[8] = st.w[I_USR];
     regs.c[6] = st.w[I_M0];
@@ -304,13 +304,11 @@ fn rax_regs_from_state(st: &HexState) -> HexagonRegisters {
     regs
 }
 
-/// Pack rax predicate booleans into the hardware byte layout (true -> 0xff).
+/// Pack rax's 8-bit predicate registers into the hardware C4 (P3:0) layout.
 fn rax_pred_byte(regs: &HexagonRegisters) -> u32 {
     let mut v = 0u32;
     for i in 0..4 {
-        if regs.p[i] {
-            v |= 0xffu32 << (8 * i);
-        }
+        v |= (regs.p[i] as u32) << (8 * i);
     }
     v
 }

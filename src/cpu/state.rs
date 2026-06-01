@@ -137,7 +137,10 @@ pub struct X86_64CpuState {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct HexagonRegisters {
     pub r: [u32; 32],
-    pub p: [bool; 4],
+    /// Predicate registers P0..P3. Each is an 8-bit register (hardware width);
+    /// scalar compares write 0x00/0xff, vector compares set per-lane bits, and
+    /// conditional execution tests only the least-significant bit.
+    pub p: [u8; 4],
     pub c: [u32; 32],
 }
 
@@ -145,7 +148,7 @@ impl Default for HexagonRegisters {
     fn default() -> Self {
         HexagonRegisters {
             r: [0u32; 32],
-            p: [false; 4],
+            p: [0u8; 4],
             c: [0u32; 32],
         }
     }
@@ -168,11 +171,11 @@ impl HexagonRegisters {
         self.c[8] = value;
     }
 
-    pub fn predicate(&self, index: usize) -> bool {
+    pub fn predicate(&self, index: usize) -> u8 {
         self.p[index]
     }
 
-    pub fn set_predicate(&mut self, index: usize, value: bool) {
+    pub fn set_predicate(&mut self, index: usize, value: u8) {
         self.p[index] = value;
         self.c[4] = self.pack_predicates();
     }
@@ -195,19 +198,17 @@ impl HexagonRegisters {
 
     fn pack_predicates(&self) -> u32 {
         let mut value = 0u32;
-        for (idx, bit) in self.p.iter().enumerate() {
-            if *bit {
-                value |= 1u32 << idx;
-            }
+        for (idx, byte) in self.p.iter().enumerate() {
+            value |= (*byte as u32) << (8 * idx);
         }
         value
     }
 
     fn unpack_predicates(&mut self, value: u32) {
         for idx in 0..self.p.len() {
-            self.p[idx] = (value >> idx) & 1 != 0;
+            self.p[idx] = (value >> (8 * idx)) as u8;
         }
-        self.c[4] = value & 0xF;
+        self.c[4] = value;
     }
 }
 
