@@ -922,3 +922,65 @@ fn test_paddsw_boundary_values() {
     mem.write_slice(&src2, GuestAddress(ALIGNED_ADDR2)).unwrap();
     run_until_hlt(&mut vcpu).unwrap();
 }
+
+// ============================================================================
+// Known-answer value tests (register-to-register via set_xmm/get_xmm)
+//
+// Signed saturating add. Each lane clamps to [-128,127] (byte) / [-32768,32767]
+// (word). Vectors chosen to hit positive and negative saturation. Computed by
+// hand from x86 PADDSB/PADDSW semantics.
+// ============================================================================
+
+#[test]
+fn kat_paddsb_value() {
+    // PADDSB XMM0, XMM1 (66 0F EC C1)
+    let code = [0x66, 0x0f, 0xec, 0xc1, 0xf4];
+    let (mut vcpu, mem) = setup_vm(&code, None);
+    set_xmm(&mem, &mut vcpu, 0, 0x7f7f80800102fe007f01ff80fe7f0100);
+    set_xmm(&mem, &mut vcpu, 1, 0x010180800102020101ff01800201ff00);
+    let regs = run_until_hlt(&mut vcpu).unwrap();
+    assert_eq!(
+        get_xmm(&regs, 0),
+        0x7f7f8080020400017f000080007f0000,
+        "PADDSB got {:032x}",
+        get_xmm(&regs, 0)
+    );
+}
+
+#[test]
+fn kat_paddsw_value() {
+    // PADDSW XMM0, XMM1 (66 0F ED C1)
+    let code = [0x66, 0x0f, 0xed, 0xc1, 0xf4];
+    let (mut vcpu, mem) = setup_vm(&code, None);
+    set_xmm(&mem, &mut vcpu, 0, 0x7fff80000001fffe7fff8000ffff0001);
+    set_xmm(&mem, &mut vcpu, 1, 0x0001800000027fff0001ffff00018000);
+    let regs = run_until_hlt(&mut vcpu).unwrap();
+    assert_eq!(
+        get_xmm(&regs, 0),
+        0x7fff800000037ffd7fff800000008001,
+        "PADDSW got {:032x}",
+        get_xmm(&regs, 0)
+    );
+}
+
+#[test]
+fn kat_paddsb_positive_saturation() {
+    // 0x7F + 0x7F = 254 saturates to +127 (0x7F) in every lane.
+    let code = [0x66, 0x0f, 0xec, 0xc1, 0xf4];
+    let (mut vcpu, mem) = setup_vm(&code, None);
+    set_xmm(&mem, &mut vcpu, 0, 0x7f7f7f7f7f7f7f7f7f7f7f7f7f7f7f7f);
+    set_xmm(&mem, &mut vcpu, 1, 0x7f7f7f7f7f7f7f7f7f7f7f7f7f7f7f7f);
+    let regs = run_until_hlt(&mut vcpu).unwrap();
+    assert_eq!(get_xmm(&regs, 0), 0x7f7f7f7f7f7f7f7f7f7f7f7f7f7f7f7f);
+}
+
+#[test]
+fn kat_paddsw_negative_saturation() {
+    // 0x8000 + 0x8000 = -65536 saturates to -32768 (0x8000) in each word.
+    let code = [0x66, 0x0f, 0xed, 0xc1, 0xf4];
+    let (mut vcpu, mem) = setup_vm(&code, None);
+    set_xmm(&mem, &mut vcpu, 0, 0x80008000800080008000800080008000);
+    set_xmm(&mem, &mut vcpu, 1, 0x80008000800080008000800080008000);
+    let regs = run_until_hlt(&mut vcpu).unwrap();
+    assert_eq!(get_xmm(&regs, 0), 0x80008000800080008000800080008000);
+}

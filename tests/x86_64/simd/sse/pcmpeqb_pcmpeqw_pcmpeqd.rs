@@ -685,3 +685,75 @@ fn test_pcmpeqd_self_comparison() {
     mem.write_slice(&data, GuestAddress(ALIGNED_ADDR)).unwrap();
     run_until_hlt(&mut vcpu).unwrap();
 }
+
+// ============================================================================
+// Known-answer value tests (register-to-register via set_xmm/get_xmm)
+//
+// PCMPEQ* sets a lane to all-ones when DST == SRC, else all-zeros.
+//   DST = XMM0 = 0x11223344556677881122334455667788
+//   SRC = XMM1 = 0x1122334455667788FFEEDDCCBBAA9988
+// The low 64 bits match exactly; the high 64 bits differ (except top byte 0x88).
+// Computed by hand from x86 semantics.
+// ============================================================================
+
+const KAT_EQ_DST: u128 = 0x11223344556677881122334455667788;
+const KAT_EQ_SRC: u128 = 0x1122334455667788FFEEDDCCBBAA9988;
+
+#[test]
+fn kat_pcmpeqb_value() {
+    // PCMPEQB XMM0, XMM1 (66 0F 74 C1)
+    let code = [0x66, 0x0f, 0x74, 0xc1, 0xf4];
+    let (mut vcpu, mem) = setup_vm(&code, None);
+    set_xmm(&mem, &mut vcpu, 0, KAT_EQ_DST);
+    set_xmm(&mem, &mut vcpu, 1, KAT_EQ_SRC);
+    let regs = run_until_hlt(&mut vcpu).unwrap();
+    assert_eq!(
+        get_xmm(&regs, 0),
+        0xffffffffffffffff00000000000000ff,
+        "PCMPEQB got {:032x}",
+        get_xmm(&regs, 0)
+    );
+}
+
+#[test]
+fn kat_pcmpeqw_value() {
+    // PCMPEQW XMM0, XMM1 (66 0F 75 C1)
+    let code = [0x66, 0x0f, 0x75, 0xc1, 0xf4];
+    let (mut vcpu, mem) = setup_vm(&code, None);
+    set_xmm(&mem, &mut vcpu, 0, KAT_EQ_DST);
+    set_xmm(&mem, &mut vcpu, 1, KAT_EQ_SRC);
+    let regs = run_until_hlt(&mut vcpu).unwrap();
+    assert_eq!(
+        get_xmm(&regs, 0),
+        0xffffffffffffffff0000000000000000,
+        "PCMPEQW got {:032x}",
+        get_xmm(&regs, 0)
+    );
+}
+
+#[test]
+fn kat_pcmpeqd_value() {
+    // PCMPEQD XMM0, XMM1 (66 0F 76 C1)
+    let code = [0x66, 0x0f, 0x76, 0xc1, 0xf4];
+    let (mut vcpu, mem) = setup_vm(&code, None);
+    set_xmm(&mem, &mut vcpu, 0, KAT_EQ_DST);
+    set_xmm(&mem, &mut vcpu, 1, KAT_EQ_SRC);
+    let regs = run_until_hlt(&mut vcpu).unwrap();
+    assert_eq!(
+        get_xmm(&regs, 0),
+        0xffffffffffffffff0000000000000000,
+        "PCMPEQD got {:032x}",
+        get_xmm(&regs, 0)
+    );
+}
+
+#[test]
+fn kat_pcmpeqb_all_equal() {
+    // Identical operands => every byte lane is 0xFF.
+    let code = [0x66, 0x0f, 0x74, 0xc1, 0xf4];
+    let (mut vcpu, mem) = setup_vm(&code, None);
+    set_xmm(&mem, &mut vcpu, 0, 0x0123456789ABCDEFFEDCBA9876543210);
+    set_xmm(&mem, &mut vcpu, 1, 0x0123456789ABCDEFFEDCBA9876543210);
+    let regs = run_until_hlt(&mut vcpu).unwrap();
+    assert_eq!(get_xmm(&regs, 0), 0xffffffffffffffffffffffffffffffff);
+}

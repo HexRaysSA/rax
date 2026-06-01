@@ -331,3 +331,39 @@ fn test_pmulhuw_half_max() {
                      GuestAddress(ALIGNED_ADDR2)).unwrap();
     run_until_hlt(&mut vcpu).unwrap();
 }
+
+// ============================================================================
+// Known-answer value tests (register-to-register via set_xmm/get_xmm)
+//
+// PMULHUW keeps the HIGH 16 bits of each UNSIGNED 16x16->32 product. Computed
+// by hand from x86 semantics.
+//   DST = XMM0 = 0x0002000300040005FFFF8000007FABCD
+//   SRC = XMM1 = 0x0003000500070009000280017FFF1234
+// ============================================================================
+
+#[test]
+fn kat_pmulhuw_value() {
+    // PMULHUW XMM0, XMM1 (66 0F E4 C1)
+    let code = [0x66, 0x0f, 0xe4, 0xc1, 0xf4];
+    let (mut vcpu, mem) = setup_vm(&code, None);
+    set_xmm(&mem, &mut vcpu, 0, 0x0002000300040005FFFF8000007FABCD);
+    set_xmm(&mem, &mut vcpu, 1, 0x0003000500070009000280017FFF1234);
+    let regs = run_until_hlt(&mut vcpu).unwrap();
+    assert_eq!(
+        get_xmm(&regs, 0),
+        0x000000000000000000014000003f0c37,
+        "PMULHUW got {:032x}",
+        get_xmm(&regs, 0)
+    );
+}
+
+#[test]
+fn kat_pmulhuw_unsigned_high() {
+    // 0xFFFF * 0xFFFF = 0xFFFE0001 (unsigned), high word = 0xFFFE for each lane.
+    let code = [0x66, 0x0f, 0xe4, 0xc1, 0xf4];
+    let (mut vcpu, mem) = setup_vm(&code, None);
+    set_xmm(&mem, &mut vcpu, 0, 0xffffffffffffffffffffffffffffffff);
+    set_xmm(&mem, &mut vcpu, 1, 0xffffffffffffffffffffffffffffffff);
+    let regs = run_until_hlt(&mut vcpu).unwrap();
+    assert_eq!(get_xmm(&regs, 0), 0xfffefffefffefffefffefffefffefffe);
+}

@@ -848,3 +848,65 @@ fn test_psrlq_xmm12_xmm13() {
     mem.write_slice(&data, GuestAddress(ALIGNED_ADDR)).unwrap();
     run_until_hlt(&mut vcpu).unwrap();
 }
+
+// ============================================================================
+// Known-answer value tests (immediate shift counts via set_xmm/get_xmm)
+//
+// Logical right shift, each lane shifted independently, zero-filled. Bits
+// shifted out are discarded. Computed by hand.
+// ============================================================================
+
+#[test]
+fn kat_psrlw_imm4_value() {
+    // PSRLW XMM0, 4 (66 0F 71 /2 ib => D0 04)
+    let code = [0x66, 0x0f, 0x71, 0xd0, 0x04, 0xf4];
+    let (mut vcpu, mem) = setup_vm(&code, None);
+    set_xmm(&mem, &mut vcpu, 0, 0x8001400220031004f008700c600d500e);
+    let regs = run_until_hlt(&mut vcpu).unwrap();
+    assert_eq!(
+        get_xmm(&regs, 0),
+        0x08000400020001000f00070006000500,
+        "PSRLW got {:032x}",
+        get_xmm(&regs, 0)
+    );
+}
+
+#[test]
+fn kat_psrld_imm4_value() {
+    // PSRLD XMM0, 4 (66 0F 72 /2 ib => D0 04)
+    let code = [0x66, 0x0f, 0x72, 0xd0, 0x04, 0xf4];
+    let (mut vcpu, mem) = setup_vm(&code, None);
+    set_xmm(&mem, &mut vcpu, 0, 0x800000017fffffff00000010ffffffff);
+    let regs = run_until_hlt(&mut vcpu).unwrap();
+    assert_eq!(
+        get_xmm(&regs, 0),
+        0x0800000007ffffff000000010fffffff,
+        "PSRLD got {:032x}",
+        get_xmm(&regs, 0)
+    );
+}
+
+#[test]
+fn kat_psrlq_imm8_value() {
+    // PSRLQ XMM0, 8 (66 0F 73 /2 ib => D0 08)
+    let code = [0x66, 0x0f, 0x73, 0xd0, 0x08, 0xf4];
+    let (mut vcpu, mem) = setup_vm(&code, None);
+    set_xmm(&mem, &mut vcpu, 0, 0x8000000000000001ffffffffffffffff);
+    let regs = run_until_hlt(&mut vcpu).unwrap();
+    assert_eq!(
+        get_xmm(&regs, 0),
+        0x008000000000000000ffffffffffffff,
+        "PSRLQ got {:032x}",
+        get_xmm(&regs, 0)
+    );
+}
+
+#[test]
+fn kat_psrld_count_ge_width_zeroes() {
+    // Shift count >= 32 zeroes every dword lane.
+    let code = [0x66, 0x0f, 0x72, 0xd0, 0x20, 0xf4]; // PSRLD XMM0, 32
+    let (mut vcpu, mem) = setup_vm(&code, None);
+    set_xmm(&mem, &mut vcpu, 0, 0xffffffffffffffffffffffffffffffff);
+    let regs = run_until_hlt(&mut vcpu).unwrap();
+    assert_eq!(get_xmm(&regs, 0), 0);
+}

@@ -874,3 +874,43 @@ fn test_packusdw_edge_cases() {
     mem.write_slice(&data2, GuestAddress(ALIGNED_ADDR2)).unwrap();
     run_until_hlt(&mut vcpu).unwrap();
 }
+
+// ============================================================================
+// Known-answer value tests (register-to-register via set_xmm/get_xmm)
+//
+// PACKUSWB takes 8 signed words from DST + 8 from SRC and saturates each to an
+// UNSIGNED byte [0,255] (negative -> 0). DST fills the low 8 bytes, SRC high 8.
+// Computed by hand.
+//   DST = XMM0 = 0x7FFF8000010000FF00010002FFFEFF00
+//   SRC = XMM1 = 0x0102030405060708A1A2B3B4C5D6E7F8
+// ============================================================================
+
+#[test]
+fn kat_packuswb_value() {
+    // PACKUSWB XMM0, XMM1 (66 0F 67 C1)
+    let code = [0x66, 0x0f, 0x67, 0xc1, 0xf4];
+    let (mut vcpu, mem) = setup_vm(&code, None);
+    set_xmm(&mem, &mut vcpu, 0, 0x7FFF8000010000FF00010002FFFEFF00);
+    set_xmm(&mem, &mut vcpu, 1, 0x0102030405060708A1A2B3B4C5D6E7F8);
+    let regs = run_until_hlt(&mut vcpu).unwrap();
+    assert_eq!(
+        get_xmm(&regs, 0),
+        0xffffffff00000000ff00ffff01020000,
+        "PACKUSWB got {:032x}",
+        get_xmm(&regs, 0)
+    );
+}
+
+#[test]
+fn kat_packuswb_negative_to_zero() {
+    // Every negative source word clamps to 0; 0x7FFF clamps to 0xFF.
+    let code = [0x66, 0x0f, 0x67, 0xc1, 0xf4];
+    let (mut vcpu, mem) = setup_vm(&code, None);
+    set_xmm(&mem, &mut vcpu, 0, 0x8000800080008000_7fff7fff7fff7fff);
+    set_xmm(&mem, &mut vcpu, 1, 0x00ff00ff00ff00ff_0001000200030004);
+    let regs = run_until_hlt(&mut vcpu).unwrap();
+    // DST low words 0x7FFF*4 -> 0xFF; DST high words 0x8000*4 -> 0x00.
+    // SRC low words 0x0004,0x0003,0x0002,0x0001 -> bytes 0x04,0x03,0x02,0x01
+    // (word 0 = least-significant -> lowest byte); SRC high words 0x00FF*4 -> 0xFF.
+    assert_eq!(get_xmm(&regs, 0), 0xffffffff0102030400000000ffffffff);
+}

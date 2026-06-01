@@ -660,3 +660,51 @@ fn test_psrldq_xmm15() {
     mem.write_slice(&data, GuestAddress(ALIGNED_ADDR)).unwrap();
     run_until_hlt(&mut vcpu).unwrap();
 }
+
+// ============================================================================
+// Known-answer value tests (immediate byte-shift counts via set_xmm/get_xmm)
+//
+// PSLLDQ/PSRLDQ shift the WHOLE 128-bit register left/right by imm BYTES,
+// filling with zero bytes. Computed by hand.
+//   SRC = 0x0102030405060708090A0B0C0D0E0F10
+// ============================================================================
+
+#[test]
+fn kat_pslldq_imm3_value() {
+    // PSLLDQ XMM0, 3 (66 0F 73 /7 ib => F8 03)
+    let code = [0x66, 0x0f, 0x73, 0xf8, 0x03, 0xf4];
+    let (mut vcpu, mem) = setup_vm(&code, None);
+    set_xmm(&mem, &mut vcpu, 0, 0x0102030405060708090A0B0C0D0E0F10);
+    let regs = run_until_hlt(&mut vcpu).unwrap();
+    assert_eq!(
+        get_xmm(&regs, 0),
+        0x0405060708090a0b0c0d0e0f10000000,
+        "PSLLDQ got {:032x}",
+        get_xmm(&regs, 0)
+    );
+}
+
+#[test]
+fn kat_psrldq_imm3_value() {
+    // PSRLDQ XMM0, 3 (66 0F 73 /3 ib => D8 03)
+    let code = [0x66, 0x0f, 0x73, 0xd8, 0x03, 0xf4];
+    let (mut vcpu, mem) = setup_vm(&code, None);
+    set_xmm(&mem, &mut vcpu, 0, 0x0102030405060708090A0B0C0D0E0F10);
+    let regs = run_until_hlt(&mut vcpu).unwrap();
+    assert_eq!(
+        get_xmm(&regs, 0),
+        0x0000000102030405060708090a0b0c0d,
+        "PSRLDQ got {:032x}",
+        get_xmm(&regs, 0)
+    );
+}
+
+#[test]
+fn kat_pslldq_ge16_zeroes() {
+    // A byte shift >= 16 zeroes the entire register.
+    let code = [0x66, 0x0f, 0x73, 0xf8, 0x10, 0xf4]; // PSLLDQ XMM0, 16
+    let (mut vcpu, mem) = setup_vm(&code, None);
+    set_xmm(&mem, &mut vcpu, 0, 0xffffffffffffffffffffffffffffffff);
+    let regs = run_until_hlt(&mut vcpu).unwrap();
+    assert_eq!(get_xmm(&regs, 0), 0);
+}

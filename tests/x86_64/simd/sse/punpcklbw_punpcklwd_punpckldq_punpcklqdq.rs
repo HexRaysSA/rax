@@ -1,4 +1,4 @@
-use crate::common::{run_until_hlt, setup_vm};
+use crate::common::{get_xmm, run_until_hlt, set_xmm, setup_vm};
 use rax::cpu::Registers;
 use vm_memory::{Bytes, GuestAddress};
 
@@ -452,4 +452,81 @@ fn test_unpack_sequential_operations() {
     ];
     let (mut vcpu, _) = setup_vm(&code, None);
     run_until_hlt(&mut vcpu).unwrap();
+}
+
+// ============================================================================
+// Known-answer value tests (register-to-register via set_xmm/get_xmm)
+//
+// PUNPCKL* interleaves the LOW halves of DST and SRC. Output element 0 comes
+// from DST, element 1 from SRC, alternating.
+//   DST = XMM0 = 0x0102030405060708090A0B0C0D0E0F10
+//   SRC = XMM1 = 0x1112131415161718191A1B1C1D1E1F20
+// Computed by hand from x86 unpack-low semantics.
+// ============================================================================
+
+const KAT_UNP_DST: u128 = 0x0102030405060708090A0B0C0D0E0F10;
+const KAT_UNP_SRC: u128 = 0x1112131415161718191A1B1C1D1E1F20;
+
+#[test]
+fn kat_punpcklbw_value() {
+    // PUNPCKLBW XMM0, XMM1 (66 0F 60 C1)
+    let code = [0x66, 0x0f, 0x60, 0xc1, 0xf4];
+    let (mut vcpu, mem) = setup_vm(&code, None);
+    set_xmm(&mem, &mut vcpu, 0, KAT_UNP_DST);
+    set_xmm(&mem, &mut vcpu, 1, KAT_UNP_SRC);
+    let regs = run_until_hlt(&mut vcpu).unwrap();
+    assert_eq!(
+        get_xmm(&regs, 0),
+        0x19091a0a1b0b1c0c1d0d1e0e1f0f2010,
+        "PUNPCKLBW got {:032x}",
+        get_xmm(&regs, 0)
+    );
+}
+
+#[test]
+fn kat_punpcklwd_value() {
+    // PUNPCKLWD XMM0, XMM1 (66 0F 61 C1)
+    let code = [0x66, 0x0f, 0x61, 0xc1, 0xf4];
+    let (mut vcpu, mem) = setup_vm(&code, None);
+    set_xmm(&mem, &mut vcpu, 0, KAT_UNP_DST);
+    set_xmm(&mem, &mut vcpu, 1, KAT_UNP_SRC);
+    let regs = run_until_hlt(&mut vcpu).unwrap();
+    assert_eq!(
+        get_xmm(&regs, 0),
+        0x191a090a1b1c0b0c1d1e0d0e1f200f10,
+        "PUNPCKLWD got {:032x}",
+        get_xmm(&regs, 0)
+    );
+}
+
+#[test]
+fn kat_punpckldq_value() {
+    // PUNPCKLDQ XMM0, XMM1 (66 0F 62 C1)
+    let code = [0x66, 0x0f, 0x62, 0xc1, 0xf4];
+    let (mut vcpu, mem) = setup_vm(&code, None);
+    set_xmm(&mem, &mut vcpu, 0, KAT_UNP_DST);
+    set_xmm(&mem, &mut vcpu, 1, KAT_UNP_SRC);
+    let regs = run_until_hlt(&mut vcpu).unwrap();
+    assert_eq!(
+        get_xmm(&regs, 0),
+        0x191a1b1c090a0b0c1d1e1f200d0e0f10,
+        "PUNPCKLDQ got {:032x}",
+        get_xmm(&regs, 0)
+    );
+}
+
+#[test]
+fn kat_punpcklqdq_value() {
+    // PUNPCKLQDQ XMM0, XMM1 (66 0F 6C C1): low qword of each operand.
+    let code = [0x66, 0x0f, 0x6c, 0xc1, 0xf4];
+    let (mut vcpu, mem) = setup_vm(&code, None);
+    set_xmm(&mem, &mut vcpu, 0, KAT_UNP_DST);
+    set_xmm(&mem, &mut vcpu, 1, KAT_UNP_SRC);
+    let regs = run_until_hlt(&mut vcpu).unwrap();
+    assert_eq!(
+        get_xmm(&regs, 0),
+        0x191a1b1c1d1e1f20090a0b0c0d0e0f10,
+        "PUNPCKLQDQ got {:032x}",
+        get_xmm(&regs, 0)
+    );
 }

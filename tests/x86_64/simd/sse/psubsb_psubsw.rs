@@ -922,3 +922,53 @@ fn test_psubsw_boundary_values() {
     mem.write_slice(&src2, GuestAddress(ALIGNED_ADDR2)).unwrap();
     run_until_hlt(&mut vcpu).unwrap();
 }
+
+// ============================================================================
+// Known-answer value tests (register-to-register via set_xmm/get_xmm)
+//
+// Signed saturating subtract DST - SRC, clamping each lane to the signed range.
+// Computed by hand from x86 PSUBSB/PSUBSW semantics.
+// ============================================================================
+
+#[test]
+fn kat_psubsb_value() {
+    // PSUBSB XMM0, XMM1 (66 0F E8 C1)
+    let code = [0x66, 0x0f, 0xe8, 0xc1, 0xf4];
+    let (mut vcpu, mem) = setup_vm(&code, None);
+    set_xmm(&mem, &mut vcpu, 0, 0x7f7f80800102fe007f01ff80fe7f0100);
+    set_xmm(&mem, &mut vcpu, 1, 0x010180800102020101ff01800201ff00);
+    let regs = run_until_hlt(&mut vcpu).unwrap();
+    assert_eq!(
+        get_xmm(&regs, 0),
+        0x7e7e00000000fcff7e02fe00fc7e0200,
+        "PSUBSB got {:032x}",
+        get_xmm(&regs, 0)
+    );
+}
+
+#[test]
+fn kat_psubsw_value() {
+    // PSUBSW XMM0, XMM1 (66 0F E9 C1)
+    let code = [0x66, 0x0f, 0xe9, 0xc1, 0xf4];
+    let (mut vcpu, mem) = setup_vm(&code, None);
+    set_xmm(&mem, &mut vcpu, 0, 0x7fff80000001fffe7fff8000ffff0001);
+    set_xmm(&mem, &mut vcpu, 1, 0x0001800000027fff0001ffff00018000);
+    let regs = run_until_hlt(&mut vcpu).unwrap();
+    assert_eq!(
+        get_xmm(&regs, 0),
+        0x7ffe0000ffff80007ffe8001fffe7fff,
+        "PSUBSW got {:032x}",
+        get_xmm(&regs, 0)
+    );
+}
+
+#[test]
+fn kat_psubsb_negative_saturation() {
+    // -128 (0x80) - 127 (0x7F) = -255 saturates to -128 (0x80) per byte.
+    let code = [0x66, 0x0f, 0xe8, 0xc1, 0xf4];
+    let (mut vcpu, mem) = setup_vm(&code, None);
+    set_xmm(&mem, &mut vcpu, 0, 0x80808080808080808080808080808080);
+    set_xmm(&mem, &mut vcpu, 1, 0x7f7f7f7f7f7f7f7f7f7f7f7f7f7f7f7f);
+    let regs = run_until_hlt(&mut vcpu).unwrap();
+    assert_eq!(get_xmm(&regs, 0), 0x80808080808080808080808080808080);
+}

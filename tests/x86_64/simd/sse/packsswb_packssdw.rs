@@ -870,3 +870,48 @@ fn test_packssdw_alternating_saturation() {
     mem.write_slice(&data2, GuestAddress(ALIGNED_ADDR2)).unwrap();
     run_until_hlt(&mut vcpu).unwrap();
 }
+
+// ============================================================================
+// Known-answer value tests (register-to-register via set_xmm/get_xmm)
+//
+// PACKSSWB signed-saturates 8 words from DST + 8 words from SRC into 16 bytes
+// (DST elements fill the low 8 bytes, SRC the high 8). PACKSSDW does the same
+// from 4+4 dwords into 8 words. Computed by hand.
+//   DST = XMM0 = 0x7FFF8000010000FF00010002FFFEFF00
+//   SRC = XMM1 = 0x0102030405060708A1A2B3B4C5D6E7F8
+// ============================================================================
+
+const KAT_PACK_DST: u128 = 0x7FFF8000010000FF00010002FFFEFF00;
+const KAT_PACK_SRC: u128 = 0x0102030405060708A1A2B3B4C5D6E7F8;
+
+#[test]
+fn kat_packsswb_value() {
+    // PACKSSWB XMM0, XMM1 (66 0F 63 C1)
+    let code = [0x66, 0x0f, 0x63, 0xc1, 0xf4];
+    let (mut vcpu, mem) = setup_vm(&code, None);
+    set_xmm(&mem, &mut vcpu, 0, KAT_PACK_DST);
+    set_xmm(&mem, &mut vcpu, 1, KAT_PACK_SRC);
+    let regs = run_until_hlt(&mut vcpu).unwrap();
+    assert_eq!(
+        get_xmm(&regs, 0),
+        0x7f7f7f7f808080807f807f7f0102fe80,
+        "PACKSSWB got {:032x}",
+        get_xmm(&regs, 0)
+    );
+}
+
+#[test]
+fn kat_packssdw_value() {
+    // PACKSSDW XMM0, XMM1 (66 0F 6B C1)
+    let code = [0x66, 0x0f, 0x6b, 0xc1, 0xf4];
+    let (mut vcpu, mem) = setup_vm(&code, None);
+    set_xmm(&mem, &mut vcpu, 0, KAT_PACK_DST);
+    set_xmm(&mem, &mut vcpu, 1, KAT_PACK_SRC);
+    let regs = run_until_hlt(&mut vcpu).unwrap();
+    assert_eq!(
+        get_xmm(&regs, 0),
+        0x7fff7fff800080007fff7fff7fff8000,
+        "PACKSSDW got {:032x}",
+        get_xmm(&regs, 0)
+    );
+}

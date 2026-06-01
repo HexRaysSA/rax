@@ -705,3 +705,57 @@ fn test_pavgw_powers_of_two() {
     mem.write_slice(&src2, GuestAddress(ALIGNED_ADDR2)).unwrap();
     run_until_hlt(&mut vcpu).unwrap();
 }
+
+// ============================================================================
+// Known-answer value tests (register-to-register via set_xmm/get_xmm)
+//
+// PAVGB/PAVGW compute the unsigned ROUNDED average (a + b + 1) >> 1 per lane.
+// Computed by hand.
+// ============================================================================
+
+#[test]
+fn kat_pavgb_value() {
+    // PAVGB XMM0, XMM1 (66 0F E0 C1)
+    //   DST = 0x01030507090B0D0F11FF00FF80017FFE
+    //   SRC = 0x0204060801030507FF01FF0080FE0001
+    let code = [0x66, 0x0f, 0xe0, 0xc1, 0xf4];
+    let (mut vcpu, mem) = setup_vm(&code, None);
+    set_xmm(&mem, &mut vcpu, 0, 0x01030507090B0D0F11FF00FF80017FFE);
+    set_xmm(&mem, &mut vcpu, 1, 0x0204060801030507FF01FF0080FE0001);
+    let regs = run_until_hlt(&mut vcpu).unwrap();
+    assert_eq!(
+        get_xmm(&regs, 0),
+        0x020406080507090b8880808080804080,
+        "PAVGB got {:032x}",
+        get_xmm(&regs, 0)
+    );
+}
+
+#[test]
+fn kat_pavgw_value() {
+    // PAVGW XMM0, XMM1 (66 0F E3 C1)
+    //   DST = 0x0001FFFF8000000100020003FFFE7FFF
+    //   SRC = 0x0001000180000003000400057FFF8000
+    let code = [0x66, 0x0f, 0xe3, 0xc1, 0xf4];
+    let (mut vcpu, mem) = setup_vm(&code, None);
+    set_xmm(&mem, &mut vcpu, 0, 0x0001FFFF8000000100020003FFFE7FFF);
+    set_xmm(&mem, &mut vcpu, 1, 0x0001000180000003000400057FFF8000);
+    let regs = run_until_hlt(&mut vcpu).unwrap();
+    assert_eq!(
+        get_xmm(&regs, 0),
+        0x000180008000000200030004bfff8000,
+        "PAVGW got {:032x}",
+        get_xmm(&regs, 0)
+    );
+}
+
+#[test]
+fn kat_pavgb_rounding_up() {
+    // 0x00 avg 0x01 = (0+1+1)>>1 = 1 (rounds up, not truncates to 0).
+    let code = [0x66, 0x0f, 0xe0, 0xc1, 0xf4];
+    let (mut vcpu, mem) = setup_vm(&code, None);
+    set_xmm(&mem, &mut vcpu, 0, 0x00000000000000000000000000000000);
+    set_xmm(&mem, &mut vcpu, 1, 0x01010101010101010101010101010101);
+    let regs = run_until_hlt(&mut vcpu).unwrap();
+    assert_eq!(get_xmm(&regs, 0), 0x01010101010101010101010101010101);
+}

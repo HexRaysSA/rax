@@ -719,3 +719,51 @@ fn test_pshufd_xmm0_xmm1_imm_0x2d() {
     let (mut vcpu, _) = setup_vm(&code, None);
     run_until_hlt(&mut vcpu).unwrap();
 }
+
+// ============================================================================
+// Known-answer value tests (register-to-register + imm8 via set_xmm/get_xmm)
+//
+// PSHUFD selects each of the 4 result dwords from the source using a 2-bit
+// field of imm8 (bits [1:0]->dword0, [3:2]->dword1, [5:4]->dword2, [7:6]->dword3).
+//   SRC = XMM1 = 0xAAAAAAAABBBBBBBBCCCCCCCCDDDDDDDD
+//     dword0 = 0xDDDDDDDD, dword1 = 0xCCCCCCCC,
+//     dword2 = 0xBBBBBBBB, dword3 = 0xAAAAAAAA
+// Computed by hand.
+// ============================================================================
+
+const KAT_PSHUFD_SRC: u128 = 0xAAAAAAAABBBBBBBBCCCCCCCCDDDDDDDD;
+
+#[test]
+fn kat_pshufd_reverse() {
+    // PSHUFD XMM0, XMM1, 0x1B (00 01 10 11) reverses the dword order.
+    let code = [0x66, 0x0f, 0x70, 0xc1, 0x1b, 0xf4];
+    let (mut vcpu, mem) = setup_vm(&code, None);
+    set_xmm(&mem, &mut vcpu, 1, KAT_PSHUFD_SRC);
+    let regs = run_until_hlt(&mut vcpu).unwrap();
+    assert_eq!(
+        get_xmm(&regs, 0),
+        0xddddddddccccccccbbbbbbbbaaaaaaaa,
+        "PSHUFD got {:032x}",
+        get_xmm(&regs, 0)
+    );
+}
+
+#[test]
+fn kat_pshufd_broadcast_dword0() {
+    // imm 0x00 broadcasts source dword0 into all 4 lanes.
+    let code = [0x66, 0x0f, 0x70, 0xc1, 0x00, 0xf4];
+    let (mut vcpu, mem) = setup_vm(&code, None);
+    set_xmm(&mem, &mut vcpu, 1, KAT_PSHUFD_SRC);
+    let regs = run_until_hlt(&mut vcpu).unwrap();
+    assert_eq!(get_xmm(&regs, 0), 0xdddddddddddddddddddddddddddddddd);
+}
+
+#[test]
+fn kat_pshufd_identity() {
+    // imm 0xE4 (11 10 01 00) is the identity permutation.
+    let code = [0x66, 0x0f, 0x70, 0xc1, 0xe4, 0xf4];
+    let (mut vcpu, mem) = setup_vm(&code, None);
+    set_xmm(&mem, &mut vcpu, 1, KAT_PSHUFD_SRC);
+    let regs = run_until_hlt(&mut vcpu).unwrap();
+    assert_eq!(get_xmm(&regs, 0), KAT_PSHUFD_SRC);
+}

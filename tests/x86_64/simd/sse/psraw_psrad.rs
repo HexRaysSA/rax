@@ -751,3 +751,51 @@ fn test_psrad_xmm10_xmm11() {
     mem.write_slice(&data, GuestAddress(ALIGNED_ADDR)).unwrap();
     run_until_hlt(&mut vcpu).unwrap();
 }
+
+// ============================================================================
+// Known-answer value tests (immediate shift counts via set_xmm/get_xmm)
+//
+// Arithmetic right shift: each lane shifted independently with sign extension
+// (the lane's MSB is replicated into the vacated high bits). Computed by hand.
+// ============================================================================
+
+#[test]
+fn kat_psraw_imm4_value() {
+    // PSRAW XMM0, 4 (66 0F 71 /4 ib => E0 04)
+    let code = [0x66, 0x0f, 0x71, 0xe0, 0x04, 0xf4];
+    let (mut vcpu, mem) = setup_vm(&code, None);
+    set_xmm(&mem, &mut vcpu, 0, 0x8001400220031004f008700c600d500e);
+    let regs = run_until_hlt(&mut vcpu).unwrap();
+    assert_eq!(
+        get_xmm(&regs, 0),
+        0xf800040002000100ff00070006000500,
+        "PSRAW got {:032x}",
+        get_xmm(&regs, 0)
+    );
+}
+
+#[test]
+fn kat_psrad_imm4_value() {
+    // PSRAD XMM0, 4 (66 0F 72 /4 ib => E0 04)
+    let code = [0x66, 0x0f, 0x72, 0xe0, 0x04, 0xf4];
+    let (mut vcpu, mem) = setup_vm(&code, None);
+    set_xmm(&mem, &mut vcpu, 0, 0x800000017fffffff00000010ffffffff);
+    let regs = run_until_hlt(&mut vcpu).unwrap();
+    assert_eq!(
+        get_xmm(&regs, 0),
+        0xf800000007ffffff00000001ffffffff,
+        "PSRAD got {:032x}",
+        get_xmm(&regs, 0)
+    );
+}
+
+#[test]
+fn kat_psraw_negative_fills_ones() {
+    // A negative word (MSB=1) shifted right by 15 becomes all-ones (0xFFFF);
+    // a positive word becomes 0x0000.
+    let code = [0x66, 0x0f, 0x71, 0xe0, 0x0f, 0xf4]; // PSRAW XMM0, 15
+    let (mut vcpu, mem) = setup_vm(&code, None);
+    set_xmm(&mem, &mut vcpu, 0, 0x8000000080000000_7fff00007fff0000);
+    let regs = run_until_hlt(&mut vcpu).unwrap();
+    assert_eq!(get_xmm(&regs, 0), 0xffff0000ffff0000_0000000000000000);
+}

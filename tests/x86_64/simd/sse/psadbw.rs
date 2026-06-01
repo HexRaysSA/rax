@@ -625,3 +625,53 @@ fn test_psadbw_random_pattern_2() {
     mem.write_slice(&src2, GuestAddress(ALIGNED_ADDR2)).unwrap();
     run_until_hlt(&mut vcpu).unwrap();
 }
+
+// ============================================================================
+// Known-answer value tests (register-to-register via set_xmm/get_xmm)
+//
+// PSADBW computes the sum of absolute byte differences for each 8-byte half and
+// places the 16-bit sum in the low word of the corresponding 64-bit lane (the
+// rest of each lane is zero). Computed by hand.
+//   DST = XMM0 = 0x102030405060708090A0B0C0D0E0F000
+//   SRC = XMM1 = 0x0010203040506070FF00FF00FF00FF00
+//   low 8 bytes:  sum |a-b| = 828 = 0x33C
+//   high 8 bytes: sum |a-b| = 128 = 0x80
+// ============================================================================
+
+#[test]
+fn kat_psadbw_value() {
+    // PSADBW XMM0, XMM1 (66 0F F6 C1)
+    let code = [0x66, 0x0f, 0xf6, 0xc1, 0xf4];
+    let (mut vcpu, mem) = setup_vm(&code, None);
+    set_xmm(&mem, &mut vcpu, 0, 0x102030405060708090A0B0C0D0E0F000);
+    set_xmm(&mem, &mut vcpu, 1, 0x0010203040506070FF00FF00FF00FF00);
+    let regs = run_until_hlt(&mut vcpu).unwrap();
+    assert_eq!(
+        get_xmm(&regs, 0),
+        0x0000000000000080000000000000033c,
+        "PSADBW got {:032x}",
+        get_xmm(&regs, 0)
+    );
+}
+
+#[test]
+fn kat_psadbw_max_diff() {
+    // Every byte differs by 0xFF; each 8-byte half sums to 8*255 = 2040 = 0x7F8.
+    let code = [0x66, 0x0f, 0xf6, 0xc1, 0xf4];
+    let (mut vcpu, mem) = setup_vm(&code, None);
+    set_xmm(&mem, &mut vcpu, 0, 0xffffffffffffffffffffffffffffffff);
+    set_xmm(&mem, &mut vcpu, 1, 0x00000000000000000000000000000000);
+    let regs = run_until_hlt(&mut vcpu).unwrap();
+    assert_eq!(get_xmm(&regs, 0), 0x000000000000_07f8000000000000_07f8);
+}
+
+#[test]
+fn kat_psadbw_equal_is_zero() {
+    // Identical operands => zero absolute difference in every lane.
+    let code = [0x66, 0x0f, 0xf6, 0xc1, 0xf4];
+    let (mut vcpu, mem) = setup_vm(&code, None);
+    set_xmm(&mem, &mut vcpu, 0, 0x0123456789abcdeffedcba9876543210);
+    set_xmm(&mem, &mut vcpu, 1, 0x0123456789abcdeffedcba9876543210);
+    let regs = run_until_hlt(&mut vcpu).unwrap();
+    assert_eq!(get_xmm(&regs, 0), 0);
+}

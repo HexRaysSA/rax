@@ -1,4 +1,4 @@
-use crate::common::{run_until_hlt, setup_vm};
+use crate::common::{get_xmm, run_until_hlt, set_xmm, setup_vm};
 
 // PMULLW - Multiply Packed Signed Integers and Store Low Result
 //
@@ -220,4 +220,40 @@ fn test_pmullw_mmx_all_regs() {
     ];
     let (mut vcpu, _) = setup_vm(&code, None);
     run_until_hlt(&mut vcpu).unwrap();
+}
+
+// ============================================================================
+// Known-answer value tests (register-to-register via set_xmm/get_xmm)
+//
+// PMULLW multiplies 8 packed words and keeps the LOW 16 bits of each product
+// (identical for signed/unsigned). Computed by hand.
+//   DST = XMM0 = 0x0002000300040005FFFF8000007FABCD
+//   SRC = XMM1 = 0x0003000500070009000280017FFF1234
+// ============================================================================
+
+#[test]
+fn kat_pmullw_value() {
+    // PMULLW XMM0, XMM1 (66 0F D5 C1)
+    let code = [0x66, 0x0f, 0xd5, 0xc1, 0xf4];
+    let (mut vcpu, mem) = setup_vm(&code, None);
+    set_xmm(&mem, &mut vcpu, 0, 0x0002000300040005FFFF8000007FABCD);
+    set_xmm(&mem, &mut vcpu, 1, 0x0003000500070009000280017FFF1234);
+    let regs = run_until_hlt(&mut vcpu).unwrap();
+    assert_eq!(
+        get_xmm(&regs, 0),
+        0x0006000f001c002dfffe80007f814fa4,
+        "PMULLW got {:032x}",
+        get_xmm(&regs, 0)
+    );
+}
+
+#[test]
+fn kat_pmullw_simple() {
+    // Each word of DST multiplied by 2: word0=8*2=0x10, word1=7*2=0xE, ...
+    let code = [0x66, 0x0f, 0xd5, 0xc1, 0xf4];
+    let (mut vcpu, mem) = setup_vm(&code, None);
+    set_xmm(&mem, &mut vcpu, 0, 0x00010002000300040005000600070008);
+    set_xmm(&mem, &mut vcpu, 1, 0x00020002000200020002000200020002);
+    let regs = run_until_hlt(&mut vcpu).unwrap();
+    assert_eq!(get_xmm(&regs, 0), 0x0002000400060008000a000c000e0010);
 }

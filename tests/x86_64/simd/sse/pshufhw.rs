@@ -708,3 +708,51 @@ fn test_pshufhw_xmm0_xmm1_imm_0x2d() {
     let (mut vcpu, _) = setup_vm(&code, None);
     run_until_hlt(&mut vcpu).unwrap();
 }
+
+// ============================================================================
+// Known-answer value tests (register-to-register + imm8 via set_xmm/get_xmm)
+//
+// PSHUFHW shuffles the HIGH four 16-bit words by imm8 (2 bits per result word,
+// relative to the high quadword); the low qword is copied unchanged.
+//   SRC = XMM1 = 0x01020304050607081122334455667788
+//     high words: word4=0x0708, word5=0x0506, word6=0x0304, word7=0x0102
+//     low qword (unchanged) = 0x1122334455667788
+// Computed by hand.
+// ============================================================================
+
+const KAT_PSHUFHW_SRC: u128 = 0x01020304050607081122334455667788;
+
+#[test]
+fn kat_pshufhw_reverse_high() {
+    // PSHUFHW XMM0, XMM1, 0x1B (F3 0F 70 C1 1B) reverses the high 4 words.
+    let code = [0xf3, 0x0f, 0x70, 0xc1, 0x1b, 0xf4];
+    let (mut vcpu, mem) = setup_vm(&code, None);
+    set_xmm(&mem, &mut vcpu, 1, KAT_PSHUFHW_SRC);
+    let regs = run_until_hlt(&mut vcpu).unwrap();
+    assert_eq!(
+        get_xmm(&regs, 0),
+        0x07080506030401021122334455667788,
+        "PSHUFHW got {:032x}",
+        get_xmm(&regs, 0)
+    );
+}
+
+#[test]
+fn kat_pshufhw_identity_keeps_low() {
+    // imm 0xE4 is identity for the high words; low qword always copied verbatim.
+    let code = [0xf3, 0x0f, 0x70, 0xc1, 0xe4, 0xf4];
+    let (mut vcpu, mem) = setup_vm(&code, None);
+    set_xmm(&mem, &mut vcpu, 1, KAT_PSHUFHW_SRC);
+    let regs = run_until_hlt(&mut vcpu).unwrap();
+    assert_eq!(get_xmm(&regs, 0), KAT_PSHUFHW_SRC);
+}
+
+#[test]
+fn kat_pshufhw_broadcast_word4() {
+    // imm 0x00 broadcasts high word4 into all four high words; low qword intact.
+    let code = [0xf3, 0x0f, 0x70, 0xc1, 0x00, 0xf4];
+    let (mut vcpu, mem) = setup_vm(&code, None);
+    set_xmm(&mem, &mut vcpu, 1, KAT_PSHUFHW_SRC);
+    let regs = run_until_hlt(&mut vcpu).unwrap();
+    assert_eq!(get_xmm(&regs, 0), 0x07080708070807081122334455667788);
+}

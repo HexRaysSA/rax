@@ -864,3 +864,102 @@ fn test_all_padd_sequence() {
     mem.write_slice(&[0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01], GuestAddress(ALIGNED_ADDR)).unwrap();
     run_until_hlt(&mut vcpu).unwrap();
 }
+
+// ============================================================================
+// Known-answer value tests (register-to-register via set_xmm/get_xmm)
+//
+// DST = XMM0 = 0x0102030405060708090A0B0C0D0E0F10
+// SRC = XMM1 = 0x102030405060708090A0B0C0D0E0F0FF
+// Results computed by hand from x86 lane-wise add semantics with wraparound.
+// ============================================================================
+
+const KAT_DST: u128 = 0x0102030405060708090A0B0C0D0E0F10;
+const KAT_SRC: u128 = 0x102030405060708090A0B0C0D0E0F0FF;
+
+#[test]
+fn kat_paddb_value() {
+    // PADDB XMM0, XMM1 (66 0F FC C1): 16 independent byte adds mod 256.
+    let code = [0x66, 0x0f, 0xfc, 0xc1, 0xf4];
+    let (mut vcpu, mem) = setup_vm(&code, None);
+    set_xmm(&mem, &mut vcpu, 0, KAT_DST);
+    set_xmm(&mem, &mut vcpu, 1, KAT_SRC);
+    let regs = run_until_hlt(&mut vcpu).unwrap();
+    assert_eq!(
+        get_xmm(&regs, 0),
+        0x112233445566778899aabbccddeeff0f,
+        "PADDB got {:032x}",
+        get_xmm(&regs, 0)
+    );
+}
+
+#[test]
+fn kat_paddw_value() {
+    // PADDW XMM0, XMM1 (66 0F FD C1): 8 independent word adds mod 2^16.
+    let code = [0x66, 0x0f, 0xfd, 0xc1, 0xf4];
+    let (mut vcpu, mem) = setup_vm(&code, None);
+    set_xmm(&mem, &mut vcpu, 0, KAT_DST);
+    set_xmm(&mem, &mut vcpu, 1, KAT_SRC);
+    let regs = run_until_hlt(&mut vcpu).unwrap();
+    assert_eq!(
+        get_xmm(&regs, 0),
+        0x112233445566778899aabbccddee000f,
+        "PADDW got {:032x}",
+        get_xmm(&regs, 0)
+    );
+}
+
+#[test]
+fn kat_paddd_value() {
+    // PADDD XMM0, XMM1 (66 0F FE C1): 4 independent dword adds mod 2^32.
+    let code = [0x66, 0x0f, 0xfe, 0xc1, 0xf4];
+    let (mut vcpu, mem) = setup_vm(&code, None);
+    set_xmm(&mem, &mut vcpu, 0, KAT_DST);
+    set_xmm(&mem, &mut vcpu, 1, KAT_SRC);
+    let regs = run_until_hlt(&mut vcpu).unwrap();
+    assert_eq!(
+        get_xmm(&regs, 0),
+        0x112233445566778899aabbccddef000f,
+        "PADDD got {:032x}",
+        get_xmm(&regs, 0)
+    );
+}
+
+#[test]
+fn kat_paddq_value() {
+    // PADDQ XMM0, XMM1 (66 0F D4 C1): 2 independent qword adds mod 2^64.
+    let code = [0x66, 0x0f, 0xd4, 0xc1, 0xf4];
+    let (mut vcpu, mem) = setup_vm(&code, None);
+    set_xmm(&mem, &mut vcpu, 0, KAT_DST);
+    set_xmm(&mem, &mut vcpu, 1, KAT_SRC);
+    let regs = run_until_hlt(&mut vcpu).unwrap();
+    assert_eq!(
+        get_xmm(&regs, 0),
+        0x112233445566778899aabbccddef000f,
+        "PADDQ got {:032x}",
+        get_xmm(&regs, 0)
+    );
+}
+
+#[test]
+fn kat_paddb_carry_isolation() {
+    // Each byte lane carries independently: byte 0 (0xFF + 0x01) wraps to 0x00
+    // and does NOT carry into byte 1, which stays 0xFF.
+    let code = [0x66, 0x0f, 0xfc, 0xc1, 0xf4];
+    let (mut vcpu, mem) = setup_vm(&code, None);
+    set_xmm(&mem, &mut vcpu, 0, 0xffffffffffffffffffffffffffffffff);
+    set_xmm(&mem, &mut vcpu, 1, 0x00000000000000000000000000000001);
+    let regs = run_until_hlt(&mut vcpu).unwrap();
+    assert_eq!(get_xmm(&regs, 0), 0xffffffffffffffffffffffffffffff00);
+}
+
+#[test]
+fn kat_paddq_carry_into_high_qword_blocked() {
+    // PADDQ: low qword 0xFFFFFFFFFFFFFFFF + 1 wraps to 0 and does NOT carry
+    // into the high qword.
+    let code = [0x66, 0x0f, 0xd4, 0xc1, 0xf4];
+    let (mut vcpu, mem) = setup_vm(&code, None);
+    set_xmm(&mem, &mut vcpu, 0, 0x0000000000000000FFFFFFFFFFFFFFFF);
+    set_xmm(&mem, &mut vcpu, 1, 0x00000000000000000000000000000001);
+    let regs = run_until_hlt(&mut vcpu).unwrap();
+    assert_eq!(get_xmm(&regs, 0), 0x0000000000000000_0000000000000000);
+}

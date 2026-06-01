@@ -708,3 +708,51 @@ fn test_pshuflw_xmm0_xmm1_imm_0x2d() {
     let (mut vcpu, _) = setup_vm(&code, None);
     run_until_hlt(&mut vcpu).unwrap();
 }
+
+// ============================================================================
+// Known-answer value tests (register-to-register + imm8 via set_xmm/get_xmm)
+//
+// PSHUFLW shuffles the LOW four 16-bit words by imm8 (2 bits per result word);
+// the high qword is copied unchanged.
+//   SRC = XMM1 = 0x01020304050607081122334455667788
+//     low words:  word0=0x7788, word1=0x5566, word2=0x3344, word3=0x1122
+//     high qword (unchanged) = 0x0102030405060708
+// Computed by hand.
+// ============================================================================
+
+const KAT_PSHUFLW_SRC: u128 = 0x01020304050607081122334455667788;
+
+#[test]
+fn kat_pshuflw_reverse_low() {
+    // PSHUFLW XMM0, XMM1, 0x1B (F2 0F 70 C1 1B) reverses the low 4 words.
+    let code = [0xf2, 0x0f, 0x70, 0xc1, 0x1b, 0xf4];
+    let (mut vcpu, mem) = setup_vm(&code, None);
+    set_xmm(&mem, &mut vcpu, 1, KAT_PSHUFLW_SRC);
+    let regs = run_until_hlt(&mut vcpu).unwrap();
+    assert_eq!(
+        get_xmm(&regs, 0),
+        0x01020304050607087788556633441122,
+        "PSHUFLW got {:032x}",
+        get_xmm(&regs, 0)
+    );
+}
+
+#[test]
+fn kat_pshuflw_identity_keeps_high() {
+    // imm 0xE4 is identity for the low words; high qword always copied verbatim.
+    let code = [0xf2, 0x0f, 0x70, 0xc1, 0xe4, 0xf4];
+    let (mut vcpu, mem) = setup_vm(&code, None);
+    set_xmm(&mem, &mut vcpu, 1, KAT_PSHUFLW_SRC);
+    let regs = run_until_hlt(&mut vcpu).unwrap();
+    assert_eq!(get_xmm(&regs, 0), KAT_PSHUFLW_SRC);
+}
+
+#[test]
+fn kat_pshuflw_broadcast_word0() {
+    // imm 0x00 broadcasts low word0 into all four low words; high qword intact.
+    let code = [0xf2, 0x0f, 0x70, 0xc1, 0x00, 0xf4];
+    let (mut vcpu, mem) = setup_vm(&code, None);
+    set_xmm(&mem, &mut vcpu, 1, KAT_PSHUFLW_SRC);
+    let regs = run_until_hlt(&mut vcpu).unwrap();
+    assert_eq!(get_xmm(&regs, 0), 0x01020304050607087788778877887788);
+}

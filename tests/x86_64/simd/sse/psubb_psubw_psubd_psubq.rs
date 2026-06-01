@@ -868,3 +868,90 @@ fn test_all_psub_sequence() {
     mem.write_slice(&[0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02], GuestAddress(ALIGNED_ADDR)).unwrap();
     run_until_hlt(&mut vcpu).unwrap();
 }
+
+// ============================================================================
+// Known-answer value tests (register-to-register via set_xmm/get_xmm)
+//
+// DST = XMM0 = 0x0102030405060708090A0B0C0D0E0F10
+// SRC = XMM1 = 0x102030405060708090A0B0C0D0E0F0FF
+// PSUB computes DST - SRC lane-wise with wraparound. Computed by hand.
+// ============================================================================
+
+const KAT_DST: u128 = 0x0102030405060708090A0B0C0D0E0F10;
+const KAT_SRC: u128 = 0x102030405060708090A0B0C0D0E0F0FF;
+
+#[test]
+fn kat_psubb_value() {
+    // PSUBB XMM0, XMM1 (66 0F F8 C1): 16 independent byte subs mod 256.
+    let code = [0x66, 0x0f, 0xf8, 0xc1, 0xf4];
+    let (mut vcpu, mem) = setup_vm(&code, None);
+    set_xmm(&mem, &mut vcpu, 0, KAT_DST);
+    set_xmm(&mem, &mut vcpu, 1, KAT_SRC);
+    let regs = run_until_hlt(&mut vcpu).unwrap();
+    assert_eq!(
+        get_xmm(&regs, 0),
+        0xf1e2d3c4b5a69788796a5b4c3d2e1f11,
+        "PSUBB got {:032x}",
+        get_xmm(&regs, 0)
+    );
+}
+
+#[test]
+fn kat_psubw_value() {
+    // PSUBW XMM0, XMM1 (66 0F F9 C1): 8 independent word subs mod 2^16.
+    let code = [0x66, 0x0f, 0xf9, 0xc1, 0xf4];
+    let (mut vcpu, mem) = setup_vm(&code, None);
+    set_xmm(&mem, &mut vcpu, 0, KAT_DST);
+    set_xmm(&mem, &mut vcpu, 1, KAT_SRC);
+    let regs = run_until_hlt(&mut vcpu).unwrap();
+    assert_eq!(
+        get_xmm(&regs, 0),
+        0xf0e2d2c4b4a69688786a5a4c3c2e1e11,
+        "PSUBW got {:032x}",
+        get_xmm(&regs, 0)
+    );
+}
+
+#[test]
+fn kat_psubd_value() {
+    // PSUBD XMM0, XMM1 (66 0F FA C1): 4 independent dword subs mod 2^32.
+    let code = [0x66, 0x0f, 0xfa, 0xc1, 0xf4];
+    let (mut vcpu, mem) = setup_vm(&code, None);
+    set_xmm(&mem, &mut vcpu, 0, KAT_DST);
+    set_xmm(&mem, &mut vcpu, 1, KAT_SRC);
+    let regs = run_until_hlt(&mut vcpu).unwrap();
+    assert_eq!(
+        get_xmm(&regs, 0),
+        0xf0e1d2c4b4a5968878695a4c3c2d1e11,
+        "PSUBD got {:032x}",
+        get_xmm(&regs, 0)
+    );
+}
+
+#[test]
+fn kat_psubq_value() {
+    // PSUBQ XMM0, XMM1 (66 0F FB C1): 2 independent qword subs mod 2^64.
+    let code = [0x66, 0x0f, 0xfb, 0xc1, 0xf4];
+    let (mut vcpu, mem) = setup_vm(&code, None);
+    set_xmm(&mem, &mut vcpu, 0, KAT_DST);
+    set_xmm(&mem, &mut vcpu, 1, KAT_SRC);
+    let regs = run_until_hlt(&mut vcpu).unwrap();
+    assert_eq!(
+        get_xmm(&regs, 0),
+        0xf0e1d2c3b4a5968878695a4b3c2d1e11,
+        "PSUBQ got {:032x}",
+        get_xmm(&regs, 0)
+    );
+}
+
+#[test]
+fn kat_psubb_borrow_isolation() {
+    // 0x00 - 0x01 borrows to 0xFF within the lane only (no cross-lane borrow).
+    let code = [0x66, 0x0f, 0xf8, 0xc1, 0xf4];
+    let (mut vcpu, mem) = setup_vm(&code, None);
+    set_xmm(&mem, &mut vcpu, 0, 0x00010001000100010001000100010001);
+    set_xmm(&mem, &mut vcpu, 1, 0x00010002000100020001000200010002);
+    let regs = run_until_hlt(&mut vcpu).unwrap();
+    // byte0 lanes: 0x01-0x02 => 0xFF; all other bytes 0. No cross-lane borrow.
+    assert_eq!(get_xmm(&regs, 0), 0x000000ff000000ff000000ff000000ff);
+}

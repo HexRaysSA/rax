@@ -676,3 +676,38 @@ fn test_pminud_same_register() {
     mem.write_slice(&[0x42, 0x42, 0x42, 0x42, 0x42, 0x42, 0x42, 0x42, 0x42, 0x42, 0x42, 0x42, 0x42, 0x42, 0x42, 0x42], GuestAddress(ALIGNED_ADDR)).unwrap();
     run_until_hlt(&mut vcpu).unwrap();
 }
+
+// ============================================================================
+// Known-answer value tests (register-to-register via set_xmm/get_xmm)
+//
+// PMINUB selects the per-byte UNSIGNED minimum of DST and SRC. Computed by hand.
+//   DST = XMM0 = 0x01030507090B0D0F11FF00FF80017FFE
+//   SRC = XMM1 = 0x0204060801030507FF01FF0080FE0001
+// ============================================================================
+
+#[test]
+fn kat_pminub_value() {
+    // PMINUB XMM0, XMM1 (66 0F DA C1)
+    let code = [0x66, 0x0f, 0xda, 0xc1, 0xf4];
+    let (mut vcpu, mem) = setup_vm(&code, None);
+    set_xmm(&mem, &mut vcpu, 0, 0x01030507090B0D0F11FF00FF80017FFE);
+    set_xmm(&mem, &mut vcpu, 1, 0x0204060801030507FF01FF0080FE0001);
+    let regs = run_until_hlt(&mut vcpu).unwrap();
+    assert_eq!(
+        get_xmm(&regs, 0),
+        0x01030507010305071101000080010001,
+        "PMINUB got {:032x}",
+        get_xmm(&regs, 0)
+    );
+}
+
+#[test]
+fn kat_pminub_unsigned_semantics() {
+    // 0xFF is the MAX unsigned byte, so min(0xFF, 0x00) = 0x00 (not signed -1).
+    let code = [0x66, 0x0f, 0xda, 0xc1, 0xf4];
+    let (mut vcpu, mem) = setup_vm(&code, None);
+    set_xmm(&mem, &mut vcpu, 0, 0xffffffffffffffffffffffffffffffff);
+    set_xmm(&mem, &mut vcpu, 1, 0x00000000000000000000000000000000);
+    let regs = run_until_hlt(&mut vcpu).unwrap();
+    assert_eq!(get_xmm(&regs, 0), 0);
+}

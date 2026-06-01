@@ -485,3 +485,41 @@ fn test_pmaddwd_decremental_pattern() {
     let (mut vcpu, _) = setup_vm(&code, None);
     run_until_hlt(&mut vcpu).unwrap();
 }
+
+// ============================================================================
+// Known-answer value tests (register-to-register via set_xmm/get_xmm)
+//
+// PMADDWD signed-multiplies adjacent word pairs and sums each pair into a
+// 32-bit result (4 dwords). Computed by hand.
+//   DST = XMM0 = 0x0002000300040005FFFF8000007FABCD
+//   SRC = XMM1 = 0x0003000500070009000280017FFF1234
+// ============================================================================
+
+#[test]
+fn kat_pmaddwd_value() {
+    // PMADDWD XMM0, XMM1 (66 0F F5 C1)
+    let code = [0x66, 0x0f, 0xf5, 0xc1, 0xf4];
+    let (mut vcpu, mem) = setup_vm(&code, None);
+    set_xmm(&mem, &mut vcpu, 0, 0x0002000300040005FFFF8000007FABCD);
+    set_xmm(&mem, &mut vcpu, 1, 0x0003000500070009000280017FFF1234);
+    let regs = run_until_hlt(&mut vcpu).unwrap();
+    assert_eq!(
+        get_xmm(&regs, 0),
+        0x00000015000000493fff7ffefa42cf25,
+        "PMADDWD got {:032x}",
+        get_xmm(&regs, 0)
+    );
+}
+
+#[test]
+fn kat_pmaddwd_simple() {
+    // dword0 = 1*1 + 2*2 = 5; dword1 = 3*3 + 4*4 = 25 (0x19); etc.
+    let code = [0x66, 0x0f, 0xf5, 0xc1, 0xf4];
+    let (mut vcpu, mem) = setup_vm(&code, None);
+    set_xmm(&mem, &mut vcpu, 0, 0x00070008000500060003000400010002);
+    set_xmm(&mem, &mut vcpu, 1, 0x00070008000500060003000400010002);
+    let regs = run_until_hlt(&mut vcpu).unwrap();
+    // pair0 (1,2): 1+4=5; pair1 (3,4): 9+16=25=0x19; pair2 (5,6): 25+36=61=0x3D;
+    // pair3 (7,8): 49+64=113=0x71.
+    assert_eq!(get_xmm(&regs, 0), 0x000000710000003d000000190000_0005);
+}

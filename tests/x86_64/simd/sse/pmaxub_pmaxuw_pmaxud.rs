@@ -676,3 +676,38 @@ fn test_pmaxud_same_register() {
     mem.write_slice(&[0x42, 0x42, 0x42, 0x42, 0x42, 0x42, 0x42, 0x42, 0x42, 0x42, 0x42, 0x42, 0x42, 0x42, 0x42, 0x42], GuestAddress(ALIGNED_ADDR)).unwrap();
     run_until_hlt(&mut vcpu).unwrap();
 }
+
+// ============================================================================
+// Known-answer value tests (register-to-register via set_xmm/get_xmm)
+//
+// PMAXUB selects the per-byte UNSIGNED maximum of DST and SRC. Computed by hand.
+//   DST = XMM0 = 0x01030507090B0D0F11FF00FF80017FFE
+//   SRC = XMM1 = 0x0204060801030507FF01FF0080FE0001
+// ============================================================================
+
+#[test]
+fn kat_pmaxub_value() {
+    // PMAXUB XMM0, XMM1 (66 0F DE C1)
+    let code = [0x66, 0x0f, 0xde, 0xc1, 0xf4];
+    let (mut vcpu, mem) = setup_vm(&code, None);
+    set_xmm(&mem, &mut vcpu, 0, 0x01030507090B0D0F11FF00FF80017FFE);
+    set_xmm(&mem, &mut vcpu, 1, 0x0204060801030507FF01FF0080FE0001);
+    let regs = run_until_hlt(&mut vcpu).unwrap();
+    assert_eq!(
+        get_xmm(&regs, 0),
+        0x02040608090b0d0fffffffff80fe7ffe,
+        "PMAXUB got {:032x}",
+        get_xmm(&regs, 0)
+    );
+}
+
+#[test]
+fn kat_pmaxub_unsigned_semantics() {
+    // 0xFF is the MAX unsigned byte, so max(0xFF, 0x00) = 0xFF (not signed -1).
+    let code = [0x66, 0x0f, 0xde, 0xc1, 0xf4];
+    let (mut vcpu, mem) = setup_vm(&code, None);
+    set_xmm(&mem, &mut vcpu, 0, 0xffffffffffffffffffffffffffffffff);
+    set_xmm(&mem, &mut vcpu, 1, 0x00000000000000000000000000000000);
+    let regs = run_until_hlt(&mut vcpu).unwrap();
+    assert_eq!(get_xmm(&regs, 0), 0xffffffffffffffffffffffffffffffff);
+}

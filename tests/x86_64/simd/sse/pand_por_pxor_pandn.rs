@@ -778,3 +778,100 @@ fn test_pxor_zero_then_por() {
     mem.write_slice(&[0x42, 0x42, 0x42, 0x42, 0x42, 0x42, 0x42, 0x42, 0x42, 0x42, 0x42, 0x42, 0x42, 0x42, 0x42, 0x42], GuestAddress(ALIGNED_ADDR)).unwrap();
     run_until_hlt(&mut vcpu).unwrap();
 }
+
+// ============================================================================
+// Known-answer value tests (register-to-register via set_xmm/get_xmm)
+//
+// Bitwise ops over the full 128-bit register.
+//   DST = XMM0 = 0x0F0F0F0FF0F0F0F0AAAA5555CCCC3333
+//   SRC = XMM1 = 0x00FF00FFFF00FF0012345678ABCDEF01
+// PANDN computes (NOT DST) AND SRC. Computed by hand.
+// ============================================================================
+
+const KAT_LOG_DST: u128 = 0x0F0F0F0FF0F0F0F0AAAA5555CCCC3333;
+const KAT_LOG_SRC: u128 = 0x00FF00FFFF00FF0012345678ABCDEF01;
+
+#[test]
+fn kat_pand_value() {
+    // PAND XMM0, XMM1 (66 0F DB C1)
+    let code = [0x66, 0x0f, 0xdb, 0xc1, 0xf4];
+    let (mut vcpu, mem) = setup_vm(&code, None);
+    set_xmm(&mem, &mut vcpu, 0, KAT_LOG_DST);
+    set_xmm(&mem, &mut vcpu, 1, KAT_LOG_SRC);
+    let regs = run_until_hlt(&mut vcpu).unwrap();
+    assert_eq!(
+        get_xmm(&regs, 0),
+        0x000f000ff000f0000220545088cc2301,
+        "PAND got {:032x}",
+        get_xmm(&regs, 0)
+    );
+}
+
+#[test]
+fn kat_por_value() {
+    // POR XMM0, XMM1 (66 0F EB C1)
+    let code = [0x66, 0x0f, 0xeb, 0xc1, 0xf4];
+    let (mut vcpu, mem) = setup_vm(&code, None);
+    set_xmm(&mem, &mut vcpu, 0, KAT_LOG_DST);
+    set_xmm(&mem, &mut vcpu, 1, KAT_LOG_SRC);
+    let regs = run_until_hlt(&mut vcpu).unwrap();
+    assert_eq!(
+        get_xmm(&regs, 0),
+        0x0fff0ffffff0fff0babe577defcdff33,
+        "POR got {:032x}",
+        get_xmm(&regs, 0)
+    );
+}
+
+#[test]
+fn kat_pxor_value() {
+    // PXOR XMM0, XMM1 (66 0F EF C1)
+    let code = [0x66, 0x0f, 0xef, 0xc1, 0xf4];
+    let (mut vcpu, mem) = setup_vm(&code, None);
+    set_xmm(&mem, &mut vcpu, 0, KAT_LOG_DST);
+    set_xmm(&mem, &mut vcpu, 1, KAT_LOG_SRC);
+    let regs = run_until_hlt(&mut vcpu).unwrap();
+    assert_eq!(
+        get_xmm(&regs, 0),
+        0x0ff00ff00ff00ff0b89e032d6701dc32,
+        "PXOR got {:032x}",
+        get_xmm(&regs, 0)
+    );
+}
+
+#[test]
+fn kat_pandn_value() {
+    // PANDN XMM0, XMM1 (66 0F DF C1): result = (NOT XMM0) AND XMM1.
+    let code = [0x66, 0x0f, 0xdf, 0xc1, 0xf4];
+    let (mut vcpu, mem) = setup_vm(&code, None);
+    set_xmm(&mem, &mut vcpu, 0, KAT_LOG_DST);
+    set_xmm(&mem, &mut vcpu, 1, KAT_LOG_SRC);
+    let regs = run_until_hlt(&mut vcpu).unwrap();
+    assert_eq!(
+        get_xmm(&regs, 0),
+        0x00f000f00f000f00101402282301cc00,
+        "PANDN got {:032x}",
+        get_xmm(&regs, 0)
+    );
+}
+
+#[test]
+fn kat_pxor_self_zeroes() {
+    // PXOR XMM0, XMM0 (66 0F EF C0) is the canonical register-zeroing idiom.
+    let code = [0x66, 0x0f, 0xef, 0xc0, 0xf4];
+    let (mut vcpu, mem) = setup_vm(&code, None);
+    set_xmm(&mem, &mut vcpu, 0, 0xDEADBEEFCAFEBABE0123456789ABCDEF);
+    let regs = run_until_hlt(&mut vcpu).unwrap();
+    assert_eq!(get_xmm(&regs, 0), 0);
+}
+
+#[test]
+fn kat_pandn_all_ones_src_is_not_dst() {
+    // (NOT DST) AND 0xFF.. = NOT DST.
+    let code = [0x66, 0x0f, 0xdf, 0xc1, 0xf4];
+    let (mut vcpu, mem) = setup_vm(&code, None);
+    set_xmm(&mem, &mut vcpu, 0, 0x0123456789ABCDEFFEDCBA9876543210);
+    set_xmm(&mem, &mut vcpu, 1, 0xffffffffffffffffffffffffffffffff);
+    let regs = run_until_hlt(&mut vcpu).unwrap();
+    assert_eq!(get_xmm(&regs, 0), 0xFEDCBA9876543210_0123456789ABCDEF);
+}

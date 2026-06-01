@@ -823,3 +823,64 @@ fn test_paddusw_powers_of_two() {
     mem.write_slice(&src2, GuestAddress(ALIGNED_ADDR2)).unwrap();
     run_until_hlt(&mut vcpu).unwrap();
 }
+
+// ============================================================================
+// Known-answer value tests (register-to-register via set_xmm/get_xmm)
+//
+// Unsigned saturating add. Each lane clamps to [0,255] (byte) / [0,65535]
+// (word). Computed by hand from x86 PADDUSB/PADDUSW semantics.
+// ============================================================================
+
+#[test]
+fn kat_paddusb_value() {
+    // PADDUSB XMM0, XMM1 (66 0F DC C1)
+    let code = [0x66, 0x0f, 0xdc, 0xc1, 0xf4];
+    let (mut vcpu, mem) = setup_vm(&code, None);
+    set_xmm(&mem, &mut vcpu, 0, 0x7f7f80800102fe007f01ff80fe7f0100);
+    set_xmm(&mem, &mut vcpu, 1, 0x010180800102020101ff01800201ff00);
+    let regs = run_until_hlt(&mut vcpu).unwrap();
+    assert_eq!(
+        get_xmm(&regs, 0),
+        0x8080ffff0204ff0180ffffffff80ff00,
+        "PADDUSB got {:032x}",
+        get_xmm(&regs, 0)
+    );
+}
+
+#[test]
+fn kat_paddusw_value() {
+    // PADDUSW XMM0, XMM1 (66 0F DD C1)
+    let code = [0x66, 0x0f, 0xdd, 0xc1, 0xf4];
+    let (mut vcpu, mem) = setup_vm(&code, None);
+    set_xmm(&mem, &mut vcpu, 0, 0x7fff80000001fffe7fff8000ffff0001);
+    set_xmm(&mem, &mut vcpu, 1, 0x0001800000027fff0001ffff00018000);
+    let regs = run_until_hlt(&mut vcpu).unwrap();
+    assert_eq!(
+        get_xmm(&regs, 0),
+        0x8000ffff0003ffff8000ffffffff8001,
+        "PADDUSW got {:032x}",
+        get_xmm(&regs, 0)
+    );
+}
+
+#[test]
+fn kat_paddusb_saturation_all() {
+    // 0xFF + 0x01 saturates to 0xFF (unsigned) in every byte lane.
+    let code = [0x66, 0x0f, 0xdc, 0xc1, 0xf4];
+    let (mut vcpu, mem) = setup_vm(&code, None);
+    set_xmm(&mem, &mut vcpu, 0, 0xffffffffffffffffffffffffffffffff);
+    set_xmm(&mem, &mut vcpu, 1, 0x01010101010101010101010101010101);
+    let regs = run_until_hlt(&mut vcpu).unwrap();
+    assert_eq!(get_xmm(&regs, 0), 0xffffffffffffffffffffffffffffffff);
+}
+
+#[test]
+fn kat_paddusw_no_saturation() {
+    // Below the cap, PADDUSW is ordinary addition.
+    let code = [0x66, 0x0f, 0xdd, 0xc1, 0xf4];
+    let (mut vcpu, mem) = setup_vm(&code, None);
+    set_xmm(&mem, &mut vcpu, 0, 0x00010002000300040005000600070008);
+    set_xmm(&mem, &mut vcpu, 1, 0x00100020003000400050006000700080);
+    let regs = run_until_hlt(&mut vcpu).unwrap();
+    assert_eq!(get_xmm(&regs, 0), 0x00110022003300440055006600770088);
+}

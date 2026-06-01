@@ -789,3 +789,53 @@ fn test_psubusw_powers_of_two() {
     mem.write_slice(&src2, GuestAddress(ALIGNED_ADDR2)).unwrap();
     run_until_hlt(&mut vcpu).unwrap();
 }
+
+// ============================================================================
+// Known-answer value tests (register-to-register via set_xmm/get_xmm)
+//
+// Unsigned saturating subtract DST - SRC, clamping each lane at 0 (no borrow
+// below zero). Computed by hand from x86 PSUBUSB/PSUBUSW semantics.
+// ============================================================================
+
+#[test]
+fn kat_psubusb_value() {
+    // PSUBUSB XMM0, XMM1 (66 0F D8 C1)
+    let code = [0x66, 0x0f, 0xd8, 0xc1, 0xf4];
+    let (mut vcpu, mem) = setup_vm(&code, None);
+    set_xmm(&mem, &mut vcpu, 0, 0x7f7f80800102fe007f01ff80fe7f0100);
+    set_xmm(&mem, &mut vcpu, 1, 0x010180800102020101ff01800201ff00);
+    let regs = run_until_hlt(&mut vcpu).unwrap();
+    assert_eq!(
+        get_xmm(&regs, 0),
+        0x7e7e00000000fc007e00fe00fc7e0000,
+        "PSUBUSB got {:032x}",
+        get_xmm(&regs, 0)
+    );
+}
+
+#[test]
+fn kat_psubusw_value() {
+    // PSUBUSW XMM0, XMM1 (66 0F D9 C1)
+    let code = [0x66, 0x0f, 0xd9, 0xc1, 0xf4];
+    let (mut vcpu, mem) = setup_vm(&code, None);
+    set_xmm(&mem, &mut vcpu, 0, 0x7fff80000001fffe7fff8000ffff0001);
+    set_xmm(&mem, &mut vcpu, 1, 0x0001800000027fff0001ffff00018000);
+    let regs = run_until_hlt(&mut vcpu).unwrap();
+    assert_eq!(
+        get_xmm(&regs, 0),
+        0x7ffe000000007fff7ffe0000fffe0000,
+        "PSUBUSW got {:032x}",
+        get_xmm(&regs, 0)
+    );
+}
+
+#[test]
+fn kat_psubusb_clamp_to_zero() {
+    // Any lane where SRC > DST clamps to 0; 0x00 - anything = 0x00.
+    let code = [0x66, 0x0f, 0xd8, 0xc1, 0xf4];
+    let (mut vcpu, mem) = setup_vm(&code, None);
+    set_xmm(&mem, &mut vcpu, 0, 0x00000000000000000000000000000000);
+    set_xmm(&mem, &mut vcpu, 1, 0x0102030405060708090a0b0c0d0e0f10);
+    let regs = run_until_hlt(&mut vcpu).unwrap();
+    assert_eq!(get_xmm(&regs, 0), 0);
+}

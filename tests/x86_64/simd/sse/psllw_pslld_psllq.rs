@@ -786,3 +786,65 @@ fn test_psllq_xmm12_xmm13() {
     mem.write_slice(&data, GuestAddress(ALIGNED_ADDR)).unwrap();
     run_until_hlt(&mut vcpu).unwrap();
 }
+
+// ============================================================================
+// Known-answer value tests (immediate shift counts via set_xmm/get_xmm)
+//
+// Logical left shift, each lane shifted independently; bits shifted out of a
+// lane are discarded (no cross-lane carry). Computed by hand.
+// ============================================================================
+
+#[test]
+fn kat_psllw_imm4_value() {
+    // PSLLW XMM0, 4 (66 0F 71 /6 ib => F0 04)
+    let code = [0x66, 0x0f, 0x71, 0xf0, 0x04, 0xf4];
+    let (mut vcpu, mem) = setup_vm(&code, None);
+    set_xmm(&mem, &mut vcpu, 0, 0x8001400220031004f008700c600d500e);
+    let regs = run_until_hlt(&mut vcpu).unwrap();
+    assert_eq!(
+        get_xmm(&regs, 0),
+        0x0010002000300040008000c000d000e0,
+        "PSLLW got {:032x}",
+        get_xmm(&regs, 0)
+    );
+}
+
+#[test]
+fn kat_pslld_imm4_value() {
+    // PSLLD XMM0, 4 (66 0F 72 /6 ib => F0 04)
+    let code = [0x66, 0x0f, 0x72, 0xf0, 0x04, 0xf4];
+    let (mut vcpu, mem) = setup_vm(&code, None);
+    set_xmm(&mem, &mut vcpu, 0, 0x800000017fffffff00000010ffffffff);
+    let regs = run_until_hlt(&mut vcpu).unwrap();
+    assert_eq!(
+        get_xmm(&regs, 0),
+        0x00000010fffffff000000100fffffff0,
+        "PSLLD got {:032x}",
+        get_xmm(&regs, 0)
+    );
+}
+
+#[test]
+fn kat_psllq_imm8_value() {
+    // PSLLQ XMM0, 8 (66 0F 73 /6 ib => F0 08)
+    let code = [0x66, 0x0f, 0x73, 0xf0, 0x08, 0xf4];
+    let (mut vcpu, mem) = setup_vm(&code, None);
+    set_xmm(&mem, &mut vcpu, 0, 0x8000000000000001ffffffffffffffff);
+    let regs = run_until_hlt(&mut vcpu).unwrap();
+    assert_eq!(
+        get_xmm(&regs, 0),
+        0x0000000000000100ffffffffffffff00,
+        "PSLLQ got {:032x}",
+        get_xmm(&regs, 0)
+    );
+}
+
+#[test]
+fn kat_psllw_count_ge_width_zeroes() {
+    // A shift count >= element width (16) zeroes every word lane.
+    let code = [0x66, 0x0f, 0x71, 0xf0, 0x10, 0xf4]; // PSLLW XMM0, 16
+    let (mut vcpu, mem) = setup_vm(&code, None);
+    set_xmm(&mem, &mut vcpu, 0, 0x0123456789abcdeffedcba9876543210);
+    let regs = run_until_hlt(&mut vcpu).unwrap();
+    assert_eq!(get_xmm(&regs, 0), 0);
+}

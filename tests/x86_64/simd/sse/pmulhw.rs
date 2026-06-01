@@ -1,4 +1,4 @@
-use crate::common::{run_until_hlt, setup_vm};
+use crate::common::{get_xmm, run_until_hlt, set_xmm, setup_vm};
 use rax::cpu::Registers;
 use vm_memory::{Bytes, GuestAddress};
 
@@ -568,4 +568,40 @@ fn test_pmulhw_xmm14_mem() {
     ];
     let (mut vcpu, _) = setup_vm(&code, None);
     run_until_hlt(&mut vcpu).unwrap();
+}
+
+// ============================================================================
+// Known-answer value tests (register-to-register via set_xmm/get_xmm)
+//
+// PMULHW keeps the HIGH 16 bits of each SIGNED 16x16->32 product. Computed by
+// hand from x86 semantics.
+//   DST = XMM0 = 0x0002000300040005FFFF8000007FABCD
+//   SRC = XMM1 = 0x0003000500070009000280017FFF1234
+// ============================================================================
+
+#[test]
+fn kat_pmulhw_value() {
+    // PMULHW XMM0, XMM1 (66 0F E5 C1)
+    let code = [0x66, 0x0f, 0xe5, 0xc1, 0xf4];
+    let (mut vcpu, mem) = setup_vm(&code, None);
+    set_xmm(&mem, &mut vcpu, 0, 0x0002000300040005FFFF8000007FABCD);
+    set_xmm(&mem, &mut vcpu, 1, 0x0003000500070009000280017FFF1234);
+    let regs = run_until_hlt(&mut vcpu).unwrap();
+    assert_eq!(
+        get_xmm(&regs, 0),
+        0x0000000000000000ffff3fff003ffa03,
+        "PMULHW got {:032x}",
+        get_xmm(&regs, 0)
+    );
+}
+
+#[test]
+fn kat_pmulhw_signed_high() {
+    // 0x8000 (-32768) * 0x8000 (-32768) = 0x40000000, high word = 0x4000.
+    let code = [0x66, 0x0f, 0xe5, 0xc1, 0xf4];
+    let (mut vcpu, mem) = setup_vm(&code, None);
+    set_xmm(&mem, &mut vcpu, 0, 0x80008000800080008000800080008000);
+    set_xmm(&mem, &mut vcpu, 1, 0x80008000800080008000800080008000);
+    let regs = run_until_hlt(&mut vcpu).unwrap();
+    assert_eq!(get_xmm(&regs, 0), 0x40004000400040004000400040004000);
 }

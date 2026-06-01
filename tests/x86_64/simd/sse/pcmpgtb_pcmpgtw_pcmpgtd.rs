@@ -647,3 +647,76 @@ fn test_pcmpgtb_boundary_values() {
     mem.write_slice(&data2, GuestAddress(ALIGNED_ADDR2)).unwrap();
     run_until_hlt(&mut vcpu).unwrap();
 }
+
+// ============================================================================
+// Known-answer value tests (register-to-register via set_xmm/get_xmm)
+//
+// PCMPGT* sets a lane to all-ones when DST > SRC under SIGNED comparison,
+// else all-zeros.
+//   DST = XMM0 = 0x7F00018081FFFE0500112233445566AA
+//   SRC = XMM1 = 0x7E0102807FFFFF0401102333445566AB
+// Vectors exercise sign boundaries (0x7F vs 0x80, etc). Computed by hand.
+// ============================================================================
+
+const KAT_GT_DST: u128 = 0x7F00018081FFFE0500112233445566AA;
+const KAT_GT_SRC: u128 = 0x7E0102807FFFFF0401102333445566AB;
+
+#[test]
+fn kat_pcmpgtb_value() {
+    // PCMPGTB XMM0, XMM1 (66 0F 64 C1) - signed byte compare.
+    let code = [0x66, 0x0f, 0x64, 0xc1, 0xf4];
+    let (mut vcpu, mem) = setup_vm(&code, None);
+    set_xmm(&mem, &mut vcpu, 0, KAT_GT_DST);
+    set_xmm(&mem, &mut vcpu, 1, KAT_GT_SRC);
+    let regs = run_until_hlt(&mut vcpu).unwrap();
+    assert_eq!(
+        get_xmm(&regs, 0),
+        0xff000000000000ff00ff000000000000,
+        "PCMPGTB got {:032x}",
+        get_xmm(&regs, 0)
+    );
+}
+
+#[test]
+fn kat_pcmpgtw_value() {
+    // PCMPGTW XMM0, XMM1 (66 0F 65 C1) - signed word compare.
+    let code = [0x66, 0x0f, 0x65, 0xc1, 0xf4];
+    let (mut vcpu, mem) = setup_vm(&code, None);
+    set_xmm(&mem, &mut vcpu, 0, KAT_GT_DST);
+    set_xmm(&mem, &mut vcpu, 1, KAT_GT_SRC);
+    let regs = run_until_hlt(&mut vcpu).unwrap();
+    assert_eq!(
+        get_xmm(&regs, 0),
+        0xffff0000000000000000000000000000,
+        "PCMPGTW got {:032x}",
+        get_xmm(&regs, 0)
+    );
+}
+
+#[test]
+fn kat_pcmpgtd_value() {
+    // PCMPGTD XMM0, XMM1 (66 0F 66 C1) - signed dword compare.
+    let code = [0x66, 0x0f, 0x66, 0xc1, 0xf4];
+    let (mut vcpu, mem) = setup_vm(&code, None);
+    set_xmm(&mem, &mut vcpu, 0, KAT_GT_DST);
+    set_xmm(&mem, &mut vcpu, 1, KAT_GT_SRC);
+    let regs = run_until_hlt(&mut vcpu).unwrap();
+    assert_eq!(
+        get_xmm(&regs, 0),
+        0xffffffff000000000000000000000000,
+        "PCMPGTD got {:032x}",
+        get_xmm(&regs, 0)
+    );
+}
+
+#[test]
+fn kat_pcmpgtb_signedness() {
+    // -1 (0xFF) is NOT greater than 0 (0x00) under signed comparison, so the
+    // result is all zeros. This distinguishes signed from unsigned semantics.
+    let code = [0x66, 0x0f, 0x64, 0xc1, 0xf4];
+    let (mut vcpu, mem) = setup_vm(&code, None);
+    set_xmm(&mem, &mut vcpu, 0, 0xffffffffffffffffffffffffffffffff);
+    set_xmm(&mem, &mut vcpu, 1, 0x00000000000000000000000000000000);
+    let regs = run_until_hlt(&mut vcpu).unwrap();
+    assert_eq!(get_xmm(&regs, 0), 0);
+}

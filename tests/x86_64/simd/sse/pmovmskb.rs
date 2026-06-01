@@ -1,4 +1,4 @@
-use crate::common::{run_until_hlt, setup_vm};
+use crate::common::{run_until_hlt, set_xmm, setup_vm};
 use rax::cpu::Registers;
 use vm_memory::{Bytes, GuestAddress};
 
@@ -538,4 +538,44 @@ fn test_pmovmskb_high_xmm_regs() {
     ];
     let (mut vcpu, _) = setup_vm(&code, None);
     run_until_hlt(&mut vcpu).unwrap();
+}
+
+// ============================================================================
+// Known-answer value tests (XMM input via set_xmm, GPR result via regs.rax)
+//
+// PMOVMSKB collects the most-significant bit of each of the 16 source bytes
+// into the low 16 bits of a GPR (byte i -> result bit i), zero-extended.
+// Computed by hand.
+// ============================================================================
+
+#[test]
+fn kat_pmovmskb_value() {
+    // PMOVMSKB EAX, XMM0 (66 0F D7 C0)
+    //   XMM0 = 0x8001FF00807FFF0180010204080F1011
+    //   MSB-set bytes are at positions 7,9,11,13,15 => mask 0xAA80.
+    let code = [0x66, 0x0f, 0xd7, 0xc0, 0xf4];
+    let (mut vcpu, mem) = setup_vm(&code, None);
+    set_xmm(&mem, &mut vcpu, 0, 0x8001FF00807FFF0180010204080F1011);
+    let regs = run_until_hlt(&mut vcpu).unwrap();
+    assert_eq!(regs.rax & 0xFFFF, 0xaa80, "PMOVMSKB got {:#x}", regs.rax & 0xFFFF);
+}
+
+#[test]
+fn kat_pmovmskb_all_msb_set() {
+    // Every byte has its MSB set => all 16 mask bits set => 0xFFFF.
+    let code = [0x66, 0x0f, 0xd7, 0xc0, 0xf4];
+    let (mut vcpu, mem) = setup_vm(&code, None);
+    set_xmm(&mem, &mut vcpu, 0, 0x80808080808080808080808080808080);
+    let regs = run_until_hlt(&mut vcpu).unwrap();
+    assert_eq!(regs.rax & 0xFFFF, 0xffff);
+}
+
+#[test]
+fn kat_pmovmskb_none_set() {
+    // No byte has its MSB set (all <= 0x7F) => mask is 0.
+    let code = [0x66, 0x0f, 0xd7, 0xc0, 0xf4];
+    let (mut vcpu, mem) = setup_vm(&code, None);
+    set_xmm(&mem, &mut vcpu, 0, 0x7f7f7f7f7f7f7f7f7f7f7f7f7f7f7f7f);
+    let regs = run_until_hlt(&mut vcpu).unwrap();
+    assert_eq!(regs.rax & 0xFFFF, 0);
 }
