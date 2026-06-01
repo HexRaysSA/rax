@@ -951,3 +951,91 @@ fn test_rep_stosb_count_1() {
     assert_eq!(read_mem_at_u8(&mem, 0x4000), 0x88);
     assert_eq!(regs.rdi, 0x4001);
 }
+
+// ============================================================================
+// Bulk page-wise fast path regression tests
+//
+// These exercise the O(pages) fast path for forward REP STOS with multi-byte
+// elements, including a fill that crosses a page boundary, verifying byte-exact
+// memory and exact end registers.
+// ============================================================================
+
+#[test]
+fn test_rep_stosd_multibyte_crosses_page_boundary() {
+    // STOSD whose run spans a page boundary with one element straddling it.
+    // Dest: 0x4FF8 .. 0x501F (10 dwords = 40 bytes), crossing 0x5000.
+    let code = [
+        0x48, 0xc7, 0xc7, 0xF8, 0x4F, 0x00, 0x00, // MOV RDI, 0x4FF8
+        0x48, 0xc7, 0xc1, 0x0A, 0x00, 0x00, 0x00, // MOV RCX, 10
+        0x48, 0xc7, 0xc0, 0xEF, 0xBE, 0xAD, 0xDE, // MOV RAX, 0xDEADBEEF
+        0xfc, // CLD
+        0xf3, 0xab, // REP STOSD
+        0xf4, // HLT
+    ];
+    let (mut vcpu, mem) = setup_vm(&code, None);
+    let regs = run_until_hlt(&mut vcpu).unwrap();
+
+    for i in 0..10u64 {
+        assert_eq!(
+            read_mem_at_u32(&mem, 0x4FF8 + i * 4),
+            0xDEADBEEF,
+            "dword {} not filled across page boundary",
+            i
+        );
+    }
+    assert_eq!(regs.rcx, 0, "RCX must be exactly 0");
+    assert_eq!(regs.rdi, 0x4FF8 + 40, "RDI end value");
+}
+
+#[test]
+fn test_rep_stosq_multibyte_multi_page_exact_end_regs() {
+    // STOSQ filling across multiple pages, verifying byte-exact fill and the
+    // exact final RDI/RCX after the bulk fast path.
+    // 0x2008 .. 0x2008 + 0x600 * 8 spans several pages.
+    let code = [
+        0x48, 0xc7, 0xc7, 0x08, 0x20, 0x00, 0x00, // MOV RDI, 0x2008
+        0x48, 0xc7, 0xc1, 0x00, 0x06, 0x00, 0x00, // MOV RCX, 0x600
+        0x48, 0xb8, 0x08, 0x07, 0x06, 0x05, 0x04, 0x03, 0x02, 0x01, // MOVABS RAX, 0x0102030405060708
+        0xfc, // CLD
+        0xf3, 0x48, 0xab, // REP STOSQ
+        0xf4, // HLT
+    ];
+    let (mut vcpu, mem) = setup_vm(&code, None);
+    let regs = run_until_hlt(&mut vcpu).unwrap();
+
+    let n = 0x600u64;
+    for i in 0..n {
+        assert_eq!(
+            read_mem_at_u64(&mem, 0x2008 + i * 8),
+            0x0102030405060708,
+            "qword {} not filled",
+            i
+        );
+    }
+    // Byte just past the fill must remain zero (no over-write).
+    assert_eq!(read_mem_at_u64(&mem, 0x2008 + n * 8), 0, "over-write past fill");
+    assert_eq!(regs.rcx, 0, "RCX must be exactly 0");
+    assert_eq!(regs.rdi, 0x2008 + n * 8, "RDI end value");
+}
+
+#[test]
+fn test_rep_stosw_multibyte_basic_exact_end_regs() {
+    // STOSW (2-byte element) fully within a page; checks pattern + end regs.
+    let code = [
+        0x48, 0xc7, 0xc7, 0x00, 0x40, 0x00, 0x00, // MOV RDI, 0x4000
+        0x48, 0xc7, 0xc1, 0x09, 0x00, 0x00, 0x00, // MOV RCX, 9
+        0x48, 0xc7, 0xc0, 0xCD, 0xAB, 0x00, 0x00, // MOV RAX, 0xABCD
+        0xfc, // CLD
+        0xf3, 0x66, 0xab, // REP STOSW
+        0xf4, // HLT
+    ];
+    let (mut vcpu, mem) = setup_vm(&code, None);
+    let regs = run_until_hlt(&mut vcpu).unwrap();
+
+    for i in 0..9u64 {
+        assert_eq!(read_mem_at_u16(&mem, 0x4000 + i * 2), 0xABCD, "word {}", i);
+    }
+    assert_eq!(read_mem_at_u16(&mem, 0x4000 + 9 * 2), 0, "over-write past fill");
+    assert_eq!(regs.rcx, 0, "RCX must be exactly 0");
+    assert_eq!(regs.rdi, 0x4000 + 18, "RDI end value");
+}

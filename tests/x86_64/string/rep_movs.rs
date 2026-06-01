@@ -1152,3 +1152,113 @@ fn test_rep_movsb_fills_gaps() {
         assert_eq!(read_mem_at_u8(&mem, 0x4000 + i + 1), 0);
     }
 }
+
+// ============================================================================
+// Bulk page-wise fast path regression tests
+//
+// These exercise the O(pages) fast path for forward REP MOVS, ensuring the
+// page-spanning chunking produces byte-exact results and exact end registers.
+// ============================================================================
+
+#[test]
+fn test_rep_movsd_dest_crosses_page_boundary() {
+    // MOVSD where the destination starts near a page boundary so the run spans
+    // two destination pages and one element straddles the boundary. The fast
+    // path must split into page-bounded chunks and hand the straddling element
+    // to the slow path, copying every dword correctly.
+    // Dest: 0x4FF8 .. 0x501F (10 dwords = 40 bytes), crossing 0x5000.
+    let code = [
+        0x48, 0xc7, 0xc6, 0x00, 0x30, 0x00, 0x00, // MOV RSI, 0x3000
+        0x48, 0xc7, 0xc7, 0xF8, 0x4F, 0x00, 0x00, // MOV RDI, 0x4FF8
+        0x48, 0xc7, 0xc1, 0x0A, 0x00, 0x00, 0x00, // MOV RCX, 10
+        0xfc, // CLD
+        0xf3, 0xa5, // REP MOVSD
+        0xf4, // HLT
+    ];
+    let (mut vcpu, mem) = setup_vm(&code, None);
+
+    for i in 0..10u64 {
+        write_mem_at_u32(&mem, 0x3000 + i * 4, 0xC0DE0000 | i as u32);
+    }
+
+    let regs = run_until_hlt(&mut vcpu).unwrap();
+
+    for i in 0..10u64 {
+        assert_eq!(
+            read_mem_at_u32(&mem, 0x4FF8 + i * 4),
+            0xC0DE0000 | i as u32,
+            "dword {} mismatch across page boundary",
+            i
+        );
+    }
+    // 10 dwords = 40 bytes consumed.
+    assert_eq!(regs.rcx, 0, "RCX must be exactly 0");
+    assert_eq!(regs.rsi, 0x3000 + 40, "RSI end value");
+    assert_eq!(regs.rdi, 0x4FF8 + 40, "RDI end value");
+}
+
+#[test]
+fn test_rep_movsq_source_crosses_page_boundary() {
+    // MOVSQ where the SOURCE spans a page boundary and an element straddles it.
+    // Source: 0x5FF0 .. 0x6027 (7 qwords = 56 bytes), crossing 0x6000.
+    let code = [
+        0x48, 0xc7, 0xc6, 0xF0, 0x5F, 0x00, 0x00, // MOV RSI, 0x5FF0
+        0x48, 0xc7, 0xc7, 0x00, 0x80, 0x00, 0x00, // MOV RDI, 0x8000
+        0x48, 0xc7, 0xc1, 0x07, 0x00, 0x00, 0x00, // MOV RCX, 7
+        0xfc, // CLD
+        0xf3, 0x48, 0xa5, // REP MOVSQ
+        0xf4, // HLT
+    ];
+    let (mut vcpu, mem) = setup_vm(&code, None);
+
+    for i in 0..7u64 {
+        write_mem_at_u64(&mem, 0x5FF0 + i * 8, 0xABCD000000000000 | i);
+    }
+
+    let regs = run_until_hlt(&mut vcpu).unwrap();
+
+    for i in 0..7u64 {
+        assert_eq!(
+            read_mem_at_u64(&mem, 0x8000 + i * 8),
+            0xABCD000000000000 | i,
+            "qword {} mismatch across page boundary",
+            i
+        );
+    }
+    assert_eq!(regs.rcx, 0, "RCX must be exactly 0");
+    assert_eq!(regs.rsi, 0x5FF0 + 56, "RSI end value");
+    assert_eq!(regs.rdi, 0x8000 + 56, "RDI end value");
+}
+
+#[test]
+fn test_rep_movsb_multi_page_exact_end_regs() {
+    // A large byte copy spanning multiple pages, verifying exact end registers.
+    // 0x2050 .. 0x2050 + 0x2400 spans 3 source pages.
+    let code = [
+        0x48, 0xc7, 0xc6, 0x50, 0x20, 0x00, 0x00, // MOV RSI, 0x2050
+        0x48, 0xc7, 0xc7, 0x60, 0x90, 0x00, 0x00, // MOV RDI, 0x9060
+        0x48, 0xc7, 0xc1, 0x00, 0x24, 0x00, 0x00, // MOV RCX, 0x2400
+        0xfc, // CLD
+        0xf3, 0xa4, // REP MOVSB
+        0xf4, // HLT
+    ];
+    let (mut vcpu, mem) = setup_vm(&code, None);
+
+    for i in 0..0x2400u64 {
+        write_mem_at_u8(&mem, 0x2050 + i, (i.wrapping_mul(31) & 0xFF) as u8);
+    }
+
+    let regs = run_until_hlt(&mut vcpu).unwrap();
+
+    for i in 0..0x2400u64 {
+        assert_eq!(
+            read_mem_at_u8(&mem, 0x9060 + i),
+            (i.wrapping_mul(31) & 0xFF) as u8,
+            "byte {} mismatch",
+            i
+        );
+    }
+    assert_eq!(regs.rcx, 0, "RCX must be exactly 0");
+    assert_eq!(regs.rsi, 0x2050 + 0x2400, "RSI end value");
+    assert_eq!(regs.rdi, 0x9060 + 0x2400, "RDI end value");
+}
