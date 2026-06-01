@@ -45,6 +45,9 @@ pub fn andn(vcpu: &mut X86_64Vcpu, ctx: &mut InsnContext, vvvv: u8) -> Result<Op
     if zf != 0 {
         vcpu.regs.rflags |= flags::bits::ZF;
     }
+    // Flags were written eagerly; drop any stale pending lazy op so the next
+    // flag reader (Jcc/SETcc) doesn't clobber these defined flags.
+    vcpu.clear_lazy_flags();
     vcpu.regs.rip += ctx.cursor as u64;
     Ok(None)
 }
@@ -132,6 +135,9 @@ pub fn blsi_blsmsk_blsr(
     if cf != 0 {
         vcpu.regs.rflags |= flags::bits::CF;
     }
+    // Flags were written eagerly; drop any stale pending lazy op so the next
+    // flag reader (Jcc/SETcc) doesn't clobber these defined flags.
+    vcpu.clear_lazy_flags();
     vcpu.regs.rip += ctx.cursor as u64;
     Ok(None)
 }
@@ -169,6 +175,9 @@ pub fn bextr(vcpu: &mut X86_64Vcpu, ctx: &mut InsnContext, vvvv: u8) -> Result<O
     if zf != 0 {
         vcpu.regs.rflags |= flags::bits::ZF;
     }
+    // Flags were written eagerly; drop any stale pending lazy op so the next
+    // flag reader (Jcc/SETcc) doesn't clobber these defined flags.
+    vcpu.clear_lazy_flags();
     vcpu.regs.rip += ctx.cursor as u64;
     Ok(None)
 }
@@ -216,6 +225,9 @@ pub fn bzhi(vcpu: &mut X86_64Vcpu, ctx: &mut InsnContext, vvvv: u8) -> Result<Op
     if cf != 0 {
         vcpu.regs.rflags |= flags::bits::CF;
     }
+    // Flags were written eagerly; drop any stale pending lazy op so the next
+    // flag reader (Jcc/SETcc) doesn't clobber these defined flags.
+    vcpu.clear_lazy_flags();
     vcpu.regs.rip += ctx.cursor as u64;
     Ok(None)
 }

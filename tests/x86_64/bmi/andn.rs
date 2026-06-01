@@ -648,3 +648,89 @@ fn test_andn_inverse_extraction() {
     // 0x12345678 & 0xF0F0F0F0 = 0x10305070
     assert_eq!(regs.rax & 0xFFFFFFFF, 0x10305070, "Inverse mask extraction");
 }
+
+// ============================================================================
+// Lazy-flags regression tests (BMI flag-writing instructions)
+//
+// rax uses lazy flags: ALU ops (e.g. OR) store operands and defer flag
+// computation until a flag reader (SETcc/Jcc) calls materialize_flags().
+// The BMI instructions ANDN/BLSR/BEXTR write defined flags EAGERLY, so they
+// must afterward call clear_lazy_flags() to drop any stale pending lazy op.
+// Without that, a subsequent SETZ/JZ re-materializes the prior op's flags and
+// silently clobbers the BMI instruction's correct ZF. These tests pin that
+// behavior: each runs an OR producing ZF=0, then a BMI op producing ZF=1, then
+// a flag consumer that must observe ZF=1.
+// ============================================================================
+
+#[test]
+fn test_andn_clears_stale_lazy_zf_setz() {
+    // EDX=1; OR EDX,EDX -> result 1, lazy ZF=0.
+    // ANDN EAX,EBX,ECX with EBX=0x0F, ECX=0xFFFFFFFF -> result 0, ZF=1.
+    // SETZ DL must observe ANDN's ZF=1, not the stale OR's ZF=0.
+    let code = [
+        0xba, 0x01, 0x00, 0x00, 0x00, // MOV EDX, 1
+        0x09, 0xd2, // OR EDX, EDX  (sets lazy flags, ZF=0)
+        0xc4, 0xe2, 0x60, 0xf2, 0xc1, // ANDN EAX, EBX, ECX (result 0 -> ZF=1)
+        0x0f, 0x94, 0xc2, // SETZ DL
+        0xf4, // HLT
+    ];
+    let mut regs = Registers::default();
+    regs.rbx = 0x0000_000F;
+    regs.rcx = 0xFFFF_FFFF;
+    let (mut vcpu, _) = setup_vm(&code, Some(regs));
+    let regs = run_until_hlt(&mut vcpu).unwrap();
+
+    assert_eq!(regs.rax & 0xFFFFFFFF, 0, "ANDN result should be zero");
+    assert!(zf_set(regs.rflags), "ZF must reflect ANDN (result zero), not stale OR");
+    // MOV EDX,1 zero-extended RDX to 1; SETZ DL then writes ZF into DL.
+    assert_eq!(regs.rdx, 1, "SETZ must see ANDN's ZF=1, not the stale OR's ZF=0");
+}
+
+#[test]
+fn test_blsr_clears_stale_lazy_zf_jz() {
+    // EDX=1; OR EDX,EDX -> lazy ZF=0.
+    // BLSR EAX,EBX with EBX=1 -> result 0, ZF=1.
+    // JZ must jump based on BLSR's ZF=1, not the stale OR's ZF=0.
+    let code = [
+        0xba, 0x01, 0x00, 0x00, 0x00, // MOV EDX, 1
+        0x09, 0xd2, // OR EDX, EDX  (sets lazy flags, ZF=0)
+        0xc4, 0xe2, 0x78, 0xf3, 0xcb, // BLSR EAX, EBX (EBX=1 -> result 0 -> ZF=1)
+        0x74, 0x09, // JZ +9 (.taken) - skip MOV RBX,0 (7) + JMP (2)
+        0x48, 0xc7, 0xc3, 0x00, 0x00, 0x00, 0x00, // MOV RBX, 0 (not taken)
+        0xeb, 0x07, // JMP +7 (.done) - skip MOV RBX,1 (7)
+        // .taken:
+        0x48, 0xc7, 0xc3, 0x01, 0x00, 0x00, 0x00, // MOV RBX, 1
+        // .done:
+        0xf4, // HLT
+    ];
+    let mut regs = Registers::default();
+    regs.rbx = 0x0000_0001;
+    let (mut vcpu, _) = setup_vm(&code, Some(regs));
+    let regs = run_until_hlt(&mut vcpu).unwrap();
+
+    assert_eq!(regs.rax & 0xFFFFFFFF, 0, "BLSR result should be zero");
+    assert_eq!(regs.rbx, 1, "JZ must jump on BLSR's ZF=1, not the stale OR's ZF=0");
+}
+
+#[test]
+fn test_bextr_clears_stale_lazy_zf_setz() {
+    // EDX=1; OR EDX,EDX -> lazy ZF=0.
+    // BEXTR EAX,EBX,ECX with ECX=0 (len=0) -> result 0, ZF=1.
+    // SETZ DL must observe BEXTR's ZF=1, not the stale OR's ZF=0.
+    let code = [
+        0xba, 0x01, 0x00, 0x00, 0x00, // MOV EDX, 1
+        0x09, 0xd2, // OR EDX, EDX  (sets lazy flags, ZF=0)
+        0xc4, 0xe2, 0x70, 0xf7, 0xc3, // BEXTR EAX, EBX, ECX (ECX=0 -> result 0 -> ZF=1)
+        0x0f, 0x94, 0xc2, // SETZ DL
+        0xf4, // HLT
+    ];
+    let mut regs = Registers::default();
+    regs.rbx = 0xDEAD_BEEF;
+    regs.rcx = 0x0000_0000; // start=0, len=0 -> extracts nothing
+    let (mut vcpu, _) = setup_vm(&code, Some(regs));
+    let regs = run_until_hlt(&mut vcpu).unwrap();
+
+    assert_eq!(regs.rax & 0xFFFFFFFF, 0, "BEXTR with len=0 should be zero");
+    assert!(zf_set(regs.rflags), "ZF must reflect BEXTR (result zero), not stale OR");
+    assert_eq!(regs.rdx, 1, "SETZ must see BEXTR's ZF=1, not the stale OR's ZF=0");
+}
