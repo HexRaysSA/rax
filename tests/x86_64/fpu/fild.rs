@@ -735,3 +735,54 @@ fn test_fild_conversion_exact() {
     let result = read_f64(&mem, 0x3000);
     assert_eq!(result.to_bits(), 42.0_f64.to_bits());
 }
+
+// ============================================================================
+// Known-answer FILD integer->float conversion tests (exact, all widths).
+// FILD m16int=DF /0, FILD m32int=DB /0, FILD m64int=DF /5.
+// ============================================================================
+
+#[test]
+fn test_fild_m16_signed_values_exact() {
+    let code = [
+        0xDF, 0x04, 0x25, 0x00, 0x20, 0x00, 0x00, // FILD word [0x2000]
+        0xDD, 0x1C, 0x25, 0x00, 0x30, 0x00, 0x00, // FSTP qword [0x3000]
+        0xf4,
+    ];
+    for v in [0_i16, 1, -1, 100, -100, i16::MAX, i16::MIN] {
+        let (mut vcpu, mem) = setup_vm(&code, None);
+        write_i16(&mem, DATA_ADDR, v);
+        run_until_hlt(&mut vcpu).unwrap();
+        assert_eq!(read_f64(&mem, 0x3000), v as f64, "FILD m16 of {v}");
+    }
+}
+
+#[test]
+fn test_fild_m32_signed_values_exact() {
+    let code = [
+        0xDB, 0x04, 0x25, 0x00, 0x20, 0x00, 0x00, // FILD dword [0x2000]
+        0xDD, 0x1C, 0x25, 0x00, 0x30, 0x00, 0x00, // FSTP qword [0x3000]
+        0xf4,
+    ];
+    for v in [0_i32, 1, -1, 1_000_000, -1_000_000, i32::MAX, i32::MIN] {
+        let (mut vcpu, mem) = setup_vm(&code, None);
+        write_i32(&mem, DATA_ADDR, v);
+        run_until_hlt(&mut vcpu).unwrap();
+        assert_eq!(read_f64(&mem, 0x3000), v as f64, "FILD m32 of {v}");
+    }
+}
+
+#[test]
+fn test_fild_m64_exact_when_representable() {
+    let code = [
+        0xDF, 0x2C, 0x25, 0x00, 0x20, 0x00, 0x00, // FILD qword [0x2000]
+        0xDD, 0x1C, 0x25, 0x00, 0x30, 0x00, 0x00, // FSTP qword [0x3000]
+        0xf4,
+    ];
+    // Values exactly representable in f64 (|v| < 2^53 or low bits zero).
+    for v in [0_i64, 1, -1, 1_000_000_000_000, -(1_i64 << 52), 1_i64 << 52] {
+        let (mut vcpu, mem) = setup_vm(&code, None);
+        write_i64(&mem, DATA_ADDR, v);
+        run_until_hlt(&mut vcpu).unwrap();
+        assert_eq!(read_f64(&mem, 0x3000), v as f64, "FILD m64 of {v}");
+    }
+}

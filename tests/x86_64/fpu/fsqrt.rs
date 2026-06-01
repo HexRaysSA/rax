@@ -757,3 +757,46 @@ fn test_fsqrt_nested() {
     let result = read_f64(&mem, 0x3000);
     assert_eq!(result, 2.0, "FSQRT(FSQRT(FSQRT(256))) should be 2");
 }
+
+// ============================================================================
+// Known-answer FSQRT tests: perfect squares give EXACT integer roots.
+// ============================================================================
+
+/// FLD [m64], FSQRT, FSTP [m64] -> returns result.
+fn kat_fsqrt(value: f64) -> f64 {
+    let code = [
+        0xDD, 0x04, 0x25, 0x00, 0x20, 0x00, 0x00, // FLD qword [0x2000]
+        0xD9, 0xFA, // FSQRT
+        0xDD, 0x1C, 0x25, 0x00, 0x30, 0x00, 0x00, // FSTP qword [0x3000]
+        0xf4,
+    ];
+    let (mut vcpu, mem) = setup_vm(&code, None);
+    write_f64(&mem, 0x2000, value);
+    run_until_hlt(&mut vcpu).unwrap();
+    read_f64(&mem, 0x3000)
+}
+
+#[test]
+fn test_fsqrt_perfect_squares_exact() {
+    assert_eq!(kat_fsqrt(0.0), 0.0);
+    assert_eq!(kat_fsqrt(1.0), 1.0);
+    assert_eq!(kat_fsqrt(4.0), 2.0);
+    assert_eq!(kat_fsqrt(9.0), 3.0);
+    assert_eq!(kat_fsqrt(144.0), 12.0);
+    assert_eq!(kat_fsqrt(0.25), 0.5);
+    assert_eq!(kat_fsqrt(1e8), 1e4);
+}
+
+#[test]
+fn test_fsqrt_irrational_tolerance() {
+    assert!((kat_fsqrt(2.0) - std::f64::consts::SQRT_2).abs() < 1e-15);
+    assert!((kat_fsqrt(3.0) - 3.0_f64.sqrt()).abs() < 1e-15);
+}
+
+#[test]
+fn test_fsqrt_special_values() {
+    // sqrt(+inf) = +inf; sqrt(-1) = NaN (invalid, masked); sqrt(-0) = -0.
+    assert!(kat_fsqrt(f64::INFINITY).is_infinite());
+    assert!(kat_fsqrt(-1.0).is_nan());
+    assert_eq!(kat_fsqrt(-0.0).to_bits(), (-0.0_f64).to_bits());
+}

@@ -649,3 +649,39 @@ fn test_fchs_quadruple_negation() {
     let result = read_f64(&mem, 0x3000);
     assert_eq!(result, 23.5, "Quadruple FCHS should return original value");
 }
+
+// ============================================================================
+// Known-answer FCHS tests: FCHS flips the sign bit only (exact bit checks).
+// ============================================================================
+
+/// FLD [m64], FCHS, FSTP [m64] -> returns resulting bits.
+fn kat_fchs_bits(value: f64) -> u64 {
+    let code = [
+        0xDD, 0x04, 0x25, 0x00, 0x20, 0x00, 0x00, // FLD qword [0x2000]
+        0xD9, 0xE0, // FCHS
+        0xDD, 0x1C, 0x25, 0x00, 0x30, 0x00, 0x00, // FSTP qword [0x3000]
+        0xf4,
+    ];
+    let (mut vcpu, mem) = setup_vm(&code, None);
+    write_f64(&mem, 0x2000, value);
+    run_until_hlt(&mut vcpu).unwrap();
+    read_f64(&mem, 0x3000).to_bits()
+}
+
+#[test]
+fn test_fchs_flips_sign_exact() {
+    assert_eq!(kat_fchs_bits(1.0), (-1.0_f64).to_bits());
+    assert_eq!(kat_fchs_bits(-2.5), (2.5_f64).to_bits());
+    // FCHS toggles the sign bit of +0.0 to produce -0.0
+    assert_eq!(kat_fchs_bits(0.0), (-0.0_f64).to_bits());
+    assert_eq!(kat_fchs_bits(-0.0), (0.0_f64).to_bits());
+}
+
+#[test]
+fn test_fchs_infinity_and_nan_sign() {
+    assert_eq!(kat_fchs_bits(f64::INFINITY), f64::NEG_INFINITY.to_bits());
+    assert_eq!(kat_fchs_bits(f64::NEG_INFINITY), f64::INFINITY.to_bits());
+    // FCHS only flips the sign bit; NaN payload/quiet bit are unchanged.
+    let nan = f64::from_bits(0x7FF8_0000_0000_0001);
+    assert_eq!(kat_fchs_bits(nan), nan.to_bits() ^ (1u64 << 63));
+}

@@ -893,3 +893,36 @@ fn test_fpatan_fractional_values() {
     assert!((result - expected).abs() < 1e-15,
         "arctan(0.5/0.25) should equal arctan(2)");
 }
+
+// ============================================================================
+// Known-answer FPATAN tests (transcendental; small tolerance).
+// Result = atan2(ST(1)=Y, ST(0)=X), then pop, leaving the angle in ST(0).
+// ============================================================================
+
+/// ST(1)=Y (loaded first), ST(0)=X (loaded second), FPATAN, store.
+fn kat_fpatan(y: f64, x: f64) -> f64 {
+    let code = [
+        0xDD, 0x04, 0x25, 0x08, 0x20, 0x00, 0x00, // FLD qword [0x2008] (Y -> ST(1))
+        0xDD, 0x04, 0x25, 0x00, 0x20, 0x00, 0x00, // FLD qword [0x2000] (X -> ST(0))
+        0xD9, 0xF3, // FPATAN
+        0xDD, 0x1C, 0x25, 0x00, 0x30, 0x00, 0x00, // FSTP qword [0x3000]
+        0xf4,
+    ];
+    let (mut vcpu, mem) = setup_vm(&code, None);
+    write_f64(&mem, 0x2000, x); // X
+    write_f64(&mem, 0x2008, y); // Y
+    run_until_hlt(&mut vcpu).unwrap();
+    read_f64(&mem, 0x3000)
+}
+
+#[test]
+fn test_fpatan_known_angles() {
+    let tol = 1e-12;
+    assert!((kat_fpatan(1.0, 1.0) - std::f64::consts::FRAC_PI_4).abs() < tol);
+    assert!((kat_fpatan(1.0, 0.0) - std::f64::consts::FRAC_PI_2).abs() < tol);
+    assert!((kat_fpatan(0.0, 1.0)).abs() < tol, "atan2(0,1) = 0");
+    // Second quadrant: atan2(1,-1) = 3π/4
+    assert!((kat_fpatan(1.0, -1.0) - 3.0 * std::f64::consts::FRAC_PI_4).abs() < tol);
+    // atan2(-1,-1) = -3π/4
+    assert!((kat_fpatan(-1.0, -1.0) + 3.0 * std::f64::consts::FRAC_PI_4).abs() < tol);
+}

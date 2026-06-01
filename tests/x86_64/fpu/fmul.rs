@@ -658,3 +658,76 @@ fn test_fmul_fractions() {
     run_until_hlt(&mut vcpu).unwrap();
     assert_eq!(read_f64(&mem, 0x3000), 0.125);
 }
+
+// ============================================================================
+// Known-answer exact-product tests for FMUL (register + memory forms).
+// All products are exactly representable in f64.
+// ============================================================================
+
+#[test]
+fn test_fmul_st0_st1_exact() {
+    // FLD 6.0, FLD 7.0 -> ST(0)=7.0, ST(1)=6.0; FMUL ST(0),ST(1) -> 42.0
+    let code = [
+        0xDD, 0x04, 0x25, 0x00, 0x20, 0x00, 0x00,
+        0xDD, 0x04, 0x25, 0x08, 0x20, 0x00, 0x00,
+        0xD8, 0xC9, // FMUL ST(0), ST(1)
+        0xDD, 0x1C, 0x25, 0x00, 0x30, 0x00, 0x00,
+        0xf4,
+    ];
+    let (mut vcpu, mem) = setup_vm(&code, None);
+    write_f64(&mem, DATA_ADDR, 6.0);
+    write_f64(&mem, DATA_ADDR + 8, 7.0);
+    run_until_hlt(&mut vcpu).unwrap();
+    assert_eq!(read_f64(&mem, 0x3000), 42.0);
+}
+
+#[test]
+fn test_fmul_sti_st0_exact() {
+    // FLD 6.0, FLD 7.0 -> ST(0)=7.0, ST(1)=6.0; FMUL ST(1),ST(0) -> ST(1)=42.0
+    let code = [
+        0xDD, 0x04, 0x25, 0x00, 0x20, 0x00, 0x00,
+        0xDD, 0x04, 0x25, 0x08, 0x20, 0x00, 0x00,
+        0xDC, 0xC9, // FMUL ST(1), ST(0)
+        0xDD, 0x1C, 0x25, 0x00, 0x30, 0x00, 0x00, // pop ST(0)=7.0
+        0xDD, 0x1C, 0x25, 0x08, 0x30, 0x00, 0x00, // pop ST(1)=42.0
+        0xf4,
+    ];
+    let (mut vcpu, mem) = setup_vm(&code, None);
+    write_f64(&mem, DATA_ADDR, 6.0);
+    write_f64(&mem, DATA_ADDR + 8, 7.0);
+    run_until_hlt(&mut vcpu).unwrap();
+    assert_eq!(read_f64(&mem, 0x3000), 7.0);
+    assert_eq!(read_f64(&mem, 0x3008), 42.0);
+}
+
+#[test]
+fn test_fmul_m64_exact() {
+    // FLD 1.5, FMUL [4.0] -> 6.0
+    let code = [
+        0xDD, 0x04, 0x25, 0x00, 0x20, 0x00, 0x00,
+        0xDC, 0x0C, 0x25, 0x08, 0x20, 0x00, 0x00, // FMUL m64
+        0xDD, 0x1C, 0x25, 0x00, 0x30, 0x00, 0x00,
+        0xf4,
+    ];
+    let (mut vcpu, mem) = setup_vm(&code, None);
+    write_f64(&mem, DATA_ADDR, 1.5);
+    write_f64(&mem, DATA_ADDR + 8, 4.0);
+    run_until_hlt(&mut vcpu).unwrap();
+    assert_eq!(read_f64(&mem, 0x3000), 6.0);
+}
+
+#[test]
+fn test_fmul_by_negative_sign() {
+    // 3.0 * -2.0 = -6.0
+    let code = [
+        0xDD, 0x04, 0x25, 0x00, 0x20, 0x00, 0x00,
+        0xDC, 0x0C, 0x25, 0x08, 0x20, 0x00, 0x00, // FMUL m64
+        0xDD, 0x1C, 0x25, 0x00, 0x30, 0x00, 0x00,
+        0xf4,
+    ];
+    let (mut vcpu, mem) = setup_vm(&code, None);
+    write_f64(&mem, DATA_ADDR, 3.0);
+    write_f64(&mem, DATA_ADDR + 8, -2.0);
+    run_until_hlt(&mut vcpu).unwrap();
+    assert_eq!(read_f64(&mem, 0x3000), -6.0);
+}

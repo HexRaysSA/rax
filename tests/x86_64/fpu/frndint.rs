@@ -694,3 +694,66 @@ fn test_frndint_various_fractions() {
         assert_eq!(result, expected, "FRNDINT of {} should be {}", input, expected);
     }
 }
+
+// ============================================================================
+// Known-answer FRNDINT tests under EACH rounding mode (set via FLDCW).
+//
+// RC field (control word bits 10-11):
+//   00 = round to nearest even (CW 0x037F)
+//   01 = round down toward -inf  (CW 0x077F)
+//   10 = round up toward +inf    (CW 0x0B7F)
+//   11 = round toward zero/trunc (CW 0x0F7F)
+// ============================================================================
+
+/// Load control word `cw` via FLDCW, then FRNDINT the given value, then store.
+fn kat_frndint_rc(value: f64, cw: u16) -> f64 {
+    let code = [
+        0xD9, 0x2C, 0x25, 0x10, 0x20, 0x00, 0x00, // FLDCW [0x2010]
+        0xDD, 0x04, 0x25, 0x00, 0x20, 0x00, 0x00, // FLD qword [0x2000]
+        0xD9, 0xFC, // FRNDINT
+        0xDD, 0x1C, 0x25, 0x00, 0x30, 0x00, 0x00, // FSTP qword [0x3000]
+        0xf4,
+    ];
+    let (mut vcpu, mem) = setup_vm(&code, None);
+    write_f64(&mem, 0x2000, value);
+    write_fpu_control_word(&mem, 0x2010, cw);
+    run_until_hlt(&mut vcpu).unwrap();
+    read_f64(&mem, 0x3000)
+}
+
+const RC_NEAREST: u16 = 0x037F;
+const RC_DOWN: u16 = 0x077F;
+const RC_UP: u16 = 0x0B7F;
+const RC_TRUNC: u16 = 0x0F7F;
+
+#[test]
+fn test_frndint_round_nearest_even_mode() {
+    assert_eq!(kat_frndint_rc(2.5, RC_NEAREST), 2.0, "2.5 ties to even -> 2");
+    assert_eq!(kat_frndint_rc(3.5, RC_NEAREST), 4.0, "3.5 ties to even -> 4");
+    assert_eq!(kat_frndint_rc(2.4, RC_NEAREST), 2.0);
+    assert_eq!(kat_frndint_rc(2.6, RC_NEAREST), 3.0);
+}
+
+#[test]
+fn test_frndint_round_down_mode() {
+    assert_eq!(kat_frndint_rc(2.9, RC_DOWN), 2.0, "floor(2.9)");
+    assert_eq!(kat_frndint_rc(2.1, RC_DOWN), 2.0);
+    assert_eq!(kat_frndint_rc(-2.1, RC_DOWN), -3.0, "floor(-2.1)");
+    assert_eq!(kat_frndint_rc(-2.9, RC_DOWN), -3.0);
+}
+
+#[test]
+fn test_frndint_round_up_mode() {
+    assert_eq!(kat_frndint_rc(2.1, RC_UP), 3.0, "ceil(2.1)");
+    assert_eq!(kat_frndint_rc(2.9, RC_UP), 3.0);
+    assert_eq!(kat_frndint_rc(-2.9, RC_UP), -2.0, "ceil(-2.9)");
+    assert_eq!(kat_frndint_rc(-2.1, RC_UP), -2.0);
+}
+
+#[test]
+fn test_frndint_round_truncate_mode() {
+    assert_eq!(kat_frndint_rc(2.9, RC_TRUNC), 2.0, "trunc(2.9)");
+    assert_eq!(kat_frndint_rc(-2.9, RC_TRUNC), -2.0, "trunc(-2.9)");
+    assert_eq!(kat_frndint_rc(2.1, RC_TRUNC), 2.0);
+    assert_eq!(kat_frndint_rc(-2.1, RC_TRUNC), -2.0);
+}

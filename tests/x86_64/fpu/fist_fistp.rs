@@ -737,3 +737,77 @@ fn test_fistp_sequential() {
     assert_eq!(read_i32(&mem, 0x3004), 2);
     assert_eq!(read_i64(&mem, 0x3008), 1);
 }
+
+// ============================================================================
+// Known-answer FIST/FISTP rounding tests.
+//
+// With the default control word (0x037F = round-to-nearest, ties-to-even),
+// FIST/FISTP must round halfway cases to the nearest EVEN integer:
+//   0.5 -> 0, 1.5 -> 2, 2.5 -> 2, 3.5 -> 4, -2.5 -> -2.
+// ============================================================================
+
+/// FLD [m64], FISTP dword [0x3000] -> returns the stored i32.
+fn kat_fistp_m32(value: f64) -> i32 {
+    let code = [
+        0xDD, 0x04, 0x25, 0x00, 0x20, 0x00, 0x00, // FLD qword [0x2000]
+        0xDB, 0x1C, 0x25, 0x00, 0x30, 0x00, 0x00, // FISTP dword [0x3000]
+        0xf4,
+    ];
+    let (mut vcpu, mem) = setup_vm(&code, None);
+    write_f64(&mem, DATA_ADDR, value);
+    run_until_hlt(&mut vcpu).unwrap();
+    read_i32(&mem, 0x3000)
+}
+
+#[test]
+fn test_fistp_round_nearest_even_halfway() {
+    assert_eq!(kat_fistp_m32(0.5), 0, "0.5 ties to even -> 0");
+    assert_eq!(kat_fistp_m32(1.5), 2, "1.5 ties to even -> 2");
+    assert_eq!(kat_fistp_m32(2.5), 2, "2.5 ties to even -> 2");
+    assert_eq!(kat_fistp_m32(3.5), 4, "3.5 ties to even -> 4");
+    assert_eq!(kat_fistp_m32(-0.5), 0, "-0.5 ties to even -> 0");
+    assert_eq!(kat_fistp_m32(-1.5), -2, "-1.5 ties to even -> -2");
+    assert_eq!(kat_fistp_m32(-2.5), -2, "-2.5 ties to even -> -2");
+}
+
+#[test]
+fn test_fistp_round_nearest_nonhalfway() {
+    assert_eq!(kat_fistp_m32(2.4), 2);
+    assert_eq!(kat_fistp_m32(2.6), 3);
+    assert_eq!(kat_fistp_m32(-2.4), -2);
+    assert_eq!(kat_fistp_m32(-2.6), -3);
+    assert_eq!(kat_fistp_m32(0.0), 0);
+    assert_eq!(kat_fistp_m32(7.0), 7);
+}
+
+#[test]
+fn test_fist_m32_does_not_pop() {
+    // FIST m32 (DB /2) stores but does not pop; a second store must succeed.
+    let code = [
+        0xDD, 0x04, 0x25, 0x00, 0x20, 0x00, 0x00, // FLD qword [0x2000]
+        0xDB, 0x14, 0x25, 0x00, 0x30, 0x00, 0x00, // FIST dword [0x3000] (no pop)
+        0xDB, 0x1C, 0x25, 0x04, 0x30, 0x00, 0x00, // FISTP dword [0x3004]
+        0xf4,
+    ];
+    let (mut vcpu, mem) = setup_vm(&code, None);
+    write_f64(&mem, DATA_ADDR, 12.0);
+    run_until_hlt(&mut vcpu).unwrap();
+    assert_eq!(read_i32(&mem, 0x3000), 12);
+    assert_eq!(read_i32(&mem, 0x3004), 12, "FIST must not pop ST(0)");
+}
+
+#[test]
+fn test_filp_fistp_m64_roundtrip() {
+    // FILD m64 then FISTP m64 must reproduce the integer exactly.
+    let code = [
+        0xDF, 0x2C, 0x25, 0x00, 0x20, 0x00, 0x00, // FILD qword [0x2000]
+        0xDF, 0x3C, 0x25, 0x00, 0x30, 0x00, 0x00, // FISTP qword [0x3000]
+        0xf4,
+    ];
+    for v in [0_i64, 1, -1, 123456789, -123456789] {
+        let (mut vcpu, mem) = setup_vm(&code, None);
+        mem.write_slice(&v.to_le_bytes(), GuestAddress(DATA_ADDR)).unwrap();
+        run_until_hlt(&mut vcpu).unwrap();
+        assert_eq!(read_i64(&mem, 0x3000), v, "FILD/FISTP m64 round-trip for {v}");
+    }
+}

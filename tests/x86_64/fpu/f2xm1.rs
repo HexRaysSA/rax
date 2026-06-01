@@ -580,3 +580,38 @@ fn test_f2xm1_fractional_precision() {
         assert!((result - expected).abs() < 1e-10, "2^{} - 1 should match", val);
     }
 }
+
+// ============================================================================
+// Known-answer F2XM1 tests (transcendental; small tolerance).
+// Result = 2^ST(0) - 1, ST(0) replaced in place. Valid domain is [-1, +1].
+// ============================================================================
+
+/// FLD [m64], F2XM1, FSTP [m64] -> returns result.
+fn kat_f2xm1(value: f64) -> f64 {
+    let code = [
+        0xDD, 0x04, 0x25, 0x00, 0x20, 0x00, 0x00, // FLD qword [0x2000]
+        0xD9, 0xF0, // F2XM1
+        0xDD, 0x1C, 0x25, 0x00, 0x30, 0x00, 0x00, // FSTP qword [0x3000]
+        0xf4,
+    ];
+    let (mut vcpu, mem) = setup_vm(&code, None);
+    write_f64(&mem, 0x2000, value);
+    run_until_hlt(&mut vcpu).unwrap();
+    read_f64(&mem, 0x3000)
+}
+
+#[test]
+fn test_f2xm1_known_values() {
+    let tol = 1e-12;
+    assert!(kat_f2xm1(0.0).abs() < tol, "2^0 - 1 = 0");
+    assert!((kat_f2xm1(1.0) - 1.0).abs() < tol, "2^1 - 1 = 1");
+    assert!((kat_f2xm1(-1.0) + 0.5).abs() < tol, "2^-1 - 1 = -0.5");
+    assert!((kat_f2xm1(0.5) - (std::f64::consts::SQRT_2 - 1.0)).abs() < tol, "2^0.5 - 1");
+}
+
+#[test]
+fn test_f2xm1_signed_zero_preserved() {
+    // The implementation preserves the sign of a zero input.
+    assert_eq!(kat_f2xm1(-0.0).to_bits(), (-0.0_f64).to_bits());
+    assert_eq!(kat_f2xm1(0.0).to_bits(), (0.0_f64).to_bits());
+}

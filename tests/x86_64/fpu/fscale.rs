@@ -709,3 +709,48 @@ fn test_fscale_series() {
             "{} * 2^{} should be {}, got {}", value, scale, expected, result);
     }
 }
+
+// ============================================================================
+// Known-answer FSCALE tests: ST(0) = ST(0) * 2^trunc(ST(1)), EXACT for
+// power-of-two friendly inputs. ST(1) is truncated toward zero first.
+// ============================================================================
+
+/// ST(1)=exponent (loaded first), ST(0)=value (loaded second), FSCALE, store.
+fn kat_fscale(value: f64, exp: f64) -> f64 {
+    let code = [
+        0xDD, 0x04, 0x25, 0x08, 0x20, 0x00, 0x00, // FLD qword [0x2008] (exp -> ST(1))
+        0xDD, 0x04, 0x25, 0x00, 0x20, 0x00, 0x00, // FLD qword [0x2000] (value -> ST(0))
+        0xD9, 0xFD, // FSCALE
+        0xDD, 0x1C, 0x25, 0x00, 0x30, 0x00, 0x00, // FSTP qword [0x3000]
+        0xf4,
+    ];
+    let (mut vcpu, mem) = setup_vm(&code, None);
+    write_f64(&mem, 0x2000, value);
+    write_f64(&mem, 0x2008, exp);
+    run_until_hlt(&mut vcpu).unwrap();
+    read_f64(&mem, 0x3000)
+}
+
+#[test]
+fn test_fscale_exact_powers() {
+    assert_eq!(kat_fscale(3.0, 0.0), 3.0);
+    assert_eq!(kat_fscale(3.0, 1.0), 6.0);
+    assert_eq!(kat_fscale(3.0, 4.0), 48.0);
+    assert_eq!(kat_fscale(1.0, 10.0), 1024.0);
+    assert_eq!(kat_fscale(8.0, -3.0), 1.0);
+    assert_eq!(kat_fscale(1.0, -1.0), 0.5);
+}
+
+#[test]
+fn test_fscale_truncates_exponent() {
+    // ST(1) is truncated toward zero: 2.9 -> 2, -2.9 -> -2.
+    assert_eq!(kat_fscale(1.0, 2.9), 4.0, "2.9 trunc -> 2 -> *4");
+    assert_eq!(kat_fscale(1.0, -2.9), 0.25, "-2.9 trunc -> -2 -> *0.25");
+    assert_eq!(kat_fscale(5.0, 1.5), 10.0, "1.5 trunc -> 1 -> *2");
+}
+
+#[test]
+fn test_fscale_zero_and_sign() {
+    assert_eq!(kat_fscale(0.0, 5.0), 0.0);
+    assert_eq!(kat_fscale(-3.0, 2.0), -12.0);
+}

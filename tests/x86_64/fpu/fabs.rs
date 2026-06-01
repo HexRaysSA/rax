@@ -642,3 +642,52 @@ fn test_fabs_alternating_signs() {
         assert_eq!(result, *expected, "FABS of {} should be {}", val, expected);
     }
 }
+
+// ============================================================================
+// Known-answer FABS tests: clears the sign bit only (exact bit checks).
+// ============================================================================
+
+/// FLD [m64], FABS, FSTP [m64] -> returns resulting bits.
+fn kat_fabs_bits(value: f64) -> u64 {
+    let code = [
+        0xDD, 0x04, 0x25, 0x00, 0x20, 0x00, 0x00, // FLD qword [0x2000]
+        0xD9, 0xE1, // FABS
+        0xDD, 0x1C, 0x25, 0x00, 0x30, 0x00, 0x00, // FSTP qword [0x3000]
+        0xf4,
+    ];
+    let (mut vcpu, mem) = setup_vm(&code, None);
+    write_f64(&mem, 0x2000, value);
+    run_until_hlt(&mut vcpu).unwrap();
+    read_f64(&mem, 0x3000).to_bits()
+}
+
+#[test]
+fn test_fabs_clears_sign_exact() {
+    assert_eq!(kat_fabs_bits(-1.0), (1.0_f64).to_bits());
+    assert_eq!(kat_fabs_bits(2.5), (2.5_f64).to_bits());
+    // FABS of -0.0 is +0.0 (sign bit cleared).
+    assert_eq!(kat_fabs_bits(-0.0), (0.0_f64).to_bits());
+    assert_eq!(kat_fabs_bits(0.0), (0.0_f64).to_bits());
+}
+
+#[test]
+fn test_fabs_infinity() {
+    assert_eq!(kat_fabs_bits(f64::NEG_INFINITY), f64::INFINITY.to_bits());
+    assert_eq!(kat_fabs_bits(f64::INFINITY), f64::INFINITY.to_bits());
+}
+
+#[test]
+fn test_fabs_idempotent() {
+    // FABS(FABS(x)) == FABS(x)
+    let code = [
+        0xDD, 0x04, 0x25, 0x00, 0x20, 0x00, 0x00,
+        0xD9, 0xE1, // FABS
+        0xD9, 0xE1, // FABS
+        0xDD, 0x1C, 0x25, 0x00, 0x30, 0x00, 0x00,
+        0xf4,
+    ];
+    let (mut vcpu, mem) = setup_vm(&code, None);
+    write_f64(&mem, 0x2000, -42.25);
+    run_until_hlt(&mut vcpu).unwrap();
+    assert_eq!(read_f64(&mem, 0x3000), 42.25);
+}

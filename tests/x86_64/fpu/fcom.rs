@@ -1000,3 +1000,104 @@ fn test_fcom_constants_comparison() {
     assert!((val1 - std::f64::consts::LOG2_E).abs() < 1e-15);
     assert!((val2 - std::f64::consts::PI).abs() < 1e-15);
 }
+
+// ============================================================================
+// Known-answer status-word (C0/C2/C3) assertions for FCOM.
+//
+// These actually read the FPU status word back via FNSTSW m16 and assert the
+// exact condition-code bits, which the comparison tests above only described in
+// comments. C3 behaves like the x86 ZF (equal), C0 like CF (less-than), and C2
+// is set only for unordered (NaN) results.
+// ============================================================================
+
+/// Read the FPU status word stored to memory at `addr` by FNSTSW.
+fn kat_read_sw(mem: &vm_memory::GuestMemoryMmap, addr: u64) -> u16 {
+    let mut buf = [0u8; 2];
+    mem.read_slice(&mut buf, GuestAddress(addr)).unwrap();
+    u16::from_le_bytes(buf)
+}
+
+/// FLD [0x2000], FLD [0x2008], FCOM ST(1), FNSTSW [0x3100], HLT.
+/// Returns the status word so condition codes can be inspected.
+fn kat_fcom_sw(a: f64, b: f64) -> u16 {
+    // ST(0) ends up = b (loaded last), ST(1) = a. FCOM ST(1) compares ST(0):b vs ST(1):a.
+    let code = [
+        0xDD, 0x04, 0x25, 0x00, 0x20, 0x00, 0x00, // FLD qword [0x2000]
+        0xDD, 0x04, 0x25, 0x08, 0x20, 0x00, 0x00, // FLD qword [0x2008]
+        0xD8, 0xD1, // FCOM ST(1)
+        0xDD, 0x3C, 0x25, 0x00, 0x31, 0x00, 0x00, // FNSTSW [0x3100]
+        0xF4, // HLT
+    ];
+    let (mut vcpu, mem) = setup_vm(&code, None);
+    write_f64(&mem, 0x2000, a);
+    write_f64(&mem, 0x2008, b);
+    run_until_hlt(&mut vcpu).unwrap();
+    kat_read_sw(&mem, 0x3100)
+}
+
+#[test]
+fn test_fcom_sw_equal_sets_c3_only() {
+    // ST(0)=5.0 == ST(1)=5.0  -> C3=1, C2=0, C0=0
+    let sw = kat_fcom_sw(5.0, 5.0);
+    assert_ne!(sw & C3_BIT, 0, "C3 must be set for equal");
+    assert_eq!(sw & C2_BIT, 0, "C2 must be clear for ordered");
+    assert_eq!(sw & C0_BIT, 0, "C0 must be clear for equal");
+}
+
+#[test]
+fn test_fcom_sw_greater_clears_all() {
+    // ST(1)=5.0, ST(0)=10.0 -> ST(0) > src -> C3=0, C2=0, C0=0
+    let sw = kat_fcom_sw(5.0, 10.0);
+    assert_eq!(sw & C3_BIT, 0, "C3 must be clear for greater");
+    assert_eq!(sw & C2_BIT, 0, "C2 must be clear for ordered");
+    assert_eq!(sw & C0_BIT, 0, "C0 must be clear for greater");
+}
+
+#[test]
+fn test_fcom_sw_less_sets_c0_only() {
+    // ST(1)=7.0, ST(0)=3.0 -> ST(0) < src -> C3=0, C2=0, C0=1
+    let sw = kat_fcom_sw(7.0, 3.0);
+    assert_eq!(sw & C3_BIT, 0, "C3 must be clear for less");
+    assert_eq!(sw & C2_BIT, 0, "C2 must be clear for ordered");
+    assert_ne!(sw & C0_BIT, 0, "C0 must be set for less");
+}
+
+#[test]
+fn test_fcom_sw_nan_unordered_sets_all() {
+    // NaN operand -> unordered -> C3=1, C2=1, C0=1
+    let sw = kat_fcom_sw(1.0, f64::NAN);
+    assert_ne!(sw & C3_BIT, 0, "C3 must be set for unordered");
+    assert_ne!(sw & C2_BIT, 0, "C2 must be set for unordered");
+    assert_ne!(sw & C0_BIT, 0, "C0 must be set for unordered");
+}
+
+#[test]
+fn test_fcom_sw_c3_acts_like_zf() {
+    // FNSTSW AX then SAHF maps C3->ZF; here we just confirm C3 reflects equality.
+    assert_ne!(kat_fcom_sw(2.5, 2.5) & C3_BIT, 0, "equal -> C3(ZF-like)=1");
+    assert_eq!(kat_fcom_sw(2.5, 3.5) & C3_BIT, 0, "unequal(less) -> C3=0");
+    assert_eq!(kat_fcom_sw(3.5, 2.5) & C3_BIT, 0, "unequal(greater) -> C3=0");
+}
+
+#[test]
+fn test_fcom_sw_neg_zero_equals_pos_zero() {
+    // -0.0 compares equal to +0.0 -> C3=1
+    let sw = kat_fcom_sw(0.0, -0.0);
+    assert_ne!(sw & C3_BIT, 0, "+0.0 == -0.0 -> C3=1");
+    assert_eq!(sw & C0_BIT, 0);
+    assert_eq!(sw & C2_BIT, 0);
+}
+
+#[test]
+fn test_fcom_sw_infinity_ordering() {
+    // +inf vs finite: ST(0)=+inf > src=1.0 -> all clear
+    let sw = kat_fcom_sw(1.0, f64::INFINITY);
+    assert_eq!(sw & C3_BIT, 0);
+    assert_eq!(sw & C2_BIT, 0);
+    assert_eq!(sw & C0_BIT, 0);
+    // -inf vs finite: ST(0)=-inf < src=1.0 -> C0 set
+    let sw2 = kat_fcom_sw(1.0, f64::NEG_INFINITY);
+    assert_ne!(sw2 & C0_BIT, 0);
+    assert_eq!(sw2 & C3_BIT, 0);
+    assert_eq!(sw2 & C2_BIT, 0);
+}

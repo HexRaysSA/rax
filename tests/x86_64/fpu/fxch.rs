@@ -769,3 +769,75 @@ fn test_fxch_zero_and_nonzero() {
     assert_eq!(result1, 0.0, "Zero value exchanged");
     assert_eq!(result2, 100.0, "Non-zero value exchanged");
 }
+
+// ============================================================================
+// Known-answer FXCH tests: exact swap of stack slots.
+// ============================================================================
+
+#[test]
+fn test_fxch_st1_exact_swap() {
+    // FLD 1.0, FLD 2.0, FLD 3.0 -> ST(0)=3, ST(1)=2, ST(2)=1
+    // FXCH ST(1) -> ST(0)=2, ST(1)=3
+    let code = [
+        0xDD, 0x04, 0x25, 0x00, 0x20, 0x00, 0x00,
+        0xDD, 0x04, 0x25, 0x08, 0x20, 0x00, 0x00,
+        0xDD, 0x04, 0x25, 0x10, 0x20, 0x00, 0x00,
+        0xD9, 0xC9, // FXCH ST(1)
+        0xDD, 0x1C, 0x25, 0x00, 0x30, 0x00, 0x00, // pop -> 2.0
+        0xDD, 0x1C, 0x25, 0x08, 0x30, 0x00, 0x00, // pop -> 3.0
+        0xDD, 0x1C, 0x25, 0x10, 0x30, 0x00, 0x00, // pop -> 1.0
+        0xf4,
+    ];
+    let (mut vcpu, mem) = setup_vm(&code, None);
+    write_f64(&mem, 0x2000, 1.0);
+    write_f64(&mem, 0x2008, 2.0);
+    write_f64(&mem, 0x2010, 3.0);
+    run_until_hlt(&mut vcpu).unwrap();
+    assert_eq!(read_f64(&mem, 0x3000), 2.0);
+    assert_eq!(read_f64(&mem, 0x3008), 3.0);
+    assert_eq!(read_f64(&mem, 0x3010), 1.0);
+}
+
+#[test]
+fn test_fxch_st2_exact_swap() {
+    // FLD 1.0, FLD 2.0, FLD 3.0 -> ST(0)=3, ST(1)=2, ST(2)=1
+    // FXCH ST(2) -> ST(0)=1, ST(2)=3
+    let code = [
+        0xDD, 0x04, 0x25, 0x00, 0x20, 0x00, 0x00,
+        0xDD, 0x04, 0x25, 0x08, 0x20, 0x00, 0x00,
+        0xDD, 0x04, 0x25, 0x10, 0x20, 0x00, 0x00,
+        0xD9, 0xCA, // FXCH ST(2)
+        0xDD, 0x1C, 0x25, 0x00, 0x30, 0x00, 0x00, // pop -> 1.0
+        0xDD, 0x1C, 0x25, 0x08, 0x30, 0x00, 0x00, // pop -> 2.0
+        0xDD, 0x1C, 0x25, 0x10, 0x30, 0x00, 0x00, // pop -> 3.0
+        0xf4,
+    ];
+    let (mut vcpu, mem) = setup_vm(&code, None);
+    write_f64(&mem, 0x2000, 1.0);
+    write_f64(&mem, 0x2008, 2.0);
+    write_f64(&mem, 0x2010, 3.0);
+    run_until_hlt(&mut vcpu).unwrap();
+    assert_eq!(read_f64(&mem, 0x3000), 1.0);
+    assert_eq!(read_f64(&mem, 0x3008), 2.0);
+    assert_eq!(read_f64(&mem, 0x3010), 3.0);
+}
+
+#[test]
+fn test_fxch_twice_is_identity() {
+    // Two FXCH ST(1) in a row leaves the stack unchanged.
+    let code = [
+        0xDD, 0x04, 0x25, 0x00, 0x20, 0x00, 0x00,
+        0xDD, 0x04, 0x25, 0x08, 0x20, 0x00, 0x00,
+        0xD9, 0xC9, // FXCH ST(1)
+        0xD9, 0xC9, // FXCH ST(1)
+        0xDD, 0x1C, 0x25, 0x00, 0x30, 0x00, 0x00, // pop -> 2.0
+        0xDD, 0x1C, 0x25, 0x08, 0x30, 0x00, 0x00, // pop -> 1.0
+        0xf4,
+    ];
+    let (mut vcpu, mem) = setup_vm(&code, None);
+    write_f64(&mem, 0x2000, 1.0);
+    write_f64(&mem, 0x2008, 2.0);
+    run_until_hlt(&mut vcpu).unwrap();
+    assert_eq!(read_f64(&mem, 0x3000), 2.0);
+    assert_eq!(read_f64(&mem, 0x3008), 1.0);
+}

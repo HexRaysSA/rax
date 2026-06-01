@@ -653,3 +653,55 @@ fn test_fprem_irrational_dividend() {
     let expected = sqrt2 - 1.0;
     assert!((result - expected).abs() < 1e-10, "sqrt(2) % 1.0");
 }
+
+// ============================================================================
+// Known-answer FPREM tests: remainder = ST(0) - trunc(ST(0)/ST(1))*ST(1),
+// and the quotient low 3 bits land in C0/C3/C1 of the status word.
+// ============================================================================
+
+/// ST(1)=divisor (loaded first), ST(0)=dividend, FPREM, store remainder + SW.
+fn kat_fprem(dividend: f64, divisor: f64) -> (f64, u16) {
+    let code = [
+        0xDD, 0x04, 0x25, 0x08, 0x20, 0x00, 0x00, // FLD qword [0x2008] (divisor -> ST(1))
+        0xDD, 0x04, 0x25, 0x00, 0x20, 0x00, 0x00, // FLD qword [0x2000] (dividend -> ST(0))
+        0xD9, 0xF8, // FPREM
+        0xDD, 0x14, 0x25, 0x00, 0x30, 0x00, 0x00, // FST qword [0x3000] (remainder, no pop)
+        0xDD, 0x3C, 0x25, 0x10, 0x30, 0x00, 0x00, // FNSTSW [0x3010]
+        0xf4,
+    ];
+    let (mut vcpu, mem) = setup_vm(&code, None);
+    write_f64(&mem, 0x2000, dividend);
+    write_f64(&mem, 0x2008, divisor);
+    run_until_hlt(&mut vcpu).unwrap();
+    let mut buf = [0u8; 2];
+    mem.read_slice(&mut buf, GuestAddress(0x3010)).unwrap();
+    (read_f64(&mem, 0x3000), u16::from_le_bytes(buf))
+}
+
+#[test]
+fn test_fprem_exact_remainders() {
+    assert_eq!(kat_fprem(7.0, 3.0).0, 1.0); // 7 = 2*3 + 1
+    assert_eq!(kat_fprem(9.0, 3.0).0, 0.0); // exact
+    assert_eq!(kat_fprem(10.0, 4.0).0, 2.0); // 10 = 2*4 + 2
+    assert_eq!(kat_fprem(1.0, 0.5).0, 0.0);
+    assert_eq!(kat_fprem(5.5, 2.0).0, 1.5); // 5.5 = 2*2 + 1.5
+}
+
+#[test]
+fn test_fprem_negative_dividend_sign() {
+    // FPREM remainder takes the sign of the dividend.
+    assert_eq!(kat_fprem(-7.0, 3.0).0, -1.0);
+    assert_eq!(kat_fprem(7.0, -3.0).0, 1.0);
+}
+
+#[test]
+fn test_fprem_quotient_bits_in_status_word() {
+    // 7/3 truncates to quotient 2 (binary 010) -> Q0=0(C1), Q1=1(C3), Q2=0(C0).
+    let (_rem, sw) = kat_fprem(7.0, 3.0);
+    const C0: u16 = 0x0100;
+    const C1: u16 = 0x0200;
+    const C3: u16 = 0x4000;
+    assert_eq!(sw & C1, 0, "Q0 (C1) should be 0 for quotient 2");
+    assert_ne!(sw & C3, 0, "Q1 (C3) should be 1 for quotient 2");
+    assert_eq!(sw & C0, 0, "Q2 (C0) should be 0 for quotient 2");
+}

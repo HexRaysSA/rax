@@ -782,3 +782,44 @@ fn test_all_logs_positive() {
     assert!(lg2 > 0.0, "log₁₀(2) should be positive");
     assert!(ln2 > 0.0, "ln(2) should be positive");
 }
+
+// ============================================================================
+// Known-answer FPU constant-load tests. rax stores ST as f64, so each constant
+// must match its f64 value to within a few ULP (well under 1e-15).
+// FLD1=D9 E8, FLDL2T=D9 E9, FLDL2E=D9 EA, FLDPI=D9 EB, FLDLG2=D9 EC,
+// FLDLN2=D9 ED, FLDZ=D9 EE.
+// ============================================================================
+
+/// Execute the two-byte constant-load opcode, FSTP it, return the value.
+fn kat_const(op1: u8, op2: u8) -> f64 {
+    let code = [
+        op1, op2, // constant load
+        0xDD, 0x1C, 0x25, 0x00, 0x30, 0x00, 0x00, // FSTP qword [0x3000]
+        0xf4,
+    ];
+    let (mut vcpu, mem) = setup_vm(&code, None);
+    run_until_hlt(&mut vcpu).unwrap();
+    read_f64(&mem, 0x3000)
+}
+
+#[test]
+fn test_fld_constants_exact_values() {
+    let tol = 1e-15;
+    assert_eq!(kat_const(0xD9, 0xE8), 1.0, "FLD1 -> exactly 1.0");
+    assert_eq!(kat_const(0xD9, 0xEE).to_bits(), (0.0_f64).to_bits(), "FLDZ -> +0.0");
+    assert!((kat_const(0xD9, 0xEB) - std::f64::consts::PI).abs() < tol, "FLDPI -> pi");
+    assert!((kat_const(0xD9, 0xE9) - std::f64::consts::LOG2_10).abs() < tol, "FLDL2T -> log2(10)");
+    assert!((kat_const(0xD9, 0xEA) - std::f64::consts::LOG2_E).abs() < tol, "FLDL2E -> log2(e)");
+    assert!((kat_const(0xD9, 0xED) - std::f64::consts::LN_2).abs() < tol, "FLDLN2 -> ln(2)");
+    // FLDLG2 = log10(2) = ln(2)/ln(10)
+    let lg2 = std::f64::consts::LN_2 / std::f64::consts::LN_10;
+    assert!((kat_const(0xD9, 0xEC) - lg2).abs() < tol, "FLDLG2 -> log10(2)");
+}
+
+#[test]
+fn test_fldpi_quarter_circle_identity() {
+    // FLDPI then FLD1, FLD1, FADD -> verify pi/4 * 4 == pi via FSCALE-free check.
+    // Simpler: confirm FLDPI value squared is close to pi^2 to rule out wrong const.
+    let pi = kat_const(0xD9, 0xEB);
+    assert!((pi * pi - std::f64::consts::PI * std::f64::consts::PI).abs() < 1e-13);
+}

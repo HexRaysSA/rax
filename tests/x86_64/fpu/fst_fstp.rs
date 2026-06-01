@@ -650,3 +650,74 @@ fn test_fstp_extreme_values() {
     run_until_hlt(&mut vcpu).unwrap();
     assert_eq!(read_f64(&mem, 0x3000), f64::MIN_POSITIVE);
 }
+
+// ============================================================================
+// Known-answer FLD/FST/FSTP round-trip tests with EXACT bit-for-bit checks.
+// ============================================================================
+
+#[test]
+fn test_fld_fstp_m64_roundtrip_exact_bits() {
+    // FLD [m64] then FSTP [m64] must preserve the exact bit pattern.
+    let code = [
+        0xDD, 0x04, 0x25, 0x00, 0x20, 0x00, 0x00, // FLD qword [0x2000]
+        0xDD, 0x1C, 0x25, 0x00, 0x30, 0x00, 0x00, // FSTP qword [0x3000]
+        0xf4,
+    ];
+    for v in [1.0_f64, -2.5, 1234.5, std::f64::consts::PI, 0.1, -0.0] {
+        let (mut vcpu, mem) = setup_vm(&code, None);
+        write_f64(&mem, DATA_ADDR, v);
+        run_until_hlt(&mut vcpu).unwrap();
+        assert_eq!(
+            read_f64(&mem, 0x3000).to_bits(),
+            v.to_bits(),
+            "FLD/FSTP m64 must be bit-exact for {v}"
+        );
+    }
+}
+
+#[test]
+fn test_fld_m32_fstp_m32_roundtrip_exact() {
+    // FLD m32 widens f32->f64, FSTP m32 narrows back; for f32-representable
+    // values the round-trip is exact.
+    let code = [
+        0xD9, 0x04, 0x25, 0x00, 0x20, 0x00, 0x00, // FLD dword [0x2000]
+        0xD9, 0x1C, 0x25, 0x00, 0x30, 0x00, 0x00, // FSTP dword [0x3000]
+        0xf4,
+    ];
+    for v in [1.0_f32, -2.5, 0.5, 256.0, 0.25] {
+        let (mut vcpu, mem) = setup_vm(&code, None);
+        mem.write_slice(&v.to_le_bytes(), GuestAddress(DATA_ADDR)).unwrap();
+        run_until_hlt(&mut vcpu).unwrap();
+        assert_eq!(read_f32(&mem, 0x3000).to_bits(), v.to_bits(), "FLD/FSTP m32 exact for {v}");
+    }
+}
+
+#[test]
+fn test_fst_m64_does_not_pop() {
+    // FST (no pop) leaves ST(0) intact; a following FSTP reads the same value.
+    let code = [
+        0xDD, 0x04, 0x25, 0x00, 0x20, 0x00, 0x00, // FLD qword [0x2000]
+        0xDD, 0x14, 0x25, 0x00, 0x30, 0x00, 0x00, // FST qword [0x3000] (no pop)
+        0xDD, 0x1C, 0x25, 0x08, 0x30, 0x00, 0x00, // FSTP qword [0x3008]
+        0xf4,
+    ];
+    let (mut vcpu, mem) = setup_vm(&code, None);
+    write_f64(&mem, DATA_ADDR, 9.75);
+    run_until_hlt(&mut vcpu).unwrap();
+    assert_eq!(read_f64(&mem, 0x3000), 9.75);
+    assert_eq!(read_f64(&mem, 0x3008), 9.75, "FST must not pop ST(0)");
+}
+
+#[test]
+fn test_fld_fst_m32_downconvert_known() {
+    // FLD m64 of 1.0/3.0, then FST m32 rounds to nearest f32.
+    let code = [
+        0xDD, 0x04, 0x25, 0x00, 0x20, 0x00, 0x00, // FLD qword [0x2000]
+        0xD9, 0x1C, 0x25, 0x00, 0x30, 0x00, 0x00, // FSTP dword [0x3000]
+        0xf4,
+    ];
+    let (mut vcpu, mem) = setup_vm(&code, None);
+    write_f64(&mem, DATA_ADDR, 1.0_f64 / 3.0);
+    run_until_hlt(&mut vcpu).unwrap();
+    assert_eq!(read_f32(&mem, 0x3000), (1.0_f64 / 3.0) as f32);
+}

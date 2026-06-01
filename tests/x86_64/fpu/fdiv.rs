@@ -762,3 +762,138 @@ fn test_fdiv_self() {
     run_until_hlt(&mut vcpu).unwrap();
     assert_eq!(read_f64(&mem, 0x3000), 1.0);
 }
+
+// ============================================================================
+// Known-answer operand-order tests for FDIV / FDIVR.
+//
+// Pin down EXACT quotients for every encoding. Note the x87 quirk that the DC
+// register encodings swap FDIV<->FDIVR relative to the D8 encodings:
+//   FDIV  ST(0),ST(i): ST(0) = ST(0) / ST(i)
+//   FDIVR ST(0),ST(i): ST(0) = ST(i) / ST(0)
+//   FDIV  ST(i),ST(0): ST(i) = ST(i) / ST(0)
+//   FDIVR ST(i),ST(0): ST(i) = ST(0) / ST(i)
+//   FDIV  m:           ST(0) = ST(0) / m
+//   FDIVR m:           ST(0) = m / ST(0)
+// Values chosen so results are exact in f64 (powers-of-two friendly).
+// ============================================================================
+
+#[test]
+fn test_fdiv_st0_sti_exact_order() {
+    // FLD 2.0, FLD 8.0 -> ST(0)=8.0, ST(1)=2.0; FDIV ST(0),ST(1) -> 8.0/2.0 = 4.0
+    let code = [
+        0xDD, 0x04, 0x25, 0x00, 0x20, 0x00, 0x00,
+        0xDD, 0x04, 0x25, 0x08, 0x20, 0x00, 0x00,
+        0xD8, 0xF1, // FDIV ST(0), ST(1)
+        0xDD, 0x1C, 0x25, 0x00, 0x30, 0x00, 0x00,
+        0xf4,
+    ];
+    let (mut vcpu, mem) = setup_vm(&code, None);
+    write_f64(&mem, DATA_ADDR, 2.0);
+    write_f64(&mem, DATA_ADDR + 8, 8.0);
+    run_until_hlt(&mut vcpu).unwrap();
+    assert_eq!(read_f64(&mem, 0x3000), 4.0);
+}
+
+#[test]
+fn test_fdivr_st0_sti_exact_order() {
+    // FLD 2.0, FLD 8.0 -> ST(0)=8.0, ST(1)=2.0; FDIVR ST(0),ST(1) -> 2.0/8.0 = 0.25
+    let code = [
+        0xDD, 0x04, 0x25, 0x00, 0x20, 0x00, 0x00,
+        0xDD, 0x04, 0x25, 0x08, 0x20, 0x00, 0x00,
+        0xD8, 0xF9, // FDIVR ST(0), ST(1)
+        0xDD, 0x1C, 0x25, 0x00, 0x30, 0x00, 0x00,
+        0xf4,
+    ];
+    let (mut vcpu, mem) = setup_vm(&code, None);
+    write_f64(&mem, DATA_ADDR, 2.0);
+    write_f64(&mem, DATA_ADDR + 8, 8.0);
+    run_until_hlt(&mut vcpu).unwrap();
+    assert_eq!(read_f64(&mem, 0x3000), 0.25);
+}
+
+#[test]
+fn test_fdiv_sti_st0_exact_order() {
+    // FLD 2.0, FLD 8.0 -> ST(0)=8.0, ST(1)=2.0; FDIV ST(1),ST(0) -> ST(1)/ST(0) = 0.25
+    let code = [
+        0xDD, 0x04, 0x25, 0x00, 0x20, 0x00, 0x00,
+        0xDD, 0x04, 0x25, 0x08, 0x20, 0x00, 0x00,
+        0xDC, 0xF9, // FDIV ST(1), ST(0)
+        0xDD, 0x1C, 0x25, 0x00, 0x30, 0x00, 0x00, // pop ST(0)=8.0
+        0xDD, 0x1C, 0x25, 0x08, 0x30, 0x00, 0x00, // pop ST(1)=0.25
+        0xf4,
+    ];
+    let (mut vcpu, mem) = setup_vm(&code, None);
+    write_f64(&mem, DATA_ADDR, 2.0);
+    write_f64(&mem, DATA_ADDR + 8, 8.0);
+    run_until_hlt(&mut vcpu).unwrap();
+    assert_eq!(read_f64(&mem, 0x3000), 8.0);
+    assert_eq!(read_f64(&mem, 0x3008), 0.25);
+}
+
+#[test]
+fn test_fdivr_sti_st0_exact_order() {
+    // FLD 2.0, FLD 8.0 -> ST(0)=8.0, ST(1)=2.0; FDIVR ST(1),ST(0) -> ST(0)/ST(1) = 4.0
+    let code = [
+        0xDD, 0x04, 0x25, 0x00, 0x20, 0x00, 0x00,
+        0xDD, 0x04, 0x25, 0x08, 0x20, 0x00, 0x00,
+        0xDC, 0xF1, // FDIVR ST(1), ST(0)
+        0xDD, 0x1C, 0x25, 0x00, 0x30, 0x00, 0x00, // pop ST(0)=8.0
+        0xDD, 0x1C, 0x25, 0x08, 0x30, 0x00, 0x00, // pop ST(1)=4.0
+        0xf4,
+    ];
+    let (mut vcpu, mem) = setup_vm(&code, None);
+    write_f64(&mem, DATA_ADDR, 2.0);
+    write_f64(&mem, DATA_ADDR + 8, 8.0);
+    run_until_hlt(&mut vcpu).unwrap();
+    assert_eq!(read_f64(&mem, 0x3000), 8.0);
+    assert_eq!(read_f64(&mem, 0x3008), 4.0);
+}
+
+#[test]
+fn test_fdiv_m64_exact_order() {
+    // FLD 8.0, FDIV [2.0] -> 8.0 / 2.0 = 4.0
+    let code = [
+        0xDD, 0x04, 0x25, 0x00, 0x20, 0x00, 0x00,
+        0xDC, 0x34, 0x25, 0x08, 0x20, 0x00, 0x00, // FDIV m64
+        0xDD, 0x1C, 0x25, 0x00, 0x30, 0x00, 0x00,
+        0xf4,
+    ];
+    let (mut vcpu, mem) = setup_vm(&code, None);
+    write_f64(&mem, DATA_ADDR, 8.0);
+    write_f64(&mem, DATA_ADDR + 8, 2.0);
+    run_until_hlt(&mut vcpu).unwrap();
+    assert_eq!(read_f64(&mem, 0x3000), 4.0);
+}
+
+#[test]
+fn test_fdivr_m64_exact_order() {
+    // FLD 8.0, FDIVR [2.0] -> 2.0 / 8.0 = 0.25
+    let code = [
+        0xDD, 0x04, 0x25, 0x00, 0x20, 0x00, 0x00,
+        0xDC, 0x3C, 0x25, 0x08, 0x20, 0x00, 0x00, // FDIVR m64
+        0xDD, 0x1C, 0x25, 0x00, 0x30, 0x00, 0x00,
+        0xf4,
+    ];
+    let (mut vcpu, mem) = setup_vm(&code, None);
+    write_f64(&mem, DATA_ADDR, 8.0);
+    write_f64(&mem, DATA_ADDR + 8, 2.0);
+    run_until_hlt(&mut vcpu).unwrap();
+    assert_eq!(read_f64(&mem, 0x3000), 0.25);
+}
+
+#[test]
+fn test_fdiv_by_zero_yields_infinity() {
+    // FLD 1.0, FDIV [0.0] -> +inf (exceptions masked by default)
+    let code = [
+        0xDD, 0x04, 0x25, 0x00, 0x20, 0x00, 0x00,
+        0xDC, 0x34, 0x25, 0x08, 0x20, 0x00, 0x00, // FDIV m64
+        0xDD, 0x1C, 0x25, 0x00, 0x30, 0x00, 0x00,
+        0xf4,
+    ];
+    let (mut vcpu, mem) = setup_vm(&code, None);
+    write_f64(&mem, DATA_ADDR, 1.0);
+    write_f64(&mem, DATA_ADDR + 8, 0.0);
+    run_until_hlt(&mut vcpu).unwrap();
+    let r = read_f64(&mem, 0x3000);
+    assert!(r.is_infinite() && r.is_sign_positive());
+}

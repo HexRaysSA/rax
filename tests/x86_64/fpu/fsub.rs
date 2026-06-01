@@ -668,3 +668,142 @@ fn test_fsubr_symmetry() {
     run_until_hlt(&mut vcpu).unwrap();
     assert_eq!(read_f64(&mem, 0x3000), 5.0); // 12.5 - 7.5
 }
+
+// ============================================================================
+// Known-answer operand-order tests for FSUB / FSUBR.
+//
+// Operand order is the classic place a reverse-subtract implementation goes
+// wrong, so these pin down EXACT results for every encoding:
+//   FSUB  ST(0),ST(i): ST(0) = ST(0) - ST(i)
+//   FSUB  ST(i),ST(0): ST(i) = ST(i) - ST(0)
+//   FSUBR ST(0),ST(i): ST(0) = ST(i) - ST(0)
+//   FSUBR ST(i),ST(0): ST(i) = ST(0) - ST(i)
+//   FSUB  m:           ST(0) = ST(0) - m
+//   FSUBR m:           ST(0) = m - ST(0)
+// ============================================================================
+
+#[test]
+fn test_fsub_st0_sti_exact_order() {
+    // FLD 10.0, FLD 3.0  -> ST(0)=3.0, ST(1)=10.0
+    // FSUB ST(0),ST(1) -> ST(0) = 3.0 - 10.0 = -7.0
+    let code = [
+        0xDD, 0x04, 0x25, 0x00, 0x20, 0x00, 0x00,
+        0xDD, 0x04, 0x25, 0x08, 0x20, 0x00, 0x00,
+        0xD8, 0xE1, // FSUB ST(0), ST(1)
+        0xDD, 0x1C, 0x25, 0x00, 0x30, 0x00, 0x00,
+        0xf4,
+    ];
+    let (mut vcpu, mem) = setup_vm(&code, None);
+    write_f64(&mem, DATA_ADDR, 10.0);
+    write_f64(&mem, DATA_ADDR + 8, 3.0);
+    run_until_hlt(&mut vcpu).unwrap();
+    assert_eq!(read_f64(&mem, 0x3000), -7.0);
+}
+
+#[test]
+fn test_fsubr_st0_sti_exact_order() {
+    // FLD 10.0, FLD 3.0 -> ST(0)=3.0, ST(1)=10.0
+    // FSUBR ST(0),ST(1) -> ST(0) = ST(1) - ST(0) = 10.0 - 3.0 = 7.0
+    let code = [
+        0xDD, 0x04, 0x25, 0x00, 0x20, 0x00, 0x00,
+        0xDD, 0x04, 0x25, 0x08, 0x20, 0x00, 0x00,
+        0xD8, 0xE9, // FSUBR ST(0), ST(1)
+        0xDD, 0x1C, 0x25, 0x00, 0x30, 0x00, 0x00,
+        0xf4,
+    ];
+    let (mut vcpu, mem) = setup_vm(&code, None);
+    write_f64(&mem, DATA_ADDR, 10.0);
+    write_f64(&mem, DATA_ADDR + 8, 3.0);
+    run_until_hlt(&mut vcpu).unwrap();
+    assert_eq!(read_f64(&mem, 0x3000), 7.0);
+}
+
+#[test]
+fn test_fsub_sti_st0_exact_order() {
+    // FLD 10.0, FLD 3.0 -> ST(0)=3.0, ST(1)=10.0
+    // FSUB ST(1),ST(0) -> ST(1) = ST(1) - ST(0) = 10.0 - 3.0 = 7.0
+    let code = [
+        0xDD, 0x04, 0x25, 0x00, 0x20, 0x00, 0x00,
+        0xDD, 0x04, 0x25, 0x08, 0x20, 0x00, 0x00,
+        0xDC, 0xE9, // FSUB ST(1), ST(0)
+        0xDD, 0x1C, 0x25, 0x00, 0x30, 0x00, 0x00, // pop ST(0)=3.0
+        0xDD, 0x1C, 0x25, 0x08, 0x30, 0x00, 0x00, // pop ST(1)=7.0
+        0xf4,
+    ];
+    let (mut vcpu, mem) = setup_vm(&code, None);
+    write_f64(&mem, DATA_ADDR, 10.0);
+    write_f64(&mem, DATA_ADDR + 8, 3.0);
+    run_until_hlt(&mut vcpu).unwrap();
+    assert_eq!(read_f64(&mem, 0x3000), 3.0);
+    assert_eq!(read_f64(&mem, 0x3008), 7.0);
+}
+
+#[test]
+fn test_fsubr_sti_st0_exact_order() {
+    // FLD 10.0, FLD 3.0 -> ST(0)=3.0, ST(1)=10.0
+    // FSUBR ST(1),ST(0) -> ST(1) = ST(0) - ST(1) = 3.0 - 10.0 = -7.0
+    let code = [
+        0xDD, 0x04, 0x25, 0x00, 0x20, 0x00, 0x00,
+        0xDD, 0x04, 0x25, 0x08, 0x20, 0x00, 0x00,
+        0xDC, 0xE1, // FSUBR ST(1), ST(0)
+        0xDD, 0x1C, 0x25, 0x00, 0x30, 0x00, 0x00, // pop ST(0)=3.0
+        0xDD, 0x1C, 0x25, 0x08, 0x30, 0x00, 0x00, // pop ST(1)=-7.0
+        0xf4,
+    ];
+    let (mut vcpu, mem) = setup_vm(&code, None);
+    write_f64(&mem, DATA_ADDR, 10.0);
+    write_f64(&mem, DATA_ADDR + 8, 3.0);
+    run_until_hlt(&mut vcpu).unwrap();
+    assert_eq!(read_f64(&mem, 0x3000), 3.0);
+    assert_eq!(read_f64(&mem, 0x3008), -7.0);
+}
+
+#[test]
+fn test_fsub_m64_exact_order() {
+    // FLD 10.0, FSUB [3.0] -> ST(0) = 10.0 - 3.0 = 7.0
+    let code = [
+        0xDD, 0x04, 0x25, 0x00, 0x20, 0x00, 0x00,
+        0xDC, 0x24, 0x25, 0x08, 0x20, 0x00, 0x00, // FSUB m64
+        0xDD, 0x1C, 0x25, 0x00, 0x30, 0x00, 0x00,
+        0xf4,
+    ];
+    let (mut vcpu, mem) = setup_vm(&code, None);
+    write_f64(&mem, DATA_ADDR, 10.0);
+    write_f64(&mem, DATA_ADDR + 8, 3.0);
+    run_until_hlt(&mut vcpu).unwrap();
+    assert_eq!(read_f64(&mem, 0x3000), 7.0);
+}
+
+#[test]
+fn test_fsubr_m64_exact_order() {
+    // FLD 10.0, FSUBR [3.0] -> ST(0) = 3.0 - 10.0 = -7.0
+    let code = [
+        0xDD, 0x04, 0x25, 0x00, 0x20, 0x00, 0x00,
+        0xDC, 0x2C, 0x25, 0x08, 0x20, 0x00, 0x00, // FSUBR m64
+        0xDD, 0x1C, 0x25, 0x00, 0x30, 0x00, 0x00,
+        0xf4,
+    ];
+    let (mut vcpu, mem) = setup_vm(&code, None);
+    write_f64(&mem, DATA_ADDR, 10.0);
+    write_f64(&mem, DATA_ADDR + 8, 3.0);
+    run_until_hlt(&mut vcpu).unwrap();
+    assert_eq!(read_f64(&mem, 0x3000), -7.0);
+}
+
+#[test]
+fn test_fsubrp_exact_order() {
+    // FLD 10.0, FLD 3.0 -> ST(0)=3.0, ST(1)=10.0
+    // FSUBRP ST(1),ST(0) -> ST(1) = ST(0) - ST(1) = 3.0 - 10.0 = -7.0, then pop
+    let code = [
+        0xDD, 0x04, 0x25, 0x00, 0x20, 0x00, 0x00,
+        0xDD, 0x04, 0x25, 0x08, 0x20, 0x00, 0x00,
+        0xDE, 0xE1, // FSUBRP ST(1), ST(0)
+        0xDD, 0x1C, 0x25, 0x00, 0x30, 0x00, 0x00,
+        0xf4,
+    ];
+    let (mut vcpu, mem) = setup_vm(&code, None);
+    write_f64(&mem, DATA_ADDR, 10.0);
+    write_f64(&mem, DATA_ADDR + 8, 3.0);
+    run_until_hlt(&mut vcpu).unwrap();
+    assert_eq!(read_f64(&mem, 0x3000), -7.0);
+}

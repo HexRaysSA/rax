@@ -685,3 +685,68 @@ fn test_fcomip_constants() {
     assert_eq!(flags & ZF_BIT, 0, "ZF should be clear");
     assert_ne!(flags & CF_BIT, 0, "CF should be set (LOG2_E < PI)");
 }
+
+// ============================================================================
+// Known-answer FCOMI EFLAGS tests (ZF/PF/CF) for the full ordering matrix,
+// including the unordered (NaN) case which sets ZF=PF=CF=1.
+// ============================================================================
+
+/// FLD a (-> ST(1)), FLD b (-> ST(0)), FCOMI ST(1), PUSHFQ, store flags.
+/// Compares ST(0)=b against ST(1)=a.
+fn kat_fcomi_flags(a: f64, b: f64) -> u64 {
+    let code = [
+        0xDD, 0x04, 0x25, 0x00, 0x20, 0x00, 0x00, // FLD qword [0x2000]
+        0xDD, 0x04, 0x25, 0x08, 0x20, 0x00, 0x00, // FLD qword [0x2008]
+        0xDB, 0xF1, // FCOMI ST(1)
+        0x9C, // PUSHFQ
+        0x8F, 0x04, 0x25, 0x00, 0x30, 0x00, 0x00, // POP qword [0x3000]
+        0xf4,
+    ];
+    let (mut vcpu, mem) = setup_vm(&code, None);
+    write_f64(&mem, 0x2000, a);
+    write_f64(&mem, 0x2008, b);
+    run_until_hlt(&mut vcpu).unwrap();
+    read_u64(&mem, 0x3000)
+}
+
+#[test]
+fn test_fcomi_flags_matrix() {
+    // equal -> ZF=1, PF=0, CF=0
+    let eq = kat_fcomi_flags(5.0, 5.0);
+    assert_ne!(eq & ZF_BIT, 0);
+    assert_eq!(eq & PF_BIT, 0);
+    assert_eq!(eq & CF_BIT, 0);
+    // greater (ST0=10 > ST1=5) -> all clear
+    let gt = kat_fcomi_flags(5.0, 10.0);
+    assert_eq!(gt & ZF_BIT, 0);
+    assert_eq!(gt & PF_BIT, 0);
+    assert_eq!(gt & CF_BIT, 0);
+    // less (ST0=3 < ST1=7) -> CF=1 only
+    let lt = kat_fcomi_flags(7.0, 3.0);
+    assert_eq!(lt & ZF_BIT, 0);
+    assert_eq!(lt & PF_BIT, 0);
+    assert_ne!(lt & CF_BIT, 0);
+}
+
+#[test]
+fn test_fcomi_unordered_sets_zf_pf_cf() {
+    // NaN operand -> unordered -> ZF=1, PF=1, CF=1 (exceptions masked by default).
+    let un = kat_fcomi_flags(1.0, f64::NAN);
+    assert_ne!(un & ZF_BIT, 0, "unordered -> ZF=1");
+    assert_ne!(un & PF_BIT, 0, "unordered -> PF=1");
+    assert_ne!(un & CF_BIT, 0, "unordered -> CF=1");
+}
+
+#[test]
+fn test_fcomi_clears_of_sf_af() {
+    // FCOMI must clear OF, SF, AF regardless of the comparison outcome.
+    const OF_BIT: u64 = 1 << 11;
+    const SF_BIT: u64 = 1 << 7;
+    const AF_BIT: u64 = 1 << 4;
+    for (a, b) in [(5.0, 5.0), (5.0, 10.0), (7.0, 3.0), (1.0, f64::NAN)] {
+        let f = kat_fcomi_flags(a, b);
+        assert_eq!(f & OF_BIT, 0, "OF must be cleared");
+        assert_eq!(f & SF_BIT, 0, "SF must be cleared");
+        assert_eq!(f & AF_BIT, 0, "AF must be cleared");
+    }
+}

@@ -558,3 +558,34 @@ fn test_fyl2x_sqrt_2() {
     let result = read_f64(&mem, 0x3000);
     assert!((result - 0.5).abs() < 1e-10, "log2(sqrt(2)) should be 0.5");
 }
+
+// ============================================================================
+// Known-answer FYL2X tests (transcendental; small tolerance).
+// Result = ST(1)=y * log2(ST(0)=x), then pop.
+// ============================================================================
+
+/// ST(1)=y (loaded first), ST(0)=x (loaded second), FYL2X, store.
+fn kat_fyl2x(y: f64, x: f64) -> f64 {
+    let code = [
+        0xDD, 0x04, 0x25, 0x08, 0x20, 0x00, 0x00, // FLD qword [0x2008] (y -> ST(1))
+        0xDD, 0x04, 0x25, 0x00, 0x20, 0x00, 0x00, // FLD qword [0x2000] (x -> ST(0))
+        0xD9, 0xF1, // FYL2X
+        0xDD, 0x1C, 0x25, 0x00, 0x30, 0x00, 0x00, // FSTP qword [0x3000]
+        0xf4,
+    ];
+    let (mut vcpu, mem) = setup_vm(&code, None);
+    write_f64(&mem, 0x2000, x);
+    write_f64(&mem, 0x2008, y);
+    run_until_hlt(&mut vcpu).unwrap();
+    read_f64(&mem, 0x3000)
+}
+
+#[test]
+fn test_fyl2x_known_values() {
+    let tol = 1e-12;
+    assert!((kat_fyl2x(1.0, 2.0) - 1.0).abs() < tol, "1*log2(2)=1");
+    assert!((kat_fyl2x(1.0, 8.0) - 3.0).abs() < tol, "1*log2(8)=3");
+    assert!((kat_fyl2x(3.0, 4.0) - 6.0).abs() < tol, "3*log2(4)=6");
+    assert!((kat_fyl2x(1.0, 1.0)).abs() < tol, "log2(1)=0");
+    assert!((kat_fyl2x(2.0, 0.5) + 2.0).abs() < tol, "2*log2(0.5)=-2");
+}

@@ -539,3 +539,90 @@ fn test_multiple_finit_cycles() {
     assert_eq!(r2, 2.0, "Second cycle result");
     assert_eq!(r3, 3.0, "Third cycle result");
 }
+
+// ============================================================================
+// Known-answer x87 stack overflow / underflow behavior.
+//
+// After FNINIT the stack is empty (TOP=0). Each FLD1 decrements TOP. These
+// tests pin down both the TOP-pointer bookkeeping (which works) and the
+// IE/SF/C1 exception flags the architecture requires on overflow/underflow
+// (which rax does NOT currently set — flagged below as ignored real bugs).
+// ============================================================================
+
+#[test]
+fn test_stack_top_wraps_after_eight_pushes() {
+    // FNINIT (TOP=0), then 8x FLD1. TOP decrements mod 8, so after 8 pushes
+    // TOP is back to 0. FNSTSW must report TOP=0 in bits 11-13.
+    let code = [
+        0xDB, 0xE3, // FNINIT
+        0xD9, 0xE8, 0xD9, 0xE8, 0xD9, 0xE8, 0xD9, 0xE8, // 4x FLD1
+        0xD9, 0xE8, 0xD9, 0xE8, 0xD9, 0xE8, 0xD9, 0xE8, // 4x FLD1 (total 8)
+        0xDF, 0xE0, // FNSTSW AX
+        0x66, 0x89, 0x04, 0x25, 0x00, 0x30, 0x00, 0x00, // MOV [0x3000], AX
+        0xf4,
+    ];
+    let (mut vcpu, mem) = setup_vm(&code, None);
+    run_until_hlt(&mut vcpu).unwrap();
+    let sw = read_u16(&mem, 0x3000);
+    assert_eq!((sw & TOP_MASK) >> 11, 0, "TOP must wrap back to 0 after 8 pushes");
+}
+
+#[test]
+fn test_stack_top_after_one_push() {
+    // FNINIT (TOP=0), 1x FLD1 -> TOP = 7 (decremented mod 8).
+    let code = [
+        0xDB, 0xE3, // FNINIT
+        0xD9, 0xE8, // FLD1
+        0xDF, 0xE0, // FNSTSW AX
+        0x66, 0x89, 0x04, 0x25, 0x00, 0x30, 0x00, 0x00, // MOV [0x3000], AX
+        0xf4,
+    ];
+    let (mut vcpu, mem) = setup_vm(&code, None);
+    run_until_hlt(&mut vcpu).unwrap();
+    let sw = read_u16(&mem, 0x3000);
+    assert_eq!((sw & TOP_MASK) >> 11, 7, "TOP must be 7 after one push from empty");
+}
+
+#[test]
+#[ignore = "expected IE|SF|C1 set on x87 stack overflow, got 0 — rax FpuState::push wraps TOP silently and never raises invalid-operation/stack-fault (src/.../cpu.rs FpuState::push has no overflow detection)"]
+fn test_stack_overflow_sets_invalid_and_stack_fault() {
+    // FNINIT then 9 pushes. The 9th push targets an already-occupied slot, i.e.
+    // a stack OVERFLOW. Real x87: IE=1, SF=1, C1=1 (overflow direction), ES=1.
+    let code = [
+        0xDB, 0xE3, // FNINIT
+        0xD9, 0xE8, 0xD9, 0xE8, 0xD9, 0xE8, 0xD9, 0xE8, // 4x FLD1
+        0xD9, 0xE8, 0xD9, 0xE8, 0xD9, 0xE8, 0xD9, 0xE8, // 4x FLD1 (total 8 -> full)
+        0xD9, 0xE8, // 9th FLD1 -> overflow
+        0xDF, 0xE0, // FNSTSW AX
+        0x66, 0x89, 0x04, 0x25, 0x00, 0x30, 0x00, 0x00, // MOV [0x3000], AX
+        0xf4,
+    ];
+    let (mut vcpu, mem) = setup_vm(&code, None);
+    run_until_hlt(&mut vcpu).unwrap();
+    let sw = read_u16(&mem, 0x3000);
+    assert_ne!(sw & IE_BIT, 0, "stack overflow must set IE (Invalid Operation)");
+    assert_ne!(sw & SF_BIT, 0, "stack overflow must set SF (Stack Fault)");
+    assert_ne!(sw & C1_BIT, 0, "stack overflow must set C1 (overflow direction)");
+    assert_ne!(sw & ES_BIT, 0, "IE+SF must raise the Exception Summary (ES)");
+}
+
+#[test]
+#[ignore = "expected IE|SF set with C1=0 on x87 stack underflow, got 0 — rax FpuState::pop wraps TOP silently and never raises invalid-operation/stack-fault on an empty register (src/.../cpu.rs FpuState::pop has no empty-tag check)"]
+fn test_stack_underflow_sets_invalid_and_stack_fault() {
+    // FNINIT leaves the stack empty; FSTP of ST(0) is then a stack UNDERFLOW.
+    // Real x87: IE=1, SF=1, C1=0 (underflow direction), ES=1.
+    let code = [
+        0xDB, 0xE3, // FNINIT (stack empty)
+        0xDD, 0x1C, 0x25, 0x10, 0x30, 0x00, 0x00, // FSTP qword [0x3010] -> underflow
+        0xDF, 0xE0, // FNSTSW AX
+        0x66, 0x89, 0x04, 0x25, 0x00, 0x30, 0x00, 0x00, // MOV [0x3000], AX
+        0xf4,
+    ];
+    let (mut vcpu, mem) = setup_vm(&code, None);
+    run_until_hlt(&mut vcpu).unwrap();
+    let sw = read_u16(&mem, 0x3000);
+    assert_ne!(sw & IE_BIT, 0, "stack underflow must set IE (Invalid Operation)");
+    assert_ne!(sw & SF_BIT, 0, "stack underflow must set SF (Stack Fault)");
+    assert_eq!(sw & C1_BIT, 0, "stack underflow must clear C1 (underflow direction)");
+    assert_ne!(sw & ES_BIT, 0, "IE+SF must raise the Exception Summary (ES)");
+}
