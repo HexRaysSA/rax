@@ -68,10 +68,11 @@ pub fn into(vcpu: &mut X86_64Vcpu, ctx: &mut InsnContext) -> Result<Option<VcpuE
     let in_64bit_mode = in_long_mode && vcpu.sregs.cs.l;
 
     if in_64bit_mode {
-        // INTO is invalid in 64-bit mode
-        return Err(Error::Emulator(
-            "INTO instruction is invalid in 64-bit mode".to_string(),
-        ));
+        // INTO is INVALID in 64-bit mode - inject #UD (vector 6, no error code)
+        // instead of aborting the VM. Don't advance RIP: exception delivery
+        // sets RIP to the handler, and the fault should point to this instruction.
+        vcpu.inject_exception(6, None)?; // #UD = vector 6
+        return Ok(None);
     }
 
     // Check overflow flag

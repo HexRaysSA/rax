@@ -29,16 +29,18 @@ fn movdir_addr_size(vcpu: &X86_64Vcpu, ctx: &InsnContext) -> u8 {
 /// MOVDIRI m32, r32 or MOVDIRI m64, r64 (0F 38 F9 /r)
 pub fn movdiri(vcpu: &mut X86_64Vcpu, ctx: &mut InsnContext) -> Result<Option<VcpuExit>> {
     if ctx.operand_size_override {
-        return Err(Error::Emulator(
-            "MOVDIRI does not allow 66 prefix".to_string(),
-        ));
+        // MOVDIRI (NP 0F 38 F9) does not have a valid encoding with a 66 prefix.
+        // This is an invalid encoding -> #UD. Inject the fault instead of aborting
+        // the VM; don't advance RIP (exception delivery sets RIP to the handler).
+        vcpu.inject_exception(6, None)?; // #UD = vector 6
+        return Ok(None);
     }
 
     let (reg, _rm, is_memory, addr, _) = vcpu.decode_modrm(ctx)?;
     if !is_memory {
-        return Err(Error::Emulator(
-            "MOVDIRI requires memory destination".to_string(),
-        ));
+        // MOVDIRI with a register destination (ModRM.mod = 11) is invalid -> #UD.
+        vcpu.inject_exception(6, None)?; // #UD = vector 6
+        return Ok(None);
     }
 
     let op_size = if ctx.rex_w() { 8 } else { 4 };
@@ -52,14 +54,18 @@ pub fn movdiri(vcpu: &mut X86_64Vcpu, ctx: &mut InsnContext) -> Result<Option<Vc
 /// MOVDIR64B r16/r32/r64, m512 (66 0F 38 F8 /r)
 pub fn movdir64b(vcpu: &mut X86_64Vcpu, ctx: &mut InsnContext) -> Result<Option<VcpuExit>> {
     if !ctx.operand_size_override {
-        return Err(Error::Emulator("MOVDIR64B requires 66 prefix".to_string()));
+        // MOVDIR64B (66 0F 38 F8) requires the 66 prefix. Without it this is not a
+        // valid MOVDIR64B encoding -> #UD. Inject the fault instead of aborting the
+        // VM; don't advance RIP (exception delivery sets RIP to the handler).
+        vcpu.inject_exception(6, None)?; // #UD = vector 6
+        return Ok(None);
     }
 
     let (reg, _rm, is_memory, addr, _) = vcpu.decode_modrm(ctx)?;
     if !is_memory {
-        return Err(Error::Emulator(
-            "MOVDIR64B requires memory source".to_string(),
-        ));
+        // MOVDIR64B with a register source (ModRM.mod = 11) is invalid -> #UD.
+        vcpu.inject_exception(6, None)?; // #UD = vector 6
+        return Ok(None);
     }
 
     let dest_reg = reg;
@@ -77,10 +83,11 @@ pub fn movdir64b(vcpu: &mut X86_64Vcpu, ctx: &mut InsnContext) -> Result<Option<
     };
 
     if dest_addr & 0x3F != 0 {
-        return Err(Error::Emulator(format!(
-            "MOVDIR64B destination not 64-byte aligned: {:#x}",
-            dest_addr
-        )));
+        // MOVDIR64B requires the destination (memory) operand to be 64-byte aligned.
+        // On misalignment the architecture raises #GP(0). Inject the fault instead of
+        // aborting the VM; don't advance RIP (exception delivery sets RIP to the handler).
+        vcpu.inject_exception(13, Some(0))?; // #GP(0) = vector 13, error code 0
+        return Ok(None);
     }
 
     let mut buf = [0u8; 64];

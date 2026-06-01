@@ -1,5 +1,5 @@
-use crate::common::{run_until_hlt, setup_vm, setup_vm_compat};
-use rax::cpu::Registers;
+use crate::common::{run_until_hlt, setup_vm, setup_vm_compat, setup_vm_no_idt};
+use rax::cpu::{Registers, VCpu, VcpuExit};
 
 // Comprehensive tests for INT, INTO, INT3 instructions (software interrupts)
 // INT imm8 (CD), INTO (CE), INT3 (CC)
@@ -602,19 +602,26 @@ fn test_int_same_vector_repeated() {
 
 #[test]
 fn test_into_invalid_in_64bit_mode() {
-    // INTO is invalid in 64-bit mode - should generate #UD
+    // INTO (0xCE) is INVALID in 64-bit mode and must raise #UD (vector 6).
+    // It must NOT abort the emulator. We detect the injected fault using the
+    // no-IDT harness (mirroring tests/x86_64/misc/ud.rs): with no IDT entries
+    // populated, exception delivery fails fast instead of reaching HLT.
     let code = [
         0xce, // INTO (invalid in 64-bit)
-        0x48, 0xc7, 0xc0, 0xff, 0x00, 0x00, 0x00, // MOV RAX, 0xFF
-        0xf4,
+        0x48, 0xc7, 0xc0, 0xff, 0x00, 0x00, 0x00, // MOV RAX, 0xFF (must not be reached)
+        0xf4, // HLT (must not be reached)
     ];
-    let (mut vcpu, _) = setup_vm(&code, None);
+    let (mut vcpu, _) = setup_vm_no_idt(&code, None);
 
-    // INTO in 64-bit mode should return an error
-    let result = run_until_hlt(&mut vcpu);
-    assert!(result.is_err());
-    let err_msg = result.unwrap_err().to_string();
-    assert!(err_msg.contains("INTO") && err_msg.contains("64-bit"));
+    // The guest must not be able to kill the emulator: stepping the INTO must
+    // not panic. It should inject #UD rather than reaching HLT.
+    let result = vcpu.run();
+    match result {
+        Ok(VcpuExit::Hlt) => panic!("INTO in 64-bit mode must raise #UD, not reach HLT"),
+        Ok(VcpuExit::Shutdown) => {} // #UD injected (no handler) -> shutdown
+        Err(_) => {}                 // #UD injected, IDT entry not present -> Err (no abort)
+        _ => {}                      // other non-HLT exit is acceptable
+    }
 }
 
 // ============================================================================

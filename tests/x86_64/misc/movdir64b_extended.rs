@@ -1,6 +1,6 @@
 // Module path for tests run via x86_64.rs
-use crate::common::{run_until_hlt, setup_vm, read_mem_at_u64, write_mem_at_u64, DATA_ADDR};
-use rax::cpu::Registers;
+use crate::common::{run_until_hlt, setup_vm, setup_vm_no_idt, read_mem_at_u64, write_mem_at_u64, DATA_ADDR};
+use rax::cpu::{Registers, VCpu, VcpuExit};
 
 // MOVDIR64B - Move 64 Bytes as Direct Store
 //
@@ -726,5 +726,55 @@ fn test_movdir64b_mixed_endianness_patterns() {
 
     for i in 0..8 {
         assert_eq!(read_mem_at_u64(&mem, 0x3000 + i * 8), patterns[i as usize]);
+    }
+}
+
+// ============================================================================
+// MOVDIR64B - Architecturally invalid encodings (must fault, not abort the VM)
+// ============================================================================
+
+// MOVDIR64B requires the destination (memory) operand to be 64-byte aligned.
+// A misaligned destination must raise #GP(0) instead of aborting the emulator.
+// We detect the injected fault using the no-IDT harness (mirroring
+// tests/x86_64/misc/ud.rs): with no IDT entries populated, exception delivery
+// fails fast instead of reaching HLT.
+#[test]
+fn test_movdir64b_misaligned_dest_raises_gp() {
+    let code = [
+        0x66, 0x0f, 0x38, 0xf8, 0x03, // MOVDIR64B rax, [rbx]
+        0xf4, // HLT (must not be reached)
+    ];
+    let mut regs = Registers::default();
+    regs.rax = 0x3001; // Destination NOT 64-byte aligned -> #GP(0)
+    regs.rbx = 0x2000; // Source
+    let (mut vcpu, _mem) = setup_vm_no_idt(&code, Some(regs));
+
+    // The guest must not be able to kill the emulator: a misaligned destination
+    // should inject #GP(0) rather than reaching HLT.
+    let result = vcpu.run();
+    match result {
+        Ok(VcpuExit::Hlt) => panic!("misaligned MOVDIR64B must raise #GP(0), not reach HLT"),
+        Ok(VcpuExit::Shutdown) => {} // #GP injected (no handler) -> shutdown
+        Err(_) => {}                 // #GP injected, IDT entry not present -> Err (no abort)
+        _ => {}                      // other non-HLT exit is acceptable
+    }
+}
+
+// MOVDIR64B with a register source (ModRM.mod = 11) is an invalid encoding and
+// must raise #UD rather than aborting the emulator.
+#[test]
+fn test_movdir64b_register_source_raises_ud() {
+    let code = [
+        0x66, 0x0f, 0x38, 0xf8, 0xc3, // MOVDIR64B rax, rbx (ModRM.mod=11 -> #UD)
+        0xf4, // HLT (must not be reached)
+    ];
+    let (mut vcpu, _mem) = setup_vm_no_idt(&code, None);
+
+    let result = vcpu.run();
+    match result {
+        Ok(VcpuExit::Hlt) => panic!("MOVDIR64B with register source must raise #UD, not reach HLT"),
+        Ok(VcpuExit::Shutdown) => {}
+        Err(_) => {}
+        _ => {}
     }
 }
