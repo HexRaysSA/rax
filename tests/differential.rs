@@ -1138,3 +1138,988 @@ fn sse_pand() {
         sse_scratch(a.try_into().unwrap(), b.try_into().unwrap()),
     );
 }
+
+// ===========================================================================
+// EXPANDED COVERAGE
+// ===========================================================================
+//
+// Flag-definition reminders used by the masks below (Intel SDM Vol.2):
+//  - BT/BTS/BTR/BTC : define CF; OF/SF/ZF/AF/PF undefined.
+//  - BSF/BSR        : define ZF; CF/OF/SF/AF/PF undefined. Dest undefined if src==0.
+//  - LZCNT/TZCNT    : define CF and ZF; OF/SF/AF/PF undefined.
+//  - POPCNT         : ZF reflects src==0; CF/OF/SF/AF/PF cleared (all defined).
+//  - shifts/rotates : OF defined only for a 1-bit shift; undefined for count>1.
+//                     For a masked count of 0 NO flags change (we avoid that
+//                     ambiguity by using nonzero counts or comparing GPRs only).
+//  - SHLD/SHRD      : like shifts; OF defined only for count==1, undefined else;
+//                     AF is undefined. Result undefined if count > operand size.
+//  - XCHG           : affects no flags. XADD/CMPXCHG set flags like ADD/CMP.
+
+const BT_DEFINED: u64 = flags::bits::CF;
+const BSF_DEFINED: u64 = flags::bits::ZF;
+const CNT_DEFINED: u64 = flags::bits::CF | flags::bits::ZF;
+// For count>1 shifts/rotates OF is undefined; CF (and for shifts SF/ZF/PF) defined.
+const SHIFT_NO_OF: u64 = flags::bits::CF | flags::bits::PF | flags::bits::ZF | flags::bits::SF;
+// Rotates only ever touch CF/OF; for count>1 OF is undefined -> CF only.
+const ROT_MULTI_DEFINED: u64 = flags::bits::CF;
+
+// ---- BT / BTS / BTR / BTC (reg index and imm8 index) ----
+
+#[test]
+fn bt_reg_set() {
+    let mut r = regs();
+    r.rax = 0x0000_0000_0001_0000; // bit 16 set
+    r.rdx = 16;
+    // 48 0F A3 D0  bt rax, rdx  (CF <- bit 16 = 1)
+    check_flags_masked("bt_reg_set", &with_hlt(vec![0x48, 0x0F, 0xA3, 0xD0]), r, BT_DEFINED);
+}
+
+#[test]
+fn bt_reg_clear() {
+    let mut r = regs();
+    r.rax = 0x0000_0000_0001_0000;
+    r.rdx = 17; // bit 17 = 0
+    check_flags_masked("bt_reg_clear", &with_hlt(vec![0x48, 0x0F, 0xA3, 0xD0]), r, BT_DEFINED);
+}
+
+#[test]
+fn bt_reg_index_wraps_modulo_64() {
+    // For a register-operand BT the bit index is taken modulo operand size.
+    let mut r = regs();
+    r.rax = 0x0000_0000_0000_0002; // bit 1 set
+    r.rdx = 65; // 65 mod 64 = 1 -> CF should be 1
+    check_flags_masked("bt_reg_mod64", &with_hlt(vec![0x48, 0x0F, 0xA3, 0xD0]), r, BT_DEFINED);
+}
+
+#[test]
+fn bt_imm() {
+    let mut r = regs();
+    r.rax = 0x0000_0000_8000_0000; // bit 31 set
+    // 48 0F BA E0 1F  bt rax, 31
+    check_flags_masked("bt_imm31", &with_hlt(vec![0x48, 0x0F, 0xBA, 0xE0, 0x1F]), r, BT_DEFINED);
+}
+
+#[test]
+fn bts_imm_sets_bit() {
+    let mut r = regs();
+    r.rax = 0x0; // CF <- old bit (0), bit 5 then set in dest
+    // 48 0F BA E8 05  bts rax, 5
+    check_flags_masked("bts_imm5", &with_hlt(vec![0x48, 0x0F, 0xBA, 0xE8, 0x05]), r, BT_DEFINED);
+}
+
+#[test]
+fn bts_reg_already_set() {
+    let mut r = regs();
+    r.rax = 0x0000_0000_0000_0008; // bit 3 set
+    r.rcx = 3;
+    // 48 0F AB C8  bts rax, rcx  (CF<-1, bit stays set)
+    check_flags_masked("bts_reg_set", &with_hlt(vec![0x48, 0x0F, 0xAB, 0xC8]), r, BT_DEFINED);
+}
+
+#[test]
+fn btr_imm_clears_bit() {
+    let mut r = regs();
+    r.rax = 0xFFFF_FFFF_FFFF_FFFF;
+    // 48 0F BA F0 07  btr rax, 7  (CF<-1, bit 7 cleared)
+    check_flags_masked("btr_imm7", &with_hlt(vec![0x48, 0x0F, 0xBA, 0xF0, 0x07]), r, BT_DEFINED);
+}
+
+#[test]
+fn btr_reg_clears_bit() {
+    let mut r = regs();
+    r.rax = 0x0000_0000_0010_0000; // bit 20 set
+    r.rsi = 20;
+    // 48 0F B3 F0  btr rax, rsi
+    check_flags_masked("btr_reg20", &with_hlt(vec![0x48, 0x0F, 0xB3, 0xF0]), r, BT_DEFINED);
+}
+
+#[test]
+fn btc_imm_toggles_bit() {
+    let mut r = regs();
+    r.rax = 0x0000_0000_0000_0001; // bit 0 set
+    // 48 0F BA F8 00  btc rax, 0  (CF<-1, bit 0 toggled to 0)
+    check_flags_masked("btc_imm0", &with_hlt(vec![0x48, 0x0F, 0xBA, 0xF8, 0x00]), r, BT_DEFINED);
+}
+
+#[test]
+fn btc_reg_toggles_bit() {
+    let mut r = regs();
+    r.rax = 0x0; // bit 40 = 0 -> CF<-0, bit set
+    r.rdi = 40;
+    // 48 0F BB F8  btc rax, rdi
+    check_flags_masked("btc_reg40", &with_hlt(vec![0x48, 0x0F, 0xBB, 0xF8]), r, BT_DEFINED);
+}
+
+// ---- BSF / BSR (incl. zero-source, where ZF=1 and dest is undefined) ----
+
+#[test]
+fn bsf_low_bit() {
+    let mut r = regs();
+    r.rbx = 0x0000_0000_0000_0028; // bits 3 and 5 -> lowest is 3
+    check_flags_masked("bsf_low3", &with_hlt(vec![0x48, 0x0F, 0xBC, 0xC3]), r, BSF_DEFINED);
+}
+
+#[test]
+fn bsf_zero_source() {
+    // src == 0 -> ZF=1, destination is architecturally UNDEFINED; preload RAX so
+    // both backends would only match if they leave it unchanged. Since the dest
+    // is undefined we deliberately do NOT compare RAX here by checking flags only.
+    let mut r = regs();
+    r.rbx = 0;
+    r.rax = 0xDEAD_DEAD_DEAD_DEAD;
+    // Compare ZF only; mask out GPR by... we still compare GPRs in check_flags_masked.
+    // To avoid an undefined-dest false diff, see bsf_zero_source_flags below.
+    let Some((interp, kvm)) = run_both(&with_hlt(vec![0x48, 0x0F, 0xBC, 0xC3]), r, zero_scratch()) else {
+        return;
+    };
+    // Only the ZF flag is defined; RAX is undefined on a zero source.
+    let opts = CompareOpts {
+        flag_mask: BSF_DEFINED,
+        xmm_count: 0,
+        scratch: false,
+        stack: true,
+    };
+    // Compare everything except RAX (undefined) by checking flags + that RBX/others match.
+    let mut diffs = compare(&interp, &kvm, opts);
+    diffs.retain(|d| !d.starts_with("rax:"));
+    if !diffs.is_empty() {
+        panic!("DIVERGENCE in `bsf_zero_source`: {}", diffs.join("; "));
+    }
+}
+
+#[test]
+fn bsr_high_bit() {
+    let mut r = regs();
+    r.rbx = 0x0000_0000_0000_0028; // highest set bit is 5
+    check_flags_masked("bsr_high5", &with_hlt(vec![0x48, 0x0F, 0xBD, 0xC3]), r, BSF_DEFINED);
+}
+
+#[test]
+fn bsr_top_bit() {
+    let mut r = regs();
+    r.rbx = 0x8000_0000_0000_0000; // bit 63
+    check_flags_masked("bsr_top63", &with_hlt(vec![0x48, 0x0F, 0xBD, 0xC3]), r, BSF_DEFINED);
+}
+
+// ---- BSWAP ----
+
+#[test]
+fn bswap_r64() {
+    let mut r = regs();
+    r.rax = 0x0011_2233_4455_6677;
+    // 48 0F C8  bswap rax
+    check("bswap64", &with_hlt(vec![0x48, 0x0F, 0xC8]), r);
+}
+
+#[test]
+fn bswap_r32() {
+    let mut r = regs();
+    r.rax = 0xFFFF_FFFF_1122_3344; // bswap eax zero-extends into rax
+    // 0F C8  bswap eax
+    check("bswap32", &with_hlt(vec![0x0F, 0xC8]), r);
+}
+
+// ---- POPCNT / LZCNT / TZCNT ----
+
+#[test]
+fn popcnt_r64() {
+    let mut r = regs();
+    r.rbx = 0xFF00_F0F0_1234_5678;
+    // F3 48 0F B8 C3  popcnt rax, rbx
+    check("popcnt64", &with_hlt(vec![0xF3, 0x48, 0x0F, 0xB8, 0xC3]), r);
+}
+
+#[test]
+fn popcnt_zero_sets_zf() {
+    let mut r = regs();
+    r.rbx = 0; // result 0 -> ZF set, all others cleared
+    check("popcnt_zero", &with_hlt(vec![0xF3, 0x48, 0x0F, 0xB8, 0xC3]), r);
+}
+
+#[test]
+fn lzcnt_r64() {
+    let mut r = regs();
+    r.rbx = 0x0000_0000_0001_0000; // 47 leading zeros
+    // F3 48 0F BD C3  lzcnt rax, rbx
+    check_flags_masked("lzcnt64", &with_hlt(vec![0xF3, 0x48, 0x0F, 0xBD, 0xC3]), r, CNT_DEFINED);
+}
+
+#[test]
+fn lzcnt_zero_source() {
+    let mut r = regs();
+    r.rbx = 0; // result = operand size (64), CF set, ZF clear
+    check_flags_masked("lzcnt_zero", &with_hlt(vec![0xF3, 0x48, 0x0F, 0xBD, 0xC3]), r, CNT_DEFINED);
+}
+
+#[test]
+fn tzcnt_r64() {
+    let mut r = regs();
+    r.rbx = 0x0000_0000_0001_0000; // 16 trailing zeros
+    // F3 48 0F BC C3  tzcnt rax, rbx
+    check_flags_masked("tzcnt64", &with_hlt(vec![0xF3, 0x48, 0x0F, 0xBC, 0xC3]), r, CNT_DEFINED);
+}
+
+#[test]
+fn tzcnt_zero_source() {
+    let mut r = regs();
+    r.rbx = 0; // result = 64, CF set
+    check_flags_masked("tzcnt_zero", &with_hlt(vec![0xF3, 0x48, 0x0F, 0xBC, 0xC3]), r, CNT_DEFINED);
+}
+
+// ---- XCHG / XADD / CMPXCHG (register operands) ----
+
+#[test]
+fn xchg_reg_reg() {
+    let mut r = regs();
+    r.rax = 0x1111_1111_1111_1111;
+    r.rbx = 0x2222_2222_2222_2222;
+    // 48 87 D8  xchg rax, rbx  (no flags affected)
+    check("xchg_rr", &with_hlt(vec![0x48, 0x87, 0xD8]), r);
+}
+
+#[test]
+fn xadd_reg_reg() {
+    let mut r = regs();
+    r.rax = 0x100; // dest
+    r.rbx = 0x0FF; // src; after: rbx<-old rax(0x100), rax<-0x1FF, flags like ADD
+    // 48 0F C1 D8  xadd rax, rbx
+    check("xadd_rr", &with_hlt(vec![0x48, 0x0F, 0xC1, 0xD8]), r);
+}
+
+#[test]
+fn xadd_carry() {
+    let mut r = regs();
+    r.rax = 0xFFFF_FFFF_FFFF_FFFF;
+    r.rbx = 0x1; // sum wraps -> CF, ZF, AF
+    check("xadd_carry", &with_hlt(vec![0x48, 0x0F, 0xC1, 0xD8]), r);
+}
+
+#[test]
+fn cmpxchg_success() {
+    // RAX (accumulator) == dest -> ZF=1, dest <- src.
+    let mut r = regs();
+    r.rbx = 0x1234; // dest
+    r.rax = 0x1234; // accumulator matches
+    r.rcx = 0xABCD; // src written on success
+    // 48 0F B1 CB  cmpxchg rbx, rcx
+    check("cmpxchg_ok", &with_hlt(vec![0x48, 0x0F, 0xB1, 0xCB]), r);
+}
+
+#[test]
+fn cmpxchg_fail() {
+    // RAX != dest -> ZF=0, RAX <- dest, dest unchanged.
+    let mut r = regs();
+    r.rbx = 0x1234; // dest
+    r.rax = 0x9999; // accumulator differs
+    r.rcx = 0xABCD; // not written on failure
+    check("cmpxchg_fail", &with_hlt(vec![0x48, 0x0F, 0xB1, 0xCB]), r);
+}
+
+#[test]
+fn cmpxchg8_success() {
+    let mut r = regs();
+    r.rbx = 0x55;
+    r.rax = 0x55;
+    r.rcx = 0xAA;
+    // 0F B0 CB  cmpxchg bl, cl
+    check("cmpxchg8_ok", &with_hlt(vec![0x0F, 0xB0, 0xCB]), r);
+}
+
+// ---- Shifts / rotates by CL and imm, double-shift SHLD/SHRD ----
+
+#[test]
+fn shl_imm_multi() {
+    let mut r = regs();
+    r.rax = 0x1;
+    // 48 C1 E0 05  shl rax, 5  (count>1 -> OF undefined)
+    check_flags_masked("shl_imm5", &with_hlt(vec![0x48, 0xC1, 0xE0, 0x05]), r, SHIFT_NO_OF);
+}
+
+#[test]
+fn shr_imm_multi() {
+    let mut r = regs();
+    r.rax = 0xFF00;
+    // 48 C1 E8 04  shr rax, 4
+    check_flags_masked("shr_imm4", &with_hlt(vec![0x48, 0xC1, 0xE8, 0x04]), r, SHIFT_NO_OF);
+}
+
+#[test]
+fn sar_imm_multi() {
+    let mut r = regs();
+    r.rax = 0xFFFF_FFFF_8000_0000;
+    // 48 C1 F8 08  sar rax, 8
+    check_flags_masked("sar_imm8", &with_hlt(vec![0x48, 0xC1, 0xF8, 0x08]), r, SHIFT_NO_OF);
+}
+
+#[test]
+fn shr_cl_multi() {
+    let mut r = regs();
+    r.rax = 0xDEAD_BEEF_0000_0000;
+    r.rcx = 12;
+    // 48 D3 E8  shr rax, cl
+    check_flags_masked("shr_cl12", &with_hlt(vec![0x48, 0xD3, 0xE8]), r, SHIFT_NO_OF);
+}
+
+#[test]
+fn shl32_cl_clears_high() {
+    // 32-bit shift zero-extends the result into the full 64-bit register.
+    let mut r = regs();
+    r.rax = 0xFFFF_FFFF_0000_00FF;
+    r.rcx = 8;
+    // D3 E0  shl eax, cl
+    check_flags_masked("shl32_cl8", &with_hlt(vec![0xD3, 0xE0]), r, SHIFT_NO_OF);
+}
+
+#[test]
+fn rol_cl_multi() {
+    let mut r = regs();
+    r.rax = 0x1234_5678_9ABC_DEF0;
+    r.rcx = 12;
+    // 48 D3 C0  rol rax, cl  (count>1 -> OF undefined)
+    check_flags_masked("rol_cl12", &with_hlt(vec![0x48, 0xD3, 0xC0]), r, ROT_MULTI_DEFINED);
+}
+
+#[test]
+fn ror_cl_multi() {
+    let mut r = regs();
+    r.rax = 0x1234_5678_9ABC_DEF0;
+    r.rcx = 20;
+    // 48 D3 C8  ror rax, cl
+    check_flags_masked("ror_cl20", &with_hlt(vec![0x48, 0xD3, 0xC8]), r, ROT_MULTI_DEFINED);
+}
+
+#[test]
+fn shld_imm() {
+    // SHLD rax, rbx, 8 : shift rax left by 8, feeding in the top 8 bits of rbx.
+    let mut r = regs();
+    r.rax = 0x1122_3344_5566_7788;
+    r.rbx = 0xAABB_CCDD_EEFF_0011;
+    // 48 0F A4 D8 08  shld rax, rbx, 8  (count>1 -> OF undefined)
+    check_flags_masked("shld_imm8", &with_hlt(vec![0x48, 0x0F, 0xA4, 0xD8, 0x08]), r, SHIFT_NO_OF);
+}
+
+#[test]
+fn shrd_imm() {
+    // SHRD rax, rbx, 8 : shift rax right by 8, feeding in the low 8 bits of rbx.
+    let mut r = regs();
+    r.rax = 0x1122_3344_5566_7788;
+    r.rbx = 0xAABB_CCDD_EEFF_0011;
+    // 48 0F AC D8 08  shrd rax, rbx, 8
+    check_flags_masked("shrd_imm8", &with_hlt(vec![0x48, 0x0F, 0xAC, 0xD8, 0x08]), r, SHIFT_NO_OF);
+}
+
+#[test]
+fn shld_cl() {
+    let mut r = regs();
+    r.rax = 0xFFFF_0000_FFFF_0000;
+    r.rbx = 0x0F0F_0F0F_0F0F_0F0F;
+    r.rcx = 16;
+    // 48 0F A5 D8  shld rax, rbx, cl
+    check_flags_masked("shld_cl16", &with_hlt(vec![0x48, 0x0F, 0xA5, 0xD8]), r, SHIFT_NO_OF);
+}
+
+#[test]
+fn shrd_cl() {
+    let mut r = regs();
+    r.rax = 0xFFFF_0000_FFFF_0000;
+    r.rbx = 0x0F0F_0F0F_0F0F_0F0F;
+    r.rcx = 24;
+    // 48 0F AD D8  shrd rax, rbx, cl
+    check_flags_masked("shrd_cl24", &with_hlt(vec![0x48, 0x0F, 0xAD, 0xD8]), r, SHIFT_NO_OF);
+}
+
+#[test]
+fn shld_imm1_defines_of() {
+    // A 1-bit double shift DOES define OF, so compare all status flags.
+    let mut r = regs();
+    r.rax = 0x4000_0000_0000_0000;
+    r.rbx = 0x8000_0000_0000_0000;
+    // 48 0F A4 D8 01  shld rax, rbx, 1
+    check("shld_imm1", &with_hlt(vec![0x48, 0x0F, 0xA4, 0xD8, 0x01]), r);
+}
+
+// ---- Sign/zero extension: MOVSX/MOVZX word sources, CBW family, CWD family ----
+
+#[test]
+fn movzx_word() {
+    let mut r = regs();
+    r.rbx = 0xFFFF_FFFF_FFFF_8000;
+    // 48 0F B7 C3  movzx rax, bx
+    check("movzx_bx", &with_hlt(vec![0x48, 0x0F, 0xB7, 0xC3]), r);
+}
+
+#[test]
+fn movsx_word() {
+    let mut r = regs();
+    r.rbx = 0x0000_0000_0000_8000; // bx = 0x8000 -> sign extends
+    // 48 0F BF C3  movsx rax, bx
+    check("movsx_bx", &with_hlt(vec![0x48, 0x0F, 0xBF, 0xC3]), r);
+}
+
+#[test]
+fn movsx_byte_to_word() {
+    // 16-bit destination: movsx ax, bl (66 prefix, opcode 0F BE)
+    let mut r = regs();
+    r.rax = 0x1111_2222_3333_4444;
+    r.rbx = 0x90; // sign-extends within the 16-bit AX only
+    // 66 0F BE C3  movsx ax, bl
+    check("movsx_ax_bl", &with_hlt(vec![0x66, 0x0F, 0xBE, 0xC3]), r);
+}
+
+#[test]
+fn cbw() {
+    // AL -> AX sign extension; 66 98
+    let mut r = regs();
+    r.rax = 0x1234_5678_9ABC_DE80; // al = 0x80
+    check("cbw", &with_hlt(vec![0x66, 0x98]), r);
+}
+
+#[test]
+fn cwde() {
+    // AX -> EAX sign extension; 98 (zero-extends EAX into RAX)
+    let mut r = regs();
+    r.rax = 0x1234_5678_0000_8000; // ax = 0x8000
+    check("cwde", &with_hlt(vec![0x98]), r);
+}
+
+#[test]
+fn cdqe() {
+    // EAX -> RAX sign extension; 48 98
+    let mut r = regs();
+    r.rax = 0x1234_5678_8000_0000; // eax = 0x80000000
+    check("cdqe", &with_hlt(vec![0x48, 0x98]), r);
+}
+
+#[test]
+fn cwd() {
+    // AX -> DX:AX ; 66 99
+    let mut r = regs();
+    r.rax = 0x0000_0000_0000_8000; // ax negative
+    r.rdx = 0x1111_2222_3333_4444; // only dx (low 16) should change
+    check("cwd", &with_hlt(vec![0x66, 0x99]), r);
+}
+
+#[test]
+fn cdq() {
+    // EAX -> EDX:EAX ; 99  (EDX zero-extends into RDX)
+    let mut r = regs();
+    r.rax = 0x0000_0000_8000_0000; // eax negative
+    r.rdx = 0xFFFF_FFFF_1234_5678;
+    check("cdq", &with_hlt(vec![0x99]), r);
+}
+
+#[test]
+fn cqo() {
+    // RAX -> RDX:RAX ; 48 99
+    let mut r = regs();
+    r.rax = 0x8000_0000_0000_0000; // negative
+    r.rdx = 0x1234_5678_9ABC_DEF0;
+    check("cqo", &with_hlt(vec![0x48, 0x99]), r);
+}
+
+#[test]
+fn cqo_positive() {
+    let mut r = regs();
+    r.rax = 0x0000_0000_0000_0001; // positive -> rdx becomes 0
+    r.rdx = 0xFFFF_FFFF_FFFF_FFFF;
+    check("cqo_pos", &with_hlt(vec![0x48, 0x99]), r);
+}
+
+// ---- CMOVcc across all 16 conditions ----
+//
+// We set up a known flag state with a single CMP, then CMOVcc rax, rcx. The
+// destination is loaded with a sentinel beforehand so a "no move" is observable.
+
+/// cmp rax,rbx (48 39 D8) sets flags, then `cmov` (2-byte 0F xx) rax, rcx.
+fn cmov_program(cmov2: [u8; 2]) -> Vec<u8> {
+    // 48 31 C0           xor rax, rax           (clear so the sentinel below is exact)
+    // 48 B8 imm64        mov rax, sentinel
+    // ... but simpler: use the regs we pass in. We just emit cmp + cmov.
+    let mut code = vec![0x48, 0x39, 0xD8]; // cmp rax, rbx
+    code.extend_from_slice(&[0x48, cmov2[0], cmov2[1], 0xC1]); // cmov rax, rcx (REX.W, 0F, opc, modrm C1)
+    code.push(HLT);
+    code
+}
+
+/// Run a CMOVcc with the given 2nd opcode byte and an (rax,rbx) pair that sets
+/// flags via CMP. rcx holds the candidate value moved on a true condition.
+fn check_cmov(label: &str, opc: u8, rax: u64, rbx: u64) {
+    let mut r = regs();
+    r.rax = rax;
+    r.rbx = rbx;
+    r.rcx = 0xCAFE_F00D_1234_5678;
+    check(label, &cmov_program([0x0F, opc]), r);
+}
+
+/// All 16 CMOVcc conditions in one case. Each tuple is (opcode2, rax, rbx) where
+/// the CMP rax,rbx sets a flag state that makes the condition TRUE (and a couple
+/// also test the FALSE/no-move path). Opcodes 0x40..=0x4F are CMOVO..CMOVG.
+#[test]
+fn cmovcc_all_conditions() {
+    // (opcode, rax, rbx) chosen so the condition is TRUE for these inputs.
+    let true_cases: &[(u8, u64, u64, &str)] = &[
+        (0x40, 0x8000_0000_0000_0000, 1, "cmovo"), // INT_MIN - 1 -> OF
+        (0x41, 5, 3, "cmovno"),                     // no overflow
+        (0x42, 1, 2, "cmovb"),                      // 1 < 2 unsigned -> CF
+        (0x43, 5, 3, "cmovae"),                     // CF clear
+        (0x44, 7, 7, "cmove"),                      // equal -> ZF
+        (0x45, 7, 8, "cmovne"),                     // not equal
+        (0x46, 2, 2, "cmovbe"),                     // CF|ZF (equal)
+        (0x47, 5, 3, "cmova"),                      // above
+        (0x48, 0, 1, "cmovs"),                      // 0-1 -> SF
+        (0x49, 5, 3, "cmovns"),                     // SF clear
+        (0x4A, 3, 0, "cmovp"),                      // result 3 -> even parity
+        (0x4B, 1, 0, "cmovnp"),                     // result 1 -> odd parity
+        (0x4C, 1, 2, "cmovl"),                      // signed less
+        (0x4D, 5, 3, "cmovge"),                     // signed >=
+        (0x4E, 2, 2, "cmovle"),                     // signed <= (equal)
+        (0x4F, 5, 3, "cmovg"),                      // signed >
+    ];
+    for &(opc, rax, rbx, name) in true_cases {
+        check_cmov(name, opc, rax, rbx);
+    }
+    // No-move (FALSE) path for a representative set so we also exercise the
+    // "destination unchanged" branch on both backends.
+    check_cmov("cmovo_false", 0x40, 5, 3); // no overflow -> no move
+    check_cmov("cmove_false", 0x44, 7, 8); // not equal -> no move
+    check_cmov("cmovg_false", 0x4F, 1, 2); // not greater -> no move
+}
+
+// ---- SETcc across conditions ----
+
+/// cmp rax,rbx then setcc al, then movzx eax, al so we read a clean 0/1.
+fn setcc_program(opc: u8) -> Vec<u8> {
+    let mut code = vec![0x48, 0x39, 0xD8]; // cmp rax, rbx
+    code.extend_from_slice(&[0x0F, opc, 0xC0]); // setcc al
+    code.extend_from_slice(&[0x0F, 0xB6, 0xC0]); // movzx eax, al
+    code.push(HLT);
+    code
+}
+
+fn check_setcc(label: &str, opc: u8, rax: u64, rbx: u64) {
+    let mut r = regs();
+    r.rax = rax;
+    r.rbx = rbx;
+    check(label, &setcc_program(opc), r);
+}
+
+/// SETcc across a spread of conditions, both true and false results. Opcodes
+/// 0x90..=0x9F are SETO..SETG.
+#[test]
+fn setcc_all_conditions() {
+    let cases: &[(u8, u64, u64, &str)] = &[
+        (0x90, 0x8000_0000_0000_0000, 1, "seto"), // overflow -> 1
+        (0x91, 5, 3, "setno"),                     // no overflow -> 1
+        (0x92, 1, 2, "setb"),                      // below -> 1
+        (0x93, 5, 3, "setae"),                     // not below -> 1
+        (0x94, 7, 7, "sete"),                      // equal -> 1
+        (0x95, 7, 8, "setne"),                     // not equal -> 1
+        (0x96, 2, 2, "setbe"),                     // be (equal) -> 1
+        (0x97, 5, 3, "seta"),                      // above -> 1
+        (0x98, 0, 1, "sets"),                      // sign -> 1
+        (0x99, 5, 3, "setns"),                     // no sign -> 1
+        (0x9A, 3, 0, "setp"),                      // even parity -> 1
+        (0x9B, 1, 0, "setnp"),                     // odd parity -> 1
+        (0x9C, 1, 2, "setl"),                      // less -> 1
+        (0x9D, 5, 3, "setge"),                     // ge -> 1
+        (0x9E, 2, 2, "setle"),                     // le (equal) -> 1
+        (0x9F, 5, 3, "setg"),                      // greater -> 1
+        // false-result spot checks
+        (0x94, 7, 8, "sete_false"),                // not equal -> 0
+        (0x9F, 1, 2, "setg_false"),                // not greater -> 0
+    ];
+    for &(opc, rax, rbx, name) in cases {
+        check_setcc(name, opc, rax, rbx);
+    }
+}
+
+// ---- LEA with complex SIB (base + index*scale + disp) ----
+
+#[test]
+fn lea_base_index_scale_disp8() {
+    let mut r = regs();
+    r.rbx = 0x1_0000; // base
+    r.rcx = 0x10; // index
+    // 48 8D 44 8B 20  lea rax, [rbx + rcx*4 + 0x20]
+    check("lea_sib_disp8", &with_hlt(vec![0x48, 0x8D, 0x44, 0x8B, 0x20]), r);
+}
+
+#[test]
+fn lea_index_scale8_disp32() {
+    let mut r = regs();
+    r.rsi = 0x100;
+    r.rdi = 0x2_0000;
+    // 48 8D 84 F7 00 10 00 00  lea rax, [rdi + rsi*8 + 0x1000]
+    check(
+        "lea_sib_disp32",
+        &with_hlt(vec![0x48, 0x8D, 0x84, 0xF7, 0x00, 0x10, 0x00, 0x00]),
+        r,
+    );
+}
+
+#[test]
+fn lea_no_base_index_scale() {
+    // [rcx*8 + disp32] with no base (mod=00, base=101 in SIB -> disp32, no base)
+    let mut r = regs();
+    r.rcx = 0x11;
+    // 48 8D 04 CD 00 02 00 00  lea rax, [rcx*8 + 0x200]
+    check(
+        "lea_idx_only",
+        &with_hlt(vec![0x48, 0x8D, 0x04, 0xCD, 0x00, 0x02, 0x00, 0x00]),
+        r,
+    );
+}
+
+#[test]
+fn lea_32bit_addrsize_truncates() {
+    // 67 prefix -> 32-bit address calc, result zero-extended into rax.
+    let mut r = regs();
+    r.rbx = 0xFFFF_FFFF_FFFF_F000; // ebx = 0xFFFFF000
+    r.rcx = 0x0000_0000_0000_2000; // ecx = 0x2000
+    // 67 48 8D 04 0B  lea rax, [ebx + ecx]  -> (0xFFFFF000+0x2000) mod 2^32
+    check("lea_addr32", &with_hlt(vec![0x67, 0x48, 0x8D, 0x04, 0x0B]), r);
+}
+
+// ---- 8/16/32-bit operand-size ALU variants for flag exactness ----
+
+#[test]
+fn add16_overflow() {
+    let mut r = regs();
+    r.rax = 0x7FFF; // 16-bit signed max
+    r.rbx = 0x0001; // -> OF, SF
+    // 66 01 D8  add ax, bx
+    check("add16_of", &with_hlt(vec![0x66, 0x01, 0xD8]), r);
+}
+
+#[test]
+fn add32_wrap_zero_extends() {
+    let mut r = regs();
+    r.rax = 0xFFFF_FFFF_FFFF_FFFF; // eax = 0xFFFFFFFF
+    r.rbx = 0x0000_0000_0000_0001; // -> 0, CF, ZF, AF; rax zero-extends
+    // 01 D8  add eax, ebx
+    check("add32_wrap", &with_hlt(vec![0x01, 0xD8]), r);
+}
+
+#[test]
+fn sub16_borrow() {
+    let mut r = regs();
+    r.rax = 0x0000;
+    r.rbx = 0x0001; // 0-1 -> CF, SF, AF
+    // 66 29 D8  sub ax, bx
+    check("sub16_borrow", &with_hlt(vec![0x66, 0x29, 0xD8]), r);
+}
+
+#[test]
+fn and16() {
+    let mut r = regs();
+    r.rax = 0xF0F0;
+    r.rbx = 0x0FF0;
+    // 66 21 D8  and ax, bx
+    check("and16", &with_hlt(vec![0x66, 0x21, 0xD8]), r);
+}
+
+#[test]
+fn or8() {
+    let mut r = regs();
+    r.rax = 0x80;
+    r.rbx = 0x01; // -> 0x81, SF set, odd parity
+    // 08 D8  or al, bl
+    check("or8", &with_hlt(vec![0x08, 0xD8]), r);
+}
+
+#[test]
+fn xor16_zero() {
+    let mut r = regs();
+    r.rax = 0xABCD;
+    r.rbx = 0xABCD; // -> 0, ZF set, PF set
+    // 66 31 D8  xor ax, bx
+    check("xor16_zero", &with_hlt(vec![0x66, 0x31, 0xD8]), r);
+}
+
+#[test]
+fn cmp16_equal() {
+    let mut r = regs();
+    r.rax = 0x1234_5678_9ABC_8000;
+    r.rbx = 0x0000_0000_0000_8000; // ax==bx -> ZF
+    // 66 39 D8  cmp ax, bx
+    check("cmp16_eq", &with_hlt(vec![0x66, 0x39, 0xD8]), r);
+}
+
+#[test]
+fn cmp8_less() {
+    let mut r = regs();
+    r.rax = 0x7F; // +127
+    r.rbx = 0x80; // -128 ; 127 - (-128) overflows -> OF
+    // 38 D8  cmp al, bl
+    check("cmp8_of", &with_hlt(vec![0x38, 0xD8]), r);
+}
+
+#[test]
+fn test8() {
+    let mut r = regs();
+    r.rax = 0xF0;
+    r.rbx = 0x0F; // 0xF0 & 0x0F = 0 -> ZF, PF
+    // 84 D8  test al, bl
+    check("test8", &with_hlt(vec![0x84, 0xD8]), r);
+}
+
+#[test]
+fn inc8_overflow() {
+    let mut r = regs();
+    r.rax = 0x7F; // inc -> 0x80, OF set, SF set, AF set
+    r.rflags = flags::bits::CF; // INC must preserve CF
+    // FE C0  inc al
+    check("inc8_of", &with_hlt(vec![0xFE, 0xC0]), r);
+}
+
+#[test]
+fn dec16_to_zero() {
+    let mut r = regs();
+    r.rax = 0x0001;
+    r.rflags = flags::bits::CF;
+    // 66 FF C8  dec ax
+    check("dec16_zero", &with_hlt(vec![0x66, 0xFF, 0xC8]), r);
+}
+
+#[test]
+fn inc32_zero_extends() {
+    let mut r = regs();
+    r.rax = 0xFFFF_FFFF_FFFF_FFFF; // eax = 0xFFFFFFFF -> inc to 0, zero-extends
+    // FF C0  inc eax
+    check("inc32_wrap", &with_hlt(vec![0xFF, 0xC0]), r);
+}
+
+#[test]
+fn add8_imm() {
+    let mut r = regs();
+    r.rax = 0x7E;
+    // 04 02  add al, 2  -> 0x80, OF + SF
+    check("add8_imm", &with_hlt(vec![0x04, 0x02]), r);
+}
+
+#[test]
+fn add16_imm() {
+    let mut r = regs();
+    r.rax = 0x00FF;
+    // 66 05 01 00  add ax, 1
+    check("add16_imm", &with_hlt(vec![0x66, 0x05, 0x01, 0x00]), r);
+}
+
+// ---- More SSE2 integer ops (PMULLW/PMADDWD/PSADBW/PACK*/PUNPCK*) ----
+
+#[test]
+fn sse_pmullw() {
+    // packed 16-bit multiply low: per-lane (a*b) low 16 bits.
+    let a = [
+        0x0002u16.to_le_bytes(),
+        0x00FFu16.to_le_bytes(),
+        0x8000u16.to_le_bytes(),
+        0x1234u16.to_le_bytes(),
+        0x00FFu16.to_le_bytes(),
+        0x0010u16.to_le_bytes(),
+        0xFFFFu16.to_le_bytes(),
+        0x0007u16.to_le_bytes(),
+    ]
+    .concat();
+    let b = [
+        0x0003u16.to_le_bytes(),
+        0x0100u16.to_le_bytes(),
+        0x0002u16.to_le_bytes(),
+        0x0010u16.to_le_bytes(),
+        0x00FFu16.to_le_bytes(),
+        0x0010u16.to_le_bytes(),
+        0xFFFFu16.to_le_bytes(),
+        0x0006u16.to_le_bytes(),
+    ]
+    .concat();
+    // 66 0F D5 C1  pmullw xmm0, xmm1
+    check_sse(
+        "pmullw",
+        &sse_program(&[0x66, 0x0F, 0xD5, 0xC1]),
+        sse_scratch(a.try_into().unwrap(), b.try_into().unwrap()),
+    );
+}
+
+#[test]
+fn sse_pmaddwd() {
+    // PMADDWD: multiply 16-bit lanes, add adjacent pairs into 32-bit results.
+    let a = [
+        0x0001u16.to_le_bytes(),
+        0x0002u16.to_le_bytes(),
+        0xFFFFu16.to_le_bytes(), // -1
+        0x0003u16.to_le_bytes(),
+        0x8000u16.to_le_bytes(), // -32768
+        0x8000u16.to_le_bytes(),
+        0x7FFFu16.to_le_bytes(),
+        0x7FFFu16.to_le_bytes(),
+    ]
+    .concat();
+    let b = [
+        0x0004u16.to_le_bytes(),
+        0x0005u16.to_le_bytes(),
+        0x0002u16.to_le_bytes(),
+        0xFFFFu16.to_le_bytes(), // -1
+        0x8000u16.to_le_bytes(),
+        0x8000u16.to_le_bytes(),
+        0x7FFFu16.to_le_bytes(),
+        0x7FFFu16.to_le_bytes(),
+    ]
+    .concat();
+    // 66 0F F5 C1  pmaddwd xmm0, xmm1
+    check_sse(
+        "pmaddwd",
+        &sse_program(&[0x66, 0x0F, 0xF5, 0xC1]),
+        sse_scratch(a.try_into().unwrap(), b.try_into().unwrap()),
+    );
+}
+
+#[test]
+fn sse_psadbw() {
+    // sum of absolute differences of bytes -> two 16-bit sums (low halves).
+    let a = [10, 20, 30, 40, 50, 60, 70, 80, 100, 110, 120, 130, 140, 150, 160, 170];
+    let b = [5, 25, 35, 35, 60, 55, 80, 75, 90, 120, 110, 140, 130, 160, 150, 180];
+    // 66 0F F6 C1  psadbw xmm0, xmm1
+    check_sse("psadbw", &sse_program(&[0x66, 0x0F, 0xF6, 0xC1]), sse_scratch(a, b));
+}
+
+#[test]
+fn sse_packsswb() {
+    // signed saturate pack words->bytes.
+    let a = [
+        0x0001u16.to_le_bytes(),
+        0x00FFu16.to_le_bytes(),
+        0x7FFFu16.to_le_bytes(), // -> +127
+        0x8000u16.to_le_bytes(), // -> -128
+        0xFF80u16.to_le_bytes(), // -128 stays
+        0x0080u16.to_le_bytes(), // +128 -> +127
+        0xFFFFu16.to_le_bytes(), // -1
+        0x0000u16.to_le_bytes(),
+    ]
+    .concat();
+    let b = [
+        0x0100u16.to_le_bytes(),
+        0x7F00u16.to_le_bytes(),
+        0x8001u16.to_le_bytes(),
+        0x0040u16.to_le_bytes(),
+        0x0010u16.to_le_bytes(),
+        0xFFF0u16.to_le_bytes(),
+        0x7FFFu16.to_le_bytes(),
+        0x8000u16.to_le_bytes(),
+    ]
+    .concat();
+    // 66 0F 63 C1  packsswb xmm0, xmm1
+    check_sse(
+        "packsswb",
+        &sse_program(&[0x66, 0x0F, 0x63, 0xC1]),
+        sse_scratch(a.try_into().unwrap(), b.try_into().unwrap()),
+    );
+}
+
+#[test]
+fn sse_packuswb() {
+    // unsigned saturate pack words->bytes.
+    let a = [
+        0x0001u16.to_le_bytes(),
+        0x00FFu16.to_le_bytes(),
+        0x0100u16.to_le_bytes(), // -> 255
+        0x8000u16.to_le_bytes(), // negative -> 0
+        0xFFFFu16.to_le_bytes(), // negative -> 0
+        0x007Fu16.to_le_bytes(),
+        0x00FEu16.to_le_bytes(),
+        0x0080u16.to_le_bytes(),
+    ]
+    .concat();
+    let b = [
+        0x0000u16.to_le_bytes(),
+        0x0010u16.to_le_bytes(),
+        0x00FFu16.to_le_bytes(),
+        0x0101u16.to_le_bytes(), // -> 255
+        0x7FFFu16.to_le_bytes(), // -> 255
+        0x0001u16.to_le_bytes(),
+        0x0002u16.to_le_bytes(),
+        0x0003u16.to_le_bytes(),
+    ]
+    .concat();
+    // 66 0F 67 C1  packuswb xmm0, xmm1
+    check_sse(
+        "packuswb",
+        &sse_program(&[0x66, 0x0F, 0x67, 0xC1]),
+        sse_scratch(a.try_into().unwrap(), b.try_into().unwrap()),
+    );
+}
+
+#[test]
+fn sse_punpcklbw() {
+    // interleave low bytes of xmm0 and xmm1.
+    let a = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15];
+    let b = [0x80, 0x81, 0x82, 0x83, 0x84, 0x85, 0x86, 0x87, 0x88, 0x89, 0x8A, 0x8B, 0x8C, 0x8D, 0x8E, 0x8F];
+    // 66 0F 60 C1  punpcklbw xmm0, xmm1
+    check_sse("punpcklbw", &sse_program(&[0x66, 0x0F, 0x60, 0xC1]), sse_scratch(a, b));
+}
+
+#[test]
+fn sse_punpckhbw() {
+    let a = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15];
+    let b = [0x80, 0x81, 0x82, 0x83, 0x84, 0x85, 0x86, 0x87, 0x88, 0x89, 0x8A, 0x8B, 0x8C, 0x8D, 0x8E, 0x8F];
+    // 66 0F 68 C1  punpckhbw xmm0, xmm1
+    check_sse("punpckhbw", &sse_program(&[0x66, 0x0F, 0x68, 0xC1]), sse_scratch(a, b));
+}
+
+#[test]
+fn sse_punpckldq() {
+    // interleave low dwords.
+    let a = [0x1111_1111u32.to_le_bytes(), 0x2222_2222u32.to_le_bytes(), 0x3333_3333u32.to_le_bytes(), 0x4444_4444u32.to_le_bytes()].concat();
+    let b = [0xAAAA_AAAAu32.to_le_bytes(), 0xBBBB_BBBBu32.to_le_bytes(), 0xCCCC_CCCCu32.to_le_bytes(), 0xDDDD_DDDDu32.to_le_bytes()].concat();
+    // 66 0F 62 C1  punpckldq xmm0, xmm1
+    check_sse(
+        "punpckldq",
+        &sse_program(&[0x66, 0x0F, 0x62, 0xC1]),
+        sse_scratch(a.try_into().unwrap(), b.try_into().unwrap()),
+    );
+}
+
+#[test]
+fn sse_punpcklqdq() {
+    // interleave low qwords -> [a.lo, b.lo].
+    let a = [0x0123_4567_89AB_CDEFu64.to_le_bytes(), 0xDEAD_BEEF_CAFE_BABEu64.to_le_bytes()].concat();
+    let b = [0x1122_3344_5566_7788u64.to_le_bytes(), 0x99AA_BBCC_DDEE_FF00u64.to_le_bytes()].concat();
+    // 66 0F 6C C1  punpcklqdq xmm0, xmm1
+    check_sse(
+        "punpcklqdq",
+        &sse_program(&[0x66, 0x0F, 0x6C, 0xC1]),
+        sse_scratch(a.try_into().unwrap(), b.try_into().unwrap()),
+    );
+}
+
+#[test]
+fn sse_pmulhw() {
+    // packed 16-bit multiply, store the HIGH 16 bits (signed).
+    let a = [
+        0x4000u16.to_le_bytes(),
+        0x8000u16.to_le_bytes(), // -32768
+        0x7FFFu16.to_le_bytes(),
+        0xFFFFu16.to_le_bytes(), // -1
+        0x0100u16.to_le_bytes(),
+        0x1234u16.to_le_bytes(),
+        0x00FFu16.to_le_bytes(),
+        0x8000u16.to_le_bytes(),
+    ]
+    .concat();
+    let b = [
+        0x0004u16.to_le_bytes(),
+        0x0002u16.to_le_bytes(),
+        0x7FFFu16.to_le_bytes(),
+        0xFFFFu16.to_le_bytes(),
+        0x0100u16.to_le_bytes(),
+        0x1000u16.to_le_bytes(),
+        0x00FFu16.to_le_bytes(),
+        0x8000u16.to_le_bytes(),
+    ]
+    .concat();
+    // 66 0F E5 C1  pmulhw xmm0, xmm1
+    check_sse(
+        "pmulhw",
+        &sse_program(&[0x66, 0x0F, 0xE5, 0xC1]),
+        sse_scratch(a.try_into().unwrap(), b.try_into().unwrap()),
+    );
+}
