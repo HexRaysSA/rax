@@ -584,7 +584,6 @@ fn test_stack_top_after_one_push() {
 }
 
 #[test]
-#[ignore = "expected IE|SF|C1 set on x87 stack overflow, got 0 — rax FpuState::push wraps TOP silently and never raises invalid-operation/stack-fault (src/.../cpu.rs FpuState::push has no overflow detection)"]
 fn test_stack_overflow_sets_invalid_and_stack_fault() {
     // FNINIT then 9 pushes. The 9th push targets an already-occupied slot, i.e.
     // a stack OVERFLOW. Real x87: IE=1, SF=1, C1=1 (overflow direction), ES=1.
@@ -607,7 +606,6 @@ fn test_stack_overflow_sets_invalid_and_stack_fault() {
 }
 
 #[test]
-#[ignore = "expected IE|SF set with C1=0 on x87 stack underflow, got 0 — rax FpuState::pop wraps TOP silently and never raises invalid-operation/stack-fault on an empty register (src/.../cpu.rs FpuState::pop has no empty-tag check)"]
 fn test_stack_underflow_sets_invalid_and_stack_fault() {
     // FNINIT leaves the stack empty; FSTP of ST(0) is then a stack UNDERFLOW.
     // Real x87: IE=1, SF=1, C1=0 (underflow direction), ES=1.

@@ -107,7 +107,18 @@ impl FpuState {
 
     /// Push a value onto the FPU stack
     pub fn push(&mut self, value: f64) {
-        self.top = self.top.wrapping_sub(1) & 7;
+        // New TOP is the register below the current one. Per the x87 spec, if it
+        // is not already empty (tag != 3) the push is a stack OVERFLOW: raise the
+        // invalid-operation (IE) and stack-fault (SF) exceptions, set C1 to flag
+        // the overflow direction, and raise the error-summary (ES) bit. With the
+        // exception masked (the default) the push still completes.
+        let dst = self.top.wrapping_sub(1) & 7;
+        let dst_tag = (self.tag_word >> ((dst as u16) * 2)) & 3;
+        if dst_tag != 3 {
+            // IE (bit 0) | SF (bit 6) | ES (bit 7) | C1 (bit 9, overflow direction)
+            self.status_word |= 0x0001 | 0x0040 | 0x0080 | 0x0200;
+        }
+        self.top = dst;
         self.st[self.top as usize] = value;
         // Update tag for this register (mark as valid)
         let tag_shift = (self.top as u16) * 2;
@@ -122,9 +133,16 @@ impl FpuState {
 
     /// Pop a value from the FPU stack
     pub fn pop(&mut self) -> f64 {
+        // If the current TOP register is empty (tag == 3) the pop is a stack
+        // UNDERFLOW: raise invalid-operation (IE), stack-fault (SF) and the
+        // error-summary (ES) bit, and clear C1 to flag the underflow direction.
+        let tag_shift = (self.top as u16) * 2;
+        if (self.tag_word >> tag_shift) & 3 == 3 {
+            // Set IE (bit 0) | SF (bit 6) | ES (bit 7); clear C1 (bit 9).
+            self.status_word = (self.status_word | 0x0001 | 0x0040 | 0x0080) & !0x0200;
+        }
         let value = self.st[self.top as usize];
         // Mark register as empty
-        let tag_shift = (self.top as u16) * 2;
         self.tag_word |= 3 << tag_shift;
         self.top = self.top.wrapping_add(1) & 7;
         // Update TOP in status word
