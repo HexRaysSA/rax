@@ -12,3 +12,6 @@ pub mod pit;
 pub mod rtc;
 pub mod serial;
 pub mod sysctl;
+pub mod dma;
+pub mod vga;
+pub mod virtio;
