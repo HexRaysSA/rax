@@ -647,3 +647,179 @@ fn test_lzcnt_sad_combo() {
     let (mut vcpu, _) = setup_vm(&code, None);
     let _ = run_until_hlt(&mut vcpu);
 }
+
+// ============================================================================
+// Broadened EVEX coverage: value-asserting tests for the integer compare-into-
+// mask instructions (VPCMPEQ*/VPCMPGT* fixed forms and the VPCMP[U]* imm8 forms).
+// The k-destination is read directly from the returned register state.
+// ============================================================================
+mod evex_cmp_mask {
+    use crate::common::*;
+    use vm_memory::{Bytes, GuestAddress};
+
+    const C_SRC1: u64 = 0x4800; // -> zmm1
+    const C_SRC2: u64 = 0x4900; // -> zmm2
+
+    fn mov_addrs(out: &mut Vec<u8>) {
+        out.extend_from_slice(&[0x48, 0xc7, 0xc0]); // mov rax, C_SRC1
+        out.extend_from_slice(&(C_SRC1 as u32).to_le_bytes());
+        out.extend_from_slice(&[0x48, 0xc7, 0xc3]); // mov rbx, C_SRC2
+        out.extend_from_slice(&(C_SRC2 as u32).to_le_bytes());
+    }
+
+    const LD_Z1_RAX: [u8; 6] = [0x62, 0xf1, 0x7e, 0x48, 0x6f, 0x08]; // vmovdqu32 zmm1,[rax]
+    const LD_Z2_RBX: [u8; 6] = [0x62, 0xf1, 0x7e, 0x48, 0x6f, 0x13]; // vmovdqu32 zmm2,[rbx]
+
+    fn run_cmp(extra: &[u8], s1: [u32; 16], s2: [u32; 16]) -> [u64; 8] {
+        let mut code = Vec::new();
+        mov_addrs(&mut code);
+        code.extend_from_slice(&LD_Z1_RAX);
+        code.extend_from_slice(&LD_Z2_RBX);
+        code.extend_from_slice(extra);
+        code.push(0xf4);
+        let (mut vcpu, mem) = setup_vm(&code, None);
+        let mut b1 = [0u8; 64];
+        let mut b2 = [0u8; 64];
+        for i in 0..16 {
+            b1[i * 4..i * 4 + 4].copy_from_slice(&s1[i].to_le_bytes());
+            b2[i * 4..i * 4 + 4].copy_from_slice(&s2[i].to_le_bytes());
+        }
+        mem.write_slice(&b1, GuestAddress(C_SRC1)).unwrap();
+        mem.write_slice(&b2, GuestAddress(C_SRC2)).unwrap();
+        let regs = run_until_hlt(&mut vcpu).unwrap();
+        regs.k
+    }
+
+    #[test]
+    fn test_vpcmpeqd_mask() {
+        // VPCMPEQD k1, zmm1, zmm2 -> k1 bit i set iff lane i equal.
+        let mut s1 = [0u32; 16];
+        let mut s2 = [0u32; 16];
+        let mut expected = 0u64;
+        for i in 0..16 {
+            s1[i] = i as u32;
+            // make even lanes equal, odd lanes differ
+            s2[i] = if i % 2 == 0 { i as u32 } else { 0xFFFF_FFFF };
+            if s1[i] == s2[i] {
+                expected |= 1u64 << i;
+            }
+        }
+        let k = run_cmp(&[0x62, 0xf1, 0x75, 0x48, 0x76, 0xca], s1, s2); // vpcmpeqd k1,zmm1,zmm2
+        assert_eq!(k[1], expected, "vpcmpeqd mask");
+    }
+
+    #[test]
+    fn test_vpcmpgtd_mask_signed() {
+        // VPCMPGTD k1, zmm1, zmm2 -> signed greater-than.
+        let mut s1 = [0u32; 16];
+        let mut s2 = [0u32; 16];
+        let mut expected = 0u64;
+        for i in 0..16 {
+            // s1 alternates large-positive and "negative" (top bit set)
+            s1[i] = if i % 2 == 0 { 1000 + i as u32 } else { 0x8000_0000u32 | i as u32 };
+            s2[i] = 500;
+            if (s1[i] as i32) > (s2[i] as i32) {
+                expected |= 1u64 << i;
+            }
+        }
+        let k = run_cmp(&[0x62, 0xf1, 0x75, 0x48, 0x66, 0xca], s1, s2); // vpcmpgtd k1,zmm1,zmm2
+        assert_eq!(k[1], expected, "vpcmpgtd signed mask");
+    }
+
+    #[test]
+    fn test_vpcmpd_imm_lt() {
+        // VPCMPD k1, zmm1, zmm2, 1 (LT, signed).
+        let mut s1 = [0u32; 16];
+        let mut s2 = [0u32; 16];
+        let mut expected = 0u64;
+        for i in 0..16 {
+            s1[i] = (i as i32 - 8) as u32; // -8..7
+            s2[i] = 0;
+            if (s1[i] as i32) < (s2[i] as i32) {
+                expected |= 1u64 << i;
+            }
+        }
+        // 62 f3 75 48 1f ca 01  vpcmpltd (predicate 1) k1,zmm1,zmm2
+        let k = run_cmp(&[0x62, 0xf3, 0x75, 0x48, 0x1f, 0xca, 0x01], s1, s2);
+        assert_eq!(k[1], expected, "vpcmpd imm=1 (LT) mask");
+    }
+
+    #[test]
+    fn test_vpcmpud_imm_nle() {
+        // VPCMPUD k1, zmm1, zmm2, 6 (NLE == GT, unsigned).
+        let mut s1 = [0u32; 16];
+        let mut s2 = [0u32; 16];
+        let mut expected = 0u64;
+        for i in 0..16 {
+            // values that order differently signed vs unsigned (top-bit-set are "large" unsigned)
+            s1[i] = if i % 2 == 0 { 0x8000_0000u32 + i as u32 } else { i as u32 };
+            s2[i] = 10;
+            if s1[i] > s2[i] {
+                // unsigned compare
+                expected |= 1u64 << i;
+            }
+        }
+        // 62 f3 75 48 1e ca 06  vpcmpud (predicate 6 = NLE) k1,zmm1,zmm2
+        let k = run_cmp(&[0x62, 0xf3, 0x75, 0x48, 0x1e, 0xca, 0x06], s1, s2);
+        assert_eq!(k[1], expected, "vpcmpud imm=6 (NLE/GT) mask");
+    }
+
+    #[test]
+    fn test_vpcmpd_masked_writemask() {
+        // VPCMPD k1{k2}, ... : only lanes selected by k2 participate; others 0.
+        // Use predicate 0 (EQ) and set k2 = 0x00FF so only low 8 lanes are written.
+        let mut code = Vec::new();
+        mov_addrs(&mut code);
+        code.extend_from_slice(&LD_Z1_RAX);
+        code.extend_from_slice(&LD_Z2_RBX);
+        // mov eax, 0xFF ; kmovw k2, eax
+        code.extend_from_slice(&[0xb8, 0xff, 0x00, 0x00, 0x00]);
+        code.extend_from_slice(&[0xc5, 0xf8, 0x92, 0xd0]); // kmovw k2, eax
+        // vpcmpd k1{k2}, zmm1, zmm2, 0   (EQ)   -> aaa=010 (k2)
+        code.extend_from_slice(&[0x62, 0xf3, 0x75, 0x4a, 0x1f, 0xca, 0x00]);
+        code.push(0xf4);
+        let (mut vcpu, mem) = setup_vm(&code, None);
+        let mut b1 = [0u8; 64];
+        let mut b2 = [0u8; 64];
+        let mut expected = 0u64;
+        for i in 0..16 {
+            let v = i as u32;
+            b1[i * 4..i * 4 + 4].copy_from_slice(&v.to_le_bytes());
+            b2[i * 4..i * 4 + 4].copy_from_slice(&v.to_le_bytes()); // all equal
+            if i < 8 {
+                expected |= 1u64 << i; // only lanes selected by k2 are written
+            }
+        }
+        mem.write_slice(&b1, GuestAddress(C_SRC1)).unwrap();
+        mem.write_slice(&b2, GuestAddress(C_SRC2)).unwrap();
+        let regs = run_until_hlt(&mut vcpu).unwrap();
+        assert_eq!(regs.k[1], expected, "vpcmpd writemask-limited result");
+    }
+
+    #[test]
+    fn test_vpcmpeqb_mask_64_lanes() {
+        // VPCMPEQB k1, zmm1, zmm2 -> 64-bit mask, byte granularity at VL=512.
+        let mut code = Vec::new();
+        mov_addrs(&mut code);
+        code.extend_from_slice(&LD_Z1_RAX);
+        code.extend_from_slice(&LD_Z2_RBX);
+        code.extend_from_slice(&[0x62, 0xf1, 0x75, 0x48, 0x74, 0xca]); // vpcmpeqb k1,zmm1,zmm2
+        code.push(0xf4);
+        let (mut vcpu, mem) = setup_vm(&code, None);
+        let mut b1 = [0u8; 64];
+        let mut b2 = [0u8; 64];
+        let mut expected = 0u64;
+        for i in 0..64 {
+            b1[i] = i as u8;
+            // every third byte equal
+            b2[i] = if i % 3 == 0 { i as u8 } else { (i as u8).wrapping_add(1) };
+            if b1[i] == b2[i] {
+                expected |= 1u64 << i;
+            }
+        }
+        mem.write_slice(&b1, GuestAddress(C_SRC1)).unwrap();
+        mem.write_slice(&b2, GuestAddress(C_SRC2)).unwrap();
+        let regs = run_until_hlt(&mut vcpu).unwrap();
+        assert_eq!(regs.k[1], expected, "vpcmpeqb 64-lane mask");
+    }
+}

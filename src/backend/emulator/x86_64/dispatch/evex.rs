@@ -85,6 +85,137 @@ impl X86_64Vcpu {
             0x5E => self.execute_evex_fp_arith_ps(ctx, |a, b| a / b),
             // VXORPS/VXORPD (0x57)
             0x57 => self.execute_evex_bitwise_xor(ctx),
+
+            // ================================================================
+            // Broadened EVEX coverage: integer/logical/compare/move/broadcast/shift
+            // All of the following require the 66 implied prefix (pp=1) unless noted.
+            // ================================================================
+
+            // VMOVDQA32/64 load (0x6F pp=1): W0=DQA32 (dword), W1=DQA64 (qword)
+            0x6F if evex.pp == 1 => {
+                let es = if evex.w { 8 } else { 4 };
+                insn::simd::evex_mov_masked_load(self, ctx, es, true)
+            }
+            // VMOVDQU32/64 load (0x6F pp=2/F3): W0=DQU32, W1=DQU64
+            0x6F if evex.pp == 2 => {
+                let es = if evex.w { 8 } else { 4 };
+                insn::simd::evex_mov_masked_load(self, ctx, es, false)
+            }
+            // VMOVDQU8/16 load (0x6F pp=3/F2): W0=DQU8 (byte), W1=DQU16 (word)
+            0x6F if evex.pp == 3 => {
+                let es = if evex.w { 2 } else { 1 };
+                insn::simd::evex_mov_masked_load(self, ctx, es, false)
+            }
+            // VMOVDQA32/64 store (0x7F pp=1)
+            0x7F if evex.pp == 1 => {
+                let es = if evex.w { 8 } else { 4 };
+                insn::simd::evex_mov_masked_store(self, ctx, es, true)
+            }
+            // VMOVDQU32/64 store (0x7F pp=2/F3)
+            0x7F if evex.pp == 2 => {
+                let es = if evex.w { 8 } else { 4 };
+                insn::simd::evex_mov_masked_store(self, ctx, es, false)
+            }
+            // VMOVDQU8/16 store (0x7F pp=3/F2)
+            0x7F if evex.pp == 3 => {
+                let es = if evex.w { 2 } else { 1 };
+                insn::simd::evex_mov_masked_store(self, ctx, es, false)
+            }
+
+            // Logical: VPANDD/Q (0xDB), VPANDND/Q (0xDF), VPORD/Q (0xEB), VPXORD/Q (0xEF)
+            0xDB if evex.pp == 1 => insn::simd::evex_int_arith(self, ctx, insn::simd::IntOp::And),
+            0xDF if evex.pp == 1 => insn::simd::evex_int_arith(self, ctx, insn::simd::IntOp::Andn),
+            0xEB if evex.pp == 1 => insn::simd::evex_int_arith(self, ctx, insn::simd::IntOp::Or),
+            0xEF if evex.pp == 1 => insn::simd::evex_int_arith(self, ctx, insn::simd::IntOp::Xor),
+
+            // Integer add: VPADDB/W/D/Q (0xFC/0xFD/0xFE/0xD4)
+            0xFC if evex.pp == 1 => insn::simd::evex_int_arith(self, ctx, insn::simd::IntOp::AddB),
+            0xFD if evex.pp == 1 => insn::simd::evex_int_arith(self, ctx, insn::simd::IntOp::AddW),
+            0xFE if evex.pp == 1 => insn::simd::evex_int_arith(self, ctx, insn::simd::IntOp::AddD),
+            0xD4 if evex.pp == 1 => insn::simd::evex_int_arith(self, ctx, insn::simd::IntOp::AddQ),
+            // Integer sub: VPSUBB/W/D/Q (0xF8/0xF9/0xFA/0xFB)
+            0xF8 if evex.pp == 1 => insn::simd::evex_int_arith(self, ctx, insn::simd::IntOp::SubB),
+            0xF9 if evex.pp == 1 => insn::simd::evex_int_arith(self, ctx, insn::simd::IntOp::SubW),
+            0xFA if evex.pp == 1 => insn::simd::evex_int_arith(self, ctx, insn::simd::IntOp::SubD),
+            0xFB if evex.pp == 1 => insn::simd::evex_int_arith(self, ctx, insn::simd::IntOp::SubQ),
+            // VPMULLW (0xD5)
+            0xD5 if evex.pp == 1 => insn::simd::evex_int_arith(self, ctx, insn::simd::IntOp::MullW),
+
+            // Compare into mask (fixed predicate forms), pp=1 (66):
+            // VPCMPEQB/W/D (0x74/0x75/0x76), VPCMPGTB/W/D (0x64/0x65/0x66)
+            0x74 if evex.pp == 1 => {
+                insn::simd::evex_int_cmp(self, ctx, 1, true, insn::simd::CmpPred::Eq, false)
+            }
+            0x75 if evex.pp == 1 => {
+                insn::simd::evex_int_cmp(self, ctx, 2, true, insn::simd::CmpPred::Eq, false)
+            }
+            0x76 if evex.pp == 1 => {
+                insn::simd::evex_int_cmp(self, ctx, 4, true, insn::simd::CmpPred::Eq, false)
+            }
+            0x64 if evex.pp == 1 => {
+                insn::simd::evex_int_cmp(self, ctx, 1, true, insn::simd::CmpPred::Gt, false)
+            }
+            0x65 if evex.pp == 1 => {
+                insn::simd::evex_int_cmp(self, ctx, 2, true, insn::simd::CmpPred::Gt, false)
+            }
+            0x66 if evex.pp == 1 => {
+                insn::simd::evex_int_cmp(self, ctx, 4, true, insn::simd::CmpPred::Gt, false)
+            }
+
+            // Packed shift by immediate (group opcodes 0x72/0x73 with /reg selecting op)
+            // 0x72: VPSRLD(/2), VPSRAD(/4), VPSLLD(/6)  (dword, or qword for SRA via W1)
+            // 0x73: VPSRLQ(/2), VPSLLQ(/6)              (qword)
+            0x72 if evex.pp == 1 => {
+                // Need the /reg field to pick the operation.
+                let modrm = ctx.peek_u8()?;
+                let sub = (modrm >> 3) & 0x7;
+                let es = 4;
+                match sub {
+                    2 => insn::simd::evex_shift_imm(self, ctx, insn::simd::ShiftKind::Srl, es),
+                    4 => {
+                        // VPSRAD (W0=dword) / VPSRAQ (W1=qword)
+                        let es = if evex.w { 8 } else { 4 };
+                        insn::simd::evex_shift_imm(self, ctx, insn::simd::ShiftKind::Sra, es)
+                    }
+                    6 => insn::simd::evex_shift_imm(self, ctx, insn::simd::ShiftKind::Sll, es),
+                    _ => Err(Error::Emulator(format!(
+                        "Unimplemented EVEX 0F 72 /{} at RIP={:#x}",
+                        sub, self.regs.rip
+                    ))),
+                }
+            }
+            0x73 if evex.pp == 1 => {
+                let modrm = ctx.peek_u8()?;
+                let sub = (modrm >> 3) & 0x7;
+                let es = 8;
+                match sub {
+                    2 => insn::simd::evex_shift_imm(self, ctx, insn::simd::ShiftKind::Srl, es),
+                    6 => insn::simd::evex_shift_imm(self, ctx, insn::simd::ShiftKind::Sll, es),
+                    _ => Err(Error::Emulator(format!(
+                        "Unimplemented EVEX 0F 73 /{} at RIP={:#x}",
+                        sub, self.regs.rip
+                    ))),
+                }
+            }
+            // Packed shift by xmm count: VPSRLD/Q (0xD2/0xD3), VPSRAD/Q (0xE2),
+            // VPSLLD/Q (0xF2/0xF3).
+            0xD2 if evex.pp == 1 => {
+                insn::simd::evex_shift_var(self, ctx, insn::simd::ShiftKind::Srl, 4)
+            }
+            0xD3 if evex.pp == 1 => {
+                insn::simd::evex_shift_var(self, ctx, insn::simd::ShiftKind::Srl, 8)
+            }
+            0xE2 if evex.pp == 1 => {
+                let es = if evex.w { 8 } else { 4 };
+                insn::simd::evex_shift_var(self, ctx, insn::simd::ShiftKind::Sra, es)
+            }
+            0xF2 if evex.pp == 1 => {
+                insn::simd::evex_shift_var(self, ctx, insn::simd::ShiftKind::Sll, 4)
+            }
+            0xF3 if evex.pp == 1 => {
+                insn::simd::evex_shift_var(self, ctx, insn::simd::ShiftKind::Sll, 8)
+            }
+
             _ => Err(Error::Emulator(format!(
                 "Unimplemented EVEX.0F opcode {:#04x} at RIP={:#x}",
                 opcode, self.regs.rip
@@ -644,6 +775,29 @@ impl X86_64Vcpu {
                     insn::simd::vpmulld_evex(self, ctx)
                 }
             }
+            // Broadcasts (pp=1 / 66):
+            // VBROADCASTSS (0x18, W0): broadcast 32-bit float
+            0x18 if evex.pp == 1 && !evex.w => insn::simd::evex_broadcast(self, ctx, 4),
+            // VBROADCASTSD (0x19, W1): broadcast 64-bit double
+            0x19 if evex.pp == 1 && evex.w => insn::simd::evex_broadcast(self, ctx, 8),
+            // VPBROADCASTD (0x58, W0): broadcast 32-bit integer
+            0x58 if evex.pp == 1 && !evex.w => insn::simd::evex_broadcast(self, ctx, 4),
+            // VPBROADCASTQ (0x59, W1): broadcast 64-bit integer
+            0x59 if evex.pp == 1 && evex.w => insn::simd::evex_broadcast(self, ctx, 8),
+            // VPBROADCASTB (0x78, W0): broadcast 8-bit integer
+            0x78 if evex.pp == 1 && !evex.w => insn::simd::evex_broadcast(self, ctx, 1),
+            // VPBROADCASTW (0x79, W0): broadcast 16-bit integer
+            0x79 if evex.pp == 1 && !evex.w => insn::simd::evex_broadcast(self, ctx, 2),
+
+            // VPCMPEQQ (0x29, W1): qword equality compare into mask
+            0x29 if evex.pp == 1 && evex.w => {
+                insn::simd::evex_int_cmp(self, ctx, 8, true, insn::simd::CmpPred::Eq, false)
+            }
+            // VPCMPGTQ (0x37, W1): qword signed greater-than compare into mask
+            0x37 if evex.pp == 1 && evex.w => {
+                insn::simd::evex_int_cmp(self, ctx, 8, true, insn::simd::CmpPred::Gt, false)
+            }
+
             // VEXPANDPS/VEXPANDPD (0x88)
             0x88 if evex.pp == 1 => {
                 if evex.w {
@@ -805,6 +959,31 @@ impl X86_64Vcpu {
             .ok_or_else(|| Error::Emulator("EVEX context missing".to_string()))?;
 
         match opcode {
+            // ============================================================================
+            // EVEX integer compare with imm8 predicate (write into k-mask)
+            // ============================================================================
+
+            // VPCMPUD (0x1E, W0) / VPCMPUQ (0x1E, W1): unsigned dword/qword
+            0x1E if evex.pp == 1 => {
+                let es = if evex.w { 8 } else { 4 };
+                insn::simd::evex_int_cmp(self, ctx, es, false, insn::simd::CmpPred::Eq, true)
+            }
+            // VPCMPD (0x1F, W0) / VPCMPQ (0x1F, W1): signed dword/qword
+            0x1F if evex.pp == 1 => {
+                let es = if evex.w { 8 } else { 4 };
+                insn::simd::evex_int_cmp(self, ctx, es, true, insn::simd::CmpPred::Eq, true)
+            }
+            // VPCMPUB (0x3E, W0) / VPCMPUW (0x3E, W1): unsigned byte/word
+            0x3E if evex.pp == 1 => {
+                let es = if evex.w { 2 } else { 1 };
+                insn::simd::evex_int_cmp(self, ctx, es, false, insn::simd::CmpPred::Eq, true)
+            }
+            // VPCMPB (0x3F, W0) / VPCMPW (0x3F, W1): signed byte/word
+            0x3F if evex.pp == 1 => {
+                let es = if evex.w { 2 } else { 1 };
+                insn::simd::evex_int_cmp(self, ctx, es, true, insn::simd::CmpPred::Eq, true)
+            }
+
             // ============================================================================
             // AVX10.2 VMPSADBW Instruction
             // ============================================================================
