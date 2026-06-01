@@ -1,5 +1,6 @@
 pub mod bus;
 pub mod debug;
+pub mod i8042;
 pub mod lapic;
 pub mod map;
 pub mod pci;

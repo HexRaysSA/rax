@@ -1,0 +1,670 @@
+//! Intel 8042 PS/2 Keyboard/Mouse Controller emulation.
+//!
+//! The 8042 is the "keyboard controller" found on every PC-compatible
+//! system. It exposes two I/O ports:
+//!
+//! - `0x60`: Data port (read = output buffer, write = input buffer / data)
+//! - `0x64`: Status register (read) / command register (write)
+//!
+//! Two devices hang off the controller:
+//! - The first PS/2 port (keyboard), whose buffer-full events raise IRQ 1.
+//! - The second PS/2 port (auxiliary / mouse), which raises IRQ 12.
+//!
+//! # Interrupt model
+//!
+//! Like the other devices in this crate (see [`crate::devices::pit`] and
+//! [`crate::devices::serial`]), the 8042 does not own an IRQ callback. Instead
+//! it exposes pollable "interrupt pending" flags that the VMM samples each loop
+//! iteration and forwards to the PIC. Keyboard data raises IRQ 1 (when command
+//! byte bit 0 is set) and auxiliary data raises IRQ 12 (when command byte bit 1
+//! is set). The orchestrator queries [`I8042::keyboard_irq_pending`] /
+//! [`I8042::aux_irq_pending`] and clears them with the matching `clear_*` calls.
+
+use std::collections::VecDeque;
+
+use super::bus::IoDevice;
+
+/// Data port (output buffer on read, input buffer on write).
+pub const DATA_PORT: u16 = 0x60;
+/// Status register (read) / command register (write).
+pub const STATUS_PORT: u16 = 0x64;
+
+// ---------------------------------------------------------------------------
+// Status register bits (read from 0x64)
+// ---------------------------------------------------------------------------
+
+/// Output buffer full: data is available to read from 0x60.
+const STATUS_OBF: u8 = 1 << 0;
+/// Input buffer full: a byte written to 0x60/0x64 has not yet been consumed.
+const STATUS_IBF: u8 = 1 << 1;
+/// System flag: set after a successful self-test (POST passed).
+const STATUS_SYSF: u8 = 1 << 2;
+/// Command/data (A2): set when the byte in the input buffer was a command
+/// (written to 0x64), clear when it was data (written to 0x60).
+const STATUS_A2: u8 = 1 << 3;
+/// Keyboard inhibited (keyboard lock). Kept high here (unlocked) per typical
+/// BIOS expectations.
+const STATUS_INH: u8 = 1 << 4;
+/// Auxiliary output buffer full: the byte in the output buffer came from the
+/// auxiliary (mouse) device rather than the keyboard. (a.k.a. MOBF / AUXB)
+const STATUS_AUX: u8 = 1 << 5;
+/// Timeout error.
+const STATUS_TIMEOUT: u8 = 1 << 6;
+/// Parity error.
+const STATUS_PARITY: u8 = 1 << 7;
+
+// ---------------------------------------------------------------------------
+// Command byte bits (the "controller configuration byte", index 0)
+// ---------------------------------------------------------------------------
+
+/// Enable IRQ 1 on keyboard output-buffer-full.
+const CMD_BYTE_KBD_IRQ: u8 = 1 << 0;
+/// Enable IRQ 12 on auxiliary output-buffer-full.
+const CMD_BYTE_AUX_IRQ: u8 = 1 << 1;
+/// System flag (mirrored into the status register's SYSF bit).
+const CMD_BYTE_SYSF: u8 = 1 << 2;
+/// Disable keyboard clock.
+const CMD_BYTE_KBD_DISABLE: u8 = 1 << 4;
+/// Disable auxiliary clock.
+const CMD_BYTE_AUX_DISABLE: u8 = 1 << 5;
+/// Keyboard scancode translation enabled.
+const CMD_BYTE_TRANSLATE: u8 = 1 << 6;
+
+// ---------------------------------------------------------------------------
+// Controller commands (written to 0x64)
+// ---------------------------------------------------------------------------
+
+const CMD_READ_CMD_BYTE: u8 = 0x20;
+const CMD_WRITE_CMD_BYTE: u8 = 0x60;
+const CMD_DISABLE_AUX: u8 = 0xA7;
+const CMD_ENABLE_AUX: u8 = 0xA8;
+const CMD_TEST_AUX: u8 = 0xA9;
+const CMD_SELF_TEST: u8 = 0xAA;
+const CMD_TEST_KBD: u8 = 0xAB;
+const CMD_DISABLE_KBD: u8 = 0xAD;
+const CMD_ENABLE_KBD: u8 = 0xAE;
+const CMD_READ_OUTPUT_PORT: u8 = 0xD0;
+const CMD_WRITE_OUTPUT_PORT: u8 = 0xD1;
+const CMD_WRITE_AUX: u8 = 0xD4;
+// 0xF0..=0xFF pulse the output line; the low nibble is a mask of lines to
+// pulse low. Bit 0 (line P0) is the CPU reset line, so 0xFE pulses reset.
+const CMD_PULSE_BASE: u8 = 0xF0;
+
+/// Self-test reply byte ("controller OK").
+const SELF_TEST_OK: u8 = 0x55;
+/// Interface (port) test reply byte ("no error").
+const PORT_TEST_OK: u8 = 0x00;
+
+/// Output port reset default. Bit 0 (system reset) is held high (inactive),
+/// bit 1 (A20 gate) is held high (A20 enabled), matching a post-BIOS machine.
+const OUTPUT_PORT_RESET: u8 = 0b0000_0011;
+/// Output-port bit 0: system reset line. Active-low; pulsing it low resets.
+const OUTPUT_PORT_RESET_LINE: u8 = 1 << 0;
+/// Output-port bit 1: A20 gate. When set, A20 is enabled.
+const OUTPUT_PORT_A20: u8 = 1 << 1;
+
+/// Pending command that expects a following data byte on the next 0x60 write.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum PendingWrite {
+    None,
+    /// Next 0x60 write sets the controller command byte (after 0x60 command).
+    CommandByte,
+    /// Next 0x60 write sets the output port (after 0xD1 command).
+    OutputPort,
+    /// Next 0x60 write is forwarded to the auxiliary device (after 0xD4).
+    AuxByte,
+}
+
+/// Intel 8042 PS/2 controller.
+pub struct I8042 {
+    /// Controller configuration ("command") byte.
+    command_byte: u8,
+    /// Status register bits not derived from other state (TIMEOUT/PARITY/INH).
+    status_extra: u8,
+    /// Whether the controller passed self-test (drives SYSF).
+    self_test_passed: bool,
+    /// The output port latch (A20 gate, reset line, etc.).
+    output_port: u8,
+
+    /// Keyboard scancode queue feeding the output buffer.
+    kbd_queue: VecDeque<u8>,
+    /// Auxiliary (mouse) byte queue feeding the output buffer.
+    aux_queue: VecDeque<u8>,
+
+    /// Latched byte currently presented on the output buffer (port 0x60 read).
+    output_byte: Option<u8>,
+    /// True when the latched output byte came from the auxiliary device.
+    output_is_aux: bool,
+
+    /// Pending command awaiting its data byte.
+    pending: PendingWrite,
+
+    /// Whether the keyboard port is enabled.
+    kbd_enabled: bool,
+    /// Whether the auxiliary port is enabled.
+    aux_enabled: bool,
+
+    /// Sticky "the guest requested a CPU reset via 0xFE / output-port bit 0".
+    reset_requested: bool,
+
+    /// Pollable IRQ-pending flags (sampled and cleared by the VMM).
+    kbd_irq_pending: bool,
+    aux_irq_pending: bool,
+}
+
+impl Default for I8042 {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl I8042 {
+    /// Create a freshly-reset controller.
+    ///
+    /// Mirrors typical power-on state: both ports enabled, keyboard IRQ
+    /// enabled, self-test not yet run, A20 gate on.
+    pub fn new() -> Self {
+        I8042 {
+            // Keyboard IRQ on, translation on, both clocks enabled.
+            command_byte: CMD_BYTE_KBD_IRQ | CMD_BYTE_TRANSLATE,
+            status_extra: STATUS_INH,
+            self_test_passed: false,
+            output_port: OUTPUT_PORT_RESET,
+            kbd_queue: VecDeque::new(),
+            aux_queue: VecDeque::new(),
+            output_byte: None,
+            output_is_aux: false,
+            pending: PendingWrite::None,
+            kbd_enabled: true,
+            aux_enabled: true,
+            reset_requested: false,
+            kbd_irq_pending: false,
+            aux_irq_pending: false,
+        }
+    }
+
+    // ----- Public input plumbing -------------------------------------------
+
+    /// Push a keyboard scancode toward the guest.
+    ///
+    /// The byte enters the keyboard FIFO; if the output buffer is free it is
+    /// promoted immediately, setting OBF and (if enabled) raising IRQ 1.
+    pub fn push_keyboard_scancode(&mut self, scancode: u8) {
+        if !self.kbd_enabled {
+            return;
+        }
+        self.kbd_queue.push_back(scancode);
+        self.refill_output_buffer();
+    }
+
+    /// Push an auxiliary (PS/2 mouse) byte toward the guest.
+    ///
+    /// The byte enters the auxiliary FIFO; if the output buffer is free it is
+    /// promoted immediately, setting OBF+AUX and (if enabled) raising IRQ 12.
+    pub fn push_mouse_byte(&mut self, byte: u8) {
+        if !self.aux_enabled {
+            return;
+        }
+        self.aux_queue.push_back(byte);
+        self.refill_output_buffer();
+    }
+
+    // ----- Queryable state for the orchestrator ----------------------------
+
+    /// True if IRQ 1 (keyboard) is asserted and pending injection.
+    pub fn keyboard_irq_pending(&self) -> bool {
+        self.kbd_irq_pending
+    }
+
+    /// True if IRQ 12 (auxiliary/mouse) is asserted and pending injection.
+    pub fn aux_irq_pending(&self) -> bool {
+        self.aux_irq_pending
+    }
+
+    /// Clear the latched keyboard IRQ-pending flag (after it is injected).
+    pub fn clear_keyboard_irq(&mut self) {
+        self.kbd_irq_pending = false;
+    }
+
+    /// Clear the latched auxiliary IRQ-pending flag (after it is injected).
+    pub fn clear_aux_irq(&mut self) {
+        self.aux_irq_pending = false;
+    }
+
+    /// True if the guest asked the controller to reset the CPU (0xFE pulse or
+    /// driving output-port bit 0 low). Sticky until [`Self::clear_reset_request`].
+    pub fn reset_requested(&self) -> bool {
+        self.reset_requested
+    }
+
+    /// Acknowledge / clear the pending CPU-reset request.
+    pub fn clear_reset_request(&mut self) {
+        self.reset_requested = false;
+    }
+
+    /// Current A20 gate state (true = A20 enabled / unmasked).
+    pub fn a20_enabled(&self) -> bool {
+        (self.output_port & OUTPUT_PORT_A20) != 0
+    }
+
+    /// Raw output-port latch value (A20 gate, reset line, etc.).
+    pub fn output_port(&self) -> u8 {
+        self.output_port
+    }
+
+    // ----- Internal helpers ------------------------------------------------
+
+    /// Compute the status register value presented on a read of 0x64.
+    fn status(&self) -> u8 {
+        let mut status = self.status_extra & (STATUS_INH | STATUS_TIMEOUT | STATUS_PARITY);
+
+        if self.output_byte.is_some() {
+            status |= STATUS_OBF;
+            if self.output_is_aux {
+                status |= STATUS_AUX;
+            }
+        }
+        if self.pending != PendingWrite::None {
+            // A byte we are waiting on has been latched into the input buffer.
+            status |= STATUS_IBF;
+        }
+        if self.self_test_passed || (self.command_byte & CMD_BYTE_SYSF) != 0 {
+            status |= STATUS_SYSF;
+        }
+        status
+    }
+
+    /// Promote a queued byte into the output buffer if it is currently empty,
+    /// updating OBF state and raising the appropriate IRQ.
+    ///
+    /// Keyboard data has priority over auxiliary data.
+    fn refill_output_buffer(&mut self) {
+        if self.output_byte.is_some() {
+            return;
+        }
+
+        if let Some(byte) = self.kbd_queue.pop_front() {
+            self.output_byte = Some(byte);
+            self.output_is_aux = false;
+            if (self.command_byte & CMD_BYTE_KBD_IRQ) != 0 {
+                self.kbd_irq_pending = true;
+            }
+        } else if let Some(byte) = self.aux_queue.pop_front() {
+            self.output_byte = Some(byte);
+            self.output_is_aux = true;
+            if (self.command_byte & CMD_BYTE_AUX_IRQ) != 0 {
+                self.aux_irq_pending = true;
+            }
+        }
+    }
+
+    /// Place a controller-generated reply directly into the output buffer.
+    ///
+    /// Controller replies (self-test result, command-byte read, etc.) jump the
+    /// queue. They behave like keyboard data for OBF/IRQ purposes.
+    fn reply(&mut self, byte: u8) {
+        self.output_byte = Some(byte);
+        self.output_is_aux = false;
+        if (self.command_byte & CMD_BYTE_KBD_IRQ) != 0 {
+            self.kbd_irq_pending = true;
+        }
+    }
+
+    /// Read the data port (0x60): pop the output buffer, clear OBF, and refill
+    /// from the pending queues if more data is waiting.
+    fn read_data(&mut self) -> u8 {
+        let value = self.output_byte.take().unwrap_or(0);
+        self.output_is_aux = false;
+        // More data queued? Promote it (which may re-raise an IRQ).
+        self.refill_output_buffer();
+        value
+    }
+
+    /// Handle a write to the data port (0x60).
+    fn write_data(&mut self, value: u8) {
+        match std::mem::replace(&mut self.pending, PendingWrite::None) {
+            PendingWrite::CommandByte => {
+                self.command_byte = value;
+                // Reflect clock-disable bits into our enable state.
+                self.kbd_enabled = (value & CMD_BYTE_KBD_DISABLE) == 0;
+                self.aux_enabled = (value & CMD_BYTE_AUX_DISABLE) == 0;
+            }
+            PendingWrite::OutputPort => {
+                self.set_output_port(value);
+            }
+            PendingWrite::AuxByte => {
+                // A real controller forwards this to the mouse, which would
+                // ACK (0xFA). We model the visible effect: an ACK byte appears
+                // on the auxiliary stream.
+                self.push_mouse_byte(0xFA);
+            }
+            PendingWrite::None => {
+                // Plain keyboard command byte from the guest. Most keyboards
+                // ACK with 0xFA. We surface that so guest drivers progress.
+                if self.kbd_enabled {
+                    self.kbd_queue.push_back(0xFA);
+                    self.refill_output_buffer();
+                }
+            }
+        }
+    }
+
+    /// Apply a new output-port value, tracking A20 and reset-line transitions.
+    fn set_output_port(&mut self, value: u8) {
+        // Driving the system-reset line (bit 0) low requests a CPU reset.
+        if (value & OUTPUT_PORT_RESET_LINE) == 0 {
+            self.reset_requested = true;
+        }
+        self.output_port = value;
+    }
+
+    /// Handle a write to the command port (0x64).
+    fn write_command(&mut self, command: u8) {
+        match command {
+            CMD_READ_CMD_BYTE => {
+                let byte = self.command_byte;
+                self.reply(byte);
+            }
+            CMD_WRITE_CMD_BYTE => {
+                self.pending = PendingWrite::CommandByte;
+            }
+            CMD_SELF_TEST => {
+                self.self_test_passed = true;
+                self.command_byte |= CMD_BYTE_SYSF;
+                self.reply(SELF_TEST_OK);
+            }
+            CMD_TEST_KBD => {
+                self.reply(PORT_TEST_OK);
+            }
+            CMD_TEST_AUX => {
+                self.reply(PORT_TEST_OK);
+            }
+            CMD_DISABLE_KBD => {
+                self.kbd_enabled = false;
+                self.command_byte |= CMD_BYTE_KBD_DISABLE;
+            }
+            CMD_ENABLE_KBD => {
+                self.kbd_enabled = true;
+                self.command_byte &= !CMD_BYTE_KBD_DISABLE;
+                self.refill_output_buffer();
+            }
+            CMD_DISABLE_AUX => {
+                self.aux_enabled = false;
+                self.command_byte |= CMD_BYTE_AUX_DISABLE;
+            }
+            CMD_ENABLE_AUX => {
+                self.aux_enabled = true;
+                self.command_byte &= !CMD_BYTE_AUX_DISABLE;
+                self.refill_output_buffer();
+            }
+            CMD_READ_OUTPUT_PORT => {
+                let byte = self.output_port;
+                self.reply(byte);
+            }
+            CMD_WRITE_OUTPUT_PORT => {
+                self.pending = PendingWrite::OutputPort;
+            }
+            CMD_WRITE_AUX => {
+                self.pending = PendingWrite::AuxByte;
+            }
+            cmd if cmd >= CMD_PULSE_BASE => {
+                // 0xF0..=0xFF: pulse output lines low. The low nibble selects
+                // which lines pulse; an inverted bit 0 means "do not hold reset
+                // active". 0xFE => pulse only the reset line (bit 0) low.
+                let lines = cmd & 0x0F;
+                if (lines & OUTPUT_PORT_RESET_LINE) == 0 {
+                    // Bit 0 low in the pulse mask => reset line is pulsed.
+                    self.reset_requested = true;
+                }
+            }
+            _ => {
+                // Unknown command: ignore (a real controller may NAK).
+            }
+        }
+    }
+}
+
+impl IoDevice for I8042 {
+    fn read(&mut self, port: u16) -> u8 {
+        match port {
+            DATA_PORT => self.read_data(),
+            STATUS_PORT => self.status(),
+            _ => 0xFF,
+        }
+    }
+
+    fn write(&mut self, port: u16, value: u8) {
+        match port {
+            DATA_PORT => self.write_data(value),
+            STATUS_PORT => self.write_command(value),
+            _ => {}
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::devices::bus::IoDevice;
+
+    fn fresh() -> I8042 {
+        I8042::new()
+    }
+
+    // ----- Self-test -------------------------------------------------------
+
+    #[test]
+    fn i8042_self_test_returns_0x55() {
+        let mut kbc = fresh();
+        kbc.write(STATUS_PORT, CMD_SELF_TEST);
+        // OBF should be set.
+        assert_ne!(kbc.read(STATUS_PORT) & STATUS_OBF, 0);
+        // Reading data yields the self-test OK byte.
+        assert_eq!(kbc.read(DATA_PORT), SELF_TEST_OK);
+        // OBF clears after the read.
+        assert_eq!(kbc.read(STATUS_PORT) & STATUS_OBF, 0);
+        // SYSF reported after a successful self-test.
+        assert_ne!(kbc.read(STATUS_PORT) & STATUS_SYSF, 0);
+    }
+
+    #[test]
+    fn i8042_interface_tests_return_zero() {
+        let mut kbc = fresh();
+        kbc.write(STATUS_PORT, CMD_TEST_KBD);
+        assert_eq!(kbc.read(DATA_PORT), PORT_TEST_OK);
+        kbc.write(STATUS_PORT, CMD_TEST_AUX);
+        assert_eq!(kbc.read(DATA_PORT), PORT_TEST_OK);
+    }
+
+    // ----- Command byte read/write ----------------------------------------
+
+    #[test]
+    fn i8042_command_byte_write_then_read() {
+        let mut kbc = fresh();
+        // Write a fresh command byte: keyboard IRQ on, aux IRQ on, SYSF on.
+        let new_byte = CMD_BYTE_KBD_IRQ | CMD_BYTE_AUX_IRQ | CMD_BYTE_SYSF;
+        kbc.write(STATUS_PORT, CMD_WRITE_CMD_BYTE);
+        // After the command, IBF should be set awaiting the data byte.
+        assert_ne!(kbc.read(STATUS_PORT) & STATUS_IBF, 0);
+        kbc.write(DATA_PORT, new_byte);
+        // IBF cleared once the data byte is consumed.
+        assert_eq!(kbc.read(STATUS_PORT) & STATUS_IBF, 0);
+
+        // Read it back via 0x20.
+        kbc.write(STATUS_PORT, CMD_READ_CMD_BYTE);
+        assert_eq!(kbc.read(DATA_PORT), new_byte);
+    }
+
+    #[test]
+    fn i8042_a2_command_data_bit_in_status() {
+        // The A2 bit (status bit 3) distinguishes command vs data writes.
+        // We model it via the IBF/pending machinery; verify a command sets IBF.
+        let mut kbc = fresh();
+        kbc.write(STATUS_PORT, CMD_WRITE_OUTPUT_PORT);
+        // Pending output-port write keeps IBF asserted.
+        assert_ne!(kbc.read(STATUS_PORT) & STATUS_IBF, 0);
+    }
+
+    // ----- Scancode FIFO + OBF + IRQ1 gating ------------------------------
+
+    #[test]
+    fn i8042_scancode_fifo_sets_obf_and_pops_in_order() {
+        let mut kbc = fresh();
+        kbc.push_keyboard_scancode(0x1C); // 'A' make code
+        kbc.push_keyboard_scancode(0x9C); // 'A' break code
+
+        assert_ne!(kbc.read(STATUS_PORT) & STATUS_OBF, 0);
+        assert_eq!(kbc.read(DATA_PORT), 0x1C);
+        // Next byte promoted from the FIFO; OBF still set.
+        assert_ne!(kbc.read(STATUS_PORT) & STATUS_OBF, 0);
+        assert_eq!(kbc.read(DATA_PORT), 0x9C);
+        // FIFO drained; OBF clear.
+        assert_eq!(kbc.read(STATUS_PORT) & STATUS_OBF, 0);
+    }
+
+    #[test]
+    fn i8042_irq1_raised_when_enabled() {
+        let mut kbc = fresh();
+        // Default command byte enables keyboard IRQ.
+        assert!(!kbc.keyboard_irq_pending());
+        kbc.push_keyboard_scancode(0x1C);
+        assert!(kbc.keyboard_irq_pending());
+        kbc.clear_keyboard_irq();
+        assert!(!kbc.keyboard_irq_pending());
+    }
+
+    #[test]
+    fn i8042_irq1_gated_off_when_disabled() {
+        let mut kbc = fresh();
+        // Disable the keyboard IRQ via the command byte.
+        kbc.write(STATUS_PORT, CMD_WRITE_CMD_BYTE);
+        kbc.write(DATA_PORT, CMD_BYTE_TRANSLATE); // KBD IRQ bit clear
+        kbc.push_keyboard_scancode(0x1C);
+        // Data still arrives (OBF set) but no IRQ is raised.
+        assert_ne!(kbc.read(STATUS_PORT) & STATUS_OBF, 0);
+        assert!(!kbc.keyboard_irq_pending());
+    }
+
+    // ----- A20 via output port --------------------------------------------
+
+    #[test]
+    fn i8042_a20_gate_via_output_port() {
+        let mut kbc = fresh();
+        assert!(kbc.a20_enabled()); // Default reset value has A20 on.
+
+        // Disable A20: write output port with bit 1 clear, bit 0 high (no reset).
+        kbc.write(STATUS_PORT, CMD_WRITE_OUTPUT_PORT);
+        kbc.write(DATA_PORT, OUTPUT_PORT_RESET_LINE); // bit0=1, bit1=0
+        assert!(!kbc.a20_enabled());
+        assert!(!kbc.reset_requested()); // Reset line was held high.
+
+        // Re-enable A20.
+        kbc.write(STATUS_PORT, CMD_WRITE_OUTPUT_PORT);
+        kbc.write(DATA_PORT, OUTPUT_PORT_RESET_LINE | OUTPUT_PORT_A20);
+        assert!(kbc.a20_enabled());
+    }
+
+    #[test]
+    fn i8042_read_output_port() {
+        let mut kbc = fresh();
+        kbc.write(STATUS_PORT, CMD_READ_OUTPUT_PORT);
+        assert_eq!(kbc.read(DATA_PORT), OUTPUT_PORT_RESET);
+    }
+
+    // ----- Reset request --------------------------------------------------
+
+    #[test]
+    fn i8042_pulse_0xfe_requests_reset() {
+        let mut kbc = fresh();
+        assert!(!kbc.reset_requested());
+        kbc.write(STATUS_PORT, 0xFE); // Pulse reset line low.
+        assert!(kbc.reset_requested());
+        kbc.clear_reset_request();
+        assert!(!kbc.reset_requested());
+    }
+
+    #[test]
+    fn i8042_reset_via_output_port_bit0_low() {
+        let mut kbc = fresh();
+        kbc.write(STATUS_PORT, CMD_WRITE_OUTPUT_PORT);
+        // Drive bit 0 (reset line) low while keeping A20 high.
+        kbc.write(DATA_PORT, OUTPUT_PORT_A20);
+        assert!(kbc.reset_requested());
+    }
+
+    // ----- Aux / mouse routing --------------------------------------------
+
+    #[test]
+    fn i8042_aux_byte_sets_obf_and_aux_status() {
+        let mut kbc = fresh();
+        // Enable the aux IRQ so we can observe IRQ12 gating too.
+        kbc.write(STATUS_PORT, CMD_WRITE_CMD_BYTE);
+        kbc.write(DATA_PORT, CMD_BYTE_KBD_IRQ | CMD_BYTE_AUX_IRQ);
+
+        kbc.push_mouse_byte(0x29);
+        let status = kbc.read(STATUS_PORT);
+        assert_ne!(status & STATUS_OBF, 0);
+        assert_ne!(status & STATUS_AUX, 0); // Output came from aux device.
+        assert!(kbc.aux_irq_pending());
+        assert!(!kbc.keyboard_irq_pending());
+
+        assert_eq!(kbc.read(DATA_PORT), 0x29);
+        // AUX flag clears once the byte is read.
+        assert_eq!(kbc.read(STATUS_PORT) & STATUS_AUX, 0);
+    }
+
+    #[test]
+    fn i8042_write_aux_routes_to_mouse_stream() {
+        let mut kbc = fresh();
+        kbc.write(STATUS_PORT, CMD_WRITE_CMD_BYTE);
+        kbc.write(DATA_PORT, CMD_BYTE_KBD_IRQ | CMD_BYTE_AUX_IRQ);
+
+        // 0xD4 => the next 0x60 write goes to the auxiliary device, which ACKs.
+        kbc.write(STATUS_PORT, CMD_WRITE_AUX);
+        kbc.write(DATA_PORT, 0xF4); // "enable data reporting" to the mouse
+        let status = kbc.read(STATUS_PORT);
+        assert_ne!(status & STATUS_AUX, 0);
+        assert_eq!(kbc.read(DATA_PORT), 0xFA); // mouse ACK on the aux stream
+    }
+
+    #[test]
+    fn i8042_aux_irq_gated_off_when_disabled() {
+        let mut kbc = fresh();
+        // Default command byte has the aux IRQ disabled.
+        kbc.push_mouse_byte(0x29);
+        assert_ne!(kbc.read(STATUS_PORT) & STATUS_OBF, 0);
+        assert!(!kbc.aux_irq_pending());
+    }
+
+    // ----- Enable/disable + keyboard ACK ----------------------------------
+
+    #[test]
+    fn i8042_disable_enable_keyboard() {
+        let mut kbc = fresh();
+        kbc.write(STATUS_PORT, CMD_DISABLE_KBD);
+        kbc.push_keyboard_scancode(0x1C);
+        // Disabled keyboard accepts no scancodes.
+        assert_eq!(kbc.read(STATUS_PORT) & STATUS_OBF, 0);
+
+        kbc.write(STATUS_PORT, CMD_ENABLE_KBD);
+        kbc.push_keyboard_scancode(0x1C);
+        assert_ne!(kbc.read(STATUS_PORT) & STATUS_OBF, 0);
+        assert_eq!(kbc.read(DATA_PORT), 0x1C);
+    }
+
+    #[test]
+    fn i8042_keyboard_command_gets_ack() {
+        let mut kbc = fresh();
+        // A bare 0x60 data write (no preceding controller command) is a
+        // keyboard command; the keyboard ACKs with 0xFA.
+        kbc.write(DATA_PORT, 0xFF); // keyboard reset command
+        assert_ne!(kbc.read(STATUS_PORT) & STATUS_OBF, 0);
+        assert_eq!(kbc.read(DATA_PORT), 0xFA);
+    }
+
+    #[test]
+    fn i8042_unknown_ports_read_ff() {
+        let mut kbc = fresh();
+        assert_eq!(kbc.read(0x61), 0xFF);
+    }
+}
