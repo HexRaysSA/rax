@@ -427,6 +427,75 @@ fn test_bsf_trailing_zeros() {
 }
 
 #[test]
+fn test_bsf_clears_stale_lazy_flags_setz() {
+    // Regression: BSF writes ZF eagerly. A prior ALU op (OR) leaves pending
+    // lazy flags. If BSF does not clear them, the following SETZ recomputes
+    // ZF from the OR (ZF=0) instead of using BSF's ZF (ZF=1, source is zero).
+    //
+    // OR EBX, EBX  -> EBX=5, result nonzero => lazy ZF=0
+    // BSF EAX, ECX -> ECX=0 => ZF must become 1
+    // SETZ DL      -> reads ZF; must be 1 if BSF's ZF won, 0 if stale OR won
+    let code = [
+        0x09, 0xdb,             // OR EBX, EBX
+        0x0f, 0xbc, 0xc1,       // BSF EAX, ECX
+        0x0f, 0x94, 0xc2,       // SETZ DL
+        0xf4,
+    ];
+    let mut regs = Registers::default();
+    regs.rbx = 5; // non-zero, OR produces ZF=0
+    regs.rcx = 0; // zero source for BSF => ZF=1
+    let (mut vcpu, _) = setup_vm(&code, Some(regs));
+    let regs = run_until_hlt(&mut vcpu).unwrap();
+
+    assert_eq!(regs.rdx & 0xFF, 1, "SETZ must observe BSF's ZF=1 (zero source), not OR's stale ZF=0");
+    assert!(zf_set(regs.rflags), "ZF should reflect BSF's result (source is zero), not stale OR");
+}
+
+#[test]
+fn test_bsf_clears_stale_lazy_flags_jz() {
+    // Same clobber scenario but using a conditional branch (JZ).
+    // OR EAX, EAX (EAX=7) => stale lazy ZF=0.
+    // BSF EBX, ECX (ECX=0) => ZF=1, so JZ must be taken (skip the MOV ESI,1).
+    // If lazy state is not cleared, JZ recomputes ZF=0 from OR and falls
+    // through, wrongly executing MOV ESI, 1.
+    let code = [
+        0x09, 0xc0,                         // OR EAX, EAX
+        0x0f, 0xbc, 0xd9,                   // BSF EBX, ECX
+        0x74, 0x05,                         // JZ +5 (skip the 5-byte MOV ESI)
+        0xbe, 0x01, 0x00, 0x00, 0x00,       // MOV ESI, 1 (fall-through; wrong path)
+        0xf4,                               // HLT
+    ];
+    let mut regs = Registers::default();
+    regs.rax = 7; // OR => ZF=0
+    regs.rcx = 0; // BSF zero source => ZF=1
+    let (mut vcpu, _) = setup_vm(&code, Some(regs));
+    let regs = run_until_hlt(&mut vcpu).unwrap();
+
+    assert_eq!(regs.rsi & 0xFFFFFFFF, 0, "JZ must be taken on BSF's ZF=1; MOV ESI,1 must NOT execute");
+}
+
+#[test]
+fn test_bsf_nonzero_clears_stale_lazy_zf() {
+    // OR with zero operands => stale lazy ZF=1. BSF of a non-zero source must
+    // produce ZF=0. Verifies the clear works in the non-zero (ZF=0) branch too.
+    let code = [
+        0x09, 0xc0,             // OR EAX, EAX (EAX=0 => stale ZF=1)
+        0x0f, 0xbc, 0xd9,       // BSF EBX, ECX (ECX nonzero => ZF=0)
+        0x0f, 0x94, 0xc2,       // SETZ DL
+        0xf4,
+    ];
+    let mut regs = Registers::default();
+    regs.rax = 0; // OR produces ZF=1 (stale, wrong)
+    regs.rcx = 0b1000; // bit 3 => BSF ZF=0
+    let (mut vcpu, _) = setup_vm(&code, Some(regs));
+    let regs = run_until_hlt(&mut vcpu).unwrap();
+
+    assert_eq!(regs.rbx & 0xFFFFFFFF, 3, "BSF should find bit 3");
+    assert_eq!(regs.rdx & 0xFF, 0, "SETZ must observe BSF's ZF=0, not OR's stale ZF=1");
+    assert!(!zf_set(regs.rflags), "ZF should be clear (BSF source non-zero)");
+}
+
+#[test]
 fn test_bsf_sign_bit() {
     // BSF with sign bit set (treated as unsigned)
     let code = [

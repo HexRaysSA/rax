@@ -25,6 +25,9 @@ pub fn bsf(vcpu: &mut X86_64Vcpu, ctx: &mut InsnContext) -> Result<Option<VcpuEx
         let bit_index = value.trailing_zeros() as u64;
         vcpu.set_reg(reg, bit_index, op_size);
     }
+    // BSF writes ZF eagerly; drop any pending lazy op so a later flag reader
+    // (e.g. Jcc) sees this ZF rather than recomputing from a stale prior ALU op.
+    vcpu.clear_lazy_flags();
     vcpu.regs.rip += ctx.cursor as u64;
     Ok(None)
 }
@@ -54,6 +57,9 @@ pub fn bsr(vcpu: &mut X86_64Vcpu, ctx: &mut InsnContext) -> Result<Option<VcpuEx
         };
         vcpu.set_reg(reg, bit_index as u64, op_size);
     }
+    // BSR writes ZF eagerly; drop any pending lazy op so a later flag reader
+    // (e.g. Jcc) sees this ZF rather than recomputing from a stale prior ALU op.
+    vcpu.clear_lazy_flags();
     vcpu.regs.rip += ctx.cursor as u64;
     Ok(None)
 }
