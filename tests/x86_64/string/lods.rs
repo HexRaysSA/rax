@@ -417,3 +417,36 @@ fn test_lodsb_case_conversion() {
     let dest = vm.read_memory(0x4000, 3);
     assert_eq!(&dest, &[0x61, 0x62, 0x63]); // "abc"
 }
+
+// ============================================================================
+// Regression test: segment-override on the LODS source DS:[RSI]
+// ============================================================================
+
+#[test]
+fn test_lodsb_fs_segment_override_source() {
+    // LODS loads from DS:[RSI], overridable by an FS/GS prefix. With FS.base set
+    // to 0x2000 (via WRMSR IA32_FS_BASE) and RSI=0x5000, FS LODSB must load from
+    // linear 0x7000 (=0x3C), NOT plain RSI=0x5000 (=0x99).
+    let code = [
+        // WRMSR FS.base = 0x2000
+        0x48, 0xc7, 0xc0, 0x00, 0x20, 0x00, 0x00, // MOV RAX, 0x2000
+        0x48, 0xc7, 0xc2, 0x00, 0x00, 0x00, 0x00, // MOV RDX, 0
+        0x48, 0xc7, 0xc1, 0x00, 0x01, 0x00, 0xc0, // MOV RCX, 0xC0000100
+        0x0f, 0x30, // WRMSR
+        // Seed source bytes.
+        0x48, 0xc7, 0xc3, 0x00, 0x70, 0x00, 0x00, // MOV RBX, 0x7000
+        0xc6, 0x03, 0x3c, // MOV BYTE PTR [RBX], 0x3C  (FS-relative source)
+        0x48, 0xc7, 0xc3, 0x00, 0x50, 0x00, 0x00, // MOV RBX, 0x5000
+        0xc6, 0x03, 0x99, // MOV BYTE PTR [RBX], 0x99  (non-overridden source)
+        // Clear RAX so the loaded value is unambiguous.
+        0x48, 0x31, 0xc0, // XOR RAX, RAX
+        0x48, 0xc7, 0xc6, 0x00, 0x50, 0x00, 0x00, // MOV RSI, 0x5000
+        0xfc, // CLD
+        0x64, 0xac, // FS LODSB
+        0xf4, // HLT
+    ];
+    let mut vm = setup_vm(&code);
+    vm = run_until_hlt(vm);
+    assert_eq!(vm.rax & 0xFF, 0x3C); // AL loaded from FS:0x5000 == 0x7000
+    assert_eq!(vm.rsi, 0x5001); // RSI advanced
+}

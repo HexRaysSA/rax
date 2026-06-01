@@ -417,3 +417,49 @@ fn test_stosb_consecutive() {
     assert_eq!(&data, &[0xAA, 0xAA, 0xAA]);
     assert_eq!(vm.rdi, 0x4003);
 }
+
+// ============================================================================
+// Regression tests: 0x67 address-size override (ECX count, 32-bit index)
+// ============================================================================
+
+#[test]
+fn test_rep_stosb_addr_size_override_ecx() {
+    // 0x67 selects 32-bit addressing: REP STOS uses ECX as the count and EDI as
+    // the index. RCX carries garbage in its upper 32 bits; only the low 32
+    // (=4) must drive the loop, and RCX/RDI must end with their upper halves
+    // cleared.
+    let code = [
+        0x48, 0xc7, 0xc7, 0x00, 0x40, 0x00, 0x00, // MOV RDI, 0x4000
+        // RCX = 0xDEADBEEF_00000004 : low32 = 4 (count), high32 = garbage.
+        0x48, 0xb9, 0x04, 0x00, 0x00, 0x00, 0xef, 0xbe, 0xad, 0xde, // MOV RCX, imm64
+        0xb0, 0x5a, // MOV AL, 0x5A
+        0xfc, // CLD
+        0x67, 0xf3, 0xaa, // (addr32) REP STOSB
+        0xf4, // HLT
+    ];
+    let mut vm = setup_vm(&code);
+    vm = run_until_hlt(vm);
+    let data = vm.read_memory(0x4000, 5);
+    assert_eq!(&data[..4], &[0x5A, 0x5A, 0x5A, 0x5A]); // exactly 4 stored
+    assert_eq!(data[4], 0x00); // 5th byte untouched
+    assert_eq!(vm.rcx, 0); // ECX -> 0, upper 32 bits cleared
+    assert_eq!(vm.rdi, 0x4004); // EDI advanced, upper 32 bits cleared
+}
+
+#[test]
+fn test_stosb_addr_size_override_truncates_index() {
+    // Under 0x67 the destination index is the 32-bit EDI; upper-half garbage in
+    // RDI must be ignored so the store lands at the low-32-bit address.
+    let code = [
+        // RDI = 0xCAFEF00D_00004000
+        0x48, 0xbf, 0x00, 0x40, 0x00, 0x00, 0x0d, 0xf0, 0xfe, 0xca, // MOV RDI, imm64
+        0xb0, 0x33, // MOV AL, 0x33
+        0xfc, // CLD
+        0x67, 0xaa, // (addr32) STOSB
+        0xf4, // HLT
+    ];
+    let mut vm = setup_vm(&code);
+    vm = run_until_hlt(vm);
+    assert_eq!(vm.read_memory(0x4000, 1)[0], 0x33); // stored at EDI=0x4000
+    assert_eq!(vm.rdi, 0x4001); // EDI advanced, upper 32 bits cleared
+}

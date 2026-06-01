@@ -5,30 +5,29 @@ use crate::error::Result;
 
 use super::super::super::cpu::{InsnContext, X86_64Vcpu};
 use super::super::super::flags;
+use super::{advance_index, dec_count, index, rep_count};
 
 /// SCASB (0xAE)
 pub fn scasb(vcpu: &mut X86_64Vcpu, ctx: &mut InsnContext) -> Result<Option<VcpuExit>> {
-    let count = if ctx.rep_prefix.is_some() {
-        vcpu.regs.rcx
-    } else {
-        1
-    };
+    let is_rep = ctx.rep_prefix.is_some();
+    // SCAS operand is always ES:[RDI] (NOT segment-overridable). 0x67 selects
+    // 32-bit addressing (EDI/ECX) in 64-bit mode.
+    let addr32 = ctx.address_size_override && vcpu.sregs.cs.l;
+    let count = if is_rep { rep_count(vcpu.regs.rcx, addr32) } else { 1 };
     for _ in 0..count {
-        if ctx.rep_prefix.is_some() && vcpu.regs.rcx == 0 {
+        if is_rep && rep_count(vcpu.regs.rcx, addr32) == 0 {
             break;
         }
-        let val = vcpu.mmu.read_u8(vcpu.regs.rdi, &vcpu.sregs)? as u64;
+        let dst = index(vcpu.regs.rdi, addr32);
+        let val = vcpu.mmu.read_u8(dst, &vcpu.sregs)? as u64;
         let al = vcpu.regs.rax & 0xFF;
         let result = al.wrapping_sub(val);
         flags::update_flags_sub(&mut vcpu.regs.rflags, al, val, result, 1);
         vcpu.clear_lazy_flags();
-        if vcpu.regs.rflags & flags::bits::DF == 0 {
-            vcpu.regs.rdi = vcpu.regs.rdi.wrapping_add(1);
-        } else {
-            vcpu.regs.rdi = vcpu.regs.rdi.wrapping_sub(1);
-        }
-        if ctx.rep_prefix.is_some() {
-            vcpu.regs.rcx = vcpu.regs.rcx.wrapping_sub(1);
+        let forward = vcpu.regs.rflags & flags::bits::DF == 0;
+        vcpu.regs.rdi = advance_index(vcpu.regs.rdi, 1, forward, addr32);
+        if is_rep {
+            vcpu.regs.rcx = dec_count(vcpu.regs.rcx, addr32);
             let zf = (vcpu.regs.rflags & flags::bits::ZF) != 0;
             // REPE (0xF3): continue while equal (ZF=1)
             // REPNE (0xF2): continue while not equal (ZF=0)
@@ -48,27 +47,23 @@ pub fn scasb(vcpu: &mut X86_64Vcpu, ctx: &mut InsnContext) -> Result<Option<Vcpu
 pub fn scas(vcpu: &mut X86_64Vcpu, ctx: &mut InsnContext) -> Result<Option<VcpuExit>> {
     let op_size = ctx.op_size;
     let delta = op_size as u64;
-    let count = if ctx.rep_prefix.is_some() {
-        vcpu.regs.rcx
-    } else {
-        1
-    };
+    let is_rep = ctx.rep_prefix.is_some();
+    let addr32 = ctx.address_size_override && vcpu.sregs.cs.l;
+    let count = if is_rep { rep_count(vcpu.regs.rcx, addr32) } else { 1 };
     for _ in 0..count {
-        if ctx.rep_prefix.is_some() && vcpu.regs.rcx == 0 {
+        if is_rep && rep_count(vcpu.regs.rcx, addr32) == 0 {
             break;
         }
-        let val = vcpu.read_mem(vcpu.regs.rdi, op_size)?;
+        let dst = index(vcpu.regs.rdi, addr32);
+        let val = vcpu.read_mem(dst, op_size)?;
         let rax = vcpu.get_reg(0, op_size);
         let result = rax.wrapping_sub(val);
         flags::update_flags_sub(&mut vcpu.regs.rflags, rax, val, result, op_size);
         vcpu.clear_lazy_flags();
-        if vcpu.regs.rflags & flags::bits::DF == 0 {
-            vcpu.regs.rdi = vcpu.regs.rdi.wrapping_add(delta);
-        } else {
-            vcpu.regs.rdi = vcpu.regs.rdi.wrapping_sub(delta);
-        }
-        if ctx.rep_prefix.is_some() {
-            vcpu.regs.rcx = vcpu.regs.rcx.wrapping_sub(1);
+        let forward = vcpu.regs.rflags & flags::bits::DF == 0;
+        vcpu.regs.rdi = advance_index(vcpu.regs.rdi, delta, forward, addr32);
+        if is_rep {
+            vcpu.regs.rcx = dec_count(vcpu.regs.rcx, addr32);
             let zf = (vcpu.regs.rflags & flags::bits::ZF) != 0;
             if ctx.rep_prefix == Some(0xF3) && !zf {
                 break;

@@ -6,6 +6,7 @@ use crate::error::Result;
 use super::super::super::cpu::{InsnContext, X86_64Vcpu};
 use super::super::super::flags;
 use super::super::super::mmu::AccessType;
+use super::{advance_index, dec_count, index, rep_count};
 
 /// Page size used by the MMU.
 const PAGE_SIZE: u64 = 0x1000;
@@ -48,8 +49,18 @@ fn stos_common(
     let is_rep = ctx.rep_prefix.is_some();
     let delta = op_size as u64;
 
-    // Fast path: REP-prefixed, forward (DF==0), count > 1.
-    if is_rep && (vcpu.regs.rflags & flags::bits::DF) == 0 && vcpu.regs.rcx > 1 {
+    // 0x67 address-size override: RDI/RCX are used as 32-bit EDI/ECX.
+    // The destination is always ES:[RDI] and is NOT segment-overridable.
+    let addr32 = ctx.address_size_override && vcpu.sregs.cs.l;
+
+    // Fast path: REP-prefixed, forward (DF==0), count > 1. Disabled under the
+    // 32-bit address-size override, since the bulk path advances RDI as a full
+    // 64-bit linear address with no masking.
+    if is_rep
+        && !addr32
+        && (vcpu.regs.rflags & flags::bits::DF) == 0
+        && vcpu.regs.rcx > 1
+    {
         stos_fast_path(vcpu, op_size)?;
         // Any remaining count (page-straddling element, code/MMIO page) falls
         // through to the slow loop below, resuming from current register state.
@@ -58,19 +69,17 @@ fn stos_common(
     // Slow path: element-by-element, bit-for-bit identical to the original loop.
     // Also serves as the tail/fallback for the fast path (RCX is already 0 when
     // the fast path fully completed, so this loop is a no-op in that case).
-    let count = if is_rep { vcpu.regs.rcx } else { 1 };
+    let count = if is_rep { rep_count(vcpu.regs.rcx, addr32) } else { 1 };
     for _ in 0..count {
-        if is_rep && vcpu.regs.rcx == 0 {
+        if is_rep && rep_count(vcpu.regs.rcx, addr32) == 0 {
             break;
         }
-        vcpu.write_mem(vcpu.regs.rdi, vcpu.regs.rax, op_size)?;
-        if vcpu.regs.rflags & flags::bits::DF == 0 {
-            vcpu.regs.rdi = vcpu.regs.rdi.wrapping_add(delta);
-        } else {
-            vcpu.regs.rdi = vcpu.regs.rdi.wrapping_sub(delta);
-        }
+        let dst = index(vcpu.regs.rdi, addr32);
+        vcpu.write_mem(dst, vcpu.regs.rax, op_size)?;
+        let forward = vcpu.regs.rflags & flags::bits::DF == 0;
+        vcpu.regs.rdi = advance_index(vcpu.regs.rdi, delta, forward, addr32);
         if is_rep {
-            vcpu.regs.rcx = vcpu.regs.rcx.wrapping_sub(1);
+            vcpu.regs.rcx = dec_count(vcpu.regs.rcx, addr32);
         }
     }
     vcpu.regs.rip += ctx.cursor as u64;

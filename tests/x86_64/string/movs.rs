@@ -378,3 +378,134 @@ fn test_movsb_single_byte_rep() {
     assert_eq!(vm.read_memory(0x4000, 1)[0], 0xAA);
     assert_eq!(vm.rcx, 0);
 }
+
+// ============================================================================
+// Regression tests: segment-override on the source + 0x67 address-size override
+// ============================================================================
+
+#[test]
+fn test_movsb_fs_segment_override_source() {
+    // MOVS reads its source via DS:[RSI], which an FS/GS prefix overrides. The
+    // ES:[RDI] destination is NOT overridable. With FS.base=0x2000 and RSI=0x5000,
+    // an FS-overridden MOVSB must read from linear 0x7000 (=0x5A), NOT plain
+    // RSI=0x5000 (=0x11). FS.base is programmed via WRMSR(IA32_FS_BASE=0xC0000100).
+    let code = [
+        // WRMSR FS.base = 0x2000  (EDX:EAX = 0:0x2000, ECX = 0xC0000100)
+        0x48, 0xc7, 0xc0, 0x00, 0x20, 0x00, 0x00, // MOV RAX, 0x2000
+        0x48, 0xc7, 0xc2, 0x00, 0x00, 0x00, 0x00, // MOV RDX, 0
+        0x48, 0xc7, 0xc1, 0x00, 0x01, 0x00, 0xc0, // MOV RCX, 0xC0000100 (sign-ext, low32 used)
+        0x0f, 0x30, // WRMSR
+        // Seed distinguishing source bytes.
+        0x48, 0xc7, 0xc3, 0x00, 0x70, 0x00, 0x00, // MOV RBX, 0x7000 (FS.base + 0x5000)
+        0xc6, 0x03, 0x5a, // MOV BYTE PTR [RBX], 0x5A  (the FS-relative source)
+        0x48, 0xc7, 0xc3, 0x00, 0x50, 0x00, 0x00, // MOV RBX, 0x5000
+        0xc6, 0x03, 0x11, // MOV BYTE PTR [RBX], 0x11  (the non-overridden source)
+        // Set up the string registers.
+        0x48, 0xc7, 0xc6, 0x00, 0x50, 0x00, 0x00, // MOV RSI, 0x5000
+        0x48, 0xc7, 0xc7, 0x00, 0x40, 0x00, 0x00, // MOV RDI, 0x4000
+        0xfc, // CLD
+        0x64, 0xa4, // FS MOVSB
+        0xf4, // HLT
+    ];
+    let mut vm = setup_vm(&code);
+    vm = run_until_hlt(vm);
+    // Source read from FS:0x5000 == linear 0x7000 == 0x5A (not 0x11).
+    assert_eq!(vm.read_memory(0x4000, 1)[0], 0x5A);
+    assert_eq!(vm.rsi, 0x5001); // RSI advanced
+    assert_eq!(vm.rdi, 0x4001); // RDI advanced
+}
+
+#[test]
+fn test_rep_movsb_addr_size_override_ecx() {
+    // 0x67 selects 32-bit addressing: REP uses ECX as the counter. Here RCX has
+    // garbage in its upper 32 bits; only the low 32 (=3) must be used as count,
+    // and ECX must end at 0 with the upper bits cleared.
+    let code = [
+        0x48, 0xc7, 0xc6, 0x00, 0x30, 0x00, 0x00, // MOV RSI, 0x3000
+        0x48, 0xc7, 0xc7, 0x00, 0x40, 0x00, 0x00, // MOV RDI, 0x4000
+        // RCX = 0xFFFFFFFF_00000003 : low32 = 3 (count), high32 = garbage.
+        0x48, 0xb9, 0x03, 0x00, 0x00, 0x00, 0xff, 0xff, 0xff, 0xff, // MOV RCX, imm64
+        0xc6, 0x06, 0x41, // MOV BYTE PTR [RSI], 'A'
+        0xc6, 0x46, 0x01, 0x42, // MOV BYTE PTR [RSI+1], 'B'
+        0xc6, 0x46, 0x02, 0x43, // MOV BYTE PTR [RSI+2], 'C'
+        0xfc, // CLD
+        0x67, 0xf3, 0xa4, // (addr32) REP MOVSB
+        0xf4, // HLT
+    ];
+    let mut vm = setup_vm(&code);
+    vm = run_until_hlt(vm);
+    let dest = vm.read_memory(0x4000, 3);
+    assert_eq!(&dest, &[0x41, 0x42, 0x43]); // only 3 bytes copied (ECX=3)
+    assert_eq!(vm.rcx, 0); // ECX decremented to 0, upper 32 bits cleared
+    assert_eq!(vm.rsi, 0x3003);
+    assert_eq!(vm.rdi, 0x4003);
+}
+
+#[test]
+fn test_movsb_addr_size_override_truncates_index() {
+    // Under 0x67 the index registers are used as the 32-bit ESI/EDI: garbage in
+    // the upper 32 bits must be ignored. With RSI = 0xFFFFFFFF_00003000 the
+    // source address is the low 32 bits (0x3000); without masking the full
+    // 64-bit value would point far out of bounds.
+    let code = [
+        // RSI = 0xFFFFFFFF_00003000
+        0x48, 0xbe, 0x00, 0x30, 0x00, 0x00, 0xff, 0xff, 0xff, 0xff, // MOV RSI, imm64
+        0x48, 0xc7, 0xc7, 0x00, 0x40, 0x00, 0x00, // MOV RDI, 0x4000
+        0x48, 0xc7, 0xc3, 0x00, 0x30, 0x00, 0x00, // MOV RBX, 0x3000
+        0xc6, 0x03, 0x77, // MOV BYTE PTR [RBX], 0x77
+        0xfc, // CLD
+        0x67, 0xa4, // (addr32) MOVSB
+        0xf4, // HLT
+    ];
+    let mut vm = setup_vm(&code);
+    vm = run_until_hlt(vm);
+    // Source taken from ESI=0x3000 (=0x77), not the full 64-bit RSI.
+    assert_eq!(vm.read_memory(0x4000, 1)[0], 0x77);
+    assert_eq!(vm.rsi, 0x3001); // ESI advanced, upper 32 bits cleared
+    assert_eq!(vm.rdi, 0x4001);
+}
+
+#[test]
+fn test_movsb_df_reverse_single() {
+    // DF=1 must decrement BOTH RSI and RDI by the element size after the copy.
+    let code = [
+        0x48, 0xc7, 0xc6, 0x00, 0x30, 0x00, 0x00, // MOV RSI, 0x3000
+        0x48, 0xc7, 0xc7, 0x00, 0x40, 0x00, 0x00, // MOV RDI, 0x4000
+        0xc6, 0x06, 0x88, // MOV BYTE PTR [RSI], 0x88
+        0xfd, // STD (DF=1)
+        0xa4, // MOVSB
+        0xfc, // CLD (leave DF clean)
+        0xf4, // HLT
+    ];
+    let mut vm = setup_vm(&code);
+    vm = run_until_hlt(vm);
+    assert_eq!(vm.read_memory(0x4000, 1)[0], 0x88);
+    assert_eq!(vm.rsi, 0x2FFF); // decremented
+    assert_eq!(vm.rdi, 0x3FFF); // decremented
+}
+
+#[test]
+fn test_rep_movsq_df_reverse() {
+    // DF=1 with quadword elements must step by 8 in reverse for every iteration.
+    let code = [
+        0x48, 0xc7, 0xc6, 0x08, 0x30, 0x00, 0x00, // MOV RSI, 0x3008 (high element)
+        0x48, 0xc7, 0xc7, 0x08, 0x40, 0x00, 0x00, // MOV RDI, 0x4008
+        0x48, 0xc7, 0xc1, 0x02, 0x00, 0x00, 0x00, // MOV RCX, 2
+        0x48, 0xb8, 0x11, 0x11, 0x11, 0x11, 0x11, 0x11, 0x11, 0x11, // MOV RAX, 0x1111...
+        0x48, 0x89, 0x06, // MOV [RSI], RAX            (0x3008)
+        0x48, 0xb8, 0x22, 0x22, 0x22, 0x22, 0x22, 0x22, 0x22, 0x22, // MOV RAX, 0x2222...
+        0x48, 0x89, 0x46, 0xf8, // MOV [RSI-8], RAX     (0x3000)
+        0xfd, // STD (DF=1)
+        0xf3, 0x48, 0xa5, // REP MOVSQ (reverse)
+        0xfc, // CLD
+        0xf4, // HLT
+    ];
+    let mut vm = setup_vm(&code);
+    vm = run_until_hlt(vm);
+    // Reverse copy: [0x3008]->[0x4008], then [0x3000]->[0x4000].
+    assert_eq!(&vm.read_memory(0x4008, 8), &[0x11; 8]);
+    assert_eq!(&vm.read_memory(0x4000, 8), &[0x22; 8]);
+    assert_eq!(vm.rcx, 0);
+    assert_eq!(vm.rsi, 0x2FF8); // 0x3008 - 8 - 8
+    assert_eq!(vm.rdi, 0x3FF8);
+}

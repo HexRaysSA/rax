@@ -405,3 +405,42 @@ fn test_cmpsb_case_insensitive_compare() {
     let vm = run_until_hlt(vm);
     assert_eq!(vm.rip, (0x1000 + code.len() - 1) as u64);
 }
+
+// ============================================================================
+// Regression test: segment-override on the CMPS source DS:[RSI]
+// ============================================================================
+
+#[test]
+fn test_cmpsb_fs_segment_override_source() {
+    // CMPS compares the segment-overridable source DS:[RSI] with the fixed
+    // ES:[RDI]. With FS.base=0x2000 and RSI=0x5000, FS CMPSB compares linear
+    // 0x7000 (=0x42) against RDI=0x4000 (=0x42) -> EQUAL (ZF=1). Plain RSI=0x5000
+    // holds 0xFF, so without the override the compare would be NOT equal.
+    const ZF: u64 = 1 << 6;
+    let code = [
+        // WRMSR FS.base = 0x2000
+        0x48, 0xc7, 0xc0, 0x00, 0x20, 0x00, 0x00, // MOV RAX, 0x2000
+        0x48, 0xc7, 0xc2, 0x00, 0x00, 0x00, 0x00, // MOV RDX, 0
+        0x48, 0xc7, 0xc1, 0x00, 0x01, 0x00, 0xc0, // MOV RCX, 0xC0000100
+        0x0f, 0x30, // WRMSR
+        // Seed the three relevant bytes.
+        0x48, 0xc7, 0xc3, 0x00, 0x70, 0x00, 0x00, // MOV RBX, 0x7000
+        0xc6, 0x03, 0x42, // MOV BYTE PTR [RBX], 0x42  (FS-relative source)
+        0x48, 0xc7, 0xc3, 0x00, 0x50, 0x00, 0x00, // MOV RBX, 0x5000
+        0xc6, 0x03, 0xff, // MOV BYTE PTR [RBX], 0xFF  (non-overridden source)
+        0x48, 0xc7, 0xc3, 0x00, 0x40, 0x00, 0x00, // MOV RBX, 0x4000
+        0xc6, 0x03, 0x42, // MOV BYTE PTR [RBX], 0x42  (ES:[RDI] operand)
+        // Set up the string registers.
+        0x48, 0xc7, 0xc6, 0x00, 0x50, 0x00, 0x00, // MOV RSI, 0x5000
+        0x48, 0xc7, 0xc7, 0x00, 0x40, 0x00, 0x00, // MOV RDI, 0x4000
+        0xfc, // CLD
+        0x64, 0xa6, // FS CMPSB
+        0xf4, // HLT
+    ];
+    let mut vm = setup_vm(&code);
+    vm = run_until_hlt(vm);
+    // FS:[RSI]=0x42 == ES:[RDI]=0x42 -> ZF set.
+    assert_ne!(vm.rflags & ZF, 0, "ZF should be set (FS source byte 0x42 == dest 0x42)");
+    assert_eq!(vm.rsi, 0x5001);
+    assert_eq!(vm.rdi, 0x4001);
+}
