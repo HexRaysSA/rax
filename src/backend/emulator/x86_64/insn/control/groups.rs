@@ -64,6 +64,188 @@ pub fn group4(vcpu: &mut X86_64Vcpu, ctx: &mut InsnContext) -> Result<Option<Vcp
     Ok(None)
 }
 
+/// INC r/m (0xFF /0) memory-operand path (cold). CF is already locked in by the
+/// caller's `resolve_lazy_cf`. Kept out-of-line so the register-direct INC/DEC
+/// hot path keeps a minimal stack frame.
+#[cold]
+#[inline(never)]
+fn group5_inc_mem(
+    vcpu: &mut X86_64Vcpu,
+    ctx: &mut InsnContext,
+    modrm_start: usize,
+    op_size: u8,
+) -> Result<()> {
+    let (addr, extra) = vcpu.decode_modrm_addr(ctx, modrm_start)?;
+    ctx.cursor = modrm_start + 1 + extra;
+    let val = vcpu.read_mem(addr, op_size)?;
+    let result = val.wrapping_add(1);
+    vcpu.write_mem(addr, result, op_size)?;
+    vcpu.set_lazy_inc(val, result, op_size);
+    Ok(())
+}
+
+/// DEC r/m (0xFF /1) memory-operand path (cold). See `group5_inc_mem`.
+#[cold]
+#[inline(never)]
+fn group5_dec_mem(
+    vcpu: &mut X86_64Vcpu,
+    ctx: &mut InsnContext,
+    modrm_start: usize,
+    op_size: u8,
+) -> Result<()> {
+    let (addr, extra) = vcpu.decode_modrm_addr(ctx, modrm_start)?;
+    ctx.cursor = modrm_start + 1 + extra;
+    let val = vcpu.read_mem(addr, op_size)?;
+    let result = val.wrapping_sub(1);
+    vcpu.write_mem(addr, result, op_size)?;
+    vcpu.set_lazy_dec(val, result, op_size);
+    Ok(())
+}
+
+/// CALL FAR m16:16/m16:32/m16:64 (0xFF /3), cold path.
+#[cold]
+#[inline(never)]
+fn group5_call_far(
+    vcpu: &mut X86_64Vcpu,
+    ctx: &mut InsnContext,
+    modrm_start: usize,
+    modrm: u8,
+) -> Result<Option<VcpuExit>> {
+    if modrm >> 6 == 3 {
+        // CALL FAR with register operand is undefined - inject #UD
+        // Don't advance RIP - exception should point to faulting instruction
+        vcpu.inject_exception(6, None)?;
+        return Ok(None);
+    }
+    let (addr, extra) = vcpu.decode_modrm_addr(ctx, modrm_start)?;
+    ctx.cursor = modrm_start + 1 + extra;
+
+    let offset_size = ctx.op_size;
+
+    // Read offset and selector from memory
+    let offset = vcpu.read_mem(addr, offset_size)?;
+    let selector = vcpu.mmu.read_u16(addr + offset_size as u64, &vcpu.sregs)?;
+    validate_far_selector(vcpu, selector)?;
+    let old_cpl = vcpu.sregs.cs.selector & 0x3;
+    let new_cpl = selector & 0x3;
+    if new_cpl != old_cpl {
+        return Err(Error::Emulator(
+            "JMP FAR privilege change not supported".to_string(),
+        ));
+    }
+
+    // Push return CS:IP
+    let old_cs = vcpu.get_sreg(1);
+    let ret_addr = vcpu.regs.rip + ctx.cursor as u64;
+
+    match ctx.op_size {
+        2 => {
+            vcpu.push16(old_cs)?;
+            vcpu.push16(ret_addr as u16)?;
+        }
+        4 => {
+            vcpu.push32(old_cs as u32)?;
+            vcpu.push32(ret_addr as u32)?;
+        }
+        8 => {
+            vcpu.push64(old_cs as u64)?;
+            vcpu.push64(ret_addr)?;
+        }
+        _ => {
+            return Err(Error::Emulator(format!(
+                "CALL FAR m16:16/m16:32 invalid return size: {}",
+                ctx.op_size
+            )));
+        }
+    }
+
+    // Load new CS:IP
+    vcpu.set_sreg(1, selector);
+    vcpu.regs.rip = offset;
+    Ok(None)
+}
+
+/// JMP FAR m16:16/m16:32/m16:64 (0xFF /5), cold path.
+#[cold]
+#[inline(never)]
+fn group5_jmp_far(
+    vcpu: &mut X86_64Vcpu,
+    ctx: &mut InsnContext,
+    modrm_start: usize,
+    modrm: u8,
+) -> Result<Option<VcpuExit>> {
+    if modrm >> 6 == 3 {
+        // JMP FAR with register operand is undefined - inject #UD
+        // Don't advance RIP - exception should point to faulting instruction
+        vcpu.inject_exception(6, None)?;
+        return Ok(None);
+    }
+    let (addr, extra) = vcpu.decode_modrm_addr(ctx, modrm_start)?;
+    ctx.cursor = modrm_start + 1 + extra;
+
+    let offset_size = ctx.op_size;
+
+    // Read offset and selector from memory
+    let offset = vcpu.read_mem(addr, offset_size)?;
+    let selector = vcpu.mmu.read_u16(addr + offset_size as u64, &vcpu.sregs)?;
+    validate_far_selector(vcpu, selector)?;
+
+    // Load new CS:IP
+    vcpu.set_sreg(1, selector);
+    vcpu.regs.rip = offset;
+    Ok(None)
+}
+
+/// PUSH r/m16/32/64 (0xFF /6), cold path.
+#[cold]
+#[inline(never)]
+fn group5_push(
+    vcpu: &mut X86_64Vcpu,
+    ctx: &mut InsnContext,
+    modrm_start: usize,
+    modrm: u8,
+    rm: u8,
+) -> Result<Option<VcpuExit>> {
+    let in_long_mode = (vcpu.sregs.efer & 0x400) != 0;
+    let in_64bit_mode = in_long_mode && vcpu.sregs.cs.l;
+    let op_size = if in_64bit_mode {
+        if ctx.operand_size_override {
+            2
+        } else {
+            8
+        }
+    } else {
+        let default_16bit = !vcpu.sregs.cs.db;
+        let is_16bit = default_16bit ^ ctx.operand_size_override;
+        if is_16bit {
+            2
+        } else {
+            4
+        }
+    };
+
+    let val = if modrm >> 6 == 3 {
+        vcpu.get_reg(rm, op_size)
+    } else {
+        let (addr, extra) = vcpu.decode_modrm_addr(ctx, modrm_start)?;
+        ctx.cursor = modrm_start + 1 + extra;
+        vcpu.read_mem(addr, op_size)?
+    };
+    match op_size {
+        2 => vcpu.push16(val as u16)?,
+        4 => vcpu.push32(val as u32)?,
+        8 => vcpu.push64(val)?,
+        _ => {
+            return Err(Error::Emulator(format!(
+                "invalid PUSH r/m op size: {}",
+                op_size
+            )))
+        }
+    }
+    vcpu.regs.rip += ctx.cursor as u64;
+    Ok(None)
+}
+
 /// Group 5: INC/DEC/CALL/JMP/PUSH (0xFF)
 pub fn group5(vcpu: &mut X86_64Vcpu, ctx: &mut InsnContext) -> Result<Option<VcpuExit>> {
     let modrm_start = ctx.cursor;
@@ -83,12 +265,7 @@ pub fn group5(vcpu: &mut X86_64Vcpu, ctx: &mut InsnContext) -> Result<Option<Vcp
                 vcpu.set_reg(rm, result, op_size);
                 vcpu.set_lazy_inc(val, result, op_size);
             } else {
-                let (addr, extra) = vcpu.decode_modrm_addr(ctx, modrm_start)?;
-                ctx.cursor = modrm_start + 1 + extra;
-                let val = vcpu.read_mem(addr, op_size)?;
-                let result = val.wrapping_add(1);
-                vcpu.write_mem(addr, result, op_size)?;
-                vcpu.set_lazy_inc(val, result, op_size);
+                group5_inc_mem(vcpu, ctx, modrm_start, op_size)?;
             }
             vcpu.regs.rip += ctx.cursor as u64;
         }
@@ -102,12 +279,7 @@ pub fn group5(vcpu: &mut X86_64Vcpu, ctx: &mut InsnContext) -> Result<Option<Vcp
                 vcpu.set_reg(rm, result, op_size);
                 vcpu.set_lazy_dec(val, result, op_size);
             } else {
-                let (addr, extra) = vcpu.decode_modrm_addr(ctx, modrm_start)?;
-                ctx.cursor = modrm_start + 1 + extra;
-                let val = vcpu.read_mem(addr, op_size)?;
-                let result = val.wrapping_sub(1);
-                vcpu.write_mem(addr, result, op_size)?;
-                vcpu.set_lazy_dec(val, result, op_size);
+                group5_dec_mem(vcpu, ctx, modrm_start, op_size)?;
             }
             vcpu.regs.rip += ctx.cursor as u64;
         }
@@ -126,58 +298,8 @@ pub fn group5(vcpu: &mut X86_64Vcpu, ctx: &mut InsnContext) -> Result<Option<Vcp
             vcpu.regs.rip = target;
         }
         3 => {
-            // CALL FAR m16:16/m16:32/m16:64
-            if modrm >> 6 == 3 {
-                // CALL FAR with register operand is undefined - inject #UD
-                // Don't advance RIP - exception should point to faulting instruction
-                vcpu.inject_exception(6, None)?;
-                return Ok(None);
-            }
-            let (addr, extra) = vcpu.decode_modrm_addr(ctx, modrm_start)?;
-            ctx.cursor = modrm_start + 1 + extra;
-
-            let offset_size = ctx.op_size;
-
-            // Read offset and selector from memory
-            let offset = vcpu.read_mem(addr, offset_size)?;
-            let selector = vcpu.mmu.read_u16(addr + offset_size as u64, &vcpu.sregs)?;
-            validate_far_selector(vcpu, selector)?;
-            let old_cpl = vcpu.sregs.cs.selector & 0x3;
-            let new_cpl = selector & 0x3;
-            if new_cpl != old_cpl {
-                return Err(Error::Emulator(
-                    "JMP FAR privilege change not supported".to_string(),
-                ));
-            }
-
-            // Push return CS:IP
-            let old_cs = vcpu.get_sreg(1);
-            let ret_addr = vcpu.regs.rip + ctx.cursor as u64;
-
-            match ctx.op_size {
-                2 => {
-                    vcpu.push16(old_cs)?;
-                    vcpu.push16(ret_addr as u16)?;
-                }
-                4 => {
-                    vcpu.push32(old_cs as u32)?;
-                    vcpu.push32(ret_addr as u32)?;
-                }
-                8 => {
-                    vcpu.push64(old_cs as u64)?;
-                    vcpu.push64(ret_addr)?;
-                }
-                _ => {
-                    return Err(Error::Emulator(format!(
-                        "CALL FAR m16:16/m16:32 invalid return size: {}",
-                        ctx.op_size
-                    )));
-                }
-            }
-
-            // Load new CS:IP
-            vcpu.set_sreg(1, selector);
-            vcpu.regs.rip = offset;
+            // CALL FAR m16:16/m16:32/m16:64 (cold; far transfers are rare).
+            return group5_call_far(vcpu, ctx, modrm_start, modrm);
         }
         4 => {
             // JMP r/m64
@@ -191,66 +313,12 @@ pub fn group5(vcpu: &mut X86_64Vcpu, ctx: &mut InsnContext) -> Result<Option<Vcp
             vcpu.regs.rip = target;
         }
         5 => {
-            // JMP FAR m16:16/m16:32/m16:64
-            if modrm >> 6 == 3 {
-                // JMP FAR with register operand is undefined - inject #UD
-                // Don't advance RIP - exception should point to faulting instruction
-                vcpu.inject_exception(6, None)?;
-                return Ok(None);
-            }
-            let (addr, extra) = vcpu.decode_modrm_addr(ctx, modrm_start)?;
-            ctx.cursor = modrm_start + 1 + extra;
-
-            let offset_size = ctx.op_size;
-
-            // Read offset and selector from memory
-            let offset = vcpu.read_mem(addr, offset_size)?;
-            let selector = vcpu.mmu.read_u16(addr + offset_size as u64, &vcpu.sregs)?;
-            validate_far_selector(vcpu, selector)?;
-
-            // Load new CS:IP
-            vcpu.set_sreg(1, selector);
-            vcpu.regs.rip = offset;
+            // JMP FAR m16:16/m16:32/m16:64 (cold; far transfers are rare).
+            return group5_jmp_far(vcpu, ctx, modrm_start, modrm);
         }
         6 => {
-            // PUSH r/m16/32/64
-            let in_long_mode = (vcpu.sregs.efer & 0x400) != 0;
-            let in_64bit_mode = in_long_mode && vcpu.sregs.cs.l;
-            let op_size = if in_64bit_mode {
-                if ctx.operand_size_override {
-                    2
-                } else {
-                    8
-                }
-            } else {
-                let default_16bit = !vcpu.sregs.cs.db;
-                let is_16bit = default_16bit ^ ctx.operand_size_override;
-                if is_16bit {
-                    2
-                } else {
-                    4
-                }
-            };
-
-            let val = if modrm >> 6 == 3 {
-                vcpu.get_reg(rm, op_size)
-            } else {
-                let (addr, extra) = vcpu.decode_modrm_addr(ctx, modrm_start)?;
-                ctx.cursor = modrm_start + 1 + extra;
-                vcpu.read_mem(addr, op_size)?
-            };
-            match op_size {
-                2 => vcpu.push16(val as u16)?,
-                4 => vcpu.push32(val as u32)?,
-                8 => vcpu.push64(val)?,
-                _ => {
-                    return Err(Error::Emulator(format!(
-                        "invalid PUSH r/m op size: {}",
-                        op_size
-                    )))
-                }
-            }
-            vcpu.regs.rip += ctx.cursor as u64;
+            // PUSH r/m16/32/64 (cold; stack push pulls in mode/op-size logic).
+            return group5_push(vcpu, ctx, modrm_start, modrm, rm);
         }
         _ => {
             // 0xFF /7 is undefined - inject #UD exception

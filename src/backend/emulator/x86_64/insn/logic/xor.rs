@@ -26,6 +26,25 @@ pub fn xor_rm8_r8(vcpu: &mut X86_64Vcpu, ctx: &mut InsnContext) -> Result<Option
     Ok(None)
 }
 
+/// XOR r/m, r (0x31) memory-operand path (cold). Kept out-of-line so the
+/// register-direct hot path keeps a minimal stack frame.
+#[cold]
+#[inline(never)]
+fn xor_rm_r_mem(
+    vcpu: &mut X86_64Vcpu,
+    ctx: &mut InsnContext,
+    addr: u64,
+    src: u64,
+    op_size: u8,
+) -> Result<Option<VcpuExit>> {
+    let dst = vcpu.read_mem(addr, op_size)?;
+    let result = dst ^ src;
+    vcpu.write_mem(addr, result, op_size)?;
+    vcpu.set_lazy_logic(result, op_size);
+    vcpu.regs.rip += ctx.cursor as u64;
+    Ok(None)
+}
+
 /// XOR r/m, r (0x31)
 pub fn xor_rm_r(vcpu: &mut X86_64Vcpu, ctx: &mut InsnContext) -> Result<Option<VcpuExit>> {
     let op_size = ctx.op_size;
@@ -33,16 +52,13 @@ pub fn xor_rm_r(vcpu: &mut X86_64Vcpu, ctx: &mut InsnContext) -> Result<Option<V
     let src = vcpu.get_reg(reg, op_size);
 
     if is_memory {
-        let dst = vcpu.read_mem(addr, op_size)?;
-        let result = dst ^ src;
-        vcpu.write_mem(addr, result, op_size)?;
-        vcpu.set_lazy_logic(result, op_size);
-    } else {
-        let dst = vcpu.get_reg(rm, op_size);
-        let result = dst ^ src;
-        vcpu.set_reg(rm, result, op_size);
-        vcpu.set_lazy_logic(result, op_size);
+        return xor_rm_r_mem(vcpu, ctx, addr, src, op_size);
     }
+
+    let dst = vcpu.get_reg(rm, op_size);
+    let result = dst ^ src;
+    vcpu.set_reg(rm, result, op_size);
+    vcpu.set_lazy_logic(result, op_size);
     vcpu.regs.rip += ctx.cursor as u64;
     Ok(None)
 }
