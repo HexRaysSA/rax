@@ -268,6 +268,11 @@ fn compare(label: &str, insn: u32, input: &VState, oracle: &VOutCase, ms: &mut V
     if rax.fcsr != oracle.st.fcsr {
         d.push(format!("fcsr: rax={:#x} hw={:#x}", rax.fcsr, oracle.st.fcsr));
     }
+    for i in 0..32usize {
+        if rax.f[i] != oracle.st.f[i] {
+            d.push(format!("f{i}: rax={:#x} hw={:#x}", rax.f[i], oracle.st.f[i]));
+        }
+    }
     for r in 0..32usize {
         if rax.vreg_bytes(r) != oracle.st.vreg_bytes(r) {
             d.push(format!(
@@ -765,6 +770,39 @@ fn diff_v_fp_redux() {
                         stm.v[1] = rng.next();
                         batch.push((format!("{name}.vs.m"), op_iv(f6, 0, vs2, vs1, 0b001, vd), stm));
                     }
+                }
+            }
+        }
+    }
+    run_batch(&batch);
+}
+
+#[test]
+fn diff_v_scalar_move() {
+    let mut rng = Rng::new(0x7EC_760);
+    let mut batch = Vec::new();
+    let fpool: [u32; 5] = [0, 1, 8, 15, 20];
+    for sew_log2 in 0..4u32 {
+        let eb = 1usize << sew_log2;
+        let vmax = vlmax(sew_log2);
+        for vl in [vmax, (vmax / 2).max(1), 0] {
+            for _ in 0..8 {
+                let vd = VPOOL[(rng.next() % 6) as usize];
+                let vs2 = VPOOL[(rng.next() % 6) as usize];
+                let xr = XPOOL[(rng.next() % 5) as usize];
+                let fr = fpool[(rng.next() % 5) as usize];
+                let mut st = rand_vstate(&mut rng, sew_log2, vl);
+                fp_setup(&mut st, &mut rng, eb.max(2));
+                // vmv.x.s rd, vs2  (funct3=010, vs1=0); dest is integer reg `xr`.
+                batch.push(("vmv.x.s".into(), op_iv(0b010000, 1, vs2, 0, 0b010, xr), st));
+                // vmv.s.x vd, rs1  (funct3=110, vs2=0); source integer reg `xr`.
+                batch.push(("vmv.s.x".into(), op_iv(0b010000, 1, 0, xr, 0b110, vd), st));
+                // FP moves valid only for SEW in {16,32,64}.
+                if sew_log2 >= 1 {
+                    // vfmv.f.s fd, vs2  (funct3=001, vs1=0); dest f reg `fr`.
+                    batch.push(("vfmv.f.s".into(), op_iv(0b010000, 1, vs2, 0, 0b001, fr), st));
+                    // vfmv.s.f vd, fs1 (funct3=101, vs2=0); source f reg `fr`.
+                    batch.push(("vfmv.s.f".into(), op_iv(0b010000, 1, 0, fr, 0b101, vd), st));
                 }
             }
         }

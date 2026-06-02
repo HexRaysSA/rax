@@ -369,6 +369,10 @@ impl Op {
             Vfredosum => "vfredosum",
             Vfredmin => "vfredmin",
             Vfredmax => "vfredmax",
+            VmvXS => "vmv.x.s",
+            VmvSX => "vmv.s.x",
+            VfmvFS => "vfmv.f.s",
+            VfmvSF => "vfmv.s.f",
             Illegal => "illegal",
         }
     }

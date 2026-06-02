@@ -404,6 +404,11 @@ pub enum Op {
     Vfredosum,
     Vfredmin,
     Vfredmax,
+    // ---- V (scalar element moves: lane 0 <-> x/f register) ----
+    VmvXS,
+    VmvSX,
+    VfmvFS,
+    VfmvSF,
     // ---- sentinel ----
     Illegal,
 }
@@ -696,6 +701,9 @@ fn decode_vector(w: u32) -> Insn {
             0b000101 if f3 == 0b010 => Op::Vredmin,
             0b000110 if f3 == 0b010 => Op::Vredmaxu,
             0b000111 if f3 == 0b010 => Op::Vredmax,
+            // Scalar element moves (VWXUNARY0 / VRXUNARY0), funct6 = 010000.
+            0b010000 if f3 == 0b010 && (w >> 15) & 0x1f == 0 => Op::VmvXS,
+            0b010000 if f3 == 0b110 && (w >> 20) & 0x1f == 0 => Op::VmvSX,
             _ => return Insn::illegal(w, 4),
         };
         return base(op, w);
@@ -736,6 +744,9 @@ fn decode_vector(w: u32) -> Insn {
             0b000011 if !vf => Op::Vfredosum,
             0b000101 if !vf => Op::Vfredmin,
             0b000111 if !vf => Op::Vfredmax,
+            // FP scalar element moves (VWFUNARY0 / VRFUNARY0), funct6 = 010000.
+            0b010000 if !vf && vs1 == 0 => Op::VfmvFS,
+            0b010000 if vf && (w >> 20) & 0x1f == 0 => Op::VfmvSF,
             0b010011 if !vf && vs1 == 0 => Op::Vfsqrt,
             _ => return Insn::illegal(w, 4),
         };
