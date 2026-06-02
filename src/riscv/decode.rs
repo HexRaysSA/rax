@@ -453,6 +453,11 @@ pub enum Op {
     Vsadd,
     Vssubu,
     Vssub,
+    // ---- V (averaging add/subtract) ----
+    Vaaddu,
+    Vaadd,
+    Vasubu,
+    Vasub,
     // ---- sentinel ----
     Illegal,
 }
@@ -775,6 +780,11 @@ fn decode_vector(w: u32) -> Insn {
                 0b10001 => Op::Vid,
                 _ => return Insn::illegal(w, 4),
             },
+            // Averaging add/subtract (OPMVV/OPMVX).
+            0b001000 => Op::Vaaddu,
+            0b001001 => Op::Vaadd,
+            0b001010 => Op::Vasubu,
+            0b001011 => Op::Vasub,
             // Slide-by-one (OPMVX form, funct3 == 0b110).
             0b001110 if f3 == 0b110 => Op::Vslide1up,
             0b001111 if f3 == 0b110 => Op::Vslide1down,

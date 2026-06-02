@@ -762,7 +762,8 @@ impl RiscVCpu {
             | Op::Vslideup | Op::Vslidedown | Op::Vslide1up | Op::Vslide1down
             | Op::Vfslide1up | Op::Vfslide1down | Op::Vrgather | Op::Vrgatherei16
             | Op::Vcompress | Op::Vadc | Op::Vmadc | Op::Vsbc | Op::Vmsbc | Op::Vsaddu
-            | Op::Vsadd | Op::Vssubu | Op::Vssub => self.exec_vector(insn)?,
+            | Op::Vsadd | Op::Vssubu | Op::Vssub | Op::Vaaddu | Op::Vaadd | Op::Vasubu
+            | Op::Vasub => self.exec_vector(insn)?,
 
             Op::Illegal => return Err(Trap::illegal(insn.raw)),
 
@@ -1755,6 +1756,42 @@ impl RiscVCpu {
                     }
                     let v = if e + 1 < vl { self.velem(vs2, e + 1, eb) } else { scalar };
                     self.set_velem(vd, e, eb, v & mask);
+                }
+            }
+            Op::Vaaddu | Op::Vaadd | Op::Vasubu | Op::Vasub => {
+                // Averaging add/subtract: (a +/- b) >> 1, rounded per vxrm.
+                let eb = self.sew_bytes();
+                let mask = Self::sew_mask(eb);
+                let bits = (eb * 8) as u32;
+                let m2: u128 = if bits >= 64 { u128::MAX } else { (1u128 << (2 * bits)) - 1 };
+                let vxrm = self.vxrm;
+                let is_vv = insn.funct3 == 0b010;
+                let scalar = self.x(insn.rs1) & mask;
+                for e in vstart..vl {
+                    if !vm && !self.vmask_bit(e) {
+                        continue;
+                    }
+                    let a = self.velem(vs2, e, eb);
+                    let b = if is_vv { self.velem(insn.rs1, e, eb) } else { scalar };
+                    let res = match insn.op {
+                        Op::Vaaddu => {
+                            let v = a as u128 + b as u128;
+                            ((v >> 1) + round_incr(v, 1, vxrm)) as u64
+                        }
+                        Op::Vasubu => {
+                            let v = (a as u128).wrapping_sub(b as u128) & m2;
+                            ((v >> 1) + round_incr(v, 1, vxrm)) as u64
+                        }
+                        Op::Vaadd => {
+                            let v = sext_sew(a, eb) as i128 + sext_sew(b, eb) as i128;
+                            ((v >> 1) + round_incr(v as u128, 1, vxrm) as i128) as u64
+                        }
+                        _ => {
+                            let v = sext_sew(a, eb) as i128 - sext_sew(b, eb) as i128;
+                            ((v >> 1) + round_incr(v as u128, 1, vxrm) as i128) as u64
+                        }
+                    };
+                    self.set_velem(vd, e, eb, res & mask);
                 }
             }
             Op::Vsaddu | Op::Vsadd | Op::Vssubu | Op::Vssub => {
@@ -2797,6 +2834,24 @@ fn sext_sew(val: u64, eb: usize) -> i64 {
         val as i64
     } else {
         ((val << shift) as i64) >> shift
+    }
+}
+
+/// Fixed-point rounding increment for a right shift by `d`, per `vxrm`
+/// (0=rnu, 1=rne, 2=rdn, 3=rod). `bits` are the low bits of the value being
+/// shifted (sign is irrelevant — only the discarded low bits matter).
+#[inline]
+fn round_incr(bits: u128, d: u32, vxrm: u64) -> u128 {
+    if d == 0 {
+        return 0;
+    }
+    let bit = |i: u32| (bits >> i) & 1;
+    let lown = |n: u32| bits & ((1u128 << n) - 1) != 0;
+    match vxrm {
+        0 => bit(d - 1),                                                    // round-to-nearest-up
+        1 => bit(d - 1) & (bit(d) | if d >= 2 && lown(d - 1) { 1 } else { 0 }), // round-to-nearest-even
+        2 => 0,                                                             // round-down (truncate)
+        _ => (1 - bit(d)) & if lown(d) { 1 } else { 0 },                    // round-to-odd
     }
 }
 

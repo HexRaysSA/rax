@@ -1158,6 +1158,48 @@ fn diff_v_satadd() {
 }
 
 #[test]
+fn diff_v_avg() {
+    let mut rng = Rng::new(0x7EC_7F0);
+    let mut batch = Vec::new();
+    let ops: &[(&str, u32)] = &[
+        ("vaaddu", 0b001000),
+        ("vaadd", 0b001001),
+        ("vasubu", 0b001010),
+        ("vasub", 0b001011),
+    ];
+    for sew_log2 in 0..4u32 {
+        let vmax = vlmax(sew_log2);
+        for vl in [vmax, (vmax / 2).max(1)] {
+            for vxrm in 0..4u64 {
+                for &(name, f6) in ops {
+                    for k in 0..4 {
+                        let vd = VPOOL[(rng.next() % 6) as usize];
+                        let vs2 = VPOOL[(rng.next() % 6) as usize];
+                        let vs1 = VPOOL[(rng.next() % 6) as usize];
+                        let rs1 = XPOOL[(rng.next() % 5) as usize];
+                        let mut st = rand_vstate(&mut rng, sew_log2, vl);
+                        st.vcsr = vxrm << 1; // vxrm in [2:1], vxsat = 0
+                        batch.push((format!("{name}.vv"), op_iv(f6, 1, vs2, vs1, 0b010, vd), st));
+                        batch.push((format!("{name}.vx"), op_iv(f6, 1, vs2, rs1, 0b110, vd), st));
+                        if vd != 0 && k % 2 == 0 {
+                            let mut stm = st;
+                            stm.v[0] = rng.next();
+                            stm.v[1] = rng.next();
+                            batch.push((
+                                format!("{name}.vv.m"),
+                                op_iv(f6, 0, vs2, vs1, 0b010, vd),
+                                stm,
+                            ));
+                        }
+                    }
+                }
+            }
+        }
+    }
+    run_batch(&batch);
+}
+
+#[test]
 fn diff_v_loadstore() {
     let mut rng = Rng::new(0x7EC_705);
     let mut batch = Vec::new();
