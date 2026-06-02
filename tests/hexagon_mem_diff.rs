@@ -790,6 +790,18 @@ fn diff_mem_store_pr() {
     });
 }
 
+#[test]
+fn diff_mem_dczeroa() {
+    // dczeroa(Rs) zeroes the 32-byte cache line at Rs & ~31. Point Rs inside the
+    // (non-zero-seeded) arena and confirm the same 32 bytes are zeroed on both.
+    run_custom("dczeroa", &[("dczeroa", "{ dczeroa(r4) }")], 8, 0x7d20, |rng, arena, st, ab| {
+        st[4] = arena + BASE_OFF; // 32-aligned base well inside the arena
+        for b in ab.iter_mut() {
+            *b = (rng.next() | 1) as u8; // non-zero so the zeroed line is observable
+        }
+    });
+}
+
 /// Bit-reverse the low 16 bits of `v` (matches `fbrev`/`fEA_BREVR`).
 fn brev16(v: u32) -> u32 {
     let low = (v & 0xffff) as u16;

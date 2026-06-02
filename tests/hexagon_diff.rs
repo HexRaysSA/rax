@@ -600,6 +600,78 @@ fn diff_misc_noop() {
 }
 
 #[test]
+fn diff_sa1_addrx() {
+    // SA1_addrx is a duplex A-slot sub-insn (Rx = add(Rx,Rs)); pairing a
+    // register-add with a compatible sub-insn makes llvm-mc emit the duplex.
+    let cases = vec![
+        ("addrx_tfr".to_string(), "{ r0 = add(r0,r1); r2 = r3 }".to_string()),
+        ("addrx_inc".to_string(), "{ r4 = add(r4,r5); r6 = add(r6,#1) }".to_string()),
+        ("addrx_combzr".to_string(), "{ r16 = add(r16,r17); r18 = r19 }".to_string()),
+    ];
+    run_family("sa1_addrx", cases, 20, 0x5a1a);
+}
+
+#[test]
+fn diff_tfr_cpair() {
+    // Control-register PAIR transfers: tfrpcp (Cdd=Rss) writes sa0/lc0 from a
+    // GPR pair; tfrcpp (Rdd=Css) reads sa0/lc0 into a GPR pair. The scalar
+    // run_family compares only GPRs/pred/USR, so verify the control-register
+    // halves directly here against the oracle (which loads + captures sa0/lc0).
+    let oracle = match oracle_path() {
+        Some(p) => p,
+        None => {
+            eprintln!("[hexagon_diff] tfr_cpair: toolchain unavailable -> skipping");
+            return;
+        }
+    };
+    let wp = match assemble_packets(&["{ c1:0 = r3:2 }".to_string(), "{ r5:4 = c1:0 }".to_string()]) {
+        Some(w) => w,
+        None => {
+            eprintln!("[hexagon_diff] tfr_cpair: assembly failed -> skipping");
+            return;
+        }
+    };
+    let (pcp, cpp) = (wp[0].clone(), wp[1].clone());
+    let mut rng = Rng::new(0xc0fe);
+    let mut mism = 0;
+    for _ in 0..40 {
+        // tfrpcp: seed r2/r3, check c0(sa0)/c1(lc0) written.
+        let mut st = HexState::zeroed();
+        for i in 0..NREG {
+            st.w[i] = rng.interesting32();
+        }
+        let hw = match run_oracle(&oracle, std::slice::from_ref(&(pcp.clone(), st.clone()))) {
+            Some(o) => o[0].clone(),
+            None => return,
+        };
+        let rx = run_rax(&pcp, &st).expect("rax tfrpcp");
+        if rx.w[I_SA0] != hw.w[I_SA0] || rx.w[I_LC0] != hw.w[I_LC0] {
+            eprintln!("tfrpcp: rax sa0={:#x} lc0={:#x} hw sa0={:#x} lc0={:#x}",
+                rx.w[I_SA0], rx.w[I_LC0], hw.w[I_SA0], hw.w[I_LC0]);
+            mism += 1;
+        }
+        // tfrcpp: seed sa0/lc0, check r4/r5 read them.
+        let mut st2 = HexState::zeroed();
+        for i in 0..NREG {
+            st2.w[i] = rng.interesting32();
+        }
+        st2.w[I_SA0] = rng.interesting32();
+        st2.w[I_LC0] = rng.interesting32();
+        let hw2 = match run_oracle(&oracle, std::slice::from_ref(&(cpp.clone(), st2.clone()))) {
+            Some(o) => o[0].clone(),
+            None => return,
+        };
+        let rx2 = run_rax(&cpp, &st2).expect("rax tfrcpp");
+        if rx2.w[4] != hw2.w[4] || rx2.w[5] != hw2.w[5] {
+            eprintln!("tfrcpp: rax r4={:#x} r5={:#x} hw r4={:#x} r5={:#x}",
+                rx2.w[4], rx2.w[5], hw2.w[4], hw2.w[5]);
+            mism += 1;
+        }
+    }
+    assert_eq!(mism, 0, "tfr_cpair: {mism} control-register-pair divergences vs oracle");
+}
+
+#[test]
 fn diff_alu_imm() {
     let cases = vec![
         ("addi".to_string(), "{ r0 = add(r1,#10) }".to_string()),

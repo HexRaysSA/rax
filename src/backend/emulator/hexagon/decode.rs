@@ -400,6 +400,20 @@ pub enum DecodedInsn {
         dst: u8,
         src: u8,
     },
+    /// `Rdd = Css`: read a control-register PAIR into a GPR pair (A4_tfrcpp).
+    TfrCrRPair {
+        dst: u8,
+        src: u8,
+    },
+    /// `Cdd = Rss`: write a GPR pair into a control-register PAIR (A4_tfrpcp).
+    TfrRrCrPair {
+        dst: u8,
+        src: u8,
+    },
+    /// `dczeroa(Rs)`: zero the 32-byte cache line at `Rs & !31` (Y2_dczeroa).
+    DcZero {
+        base: u8,
+    },
     LoopStartReg {
         loop_id: u8,
         start_offset: i32,
@@ -2524,6 +2538,20 @@ fn decode_main(decoded: &DecodedOp, word: u32, immext: Option<u32>) -> (DecodedI
             let src = req!(field_u8(decoded, b's'));
             (DecodedInsn::TfrRrCr { dst, src }, false)
         }
+        Opcode::A4_tfrcpp => {
+            let dst = req!(field_u8(decoded, b'd'));
+            let src = req!(field_u8(decoded, b's'));
+            (DecodedInsn::TfrCrRPair { dst, src }, false)
+        }
+        Opcode::A4_tfrpcp => {
+            let dst = req!(field_u8(decoded, b'd'));
+            let src = req!(field_u8(decoded, b's'));
+            (DecodedInsn::TfrRrCrPair { dst, src }, false)
+        }
+        Opcode::Y2_dczeroa => {
+            let base = req!(field_u8(decoded, b's'));
+            (DecodedInsn::DcZero { base }, false)
+        }
         Opcode::M2_mpyi => {
             let dst = req!(field_u8(decoded, b'd'));
             let src1 = req!(field_u8(decoded, b's'));
@@ -4341,6 +4369,12 @@ fn decode_subinsn(sub: u16, class: EncClass, isa: HexagonIsa) -> Option<DecodedS
             let dst = subreg(field_u8(&decoded, b'd')?);
             let src = subreg(field_u8(&decoded, b's')?);
             DecodedInsn::AndImm { dst, src, imm: 1 }
+        }
+        Opcode::SA1_addrx => {
+            // Rx = add(Rx, Rs)  (read-modify GPR; fields x=Rx, s=Rs).
+            let rx = subreg(field_u8(&decoded, b'x')?);
+            let rs = subreg(field_u8(&decoded, b's')?);
+            DecodedInsn::Add { dst: rx, src1: rx, src2: rs }
         }
         Opcode::SA1_sxtb => {
             let dst = subreg(field_u8(&decoded, b'd')?);

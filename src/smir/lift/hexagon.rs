@@ -1028,6 +1028,18 @@ impl HexagonLifter {
                 ControlFlow::Fallthrough
             }
 
+            // Control-register PAIR transfers and the dczeroa cache-line zero are
+            // handled by the interpreter (the JIT path defers to it).
+            DecodedInsn::TfrCrRPair { .. } => {
+                return Err(LiftError::Unsupported { addr, mnemonic: "tfrcpp".to_string() });
+            }
+            DecodedInsn::TfrRrCrPair { .. } => {
+                return Err(LiftError::Unsupported { addr, mnemonic: "tfrpcp".to_string() });
+            }
+            DecodedInsn::DcZero { .. } => {
+                return Err(LiftError::Unsupported { addr, mnemonic: "dczeroa".to_string() });
+            }
+
             // ================================================================
             // Loop Setup
             // ================================================================

@@ -1406,6 +1406,25 @@ impl HexagonVcpu {
                 let val = self.regs.r[src as usize];
                 self.regs.set_control(dst as usize, val);
             }
+            DecodedInsn::TfrCrRPair { dst, src } => {
+                // Rdd = Css: read the even/odd control-register pair into a GPR pair.
+                new_r[dst as usize] = Some(self.regs.control(src as usize));
+                new_r[dst as usize + 1] = Some(self.regs.control(src as usize + 1));
+            }
+            DecodedInsn::TfrRrCrPair { dst, src } => {
+                // Cdd = Rss: write a GPR pair into the control-register pair.
+                let lo = self.regs.r[src as usize];
+                let hi = self.regs.r[src as usize + 1];
+                self.regs.set_control(dst as usize, lo);
+                self.regs.set_control(dst as usize + 1, hi);
+            }
+            DecodedInsn::DcZero { base } => {
+                // Zero the 32-byte cache line containing Rs (aligned down to 32).
+                let ea = self.regs.r[base as usize] & !31;
+                self.mem
+                    .write_slice(&[0u8; 32], GuestAddress(ea as u64))
+                    .map_err(|e| Error::Emulator(format!("dczeroa write: {e}")))?;
+            }
             DecodedInsn::LoopStartReg {
                 loop_id,
                 start_offset,
