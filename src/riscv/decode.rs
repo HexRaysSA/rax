@@ -363,6 +363,25 @@ pub enum Op {
     Vdiv,
     Vremu,
     Vrem,
+    // ---- V (OPFVV/OPFVF floating point) ----
+    Vfadd,
+    Vfsub,
+    Vfrsub,
+    Vfmul,
+    Vfdiv,
+    Vfrdiv,
+    Vfsqrt,
+    Vfmin,
+    Vfmax,
+    Vfsgnj,
+    Vfsgnjn,
+    Vfsgnjx,
+    Vmfeq,
+    Vmfne,
+    Vmflt,
+    Vmfle,
+    Vmfgt,
+    Vmfge,
     // ---- sentinel ----
     Illegal,
 }
@@ -646,6 +665,34 @@ fn decode_vector(w: u32) -> Insn {
             0b100001 => Op::Vdiv,
             0b100010 => Op::Vremu,
             0b100011 => Op::Vrem,
+            _ => return Insn::illegal(w, 4),
+        };
+        return base(op, w);
+    }
+    // OPFVV(001) / OPFVF(101): floating-point arithmetic.
+    if f3 == 0b001 || f3 == 0b101 {
+        let vf = f3 == 0b101;
+        let funct6 = w >> 26;
+        let vs1 = (w >> 15) & 0x1f;
+        let op = match funct6 {
+            0b000000 => Op::Vfadd,
+            0b000010 => Op::Vfsub,
+            0b100111 if vf => Op::Vfrsub,
+            0b100100 => Op::Vfmul,
+            0b100000 => Op::Vfdiv,
+            0b100001 if vf => Op::Vfrdiv,
+            0b000100 => Op::Vfmin,
+            0b000110 => Op::Vfmax,
+            0b001000 => Op::Vfsgnj,
+            0b001001 => Op::Vfsgnjn,
+            0b001010 => Op::Vfsgnjx,
+            0b011000 => Op::Vmfeq,
+            0b011001 => Op::Vmfle,
+            0b011011 => Op::Vmflt,
+            0b011100 => Op::Vmfne,
+            0b011101 if vf => Op::Vmfgt,
+            0b011111 if vf => Op::Vmfge,
+            0b010011 if !vf && vs1 == 0 => Op::Vfsqrt,
             _ => return Insn::illegal(w, 4),
         };
         return base(op, w);

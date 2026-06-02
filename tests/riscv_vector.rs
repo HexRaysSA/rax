@@ -265,6 +265,9 @@ fn compare(label: &str, insn: u32, input: &VState, oracle: &VOutCase, ms: &mut V
     if rax.vtype != oracle.st.vtype {
         d.push(format!("vtype: rax={:#x} hw={:#x}", rax.vtype, oracle.st.vtype));
     }
+    if rax.fcsr != oracle.st.fcsr {
+        d.push(format!("fcsr: rax={:#x} hw={:#x}", rax.fcsr, oracle.st.fcsr));
+    }
     for r in 0..32usize {
         if rax.vreg_bytes(r) != oracle.st.vreg_bytes(r) {
             d.push(format!(
@@ -529,6 +532,133 @@ fn diff_v_muldiv() {
                         batch.push((format!("{name}.vv.m"), op_iv(f6, 0, vs2, vs1, 0b010, vd), stm));
                     }
                 }
+            }
+        }
+    }
+    run_batch(&batch);
+}
+
+/// NaN-box every f register with a fresh random value of element width `eb`
+/// (so an `OPFVF` scalar read from any f register is well-formed), and inject a
+/// few "interesting" FP datums into the low v-register elements.
+fn fp_setup(st: &mut VState, rng: &mut Rng, eb: usize) {
+    for i in 0..32usize {
+        let r = rng.next();
+        st.f[i] = match eb {
+            2 => 0xffff_ffff_ffff_0000 | (r & 0xffff),
+            4 => 0xffff_ffff_0000_0000 | (r & 0xffff_ffff),
+            _ => r,
+        };
+    }
+    // Splice some canonical values (±0, ±inf, qNaN, small ints) across lanes so
+    // equality / ordering / special-case paths are exercised, not just randoms.
+    let specials: &[u64] = match eb {
+        2 => &[0x0000, 0x8000, 0x7c00, 0xfc00, 0x7e00, 0x3c00, 0xbc00, 0x0001],
+        4 => &[
+            0x0000_0000, 0x8000_0000, 0x7f80_0000, 0xff80_0000, 0x7fc0_0000, 0x3f80_0000,
+            0xbf80_0000, 0x0000_0001,
+        ],
+        _ => &[
+            0x0000_0000_0000_0000,
+            0x8000_0000_0000_0000,
+            0x7ff0_0000_0000_0000,
+            0xfff0_0000_0000_0000,
+            0x7ff8_0000_0000_0000,
+            0x3ff0_0000_0000_0000,
+            0xbff0_0000_0000_0000,
+            0x0000_0000_0000_0001,
+        ],
+    };
+    let per = 16 / eb; // elements per 128-bit register
+    for (k, &val) in specials.iter().enumerate() {
+        let elem = k % (per * 8); // spread over v0..v8 worth of lanes
+        let byte = elem * eb;
+        let widx = byte / 8;
+        let shift = (byte % 8) * 8;
+        if widx < 64 {
+            let m = if eb == 8 { u64::MAX } else { ((1u64 << (eb * 8)) - 1) << shift };
+            st.v[widx] = (st.v[widx] & !m) | ((val << shift) & m);
+        }
+    }
+}
+
+#[test]
+fn diff_v_fp() {
+    let mut rng = Rng::new(0x7EC_730);
+    let mut batch = Vec::new();
+    // (name, funct6, vf_only)
+    let bin_ops: &[(&str, u32, bool)] = &[
+        ("vfadd", 0b000000, false),
+        ("vfsub", 0b000010, false),
+        ("vfrsub", 0b100111, true),
+        ("vfmul", 0b100100, false),
+        ("vfdiv", 0b100000, false),
+        ("vfrdiv", 0b100001, true),
+        ("vfmin", 0b000100, false),
+        ("vfmax", 0b000110, false),
+        ("vfsgnj", 0b001000, false),
+        ("vfsgnjn", 0b001001, false),
+        ("vfsgnjx", 0b001010, false),
+    ];
+    let cmp_ops: &[(&str, u32, bool)] = &[
+        ("vmfeq", 0b011000, false),
+        ("vmfle", 0b011001, false),
+        ("vmflt", 0b011011, false),
+        ("vmfne", 0b011100, false),
+        ("vmfgt", 0b011101, true),
+        ("vmfge", 0b011111, true),
+    ];
+    let fpool: [u32; 5] = [0, 1, 8, 15, 20]; // f-register sources for vf forms
+    // FP element widths only: SEW 16 / 32 / 64.
+    for sew_log2 in 1..4u32 {
+        let eb = 1usize << sew_log2;
+        let vmax = vlmax(sew_log2);
+        for vl in [vmax, (vmax / 2).max(1)] {
+            for &(name, f6, vf_only) in bin_ops.iter() {
+                for k in 0..6 {
+                    let vd = VPOOL[(rng.next() % 6) as usize];
+                    let vs2 = VPOOL[(rng.next() % 6) as usize];
+                    let vs1 = VPOOL[(rng.next() % 6) as usize];
+                    let rs1 = fpool[(rng.next() % 5) as usize];
+                    let frm = rng.next() % 5;
+                    let mut st = rand_vstate(&mut rng, sew_log2, vl);
+                    st.fcsr = frm << 5;
+                    fp_setup(&mut st, &mut rng, eb);
+                    if !vf_only {
+                        batch.push((format!("{name}.vv"), op_iv(f6, 1, vs2, vs1, 0b001, vd), st));
+                    }
+                    batch.push((format!("{name}.vf"), op_iv(f6, 1, vs2, rs1, 0b101, vd), st));
+                    if !vf_only && vd != 0 && k % 2 == 0 {
+                        let mut stm = st;
+                        stm.v[0] = rng.next();
+                        stm.v[1] = rng.next();
+                        batch.push((format!("{name}.vv.m"), op_iv(f6, 0, vs2, vs1, 0b001, vd), stm));
+                    }
+                }
+            }
+            for &(name, f6, vf_only) in cmp_ops.iter() {
+                for _ in 0..6 {
+                    let vd = VPOOL[(rng.next() % 6) as usize];
+                    let vs2 = VPOOL[(rng.next() % 6) as usize];
+                    let vs1 = VPOOL[(rng.next() % 6) as usize];
+                    let rs1 = fpool[(rng.next() % 5) as usize];
+                    let mut st = rand_vstate(&mut rng, sew_log2, vl);
+                    fp_setup(&mut st, &mut rng, eb);
+                    if !vf_only {
+                        batch.push((format!("{name}.vv"), op_iv(f6, 1, vs2, vs1, 0b001, vd), st));
+                    }
+                    batch.push((format!("{name}.vf"), op_iv(f6, 1, vs2, rs1, 0b101, vd), st));
+                }
+            }
+            // vfsqrt.v (OPFVV unary, vs1 field = 0b00000, funct6 = 0b010011).
+            for _ in 0..6 {
+                let vd = VPOOL[(rng.next() % 6) as usize];
+                let vs2 = VPOOL[(rng.next() % 6) as usize];
+                let frm = rng.next() % 5;
+                let mut st = rand_vstate(&mut rng, sew_log2, vl);
+                st.fcsr = frm << 5;
+                fp_setup(&mut st, &mut rng, eb);
+                batch.push(("vfsqrt.v".into(), op_iv(0b010011, 1, vs2, 0, 0b001, vd), st));
             }
         }
     }

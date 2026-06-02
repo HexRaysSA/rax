@@ -735,7 +735,10 @@ impl RiscVCpu {
             | Op::Vminu | Op::Vmin | Op::Vmaxu | Op::Vmax | Op::Vsll | Op::Vsrl | Op::Vsra
             | Op::Vmerge | Op::Vmseq | Op::Vmsne | Op::Vmsltu | Op::Vmslt | Op::Vmsleu
             | Op::Vmsle | Op::Vmsgtu | Op::Vmsgt | Op::Vmul | Op::Vmulh | Op::Vmulhu
-            | Op::Vmulhsu | Op::Vdivu | Op::Vdiv | Op::Vremu | Op::Vrem => {
+            | Op::Vmulhsu | Op::Vdivu | Op::Vdiv | Op::Vremu | Op::Vrem | Op::Vfadd
+            | Op::Vfsub | Op::Vfrsub | Op::Vfmul | Op::Vfdiv | Op::Vfrdiv | Op::Vfsqrt
+            | Op::Vfmin | Op::Vfmax | Op::Vfsgnj | Op::Vfsgnjn | Op::Vfsgnjx | Op::Vmfeq
+            | Op::Vmfne | Op::Vmflt | Op::Vmfle | Op::Vmfgt | Op::Vmfge => {
                 self.exec_vector(insn)?
             }
 
@@ -1458,6 +1461,54 @@ impl RiscVCpu {
                     };
                     self.set_vmask_bit(vd, e, r);
                 }
+            }
+            Op::Vfadd | Op::Vfsub | Op::Vfrsub | Op::Vfmul | Op::Vfdiv | Op::Vfrdiv
+            | Op::Vfmin | Op::Vfmax | Op::Vfsgnj | Op::Vfsgnjn | Op::Vfsgnjx
+            | Op::Vfsqrt => {
+                let eb = self.sew_bytes();
+                let mask = Self::sew_mask(eb);
+                let rm = RoundingMode::from_bits(self.frm()).unwrap_or(RoundingMode::Rne);
+                let is_vv = insn.funct3 == 0b001; // OPFVV vs OPFVF
+                let scalar = match eb {
+                    2 => self.h(insn.rs1),
+                    4 => self.s32(insn.rs1),
+                    _ => self.f(insn.rs1),
+                };
+                let mut flags = 0u32;
+                for e in vstart..vl {
+                    if !vm && !self.vmask_bit(e) {
+                        continue;
+                    }
+                    let a = self.velem(vs2, e, eb);
+                    let r = if insn.op == Op::Vfsqrt {
+                        super::float::sf_sqrt(fmt_eb(eb), a, rm, &mut flags)
+                    } else {
+                        let b = if is_vv { self.velem(insn.rs1, e, eb) } else { scalar };
+                        vfp_bin(insn.op, eb, a, b, rm, &mut flags)
+                    };
+                    self.set_velem(vd, e, eb, r & mask);
+                }
+                self.accrue(flags);
+            }
+            Op::Vmfeq | Op::Vmfne | Op::Vmflt | Op::Vmfle | Op::Vmfgt | Op::Vmfge => {
+                let eb = self.sew_bytes();
+                let is_vv = insn.funct3 == 0b001;
+                let scalar = match eb {
+                    2 => self.h(insn.rs1),
+                    4 => self.s32(insn.rs1),
+                    _ => self.f(insn.rs1),
+                };
+                let mut flags = 0u32;
+                for e in vstart..vl {
+                    if !vm && !self.vmask_bit(e) {
+                        continue;
+                    }
+                    let a = self.velem(vs2, e, eb);
+                    let b = if is_vv { self.velem(insn.rs1, e, eb) } else { scalar };
+                    let r = vfp_cmp(insn.op, eb, a, b, &mut flags);
+                    self.set_vmask_bit(vd, e, r);
+                }
+                self.accrue(flags);
             }
             _ => return Err(Trap::illegal(insn.raw)),
         }
@@ -2274,6 +2325,96 @@ fn vdiv_sew(a: u64, b: u64, eb: usize, bits: u32, rem: bool) -> u64 {
         (sa % sb) as u64
     } else {
         (sa / sb) as u64
+    }
+}
+
+/// Soft-float format for a vector element width (2/4/8 bytes -> F16/F32/F64).
+#[inline]
+fn fmt_eb(eb: usize) -> super::float::Fmt {
+    match eb {
+        2 => super::float::F16,
+        4 => super::float::F32,
+        _ => super::float::F64,
+    }
+}
+
+/// Per-element vector floating-point binary op at element width `eb`.
+/// Reverse ops (`Vfrsub`/`Vfrdiv`) swap the operand order.
+fn vfp_bin(op: Op, eb: usize, a: u64, b: u64, rm: RoundingMode, flags: &mut u32) -> u64 {
+    use super::float as ff;
+    let (x, y) = match op {
+        Op::Vfrsub | Op::Vfrdiv => (b, a),
+        _ => (a, b),
+    };
+    match op {
+        Op::Vfadd => match eb {
+            2 => ff::sf_add(ff::F16, x, y, rm, flags),
+            4 => ff::add(f32::from_bits(x as u32), f32::from_bits(y as u32), rm, flags).to_bits()
+                as u64,
+            _ => ff::add(f64::from_bits(x), f64::from_bits(y), rm, flags).to_bits(),
+        },
+        Op::Vfsub | Op::Vfrsub => match eb {
+            2 => ff::sf_sub(ff::F16, x, y, rm, flags),
+            4 => ff::sub(f32::from_bits(x as u32), f32::from_bits(y as u32), rm, flags).to_bits()
+                as u64,
+            _ => ff::sub(f64::from_bits(x), f64::from_bits(y), rm, flags).to_bits(),
+        },
+        Op::Vfmul => ff::sf_mul(fmt_eb(eb), x, y, rm, flags),
+        Op::Vfdiv | Op::Vfrdiv => ff::sf_div(fmt_eb(eb), x, y, rm, flags),
+        Op::Vfmin => match eb {
+            2 => ff::fmin_h(x as u16, y as u16, flags) as u64,
+            4 => ff::fmin(f32::from_bits(x as u32), f32::from_bits(y as u32), flags).to_bits()
+                as u64,
+            _ => ff::fmin(f64::from_bits(x), f64::from_bits(y), flags).to_bits(),
+        },
+        Op::Vfmax => match eb {
+            2 => ff::fmax_h(x as u16, y as u16, flags) as u64,
+            4 => ff::fmax(f32::from_bits(x as u32), f32::from_bits(y as u32), flags).to_bits()
+                as u64,
+            _ => ff::fmax(f64::from_bits(x), f64::from_bits(y), flags).to_bits(),
+        },
+        Op::Vfsgnj | Op::Vfsgnjn | Op::Vfsgnjx => {
+            let sb = 1u64 << (eb * 8 - 1);
+            let sign = match op {
+                Op::Vfsgnj => y & sb,
+                Op::Vfsgnjn => !y & sb,
+                _ => (x ^ y) & sb,
+            };
+            (x & (sb - 1)) | sign
+        }
+        _ => unreachable!(),
+    }
+}
+
+/// Per-element vector floating-point compare; returns the mask bit.
+fn vfp_cmp(op: Op, eb: usize, a: u64, b: u64, flags: &mut u32) -> bool {
+    use super::float as ff;
+    // gt/ge reuse lt/le with swapped operands.
+    let (x, y) = match op {
+        Op::Vmfgt | Op::Vmfge => (b, a),
+        _ => (a, b),
+    };
+    let eq = |f: &mut u32| match eb {
+        2 => ff::feq_h(x as u16, y as u16, f),
+        4 => ff::feq(f32::from_bits(x as u32), f32::from_bits(y as u32), f),
+        _ => ff::feq(f64::from_bits(x), f64::from_bits(y), f),
+    };
+    let lt = |f: &mut u32| match eb {
+        2 => ff::flt_h(x as u16, y as u16, f),
+        4 => ff::flt(f32::from_bits(x as u32), f32::from_bits(y as u32), f),
+        _ => ff::flt(f64::from_bits(x), f64::from_bits(y), f),
+    };
+    let le = |f: &mut u32| match eb {
+        2 => ff::fle_h(x as u16, y as u16, f),
+        4 => ff::fle(f32::from_bits(x as u32), f32::from_bits(y as u32), f),
+        _ => ff::fle(f64::from_bits(x), f64::from_bits(y), f),
+    };
+    match op {
+        Op::Vmfeq => eq(flags),
+        Op::Vmfne => !eq(flags),
+        Op::Vmflt | Op::Vmfgt => lt(flags),
+        Op::Vmfle | Op::Vmfge => le(flags),
+        _ => unreachable!(),
     }
 }
 
