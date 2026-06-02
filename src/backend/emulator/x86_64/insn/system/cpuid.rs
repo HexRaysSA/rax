@@ -84,7 +84,14 @@ pub fn cpuid(vcpu: &mut X86_64Vcpu, ctx: &mut InsnContext) -> Result<Option<Vcpu
                 let ebx = (1u32 << 20) // SMAP
                         | (1u32 << 5); // AVX2
                 let ecx = 1u32 << 8; // GFNI (GF2P8MULB / GF2P8AFFINE[INV]QB)
-                let edx = 1u32 << 14; // SERIALIZE
+                // IBT (bit 20): advertise Indirect Branch Tracking so a FineIBT
+                // kernel resolves cfi_mode=CFI_FINEIBT (alternative.c:1745) and
+                // its apply_retpolines BUG_ON(cfi_mode != CFI_FINEIBT) passes.
+                // endbr64 is already a NOP here, so IBT enforcement is moot; the
+                // kernel only needs the feature bit + to set CR4.CET / the CET
+                // MSRs (which the emulator accepts).
+                let edx = (1u32 << 14) // SERIALIZE
+                        | (1u32 << 20); // IBT (CET indirect branch tracking)
                 (0, ebx, ecx, edx)
             } else {
                 (0, 0, 0, 0)
