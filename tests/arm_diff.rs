@@ -1717,6 +1717,32 @@ fn diff_sve_cmp() {
     run_batch("sve_cmp", batch);
 }
 
+/// SVE predicated shift by vector: `00000100 sz 010 opc 100 Pg Zm Zdn`. Zdn=z0,
+/// Zm=z1, Pg=p0.
+fn enc_sve_shift(sz: u32, opc: u32) -> u32 {
+    (0x04 << 24) | (sz << 22) | (0b010 << 19) | (opc << 16) | (0b100 << 13) | (RN << 5) | RD
+}
+
+#[test]
+fn diff_sve_shift_pred() {
+    let ops = [(0b000u32, "asr"), (0b001, "lsr"), (0b011, "lsl")];
+    let mut rng = Rng::new(0x1_002A);
+    let mut batch: Vec<(String, u32, ArmState)> = Vec::new();
+    for sz in 0..4u32 {
+        for (opc, name) in ops {
+            let insn = enc_sve_shift(sz, opc);
+            for _ in 0..14 {
+                let mut st = ArmState::zeroed();
+                st.set_vreg(0, rng.next(), rng.next()); // value
+                st.set_vreg(1, rng.next(), rng.next()); // shift amount (incl out-of-range)
+                st.set_preg(0, rng.next() as u16);
+                batch.push((format!("{name} sz{sz}"), insn, st));
+            }
+        }
+    }
+    run_batch("sve_shift_pred", batch);
+}
+
 /// SVE integer reduction: `00000100 sz opc6 001 Pg Zn Vd`. Zn=z1, Vd=v0, Pg=p0.
 fn enc_sve_reduce(sz: u32, opc6: u32) -> u32 {
     (0x04 << 24) | (sz << 22) | (opc6 << 16) | (0b001 << 13) | (RN << 5) | RD

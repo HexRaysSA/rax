@@ -4856,6 +4856,16 @@ impl AArch64Cpu {
                 self.exec_sve_int_reduce(insn, esize)
             }
 
+            // Predicated shift by vector (ASR/LSR/LSL Zdn, Pg/M, Zdn, Zm):
+            // bits[15:13]==100, bits[21:19]==010.
+            0b000
+                if (insn >> 13) & 0x7 == 0b100
+                    && (insn >> 19) & 0x7 == 0b010
+                    && (insn >> 21) & 1 == 0 =>
+            {
+                self.exec_sve_shift_pred(insn, zd, zn, pg, esize)
+            }
+
             // Integer predicated binary operations
             0b000 if (op1 & 0x2) == 0 && (op2 & 0x10) == 0 => {
                 self.exec_sve_int_pred(insn, zd, zn, zm, pg, esize)
@@ -4901,6 +4911,11 @@ impl AArch64Cpu {
         //   001: 000 SMAX, 001 UMAX, 010 SMIN, 011 UMIN, 100 SABD, 101 UABD
         //   010: 000 MUL,  010 SMULH,011 UMULH,100 SDIV, 101 UDIV, 110 SDIVR, 111 UDIVR
         //   011: 000 ORR,  001 EOR,  010 AND,  011 BIC
+        // The predicated ALU group has bits[15:13]==000; other values (shifts
+        // =100, etc.) are handled by dedicated dispatch arms.
+        if (insn >> 13) & 0x7 != 0b000 {
+            return Ok(CpuExit::Undefined(insn));
+        }
         let group = (insn >> 19) & 0x7;
         let opc = (insn >> 16) & 0x7;
         let pred = self.sve_p[pg];
@@ -4956,6 +4971,52 @@ impl AArch64Cpu {
                 (0b011, 0b011) => a & !b,
                 _ => return Ok(CpuExit::Undefined(insn)),
             } & mask;
+            write_elem(&mut dst, off, esize, r);
+        }
+        self.v[zd] = u128::from_le_bytes(dst);
+        Ok(CpuExit::Continue)
+    }
+
+    /// Execute SVE predicated shift by vector (destructive): Zdn = shift(Zdn,
+    /// Zm) per active element. opc=bits[18:16]: 000=ASR, 001=LSR, 011=LSL. The
+    /// shift amount is the (unsigned) Zm element; out-of-range gives 0 (LSR/LSL)
+    /// or a full arithmetic shift (ASR). Pg is byte-granular.
+    fn exec_sve_shift_pred(
+        &mut self,
+        insn: u32,
+        zd: usize,
+        zn: usize,
+        pg: usize,
+        esize: usize,
+    ) -> Result<CpuExit, ArmError> {
+        let opc = (insn >> 16) & 0x7;
+        let pred = self.sve_p[pg];
+        let elements = 16 / esize;
+        let bits = (esize * 8) as u32;
+        let mask = elem_mask(bits);
+        let a_reg = self.v[zd].to_le_bytes(); // Zdn (value)
+        let b_reg = self.v[zn].to_le_bytes(); // Zm (shift amount)
+        let mut dst = a_reg;
+        for e in 0..elements {
+            if (pred >> (e * esize)) & 1 == 0 {
+                continue;
+            }
+            let off = e * esize;
+            let a = read_elem(&a_reg, off, esize);
+            let sh = read_elem(&b_reg, off, esize);
+            let r = match opc {
+                0b000 => {
+                    let s = sh.min((bits - 1) as u64);
+                    (sext_elem(a, bits) >> s) as u64 & mask
+                }
+                0b001 => {
+                    if sh >= bits as u64 { 0 } else { (a >> sh) & mask }
+                }
+                0b011 => {
+                    if sh >= bits as u64 { 0 } else { (a << sh) & mask }
+                }
+                _ => return Ok(CpuExit::Undefined(insn)),
+            };
             write_elem(&mut dst, off, esize, r);
         }
         self.v[zd] = u128::from_le_bytes(dst);
