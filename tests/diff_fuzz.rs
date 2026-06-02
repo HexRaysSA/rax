@@ -2504,3 +2504,79 @@ fn fuzz_string_rep() {
     }
     h.finish("string_rep");
 }
+
+// ===========================================================================
+// GENERATOR: CMPXCHG / XADD (atomic read-modify-write) vs KVM
+// ===========================================================================
+//
+// CMPXCHG (0F B0/B1) compares the accumulator (AL/AX/EAX/RAX) with r/m: on
+// equal it stores the source into r/m and sets ZF; on not-equal it loads r/m
+// into the accumulator. XADD (0F C0/C1) sums r/m+reg into r/m and returns the
+// old r/m in reg. Both set ADD/CMP-style flags and have fiddly accumulator /
+// operand-aliasing behaviour — and were unfuzzed. Register-direct form keeps
+// the encoding simple; KVM is the oracle for the conditional update + flags.
+#[test]
+fn fuzz_cmpxchg_xadd() {
+    const CASES: usize = 500;
+    let mut h = Harness::new(0xC0FFEE_A70319CE);
+    let sizes = [Size::B8, Size::B16, Size::B32, Size::B64];
+
+    for _ in 0..CASES {
+        let size = *h.rng.pick(&sizes);
+        let is_xadd = h.rng.below(2) == 0;
+        let dst = pick_gpr(&mut h.rng); // r/m
+        let src = pick_gpr(&mut h.rng); // reg
+
+        let mut r = Registers::default();
+        let dval = h.rng.operand();
+        let sval = h.rng.operand();
+        set_reg(&mut r, dst, dval);
+        set_reg(&mut r, src, sval);
+        // For CMPXCHG, force the equal-case ~half the time by seeding RAX with
+        // the destination value (masked to size); else a random accumulator.
+        if !is_xadd {
+            if h.rng.below(2) == 0 {
+                r.rax = dval; // likely-equal path (ZF=1, store src)
+            } else {
+                r.rax = h.rng.operand();
+            }
+        }
+        let cf_in = h.rng.below(2) == 1;
+        if cf_in {
+            r.rflags |= flags::bits::CF;
+        }
+
+        let mut code = size_prefix(size);
+        if let Some(rex) = rex_byte(size, true) {
+            code.push(rex);
+        }
+        code.push(0x0F);
+        let opc = match (is_xadd, size == Size::B8) {
+            (false, true) => 0xB0,  // CMPXCHG r/m8, r8
+            (false, false) => 0xB1, // CMPXCHG r/m, r
+            (true, true) => 0xC0,   // XADD r/m8, r8
+            (true, false) => 0xC1,  // XADD r/m, r
+        };
+        code.push(opc);
+        code.push(modrm(0b11, src, dst)); // reg=src, rm=dst
+        code.push(HLT);
+
+        let op = if is_xadd { "xadd" } else { "cmpxchg" };
+        let inputs = format!(
+            "{}.{} {}, {}; dst={:#x} src={:#x} rax={:#x} cf_in={}",
+            op,
+            size.name(),
+            reg_name(dst),
+            reg_name(src),
+            dval,
+            sval,
+            r.rax,
+            cf_in
+        );
+        let opts = CompareOpts::default();
+        if !h.run_case("cmpxchg_xadd", &code, r, [0u8; 64], opts, inputs, &[]) {
+            break;
+        }
+    }
+    h.finish("cmpxchg_xadd");
+}

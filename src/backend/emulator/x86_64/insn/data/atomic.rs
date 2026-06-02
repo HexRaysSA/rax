@@ -31,8 +31,18 @@ pub fn xadd_rm8_r8(vcpu: &mut X86_64Vcpu, ctx: &mut InsnContext) -> Result<Optio
     } else {
         let dst = vcpu.get_reg8(rm, has_rex) as u8;
         let sum = dst.wrapping_add(src);
-        vcpu.set_reg8(rm, sum as u64, has_rex);
-        vcpu.set_reg8(reg, dst as u64, has_rex);
+        // XADD: TEMP = SRC + DEST; SRC = DEST; DEST = TEMP. When reg == rm refer
+        // to the same byte register, writing SRC = old DEST after DEST = sum
+        // would clobber the sum back to the old value, so only the DEST = sum
+        // write happens (matches hardware: the register ends up 2*old). The
+        // AH/AL-style alias (different byte positions of the same GPR) is fine
+        // since the two set_reg8 writes touch disjoint byte lanes.
+        if reg == rm {
+            vcpu.set_reg8(rm, sum as u64, has_rex);
+        } else {
+            vcpu.set_reg8(rm, sum as u64, has_rex);
+            vcpu.set_reg8(reg, dst as u64, has_rex);
+        }
         flags::update_flags_add(&mut vcpu.regs.rflags, dst as u64, src as u64, sum as u64, 1);
     }
     vcpu.clear_lazy_flags();
