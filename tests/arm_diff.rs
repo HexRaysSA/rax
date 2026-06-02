@@ -1616,6 +1616,13 @@ fn enc_sve_st1(msz: u32, size: u32, imm4: i32) -> u32 {
         | (0b111 << 13) | (RN << 5) | RD
 }
 
+/// SVE LD1R (load and replicate): `1000010 dtypeh 1 imm6 1 dtypel Pg Rn Zt`.
+/// Pg=p0, Rn=x1, Zt=z0.
+fn enc_ld1r(dtypeh: u32, dtypel: u32, imm6: u32) -> u32 {
+    (0b1000010 << 25) | (dtypeh << 23) | (1 << 22) | ((imm6 & 0x3F) << 16)
+        | (1 << 15) | (dtypel << 13) | (RN << 5) | RD
+}
+
 /// SVE LDR/STR whole-register fill/spill. `1000010110`(LDR)/`1110010110`(STR)
 /// imm9h `010`(Z)/`000`(P) imm9l Rn Zt/Pt. Rn=x1, Zt=z0, Pt=p0.
 fn enc_ldstr_z(store: bool, imm9: i32) -> u32 {
@@ -2363,6 +2370,25 @@ fn diff_sve_st1() {
         }
     }
     run_batch("sve_st1", batch);
+}
+
+#[test]
+fn diff_sve_ld1r() {
+    // Load-and-replicate: one extended memory element broadcast to active lanes.
+    let mut rng = Rng::new(0x3_5001);
+    let mut batch: Vec<(String, u32, ArmState)> = Vec::new();
+    for dtype in 0..16u32 {
+        let (dh, dl) = (dtype >> 2, dtype & 3);
+        for &imm6 in &[0u32, 1, 2, 3] {
+            let insn = enc_ld1r(dh, dl, imm6);
+            for _ in 0..6 {
+                let mut st = mem_input(&mut rng);
+                st.set_preg(0, rng.next() as u16);
+                batch.push((format!("ld1r dt{dtype} i{imm6}"), insn, st));
+            }
+        }
+    }
+    run_batch("sve_ld1r", batch);
 }
 
 #[test]

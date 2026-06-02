@@ -6666,6 +6666,42 @@ impl AArch64Cpu {
             return Ok(CpuExit::Continue);
         }
 
+        // LD1R (load and replicate): 1000010 dtypeh 1 imm6 1 dtypel Pg Rn Zt.
+        // Reads one element at base + imm6*mbytes, extends it to the element
+        // width and broadcasts it to every active lane (zeroing the inactive).
+        if insn >> 25 == 0b1000010 && (insn >> 22) & 1 == 1 && (insn >> 15) & 1 == 1 {
+            let dtype = (((insn >> 23) & 0x3) << 2) | ((insn >> 13) & 0x3);
+            let (esize, mbytes, signed) = sve_ld1_dtype(dtype);
+            let imm6 = (insn >> 16) & 0x3F; // unsigned
+            let elements = 16 / esize;
+            let addr = base + (imm6 as u64) * (mbytes as u64);
+            let any_active = (0..elements).any(|e| (pred >> (e * esize)) & 1 == 1);
+            let val = if any_active {
+                let pa = self.translate_address(addr, false, false)?;
+                let raw: u64 = match mbytes {
+                    1 => self.memory.read_u8(pa)? as u64,
+                    2 => self.memory.read_u16(pa)? as u64,
+                    4 => self.memory.read_u32(pa)? as u64,
+                    _ => self.memory.read_u64(pa)?,
+                };
+                if signed {
+                    (sext_elem(raw, (mbytes * 8) as u32) as u64) & elem_mask((esize * 8) as u32)
+                } else {
+                    raw
+                }
+            } else {
+                0
+            };
+            let mut dst = [0u8; 16];
+            for e in 0..elements {
+                if (pred >> (e * esize)) & 1 == 1 {
+                    write_elem(&mut dst, e * esize, esize, val);
+                }
+            }
+            self.v[zt] = u128::from_le_bytes(dst);
+            return Ok(CpuExit::Continue);
+        }
+
         // Contiguous LD1 (scalar + immediate): 1010010 dtype 0 imm4 101 Pg Rn Zt.
         if !is_store && insn >> 25 == 0b1010010 && b15_13 == 0b101 && (insn >> 20) & 1 == 0 {
             let dtype = (insn >> 21) & 0xF;
