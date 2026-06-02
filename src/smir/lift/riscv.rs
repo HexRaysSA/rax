@@ -250,6 +250,12 @@ impl RiscVLifter {
             0x0F => self.lift_fence(insn, addr, ctx),
             0x73 => self.lift_system(insn, addr, ctx),
             0x2F if self.extensions.a => self.lift_atomic(insn, addr, ctx),
+            // FP load/store and OP-FP. Only the fflags/rounding-free ops (moves,
+            // sign-inject, load/store) are lifted; arithmetic/convert/compare are
+            // gaps until SMIR FP tracks fflags + NaN-boxing + frm.
+            0x07 if self.extensions.f => self.lift_fp_ldst(insn, addr, ctx),
+            0x27 if self.extensions.f => self.lift_fp_ldst(insn, addr, ctx),
+            0x53 if self.extensions.f => self.lift_op_fp(insn, addr, ctx),
             _ => Err(LiftError::InvalidEncoding {
                 addr,
                 bytes: insn.to_le_bytes().to_vec(),
@@ -1513,6 +1519,153 @@ impl RiscVLifter {
                     addr,
                     mnemonic: format!("{:?}", d.op),
                 })
+            }
+        }
+        Ok((ops, ControlFlow::NextInsn))
+    }
+
+    /// FP load/store (FLW/FLD/FLH/FSW/FSD/FSH). Loads NaN-box narrower values.
+    /// Vector loads/stores (same opcodes) are gaps.
+    fn lift_fp_ldst(
+        &mut self,
+        insn: u32,
+        addr: GuestAddr,
+        ctx: &mut LiftContext,
+    ) -> Result<(Vec<SmirOp>, ControlFlow), LiftError> {
+        let xl = if self.xlen == 64 { RvXlen::Rv64 } else { RvXlen::Rv32 };
+        let d = rv_decode(insn, xl, &RvIsa::rv64gc());
+        let mut ops = Vec::new();
+        let mk = |ctx: &mut LiftContext, k: OpKind| SmirOp::new(ctx.next_op_id(), addr, k);
+        let base = self.get_x_reg(d.rs1, ctx);
+        let address = Address::BaseOffset { base, offset: d.imm, disp_size: DispSize::Auto };
+        // (load?, width, nan-box mask of the *upper* bits)
+        let (is_load, width, boxmask): (bool, MemWidth, i64) = match d.op {
+            RvOp::Flw => (true, MemWidth::B4, 0xffff_ffff_0000_0000u64 as i64),
+            RvOp::Fld => (true, MemWidth::B8, 0),
+            RvOp::Flh => (true, MemWidth::B2, 0xffff_ffff_ffff_0000u64 as i64),
+            RvOp::Fsw => (false, MemWidth::B4, 0),
+            RvOp::Fsd => (false, MemWidth::B8, 0),
+            RvOp::Fsh => (false, MemWidth::B2, 0),
+            _ => {
+                return Err(LiftError::Unsupported { addr, mnemonic: format!("{:?}", d.op) });
+            }
+        };
+        if is_load {
+            let fd = ctx.define_arch_reg(ArchReg::RiscV(RiscVReg::F(d.rd)));
+            if boxmask == 0 {
+                ops.push(mk(ctx, OpKind::Load { dst: fd, addr: address, width, sign: SignExtend::Zero }));
+            } else {
+                let t = ctx.alloc_vreg();
+                ops.push(mk(ctx, OpKind::Load { dst: t, addr: address, width, sign: SignExtend::Zero }));
+                ops.push(mk(ctx, OpKind::Or { dst: fd, src1: t, src2: SrcOperand::Imm(boxmask), width: OpWidth::W64, flags: FlagUpdate::None }));
+            }
+        } else {
+            let fs = ctx.get_arch_reg(ArchReg::RiscV(RiscVReg::F(d.rs2)));
+            ops.push(mk(ctx, OpKind::Store { src: fs, addr: address, width }));
+        }
+        Ok((ops, ControlFlow::NextInsn))
+    }
+
+    /// OP-FP (0x53): only the fflags/rounding-free ops — FP<->int bit moves
+    /// (FMV.*) and sign injection (FSGNJ/N/X). All arithmetic / convert /
+    /// compare / classify ops are gaps (need SMIR FP fflags support).
+    fn lift_op_fp(
+        &mut self,
+        insn: u32,
+        addr: GuestAddr,
+        ctx: &mut LiftContext,
+    ) -> Result<(Vec<SmirOp>, ControlFlow), LiftError> {
+        let xl = if self.xlen == 64 { RvXlen::Rv64 } else { RvXlen::Rv32 };
+        let d = rv_decode(insn, xl, &RvIsa::rv64gc());
+        let mut ops = Vec::new();
+        let mk = |ctx: &mut LiftContext, k: OpKind| SmirOp::new(ctx.next_op_id(), addr, k);
+        let w = OpWidth::W64;
+        let getf = |reg: u8, ctx: &mut LiftContext| ctx.get_arch_reg(ArchReg::RiscV(RiscVReg::F(reg)));
+
+        // Sign-injection helper: fd = nanbox | (fs1 & ~signbit) | sign(fs1, fs2).
+        // mode 0 = fsgnj (sign of fs2), 1 = fsgnjn (~sign of fs2), 2 = fsgnjx
+        // (sign fs1 ^ fs2).
+        let mut sgnj = |ctx: &mut LiftContext, ops: &mut Vec<SmirOp>, signbit: i64, boxmask: i64, mode: u8| {
+            let fs1 = getf(d.rs1, ctx);
+            let fs2 = getf(d.rs2, ctx);
+            let a = ctx.alloc_vreg();
+            ops.push(mk(ctx, OpKind::And { dst: a, src1: fs1, src2: SrcOperand::Imm(!signbit), width: w, flags: FlagUpdate::None }));
+            let sb = ctx.alloc_vreg();
+            match mode {
+                0 => ops.push(mk(ctx, OpKind::And { dst: sb, src1: fs2, src2: SrcOperand::Imm(signbit), width: w, flags: FlagUpdate::None })),
+                1 => {
+                    // ~fs2 & signbit  ==  (fs2 & signbit) ^ signbit
+                    let tmp = ctx.alloc_vreg();
+                    ops.push(mk(ctx, OpKind::And { dst: tmp, src1: fs2, src2: SrcOperand::Imm(signbit), width: w, flags: FlagUpdate::None }));
+                    ops.push(mk(ctx, OpKind::Xor { dst: sb, src1: tmp, src2: SrcOperand::Imm(signbit), width: w, flags: FlagUpdate::None }));
+                }
+                _ => {
+                    let x = ctx.alloc_vreg();
+                    ops.push(mk(ctx, OpKind::Xor { dst: x, src1: fs1, src2: SrcOperand::Reg(fs2), width: w, flags: FlagUpdate::None }));
+                    ops.push(mk(ctx, OpKind::And { dst: sb, src1: x, src2: SrcOperand::Imm(signbit), width: w, flags: FlagUpdate::None }));
+                }
+            }
+            let c = ctx.alloc_vreg();
+            ops.push(mk(ctx, OpKind::Or { dst: c, src1: a, src2: SrcOperand::Reg(sb), width: w, flags: FlagUpdate::None }));
+            let fd = ctx.define_arch_reg(ArchReg::RiscV(RiscVReg::F(d.rd)));
+            if boxmask == 0 {
+                ops.push(mk(ctx, OpKind::Mov { dst: fd, src: SrcOperand::Reg(c), width: w }));
+            } else {
+                ops.push(mk(ctx, OpKind::Or { dst: fd, src1: c, src2: SrcOperand::Imm(boxmask), width: w, flags: FlagUpdate::None }));
+            }
+        };
+        const SB_D: i64 = 0x8000_0000_0000_0000u64 as i64;
+        const BOX_S: i64 = 0xffff_ffff_0000_0000u64 as i64;
+        const BOX_H: i64 = 0xffff_ffff_ffff_0000u64 as i64;
+
+        match d.op {
+            // FP -> int bit moves.
+            RvOp::FmvXW => {
+                let fs = getf(d.rs1, ctx);
+                if let Some(dst) = self.def_x_reg(d.rd, ctx) {
+                    ops.push(mk(ctx, OpKind::SignExtend { dst, src: fs, from_width: OpWidth::W32, to_width: w }));
+                }
+            }
+            RvOp::FmvXH => {
+                let fs = getf(d.rs1, ctx);
+                if let Some(dst) = self.def_x_reg(d.rd, ctx) {
+                    ops.push(mk(ctx, OpKind::SignExtend { dst, src: fs, from_width: OpWidth::W16, to_width: w }));
+                }
+            }
+            RvOp::FmvXD => {
+                let fs = getf(d.rs1, ctx);
+                if let Some(dst) = self.def_x_reg(d.rd, ctx) {
+                    ops.push(mk(ctx, OpKind::Mov { dst, src: SrcOperand::Reg(fs), width: w }));
+                }
+            }
+            // int -> FP bit moves (NaN-box narrow values).
+            RvOp::FmvWX => {
+                let xs = self.get_x_reg(d.rs1, ctx);
+                let t = ctx.alloc_vreg();
+                ops.push(mk(ctx, OpKind::And { dst: t, src1: xs, src2: SrcOperand::Imm(0xffff_ffff), width: w, flags: FlagUpdate::None }));
+                let fd = ctx.define_arch_reg(ArchReg::RiscV(RiscVReg::F(d.rd)));
+                ops.push(mk(ctx, OpKind::Or { dst: fd, src1: t, src2: SrcOperand::Imm(BOX_S), width: w, flags: FlagUpdate::None }));
+            }
+            RvOp::FmvHX => {
+                let xs = self.get_x_reg(d.rs1, ctx);
+                let t = ctx.alloc_vreg();
+                ops.push(mk(ctx, OpKind::And { dst: t, src1: xs, src2: SrcOperand::Imm(0xffff), width: w, flags: FlagUpdate::None }));
+                let fd = ctx.define_arch_reg(ArchReg::RiscV(RiscVReg::F(d.rd)));
+                ops.push(mk(ctx, OpKind::Or { dst: fd, src1: t, src2: SrcOperand::Imm(BOX_H), width: w, flags: FlagUpdate::None }));
+            }
+            RvOp::FmvDX => {
+                let xs = self.get_x_reg(d.rs1, ctx);
+                let fd = ctx.define_arch_reg(ArchReg::RiscV(RiscVReg::F(d.rd)));
+                ops.push(mk(ctx, OpKind::Mov { dst: fd, src: SrcOperand::Reg(xs), width: w }));
+            }
+            // Sign injection. Only .D is lifted: .S/.H must canonicalize an
+            // improperly-NaN-boxed operand to the canonical NaN first, which
+            // needs extra unbox conditionals — gapped for now.
+            RvOp::FsgnjD => sgnj(ctx, &mut ops, SB_D, 0, 0),
+            RvOp::FsgnjnD => sgnj(ctx, &mut ops, SB_D, 0, 1),
+            RvOp::FsgnjxD => sgnj(ctx, &mut ops, SB_D, 0, 2),
+            _ => {
+                return Err(LiftError::Unsupported { addr, mnemonic: format!("{:?}", d.op) });
             }
         }
         Ok((ops, ControlFlow::NextInsn))
