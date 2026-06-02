@@ -1219,3 +1219,73 @@ fn diff_hvx_misc() {
         0xd1f5,
     );
 }
+
+// ==== hvx_carry (wave-3 workflow) ====
+// ==== hvx_carry (wave-3 workflow) ====
+// Carry-chain add/sub with a vector-predicate carry, unsigned-sat word subtract,
+// and the V62 set-predicate-v2 (vsetq2). The carry bits live in a Q predicate
+// (one 4-bit group per 32-bit word lane: carry-in is read at bit 4*i, carry-out
+// is written across all 4 bits of the group).
+//   * vaddcarry/vsubcarry use the SAME Qx for carry-in AND carry-out: q0 is
+//     seeded by an EARLIER vcmp packet (Hexagon does not forward Q intra-packet,
+//     so the op reads the OLD architectural Q), the op's Vd is captured directly,
+//     and the resulting q0 is muxed into v0 in a FINAL packet to verify carry-out.
+//   * vaddcarryo/vsubcarryo write the carry into a SEPARATE Qe with no carry-in;
+//     Vd is captured directly and the produced q1 is muxed into v0.
+//   * vaddcarrysat reads carry-in from Qs (seeded earlier) and writes no Q, so a
+//     single producer + op chain captures Vd.
+//   * vsubuwsat is a plain single-packet per-lane unsigned-saturating subtract.
+//   * vsetq2 produces q0, verified by muxing it into v0; r5 supplies the length.
+#[test]
+fn diff_hvx_carry() {
+    run_family(
+        "hvx_carry",
+        &[
+            // Vd captured directly; carry-out q0 fed into a separate v7 via vmux.
+            (
+                "vaddcarry_vd",
+                "{ q0 = vcmp.gt(v5.w,v6.w) }\n{ v0.w = vadd(v1.w,v2.w,q0):carry }",
+            ),
+            (
+                "vaddcarry_qout",
+                "{ q0 = vcmp.gt(v5.w,v6.w) }\n{ v3.w = vadd(v1.w,v2.w,q0):carry }\n{ v0 = vmux(q0,v8,v9) }",
+            ),
+            (
+                "vsubcarry_vd",
+                "{ q0 = vcmp.gt(v5.w,v6.w) }\n{ v0.w = vsub(v1.w,v2.w,q0):carry }",
+            ),
+            (
+                "vsubcarry_qout",
+                "{ q0 = vcmp.gt(v5.w,v6.w) }\n{ v3.w = vsub(v1.w,v2.w,q0):carry }\n{ v0 = vmux(q0,v8,v9) }",
+            ),
+            // carry-out only (separate Qe); Vd captured, then mux the produced q1.
+            (
+                "vaddcarryo_vd",
+                "{ v0.w,q1 = vadd(v1.w,v2.w):carry }",
+            ),
+            (
+                "vaddcarryo_qout",
+                "{ v3.w,q1 = vadd(v1.w,v2.w):carry }\n{ v0 = vmux(q1,v8,v9) }",
+            ),
+            (
+                "vsubcarryo_vd",
+                "{ v0.w,q1 = vsub(v1.w,v2.w):carry }",
+            ),
+            (
+                "vsubcarryo_qout",
+                "{ v3.w,q1 = vsub(v1.w,v2.w):carry }\n{ v0 = vmux(q1,v8,v9) }",
+            ),
+            // carry-in only, saturating; no Q written, capture Vd.
+            (
+                "vaddcarrysat",
+                "{ q0 = vcmp.gt(v5.w,v6.w) }\n{ v0.w = vadd(v1.w,v2.w,q0):carry:sat }",
+            ),
+            // plain single-packet unsigned-sat word subtract.
+            ("vsubuwsat", "{ v0.uw = vsub(v1.uw,v2.uw):sat }"),
+            // vsetq2: produce q0 from r5, verify by muxing into v0.
+            ("vsetq2", "{ q0 = vsetq2(r5) }\n{ v0 = vmux(q0,v8,v9) }"),
+        ],
+        16,
+        0xca77,
+    );
+}
