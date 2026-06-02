@@ -4773,6 +4773,33 @@ impl HexagonLifter {
                 });
             }
 
+            // ============================================================
+            // Wave 18: vmpa cross-PAIR byte multiply-add (vmpabusv/vmpabuuv).
+            // BOTH source operands are register PAIRS Vuu=(V[u],V[u+1]) and
+            // Vvv=(V[v],V[v+1]). The sem (hvx_mpys.rs) computes, per output
+            // halfword lane i (0..64), with narrow byte lanes 2i / 2i+1:
+            //   dst_lo[i] = Vuu0.b[2i]   * Vvv0.b[2i]   + Vuu1.b[2i]   * Vvv1.b[2i]
+            //   dst_hi[i] = Vuu0.b[2i+1] * Vvv0.b[2i+1] + Vuu1.b[2i+1] * Vvv1.b[2i+1]
+            // which is EXACTLY OpKind::VPairPairReduceMul with src=(Vuu0,Vuu1),
+            // src2=(Vvv0,Vvv1), narrow_elem=I8, out_elem=I16. No accumulate.
+            //   vmpabusv: Vuu.ub * Vvv.b  -> .h  (signed1=false, signed2=true)
+            //   vmpabuuv: Vuu.ub * Vvv.ub -> .h  (signed1=false, signed2=false)
+            Opcode::V6_vmpabusv | Opcode::V6_vmpabuuv => {
+                let signed2 = matches!(op, Opcode::V6_vmpabusv);
+                push_op!(OpKind::VPairPairReduceMul {
+                    dst_lo: self.hex_v(rd_n),
+                    dst_hi: self.hex_v(rd_n + 1),
+                    src_lo: self.hex_v(fld(b'u')),
+                    src_hi: self.hex_v(fld(b'u') + 1),
+                    src2_lo: self.hex_v(fld(b'v')),
+                    src2_hi: self.hex_v(fld(b'v') + 1),
+                    narrow_elem: VecElementType::I8,
+                    out_elem: VecElementType::I16,
+                    signed1: false,
+                    signed2,
+                });
+            }
+
             // Everything else: not implemented here.
             _ => return Err(unsupported()),
         }

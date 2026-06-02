@@ -1553,3 +1553,20 @@ fn lift_hvx_vmpa_scalar() {
         0x7034,
     );
 }
+
+// Wave 18: vmpa cross-PAIR byte multiply-add. BOTH operands are register
+// pairs (Vuu, Vvv); result is a halfword pair. Per lane i (0..64), narrow
+// byte lanes 2i / 2i+1 reduce-add across the two pair halves:
+//   vmpabusv: Vuu.ub * Vvv.b  -> .h   vmpabuuv: Vuu.ub * Vvv.ub -> .h
+#[test]
+fn lift_hvx_vmpa_pairpair() {
+    lift_family(
+        "hvx_vmpa_pairpair",
+        &[
+            ("vmpabusv", "{ v3:2.h = vmpa(v5:4.ub,v7:6.b) }"),
+            ("vmpabuuv", "{ v3:2.h = vmpa(v5:4.ub,v7:6.ub) }"),
+        ],
+        16,
+        0x18a4,
+    );
+}
