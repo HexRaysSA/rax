@@ -1616,6 +1616,21 @@ fn enc_sve_st1(msz: u32, size: u32, imm4: i32) -> u32 {
         | (0b111 << 13) | (RN << 5) | RD
 }
 
+/// SVE LDR/STR whole-register fill/spill. `1000010110`(LDR)/`1110010110`(STR)
+/// imm9h `010`(Z)/`000`(P) imm9l Rn Zt/Pt. Rn=x1, Zt=z0, Pt=p0.
+fn enc_ldstr_z(store: bool, imm9: i32) -> u32 {
+    let top: u32 = if store { 0b1110010110 } else { 0b1000010110 };
+    let h = ((imm9 >> 3) & 0x3F) as u32;
+    let l = (imm9 & 0x7) as u32;
+    (top << 22) | (h << 16) | (0b010 << 13) | (l << 10) | (RN << 5) | RD
+}
+fn enc_ldstr_p(store: bool, imm9: i32) -> u32 {
+    let top: u32 = if store { 0b1110010110 } else { 0b1000010110 };
+    let h = ((imm9 >> 3) & 0x3F) as u32;
+    let l = (imm9 & 0x7) as u32;
+    (top << 22) | (h << 16) | (0b000 << 13) | (l << 10) | (RN << 5)
+}
+
 /// SVE FP<->int convert: `01100101 opc ig1 opc2 int_U 101 Pg Zn Zd`. ig1: 011=
 /// FCVTZS/U (FP->int), 010=SCVTF/UCVTF (int->FP). int_U: 0=signed, 1=unsigned.
 fn enc_sve_cvt(opc: u32, ig1: u32, opc2: u32, u: u32) -> u32 {
@@ -2348,6 +2363,30 @@ fn diff_sve_st1() {
         }
     }
     run_batch("sve_st1", batch);
+}
+
+#[test]
+fn diff_sve_ldr_str() {
+    // Whole-register fill/spill of Z and P registers (unpredicated).
+    let mut rng = Rng::new(0x3_4001);
+    let mut batch: Vec<(String, u32, ArmState)> = Vec::new();
+    for &imm in &[0i32, 1, -1, 2] {
+        let variants = [
+            ("ldr_z", enc_ldstr_z(false, imm)),
+            ("str_z", enc_ldstr_z(true, imm)),
+            ("ldr_p", enc_ldstr_p(false, imm)),
+            ("str_p", enc_ldstr_p(true, imm)),
+        ];
+        for (label, insn) in variants {
+            for _ in 0..6 {
+                let mut st = mem_input(&mut rng);
+                st.set_vreg(0, rng.next(), rng.next()); // Zt source (str_z)
+                st.set_preg(0, rng.next() as u16); // Pt source (str_p)
+                batch.push((format!("{label} i{imm}"), insn, st));
+            }
+        }
+    }
+    run_batch("sve_ldr_str", batch);
 }
 
 #[test]

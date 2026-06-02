@@ -6624,6 +6624,47 @@ impl AArch64Cpu {
         };
         let is_store = (insn >> 30) & 1 == 1;
         let b15_13 = (insn >> 13) & 0x7;
+        // imm9 = SInt(imm9h:imm9l) for the whole-register LDR/STR forms.
+        let imm9 = (((((insn >> 16) & 0x3F) << 3) | ((insn >> 10) & 0x7)) as i32) << 23 >> 23;
+        let imm9 = imm9 as i64;
+
+        // LDR/STR whole-register fill/spill (unpredicated). Zt loads/stores the
+        // full VL/8 (=16) bytes; Pt loads/stores PL/8 (=2) bytes. bits[15:13]:
+        // 010 = vector register, 000 = predicate register. The immediate is
+        // scaled by the register's byte size.
+        if insn >> 22 == 0b1000010110 && b15_13 == 0b010 {
+            let addr = (base as i64 + imm9 * 16) as u64;
+            let mut bytes = [0u8; 16];
+            for (i, b) in bytes.iter_mut().enumerate() {
+                *b = self.memory.read_u8(self.translate_address(addr + i as u64, false, false)?)?;
+            }
+            self.v[zt] = u128::from_le_bytes(bytes);
+            return Ok(CpuExit::Continue);
+        }
+        if insn >> 22 == 0b1110010110 && b15_13 == 0b010 {
+            let addr = (base as i64 + imm9 * 16) as u64;
+            let bytes = self.v[zt].to_le_bytes();
+            for (i, b) in bytes.iter().enumerate() {
+                self.memory.write_u8(self.translate_address(addr + i as u64, true, false)?, *b)?;
+            }
+            return Ok(CpuExit::Continue);
+        }
+        if insn >> 22 == 0b1000010110 && b15_13 == 0b000 {
+            let pt = (insn & 0xF) as usize;
+            let addr = (base as i64 + imm9 * 2) as u64;
+            let b0 = self.memory.read_u8(self.translate_address(addr, false, false)?)? as u32;
+            let b1 = self.memory.read_u8(self.translate_address(addr + 1, false, false)?)? as u32;
+            self.sve_p[pt] = b0 | (b1 << 8);
+            return Ok(CpuExit::Continue);
+        }
+        if insn >> 22 == 0b1110010110 && b15_13 == 0b000 {
+            let pt = (insn & 0xF) as usize;
+            let addr = (base as i64 + imm9 * 2) as u64;
+            let p = self.sve_p[pt];
+            self.memory.write_u8(self.translate_address(addr, true, false)?, p as u8)?;
+            self.memory.write_u8(self.translate_address(addr + 1, true, false)?, (p >> 8) as u8)?;
+            return Ok(CpuExit::Continue);
+        }
 
         // Contiguous LD1 (scalar + immediate): 1010010 dtype 0 imm4 101 Pg Rn Zt.
         if !is_store && insn >> 25 == 0b1010010 && b15_13 == 0b101 && (insn >> 20) & 1 == 0 {
