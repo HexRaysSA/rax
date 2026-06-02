@@ -242,6 +242,14 @@ impl X86_64Vcpu {
             }
 
             match (vex_pp, opcode) {
+                // VMOVD/VMOVQ load - VEX.66.0F 6E /r (GPR/mem -> xmm)
+                (1, 0x6E) => return insn::simd::vmovd_load(self, ctx, vex_w),
+                // VMOVD/VMOVQ store - VEX.66.0F 7E /r (xmm -> GPR/mem)
+                (1, 0x7E) => return insn::simd::vmovd_store(self, ctx, vex_w),
+                // VMOVQ load - VEX.F3.0F 7E /r (xmm/m64 -> xmm, zero-extend)
+                (2, 0x7E) => return insn::simd::vmovq_load(self, ctx),
+                // VMOVQ store - VEX.66.0F D6 /r (xmm -> xmm/m64)
+                (1, 0xD6) => return insn::simd::vmovq_store(self, ctx),
                 // VMOVDQA load - VEX.66.0F 6F /r
                 (1, 0x6F) => return insn::simd::vmovdqa_load(self, ctx, vex_l),
                 // VMOVDQU load - VEX.F3.0F 6F /r
