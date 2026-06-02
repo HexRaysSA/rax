@@ -4874,6 +4874,17 @@ impl AArch64Cpu {
                 self.exec_sve_cpy(insn, esize, 2) // CPY SIMD scalar
             }
 
+            // LASTA/LASTB/CLASTA/CLASTB -> GPR: 0x05, bits[15:13]==101, bit21==1,
+            // bits[19:17]==000. bit20: 0=LAST, 1=CLAST; bit16: 0=A (after), 1=B.
+            0b000
+                if (insn >> 24) & 0xFF == 0b00000101
+                    && (insn >> 13) & 0x7 == 0b101
+                    && (insn >> 21) & 1 == 1
+                    && (insn >> 17) & 0x7 == 0b000 =>
+            {
+                self.exec_sve_lastx(insn, esize)
+            }
+
             // Integer reductions to a scalar (SADDV/UADDV/SMAXV/.../ANDV/ORV/
             // EORV): bit21==0, bits[15:13]==001.
             0b000 if (insn >> 21) & 1 == 0 && (insn >> 13) & 0x7 == 0b001 => {
@@ -5130,6 +5141,41 @@ impl AArch64Cpu {
         Ok(CpuExit::Continue)
     }
 
+    /// Execute SVE LASTA/LASTB/CLASTA/CLASTB to a GPR. `B` (bit16) takes the
+    /// last active element; `A` takes the element after it (wrapping). The
+    /// conditional (C) forms keep Rdn when no element is active.
+    fn exec_sve_lastx(&mut self, insn: u32, esize: usize) -> Result<CpuExit, ArmError> {
+        let before = (insn >> 16) & 1 == 1; // B = take the last active element
+        let conditional = (insn >> 20) & 1 == 1; // CLAST
+        let pg = ((insn >> 10) & 0x7) as usize;
+        let zn = ((insn >> 5) & 0x1F) as usize;
+        let rd = (insn & 0x1F) as u8;
+        let mask = self.sve_p[pg];
+        let n = 16 / esize;
+        let op = self.v[zn].to_le_bytes();
+        let em = elem_mask((esize * 8) as u32);
+        let mut last: i32 = -1;
+        for e in (0..n).rev() {
+            if (mask >> (e * esize)) & 1 == 1 {
+                last = e as i32;
+                break;
+            }
+        }
+        let res = if conditional && last < 0 {
+            self.get_x(rd) & em
+        } else {
+            let idx = if before {
+                if last < 0 { n - 1 } else { last as usize }
+            } else {
+                let i = (last + 1) as usize;
+                if i >= n { 0 } else { i }
+            };
+            read_elem(&op, idx * esize, esize) & em
+        };
+        self.set_x(rd, res);
+        Ok(CpuExit::Continue)
+    }
+
     /// Execute SVE CPY/MOV (predicated copy). `mode`: 0=immediate (Pg=4-bit,
     /// merging or zeroing), 1=scalar GPR (Rn, SP if 31, merging), 2=SIMD scalar
     /// Vn (merging). Pg is byte-granular.
@@ -5308,6 +5354,77 @@ impl AArch64Cpu {
                 write_elem(&mut dst, e * esize, esize, elem_val);
             }
             self.v[zd] = u128::from_le_bytes(dst);
+            return Ok(CpuExit::Continue);
+        }
+
+        // CNTP Rd, Pg, Pn.T: count active Pn elements under Pg -> 64-bit GPR.
+        // bits[21:16]==100000, bits[15:14]==10.
+        if (insn >> 24) & 0xFF == 0b00100101
+            && (insn >> 16) & 0x3F == 0b100000
+            && (insn >> 14) & 0x3 == 0b10
+        {
+            let pgl = ((insn >> 10) & 0xF) as usize;
+            let pn = ((insn >> 5) & 0xF) as usize;
+            let rd = (insn & 0x1F) as u8;
+            let (mask, op) = (self.sve_p[pgl], self.sve_p[pn]);
+            let mut sum = 0u64;
+            for e in 0..(16 / esize) {
+                let b = e * esize;
+                if (mask >> b) & 1 == 1 && (op >> b) & 1 == 1 {
+                    sum += 1;
+                }
+            }
+            self.set_x(rd, sum);
+            return Ok(CpuExit::Continue);
+        }
+
+        // INCP/DECP: increment/decrement a GPR (R form, bit11==1) or each Z
+        // element (Z form, bit11==0) by the active-element count of Pg.
+        // bits[21:17]==10110 (bit16: 0=INC, 1=DEC), bits[15:12]==1000.
+        if (insn >> 24) & 0xFF == 0b00100101
+            && (insn >> 17) & 0x1F == 0b10110
+            && (insn >> 12) & 0xF == 0b1000
+        {
+            let dec = (insn >> 16) & 1 == 1;
+            let is_z = (insn >> 11) & 1 == 0;
+            let pgl = ((insn >> 5) & 0xF) as usize;
+            let dn = (insn & 0x1F) as usize;
+            let mask = self.sve_p[pgl];
+            let mut count = 0u64;
+            for e in 0..(16 / esize) {
+                if (mask >> (e * esize)) & 1 == 1 {
+                    count += 1;
+                }
+            }
+            if is_z {
+                if esize == 1 {
+                    return Ok(CpuExit::Undefined(insn));
+                }
+                let a = self.v[dn].to_le_bytes();
+                let mut dst = a;
+                let em = elem_mask((esize * 8) as u32);
+                for e in 0..(16 / esize) {
+                    let off = e * esize;
+                    let v = read_elem(&a, off, esize);
+                    let r = if dec {
+                        v.wrapping_sub(count)
+                    } else {
+                        v.wrapping_add(count)
+                    } & em;
+                    write_elem(&mut dst, off, esize, r);
+                }
+                self.v[dn] = u128::from_le_bytes(dst);
+            } else {
+                let cur = self.get_x(dn as u8);
+                self.set_x(
+                    dn as u8,
+                    if dec {
+                        cur.wrapping_sub(count)
+                    } else {
+                        cur.wrapping_add(count)
+                    },
+                );
+            }
             return Ok(CpuExit::Continue);
         }
 

@@ -1744,6 +1744,49 @@ fn diff_sve_shift_pred() {
 }
 
 #[test]
+fn diff_sve_pcount() {
+    let mut rng = Rng::new(0x1_002F);
+    let mut batch: Vec<(String, u32, ArmState)> = Vec::new();
+    for sz in 0..4u32 {
+        // CNTP Rd(x0), Pg=p1, Pn=p2.
+        let cntp = (0x25 << 24) | (sz << 22) | (0b100000 << 16) | (0b10 << 14) | (1 << 10) | (2 << 5);
+        // INCP/DECP scalar (Rdn=x0, Pg=p1) and vector (Zdn=z0, Pg=p1).
+        let incp_r = (0x25 << 24) | (sz << 22) | (0b101100 << 16) | (0b1000 << 12) | (1 << 11) | (1 << 5);
+        let decp_r = (0x25 << 24) | (sz << 22) | (0b101101 << 16) | (0b1000 << 12) | (1 << 11) | (1 << 5);
+        let incp_z = (0x25 << 24) | (sz << 22) | (0b101100 << 16) | (0b1000 << 12) | (1 << 5);
+        let decp_z = (0x25 << 24) | (sz << 22) | (0b101101 << 16) | (0b1000 << 12) | (1 << 5);
+        // LASTA/LASTB/CLASTA/CLASTB -> x0, Pg=p0, Zn=z1.
+        let lasta = (0x05 << 24) | (sz << 22) | (0b100000 << 16) | (0b101 << 13) | (RN << 5);
+        let lastb = (0x05 << 24) | (sz << 22) | (0b100001 << 16) | (0b101 << 13) | (RN << 5);
+        let clasta = (0x05 << 24) | (sz << 22) | (0b110000 << 16) | (0b101 << 13) | (RN << 5);
+        let clastb = (0x05 << 24) | (sz << 22) | (0b110001 << 16) | (0b101 << 13) | (RN << 5);
+        for _ in 0..10 {
+            let mut st = ArmState::zeroed();
+            st.x[0] = rng.next();
+            st.set_vreg(0, rng.next(), rng.next());
+            st.set_vreg(1, rng.next(), rng.next());
+            st.set_preg(0, rng.next() as u16);
+            st.set_preg(1, rng.next() as u16);
+            st.set_preg(2, rng.next() as u16);
+            for (name, insn) in [
+                ("cntp", cntp),
+                ("incpr", incp_r),
+                ("decpr", decp_r),
+                ("incpz", incp_z),
+                ("decpz", decp_z),
+                ("lasta", lasta),
+                ("lastb", lastb),
+                ("clasta", clasta),
+                ("clastb", clastb),
+            ] {
+                batch.push((format!("{name} sz{sz}"), insn, st));
+            }
+        }
+    }
+    run_batch("sve_pcount", batch);
+}
+
+#[test]
 fn diff_sve_shift_imm() {
     let ops = [(0b000u32, "asr"), (0b001, "lsr"), (0b011, "lsl")];
     let mut rng = Rng::new(0x1_002E);
