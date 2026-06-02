@@ -67,6 +67,9 @@ pub struct SemCtx<'a> {
     /// In-flight HVX vector writes from earlier in this packet (for `.new`
     /// vector reads). Read-only; the driver owns the buffer.
     pub vnew: &'a [Option<[u32; 32]>; 32],
+    /// `.tmp` HVX vector loads from earlier in this packet (scratch, never
+    /// committed). Consulted by `vread_new` after `vnew`. Read-only.
+    pub vtmp: &'a [Option<[u32; 32]>; 32],
     /// In-flight HVX vector-predicate writes.
     pub qnew: &'a [Option<[u32; 4]>; 4],
     /// HVX vector writes produced by this instruction (applied after dispatch).
@@ -136,11 +139,14 @@ impl SemCtx<'_> {
         self.regs.v[reg as usize]
     }
 
-    /// Read a vector's `.new` value (in-flight if produced earlier in the
-    /// packet, else the old architectural value).
+    /// Read a vector's `.new` value: an in-flight write produced earlier in the
+    /// packet if any, else a `.tmp` load forwarded earlier in the packet, else
+    /// the old architectural value.
     #[inline]
     pub fn vread_new(&self, reg: u8) -> [u32; 32] {
-        self.vnew[reg as usize].unwrap_or(self.regs.v[reg as usize])
+        self.vnew[reg as usize]
+            .or(self.vtmp[reg as usize])
+            .unwrap_or(self.regs.v[reg as usize])
     }
 
     /// Write an HVX vector register.

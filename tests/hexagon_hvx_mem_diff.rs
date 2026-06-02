@@ -501,3 +501,32 @@ fn diff_hvx_load_pi() {
         0xa30,
     );
 }
+
+#[test]
+fn diff_hvx_hist() {
+    // HVX histogram family. The input is a `.tmp` vector load that MUST live in
+    // the same packet as the histogram op (qemu asserts exactly one `.tmp` load;
+    // a bare `{ vhist }` faults). We load V0.tmp from the 128-aligned arena (r4),
+    // which rax forwards into its per-packet scratch buffer (matching qemu's
+    // tmp_VRegs[0]); the op then tallies those bytes into bins spread across the
+    // register file. The Qv-gated forms read the OLD architectural Q, seeded via
+    // the `qsrc` block on both the oracle (vandvrt) and rax — so `run_family_q`.
+    run_family_q(
+        "hvx_hist",
+        &[
+            ("vhist", "{ v0.tmp = vmem(r4+#0); vhist }"),
+            ("vhistq", "{ v0.tmp = vmem(r4+#0); vhist(q0) }"),
+            ("vwhist128", "{ v0.tmp = vmem(r4+#0); vwhist128 }"),
+            ("vwhist128m", "{ v0.tmp = vmem(r4+#0); vwhist128(#1) }"),
+            ("vwhist128q", "{ v0.tmp = vmem(r4+#0); vwhist128(q0) }"),
+            ("vwhist128qm", "{ v0.tmp = vmem(r4+#0); vwhist128(q0,#1) }"),
+            ("vwhist256", "{ v0.tmp = vmem(r4+#0); vwhist256 }"),
+            ("vwhist256_sat", "{ v0.tmp = vmem(r4+#0); vwhist256:sat }"),
+            ("vwhist256q", "{ v0.tmp = vmem(r4+#0); vwhist256(q0) }"),
+            ("vwhist256q_sat", "{ v0.tmp = vmem(r4+#0); vwhist256(q0):sat }"),
+        ],
+        8,
+        0x4157,
+        true,
+    );
+}

@@ -224,6 +224,10 @@ pub struct HexagonVcpu {
     /// end so vector reads observe old values, matching VLIW semantics).
     new_v: [Option<[u32; 32]>; 32],
     new_q: [Option<[u32; 4]>; 4],
+    /// `.tmp` HVX vector loads: forwarded to same-packet consumers (read via
+    /// `vread_new`) but NEVER committed to the architectural register file —
+    /// `.tmp` is scratch. Cleared each packet alongside `new_v`.
+    new_v_tmp: [Option<[u32; 32]>; 32],
 }
 
 impl HexagonVcpu {
@@ -239,6 +243,7 @@ impl HexagonVcpu {
             endian,
             new_v: [None; 32],
             new_q: [None; 4],
+            new_v_tmp: [None; 32],
         }
     }
 
@@ -424,11 +429,13 @@ impl HexagonVcpu {
                 self.regs.set_predicate(idx, *value);
             }
         }
-        // Commit in-flight HVX vector / vector-predicate writes.
+        // Commit in-flight HVX vector / vector-predicate writes. `.tmp` loads
+        // (new_v_tmp) are scratch: discard them without writing the register file.
         for idx in 0..32 {
             if let Some(value) = self.new_v[idx].take() {
                 self.regs.v[idx] = value;
             }
+            self.new_v_tmp[idx] = None;
         }
         for idx in 0..4 {
             if let Some(value) = self.new_q[idx].take() {
@@ -1068,11 +1075,16 @@ impl HexagonVcpu {
                 if aligned {
                     ea &= !127;
                 }
-                // Read always (a `.tmp` load still faults on a bad address) but
-                // only commit to the architectural register for non-`.tmp` forms.
+                // Read always (a `.tmp` load still faults on a bad address). A
+                // normal/`.cur` load buffers into `new_v` (committed at packet
+                // end); a `.tmp` load forwards into the scratch buffer so a
+                // same-packet consumer (e.g. vhist) sees it, but it is never
+                // committed architecturally.
                 let vec = self.read_vec(ea)?;
                 if commit {
                     self.new_v[dst as usize] = Some(vec);
+                } else {
+                    self.new_v_tmp[dst as usize] = Some(vec);
                 }
                 if let Some(inc) = post_inc {
                     new_r[base as usize] =
@@ -1223,6 +1235,7 @@ impl HexagonVcpu {
                 new_r: &mut *new_r,
                 new_p: &mut *new_p,
                 vnew: &self.new_v,
+                vtmp: &self.new_v_tmp,
                 qnew: &self.new_q,
                 v_writes: Vec::new(),
                 q_writes: Vec::new(),
@@ -1325,6 +1338,40 @@ impl HexagonVcpu {
         if !resuming {
             self.new_v = [None; 32];
             self.new_q = [None; 4];
+            self.new_v_tmp = [None; 32];
+            // Pre-execute vector `.tmp` loads so their data is visible to a
+            // same-packet consumer (e.g. vhist, which the assembler encodes
+            // BEFORE the producing `.tmp` load). Read-only here: the producing
+            // load still runs normally in the main loop (post-increment, etc.).
+            let mut scan_pc = state.pc;
+            for _ in 0..8 {
+                let w = match self.fetch_word(scan_pc) {
+                    Ok(w) => w,
+                    Err(_) => break,
+                };
+                let pb = (w >> 14) & 0x3;
+                if let DecodedInsn::VLoad {
+                    dst,
+                    base,
+                    offset,
+                    aligned,
+                    commit: false,
+                    ..
+                } = decode(w, None, self._isa).insn
+                {
+                    let mut ea = self.regs.r[base as usize].wrapping_add(offset as u32);
+                    if aligned {
+                        ea &= !127;
+                    }
+                    if let Ok(vec) = self.read_vec(ea) {
+                        self.new_v_tmp[dst as usize] = Some(vec);
+                    }
+                }
+                scan_pc = scan_pc.wrapping_add(4);
+                if pb == 0b11 || pb == 0b00 {
+                    break;
+                }
+            }
         }
 
         let mut pc = state.pc;
