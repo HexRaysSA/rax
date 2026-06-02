@@ -100,6 +100,7 @@ fn run_oracle(bin: &PathBuf, cases: &[Case]) -> Option<Vec<Out>> {
         payload.extend_from_slice(&buf);
     }
     let mut child = Command::new("qemu-hexagon")
+        .args(["-cpu", "v69"])
         .arg(bin)
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
@@ -158,7 +159,7 @@ fn assemble_one(case: &str) -> Option<Vec<u32>> {
     }
     let result = (|| {
         let mut child = Command::new("llvm-mc")
-            .args(["-triple=hexagon", "-mcpu=hexagonv68", "-mhvx", "-show-encoding"])
+            .args(["-triple=hexagon", "-mcpu=hexagonv69", "-mhvx", "-show-encoding"])
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
             .stderr(Stdio::null())
@@ -1287,5 +1288,19 @@ fn diff_hvx_carry() {
         ],
         16,
         0xca77,
+    );
+}
+
+// ==== HVX V69 register ops (verified against the v69 oracle) ====
+#[test]
+fn diff_hvx_v69() {
+    run_family(
+        "hvx_v69",
+        &[
+            // unsigned 16x16 -> high 16 bits
+            ("vmpyuhvs", "{ v0.uh = vmpy(v1.uh,v2.uh):>>16 }"),
+        ],
+        8,
+        0x6900,
     );
 }

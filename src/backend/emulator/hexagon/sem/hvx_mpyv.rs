@@ -368,6 +368,19 @@ pub fn exec(op: Opcode, d: &DecodedOp, ctx: &mut SemCtx) -> bool {
             ctx.set_v(rd, from_bytes(&out));
         }
 
+        // Vd.uh=vmpy(Vu.uh,Vv.uh):>>16 (V69): per-halfword unsigned 16x16 product,
+        // keep the high 16 bits — `Vd.uh[i] = (Vu.uh[i]*Vv.uh[i]).uh[1]`.
+        Opcode::V6_vmpyuhvs => {
+            let vu = to_bytes(&ctx.vread(fld(d, b'u')));
+            let vv = to_bytes(&ctx.vread(fld(d, b'v')));
+            let mut out = [0u8; 128];
+            for i in 0..64 {
+                let p = get_uh(&vu, i) as u64 * get_uh(&vv, i) as u64;
+                set_h(&mut out, i, ((p >> 16) & 0xffff) as u16);
+            }
+            ctx.set_v(fld(d, b'd'), from_bytes(&out));
+        }
+
         _ => return false,
     }
     true
