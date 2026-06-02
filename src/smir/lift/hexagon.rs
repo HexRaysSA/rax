@@ -23,7 +23,7 @@ use crate::backend::emulator::hexagon::decode::{
 // `DecodedInsn::Unknown` (handled only by the sem layer in cpu.rs). The lifter
 // re-decodes such words via `decode_word` and emits SMIR for the regular
 // scalar register ops; see `lift_unknown_op`.
-use crate::backend::emulator::hexagon::opcode::{decode_word, DecodedOp, Opcode};
+use crate::backend::emulator::hexagon::opcode::{DecodedOp, Opcode, decode_word};
 
 // ============================================================================
 // Hexagon Lifter
@@ -651,9 +651,7 @@ impl HexagonLifter {
             // sub-word commit semantics that the simple Store op below does not
             // model; the interpreter path handles them. Reject so callers fall
             // back rather than silently storing unconditionally / the wrong half.
-            DecodedInsn::Store {
-                pred: Some(_), ..
-            }
+            DecodedInsn::Store { pred: Some(_), .. }
             | DecodedInsn::Store {
                 high_half: true, ..
             } => {
@@ -1046,13 +1044,22 @@ impl HexagonLifter {
             // Control-register PAIR transfers and the dczeroa cache-line zero are
             // handled by the interpreter (the JIT path defers to it).
             DecodedInsn::TfrCrRPair { .. } => {
-                return Err(LiftError::Unsupported { addr, mnemonic: "tfrcpp".to_string() });
+                return Err(LiftError::Unsupported {
+                    addr,
+                    mnemonic: "tfrcpp".to_string(),
+                });
             }
             DecodedInsn::TfrRrCrPair { .. } => {
-                return Err(LiftError::Unsupported { addr, mnemonic: "tfrpcp".to_string() });
+                return Err(LiftError::Unsupported {
+                    addr,
+                    mnemonic: "tfrpcp".to_string(),
+                });
             }
             DecodedInsn::DcZero { .. } => {
-                return Err(LiftError::Unsupported { addr, mnemonic: "dczeroa".to_string() });
+                return Err(LiftError::Unsupported {
+                    addr,
+                    mnemonic: "dczeroa".to_string(),
+                });
             }
 
             // ================================================================
@@ -1060,12 +1067,8 @@ impl HexagonLifter {
             // ================================================================
             // Software-pipelined loop setup (`sp*loop0`) sets USR.LPCFG and P3 in
             // addition to the loop registers; handled only by the interpreter.
-            DecodedInsn::LoopStartReg {
-                lpcfg: Some(_), ..
-            }
-            | DecodedInsn::LoopStartImm {
-                lpcfg: Some(_), ..
-            } => {
+            DecodedInsn::LoopStartReg { lpcfg: Some(_), .. }
+            | DecodedInsn::LoopStartImm { lpcfg: Some(_), .. } => {
                 return Err(LiftError::Unsupported {
                     addr,
                     mnemonic: "sploop".to_string(),
@@ -1280,8 +1283,7 @@ impl HexagonLifter {
         }
 
         let op = dop.opcode;
-        let mnemonic =
-            crate::backend::emulator::hexagon::opcode::opcode_name(op);
+        let mnemonic = crate::backend::emulator::hexagon::opcode::opcode_name(op);
         let unsupported = || LiftError::Unsupported {
             addr,
             mnemonic: mnemonic.to_string(),
@@ -1585,8 +1587,18 @@ impl HexagonLifter {
                     src2: SrcOperand::Reg(rt),
                     width: OpWidth::W32,
                 });
-                push_op!(OpKind::SetCC { dst: c, cond: Condition::Sgt, width: OpWidth::W32 });
-                push_op!(OpKind::Select { dst: rd, cond: c, src_true: rs, src_false: rt, width: OpWidth::W32 });
+                push_op!(OpKind::SetCC {
+                    dst: c,
+                    cond: Condition::Sgt,
+                    width: OpWidth::W32
+                });
+                push_op!(OpKind::Select {
+                    dst: rd,
+                    cond: c,
+                    src_true: rs,
+                    src_false: rt,
+                    width: OpWidth::W32
+                });
             }
             Opcode::A2_maxu => {
                 let c = ctx.alloc_vreg();
@@ -1595,8 +1607,18 @@ impl HexagonLifter {
                     src2: SrcOperand::Reg(rt),
                     width: OpWidth::W32,
                 });
-                push_op!(OpKind::SetCC { dst: c, cond: Condition::Ugt, width: OpWidth::W32 });
-                push_op!(OpKind::Select { dst: rd, cond: c, src_true: rs, src_false: rt, width: OpWidth::W32 });
+                push_op!(OpKind::SetCC {
+                    dst: c,
+                    cond: Condition::Ugt,
+                    width: OpWidth::W32
+                });
+                push_op!(OpKind::Select {
+                    dst: rd,
+                    cond: c,
+                    src_true: rs,
+                    src_false: rt,
+                    width: OpWidth::W32
+                });
             }
             // min(Rs,Rt) computed as min(Rt,Rs): Rt < Rs ? Rt : Rs (matches sem).
             Opcode::A2_min => {
@@ -1606,8 +1628,18 @@ impl HexagonLifter {
                     src2: SrcOperand::Reg(rs),
                     width: OpWidth::W32,
                 });
-                push_op!(OpKind::SetCC { dst: c, cond: Condition::Slt, width: OpWidth::W32 });
-                push_op!(OpKind::Select { dst: rd, cond: c, src_true: rt, src_false: rs, width: OpWidth::W32 });
+                push_op!(OpKind::SetCC {
+                    dst: c,
+                    cond: Condition::Slt,
+                    width: OpWidth::W32
+                });
+                push_op!(OpKind::Select {
+                    dst: rd,
+                    cond: c,
+                    src_true: rt,
+                    src_false: rs,
+                    width: OpWidth::W32
+                });
             }
             Opcode::A2_minu => {
                 let c = ctx.alloc_vreg();
@@ -1616,17 +1648,41 @@ impl HexagonLifter {
                     src2: SrcOperand::Reg(rs),
                     width: OpWidth::W32,
                 });
-                push_op!(OpKind::SetCC { dst: c, cond: Condition::Ult, width: OpWidth::W32 });
-                push_op!(OpKind::Select { dst: rd, cond: c, src_true: rt, src_false: rs, width: OpWidth::W32 });
+                push_op!(OpKind::SetCC {
+                    dst: c,
+                    cond: Condition::Ult,
+                    width: OpWidth::W32
+                });
+                push_op!(OpKind::Select {
+                    dst: rd,
+                    cond: c,
+                    src_true: rt,
+                    src_false: rs,
+                    width: OpWidth::W32
+                });
             }
             Opcode::A2_maxp => {
                 let a = read_pair!(fld(b's'));
                 let b = read_pair!(fld(b't'));
                 let c = ctx.alloc_vreg();
                 let r = ctx.alloc_vreg();
-                push_op!(OpKind::Cmp { src1: a, src2: SrcOperand::Reg(b), width: OpWidth::W64 });
-                push_op!(OpKind::SetCC { dst: c, cond: Condition::Sgt, width: OpWidth::W64 });
-                push_op!(OpKind::Select { dst: r, cond: c, src_true: a, src_false: b, width: OpWidth::W64 });
+                push_op!(OpKind::Cmp {
+                    src1: a,
+                    src2: SrcOperand::Reg(b),
+                    width: OpWidth::W64
+                });
+                push_op!(OpKind::SetCC {
+                    dst: c,
+                    cond: Condition::Sgt,
+                    width: OpWidth::W64
+                });
+                push_op!(OpKind::Select {
+                    dst: r,
+                    cond: c,
+                    src_true: a,
+                    src_false: b,
+                    width: OpWidth::W64
+                });
                 write_pair!(rd_n, r);
             }
             Opcode::A2_maxup => {
@@ -1634,9 +1690,23 @@ impl HexagonLifter {
                 let b = read_pair!(fld(b't'));
                 let c = ctx.alloc_vreg();
                 let r = ctx.alloc_vreg();
-                push_op!(OpKind::Cmp { src1: a, src2: SrcOperand::Reg(b), width: OpWidth::W64 });
-                push_op!(OpKind::SetCC { dst: c, cond: Condition::Ugt, width: OpWidth::W64 });
-                push_op!(OpKind::Select { dst: r, cond: c, src_true: a, src_false: b, width: OpWidth::W64 });
+                push_op!(OpKind::Cmp {
+                    src1: a,
+                    src2: SrcOperand::Reg(b),
+                    width: OpWidth::W64
+                });
+                push_op!(OpKind::SetCC {
+                    dst: c,
+                    cond: Condition::Ugt,
+                    width: OpWidth::W64
+                });
+                push_op!(OpKind::Select {
+                    dst: r,
+                    cond: c,
+                    src_true: a,
+                    src_false: b,
+                    width: OpWidth::W64
+                });
                 write_pair!(rd_n, r);
             }
             Opcode::A2_minp => {
@@ -1645,9 +1715,23 @@ impl HexagonLifter {
                 let b = read_pair!(fld(b't'));
                 let c = ctx.alloc_vreg();
                 let r = ctx.alloc_vreg();
-                push_op!(OpKind::Cmp { src1: b, src2: SrcOperand::Reg(a), width: OpWidth::W64 });
-                push_op!(OpKind::SetCC { dst: c, cond: Condition::Slt, width: OpWidth::W64 });
-                push_op!(OpKind::Select { dst: r, cond: c, src_true: b, src_false: a, width: OpWidth::W64 });
+                push_op!(OpKind::Cmp {
+                    src1: b,
+                    src2: SrcOperand::Reg(a),
+                    width: OpWidth::W64
+                });
+                push_op!(OpKind::SetCC {
+                    dst: c,
+                    cond: Condition::Slt,
+                    width: OpWidth::W64
+                });
+                push_op!(OpKind::Select {
+                    dst: r,
+                    cond: c,
+                    src_true: b,
+                    src_false: a,
+                    width: OpWidth::W64
+                });
                 write_pair!(rd_n, r);
             }
             Opcode::A2_minup => {
@@ -1655,9 +1739,23 @@ impl HexagonLifter {
                 let b = read_pair!(fld(b't'));
                 let c = ctx.alloc_vreg();
                 let r = ctx.alloc_vreg();
-                push_op!(OpKind::Cmp { src1: b, src2: SrcOperand::Reg(a), width: OpWidth::W64 });
-                push_op!(OpKind::SetCC { dst: c, cond: Condition::Ult, width: OpWidth::W64 });
-                push_op!(OpKind::Select { dst: r, cond: c, src_true: b, src_false: a, width: OpWidth::W64 });
+                push_op!(OpKind::Cmp {
+                    src1: b,
+                    src2: SrcOperand::Reg(a),
+                    width: OpWidth::W64
+                });
+                push_op!(OpKind::SetCC {
+                    dst: c,
+                    cond: Condition::Ult,
+                    width: OpWidth::W64
+                });
+                push_op!(OpKind::Select {
+                    dst: r,
+                    cond: c,
+                    src_true: b,
+                    src_false: a,
+                    width: OpWidth::W64
+                });
                 write_pair!(rd_n, r);
             }
 
@@ -1799,20 +1897,56 @@ impl HexagonLifter {
                 // hi_part = (t_hi ? Rt>>16 : Rt&0xffff) << 16
                 let hi_src = ctx.alloc_vreg();
                 if t_hi {
-                    push_op!(OpKind::Shr { dst: hi_src, src: rt, amount: SrcOperand::Imm(16), width: OpWidth::W32, flags: FlagUpdate::None });
+                    push_op!(OpKind::Shr {
+                        dst: hi_src,
+                        src: rt,
+                        amount: SrcOperand::Imm(16),
+                        width: OpWidth::W32,
+                        flags: FlagUpdate::None
+                    });
                 } else {
-                    push_op!(OpKind::And { dst: hi_src, src1: rt, src2: SrcOperand::Imm(0xffff), width: OpWidth::W32, flags: FlagUpdate::None });
+                    push_op!(OpKind::And {
+                        dst: hi_src,
+                        src1: rt,
+                        src2: SrcOperand::Imm(0xffff),
+                        width: OpWidth::W32,
+                        flags: FlagUpdate::None
+                    });
                 }
                 let hi_sh = ctx.alloc_vreg();
-                push_op!(OpKind::Shl { dst: hi_sh, src: hi_src, amount: SrcOperand::Imm(16), width: OpWidth::W32, flags: FlagUpdate::None });
+                push_op!(OpKind::Shl {
+                    dst: hi_sh,
+                    src: hi_src,
+                    amount: SrcOperand::Imm(16),
+                    width: OpWidth::W32,
+                    flags: FlagUpdate::None
+                });
                 // lo_part = s_hi ? Rs>>16 : Rs&0xffff
                 let lo = ctx.alloc_vreg();
                 if s_hi {
-                    push_op!(OpKind::Shr { dst: lo, src: rs, amount: SrcOperand::Imm(16), width: OpWidth::W32, flags: FlagUpdate::None });
+                    push_op!(OpKind::Shr {
+                        dst: lo,
+                        src: rs,
+                        amount: SrcOperand::Imm(16),
+                        width: OpWidth::W32,
+                        flags: FlagUpdate::None
+                    });
                 } else {
-                    push_op!(OpKind::And { dst: lo, src1: rs, src2: SrcOperand::Imm(0xffff), width: OpWidth::W32, flags: FlagUpdate::None });
+                    push_op!(OpKind::And {
+                        dst: lo,
+                        src1: rs,
+                        src2: SrcOperand::Imm(0xffff),
+                        width: OpWidth::W32,
+                        flags: FlagUpdate::None
+                    });
                 }
-                push_op!(OpKind::Or { dst: rd, src1: hi_sh, src2: SrcOperand::Reg(lo), width: OpWidth::W32, flags: FlagUpdate::None });
+                push_op!(OpKind::Or {
+                    dst: rd,
+                    src1: hi_sh,
+                    src2: SrcOperand::Reg(lo),
+                    width: OpWidth::W32,
+                    flags: FlagUpdate::None
+                });
             }
 
             // ============================================================
@@ -1831,7 +1965,11 @@ impl HexagonLifter {
             Opcode::A4_orn => {
                 // or(Rt, ~Rs)
                 let ns = ctx.alloc_vreg();
-                push_op!(OpKind::Not { dst: ns, src: rs, width: OpWidth::W32 });
+                push_op!(OpKind::Not {
+                    dst: ns,
+                    src: rs,
+                    width: OpWidth::W32
+                });
                 push_op!(OpKind::Or {
                     dst: rd,
                     src1: rt,
@@ -1845,22 +1983,54 @@ impl HexagonLifter {
             // A4 compare-into-register (rcmp): Rd = (cond) ? 1 : 0
             // ============================================================
             Opcode::A4_rcmpeq => {
-                push_op!(OpKind::Cmp { src1: rs, src2: SrcOperand::Reg(rt), width: OpWidth::W32 });
-                push_op!(OpKind::SetCC { dst: rd, cond: Condition::Eq, width: OpWidth::W32 });
+                push_op!(OpKind::Cmp {
+                    src1: rs,
+                    src2: SrcOperand::Reg(rt),
+                    width: OpWidth::W32
+                });
+                push_op!(OpKind::SetCC {
+                    dst: rd,
+                    cond: Condition::Eq,
+                    width: OpWidth::W32
+                });
             }
             Opcode::A4_rcmpneq => {
-                push_op!(OpKind::Cmp { src1: rs, src2: SrcOperand::Reg(rt), width: OpWidth::W32 });
-                push_op!(OpKind::SetCC { dst: rd, cond: Condition::Ne, width: OpWidth::W32 });
+                push_op!(OpKind::Cmp {
+                    src1: rs,
+                    src2: SrcOperand::Reg(rt),
+                    width: OpWidth::W32
+                });
+                push_op!(OpKind::SetCC {
+                    dst: rd,
+                    cond: Condition::Ne,
+                    width: OpWidth::W32
+                });
             }
             Opcode::A4_rcmpeqi => {
                 let imm = fimm_s(b'i');
-                push_op!(OpKind::Cmp { src1: rs, src2: SrcOperand::Imm(imm as i64), width: OpWidth::W32 });
-                push_op!(OpKind::SetCC { dst: rd, cond: Condition::Eq, width: OpWidth::W32 });
+                push_op!(OpKind::Cmp {
+                    src1: rs,
+                    src2: SrcOperand::Imm(imm as i64),
+                    width: OpWidth::W32
+                });
+                push_op!(OpKind::SetCC {
+                    dst: rd,
+                    cond: Condition::Eq,
+                    width: OpWidth::W32
+                });
             }
             Opcode::A4_rcmpneqi => {
                 let imm = fimm_s(b'i');
-                push_op!(OpKind::Cmp { src1: rs, src2: SrcOperand::Imm(imm as i64), width: OpWidth::W32 });
-                push_op!(OpKind::SetCC { dst: rd, cond: Condition::Ne, width: OpWidth::W32 });
+                push_op!(OpKind::Cmp {
+                    src1: rs,
+                    src2: SrcOperand::Imm(imm as i64),
+                    width: OpWidth::W32
+                });
+                push_op!(OpKind::SetCC {
+                    dst: rd,
+                    cond: Condition::Ne,
+                    width: OpWidth::W32
+                });
             }
 
             // ============================================================
@@ -1884,20 +2054,44 @@ impl HexagonLifter {
             Opcode::C2_cmpeqp => {
                 let a = read_pair!(fld(b's'));
                 let b = read_pair!(fld(b't'));
-                push_op!(OpKind::Cmp { src1: a, src2: SrcOperand::Reg(b), width: OpWidth::W64 });
-                push_op!(OpKind::SetCC { dst: self.hex_pred(rd_n), cond: Condition::Eq, width: OpWidth::W64 });
+                push_op!(OpKind::Cmp {
+                    src1: a,
+                    src2: SrcOperand::Reg(b),
+                    width: OpWidth::W64
+                });
+                push_op!(OpKind::SetCC {
+                    dst: self.hex_pred(rd_n),
+                    cond: Condition::Eq,
+                    width: OpWidth::W64
+                });
             }
             Opcode::C2_cmpgtp => {
                 let a = read_pair!(fld(b's'));
                 let b = read_pair!(fld(b't'));
-                push_op!(OpKind::Cmp { src1: a, src2: SrcOperand::Reg(b), width: OpWidth::W64 });
-                push_op!(OpKind::SetCC { dst: self.hex_pred(rd_n), cond: Condition::Sgt, width: OpWidth::W64 });
+                push_op!(OpKind::Cmp {
+                    src1: a,
+                    src2: SrcOperand::Reg(b),
+                    width: OpWidth::W64
+                });
+                push_op!(OpKind::SetCC {
+                    dst: self.hex_pred(rd_n),
+                    cond: Condition::Sgt,
+                    width: OpWidth::W64
+                });
             }
             Opcode::C2_cmpgtup => {
                 let a = read_pair!(fld(b's'));
                 let b = read_pair!(fld(b't'));
-                push_op!(OpKind::Cmp { src1: a, src2: SrcOperand::Reg(b), width: OpWidth::W64 });
-                push_op!(OpKind::SetCC { dst: self.hex_pred(rd_n), cond: Condition::Ugt, width: OpWidth::W64 });
+                push_op!(OpKind::Cmp {
+                    src1: a,
+                    src2: SrcOperand::Reg(b),
+                    width: OpWidth::W64
+                });
+                push_op!(OpKind::SetCC {
+                    dst: self.hex_pred(rd_n),
+                    cond: Condition::Ugt,
+                    width: OpWidth::W64
+                });
             }
 
             // ============================================================
@@ -1906,34 +2100,70 @@ impl HexagonLifter {
             Opcode::C2_bitsset => {
                 // (Rs & Rt) == Rt
                 let m = ctx.alloc_vreg();
-                push_op!(OpKind::And { dst: m, src1: rs, src2: SrcOperand::Reg(rt), width: OpWidth::W32, flags: FlagUpdate::None });
+                push_op!(OpKind::And {
+                    dst: m,
+                    src1: rs,
+                    src2: SrcOperand::Reg(rt),
+                    width: OpWidth::W32,
+                    flags: FlagUpdate::None
+                });
                 cmp_set_pred!(rd_n, m, SrcOperand::Reg(rt), Condition::Eq);
             }
             Opcode::C4_nbitsset => {
                 let m = ctx.alloc_vreg();
-                push_op!(OpKind::And { dst: m, src1: rs, src2: SrcOperand::Reg(rt), width: OpWidth::W32, flags: FlagUpdate::None });
+                push_op!(OpKind::And {
+                    dst: m,
+                    src1: rs,
+                    src2: SrcOperand::Reg(rt),
+                    width: OpWidth::W32,
+                    flags: FlagUpdate::None
+                });
                 cmp_set_pred!(rd_n, m, SrcOperand::Reg(rt), Condition::Ne);
             }
             Opcode::C2_bitsclr => {
                 let m = ctx.alloc_vreg();
-                push_op!(OpKind::And { dst: m, src1: rs, src2: SrcOperand::Reg(rt), width: OpWidth::W32, flags: FlagUpdate::None });
+                push_op!(OpKind::And {
+                    dst: m,
+                    src1: rs,
+                    src2: SrcOperand::Reg(rt),
+                    width: OpWidth::W32,
+                    flags: FlagUpdate::None
+                });
                 cmp_set_pred!(rd_n, m, SrcOperand::Imm(0), Condition::Eq);
             }
             Opcode::C4_nbitsclr => {
                 let m = ctx.alloc_vreg();
-                push_op!(OpKind::And { dst: m, src1: rs, src2: SrcOperand::Reg(rt), width: OpWidth::W32, flags: FlagUpdate::None });
+                push_op!(OpKind::And {
+                    dst: m,
+                    src1: rs,
+                    src2: SrcOperand::Reg(rt),
+                    width: OpWidth::W32,
+                    flags: FlagUpdate::None
+                });
                 cmp_set_pred!(rd_n, m, SrcOperand::Imm(0), Condition::Ne);
             }
             Opcode::C2_bitsclri => {
                 let imm = fimm_u(b'i');
                 let m = ctx.alloc_vreg();
-                push_op!(OpKind::And { dst: m, src1: rs, src2: SrcOperand::Imm(imm as i64), width: OpWidth::W32, flags: FlagUpdate::None });
+                push_op!(OpKind::And {
+                    dst: m,
+                    src1: rs,
+                    src2: SrcOperand::Imm(imm as i64),
+                    width: OpWidth::W32,
+                    flags: FlagUpdate::None
+                });
                 cmp_set_pred!(rd_n, m, SrcOperand::Imm(0), Condition::Eq);
             }
             Opcode::C4_nbitsclri => {
                 let imm = fimm_u(b'i');
                 let m = ctx.alloc_vreg();
-                push_op!(OpKind::And { dst: m, src1: rs, src2: SrcOperand::Imm(imm as i64), width: OpWidth::W32, flags: FlagUpdate::None });
+                push_op!(OpKind::And {
+                    dst: m,
+                    src1: rs,
+                    src2: SrcOperand::Imm(imm as i64),
+                    width: OpWidth::W32,
+                    flags: FlagUpdate::None
+                });
                 cmp_set_pred!(rd_n, m, SrcOperand::Imm(0), Condition::Ne);
             }
 
@@ -1942,23 +2172,49 @@ impl HexagonLifter {
             // ============================================================
             Opcode::C2_mux => {
                 let cond = self.hex_pred(fld(b'u'));
-                push_op!(OpKind::Select { dst: rd, cond, src_true: rs, src_false: rt, width: OpWidth::W32 });
+                push_op!(OpKind::Select {
+                    dst: rd,
+                    cond,
+                    src_true: rs,
+                    src_false: rt,
+                    width: OpWidth::W32
+                });
             }
             Opcode::C2_muxir => {
                 // Pu ? Rs : #s8
                 let imm = fimm_s(b'i');
                 let cond = self.hex_pred(fld(b'u'));
                 let fv = ctx.alloc_vreg();
-                push_op!(OpKind::Mov { dst: fv, src: SrcOperand::Imm(imm as i64), width: OpWidth::W32 });
-                push_op!(OpKind::Select { dst: rd, cond, src_true: rs, src_false: fv, width: OpWidth::W32 });
+                push_op!(OpKind::Mov {
+                    dst: fv,
+                    src: SrcOperand::Imm(imm as i64),
+                    width: OpWidth::W32
+                });
+                push_op!(OpKind::Select {
+                    dst: rd,
+                    cond,
+                    src_true: rs,
+                    src_false: fv,
+                    width: OpWidth::W32
+                });
             }
             Opcode::C2_muxri => {
                 // Pu ? #s8 : Rs
                 let imm = fimm_s(b'i');
                 let cond = self.hex_pred(fld(b'u'));
                 let tv = ctx.alloc_vreg();
-                push_op!(OpKind::Mov { dst: tv, src: SrcOperand::Imm(imm as i64), width: OpWidth::W32 });
-                push_op!(OpKind::Select { dst: rd, cond, src_true: tv, src_false: rs, width: OpWidth::W32 });
+                push_op!(OpKind::Mov {
+                    dst: tv,
+                    src: SrcOperand::Imm(imm as i64),
+                    width: OpWidth::W32
+                });
+                push_op!(OpKind::Select {
+                    dst: rd,
+                    cond,
+                    src_true: tv,
+                    src_false: rs,
+                    width: OpWidth::W32
+                });
             }
             Opcode::C2_muxii => {
                 // Pu ? #s8(i, ext) : #S8(I)
@@ -1973,22 +2229,54 @@ impl HexagonLifter {
                 let cond = self.hex_pred(fld(b'u'));
                 let tv = ctx.alloc_vreg();
                 let fv = ctx.alloc_vreg();
-                push_op!(OpKind::Mov { dst: tv, src: SrcOperand::Imm(a as i64), width: OpWidth::W32 });
-                push_op!(OpKind::Mov { dst: fv, src: SrcOperand::Imm(b as i64), width: OpWidth::W32 });
-                push_op!(OpKind::Select { dst: rd, cond, src_true: tv, src_false: fv, width: OpWidth::W32 });
+                push_op!(OpKind::Mov {
+                    dst: tv,
+                    src: SrcOperand::Imm(a as i64),
+                    width: OpWidth::W32
+                });
+                push_op!(OpKind::Mov {
+                    dst: fv,
+                    src: SrcOperand::Imm(b as i64),
+                    width: OpWidth::W32
+                });
+                push_op!(OpKind::Select {
+                    dst: rd,
+                    cond,
+                    src_true: tv,
+                    src_false: fv,
+                    width: OpWidth::W32
+                });
             }
 
             // ============================================================
             // C2/C4 predicate logic (operate on 0/1 predicate truth)
             // ============================================================
             Opcode::C2_and => {
-                push_op!(OpKind::And { dst: self.hex_pred(rd_n), src1: self.hex_pred(fld(b's')), src2: SrcOperand::Reg(self.hex_pred(fld(b't'))), width: OpWidth::W32, flags: FlagUpdate::None });
+                push_op!(OpKind::And {
+                    dst: self.hex_pred(rd_n),
+                    src1: self.hex_pred(fld(b's')),
+                    src2: SrcOperand::Reg(self.hex_pred(fld(b't'))),
+                    width: OpWidth::W32,
+                    flags: FlagUpdate::None
+                });
             }
             Opcode::C2_or => {
-                push_op!(OpKind::Or { dst: self.hex_pred(rd_n), src1: self.hex_pred(fld(b's')), src2: SrcOperand::Reg(self.hex_pred(fld(b't'))), width: OpWidth::W32, flags: FlagUpdate::None });
+                push_op!(OpKind::Or {
+                    dst: self.hex_pred(rd_n),
+                    src1: self.hex_pred(fld(b's')),
+                    src2: SrcOperand::Reg(self.hex_pred(fld(b't'))),
+                    width: OpWidth::W32,
+                    flags: FlagUpdate::None
+                });
             }
             Opcode::C2_xor => {
-                push_op!(OpKind::Xor { dst: self.hex_pred(rd_n), src1: self.hex_pred(fld(b's')), src2: SrcOperand::Reg(self.hex_pred(fld(b't'))), width: OpWidth::W32, flags: FlagUpdate::None });
+                push_op!(OpKind::Xor {
+                    dst: self.hex_pred(rd_n),
+                    src1: self.hex_pred(fld(b's')),
+                    src2: SrcOperand::Reg(self.hex_pred(fld(b't'))),
+                    width: OpWidth::W32,
+                    flags: FlagUpdate::None
+                });
             }
             // The SMIR Hexagon context stores a predicate as a bool (truth =
             // value != 0), and the harness compares predicate LSB. AND/OR/XOR of
@@ -1996,19 +2284,49 @@ impl HexagonLifter {
             // bits, so `!= 0` would read back TRUE even when the LSB is 0. Model
             // negation on the LSB only: `~Ps -> Ps ^ 1`.
             Opcode::C2_not => {
-                push_op!(OpKind::Xor { dst: self.hex_pred(rd_n), src1: self.hex_pred(fld(b's')), src2: SrcOperand::Imm(1), width: OpWidth::W32, flags: FlagUpdate::None });
+                push_op!(OpKind::Xor {
+                    dst: self.hex_pred(rd_n),
+                    src1: self.hex_pred(fld(b's')),
+                    src2: SrcOperand::Imm(1),
+                    width: OpWidth::W32,
+                    flags: FlagUpdate::None
+                });
             }
             Opcode::C2_andn => {
                 // Pt & ~Ps  -> Pt & (Ps ^ 1)
                 let nps = ctx.alloc_vreg();
-                push_op!(OpKind::Xor { dst: nps, src1: self.hex_pred(fld(b's')), src2: SrcOperand::Imm(1), width: OpWidth::W32, flags: FlagUpdate::None });
-                push_op!(OpKind::And { dst: self.hex_pred(rd_n), src1: self.hex_pred(fld(b't')), src2: SrcOperand::Reg(nps), width: OpWidth::W32, flags: FlagUpdate::None });
+                push_op!(OpKind::Xor {
+                    dst: nps,
+                    src1: self.hex_pred(fld(b's')),
+                    src2: SrcOperand::Imm(1),
+                    width: OpWidth::W32,
+                    flags: FlagUpdate::None
+                });
+                push_op!(OpKind::And {
+                    dst: self.hex_pred(rd_n),
+                    src1: self.hex_pred(fld(b't')),
+                    src2: SrcOperand::Reg(nps),
+                    width: OpWidth::W32,
+                    flags: FlagUpdate::None
+                });
             }
             Opcode::C2_orn => {
                 // Pt | ~Ps  -> Pt | (Ps ^ 1)
                 let nps = ctx.alloc_vreg();
-                push_op!(OpKind::Xor { dst: nps, src1: self.hex_pred(fld(b's')), src2: SrcOperand::Imm(1), width: OpWidth::W32, flags: FlagUpdate::None });
-                push_op!(OpKind::Or { dst: self.hex_pred(rd_n), src1: self.hex_pred(fld(b't')), src2: SrcOperand::Reg(nps), width: OpWidth::W32, flags: FlagUpdate::None });
+                push_op!(OpKind::Xor {
+                    dst: nps,
+                    src1: self.hex_pred(fld(b's')),
+                    src2: SrcOperand::Imm(1),
+                    width: OpWidth::W32,
+                    flags: FlagUpdate::None
+                });
+                push_op!(OpKind::Or {
+                    dst: self.hex_pred(rd_n),
+                    src1: self.hex_pred(fld(b't')),
+                    src2: SrcOperand::Reg(nps),
+                    width: OpWidth::W32,
+                    flags: FlagUpdate::None
+                });
             }
 
             // ============================================================
@@ -2039,7 +2357,13 @@ impl HexagonLifter {
             // (S2_asl_i_r / asr_i_r / lsr_i_r are handled by the DecodedInsn path.)
             Opcode::S6_rol_i_r => {
                 let n = fimm_u(b'i');
-                push_op!(OpKind::Rol { dst: rd, src: rs, amount: SrcOperand::Imm(n as i64), width: OpWidth::W32, flags: FlagUpdate::None });
+                push_op!(OpKind::Rol {
+                    dst: rd,
+                    src: rs,
+                    amount: SrcOperand::Imm(n as i64),
+                    width: OpWidth::W32,
+                    flags: FlagUpdate::None
+                });
             }
 
             // ============================================================
@@ -2049,28 +2373,52 @@ impl HexagonLifter {
                 let n = fimm_u(b'i');
                 let a = read_pair!(fld(b's'));
                 let r = ctx.alloc_vreg();
-                push_op!(OpKind::Shl { dst: r, src: a, amount: SrcOperand::Imm(n as i64), width: OpWidth::W64, flags: FlagUpdate::None });
+                push_op!(OpKind::Shl {
+                    dst: r,
+                    src: a,
+                    amount: SrcOperand::Imm(n as i64),
+                    width: OpWidth::W64,
+                    flags: FlagUpdate::None
+                });
                 write_pair!(rd_n, r);
             }
             Opcode::S2_asr_i_p => {
                 let n = fimm_u(b'i');
                 let a = read_pair!(fld(b's'));
                 let r = ctx.alloc_vreg();
-                push_op!(OpKind::Sar { dst: r, src: a, amount: SrcOperand::Imm(n as i64), width: OpWidth::W64, flags: FlagUpdate::None });
+                push_op!(OpKind::Sar {
+                    dst: r,
+                    src: a,
+                    amount: SrcOperand::Imm(n as i64),
+                    width: OpWidth::W64,
+                    flags: FlagUpdate::None
+                });
                 write_pair!(rd_n, r);
             }
             Opcode::S2_lsr_i_p => {
                 let n = fimm_u(b'i');
                 let a = read_pair!(fld(b's'));
                 let r = ctx.alloc_vreg();
-                push_op!(OpKind::Shr { dst: r, src: a, amount: SrcOperand::Imm(n as i64), width: OpWidth::W64, flags: FlagUpdate::None });
+                push_op!(OpKind::Shr {
+                    dst: r,
+                    src: a,
+                    amount: SrcOperand::Imm(n as i64),
+                    width: OpWidth::W64,
+                    flags: FlagUpdate::None
+                });
                 write_pair!(rd_n, r);
             }
             Opcode::S6_rol_i_p => {
                 let n = fimm_u(b'i');
                 let a = read_pair!(fld(b's'));
                 let r = ctx.alloc_vreg();
-                push_op!(OpKind::Rol { dst: r, src: a, amount: SrcOperand::Imm(n as i64), width: OpWidth::W64, flags: FlagUpdate::None });
+                push_op!(OpKind::Rol {
+                    dst: r,
+                    src: a,
+                    amount: SrcOperand::Imm(n as i64),
+                    width: OpWidth::W64,
+                    flags: FlagUpdate::None
+                });
                 write_pair!(rd_n, r);
             }
 
@@ -2079,27 +2427,57 @@ impl HexagonLifter {
             // ============================================================
             Opcode::S2_setbit_i => {
                 let n = fimm_u(b'i');
-                push_op!(OpKind::Or { dst: rd, src1: rs, src2: SrcOperand::Imm(1i64 << n), width: OpWidth::W32, flags: FlagUpdate::None });
+                push_op!(OpKind::Or {
+                    dst: rd,
+                    src1: rs,
+                    src2: SrcOperand::Imm(1i64 << n),
+                    width: OpWidth::W32,
+                    flags: FlagUpdate::None
+                });
             }
             Opcode::S2_clrbit_i => {
                 let n = fimm_u(b'i');
-                push_op!(OpKind::And { dst: rd, src1: rs, src2: SrcOperand::Imm(!(1i64 << n) & 0xffff_ffff), width: OpWidth::W32, flags: FlagUpdate::None });
+                push_op!(OpKind::And {
+                    dst: rd,
+                    src1: rs,
+                    src2: SrcOperand::Imm(!(1i64 << n) & 0xffff_ffff),
+                    width: OpWidth::W32,
+                    flags: FlagUpdate::None
+                });
             }
             Opcode::S2_togglebit_i => {
                 let n = fimm_u(b'i');
-                push_op!(OpKind::Xor { dst: rd, src1: rs, src2: SrcOperand::Imm(1i64 << n), width: OpWidth::W32, flags: FlagUpdate::None });
+                push_op!(OpKind::Xor {
+                    dst: rd,
+                    src1: rs,
+                    src2: SrcOperand::Imm(1i64 << n),
+                    width: OpWidth::W32,
+                    flags: FlagUpdate::None
+                });
             }
             Opcode::S2_tstbit_i => {
                 // Pd = (Rs & (1<<n)) != 0
                 let n = fimm_u(b'i');
                 let m = ctx.alloc_vreg();
-                push_op!(OpKind::And { dst: m, src1: rs, src2: SrcOperand::Imm(1i64 << n), width: OpWidth::W32, flags: FlagUpdate::None });
+                push_op!(OpKind::And {
+                    dst: m,
+                    src1: rs,
+                    src2: SrcOperand::Imm(1i64 << n),
+                    width: OpWidth::W32,
+                    flags: FlagUpdate::None
+                });
                 cmp_set_pred!(rd_n, m, SrcOperand::Imm(0), Condition::Ne);
             }
             Opcode::S4_ntstbit_i => {
                 let n = fimm_u(b'i');
                 let m = ctx.alloc_vreg();
-                push_op!(OpKind::And { dst: m, src1: rs, src2: SrcOperand::Imm(1i64 << n), width: OpWidth::W32, flags: FlagUpdate::None });
+                push_op!(OpKind::And {
+                    dst: m,
+                    src1: rs,
+                    src2: SrcOperand::Imm(1i64 << n),
+                    width: OpWidth::W32,
+                    flags: FlagUpdate::None
+                });
                 cmp_set_pred!(rd_n, m, SrcOperand::Imm(0), Condition::Eq);
             }
             // extractu: Rd = zero-extend(width, Rs >> offset). width=#u5(i),
@@ -2108,25 +2486,71 @@ impl HexagonLifter {
                 let width = fimm_u(b'i');
                 let offset = fimm_u(b'I');
                 let v = ctx.alloc_vreg();
-                push_op!(OpKind::Shr { dst: v, src: rs, amount: SrcOperand::Imm(offset as i64), width: OpWidth::W32, flags: FlagUpdate::None });
-                let mask: i64 = if width == 0 { 0 } else if width >= 32 { 0xffff_ffff } else { (1i64 << width) - 1 };
-                push_op!(OpKind::And { dst: rd, src1: v, src2: SrcOperand::Imm(mask), width: OpWidth::W32, flags: FlagUpdate::None });
+                push_op!(OpKind::Shr {
+                    dst: v,
+                    src: rs,
+                    amount: SrcOperand::Imm(offset as i64),
+                    width: OpWidth::W32,
+                    flags: FlagUpdate::None
+                });
+                let mask: i64 = if width == 0 {
+                    0
+                } else if width >= 32 {
+                    0xffff_ffff
+                } else {
+                    (1i64 << width) - 1
+                };
+                push_op!(OpKind::And {
+                    dst: rd,
+                    src1: v,
+                    src2: SrcOperand::Imm(mask),
+                    width: OpWidth::W32,
+                    flags: FlagUpdate::None
+                });
             }
             // S2_insert: Rx = (Rx & ~(mask<<off)) | ((Rs & mask) << off).
             Opcode::S2_insert => {
                 let width = fimm_u(b'i');
                 let offset = fimm_u(b'I');
-                let mask: i64 = if width >= 32 { 0xffff_ffff } else { (1i64 << width) - 1 };
+                let mask: i64 = if width >= 32 {
+                    0xffff_ffff
+                } else {
+                    (1i64 << width) - 1
+                };
                 // (Rs & mask) << off
                 let sm = ctx.alloc_vreg();
-                push_op!(OpKind::And { dst: sm, src1: rs, src2: SrcOperand::Imm(mask), width: OpWidth::W32, flags: FlagUpdate::None });
+                push_op!(OpKind::And {
+                    dst: sm,
+                    src1: rs,
+                    src2: SrcOperand::Imm(mask),
+                    width: OpWidth::W32,
+                    flags: FlagUpdate::None
+                });
                 let sml = ctx.alloc_vreg();
-                push_op!(OpKind::Shl { dst: sml, src: sm, amount: SrcOperand::Imm(offset as i64), width: OpWidth::W32, flags: FlagUpdate::None });
+                push_op!(OpKind::Shl {
+                    dst: sml,
+                    src: sm,
+                    amount: SrcOperand::Imm(offset as i64),
+                    width: OpWidth::W32,
+                    flags: FlagUpdate::None
+                });
                 // Rx & ~(mask<<off)
                 let clear: i64 = !((mask << offset) as u32 as i64) & 0xffff_ffff;
                 let kept = ctx.alloc_vreg();
-                push_op!(OpKind::And { dst: kept, src1: rx, src2: SrcOperand::Imm(clear), width: OpWidth::W32, flags: FlagUpdate::None });
-                push_op!(OpKind::Or { dst: rx, src1: kept, src2: SrcOperand::Reg(sml), width: OpWidth::W32, flags: FlagUpdate::None });
+                push_op!(OpKind::And {
+                    dst: kept,
+                    src1: rx,
+                    src2: SrcOperand::Imm(clear),
+                    width: OpWidth::W32,
+                    flags: FlagUpdate::None
+                });
+                push_op!(OpKind::Or {
+                    dst: rx,
+                    src1: kept,
+                    src2: SrcOperand::Reg(sml),
+                    width: OpWidth::W32,
+                    flags: FlagUpdate::None
+                });
             }
             Opcode::S2_tstbit_r => {
                 // bit = bidir_lshiftl(1, sxt7(Rt)); Pd = (Rs & bit) != 0.
@@ -2137,32 +2561,66 @@ impl HexagonLifter {
             // clb/cl0/cl1/ct0/ct1 — bit counts. SMIR Clz/Ctz over 32-bit.
             Opcode::S2_cl0 => {
                 // count leading zeros of Rs
-                push_op!(OpKind::Clz { dst: rd, src: rs, width: OpWidth::W32 });
+                push_op!(OpKind::Clz {
+                    dst: rd,
+                    src: rs,
+                    width: OpWidth::W32
+                });
             }
             Opcode::S2_cl1 => {
                 // count leading ones = clz(~Rs)
                 let n = ctx.alloc_vreg();
-                push_op!(OpKind::Not { dst: n, src: rs, width: OpWidth::W32 });
-                push_op!(OpKind::Clz { dst: rd, src: n, width: OpWidth::W32 });
+                push_op!(OpKind::Not {
+                    dst: n,
+                    src: rs,
+                    width: OpWidth::W32
+                });
+                push_op!(OpKind::Clz {
+                    dst: rd,
+                    src: n,
+                    width: OpWidth::W32
+                });
             }
             Opcode::S2_ct0 => {
                 // count trailing zeros of Rs (Ctz returns width when 0; sem does
                 // cl1(brev(~Rs)) which for Rs==0 gives 32 — matches Ctz of 0).
-                push_op!(OpKind::Ctz { dst: rd, src: rs, width: OpWidth::W32 });
+                push_op!(OpKind::Ctz {
+                    dst: rd,
+                    src: rs,
+                    width: OpWidth::W32
+                });
             }
             Opcode::S2_ct1 => {
                 // count trailing ones = ctz(~Rs)
                 let n = ctx.alloc_vreg();
-                push_op!(OpKind::Not { dst: n, src: rs, width: OpWidth::W32 });
-                push_op!(OpKind::Ctz { dst: rd, src: n, width: OpWidth::W32 });
+                push_op!(OpKind::Not {
+                    dst: n,
+                    src: rs,
+                    width: OpWidth::W32
+                });
+                push_op!(OpKind::Ctz {
+                    dst: rd,
+                    src: n,
+                    width: OpWidth::W32
+                });
             }
             Opcode::S2_brev => {
-                push_op!(OpKind::Rbit { dst: rd, src: rs, width: OpWidth::W32 });
+                push_op!(OpKind::Rbit {
+                    dst: rd,
+                    src: rs,
+                    width: OpWidth::W32
+                });
             }
             Opcode::S2_vsplatrb => {
                 // Rd = (Rs & 0xff) replicated into 4 bytes.
                 let b = ctx.alloc_vreg();
-                push_op!(OpKind::And { dst: b, src1: rs, src2: SrcOperand::Imm(0xff), width: OpWidth::W32, flags: FlagUpdate::None });
+                push_op!(OpKind::And {
+                    dst: b,
+                    src1: rs,
+                    src2: SrcOperand::Imm(0xff),
+                    width: OpWidth::W32,
+                    flags: FlagUpdate::None
+                });
                 // multiply by 0x01010101
                 push_op!(OpKind::MulU {
                     dst_lo: rd,
@@ -2176,9 +2634,20 @@ impl HexagonLifter {
             // Rdd = (Rs & 0xffff) replicated into 4 halfwords of a pair.
             Opcode::S2_vsplatrh => {
                 let h = ctx.alloc_vreg();
-                push_op!(OpKind::And { dst: h, src1: rs, src2: SrcOperand::Imm(0xffff), width: OpWidth::W32, flags: FlagUpdate::None });
+                push_op!(OpKind::And {
+                    dst: h,
+                    src1: rs,
+                    src2: SrcOperand::Imm(0xffff),
+                    width: OpWidth::W32,
+                    flags: FlagUpdate::None
+                });
                 let hz = ctx.alloc_vreg();
-                push_op!(OpKind::ZeroExtend { dst: hz, src: h, from_width: OpWidth::W32, to_width: OpWidth::W64 });
+                push_op!(OpKind::ZeroExtend {
+                    dst: hz,
+                    src: h,
+                    from_width: OpWidth::W32,
+                    to_width: OpWidth::W64
+                });
                 let r = ctx.alloc_vreg();
                 // 0x0001_0001_0001_0001 splats the halfword into all 4 lanes.
                 push_op!(OpKind::MulU {
@@ -2199,8 +2668,20 @@ impl HexagonLifter {
             Opcode::S2_addasl_rrri => {
                 let n = fimm_u(b'i');
                 let sh = ctx.alloc_vreg();
-                push_op!(OpKind::Shl { dst: sh, src: rs, amount: SrcOperand::Imm(n as i64), width: OpWidth::W32, flags: FlagUpdate::None });
-                push_op!(OpKind::Add { dst: rd, src1: rt, src2: SrcOperand::Reg(sh), width: OpWidth::W32, flags: FlagUpdate::None });
+                push_op!(OpKind::Shl {
+                    dst: sh,
+                    src: rs,
+                    amount: SrcOperand::Imm(n as i64),
+                    width: OpWidth::W32,
+                    flags: FlagUpdate::None
+                });
+                push_op!(OpKind::Add {
+                    dst: rd,
+                    src1: rt,
+                    src2: SrcOperand::Reg(sh),
+                    width: OpWidth::W32,
+                    flags: FlagUpdate::None
+                });
             }
 
             // ============================================================
@@ -2237,8 +2718,18 @@ impl HexagonLifter {
             Opcode::M2_dpmpyss_acc_s0 | Opcode::M2_dpmpyss_nac_s0 => {
                 let se_s = ctx.alloc_vreg();
                 let se_t = ctx.alloc_vreg();
-                push_op!(OpKind::SignExtend { dst: se_s, src: rs, from_width: OpWidth::W32, to_width: OpWidth::W64 });
-                push_op!(OpKind::SignExtend { dst: se_t, src: rt, from_width: OpWidth::W32, to_width: OpWidth::W64 });
+                push_op!(OpKind::SignExtend {
+                    dst: se_s,
+                    src: rs,
+                    from_width: OpWidth::W32,
+                    to_width: OpWidth::W64
+                });
+                push_op!(OpKind::SignExtend {
+                    dst: se_t,
+                    src: rt,
+                    from_width: OpWidth::W32,
+                    to_width: OpWidth::W64
+                });
                 let prod = ctx.alloc_vreg();
                 push_op!(OpKind::MulS {
                     dst_lo: prod,
@@ -2251,9 +2742,21 @@ impl HexagonLifter {
                 let acc = read_pair!(rx_n);
                 let r = ctx.alloc_vreg();
                 if matches!(op, Opcode::M2_dpmpyss_acc_s0) {
-                    push_op!(OpKind::Add { dst: r, src1: acc, src2: SrcOperand::Reg(prod), width: OpWidth::W64, flags: FlagUpdate::None });
+                    push_op!(OpKind::Add {
+                        dst: r,
+                        src1: acc,
+                        src2: SrcOperand::Reg(prod),
+                        width: OpWidth::W64,
+                        flags: FlagUpdate::None
+                    });
                 } else {
-                    push_op!(OpKind::Sub { dst: r, src1: acc, src2: SrcOperand::Reg(prod), width: OpWidth::W64, flags: FlagUpdate::None });
+                    push_op!(OpKind::Sub {
+                        dst: r,
+                        src1: acc,
+                        src2: SrcOperand::Reg(prod),
+                        width: OpWidth::W64,
+                        flags: FlagUpdate::None
+                    });
                 }
                 write_pair!(rx_n, r);
             }
@@ -2261,8 +2764,18 @@ impl HexagonLifter {
             Opcode::M2_dpmpyuu_acc_s0 | Opcode::M2_dpmpyuu_nac_s0 => {
                 let ze_s = ctx.alloc_vreg();
                 let ze_t = ctx.alloc_vreg();
-                push_op!(OpKind::ZeroExtend { dst: ze_s, src: rs, from_width: OpWidth::W32, to_width: OpWidth::W64 });
-                push_op!(OpKind::ZeroExtend { dst: ze_t, src: rt, from_width: OpWidth::W32, to_width: OpWidth::W64 });
+                push_op!(OpKind::ZeroExtend {
+                    dst: ze_s,
+                    src: rs,
+                    from_width: OpWidth::W32,
+                    to_width: OpWidth::W64
+                });
+                push_op!(OpKind::ZeroExtend {
+                    dst: ze_t,
+                    src: rt,
+                    from_width: OpWidth::W32,
+                    to_width: OpWidth::W64
+                });
                 let prod = ctx.alloc_vreg();
                 push_op!(OpKind::MulU {
                     dst_lo: prod,
@@ -2275,9 +2788,21 @@ impl HexagonLifter {
                 let acc = read_pair!(rx_n);
                 let r = ctx.alloc_vreg();
                 if matches!(op, Opcode::M2_dpmpyuu_acc_s0) {
-                    push_op!(OpKind::Add { dst: r, src1: acc, src2: SrcOperand::Reg(prod), width: OpWidth::W64, flags: FlagUpdate::None });
+                    push_op!(OpKind::Add {
+                        dst: r,
+                        src1: acc,
+                        src2: SrcOperand::Reg(prod),
+                        width: OpWidth::W64,
+                        flags: FlagUpdate::None
+                    });
                 } else {
-                    push_op!(OpKind::Sub { dst: r, src1: acc, src2: SrcOperand::Reg(prod), width: OpWidth::W64, flags: FlagUpdate::None });
+                    push_op!(OpKind::Sub {
+                        dst: r,
+                        src1: acc,
+                        src2: SrcOperand::Reg(prod),
+                        width: OpWidth::W64,
+                        flags: FlagUpdate::None
+                    });
                 }
                 write_pair!(rx_n, r);
             }
@@ -2286,13 +2811,42 @@ impl HexagonLifter {
             Opcode::M2_dpmpyss_rnd_s0 => {
                 let se_s = ctx.alloc_vreg();
                 let se_t = ctx.alloc_vreg();
-                push_op!(OpKind::SignExtend { dst: se_s, src: rs, from_width: OpWidth::W32, to_width: OpWidth::W64 });
-                push_op!(OpKind::SignExtend { dst: se_t, src: rt, from_width: OpWidth::W32, to_width: OpWidth::W64 });
+                push_op!(OpKind::SignExtend {
+                    dst: se_s,
+                    src: rs,
+                    from_width: OpWidth::W32,
+                    to_width: OpWidth::W64
+                });
+                push_op!(OpKind::SignExtend {
+                    dst: se_t,
+                    src: rt,
+                    from_width: OpWidth::W32,
+                    to_width: OpWidth::W64
+                });
                 let prod = ctx.alloc_vreg();
-                push_op!(OpKind::MulS { dst_lo: prod, dst_hi: None, src1: se_s, src2: SrcOperand::Reg(se_t), width: OpWidth::W64, flags: FlagUpdate::None });
+                push_op!(OpKind::MulS {
+                    dst_lo: prod,
+                    dst_hi: None,
+                    src1: se_s,
+                    src2: SrcOperand::Reg(se_t),
+                    width: OpWidth::W64,
+                    flags: FlagUpdate::None
+                });
                 let rnd = ctx.alloc_vreg();
-                push_op!(OpKind::Add { dst: rnd, src1: prod, src2: SrcOperand::Imm(0x8000_0000), width: OpWidth::W64, flags: FlagUpdate::None });
-                push_op!(OpKind::Sar { dst: rd, src: rnd, amount: SrcOperand::Imm(32), width: OpWidth::W64, flags: FlagUpdate::None });
+                push_op!(OpKind::Add {
+                    dst: rnd,
+                    src1: prod,
+                    src2: SrcOperand::Imm(0x8000_0000),
+                    width: OpWidth::W64,
+                    flags: FlagUpdate::None
+                });
+                push_op!(OpKind::Sar {
+                    dst: rd,
+                    src: rnd,
+                    amount: SrcOperand::Imm(32),
+                    width: OpWidth::W64,
+                    flags: FlagUpdate::None
+                });
             }
 
             // Rd = high 32 bits of signed/unsigned 32x32 product.
@@ -2324,27 +2878,77 @@ impl HexagonLifter {
             Opcode::M2_mpysu_up => {
                 let se_s = ctx.alloc_vreg();
                 let ze_t = ctx.alloc_vreg();
-                push_op!(OpKind::SignExtend { dst: se_s, src: rs, from_width: OpWidth::W32, to_width: OpWidth::W64 });
-                push_op!(OpKind::ZeroExtend { dst: ze_t, src: rt, from_width: OpWidth::W32, to_width: OpWidth::W64 });
+                push_op!(OpKind::SignExtend {
+                    dst: se_s,
+                    src: rs,
+                    from_width: OpWidth::W32,
+                    to_width: OpWidth::W64
+                });
+                push_op!(OpKind::ZeroExtend {
+                    dst: ze_t,
+                    src: rt,
+                    from_width: OpWidth::W32,
+                    to_width: OpWidth::W64
+                });
                 let prod = ctx.alloc_vreg();
-                push_op!(OpKind::MulS { dst_lo: prod, dst_hi: None, src1: se_s, src2: SrcOperand::Reg(ze_t), width: OpWidth::W64, flags: FlagUpdate::None });
-                push_op!(OpKind::Sar { dst: rd, src: prod, amount: SrcOperand::Imm(32), width: OpWidth::W64, flags: FlagUpdate::None });
+                push_op!(OpKind::MulS {
+                    dst_lo: prod,
+                    dst_hi: None,
+                    src1: se_s,
+                    src2: SrcOperand::Reg(ze_t),
+                    width: OpWidth::W64,
+                    flags: FlagUpdate::None
+                });
+                push_op!(OpKind::Sar {
+                    dst: rd,
+                    src: prod,
+                    amount: SrcOperand::Imm(32),
+                    width: OpWidth::W64,
+                    flags: FlagUpdate::None
+                });
             }
             // Rd = ((i32)Rs * (i32)Rt) >> 31  (Q1.31 high-half, no saturation).
             Opcode::M2_mpy_up_s1 => {
                 let se_s = ctx.alloc_vreg();
                 let se_t = ctx.alloc_vreg();
-                push_op!(OpKind::SignExtend { dst: se_s, src: rs, from_width: OpWidth::W32, to_width: OpWidth::W64 });
-                push_op!(OpKind::SignExtend { dst: se_t, src: rt, from_width: OpWidth::W32, to_width: OpWidth::W64 });
+                push_op!(OpKind::SignExtend {
+                    dst: se_s,
+                    src: rs,
+                    from_width: OpWidth::W32,
+                    to_width: OpWidth::W64
+                });
+                push_op!(OpKind::SignExtend {
+                    dst: se_t,
+                    src: rt,
+                    from_width: OpWidth::W32,
+                    to_width: OpWidth::W64
+                });
                 let prod = ctx.alloc_vreg();
-                push_op!(OpKind::MulS { dst_lo: prod, dst_hi: None, src1: se_s, src2: SrcOperand::Reg(se_t), width: OpWidth::W64, flags: FlagUpdate::None });
-                push_op!(OpKind::Sar { dst: rd, src: prod, amount: SrcOperand::Imm(31), width: OpWidth::W64, flags: FlagUpdate::None });
+                push_op!(OpKind::MulS {
+                    dst_lo: prod,
+                    dst_hi: None,
+                    src1: se_s,
+                    src2: SrcOperand::Reg(se_t),
+                    width: OpWidth::W64,
+                    flags: FlagUpdate::None
+                });
+                push_op!(OpKind::Sar {
+                    dst: rd,
+                    src: prod,
+                    amount: SrcOperand::Imm(31),
+                    width: OpWidth::W64,
+                    flags: FlagUpdate::None
+                });
             }
             // Rd = Rs * #u8 (extendable). Low 32 bits.
             Opcode::M2_mpysip => {
                 let imm = fimm_u(b'i');
                 let iv = ctx.alloc_vreg();
-                push_op!(OpKind::Mov { dst: iv, src: SrcOperand::Imm(imm as i64), width: OpWidth::W32 });
+                push_op!(OpKind::Mov {
+                    dst: iv,
+                    src: SrcOperand::Imm(imm as i64),
+                    width: OpWidth::W32
+                });
                 push_op!(OpKind::MulU {
                     dst_lo: rd,
                     dst_hi: None,
@@ -2358,7 +2962,11 @@ impl HexagonLifter {
             Opcode::M2_mpysin => {
                 let imm = fimm_u(b'i').wrapping_neg();
                 let iv = ctx.alloc_vreg();
-                push_op!(OpKind::Mov { dst: iv, src: SrcOperand::Imm(imm as i32 as i64), width: OpWidth::W32 });
+                push_op!(OpKind::Mov {
+                    dst: iv,
+                    src: SrcOperand::Imm(imm as i32 as i64),
+                    width: OpWidth::W32
+                });
                 push_op!(OpKind::MulU {
                     dst_lo: rd,
                     dst_hi: None,
@@ -2370,63 +2978,167 @@ impl HexagonLifter {
             }
             // Rx += Rs * Rt   (MulAdd: dst = acc + src1*src2; low 32).
             Opcode::M2_maci => {
-                push_op!(OpKind::MulAdd { dst: rx, acc: rx, src1: rs, src2: rt, width: OpWidth::W32 });
+                push_op!(OpKind::MulAdd {
+                    dst: rx,
+                    acc: rx,
+                    src1: rs,
+                    src2: rt,
+                    width: OpWidth::W32
+                });
             }
             // Rx -= Rs * Rt   (MulSub: dst = acc - src1*src2).
             Opcode::M2_mnaci => {
-                push_op!(OpKind::MulSub { dst: rx, acc: rx, src1: rs, src2: rt, width: OpWidth::W32 });
+                push_op!(OpKind::MulSub {
+                    dst: rx,
+                    acc: rx,
+                    src1: rs,
+                    src2: rt,
+                    width: OpWidth::W32
+                });
             }
             // Rx += Rs * #u8 (extendable).
             Opcode::M2_macsip => {
                 let imm = fimm_u(b'i');
                 let iv = ctx.alloc_vreg();
-                push_op!(OpKind::Mov { dst: iv, src: SrcOperand::Imm(imm as i64), width: OpWidth::W32 });
-                push_op!(OpKind::MulAdd { dst: rx, acc: rx, src1: rs, src2: iv, width: OpWidth::W32 });
+                push_op!(OpKind::Mov {
+                    dst: iv,
+                    src: SrcOperand::Imm(imm as i64),
+                    width: OpWidth::W32
+                });
+                push_op!(OpKind::MulAdd {
+                    dst: rx,
+                    acc: rx,
+                    src1: rs,
+                    src2: iv,
+                    width: OpWidth::W32
+                });
             }
             // Rx -= Rs * #u8 (extendable).
             Opcode::M2_macsin => {
                 let imm = fimm_u(b'i');
                 let iv = ctx.alloc_vreg();
-                push_op!(OpKind::Mov { dst: iv, src: SrcOperand::Imm(imm as i64), width: OpWidth::W32 });
-                push_op!(OpKind::MulSub { dst: rx, acc: rx, src1: rs, src2: iv, width: OpWidth::W32 });
+                push_op!(OpKind::Mov {
+                    dst: iv,
+                    src: SrcOperand::Imm(imm as i64),
+                    width: OpWidth::W32
+                });
+                push_op!(OpKind::MulSub {
+                    dst: rx,
+                    acc: rx,
+                    src1: rs,
+                    src2: iv,
+                    width: OpWidth::W32
+                });
             }
             // Rx += Rs + Rt
             Opcode::M2_acci => {
                 let s = ctx.alloc_vreg();
-                push_op!(OpKind::Add { dst: s, src1: rs, src2: SrcOperand::Reg(rt), width: OpWidth::W32, flags: FlagUpdate::None });
-                push_op!(OpKind::Add { dst: rx, src1: rx, src2: SrcOperand::Reg(s), width: OpWidth::W32, flags: FlagUpdate::None });
+                push_op!(OpKind::Add {
+                    dst: s,
+                    src1: rs,
+                    src2: SrcOperand::Reg(rt),
+                    width: OpWidth::W32,
+                    flags: FlagUpdate::None
+                });
+                push_op!(OpKind::Add {
+                    dst: rx,
+                    src1: rx,
+                    src2: SrcOperand::Reg(s),
+                    width: OpWidth::W32,
+                    flags: FlagUpdate::None
+                });
             }
             // Rx += Rs + #s8 (extendable)
             Opcode::M2_accii => {
                 let imm = fimm_s(b'i');
                 let s = ctx.alloc_vreg();
-                push_op!(OpKind::Add { dst: s, src1: rs, src2: SrcOperand::Imm(imm as i64), width: OpWidth::W32, flags: FlagUpdate::None });
-                push_op!(OpKind::Add { dst: rx, src1: rx, src2: SrcOperand::Reg(s), width: OpWidth::W32, flags: FlagUpdate::None });
+                push_op!(OpKind::Add {
+                    dst: s,
+                    src1: rs,
+                    src2: SrcOperand::Imm(imm as i64),
+                    width: OpWidth::W32,
+                    flags: FlagUpdate::None
+                });
+                push_op!(OpKind::Add {
+                    dst: rx,
+                    src1: rx,
+                    src2: SrcOperand::Reg(s),
+                    width: OpWidth::W32,
+                    flags: FlagUpdate::None
+                });
             }
             // Rx -= (Rs + Rt)
             Opcode::M2_nacci => {
                 let s = ctx.alloc_vreg();
-                push_op!(OpKind::Add { dst: s, src1: rs, src2: SrcOperand::Reg(rt), width: OpWidth::W32, flags: FlagUpdate::None });
-                push_op!(OpKind::Sub { dst: rx, src1: rx, src2: SrcOperand::Reg(s), width: OpWidth::W32, flags: FlagUpdate::None });
+                push_op!(OpKind::Add {
+                    dst: s,
+                    src1: rs,
+                    src2: SrcOperand::Reg(rt),
+                    width: OpWidth::W32,
+                    flags: FlagUpdate::None
+                });
+                push_op!(OpKind::Sub {
+                    dst: rx,
+                    src1: rx,
+                    src2: SrcOperand::Reg(s),
+                    width: OpWidth::W32,
+                    flags: FlagUpdate::None
+                });
             }
             // Rx -= (Rs + #s8) (extendable)
             Opcode::M2_naccii => {
                 let imm = fimm_s(b'i');
                 let s = ctx.alloc_vreg();
-                push_op!(OpKind::Add { dst: s, src1: rs, src2: SrcOperand::Imm(imm as i64), width: OpWidth::W32, flags: FlagUpdate::None });
-                push_op!(OpKind::Sub { dst: rx, src1: rx, src2: SrcOperand::Reg(s), width: OpWidth::W32, flags: FlagUpdate::None });
+                push_op!(OpKind::Add {
+                    dst: s,
+                    src1: rs,
+                    src2: SrcOperand::Imm(imm as i64),
+                    width: OpWidth::W32,
+                    flags: FlagUpdate::None
+                });
+                push_op!(OpKind::Sub {
+                    dst: rx,
+                    src1: rx,
+                    src2: SrcOperand::Reg(s),
+                    width: OpWidth::W32,
+                    flags: FlagUpdate::None
+                });
             }
             // Rx += Rt - Rs
             Opcode::M2_subacc => {
                 let s = ctx.alloc_vreg();
-                push_op!(OpKind::Sub { dst: s, src1: rt, src2: SrcOperand::Reg(rs), width: OpWidth::W32, flags: FlagUpdate::None });
-                push_op!(OpKind::Add { dst: rx, src1: rx, src2: SrcOperand::Reg(s), width: OpWidth::W32, flags: FlagUpdate::None });
+                push_op!(OpKind::Sub {
+                    dst: s,
+                    src1: rt,
+                    src2: SrcOperand::Reg(rs),
+                    width: OpWidth::W32,
+                    flags: FlagUpdate::None
+                });
+                push_op!(OpKind::Add {
+                    dst: rx,
+                    src1: rx,
+                    src2: SrcOperand::Reg(s),
+                    width: OpWidth::W32,
+                    flags: FlagUpdate::None
+                });
             }
             // Rx ^= Rs ^ Rt
             Opcode::M2_xor_xacc => {
                 let s = ctx.alloc_vreg();
-                push_op!(OpKind::Xor { dst: s, src1: rs, src2: SrcOperand::Reg(rt), width: OpWidth::W32, flags: FlagUpdate::None });
-                push_op!(OpKind::Xor { dst: rx, src1: rx, src2: SrcOperand::Reg(s), width: OpWidth::W32, flags: FlagUpdate::None });
+                push_op!(OpKind::Xor {
+                    dst: s,
+                    src1: rs,
+                    src2: SrcOperand::Reg(rt),
+                    width: OpWidth::W32,
+                    flags: FlagUpdate::None
+                });
+                push_op!(OpKind::Xor {
+                    dst: rx,
+                    src1: rx,
+                    src2: SrcOperand::Reg(s),
+                    width: OpWidth::W32,
+                    flags: FlagUpdate::None
+                });
             }
             // Rxx ^= Rss ^ Rtt
             Opcode::M4_xor_xacc => {
@@ -2435,8 +3147,20 @@ impl HexagonLifter {
                 let x = read_pair!(rx_n);
                 let s = ctx.alloc_vreg();
                 let r = ctx.alloc_vreg();
-                push_op!(OpKind::Xor { dst: s, src1: a, src2: SrcOperand::Reg(b), width: OpWidth::W64, flags: FlagUpdate::None });
-                push_op!(OpKind::Xor { dst: r, src1: x, src2: SrcOperand::Reg(s), width: OpWidth::W64, flags: FlagUpdate::None });
+                push_op!(OpKind::Xor {
+                    dst: s,
+                    src1: a,
+                    src2: SrcOperand::Reg(b),
+                    width: OpWidth::W64,
+                    flags: FlagUpdate::None
+                });
+                push_op!(OpKind::Xor {
+                    dst: r,
+                    src1: x,
+                    src2: SrcOperand::Reg(s),
+                    width: OpWidth::W64,
+                    flags: FlagUpdate::None
+                });
                 write_pair!(rx_n, r);
             }
 
@@ -2772,7 +3496,11 @@ impl HexagonLifter {
             // `as u16`/`as u32`, identical to VWidenMul's wrapping_add + masked
             // set_lane, so signed/unsigned accumulate forms are bit-identical.
             Opcode::V6_vmpybv | Opcode::V6_vmpybv_acc => {
-                let base = if matches!(op, Opcode::V6_vmpybv_acc) { rx_n } else { rd_n };
+                let base = if matches!(op, Opcode::V6_vmpybv_acc) {
+                    rx_n
+                } else {
+                    rd_n
+                };
                 push_op!(OpKind::VWidenMul {
                     dst_lo: self.hex_v(base),
                     dst_hi: self.hex_v(base + 1),
@@ -2785,7 +3513,11 @@ impl HexagonLifter {
                 });
             }
             Opcode::V6_vmpybusv | Opcode::V6_vmpybusv_acc => {
-                let base = if matches!(op, Opcode::V6_vmpybusv_acc) { rx_n } else { rd_n };
+                let base = if matches!(op, Opcode::V6_vmpybusv_acc) {
+                    rx_n
+                } else {
+                    rd_n
+                };
                 push_op!(OpKind::VWidenMul {
                     dst_lo: self.hex_v(base),
                     dst_hi: self.hex_v(base + 1),
@@ -2798,7 +3530,11 @@ impl HexagonLifter {
                 });
             }
             Opcode::V6_vmpyubv | Opcode::V6_vmpyubv_acc => {
-                let base = if matches!(op, Opcode::V6_vmpyubv_acc) { rx_n } else { rd_n };
+                let base = if matches!(op, Opcode::V6_vmpyubv_acc) {
+                    rx_n
+                } else {
+                    rd_n
+                };
                 push_op!(OpKind::VWidenMul {
                     dst_lo: self.hex_v(base),
                     dst_hi: self.hex_v(base + 1),
@@ -2811,7 +3547,11 @@ impl HexagonLifter {
                 });
             }
             Opcode::V6_vmpyhv | Opcode::V6_vmpyhv_acc => {
-                let base = if matches!(op, Opcode::V6_vmpyhv_acc) { rx_n } else { rd_n };
+                let base = if matches!(op, Opcode::V6_vmpyhv_acc) {
+                    rx_n
+                } else {
+                    rd_n
+                };
                 push_op!(OpKind::VWidenMul {
                     dst_lo: self.hex_v(base),
                     dst_hi: self.hex_v(base + 1),
@@ -2824,7 +3564,11 @@ impl HexagonLifter {
                 });
             }
             Opcode::V6_vmpyhus | Opcode::V6_vmpyhus_acc => {
-                let base = if matches!(op, Opcode::V6_vmpyhus_acc) { rx_n } else { rd_n };
+                let base = if matches!(op, Opcode::V6_vmpyhus_acc) {
+                    rx_n
+                } else {
+                    rd_n
+                };
                 push_op!(OpKind::VWidenMul {
                     dst_lo: self.hex_v(base),
                     dst_hi: self.hex_v(base + 1),
@@ -2837,7 +3581,11 @@ impl HexagonLifter {
                 });
             }
             Opcode::V6_vmpyuhv | Opcode::V6_vmpyuhv_acc => {
-                let base = if matches!(op, Opcode::V6_vmpyuhv_acc) { rx_n } else { rd_n };
+                let base = if matches!(op, Opcode::V6_vmpyuhv_acc) {
+                    rx_n
+                } else {
+                    rd_n
+                };
                 push_op!(OpKind::VWidenMul {
                     dst_lo: self.hex_v(base),
                     dst_hi: self.hex_v(base + 1),
@@ -3173,12 +3921,8 @@ impl HexagonLifter {
                     Opcode::V6_vmpybus | Opcode::V6_vmpybus_acc => {
                         (VecElementType::I8, false, true)
                     }
-                    Opcode::V6_vmpyub | Opcode::V6_vmpyub_acc => {
-                        (VecElementType::I8, false, false)
-                    }
-                    Opcode::V6_vmpyh | Opcode::V6_vmpyh_acc => {
-                        (VecElementType::I16, true, true)
-                    }
+                    Opcode::V6_vmpyub | Opcode::V6_vmpyub_acc => (VecElementType::I8, false, false),
+                    Opcode::V6_vmpyh | Opcode::V6_vmpyh_acc => (VecElementType::I16, true, true),
                     // vmpyuh
                     _ => (VecElementType::I16, false, false),
                 };
@@ -3208,10 +3952,7 @@ impl HexagonLifter {
             //                        out[i+half] (high) = sub-elem of Vu.
             // VPack encodes src2->low, src1->high, so src1=Vu, src2=Vv.
             // ============================================================
-            Opcode::V6_vpackeb
-            | Opcode::V6_vpackob
-            | Opcode::V6_vpackeh
-            | Opcode::V6_vpackoh => {
+            Opcode::V6_vpackeb | Opcode::V6_vpackob | Opcode::V6_vpackeh | Opcode::V6_vpackoh => {
                 let (elem, odd) = match op {
                     Opcode::V6_vpackeb => (VecElementType::I8, false),
                     Opcode::V6_vpackob => (VecElementType::I8, true),
@@ -3583,9 +4324,7 @@ impl HexagonLifter {
             | Opcode::V6_vdmpyhsusat_acc => {
                 let acc = matches!(
                     op,
-                    Opcode::V6_vdmpyhb_acc
-                        | Opcode::V6_vdmpyhsat_acc
-                        | Opcode::V6_vdmpyhsusat_acc
+                    Opcode::V6_vdmpyhb_acc | Opcode::V6_vdmpyhsat_acc | Opcode::V6_vdmpyhsusat_acc
                 );
                 let (src2_elem, signed2, sat) = match op {
                     Opcode::V6_vdmpyhb | Opcode::V6_vdmpyhb_acc => {
@@ -3617,6 +4356,103 @@ impl HexagonLifter {
                     signed2,
                     sat,
                     acc,
+                });
+            }
+
+            // --- HVX accumulating vector compares -> Q vector-predicate (Wave 13) ---
+            // `Qx {&=,|=,^=} vcmp.<cond>(Vu.<t>, Vv.<t>)`: recompute a per-element
+            // compare into a per-byte Q mask, then combine it bit-wise into the
+            // EXISTING architectural Qx via And/Or/Xor (read-modify-write). The Q is
+            // both source and destination -> field letter `x` (confirmed against
+            // sem/hvx_cmpacc.rs: qx = fld(d, b'x'), old = ctx.qread(qx)). src1=u,
+            // src2=v. `eq` is signedness-agnostic (the assembler maps the unsigned
+            // ub/uh/uw `eq` forms onto these signed b/h/w encodings); `gt` is signed
+            // (Gt) vs unsigned (Gtu).
+            Opcode::V6_veqb_and
+            | Opcode::V6_veqb_or
+            | Opcode::V6_veqb_xor
+            | Opcode::V6_veqh_and
+            | Opcode::V6_veqh_or
+            | Opcode::V6_veqh_xor
+            | Opcode::V6_veqw_and
+            | Opcode::V6_veqw_or
+            | Opcode::V6_veqw_xor
+            | Opcode::V6_vgtb_and
+            | Opcode::V6_vgtb_or
+            | Opcode::V6_vgtb_xor
+            | Opcode::V6_vgth_and
+            | Opcode::V6_vgth_or
+            | Opcode::V6_vgth_xor
+            | Opcode::V6_vgtw_and
+            | Opcode::V6_vgtw_or
+            | Opcode::V6_vgtw_xor
+            | Opcode::V6_vgtub_and
+            | Opcode::V6_vgtub_or
+            | Opcode::V6_vgtub_xor
+            | Opcode::V6_vgtuh_and
+            | Opcode::V6_vgtuh_or
+            | Opcode::V6_vgtuh_xor
+            | Opcode::V6_vgtuw_and
+            | Opcode::V6_vgtuw_or
+            | Opcode::V6_vgtuw_xor => {
+                let (cond, elem, lanes) = match op {
+                    Opcode::V6_veqb_and | Opcode::V6_veqb_or | Opcode::V6_veqb_xor => {
+                        (VecCmpCond::Eq, VecElementType::I8, 128)
+                    }
+                    Opcode::V6_veqh_and | Opcode::V6_veqh_or | Opcode::V6_veqh_xor => {
+                        (VecCmpCond::Eq, VecElementType::I16, 64)
+                    }
+                    Opcode::V6_veqw_and | Opcode::V6_veqw_or | Opcode::V6_veqw_xor => {
+                        (VecCmpCond::Eq, VecElementType::I32, 32)
+                    }
+                    Opcode::V6_vgtb_and | Opcode::V6_vgtb_or | Opcode::V6_vgtb_xor => {
+                        (VecCmpCond::Gt, VecElementType::I8, 128)
+                    }
+                    Opcode::V6_vgth_and | Opcode::V6_vgth_or | Opcode::V6_vgth_xor => {
+                        (VecCmpCond::Gt, VecElementType::I16, 64)
+                    }
+                    Opcode::V6_vgtw_and | Opcode::V6_vgtw_or | Opcode::V6_vgtw_xor => {
+                        (VecCmpCond::Gt, VecElementType::I32, 32)
+                    }
+                    Opcode::V6_vgtub_and | Opcode::V6_vgtub_or | Opcode::V6_vgtub_xor => {
+                        (VecCmpCond::Gtu, VecElementType::I8, 128)
+                    }
+                    Opcode::V6_vgtuh_and | Opcode::V6_vgtuh_or | Opcode::V6_vgtuh_xor => {
+                        (VecCmpCond::Gtu, VecElementType::I16, 64)
+                    }
+                    // vgtuw_{and,or,xor}
+                    _ => (VecCmpCond::Gtu, VecElementType::I32, 32),
+                };
+                let acc = match op {
+                    Opcode::V6_veqb_and
+                    | Opcode::V6_veqh_and
+                    | Opcode::V6_veqw_and
+                    | Opcode::V6_vgtb_and
+                    | Opcode::V6_vgth_and
+                    | Opcode::V6_vgtw_and
+                    | Opcode::V6_vgtub_and
+                    | Opcode::V6_vgtuh_and
+                    | Opcode::V6_vgtuw_and => VLaneOp::And,
+                    Opcode::V6_veqb_or
+                    | Opcode::V6_veqh_or
+                    | Opcode::V6_veqw_or
+                    | Opcode::V6_vgtb_or
+                    | Opcode::V6_vgth_or
+                    | Opcode::V6_vgtw_or
+                    | Opcode::V6_vgtub_or
+                    | Opcode::V6_vgtuh_or
+                    | Opcode::V6_vgtuw_or => VLaneOp::Or,
+                    // _xor variants
+                    _ => VLaneOp::Xor,
+                };
+                push_op!(OpKind::VCmpToQ {
+                    dst: self.hex_q(fld(b'x')),
+                    src1: self.hex_v(fld(b'u')),
+                    src2: self.hex_v(fld(b'v')),
+                    cond,
+                    elem,
+                    lanes,
+                    accumulate: Some(acc),
                 });
             }
 
