@@ -471,6 +471,14 @@ pub enum Op {
     VwaddW,
     VwsubuW,
     VwsubW,
+    // ---- V (widening integer multiply / multiply-accumulate) ----
+    Vwmulu,
+    Vwmulsu,
+    Vwmul,
+    Vwmaccu,
+    Vwmacc,
+    Vwmaccsu,
+    Vwmaccus,
     // ---- sentinel ----
     Illegal,
 }
@@ -811,6 +819,14 @@ fn decode_vector(w: u32) -> Insn {
             0b110101 => Op::VwaddW,
             0b110110 => Op::VwsubuW,
             0b110111 => Op::VwsubW,
+            // Widening multiply / multiply-accumulate (vwmaccus is vx-only).
+            0b111000 => Op::Vwmulu,
+            0b111010 => Op::Vwmulsu,
+            0b111011 => Op::Vwmul,
+            0b111100 => Op::Vwmaccu,
+            0b111101 => Op::Vwmacc,
+            0b111110 if f3 == 0b110 => Op::Vwmaccus,
+            0b111111 => Op::Vwmaccsu,
             // Slide-by-one (OPMVX form, funct3 == 0b110).
             0b001110 if f3 == 0b110 => Op::Vslide1up,
             0b001111 if f3 == 0b110 => Op::Vslide1down,

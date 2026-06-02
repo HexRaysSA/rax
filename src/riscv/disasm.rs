@@ -426,6 +426,13 @@ impl Op {
             VwaddW => "vwadd.w",
             VwsubuW => "vwsubu.w",
             VwsubW => "vwsub.w",
+            Vwmulu => "vwmulu",
+            Vwmulsu => "vwmulsu",
+            Vwmul => "vwmul",
+            Vwmaccu => "vwmaccu",
+            Vwmacc => "vwmacc",
+            Vwmaccsu => "vwmaccsu",
+            Vwmaccus => "vwmaccus",
             Illegal => "illegal",
         }
     }

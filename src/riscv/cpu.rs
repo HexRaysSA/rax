@@ -764,9 +764,9 @@ impl RiscVCpu {
             | Op::Vcompress | Op::Vadc | Op::Vmadc | Op::Vsbc | Op::Vmsbc | Op::Vsaddu
             | Op::Vsadd | Op::Vssubu | Op::Vssub | Op::Vaaddu | Op::Vaadd | Op::Vasubu
             | Op::Vasub | Op::Vssrl | Op::Vssra | Op::Vsmul | Op::Vwaddu | Op::Vwadd
-            | Op::Vwsubu | Op::Vwsub | Op::VwadduW | Op::VwaddW | Op::VwsubuW | Op::VwsubW => {
-                self.exec_vector(insn)?
-            }
+            | Op::Vwsubu | Op::Vwsub | Op::VwadduW | Op::VwaddW | Op::VwsubuW | Op::VwsubW
+            | Op::Vwmulu | Op::Vwmulsu | Op::Vwmul | Op::Vwmaccu | Op::Vwmacc | Op::Vwmaccsu
+            | Op::Vwmaccus => self.exec_vector(insn)?,
 
             Op::Illegal => return Err(Trap::illegal(insn.raw)),
 
@@ -1799,6 +1799,43 @@ impl RiscVCpu {
                     let b: i128 = if signed { sext_sew(braw, eb) as i128 } else { braw as i128 };
                     let r = if sub { a - b } else { a + b };
                     self.set_velem(vd, e, web, (r as u64) & wmask);
+                }
+            }
+            Op::Vwmulu | Op::Vwmulsu | Op::Vwmul | Op::Vwmaccu | Op::Vwmacc | Op::Vwmaccsu
+            | Op::Vwmaccus => {
+                // Widening multiply / multiply-accumulate: 2*SEW product into vd group.
+                let eb = self.sew_bytes();
+                if eb > 4 {
+                    return Err(Trap::illegal(insn.raw));
+                }
+                let web = eb * 2;
+                let wmask = Self::sew_mask(web);
+                // Signedness of (a = vs2, b = vs1/rs1 multiplier).
+                let (a_signed, b_signed) = match insn.op {
+                    Op::Vwmulu | Op::Vwmaccu => (false, false),
+                    Op::Vwmul | Op::Vwmacc => (true, true),
+                    Op::Vwmulsu | Op::Vwmaccus => (true, false),
+                    _ => (false, true), // Vwmaccsu
+                };
+                let is_vv = insn.funct3 == 0b010;
+                let is_mac = matches!(
+                    insn.op,
+                    Op::Vwmaccu | Op::Vwmacc | Op::Vwmaccsu | Op::Vwmaccus
+                );
+                let scalar = self.x(insn.rs1) & Self::sew_mask(eb);
+                for e in vstart..vl {
+                    if !vm && !self.vmask_bit(e) {
+                        continue;
+                    }
+                    let araw = self.velem(vs2, e, eb);
+                    let braw = if is_vv { self.velem(insn.rs1, e, eb) } else { scalar };
+                    let av: i128 = if a_signed { sext_sew(araw, eb) as i128 } else { araw as i128 };
+                    let bv: i128 = if b_signed { sext_sew(braw, eb) as i128 } else { braw as i128 };
+                    let mut prod = av * bv;
+                    if is_mac {
+                        prod = prod.wrapping_add(self.velem(vd, e, web) as i128);
+                    }
+                    self.set_velem(vd, e, web, (prod as u64) & wmask);
                 }
             }
             Op::Vssrl | Op::Vssra => {

@@ -1282,6 +1282,47 @@ fn diff_v_widen_add() {
 }
 
 #[test]
+fn diff_v_widen_mul() {
+    let mut rng = Rng::new(0x7EC_820);
+    let mut batch = Vec::new();
+    // (name, funct6, has_vv, has_vx)
+    let ops: &[(&str, u32, bool, bool)] = &[
+        ("vwmulu", 0b111000, true, true),
+        ("vwmulsu", 0b111010, true, true),
+        ("vwmul", 0b111011, true, true),
+        ("vwmaccu", 0b111100, true, true),
+        ("vwmacc", 0b111101, true, true),
+        ("vwmaccus", 0b111110, false, true), // vx only
+        ("vwmaccsu", 0b111111, true, true),
+    ];
+    for sew_log2 in 0..3u32 {
+        let vmax = vlmax(sew_log2);
+        for vl in [vmax, (vmax / 2).max(1)] {
+            for &(name, f6, has_vv, has_vx) in ops {
+                for k in 0..4 {
+                    let (vd, vs2, vs1) = WIDEN_REGS[(rng.next() % 4) as usize];
+                    let rs1 = XPOOL[(rng.next() % 5) as usize];
+                    let st = rand_vstate(&mut rng, sew_log2, vl);
+                    if has_vv {
+                        batch.push((format!("{name}.vv"), op_iv(f6, 1, vs2, vs1, 0b010, vd), st));
+                    }
+                    if has_vx {
+                        batch.push((format!("{name}.vx"), op_iv(f6, 1, vs2, rs1, 0b110, vd), st));
+                    }
+                    if has_vv && k % 2 == 0 {
+                        let mut stm = st;
+                        stm.v[0] = rng.next();
+                        stm.v[1] = rng.next();
+                        batch.push((format!("{name}.vv.m"), op_iv(f6, 0, vs2, vs1, 0b010, vd), stm));
+                    }
+                }
+            }
+        }
+    }
+    run_batch(&batch);
+}
+
+#[test]
 fn diff_v_loadstore() {
     let mut rng = Rng::new(0x7EC_705);
     let mut batch = Vec::new();
