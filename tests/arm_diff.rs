@@ -1640,6 +1640,19 @@ fn enc_stn(msz: u32, nreg: u32, imm4: i32) -> u32 {
         | (((imm4 as u32) & 0xF) << 16) | (0b111 << 13) | (RN << 5) | RD
 }
 
+/// SVE LD1 gather (S-form vector base + immediate): `1000010 msz 01 imm5 1 U 0
+/// Pg Zn Zt`. Zn=z1 (32-bit per-element bases), Zt=z0.
+fn enc_gather_ai_s(msz: u32, imm5: u32, u: u32) -> u32 {
+    (0b1000010 << 25) | (msz << 23) | (0b01 << 21) | ((imm5 & 0x1F) << 16)
+        | (1 << 15) | (u << 14) | (RN << 5) | RD
+}
+/// SVE ST1 scatter (S-form vector base + immediate): `1110010 msz 11 imm5 101 Pg
+/// Zn Zt`. Zn=z1, Zt=z0.
+fn enc_scatter_ai_s(msz: u32, imm5: u32) -> u32 {
+    (0b1110010 << 25) | (msz << 23) | (0b11 << 21) | ((imm5 & 0x1F) << 16)
+        | (0b101 << 13) | (RN << 5) | RD
+}
+
 /// SVE LD1 gather (vector base + immediate, D-form): `1100010 msz 01 imm5 1 U 0
 /// Pg Zn Zt`. Zn=z1 (per-element bases), Zt=z0.
 fn enc_gather_ai(msz: u32, imm5: u32, u: u32) -> u32 {
@@ -2542,6 +2555,60 @@ fn diff_sve_ldn_stn() {
         }
     }
     run_batch("sve_ldn_stn", batch);
+}
+
+#[test]
+fn diff_sve_gather_ai_s() {
+    // S-form vector-base gather: 4 S lanes from Zn[e]<31:0> + imm5*mbytes.
+    let mut rng = Rng::new(0x4_A001);
+    let mut batch: Vec<(String, u32, ArmState)> = Vec::new();
+    for msz in 0..3u32 {
+        for &imm5 in &[0u32, 1, 2] {
+            for u in 0..2u32 {
+                if u == 0 && msz == 2 {
+                    continue;
+                }
+                let insn = enc_gather_ai_s(msz, imm5, u);
+                let name = format!("gais m{msz} i{imm5} u{u}");
+                for _ in 0..6 {
+                    let mut st = mem_input(&mut rng);
+                    let mut zn: u128 = 0;
+                    for e in 0..4 {
+                        let b = (SCRATCH_BASE as u32).wrapping_add((rng.next() % 16) as u32);
+                        zn |= (b as u128) << (e * 32);
+                    }
+                    st.set_vreg(1, zn as u64, (zn >> 64) as u64);
+                    st.set_preg(0, rng.next() as u16);
+                    batch.push((name.clone(), insn, st));
+                }
+            }
+        }
+    }
+    run_batch("sve_gather_ai_s", batch);
+}
+
+#[test]
+fn diff_sve_scatter_ai_s() {
+    let mut rng = Rng::new(0x4_B001);
+    let mut batch: Vec<(String, u32, ArmState)> = Vec::new();
+    for msz in 0..3u32 {
+        for &imm5 in &[0u32, 1, 2] {
+            let insn = enc_scatter_ai_s(msz, imm5);
+            let name = format!("sais m{msz} i{imm5}");
+            for _ in 0..6 {
+                let mut st = mem_input(&mut rng);
+                let mut zn: u128 = 0;
+                for e in 0..4 {
+                    let b = (SCRATCH_BASE as u32).wrapping_add((rng.next() % 16) as u32);
+                    zn |= (b as u128) << (e * 32);
+                }
+                st.set_vreg(1, zn as u64, (zn >> 64) as u64);
+                st.set_preg(0, rng.next() as u16);
+                batch.push((name.clone(), insn, st));
+            }
+        }
+    }
+    run_batch("sve_scatter_ai_s", batch);
 }
 
 #[test]
