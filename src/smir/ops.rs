@@ -1062,6 +1062,23 @@ pub enum OpKind {
         acc: bool,
     },
 
+    /// Pair-by-pair cross-register multiply-add. Models HVX `vmpabusv`/`vmpabuuv`:
+    /// per output lane i (`out_elem` wide), `dst_lo[i] = src_lo.narrow[2i]*src2_lo
+    /// .narrow[2i] + src_hi.narrow[2i]*src2_hi.narrow[2i]` and `dst_hi[i]` the same
+    /// at index `2i+1`. Both multiplicands are register pairs (no Rt broadcast).
+    VPairPairReduceMul {
+        dst_lo: VReg,
+        dst_hi: VReg,
+        src_lo: VReg,
+        src_hi: VReg,
+        src2_lo: VReg,
+        src2_hi: VReg,
+        narrow_elem: VecElementType,
+        out_elem: VecElementType,
+        signed1: bool,
+        signed2: bool,
+    },
+
     /// Cross-register pair multiply-add into a destination pair. Models the HVX
     /// `vmpa*` family (`Vdd = vmpa(Vuu, Rt)`): with source pair (src_lo, src_hi)
     /// of `pair_elem` lanes and src2 (an Rt broadcast) of `rt_elem` sub-lanes,
@@ -1595,7 +1612,8 @@ impl OpKind {
 
             OpKind::VWidenMul { dst_lo, dst_hi, .. }
             | OpKind::VWidenExt { dst_lo, dst_hi, .. }
-            | OpKind::VPairReduceMul { dst_lo, dst_hi, .. } => {
+            | OpKind::VPairReduceMul { dst_lo, dst_hi, .. }
+            | OpKind::VPairPairReduceMul { dst_lo, dst_hi, .. } => {
                 vec![*dst_lo, *dst_hi]
             }
 

@@ -2216,6 +2216,51 @@ impl SmirInterpreter {
                 Self::write_vec(ctx, *dst, result);
             }
 
+            OpKind::VPairPairReduceMul {
+                dst_lo,
+                dst_hi,
+                src_lo,
+                src_hi,
+                src2_lo,
+                src2_hi,
+                narrow_elem,
+                out_elem,
+                signed1,
+                signed2,
+            } => {
+                let u0 = Self::read_vec(ctx, *src_lo);
+                let u1 = Self::read_vec(ctx, *src_hi);
+                let v0 = Self::read_vec(ctx, *src2_lo);
+                let v1 = Self::read_vec(ctx, *src2_hi);
+                let nbits = narrow_elem.bytes() * 8;
+                let obits = out_elem.bytes() * 8;
+                let olanes = (1024 / obits) as u8;
+                let ex = |v: u64, signed: bool| -> i64 {
+                    if signed {
+                        let sh = 64 - nbits;
+                        ((v << sh) as i64) >> sh
+                    } else {
+                        v as i64
+                    }
+                };
+                let mut lo = [0u64; 16];
+                let mut hi = [0u64; 16];
+                for i in 0..olanes {
+                    let plo = ex(Self::get_lane(&u0, i * 2, nbits), *signed1)
+                        * ex(Self::get_lane(&v0, i * 2, nbits), *signed2)
+                        + ex(Self::get_lane(&u1, i * 2, nbits), *signed1)
+                            * ex(Self::get_lane(&v1, i * 2, nbits), *signed2);
+                    let phi = ex(Self::get_lane(&u0, i * 2 + 1, nbits), *signed1)
+                        * ex(Self::get_lane(&v0, i * 2 + 1, nbits), *signed2)
+                        + ex(Self::get_lane(&u1, i * 2 + 1, nbits), *signed1)
+                            * ex(Self::get_lane(&v1, i * 2 + 1, nbits), *signed2);
+                    Self::set_lane(&mut lo, i, obits, plo as u64);
+                    Self::set_lane(&mut hi, i, obits, phi as u64);
+                }
+                Self::write_vec(ctx, *dst_lo, lo);
+                Self::write_vec(ctx, *dst_hi, hi);
+            }
+
             OpKind::VPairReduceMul {
                 dst_lo,
                 dst_hi,
@@ -3660,6 +3705,51 @@ mod tests {
         );
         if let ArchRegState::Hexagon(hex) = &ctx.arch_regs {
             assert_eq!(hex.get_v(2), [0x0000_0030_0000_0030u64; 16]); // word = 48
+        }
+    }
+
+    #[test]
+    fn test_vpairpairreducemul() {
+        // vmpabusv: lo.h[i] = uu0.ub[2i]*vv0.b[2i] + uu1.ub[2i]*vv1.b[2i].
+        // uu0=2, uu1=3, vv0=4, vv1=1 -> 2*4 + 3*1 = 11 per halfword.
+        let mut ctx = SmirContext::new_hexagon();
+        let mut memory = FlatMemory::new(0x1000);
+        let interp = SmirInterpreter::new();
+        if let ArchRegState::Hexagon(hex) = &mut ctx.arch_regs {
+            hex.set_v(0, [0x0202_0202_0202_0202u64; 16]);
+            hex.set_v(1, [0x0303_0303_0303_0303u64; 16]);
+            hex.set_v(2, [0x0404_0404_0404_0404u64; 16]);
+            hex.set_v(3, [0x0101_0101_0101_0101u64; 16]);
+        }
+        let mkv = |n| VReg::Arch(ArchReg::Hexagon(HexagonReg::V(n)));
+        let block = SmirBlock {
+            id: BlockId(0),
+            guest_pc: 0x1000,
+            phis: vec![],
+            ops: vec![SmirOp {
+                id: OpId(0),
+                guest_pc: 0x1000,
+                kind: OpKind::VPairPairReduceMul {
+                    dst_lo: mkv(4),
+                    dst_hi: mkv(5),
+                    src_lo: mkv(0),
+                    src_hi: mkv(1),
+                    src2_lo: mkv(2),
+                    src2_hi: mkv(3),
+                    narrow_elem: VecElementType::I8,
+                    out_elem: VecElementType::I16,
+                    signed1: false,
+                    signed2: true,
+                },
+                x86_hint: None,
+            }],
+            terminator: Terminator::Trap { kind: TrapKind::Halt },
+            exec_count: 0,
+        };
+        interp.execute_block(&mut ctx, &mut memory, &block);
+        if let ArchRegState::Hexagon(hex) = &ctx.arch_regs {
+            assert_eq!(hex.get_v(4), [0x000B_000B_000B_000Bu64; 16]); // 11
+            assert_eq!(hex.get_v(5), [0x000B_000B_000B_000Bu64; 16]);
         }
     }
 
