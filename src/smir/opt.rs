@@ -1572,6 +1572,14 @@ impl OpKind {
                 result.push(*src);
             }
 
+            OpKind::VAlign { src1, src2, amount, .. } => {
+                result.push(*src1);
+                result.push(*src2);
+                if let SrcOperand::Reg(r) = amount {
+                    result.push(*r);
+                }
+            }
+
             OpKind::VMov { src, .. } | OpKind::VBroadcast { scalar: src, .. } => {
                 result.push(*src);
             }
