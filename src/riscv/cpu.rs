@@ -742,7 +742,8 @@ impl RiscVCpu {
             | Op::Vfnmacc | Op::Vfmsac | Op::Vfnmsac | Op::Vfmadd | Op::Vfnmadd | Op::Vfmsub
             | Op::Vfnmsub | Op::Vredsum | Op::Vredand | Op::Vredor | Op::Vredxor
             | Op::Vredminu | Op::Vredmin | Op::Vredmaxu | Op::Vredmax | Op::Vfredusum
-            | Op::Vfredosum | Op::Vfredmin | Op::Vfredmax => self.exec_vector(insn)?,
+            | Op::Vfredosum | Op::Vfredmin | Op::Vfredmax | Op::VmvXS | Op::VmvSX
+            | Op::VfmvFS | Op::VfmvSF => self.exec_vector(insn)?,
 
             Op::Illegal => return Err(Trap::illegal(insn.raw)),
 
@@ -1590,6 +1591,43 @@ impl RiscVCpu {
                     self.set_vmask_bit(vd, e, r);
                 }
                 self.accrue(flags);
+            }
+            Op::VmvXS => {
+                // x[rd] = sign-extended lane 0 of vs2 (ignores vl/vstart).
+                let eb = self.sew_bytes();
+                let v = sext_sew(self.velem(vs2, 0, eb), eb) as u64;
+                self.set_x(insn.rd, v);
+            }
+            Op::VfmvFS => {
+                // f[rd] = NaN-boxed lane 0 of vs2 (ignores vl/vstart).
+                let eb = self.sew_bytes();
+                let v = self.velem(vs2, 0, eb);
+                match eb {
+                    2 => self.wf16(insn.rd, v as u16),
+                    4 => self.wf32(insn.rd, v as u32),
+                    _ => self.wf64(insn.rd, v),
+                }
+            }
+            Op::VmvSX => {
+                // vd[0] = x[rs1] (low SEW); no-op when vstart >= vl.
+                let eb = self.sew_bytes();
+                let mask = Self::sew_mask(eb);
+                if vstart < vl {
+                    self.set_velem(vd, 0, eb, self.x(insn.rs1) & mask);
+                }
+            }
+            Op::VfmvSF => {
+                // vd[0] = f[rs1] (low SEW); no-op when vstart >= vl.
+                let eb = self.sew_bytes();
+                let mask = Self::sew_mask(eb);
+                if vstart < vl {
+                    let s = match eb {
+                        2 => self.h(insn.rs1),
+                        4 => self.s32(insn.rs1),
+                        _ => self.f(insn.rs1),
+                    };
+                    self.set_velem(vd, 0, eb, s & mask);
+                }
             }
             _ => return Err(Trap::illegal(insn.raw)),
         }
