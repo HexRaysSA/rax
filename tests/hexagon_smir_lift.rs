@@ -34,6 +34,52 @@ use rax::smir::types::{ArchReg, BlockId, HexagonReg, OpId, SourceArch};
 const NREG: usize = 32;
 const CODE_ADDR: u32 = 0x1000;
 
+/// HVX saturating families whose qemu-verified interpreter sets the USR:OVF
+/// sticky bit but whose SMIR vector lift does NOT yet model it. These all route
+/// through SHARED vector `OpKind`s (`VLane`/`VNarrowShiftSat`/`VReduceMul`/
+/// `VSlideReduceMul`/`VMpaHhSat`/`VMpyHsatAcc`/`VSatDW`/`VNarrowShiftV`/`VCarry`/
+/// `VAddSubMixedSat`) that are shared with NON-OVF-setting opcodes (e.g.
+/// `vasrwhsat`/`vpackhub_sat`/`vsubuwsat_dv` use bare `clamp` and set no OVF,
+/// while `vsathub`/`vsubuwsat`/`vdmpyhsat` use `sat_n`/`satu_n` and DO). Modelling
+/// this correctly requires threading a per-instance `set_ovf` flag onto those
+/// shared OpKinds — a deferred follow-up wave (see report `needs_opkind`).
+///
+/// The usr_ovf comparison is otherwise FULLY enforced (it catches every SCALAR
+/// saturating family and the value/V/Q checks remain enforced for these labels
+/// too); only the OVF bit for these explicitly-deferred HVX labels is exempt,
+/// and the exemption is logged loudly (never silent).
+const OVF_DEFERRED_HVX: &[&str] = &[
+    "vaddcarrysat",
+    "vaddububb_sat",
+    "vsubububb_sat",
+    "vsubuwsat",
+    "vasrvwuhsat",
+    "vasrvwuhrndsat",
+    "vasrvuhubsat",
+    "vasrvuhubrndsat",
+    "vdmpyhisat_acc",
+    "vdmpyhsat_acc",
+    "vdmpyhsuisat",
+    "vdmpyhsuisat_acc",
+    "vdmpyhsusat",
+    "vdmpyhsusat_acc",
+    "vdmpyhvsat_acc",
+    "vmpahhsat",
+    "vmpauhuhsat",
+    "vmpsuhuhsat",
+    "vmpyhsat_acc",
+    "vroundhb",
+    "vroundhub",
+    "vrounduhub",
+    "vroundwh",
+    "vroundwuh",
+    "vrounduwuh",
+    "vsathub",
+    "vsatwh",
+    "vsatuwuh",
+    "vsatdw",
+];
+
 fn which(prog: &str) -> Option<PathBuf> {
     let path = std::env::var_os("PATH")?;
     std::env::split_paths(&path).map(|d| d.join(prog)).find(|c| c.is_file())
@@ -327,6 +373,24 @@ fn lift_family(name: &str, cases: &[(&str, &str)], n: usize, seed: u64) {
                             ));
                         }
                     }
+                    // USR:OVF (bit 0) — the sticky integer saturation/overflow
+                    // flag. Only bit 0 is compared; other USR bits (FP flags,
+                    // rounding mode) are not lifted and are irrelevant here.
+                    if (interp.usr & 1) != (lift.usr & 1) {
+                        if OVF_DEFERRED_HVX.contains(label) {
+                            // Explicitly-deferred HVX saturating family (see the
+                            // OVF_DEFERRED_HVX doc): exempt the OVF bit only,
+                            // logged loudly so it is never a silent skip.
+                            eprintln!(
+                                "[hexagon_smir_lift] {name}: OVF deferred for [{label}] (i={},l={}) \
+                                 — HVX shared-OpKind set_ovf follow-up",
+                                interp.usr & 1,
+                                lift.usr & 1
+                            );
+                        } else {
+                            diffs.push(format!("usr_ovf:i={},l={}", interp.usr & 1, lift.usr & 1));
+                        }
+                    }
                     if !diffs.is_empty() {
                         mismatches.push(format!("[{label}] {}", diffs.join(" ")));
                     }
@@ -452,6 +516,31 @@ fn lift_a2_misc() {
         ],
         20,
         0x6203,
+    );
+}
+
+#[test]
+fn lift_a2_sat_alu() {
+    // USR-saturating scalar ALU ops. These set the USR:OVF sticky bit when a
+    // clamp clobbered the result; the harness compares USR:OVF (bit 0) so a
+    // missing OVF set would diverge. 40 iters over random GPRs reliably
+    // exercises the saturating (OVF-setting) path for add/sub/sat/asl.
+    lift_family(
+        "a2_sat_alu",
+        &[
+            ("sat", "{ r0 = sat(r3:2) }"),
+            ("satb", "{ r0 = satb(r1) }"),
+            ("sath", "{ r0 = sath(r1) }"),
+            ("satub", "{ r0 = satub(r1) }"),
+            ("satuh", "{ r0 = satuh(r1) }"),
+            ("addsat", "{ r0 = add(r1,r2):sat }"),
+            ("subsat", "{ r0 = sub(r1,r2):sat }"),
+            ("negsat", "{ r0 = neg(r1):sat }"),
+            ("abssat", "{ r0 = abs(r1):sat }"),
+            ("asl_i_sat", "{ r0 = asl(r1,#5):sat }"),
+        ],
+        40,
+        0x6210,
     );
 }
 
@@ -2605,6 +2694,21 @@ fn lift_hist_family(name: &str, cases: &[(&str, &str)], n: usize, seed: u64) {
                                 "q{qn}:i={:08x?},l={:08x?}",
                                 interp.q[qn], lift.q[qn]
                             ));
+                        }
+                    }
+                    // USR:OVF (bit 0) — the sticky integer saturation/overflow
+                    // flag. Only bit 0 is compared; other USR bits (FP flags,
+                    // rounding mode) are not lifted and are irrelevant here.
+                    if (interp.usr & 1) != (lift.usr & 1) {
+                        if OVF_DEFERRED_HVX.contains(label) {
+                            eprintln!(
+                                "[hexagon_smir_lift] {name}: OVF deferred for [{label}] (i={},l={}) \
+                                 — HVX shared-OpKind set_ovf follow-up",
+                                interp.usr & 1,
+                                lift.usr & 1
+                            );
+                        } else {
+                            diffs.push(format!("usr_ovf:i={},l={}", interp.usr & 1, lift.usr & 1));
                         }
                     }
                     if !diffs.is_empty() {

@@ -1365,6 +1365,13 @@ impl OpKind {
                 }
             }
 
+            // Saturating clamp: `src` is a SrcOperand (register or immediate).
+            OpKind::SatN { src, .. } => {
+                if let SrcOperand::Reg(r) = src {
+                    result.push(*r);
+                }
+            }
+
             OpKind::Bt { src, index, .. }
             | OpKind::Bts { src, index, .. }
             | OpKind::Btr { src, index, .. }

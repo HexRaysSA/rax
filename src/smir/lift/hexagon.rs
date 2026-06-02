@@ -1840,6 +1840,244 @@ impl HexagonLifter {
             }
 
             // ============================================================
+            // A2 saturating ALU ops (USR:OVF sticky overflow via SatN)
+            //
+            // The sem (sem/alu.rs) computes the arithmetic in i64 then calls
+            // `sat_n`/`satu_n`, which clamp AND set USR:OVF on clobber. We
+            // compose the (sign-extended) i64 arithmetic into a W64 temp and
+            // then `SatN`, which performs the same clamp + sticky OVF.
+            // ============================================================
+
+            // Rd = sat(Rss): clamp the signed 64-bit pair to s32. The pair temp
+            // already holds the full 64-bit value; SatN reads it as i64 (no
+            // sign-re-extension needed since width=W64).
+            Opcode::A2_sat => {
+                let a = read_pair!(fld(b's'));
+                let r = ctx.alloc_vreg();
+                push_op!(OpKind::SatN {
+                    dst: r,
+                    src: SrcOperand::Reg(a),
+                    sat_bits: 32,
+                    signed: true,
+                    set_ovf: true,
+                    width: OpWidth::W64,
+                });
+                set_r!(r);
+            }
+
+            // Rd = sat{b,h}(Rs) / satu{b,h}(Rs): sign-extend Rs (s32) to a W64
+            // temp, then clamp to the {signed,unsigned} {8,16}-bit range. The
+            // sem feeds `s(ctx) as i32 as i64` to sat_n/satu_n.
+            Opcode::A2_satb
+            | Opcode::A2_sath
+            | Opcode::A2_satub
+            | Opcode::A2_satuh => {
+                let (bits, signed) = match op {
+                    Opcode::A2_satb => (8u8, true),
+                    Opcode::A2_sath => (16u8, true),
+                    Opcode::A2_satub => (8u8, false),
+                    Opcode::A2_satuh => (16u8, false),
+                    _ => unreachable!(),
+                };
+                let w = ctx.alloc_vreg();
+                push_op!(OpKind::SignExtend {
+                    dst: w,
+                    src: rs,
+                    from_width: OpWidth::W32,
+                    to_width: OpWidth::W64,
+                });
+                let r = ctx.alloc_vreg();
+                push_op!(OpKind::SatN {
+                    dst: r,
+                    src: SrcOperand::Reg(w),
+                    sat_bits: bits,
+                    signed,
+                    set_ovf: true,
+                    width: OpWidth::W64,
+                });
+                set_r!(r);
+            }
+
+            // Rd = add(Rs,Rt):sat — sext32(Rs)+sext32(Rt) in W64, clamp to s32.
+            Opcode::A2_addsat => {
+                let ws = ctx.alloc_vreg();
+                let wt = ctx.alloc_vreg();
+                push_op!(OpKind::SignExtend {
+                    dst: ws,
+                    src: rs,
+                    from_width: OpWidth::W32,
+                    to_width: OpWidth::W64,
+                });
+                push_op!(OpKind::SignExtend {
+                    dst: wt,
+                    src: rt,
+                    from_width: OpWidth::W32,
+                    to_width: OpWidth::W64,
+                });
+                let sum = ctx.alloc_vreg();
+                push_op!(OpKind::Add {
+                    dst: sum,
+                    src1: ws,
+                    src2: SrcOperand::Reg(wt),
+                    width: OpWidth::W64,
+                    flags: FlagUpdate::None,
+                });
+                let r = ctx.alloc_vreg();
+                push_op!(OpKind::SatN {
+                    dst: r,
+                    src: SrcOperand::Reg(sum),
+                    sat_bits: 32,
+                    signed: true,
+                    set_ovf: true,
+                    width: OpWidth::W64,
+                });
+                set_r!(r);
+            }
+
+            // Rd = sub(Rt,Rs):sat — NOTE operand order: sext32(Rt)-sext32(Rs).
+            Opcode::A2_subsat => {
+                let ws = ctx.alloc_vreg();
+                let wt = ctx.alloc_vreg();
+                push_op!(OpKind::SignExtend {
+                    dst: ws,
+                    src: rs,
+                    from_width: OpWidth::W32,
+                    to_width: OpWidth::W64,
+                });
+                push_op!(OpKind::SignExtend {
+                    dst: wt,
+                    src: rt,
+                    from_width: OpWidth::W32,
+                    to_width: OpWidth::W64,
+                });
+                let diff = ctx.alloc_vreg();
+                push_op!(OpKind::Sub {
+                    dst: diff,
+                    src1: wt,
+                    src2: SrcOperand::Reg(ws),
+                    width: OpWidth::W64,
+                    flags: FlagUpdate::None,
+                });
+                let r = ctx.alloc_vreg();
+                push_op!(OpKind::SatN {
+                    dst: r,
+                    src: SrcOperand::Reg(diff),
+                    sat_bits: 32,
+                    signed: true,
+                    set_ovf: true,
+                    width: OpWidth::W64,
+                });
+                set_r!(r);
+            }
+
+            // Rd = neg(Rs):sat — neg of sext32(Rs) in W64, clamp to s32 (only
+            // INT_MIN saturates / sets OVF).
+            Opcode::A2_negsat => {
+                let w = ctx.alloc_vreg();
+                push_op!(OpKind::SignExtend {
+                    dst: w,
+                    src: rs,
+                    from_width: OpWidth::W32,
+                    to_width: OpWidth::W64,
+                });
+                let neg = ctx.alloc_vreg();
+                push_op!(OpKind::Neg {
+                    dst: neg,
+                    src: w,
+                    width: OpWidth::W64,
+                    flags: FlagUpdate::None,
+                });
+                let r = ctx.alloc_vreg();
+                push_op!(OpKind::SatN {
+                    dst: r,
+                    src: SrcOperand::Reg(neg),
+                    sat_bits: 32,
+                    signed: true,
+                    set_ovf: true,
+                    width: OpWidth::W64,
+                });
+                set_r!(r);
+            }
+
+            // Rd = abs(Rs):sat — abs of sext32(Rs) in W64, clamp to s32 (only
+            // INT_MIN saturates / sets OVF). abs(x) computed as
+            // (x ^ (x>>63)) - (x>>63) [two's-complement absolute value].
+            Opcode::A2_abssat => {
+                let w = ctx.alloc_vreg();
+                push_op!(OpKind::SignExtend {
+                    dst: w,
+                    src: rs,
+                    from_width: OpWidth::W32,
+                    to_width: OpWidth::W64,
+                });
+                // mask = w >> 63 (arithmetic): 0 if w>=0, -1 if w<0.
+                let mask = ctx.alloc_vreg();
+                push_op!(OpKind::Sar {
+                    dst: mask,
+                    src: w,
+                    amount: SrcOperand::Imm(63),
+                    width: OpWidth::W64,
+                    flags: FlagUpdate::None,
+                });
+                let xored = ctx.alloc_vreg();
+                push_op!(OpKind::Xor {
+                    dst: xored,
+                    src1: w,
+                    src2: SrcOperand::Reg(mask),
+                    width: OpWidth::W64,
+                    flags: FlagUpdate::None,
+                });
+                let abs = ctx.alloc_vreg();
+                push_op!(OpKind::Sub {
+                    dst: abs,
+                    src1: xored,
+                    src2: SrcOperand::Reg(mask),
+                    width: OpWidth::W64,
+                    flags: FlagUpdate::None,
+                });
+                let r = ctx.alloc_vreg();
+                push_op!(OpKind::SatN {
+                    dst: r,
+                    src: SrcOperand::Reg(abs),
+                    sat_bits: 32,
+                    signed: true,
+                    set_ovf: true,
+                    width: OpWidth::W64,
+                });
+                set_r!(r);
+            }
+
+            // Rd = asl(Rs,#u5):sat — (sext32(Rs) << u5) in W64, clamp to s32.
+            // Matches sem `let a = (s as i32 as i64) << ui(); sat_n(a, 32)`.
+            Opcode::S2_asl_i_r_sat => {
+                let w = ctx.alloc_vreg();
+                push_op!(OpKind::SignExtend {
+                    dst: w,
+                    src: rs,
+                    from_width: OpWidth::W32,
+                    to_width: OpWidth::W64,
+                });
+                let sh = ctx.alloc_vreg();
+                push_op!(OpKind::Shl {
+                    dst: sh,
+                    src: w,
+                    amount: SrcOperand::Imm(fimm_u(b'i') as i64),
+                    width: OpWidth::W64,
+                    flags: FlagUpdate::None,
+                });
+                let r = ctx.alloc_vreg();
+                push_op!(OpKind::SatN {
+                    dst: r,
+                    src: SrcOperand::Reg(sh),
+                    sat_bits: 32,
+                    signed: true,
+                    set_ovf: true,
+                    width: OpWidth::W64,
+                });
+                set_r!(r);
+            }
+
+            // ============================================================
             // A2 min/max (32-bit, signed/unsigned) and pair forms
             // ============================================================
             Opcode::A2_max => {

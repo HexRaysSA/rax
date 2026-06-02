@@ -171,6 +171,16 @@ impl SmirInterpreter {
         }
     }
 
+    /// OR the Hexagon USR sticky overflow/saturation bit (USR:0) into the
+    /// context's USR register, preserving all other bits. Used by saturating
+    /// ops whose `fSATN`/`fSATUN` semantics set `fSET_OVF` when a clamp
+    /// clobbered the value.
+    #[inline]
+    fn set_hex_ovf(ctx: &mut SmirContext) {
+        let usr = ctx.read_arch_reg(ArchReg::Hexagon(HexagonReg::Usr));
+        ctx.write_arch_reg(ArchReg::Hexagon(HexagonReg::Usr), usr | 1);
+    }
+
     /// Sign-extend the low `bits` of `v` to a full i128.
     #[inline]
     fn sext128(v: u128, bits: u32) -> i128 {
@@ -965,6 +975,45 @@ impl SmirInterpreter {
                     }
                 };
                 Self::write_gpr(ctx, *dst, result, *width);
+            }
+
+            // Hexagon saturating clamp (`fSATN`/`fSATUN`) with the USR:OVF sticky
+            // overflow bit. The source temp is read and sign-extended from the
+            // operation `width` (the lifter feeds an already-sign-extended wide
+            // value), clamped to a `sat_bits` signed/unsigned range, and the
+            // (truncated) result stored. When the value was actually clamped and
+            // `set_ovf` is set, USR bit 0 is OR-ed in (sticky, other bits kept).
+            OpKind::SatN {
+                dst,
+                src,
+                sat_bits,
+                signed,
+                set_ovf,
+                width,
+            } => {
+                // Read the source and sign-extend from `width` to a full i64 so
+                // the clamp compares signed magnitudes correctly.
+                let raw = self.read_src_operand(ctx, src);
+                let val = Self::sext128(raw as u128, width.bits()) as i64;
+                let n = *sat_bits as u32;
+                let (lo, hi) = if *signed {
+                    (-(1i64 << (n - 1)), (1i64 << (n - 1)) - 1)
+                } else {
+                    (0i64, (1i64 << n) - 1)
+                };
+                let (clamped, ovf) = if val < lo {
+                    (lo, true)
+                } else if val > hi {
+                    (hi, true)
+                } else {
+                    (val, false)
+                };
+                if ovf && *set_ovf {
+                    Self::set_hex_ovf(ctx);
+                }
+                // Store the clamped value's low `width` bits (two's-complement
+                // low bits for a negative signed-clamp result).
+                Self::write_gpr(ctx, *dst, (clamped as u64) & width.mask(), *width);
             }
 
             // ==================================================================
@@ -7403,5 +7452,96 @@ mod tests {
         // Immediate-source form (S4_lsli pattern): logical-left bidir of a const.
         assert_eq!(run_bidir(1, 4, 2, OpWidth::W32), 16);
         assert_eq!(run_bidir(1, (-1i32 as u32) & 0x7f, 2, OpWidth::W32), 0);
+    }
+
+    /// Execute one `OpKind::SatN` over a W64-wide source value, returning the
+    /// 32-bit destination register and whether USR:OVF (bit 0) ended up set.
+    /// The source is fed via a W64 virtual temp (mirrors the lifter, which
+    /// composes an already-sign-extended value before SatN).
+    fn run_sat_n(src: i64, sat_bits: u8, signed: bool, set_ovf: bool) -> (u32, bool) {
+        let mut ctx = SmirContext::new_hexagon();
+        let mut memory = FlatMemory::new(0x1000);
+        let interp = SmirInterpreter::new();
+        ctx.write_arch_reg(ArchReg::Hexagon(HexagonReg::Usr), 0);
+        let tmp = VReg::virt(0);
+        let rd = VReg::Arch(ArchReg::Hexagon(HexagonReg::R(0)));
+        let block = SmirBlock {
+            id: BlockId(0),
+            guest_pc: 0x1000,
+            phis: vec![],
+            ops: vec![
+                SmirOp {
+                    id: OpId(0),
+                    guest_pc: 0x1000,
+                    kind: OpKind::Mov {
+                        dst: tmp,
+                        src: SrcOperand::Imm(src),
+                        width: OpWidth::W64,
+                    },
+                    x86_hint: None,
+                },
+                SmirOp {
+                    id: OpId(1),
+                    guest_pc: 0x1004,
+                    kind: OpKind::SatN {
+                        dst: rd,
+                        src: SrcOperand::Reg(tmp),
+                        sat_bits,
+                        signed,
+                        set_ovf,
+                        width: OpWidth::W64,
+                    },
+                    x86_hint: None,
+                },
+            ],
+            terminator: Terminator::Trap {
+                kind: TrapKind::Halt,
+            },
+            exec_count: 0,
+        };
+        interp.execute_block(&mut ctx, &mut memory, &block);
+        let rd_val = ctx.read_arch_reg(ArchReg::Hexagon(HexagonReg::R(0))) as u32;
+        let ovf = (ctx.read_arch_reg(ArchReg::Hexagon(HexagonReg::Usr)) & 1) != 0;
+        (rd_val, ovf)
+    }
+
+    #[test]
+    fn test_sat_n_clamp_and_ovf() {
+        // ---- signed 32-bit (A2_sat/addsat/...): clamp to [i32::MIN, i32::MAX] ----
+        // in range -> no clamp, no OVF.
+        assert_eq!(run_sat_n(0x1234, 32, true, true), (0x1234, false));
+        assert_eq!(run_sat_n(-5, 32, true, true), (0xFFFF_FFFB, false));
+        // clamp high -> i32::MAX, OVF set.
+        assert_eq!(run_sat_n(0x8000_0000, 32, true, true), (0x7FFF_FFFF, true));
+        // clamp low -> i32::MIN, OVF set.
+        assert_eq!(run_sat_n(-(1i64 << 31) - 1, 32, true, true), (0x8000_0000, true));
+        // boundary values exactly representable -> no clamp.
+        assert_eq!(run_sat_n(i32::MAX as i64, 32, true, true), (0x7FFF_FFFF, false));
+        assert_eq!(run_sat_n(i32::MIN as i64, 32, true, true), (0x8000_0000, false));
+
+        // ---- signed 8-bit (A2_satb): clamp to [-128, 127] ----
+        assert_eq!(run_sat_n(100, 8, true, true), (100, false));
+        assert_eq!(run_sat_n(200, 8, true, true), (127, true)); // clamp high
+        assert_eq!(run_sat_n(-200, 8, true, true), (0xFFFF_FF80, true)); // clamp low -> -128 low bits
+        assert_eq!(run_sat_n(-1, 8, true, true), (0xFFFF_FFFF, false)); // -1 fits, sign-extended
+
+        // ---- signed 16-bit (A2_sath) ----
+        assert_eq!(run_sat_n(0x4000, 16, true, true), (0x4000, false));
+        assert_eq!(run_sat_n(0x8000, 16, true, true), (0x7FFF, true)); // clamp high
+        assert_eq!(run_sat_n(-0x8001, 16, true, true), (0xFFFF_8000, true)); // clamp low
+
+        // ---- unsigned 8-bit (A2_satub): clamp to [0, 255] ----
+        assert_eq!(run_sat_n(200, 8, false, true), (200, false));
+        assert_eq!(run_sat_n(300, 8, false, true), (255, true)); // clamp high
+        assert_eq!(run_sat_n(-1, 8, false, true), (0, true)); // negative clamps to 0, OVF
+
+        // ---- unsigned 16-bit (A2_satuh) ----
+        assert_eq!(run_sat_n(0x1234, 16, false, true), (0x1234, false));
+        assert_eq!(run_sat_n(0x1_0000, 16, false, true), (0xFFFF, true)); // clamp high
+        assert_eq!(run_sat_n(-5, 16, false, true), (0, true)); // negative -> 0, OVF
+
+        // ---- set_ovf = false: value still clamps, but USR:OVF is NOT set ----
+        assert_eq!(run_sat_n(0x8000_0000, 32, true, false), (0x7FFF_FFFF, false));
+        assert_eq!(run_sat_n(-1, 8, false, false), (0, false));
     }
 }

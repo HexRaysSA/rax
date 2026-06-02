@@ -390,6 +390,31 @@ pub enum OpKind {
         width: OpWidth,
     },
 
+    /// Hexagon saturating clamp (`fSATN`/`fSATUN`), modelling the USR overflow
+    /// sticky bit.
+    ///
+    /// `src` is read as a SIGNED `i64` (the lifter feeds it an already
+    /// sign-extended wide temp, so reading the full register width and sign-
+    /// extending from `src`'s natural width gives the intended value). The value
+    /// is clamped to a `sat_bits`-wide range — signed `[-(2^(n-1)), 2^(n-1)-1]`
+    /// if `signed`, else unsigned `[0, 2^n - 1]`. If the value was actually
+    /// clamped AND `set_ovf` is set, bit 0 (OVF) is OR-ed into the Hexagon USR
+    /// register (STICKY — other USR bits are preserved). The clamped result is
+    /// truncated to `width` and written to `dst` (a negative signed-clamp result
+    /// is written as its two's-complement low bits).
+    SatN {
+        dst: VReg,
+        src: SrcOperand,
+        /// Saturation width in bits (8/16/32).
+        sat_bits: u8,
+        /// true = signed clamp (`fSATN`), false = unsigned clamp (`fSATUN`).
+        signed: bool,
+        /// true = OR USR:OVF (bit 0) when the value was clamped.
+        set_ovf: bool,
+        /// Destination store width (W32 for all current Hexagon saturating ops).
+        width: OpWidth,
+    },
+
     // ========================================================================
     // BIT MANIPULATION
     // ========================================================================
@@ -2217,6 +2242,7 @@ impl OpKind {
             | OpKind::Rol { dst, .. }
             | OpKind::Ror { dst, .. }
             | OpKind::BidirShift { dst, .. }
+            | OpKind::SatN { dst, .. }
             | OpKind::Bts { dst, .. }
             | OpKind::Btr { dst, .. }
             | OpKind::Btc { dst, .. }
