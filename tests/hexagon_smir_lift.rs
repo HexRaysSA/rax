@@ -1261,3 +1261,45 @@ fn lift_hvx_valign() {
         0x7020,
     );
 }
+
+// ---- Wave 9: HVX shift-round-saturate narrowing multiply ----
+// `OpKind::VMulShiftSat`: per lane p = ext(src1)*ext(src2) (i64); p <<= shift_left;
+// if round add 1<<(out_shift-1); if sat_bits!=0 clamp to signed sat_bits range;
+// out lane = (p >> out_shift) masked to src_elem (output elem = src_elem).
+// Matches sem/hvx_mpyv.rs bit-for-bit.
+
+#[test]
+fn lift_hvx_vmpy_srs_vv() {
+    // VECTOR-VECTOR halfword narrowing multiplies (direct VMulShiftSat).
+    //   vmpyhvsrs: Vd.h=vmpy(Vu.h,Vv.h):<<1:rnd:sat
+    //     signed*signed, <<1, +0x8000 round, sat32, >>16 high-half.
+    //   vmpyuhvs:  Vd.uh=vmpy(Vu.uh,Vv.uh):>>16
+    //     unsigned*unsigned, no shift/round/sat, >>16 high-half.
+    lift_family(
+        "hvx_vmpy_srs_vv",
+        &[
+            ("vmpyhvsrs", "{ v2.h = vmpy(v0.h,v1.h):<<1:rnd:sat }"),
+            ("vmpyuhvs", "{ v2.uh = vmpy(v0.uh,v1.uh):>>16 }"),
+        ],
+        12,
+        0x7021,
+    );
+}
+
+#[test]
+fn lift_hvx_vmpy_srs_scalar() {
+    // VECTOR-SCALAR halfword narrowing multiplies (VBroadcast(Rt,I32) +
+    // VMulShiftSat). Each even halfword lane multiplies by Rt.h[0], each odd by
+    // Rt.h[1] (the I32 broadcast makes t.h[2i]=Rt.h[0], t.h[2i+1]=Rt.h[1]).
+    //   vmpyhss:  Vd.h=vmpy(Vu.h,Rt.h):<<1:sat       signed*signed, <<1, sat32, >>16
+    //   vmpyhsrs: Vd.h=vmpy(Vu.h,Rt.h):<<1:rnd:sat   as above + 0x8000 round
+    lift_family(
+        "hvx_vmpy_srs_scalar",
+        &[
+            ("vmpyhss", "{ v2.h = vmpy(v0.h,r3.h):<<1:sat }"),
+            ("vmpyhsrs", "{ v2.h = vmpy(v0.h,r3.h):<<1:rnd:sat }"),
+        ],
+        12,
+        0x7022,
+    );
+}

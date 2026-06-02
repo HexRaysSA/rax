@@ -3310,6 +3310,85 @@ impl HexagonLifter {
                 left: true,
             }),
 
+            // ============================================================
+            // HVX shift-round-saturate narrowing multiply (Wave 9)
+            //
+            // `OpKind::VMulShiftSat` models per-lane
+            //   p = ext(src1)·ext(src2) (i64);  p <<= shift_left;
+            //   if round   p += 1<<(out_shift-1);
+            //   if sat_bits!=0  clamp p to signed sat_bits range;
+            //   out lane = (p >> out_shift) masked to src_elem (output elem = src_elem).
+            //
+            // --- vector-by-vector forms (direct VMulShiftSat) ---
+            // Confirmed against sem/hvx_mpyv.rs:
+            //   V6_vmpyhvsrs  Vd.h=vmpy(Vu.h,Vv.h):<<1:rnd:sat
+            //     per half lane: prod=(Vu.h·Vv.h)<<1; rnd=prod+0x8000;
+            //     sat_n(rnd,32); out.h=(s32>>16)&0xffff. => signed×signed,
+            //     shift_left=1, round=true, sat_bits=32, out_shift=16.
+            //   V6_vmpyuhvs   Vd.uh=vmpy(Vu.uh,Vv.uh):>>16
+            //     per half lane: p=Vu.uh·Vv.uh (u64); out.h=(p>>16)&0xffff.
+            //     => unsigned×unsigned, shift_left=0, round=false, sat_bits=0,
+            //     out_shift=16.
+            Opcode::V6_vmpyhvsrs => push_op!(OpKind::VMulShiftSat {
+                dst: self.hex_v(fld(b'd')),
+                src1: self.hex_v(fld(b'u')),
+                src2: self.hex_v(fld(b'v')),
+                src_elem: VecElementType::I16,
+                signed1: true,
+                signed2: true,
+                shift_left: 1,
+                round: true,
+                sat_bits: 32,
+                out_shift: 16,
+            }),
+            Opcode::V6_vmpyuhvs => push_op!(OpKind::VMulShiftSat {
+                dst: self.hex_v(fld(b'd')),
+                src1: self.hex_v(fld(b'u')),
+                src2: self.hex_v(fld(b'v')),
+                src_elem: VecElementType::I16,
+                signed1: false,
+                signed2: false,
+                shift_left: 0,
+                round: false,
+                sat_bits: 0,
+                out_shift: 16,
+            }),
+
+            // --- vector-by-scalar forms (VBroadcast(Rt) then VMulShiftSat) ---
+            // The sem multiplies each even halfword lane by Rt.half[0] and each
+            // odd halfword lane by Rt.half[1]. Broadcasting Rt with elem=I32,
+            // lanes=32 yields t.word[i]=Rt, i.e. t.half[2i]=Rt.half[0] and
+            // t.half[2i+1]=Rt.half[1] — exactly the sem's rt_half(rt,0)/(rt,1)
+            // per even/odd halfword. A direct I16 VMulShiftSat of Vu against t
+            // then matches the per-half-lane product/shift/sat/round/high-extract.
+            // Confirmed against sem/hvx_mpyv.rs:
+            //   V6_vmpyhss  Vd.h=vmpy(Vu.h,Rt.h):<<1:sat
+            //     p=(Vu.h·Rt.h)<<1; sat_n(p,32); out.h=(s32>>16)&0xffff.
+            //     => signed×signed, shift_left=1, round=false, sat_bits=32, out_shift=16.
+            //   V6_vmpyhsrs same with +0x8000 round => round=true.
+            Opcode::V6_vmpyhss | Opcode::V6_vmpyhsrs => {
+                let round = matches!(op, Opcode::V6_vmpyhsrs);
+                let t = ctx.alloc_vreg();
+                push_op!(OpKind::VBroadcast {
+                    dst: t,
+                    scalar: self.hex_reg(fld(b't')),
+                    elem: VecElementType::I32,
+                    lanes: 32,
+                });
+                push_op!(OpKind::VMulShiftSat {
+                    dst: self.hex_v(fld(b'd')),
+                    src1: self.hex_v(fld(b'u')),
+                    src2: t,
+                    src_elem: VecElementType::I16,
+                    signed1: true,
+                    signed2: true,
+                    shift_left: 1,
+                    round,
+                    sat_bits: 32,
+                    out_shift: 16,
+                });
+            }
+
             // Everything else: not implemented here.
             _ => return Err(unsupported()),
         }
