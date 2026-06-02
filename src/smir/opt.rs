@@ -1586,6 +1586,17 @@ impl OpKind {
                 result.push(*amount);
             }
 
+            OpKind::VCmpToQ { src1, src2, .. } => {
+                result.push(*src1);
+                result.push(*src2);
+            }
+
+            OpKind::VBlend { mask_q, src_true, src_false, .. } => {
+                result.push(*mask_q);
+                result.push(*src_true);
+                result.push(*src_false);
+            }
+
             OpKind::VMov { src, .. } | OpKind::VBroadcast { scalar: src, .. } => {
                 result.push(*src);
             }
