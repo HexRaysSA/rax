@@ -188,6 +188,49 @@ impl core::fmt::Display for ExecMemError {
 
 impl std::error::Error for ExecMemError {}
 
+/// Decide whether a lifted function is safe to execute through the native tier
+/// under the 1:1 identity register map.
+///
+/// The identity map (guest GPR `N` ⇒ host GPR `N`) is what makes native
+/// execution marshal-free, but it leaves *every* host GPR holding live guest
+/// state — there is no free scratch register. So any value the block writes to a
+/// `VReg::Virtual` (a non-architectural temporary the lifter introduced) would
+/// be allocated onto a guest-occupied host register and silently corrupt guest
+/// state on write-back. Such a block must NOT be promoted; the interpreter runs
+/// it instead.
+///
+/// Exempt: a trailing `TestCondition` whose `dst` feeds the block's
+/// `CondBranch` — the lowerer folds it into a direct `Jcc` off the live flags
+/// and never materializes the temporary (see `X86_64Lowerer::lower_block`).
+///
+/// Pure architectural-register blocks (counter/pointer loops, ALU chains,
+/// guest-conditional branches) pass — which is the bulk of hot code.
+pub fn is_native_clobber_safe(func: &crate::smir::ir::SmirFunction) -> bool {
+    use crate::smir::ir::Terminator;
+    use crate::smir::ops::OpKind;
+    use crate::smir::types::VReg;
+
+    for block in &func.blocks {
+        let n = block.ops.len();
+        for (i, op) in block.ops.iter().enumerate() {
+            // Exempt the folded trailing TestCondition (-> direct Jcc).
+            if i + 1 == n {
+                if let (Terminator::CondBranch { cond, .. }, OpKind::TestCondition { dst, .. }) =
+                    (&block.terminator, &op.kind)
+                {
+                    if dst == cond {
+                        continue;
+                    }
+                }
+            }
+            if op.kind.dests().iter().any(|d| matches!(d, VReg::Virtual(_))) {
+                return false;
+            }
+        }
+    }
+    true
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -220,5 +263,83 @@ mod tests {
         regs.rflags = 0x2;
         mem.run(0, &mut regs);
         assert_eq!(regs.gpr[0], 42, "RAX should be RBX+RCX");
+    }
+
+    use crate::smir::flags::FlagUpdate;
+    use crate::smir::ir::{FunctionBuilder, Terminator};
+    use crate::smir::ops::OpKind;
+    use crate::smir::types::{ArchReg, Condition, FunctionId, OpWidth, SrcOperand, VReg, X86Reg};
+
+    fn rax() -> VReg {
+        VReg::Arch(ArchReg::X86(X86Reg::Rax))
+    }
+    fn rcx() -> VReg {
+        VReg::Arch(ArchReg::X86(X86Reg::Rcx))
+    }
+
+    #[test]
+    fn clobber_gate_passes_pure_arch_block() {
+        let mut b = FunctionBuilder::new(FunctionId(0), 0x1000);
+        b.push_op(
+            0x1000,
+            OpKind::Add {
+                dst: rax(),
+                src1: rax(),
+                src2: SrcOperand::Reg(rcx()),
+                width: OpWidth::W64,
+                flags: FlagUpdate::None,
+            },
+        );
+        b.set_terminator(Terminator::Return { values: vec![] });
+        assert!(is_native_clobber_safe(&b.finish()));
+    }
+
+    #[test]
+    fn clobber_gate_rejects_virtual_temp() {
+        let mut b = FunctionBuilder::new(FunctionId(0), 0x1000);
+        let tmp = b.alloc_vreg(); // VReg::Virtual
+        b.push_op(
+            0x1000,
+            OpKind::Add {
+                dst: tmp, // writes a virtual temporary -> would clobber a guest GPR
+                src1: rax(),
+                src2: SrcOperand::Reg(rcx()),
+                width: OpWidth::W64,
+                flags: FlagUpdate::None,
+            },
+        );
+        b.set_terminator(Terminator::Return { values: vec![] });
+        assert!(!is_native_clobber_safe(&b.finish()));
+    }
+
+    #[test]
+    fn clobber_gate_exempts_folded_testcondition() {
+        let mut b = FunctionBuilder::new(FunctionId(0), 0x1000);
+        let t_blk = b.create_block(0x2000);
+        let f_blk = b.create_block(0x3000);
+        let cond = b.alloc_vreg();
+        b.push_op(
+            0x1000,
+            OpKind::Sub {
+                dst: rcx(),
+                src1: rcx(),
+                src2: SrcOperand::imm(1),
+                width: OpWidth::W64,
+                flags: FlagUpdate::All,
+            },
+        );
+        // Trailing TestCondition feeding the CondBranch: lowerer folds it, never
+        // materializing `cond`, so the gate must treat the block as safe.
+        b.push_op(0x1003, OpKind::TestCondition { dst: cond, cond: Condition::Ne });
+        b.set_terminator(Terminator::CondBranch {
+            cond,
+            true_target: t_blk,
+            false_target: f_blk,
+        });
+        b.switch_to_block(t_blk);
+        b.set_terminator(Terminator::Return { values: vec![] });
+        b.switch_to_block(f_blk);
+        b.set_terminator(Terminator::Return { values: vec![] });
+        assert!(is_native_clobber_safe(&b.finish()));
     }
 }
