@@ -1044,13 +1044,18 @@ impl HexagonVcpu {
                 offset,
                 post_inc,
                 aligned,
+                commit,
             } => {
                 let mut ea = self.regs.r[base as usize].wrapping_add(offset as u32);
                 if aligned {
                     ea &= !127;
                 }
+                // Read always (a `.tmp` load still faults on a bad address) but
+                // only commit to the architectural register for non-`.tmp` forms.
                 let vec = self.read_vec(ea)?;
-                self.new_v[dst as usize] = Some(vec);
+                if commit {
+                    self.new_v[dst as usize] = Some(vec);
+                }
                 if let Some(inc) = post_inc {
                     new_r[base as usize] =
                         Some(self.regs.r[base as usize].wrapping_add(inc as u32));

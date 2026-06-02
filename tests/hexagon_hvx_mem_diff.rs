@@ -391,6 +391,8 @@ fn diff_hvx_load() {
             ("vL32b_ai_1", "{ v0 = vmem(r4+#1) }"),
             ("vL32b_nt", "{ v0 = vmem(r4+#2):nt }"),
             ("vL32Ub", "{ v0 = vmemu(r4+#0) }"),
+            ("vL32b_cur", "{ v0.cur = vmem(r4+#1) }"),
+            ("vL32b_tmp", "{ v0.tmp = vmem(r4+#2) }"),
         ],
         8,
         0xa10,

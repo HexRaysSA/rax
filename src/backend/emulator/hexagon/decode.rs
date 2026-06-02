@@ -313,6 +313,9 @@ pub enum DecodedInsn {
         offset: i32,
         post_inc: Option<i32>,
         aligned: bool,
+        /// `false` for a `.tmp` load: the value is only forwardable within the
+        /// packet and is NOT committed to the architectural vector register.
+        commit: bool,
     },
     /// HVX vector store: `vmem(base + offset) = Vs`, optionally scalar-predicated
     /// (`if (Pv[!]) vmem(...) = Vs`).
@@ -979,6 +982,15 @@ const HVX_VEC_BYTES: i32 = 128;
 /// form (base field `x`, immediate is the post-increment) vs the `Rt+#s4` form
 /// (base field `t`, immediate is the offset). The immediate is in vector units.
 fn vmem_load(decoded: &DecodedOp, post_inc: bool, aligned: bool) -> Option<(DecodedInsn, bool)> {
+    vmem_load_c(decoded, post_inc, aligned, true)
+}
+
+fn vmem_load_c(
+    decoded: &DecodedOp,
+    post_inc: bool,
+    aligned: bool,
+    commit: bool,
+) -> Option<(DecodedInsn, bool)> {
     let dst = field_u8(decoded, b'd')?;
     let base = field_u8(decoded, if post_inc { b'x' } else { b't' })?;
     let imm = decode_field_simm(decoded, b'i', None)?.0 * HVX_VEC_BYTES;
@@ -990,6 +1002,7 @@ fn vmem_load(decoded: &DecodedOp, post_inc: bool, aligned: bool) -> Option<(Deco
             offset,
             post_inc: pi,
             aligned,
+            commit,
         },
         false,
     ))
@@ -1747,6 +1760,12 @@ fn decode_main(decoded: &DecodedOp, word: u32, immext: Option<u32>) -> (DecodedI
         Opcode::V6_vL32Ub_ai => req!(vmem_load(decoded, false, false)),
         Opcode::V6_vL32b_pi | Opcode::V6_vL32b_nt_pi => req!(vmem_load(decoded, true, true)),
         Opcode::V6_vL32Ub_pi => req!(vmem_load(decoded, true, false)),
+        // `cur` loads commit the value to Vd (and forward it within the packet);
+        // `tmp` loads do NOT commit (scratch, forward-only) — same loaded data.
+        Opcode::V6_vL32b_cur_ai => req!(vmem_load_c(decoded, false, true, true)),
+        Opcode::V6_vL32b_cur_pi => req!(vmem_load_c(decoded, true, true, true)),
+        Opcode::V6_vL32b_tmp_ai => req!(vmem_load_c(decoded, false, true, false)),
+        Opcode::V6_vL32b_tmp_pi => req!(vmem_load_c(decoded, true, true, false)),
         Opcode::V6_vS32b_ai | Opcode::V6_vS32b_nt_ai => req!(vmem_store(decoded, false, true)),
         Opcode::V6_vS32Ub_ai => req!(vmem_store(decoded, false, false)),
         Opcode::V6_vS32b_pi | Opcode::V6_vS32b_nt_pi => req!(vmem_store(decoded, true, true)),
