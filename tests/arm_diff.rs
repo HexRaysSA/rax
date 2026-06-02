@@ -748,6 +748,38 @@ fn diff_mem_ldst_single() {
     run_batch("mem_ldst_single", batch);
 }
 
+/// CAS: `size 0010001 L 1 Rs o0 11111 Rn Rt`. Rs=x2 (compare/old), Rn=x1, Rt=x0 (new).
+fn enc_cas(size: u32, l: u32, o0: u32) -> u32 {
+    (size << 30) | (0b001000 << 24) | (1 << 23) | (l << 22) | (1 << 21) | (2 << 16)
+        | (o0 << 15) | (0b11111 << 10) | (RN << 5) | RD
+}
+
+#[test]
+fn diff_mem_cas() {
+    let mut cases: Vec<(String, u32)> = Vec::new();
+    for size in 0..4u32 {
+        for l in 0..2 {
+            for o0 in 0..2 {
+                cases.push((format!("cas sz{size} l{l} o0{o0}"), enc_cas(size, l, o0)));
+            }
+        }
+    }
+    let mut rng = Rng::new(0x1_0006);
+    let mut batch: Vec<(String, u32, ArmState)> = Vec::new();
+    for (label, insn) in &cases {
+        for k in 0..12 {
+            let mut st = mem_input(&mut rng);
+            // Half the cases: make x2 (the comparison value) equal the memory at
+            // SCRATCH_BASE so the swap succeeds; otherwise it (usually) fails.
+            if k % 2 == 0 {
+                st.x[2] = st.scratch[8]; // SCRATCH_BASE = SCRATCH_ADDR + 64 -> scratch[8]
+            }
+            batch.push((label.clone(), *insn, st));
+        }
+    }
+    run_batch("mem_cas", batch);
+}
+
 /// Atomic memory op: `size 111 0 00 A R 1 Rs o3 opc 00 Rn Rt`. Rs=x2, Rn=x1, Rt=x0.
 fn enc_atomic(size: u32, a: u32, r: u32, o3: u32, opc: u32) -> u32 {
     (size << 30) | (0b111 << 27) | (a << 23) | (r << 22) | (1 << 21) | (2 << 16)

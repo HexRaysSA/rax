@@ -5577,6 +5577,36 @@ impl AArch64Cpu {
         let rn = ((insn >> 5) & 0x1F) as u8;
         let rt = (insn & 0x1F) as u8;
 
+        // CAS/CASA/CASL/CASAL (FEAT_LSE): o2==1 (bit23) and o1==1 (bit21).
+        // A single compare-and-swap RMW (no exclusive monitor needed).
+        if o2 == 1 && o1 == 1 {
+            let bits = 8u32 << size;
+            let m = elem_mask(bits);
+            let addr = if rn == 31 { self.current_sp() } else { self.get_x(rn) };
+            let old = match size {
+                0 => self.mem_read_u8(addr)? as u64,
+                1 => self.mem_read_u16(addr)? as u64,
+                2 => self.mem_read_u32(addr)? as u64,
+                _ => self.mem_read_u64(addr)?,
+            };
+            let compare = self.get_x(rs) & m;
+            if (old & m) == compare {
+                let newval = self.get_x(rt) & m;
+                match size {
+                    0 => self.mem_write_u8(addr, newval as u8)?,
+                    1 => self.mem_write_u16(addr, newval as u16)?,
+                    2 => self.mem_write_u32(addr, newval as u32)?,
+                    _ => self.mem_write_u64(addr, newval)?,
+                }
+            }
+            if size == 3 {
+                self.set_x(rs, old);
+            } else {
+                self.set_w(rs, old as u32);
+            }
+            return Ok(CpuExit::Continue);
+        }
+
         let is_pair = o2 == 1;
         let is_load = l == 1;
         let is_ordered = o0 == 1; // acquire/release semantics (LDAXR/STLXR)
