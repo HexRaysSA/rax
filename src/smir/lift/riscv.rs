@@ -2365,8 +2365,10 @@ impl RiscVLifter {
             (0b00, 0b000) if insn != 0 => self.lift_c_addi4spn(insn, addr, ctx),
             (0b00, 0b100) => self.lift_c_zcb_ldst(insn, addr, ctx),
             (0b00, 0b010) => self.lift_c_lw(insn, addr, ctx),
+            (0b00, 0b001) if self.extensions.d => self.lift_c_fp_ldst(insn, addr, ctx), // c.fld
             (0b00, 0b011) if self.xlen == 64 => self.lift_c_ld(insn, addr, ctx),
             (0b00, 0b110) => self.lift_c_sw(insn, addr, ctx),
+            (0b00, 0b101) if self.extensions.d => self.lift_c_fp_ldst(insn, addr, ctx), // c.fsd
             (0b00, 0b111) if self.xlen == 64 => self.lift_c_sd(insn, addr, ctx),
 
             // Quadrant 1
@@ -2383,9 +2385,11 @@ impl RiscVLifter {
             // Quadrant 2
             (0b10, 0b000) => self.lift_c_slli(insn, addr, ctx),
             (0b10, 0b010) => self.lift_c_lwsp(insn, addr, ctx),
+            (0b10, 0b001) if self.extensions.d => self.lift_c_fp_ldst(insn, addr, ctx), // c.fldsp
             (0b10, 0b011) if self.xlen == 64 => self.lift_c_ldsp(insn, addr, ctx),
             (0b10, 0b100) => self.lift_c_jr_mv_add(insn, addr, ctx),
             (0b10, 0b110) => self.lift_c_swsp(insn, addr, ctx),
+            (0b10, 0b101) if self.extensions.d => self.lift_c_fp_ldst(insn, addr, ctx), // c.fsdsp
             (0b10, 0b111) if self.xlen == 64 => self.lift_c_sdsp(insn, addr, ctx),
 
             _ => Err(LiftError::InvalidEncoding {
@@ -2398,6 +2402,39 @@ impl RiscVLifter {
     /// Get compressed register (rd', rs1', rs2' - maps 0-7 to x8-x15)
     fn creg(r: u8) -> u8 {
         8 + (r & 0x7)
+    }
+
+    // Compressed FP load/store (c.fld/c.fsd/c.fldsp/c.fsdsp). Doubles need no
+    // NaN-boxing; decoded through the rax decoder for the resolved operands.
+    fn lift_c_fp_ldst(
+        &mut self,
+        insn: u16,
+        addr: GuestAddr,
+        ctx: &mut LiftContext,
+    ) -> Result<(Vec<SmirOp>, ControlFlow), LiftError> {
+        let xl = if self.xlen == 64 { RvXlen::Rv64 } else { RvXlen::Rv32 };
+        let d = crate::riscv::decode::decode_compressed(insn, xl, &RvIsa::rv64gc());
+        if d.is_illegal() {
+            return Err(LiftError::InvalidEncoding { addr, bytes: insn.to_le_bytes().to_vec() });
+        }
+        let base = self.get_x_reg(d.rs1, ctx);
+        let address = Address::BaseOffset { base, offset: d.imm, disp_size: DispSize::Auto };
+        let mk = |ctx: &mut LiftContext, k: OpKind| SmirOp::new(ctx.next_op_id(), addr, k);
+        let mut ops = Vec::new();
+        match d.op {
+            RvOp::Fld => {
+                let fd = ctx.define_arch_reg(ArchReg::RiscV(RiscVReg::F(d.rd)));
+                ops.push(mk(ctx, OpKind::Load { dst: fd, addr: address, width: MemWidth::B8, sign: SignExtend::Zero }));
+            }
+            RvOp::Fsd => {
+                let fs = ctx.get_arch_reg(ArchReg::RiscV(RiscVReg::F(d.rs2)));
+                ops.push(mk(ctx, OpKind::Store { src: fs, addr: address, width: MemWidth::B8 }));
+            }
+            _ => {
+                return Err(LiftError::Unsupported { addr, mnemonic: format!("{:?}", d.op) });
+            }
+        }
+        Ok((ops, ControlFlow::NextInsn))
     }
 
     // Zcb quadrant-0 byte/half loads and stores (c.lbu/lhu/lh/sb/sh). Decoded
