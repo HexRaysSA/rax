@@ -6023,6 +6023,20 @@ impl AArch64Cpu {
                 Ok(CpuExit::Continue)
             }
 
+            // SVE2 predicated integer ALU (saturating/rounding shifts, halving
+            // add/sub, saturating add/sub, SQABS/SQNEG): 0x44, bit21==0,
+            // bits[15:13]==100, or bits[15:13]==101 with bits[21:19]==001. The
+            // pairwise group (bits[15:13]==101, bits[21:19]==010) is handled by
+            // its own arm and excluded here.
+            0b010
+                if (insn >> 24) & 0xFF == 0b01000100
+                    && (insn >> 21) & 1 == 0
+                    && ((insn >> 13) & 0x7 == 0b100
+                        || ((insn >> 13) & 0x7 == 0b101 && (insn >> 19) & 0x7 == 0b001)) =>
+            {
+                self.exec_sve2_pred_alu(insn)
+            }
+
             // SVE2 complex integer multiply-add (CMLA/SQRDCMLAH): 0x44, bit21==0,
             // bits[15:13]==001. op=bit12 picks the saturating-rounding-doubling
             // SQRDCMLAH; rot=bits[11:10] is the 0/90/180/270 rotation. Each
@@ -6393,6 +6407,100 @@ impl AArch64Cpu {
                 op0, op1
             ))),
         }
+    }
+
+    /// Execute the SVE2 predicated integer ALU group at 0x44 bits[15:14]==10:
+    /// saturating/rounding shifts by vector (SRSHL/URSHL/SQSHL/UQSHL/SQRSHL/
+    /// UQRSHL and their reversed forms), halving add/sub (SHADD/UHADD/SHSUB/
+    /// UHSUB/SRHADD/URHADD/SHSUBR/UHSUBR), saturating add/sub (SQADD/UQADD/
+    /// SQSUB/UQSUB/SUQADD/USQADD/SQSUBR/UQSUBR) at bits[15:13]==100, and the
+    /// unary SQABS/SQNEG at bits[15:13]==101 bits[21:19]==001. All merge under
+    /// Pg. The op is keyed on bits[21:16]; reversed forms swap the operands.
+    fn exec_sve2_pred_alu(&mut self, insn: u32) -> Result<CpuExit, ArmError> {
+        let esize = 1usize << ((insn >> 22) & 0x3);
+        let bits = (esize * 8) as u32;
+        let mask = elem_mask(bits);
+        let pg = ((insn >> 10) & 0x7) as usize;
+        let rd = (insn & 0x1F) as usize;
+        let rfield = ((insn >> 5) & 0x1F) as usize;
+        let pred = self.sve_p[pg];
+        let dst_prior = self.v[rd].to_le_bytes();
+        let mut dst = dst_prior;
+        let elements = 16 / esize;
+
+        if (insn >> 13) & 0x7 == 0b101 {
+            // Unary SQABS/SQNEG: source = rfield, dest = rd, merging.
+            let neg = (insn >> 16) & 1 == 1; // 000=SQABS, 001=SQNEG
+            let src = self.v[rfield].to_le_bytes();
+            for e in 0..elements {
+                let off = e * esize;
+                if (pred >> off) & 1 == 0 {
+                    continue;
+                }
+                let n = sext_elem(read_elem(&src, off, esize), bits);
+                let r = if neg { sat_signed(-n, bits) } else { sat_signed(n.abs(), bits) };
+                write_elem(&mut dst, off, esize, r);
+            }
+            self.v[rd] = u128::from_le_bytes(dst);
+            return Ok(CpuExit::Continue);
+        }
+
+        let opc6 = (insn >> 16) & 0x3F;
+        let reversed = matches!(
+            opc6,
+            0b000110 | 0b000111 | 0b001100 | 0b001101 | 0b001110 | 0b001111 | 0b010110 | 0b010111
+                | 0b011110
+                | 0b011111
+        );
+        let field = self.v[rfield].to_le_bytes();
+        let do_shift = |val: u64, sh: i64, signed: bool, round: bool, sat: bool| -> u64 {
+            if bits == 64 {
+                if signed {
+                    sqrshl_d(val as i64, sh, round, sat) as u64
+                } else {
+                    uqrshl_d(val, sh, round, sat)
+                }
+            } else if signed {
+                sqrshl_bhs(sext_elem(val, bits) as i32, sh as i32, bits, round, sat) as u64 & mask
+            } else {
+                uqrshl_bhs((val & mask) as u32, sh as i32, bits, round, sat) as u64 & mask
+            }
+        };
+        for e in 0..elements {
+            let off = e * esize;
+            if (pred >> off) & 1 == 0 {
+                continue;
+            }
+            let rd_v = read_elem(&dst_prior, off, esize);
+            let fv = read_elem(&field, off, esize);
+            let (a, b) = if reversed { (fv, rd_v) } else { (rd_v, fv) };
+            let (sa, sb) = (sext_elem(a, bits), sext_elem(b, bits));
+            let (ua, ub) = (uext_elem(a, bits) as i128, uext_elem(b, bits) as i128);
+            let r: u64 = match opc6 {
+                0b000010 | 0b000110 => do_shift(a, sb as i64, true, true, false), // SRSHL(R)
+                0b000011 | 0b000111 => do_shift(a, sb as i64, false, true, false), // URSHL(R)
+                0b001000 | 0b001100 => do_shift(a, sb as i64, true, false, true), // SQSHL(R)
+                0b001001 | 0b001101 => do_shift(a, sb as i64, false, false, true), // UQSHL(R)
+                0b001010 | 0b001110 => do_shift(a, sb as i64, true, true, true), // SQRSHL(R)
+                0b001011 | 0b001111 => do_shift(a, sb as i64, false, true, true), // UQRSHL(R)
+                0b010000 => ((sa + sb) >> 1) as u64 & mask,         // SHADD
+                0b010001 => ((ua + ub) >> 1) as u64 & mask,         // UHADD
+                0b010010 | 0b010110 => ((sa - sb) >> 1) as u64 & mask, // SHSUB(R)
+                0b010011 | 0b010111 => ((ua - ub) >> 1) as u64 & mask, // UHSUB(R)
+                0b010100 => ((sa + sb + 1) >> 1) as u64 & mask,     // SRHADD
+                0b010101 => ((ua + ub + 1) >> 1) as u64 & mask,     // URHADD
+                0b011000 => sat_signed(sa + sb, bits),              // SQADD
+                0b011001 => sat_unsigned(ua + ub, bits),            // UQADD
+                0b011010 | 0b011110 => sat_signed(sa - sb, bits),   // SQSUB(R)
+                0b011011 | 0b011111 => sat_unsigned(ua - ub, bits), // UQSUB(R)
+                0b011100 => sat_signed(sa + ub, bits),              // SUQADD
+                0b011101 => sat_unsigned(ua + sb, bits),            // USQADD
+                _ => return Ok(CpuExit::Undefined(insn)),
+            };
+            write_elem(&mut dst, off, esize, r);
+        }
+        self.v[rd] = u128::from_le_bytes(dst);
+        Ok(CpuExit::Continue)
     }
 
     /// Execute SVE2 widening multiply-add long by an indexed element. The
@@ -12081,6 +12189,108 @@ fn uext_elem(v: u64, bits: u32) -> u128 {
 
 /// Saturate a signed value to the `bits`-bit signed range, returned as raw bits.
 #[inline]
+/// Signed saturating/rounding shift-left by a signed amount, for bits in
+/// {8,16,32}. Faithful port of qemu do_sqrshl_bhs (vec_internal.h).
+fn sqrshl_bhs(src: i32, shift: i32, bits: u32, round: bool, sat: bool) -> i32 {
+    if shift <= -(bits as i32) {
+        return if round { 0 } else { src >> 31 };
+    } else if shift < 0 {
+        if round {
+            let s = src >> (-shift - 1);
+            return (s >> 1) + (s & 1);
+        }
+        return src >> (-shift);
+    } else if shift < bits as i32 {
+        let val = src.wrapping_shl(shift as u32);
+        if bits == 32 {
+            if !sat || (val >> shift) == src {
+                return val;
+            }
+        } else {
+            let extval = (val << (32 - bits)) >> (32 - bits); // sextract32(val,0,bits)
+            if !sat || val == extval {
+                return extval;
+            }
+        }
+    } else if !sat || src == 0 {
+        return 0;
+    }
+    (1i32 << (bits - 1)) - i32::from(src >= 0)
+}
+
+/// Unsigned saturating/rounding shift-left, bits in {8,16,32}. Port of qemu
+/// do_uqrshl_bhs.
+fn uqrshl_bhs(src: u32, shift: i32, bits: u32, round: bool, sat: bool) -> u32 {
+    if shift <= -(bits as i32 + round as i32) {
+        return 0;
+    } else if shift < 0 {
+        if round {
+            let s = src >> (-shift - 1);
+            return (s >> 1) + (s & 1);
+        }
+        return src >> (-shift);
+    } else if shift < bits as i32 {
+        let val = src.wrapping_shl(shift as u32);
+        if bits == 32 {
+            if !sat || (val >> shift) == src {
+                return val;
+            }
+        } else {
+            let extval = val & ((1u32 << bits) - 1);
+            if !sat || val == extval {
+                return extval;
+            }
+        }
+    } else if !sat || src == 0 {
+        return 0;
+    }
+    if bits == 32 { u32::MAX } else { (1u32 << bits) - 1 }
+}
+
+/// Signed saturating/rounding shift-left for 64-bit elements. Port of qemu
+/// do_sqrshl_d.
+fn sqrshl_d(src: i64, shift: i64, round: bool, sat: bool) -> i64 {
+    if shift <= -64 {
+        return if round { 0 } else { src >> 63 };
+    } else if shift < 0 {
+        if round {
+            let s = src >> (-shift - 1);
+            return (s >> 1) + (s & 1);
+        }
+        return src >> (-shift);
+    } else if shift < 64 {
+        let val = src.wrapping_shl(shift as u32);
+        if !sat || (val >> shift) == src {
+            return val;
+        }
+    } else if !sat || src == 0 {
+        return 0;
+    }
+    if src < 0 { i64::MIN } else { i64::MAX }
+}
+
+/// Unsigned saturating/rounding shift-left for 64-bit elements. Port of qemu
+/// do_uqrshl_d.
+fn uqrshl_d(src: u64, shift: i64, round: bool, sat: bool) -> u64 {
+    if shift <= -(64 + round as i64) {
+        return 0;
+    } else if shift < 0 {
+        if round {
+            let s = src >> (-shift - 1);
+            return (s >> 1) + (s & 1);
+        }
+        return src >> (-shift);
+    } else if shift < 64 {
+        let val = src.wrapping_shl(shift as u32);
+        if !sat || (val >> shift) == src {
+            return val;
+        }
+    } else if !sat || src == 0 {
+        return 0;
+    }
+    u64::MAX
+}
+
 fn sat_signed(v: i128, bits: u32) -> u64 {
     let max = (1i128 << (bits - 1)) - 1;
     let min = -(1i128 << (bits - 1));
