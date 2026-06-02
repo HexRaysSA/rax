@@ -1895,11 +1895,26 @@ impl SmirInterpreter {
                 Self::write_vec(ctx, *dst, result);
             }
 
+            OpKind::VBroadcast {
+                dst,
+                scalar,
+                elem,
+                lanes,
+            } => {
+                // Splat the low `elem` bits of the scalar register into every lane.
+                let elem_bits = elem.bytes() * 8;
+                let val = ctx.read_vreg(*scalar);
+                let mut result = [0u64; 16];
+                for lane in 0..*lanes {
+                    Self::set_lane(&mut result, lane, elem_bits, val);
+                }
+                Self::write_vec(ctx, *dst, result);
+            }
+
             OpKind::VCmp { .. }
             | OpKind::VInsertLane { .. }
             | OpKind::VExtractLane { .. }
-            | OpKind::VShuffle { .. }
-            | OpKind::VBroadcast { .. } => {
+            | OpKind::VShuffle { .. } => {
                 // Simplified: not fully implemented
             }
 
@@ -3119,6 +3134,37 @@ mod tests {
         interp.execute_block(&mut ctx, &mut memory, &block);
         if let ArchRegState::Hexagon(hex) = &ctx.arch_regs {
             assert_eq!(hex.get_v(2), [0xFFFF_FFF8_FFFF_FFF8u64; 16]); // word = -8
+        }
+    }
+
+    #[test]
+    fn test_vbroadcast_gpr_to_words() {
+        // Splat GPR R5 = 0xDEADBEEF into every word lane of V2.
+        let mut ctx = SmirContext::new_hexagon();
+        let mut memory = FlatMemory::new(0x1000);
+        let interp = SmirInterpreter::new();
+        ctx.write_arch_reg(ArchReg::Hexagon(HexagonReg::R(5)), 0xDEAD_BEEF);
+        let block = SmirBlock {
+            id: BlockId(0),
+            guest_pc: 0x1000,
+            phis: vec![],
+            ops: vec![SmirOp {
+                id: OpId(0),
+                guest_pc: 0x1000,
+                kind: OpKind::VBroadcast {
+                    dst: VReg::Arch(ArchReg::Hexagon(HexagonReg::V(2))),
+                    scalar: VReg::Arch(ArchReg::Hexagon(HexagonReg::R(5))),
+                    elem: VecElementType::I32,
+                    lanes: 32,
+                },
+                x86_hint: None,
+            }],
+            terminator: Terminator::Trap { kind: TrapKind::Halt },
+            exec_count: 0,
+        };
+        interp.execute_block(&mut ctx, &mut memory, &block);
+        if let ArchRegState::Hexagon(hex) = &ctx.arch_regs {
+            assert_eq!(hex.get_v(2), [0xDEAD_BEEF_DEAD_BEEFu64; 16]);
         }
     }
 }
