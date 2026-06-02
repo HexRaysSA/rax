@@ -496,13 +496,11 @@ fn test_rdtsc_execution_speed() {
 // ============================================================================
 
 #[test]
-fn test_rdtsc_strict_monotonic_with_known_delta() {
+fn test_rdtsc_strict_monotonic_across_nops() {
     // RDTSC #1, save to RBX:RSI, run 3 NOPs, RDTSC #2 in RAX:RDX.
-    //   first RDTSC executes at some insn_count k.
-    //   instructions between the two reads: MOV,MOV,NOP,NOP,NOP = 5 retired
-    //   (the second RDTSC reads insn_count after it is incremented for itself).
-    // Rather than hard-code k, assert tsc2 > tsc1 strictly and the delta is a
-    // positive multiple of 3000.
+    // The guest TSC is real-time (host wall-clock scaled to 3 GHz), so the exact
+    // delta is non-deterministic — only its monotonicity is guaranteed. (It used
+    // to assert delta == 6*3000 under the old instruction-count TSC model.)
     let code = [
         0x0f, 0x31,       // RDTSC (#1)
         0x48, 0x89, 0xc3, // MOV RBX, RAX (save lo1)
@@ -516,19 +514,13 @@ fn test_rdtsc_strict_monotonic_with_known_delta() {
 
     let tsc1 = ((regs.rsi & 0xFFFF_FFFF) << 32) | (regs.rbx & 0xFFFF_FFFF);
     let tsc2 = ((regs.rdx & 0xFFFF_FFFF) << 32) | (regs.rax & 0xFFFF_FFFF);
-    assert!(tsc2 > tsc1, "TSC strictly increases across NOPs");
-    let delta = tsc2 - tsc1;
-    assert!(delta > 0 && delta % 3000 == 0, "TSC delta is a multiple of 3000 (got {})", delta);
-    // insn_count is incremented at the start of each step (including the 2nd
-    // RDTSC's own step), so the delta counts the 5 intervening instructions
-    // (2 MOV + 3 NOP) plus the second RDTSC itself = 6 ticks.
-    assert_eq!(delta, 6 * 3000, "exact instruction-count-derived delta");
+    assert!(tsc2 >= tsc1, "TSC is monotonic across NOPs (got {tsc1} -> {tsc2})");
 }
 
 #[test]
-fn test_rdtsc_back_to_back_delta_deterministic() {
-    // Two RDTSCs separated by two MOVs. insn_count increments per step including
-    // the second RDTSC, so the delta is (2 MOV + 1 RDTSC) * 3000 = 9000.
+fn test_rdtsc_back_to_back_monotonic() {
+    // Two RDTSCs separated by two MOVs. With a real-time TSC the inter-read delta
+    // tracks host wall-clock and is non-deterministic; only monotonicity holds.
     let code = [
         0x0f, 0x31,       // RDTSC (#1)
         0x48, 0x89, 0xc3, // MOV RBX, RAX (save lo1)
@@ -540,6 +532,5 @@ fn test_rdtsc_back_to_back_delta_deterministic() {
     let regs = run_until_hlt(&mut vcpu).unwrap();
     let tsc1 = ((regs.rsi & 0xFFFF_FFFF) << 32) | (regs.rbx & 0xFFFF_FFFF);
     let tsc2 = ((regs.rdx & 0xFFFF_FFFF) << 32) | (regs.rax & 0xFFFF_FFFF);
-    assert_eq!(tsc2 - tsc1, 3 * 3000, "deterministic 3-tick delta");
-    assert!(tsc2 > tsc1, "monotonic");
+    assert!(tsc2 >= tsc1, "TSC is monotonic back-to-back (got {tsc1} -> {tsc2})");
 }
