@@ -2133,21 +2133,25 @@ impl SmirInterpreter {
                 dst,
                 src1,
                 src2,
-                src_elem,
+                src1_elem,
+                src2_elem,
+                out_elem,
                 taps,
                 signed1,
                 signed2,
+                sat,
                 acc,
             } => {
                 let a = Self::read_vec(ctx, *src1);
                 let b = Self::read_vec(ctx, *src2);
-                let nbits = src_elem.bytes() * 8;
-                let obits = nbits * (*taps as u32);
+                let n1 = src1_elem.bytes() * 8;
+                let n2 = src2_elem.bytes() * 8;
+                let obits = out_elem.bytes() * 8;
                 let olanes = (1024 / obits) as u8;
                 let mut out = if *acc { Self::read_vec(ctx, *dst) } else { [0u64; 16] };
-                let ext = |v: u64, signed: bool| -> i64 {
+                let ext = |v: u64, bits: u32, signed: bool| -> i64 {
                     if signed {
-                        let shift = 64 - nbits;
+                        let shift = 64 - bits;
                         ((v << shift) as i64) >> shift
                     } else {
                         v as i64
@@ -2155,16 +2159,22 @@ impl SmirInterpreter {
                 };
                 for i in 0..olanes {
                     let mut s: i64 = if *acc {
-                        Self::get_lane(&out, i, obits) as i64
+                        // accumulator low `obits` bits, sign-extended for saturating sum.
+                        ext(Self::get_lane(&out, i, obits), obits, true)
                     } else {
                         0
                     };
                     for k in 0..*taps {
                         let idx = i * *taps + k;
                         s = s.wrapping_add(
-                            ext(Self::get_lane(&a, idx, nbits), *signed1)
-                                .wrapping_mul(ext(Self::get_lane(&b, idx, nbits), *signed2)),
+                            ext(Self::get_lane(&a, idx, n1), n1, *signed1)
+                                .wrapping_mul(ext(Self::get_lane(&b, idx, n2), n2, *signed2)),
                         );
+                    }
+                    if *sat && obits < 64 {
+                        let lo = -(1i64 << (obits - 1));
+                        let hi = (1i64 << (obits - 1)) - 1;
+                        s = s.clamp(lo, hi);
                     }
                     Self::set_lane(&mut out, i, obits, s as u64);
                 }
@@ -2866,6 +2876,8 @@ impl SmirInterpreter {
             VLaneOp::Or => a | b,
             VLaneOp::Xor => a ^ b,
             VLaneOp::AndNot => a & !b,
+            VLaneOp::OrNot => a | !b,
+            VLaneOp::Not => !a,
             VLaneOp::Min => {
                 if signed {
                     sx(a).min(sx(b)) as u64
@@ -3393,8 +3405,11 @@ mod tests {
                 dst: mkv(2),
                 src1: mkv(0),
                 src2: mkv(1),
-                src_elem: VecElementType::I8,
+                src1_elem: VecElementType::I8,
+                src2_elem: VecElementType::I8,
+                out_elem: VecElementType::I32,
                 taps: 4,
+                sat: false,
                 signed1: false,
                 signed2: false,
                 acc: false,
@@ -3411,8 +3426,11 @@ mod tests {
                 dst: mkv(2),
                 src1: mkv(0),
                 src2: mkv(1),
-                src_elem: VecElementType::I8,
+                src1_elem: VecElementType::I8,
+                src2_elem: VecElementType::I8,
+                out_elem: VecElementType::I32,
                 taps: 4,
+                sat: false,
                 signed1: false,
                 signed2: false,
                 acc: true,
@@ -3446,8 +3464,11 @@ mod tests {
                     dst: mkv(2),
                     src1: mkv(0),
                     src2: mkv(1),
-                    src_elem: VecElementType::I8,
+                    src1_elem: VecElementType::I8,
+                    src2_elem: VecElementType::I8,
+                    out_elem: VecElementType::I32,
                     taps: 4,
+                    sat: false,
                     signed1: true,
                     signed2: true,
                     acc: false,

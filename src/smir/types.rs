@@ -852,6 +852,10 @@ pub enum VLaneOp {
     Xor,
     /// Bitwise AND-NOT: `a & !b`.
     AndNot,
+    /// Bitwise OR-NOT: `a | !b`.
+    OrNot,
+    /// Bitwise NOT of the first operand (second ignored): `!a`.
+    Not,
     /// Saturating add (signed/unsigned per the `signed` flag).
     AddSat,
     /// Saturating subtract (signed/unsigned per the `signed` flag).
