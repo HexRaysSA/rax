@@ -1585,9 +1585,30 @@ impl RiscVLifter {
         // Sign-injection helper: fd = nanbox | (fs1 & ~signbit) | sign(fs1, fs2).
         // mode 0 = fsgnj (sign of fs2), 1 = fsgnjn (~sign of fs2), 2 = fsgnjx
         // (sign fs1 ^ fs2).
-        let mut sgnj = |ctx: &mut LiftContext, ops: &mut Vec<SmirOp>, signbit: i64, boxmask: i64, mode: u8| {
-            let fs1 = getf(d.rs1, ctx);
-            let fs2 = getf(d.rs2, ctx);
+        // Canonicalize a narrow (.S/.H) operand: if it is not properly
+        // NaN-boxed (upper bits all-1) it reads as the canonical NaN.
+        let unbox = |ctx: &mut LiftContext,
+                     ops: &mut Vec<SmirOp>,
+                     f: VReg,
+                     sh: i64,
+                     himask: i64,
+                     lomask: i64,
+                     cn: i64|
+         -> VReg {
+            let hi = ctx.alloc_vreg();
+            ops.push(mk(ctx, OpKind::Shr { dst: hi, src: f, amount: SrcOperand::Imm(sh), width: w, flags: FlagUpdate::None }));
+            ops.push(mk(ctx, OpKind::Cmp { src1: hi, src2: SrcOperand::Imm(himask), width: w }));
+            let boxed = ctx.alloc_vreg();
+            ops.push(mk(ctx, OpKind::SetCC { dst: boxed, cond: Condition::Eq, width: w }));
+            let lo = ctx.alloc_vreg();
+            ops.push(mk(ctx, OpKind::And { dst: lo, src1: f, src2: SrcOperand::Imm(lomask), width: w, flags: FlagUpdate::None }));
+            let cnr = ctx.alloc_vreg();
+            ops.push(mk(ctx, OpKind::Mov { dst: cnr, src: SrcOperand::Imm(cn), width: w }));
+            let u = ctx.alloc_vreg();
+            ops.push(mk(ctx, OpKind::Select { dst: u, cond: boxed, src_true: lo, src_false: cnr, width: w }));
+            u
+        };
+        let mut sgnj = |ctx: &mut LiftContext, ops: &mut Vec<SmirOp>, fs1: VReg, fs2: VReg, signbit: i64, boxmask: i64, mode: u8| {
             let a = ctx.alloc_vreg();
             ops.push(mk(ctx, OpKind::And { dst: a, src1: fs1, src2: SrcOperand::Imm(!signbit), width: w, flags: FlagUpdate::None }));
             let sb = ctx.alloc_vreg();
@@ -1661,9 +1682,28 @@ impl RiscVLifter {
             // Sign injection. Only .D is lifted: .S/.H must canonicalize an
             // improperly-NaN-boxed operand to the canonical NaN first, which
             // needs extra unbox conditionals — gapped for now.
-            RvOp::FsgnjD => sgnj(ctx, &mut ops, SB_D, 0, 0),
-            RvOp::FsgnjnD => sgnj(ctx, &mut ops, SB_D, 0, 1),
-            RvOp::FsgnjxD => sgnj(ctx, &mut ops, SB_D, 0, 2),
+            RvOp::FsgnjD | RvOp::FsgnjnD | RvOp::FsgnjxD => {
+                let m = match d.op { RvOp::FsgnjD => 0, RvOp::FsgnjnD => 1, _ => 2 };
+                let fs1 = getf(d.rs1, ctx);
+                let fs2 = getf(d.rs2, ctx);
+                sgnj(ctx, &mut ops, fs1, fs2, SB_D, 0, m);
+            }
+            RvOp::FsgnjS | RvOp::FsgnjnS | RvOp::FsgnjxS => {
+                let m = match d.op { RvOp::FsgnjS => 0, RvOp::FsgnjnS => 1, _ => 2 };
+                let fs1 = getf(d.rs1, ctx);
+                let fs2 = getf(d.rs2, ctx);
+                let u1 = unbox(ctx, &mut ops, fs1, 32, 0xffff_ffff, 0xffff_ffff, 0x7fc0_0000);
+                let u2 = unbox(ctx, &mut ops, fs2, 32, 0xffff_ffff, 0xffff_ffff, 0x7fc0_0000);
+                sgnj(ctx, &mut ops, u1, u2, 0x8000_0000u64 as i64, BOX_S, m);
+            }
+            RvOp::FsgnjH | RvOp::FsgnjnH | RvOp::FsgnjxH => {
+                let m = match d.op { RvOp::FsgnjH => 0, RvOp::FsgnjnH => 1, _ => 2 };
+                let fs1 = getf(d.rs1, ctx);
+                let fs2 = getf(d.rs2, ctx);
+                let u1 = unbox(ctx, &mut ops, fs1, 16, 0xffff_ffff_ffff, 0xffff, 0x7e00);
+                let u2 = unbox(ctx, &mut ops, fs2, 16, 0xffff_ffff_ffff, 0xffff, 0x7e00);
+                sgnj(ctx, &mut ops, u1, u2, 0x8000, BOX_H, m);
+            }
             _ => {
                 return Err(LiftError::Unsupported { addr, mnemonic: format!("{:?}", d.op) });
             }
