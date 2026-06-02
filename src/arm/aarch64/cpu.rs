@@ -5665,6 +5665,65 @@ impl AArch64Cpu {
             return Ok(CpuExit::Continue);
         }
 
+        // PFIRST Pdn.B, Pg, Pdn.B: bits[23:16]==01011000, bits[15:9]==1100000,
+        // bit4==0. Sets the FIRST Pg-active element true in the (unchanged) Pdn.
+        // Always operates on byte elements (esize=8 bits), independent of the
+        // bits[23:22] field which is fixed to 01 in the opcode.
+        if (insn >> 16) & 0xFF == 0b01011000
+            && (insn >> 9) & 0x7F == 0b1100000
+            && (insn >> 4) & 1 == 0
+        {
+            let pg = ((insn >> 5) & 0xF) as usize;
+            let mask = self.sve_p[pg];
+            let mut result = self.sve_p[pd];
+            for e in 0..16 {
+                if (mask >> e) & 1 == 1 {
+                    result |= 1 << e;
+                    break;
+                }
+            }
+            let (n, z, c, v) = pred_test(mask, result, 16, 1);
+            self.set_n(n);
+            self.set_z(z);
+            self.set_c(c);
+            self.set_v(v);
+            self.sve_p[pd] = result;
+            return Ok(CpuExit::Continue);
+        }
+
+        // PNEXT Pdn.T, Pg, Pdn.T: bits[21:16]==011001, bits[15:9]==1100010,
+        // bit4==0. Finds the next Pg-active element strictly after the last
+        // active element of the current Pdn, leaving only that element active.
+        if (insn >> 16) & 0x3F == 0b011001
+            && (insn >> 9) & 0x7F == 0b1100010
+            && (insn >> 4) & 1 == 0
+        {
+            let pg = ((insn >> 5) & 0xF) as usize;
+            let mask = self.sve_p[pg];
+            let operand = self.sve_p[pd];
+            let mut last: i32 = -1;
+            for e in 0..elements {
+                if (operand >> (e * esize)) & 1 == 1 {
+                    last = e as i32;
+                }
+            }
+            let mut next = (last + 1) as usize;
+            while next < elements && (mask >> (next * esize)) & 1 == 0 {
+                next += 1;
+            }
+            let mut result = 0u32;
+            if next < elements {
+                result |= 1 << (next * esize);
+            }
+            let (n, z, c, v) = pred_test(mask, result, elements, esize);
+            self.set_n(n);
+            self.set_z(z);
+            self.set_c(c);
+            self.set_v(v);
+            self.sve_p[pd] = result;
+            return Ok(CpuExit::Continue);
+        }
+
         Err(ArmError::Unimplemented(format!(
             "SVE predicate op bits[15:10]={:06b}",
             b15_10

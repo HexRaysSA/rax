@@ -1607,6 +1607,17 @@ fn enc_sve_splice(sz: u32) -> u32 {
     (0b00000101 << 24) | (sz << 22) | (0b101100 << 16) | (0b100 << 13) | (RN << 5) | RD
 }
 
+/// SVE PFIRST Pdn.B, Pg, Pdn.B: `00100101 01011000 1100000 Pg Pdn`.
+fn enc_pfirst(pg: u32, pdn: u32) -> u32 {
+    (0x25 << 24) | (0b01011000 << 16) | (0b1100000 << 9) | ((pg & 0xF) << 5) | (pdn & 0xF)
+}
+
+/// SVE PNEXT Pdn.T, Pg, Pdn.T: `00100101 size 011001 1100010 Pg Pdn`.
+fn enc_pnext(sz: u32, pg: u32, pdn: u32) -> u32 {
+    (0x25 << 24) | (sz << 22) | (0b011001 << 16) | (0b1100010 << 9)
+        | ((pg & 0xF) << 5) | (pdn & 0xF)
+}
+
 #[test]
 fn diff_sve_index() {
     let mut cases: Vec<(String, u32)> = Vec::new();
@@ -2200,6 +2211,40 @@ fn diff_sve_splice() {
         }
     }
     run_batch("sve_splice", batch);
+}
+
+#[test]
+fn diff_sve_pfirst() {
+    // PFIRST sets the first Pg-active element active in Pdn and writes NZCV via
+    // PredTest. Random Pg/Pdn inputs cover the empty-mask and already-set paths.
+    let mut rng = Rng::new(0x2_9001);
+    let mut batch: Vec<(String, u32, ArmState)> = Vec::new();
+    let insn = enc_pfirst(1, 0); // Pg=p1, Pdn=p0
+    for _ in 0..40 {
+        let mut st = ArmState::zeroed();
+        st.set_preg(0, rng.next() as u16); // Pdn (source + dest)
+        st.set_preg(1, rng.next() as u16); // Pg
+        batch.push(("pfirst".to_string(), insn, st));
+    }
+    run_batch("sve_pfirst", batch);
+}
+
+#[test]
+fn diff_sve_pnext() {
+    // PNEXT advances to the next Pg-active element after Pdn's last active one,
+    // for each element size, and writes NZCV via PredTest.
+    let mut rng = Rng::new(0x2_A001);
+    let mut batch: Vec<(String, u32, ArmState)> = Vec::new();
+    for sz in 0..4u32 {
+        let insn = enc_pnext(sz, 1, 0);
+        for _ in 0..40 {
+            let mut st = ArmState::zeroed();
+            st.set_preg(0, rng.next() as u16); // Pdn (source + dest)
+            st.set_preg(1, rng.next() as u16); // Pg
+            batch.push((format!("pnext sz{sz}"), insn, st));
+        }
+    }
+    run_batch("sve_pnext", batch);
 }
 
 #[test]
