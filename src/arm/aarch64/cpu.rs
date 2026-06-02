@@ -5685,6 +5685,45 @@ impl AArch64Cpu {
                 Ok(CpuExit::Continue)
             }
 
+            // SVE2 SADALP/UADALP (add long pairwise, accumulate): 0x44,
+            // bits[21:17]==00010, bits[15:13]==101. U=bit16. Each (active)
+            // destination element gains the widened sum of a pair of half-width
+            // source elements; inactive lanes keep the prior accumulator.
+            0b010
+                if (insn >> 24) & 0xFF == 0b01000100
+                    && (insn >> 17) & 0x1F == 0b00010
+                    && (insn >> 13) & 0x7 == 0b101 =>
+            {
+                let size = (insn >> 22) & 0x3;
+                if size == 0 {
+                    return Ok(CpuExit::Undefined(insn));
+                }
+                let d_esize = 1usize << size;
+                let s_esize = d_esize / 2;
+                let s_bits = (s_esize * 8) as u32;
+                let mask = elem_mask((d_esize * 8) as u32);
+                let unsigned = (insn >> 16) & 1 == 1;
+                let pred = self.sve_p[pg];
+                let elements = 16 / d_esize;
+                let acc = self.v[zd].to_le_bytes();
+                let n = self.v[zn].to_le_bytes();
+                let mut dst = acc;
+                let widen = |x: u64| -> i128 {
+                    if unsigned { uext_elem(x, s_bits) as i128 } else { sext_elem(x, s_bits) }
+                };
+                for d in 0..elements {
+                    if (pred >> (d * d_esize)) & 1 == 0 {
+                        continue;
+                    }
+                    let pair = widen(read_elem(&n, 2 * d * s_esize, s_esize))
+                        + widen(read_elem(&n, (2 * d + 1) * s_esize, s_esize));
+                    let cur = read_elem(&acc, d * d_esize, d_esize) as i128;
+                    write_elem(&mut dst, d * d_esize, d_esize, (cur + pair) as u64 & mask);
+                }
+                self.v[zd] = u128::from_le_bytes(dst);
+                Ok(CpuExit::Continue)
+            }
+
             // SVE2 predicated integer pairwise: 0x44, bits[21:19]==010,
             // bits[15:13]==101. opc=bits[18:17] (00=ADDP, 10=MAXP, 11=MINP),
             // U=bit16. The pairwise results of Zdn and Zm are INTERLEAVED (even
