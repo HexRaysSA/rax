@@ -5136,17 +5136,20 @@ impl AArch64Cpu {
             // FP predicated operations
             0b011 => self.exec_sve_fp_pred(insn, zd, zn, zm, pg, esize),
 
-            // SVE2 integer add/subtract long: 0x45, bit21==0, bits[15:13]==000.
-            // SADDLB/T, SSUBLB/T, UADDLB/T, USUBLB/T. Source elements are
-            // half the destination width; T picks odd (top) vs even (bottom);
-            // S selects subtract, U unsigned widening. size=00 is reserved.
+            // SVE2 integer add/subtract long/wide and abs-diff long: 0x45,
+            // bit21==0, bits[15:13] selects the group — 000 = add/sub LONG (both
+            // operands widened from half-width), 001 = ABS-DIFF long (|a-b|,
+            // S=bit12 must be 1), 010 = add/sub WIDE (Zn already full width, Zm
+            // widened). T (bit10) picks odd/even half-width source elements;
+            // U (bit11) unsigned widening; S (bit12) subtract. size=00 reserved.
             0b010
                 if (insn >> 24) & 0xFF == 0b01000101
                     && (insn >> 21) & 1 == 0
-                    && (insn >> 13) & 0x7 == 0b000 =>
+                    && matches!((insn >> 13) & 0x7, 0b000 | 0b001 | 0b010) =>
             {
+                let group = (insn >> 13) & 0x7;
                 let size = (insn >> 22) & 0x3;
-                if size == 0 {
+                if size == 0 || (group == 0b001 && (insn >> 12) & 1 == 0) {
                     return Ok(CpuExit::Undefined(insn));
                 }
                 let d_esize = 1usize << size;
@@ -5160,16 +5163,23 @@ impl AArch64Cpu {
                 let b = self.v[zm].to_le_bytes();
                 let mut dst = [0u8; 16];
                 let mask = elem_mask((d_esize * 8) as u32);
+                let widen = |x: u64| -> i128 {
+                    if unsigned { uext_elem(x, s_bits) as i128 } else { sext_elem(x, s_bits) }
+                };
                 for d in 0..elements {
-                    let off = (2 * d + top as usize) * s_esize;
-                    let xn = read_elem(&a, off, s_esize);
-                    let xm = read_elem(&b, off, s_esize);
-                    let (vn, vm): (i128, i128) = if unsigned {
-                        (uext_elem(xn, s_bits) as i128, uext_elem(xm, s_bits) as i128)
-                    } else {
-                        (sext_elem(xn, s_bits), sext_elem(xm, s_bits))
+                    let s_off = (2 * d + top as usize) * s_esize;
+                    let vm = widen(read_elem(&b, s_off, s_esize));
+                    let r: i128 = match group {
+                        0b000 => {
+                            let vn = widen(read_elem(&a, s_off, s_esize));
+                            if sub { vn - vm } else { vn + vm }
+                        }
+                        0b001 => (widen(read_elem(&a, s_off, s_esize)) - vm).abs(),
+                        _ => {
+                            let vn = read_elem(&a, d * d_esize, d_esize) as i128;
+                            if sub { vn - vm } else { vn + vm }
+                        }
                     };
-                    let r = if sub { vn - vm } else { vn + vm };
                     write_elem(&mut dst, d * d_esize, d_esize, (r as u64) & mask);
                 }
                 self.v[zd] = u128::from_le_bytes(dst);

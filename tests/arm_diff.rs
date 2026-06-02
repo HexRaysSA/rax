@@ -1570,11 +1570,21 @@ fn enc_sve2_tern(opc: u32, o2: u32) -> u32 {
         | (0b00111 << 11) | (o2 << 10) | (RN << 5) | RD
 }
 
-/// SVE2 integer add/subtract long: `01000101 size 0 Zm 00 0 S U T Zn Zd`.
+/// SVE2 integer add/subtract long: `01000101 size 0 Zm 000 S U T Zn Zd`.
 /// Zn=z1(RN), Zm=z2(RM), Zd=z0(RD).
 fn enc_sve2_addl(size: u32, s: u32, u: u32, t: u32) -> u32 {
     (0b01000101 << 24) | (size << 22) | (RM << 16) | (s << 12) | (u << 11) | (t << 10)
         | (RN << 5) | RD
+}
+/// SVE2 abs-diff long (S=1): `01000101 size 0 Zm 001 1 U T Zn Zd`.
+fn enc_sve2_abdl(size: u32, u: u32, t: u32) -> u32 {
+    (0b01000101 << 24) | (size << 22) | (RM << 16) | (0b001 << 13) | (1 << 12) | (u << 11)
+        | (t << 10) | (RN << 5) | RD
+}
+/// SVE2 add/subtract wide: `01000101 size 0 Zm 010 S U T Zn Zd`.
+fn enc_sve2_addw(size: u32, s: u32, u: u32, t: u32) -> u32 {
+    (0b01000101 << 24) | (size << 22) | (RM << 16) | (0b010 << 13) | (s << 12) | (u << 11)
+        | (t << 10) | (RN << 5) | RD
 }
 
 /// SVE INDEX variants. base=imm5[9:5] or Xn; step=imm5[20:16] or Xm. Rn=x1, Rm=x2.
@@ -3375,7 +3385,13 @@ fn diff_sve2_addl() {
                         format!("addl sz{size} s{s} u{u} t{t}"),
                         enc_sve2_addl(size, s, u, t),
                     ));
+                    cases.push((
+                        format!("addw sz{size} s{s} u{u} t{t}"),
+                        enc_sve2_addw(size, s, u, t),
+                    ));
                 }
+                cases.push((format!("abdl sz{size} u{u}"), enc_sve2_abdl(size, u, 0)));
+                cases.push((format!("abdl sz{size} u{u} t"), enc_sve2_abdl(size, u, 1)));
             }
         }
     }
