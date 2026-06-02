@@ -1664,6 +1664,91 @@ impl HexagonLifter {
             }};
         }
 
+        // W64 sub of two temps -> fresh temp.
+        macro_rules! sub_w64 {
+            ($a:expr, $b:expr) => {{
+                let r = ctx.alloc_vreg();
+                push_op!(OpKind::Sub {
+                    dst: r,
+                    src1: $a,
+                    src2: SrcOperand::Reg($b),
+                    width: OpWidth::W64,
+                    flags: FlagUpdate::None,
+                });
+                r
+            }};
+        }
+
+        // Sign-extend a full 32-bit register to a W64 temp (`Rx as i32 as i64`).
+        macro_rules! word_se_w64 {
+            ($reg:expr) => {{
+                let w = ctx.alloc_vreg();
+                push_op!(OpKind::SignExtend {
+                    dst: w,
+                    src: $reg,
+                    from_width: OpWidth::W32,
+                    to_width: OpWidth::W64,
+                });
+                w
+            }};
+        }
+
+        // Signed 16x16 product (full i64) of half `$sh` of `rs` and half `$th` of
+        // `rt`, optionally `:<<1` scaled. `$sh`/`$th` select the HIGH half (true)
+        // vs LOW half (false). Mirrors `mpy16ss(get_half(rs,..), get_half(rt,..))`.
+        macro_rules! cmpy_prod16 {
+            ($sh:expr, $th:expr, $s1:expr) => {{
+                let ha = half_ext!(rs, $sh, false);
+                let hb = half_ext!(rt, $th, false);
+                let wa = word_se_w64!(ha);
+                let wb = word_se_w64!(hb);
+                let p = ctx.alloc_vreg();
+                push_op!(OpKind::MulS {
+                    dst_lo: p,
+                    dst_hi: None,
+                    src1: wa,
+                    src2: SrcOperand::Reg(wb),
+                    width: OpWidth::W64,
+                    flags: FlagUpdate::None,
+                });
+                if $s1 {
+                    let s = ctx.alloc_vreg();
+                    push_op!(OpKind::Shl {
+                        dst: s,
+                        src: p,
+                        amount: SrcOperand::Imm(1),
+                        width: OpWidth::W64,
+                        flags: FlagUpdate::None,
+                    });
+                    s
+                } else {
+                    p
+                }
+            }};
+        }
+
+        // Signed 32x16 product (full i64) of word lane `$w` (0/1) of the Rss pair
+        // (even base `$base`) and half `$th` (high=true) of `rt`. Mirrors
+        // `mpy3216ss(get_word(rss,w), get_half(rt,th))`: word is `Rss as i32`,
+        // half is `Rt as i16`, product fits i64.
+        macro_rules! mpy3216_w64 {
+            ($base:expr, $w:expr, $th:expr) => {{
+                let word = word_se_w64!(self.hex_reg(($base & !1) + $w));
+                let h = half_ext!(rt, $th, false);
+                let hw = word_se_w64!(h);
+                let p = ctx.alloc_vreg();
+                push_op!(OpKind::MulS {
+                    dst_lo: p,
+                    dst_hi: None,
+                    src1: word,
+                    src2: SrcOperand::Reg(hw),
+                    width: OpWidth::W64,
+                    flags: FlagUpdate::None,
+                });
+                p
+            }};
+        }
+
         // The `M2_mpy*` 16x16 multiply matrix (mirrors sem/mpy_ext.rs `mpy16`).
         // Computes a 16x16 product of the selected halves of Rs/Rt, optionally
         // `:<<1` scaled, optionally accumulated into the destination, with no
@@ -8142,6 +8227,689 @@ impl HexagonLifter {
                         width: OpWidth::W32,
                     });
                 }
+            }
+
+            // ============================================================
+            // Complex halfword multiply (cmpys / cmacs / cnacs [+ conjugate])
+            //   Per the sem (mpy.rs): the result pair's WORD1 is the imaginary
+            //   part, WORD0 the real part. Each is sat_n(..,32) of:
+            //     imag = [acc.w1 (+/-)] (Rs.H*Rt.L  (+/-) Rs.L*Rt.H)[<<1]
+            //     real = [acc.w0 (+/-)] (Rs.L*Rt.L  (-/+) Rs.H*Rt.H)[<<1]
+            //   conjugate (`*` / `..sc`) flips the inner sign (imag `-`, real `+`);
+            //   `cnac` subtracts the product-bundle from the accumulator instead
+            //   of adding. cmpys uses acc=0, add. All `:sat` -> SatN set_ovf.
+            // ============================================================
+            Opcode::M2_cmpys_s0
+            | Opcode::M2_cmpys_s1
+            | Opcode::M2_cmpysc_s0
+            | Opcode::M2_cmpysc_s1
+            | Opcode::M2_cmacs_s0
+            | Opcode::M2_cmacs_s1
+            | Opcode::M2_cmacsc_s0
+            | Opcode::M2_cmacsc_s1
+            | Opcode::M2_cnacs_s0
+            | Opcode::M2_cnacs_s1
+            | Opcode::M2_cnacsc_s0
+            | Opcode::M2_cnacsc_s1 => {
+                let s1 = matches!(
+                    op,
+                    Opcode::M2_cmpys_s1
+                        | Opcode::M2_cmpysc_s1
+                        | Opcode::M2_cmacs_s1
+                        | Opcode::M2_cmacsc_s1
+                        | Opcode::M2_cnacs_s1
+                        | Opcode::M2_cnacsc_s1
+                );
+                let conj = matches!(
+                    op,
+                    Opcode::M2_cmpysc_s0
+                        | Opcode::M2_cmpysc_s1
+                        | Opcode::M2_cmacsc_s0
+                        | Opcode::M2_cmacsc_s1
+                        | Opcode::M2_cnacsc_s0
+                        | Opcode::M2_cnacsc_s1
+                );
+                let acc = matches!(
+                    op,
+                    Opcode::M2_cmacs_s0
+                        | Opcode::M2_cmacs_s1
+                        | Opcode::M2_cmacsc_s0
+                        | Opcode::M2_cmacsc_s1
+                        | Opcode::M2_cnacs_s0
+                        | Opcode::M2_cnacs_s1
+                        | Opcode::M2_cnacsc_s0
+                        | Opcode::M2_cnacsc_s1
+                );
+                let nac = matches!(
+                    op,
+                    Opcode::M2_cnacs_s0
+                        | Opcode::M2_cnacs_s1
+                        | Opcode::M2_cnacsc_s0
+                        | Opcode::M2_cnacsc_s1
+                );
+                let base = if acc { rx_n } else { rd_n } & !1;
+                // imag product-bundle: Rs.H*Rt.L (+/-) Rs.L*Rt.H.
+                let i_hl = cmpy_prod16!(true, false, s1); // Rs.H * Rt.L
+                let i_lh = cmpy_prod16!(false, true, s1); // Rs.L * Rt.H
+                let imag = if conj {
+                    sub_w64!(i_hl, i_lh)
+                } else {
+                    add_w64!(i_hl, i_lh)
+                };
+                // real product-bundle: Rs.L*Rt.L (-/+) Rs.H*Rt.H.
+                let r_ll = cmpy_prod16!(false, false, s1); // Rs.L * Rt.L
+                let r_hh = cmpy_prod16!(true, true, s1); // Rs.H * Rt.H
+                let real = if conj {
+                    add_w64!(r_ll, r_hh)
+                } else {
+                    sub_w64!(r_ll, r_hh)
+                };
+                let (w1_val, w0_val) = if acc {
+                    let a1 = word_se_w64!(self.hex_reg(base + 1));
+                    let a0 = word_se_w64!(self.hex_reg(base));
+                    if nac {
+                        (sub_w64!(a1, imag), sub_w64!(a0, real))
+                    } else {
+                        (add_w64!(a1, imag), add_w64!(a0, real))
+                    }
+                } else {
+                    (imag, real)
+                };
+                let w1 = sat32_w64!(w1_val);
+                let w0 = sat32_w64!(w0_val);
+                push_op!(OpKind::Mov {
+                    dst: self.hex_reg(base),
+                    src: SrcOperand::Reg(w0),
+                    width: OpWidth::W32,
+                });
+                push_op!(OpKind::Mov {
+                    dst: self.hex_reg(base + 1),
+                    src: SrcOperand::Reg(w1),
+                    width: OpWidth::W32,
+                });
+            }
+
+            // cmpyrs / cmpyrsc: complex halfword multiply, round, sat, pack the
+            // HIGH halves of each sat32 result into a single Rd.
+            //   h1 = sat32( (Rs.H*Rt.L (+/-) Rs.L*Rt.H)[<<1] + 0x8000 );  // imag
+            //   h0 = sat32( (Rs.L*Rt.L (-/+) Rs.H*Rt.H)[<<1] + 0x8000 );  // real
+            //   Rd.half1 = h1[31:16];  Rd.half0 = h0[31:16].
+            Opcode::M2_cmpyrs_s0
+            | Opcode::M2_cmpyrs_s1
+            | Opcode::M2_cmpyrsc_s0
+            | Opcode::M2_cmpyrsc_s1 => {
+                let s1 = matches!(op, Opcode::M2_cmpyrs_s1 | Opcode::M2_cmpyrsc_s1);
+                let conj = matches!(op, Opcode::M2_cmpyrsc_s0 | Opcode::M2_cmpyrsc_s1);
+                // imag (-> Rd.half1) and real (-> Rd.half0).
+                let i_hl = cmpy_prod16!(true, false, s1);
+                let i_lh = cmpy_prod16!(false, true, s1);
+                let imag = if conj {
+                    sub_w64!(i_hl, i_lh)
+                } else {
+                    add_w64!(i_hl, i_lh)
+                };
+                let r_ll = cmpy_prod16!(false, false, s1);
+                let r_hh = cmpy_prod16!(true, true, s1);
+                let real = if conj {
+                    add_w64!(r_ll, r_hh)
+                } else {
+                    sub_w64!(r_ll, r_hh)
+                };
+                let r = ctx.alloc_vreg();
+                push_op!(OpKind::Mov {
+                    dst: r,
+                    src: SrcOperand::Imm(0),
+                    width: OpWidth::W32,
+                });
+                for (lane, val) in [(0u8, real), (1u8, imag)] {
+                    let rnd = ctx.alloc_vreg();
+                    push_op!(OpKind::Add {
+                        dst: rnd,
+                        src1: val,
+                        src2: SrcOperand::Imm(0x8000),
+                        width: OpWidth::W64,
+                        flags: FlagUpdate::None,
+                    });
+                    let sat = sat32_w64!(rnd);
+                    let hi16 = ctx.alloc_vreg();
+                    push_op!(OpKind::Shr {
+                        dst: hi16,
+                        src: sat,
+                        amount: SrcOperand::Imm(16),
+                        width: OpWidth::W32,
+                        flags: FlagUpdate::None,
+                    });
+                    push_op!(OpKind::Bfi {
+                        dst: r,
+                        dst_in: r,
+                        src: hi16,
+                        lsb: lane * 16,
+                        width_bits: 16,
+                        op_width: OpWidth::W32,
+                    });
+                }
+                set_r!(r);
+            }
+
+            // M4_cmpyi_wh / M4_cmpyr_wh [+ conjugate _whc]: complex 32x16 multiply
+            // with :<<1:rnd:sat, single Rd. Products are 32x16 (fit i64). Per sem:
+            //   cmpyi_wh  (imag):  sat32( (Rss.w0*Rt.h1 + Rss.w1*Rt.h0 + 0x4000) >> 15 )
+            //   cmpyi_whc (imag*): sat32( (Rss.w1*Rt.h0 - Rss.w0*Rt.h1 + 0x4000) >> 15 )
+            //   cmpyr_wh  (real):  sat32( (Rss.w0*Rt.h0 - Rss.w1*Rt.h1 + 0x4000) >> 15 )
+            //   cmpyr_whc (real*): sat32( (Rss.w0*Rt.h0 + Rss.w1*Rt.h1 + 0x4000) >> 15 )
+            Opcode::M4_cmpyi_wh
+            | Opcode::M4_cmpyi_whc
+            | Opcode::M4_cmpyr_wh
+            | Opcode::M4_cmpyr_whc => {
+                let sbase = fld(b's');
+                let sum = match op {
+                    Opcode::M4_cmpyi_wh => {
+                        let a = mpy3216_w64!(sbase, 0, true); // w0 * Rt.h1
+                        let b = mpy3216_w64!(sbase, 1, false); // w1 * Rt.h0
+                        add_w64!(a, b)
+                    }
+                    Opcode::M4_cmpyi_whc => {
+                        let a = mpy3216_w64!(sbase, 1, false); // w1 * Rt.h0
+                        let b = mpy3216_w64!(sbase, 0, true); // w0 * Rt.h1
+                        sub_w64!(a, b)
+                    }
+                    Opcode::M4_cmpyr_wh => {
+                        let a = mpy3216_w64!(sbase, 0, false); // w0 * Rt.h0
+                        let b = mpy3216_w64!(sbase, 1, true); // w1 * Rt.h1
+                        sub_w64!(a, b)
+                    }
+                    // M4_cmpyr_whc
+                    _ => {
+                        let a = mpy3216_w64!(sbase, 0, false); // w0 * Rt.h0
+                        let b = mpy3216_w64!(sbase, 1, true); // w1 * Rt.h1
+                        add_w64!(a, b)
+                    }
+                };
+                let rnd = ctx.alloc_vreg();
+                push_op!(OpKind::Add {
+                    dst: rnd,
+                    src1: sum,
+                    src2: SrcOperand::Imm(0x4000),
+                    width: OpWidth::W64,
+                    flags: FlagUpdate::None,
+                });
+                let sh = ctx.alloc_vreg();
+                push_op!(OpKind::Sar {
+                    dst: sh,
+                    src: rnd,
+                    amount: SrcOperand::Imm(15),
+                    width: OpWidth::W64,
+                    flags: FlagUpdate::None,
+                });
+                let sat = sat32_w64!(sh);
+                set_r!(sat);
+            }
+
+            // ============================================================
+            // Wide matrix 32x16 even/odd multiply (mmpy / mmac), pair result.
+            //   even (vmpyweh / mmpyl): word w uses Rss.w[w], Rtt.h[2w]
+            //   odd  (vmpywoh / mmpyh): word w uses Rss.w[w], Rtt.h[2w+1]
+            // Per lane: w = sat32( [acc.w (+)] (prod[<<1] [+0x8000 rnd]) >> 16 ).
+            // Products are 32x16 (fit i64). `_s`/`_rs` -> sat/rnd+sat; `mmac` adds
+            // the OLD word lane (sign-extended s32). signed (`weh/woh`) vs
+            // signed*unsigned (`weuh/wouh`).
+            // ============================================================
+            Opcode::M2_mmpyl_s0
+            | Opcode::M2_mmpyl_s1
+            | Opcode::M2_mmpyl_rs0
+            | Opcode::M2_mmpyl_rs1
+            | Opcode::M2_mmpyh_s0
+            | Opcode::M2_mmpyh_s1
+            | Opcode::M2_mmpyh_rs0
+            | Opcode::M2_mmpyh_rs1
+            | Opcode::M2_mmacls_s0
+            | Opcode::M2_mmacls_s1
+            | Opcode::M2_mmacls_rs0
+            | Opcode::M2_mmacls_rs1
+            | Opcode::M2_mmachs_s0
+            | Opcode::M2_mmachs_s1
+            | Opcode::M2_mmachs_rs0
+            | Opcode::M2_mmachs_rs1
+            | Opcode::M2_mmpyul_s0
+            | Opcode::M2_mmpyul_s1
+            | Opcode::M2_mmpyul_rs0
+            | Opcode::M2_mmpyul_rs1
+            | Opcode::M2_mmpyuh_s0
+            | Opcode::M2_mmpyuh_s1
+            | Opcode::M2_mmpyuh_rs0
+            | Opcode::M2_mmpyuh_rs1
+            | Opcode::M2_mmaculs_s0
+            | Opcode::M2_mmaculs_s1
+            | Opcode::M2_mmaculs_rs0
+            | Opcode::M2_mmaculs_rs1
+            | Opcode::M2_mmacuhs_s0
+            | Opcode::M2_mmacuhs_s1
+            | Opcode::M2_mmacuhs_rs0
+            | Opcode::M2_mmacuhs_rs1 => {
+                use Opcode::*;
+                let s1 = matches!(
+                    op,
+                    M2_mmpyl_s1
+                        | M2_mmpyl_rs1
+                        | M2_mmpyh_s1
+                        | M2_mmpyh_rs1
+                        | M2_mmacls_s1
+                        | M2_mmacls_rs1
+                        | M2_mmachs_s1
+                        | M2_mmachs_rs1
+                        | M2_mmpyul_s1
+                        | M2_mmpyul_rs1
+                        | M2_mmpyuh_s1
+                        | M2_mmpyuh_rs1
+                        | M2_mmaculs_s1
+                        | M2_mmaculs_rs1
+                        | M2_mmacuhs_s1
+                        | M2_mmacuhs_rs1
+                );
+                let rnd = matches!(
+                    op,
+                    M2_mmpyl_rs0
+                        | M2_mmpyl_rs1
+                        | M2_mmpyh_rs0
+                        | M2_mmpyh_rs1
+                        | M2_mmacls_rs0
+                        | M2_mmacls_rs1
+                        | M2_mmachs_rs0
+                        | M2_mmachs_rs1
+                        | M2_mmpyul_rs0
+                        | M2_mmpyul_rs1
+                        | M2_mmpyuh_rs0
+                        | M2_mmpyuh_rs1
+                        | M2_mmaculs_rs0
+                        | M2_mmaculs_rs1
+                        | M2_mmacuhs_rs0
+                        | M2_mmacuhs_rs1
+                );
+                let odd = matches!(
+                    op,
+                    M2_mmpyh_s0
+                        | M2_mmpyh_s1
+                        | M2_mmpyh_rs0
+                        | M2_mmpyh_rs1
+                        | M2_mmachs_s0
+                        | M2_mmachs_s1
+                        | M2_mmachs_rs0
+                        | M2_mmachs_rs1
+                        | M2_mmpyuh_s0
+                        | M2_mmpyuh_s1
+                        | M2_mmpyuh_rs0
+                        | M2_mmpyuh_rs1
+                        | M2_mmacuhs_s0
+                        | M2_mmacuhs_s1
+                        | M2_mmacuhs_rs0
+                        | M2_mmacuhs_rs1
+                );
+                let uns = matches!(
+                    op,
+                    M2_mmpyul_s0
+                        | M2_mmpyul_s1
+                        | M2_mmpyul_rs0
+                        | M2_mmpyul_rs1
+                        | M2_mmpyuh_s0
+                        | M2_mmpyuh_s1
+                        | M2_mmpyuh_rs0
+                        | M2_mmpyuh_rs1
+                        | M2_mmaculs_s0
+                        | M2_mmaculs_s1
+                        | M2_mmaculs_rs0
+                        | M2_mmaculs_rs1
+                        | M2_mmacuhs_s0
+                        | M2_mmacuhs_s1
+                        | M2_mmacuhs_rs0
+                        | M2_mmacuhs_rs1
+                );
+                let acc = matches!(
+                    op,
+                    M2_mmacls_s0
+                        | M2_mmacls_s1
+                        | M2_mmacls_rs0
+                        | M2_mmacls_rs1
+                        | M2_mmachs_s0
+                        | M2_mmachs_s1
+                        | M2_mmachs_rs0
+                        | M2_mmachs_rs1
+                        | M2_mmaculs_s0
+                        | M2_mmaculs_s1
+                        | M2_mmaculs_rs0
+                        | M2_mmaculs_rs1
+                        | M2_mmacuhs_s0
+                        | M2_mmacuhs_s1
+                        | M2_mmacuhs_rs0
+                        | M2_mmacuhs_rs1
+                );
+                let sbase = fld(b's');
+                let tbase = fld(b't');
+                let dbase = if acc { rx_n } else { rd_n } & !1;
+                let mut results = Vec::with_capacity(2);
+                for w in 0u8..2 {
+                    let hi = if odd { 2 * w + 1 } else { 2 * w };
+                    // word lane (signed) and the Rtt half (signed or unsigned).
+                    let word = word_se_w64!(self.hex_reg((sbase & !1) + w));
+                    let treg = self.hex_reg((tbase & !1) + (hi / 2));
+                    let half = half_ext!(treg, hi % 2 == 1, uns);
+                    // half is already a non-negative value (uns) or a sign-ext
+                    // s16 (signed); widen to W64 so the 32x16 product is exact.
+                    let hw = if uns {
+                        let z = ctx.alloc_vreg();
+                        push_op!(OpKind::ZeroExtend {
+                            dst: z,
+                            src: half,
+                            from_width: OpWidth::W32,
+                            to_width: OpWidth::W64,
+                        });
+                        z
+                    } else {
+                        word_se_w64!(half)
+                    };
+                    let prod = ctx.alloc_vreg();
+                    push_op!(OpKind::MulS {
+                        dst_lo: prod,
+                        dst_hi: None,
+                        src1: word,
+                        src2: SrcOperand::Reg(hw),
+                        width: OpWidth::W64,
+                        flags: FlagUpdate::None,
+                    });
+                    let scaled = if s1 {
+                        let s = ctx.alloc_vreg();
+                        push_op!(OpKind::Shl {
+                            dst: s,
+                            src: prod,
+                            amount: SrcOperand::Imm(1),
+                            width: OpWidth::W64,
+                            flags: FlagUpdate::None,
+                        });
+                        s
+                    } else {
+                        prod
+                    };
+                    let rounded = if rnd {
+                        let v = ctx.alloc_vreg();
+                        push_op!(OpKind::Add {
+                            dst: v,
+                            src1: scaled,
+                            src2: SrcOperand::Imm(0x8000),
+                            width: OpWidth::W64,
+                            flags: FlagUpdate::None,
+                        });
+                        v
+                    } else {
+                        scaled
+                    };
+                    let shifted = ctx.alloc_vreg();
+                    push_op!(OpKind::Sar {
+                        dst: shifted,
+                        src: rounded,
+                        amount: SrcOperand::Imm(16),
+                        width: OpWidth::W64,
+                        flags: FlagUpdate::None,
+                    });
+                    let summed = if acc {
+                        let a = word_se_w64!(self.hex_reg(dbase + w));
+                        add_w64!(a, shifted)
+                    } else {
+                        shifted
+                    };
+                    results.push(sat32_w64!(summed));
+                }
+                push_op!(OpKind::Mov {
+                    dst: self.hex_reg(dbase),
+                    src: SrcOperand::Reg(results[0]),
+                    width: OpWidth::W32,
+                });
+                push_op!(OpKind::Mov {
+                    dst: self.hex_reg(dbase + 1),
+                    src: SrcOperand::Reg(results[1]),
+                    width: OpWidth::W32,
+                });
+            }
+
+            // ============================================================
+            // Non-sat reduce multiplies (vrmpyh / vrmac / vrcmpy* + acc), 64-bit.
+            //   vrmpyh  (M2_vrmpy_s0):  sum of 4 signed 16x16 -> Rdd (no sat/OVF)
+            //   vrmac   (M2_vrmac_s0):  += that sum (no sat)
+            //   vrcmpyi/r (+_s0c conj): complex-reduce per sem lane pattern
+            //   vrcmaci/r (+acc):       += the complex-reduce sum
+            // All products are 16x16 (fit i64); the 4-term sum fits i64. No OVF.
+            // ============================================================
+            Opcode::M2_vrmpy_s0
+            | Opcode::M2_vrmac_s0
+            | Opcode::M2_vrcmpyi_s0
+            | Opcode::M2_vrcmpyr_s0
+            | Opcode::M2_vrcmpyi_s0c
+            | Opcode::M2_vrcmpyr_s0c
+            | Opcode::M2_vrcmaci_s0
+            | Opcode::M2_vrcmacr_s0
+            | Opcode::M2_vrcmaci_s0c
+            | Opcode::M2_vrcmacr_s0c => {
+                let sbase = fld(b's');
+                let tbase = fld(b't');
+                // Each term is mpy16ss(Rss.half[a], Rtt.half[b]) with a sign.
+                // (sa, ta, sign) tuples per the sem.
+                let terms: &[(u8, u8, bool)] = match op {
+                    // vrmpyh: h0*h0 + h1*h1 + h2*h2 + h3*h3
+                    Opcode::M2_vrmpy_s0 | Opcode::M2_vrmac_s0 => {
+                        &[(0, 0, false), (1, 1, false), (2, 2, false), (3, 3, false)]
+                    }
+                    // vrcmpyi: h1*h0 + h0*h1 + h3*h2 + h2*h3
+                    Opcode::M2_vrcmpyi_s0 | Opcode::M2_vrcmaci_s0 => {
+                        &[(1, 0, false), (0, 1, false), (3, 2, false), (2, 3, false)]
+                    }
+                    // vrcmpyr: h0*h0 - h1*h1 + h2*h2 - h3*h3
+                    Opcode::M2_vrcmpyr_s0 | Opcode::M2_vrcmacr_s0 => {
+                        &[(0, 0, false), (1, 1, true), (2, 2, false), (3, 3, true)]
+                    }
+                    // vrcmpyi conj: h1*h0 - h0*h1 + h3*h2 - h2*h3
+                    Opcode::M2_vrcmpyi_s0c | Opcode::M2_vrcmaci_s0c => {
+                        &[(1, 0, false), (0, 1, true), (3, 2, false), (2, 3, true)]
+                    }
+                    // vrcmpyr conj: h0*h0 + h1*h1 + h2*h2 + h3*h3
+                    _ => &[(0, 0, false), (1, 1, false), (2, 2, false), (3, 3, false)],
+                };
+                let acc = matches!(
+                    op,
+                    Opcode::M2_vrmac_s0
+                        | Opcode::M2_vrcmaci_s0
+                        | Opcode::M2_vrcmacr_s0
+                        | Opcode::M2_vrcmaci_s0c
+                        | Opcode::M2_vrcmacr_s0c
+                );
+                let dbase = if acc { rx_n } else { rd_n } & !1;
+                let mut sum = if acc {
+                    read_pair!(rx_n)
+                } else {
+                    let z = ctx.alloc_vreg();
+                    push_op!(OpKind::Mov {
+                        dst: z,
+                        src: SrcOperand::Imm(0),
+                        width: OpWidth::W64,
+                    });
+                    z
+                };
+                for &(sa, tb, neg) in terms {
+                    let a = pair_half_w64!(sbase, sa);
+                    let b = pair_half_w64!(tbase, tb);
+                    let p = ctx.alloc_vreg();
+                    push_op!(OpKind::MulS {
+                        dst_lo: p,
+                        dst_hi: None,
+                        src1: a,
+                        src2: SrcOperand::Reg(b),
+                        width: OpWidth::W64,
+                        flags: FlagUpdate::None,
+                    });
+                    sum = if neg { sub_w64!(sum, p) } else { add_w64!(sum, p) };
+                }
+                write_pair!(dbase, sum);
+            }
+
+            // ============================================================
+            // vrmpyweh / vrmpywoh: 2x (32x16) -> 64-bit, no sat (M4_vrmpyeh/oh).
+            //   eh: Rss.w1*Rtt.h2 + Rss.w0*Rtt.h0   [each <<1 for _s1]
+            //   oh: Rss.w1*Rtt.h3 + Rss.w0*Rtt.h1   [each <<1 for _s1]
+            //   _acc forms add the old Rxx pair. Products 32x16 (fit i64); no OVF.
+            // ============================================================
+            Opcode::M4_vrmpyeh_s0
+            | Opcode::M4_vrmpyeh_s1
+            | Opcode::M4_vrmpyoh_s0
+            | Opcode::M4_vrmpyoh_s1
+            | Opcode::M4_vrmpyeh_acc_s0
+            | Opcode::M4_vrmpyeh_acc_s1
+            | Opcode::M4_vrmpyoh_acc_s0
+            | Opcode::M4_vrmpyoh_acc_s1 => {
+                let s1 = matches!(
+                    op,
+                    Opcode::M4_vrmpyeh_s1
+                        | Opcode::M4_vrmpyoh_s1
+                        | Opcode::M4_vrmpyeh_acc_s1
+                        | Opcode::M4_vrmpyoh_acc_s1
+                );
+                let odd = matches!(
+                    op,
+                    Opcode::M4_vrmpyoh_s0
+                        | Opcode::M4_vrmpyoh_s1
+                        | Opcode::M4_vrmpyoh_acc_s0
+                        | Opcode::M4_vrmpyoh_acc_s1
+                );
+                let acc = matches!(
+                    op,
+                    Opcode::M4_vrmpyeh_acc_s0
+                        | Opcode::M4_vrmpyeh_acc_s1
+                        | Opcode::M4_vrmpyoh_acc_s0
+                        | Opcode::M4_vrmpyoh_acc_s1
+                );
+                let sbase = fld(b's');
+                let tbase = fld(b't');
+                // half lanes: even -> (2 for w1, 0 for w0); odd -> (3, 1).
+                let (h_hi, h_lo) = if odd { (3u8, 1u8) } else { (2u8, 0u8) };
+                let p_hi = {
+                    let word = word_se_w64!(self.hex_reg((sbase & !1) + 1));
+                    let b = pair_half_w64!(tbase, h_hi);
+                    let p = ctx.alloc_vreg();
+                    push_op!(OpKind::MulS {
+                        dst_lo: p,
+                        dst_hi: None,
+                        src1: word,
+                        src2: SrcOperand::Reg(b),
+                        width: OpWidth::W64,
+                        flags: FlagUpdate::None,
+                    });
+                    p
+                };
+                let p_lo = {
+                    let word = word_se_w64!(self.hex_reg(sbase & !1));
+                    let b = pair_half_w64!(tbase, h_lo);
+                    let p = ctx.alloc_vreg();
+                    push_op!(OpKind::MulS {
+                        dst_lo: p,
+                        dst_hi: None,
+                        src1: word,
+                        src2: SrcOperand::Reg(b),
+                        width: OpWidth::W64,
+                        flags: FlagUpdate::None,
+                    });
+                    p
+                };
+                let (p_hi, p_lo) = if s1 {
+                    let a = ctx.alloc_vreg();
+                    push_op!(OpKind::Shl {
+                        dst: a,
+                        src: p_hi,
+                        amount: SrcOperand::Imm(1),
+                        width: OpWidth::W64,
+                        flags: FlagUpdate::None,
+                    });
+                    let b = ctx.alloc_vreg();
+                    push_op!(OpKind::Shl {
+                        dst: b,
+                        src: p_lo,
+                        amount: SrcOperand::Imm(1),
+                        width: OpWidth::W64,
+                        flags: FlagUpdate::None,
+                    });
+                    (a, b)
+                } else {
+                    (p_hi, p_lo)
+                };
+                let mut sum = add_w64!(p_hi, p_lo);
+                if acc {
+                    let a = read_pair!(rx_n);
+                    sum = add_w64!(a, sum);
+                }
+                let dbase = if acc { rx_n } else { rd_n } & !1;
+                write_pair!(dbase, sum);
+            }
+
+            // ============================================================
+            // M7_dcmpy* — 64-bit complex 32x32 multiply, no sat (Rdd / Rxx +=).
+            //   prod = (Rss.w[w0] * Rtt.w[w1]) {+,-} (Rss.w[w2] * Rtt.w[w3])
+            //   each 32x32 signed product fits i64 (|p| <= 2^62), and the final
+            //   result is `(tmp +/- acc) as i64` — a 64-bit-wrapping add/sub. By
+            //   modular arithmetic that equals the i64 wrapping op, so the i64
+            //   path is bit-exact (the wcmpy `:sat` forms are NOT — they need the
+            //   pre-shift i128 accumulator and are left Unsupported).
+            //   Per the sem dispatch:  rw  add=F (0,0,1,1); rwc add=T (0,0,1,1);
+            //                          iw  add=T (0,1,1,0); iwc add=F (1,0,0,1).
+            // ============================================================
+            Opcode::M7_dcmpyrw
+            | Opcode::M7_dcmpyrwc
+            | Opcode::M7_dcmpyiw
+            | Opcode::M7_dcmpyiwc
+            | Opcode::M7_dcmpyrw_acc
+            | Opcode::M7_dcmpyrwc_acc
+            | Opcode::M7_dcmpyiw_acc
+            | Opcode::M7_dcmpyiwc_acc => {
+                let (add, w0, w1, w2, w3) = match op {
+                    Opcode::M7_dcmpyrw | Opcode::M7_dcmpyrw_acc => (false, 0u8, 0u8, 1u8, 1u8),
+                    Opcode::M7_dcmpyrwc | Opcode::M7_dcmpyrwc_acc => (true, 0, 0, 1, 1),
+                    Opcode::M7_dcmpyiw | Opcode::M7_dcmpyiw_acc => (true, 0, 1, 1, 0),
+                    // M7_dcmpyiwc[_acc]
+                    _ => (false, 1, 0, 0, 1),
+                };
+                let acc = matches!(
+                    op,
+                    Opcode::M7_dcmpyrw_acc
+                        | Opcode::M7_dcmpyrwc_acc
+                        | Opcode::M7_dcmpyiw_acc
+                        | Opcode::M7_dcmpyiwc_acc
+                );
+                let sbase = fld(b's');
+                let tbase = fld(b't');
+                // 32x32 signed product of word lane `$w` of Rss and `$w2` of Rtt.
+                macro_rules! mpy32_w64 {
+                    ($sw:expr, $tw:expr) => {{
+                        let a = word_se_w64!(self.hex_reg((sbase & !1) + $sw));
+                        let b = word_se_w64!(self.hex_reg((tbase & !1) + $tw));
+                        let p = ctx.alloc_vreg();
+                        push_op!(OpKind::MulS {
+                            dst_lo: p,
+                            dst_hi: None,
+                            src1: a,
+                            src2: SrcOperand::Reg(b),
+                            width: OpWidth::W64,
+                            flags: FlagUpdate::None,
+                        });
+                        p
+                    }};
+                }
+                let tmp = mpy32_w64!(w0, w1);
+                let term2 = mpy32_w64!(w2, w3);
+                let mut prod = if add {
+                    add_w64!(tmp, term2)
+                } else {
+                    sub_w64!(tmp, term2)
+                };
+                if acc {
+                    let a = read_pair!(rx_n);
+                    prod = add_w64!(a, prod);
+                }
+                let dbase = if acc { rx_n } else { rd_n } & !1;
+                write_pair!(dbase, prod);
             }
 
             // ============================================================

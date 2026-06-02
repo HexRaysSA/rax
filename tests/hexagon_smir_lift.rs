@@ -3316,3 +3316,169 @@ fn lift_m5_vmpyb() {
         0x9a0b,
     );
 }
+
+#[test]
+fn lift_m2_cmpys() {
+    lift_family(
+        "m2_cmpys",
+        &[
+            ("cmpys_s0", "{ r1:0 = cmpy(r2,r3):sat }"),
+            ("cmpys_s1", "{ r1:0 = cmpy(r2,r3):<<1:sat }"),
+            ("cmpysc_s0", "{ r1:0 = cmpy(r2,r3*):sat }"),
+            ("cmpysc_s1", "{ r1:0 = cmpy(r2,r3*):<<1:sat }"),
+            ("cmacs_s0", "{ r1:0 += cmpy(r2,r3):sat }"),
+            ("cmacs_s1", "{ r1:0 += cmpy(r2,r3):<<1:sat }"),
+            ("cmacsc_s0", "{ r1:0 += cmpy(r2,r3*):sat }"),
+            ("cmacsc_s1", "{ r1:0 += cmpy(r2,r3*):<<1:sat }"),
+            ("cnacs_s0", "{ r1:0 -= cmpy(r2,r3):sat }"),
+            ("cnacs_s1", "{ r1:0 -= cmpy(r2,r3):<<1:sat }"),
+            ("cnacsc_s0", "{ r1:0 -= cmpy(r2,r3*):sat }"),
+            ("cnacsc_s1", "{ r1:0 -= cmpy(r2,r3*):<<1:sat }"),
+        ],
+        40,
+        0x9a0c,
+    );
+}
+
+#[test]
+fn lift_m2_cmpyrs() {
+    lift_family(
+        "m2_cmpyrs",
+        &[
+            ("cmpyrs_s0", "{ r0 = cmpy(r1,r2):rnd:sat }"),
+            ("cmpyrs_s1", "{ r0 = cmpy(r1,r2):<<1:rnd:sat }"),
+            ("cmpyrsc_s0", "{ r0 = cmpy(r1,r2*):rnd:sat }"),
+            ("cmpyrsc_s1", "{ r0 = cmpy(r1,r2*):<<1:rnd:sat }"),
+        ],
+        40,
+        0x9a0d,
+    );
+}
+
+#[test]
+fn lift_m4_cmpy_wh() {
+    lift_family(
+        "m4_cmpy_wh",
+        &[
+            ("cmpyi_wh", "{ r0 = cmpyiwh(r3:2,r4):<<1:rnd:sat }"),
+            ("cmpyi_whc", "{ r0 = cmpyiwh(r3:2,r4*):<<1:rnd:sat }"),
+            ("cmpyr_wh", "{ r0 = cmpyrwh(r3:2,r4):<<1:rnd:sat }"),
+            ("cmpyr_whc", "{ r0 = cmpyrwh(r3:2,r4*):<<1:rnd:sat }"),
+        ],
+        40,
+        0x9a0e,
+    );
+}
+
+#[test]
+fn lift_m2_mmpy_ss() {
+    lift_family(
+        "m2_mmpy_ss",
+        &[
+            ("mmpyl_s0", "{ r1:0 = vmpyweh(r3:2,r5:4):sat }"),
+            ("mmpyl_s1", "{ r1:0 = vmpyweh(r3:2,r5:4):<<1:sat }"),
+            ("mmpyl_rs0", "{ r1:0 = vmpyweh(r3:2,r5:4):rnd:sat }"),
+            ("mmpyl_rs1", "{ r1:0 = vmpyweh(r3:2,r5:4):<<1:rnd:sat }"),
+            ("mmpyh_s0", "{ r1:0 = vmpywoh(r3:2,r5:4):sat }"),
+            ("mmpyh_s1", "{ r1:0 = vmpywoh(r3:2,r5:4):<<1:sat }"),
+            ("mmpyh_rs0", "{ r1:0 = vmpywoh(r3:2,r5:4):rnd:sat }"),
+            ("mmpyh_rs1", "{ r1:0 = vmpywoh(r3:2,r5:4):<<1:rnd:sat }"),
+            ("mmacls_s0", "{ r1:0 += vmpyweh(r3:2,r5:4):sat }"),
+            ("mmacls_s1", "{ r1:0 += vmpyweh(r3:2,r5:4):<<1:sat }"),
+            ("mmacls_rs0", "{ r1:0 += vmpyweh(r3:2,r5:4):rnd:sat }"),
+            ("mmacls_rs1", "{ r1:0 += vmpyweh(r3:2,r5:4):<<1:rnd:sat }"),
+            ("mmachs_s0", "{ r1:0 += vmpywoh(r3:2,r5:4):sat }"),
+            ("mmachs_s1", "{ r1:0 += vmpywoh(r3:2,r5:4):<<1:sat }"),
+            ("mmachs_rs0", "{ r1:0 += vmpywoh(r3:2,r5:4):rnd:sat }"),
+            ("mmachs_rs1", "{ r1:0 += vmpywoh(r3:2,r5:4):<<1:rnd:sat }"),
+        ],
+        40,
+        0x9a0f,
+    );
+}
+
+#[test]
+fn lift_m2_mmpy_su() {
+    lift_family(
+        "m2_mmpy_su",
+        &[
+            ("mmpyul_s0", "{ r1:0 = vmpyweuh(r3:2,r5:4):sat }"),
+            ("mmpyul_s1", "{ r1:0 = vmpyweuh(r3:2,r5:4):<<1:sat }"),
+            ("mmpyul_rs0", "{ r1:0 = vmpyweuh(r3:2,r5:4):rnd:sat }"),
+            ("mmpyul_rs1", "{ r1:0 = vmpyweuh(r3:2,r5:4):<<1:rnd:sat }"),
+            ("mmpyuh_s0", "{ r1:0 = vmpywouh(r3:2,r5:4):sat }"),
+            ("mmpyuh_s1", "{ r1:0 = vmpywouh(r3:2,r5:4):<<1:sat }"),
+            ("mmpyuh_rs0", "{ r1:0 = vmpywouh(r3:2,r5:4):rnd:sat }"),
+            ("mmpyuh_rs1", "{ r1:0 = vmpywouh(r3:2,r5:4):<<1:rnd:sat }"),
+            ("mmaculs_s0", "{ r1:0 += vmpyweuh(r3:2,r5:4):sat }"),
+            ("mmaculs_s1", "{ r1:0 += vmpyweuh(r3:2,r5:4):<<1:sat }"),
+            ("mmaculs_rs0", "{ r1:0 += vmpyweuh(r3:2,r5:4):rnd:sat }"),
+            ("mmaculs_rs1", "{ r1:0 += vmpyweuh(r3:2,r5:4):<<1:rnd:sat }"),
+            ("mmacuhs_s0", "{ r1:0 += vmpywouh(r3:2,r5:4):sat }"),
+            ("mmacuhs_s1", "{ r1:0 += vmpywouh(r3:2,r5:4):<<1:sat }"),
+            ("mmacuhs_rs0", "{ r1:0 += vmpywouh(r3:2,r5:4):rnd:sat }"),
+            ("mmacuhs_rs1", "{ r1:0 += vmpywouh(r3:2,r5:4):<<1:rnd:sat }"),
+        ],
+        40,
+        0x9a10,
+    );
+}
+
+#[test]
+fn lift_m2_vrmpyh() {
+    lift_family(
+        "m2_vrmpyh",
+        &[
+            ("vrmpyh", "{ r1:0 = vrmpyh(r3:2,r5:4) }"),
+            ("vrmach", "{ r1:0 += vrmpyh(r3:2,r5:4) }"),
+            ("vrcmpyi", "{ r1:0 = vrcmpyi(r3:2,r5:4) }"),
+            ("vrcmpyr", "{ r1:0 = vrcmpyr(r3:2,r5:4) }"),
+            ("vrcmpyi_c", "{ r1:0 = vrcmpyi(r3:2,r5:4*) }"),
+            ("vrcmpyr_c", "{ r1:0 = vrcmpyr(r3:2,r5:4*) }"),
+            ("vrcmaci", "{ r1:0 += vrcmpyi(r3:2,r5:4) }"),
+            ("vrcmacr", "{ r1:0 += vrcmpyr(r3:2,r5:4) }"),
+        ],
+        40,
+        0x9a11,
+    );
+}
+
+#[test]
+fn lift_m4_vrmpyweh_woh() {
+    lift_family(
+        "m4_vrmpyweh_woh",
+        &[
+            ("vrmpyeh_s0", "{ r1:0 = vrmpyweh(r3:2,r5:4) }"),
+            ("vrmpyeh_s1", "{ r1:0 = vrmpyweh(r3:2,r5:4):<<1 }"),
+            ("vrmpyoh_s0", "{ r1:0 = vrmpywoh(r3:2,r5:4) }"),
+            ("vrmpyoh_s1", "{ r1:0 = vrmpywoh(r3:2,r5:4):<<1 }"),
+            ("vrmpyeh_acc_s0", "{ r1:0 += vrmpyweh(r3:2,r5:4) }"),
+            ("vrmpyeh_acc_s1", "{ r1:0 += vrmpyweh(r3:2,r5:4):<<1 }"),
+            ("vrmpyoh_acc_s0", "{ r1:0 += vrmpywoh(r3:2,r5:4) }"),
+            ("vrmpyoh_acc_s1", "{ r1:0 += vrmpywoh(r3:2,r5:4):<<1 }"),
+        ],
+        40,
+        0x9a12,
+    );
+}
+
+#[test]
+fn lift_m7_dcmpy() {
+    // 64-bit complex 32x32 multiply (no sat). The wcmpy `:sat` forms are NOT
+    // lifted (their pre-shift accumulator needs i128); only dcmpy is i64-exact.
+    lift_family(
+        "m7_dcmpy",
+        &[
+            ("dcmpyrw", "{ r1:0 = cmpyrw(r3:2,r5:4) }"),
+            ("dcmpyrwc", "{ r1:0 = cmpyrw(r3:2,r5:4*) }"),
+            ("dcmpyiw", "{ r1:0 = cmpyiw(r3:2,r5:4) }"),
+            ("dcmpyiwc", "{ r1:0 = cmpyiw(r3:2,r5:4*) }"),
+            ("dcmpyrw_acc", "{ r1:0 += cmpyrw(r3:2,r5:4) }"),
+            ("dcmpyrwc_acc", "{ r1:0 += cmpyrw(r3:2,r5:4*) }"),
+            ("dcmpyiw_acc", "{ r1:0 += cmpyiw(r3:2,r5:4) }"),
+            ("dcmpyiwc_acc", "{ r1:0 += cmpyiw(r3:2,r5:4*) }"),
+        ],
+        40,
+        0x9a13,
+    );
+}
