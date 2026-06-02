@@ -27,9 +27,9 @@ pub fn wrmsr(vcpu: &mut X86_64Vcpu, ctx: &mut InsnContext) -> Result<Option<Vcpu
         0xC0000100 => vcpu.sregs.fs.base = value, // FS.base (TLS)
         0xC0000101 => {
             vcpu.sregs.gs.base = value; // GS.base (per-CPU data)
-                                        // WORKAROUND: When gs.base is set to a non-zero value, update the per-CPU
-                                        // CR0 shadow with the current CR0 value. This fixes the case where CR0 was
-                                        // written before per-CPU was set up, and the shadow was copied with garbage.
+            // WORKAROUND: When gs.base is set to a non-zero value, update the per-CPU
+            // CR0 shadow with the current CR0 value. This fixes the case where CR0 was
+            // written before per-CPU was set up, and the shadow was copied with garbage.
             if value != 0 {
                 let percpu_offset = 0xffffffff836ee018u64;
                 let instance_addr = value.wrapping_add(percpu_offset);
@@ -58,12 +58,11 @@ pub fn rdmsr(vcpu: &mut X86_64Vcpu, ctx: &mut InsnContext) -> Result<Option<Vcpu
 
     let value = match ecx {
         0x10 => {
-            // TSC - Time Stamp Counter (return a non-zero simulated value)
-            use std::time::{SystemTime, UNIX_EPOCH};
-            SystemTime::now()
-                .duration_since(UNIX_EPOCH)
-                .map(|d| d.as_nanos() as u64)
-                .unwrap_or(1_000_000)
+            // IA32_TIME_STAMP_COUNTER. Return the same real-time value as the
+            // RDTSC instruction (vcpu.tsc()) so reads via the MSR and via the
+            // instruction agree; previously this used host wall-clock directly,
+            // which disagreed with RDTSC and made boots nondeterministic.
+            vcpu.tsc()
         }
         0x1B => {
             // IA32_APIC_BASE - APIC base address

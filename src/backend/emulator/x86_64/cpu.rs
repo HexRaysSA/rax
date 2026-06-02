@@ -1,8 +1,8 @@
 //! x86_64 CPU state and core execution loop.
 
+use std::sync::Arc;
 use std::sync::atomic::Ordering;
 use std::sync::atomic::{AtomicU64, AtomicUsize};
-use std::sync::Arc;
 
 #[cfg(feature = "trace")]
 use crate::trace;
@@ -313,8 +313,7 @@ pub(super) const DECODE_CACHE_MASK: usize = DECODE_CACHE_SIZE - 1;
 /// can call the handler directly, skipping the big `execute` opcode match and
 /// the escape/two-byte call chain. Opcode-/cc-derived arguments are recovered
 /// from `InsnContext::opcode` by thin shim wrappers.
-pub(super) type HandlerFn =
-    fn(&mut X86_64Vcpu, &mut InsnContext) -> Result<Option<VcpuExit>>;
+pub(super) type HandlerFn = fn(&mut X86_64Vcpu, &mut InsnContext) -> Result<Option<VcpuExit>>;
 
 /// Cached decoded instruction entry
 #[derive(Clone, Copy, Debug)]
@@ -358,10 +357,7 @@ pub(super) struct DecodeCacheEntry {
 /// entries. It can never actually run: an entry only dispatches after a key
 /// match, which requires a non-zero `rip` installed by the fill path together
 /// with a real resolved handler.
-fn unreachable_handler(
-    _vcpu: &mut X86_64Vcpu,
-    _ctx: &mut InsnContext,
-) -> Result<Option<VcpuExit>> {
+fn unreachable_handler(_vcpu: &mut X86_64Vcpu, _ctx: &mut InsnContext) -> Result<Option<VcpuExit>> {
     Err(Error::Emulator(
         "decode-cache handler invoked on an invalid entry".to_string(),
     ))
@@ -1190,11 +1186,13 @@ impl X86_64Vcpu {
 
     /// Execute a single instruction.
     #[inline]
-    /// Per-vCPU timestamp counter, derived from retired instructions
-    /// (3000 cycles/insn) - replaces the global atomic the old RDTSC path read.
+    /// Per-vCPU timestamp counter. Real-time: tracks host wall-clock elapsed
+    /// since emulator start, scaled to the advertised 3 GHz (3 cycles/ns), so
+    /// the guest's RDTSC/TSC clocksource measures real time and delay loops
+    /// complete in real time — not tied to emulator instruction throughput.
     #[inline(always)]
     pub(super) fn tsc(&self) -> u64 {
-        self.insn_count.wrapping_mul(3000)
+        crate::timing::elapsed_nanos().wrapping_mul(3)
     }
 
     pub fn step(&mut self) -> Result<Option<VcpuExit>> {
@@ -1219,9 +1217,8 @@ impl X86_64Vcpu {
         let cache_idx = Self::decode_cache_index(rip);
         // Key on address space (CR3) + CPU mode so a hit can never dispatch stale
         // bytes/decode across a context or mode switch.
-        let mode_tag = (self.sregs.cr3 & !0xFFF)
-            | (self.sregs.cs.l as u64)
-            | ((self.sregs.cs.db as u64) << 1);
+        let mode_tag =
+            (self.sregs.cr3 & !0xFFF) | (self.sregs.cs.l as u64) | ((self.sregs.cs.db as u64) << 1);
 
         // Check decode cache for a hit (copy to avoid borrow issues)
         let cached = self.decode_cache[cache_idx];
@@ -1253,9 +1250,7 @@ impl X86_64Vcpu {
             // hit path skips the prefix-byte scan and only takes the (cold)
             // legality check when a 0xF0 prefix is actually present.
             if cached.has_lock {
-                if let Some(exit) =
-                    self.enforce_lock_prefix_cold(&ctx, cached.opcode)?
-                {
+                if let Some(exit) = self.enforce_lock_prefix_cold(&ctx, cached.opcode)? {
                     return Ok(Some(exit));
                 }
             }
@@ -1300,11 +1295,7 @@ impl X86_64Vcpu {
         } else {
             let default_16bit = !self.sregs.cs.db;
             let is_16bit = default_16bit ^ ctx.operand_size_override;
-            if is_16bit {
-                2
-            } else {
-                4
-            }
+            if is_16bit { 2 } else { 4 }
         };
 
         // Save cursor before consuming opcode (for cache)
@@ -1484,10 +1475,7 @@ impl X86_64Vcpu {
     /// byte-for-byte.
     #[inline(never)]
     #[cold]
-    pub(super) fn execute_via_match(
-        &mut self,
-        ctx: &mut InsnContext,
-    ) -> Result<Option<VcpuExit>> {
+    pub(super) fn execute_via_match(&mut self, ctx: &mut InsnContext) -> Result<Option<VcpuExit>> {
         let opcode = ctx.opcode;
         self.execute(opcode, ctx)
     }
@@ -1535,9 +1523,8 @@ impl X86_64Vcpu {
         // SAFETY: `off` is the real byte offset of a `u64` GPR field within
         // `Registers`; the struct and each `u64` field are 8-byte aligned, so
         // the access is in-bounds and aligned. `&self.regs` is a valid base.
-        let val = unsafe {
-            *((&self.regs as *const Registers as *const u8).add(off) as *const u64)
-        };
+        let val =
+            unsafe { *((&self.regs as *const Registers as *const u8).add(off) as *const u64) };
         match size {
             1 => val & 0xFF,
             2 => val & 0xFFFF,
@@ -2118,21 +2105,21 @@ impl X86_64Vcpu {
         };
 
         match cc {
-            0x0 => of(),              // O
-            0x1 => !of(),             // NO
-            0x2 => cf(),              // B/NAE/C
-            0x3 => !cf(),             // NB/AE/NC
-            0x4 => zf,                // E/Z
-            0x5 => !zf,               // NE/NZ
-            0x6 => cf() || zf,        // BE/NA
-            0x7 => !cf() && !zf,      // NBE/A
-            0x8 => sf,                // S
-            0x9 => !sf,               // NS
-            0xA => pf(),              // P/PE
-            0xB => !pf(),             // NP/PO
-            0xC => sf != of(),        // L/NGE
-            0xD => sf == of(),        // NL/GE
-            0xE => zf || (sf != of()), // LE/NG
+            0x0 => of(),                // O
+            0x1 => !of(),               // NO
+            0x2 => cf(),                // B/NAE/C
+            0x3 => !cf(),               // NB/AE/NC
+            0x4 => zf,                  // E/Z
+            0x5 => !zf,                 // NE/NZ
+            0x6 => cf() || zf,          // BE/NA
+            0x7 => !cf() && !zf,        // NBE/A
+            0x8 => sf,                  // S
+            0x9 => !sf,                 // NS
+            0xA => pf(),                // P/PE
+            0xB => !pf(),               // NP/PO
+            0xC => sf != of(),          // L/NGE
+            0xD => sf == of(),          // NL/GE
+            0xE => zf || (sf != of()),  // LE/NG
             0xF => !zf && (sf == of()), // NLE/G
             _ => false,
         }
@@ -2287,14 +2274,16 @@ impl VCpu for X86_64Vcpu {
             if batch % LAPIC_POLL_STRIDE == 0 {
                 // Deliver any due LAPIC timer interrupt.
                 if let Some(vector) = self.mmu.tick_lapic_timer() {
-                    if self.can_inject_interrupt()
-                        && self.inject_interrupt(vector).unwrap_or(false)
+                    if self.can_inject_interrupt() && self.inject_interrupt(vector).unwrap_or(false)
                     {
                         self.mmu.clear_lapic_pending();
                         self.halted = false;
                     }
                 }
-                // Yield to the VMM (~1ms slices) so timers/IRQs get serviced.
+                // Yield to the VMM (~1ms wall-clock slices) so timers/IRQs get
+                // serviced. Real-time paced: the guest clock (TSC, elapsed_nanos)
+                // tracks host wall time, so delays and timers complete in real
+                // time rather than being tied to emulator instruction throughput.
                 if start_time.elapsed().as_millis() >= 1 {
                     publish_instruction_count(self.insn_count);
                     return Ok(VcpuExit::Hlt);
@@ -2413,7 +2402,7 @@ impl VCpu for X86_64Vcpu {
             _ => {
                 return Err(Error::Emulator(
                     "expected x86_64 state for x86_64 vCPU".to_string(),
-                ))
+                ));
             }
         };
         self.regs = state.regs.clone();
@@ -2674,9 +2663,9 @@ impl X86_64Vcpu {
         use crate::smir::ir::Terminator;
         use crate::smir::lift::x86_64::X86_64Lifter;
         use crate::smir::lift::{LiftContext, MemoryReader, SmirLifter};
-        use crate::smir::lower::runtime::{is_native_clobber_safe_excluding, ExecMem};
-        use crate::smir::lower::x86_64::X86_64Lowerer;
         use crate::smir::lower::SmirLowerer;
+        use crate::smir::lower::runtime::{ExecMem, is_native_clobber_safe_excluding};
+        use crate::smir::lower::x86_64::X86_64Lowerer;
         use crate::smir::memory::MemoryError;
         use crate::smir::types::SourceArch;
         use std::collections::HashMap;
@@ -2765,7 +2754,10 @@ impl X86_64Vcpu {
             Ok(m) => m,
             Err(_) => return Ok(None),
         };
-        Ok(Some(JitRegion { exec, entry_offset: res.entry_offset }))
+        Ok(Some(JitRegion {
+            exec,
+            entry_offset: res.entry_offset,
+        }))
     }
 
     /// Execute a (possibly cached) compiled region with the current guest state,
