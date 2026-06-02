@@ -272,6 +272,43 @@ fn jit_shl_cl_matches_interpreter() {
     assert_eq!(jr.rax & 0xffff_ffff, 63, "closed form sum");
 }
 
+/// CMOVcc in a hot loop (the conditional-move pattern the kernel bootmem loop
+/// uses, `cmovge`). Must JIT bit-exactly vs the interpreter.
+#[test]
+fn jit_cmovge_matches_interpreter() {
+    // mov ecx,100; xor eax,eax; mov ebx,0xFF
+    // loop: add eax,1; cmp eax,50; cmovge ebx,eax; dec ecx; jnz loop; hlt
+    let code: &[u8] = &[
+        0xB9, 0x64, 0x00, 0x00, 0x00, // mov ecx,100
+        0x31, 0xC0, // xor eax,eax
+        0xBB, 0xFF, 0x00, 0x00, 0x00, // mov ebx,0xFF
+        0x83, 0xC0, 0x01, // loop: add eax,1
+        0x83, 0xF8, 0x32, // cmp eax,50
+        0x0F, 0x4D, 0xD8, // cmovge ebx,eax
+        0xFF, 0xC9, // dec ecx
+        0x75, 0xF3, // jnz loop
+        0xF4, // hlt
+    ];
+
+    let mut jit = make_vcpu_code(code);
+    assert!(
+        jit.jit_try_block().expect("jit_try_block"),
+        "CMOVGE loop should JIT and advance to its exit"
+    );
+    run_interp(&mut jit);
+    let jr = jit.get_regs().unwrap();
+
+    let mut interp = make_vcpu_code(code);
+    run_interp(&mut interp);
+    let ir = interp.get_regs().unwrap();
+
+    assert_eq!(jr.rax, ir.rax, "rax");
+    assert_eq!(jr.rbx, ir.rbx, "rbx (cmovge target)");
+    assert_eq!(jr.rcx, ir.rcx, "rcx");
+    // eax 1..100; cmovge ebx,eax fires while eax>=50 → ebx ends at 100.
+    assert_eq!(jr.rbx & 0xffff_ffff, 100, "closed-form cmovge result");
+}
+
 /// A realistic hot loop with an INTERNAL conditional (if-inside-loop): multiple
 /// internal blocks, a forward branch + a join, two back-edges to the head, and a
 /// HLT frontier — all run natively by `jit_try_block`. JIT final state must equal
