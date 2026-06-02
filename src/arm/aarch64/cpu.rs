@@ -7195,6 +7195,44 @@ impl AArch64Cpu {
             return Ok(CpuExit::Continue);
         }
 
+        // LD1RQ (load and replicate quadword): 1010010 msz 00 ... with
+        // bits[15:13]==001 (scalar+imm: addr=base+imm4*16) or ==000 (scalar+Xm:
+        // addr=base+(Xm+e)*mbytes, Rm==31 UNDEFINED). At VL=128 the quadword is
+        // the whole register, so this is a packed contiguous load (zeroing).
+        if !is_store
+            && insn >> 25 == 0b1010010
+            && (insn >> 21) & 0x3 == 0b00
+            && ((b15_13 == 0b001 && (insn >> 20) & 1 == 0) || b15_13 == 0b000)
+        {
+            let esize = 1usize << ((insn >> 23) & 0x3);
+            let elements = 16 / esize;
+            let addr0 = if b15_13 == 0b001 {
+                (base as i64 + imm4 * 16) as u64
+            } else {
+                let rm = ((insn >> 16) & 0x1F) as u8;
+                if rm == 31 {
+                    return Ok(CpuExit::Undefined(insn));
+                }
+                base.wrapping_add(self.get_x(rm).wrapping_mul(esize as u64))
+            };
+            let mut dst = [0u8; 16];
+            for e in 0..elements {
+                if (pred >> (e * esize)) & 1 == 0 {
+                    continue;
+                }
+                let pa = self.translate_address(addr0 + (e * esize) as u64, false, false)?;
+                let val: u64 = match esize {
+                    1 => self.memory.read_u8(pa)? as u64,
+                    2 => self.memory.read_u16(pa)? as u64,
+                    4 => self.memory.read_u32(pa)? as u64,
+                    _ => self.memory.read_u64(pa)?,
+                };
+                write_elem(&mut dst, e * esize, esize, val);
+            }
+            self.v[zt] = u128::from_le_bytes(dst);
+            return Ok(CpuExit::Continue);
+        }
+
         // LDNT1 (non-temporal contiguous load): 1010010 msz 000 imm4 111 Pg Rn
         // Zt. The non-temporal hint has no architectural effect, so this is a
         // packed LD1 (esize=msize, no extension, zeroing inactive).
