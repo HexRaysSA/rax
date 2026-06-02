@@ -1661,6 +1661,18 @@ fn sli_tsz_imm(esize_bits: u32, amount: u32) -> (u32, u32) {
     ((tszimm >> 3) & 0xF, tszimm & 0x7)
 }
 
+/// SVE2 HISTCNT: `0100 0101 size 1 Zm 110 Pg Zn Zd`. size: 2=s,3=d. Pg=p0,
+/// Zn=z1(RN), Zm=z2(RM), Zd=z0(RD).
+fn enc_sve2_histcnt(size: u32) -> u32 {
+    (0x45 << 24) | (size << 22) | (1 << 21) | (RM << 16) | (0b110 << 13) | (RN << 5) | RD
+}
+
+/// SVE2 HISTSEG (byte only): `0100 0101 00 1 Zm 101000 Zn Zd`. Zn=z1(RN),
+/// Zm=z2(RM), Zd=z0(RD).
+fn enc_sve2_histseg() -> u32 {
+    (0x45 << 24) | (1 << 21) | (RM << 16) | (0b101000 << 10) | (RN << 5) | RD
+}
+
 /// SVE2 MATCH/NMATCH (character match -> predicate): `0100 0101 size 1 Zm 100
 /// Pg Zn op4 Pd`. size: 0=b,1=h; op4=bit4 (0=MATCH,1=NMATCH). Pg=p1, Zn=z1(RN),
 /// Zm=z2(RM), Pd=p0.
@@ -2772,6 +2784,63 @@ fn diff_sve2_fcvtx() {
         }
     }
     run_batch("sve2_fcvtx", batch);
+}
+
+#[test]
+fn diff_sve2_histcnt() {
+    // HISTCNT counts, for each active lane i, how many active lanes j<=i hold a
+    // Zm value equal to Zn[i]. Draw lane values from a tiny pool so collisions
+    // (and thus nonzero, varied counts) are common. Pg=p0 governs.
+    let mut rng = Rng::new(0x6_6001);
+    let mut batch: Vec<(String, u32, ArmState)> = Vec::new();
+    for size in 2..4u32 {
+        let esize = 1usize << size;
+        let elements = 16 / esize;
+        let shift = esize * 8;
+        let emask: u128 = if shift >= 128 { u128::MAX } else { (1u128 << shift) - 1 };
+        let insn = enc_sve2_histcnt(size);
+        for _ in 0..40 {
+            let pool: Vec<u128> = (0..3).map(|_| (rng.next() as u128) & emask).collect();
+            let mut zn = 0u128;
+            let mut zm = 0u128;
+            for e in 0..elements {
+                zn |= pool[(rng.next() as usize) % pool.len()] << (e * shift);
+                zm |= pool[(rng.next() as usize) % pool.len()] << (e * shift);
+            }
+            let mut st = ArmState::zeroed();
+            st.set_vreg(1, zn as u64, (zn >> 64) as u64);
+            st.set_vreg(2, zm as u64, (zm >> 64) as u64);
+            st.set_preg(0, rng.next() as u16); // Pg = p0
+            batch.push((format!("histcnt sz{size}"), insn, st));
+        }
+    }
+    run_batch("sve2_histcnt", batch);
+}
+
+#[test]
+fn diff_sve2_histseg() {
+    // HISTSEG: each result byte counts equal Zm bytes for the matching Zn byte.
+    let insn = enc_sve2_histseg();
+    let mut rng = Rng::new(0x6_7001);
+    let mut batch: Vec<(String, u32, ArmState)> = Vec::new();
+    for _ in 0..60 {
+        let mut st = ArmState::zeroed();
+        st.set_vreg(1, rng.next(), rng.next()); // Zn
+        st.set_vreg(2, rng.next(), rng.next()); // Zm
+        batch.push(("histseg".to_string(), insn, st));
+    }
+    // Planted: Zm all one byte value, so counts are 0 or 16.
+    for b in [0x00u128, 0x42, 0xFF] {
+        let mut same = 0u128;
+        for k in 0..16 {
+            same |= b << (k * 8);
+        }
+        let mut st = ArmState::zeroed();
+        st.set_vreg(1, rng.next(), rng.next());
+        st.set_vreg(2, same as u64, (same >> 64) as u64);
+        batch.push(("histseg_same".to_string(), insn, st));
+    }
+    run_batch("sve2_histseg", batch);
 }
 
 #[test]
