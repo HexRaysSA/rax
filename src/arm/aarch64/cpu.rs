@@ -4796,6 +4796,23 @@ impl AArch64Cpu {
                 self.exec_sve_zip_uzp_trn(insn, zd, zn, zm, esize)
             }
 
+            // REV Zd.T, Zn.T (reverse all elements): 0x05, bits[20:16]==11000,
+            // bits[15:10]==001110.
+            0b000
+                if (insn >> 24) & 0xFF == 0b00000101
+                    && (insn >> 16) & 0x1F == 0b11000
+                    && (insn >> 10) & 0x3F == 0b001110 =>
+            {
+                let n = 16 / esize;
+                let a = self.v[zn].to_le_bytes();
+                let mut dst = [0u8; 16];
+                for e in 0..n {
+                    write_elem(&mut dst, e * esize, esize, read_elem(&a, (n - 1 - e) * esize, esize));
+                }
+                self.v[zd] = u128::from_le_bytes(dst);
+                Ok(CpuExit::Continue)
+            }
+
             // Integer predicated binary operations
             0b000 if (op1 & 0x2) == 0 && (op2 & 0x10) == 0 => {
                 self.exec_sve_int_pred(insn, zd, zn, zm, pg, esize)

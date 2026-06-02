@@ -1560,6 +1560,21 @@ fn diff_sve_index() {
     run_family("sve_index", cases, 12, 0x1_0020);
 }
 
+/// SVE REV Zd.T, Zn.T: `00000101 sz 1 11000 001110 Zn Zd`.
+fn enc_sve_rev(sz: u32) -> u32 {
+    (0b00000101 << 24) | (sz << 22) | (1 << 21) | (0b11000 << 16)
+        | (0b001110 << 10) | (RN << 5) | RD
+}
+
+#[test]
+fn diff_sve_rev() {
+    let mut cases: Vec<(String, u32)> = Vec::new();
+    for sz in 0..4u32 {
+        cases.push((format!("rev sz{sz}"), enc_sve_rev(sz)));
+    }
+    run_family("sve_rev", cases, 16, 0x1_0022);
+}
+
 #[test]
 fn diff_sve_perm() {
     let mut cases: Vec<(String, u32)> = Vec::new();
