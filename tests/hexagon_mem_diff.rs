@@ -454,6 +454,92 @@ fn diff_mem_pred() {
 }
 
 #[test]
+fn diff_mem_absolute() {
+    // Absolute addressing: `memX(##addr)` (a GP-form load/store with a constant
+    // extender; the extended immediate is the full byte address, GP unused).
+    // The address is baked into the asm at the (runtime) arena location.
+    let (bin, arena_addr) = match oracle_mem() {
+        Some(x) => x,
+        None => {
+            eprintln!("[hexagon_mem_diff] absolute: toolchain unavailable -> skipping");
+            return;
+        }
+    };
+    // Word-aligned target within the arena.
+    let waddr = arena_addr + 16;
+    let baddr = arena_addr + 5;
+    let asms = vec![
+        format!("{{ r0 = memw(##0x{waddr:x}) }}"),
+        format!("{{ r0 = memb(##0x{baddr:x}) }}"),
+        format!("{{ r0 = memub(##0x{baddr:x}) }}"),
+        format!("{{ memw(##0x{waddr:x}) = r5 }}"),
+        format!("{{ memb(##0x{baddr:x}) = r5 }}"),
+    ];
+    let labels = ["loadw", "loadb", "loadub", "storew", "storeb"];
+    let words_per = match assemble(&asms) {
+        Some(w) => w,
+        None => {
+            eprintln!("[hexagon_mem_diff] absolute: assembly failed -> skipping");
+            return;
+        }
+    };
+    let mut rng = Rng::new(0x9b9b);
+    let mut batch = Vec::new();
+    let mut lbl = Vec::new();
+    for (i, words) in words_per.iter().enumerate() {
+        for _ in 0..12 {
+            let mut st = [0u32; ST_WORDS];
+            for r in 0..NREG {
+                st[r] = rng.next() as u32;
+            }
+            let mut arena = [0u8; ARENA];
+            for b in arena.iter_mut() {
+                *b = rng.next() as u8;
+            }
+            lbl.push(labels[i]);
+            batch.push(Case { words: words.clone(), st, arena });
+        }
+    }
+    let outs = match run_oracle(&bin, &batch) {
+        Some(o) => o,
+        None => {
+            eprintln!("[hexagon_mem_diff] absolute: oracle failed -> skipping");
+            return;
+        }
+    };
+    let mut mismatches = Vec::new();
+    for (i, c) in batch.iter().enumerate() {
+        let rax = match run_rax(&c.words, c, arena_addr) {
+            Some(r) => r,
+            None => {
+                mismatches.push(format!("[{}] rax rejected", lbl[i]));
+                continue;
+            }
+        };
+        let mut diffs = Vec::new();
+        for r in 0..NREG {
+            if rax.st[r] != outs[i].st[r] {
+                diffs.push(format!("r{r}:rax={:#x},hw={:#x}", rax.st[r], outs[i].st[r]));
+            }
+        }
+        if rax.arena != outs[i].arena {
+            let j = (0..ARENA).find(|&j| rax.arena[j] != outs[i].arena[j]).unwrap();
+            diffs.push(format!("arena[{j}]:rax={:#x},hw={:#x}", rax.arena[j], outs[i].arena[j]));
+        }
+        if !diffs.is_empty() {
+            mismatches.push(format!("[{}] {}", lbl[i], diffs.join(" ")));
+        }
+    }
+    if !mismatches.is_empty() {
+        eprintln!("\n==== absolute: {} mismatches ====", mismatches.len());
+        for m in mismatches.iter().take(20) {
+            eprintln!("  {m}");
+        }
+        panic!("absolute: {} divergences vs oracle", mismatches.len());
+    }
+}
+
+#[test]
 fn diff_mem_gp() {
     // GP-relative loads/stores: the address base is the GP control register.
     run_family(

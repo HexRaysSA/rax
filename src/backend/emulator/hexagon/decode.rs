@@ -467,19 +467,32 @@ fn load_io(
     ))
 }
 
-fn load_gp(decoded: &DecodedOp, width: MemWidth, sign: MemSign) -> Option<(DecodedInsn, bool)> {
+fn load_gp(
+    decoded: &DecodedOp,
+    width: MemWidth,
+    sign: MemSign,
+    immext: Option<u32>,
+) -> Option<(DecodedInsn, bool)> {
     let dst = field_u8(decoded, b'd')?;
-    let (imm, _) = decode_field_uimm(decoded, b'i', None)?;
-    let offset = (imm << width_shift(width)) as i32;
+    let (imm, used) = decode_field_uimm(decoded, b'i', immext)?;
+    // A constant extender turns the GP-relative form into an *absolute* access
+    // (the extended immediate is the full byte address; GP is not added).
+    let addr = if used {
+        AddrMode::Abs { addr: imm }
+    } else {
+        AddrMode::GpOffset {
+            offset: (imm << width_shift(width)) as i32,
+        }
+    };
     Some((
         DecodedInsn::Load {
             dst,
-            addr: AddrMode::GpOffset { offset },
+            addr,
             width,
             sign,
             pred: None,
         },
-        false,
+        used,
     ))
 }
 
@@ -522,19 +535,30 @@ fn store_io(
     ))
 }
 
-fn store_gp(decoded: &DecodedOp, width: MemWidth, src_new: bool) -> Option<(DecodedInsn, bool)> {
+fn store_gp(
+    decoded: &DecodedOp,
+    width: MemWidth,
+    src_new: bool,
+    immext: Option<u32>,
+) -> Option<(DecodedInsn, bool)> {
     let src = field_u8(decoded, b't')?;
-    let (imm, _) = decode_field_uimm(decoded, b'i', None)?;
-    let offset = (imm << width_shift(width)) as i32;
+    let (imm, used) = decode_field_uimm(decoded, b'i', immext)?;
+    let addr = if used {
+        AddrMode::Abs { addr: imm }
+    } else {
+        AddrMode::GpOffset {
+            offset: (imm << width_shift(width)) as i32,
+        }
+    };
     Some((
         DecodedInsn::Store {
             src,
-            addr: AddrMode::GpOffset { offset },
+            addr,
             width,
             pred: None,
             src_new,
         },
-        false,
+        used,
     ))
 }
 
@@ -1094,12 +1118,12 @@ fn decode_main(decoded: &DecodedOp, word: u32, immext: Option<u32>) -> (DecodedI
             MemSign::Unsigned,
             immext
         )),
-        Opcode::L2_loadrbgp => req!(load_gp(decoded, MemWidth::Byte, MemSign::Signed)),
-        Opcode::L2_loadrubgp => req!(load_gp(decoded, MemWidth::Byte, MemSign::Unsigned)),
-        Opcode::L2_loadrhgp => req!(load_gp(decoded, MemWidth::Half, MemSign::Signed)),
-        Opcode::L2_loadruhgp => req!(load_gp(decoded, MemWidth::Half, MemSign::Unsigned)),
-        Opcode::L2_loadrigp => req!(load_gp(decoded, MemWidth::Word, MemSign::Unsigned)),
-        Opcode::L2_loadrdgp => req!(load_gp(decoded, MemWidth::Double, MemSign::Unsigned)),
+        Opcode::L2_loadrbgp => req!(load_gp(decoded, MemWidth::Byte, MemSign::Signed, immext)),
+        Opcode::L2_loadrubgp => req!(load_gp(decoded, MemWidth::Byte, MemSign::Unsigned, immext)),
+        Opcode::L2_loadrhgp => req!(load_gp(decoded, MemWidth::Half, MemSign::Signed, immext)),
+        Opcode::L2_loadruhgp => req!(load_gp(decoded, MemWidth::Half, MemSign::Unsigned, immext)),
+        Opcode::L2_loadrigp => req!(load_gp(decoded, MemWidth::Word, MemSign::Unsigned, immext)),
+        Opcode::L2_loadrdgp => req!(load_gp(decoded, MemWidth::Double, MemSign::Unsigned, immext)),
         Opcode::L2_loadrb_pi => req!(load_pi(decoded, MemWidth::Byte, MemSign::Signed)),
         Opcode::L2_loadrub_pi => req!(load_pi(decoded, MemWidth::Byte, MemSign::Unsigned)),
         Opcode::L2_loadrh_pi => req!(load_pi(decoded, MemWidth::Half, MemSign::Signed)),
@@ -1110,10 +1134,10 @@ fn decode_main(decoded: &DecodedOp, word: u32, immext: Option<u32>) -> (DecodedI
         Opcode::S2_storerh_io => req!(store_io(decoded, MemWidth::Half, immext, false)),
         Opcode::S2_storeri_io => req!(store_io(decoded, MemWidth::Word, immext, false)),
         Opcode::S2_storerd_io => req!(store_io(decoded, MemWidth::Double, immext, false)),
-        Opcode::S2_storerbgp => req!(store_gp(decoded, MemWidth::Byte, false)),
-        Opcode::S2_storerhgp => req!(store_gp(decoded, MemWidth::Half, false)),
-        Opcode::S2_storerigp => req!(store_gp(decoded, MemWidth::Word, false)),
-        Opcode::S2_storerdgp => req!(store_gp(decoded, MemWidth::Double, false)),
+        Opcode::S2_storerbgp => req!(store_gp(decoded, MemWidth::Byte, false, immext)),
+        Opcode::S2_storerhgp => req!(store_gp(decoded, MemWidth::Half, false, immext)),
+        Opcode::S2_storerigp => req!(store_gp(decoded, MemWidth::Word, false, immext)),
+        Opcode::S2_storerdgp => req!(store_gp(decoded, MemWidth::Double, false, immext)),
         Opcode::S2_storerb_pi => req!(store_pi(decoded, MemWidth::Byte, false)),
         Opcode::S2_storerh_pi => req!(store_pi(decoded, MemWidth::Half, false)),
         Opcode::S2_storeri_pi => req!(store_pi(decoded, MemWidth::Word, false)),
