@@ -646,6 +646,9 @@ fn run_rax_pair(insn: u32, insn2: u32, input: &ArmState) -> Option<ArmState> {
         let (lo, hi) = input.vreg(r as usize);
         cpu.set_simd_reg(r, lo, hi).ok()?;
     }
+    for r in 0..16usize {
+        cpu.set_sve_pred(r, input.preg(r) as u32);
+    }
     let scratch_bytes: Vec<u8> = input.scratch.iter().flat_map(|w| w.to_le_bytes()).collect();
     cpu.write_memory(SCRATCH_ADDR, &scratch_bytes).ok()?;
     cpu.write_memory(0, &insn.to_le_bytes()).ok()?;
@@ -678,6 +681,9 @@ fn run_rax_pair(insn: u32, insn2: u32, input: &ArmState) -> Option<ArmState> {
     }
     for (i, w) in out.scratch.iter_mut().enumerate() {
         *w = cpu.mem_read_u64(SCRATCH_ADDR + (i as u64) * 8).ok()?;
+    }
+    for r in 0..16usize {
+        out.set_preg(r, cpu.sve_pred(r) as u16);
     }
     Some(out)
 }
@@ -716,6 +722,7 @@ fn run_batch_pair(name: &str, batch: Vec<(String, u32, u32, ArmState)>) {
         for r in 0..31 { if rax.x[r] != out.st.x[r] { diffs.push(format!("x{r}: rax={:#x} hw={:#x}", rax.x[r], out.st.x[r])); } }
         if (rax.pstate>>28)&0xF != (out.st.pstate>>28)&0xF { diffs.push(format!("nzcv: rax={:#x} hw={:#x}", (rax.pstate>>28)&0xF, (out.st.pstate>>28)&0xF)); }
         for r in 0..32 { if rax.vreg(r) != out.st.vreg(r) { diffs.push(format!("v{r} differs")); } }
+        for r in 0..16 { if rax.preg(r) != out.st.preg(r) { diffs.push(format!("p{r}: rax={:#06x} hw={:#06x}", rax.preg(r), out.st.preg(r))); } }
         for k in 0..32 { if rax.scratch[k] != out.st.scratch[k] { diffs.push(format!("scratch[{k}]: rax={:#x} hw={:#x}", rax.scratch[k], out.st.scratch[k])); } }
         if !diffs.is_empty() {
             mismatches.push(Mismatch { label: batch[i].0.clone(), insn: *insn, detail: diffs.join("  |  ") });
@@ -1616,6 +1623,20 @@ fn enc_scatter_d(msz: u32, scaled: bool) -> u32 {
     let ig1: u32 = if scaled { 0b01 } else { 0b00 };
     (0b1110010 << 25) | (msz << 23) | (ig1 << 21) | (RM << 16)
         | (0b101 << 13) | (RN << 5) | RD
+}
+
+/// SVE FFR-manipulation encodings (fully fixed apart from the predicate fields).
+fn enc_setffr() -> u32 {
+    0x252C_9000
+}
+fn enc_wrffr(pn: u32) -> u32 {
+    0x2528_9000 | ((pn & 0xF) << 5)
+}
+fn enc_rdffr(pd: u32) -> u32 {
+    0x2519_F000 | (pd & 0xF)
+}
+fn enc_rdffr_pred(pd: u32, pg: u32) -> u32 {
+    0x2518_F000 | ((pg & 0xF) << 5) | (pd & 0xF)
 }
 
 /// SVE LD1RQ (load-replicate quadword): `1010010 msz 00 0 imm4 001`(imm) /
@@ -2519,6 +2540,42 @@ fn diff_sve_scatter_d() {
         }
     }
     run_batch("sve_scatter_d", batch);
+}
+
+#[test]
+fn diff_sve_ffr() {
+    // FFR manipulation, tested as two-instruction sequences that read the FFR
+    // back into a captured predicate (p0): SETFFR/WRFFR then RDFFR.
+    let mut rng = Rng::new(0x4_D001);
+    let mut batch: Vec<(String, u32, u32, ArmState)> = Vec::new();
+    for _ in 0..8 {
+        // SETFFR ; RDFFR p0  -> p0 = all-true.
+        batch.push((
+            "setffr+rdffr".to_string(),
+            enc_setffr(),
+            enc_rdffr(0),
+            ArmState::zeroed(),
+        ));
+    }
+    for _ in 0..16 {
+        // WRFFR p1 ; RDFFR p0  -> p0 = p1.
+        let mut st = ArmState::zeroed();
+        st.set_preg(1, rng.next() as u16);
+        batch.push(("wrffr+rdffr".to_string(), enc_wrffr(1), enc_rdffr(0), st));
+    }
+    for _ in 0..16 {
+        // WRFFR p1 ; RDFFR p0, p2/Z  -> p0 = p1 & p2.
+        let mut st = ArmState::zeroed();
+        st.set_preg(1, rng.next() as u16);
+        st.set_preg(2, rng.next() as u16);
+        batch.push((
+            "wrffr+rdffr_pred".to_string(),
+            enc_wrffr(1),
+            enc_rdffr_pred(0, 2),
+            st,
+        ));
+    }
+    run_batch_pair("sve_ffr", batch);
 }
 
 #[test]

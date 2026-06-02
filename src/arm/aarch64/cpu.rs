@@ -5503,6 +5503,29 @@ impl AArch64Cpu {
         let pd = (insn & 0xF) as usize;
         let b15_10 = (insn >> 10) & 0x3F;
 
+        // First-fault register (FFR) manipulation — handled first since these
+        // are fully-fixed encodings. SETFFR sets every PL bit (16 at VL=128).
+        if insn == 0x252C_9000 {
+            self.sve_ffr = 0xFFFF;
+            return Ok(CpuExit::Continue);
+        }
+        // WRFFR Pn: FFR = P[Pn].
+        if insn & 0xFFFF_FE1F == 0x2528_9000 {
+            self.sve_ffr = self.sve_p[((insn >> 5) & 0xF) as usize];
+            return Ok(CpuExit::Continue);
+        }
+        // RDFFR Pd (unpredicated): P[Pd] = FFR.
+        if (insn >> 10) & 0x3FFF == 0x67C && (insn >> 4) & 0x3F == 0 {
+            self.sve_p[pd] = self.sve_ffr;
+            return Ok(CpuExit::Continue);
+        }
+        // RDFFR Pd, Pg/Z (predicated): P[Pd] = FFR & P[Pg] (zeroing).
+        if (insn >> 10) & 0x3FFF == 0x63C && (insn >> 9) & 1 == 0 && (insn >> 4) & 1 == 0 {
+            let pg = ((insn >> 5) & 0xF) as usize;
+            self.sve_p[pd] = self.sve_ffr & self.sve_p[pg];
+            return Ok(CpuExit::Continue);
+        }
+
         // DUP Zd.T, #imm{,LSL #8} (unpredicated immediate broadcast): bits[21:16]
         // ==111000, bits[15:14]==11. (Distinct from PTRUE by bit21==1.)
         if (insn >> 16) & 0x3F == 0b111000 && (insn >> 14) & 0x3 == 0b11 {
