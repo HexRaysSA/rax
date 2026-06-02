@@ -747,6 +747,27 @@ fn lift_hvx_vshift() {
 }
 
 #[test]
+fn lift_hvx_vshiftv() {
+    // Per-lane bidirectional vector-amount shifts: Vd = op(Vu, Vv) where Vu is
+    // the value and Vv the signed per-lane amount (sxtn of low log2(bits)+1
+    // bits). The harness seeds Vv randomly, so the negative-amount (reverse-
+    // direction) path is exercised too.
+    lift_family(
+        "hvx_vshiftv",
+        &[
+            ("vaslhv", "{ v2.h = vasl(v0.h,v1.h) }"),
+            ("vaslwv", "{ v2.w = vasl(v0.w,v1.w) }"),
+            ("vasrhv", "{ v2.h = vasr(v0.h,v1.h) }"),
+            ("vasrwv", "{ v2.w = vasr(v0.w,v1.w) }"),
+            ("vlsrhv", "{ v2.h = vlsr(v0.h,v1.h) }"),
+            ("vlsrwv", "{ v2.w = vlsr(v0.w,v1.w) }"),
+        ],
+        16,
+        0x7104,
+    );
+}
+
+#[test]
 fn lift_hvx_vassign() {
     lift_family(
         "hvx_vassign",

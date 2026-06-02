@@ -2589,6 +2589,64 @@ impl HexagonLifter {
                 lanes: 32,
             }),
 
+            // ---- per-lane bidirectional vector-amount shifts ----
+            // `Vd = vasl/vasr/vlsr(Vu, Vv)`: each lane of the value Vu (fld 'u')
+            // is shifted by the signed per-lane amount in Vv (fld 'v'), where the
+            // sem takes `sxtn(low log2(elem_bits)+1 bits of the amount lane)`
+            // (n=5 for .h, n=6 for .w). OpKind::VShiftV reproduces this exactly,
+            // bidirectional (a negative amount shifts the opposite way).
+            //   VShiftVKind::AshiftL = vaslhv/vaslwv (arithmetic left)
+            //   VShiftVKind::AshiftR = vasrhv/vasrwv (arithmetic right)
+            //   VShiftVKind::LshiftR = vlsrhv/vlsrwv (logical right)
+            Opcode::V6_vaslhv => push_op!(OpKind::VShiftV {
+                dst: self.hex_v(fld(b'd')),
+                src: self.hex_v(fld(b'u')),
+                amount: self.hex_v(fld(b'v')),
+                elem: VecElementType::I16,
+                lanes: 64,
+                kind: VShiftVKind::AshiftL,
+            }),
+            Opcode::V6_vaslwv => push_op!(OpKind::VShiftV {
+                dst: self.hex_v(fld(b'd')),
+                src: self.hex_v(fld(b'u')),
+                amount: self.hex_v(fld(b'v')),
+                elem: VecElementType::I32,
+                lanes: 32,
+                kind: VShiftVKind::AshiftL,
+            }),
+            Opcode::V6_vasrhv => push_op!(OpKind::VShiftV {
+                dst: self.hex_v(fld(b'd')),
+                src: self.hex_v(fld(b'u')),
+                amount: self.hex_v(fld(b'v')),
+                elem: VecElementType::I16,
+                lanes: 64,
+                kind: VShiftVKind::AshiftR,
+            }),
+            Opcode::V6_vasrwv => push_op!(OpKind::VShiftV {
+                dst: self.hex_v(fld(b'd')),
+                src: self.hex_v(fld(b'u')),
+                amount: self.hex_v(fld(b'v')),
+                elem: VecElementType::I32,
+                lanes: 32,
+                kind: VShiftVKind::AshiftR,
+            }),
+            Opcode::V6_vlsrhv => push_op!(OpKind::VShiftV {
+                dst: self.hex_v(fld(b'd')),
+                src: self.hex_v(fld(b'u')),
+                amount: self.hex_v(fld(b'v')),
+                elem: VecElementType::I16,
+                lanes: 64,
+                kind: VShiftVKind::LshiftR,
+            }),
+            Opcode::V6_vlsrwv => push_op!(OpKind::VShiftV {
+                dst: self.hex_v(fld(b'd')),
+                src: self.hex_v(fld(b'u')),
+                amount: self.hex_v(fld(b'v')),
+                elem: VecElementType::I32,
+                lanes: 32,
+                kind: VShiftVKind::LshiftR,
+            }),
+
             // ---- vassign: Vd = Vu (full-vector copy) ----
             // VMov uses read_vec/write_vec over the full 1024-bit VecValue.
             Opcode::V6_vassign => push_op!(OpKind::VMov {
