@@ -2538,19 +2538,29 @@ pub fn publish_instruction_count(count: u64) {
 // ============================================================================
 #[cfg(all(feature = "smir-jit", target_arch = "x86_64"))]
 impl X86_64Vcpu {
-    /// Attempt to JIT-compile and natively execute the basic-block region at the
-    /// current RIP. Returns `Ok(Some(VcpuExit::Hlt))` if the region ran natively
-    /// to a HALT (guest registers + RIP are updated), or `Ok(None)` if the
-    /// region is not eligible — in which case the caller falls back to `step()`.
+    /// Attempt to JIT-compile and natively execute the hot region at the current
+    /// RIP, handing control back to the interpreter at the region's exit.
+    /// Returns `Ok(true)` if it ran natively (guest registers updated and RIP
+    /// advanced to the exit address — the caller should continue interpreting
+    /// from there), or `Ok(false)` if the region is ineligible (caller falls
+    /// back to `step()`).
     ///
-    /// Eligibility (conservative): the lifted region's only "leaving" exits are
-    /// HALTs (internal Branch/CondBranch back-edges are fine), it is
-    /// clobber-safe (writes only architectural registers — see
-    /// [`crate::smir::lower::runtime::is_native_clobber_safe`]), and it lowers
-    /// with no unresolved relocations. Anything else (calls, indirect/computed
-    /// branches, syscalls, virtual-temp writes, page-crossing lifts) bails.
-    pub fn jit_try_block(&mut self) -> Result<Option<VcpuExit>> {
-        use crate::smir::ir::{Terminator, TrapKind};
+    /// The region is the CFG reachable from RIP up to "frontier" terminals
+    /// (HLT / RET / CALL / indirect / syscall / switch); internal Branch and
+    /// CondBranch edges (loop back-edges, if/else) execute natively. Each
+    /// frontier block lowers to an exit stub that records its guest PC into
+    /// `exit_pc`; the JIT runs UP TO but not THROUGH it, so the interpreter
+    /// resumes there and re-executes that block. Eligibility: the entry block
+    /// must not itself be a frontier (else there is no native work), every
+    /// block must be clobber-safe (writes only architectural registers — a
+    /// virtual temporary would corrupt a guest GPR under the identity register
+    /// map), and the region must lower with no unresolved relocations.
+    ///
+    /// CAVEAT: a guest infinite loop with no reachable frontier would spin in
+    /// native code uninterruptibly — callers should only invoke this for
+    /// regions known to terminate (e.g. promoted hot loops with an exit edge).
+    pub fn jit_try_block(&mut self) -> Result<bool> {
+        use crate::smir::ir::Terminator;
         use crate::smir::lift::x86_64::X86_64Lifter;
         use crate::smir::lift::{LiftContext, MemoryReader, SmirLifter};
         use crate::smir::lower::runtime::{is_native_clobber_safe, ExecMem, GuestRegs};
@@ -2558,6 +2568,7 @@ impl X86_64Vcpu {
         use crate::smir::lower::SmirLowerer;
         use crate::smir::memory::MemoryError;
         use crate::smir::types::SourceArch;
+        use std::collections::HashMap;
 
         let entry = self.regs.rip;
 
@@ -2567,7 +2578,7 @@ impl X86_64Vcpu {
         const WINDOW: usize = 512;
         let bytes = match self.read_bytes(entry, WINDOW) {
             Ok(b) => b,
-            Err(_) => return Ok(None),
+            Err(_) => return Ok(false),
         };
 
         struct Win {
@@ -2588,54 +2599,53 @@ impl X86_64Vcpu {
 
         let mut lifter = X86_64Lifter::strict();
         let mut lctx = LiftContext::new(SourceArch::X86_64);
-        let mut func = match lifter.lift_function(entry, &reader, &mut lctx) {
+        let func = match lifter.lift_function(entry, &reader, &mut lctx) {
             Ok(f) => f,
-            Err(_) => return Ok(None),
+            Err(_) => return Ok(false),
         };
 
-        // Eligibility: every leaving exit must be a HALT; record where it is.
-        // Internal Branch/CondBranch (loop back-edges, if/else) are fine.
-        let mut hlt_addr: Option<u64> = None;
+        // Mark every frontier terminal (the JIT cannot continue through it) as a
+        // native-exit stub recording the block's guest PC. Internal Branch /
+        // CondBranch edges stay native (loops, if/else).
+        let mut exits: HashMap<_, u64> = HashMap::new();
         for b in &func.blocks {
-            match &b.terminator {
-                Terminator::Trap { kind: TrapKind::Halt } => {
-                    hlt_addr = Some(b.guest_pc);
-                }
-                Terminator::Branch { .. }
-                | Terminator::CondBranch { .. }
-                | Terminator::Return { .. } => {}
-                _ => return Ok(None), // call / indirect / syscall / switch / trap
+            let frontier = matches!(
+                b.terminator,
+                Terminator::Trap { .. }
+                    | Terminator::Return { .. }
+                    | Terminator::Call { .. }
+                    | Terminator::TailCall { .. }
+                    | Terminator::IndirectBranch { .. }
+                    | Terminator::IndirectBranchMem { .. }
+                    | Terminator::Switch { .. }
+            );
+            if frontier {
+                exits.insert(b.id, b.guest_pc);
             }
         }
-        let hlt_addr = match hlt_addr {
-            Some(a) => a,
-            None => return Ok(None),
-        };
-
-        // Clobber-safety gate: a virtual-temp write would corrupt a guest GPR.
+        // If the entry block is itself a frontier, there is no native work to do.
+        if exits.contains_key(&func.entry) {
+            return Ok(false);
+        }
+        // Clobber-safety gate (conservative: checks all blocks, including the
+        // skipped exit blocks — safe, may occasionally over-bail).
         if !is_native_clobber_safe(&func) {
-            return Ok(None);
-        }
-
-        // Rewrite each HALT exit to a Return so the native block returns to us.
-        for b in func.blocks.iter_mut() {
-            if matches!(b.terminator, Terminator::Trap { .. }) {
-                b.set_terminator(Terminator::Return { values: vec![] });
-            }
+            return Ok(false);
         }
 
         let mut lowerer = X86_64Lowerer::new();
+        lowerer.set_native_exits(exits);
         let res = match lowerer.lower_function(&func) {
             Ok(r) if r.relocations.is_empty() => r,
-            _ => return Ok(None),
+            _ => return Ok(false),
         };
         let code = match lowerer.finalize() {
             Ok(c) => c,
-            Err(_) => return Ok(None),
+            Err(_) => return Ok(false),
         };
         let mem = match ExecMem::new(&code) {
             Ok(m) => m,
-            Err(_) => return Ok(None),
+            Err(_) => return Ok(false),
         };
 
         // Bridge guest GPRs + flags into the native register file.
@@ -2657,6 +2667,7 @@ impl X86_64Vcpu {
         gr.gpr[14] = self.regs.r14;
         gr.gpr[15] = self.regs.r15;
         gr.rflags = self.regs.rflags;
+        gr.exit_pc = entry; // fallback (an exit stub overwrites this on return)
 
         mem.run(res.entry_offset, &mut gr);
 
@@ -2678,8 +2689,9 @@ impl X86_64Vcpu {
         self.regs.r14 = gr.gpr[14];
         self.regs.r15 = gr.gpr[15];
         self.regs.rflags = gr.rflags;
-        self.regs.rip = hlt_addr;
+        // Resume the interpreter at the recorded exit address.
+        self.regs.rip = gr.exit_pc;
 
-        Ok(Some(VcpuExit::Hlt))
+        Ok(true)
     }
 }

@@ -120,15 +120,16 @@ fn jit_bails_on_ineligible() {
     //     call $+5 ; hlt
     let mut v = make_vcpu_code(&[0xE8, 0x00, 0x00, 0x00, 0x00, 0xF4]);
     assert!(
-        v.jit_try_block().expect("jit_try_block").is_none(),
-        "a CALL region must bail to the interpreter"
+        !v.jit_try_block().expect("jit_try_block"),
+        "a CALL region (entry block is a frontier) must bail to the interpreter"
     );
 
-    // (b) A region with no HALT exit — `mov eax,5 ; ret`.
+    // (b) A straight-line block ending in RET — entry block is a frontier exit,
+    //     so there is no internal native work; must bail.
     let mut v = make_vcpu_code(&[0xB8, 0x05, 0x00, 0x00, 0x00, 0xC3]);
     assert!(
-        v.jit_try_block().expect("jit_try_block").is_none(),
-        "a region without a HALT exit must bail"
+        !v.jit_try_block().expect("jit_try_block"),
+        "an entry-is-frontier region must bail"
     );
 }
 
@@ -149,11 +150,13 @@ fn jit_matches_interpreter() {
     let iters = 1000u32;
 
     let mut jit = make_vcpu(iters);
-    let exit = jit.jit_try_block().expect("jit_try_block");
     assert!(
-        matches!(exit, Some(VcpuExit::Hlt)),
-        "the loop region should JIT and run to HLT, got {exit:?}"
+        jit.jit_try_block().expect("jit_try_block"),
+        "the loop region should JIT and advance to its exit"
     );
+    // The JIT ran the loop natively and parked RIP at the HLT (the frontier
+    // exit, not yet executed). Step it so both vcpus end at the same point.
+    run_interp(&mut jit);
     let jr = jit.get_regs().unwrap();
 
     let mut interp = make_vcpu(iters);
@@ -291,9 +294,9 @@ fn jit_throughput() {
     let big = 200_000_000u32;
     let mut jit = make_vcpu(big);
     let t = Instant::now();
-    let exit = jit.jit_try_block().expect("jit_try_block");
+    let ran = jit.jit_try_block().expect("jit_try_block");
     let dt = t.elapsed();
-    assert!(matches!(exit, Some(VcpuExit::Hlt)));
+    assert!(ran, "the loop region should JIT");
     let executed = (big as u64) * 5 + 3; // matches bench_loop accounting
     let mips = executed as f64 / dt.as_secs_f64() / 1e6;
     let r = jit.get_regs().unwrap();
