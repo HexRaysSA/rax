@@ -36,6 +36,27 @@ enum Acc {
     Sub,
 }
 
+/// fGETWORD(n, src): signed 32-bit lane of a 64-bit pair, sign-extended to i64.
+#[inline]
+fn get_word(src: u64, n: u32) -> i64 {
+    ((src >> (n * 32)) as u32 as i32) as i64
+}
+
+/// M7 complex-multiply word selection per the `CMPY64`/`CMPY128` idef macros:
+/// `prod = (Rss.w[w0] * Rtt.w[w1]) {+,-} (Rss.w[w2] * Rtt.w[w3])`, each term a
+/// full signed 32x32 product (fMPY32SS) widened to 128 bits before the add/sub.
+/// Returned as i128 so the wcmpy shift/saturate path keeps full precision.
+#[inline]
+fn cmpy_terms(rss: u64, rtt: u64, w0: u32, w1: u32, w2: u32, w3: u32, add: bool) -> i128 {
+    let tmp = (get_word(rss, w0) as i128) * (get_word(rtt, w1) as i128);
+    let acc = (get_word(rss, w2) as i128) * (get_word(rtt, w3) as i128);
+    if add {
+        tmp + acc
+    } else {
+        tmp - acc
+    }
+}
+
 /// fGETHALF(n, src): signed 16-bit lane, sign-extended to i64.
 #[inline]
 fn get_half(src: u32, n: u32) -> i64 {
@@ -322,6 +343,33 @@ pub fn exec(op: Opcode, d: &DecodedOp, ctx: &mut SemCtx) -> bool {
             ctx.set_r(rd, v as u32);
         }
 
+        // ============ M7 complex multiply real/imaginary 32-bit (V73 audio) ====
+        // CMPY64: Rdd = (Rss.w[w0]*Rtt.w[w1]) OP (Rss.w[w2]*Rtt.w[w3]); _acc: Rxx += .
+        //   dcmpyrw  Real    (-,0,0,1,1)   dcmpyrwc Real conj (+,0,0,1,1)
+        //   dcmpyiw  Imag    (+,0,1,1,0)   dcmpyiwc Imag conj (-,1,0,0,1)
+        Opcode::M7_dcmpyrw => m7_dcmpy(ctx, d, false, 0, 0, 1, 1, false),
+        Opcode::M7_dcmpyrwc => m7_dcmpy(ctx, d, true, 0, 0, 1, 1, false),
+        Opcode::M7_dcmpyiw => m7_dcmpy(ctx, d, true, 0, 1, 1, 0, false),
+        Opcode::M7_dcmpyiwc => m7_dcmpy(ctx, d, false, 1, 0, 0, 1, false),
+        Opcode::M7_dcmpyrw_acc => m7_dcmpy(ctx, d, false, 0, 0, 1, 1, true),
+        Opcode::M7_dcmpyrwc_acc => m7_dcmpy(ctx, d, true, 0, 0, 1, 1, true),
+        Opcode::M7_dcmpyiw_acc => m7_dcmpy(ctx, d, true, 0, 1, 1, 0, true),
+        Opcode::M7_dcmpyiwc_acc => m7_dcmpy(ctx, d, false, 1, 0, 0, 1, true),
+
+        // CMPY128/CMPY128RND: tmp=Rss.w[w0]*Rtt.w[w1]; acc=Rss.w[w2]*Rtt.w[w3];
+        //   acc = OP(tmp,acc) [+0x40000000 when :rnd]; acc>>=31; Rd = sat32(acc).
+        //   wcmpyrw  Real    (SUB,0,0,1,1)   wcmpyrwc Real conj (ADD,0,0,1,1)
+        //   wcmpyiw  Imag    (ADD,0,1,1,0)   wcmpyiwc Imag conj (SUB,1,0,0,1)
+        // OP here is the macro's first-arg-relative op: fADD128 -> add=true.
+        Opcode::M7_wcmpyrw => m7_wcmpy(ctx, d, false, 0, 0, 1, 1, false),
+        Opcode::M7_wcmpyrwc => m7_wcmpy(ctx, d, true, 0, 0, 1, 1, false),
+        Opcode::M7_wcmpyiw => m7_wcmpy(ctx, d, true, 0, 1, 1, 0, false),
+        Opcode::M7_wcmpyiwc => m7_wcmpy(ctx, d, false, 1, 0, 0, 1, false),
+        Opcode::M7_wcmpyrw_rnd => m7_wcmpy(ctx, d, false, 0, 0, 1, 1, true),
+        Opcode::M7_wcmpyrwc_rnd => m7_wcmpy(ctx, d, true, 0, 0, 1, 1, true),
+        Opcode::M7_wcmpyiw_rnd => m7_wcmpy(ctx, d, true, 0, 1, 1, 0, true),
+        Opcode::M7_wcmpyiwc_rnd => m7_wcmpy(ctx, d, false, 1, 0, 0, 1, true),
+
         // ============ vabsdiff: per-byte |Rtt[i] - Rss[i]| (M6) ============
         // Note: operands are (Rtt, Rss) — the difference is Rtt-byte minus Rss-byte.
         Opcode::M6_vabsdiffb => {
@@ -346,4 +394,40 @@ pub fn exec(op: Opcode, d: &DecodedOp, ctx: &mut SemCtx) -> bool {
         _ => return false,
     }
     true
+}
+
+/// `M7_dcmpy*` — 64-bit complex multiply (optionally accumulating). The `Rdd`
+/// (or `Rxx +=`) result wraps in 64 bits, exactly matching the idef's int64.
+#[allow(clippy::too_many_arguments)]
+#[inline]
+fn m7_dcmpy(ctx: &mut SemCtx, d: &DecodedOp, add: bool, w0: u32, w1: u32, w2: u32, w3: u32, acc: bool) {
+    let rss = ctx.rp(fld(d, b's'));
+    let rtt = ctx.rp(fld(d, b't'));
+    let prod = cmpy_terms(rss, rtt, w0, w1, w2, w3, add) as i64;
+    if acc {
+        let rx = fld(d, b'x');
+        let v = (ctx.rp(rx) as i64).wrapping_add(prod) as u64;
+        ctx.set_rp(rx, v);
+    } else {
+        let v = prod as u64;
+        ctx.set_rp(fld(d, b'd'), v);
+    }
+}
+
+/// `M7_wcmpy*` — 32-bit complex multiply with `:<<1` scale and signed-32
+/// saturation (optionally `:rnd`). Mirrors the `CMPY128`/`CMPY128RND` macros:
+/// the 128-bit accumulator is shifted right by 31 (the `<<1` then `>>32`) before
+/// saturating to a word; `:rnd` adds 0x40000000 before the shift.
+#[allow(clippy::too_many_arguments)]
+#[inline]
+fn m7_wcmpy(ctx: &mut SemCtx, d: &DecodedOp, add: bool, w0: u32, w1: u32, w2: u32, w3: u32, rnd: bool) {
+    let rss = ctx.rp(fld(d, b's'));
+    let rtt = ctx.rp(fld(d, b't'));
+    let mut acc = cmpy_terms(rss, rtt, w0, w1, w2, w3, add);
+    if rnd {
+        acc += 0x4000_0000i128;
+    }
+    let shifted = acc >> 31; // arithmetic shift on the signed 128-bit accumulator
+    let v = ctx.sat_n(shifted as i64, 32);
+    ctx.set_r(fld(d, b'd'), v as u32);
 }

@@ -136,6 +136,10 @@ fn run_oracle(oracle: &PathBuf, cases: &[(Vec<u32>, HexState)]) -> Option<Vec<He
     }
 
     let mut child = Command::new("qemu-hexagon")
+        // Match the assembler: run the oracle as a v73 core so the V73 audio
+        // extension (M7 complex multiply, A7 clip/cround) executes natively.
+        .arg("-cpu")
+        .arg("v73")
         .arg(oracle)
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
@@ -199,7 +203,14 @@ fn assemble_packets(packets: &[String]) -> Option<Vec<Vec<u32>>> {
 
     let src = packets.join("\n");
     let mut child = Command::new("llvm-mc")
-        .args(["-triple=hexagon", "-mcpu=hexagonv68", "-show-encoding"])
+        // v73 + audio extension so the M7 complex-multiply / A7 clip family
+        // assemble; v73 is a superset of v68 so existing packets are unchanged.
+        .args([
+            "-triple=hexagon",
+            "-mcpu=hexagonv73",
+            "-mattr=+audio",
+            "-show-encoding",
+        ])
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .stderr(Stdio::null())
@@ -671,6 +682,56 @@ fn diff_shift_reg() {
         ("lsr_r_r".to_string(), "{ r0 = lsr(r1,r2) }".to_string()),
     ];
     run_family("shift_reg", cases, 40, 0x1004);
+}
+
+/// V73 scalar register-arithmetic gap-fill: M7 complex multiplies, A7
+/// clip/vclip/cround (64-bit convergent round), and the C2 conditional `.new`
+/// combine. (C4_addipc is excluded: its result is `PC + #u` and the oracle's
+/// link address differs from the harness's fixed CODE_ADDR, so absolute results
+/// can never match — it is implemented but cannot be diff-verified here.)
+fn scalar_alu_ext_cases() -> Vec<(String, String)> {
+    let mut v = Vec::new();
+    for (name, asm) in [
+        // M7 dcmpy: 64-bit complex multiply (real/imag, conjugate, +acc).
+        ("dcmpyrw", "{ r5:4 = cmpyrw(r1:0,r3:2) }"),
+        ("dcmpyrwc", "{ r5:4 = cmpyrw(r1:0,r3:2*) }"),
+        ("dcmpyiw", "{ r5:4 = cmpyiw(r1:0,r3:2) }"),
+        ("dcmpyiwc", "{ r5:4 = cmpyiw(r1:0,r3:2*) }"),
+        ("dcmpyrw_acc", "{ r5:4 += cmpyrw(r1:0,r3:2) }"),
+        ("dcmpyrwc_acc", "{ r5:4 += cmpyrw(r1:0,r3:2*) }"),
+        ("dcmpyiw_acc", "{ r5:4 += cmpyiw(r1:0,r3:2) }"),
+        ("dcmpyiwc_acc", "{ r5:4 += cmpyiw(r1:0,r3:2*) }"),
+        // M7 wcmpy: 32-bit saturating complex multiply (:<<1:sat[:rnd]).
+        ("wcmpyrw", "{ r4 = cmpyrw(r1:0,r3:2):<<1:sat }"),
+        ("wcmpyrwc", "{ r4 = cmpyrw(r1:0,r3:2*):<<1:sat }"),
+        ("wcmpyiw", "{ r4 = cmpyiw(r1:0,r3:2):<<1:sat }"),
+        ("wcmpyiwc", "{ r4 = cmpyiw(r1:0,r3:2*):<<1:sat }"),
+        ("wcmpyrw_rnd", "{ r4 = cmpyrw(r1:0,r3:2):<<1:rnd:sat }"),
+        ("wcmpyrwc_rnd", "{ r4 = cmpyrw(r1:0,r3:2*):<<1:rnd:sat }"),
+        ("wcmpyiw_rnd", "{ r4 = cmpyiw(r1:0,r3:2):<<1:rnd:sat }"),
+        ("wcmpyiwc_rnd", "{ r4 = cmpyiw(r1:0,r3:2*):<<1:rnd:sat }"),
+        // A7 clip / vclip (signed (#u+1)-bit clamp).
+        ("clip0", "{ r4 = clip(r5,#0) }"),
+        ("clip5", "{ r4 = clip(r5,#5) }"),
+        ("clip31", "{ r4 = clip(r5,#31) }"),
+        ("vclip5", "{ r5:4 = vclip(r7:6,#5) }"),
+        ("vclip31", "{ r5:4 = vclip(r7:6,#31) }"),
+        // A7 croundd (64-bit convergent round, imm and reg shift counts).
+        ("croundd_ri", "{ r5:4 = cround(r7:6,#5) }"),
+        ("croundd_ri0", "{ r5:4 = cround(r7:6,#0) }"),
+        ("croundd_rr", "{ r5:4 = cround(r7:6,r2) }"),
+        // C2 conditional .new combine.
+        ("ccombinewnewt", "{ p0 = cmp.gt(r2,r3); if (p0.new) r5:4 = combine(r6,r7) }"),
+        ("ccombinewnewf", "{ p0 = cmp.gt(r2,r3); if (!p0.new) r5:4 = combine(r6,r7) }"),
+    ] {
+        v.push((name.to_string(), asm.to_string()));
+    }
+    v
+}
+
+#[test]
+fn diff_scalar_alu_ext() {
+    run_family("scalar_alu_ext", scalar_alu_ext_cases(), 40, 0x7373);
 }
 
 /// Per-instruction survey outcome.

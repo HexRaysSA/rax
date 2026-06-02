@@ -96,6 +96,35 @@ fn conv_round(a: u32, n: u32) -> u32 {
     ((src + rndbit) >> n) as u32
 }
 
+/// `fCLIP(DST,SRC,U)` — clamp `src` to the signed range `[-(1<<U), (1<<U)-1]`.
+/// The bounds are computed as C `size4s_t`, so `U==31` wraps exactly like the
+/// idef (`1<<31` overflows to `i32::MIN`, giving `maxv=0x7fffffff`,
+/// `minv=i32::MIN`). No saturation flag is raised — this is a plain clamp.
+#[inline]
+fn clip32(src: i32, u: u32) -> i32 {
+    let maxv = (1i32.wrapping_shl(u)).wrapping_sub(1);
+    let minv = (1i32.wrapping_shl(u)).wrapping_neg();
+    src.max(minv).min(maxv)
+}
+
+/// 64-bit convergent rounding (`CROUND` macro). Rounds the signed 64-bit `src`
+/// to a 2^n boundary, biasing toward even at an exact tie (low `n-1` bits zero).
+#[inline]
+fn conv_round64(src: i64, n: u32) -> i64 {
+    if n == 0 {
+        return src;
+    }
+    // i128 keeps full precision through the +rndbit and >>n (matches fSHIFTR128).
+    let s = src as i128;
+    let rndbit: i128 = if (src & ((1i64 << (n - 1)) - 1)) == 0 {
+        // Tie: round up only when bit n of src is set (toward even).
+        ((1i128 << n) & s) >> 1
+    } else {
+        1i128 << (n - 1)
+    };
+    ((s + rndbit) >> n) as i64
+}
+
 /// Execute an `alu_ext`-class opcode. Returns `false` if `op` is not handled.
 pub fn exec(op: Opcode, d: &DecodedOp, ctx: &mut SemCtx) -> bool {
     // Scalar/pair field readers. Behavior strings reference RsV/RtV/RssV/RttV;
@@ -635,6 +664,54 @@ pub fn exec(op: Opcode, d: &DecodedOp, ctx: &mut SemCtx) -> bool {
                 v = set_byte(v, i, ctx.satu_n(sum, 8));
             }
             ctx.set_r(rd, v as u32);
+        }
+
+        // ============ clip to signed (#u+1)-bit range (A7_clip/vclip) =========
+        // fCLIP(DST,SRC,U): maxv=(1<<U)-1, minv=-(1<<U), DST=min(maxv,max(SRC,minv)).
+        // Plain clamp (size4s_t arithmetic), no USR:OVF side effect.
+        Opcode::A7_clip => {
+            let u_imm = fimm_u(d, b'i', None);
+            ctx.set_r(rd, clip32(s(ctx) as i32, u_imm) as u32);
+        }
+        Opcode::A7_vclip => {
+            let u_imm = fimm_u(d, b'i', None);
+            let src = sp(ctx);
+            let w0 = clip32(get_word(src, 0) as i32, u_imm);
+            let w1 = clip32(get_word(src, 1) as i32, u_imm);
+            ctx.set_rp(rd, set_word(set_word(0, 0, w0 as i64), 1, w1 as i64));
+        }
+
+        // ============ 64-bit convergent rounding (A7_croundd_ri/rr) ===========
+        // CROUND over the full signed 64-bit Rss; shift is #u6 / fZXTN(6,32,Rt).
+        Opcode::A7_croundd_ri => {
+            let n = fimm_u(d, b'i', None) & 0x3f;
+            ctx.set_rp(rd, conv_round64(sp(ctx) as i64, n) as u64);
+        }
+        Opcode::A7_croundd_rr => {
+            let n = t(ctx) & 0x3f; // fZXTN(6,32,Rt)
+            ctx.set_rp(rd, conv_round64(sp(ctx) as i64, n) as u64);
+        }
+
+        // ============ conditional .new combine (C2_ccombinewnew{t,f}) =========
+        // if (Pu.new[!]) { Rdd.w[0]=Rt; Rdd.w[1]=Rs; } else CANCEL (leave unwritten).
+        Opcode::C2_ccombinewnewt => {
+            if (ctx.p_new(fld(d, b'u')) & 1) != 0 {
+                let v = ((s(ctx) as u64) << 32) | (t(ctx) as u64);
+                ctx.set_rp(rd, v);
+            }
+        }
+        Opcode::C2_ccombinewnewf => {
+            if (ctx.p_new(fld(d, b'u')) & 1) == 0 {
+                let v = ((s(ctx) as u64) << 32) | (t(ctx) as u64);
+                ctx.set_rp(rd, v);
+            }
+        }
+
+        // ============ add immediate to PC (C4_addipc) =========================
+        // Rd = fREAD_PC() + #u6 (extendable). fREAD_PC is this packet's start PC.
+        Opcode::C4_addipc => {
+            let imm = fimm_u(d, b'i', ctx.immext);
+            ctx.set_r(rd, ctx.regs.pc().wrapping_add(imm));
         }
 
         // ============ vminub with predicate output (A6_vminub_RdP) ============
