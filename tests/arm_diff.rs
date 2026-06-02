@@ -1774,6 +1774,13 @@ fn enc_sve_int_mla(size: u32, op3: u32) -> u32 {
     (0x04 << 24) | (size << 22) | (RM << 16) | (op3 << 13) | (RN << 5) | RD
 }
 
+/// SVE CTERMEQ/CTERMNE: `00100101 1 sf 1 Rm 001000 Rn 0 ne`. sf=bit22 (0=32,
+/// 1=64), ne=bit4. Rn=x1(RN), Rm=x2(RM).
+fn enc_sve_cterm(sf: u32, ne: u32) -> u32 {
+    (0x25 << 24) | (1 << 23) | (sf << 22) | (1 << 21) | (RM << 16) | (0b001000 << 10) | (RN << 5)
+        | (ne << 4)
+}
+
 /// SVE2 predicated integer ALU: `01000100 size opc6 op3 Pg Zm Zdn`. opc6=bits
 /// [21:16], op3=bits[15:13] (100 binary, 101 unary). Pg=p0, Zm/Zn=z1(RN),
 /// Zdn/Zd=z0(RD).
@@ -3393,7 +3400,40 @@ fn diff_sve2_pred_alu() {
             }
         }
     }
+    // URECPE/URSQRTE (S-only unsigned reciprocal estimates).
+    for &(opc6, name) in &[(0b000000u32, "urecpe"), (0b000001, "ursqrte")] {
+        let insn = enc_sve2_pred_alu(2, opc6, 0b101);
+        for _ in 0..10 {
+            let mut st = ArmState::zeroed();
+            st.set_vreg(1, rng.next(), rng.next());
+            st.set_vreg(0, rng.next(), rng.next());
+            st.set_preg(0, rng.next() as u16);
+            batch.push((format!("{name}"), insn, st));
+        }
+    }
     run_batch("sve2_pred_alu", batch);
+}
+
+#[test]
+fn diff_sve_cterm() {
+    // CTERMEQ/CTERMNE: compare two GP regs, set N/V leaving Z/C unchanged (so
+    // the input NZCV matters). Mix equal and unequal operands, random flags.
+    let mut rng = Rng::new(0x8_7001);
+    let mut batch: Vec<(String, u32, ArmState)> = Vec::new();
+    for sf in 0..2u32 {
+        for ne in 0..2u32 {
+            let insn = enc_sve_cterm(sf, ne);
+            for _ in 0..12 {
+                let mut st = ArmState::zeroed();
+                let base = rng.next();
+                st.x[1] = base;
+                st.x[2] = if rng.next() & 1 == 0 { base } else { rng.next() };
+                st.pstate = (rng.next() & 0xF) << 28; // random input NZCV
+                batch.push((format!("cterm sf{sf} ne{ne}"), insn, st));
+            }
+        }
+    }
+    run_batch("sve_cterm", batch);
 }
 
 #[test]

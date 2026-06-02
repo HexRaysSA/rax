@@ -6112,7 +6112,10 @@ impl AArch64Cpu {
                 if (insn >> 24) & 0xFF == 0b01000100
                     && (insn >> 21) & 1 == 0
                     && ((insn >> 13) & 0x7 == 0b100
-                        || ((insn >> 13) & 0x7 == 0b101 && (insn >> 19) & 0x7 == 0b001)) =>
+                        || ((insn >> 13) & 0x7 == 0b101 && (insn >> 19) & 0x7 == 0b001)
+                        || ((insn >> 13) & 0x7 == 0b101
+                            && (insn >> 19) & 0x7 == 0b000
+                            && matches!((insn >> 16) & 0x7, 0b000 | 0b001))) =>
             {
                 self.exec_sve2_pred_alu(insn)
             }
@@ -6570,16 +6573,27 @@ impl AArch64Cpu {
         let elements = 16 / esize;
 
         if (insn >> 13) & 0x7 == 0b101 {
-            // Unary SQABS/SQNEG: source = rfield, dest = rd, merging.
-            let neg = (insn >> 16) & 1 == 1; // 000=SQABS, 001=SQNEG
+            // Unary, source = rfield, dest = rd, merging. bits[21:19]==001 ->
+            // SQABS/SQNEG; bits[21:19]==000 -> URECPE/URSQRTE (S-only unsigned
+            // reciprocal estimates).
             let src = self.v[rfield].to_le_bytes();
+            let recip = (insn >> 19) & 0x7 == 0b000;
+            if recip && esize != 4 {
+                return Ok(CpuExit::Undefined(insn));
+            }
+            let sel = (insn >> 16) & 1 == 1; // SQNEG / URSQRTE
             for e in 0..elements {
                 let off = e * esize;
                 if (pred >> off) & 1 == 0 {
                     continue;
                 }
-                let n = sext_elem(read_elem(&src, off, esize), bits);
-                let r = if neg { sat_signed(-n, bits) } else { sat_signed(n.abs(), bits) };
+                let r = if recip {
+                    let a = read_elem(&src, off, 4) as u32;
+                    (if sel { unsigned_rsqrt_estimate(a) } else { unsigned_recip_estimate(a) }) as u64
+                } else {
+                    let n = sext_elem(read_elem(&src, off, esize), bits);
+                    if sel { sat_signed(-n, bits) } else { sat_signed(n.abs(), bits) }
+                };
                 write_elem(&mut dst, off, esize, r);
             }
             self.v[rd] = u128::from_le_bytes(dst);
@@ -7416,6 +7430,26 @@ impl AArch64Cpu {
                 self.set_c(empty);
                 self.set_v(false);
             }
+            return Ok(CpuExit::Continue);
+        }
+
+        // CTERMEQ/CTERMNE: 0x25, bit23==1, bit21==1, bits[15:10]==001000.
+        // Compares two GP registers (sf=bit22 -> 64/32-bit); sets N to the
+        // comparison result and V=!N&!C, leaving Z and C unchanged. bit4 = NE.
+        if (insn >> 23) & 1 == 1 && (insn >> 21) & 1 == 1 && (insn >> 10) & 0x3F == 0b001000 {
+            let sf = (insn >> 22) & 1 == 1;
+            let ne = (insn >> 4) & 1 == 1;
+            let rn = ((insn >> 5) & 0x1F) as u8;
+            let rm = ((insn >> 16) & 0x1F) as u8;
+            let (a, b) = if sf {
+                (self.get_x(rn), self.get_x(rm))
+            } else {
+                (self.get_w(rn) as u64, self.get_w(rm) as u64)
+            };
+            let cmp = if ne { a != b } else { a == b };
+            self.set_n(cmp);
+            let c = self.get_c();
+            self.set_v(!cmp & !c);
             return Ok(CpuExit::Continue);
         }
 
