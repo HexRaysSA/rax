@@ -1116,6 +1116,16 @@ impl RiscVLifter {
         if funct7 == 0x01 && self.extensions.m {
             return self.lift_op32_m(insn, addr, ctx);
         }
+        // Non-base word ALU (Zba add.uw/sh*add.uw, Zbb rolw/rorw, Zbkb packw)
+        // share the decode-driven bit-manip path.
+        let xl = if self.xlen == 64 { RvXlen::Rv64 } else { RvXlen::Rv32 };
+        let dop = rv_decode(insn, xl, &RvIsa::rv64gc()).op;
+        if !matches!(
+            dop,
+            RvOp::Addw | RvOp::Subw | RvOp::Sllw | RvOp::Srlw | RvOp::Sraw
+        ) {
+            return self.lift_zb_op(insn, addr, ctx);
+        }
 
         let mut ops = Vec::new();
 
@@ -1399,6 +1409,38 @@ impl RiscVLifter {
                 let zero = ctx.alloc_vreg();
                 ops.push(mk(ctx, OpKind::Mov { dst: zero, src: SrcOperand::Imm(0), width: w }));
                 ops.push(mk(ctx, OpKind::Select { dst, cond: z, src_true: rs1, src_false: zero, width: w }));
+            }
+            // Pack: rd = (rs2[lo] << shift) | rs1[lo]. pack uses XLEN/2 halves
+            // (zext.w on RV64), packh uses bytes, packw uses 16-bit halves with
+            // a sign-extended 32-bit result.
+            RvOp::Pack => {
+                let a = ctx.alloc_vreg();
+                ops.push(mk(ctx, OpKind::ZeroExtend { dst: a, src: rs1, from_width: OpWidth::W32, to_width: w }));
+                let b = ctx.alloc_vreg();
+                ops.push(mk(ctx, OpKind::ZeroExtend { dst: b, src: rs2, from_width: OpWidth::W32, to_width: w }));
+                let bsh = ctx.alloc_vreg();
+                ops.push(mk(ctx, OpKind::Shl { dst: bsh, src: b, amount: SrcOperand::Imm(32), width: w, flags: FlagUpdate::None }));
+                ops.push(mk(ctx, OpKind::Or { dst, src1: a, src2: SrcOperand::Reg(bsh), width: w, flags: FlagUpdate::None }));
+            }
+            RvOp::Packh => {
+                let a = ctx.alloc_vreg();
+                ops.push(mk(ctx, OpKind::And { dst: a, src1: rs1, src2: SrcOperand::Imm(0xff), width: w, flags: FlagUpdate::None }));
+                let b = ctx.alloc_vreg();
+                ops.push(mk(ctx, OpKind::And { dst: b, src1: rs2, src2: SrcOperand::Imm(0xff), width: w, flags: FlagUpdate::None }));
+                let bsh = ctx.alloc_vreg();
+                ops.push(mk(ctx, OpKind::Shl { dst: bsh, src: b, amount: SrcOperand::Imm(8), width: w, flags: FlagUpdate::None }));
+                ops.push(mk(ctx, OpKind::Or { dst, src1: a, src2: SrcOperand::Reg(bsh), width: w, flags: FlagUpdate::None }));
+            }
+            RvOp::Packw => {
+                let a = ctx.alloc_vreg();
+                ops.push(mk(ctx, OpKind::And { dst: a, src1: rs1, src2: SrcOperand::Imm(0xffff), width: w, flags: FlagUpdate::None }));
+                let b = ctx.alloc_vreg();
+                ops.push(mk(ctx, OpKind::And { dst: b, src1: rs2, src2: SrcOperand::Imm(0xffff), width: w, flags: FlagUpdate::None }));
+                let bsh = ctx.alloc_vreg();
+                ops.push(mk(ctx, OpKind::Shl { dst: bsh, src: b, amount: SrcOperand::Imm(16), width: w, flags: FlagUpdate::None }));
+                let t = ctx.alloc_vreg();
+                ops.push(mk(ctx, OpKind::Or { dst: t, src1: a, src2: SrcOperand::Reg(bsh), width: w, flags: FlagUpdate::None }));
+                ops.push(mk(ctx, OpKind::SignExtend { dst, src: t, from_width: OpWidth::W32, to_width: w }));
             }
             _ => {
                 return Err(LiftError::Unsupported {
