@@ -27,8 +27,14 @@
 pub struct GuestRegs {
     /// General-purpose registers, indexed by x86 encoding.
     pub gpr: [u64; 16],
-    /// Materialized RFLAGS.
+    /// Materialized RFLAGS (offset 128).
     pub rflags: u64,
+    /// Resume guest PC, written by an exit stub when a block lowered with the
+    /// general-exit ABI hands control back to the interpreter (offset 136). Only
+    /// meaningful for blocks run via [`ExecMem::run_with_exit`]. See
+    /// [`enter_native`] (the R15-reserved trampoline) and the lowerer's
+    /// `native_exit` mode.
+    pub exit_pc: u64,
 }
 
 // enter_native(rdi = entry ptr, rsi = *mut GuestRegs):
@@ -106,6 +112,18 @@ core::arch::global_asm!(
 unsafe extern "C" {
     fn rax_smir_enter_native(entry: *const u8, state: *mut GuestRegs);
 }
+
+/// Byte offset of `GuestRegs.exit_pc` (after `gpr[16]` + `rflags`). An exit stub
+/// writes the resume guest PC here via the state pointer.
+pub const EXIT_PC_OFFSET: i32 = 136;
+
+/// Offset of the `*mut GuestRegs` state pointer relative to a lowered block's
+/// frame pointer (RBP), under the `rax_smir_enter_native` trampoline's stack
+/// layout: the trampoline does `sub rsp,24; [rsp+8]=state` before `call`, and
+/// the block's prologue `push rbp; mov rbp,rsp` lands RBP 24 bytes below that
+/// slot — so `[rbp+24]` holds the state pointer throughout the block. An exit
+/// stub loads it from here to record `exit_pc` (no reserved guest register).
+pub const STATE_PTR_AT_RBP: i32 = 24;
 
 /// W^X executable memory holding a finalized lowered block. Maps RW, copies the
 /// code in, then flips to RX; unmaps on drop.
@@ -263,6 +281,33 @@ mod tests {
         regs.rflags = 0x2;
         mem.run(0, &mut regs);
         assert_eq!(regs.gpr[0], 42, "RAX should be RBX+RCX");
+    }
+
+    // General-exit stub: a block (with the lowerer's `push rbp; mov rbp,rsp`
+    // prologue) records its resume PC into exit_pc by loading the state pointer
+    // from [rbp+24] (the trampoline's frame layout) into a push/pop-saved
+    // scratch — no reserved guest register, runs under the existing trampoline.
+    #[test]
+    fn exec_mem_exit_pc_via_stub() {
+        let code = [
+            0x55, // push rbp
+            0x48, 0x89, 0xE5, // mov rbp, rsp
+            0x50, // push rax (scratch)
+            0x48, 0x8B, 0x45, 0x18, // mov rax, [rbp+24]  (state ptr)
+            0xC7, 0x80, 0x88, 0x00, 0x00, 0x00, 0xCD, 0xAB, 0x34, 0x12, // mov [rax+136], 0x1234abcd
+            0xC7, 0x80, 0x8C, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // mov [rax+140], 0
+            0x58, // pop rax
+            0x48, 0x89, 0xEC, // mov rsp, rbp
+            0x5D, // pop rbp
+            0xC3, // ret
+        ];
+        let mem = ExecMem::new(&code).expect("ExecMem map");
+        let mut regs = GuestRegs::default();
+        regs.gpr[0] = 0xCAFE; // guest RAX must pass through (scratch restored)
+        regs.rflags = 0x2;
+        mem.run(0, &mut regs);
+        assert_eq!(regs.exit_pc, 0x1234_abcd, "exit_pc recorded via [rbp+24] state ptr");
+        assert_eq!(regs.gpr[0], 0xCAFE, "guest RAX restored after scratch use");
     }
 
     use crate::smir::flags::FlagUpdate;

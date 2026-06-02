@@ -3109,6 +3109,14 @@ pub struct X86_64Lowerer {
     /// Pending return immediate for current block
     pending_ret_imm: Option<u16>,
 
+    /// Native-exit blocks (JIT general-exit ABI): block-id ⇒ resume guest PC.
+    /// A block in this map is lowered as an EXIT STUB that records `exit_pc`
+    /// (via the `[rbp+24]` state pointer) and returns to the trampoline, instead
+    /// of lowering its ops/terminator. Lets the JIT run a hot loop natively and
+    /// hand control back to the interpreter at the loop-exit address. Set via
+    /// [`X86_64Lowerer::set_native_exits`] before `lower_function`.
+    native_exits: std::collections::HashMap<BlockId, u64>,
+
     /// Folded condition for the current block's `CondBranch` terminator.
     /// Set by `lower_block` when the block's last op is a `TestCondition`
     /// feeding the terminator's `cond` vreg: the SETcc-into-a-vreg + `test`
@@ -3137,7 +3145,16 @@ impl X86_64Lowerer {
             block_guest_pcs: HashMap::new(),
             pending_ret_imm: None,
             pending_cond: None,
+            native_exits: std::collections::HashMap::new(),
         }
+    }
+
+    /// Mark blocks as JIT native-exit stubs (block-id ⇒ resume guest PC). Call
+    /// after `new()` and before `lower_function`. Each marked block lowers to an
+    /// exit stub that records `exit_pc` and returns; its ops/terminator are not
+    /// emitted. Requires the block to be reachable only as an exit edge.
+    pub fn set_native_exits(&mut self, exits: std::collections::HashMap<BlockId, u64>) {
+        self.native_exits = exits;
     }
 
     pub fn set_pcrel_adjust(&mut self, adjust: bool) {
@@ -8319,6 +8336,34 @@ impl X86_64Lowerer {
         // Record block offset
         self.block_offsets.insert(block.id, self.code.position());
         self.block_guest_pcs.insert(block.id, block.guest_pc);
+
+        // JIT native-exit stub: record the resume guest PC into `exit_pc` and
+        // return to the trampoline, skipping this block's ops/terminator. The
+        // state pointer lives at [rbp+24] (the enter_native frame layout); we
+        // borrow RAX as scratch (push/pop) so no guest register is disturbed.
+        // exit_pc is at GuestRegs offset 136 (gpr[16]*8 + rflags), 140 = +hi32.
+        if let Some(&resume_pc) = self.native_exits.get(&block.id) {
+            self.code.emit_u8(0x50); // push rax
+            // mov rax, [rbp+24]  (48 8B 45 18)
+            self.code.emit_u8(0x48);
+            self.code.emit_u8(0x8B);
+            self.code.emit_u8(0x45);
+            self.code.emit_u8(0x18);
+            // mov dword [rax+136], resume_pc<low32>   (C7 80 <disp32> <imm32>)
+            self.code.emit_u8(0xC7);
+            self.code.emit_u8(0x80);
+            self.code.emit_u32(136);
+            self.code.emit_u32(resume_pc as u32);
+            // mov dword [rax+140], resume_pc<high32>
+            self.code.emit_u8(0xC7);
+            self.code.emit_u8(0x80);
+            self.code.emit_u32(140);
+            self.code.emit_u32((resume_pc >> 32) as u32);
+            self.code.emit_u8(0x58); // pop rax
+            // epilogue: mov rsp,rbp ; pop rbp ; ret (flag-preserving teardown)
+            self.emit_epilogue_with_ret(None);
+            return Ok(());
+        }
 
         // Initialize register allocator for this block
         self.regalloc.begin_block(block);
