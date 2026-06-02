@@ -768,3 +768,162 @@ fn lift_hvx_vmpyih() {
         0x7006,
     );
 }
+
+// ---- Wave 2: VLane-based HVX elementwise lifts ----
+
+#[test]
+fn lift_hvx_vlogical() {
+    // Bitwise vand/vor/vxor over the full 1024-bit vector (VLane And/Or/Xor).
+    lift_family(
+        "hvx_vlogical",
+        &[
+            ("vand", "{ v2 = vand(v0,v1) }"),
+            ("vor", "{ v2 = vor(v0,v1) }"),
+            ("vxor", "{ v2 = vxor(v0,v1) }"),
+        ],
+        12,
+        0x7007,
+    );
+}
+
+#[test]
+fn lift_hvx_vminmax_signed() {
+    // Signed per-lane min/max (VLane Min/Max signed:true).
+    lift_family(
+        "hvx_vminmax_signed",
+        &[
+            ("vmaxb", "{ v2.b = vmax(v0.b,v1.b) }"),
+            ("vmaxh", "{ v2.h = vmax(v0.h,v1.h) }"),
+            ("vmaxw", "{ v2.w = vmax(v0.w,v1.w) }"),
+            ("vminb", "{ v2.b = vmin(v0.b,v1.b) }"),
+            ("vminh", "{ v2.h = vmin(v0.h,v1.h) }"),
+            ("vminw", "{ v2.w = vmin(v0.w,v1.w) }"),
+        ],
+        12,
+        0x7008,
+    );
+}
+
+#[test]
+fn lift_hvx_vminu() {
+    // Unsigned per-lane min (vminub/vminuh) — VLane Min signed:false.
+    // (vmaxub/vmaxuh are lifted in Wave 1 via VMax.)
+    lift_family(
+        "hvx_vminu",
+        &[
+            ("vminub", "{ v2.ub = vmin(v0.ub,v1.ub) }"),
+            ("vminuh", "{ v2.uh = vmin(v0.uh,v1.uh) }"),
+        ],
+        12,
+        0x7009,
+    );
+}
+
+#[test]
+fn lift_hvx_vsat_signed() {
+    // Signed saturating add/sub, single vector (VLane AddSat/SubSat signed:true).
+    lift_family(
+        "hvx_vsat_signed",
+        &[
+            ("vaddbsat", "{ v2.b = vadd(v0.b,v1.b):sat }"),
+            ("vaddhsat", "{ v2.h = vadd(v0.h,v1.h):sat }"),
+            ("vaddwsat", "{ v2.w = vadd(v0.w,v1.w):sat }"),
+            ("vsubbsat", "{ v2.b = vsub(v0.b,v1.b):sat }"),
+            ("vsubhsat", "{ v2.h = vsub(v0.h,v1.h):sat }"),
+            ("vsubwsat", "{ v2.w = vsub(v0.w,v1.w):sat }"),
+        ],
+        12,
+        0x700a,
+    );
+}
+
+#[test]
+fn lift_hvx_vsat_unsigned() {
+    // Unsigned saturating add/sub, single vector (VLane AddSat/SubSat signed:false).
+    // (vsubuwsat has no single-vector form; only the _dv pair form exists.)
+    lift_family(
+        "hvx_vsat_unsigned",
+        &[
+            ("vaddubsat", "{ v2.ub = vadd(v0.ub,v1.ub):sat }"),
+            ("vadduhsat", "{ v2.uh = vadd(v0.uh,v1.uh):sat }"),
+            ("vadduwsat", "{ v2.uw = vadd(v0.uw,v1.uw):sat }"),
+            ("vsububsat", "{ v2.ub = vsub(v0.ub,v1.ub):sat }"),
+            ("vsubuhsat", "{ v2.uh = vsub(v0.uh,v1.uh):sat }"),
+        ],
+        12,
+        0x700b,
+    );
+}
+
+#[test]
+fn lift_hvx_vsat_dv() {
+    // Dual-vector saturating add/sub: Vdd = op(Vuu, Vvv) emits two VLane ops
+    // over the even/odd register of each pair.
+    lift_family(
+        "hvx_vsat_dv",
+        &[
+            // signed
+            ("vaddbsat_dv", "{ v3:2.b = vadd(v1:0.b,v5:4.b):sat }"),
+            ("vaddhsat_dv", "{ v3:2.h = vadd(v1:0.h,v5:4.h):sat }"),
+            ("vaddwsat_dv", "{ v3:2.w = vadd(v1:0.w,v5:4.w):sat }"),
+            ("vsubbsat_dv", "{ v3:2.b = vsub(v1:0.b,v5:4.b):sat }"),
+            ("vsubhsat_dv", "{ v3:2.h = vsub(v1:0.h,v5:4.h):sat }"),
+            ("vsubwsat_dv", "{ v3:2.w = vsub(v1:0.w,v5:4.w):sat }"),
+            // unsigned
+            ("vaddubsat_dv", "{ v3:2.ub = vadd(v1:0.ub,v5:4.ub):sat }"),
+            ("vadduhsat_dv", "{ v3:2.uh = vadd(v1:0.uh,v5:4.uh):sat }"),
+            ("vadduwsat_dv", "{ v3:2.uw = vadd(v1:0.uw,v5:4.uw):sat }"),
+            ("vsububsat_dv", "{ v3:2.ub = vsub(v1:0.ub,v5:4.ub):sat }"),
+            ("vsubuhsat_dv", "{ v3:2.uh = vsub(v1:0.uh,v5:4.uh):sat }"),
+            ("vsubuwsat_dv", "{ v3:2.uw = vsub(v1:0.uw,v5:4.uw):sat }"),
+        ],
+        12,
+        0x700c,
+    );
+}
+
+#[test]
+fn lift_hvx_vavg() {
+    // Truncating average (a+b)>>1 (VLane Avg) and rounding (a+b+1)>>1 (AvgRnd),
+    // signed and unsigned per lane width.
+    lift_family(
+        "hvx_vavg",
+        &[
+            // truncating, unsigned
+            ("vavgub", "{ v2.ub = vavg(v0.ub,v1.ub) }"),
+            ("vavguh", "{ v2.uh = vavg(v0.uh,v1.uh) }"),
+            ("vavguw", "{ v2.uw = vavg(v0.uw,v1.uw) }"),
+            // truncating, signed
+            ("vavgb", "{ v2.b = vavg(v0.b,v1.b) }"),
+            ("vavgh", "{ v2.h = vavg(v0.h,v1.h) }"),
+            ("vavgw", "{ v2.w = vavg(v0.w,v1.w) }"),
+            // rounding, unsigned
+            ("vavgubrnd", "{ v2.ub = vavg(v0.ub,v1.ub):rnd }"),
+            ("vavguhrnd", "{ v2.uh = vavg(v0.uh,v1.uh):rnd }"),
+            ("vavguwrnd", "{ v2.uw = vavg(v0.uw,v1.uw):rnd }"),
+            // rounding, signed
+            ("vavgbrnd", "{ v2.b = vavg(v0.b,v1.b):rnd }"),
+            ("vavghrnd", "{ v2.h = vavg(v0.h,v1.h):rnd }"),
+            ("vavgwrnd", "{ v2.w = vavg(v0.w,v1.w):rnd }"),
+        ],
+        12,
+        0x700d,
+    );
+}
+
+#[test]
+fn lift_hvx_vabsdiff() {
+    // Absolute difference |a-b| (VLane AbsDiff). Unsigned: vabsdiffub/uh.
+    // Signed: vabsdiffh/w (the signed forms write an unsigned-typed dest in asm).
+    lift_family(
+        "hvx_vabsdiff",
+        &[
+            ("vabsdiffub", "{ v2.ub = vabsdiff(v0.ub,v1.ub) }"),
+            ("vabsdiffuh", "{ v2.uh = vabsdiff(v0.uh,v1.uh) }"),
+            ("vabsdiffh", "{ v2.uh = vabsdiff(v0.h,v1.h) }"),
+            ("vabsdiffw", "{ v2.uw = vabsdiff(v0.w,v1.w) }"),
+        ],
+        12,
+        0x700e,
+    );
+}
