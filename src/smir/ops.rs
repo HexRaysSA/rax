@@ -956,6 +956,27 @@ pub enum OpKind {
         odd: bool,
     },
 
+    /// Multiply with post-shift, optional rounding, optional signed saturation,
+    /// and high-part extraction. Models HVX `vmpyhvsrs` (`(Vu·Vv)<<1 +0x8000`,
+    /// sat32, `>>16`), `vmpyuhvs` (`(Vu·Vv)>>16`), and (via a VBroadcast of Rt)
+    /// the `vmpyhss`/`vmpyhsrs` scalar forms. Each lane: `p = ext(src1)·ext(src2)`
+    /// (i64); `p <<= shift_left`; if `round` add `1<<(out_shift-1)`; if
+    /// `sat_bits != 0` clamp `p` to the signed `sat_bits` range; result =
+    /// `(p >> out_shift)` masked to `src_elem`. Output element = `src_elem`.
+    VMulShiftSat {
+        dst: VReg,
+        src1: VReg,
+        src2: VReg,
+        src_elem: VecElementType,
+        signed1: bool,
+        signed2: bool,
+        shift_left: u8,
+        round: bool,
+        /// 0 = no saturation; otherwise clamp to the signed `sat_bits` range.
+        sat_bits: u8,
+        out_shift: u8,
+    },
+
     /// Reducing (dot-product) multiply.
     ///
     /// Models the HVX `vrmpy`/`vdmpy` vector-by-vector reduce family: each output
@@ -1468,7 +1489,8 @@ impl OpKind {
             | OpKind::VPackSat { dst, .. }
             | OpKind::VShuffle2 { dst, .. }
             | OpKind::VShuffleEO { dst, .. }
-            | OpKind::VAlign { dst, .. } => vec![*dst],
+            | OpKind::VAlign { dst, .. }
+            | OpKind::VMulShiftSat { dst, .. } => vec![*dst],
 
             OpKind::MulU { dst_lo, dst_hi, .. } | OpKind::MulS { dst_lo, dst_hi, .. } => {
                 let mut v = vec![*dst_lo];

@@ -1974,6 +1974,48 @@ impl SmirInterpreter {
                 Self::write_vec(ctx, *dst_hi, hi);
             }
 
+            OpKind::VMulShiftSat {
+                dst,
+                src1,
+                src2,
+                src_elem,
+                signed1,
+                signed2,
+                shift_left,
+                round,
+                sat_bits,
+                out_shift,
+            } => {
+                let a = Self::read_vec(ctx, *src1);
+                let b = Self::read_vec(ctx, *src2);
+                let nbits = src_elem.bytes() * 8;
+                let lanes = (1024 / nbits) as u8;
+                let ext = |raw: u64, signed: bool| -> i64 {
+                    if signed {
+                        let sh = 64 - nbits;
+                        ((raw << sh) as i64) >> sh
+                    } else {
+                        raw as i64
+                    }
+                };
+                let mut result = [0u64; 16];
+                for i in 0..lanes {
+                    let mut p = ext(Self::get_lane(&a, i, nbits), *signed1)
+                        .wrapping_mul(ext(Self::get_lane(&b, i, nbits), *signed2));
+                    p <<= *shift_left;
+                    if *round {
+                        p += 1i64 << (*out_shift - 1);
+                    }
+                    if *sat_bits != 0 {
+                        let lo = -(1i64 << (*sat_bits - 1));
+                        let hi = (1i64 << (*sat_bits - 1)) - 1;
+                        p = p.clamp(lo, hi);
+                    }
+                    Self::set_lane(&mut result, i, nbits, (p >> *out_shift) as u64);
+                }
+                Self::write_vec(ctx, *dst, result);
+            }
+
             OpKind::VReduceMul {
                 dst,
                 src1,
@@ -3440,6 +3482,54 @@ mod tests {
         assert_eq!(out[7], 0xFFFF_FFFF_FFFF_FFFFu64);
         assert_eq!(out[8], 0x0000_0000_0000_0000u64);
         assert_eq!(out[15], 0x0000_0000_0000_0000u64);
+    }
+
+    #[test]
+    fn test_vmulshiftsat_vmpyhvsrs() {
+        let mkv = |n| VReg::Arch(ArchReg::Hexagon(HexagonReg::V(n)));
+        let op = |dst, s1, s2| OpKind::VMulShiftSat {
+            dst,
+            src1: s1,
+            src2: s2,
+            src_elem: VecElementType::I16,
+            signed1: true,
+            signed2: true,
+            shift_left: 1,
+            round: true,
+            sat_bits: 32,
+            out_shift: 16,
+        };
+        // non-saturating: 0x4000*0x4000<<1 +0x8000 = 0x20008000; >>16 = 0x2000.
+        let out = run_vec2([0x4000_4000_4000_4000u64; 16], [0x4000_4000_4000_4000u64; 16],
+            op(mkv(2), mkv(0), mkv(1)));
+        assert_eq!(out, [0x2000_2000_2000_2000u64; 16]);
+        // saturating: (-32768)^2<<1 +0x8000 overflows i32 -> clamp 0x7FFFFFFF; >>16 = 0x7FFF.
+        let out2 = run_vec2([0x8000_8000_8000_8000u64; 16], [0x8000_8000_8000_8000u64; 16],
+            op(mkv(2), mkv(0), mkv(1)));
+        assert_eq!(out2, [0x7FFF_7FFF_7FFF_7FFFu64; 16]);
+    }
+
+    #[test]
+    fn test_vmulshiftsat_vmpyuhvs() {
+        // unsigned 16x16, no shift/round/sat, take high 16: 0xFFFF*0xFFFF>>16 = 0xFFFE.
+        let mkv = |n| VReg::Arch(ArchReg::Hexagon(HexagonReg::V(n)));
+        let out = run_vec2(
+            [0xFFFF_FFFF_FFFF_FFFFu64; 16],
+            [0xFFFF_FFFF_FFFF_FFFFu64; 16],
+            OpKind::VMulShiftSat {
+                dst: mkv(2),
+                src1: mkv(0),
+                src2: mkv(1),
+                src_elem: VecElementType::I16,
+                signed1: false,
+                signed2: false,
+                shift_left: 0,
+                round: false,
+                sat_bits: 0,
+                out_shift: 16,
+            },
+        );
+        assert_eq!(out, [0xFFFE_FFFE_FFFE_FFFEu64; 16]);
     }
 
     #[test]
