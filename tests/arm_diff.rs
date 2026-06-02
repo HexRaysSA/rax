@@ -1614,6 +1614,12 @@ fn enc_sve2_xtn(tsz: u32, variant: u32, t: u32) -> u32 {
     (0b010001010 << 23) | (tszh << 22) | (1 << 21) | (tszl << 19) | (0b000010 << 13)
         | (variant << 11) | (t << 10) | (RN << 5) | RD
 }
+/// SVE2 complex integer add: `01000101 size 00000 op 11011 rot Zm Zdn`.
+/// Zm=z1(RN), Zdn=z0(RD).
+fn enc_sve2_cadd(size: u32, op: u32, rot: u32) -> u32 {
+    (0b01000101 << 24) | (size << 22) | (op << 16) | (0b11011 << 11) | (rot << 10) | (RN << 5)
+        | RD
+}
 
 /// SVE INDEX variants. base=imm5[9:5] or Xn; step=imm5[20:16] or Xm. Rn=x1, Rm=x2.
 fn enc_index_ii(sz: u32, imm_step: u32, imm_base: u32) -> u32 {
@@ -3499,6 +3505,23 @@ fn diff_sve2_xtn() {
         }
     }
     run_family("sve2_xtn", cases, 16, 0x5_5001);
+}
+
+#[test]
+fn diff_sve2_cadd() {
+    // SVE2 complex integer add (CADD / saturating SQCADD), 90/270 rotation.
+    let mut cases: Vec<(String, u32)> = Vec::new();
+    for size in 0..4u32 {
+        for op in 0..2u32 {
+            for rot in 0..2u32 {
+                cases.push((
+                    format!("cadd sz{size} op{op} rot{rot}"),
+                    enc_sve2_cadd(size, op, rot),
+                ));
+            }
+        }
+    }
+    run_family("sve2_cadd", cases, 16, 0x5_6001);
 }
 
 #[test]
