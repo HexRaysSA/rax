@@ -4912,6 +4912,44 @@ impl AArch64Cpu {
                 Ok(CpuExit::Continue)
             }
 
+            // SVE FTSSEL (trigonometric select coefficient): 0x04, bit21==1,
+            // bits[15:10]==101100. Per lane: result = Zm[e]&1 ? 1.0 : Zn[e];
+            // then if Zm[e]&2 negate. Unpredicated; Zn=bits[9:5], Zm=bits[20:16].
+            0b000
+                if (insn >> 24) & 0xFF == 0b00000100
+                    && (insn >> 21) & 1 == 1
+                    && (insn >> 10) & 0x3F == 0b101100 =>
+            {
+                let size = (insn >> 22) & 0x3;
+                if size == 0 {
+                    return Ok(CpuExit::Undefined(insn));
+                }
+                let esize = 1usize << size;
+                let one: u64 = match esize {
+                    2 => 0x3C00,
+                    4 => 0x3F80_0000,
+                    _ => 0x3FF0_0000_0000_0000,
+                };
+                let signbit: u64 = 1 << (esize * 8 - 1);
+                let n = self.v[zn].to_le_bytes();
+                let m = self.v[zm].to_le_bytes();
+                let mut dst = [0u8; 16];
+                for e in 0..(16 / esize) {
+                    let off = e * esize;
+                    let mm = read_elem(&m, off, esize);
+                    let mut nn = read_elem(&n, off, esize);
+                    if mm & 1 != 0 {
+                        nn = one;
+                    }
+                    if mm & 2 != 0 {
+                        nn ^= signbit;
+                    }
+                    write_elem(&mut dst, off, esize, nn);
+                }
+                self.v[zd] = u128::from_le_bytes(dst);
+                Ok(CpuExit::Continue)
+            }
+
             // SVE2 XAR (exclusive-or and rotate right by immediate): 0x04,
             // bit21==1, bits[15:10]==001101. Zdn=bits[4:0], Zm=bits[9:5]; the
             // tsz:imm3 field gives the element size and rotate amount (1..bits).
@@ -7862,6 +7900,54 @@ impl AArch64Cpu {
                 // FMMLA.d (esz=3): VL=128 < 4*8 bytes, so it is unallocated.
                 _ => return Ok(CpuExit::Undefined(insn)),
             }
+        }
+
+        // SVE FTSMUL (trigonometric starting value): 0x65, bit21==0,
+        // bits[15:10]==000011. result = Zn[e]^2 with sign from Zm[e] bit0.
+        if (insn >> 24) & 0xFF == 0b01100101
+            && (insn >> 21) & 1 == 0
+            && (insn >> 10) & 0x3F == 0b000011
+        {
+            let size = (insn >> 22) & 0x3;
+            if size == 0 {
+                return Ok(CpuExit::Undefined(insn));
+            }
+            let esz = 1usize << size;
+            let n = self.v[zn].to_le_bytes();
+            let m = self.v[zm].to_le_bytes();
+            let mut dst = [0u8; 16];
+            for e in 0..(16 / esz) {
+                let off = e * esz;
+                let r = sve_ftsmul(esz, read_elem(&n, off, esz), read_elem(&m, off, esz) & 1);
+                write_elem(&mut dst, off, esz, r);
+            }
+            self.v[zd] = u128::from_le_bytes(dst);
+            return Ok(CpuExit::Continue);
+        }
+
+        // SVE FTMAD (trigonometric multiply-add coefficient): 0x65,
+        // bits[21:19]==010, bits[15:10]==100000. Destructive: Zdn = fused(Zdn,
+        // |Zm|, coeff[imm + 8*(Zm<0)]); Zm is at bits[9:5], imm at bits[18:16].
+        if (insn >> 24) & 0xFF == 0b01100101
+            && (insn >> 19) & 0x7 == 0b010
+            && (insn >> 10) & 0x3F == 0b100000
+        {
+            let size = (insn >> 22) & 0x3;
+            if size == 0 {
+                return Ok(CpuExit::Undefined(insn));
+            }
+            let esz = 1usize << size;
+            let imm = ((insn >> 16) & 0x7) as usize;
+            let dn = self.v[zd].to_le_bytes(); // Zdn
+            let m = self.v[zn].to_le_bytes(); // Zm at bits[9:5]
+            let mut dst = [0u8; 16];
+            for e in 0..(16 / esz) {
+                let off = e * esz;
+                let r = sve_ftmad(esz, read_elem(&dn, off, esz), read_elem(&m, off, esz), imm);
+                write_elem(&mut dst, off, esz, r);
+            }
+            self.v[zd] = u128::from_le_bytes(dst);
+            return Ok(CpuExit::Continue);
         }
 
         // FP fast reductions / FADDA live at bits[15:13]==001; FP unary at
@@ -13139,6 +13225,93 @@ fn sve_flogb(esize: usize, bits: u64) -> i64 {
         return emin - fracbits as i64 + msb;
     }
     exp as i64 - bias // normal: 1 <= significand < 2, so floor(log2) == exponent
+}
+
+/// SVE FTSMUL: square `x` and set the result sign to `sgn` (bit0 of Zm),
+/// unless the squared value is NaN (then the sign is left as produced).
+fn sve_ftsmul(esize: usize, x: u64, sgn: u64) -> u64 {
+    match esize {
+        2 => {
+            let s = fp16_mul(x as u16, x as u16);
+            if (s & 0x7C00) == 0x7C00 && (s & 0x03FF) != 0 {
+                s as u64 // NaN
+            } else {
+                ((s & 0x7FFF) | ((sgn as u16) << 15)) as u64
+            }
+        }
+        4 => {
+            let r = f32::from_bits(x as u32) * f32::from_bits(x as u32);
+            if r.is_nan() {
+                r.to_bits() as u64
+            } else {
+                ((r.to_bits() & 0x7FFF_FFFF) | ((sgn as u32) << 31)) as u64
+            }
+        }
+        _ => {
+            let r = f64::from_bits(x) * f64::from_bits(x);
+            if r.is_nan() {
+                r.to_bits()
+            } else {
+                (r.to_bits() & 0x7FFF_FFFF_FFFF_FFFF) | (sgn << 63)
+            }
+        }
+    }
+}
+
+/// SVE FTMAD coefficient tables (ARM ASL): index = imm + (8 if Zm<0). The
+/// fused multiply-add is Zdn*|Zm| + coeff[index] (FPCR.AH=0 default).
+const FTMAD_COEFF_H: [u16; 16] = [
+    0x3c00, 0xb155, 0x2030, 0, 0, 0, 0, 0, 0x3c00, 0xb800, 0x293a, 0, 0, 0, 0, 0,
+];
+const FTMAD_COEFF_S: [u32; 16] = [
+    0x3f80_0000, 0xbe2a_aaab, 0x3c08_8886, 0xb950_08b9, 0x3636_9d6d, 0, 0, 0, 0x3f80_0000,
+    0xbf00_0000, 0x3d2a_aaa6, 0xbab6_0705, 0x37cd_37cc, 0, 0, 0,
+];
+const FTMAD_COEFF_D: [u64; 16] = [
+    0x3ff0_0000_0000_0000,
+    0xbfc5_5555_5555_5543,
+    0x3f81_1111_1110_f30c,
+    0xbf2a_01a0_19b9_2fc6,
+    0x3ec7_1de3_51f3_d22b,
+    0xbe5a_e5e2_b60f_7b91,
+    0x3de5_d840_8868_552f,
+    0,
+    0x3ff0_0000_0000_0000,
+    0xbfe0_0000_0000_0000,
+    0x3fa5_5555_5555_5536,
+    0xbf56_c16c_16c1_3a0b,
+    0x3efa_01a0_19b1_e8d8,
+    0xbe92_7e4f_7282_f468,
+    0x3e21_ee96_d264_1b13,
+    0xbda8_f763_80fb_b401,
+];
+
+/// SVE FTMAD: Zdn = fused(Zdn, |Zm|, coeff[imm + 8*(Zm<0)]). The product is
+/// against the absolute value of Zm; a negative Zm selects the upper coefficient
+/// block (FPCR.AH=0 default — no product negation).
+fn sve_ftmad(esize: usize, nn: u64, mm: u64, imm: usize) -> u64 {
+    match esize {
+        2 => {
+            let neg = mm & 0x8000 != 0;
+            let m = if neg { mm & 0x7FFF } else { mm } as u16;
+            let coeff = FTMAD_COEFF_H[imm + if neg { 8 } else { 0 }];
+            fp16_round(fp16_to_f64(nn as u16) * fp16_to_f64(m) + fp16_to_f64(coeff)) as u64
+        }
+        4 => {
+            let neg = mm & 0x8000_0000 != 0;
+            let m = if neg { mm & 0x7FFF_FFFF } else { mm };
+            let coeff = f32::from_bits(FTMAD_COEFF_S[imm + if neg { 8 } else { 0 }]);
+            f32::from_bits(nn as u32)
+                .mul_add(f32::from_bits(m as u32), coeff)
+                .to_bits() as u64
+        }
+        _ => {
+            let neg = mm & 0x8000_0000_0000_0000 != 0;
+            let m = if neg { mm & 0x7FFF_FFFF_FFFF_FFFF } else { mm };
+            let coeff = f64::from_bits(FTMAD_COEFF_D[imm + if neg { 8 } else { 0 }]);
+            f64::from_bits(nn).mul_add(f64::from_bits(m), coeff).to_bits()
+        }
+    }
 }
 
 // ---- SHA-1 / SHA-256 primitives (FIPS-180, per ARM ASL) ----

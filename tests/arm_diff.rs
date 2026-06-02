@@ -1669,6 +1669,21 @@ fn enc_sve2_fmlal(sub: u32, top: u32) -> u32 {
         | RD
 }
 
+/// SVE FTSMUL: `01100101 size 0 Zm 000011 Zn Zd`. Zn=z1(RN), Zm=z2(RM), Zd=z0.
+fn enc_sve_ftsmul(size: u32) -> u32 {
+    (0x65 << 24) | (size << 22) | (RM << 16) | (0b000011 << 10) | (RN << 5) | RD
+}
+
+/// SVE FTSSEL: `00000100 size 1 Zm 101100 Zn Zd`. Zn=z1(RN), Zm=z2(RM), Zd=z0.
+fn enc_sve_ftssel(size: u32) -> u32 {
+    (0x04 << 24) | (size << 22) | (1 << 21) | (RM << 16) | (0b101100 << 10) | (RN << 5) | RD
+}
+
+/// SVE FTMAD: `01100101 esz 010 imm3 100000 Zm Zdn`. Zm=z1(RN), Zdn=z0(RD).
+fn enc_sve_ftmad(size: u32, imm: u32) -> u32 {
+    (0x65 << 24) | (size << 22) | (0b010 << 19) | (imm << 16) | (0b100000 << 10) | (RN << 5) | RD
+}
+
 /// SVE FMMLA/BFMMLA (FP matrix multiply): `0110 0100 sz 1 Zm 111001 Zn Zda`.
 /// sz: 01=BFMMLA, 10=FMMLA.s, 11=FMMLA.d. Zn=z1(RN), Zm=z2(RM), Zda=z0(RD).
 fn enc_sve_fmmla(sz: u32) -> u32 {
@@ -2915,6 +2930,73 @@ fn diff_sve2_fmlal() {
         }
     }
     run_batch("sve2_fmlal", batch);
+}
+
+#[test]
+fn diff_sve_ftsmul() {
+    // FTSMUL squares each lane and takes the sign from Zm bit0.
+    let mut rng = Rng::new(0x7_4001);
+    let mut batch: Vec<(String, u32, ArmState)> = Vec::new();
+    for (size, esz) in [(1u32, 2usize), (2, 4), (3, 8)] {
+        let insn = enc_sve_ftsmul(size);
+        for _ in 0..20 {
+            let mut zn = 0u128;
+            for l in 0..(16 / esz) {
+                zn |= (finite_fp_bits(&mut rng, esz) as u128) << (l * esz * 8);
+            }
+            let mut st = ArmState::zeroed();
+            st.set_vreg(1, zn as u64, (zn >> 64) as u64);
+            st.set_vreg(2, rng.next(), rng.next()); // Zm sign source
+            batch.push((format!("ftsmul s{size}"), insn, st));
+        }
+    }
+    run_batch("sve_ftsmul", batch);
+}
+
+#[test]
+fn diff_sve_ftssel() {
+    // FTSSEL selects 1.0 or Zn per Zm bit0, then conditionally negates per bit1.
+    let mut rng = Rng::new(0x7_5001);
+    let mut batch: Vec<(String, u32, ArmState)> = Vec::new();
+    for (size, esz) in [(1u32, 2usize), (2, 4), (3, 8)] {
+        let insn = enc_sve_ftssel(size);
+        for _ in 0..20 {
+            let mut zn = 0u128;
+            for l in 0..(16 / esz) {
+                zn |= (finite_fp_bits(&mut rng, esz) as u128) << (l * esz * 8);
+            }
+            let mut st = ArmState::zeroed();
+            st.set_vreg(1, zn as u64, (zn >> 64) as u64);
+            st.set_vreg(2, rng.next(), rng.next()); // Zm select bits
+            batch.push((format!("ftssel s{size}"), insn, st));
+        }
+    }
+    run_batch("sve_ftssel", batch);
+}
+
+#[test]
+fn diff_sve_ftmad() {
+    // FTMAD fused-multiply-adds Zdn by |Zm| plus a coefficient selected by the
+    // immediate and the sign of Zm. Finite inputs; Zm sign varies.
+    let mut rng = Rng::new(0x7_6001);
+    let mut batch: Vec<(String, u32, ArmState)> = Vec::new();
+    for (size, esz) in [(1u32, 2usize), (2, 4), (3, 8)] {
+        for imm in 0..8u32 {
+            let insn = enc_sve_ftmad(size, imm);
+            for _ in 0..6 {
+                let (mut zdn, mut zm) = (0u128, 0u128);
+                for l in 0..(16 / esz) {
+                    zdn |= (finite_fp_bits(&mut rng, esz) as u128) << (l * esz * 8);
+                    zm |= (finite_fp_bits(&mut rng, esz) as u128) << (l * esz * 8);
+                }
+                let mut st = ArmState::zeroed();
+                st.set_vreg(0, zdn as u64, (zdn >> 64) as u64); // Zdn
+                st.set_vreg(1, zm as u64, (zm >> 64) as u64); // Zm
+                batch.push((format!("ftmad s{size} i{imm}"), insn, st));
+            }
+        }
+    }
+    run_batch("sve_ftmad", batch);
 }
 
 #[test]
