@@ -1661,6 +1661,13 @@ fn sli_tsz_imm(esize_bits: u32, amount: u32) -> (u32, u32) {
     ((tszimm >> 3) & 0xF, tszimm & 0x7)
 }
 
+/// SVE2 FCVTNT/FCVTLT/FCVTXNT: `01100100 opc 0010 opc2 101 Pg Zn Zd`. Pg=p0,
+/// Zn=z1(RN), Zd=z0(RD).
+fn enc_sve2_fcvtx(opc: u32, opc2: u32) -> u32 {
+    (0b01100100 << 24) | (opc << 22) | (0b0010 << 18) | (opc2 << 16) | (0b101 << 13) | (RN << 5)
+        | RD
+}
+
 /// SVE2 FP pairwise: `01100100 size 010 opc 100 Pg Zm Zdn`. Pg=p0, Zm=z1(RN),
 /// Zdn=z0(RD). opc: 000=FADDP, 100=FMAXNMP, 101=FMINNMP, 110=FMAXP, 111=FMINP.
 fn enc_sve2_fpairwise(size: u32, opc: u32) -> u32 {
@@ -2648,6 +2655,45 @@ fn diff_sve_fcvt() {
         }
     }
     run_batch("sve_fcvt", batch);
+}
+
+#[test]
+fn diff_sve2_fcvtx() {
+    // SVE2 FCVTNT/FCVTLT/FCVTXNT operate on the top/odd half of each container.
+    // Narrow (NT/XNT) reads the wide source from the whole container and writes
+    // the converted narrow result into the top half (bottom half preserved).
+    // Long (LT) reads the narrow source from the top half and writes the wide
+    // result into the whole container. Predication is at container granularity.
+    let convs = [
+        (0b10u32, 0b00u32, 4usize, 2usize, true, "fcvtnt_s2h"),
+        (0b11, 0b10, 8, 4, true, "fcvtnt_d2s"),
+        (0b00, 0b10, 8, 4, true, "fcvtxnt_d2s"),
+        (0b10, 0b01, 2, 4, false, "fcvtlt_h2s"),
+        (0b11, 0b11, 4, 8, false, "fcvtlt_s2d"),
+    ];
+    let mut rng = Rng::new(0x6_1001);
+    let mut batch: Vec<(String, u32, ArmState)> = Vec::new();
+    for (opc, opc2, src_sz, dst_sz, narrow, name) in convs {
+        let insn = enc_sve2_fcvtx(opc, opc2);
+        let cont = src_sz.max(dst_sz);
+        let containers = 16 / cont;
+        for _ in 0..24 {
+            let mut st = ArmState::zeroed();
+            let mut zn: u128 = 0;
+            for c in 0..containers {
+                let bits = finite_fp_bits(&mut rng, src_sz) as u128;
+                // NT: source is the full container (low). LT: source is the top
+                // half of the container (offset by src_sz bytes).
+                let off_bytes = if narrow { c * cont } else { c * cont + src_sz };
+                zn |= bits << (off_bytes * 8);
+            }
+            st.set_vreg(1, zn as u64, (zn >> 64) as u64);
+            st.set_vreg(0, rng.next(), rng.next()); // prior Zd (preserved half)
+            st.set_preg(0, rng.next() as u16);
+            batch.push((name.to_string(), insn, st));
+        }
+    }
+    run_batch("sve2_fcvtx", batch);
 }
 
 #[test]

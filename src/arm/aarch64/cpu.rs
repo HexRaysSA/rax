@@ -7417,17 +7417,67 @@ impl AArch64Cpu {
         pg: usize,
         esize: usize,
     ) -> Result<CpuExit, ArmError> {
-        // FCVT (FP precision conversion): bits[21:18]==0010. Here bits[23:22]
+        // FCVT (FP precision conversion): 0x65, bits[21:18]==0010. bits[23:22]
         // (opc) and bits[17:16] (opc2) select the src/dst float widths, NOT the
-        // element size, so it bypasses the size-derived esize path entirely.
-        if (insn >> 18) & 0xF == 0b0010 {
+        // element size, so it bypasses the size-derived esize path entirely. The
+        // 0x65 gate excludes the 0x64 FCVTNT/FCVTLT/FCVTXNT top/bottom variants.
+        if (insn >> 24) & 0xFF == 0b01100101 && (insn >> 18) & 0xF == 0b0010 {
             return self.exec_sve_fcvt(insn, zd, zn, pg);
         }
-        // FP<->int conversions: bits[21:19]==011 (FCVTZS/FCVTZU, FP->int) or
-        // ==010 (SCVTF/UCVTF, int->FP). bits[23:22]/bits[18:17] pick the widths
-        // and bit16 the signedness, so this also bypasses the esize path.
-        if (insn >> 19) & 0x7 == 0b011 || (insn >> 19) & 0x7 == 0b010 {
+        // FP<->int conversions: 0x65, bits[21:19]==011 (FCVTZS/FCVTZU, FP->int)
+        // or ==010 (SCVTF/UCVTF, int->FP). bits[23:22]/bits[18:17] pick the
+        // widths and bit16 the signedness, so this also bypasses the esize path.
+        if (insn >> 24) & 0xFF == 0b01100101
+            && ((insn >> 19) & 0x7 == 0b011 || (insn >> 19) & 0x7 == 0b010)
+        {
             return self.exec_sve_fp_int_cvt(insn, zd, zn, pg);
+        }
+        // FCVTNT/FCVTXNT (narrow, top) and FCVTLT (long, top): 0x64,
+        // bits[21:18]==0010. The wider element is the container; for narrowing
+        // the converted result goes to the top (odd) half (bottom preserved),
+        // for widening the source is read from the top (odd) half. FCVTXNT uses
+        // round-to-odd. Predication is at the container (wider) granularity.
+        if (insn >> 24) & 0xFF == 0b01100100 && (insn >> 18) & 0xF == 0b0010 {
+            let opc = (insn >> 22) & 0x3;
+            let opc2 = (insn >> 16) & 0x3;
+            let (src_sz, dst_sz, round_odd, narrow): (usize, usize, bool, bool) = match (opc, opc2)
+            {
+                (0b00, 0b10) => (8, 4, true, true),  // FCVTXNT d->s
+                (0b10, 0b00) => (4, 2, false, true), // FCVTNT  s->h
+                (0b11, 0b10) => (8, 4, false, true), // FCVTNT  d->s
+                (0b10, 0b01) => (2, 4, false, false), // FCVTLT h->s
+                (0b11, 0b11) => (4, 8, false, false), // FCVTLT s->d
+                _ => return Ok(CpuExit::Undefined(insn)),
+            };
+            let cont = src_sz.max(dst_sz);
+            let elements = 16 / cont;
+            let pred = self.sve_p[pg];
+            let operand = self.v[zn].to_le_bytes();
+            let mut dst = self.v[zd].to_le_bytes();
+            for c in 0..elements {
+                let coff = c * cont;
+                if (pred >> coff) & 1 == 0 {
+                    continue;
+                }
+                let convert = |x: u64| -> u64 {
+                    match (src_sz, dst_sz, round_odd) {
+                        (4, 2, _) => Self::f32_to_fp16(f32::from_bits(x as u32)) as u64,
+                        (8, 4, false) => (f64::from_bits(x) as f32).to_bits() as u64,
+                        (8, 4, true) => round_odd_f64_to_f32(f64::from_bits(x)) as u64,
+                        (2, 4, _) => Self::fp16_to_f32(x as u16).to_bits() as u64,
+                        _ => (f32::from_bits(x as u32) as f64).to_bits(),
+                    }
+                };
+                if narrow {
+                    let res = convert(read_elem(&operand, coff, src_sz));
+                    write_elem(&mut dst, coff + dst_sz, dst_sz, res); // top half
+                } else {
+                    let res = convert(read_elem(&operand, coff + src_sz, src_sz)); // top half
+                    write_elem(&mut dst, coff, dst_sz, res);
+                }
+            }
+            self.v[zd] = u128::from_le_bytes(dst);
+            return Ok(CpuExit::Continue);
         }
         if esize < 2 {
             return Ok(CpuExit::Undefined(insn));
