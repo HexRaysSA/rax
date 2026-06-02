@@ -1774,6 +1774,38 @@ fn enc_sve_int_mla(size: u32, op3: u32) -> u32 {
     (0x04 << 24) | (size << 22) | (RM << 16) | (op3 << 13) | (RN << 5) | RD
 }
 
+/// SVE predicated integer/FP unary: `00000100 size opc6 101 Pg Zn Zd`.
+/// opc6=bits[21:16]. Pg=p0, Zn=z1(RN), Zd=z0(RD).
+fn enc_sve_pred_unary(size: u32, opc6: u32) -> u32 {
+    (0x04 << 24) | (size << 22) | (opc6 << 16) | (0b101 << 13) | (RN << 5) | RD
+}
+
+/// SVE UNPK (SUNPK/UUNPK HI/LO): `00000101 size 1100 u h 001110 Zn Zd`.
+/// Zn=z1(RN), Zd=z0(RD).
+fn enc_sve_unpk(size: u32, u: u32, h: u32) -> u32 {
+    (0x05 << 24) | (size << 22) | (0b1100 << 18) | (u << 17) | (h << 16) | (0b001110 << 10)
+        | (RN << 5)
+        | RD
+}
+
+/// SVE DUPM: `00000101 110000 N immr imms Zd`. Zd=z0(RD).
+fn enc_sve_dupm(n: u32, immr: u32, imms: u32) -> u32 {
+    (0x05 << 24) | (0b110000 << 18) | (n << 17) | (immr << 11) | (imms << 5) | RD
+}
+
+/// SVE FRECPE/FRSQRTE: `01100101 size 00111 r 001100 Zn Zd`. r=bit16. Zn=z1(RN),
+/// Zd=z0(RD).
+fn enc_sve_frecpe(size: u32, rsqrt: u32) -> u32 {
+    (0x65 << 24) | (size << 22) | ((0b001110 | rsqrt) << 16) | (0b001100 << 10) | (RN << 5) | RD
+}
+
+/// SVE predicated shift by vector (ASR/LSR/LSL and reversed ASRR/LSRR/LSLR):
+/// `00000100 size 010 opc 100 Pg Zm Zdn`. opc=bits[18:16]. Pg=p0, Zm=z1(RN),
+/// Zdn=z0(RD).
+fn enc_sve_shift_pred_v(size: u32, opc: u32) -> u32 {
+    (0x04 << 24) | (size << 22) | (0b010 << 19) | (opc << 16) | (0b100 << 13) | (RN << 5) | RD
+}
+
 /// SVE REVB/REVH/REVW/RBIT: `00000101 size 1 001 op 100 Pg Zn Zd`. op=bits[17:16]
 /// (00 REVB,01 REVH,10 REVW,11 RBIT). Pg=p0, Zn=z1(RN), Zd=z0(RD).
 fn enc_sve_rev_rbit(size: u32, op: u32) -> u32 {
@@ -3444,6 +3476,112 @@ fn diff_sve2_pred_alu() {
         }
     }
     run_batch("sve2_pred_alu", batch);
+}
+
+#[test]
+fn diff_sve_pred_unary() {
+    // SVE predicated integer/FP unary across all ops and their valid sizes.
+    let ops: &[(u32, &str, &[u32])] = &[
+        (0b010000, "sxtb", &[1, 2, 3]), (0b010001, "uxtb", &[1, 2, 3]),
+        (0b010010, "sxth", &[2, 3]), (0b010011, "uxth", &[2, 3]),
+        (0b010100, "sxtw", &[3]), (0b010101, "uxtw", &[3]),
+        (0b010110, "abs", &[0, 1, 2, 3]), (0b010111, "neg", &[0, 1, 2, 3]),
+        (0b011000, "cls", &[0, 1, 2, 3]), (0b011001, "clz", &[0, 1, 2, 3]),
+        (0b011010, "cnt", &[0, 1, 2, 3]), (0b011011, "cnot", &[0, 1, 2, 3]),
+        (0b011100, "fabs", &[1, 2, 3]), (0b011101, "fneg", &[1, 2, 3]),
+        (0b011110, "not", &[0, 1, 2, 3]),
+    ];
+    let mut rng = Rng::new(0x9_6001);
+    let mut batch: Vec<(String, u32, ArmState)> = Vec::new();
+    for &(opc6, name, sizes) in ops {
+        for &size in sizes {
+            let insn = enc_sve_pred_unary(size, opc6);
+            for _ in 0..6 {
+                let mut st = ArmState::zeroed();
+                st.set_vreg(1, rng.next(), rng.next());
+                st.set_vreg(0, rng.next(), rng.next());
+                st.set_preg(0, rng.next() as u16);
+                batch.push((format!("{name} s{size}"), insn, st));
+            }
+        }
+    }
+    run_batch("sve_pred_unary", batch);
+}
+
+#[test]
+fn diff_sve_unpk() {
+    // SUNPKHI/LO, UUNPKHI/LO, all dest sizes.
+    let mut rng = Rng::new(0x9_7001);
+    let mut batch: Vec<(String, u32, ArmState)> = Vec::new();
+    for size in 1..4u32 {
+        for u in 0..2u32 {
+            for h in 0..2u32 {
+                let insn = enc_sve_unpk(size, u, h);
+                for _ in 0..6 {
+                    let mut st = ArmState::zeroed();
+                    st.set_vreg(1, rng.next(), rng.next());
+                    batch.push((format!("unpk s{size} u{u} h{h}"), insn, st));
+                }
+            }
+        }
+    }
+    run_batch("sve_unpk", batch);
+}
+
+#[test]
+fn diff_sve_dupm() {
+    // DUPM logical-immediate broadcast across element sizes and patterns.
+    let mut batch: Vec<(String, u32, ArmState)> = Vec::new();
+    let cases = [
+        (0u32, 8u32, 39u32), (0, 0, 0b111100), (1, 0, 0), (1, 0, 62),
+        (0, 4, 0b011111), (0, 1, 0b110000), (0, 0, 0b000000), (1, 16, 31),
+    ];
+    for (n, immr, imms) in cases {
+        batch.push((format!("dupm n{n} r{immr} s{imms}"), enc_sve_dupm(n, immr, imms), ArmState::zeroed()));
+    }
+    run_batch("sve_dupm", batch);
+}
+
+#[test]
+fn diff_sve_frecpe() {
+    // FRECPE/FRSQRTE estimate, all sizes, finite inputs.
+    let mut rng = Rng::new(0x9_8001);
+    let mut batch: Vec<(String, u32, ArmState)> = Vec::new();
+    for (size, esz) in [(1u32, 2usize), (2, 4), (3, 8)] {
+        for rsqrt in 0..2u32 {
+            let insn = enc_sve_frecpe(size, rsqrt);
+            for _ in 0..16 {
+                let mut zn = 0u128;
+                for l in 0..(16 / esz) {
+                    zn |= (finite_fp_bits(&mut rng, esz) as u128) << (l * esz * 8);
+                }
+                let mut st = ArmState::zeroed();
+                st.set_vreg(1, zn as u64, (zn >> 64) as u64);
+                batch.push((format!("frecpe s{size} r{rsqrt}"), insn, st));
+            }
+        }
+    }
+    run_batch("sve_frecpe", batch);
+}
+
+#[test]
+fn diff_sve_shift_pred_v() {
+    // Predicated shift by vector incl. the reversed ASRR/LSRR/LSLR forms.
+    let mut rng = Rng::new(0x9_9001);
+    let mut batch: Vec<(String, u32, ArmState)> = Vec::new();
+    for size in 0..4u32 {
+        for opc in [0b000u32, 0b001, 0b011, 0b100, 0b101, 0b111] {
+            let insn = enc_sve_shift_pred_v(size, opc);
+            for _ in 0..6 {
+                let mut st = ArmState::zeroed();
+                st.set_vreg(0, rng.next(), rng.next());
+                st.set_vreg(1, rng.next(), rng.next());
+                st.set_preg(0, rng.next() as u16);
+                batch.push((format!("shl s{size} op{opc:b}"), insn, st));
+            }
+        }
+    }
+    run_batch("sve_shift_pred_v", batch);
 }
 
 #[test]

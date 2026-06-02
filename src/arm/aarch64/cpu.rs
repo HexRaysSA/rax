@@ -4817,6 +4817,59 @@ impl AArch64Cpu {
                 self.exec_sve_tbx(zd, zn, zm, esize)
             }
 
+            // TBL2 (two-register table lookup): 0x05, bit21==1,
+            // bits[15:10]==001010. The tables are {Zn, Zn+1}; out-of-range
+            // indices yield 0.
+            0b000
+                if (insn >> 24) & 0xFF == 0b00000101
+                    && (insn >> 21) & 1 == 1
+                    && (insn >> 10) & 0x3F == 0b001010 =>
+            {
+                let t0 = self.v[zn].to_le_bytes();
+                let t1 = self.v[(zn + 1) % 32].to_le_bytes();
+                let idx = self.v[zm].to_le_bytes();
+                let n = 16 / esize;
+                let mut dst = [0u8; 16];
+                for e in 0..n {
+                    let off = e * esize;
+                    let i = read_elem(&idx, off, esize) as usize;
+                    let val = if i < n {
+                        read_elem(&t0, i * esize, esize)
+                    } else if i < 2 * n {
+                        read_elem(&t1, (i - n) * esize, esize)
+                    } else {
+                        0
+                    };
+                    write_elem(&mut dst, off, esize, val);
+                }
+                self.v[zd] = u128::from_le_bytes(dst);
+                Ok(CpuExit::Continue)
+            }
+
+            // PUNPKLO/PUNPKHI (predicate unpack): 0x05, bits[23:20]==0011,
+            // bits[19:17]==000, bits[15:10]==010000. Each of the low (lo) / high
+            // (hi, bit16) 8 source predicate bits expands to bit 2i of the dest.
+            0b000
+                if (insn >> 24) & 0xFF == 0b00000101
+                    && (insn >> 22) & 0x3 == 0
+                    && (insn >> 20) & 0x3 == 0b11
+                    && (insn >> 17) & 0x7 == 0
+                    && (insn >> 10) & 0x3F == 0b010000 =>
+            {
+                let hi = (insn >> 16) & 1 == 1;
+                let pn = self.sve_p[((insn >> 5) & 0xF) as usize];
+                let pd = (insn & 0xF) as usize;
+                let base = if hi { 8 } else { 0 };
+                let mut out = 0u32;
+                for i in 0..8 {
+                    if (pn >> (base + i)) & 1 == 1 {
+                        out |= 1 << (2 * i);
+                    }
+                }
+                self.sve_p[pd] = out;
+                Ok(CpuExit::Continue)
+            }
+
             // DUP (indexed broadcast) Zd.T, Zn.T[index]: 0x05, bit21==1,
             // bits[15:10]==001000. esize and index come from the tsz:imm2 field
             // (lowest set bit of tsz selects esize).
@@ -5073,6 +5126,57 @@ impl AArch64Cpu {
                     if (pred >> off) & 1 == 1 {
                         write_elem(&mut dst, off, esize, val);
                     }
+                }
+                self.v[zd] = u128::from_le_bytes(dst);
+                Ok(CpuExit::Continue)
+            }
+
+            // SVE DUPM (broadcast logical-immediate mask): 0x05, bits[23:18]==
+            // 110000. The N:immr:imms field decodes a 64-bit mask broadcast to
+            // every doubleword lane.
+            0b000 if (insn >> 24) & 0xFF == 0b00000101 && (insn >> 18) & 0x3F == 0b110000 => {
+                let n = (insn >> 17) & 1 == 1;
+                let immr = (insn >> 11) & 0x3F;
+                let imms = (insn >> 5) & 0x3F;
+                match decode_bitmask(n, imms, immr, true) {
+                    Ok(imm) => {
+                        self.v[zd] = (imm as u128) | ((imm as u128) << 64);
+                        Ok(CpuExit::Continue)
+                    }
+                    Err(_) => Ok(CpuExit::Undefined(insn)),
+                }
+            }
+
+            // SVE UNPK (SUNPKHI/LO, UUNPKHI/LO): 0x05, bits[21:18]==1100,
+            // bits[15:10]==001110. Unpack the low (h=0) or high (h=1) half of
+            // Zn, sign- (u=0) or zero- (u=1) extending each half-width element.
+            0b000
+                if (insn >> 24) & 0xFF == 0b00000101
+                    && (insn >> 18) & 0xF == 0b1100
+                    && (insn >> 10) & 0x3F == 0b001110 =>
+            {
+                let size = (insn >> 22) & 0x3;
+                if size == 0 {
+                    return Ok(CpuExit::Undefined(insn));
+                }
+                let d_esize = 1usize << size;
+                let s_esize = d_esize / 2;
+                let s_bits = (s_esize * 8) as u32;
+                let mask = elem_mask((d_esize * 8) as u32);
+                let unsigned = (insn >> 17) & 1 == 1;
+                let hi = (insn >> 16) & 1 == 1;
+                let src = self.v[zn].to_le_bytes();
+                let n_dst = 16 / d_esize;
+                let mut dst = [0u8; 16];
+                for e in 0..n_dst {
+                    let src_idx = (if hi { n_dst } else { 0 }) + e;
+                    let sv = read_elem(&src, src_idx * s_esize, s_esize);
+                    let r = if unsigned {
+                        uext_elem(sv, s_bits) as u64
+                    } else {
+                        sext_elem(sv, s_bits) as u64
+                    };
+                    write_elem(&mut dst, e * d_esize, d_esize, r & mask);
                 }
                 self.v[zd] = u128::from_le_bytes(dst);
                 Ok(CpuExit::Continue)
@@ -5375,22 +5479,47 @@ impl AArch64Cpu {
                 self.exec_sve_shift_imm(insn)
             }
 
-            // FABS/FNEG (predicated, merging): bits[21:17]==01110, bits[15:13]==
-            // 101, bit16 selects FNEG. Pure sign-bit ops.
-            0b000 if (insn >> 17) & 0x1F == 0b01110 && (insn >> 13) & 0x7 == 0b101 => {
-                let neg = (insn >> 16) & 1 == 1;
+            // SVE predicated integer/FP unary (merging): 0x04, bits[15:13]==101,
+            // bits[21:19] in {010,011}. opc=bits[21:16] selects SXTB/H/W, UXTB/
+            // H/W, ABS, NEG, CLS, CLZ, CNT, CNOT, FABS, FNEG, NOT.
+            0b000
+                if (insn >> 24) & 0xFF == 0b00000100
+                    && (insn >> 13) & 0x7 == 0b101
+                    && matches!((insn >> 19) & 0x7, 0b010 | 0b011) =>
+            {
+                let opc = (insn >> 16) & 0x3F;
+                let bits = (esize * 8) as u32;
+                let mask = elem_mask(bits);
+                let signbit = 1u64 << (bits - 1);
                 let pred = self.sve_p[pg];
-                let elements = 16 / esize;
-                let signbit = 1u64 << (esize * 8 - 1);
                 let src = self.v[zn].to_le_bytes();
-                let mut dst = self.v[zd].to_le_bytes(); // merging
-                for e in 0..elements {
-                    if (pred >> (e * esize)) & 1 == 0 {
+                let mut dst = self.v[zd].to_le_bytes();
+                // Validity: the extend width must be smaller than the element.
+                let ext_ok = |w: u32| bits > w;
+                for e in 0..(16 / esize) {
+                    let off = e * esize;
+                    if (pred >> off) & 1 == 0 {
                         continue;
                     }
-                    let off = e * esize;
-                    let lane = read_elem(&src, off, esize);
-                    let r = if neg { lane ^ signbit } else { lane & !signbit };
+                    let v = read_elem(&src, off, esize);
+                    let r: u64 = match opc {
+                        0b010000 if ext_ok(8) => sext_elem(v, 8) as u64 & mask, // SXTB
+                        0b010001 if ext_ok(8) => v & 0xFF,                      // UXTB
+                        0b010010 if ext_ok(16) => sext_elem(v, 16) as u64 & mask, // SXTH
+                        0b010011 if ext_ok(16) => v & 0xFFFF,                   // UXTH
+                        0b010100 if ext_ok(32) => sext_elem(v, 32) as u64 & mask, // SXTW
+                        0b010101 if ext_ok(32) => v & 0xFFFF_FFFF,              // UXTW
+                        0b010110 => sext_elem(v, bits).unsigned_abs() as u64 & mask, // ABS
+                        0b010111 => (-sext_elem(v, bits)) as u64 & mask,        // NEG
+                        0b011000 => count_leading_sign(v, bits),               // CLS
+                        0b011001 => count_leading_zeros_elem(v, bits),         // CLZ
+                        0b011010 => (v & mask).count_ones() as u64,            // CNT
+                        0b011011 => u64::from(v & mask == 0),                  // CNOT
+                        0b011100 if esize >= 2 => v & !signbit,                // FABS
+                        0b011101 if esize >= 2 => v ^ signbit,                 // FNEG
+                        0b011110 => !v & mask,                                 // NOT
+                        _ => return Ok(CpuExit::Undefined(insn)),
+                    };
                     write_elem(&mut dst, off, esize, r);
                 }
                 self.v[zd] = u128::from_le_bytes(dst);
@@ -7136,17 +7265,22 @@ impl AArch64Cpu {
         let elements = 16 / esize;
         let bits = (esize * 8) as u32;
         let mask = elem_mask(bits);
-        let a_reg = self.v[zd].to_le_bytes(); // Zdn (value)
-        let b_reg = self.v[zn].to_le_bytes(); // Zm (shift amount)
+        let a_reg = self.v[zd].to_le_bytes(); // Zdn
+        let b_reg = self.v[zn].to_le_bytes(); // Zm-field
+        // bit18 selects the reversed form (ASRR/LSRR/LSLR), which swaps the
+        // value and shift-amount operands; base op is bits[17:16].
+        let reversed = opc & 0b100 != 0;
+        let base_op = opc & 0b011;
         let mut dst = a_reg;
         for e in 0..elements {
             if (pred >> (e * esize)) & 1 == 0 {
                 continue;
             }
             let off = e * esize;
-            let a = read_elem(&a_reg, off, esize);
-            let sh = read_elem(&b_reg, off, esize);
-            let r = match opc {
+            let za = read_elem(&a_reg, off, esize);
+            let zb = read_elem(&b_reg, off, esize);
+            let (a, sh) = if reversed { (zb, za) } else { (za, zb) };
+            let r = match base_op {
                 0b000 => {
                     let s = sh.min((bits - 1) as u64);
                     (sext_elem(a, bits) >> s) as u64 & mask
@@ -8717,6 +8851,45 @@ impl AArch64Cpu {
             return Ok(CpuExit::Continue);
         }
 
+        // SVE FRECPE / FRSQRTE (reciprocal / reciprocal-sqrt estimate,
+        // unpredicated): 0x65, bits[21:16]==001110 (FRECPE) / 001111 (FRSQRTE),
+        // bits[15:10]==001100. Reuses the FP estimate helpers.
+        if (insn >> 24) & 0xFF == 0b01100101
+            && matches!((insn >> 16) & 0x3F, 0b001110 | 0b001111)
+            && (insn >> 10) & 0x3F == 0b001100
+        {
+            let size = (insn >> 22) & 0x3;
+            if size == 0 {
+                return Ok(CpuExit::Undefined(insn));
+            }
+            let esz = 1usize << size;
+            let rsqrt = (insn >> 16) & 1 == 1;
+            let n = self.v[zn].to_le_bytes();
+            let mut dst = [0u8; 16];
+            for e in 0..(16 / esz) {
+                let off = e * esz;
+                let x = read_elem(&n, off, esz);
+                let r = match esz {
+                    2 => (if rsqrt { fp16_rsqrte(x as u16) } else { fp16_recpe(x as u16) }) as u64,
+                    4 => (if rsqrt {
+                        fp_rsqrt_estimate_f32(x as u32)
+                    } else {
+                        fp_recip_estimate_f32(x as u32)
+                    }) as u64,
+                    _ => {
+                        if rsqrt {
+                            fp_rsqrt_estimate_f64(x)
+                        } else {
+                            fp_recip_estimate_f64(x)
+                        }
+                    }
+                };
+                write_elem(&mut dst, off, esz, r);
+            }
+            self.v[zd] = u128::from_le_bytes(dst);
+            return Ok(CpuExit::Continue);
+        }
+
         // SVE FRECPS / FRSQRTS (reciprocal / reciprocal-sqrt step, unpredicated):
         // 0x65, bit21==0, bits[15:10]==000110 (FRECPS) / 000111 (FRSQRTS).
         // Fused step with the inf*0 special (2.0 / 1.5).
@@ -9203,6 +9376,29 @@ impl AArch64Cpu {
     /// VL-scaled immediate (the `_Z.P.BI_` encodings). Predication is
     /// byte-granular; loads zero inactive elements, stores skip them.
     fn exec_sve_ldst(&mut self, insn: u32) -> Result<CpuExit, ArmError> {
+        // SVE prefetch (PRF*) instructions are architectural hints with no
+        // register or memory effect -> no-op. They share the load/store space;
+        // detect the PRF encodings (all have bit4==0) per the ARM decode.
+        if (insn >> 4) & 1 == 0 {
+            let b3125 = (insn >> 25) & 0x7F;
+            let (b2423, b2221, b1513) =
+                ((insn >> 23) & 0x3, (insn >> 21) & 0x3, (insn >> 13) & 0x7);
+            let is_prf = if b3125 == 0b1000010 {
+                (b2423 == 0 && (insn >> 21) & 1 == 1 && (insn >> 15) & 1 == 0)
+                    || (b2221 == 0 && b1513 == 0b111)
+                    || (b2423 == 0b11 && (insn >> 22) & 1 == 1 && (insn >> 15) & 1 == 0)
+                    || (b2221 == 0 && b1513 == 0b110)
+            } else if b3125 == 0b1100010 {
+                (b2423 == 0 && b2221 == 0b11 && (insn >> 15) & 1 == 1)
+                    || (b2423 == 0 && (insn >> 21) & 1 == 1 && (insn >> 15) & 1 == 0)
+                    || (b2221 == 0 && b1513 == 0b111)
+            } else {
+                false
+            };
+            if is_prf {
+                return Ok(CpuExit::Continue);
+            }
+        }
         let pg = ((insn >> 10) & 0x7) as usize;
         let rn = ((insn >> 5) & 0x1F) as u8;
         let zt = (insn & 0x1F) as usize;
@@ -12441,17 +12637,14 @@ fn decode_bitmask(n: bool, imms: u32, immr: u32, is_64bit: bool) -> Result<u64, 
         if not_imms == 0 {
             return Err(ArmError::UndefinedInstruction(0));
         }
-        // Calculate: 5 - leading_zeros_in_6_bits
-        // For a 6-bit value, we need to find the position of highest set bit (0-5)
-        // leading_zeros for u32 counts from bit 31, so we adjust:
-        // Position in 6-bit = 5 - (leading_zeros_of_u32 - 26)
-        //                   = 5 - leading_zeros + 26 = 31 - leading_zeros
-        // But we want len = position + 1
+        // len = HighestSetBit(immN:NOT(imms)) per the A64 DecodeBitMasks
+        // pseudocode. For N=0 this is the highest set bit position of
+        // ~imms[5:0] (0-5); the element size is 1<<len.
         let pos = 31 - not_imms.leading_zeros();
         if pos > 5 {
             return Err(ArmError::UndefinedInstruction(0));
         }
-        pos + 1
+        pos
     };
 
     if len < 1 || len > 6 {
@@ -15472,16 +15665,15 @@ mod tests {
         // ~imms[5:0] = 0x20 = 0b100000, highest bit at position 5, so len=6 (invalid for N=0)
         // Let's use imms=0b011111, so ~imms[5:0]=0b100000, but that's still len=6
 
-        // For smaller elements, use imms where the high bits indicate element size
-        // imms=0b111100, ~imms[5:0]=0b000011, highest bit at position 1, len=2 (4-bit elements)
-        // s = imms & 0b11 = 0b00 = 0, so element = 0b1 (single 1)
+        // imms=0b111100, ~imms[5:0]=0b000011, highest bit at position 1, len=1
+        // (2-bit elements). s = imms & 0b1 = 0, so element = 0b01.
         let mask = decode_bitmask(false, 0b111100, 0, true).unwrap();
-        // 4-bit element replicated: 0x1111111111111111
-        assert_eq!(mask, 0x1111_1111_1111_1111);
+        // 2-bit element 0b01 replicated: 0x5555555555555555
+        assert_eq!(mask, 0x5555_5555_5555_5555);
 
         // 32-bit mode should mask result
         let mask = decode_bitmask(false, 0b111100, 0, false).unwrap();
-        assert_eq!(mask, 0x0000_0000_1111_1111);
+        assert_eq!(mask, 0x0000_0000_5555_5555);
     }
 
     #[test]
