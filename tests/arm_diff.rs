@@ -1512,6 +1512,32 @@ fn enc_dot_idx(q: u32, u: u32, index: u32) -> u32 {
         | (RM << 16) | (0b1110 << 12) | (h << 11) | (RN << 5) | RD
 }
 
+/// USDOT (vector): `0 Q 0 01110 10 0 Rm 100111 Rn Rd`. Rd=v0, Rn=v1, Rm=v2.
+fn enc_usdot(q: u32) -> u32 {
+    (q << 30) | (0b01110 << 24) | (0b10 << 22) | (RM << 16) | (0b100111 << 10) | (RN << 5) | RD
+}
+
+/// USDOT/SUDOT (by element): `0 Q 0 01111 US 0 L M Rm 1111 H 0 Rn Rd`. Rm=v2.
+fn enc_usdot_idx(q: u32, us: u32, index: u32) -> u32 {
+    let h = (index >> 1) & 1;
+    let l = index & 1;
+    (q << 30) | (0b01111 << 24) | (us << 23) | (l << 21) | (RM << 16)
+        | (0b1111 << 12) | (h << 11) | (RN << 5) | RD
+}
+
+#[test]
+fn diff_simd_usdot() {
+    let mut cases: Vec<(String, u32)> = Vec::new();
+    for q in 0..2u32 {
+        cases.push((format!("usdot q{q}"), enc_usdot(q)));
+        for index in 0..4u32 {
+            cases.push((format!("usdot_idx q{q} i{index}"), enc_usdot_idx(q, 1, index)));
+            cases.push((format!("sudot_idx q{q} i{index}"), enc_usdot_idx(q, 0, index)));
+        }
+    }
+    run_family("simd_usdot", cases, 32, 0x1_001C);
+}
+
 #[test]
 fn diff_simd_dot_indexed() {
     let mut cases: Vec<(String, u32)> = Vec::new();

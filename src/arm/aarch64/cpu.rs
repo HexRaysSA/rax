@@ -1806,10 +1806,18 @@ impl AArch64Cpu {
             return self.exec_simd_three_different(insn);
         }
 
-        // SDOT/UDOT (8-bit -> 32-bit dot product, FEAT_DotProd).
-        // Encoding: 0_Q_U_01110_size_0_Rm_100101_Rn_Rd (bit21==0, bits[15:10]=100101).
-        if op_bits == 0b01110 && (insn >> 21) & 1 == 0 && (insn >> 10) & 0x3F == 0b100101 {
-            return self.exec_simd_dot(insn);
+        // SDOT/UDOT (FEAT_DotProd, bits[15:10]=100101) and USDOT (FEAT_I8MM,
+        // U==0, bits[15:10]=100111): 8-bit -> 32-bit dot product, bit21==0.
+        if op_bits == 0b01110 && (insn >> 21) & 1 == 0 {
+            let lo6 = (insn >> 10) & 0x3F;
+            if lo6 == 0b100101 {
+                let signed = (insn >> 29) & 1 == 0; // SDOT (U=0) / UDOT (U=1)
+                return self.exec_simd_dot(insn, signed, signed);
+            }
+            if lo6 == 0b100111 && (insn >> 29) & 1 == 0 {
+                // USDOT: Vn unsigned, Vm signed.
+                return self.exec_simd_dot(insn, false, true);
+            }
         }
 
         // FCMLA (vector): 0_Q_1_01110_size_0_Rm_110_rot_1_Rn_Rd
@@ -1822,6 +1830,21 @@ impl AArch64Cpu {
             }
             if (insn >> 13) & 0x7 == 0b111 && (insn >> 10) & 0x3 == 0b01 {
                 return self.exec_simd_complex(insn, false);
+            }
+            // BF16 three-same-extra: BFDOT/BFMLAL (bits[15:10]=111111) and
+            // BFMMLA (bits[15:10]=111011), sub-selected by size bits[23:22].
+            let lo6 = (insn >> 10) & 0x3F;
+            let size = (insn >> 22) & 0x3;
+            if lo6 == 0b111111 {
+                if size == 0b01 {
+                    return self.exec_simd_bfdot(insn, false); // BFDOT vector
+                }
+                if size == 0b11 {
+                    return self.exec_simd_bfmlal(insn, false); // BFMLALB/T vector
+                }
+            }
+            if lo6 == 0b111011 && size == 0b01 {
+                return self.exec_simd_bfmmla(insn); // BFMMLA
             }
         }
 
@@ -1862,6 +1885,24 @@ impl AArch64Cpu {
             && (insn >> 10) & 1 == 0
         {
             return self.exec_simd_complex_indexed(insn);
+        }
+
+        // U=0 by-element group with opcode bits[15:12]==1111, bit10==0: the
+        // FEAT_I8MM / FEAT_BF16 by-element instructions, sub-selected by the
+        // size field bits[23:22]: 00=SUDOT, 01=BFDOT, 10=USDOT, 11=BFMLALB/T.
+        // Must precede the generic indexed dispatch below.
+        if op_bits == 0b01111
+            && (insn >> 29) & 1 == 0
+            && (insn >> 12) & 0xF == 0b1111
+            && (insn >> 10) & 1 == 0
+        {
+            match (insn >> 22) & 0x3 {
+                0b00 => return self.exec_simd_dot_indexed_mixed(insn, true, false), // SUDOT: Vn signed, Vm unsigned
+                0b10 => return self.exec_simd_dot_indexed_mixed(insn, false, true), // USDOT: Vn unsigned, Vm signed
+                0b01 => return self.exec_simd_bfdot(insn, true),  // BFDOT by element
+                0b11 => return self.exec_simd_bfmlal(insn, true), // BFMLALB/T by element
+                _ => {}
+            }
         }
 
         // Advanced SIMD vector x indexed element
@@ -2563,36 +2604,33 @@ impl AArch64Cpu {
         Ok(CpuExit::Continue)
     }
 
-    /// Execute SDOT/UDOT: the 8-bit -> 32-bit four-way dot product. Each 32-bit
-    /// lane accumulates the sum of four byte-wise products of the corresponding
-    /// Vn/Vm bytes (signed for SDOT, unsigned for UDOT).
-    fn exec_simd_dot(&mut self, insn: u32) -> Result<CpuExit, ArmError> {
+    /// Execute SDOT/UDOT/USDOT: the 8-bit -> 32-bit four-way dot product. Each
+    /// 32-bit lane accumulates four byte-wise products of the corresponding
+    /// Vn/Vm bytes. `op1_signed`/`op2_signed` give the byte signedness:
+    /// SDOT = (s,s), UDOT = (u,u), USDOT = (u,s).
+    fn exec_simd_dot(
+        &mut self,
+        insn: u32,
+        op1_signed: bool,
+        op2_signed: bool,
+    ) -> Result<CpuExit, ArmError> {
         let q = (insn >> 30) & 1;
-        let u = (insn >> 29) & 1;
-        let size = (insn >> 22) & 0x3;
         let rm = ((insn >> 16) & 0x1F) as usize;
         let rn = ((insn >> 5) & 0x1F) as usize;
         let rd = (insn & 0x1F) as usize;
-        // Only the 8-bit source / 32-bit accumulator form is allocated.
-        if size != 0b10 {
-            return Ok(CpuExit::Undefined(insn));
-        }
-        let signed = u == 0;
         let lanes = if q == 1 { 4 } else { 2 }; // 32-bit accumulator lanes
         let op1 = self.v[rn];
         let op2 = self.v[rm];
+        let byte = |v: u128, sh: usize, signed: bool| -> i64 {
+            let b = (v >> sh) as u8;
+            if signed { b as i8 as i64 } else { b as i64 }
+        };
         let mut result = self.v[rd];
         for e in 0..lanes {
             let mut res: i64 = 0;
             for i in 0..4 {
                 let sh = (4 * e + i) * 8;
-                let b1 = (op1 >> sh) as u8;
-                let b2 = (op2 >> sh) as u8;
-                res += if signed {
-                    (b1 as i8 as i64) * (b2 as i8 as i64)
-                } else {
-                    (b1 as i64) * (b2 as i64)
-                };
+                res += byte(op1, sh, op1_signed) * byte(op2, sh, op2_signed);
             }
             let lane = (result >> (e * 32)) as u32;
             let updated = (lane as i64).wrapping_add(res) as u32;
@@ -2600,6 +2638,156 @@ impl AArch64Cpu {
         }
         if q == 0 {
             result &= 0xFFFF_FFFF_FFFF_FFFF;
+        }
+        self.v[rd] = result;
+        Ok(CpuExit::Continue)
+    }
+
+    /// Execute USDOT/SUDOT by element (FEAT_I8MM). The index (H:L) selects a
+    /// 4-byte group of Vm reused for every lane. `op1_signed`/`op2_signed` give
+    /// the Vn/Vm byte signedness (USDOT = (false,true), SUDOT = (true,false)).
+    fn exec_simd_dot_indexed_mixed(
+        &mut self,
+        insn: u32,
+        op1_signed: bool,
+        op2_signed: bool,
+    ) -> Result<CpuExit, ArmError> {
+        let q = (insn >> 30) & 1;
+        let l = (insn >> 21) & 1;
+        let m = (insn >> 20) & 1;
+        let h = (insn >> 11) & 1;
+        let rm = (((insn >> 16) & 0xF) | (m << 4)) as usize; // Vm = M:Rm
+        let rn = ((insn >> 5) & 0x1F) as usize;
+        let rd = (insn & 0x1F) as usize;
+        let index = ((h << 1) | l) as usize; // H:L, selects a 32-bit group
+        let lanes = if q == 1 { 4 } else { 2 };
+        let op1 = self.v[rn];
+        let op2 = self.v[rm];
+        let byte = |v: u128, sh: usize, signed: bool| -> i64 {
+            let b = (v >> sh) as u8;
+            if signed { b as i8 as i64 } else { b as i64 }
+        };
+        let base = index * 4;
+        let mut result = self.v[rd];
+        for e in 0..lanes {
+            let mut res: i64 = 0;
+            for i in 0..4 {
+                res += byte(op1, (4 * e + i) * 8, op1_signed)
+                    * byte(op2, (base + i) * 8, op2_signed);
+            }
+            let lane = (result >> (e * 32)) as u32;
+            let updated = (lane as i64).wrapping_add(res) as u32;
+            result = (result & !(0xFFFF_FFFFu128 << (e * 32))) | ((updated as u128) << (e * 32));
+        }
+        if q == 0 {
+            result &= 0xFFFF_FFFF_FFFF_FFFF;
+        }
+        self.v[rd] = result;
+        Ok(CpuExit::Continue)
+    }
+
+    /// Execute BFMLALB/BFMLALT (FEAT_BF16): widening bf16 -> f32 fused
+    /// multiply-accumulate. Q (bit30) selects the Bottom (0) or Top (1) bf16 of
+    /// each f32 pair. The result is always a full 128-bit, 4-lane f32 vector.
+    fn exec_simd_bfmlal(&mut self, insn: u32, is_indexed: bool) -> Result<CpuExit, ArmError> {
+        let sel = ((insn >> 30) & 1) as usize; // Q: 0=B (low 16), 1=T (high 16)
+        let rn = ((insn >> 5) & 0x1F) as usize;
+        let rd = (insn & 0x1F) as usize;
+        let op1 = self.v[rn];
+        let op3 = self.v[rd];
+        let bf16 = |v: u128, lane: usize| -> u16 { (v >> (lane * 16)) as u16 };
+        let (op2, idx): (u128, Option<usize>) = if is_indexed {
+            let l = (insn >> 21) & 1;
+            let m = (insn >> 20) & 1;
+            let h = (insn >> 11) & 1;
+            let rm = ((insn >> 16) & 0xF) as usize; // 4-bit, V0..V15
+            (self.v[rm], Some(((h << 2) | (l << 1) | m) as usize)) // index = H:L:M
+        } else {
+            let rm = ((insn >> 16) & 0x1F) as usize;
+            (self.v[rm], None)
+        };
+        let mut result = 0u128;
+        for e in 0..4 {
+            let b1 = bf16(op1, 2 * e + sel);
+            let b2 = match idx {
+                Some(ix) => bf16(op2, 2 * ix + sel),
+                None => bf16(op2, 2 * e + sel),
+            };
+            let a = f32::from_bits((op3 >> (e * 32)) as u32);
+            // Single-rounded fused multiply-add (FPMulAdd).
+            let r = bf16_to_f32(b1).mul_add(bf16_to_f32(b2), a);
+            result |= (r.to_bits() as u128) << (e * 32);
+        }
+        self.v[rd] = result;
+        Ok(CpuExit::Continue)
+    }
+
+    /// Execute BFDOT (FEAT_BF16): 2-way bf16 dot product accumulated into f32
+    /// lanes. The two bf16 products and the f32 accumulator are summed in
+    /// unrounded precision and rounded once to f32 with round-to-odd (the
+    /// standard FPCR.EBF==0 path).
+    fn exec_simd_bfdot(&mut self, insn: u32, is_indexed: bool) -> Result<CpuExit, ArmError> {
+        let q = (insn >> 30) & 1;
+        let rn = ((insn >> 5) & 0x1F) as usize;
+        let rd = (insn & 0x1F) as usize;
+        let lanes = if q == 1 { 4 } else { 2 };
+        let op1 = self.v[rn];
+        let op3 = self.v[rd];
+        let bf16 = |v: u128, lane: usize| -> u16 { (v >> (lane * 16)) as u16 };
+        let (op2, idx): (u128, Option<usize>) = if is_indexed {
+            let l = (insn >> 21) & 1;
+            let m = (insn >> 20) & 1;
+            let h = (insn >> 11) & 1;
+            let rm = (((insn >> 16) & 0xF) | (m << 4)) as usize; // Vm = M:Rm
+            (self.v[rm], Some(((h << 1) | l) as usize)) // index H:L selects a bf16 pair
+        } else {
+            let rm = ((insn >> 16) & 0x1F) as usize;
+            (self.v[rm], None)
+        };
+        let mut result = self.v[rd];
+        for e in 0..lanes {
+            let acc = f32::from_bits((op3 >> (e * 32)) as u32) as f64;
+            let (i2lo, i2hi) = match idx {
+                Some(ix) => (2 * ix, 2 * ix + 1),
+                None => (2 * e, 2 * e + 1),
+            };
+            let p1 =
+                bf16_to_f32(bf16(op1, 2 * e)) as f64 * bf16_to_f32(bf16(op2, i2lo)) as f64;
+            let p2 = bf16_to_f32(bf16(op1, 2 * e + 1)) as f64
+                * bf16_to_f32(bf16(op2, i2hi)) as f64;
+            let r = round_odd_f64_to_f32(acc + p1 + p2);
+            result = (result & !(0xFFFF_FFFFu128 << (e * 32))) | ((r as u128) << (e * 32));
+        }
+        if q == 0 {
+            result &= 0xFFFF_FFFF_FFFF_FFFF;
+        }
+        self.v[rd] = result;
+        Ok(CpuExit::Continue)
+    }
+
+    /// Execute BFMMLA (FEAT_BF16): 2x4-by-4x2 bf16 matrix multiply accumulating
+    /// into a 2x2 f32 matrix, with the same round-to-odd accumulation as BFDOT.
+    fn exec_simd_bfmmla(&mut self, insn: u32) -> Result<CpuExit, ArmError> {
+        let rn = ((insn >> 5) & 0x1F) as usize;
+        let rm = ((insn >> 16) & 0x1F) as usize;
+        let rd = (insn & 0x1F) as usize;
+        let op1 = self.v[rn];
+        let op2 = self.v[rm];
+        let acc = self.v[rd];
+        let bf16 = |v: u128, lane: usize| -> u16 { (v >> (lane * 16)) as u16 };
+        let mut result = 0u128;
+        for i in 0..2 {
+            for j in 0..2 {
+                let lane = 2 * i + j;
+                let mut sum = f32::from_bits((acc >> (lane * 32)) as u32) as f64;
+                for k in 0..4 {
+                    let e1 = bf16_to_f32(bf16(op1, 4 * i + k)) as f64;
+                    let e2 = bf16_to_f32(bf16(op2, 4 * j + k)) as f64;
+                    sum += e1 * e2;
+                }
+                let r = round_odd_f64_to_f32(sum);
+                result |= (r as u128) << (lane * 32);
+            }
         }
         self.v[rd] = result;
         Ok(CpuExit::Continue)
@@ -9032,6 +9220,77 @@ fn fp_muladd_bits(acc: u64, x: u64, y: u64, esize: u32) -> u64 {
         32 => fp_three_same_f32(FpKind::Mla, x as u32, y as u32, acc as u32) as u64,
         _ => fp_three_same_f64(FpKind::Mla, x, y, acc),
     }
+}
+
+// ---- BFloat16 (bf16) helpers (FEAT_BF16) ----
+
+/// Widen a bf16 to f32 — exact (bf16 is the top 16 bits of an f32).
+#[inline]
+fn bf16_to_f32(b: u16) -> f32 {
+    f32::from_bits((b as u32) << 16)
+}
+
+/// Convert an f32 (raw bits) to bf16 with round-to-nearest-even (the rounding
+/// used by BFCVT/BFCVTN; FPCR rounding mode is ignored). NaN is quieted.
+fn f32_to_bf16(x: u32) -> u16 {
+    if (x & 0x7F80_0000) == 0x7F80_0000 {
+        // Inf or NaN.
+        if (x & 0x007F_FFFF) != 0 {
+            // NaN: quiet it (set bf16 quiet bit), preserve sign.
+            return ((x >> 16) as u16) | 0x0040;
+        }
+        return (x >> 16) as u16; // +/- Inf -> 0x7F80 / 0xFF80
+    }
+    // Round-to-nearest-even on the dropped low 16 mantissa bits. The add-bias
+    // trick also carries correctly into the exponent (overflow -> bf16 Inf) and
+    // handles subnormals/zero.
+    let lsb = (x >> 16) & 1;
+    let rounded = x.wrapping_add(0x7FFF + lsb);
+    (rounded >> 16) as u16
+}
+
+/// Round an f64 to f32 with round-to-odd (Von Neumann): truncate toward zero,
+/// and if any bits were discarded force the result mantissa LSB to 1. Used for
+/// the unrounded BF16 dot-product accumulation (FPCR.EBF==0). The f64 input is
+/// assumed to be the exact value (callers keep the exponent span small enough
+/// that the f64 sum is exact).
+fn round_odd_f64_to_f32(x: f64) -> u32 {
+    if x.is_nan() {
+        let s = ((x.to_bits() >> 63) as u32) << 31;
+        return s | 0x7FC0_0000;
+    }
+    let sign = ((x.is_sign_negative()) as u32) << 31;
+    let a = x.abs();
+    if a == 0.0 {
+        return sign;
+    }
+    if a.is_infinite() {
+        return sign | 0x7F80_0000;
+    }
+    let bits = a.to_bits();
+    let exp = ((bits >> 52) & 0x7FF) as i64 - 1023; // unbiased, `a` is normal f64
+    let mant = bits & 0x000F_FFFF_FFFF_FFFF; // 52-bit fraction
+    if exp > 127 {
+        return sign | 0x7F7F_FFFF; // round-to-odd never overflows to Inf
+    }
+    if exp >= -126 {
+        // Normal f32: keep the top 23 fraction bits, OR in sticky for round-odd.
+        let frac = (mant >> 29) as u32;
+        let dropped = mant & ((1u64 << 29) - 1);
+        let f = if dropped != 0 { frac | 1 } else { frac };
+        let e = (exp + 127) as u32;
+        return sign | (e << 23) | f;
+    }
+    // Subnormal f32: value = 1.mant * 2^exp, exp <= -127.
+    let sig = (1u64 << 52) | mant;
+    let shift = (-(exp + 97)) as u32; // value * 2^149 == sig >> shift
+    if shift >= 64 {
+        return sign | 1; // tiny nonzero -> smallest subnormal under round-odd
+    }
+    let frac = (sig >> shift) as u32 & 0x7F_FFFF;
+    let dropped = sig & ((1u64 << shift) - 1);
+    let f = if dropped != 0 { frac | 1 } else { frac };
+    sign | f
 }
 
 // ---- SHA-1 / SHA-256 primitives (FIPS-180, per ARM ASL) ----
