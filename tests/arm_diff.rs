@@ -3479,6 +3479,55 @@ fn diff_sve_sincdecp() {
     run_batch("sve_sincdecp", batch);
 }
 
+/// WHILE gt-family: `00100101 esz 1 rm 000 sf u 0 rn eq rd`. eq=0 => GE/HS
+/// (inclusive), eq=1 => GT/HI (strict); u selects signed(0)/unsigned(1). Rn=x0,
+/// Rm=x1, Pd=p0.
+fn enc_sve_while_gt(esz: u32, sf: u32, u: u32, eqbit: u32) -> u32 {
+    (0x25 << 24) | (esz << 22) | (1 << 21) | (1 << 16) | (sf << 12) | (u << 11) | (eqbit << 4)
+}
+
+#[test]
+fn diff_sve_while_gt() {
+    // WHILEGT/WHILEGE/WHILEHI/WHILEHS: the gt-family WHILE producing a top-
+    // anchored contiguous predicate. Stresses the signed/unsigned boundaries
+    // and the equality (one-more-iteration / all-true) edge cases.
+    let vals: [u64; 13] = [
+        0,
+        1,
+        5,
+        16,
+        17,
+        40,
+        0x7FFF_FFFF,
+        0x8000_0000,
+        0xFFFF_FFFF,
+        0x7FFF_FFFF_FFFF_FFFF,
+        0x8000_0000_0000_0000,
+        0xFFFF_FFFF_FFFF_FFFF,
+        0xFFFF_FFFF_FFFF_FFFB,
+    ];
+    let mut batch: Vec<(String, u32, ArmState)> = Vec::new();
+    for esz in 0..4u32 {
+        for sf in 0..2u32 {
+            for u in 0..2u32 {
+                for eqbit in 0..2u32 {
+                    let insn = enc_sve_while_gt(esz, sf, u, eqbit);
+                    let nm = format!("while_gt e{esz} sf{sf} u{u} eq{eqbit}");
+                    for &a in vals.iter() {
+                        for &b in vals.iter() {
+                            let mut st = ArmState::zeroed();
+                            st.x[0] = a;
+                            st.x[1] = b;
+                            batch.push((nm.clone(), insn, st));
+                        }
+                    }
+                }
+            }
+        }
+    }
+    run_batch("sve_while_gt", batch);
+}
+
 #[test]
 fn diff_sve_shift_imm() {
     let ops = [(0b000u32, "asr"), (0b001, "lsr"), (0b011, "lsl")];

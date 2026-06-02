@@ -8243,6 +8243,70 @@ impl AArch64Cpu {
             return Ok(CpuExit::Continue);
         }
 
+        // WHILE gt-family (RR): bit21==1, bits[15:13]==000, bit10==0. The running
+        // index decreases from rn toward rm. bit11: 0=signed (GT/GE), 1=unsigned
+        // (HI/HS). Per qemu do_WHILE, the "or-equal" sense is inverted vs the
+        // lt-family: bit4==0 => GE/HS (inclusive), bit4==1 => GT/HI (strict).
+        if (insn >> 21) & 1 == 1 && (insn >> 13) & 0x7 == 0 && (insn >> 10) & 1 == 0 {
+            let sf = (insn >> 12) & 1 == 1;
+            let unsigned = (insn >> 11) & 1 == 1;
+            // a->eq: GT/HI have it set; the comparison "or-equal" flag is its
+            // negation for the gt-family (eq = a->eq == lt, lt == false here).
+            let eq = (insn >> 4) & 1 == 0;
+            let rn = ((insn >> 5) & 0x1F) as u8;
+            let rm = ((insn >> 16) & 0x1F) as u8;
+            let tmax = elements as u64;
+            let count: u64 = if unsigned {
+                let a = if sf { self.get_x(rn) } else { self.get_w(rn) as u64 };
+                let b = if sf { self.get_x(rm) } else { self.get_w(rm) as u64 };
+                let cond = if eq { a >= b } else { a > b };
+                if !cond {
+                    0
+                } else if eq && b == 0 {
+                    // op1 == maxval(0): produce an all-true predicate.
+                    tmax
+                } else {
+                    let t0 = (a - b) as u128 + if eq { 1 } else { 0 };
+                    t0.min(tmax as u128) as u64
+                }
+            } else {
+                let a = if sf {
+                    self.get_x(rn) as i64
+                } else {
+                    self.get_w(rn) as i32 as i64
+                };
+                let b = if sf {
+                    self.get_x(rm) as i64
+                } else {
+                    self.get_w(rm) as i32 as i64
+                };
+                let cond = if eq { a >= b } else { a > b };
+                let maxval = if sf { i64::MIN } else { i32::MIN as i64 };
+                if !cond {
+                    0
+                } else if eq && b == maxval {
+                    tmax
+                } else {
+                    let t0 = (a as i128 - b as i128) + if eq { 1 } else { 0 };
+                    t0.clamp(0, tmax as i128) as u64
+                }
+            };
+            // The gt-family anchors the contiguous active run at the TOP of the
+            // predicate (high-numbered elements), per qemu do_whileg.
+            let start = elements - count.min(elements as u64) as usize;
+            let mut pred = 0u32;
+            for e in start..elements {
+                pred |= 1 << (e * esize);
+            }
+            self.sve_p[pd] = pred;
+            let (n, z, c, v) = pred_test_flags(pred, elements, esize);
+            self.set_n(n);
+            self.set_z(z);
+            self.set_c(c);
+            self.set_v(v);
+            return Ok(CpuExit::Continue);
+        }
+
         // WHILERW / WHILEWR (memory-hazard predicate): 0x25, bit21==1,
         // bits[15:10]==001100, bit4 picks WHILERW(1)/WHILEWR(0). Both produce a
         // monotone prefix of `count` active elements, then set NZCV like the
