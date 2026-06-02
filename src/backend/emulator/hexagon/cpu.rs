@@ -104,6 +104,24 @@ fn hex_read_ireg(m: u32) -> i32 {
     ((packed << 21) as i32) >> 21
 }
 
+/// An HVX vector's 32 little-endian words as a flat 128-byte array.
+fn vec_to_bytes(v: &[u32; 32]) -> [u8; 128] {
+    let mut b = [0u8; 128];
+    for i in 0..32 {
+        b[i * 4..i * 4 + 4].copy_from_slice(&v[i].to_le_bytes());
+    }
+    b
+}
+
+/// Inverse of [`vec_to_bytes`].
+fn bytes_to_vec(b: &[u8; 128]) -> [u32; 32] {
+    let mut v = [0u32; 32];
+    for i in 0..32 {
+        v[i] = u32::from_le_bytes([b[i * 4], b[i * 4 + 1], b[i * 4 + 2], b[i * 4 + 3]]);
+    }
+    v
+}
+
 /// Snapshot of which GPRs currently have a buffered (in-flight) write.
 fn producer_mask(new_r: &[Option<u32>; 32]) -> [bool; 32] {
     std::array::from_fn(|i| new_r[i].is_some())
@@ -1069,22 +1087,35 @@ impl HexagonVcpu {
                 post_inc,
                 aligned,
                 pred,
+                qmask,
             } => {
-                // Scalar-predicated store: skip the store (CANCEL) when false.
-                // The post-increment of the base still happens regardless.
+                // Scalar-predicated store: CANCEL (no write, no post-increment)
+                // when the predicate is false. A byte-masked (qmask) store always
+                // executes; it only masks which bytes change.
                 let do_store = match pred {
                     Some(cond) => self.eval_pred(cond, new_p),
                     None => true,
                 };
-                // A cancelled (predicate-false) store performs no memory write
-                // AND no post-increment of the base register.
                 if do_store {
                     let mut ea = self.regs.r[base as usize].wrapping_add(offset as u32);
                     if aligned {
                         ea &= !127;
                     }
-                    let vec = self.regs.v[src as usize];
-                    self.write_vec(ea, &vec)?;
+                    let mut bytes = vec_to_bytes(&self.regs.v[src as usize]);
+                    if let Some((q, sense)) = qmask {
+                        // Read-modify-write: keep existing bytes where the Q mask
+                        // doesn't select. The Qv operand reads the OLD predicate
+                        // (it is not a `.new` operand).
+                        let qv = self.regs.q[q as usize];
+                        let cur = vec_to_bytes(&self.read_vec(ea)?);
+                        for i in 0..128 {
+                            let bit = (qv[i / 32] >> (i % 32)) & 1 != 0;
+                            if bit != sense {
+                                bytes[i] = cur[i];
+                            }
+                        }
+                    }
+                    self.write_vec(ea, &bytes_to_vec(&bytes))?;
                     if let Some(inc) = post_inc {
                         new_r[base as usize] =
                             Some(self.regs.r[base as usize].wrapping_add(inc as u32));

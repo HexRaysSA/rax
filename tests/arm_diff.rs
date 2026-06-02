@@ -1717,6 +1717,41 @@ fn diff_sve_cmp() {
     run_batch("sve_cmp", batch);
 }
 
+/// SVE integer reduction: `00000100 sz opc6 001 Pg Zn Vd`. Zn=z1, Vd=v0, Pg=p0.
+fn enc_sve_reduce(sz: u32, opc6: u32) -> u32 {
+    (0x04 << 24) | (sz << 22) | (opc6 << 16) | (0b001 << 13) | (RN << 5) | RD
+}
+
+#[test]
+fn diff_sve_reduce() {
+    // (opc6, name, max_sz)
+    let ops: &[(u32, &str, u32)] = &[
+        (0b000000, "saddv", 2),
+        (0b000001, "uaddv", 3),
+        (0b001000, "smaxv", 3),
+        (0b001001, "umaxv", 3),
+        (0b001010, "sminv", 3),
+        (0b001011, "uminv", 3),
+        (0b011000, "orv", 3),
+        (0b011001, "eorv", 3),
+        (0b011010, "andv", 3),
+    ];
+    let mut rng = Rng::new(0x1_0029);
+    let mut batch: Vec<(String, u32, ArmState)> = Vec::new();
+    for &(opc6, name, max_sz) in ops {
+        for sz in 0..=max_sz {
+            let insn = enc_sve_reduce(sz, opc6);
+            for _ in 0..14 {
+                let mut st = ArmState::zeroed();
+                st.set_vreg(1, rng.next(), rng.next());
+                st.set_preg(0, rng.next() as u16);
+                batch.push((format!("{name} sz{sz}"), insn, st));
+            }
+        }
+    }
+    run_batch("sve_reduce", batch);
+}
+
 /// SVE predicate-logical: `00100101 S000 Pm 01 Pg b9 Pn b4 Pd`. Pg=p1, Pm=p2,
 /// Pn=p3, Pd=p0.
 fn enc_sve_plog(s: u32, b9: u32, b4: u32) -> u32 {

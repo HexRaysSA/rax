@@ -27,7 +27,10 @@ const VWORDS: usize = 32;
 const ARENA: usize = 512;
 const VOFF: usize = 256;
 const AOFF: usize = VOFF + VREGS * VWORDS * 4; // 4352
-const CASE_SIZE: usize = AOFF + ARENA; // 4864
+const QSRC_OFF: usize = AOFF + ARENA; // 4864 (Q0..Q3 mask-source vectors)
+const QSRC_VECS: usize = 4;
+const IN_SIZE: usize = QSRC_OFF + QSRC_VECS * 128; // InCase carries the qsrc block
+const OUT_SIZE: usize = AOFF + ARENA; // OutCase does not (Q is not captured)
 const WIRE_MAGIC: u32 = 0x3158_4548;
 const CODE_ADDR: u32 = 0x1000;
 const BASE_REG: usize = 4; // r4 points at the arena
@@ -38,6 +41,9 @@ struct Case {
     st: [u32; ST_WORDS],
     v: [[u32; VWORDS]; VREGS],
     arena: [u8; ARENA],
+    /// Per-byte LSB seeds Q0..Q3 (the OLD vector predicates). Each [128] vector
+    /// maps to one Q register: byte i's bit 0 = Q.bit[i].
+    qsrc: [[u8; 128]; QSRC_VECS],
 }
 
 #[derive(Clone)]
@@ -95,7 +101,7 @@ fn run_oracle(bin: &PathBuf, cases: &[Case]) -> Option<Vec<Out>> {
     payload.extend_from_slice(&WIRE_MAGIC.to_le_bytes());
     payload.extend_from_slice(&(cases.len() as u32).to_le_bytes());
     for c in cases {
-        let mut buf = vec![0u8; CASE_SIZE];
+        let mut buf = vec![0u8; IN_SIZE];
         buf[0..4].copy_from_slice(&(c.words.len().min(4) as u32).to_le_bytes());
         for i in 0..4 {
             let w = c.words.get(i).copied().unwrap_or(0);
@@ -111,6 +117,10 @@ fn run_oracle(bin: &PathBuf, cases: &[Case]) -> Option<Vec<Out>> {
             }
         }
         buf[AOFF..AOFF + ARENA].copy_from_slice(&c.arena);
+        for k in 0..QSRC_VECS {
+            let o = QSRC_OFF + k * 128;
+            buf[o..o + 128].copy_from_slice(&c.qsrc[k]);
+        }
         payload.extend_from_slice(&buf);
     }
     let mut child = Command::new("qemu-hexagon")
@@ -155,7 +165,7 @@ fn run_oracle(bin: &PathBuf, cases: &[Case]) -> Option<Vec<Out>> {
         }
         let mut arena = [0u8; ARENA];
         arena.copy_from_slice(&out[off + AOFF..off + AOFF + ARENA]);
-        off += CASE_SIZE;
+        off += OUT_SIZE;
         res.push(Out { st, v, arena });
     }
     Some(res)
@@ -243,6 +253,17 @@ fn run_rax(words: &[u32], c: &Case, varena: u32) -> Option<Out> {
         regs.p[i] = ((c.st[I_PRED] >> (8 * i)) & 0xff) as u8;
     }
     regs.v = c.v;
+    // OLD vector predicates Q0..Q3 from the per-byte LSB of the source vectors
+    // (matching the oracle's vandvrt seeding).
+    for k in 0..QSRC_VECS {
+        let mut q = [0u32; 4];
+        for i in 0..128 {
+            if c.qsrc[k][i] & 1 == 1 {
+                q[i / 32] |= 1u32 << (i % 32);
+            }
+        }
+        regs.q[k] = q;
+    }
     regs.set_pc(CODE_ADDR);
 
     let mut vcpu = HexagonVcpu::new(0, mem.clone(), HexagonIsa::V68, Endianness::Little);
@@ -288,6 +309,14 @@ impl Rng {
 }
 
 fn run_family(name: &str, cases: &[(&str, &str)], n: usize, seed: u64) {
+    run_family_q(name, cases, n, seed, false);
+}
+
+/// As `run_family`, but when `qsrc_random` is set the OLD vector predicates
+/// Q0..Q3 are seeded from random per-byte LSBs (wired into the oracle via
+/// `vandvrt` and into rax via `regs.q`). Used to verify Q-masked vmem stores
+/// that read the architectural (OLD) Q rather than an in-packet `.new` Q.
+fn run_family_q(name: &str, cases: &[(&str, &str)], n: usize, seed: u64, qsrc_random: bool) {
     let (bin, varena) = match oracle() {
         Some(x) => x,
         None => {
@@ -331,8 +360,16 @@ fn run_family(name: &str, cases: &[(&str, &str)], n: usize, seed: u64) {
             for b in arena.iter_mut() {
                 *b = rng.next() as u8;
             }
+            let mut qsrc = [[0u8; 128]; QSRC_VECS];
+            if qsrc_random {
+                for q in qsrc.iter_mut() {
+                    for b in q.iter_mut() {
+                        *b = rng.next() as u8;
+                    }
+                }
+            }
             labels.push(*label);
-            batch.push(Case { words: words.clone(), st, v, arena });
+            batch.push(Case { words: words.clone(), st, v, arena, qsrc });
         }
     }
     let outs = match run_oracle(&bin, &batch) {
@@ -427,6 +464,27 @@ fn diff_hvx_store_pred() {
         ],
         12,
         0xa40,
+    );
+}
+
+#[test]
+fn diff_hvx_store_qmask() {
+    // Byte-masked vector stores read the ARCHITECTURAL (OLD) vector predicate Q,
+    // not an in-packet `.new` Q. We seed Q0..Q3 from random per-byte LSBs (the
+    // `qsrc` block) on both the oracle (via vandvrt) and rax, then byte-mask the
+    // store of Vs: lanes where Q==sense are written, the rest keep memory.
+    run_family_q(
+        "hvx_store_qmask",
+        &[
+            ("vS32b_qpred", "{ if (q0) vmem(r4+#0) = v1 }"),
+            ("vS32b_nqpred", "{ if (!q0) vmem(r4+#1) = v2 }"),
+            ("vS32b_qpred_q1", "{ if (q1) vmem(r4+#2) = v3 }"),
+            ("vS32b_qpred_pi", "{ if (q2) vmem(r4++#1) = v4 }"),
+            ("vS32b_nqpred_pi", "{ if (!q3) vmem(r4++#1) = v5 }"),
+        ],
+        12,
+        0xa50,
+        true,
     );
 }
 

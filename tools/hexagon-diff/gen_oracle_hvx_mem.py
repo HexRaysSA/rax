@@ -42,7 +42,11 @@ CASE_WORDS = 4
 CASE_ST = 20
 CASE_VREGS = 256
 CASE_ARENA = CASE_VREGS + VREGS * VBYTES  # 4352
-CASE_SIZE = CASE_ARENA + ARENA
+# Q-predicate source block: 4 vectors whose per-byte LSB seeds Q0..Q3 (via
+# vandvrt) so the OLD vector predicates can be set from the wire.
+CASE_QSRC = CASE_ARENA + ARENA  # 4864 (128-aligned)
+QSRC_VECS = 4
+CASE_SIZE = CASE_QSRC + QSRC_VECS * VBYTES
 OUT_ST = 0
 OUT_TRAPPED = ST_SIZE
 OUT_VALID = ST_SIZE + 4
@@ -139,6 +143,12 @@ def emit(out):
     for i in range(32):
         p(f"\t{{ memw(##g_hsave+{i*4}) = r{i} }}")
     copy_loop("ain", f"##g_case+{CASE_ARENA}", "##g_varena", ARENA)
+    # Seed Q0..Q3 from the per-byte LSB of the 4 source vectors (OLD predicates).
+    p("\t{ r0 = ##0x01010101 }")
+    p(f"\t{{ r1 = ##g_case+{CASE_QSRC} }}")
+    for k in range(QSRC_VECS):
+        p(f"\t{{ v0 = vmem(r1+#{k}) }}")
+        p(f"\t{{ q{k} = vand(v0,r0) }}")
     # copy test words into the slot; NOP-fill.
     p(f"\t{{ r5 = memw(##g_case+{CASE_NWORDS}) }}")
     p(f"\t{{ r4 = ##{NOP:#x} }}")
