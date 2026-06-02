@@ -4807,6 +4807,17 @@ impl AArch64Cpu {
                 self.exec_sve_int_unpred(insn, zd, zn, zm, esize)
             }
 
+            // TBL (table lookup, single table): 0x05, bit21==1,
+            // bits[15:10]==001100. Shares bits[15:10] with the unpredicated
+            // logical arm below (0x04) so it MUST precede it and gate on 0x05.
+            0b000
+                if (insn >> 24) & 0xFF == 0b00000101
+                    && (insn >> 21) & 1 == 1
+                    && (insn >> 10) & 0x3F == 0b001100 =>
+            {
+                self.exec_sve_tbl(zd, zn, zm, esize)
+            }
+
             // Unpredicated bitwise logical (AND/ORR/EOR/BIC): bits[15:10]=001100.
             0b000 if (insn >> 21) & 1 == 1 && (insn >> 10) & 0x3F == 0b001100 => {
                 self.exec_sve_logical_unpred(insn, zd, zn, zm)
@@ -5711,6 +5722,32 @@ impl AArch64Cpu {
                 };
                 write_elem(&mut dst, i * esize, esize, v);
             }
+        }
+        self.v[zd] = u128::from_le_bytes(dst);
+        Ok(CpuExit::Continue)
+    }
+
+    /// Execute SVE TBL (table lookup, single source table). For each element e,
+    /// `Zd[e] = Zn[Zm[e]]` if the index `Zm[e]` is within range, else 0. The
+    /// table Zn is indexed by the unsigned element value of Zm.
+    fn exec_sve_tbl(
+        &mut self,
+        zd: usize,
+        zn: usize,
+        zm: usize,
+        esize: usize,
+    ) -> Result<CpuExit, ArmError> {
+        let elements = 16 / esize;
+        let table = self.v[zn].to_le_bytes();
+        let idxs = self.v[zm].to_le_bytes();
+        let mut dst = [0u8; 16];
+        for e in 0..elements {
+            let idx = read_elem(&idxs, e * esize, esize) as usize;
+            if idx < elements {
+                let val = read_elem(&table, idx * esize, esize);
+                write_elem(&mut dst, e * esize, esize, val);
+            }
+            // Out-of-range index leaves the destination element as 0.
         }
         self.v[zd] = u128::from_le_bytes(dst);
         Ok(CpuExit::Continue)

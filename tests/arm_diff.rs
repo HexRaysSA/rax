@@ -1588,6 +1588,13 @@ fn enc_sve_ext(imm8: u32) -> u32 {
     (0b00000101 << 24) | (0b001 << 21) | (imm8h << 16) | (imm8l << 10) | (RN << 5) | RD
 }
 
+/// SVE TBL (single source table): `00000101 size 1 Zm 001100 Zn Zd`.
+/// Table=Zn(RN), indices=Zm(RM), dest=Zd(RD).
+fn enc_sve_tbl(sz: u32) -> u32 {
+    (0b00000101 << 24) | (sz << 22) | (1 << 21) | (RM << 16)
+        | (0b001100 << 10) | (RN << 5) | RD
+}
+
 #[test]
 fn diff_sve_index() {
     let mut cases: Vec<(String, u32)> = Vec::new();
@@ -2132,6 +2139,17 @@ fn diff_sve_ext() {
         cases.push((format!("sve_ext #{imm8}"), enc_sve_ext(imm8)));
     }
     run_family("sve_ext", cases, 16, 0x2_5001);
+}
+
+#[test]
+fn diff_sve_tbl() {
+    // TBL gathers Zn[Zm[e]] per element; out-of-range indices yield 0. Random
+    // index lanes exercise both in-range gathers and the zero-fill path.
+    let mut cases: Vec<(String, u32)> = Vec::new();
+    for sz in 0..4u32 {
+        cases.push((format!("sve_tbl sz{sz}"), enc_sve_tbl(sz)));
+    }
+    run_family("sve_tbl", cases, 24, 0x2_6001);
 }
 
 #[test]
