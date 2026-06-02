@@ -26,10 +26,14 @@ mod float;
 mod float_ext;
 mod hvx;
 mod hvx_cmp;
-mod hvx_conv;
+mod hvx_cmpy;
+mod hvx_lut;
 mod hvx_minmax;
 mod hvx_mpy;
+mod hvx_mpys;
+mod hvx_mpyv;
 mod hvx_perm;
+mod hvx_rmpy;
 mod hvx_shift;
 mod mpy;
 mod mpy_ext;
@@ -249,7 +253,11 @@ pub fn dispatch(d: &DecodedOp, ctx: &mut SemCtx) -> bool {
         || hvx_cmp::exec(op, d, ctx)
         || hvx_shift::exec(op, d, ctx)
         || hvx_minmax::exec(op, d, ctx)
-        || hvx_conv::exec(op, d, ctx)
+        || hvx_mpyv::exec(op, d, ctx)
+        || hvx_mpys::exec(op, d, ctx)
+        || hvx_rmpy::exec(op, d, ctx)
+        || hvx_cmpy::exec(op, d, ctx)
+        || hvx_lut::exec(op, d, ctx)
         || mpy_ext::exec(op, d, ctx)
         || shift_ext::exec(op, d, ctx)
         || alu_ext::exec(op, d, ctx)
