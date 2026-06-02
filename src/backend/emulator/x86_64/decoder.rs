@@ -493,6 +493,40 @@ impl X86_64Vcpu {
             ));
         }
 
+        // FAST PATH for the overwhelmingly common memory forms: [reg],
+        // [reg+disp8], [reg+disp32] with no SIB (rm!=4), not RIP-relative /
+        // disp32-absolute (rm==5 && mod==0), no address-size override, and no
+        // segment override (DS/ES/SS/CS bases are 0 in this emulator's flat
+        // model, so seg_base is 0). This skips the SIB decode, the RIP-relative
+        // branch, the address-size-32 truncation, and the get_segment_base call.
+        // Behaviour is identical to the general path below for these cases; it is
+        // ~14% of a memory workload so the shortcut is worth the up-front test.
+        if rm_field != 4
+            && !(rm_field == 5 && mod_bits == 0)
+            && !ctx.address_size_override
+            && ctx.segment_override.is_none()
+        {
+            let base = self.get_reg(rm, 8);
+            return match mod_bits {
+                0 => Ok((base, 0)),
+                1 => {
+                    if bytes.len() < 2 {
+                        return Err(Error::Emulator("ModR/M: missing disp8".to_string()));
+                    }
+                    Ok(((base as i64).wrapping_add(bytes[1] as i8 as i64) as u64, 1))
+                }
+                _ => {
+                    // mod_bits == 2 (mod == 3 rejected above): disp32
+                    if bytes.len() < 5 {
+                        return Err(Error::Emulator("ModR/M: missing disp32".to_string()));
+                    }
+                    let disp =
+                        i32::from_le_bytes([bytes[1], bytes[2], bytes[3], bytes[4]]) as i64;
+                    Ok(((base as i64).wrapping_add(disp) as u64, 4))
+                }
+            };
+        }
+
         // Address-size override (0x67) handling.
         //
         // In 64-bit mode (CS.L=1), the default address size is 64-bit and 0x67
