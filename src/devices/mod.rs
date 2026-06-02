@@ -21,3 +21,4 @@ pub mod ac97;
 pub mod ide;
 pub mod fdc;
 pub mod uhci;
+pub mod ahci;
