@@ -56,6 +56,16 @@ impl HexagonLifter {
         VReg::Arch(ArchReg::Hexagon(HexagonReg::P(pred)))
     }
 
+    /// Convert an HVX vector register V0..V31 to an SMIR vector VReg.
+    fn hex_v(&self, n: u8) -> VReg {
+        VReg::Arch(ArchReg::Hexagon(HexagonReg::V(n)))
+    }
+
+    /// Convert an HVX vector predicate register Q0..Q3 to an SMIR vector VReg.
+    fn hex_q(&self, n: u8) -> VReg {
+        VReg::Arch(ArchReg::Hexagon(HexagonReg::Q(n)))
+    }
+
     /// Convert Hexagon memory width to SMIR memory width
     fn hex_mem_width(&self, width: HexMemWidth) -> MemWidth {
         match width {
@@ -2384,6 +2394,163 @@ impl HexagonLifter {
                 push_op!(OpKind::Xor { dst: r, src1: x, src2: SrcOperand::Reg(s), width: OpWidth::W64, flags: FlagUpdate::None });
                 write_pair!(rx_n, r);
             }
+
+            // ============================================================
+            // HVX (V6_*) elementwise integer vector ops
+            //
+            // HVX vectors are 1024-bit (V0..V31). The SMIR vector ops execute
+            // over the full 1024-bit VecValue via read_vec/write_vec, which map
+            // VReg::Arch(Hexagon::V(n)) to the interpreter's V state. We use
+            // elem=I8/lanes=128 (byte), I16/lanes=64 (half), I32/lanes=32 (word).
+            //
+            // Field layout mirrors the sem layer (sem/hvx*.rs): the dest vreg is
+            // `fld(b'd')`, the two vector sources are `fld(b'u')` and `fld(b'v')`,
+            // the scalar shift-amount register (vasl/vlsr-by-Rt) is `fld(b't')`.
+            // ============================================================
+
+            // ---- non-saturating vector add (Vd = vadd(Vu,Vv)) ----
+            // VAdd uses wrapping_add per lane: matches V6_vaddb/h/w exactly.
+            Opcode::V6_vaddb => push_op!(OpKind::VAdd {
+                dst: self.hex_v(fld(b'd')),
+                src1: self.hex_v(fld(b'u')),
+                src2: self.hex_v(fld(b'v')),
+                elem: VecElementType::I8,
+                lanes: 128,
+            }),
+            Opcode::V6_vaddh => push_op!(OpKind::VAdd {
+                dst: self.hex_v(fld(b'd')),
+                src1: self.hex_v(fld(b'u')),
+                src2: self.hex_v(fld(b'v')),
+                elem: VecElementType::I16,
+                lanes: 64,
+            }),
+            Opcode::V6_vaddw => push_op!(OpKind::VAdd {
+                dst: self.hex_v(fld(b'd')),
+                src1: self.hex_v(fld(b'u')),
+                src2: self.hex_v(fld(b'v')),
+                elem: VecElementType::I32,
+                lanes: 32,
+            }),
+
+            // ---- non-saturating vector sub (Vd = vsub(Vu,Vv)) ----
+            // VSub uses wrapping_sub per lane: matches V6_vsubb/h/w exactly.
+            // sem computes a.wrapping_sub(b) with a=Vu, b=Vv (map_*(&vu,&vv,..)).
+            Opcode::V6_vsubb => push_op!(OpKind::VSub {
+                dst: self.hex_v(fld(b'd')),
+                src1: self.hex_v(fld(b'u')),
+                src2: self.hex_v(fld(b'v')),
+                elem: VecElementType::I8,
+                lanes: 128,
+            }),
+            Opcode::V6_vsubh => push_op!(OpKind::VSub {
+                dst: self.hex_v(fld(b'd')),
+                src1: self.hex_v(fld(b'u')),
+                src2: self.hex_v(fld(b'v')),
+                elem: VecElementType::I16,
+                lanes: 64,
+            }),
+            Opcode::V6_vsubw => push_op!(OpKind::VSub {
+                dst: self.hex_v(fld(b'd')),
+                src1: self.hex_v(fld(b'u')),
+                src2: self.hex_v(fld(b'v')),
+                elem: VecElementType::I32,
+                lanes: 32,
+            }),
+
+            // ---- unsigned vector min/max ----
+            // The SMIR VMax operates on the zero-extended lane value (get_lane
+            // masks to elem_bits), so a.max(b) is an UNSIGNED compare. That
+            // matches V6_vmaxub/vmaxuh (unsigned max) only. The signed forms
+            // (vmaxb/h/w) and VMin (interp stub) are reported in needs_opkind.
+            Opcode::V6_vmaxub => push_op!(OpKind::VMax {
+                dst: self.hex_v(fld(b'd')),
+                src1: self.hex_v(fld(b'u')),
+                src2: self.hex_v(fld(b'v')),
+                elem: VecElementType::I8,
+                lanes: 128,
+            }),
+            Opcode::V6_vmaxuh => push_op!(OpKind::VMax {
+                dst: self.hex_v(fld(b'd')),
+                src1: self.hex_v(fld(b'u')),
+                src2: self.hex_v(fld(b'v')),
+                elem: VecElementType::I16,
+                lanes: 64,
+            }),
+
+            // ---- non-widening vector integer multiply (low half) ----
+            // V6_vmpyih: Vd.h = vmpyi(Vu.h, Vv.h) — per-halfword 16x16 product
+            // keeping the LOW 16 bits. VMul routes through vec_binary_op with
+            // wrapping_mul on zero-extended lanes, then set_lane masks to 16
+            // bits. The low 16 bits of an integer product are identical for
+            // signed and unsigned operands, so this is bit-exact with the sem
+            // layer's `(get_h(a,i) as i32 * get_h(b,i) as i32) as u16`.
+            // (The scalar-by-vector forms vmpyihb/vmpyiwb/vmpyiwh select a
+            // byte/half of Rt per lane (i%4 / i%2); VMul is vector-by-vector
+            // only and cannot express them — reported in needs_opkind.)
+            Opcode::V6_vmpyih => push_op!(OpKind::VMul {
+                dst: self.hex_v(fld(b'd')),
+                src1: self.hex_v(fld(b'u')),
+                src2: self.hex_v(fld(b'v')),
+                elem: VecElementType::I16,
+                lanes: 64,
+            }),
+
+            // ---- vector shifts by scalar Rt ----
+            // VShift reads a single scalar amount and shifts every lane by it,
+            // masking the result to elem_bits. The interp computes amt % elem_bits
+            // which equals the sem layer's `rt & (elem_bits-1)`.
+            //   Lsl (vasl*) and Lsr (vlsr*) match bit-exactly.
+            //   Asr (vasr*) does NOT match: VShift's Asr treats the zero-extended
+            //   lane as i64 (no per-lane sign extension), so negative lanes shift
+            //   in zeros instead of the sign bit. Reported in needs_opkind.
+            Opcode::V6_vaslh => push_op!(OpKind::VShift {
+                dst: self.hex_v(fld(b'd')),
+                src: self.hex_v(fld(b'u')),
+                amount: SrcOperand::Reg(self.hex_reg(fld(b't'))),
+                shift: ShiftOp::Lsl,
+                elem: VecElementType::I16,
+                lanes: 64,
+            }),
+            Opcode::V6_vaslw => push_op!(OpKind::VShift {
+                dst: self.hex_v(fld(b'd')),
+                src: self.hex_v(fld(b'u')),
+                amount: SrcOperand::Reg(self.hex_reg(fld(b't'))),
+                shift: ShiftOp::Lsl,
+                elem: VecElementType::I32,
+                lanes: 32,
+            }),
+            Opcode::V6_vlsrb => push_op!(OpKind::VShift {
+                dst: self.hex_v(fld(b'd')),
+                src: self.hex_v(fld(b'u')),
+                amount: SrcOperand::Reg(self.hex_reg(fld(b't'))),
+                shift: ShiftOp::Lsr,
+                elem: VecElementType::I8,
+                lanes: 128,
+            }),
+            Opcode::V6_vlsrh => push_op!(OpKind::VShift {
+                dst: self.hex_v(fld(b'd')),
+                src: self.hex_v(fld(b'u')),
+                amount: SrcOperand::Reg(self.hex_reg(fld(b't'))),
+                shift: ShiftOp::Lsr,
+                elem: VecElementType::I16,
+                lanes: 64,
+            }),
+            Opcode::V6_vlsrw => push_op!(OpKind::VShift {
+                dst: self.hex_v(fld(b'd')),
+                src: self.hex_v(fld(b'u')),
+                amount: SrcOperand::Reg(self.hex_reg(fld(b't'))),
+                shift: ShiftOp::Lsr,
+                elem: VecElementType::I32,
+                lanes: 32,
+            }),
+
+            // ---- vassign: Vd = Vu (full-vector copy) ----
+            // VMov uses read_vec/write_vec over the full 1024-bit VecValue.
+            Opcode::V6_vassign => push_op!(OpKind::VMov {
+                dst: self.hex_v(fld(b'd')),
+                src: self.hex_v(fld(b'u')),
+                width: VecWidth::V512,
+            }),
 
             // Everything else: not implemented here.
             _ => return Err(unsupported()),

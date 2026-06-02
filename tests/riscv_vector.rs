@@ -1406,6 +1406,50 @@ fn diff_v_fcvt() {
 }
 
 #[test]
+fn diff_v_fwcvt() {
+    let mut rng = Rng::new(0x7EC_850);
+    let mut batch = Vec::new();
+    let ops: &[(&str, u32)] = &[
+        ("vfwcvt.xu.f.v", 0b01000),
+        ("vfwcvt.x.f.v", 0b01001),
+        ("vfwcvt.f.xu.v", 0b01010),
+        ("vfwcvt.f.x.v", 0b01011),
+        ("vfwcvt.f.f.v", 0b01100),
+        ("vfwcvt.rtz.xu.f.v", 0b01110),
+        ("vfwcvt.rtz.x.f.v", 0b01111),
+    ];
+    for sew_log2 in 1..3u32 {
+        // source SEW 16/32 -> dest 32/64
+        let eb = 1usize << sew_log2;
+        let vmax = vlmax(sew_log2);
+        for vl in [vmax, (vmax / 2).max(1)] {
+            for frm in 0..5u64 {
+                for &(name, sel) in ops {
+                    for k in 0..2 {
+                        // (vd = 2*SEW group, vs2 = SEW source)
+                        let (vd, vs2, _) = WIDEN_REGS[(rng.next() % 4) as usize];
+                        let mut st = rand_vstate(&mut rng, sew_log2, vl);
+                        st.fcsr = frm << 5;
+                        // Seed the source register with assorted FP/int patterns.
+                        fp_setup(&mut st, &mut rng, eb);
+                        st.v[vs2 as usize * 2] = rng.next();
+                        st.v[vs2 as usize * 2 + 1] = rng.next();
+                        batch.push((name.into(), op_iv(0b010010, 1, vs2, sel, 0b001, vd), st));
+                        if k == 0 {
+                            let mut stm = st;
+                            stm.v[0] = rng.next();
+                            stm.v[1] = rng.next();
+                            batch.push((format!("{name}.m"), op_iv(0b010010, 0, vs2, sel, 0b001, vd), stm));
+                        }
+                    }
+                }
+            }
+        }
+    }
+    run_batch(&batch);
+}
+
+#[test]
 fn diff_v_loadstore() {
     let mut rng = Rng::new(0x7EC_705);
     let mut batch = Vec::new();

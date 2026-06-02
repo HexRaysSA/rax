@@ -767,9 +767,9 @@ impl RiscVCpu {
             | Op::Vwsubu | Op::Vwsub | Op::VwadduW | Op::VwaddW | Op::VwsubuW | Op::VwsubW
             | Op::Vwmulu | Op::Vwmulsu | Op::Vwmul | Op::Vwmaccu | Op::Vwmacc | Op::Vwmaccsu
             | Op::Vwmaccus | Op::Vnsrl | Op::Vnsra | Op::Vnclipu | Op::Vnclip | Op::VfcvtXuF
-            | Op::VfcvtXF | Op::VfcvtFXu | Op::VfcvtFX | Op::VfcvtRtzXuF | Op::VfcvtRtzXF => {
-                self.exec_vector(insn)?
-            }
+            | Op::VfcvtXF | Op::VfcvtFXu | Op::VfcvtFX | Op::VfcvtRtzXuF | Op::VfcvtRtzXF
+            | Op::VfwcvtXuF | Op::VfwcvtXF | Op::VfwcvtFXu | Op::VfwcvtFX | Op::VfwcvtFF
+            | Op::VfwcvtRtzXuF | Op::VfwcvtRtzXF => self.exec_vector(insn)?,
 
             Op::Illegal => return Err(Trap::illegal(insn.raw)),
 
@@ -1668,6 +1668,61 @@ impl RiscVCpu {
                         super::float::itof_fmt(fmt_eb(eb), v, frm, &mut flags)
                     };
                     self.set_velem(vd, e, eb, r & mask);
+                }
+                self.accrue(flags);
+            }
+            Op::VfwcvtXuF | Op::VfwcvtXF | Op::VfwcvtFXu | Op::VfwcvtFX | Op::VfwcvtFF
+            | Op::VfwcvtRtzXuF | Op::VfwcvtRtzXF => {
+                // Widening conversions: SEW source -> 2*SEW result.
+                let eb = self.sew_bytes();
+                if eb > 4 {
+                    return Err(Trap::illegal(insn.raw));
+                }
+                let web = eb * 2;
+                let wmask = Self::sew_mask(web);
+                let frm = RoundingMode::from_bits(self.frm()).unwrap_or(RoundingMode::Rne);
+                let mut flags = 0u32;
+                for e in vstart..vl {
+                    if !vm && !self.vmask_bit(e) {
+                        continue;
+                    }
+                    let a = self.velem(vs2, e, eb);
+                    let r = match insn.op {
+                        Op::VfwcvtXuF | Op::VfwcvtXF | Op::VfwcvtRtzXuF | Op::VfwcvtRtzXF => {
+                            let signed = matches!(insn.op, Op::VfwcvtXF | Op::VfwcvtRtzXF);
+                            let rm = if matches!(insn.op, Op::VfwcvtRtzXuF | Op::VfwcvtRtzXF) {
+                                RoundingMode::Rtz
+                            } else {
+                                frm
+                            };
+                            match eb {
+                                2 => super::float::ftoi(
+                                    super::float::h_widen(a as u16),
+                                    signed,
+                                    32,
+                                    rm,
+                                    &mut flags,
+                                ),
+                                _ => super::float::ftoi(
+                                    f32::from_bits(a as u32),
+                                    signed,
+                                    64,
+                                    rm,
+                                    &mut flags,
+                                ),
+                            }
+                        }
+                        Op::VfwcvtFXu | Op::VfwcvtFX => {
+                            let v: i128 = if insn.op == Op::VfwcvtFX {
+                                sext_sew(a, eb) as i128
+                            } else {
+                                a as i128
+                            };
+                            super::float::itof_fmt(fmt_eb(web), v, frm, &mut flags)
+                        }
+                        _ => super::float::fcvt_round(fmt_eb(eb), fmt_eb(web), a, frm, &mut flags),
+                    };
+                    self.set_velem(vd, e, web, r & wmask);
                 }
                 self.accrue(flags);
             }
