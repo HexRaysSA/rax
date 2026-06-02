@@ -5273,6 +5273,82 @@ impl AArch64Cpu {
                 Ok(CpuExit::Continue)
             }
 
+            // SVE2 shift right narrow: 010001010 tszh 1 tszl imm3 00 op U R T.
+            // (op,U): (0,1)=SHRN/RSHRN, (0,0)=SQSHRUN, (1,0)=SQSHRN, (1,1)=UQSHRN
+            // (R=bit11 adds rounding). dst esize from highest set bit of tsz, src
+            // 2x; shift amount = 2*dst_bits - (tsz:imm3).
+            0b010
+                if (insn >> 24) & 0xFF == 0b01000101
+                    && (insn >> 23) & 1 == 0
+                    && (insn >> 21) & 1 == 1
+                    && (insn >> 14) & 0x3 == 0 =>
+            {
+                let tsize = (((insn >> 22) & 1) << 2) | ((insn >> 19) & 0x3);
+                if tsize == 0 {
+                    return Ok(CpuExit::Undefined(insn));
+                }
+                let dst_esize = 1usize << (31 - tsize.leading_zeros());
+                let src_esize = dst_esize * 2;
+                let dst_bits = (dst_esize * 8) as u32;
+                let src_bits = (src_esize * 8) as u32;
+                let dmask = elem_mask(dst_bits);
+                let tszimm = (tsize << 3) | ((insn >> 16) & 0x7);
+                let amount = src_bits - tszimm; // 1..=dst_bits
+                let op = (insn >> 13) & 1;
+                let u = (insn >> 12) & 1;
+                let round = (insn >> 11) & 1 == 1;
+                let top = (insn >> 10) & 1 == 1;
+                let n_src = 16 / src_esize;
+                let a = self.v[zn].to_le_bytes();
+                let mut dst = if top { self.v[zd].to_le_bytes() } else { [0u8; 16] };
+                for d in 0..n_src {
+                    let x = read_elem(&a, d * src_esize, src_esize);
+                    let narrow: u64 = match (op, u) {
+                        (0, 1) => {
+                            let v = uext_elem(x, src_bits);
+                            let r = if round {
+                                (v + (1u128 << (amount - 1))) >> amount
+                            } else {
+                                v >> amount
+                            };
+                            r as u64 & dmask
+                        }
+                        (0, 0) => {
+                            let v = sext_elem(x, src_bits);
+                            let r = if round {
+                                (v + (1i128 << (amount - 1))) >> amount
+                            } else {
+                                v >> amount
+                            };
+                            r.clamp(0, dmask as i128) as u64
+                        }
+                        (1, 0) => {
+                            let v = sext_elem(x, src_bits);
+                            let r = if round {
+                                (v + (1i128 << (amount - 1))) >> amount
+                            } else {
+                                v >> amount
+                            };
+                            let hi = (1i128 << (dst_bits - 1)) - 1;
+                            let lo = -(1i128 << (dst_bits - 1));
+                            r.clamp(lo, hi) as u64 & dmask
+                        }
+                        _ => {
+                            let v = uext_elem(x, src_bits);
+                            let r = if round {
+                                (v + (1u128 << (amount - 1))) >> amount
+                            } else {
+                                v >> amount
+                            };
+                            r.min(dmask as u128) as u64
+                        }
+                    };
+                    write_elem(&mut dst, (2 * d + top as usize) * dst_esize, dst_esize, narrow);
+                }
+                self.v[zd] = u128::from_le_bytes(dst);
+                Ok(CpuExit::Continue)
+            }
+
             // SVE2 saturating extract narrow: 010001010 tszh 1 tszl 000010 vv T.
             // (bit12,bit11): 00=SQXTN (signed->signed sat), 01=UQXTN (unsigned->
             // unsigned sat), 10=SQXTUN (signed->unsigned sat). The dest element

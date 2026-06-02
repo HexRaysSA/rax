@@ -1626,6 +1626,19 @@ fn enc_sve2_cmla(size: u32, op: u32, rot: u32) -> u32 {
     (0b01000100 << 24) | (size << 22) | (RM << 16) | (0b001 << 13) | (op << 12) | (rot << 10)
         | (RN << 5) | RD
 }
+/// SVE2 shift right narrow: `010001010 tszh 1 tszl imm3 00 op U R T Zn Zd`.
+fn enc_sve2_shrn(tsz: u32, imm3: u32, op: u32, u: u32, r: u32, t: u32) -> u32 {
+    let tszh = (tsz >> 2) & 1;
+    let tszl = tsz & 0x3;
+    (0b010001010 << 23) | (tszh << 22) | (1 << 21) | (tszl << 19) | (imm3 << 16) | (op << 13)
+        | (u << 12) | (r << 11) | (t << 10) | (RN << 5) | RD
+}
+/// (tsz, imm3) for a shift-right-narrow with destination width `dst_bits` and
+/// shift `amount` (1..=dst_bits): tsz:imm3 = 2*dst_bits - amount.
+fn shrn_tsz_imm(dst_bits: u32, amount: u32) -> (u32, u32) {
+    let tszimm = 2 * dst_bits - amount;
+    ((tszimm >> 3) & 0x7, tszimm & 0x7)
+}
 
 /// SVE INDEX variants. base=imm5[9:5] or Xn; step=imm5[20:16] or Xm. Rn=x1, Rm=x2.
 fn enc_index_ii(sz: u32, imm_step: u32, imm_base: u32) -> u32 {
@@ -3546,6 +3559,39 @@ fn diff_sve2_cmla() {
         }
     }
     run_family("sve2_cmla", cases, 16, 0x5_7001);
+}
+
+#[test]
+fn diff_sve2_shrn() {
+    // SVE2 shift right narrow: SHRN/RSHRN, SQSHRUN, SQSHRN, UQSHRN (bottom/top),
+    // across destination sizes and shift amounts.
+    let mut cases: Vec<(String, u32)> = Vec::new();
+    for &(db, amt) in &[
+        (8u32, 1u32),
+        (8, 4),
+        (8, 8),
+        (16, 1),
+        (16, 8),
+        (16, 16),
+        (32, 1),
+        (32, 16),
+        (32, 32),
+    ] {
+        let (tsz, imm3) = shrn_tsz_imm(db, amt);
+        for op in 0..2u32 {
+            for u in 0..2u32 {
+                for r in 0..2u32 {
+                    for t in 0..2u32 {
+                        cases.push((
+                            format!("shrn d{db} a{amt} op{op} u{u} r{r} t{t}"),
+                            enc_sve2_shrn(tsz, imm3, op, u, r, t),
+                        ));
+                    }
+                }
+            }
+        }
+    }
+    run_family("sve2_shrn", cases, 12, 0x5_8001);
 }
 
 #[test]
