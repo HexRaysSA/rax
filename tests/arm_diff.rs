@@ -1570,6 +1570,13 @@ fn enc_sve2_tern(opc: u32, o2: u32) -> u32 {
         | (0b00111 << 11) | (o2 << 10) | (RN << 5) | RD
 }
 
+/// SVE2 integer add/subtract long: `01000101 size 0 Zm 00 0 S U T Zn Zd`.
+/// Zn=z1(RN), Zm=z2(RM), Zd=z0(RD).
+fn enc_sve2_addl(size: u32, s: u32, u: u32, t: u32) -> u32 {
+    (0b01000101 << 24) | (size << 22) | (RM << 16) | (s << 12) | (u << 11) | (t << 10)
+        | (RN << 5) | RD
+}
+
 /// SVE INDEX variants. base=imm5[9:5] or Xn; step=imm5[20:16] or Xm. Rn=x1, Rm=x2.
 fn enc_index_ii(sz: u32, imm_step: u32, imm_base: u32) -> u32 {
     (0b00000100 << 24) | (sz << 22) | (1 << 21) | ((imm_step & 0x1F) << 16)
@@ -3354,6 +3361,25 @@ fn diff_sve2_ternary() {
         cases.push((name.to_string(), enc_sve2_tern(opc, o2)));
     }
     run_family("sve2_ternary", cases, 16, 0x5_0001);
+}
+
+#[test]
+fn diff_sve2_addl() {
+    // SVE2 integer add/subtract long (S?ADDL/S?SUBL bottom/top, signed/unsigned).
+    let mut cases: Vec<(String, u32)> = Vec::new();
+    for size in 1..4u32 {
+        for s in 0..2u32 {
+            for u in 0..2u32 {
+                for t in 0..2u32 {
+                    cases.push((
+                        format!("addl sz{size} s{s} u{u} t{t}"),
+                        enc_sve2_addl(size, s, u, t),
+                    ));
+                }
+            }
+        }
+    }
+    run_family("sve2_addl", cases, 16, 0x5_1001);
 }
 
 #[test]

@@ -5136,6 +5136,46 @@ impl AArch64Cpu {
             // FP predicated operations
             0b011 => self.exec_sve_fp_pred(insn, zd, zn, zm, pg, esize),
 
+            // SVE2 integer add/subtract long: 0x45, bit21==0, bits[15:13]==000.
+            // SADDLB/T, SSUBLB/T, UADDLB/T, USUBLB/T. Source elements are
+            // half the destination width; T picks odd (top) vs even (bottom);
+            // S selects subtract, U unsigned widening. size=00 is reserved.
+            0b010
+                if (insn >> 24) & 0xFF == 0b01000101
+                    && (insn >> 21) & 1 == 0
+                    && (insn >> 13) & 0x7 == 0b000 =>
+            {
+                let size = (insn >> 22) & 0x3;
+                if size == 0 {
+                    return Ok(CpuExit::Undefined(insn));
+                }
+                let d_esize = 1usize << size;
+                let s_esize = d_esize / 2;
+                let s_bits = (s_esize * 8) as u32;
+                let sub = (insn >> 12) & 1 == 1;
+                let unsigned = (insn >> 11) & 1 == 1;
+                let top = (insn >> 10) & 1 == 1;
+                let elements = 16 / d_esize;
+                let a = self.v[zn].to_le_bytes();
+                let b = self.v[zm].to_le_bytes();
+                let mut dst = [0u8; 16];
+                let mask = elem_mask((d_esize * 8) as u32);
+                for d in 0..elements {
+                    let off = (2 * d + top as usize) * s_esize;
+                    let xn = read_elem(&a, off, s_esize);
+                    let xm = read_elem(&b, off, s_esize);
+                    let (vn, vm): (i128, i128) = if unsigned {
+                        (uext_elem(xn, s_bits) as i128, uext_elem(xm, s_bits) as i128)
+                    } else {
+                        (sext_elem(xn, s_bits), sext_elem(xm, s_bits))
+                    };
+                    let r = if sub { vn - vm } else { vn + vm };
+                    write_elem(&mut dst, d * d_esize, d_esize, (r as u64) & mask);
+                }
+                self.v[zd] = u128::from_le_bytes(dst);
+                Ok(CpuExit::Continue)
+            }
+
             // Load/Store
             0b100 | 0b101 | 0b110 | 0b111 => self.exec_sve_ldst(insn),
 
