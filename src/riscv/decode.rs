@@ -328,6 +328,16 @@ pub enum Op {
     Vsetvli,
     Vsetivli,
     Vsetvl,
+    // ---- V (vector load/store, unit-stride; width in funct3) ----
+    Vle,
+    Vse,
+    // ---- V (vector integer arithmetic; form vv/vx/vi in funct3) ----
+    Vadd,
+    Vsub,
+    Vrsub,
+    Vand,
+    Vor,
+    Vxor,
     // ---- sentinel ----
     Illegal,
 }
@@ -565,10 +575,25 @@ pub fn decode(w: u32, xlen: Xlen, isa: &Isa) -> Insn {
     }
 }
 
-/// OP-V (0x57). Only the vector configuration instructions (funct3 == 0b111)
-/// are implemented; vector arithmetic/load-store decode as illegal.
+/// OP-V (0x57): vector configuration (funct3 == 0b111) and integer arithmetic
+/// (OPIVV/OPIVX/OPIVI).
 fn decode_vector(w: u32) -> Insn {
-    if funct3(w) != 0b111 {
+    let f3 = funct3(w);
+    // Integer arithmetic: OPIVV(000) / OPIVI(011) / OPIVX(100), op in funct6.
+    if f3 == 0b000 || f3 == 0b011 || f3 == 0b100 {
+        let funct6 = w >> 26;
+        let op = match funct6 {
+            0b000000 => Op::Vadd,
+            0b000010 if f3 != 0b011 => Op::Vsub, // no OPIVI form
+            0b000011 if f3 != 0b000 => Op::Vrsub, // no OPIVV form
+            0b001001 => Op::Vand,
+            0b001010 => Op::Vor,
+            0b001011 => Op::Vxor,
+            _ => return Insn::illegal(w, 4),
+        };
+        return base(op, w);
+    }
+    if f3 != 0b111 {
         return Insn::illegal(w, 4);
     }
     if (w >> 31) & 1 == 0 {
@@ -1054,7 +1079,18 @@ fn decode_amo(w: u32, rv64: bool) -> Insn {
 }
 
 fn decode_load_fp(w: u32, isa: &Isa) -> Insn {
-    let op = match funct3(w) {
+    let f3 = funct3(w);
+    // Vector unit-stride load (width 8/16/32/64 in funct3).
+    if isa.v && matches!(f3, 0 | 5 | 6 | 7) {
+        let nf = (w >> 29) & 7;
+        let mop = (w >> 26) & 3;
+        let lumop = (w >> 20) & 0x1f;
+        if nf == 0 && mop == 0 && lumop == 0 {
+            return base(Op::Vle, w);
+        }
+        return Insn::illegal(w, 4);
+    }
+    let op = match f3 {
         1 if isa.zfh => Op::Flh,
         2 => Op::Flw,
         3 if isa.d => Op::Fld,
@@ -1064,7 +1100,18 @@ fn decode_load_fp(w: u32, isa: &Isa) -> Insn {
 }
 
 fn decode_store_fp(w: u32, isa: &Isa) -> Insn {
-    let op = match funct3(w) {
+    let f3 = funct3(w);
+    // Vector unit-stride store (width 8/16/32/64 in funct3).
+    if isa.v && matches!(f3, 0 | 5 | 6 | 7) {
+        let nf = (w >> 29) & 7;
+        let mop = (w >> 26) & 3;
+        let sumop = (w >> 20) & 0x1f;
+        if nf == 0 && mop == 0 && sumop == 0 {
+            return base(Op::Vse, w);
+        }
+        return Insn::illegal(w, 4);
+    }
+    let op = match f3 {
         1 if isa.zfh => Op::Fsh,
         2 => Op::Fsw,
         3 if isa.d => Op::Fsd,
