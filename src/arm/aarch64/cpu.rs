@@ -6454,6 +6454,12 @@ impl AArch64Cpu {
         if (insn >> 18) & 0xF == 0b0010 {
             return self.exec_sve_fcvt(insn, zd, zn, pg);
         }
+        // FP<->int conversions: bits[21:19]==011 (FCVTZS/FCVTZU, FP->int) or
+        // ==010 (SCVTF/UCVTF, int->FP). bits[23:22]/bits[18:17] pick the widths
+        // and bit16 the signedness, so this also bypasses the esize path.
+        if (insn >> 19) & 0x7 == 0b011 || (insn >> 19) & 0x7 == 0b010 {
+            return self.exec_sve_fp_int_cvt(insn, zd, zn, pg);
+        }
         if esize < 2 {
             return Ok(CpuExit::Undefined(insn));
         }
@@ -6547,6 +6553,53 @@ impl AArch64Cpu {
                 (4, 8) => (f32::from_bits(x as u32) as f64).to_bits(),
                 (8, 2) => fp16_round(f64::from_bits(x)) as u64,
                 _ => (f64::from_bits(x) as f32).to_bits() as u64, // double -> single
+            };
+            write_elem(&mut dst, off, cont, res);
+        }
+        self.v[zd] = u128::from_le_bytes(dst);
+        Ok(CpuExit::Continue)
+    }
+
+    /// Execute SVE FCVTZS/FCVTZU (FP -> integer, round toward zero, saturating)
+    /// and SCVTF/UCVTF (integer -> FP, round to nearest even). The per-element
+    /// container is the larger of the FP and integer widths; the source occupies
+    /// the low bits of its container and the result is zero-extended back.
+    /// Predication is byte-granular at the container size and merges.
+    fn exec_sve_fp_int_cvt(
+        &mut self,
+        insn: u32,
+        zd: usize,
+        zn: usize,
+        pg: usize,
+    ) -> Result<CpuExit, ArmError> {
+        let opc = (insn >> 22) & 0x3;
+        let opc2 = (insn >> 17) & 0x3;
+        let signed = (insn >> 16) & 1 == 0; // int_U: 0=signed, 1=unsigned
+        let to_int = (insn >> 19) & 0x7 == 0b011; // FCVTZ; else SCVTF/UCVTF
+        let (fp_sz, int_sz): (usize, usize) = match (opc, opc2) {
+            (0b01, 0b01) => (2, 2), // fp16 <-> int16
+            (0b01, 0b10) => (2, 4), // fp16 <-> int32
+            (0b01, 0b11) => (2, 8), // fp16 <-> int64
+            (0b10, 0b10) => (4, 4), // f32  <-> int32
+            (0b11, 0b00) => (8, 4), // f64  <-> int32
+            (0b11, 0b10) => (4, 8), // f32  <-> int64
+            (0b11, 0b11) => (8, 8), // f64  <-> int64
+            _ => return Ok(CpuExit::Undefined(insn)),
+        };
+        let cont = fp_sz.max(int_sz);
+        let elements = 16 / cont;
+        let pred = self.sve_p[pg];
+        let operand = self.v[zn].to_le_bytes();
+        let mut dst = self.v[zd].to_le_bytes(); // merging: start from Zd
+        for e in 0..elements {
+            let off = e * cont;
+            if (pred >> off) & 1 == 0 {
+                continue;
+            }
+            let res = if to_int {
+                sve_fcvtz(fp_sz, int_sz, signed, read_elem(&operand, off, fp_sz))
+            } else {
+                sve_cvtf(int_sz, fp_sz, signed, read_elem(&operand, off, int_sz))
             };
             write_elem(&mut dst, off, cont, res);
         }
@@ -10820,6 +10873,89 @@ fn round_shift_u64(v: u64, shift: u32) -> u64 {
         result + 1
     } else {
         result
+    }
+}
+
+/// One element of an SVE FP -> integer conversion (FCVTZS/FCVTZU): round the
+/// `fp_sz`-byte float toward zero into an `int_sz`-byte integer, saturating
+/// out-of-range magnitudes and mapping NaN to 0. Rust's float-to-int `as`
+/// already truncates toward zero, saturates and maps NaN to 0, matching ARM.
+fn sve_fcvtz(fp_sz: usize, int_sz: usize, signed: bool, x: u64) -> u64 {
+    let f: f64 = match fp_sz {
+        2 => fp16_to_f64(x as u16),
+        4 => f32::from_bits(x as u32) as f64,
+        _ => f64::from_bits(x),
+    };
+    // A signed result is sign-extended to the (possibly wider) container; an
+    // unsigned result is zero-extended. The caller's write_elem masks back down
+    // to the container width, so extending to 64 bits here is always correct.
+    match (int_sz, signed) {
+        (2, true) => (f as i16) as i64 as u64,
+        (2, false) => (f as u16) as u64,
+        (4, true) => (f as i32) as i64 as u64,
+        (4, false) => (f as u32) as u64,
+        (8, true) => (f as i64) as u64,
+        _ => f as u64,
+    }
+}
+
+/// One element of an SVE integer -> FP conversion (SCVTF/UCVTF): convert the
+/// `int_sz`-byte integer (signed or unsigned) to an `fp_sz`-byte float with
+/// round-to-nearest-even. The integer is cast directly to the destination type
+/// to avoid a double rounding through an intermediate wider float.
+fn sve_cvtf(int_sz: usize, fp_sz: usize, signed: bool, x: u64) -> u64 {
+    match fp_sz {
+        4 => {
+            let f: f32 = if signed {
+                match int_sz {
+                    2 => (x as u16 as i16) as f32,
+                    4 => (x as u32 as i32) as f32,
+                    _ => (x as i64) as f32,
+                }
+            } else {
+                match int_sz {
+                    2 => (x as u16) as f32,
+                    4 => (x as u32) as f32,
+                    _ => x as f32,
+                }
+            };
+            f.to_bits() as u64
+        }
+        8 => {
+            let f: f64 = if signed {
+                match int_sz {
+                    2 => (x as u16 as i16) as f64,
+                    4 => (x as u32 as i32) as f64,
+                    _ => (x as i64) as f64,
+                }
+            } else {
+                match int_sz {
+                    2 => (x as u16) as f64,
+                    4 => (x as u32) as f64,
+                    _ => x as f64,
+                }
+            };
+            f.to_bits()
+        }
+        _ => {
+            // fp16 destination: an integer large enough to round when widened to
+            // f64 (|x| >= 2^53) is far beyond fp16's range and saturates to Inf,
+            // so routing through an exact f64 then fp16_round is single-rounded.
+            let f: f64 = if signed {
+                match int_sz {
+                    2 => (x as u16 as i16) as f64,
+                    4 => (x as u32 as i32) as f64,
+                    _ => (x as i64) as f64,
+                }
+            } else {
+                match int_sz {
+                    2 => (x as u16) as f64,
+                    4 => (x as u32) as f64,
+                    _ => x as f64,
+                }
+            };
+            fp16_round(f) as u64
+        }
     }
 }
 
