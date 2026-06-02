@@ -1661,6 +1661,14 @@ fn sli_tsz_imm(esize_bits: u32, amount: u32) -> (u32, u32) {
     ((tszimm >> 3) & 0xF, tszimm & 0x7)
 }
 
+/// SVE2 FMLALB/FMLALT/FMLSLB/FMLSLT: `0110 0100 10 1 Zm 10 sub 00 T Zn Zd`.
+/// sub=bit13 (0=FMLAL,1=FMLSL), T=bit10. Zn=z1(RN), Zm=z2(RM), Zda=z0(RD).
+fn enc_sve2_fmlal(sub: u32, top: u32) -> u32 {
+    (0x64 << 24) | (0b10 << 22) | (1 << 21) | (RM << 16) | (0b10 << 14) | (sub << 13) | (top << 10)
+        | (RN << 5)
+        | RD
+}
+
 /// SVE2 PMULLB/PMULLT: `0100 0101 size 0 Zm 011 01 T Zn Zd`. size: 0=.q(64->128),
 /// 1=.h(8->16), 3=.d(32->64); T=bit10 (0=B,1=T). Zn=z1(RN), Zm=z2(RM), Zd=z0(RD).
 fn enc_sve2_pmull(size: u32, top: u32) -> u32 {
@@ -2809,6 +2817,36 @@ fn diff_sve2_fcvtx() {
         }
     }
     run_batch("sve2_fcvtx", batch);
+}
+
+#[test]
+fn diff_sve2_fmlal() {
+    // FMLALB/T and FMLSLB/T widen f16 lanes to f32 and fused-multiply-accumulate
+    // into the f32 destination. Finite f16 sources and a finite f32 accumulator.
+    let mut rng = Rng::new(0x6_a001);
+    let mut batch: Vec<(String, u32, ArmState)> = Vec::new();
+    let variants = [(0u32, 0u32, "fmlalb"), (0, 1, "fmlalt"), (1, 0, "fmlslb"), (1, 1, "fmlslt")];
+    for (sub, top, name) in variants {
+        let insn = enc_sve2_fmlal(sub, top);
+        for _ in 0..24 {
+            let mut zn = 0u128;
+            let mut zm = 0u128;
+            for h in 0..8 {
+                zn |= (finite_fp_bits(&mut rng, 2) as u128) << (h * 16);
+                zm |= (finite_fp_bits(&mut rng, 2) as u128) << (h * 16);
+            }
+            let mut zd = 0u128;
+            for s in 0..4 {
+                zd |= (finite_fp_bits(&mut rng, 4) as u128) << (s * 32);
+            }
+            let mut st = ArmState::zeroed();
+            st.set_vreg(1, zn as u64, (zn >> 64) as u64);
+            st.set_vreg(2, zm as u64, (zm >> 64) as u64);
+            st.set_vreg(0, zd as u64, (zd >> 64) as u64);
+            batch.push((name.to_string(), insn, st));
+        }
+    }
+    run_batch("sve2_fmlal", batch);
 }
 
 #[test]
