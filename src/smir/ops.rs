@@ -1390,6 +1390,41 @@ pub enum OpKind {
         acc: bool,
     },
 
+    /// HVX histogram family (`vhist` / `vhistq` / `vwhist128*` / `vwhist256*`).
+    ///
+    /// These have NO conventional register destination: each tallies values from
+    /// the 128-byte input vector (the `.tmp`-loaded data, qemu's `tmp_VRegs[0]`)
+    /// into histogram bins spread across the WHOLE V0..V31 register file, which is
+    /// read-modify-written. The input data lives in per-packet `.tmp` scratch that
+    /// the SMIR context does not model, so we instead carry the effective address
+    /// of the `.tmp` vmem load (`input`) and re-read the 128 input bytes from guest
+    /// memory; `aligned` applies the vmem `&!127` alignment mask. `mask_q` is the
+    /// vector-predicate gate for the q-forms (its LSBs gate each increment; ignored
+    /// when `use_q` is false). `imm_match` is the `#u1` for the `*m` forms
+    /// (`Some(u)` restricts adds to lanes whose bucket LSB == u). `sat` selects the
+    /// unsigned-saturating vwhist256 forms. `kind` discriminates the family:
+    ///   0 = vhist   (8 lanes x 16 bytes -> uh bins, += 1)
+    ///   1 = vwhist128 (64 halfwords -> uw bins, += weight)
+    ///   2 = vwhist256 (64 halfwords -> uh bins, += weight)
+    /// See `src/backend/emulator/hexagon/sem/hvx_hist.rs` for the exact pseudocode.
+    VHist {
+        /// Effective address of the same-packet `.tmp` vmem load that supplies the
+        /// 128 input bytes (base register + offset).
+        input: Address,
+        /// Apply the vmem 128-byte alignment mask (`ea &= !127`) to `input`.
+        aligned: bool,
+        /// Vector-predicate gate (q-forms); placeholder when `use_q` is false.
+        mask_q: VReg,
+        /// Whether `mask_q` gates the increments (q-forms).
+        use_q: bool,
+        /// `#u1` bucket-LSB match for the `*m` forms; `None` otherwise.
+        imm_match: Option<u8>,
+        /// Unsigned-saturate the bin (vwhist256_sat / vwhist256q_sat).
+        sat: bool,
+        /// Family discriminator: 0 = vhist, 1 = vwhist128, 2 = vwhist256.
+        kind: u8,
+    },
+
     /// Scalar-predicate-gated whole-vector conditional move / combine. Models HVX
     /// `vcmov`/`vncmov` (`if (Ps[.lsb]) Vd = Vu`; CANCEL/no-write when false) and
     /// `vccombine`/`vnccombine` (`if (Ps) { Vdd.v[0]=Vv; Vdd.v[1]=Vu }`). The gate
@@ -2126,13 +2161,6 @@ impl OpKind {
                 | OpKind::SetCC { .. }
                 | OpKind::TestCondition { .. }
                 | OpKind::CMove { .. }
-                // Register-only address arithmetic + bit-scan: LEA computes an
-                // address into a GPR without touching memory; BSF/BSR scan a
-                // register. All write only a GPR (+ flags) and never dereference
-                // memory, so they are safe for the identity-mapped native JIT.
-                | OpKind::Lea { .. }
-                | OpKind::Bsf { .. }
-                | OpKind::Bsr { .. }
                 | OpKind::Nop
         )
     }
@@ -2297,6 +2325,11 @@ impl OpKind {
             | OpKind::VMpaHhSat { dst, .. }
             | OpKind::VQFromVAndR { dst, .. } => vec![*dst],
 
+            // The histogram family read-modify-writes the WHOLE V0..V31 file.
+            OpKind::VHist { .. } => (0..32)
+                .map(|n| VReg::Arch(ArchReg::Hexagon(HexagonReg::V(n))))
+                .collect(),
+
             // Carry forms write the result vector and (carry/carryo) the Q.
             OpKind::VCarry { dst, q_inout, has_cout, .. } => {
                 if *has_cout {
@@ -2418,6 +2451,7 @@ impl OpKind {
                 | OpKind::LoadExclusive { .. }
                 | OpKind::RepMovs { .. }
                 | OpKind::VLoad { .. }
+                | OpKind::VHist { .. }
                 | OpKind::Leave
         )
     }

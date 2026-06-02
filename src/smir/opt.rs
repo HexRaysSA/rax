@@ -10,7 +10,7 @@ use crate::smir::flags::{FlagSet, FlagState, FlagUpdate};
 use crate::smir::ir::{CallTarget, SmirBlock, SmirFunction, Terminator};
 use crate::smir::ops::{OpKind, SmirOp, X86OpHint, X86VecAlign};
 use crate::smir::types::{
-    Address, ArchReg, BlockId, MemWidth, OpWidth, SrcOperand, VReg, VecWidth, X86Reg,
+    Address, ArchReg, BlockId, HexagonReg, MemWidth, OpWidth, SrcOperand, VReg, VecWidth, X86Reg,
 };
 
 // ============================================================================
@@ -1852,6 +1852,19 @@ impl OpKind {
 
             OpKind::VPrefixSumQ { mask_q, .. } => {
                 result.push(*mask_q);
+            }
+
+            // The histogram family read-modify-writes the WHOLE V0..V31 file and
+            // reads the input vector from memory (the `.tmp` load's address) plus
+            // the q-mask for the q-forms.
+            OpKind::VHist { input, mask_q, use_q, .. } => {
+                result.extend(input.regs());
+                if *use_q {
+                    result.push(*mask_q);
+                }
+                for n in 0..32u8 {
+                    result.push(VReg::Arch(ArchReg::Hexagon(HexagonReg::V(n))));
+                }
             }
 
             OpKind::VMov { src, .. } | OpKind::VBroadcast { scalar: src, .. } => {

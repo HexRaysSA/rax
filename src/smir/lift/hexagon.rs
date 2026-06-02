@@ -29,16 +29,35 @@ use crate::backend::emulator::hexagon::opcode::{DecodedOp, Opcode, decode_word};
 // Hexagon Lifter
 // ============================================================================
 
+/// A histogram opcode lifted earlier in the current packet, awaiting the
+/// same-packet `.tmp` vmem load that supplies its 128-byte input. The histogram
+/// instruction word is decoded BEFORE its producing `.tmp` load (the assembler
+/// emits it first), and the histogram opcode itself has no register operand for
+/// its input — the data comes from the per-packet `.tmp` scratch (qemu's
+/// `tmp_VRegs[0]`). We therefore defer emitting the `VHist` op until we see the
+/// `.tmp` load, whose effective address we splice into `input` so the interp can
+/// re-read the same 128 bytes from guest memory.
+#[derive(Clone)]
+struct PendingHist {
+    mask_q: VReg,
+    use_q: bool,
+    imm_match: Option<u8>,
+    sat: bool,
+    kind: u8,
+}
+
 /// Hexagon instruction lifter
 pub struct HexagonLifter {
     /// ISA version for feature detection
     isa: crate::config::HexagonIsa,
+    /// A histogram opcode awaiting its same-packet `.tmp` load (see PendingHist).
+    pending_hist: Option<PendingHist>,
 }
 
 impl HexagonLifter {
     /// Create a new Hexagon lifter
     pub fn new(isa: crate::config::HexagonIsa) -> Self {
-        HexagonLifter { isa }
+        HexagonLifter { isa, pending_hist: None }
     }
 
     /// Create a lifter with default ISA (V68)
@@ -154,7 +173,7 @@ impl HexagonLifter {
 
     /// Lift a single Hexagon instruction to SMIR operations
     fn lift_insn_inner(
-        &self,
+        &mut self,
         insn: &DecodedInsn,
         addr: GuestAddr,
         ctx: &mut LiftContext,
@@ -1198,6 +1217,38 @@ impl HexagonLifter {
                     mnemonic: "memop".to_string(),
                 });
             }
+            // A `.tmp` vmem load that feeds a same-packet histogram: this load is
+            // the input source for the deferred `VHist` op (recorded in
+            // `pending_hist`). Emit the VHist now, splicing in this load's
+            // effective address; the load itself is NOT committed (`.tmp`), so it
+            // produces no architectural register write.
+            DecodedInsn::VLoad {
+                base,
+                offset,
+                aligned,
+                commit: false,
+                post_inc: None,
+                post_inc_mod: None,
+                pred: None,
+                ..
+            } if self.pending_hist.is_some() => {
+                let ph = self.pending_hist.take().unwrap();
+                let input = Address::BaseOffset {
+                    base: self.hex_reg(*base),
+                    offset: *offset as i64,
+                    disp_size: DispSize::Auto,
+                };
+                push_op!(OpKind::VHist {
+                    input,
+                    aligned: *aligned,
+                    mask_q: ph.mask_q,
+                    use_q: ph.use_q,
+                    imm_match: ph.imm_match,
+                    sat: ph.sat,
+                    kind: ph.kind,
+                });
+                ControlFlow::Fallthrough
+            }
             // HVX vector loads/stores are handled by the interpreter path.
             DecodedInsn::VLoad { .. } | DecodedInsn::VStore { .. } => {
                 return Err(LiftError::Unsupported {
@@ -1267,7 +1318,7 @@ impl HexagonLifter {
     /// All ops handled here are pure register/predicate computations with
     /// `ControlFlow::Fallthrough`, so this returns only the op list.
     fn lift_unknown_op(
-        &self,
+        &mut self,
         dop: &DecodedOp,
         addr: GuestAddr,
         ctx: &mut LiftContext,
@@ -5870,6 +5921,58 @@ impl HexagonLifter {
                 });
             }
 
+            // HVX histogram family (vhist / vhistq / vwhist128* / vwhist256*).
+            // These tally values from the same-packet `.tmp`-loaded input vector
+            // into bins spread across the WHOLE V0..V31 file. The histogram opcode
+            // carries no register operand for its input and is decoded BEFORE its
+            // producing `.tmp` load, so we record it in `self.pending_hist` and
+            // emit the actual `VHist` op when the `.tmp` load arrives (splicing in
+            // that load's effective address). The histogram word itself emits no
+            // ops here; if no `.tmp` load follows in the packet (a bare `{ vhist }`,
+            // which faults on real hardware) the pending entry is simply dropped.
+            Opcode::V6_vhist
+            | Opcode::V6_vhistq
+            | Opcode::V6_vwhist128
+            | Opcode::V6_vwhist128m
+            | Opcode::V6_vwhist128q
+            | Opcode::V6_vwhist128qm
+            | Opcode::V6_vwhist256
+            | Opcode::V6_vwhist256q
+            | Opcode::V6_vwhist256_sat
+            | Opcode::V6_vwhist256q_sat => {
+                let kind = match op {
+                    Opcode::V6_vhist | Opcode::V6_vhistq => 0u8,
+                    Opcode::V6_vwhist128
+                    | Opcode::V6_vwhist128m
+                    | Opcode::V6_vwhist128q
+                    | Opcode::V6_vwhist128qm => 1u8,
+                    _ => 2u8, // vwhist256 family
+                };
+                let use_q = matches!(
+                    op,
+                    Opcode::V6_vhistq
+                        | Opcode::V6_vwhist128q
+                        | Opcode::V6_vwhist128qm
+                        | Opcode::V6_vwhist256q
+                        | Opcode::V6_vwhist256q_sat
+                );
+                let imm_match = matches!(
+                    op,
+                    Opcode::V6_vwhist128m | Opcode::V6_vwhist128qm
+                )
+                .then(|| (fimm_u(b'i') & 1) as u8);
+                let sat =
+                    matches!(op, Opcode::V6_vwhist256_sat | Opcode::V6_vwhist256q_sat);
+                let mask_q = self.hex_q(if use_q { fld(b'v') } else { 0 });
+                self.pending_hist = Some(PendingHist {
+                    mask_q,
+                    use_q,
+                    imm_match,
+                    sat,
+                    kind,
+                });
+            }
+
             // .tmp register moves: for a single-instruction lift these behave
             // exactly like vassign / vcombine (no in-packet .tmp consumer here).
             Opcode::V6_vassign_tmp => push_op!(OpKind::VMov {
@@ -6064,7 +6167,19 @@ impl SmirLifter for HexagonLifter {
         let insn = decoded.insn;
         ctx.guest_pc = addr;
 
-        let (ops, control_flow) = self.lift_insn_inner(&insn, addr, ctx)?;
+        // A pending histogram (set by a previous instruction) must be consumed by
+        // the very next `.tmp` vmem load in the same packet. If this instruction
+        // does NOT consume it, drop the stale entry so it can never leak into an
+        // unrelated later instruction/block.
+        let had_pending = self.pending_hist.is_some();
+
+        let result = self.lift_insn_inner(&insn, addr, ctx);
+
+        if had_pending && self.pending_hist.is_some() {
+            self.pending_hist = None;
+        }
+
+        let (ops, control_flow) = result?;
 
         let mut branch_targets = Vec::new();
         match &control_flow {

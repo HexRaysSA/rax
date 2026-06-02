@@ -3047,6 +3047,143 @@ impl SmirInterpreter {
                 Self::write_vec(ctx, *dst, result);
             }
 
+            // HVX histogram family. Read-modify-writes the WHOLE V0..V31 register
+            // file (treated as a 32 x 128-byte bin matrix), tallying values from
+            // the 128-byte input vector (re-read from the `.tmp` load's address in
+            // guest memory). Ported exactly from sem/hvx_hist.rs.
+            OpKind::VHist {
+                input,
+                aligned,
+                mask_q,
+                use_q,
+                imm_match,
+                sat,
+                kind,
+            } => {
+                // 1) Read the 128 input bytes from memory at the .tmp address.
+                let mut ea = self.compute_address(ctx, input);
+                if *aligned {
+                    ea &= !127u64;
+                }
+                let mut inp = [0u8; 128];
+                memory.read(ea, &mut inp)?;
+
+                // 2) Read the WHOLE V file into a 32 x 128-byte bin matrix.
+                let mut file = [[0u8; 128]; 32];
+                for r in 0..32u8 {
+                    let v = Self::read_vec(ctx, VReg::Arch(ArchReg::Hexagon(HexagonReg::V(r))));
+                    for w in 0..16usize {
+                        file[r as usize][w * 8..w * 8 + 8].copy_from_slice(&v[w].to_le_bytes());
+                    }
+                }
+
+                // q-mask (vector-byte predicate bits) for the q-forms.
+                let qv = if *use_q {
+                    Some(Self::read_vec(ctx, *mask_q))
+                } else {
+                    None
+                };
+                // Q layout in a VecValue: bit i lives in lane (i>>6), bit (i&63).
+                let qbit = |q: &VecValue, i: usize| -> bool {
+                    (q[i >> 6] >> (i & 63)) & 1 != 0
+                };
+                let get_uh = |f: &[[u8; 128]; 32], reg: usize, i: usize| -> u32 {
+                    u16::from_le_bytes([f[reg][i * 2], f[reg][i * 2 + 1]]) as u32
+                };
+                let set_uh = |f: &mut [[u8; 128]; 32], reg: usize, i: usize, val: u32| {
+                    f[reg][i * 2..i * 2 + 2].copy_from_slice(&(val as u16).to_le_bytes());
+                };
+                let get_uw = |f: &[[u8; 128]; 32], reg: usize, i: usize| -> u32 {
+                    u32::from_le_bytes([
+                        f[reg][i * 4],
+                        f[reg][i * 4 + 1],
+                        f[reg][i * 4 + 2],
+                        f[reg][i * 4 + 3],
+                    ])
+                };
+                let set_uw = |f: &mut [[u8; 128]; 32], reg: usize, i: usize, val: u32| {
+                    f[reg][i * 4..i * 4 + 4].copy_from_slice(&val.to_le_bytes());
+                };
+
+                // 3) Run the bin-update loop for this family.
+                match *kind {
+                    // vhist / vhistq: 8 lanes x 16 bytes -> uh bins, += 1.
+                    0 => {
+                        for lane in 0..8usize {
+                            for i in 0..16usize {
+                                if let Some(ref q) = qv {
+                                    if !qbit(q, 16 * lane + i) {
+                                        continue;
+                                    }
+                                }
+                                let value = inp[16 * lane + i] as usize;
+                                let regno = value >> 3;
+                                let element = value & 7;
+                                let idx = 8 * lane + element;
+                                let cur = get_uh(&file, regno, idx);
+                                set_uh(&mut file, regno, idx, cur.wrapping_add(1) & 0xffff);
+                            }
+                        }
+                    }
+                    // vwhist128 family: 64 halfwords -> uw bins, += weight.
+                    1 => {
+                        for i in 0..64usize {
+                            let bucket = inp[2 * i] as usize;
+                            let weight = inp[2 * i + 1] as u32;
+                            let vindex = (bucket >> 3) & 0x1f;
+                            let elindex = ((i >> 1) & !3) | ((bucket >> 1) & 3);
+                            let mut cond = true;
+                            if let Some(u) = imm_match {
+                                cond &= (bucket & 1) as u8 == *u;
+                            }
+                            if let Some(ref q) = qv {
+                                cond &= qbit(q, 2 * i);
+                            }
+                            if cond {
+                                let cur = get_uw(&file, vindex, elindex);
+                                set_uw(&mut file, vindex, elindex, cur.wrapping_add(weight));
+                            }
+                        }
+                    }
+                    // vwhist256 family: 64 halfwords -> uh bins, += weight (opt sat).
+                    _ => {
+                        for i in 0..64usize {
+                            let bucket = inp[2 * i] as usize;
+                            let weight = inp[2 * i + 1] as u32;
+                            let vindex = (bucket >> 3) & 0x1f;
+                            let elindex = (i & !7) | (bucket & 7);
+                            let cond = match qv {
+                                Some(ref q) => qbit(q, 2 * i),
+                                None => true,
+                            };
+                            if cond {
+                                let sum = get_uh(&file, vindex, elindex).wrapping_add(weight);
+                                let val = if *sat { sum.min(0xffff) } else { sum & 0xffff };
+                                set_uh(&mut file, vindex, elindex, val);
+                            }
+                        }
+                    }
+                }
+
+                // 4) Write the WHOLE V file back.
+                for r in 0..32u8 {
+                    let mut v = [0u64; 16];
+                    for w in 0..16usize {
+                        v[w] = u64::from_le_bytes([
+                            file[r as usize][w * 8],
+                            file[r as usize][w * 8 + 1],
+                            file[r as usize][w * 8 + 2],
+                            file[r as usize][w * 8 + 3],
+                            file[r as usize][w * 8 + 4],
+                            file[r as usize][w * 8 + 5],
+                            file[r as usize][w * 8 + 6],
+                            file[r as usize][w * 8 + 7],
+                        ]);
+                    }
+                    Self::write_vec(ctx, VReg::Arch(ArchReg::Hexagon(HexagonReg::V(r))), v);
+                }
+            }
+
             OpKind::VBlend {
                 dst,
                 mask_q,
@@ -6887,6 +7024,137 @@ mod tests {
         let _ = mkv;
         if let ArchRegState::Hexagon(hex) = &ctx.arch_regs {
             assert_eq!(hex.get_q(0)[0], 0x1F);
+        }
+    }
+
+    #[test]
+    fn test_vhist() {
+        // vhist over the WHOLE V file: input = 128 bytes all = 10. For each of the
+        // 8 lanes and each of its 16 bytes, value=10 -> regno=10>>3=1, element=
+        // 10&7=2, idx=8*lane+2; V1.uh[idx] += 1. So V1.uh[8*lane+2] = 16 for each
+        // lane (16 identical bytes per lane), all other uh = 0, and V0/V2.. stay 0.
+        let interp = SmirInterpreter::new();
+        let mut ctx = SmirContext::new_hexagon();
+        // Seed the whole V file to zero so the bins start clean.
+        if let ArchRegState::Hexagon(hex) = &mut ctx.arch_regs {
+            for n in 0..32u8 {
+                hex.set_v(n, [0u64; 16]);
+            }
+        }
+        ctx.write_arch_reg(ArchReg::Hexagon(HexagonReg::R(0)), 0x200);
+        let mut memory = FlatMemory::new(0x1000);
+        memory.load(0x200, &[10u8; 128]);
+
+        let block = SmirBlock {
+            id: BlockId(0),
+            guest_pc: 0x1000,
+            phis: vec![],
+            ops: vec![SmirOp {
+                id: OpId(0),
+                guest_pc: 0x1000,
+                kind: OpKind::VHist {
+                    input: Address::BaseOffset {
+                        base: VReg::Arch(ArchReg::Hexagon(HexagonReg::R(0))),
+                        offset: 0,
+                        disp_size: DispSize::Auto,
+                    },
+                    aligned: true,
+                    mask_q: VReg::Arch(ArchReg::Hexagon(HexagonReg::Q(0))),
+                    use_q: false,
+                    imm_match: None,
+                    sat: false,
+                    kind: 0, // vhist
+                },
+                x86_hint: None,
+            }],
+            terminator: Terminator::Trap { kind: TrapKind::Halt },
+            exec_count: 0,
+        };
+        interp.execute_block(&mut ctx, &mut memory, &block);
+
+        if let ArchRegState::Hexagon(hex) = &ctx.arch_regs {
+            let v1 = hex.get_v(1);
+            // Helper: read uh[i] from V1's 16 u64 lanes (little-endian, 2 bytes).
+            let uh = |i: usize| -> u32 {
+                let byte = i * 2;
+                ((v1[byte / 8] >> ((byte % 8) * 8)) & 0xffff) as u32
+            };
+            // V1.uh[8*lane+2] = 16 for every lane; the +0 slots stay 0.
+            for lane in 0..8usize {
+                assert_eq!(uh(8 * lane + 2), 16, "V1.uh[{}]", 8 * lane + 2);
+                assert_eq!(uh(8 * lane), 0, "V1.uh[{}]", 8 * lane);
+            }
+            // V0 and V2 are untouched bin registers -> all zero.
+            assert_eq!(hex.get_v(0), [0u64; 16]);
+            assert_eq!(hex.get_v(2), [0u64; 16]);
+        }
+    }
+
+    #[test]
+    fn test_vwhist256_sat() {
+        // vwhist256:sat over the whole V file. Input = 64 halfwords, each
+        // bucket=0x08, weight=0xFF. bucket>>3 = 1 -> vindex=1; bucket&7=0 ->
+        // elindex = (i & !7). Seed V1.uh[*] high so the unsigned weight add
+        // saturates to 0xffff instead of wrapping.
+        let interp = SmirInterpreter::new();
+        let mut ctx = SmirContext::new_hexagon();
+        if let ArchRegState::Hexagon(hex) = &mut ctx.arch_regs {
+            for n in 0..32u8 {
+                hex.set_v(n, [0u64; 16]);
+            }
+            // Set every halfword of V1 to 0xFF00 so +0xFF saturates at 0xFFFF.
+            hex.set_v(1, [0xFF00_FF00_FF00_FF00u64; 16]);
+        }
+        ctx.write_arch_reg(ArchReg::Hexagon(HexagonReg::R(0)), 0x200);
+        let mut memory = FlatMemory::new(0x1000);
+        let mut input = [0u8; 128];
+        for i in 0..64usize {
+            input[2 * i] = 0x08; // bucket
+            input[2 * i + 1] = 0xFF; // weight
+        }
+        memory.load(0x200, &input);
+
+        let block = SmirBlock {
+            id: BlockId(0),
+            guest_pc: 0x1000,
+            phis: vec![],
+            ops: vec![SmirOp {
+                id: OpId(0),
+                guest_pc: 0x1000,
+                kind: OpKind::VHist {
+                    input: Address::BaseOffset {
+                        base: VReg::Arch(ArchReg::Hexagon(HexagonReg::R(0))),
+                        offset: 0,
+                        disp_size: DispSize::Auto,
+                    },
+                    aligned: true,
+                    mask_q: VReg::Arch(ArchReg::Hexagon(HexagonReg::Q(0))),
+                    use_q: false,
+                    imm_match: None,
+                    sat: true,
+                    kind: 2, // vwhist256
+                },
+                x86_hint: None,
+            }],
+            terminator: Terminator::Trap { kind: TrapKind::Halt },
+            exec_count: 0,
+        };
+        interp.execute_block(&mut ctx, &mut memory, &block);
+
+        if let ArchRegState::Hexagon(hex) = &ctx.arch_regs {
+            let v1 = hex.get_v(1);
+            let uh = |i: usize| -> u32 {
+                let byte = i * 2;
+                ((v1[byte / 8] >> ((byte % 8) * 8)) & 0xffff) as u32
+            };
+            // elindex = i & !7 for i in 0..64 -> the touched bins are
+            // {0,8,16,...,56}; each is hit 8 times (i in [base, base+7]).
+            // 0xFF00 + 0xFF would be 0xFFFF; further adds saturate at 0xFFFF.
+            for base in (0..64).step_by(8) {
+                assert_eq!(uh(base), 0xFFFF, "V1.uh[{base}] saturated");
+            }
+            // A bin that is never selected keeps its seed 0xFF00.
+            assert_eq!(uh(1), 0xFF00);
         }
     }
 }
