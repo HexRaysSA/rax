@@ -898,6 +898,75 @@ impl SmirInterpreter {
                 }
             }
 
+            // Hexagon bidirectional register-amount shift (S2_{asl,asr,lsr,lsl}
+            // _r_r and the pair forms via a W64 temp). The count is the sign-
+            // extension of the low 7 bits of `amount` to [-64, 63]; a negative
+            // count reverses the shift direction. All arithmetic is performed in
+            // i128/u128 with the spec's two-step `>> (n-1) >> 1` / `<< (n-1) << 1`
+            // idiom so a `|count| == 64` shift never triggers Rust shift overflow.
+            OpKind::BidirShift {
+                dst,
+                src,
+                amount,
+                kind,
+                width,
+            } => {
+                let bits = width.bits();
+                let raw = self.read_src_operand(ctx, src) & width.mask();
+                // sxtn7(amount): sign-extend the low 7 bits to [-64, 63].
+                let cnt = {
+                    let low7 = (self.read_src_operand(ctx, amount) & 0x7f) as i64;
+                    ((low7 << 57) >> 57) as i64
+                };
+                let result: u64 = match kind {
+                    // arithmetic left (asl): + shifts left, - shifts (arith)right.
+                    0 => {
+                        let s = Self::sext128(raw as u128, bits);
+                        let r = if cnt < 0 {
+                            let n = (-cnt) as u32 - 1;
+                            (s >> n) >> 1
+                        } else {
+                            s << (cnt as u32)
+                        };
+                        r as u64 & width.mask()
+                    }
+                    // arithmetic right (asr): + shifts (arith)right, - shifts left.
+                    1 => {
+                        let s = Self::sext128(raw as u128, bits);
+                        let r = if cnt < 0 {
+                            let n = (-cnt) as u32 - 1;
+                            (s << n) << 1
+                        } else {
+                            s >> (cnt as u32)
+                        };
+                        r as u64 & width.mask()
+                    }
+                    // logical left (lsl): + shifts left, - shifts (logical)right.
+                    2 => {
+                        let u = raw as u128;
+                        let r = if cnt < 0 {
+                            let n = (-cnt) as u32 - 1;
+                            (u >> n) >> 1
+                        } else {
+                            u << (cnt as u32)
+                        };
+                        r as u64 & width.mask()
+                    }
+                    // logical right (lsr): + shifts (logical)right, - shifts left.
+                    _ => {
+                        let u = raw as u128;
+                        let r = if cnt < 0 {
+                            let n = (-cnt) as u32 - 1;
+                            (u << n) << 1
+                        } else {
+                            u >> (cnt as u32)
+                        };
+                        r as u64 & width.mask()
+                    }
+                };
+                Self::write_gpr(ctx, *dst, result, *width);
+            }
+
             // ==================================================================
             // BIT MANIPULATION
             // ==================================================================
@@ -7156,5 +7225,183 @@ mod tests {
             // A bin that is never selected keeps its seed 0xFF00.
             assert_eq!(uh(1), 0xFF00);
         }
+    }
+
+    // ---- BidirShift (Hexagon register-amount bidirectional shift) ----------
+
+    /// Reference (verbatim from `sem/shift.rs` `fBIDIR_*` for the 32-bit `4_8`
+    /// forms): widen the 32-bit source then shift in 64-bit, truncate to u32.
+    fn ref_bidir32(src: u32, shamt: i32, kind: u8) -> u32 {
+        let r: u64 = match kind {
+            0 => {
+                // arithmetic left
+                let s = src as i32 as i64;
+                (if shamt < 0 {
+                    (s >> ((-shamt) - 1)) >> 1
+                } else {
+                    s << shamt
+                }) as u64
+            }
+            1 => {
+                // arithmetic right
+                let s = src as i32 as i64;
+                (if shamt < 0 {
+                    (s << ((-shamt) - 1)) << 1
+                } else {
+                    s >> shamt
+                }) as u64
+            }
+            2 => {
+                // logical left
+                let u = src as u64;
+                if shamt < 0 {
+                    (u >> ((-shamt) - 1)) >> 1
+                } else {
+                    u << shamt
+                }
+            }
+            _ => {
+                // logical right
+                let u = src as u64;
+                if shamt < 0 {
+                    (u << ((-shamt) - 1)) << 1
+                } else {
+                    u >> shamt
+                }
+            }
+        };
+        r as u32
+    }
+
+    /// Reference for the 64-bit `8_8` forms (no truncation).
+    fn ref_bidir64(src: u64, shamt: i32, kind: u8) -> u64 {
+        match kind {
+            0 => {
+                let s = src as i64;
+                (if shamt < 0 {
+                    (s >> ((-shamt) - 1)) >> 1
+                } else {
+                    s << shamt
+                }) as u64
+            }
+            1 => {
+                let s = src as i64;
+                (if shamt < 0 {
+                    (s << ((-shamt) - 1)) << 1
+                } else {
+                    s >> shamt
+                }) as u64
+            }
+            2 => {
+                if shamt < 0 {
+                    (src >> ((-shamt) - 1)) >> 1
+                } else {
+                    src << shamt
+                }
+            }
+            _ => {
+                if shamt < 0 {
+                    (src << ((-shamt) - 1)) << 1
+                } else {
+                    src >> shamt
+                }
+            }
+        }
+    }
+
+    fn run_bidir(src: u64, amount_rt: u32, kind: u8, width: OpWidth) -> u64 {
+        let mut ctx = SmirContext::new_hexagon();
+        let mut memory = FlatMemory::new(0x1000);
+        let interp = SmirInterpreter::new();
+        // Hexagon R registers are 32-bit; for the W64 pair forms the lifter uses
+        // a 64-bit Virtual temp, so mirror that here to round-trip the full value.
+        let (rsrc, rdst) = match width {
+            OpWidth::W64 => (VReg::virt(101), VReg::virt(100)),
+            _ => (
+                VReg::Arch(ArchReg::Hexagon(HexagonReg::R(1))),
+                VReg::Arch(ArchReg::Hexagon(HexagonReg::R(0))),
+            ),
+        };
+        let ramt = VReg::Arch(ArchReg::Hexagon(HexagonReg::R(2)));
+        ctx.write_vreg(rsrc, src);
+        ctx.write_vreg(ramt, amount_rt as u64);
+        let block = SmirBlock {
+            id: BlockId(0),
+            guest_pc: 0x1000,
+            phis: vec![],
+            ops: vec![SmirOp {
+                id: OpId(0),
+                guest_pc: 0x1000,
+                kind: OpKind::BidirShift {
+                    dst: rdst,
+                    src: SrcOperand::Reg(rsrc),
+                    amount: SrcOperand::Reg(ramt),
+                    kind,
+                    width,
+                },
+                x86_hint: None,
+            }],
+            terminator: Terminator::Trap {
+                kind: TrapKind::Halt,
+            },
+            exec_count: 0,
+        };
+        interp.execute_block(&mut ctx, &mut memory, &block);
+        ctx.read_vreg(rdst)
+    }
+
+    #[test]
+    fn test_bidir_shift_bit_exact() {
+        // Exercise every count in [-64, 63] for several source patterns and
+        // all four kinds, vs the verbatim sem reference. The interp masks the
+        // 32-bit result; ref_bidir32 returns u32 so compare the low 32 bits.
+        let srcs32: [u32; 6] = [
+            0x0000_0001,
+            0x8000_0000,
+            0x4000_0000,
+            0xffff_ffff,
+            0x1234_5678,
+            0xdead_beef,
+        ];
+        for &src in &srcs32 {
+            for shamt in -64i32..=63 {
+                // Encode shamt into the low 7 bits of Rt; the upper bits of Rt
+                // must be ignored (sxtn7 only looks at bits 6:0).
+                let rt = ((shamt as u32) & 0x7f) | 0x5a5a_5a00;
+                for kind in 0u8..=3 {
+                    let got = run_bidir(src as u64, rt, kind, OpWidth::W32) as u32;
+                    let want = ref_bidir32(src, shamt, kind);
+                    assert_eq!(
+                        got, want,
+                        "W32 src={src:#x} shamt={shamt} kind={kind}: got {got:#x} want {want:#x}"
+                    );
+                }
+            }
+        }
+
+        let srcs64: [u64; 5] = [
+            0x0000_0000_0000_0001,
+            0x8000_0000_0000_0000,
+            0xffff_ffff_ffff_ffff,
+            0x0123_4567_89ab_cdef,
+            0xdead_beef_cafe_babe,
+        ];
+        for &src in &srcs64 {
+            for shamt in -64i32..=63 {
+                let rt = (shamt as u32) & 0x7f;
+                for kind in 0u8..=3 {
+                    let got = run_bidir(src, rt, kind, OpWidth::W64);
+                    let want = ref_bidir64(src, shamt, kind);
+                    assert_eq!(
+                        got, want,
+                        "W64 src={src:#x} shamt={shamt} kind={kind}: got {got:#x} want {want:#x}"
+                    );
+                }
+            }
+        }
+
+        // Immediate-source form (S4_lsli pattern): logical-left bidir of a const.
+        assert_eq!(run_bidir(1, 4, 2, OpWidth::W32), 16);
+        assert_eq!(run_bidir(1, (-1i32 as u32) & 0x7f, 2, OpWidth::W32), 0);
     }
 }

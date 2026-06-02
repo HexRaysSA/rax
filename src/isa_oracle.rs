@@ -2444,6 +2444,7 @@ fn smir_op_kind_json(kind: &OpKind) -> Value {
             Value::Object(obj)
         }
         OpKind::Breakpoint => op_json!("breakpoint"),
+        OpKind::BidirShift { .. } => op_json!("bidir_shift"),
     }
 }
 

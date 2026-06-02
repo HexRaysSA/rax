@@ -2823,6 +2823,124 @@ fn lift_s2_shift_acc_p() {
     );
 }
 
+// Register-amount BIDIRECTIONAL shifts: the count is sxtn7(Rt) in [-64,63];
+// a negative count reverses the shift direction. The harness seeds Rt randomly
+// so negative and large (>=width) counts are exercised. These verify the new
+// OpKind::BidirShift lift vs the qemu-verified HexagonVcpu.
+#[test]
+fn lift_s2_shift_r_r() {
+    lift_family(
+        "s2_shift_r_r",
+        &[
+            ("asl_r_r", "{ r0 = asl(r1,r2) }"),
+            ("asr_r_r", "{ r0 = asr(r1,r2) }"),
+            ("lsr_r_r", "{ r0 = lsr(r1,r2) }"),
+            ("lsl_r_r", "{ r0 = lsl(r1,r2) }"),
+        ],
+        40,
+        0x7401,
+    );
+}
+
+#[test]
+fn lift_s2_shift_r_p() {
+    lift_family(
+        "s2_shift_r_p",
+        &[
+            ("asl_r_p", "{ r1:0 = asl(r3:2,r4) }"),
+            ("asr_r_p", "{ r1:0 = asr(r3:2,r4) }"),
+            ("lsr_r_p", "{ r1:0 = lsr(r3:2,r4) }"),
+            ("lsl_r_p", "{ r1:0 = lsl(r3:2,r4) }"),
+        ],
+        40,
+        0x7402,
+    );
+}
+
+#[test]
+fn lift_s2_shift_r_r_acc() {
+    lift_family(
+        "s2_shift_r_r_acc",
+        &[
+            ("asl_acc", "{ r0 += asl(r1,r2) }"),
+            ("asl_nac", "{ r0 -= asl(r1,r2) }"),
+            ("asl_and", "{ r0 &= asl(r1,r2) }"),
+            ("asl_or", "{ r0 |= asl(r1,r2) }"),
+            ("asr_acc", "{ r0 += asr(r1,r2) }"),
+            ("asr_nac", "{ r0 -= asr(r1,r2) }"),
+            ("asr_and", "{ r0 &= asr(r1,r2) }"),
+            ("asr_or", "{ r0 |= asr(r1,r2) }"),
+            ("lsr_acc", "{ r0 += lsr(r1,r2) }"),
+            ("lsr_nac", "{ r0 -= lsr(r1,r2) }"),
+            ("lsr_and", "{ r0 &= lsr(r1,r2) }"),
+            ("lsr_or", "{ r0 |= lsr(r1,r2) }"),
+            ("lsl_acc", "{ r0 += lsl(r1,r2) }"),
+            ("lsl_nac", "{ r0 -= lsl(r1,r2) }"),
+            ("lsl_and", "{ r0 &= lsl(r1,r2) }"),
+            ("lsl_or", "{ r0 |= lsl(r1,r2) }"),
+        ],
+        40,
+        0x7403,
+    );
+}
+
+#[test]
+fn lift_s2_shift_r_p_acc() {
+    lift_family(
+        "s2_shift_r_p_acc",
+        &[
+            ("asl_p_acc", "{ r1:0 += asl(r3:2,r4) }"),
+            ("asl_p_nac", "{ r1:0 -= asl(r3:2,r4) }"),
+            ("asl_p_and", "{ r1:0 &= asl(r3:2,r4) }"),
+            ("asl_p_or", "{ r1:0 |= asl(r3:2,r4) }"),
+            ("asl_p_xor", "{ r1:0 ^= asl(r3:2,r4) }"),
+            ("asr_p_acc", "{ r1:0 += asr(r3:2,r4) }"),
+            ("asr_p_nac", "{ r1:0 -= asr(r3:2,r4) }"),
+            ("asr_p_and", "{ r1:0 &= asr(r3:2,r4) }"),
+            ("asr_p_or", "{ r1:0 |= asr(r3:2,r4) }"),
+            ("asr_p_xor", "{ r1:0 ^= asr(r3:2,r4) }"),
+            ("lsr_p_acc", "{ r1:0 += lsr(r3:2,r4) }"),
+            ("lsr_p_nac", "{ r1:0 -= lsr(r3:2,r4) }"),
+            ("lsr_p_and", "{ r1:0 &= lsr(r3:2,r4) }"),
+            ("lsr_p_or", "{ r1:0 |= lsr(r3:2,r4) }"),
+            ("lsr_p_xor", "{ r1:0 ^= lsr(r3:2,r4) }"),
+            ("lsl_p_acc", "{ r1:0 += lsl(r3:2,r4) }"),
+            ("lsl_p_nac", "{ r1:0 -= lsl(r3:2,r4) }"),
+            ("lsl_p_and", "{ r1:0 &= lsl(r3:2,r4) }"),
+            ("lsl_p_or", "{ r1:0 |= lsl(r3:2,r4) }"),
+            ("lsl_p_xor", "{ r1:0 ^= lsl(r3:2,r4) }"),
+        ],
+        40,
+        0x7404,
+    );
+}
+
+#[test]
+fn lift_s2_bit_r() {
+    lift_family(
+        "s2_bit_r",
+        &[
+            ("setbit_r", "{ r0 = setbit(r1,r2) }"),
+            ("clrbit_r", "{ r0 = clrbit(r1,r2) }"),
+            ("togglebit_r", "{ r0 = togglebit(r1,r2) }"),
+            ("tstbit_r", "{ p0 = tstbit(r1,r2) }"),
+            ("ntstbit_r", "{ p0 = !tstbit(r1,r2) }"),
+        ],
+        40,
+        0x7405,
+    );
+}
+
+#[test]
+fn lift_s4_lsli() {
+    lift_family(
+        "s4_lsli",
+        &[("lsli", "{ r0 = lsl(#6,r2) }")],
+        40,
+        0x7406,
+    );
+}
+
 #[test]
 fn lift_s2_bitmanip2() {
     lift_family(
