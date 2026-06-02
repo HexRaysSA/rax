@@ -7424,9 +7424,34 @@ impl AArch64Cpu {
         if (insn >> 24) & 0xFF == 0b01100101 && (insn >> 18) & 0xF == 0b0010 {
             return self.exec_sve_fcvt(insn, zd, zn, pg);
         }
+        // FLOGB (find exponent): 0x65, bits[23:19]==0b00011, size in bits[18:17].
+        // The element size is not bits[23:22] (those are 0), so it is computed
+        // locally. Result is floor(log2|x|) as a signed integer, merging.
+        if (insn >> 24) & 0xFF == 0b01100101 && (insn >> 19) & 0x1F == 0b00011 {
+            let size = (insn >> 17) & 0x3;
+            if size == 0 {
+                return Ok(CpuExit::Undefined(insn));
+            }
+            let esz = 1usize << size;
+            let pred = self.sve_p[pg];
+            let src = self.v[zn].to_le_bytes();
+            let mut dst = self.v[zd].to_le_bytes();
+            let elements = 16 / esz;
+            for e in 0..elements {
+                let off = e * esz;
+                if (pred >> off) & 1 == 0 {
+                    continue;
+                }
+                let r = sve_flogb(esz, read_elem(&src, off, esz));
+                write_elem(&mut dst, off, esz, r as u64);
+            }
+            self.v[zd] = u128::from_le_bytes(dst);
+            return Ok(CpuExit::Continue);
+        }
         // FP<->int conversions: 0x65, bits[21:19]==011 (FCVTZS/FCVTZU, FP->int)
         // or ==010 (SCVTF/UCVTF, int->FP). bits[23:22]/bits[18:17] pick the
         // widths and bit16 the signedness, so this also bypasses the esize path.
+        // FLOGB (bits[23:22]==00) is intercepted above before reaching here.
         if (insn >> 24) & 0xFF == 0b01100101
             && ((insn >> 19) & 0x7 == 0b011 || (insn >> 19) & 0x7 == 0b010)
         {
@@ -12477,6 +12502,43 @@ fn round_odd_f64_to_f32(x: f64) -> u32 {
     let dropped = sig & ((1u64 << shift) - 1);
     let f = if dropped != 0 { frac | 1 } else { frac };
     sign | f
+}
+
+/// SVE2 FLOGB: floor(log2(|x|)) of an `esize`-byte IEEE float as a signed
+/// integer of the same width. Finite non-zero values yield their unbiased
+/// base-2 exponent (normal: biased_exp - bias; subnormal: normalized away
+/// from the implicit-bit boundary). Infinity yields the most-positive integer
+/// `2^(N-1)-1` (log2|inf| = +inf); zero and NaN yield the most-negative
+/// integer `-(2^(N-1))`. The special-case results are verified vs qemu.
+fn sve_flogb(esize: usize, bits: u64) -> i64 {
+    let (expbits, fracbits): (u32, u32) = match esize {
+        2 => (5, 10),
+        4 => (8, 23),
+        _ => (11, 52),
+    };
+    let bias = (1i64 << (expbits - 1)) - 1;
+    let exp_mask = (1u64 << expbits) - 1;
+    let exp = (bits >> fracbits) & exp_mask;
+    let mant = bits & ((1u64 << fracbits) - 1);
+    let int_bits = (esize as u32) * 8;
+    let most_neg = -(1i64 << (int_bits - 1));
+    let most_pos = (1i64 << (int_bits - 1)) - 1;
+    if exp == exp_mask {
+        // mant==0 is +/-infinity (most-positive); otherwise NaN (most-negative).
+        return if mant == 0 { most_pos } else { most_neg };
+    }
+    if exp == 0 {
+        if mant == 0 {
+            return most_neg; // zero: invalid
+        }
+        // Subnormal: value = mant * 2^(Emin - fracbits), Emin = 1 - bias. The
+        // unbiased exponent is Emin shifted down by the leading-zero count of
+        // the fraction (relative to the implicit-bit position).
+        let emin = 1 - bias;
+        let msb = 63 - mant.leading_zeros() as i64; // floor(log2(mant))
+        return emin - fracbits as i64 + msb;
+    }
+    exp as i64 - bias // normal: 1 <= significand < 2, so floor(log2) == exponent
 }
 
 // ---- SHA-1 / SHA-256 primitives (FIPS-180, per ARM ASL) ----

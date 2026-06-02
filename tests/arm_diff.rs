@@ -1661,6 +1661,44 @@ fn sli_tsz_imm(esize_bits: u32, amount: u32) -> (u32, u32) {
     ((tszimm >> 3) & 0xF, tszimm & 0x7)
 }
 
+/// SVE2 FLOGB (find exponent): `01100101 00011 size 0 101 Pg Zn Zd`. size is
+/// 1=h, 2=s, 3=d. Pg=p0, Zn=z1(RN), Zd=z0(RD).
+fn enc_sve_flogb(size: u32) -> u32 {
+    (0b01100101 << 24) | (0b00011 << 19) | (size << 17) | (0b101 << 13) | (RN << 5) | RD
+}
+
+/// Edge-case IEEE bit patterns of `esize` bytes for FLOGB: +0, -0, +inf, -inf,
+/// qNaN, sNaN, smallest/largest subnormal, and a negative subnormal.
+fn flogb_specials(esize: usize) -> Vec<u64> {
+    match esize {
+        2 => vec![
+            0x0000, 0x8000, 0x7C00, 0xFC00, 0x7E00, 0x7C01, 0x0001, 0x03FF, 0x8001,
+        ],
+        4 => vec![
+            0x0000_0000,
+            0x8000_0000,
+            0x7F80_0000,
+            0xFF80_0000,
+            0x7FC0_0000,
+            0x7F80_0001,
+            0x0000_0001,
+            0x007F_FFFF,
+            0x8000_0001,
+        ],
+        _ => vec![
+            0,
+            1 << 63,
+            0x7FF0_0000_0000_0000,
+            0xFFF0_0000_0000_0000,
+            0x7FF8_0000_0000_0000,
+            0x7FF0_0000_0000_0001,
+            1,
+            0x000F_FFFF_FFFF_FFFF,
+            (1 << 63) | 1,
+        ],
+    }
+}
+
 /// SVE2 FCVTNT/FCVTLT/FCVTXNT: `01100100 opc 0010 opc2 101 Pg Zn Zd`. Pg=p0,
 /// Zn=z1(RN), Zd=z0(RD).
 fn enc_sve2_fcvtx(opc: u32, opc2: u32) -> u32 {
@@ -2694,6 +2732,39 @@ fn diff_sve2_fcvtx() {
         }
     }
     run_batch("sve2_fcvtx", batch);
+}
+
+#[test]
+fn diff_sve2_flogb() {
+    // FLOGB returns floor(log2|x|) of each FP lane as a signed integer. Each
+    // lane is drawn from edge cases (zero/inf/NaN/subnormal), bounded finite
+    // values, or fully random bit patterns to exercise the whole input space.
+    let sizes = [(1u32, 2usize, "h"), (2, 4, "s"), (3, 8, "d")];
+    let mut rng = Rng::new(0x6_2001);
+    let mut batch: Vec<(String, u32, ArmState)> = Vec::new();
+    for (size, esz, name) in sizes {
+        let insn = enc_sve_flogb(size);
+        let specials = flogb_specials(esz);
+        let lanes = 16 / esz;
+        let mask: u64 = if esz == 8 { u64::MAX } else { (1u64 << (esz * 8)) - 1 };
+        for _ in 0..48 {
+            let mut st = ArmState::zeroed();
+            let mut zn: u128 = 0;
+            for l in 0..lanes {
+                let v = match rng.next() % 3 {
+                    0 => specials[(rng.next() as usize) % specials.len()],
+                    1 => finite_fp_bits(&mut rng, esz),
+                    _ => rng.next() & mask,
+                };
+                zn |= (v as u128) << (l * esz * 8);
+            }
+            st.set_vreg(1, zn as u64, (zn >> 64) as u64);
+            st.set_vreg(0, rng.next(), rng.next()); // merge target (inactive lanes)
+            st.set_preg(0, rng.next() as u16);
+            batch.push((format!("flogb_{name}"), insn, st));
+        }
+    }
+    run_batch("sve2_flogb", batch);
 }
 
 #[test]
