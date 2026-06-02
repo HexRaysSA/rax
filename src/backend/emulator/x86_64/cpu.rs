@@ -47,6 +47,47 @@ use super::flags;
 use super::insn;
 use super::mmu::Mmu;
 use crate::cpu::{CpuState, Registers, SystemRegisters, VCpu, VcpuExit, X86_64CpuState};
+
+/// Byte offset of each GPR field within `Registers`, indexed by x86 register
+/// encoding (0=rax,1=rcx,2=rdx,3=rbx,4=rsp,5=rbp,6=rsi,7=rdi, 8..=15 = r8..=r15,
+/// 16..=31 = r16..=r31). Built with `offset_of!`, so it reflects the actual
+/// field layout for any `repr` and lets `get_reg`/`set_reg` index a register
+/// branchlessly instead of via a 32-arm match (which the profiler showed as a
+/// hot jump table inside every ALU handler).
+const GPR_OFFSETS: [usize; 32] = [
+    std::mem::offset_of!(Registers, rax),
+    std::mem::offset_of!(Registers, rcx),
+    std::mem::offset_of!(Registers, rdx),
+    std::mem::offset_of!(Registers, rbx),
+    std::mem::offset_of!(Registers, rsp),
+    std::mem::offset_of!(Registers, rbp),
+    std::mem::offset_of!(Registers, rsi),
+    std::mem::offset_of!(Registers, rdi),
+    std::mem::offset_of!(Registers, r8),
+    std::mem::offset_of!(Registers, r9),
+    std::mem::offset_of!(Registers, r10),
+    std::mem::offset_of!(Registers, r11),
+    std::mem::offset_of!(Registers, r12),
+    std::mem::offset_of!(Registers, r13),
+    std::mem::offset_of!(Registers, r14),
+    std::mem::offset_of!(Registers, r15),
+    std::mem::offset_of!(Registers, r16),
+    std::mem::offset_of!(Registers, r17),
+    std::mem::offset_of!(Registers, r18),
+    std::mem::offset_of!(Registers, r19),
+    std::mem::offset_of!(Registers, r20),
+    std::mem::offset_of!(Registers, r21),
+    std::mem::offset_of!(Registers, r22),
+    std::mem::offset_of!(Registers, r23),
+    std::mem::offset_of!(Registers, r24),
+    std::mem::offset_of!(Registers, r25),
+    std::mem::offset_of!(Registers, r26),
+    std::mem::offset_of!(Registers, r27),
+    std::mem::offset_of!(Registers, r28),
+    std::mem::offset_of!(Registers, r29),
+    std::mem::offset_of!(Registers, r30),
+    std::mem::offset_of!(Registers, r31),
+];
 use crate::error::{Error, Result};
 
 /// x87 FPU state.
@@ -1473,48 +1514,21 @@ impl X86_64Vcpu {
     // Register access methods
     #[inline(always)]
     pub(super) fn get_reg(&self, reg: u8, size: u8) -> u64 {
-        let val = match reg & 0x1F {
-            0 => self.regs.rax,
-            1 => self.regs.rcx,
-            2 => self.regs.rdx,
-            3 => self.regs.rbx,
-            4 => self.regs.rsp,
-            5 => self.regs.rbp,
-            6 => self.regs.rsi,
-            7 => self.regs.rdi,
-            8 => self.regs.r8,
-            9 => self.regs.r9,
-            10 => self.regs.r10,
-            11 => self.regs.r11,
-            12 => self.regs.r12,
-            13 => self.regs.r13,
-            14 => self.regs.r14,
-            15 => self.regs.r15,
-            // APX Extended General Purpose Registers (R16-R31)
-            16 => self.regs.r16,
-            17 => self.regs.r17,
-            18 => self.regs.r18,
-            19 => self.regs.r19,
-            20 => self.regs.r20,
-            21 => self.regs.r21,
-            22 => self.regs.r22,
-            23 => self.regs.r23,
-            24 => self.regs.r24,
-            25 => self.regs.r25,
-            26 => self.regs.r26,
-            27 => self.regs.r27,
-            28 => self.regs.r28,
-            29 => self.regs.r29,
-            30 => self.regs.r30,
-            31 => self.regs.r31,
-            _ => 0,
+        // Branchless GPR read: index the precomputed field-offset table (which
+        // respects the actual struct layout via `offset_of!`, so it is sound for
+        // any `repr`) instead of a 32-arm match that the profiler showed as a
+        // hot jump table inside every ALU handler.
+        let off = GPR_OFFSETS[(reg & 0x1F) as usize];
+        // SAFETY: `off` is the real byte offset of a `u64` GPR field within
+        // `Registers`; the struct and each `u64` field are 8-byte aligned, so
+        // the access is in-bounds and aligned. `&self.regs` is a valid base.
+        let val = unsafe {
+            *((&self.regs as *const Registers as *const u8).add(off) as *const u64)
         };
-
         match size {
             1 => val & 0xFF,
             2 => val & 0xFFFF,
             4 => val & 0xFFFF_FFFF,
-            8 => val,
             _ => val,
         }
     }
@@ -1567,44 +1581,16 @@ impl X86_64Vcpu {
 
     #[inline(always)]
     pub(super) fn set_reg(&mut self, reg: u8, value: u64, size: u8) {
-        let reg_ref = match reg & 0x1F {
-            0 => &mut self.regs.rax,
-            1 => &mut self.regs.rcx,
-            2 => &mut self.regs.rdx,
-            3 => &mut self.regs.rbx,
-            4 => &mut self.regs.rsp,
-            5 => &mut self.regs.rbp,
-            6 => &mut self.regs.rsi,
-            7 => &mut self.regs.rdi,
-            8 => &mut self.regs.r8,
-            9 => &mut self.regs.r9,
-            10 => &mut self.regs.r10,
-            11 => &mut self.regs.r11,
-            12 => &mut self.regs.r12,
-            13 => &mut self.regs.r13,
-            14 => &mut self.regs.r14,
-            15 => &mut self.regs.r15,
-            // APX Extended General Purpose Registers (R16-R31)
-            16 => &mut self.regs.r16,
-            17 => &mut self.regs.r17,
-            18 => &mut self.regs.r18,
-            19 => &mut self.regs.r19,
-            20 => &mut self.regs.r20,
-            21 => &mut self.regs.r21,
-            22 => &mut self.regs.r22,
-            23 => &mut self.regs.r23,
-            24 => &mut self.regs.r24,
-            25 => &mut self.regs.r25,
-            26 => &mut self.regs.r26,
-            27 => &mut self.regs.r27,
-            28 => &mut self.regs.r28,
-            29 => &mut self.regs.r29,
-            30 => &mut self.regs.r30,
-            31 => &mut self.regs.r31,
-            _ => return,
-        };
-
-        let _old_val = *reg_ref;
+        // Branchless GPR write via the `offset_of!` table (see GPR_OFFSETS /
+        // get_reg). Partial-width semantics are preserved exactly: 8/16-bit
+        // writes merge into the low bits, 32-bit writes zero-extend, 64-bit
+        // writes replace the register.
+        let off = GPR_OFFSETS[(reg & 0x1F) as usize];
+        // SAFETY: `off` is the real byte offset of a `u64` GPR field within
+        // `Registers`; the field is 8-byte aligned and in-bounds, and `&mut
+        // self.regs` grants exclusive access for the duration of the write.
+        let reg_ref =
+            unsafe { &mut *((&mut self.regs as *mut Registers as *mut u8).add(off) as *mut u64) };
         match size {
             1 => *reg_ref = (*reg_ref & !0xFF) | (value & 0xFF),
             2 => *reg_ref = (*reg_ref & !0xFFFF) | (value & 0xFFFF),
