@@ -5981,6 +5981,48 @@ impl AArch64Cpu {
                 Ok(CpuExit::Continue)
             }
 
+            // SVE2 CDOT (complex integer dot product): 0x44, bit21==0,
+            // bits[15:12]==0001. rot=bits[11:10]. Each destination element
+            // accumulates two complex products of half-width signed elements
+            // (.s from int8, .d from int16): real += r*a, then += i*b*(+/-1).
+            0b010
+                if (insn >> 24) & 0xFF == 0b01000100
+                    && (insn >> 21) & 1 == 0
+                    && (insn >> 12) & 0xF == 0b0001 =>
+            {
+                let size = (insn >> 22) & 0x3;
+                if size < 2 {
+                    return Ok(CpuExit::Undefined(insn));
+                }
+                let esize = 1usize << size; // 4 (.s) or 8 (.d)
+                let nb = esize / 4; // narrow element bytes (1 or 2)
+                let nbits = (nb * 8) as u32;
+                let dbits = (esize * 8) as u32;
+                let mask = elem_mask(dbits);
+                let rot = (insn >> 10) & 0x3;
+                let sel_a = (rot & 1) as usize;
+                let sel_b = sel_a ^ 1;
+                let sub_i: i128 = if rot == 0 || rot == 3 { -1 } else { 1 };
+                let n = self.v[zn].to_le_bytes();
+                let m = self.v[zm].to_le_bytes();
+                let a = self.v[zd].to_le_bytes();
+                let mut dst = [0u8; 16];
+                for e in 0..(16 / esize) {
+                    let mut acc = sext_elem(read_elem(&a, e * esize, esize), dbits);
+                    for i in 0..2 {
+                        let base = e * esize + i * 2 * nb;
+                        let e1r = sext_elem(read_elem(&n, base, nb), nbits);
+                        let e1i = sext_elem(read_elem(&n, base + nb, nb), nbits);
+                        let e2a = sext_elem(read_elem(&m, base + nb * sel_a, nb), nbits);
+                        let e2b = sext_elem(read_elem(&m, base + nb * sel_b, nb), nbits);
+                        acc += e1r * e2a + e1i * e2b * sub_i;
+                    }
+                    write_elem(&mut dst, e * esize, esize, acc as u64 & mask);
+                }
+                self.v[zd] = u128::from_le_bytes(dst);
+                Ok(CpuExit::Continue)
+            }
+
             // SVE2 complex integer multiply-add (CMLA/SQRDCMLAH): 0x44, bit21==0,
             // bits[15:13]==001. op=bit12 picks the saturating-rounding-doubling
             // SQRDCMLAH; rot=bits[11:10] is the 0/90/180/270 rotation. Each

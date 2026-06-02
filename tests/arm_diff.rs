@@ -1669,6 +1669,12 @@ fn enc_sve2_fmlal(sub: u32, top: u32) -> u32 {
         | RD
 }
 
+/// SVE2 CDOT: `0100 0100 size 0 Zm 0001 rot Zn Zda`. size 2=.s,3=.d; rot=bits
+/// [11:10]. Zn=z1(RN), Zm=z2(RM), Zda=z0(RD).
+fn enc_sve2_cdot(size: u32, rot: u32) -> u32 {
+    (0x44 << 24) | (size << 22) | (RM << 16) | (0b0001 << 12) | (rot << 10) | (RN << 5) | RD
+}
+
 /// SVE FCADD (predicated): `01100100 esz 00000 rot 100 Pg Zm Zdn`. rot=bit16.
 /// Zdn=z0(RD), Zm=z1(RN at bits[9:5]), Pg=p0.
 fn enc_sve_fcadd(size: u32, rot: u32) -> u32 {
@@ -2942,6 +2948,26 @@ fn diff_sve2_fmlal() {
         }
     }
     run_batch("sve2_fmlal", batch);
+}
+
+#[test]
+fn diff_sve2_cdot() {
+    // CDOT complex integer dot product, .s and .d, all four rotations.
+    let mut rng = Rng::new(0x7_9001);
+    let mut batch: Vec<(String, u32, ArmState)> = Vec::new();
+    for size in [2u32, 3] {
+        for rot in 0..4u32 {
+            let insn = enc_sve2_cdot(size, rot);
+            for _ in 0..16 {
+                let mut st = ArmState::zeroed();
+                st.set_vreg(1, rng.next(), rng.next());
+                st.set_vreg(2, rng.next(), rng.next());
+                st.set_vreg(0, rng.next(), rng.next());
+                batch.push((format!("cdot s{size} r{rot}"), insn, st));
+            }
+        }
+    }
+    run_batch("sve2_cdot", batch);
 }
 
 #[test]
