@@ -1324,3 +1324,61 @@ fn lift_hvx_vmpy_srs_scalar() {
         0x7022,
     );
 }
+
+// ---- Wave 11: HVX vector compares -> Q, vmux, Q-predicate logic ----
+// `OpKind::VCmpToQ` builds a Q vector-predicate (1 bit per vector byte) from a
+// per-elem-lane compare; `OpKind::VBlend` selects bytes by a Q (vmux);
+// Q-predicate bitwise logic is `OpKind::VLane` over the two I64 lanes of a Q.
+// The harness seeds Q0-3 randomly so vmux/pred-logic read meaningful masks and
+// compares all Q0-3 after, so the Q-producing compares are checked directly.
+
+#[test]
+fn lift_hvx_vcmp_to_q() {
+    // Qd = vcmp.<cond>(Vu.<t>, Vv.<t>). eq is signedness-agnostic; gt is signed
+    // (.b/.h/.w) vs unsigned (.ub/.uh/.uw). Each true lane sets all its per-byte
+    // Q bits, so divergence here would catch a wrong cond/elem/lanes mapping.
+    lift_family(
+        "hvx_vcmp_to_q",
+        &[
+            ("veqb", "{ q0 = vcmp.eq(v0.b,v1.b) }"),
+            ("vgtb", "{ q0 = vcmp.gt(v0.b,v1.b) }"),
+            ("vgtub", "{ q0 = vcmp.gt(v0.ub,v1.ub) }"),
+            ("veqh", "{ q0 = vcmp.eq(v0.h,v1.h) }"),
+            ("vgth", "{ q0 = vcmp.gt(v0.h,v1.h) }"),
+            ("vgtuh", "{ q0 = vcmp.gt(v0.uh,v1.uh) }"),
+            ("veqw", "{ q0 = vcmp.eq(v0.w,v1.w) }"),
+            ("vgtw", "{ q0 = vcmp.gt(v0.w,v1.w) }"),
+            ("vgtuw", "{ q0 = vcmp.gt(v0.uw,v1.uw) }"),
+        ],
+        16,
+        0x7023,
+    );
+}
+
+#[test]
+fn lift_hvx_vmux() {
+    // Vd.b[i] = Qt.bit[i] ? Vu.b[i] : Vv.b[i]. Reads a (seeded) Q mask.
+    lift_family(
+        "hvx_vmux",
+        &[("vmux", "{ v2 = vmux(q0,v0,v1) }")],
+        16,
+        0x7024,
+    );
+}
+
+#[test]
+fn lift_hvx_pred_logic() {
+    // Qd = OP(Qs, Qt) per-bit over 128 bits, lifted as VLane bitwise on Q regs.
+    // (pred_or_n a|!b and pred_not !a have no VLaneOp and are left Unsupported.)
+    lift_family(
+        "hvx_pred_logic",
+        &[
+            ("pred_and", "{ q0 = and(q1,q2) }"),
+            ("pred_or", "{ q0 = or(q1,q2) }"),
+            ("pred_xor", "{ q0 = xor(q1,q2) }"),
+            ("pred_and_n", "{ q0 = and(q1,!q2) }"),
+        ],
+        16,
+        0x7025,
+    );
+}

@@ -3447,6 +3447,80 @@ impl HexagonLifter {
                 });
             }
 
+            // --- HVX vector compares -> Q vector-predicate (Wave 11) ---
+            // `Qd = vcmp.<cond>(Vu.<t>, Vv.<t>)`: for each elem-wide lane the
+            // comparison sets all that lane's per-byte Q bits. Field letters
+            // src1=u, src2=v, dst=d (confirmed against sem/hvx_cmp.rs). `eq` is
+            // signedness-agnostic; `gt` is signed (Gt) vs unsigned (Gtu).
+            Opcode::V6_veqb
+            | Opcode::V6_vgtb
+            | Opcode::V6_vgtub
+            | Opcode::V6_veqh
+            | Opcode::V6_vgth
+            | Opcode::V6_vgtuh
+            | Opcode::V6_veqw
+            | Opcode::V6_vgtw
+            | Opcode::V6_vgtuw => {
+                let (cond, elem, lanes) = match op {
+                    Opcode::V6_veqb => (VecCmpCond::Eq, VecElementType::I8, 128),
+                    Opcode::V6_vgtb => (VecCmpCond::Gt, VecElementType::I8, 128),
+                    Opcode::V6_vgtub => (VecCmpCond::Gtu, VecElementType::I8, 128),
+                    Opcode::V6_veqh => (VecCmpCond::Eq, VecElementType::I16, 64),
+                    Opcode::V6_vgth => (VecCmpCond::Gt, VecElementType::I16, 64),
+                    Opcode::V6_vgtuh => (VecCmpCond::Gtu, VecElementType::I16, 64),
+                    Opcode::V6_veqw => (VecCmpCond::Eq, VecElementType::I32, 32),
+                    Opcode::V6_vgtw => (VecCmpCond::Gt, VecElementType::I32, 32),
+                    // V6_vgtuw
+                    _ => (VecCmpCond::Gtu, VecElementType::I32, 32),
+                };
+                push_op!(OpKind::VCmpToQ {
+                    dst: self.hex_q(fld(b'd')),
+                    src1: self.hex_v(fld(b'u')),
+                    src2: self.hex_v(fld(b'v')),
+                    cond,
+                    elem,
+                    lanes,
+                });
+            }
+
+            // --- HVX vmux: per-byte select by a Q vector-predicate (Wave 11) ---
+            // `Vd.b[i] = Qt.bit[i] ? Vu.b[i] : Vv.b[i]`. The Q is read from
+            // field `t` (sem uses qread_new(fld(d, b't'))), true src = Vu,
+            // false src = Vv.
+            Opcode::V6_vmux => push_op!(OpKind::VBlend {
+                dst: self.hex_v(fld(b'd')),
+                mask_q: self.hex_q(fld(b't')),
+                src_true: self.hex_v(fld(b'u')),
+                src_false: self.hex_v(fld(b'v')),
+            }),
+
+            // --- HVX Q-predicate logic: Qd = OP(Qs, Qt) per-bit (Wave 11) ---
+            // Modeled as a VLane bitwise op over the 128-bit Q regs (two I64
+            // lanes). Field letters src1=s, src2=t, dst=d (sem/hvx_cmp.rs reads
+            // qread_new(fld(d,b's'))/(b't')). or_n (a | !b) and not (unary !a)
+            // have no VLaneOp and are left Unsupported (reported).
+            Opcode::V6_pred_and
+            | Opcode::V6_pred_or
+            | Opcode::V6_pred_xor
+            | Opcode::V6_pred_and_n => {
+                let lane_op = match op {
+                    Opcode::V6_pred_and => VLaneOp::And,
+                    Opcode::V6_pred_or => VLaneOp::Or,
+                    Opcode::V6_pred_xor => VLaneOp::Xor,
+                    // V6_pred_and_n
+                    _ => VLaneOp::AndNot,
+                };
+                push_op!(OpKind::VLane {
+                    dst: self.hex_q(fld(b'd')),
+                    src1: self.hex_q(fld(b's')),
+                    src2: self.hex_q(fld(b't')),
+                    elem: VecElementType::I64,
+                    lanes: 2,
+                    op: lane_op,
+                    signed: false,
+                });
+            }
+
             // Everything else: not implemented here.
             _ => return Err(unsupported()),
         }
