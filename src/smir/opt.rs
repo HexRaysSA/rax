@@ -1355,6 +1355,16 @@ impl OpKind {
                 }
             }
 
+            // Bidirectional shift: both `src` and `amount` are SrcOperand.
+            OpKind::BidirShift { src, amount, .. } => {
+                if let SrcOperand::Reg(r) = src {
+                    result.push(*r);
+                }
+                if let SrcOperand::Reg(r) = amount {
+                    result.push(*r);
+                }
+            }
+
             OpKind::Bt { src, index, .. }
             | OpKind::Bts { src, index, .. }
             | OpKind::Btr { src, index, .. }

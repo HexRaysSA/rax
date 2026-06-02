@@ -567,37 +567,38 @@ impl HexagonLifter {
                 ControlFlow::Fallthrough
             }
 
+            // Register-amount single-word shifts are BIDIRECTIONAL: the count is
+            // sxtn7(Rt) in [-64, 63] and a negative count reverses direction, so
+            // SMIR Shl/Shr/Sar (which mask the count and are unidirectional) are
+            // WRONG here. The Hexagon decoder maps these to ShiftKind as:
+            //   Lsl -> S2_asl_r_r (arithmetic-left, kind 0)
+            //   Asr -> S2_asr_r_r (arithmetic-right, kind 1)
+            //   Lsr -> S2_lsr_r_r (logical-right,   kind 3)
+            // (S2_lsl_r_r decodes to Unknown and is lifted in lift_unknown_op.)
             DecodedInsn::ShiftReg {
                 dst,
                 src,
                 amt,
                 kind,
             } => {
-                let shift_op = self.hex_shift(*kind);
-                match shift_op {
-                    ShiftOp::Lsl => push_op!(OpKind::Shl {
-                        dst: self.hex_reg(*dst),
-                        src: self.hex_reg(*src),
-                        amount: SrcOperand::Reg(self.hex_reg(*amt)),
-                        width: OpWidth::W32,
-                        flags: FlagUpdate::None,
-                    }),
-                    ShiftOp::Lsr => push_op!(OpKind::Shr {
-                        dst: self.hex_reg(*dst),
-                        src: self.hex_reg(*src),
-                        amount: SrcOperand::Reg(self.hex_reg(*amt)),
-                        width: OpWidth::W32,
-                        flags: FlagUpdate::None,
-                    }),
-                    ShiftOp::Asr => push_op!(OpKind::Sar {
-                        dst: self.hex_reg(*dst),
-                        src: self.hex_reg(*src),
-                        amount: SrcOperand::Reg(self.hex_reg(*amt)),
-                        width: OpWidth::W32,
-                        flags: FlagUpdate::None,
-                    }),
-                    _ => {}
-                }
+                let bidir_kind = match self.hex_shift(*kind) {
+                    ShiftOp::Lsl => 0u8, // asl_r_r: arithmetic left
+                    ShiftOp::Asr => 1u8, // asr_r_r: arithmetic right
+                    ShiftOp::Lsr => 3u8, // lsr_r_r: logical right
+                    _ => {
+                        return Err(LiftError::Unsupported {
+                            addr,
+                            mnemonic: "shift_reg".to_string(),
+                        });
+                    }
+                };
+                push_op!(OpKind::BidirShift {
+                    dst: self.hex_reg(*dst),
+                    src: SrcOperand::Reg(self.hex_reg(*src)),
+                    amount: SrcOperand::Reg(self.hex_reg(*amt)),
+                    kind: bidir_kind,
+                    width: OpWidth::W32,
+                });
                 ControlFlow::Fallthrough
             }
 
@@ -2614,6 +2615,250 @@ impl HexagonLifter {
             }
 
             // ============================================================
+            // ============================================================
+            // S2 register-amount BIDIRECTIONAL shifts (single-word & pair)
+            // ============================================================
+            // count = sxtn7(Rt) in [-64,63]; negative reverses the direction.
+            // kind: 0=asl(arith-left) 1=asr(arith-right) 2=lsl(log-left)
+            //       3=lsr(log-right). S2_asl_r_r/asr_r_r/lsr_r_r take the
+            // DecodedInsn path; only S2_lsl_r_r (-> Unknown) and the pair/acc
+            // forms reach here.
+            //
+            // Single-word logical-left (the one base reg shift that decodes to
+            // Unknown). Width W32, kind 2.
+            Opcode::S2_lsl_r_r => {
+                push_op!(OpKind::BidirShift {
+                    dst: rd,
+                    src: SrcOperand::Reg(rs),
+                    amount: SrcOperand::Reg(rt),
+                    kind: 2,
+                    width: OpWidth::W32,
+                });
+            }
+
+            // Pair (64-bit) register-amount bidirectional shifts.
+            Opcode::S2_asl_r_p
+            | Opcode::S2_asr_r_p
+            | Opcode::S2_lsr_r_p
+            | Opcode::S2_lsl_r_p => {
+                let kind = match op {
+                    Opcode::S2_asl_r_p => 0u8,
+                    Opcode::S2_asr_r_p => 1u8,
+                    Opcode::S2_lsl_r_p => 2u8,
+                    _ => 3u8, // S2_lsr_r_p
+                };
+                let a = read_pair!(fld(b's'));
+                let r = ctx.alloc_vreg();
+                push_op!(OpKind::BidirShift {
+                    dst: r,
+                    src: SrcOperand::Reg(a),
+                    amount: SrcOperand::Reg(rt),
+                    kind,
+                    width: OpWidth::W64,
+                });
+                write_pair!(rd_n, r);
+            }
+
+            // Single-word register-amount bidirectional shift-accumulate:
+            // Rx {+= -= &= |=} bidir_shift(Rs, sxtn7(Rt)).  (No xor form on the
+            // single-word side; the pair side has _xor.)
+            Opcode::S2_asl_r_r_acc
+            | Opcode::S2_asl_r_r_nac
+            | Opcode::S2_asl_r_r_and
+            | Opcode::S2_asl_r_r_or
+            | Opcode::S2_asr_r_r_acc
+            | Opcode::S2_asr_r_r_nac
+            | Opcode::S2_asr_r_r_and
+            | Opcode::S2_asr_r_r_or
+            | Opcode::S2_lsr_r_r_acc
+            | Opcode::S2_lsr_r_r_nac
+            | Opcode::S2_lsr_r_r_and
+            | Opcode::S2_lsr_r_r_or
+            | Opcode::S2_lsl_r_r_acc
+            | Opcode::S2_lsl_r_r_nac
+            | Opcode::S2_lsl_r_r_and
+            | Opcode::S2_lsl_r_r_or => {
+                let kind = match op {
+                    Opcode::S2_asl_r_r_acc
+                    | Opcode::S2_asl_r_r_nac
+                    | Opcode::S2_asl_r_r_and
+                    | Opcode::S2_asl_r_r_or => 0u8,
+                    Opcode::S2_asr_r_r_acc
+                    | Opcode::S2_asr_r_r_nac
+                    | Opcode::S2_asr_r_r_and
+                    | Opcode::S2_asr_r_r_or => 1u8,
+                    Opcode::S2_lsl_r_r_acc
+                    | Opcode::S2_lsl_r_r_nac
+                    | Opcode::S2_lsl_r_r_and
+                    | Opcode::S2_lsl_r_r_or => 2u8,
+                    _ => 3u8, // lsr_r_r_*
+                };
+                let sh = ctx.alloc_vreg();
+                push_op!(OpKind::BidirShift {
+                    dst: sh,
+                    src: SrcOperand::Reg(rs),
+                    amount: SrcOperand::Reg(rt),
+                    kind,
+                    width: OpWidth::W32,
+                });
+                match op {
+                    Opcode::S2_asl_r_r_acc
+                    | Opcode::S2_asr_r_r_acc
+                    | Opcode::S2_lsr_r_r_acc
+                    | Opcode::S2_lsl_r_r_acc => push_op!(OpKind::Add {
+                        dst: rx,
+                        src1: rx,
+                        src2: SrcOperand::Reg(sh),
+                        width: OpWidth::W32,
+                        flags: FlagUpdate::None,
+                    }),
+                    Opcode::S2_asl_r_r_nac
+                    | Opcode::S2_asr_r_r_nac
+                    | Opcode::S2_lsr_r_r_nac
+                    | Opcode::S2_lsl_r_r_nac => push_op!(OpKind::Sub {
+                        dst: rx,
+                        src1: rx,
+                        src2: SrcOperand::Reg(sh),
+                        width: OpWidth::W32,
+                        flags: FlagUpdate::None,
+                    }),
+                    Opcode::S2_asl_r_r_and
+                    | Opcode::S2_asr_r_r_and
+                    | Opcode::S2_lsr_r_r_and
+                    | Opcode::S2_lsl_r_r_and => push_op!(OpKind::And {
+                        dst: rx,
+                        src1: rx,
+                        src2: SrcOperand::Reg(sh),
+                        width: OpWidth::W32,
+                        flags: FlagUpdate::None,
+                    }),
+                    _ => push_op!(OpKind::Or {
+                        dst: rx,
+                        src1: rx,
+                        src2: SrcOperand::Reg(sh),
+                        width: OpWidth::W32,
+                        flags: FlagUpdate::None,
+                    }),
+                }
+            }
+
+            // Pair register-amount bidirectional shift-accumulate:
+            // Rxx {+= -= &= |= ^=} bidir_shift(Rss, sxtn7(Rt)).
+            Opcode::S2_asl_r_p_acc
+            | Opcode::S2_asl_r_p_nac
+            | Opcode::S2_asl_r_p_and
+            | Opcode::S2_asl_r_p_or
+            | Opcode::S2_asl_r_p_xor
+            | Opcode::S2_asr_r_p_acc
+            | Opcode::S2_asr_r_p_nac
+            | Opcode::S2_asr_r_p_and
+            | Opcode::S2_asr_r_p_or
+            | Opcode::S2_asr_r_p_xor
+            | Opcode::S2_lsr_r_p_acc
+            | Opcode::S2_lsr_r_p_nac
+            | Opcode::S2_lsr_r_p_and
+            | Opcode::S2_lsr_r_p_or
+            | Opcode::S2_lsr_r_p_xor
+            | Opcode::S2_lsl_r_p_acc
+            | Opcode::S2_lsl_r_p_nac
+            | Opcode::S2_lsl_r_p_and
+            | Opcode::S2_lsl_r_p_or
+            | Opcode::S2_lsl_r_p_xor => {
+                let kind = match op {
+                    Opcode::S2_asl_r_p_acc
+                    | Opcode::S2_asl_r_p_nac
+                    | Opcode::S2_asl_r_p_and
+                    | Opcode::S2_asl_r_p_or
+                    | Opcode::S2_asl_r_p_xor => 0u8,
+                    Opcode::S2_asr_r_p_acc
+                    | Opcode::S2_asr_r_p_nac
+                    | Opcode::S2_asr_r_p_and
+                    | Opcode::S2_asr_r_p_or
+                    | Opcode::S2_asr_r_p_xor => 1u8,
+                    Opcode::S2_lsl_r_p_acc
+                    | Opcode::S2_lsl_r_p_nac
+                    | Opcode::S2_lsl_r_p_and
+                    | Opcode::S2_lsl_r_p_or
+                    | Opcode::S2_lsl_r_p_xor => 2u8,
+                    _ => 3u8, // lsr_r_p_*
+                };
+                let a = read_pair!(fld(b's'));
+                let sh = ctx.alloc_vreg();
+                push_op!(OpKind::BidirShift {
+                    dst: sh,
+                    src: SrcOperand::Reg(a),
+                    amount: SrcOperand::Reg(rt),
+                    kind,
+                    width: OpWidth::W64,
+                });
+                let acc = read_pair!(rx_n);
+                let r = ctx.alloc_vreg();
+                match op {
+                    Opcode::S2_asl_r_p_acc
+                    | Opcode::S2_asr_r_p_acc
+                    | Opcode::S2_lsr_r_p_acc
+                    | Opcode::S2_lsl_r_p_acc => push_op!(OpKind::Add {
+                        dst: r,
+                        src1: acc,
+                        src2: SrcOperand::Reg(sh),
+                        width: OpWidth::W64,
+                        flags: FlagUpdate::None,
+                    }),
+                    Opcode::S2_asl_r_p_nac
+                    | Opcode::S2_asr_r_p_nac
+                    | Opcode::S2_lsr_r_p_nac
+                    | Opcode::S2_lsl_r_p_nac => push_op!(OpKind::Sub {
+                        dst: r,
+                        src1: acc,
+                        src2: SrcOperand::Reg(sh),
+                        width: OpWidth::W64,
+                        flags: FlagUpdate::None,
+                    }),
+                    Opcode::S2_asl_r_p_and
+                    | Opcode::S2_asr_r_p_and
+                    | Opcode::S2_lsr_r_p_and
+                    | Opcode::S2_lsl_r_p_and => push_op!(OpKind::And {
+                        dst: r,
+                        src1: acc,
+                        src2: SrcOperand::Reg(sh),
+                        width: OpWidth::W64,
+                        flags: FlagUpdate::None,
+                    }),
+                    Opcode::S2_asl_r_p_or
+                    | Opcode::S2_asr_r_p_or
+                    | Opcode::S2_lsr_r_p_or
+                    | Opcode::S2_lsl_r_p_or => push_op!(OpKind::Or {
+                        dst: r,
+                        src1: acc,
+                        src2: SrcOperand::Reg(sh),
+                        width: OpWidth::W64,
+                        flags: FlagUpdate::None,
+                    }),
+                    _ => push_op!(OpKind::Xor {
+                        dst: r,
+                        src1: acc,
+                        src2: SrcOperand::Reg(sh),
+                        width: OpWidth::W64,
+                        flags: FlagUpdate::None,
+                    }),
+                }
+                write_pair!(rx_n, r);
+            }
+
+            // S4_lsli: Rd = lsl(#s6, Rt) — logical-left BIDIRECTIONAL shift of an
+            // immediate source by sxtn7(Rt). Width W32, kind 2.
+            Opcode::S4_lsli => {
+                let imm = fimm_s(b'i');
+                push_op!(OpKind::BidirShift {
+                    dst: rd,
+                    src: SrcOperand::Imm((imm as u32) as i64),
+                    amount: SrcOperand::Reg(rt),
+                    kind: 2,
+                    width: OpWidth::W32,
+                });
+            }
+
+            // ============================================================
             // S2/S6 immediate single-word shifts & rotate
             // ============================================================
             // (S2_asl_i_r / asr_i_r / lsr_i_r are handled by the DecodedInsn path.)
@@ -2814,11 +3059,98 @@ impl HexagonLifter {
                     flags: FlagUpdate::None
                 });
             }
-            Opcode::S2_tstbit_r => {
-                // bit = bidir_lshiftl(1, sxt7(Rt)); Pd = (Rs & bit) != 0.
-                // Modelled with a Rol-style barrel only for the in-range positive
-                // case; the bidirectional negative shift has no SMIR equivalent.
-                return Err(unsupported());
+            // ---- register-amount set/clear/toggle/test bit ----
+            // bit = fBIDIR_LSHIFTL(1, sxtn7(Rt), 4_8) — a logical-left bidir shift
+            // of the constant 1, evaluated in 64-bit (so a count in [32,63] lands
+            // the bit in the high word; a negative count yields 0).
+            //   S2_setbit_r:    Rd = Rs |  (bit as u32)
+            //   S2_clrbit_r:    Rd = Rs & ~(bit as u32)
+            //   S2_togglebit_r: Rd = Rs ^  (bit as u32)
+            Opcode::S2_setbit_r | Opcode::S2_clrbit_r | Opcode::S2_togglebit_r => {
+                let bit = ctx.alloc_vreg();
+                push_op!(OpKind::BidirShift {
+                    dst: bit,
+                    src: SrcOperand::Imm(1),
+                    amount: SrcOperand::Reg(rt),
+                    kind: 2,
+                    width: OpWidth::W64,
+                });
+                match op {
+                    Opcode::S2_setbit_r => push_op!(OpKind::Or {
+                        dst: rd,
+                        src1: rs,
+                        src2: SrcOperand::Reg(bit),
+                        width: OpWidth::W32,
+                        flags: FlagUpdate::None,
+                    }),
+                    Opcode::S2_togglebit_r => push_op!(OpKind::Xor {
+                        dst: rd,
+                        src1: rs,
+                        src2: SrcOperand::Reg(bit),
+                        width: OpWidth::W32,
+                        flags: FlagUpdate::None,
+                    }),
+                    // clrbit: Rd = Rs & ~bit  (compute ~bit in W32, then AND).
+                    _ => {
+                        let nbit = ctx.alloc_vreg();
+                        push_op!(OpKind::Not {
+                            dst: nbit,
+                            src: bit,
+                            width: OpWidth::W32,
+                        });
+                        push_op!(OpKind::And {
+                            dst: rd,
+                            src1: rs,
+                            src2: SrcOperand::Reg(nbit),
+                            width: OpWidth::W32,
+                            flags: FlagUpdate::None,
+                        });
+                    }
+                }
+            }
+            // Pd = (fCAST4_8u(Rs) & bit) != 0  (AND done in 64-bit, so a high-word
+            // bit never matches the zero-extended 32-bit Rs).  S4_ntstbit_r is the
+            // logical negation.
+            Opcode::S2_tstbit_r | Opcode::S4_ntstbit_r => {
+                let bit = ctx.alloc_vreg();
+                push_op!(OpKind::BidirShift {
+                    dst: bit,
+                    src: SrcOperand::Imm(1),
+                    amount: SrcOperand::Reg(rt),
+                    kind: 2,
+                    width: OpWidth::W64,
+                });
+                // rsz = Rs zero-extended to 64 bits, then m = rsz & bit (W64).
+                let rsz = ctx.alloc_vreg();
+                push_op!(OpKind::ZeroExtend {
+                    dst: rsz,
+                    src: rs,
+                    from_width: OpWidth::W32,
+                    to_width: OpWidth::W64,
+                });
+                let m = ctx.alloc_vreg();
+                push_op!(OpKind::And {
+                    dst: m,
+                    src1: rsz,
+                    src2: SrcOperand::Reg(bit),
+                    width: OpWidth::W64,
+                    flags: FlagUpdate::None,
+                });
+                let cond = if op == Opcode::S2_tstbit_r {
+                    Condition::Ne
+                } else {
+                    Condition::Eq
+                };
+                push_op!(OpKind::Cmp {
+                    src1: m,
+                    src2: SrcOperand::Imm(0),
+                    width: OpWidth::W64,
+                });
+                push_op!(OpKind::SetCC {
+                    dst: self.hex_pred(rd_n),
+                    cond,
+                    width: OpWidth::W64,
+                });
             }
             // clb/cl0/cl1/ct0/ct1 — bit counts. SMIR Clz/Ctz over 32-bit.
             Opcode::S2_cl0 => {

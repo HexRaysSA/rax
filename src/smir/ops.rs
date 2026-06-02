@@ -367,6 +367,29 @@ pub enum OpKind {
         flags: FlagUpdate,
     },
 
+    /// Hexagon bidirectional register-amount shift.
+    ///
+    /// `dst = bidir_shift(src, sxtn7(amount))` where the effective shift count is
+    /// the sign-extension of the low 7 bits of `amount` to the range `[-64, 63]`.
+    /// A positive count shifts in the `kind` direction; a negative count shifts
+    /// the OPPOSITE direction by `|count|`. A magnitude `>= width` yields 0 for
+    /// logical shifts and an all-sign result for arithmetic right shifts.
+    ///
+    /// `kind`: 0 = arithmetic left (`asl`), 1 = arithmetic right (`asr`),
+    ///         2 = logical left (`lsl`), 3 = logical right (`lsr`).
+    ///
+    /// `width` is W32 (single Rd) or W64 (Rdd pair, materialised into a W64 temp
+    /// by the lifter). `amount` is normally `SrcOperand::Reg(Rt)`; the `S4_lsli`
+    /// form uses `SrcOperand::Imm` for the source value while the count still
+    /// comes from a register (the lifter composes that case explicitly).
+    BidirShift {
+        dst: VReg,
+        src: SrcOperand,
+        amount: SrcOperand,
+        kind: u8,
+        width: OpWidth,
+    },
+
     // ========================================================================
     // BIT MANIPULATION
     // ========================================================================
@@ -2193,6 +2216,7 @@ impl OpKind {
             | OpKind::Shrd { dst, .. }
             | OpKind::Rol { dst, .. }
             | OpKind::Ror { dst, .. }
+            | OpKind::BidirShift { dst, .. }
             | OpKind::Bts { dst, .. }
             | OpKind::Btr { dst, .. }
             | OpKind::Btc { dst, .. }
