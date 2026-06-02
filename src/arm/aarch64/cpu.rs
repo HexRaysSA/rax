@@ -7554,6 +7554,33 @@ impl AArch64Cpu {
         pg: usize,
         esize: usize,
     ) -> Result<CpuExit, ArmError> {
+        // SVE2 FMLALB/FMLALT/FMLSLB/FMLSLT (f16 widening fused multiply-add into
+        // f32): 0x64, bit21==1, bits[15:11]==10000 (FMLAL) or 10100 (FMLSL);
+        // bit13 picks subtract, bit10 picks the odd (T) / even (B) f16 lane.
+        // Unpredicated; the f16->f32 widening is exact and the accumulate is a
+        // single fused muladd. FMLSL negates the Zn factor (FPCR.AH=0 default).
+        if (insn >> 24) & 0xFF == 0b01100100
+            && (insn >> 21) & 1 == 1
+            && matches!((insn >> 11) & 0x1F, 0b10000 | 0b10100)
+        {
+            let sub = (insn >> 13) & 1 == 1; // FMLSL
+            let top = (insn >> 10) & 1 == 1; // odd f16 half
+            let n = self.v[zn].to_le_bytes();
+            let m = self.v[zm].to_le_bytes();
+            let acc = self.v[zd].to_le_bytes(); // Zda
+            let mut dst = acc;
+            for j in 0..4 {
+                let h_off = (2 * j + top as usize) * 2;
+                let nbits = read_elem(&n, h_off, 2) as u16 ^ if sub { 0x8000 } else { 0 };
+                let nn = Self::fp16_to_f32(nbits);
+                let mm = Self::fp16_to_f32(read_elem(&m, h_off, 2) as u16);
+                let aa = f32::from_bits(read_elem(&acc, j * 4, 4) as u32);
+                write_elem(&mut dst, j * 4, 4, nn.mul_add(mm, aa).to_bits() as u64);
+            }
+            self.v[zd] = u128::from_le_bytes(dst);
+            return Ok(CpuExit::Continue);
+        }
+
         // FP fast reductions / FADDA live at bits[15:13]==001; FP unary at
         // bits[15:13]==101; predicated binary arith at bits[15:13]==100.
         match (insn >> 13) & 0x7 {
