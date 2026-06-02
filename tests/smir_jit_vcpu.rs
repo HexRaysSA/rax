@@ -185,6 +185,51 @@ fn jit_matches_interpreter() {
     assert_eq!(jr.rcx & 0xffff_ffff, 0);
 }
 
+/// A realistic hot loop with an INTERNAL conditional (if-inside-loop): multiple
+/// internal blocks, a forward branch + a join, two back-edges to the head, and a
+/// HLT frontier — all run natively by `jit_try_block`. JIT final state must equal
+/// the interpreter's (self-validating regardless of the exact arithmetic).
+//   loop: add eax,1 ; cmp eax,10 ; jl skip ; add ebx,10 ; skip: dec ecx ; jnz loop ; hlt
+#[test]
+fn jit_loop_with_internal_if_matches_interp() {
+    let code: Vec<u8> = vec![
+        0x83, 0xC0, 0x01, // add eax,1
+        0x83, 0xF8, 0x0A, // cmp eax,10
+        0x7C, 0x03, // jl skip (+3 -> skip)   (eax<10 -> skip the add)
+        0x83, 0xC3, 0x0A, // add ebx,10  (only when eax>=10)
+        0xFF, 0xC9, // skip: dec ecx
+        0x75, 0xF1, // jnz loop (-15 -> head)
+        0xF4, // hlt
+    ];
+    let setup = |v: &mut X86_64Vcpu| {
+        let mut r = v.get_regs().unwrap();
+        r.rax = 0;
+        r.rcx = 20;
+        r.rbx = 0;
+        v.set_regs(&r).unwrap();
+    };
+
+    let mut jit = make_vcpu_code(&code);
+    setup(&mut jit);
+    assert!(
+        jit.jit_try_block().expect("jit_try_block"),
+        "a loop with an internal if should JIT natively"
+    );
+    run_interp(&mut jit); // execute the parked HLT
+    let jr = jit.get_regs().unwrap();
+
+    let mut interp = make_vcpu_code(&code);
+    setup(&mut interp);
+    run_interp(&mut interp);
+    let ir = interp.get_regs().unwrap();
+
+    assert_eq!(jr.rax & 0xffff_ffff, ir.rax & 0xffff_ffff, "eax");
+    assert_eq!(jr.rbx & 0xffff_ffff, ir.rbx & 0xffff_ffff, "ebx (conditional accumulation)");
+    assert_eq!(jr.rcx & 0xffff_ffff, ir.rcx & 0xffff_ffff, "ecx");
+    assert_eq!(jr.rax & 0xffff_ffff, 20, "ran all 20 iterations");
+    assert_eq!(jr.rbx & 0xffff_ffff, 110, "ebx += 10 for each eax>=10 (iterations 10..=20)");
+}
+
 /// General-exit lowering: a hot loop that exits to a NON-HLT continuation runs
 /// natively (back-edge internal) and hands control back to the interpreter at
 /// the loop-exit address via an exit stub recording `exit_pc`. The native
