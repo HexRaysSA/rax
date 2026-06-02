@@ -117,6 +117,8 @@ pub struct Isa {
     pub zkne: bool,
     /// Zknd: NIST AES decryption.
     pub zknd: bool,
+    /// Zcb: additional compressed instructions.
+    pub zcb: bool,
 }
 
 impl Isa {
@@ -144,6 +146,7 @@ impl Isa {
             zksed: true,
             zkne: true,
             zknd: true,
+            zcb: true,
         }
     }
 
@@ -171,6 +174,7 @@ impl Isa {
             zksed: false,
             zkne: false,
             zknd: false,
+            zcb: false,
         }
     }
 

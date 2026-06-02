@@ -1905,3 +1905,107 @@ fn diff_crypto() {
     }
     run_batch(&batch, false);
 }
+
+// ---------------------------------------------------------------------------
+// Zcb (additional compressed) and FP-compressed (c.fld/c.fsd/...).
+// ---------------------------------------------------------------------------
+
+#[test]
+fn diff_compressed_extra() {
+    let mut rng = Rng::new(0xCB0);
+    let mut batch = Vec::new();
+    let cpool = [8u32, 9, 11, 12, 13, 14, 15]; // compressed regs excl. x10 (base)
+
+    // --- Zcb quadrant-1 unary / mul (register only) ---
+    for _ in 0..40 {
+        let rd = cpool[(rng.next() % 7) as usize];
+        let rs2 = cpool[(rng.next() % 7) as usize];
+        let base = |f6top: u32, f3lo: u32, rd: u32, rest: u32| -> u32 {
+            (0b100 << 13) | (1 << 12) | (0b11 << 10) | (cr(rd) << 7) | (f6top << 5) | (rest << 2) | 0b01
+        };
+        let _ = base;
+        // c.mul
+        batch.push(("c.mul".into(), (0b100u32 << 13) | (1 << 12) | (0b11 << 10) | (cr(rd) << 7) | (0b10 << 5) | (cr(rs2) << 2) | 0b01, rand_state(&mut rng)));
+        // c.zext.b/sext.b/zext.h/sext.h/zext.w/not
+        for (name, sel) in [("c.zext.b", 0u32), ("c.sext.b", 1), ("c.zext.h", 2), ("c.sext.h", 3), ("c.zext.w", 4), ("c.not", 5)] {
+            let w = (0b100u32 << 13) | (1 << 12) | (0b11 << 10) | (cr(rd) << 7) | (0b11 << 5) | (sel << 2) | 0b01;
+            batch.push((name.into(), w, rand_state(&mut rng)));
+        }
+    }
+
+    // --- Zcb quadrant-0 byte/half loads/stores (base x10 = SCRATCH_BASE) ---
+    for _ in 0..20 {
+        let rd = cpool[(rng.next() % 7) as usize];
+        let rs2 = cpool[(rng.next() % 7) as usize];
+        let mk_state = |rng: &mut Rng| {
+            let mut st = rand_state(rng);
+            st.x[10] = SCRATCH_BASE;
+            for s in st.scratch.iter_mut() {
+                *s = rng.next();
+            }
+            st
+        };
+        let u2 = (rng.next() % 4) as u32; // byte offset 0..3
+        let u1 = (rng.next() % 2) as u32 * 2; // half offset 0/2
+        // c.lbu (bits[12:10]=000): uimm bit5=uimm[1], bit6=uimm[0]
+        let lbu = (0b100u32 << 13) | (cr(10) << 7) | (((u2 >> 1) & 1) << 5) | ((u2 & 1) << 6) | (cr(rd) << 2) | 0b00;
+        batch.push(("c.lbu".into(), lbu, mk_state(&mut rng)));
+        // c.lhu (001,bit6=0)
+        let lhu = (0b100u32 << 13) | (0b001 << 10) | (cr(10) << 7) | (((u1 >> 1) & 1) << 5) | (cr(rd) << 2) | 0b00;
+        batch.push(("c.lhu".into(), lhu, mk_state(&mut rng)));
+        // c.lh (001,bit6=1)
+        let lh = lhu | (1 << 6);
+        batch.push(("c.lh".into(), lh, mk_state(&mut rng)));
+        // c.sb (010)
+        let sb = (0b100u32 << 13) | (0b010 << 10) | (cr(10) << 7) | (((u2 >> 1) & 1) << 5) | ((u2 & 1) << 6) | (cr(rs2) << 2) | 0b00;
+        batch.push(("c.sb".into(), sb, mk_state(&mut rng)));
+        // c.sh (011,bit6=0)
+        let sh = (0b100u32 << 13) | (0b011 << 10) | (cr(10) << 7) | (((u1 >> 1) & 1) << 5) | (cr(rs2) << 2) | 0b00;
+        batch.push(("c.sh".into(), sh, mk_state(&mut rng)));
+    }
+
+    // --- FP-compressed (c.fld/c.fsd reg', c.fldsp/c.fsdsp sp) ---
+    for _ in 0..20 {
+        let mk_state_sp = |rng: &mut Rng| {
+            let mut st = rand_state(rng);
+            st.x[2] = SCRATCH_BASE;
+            for s in st.scratch.iter_mut() {
+                *s = rng.next();
+            }
+            for fi in st.f.iter_mut() {
+                *fi = rng.next();
+            }
+            st
+        };
+        let mk_state_r = |rng: &mut Rng| {
+            let mut st = rand_state(rng);
+            st.x[10] = SCRATCH_BASE;
+            for s in st.scratch.iter_mut() {
+                *s = rng.next();
+            }
+            for fi in st.f.iter_mut() {
+                *fi = rng.next();
+            }
+            st
+        };
+        let rd = FPOOL[(rng.next() % 8) as usize];
+        let rs2 = FPOOL[(rng.next() % 8) as usize];
+        let rdp = cpool[(rng.next() % 7) as usize];
+        let rs2p = cpool[(rng.next() % 7) as usize];
+        let ud = (rng.next() % 4) as u32 * 8; // dword offset within window
+        // c.fldsp fd, ud(sp)
+        let fldsp = (0b001u32 << 13) | (((ud >> 5) & 1) << 12) | (rd << 7) | (((ud >> 3) & 3) << 5) | (((ud >> 6) & 7) << 2) | 0b10;
+        batch.push(("c.fldsp".into(), fldsp, mk_state_sp(&mut rng)));
+        // c.fsdsp fs2, ud(sp)
+        let fsdsp = (0b101u32 << 13) | (((ud >> 3) & 7) << 10) | (((ud >> 6) & 7) << 7) | (rs2 << 2) | 0b10;
+        batch.push(("c.fsdsp".into(), fsdsp, mk_state_sp(&mut rng)));
+        // c.fld fd', ud(x10)
+        let fld = (0b001u32 << 13) | (((ud >> 3) & 7) << 10) | (cr(10) << 7) | (((ud >> 6) & 3) << 5) | (cr(rdp) << 2) | 0b00;
+        batch.push(("c.fld".into(), fld, mk_state_r(&mut rng)));
+        // c.fsd fs2', ud(x10)
+        let fsd = (0b101u32 << 13) | (((ud >> 3) & 7) << 10) | (cr(10) << 7) | (((ud >> 6) & 3) << 5) | (cr(rs2p) << 2) | 0b00;
+        batch.push(("c.fsd".into(), fsd, mk_state_r(&mut rng)));
+    }
+
+    run_batch(&batch, true);
+}

@@ -59,19 +59,19 @@ fn sext(v: u32, n: u32) -> i64 {
 }
 
 /// Decode a non-zero compressed parcel.
-pub fn decode_rvc(half: u16, xlen: Xlen, _isa: &Isa) -> Insn {
+pub fn decode_rvc(half: u16, xlen: Xlen, isa: &Isa) -> Insn {
     let rv64 = xlen == Xlen::Rv64;
     let quadrant = half & 0x3;
     let funct3 = bits(half, 15, 13);
     match quadrant {
-        0 => decode_q0(half, funct3, rv64),
-        1 => decode_q1(half, funct3, rv64),
-        2 => decode_q2(half, funct3, rv64),
+        0 => decode_q0(half, funct3, rv64, isa),
+        1 => decode_q1(half, funct3, rv64, isa),
+        2 => decode_q2(half, funct3, rv64, isa),
         _ => ill(half), // quadrant 3 is not compressed
     }
 }
 
-fn decode_q0(h: u16, funct3: u32, rv64: bool) -> Insn {
+fn decode_q0(h: u16, funct3: u32, rv64: bool, isa: &Isa) -> Insn {
     let rd_ = rvc_reg(bits(h, 4, 2));
     let rs1_ = rvc_reg(bits(h, 9, 7));
     match funct3 {
@@ -128,11 +128,46 @@ fn decode_q0(h: u16, funct3: u32, rv64: bool) -> Insn {
                 mk(Op::Fsw, 0, rs1_, rvc_reg(bits(h, 4, 2)), off as i64, h)
             }
         }
-        _ => ill(h), // 0b100 reserved
+        0b100 if isa.zcb => decode_zcb_q0(h, rd_, rs1_),
+        _ => ill(h),
     }
 }
 
-fn decode_q1(h: u16, funct3: u32, rv64: bool) -> Insn {
+/// Zcb quadrant-0 byte/half loads and stores.
+fn decode_zcb_q0(h: u16, rd_: u8, rs1_: u8) -> Insn {
+    let rs2_ = rvc_reg(bits(h, 4, 2));
+    match bits(h, 12, 10) {
+        0b000 => {
+            // c.lbu: uimm = {bit5, bit6}
+            let uimm = (bit(h, 5) << 1) | bit(h, 6);
+            mk(Op::Lbu, rd_, rs1_, 0, uimm as i64, h)
+        }
+        0b001 => {
+            // c.lhu (bit6=0) / c.lh (bit6=1); uimm = bit5 << 1
+            let uimm = (bit(h, 5) << 1) as i64;
+            if bit(h, 6) == 1 {
+                mk(Op::Lh, rd_, rs1_, 0, uimm, h)
+            } else {
+                mk(Op::Lhu, rd_, rs1_, 0, uimm, h)
+            }
+        }
+        0b010 => {
+            // c.sb: uimm = {bit5, bit6}
+            let uimm = (bit(h, 5) << 1) | bit(h, 6);
+            mk(Op::Sb, 0, rs1_, rs2_, uimm as i64, h)
+        }
+        0b011 => {
+            // c.sh (bit6 must be 0); uimm = bit5 << 1
+            if bit(h, 6) != 0 {
+                return ill(h);
+            }
+            mk(Op::Sh, 0, rs1_, rs2_, (bit(h, 5) << 1) as i64, h)
+        }
+        _ => ill(h),
+    }
+}
+
+fn decode_q1(h: u16, funct3: u32, rv64: bool, isa: &Isa) -> Insn {
     let rd = bits(h, 11, 7) as u8;
     match funct3 {
         0b000 => {
@@ -180,7 +215,7 @@ fn decode_q1(h: u16, funct3: u32, rv64: bool) -> Insn {
                 mk(Op::Lui, rd, 0, 0, sext(v, 18), h)
             }
         }
-        0b100 => decode_q1_alu(h, rv64),
+        0b100 => decode_q1_alu(h, rv64, isa),
         0b101 => {
             // C.J -> jal x0, offset
             mk(Op::Jal, 0, 0, 0, cj_offset(h), h)
@@ -197,7 +232,7 @@ fn decode_q1(h: u16, funct3: u32, rv64: bool) -> Insn {
     }
 }
 
-fn decode_q1_alu(h: u16, rv64: bool) -> Insn {
+fn decode_q1_alu(h: u16, rv64: bool, isa: &Isa) -> Insn {
     let rd_ = rvc_reg(bits(h, 9, 7));
     let funct2 = bits(h, 11, 10);
     match funct2 {
@@ -218,22 +253,32 @@ fn decode_q1_alu(h: u16, rv64: bool) -> Insn {
         }
         0b11 => {
             let rs2_ = rvc_reg(bits(h, 4, 2));
-            let op = match (bit(h, 12), bits(h, 6, 5)) {
-                (0, 0b00) => Op::Sub,
-                (0, 0b01) => Op::Xor,
-                (0, 0b10) => Op::Or,
-                (0, 0b11) => Op::And,
-                (1, 0b00) if rv64 => Op::Subw,
-                (1, 0b01) if rv64 => Op::Addw,
-                _ => return ill(h), // reserved
-            };
-            mk(op, rd_, rd_, rs2_, 0, h)
+            match (bit(h, 12), bits(h, 6, 5)) {
+                (0, 0b00) => mk(Op::Sub, rd_, rd_, rs2_, 0, h),
+                (0, 0b01) => mk(Op::Xor, rd_, rd_, rs2_, 0, h),
+                (0, 0b10) => mk(Op::Or, rd_, rd_, rs2_, 0, h),
+                (0, 0b11) => mk(Op::And, rd_, rd_, rs2_, 0, h),
+                (1, 0b00) if rv64 => mk(Op::Subw, rd_, rd_, rs2_, 0, h),
+                (1, 0b01) if rv64 => mk(Op::Addw, rd_, rd_, rs2_, 0, h),
+                // Zcb: c.mul (10) and the zext/sext/not unary ops (11).
+                (1, 0b10) if isa.zcb => mk(Op::Mul, rd_, rd_, rs2_, 0, h),
+                (1, 0b11) if isa.zcb => match bits(h, 4, 2) {
+                    0b000 => mk(Op::Andi, rd_, rd_, 0, 0xff, h),     // c.zext.b
+                    0b001 => mk(Op::SextB, rd_, rd_, 0, 0, h),       // c.sext.b
+                    0b010 => mk(Op::ZextH, rd_, rd_, 0, 0, h),       // c.zext.h
+                    0b011 => mk(Op::SextH, rd_, rd_, 0, 0, h),       // c.sext.h
+                    0b100 => mk(Op::AddUw, rd_, rd_, 0, 0, h),       // c.zext.w (add.uw rd',rd',x0)
+                    0b101 => mk(Op::Xori, rd_, rd_, 0, -1, h),       // c.not
+                    _ => ill(h),
+                },
+                _ => ill(h),
+            }
         }
         _ => ill(h),
     }
 }
 
-fn decode_q2(h: u16, funct3: u32, rv64: bool) -> Insn {
+fn decode_q2(h: u16, funct3: u32, rv64: bool, _isa: &Isa) -> Insn {
     let rd = bits(h, 11, 7) as u8;
     match funct3 {
         0b000 => {
