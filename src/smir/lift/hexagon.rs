@@ -1435,6 +1435,21 @@ impl HexagonLifter {
             }};
         }
 
+        // Emit a single-vector HVX per-lane UNARY op `Vd = op(Vu)` over the
+        // full 1024-bit vector. `$op` is the VLaneUnary u8 discriminant.
+        macro_rules! vunary {
+            ($op:expr, $elem:expr, $lanes:expr, $signed:expr) => {{
+                push_op!(OpKind::VLaneUnary {
+                    dst: self.hex_v(fld(b'd')),
+                    src: self.hex_v(fld(b'u')),
+                    elem: $elem,
+                    lanes: $lanes,
+                    op: $op,
+                    signed: $signed,
+                });
+            }};
+        }
+
         // Emit a dual-vector HVX elementwise op `Vdd = op(Vuu, Vvv)` as two
         // independent elementwise ops over the even and odd registers of each
         // pair, matching the sem's `dv_*` dispatch (bases d/u/v and d+1/u+1/v+1;
@@ -3263,6 +3278,30 @@ impl HexagonLifter {
                 elem: VecElementType::I16,
                 lanes: 64,
             }),
+            // V6_vmpyih_acc: Vx.h += vmpyi(Vu.h, Vv.h). Compose the low-half
+            // product (VMul -> temp) then a wrapping per-halfword add into Vx
+            // (VLane::Add). The low 16 bits of the product are signedness-
+            // independent, matching the sem `get_h_signed + sh*sh` truncation.
+            Opcode::V6_vmpyih_acc => {
+                let tmp = ctx.alloc_vreg();
+                push_op!(OpKind::VMul {
+                    dst: tmp,
+                    src1: self.hex_v(fld(b'u')),
+                    src2: self.hex_v(fld(b'v')),
+                    elem: VecElementType::I16,
+                    lanes: 64,
+                });
+                let vx = self.hex_v(fld(b'x'));
+                push_op!(OpKind::VLane {
+                    dst: vx,
+                    src1: vx,
+                    src2: tmp,
+                    elem: VecElementType::I16,
+                    lanes: 64,
+                    op: VLaneOp::Add,
+                    signed: false,
+                });
+            }
 
             // ---- vector shifts by scalar Rt ----
             // VShift reads a single scalar amount and shifts every lane by it,
@@ -3428,6 +3467,15 @@ impl HexagonLifter {
             Opcode::V6_vsububsat => vlane!(VLaneOp::SubSat, VecElementType::I8, 128, false),
             Opcode::V6_vsubuhsat => vlane!(VLaneOp::SubSat, VecElementType::I16, 64, false),
 
+            // ---- plain (wrapping) add/sub, dual-vector (Vdd = op(Vuu, Vvv)) ----
+            // sem dv_b/dv_h/dv_w apply wrapping add/sub to each vector of the pair.
+            Opcode::V6_vaddb_dv => vlane_dv!(VLaneOp::Add, VecElementType::I8, 128, false),
+            Opcode::V6_vaddh_dv => vlane_dv!(VLaneOp::Add, VecElementType::I16, 64, false),
+            Opcode::V6_vaddw_dv => vlane_dv!(VLaneOp::Add, VecElementType::I32, 32, false),
+            Opcode::V6_vsubb_dv => vlane_dv!(VLaneOp::Sub, VecElementType::I8, 128, false),
+            Opcode::V6_vsubh_dv => vlane_dv!(VLaneOp::Sub, VecElementType::I16, 64, false),
+            Opcode::V6_vsubw_dv => vlane_dv!(VLaneOp::Sub, VecElementType::I32, 32, false),
+
             // ---- saturating add/sub, dual-vector (Vdd = op(Vuu, Vvv)) ----
             // signed
             Opcode::V6_vaddbsat_dv => vlane_dv!(VLaneOp::AddSat, VecElementType::I8, 128, true),
@@ -3470,6 +3518,94 @@ impl HexagonLifter {
             // signed (sem: (a as iN - b as iN).unsigned_abs())
             Opcode::V6_vabsdiffh => vlane!(VLaneOp::AbsDiff, VecElementType::I16, 64, true),
             Opcode::V6_vabsdiffw => vlane!(VLaneOp::AbsDiff, VecElementType::I32, 32, true),
+
+            // ---- per-lane UNARY ops (OpKind::VLaneUnary). u8 discriminants:
+            //   0=Not 1=Abs 2=AbsSat 3=Clz 4=Popcount 5=NormAmt 6=Neg ----
+            // vnot: bitwise NOT of the whole vector (sem hvx_misc: !byte). Span
+            // as 32 x I32; signedness irrelevant.
+            Opcode::V6_vnot => vunary!(0u8, VecElementType::I32, 32, false),
+            // vabs*: per-lane wrapping absolute value (sem hvx_minmax). MIN
+            // wraps to MIN (no sat). Signed source lane.
+            Opcode::V6_vabsb => vunary!(1u8, VecElementType::I8, 128, true),
+            Opcode::V6_vabsh => vunary!(1u8, VecElementType::I16, 64, true),
+            Opcode::V6_vabsw => vunary!(1u8, VecElementType::I32, 32, true),
+            // vabs*_sat: |a| clamped to the signed max (MIN -> MAX).
+            Opcode::V6_vabsb_sat => vunary!(2u8, VecElementType::I8, 128, true),
+            Opcode::V6_vabsh_sat => vunary!(2u8, VecElementType::I16, 64, true),
+            Opcode::V6_vabsw_sat => vunary!(2u8, VecElementType::I32, 32, true),
+            // vcl0*: count leading zeros within the lane (sem hvx_shift).
+            Opcode::V6_vcl0h => vunary!(3u8, VecElementType::I16, 64, false),
+            Opcode::V6_vcl0w => vunary!(3u8, VecElementType::I32, 32, false),
+            // vpopcounth: per-halfword population count (sem hvx_shift).
+            Opcode::V6_vpopcounth => vunary!(4u8, VecElementType::I16, 64, false),
+            // vnormamt*: max(clz, clo) - 1 within the lane (sem hvx_shift).
+            Opcode::V6_vnormamth => vunary!(5u8, VecElementType::I16, 64, false),
+            Opcode::V6_vnormamtw => vunary!(5u8, VecElementType::I32, 32, false),
+
+            // ---- vnavg: (ext(a) - ext(b)) >> 1 (arithmetic) (sem hvx_minmax).
+            // signed source for b/h/w, unsigned source (i64-extended) for ub. ----
+            Opcode::V6_vnavgb => push_op!(OpKind::VNavg {
+                dst: self.hex_v(fld(b'd')),
+                src1: self.hex_v(fld(b'u')),
+                src2: self.hex_v(fld(b'v')),
+                elem: VecElementType::I8,
+                lanes: 128,
+                signed: true,
+            }),
+            Opcode::V6_vnavgh => push_op!(OpKind::VNavg {
+                dst: self.hex_v(fld(b'd')),
+                src1: self.hex_v(fld(b'u')),
+                src2: self.hex_v(fld(b'v')),
+                elem: VecElementType::I16,
+                lanes: 64,
+                signed: true,
+            }),
+            Opcode::V6_vnavgw => push_op!(OpKind::VNavg {
+                dst: self.hex_v(fld(b'd')),
+                src1: self.hex_v(fld(b'u')),
+                src2: self.hex_v(fld(b'v')),
+                elem: VecElementType::I32,
+                lanes: 32,
+                signed: true,
+            }),
+            Opcode::V6_vnavgub => push_op!(OpKind::VNavg {
+                dst: self.hex_v(fld(b'd')),
+                src1: self.hex_v(fld(b'u')),
+                src2: self.hex_v(fld(b'v')),
+                elem: VecElementType::I8,
+                lanes: 128,
+                signed: false,
+            }),
+
+            // ---- vaddclb{h,w}: Vd = vadd(vclb(Vu), Vv) per lane (sem
+            // hvx_addsub.rs). Count-leading-sign-bits of Vu (VLaneUnary Clb,
+            // u8 op 7) into a temp, then a wrapping per-lane add of Vv. clb =
+            // max(clz, clo) capped at the element width. ----
+            Opcode::V6_vaddclbh | Opcode::V6_vaddclbw => {
+                let (elem, lanes) = if matches!(op, Opcode::V6_vaddclbh) {
+                    (VecElementType::I16, 64u8)
+                } else {
+                    (VecElementType::I32, 32u8)
+                };
+                let tmp = ctx.alloc_vreg();
+                push_op!(OpKind::VLaneUnary {
+                    dst: tmp,
+                    src: self.hex_v(fld(b'u')),
+                    elem,
+                    lanes,
+                    op: 7u8,
+                    signed: false,
+                });
+                push_op!(OpKind::VLane {
+                    dst: self.hex_v(fld(b'd')),
+                    src1: tmp,
+                    src2: self.hex_v(fld(b'v')),
+                    elem,
+                    lanes,
+                    op: VLaneOp::Add,
+                    signed: false,
+                });
+            }
 
             // ============================================================
             // HVX vector-by-vector WIDENING multiplies -> register PAIR.
@@ -3599,6 +3735,55 @@ impl HexagonLifter {
             }
 
             // ============================================================
+            // HVX vector-by-vector WIDENING add/sub -> register PAIR
+            // (OpKind::VWidenAddSub). Same even/odd interleave layout as the
+            // widening multiplies: even narrow lanes' results -> low vector
+            // (V[base]), odd lanes' -> high (V[base+1]). The dest base is
+            // `fld(b'd')` for the plain form and `fld(b'x')` for the `_acc`
+            // form (which reads+writes that pair, sign-extending the existing
+            // wide lane). Mapping confirmed against sem/hvx_addsub.rs
+            // (widen_ubh / widen_hw):
+            //   vaddubh/vsububh  ub op ub -> .h pair  (zero-ext both, sub allows -)
+            //   vaddhw /vsubhw   h  op h  -> .w pair  (sign-ext both)
+            //   vadduhw/vsubuhw  uh op uh -> .w pair  (zero-ext both)
+            // ============================================================
+            Opcode::V6_vaddubh
+            | Opcode::V6_vaddubh_acc
+            | Opcode::V6_vsububh
+            | Opcode::V6_vaddhw
+            | Opcode::V6_vaddhw_acc
+            | Opcode::V6_vsubhw
+            | Opcode::V6_vadduhw
+            | Opcode::V6_vadduhw_acc
+            | Opcode::V6_vsubuhw => {
+                let acc = matches!(
+                    op,
+                    Opcode::V6_vaddubh_acc | Opcode::V6_vaddhw_acc | Opcode::V6_vadduhw_acc
+                );
+                let base = if acc { rx_n } else { rd_n };
+                let (src_elem, signed, sub) = match op {
+                    Opcode::V6_vaddubh | Opcode::V6_vaddubh_acc => (VecElementType::I8, false, false),
+                    Opcode::V6_vsububh => (VecElementType::I8, false, true),
+                    Opcode::V6_vaddhw | Opcode::V6_vaddhw_acc => (VecElementType::I16, true, false),
+                    Opcode::V6_vsubhw => (VecElementType::I16, true, true),
+                    Opcode::V6_vadduhw | Opcode::V6_vadduhw_acc => (VecElementType::I16, false, false),
+                    // V6_vsubuhw
+                    _ => (VecElementType::I16, false, true),
+                };
+                push_op!(OpKind::VWidenAddSub {
+                    dst_lo: self.hex_v(base),
+                    dst_hi: self.hex_v(base + 1),
+                    src1: self.hex_v(fld(b'u')),
+                    src2: self.hex_v(fld(b'v')),
+                    src_elem,
+                    signed1: signed,
+                    signed2: signed,
+                    sub,
+                    acc,
+                });
+            }
+
+            // ============================================================
             // Wave 4: HVX horizontal reduce multiplies (OpKind::VReduceMul)
             // and scalar splats (OpKind::VBroadcast).
             // ============================================================
@@ -3666,6 +3851,28 @@ impl HexagonLifter {
                     signed1: false, // Vu.ub
                     signed2: true,  // Vv.b
                     sat: false,
+                    acc,
+                });
+            }
+            // V6_vdmpyhvsat(_acc): vector-vector 2-tap halfword dot product ->
+            // word, saturated to signed 32-bit. sem hvx_rmpy.rs sums two signed
+            // h*h products (idx 2i, 2i+1) into word lane i, adds the signed dst
+            // word for the acc form, then sat_n(.,32). Matches VReduceMul with
+            // taps=2, signed×signed, sat, acc (which reads the dst sign-extended).
+            Opcode::V6_vdmpyhvsat | Opcode::V6_vdmpyhvsat_acc => {
+                let acc = matches!(op, Opcode::V6_vdmpyhvsat_acc);
+                let base = if acc { rx_n } else { rd_n };
+                push_op!(OpKind::VReduceMul {
+                    dst: self.hex_v(base),
+                    src1: self.hex_v(fld(b'u')),
+                    src2: self.hex_v(fld(b'v')),
+                    src1_elem: VecElementType::I16,
+                    src2_elem: VecElementType::I16,
+                    out_elem: VecElementType::I32,
+                    taps: 2,
+                    signed1: true,
+                    signed2: true,
+                    sat: true,
                     acc,
                 });
             }
@@ -3879,6 +4086,44 @@ impl HexagonLifter {
             }),
             Opcode::V6_vasrw => push_op!(OpKind::VShift {
                 dst: self.hex_v(fld(b'd')),
+                src: self.hex_v(fld(b'u')),
+                amount: SrcOperand::Reg(self.hex_reg(fld(b't'))),
+                shift: ShiftOp::Asr,
+                elem: VecElementType::I32,
+                lanes: 32,
+            }),
+
+            // ---- shift-accumulate: Vx.<w> += (Vu.<w> {<<,>>} (Rt & (W-1))) ----
+            // (OpKind::VShiftAcc). sem hvx_round.rs: vasl uses wrapping_shl
+            // (== logical Lsl low bits), vasr uses arithmetic `>>` (Asr). The
+            // dst pair base is the read-modify-write `fld(b'x')`. The interp
+            // masks the Rt amount to `amt % elem_bits` == sem's `rt & (W-1)`.
+            Opcode::V6_vaslh_acc => push_op!(OpKind::VShiftAcc {
+                dst: self.hex_v(fld(b'x')),
+                src: self.hex_v(fld(b'u')),
+                amount: SrcOperand::Reg(self.hex_reg(fld(b't'))),
+                shift: ShiftOp::Lsl,
+                elem: VecElementType::I16,
+                lanes: 64,
+            }),
+            Opcode::V6_vaslw_acc => push_op!(OpKind::VShiftAcc {
+                dst: self.hex_v(fld(b'x')),
+                src: self.hex_v(fld(b'u')),
+                amount: SrcOperand::Reg(self.hex_reg(fld(b't'))),
+                shift: ShiftOp::Lsl,
+                elem: VecElementType::I32,
+                lanes: 32,
+            }),
+            Opcode::V6_vasrh_acc => push_op!(OpKind::VShiftAcc {
+                dst: self.hex_v(fld(b'x')),
+                src: self.hex_v(fld(b'u')),
+                amount: SrcOperand::Reg(self.hex_reg(fld(b't'))),
+                shift: ShiftOp::Asr,
+                elem: VecElementType::I16,
+                lanes: 64,
+            }),
+            Opcode::V6_vasrw_acc => push_op!(OpKind::VShiftAcc {
+                dst: self.hex_v(fld(b'x')),
                 src: self.hex_v(fld(b'u')),
                 amount: SrcOperand::Reg(self.hex_reg(fld(b't'))),
                 shift: ShiftOp::Asr,

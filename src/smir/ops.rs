@@ -893,6 +893,85 @@ pub enum OpKind {
         interleave: bool,
     },
 
+    /// Widening elementwise add/sub into a destination register pair.
+    ///
+    /// Models the HVX `Vdd.<2w> = vadd/vsub(Vu.<w>, Vv.<w>)` widening family
+    /// (`vaddubh`/`vadduhw`/`vaddhw`, `vsububh`/`vsubuhw`/`vsubhw`, and the
+    /// `+=` acc forms). Each pair of adjacent `src_elem`-wide lanes is
+    /// sign/zero-extended (`signed1`/`signed2`) and added (or, when `sub`,
+    /// subtracted) into a doubled-width result, with the EVEN source lanes'
+    /// results written to `dst_lo` and the ODD lanes' to `dst_hi` (the Hexagon
+    /// even/odd vector-pair layout). When `acc` is set the result is added into
+    /// the existing `dst_lo`/`dst_hi` lanes.
+    VWidenAddSub {
+        dst_lo: VReg,
+        dst_hi: VReg,
+        src1: VReg,
+        src2: VReg,
+        /// Narrow source element type (I8 or I16); result lanes are double width.
+        src_elem: VecElementType,
+        signed1: bool,
+        signed2: bool,
+        sub: bool,
+        acc: bool,
+    },
+
+    /// Width-general per-lane UNARY operation (single source).
+    ///
+    /// Operates on `lanes` elements of `elem` bits across the full vector
+    /// register, reading/writing via the arch-aware vector path (HVX V regs and
+    /// virtual regs). `op` selects the per-lane kernel (a small u8 discriminant,
+    /// no new enum type):
+    ///   0 = Not       (`!a`, bitwise; signedness irrelevant)
+    ///   1 = Abs       (`|a|` wrapping; signed lane)
+    ///   2 = AbsSat    (`min(|a|, signed_max)`; signed lane, MIN saturates to MAX)
+    ///   3 = Clz       (count leading zeros within the `elem`-wide lane)
+    ///   4 = Popcount  (population count of the `elem`-wide lane)
+    ///   5 = NormAmt   (`max(clz(a), clz(!a)) - 1` within the `elem`-wide lane)
+    ///   6 = Neg       (`-a` wrapping; two's complement)
+    ///   7 = Clb       (count leading SIGN bits: `max(clz, clo)`, capped at the
+    ///                  `elem` width, within the left-justified lane)
+    /// `signed` selects signedness where it matters (Abs/AbsSat/Neg).
+    VLaneUnary {
+        dst: VReg,
+        src: VReg,
+        elem: VecElementType,
+        lanes: u8,
+        op: u8,
+        signed: bool,
+    },
+
+    /// Per-lane "negative average": `(ext(a) - ext(b)) >> 1` (arithmetic
+    /// shift, truncating toward negative infinity). Models the HVX `vnavg`
+    /// family (`vnavgb`/`vnavgh`/`vnavgw` signed, `vnavgub` unsigned source).
+    /// `signed` sign-extends the lanes before subtracting; the subtraction and
+    /// shift are done at full (i64) precision, so the result wraps into the
+    /// `elem`-wide lane on store.
+    VNavg {
+        dst: VReg,
+        src1: VReg,
+        src2: VReg,
+        elem: VecElementType,
+        lanes: u8,
+        signed: bool,
+    },
+
+    /// Per-lane shift-by-scalar with accumulate into the destination.
+    ///
+    /// Models the HVX `Vx.<w> += (Vu.<w> {<<,>>} (Rt & (W-1)))` shift-accumulate
+    /// family (`vaslh_acc`/`vaslw_acc`/`vasrh_acc`/`vasrw_acc`). Each `elem`-wide
+    /// lane of `src` is shifted by `amount` masked to `log2(elem_bits)` bits
+    /// (`Lsl`/`Lsr` logical, `Asr` arithmetic per the lane sign) and the
+    /// (wrapping) result is added into the existing `dst` lane.
+    VShiftAcc {
+        dst: VReg,
+        src: VReg,
+        amount: SrcOperand,
+        shift: ShiftOp,
+        elem: VecElementType,
+        lanes: u8,
+    },
+
     /// Pack the even (or odd) narrow sub-element of each wide element from two
     /// source vectors into one vector. Models HVX `vpackeb/ob/eh/oh`: output
     /// narrow lane `i` (low half) = src2's narrow lane `2i+odd`, lane `i+half`
@@ -1814,6 +1893,7 @@ impl OpKind {
 
             OpKind::VWidenMul { dst_lo, dst_hi, .. }
             | OpKind::VWidenExt { dst_lo, dst_hi, .. }
+            | OpKind::VWidenAddSub { dst_lo, dst_hi, .. }
             | OpKind::VPairReduceMul { dst_lo, dst_hi, .. }
             | OpKind::VSlideReduceMul { dst_lo, dst_hi, .. }
             | OpKind::VRotReduceMulPair { dst_lo, dst_hi, .. }
@@ -1839,6 +1919,9 @@ impl OpKind {
             | OpKind::VAlign { dst, .. }
             | OpKind::VMulShiftSat { dst, .. }
             | OpKind::VShiftV { dst, .. }
+            | OpKind::VLaneUnary { dst, .. }
+            | OpKind::VNavg { dst, .. }
+            | OpKind::VShiftAcc { dst, .. }
             | OpKind::VCmpToQ { dst, .. }
             | OpKind::VBlend { dst, .. }
             | OpKind::VMaskZero { dst, .. }

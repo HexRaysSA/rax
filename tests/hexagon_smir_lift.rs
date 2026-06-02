@@ -1813,3 +1813,162 @@ fn lift_hvx_vdsaduh() {
         0x1960,
     );
 }
+
+// ============================================================================
+// Wave 5: widening add/sub pairs, dual-vector add/sub, per-lane unary
+// (abs/not/clz/popcount/normamt), vnavg, shift-accumulate, vmpyih_acc,
+// vdmpyhvsat. All verified 0-divergence against the qemu-backed interpreter.
+// ============================================================================
+
+// Widening add/sub -> register pair (OpKind::VWidenAddSub): even narrow lanes
+// -> low vector, odd -> high. ub op ub -> .h pair; (u)h op (u)h -> .w pair.
+#[test]
+fn lift_hvx_vwiden_addsub() {
+    lift_family(
+        "hvx_vwiden_addsub",
+        &[
+            ("vaddubh", "{ v1:0.h = vadd(v2.ub,v3.ub) }"),
+            ("vsububh", "{ v1:0.h = vsub(v2.ub,v3.ub) }"),
+            ("vaddhw", "{ v1:0.w = vadd(v2.h,v3.h) }"),
+            ("vsubhw", "{ v1:0.w = vsub(v2.h,v3.h) }"),
+            ("vadduhw", "{ v1:0.w = vadd(v2.uh,v3.uh) }"),
+            ("vsubuhw", "{ v1:0.w = vsub(v2.uh,v3.uh) }"),
+        ],
+        12,
+        0x1a00,
+    );
+}
+
+#[test]
+fn lift_hvx_vwiden_addsub_acc() {
+    // Accumulate (`v1:0 += ...`): read-modify-write of the dest pair; the
+    // existing wide lane is sign-extended before the add (matches sem).
+    lift_family(
+        "hvx_vwiden_addsub_acc",
+        &[
+            ("vaddubh_acc", "{ v1:0.h += vadd(v2.ub,v3.ub) }"),
+            ("vaddhw_acc", "{ v1:0.w += vadd(v2.h,v3.h) }"),
+            ("vadduhw_acc", "{ v1:0.w += vadd(v2.uh,v3.uh) }"),
+        ],
+        12,
+        0x1a01,
+    );
+}
+
+// Dual-vector (plain, wrapping) add/sub: two independent VLane ops over the
+// even/odd registers of each pair.
+#[test]
+fn lift_hvx_vaddsub_dv() {
+    lift_family(
+        "hvx_vaddsub_dv",
+        &[
+            ("vaddb_dv", "{ v1:0.b = vadd(v3:2.b,v5:4.b) }"),
+            ("vaddh_dv", "{ v1:0.h = vadd(v3:2.h,v5:4.h) }"),
+            ("vaddw_dv", "{ v1:0.w = vadd(v3:2.w,v5:4.w) }"),
+            ("vsubb_dv", "{ v1:0.b = vsub(v3:2.b,v5:4.b) }"),
+            ("vsubh_dv", "{ v1:0.h = vsub(v3:2.h,v5:4.h) }"),
+            ("vsubw_dv", "{ v1:0.w = vsub(v3:2.w,v5:4.w) }"),
+        ],
+        12,
+        0x1a02,
+    );
+}
+
+// Per-lane unary: abs (+sat), vnot, vcl0, vnormamt, vpopcounth
+// (OpKind::VLaneUnary).
+#[test]
+fn lift_hvx_vunary() {
+    lift_family(
+        "hvx_vunary",
+        &[
+            ("vnot", "{ v0 = vnot(v1) }"),
+            ("vabsb", "{ v0.b = vabs(v1.b) }"),
+            ("vabsh", "{ v0.h = vabs(v1.h) }"),
+            ("vabsw", "{ v0.w = vabs(v1.w) }"),
+            ("vabsb_sat", "{ v0.b = vabs(v1.b):sat }"),
+            ("vabsh_sat", "{ v0.h = vabs(v1.h):sat }"),
+            ("vabsw_sat", "{ v0.w = vabs(v1.w):sat }"),
+            ("vcl0h", "{ v0.uh = vcl0(v1.uh) }"),
+            ("vcl0w", "{ v0.uw = vcl0(v1.uw) }"),
+            ("vnormamth", "{ v0.h = vnormamt(v1.h) }"),
+            ("vnormamtw", "{ v0.w = vnormamt(v1.w) }"),
+            ("vpopcounth", "{ v0.h = vpopcount(v1.h) }"),
+        ],
+        12,
+        0x1a03,
+    );
+}
+
+// vnavg: (ext(a)-ext(b))>>1 arithmetic (OpKind::VNavg). Signed b/h/w,
+// unsigned-source ub.
+#[test]
+fn lift_hvx_vnavg() {
+    lift_family(
+        "hvx_vnavg",
+        &[
+            ("vnavgb", "{ v0.b = vnavg(v1.b,v2.b) }"),
+            ("vnavgh", "{ v0.h = vnavg(v1.h,v2.h) }"),
+            ("vnavgw", "{ v0.w = vnavg(v1.w,v2.w) }"),
+            ("vnavgub", "{ v0.b = vnavg(v1.ub,v2.ub) }"),
+        ],
+        12,
+        0x1a04,
+    );
+}
+
+// Shift-accumulate by scalar Rt: Vx.<w> += (Vu.<w> {<<,>>} (Rt & (W-1)))
+// (OpKind::VShiftAcc).
+#[test]
+fn lift_hvx_vshift_acc() {
+    lift_family(
+        "hvx_vshift_acc",
+        &[
+            ("vaslh_acc", "{ v0.h += vasl(v1.h,r5) }"),
+            ("vaslw_acc", "{ v0.w += vasl(v1.w,r5) }"),
+            ("vasrh_acc", "{ v0.h += vasr(v1.h,r5) }"),
+            ("vasrw_acc", "{ v0.w += vasr(v1.w,r5) }"),
+        ],
+        16,
+        0x1a05,
+    );
+}
+
+// vmpyih_acc: Vx.h += vmpyi(Vu.h,Vv.h) — VMul(temp) + VLane::Add(Vx).
+#[test]
+fn lift_hvx_vmpyih_acc() {
+    lift_family(
+        "hvx_vmpyih_acc",
+        &[("vmpyih_acc", "{ v0.h += vmpyi(v2.h,v3.h) }")],
+        16,
+        0x1a06,
+    );
+}
+
+// vdmpyhvsat(_acc): vector-vector 2-tap h*h -> word, saturated (VReduceMul).
+#[test]
+fn lift_hvx_vdmpyhvsat() {
+    lift_family(
+        "hvx_vdmpyhvsat",
+        &[
+            ("vdmpyhvsat", "{ v0.w = vdmpy(v4.h,v6.h):sat }"),
+            ("vdmpyhvsat_acc", "{ v0.w += vdmpy(v4.h,v6.h):sat }"),
+        ],
+        16,
+        0x1a07,
+    );
+}
+
+// vaddclb{h,w}: Vd = vadd(vclb(Vu), Vv) — count-leading-sign-bits then add
+// (VLaneUnary Clb + VLane::Add).
+#[test]
+fn lift_hvx_vaddclb() {
+    lift_family(
+        "hvx_vaddclb",
+        &[
+            ("vaddclbh", "{ v0.h = vadd(vclb(v1.h),v2.h) }"),
+            ("vaddclbw", "{ v0.w = vadd(vclb(v1.w),v2.w) }"),
+        ],
+        16,
+        0x1a08,
+    );
+}

@@ -1539,13 +1539,32 @@ impl OpKind {
                 }
             }
 
-            OpKind::VWidenMul { src1, src2, dst_lo, dst_hi, acc, .. } => {
+            OpKind::VWidenMul { src1, src2, dst_lo, dst_hi, acc, .. }
+            | OpKind::VWidenAddSub { src1, src2, dst_lo, dst_hi, acc, .. } => {
                 result.push(*src1);
                 result.push(*src2);
                 if *acc {
                     // accumulating form reads the existing destination pair
                     result.push(*dst_lo);
                     result.push(*dst_hi);
+                }
+            }
+
+            OpKind::VLaneUnary { src, .. } => {
+                result.push(*src);
+            }
+
+            OpKind::VNavg { src1, src2, .. } => {
+                result.push(*src1);
+                result.push(*src2);
+            }
+
+            OpKind::VShiftAcc { src, amount, dst, .. } => {
+                result.push(*src);
+                // shift-accumulate reads the existing destination lane
+                result.push(*dst);
+                if let SrcOperand::Reg(r) = amount {
+                    result.push(*r);
                 }
             }
 
