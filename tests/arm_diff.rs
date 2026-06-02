@@ -1661,6 +1661,14 @@ fn sli_tsz_imm(esize_bits: u32, amount: u32) -> (u32, u32) {
     ((tszimm >> 3) & 0xF, tszimm & 0x7)
 }
 
+/// SVE2 MATCH/NMATCH (character match -> predicate): `0100 0101 size 1 Zm 100
+/// Pg Zn op4 Pd`. size: 0=b,1=h; op4=bit4 (0=MATCH,1=NMATCH). Pg=p1, Zn=z1(RN),
+/// Zm=z2(RM), Pd=p0.
+fn enc_sve2_match(size: u32, nmatch: u32) -> u32 {
+    (0x45 << 24) | (size << 22) | (1 << 21) | (RM << 16) | (0b100 << 13) | (1 << 10) | (RN << 5)
+        | (nmatch << 4)
+}
+
 /// SVE2 WHILERW/WHILEWR (memory-hazard predicate): `0010 0101 sz 1 Rm 001100
 /// Rn rw Pd`. sz: 0=b..3=d; rw: 1=WHILERW, 0=WHILEWR. Rn=x1(RN), Rm=x2(RM),
 /// Pd=p0.
@@ -2764,6 +2772,46 @@ fn diff_sve2_fcvtx() {
         }
     }
     run_batch("sve2_fcvtx", batch);
+}
+
+#[test]
+fn diff_sve2_match() {
+    // MATCH/NMATCH set a predicate bit where a Zn element equals (or, for
+    // NMATCH, differs from) every Zm element in the 128-bit segment. Zn lanes
+    // are a mix of copied Zm values (guaranteed matches) and random values, so
+    // both branches are exercised. Pg=p1 governs (zeroing).
+    let mut rng = Rng::new(0x6_5001);
+    let mut batch: Vec<(String, u32, ArmState)> = Vec::new();
+    for size in 0..2u32 {
+        let esize = 1usize << size;
+        let elements = 16 / esize;
+        let shift = esize * 8;
+        let emask: u128 = (1u128 << shift) - 1;
+        for nmatch in 0..2u32 {
+            let insn = enc_sve2_match(size, nmatch);
+            for _ in 0..40 {
+                let mut st = ArmState::zeroed();
+                let zm_lo = rng.next();
+                let zm_hi = rng.next();
+                let zm = (zm_lo as u128) | ((zm_hi as u128) << 64);
+                let mut zn = 0u128;
+                for e in 0..elements {
+                    let v = if rng.next() & 1 == 0 {
+                        let j = (rng.next() as usize) % elements;
+                        (zm >> (j * shift)) & emask
+                    } else {
+                        (rng.next() as u128) & emask
+                    };
+                    zn |= v << (e * shift);
+                }
+                st.set_vreg(1, zn as u64, (zn >> 64) as u64);
+                st.set_vreg(2, zm_lo, zm_hi);
+                st.set_preg(1, rng.next() as u16); // Pg = p1
+                batch.push((format!("match sz{size} n{nmatch}"), insn, st));
+            }
+        }
+    }
+    run_batch("sve2_match", batch);
 }
 
 #[test]
