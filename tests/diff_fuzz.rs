@@ -4627,3 +4627,213 @@ fn smir_native_loop_dragon() {
     assert_eq!(ecx, 0, "loop counter must reach 0");
     assert_eq!(eax, (2 * iters) & 0xffff_ffff, "eax = 2*iters mod 2^32");
 }
+
+// run_smir_native_cfg: like run_smir_native but lifts a MULTI-BLOCK function via
+// `lift_function` (following branches into a CFG) instead of a single straight-
+// line block. Every Trap(hlt) exit block is rewritten to Return so each path
+// returns cleanly into the trampoline. This exercises the lowerer's control-flow
+// codegen (CondBranch -> Jcc, Branch -> jmp, fixup_jumps) under real execution
+// vs KVM — the validation backing the whole-loop "dragon" path.
+fn run_smir_native_cfg(
+    code: &[u8],
+    init: &Registers,
+    scratch_init: &[u8; 64],
+) -> Result<SmirOutcome, String> {
+    use rax::smir::ir::Terminator;
+    use rax::smir::lift::x86_64::X86_64Lifter;
+    use rax::smir::lift::{LiftContext, MemoryReader, SmirLifter};
+    use rax::smir::lower::x86_64::X86_64Lowerer;
+    use rax::smir::lower::SmirLowerer;
+    use rax::smir::memory::MemoryError;
+    use rax::smir::types::SourceArch;
+
+    struct CR {
+        base: u64,
+        bytes: Vec<u8>,
+    }
+    impl MemoryReader for CR {
+        fn read(&self, addr: u64, size: usize) -> Result<Vec<u8>, MemoryError> {
+            let off = addr
+                .checked_sub(self.base)
+                .filter(|&o| (o as usize) < self.bytes.len())
+                .ok_or(MemoryError::OutOfBounds { addr })? as usize;
+            let n = (self.bytes.len() - off).min(size);
+            Ok(self.bytes[off..off + n].to_vec())
+        }
+    }
+
+    let reader = CR { base: CODE_ADDR, bytes: code.to_vec() };
+    let mut lifter = X86_64Lifter::strict();
+    let mut lctx = LiftContext::new(SourceArch::X86_64);
+    let mut func = match lifter.lift_function(CODE_ADDR, &reader, &mut lctx) {
+        Ok(f) => f,
+        Err(e) => return Ok(SmirOutcome::Skipped(format!("lift_fn: {e:?}"))),
+    };
+    // Each `hlt` exit lifts to Trap{Halt}, which the lowerer cannot emit; turn
+    // every Trap into a Return so all paths return into the trampoline.
+    for b in func.blocks.iter_mut() {
+        if matches!(b.terminator, Terminator::Trap { .. }) {
+            b.set_terminator(Terminator::Return { values: vec![] });
+        }
+    }
+
+    let mut lowerer = X86_64Lowerer::new();
+    let res = match lowerer.lower_function(&func) {
+        Ok(r) => r,
+        Err(e) => return Ok(SmirOutcome::Skipped(format!("lower: {e:?}"))),
+    };
+    if !res.relocations.is_empty() {
+        return Ok(SmirOutcome::Skipped(format!("unresolved relocs: {}", res.relocations.len())));
+    }
+    let bytes = match lowerer.finalize() {
+        Ok(b) => b,
+        Err(e) => return Ok(SmirOutcome::Skipped(format!("finalize: {e:?}"))),
+    };
+    let mem = ExecMem::new(&bytes)?;
+
+    let mut regs = GuestRegs::default();
+    regs.gpr[0] = init.rax;
+    regs.gpr[1] = init.rcx;
+    regs.gpr[2] = init.rdx;
+    regs.gpr[3] = init.rbx;
+    regs.gpr[4] = if init.rsp == 0 { STACK_ADDR } else { init.rsp };
+    regs.gpr[5] = init.rbp;
+    regs.gpr[6] = init.rsi;
+    regs.gpr[7] = init.rdi;
+    regs.gpr[8] = init.r8;
+    regs.gpr[9] = init.r9;
+    regs.gpr[10] = init.r10;
+    regs.gpr[11] = init.r11;
+    regs.gpr[12] = init.r12;
+    regs.gpr[13] = init.r13;
+    regs.gpr[14] = init.r14;
+    regs.gpr[15] = init.r15;
+    regs.rflags = init.rflags | 0x2;
+    mem.run(res.entry_offset, &mut regs);
+
+    let mut fr = Registers::default();
+    fr.rax = regs.gpr[0];
+    fr.rcx = regs.gpr[1];
+    fr.rdx = regs.gpr[2];
+    fr.rbx = regs.gpr[3];
+    fr.rsp = regs.gpr[4];
+    fr.rbp = regs.gpr[5];
+    fr.rsi = regs.gpr[6];
+    fr.rdi = regs.gpr[7];
+    fr.r8 = regs.gpr[8];
+    fr.r9 = regs.gpr[9];
+    fr.r10 = regs.gpr[10];
+    fr.r11 = regs.gpr[11];
+    fr.r12 = regs.gpr[12];
+    fr.r13 = regs.gpr[13];
+    fr.r14 = regs.gpr[14];
+    fr.r15 = regs.gpr[15];
+    fr.rflags = regs.rflags;
+    Ok(SmirOutcome::Ran(FinalState {
+        xmm: [[0u64; 2]; 16],
+        regs: fr,
+        scratch: *scratch_init,
+    }))
+}
+
+impl SmirStats {
+    /// Like `check_native`, but drives the MULTI-BLOCK CFG native path
+    /// (`run_smir_native_cfg`) — validates control-flow lowering vs KVM.
+    fn check_native_cfg(
+        &mut self,
+        label: &str,
+        code: &[u8],
+        init: Registers,
+        scratch_init: [u8; 64],
+        opts: CompareOpts,
+        inputs: String,
+    ) -> bool {
+        let kvm = match run_kvm(code, &init, &scratch_init) {
+            Ok(Some(s)) => s,
+            Ok(None) => {
+                self.kvm_ok = false;
+                return false;
+            }
+            Err(e) => {
+                self.mismatches.push(Mismatch {
+                    label: format!("{label} (kvm error)"),
+                    code: code.to_vec(),
+                    inputs,
+                    diffs: vec![e],
+                });
+                return true;
+            }
+        };
+        match run_smir_native_cfg(code, &init, &scratch_init) {
+            Ok(SmirOutcome::Ran(smir)) => {
+                self.ran += 1;
+                let diffs = compare(&smir, &kvm, opts, &[]);
+                if !diffs.is_empty() {
+                    self.mismatches.push(Mismatch {
+                        label: label.to_string(),
+                        code: code.to_vec(),
+                        inputs,
+                        diffs,
+                    });
+                }
+            }
+            Ok(SmirOutcome::Skipped(_)) => self.skipped += 1,
+            Err(e) => self.mismatches.push(Mismatch {
+                label: format!("{label} (native error)"),
+                code: code.to_vec(),
+                inputs,
+                diffs: vec![e],
+            }),
+        }
+        true
+    }
+}
+
+// Generate a "diamond": a flag-setting setup op, then a guest Jcc selecting
+// between two single-instruction blocks (eax=0 not-taken / eax=1 taken), each
+// ending in hlt. Exercises all 16 condition codes + the multi-block native
+// lowering (CondBranch -> Jcc<cond> off live flags) vs KVM.
+//   OP eax,ecx ; jcc +6 ; mov eax,0 ; hlt ; mov eax,1 ; hlt
+fn gen_branch_case(rng: &mut Rng) -> (Vec<u8>, Registers, CompareOpts, String) {
+    let setups: &[(u8, &str)] = &[
+        (0x39, "cmp"), (0x01, "add"), (0x29, "sub"),
+        (0x21, "and"), (0x09, "or"), (0x31, "xor"), (0x85, "test"),
+    ];
+    let &(op, opname) = rng.pick(setups);
+    let cc = rng.below(16) as u8;
+    let ccnames = [
+        "o", "no", "b", "ae", "e", "ne", "be", "a", "s", "ns", "p", "np", "l", "ge", "le", "g",
+    ];
+
+    let mut code: Vec<u8> = vec![op, 0xC8]; // OP eax, ecx (modrm C8: reg=ecx, rm=eax)
+    code.extend_from_slice(&[0x70 | cc, 0x06]); // jcc -> taken (rel8 = +6)
+    code.extend_from_slice(&[0xB8, 0, 0, 0, 0]); // not-taken: mov eax, 0
+    code.push(0xF4); // hlt
+    code.extend_from_slice(&[0xB8, 1, 0, 0, 0]); // taken: mov eax, 1
+    code.push(0xF4); // hlt
+
+    let mut r = Registers::default();
+    r.rax = rng.next_u64();
+    r.rcx = rng.next_u64();
+    r.rdx = rng.next_u64();
+    r.rbx = rng.next_u64();
+    r.rflags = 0x2;
+    let inputs = format!(
+        "j{} after {} eax={:#010x} ecx={:#010x}",
+        ccnames[cc as usize], opname, r.rax as u32, r.rcx as u32
+    );
+    (code, r, CompareOpts::default(), inputs)
+}
+
+#[test]
+fn smir_native_branch() {
+    let mut rng = Rng::new(0xB7A_4C11_FEED_0001);
+    let mut stats = SmirStats::new();
+    for _ in 0..512 {
+        let (code, r, opts, inputs) = gen_branch_case(&mut rng);
+        if !stats.check_native_cfg("smir_native_branch", &code, r, [0u8; 64], opts, inputs) {
+            break;
+        }
+    }
+    stats.finish("native_branch");
+}
