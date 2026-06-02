@@ -5217,6 +5217,90 @@ impl AArch64Cpu {
                 Ok(CpuExit::Continue)
             }
 
+            // SVE2 shift right and accumulate: 0x45, bit21==0, bits[15:12]==1110.
+            // SSRA/USRA (R=bit11=0) and SRSRA/URSRA (R=1); U=bit10 signedness.
+            // Same-size (tsz=tszh:tszl 4 bits); shift = 2*esize - tsz:imm3.
+            0b010
+                if (insn >> 24) & 0xFF == 0b01000101
+                    && (insn >> 21) & 1 == 0
+                    && (insn >> 12) & 0xF == 0b1110 =>
+            {
+                let tsize = (((insn >> 22) & 0x3) << 2) | ((insn >> 19) & 0x3);
+                if tsize == 0 {
+                    return Ok(CpuExit::Undefined(insn));
+                }
+                let bits = 8 << (31 - tsize.leading_zeros());
+                let esize = (bits / 8) as usize;
+                let amount = 2 * bits - (((tsize << 3) | ((insn >> 16) & 0x7)));
+                let round = (insn >> 11) & 1 == 1;
+                let unsigned = (insn >> 10) & 1 == 1;
+                let mask = elem_mask(bits);
+                let elements = 16 / esize;
+                let acc = self.v[zd].to_le_bytes();
+                let n = self.v[zn].to_le_bytes();
+                let mut dst = acc;
+                for e in 0..elements {
+                    let off = e * esize;
+                    let x = read_elem(&n, off, esize);
+                    let v: i128 = if unsigned {
+                        uext_elem(x, bits) as i128
+                    } else {
+                        sext_elem(x, bits)
+                    };
+                    let shifted = if round {
+                        (v + (1i128 << (amount - 1))) >> amount
+                    } else {
+                        v >> amount
+                    };
+                    let cur = read_elem(&acc, off, esize) as i128;
+                    write_elem(&mut dst, off, esize, (cur + shifted) as u64 & mask);
+                }
+                self.v[zd] = u128::from_le_bytes(dst);
+                Ok(CpuExit::Continue)
+            }
+
+            // SVE2 shift and insert: 0x45, bit21==0, bits[15:11]==11110. op=bit10
+            // selects SLI (shift left, preserve low bits) vs SRI (shift right,
+            // preserve high bits). Same-size tsz decode.
+            0b010
+                if (insn >> 24) & 0xFF == 0b01000101
+                    && (insn >> 21) & 1 == 0
+                    && (insn >> 11) & 0x1F == 0b11110 =>
+            {
+                let tsize = (((insn >> 22) & 0x3) << 2) | ((insn >> 19) & 0x3);
+                if tsize == 0 {
+                    return Ok(CpuExit::Undefined(insn));
+                }
+                let bits = 8 << (31 - tsize.leading_zeros());
+                let esize = (bits / 8) as usize;
+                let tszimm = (tsize << 3) | ((insn >> 16) & 0x7);
+                let sli = (insn >> 10) & 1 == 1;
+                let amount = if sli { tszimm - bits } else { 2 * bits - tszimm };
+                let mask = elem_mask(bits);
+                let elements = 16 / esize;
+                let dn = self.v[zd].to_le_bytes();
+                let n = self.v[zn].to_le_bytes();
+                let mut dst = dn;
+                for e in 0..elements {
+                    let off = e * esize;
+                    let x = read_elem(&n, off, esize);
+                    let d = read_elem(&dn, off, esize);
+                    let r = if sli {
+                        let keep = (1u64 << amount) - 1; // low `amount` dest bits preserved
+                        ((x << amount) & mask) | (d & keep)
+                    } else {
+                        // SRI shift is 1..=esize; a full-width shift yields 0 (a
+                        // u64 `>> bits` would otherwise wrap when bits==64).
+                        let shifted = if amount >= bits { 0 } else { (x >> amount) & mask };
+                        let keep = mask & !((1u64 << (bits - amount)).wrapping_sub(1)); // high bits
+                        shifted | (d & keep)
+                    };
+                    write_elem(&mut dst, off, esize, r & mask);
+                }
+                self.v[zd] = u128::from_le_bytes(dst);
+                Ok(CpuExit::Continue)
+            }
+
             // SVE2 abs-diff accumulate long: 0x45, bit21==0, bits[15:12]==1100.
             // SABALB/T (U=0) / UABALB/T (U=1): Zda += |widen(Zn) - widen(Zm)| over
             // the half-width even (T=0) / odd (T=1) source elements.

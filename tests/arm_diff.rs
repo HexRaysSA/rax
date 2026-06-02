@@ -1635,6 +1635,32 @@ fn enc_sve2_shll(tsz: u32, imm3: u32, u: u32, t: u32) -> u32 {
         | (u << 11) | (t << 10) | (RN << 5) | RD
 }
 
+/// SVE2 shift right and accumulate: `01000101 tszh 0 tszl imm3 1110 R U Zn Zda`.
+fn enc_sve2_ssra(tsz: u32, imm3: u32, r: u32, u: u32) -> u32 {
+    let tszh = (tsz >> 2) & 0x3;
+    let tszl = tsz & 0x3;
+    (0b01000101 << 24) | (tszh << 22) | (tszl << 19) | (imm3 << 16) | (0b1110 << 12) | (r << 11)
+        | (u << 10) | (RN << 5) | RD
+}
+/// SVE2 shift and insert: `01000101 tszh 0 tszl imm3 11110 op Zn Zd`. op: 0=SRI,
+/// 1=SLI.
+fn enc_sve2_sri(tsz: u32, imm3: u32, op: u32) -> u32 {
+    let tszh = (tsz >> 2) & 0x3;
+    let tszl = tsz & 0x3;
+    (0b01000101 << 24) | (tszh << 22) | (tszl << 19) | (imm3 << 16) | (0b11110 << 11)
+        | (op << 10) | (RN << 5) | RD
+}
+/// (tsz, imm3) for a same-size right shift of `amount` (1..=esize): 2*esize-amt.
+fn ssra_tsz_imm(esize_bits: u32, amount: u32) -> (u32, u32) {
+    let tszimm = 2 * esize_bits - amount;
+    ((tszimm >> 3) & 0xF, tszimm & 0x7)
+}
+/// (tsz, imm3) for a same-size left shift of `amount` (0..esize): esize+amount.
+fn sli_tsz_imm(esize_bits: u32, amount: u32) -> (u32, u32) {
+    let tszimm = esize_bits + amount;
+    ((tszimm >> 3) & 0xF, tszimm & 0x7)
+}
+
 /// SVE2 add long pairwise accumulate: `01000100 size 00010 U 101 Pg Zn Zda`.
 /// Pg=p0, Zn=z1(RN), Zda=z0(RD).
 fn enc_sve2_adalp(size: u32, u: u32) -> u32 {
@@ -3760,6 +3786,32 @@ fn diff_sve2_adalp() {
         }
     }
     run_batch("sve2_adalp", batch);
+}
+
+#[test]
+fn diff_sve2_ssra() {
+    // SVE2 shift-right-accumulate (SSRA/USRA/SRSRA/URSRA) and shift-insert
+    // (SRI/SLI), across element sizes and shift amounts.
+    let mut cases: Vec<(String, u32)> = Vec::new();
+    for &eb in &[8u32, 16, 32, 64] {
+        for &amt in &[1u32, eb / 2, eb] {
+            let (tsz, imm3) = ssra_tsz_imm(eb, amt);
+            for r in 0..2u32 {
+                for u in 0..2u32 {
+                    cases.push((
+                        format!("ssra e{eb} a{amt} r{r} u{u}"),
+                        enc_sve2_ssra(tsz, imm3, r, u),
+                    ));
+                }
+            }
+            cases.push((format!("sri e{eb} a{amt}"), enc_sve2_sri(tsz, imm3, 0)));
+        }
+        for &amt in &[0u32, eb / 2, eb - 1] {
+            let (tsz, imm3) = sli_tsz_imm(eb, amt);
+            cases.push((format!("sli e{eb} a{amt}"), enc_sve2_sri(tsz, imm3, 1)));
+        }
+    }
+    run_family("sve2_ssra", cases, 12, 0x5_F001);
 }
 
 #[test]
