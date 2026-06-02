@@ -1114,20 +1114,26 @@ pub enum OpKind {
 
     /// Build a Q vector predicate from a per-byte AND test. Models HVX `vandvrt`
     /// (with src2 = a VBroadcast of Rt): `dst.bit[i] = (src1.byte[i] & src2.byte[i]) != 0`.
+    /// When `oracc` is set the test bits are OR'd into the existing `dst` Q
+    /// instead of overwriting (HVX `vandvrt_acc`: `dst.bit[i] |= ...`).
     VQFromVAndR {
         dst: VReg,
         src1: VReg,
         src2: VReg,
+        oracc: bool,
     },
 
     /// Per-byte Q-gated mask-to-zero. Models HVX `vandvqv`/`vandvnqv` (and, via a
     /// VBroadcast of Rt, `vandqrt`/`vandnqrt`): `dst.byte[i] = (mask_q.bit[i] ^
-    /// negate) ? src.byte[i] : 0`.
+    /// negate) ? src.byte[i] : 0`. When `oracc` is set the gated bytes are OR'd
+    /// into the existing `dst` instead of overwriting (HVX `vandqrt_acc` /
+    /// `vandnqrt_acc`: `dst.byte[i] |= (mask_q.bit[i] ^ negate) ? src.byte[i] : 0`).
     VMaskZero {
         dst: VReg,
         mask_q: VReg,
         src: VReg,
         negate: bool,
+        oracc: bool,
     },
 
     /// Per-byte select by a Q vector predicate. Models HVX `vmux`:
@@ -1137,6 +1143,98 @@ pub enum OpKind {
         mask_q: VReg,
         src_true: VReg,
         src_false: VReg,
+    },
+
+    /// Q-predicated per-lane conditional add/sub into the destination. Models HVX
+    /// `if (Qv[!]) Vx {+,-}= Vu` (`vaddbq`/`vaddhnq`/`vsubwq`/...): `dst` is
+    /// read-modify-written, each `elem`-wide lane's bytes are individually
+    /// selected from `dst {+,-} src` or unchanged `dst` per the Q bit covering
+    /// that vector byte (`fCONDMASK{8,16,32}`). `dst` and `mask_q` are read; the
+    /// add/sub is wrapping (non-saturating).
+    VLaneCond {
+        dst: VReg,
+        src: VReg,
+        mask_q: VReg,
+        elem: VecElementType,
+        lanes: u8,
+        /// false = add, true = subtract.
+        sub: bool,
+        /// false = take the op result when Q bit is set (q-form); true = when
+        /// the Q bit is CLEAR (nq-form, `if (!Qv)`).
+        negate: bool,
+    },
+
+    /// HVX per-word carry-chain add/sub with a Q vector-predicate carry. Models
+    /// `vadd/vsub(Vu.w,Vv.w,Qx):carry` (carry-in and carry-out share `q_inout`),
+    /// `vadd/vsub(Vu.w,Vv.w):carry` carryo (no carry-in; carry-out to `q_out`),
+    /// and `vadd(Vu.w,Vv.w,Qs):carry:sat` (carry-in from `q_inout`, no carry-out,
+    /// signed sat_32). For word lane `i` the carry-in is Q bit `4*i`; the
+    /// carry-out sets the whole 4-bit group `[4*i+3:4*i]` (`-carry_from`).
+    /// `sub` realises `Vu + ~Vv + cin`. Carry-in source: `q_inout` if `has_cin`,
+    /// else a constant `cin0` (1 for subcarryo, 0 for addcarryo).
+    VCarry {
+        dst: VReg,
+        src1: VReg,
+        src2: VReg,
+        /// Q register that is the carry-in AND/OR carry-out. For carryo this is
+        /// only written; for carry it is read and written; for carrysat read-only.
+        q_inout: VReg,
+        /// false = add, true = subtract (`Vu + ~Vv + cin`).
+        sub: bool,
+        /// true = read the carry-in from `q_inout` (carry / carrysat); false =
+        /// use the constant `cin0` (carryo forms have no carry-in Q).
+        has_cin: bool,
+        /// Constant carry-in when `has_cin` is false (1 for subcarryo, else 0).
+        cin0: bool,
+        /// true = write the per-lane carry-out back into `q_inout` (carry /
+        /// carryo). The saturating form writes no carry-out.
+        has_cout: bool,
+        /// true = signed-saturate the 33-bit sum to 32 bits (`vaddcarrysat`).
+        sat: bool,
+    },
+
+    /// HVX `Vdd = vswap(Qt, Vu, Vv)`: a pair Q-blend. Per vector byte `i`:
+    /// `dst_lo.b[i] = Qt[i] ? Vu.b[i] : Vv.b[i]`,
+    /// `dst_hi.b[i] = Qt[i] ? Vv.b[i] : Vu.b[i]`.
+    VSwap {
+        dst_lo: VReg,
+        dst_hi: VReg,
+        mask_q: VReg,
+        src1: VReg,
+        src2: VReg,
+    },
+
+    /// Scalar-predicate-gated whole-vector conditional move / combine. Models HVX
+    /// `vcmov`/`vncmov` (`if (Ps[.lsb]) Vd = Vu`; CANCEL/no-write when false) and
+    /// `vccombine`/`vnccombine` (`if (Ps) { Vdd.v[0]=Vv; Vdd.v[1]=Vu }`). The gate
+    /// is the LSB of the scalar predicate `pred` (a Hexagon P reg, stored as bool);
+    /// `negate` inverts it (n-forms). When the gate is false NOTHING is written
+    /// (the dest register(s) keep their prior value).
+    VCondMove {
+        /// Low destination vector (vcmov: the single dest; vccombine: Vdd.v[0]).
+        dst_lo: VReg,
+        /// High destination for the pair combine; None for the single vcmov move.
+        dst_hi: Option<VReg>,
+        /// Source written to `dst_lo` (vcmov: Vu; vccombine: Vv).
+        src_lo: VReg,
+        /// Source written to `dst_hi` for the combine (Vu); ignored for vcmov.
+        src_hi: VReg,
+        /// Scalar predicate register; only its LSB matters.
+        pred: VReg,
+        /// true = gate on `!pred.lsb` (n-forms vncmov/vnccombine).
+        negate: bool,
+    },
+
+    /// HVX `Vd = vprefixq{b,h,w}(Qv)`: parallel prefix (running) population count
+    /// of a Q vector-predicate's bits, written into `elem`-wide lanes. Lane `i`
+    /// gets the count of set Q bits in all vector bytes at index `< (i+1)*ebytes`
+    /// (inclusive running sum over the bytes this lane and all lower lanes cover),
+    /// wrapping into the lane width.
+    VPrefixSumQ {
+        dst: VReg,
+        mask_q: VReg,
+        elem: VecElementType,
+        lanes: u8,
     },
 
     /// Per-lane shift by a vector amount (HVX vaslhv/vasrhv/vlsrhv + _w forms).
@@ -1985,7 +2083,28 @@ impl OpKind {
             | OpKind::VCmpToQ { dst, .. }
             | OpKind::VBlend { dst, .. }
             | OpKind::VMaskZero { dst, .. }
+            | OpKind::VLaneCond { dst, .. }
+            | OpKind::VPrefixSumQ { dst, .. }
             | OpKind::VQFromVAndR { dst, .. } => vec![*dst],
+
+            // Carry forms write the result vector and (carry/carryo) the Q.
+            OpKind::VCarry { dst, q_inout, has_cout, .. } => {
+                if *has_cout {
+                    vec![*dst, *q_inout]
+                } else {
+                    vec![*dst]
+                }
+            }
+
+            OpKind::VSwap { dst_lo, dst_hi, .. } => vec![*dst_lo, *dst_hi],
+
+            OpKind::VCondMove { dst_lo, dst_hi, .. } => {
+                let mut v = vec![*dst_lo];
+                if let Some(hi) = dst_hi {
+                    v.push(*hi);
+                }
+                v
+            }
 
             OpKind::MulU { dst_lo, dst_hi, .. } | OpKind::MulS { dst_lo, dst_hi, .. } => {
                 let mut v = vec![*dst_lo];
