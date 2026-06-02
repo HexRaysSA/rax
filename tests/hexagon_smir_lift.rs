@@ -1411,3 +1411,45 @@ fn lift_hvx_vdmpyh_scalar() {
         0x7026,
     );
 }
+
+// ---- Wave 14: HVX Q<->V and Q<->R bridge ops (vand* family) ----
+// vandvqv/vandvnqv gate Vu by a (seeded) Q mask into Vd; vandqrt/vandnqrt gate
+// a per-byte broadcast of Rt by Qu into Vd; vandvrt builds a Q predicate from
+// (Vu.ub & Rt.byte) != 0. The harness seeds Q0-3 and V0-31 randomly so both the
+// set and clear mask paths (and the negate polarity) are exercised.
+
+#[test]
+fn lift_hvx_vand_qv() {
+    lift_family(
+        "hvx_vand_qv",
+        &[
+            ("vandvqv", "{ v2 = vand(q0,v1) }"),
+            ("vandvnqv", "{ v2 = vand(!q0,v1) }"),
+        ],
+        16,
+        0x7027,
+    );
+}
+
+#[test]
+fn lift_hvx_vand_qr() {
+    lift_family(
+        "hvx_vand_qr",
+        &[
+            ("vandqrt", "{ v2 = vand(q0,r3) }"),
+            ("vandnqrt", "{ v2 = vand(!q0,r3) }"),
+        ],
+        16,
+        0x7028,
+    );
+}
+
+#[test]
+fn lift_hvx_vand_vr() {
+    lift_family(
+        "hvx_vand_vr",
+        &[("vandvrt", "{ q0 = vand(v1,r3) }")],
+        16,
+        0x7029,
+    );
+}

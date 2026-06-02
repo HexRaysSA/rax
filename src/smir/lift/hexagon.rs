@@ -4456,6 +4456,63 @@ impl HexagonLifter {
                 });
             }
 
+            // ---- Wave 14: HVX Q<->V and Q<->R bridge ops (vand* family) ----
+            // vandvqv:  Vd.b[i] = Qv.bit[i]        ? Vu.b[i] : 0
+            // vandvnqv: Vd.b[i] = (!Qv.bit[i])     ? Vu.b[i] : 0
+            // Fields (from opcode_generated.rs): d=Vd, u=Vu, v=Qv (matches the sem
+            // in hvx_cmp.rs which reads qread_new(fld(d, b'v')) / vread(fld(d, b'u'))).
+            Opcode::V6_vandvqv | Opcode::V6_vandvnqv => {
+                let negate = matches!(op, Opcode::V6_vandvnqv);
+                push_op!(OpKind::VMaskZero {
+                    dst: self.hex_v(fld(b'd')),
+                    mask_q: self.hex_q(fld(b'v')),
+                    src: self.hex_v(fld(b'u')),
+                    negate,
+                });
+            }
+
+            // vandqrt:  Vd.ub[i] = Qu.bit[i]    ? Rt.byte[i%4] : 0
+            // vandnqrt: Vd.ub[i] = (!Qu.bit[i]) ? Rt.byte[i%4] : 0
+            // Fields: d=Vd, t=Rt, u=Qu. Compose a per-byte Rt-replicated vector
+            // (VBroadcast of Rt as 32x I32 lanes => byte[i]=Rt.byte[i%4]), then
+            // gate it by the Q mask. Mirrors the sem (qread_new(fld(d, b'u')),
+            // r(fld(d, b't'))).
+            Opcode::V6_vandqrt | Opcode::V6_vandnqrt => {
+                let negate = matches!(op, Opcode::V6_vandnqrt);
+                let t = ctx.alloc_vreg();
+                push_op!(OpKind::VBroadcast {
+                    dst: t,
+                    scalar: self.hex_reg(fld(b't')),
+                    elem: VecElementType::I32,
+                    lanes: 32,
+                });
+                push_op!(OpKind::VMaskZero {
+                    dst: self.hex_v(fld(b'd')),
+                    mask_q: self.hex_q(fld(b'u')),
+                    src: t,
+                    negate,
+                });
+            }
+
+            // vandvrt:  Qd.bit[i] = (Vu.ub[i] & Rt.byte[i%4]) != 0
+            // Fields: d=Qd, t=Rt, u=Vu. VBroadcast Rt to per-byte, then build the
+            // Q predicate via the per-byte AND test. Mirrors the sem (vread(fld(d,
+            // b'u')), r(fld(d, b't')), set_q(fld(d, b'd'))).
+            Opcode::V6_vandvrt => {
+                let t = ctx.alloc_vreg();
+                push_op!(OpKind::VBroadcast {
+                    dst: t,
+                    scalar: self.hex_reg(fld(b't')),
+                    elem: VecElementType::I32,
+                    lanes: 32,
+                });
+                push_op!(OpKind::VQFromVAndR {
+                    dst: self.hex_q(fld(b'd')),
+                    src1: self.hex_v(fld(b'u')),
+                    src2: t,
+                });
+            }
+
             // Everything else: not implemented here.
             _ => return Err(unsupported()),
         }
