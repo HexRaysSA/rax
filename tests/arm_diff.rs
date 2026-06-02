@@ -1348,6 +1348,25 @@ fn diff_crypto_sha() {
     run_family("crypto_sha", cases, 40, 0x1_000D);
 }
 
+/// SM4E Vd.4S, Vn.4S: `11001110 11000000 100001 Rn Rd`. Rd=v0, Rn=v1.
+fn enc_sm4e() -> u32 {
+    0xCE00_0000 | (0xC0 << 16) | (0b100001 << 10) | (RN << 5) | RD
+}
+
+/// SM4EKEY Vd.4S, Vn.4S, Vm.4S: `11001110 011 Rm 110010 Rn Rd`. Rd=v0, Rn=v1, Rm=v2.
+fn enc_sm4ekey() -> u32 {
+    0xCE00_0000 | (0b011 << 21) | (RM << 16) | (0b110010 << 10) | (RN << 5) | RD
+}
+
+#[test]
+fn diff_crypto_sm4() {
+    let cases: Vec<(String, u32)> = vec![
+        ("sm4e".to_string(), enc_sm4e()),
+        ("sm4ekey".to_string(), enc_sm4ekey()),
+    ];
+    run_family("crypto_sm4", cases, 40, 0x1_0016);
+}
+
 #[test]
 fn diff_excl_load() {
     let mut cases: Vec<(String, u32)> = Vec::new();
