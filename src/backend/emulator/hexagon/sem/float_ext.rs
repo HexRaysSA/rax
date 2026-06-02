@@ -14,12 +14,15 @@
 //!
 //! Only ops whose result AND USR match the oracle exactly are dispatched here.
 //! Implemented: sfadd/sfsub, sffma/sffms (single-rounding fused multiply-add),
-//! dfadd/dfsub, dfmpyll/dfmpylh/dfmpyfix, and dfmpyhh (the high-half step of the
-//! 3-instruction f64 multiply; see `df_mpyhh`).
+//! the `_lib` fma forms (sffma_lib/sffms_lib — IEEE fmaf with cancelled flags,
+//! spurious-overflow back-off to max-finite, inf-minus-inf -> +0, and ties-away
+//! rounding of subnormal results) and the `_sc` scaled fma (sffma_sc — the 2^Pu
+//! scale folded into the exact result before a single rounding), dfadd/dfsub,
+//! dfmpyll/dfmpylh/dfmpyfix, and dfmpyhh (the high-half step of the 3-instruction
+//! f64 multiply; see `df_mpyhh`).
 //!
 //! Intentionally NOT implemented (fall through): sfrecipa/sfinvsqrta/sffixup*
-//! (depend on the proprietary `arch_sf_*` lookup tables), and the `_lib`/`_sc`
-//! FMA variants whose post-rounding fixups cannot be reproduced bit-exactly.
+//! (depend on the proprietary `arch_sf_*` reciprocal/inv-sqrt seed lookup tables).
 
 use super::super::opcode::{DecodedOp, Opcode};
 use super::{fld, SemCtx};
@@ -80,7 +83,7 @@ fn sf_decode(b: u32) -> Sf {
 /// `sticky` carries OR of any value bits that were already dropped below `e`
 /// during alignment (so this routine sees the full inexactness). `m == 0 &&
 /// !sticky` yields signed zero.
-fn round_exact_to_f32(neg: bool, mut m: u128, mut e: i32, sticky: bool, ctx: &mut SemCtx) -> u32 {
+fn round_exact_to_f32(neg: bool, mut m: u128, mut e: i32, sticky: bool, ties_away: bool, ctx: &mut SemCtx) -> u32 {
     let sign = if neg { 0x8000_0000u32 } else { 0 };
     if m == 0 {
         // Pure underflow to zero only if there were dropped bits; that is handled
@@ -114,10 +117,12 @@ fn round_exact_to_f32(neg: bool, mut m: u128, mut e: i32, sticky: bool, ctx: &mu
         if dropped != 0 {
             inexact = true;
         }
-        // round-to-nearest-even, folding the pre-aligned sticky into "rest".
+        // round-to-nearest, folding the pre-aligned sticky into "rest". Default
+        // tie-break is to even; `ties_away` (the `:lib` fma forms) rounds an exact
+        // half away from zero instead.
         let round_bit = dropped & half != 0;
         let rest = (dropped & half.wrapping_sub(1)) != 0 || sticky;
-        if round_bit && (rest || (m & 1) == 1) {
+        if round_bit && ((ties_away && tiny) || rest || (m & 1) == 1) {
             m += 1;
         }
     }
@@ -327,7 +332,7 @@ fn sf_addsub(a: u32, braw: u32, sub: bool, ctx: &mut SemCtx) -> u32 {
         // exact cancellation -> +0 (round-to-nearest-even).
         return 0;
     }
-    round_exact_to_f32(neg, mag, e, sticky, ctx)
+    round_exact_to_f32(neg, mag, e, sticky, false, ctx)
 }
 
 /// Guard width for f32 operations (48-bit product mantissa + 78 = 126 bits).
@@ -337,7 +342,7 @@ const DF_GUARD: i32 = 72;
 
 /// Exact fused multiply-add: `a*b + c` with a single rounding (matches
 /// `internal_fmafx(a,b,c,0)`), full NaN/inf handling, and exact-then-round flags.
-fn sf_fma(araw: u32, braw: u32, craw: u32, negate_prod: bool, ctx: &mut SemCtx) -> u32 {
+fn sf_fma(araw: u32, braw: u32, craw: u32, negate_prod: bool, ties_away: bool, scale: i32, ctx: &mut SemCtx) -> u32 {
     let a = if negate_prod { araw ^ 0x8000_0000 } else { araw };
     let b = braw;
     let c = craw;
@@ -387,20 +392,21 @@ fn sf_fma(araw: u32, braw: u32, craw: u32, negate_prod: bool, ctx: &mut SemCtx) 
             let neg = prod_neg && dc.neg;
             return if neg { 0x8000_0000 } else { 0 };
         }
-        return c;
+        // product is zero, c nonzero: result is c, scaled by 2^scale (exact),
+        // rounded once (a round-trip when scale == 0).
+        return round_exact_to_f32(dc.neg, dc.m, dc.e + scale, false, ties_away, ctx);
     }
     if dc.m == 0 {
-        // c is zero: result is the (rounded) product. signed-zero of c irrelevant
-        // unless product also zero (handled above).
-        return round_exact_to_f32(prod_neg, prod_m, prod_e, false, ctx);
+        // c is zero: result is the (rounded) product, scaled.
+        return round_exact_to_f32(prod_neg, prod_m, prod_e + scale, false, ties_away, ctx);
     }
-    // Exactly add the (48-bit) product and c, then round once.
+    // Exactly add the (48-bit) product and c, apply the (exact) 2^scale, round once.
     let (neg, mag, e, sticky) =
         add_scaled(prod_neg, prod_m, prod_e, dc.neg, dc.m, dc.e, SF_GUARD);
     if mag == 0 && !sticky {
         return 0;
     }
-    round_exact_to_f32(neg, mag, e, sticky, ctx)
+    round_exact_to_f32(neg, mag, e + scale, sticky, ties_away, ctx)
 }
 
 // ---- double-precision integer-ish multiplies ------------------------------
@@ -700,12 +706,34 @@ pub fn exec(op: Opcode, d: &DecodedOp, ctx: &mut SemCtx) -> bool {
         // ---- single-precision fused multiply-add (Rx += / -= Rs*Rt) ----
         Opcode::F2_sffma => {
             let x = c_rx(d, ctx);
-            let v = sf_fma(s(ctx), t(ctx), x, false, ctx);
+            let v = sf_fma(s(ctx), t(ctx), x, false, false, 0, ctx);
             ctx.set_r(fld(d, b'x'), v);
         }
         Opcode::F2_sffms => {
             let x = c_rx(d, ctx);
-            let v = sf_fma(s(ctx), t(ctx), x, true, ctx);
+            let v = sf_fma(s(ctx), t(ctx), x, true, false, 0, ctx);
+            ctx.set_r(fld(d, b'x'), v);
+        }
+
+        // ---- library fused multiply-add/sub (`:lib`): IEEE fmaf with the
+        // Hexagon post-fixups — flags are CANCELLED, a spurious overflow inf
+        // (no inf input) is backed off to max-finite, and inf-minus-inf -> +0.
+        Opcode::F2_sffma_lib => {
+            let x = c_rx(d, ctx);
+            let v = sf_fma_lib(s(ctx), t(ctx), x, false, ctx);
+            ctx.set_r(fld(d, b'x'), v);
+        }
+        Opcode::F2_sffms_lib => {
+            let x = c_rx(d, ctx);
+            let v = sf_fma_lib(s(ctx), t(ctx), x, true, ctx);
+            ctx.set_r(fld(d, b'x'), v);
+        }
+        // ---- scaled fused multiply-add (`:scale`): Rx += Rs*Rt, then * 2^Pu
+        // (Pu read as a two's-complement scale factor). ----
+        Opcode::F2_sffma_sc => {
+            let x = c_rx(d, ctx);
+            let pu = ctx.p(fld(d, b'u'));
+            let v = sf_fma_scale(s(ctx), t(ctx), x, pu, ctx);
             ctx.set_r(fld(d, b'x'), v);
         }
 
@@ -793,6 +821,70 @@ pub fn exec(op: Opcode, d: &DecodedOp, ctx: &mut SemCtx) -> bool {
 #[inline]
 fn c_rx(d: &DecodedOp, ctx: &SemCtx) -> u32 {
     ctx.r(fld(d, b'x'))
+}
+
+/// `is_true_zero(Rs*Rt)`: a multiplicand is *exactly* zero and neither operand is
+/// infinite (so the product is a true zero, not a rounded/NaN result). Caller has
+/// already excluded NaN inputs.
+#[inline]
+fn sf_true_zero_product(rs: u32, rt: u32) -> bool {
+    let (frs, frt) = (f32::from_bits(rs), f32::from_bits(rt));
+    (frs == 0.0 && frt.is_finite()) || (frt == 0.0 && frs.is_finite())
+}
+
+/// `Rx {+,-}= sfmpy(Rs,Rt):lib`. Reuses the exact single-rounding `sf_fma` core
+/// for the fused value, then applies the `:lib` semantics: cancel the FP flags,
+/// preserve a true-zero accumulator's sign, back a spurious-overflow infinity off
+/// to the max finite magnitude (`bits-1`), and flush inf-minus-inf to +0.
+fn sf_fma_lib(rs: u32, rt: u32, rx: u32, sub: bool, ctx: &mut SemCtx) -> u32 {
+    // Compute the fused value with the proven core, then CANCEL its flags.
+    let saved_usr = ctx.usr_or;
+    let tmp = sf_fma(rs, rt, rx, sub, true, 0, ctx);
+    ctx.usr_or = saved_usr;
+
+    // NaN in any operand -> canonical all-ones NaN (sf_fma already returns it).
+    if f32_is_nan(rs) || f32_is_nan(rt) || f32_is_nan(rx) {
+        return tmp;
+    }
+    let frx = f32::from_bits(rx);
+    let prod = f32::from_bits(rs) * f32::from_bits(rt); // inf-ness only; sign irrelevant
+    let infinp = frx.is_infinite() || f32::from_bits(rt).is_infinite() || f32::from_bits(rs).is_infinite();
+    // sign(Rs) ^ sign(Rx) ^ sign(Rt): fma fires inf-minus-inf when != 0, fms when == 0.
+    let xor_sign = ((rs >> 31) ^ (rx >> 31) ^ (rt >> 31)) & 1;
+    let inf_minus_inf = frx.is_infinite()
+        && prod.is_infinite()
+        && (if sub { xor_sign == 0 } else { xor_sign != 0 });
+
+    // Preserve a true-zero accumulator (keep Rx, including its sign).
+    let mut res = if frx == 0.0 && sf_true_zero_product(rs, rt) { rx } else { tmp };
+    // Spurious overflow to infinity (no infinite input) -> max finite (bit decrement).
+    if f32::from_bits(res).is_infinite() && !infinp {
+        res = res.wrapping_sub(1);
+    }
+    if inf_minus_inf {
+        res = 0; // +0.0
+    }
+    res
+}
+
+/// `Rx += sfmpy(Rs,Rt,Pu):scale`. Fused multiply-add then scale by `2^Pu`, where
+/// `Pu` is a two's-complement (signed 8-bit) exponent. The scale is folded into
+/// the fma's exponent so it is applied to the *exact* result before the single
+/// rounding (a hardware scalb), giving the correct rounding, subnormal handling,
+/// and USR flags from the shared core.
+fn sf_fma_scale(rs: u32, rt: u32, rx: u32, pu: u8, ctx: &mut SemCtx) -> u32 {
+    // True-zero accumulator + true-zero product: keep Rx (sign preserved), no
+    // scaling and no flags — per the `:scale` special-case rule.
+    if !f32_is_nan(rs)
+        && !f32_is_nan(rt)
+        && !f32_is_nan(rx)
+        && f32::from_bits(rx) == 0.0
+        && sf_true_zero_product(rs, rt)
+    {
+        return rx;
+    }
+    let scale = pu as i8 as i32;
+    sf_fma(rs, rt, rx, false, false, scale, ctx)
 }
 
 /// Read the old value of a read-modify `Rxx` 64-bit pair (field letter `x`).

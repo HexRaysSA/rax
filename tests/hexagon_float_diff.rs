@@ -763,6 +763,70 @@ fn diff_sffms() {
     run_sf_fma("sffms", "{ r1 -= sfmpy(r2,r3) }");
 }
 
+#[test]
+fn diff_sffma_lib() {
+    run_sf_fma("sffma_lib", "{ r1 += sfmpy(r2,r3):lib }");
+}
+
+#[test]
+fn diff_sffms_lib() {
+    run_sf_fma("sffms_lib", "{ r1 -= sfmpy(r2,r3):lib }");
+}
+
+/// Scaled fused multiply-add: `Rx += sfmpy(Rs,Rt,Pu):scale`, where Pu (p0) is a
+/// two's-complement scale exponent. Sweep p0 across a range of signed scales.
+#[test]
+fn diff_sffma_sc() {
+    let name = "sffma_sc";
+    let asm = "{ r1 += sfmpy(r2,r3,p0):scale }";
+    let oracle = match oracle_path() {
+        Some(p) => p,
+        None => {
+            eprintln!("[hexagon_float_diff] {name}: toolchain unavailable -> skipping");
+            return;
+        }
+    };
+    let words = match assemble_packets(&[asm.to_string()]) {
+        Some(w) => w.into_iter().next().unwrap(),
+        None => {
+            eprintln!("[hexagon_float_diff] {name}: assembly failed -> skipping");
+            return;
+        }
+    };
+    let vals = f32_values();
+    let scales: [u8; 9] = [0x00, 0x01, 0x02, 0x05, 0xff, 0xfe, 0xfb, 0x7f, 0x80];
+    let acc_idx = [0usize, 1, 2, 8, 21, 24]; // 0, 1, 2, -2.5, pi, 1e30
+    let mut cases: Vec<(Vec<u32>, HexState)> = Vec::new();
+    for &pu in &scales {
+        for &xi in &acc_idx {
+            let x = vals[xi];
+            for &a in &vals {
+                for &b in &vals {
+                    let mut st = HexState::zeroed();
+                    st.w[1] = x;
+                    st.w[2] = a;
+                    st.w[3] = b;
+                    st.w[I_PRED] = pu as u32; // p0 = low byte
+                    cases.push((words.clone(), st));
+                }
+            }
+        }
+    }
+    let outs = match run_oracle(&oracle, &cases) {
+        Some(o) => o,
+        None => {
+            eprintln!("[hexagon_float_diff] {name}: oracle run failed -> skipping");
+            return;
+        }
+    };
+    let mut mismatches = Vec::new();
+    for ((w, st), out) in cases.iter().zip(outs.iter()) {
+        compare(name, asm, &[1], w, st, out, &mut mismatches);
+    }
+    let n = cases.len();
+    report_and_panic(name, n, mismatches);
+}
+
 // ---- double precision ----
 
 #[test]
