@@ -748,9 +748,8 @@ impl RiscVCpu {
             | Op::VzextVf4 | Op::VsextVf4 | Op::VzextVf8 | Op::VsextVf8 | Op::Vcpop
             | Op::Vfirst | Op::Vmsbf | Op::Vmsof | Op::Vmsif | Op::Viota | Op::Vid
             | Op::Vslideup | Op::Vslidedown | Op::Vslide1up | Op::Vslide1down
-            | Op::Vfslide1up | Op::Vfslide1down | Op::Vrgather | Op::Vrgatherei16 => {
-                self.exec_vector(insn)?
-            }
+            | Op::Vfslide1up | Op::Vfslide1down | Op::Vrgather | Op::Vrgatherei16
+            | Op::Vcompress => self.exec_vector(insn)?,
 
             Op::Illegal => return Err(Trap::illegal(insn.raw)),
 
@@ -1743,6 +1742,19 @@ impl RiscVCpu {
                     }
                     let v = if e + 1 < vl { self.velem(vs2, e + 1, eb) } else { scalar };
                     self.set_velem(vd, e, eb, v & mask);
+                }
+            }
+            Op::Vcompress => {
+                // Pack vs2 elements whose vs1 mask bit is set into the low lanes of vd.
+                let eb = self.sew_bytes();
+                let mask = Self::sew_mask(eb);
+                let mut out = vstart;
+                for e in vstart..vl {
+                    if self.vbit(insn.rs1, e) {
+                        let v = self.velem(vs2, e, eb);
+                        self.set_velem(vd, out, eb, v & mask);
+                        out += 1;
+                    }
                 }
             }
             Op::Vrgather | Op::Vrgatherei16 => {

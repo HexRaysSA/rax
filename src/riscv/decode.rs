@@ -442,6 +442,7 @@ pub enum Op {
     Vfslide1down,
     Vrgather,
     Vrgatherei16,
+    Vcompress,
     // ---- sentinel ----
     Illegal,
 }
@@ -757,6 +758,8 @@ fn decode_vector(w: u32) -> Insn {
             // Slide-by-one (OPMVX form, funct3 == 0b110).
             0b001110 if f3 == 0b110 => Op::Vslide1up,
             0b001111 if f3 == 0b110 => Op::Vslide1down,
+            // Compress active vs2 elements into vd (OPMVV).
+            0b010111 if f3 == 0b010 => Op::Vcompress,
             // Mask-register logical ops are OPMVV-only (funct3 == 0b010).
             0b011000 if f3 == 0b010 => Op::Vmandn,
             0b011001 if f3 == 0b010 => Op::Vmand,

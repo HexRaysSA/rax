@@ -402,6 +402,7 @@ impl Op {
             Vfslide1down => "vfslide1down",
             Vrgather => "vrgather",
             Vrgatherei16 => "vrgatherei16",
+            Vcompress => "vcompress",
             Illegal => "illegal",
         }
     }

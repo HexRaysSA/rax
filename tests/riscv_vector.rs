@@ -1045,6 +1045,33 @@ fn diff_v_gather() {
 }
 
 #[test]
+fn diff_v_compress() {
+    let mut rng = Rng::new(0x7EC_7C0);
+    let mut batch = Vec::new();
+    for sew_log2 in 0..4u32 {
+        let vmax = vlmax(sew_log2);
+        for vl in [vmax, (vmax / 2).max(1), 1] {
+            for _ in 0..10 {
+                // vd distinct from vs2 and the vs1 mask source.
+                let vd = VPOOL[(rng.next() % 6) as usize];
+                let mut vs2 = VPOOL[(rng.next() % 6) as usize];
+                while vs2 == vd {
+                    vs2 = VPOOL[(rng.next() % 6) as usize];
+                }
+                let mut vs1 = VPOOL[(rng.next() % 6) as usize];
+                while vs1 == vd || vs1 == vs2 {
+                    vs1 = VPOOL[(rng.next() % 6) as usize];
+                }
+                let st = rand_vstate(&mut rng, sew_log2, vl);
+                // vcompress.vm is always unmasked (vm=1).
+                batch.push(("vcompress.vm".into(), op_iv(0b010111, 1, vs2, vs1, 0b010, vd), st));
+            }
+        }
+    }
+    run_batch(&batch);
+}
+
+#[test]
 fn diff_v_loadstore() {
     let mut rng = Rng::new(0x7EC_705);
     let mut batch = Vec::new();
