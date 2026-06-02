@@ -904,6 +904,92 @@ fn lift_hvx_vsat_dv() {
 }
 
 #[test]
+fn lift_hvx_vasr_narrow() {
+    // Narrowing shift-round-saturate by scalar Rt (OpKind::VNarrowShiftSat).
+    // Vd.<n> = vasr(Vu.<2n>, Vv.<2n>, Rt)[:rnd][:sat]; even out sub-lane <- Vv,
+    // odd <- Vu. arith=signed source (vasr*) vs unsigned (vasru*); sat selects
+    // truncate / signed / unsigned narrow.
+    lift_family(
+        "hvx_vasr_narrow",
+        &[
+            // word -> half, signed source
+            ("vasrwh", "{ v2.h = vasr(v0.w,v1.w,r3) }"),
+            ("vasrwhsat", "{ v2.h = vasr(v0.w,v1.w,r3):sat }"),
+            ("vasrwhrndsat", "{ v2.h = vasr(v0.w,v1.w,r3):rnd:sat }"),
+            ("vasrwuhsat", "{ v2.uh = vasr(v0.w,v1.w,r3):sat }"),
+            ("vasrwuhrndsat", "{ v2.uh = vasr(v0.w,v1.w,r3):rnd:sat }"),
+            // word -> unsigned half, unsigned source
+            ("vasruwuhsat", "{ v2.uh = vasr(v0.uw,v1.uw,r3):sat }"),
+            ("vasruwuhrndsat", "{ v2.uh = vasr(v0.uw,v1.uw,r3):rnd:sat }"),
+            // half -> byte, signed source
+            ("vasrhbsat", "{ v2.b = vasr(v0.h,v1.h,r3):sat }"),
+            ("vasrhbrndsat", "{ v2.b = vasr(v0.h,v1.h,r3):rnd:sat }"),
+            ("vasrhubsat", "{ v2.ub = vasr(v0.h,v1.h,r3):sat }"),
+            ("vasrhubrndsat", "{ v2.ub = vasr(v0.h,v1.h,r3):rnd:sat }"),
+            // half -> unsigned byte, unsigned source
+            ("vasruhubsat", "{ v2.ub = vasr(v0.uh,v1.uh,r3):sat }"),
+            ("vasruhubrndsat", "{ v2.ub = vasr(v0.uh,v1.uh,r3):rnd:sat }"),
+        ],
+        16,
+        0x7150,
+    );
+}
+
+#[test]
+fn lift_hvx_vround_narrow() {
+    // Narrowing round-saturate, fixed shift = narrow_bits (VNarrowShiftSat with
+    // an immediate amount + round). even out sub-lane <- Vv, odd <- Vu.
+    lift_family(
+        "hvx_vround_narrow",
+        &[
+            ("vroundhb", "{ v2.b = vround(v0.h,v1.h):sat }"),
+            ("vroundhub", "{ v2.ub = vround(v0.h,v1.h):sat }"),
+            ("vrounduhub", "{ v2.ub = vround(v0.uh,v1.uh):sat }"),
+            ("vroundwh", "{ v2.h = vround(v0.w,v1.w):sat }"),
+            ("vroundwuh", "{ v2.uh = vround(v0.w,v1.w):sat }"),
+            ("vrounduwuh", "{ v2.uh = vround(v0.uw,v1.uw):sat }"),
+        ],
+        16,
+        0x7151,
+    );
+}
+
+#[test]
+fn lift_hvx_vsat_narrow() {
+    // Narrowing saturate, no shift (VNarrowShiftSat with amount=0). vsatdw is the
+    // 64-bit pair {Vu.w:Vv.w} -> signed word (OpKind::VSatDW).
+    lift_family(
+        "hvx_vsat_narrow",
+        &[
+            ("vsathub", "{ v2.ub = vsat(v0.h,v1.h) }"),
+            ("vsatwh", "{ v2.h = vsat(v0.w,v1.w) }"),
+            ("vsatuwuh", "{ v2.uh = vsat(v0.uw,v1.uw) }"),
+            ("vsatdw", "{ v2.w = vsatdw(v0.w,v1.w) }"),
+        ],
+        16,
+        0x7152,
+    );
+}
+
+#[test]
+fn lift_hvx_vasrv_narrow() {
+    // Per-element variable-shift narrowing saturate (V69+ vasrv*,
+    // OpKind::VNarrowShiftV). Source is the pair Vuu; shift from Vv per sub-lane.
+    // The V68 reference interpreter may reject these — the harness then skips.
+    lift_family(
+        "hvx_vasrv_narrow",
+        &[
+            ("vasrvwuhsat", "{ v2.uh = vasr(v5:4.w,v1.uh):sat }"),
+            ("vasrvwuhrndsat", "{ v2.uh = vasr(v5:4.w,v1.uh):rnd:sat }"),
+            ("vasrvuhubsat", "{ v2.ub = vasr(v5:4.uh,v1.ub):sat }"),
+            ("vasrvuhubrndsat", "{ v2.ub = vasr(v5:4.uh,v1.ub):rnd:sat }"),
+        ],
+        16,
+        0x7153,
+    );
+}
+
+#[test]
 fn lift_hvx_vavg() {
     // Truncating average (a+b)>>1 (VLane Avg) and rounding (a+b+1)>>1 (AvgRnd),
     // signed and unsigned per lane width.

@@ -1173,6 +1173,63 @@ pub enum OpKind {
         out_shift: u8,
     },
 
+    /// Narrowing shift-round-saturate / round / saturate-pack. Models the HVX
+    /// `vasr*`, `vround*` and `vsat*` narrowing families: each wide `src_elem`
+    /// lane is (arithmetically or logically per `arith`) right-shifted by
+    /// `amount` (with an optional `+1<<(amount-1)` round bias), then narrowed to
+    /// the half-width sub-lane. The two source vectors interleave: output narrow
+    /// sub-lane `2i` (even/low) comes from `src_lo` lane `i`, sub-lane `2i+1`
+    /// (odd/high) from `src_hi` lane `i` — matching the sem's NARROWING_SHIFT
+    /// (`src_lo`=Vv, `src_hi`=Vu). Saturation: `sat==0` truncate (no clamp),
+    /// `sat==1` clamp to the signed narrow range, `sat==2` clamp to unsigned.
+    /// `vround*` lift as `amount = narrow_bits, round = true`; `vsat*` as
+    /// `amount = 0, round = false`. `amount` is Rt (Reg) or an immediate.
+    VNarrowShiftSat {
+        dst: VReg,
+        /// Even/low output sub-lanes (Vv in the sem).
+        src_lo: VReg,
+        /// Odd/high output sub-lanes (Vu in the sem).
+        src_hi: VReg,
+        /// Wide source element type (I16 -> byte out, or I32 -> half out).
+        src_elem: VecElementType,
+        amount: SrcOperand,
+        /// true = arithmetic (signed source / arithmetic shift), false = logical.
+        arith: bool,
+        /// true = add the `+1<<(amount-1)` round bias before shifting.
+        round: bool,
+        /// 0 = truncate (no saturation), 1 = saturate signed, 2 = saturate unsigned.
+        sat: u8,
+    },
+
+    /// Saturate a wide 64-bit pair `{src_hi.w[i]:src_lo.w[i]}` to a signed 32-bit
+    /// word per lane. Models HVX `vsatdw` (`Vd.w = vsat(Vu.w, Vv.w)`): for each
+    /// word lane i the 64-bit value `(src_hi.w[i] << 32) | src_lo.uw[i]` is
+    /// clamped to the signed i32 range. `src_hi`=Vu (sign), `src_lo`=Vv (low).
+    VSatDW {
+        dst: VReg,
+        src_lo: VReg,
+        src_hi: VReg,
+    },
+
+    /// Per-element variable-shift narrowing saturate (HVX V69+ `vasrv*`). The
+    /// wide source is the register PAIR (`src_lo`=Vuu.v[0], `src_hi`=Vuu.v[1]);
+    /// the per-sub-lane shift amount comes from `amount` (Vv). For output narrow
+    /// sub-lane `2i`: shift `src_lo` lane `i` by `amount`'s sub-lane `2i` (masked
+    /// to `log2(narrow_bits)` bits), saturate to unsigned narrow; sub-lane `2i+1`
+    /// from `src_hi` lane `i` by `amount` sub-lane `2i+1`. Source is read
+    /// signed-by-`arith`; `round` adds the `+1<<(s-1)` bias.
+    VNarrowShiftV {
+        dst: VReg,
+        src_lo: VReg,
+        src_hi: VReg,
+        amount: VReg,
+        /// Wide source element type (I32 -> unsigned half out, I16 -> unsigned byte out).
+        src_elem: VecElementType,
+        /// true = sign-extend source / arithmetic shift; false = zero-extend.
+        arith: bool,
+        round: bool,
+    },
+
     /// Multiply each `out_elem` lane of src1 by the even/odd `sub_elem` sub-lane
     /// of src2 within that lane. Models HVX `vmpyiewuh`/`vmpyiowh` (Vu.w *
     /// Vv.uh[even] / Vv.h[odd] -> low word): per output lane i, src2 sub-lane
@@ -1918,6 +1975,9 @@ impl OpKind {
             | OpKind::VLut { dst, .. }
             | OpKind::VAlign { dst, .. }
             | OpKind::VMulShiftSat { dst, .. }
+            | OpKind::VNarrowShiftSat { dst, .. }
+            | OpKind::VSatDW { dst, .. }
+            | OpKind::VNarrowShiftV { dst, .. }
             | OpKind::VShiftV { dst, .. }
             | OpKind::VLaneUnary { dst, .. }
             | OpKind::VNavg { dst, .. }

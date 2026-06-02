@@ -1675,6 +1675,25 @@ impl OpKind {
                 result.push(*amount);
             }
 
+            OpKind::VNarrowShiftSat { src_lo, src_hi, amount, .. } => {
+                result.push(*src_lo);
+                result.push(*src_hi);
+                if let SrcOperand::Reg(r) = amount {
+                    result.push(*r);
+                }
+            }
+
+            OpKind::VSatDW { src_lo, src_hi, .. } => {
+                result.push(*src_lo);
+                result.push(*src_hi);
+            }
+
+            OpKind::VNarrowShiftV { src_lo, src_hi, amount, .. } => {
+                result.push(*src_lo);
+                result.push(*src_hi);
+                result.push(*amount);
+            }
+
             OpKind::VCmpToQ { src1, src2, .. } => {
                 result.push(*src1);
                 result.push(*src2);

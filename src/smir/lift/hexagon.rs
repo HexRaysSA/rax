@@ -4238,6 +4238,170 @@ impl HexagonLifter {
             }
 
             // ============================================================
+            // HVX narrowing shift-round-saturate (Rt-scalar amount).
+            //
+            // `Vd.<n> = vasr(Vu.<2n>, Vv.<2n>, Rt)[:rnd][:sat]`. sem
+            // (hvx_shift.rs narrow_wh/narrow_hb): output narrow sub-lane 2i
+            // (even/low) <- narrow(Vv.<2n>[i]), 2i+1 (odd/high) <- narrow(Vu).
+            // So src_lo=Vv (fld v), src_hi=Vu (fld u). The wide source is
+            // sign-extended for the signed-source forms (`arith`), zero-extended
+            // for the vasru* unsigned-source forms. `round` adds +1<<(s-1);
+            // `sat` selects truncate(0)/signed(1)/unsigned(2). The interp masks
+            // Rt to narrow_bits-1 (== sem `rt & 0xF` / `rt & 0x7`).
+            // ============================================================
+            Opcode::V6_vasrwh
+            | Opcode::V6_vasrwhsat
+            | Opcode::V6_vasrwhrndsat
+            | Opcode::V6_vasrwuhsat
+            | Opcode::V6_vasrwuhrndsat
+            | Opcode::V6_vasruwuhsat
+            | Opcode::V6_vasruwuhrndsat
+            | Opcode::V6_vasrhubsat
+            | Opcode::V6_vasrhubrndsat
+            | Opcode::V6_vasrhbsat
+            | Opcode::V6_vasrhbrndsat
+            | Opcode::V6_vasruhubsat
+            | Opcode::V6_vasruhubrndsat => {
+                // (src_elem, arith, round, sat) per the sem exec arms.
+                let (src_elem, arith, round, sat) = match op {
+                    Opcode::V6_vasrwh => (VecElementType::I32, true, false, 0u8),
+                    Opcode::V6_vasrwhsat => (VecElementType::I32, true, false, 1),
+                    Opcode::V6_vasrwhrndsat => (VecElementType::I32, true, true, 1),
+                    Opcode::V6_vasrwuhsat => (VecElementType::I32, true, false, 2),
+                    Opcode::V6_vasrwuhrndsat => (VecElementType::I32, true, true, 2),
+                    Opcode::V6_vasruwuhsat => (VecElementType::I32, false, false, 2),
+                    Opcode::V6_vasruwuhrndsat => (VecElementType::I32, false, true, 2),
+                    Opcode::V6_vasrhubsat => (VecElementType::I16, true, false, 2),
+                    Opcode::V6_vasrhubrndsat => (VecElementType::I16, true, true, 2),
+                    Opcode::V6_vasrhbsat => (VecElementType::I16, true, false, 1),
+                    Opcode::V6_vasrhbrndsat => (VecElementType::I16, true, true, 1),
+                    Opcode::V6_vasruhubsat => (VecElementType::I16, false, false, 2),
+                    // V6_vasruhubrndsat
+                    _ => (VecElementType::I16, false, true, 2),
+                };
+                push_op!(OpKind::VNarrowShiftSat {
+                    dst: self.hex_v(fld(b'd')),
+                    src_lo: self.hex_v(fld(b'v')),
+                    src_hi: self.hex_v(fld(b'u')),
+                    src_elem,
+                    amount: SrcOperand::Reg(self.hex_reg(fld(b't'))),
+                    arith,
+                    round,
+                    sat,
+                });
+            }
+
+            // ============================================================
+            // HVX narrowing round-saturate (fixed shift, no Rt).
+            //
+            // `Vd.<n> = vround(Vu.<2n>, Vv.<2n>):sat`. sem (hvx_round.rs):
+            // round bias 1<<(n-1) (0x80 for ->byte, 0x8000 for ->half), shift
+            // by n, saturate, interleave even<-Vv / odd<-Vu. Modelled as
+            // VNarrowShiftSat with amount = narrow_bits (immediate, unmasked)
+            // and round=true. arith selects the source signedness, sat the
+            // narrow target signedness.
+            // ============================================================
+            Opcode::V6_vroundhb
+            | Opcode::V6_vroundhub
+            | Opcode::V6_vrounduhub
+            | Opcode::V6_vroundwh
+            | Opcode::V6_vroundwuh
+            | Opcode::V6_vrounduwuh => {
+                // (src_elem, arith=source signed, sat=narrow signed/unsigned).
+                let (src_elem, arith, sat) = match op {
+                    Opcode::V6_vroundhb => (VecElementType::I16, true, 1u8),
+                    Opcode::V6_vroundhub => (VecElementType::I16, true, 2),
+                    Opcode::V6_vrounduhub => (VecElementType::I16, false, 2),
+                    Opcode::V6_vroundwh => (VecElementType::I32, true, 1),
+                    Opcode::V6_vroundwuh => (VecElementType::I32, true, 2),
+                    // V6_vrounduwuh
+                    _ => (VecElementType::I32, false, 2),
+                };
+                let narrow_bits = (src_elem.bytes() * 8 / 2) as i64;
+                push_op!(OpKind::VNarrowShiftSat {
+                    dst: self.hex_v(fld(b'd')),
+                    src_lo: self.hex_v(fld(b'v')),
+                    src_hi: self.hex_v(fld(b'u')),
+                    src_elem,
+                    amount: SrcOperand::Imm(narrow_bits),
+                    arith,
+                    round: true,
+                    sat,
+                });
+            }
+
+            // ============================================================
+            // HVX narrowing saturate (no shift).
+            //
+            // `Vd.<n> = vsat(Vu.<2n>, Vv.<2n>)`. sem (hvx_round.rs): no shift,
+            // saturate, interleave even<-Vv / odd<-Vu. Modelled as
+            // VNarrowShiftSat with amount = 0, round = false.
+            //   vsathub: half (signed src) -> unsigned byte
+            //   vsatwh:  word (signed src) -> signed   half
+            //   vsatuwuh: word (unsigned src) -> unsigned half
+            // ============================================================
+            Opcode::V6_vsathub | Opcode::V6_vsatwh | Opcode::V6_vsatuwuh => {
+                let (src_elem, arith, sat) = match op {
+                    Opcode::V6_vsathub => (VecElementType::I16, true, 2u8),
+                    Opcode::V6_vsatwh => (VecElementType::I32, true, 1),
+                    // V6_vsatuwuh
+                    _ => (VecElementType::I32, false, 2),
+                };
+                push_op!(OpKind::VNarrowShiftSat {
+                    dst: self.hex_v(fld(b'd')),
+                    src_lo: self.hex_v(fld(b'v')),
+                    src_hi: self.hex_v(fld(b'u')),
+                    src_elem,
+                    amount: SrcOperand::Imm(0),
+                    arith,
+                    round: false,
+                    sat,
+                });
+            }
+
+            // ============================================================
+            // HVX 64-bit pair saturate to signed word (`vsatdw`).
+            // sem: per word lane i, val = (Vu.w[i]<<32)|Vv.uw[i], clamp to i32.
+            // src_lo=Vv (low), src_hi=Vu (sign).
+            // ============================================================
+            Opcode::V6_vsatdw => push_op!(OpKind::VSatDW {
+                dst: self.hex_v(fld(b'd')),
+                src_lo: self.hex_v(fld(b'v')),
+                src_hi: self.hex_v(fld(b'u')),
+            }),
+
+            // ============================================================
+            // HVX per-element variable-shift narrowing saturate (V69+ vasrv*).
+            // sem (hvx_round.rs): source is the PAIR Vuu (v[0]=src_lo even,
+            // v[1]=src_hi odd); per-sub-lane shift from Vv; saturate to the
+            // unsigned narrow range; round adds +1<<(s-1).
+            //   vasrvwuhsat:   word  -> unsigned half (arith src), shamt from Vv.uh
+            //   vasrvuhubsat:  uhalf -> unsigned byte (zext src),  shamt from Vv.ub
+            // ============================================================
+            Opcode::V6_vasrvwuhsat
+            | Opcode::V6_vasrvwuhrndsat
+            | Opcode::V6_vasrvuhubsat
+            | Opcode::V6_vasrvuhubrndsat => {
+                let (src_elem, arith, round) = match op {
+                    Opcode::V6_vasrvwuhsat => (VecElementType::I32, true, false),
+                    Opcode::V6_vasrvwuhrndsat => (VecElementType::I32, true, true),
+                    Opcode::V6_vasrvuhubsat => (VecElementType::I16, false, false),
+                    // V6_vasrvuhubrndsat
+                    _ => (VecElementType::I16, false, true),
+                };
+                let ubase = fld(b'u');
+                push_op!(OpKind::VNarrowShiftV {
+                    dst: self.hex_v(fld(b'd')),
+                    src_lo: self.hex_v(ubase),
+                    src_hi: self.hex_v(ubase + 1),
+                    amount: self.hex_v(fld(b'v')),
+                    src_elem,
+                    arith,
+                    round,
+                });
+            }
+
+            // ============================================================
             // HVX single-vector shuffle / deal (Wave 7)
             //
             // `OpKind::VShuffle2` reorders narrow lanes of one vector.

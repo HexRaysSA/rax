@@ -2604,6 +2604,144 @@ impl SmirInterpreter {
                 Self::write_vec(ctx, *dst, result);
             }
 
+            OpKind::VNarrowShiftSat {
+                dst,
+                src_lo,
+                src_hi,
+                src_elem,
+                amount,
+                arith,
+                round,
+                sat,
+            } => {
+                let lo_src = Self::read_vec(ctx, *src_lo);
+                let hi_src = Self::read_vec(ctx, *src_hi);
+                let wbits = src_elem.bytes() * 8; // wide source element bits
+                let nbits = wbits / 2; // narrow output element bits
+                let wide_lanes = (1024 / wbits) as u8;
+                // Rt-sourced shift amounts are masked to narrow_bits-1 bits
+                // (sem: `rt & 0xF` for word->half, `rt & 0x7` for half->byte);
+                // immediates (vround/vsat) are used verbatim.
+                let shamt: u32 = match amount {
+                    SrcOperand::Reg(r) => (ctx.read_vreg(*r) as u32) & (nbits - 1),
+                    SrcOperand::Imm(v) | SrcOperand::Imm64(v) => *v as u32,
+                    _ => 0,
+                };
+                // Extend a wide lane to i64 per signedness.
+                let ext = |raw: u64| -> i64 {
+                    if *arith {
+                        let sh = 64 - wbits;
+                        ((raw << sh) as i64) >> sh
+                    } else {
+                        raw as i64
+                    }
+                };
+                // Shift-round one wide lane and saturate to the narrow width.
+                let narrow = |raw: u64| -> u64 {
+                    let mut v = ext(raw);
+                    if *round && shamt > 0 {
+                        v += 1i64 << (shamt - 1);
+                    }
+                    v >>= shamt;
+                    match sat {
+                        // signed narrow
+                        1 => {
+                            let lo = -(1i64 << (nbits - 1));
+                            let hi = (1i64 << (nbits - 1)) - 1;
+                            (v.clamp(lo, hi) as u64) & ((1u64 << nbits) - 1)
+                        }
+                        // unsigned narrow
+                        2 => {
+                            let hi = (1i64 << nbits) - 1;
+                            (v.clamp(0, hi) as u64) & ((1u64 << nbits) - 1)
+                        }
+                        // truncate
+                        _ => (v as u64) & ((1u64 << nbits) - 1),
+                    }
+                };
+                let mut result = [0u64; 16];
+                for i in 0..wide_lanes {
+                    // even/low sub-lane <- src_lo (Vv); odd/high <- src_hi (Vu)
+                    Self::set_lane(&mut result, 2 * i, nbits, narrow(Self::get_lane(&lo_src, i, wbits)));
+                    Self::set_lane(
+                        &mut result,
+                        2 * i + 1,
+                        nbits,
+                        narrow(Self::get_lane(&hi_src, i, wbits)),
+                    );
+                }
+                Self::write_vec(ctx, *dst, result);
+            }
+
+            OpKind::VSatDW { dst, src_lo, src_hi } => {
+                let lo = Self::read_vec(ctx, *src_lo);
+                let hi = Self::read_vec(ctx, *src_hi);
+                let mut result = [0u64; 16];
+                for i in 0..32u8 {
+                    let h = Self::get_lane(&hi, i, 32) as i32 as i64; // sign-extended high word
+                    let l = Self::get_lane(&lo, i, 32); // zero-extended low word
+                    let val = (h << 32) | (l as i64);
+                    let s = val.clamp(i32::MIN as i64, i32::MAX as i64) as i32 as u32;
+                    Self::set_lane(&mut result, i, 32, s as u64);
+                }
+                Self::write_vec(ctx, *dst, result);
+            }
+
+            OpKind::VNarrowShiftV {
+                dst,
+                src_lo,
+                src_hi,
+                amount,
+                src_elem,
+                arith,
+                round,
+            } => {
+                let lo_src = Self::read_vec(ctx, *src_lo);
+                let hi_src = Self::read_vec(ctx, *src_hi);
+                let amt = Self::read_vec(ctx, *amount);
+                let wbits = src_elem.bytes() * 8;
+                let nbits = wbits / 2;
+                let wide_lanes = (1024 / wbits) as u8;
+                let ext = |raw: u64| -> i64 {
+                    if *arith {
+                        let sh = 64 - wbits;
+                        ((raw << sh) as i64) >> sh
+                    } else {
+                        raw as i64
+                    }
+                };
+                // amount sub-lanes are narrow-width; mask to log2(narrow_bits).
+                let amask = nbits - 1;
+                let narrow = |raw: u64, s: u32| -> u64 {
+                    let mut v = ext(raw);
+                    if *round && s > 0 {
+                        v += 1i64 << (s - 1);
+                    }
+                    v >>= s;
+                    // vasrv* always saturate to the unsigned narrow range.
+                    let hi = (1i64 << nbits) - 1;
+                    (v.clamp(0, hi) as u64) & ((1u64 << nbits) - 1)
+                };
+                let mut result = [0u64; 16];
+                for i in 0..wide_lanes {
+                    let s0 = (Self::get_lane(&amt, 2 * i, nbits) as u32) & amask;
+                    Self::set_lane(
+                        &mut result,
+                        2 * i,
+                        nbits,
+                        narrow(Self::get_lane(&lo_src, i, wbits), s0),
+                    );
+                    let s1 = (Self::get_lane(&amt, 2 * i + 1, nbits) as u32) & amask;
+                    Self::set_lane(
+                        &mut result,
+                        2 * i + 1,
+                        nbits,
+                        narrow(Self::get_lane(&hi_src, i, wbits), s1),
+                    );
+                }
+                Self::write_vec(ctx, *dst, result);
+            }
+
             OpKind::VPairPairReduceMul {
                 dst_lo,
                 dst_hi,
@@ -4360,6 +4498,189 @@ mod tests {
         let (lo, hi) = run_widenmul(v0, v1, VecElementType::I16, true, true);
         assert_eq!(lo, [0x0000_000F_0000_000Fu64; 16]); // word = 15
         assert_eq!(hi, [0x0000_000F_0000_000Fu64; 16]);
+    }
+
+    // Run a single VNarrowShiftSat (src_lo=V0, src_hi=V1, amount=R0) and return V2.
+    fn run_narrow_shift_sat(
+        v0: [u64; 16],
+        v1: [u64; 16],
+        rt: u32,
+        src_elem: VecElementType,
+        arith: bool,
+        round: bool,
+        sat: u8,
+    ) -> [u64; 16] {
+        let mut ctx = SmirContext::new_hexagon();
+        let mut memory = FlatMemory::new(0x1000);
+        let interp = SmirInterpreter::new();
+        if let ArchRegState::Hexagon(hex) = &mut ctx.arch_regs {
+            hex.set_v(0, v0);
+            hex.set_v(1, v1);
+        }
+        ctx.write_arch_reg(ArchReg::Hexagon(HexagonReg::R(0)), rt as u64);
+        let mkv = |n| VReg::Arch(ArchReg::Hexagon(HexagonReg::V(n)));
+        let block = SmirBlock {
+            id: BlockId(0),
+            guest_pc: 0x1000,
+            phis: vec![],
+            ops: vec![SmirOp {
+                id: OpId(0),
+                guest_pc: 0x1000,
+                kind: OpKind::VNarrowShiftSat {
+                    dst: mkv(2),
+                    src_lo: mkv(0),
+                    src_hi: mkv(1),
+                    src_elem,
+                    amount: SrcOperand::Reg(VReg::Arch(ArchReg::Hexagon(HexagonReg::R(0)))),
+                    arith,
+                    round,
+                    sat,
+                },
+                x86_hint: None,
+            }],
+            terminator: Terminator::Trap { kind: TrapKind::Halt },
+            exec_count: 0,
+        };
+        interp.execute_block(&mut ctx, &mut memory, &block);
+        match &ctx.arch_regs {
+            ArchRegState::Hexagon(hex) => hex.get_v(2),
+            _ => panic!("not hexagon"),
+        }
+    }
+
+    #[test]
+    fn test_vnarrowshiftsat_wh_interleave() {
+        // word->half, signed src, no round, no shift (rt=0), saturate signed.
+        // V0 (src_lo/Vv) word = 0x0000_1234, V1 (src_hi/Vu) word = 0x0000_5678.
+        // out half[2i] = sat(0x1234) = 0x1234 (even <- Vv);
+        // out half[2i+1] = sat(0x5678) = 0x5678 (odd <- Vu).
+        let v0 = [0x0000_1234_0000_1234u64; 16];
+        let v1 = [0x0000_5678_0000_5678u64; 16];
+        let out = run_narrow_shift_sat(v0, v1, 0, VecElementType::I32, true, false, 1);
+        // each 32-bit out word = [Vv-half | Vu-half<<16] = 0x5678_1234
+        assert_eq!(out, [0x5678_1234_5678_1234u64; 16]);
+    }
+
+    #[test]
+    fn test_vnarrowshiftsat_wh_shift_round_sat() {
+        // word->half, signed, shift=4, round, saturate signed.
+        // src word = 0x0000_00FF = 255. round bias = 1<<3 = 8. (255+8)>>4 = 16.
+        let v0 = [0x0000_00FFu64 | (0x0000_00FFu64 << 32); 16];
+        let v1 = [0x0000_00FFu64 | (0x0000_00FFu64 << 32); 16];
+        let out = run_narrow_shift_sat(v0, v1, 4, VecElementType::I32, true, true, 1);
+        assert_eq!(out, [0x0010_0010_0010_0010u64; 16]); // 16 per half
+    }
+
+    #[test]
+    fn test_vnarrowshiftsat_unsigned_clamp() {
+        // word->unsigned half, signed src, no shift; negative source clamps to 0,
+        // a large positive clamps to 0xFFFF.
+        // V0 word = 0xFFFF_FFFF = -1 (signed) -> unsigned sat -> 0.
+        // V1 word = 0x0007_FFFF = 524287 -> unsigned half sat -> 0xFFFF.
+        let v0 = [0xFFFF_FFFF_FFFF_FFFFu64; 16];
+        let v1 = [0x0007_FFFF_0007_FFFFu64; 16];
+        let out = run_narrow_shift_sat(v0, v1, 0, VecElementType::I32, true, false, 2);
+        // each word = [0x0000 | 0xFFFF<<16] = 0xFFFF_0000
+        assert_eq!(out, [0xFFFF_0000_FFFF_0000u64; 16]);
+    }
+
+    #[test]
+    fn test_vnarrowshiftsat_truncate() {
+        // vasrwh (sat=0): no clamp, just truncate low 16 bits after arithmetic >>.
+        // src word = 0x0001_8000 = 98304, shift 0 -> low 16 bits = 0x8000.
+        let v0 = [0x0001_8000_0001_8000u64; 16];
+        let v1 = [0x0001_8000_0001_8000u64; 16];
+        let out = run_narrow_shift_sat(v0, v1, 0, VecElementType::I32, true, false, 0);
+        assert_eq!(out, [0x8000_8000_8000_8000u64; 16]);
+    }
+
+    #[test]
+    fn test_vnarrowshiftsat_unsigned_source() {
+        // vasruwuh (arith=false): zero-extend the wide source. word = 0xFFFF_FFFF,
+        // shift 16, no round -> 0xFFFF_FFFF >> 16 = 0xFFFF, unsigned sat -> 0xFFFF.
+        let v0 = [0xFFFF_FFFF_FFFF_FFFFu64; 16];
+        let v1 = [0xFFFF_FFFF_FFFF_FFFFu64; 16];
+        let out = run_narrow_shift_sat(v0, v1, 16, VecElementType::I32, false, false, 2);
+        assert_eq!(out, [0xFFFF_FFFF_FFFF_FFFFu64; 16]);
+    }
+
+    #[test]
+    fn test_vsatdw_clamp() {
+        // {V1.w[i] : V0.w[i]} 64-bit -> signed 32 clamp.
+        // lane: hi=0x0000_0001, lo=0x0000_0000 => 0x1_0000_0000 -> clamp i32 -> MAX.
+        // lane: hi=0xFFFF_FFFF, lo=0x0000_0000 => -0x1_0000_0000 -> clamp -> MIN.
+        let mut ctx = SmirContext::new_hexagon();
+        let mut memory = FlatMemory::new(0x1000);
+        let interp = SmirInterpreter::new();
+        // word 0 of each: lo=0, hi=1 (positive overflow); make all words identical.
+        if let ArchRegState::Hexagon(hex) = &mut ctx.arch_regs {
+            hex.set_v(0, [0u64; 16]); // src_lo low words = 0
+            hex.set_v(1, [0x0000_0001_0000_0001u64; 16]); // src_hi = 1 per word
+        }
+        let mkv = |n| VReg::Arch(ArchReg::Hexagon(HexagonReg::V(n)));
+        let block = SmirBlock {
+            id: BlockId(0),
+            guest_pc: 0x1000,
+            phis: vec![],
+            ops: vec![SmirOp {
+                id: OpId(0),
+                guest_pc: 0x1000,
+                kind: OpKind::VSatDW { dst: mkv(2), src_lo: mkv(0), src_hi: mkv(1) },
+                x86_hint: None,
+            }],
+            terminator: Terminator::Trap { kind: TrapKind::Halt },
+            exec_count: 0,
+        };
+        interp.execute_block(&mut ctx, &mut memory, &block);
+        if let ArchRegState::Hexagon(hex) = &ctx.arch_regs {
+            // each word = i32::MAX = 0x7FFF_FFFF
+            assert_eq!(hex.get_v(2), [0x7FFF_FFFF_7FFF_FFFFu64; 16]);
+        } else {
+            panic!("not hexagon");
+        }
+    }
+
+    #[test]
+    fn test_vnarrowshiftv_per_lane() {
+        // vasrvwuhsat: pair source (V0=lo even, V1=hi odd), per-sub-lane shift
+        // from V2 (Vv.uh), unsigned-half saturate. src word = 0x0000_0100 = 256.
+        // amount sub-lane = 4 -> 256>>4 = 16 per half.
+        let mut ctx = SmirContext::new_hexagon();
+        let mut memory = FlatMemory::new(0x1000);
+        let interp = SmirInterpreter::new();
+        if let ArchRegState::Hexagon(hex) = &mut ctx.arch_regs {
+            hex.set_v(0, [0x0000_0100_0000_0100u64; 16]); // src_lo words = 256
+            hex.set_v(1, [0x0000_0100_0000_0100u64; 16]); // src_hi words = 256
+            hex.set_v(2, [0x0004_0004_0004_0004u64; 16]); // every uh shamt = 4
+        }
+        let mkv = |n| VReg::Arch(ArchReg::Hexagon(HexagonReg::V(n)));
+        let block = SmirBlock {
+            id: BlockId(0),
+            guest_pc: 0x1000,
+            phis: vec![],
+            ops: vec![SmirOp {
+                id: OpId(0),
+                guest_pc: 0x1000,
+                kind: OpKind::VNarrowShiftV {
+                    dst: mkv(3),
+                    src_lo: mkv(0),
+                    src_hi: mkv(1),
+                    amount: mkv(2),
+                    src_elem: VecElementType::I32,
+                    arith: true,
+                    round: false,
+                },
+                x86_hint: None,
+            }],
+            terminator: Terminator::Trap { kind: TrapKind::Halt },
+            exec_count: 0,
+        };
+        interp.execute_block(&mut ctx, &mut memory, &block);
+        if let ArchRegState::Hexagon(hex) = &ctx.arch_regs {
+            assert_eq!(hex.get_v(3), [0x0010_0010_0010_0010u64; 16]); // 16 per half
+        } else {
+            panic!("not hexagon");
+        }
     }
 
     #[test]
