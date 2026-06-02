@@ -145,62 +145,67 @@ fn run_oracle(bin: &PathBuf, cases: &[Case]) -> Option<Vec<Out>> {
     Some(res)
 }
 
-fn assemble(packets: &[String]) -> Option<Vec<Vec<u32>>> {
-    static CACHE: OnceLock<Mutex<HashMap<String, Vec<Vec<u32>>>>> = OnceLock::new();
+/// Assemble one case-string into its full instruction-word stream. A case may
+/// contain several `\n`-separated packets (e.g. a `{ q0 = vcmp… }` producer
+/// followed by a `{ v0 = vmux… }` consumer); all packets' words are returned in
+/// execution order so the caller writes them sequentially. Cached per case.
+fn assemble_one(case: &str) -> Option<Vec<u32>> {
+    static CACHE: OnceLock<Mutex<HashMap<String, Option<Vec<u32>>>>> = OnceLock::new();
     let cache = CACHE.get_or_init(|| Mutex::new(HashMap::new()));
-    let key = packets.join("\n@@@\n");
-    if let Some(v) = cache.lock().unwrap().get(&key) {
-        return Some(v.clone());
+    if let Some(v) = cache.lock().unwrap().get(case) {
+        return v.clone();
     }
-    let mut child = Command::new("llvm-mc")
-        .args(["-triple=hexagon", "-mcpu=hexagonv68", "-mhvx", "-show-encoding"])
-        .stdin(Stdio::piped())
-        .stdout(Stdio::piped())
-        .stderr(Stdio::null())
-        .spawn()
-        .ok()?;
-    child.stdin.take().unwrap().write_all(packets.join("\n").as_bytes()).ok()?;
-    let mut out = String::new();
-    child.stdout.take().unwrap().read_to_string(&mut out).ok()?;
-    if !child.wait().ok()?.success() {
-        return None;
-    }
-    let mut bytes = Vec::new();
-    for line in out.lines() {
-        if let Some(i) = line.find("encoding: [") {
-            let rest = &line[i + 11..];
-            let end = rest.find(']')?;
-            for t in rest[..end].split(',') {
-                let t = t.trim().strip_prefix("0x").unwrap_or(t.trim());
-                if let Ok(b) = u8::from_str_radix(t, 16) {
-                    bytes.push(b);
+    let result = (|| {
+        let mut child = Command::new("llvm-mc")
+            .args(["-triple=hexagon", "-mcpu=hexagonv68", "-mhvx", "-show-encoding"])
+            .stdin(Stdio::piped())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::null())
+            .spawn()
+            .ok()?;
+        child.stdin.take().unwrap().write_all(case.as_bytes()).ok()?;
+        let mut out = String::new();
+        child.stdout.take().unwrap().read_to_string(&mut out).ok()?;
+        if !child.wait().ok()?.success() {
+            return None;
+        }
+        let mut words = Vec::new();
+        let mut acc = Vec::new();
+        for line in out.lines() {
+            if let Some(i) = line.find("encoding: [") {
+                let rest = &line[i + 11..];
+                let end = rest.find(']')?;
+                for t in rest[..end].split(',') {
+                    let t = t.trim().strip_prefix("0x").unwrap_or(t.trim());
+                    if let Ok(b) = u8::from_str_radix(t, 16) {
+                        acc.push(b);
+                        if acc.len() == 4 {
+                            words.push(
+                                acc[0] as u32
+                                    | (acc[1] as u32) << 8
+                                    | (acc[2] as u32) << 16
+                                    | (acc[3] as u32) << 24,
+                            );
+                            acc.clear();
+                        }
+                    }
                 }
             }
         }
+        (!words.is_empty()).then_some(words)
+    })();
+    cache.lock().unwrap().insert(case.to_string(), result.clone());
+    result
+}
+
+/// Assemble a family: one full word stream per case-string. Returns `None` if
+/// any case fails to assemble (caller self-skips the family).
+fn assemble(packets: &[String]) -> Option<Vec<Vec<u32>>> {
+    let mut result = Vec::with_capacity(packets.len());
+    for case in packets {
+        result.push(assemble_one(case)?);
     }
-    let mut grouped = Vec::new();
-    let mut cur = Vec::new();
-    let mut acc = Vec::new();
-    for b in bytes {
-        acc.push(b);
-        if acc.len() == 4 {
-            let w = acc[0] as u32 | (acc[1] as u32) << 8 | (acc[2] as u32) << 16 | (acc[3] as u32) << 24;
-            acc.clear();
-            cur.push(w);
-            let pb = (w >> 14) & 3;
-            if pb == 0b11 || pb == 0b00 {
-                grouped.push(std::mem::take(&mut cur));
-            }
-        }
-    }
-    if !cur.is_empty() {
-        grouped.push(cur);
-    }
-    if grouped.len() != packets.len() {
-        return None;
-    }
-    cache.lock().unwrap().insert(key, grouped.clone());
-    Some(grouped)
+    Some(result)
 }
 
 fn trap0_word() -> u32 {
