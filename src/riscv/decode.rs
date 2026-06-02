@@ -390,6 +390,15 @@ pub enum Op {
     Vfnmadd,
     Vfmsub,
     Vfnmsub,
+    // ---- V (OPMVV integer reductions) ----
+    Vredsum,
+    Vredand,
+    Vredor,
+    Vredxor,
+    Vredminu,
+    Vredmin,
+    Vredmaxu,
+    Vredmax,
     // ---- sentinel ----
     Illegal,
 }
@@ -673,6 +682,15 @@ fn decode_vector(w: u32) -> Insn {
             0b100001 => Op::Vdiv,
             0b100010 => Op::Vremu,
             0b100011 => Op::Vrem,
+            // Integer reductions are OPMVV-only (funct3 == 0b010).
+            0b000000 if f3 == 0b010 => Op::Vredsum,
+            0b000001 if f3 == 0b010 => Op::Vredand,
+            0b000010 if f3 == 0b010 => Op::Vredor,
+            0b000011 if f3 == 0b010 => Op::Vredxor,
+            0b000100 if f3 == 0b010 => Op::Vredminu,
+            0b000101 if f3 == 0b010 => Op::Vredmin,
+            0b000110 if f3 == 0b010 => Op::Vredmaxu,
+            0b000111 if f3 == 0b010 => Op::Vredmax,
             _ => return Insn::illegal(w, 4),
         };
         return base(op, w);

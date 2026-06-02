@@ -697,6 +697,44 @@ fn diff_v_fp() {
 }
 
 #[test]
+fn diff_v_redux() {
+    let mut rng = Rng::new(0x7EC_740);
+    let mut batch = Vec::new();
+    // OPMVV integer reductions (funct3 = 0b010); vd[0] = vs1[0] OP fold(vs2[0..vl]).
+    let ops: &[(&str, u32)] = &[
+        ("vredsum", 0b000000),
+        ("vredand", 0b000001),
+        ("vredor", 0b000010),
+        ("vredxor", 0b000011),
+        ("vredminu", 0b000100),
+        ("vredmin", 0b000101),
+        ("vredmaxu", 0b000110),
+        ("vredmax", 0b000111),
+    ];
+    for sew_log2 in 0..4u32 {
+        let vmax = vlmax(sew_log2);
+        for vl in [vmax, (vmax / 2).max(1), 1] {
+            for &(name, f6) in ops {
+                for k in 0..6 {
+                    let vd = VPOOL[(rng.next() % 6) as usize];
+                    let vs2 = VPOOL[(rng.next() % 6) as usize];
+                    let vs1 = VPOOL[(rng.next() % 6) as usize];
+                    let st = rand_vstate(&mut rng, sew_log2, vl);
+                    batch.push((format!("{name}.vs"), op_iv(f6, 1, vs2, vs1, 0b010, vd), st));
+                    if vd != 0 && k % 2 == 0 {
+                        let mut stm = st;
+                        stm.v[0] = rng.next();
+                        stm.v[1] = rng.next();
+                        batch.push((format!("{name}.vs.m"), op_iv(f6, 0, vs2, vs1, 0b010, vd), stm));
+                    }
+                }
+            }
+        }
+    }
+    run_batch(&batch);
+}
+
+#[test]
 fn diff_v_loadstore() {
     let mut rng = Rng::new(0x7EC_705);
     let mut batch = Vec::new();

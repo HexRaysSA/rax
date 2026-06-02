@@ -740,7 +740,8 @@ impl RiscVCpu {
             | Op::Vfmin | Op::Vfmax | Op::Vfsgnj | Op::Vfsgnjn | Op::Vfsgnjx | Op::Vmfeq
             | Op::Vmfne | Op::Vmflt | Op::Vmfle | Op::Vmfgt | Op::Vmfge | Op::Vfmacc
             | Op::Vfnmacc | Op::Vfmsac | Op::Vfnmsac | Op::Vfmadd | Op::Vfnmadd | Op::Vfmsub
-            | Op::Vfnmsub => self.exec_vector(insn)?,
+            | Op::Vfnmsub | Op::Vredsum | Op::Vredand | Op::Vredor | Op::Vredxor
+            | Op::Vredminu | Op::Vredmin | Op::Vredmaxu | Op::Vredmax => self.exec_vector(insn)?,
 
             Op::Illegal => return Err(Trap::illegal(insn.raw)),
 
@@ -1426,6 +1427,38 @@ impl RiscVCpu {
                         _ => unreachable!(),
                     };
                     self.set_velem(vd, e, eb, r & mask);
+                }
+            }
+            Op::Vredsum | Op::Vredand | Op::Vredor | Op::Vredxor | Op::Vredminu | Op::Vredmin
+            | Op::Vredmaxu | Op::Vredmax => {
+                let eb = self.sew_bytes();
+                let mask = Self::sew_mask(eb);
+                // Accumulator seeds from vs1[0]; fold in active vs2 elements.
+                let mut acc = self.velem(insn.rs1, 0, eb);
+                for e in vstart..vl {
+                    if !vm && !self.vmask_bit(e) {
+                        continue;
+                    }
+                    let x = self.velem(vs2, e, eb);
+                    acc = match insn.op {
+                        Op::Vredsum => acc.wrapping_add(x),
+                        Op::Vredand => acc & x,
+                        Op::Vredor => acc | x,
+                        Op::Vredxor => acc ^ x,
+                        Op::Vredminu => acc.min(x),
+                        Op::Vredmaxu => acc.max(x),
+                        Op::Vredmin => {
+                            if sext_sew(x, eb) < sext_sew(acc, eb) { x } else { acc }
+                        }
+                        Op::Vredmax => {
+                            if sext_sew(x, eb) > sext_sew(acc, eb) { x } else { acc }
+                        }
+                        _ => unreachable!(),
+                    } & mask;
+                }
+                // vl == 0 leaves vd[0] undisturbed; otherwise write the scalar result.
+                if vl > vstart {
+                    self.set_velem(vd, 0, eb, acc & mask);
                 }
             }
             Op::Vmseq | Op::Vmsne | Op::Vmsltu | Op::Vmslt | Op::Vmsleu | Op::Vmsle

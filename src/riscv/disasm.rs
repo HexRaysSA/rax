@@ -357,6 +357,14 @@ impl Op {
             Vfnmadd => "vfnmadd",
             Vfmsub => "vfmsub",
             Vfnmsub => "vfnmsub",
+            Vredsum => "vredsum",
+            Vredand => "vredand",
+            Vredor => "vredor",
+            Vredxor => "vredxor",
+            Vredminu => "vredminu",
+            Vredmin => "vredmin",
+            Vredmaxu => "vredmaxu",
+            Vredmax => "vredmax",
             Illegal => "illegal",
         }
     }
