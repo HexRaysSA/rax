@@ -2009,3 +2009,53 @@ fn diff_compressed_extra() {
 
     run_batch(&batch, true);
 }
+
+// ---------------------------------------------------------------------------
+// Memory / AMO decode fuzzer: random words across the load/store/atomic opcode
+// spaces, with the base register set so every access lands in the shared
+// scratch window. Proves decode+execute agreement with qemu over the whole
+// memory encoding space.
+// ---------------------------------------------------------------------------
+
+#[test]
+fn diff_mem_fuzz() {
+    let mut rng = Rng::new(0x3EAD_3EE7);
+    let safe: [u32; 9] = [1, 5, 6, 7, 8, 9, 12, 28, 31]; // excl x10 (base), gp/tp
+    let opcodes: [u32; 5] = [0x03, 0x23, 0x07, 0x27, 0x2f];
+    let mut batch = Vec::with_capacity(40000);
+    let mut tries = 0;
+    while batch.len() < 30000 && tries < 200_000 {
+        tries += 1;
+        let opc = opcodes[(rng.next() as usize) % opcodes.len()];
+        let mut w = (rng.next() as u32 & !0x7f) | opc;
+        // Base register = x10; dest/data = safe registers.
+        w = (w & !(0x1f << 15)) | (10 << 15);
+        let rd = safe[(rng.next() as usize) % 9];
+        let rs2 = safe[(rng.next() as usize) % 9];
+        w = (w & !(0x1f << 7)) | (rd << 7);
+        w = (w & !(0x1f << 20)) | (rs2 << 20);
+        // Only test encodings rax decodes (qemu's reserved-field leniency aside).
+        if decode(w, Xlen::Rv64, &Isa::rv64gc()).is_illegal() {
+            continue;
+        }
+        // Set up the base so the effective address is SCRATCH_BASE.
+        let imm: i64 = match opc {
+            0x03 | 0x07 => ((w as i32) >> 20) as i64, // I-type
+            0x23 | 0x27 => {
+                let u = (((w >> 25) & 0x7f) << 5) | ((w >> 7) & 0x1f);
+                ((u as i32) << 20 >> 20) as i64
+            }
+            _ => 0, // AMO: address = x[rs1]
+        };
+        let mut st = rand_state(&mut rng);
+        st.x[10] = (SCRATCH_BASE as i64).wrapping_sub(imm) as u64;
+        for s in st.scratch.iter_mut() {
+            *s = rng.next();
+        }
+        for fi in st.f.iter_mut() {
+            *fi = rng.next();
+        }
+        batch.push(("mem".to_string(), w, st));
+    }
+    run_batch(&batch, true);
+}
