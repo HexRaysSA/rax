@@ -983,6 +983,132 @@ fn diff_simd_two_reg_widen() {
     run_family("simd_two_reg_widen", cases, 8, 0x6003);
 }
 
+/// Fill registers v0..v2 with finite float lanes (multiples of 0.25, so rounding
+/// ties land exactly on .5). If `nonneg`, all lanes are >= 0 (for FSQRT).
+fn fill_fp_lanes(st: &mut ArmState, rng: &mut Rng, f64op: bool, nonneg: bool) {
+    for r in 0..3usize {
+        let mut packed: u128 = 0;
+        if f64op {
+            for lane in 0..2 {
+                let n = (rng.next() % 256) as i64;
+                let iv = if nonneg { n } else { n - 128 };
+                let val = iv as f64 * 0.25;
+                packed |= (val.to_bits() as u128) << (64 * lane);
+            }
+        } else {
+            for lane in 0..4 {
+                let n = (rng.next() % 256) as i64;
+                let iv = if nonneg { n } else { n - 128 };
+                let val = iv as f32 * 0.25;
+                packed |= (val.to_bits() as u128) << (32 * lane);
+            }
+        }
+        st.set_vreg(r, packed as u64, (packed >> 64) as u64);
+    }
+}
+
+/// Build FP two-reg cases for the given (u, sz_hi, opcode, name) ops, covering
+/// f32 (2S/4S) and f64 (2D), then drive `n` finite inputs through each.
+fn fp_two_reg_batch(
+    ops: &[(u32, u32, u32, &str)],
+    seed: u64,
+    n: usize,
+    nonneg: bool,
+) -> Vec<(String, u32, ArmState)> {
+    let mut cases: Vec<(String, u32, bool)> = Vec::new();
+    for &(u, sz_hi, opcode, name) in ops {
+        // f32: 2S (q=0) and 4S (q=1)
+        for q in 0..2 {
+            let size = sz_hi << 1; // sz=0
+            cases.push((format!("{name} f32 q{q}"), enc_two_reg(q, u, size, opcode), false));
+        }
+        // f64: 2D (q=1 only)
+        let size = (sz_hi << 1) | 1;
+        cases.push((format!("{name} f64"), enc_two_reg(1, u, size, opcode), true));
+    }
+    let mut rng = Rng::new(seed);
+    let mut batch = Vec::new();
+    for (label, insn, f64op) in &cases {
+        for _ in 0..n {
+            let mut st = ArmState::zeroed();
+            fill_fp_lanes(&mut st, &mut rng, *f64op, nonneg);
+            batch.push((label.clone(), *insn, st));
+        }
+    }
+    batch
+}
+
+#[test]
+fn diff_simd_two_reg_fp() {
+    // (U, sz_hi, opcode, name) -- float-input ops except FSQRT/SCVTF/UCVTF.
+    let ops: &[(u32, u32, u32, &str)] = &[
+        (0, 1, 0b01111, "fabs"),
+        (1, 1, 0b01111, "fneg"),
+        (0, 0, 0b11000, "frintn"),
+        (0, 1, 0b11000, "frintp"),
+        (1, 0, 0b11000, "frinta"),
+        (0, 0, 0b11001, "frintm"),
+        (0, 1, 0b11001, "frintz"),
+        (1, 0, 0b11001, "frintx"),
+        (1, 1, 0b11001, "frinti"),
+        (0, 0, 0b11010, "fcvtns"),
+        (0, 1, 0b11010, "fcvtps"),
+        (1, 0, 0b11010, "fcvtnu"),
+        (1, 1, 0b11010, "fcvtpu"),
+        (0, 0, 0b11011, "fcvtms"),
+        (0, 1, 0b11011, "fcvtzs"),
+        (1, 0, 0b11011, "fcvtmu"),
+        (1, 1, 0b11011, "fcvtzu"),
+        (0, 0, 0b11100, "fcvtas"),
+        (1, 0, 0b11100, "fcvtau"),
+        (0, 1, 0b01100, "fcmgt0"),
+        (1, 1, 0b01100, "fcmge0"),
+        (0, 1, 0b01101, "fcmeq0"),
+        (1, 1, 0b01101, "fcmle0"),
+        (0, 1, 0b01110, "fcmlt0"),
+    ];
+    run_batch("simd_two_reg_fp", fp_two_reg_batch(ops, 0xA001, 12, false));
+}
+
+#[test]
+fn diff_simd_two_reg_fsqrt() {
+    let ops: &[(u32, u32, u32, &str)] = &[(1, 1, 0b11111, "fsqrt")];
+    run_batch("simd_two_reg_fsqrt", fp_two_reg_batch(ops, 0xA002, 24, true));
+}
+
+#[test]
+fn diff_simd_two_reg_cvtf() {
+    // SCVTF/UCVTF take integer source lanes.
+    let ops: &[(u32, u32, u32, &str)] = &[(0, 0, 0b11101, "scvtf"), (1, 0, 0b11101, "ucvtf")];
+    let mut cases: Vec<(String, u32, bool)> = Vec::new();
+    for &(u, sz_hi, opcode, name) in ops {
+        for q in 0..2 {
+            cases.push((format!("{name} 32 q{q}"), enc_two_reg(q, u, sz_hi << 1, opcode), false));
+        }
+        cases.push((format!("{name} 64"), enc_two_reg(1, u, (sz_hi << 1) | 1, opcode), true));
+    }
+    let mut rng = Rng::new(0xA003);
+    let mut batch = Vec::new();
+    for (label, insn, is64) in &cases {
+        for _ in 0..16 {
+            let mut st = ArmState::zeroed();
+            let mut packed: u128 = 0;
+            if *is64 {
+                for lane in 0..2 {
+                    packed |= ((rng.next() as u64) as u128) << (64 * lane);
+                }
+            } else {
+                for lane in 0..4 {
+                    packed |= ((rng.next() as u32) as u128) << (32 * lane);
+                }
+            }
+            st.set_vreg(1, packed as u64, (packed >> 64) as u64);
+            batch.push((label.clone(), *insn, st));
+        }
+    }
+    run_batch("simd_two_reg_cvtf", batch);
+}
+
 /// Advanced SIMD vector x indexed element: `0 Q U 01111 size L M Rm opcode H 0 Rn Rd`.
 fn enc_indexed(q: u32, u: u32, size: u32, opcode: u32, vm: u32, index: u32) -> u32 {
     let (rm, mbit, lbit, hbit) = match size {

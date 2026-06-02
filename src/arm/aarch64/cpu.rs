@@ -3538,6 +3538,13 @@ impl AArch64Cpu {
             return Ok(CpuExit::Continue);
         }
 
+        // ---- Floating-point two-register-misc (deterministic subset). The
+        //      estimate ops (FRECPE/FRSQRTE/URECPE/URSQRTE) and FP narrow/long
+        //      fall through to the legacy handling below. ----
+        if let Some(r) = self.exec_simd_two_reg_fp(insn) {
+            return r;
+        }
+
         let src = self.v[rn].to_le_bytes();
         let mut dst = [0u8; 16];
 
@@ -3660,6 +3667,91 @@ impl AArch64Cpu {
 
         self.v[rd] = u128::from_le_bytes(dst);
         Ok(CpuExit::Continue)
+    }
+
+    /// Deterministic FP two-register-misc ops (FABS/FNEG/FSQRT, FRINT*, FCVT* to
+    /// integer, SCVTF/UCVTF, FCMxx #0). Returns `None` for the estimate ops and
+    /// FP narrow/long forms so the caller can fall through.
+    fn exec_simd_two_reg_fp(&mut self, insn: u32) -> Option<Result<CpuExit, ArmError>> {
+        let q = (insn >> 30) & 1;
+        let u = (insn >> 29) & 1;
+        let sz_hi = (insn >> 23) & 1;
+        let sz = (insn >> 22) & 1; // 0 => f32, 1 => f64
+        let opcode = (insn >> 12) & 0x1F;
+        let rn = ((insn >> 5) & 0x1F) as usize;
+        let rd = (insn & 0x1F) as usize;
+        let scalar = ((insn >> 24) & 0x1F) == 0b11110;
+
+        // SCVTF / UCVTF take an integer source, so they bypass the float helper.
+        let cvtf = match (u, sz_hi, opcode) {
+            (0, 0, 0b11101) => Some(false), // SCVTF
+            (1, 0, 0b11101) => Some(true),  // UCVTF
+            _ => None,
+        };
+        let kind = match (u, sz_hi, opcode) {
+            (0, 1, 0b01111) => Some(TwoRegFp::Fabs),
+            (1, 1, 0b01111) => Some(TwoRegFp::Fneg),
+            (1, 1, 0b11111) => Some(TwoRegFp::Fsqrt),
+            (0, 0, 0b11000) => Some(TwoRegFp::RintN),
+            (0, 1, 0b11000) => Some(TwoRegFp::RintP),
+            (1, 0, 0b11000) => Some(TwoRegFp::RintA),
+            (0, 0, 0b11001) => Some(TwoRegFp::RintM),
+            (0, 1, 0b11001) => Some(TwoRegFp::RintZ),
+            (1, 0, 0b11001) => Some(TwoRegFp::RintX),
+            (1, 1, 0b11001) => Some(TwoRegFp::RintI),
+            (0, 0, 0b11010) => Some(TwoRegFp::CvtNS),
+            (0, 1, 0b11010) => Some(TwoRegFp::CvtPS),
+            (1, 0, 0b11010) => Some(TwoRegFp::CvtNU),
+            (1, 1, 0b11010) => Some(TwoRegFp::CvtPU),
+            (0, 0, 0b11011) => Some(TwoRegFp::CvtMS),
+            (0, 1, 0b11011) => Some(TwoRegFp::CvtZS),
+            (1, 0, 0b11011) => Some(TwoRegFp::CvtMU),
+            (1, 1, 0b11011) => Some(TwoRegFp::CvtZU),
+            (0, 0, 0b11100) => Some(TwoRegFp::CvtAS),
+            (1, 0, 0b11100) => Some(TwoRegFp::CvtAU),
+            (0, 1, 0b01100) => Some(TwoRegFp::CmGt),
+            (1, 1, 0b01100) => Some(TwoRegFp::CmGe),
+            (0, 1, 0b01101) => Some(TwoRegFp::CmEq),
+            (1, 1, 0b01101) => Some(TwoRegFp::CmLe),
+            (0, 1, 0b01110) => Some(TwoRegFp::CmLt),
+            _ => None,
+        };
+        if kind.is_none() && cvtf.is_none() {
+            return None;
+        }
+
+        if sz == 1 && q == 0 && !scalar {
+            return Some(Err(ArmError::UndefinedInstruction(insn)));
+        }
+        let esize = if sz == 0 { 4usize } else { 8 };
+        let datasize = if scalar { esize } else if q == 1 { 16 } else { 8 };
+        let elements = datasize / esize;
+        let src = self.v[rn].to_le_bytes();
+        let mut dst = [0u8; 16];
+        for e in 0..elements {
+            let off = e * esize;
+            let a = read_elem(&src, off, esize);
+            let r = if let Some(unsigned) = cvtf {
+                if sz == 0 {
+                    let f = if unsigned {
+                        a as u32 as f32
+                    } else {
+                        a as u32 as i32 as f32
+                    };
+                    f.to_bits() as u64
+                } else {
+                    let f = if unsigned { a as f64 } else { a as i64 as f64 };
+                    f.to_bits()
+                }
+            } else if sz == 0 {
+                fp_two_reg_f32(kind.unwrap(), a as u32) as u64
+            } else {
+                fp_two_reg_f64(kind.unwrap(), a)
+            };
+            write_elem(&mut dst, off, esize, r);
+        }
+        self.v[rd] = u128::from_le_bytes(dst);
+        Some(Ok(CpuExit::Continue))
     }
 
     // FP helper functions
@@ -7499,6 +7591,120 @@ fn fp_min_f64(a: f64, b: f64) -> f64 {
         if a.is_sign_negative() { a } else { b }
     } else {
         a.min(b)
+    }
+}
+
+/// Deterministic two-register-misc floating-point unary operation kind.
+#[derive(Clone, Copy, PartialEq)]
+enum TwoRegFp {
+    Fabs,
+    Fneg,
+    Fsqrt,
+    RintN,
+    RintP,
+    RintM,
+    RintZ,
+    RintA,
+    RintX,
+    RintI,
+    CvtNS,
+    CvtMS,
+    CvtPS,
+    CvtZS,
+    CvtAS,
+    CvtNU,
+    CvtMU,
+    CvtPU,
+    CvtZU,
+    CvtAU,
+    CmGt,
+    CmGe,
+    CmEq,
+    CmLe,
+    CmLt,
+}
+
+/// Apply a two-reg-misc FP op to one f32 element (raw bits in/out).
+fn fp_two_reg_f32(kind: TwoRegFp, bits: u32) -> u32 {
+    use TwoRegFp::*;
+    let x = f32::from_bits(bits);
+    let mask = |c: bool| if c { u32::MAX } else { 0 };
+    match kind {
+        Fabs => x.abs().to_bits(),
+        Fneg => (-x).to_bits(),
+        Fsqrt => x.sqrt().to_bits(),
+        RintN | RintX | RintI => x.round_ties_even().to_bits(),
+        RintP => x.ceil().to_bits(),
+        RintM => x.floor().to_bits(),
+        RintZ => x.trunc().to_bits(),
+        RintA => x.round().to_bits(),
+        CmGt => mask(x > 0.0),
+        CmGe => mask(x >= 0.0),
+        CmEq => mask(x == 0.0),
+        CmLe => mask(x <= 0.0),
+        CmLt => mask(x < 0.0),
+        CvtNS | CvtMS | CvtPS | CvtZS | CvtAS => {
+            let r = match kind {
+                CvtNS => x.round_ties_even(),
+                CvtMS => x.floor(),
+                CvtPS => x.ceil(),
+                CvtZS => x.trunc(),
+                _ => x.round(),
+            };
+            (r as i32) as u32
+        }
+        CvtNU | CvtMU | CvtPU | CvtZU | CvtAU => {
+            let r = match kind {
+                CvtNU => x.round_ties_even(),
+                CvtMU => x.floor(),
+                CvtPU => x.ceil(),
+                CvtZU => x.trunc(),
+                _ => x.round(),
+            };
+            r as u32
+        }
+    }
+}
+
+/// Apply a two-reg-misc FP op to one f64 element (raw bits in/out).
+fn fp_two_reg_f64(kind: TwoRegFp, bits: u64) -> u64 {
+    use TwoRegFp::*;
+    let x = f64::from_bits(bits);
+    let mask = |c: bool| if c { u64::MAX } else { 0 };
+    match kind {
+        Fabs => x.abs().to_bits(),
+        Fneg => (-x).to_bits(),
+        Fsqrt => x.sqrt().to_bits(),
+        RintN | RintX | RintI => x.round_ties_even().to_bits(),
+        RintP => x.ceil().to_bits(),
+        RintM => x.floor().to_bits(),
+        RintZ => x.trunc().to_bits(),
+        RintA => x.round().to_bits(),
+        CmGt => mask(x > 0.0),
+        CmGe => mask(x >= 0.0),
+        CmEq => mask(x == 0.0),
+        CmLe => mask(x <= 0.0),
+        CmLt => mask(x < 0.0),
+        CvtNS | CvtMS | CvtPS | CvtZS | CvtAS => {
+            let r = match kind {
+                CvtNS => x.round_ties_even(),
+                CvtMS => x.floor(),
+                CvtPS => x.ceil(),
+                CvtZS => x.trunc(),
+                _ => x.round(),
+            };
+            (r as i64) as u64
+        }
+        CvtNU | CvtMU | CvtPU | CvtZU | CvtAU => {
+            let r = match kind {
+                CvtNU => x.round_ties_even(),
+                CvtMU => x.floor(),
+                CvtPU => x.ceil(),
+                CvtZU => x.trunc(),
+                _ => x.round(),
+            };
+            r as u64
+        }
     }
 }
 
