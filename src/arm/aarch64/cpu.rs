@@ -6892,6 +6892,29 @@ impl AArch64Cpu {
             return Ok(CpuExit::Continue);
         }
 
+        // LDFF1 (first-fault contiguous, scalar+scalar): 1010010 dtype Rm 011 Pg
+        // Rn Zt. Like LD1 (addr=base+(Xm+e)*mbytes) but the first active element
+        // faults normally while later elements are suppressed (FFR cleared).
+        if !is_store && insn >> 25 == 0b1010010 && b15_13 == 0b011 {
+            let dtype = (insn >> 21) & 0xF;
+            let (esize, mbytes, signed) = sve_ld1_dtype(dtype);
+            let elements = 16 / esize;
+            let rm = ((insn >> 16) & 0x1F) as u8;
+            let addr0 = base.wrapping_add(self.get_x(rm).wrapping_mul(mbytes as u64));
+            return self.exec_sve_ff_load(addr0, mbytes, esize, signed, elements, pred, zt, false);
+        }
+
+        // LDNF1 (non-fault contiguous, scalar+imm): 1010010 dtype 1 imm4 101 Pg
+        // Rn Zt (bit20==1 separates it from LD1's bit20==0). No access faults;
+        // any element that would fault is suppressed (FFR cleared).
+        if !is_store && insn >> 25 == 0b1010010 && b15_13 == 0b101 && (insn >> 20) & 1 == 1 {
+            let dtype = (insn >> 21) & 0xF;
+            let (esize, mbytes, signed) = sve_ld1_dtype(dtype);
+            let elements = 16 / esize;
+            let addr0 = (base as i64 + imm4 * (elements * mbytes) as i64) as u64;
+            return self.exec_sve_ff_load(addr0, mbytes, esize, signed, elements, pred, zt, true);
+        }
+
         // ST1 (scalar + scalar register offset): 1110010 msz size Rm 010 Pg Rn Zt.
         if is_store && insn >> 25 == 0b1110010 && b15_13 == 0b010 {
             let rm = ((insn >> 16) & 0x1F) as u8;
@@ -7461,8 +7484,70 @@ impl AArch64Cpu {
             return Ok(CpuExit::Continue);
         }
 
-        // Other SVE memory forms (LD1RQ, first-fault) are not yet modelled.
+        // Other SVE memory forms (gather/vector first-fault) are not yet modelled.
         Ok(CpuExit::Undefined(insn))
+    }
+
+    /// Shared body for the contiguous first-fault (LDFF1) and non-fault (LDNF1)
+    /// loads. Loads each active element; on an access that cannot be performed
+    /// the access is suppressed: for LDFF1 the very first active element still
+    /// faults normally, but any later element (and every element for LDNF1) is
+    /// suppressed, the FFR is cleared from that element onward, and the
+    /// suppressed/inactive lanes are zeroed. With no fault this is exactly LD1.
+    #[allow(clippy::too_many_arguments)]
+    fn exec_sve_ff_load(
+        &mut self,
+        addr0: u64,
+        mbytes: usize,
+        esize: usize,
+        signed: bool,
+        elements: usize,
+        pred: u32,
+        zt: usize,
+        nonfault: bool,
+    ) -> Result<CpuExit, ArmError> {
+        let mut dst = [0u8; 16];
+        let mut first = true;
+        let mut faulted = false;
+        for e in 0..elements {
+            if (pred >> (e * esize)) & 1 != 1 {
+                continue; // inactive -> zero
+            }
+            if faulted {
+                self.sve_ffr &= !(1u32 << (e * esize));
+                continue;
+            }
+            let ea = addr0 + (e * mbytes) as u64;
+            let read: Result<u64, ArmError> = match self.translate_address(ea, false, false) {
+                Ok(pa) => match mbytes {
+                    1 => self.memory.read_u8(pa).map(|v| v as u64).map_err(Into::into),
+                    2 => self.memory.read_u16(pa).map(|v| v as u64).map_err(Into::into),
+                    4 => self.memory.read_u32(pa).map(|v| v as u64).map_err(Into::into),
+                    _ => self.memory.read_u64(pa).map_err(Into::into),
+                },
+                Err(err) => Err(err),
+            };
+            match read {
+                Ok(raw) => {
+                    let val = if signed {
+                        (sext_elem(raw, (mbytes * 8) as u32) as u64) & elem_mask((esize * 8) as u32)
+                    } else {
+                        raw
+                    };
+                    write_elem(&mut dst, e * esize, esize, val);
+                    first = false;
+                }
+                Err(err) => {
+                    if first && !nonfault {
+                        return Err(err); // LDFF1's first active element faults normally
+                    }
+                    faulted = true;
+                    self.sve_ffr &= !(1u32 << (e * esize));
+                }
+            }
+        }
+        self.v[zt] = u128::from_le_bytes(dst);
+        Ok(CpuExit::Continue)
     }
 
     // =========================================================================

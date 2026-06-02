@@ -1625,6 +1625,16 @@ fn enc_scatter_d(msz: u32, scaled: bool) -> u32 {
         | (0b101 << 13) | (RN << 5) | RD
 }
 
+/// SVE LDFF1 (first-fault, scalar+scalar): `1010010 dtype Rm 011 Pg Rn Zt`.
+fn enc_ldff1(dtype: u32) -> u32 {
+    (0b1010010 << 25) | (dtype << 21) | (RM << 16) | (0b011 << 13) | (RN << 5) | RD
+}
+/// SVE LDNF1 (non-fault, scalar+imm): `1010010 dtype 1 imm4 101 Pg Rn Zt`.
+fn enc_ldnf1(dtype: u32, imm4: i32) -> u32 {
+    (0b1010010 << 25) | (dtype << 21) | (1 << 20) | (((imm4 as u32) & 0xF) << 16)
+        | (0b101 << 13) | (RN << 5) | RD
+}
+
 /// SVE FFR-manipulation encodings (fully fixed apart from the predicate fields).
 fn enc_setffr() -> u32 {
     0x252C_9000
@@ -2540,6 +2550,36 @@ fn diff_sve_scatter_d() {
         }
     }
     run_batch("sve_scatter_d", batch);
+}
+
+#[test]
+fn diff_sve_ldff1() {
+    // First-fault (LDFF1) / non-fault (LDNF1) contiguous loads. Only the FIRST
+    // active element is architecturally guaranteed to load — qemu legally
+    // suppresses later elements (CONSTRAINED UNPREDICTABLE), even a lone
+    // higher-index active element. So each case activates ONLY element 0 (always
+    // the guaranteed element) with FFR pre-set all-true via a leading SETFFR;
+    // the loaded element-0 Zt is then deterministic and equals LD1. Per-element
+    // load correctness for the other lanes is covered by the LD1/LD1R families.
+    let mut rng = Rng::new(0x4_E001);
+    let mut batch: Vec<(String, u32, u32, ArmState)> = Vec::new();
+    for dtype in 0..16u32 {
+        let ldff = enc_ldff1(dtype);
+        for &xm in &[0u64, 1, 2, 3] {
+            let mut st = mem_input(&mut rng);
+            st.x[2] = xm;
+            st.set_preg(0, 1); // only element 0 active
+            batch.push((format!("ldff1 dt{dtype} x{xm}"), enc_setffr(), ldff, st));
+        }
+        for &imm4 in &[0i32, 1, -1] {
+            let ldnf = enc_ldnf1(dtype, imm4);
+            let mut st = mem_input(&mut rng);
+            st.set_preg(0, 1);
+            let _ = &mut rng;
+            batch.push((format!("ldnf1 dt{dtype} i{imm4}"), enc_setffr(), ldnf, st));
+        }
+    }
+    run_batch_pair("sve_ldff1", batch);
 }
 
 #[test]
