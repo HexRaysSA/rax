@@ -4977,6 +4977,45 @@ impl AArch64Cpu {
                 self.exec_sve_lastx(insn, esize)
             }
 
+            // MOVPRFX Zd, Zn (unpredicated whole-register copy): 0x04,
+            // bits[23:16]==00100000, bits[15:10]==101111. Standalone it is a
+            // plain vector move.
+            0b000
+                if (insn >> 24) & 0xFF == 0b00000100
+                    && (insn >> 16) & 0xFF == 0b00100000
+                    && (insn >> 10) & 0x3F == 0b101111 =>
+            {
+                self.v[zd] = self.v[zn];
+                Ok(CpuExit::Continue)
+            }
+
+            // MOVPRFX Zd.T, Pg/M-or-Z, Zn.T (predicated copy): 0x04,
+            // bits[21:18]==0100, bit17==0, bits[15:13]==001. Active lanes copy
+            // Zn; inactive lanes merge (M=1, keep Zd) or zero (M=0). Must precede
+            // the integer-reduction arm, which shares bit21==0 && bits[15:13]==001.
+            0b000
+                if (insn >> 24) & 0xFF == 0b00000100
+                    && (insn >> 18) & 0xF == 0b0100
+                    && (insn >> 17) & 1 == 0
+                    && (insn >> 13) & 0x7 == 0b001 =>
+            {
+                let merging = (insn >> 16) & 1 == 1;
+                let pred = self.sve_p[pg];
+                let elements = 16 / esize;
+                let n_reg = self.v[zn].to_le_bytes();
+                let mut dst = self.v[zd].to_le_bytes(); // merging base = prior Zd
+                for e in 0..elements {
+                    let off = e * esize;
+                    if (pred >> off) & 1 == 1 {
+                        write_elem(&mut dst, off, esize, read_elem(&n_reg, off, esize));
+                    } else if !merging {
+                        write_elem(&mut dst, off, esize, 0);
+                    }
+                }
+                self.v[zd] = u128::from_le_bytes(dst);
+                Ok(CpuExit::Continue)
+            }
+
             // Integer reductions to a scalar (SADDV/UADDV/SMAXV/.../ANDV/ORV/
             // EORV): bit21==0, bits[15:13]==001.
             0b000 if (insn >> 21) & 1 == 0 && (insn >> 13) & 0x7 == 0b001 => {
