@@ -765,6 +765,14 @@ impl RiscVLifter {
             RvOp::SextB => ops.push(mk(ctx, OpKind::SignExtend { dst, src: rs1, from_width: OpWidth::W8, to_width: w })),
             RvOp::SextH => ops.push(mk(ctx, OpKind::SignExtend { dst, src: rs1, from_width: OpWidth::W16, to_width: w })),
             RvOp::Rev8 => ops.push(mk(ctx, OpKind::Bswap { dst, src: rs1, width: w })),
+            // Brev8 (reverse bits within each byte) = bswap(rbit(x)): a full bit
+            // reverse moves byte i's bits (reversed) to byte 7-i; the byte swap
+            // moves them back, leaving each byte bit-reversed in place.
+            RvOp::Brev8 => {
+                let t = ctx.alloc_vreg();
+                ops.push(mk(ctx, OpKind::Rbit { dst: t, src: rs1, width: w }));
+                ops.push(mk(ctx, OpKind::Bswap { dst, src: t, width: w }));
+            }
             // SHA / SM3: xor-folds of rotates and a logical shift. 32-bit ops
             // (sha256/sm3) sign-extend the W32 result; sha512 are native W64.
             RvOp::Sha256Sig0 => self.crypto_xor3(ctx, &mut ops, addr, rs1, dst, &[(R, 7), (R, 18), (S, 3)], true),
@@ -1552,13 +1560,58 @@ impl RiscVLifter {
                     }
                 }
                 0b010 => {
-                    // MULHSU (signed * unsigned, high word): no direct SMIR op
-                    // and a correct sequence is non-trivial — leave unlifted
-                    // rather than emit the wrong (signed*signed) result.
-                    return Err(LiftError::Unsupported {
+                    // MULHSU (signed * unsigned, high word). No direct SMIR op,
+                    // but the identity mulhsu(a,b) = mulhu(a,b) - (a<0 ? b : 0)
+                    // holds (s_a = u_a - 2^64*(a<0)).
+                    let lo = ctx.alloc_vreg();
+                    let hi = ctx.alloc_vreg();
+                    ops.push(SmirOp::new(
+                        ctx.next_op_id(),
                         addr,
-                        mnemonic: "mulhsu".into(),
-                    });
+                        OpKind::MulU {
+                            dst_lo: lo,
+                            dst_hi: Some(hi),
+                            src1: rs1,
+                            src2: SrcOperand::Reg(rs2),
+                            width,
+                            flags: FlagUpdate::None,
+                        },
+                    ));
+                    ops.push(SmirOp::new(
+                        ctx.next_op_id(),
+                        addr,
+                        OpKind::Cmp { src1: rs1, src2: SrcOperand::Imm(0), width },
+                    ));
+                    let neg = ctx.alloc_vreg();
+                    ops.push(SmirOp::new(
+                        ctx.next_op_id(),
+                        addr,
+                        OpKind::SetCC { dst: neg, cond: Condition::Slt, width },
+                    ));
+                    let zero = ctx.alloc_vreg();
+                    ops.push(SmirOp::new(
+                        ctx.next_op_id(),
+                        addr,
+                        OpKind::Mov { dst: zero, src: SrcOperand::Imm(0), width },
+                    ));
+                    let subv = ctx.alloc_vreg();
+                    ops.push(SmirOp::new(
+                        ctx.next_op_id(),
+                        addr,
+                        OpKind::Select { dst: subv, cond: neg, src_true: rs2, src_false: zero, width },
+                    ));
+                    ops.push(SmirOp::new(
+                        ctx.next_op_id(),
+                        addr,
+                        OpKind::Sub {
+                            dst,
+                            src1: hi,
+                            src2: SrcOperand::Reg(subv),
+                            width,
+                            flags: FlagUpdate::None,
+                        },
+                    ));
+                    return Ok((ops, ControlFlow::NextInsn));
                 }
                 0b011 => {
                     // MULHU (upper bits, unsigned * unsigned)
