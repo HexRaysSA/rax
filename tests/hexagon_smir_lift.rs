@@ -1453,3 +1453,53 @@ fn lift_hvx_vand_vr() {
         0x7029,
     );
 }
+
+// ---- Wave 15: more HVX integer multiply variants ----
+// vmpyuhe (even unsigned-halfword * Rt.uh0) via VBroadcast + VMulEvenWiden;
+// vmpyiwb/vmpyiwub/vmpyiwh (word * Rt sub-element, low 32) and vmpyihb (half *
+// Rt.b, low 16) via VBroadcast + a 1-tap VReduceMul that reuses the broadcast
+// temp's per-lane sub-element exactly as the sem indexes Rt (i%4 / i%2). The
+// `_acc` forms seed the dest vector to exercise the read-modify-write path.
+
+#[test]
+fn lift_hvx_vmpyuhe() {
+    lift_family(
+        "hvx_vmpyuhe",
+        &[
+            ("vmpyuhe", "{ v2.uw = vmpye(v0.uh,r3.uh) }"),
+            ("vmpyuhe_acc", "{ v2.uw += vmpye(v0.uh,r3.uh) }"),
+        ],
+        16,
+        0x7030,
+    );
+}
+
+#[test]
+fn lift_hvx_vmpyiw_scalar() {
+    lift_family(
+        "hvx_vmpyiw_scalar",
+        &[
+            ("vmpyiwb", "{ v2.w = vmpyi(v0.w,r3.b) }"),
+            ("vmpyiwb_acc", "{ v2.w += vmpyi(v0.w,r3.b) }"),
+            ("vmpyiwub", "{ v2.w = vmpyi(v0.w,r3.ub) }"),
+            ("vmpyiwub_acc", "{ v2.w += vmpyi(v0.w,r3.ub) }"),
+            ("vmpyiwh", "{ v2.w = vmpyi(v0.w,r3.h) }"),
+            ("vmpyiwh_acc", "{ v2.w += vmpyi(v0.w,r3.h) }"),
+        ],
+        16,
+        0x7031,
+    );
+}
+
+#[test]
+fn lift_hvx_vmpyihb_scalar() {
+    lift_family(
+        "hvx_vmpyihb_scalar",
+        &[
+            ("vmpyihb", "{ v2.h = vmpyi(v0.h,r3.b) }"),
+            ("vmpyihb_acc", "{ v2.h += vmpyi(v0.h,r3.b) }"),
+        ],
+        16,
+        0x7032,
+    );
+}
