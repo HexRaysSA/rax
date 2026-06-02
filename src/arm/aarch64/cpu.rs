@@ -5233,6 +5233,46 @@ impl AArch64Cpu {
                 Ok(CpuExit::Continue)
             }
 
+            // SVE2 complex integer add (CADD/SQCADD): 0x45, bits[21:17]==00000,
+            // bits[15:11]==11011. Treats element pairs as (real, imag); adds Zm
+            // rotated by 90 (rot=0) or 270 (rot=1) degrees into Zdn. op=bit16
+            // selects the saturating form (SQCADD).
+            0b010
+                if (insn >> 24) & 0xFF == 0b01000101
+                    && (insn >> 17) & 0x1F == 0
+                    && (insn >> 11) & 0x1F == 0b11011 =>
+            {
+                let size = (insn >> 22) & 0x3;
+                let esize = 1usize << size;
+                let bits = (esize * 8) as u32;
+                let mask = elem_mask(bits);
+                let sat = (insn >> 16) & 1 == 1;
+                let rot = (insn >> 10) & 1;
+                let dn = self.v[zd].to_le_bytes(); // Zdn
+                let m = self.v[zn].to_le_bytes(); // Zm (bits[9:5])
+                let mut dst = dn;
+                let pairs = (16 / esize) / 2;
+                let hi = (1i128 << (bits - 1)) - 1;
+                let lo = -(1i128 << (bits - 1));
+                let clamp = |v: i128| if sat { v.clamp(lo, hi) } else { v };
+                for p in 0..pairs {
+                    let (re, im) = (2 * p * esize, (2 * p + 1) * esize);
+                    let dn_re = sext_elem(read_elem(&dn, re, esize), bits);
+                    let dn_im = sext_elem(read_elem(&dn, im, esize), bits);
+                    let m_re = sext_elem(read_elem(&m, re, esize), bits);
+                    let m_im = sext_elem(read_elem(&m, im, esize), bits);
+                    let (r_re, r_im) = if rot == 0 {
+                        (dn_re - m_im, dn_im + m_re) // rotate Zm by 90 degrees
+                    } else {
+                        (dn_re + m_im, dn_im - m_re) // rotate Zm by 270 degrees
+                    };
+                    write_elem(&mut dst, re, esize, clamp(r_re) as u64 & mask);
+                    write_elem(&mut dst, im, esize, clamp(r_im) as u64 & mask);
+                }
+                self.v[zd] = u128::from_le_bytes(dst);
+                Ok(CpuExit::Continue)
+            }
+
             // SVE2 saturating extract narrow: 010001010 tszh 1 tszl 000010 vv T.
             // (bit12,bit11): 00=SQXTN (signed->signed sat), 01=UQXTN (unsigned->
             // unsigned sat), 10=SQXTUN (signed->unsigned sat). The dest element
