@@ -35,50 +35,22 @@ const NREG: usize = 32;
 const CODE_ADDR: u32 = 0x1000;
 
 /// HVX saturating families whose qemu-verified interpreter sets the USR:OVF
-/// sticky bit but whose SMIR vector lift does NOT yet model it. These all route
-/// through SHARED vector `OpKind`s (`VLane`/`VNarrowShiftSat`/`VReduceMul`/
+/// sticky bit but whose SMIR vector lift did NOT model it. These all route
+/// through vector `OpKind`s (`VLane`/`VNarrowShiftSat`/`VReduceMul`/
 /// `VSlideReduceMul`/`VMpaHhSat`/`VMpyHsatAcc`/`VSatDW`/`VNarrowShiftV`/`VCarry`/
-/// `VAddSubMixedSat`) that are shared with NON-OVF-setting opcodes (e.g.
+/// `VAddSubMixedSat`) some of which are SHARED with NON-OVF-setting opcodes (e.g.
 /// `vasrwhsat`/`vpackhub_sat`/`vsubuwsat_dv` use bare `clamp` and set no OVF,
-/// while `vsathub`/`vsubuwsat`/`vdmpyhsat` use `sat_n`/`satu_n` and DO). Modelling
-/// this correctly requires threading a per-instance `set_ovf` flag onto those
-/// shared OpKinds — a deferred follow-up wave (see report `needs_opkind`).
+/// while `vsathub`/`vsubuwsat`/`vdmpyhsat` use `sat_n`/`satu_n` and DO).
 ///
-/// The usr_ovf comparison is otherwise FULLY enforced (it catches every SCALAR
-/// saturating family and the value/V/Q checks remain enforced for these labels
-/// too); only the OVF bit for these explicitly-deferred HVX labels is exempt,
-/// and the exemption is logged loudly (never silent).
-const OVF_DEFERRED_HVX: &[&str] = &[
-    "vaddcarrysat",
-    "vaddububb_sat",
-    "vsubububb_sat",
-    "vsubuwsat",
-    "vasrvwuhsat",
-    "vasrvwuhrndsat",
-    "vasrvuhubsat",
-    "vasrvuhubrndsat",
-    "vdmpyhisat_acc",
-    "vdmpyhsat_acc",
-    "vdmpyhsuisat",
-    "vdmpyhsuisat_acc",
-    "vdmpyhsusat",
-    "vdmpyhsusat_acc",
-    "vdmpyhvsat_acc",
-    "vmpahhsat",
-    "vmpauhuhsat",
-    "vmpsuhuhsat",
-    "vmpyhsat_acc",
-    "vroundhb",
-    "vroundhub",
-    "vrounduhub",
-    "vroundwh",
-    "vroundwuh",
-    "vrounduwuh",
-    "vsathub",
-    "vsatwh",
-    "vsatuwuh",
-    "vsatdw",
-];
+/// This is now EMPTY: a per-instance `set_ovf: bool` flag was threaded onto the
+/// four shared OpKinds (`VLane`/`VNarrowShiftSat`/`VReduceMul`/`VSlideReduceMul`),
+/// and the dedicated saturating arms (`VSatDW`/`VNarrowShiftV`/`VAddSubMixedSat`/
+/// `VMpaHhSat`/`VMpyHsatAcc`/`VCarry` with `sat`) set USR:OVF directly when a lane
+/// clamps. The lifter sets `set_ovf=true` only for the opcodes whose sem calls
+/// `ctx.sat_n`/`ctx.satu_n`; the bare-`clamp` siblings keep `set_ovf=false`. All
+/// 28 formerly-deferred families now verify 0-divergence INCLUDING usr_ovf, so
+/// the usr_ovf comparison below is fully enforced for every label.
+const OVF_DEFERRED_HVX: &[&str] = &[];
 
 fn which(prog: &str) -> Option<PathBuf> {
     let path = std::env::var_os("PATH")?;

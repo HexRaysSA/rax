@@ -1699,7 +1699,8 @@ fn smir_op_kind_json(kind: &OpKind) -> Value {
             lanes,
             op,
             signed,
-        } => op_json!("vlane", dst, src1, src2, elem, lanes, op, signed),
+            set_ovf,
+        } => op_json!("vlane", dst, src1, src2, elem, lanes, op, signed, set_ovf),
         OpKind::VWidenMul {
             dst_lo,
             dst_hi,
@@ -1934,6 +1935,7 @@ fn smir_op_kind_json(kind: &OpKind) -> Value {
             arith,
             round,
             sat,
+            set_ovf,
         } => op_json!(
             "vnarrow_shift_sat",
             dst,
@@ -1943,7 +1945,8 @@ fn smir_op_kind_json(kind: &OpKind) -> Value {
             amount,
             arith,
             round,
-            sat
+            sat,
+            set_ovf
         ),
         OpKind::VSatDW {
             dst,
@@ -2134,6 +2137,7 @@ fn smir_op_kind_json(kind: &OpKind) -> Value {
             signed1,
             signed2,
             sat,
+            set_ovf,
             acc,
         } => op_json!(
             "vslide_reduce_mul",
@@ -2149,6 +2153,7 @@ fn smir_op_kind_json(kind: &OpKind) -> Value {
             signed1,
             signed2,
             sat,
+            set_ovf,
             acc
         ),
         OpKind::VRotReduceMulPair {
@@ -2194,6 +2199,7 @@ fn smir_op_kind_json(kind: &OpKind) -> Value {
             signed1,
             signed2,
             sat,
+            set_ovf,
             acc,
         } => op_json!(
             "vreduce_mul",
@@ -2207,6 +2213,7 @@ fn smir_op_kind_json(kind: &OpKind) -> Value {
             signed1,
             signed2,
             sat,
+            set_ovf,
             acc
         ),
         OpKind::VShift {

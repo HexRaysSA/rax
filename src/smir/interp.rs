@@ -1872,18 +1872,29 @@ impl SmirInterpreter {
                 lanes,
                 op,
                 signed,
+                set_ovf,
             } => {
                 let a = Self::read_vec(ctx, *src1);
                 let b = Self::read_vec(ctx, *src2);
                 let elem_bits = elem.bytes() * 8;
                 let mut result = [0u64; 16];
+                let mut ovf = false;
                 for lane in 0..*lanes {
                     let av = Self::get_lane(&a, lane, elem_bits);
                     let bv = Self::get_lane(&b, lane, elem_bits);
                     let rv = Self::apply_lane_op(*op, av, bv, elem_bits, *signed);
+                    // For the saturating VLane opcodes whose sem uses
+                    // `ctx.sat_n`/`ctx.satu_n` (e.g. `vsubuwsat`), flag USR:OVF
+                    // on any lane whose add/sub clamped out of the target range.
+                    if *set_ovf {
+                        ovf |= Self::lane_sat_clamped(*op, av, bv, elem_bits, *signed);
+                    }
                     Self::set_lane(&mut result, lane, elem_bits, rv);
                 }
                 Self::write_vec(ctx, *dst, result);
+                if *set_ovf && ovf {
+                    Self::set_hex_ovf(ctx);
+                }
             }
 
             OpKind::VWidenMul {
@@ -2676,6 +2687,10 @@ impl SmirInterpreter {
                 };
                 let mut out = [0u64; 16];
                 let mut qout = [0u64; 16];
+                // vaddcarrysat (sat=true) is the only carry form that saturates;
+                // its sem (hvx_carry.rs) clamps via `ctx.sat_n(s, 32)`, setting
+                // USR:OVF on any clamped lane.
+                let mut ovf = false;
                 for i in 0..32usize {
                     let av = Self::get_lane(&a, i as u8, 32) as u32;
                     let bv0 = Self::get_lane(&b, i as u8, 32) as u32;
@@ -2690,6 +2705,9 @@ impl SmirInterpreter {
                         // vaddcarrysat: signed sat_32 of Vu + Vv + cin (no
                         // carry-out). `sub` is never set for the sat form.
                         let s = av as i32 as i64 + bv0 as i32 as i64 + cin as i64;
+                        if s < i32::MIN as i64 || s > i32::MAX as i64 {
+                            ovf = true;
+                        }
                         let clamped = s.clamp(i32::MIN as i64, i32::MAX as i64) as u32;
                         Self::set_lane(&mut out, i as u8, 32, clamped as u64);
                     } else {
@@ -2709,6 +2727,9 @@ impl SmirInterpreter {
                 Self::write_vec(ctx, *dst, out);
                 if *has_cout {
                     Self::write_vec(ctx, *q_inout, qout);
+                }
+                if *sat && ovf {
+                    Self::set_hex_ovf(ctx);
                 }
             }
 
@@ -2913,14 +2934,24 @@ impl SmirInterpreter {
                 let u = Self::read_vec(ctx, *src1);
                 let v = Self::read_vec(ctx, *src2);
                 let mut out = [0u64; 16];
+                // vaddububb_sat/vsubububb_sat are dedicated; their sem
+                // (hvx_addsub.rs) clamps via `ctx.satu_n(r, 8)`, setting USR:OVF
+                // on any clamped lane.
+                let mut ovf = false;
                 for i in 0..128u8 {
                     let a = Self::get_lane(&u, i, 8) as i32; // unsigned byte
                     let b = Self::get_lane(&v, i, 8) as u8 as i8 as i32; // signed byte
                     let r = if *sub { a - b } else { a + b };
+                    if r < 0 || r > 255 {
+                        ovf = true;
+                    }
                     let s = r.clamp(0, 255) as u64;
                     Self::set_lane(&mut out, i, 8, s);
                 }
                 Self::write_vec(ctx, *dst, out);
+                if ovf {
+                    Self::set_hex_ovf(ctx);
+                }
             }
 
             // HVX vsetq / vsetq2: build a Q vector predicate from a scalar length.
@@ -2977,6 +3008,10 @@ impl SmirInterpreter {
                 let vu = Self::read_vec(ctx, *src);
                 let rtt = ctx.read_vreg(*table);
                 let mut out = [0u64; 16];
+                // vmpahhsat/vmpauhuhsat/vmpsuhuhsat are dedicated; their sem
+                // (hvx_mpys.rs) clamps via `ctx.sat_n(prod >> 16, 16)`, setting
+                // USR:OVF on any clamped lane.
+                let mut ovf = false;
                 for i in 0..64u8 {
                     let x = Self::get_lane(&vx, i, 16) as u16 as i16 as i64; // Vx.h signed
                     let raw = Self::get_lane(&vu, i, 16) as u16;
@@ -2995,10 +3030,17 @@ impl SmirInterpreter {
                     let addend = t << 15;
                     // vmps subtracts the scalar term; vmpa adds it.
                     let prod = ((x * u) << *shl) + if *sub { -addend } else { addend };
-                    let r = (prod >> 16).clamp(-(1i64 << 15), (1i64 << 15) - 1);
+                    let v = prod >> 16;
+                    if v < -(1i64 << 15) || v > (1i64 << 15) - 1 {
+                        ovf = true;
+                    }
+                    let r = v.clamp(-(1i64 << 15), (1i64 << 15) - 1);
                     Self::set_lane(&mut out, i, 16, r as u64 & 0xffff);
                 }
                 Self::write_vec(ctx, *dst, out);
+                if ovf {
+                    Self::set_hex_ovf(ctx);
+                }
             }
 
             // HVX vmpyhsat_acc: Vxx.w[i] += sat32(Vu.h[2i/2i+1] * Rt.h[0/1]).
@@ -3011,18 +3053,29 @@ impl SmirInterpreter {
                 let mut hi = Self::read_vec(ctx, *dst_hi);
                 let smin = -(1i64 << 31);
                 let smax = (1i64 << 31) - 1;
+                // vmpyhsat_acc is dedicated; its sem (hvx_mpyv.rs) clamps via
+                // `ctx.sat_n(.., 32)`, setting USR:OVF on any clamped lane.
+                let mut ovf = false;
                 for i in 0..32u8 {
                     let p0 = (Self::get_lane(&vu, 2 * i, 16) as u16 as i16 as i64) * rt0;
                     let p1 = (Self::get_lane(&vu, 2 * i + 1, 16) as u16 as i16 as i64) * rt1;
                     let a0 = Self::get_lane(&lo, i, 32) as u32 as i32 as i64;
                     let a1 = Self::get_lane(&hi, i, 32) as u32 as i32 as i64;
-                    let s0 = (a0 + p0).clamp(smin, smax);
-                    let s1 = (a1 + p1).clamp(smin, smax);
+                    let r0 = a0 + p0;
+                    let r1 = a1 + p1;
+                    if r0 < smin || r0 > smax || r1 < smin || r1 > smax {
+                        ovf = true;
+                    }
+                    let s0 = r0.clamp(smin, smax);
+                    let s1 = r1.clamp(smin, smax);
                     Self::set_lane(&mut lo, i, 32, s0 as u64 & 0xffff_ffff);
                     Self::set_lane(&mut hi, i, 32, s1 as u64 & 0xffff_ffff);
                 }
                 Self::write_vec(ctx, *dst_lo, lo);
                 Self::write_vec(ctx, *dst_hi, hi);
+                if ovf {
+                    Self::set_hex_ovf(ctx);
+                }
             }
 
             // HVX vasr_into: shift Vu.w into the running accumulator pair Vxx.
@@ -3429,6 +3482,7 @@ impl SmirInterpreter {
                 arith,
                 round,
                 sat,
+                set_ovf,
             } => {
                 let lo_src = Self::read_vec(ctx, *src_lo);
                 let hi_src = Self::read_vec(ctx, *src_hi);
@@ -3453,7 +3507,10 @@ impl SmirInterpreter {
                     }
                 };
                 // Shift-round one wide lane and saturate to the narrow width.
-                let narrow = |raw: u64| -> u64 {
+                // Returns (narrowed value, clamped?) where `clamped` mirrors the
+                // sem's `ctx.sat_n`/`ctx.satu_n` overflow flag (value outside the
+                // target range BEFORE clamping).
+                let narrow = |raw: u64| -> (u64, bool) {
                     let mut v = ext(raw);
                     if *round && shamt > 0 {
                         v += 1i64 << (shamt - 1);
@@ -3464,43 +3521,56 @@ impl SmirInterpreter {
                         1 => {
                             let lo = -(1i64 << (nbits - 1));
                             let hi = (1i64 << (nbits - 1)) - 1;
-                            (v.clamp(lo, hi) as u64) & ((1u64 << nbits) - 1)
+                            let c = v < lo || v > hi;
+                            ((v.clamp(lo, hi) as u64) & ((1u64 << nbits) - 1), c)
                         }
                         // unsigned narrow
                         2 => {
                             let hi = (1i64 << nbits) - 1;
-                            (v.clamp(0, hi) as u64) & ((1u64 << nbits) - 1)
+                            let c = v < 0 || v > hi;
+                            ((v.clamp(0, hi) as u64) & ((1u64 << nbits) - 1), c)
                         }
                         // truncate
-                        _ => (v as u64) & ((1u64 << nbits) - 1),
+                        _ => ((v as u64) & ((1u64 << nbits) - 1), false),
                     }
                 };
                 let mut result = [0u64; 16];
+                let mut ovf = false;
                 for i in 0..wide_lanes {
                     // even/low sub-lane <- src_lo (Vv); odd/high <- src_hi (Vu)
-                    Self::set_lane(&mut result, 2 * i, nbits, narrow(Self::get_lane(&lo_src, i, wbits)));
-                    Self::set_lane(
-                        &mut result,
-                        2 * i + 1,
-                        nbits,
-                        narrow(Self::get_lane(&hi_src, i, wbits)),
-                    );
+                    let (lv, lc) = narrow(Self::get_lane(&lo_src, i, wbits));
+                    Self::set_lane(&mut result, 2 * i, nbits, lv);
+                    let (hv, hc) = narrow(Self::get_lane(&hi_src, i, wbits));
+                    Self::set_lane(&mut result, 2 * i + 1, nbits, hv);
+                    ovf |= lc | hc;
                 }
                 Self::write_vec(ctx, *dst, result);
+                if *set_ovf && ovf {
+                    Self::set_hex_ovf(ctx);
+                }
             }
 
             OpKind::VSatDW { dst, src_lo, src_hi } => {
                 let lo = Self::read_vec(ctx, *src_lo);
                 let hi = Self::read_vec(ctx, *src_hi);
                 let mut result = [0u64; 16];
+                // vsatdw is dedicated; its sem (hvx_round.rs) clamps via
+                // `ctx.sat_n(val, 32)`, which sets USR:OVF on any clamped lane.
+                let mut ovf = false;
                 for i in 0..32u8 {
                     let h = Self::get_lane(&hi, i, 32) as i32 as i64; // sign-extended high word
                     let l = Self::get_lane(&lo, i, 32); // zero-extended low word
                     let val = (h << 32) | (l as i64);
+                    if val < i32::MIN as i64 || val > i32::MAX as i64 {
+                        ovf = true;
+                    }
                     let s = val.clamp(i32::MIN as i64, i32::MAX as i64) as i32 as u32;
                     Self::set_lane(&mut result, i, 32, s as u64);
                 }
                 Self::write_vec(ctx, *dst, result);
+                if ovf {
+                    Self::set_hex_ovf(ctx);
+                }
             }
 
             OpKind::VNarrowShiftV {
@@ -3528,34 +3598,33 @@ impl SmirInterpreter {
                 };
                 // amount sub-lanes are narrow-width; mask to log2(narrow_bits).
                 let amask = nbits - 1;
-                let narrow = |raw: u64, s: u32| -> u64 {
+                // vasrv* always saturate to the unsigned narrow range via
+                // `ctx.satu_n` (hvx_round.rs), so every clamped lane sets USR:OVF.
+                let narrow = |raw: u64, s: u32| -> (u64, bool) {
                     let mut v = ext(raw);
                     if *round && s > 0 {
                         v += 1i64 << (s - 1);
                     }
                     v >>= s;
-                    // vasrv* always saturate to the unsigned narrow range.
                     let hi = (1i64 << nbits) - 1;
-                    (v.clamp(0, hi) as u64) & ((1u64 << nbits) - 1)
+                    let c = v < 0 || v > hi;
+                    ((v.clamp(0, hi) as u64) & ((1u64 << nbits) - 1), c)
                 };
                 let mut result = [0u64; 16];
+                let mut ovf = false;
                 for i in 0..wide_lanes {
                     let s0 = (Self::get_lane(&amt, 2 * i, nbits) as u32) & amask;
-                    Self::set_lane(
-                        &mut result,
-                        2 * i,
-                        nbits,
-                        narrow(Self::get_lane(&lo_src, i, wbits), s0),
-                    );
+                    let (v0, c0) = narrow(Self::get_lane(&lo_src, i, wbits), s0);
+                    Self::set_lane(&mut result, 2 * i, nbits, v0);
                     let s1 = (Self::get_lane(&amt, 2 * i + 1, nbits) as u32) & amask;
-                    Self::set_lane(
-                        &mut result,
-                        2 * i + 1,
-                        nbits,
-                        narrow(Self::get_lane(&hi_src, i, wbits), s1),
-                    );
+                    let (v1, c1) = narrow(Self::get_lane(&hi_src, i, wbits), s1);
+                    Self::set_lane(&mut result, 2 * i + 1, nbits, v1);
+                    ovf |= c0 | c1;
                 }
                 Self::write_vec(ctx, *dst, result);
+                if ovf {
+                    Self::set_hex_ovf(ctx);
+                }
             }
 
             OpKind::VPairPairReduceMul {
@@ -3661,6 +3730,7 @@ impl SmirInterpreter {
                 signed1,
                 signed2,
                 sat,
+                set_ovf,
                 acc,
             } => {
                 let v0 = Self::read_vec(ctx, *src_lo);
@@ -3688,15 +3758,18 @@ impl SmirInterpreter {
                 } else {
                     [0u64; 16]
                 };
-                let satn = |s: i64| -> i64 {
+                // Returns (saturated value, clamped?). Only mode 2 saturates; its
+                // sem (hvx_rmpy.rs) clamps via `ctx.sat_n`, flagging USR:OVF.
+                let satn = |s: i64| -> (i64, bool) {
                     if *sat && obits < 64 {
                         let l = -(1i64 << (obits - 1));
                         let h = (1i64 << (obits - 1)) - 1;
-                        s.clamp(l, h)
+                        (s.clamp(l, h), s < l || s > h)
                     } else {
-                        s
+                        (s, false)
                     }
                 };
+                let mut ovf = false;
                 for i in 0..olanes {
                     let n0 = (2 * i) as u8; // narrow lane 2i
                     let n1 = (2 * i + 1) as u8; // narrow lane 2i+1
@@ -3743,13 +3816,18 @@ impl SmirInterpreter {
                             let s = acc_v
                                 .wrapping_add(m(&v0, n1).wrapping_mul(rt(0)))
                                 .wrapping_add(m(&v1, n0).wrapping_mul(rt(1)));
-                            Self::set_lane(&mut lo, i, obits, satn(s) as u64);
+                            let (sv, c) = satn(s);
+                            ovf |= c;
+                            Self::set_lane(&mut lo, i, obits, sv as u64);
                         }
                     }
                 }
                 Self::write_vec(ctx, *dst_lo, lo);
                 if *mode != 2 {
                     Self::write_vec(ctx, *dst_hi, hi);
+                }
+                if *set_ovf && ovf {
+                    Self::set_hex_ovf(ctx);
                 }
             }
 
@@ -4071,6 +4149,7 @@ impl SmirInterpreter {
                 signed1,
                 signed2,
                 sat,
+                set_ovf,
                 acc,
             } => {
                 let a = Self::read_vec(ctx, *src1);
@@ -4092,6 +4171,7 @@ impl SmirInterpreter {
                         v as i64
                     }
                 };
+                let mut ovf = false;
                 for i in 0..olanes {
                     let mut s: i64 = if *acc {
                         // accumulator low `obits` bits, sign-extended for saturating sum.
@@ -4112,11 +4192,19 @@ impl SmirInterpreter {
                     if *sat && obits < 64 {
                         let lo = -(1i64 << (obits - 1));
                         let hi = (1i64 << (obits - 1)) - 1;
+                        // The saturating reduce opcodes clamp via `ctx.sat_n`,
+                        // which flags USR:OVF on any clamped lane.
+                        if s < lo || s > hi {
+                            ovf = true;
+                        }
                         s = s.clamp(lo, hi);
                     }
                     Self::set_lane(&mut out, i, obits, s as u64);
                 }
                 Self::write_vec(ctx, *dst, out);
+                if *set_ovf && ovf {
+                    Self::set_hex_ovf(ctx);
+                }
             }
 
             OpKind::VMov { dst, src, width: _ } => {
@@ -4829,6 +4917,55 @@ impl SmirInterpreter {
     /// Apply a `VLaneOp` to two zero-extended `elem_bits`-wide lane values,
     /// returning the result masked to `elem_bits`. Signed ops sign-extend the
     /// inputs first; saturating ops clamp to the element's signed/unsigned range.
+    /// Returns true iff the saturating lane op `op` clamps `(a, b)` out of the
+    /// target `elem_bits` range — i.e. the Hexagon `ctx.sat_n`/`ctx.satu_n`
+    /// overflow condition. Only `AddSat`/`SubSat` saturate; all other ops never
+    /// clamp (return false). Mirrors `apply_lane_op`'s i128 arithmetic exactly so
+    /// the clamp detection matches the value path bit-for-bit.
+    fn lane_sat_clamped(op: VLaneOp, a: u64, b: u64, elem_bits: u32, signed: bool) -> bool {
+        let mask: u64 = if elem_bits >= 64 {
+            u64::MAX
+        } else {
+            (1u64 << elem_bits) - 1
+        };
+        let sx = |v: u64| -> i64 {
+            if elem_bits >= 64 {
+                v as i64
+            } else {
+                let shift = 64 - elem_bits;
+                ((v << shift) as i64) >> shift
+            }
+        };
+        let smin: i128 = if signed { -(1i128 << (elem_bits - 1)) } else { 0 };
+        let smax: i128 = if signed {
+            (1i128 << (elem_bits - 1)) - 1
+        } else {
+            mask as i128
+        };
+        match op {
+            VLaneOp::AddSat => {
+                if signed {
+                    let s = sx(a) as i128 + sx(b) as i128;
+                    s < smin || s > smax
+                } else {
+                    let s = (a & mask) as u128 + (b & mask) as u128;
+                    s > mask as u128
+                }
+            }
+            VLaneOp::SubSat => {
+                if signed {
+                    let s = sx(a) as i128 - sx(b) as i128;
+                    s < smin || s > smax
+                } else {
+                    // Unsigned sub clamps to 0 (matches `ctx.satu_n` on negatives;
+                    // an unsigned diff can never exceed `mask`).
+                    (a & mask) < (b & mask)
+                }
+            }
+            _ => false,
+        }
+    }
+
     fn apply_lane_op(op: VLaneOp, a: u64, b: u64, elem_bits: u32, signed: bool) -> u64 {
         let mask: u64 = if elem_bits >= 64 {
             u64::MAX
@@ -5269,6 +5406,7 @@ mod tests {
                     lanes: 128,
                     op: VLaneOp::Add,
                     signed: false,
+                    set_ovf: false,
                 },
                 x86_hint: None,
             }],
@@ -5400,6 +5538,7 @@ mod tests {
                     arith,
                     round,
                     sat,
+                    set_ovf: false,
                 },
                 x86_hint: None,
             }],
@@ -5729,6 +5868,7 @@ mod tests {
                 out_elem: VecElementType::I32,
                 taps: 4,
                 sat: false,
+                set_ovf: false,
                 signed1: false,
                 signed2: false,
                 acc: false,
@@ -5750,6 +5890,7 @@ mod tests {
                 out_elem: VecElementType::I32,
                 taps: 4,
                 sat: false,
+                set_ovf: false,
                 signed1: false,
                 signed2: false,
                 acc: true,
@@ -5887,7 +6028,7 @@ mod tests {
         let (lo, hi) = run(v0, v1, rt, OpKind::VSlideReduceMul {
             dst_lo: mkv(3), dst_hi: mkv(4), src_lo: mkv(0), src_hi: mkv(1), src2: mkv(2),
             src_elem: VecElementType::I16, rt_elem: VecElementType::I8, out_elem: VecElementType::I32,
-            mode: 0, signed1: true, signed2: true, sat: false, acc: false,
+            mode: 0, signed1: true, signed2: true, sat: false, set_ovf: false, acc: false,
         });
         assert_eq!(lo, [0x0000_0004_0000_0004u64; 16]);
         assert_eq!(hi, [0x0000_0006_0000_0006u64; 16]);
@@ -5898,7 +6039,7 @@ mod tests {
         let (lo, hi) = run(v0, v1, rt, OpKind::VSlideReduceMul {
             dst_lo: mkv(3), dst_hi: mkv(4), src_lo: mkv(0), src_hi: mkv(1), src2: mkv(2),
             src_elem: VecElementType::I16, rt_elem: VecElementType::I8, out_elem: VecElementType::I32,
-            mode: 1, signed1: true, signed2: true, sat: false, acc: false,
+            mode: 1, signed1: true, signed2: true, sat: false, set_ovf: false, acc: false,
         });
         assert_eq!(lo, [0x0000_0008_0000_0008u64; 16]);
         assert_eq!(hi, [0x0000_000A_0000_000Au64; 16]);
@@ -5909,7 +6050,7 @@ mod tests {
         let (lo, _hi) = run(v0, v1, rt2, OpKind::VSlideReduceMul {
             dst_lo: mkv(3), dst_hi: mkv(3), src_lo: mkv(0), src_hi: mkv(1), src2: mkv(2),
             src_elem: VecElementType::I16, rt_elem: VecElementType::I16, out_elem: VecElementType::I32,
-            mode: 2, signed1: true, signed2: true, sat: true, acc: false,
+            mode: 2, signed1: true, signed2: true, sat: true, set_ovf: true, acc: false,
         });
         // o = v0.h[2i+1]*1 + v1.h[2i]*1 = 2 + 4 = 6.
         assert_eq!(lo, [0x0000_0006_0000_0006u64; 16]);
@@ -6170,6 +6311,7 @@ mod tests {
                     out_elem: VecElementType::I32,
                     taps: 4,
                     sat: false,
+                    set_ovf: false,
                     signed1: true,
                     signed2: true,
                     acc: false,

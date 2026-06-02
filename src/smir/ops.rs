@@ -901,6 +901,12 @@ pub enum OpKind {
         lanes: u8,
         op: VLaneOp,
         signed: bool,
+        /// When true (set only for the saturating opcodes whose sem calls
+        /// `ctx.sat_n`/`ctx.satu_n`, e.g. `vsubuwsat`), OR the Hexagon USR:OVF
+        /// sticky bit if any lane's saturating op clamped an out-of-range value.
+        /// The other saturating VLane opcodes (`vaddhsat`/`vsubwsat`/… which use a
+        /// bare `clamp` in their sem) leave this `false` and set no OVF.
+        set_ovf: bool,
     },
 
     /// Widening elementwise multiply into a destination register pair.
@@ -1566,6 +1572,12 @@ pub enum OpKind {
         round: bool,
         /// 0 = truncate (no saturation), 1 = saturate signed, 2 = saturate unsigned.
         sat: u8,
+        /// When true (set only for the opcodes whose sem calls `ctx.sat_n`/
+        /// `ctx.satu_n`, e.g. `vround*`/`vsat*`), OR the Hexagon USR:OVF sticky
+        /// bit if any lane's saturate clamped an out-of-range value. The bare-
+        /// `clamp` siblings sharing this OpKind (`vasrwhsat`/`vasrhubsat`/…) leave
+        /// this `false` and set no OVF.
+        set_ovf: bool,
     },
 
     /// Saturate a wide 64-bit pair `{src_hi.w[i]:src_lo.w[i]}` to a signed 32-bit
@@ -1761,6 +1773,11 @@ pub enum OpKind {
         signed1: bool,
         signed2: bool,
         sat: bool,
+        /// When true (set only for the `:sat` opcodes whose sem calls `ctx.sat_n`,
+        /// e.g. `vdmpyhisat`/`vdmpyhsuisat`), OR the Hexagon USR:OVF sticky bit if
+        /// any output lane's saturate clamped. The non-saturating sliding reduces
+        /// (mode 0/1, `sat=false`) leave this `false`.
+        set_ovf: bool,
         acc: bool,
     },
 
@@ -1828,6 +1845,11 @@ pub enum OpKind {
         signed2: bool,
         /// Saturate the accumulated lane to the signed out_elem range.
         sat: bool,
+        /// When true (set only for the `:sat` reduce opcodes whose sem calls
+        /// `ctx.sat_n`, e.g. `vdmpyhsat`/`vdmpyhsusat`/`vdmpyhvsat`), OR the
+        /// Hexagon USR:OVF sticky bit if any output lane's saturate clamped. The
+        /// non-saturating reduces (`sat=false`) leave this `false`.
+        set_ovf: bool,
         acc: bool,
     },
 

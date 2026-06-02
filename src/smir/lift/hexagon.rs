@@ -1671,6 +1671,9 @@ impl HexagonLifter {
         // Field layout mirrors the VV-form sem (dest `d`, sources `u`/`v`).
         macro_rules! vlane {
             ($op:expr, $elem:expr, $lanes:expr, $signed:expr) => {{
+                vlane!($op, $elem, $lanes, $signed, false);
+            }};
+            ($op:expr, $elem:expr, $lanes:expr, $signed:expr, $set_ovf:expr) => {{
                 push_op!(OpKind::VLane {
                     dst: self.hex_v(fld(b'd')),
                     src1: self.hex_v(fld(b'u')),
@@ -1679,6 +1682,7 @@ impl HexagonLifter {
                     lanes: $lanes,
                     op: $op,
                     signed: $signed,
+                    set_ovf: $set_ovf,
                 });
             }};
         }
@@ -1705,6 +1709,8 @@ impl HexagonLifter {
         macro_rules! vlane_dv {
             ($op:expr, $elem:expr, $lanes:expr, $signed:expr) => {{
                 let (dd, uu, vv) = (fld(b'd'), fld(b'u'), fld(b'v'));
+                // The `_dv` saturating add/sub use a bare `clamp` in their sem and
+                // set NO USR:OVF, so set_ovf stays false here.
                 push_op!(OpKind::VLane {
                     dst: self.hex_v(dd),
                     src1: self.hex_v(uu),
@@ -1713,6 +1719,7 @@ impl HexagonLifter {
                     lanes: $lanes,
                     op: $op,
                     signed: $signed,
+                    set_ovf: false,
                 });
                 push_op!(OpKind::VLane {
                     dst: self.hex_v(dd + 1),
@@ -1722,6 +1729,7 @@ impl HexagonLifter {
                     lanes: $lanes,
                     op: $op,
                     signed: $signed,
+                    set_ovf: false,
                 });
             }};
         }
@@ -4117,6 +4125,7 @@ impl HexagonLifter {
                     lanes: 64,
                     op: VLaneOp::Add,
                     signed: false,
+                    set_ovf: false,
                 });
             }
 
@@ -4421,6 +4430,7 @@ impl HexagonLifter {
                     lanes,
                     op: VLaneOp::Add,
                     signed: false,
+                    set_ovf: false,
                 });
             }
 
@@ -4634,6 +4644,7 @@ impl HexagonLifter {
                     signed1: false,
                     signed2: false,
                     sat: false,
+                    set_ovf: false,
                     acc,
                 });
             }
@@ -4651,6 +4662,7 @@ impl HexagonLifter {
                     signed1: true,
                     signed2: true,
                     sat: false,
+                    set_ovf: false,
                     acc,
                 });
             }
@@ -4668,6 +4680,7 @@ impl HexagonLifter {
                     signed1: false, // Vu.ub
                     signed2: true,  // Vv.b
                     sat: false,
+                    set_ovf: false,
                     acc,
                 });
             }
@@ -4690,6 +4703,8 @@ impl HexagonLifter {
                     signed1: true,
                     signed2: true,
                     sat: true,
+                    // vdmpyhvsat(_acc) sem (hvx_rmpy.rs) uses ctx.sat_n -> sets OVF.
+                    set_ovf: true,
                     acc,
                 });
             }
@@ -4754,6 +4769,7 @@ impl HexagonLifter {
                     signed1: false, // Vu.ub
                     signed2,
                     sat: false,
+                    set_ovf: false,
                     acc,
                 });
             }
@@ -4788,6 +4804,7 @@ impl HexagonLifter {
                     signed2: true,  // Rt.b
                     acc,
                     sat: false,
+                    set_ovf: false,
                 });
             }
 
@@ -5105,6 +5122,8 @@ impl HexagonLifter {
                     arith,
                     round,
                     sat,
+                    // vasr*sat narrows use a bare `clamp` (hvx_shift.rs) -> no OVF.
+                    set_ovf: false,
                 });
             }
 
@@ -5144,6 +5163,8 @@ impl HexagonLifter {
                     arith,
                     round: true,
                     sat,
+                    // vround* sem (hvx_round.rs) saturates via ctx.sat_n/satu_n.
+                    set_ovf: true,
                 });
             }
 
@@ -5173,6 +5194,8 @@ impl HexagonLifter {
                     arith,
                     round: false,
                     sat,
+                    // vsat* sem (hvx_round.rs) saturates via ctx.sat_n/satu_n.
+                    set_ovf: true,
                 });
             }
 
@@ -5500,6 +5523,7 @@ impl HexagonLifter {
                     lanes: 2,
                     op: lane_op,
                     signed: false,
+                    set_ovf: false,
                 });
             }
 
@@ -5518,6 +5542,7 @@ impl HexagonLifter {
                     lanes: 2,
                     op: VLaneOp::Not,
                     signed: false,
+                    set_ovf: false,
                 });
             }
             Opcode::V6_pred_or_n => {
@@ -5529,6 +5554,7 @@ impl HexagonLifter {
                     lanes: 2,
                     op: VLaneOp::OrNot,
                     signed: false,
+                    set_ovf: false,
                 });
             }
 
@@ -5581,6 +5607,9 @@ impl HexagonLifter {
                     signed1: true,
                     signed2,
                     sat,
+                    // vdmpyhsat(_acc)/vdmpyhsusat(_acc) sem uses ctx.sat_n -> OVF;
+                    // vdmpyhb(_acc) does not saturate (sat=false, no OVF).
+                    set_ovf: sat,
                     acc,
                 });
             }
@@ -6020,6 +6049,7 @@ impl HexagonLifter {
                     signed1: true,
                     signed2,
                     sat: false,
+                    set_ovf: false,
                     acc,
                 });
             }
@@ -6056,6 +6086,7 @@ impl HexagonLifter {
                     signed1: true,
                     signed2: true,
                     sat: false,
+                    set_ovf: false,
                     acc,
                 });
             }
@@ -6273,6 +6304,7 @@ impl HexagonLifter {
                     signed1,
                     signed2: true, // Rt.b is signed (rt_sb)
                     sat: false,
+                    set_ovf: false,
                     acc,
                 });
             }
@@ -6325,6 +6357,7 @@ impl HexagonLifter {
                     signed1,
                     signed2: true, // Rt.b is signed (rt_sb)
                     sat: false,
+                    set_ovf: false,
                     acc,
                 });
             }
@@ -6369,6 +6402,8 @@ impl HexagonLifter {
                     signed1: true, // Vuu.h signed (get_h)
                     signed2,
                     sat: true,
+                    // vdmpyhisat(_acc)/vdmpyhsuisat(_acc) sem uses ctx.sat_n -> OVF.
+                    set_ovf: true,
                     acc,
                 });
             }
@@ -6600,8 +6635,10 @@ impl HexagonLifter {
             }
 
             // vsubuwsat: Vd.uw = sat_u32(Vu.uw - Vv.uw) — plain per-lane SubSat.
+            // sem (hvx_carry.rs) uses `ctx.satu_n(s, 32)`, so it DOES set USR:OVF
+            // (set_ovf=true), unlike its bare-`clamp` VLane siblings.
             Opcode::V6_vsubuwsat => {
-                vlane!(VLaneOp::SubSat, VecElementType::I32, 32, false);
+                vlane!(VLaneOp::SubSat, VecElementType::I32, 32, false, true);
             }
 
             // vsetq / vsetq2: build a Q vector predicate from a scalar length.
