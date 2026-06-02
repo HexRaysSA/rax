@@ -1913,6 +1913,30 @@ impl SmirInterpreter {
                 Self::write_vec(ctx, *dst, out);
             }
 
+            OpKind::VDelta {
+                dst,
+                src,
+                control,
+                ascending,
+            } => {
+                let mut cur = Self::read_vec(ctx, *src);
+                let ctrl = Self::read_vec(ctx, *control);
+                let mut offsets = [1u8, 2, 4, 8, 16, 32, 64];
+                if !*ascending {
+                    offsets.reverse();
+                }
+                for &offset in offsets.iter() {
+                    let off = offset as usize;
+                    let prev = cur;
+                    for k in 0..128usize {
+                        let cb = Self::get_lane(&ctrl, k as u8, 8);
+                        let src_k = if cb & (off as u64) != 0 { (k ^ off) as u8 } else { k as u8 };
+                        Self::set_lane(&mut cur, k as u8, 8, Self::get_lane(&prev, src_k, 8));
+                    }
+                }
+                Self::write_vec(ctx, *dst, cur);
+            }
+
             OpKind::VShuffVdd {
                 dst_lo,
                 dst_hi,

@@ -1644,3 +1644,17 @@ fn lift_hvx_vshuffvdd() {
         0x18f0,
     );
 }
+
+// vdelta/vrdelta: Vv-controlled byte butterfly permute (VDelta).
+#[test]
+fn lift_hvx_vdelta() {
+    lift_family(
+        "hvx_vdelta",
+        &[
+            ("vdelta", "{ v2 = vdelta(v0,v1) }"),
+            ("vrdelta", "{ v2 = vrdelta(v0,v1) }"),
+        ],
+        16,
+        0x1900,
+    );
+}

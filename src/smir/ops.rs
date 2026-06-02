@@ -949,6 +949,17 @@ pub enum OpKind {
         oracc: bool,
     },
 
+    /// HVX `vdelta`/`vrdelta`: a 7-stage byte butterfly permute network of `src`
+    /// controlled per-byte by `control` (Vv). For each power-of-two `offset`
+    /// (`ascending`: 1..64, else 64..1), `cur[k] = (control[k]&offset) ?
+    /// cur[k^offset] : cur[k]`, feeding each stage's full result to the next.
+    VDelta {
+        dst: VReg,
+        src: VReg,
+        control: VReg,
+        ascending: bool,
+    },
+
     /// HVX `vshuffvdd` (`Vdd = vshuff(Vu, Vv, Rt)`): Rt-controlled byte swap
     /// network over the 256-byte pair (dst_lo=Vv, dst_hi=Vu initially). For each
     /// power-of-two `offset` (1..64) whose bit is set in `amount`, swap byte k of
@@ -1703,6 +1714,7 @@ impl OpKind {
             | OpKind::VShuffle2 { dst, .. }
             | OpKind::VShuffleEO { dst, .. }
             | OpKind::VDealB4W { dst, .. }
+            | OpKind::VDelta { dst, .. }
             | OpKind::VLut { dst, .. }
             | OpKind::VAlign { dst, .. }
             | OpKind::VMulShiftSat { dst, .. }

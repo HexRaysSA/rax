@@ -4817,6 +4817,14 @@ impl HexagonLifter {
                 amount: SrcOperand::Reg(self.hex_reg(fld(b't'))),
             }),
 
+            // vdelta/vrdelta: Vv-controlled byte butterfly permute of Vu.
+            Opcode::V6_vdelta | Opcode::V6_vrdelta => push_op!(OpKind::VDelta {
+                dst: self.hex_v(fld(b'd')),
+                src: self.hex_v(fld(b'u')),
+                control: self.hex_v(fld(b'v')),
+                ascending: matches!(op, Opcode::V6_vrdelta),
+            }),
+
             // vlut32 byte lookup-table: vlutvvb(i)/_nm/_oracc(i).
             Opcode::V6_vlutvvb
             | Opcode::V6_vlutvvb_nm

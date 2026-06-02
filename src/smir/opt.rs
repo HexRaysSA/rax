@@ -1611,6 +1611,11 @@ impl OpKind {
                 }
             }
 
+            OpKind::VDelta { src, control, .. } => {
+                result.push(*src);
+                result.push(*control);
+            }
+
             OpKind::VPack { src1, src2, .. }
             | OpKind::VPackSat { src1, src2, .. }
             | OpKind::VShuffleEO { src1, src2, .. }
