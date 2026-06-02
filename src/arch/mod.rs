@@ -2,6 +2,7 @@
 
 pub mod arm;
 pub mod hexagon;
+pub mod riscv;
 pub mod x86_64;
 
 use vm_memory::{GuestAddress, GuestMemoryMmap};
@@ -31,11 +32,19 @@ pub struct HexagonBootInfo {
     pub image_size: u64,
 }
 
+/// Boot information for RISC-V bare-metal loading.
+pub struct RiscVBootInfo {
+    pub entry_point: u64,
+    pub load_addr: u64,
+    pub image_size: u64,
+}
+
 /// Boot information returned after image loading.
 pub enum BootInfo {
     X86_64(X86_64BootInfo),
     Hexagon(HexagonBootInfo),
     Arm(ArmBootInfo),
+    RiscV(RiscVBootInfo),
 }
 
 impl BootInfo {
@@ -44,6 +53,7 @@ impl BootInfo {
             BootInfo::X86_64(info) => info.entry_point,
             BootInfo::Hexagon(info) => info.entry_point,
             BootInfo::Arm(info) => info.entry_point,
+            BootInfo::RiscV(info) => info.entry_point,
         }
     }
 
@@ -64,6 +74,13 @@ impl BootInfo {
     pub fn as_arm(&self) -> Option<&ArmBootInfo> {
         match self {
             BootInfo::Arm(info) => Some(info),
+            _ => None,
+        }
+    }
+
+    pub fn as_riscv(&self) -> Option<&RiscVBootInfo> {
+        match self {
+            BootInfo::RiscV(info) => Some(info),
             _ => None,
         }
     }
@@ -111,5 +128,6 @@ pub fn from_kind(kind: ArchKind) -> Box<dyn Arch> {
         ArchKind::Armv8a32 => Box::new(arm::Armv8a32Arch::new()),
         ArchKind::CortexM => Box::new(arm::CortexMArch::new()),
         ArchKind::CortexR => Box::new(arm::CortexRArch::new()),
+        ArchKind::Riscv64 => Box::new(riscv::Riscv64Arch::new()),
     }
 }

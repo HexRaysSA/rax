@@ -230,6 +230,52 @@ pub struct HexagonCpuState {
 }
 
 // =============================================================================
+// RISC-V CPU State
+// =============================================================================
+
+/// RISC-V architectural register file (RV32/RV64; values stored XLEN-wide,
+/// zero-extended to 64 bits on RV32).
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct RiscVRegisters {
+    /// Integer registers `x0..x31` (`x0` is hardwired zero).
+    pub x: [u64; 32],
+    /// Program counter.
+    pub pc: u64,
+    /// Floating-point registers `f0..f31` (raw bits, NaN-boxed for single).
+    pub f: [u64; 32],
+    /// Floating-point control/status (`frm` || `fflags`).
+    pub fcsr: u32,
+}
+
+impl Default for RiscVRegisters {
+    fn default() -> Self {
+        RiscVRegisters {
+            x: [0u64; 32],
+            pc: 0,
+            f: [0u64; 32],
+            fcsr: 0,
+        }
+    }
+}
+
+impl RiscVRegisters {
+    /// Program counter.
+    pub fn pc(&self) -> u64 {
+        self.pc
+    }
+    /// Set the program counter.
+    pub fn set_pc(&mut self, pc: u64) {
+        self.pc = pc;
+    }
+}
+
+/// Complete RISC-V CPU state snapshot.
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
+pub struct RiscVCpuState {
+    pub regs: RiscVRegisters,
+}
+
+// =============================================================================
 // ARM64 (AArch64) CPU State
 // =============================================================================
 
@@ -834,6 +880,7 @@ pub enum CpuState {
     Aarch64(Aarch64CpuState),
     Aarch32(Aarch32CpuState),
     CortexM(CortexMCpuState),
+    RiscV(RiscVCpuState),
 }
 
 impl CpuState {
@@ -843,6 +890,17 @@ impl CpuState {
 
     pub fn hexagon(regs: HexagonRegisters) -> Self {
         CpuState::Hexagon(HexagonCpuState { regs })
+    }
+
+    pub fn riscv(regs: RiscVRegisters) -> Self {
+        CpuState::RiscV(RiscVCpuState { regs })
+    }
+
+    pub fn as_riscv(&self) -> Option<&RiscVCpuState> {
+        match self {
+            CpuState::RiscV(state) => Some(state),
+            _ => None,
+        }
     }
 
     pub fn aarch64(regs: Aarch64Registers, sregs: Aarch64SystemRegisters) -> Self {

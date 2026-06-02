@@ -32,6 +32,8 @@ pub enum ArchKind {
     CortexM,
     /// ARM Cortex-R (real-time processors)
     CortexR,
+    /// RISC-V 64-bit (RV64GC).
+    Riscv64,
 }
 
 impl Default for ArchKind {
@@ -929,6 +931,13 @@ impl VmConfig {
                         "{:?} is only supported with the emulator backend",
                         self.arch
                     )));
+                }
+            }
+            ArchKind::Riscv64 => {
+                if self.backend != BackendKind::Emulator {
+                    return Err(Error::InvalidConfig(
+                        "riscv64 is only supported with the emulator backend".to_string(),
+                    ));
                 }
             }
             _ => {}

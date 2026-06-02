@@ -33,7 +33,9 @@ pub enum MemError {
 ///
 /// Implementors only need to provide [`read`](Memory::read) and
 /// [`write`](Memory::write); the little-endian width helpers are derived.
-pub trait Memory: Debug {
+/// The `Send` bound lets a [`RiscVCpu`](crate::riscv::RiscVCpu) be moved across
+/// threads (required by the VMM's `VCpu` interface).
+pub trait Memory: Debug + Send {
     /// Read exactly `buf.len()` bytes starting at `addr`.
     fn read(&self, addr: u64, buf: &mut [u8]) -> MemResult<()>;
 

@@ -3,6 +3,7 @@
 //! This module provides a software-based x86_64 CPU emulator for cross-platform support.
 
 pub mod hexagon;
+pub mod riscv;
 pub mod x86_64;
 
 use std::any::Any;
@@ -76,6 +77,7 @@ impl Vm for EmulatorVm {
                 self.hexagon_isa,
                 self.hexagon_endian,
             ))),
+            ArchKind::Riscv64 => Ok(Box::new(riscv::RiscVVcpu::new(id, mem))),
             _ => Err(Error::Emulator(format!(
                 "Unsupported architecture: {:?}",
                 self.arch
