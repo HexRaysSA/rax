@@ -329,6 +329,14 @@ pub struct HexagonRegState {
     pub sa: [u32; 2],
     /// User status register
     pub usr: u32,
+    /// HVX vector registers V0-V31 (1024-bit each)
+    pub v: [VecValue; 32],
+    /// HVX vector predicate registers Q0-Q3 (128-bit; stored in lanes 0-1)
+    pub q: [VecValue; 4],
+    /// Modifier registers M0/M1
+    pub m: [u32; 2],
+    /// Circular-buffer start registers CS0/CS1
+    pub cs: [u32; 2],
 }
 
 impl HexagonRegState {
@@ -342,6 +350,22 @@ impl HexagonRegState {
 
     pub fn set_r(&mut self, n: u8, val: u32) {
         self.r[n as usize & 0x1F] = val;
+    }
+
+    pub fn get_v(&self, n: u8) -> VecValue {
+        self.v[n as usize & 0x1F]
+    }
+
+    pub fn set_v(&mut self, n: u8, val: VecValue) {
+        self.v[n as usize & 0x1F] = val;
+    }
+
+    pub fn get_q(&self, n: u8) -> VecValue {
+        self.q[n as usize & 0x3]
+    }
+
+    pub fn set_q(&mut self, n: u8, val: VecValue) {
+        self.q[n as usize & 0x3] = val;
     }
 }
 
@@ -527,6 +551,11 @@ impl SmirContext {
                 HexagonReg::Sa0 => hex.sa[0] as u64,
                 HexagonReg::Sa1 => hex.sa[1] as u64,
                 HexagonReg::Usr => hex.usr as u64,
+                HexagonReg::M(n) => hex.m[n as usize & 1] as u64,
+                HexagonReg::Cs(n) => hex.cs[n as usize & 1] as u64,
+                // Vector regs are accessed via read_vec; scalar read returns low 64 bits.
+                HexagonReg::V(n) => hex.get_v(n)[0],
+                HexagonReg::Q(n) => hex.get_q(n)[0],
             },
             (ArchRegState::RiscV(rv), ArchReg::RiscV(r)) => match r {
                 RiscVReg::X(n) => rv.get_x(n),
@@ -563,6 +592,19 @@ impl SmirContext {
                 HexagonReg::Sa0 => hex.sa[0] = value as u32,
                 HexagonReg::Sa1 => hex.sa[1] = value as u32,
                 HexagonReg::Usr => hex.usr = value as u32,
+                HexagonReg::M(n) => hex.m[n as usize & 1] = value as u32,
+                HexagonReg::Cs(n) => hex.cs[n as usize & 1] = value as u32,
+                // Vector regs are written via write_vec; scalar write sets low 64 bits.
+                HexagonReg::V(n) => {
+                    let mut v = hex.get_v(n);
+                    v[0] = value;
+                    hex.set_v(n, v);
+                }
+                HexagonReg::Q(n) => {
+                    let mut q = hex.get_q(n);
+                    q[0] = value;
+                    hex.set_q(n, q);
+                }
             },
             (ArchRegState::RiscV(rv), ArchReg::RiscV(r)) => match r {
                 RiscVReg::X(n) => rv.set_x(n, value),

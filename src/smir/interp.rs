@@ -1966,6 +1966,14 @@ impl SmirInterpreter {
                 ArchRegState::X86_64(x86) => x86.xmm[n as usize],
                 _ => [0; 16],
             },
+            VReg::Arch(ArchReg::Hexagon(HexagonReg::V(n))) => match &ctx.arch_regs {
+                ArchRegState::Hexagon(hex) => hex.get_v(n),
+                _ => [0; 16],
+            },
+            VReg::Arch(ArchReg::Hexagon(HexagonReg::Q(n))) => match &ctx.arch_regs {
+                ArchRegState::Hexagon(hex) => hex.get_q(n),
+                _ => [0; 16],
+            },
             _ => [0; 16],
         }
     }
@@ -1978,6 +1986,16 @@ impl SmirInterpreter {
             | VReg::Arch(ArchReg::X86(X86Reg::Zmm(n))) => {
                 if let ArchRegState::X86_64(x86) = &mut ctx.arch_regs {
                     x86.xmm[n as usize] = value;
+                }
+            }
+            VReg::Arch(ArchReg::Hexagon(HexagonReg::V(n))) => {
+                if let ArchRegState::Hexagon(hex) = &mut ctx.arch_regs {
+                    hex.set_v(n, value);
+                }
+            }
+            VReg::Arch(ArchReg::Hexagon(HexagonReg::Q(n))) => {
+                if let ArchRegState::Hexagon(hex) = &mut ctx.arch_regs {
+                    hex.set_q(n, value);
                 }
             }
             _ => {}

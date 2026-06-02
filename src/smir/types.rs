@@ -269,6 +269,14 @@ pub enum HexagonReg {
     Sa1,
     /// User status register
     Usr,
+    /// HVX vector registers V0-V31 (1024-bit)
+    V(u8),
+    /// HVX vector predicate registers Q0-Q3 (128-bit)
+    Q(u8),
+    /// Modifier registers M0/M1 (circular/bit-reversed addressing)
+    M(u8),
+    /// Circular-buffer start registers CS0/CS1
+    Cs(u8),
 }
 
 /// RISC-V register
