@@ -5466,95 +5466,48 @@ impl AArch64Cpu {
         pg: usize,
         esize: usize,
     ) -> Result<CpuExit, ArmError> {
-        let opc = (insn >> 16) & 0xF;
+        // SVE FP arithmetic (predicated, binary, ZZ): bits[15:13]==100, opc5 =
+        // bits[20:16]. Destructive Zdn = op(Zdn, Zm) for active elements with a
+        // BYTE-granular governing predicate. Reuses the verified FP helpers.
+        if (insn >> 13) & 0x7 != 0b100 {
+            return Ok(CpuExit::Undefined(insn));
+        }
+        let opc5 = (insn >> 16) & 0x1F;
+        let (kind, swap) = match opc5 {
+            0b00000 => (FpKind::Add, false),
+            0b00001 => (FpKind::Sub, false),
+            0b00010 => (FpKind::Mul, false),
+            0b00011 => (FpKind::Sub, true), // FSUBR
+            0b00100 => (FpKind::MaxNm, false),
+            0b00101 => (FpKind::MinNm, false),
+            0b00110 => (FpKind::Max, false),
+            0b00111 => (FpKind::Min, false),
+            0b01000 => (FpKind::Abd, false),
+            0b01100 => (FpKind::Div, true), // FDIVR
+            0b01101 => (FpKind::Div, false),
+            _ => return Ok(CpuExit::Undefined(insn)),
+        };
         let pred = self.sve_p[pg];
         let elements = 16 / esize;
-
-        let src = self.v[zn].to_le_bytes();
-        let src2 = self.v[zm].to_le_bytes();
-        let mut dst = self.v[zd].to_le_bytes();
-
+        let a_reg = self.v[zd].to_le_bytes(); // Zdn (first source, dest)
+        let b_reg = self.v[zn].to_le_bytes(); // Zm (second source)
+        let mut dst = a_reg;
         for e in 0..elements {
-            if (pred >> e) & 1 == 0 {
+            if (pred >> (e * esize)) & 1 == 0 {
                 continue;
             }
-
-            let offset = e * esize;
-            match esize {
-                4 => {
-                    // Single precision
-                    let a = f32::from_le_bytes([
-                        src[offset],
-                        src[offset + 1],
-                        src[offset + 2],
-                        src[offset + 3],
-                    ]);
-                    let b = f32::from_le_bytes([
-                        src2[offset],
-                        src2[offset + 1],
-                        src2[offset + 2],
-                        src2[offset + 3],
-                    ]);
-
-                    let result = match opc {
-                        0b0000 => a + b,    // FADD
-                        0b0001 => a - b,    // FSUB
-                        0b0010 => a * b,    // FMUL
-                        0b0011 => a / b,    // FDIV
-                        0b0100 => a.min(b), // FMIN
-                        0b0101 => a.max(b), // FMAX
-                        0b1000 => a.abs(),  // FABS (unary)
-                        0b1001 => -a,       // FNEG (unary)
-                        0b1010 => a.sqrt(), // FSQRT (unary)
-                        _ => a,
-                    };
-
-                    let bytes = result.to_le_bytes();
-                    dst[offset..offset + 4].copy_from_slice(&bytes);
-                }
-                8 => {
-                    // Double precision
-                    let a = f64::from_le_bytes([
-                        src[offset],
-                        src[offset + 1],
-                        src[offset + 2],
-                        src[offset + 3],
-                        src[offset + 4],
-                        src[offset + 5],
-                        src[offset + 6],
-                        src[offset + 7],
-                    ]);
-                    let b = f64::from_le_bytes([
-                        src2[offset],
-                        src2[offset + 1],
-                        src2[offset + 2],
-                        src2[offset + 3],
-                        src2[offset + 4],
-                        src2[offset + 5],
-                        src2[offset + 6],
-                        src2[offset + 7],
-                    ]);
-
-                    let result = match opc {
-                        0b0000 => a + b,
-                        0b0001 => a - b,
-                        0b0010 => a * b,
-                        0b0011 => a / b,
-                        0b0100 => a.min(b),
-                        0b0101 => a.max(b),
-                        0b1000 => a.abs(),
-                        0b1001 => -a,
-                        0b1010 => a.sqrt(),
-                        _ => a,
-                    };
-
-                    let bytes = result.to_le_bytes();
-                    dst[offset..offset + 8].copy_from_slice(&bytes);
-                }
-                _ => {}
-            }
+            let off = e * esize;
+            let a = read_elem(&a_reg, off, esize);
+            let b = read_elem(&b_reg, off, esize);
+            let (x, y) = if swap { (b, a) } else { (a, b) };
+            let r = match esize {
+                2 => sve_fp16_binop(kind, x as u16, y as u16) as u64,
+                4 => fp_three_same_f32(kind, x as u32, y as u32, 0) as u64,
+                8 => fp_three_same_f64(kind, x, y, 0),
+                _ => return Ok(CpuExit::Undefined(insn)),
+            };
+            write_elem(&mut dst, off, esize, r);
         }
-
         self.v[zd] = u128::from_le_bytes(dst);
         Ok(CpuExit::Continue)
     }
@@ -9849,6 +9802,24 @@ fn fp16_maxnum_minnum(a: u16, b: u16, is_min: bool) -> u16 {
         y = ident;
     }
     fp16_max_min(x, y, is_min)
+}
+
+/// Dispatch an `FpKind` binary op to the verified binary16 helpers (for SVE
+/// predicated FP). Only the arithmetic/min/max/abd kinds are used here.
+fn sve_fp16_binop(kind: FpKind, x: u16, y: u16) -> u16 {
+    use FpKind::*;
+    match kind {
+        Add => fp16_add(x, y),
+        Sub => fp16_sub(x, y),
+        Mul => fp16_mul(x, y),
+        Div => fp16_div(x, y),
+        Max => fp16_max(x, y),
+        Min => fp16_min(x, y),
+        MaxNm => fp16_maxnm(x, y),
+        MinNm => fp16_minnm(x, y),
+        Abd => fp16_abd(x, y),
+        _ => x,
+    }
 }
 
 fn fp16_maxnm(a: u16, b: u16) -> u16 {
