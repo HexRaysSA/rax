@@ -13,6 +13,9 @@ use crate::error::{Error, Result};
 
 const SERIAL_MMIO_BASE: u64 = 0xf000_0000;
 const SERIAL_MMIO_LEN: u64 = 8;
+/// Debug-console MMIO port (single byte sink/source); see `crate::devices::map`.
+const DEBUG_MMIO_BASE: u64 = crate::devices::map::HEXAGON_DEBUG_MMIO_BASE;
+const DEBUG_MMIO_LEN: u64 = 8;
 const MAX_RUN_ITERATIONS: u64 = 100_000;
 
 /// 32-bit register-amount shift (`asl`/`asr`/`lsr`(Rs,Rt)).
@@ -227,7 +230,8 @@ impl HexagonVcpu {
 
     fn is_mmio(addr: u32) -> bool {
         let addr = addr as u64;
-        addr >= SERIAL_MMIO_BASE && addr < SERIAL_MMIO_BASE + SERIAL_MMIO_LEN
+        (addr >= SERIAL_MMIO_BASE && addr < SERIAL_MMIO_BASE + SERIAL_MMIO_LEN)
+            || (addr >= DEBUG_MMIO_BASE && addr < DEBUG_MMIO_BASE + DEBUG_MMIO_LEN)
     }
 
     fn set_pc(&mut self, pc: u32) {
