@@ -1563,6 +1563,13 @@ fn enc_sve_mul(sz: u32, opc: u32) -> u32 {
         | (0b0110 << 12) | (opc << 10) | (RN << 5) | RD
 }
 
+/// SVE2 bitwise ternary: `00000100 opc 1 Zm 00111 o2 Zk Zdn`. Zdn=z0, Zk=z1(RN),
+/// Zm=z2(RM).
+fn enc_sve2_tern(opc: u32, o2: u32) -> u32 {
+    (0b00000100 << 24) | (opc << 22) | (1 << 21) | (RM << 16)
+        | (0b00111 << 11) | (o2 << 10) | (RN << 5) | RD
+}
+
 /// SVE INDEX variants. base=imm5[9:5] or Xn; step=imm5[20:16] or Xm. Rn=x1, Rm=x2.
 fn enc_index_ii(sz: u32, imm_step: u32, imm_base: u32) -> u32 {
     (0b00000100 << 24) | (sz << 22) | (1 << 21) | ((imm_step & 0x1F) << 16)
@@ -3329,6 +3336,24 @@ fn diff_sve_unpred() {
         cases.push((format!("sve_{name}"), enc_sve_logical(opc)));
     }
     run_family("sve_unpred", cases, 16, 0x1_001F);
+}
+
+#[test]
+fn diff_sve2_ternary() {
+    // SVE2 bitwise ternary: EOR3/BCAX/BSL/BSL1N/BSL2N/NBSL (whole-register).
+    let ops: &[(u32, u32, &str)] = &[
+        (0b00, 0, "eor3"),
+        (0b01, 0, "bcax"),
+        (0b00, 1, "bsl"),
+        (0b01, 1, "bsl1n"),
+        (0b10, 1, "bsl2n"),
+        (0b11, 1, "nbsl"),
+    ];
+    let mut cases: Vec<(String, u32)> = Vec::new();
+    for &(opc, o2, name) in ops {
+        cases.push((name.to_string(), enc_sve2_tern(opc, o2)));
+    }
+    run_family("sve2_ternary", cases, 16, 0x5_0001);
 }
 
 #[test]
