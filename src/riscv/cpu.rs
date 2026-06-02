@@ -1686,6 +1686,60 @@ mod tests {
     }
 
     #[test]
+    fn system_ecall_ebreak_fence() {
+        let mut c = cpu();
+        c.set_pc(0x200);
+        // ecall (funct12=0) -> Ecall exit, PC unchanged.
+        assert_eq!(run_one(&mut c, 0x0000_0073), RiscVExit::Ecall);
+        assert_eq!(c.pc(), 0x200);
+        // ebreak (funct12=1) -> Ebreak exit.
+        c.set_pc(0x204);
+        assert_eq!(run_one(&mut c, 0x0010_0073), RiscVExit::Ebreak);
+        assert_eq!(c.pc(), 0x204);
+        // fence -> nop, advances PC.
+        c.set_pc(0x208);
+        assert_eq!(run_one(&mut c, 0x0ff0_000f), RiscVExit::Continue);
+        assert_eq!(c.pc(), 0x20c);
+        // wfi -> Wfi exit, advances PC.
+        c.set_pc(0x210);
+        assert_eq!(run_one(&mut c, 0x1050_0073), RiscVExit::Wfi);
+        assert_eq!(c.pc(), 0x214);
+    }
+
+    #[test]
+    fn csr_readwrite_and_illegal() {
+        let mut c = cpu();
+        // csrrwi x5, mscratch(0x340), 0 then csrrw to set, read back.
+        c.set_x(1, 0xdead_beef);
+        // csrrw x2, mscratch, x1
+        run_one(&mut c, csr(0x340, 1, 1, 2));
+        assert_eq!(c.csr_read(0x340).unwrap(), 0xdead_beef);
+        // csrrs x3, mscratch, x0 -> read without modifying
+        run_one(&mut c, csr(0x340, 0, 2, 3));
+        assert_eq!(c.x(3), 0xdead_beef);
+        // Writing a read-only CSR (cycle, 0xC00) must trap illegal.
+        c.set_x(4, 1);
+        assert!(matches!(run_one(&mut c, csr(0xC00, 4, 1, 5)), RiscVExit::Trap(_)));
+    }
+
+    #[test]
+    fn fcsr_subfields() {
+        let mut c = cpu();
+        c.set_fcsr(0xff);
+        // frm (0x002) reads bits [7:5] = 0b111 = 7.
+        run_one(&mut c, csr(0x002, 0, 2, 6));
+        assert_eq!(c.x(6), 7);
+        // fflags (0x001) reads bits [4:0] = 0x1f.
+        run_one(&mut c, csr(0x001, 0, 2, 7));
+        assert_eq!(c.x(7), 0x1f);
+    }
+
+    /// Encode a CSR instruction.
+    fn csr(addr: u32, rs1: u32, funct3: u32, rd: u32) -> u32 {
+        (addr << 20) | (rs1 << 15) | (funct3 << 12) | (rd << 7) | 0x73
+    }
+
+    #[test]
     fn clz_cpop() {
         let mut c = cpu();
         c.set_x(1, 0x0000_0000_0000_00ff);

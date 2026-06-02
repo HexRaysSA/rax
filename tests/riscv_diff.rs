@@ -951,6 +951,39 @@ fn diff_compressed_fuzz() {
 }
 
 // ---------------------------------------------------------------------------
+// Zicsr (control/status registers).
+// ---------------------------------------------------------------------------
+
+fn csr_insn(csr: u32, rs1_or_zimm: u32, funct3: u32, rd: u32) -> u32 {
+    (csr << 20) | (rs1_or_zimm << 15) | (funct3 << 12) | (rd << 7) | 0x73
+}
+
+#[test]
+fn diff_zicsr() {
+    // Only the user-accessible FP CSRs (fflags/frm/fcsr) can be exercised under
+    // qemu-user; the read/modify/write semantics are identical across all CSRs.
+    let mut rng = Rng::new(0xC5C5);
+    let mut batch = Vec::new();
+    for csr in [0x001u32, 0x002, 0x003] {
+        for _ in 0..40 {
+            let rd = POOL[(rng.next() % 6) as usize];
+            let rs1 = POOL[(rng.next() % 6) as usize];
+            let mut st = rand_state(&mut rng);
+            st.fcsr = rng.next() & 0xff;
+            st.x[rs1 as usize] = rng.next();
+            batch.push(("csrrw".into(), csr_insn(csr, rs1, 1, rd), st));
+            batch.push(("csrrs".into(), csr_insn(csr, rs1, 2, rd), st));
+            batch.push(("csrrc".into(), csr_insn(csr, rs1, 3, rd), st));
+            let zimm = (rng.next() % 32) as u32;
+            batch.push(("csrrwi".into(), csr_insn(csr, zimm, 5, rd), st));
+            batch.push(("csrrsi".into(), csr_insn(csr, zimm, 6, rd), st));
+            batch.push(("csrrci".into(), csr_insn(csr, zimm, 7, rd), st));
+        }
+    }
+    run_batch(&batch, true);
+}
+
+// ---------------------------------------------------------------------------
 // Floating point (F / D).
 // ---------------------------------------------------------------------------
 
