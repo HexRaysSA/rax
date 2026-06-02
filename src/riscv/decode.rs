@@ -484,6 +484,13 @@ pub enum Op {
     Vnsra,
     Vnclipu,
     Vnclip,
+    // ---- V (single-width FP/integer conversions, VFUNARY0) ----
+    VfcvtXuF,
+    VfcvtXF,
+    VfcvtFXu,
+    VfcvtFX,
+    VfcvtRtzXuF,
+    VfcvtRtzXF,
     // ---- sentinel ----
     Illegal,
 }
@@ -906,6 +913,16 @@ fn decode_vector(w: u32) -> Insn {
             // FP scalar element moves (VWFUNARY0 / VRFUNARY0), funct6 = 010000.
             0b010000 if !vf && vs1 == 0 => Op::VfmvFS,
             0b010000 if vf && (w >> 20) & 0x1f == 0 => Op::VfmvSF,
+            // Single-width conversions (VFUNARY0); vs1 field selects the variant.
+            0b010010 if !vf => match vs1 {
+                0b00000 => Op::VfcvtXuF,
+                0b00001 => Op::VfcvtXF,
+                0b00010 => Op::VfcvtFXu,
+                0b00011 => Op::VfcvtFX,
+                0b00110 => Op::VfcvtRtzXuF,
+                0b00111 => Op::VfcvtRtzXF,
+                _ => return Insn::illegal(w, 4),
+            },
             0b010011 if !vf && vs1 == 0 => Op::Vfsqrt,
             _ => return Insn::illegal(w, 4),
         };

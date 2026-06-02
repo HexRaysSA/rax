@@ -437,6 +437,12 @@ impl Op {
             Vnsra => "vnsra",
             Vnclipu => "vnclipu",
             Vnclip => "vnclip",
+            VfcvtXuF => "vfcvt.xu.f.v",
+            VfcvtXF => "vfcvt.x.f.v",
+            VfcvtFXu => "vfcvt.f.xu.v",
+            VfcvtFX => "vfcvt.f.x.v",
+            VfcvtRtzXuF => "vfcvt.rtz.xu.f.v",
+            VfcvtRtzXF => "vfcvt.rtz.x.f.v",
             Illegal => "illegal",
         }
     }
