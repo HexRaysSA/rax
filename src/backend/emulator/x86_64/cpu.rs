@@ -2563,7 +2563,7 @@ impl X86_64Vcpu {
         use crate::smir::ir::Terminator;
         use crate::smir::lift::x86_64::X86_64Lifter;
         use crate::smir::lift::{LiftContext, MemoryReader, SmirLifter};
-        use crate::smir::lower::runtime::{is_native_clobber_safe, ExecMem, GuestRegs};
+        use crate::smir::lower::runtime::{is_native_clobber_safe_excluding, ExecMem, GuestRegs};
         use crate::smir::lower::x86_64::X86_64Lowerer;
         use crate::smir::lower::SmirLowerer;
         use crate::smir::memory::MemoryError;
@@ -2633,9 +2633,10 @@ impl X86_64Vcpu {
         if exits.contains_key(&func.entry) {
             return Ok(false);
         }
-        // Clobber-safety gate (conservative: checks all blocks, including the
-        // skipped exit blocks — safe, may occasionally over-bail).
-        if !is_native_clobber_safe(&func) {
+        // Clobber-safety gate over the EXECUTED blocks (exit blocks are skipped
+        // at lowering, so their ops never run — exclude them so a loop whose
+        // continuation uses a virtual temp can still JIT).
+        if !is_native_clobber_safe_excluding(&func, &exits) {
             return Ok(false);
         }
 
