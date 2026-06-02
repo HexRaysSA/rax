@@ -748,7 +748,9 @@ impl RiscVCpu {
             | Op::VzextVf4 | Op::VsextVf4 | Op::VzextVf8 | Op::VsextVf8 | Op::Vcpop
             | Op::Vfirst | Op::Vmsbf | Op::Vmsof | Op::Vmsif | Op::Viota | Op::Vid
             | Op::Vslideup | Op::Vslidedown | Op::Vslide1up | Op::Vslide1down
-            | Op::Vfslide1up | Op::Vfslide1down => self.exec_vector(insn)?,
+            | Op::Vfslide1up | Op::Vfslide1down | Op::Vrgather | Op::Vrgatherei16 => {
+                self.exec_vector(insn)?
+            }
 
             Op::Illegal => return Err(Trap::illegal(insn.raw)),
 
@@ -1740,6 +1742,33 @@ impl RiscVCpu {
                         continue;
                     }
                     let v = if e + 1 < vl { self.velem(vs2, e + 1, eb) } else { scalar };
+                    self.set_velem(vd, e, eb, v & mask);
+                }
+            }
+            Op::Vrgather | Op::Vrgatherei16 => {
+                // vd[i] = vs2[index(i)], or 0 when the index is >= VLMAX.
+                let eb = self.sew_bytes();
+                let mask = Self::sew_mask(eb);
+                let vlmax = self.vlmax_elems() as u64;
+                let scalar_idx = match insn.funct3 {
+                    0b100 => self.x(insn.rs1), // vx
+                    0b011 => insn.rs1 as u64,  // vi (zero-extended imm)
+                    _ => 0,
+                };
+                let ei16 = insn.op == Op::Vrgatherei16;
+                let is_vv = insn.funct3 == 0b000;
+                for e in vstart..vl {
+                    if !vm && !self.vmask_bit(e) {
+                        continue;
+                    }
+                    let idx = if ei16 {
+                        self.velem(insn.rs1, e, 2) // 16-bit index element
+                    } else if is_vv {
+                        self.velem(insn.rs1, e, eb)
+                    } else {
+                        scalar_idx
+                    };
+                    let v = if idx < vlmax { self.velem(vs2, idx as usize, eb) } else { 0 };
                     self.set_velem(vd, e, eb, v & mask);
                 }
             }

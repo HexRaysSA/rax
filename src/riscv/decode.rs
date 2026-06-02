@@ -440,6 +440,8 @@ pub enum Op {
     Vslide1down,
     Vfslide1up,
     Vfslide1down,
+    Vrgather,
+    Vrgatherei16,
     // ---- sentinel ----
     Illegal,
 }
@@ -707,9 +709,12 @@ fn decode_vector(w: u32) -> Insn {
             0b011101 => Op::Vmsle,
             0b011110 if f3 != 0b000 => Op::Vmsgtu, // vx/vi
             0b011111 if f3 != 0b000 => Op::Vmsgt,
-            // Slides (vx/vi forms; OPIVV 0b001110 is vrgatherei16, handled elsewhere).
+            // Slides (vx/vi forms; OPIVV 0b001110 is vrgatherei16).
             0b001110 if f3 != 0b000 => Op::Vslideup,
             0b001111 if f3 != 0b000 => Op::Vslidedown,
+            // Gathers: vrgather (vv/vx/vi), vrgatherei16 (vv only).
+            0b001100 => Op::Vrgather,
+            0b001110 if f3 == 0b000 => Op::Vrgatherei16,
             _ => return Insn::illegal(w, 4),
         };
         return base(op, w);

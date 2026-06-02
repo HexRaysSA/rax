@@ -980,6 +980,70 @@ fn diff_v_slide() {
     run_batch(&batch);
 }
 
+/// Fill register `vsreg`'s lanes with small indices (mod `vmax`+2, so both
+/// in-range and just-out-of-range indices are exercised) at element width `ieb`.
+fn fill_indices(st: &mut VState, vsreg: u32, ieb: usize, vmax: u64, rng: &mut Rng) {
+    let mut bytes = [0u8; VLENB];
+    let n = VLENB / ieb;
+    for e in 0..n {
+        let idx = (rng.next() % (vmax + 2)).to_le_bytes();
+        bytes[e * ieb..e * ieb + ieb].copy_from_slice(&idx[..ieb]);
+    }
+    st.set_vreg_bytes(vsreg as usize, &bytes);
+}
+
+#[test]
+fn diff_v_gather() {
+    let mut rng = Rng::new(0x7EC_7B0);
+    let mut batch = Vec::new();
+    for sew_log2 in 0..4u32 {
+        let eb = 1usize << sew_log2;
+        let vmax = vlmax(sew_log2);
+        for vl in [vmax, (vmax / 2).max(1)] {
+            for k in 0..8 {
+                // vd, vs2, vs1 all distinct (gather forbids dest/source overlap).
+                let vd = VPOOL[(rng.next() % 6) as usize];
+                let mut vs2 = VPOOL[(rng.next() % 6) as usize];
+                while vs2 == vd {
+                    vs2 = VPOOL[(rng.next() % 6) as usize];
+                }
+                let mut vs1 = VPOOL[(rng.next() % 6) as usize];
+                while vs1 == vd || vs1 == vs2 {
+                    vs1 = VPOOL[(rng.next() % 6) as usize];
+                }
+                let rs1 = XPOOL[(rng.next() % 5) as usize];
+                let imm = (rng.next() % (vmax + 2)) as u32;
+                let mut st = rand_vstate(&mut rng, sew_log2, vl);
+                fill_indices(&mut st, vs1, eb, vmax, &mut rng);
+                st.x[rs1 as usize] = rng.next() % (vmax + 2);
+                batch.push(("vrgather.vv".into(), op_iv(0b001100, 1, vs2, vs1, 0b000, vd), st));
+                batch.push(("vrgather.vx".into(), op_iv(0b001100, 1, vs2, rs1, 0b100, vd), st));
+                batch.push(("vrgather.vi".into(), op_iv(0b001100, 1, vs2, imm, 0b011, vd), st));
+                // vrgatherei16: 16-bit indices. At SEW=8 the index EMUL is 2
+                // (two-register group); restrict to SEW>=16 so vs1 is one register.
+                if sew_log2 >= 1 {
+                    let mut st16 = rand_vstate(&mut rng, sew_log2, vl);
+                    fill_indices(&mut st16, vs1, 2, vmax, &mut rng);
+                    batch.push((
+                        "vrgatherei16.vv".into(),
+                        op_iv(0b001110, 1, vs2, vs1, 0b000, vd),
+                        st16,
+                    ));
+                }
+                if vd != 0 && k % 2 == 0 {
+                    let mut stm = st;
+                    stm.v[0] = rng.next();
+                    stm.v[1] = rng.next();
+                    // keep index lanes small after perturbing v0/v1
+                    fill_indices(&mut stm, vs1, eb, vmax, &mut rng);
+                    batch.push(("vrgather.vv.m".into(), op_iv(0b001100, 0, vs2, vs1, 0b000, vd), stm));
+                }
+            }
+        }
+    }
+    run_batch(&batch);
+}
+
 #[test]
 fn diff_v_loadstore() {
     let mut rng = Rng::new(0x7EC_705);
