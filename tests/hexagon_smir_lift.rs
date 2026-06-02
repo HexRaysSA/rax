@@ -1581,3 +1581,17 @@ fn lift_hvx_vdealb4w() {
         0x18b0,
     );
 }
+
+// vmpyewuh / vmpyowh: word * even/odd halfword, fractional (>>16 / <<1:sat >>15).
+#[test]
+fn lift_hvx_vmpyewuh_vmpyowh() {
+    lift_family(
+        "hvx_vmpyewuh_vmpyowh",
+        &[
+            ("vmpyewuh", "{ v2.w = vmpye(v0.w,v1.uh) }"),
+            ("vmpyowh", "{ v2.w = vmpyo(v0.w,v1.h):<<1:sat }"),
+        ],
+        16,
+        0x18c0,
+    );
+}

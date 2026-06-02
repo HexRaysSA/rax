@@ -1057,6 +1057,26 @@ pub enum OpKind {
         acc: bool,
     },
 
+    /// Fractional even/odd sub-lane multiply with shift/round/saturate. Models HVX
+    /// `vmpyewuh` (Vu.w * Vv.uh[even], `>>16`) and `vmpyowh:<<1[:rnd]:sat`
+    /// (Vu.w * Vv.h[odd], `<<1`, optional round, `>>16`, saturate to signed word).
+    /// Per lane i: p = ext(src1.lane[i]@out_elem)·ext(src2.sub@sub_elem); if shl1
+    /// p<<=1; if rnd p += 1<<(shift-1); p >>= shift; if sat clamp to signed out_elem.
+    VMulSubLaneFrac {
+        dst: VReg,
+        src1: VReg,
+        src2: VReg,
+        out_elem: VecElementType,
+        sub_elem: VecElementType,
+        odd: bool,
+        signed1: bool,
+        signed2: bool,
+        shl1: bool,
+        rnd: bool,
+        shift: u8,
+        sat: bool,
+    },
+
     /// Even-lane widening multiply into a single vector. Models HVX `vmpyuhe`:
     /// `dst.wide[i] = (acc ? dst[i] : 0) + src1.narrow[2i] * src2.narrow[2i]`
     /// (only the even narrow sub-lane of each output-width lane is used), with
@@ -1629,6 +1649,7 @@ impl OpKind {
             OpKind::VReduceMul { dst, .. }
             | OpKind::VMulEvenWiden { dst, .. }
             | OpKind::VMulSubLane { dst, .. }
+            | OpKind::VMulSubLaneFrac { dst, .. }
             | OpKind::VPack { dst, .. }
             | OpKind::VPackSat { dst, .. }
             | OpKind::VShuffle2 { dst, .. }

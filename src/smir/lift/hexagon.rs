@@ -4807,6 +4807,37 @@ impl HexagonLifter {
                 src2: self.hex_v(fld(b'v')),
             }),
 
+            // vmpyewuh: Vd.w = (Vu.w * Vv.uh[even]) >> 16.
+            Opcode::V6_vmpyewuh => push_op!(OpKind::VMulSubLaneFrac {
+                dst: self.hex_v(fld(b'd')),
+                src1: self.hex_v(fld(b'u')),
+                src2: self.hex_v(fld(b'v')),
+                out_elem: VecElementType::I32,
+                sub_elem: VecElementType::I16,
+                odd: false,
+                signed1: true,
+                signed2: false,
+                shl1: false,
+                rnd: false,
+                shift: 16,
+                sat: false,
+            }),
+            // vmpyowh:<<1:sat: Vd.w = sat32((Vu.w * Vv.h[odd]) >> 15).
+            Opcode::V6_vmpyowh => push_op!(OpKind::VMulSubLaneFrac {
+                dst: self.hex_v(fld(b'd')),
+                src1: self.hex_v(fld(b'u')),
+                src2: self.hex_v(fld(b'v')),
+                out_elem: VecElementType::I32,
+                sub_elem: VecElementType::I16,
+                odd: true,
+                signed1: true,
+                signed2: true,
+                shl1: false,
+                rnd: false,
+                shift: 15,
+                sat: true,
+            }),
+
             // Everything else: not implemented here.
             _ => return Err(unsupported()),
         }
