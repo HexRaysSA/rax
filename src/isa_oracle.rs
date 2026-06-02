@@ -1886,6 +1886,7 @@ fn smir_op_kind_json(kind: &OpKind) -> Value {
         OpKind::VSwap { .. } => op_json!("vswap"),
         OpKind::VCondMove { .. } => op_json!("vcond_move"),
         OpKind::VPrefixSumQ { .. } => op_json!("vprefix_sum_q"),
+        OpKind::VHist { .. } => op_json!("vhist"),
         OpKind::VBlend {
             dst,
             mask_q,

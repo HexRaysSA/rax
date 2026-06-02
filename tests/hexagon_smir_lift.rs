@@ -2372,3 +2372,300 @@ fn lift_hvx_v6mpy() {
         0x1b1e,
     );
 }
+
+// ============================================================================
+// HVX histogram family (vhist / vhistq / vwhist128* / vwhist256*).
+//
+// These instructions have NO conventional dst operand and NO register operand
+// for their input. Each tallies values from the 128-byte input vector (loaded
+// by a same-packet `.tmp` vmem load into qemu's `tmp_VRegs[0]`) into histogram
+// bins spread across the WHOLE V0..V31 register file (a read-modify-write of
+// all 32 vector registers). The canonical idiom is:
+//     { v0.tmp = vmem(Rx+#0); vhist }
+//
+// The standard `lift_family` driver seeds R randomly, which makes the `.tmp`
+// load address fault and the interpreter skip every iteration, so we use a
+// dedicated driver that points the load base at a valid, populated memory
+// region and writes the SAME input bytes into both the interpreter's guest
+// memory and the SMIR interpreter's FlatMemory. We then compare the FULL
+// V0-31 / Q0-3 / R / P / USR state after, exactly like `lift_family`.
+// ============================================================================
+
+/// Aligned base address (within the 0x20000 test region) the `.tmp` load reads.
+const HIST_INPUT_ADDR: u32 = 0x4000;
+
+/// Run the histogram packet on rax's Hexagon interpreter, with `input` written
+/// at `HIST_INPUT_ADDR` and `r0` pointing there. Returns the post-state.
+fn run_interp_hist(words: &[u32], init: &State, input: &[u8; 128]) -> Option<State> {
+    let mem = Arc::new(GuestMemoryMmap::<()>::from_ranges(&[(GuestAddress(0), 0x20000)]).ok()?);
+    let mut off = CODE_ADDR;
+    for &w in words {
+        mem.write_slice(&w.to_le_bytes(), GuestAddress(off as u64)).ok()?;
+        off += 4;
+    }
+    mem.write_slice(&trap_word().to_le_bytes(), GuestAddress(off as u64)).ok()?;
+    mem.write_slice(&input[..], GuestAddress(HIST_INPUT_ADDR as u64)).ok()?;
+    let mut regs = HexagonRegisters::default();
+    regs.r = init.r;
+    regs.p = init.p;
+    regs.c[8] = init.usr;
+    regs.v = init.v;
+    regs.q = init.q;
+    regs.set_pc(CODE_ADDR);
+    let mut vcpu = HexagonVcpu::new(0, mem, HexagonIsa::V68, Endianness::Little);
+    vcpu.set_state(&CpuState::hexagon(regs)).ok()?;
+    let mut iters = 0;
+    loop {
+        iters += 1;
+        if iters > 64 {
+            return None;
+        }
+        match vcpu.run() {
+            Ok(VcpuExit::Shutdown) => break,
+            Ok(_) => return None,
+            Err(_) => return None,
+        }
+    }
+    let regs = match vcpu.get_state().ok()? {
+        CpuState::Hexagon(s) => s.regs,
+        _ => return None,
+    };
+    Some(State { r: regs.r, p: regs.p, usr: regs.c[8], v: regs.v, q: regs.q })
+}
+
+/// Lift the histogram packet to SMIR and execute it, with `input` written at
+/// `HIST_INPUT_ADDR` in the FlatMemory and `r0` pointing there.
+/// `Ok(None)` => some word lifted to Unsupported (a lift gap).
+fn lift_and_run_hist(
+    words: &[u32],
+    init: &State,
+    input: &[u8; 128],
+) -> Result<Option<State>, String> {
+    let mut lifter = HexagonLifter::default_isa();
+    let mut lctx = LiftContext::new(SourceArch::Hexagon);
+    let mut ops = Vec::new();
+    let mut addr = CODE_ADDR as u64;
+    for &w in words {
+        match lifter.lift_insn(addr, &w.to_le_bytes(), &mut lctx) {
+            Ok(res) => ops.extend(res.ops),
+            Err(LiftError::Unsupported { .. }) => return Ok(None),
+            Err(e) => return Err(format!("lift error: {e:?}")),
+        }
+        addr += 4;
+    }
+    if ops.is_empty() {
+        // The histogram word emitted no ops and no `.tmp` load followed to flush
+        // the pending VHist — treat as an (unexpected) lift gap rather than a
+        // silent no-op.
+        return Ok(None);
+    }
+    for (i, op) in ops.iter_mut().enumerate() {
+        op.id = OpId(i as u16);
+    }
+    let block = SmirBlock {
+        id: BlockId(0),
+        guest_pc: CODE_ADDR as u64,
+        phis: vec![],
+        ops,
+        terminator: Terminator::Trap { kind: TrapKind::Breakpoint },
+        exec_count: 0,
+    };
+    let mut ctx = SmirContext::new_hexagon();
+    for n in 0..NREG {
+        ctx.write_arch_reg(ArchReg::Hexagon(HexagonReg::R(n as u8)), init.r[n] as u64);
+    }
+    for n in 0..4 {
+        ctx.write_arch_reg(ArchReg::Hexagon(HexagonReg::P(n as u8)), (init.p[n] & 1) as u64);
+    }
+    ctx.write_arch_reg(ArchReg::Hexagon(HexagonReg::Usr), init.usr as u64);
+    if let ArchRegState::Hexagon(hex) = &mut ctx.arch_regs {
+        for n in 0..32 {
+            let mut lanes = [0u64; 16];
+            for (j, lane) in lanes.iter_mut().enumerate() {
+                *lane = init.v[n][2 * j] as u64 | ((init.v[n][2 * j + 1] as u64) << 32);
+            }
+            hex.set_v(n as u8, lanes);
+        }
+        for n in 0..4 {
+            let mut lanes = [0u64; 16];
+            lanes[0] = init.q[n][0] as u64 | ((init.q[n][1] as u64) << 32);
+            lanes[1] = init.q[n][2] as u64 | ((init.q[n][3] as u64) << 32);
+            hex.set_q(n as u8, lanes);
+        }
+    }
+    ctx.pc = CODE_ADDR as u64;
+
+    let interp = SmirInterpreter::new();
+    let mut mem = rax::smir::FlatMemory::with_base(0, 0x20000);
+    mem.load(HIST_INPUT_ADDR as usize, &input[..]);
+    interp.execute_block(&mut ctx, &mut mem, &block);
+
+    let mut out = State::zeroed();
+    for n in 0..NREG {
+        out.r[n] = ctx.read_arch_reg(ArchReg::Hexagon(HexagonReg::R(n as u8))) as u32;
+    }
+    for n in 0..4 {
+        let v = ctx.read_arch_reg(ArchReg::Hexagon(HexagonReg::P(n as u8)));
+        out.p[n] = if v & 1 != 0 { 0xff } else { 0 };
+    }
+    out.usr = ctx.read_arch_reg(ArchReg::Hexagon(HexagonReg::Usr)) as u32;
+    if let ArchRegState::Hexagon(hex) = &ctx.arch_regs {
+        for n in 0..32 {
+            let lanes = hex.get_v(n as u8);
+            for (j, lane) in lanes.iter().enumerate() {
+                out.v[n][2 * j] = *lane as u32;
+                out.v[n][2 * j + 1] = (*lane >> 32) as u32;
+            }
+        }
+        for n in 0..4 {
+            let lanes = hex.get_q(n as u8);
+            out.q[n][0] = lanes[0] as u32;
+            out.q[n][1] = (lanes[0] >> 32) as u32;
+            out.q[n][2] = lanes[1] as u32;
+            out.q[n][3] = (lanes[1] >> 32) as u32;
+        }
+    }
+    Ok(Some(out))
+}
+
+/// Lift-verify the histogram family: each (label, single-packet asm) over `n`
+/// random V/Q/P/USR states with `r0` pointed at a populated input region.
+fn lift_hist_family(name: &str, cases: &[(&str, &str)], n: usize, seed: u64) {
+    let asms: Vec<String> = cases.iter().map(|(_, a)| a.to_string()).collect();
+    let words_per = match assemble(&asms) {
+        Some(w) => w,
+        None => {
+            eprintln!("[hexagon_smir_lift] {name}: llvm-mc unavailable -> skipping");
+            return;
+        }
+    };
+    let mut rng = Rng::new(seed);
+    let mut mismatches = Vec::new();
+    let mut unlifted = Vec::new();
+    for ((label, _asm), words) in cases.iter().zip(words_per.iter()) {
+        for _ in 0..n {
+            let mut st = State::zeroed();
+            for r in st.r.iter_mut() {
+                *r = rng.next() as u32;
+            }
+            // Base register for the `.tmp` load: point r0 at the input region.
+            st.r[0] = HIST_INPUT_ADDR;
+            for k in 0..4 {
+                if rng.next() & 1 == 1 {
+                    st.p[k] = 0xff;
+                }
+            }
+            for vv in st.v.iter_mut() {
+                for w in vv.iter_mut() {
+                    *w = rng.next() as u32;
+                }
+            }
+            for qq in st.q.iter_mut() {
+                for w in qq.iter_mut() {
+                    *w = rng.next() as u32;
+                }
+            }
+            let mut input = [0u8; 128];
+            for b in input.iter_mut() {
+                *b = rng.next() as u8;
+            }
+            let interp = match run_interp_hist(words, &st, &input) {
+                Some(s) => s,
+                None => continue,
+            };
+            match lift_and_run_hist(words, &st, &input) {
+                Ok(None) => {
+                    unlifted.push(*label);
+                    break;
+                }
+                Ok(Some(lift)) => {
+                    let mut diffs = Vec::new();
+                    for r in 0..NREG {
+                        if interp.r[r] != lift.r[r] {
+                            diffs.push(format!("r{r}:i={:#x},l={:#x}", interp.r[r], lift.r[r]));
+                        }
+                    }
+                    for k in 0..4 {
+                        if (interp.p[k] & 1) != (lift.p[k] & 1) {
+                            diffs.push(format!("p{k}:i={:#x},l={:#x}", interp.p[k], lift.p[k]));
+                        }
+                    }
+                    for vn in 0..32 {
+                        if interp.v[vn] != lift.v[vn] {
+                            diffs.push(format!(
+                                "v{vn}:i={:08x?},l={:08x?}",
+                                &interp.v[vn][..4],
+                                &lift.v[vn][..4]
+                            ));
+                        }
+                    }
+                    for qn in 0..4 {
+                        if interp.q[qn] != lift.q[qn] {
+                            diffs.push(format!(
+                                "q{qn}:i={:08x?},l={:08x?}",
+                                interp.q[qn], lift.q[qn]
+                            ));
+                        }
+                    }
+                    if !diffs.is_empty() {
+                        mismatches.push(format!("[{label}] {}", diffs.join(" ")));
+                    }
+                }
+                Err(e) => mismatches.push(format!("[{label}] {e}")),
+            }
+        }
+    }
+    if !unlifted.is_empty() {
+        eprintln!("[hexagon_smir_lift] {name}: UNLIFTED (gap): {:?}", unlifted);
+    }
+    if !mismatches.is_empty() {
+        eprintln!("\n==== {name}: {} lift mismatches ====", mismatches.len());
+        for m in mismatches.iter().take(20) {
+            eprintln!("  {m}");
+        }
+        panic!("{name}: {} SMIR-lift divergences vs interpreter", mismatches.len());
+    }
+}
+
+#[test]
+fn lift_hvx_vhist() {
+    lift_hist_family(
+        "hvx_vhist",
+        &[
+            ("vhist", "{ v0.tmp = vmem(r0+#0); vhist }"),
+            ("vhistq", "{ v0.tmp = vmem(r0+#0); vhist(q1) }"),
+        ],
+        16,
+        0x1c01,
+    );
+}
+
+#[test]
+fn lift_hvx_vwhist128() {
+    lift_hist_family(
+        "hvx_vwhist128",
+        &[
+            ("vwhist128", "{ v0.tmp = vmem(r0+#0); vwhist128 }"),
+            ("vwhist128m", "{ v0.tmp = vmem(r0+#0); vwhist128(#1) }"),
+            ("vwhist128q", "{ v0.tmp = vmem(r0+#0); vwhist128(q1) }"),
+            ("vwhist128qm", "{ v0.tmp = vmem(r0+#0); vwhist128(q1,#1) }"),
+        ],
+        16,
+        0x1c02,
+    );
+}
+
+#[test]
+fn lift_hvx_vwhist256() {
+    lift_hist_family(
+        "hvx_vwhist256",
+        &[
+            ("vwhist256", "{ v0.tmp = vmem(r0+#0); vwhist256 }"),
+            ("vwhist256q", "{ v0.tmp = vmem(r0+#0); vwhist256(q1) }"),
+            ("vwhist256_sat", "{ v0.tmp = vmem(r0+#0); vwhist256:sat }"),
+            ("vwhist256q_sat", "{ v0.tmp = vmem(r0+#0); vwhist256(q1):sat }"),
+        ],
+        16,
+        0x1c03,
+    );
+}
