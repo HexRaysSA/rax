@@ -2877,10 +2877,13 @@ impl HexagonLifter {
                     dst: self.hex_v(base),
                     src1: self.hex_v(fld(b'u')),
                     src2: self.hex_v(fld(b'v')),
-                    src_elem: VecElementType::I8,
+                    src1_elem: VecElementType::I8,
+                    src2_elem: VecElementType::I8,
+                    out_elem: VecElementType::I32,
                     taps: 4,
                     signed1: false,
                     signed2: false,
+                    sat: false,
                     acc,
                 });
             }
@@ -2891,10 +2894,13 @@ impl HexagonLifter {
                     dst: self.hex_v(base),
                     src1: self.hex_v(fld(b'u')),
                     src2: self.hex_v(fld(b'v')),
-                    src_elem: VecElementType::I8,
+                    src1_elem: VecElementType::I8,
+                    src2_elem: VecElementType::I8,
+                    out_elem: VecElementType::I32,
                     taps: 4,
                     signed1: true,
                     signed2: true,
+                    sat: false,
                     acc,
                 });
             }
@@ -2905,10 +2911,13 @@ impl HexagonLifter {
                     dst: self.hex_v(base),
                     src1: self.hex_v(fld(b'u')),
                     src2: self.hex_v(fld(b'v')),
-                    src_elem: VecElementType::I8,
+                    src1_elem: VecElementType::I8,
+                    src2_elem: VecElementType::I8,
+                    out_elem: VecElementType::I32,
                     taps: 4,
                     signed1: false, // Vu.ub
                     signed2: true,  // Vv.b
+                    sat: false,
                     acc,
                 });
             }
@@ -2966,10 +2975,13 @@ impl HexagonLifter {
                     dst: self.hex_v(base),
                     src1: self.hex_v(fld(b'u')),
                     src2: t,
-                    src_elem: VecElementType::I8,
+                    src1_elem: VecElementType::I8,
+                    src2_elem: VecElementType::I8,
+                    out_elem: VecElementType::I32,
                     taps: 4,
                     signed1: false, // Vu.ub
                     signed2,
+                    sat: false,
                     acc,
                 });
             }
@@ -2996,11 +3008,14 @@ impl HexagonLifter {
                     dst: self.hex_v(base),
                     src1: self.hex_v(fld(b'u')),
                     src2: t,
-                    src_elem: VecElementType::I8,
+                    src1_elem: VecElementType::I8,
+                    src2_elem: VecElementType::I8,
+                    out_elem: VecElementType::I16,
                     taps: 2,
                     signed1: false, // Vu.ub
                     signed2: true,  // Rt.b
                     acc,
+                    sat: false,
                 });
             }
 
@@ -3497,8 +3512,7 @@ impl HexagonLifter {
             // --- HVX Q-predicate logic: Qd = OP(Qs, Qt) per-bit (Wave 11) ---
             // Modeled as a VLane bitwise op over the 128-bit Q regs (two I64
             // lanes). Field letters src1=s, src2=t, dst=d (sem/hvx_cmp.rs reads
-            // qread_new(fld(d,b's'))/(b't')). or_n (a | !b) and not (unary !a)
-            // have no VLaneOp and are left Unsupported (reported).
+            // qread_new(fld(d,b's'))/(b't')).
             Opcode::V6_pred_and
             | Opcode::V6_pred_or
             | Opcode::V6_pred_xor
@@ -3518,6 +3532,90 @@ impl HexagonLifter {
                     lanes: 2,
                     op: lane_op,
                     signed: false,
+                });
+            }
+
+            // --- HVX Q-predicate unary / or-not logic (Wave 12) ---
+            // `Qd = not(Qs)` is the unary VLaneOp::Not (src2 unused, point it at
+            // src1 so the op is well-formed). `Qd = or(Qs,!Qt)` is VLaneOp::OrNot
+            // (`src1 | !src2`), matching the sem `qs[k] | !qt[k]`. Both run over
+            // the 128-bit Q regs as two I64 lanes (sem/hvx_cmp.rs: src1=s, t=t).
+            Opcode::V6_pred_not => {
+                let s = self.hex_q(fld(b's'));
+                push_op!(OpKind::VLane {
+                    dst: self.hex_q(fld(b'd')),
+                    src1: s,
+                    src2: s,
+                    elem: VecElementType::I64,
+                    lanes: 2,
+                    op: VLaneOp::Not,
+                    signed: false,
+                });
+            }
+            Opcode::V6_pred_or_n => {
+                push_op!(OpKind::VLane {
+                    dst: self.hex_q(fld(b'd')),
+                    src1: self.hex_q(fld(b's')),
+                    src2: self.hex_q(fld(b't')),
+                    elem: VecElementType::I64,
+                    lanes: 2,
+                    op: VLaneOp::OrNot,
+                    signed: false,
+                });
+            }
+
+            // --- HVX scalar 2-tap vdmpy halfword reduces -> word (Wave 12) ---
+            // `Vd.w = vdmpy(Vu.h, Rt.<t>)`: each word lane i = Σ_{k<2}
+            // Vu.h[2i+k] * Rt.<t>[(2i+k)%lanes]. Broadcast Rt as I32 word lanes
+            // into a temp so temp.b[n] = Rt.b[n%4] (and temp.h[n] = Rt.h[n%2]),
+            // matching the sem's per-lane Rt reuse, then run a 2-tap VReduceMul of
+            // Vu against the temp. dst base = fld('x') for _acc else fld('d').
+            //   vdmpyhb     Vu.h(s) * Rt.b(s)  -> w,  no sat   (src2 I8)
+            //   vdmpyhsat   Vu.h(s) * Rt.h(s)  -> w,  sat32    (src2 I16)
+            //   vdmpyhsusat Vu.h(s) * Rt.uh(u) -> w,  sat32    (src2 I16, unsigned)
+            // HVX vector saturation does not set USR (verified by prior sat ops).
+            Opcode::V6_vdmpyhb
+            | Opcode::V6_vdmpyhb_acc
+            | Opcode::V6_vdmpyhsat
+            | Opcode::V6_vdmpyhsat_acc
+            | Opcode::V6_vdmpyhsusat
+            | Opcode::V6_vdmpyhsusat_acc => {
+                let acc = matches!(
+                    op,
+                    Opcode::V6_vdmpyhb_acc
+                        | Opcode::V6_vdmpyhsat_acc
+                        | Opcode::V6_vdmpyhsusat_acc
+                );
+                let (src2_elem, signed2, sat) = match op {
+                    Opcode::V6_vdmpyhb | Opcode::V6_vdmpyhb_acc => {
+                        (VecElementType::I8, true, false)
+                    }
+                    Opcode::V6_vdmpyhsat | Opcode::V6_vdmpyhsat_acc => {
+                        (VecElementType::I16, true, true)
+                    }
+                    // V6_vdmpyhsusat(_acc): Rt.uh is unsigned
+                    _ => (VecElementType::I16, false, true),
+                };
+                let base = if acc { rx_n } else { rd_n };
+                let t = ctx.alloc_vreg();
+                push_op!(OpKind::VBroadcast {
+                    dst: t,
+                    scalar: self.hex_reg(fld(b't')),
+                    elem: VecElementType::I32,
+                    lanes: 32,
+                });
+                push_op!(OpKind::VReduceMul {
+                    dst: self.hex_v(base),
+                    src1: self.hex_v(fld(b'u')),
+                    src2: t,
+                    src1_elem: VecElementType::I16, // Vu.h (signed)
+                    src2_elem,
+                    out_elem: VecElementType::I32,
+                    taps: 2,
+                    signed1: true,
+                    signed2,
+                    sat,
+                    acc,
                 });
             }
 

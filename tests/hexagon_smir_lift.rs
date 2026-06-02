@@ -1369,7 +1369,8 @@ fn lift_hvx_vmux() {
 #[test]
 fn lift_hvx_pred_logic() {
     // Qd = OP(Qs, Qt) per-bit over 128 bits, lifted as VLane bitwise on Q regs.
-    // (pred_or_n a|!b and pred_not !a have no VLaneOp and are left Unsupported.)
+    // pred_not (!a, VLaneOp::Not) and pred_or_n (a|!b, VLaneOp::OrNot) are now
+    // lifted too (Wave 12).
     lift_family(
         "hvx_pred_logic",
         &[
@@ -1377,8 +1378,36 @@ fn lift_hvx_pred_logic() {
             ("pred_or", "{ q0 = or(q1,q2) }"),
             ("pred_xor", "{ q0 = xor(q1,q2) }"),
             ("pred_and_n", "{ q0 = and(q1,!q2) }"),
+            ("pred_not", "{ q0 = not(q1) }"),
+            ("pred_or_n", "{ q0 = or(q1,!q2) }"),
         ],
         16,
         0x7025,
+    );
+}
+
+// ---- Wave 12: HVX scalar 2-tap vdmpy halfword reduces -> word ----
+// `Vd.w = vdmpy(Vu.h, Rt.<t>)` (and `+=` acc forms), composed as
+// VBroadcast(Rt, I32) + 2-tap I16-source VReduceMul. The sat forms clamp the
+// accumulated word lane to the signed 32-bit range; the harness seeds hit
+// overflow. HVX vector saturation does not touch USR.
+
+#[test]
+fn lift_hvx_vdmpyh_scalar() {
+    lift_family(
+        "hvx_vdmpyh_scalar",
+        &[
+            // Vu.h(signed) * Rt.b(signed byte) -> word, 2-tap, no sat.
+            ("vdmpyhb", "{ v2.w = vdmpy(v0.h,r3.b) }"),
+            ("vdmpyhb_acc", "{ v2.w += vdmpy(v0.h,r3.b) }"),
+            // Vu.h(signed) * Rt.h(signed) -> word, 2-tap, sat32.
+            ("vdmpyhsat", "{ v2.w = vdmpy(v0.h,r3.h):sat }"),
+            ("vdmpyhsat_acc", "{ v2.w += vdmpy(v0.h,r3.h):sat }"),
+            // Vu.h(signed) * Rt.uh(UNSIGNED) -> word, 2-tap, sat32.
+            ("vdmpyhsusat", "{ v2.w = vdmpy(v0.h,r3.uh):sat }"),
+            ("vdmpyhsusat_acc", "{ v2.w += vdmpy(v0.h,r3.uh):sat }"),
+        ],
+        16,
+        0x7026,
     );
 }
