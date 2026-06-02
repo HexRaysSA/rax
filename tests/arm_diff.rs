@@ -3479,6 +3479,58 @@ fn diff_sve_sincdecp() {
     run_batch("sve_sincdecp", batch);
 }
 
+#[test]
+fn diff_sve_elem_count() {
+    // SVE element-count / inc-dec-by-count / stack-allocation family:
+    // RDVL/ADDVL/ADDPL, CNTB/H/W/D, INCB/DECB.. (GPR + vector), and the
+    // saturating SQINCB/UQINCB.. forms, plus PTEST. Encodings span varied
+    // patterns (all/vl*/pow2/mul3/mul4), MUL multipliers and signed imm6.
+    let enc: [u32; 57] = [
+        0x04bf5400, 0x04bf57e0, 0x04bf5020, 0x04bf53e0, 0x04215420, 0x04215000, 0x042150a0,
+        0x043f579f, 0x04615400, 0x046150e0, 0x047f503f, 0x0420e3e0, 0x0421e100, 0x0460e000,
+        0x04a2e3c0, 0x04efe3e0, 0x0420e020, 0x0460e120, 0x04a0e3a0, 0x0430e3e0, 0x0434e3e0,
+        0x0470e3e0, 0x04b0e000, 0x04f1e3e0, 0x0430e7e0, 0x0470e7c0, 0x04b0e7e0, 0x04f3e7e0,
+        0x0420f3e0, 0x0422f3e0, 0x0420f7e0, 0x0460f100, 0x0461f7e0, 0x04b0f3e0, 0x04b3f7e0,
+        0x04fff3e0, 0x0420fbe0, 0x0420ffe0, 0x04f0fbe0, 0x0470c3e0, 0x0472c3e0, 0x04b0c000,
+        0x04f1c3e0, 0x0470c7e0, 0x04b0c7c0, 0x04f6c7e0, 0x0460c3e0, 0x0461c3e0, 0x0460c7e0,
+        0x04a0c000, 0x04a0c7e0, 0x04efc3e0, 0x0460cbe0, 0x04a0cfe0, 0x04e3cbe0, 0x2550c020,
+        0x2550cc40,
+    ];
+    let gpr_vals: [u64; 8] = [
+        0,
+        1,
+        0x7FFF_FFFF,
+        0x8000_0000,
+        0xFFFF_FFFF,
+        0x7FFF_FFFF_FFFF_FFFF,
+        0x8000_0000_0000_0000,
+        0xFFFF_FFFF_FFFF_FFFF,
+    ];
+    let vec_pats: [u64; 4] = [
+        0x0000_0000_0000_0000,
+        0x7FFF_7FFF_7FFF_7FFF,
+        0x8000_8000_8000_8000,
+        0xFFFF_FFFF_FFFF_FFFF,
+    ];
+    let mut rng = Rng::new(0x1_0036);
+    let mut batch: Vec<(String, u32, ArmState)> = Vec::new();
+    for (k, &insn) in enc.iter().enumerate() {
+        for i in 0..8 {
+            let mut st = ArmState::zeroed();
+            st.x[0] = gpr_vals[i];
+            st.x[1] = rng.next();
+            st.sp = 0x7FFF_0000 ^ (i as u64 * 0x40);
+            let vp = vec_pats[i % vec_pats.len()];
+            st.set_vreg(0, vp, vp.rotate_left(16));
+            for p in 0..4usize {
+                st.set_preg(p, rng.next() as u16);
+            }
+            batch.push((format!("ec{k}"), insn, st));
+        }
+    }
+    run_batch("sve_elem_count", batch);
+}
+
 /// WHILE gt-family: `00100101 esz 1 rm 000 sf u 0 rn eq rd`. eq=0 => GE/HS
 /// (inclusive), eq=1 => GT/HI (strict); u selects signed(0)/unsigned(1). Rn=x0,
 /// Rm=x1, Pd=p0.
