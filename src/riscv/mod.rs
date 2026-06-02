@@ -119,6 +119,8 @@ pub struct Isa {
     pub zknd: bool,
     /// Zcb: additional compressed instructions.
     pub zcb: bool,
+    /// V: vector extension (configuration instructions only).
+    pub v: bool,
 }
 
 impl Isa {
@@ -147,6 +149,7 @@ impl Isa {
             zkne: true,
             zknd: true,
             zcb: true,
+            v: true,
         }
     }
 
@@ -175,6 +178,7 @@ impl Isa {
             zkne: false,
             zknd: false,
             zcb: false,
+            v: false,
         }
     }
 

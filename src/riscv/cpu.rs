@@ -24,6 +24,16 @@ pub enum Priv {
     Machine = 3,
 }
 
+/// Application vector length source for `vsetvl*`.
+enum Avl {
+    /// `rs1 == x0 && rd == x0`: keep the current `vl`.
+    Keep,
+    /// `rs1 == x0 && rd != x0`: set `vl` to `VLMAX`.
+    Max,
+    /// AVL from a register or immediate.
+    Reg(u64),
+}
+
 /// Standard RISC-V synchronous exception cause codes.
 pub mod cause {
     /// Instruction address misaligned.
@@ -152,9 +162,19 @@ pub struct RiscVCpu {
     time: u64,
     instret: u64,
 
+    // ---- vector configuration state (V extension) ----
+    vl: u64,
+    vtype: u64,
+    vstart: u64,
+    vxrm: u64,
+    vxsat: u64,
+
     /// Guest memory.
     mem: Box<dyn Memory>,
 }
+
+/// Vector register length in bits (matches the qemu-riscv64 default).
+const VLEN: u64 = 128;
 
 impl RiscVCpu {
     /// Create a hart with the given configuration and memory.
@@ -182,6 +202,11 @@ impl RiscVCpu {
             cycle: 0,
             time: 0,
             instret: 0,
+            vl: 0,
+            vtype: 0,
+            vstart: 0,
+            vxrm: 0,
+            vxsat: 0,
             mem,
         }
     }
@@ -648,6 +673,30 @@ impl RiscVCpu {
             Op::Aes64ks1i => self.set_x(rd, crypto::aes64ks1i(a, (insn.raw >> 20) & 0xf)),
             Op::Aes64ks2 => self.set_x(rd, crypto::aes64ks2(a, b)),
 
+            // ---- V: vector configuration ----
+            Op::Vsetvli => {
+                let avl = if rs1 == 0 {
+                    if rd == 0 { Avl::Keep } else { Avl::Max }
+                } else {
+                    Avl::Reg(a)
+                };
+                let vl = self.set_vtype(imm, avl);
+                self.set_x(rd, vl);
+            }
+            Op::Vsetivli => {
+                let vl = self.set_vtype(imm, Avl::Reg(rs1 as u64));
+                self.set_x(rd, vl);
+            }
+            Op::Vsetvl => {
+                let avl = if rs1 == 0 {
+                    if rd == 0 { Avl::Keep } else { Avl::Max }
+                } else {
+                    Avl::Reg(a)
+                };
+                let vl = self.set_vtype(b, avl);
+                self.set_x(rd, vl);
+            }
+
             Op::Illegal => return Err(Trap::illegal(insn.raw)),
 
             // FP handled above via exec_fp.
@@ -1026,6 +1075,13 @@ impl RiscVCpu {
             Csr::Mip => self.mip,
             Csr::Mvendorid | Csr::Marchid | Csr::Mimpid => 0,
             Csr::Mhartid => self.mhartid,
+            Csr::Vl => self.vl,
+            Csr::Vtype => self.vtype,
+            Csr::Vlenb => VLEN / 8,
+            Csr::Vstart => self.vstart,
+            Csr::Vxsat => self.vxsat,
+            Csr::Vxrm => self.vxrm,
+            Csr::Vcsr => (self.vxrm << 1) | self.vxsat,
         };
         Ok(v & self.xmask())
     }
@@ -1051,6 +1107,13 @@ impl RiscVCpu {
             Csr::Mcause => self.mcause = value,
             Csr::Mtval => self.mtval = value,
             Csr::Mip => self.mip = value,
+            Csr::Vstart => self.vstart = value,
+            Csr::Vxsat => self.vxsat = value & 1,
+            Csr::Vxrm => self.vxrm = value & 3,
+            Csr::Vcsr => {
+                self.vxsat = value & 1;
+                self.vxrm = (value >> 1) & 3;
+            }
             // Read-only / counters: writes ignored (caught earlier for RO addrs).
             _ => {}
         }
@@ -1095,6 +1158,53 @@ impl RiscVCpu {
             _ => Priv::User,
         };
         self.mstatus &= !(0b11 << 11); // MPP = U (0)
+    }
+
+    // ---------------------------------------------------------------
+    // V: vector configuration (vsetvl* compute the new vl from vtype).
+    // ---------------------------------------------------------------
+
+    /// Apply a `vtype` and an application vector length, returning the new `vl`
+    /// and updating the `vl`/`vtype` CSRs. An illegal `vtype` sets `vill` and
+    /// zeroes `vl`.
+    fn set_vtype(&mut self, vtype: u64, avl: Avl) -> u64 {
+        let vsew = (vtype >> 3) & 0x7;
+        let vlmul = vtype & 0x7;
+        // Bits above [7:0] (vma/vta/vsew/vlmul) are reserved; vlmul=4 reserved;
+        // SEW must be <= ELEN (64).
+        let mut vill = (vtype >> 8) != 0 || vlmul == 4 || vsew > 3;
+        let sew = 8u64 << vsew;
+        let vlmax = if vill {
+            0
+        } else {
+            match vlmul {
+                0 => VLEN / sew,
+                1 => VLEN * 2 / sew,
+                2 => VLEN * 4 / sew,
+                3 => VLEN * 8 / sew,
+                5 => VLEN / 8 / sew,
+                6 => VLEN / 4 / sew,
+                7 => VLEN / 2 / sew,
+                _ => 0,
+            }
+        };
+        if vlmax == 0 {
+            vill = true;
+        }
+        if vill {
+            self.vtype = 1u64 << (self.xbits() - 1); // vill bit
+            self.vl = 0;
+            return 0;
+        }
+        let avl = match avl {
+            Avl::Keep => self.vl,
+            Avl::Max => vlmax,
+            Avl::Reg(v) => v,
+        };
+        let vl = avl.min(vlmax);
+        self.vtype = vtype;
+        self.vl = vl;
+        vl
     }
 
     // ---------------------------------------------------------------
@@ -2199,6 +2309,35 @@ mod tests {
             run_one(&mut c, r_type(0, 2, 1, 0, 3, 0x3b)),
             RiscVExit::Trap(_)
         ));
+    }
+
+    #[test]
+    fn vector_config() {
+        let mut c = cpu();
+        // vsetvli x1, x2(=100), e8,m1 (vtype=0): VLMAX=128/8=16, vl=min(100,16)=16
+        c.set_x(2, 100);
+        run_one(&mut c, (0u32 << 20) | (2 << 15) | (7 << 12) | (1 << 7) | 0x57);
+        assert_eq!(c.x(1), 16);
+        assert_eq!(c.csr_read(0xC20).unwrap(), 16); // vl
+        assert_eq!(c.csr_read(0xC21).unwrap(), 0); // vtype
+        assert_eq!(c.csr_read(0xC22).unwrap(), 16); // vlenb (VLEN/8)
+
+        // e32,m1: VLMAX = 128/32 = 4. AVL=100 -> vl=4.
+        run_one(&mut c, ((2u32 << 3) << 20) | (2 << 15) | (7 << 12) | (3 << 7) | 0x57);
+        assert_eq!(c.x(3), 4);
+
+        // Keep form (rs1=x0, rd=x0): vl unchanged. Set vl=4 first (above), then keep.
+        run_one(&mut c, (0u32 << 20) | (0 << 15) | (7 << 12) | (0 << 7) | 0x57);
+        assert_eq!(c.csr_read(0xC20).unwrap(), 4); // vl retained
+
+        // Illegal vtype (vsew=4 -> SEW=128 > ELEN): vill set, vl=0.
+        run_one(&mut c, ((4u32 << 3) << 20) | (0 << 15) | (7 << 12) | (5 << 7) | 0x57);
+        assert_eq!(c.x(5), 0);
+        assert_eq!(c.csr_read(0xC21).unwrap() >> 63, 1); // vtype.vill
+
+        // vsetivli x6, 3, e64,m1: VLMAX = 128/64 = 2, vl = min(3,2) = 2.
+        run_one(&mut c, (0b11u32 << 30) | ((3u32 << 3) << 20) | (3 << 15) | (7 << 12) | (6 << 7) | 0x57);
+        assert_eq!(c.x(6), 2);
     }
 
     #[test]

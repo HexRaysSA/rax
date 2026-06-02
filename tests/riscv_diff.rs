@@ -2059,3 +2059,57 @@ fn diff_mem_fuzz() {
     }
     run_batch(&batch, true);
 }
+
+// ---------------------------------------------------------------------------
+// V: vector configuration (vsetvli / vsetivli / vsetvl). Verifies the computed
+// `vl` (written to x[rd]) against qemu across vtype/AVL combinations. (The
+// Keep form rs1=x0,rd=x0 depends on persistent vl state in the oracle and is
+// covered by unit tests instead.)
+// ---------------------------------------------------------------------------
+
+#[test]
+fn diff_vsetvl() {
+    let mut rng = Rng::new(0x5E7_71);
+    let mut batch = Vec::new();
+    // vtype = (vma<<7)|(vta<<6)|(vsew<<3)|vlmul ; iterate sew 0..5, lmul 0..8.
+    let mut vtypes = Vec::new();
+    for sew in 0..5u32 {
+        for lmul in 0..8u32 {
+            for &flags in &[0u32, 0xC0] {
+                vtypes.push(flags | (sew << 3) | lmul);
+            }
+        }
+    }
+    let avls = [0u64, 1, 2, 4, 8, 15, 16, 17, 31, 32, 33, 63, 100, 1000];
+
+    for &vtype in &vtypes {
+        for &avl in &avls {
+            let rd = POOL[(rng.next() % 6) as usize];
+            let rs1 = POOL[(rng.next() % 6) as usize];
+            // vsetvli rd, rs1, vtype  (AVL = x[rs1])
+            let mut st = rand_state(&mut rng);
+            st.x[rs1 as usize] = avl;
+            let vsetvli = (vtype << 20) | (rs1 << 15) | (7 << 12) | (rd << 7) | 0x57;
+            batch.push(("vsetvli".into(), vsetvli, st));
+            // vsetvli rd, x0, vtype  (AVL = VLMAX)
+            let vsetvli_max = (vtype << 20) | (0 << 15) | (7 << 12) | (rd << 7) | 0x57;
+            batch.push(("vsetvli.max".into(), vsetvli_max, rand_state(&mut rng)));
+            // vsetvl rd, rs1, rs2  (vtype from x[rs2])
+            let rs2 = POOL[(rng.next() % 6) as usize];
+            if rs2 != rs1 {
+                let mut st2 = rand_state(&mut rng);
+                st2.x[rs1 as usize] = avl;
+                st2.x[rs2 as usize] = vtype as u64;
+                let vsetvl = (1u32 << 31) | (rs2 << 20) | (rs1 << 15) | (7 << 12) | (rd << 7) | 0x57;
+                batch.push(("vsetvl".into(), vsetvl, st2));
+            }
+        }
+        // vsetivli rd, uimm, vtype  (AVL = 5-bit immediate)
+        for uimm in [0u32, 1, 4, 15, 16, 17, 31] {
+            let rd = POOL[(rng.next() % 6) as usize];
+            let vsetivli = (0b11u32 << 30) | (vtype << 20) | (uimm << 15) | (7 << 12) | (rd << 7) | 0x57;
+            batch.push(("vsetivli".into(), vsetivli, rand_state(&mut rng)));
+        }
+    }
+    run_batch(&batch, false);
+}

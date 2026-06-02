@@ -59,6 +59,20 @@ pub enum Csr {
     Mimpid = 0xF13,
     /// Hart ID.
     Mhartid = 0xF14,
+    /// Vector start position.
+    Vstart = 0x008,
+    /// Vector fixed-point saturation flag.
+    Vxsat = 0x009,
+    /// Vector fixed-point rounding mode.
+    Vxrm = 0x00A,
+    /// Vector control/status (`vxrm` || `vxsat`).
+    Vcsr = 0x00F,
+    /// Vector length.
+    Vl = 0xC20,
+    /// Vector data type.
+    Vtype = 0xC21,
+    /// Vector register length in bytes.
+    Vlenb = 0xC22,
 }
 
 impl Csr {
@@ -90,6 +104,13 @@ impl Csr {
             0xF12 => Csr::Marchid,
             0xF13 => Csr::Mimpid,
             0xF14 => Csr::Mhartid,
+            0x008 => Csr::Vstart,
+            0x009 => Csr::Vxsat,
+            0x00A => Csr::Vxrm,
+            0x00F => Csr::Vcsr,
+            0xC20 => Csr::Vl,
+            0xC21 => Csr::Vtype,
+            0xC22 => Csr::Vlenb,
             _ => return None,
         })
     }

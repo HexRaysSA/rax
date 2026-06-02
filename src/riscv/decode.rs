@@ -324,6 +324,10 @@ pub enum Op {
     Aes64ks1i,
     Aes64ks2,
     Aes64im,
+    // ---- V (vector configuration) ----
+    Vsetvli,
+    Vsetivli,
+    Vsetvl,
     // ---- sentinel ----
     Illegal,
 }
@@ -556,7 +560,32 @@ pub fn decode(w: u32, xlen: Xlen, isa: &Isa) -> Insn {
         0x47 if isa.f => decode_fma(Op::FmsubS, Op::FmsubD, Op::FmsubH, w, isa),
         0x4b if isa.f => decode_fma(Op::FnmsubS, Op::FnmsubD, Op::FnmsubH, w, isa),
         0x4f if isa.f => decode_fma(Op::FnmaddS, Op::FnmaddD, Op::FnmaddH, w, isa),
+        0x57 if isa.v => decode_vector(w),
         _ => Insn::illegal(w, 4),
+    }
+}
+
+/// OP-V (0x57). Only the vector configuration instructions (funct3 == 0b111)
+/// are implemented; vector arithmetic/load-store decode as illegal.
+fn decode_vector(w: u32) -> Insn {
+    if funct3(w) != 0b111 {
+        return Insn::illegal(w, 4);
+    }
+    if (w >> 31) & 1 == 0 {
+        // vsetvli: 11-bit vtypei in bits[30:20].
+        let mut i = base(Op::Vsetvli, w);
+        i.imm = ((w >> 20) & 0x7ff) as i64;
+        i
+    } else if (w >> 30) & 1 == 1 {
+        // vsetivli: 10-bit vtypei in bits[29:20]; AVL is the 5-bit rs1 field.
+        let mut i = base(Op::Vsetivli, w);
+        i.imm = ((w >> 20) & 0x3ff) as i64;
+        i
+    } else if (w >> 25) & 0x3f == 0 {
+        // vsetvl: vtype comes from rs2.
+        base(Op::Vsetvl, w)
+    } else {
+        Insn::illegal(w, 4)
     }
 }
 
