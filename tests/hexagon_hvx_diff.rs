@@ -386,6 +386,22 @@ fn diff_hvx_sat() {
 }
 
 #[test]
+fn diff_hvx_mpyi() {
+    // Integer same-width multiplies (vmpyi). Scalar operand is r5.
+    run_family(
+        "hvx_mpyi",
+        &[
+            ("vmpyih", "{ v0.h = vmpyi(v1.h,v2.h) }"),
+            ("vmpyihb", "{ v0.h = vmpyi(v1.h,r5.b) }"),
+            ("vmpyiwb", "{ v0.w = vmpyi(v1.w,r5.b) }"),
+            ("vmpyiwh", "{ v0.w = vmpyi(v1.w,r5.h) }"),
+        ],
+        6,
+        0x3c2,
+    );
+}
+
+#[test]
 fn diff_hvx_logical() {
     run_family(
         "hvx_logical",
