@@ -4861,10 +4861,15 @@ impl AArch64Cpu {
         pg: usize,
         esize: usize,
     ) -> Result<CpuExit, ArmError> {
-        // SVE integer add/subtract (predicated), destructive: Zdn = op(Zdn, Zm)
-        // for active elements, Zdn unchanged for inactive. opc=bits[18:16]:
-        // 000=ADD, 001=SUB, 011=SUBR. The governing predicate is BYTE-granular:
-        // element e (esize bytes) is active iff bit e*esize of Pg is set.
+        // SVE predicated integer ALU (destructive): Zdn = op(Zdn, Zm) for active
+        // elements, Zdn unchanged for inactive. The governing predicate Pg is
+        // BYTE-granular (element e of `esize` bytes is active iff bit e*esize is
+        // set). The op is (group=bits[21:19], opc=bits[18:16]):
+        //   000: 000 ADD,  001 SUB,  011 SUBR
+        //   001: 000 SMAX, 001 UMAX, 010 SMIN, 011 UMIN, 100 SABD, 101 UABD
+        //   010: 000 MUL,  010 SMULH,011 UMULH,100 SDIV, 101 UDIV, 110 SDIVR, 111 UDIVR
+        //   011: 000 ORR,  001 EOR,  010 AND,  011 BIC
+        let group = (insn >> 19) & 0x7;
         let opc = (insn >> 16) & 0x7;
         let pred = self.sve_p[pg];
         let elements = 16 / esize;
@@ -4873,6 +4878,10 @@ impl AArch64Cpu {
         let a_reg = self.v[zd].to_le_bytes(); // Zdn (first source, also dest)
         let b_reg = self.v[zn].to_le_bytes(); // Zm (second source)
         let mut dst = a_reg;
+        // Signed divide over the (sign-extended) element values. Division by
+        // zero yields 0; the MIN/-1 case never overflows i128 for esize<=64 and
+        // the subsequent element mask wraps it to the architectural result.
+        let sdiv = |n: i128, d: i128| -> i128 { if d == 0 { 0 } else { n / d } };
         for e in 0..elements {
             if (pred >> (e * esize)) & 1 == 0 {
                 continue;
@@ -4880,10 +4889,39 @@ impl AArch64Cpu {
             let off = e * esize;
             let a = read_elem(&a_reg, off, esize);
             let b = read_elem(&b_reg, off, esize);
-            let r = match opc {
-                0b000 => a.wrapping_add(b),
-                0b001 => a.wrapping_sub(b),
-                0b011 => b.wrapping_sub(a),
+            let sa = sext_elem(a, bits);
+            let sb = sext_elem(b, bits);
+            let ua = uext_elem(a, bits);
+            let ub = uext_elem(b, bits);
+            let r = match (group, opc) {
+                (0b000, 0b000) => a.wrapping_add(b),
+                (0b000, 0b001) => a.wrapping_sub(b),
+                (0b000, 0b011) => b.wrapping_sub(a),
+                (0b001, 0b000) => {
+                    if sa > sb { a } else { b }
+                }
+                (0b001, 0b001) => {
+                    if ua > ub { a } else { b }
+                }
+                (0b001, 0b010) => {
+                    if sa < sb { a } else { b }
+                }
+                (0b001, 0b011) => {
+                    if ua < ub { a } else { b }
+                }
+                (0b001, 0b100) => (sa - sb).unsigned_abs() as u64,
+                (0b001, 0b101) => (if ua > ub { ua - ub } else { ub - ua }) as u64,
+                (0b010, 0b000) => a.wrapping_mul(b),
+                (0b010, 0b010) => ((sa * sb) >> bits) as u64,
+                (0b010, 0b011) => ((ua * ub) >> bits) as u64,
+                (0b010, 0b100) if esize >= 4 => sdiv(sa, sb) as u64,
+                (0b010, 0b101) if esize >= 4 => (if ub == 0 { 0 } else { ua / ub }) as u64,
+                (0b010, 0b110) if esize >= 4 => sdiv(sb, sa) as u64,
+                (0b010, 0b111) if esize >= 4 => (if ua == 0 { 0 } else { ub / ua }) as u64,
+                (0b011, 0b000) => a | b,
+                (0b011, 0b001) => a ^ b,
+                (0b011, 0b010) => a & b,
+                (0b011, 0b011) => a & !b,
                 _ => return Ok(CpuExit::Undefined(insn)),
             } & mask;
             write_elem(&mut dst, off, esize, r);
