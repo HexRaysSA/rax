@@ -1595,6 +1595,23 @@ fn enc_sve_tbl(sz: u32) -> u32 {
         | (0b001100 << 10) | (RN << 5) | RD
 }
 
+/// SVE TBX (table lookup, keep destination): `00000101 size 1 Zm 001011 Zn Zd`.
+/// Table=Zn(RN), indices=Zm(RM), dest=Zd(RD, also the out-of-range source).
+fn enc_sve_tbx(sz: u32) -> u32 {
+    (0b00000101 << 24) | (sz << 22) | (1 << 21) | (RM << 16)
+        | (0b001011 << 10) | (RN << 5) | RD
+}
+
+/// SVE DUP (indexed): `00000101 imm2 1 tsz 001000 Zn Zd`. esize_log selects the
+/// element size (0=B..4=Q); the index is packed above the tsz size-marker bit.
+fn enc_dup_idx(esize_log: u32, index: u32) -> u32 {
+    let imm = (index << (esize_log + 1)) | (1 << esize_log); // 7-bit imm2:tsz
+    let imm2 = (imm >> 5) & 0x3;
+    let tsz = imm & 0x1F;
+    (0b00000101 << 24) | (imm2 << 22) | (1 << 21) | (tsz << 16)
+        | (0b001000 << 10) | (RN << 5) | RD
+}
+
 /// SVE COMPACT: `00000101 1 sz 100001 100 Pg Zn Zd`. sz: 0=S, 1=D. Zn=z1, Pg=p0.
 fn enc_sve_compact(sz: u32) -> u32 {
     (0b00000101 << 24) | (1 << 23) | (sz << 22) | (0b100001 << 16)
@@ -2191,6 +2208,29 @@ fn diff_sve_tbl() {
         cases.push((format!("sve_tbl sz{sz}"), enc_sve_tbl(sz)));
     }
     run_family("sve_tbl", cases, 24, 0x2_6001);
+}
+
+#[test]
+fn diff_sve_tbx() {
+    // TBX is TBL with destination preservation for out-of-range indices.
+    let mut cases: Vec<(String, u32)> = Vec::new();
+    for sz in 0..4u32 {
+        cases.push((format!("sve_tbx sz{sz}"), enc_sve_tbx(sz)));
+    }
+    run_family("sve_tbx", cases, 24, 0x2_F001);
+}
+
+#[test]
+fn diff_sve_dup_idx() {
+    // DUP indexed broadcasts one element of Zn to all lanes; an index past the
+    // end broadcasts zero. Covers every element size and in/out-of-range index.
+    let mut cases: Vec<(String, u32)> = Vec::new();
+    for (elog, name, nelem) in [(0u32, "b", 16u32), (1, "h", 8), (2, "s", 4), (3, "d", 2), (4, "q", 1)] {
+        for index in [0u32, 1, nelem / 2, nelem - 1, nelem, nelem + 2] {
+            cases.push((format!("dup_idx {name}[{index}]"), enc_dup_idx(elog, index)));
+        }
+    }
+    run_family("sve_dup_idx", cases, 8, 0x2_E001);
 }
 
 #[test]
