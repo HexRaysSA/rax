@@ -4866,6 +4866,28 @@ impl AArch64Cpu {
                 self.exec_sve_shift_pred(insn, zd, zn, pg, esize)
             }
 
+            // FABS/FNEG (predicated, merging): bits[21:17]==01110, bits[15:13]==
+            // 101, bit16 selects FNEG. Pure sign-bit ops.
+            0b000 if (insn >> 17) & 0x1F == 0b01110 && (insn >> 13) & 0x7 == 0b101 => {
+                let neg = (insn >> 16) & 1 == 1;
+                let pred = self.sve_p[pg];
+                let elements = 16 / esize;
+                let signbit = 1u64 << (esize * 8 - 1);
+                let src = self.v[zn].to_le_bytes();
+                let mut dst = self.v[zd].to_le_bytes(); // merging
+                for e in 0..elements {
+                    if (pred >> (e * esize)) & 1 == 0 {
+                        continue;
+                    }
+                    let off = e * esize;
+                    let lane = read_elem(&src, off, esize);
+                    let r = if neg { lane ^ signbit } else { lane & !signbit };
+                    write_elem(&mut dst, off, esize, r);
+                }
+                self.v[zd] = u128::from_le_bytes(dst);
+                Ok(CpuExit::Continue)
+            }
+
             // Integer predicated binary operations
             0b000 if (op1 & 0x2) == 0 && (op2 & 0x10) == 0 => {
                 self.exec_sve_int_pred(insn, zd, zn, zm, pg, esize)
@@ -5608,11 +5630,13 @@ impl AArch64Cpu {
         pg: usize,
         esize: usize,
     ) -> Result<CpuExit, ArmError> {
-        // SVE FP arithmetic (predicated, binary, ZZ): bits[15:13]==100, opc5 =
-        // bits[20:16]. Destructive Zdn = op(Zdn, Zm) for active elements with a
-        // BYTE-granular governing predicate. Reuses the verified FP helpers.
-        if (insn >> 13) & 0x7 != 0b100 {
-            return Ok(CpuExit::Undefined(insn));
+        // FP fast reductions / FADDA live at bits[15:13]==001; FP unary at
+        // bits[15:13]==101; predicated binary arith at bits[15:13]==100.
+        match (insn >> 13) & 0x7 {
+            0b001 => return self.exec_sve_fp_reduce(insn, esize),
+            0b101 => return self.exec_sve_fp_unary(insn, zd, zn, pg, esize),
+            0b100 => {}
+            _ => return Ok(CpuExit::Undefined(insn)),
         }
         let opc5 = (insn >> 16) & 0x1F;
         let (kind, swap) = match opc5 {
@@ -5646,6 +5670,117 @@ impl AArch64Cpu {
                 2 => sve_fp16_binop(kind, x as u16, y as u16) as u64,
                 4 => fp_three_same_f32(kind, x as u32, y as u32, 0) as u64,
                 8 => fp_three_same_f64(kind, x, y, 0),
+                _ => return Ok(CpuExit::Undefined(insn)),
+            };
+            write_elem(&mut dst, off, esize, r);
+        }
+        self.v[zd] = u128::from_le_bytes(dst);
+        Ok(CpuExit::Continue)
+    }
+
+    /// Execute SVE FP reduction to a scalar in Vd: the "fast" tree reductions
+    /// FADDV/FMAXNMV/FMINNMV/FMAXV/FMINV (opc=bits[18:16]) and the strictly
+    /// ordered FADDA (bits[20:16]==11000). Pg is byte-granular.
+    fn exec_sve_fp_reduce(&mut self, insn: u32, esize: usize) -> Result<CpuExit, ArmError> {
+        if esize < 2 {
+            return Ok(CpuExit::Undefined(insn));
+        }
+        let pg = ((insn >> 10) & 0x7) as usize;
+        let zn = ((insn >> 5) & 0x1F) as usize;
+        let vd = (insn & 0x1F) as usize;
+        let pred = self.sve_p[pg];
+        let elements = 16 / esize;
+        let mask = elem_mask((esize * 8) as u32) as u128;
+        // FADDA: strict left-to-right accumulate seeded by Vdn[0]; skip inactive.
+        if (insn >> 16) & 0x1F == 0b11000 {
+            let m_reg = self.v[zn].to_le_bytes(); // Zm
+            let vd_bytes = self.v[vd].to_le_bytes();
+            let mut acc = read_elem(&vd_bytes, 0, esize);
+            for e in 0..elements {
+                if (pred >> (e * esize)) & 1 == 1 {
+                    acc = sve_fp_combine(FpKind::Add, esize, acc, read_elem(&m_reg, e * esize, esize));
+                }
+            }
+            self.v[vd] = (acc as u128) & mask;
+            return Ok(CpuExit::Continue);
+        }
+        let kind = match (insn >> 16) & 0x7 {
+            0b000 => FpKind::Add,   // FADDV
+            0b100 => FpKind::MaxNm, // FMAXNMV
+            0b101 => FpKind::MinNm, // FMINNMV
+            0b110 => FpKind::Max,   // FMAXV
+            0b111 => FpKind::Min,   // FMINV
+            _ => return Ok(CpuExit::Undefined(insn)),
+        };
+        let ident = sve_fp_identity(kind, esize);
+        let src = self.v[zn].to_le_bytes();
+        let buf: Vec<u64> = (0..elements)
+            .map(|e| {
+                if (pred >> (e * esize)) & 1 == 1 {
+                    read_elem(&src, e * esize, esize)
+                } else {
+                    ident
+                }
+            })
+            .collect();
+        self.v[vd] = (sve_fp_tree_reduce(&buf, kind, esize) as u128) & mask;
+        Ok(CpuExit::Continue)
+    }
+
+    /// Execute SVE predicated FP unary (merging): FSQRT, FRECPX and FRINT*
+    /// (bits[20:16] selects the op). Inactive lanes keep their prior Zd value.
+    fn exec_sve_fp_unary(
+        &mut self,
+        insn: u32,
+        zd: usize,
+        zn: usize,
+        pg: usize,
+        esize: usize,
+    ) -> Result<CpuExit, ArmError> {
+        if esize < 2 {
+            return Ok(CpuExit::Undefined(insn));
+        }
+        let b20_16 = (insn >> 16) & 0x1F;
+        // FRINT* rounding -> (TwoRegFp variant, fp16 mode).
+        let rint = |m: u32| -> Option<(TwoRegFp, u8)> {
+            Some(match m {
+                0b000 => (TwoRegFp::RintN, 0),
+                0b001 => (TwoRegFp::RintP, 2),
+                0b010 => (TwoRegFp::RintM, 1),
+                0b011 => (TwoRegFp::RintZ, 3),
+                0b100 => (TwoRegFp::RintA, 4),
+                0b110 => (TwoRegFp::RintX, 0),
+                0b111 => (TwoRegFp::RintI, 0),
+                _ => return None,
+            })
+        };
+        let pred = self.sve_p[pg];
+        let elements = 16 / esize;
+        let src = self.v[zn].to_le_bytes();
+        let mut dst = self.v[zd].to_le_bytes(); // merging: start from Zd
+        for e in 0..elements {
+            if (pred >> (e * esize)) & 1 == 0 {
+                continue;
+            }
+            let off = e * esize;
+            let lane = read_elem(&src, off, esize);
+            let r = match b20_16 {
+                0b01101 => match esize {
+                    2 => fp16_sqrt(lane as u16) as u64,
+                    4 => fp_two_reg_f32(TwoRegFp::Fsqrt, lane as u32) as u64,
+                    _ => fp_two_reg_f64(TwoRegFp::Fsqrt, lane),
+                },
+                0b01100 => sve_fp_recpx(esize, lane),
+                m if m < 0b01000 => {
+                    let Some((trk, fp16m)) = rint(m) else {
+                        return Ok(CpuExit::Undefined(insn));
+                    };
+                    match esize {
+                        2 => fp16_frint(lane as u16, fp16m) as u64,
+                        4 => fp_two_reg_f32(trk, lane as u32) as u64,
+                        _ => fp_two_reg_f64(trk, lane),
+                    }
+                }
                 _ => return Ok(CpuExit::Undefined(insn)),
             };
             write_elem(&mut dst, off, esize, r);
@@ -9161,7 +9296,13 @@ fn fp_two_reg_f32(kind: TwoRegFp, bits: u32) -> u32 {
     match kind {
         Fabs => x.abs().to_bits(),
         Fneg => (-x).to_bits(),
-        Fsqrt => x.sqrt().to_bits(),
+        Fsqrt => {
+            if x.is_sign_negative() && x != 0.0 && !x.is_nan() {
+                0x7FC0_0000 // sqrt of negative/-Inf -> default NaN (positive)
+            } else {
+                x.sqrt().to_bits()
+            }
+        }
         RintN | RintX | RintI => x.round_ties_even().to_bits(),
         RintP => x.ceil().to_bits(),
         RintM => x.floor().to_bits(),
@@ -9203,7 +9344,13 @@ fn fp_two_reg_f64(kind: TwoRegFp, bits: u64) -> u64 {
     match kind {
         Fabs => x.abs().to_bits(),
         Fneg => (-x).to_bits(),
-        Fsqrt => x.sqrt().to_bits(),
+        Fsqrt => {
+            if x.is_sign_negative() && x != 0.0 && !x.is_nan() {
+                0x7FF8_0000_0000_0000 // sqrt of negative/-Inf -> default NaN
+            } else {
+                x.sqrt().to_bits()
+            }
+        }
         RintN | RintX | RintI => x.round_ties_even().to_bits(),
         RintP => x.ceil().to_bits(),
         RintM => x.floor().to_bits(),
@@ -9565,6 +9712,89 @@ fn pred_test(mask: u32, result: u32, elements: usize, esize: usize) -> (bool, bo
         }
     }
     (n, z, !last_r, false)
+}
+
+/// Combine two FP element bit-values with an `FpKind` op at the given esize,
+/// reusing the verified binary16/32/64 helpers (for SVE FP reductions/FADDA).
+fn sve_fp_combine(kind: FpKind, esize: usize, x: u64, y: u64) -> u64 {
+    match esize {
+        2 => sve_fp16_binop(kind, x as u16, y as u16) as u64,
+        4 => fp_three_same_f32(kind, x as u32, y as u32, 0) as u64,
+        _ => fp_three_same_f64(kind, x, y, 0),
+    }
+}
+
+/// Recursive split-in-half binary-tree reduction (the SVE "fast" reduction
+/// order): combine(reduce(low half), reduce(high half)). The low-index half is
+/// ALWAYS the first operand — this exact order is required for FP bit-exactness
+/// (FPAdd is non-associative; FPMax/FPMin sign-of-zero depends on position).
+fn sve_fp_tree_reduce(buf: &[u64], kind: FpKind, esize: usize) -> u64 {
+    if buf.len() == 1 {
+        return buf[0];
+    }
+    let h = buf.len() / 2;
+    let lo = sve_fp_tree_reduce(&buf[..h], kind, esize);
+    let hi = sve_fp_tree_reduce(&buf[h..], kind, esize);
+    sve_fp_combine(kind, esize, lo, hi)
+}
+
+/// Identity element used to pad inactive lanes in an SVE FP reduction.
+fn sve_fp_identity(kind: FpKind, esize: usize) -> u64 {
+    use FpKind::*;
+    match kind {
+        Add => 0, // +0.0
+        // The max identity must never win the max -> -Inf; the min identity -> +Inf.
+        Max => match esize {
+            2 => 0xFC00,
+            4 => 0xFF80_0000,
+            _ => 0xFFF0_0000_0000_0000,
+        }, // -Inf
+        Min => match esize {
+            2 => 0x7C00,
+            4 => 0x7F80_0000,
+            _ => 0x7FF0_0000_0000_0000,
+        }, // +Inf
+        _ => match esize {
+            2 => 0x7E00,
+            4 => 0x7FC0_0000,
+            _ => 0x7FF8_0000_0000_0000,
+        }, // default NaN (FMAXNM/FMINNM)
+    }
+}
+
+/// FRECPX (reciprocal exponent) over an f32/f64 element bit-value.
+fn sve_fp_recpx(esize: usize, lane: u64) -> u64 {
+    match esize {
+        2 => fp16_recpx(lane as u16) as u64,
+        4 => {
+            let x = lane as u32;
+            if (x & 0x7F80_0000) == 0x7F80_0000 && (x & 0x7F_FFFF) != 0 {
+                return (x | 0x40_0000) as u64; // NaN -> quiet
+            }
+            let sign = x & 0x8000_0000;
+            let exp = (x >> 23) & 0xFF;
+            (if exp == 0 {
+                sign | (0xFE << 23)
+            } else {
+                sign | ((!exp & 0xFF) << 23)
+            }) as u64
+        }
+        _ => {
+            let x = lane;
+            if (x & 0x7FF0_0000_0000_0000) == 0x7FF0_0000_0000_0000
+                && (x & 0xF_FFFF_FFFF_FFFF) != 0
+            {
+                return x | 0x8_0000_0000_0000; // NaN -> quiet
+            }
+            let sign = x & 0x8000_0000_0000_0000;
+            let exp = (x >> 52) & 0x7FF;
+            if exp == 0 {
+                sign | (0x7FE << 52)
+            } else {
+                sign | ((!exp & 0x7FF) << 52)
+            }
+        }
+    }
 }
 
 // ---- BFloat16 (bf16) helpers (FEAT_BF16) ----

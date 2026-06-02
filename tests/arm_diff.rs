@@ -1743,6 +1743,73 @@ fn diff_sve_shift_pred() {
     run_batch("sve_shift_pred", batch);
 }
 
+#[test]
+fn diff_sve_fp_unary() {
+    // (top_byte, opc6, name). FABS/FNEG use 0x04; FSQRT/FRINT*/FRECPX use 0x65.
+    let ops: &[(u32, u32, &str)] = &[
+        (0x04, 0b011100, "fabs"),
+        (0x04, 0b011101, "fneg"),
+        (0x65, 0b001101, "fsqrt"),
+        (0x65, 0b000000, "frintn"),
+        (0x65, 0b000001, "frintp"),
+        (0x65, 0b000010, "frintm"),
+        (0x65, 0b000011, "frintz"),
+        (0x65, 0b000100, "frinta"),
+        (0x65, 0b000110, "frintx"),
+        (0x65, 0b000111, "frinti"),
+        (0x65, 0b001100, "frecpx"),
+    ];
+    let mut rng = Rng::new(0x1_002B);
+    let mut batch: Vec<(String, u32, ArmState)> = Vec::new();
+    for &(sz, esize) in &[(1u32, 16u32), (2, 32), (3, 64)] {
+        let lanes = 128 / esize as usize;
+        for &(top, opc6, name) in ops {
+            let insn = (top << 24) | (sz << 22) | (opc6 << 16) | (0b101 << 13) | (RN << 5) | RD;
+            for _ in 0..12 {
+                let mut st = ArmState::zeroed();
+                let (l0, h0) = fill_finite_fp(&mut rng, esize, lanes); // prior Zd (merge)
+                let (l1, h1) = fill_finite_fp(&mut rng, esize, lanes); // source
+                st.set_vreg(0, l0, h0);
+                st.set_vreg(1, l1, h1);
+                st.set_preg(0, rng.next() as u16);
+                batch.push((format!("{name} sz{sz}"), insn, st));
+            }
+        }
+    }
+    run_batch("sve_fp_unary", batch);
+}
+
+#[test]
+fn diff_sve_fp_reduce() {
+    let ops: &[(u32, &str)] = &[
+        (0b000000, "faddv"),
+        (0b000110, "fmaxv"),
+        (0b000111, "fminv"),
+        (0b000100, "fmaxnmv"),
+        (0b000101, "fminnmv"),
+        (0b011000, "fadda"),
+    ];
+    let mut rng = Rng::new(0x1_002C);
+    let mut batch: Vec<(String, u32, ArmState)> = Vec::new();
+    for &(sz, esize) in &[(1u32, 16u32), (2, 32), (3, 64)] {
+        let lanes = 128 / esize as usize;
+        for &(opc6, name) in ops {
+            let insn = (0x65 << 24) | (sz << 22) | (opc6 << 16) | (0b001 << 13) | (RN << 5) | RD;
+            for _ in 0..14 {
+                let mut st = ArmState::zeroed();
+                let (l1, h1) = fill_finite_fp(&mut rng, esize, lanes);
+                st.set_vreg(1, l1, h1); // Zn (or Zm for FADDA)
+                // FADDA seeds the accumulator from Vdn[0] = v0.
+                let (l0, h0) = fill_finite_fp(&mut rng, esize, lanes);
+                st.set_vreg(0, l0, h0);
+                st.set_preg(0, rng.next() as u16);
+                batch.push((format!("{name} sz{sz}"), insn, st));
+            }
+        }
+    }
+    run_batch("sve_fp_reduce", batch);
+}
+
 /// SVE integer reduction: `00000100 sz opc6 001 Pg Zn Vd`. Zn=z1, Vd=v0, Pg=p0.
 fn enc_sve_reduce(sz: u32, opc6: u32) -> u32 {
     (0x04 << 24) | (sz << 22) | (opc6 << 16) | (0b001 << 13) | (RN << 5) | RD
