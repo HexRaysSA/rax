@@ -6221,6 +6221,45 @@ impl AArch64Cpu {
                 Ok(CpuExit::Continue)
             }
 
+            // SVE I8MM integer matrix multiply-accumulate (SMMLA/UMMLA/USMMLA):
+            // 0x45, bit21==0, bits[15:10]==100110. bit23 = Zn unsigned, bit22 =
+            // Zm unsigned (the signed-by-unsigned pair is unallocated). Computes
+            // a 2x2 int32 tile: Zda += Zn(2x8 int8) * Zm(2x8 int8)^T, each entry
+            // an 8-element dot product accumulated mod 2^32.
+            0b010
+                if (insn >> 24) & 0xFF == 0b01000101
+                    && (insn >> 21) & 1 == 0
+                    && (insn >> 10) & 0x3F == 0b100110 =>
+            {
+                let n_uns = (insn >> 23) & 1 == 1;
+                let m_uns = (insn >> 22) & 1 == 1;
+                if !n_uns && m_uns {
+                    return Ok(CpuExit::Undefined(insn)); // signed-by-unsigned: unallocated
+                }
+                let n = self.v[zn].to_le_bytes();
+                let m = self.v[zm].to_le_bytes();
+                let acc = self.v[zd].to_le_bytes();
+                let dot = |nrow: usize, mrow: usize| -> u32 {
+                    let mut s = 0i64;
+                    for k in 0..8 {
+                        let nv = n[nrow * 8 + k];
+                        let mv = m[mrow * 8 + k];
+                        let np = if n_uns { nv as i64 } else { nv as i8 as i64 };
+                        let mp = if m_uns { mv as i64 } else { mv as i8 as i64 };
+                        s = s.wrapping_add(np * mp);
+                    }
+                    s as u32
+                };
+                let mut dst = [0u8; 16];
+                for (idx, &(nr, mr)) in [(0, 0), (0, 1), (1, 0), (1, 1)].iter().enumerate() {
+                    let a = u32::from_le_bytes(acc[idx * 4..idx * 4 + 4].try_into().unwrap());
+                    let r = a.wrapping_add(dot(nr, mr));
+                    dst[idx * 4..idx * 4 + 4].copy_from_slice(&r.to_le_bytes());
+                }
+                self.v[zd] = u128::from_le_bytes(dst);
+                Ok(CpuExit::Continue)
+            }
+
             // Load/Store
             0b100 | 0b101 | 0b110 | 0b111 => self.exec_sve_ldst(insn),
 
@@ -7789,6 +7828,40 @@ impl AArch64Cpu {
             }
             self.v[zd] = u128::from_le_bytes(dst);
             return Ok(CpuExit::Continue);
+        }
+
+        // SVE FMMLA / BFMMLA (FP matrix multiply-accumulate): 0x64, bit21==1,
+        // bits[15:10]==111001. bits[23:22]: 01=BFMMLA, 10=FMMLA.s, 11=FMMLA.d.
+        // The 2x2 f32 tile is N(row i) . M(row j) with plain (non-fused) mul/add.
+        // FMMLA.d needs a 256-bit segment (VL >= 4*8 bytes), so at VL=128 it is
+        // an unallocated encoding. BFMMLA reuses the NEON path (same semantics).
+        if (insn >> 24) & 0xFF == 0b01100100
+            && (insn >> 21) & 1 == 1
+            && (insn >> 10) & 0x3F == 0b111001
+        {
+            match (insn >> 22) & 0x3 {
+                0b01 => return self.exec_simd_bfmmla(insn),
+                0b10 => {
+                    let (n, m, a) = (self.v[zn], self.v[zm], self.v[zd]);
+                    let f = |v: u128, i: u32| f32::from_bits((v >> (i * 32)) as u32);
+                    let (n00, n01, n10, n11) = (f(n, 0), f(n, 1), f(n, 2), f(n, 3));
+                    let (m00, m01, m10, m11) = (f(m, 0), f(m, 1), f(m, 2), f(m, 3));
+                    let d = [
+                        f(a, 0) + (n00 * m00 + n01 * m01),
+                        f(a, 1) + (n00 * m10 + n01 * m11),
+                        f(a, 2) + (n10 * m00 + n11 * m01),
+                        f(a, 3) + (n10 * m10 + n11 * m11),
+                    ];
+                    let mut r = 0u128;
+                    for (i, v) in d.iter().enumerate() {
+                        r |= (v.to_bits() as u128) << (i * 32);
+                    }
+                    self.v[zd] = r;
+                    return Ok(CpuExit::Continue);
+                }
+                // FMMLA.d (esz=3): VL=128 < 4*8 bytes, so it is unallocated.
+                _ => return Ok(CpuExit::Undefined(insn)),
+            }
         }
 
         // FP fast reductions / FADDA live at bits[15:13]==001; FP unary at

@@ -1669,6 +1669,19 @@ fn enc_sve2_fmlal(sub: u32, top: u32) -> u32 {
         | RD
 }
 
+/// SVE FMMLA/BFMMLA (FP matrix multiply): `0110 0100 sz 1 Zm 111001 Zn Zda`.
+/// sz: 01=BFMMLA, 10=FMMLA.s, 11=FMMLA.d. Zn=z1(RN), Zm=z2(RM), Zda=z0(RD).
+fn enc_sve_fmmla(sz: u32) -> u32 {
+    (0x64 << 24) | (sz << 22) | (1 << 21) | (RM << 16) | (0b111001 << 10) | (RN << 5) | RD
+}
+
+/// SVE I8MM matrix multiply (SMMLA/UMMLA/USMMLA): `0100 0101 uns 0 Zm 100110
+/// Zn Zda`. uns=bits[23:22] (00=SMMLA,10=USMMLA,11=UMMLA). Zn=z1(RN), Zm=z2(RM),
+/// Zda=z0(RD).
+fn enc_sve_mmla(uns: u32) -> u32 {
+    (0x45 << 24) | (uns << 22) | (RM << 16) | (0b100110 << 10) | (RN << 5) | RD
+}
+
 /// SVE2 XAR (exclusive-or and rotate right by imm): `00000100 tszh 1 tszl imm3
 /// 001101 Zm Zdn`. size_log 0=.b..3=.d; amount in 1..=esize_bits. Zm=z1(RN),
 /// Zdn=z0(RD).
@@ -2902,6 +2915,79 @@ fn diff_sve2_fmlal() {
         }
     }
     run_batch("sve2_fmlal", batch);
+}
+
+#[test]
+fn diff_sve_fmmla() {
+    // FMMLA.s: 2x2 f32 matrix multiply-accumulate (plain mul/add). FMMLA.d acts
+    // on 256-bit segments, so at VL=128 it must leave Zda unchanged.
+    let mut rng = Rng::new(0x7_2001);
+    let mut batch: Vec<(String, u32, ArmState)> = Vec::new();
+    let insn_s = enc_sve_fmmla(0b10);
+    for _ in 0..40 {
+        let (mut zn, mut zm, mut za) = (0u128, 0u128, 0u128);
+        for l in 0..4 {
+            zn |= (finite_fp_bits(&mut rng, 4) as u128) << (l * 32);
+            zm |= (finite_fp_bits(&mut rng, 4) as u128) << (l * 32);
+            za |= (finite_fp_bits(&mut rng, 4) as u128) << (l * 32);
+        }
+        let mut st = ArmState::zeroed();
+        st.set_vreg(1, zn as u64, (zn >> 64) as u64);
+        st.set_vreg(2, zm as u64, (zm >> 64) as u64);
+        st.set_vreg(0, za as u64, (za >> 64) as u64);
+        batch.push(("fmmla_s".to_string(), insn_s, st));
+    }
+    let insn_d = enc_sve_fmmla(0b11);
+    for _ in 0..6 {
+        let mut st = ArmState::zeroed();
+        st.set_vreg(1, rng.next(), rng.next());
+        st.set_vreg(2, rng.next(), rng.next());
+        st.set_vreg(0, rng.next(), rng.next());
+        batch.push(("fmmla_d".to_string(), insn_d, st));
+    }
+    run_batch("sve_fmmla", batch);
+}
+
+#[test]
+fn diff_sve_bfmmla() {
+    // BFMMLA: bf16 2x2 matrix multiply accumulating into f32, round-to-odd.
+    let insn = enc_sve_fmmla(0b01);
+    let mut rng = Rng::new(0x7_3001);
+    let mut batch: Vec<(String, u32, ArmState)> = Vec::new();
+    for _ in 0..40 {
+        let (mut zn, mut zm, mut za) = (0u128, 0u128, 0u128);
+        for l in 0..8 {
+            zn |= ((finite_fp_bits(&mut rng, 4) >> 16) as u128) << (l * 16); // finite bf16
+            zm |= ((finite_fp_bits(&mut rng, 4) >> 16) as u128) << (l * 16);
+        }
+        for l in 0..4 {
+            za |= (finite_fp_bits(&mut rng, 4) as u128) << (l * 32);
+        }
+        let mut st = ArmState::zeroed();
+        st.set_vreg(1, zn as u64, (zn >> 64) as u64);
+        st.set_vreg(2, zm as u64, (zm >> 64) as u64);
+        st.set_vreg(0, za as u64, (za >> 64) as u64);
+        batch.push(("bfmmla".to_string(), insn, st));
+    }
+    run_batch("sve_bfmmla", batch);
+}
+
+#[test]
+fn diff_sve_mmla() {
+    // I8MM integer matrix multiply-accumulate, all three sign variants.
+    let mut rng = Rng::new(0x7_1001);
+    let mut batch: Vec<(String, u32, ArmState)> = Vec::new();
+    for (uns, name) in [(0b00u32, "smmla"), (0b10, "usmmla"), (0b11, "ummla")] {
+        let insn = enc_sve_mmla(uns);
+        for _ in 0..30 {
+            let mut st = ArmState::zeroed();
+            st.set_vreg(1, rng.next(), rng.next());
+            st.set_vreg(2, rng.next(), rng.next());
+            st.set_vreg(0, rng.next(), rng.next());
+            batch.push((name.to_string(), insn, st));
+        }
+    }
+    run_batch("sve_mmla", batch);
 }
 
 #[test]
