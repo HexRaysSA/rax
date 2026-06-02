@@ -5959,6 +5959,49 @@ impl AArch64Cpu {
                 self.exec_sve2_mul_indexed(insn, zn, zd)
             }
 
+            // SVE2 MATCH / NMATCH (character match -> predicate): 0x45, bit21==1,
+            // bits[15:13]==100. For each Pg-active Zn element the result bit is
+            // set if that element value equals any Zm element in the same
+            // 128-bit segment (MATCH) or none of them (NMATCH, bit4==1). The
+            // result is zeroing and sets NZCV via PredTest(Pg). size b/h only.
+            0b010
+                if (insn >> 24) & 0xFF == 0b01000101
+                    && (insn >> 21) & 1 == 1
+                    && (insn >> 13) & 0x7 == 0b100 =>
+            {
+                let size = (insn >> 22) & 0x3;
+                if size > 1 {
+                    return Ok(CpuExit::Undefined(insn));
+                }
+                let esize = 1usize << size;
+                let elements = 16 / esize;
+                let nmatch = (insn >> 4) & 1 == 1;
+                let pg = ((insn >> 10) & 0x7) as usize;
+                let pd = (insn & 0xF) as usize;
+                let n = self.v[zn].to_le_bytes();
+                let m = self.v[zm].to_le_bytes();
+                let gov = self.sve_p[pg];
+                let mut result = 0u32;
+                for e in 0..elements {
+                    let off = e * esize;
+                    if (gov >> off) & 1 == 0 {
+                        continue; // zeroing predication
+                    }
+                    let ne = read_elem(&n, off, esize);
+                    let matched = (0..elements).any(|j| read_elem(&m, j * esize, esize) == ne);
+                    if matched ^ nmatch {
+                        result |= 1 << off;
+                    }
+                }
+                self.sve_p[pd] = result;
+                let (nf, zf, cf, vf) = pred_test(gov, result, elements, esize);
+                self.set_n(nf);
+                self.set_z(zf);
+                self.set_c(cf);
+                self.set_v(vf);
+                Ok(CpuExit::Continue)
+            }
+
             // Load/Store
             0b100 | 0b101 | 0b110 | 0b111 => self.exec_sve_ldst(insn),
 
