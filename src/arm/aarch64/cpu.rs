@@ -16645,14 +16645,15 @@ fn fp16_rsqrts(a: u16, b: u16) -> u16 {
 }
 
 fn fp16_mla(acc: u16, a: u16, b: u16) -> u16 {
-    if let Some(n) = fp16_nan3(a, b, acc) {
+    // ARM FPMulAdd processes NaNs in (addend, op1, op2) order.
+    if let Some(n) = fp16_nan3(acc, a, b) {
         return n;
     }
     fp16_round(fp16_to_f64(acc) + fp16_to_f64(a) * fp16_to_f64(b))
 }
 
 fn fp16_mls(acc: u16, a: u16, b: u16) -> u16 {
-    if let Some(n) = fp16_nan3(a, b, acc) {
+    if let Some(n) = fp16_nan3(acc, a, b) {
         return n;
     }
     fp16_round(fp16_to_f64(acc) - fp16_to_f64(a) * fp16_to_f64(b))
