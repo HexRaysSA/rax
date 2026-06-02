@@ -1743,6 +1743,53 @@ fn diff_sve_shift_pred() {
     run_batch("sve_shift_pred", batch);
 }
 
+/// SVE CPY immediate: `00000101 sz 01 Pg M sh imm8 Zd`. Pg=p0, Zd=z0.
+fn enc_cpy_imm(sz: u32, m: u32, sh: u32, imm8: i32) -> u32 {
+    (0x05 << 24) | (sz << 22) | (0b01 << 20) | (m << 14) | (sh << 13)
+        | (((imm8 as u32) & 0xFF) << 5) | RD
+}
+
+#[test]
+fn diff_sve_cpy() {
+    let mut rng = Rng::new(0x1_002D);
+    let mut batch: Vec<(String, u32, ArmState)> = Vec::new();
+    for sz in 0..4u32 {
+        // CPY immediate, merging and zeroing.
+        for m in 0..2u32 {
+            for &(sh, imm) in &[(0u32, 0x5i32), (0, -7), (1, 0x12), (1, -1)] {
+                let insn = enc_cpy_imm(sz, m, sh, imm);
+                for _ in 0..6 {
+                    let mut st = ArmState::zeroed();
+                    st.set_vreg(0, rng.next(), rng.next());
+                    st.set_preg(0, rng.next() as u16);
+                    batch.push((format!("cpyi sz{sz} m{m}"), insn, st));
+                }
+            }
+        }
+        // CPY scalar GPR (Rn=x1) and SIMD scalar (Vn=v1), both merging.
+        let cpyr = (0x05 << 24) | (sz << 22) | (0b101000 << 16) | (0b101 << 13) | (RN << 5) | RD;
+        let cpyv = (0x05 << 24) | (sz << 22) | (0b100000 << 16) | (0b100 << 13) | (RN << 5) | RD;
+        // DUP immediate broadcast.
+        let dup = (0x25 << 24) | (sz << 22) | (0b111000 << 16) | (0b11 << 14) | (0x33 << 5) | RD;
+        let dup2 = (0x25 << 24) | (sz << 22) | (0b111000 << 16) | (0b11 << 14) | (1 << 13) | (0xA1 << 5) | RD;
+        for _ in 0..10 {
+            let mut st = ArmState::zeroed();
+            st.set_vreg(0, rng.next(), rng.next());
+            st.x[1] = rng.next();
+            st.set_preg(0, rng.next() as u16);
+            batch.push((format!("cpyr sz{sz}"), cpyr, st));
+            let mut st2 = ArmState::zeroed();
+            st2.set_vreg(0, rng.next(), rng.next());
+            st2.set_vreg(1, rng.next(), rng.next());
+            st2.set_preg(0, rng.next() as u16);
+            batch.push((format!("cpyv sz{sz}"), cpyv, st2));
+            batch.push((format!("dup sz{sz}"), dup, ArmState::zeroed()));
+            batch.push((format!("dup2 sz{sz}"), dup2, ArmState::zeroed()));
+        }
+    }
+    run_batch("sve_cpy", batch);
+}
+
 #[test]
 fn diff_sve_fp_unary() {
     // (top_byte, opc6, name). FABS/FNEG use 0x04; FSQRT/FRINT*/FRECPX use 0x65.
