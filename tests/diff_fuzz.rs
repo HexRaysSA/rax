@@ -3793,3 +3793,227 @@ fn smir_native_m0_add() {
     mem.run(res.entry_offset, &mut regs);
     assert_eq!(regs.gpr[0], 12, "RAX should be RBX+RCX=12; got regs={:?}", regs);
 }
+
+// run_smir_native: lift x86 -> SMIR -> LOWER to native -> execute via ExecMem
+// -> read back architectural state. The M2 differential gate validates the
+// lowerer's codegen bit-exact against KVM (the lowerer is otherwise unvalidated
+// — its own tests check emitted bytes only, never execute).
+fn run_smir_native(
+    code: &[u8],
+    init: &Registers,
+    scratch_init: &[u8; 64],
+) -> Result<SmirOutcome, String> {
+    use rax::smir::ir::{SmirFunction, Terminator};
+    use rax::smir::lift::x86_64::X86_64Lifter;
+    use rax::smir::lift::{LiftContext, MemoryReader, SmirLifter};
+    use rax::smir::lower::x86_64::X86_64Lowerer;
+    use rax::smir::lower::SmirLowerer;
+    use rax::smir::memory::MemoryError;
+    use rax::smir::types::{FunctionId, SourceArch};
+
+    struct CR {
+        base: u64,
+        bytes: Vec<u8>,
+    }
+    impl MemoryReader for CR {
+        fn read(&self, addr: u64, size: usize) -> Result<Vec<u8>, MemoryError> {
+            let off = addr
+                .checked_sub(self.base)
+                .filter(|&o| (o as usize) < self.bytes.len())
+                .ok_or(MemoryError::OutOfBounds { addr })? as usize;
+            let n = (self.bytes.len() - off).min(size);
+            Ok(self.bytes[off..off + n].to_vec())
+        }
+    }
+
+    let reader = CR { base: CODE_ADDR, bytes: code.to_vec() };
+    let mut lifter = X86_64Lifter::strict();
+    let mut lctx = LiftContext::new(SourceArch::X86_64);
+    let mut block = match lifter.lift_block(CODE_ADDR, &reader, &mut lctx) {
+        Ok(b) => b,
+        Err(e) => return Ok(SmirOutcome::Skipped(format!("lift: {e:?}"))),
+    };
+    // Replace the HLT/Trap terminator with a Return so the block lowers to a
+    // clean epilogue+ret back into the trampoline.
+    block.set_terminator(Terminator::Return { values: vec![] });
+    let block_id = block.id;
+    let mut func = SmirFunction::new(FunctionId(0), block_id, CODE_ADDR);
+    func.add_block(block);
+
+    let mut lowerer = X86_64Lowerer::new();
+    let res = match lowerer.lower_function(&func) {
+        Ok(r) => r,
+        Err(e) => return Ok(SmirOutcome::Skipped(format!("lower: {e:?}"))),
+    };
+    if !res.relocations.is_empty() {
+        return Ok(SmirOutcome::Skipped(format!("unresolved relocs: {}", res.relocations.len())));
+    }
+    let bytes = match lowerer.finalize() {
+        Ok(b) => b,
+        Err(e) => return Ok(SmirOutcome::Skipped(format!("finalize: {e:?}"))),
+    };
+    let mem = ExecMem::new(&bytes)?;
+
+    let mut regs = GuestRegs::default();
+    regs.gpr[0] = init.rax;
+    regs.gpr[1] = init.rcx;
+    regs.gpr[2] = init.rdx;
+    regs.gpr[3] = init.rbx;
+    regs.gpr[4] = if init.rsp == 0 { STACK_ADDR } else { init.rsp };
+    regs.gpr[5] = init.rbp;
+    regs.gpr[6] = init.rsi;
+    regs.gpr[7] = init.rdi;
+    regs.gpr[8] = init.r8;
+    regs.gpr[9] = init.r9;
+    regs.gpr[10] = init.r10;
+    regs.gpr[11] = init.r11;
+    regs.gpr[12] = init.r12;
+    regs.gpr[13] = init.r13;
+    regs.gpr[14] = init.r14;
+    regs.gpr[15] = init.r15;
+    regs.rflags = init.rflags | 0x2;
+    mem.run(res.entry_offset, &mut regs);
+
+    let mut fr = Registers::default();
+    fr.rax = regs.gpr[0];
+    fr.rcx = regs.gpr[1];
+    fr.rdx = regs.gpr[2];
+    fr.rbx = regs.gpr[3];
+    fr.rsp = regs.gpr[4];
+    fr.rbp = regs.gpr[5];
+    fr.rsi = regs.gpr[6];
+    fr.rdi = regs.gpr[7];
+    fr.r8 = regs.gpr[8];
+    fr.r9 = regs.gpr[9];
+    fr.r10 = regs.gpr[10];
+    fr.r11 = regs.gpr[11];
+    fr.r12 = regs.gpr[12];
+    fr.r13 = regs.gpr[13];
+    fr.r14 = regs.gpr[14];
+    fr.r15 = regs.gpr[15];
+    fr.rflags = regs.rflags;
+    Ok(SmirOutcome::Ran(FinalState {
+        xmm: [[0u64; 2]; 16],
+        regs: fr,
+        scratch: *scratch_init, // register-only ALU: memory unchanged
+    }))
+}
+
+impl SmirStats {
+    /// Like `check`, but validates the NATIVE-lowered execution vs KVM.
+    fn check_native(
+        &mut self,
+        label: &str,
+        code: &[u8],
+        init: Registers,
+        scratch_init: [u8; 64],
+        opts: CompareOpts,
+        inputs: String,
+    ) -> bool {
+        let kvm = match run_kvm(code, &init, &scratch_init) {
+            Ok(Some(s)) => s,
+            Ok(None) => {
+                self.kvm_ok = false;
+                return false;
+            }
+            Err(e) => {
+                self.mismatches.push(Mismatch {
+                    label: format!("{label} (kvm error)"),
+                    code: code.to_vec(),
+                    inputs,
+                    diffs: vec![e],
+                });
+                return true;
+            }
+        };
+        match run_smir_native(code, &init, &scratch_init) {
+            Ok(SmirOutcome::Ran(smir)) => {
+                self.ran += 1;
+                let diffs = compare(&smir, &kvm, opts, &[]);
+                if !diffs.is_empty() {
+                    self.mismatches.push(Mismatch {
+                        label: label.to_string(),
+                        code: code.to_vec(),
+                        inputs,
+                        diffs,
+                    });
+                }
+            }
+            Ok(SmirOutcome::Skipped(_)) => self.skipped += 1,
+            Err(e) => self.mismatches.push(Mismatch {
+                label: format!("{label} (native error)"),
+                code: code.to_vec(),
+                inputs,
+                diffs: vec![e],
+            }),
+        }
+        true
+    }
+}
+
+// M2 gate: native-lowered ALU vs KVM (mirrors smir_alu, native execution).
+// IGNORED: the SMIR lowerer has codegen bugs that emit malformed instructions
+// (e.g. 16-bit group1-imm emits a 32-bit immediate -> stray bytes execute as
+// `add [rax],al` -> SIGSEGV). Bad native codegen crashes the process (unlike a
+// lift Err, it cannot be caught/skipped), so this gate stays ignored until the
+// lowerer's integer codegen is fixed class-by-class against KVM. The harness
+// (run_smir_native/check_native/ExecMem/enter_native) + M0 are validated.
+#[test]
+#[ignore = "SMIR lowerer integer codegen has malformed-encoding bugs (e.g. 16-bit imm width) that SIGSEGV; fix class-by-class then un-ignore"]
+fn smir_native_alu() {
+    const CASES: usize = 400;
+    let mut rng = Rng::new(0x4E_A71_5E_C0DE_1234);
+    let mut stats = SmirStats::new();
+    let sizes = [Size::B8, Size::B16, Size::B32, Size::B64];
+
+    for _ in 0..CASES {
+        let size = *rng.pick(&sizes);
+        let op = *rng.pick(ALU_OPS);
+        let dst = pick_gpr(&mut rng);
+        let src = pick_gpr(&mut rng);
+        let use_imm = rng.below(2) == 0;
+
+        let mut r = Registers::default();
+        let dval = rng.operand();
+        let sval = rng.operand();
+        set_reg(&mut r, dst, dval);
+        if !use_imm {
+            set_reg(&mut r, src, sval);
+        }
+        let cf_in = rng.below(2) == 1;
+        if cf_in {
+            r.rflags |= flags::bits::CF;
+        }
+
+        let mut code = size_prefix(size);
+        if let Some(rex) = rex_byte(size, true) {
+            code.push(rex);
+        }
+        let inputs;
+        if use_imm {
+            let imm = rng.operand();
+            let opc = if size == Size::B8 { 0x80 } else { 0x81 };
+            code.push(opc);
+            code.push(modrm(0b11, op.imm_digit, dst));
+            match size {
+                Size::B8 => code.push(imm as u8),
+                Size::B16 => code.extend_from_slice(&(imm as u16).to_le_bytes()),
+                _ => code.extend_from_slice(&(imm as u32).to_le_bytes()),
+            }
+            inputs = format!("{} {} {}, imm={:#x} (cf_in={}); dst={:#x}",
+                op.name, size.name(), reg_name(dst), imm, cf_in, dval);
+        } else {
+            let opc = if size == Size::B8 { op.rm_r_op8 } else { op.rm_r_op8 + 1 };
+            code.push(opc);
+            code.push(modrm(0b11, src, dst));
+            inputs = format!("{} {} {}, {} (cf_in={}); dst={:#x} src={:#x}",
+                op.name, size.name(), reg_name(dst), reg_name(src), cf_in, dval, sval);
+        }
+        code.push(HLT);
+
+        if !stats.check_native("smir_native_alu", &code, r, [0u8; 64], CompareOpts::default(), inputs) {
+            break;
+        }
+    }
+    stats.finish("native_alu");
+}

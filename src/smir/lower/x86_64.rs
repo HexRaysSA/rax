@@ -3199,11 +3199,11 @@ impl X86_64Lowerer {
             emitter.emit_add_ri(PhysReg::Rsp, frame_size as i64, OpWidth::W64);
         }
 
-        // Restore callee-saved registers (in reverse order)
-        let callee_saved: Vec<_> = self.regalloc.callee_saved_used().to_vec();
-        for &reg in callee_saved.iter().rev() {
-            emitter.emit_pop(reg);
-        }
+        // NOTE: callee-saved guest registers are intentionally NOT restored
+        // here. A lowered block owns all GPRs (identity-mapped guest state), and
+        // the `enter_native` shim preserves the HOST's callee-saved registers.
+        // Restoring them here would clobber guest writes to RBX/R12-R15 — the
+        // hazard the native differential exposes.
 
         // POP RBP
         emitter.emit_pop(PhysReg::Rbp);
@@ -8484,17 +8484,15 @@ impl SmirLowerer for X86_64Lowerer {
         // Fix up all jumps
         self.fixup_jumps()?;
 
-        // Backpatch the reserved prologue region now that register allocation is
-        // final: emit the real callee-saved saves + frame allocation, mirroring
-        // `emit_epilogue`'s teardown. Order matches — the prologue pushes
-        // callee_saved_used() in order; the epilogue pops them in reverse.
+        // Backpatch the reserved prologue region now that the frame size is
+        // final: emit just the frame allocation, mirroring `emit_epilogue`'s
+        // teardown. Callee-saved guest regs are intentionally NOT pushed (the
+        // block owns all GPRs; the enter_native shim preserves host state), so
+        // guest writes to RBX/R12-R15 survive the call.
         {
             let mut tmp = CodeBuffer::new();
             {
                 let mut e = X86Emitter::new(&mut tmp);
-                for &reg in self.regalloc.callee_saved_used() {
-                    e.emit_push(reg);
-                }
                 let frame = self.regalloc.frame_size();
                 if frame > 0 {
                     e.emit_sub_ri(PhysReg::Rsp, frame as i64, OpWidth::W64);
