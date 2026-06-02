@@ -844,6 +844,52 @@ fn diff_v_mask_logic() {
 }
 
 #[test]
+fn diff_v_ext() {
+    let mut rng = Rng::new(0x7EC_780);
+    let mut batch = Vec::new();
+    // (name, vs1-selector, factor, min_sew_log2)
+    let ops: &[(&str, u32, u32)] = &[
+        ("vzext.vf2", 0b00110, 1),
+        ("vsext.vf2", 0b00111, 1),
+        ("vzext.vf4", 0b00100, 2),
+        ("vsext.vf4", 0b00101, 2),
+        ("vzext.vf8", 0b00010, 3),
+        ("vsext.vf8", 0b00011, 3),
+    ];
+    for sew_log2 in 0..4u32 {
+        let vmax = vlmax(sew_log2);
+        for vl in [vmax, (vmax / 2).max(1)] {
+            for &(name, sel, min_log2) in ops {
+                if sew_log2 < min_log2 {
+                    continue; // SEW too narrow for this extension factor
+                }
+                for k in 0..6 {
+                    let vd = VPOOL[(rng.next() % 6) as usize];
+                    // Source EMUL < 1 here, so the destination must not overlap the
+                    // source register group: pick vs2 distinct from vd.
+                    let mut vs2 = VPOOL[(rng.next() % 6) as usize];
+                    if vs2 == vd {
+                        vs2 = VPOOL[((rng.next() % 5) + 1) as usize % 6];
+                        if vs2 == vd {
+                            vs2 = if vd == VPOOL[0] { VPOOL[1] } else { VPOOL[0] };
+                        }
+                    }
+                    let st = rand_vstate(&mut rng, sew_log2, vl);
+                    batch.push((name.into(), op_iv(0b010010, 1, vs2, sel, 0b010, vd), st));
+                    if vd != 0 && k % 2 == 0 {
+                        let mut stm = st;
+                        stm.v[0] = rng.next();
+                        stm.v[1] = rng.next();
+                        batch.push((format!("{name}.m"), op_iv(0b010010, 0, vs2, sel, 0b010, vd), stm));
+                    }
+                }
+            }
+        }
+    }
+    run_batch(&batch);
+}
+
+#[test]
 fn diff_v_loadstore() {
     let mut rng = Rng::new(0x7EC_705);
     let mut batch = Vec::new();

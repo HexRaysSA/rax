@@ -418,6 +418,13 @@ pub enum Op {
     Vmnor,
     Vmorn,
     Vmxnor,
+    // ---- V (integer zero/sign extension, VXUNARY0) ----
+    VzextVf2,
+    VsextVf2,
+    VzextVf4,
+    VsextVf4,
+    VzextVf8,
+    VsextVf8,
     // ---- sentinel ----
     Illegal,
 }
@@ -722,6 +729,16 @@ fn decode_vector(w: u32) -> Insn {
             0b011101 if f3 == 0b010 => Op::Vmnand,
             0b011110 if f3 == 0b010 => Op::Vmnor,
             0b011111 if f3 == 0b010 => Op::Vmxnor,
+            // Integer extension (VXUNARY0); the vs1 field selects the variant.
+            0b010010 if f3 == 0b010 => match (w >> 15) & 0x1f {
+                0b00010 => Op::VzextVf8,
+                0b00011 => Op::VsextVf8,
+                0b00100 => Op::VzextVf4,
+                0b00101 => Op::VsextVf4,
+                0b00110 => Op::VzextVf2,
+                0b00111 => Op::VsextVf2,
+                _ => return Insn::illegal(w, 4),
+            },
             _ => return Insn::illegal(w, 4),
         };
         return base(op, w);
