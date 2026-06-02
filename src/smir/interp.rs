@@ -1750,6 +1750,28 @@ impl SmirInterpreter {
                 }
             }
 
+            OpKind::VLane {
+                dst,
+                src1,
+                src2,
+                elem,
+                lanes,
+                op,
+                signed,
+            } => {
+                let a = Self::read_vec(ctx, *src1);
+                let b = Self::read_vec(ctx, *src2);
+                let elem_bits = elem.bytes() * 8;
+                let mut result = [0u64; 16];
+                for lane in 0..*lanes {
+                    let av = Self::get_lane(&a, lane, elem_bits);
+                    let bv = Self::get_lane(&b, lane, elem_bits);
+                    let rv = Self::apply_lane_op(*op, av, bv, elem_bits, *signed);
+                    Self::set_lane(&mut result, lane, elem_bits, rv);
+                }
+                Self::write_vec(ctx, *dst, result);
+            }
+
             OpKind::VMov { dst, src, width: _ } => {
                 let val = Self::read_vec(ctx, *src);
                 Self::write_vec(ctx, *dst, val);
@@ -2382,6 +2404,101 @@ impl SmirInterpreter {
     }
 
     /// Vector binary operation helper (integer)
+    /// Apply a `VLaneOp` to two zero-extended `elem_bits`-wide lane values,
+    /// returning the result masked to `elem_bits`. Signed ops sign-extend the
+    /// inputs first; saturating ops clamp to the element's signed/unsigned range.
+    fn apply_lane_op(op: VLaneOp, a: u64, b: u64, elem_bits: u32, signed: bool) -> u64 {
+        let mask: u64 = if elem_bits >= 64 {
+            u64::MAX
+        } else {
+            (1u64 << elem_bits) - 1
+        };
+        // Sign-extend a zero-extended `elem_bits` value to i64.
+        let sx = |v: u64| -> i64 {
+            if elem_bits >= 64 {
+                v as i64
+            } else {
+                let shift = 64 - elem_bits;
+                ((v << shift) as i64) >> shift
+            }
+        };
+        let smin: i64 = if elem_bits >= 64 {
+            i64::MIN
+        } else {
+            -(1i64 << (elem_bits - 1))
+        };
+        let smax: i64 = if elem_bits >= 64 {
+            i64::MAX
+        } else {
+            (1i64 << (elem_bits - 1)) - 1
+        };
+        let umax: u64 = mask;
+        let res: u64 = match op {
+            VLaneOp::Add => a.wrapping_add(b),
+            VLaneOp::Sub => a.wrapping_sub(b),
+            VLaneOp::Mul => a.wrapping_mul(b),
+            VLaneOp::And => a & b,
+            VLaneOp::Or => a | b,
+            VLaneOp::Xor => a ^ b,
+            VLaneOp::AndNot => a & !b,
+            VLaneOp::Min => {
+                if signed {
+                    sx(a).min(sx(b)) as u64
+                } else {
+                    (a & mask).min(b & mask)
+                }
+            }
+            VLaneOp::Max => {
+                if signed {
+                    sx(a).max(sx(b)) as u64
+                } else {
+                    (a & mask).max(b & mask)
+                }
+            }
+            VLaneOp::AddSat => {
+                if signed {
+                    (sx(a) as i128 + sx(b) as i128).clamp(smin as i128, smax as i128) as u64
+                } else {
+                    ((a & mask) as u128 + (b & mask) as u128).min(umax as u128) as u64
+                }
+            }
+            VLaneOp::SubSat => {
+                if signed {
+                    (sx(a) as i128 - sx(b) as i128).clamp(smin as i128, smax as i128) as u64
+                } else {
+                    (a & mask).saturating_sub(b & mask)
+                }
+            }
+            VLaneOp::Avg => {
+                if signed {
+                    ((sx(a) as i128 + sx(b) as i128) >> 1) as u64
+                } else {
+                    (((a & mask) as u128 + (b & mask) as u128) >> 1) as u64
+                }
+            }
+            VLaneOp::AvgRnd => {
+                if signed {
+                    ((sx(a) as i128 + sx(b) as i128 + 1) >> 1) as u64
+                } else {
+                    (((a & mask) as u128 + (b & mask) as u128 + 1) >> 1) as u64
+                }
+            }
+            VLaneOp::AbsDiff => {
+                if signed {
+                    (sx(a) as i128 - sx(b) as i128).unsigned_abs() as u64
+                } else {
+                    let (x, y) = (a & mask, b & mask);
+                    if x >= y {
+                        x - y
+                    } else {
+                        y - x
+                    }
+                }
+            }
+        };
+        res & mask
+    }
+
     fn vec_binary_op<F>(
         &self,
         ctx: &mut SmirContext,
@@ -2658,5 +2775,91 @@ mod tests {
 
         assert!(matches!(exit, ExitReason::Halt));
         assert_eq!(ctx.read_vreg(v_result), 100);
+    }
+
+    #[test]
+    fn test_apply_lane_op_byte() {
+        use VLaneOp::*;
+        let f = SmirInterpreter::apply_lane_op;
+        // wrapping add/sub/mul (signedness-agnostic)
+        assert_eq!(f(Add, 0xFF, 0x02, 8, false), 0x01);
+        assert_eq!(f(Sub, 0x01, 0x02, 8, false), 0xFF);
+        assert_eq!(f(Mul, 0x10, 0x10, 8, false), 0x00); // 256 & 0xFF
+        // bitwise
+        assert_eq!(f(And, 0xF0, 0x3C, 8, false), 0x30);
+        assert_eq!(f(Or, 0xF0, 0x0F, 8, false), 0xFF);
+        assert_eq!(f(Xor, 0xFF, 0x0F, 8, false), 0xF0);
+        assert_eq!(f(AndNot, 0xF0, 0x0F, 8, false), 0xF0);
+        // min/max signed vs unsigned: 0xFF = -1 (signed) / 255 (unsigned)
+        assert_eq!(f(Max, 0xFF, 0x01, 8, false), 0xFF); // umax(255,1)
+        assert_eq!(f(Max, 0xFF, 0x01, 8, true), 0x01); // smax(-1,1)
+        assert_eq!(f(Min, 0xFF, 0x01, 8, false), 0x01); // umin(255,1)
+        assert_eq!(f(Min, 0xFF, 0x01, 8, true), 0xFF); // smin(-1,1)
+        // saturating
+        assert_eq!(f(AddSat, 0xFF, 0x10, 8, false), 0xFF); // u8 clamp
+        assert_eq!(f(AddSat, 0x7F, 0x01, 8, true), 0x7F); // i8 +overflow -> 127
+        assert_eq!(f(SubSat, 0x01, 0x02, 8, false), 0x00); // u8 underflow -> 0
+        assert_eq!(f(SubSat, 0x80, 0x01, 8, true), 0x80); // i8 -128-1 -> -128
+        // average (truncating vs rounding)
+        assert_eq!(f(Avg, 0xFF, 0x01, 8, false), 0x80); // (255+1)/2
+        assert_eq!(f(Avg, 0x02, 0x03, 8, false), 0x02); // (5)/2 trunc
+        assert_eq!(f(AvgRnd, 0x02, 0x03, 8, false), 0x03); // (5+1)/2
+        // absolute difference
+        assert_eq!(f(AbsDiff, 0x01, 0x03, 8, false), 0x02);
+        assert_eq!(f(AbsDiff, 0xFF, 0x01, 8, true), 0x02); // |-1 - 1|
+    }
+
+    #[test]
+    fn test_apply_lane_op_word() {
+        use VLaneOp::*;
+        let f = SmirInterpreter::apply_lane_op;
+        assert_eq!(f(Add, 0xFFFF_FFFF, 1, 32, false), 0);
+        assert_eq!(f(Max, 0xFFFF_FFFF, 1, 32, true), 1); // smax(-1,1)
+        assert_eq!(f(Max, 0xFFFF_FFFF, 1, 32, false), 0xFFFF_FFFF); // umax
+        assert_eq!(f(AddSat, 0x7FFF_FFFF, 1, 32, true), 0x7FFF_FFFF);
+        assert_eq!(f(SubSat, 0x8000_0000, 1, 32, true), 0x8000_0000);
+        assert_eq!(f(Avg, 0xFFFF_FFFF, 1, 32, false), 0x8000_0000);
+    }
+
+    #[test]
+    fn test_vlane_hexagon_vreg_end_to_end() {
+        // VLane over a full 128-byte HVX vector: V2.b = vadd(V0.b, V1.b).
+        let mut ctx = SmirContext::new_hexagon();
+        let mut memory = FlatMemory::new(0x1000);
+        let interp = SmirInterpreter::new();
+        if let ArchRegState::Hexagon(hex) = &mut ctx.arch_regs {
+            hex.set_v(0, [0x0101_0101_0101_0101u64; 16]); // every byte = 1
+            hex.set_v(1, [0x0202_0202_0202_0202u64; 16]); // every byte = 2
+        }
+        let v2 = VReg::Arch(ArchReg::Hexagon(HexagonReg::V(2)));
+        let v0 = VReg::Arch(ArchReg::Hexagon(HexagonReg::V(0)));
+        let v1 = VReg::Arch(ArchReg::Hexagon(HexagonReg::V(1)));
+        let block = SmirBlock {
+            id: BlockId(0),
+            guest_pc: 0x1000,
+            phis: vec![],
+            ops: vec![SmirOp {
+                id: OpId(0),
+                guest_pc: 0x1000,
+                kind: OpKind::VLane {
+                    dst: v2,
+                    src1: v0,
+                    src2: v1,
+                    elem: VecElementType::I8,
+                    lanes: 128,
+                    op: VLaneOp::Add,
+                    signed: false,
+                },
+                x86_hint: None,
+            }],
+            terminator: Terminator::Trap { kind: TrapKind::Halt },
+            exec_count: 0,
+        };
+        interp.execute_block(&mut ctx, &mut memory, &block);
+        if let ArchRegState::Hexagon(hex) = &ctx.arch_regs {
+            assert_eq!(hex.get_v(2), [0x0303_0303_0303_0303u64; 16]); // every byte = 3
+        } else {
+            panic!("not hexagon");
+        }
     }
 }

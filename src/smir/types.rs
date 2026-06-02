@@ -812,6 +812,45 @@ pub enum VecCmpCond {
     Geu,
 }
 
+/// Per-lane operation for the width-general, Arch-aware `OpKind::VLane`.
+///
+/// Unlike the AVX-oriented `VAdd`/`VAnd`/... (which are register-width-bounded
+/// and, for the bitwise ops, virtual-register-only), `VLane` operates on any
+/// vector register (including 1024-bit Hexagon HVX V regs) over `lanes`
+/// elements of a given `VecElementType`, with signedness selected per op. This
+/// is the lifting target for HVX integer elementwise instructions.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub enum VLaneOp {
+    /// Wrapping add (signedness-agnostic).
+    Add,
+    /// Wrapping subtract (signedness-agnostic).
+    Sub,
+    /// Wrapping multiply, low half (signedness-agnostic for the low bits).
+    Mul,
+    /// Per-lane minimum (signed if the op's `signed` flag is set).
+    Min,
+    /// Per-lane maximum (signed if the op's `signed` flag is set).
+    Max,
+    /// Bitwise AND (element width irrelevant).
+    And,
+    /// Bitwise OR.
+    Or,
+    /// Bitwise XOR.
+    Xor,
+    /// Bitwise AND-NOT: `a & !b`.
+    AndNot,
+    /// Saturating add (signed/unsigned per the `signed` flag).
+    AddSat,
+    /// Saturating subtract (signed/unsigned per the `signed` flag).
+    SubSat,
+    /// Average `(a + b) >> 1` (signed/unsigned per the `signed` flag), truncating.
+    Avg,
+    /// Rounding average `(a + b + 1) >> 1`.
+    AvgRnd,
+    /// Absolute difference `|a - b|` (signed/unsigned per the `signed` flag).
+    AbsDiff,
+}
+
 // ============================================================================
 // AVX10 Types
 // ============================================================================
