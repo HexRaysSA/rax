@@ -1656,6 +1656,10 @@ fn diff_v_loadstore_adv() {
                 let vsxei = (0b01 << 26) | (1 << 25) | (idxreg << 20) | (10 << 15) | (w3 << 12) | (vd << 7) | 0x27;
                 batch.push(("vlxei".into(), vlxei, st));
                 batch.push(("vsxei".into(), vsxei, st));
+                // fault-only-first load (lumop=10000); scratch never faults, so it
+                // must match plain vle and leave vl unchanged.
+                let vleff = (1 << 25) | (0b10000 << 20) | (10 << 15) | (w3 << 12) | (vd << 7) | 0x07;
+                batch.push(("vleff".into(), vleff, st));
                 // mask load/store (lumop=01011, width 0)
                 let vlm = (1 << 25) | (0b01011 << 20) | (10 << 15) | (vd << 7) | 0x07;
                 let vsm = (1 << 25) | (0b01011 << 20) | (10 << 15) | (vd << 7) | 0x27;

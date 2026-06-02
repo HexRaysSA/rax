@@ -341,6 +341,7 @@ pub enum Op {
     Vsre,
     Vlseg,
     Vsseg,
+    Vleff,
     // ---- V (vector integer arithmetic; form vv/vx/vi in funct3) ----
     Vadd,
     Vsub,
@@ -1508,6 +1509,7 @@ fn decode_load_fp(w: u32, isa: &Isa) -> Insn {
                 0b00000 => base(Op::Vlseg, w),    // unit-stride segment (nf+1 fields)
                 0b01000 => base(Op::Vlre, w),     // whole register (nf+1 regs)
                 0b01011 if nf == 0 => base(Op::Vlm, w),
+                0b10000 if nf == 0 => base(Op::Vleff, w), // fault-only-first
                 _ => Insn::illegal(w, 4),
             },
             0b10 if nf == 0 => base(Op::Vlse, w), // strided

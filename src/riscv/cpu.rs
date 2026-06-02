@@ -744,8 +744,8 @@ impl RiscVCpu {
 
             // ---- V: vector data path ----
             Op::Vle | Op::Vse | Op::Vlse | Op::Vsse | Op::Vlxei | Op::Vsxei | Op::Vlm | Op::Vsm
-            | Op::Vlre | Op::Vsre | Op::Vlseg | Op::Vsseg | Op::Vadd | Op::Vsub | Op::Vrsub
-            | Op::Vand | Op::Vor | Op::Vxor
+            | Op::Vlre | Op::Vsre | Op::Vlseg | Op::Vsseg | Op::Vleff | Op::Vadd | Op::Vsub
+            | Op::Vrsub | Op::Vand | Op::Vor | Op::Vxor
             | Op::Vminu | Op::Vmin | Op::Vmaxu | Op::Vmax | Op::Vsll | Op::Vsrl | Op::Vsra
             | Op::Vmerge | Op::Vmseq | Op::Vmsne | Op::Vmsltu | Op::Vmslt | Op::Vmsleu
             | Op::Vmsle | Op::Vmsgtu | Op::Vmsgt | Op::Vmul | Op::Vmulh | Op::Vmulhu
@@ -1419,6 +1419,37 @@ impl RiscVCpu {
                             .map_err(|_| acc_fault(true, addr))?;
                     }
                 }
+            }
+            Op::Vleff => {
+                // Fault-only-first unit-stride load: a fault past element 0 trims
+                // vl instead of trapping. (Non-faulting path mirrors Vle.)
+                let eb = match insn.funct3 {
+                    0 => 1,
+                    5 => 2,
+                    6 => 4,
+                    7 => 8,
+                    _ => return Err(Trap::illegal(insn.raw)),
+                };
+                let base = self.x(insn.rs1) & self.xmask();
+                let mut new_vl = vl;
+                for e in vstart..vl {
+                    if !vm && !self.vmask_bit(e) {
+                        continue;
+                    }
+                    let addr = base.wrapping_add((e * eb) as u64) & self.xmask();
+                    let mut buf = [0u8; 8];
+                    match self.mem.read(addr, &mut buf[..eb]) {
+                        Ok(_) => self.set_velem(vd, e, eb, u64::from_le_bytes(buf)),
+                        Err(_) => {
+                            if e == 0 {
+                                return Err(acc_fault(false, addr));
+                            }
+                            new_vl = e; // trim and suppress the trap
+                            break;
+                        }
+                    }
+                }
+                self.vl = new_vl as u64;
             }
             Op::Vlseg | Op::Vsseg => {
                 // Segment load/store: nf+1 fields per element, de-interleaved into
