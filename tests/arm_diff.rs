@@ -1523,6 +1523,61 @@ fn enc_sve_logical(opc: u32) -> u32 {
     (0b00000100 << 24) | (opc << 22) | (1 << 21) | (RM << 16) | (0b001100 << 10) | (RN << 5) | RD
 }
 
+/// SVE INDEX variants. base=imm5[9:5] or Xn; step=imm5[20:16] or Xm. Rn=x1, Rm=x2.
+fn enc_index_ii(sz: u32, imm_step: u32, imm_base: u32) -> u32 {
+    (0b00000100 << 24) | (sz << 22) | (1 << 21) | ((imm_step & 0x1F) << 16)
+        | (0b010000 << 10) | ((imm_base & 0x1F) << 5) | RD
+}
+fn enc_index_ri(sz: u32, imm_step: u32) -> u32 {
+    (0b00000100 << 24) | (sz << 22) | (1 << 21) | ((imm_step & 0x1F) << 16)
+        | (0b010001 << 10) | (RN << 5) | RD // base = Xn (x1)
+}
+fn enc_index_ir(sz: u32, imm_base: u32) -> u32 {
+    (0b00000100 << 24) | (sz << 22) | (1 << 21) | (RM << 16)
+        | (0b010010 << 10) | ((imm_base & 0x1F) << 5) | RD // step = Xm (x2)
+}
+fn enc_index_rr(sz: u32) -> u32 {
+    (0b00000100 << 24) | (sz << 22) | (1 << 21) | (RM << 16)
+        | (0b010011 << 10) | (RN << 5) | RD // base = x1, step = x2
+}
+
+/// SVE ZIP/UZP/TRN (unpredicated): `00000101 sz 1 Zm 011 opc Zn Zd`.
+fn enc_sve_perm(sz: u32, opc: u32) -> u32 {
+    (0b00000101 << 24) | (sz << 22) | (1 << 21) | (RM << 16)
+        | (0b011 << 13) | (opc << 10) | (RN << 5) | RD
+}
+
+#[test]
+fn diff_sve_index() {
+    let mut cases: Vec<(String, u32)> = Vec::new();
+    for sz in 0..4u32 {
+        cases.push((format!("index_ii sz{sz}"), enc_index_ii(sz, 1, 0)));
+        cases.push((format!("index_iin sz{sz}"), enc_index_ii(sz, 0x1F, 5))); // negative step
+        cases.push((format!("index_ri sz{sz}"), enc_index_ri(sz, 3)));
+        cases.push((format!("index_ir sz{sz}"), enc_index_ir(sz, 2)));
+        cases.push((format!("index_rr sz{sz}"), enc_index_rr(sz)));
+    }
+    run_family("sve_index", cases, 12, 0x1_0020);
+}
+
+#[test]
+fn diff_sve_perm() {
+    let mut cases: Vec<(String, u32)> = Vec::new();
+    for sz in 0..4u32 {
+        for (opc, name) in [
+            (0b000u32, "zip1"),
+            (0b001, "zip2"),
+            (0b010, "uzp1"),
+            (0b011, "uzp2"),
+            (0b100, "trn1"),
+            (0b101, "trn2"),
+        ] {
+            cases.push((format!("{name} sz{sz}"), enc_sve_perm(sz, opc)));
+        }
+    }
+    run_family("sve_perm", cases, 12, 0x1_0021);
+}
+
 #[test]
 fn diff_sve_unpred() {
     // Element-wise ops: low 128 bits match at any VL; the oracle also pins

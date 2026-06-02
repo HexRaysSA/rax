@@ -4782,6 +4782,20 @@ impl AArch64Cpu {
                 self.exec_sve_logical_unpred(insn, zd, zn, zm)
             }
 
+            // INDEX (immediate/scalar variants): bit21==1, bits[15:13]==010.
+            0b000 if (insn >> 21) & 1 == 1 && (insn >> 13) & 0x7 == 0b010 => {
+                self.exec_sve_index(insn, zd, esize)
+            }
+
+            // ZIP/UZP/TRN (unpredicated permute): 0x05, bit21==1, bits[15:13]==011.
+            0b000
+                if (insn >> 24) & 0xFF == 0b00000101
+                    && (insn >> 21) & 1 == 1
+                    && (insn >> 13) & 0x7 == 0b011 =>
+            {
+                self.exec_sve_zip_uzp_trn(insn, zd, zn, zm, esize)
+            }
+
             // Integer predicated binary operations
             0b000 if (op1 & 0x2) == 0 && (op2 & 0x10) == 0 => {
                 self.exec_sve_int_pred(insn, zd, zn, zm, pg, esize)
@@ -5073,6 +5087,83 @@ impl AArch64Cpu {
                 op1, op3
             ))),
         }
+    }
+
+    /// Execute SVE INDEX: Zd[e] = base + e*step, with base/step from either a
+    /// signed 5-bit immediate or an X register. bits[11:10]: bit10 picks the
+    /// base source (0=imm5 at [9:5], 1=Xn), bit11 the step source (0=imm5 at
+    /// [20:16], 1=Xm).
+    fn exec_sve_index(&mut self, insn: u32, zd: usize, esize: usize) -> Result<CpuExit, ArmError> {
+        let sext5 = |v: u32| -> i64 { (((v & 0x1F) as i32) << 27 >> 27) as i64 };
+        let base: i64 = if (insn >> 10) & 1 == 1 {
+            self.get_x(((insn >> 5) & 0x1F) as u8) as i64
+        } else {
+            sext5((insn >> 5) & 0x1F)
+        };
+        let step: i64 = if (insn >> 11) & 1 == 1 {
+            self.get_x(((insn >> 16) & 0x1F) as u8) as i64
+        } else {
+            sext5((insn >> 16) & 0x1F)
+        };
+        let bits = (esize * 8) as u32;
+        let m = elem_mask(bits) as u128;
+        let elements = 16 / esize;
+        let mut dst = 0u128;
+        for e in 0..elements {
+            let v = base.wrapping_add((e as i64).wrapping_mul(step)) as u64 as u128 & m;
+            dst |= v << (e * esize * 8);
+        }
+        self.v[zd] = dst;
+        Ok(CpuExit::Continue)
+    }
+
+    /// Execute SVE ZIP1/ZIP2/UZP1/UZP2/TRN1/TRN2 (unpredicated vector permute).
+    /// At VL=128 these match the corresponding NEON permutes over the register.
+    fn exec_sve_zip_uzp_trn(
+        &mut self,
+        insn: u32,
+        zd: usize,
+        zn: usize,
+        zm: usize,
+        esize: usize,
+    ) -> Result<CpuExit, ArmError> {
+        let opc = (insn >> 10) & 0x7;
+        let n = 16 / esize;
+        let half = n / 2;
+        let a = self.v[zn].to_le_bytes();
+        let b = self.v[zm].to_le_bytes();
+        let mut dst = [0u8; 16];
+        let get = |buf: &[u8; 16], i: usize| read_elem(buf, i * esize, esize);
+        for i in 0..half {
+            let (lo, hi): (u64, u64) = match opc {
+                0b000 => (get(&a, i), get(&b, i)),                 // ZIP1
+                0b001 => (get(&a, half + i), get(&b, half + i)),   // ZIP2
+                0b100 => (get(&a, 2 * i), get(&b, 2 * i)),         // TRN1
+                0b101 => (get(&a, 2 * i + 1), get(&b, 2 * i + 1)), // TRN2
+                _ => (0, 0),
+            };
+            match opc {
+                0b000 | 0b001 | 0b100 | 0b101 => {
+                    write_elem(&mut dst, (2 * i) * esize, esize, lo);
+                    write_elem(&mut dst, (2 * i + 1) * esize, esize, hi);
+                }
+                _ => {}
+            }
+        }
+        if opc == 0b010 || opc == 0b011 {
+            // UZP1 (even) / UZP2 (odd): concatenated even/odd elements of Zn:Zm.
+            let off = if opc == 0b011 { 1 } else { 0 };
+            for i in 0..n {
+                let v = if i < half {
+                    get(&a, 2 * i + off)
+                } else {
+                    get(&b, 2 * (i - half) + off)
+                };
+                write_elem(&mut dst, i * esize, esize, v);
+            }
+        }
+        self.v[zd] = u128::from_le_bytes(dst);
+        Ok(CpuExit::Continue)
     }
 
     /// Execute SVE permute operations (DUP, INDEX, REV, etc.).
