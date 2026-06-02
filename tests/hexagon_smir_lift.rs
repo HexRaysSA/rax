@@ -3118,3 +3118,201 @@ fn lift_c4_predlogic() {
         0x730b,
     );
 }
+
+// ---- M2/M4 saturating + rounding scalar multiplies (SMIR-lift wave) ----
+// Verified 0-divergence incl. usr_ovf vs the qemu-backed HexagonVcpu.
+// Random GPR seeds exercise both the clamping (OVF-set) and in-range paths.
+
+#[test]
+fn lift_m2_mpy_sat() {
+    lift_family(
+        "m2_mpy_sat",
+        &[
+            ("sat_hh", "{ r0 = mpy(r1.h,r2.h):sat }"),
+            ("sat_hl", "{ r0 = mpy(r1.h,r2.l):sat }"),
+            ("sat_lh", "{ r0 = mpy(r1.l,r2.h):sat }"),
+            ("sat_ll", "{ r0 = mpy(r1.l,r2.l):sat }"),
+            ("sat_hh_s1", "{ r0 = mpy(r1.h,r2.h):<<1:sat }"),
+            ("sat_hl_s1", "{ r0 = mpy(r1.h,r2.l):<<1:sat }"),
+            ("sat_lh_s1", "{ r0 = mpy(r1.l,r2.h):<<1:sat }"),
+            ("sat_ll_s1", "{ r0 = mpy(r1.l,r2.l):<<1:sat }"),
+        ],
+        40,
+        0x9a01,
+    );
+}
+
+#[test]
+fn lift_m2_mpy_rnd() {
+    lift_family(
+        "m2_mpy_rnd",
+        &[
+            ("rnd_hh", "{ r0 = mpy(r1.h,r2.h):rnd }"),
+            ("rnd_hl", "{ r0 = mpy(r1.h,r2.l):rnd }"),
+            ("rnd_lh", "{ r0 = mpy(r1.l,r2.h):rnd }"),
+            ("rnd_ll", "{ r0 = mpy(r1.l,r2.l):rnd }"),
+            ("rnd_hh_s1", "{ r0 = mpy(r1.h,r2.h):<<1:rnd }"),
+            ("rnd_ll_s1", "{ r0 = mpy(r1.l,r2.l):<<1:rnd }"),
+        ],
+        40,
+        0x9a02,
+    );
+}
+
+#[test]
+fn lift_m2_mpy_sat_rnd() {
+    lift_family(
+        "m2_mpy_sat_rnd",
+        &[
+            ("satrnd_hh", "{ r0 = mpy(r1.h,r2.h):rnd:sat }"),
+            ("satrnd_hl", "{ r0 = mpy(r1.h,r2.l):rnd:sat }"),
+            ("satrnd_lh", "{ r0 = mpy(r1.l,r2.h):rnd:sat }"),
+            ("satrnd_ll", "{ r0 = mpy(r1.l,r2.l):rnd:sat }"),
+            ("satrnd_hh_s1", "{ r0 = mpy(r1.h,r2.h):<<1:rnd:sat }"),
+            ("satrnd_ll_s1", "{ r0 = mpy(r1.l,r2.l):<<1:rnd:sat }"),
+        ],
+        40,
+        0x9a03,
+    );
+}
+
+#[test]
+fn lift_m2_mpy_acc_nac_sat() {
+    lift_family(
+        "m2_mpy_acc_nac_sat",
+        &[
+            ("acc_sat_hh", "{ r0 += mpy(r1.h,r2.h):sat }"),
+            ("acc_sat_ll", "{ r0 += mpy(r1.l,r2.l):sat }"),
+            ("acc_sat_hl_s1", "{ r0 += mpy(r1.h,r2.l):<<1:sat }"),
+            ("acc_sat_lh_s1", "{ r0 += mpy(r1.l,r2.h):<<1:sat }"),
+            ("nac_sat_hh", "{ r0 -= mpy(r1.h,r2.h):sat }"),
+            ("nac_sat_ll", "{ r0 -= mpy(r1.l,r2.l):sat }"),
+            ("nac_sat_hl_s1", "{ r0 -= mpy(r1.h,r2.l):<<1:sat }"),
+            ("nac_sat_lh_s1", "{ r0 -= mpy(r1.l,r2.h):<<1:sat }"),
+        ],
+        40,
+        0x9a04,
+    );
+}
+
+#[test]
+fn lift_m2_mpyd_rnd() {
+    lift_family(
+        "m2_mpyd_rnd",
+        &[
+            ("mpyd_rnd_hh", "{ r1:0 = mpy(r2.h,r3.h):rnd }"),
+            ("mpyd_rnd_hl", "{ r1:0 = mpy(r2.h,r3.l):rnd }"),
+            ("mpyd_rnd_lh", "{ r1:0 = mpy(r2.l,r3.h):rnd }"),
+            ("mpyd_rnd_ll", "{ r1:0 = mpy(r2.l,r3.l):rnd }"),
+            ("mpyd_rnd_hh_s1", "{ r1:0 = mpy(r2.h,r3.h):<<1:rnd }"),
+            ("mpyd_rnd_ll_s1", "{ r1:0 = mpy(r2.l,r3.l):<<1:rnd }"),
+        ],
+        40,
+        0x9a05,
+    );
+}
+
+#[test]
+fn lift_m2_m4_up_s1_sat() {
+    lift_family(
+        "m2_m4_up_s1_sat",
+        &[
+            ("mpy_up_s1_sat", "{ r0 = mpy(r1,r2):<<1:sat }"),
+            ("mac_up_s1_sat", "{ r0 += mpy(r1,r2):<<1:sat }"),
+            ("nac_up_s1_sat", "{ r0 -= mpy(r1,r2):<<1:sat }"),
+        ],
+        40,
+        0x9a06,
+    );
+}
+
+#[test]
+fn lift_m2_hmmpy() {
+    lift_family(
+        "m2_hmmpy",
+        &[
+            ("hmmpyh_s1", "{ r0 = mpy(r1,r2.h):<<1:sat }"),
+            ("hmmpyl_s1", "{ r0 = mpy(r1,r2.l):<<1:sat }"),
+            ("hmmpyh_rs1", "{ r0 = mpy(r1,r2.h):<<1:rnd:sat }"),
+            ("hmmpyl_rs1", "{ r0 = mpy(r1,r2.l):<<1:rnd:sat }"),
+        ],
+        40,
+        0x9a07,
+    );
+}
+
+#[test]
+fn lift_m2_vmpy2() {
+    lift_family(
+        "m2_vmpy2",
+        &[
+            ("vmpy2s_s0", "{ r1:0 = vmpyh(r2,r3):sat }"),
+            ("vmpy2s_s1", "{ r1:0 = vmpyh(r2,r3):<<1:sat }"),
+            ("vmpy2su_s0", "{ r1:0 = vmpyhsu(r2,r3):sat }"),
+            ("vmpy2su_s1", "{ r1:0 = vmpyhsu(r2,r3):<<1:sat }"),
+            ("vmac2", "{ r1:0 += vmpyh(r2,r3) }"),
+            ("vmac2s_s0", "{ r1:0 += vmpyh(r2,r3):sat }"),
+            ("vmac2s_s1", "{ r1:0 += vmpyh(r2,r3):<<1:sat }"),
+            ("vmac2su_s0", "{ r1:0 += vmpyhsu(r2,r3):sat }"),
+            ("vmac2su_s1", "{ r1:0 += vmpyhsu(r2,r3):<<1:sat }"),
+            ("vmpy2s_s0pack", "{ r0 = vmpyh(r1,r2):rnd:sat }"),
+            ("vmpy2s_s1pack", "{ r0 = vmpyh(r1,r2):<<1:rnd:sat }"),
+        ],
+        40,
+        0x9a08,
+    );
+}
+
+#[test]
+fn lift_m2_vmpy2es() {
+    lift_family(
+        "m2_vmpy2es",
+        &[
+            ("vmpy2es_s0", "{ r1:0 = vmpyeh(r3:2,r5:4):sat }"),
+            ("vmpy2es_s1", "{ r1:0 = vmpyeh(r3:2,r5:4):<<1:sat }"),
+            ("vmac2es", "{ r1:0 += vmpyeh(r3:2,r5:4) }"),
+            ("vmac2es_s0", "{ r1:0 += vmpyeh(r3:2,r5:4):sat }"),
+            ("vmac2es_s1", "{ r1:0 += vmpyeh(r3:2,r5:4):<<1:sat }"),
+        ],
+        40,
+        0x9a09,
+    );
+}
+
+#[test]
+fn lift_m2_vdmpy() {
+    lift_family(
+        "m2_vdmpy",
+        &[
+            ("vdmpys_s0", "{ r1:0 = vdmpy(r3:2,r5:4):sat }"),
+            ("vdmpys_s1", "{ r1:0 = vdmpy(r3:2,r5:4):<<1:sat }"),
+            ("vdmacs_s0", "{ r1:0 += vdmpy(r3:2,r5:4):sat }"),
+            ("vdmacs_s1", "{ r1:0 += vdmpy(r3:2,r5:4):<<1:sat }"),
+            ("vdmpyrs_s0", "{ r0 = vdmpy(r3:2,r5:4):rnd:sat }"),
+            ("vdmpyrs_s1", "{ r0 = vdmpy(r3:2,r5:4):<<1:rnd:sat }"),
+        ],
+        40,
+        0x9a0a,
+    );
+}
+
+#[test]
+fn lift_m5_vmpyb() {
+    lift_family(
+        "m5_vmpyb",
+        &[
+            ("vmpybuu", "{ r1:0 = vmpybu(r2,r3) }"),
+            ("vmpybsu", "{ r1:0 = vmpybsu(r2,r3) }"),
+            ("vmacbuu", "{ r1:0 += vmpybu(r2,r3) }"),
+            ("vmacbsu", "{ r1:0 += vmpybsu(r2,r3) }"),
+            ("vdmpybsu", "{ r1:0 = vdmpybsu(r3:2,r5:4):sat }"),
+            ("vdmacbsu", "{ r1:0 += vdmpybsu(r3:2,r5:4):sat }"),
+            ("vrmpybuu", "{ r1:0 = vrmpybu(r3:2,r5:4) }"),
+            ("vrmpybsu", "{ r1:0 = vrmpybsu(r3:2,r5:4) }"),
+            ("vrmacbuu", "{ r1:0 += vrmpybu(r3:2,r5:4) }"),
+            ("vrmacbsu", "{ r1:0 += vrmpybsu(r3:2,r5:4) }"),
+        ],
+        40,
+        0x9a0b,
+    );
+}

@@ -1513,6 +1513,157 @@ impl HexagonLifter {
             }};
         }
 
+        // Signed half-lane `$n` (0..3) of a register pair whose even base is
+        // `$base`, sign-extended to a full W64 temp. Half N lives in register
+        // R(base + N/2), high half when N is odd. Used by the pair-sourced
+        // vmpy2es/vdmpy* families (fGETHALF over a 64-bit pair).
+        macro_rules! pair_half_w64 {
+            ($base:expr, $n:expr) => {{
+                let reg = self.hex_reg(($base & !1) + ($n / 2));
+                let h = half_ext!(reg, $n % 2 == 1, false);
+                let w = ctx.alloc_vreg();
+                push_op!(OpKind::SignExtend {
+                    dst: w,
+                    src: h,
+                    from_width: OpWidth::W32,
+                    to_width: OpWidth::W64,
+                });
+                w
+            }};
+        }
+
+        // Signed 16x16 product (full i64) of pair-half `$sn` of Rss and pair-half
+        // `$tn` of Rtt, optionally `:<<1` scaled. Returns a W64 temp.
+        macro_rules! pair_mpy16_w64 {
+            ($sn:expr, $tn:expr, $s1:expr) => {{
+                let a = pair_half_w64!(fld(b's'), $sn);
+                let b = pair_half_w64!(fld(b't'), $tn);
+                let p = ctx.alloc_vreg();
+                push_op!(OpKind::MulS {
+                    dst_lo: p,
+                    dst_hi: None,
+                    src1: a,
+                    src2: SrcOperand::Reg(b),
+                    width: OpWidth::W64,
+                    flags: FlagUpdate::None,
+                });
+                if $s1 {
+                    let s = ctx.alloc_vreg();
+                    push_op!(OpKind::Shl {
+                        dst: s,
+                        src: p,
+                        amount: SrcOperand::Imm(1),
+                        width: OpWidth::W64,
+                        flags: FlagUpdate::None,
+                    });
+                    s
+                } else {
+                    p
+                }
+            }};
+        }
+
+        // W64 add of two temps -> fresh temp.
+        macro_rules! add_w64 {
+            ($a:expr, $b:expr) => {{
+                let r = ctx.alloc_vreg();
+                push_op!(OpKind::Add {
+                    dst: r,
+                    src1: $a,
+                    src2: SrcOperand::Reg($b),
+                    width: OpWidth::W64,
+                    flags: FlagUpdate::None,
+                });
+                r
+            }};
+        }
+
+        // Byte lane `$n` of register `$reg` (W32), {signed,unsigned}-extended to
+        // a full W64 temp. fGETBYTE / fGETUBYTE over a 32-bit word.
+        //   signed:   ((reg >> 8n) & 0xff) as i8 as i64
+        //   unsigned: ((reg >> 8n) & 0xff) as i64
+        macro_rules! byte_w64 {
+            ($reg:expr, $n:expr, $uns:expr) => {{
+                let shifted = ctx.alloc_vreg();
+                push_op!(OpKind::Shr {
+                    dst: shifted,
+                    src: $reg,
+                    amount: SrcOperand::Imm(($n as i64) * 8),
+                    width: OpWidth::W32,
+                    flags: FlagUpdate::None,
+                });
+                let w = ctx.alloc_vreg();
+                if $uns {
+                    let m = ctx.alloc_vreg();
+                    push_op!(OpKind::And {
+                        dst: m,
+                        src1: shifted,
+                        src2: SrcOperand::Imm(0xff),
+                        width: OpWidth::W32,
+                        flags: FlagUpdate::None,
+                    });
+                    push_op!(OpKind::ZeroExtend {
+                        dst: w,
+                        src: m,
+                        from_width: OpWidth::W8,
+                        to_width: OpWidth::W64,
+                    });
+                } else {
+                    push_op!(OpKind::SignExtend {
+                        dst: w,
+                        src: shifted,
+                        from_width: OpWidth::W8,
+                        to_width: OpWidth::W64,
+                    });
+                }
+                w
+            }};
+        }
+
+        // Byte lane `$n` (0..7) of a register pair (even base `$base`),
+        // {signed,unsigned}-extended to W64. Byte N is in register R(base+N/4).
+        macro_rules! pair_byte_w64 {
+            ($base:expr, $n:expr, $uns:expr) => {{
+                let reg = self.hex_reg(($base & !1) + ($n / 4));
+                byte_w64!(reg, $n % 4, $uns)
+            }};
+        }
+
+        // Signed 8x8 product (full i64) of byte lane `$a` of `$ra` (signedness
+        // `$ua`) and byte lane `$b` of `$rb` (signedness `$ub`). The sem always
+        // uses `mpy16ss(getbyte,..)`, i.e. a signed product of the (already
+        // sign/zero-extended) byte values, so a signed W64 multiply is exact.
+        macro_rules! byte_mpy_w64 {
+            ($va:expr, $vb:expr) => {{
+                let p = ctx.alloc_vreg();
+                push_op!(OpKind::MulS {
+                    dst_lo: p,
+                    dst_hi: None,
+                    src1: $va,
+                    src2: SrcOperand::Reg($vb),
+                    width: OpWidth::W64,
+                    flags: FlagUpdate::None,
+                });
+                p
+            }};
+        }
+
+        // SatN(signed-32, sticky OVF) of a W64 temp -> fresh temp.
+        macro_rules! sat32_w64 {
+            ($v:expr) => {{
+                let r = ctx.alloc_vreg();
+                push_op!(OpKind::SatN {
+                    dst: r,
+                    src: SrcOperand::Reg($v),
+                    sat_bits: 32,
+                    signed: true,
+                    set_ovf: true,
+                    width: OpWidth::W64,
+                });
+                r
+            }};
+        }
+
         // The `M2_mpy*` 16x16 multiply matrix (mirrors sem/mpy_ext.rs `mpy16`).
         // Computes a 16x16 product of the selected halves of Rs/Rt, optionally
         // `:<<1` scaled, optionally accumulated into the destination, with no
@@ -1663,6 +1814,347 @@ impl HexagonLifter {
                         });
                     }
                 }
+            }};
+        }
+
+        // Saturating / rounding 16x16 multiply matrix (mirrors sem/mpy_ext.rs
+        // `mpy16` with the `rnd`/`sat` flags set). Unlike the plain `mpy16!`
+        // macro, the full pre-clamp value is always built in W64 so the
+        // `SatN` clamp-detection (and sticky USR:OVF) fires exactly when the
+        // sem's `sat_n` does.
+        //   $sh/$th: select Rs/Rt high (true) vs low (false) half.
+        //   $s1:     fSCALE(1,..) — left-shift the product by one.
+        //   $acc:    0 = Set (Rd=), 1 = Add (Rx+=), 2 = Sub (Rx-=).
+        //   $rnd:    fROUND — add 0x8000 (only with Acc::Set per the sem).
+        //   $sat:    fSAT — signed-32 saturate with USR:OVF (set_ovf:true).
+        //   $wide:   64-bit Rdd/Rxx result (mpyd_rnd) vs 32-bit Rd/Rx.
+        // All these forms are signed 16x16 (`M2_mpy*`, never `mpyu`).
+        macro_rules! mpy16_sr {
+            ($sh:expr, $th:expr, $s1:expr, $acc:expr, $rnd:expr, $sat:expr, $wide:expr) => {{
+                // Signed 16-bit halves, sign-extended to W32 then to W64 so the
+                // 16x16 product and any `:<<1`/accumulate stay exact in i64.
+                let ha = half_ext!(rs, $sh, false);
+                let hb = half_ext!(rt, $th, false);
+                let wa = ctx.alloc_vreg();
+                let wb = ctx.alloc_vreg();
+                push_op!(OpKind::SignExtend {
+                    dst: wa,
+                    src: ha,
+                    from_width: OpWidth::W32,
+                    to_width: OpWidth::W64,
+                });
+                push_op!(OpKind::SignExtend {
+                    dst: wb,
+                    src: hb,
+                    from_width: OpWidth::W32,
+                    to_width: OpWidth::W64,
+                });
+                let prod = ctx.alloc_vreg();
+                push_op!(OpKind::MulS {
+                    dst_lo: prod,
+                    dst_hi: None,
+                    src1: wa,
+                    src2: SrcOperand::Reg(wb),
+                    width: OpWidth::W64,
+                    flags: FlagUpdate::None,
+                });
+                let scaled = if $s1 {
+                    let s = ctx.alloc_vreg();
+                    push_op!(OpKind::Shl {
+                        dst: s,
+                        src: prod,
+                        amount: SrcOperand::Imm(1),
+                        width: OpWidth::W64,
+                        flags: FlagUpdate::None,
+                    });
+                    s
+                } else {
+                    prod
+                };
+                // Combine with accumulator / rounding constant -> full i64 value.
+                let val = if $acc == 0 {
+                    if $rnd {
+                        let v = ctx.alloc_vreg();
+                        push_op!(OpKind::Add {
+                            dst: v,
+                            src1: scaled,
+                            src2: SrcOperand::Imm(0x8000),
+                            width: OpWidth::W64,
+                            flags: FlagUpdate::None,
+                        });
+                        v
+                    } else {
+                        scaled
+                    }
+                } else {
+                    // Read OLD Rx, sign-extended s32 -> W64 (the sem uses
+                    // `Rx as i32 as i64`), then add/sub the scaled product.
+                    let acc = ctx.alloc_vreg();
+                    push_op!(OpKind::SignExtend {
+                        dst: acc,
+                        src: rx,
+                        from_width: OpWidth::W32,
+                        to_width: OpWidth::W64,
+                    });
+                    let v = ctx.alloc_vreg();
+                    if $acc == 1 {
+                        push_op!(OpKind::Add {
+                            dst: v,
+                            src1: acc,
+                            src2: SrcOperand::Reg(scaled),
+                            width: OpWidth::W64,
+                            flags: FlagUpdate::None,
+                        });
+                    } else {
+                        push_op!(OpKind::Sub {
+                            dst: v,
+                            src1: acc,
+                            src2: SrcOperand::Reg(scaled),
+                            width: OpWidth::W64,
+                            flags: FlagUpdate::None,
+                        });
+                    }
+                    v
+                };
+                // fSAT (signed-32, sticky OVF) when present.
+                let result = if $sat {
+                    let r = ctx.alloc_vreg();
+                    push_op!(OpKind::SatN {
+                        dst: r,
+                        src: SrcOperand::Reg(val),
+                        sat_bits: 32,
+                        signed: true,
+                        set_ovf: true,
+                        width: OpWidth::W64,
+                    });
+                    r
+                } else {
+                    val
+                };
+                if $wide {
+                    write_pair!(if $acc == 0 { rd_n } else { rx_n }, result);
+                } else if $acc == 0 {
+                    set_r!(result);
+                } else {
+                    push_op!(OpKind::Mov {
+                        dst: rx,
+                        src: SrcOperand::Reg(result),
+                        width: OpWidth::W32,
+                    });
+                }
+            }};
+        }
+
+        // One halfword lane of the SIMD vmpy2/vmac2 family. Computes the
+        // signed[*unsigned] 16x16 product of half `$lane` of Rs/Rt as a full
+        // i64 (so `:<<1` and accumulate stay exact), optionally accumulates the
+        // sign-extended s32 lane of the Rxx pair, optionally saturates to s32
+        // with sticky USR:OVF, and returns the resulting W64 temp.
+        //   $lane: 0 -> low half, 1 -> high half.
+        //   $uns:  Rt half is unsigned (vmpy2su / vmac2su).
+        //   $s1:   fSCALE(1,..).
+        //   $acc:  accumulate the old word lane `$lane` of the Rxx pair.
+        //   $sat:  fSAT (signed-32, set_ovf:true).
+        macro_rules! vmpy2_lane {
+            ($lane:expr, $uns:expr, $s1:expr, $acc:expr, $sat:expr) => {{
+                let high = $lane == 1;
+                let ha = half_ext!(rs, high, false);
+                let hb = half_ext!(rt, high, $uns);
+                let wa = ctx.alloc_vreg();
+                let wb = ctx.alloc_vreg();
+                push_op!(OpKind::SignExtend {
+                    dst: wa,
+                    src: ha,
+                    from_width: OpWidth::W32,
+                    to_width: OpWidth::W64,
+                });
+                // Zero-extend the unsigned Rt half (already masked to 16 bits by
+                // half_ext for the unsigned case); sign-extend otherwise.
+                if $uns {
+                    push_op!(OpKind::ZeroExtend {
+                        dst: wb,
+                        src: hb,
+                        from_width: OpWidth::W32,
+                        to_width: OpWidth::W64,
+                    });
+                } else {
+                    push_op!(OpKind::SignExtend {
+                        dst: wb,
+                        src: hb,
+                        from_width: OpWidth::W32,
+                        to_width: OpWidth::W64,
+                    });
+                }
+                let prod = ctx.alloc_vreg();
+                push_op!(OpKind::MulS {
+                    dst_lo: prod,
+                    dst_hi: None,
+                    src1: wa,
+                    src2: SrcOperand::Reg(wb),
+                    width: OpWidth::W64,
+                    flags: FlagUpdate::None,
+                });
+                let scaled = if $s1 {
+                    let s = ctx.alloc_vreg();
+                    push_op!(OpKind::Shl {
+                        dst: s,
+                        src: prod,
+                        amount: SrcOperand::Imm(1),
+                        width: OpWidth::W64,
+                        flags: FlagUpdate::None,
+                    });
+                    s
+                } else {
+                    prod
+                };
+                let val = if $acc {
+                    // Old word lane `$lane` of Rxx, sign-extended s32 -> W64.
+                    let acc = ctx.alloc_vreg();
+                    push_op!(OpKind::SignExtend {
+                        dst: acc,
+                        src: self.hex_reg((rx_n & !1) + $lane),
+                        from_width: OpWidth::W32,
+                        to_width: OpWidth::W64,
+                    });
+                    let v = ctx.alloc_vreg();
+                    push_op!(OpKind::Add {
+                        dst: v,
+                        src1: acc,
+                        src2: SrcOperand::Reg(scaled),
+                        width: OpWidth::W64,
+                        flags: FlagUpdate::None,
+                    });
+                    v
+                } else {
+                    scaled
+                };
+                if $sat {
+                    let r = ctx.alloc_vreg();
+                    push_op!(OpKind::SatN {
+                        dst: r,
+                        src: SrcOperand::Reg(val),
+                        sat_bits: 32,
+                        signed: true,
+                        set_ovf: true,
+                        width: OpWidth::W64,
+                    });
+                    r
+                } else {
+                    val
+                }
+            }};
+        }
+
+        // Full SIMD vmpy2/vmac2 op: two independent halfword lanes -> the
+        // even/odd words of the destination pair. For `$acc` the destination is
+        // the in-place Rxx pair; otherwise the fresh Rdd pair.
+        macro_rules! vmpy2 {
+            ($uns:expr, $s1:expr, $acc:expr, $sat:expr) => {{
+                let w0 = vmpy2_lane!(0, $uns, $s1, $acc, $sat);
+                let w1 = vmpy2_lane!(1, $uns, $s1, $acc, $sat);
+                let base = if $acc { rx_n } else { rd_n } & !1;
+                push_op!(OpKind::Mov {
+                    dst: self.hex_reg(base),
+                    src: SrcOperand::Reg(w0),
+                    width: OpWidth::W32,
+                });
+                push_op!(OpKind::Mov {
+                    dst: self.hex_reg(base + 1),
+                    src: SrcOperand::Reg(w1),
+                    width: OpWidth::W32,
+                });
+            }};
+        }
+
+        // Packed-halfword vmpy2 (`:rnd:sat` -> single Rd). Per lane:
+        // h = sat32(prod[<<1] + 0x8000); the result word's half N = h[31:16].
+        // Bits[31:16] of a sat32 value = (h >> 16) as a 16-bit lane; we pack
+        // lane0 into Rd[15:0] and lane1 into Rd[31:16].
+        macro_rules! vmpy2_pack {
+            ($s1:expr) => {{
+                let r = ctx.alloc_vreg();
+                push_op!(OpKind::Mov {
+                    dst: r,
+                    src: SrcOperand::Imm(0),
+                    width: OpWidth::W32,
+                });
+                for lane in 0u8..2 {
+                    // sat32(prod[<<1] + 0x8000) in a W64 temp.
+                    let high = lane == 1;
+                    let ha = half_ext!(rs, high, false);
+                    let hb = half_ext!(rt, high, false);
+                    let wa = ctx.alloc_vreg();
+                    let wb = ctx.alloc_vreg();
+                    push_op!(OpKind::SignExtend {
+                        dst: wa,
+                        src: ha,
+                        from_width: OpWidth::W32,
+                        to_width: OpWidth::W64,
+                    });
+                    push_op!(OpKind::SignExtend {
+                        dst: wb,
+                        src: hb,
+                        from_width: OpWidth::W32,
+                        to_width: OpWidth::W64,
+                    });
+                    let prod = ctx.alloc_vreg();
+                    push_op!(OpKind::MulS {
+                        dst_lo: prod,
+                        dst_hi: None,
+                        src1: wa,
+                        src2: SrcOperand::Reg(wb),
+                        width: OpWidth::W64,
+                        flags: FlagUpdate::None,
+                    });
+                    let scaled = if $s1 {
+                        let s = ctx.alloc_vreg();
+                        push_op!(OpKind::Shl {
+                            dst: s,
+                            src: prod,
+                            amount: SrcOperand::Imm(1),
+                            width: OpWidth::W64,
+                            flags: FlagUpdate::None,
+                        });
+                        s
+                    } else {
+                        prod
+                    };
+                    let rnd = ctx.alloc_vreg();
+                    push_op!(OpKind::Add {
+                        dst: rnd,
+                        src1: scaled,
+                        src2: SrcOperand::Imm(0x8000),
+                        width: OpWidth::W64,
+                        flags: FlagUpdate::None,
+                    });
+                    let sat = ctx.alloc_vreg();
+                    push_op!(OpKind::SatN {
+                        dst: sat,
+                        src: SrcOperand::Reg(rnd),
+                        sat_bits: 32,
+                        signed: true,
+                        set_ovf: true,
+                        width: OpWidth::W64,
+                    });
+                    // half N of Rd = bits[31:16] of the sat32 value.
+                    let hi16 = ctx.alloc_vreg();
+                    push_op!(OpKind::Shr {
+                        dst: hi16,
+                        src: sat,
+                        amount: SrcOperand::Imm(16),
+                        width: OpWidth::W32,
+                        flags: FlagUpdate::None,
+                    });
+                    push_op!(OpKind::Bfi {
+                        dst: r,
+                        dst_in: r,
+                        src: hi16,
+                        lsb: lane * 16,
+                        width_bits: 16,
+                        op_width: OpWidth::W32,
+                    });
+                }
+                set_r!(r);
             }};
         }
 
@@ -3778,6 +4270,186 @@ impl HexagonLifter {
                     amount: SrcOperand::Imm(31),
                     width: OpWidth::W64,
                     flags: FlagUpdate::None
+                });
+            }
+            // Rd = sat32( ((i32)Rs * (i32)Rt) >> 31 )  (Q1.31 high-half, :sat).
+            Opcode::M2_mpy_up_s1_sat => {
+                let se_s = ctx.alloc_vreg();
+                let se_t = ctx.alloc_vreg();
+                push_op!(OpKind::SignExtend {
+                    dst: se_s,
+                    src: rs,
+                    from_width: OpWidth::W32,
+                    to_width: OpWidth::W64
+                });
+                push_op!(OpKind::SignExtend {
+                    dst: se_t,
+                    src: rt,
+                    from_width: OpWidth::W32,
+                    to_width: OpWidth::W64
+                });
+                let prod = ctx.alloc_vreg();
+                push_op!(OpKind::MulS {
+                    dst_lo: prod,
+                    dst_hi: None,
+                    src1: se_s,
+                    src2: SrcOperand::Reg(se_t),
+                    width: OpWidth::W64,
+                    flags: FlagUpdate::None
+                });
+                let sh = ctx.alloc_vreg();
+                push_op!(OpKind::Sar {
+                    dst: sh,
+                    src: prod,
+                    amount: SrcOperand::Imm(31),
+                    width: OpWidth::W64,
+                    flags: FlagUpdate::None
+                });
+                push_op!(OpKind::SatN {
+                    dst: rd,
+                    src: SrcOperand::Reg(sh),
+                    sat_bits: 32,
+                    signed: true,
+                    set_ovf: true,
+                    width: OpWidth::W64,
+                });
+            }
+            // Rx = sat32( (i32)Rx +/- (((i32)Rs * (i32)Rt) >> 31) )  (M4).
+            Opcode::M4_mac_up_s1_sat | Opcode::M4_nac_up_s1_sat => {
+                let se_s = ctx.alloc_vreg();
+                let se_t = ctx.alloc_vreg();
+                push_op!(OpKind::SignExtend {
+                    dst: se_s,
+                    src: rs,
+                    from_width: OpWidth::W32,
+                    to_width: OpWidth::W64
+                });
+                push_op!(OpKind::SignExtend {
+                    dst: se_t,
+                    src: rt,
+                    from_width: OpWidth::W32,
+                    to_width: OpWidth::W64
+                });
+                let prod = ctx.alloc_vreg();
+                push_op!(OpKind::MulS {
+                    dst_lo: prod,
+                    dst_hi: None,
+                    src1: se_s,
+                    src2: SrcOperand::Reg(se_t),
+                    width: OpWidth::W64,
+                    flags: FlagUpdate::None
+                });
+                let sh = ctx.alloc_vreg();
+                push_op!(OpKind::Sar {
+                    dst: sh,
+                    src: prod,
+                    amount: SrcOperand::Imm(31),
+                    width: OpWidth::W64,
+                    flags: FlagUpdate::None
+                });
+                let acc = ctx.alloc_vreg();
+                push_op!(OpKind::SignExtend {
+                    dst: acc,
+                    src: rx,
+                    from_width: OpWidth::W32,
+                    to_width: OpWidth::W64
+                });
+                let sum = ctx.alloc_vreg();
+                if matches!(op, Opcode::M4_mac_up_s1_sat) {
+                    push_op!(OpKind::Add {
+                        dst: sum,
+                        src1: acc,
+                        src2: SrcOperand::Reg(sh),
+                        width: OpWidth::W64,
+                        flags: FlagUpdate::None
+                    });
+                } else {
+                    push_op!(OpKind::Sub {
+                        dst: sum,
+                        src1: acc,
+                        src2: SrcOperand::Reg(sh),
+                        width: OpWidth::W64,
+                        flags: FlagUpdate::None
+                    });
+                }
+                push_op!(OpKind::SatN {
+                    dst: rx,
+                    src: SrcOperand::Reg(sum),
+                    sat_bits: 32,
+                    signed: true,
+                    set_ovf: true,
+                    width: OpWidth::W64,
+                });
+            }
+            // hmmpy: Rd = sat32( ((i32)Rs * Rt.{H|L}) << 1 [+0x8000] >> 16 )
+            //   fMPY3216SS(Rs, half) = (Rs as i32 as i64) * (half as i16 as i64)
+            //   $th: high (true) vs low (false) half of Rt; $rnd: +0x8000.
+            Opcode::M2_hmmpyh_s1
+            | Opcode::M2_hmmpyl_s1
+            | Opcode::M2_hmmpyh_rs1
+            | Opcode::M2_hmmpyl_rs1 => {
+                let th = matches!(op, Opcode::M2_hmmpyh_s1 | Opcode::M2_hmmpyh_rs1);
+                let rnd = matches!(op, Opcode::M2_hmmpyh_rs1 | Opcode::M2_hmmpyl_rs1);
+                let se_s = ctx.alloc_vreg();
+                push_op!(OpKind::SignExtend {
+                    dst: se_s,
+                    src: rs,
+                    from_width: OpWidth::W32,
+                    to_width: OpWidth::W64
+                });
+                let half = half_ext!(rt, th, false);
+                let se_t = ctx.alloc_vreg();
+                push_op!(OpKind::SignExtend {
+                    dst: se_t,
+                    src: half,
+                    from_width: OpWidth::W32,
+                    to_width: OpWidth::W64
+                });
+                let prod = ctx.alloc_vreg();
+                push_op!(OpKind::MulS {
+                    dst_lo: prod,
+                    dst_hi: None,
+                    src1: se_s,
+                    src2: SrcOperand::Reg(se_t),
+                    width: OpWidth::W64,
+                    flags: FlagUpdate::None
+                });
+                let scaled = ctx.alloc_vreg();
+                push_op!(OpKind::Shl {
+                    dst: scaled,
+                    src: prod,
+                    amount: SrcOperand::Imm(1),
+                    width: OpWidth::W64,
+                    flags: FlagUpdate::None
+                });
+                let rounded = if rnd {
+                    let r = ctx.alloc_vreg();
+                    push_op!(OpKind::Add {
+                        dst: r,
+                        src1: scaled,
+                        src2: SrcOperand::Imm(0x8000),
+                        width: OpWidth::W64,
+                        flags: FlagUpdate::None
+                    });
+                    r
+                } else {
+                    scaled
+                };
+                let sh = ctx.alloc_vreg();
+                push_op!(OpKind::Sar {
+                    dst: sh,
+                    src: rounded,
+                    amount: SrcOperand::Imm(16),
+                    width: OpWidth::W64,
+                    flags: FlagUpdate::None
+                });
+                push_op!(OpKind::SatN {
+                    dst: rd,
+                    src: SrcOperand::Reg(sh),
+                    sat_bits: 32,
+                    signed: true,
+                    set_ovf: true,
+                    width: OpWidth::W64,
                 });
             }
             // Rd = Rs * #u8 (extendable). Low 32 bits.
@@ -7040,6 +7712,437 @@ impl HexagonLifter {
             Opcode::M2_mpyud_nac_lh_s1 => mpy16!(false, true, true, true, 2, true),
             Opcode::M2_mpyud_nac_ll_s0 => mpy16!(false, false, true, false, 2, true),
             Opcode::M2_mpyud_nac_ll_s1 => mpy16!(false, false, true, true, 2, true),
+
+            // ============================================================
+            // M2_mpy* 16x16 saturating / rounding matrix
+            //   :sat        -> sat_n(prod[<<1], 32)              (OVF)
+            //   :rnd        -> prod[<<1] + 0x8000                (no sat)
+            //   :rnd:sat    -> sat_n(prod[<<1] + 0x8000, 32)     (OVF)
+            //   :sat:acc    -> sat_n((s32 Rx) + prod[<<1], 32)   (OVF)
+            //   :sat:nac    -> sat_n((s32 Rx) - prod[<<1], 32)   (OVF)
+            // mpy16_sr!($sh, $th, $s1, $acc, $rnd, $sat, $wide).
+            // ---- :sat (Set) ----
+            Opcode::M2_mpy_sat_hh_s0 => mpy16_sr!(true, true, false, 0, false, true, false),
+            Opcode::M2_mpy_sat_hh_s1 => mpy16_sr!(true, true, true, 0, false, true, false),
+            Opcode::M2_mpy_sat_hl_s0 => mpy16_sr!(true, false, false, 0, false, true, false),
+            Opcode::M2_mpy_sat_hl_s1 => mpy16_sr!(true, false, true, 0, false, true, false),
+            Opcode::M2_mpy_sat_lh_s0 => mpy16_sr!(false, true, false, 0, false, true, false),
+            Opcode::M2_mpy_sat_lh_s1 => mpy16_sr!(false, true, true, 0, false, true, false),
+            Opcode::M2_mpy_sat_ll_s0 => mpy16_sr!(false, false, false, 0, false, true, false),
+            Opcode::M2_mpy_sat_ll_s1 => mpy16_sr!(false, false, true, 0, false, true, false),
+            // ---- :rnd (Set, no sat -> NO OVF) ----
+            Opcode::M2_mpy_rnd_hh_s0 => mpy16_sr!(true, true, false, 0, true, false, false),
+            Opcode::M2_mpy_rnd_hh_s1 => mpy16_sr!(true, true, true, 0, true, false, false),
+            Opcode::M2_mpy_rnd_hl_s0 => mpy16_sr!(true, false, false, 0, true, false, false),
+            Opcode::M2_mpy_rnd_hl_s1 => mpy16_sr!(true, false, true, 0, true, false, false),
+            Opcode::M2_mpy_rnd_lh_s0 => mpy16_sr!(false, true, false, 0, true, false, false),
+            Opcode::M2_mpy_rnd_lh_s1 => mpy16_sr!(false, true, true, 0, true, false, false),
+            Opcode::M2_mpy_rnd_ll_s0 => mpy16_sr!(false, false, false, 0, true, false, false),
+            Opcode::M2_mpy_rnd_ll_s1 => mpy16_sr!(false, false, true, 0, true, false, false),
+            // ---- :rnd:sat (Set) ----
+            Opcode::M2_mpy_sat_rnd_hh_s0 => mpy16_sr!(true, true, false, 0, true, true, false),
+            Opcode::M2_mpy_sat_rnd_hh_s1 => mpy16_sr!(true, true, true, 0, true, true, false),
+            Opcode::M2_mpy_sat_rnd_hl_s0 => mpy16_sr!(true, false, false, 0, true, true, false),
+            Opcode::M2_mpy_sat_rnd_hl_s1 => mpy16_sr!(true, false, true, 0, true, true, false),
+            Opcode::M2_mpy_sat_rnd_lh_s0 => mpy16_sr!(false, true, false, 0, true, true, false),
+            Opcode::M2_mpy_sat_rnd_lh_s1 => mpy16_sr!(false, true, true, 0, true, true, false),
+            Opcode::M2_mpy_sat_rnd_ll_s0 => mpy16_sr!(false, false, false, 0, true, true, false),
+            Opcode::M2_mpy_sat_rnd_ll_s1 => mpy16_sr!(false, false, true, 0, true, true, false),
+            // ---- :sat:acc (Rx +=) ----
+            Opcode::M2_mpy_acc_sat_hh_s0 => mpy16_sr!(true, true, false, 1, false, true, false),
+            Opcode::M2_mpy_acc_sat_hh_s1 => mpy16_sr!(true, true, true, 1, false, true, false),
+            Opcode::M2_mpy_acc_sat_hl_s0 => mpy16_sr!(true, false, false, 1, false, true, false),
+            Opcode::M2_mpy_acc_sat_hl_s1 => mpy16_sr!(true, false, true, 1, false, true, false),
+            Opcode::M2_mpy_acc_sat_lh_s0 => mpy16_sr!(false, true, false, 1, false, true, false),
+            Opcode::M2_mpy_acc_sat_lh_s1 => mpy16_sr!(false, true, true, 1, false, true, false),
+            Opcode::M2_mpy_acc_sat_ll_s0 => mpy16_sr!(false, false, false, 1, false, true, false),
+            Opcode::M2_mpy_acc_sat_ll_s1 => mpy16_sr!(false, false, true, 1, false, true, false),
+            // ---- :sat:nac (Rx -=) ----
+            Opcode::M2_mpy_nac_sat_hh_s0 => mpy16_sr!(true, true, false, 2, false, true, false),
+            Opcode::M2_mpy_nac_sat_hh_s1 => mpy16_sr!(true, true, true, 2, false, true, false),
+            Opcode::M2_mpy_nac_sat_hl_s0 => mpy16_sr!(true, false, false, 2, false, true, false),
+            Opcode::M2_mpy_nac_sat_hl_s1 => mpy16_sr!(true, false, true, 2, false, true, false),
+            Opcode::M2_mpy_nac_sat_lh_s0 => mpy16_sr!(false, true, false, 2, false, true, false),
+            Opcode::M2_mpy_nac_sat_lh_s1 => mpy16_sr!(false, true, true, 2, false, true, false),
+            Opcode::M2_mpy_nac_sat_ll_s0 => mpy16_sr!(false, false, false, 2, false, true, false),
+            Opcode::M2_mpy_nac_sat_ll_s1 => mpy16_sr!(false, false, true, 2, false, true, false),
+            // ---- mpyd :rnd (wide, Set, no sat) ----
+            Opcode::M2_mpyd_rnd_hh_s0 => mpy16_sr!(true, true, false, 0, true, false, true),
+            Opcode::M2_mpyd_rnd_hh_s1 => mpy16_sr!(true, true, true, 0, true, false, true),
+            Opcode::M2_mpyd_rnd_hl_s0 => mpy16_sr!(true, false, false, 0, true, false, true),
+            Opcode::M2_mpyd_rnd_hl_s1 => mpy16_sr!(true, false, true, 0, true, false, true),
+            Opcode::M2_mpyd_rnd_lh_s0 => mpy16_sr!(false, true, false, 0, true, false, true),
+            Opcode::M2_mpyd_rnd_lh_s1 => mpy16_sr!(false, true, true, 0, true, false, true),
+            Opcode::M2_mpyd_rnd_ll_s0 => mpy16_sr!(false, false, false, 0, true, false, true),
+            Opcode::M2_mpyd_rnd_ll_s1 => mpy16_sr!(false, false, true, 0, true, false, true),
+
+            // ============================================================
+            // SIMD 2x(16x16) -> 2x32 halfword multiply (vmpy2s / vmac2)
+            //   vmpy2!($uns, $s1, $acc, $sat).  Lane0 -> R(even), lane1 -> R(odd).
+            // ============================================================
+            // Rdd = vmpyh(Rs,Rt):sat / :<<1:sat  (signed*signed).
+            Opcode::M2_vmpy2s_s0 => vmpy2!(false, false, false, true),
+            Opcode::M2_vmpy2s_s1 => vmpy2!(false, true, false, true),
+            // Rdd = vmpyhsu(Rs,Rt):sat / :<<1:sat  (signed*unsigned).
+            Opcode::M2_vmpy2su_s0 => vmpy2!(true, false, false, true),
+            Opcode::M2_vmpy2su_s1 => vmpy2!(true, true, false, true),
+            // Rxx += vmpyh(Rs,Rt)        (no sat).
+            Opcode::M2_vmac2 => vmpy2!(false, false, true, false),
+            // Rxx += vmpyh(Rs,Rt):sat / :<<1:sat.
+            Opcode::M2_vmac2s_s0 => vmpy2!(false, false, true, true),
+            Opcode::M2_vmac2s_s1 => vmpy2!(false, true, true, true),
+            // Rxx += vmpyhsu(Rs,Rt):sat / :<<1:sat.
+            Opcode::M2_vmac2su_s0 => vmpy2!(true, false, true, true),
+            Opcode::M2_vmac2su_s1 => vmpy2!(true, true, true, true),
+            // Rd = vmpyh(Rs,Rt):rnd:sat / :<<1:rnd:sat  (packed-halfword result).
+            Opcode::M2_vmpy2s_s0pack => vmpy2_pack!(false),
+            Opcode::M2_vmpy2s_s1pack => vmpy2_pack!(true),
+
+            // ============================================================
+            // vmpy2es / vmac2es: even-halfword 16x16 -> 2x32 (from Rss/Rtt pairs)
+            //   w0 = sat32(mpy16ss(Rss.h0, Rtt.h0)[<<1]); w1 = sat32(.. h2 .. h2)
+            //   _es (vmac2es, no sat): wN = accN + mpy16ss(..) (truncated, no OVF)
+            // ============================================================
+            Opcode::M2_vmpy2es_s0
+            | Opcode::M2_vmpy2es_s1
+            | Opcode::M2_vmac2es
+            | Opcode::M2_vmac2es_s0
+            | Opcode::M2_vmac2es_s1 => {
+                let s1 = matches!(op, Opcode::M2_vmpy2es_s1 | Opcode::M2_vmac2es_s1);
+                let acc = matches!(
+                    op,
+                    Opcode::M2_vmac2es | Opcode::M2_vmac2es_s0 | Opcode::M2_vmac2es_s1
+                );
+                // M2_vmac2es (the bare form) does NOT saturate -> no OVF.
+                let sat = !matches!(op, Opcode::M2_vmac2es);
+                let base = if acc { rx_n } else { rd_n } & !1;
+                // even halves are lanes 0 and 2 of the pairs.
+                let lanes = [0u8, 2u8];
+                let mut results = Vec::with_capacity(2);
+                for &half in lanes.iter() {
+                    let prod = pair_mpy16_w64!(half, half, s1);
+                    let val = if acc {
+                        let a = ctx.alloc_vreg();
+                        push_op!(OpKind::SignExtend {
+                            dst: a,
+                            src: self.hex_reg(base + (half / 2)),
+                            from_width: OpWidth::W32,
+                            to_width: OpWidth::W64,
+                        });
+                        add_w64!(a, prod)
+                    } else {
+                        prod
+                    };
+                    let r = if sat { sat32_w64!(val) } else { val };
+                    results.push(r);
+                }
+                push_op!(OpKind::Mov {
+                    dst: self.hex_reg(base),
+                    src: SrcOperand::Reg(results[0]),
+                    width: OpWidth::W32,
+                });
+                push_op!(OpKind::Mov {
+                    dst: self.hex_reg(base + 1),
+                    src: SrcOperand::Reg(results[1]),
+                    width: OpWidth::W32,
+                });
+            }
+
+            // ============================================================
+            // vdmpys / vdmacs: dual-multiply (sum of two half-products per word)
+            //   w0 = sat32( mpy(h0,h0) + mpy(h1,h1) [each <<1] [+ acc0] )
+            //   w1 = sat32( mpy(h2,h2) + mpy(h3,h3) [each <<1] [+ acc1] )
+            // ============================================================
+            Opcode::M2_vdmpys_s0
+            | Opcode::M2_vdmpys_s1
+            | Opcode::M2_vdmacs_s0
+            | Opcode::M2_vdmacs_s1 => {
+                let s1 = matches!(op, Opcode::M2_vdmpys_s1 | Opcode::M2_vdmacs_s1);
+                let acc = matches!(op, Opcode::M2_vdmacs_s0 | Opcode::M2_vdmacs_s1);
+                let base = if acc { rx_n } else { rd_n } & !1;
+                // word w sums half-pair (2w, 2w+1).
+                let halfpairs = [(0u8, 1u8), (2u8, 3u8)];
+                let mut results = Vec::with_capacity(2);
+                for (w, &(ha, hb)) in halfpairs.iter().enumerate() {
+                    let p0 = pair_mpy16_w64!(ha, ha, s1);
+                    let p1 = pair_mpy16_w64!(hb, hb, s1);
+                    let mut sum = add_w64!(p0, p1);
+                    if acc {
+                        let a = ctx.alloc_vreg();
+                        push_op!(OpKind::SignExtend {
+                            dst: a,
+                            src: self.hex_reg(base + w as u8),
+                            from_width: OpWidth::W32,
+                            to_width: OpWidth::W64,
+                        });
+                        sum = add_w64!(a, sum);
+                    }
+                    results.push(sat32_w64!(sum));
+                }
+                push_op!(OpKind::Mov {
+                    dst: self.hex_reg(base),
+                    src: SrcOperand::Reg(results[0]),
+                    width: OpWidth::W32,
+                });
+                push_op!(OpKind::Mov {
+                    dst: self.hex_reg(base + 1),
+                    src: SrcOperand::Reg(results[1]),
+                    width: OpWidth::W32,
+                });
+            }
+
+            // vdmpyrs: dual-multiply, round, sat, pack high halves into Rd.
+            //   sN = sat32( mpy(h2N,h2N) + mpy(h2N+1,h2N+1) [<<1] + 0x8000 );
+            //   Rd.halfN = sN[31:16].
+            Opcode::M2_vdmpyrs_s0 | Opcode::M2_vdmpyrs_s1 => {
+                let s1 = matches!(op, Opcode::M2_vdmpyrs_s1);
+                let r = ctx.alloc_vreg();
+                push_op!(OpKind::Mov {
+                    dst: r,
+                    src: SrcOperand::Imm(0),
+                    width: OpWidth::W32,
+                });
+                let halfpairs = [(0u8, 1u8), (2u8, 3u8)];
+                for (w, &(ha, hb)) in halfpairs.iter().enumerate() {
+                    let p0 = pair_mpy16_w64!(ha, ha, s1);
+                    let p1 = pair_mpy16_w64!(hb, hb, s1);
+                    let sum = add_w64!(p0, p1);
+                    let rnd = ctx.alloc_vreg();
+                    push_op!(OpKind::Add {
+                        dst: rnd,
+                        src1: sum,
+                        src2: SrcOperand::Imm(0x8000),
+                        width: OpWidth::W64,
+                        flags: FlagUpdate::None,
+                    });
+                    let sat = sat32_w64!(rnd);
+                    let hi16 = ctx.alloc_vreg();
+                    push_op!(OpKind::Shr {
+                        dst: hi16,
+                        src: sat,
+                        amount: SrcOperand::Imm(16),
+                        width: OpWidth::W32,
+                        flags: FlagUpdate::None,
+                    });
+                    push_op!(OpKind::Bfi {
+                        dst: r,
+                        dst_in: r,
+                        src: hi16,
+                        lsb: (w as u8) * 16,
+                        width_bits: 16,
+                        op_width: OpWidth::W32,
+                    });
+                }
+                set_r!(r);
+            }
+
+            // ============================================================
+            // M5 byte-vector multiplies (vmpyb / vdmpyb / vrmpyb)
+            // ============================================================
+            // Rdd = 4x (byte 8x8 -> halfword), no sat. Sources are Rs/Rt words;
+            // lane i = byte i of Rs/Rt; result halfword i = product[15:0].
+            //   _bsu: Rs signed byte, Rt unsigned byte; _buu: both unsigned.
+            //   _mac forms add the old halfword lane (no sat).
+            Opcode::M5_vmpybuu
+            | Opcode::M5_vmpybsu
+            | Opcode::M5_vmacbuu
+            | Opcode::M5_vmacbsu => {
+                let s_uns = matches!(op, Opcode::M5_vmpybuu | Opcode::M5_vmacbuu);
+                let acc = matches!(op, Opcode::M5_vmacbuu | Opcode::M5_vmacbsu);
+                let base = if acc { rx_n } else { rd_n } & !1;
+                // result is a 64-bit pair of 4 halfwords: lanes 0,1 in R(base),
+                // lanes 2,3 in R(base+1).
+                let mut packed = [
+                    {
+                        let z = ctx.alloc_vreg();
+                        push_op!(OpKind::Mov {
+                            dst: z,
+                            src: SrcOperand::Imm(0),
+                            width: OpWidth::W32,
+                        });
+                        z
+                    },
+                    {
+                        let z = ctx.alloc_vreg();
+                        push_op!(OpKind::Mov {
+                            dst: z,
+                            src: SrcOperand::Imm(0),
+                            width: OpWidth::W32,
+                        });
+                        z
+                    },
+                ];
+                for i in 0u8..4 {
+                    let a = byte_w64!(rs, i, s_uns);
+                    let b = byte_w64!(rt, i, true);
+                    let prod = byte_mpy_w64!(a, b);
+                    let val = if acc {
+                        // old halfword lane i, sign-extended (sem uses get_half).
+                        let lane_reg = self.hex_reg(base + (i / 2));
+                        let h = half_ext!(lane_reg, i % 2 == 1, false);
+                        let hw = ctx.alloc_vreg();
+                        push_op!(OpKind::SignExtend {
+                            dst: hw,
+                            src: h,
+                            from_width: OpWidth::W32,
+                            to_width: OpWidth::W64,
+                        });
+                        add_w64!(hw, prod)
+                    } else {
+                        prod
+                    };
+                    // truncate to 16 bits into the destination half lane.
+                    let lo = ctx.alloc_vreg();
+                    push_op!(OpKind::Mov {
+                        dst: lo,
+                        src: SrcOperand::Reg(val),
+                        width: OpWidth::W32,
+                    });
+                    let wi = (i / 2) as usize;
+                    push_op!(OpKind::Bfi {
+                        dst: packed[wi],
+                        dst_in: packed[wi],
+                        src: lo,
+                        lsb: (i % 2) * 16,
+                        width_bits: 16,
+                        op_width: OpWidth::W32,
+                    });
+                }
+                push_op!(OpKind::Mov {
+                    dst: self.hex_reg(base),
+                    src: SrcOperand::Reg(packed[0]),
+                    width: OpWidth::W32,
+                });
+                push_op!(OpKind::Mov {
+                    dst: self.hex_reg(base + 1),
+                    src: SrcOperand::Reg(packed[1]),
+                    width: OpWidth::W32,
+                });
+            }
+
+            // Rdd = vdmpybsu(Rss,Rtt)[:sat]: per halfword lane i,
+            //   h = sat16( mpy(Rss.b[2i], Rtt.b[2i]) + mpy(Rss.b[2i+1], Rtt.b[2i+1]) )
+            //   [+ old halfword lane i for the _mac form] — Rss byte signed,
+            //   Rtt byte unsigned. 4 lanes -> the Rdd pair.
+            Opcode::M5_vdmpybsu | Opcode::M5_vdmacbsu => {
+                let acc = matches!(op, Opcode::M5_vdmacbsu);
+                let base = if acc { rx_n } else { rd_n } & !1;
+                let mut packed = [
+                    {
+                        let z = ctx.alloc_vreg();
+                        push_op!(OpKind::Mov {
+                            dst: z,
+                            src: SrcOperand::Imm(0),
+                            width: OpWidth::W32,
+                        });
+                        z
+                    },
+                    {
+                        let z = ctx.alloc_vreg();
+                        push_op!(OpKind::Mov {
+                            dst: z,
+                            src: SrcOperand::Imm(0),
+                            width: OpWidth::W32,
+                        });
+                        z
+                    },
+                ];
+                for i in 0u8..4 {
+                    let a0 = pair_byte_w64!(fld(b's'), 2 * i, false);
+                    let b0 = pair_byte_w64!(fld(b't'), 2 * i, true);
+                    let a1 = pair_byte_w64!(fld(b's'), 2 * i + 1, false);
+                    let b1 = pair_byte_w64!(fld(b't'), 2 * i + 1, true);
+                    let p0 = byte_mpy_w64!(a0, b0);
+                    let p1 = byte_mpy_w64!(a1, b1);
+                    let mut sum = add_w64!(p0, p1);
+                    if acc {
+                        let lane_reg = self.hex_reg(base + (i / 2));
+                        let h = half_ext!(lane_reg, i % 2 == 1, false);
+                        let hw = ctx.alloc_vreg();
+                        push_op!(OpKind::SignExtend {
+                            dst: hw,
+                            src: h,
+                            from_width: OpWidth::W32,
+                            to_width: OpWidth::W64,
+                        });
+                        sum = add_w64!(hw, sum);
+                    }
+                    // sat_n(.,16) with sticky OVF.
+                    let sat = ctx.alloc_vreg();
+                    push_op!(OpKind::SatN {
+                        dst: sat,
+                        src: SrcOperand::Reg(sum),
+                        sat_bits: 16,
+                        signed: true,
+                        set_ovf: true,
+                        width: OpWidth::W64,
+                    });
+                    let wi = (i / 2) as usize;
+                    push_op!(OpKind::Bfi {
+                        dst: packed[wi],
+                        dst_in: packed[wi],
+                        src: sat,
+                        lsb: (i % 2) * 16,
+                        width_bits: 16,
+                        op_width: OpWidth::W32,
+                    });
+                }
+                push_op!(OpKind::Mov {
+                    dst: self.hex_reg(base),
+                    src: SrcOperand::Reg(packed[0]),
+                    width: OpWidth::W32,
+                });
+                push_op!(OpKind::Mov {
+                    dst: self.hex_reg(base + 1),
+                    src: SrcOperand::Reg(packed[1]),
+                    width: OpWidth::W32,
+                });
+            }
+
+            // Rdd = vrmpyb{u,s}u(Rss,Rtt)[+acc]: word lane w = sum over 4 bytes of
+            //   mpy(Rss.b[4w+i], Rtt.b[4w+i]); no sat. _bsu: Rss signed bytes,
+            //   Rtt unsigned; _buu: both unsigned. _mac adds the old word lane.
+            Opcode::M5_vrmpybuu
+            | Opcode::M5_vrmpybsu
+            | Opcode::M5_vrmacbuu
+            | Opcode::M5_vrmacbsu => {
+                let s_uns = matches!(op, Opcode::M5_vrmpybuu | Opcode::M5_vrmacbuu);
+                let acc = matches!(op, Opcode::M5_vrmacbuu | Opcode::M5_vrmacbsu);
+                let base = if acc { rx_n } else { rd_n } & !1;
+                for w in 0u8..2 {
+                    let mut sum = if acc {
+                        let a = ctx.alloc_vreg();
+                        push_op!(OpKind::SignExtend {
+                            dst: a,
+                            src: self.hex_reg(base + w),
+                            from_width: OpWidth::W32,
+                            to_width: OpWidth::W64,
+                        });
+                        a
+                    } else {
+                        let z = ctx.alloc_vreg();
+                        push_op!(OpKind::Mov {
+                            dst: z,
+                            src: SrcOperand::Imm(0),
+                            width: OpWidth::W64,
+                        });
+                        z
+                    };
+                    for i in 0u8..4 {
+                        let bi = 4 * w + i;
+                        let a = pair_byte_w64!(fld(b's'), bi, s_uns);
+                        let b = pair_byte_w64!(fld(b't'), bi, true);
+                        let prod = byte_mpy_w64!(a, b);
+                        sum = add_w64!(sum, prod);
+                    }
+                    // store low 32 (no sat; word lane truncation).
+                    push_op!(OpKind::Mov {
+                        dst: self.hex_reg(base + w),
+                        src: SrcOperand::Reg(sum),
+                        width: OpWidth::W32,
+                    });
+                }
+            }
 
             // ============================================================
             // M2_mpyi / M4 mpyi-add / M4 accumulating-logical
