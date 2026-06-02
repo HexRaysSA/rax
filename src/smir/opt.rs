@@ -1623,9 +1623,20 @@ impl OpKind {
             | OpKind::VShuffleEO { src1, src2, .. }
             | OpKind::VDealB4W { src1, src2, .. }
             | OpKind::VMulSubLaneFrac { src1, src2, .. }
+            | OpKind::VMulSubLaneSh { src1, src2, .. }
             | OpKind::VMulShiftSat { src1, src2, .. } => {
                 result.push(*src1);
                 result.push(*src2);
+            }
+
+            OpKind::VMulWord64Pair { src1, src2, dst_lo, dst_hi, mode } => {
+                result.push(*src1);
+                result.push(*src2);
+                // mode 1 (vmpyowh_64_acc) reads the existing dst pair.
+                if *mode == 1 {
+                    result.push(*dst_lo);
+                    result.push(*dst_hi);
+                }
             }
 
             OpKind::VShuffle2 { src, .. } => {

@@ -1599,6 +1599,39 @@ fn lift_hvx_vmpyewuh_vmpyowh() {
     );
 }
 
+// vmpyieoh: Vd.w[i] = (Vu.h[even=2i] * Vv.h[odd=2i+1]) << 16, low 32 bits.
+// Lowered as VMulSubLaneSh (sub-lanes BOTH operands: even half of Vu, odd half
+// of Vv) with shl=16. Both halfwords are signed.
+#[test]
+fn lift_hvx_vmpyieoh() {
+    lift_family(
+        "hvx_vmpyieoh",
+        &[("vmpyieoh", "{ v2.w = vmpyieo(v0.h,v1.h) }")],
+        16,
+        0x18c8,
+    );
+}
+
+// vmpyewuh_64 / vmpyowh_64_acc: even/odd word*half multiply repacked into a
+// 64-bit (vector-pair) result. Lowered as VMulWord64Pair (mode 0 / mode 1).
+//   vmpyewuh_64:    Vdd = vmpye(Vu.w, Vv.uh)        prod>>16 -> hi, prod<<16 -> lo
+//   vmpyowh_64_acc: Vxx += vmpyo(Vu.w, Vv.h)        accumulate into the pair,
+//     repacking the low half of the product into the high half of the low reg.
+// The _acc form seeds the dest pair (harness randomizes all V), exercising the
+// read-modify-write accumulate + repack path.
+#[test]
+fn lift_hvx_vmpy_word64() {
+    lift_family(
+        "hvx_vmpy_word64",
+        &[
+            ("vmpyewuh_64", "{ v3:2 = vmpye(v0.w,v1.uh) }"),
+            ("vmpyowh_64_acc", "{ v3:2 += vmpyo(v0.w,v1.h) }"),
+        ],
+        16,
+        0x18c9,
+    );
+}
+
 // vlut32 byte lookup-table family (VLut). Seeds randomize Vu/Vv/Rt so the
 // group-match / nomatch / oracc paths are all exercised.
 #[test]

@@ -5181,6 +5181,47 @@ impl HexagonLifter {
                 });
             }
 
+            // vmpyieoh: Vd.w[i] = (Vu.h[even=2i] * Vv.h[odd=2i+1]) << 16.
+            // sem (hvx_mpys.rs): signed half * signed half, both sub-laned within
+            // word lane i, left-shifted 16, stored as the low 32 bits. Modeled by
+            // VMulSubLaneSh: out_elem=I32 (32 word lanes), sub_elem=I16 (ratio=2),
+            // odd1=false (even half of Vu), odd2=true (odd half of Vv), both signed,
+            // shl=16. set_lane masks the i64 product<<16 to 32 bits == sem's `as u32`.
+            Opcode::V6_vmpyieoh => push_op!(OpKind::VMulSubLaneSh {
+                dst: self.hex_v(fld(b'd')),
+                src1: self.hex_v(fld(b'u')),
+                src2: self.hex_v(fld(b'v')),
+                out_elem: VecElementType::I32,
+                sub_elem: VecElementType::I16,
+                odd1: false,
+                odd2: true,
+                signed1: true,
+                signed2: true,
+                shl: 16,
+            }),
+
+            // vmpyewuh_64 / vmpyowh_64_acc: even/odd word*half multiply repacked
+            // into a 64-bit (vector-pair) result. Modeled by VMulWord64Pair (mode
+            // selects the exact repack — see ops.rs). Both write a register pair
+            // Vdd = (V[base], V[base+1]); the _acc form reads that pair first.
+            //   vmpyewuh_64 (mode 0): prod = Vu.w[i]*Vv.uh0; hi=prod>>16, lo=prod<<16.
+            //   vmpyowh_64_acc (mode 1): prod = Vu.w[i]*Vv.h1 + Vxx.hi.w[i];
+            //     hi = prod>>16; lo repacks (prod low half << 16) | (old lo high half).
+            Opcode::V6_vmpyewuh_64 => push_op!(OpKind::VMulWord64Pair {
+                dst_lo: self.hex_v(fld(b'd')),
+                dst_hi: self.hex_v(fld(b'd') + 1),
+                src1: self.hex_v(fld(b'u')),
+                src2: self.hex_v(fld(b'v')),
+                mode: 0,
+            }),
+            Opcode::V6_vmpyowh_64_acc => push_op!(OpKind::VMulWord64Pair {
+                dst_lo: self.hex_v(rx_n),
+                dst_hi: self.hex_v(rx_n + 1),
+                src1: self.hex_v(fld(b'u')),
+                src2: self.hex_v(fld(b'v')),
+                mode: 1,
+            }),
+
             // Everything else: not implemented here.
             _ => return Err(unsupported()),
         }

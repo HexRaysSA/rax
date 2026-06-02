@@ -2759,6 +2759,81 @@ impl SmirInterpreter {
                 Self::write_vec(ctx, *dst, out);
             }
 
+            OpKind::VMulSubLaneSh {
+                dst,
+                src1,
+                src2,
+                out_elem,
+                sub_elem,
+                odd1,
+                odd2,
+                signed1,
+                signed2,
+                shl,
+            } => {
+                let a = Self::read_vec(ctx, *src1);
+                let b = Self::read_vec(ctx, *src2);
+                let obits = out_elem.bytes() * 8;
+                let sbits = sub_elem.bytes() * 8;
+                let olanes = (1024 / obits) as u8;
+                let ratio = (obits / sbits) as u8;
+                let exts = |v: u64, bits: u32, signed: bool| -> i64 {
+                    if signed {
+                        let sh = 64 - bits;
+                        ((v << sh) as i64) >> sh
+                    } else {
+                        v as i64
+                    }
+                };
+                let mut out = [0u64; 16];
+                for i in 0..olanes {
+                    let i1 = i * ratio + if *odd1 { 1 } else { 0 };
+                    let i2 = i * ratio + if *odd2 { 1 } else { 0 };
+                    let s1 = exts(Self::get_lane(&a, i1, sbits), sbits, *signed1);
+                    let s2 = exts(Self::get_lane(&b, i2, sbits), sbits, *signed2);
+                    let p = s1.wrapping_mul(s2).wrapping_shl(*shl as u32);
+                    Self::set_lane(&mut out, i, obits, p as u64);
+                }
+                Self::write_vec(ctx, *dst, out);
+            }
+
+            OpKind::VMulWord64Pair {
+                dst_lo,
+                dst_hi,
+                src1,
+                src2,
+                mode,
+            } => {
+                let a = Self::read_vec(ctx, *src1);
+                let b = Self::read_vec(ctx, *src2);
+                // word i: 32-bit lane; src2 sub-halfwords at 2i (even/uh0) and 2i+1 (odd/h1).
+                let mut lo = [0u64; 16];
+                let mut hi = [0u64; 16];
+                let old_lo = if *mode == 1 { Self::read_vec(ctx, *dst_lo) } else { [0u64; 16] };
+                let old_hi = if *mode == 1 { Self::read_vec(ctx, *dst_hi) } else { [0u64; 16] };
+                for i in 0..32u8 {
+                    let uw = Self::get_lane(&a, i, 32) as u32 as i32 as i64;
+                    if *mode == 0 {
+                        // vmpyewuh_64: src2.uh[2i] (low, unsigned).
+                        let uh0 = (Self::get_lane(&b, i, 32) as u32 & 0xffff) as i64;
+                        let prod = uw * uh0;
+                        Self::set_lane(&mut hi, i, 32, (prod >> 16) as u32 as u64);
+                        Self::set_lane(&mut lo, i, 32, (prod << 16) as u32 as u64);
+                    } else {
+                        // vmpyowh_64_acc: src2.h[2i+1] (high, signed), accumulate dst_hi.
+                        let h1 = ((Self::get_lane(&b, i, 32) as u32) >> 16) as u16 as i16 as i64;
+                        let acc_hi = Self::get_lane(&old_hi, i, 32) as u32 as i32 as i64;
+                        let prod = uw * h1 + acc_hi;
+                        Self::set_lane(&mut hi, i, 32, (prod >> 16) as u32 as u64);
+                        let lo_h0 = ((Self::get_lane(&old_lo, i, 32) as u32) >> 16) & 0xffff;
+                        let lo_h1 = (prod as u32) & 0xffff;
+                        Self::set_lane(&mut lo, i, 32, ((lo_h1 << 16) | lo_h0) as u64);
+                    }
+                }
+                Self::write_vec(ctx, *dst_lo, lo);
+                Self::write_vec(ctx, *dst_hi, hi);
+            }
+
             OpKind::VMulEvenWiden {
                 dst,
                 src1,
@@ -4400,6 +4475,87 @@ mod tests {
             shl1: false, rnd: false, shift: 16, sat: false, acc: false, rnd2: false,
         });
         assert_eq!(out, [0x0000_0040_0000_0040u64; 16]);
+    }
+
+    #[test]
+    fn test_vmulsublanesh() {
+        // vmpyieoh: Vd.w[i] = (Vu.h[even=2i] * Vv.h[odd=2i+1]) << 16, low 32 bits.
+        // V0 word = 0x0007_0003 (h[2i]=3, h[2i+1]=7) -> even half of Vu = 3.
+        // V1 word = 0x0005_0009 (h[2i]=9, h[2i+1]=5) -> odd  half of Vv = 5.
+        // 3 * 5 = 15; 15 << 16 = 0x000F_0000.
+        let v0 = [0x0007_0003_0007_0003u64; 16];
+        let v1 = [0x0005_0009_0005_0009u64; 16];
+        let mkv = |n| VReg::Arch(ArchReg::Hexagon(HexagonReg::V(n)));
+        let out = run_vec2(v0, v1, OpKind::VMulSubLaneSh {
+            dst: mkv(2), src1: mkv(0), src2: mkv(1),
+            out_elem: VecElementType::I32, sub_elem: VecElementType::I16,
+            odd1: false, odd2: true, signed1: true, signed2: true, shl: 16,
+        });
+        assert_eq!(out, [0x000F_0000_000F_0000u64; 16]);
+
+        // Signed: Vu even half = -1 (0xFFFF), Vv odd half = 2 -> -2 << 16 = 0xFFFE_0000.
+        let v0n = [0x0000_FFFF_0000_FFFFu64; 16];
+        let v1n = [0x0002_0000_0002_0000u64; 16];
+        let out2 = run_vec2(v0n, v1n, OpKind::VMulSubLaneSh {
+            dst: mkv(2), src1: mkv(0), src2: mkv(1),
+            out_elem: VecElementType::I32, sub_elem: VecElementType::I16,
+            odd1: false, odd2: true, signed1: true, signed2: true, shl: 16,
+        });
+        assert_eq!(out2, [0xFFFE_0000_FFFE_0000u64; 16]);
+    }
+
+    #[test]
+    fn test_vmulword64pair() {
+        let mkv = |n| VReg::Arch(ArchReg::Hexagon(HexagonReg::V(n)));
+        // Helper: write src1=V0, src2=V1, dst pair seed = V3/V4; run; return (V3,V4).
+        let run = |v0: [u64; 16], v1: [u64; 16], seed_lo: [u64; 16], seed_hi: [u64; 16], op: OpKind|
+            -> ([u64; 16], [u64; 16]) {
+            let mut ctx = SmirContext::new_hexagon();
+            let mut memory = FlatMemory::new(0x1000);
+            let interp = SmirInterpreter::new();
+            if let ArchRegState::Hexagon(hex) = &mut ctx.arch_regs {
+                hex.set_v(0, v0);
+                hex.set_v(1, v1);
+                hex.set_v(3, seed_lo);
+                hex.set_v(4, seed_hi);
+            }
+            let block = SmirBlock {
+                id: BlockId(0),
+                guest_pc: 0x1000,
+                phis: vec![],
+                ops: vec![SmirOp { id: OpId(0), guest_pc: 0x1000, kind: op, x86_hint: None }],
+                terminator: Terminator::Trap { kind: TrapKind::Halt },
+                exec_count: 0,
+            };
+            interp.execute_block(&mut ctx, &mut memory, &block);
+            match &ctx.arch_regs {
+                ArchRegState::Hexagon(hex) => (hex.get_v(3), hex.get_v(4)),
+                _ => panic!("not hexagon"),
+            }
+        };
+        // mode 0 (vmpyewuh_64): Vu.w = 0x0001_0000 (65536), Vv.uh0 = 4.
+        //   prod = 65536 * 4 = 262144 = 0x4_0000. hi = prod>>16 = 4; lo = (prod<<16) = 0x0000_0000 (truncated u32).
+        let v0 = [0x0001_0000_0001_0000u64; 16];
+        let v1 = [0x0000_0004_0000_0004u64; 16]; // uh0 (low half) = 4
+        let z = [0u64; 16];
+        let (lo, hi) = run(v0, v1, z, z, OpKind::VMulWord64Pair {
+            dst_lo: mkv(3), dst_hi: mkv(4), src1: mkv(0), src2: mkv(1), mode: 0,
+        });
+        assert_eq!(hi, [0x0000_0004_0000_0004u64; 16]);
+        assert_eq!(lo, [0x0000_0000_0000_0000u64; 16]);
+
+        // mode 1 (vmpyowh_64_acc): Vu.w = 2, Vv.h1 = 3 (high half), seed_hi.w = 5, seed_lo.w = 0xAAAA_BBBB.
+        //   prod = 2*3 + 5 = 11 = 0xB. hi = 0xB>>16 = 0. lo = (0xB & 0xffff)<<16 | (0xAAAA_BBBB>>16 & 0xffff)
+        //        = 0x000B_0000 | 0x0000_AAAA = 0x000B_AAAA.
+        let v0b = [0x0000_0002_0000_0002u64; 16];
+        let v1b = [0x0003_0000_0003_0000u64; 16]; // h1 (high half) = 3
+        let slo = [0xAAAA_BBBB_AAAA_BBBBu64; 16];
+        let shi = [0x0000_0005_0000_0005u64; 16];
+        let (lo1, hi1) = run(v0b, v1b, slo, shi, OpKind::VMulWord64Pair {
+            dst_lo: mkv(3), dst_hi: mkv(4), src1: mkv(0), src2: mkv(1), mode: 1,
+        });
+        assert_eq!(hi1, [0x0000_0000_0000_0000u64; 16]);
+        assert_eq!(lo1, [0x000B_AAAA_000B_AAAAu64; 16]);
     }
 
     #[test]

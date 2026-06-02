@@ -1134,6 +1134,44 @@ pub enum OpKind {
         rnd2: bool,
     },
 
+    /// Sub-lane multiply of BOTH operands with a fixed left shift. Models HVX
+    /// `vmpyieoh` (`Vd.w[i] = (Vu.h[2i] * Vv.h[2i+1]) << 16`): within each
+    /// `out_elem`-wide output lane i, read the even/odd `sub_elem` sub-lane of
+    /// src1 (index `i*ratio + odd1`) and of src2 (index `i*ratio + odd2`),
+    /// sign/zero-extend per `signed1`/`signed2`, multiply, left-shift by `shl`
+    /// bits, and store the low `out_elem` bits. No accumulate.
+    VMulSubLaneSh {
+        dst: VReg,
+        src1: VReg,
+        src2: VReg,
+        out_elem: VecElementType,
+        sub_elem: VecElementType,
+        odd1: bool,
+        odd2: bool,
+        signed1: bool,
+        signed2: bool,
+        /// Left shift (bits) applied to the product before storing the low out_elem bits.
+        shl: u8,
+    },
+
+    /// 64-bit (vector-pair) even/odd word*half multiply with repack. Models the
+    /// HVX `vmpyewuh_64` / `vmpyowh_64_acc` forms. `mode` selects the kernel
+    /// (small discriminant, no new enum):
+    ///   0 = `vmpyewuh_64` (no acc): per word lane i,
+    ///       `prod = sext32(src1.w[i]) * zext(src2.uh[2i])`;
+    ///       `dst_hi.w[i] = (prod >> 16) as u32`; `dst_lo.w[i] = (prod << 16) as u32`.
+    ///   1 = `vmpyowh_64_acc` (reads the dst pair): per word lane i,
+    ///       `prod = sext32(src1.w[i]) * sext(src2.h[2i+1]) + sext32(dst_hi.w[i])`;
+    ///       `dst_hi.w[i] = (prod >> 16) as u32`;
+    ///       `dst_lo.w[i] = ((prod as u32 & 0xffff) << 16) | ((old dst_lo.w[i] >> 16) & 0xffff)`.
+    VMulWord64Pair {
+        dst_lo: VReg,
+        dst_hi: VReg,
+        src1: VReg,
+        src2: VReg,
+        mode: u8,
+    },
+
     /// Even-lane widening multiply into a single vector. Models HVX `vmpyuhe`:
     /// `dst.wide[i] = (acc ? dst[i] : 0) + src1.narrow[2i] * src2.narrow[2i]`
     /// (only the even narrow sub-lane of each output-width lane is used), with
@@ -1781,6 +1819,7 @@ impl OpKind {
             | OpKind::VRotReduceMulPair { dst_lo, dst_hi, .. }
             | OpKind::VPairPairReduceMul { dst_lo, dst_hi, .. }
             | OpKind::VLut16 { dst_lo, dst_hi, .. }
+            | OpKind::VMulWord64Pair { dst_lo, dst_hi, .. }
             | OpKind::VShuffVdd { dst_lo, dst_hi, .. } => {
                 vec![*dst_lo, *dst_hi]
             }
@@ -1788,6 +1827,7 @@ impl OpKind {
             OpKind::VReduceMul { dst, .. }
             | OpKind::VMulEvenWiden { dst, .. }
             | OpKind::VMulSubLane { dst, .. }
+            | OpKind::VMulSubLaneSh { dst, .. }
             | OpKind::VMulSubLaneFrac { dst, .. }
             | OpKind::VPack { dst, .. }
             | OpKind::VPackSat { dst, .. }
