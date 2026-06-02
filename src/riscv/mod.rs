@@ -119,7 +119,8 @@ pub struct Isa {
     pub zknd: bool,
     /// Zcb: additional compressed instructions.
     pub zcb: bool,
-    /// V: vector extension (configuration instructions only).
+    /// V: vector extension (RVV 1.0 — full data path: arithmetic, fixed-point,
+    /// FP, reductions, permutes, conversions, and all load/store modes).
     pub v: bool,
 }
 
