@@ -2623,6 +2623,12 @@ impl X86_64Vcpu {
                 exits.insert(b.id, b.guest_pc);
             }
         }
+        // No frontier reachable ⇒ the region never returns (e.g. `jmp $`, a spin
+        // loop); executing it natively would loop uninterruptibly with no way
+        // back to the interpreter. Bail.
+        if exits.is_empty() {
+            return Ok(false);
+        }
         // If the entry block is itself a frontier, there is no native work to do.
         if exits.contains_key(&func.entry) {
             return Ok(false);

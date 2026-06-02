@@ -131,6 +131,14 @@ fn jit_bails_on_ineligible() {
         !v.jit_try_block().expect("jit_try_block"),
         "an entry-is-frontier region must bail"
     );
+
+    // (c) A frontier-less spin loop `jmp $` (EB FE) — running it natively would
+    //     loop forever with no way back; must bail (and must NOT hang).
+    let mut v = make_vcpu_code(&[0xEB, 0xFE]);
+    assert!(
+        !v.jit_try_block().expect("jit_try_block"),
+        "a frontier-less infinite loop must bail (no native exit)"
+    );
 }
 
 fn run_interp(vcpu: &mut X86_64Vcpu) {
