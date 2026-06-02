@@ -314,13 +314,15 @@ pub enum DecodedInsn {
         post_inc: Option<i32>,
         aligned: bool,
     },
-    /// HVX vector store: `vmem(base + offset) = Vs`.
+    /// HVX vector store: `vmem(base + offset) = Vs`, optionally scalar-predicated
+    /// (`if (Pv[!]) vmem(...) = Vs`).
     VStore {
         src: u8,
         base: u8,
         offset: i32,
         post_inc: Option<i32>,
         aligned: bool,
+        pred: Option<PredCond>,
     },
     /// New-value store: stores the register produced earlier in this packet,
     /// selected by the `Nt8` field. The packet driver resolves `nt` to the
@@ -994,10 +996,25 @@ fn vmem_load(decoded: &DecodedOp, post_inc: bool, aligned: bool) -> Option<(Deco
 }
 
 fn vmem_store(decoded: &DecodedOp, post_inc: bool, aligned: bool) -> Option<(DecodedInsn, bool)> {
+    vmem_store_pred(decoded, post_inc, aligned, None)
+}
+
+/// `pred_sense`: `Some(true)` for `if (Pv) ...`, `Some(false)` for `if (!Pv) ...`,
+/// `None` for an unconditional store. The predicate operand is field `v`.
+fn vmem_store_pred(
+    decoded: &DecodedOp,
+    post_inc: bool,
+    aligned: bool,
+    pred_sense: Option<bool>,
+) -> Option<(DecodedInsn, bool)> {
     let src = field_u8(decoded, b's')?;
     let base = field_u8(decoded, if post_inc { b'x' } else { b't' })?;
     let imm = decode_field_simm(decoded, b'i', None)?.0 * HVX_VEC_BYTES;
     let (offset, pi) = if post_inc { (0, Some(imm)) } else { (imm, None) };
+    let pred = match pred_sense {
+        Some(sense) => Some(pred_cond(field_u8(decoded, b'v')?, sense, false)),
+        None => None,
+    };
     Some((
         DecodedInsn::VStore {
             src,
@@ -1005,6 +1022,7 @@ fn vmem_store(decoded: &DecodedOp, post_inc: bool, aligned: bool) -> Option<(Dec
             offset,
             post_inc: pi,
             aligned,
+            pred,
         },
         false,
     ))
@@ -1733,6 +1751,11 @@ fn decode_main(decoded: &DecodedOp, word: u32, immext: Option<u32>) -> (DecodedI
         Opcode::V6_vS32Ub_ai => req!(vmem_store(decoded, false, false)),
         Opcode::V6_vS32b_pi | Opcode::V6_vS32b_nt_pi => req!(vmem_store(decoded, true, true)),
         Opcode::V6_vS32Ub_pi => req!(vmem_store(decoded, true, false)),
+        // Scalar-predicated vector stores: if (Pv[!]) vmem(...) = Vs.
+        Opcode::V6_vS32b_pred_ai => req!(vmem_store_pred(decoded, false, true, Some(true))),
+        Opcode::V6_vS32b_npred_ai => req!(vmem_store_pred(decoded, false, true, Some(false))),
+        Opcode::V6_vS32b_pred_pi => req!(vmem_store_pred(decoded, true, true, Some(true))),
+        Opcode::V6_vS32b_npred_pi => req!(vmem_store_pred(decoded, true, true, Some(false))),
         _ => (DecodedInsn::Unknown(word), false),
     }
 }

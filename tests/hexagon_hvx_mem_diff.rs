@@ -20,6 +20,7 @@ use rax::config::{Endianness, HexagonIsa};
 use rax::cpu::{CpuState, HexagonRegisters, VCpu, VcpuExit};
 
 const NREG: usize = 32;
+const I_PRED: usize = 32;
 const ST_WORDS: usize = 44;
 const VREGS: usize = 32;
 const VWORDS: usize = 32;
@@ -238,6 +239,9 @@ fn run_rax(words: &[u32], c: &Case, varena: u32) -> Option<Out> {
     for i in 0..NREG {
         regs.r[i] = c.st[i];
     }
+    for i in 0..4 {
+        regs.p[i] = ((c.st[I_PRED] >> (8 * i)) & 0xff) as u8;
+    }
     regs.v = c.v;
     regs.set_pc(CODE_ADDR);
 
@@ -309,6 +313,14 @@ fn run_family(name: &str, cases: &[(&str, &str)], n: usize, seed: u64) {
                 st[r] = rng.next() as u32;
             }
             st[BASE_REG] = varena; // base points at the (128-aligned) arena
+            // Each scalar predicate P0..P3 independently 0x00 / 0xff.
+            let mut pred = 0u32;
+            for k in 0..4 {
+                if rng.next() & 1 == 1 {
+                    pred |= 0xffu32 << (8 * k);
+                }
+            }
+            st[I_PRED] = pred;
             let mut v = [[0u32; VWORDS]; VREGS];
             for r in 0..VREGS {
                 for w in 0..VWORDS {
@@ -397,6 +409,22 @@ fn diff_hvx_store() {
         ],
         8,
         0xa20,
+    );
+}
+
+#[test]
+fn diff_hvx_store_pred() {
+    // Scalar-predicated vector stores: if (p0[!]) vmem(...) = Vs (or CANCEL).
+    run_family(
+        "hvx_store_pred",
+        &[
+            ("vS32b_pred", "{ if (p0) vmem(r4+#0) = v1 }"),
+            ("vS32b_npred", "{ if (!p0) vmem(r4+#1) = v2 }"),
+            ("vS32b_pred_pi", "{ if (p0) vmem(r4++#1) = v1 }"),
+            ("vS32b_npred_pi", "{ if (!p0) vmem(r4++#1) = v2 }"),
+        ],
+        12,
+        0xa40,
     );
 }
 

@@ -1063,16 +1063,27 @@ impl HexagonVcpu {
                 offset,
                 post_inc,
                 aligned,
+                pred,
             } => {
-                let mut ea = self.regs.r[base as usize].wrapping_add(offset as u32);
-                if aligned {
-                    ea &= !127;
-                }
-                let vec = self.regs.v[src as usize];
-                self.write_vec(ea, &vec)?;
-                if let Some(inc) = post_inc {
-                    new_r[base as usize] =
-                        Some(self.regs.r[base as usize].wrapping_add(inc as u32));
+                // Scalar-predicated store: skip the store (CANCEL) when false.
+                // The post-increment of the base still happens regardless.
+                let do_store = match pred {
+                    Some(cond) => self.eval_pred(cond, new_p),
+                    None => true,
+                };
+                // A cancelled (predicate-false) store performs no memory write
+                // AND no post-increment of the base register.
+                if do_store {
+                    let mut ea = self.regs.r[base as usize].wrapping_add(offset as u32);
+                    if aligned {
+                        ea &= !127;
+                    }
+                    let vec = self.regs.v[src as usize];
+                    self.write_vec(ea, &vec)?;
+                    if let Some(inc) = post_inc {
+                        new_r[base as usize] =
+                            Some(self.regs.r[base as usize].wrapping_add(inc as u32));
+                    }
                 }
             }
             // Absolute value: Rd = |Rs|, with optional saturation
