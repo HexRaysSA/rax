@@ -1619,6 +1619,70 @@ fn diff_v_wredux() {
 }
 
 #[test]
+fn diff_v_loadstore_adv() {
+    let mut rng = Rng::new(0x7EC_8A0);
+    let mut batch = Vec::new();
+    let widths: [(u32, u32); 4] = [(0, 0), (5, 1), (6, 2), (7, 3)];
+    for (w3, sew_log2) in widths {
+        let eb = 1u64 << sew_log2;
+        let vmax = vlmax(sew_log2);
+        for vl in [vmax, (vmax / 2).max(1)] {
+            for _ in 0..6 {
+                let vd = VPOOL[(rng.next() % 6) as usize];
+                let idxreg = if vd == 2 { 3 } else { 2 }; // index vreg distinct from vd
+                let mut st = rand_vstate(&mut rng, sew_log2, vl);
+                st.x[10] = SCRATCH_BASE; // base address
+                st.x[11] = eb * 2; // strided byte-stride (rs2 = x11)
+                for s in st.scratch.iter_mut() {
+                    *s = rng.next();
+                }
+                // Fill the index register with in-window byte offsets (multiples of eb).
+                let mut ib = [0u8; VLENB];
+                let n = VLENB / eb as usize;
+                for e in 0..n {
+                    let off = ((rng.next() % (16 - eb).max(1)) * eb) as u64;
+                    ib[e * eb as usize..(e + 1) * eb as usize]
+                        .copy_from_slice(&off.to_le_bytes()[..eb as usize]);
+                }
+                st.set_vreg_bytes(idxreg as usize, &ib);
+
+                // strided
+                let vlse = (0b10 << 26) | (1 << 25) | (11 << 20) | (10 << 15) | (w3 << 12) | (vd << 7) | 0x07;
+                let vsse = (0b10 << 26) | (1 << 25) | (11 << 20) | (10 << 15) | (w3 << 12) | (vd << 7) | 0x27;
+                batch.push(("vlse".into(), vlse, st));
+                batch.push(("vsse".into(), vsse, st));
+                // indexed (unordered mop=01); index EEW = data width here
+                let vlxei = (0b01 << 26) | (1 << 25) | (idxreg << 20) | (10 << 15) | (w3 << 12) | (vd << 7) | 0x07;
+                let vsxei = (0b01 << 26) | (1 << 25) | (idxreg << 20) | (10 << 15) | (w3 << 12) | (vd << 7) | 0x27;
+                batch.push(("vlxei".into(), vlxei, st));
+                batch.push(("vsxei".into(), vsxei, st));
+                // mask load/store (lumop=01011, width 0)
+                let vlm = (1 << 25) | (0b01011 << 20) | (10 << 15) | (vd << 7) | 0x07;
+                let vsm = (1 << 25) | (0b01011 << 20) | (10 << 15) | (vd << 7) | 0x27;
+                batch.push(("vlm.v".into(), vlm, st));
+                batch.push(("vsm.v".into(), vsm, st));
+            }
+        }
+    }
+    // whole-register load/store (nf+1 regs), independent of vtype.
+    for nf in [0u32, 1] {
+        for _ in 0..6 {
+            let vd = if nf == 0 { VPOOL[(rng.next() % 6) as usize] } else { 2 };
+            let mut st = rand_vstate(&mut rng, 0, 16);
+            st.x[10] = SCRATCH_BASE;
+            for s in st.scratch.iter_mut() {
+                *s = rng.next();
+            }
+            let vlre = (nf << 29) | (1 << 25) | (0b01000 << 20) | (10 << 15) | (vd << 7) | 0x07;
+            let vsre = (nf << 29) | (1 << 25) | (0b01000 << 20) | (10 << 15) | (vd << 7) | 0x27;
+            batch.push(("vlre.v".into(), vlre, st));
+            batch.push(("vsre.v".into(), vsre, st));
+        }
+    }
+    run_batch(&batch);
+}
+
+#[test]
 fn diff_v_loadstore() {
     let mut rng = Rng::new(0x7EC_705);
     let mut batch = Vec::new();

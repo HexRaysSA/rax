@@ -1416,6 +1416,51 @@ impl HexagonLifter {
             }};
         }
 
+        // Emit a single-vector HVX elementwise op `Vd = op(Vu, Vv)` over the
+        // full 1024-bit vector (`$lanes` elements of `$elem` bits, `$signed`).
+        // Field layout mirrors the VV-form sem (dest `d`, sources `u`/`v`).
+        macro_rules! vlane {
+            ($op:expr, $elem:expr, $lanes:expr, $signed:expr) => {{
+                push_op!(OpKind::VLane {
+                    dst: self.hex_v(fld(b'd')),
+                    src1: self.hex_v(fld(b'u')),
+                    src2: self.hex_v(fld(b'v')),
+                    elem: $elem,
+                    lanes: $lanes,
+                    op: $op,
+                    signed: $signed,
+                });
+            }};
+        }
+
+        // Emit a dual-vector HVX elementwise op `Vdd = op(Vuu, Vvv)` as two
+        // independent elementwise ops over the even and odd registers of each
+        // pair, matching the sem's `dv_*` dispatch (bases d/u/v and d+1/u+1/v+1;
+        // the encoded pair base is even, so `+1` and `|1` coincide).
+        macro_rules! vlane_dv {
+            ($op:expr, $elem:expr, $lanes:expr, $signed:expr) => {{
+                let (dd, uu, vv) = (fld(b'd'), fld(b'u'), fld(b'v'));
+                push_op!(OpKind::VLane {
+                    dst: self.hex_v(dd),
+                    src1: self.hex_v(uu),
+                    src2: self.hex_v(vv),
+                    elem: $elem,
+                    lanes: $lanes,
+                    op: $op,
+                    signed: $signed,
+                });
+                push_op!(OpKind::VLane {
+                    dst: self.hex_v(dd + 1),
+                    src1: self.hex_v(uu + 1),
+                    src2: self.hex_v(vv + 1),
+                    elem: $elem,
+                    lanes: $lanes,
+                    op: $op,
+                    signed: $signed,
+                });
+            }};
+        }
+
         match op {
             // ============================================================
             // A2 64-bit pair logical / arithmetic
@@ -2551,6 +2596,98 @@ impl HexagonLifter {
                 src: self.hex_v(fld(b'u')),
                 width: VecWidth::V512,
             }),
+
+            // ============================================================
+            // HVX elementwise VLane ops (Wave 2)
+            //
+            // `OpKind::VLane` runs `op` over `lanes` elements of `elem` bits
+            // across the full 1024-bit HVX vector, signed iff `signed`. Field
+            // layout is the VV form `Vd = op(Vu, Vv)`: dest `fld(b'd')`, sources
+            // `fld(b'u')`/`fld(b'v')`, matching the existing VAdd/VSub arms.
+            //
+            // `vlane!`     — single-vector  Vd = op(Vu, Vv).
+            // `vlane_dv!`  — dual-vector    Vdd = op(Vuu, Vvv): two independent
+            //                elementwise ops over the even/odd register of each
+            //                pair (sem dispatches via `dv_*` on bases d/u/v and
+            //                d+1/u+1/v+1; the pair base from the encoding is even
+            //                so `+1` and `|1` coincide).
+            // ============================================================
+            // ---- bitwise logical (elem/lanes irrelevant; span 1024 bits as
+            // 32 x I32). sem: map_w(a&b / a|b / a^b). ----
+            Opcode::V6_vand => vlane!(VLaneOp::And, VecElementType::I32, 32, false),
+            Opcode::V6_vor => vlane!(VLaneOp::Or, VecElementType::I32, 32, false),
+            Opcode::V6_vxor => vlane!(VLaneOp::Xor, VecElementType::I32, 32, false),
+
+            // ---- signed min/max (sem hvx_minmax: (a as iN).min/max) ----
+            Opcode::V6_vmaxb => vlane!(VLaneOp::Max, VecElementType::I8, 128, true),
+            Opcode::V6_vmaxh => vlane!(VLaneOp::Max, VecElementType::I16, 64, true),
+            Opcode::V6_vmaxw => vlane!(VLaneOp::Max, VecElementType::I32, 32, true),
+            Opcode::V6_vminb => vlane!(VLaneOp::Min, VecElementType::I8, 128, true),
+            Opcode::V6_vminh => vlane!(VLaneOp::Min, VecElementType::I16, 64, true),
+            Opcode::V6_vminw => vlane!(VLaneOp::Min, VecElementType::I32, 32, true),
+            // ---- unsigned min/max (sem: a.min/max on the raw lane). vmaxub/uh
+            // are already lifted via VMax in Wave 1 — only add the new ones. ----
+            Opcode::V6_vminub => vlane!(VLaneOp::Min, VecElementType::I8, 128, false),
+            Opcode::V6_vminuh => vlane!(VLaneOp::Min, VecElementType::I16, 64, false),
+
+            // ---- signed saturating add/sub (single vector). sem clamps the
+            // widened signed sum/difference to the lane's signed range. ----
+            Opcode::V6_vaddbsat => vlane!(VLaneOp::AddSat, VecElementType::I8, 128, true),
+            Opcode::V6_vaddhsat => vlane!(VLaneOp::AddSat, VecElementType::I16, 64, true),
+            Opcode::V6_vaddwsat => vlane!(VLaneOp::AddSat, VecElementType::I32, 32, true),
+            Opcode::V6_vsubbsat => vlane!(VLaneOp::SubSat, VecElementType::I8, 128, true),
+            Opcode::V6_vsubhsat => vlane!(VLaneOp::SubSat, VecElementType::I16, 64, true),
+            Opcode::V6_vsubwsat => vlane!(VLaneOp::SubSat, VecElementType::I32, 32, true),
+            // ---- unsigned saturating add/sub (single vector). sem clamps to the
+            // lane's unsigned range (checked_add / saturating_sub). ----
+            Opcode::V6_vaddubsat => vlane!(VLaneOp::AddSat, VecElementType::I8, 128, false),
+            Opcode::V6_vadduhsat => vlane!(VLaneOp::AddSat, VecElementType::I16, 64, false),
+            Opcode::V6_vadduwsat => vlane!(VLaneOp::AddSat, VecElementType::I32, 32, false),
+            Opcode::V6_vsububsat => vlane!(VLaneOp::SubSat, VecElementType::I8, 128, false),
+            Opcode::V6_vsubuhsat => vlane!(VLaneOp::SubSat, VecElementType::I16, 64, false),
+
+            // ---- saturating add/sub, dual-vector (Vdd = op(Vuu, Vvv)) ----
+            // signed
+            Opcode::V6_vaddbsat_dv => vlane_dv!(VLaneOp::AddSat, VecElementType::I8, 128, true),
+            Opcode::V6_vaddhsat_dv => vlane_dv!(VLaneOp::AddSat, VecElementType::I16, 64, true),
+            Opcode::V6_vaddwsat_dv => vlane_dv!(VLaneOp::AddSat, VecElementType::I32, 32, true),
+            Opcode::V6_vsubbsat_dv => vlane_dv!(VLaneOp::SubSat, VecElementType::I8, 128, true),
+            Opcode::V6_vsubhsat_dv => vlane_dv!(VLaneOp::SubSat, VecElementType::I16, 64, true),
+            Opcode::V6_vsubwsat_dv => vlane_dv!(VLaneOp::SubSat, VecElementType::I32, 32, true),
+            // unsigned
+            Opcode::V6_vaddubsat_dv => vlane_dv!(VLaneOp::AddSat, VecElementType::I8, 128, false),
+            Opcode::V6_vadduhsat_dv => vlane_dv!(VLaneOp::AddSat, VecElementType::I16, 64, false),
+            Opcode::V6_vadduwsat_dv => vlane_dv!(VLaneOp::AddSat, VecElementType::I32, 32, false),
+            Opcode::V6_vsububsat_dv => vlane_dv!(VLaneOp::SubSat, VecElementType::I8, 128, false),
+            Opcode::V6_vsubuhsat_dv => vlane_dv!(VLaneOp::SubSat, VecElementType::I16, 64, false),
+            Opcode::V6_vsubuwsat_dv => vlane_dv!(VLaneOp::SubSat, VecElementType::I32, 32, false),
+
+            // ---- truncating average (a+b)>>1 (sem hvx_minmax: avg(...,0)) ----
+            // unsigned
+            Opcode::V6_vavgub => vlane!(VLaneOp::Avg, VecElementType::I8, 128, false),
+            Opcode::V6_vavguh => vlane!(VLaneOp::Avg, VecElementType::I16, 64, false),
+            Opcode::V6_vavguw => vlane!(VLaneOp::Avg, VecElementType::I32, 32, false),
+            // signed
+            Opcode::V6_vavgb => vlane!(VLaneOp::Avg, VecElementType::I8, 128, true),
+            Opcode::V6_vavgh => vlane!(VLaneOp::Avg, VecElementType::I16, 64, true),
+            Opcode::V6_vavgw => vlane!(VLaneOp::Avg, VecElementType::I32, 32, true),
+            // ---- rounding average (a+b+1)>>1 (sem: avg(...,1)) ----
+            // unsigned
+            Opcode::V6_vavgubrnd => vlane!(VLaneOp::AvgRnd, VecElementType::I8, 128, false),
+            Opcode::V6_vavguhrnd => vlane!(VLaneOp::AvgRnd, VecElementType::I16, 64, false),
+            Opcode::V6_vavguwrnd => vlane!(VLaneOp::AvgRnd, VecElementType::I32, 32, false),
+            // signed
+            Opcode::V6_vavgbrnd => vlane!(VLaneOp::AvgRnd, VecElementType::I8, 128, true),
+            Opcode::V6_vavghrnd => vlane!(VLaneOp::AvgRnd, VecElementType::I16, 64, true),
+            Opcode::V6_vavgwrnd => vlane!(VLaneOp::AvgRnd, VecElementType::I32, 32, true),
+
+            // ---- absolute difference |a-b| (non-saturating) ----
+            // unsigned (sem: if a>b {a-b} else {b-a} on the raw lane)
+            Opcode::V6_vabsdiffub => vlane!(VLaneOp::AbsDiff, VecElementType::I8, 128, false),
+            Opcode::V6_vabsdiffuh => vlane!(VLaneOp::AbsDiff, VecElementType::I16, 64, false),
+            // signed (sem: (a as iN - b as iN).unsigned_abs())
+            Opcode::V6_vabsdiffh => vlane!(VLaneOp::AbsDiff, VecElementType::I16, 64, true),
+            Opcode::V6_vabsdiffw => vlane!(VLaneOp::AbsDiff, VecElementType::I32, 32, true),
 
             // Everything else: not implemented here.
             _ => return Err(unsupported()),

@@ -331,6 +331,14 @@ pub enum Op {
     // ---- V (vector load/store, unit-stride; width in funct3) ----
     Vle,
     Vse,
+    Vlse,
+    Vsse,
+    Vlxei,
+    Vsxei,
+    Vlm,
+    Vsm,
+    Vlre,
+    Vsre,
     // ---- V (vector integer arithmetic; form vv/vx/vi in funct3) ----
     Vadd,
     Vsub,
@@ -1482,10 +1490,17 @@ fn decode_load_fp(w: u32, isa: &Isa) -> Insn {
         let nf = (w >> 29) & 7;
         let mop = (w >> 26) & 3;
         let lumop = (w >> 20) & 0x1f;
-        if nf == 0 && mop == 0 && lumop == 0 {
-            return base(Op::Vle, w);
-        }
-        return Insn::illegal(w, 4);
+        return match mop {
+            0b00 => match lumop {
+                0b00000 if nf == 0 => base(Op::Vle, w),
+                0b01000 => base(Op::Vlre, w),     // whole register (nf+1 regs)
+                0b01011 if nf == 0 => base(Op::Vlm, w),
+                _ => Insn::illegal(w, 4),
+            },
+            0b10 if nf == 0 => base(Op::Vlse, w), // strided
+            0b01 | 0b11 if nf == 0 => base(Op::Vlxei, w), // indexed
+            _ => Insn::illegal(w, 4),
+        };
     }
     let op = match f3 {
         1 if isa.zfh => Op::Flh,
@@ -1503,10 +1518,17 @@ fn decode_store_fp(w: u32, isa: &Isa) -> Insn {
         let nf = (w >> 29) & 7;
         let mop = (w >> 26) & 3;
         let sumop = (w >> 20) & 0x1f;
-        if nf == 0 && mop == 0 && sumop == 0 {
-            return base(Op::Vse, w);
-        }
-        return Insn::illegal(w, 4);
+        return match mop {
+            0b00 => match sumop {
+                0b00000 if nf == 0 => base(Op::Vse, w),
+                0b01000 => base(Op::Vsre, w),     // whole register
+                0b01011 if nf == 0 => base(Op::Vsm, w),
+                _ => Insn::illegal(w, 4),
+            },
+            0b10 if nf == 0 => base(Op::Vsse, w), // strided
+            0b01 | 0b11 if nf == 0 => base(Op::Vsxei, w), // indexed
+            _ => Insn::illegal(w, 4),
+        };
     }
     let op = match f3 {
         1 if isa.zfh => Op::Fsh,

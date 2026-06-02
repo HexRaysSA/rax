@@ -743,7 +743,8 @@ impl RiscVCpu {
             }
 
             // ---- V: vector data path ----
-            Op::Vle | Op::Vse | Op::Vadd | Op::Vsub | Op::Vrsub | Op::Vand | Op::Vor | Op::Vxor
+            Op::Vle | Op::Vse | Op::Vlse | Op::Vsse | Op::Vlxei | Op::Vsxei | Op::Vlm | Op::Vsm
+            | Op::Vlre | Op::Vsre | Op::Vadd | Op::Vsub | Op::Vrsub | Op::Vand | Op::Vor | Op::Vxor
             | Op::Vminu | Op::Vmin | Op::Vmaxu | Op::Vmax | Op::Vsll | Op::Vsrl | Op::Vsra
             | Op::Vmerge | Op::Vmseq | Op::Vmsne | Op::Vmsltu | Op::Vmslt | Op::Vmsleu
             | Op::Vmsle | Op::Vmsgtu | Op::Vmsgt | Op::Vmul | Op::Vmulh | Op::Vmulhu
@@ -1352,6 +1353,110 @@ impl RiscVCpu {
                         let val = self.velem(vd, e, eb); // vd holds the store data (vs3)
                         self.mem
                             .write(addr, &val.to_le_bytes()[..eb])
+                            .map_err(|_| acc_fault(true, addr))?;
+                    }
+                }
+            }
+            Op::Vlse | Op::Vsse => {
+                // Strided load/store: addr = base + e * byte-stride.
+                let eb = match insn.funct3 {
+                    0 => 1,
+                    5 => 2,
+                    6 => 4,
+                    7 => 8,
+                    _ => return Err(Trap::illegal(insn.raw)),
+                };
+                let base = self.x(insn.rs1) & self.xmask();
+                let stride = self.x(insn.rs2) as i64;
+                for e in vstart..vl {
+                    if !vm && !self.vmask_bit(e) {
+                        continue;
+                    }
+                    let addr =
+                        base.wrapping_add((e as i64).wrapping_mul(stride) as u64) & self.xmask();
+                    if insn.op == Op::Vlse {
+                        let mut buf = [0u8; 8];
+                        self.mem
+                            .read(addr, &mut buf[..eb])
+                            .map_err(|_| acc_fault(false, addr))?;
+                        self.set_velem(vd, e, eb, u64::from_le_bytes(buf));
+                    } else {
+                        let val = self.velem(vd, e, eb);
+                        self.mem
+                            .write(addr, &val.to_le_bytes()[..eb])
+                            .map_err(|_| acc_fault(true, addr))?;
+                    }
+                }
+            }
+            Op::Vlxei | Op::Vsxei => {
+                // Indexed load/store: addr = base + index[e]; index EEW = funct3,
+                // data EEW = SEW.
+                let ieb = match insn.funct3 {
+                    0 => 1,
+                    5 => 2,
+                    6 => 4,
+                    7 => 8,
+                    _ => return Err(Trap::illegal(insn.raw)),
+                };
+                let eb = self.sew_bytes();
+                let base = self.x(insn.rs1) & self.xmask();
+                for e in vstart..vl {
+                    if !vm && !self.vmask_bit(e) {
+                        continue;
+                    }
+                    let idx = self.velem(insn.rs2, e, ieb);
+                    let addr = base.wrapping_add(idx) & self.xmask();
+                    if insn.op == Op::Vlxei {
+                        let mut buf = [0u8; 8];
+                        self.mem
+                            .read(addr, &mut buf[..eb])
+                            .map_err(|_| acc_fault(false, addr))?;
+                        self.set_velem(vd, e, eb, u64::from_le_bytes(buf));
+                    } else {
+                        let val = self.velem(vd, e, eb);
+                        self.mem
+                            .write(addr, &val.to_le_bytes()[..eb])
+                            .map_err(|_| acc_fault(true, addr))?;
+                    }
+                }
+            }
+            Op::Vlm | Op::Vsm => {
+                // Mask load/store: ceil(vl/8) bytes, EEW=8, always unmasked.
+                let base = self.x(insn.rs1) & self.xmask();
+                let nbytes = vl.div_ceil(8);
+                for i in 0..nbytes {
+                    let addr = base.wrapping_add(i as u64) & self.xmask();
+                    if insn.op == Op::Vlm {
+                        let mut buf = [0u8; 1];
+                        self.mem
+                            .read(addr, &mut buf)
+                            .map_err(|_| acc_fault(false, addr))?;
+                        self.set_velem(vd, i, 1, buf[0] as u64);
+                    } else {
+                        let val = self.velem(vd, i, 1);
+                        self.mem
+                            .write(addr, &[val as u8])
+                            .map_err(|_| acc_fault(true, addr))?;
+                    }
+                }
+            }
+            Op::Vlre | Op::Vsre => {
+                // Whole-register load/store: (nf+1) * VLENB raw bytes, unmasked.
+                let nreg = ((insn.raw >> 29) & 7) as usize + 1;
+                let base = self.x(insn.rs1) & self.xmask();
+                let total = nreg * VLENB as usize;
+                for i in 0..total {
+                    let addr = base.wrapping_add(i as u64) & self.xmask();
+                    if insn.op == Op::Vlre {
+                        let mut buf = [0u8; 1];
+                        self.mem
+                            .read(addr, &mut buf)
+                            .map_err(|_| acc_fault(false, addr))?;
+                        self.set_velem(vd, i, 1, buf[0] as u64);
+                    } else {
+                        let val = self.velem(vd, i, 1);
+                        self.mem
+                            .write(addr, &[val as u8])
                             .map_err(|_| acc_fault(true, addr))?;
                     }
                 }
