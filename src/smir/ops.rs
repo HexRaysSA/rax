@@ -893,6 +893,32 @@ pub enum OpKind {
         interleave: bool,
     },
 
+    /// Pack the even (or odd) narrow sub-element of each wide element from two
+    /// source vectors into one vector. Models HVX `vpackeb/ob/eh/oh`: output
+    /// narrow lane `i` (low half) = src2's narrow lane `2i+odd`, lane `i+half`
+    /// (high half) = src1's narrow lane `2i+odd`. `elem` is the NARROW element.
+    VPack {
+        dst: VReg,
+        src1: VReg,
+        src2: VReg,
+        elem: VecElementType,
+        /// false = even sub-element (low), true = odd sub-element (high).
+        odd: bool,
+    },
+
+    /// Saturating narrowing pack. Models HVX `vpackhub_sat/hb_sat/wuh_sat/wh_sat`:
+    /// each signed `src_elem`-wide lane is saturated to a half-width lane;
+    /// src2's lanes fill the low half of the result, src1's the high half.
+    VPackSat {
+        dst: VReg,
+        src1: VReg,
+        src2: VReg,
+        /// Wide source element type (I16 or I32); result lanes are half width.
+        src_elem: VecElementType,
+        /// true = saturate to the unsigned range (ub/uh), false = signed (b/h).
+        to_unsigned: bool,
+    },
+
     /// Reducing (dot-product) multiply.
     ///
     /// Models the HVX `vrmpy`/`vdmpy` vector-by-vector reduce family: each output
@@ -1400,7 +1426,9 @@ impl OpKind {
             OpKind::VWidenMul { dst_lo, dst_hi, .. }
             | OpKind::VWidenExt { dst_lo, dst_hi, .. } => vec![*dst_lo, *dst_hi],
 
-            OpKind::VReduceMul { dst, .. } => vec![*dst],
+            OpKind::VReduceMul { dst, .. }
+            | OpKind::VPack { dst, .. }
+            | OpKind::VPackSat { dst, .. } => vec![*dst],
 
             OpKind::MulU { dst_lo, dst_hi, .. } | OpKind::MulS { dst_lo, dst_hi, .. } => {
                 let mut v = vec![*dst_lo];

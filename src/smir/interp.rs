@@ -1814,6 +1814,63 @@ impl SmirInterpreter {
                 Self::write_vec(ctx, *dst_hi, hi);
             }
 
+            OpKind::VPack {
+                dst,
+                src1,
+                src2,
+                elem,
+                odd,
+            } => {
+                let u = Self::read_vec(ctx, *src1);
+                let v = Self::read_vec(ctx, *src2);
+                let nbits = elem.bytes() * 8;
+                let total = (1024 / nbits) as u8;
+                let half = total / 2;
+                let parity = if *odd { 1 } else { 0 };
+                let mut result = [0u64; 16];
+                for i in 0..half {
+                    let sel = i * 2 + parity;
+                    Self::set_lane(&mut result, i, nbits, Self::get_lane(&v, sel, nbits));
+                    Self::set_lane(&mut result, i + half, nbits, Self::get_lane(&u, sel, nbits));
+                }
+                Self::write_vec(ctx, *dst, result);
+            }
+
+            OpKind::VPackSat {
+                dst,
+                src1,
+                src2,
+                src_elem,
+                to_unsigned,
+            } => {
+                let u = Self::read_vec(ctx, *src1);
+                let v = Self::read_vec(ctx, *src2);
+                let wbits = src_elem.bytes() * 8;
+                let nbits = wbits / 2;
+                let wide_lanes = (1024 / wbits) as u8;
+                let (lo_b, hi_b) = if *to_unsigned {
+                    (0i64, ((1i64 << nbits) - 1))
+                } else {
+                    (-(1i64 << (nbits - 1)), (1i64 << (nbits - 1)) - 1)
+                };
+                let sat = |raw: u64| -> u64 {
+                    let sh = 64 - wbits;
+                    let sv = ((raw << sh) as i64) >> sh; // sign-extend wide source
+                    sv.clamp(lo_b, hi_b) as u64
+                };
+                let mut result = [0u64; 16];
+                for i in 0..wide_lanes {
+                    Self::set_lane(&mut result, i, nbits, sat(Self::get_lane(&v, i, wbits)));
+                    Self::set_lane(
+                        &mut result,
+                        i + wide_lanes,
+                        nbits,
+                        sat(Self::get_lane(&u, i, wbits)),
+                    );
+                }
+                Self::write_vec(ctx, *dst, result);
+            }
+
             OpKind::VWidenExt {
                 dst_lo,
                 dst_hi,
@@ -3247,6 +3304,74 @@ mod tests {
         let (lo, hi) = run_widenext([0x0707_0707_0707_0707u64; 16], VecElementType::I8, false, false);
         assert_eq!(lo, [0x0007_0007_0007_0007u64; 16]);
         assert_eq!(hi, [0x0007_0007_0007_0007u64; 16]);
+    }
+
+    fn run_vec2(v0: [u64; 16], v1: [u64; 16], op: OpKind) -> [u64; 16] {
+        let mut ctx = SmirContext::new_hexagon();
+        let mut memory = FlatMemory::new(0x1000);
+        let interp = SmirInterpreter::new();
+        if let ArchRegState::Hexagon(hex) = &mut ctx.arch_regs {
+            hex.set_v(0, v0);
+            hex.set_v(1, v1);
+        }
+        let block = SmirBlock {
+            id: BlockId(0),
+            guest_pc: 0x1000,
+            phis: vec![],
+            ops: vec![SmirOp { id: OpId(0), guest_pc: 0x1000, kind: op, x86_hint: None }],
+            terminator: Terminator::Trap { kind: TrapKind::Halt },
+            exec_count: 0,
+        };
+        interp.execute_block(&mut ctx, &mut memory, &block);
+        match &ctx.arch_regs {
+            ArchRegState::Hexagon(hex) => hex.get_v(2),
+            _ => panic!("not hexagon"),
+        }
+    }
+
+    #[test]
+    fn test_vpack_even_byte() {
+        // vpackeb: out.b[i] = V1(=Vv).b[2i] (low half), out.b[i+64] = V0(=Vu).b[2i] (high half).
+        // V0 halfwords = 0xAA11 (byte0=0x11), V1 halfwords = 0xBB22 (byte0=0x22).
+        // even byte of every half: V1 -> 0x22, V0 -> 0x11.
+        let v0 = [0xAA11_AA11_AA11_AA11u64; 16];
+        let v1 = [0xBB22_BB22_BB22_BB22u64; 16];
+        let mkv = |n| VReg::Arch(ArchReg::Hexagon(HexagonReg::V(n)));
+        let out = run_vec2(
+            v0,
+            v1,
+            OpKind::VPack { dst: mkv(2), src1: mkv(0), src2: mkv(1), elem: VecElementType::I8, odd: false },
+        );
+        // low 64 bytes (lanes 0..7 u64) = 0x22 everywhere; high 64 bytes = 0x11.
+        assert_eq!(out[0], 0x2222_2222_2222_2222u64);
+        assert_eq!(out[7], 0x2222_2222_2222_2222u64);
+        assert_eq!(out[8], 0x1111_1111_1111_1111u64);
+        assert_eq!(out[15], 0x1111_1111_1111_1111u64);
+    }
+
+    #[test]
+    fn test_vpacksat_hub() {
+        // vpackhub_sat: saturate signed halfword -> unsigned byte [0,255].
+        // V1 halfword = 0x0140 (320 -> clamps to 255=0xFF); V0 halfword = 0xFF00 (-256 -> 0).
+        let v0 = [0xFF00_FF00_FF00_FF00u64; 16];
+        let v1 = [0x0140_0140_0140_0140u64; 16];
+        let mkv = |n| VReg::Arch(ArchReg::Hexagon(HexagonReg::V(n)));
+        let out = run_vec2(
+            v0,
+            v1,
+            OpKind::VPackSat {
+                dst: mkv(2),
+                src1: mkv(0),
+                src2: mkv(1),
+                src_elem: VecElementType::I16,
+                to_unsigned: true,
+            },
+        );
+        // low half = sat(V1 halfwords) = 0xFF; high half = sat(V0 halfwords) = 0x00.
+        assert_eq!(out[0], 0xFFFF_FFFF_FFFF_FFFFu64);
+        assert_eq!(out[7], 0xFFFF_FFFF_FFFF_FFFFu64);
+        assert_eq!(out[8], 0x0000_0000_0000_0000u64);
+        assert_eq!(out[15], 0x0000_0000_0000_0000u64);
     }
 
     #[test]
