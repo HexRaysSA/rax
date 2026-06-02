@@ -952,8 +952,11 @@ mod tests {
         let block2_base = block1.guest_pc;
         let mut block2 = SmirBlock::new(BlockId(1), block2_base);
 
-        // Skip the prologue (push rbp; mov rbp, rsp = 4 bytes)
-        let code_start = 4; // Skip prologue
+        // Skip the prologue to re-lift only the body. The prologue is a fixed
+        // 20 bytes: `push rbp; mov rbp,rsp` (4) + a 16-byte reserved region
+        // (callee-saved pushes + `sub rsp,frame`, NOP-padded) that lower_function
+        // backpatches once register allocation is known.
+        let code_start = 20; // Skip prologue (4 + 16-byte reserved region)
         let mut offset2 = code_start;
         let mut pc2 = block2_base + code_start as u64;
 

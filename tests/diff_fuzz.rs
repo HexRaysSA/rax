@@ -3594,3 +3594,202 @@ fn smir_memaddr() {
     }
     stats.finish("memaddr");
 }
+
+// ===========================================================================
+// SMIR NATIVE TIER (M0 spike): execute lowered native code, validate vs KVM
+// ===========================================================================
+//
+// The SMIR lowerer (src/smir/lower/x86_64.rs) emits x86-64 machine code with a
+// FIXED IDENTITY register map (guest VReg::Arch(Rax) -> host RAX, ...R15). So
+// the state bridge is just "load 16 GPRs + RFLAGS into the same-named host
+// regs, jump, read them back" — no marshalling struct. Memory ops compile to
+// direct host pointers (none here; M0 is register-only). This block stands up
+// the executable-memory runtime + the enter_native trampoline and proves one
+// lowered ALU block runs correctly end-to-end (M0). The native differential
+// vs KVM is built on top (M1+).
+
+/// Guest register file marshalled in/out of a lowered native block. `gpr[i]`
+/// is indexed by x86 register encoding (0=RAX,1=RCX,2=RDX,3=RBX,4=RSP,5=RBP,
+/// 6=RSI,7=RDI,8..15=R8..R15); `rflags` holds materialized flags. repr(C) — the
+/// trampoline reads/writes by fixed byte offset (gpr[i] at i*8, rflags at 128).
+#[repr(C)]
+#[derive(Clone, Copy, Debug, Default)]
+struct GuestRegs {
+    gpr: [u64; 16],
+    rflags: u64,
+}
+
+// enter_native(rdi = entry ptr, rsi = *mut GuestRegs): preserve host callee-
+// saved, load guest GPRs+RFLAGS into the identical host regs, `call` the block,
+// store the host regs back into GuestRegs. RSP (gpr[4]) is NOT loaded — the
+// block runs on the host stack (M0 has no guest stack use). Alignment: 6 callee
+// pushes (48) + `sub rsp,24` (72 total) leaves rsp 16-aligned at the `call`.
+std::arch::global_asm!(
+    ".text",
+    ".p2align 4",
+    ".globl rax_smir_enter_native",
+    ".type rax_smir_enter_native,@function",
+    "rax_smir_enter_native:",
+    "push rbp",
+    "push rbx",
+    "push r12",
+    "push r13",
+    "push r14",
+    "push r15",
+    "sub rsp, 24",        // [rsp]=entry [rsp+8]=state [rsp+16]=pad ; rsp 16-aligned
+    "mov [rsp], rdi",
+    "mov [rsp+8], rsi",
+    "mov rax, [rsi+128]", // RFLAGS
+    "push rax",
+    "popfq",
+    "mov rax, [rsi+0]",
+    "mov rcx, [rsi+8]",
+    "mov rdx, [rsi+16]",
+    "mov rbx, [rsi+24]",
+    "mov rbp, [rsi+40]",
+    "mov rdi, [rsi+56]",
+    "mov r8,  [rsi+64]",
+    "mov r9,  [rsi+72]",
+    "mov r10, [rsi+80]",
+    "mov r11, [rsi+88]",
+    "mov r12, [rsi+96]",
+    "mov r13, [rsi+104]",
+    "mov r14, [rsi+112]",
+    "mov r15, [rsi+120]",
+    "mov rsi, [rsi+48]",  // rsi last (was the base pointer)
+    "call [rsp]",
+    "push rax",           // save guest RAX ; state now at [rsp+16]
+    "mov rax, [rsp+16]",  // rax = *mut GuestRegs
+    "mov [rax+8],   rcx",
+    "mov [rax+16],  rdx",
+    "mov [rax+24],  rbx",
+    "mov [rax+40],  rbp",
+    "mov [rax+48],  rsi",
+    "mov [rax+56],  rdi",
+    "mov [rax+64],  r8",
+    "mov [rax+72],  r9",
+    "mov [rax+80],  r10",
+    "mov [rax+88],  r11",
+    "mov [rax+96],  r12",
+    "mov [rax+104], r13",
+    "mov [rax+112], r14",
+    "mov [rax+120], r15",
+    "pushfq",
+    "pop rcx",
+    "mov [rax+128], rcx",
+    "mov rcx, [rsp]",     // saved guest RAX
+    "mov [rax+0], rcx",
+    "add rsp, 8",         // pop saved RAX
+    "add rsp, 24",        // pop locals
+    "pop r15",
+    "pop r14",
+    "pop r13",
+    "pop r12",
+    "pop rbx",
+    "pop rbp",
+    "ret",
+);
+
+unsafe extern "C" {
+    fn rax_smir_enter_native(entry: *const u8, state: *mut GuestRegs);
+}
+
+/// W^X executable memory holding a finalized lowered block.
+struct ExecMem {
+    ptr: *mut u8,
+    len: usize,
+}
+
+impl ExecMem {
+    fn new(code: &[u8]) -> Result<Self, String> {
+        assert!(!code.is_empty());
+        let len = (code.len() + 0xFFF) & !0xFFF;
+        let ptr = unsafe {
+            libc::mmap(
+                std::ptr::null_mut(),
+                len,
+                libc::PROT_READ | libc::PROT_WRITE,
+                libc::MAP_PRIVATE | libc::MAP_ANONYMOUS,
+                -1,
+                0,
+            )
+        };
+        if ptr == libc::MAP_FAILED {
+            return Err("mmap failed".to_string());
+        }
+        let ptr = ptr as *mut u8;
+        unsafe { std::ptr::copy_nonoverlapping(code.as_ptr(), ptr, code.len()) };
+        if unsafe {
+            libc::mprotect(ptr as *mut libc::c_void, len, libc::PROT_READ | libc::PROT_EXEC)
+        } != 0
+        {
+            unsafe { libc::munmap(ptr as *mut libc::c_void, len) };
+            return Err("mprotect failed".to_string());
+        }
+        Ok(ExecMem { ptr, len })
+    }
+
+    fn run(&self, entry_offset: usize, regs: &mut GuestRegs) {
+        let entry = unsafe { self.ptr.add(entry_offset) } as *const u8;
+        unsafe { rax_smir_enter_native(entry, regs as *mut GuestRegs) };
+    }
+}
+
+impl Drop for ExecMem {
+    fn drop(&mut self) {
+        unsafe { libc::munmap(self.ptr as *mut libc::c_void, self.len) };
+    }
+}
+
+// M0: lower `rax = rbx + rcx` to native, execute via enter_native, check RAX.
+// RAX-only result sidesteps the callee-saved-clobber hazard (RBX/R12-R15/RBP
+// would be restored by the block epilogue) — that hazard is addressed at M2+.
+#[test]
+fn smir_native_m0_add() {
+    use rax::smir::flags::FlagUpdate;
+    use rax::smir::ir::{FunctionBuilder, Terminator};
+    use rax::smir::lower::x86_64::X86_64Lowerer;
+    use rax::smir::lower::SmirLowerer;
+    use rax::smir::ops::OpKind;
+    use rax::smir::types::{ArchReg, FunctionId, OpWidth, SrcOperand, VReg, X86Reg};
+
+    let rax = VReg::Arch(ArchReg::X86(X86Reg::Rax));
+    let rbx = VReg::Arch(ArchReg::X86(X86Reg::Rbx));
+    let rcx = VReg::Arch(ArchReg::X86(X86Reg::Rcx));
+
+    let mut b = FunctionBuilder::new(FunctionId(0), 0x1000);
+    b.push_op(
+        0x1000,
+        OpKind::Mov { dst: rax, src: SrcOperand::Reg(rbx), width: OpWidth::W64 },
+    );
+    b.push_op(
+        0x1004,
+        OpKind::Add {
+            dst: rax,
+            src1: rax,
+            src2: SrcOperand::Reg(rcx),
+            width: OpWidth::W64,
+            flags: FlagUpdate::None,
+        },
+    );
+    b.set_terminator(Terminator::Return { values: vec![rax] });
+    let func = b.finish();
+
+    let mut l = X86_64Lowerer::new();
+    let res = l.lower_function(&func).expect("lower_function");
+    assert!(
+        res.relocations.is_empty(),
+        "M0 expects no unresolved relocations, got {:?}",
+        res.relocations
+    );
+    let code = l.finalize().expect("finalize");
+    assert!(!code.is_empty());
+
+    let mem = ExecMem::new(&code).expect("ExecMem");
+    let mut regs = GuestRegs::default();
+    regs.gpr[3] = 5; // RBX
+    regs.gpr[1] = 7; // RCX
+    regs.rflags = 0x2;
+    mem.run(res.entry_offset, &mut regs);
+    assert_eq!(regs.gpr[0], 12, "RAX should be RBX+RCX=12; got regs={:?}", regs);
+}

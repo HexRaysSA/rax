@@ -8450,13 +8450,23 @@ impl SmirLowerer for X86_64Lowerer {
         // First pass: allocate registers and compute frame size
         // For now, use simple approach - just lower blocks in order
 
-        // Emit prologue (we'll fix this up after knowing frame size)
-        // For now, emit a minimal prologue
-        let prologue_start = self.code.position();
+        // Emit prologue: `push rbp; mov rbp, rsp`, then a FIXED-SIZE region
+        // (NOP-filled) reserved for the callee-saved saves + frame allocation.
+        // Those depend on register allocation, which isn't known until the body
+        // is lowered, so the region is backpatched after `fixup_jumps`. A fixed
+        // size keeps every body offset / jump target stable. The original code
+        // left this prologue as a never-finished stub, making it asymmetric with
+        // `emit_epilogue` (which tears down callee-saved + frame) — that
+        // corrupted the stack and made `ret` jump to garbage.
         {
             let mut emitter = X86Emitter::new(&mut self.code);
             emitter.emit_push(PhysReg::Rbp);
             emitter.emit_mov_rr(PhysReg::Rbp, PhysReg::Rsp, OpWidth::W64);
+        }
+        const PROLOGUE_RESERVE: usize = 16;
+        let prologue_patch_at = self.code.position();
+        for _ in 0..PROLOGUE_RESERVE {
+            self.code.emit_u8(0x90); // NOP placeholder, backpatched below
         }
 
         // Lower entry block first
@@ -8473,6 +8483,35 @@ impl SmirLowerer for X86_64Lowerer {
 
         // Fix up all jumps
         self.fixup_jumps()?;
+
+        // Backpatch the reserved prologue region now that register allocation is
+        // final: emit the real callee-saved saves + frame allocation, mirroring
+        // `emit_epilogue`'s teardown. Order matches — the prologue pushes
+        // callee_saved_used() in order; the epilogue pops them in reverse.
+        {
+            let mut tmp = CodeBuffer::new();
+            {
+                let mut e = X86Emitter::new(&mut tmp);
+                for &reg in self.regalloc.callee_saved_used() {
+                    e.emit_push(reg);
+                }
+                let frame = self.regalloc.frame_size();
+                if frame > 0 {
+                    e.emit_sub_ri(PhysReg::Rsp, frame as i64, OpWidth::W64);
+                }
+            }
+            let bytes = tmp.data().to_vec();
+            assert!(
+                bytes.len() <= PROLOGUE_RESERVE,
+                "prologue setup ({} bytes) exceeds reserved region ({})",
+                bytes.len(),
+                PROLOGUE_RESERVE
+            );
+            for (i, &b) in bytes.iter().enumerate() {
+                self.code.data[prologue_patch_at + i] = b;
+            }
+            // Any remaining reserved bytes stay 0x90 (NOP) and execute harmlessly.
+        }
 
         let code_size = self.code.len();
 
