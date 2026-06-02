@@ -514,6 +514,10 @@ pub enum Op {
     Vfwmul,
     VfwaddW,
     VfwsubW,
+    Vfwmacc,
+    Vfwnmacc,
+    Vfwmsac,
+    Vfwnmsac,
     // ---- sentinel ----
     Illegal,
 }
@@ -912,6 +916,10 @@ fn decode_vector(w: u32) -> Insn {
             0b110100 => Op::VfwaddW,
             0b110110 => Op::VfwsubW,
             0b111000 => Op::Vfwmul,
+            0b111100 => Op::Vfwmacc,
+            0b111101 => Op::Vfwnmacc,
+            0b111110 => Op::Vfwmsac,
+            0b111111 => Op::Vfwnmsac,
             0b100100 => Op::Vfmul,
             0b100000 => Op::Vfdiv,
             0b100001 if vf => Op::Vfrdiv,

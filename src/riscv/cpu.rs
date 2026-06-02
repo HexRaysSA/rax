@@ -772,7 +772,9 @@ impl RiscVCpu {
             | Op::VfwcvtRtzXuF | Op::VfwcvtRtzXF | Op::VfncvtXuF | Op::VfncvtXF | Op::VfncvtFXu
             | Op::VfncvtFX | Op::VfncvtFF | Op::VfncvtRodFF | Op::VfncvtRtzXuF
             | Op::VfncvtRtzXF | Op::Vfwadd | Op::Vfwsub | Op::Vfwmul | Op::VfwaddW
-            | Op::VfwsubW => self.exec_vector(insn)?,
+            | Op::VfwsubW | Op::Vfwmacc | Op::Vfwnmacc | Op::Vfwmsac | Op::Vfwnmsac => {
+                self.exec_vector(insn)?
+            }
 
             Op::Illegal => return Err(Trap::illegal(insn.raw)),
 
@@ -1671,6 +1673,41 @@ impl RiscVCpu {
                         super::float::itof_fmt(fmt_eb(eb), v, frm, &mut flags)
                     };
                     self.set_velem(vd, e, eb, r & mask);
+                }
+                self.accrue(flags);
+            }
+            Op::Vfwmacc | Op::Vfwnmacc | Op::Vfwmsac | Op::Vfwnmsac => {
+                // Widening FP FMA: vs1/vs2 widened to 2*SEW, fused into 2*SEW vd.
+                let eb = self.sew_bytes();
+                if eb > 4 {
+                    return Err(Trap::illegal(insn.raw));
+                }
+                let web = eb * 2;
+                let wmask = Self::sew_mask(web);
+                let frm = RoundingMode::from_bits(self.frm()).unwrap_or(RoundingMode::Rne);
+                let is_vv = insn.funct3 == 0b001;
+                let base = match insn.op {
+                    Op::Vfwmacc => Op::Vfmacc,
+                    Op::Vfwnmacc => Op::Vfnmacc,
+                    Op::Vfwmsac => Op::Vfmsac,
+                    _ => Op::Vfnmsac,
+                };
+                let scalar = match eb {
+                    2 => self.h(insn.rs1),
+                    _ => self.s32(insn.rs1),
+                };
+                let mut flags = 0u32;
+                for e in vstart..vl {
+                    if !vm && !self.vmask_bit(e) {
+                        continue;
+                    }
+                    let s_narrow = if is_vv { self.velem(insn.rs1, e, eb) } else { scalar };
+                    let src = super::float::fcvt_round(fmt_eb(eb), fmt_eb(web), s_narrow, frm, &mut flags);
+                    let v2 =
+                        super::float::fcvt_round(fmt_eb(eb), fmt_eb(web), self.velem(vs2, e, eb), frm, &mut flags);
+                    let vde = self.velem(vd, e, web);
+                    let r = vfp_fma(base, web, src, v2, vde, frm, &mut flags);
+                    self.set_velem(vd, e, web, r & wmask);
                 }
                 self.accrue(flags);
             }
