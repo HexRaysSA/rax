@@ -725,6 +725,14 @@ impl HexagonVcpu {
                 let idx = self.regs.r[index as usize].wrapping_shl(shift as u32);
                 (base_val.wrapping_add(idx), None)
             }
+            // `memX(Re=##U6)`: EA is the absolute address; the address register
+            // Re is also written with that same absolute (a base "update").
+            AddrMode::AbsSet { areg, addr } => (addr, Some((areg, addr))),
+            // `memX(Ru<<#u2+##U6)`: EA = abs + (Ru << shift); no register update.
+            AddrMode::IndexAbs { index, shift, addr } => {
+                let idx = self.regs.r[index as usize].wrapping_shl(shift as u32);
+                (addr.wrapping_add(idx), None)
+            }
         }
     }
 
@@ -879,6 +887,92 @@ impl HexagonVcpu {
                     new_r[dst as usize] = Some(val);
                 }
             }
+            DecodedInsn::LoadAlign {
+                dst_pair,
+                addr,
+                width,
+                pred,
+            } => {
+                // Predicate CANCEL: no Ryy write and no post-increment.
+                if let Some(cond) = pred {
+                    if !self.eval_pred(cond, new_p) {
+                        return Ok(None);
+                    }
+                }
+                let (addr, update) = self.resolve_addr(addr);
+                if let Some((reg, value)) = update {
+                    new_r[reg as usize] = Some(value);
+                }
+                let even = dst_pair & !1;
+                let odd = even.wrapping_add(1);
+                if odd >= 32 {
+                    return Err(Error::Emulator(
+                        "invalid register pair for loadalign".to_string(),
+                    ));
+                }
+                // Current Ryy (use the in-packet value if a producer set it).
+                let lo = self.read_reg_with_new(even, new_r) as u64;
+                let hi = self.read_reg_with_new(odd, new_r) as u64;
+                let old = lo | (hi << 32);
+                // `w` = access width in bits (8 byte / 16 half). Shift Ryy right
+                // by w and insert the freshly-loaded value at the top:
+                //   Ryy = (Ryy u>> w) | (zxt(load) << (64-w)).
+                let (w, loaded) = match width {
+                    MemWidth::Byte => (8u32, self.read_u8(addr)? as u64),
+                    MemWidth::Half => (16u32, self.read_u16(addr)? as u64),
+                    _ => {
+                        return Err(Error::Emulator(
+                            "loadalign supports only byte/half".to_string(),
+                        ))
+                    }
+                };
+                let result = (old >> w) | (loaded << (64 - w));
+                new_r[even as usize] = Some(result as u32);
+                new_r[odd as usize] = Some((result >> 32) as u32);
+            }
+            DecodedInsn::LoadUnpack {
+                dst,
+                addr,
+                count,
+                sign,
+                pred,
+            } => {
+                // Predicate CANCEL (none of the bsw/bzw forms are predicated
+                // today, but honour the field for forward-compatibility).
+                if let Some(cond) = pred {
+                    if !self.eval_pred(cond, new_p) {
+                        return Ok(None);
+                    }
+                }
+                let (addr, update) = self.resolve_addr(addr);
+                if let Some((reg, value)) = update {
+                    new_r[reg as usize] = Some(value);
+                }
+                // Load `count` contiguous bytes; unpack each into a halfword
+                // lane, sign- (membh) or zero-extended (memubh).
+                let mut result: u64 = 0;
+                for i in 0..count as u32 {
+                    let b = self.read_u8(addr.wrapping_add(i))?;
+                    let lane = match sign {
+                        MemSign::Signed => (b as i8 as i16) as u16,
+                        MemSign::Unsigned => b as u16,
+                    };
+                    result |= (lane as u64) << (16 * i);
+                }
+                if count == 2 {
+                    new_r[dst as usize] = Some(result as u32);
+                } else {
+                    let even = dst & !1;
+                    let odd = even.wrapping_add(1);
+                    if odd >= 32 {
+                        return Err(Error::Emulator(
+                            "invalid register pair for loadunpack".to_string(),
+                        ));
+                    }
+                    new_r[even as usize] = Some(result as u32);
+                    new_r[odd as usize] = Some((result >> 32) as u32);
+                }
+            }
             DecodedInsn::Store {
                 src,
                 addr,
@@ -991,7 +1085,9 @@ impl HexagonVcpu {
                     | AddrMode::PostIncReg { .. }
                     | AddrMode::PostIncBrev { .. }
                     | AddrMode::PostIncCircImm { .. }
-                    | AddrMode::PostIncCircReg { .. } => {
+                    | AddrMode::PostIncCircReg { .. }
+                    | AddrMode::AbsSet { .. }
+                    | AddrMode::IndexAbs { .. } => {
                         return Err(Error::Emulator(
                             "post-increment store immediate not supported".to_string(),
                         ))

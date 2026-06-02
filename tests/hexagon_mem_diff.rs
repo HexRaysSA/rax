@@ -1290,3 +1290,388 @@ fn diff_mem_circ_kfield_probe() {
         st[I_M1] = (k << 24) | length;
     });
 }
+
+#[test]
+fn diff_pred_load() {
+    // Predicated loads (`if ([!]Pv[.new]) Rd=memX(...)`). On a FALSE predicate
+    // the load CANCELS: Rd is unchanged AND (for post-increment) the base does
+    // NOT advance. p0 / p1 come from the random state; the producer sets p1.new.
+    // The harness compares all GPRs (incl. the post-inc base r4), so both the
+    // load and the full-cancel paths are verified. Base r4 = arena+BASE_OFF.
+    let bodies = &[
+        // Post-increment (`_pi`), all widths, t/f/tnew/fnew. CANCEL must leave
+        // both Rd (r0) and the base (r4) unchanged.
+        ("ploadrbt_pi", "{ if (p0) r0 = memb(r4++#1) }"),
+        ("ploadrbf_pi", "{ if (!p0) r0 = memb(r4++#1) }"),
+        ("ploadrubt_pi", "{ if (p0) r0 = memub(r4++#1) }"),
+        ("ploadrubf_pi", "{ if (!p0) r0 = memub(r4++#1) }"),
+        ("ploadrht_pi", "{ if (p0) r0 = memh(r4++#2) }"),
+        ("ploadrhf_pi", "{ if (!p0) r0 = memh(r4++#2) }"),
+        ("ploadruht_pi", "{ if (p0) r0 = memuh(r4++#2) }"),
+        ("ploadruhf_pi", "{ if (!p0) r0 = memuh(r4++#2) }"),
+        ("ploadrit_pi", "{ if (p0) r0 = memw(r4++#4) }"),
+        ("ploadrif_pi", "{ if (!p0) r0 = memw(r4++#4) }"),
+        ("ploadrdt_pi", "{ if (p0) r1:0 = memd(r4++#8) }"),
+        ("ploadrdf_pi", "{ if (!p0) r1:0 = memd(r4++#8) }"),
+        ("ploadrbtnew_pi", "{ p1 = cmp.eq(r2,r2); if (p1.new) r0 = memb(r4++#1) }"),
+        ("ploadrbfnew_pi", "{ p1 = cmp.eq(r2,r3); if (!p1.new) r0 = memb(r4++#1) }"),
+        ("ploadritnew_pi", "{ p1 = cmp.eq(r2,r2); if (p1.new) r0 = memw(r4++#4) }"),
+        ("ploadrdfnew_pi", "{ p1 = cmp.eq(r2,r3); if (!p1.new) r1:0 = memd(r4++#8) }"),
+        // Register-offset (`_rr`): no post-inc, but Rd cancel still matters.
+        ("ploadrbt_rr", "{ if (p0) r0 = memb(r4+r6<<#0) }"),
+        ("ploadrubf_rr", "{ if (!p0) r0 = memub(r4+r6<<#0) }"),
+        ("ploadrht_rr", "{ if (p0) r0 = memh(r4+r6<<#1) }"),
+        ("ploadruhf_rr", "{ if (!p0) r0 = memuh(r4+r6<<#1) }"),
+        ("ploadrit_rr", "{ if (p0) r0 = memw(r4+r6<<#2) }"),
+        ("ploadrdf_rr", "{ if (!p0) r1:0 = memd(r4+r6<<#3) }"),
+        ("ploadritnew_rr", "{ p1 = cmp.eq(r2,r2); if (p1.new) r0 = memw(r4+r6<<#2) }"),
+        ("ploadrhfnew_rr", "{ p1 = cmp.eq(r2,r3); if (!p1.new) r0 = memh(r4+r6<<#1) }"),
+    ];
+    run_custom("pred_load", bodies, 16, 0x7201, |rng, arena, st, _| {
+        st[4] = arena + BASE_OFF;
+        // Small in-range element index for the _rr forms (shift<=3 => <=56B).
+        st[6] = (rng.next() % 8) as u32;
+    });
+}
+
+#[test]
+fn diff_pred_load_abs() {
+    // Predicated absolute loads (`if ([!]Pv[.new]) Rd=memX(##addr)`,
+    // L4_ploadr*_abs). The address is a constant-extended literal baked to a
+    // width-aligned arena slot. p0 drives plain forms; the producer sets p1.new.
+    let (bin, arena_addr) = match oracle_mem() {
+        Some(x) => x,
+        None => {
+            eprintln!("[hexagon_mem_diff] pred_load_abs: toolchain unavailable -> skipping");
+            return;
+        }
+    };
+    let a_b = arena_addr + 5;
+    let a_h = arena_addr + 10;
+    let a_w = arena_addr + 16;
+    let a_d = arena_addr + 24;
+    let asms = vec![
+        format!("{{ if (p0) r0 = memb(##0x{a_b:x}) }}"),
+        format!("{{ if (!p0) r0 = memub(##0x{a_b:x}) }}"),
+        format!("{{ if (p0) r0 = memh(##0x{a_h:x}) }}"),
+        format!("{{ if (!p0) r0 = memuh(##0x{a_h:x}) }}"),
+        format!("{{ if (p0) r0 = memw(##0x{a_w:x}) }}"),
+        format!("{{ if (!p0) r0 = memw(##0x{a_w:x}) }}"),
+        format!("{{ if (p0) r1:0 = memd(##0x{a_d:x}) }}"),
+        format!("{{ if (!p0) r1:0 = memd(##0x{a_d:x}) }}"),
+        format!("{{ p1 = cmp.eq(r2,r2); if (p1.new) r0 = memb(##0x{a_b:x}) }}"),
+        format!("{{ p1 = cmp.eq(r2,r3); if (!p1.new) r0 = memw(##0x{a_w:x}) }}"),
+    ];
+    let labels = [
+        "ploadrbt_abs", "ploadrubf_abs", "ploadrht_abs", "ploadruhf_abs",
+        "ploadrit_abs", "ploadrif_abs", "ploadrdt_abs", "ploadrdf_abs",
+        "ploadrbtnew_abs", "ploadrifnew_abs",
+    ];
+    run_abs_batch(&bin, arena_addr, &asms, &labels, 0x7202);
+}
+
+/// Run a batch of absolute-addressed packets (address baked into the asm) over
+/// random states/arenas, comparing all GPRs + arena vs the oracle. Used by the
+/// abs / ap / ur tests where the effective address is a runtime arena literal.
+fn run_abs_batch(bin: &PathBuf, arena_addr: u32, asms: &[String], labels: &[&str], seed: u64) {
+    let words_per = match assemble(asms) {
+        Some(w) => w,
+        None => {
+            eprintln!("[hexagon_mem_diff] abs_batch: assembly failed -> skipping");
+            return;
+        }
+    };
+    let mut rng = Rng::new(seed);
+    let mut batch = Vec::new();
+    let mut lbl = Vec::new();
+    for (i, words) in words_per.iter().enumerate() {
+        for _ in 0..16 {
+            let mut st = [0u32; ST_WORDS];
+            for r in 0..NREG {
+                st[r] = rng.next() as u32;
+            }
+            st[I_USR] = 0;
+            let mut pred = 0u32;
+            for k in 0..4 {
+                if rng.next() & 1 == 1 {
+                    pred |= 0xffu32 << (8 * k);
+                }
+            }
+            st[I_PRED] = pred;
+            // Index register for the _ur forms: small in-range element offset.
+            st[6] = (rng.next() % 8) as u32;
+            let mut arena = [0u8; ARENA];
+            for b in arena.iter_mut() {
+                *b = rng.next() as u8;
+            }
+            lbl.push(labels[i]);
+            batch.push(Case { words: words.clone(), st, arena });
+        }
+    }
+    let outs = match run_oracle(bin, &batch) {
+        Some(o) => o,
+        None => {
+            eprintln!("[hexagon_mem_diff] abs_batch: oracle failed -> skipping");
+            return;
+        }
+    };
+    let mut mismatches = Vec::new();
+    for (i, c) in batch.iter().enumerate() {
+        let rax = match run_rax(&c.words, c, arena_addr) {
+            Some(r) => r,
+            None => {
+                mismatches.push(format!("[{}] rax rejected", lbl[i]));
+                continue;
+            }
+        };
+        let mut diffs = Vec::new();
+        for r in 0..NREG {
+            if rax.st[r] != outs[i].st[r] {
+                diffs.push(format!("r{r}:rax={:#x},hw={:#x}", rax.st[r], outs[i].st[r]));
+            }
+        }
+        if rax.arena != outs[i].arena {
+            let j = (0..ARENA).find(|&j| rax.arena[j] != outs[i].arena[j]).unwrap();
+            diffs.push(format!("arena[{j}]:rax={:#x},hw={:#x}", rax.arena[j], outs[i].arena[j]));
+        }
+        if !diffs.is_empty() {
+            mismatches.push(format!("[{}] {}", lbl[i], diffs.join(" ")));
+        }
+    }
+    if !mismatches.is_empty() {
+        eprintln!("\n==== abs_batch: {} mismatches ====", mismatches.len());
+        for m in mismatches.iter().take(25) {
+            eprintln!("  {m}");
+        }
+        panic!("abs_batch: {} divergences vs oracle", mismatches.len());
+    }
+}
+
+#[test]
+fn diff_loadalign() {
+    // LOADALIGN (`Ryy = memX_fifo(...)`): read-modify register PAIR. The loaded
+    // byte/half is shifted into the TOP of Ryy as the rest shifts right. Covers
+    // byte (shift 8) and half (shift 16) across io / pi / pr / pbr / pci / pcr.
+    // Ryy = r1:0 is part of the random input, so its prior contents are
+    // exercised (and the shift-in is verified bit-exactly vs the oracle).
+    // io and pi forms (base r4 inside the arena).
+    run_custom(
+        "loadalign_io_pi",
+        &[
+            ("alignb_io", "{ r1:0 = memb_fifo(r4+#1) }"),
+            ("alignh_io", "{ r1:0 = memh_fifo(r4+#2) }"),
+            ("alignb_io0", "{ r1:0 = memb_fifo(r4+#0) }"),
+            ("alignb_pi", "{ r1:0 = memb_fifo(r4++#1) }"),
+            ("alignh_pi", "{ r1:0 = memh_fifo(r4++#2) }"),
+            ("alignb_pin", "{ r1:0 = memb_fifo(r4++#-1) }"),
+        ],
+        16,
+        0x7203,
+        |_, arena, st, _| {
+            st[4] = arena + BASE_OFF;
+        },
+    );
+    // pr / pbr (register / bit-reverse post-increment).
+    run_custom(
+        "loadalign_pr_pbr",
+        &[
+            ("alignb_pr", "{ r1:0 = memb_fifo(r4++m0) }"),
+            ("alignh_pr", "{ r1:0 = memh_fifo(r4++m1) }"),
+        ],
+        16,
+        0x7204,
+        |rng, arena, st, _| {
+            st[4] = arena + BASE_OFF;
+            st[I_M0] = ((rng.next() % 17) as i32 - 8) as u32;
+            st[I_M1] = ((rng.next() % 17) as i32 - 8) as u32;
+        },
+    );
+    run_custom(
+        "loadalign_pbr",
+        &[
+            ("alignb_pbr", "{ r1:0 = memb_fifo(r4++m0:brev) }"),
+            ("alignh_pbr", "{ r1:0 = memh_fifo(r4++m1:brev) }"),
+        ],
+        16,
+        0x7205,
+        |rng, arena, st, _| {
+            let off = ((rng.next() % 31) * 8) as u32;
+            st[4] = brev16(arena + off);
+            st[I_M0] = ((rng.next() % 9) as i32 - 4) as u32;
+            st[I_M1] = ((rng.next() % 9) as i32 - 4) as u32;
+        },
+    );
+    // pci / pcr (circular).
+    run_custom(
+        "loadalign_circ",
+        &[
+            ("alignb_pci", "{ r1:0 = memb_fifo(r4++#1:circ(m0)) }"),
+            ("alignh_pci", "{ r1:0 = memh_fifo(r4++#2:circ(m1)) }"),
+            ("alignb_pcr", "{ r1:0 = memb_fifo(r4++I:circ(m0)) }"),
+            ("alignh_pcr", "{ r1:0 = memh_fifo(r4++I:circ(m1)) }"),
+        ],
+        16,
+        0x7206,
+        |rng, arena, st, _| {
+            let length = 16 + ((rng.next() % 15) * 8) as u32;
+            let i_field = ((rng.next() % 5) as i32 - 2) as u32 & 0x7ff;
+            let m = circ_m(length) | (((i_field >> 7) & 0xf) << 28) | ((i_field & 0x7f) << 17);
+            st[4] = arena;
+            st[I_CS0] = arena;
+            st[I_CS1] = arena;
+            st[I_M0] = m;
+            st[I_M1] = m;
+        },
+    );
+}
+
+#[test]
+fn diff_load_bsw_bzw() {
+    // BSW (membh, sign-extend byte->halfword unpack) and BZW (memubh,
+    // zero-extend). bsw2/bzw2 load 2 bytes into a 32-bit Rd; bsw4/bzw4 load 4
+    // bytes into the Rdd pair. Covers io / pi / pr / pbr / pci / pcr.
+    run_custom(
+        "bsw_bzw_io_pi",
+        &[
+            ("bsw2_io", "{ r0 = membh(r4+#0) }"),
+            ("bzw2_io", "{ r0 = memubh(r4+#0) }"),
+            ("bsw4_io", "{ r1:0 = membh(r4+#0) }"),
+            ("bzw4_io", "{ r1:0 = memubh(r4+#0) }"),
+            ("bsw2_pi", "{ r0 = membh(r4++#2) }"),
+            ("bzw2_pi", "{ r0 = memubh(r4++#2) }"),
+            ("bsw4_pi", "{ r1:0 = membh(r4++#4) }"),
+            ("bzw4_pi", "{ r1:0 = memubh(r4++#4) }"),
+        ],
+        16,
+        0x7207,
+        |_, arena, st, _| {
+            st[4] = arena + BASE_OFF;
+        },
+    );
+    run_custom(
+        "bsw_bzw_pr_pbr",
+        &[
+            ("bsw2_pr", "{ r0 = membh(r4++m0) }"),
+            ("bzw4_pr", "{ r1:0 = memubh(r4++m1) }"),
+        ],
+        16,
+        0x7208,
+        |rng, arena, st, _| {
+            st[4] = arena + BASE_OFF;
+            st[I_M0] = ((rng.next() % 17) as i32 - 8) as u32;
+            st[I_M1] = ((rng.next() % 17) as i32 - 8) as u32;
+        },
+    );
+    run_custom(
+        "bsw_bzw_pbr",
+        &[
+            ("bsw2_pbr", "{ r0 = membh(r4++m0:brev) }"),
+            ("bzw4_pbr", "{ r1:0 = memubh(r4++m1:brev) }"),
+        ],
+        16,
+        0x7209,
+        |rng, arena, st, _| {
+            let off = ((rng.next() % 31) * 8) as u32;
+            st[4] = brev16(arena + off);
+            st[I_M0] = ((rng.next() % 9) as i32 - 4) as u32;
+            st[I_M1] = ((rng.next() % 9) as i32 - 4) as u32;
+        },
+    );
+    run_custom(
+        "bsw_bzw_circ",
+        &[
+            ("bsw2_pci", "{ r0 = membh(r4++#2:circ(m0)) }"),
+            ("bzw4_pci", "{ r1:0 = memubh(r4++#4:circ(m1)) }"),
+            ("bsw2_pcr", "{ r0 = membh(r4++I:circ(m0)) }"),
+            ("bzw4_pcr", "{ r1:0 = memubh(r4++I:circ(m1)) }"),
+        ],
+        16,
+        0x720a,
+        |rng, arena, st, _| {
+            let length = 32 + ((rng.next() % 13) * 8) as u32;
+            let i_field = ((rng.next() % 5) as i32 - 2) as u32 & 0x7ff;
+            let m = circ_m(length) | (((i_field >> 7) & 0xf) << 28) | ((i_field & 0x7f) << 17);
+            st[4] = arena;
+            st[I_CS0] = arena;
+            st[I_CS1] = arena;
+            st[I_M0] = m;
+            st[I_M1] = m;
+        },
+    );
+}
+
+#[test]
+fn diff_load_l4modes() {
+    // L4 absolute-set (`_ap`: Re=##abs, also WRITES Re) and scaled-index-abs
+    // (`_ur`: ##abs + Ru<<#u2) addressing across base / loadalign / bsw / bzw.
+    // Addresses are baked to arena slots; the harness checks all GPRs so the
+    // _ap address-register write (r3) is verified too.
+    let (bin, arena_addr) = match oracle_mem() {
+        Some(x) => x,
+        None => {
+            eprintln!("[hexagon_mem_diff] load_l4modes: toolchain unavailable -> skipping");
+            return;
+        }
+    };
+    let a_b = arena_addr + 8;
+    let a_w = arena_addr + 16;
+    let a_d = arena_addr + 24;
+    // _ur: EA = ##abs + r6<<#shift; r6 in [0,7]. Use a base low in the arena.
+    let u = arena_addr;
+    let asms = vec![
+        // base loads, _ap (writes r3).
+        format!("{{ r0 = memb(r3=##0x{a_b:x}) }}"),
+        format!("{{ r0 = memub(r3=##0x{a_b:x}) }}"),
+        format!("{{ r0 = memh(r3=##0x{a_w:x}) }}"),
+        format!("{{ r0 = memw(r3=##0x{a_w:x}) }}"),
+        format!("{{ r1:0 = memd(r3=##0x{a_d:x}) }}"),
+        // base loads, _ur (scaled index r6).
+        format!("{{ r0 = memb(r6<<#0+##0x{u:x}) }}"),
+        format!("{{ r0 = memh(r6<<#1+##0x{u:x}) }}"),
+        format!("{{ r0 = memw(r6<<#2+##0x{u:x}) }}"),
+        format!("{{ r1:0 = memd(r6<<#3+##0x{u:x}) }}"),
+        // loadalign _ap / _ur.
+        format!("{{ r1:0 = memb_fifo(r3=##0x{a_b:x}) }}"),
+        format!("{{ r1:0 = memh_fifo(r3=##0x{a_w:x}) }}"),
+        format!("{{ r1:0 = memb_fifo(r6<<#0+##0x{u:x}) }}"),
+        format!("{{ r1:0 = memh_fifo(r6<<#1+##0x{u:x}) }}"),
+        // bsw / bzw _ap / _ur.
+        format!("{{ r0 = membh(r3=##0x{a_w:x}) }}"),
+        format!("{{ r0 = memubh(r3=##0x{a_w:x}) }}"),
+        format!("{{ r1:0 = membh(r3=##0x{a_d:x}) }}"),
+        format!("{{ r1:0 = memubh(r3=##0x{a_d:x}) }}"),
+        format!("{{ r0 = membh(r6<<#1+##0x{u:x}) }}"),
+        format!("{{ r0 = memubh(r6<<#1+##0x{u:x}) }}"),
+        format!("{{ r1:0 = membh(r6<<#2+##0x{u:x}) }}"),
+        format!("{{ r1:0 = memubh(r6<<#2+##0x{u:x}) }}"),
+    ];
+    let labels = [
+        "loadrb_ap", "loadrub_ap", "loadrh_ap", "loadri_ap", "loadrd_ap",
+        "loadrb_ur", "loadrh_ur", "loadri_ur", "loadrd_ur",
+        "alignb_ap", "alignh_ap", "alignb_ur", "alignh_ur",
+        "bsw2_ap", "bzw2_ap", "bsw4_ap", "bzw4_ap",
+        "bsw2_ur", "bzw2_ur", "bsw4_ur", "bzw4_ur",
+    ];
+    run_abs_batch(&bin, arena_addr, &asms, &labels, 0x720b);
+}
+
+#[test]
+fn diff_load_atomic() {
+    // Atomic loads: load-locked sets a reservation, load-acquire is an ordering
+    // barrier; in single-thread user mode both are PLAIN word/dword loads with
+    // no register/memory side effects beyond the loaded value. Verify the value.
+    run_custom(
+        "load_atomic",
+        &[
+            ("loadw_locked", "{ r0 = memw_locked(r4) }"),
+            ("loadd_locked", "{ r1:0 = memd_locked(r4) }"),
+            ("loadw_aq", "{ r0 = memw_aq(r4) }"),
+            ("loadd_aq", "{ r1:0 = memd_aq(r4) }"),
+        ],
+        12,
+        0x720c,
+        |_, arena, st, _| {
+            st[4] = arena + BASE_OFF;
+        },
+    );
+}

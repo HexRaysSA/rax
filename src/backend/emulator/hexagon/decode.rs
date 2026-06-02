@@ -46,6 +46,14 @@ pub enum AddrMode {
     /// `memX(Rs+Ru<<#u2)` — register-offset addressing (`S4_*_rr`). The
     /// effective address is `Rs + (Ru << shift)`.
     RegScaled { base: u8, index: u8, shift: u8 },
+    /// `memX(Re=##U6)` — absolute-set addressing (`L4_*_ap`). The effective
+    /// address is the constant-extended `addr`; in addition the address
+    /// register `areg` (Re) is written with that same absolute address.
+    AbsSet { areg: u8, addr: u32 },
+    /// `memX(Ru<<#u2+##U6)` — scaled-index absolute addressing (`L4_*_ur`).
+    /// The effective address is `addr + (Ru << shift)` with `addr` the
+    /// constant-extended literal.
+    IndexAbs { index: u8, shift: u8, addr: u32 },
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -240,6 +248,31 @@ pub enum DecodedInsn {
         dst: u8,
         addr: AddrMode,
         width: MemWidth,
+        sign: MemSign,
+        pred: Option<PredCond>,
+    },
+    /// Shift-and-insert FIFO load (`Ryy = memX_fifo(...)`, `L2_loadalign{b,h}` /
+    /// `L4_loadalign{b,h}_{ap,ur}`). `dst_pair` is the EVEN register of the
+    /// read-modify destination pair Ryy. The freshly loaded byte/halfword is
+    /// shifted into the TOP of Ryy while the rest shifts right:
+    /// `Ryy = (Ryy u>> w) | (zxt(load) << (64-w))`, where `w` is 8 (Byte) or
+    /// 16 (Half). Reads the OLD Ryy value (or the in-packet new value).
+    LoadAlign {
+        dst_pair: u8,
+        addr: AddrMode,
+        width: MemWidth,
+        pred: Option<PredCond>,
+    },
+    /// Byte-unpack load (`Rd = memubh/membh(...)` / `Rdd = memubh/membh(...)`,
+    /// `L2_loadbsw{2,4}` / `L2_loadbzw{2,4}` + `L4_*_{ap,ur}`). Loads `count`
+    /// contiguous bytes (2 or 4) and unpacks each byte into a halfword lane,
+    /// sign-extended (`bsw`, membh) or zero-extended (`bzw`, memubh). `count`==2
+    /// writes the single 32-bit register `dst`; `count`==4 writes the register
+    /// PAIR whose even half is `dst`.
+    LoadUnpack {
+        dst: u8,
+        addr: AddrMode,
+        count: u8,
         sign: MemSign,
         pred: Option<PredCond>,
     },
@@ -533,6 +566,8 @@ fn pred_uses_dotnew(pred: Option<PredCond>) -> bool {
 fn insn_uses_dotnew(insn: &DecodedInsn) -> bool {
     match insn {
         DecodedInsn::Load { pred, .. } => pred_uses_dotnew(*pred),
+        DecodedInsn::LoadAlign { pred, .. } => pred_uses_dotnew(*pred),
+        DecodedInsn::LoadUnpack { pred, .. } => pred_uses_dotnew(*pred),
         DecodedInsn::Store { pred, src_new, .. } => pred_uses_dotnew(*pred) || *src_new,
         DecodedInsn::StoreImm { pred, .. } => pred_uses_dotnew(*pred),
         DecodedInsn::JumpCond { pred_new, .. } => *pred_new,
@@ -648,6 +683,23 @@ fn pstore_cond(opcode: Opcode) -> (bool, bool) {
     // `tnew`/`fnew` -> dot-new predicate; `t`/`f` -> plain predicate. The
     // data-side `new` of a new-value store (e.g. `pstorerbnewt`) is always
     // followed by the `t`/`f`/`tnew`/`fnew` condition, so suffix tests are safe.
+    if body.ends_with("tnew") {
+        (true, true)
+    } else if body.ends_with("fnew") {
+        (false, true)
+    } else if body.ends_with('t') {
+        (true, false)
+    } else {
+        (false, false)
+    }
+}
+
+/// Decode the predicate condition `(sense, pred_new)` from a predicated-LOAD
+/// opcode mnemonic. The mnemonic is `...<cond>_<mode>` where `cond` is one of
+/// `t`/`f`/`tnew`/`fnew` (`t`/`f` = test `Pv`, `tnew`/`fnew` = test `Pv.new`).
+fn pload_cond(opcode: Opcode) -> (bool, bool) {
+    let name = opcode::opcode_name(opcode);
+    let body = name.rsplit_once('_').map(|(head, _)| head).unwrap_or(name);
     if body.ends_with("tnew") {
         (true, true)
     } else if body.ends_with("fnew") {
@@ -920,6 +972,262 @@ fn load_pcr(decoded: &DecodedOp, width: MemWidth, sign: MemSign) -> Option<(Deco
             pred: None,
         },
         false,
+    ))
+}
+
+// ====================================================================
+// Shared addressing-mode decoders for the L2/L4 LOADALIGN / BSW / BZW and
+// predicated-load families. Each returns the resolved `AddrMode` plus whether
+// a constant extender was consumed. `scale_shift` is the immediate / I-field
+// scale (the `:N` in `Rx++#s4:N`): 0 for byte FIFO, 1 for half FIFO and the
+// 2-byte unpack, 2 for the 4-byte unpack.
+// ====================================================================
+
+/// `mem...(Rs+#s11:N)` — register + scaled signed immediate. Field `s` = base,
+/// `i` = signed immediate (scaled by `scale_shift`).
+fn addr_io_n(decoded: &DecodedOp, scale_shift: u8, immext: Option<u32>) -> Option<(AddrMode, bool)> {
+    let base = field_u8(decoded, b's')?;
+    let (imm, used) = decode_field_simm(decoded, b'i', immext)?;
+    let offset = imm.wrapping_shl(scale_shift as u32);
+    Some((AddrMode::Offset { base, offset }, used))
+}
+
+/// `mem...(Rx++#s4:N)` — post-increment by scaled signed immediate. Field `x`
+/// = base (post-incremented), `i` = signed immediate (scaled by `scale_shift`).
+fn addr_pi_n(decoded: &DecodedOp, scale_shift: u8) -> Option<AddrMode> {
+    let base = field_u8(decoded, b'x')?;
+    let (imm, _) = decode_field_simm(decoded, b'i', None)?;
+    let offset = imm.wrapping_shl(scale_shift as u32);
+    Some(AddrMode::PostIncImm { base, offset })
+}
+
+/// `mem...(Rx++Mu)` — post-increment by the modifier register. Fields `x`, `u`.
+fn addr_pr(decoded: &DecodedOp) -> Option<AddrMode> {
+    let base = field_u8(decoded, b'x')?;
+    let modsel = field_u8(decoded, b'u')?;
+    Some(AddrMode::PostIncReg { base, modsel })
+}
+
+/// `mem...(Rx++Mu:brev)` — bit-reverse post-increment. Fields `x`, `u`.
+fn addr_pbr(decoded: &DecodedOp) -> Option<AddrMode> {
+    let base = field_u8(decoded, b'x')?;
+    let modsel = field_u8(decoded, b'u')?;
+    Some(AddrMode::PostIncBrev { base, modsel })
+}
+
+/// `mem...(Rx++#s4:N:circ(Mu))` — circular post-increment by scaled immediate.
+fn addr_pci_n(decoded: &DecodedOp, scale_shift: u8) -> Option<AddrMode> {
+    let base = field_u8(decoded, b'x')?;
+    let modsel = field_u8(decoded, b'u')?;
+    let (imm, _) = decode_field_simm(decoded, b'i', None)?;
+    let incr = imm.wrapping_shl(scale_shift as u32);
+    Some(AddrMode::PostIncCircImm { base, modsel, incr })
+}
+
+/// `mem...(Rx++I:circ(Mu))` — circular post-increment by the I field, scaled.
+fn addr_pcr_n(decoded: &DecodedOp, scale_shift: u8) -> Option<AddrMode> {
+    let base = field_u8(decoded, b'x')?;
+    let modsel = field_u8(decoded, b'u')?;
+    Some(AddrMode::PostIncCircReg {
+        base,
+        modsel,
+        shift: scale_shift,
+    })
+}
+
+/// `mem...(Re=##U6)` — absolute-set (`L4_*_ap`). Field `e` = address register
+/// Re (also written), `I` = the 6 low bits of the extended absolute address.
+/// Requires a constant extender; without one the address is just `I`.
+fn addr_ap(decoded: &DecodedOp, immext: Option<u32>) -> Option<(AddrMode, bool)> {
+    let areg = field_u8(decoded, b'e')?;
+    let (addr, used) = decode_field_uimm(decoded, b'I', immext)?;
+    Some((AddrMode::AbsSet { areg, addr }, used))
+}
+
+/// `mem...(Ru<<#u2+##U6)` — scaled-index absolute (`L4_*_ur`). Field `t` = Ru
+/// index, `i` = #u2 shift, `I` = low 6 bits of the extended absolute address.
+fn addr_ur(decoded: &DecodedOp, immext: Option<u32>) -> Option<(AddrMode, bool)> {
+    let index = field_u8(decoded, b't')?;
+    let shift = decode_field_uimm(decoded, b'i', None)?.0 as u8;
+    let (addr, used) = decode_field_uimm(decoded, b'I', immext)?;
+    Some((AddrMode::IndexAbs { index, shift, addr }, used))
+}
+
+/// Build a `LoadAlign` (FIFO) insn from a resolved address. `width` is Byte
+/// (shift 8) or Half (shift 16); the read-modify dest pair Ryy is field `y`.
+fn loadalign(decoded: &DecodedOp, addr: AddrMode, width: MemWidth, used: bool) -> Option<(DecodedInsn, bool)> {
+    let dst_pair = field_u8(decoded, b'y')?;
+    Some((
+        DecodedInsn::LoadAlign {
+            dst_pair,
+            addr,
+            width,
+            pred: None,
+        },
+        used,
+    ))
+}
+
+/// Build a `LoadUnpack` (bsw/bzw) insn from a resolved address. `count` is 2 or
+/// 4 bytes; `sign` selects membh (Signed) vs memubh (Unsigned). Dest is `d`.
+fn loadunpack(
+    decoded: &DecodedOp,
+    addr: AddrMode,
+    count: u8,
+    sign: MemSign,
+    used: bool,
+) -> Option<(DecodedInsn, bool)> {
+    let dst = field_u8(decoded, b'd')?;
+    Some((
+        DecodedInsn::LoadUnpack {
+            dst,
+            addr,
+            count,
+            sign,
+            pred: None,
+        },
+        used,
+    ))
+}
+
+/// Base register-offset load (`Rd=memX(Rs+Ru<<#u2)`, `L4_loadr*_rr`). Fields:
+/// `s` = Rs base, `t` = Ru index, `i` = #u2 shift, `d` = dest.
+fn load_rr(decoded: &DecodedOp, width: MemWidth, sign: MemSign) -> Option<(DecodedInsn, bool)> {
+    let base = field_u8(decoded, b's')?;
+    let index = field_u8(decoded, b't')?;
+    let dst = field_u8(decoded, b'd')?;
+    let shift = decode_field_uimm(decoded, b'i', None)?.0 as u8;
+    Some((
+        DecodedInsn::Load {
+            dst,
+            addr: AddrMode::RegScaled { base, index, shift },
+            width,
+            sign,
+            pred: None,
+        },
+        false,
+    ))
+}
+
+/// Build a plain (non-predicated) `Load` from an already-resolved address
+/// `(AddrMode, extender_used)`. Dest is field `d` (the `_ap`/`_ur` L4 forms).
+fn load_simple(
+    decoded: &DecodedOp,
+    width: MemWidth,
+    sign: MemSign,
+    addr_used: (AddrMode, bool),
+) -> Option<(DecodedInsn, bool)> {
+    let dst = field_u8(decoded, b'd')?;
+    Some((
+        DecodedInsn::Load {
+            dst,
+            addr: addr_used.0,
+            width,
+            sign,
+            pred: None,
+        },
+        addr_used.1,
+    ))
+}
+
+/// Atomic load (`L2_loadw_locked`/`_aq`, `L4_loadd_locked`/`_aq`). In
+/// single-thread user mode these are plain word / doubleword loads
+/// (`Rd=memw(Rs)` / `Rdd=memd(Rs)`); the reservation / acquire-barrier has no
+/// observable effect on register / memory state. Fields: `s` = base, `d` =
+/// dest. Always reads at `Rs+0`.
+fn load_atomic(decoded: &DecodedOp, width: MemWidth) -> Option<(DecodedInsn, bool)> {
+    let base = field_u8(decoded, b's')?;
+    let dst = field_u8(decoded, b'd')?;
+    Some((
+        DecodedInsn::Load {
+            dst,
+            addr: AddrMode::Offset { base, offset: 0 },
+            width,
+            sign: MemSign::Unsigned,
+            pred: None,
+        },
+        false,
+    ))
+}
+
+/// Predicated post-increment load (`if ([!]Pv[.new]) Rd=memX(Rx++#s4:N)`,
+/// `L2_ploadr*_pi`). Fields: `x` = base, `d` = dest, `t` = Pv, `i` = signed
+/// increment (scaled by the access width). A not-taken load CANCELS: no Rd
+/// write and no post-increment.
+fn pred_load_pi(
+    decoded: &DecodedOp,
+    width: MemWidth,
+    sign: MemSign,
+    sense: bool,
+    pred_new: bool,
+) -> Option<(DecodedInsn, bool)> {
+    let base = field_u8(decoded, b'x')?;
+    let dst = field_u8(decoded, b'd')?;
+    let pred = field_u8(decoded, b't')?;
+    let (imm, _) = decode_field_simm(decoded, b'i', None)?;
+    let offset = imm.wrapping_shl(width_shift(width) as u32);
+    Some((
+        DecodedInsn::Load {
+            dst,
+            addr: AddrMode::PostIncImm { base, offset },
+            width,
+            sign,
+            pred: Some(pred_cond(pred, sense, pred_new)),
+        },
+        false,
+    ))
+}
+
+/// Predicated register-offset load (`if ([!]Pv[.new]) Rd=memX(Rs+Ru<<#u2)`,
+/// `L4_ploadr*_rr`). Fields: `s` = Rs base, `t` = Ru index, `i` = #u2 shift,
+/// `d` = dest, `v` = Pv.
+fn pred_load_rr(
+    decoded: &DecodedOp,
+    width: MemWidth,
+    sign: MemSign,
+    sense: bool,
+    pred_new: bool,
+) -> Option<(DecodedInsn, bool)> {
+    let base = field_u8(decoded, b's')?;
+    let index = field_u8(decoded, b't')?;
+    let dst = field_u8(decoded, b'd')?;
+    let pred = field_u8(decoded, b'v')?;
+    let shift = decode_field_uimm(decoded, b'i', None)?.0 as u8;
+    Some((
+        DecodedInsn::Load {
+            dst,
+            addr: AddrMode::RegScaled { base, index, shift },
+            width,
+            sign,
+            pred: Some(pred_cond(pred, sense, pred_new)),
+        },
+        false,
+    ))
+}
+
+/// Predicated absolute load (`if ([!]Pv[.new]) Rd=memX(##addr)`,
+/// `L4_ploadr*_abs`). Fields: `d` = dest, `t` = Pv, `i` = absolute address
+/// (low 6 bits, completed by the constant extender).
+fn pred_load_abs(
+    decoded: &DecodedOp,
+    width: MemWidth,
+    sign: MemSign,
+    sense: bool,
+    pred_new: bool,
+    immext: Option<u32>,
+) -> Option<(DecodedInsn, bool)> {
+    let dst = field_u8(decoded, b'd')?;
+    let pred = field_u8(decoded, b't')?;
+    let (addr, used) = decode_field_uimm(decoded, b'i', immext)?;
+    Some((
+        DecodedInsn::Load {
+            dst,
+            addr: AddrMode::Abs { addr },
+            width,
+            sign,
+            pred: Some(pred_cond(pred, sense, pred_new)),
+        },
+        used,
     ))
 }
 
@@ -2357,6 +2665,275 @@ fn decode_main(decoded: &DecodedOp, word: u32, immext: Option<u32>) -> (DecodedI
                 sense,
                 pred_new
             ))
+        }
+        // ---- predicated post-increment loads (`L2_ploadr*_pi`) ----
+        Opcode::L2_ploadrbt_pi
+        | Opcode::L2_ploadrbf_pi
+        | Opcode::L2_ploadrbtnew_pi
+        | Opcode::L2_ploadrbfnew_pi => {
+            let (s, n) = pload_cond(decoded.opcode);
+            req!(pred_load_pi(decoded, MemWidth::Byte, MemSign::Signed, s, n))
+        }
+        Opcode::L2_ploadrubt_pi
+        | Opcode::L2_ploadrubf_pi
+        | Opcode::L2_ploadrubtnew_pi
+        | Opcode::L2_ploadrubfnew_pi => {
+            let (s, n) = pload_cond(decoded.opcode);
+            req!(pred_load_pi(decoded, MemWidth::Byte, MemSign::Unsigned, s, n))
+        }
+        Opcode::L2_ploadrht_pi
+        | Opcode::L2_ploadrhf_pi
+        | Opcode::L2_ploadrhtnew_pi
+        | Opcode::L2_ploadrhfnew_pi => {
+            let (s, n) = pload_cond(decoded.opcode);
+            req!(pred_load_pi(decoded, MemWidth::Half, MemSign::Signed, s, n))
+        }
+        Opcode::L2_ploadruht_pi
+        | Opcode::L2_ploadruhf_pi
+        | Opcode::L2_ploadruhtnew_pi
+        | Opcode::L2_ploadruhfnew_pi => {
+            let (s, n) = pload_cond(decoded.opcode);
+            req!(pred_load_pi(decoded, MemWidth::Half, MemSign::Unsigned, s, n))
+        }
+        Opcode::L2_ploadrit_pi
+        | Opcode::L2_ploadrif_pi
+        | Opcode::L2_ploadritnew_pi
+        | Opcode::L2_ploadrifnew_pi => {
+            let (s, n) = pload_cond(decoded.opcode);
+            req!(pred_load_pi(decoded, MemWidth::Word, MemSign::Unsigned, s, n))
+        }
+        Opcode::L2_ploadrdt_pi
+        | Opcode::L2_ploadrdf_pi
+        | Opcode::L2_ploadrdtnew_pi
+        | Opcode::L2_ploadrdfnew_pi => {
+            let (s, n) = pload_cond(decoded.opcode);
+            req!(pred_load_pi(decoded, MemWidth::Double, MemSign::Unsigned, s, n))
+        }
+        // ---- predicated register-offset loads (`L4_ploadr*_rr`) ----
+        Opcode::L4_ploadrbt_rr
+        | Opcode::L4_ploadrbf_rr
+        | Opcode::L4_ploadrbtnew_rr
+        | Opcode::L4_ploadrbfnew_rr => {
+            let (s, n) = pload_cond(decoded.opcode);
+            req!(pred_load_rr(decoded, MemWidth::Byte, MemSign::Signed, s, n))
+        }
+        Opcode::L4_ploadrubt_rr
+        | Opcode::L4_ploadrubf_rr
+        | Opcode::L4_ploadrubtnew_rr
+        | Opcode::L4_ploadrubfnew_rr => {
+            let (s, n) = pload_cond(decoded.opcode);
+            req!(pred_load_rr(decoded, MemWidth::Byte, MemSign::Unsigned, s, n))
+        }
+        Opcode::L4_ploadrht_rr
+        | Opcode::L4_ploadrhf_rr
+        | Opcode::L4_ploadrhtnew_rr
+        | Opcode::L4_ploadrhfnew_rr => {
+            let (s, n) = pload_cond(decoded.opcode);
+            req!(pred_load_rr(decoded, MemWidth::Half, MemSign::Signed, s, n))
+        }
+        Opcode::L4_ploadruht_rr
+        | Opcode::L4_ploadruhf_rr
+        | Opcode::L4_ploadruhtnew_rr
+        | Opcode::L4_ploadruhfnew_rr => {
+            let (s, n) = pload_cond(decoded.opcode);
+            req!(pred_load_rr(decoded, MemWidth::Half, MemSign::Unsigned, s, n))
+        }
+        Opcode::L4_ploadrit_rr
+        | Opcode::L4_ploadrif_rr
+        | Opcode::L4_ploadritnew_rr
+        | Opcode::L4_ploadrifnew_rr => {
+            let (s, n) = pload_cond(decoded.opcode);
+            req!(pred_load_rr(decoded, MemWidth::Word, MemSign::Unsigned, s, n))
+        }
+        Opcode::L4_ploadrdt_rr
+        | Opcode::L4_ploadrdf_rr
+        | Opcode::L4_ploadrdtnew_rr
+        | Opcode::L4_ploadrdfnew_rr => {
+            let (s, n) = pload_cond(decoded.opcode);
+            req!(pred_load_rr(decoded, MemWidth::Double, MemSign::Unsigned, s, n))
+        }
+        // ---- predicated absolute loads (`L4_ploadr*_abs`) ----
+        Opcode::L4_ploadrbt_abs
+        | Opcode::L4_ploadrbf_abs
+        | Opcode::L4_ploadrbtnew_abs
+        | Opcode::L4_ploadrbfnew_abs => {
+            let (s, n) = pload_cond(decoded.opcode);
+            req!(pred_load_abs(decoded, MemWidth::Byte, MemSign::Signed, s, n, immext))
+        }
+        Opcode::L4_ploadrubt_abs
+        | Opcode::L4_ploadrubf_abs
+        | Opcode::L4_ploadrubtnew_abs
+        | Opcode::L4_ploadrubfnew_abs => {
+            let (s, n) = pload_cond(decoded.opcode);
+            req!(pred_load_abs(decoded, MemWidth::Byte, MemSign::Unsigned, s, n, immext))
+        }
+        Opcode::L4_ploadrht_abs
+        | Opcode::L4_ploadrhf_abs
+        | Opcode::L4_ploadrhtnew_abs
+        | Opcode::L4_ploadrhfnew_abs => {
+            let (s, n) = pload_cond(decoded.opcode);
+            req!(pred_load_abs(decoded, MemWidth::Half, MemSign::Signed, s, n, immext))
+        }
+        Opcode::L4_ploadruht_abs
+        | Opcode::L4_ploadruhf_abs
+        | Opcode::L4_ploadruhtnew_abs
+        | Opcode::L4_ploadruhfnew_abs => {
+            let (s, n) = pload_cond(decoded.opcode);
+            req!(pred_load_abs(decoded, MemWidth::Half, MemSign::Unsigned, s, n, immext))
+        }
+        Opcode::L4_ploadrit_abs
+        | Opcode::L4_ploadrif_abs
+        | Opcode::L4_ploadritnew_abs
+        | Opcode::L4_ploadrifnew_abs => {
+            let (s, n) = pload_cond(decoded.opcode);
+            req!(pred_load_abs(decoded, MemWidth::Word, MemSign::Unsigned, s, n, immext))
+        }
+        Opcode::L4_ploadrdt_abs
+        | Opcode::L4_ploadrdf_abs
+        | Opcode::L4_ploadrdtnew_abs
+        | Opcode::L4_ploadrdfnew_abs => {
+            let (s, n) = pload_cond(decoded.opcode);
+            req!(pred_load_abs(decoded, MemWidth::Double, MemSign::Unsigned, s, n, immext))
+        }
+        // ---- base L4 loads: register-offset / scaled-abs / abs-set ----
+        Opcode::L4_loadrb_rr => req!(load_rr(decoded, MemWidth::Byte, MemSign::Signed)),
+        Opcode::L4_loadrub_rr => req!(load_rr(decoded, MemWidth::Byte, MemSign::Unsigned)),
+        Opcode::L4_loadrh_rr => req!(load_rr(decoded, MemWidth::Half, MemSign::Signed)),
+        Opcode::L4_loadruh_rr => req!(load_rr(decoded, MemWidth::Half, MemSign::Unsigned)),
+        Opcode::L4_loadri_rr => req!(load_rr(decoded, MemWidth::Word, MemSign::Unsigned)),
+        Opcode::L4_loadrd_rr => req!(load_rr(decoded, MemWidth::Double, MemSign::Unsigned)),
+        Opcode::L4_loadrb_ur => req!(load_simple(decoded, MemWidth::Byte, MemSign::Signed, req!(addr_ur(decoded, immext)))),
+        Opcode::L4_loadrub_ur => req!(load_simple(decoded, MemWidth::Byte, MemSign::Unsigned, req!(addr_ur(decoded, immext)))),
+        Opcode::L4_loadrh_ur => req!(load_simple(decoded, MemWidth::Half, MemSign::Signed, req!(addr_ur(decoded, immext)))),
+        Opcode::L4_loadruh_ur => req!(load_simple(decoded, MemWidth::Half, MemSign::Unsigned, req!(addr_ur(decoded, immext)))),
+        Opcode::L4_loadri_ur => req!(load_simple(decoded, MemWidth::Word, MemSign::Unsigned, req!(addr_ur(decoded, immext)))),
+        Opcode::L4_loadrd_ur => req!(load_simple(decoded, MemWidth::Double, MemSign::Unsigned, req!(addr_ur(decoded, immext)))),
+        Opcode::L4_loadrb_ap => req!(load_simple(decoded, MemWidth::Byte, MemSign::Signed, req!(addr_ap(decoded, immext)))),
+        Opcode::L4_loadrub_ap => req!(load_simple(decoded, MemWidth::Byte, MemSign::Unsigned, req!(addr_ap(decoded, immext)))),
+        Opcode::L4_loadrh_ap => req!(load_simple(decoded, MemWidth::Half, MemSign::Signed, req!(addr_ap(decoded, immext)))),
+        Opcode::L4_loadruh_ap => req!(load_simple(decoded, MemWidth::Half, MemSign::Unsigned, req!(addr_ap(decoded, immext)))),
+        Opcode::L4_loadri_ap => req!(load_simple(decoded, MemWidth::Word, MemSign::Unsigned, req!(addr_ap(decoded, immext)))),
+        Opcode::L4_loadrd_ap => req!(load_simple(decoded, MemWidth::Double, MemSign::Unsigned, req!(addr_ap(decoded, immext)))),
+        // ---- atomic loads (single-thread user mode == plain loads) ----
+        Opcode::L2_loadw_locked | Opcode::L2_loadw_aq => {
+            req!(load_atomic(decoded, MemWidth::Word))
+        }
+        Opcode::L4_loadd_locked | Opcode::L4_loadd_aq => {
+            req!(load_atomic(decoded, MemWidth::Double))
+        }
+        // ---- LOADALIGN (FIFO) — byte (shift 8) ----
+        Opcode::L2_loadalignb_io => {
+            let a = req!(addr_io_n(decoded, 0, immext));
+            req!(loadalign(decoded, a.0, MemWidth::Byte, a.1))
+        }
+        Opcode::L2_loadalignb_pi => {
+            let a = req!(addr_pi_n(decoded, 0));
+            req!(loadalign(decoded, a, MemWidth::Byte, false))
+        }
+        Opcode::L2_loadalignb_pr => req!(loadalign(decoded, req!(addr_pr(decoded)), MemWidth::Byte, false)),
+        Opcode::L2_loadalignb_pbr => req!(loadalign(decoded, req!(addr_pbr(decoded)), MemWidth::Byte, false)),
+        Opcode::L2_loadalignb_pci => req!(loadalign(decoded, req!(addr_pci_n(decoded, 0)), MemWidth::Byte, false)),
+        Opcode::L2_loadalignb_pcr => req!(loadalign(decoded, req!(addr_pcr_n(decoded, 0)), MemWidth::Byte, false)),
+        Opcode::L4_loadalignb_ap => {
+            let a = req!(addr_ap(decoded, immext));
+            req!(loadalign(decoded, a.0, MemWidth::Byte, a.1))
+        }
+        Opcode::L4_loadalignb_ur => {
+            let a = req!(addr_ur(decoded, immext));
+            req!(loadalign(decoded, a.0, MemWidth::Byte, a.1))
+        }
+        // ---- LOADALIGN (FIFO) — half (shift 16, :1 immediate scale) ----
+        Opcode::L2_loadalignh_io => {
+            let a = req!(addr_io_n(decoded, 1, immext));
+            req!(loadalign(decoded, a.0, MemWidth::Half, a.1))
+        }
+        Opcode::L2_loadalignh_pi => {
+            let a = req!(addr_pi_n(decoded, 1));
+            req!(loadalign(decoded, a, MemWidth::Half, false))
+        }
+        Opcode::L2_loadalignh_pr => req!(loadalign(decoded, req!(addr_pr(decoded)), MemWidth::Half, false)),
+        Opcode::L2_loadalignh_pbr => req!(loadalign(decoded, req!(addr_pbr(decoded)), MemWidth::Half, false)),
+        Opcode::L2_loadalignh_pci => req!(loadalign(decoded, req!(addr_pci_n(decoded, 1)), MemWidth::Half, false)),
+        Opcode::L2_loadalignh_pcr => req!(loadalign(decoded, req!(addr_pcr_n(decoded, 1)), MemWidth::Half, false)),
+        Opcode::L4_loadalignh_ap => {
+            let a = req!(addr_ap(decoded, immext));
+            req!(loadalign(decoded, a.0, MemWidth::Half, a.1))
+        }
+        Opcode::L4_loadalignh_ur => {
+            let a = req!(addr_ur(decoded, immext));
+            req!(loadalign(decoded, a.0, MemWidth::Half, a.1))
+        }
+        // ---- BSW (membh, sign-extend unpack) — 2 bytes (:1 scale) ----
+        Opcode::L2_loadbsw2_io => {
+            let a = req!(addr_io_n(decoded, 1, immext));
+            req!(loadunpack(decoded, a.0, 2, MemSign::Signed, a.1))
+        }
+        Opcode::L2_loadbsw2_pi => req!(loadunpack(decoded, req!(addr_pi_n(decoded, 1)), 2, MemSign::Signed, false)),
+        Opcode::L2_loadbsw2_pr => req!(loadunpack(decoded, req!(addr_pr(decoded)), 2, MemSign::Signed, false)),
+        Opcode::L2_loadbsw2_pbr => req!(loadunpack(decoded, req!(addr_pbr(decoded)), 2, MemSign::Signed, false)),
+        Opcode::L2_loadbsw2_pci => req!(loadunpack(decoded, req!(addr_pci_n(decoded, 1)), 2, MemSign::Signed, false)),
+        Opcode::L2_loadbsw2_pcr => req!(loadunpack(decoded, req!(addr_pcr_n(decoded, 1)), 2, MemSign::Signed, false)),
+        Opcode::L4_loadbsw2_ap => {
+            let a = req!(addr_ap(decoded, immext));
+            req!(loadunpack(decoded, a.0, 2, MemSign::Signed, a.1))
+        }
+        Opcode::L4_loadbsw2_ur => {
+            let a = req!(addr_ur(decoded, immext));
+            req!(loadunpack(decoded, a.0, 2, MemSign::Signed, a.1))
+        }
+        // ---- BSW (membh) — 4 bytes (:2 scale, Rdd pair) ----
+        Opcode::L2_loadbsw4_io => {
+            let a = req!(addr_io_n(decoded, 2, immext));
+            req!(loadunpack(decoded, a.0, 4, MemSign::Signed, a.1))
+        }
+        Opcode::L2_loadbsw4_pi => req!(loadunpack(decoded, req!(addr_pi_n(decoded, 2)), 4, MemSign::Signed, false)),
+        Opcode::L2_loadbsw4_pr => req!(loadunpack(decoded, req!(addr_pr(decoded)), 4, MemSign::Signed, false)),
+        Opcode::L2_loadbsw4_pbr => req!(loadunpack(decoded, req!(addr_pbr(decoded)), 4, MemSign::Signed, false)),
+        Opcode::L2_loadbsw4_pci => req!(loadunpack(decoded, req!(addr_pci_n(decoded, 2)), 4, MemSign::Signed, false)),
+        Opcode::L2_loadbsw4_pcr => req!(loadunpack(decoded, req!(addr_pcr_n(decoded, 2)), 4, MemSign::Signed, false)),
+        Opcode::L4_loadbsw4_ap => {
+            let a = req!(addr_ap(decoded, immext));
+            req!(loadunpack(decoded, a.0, 4, MemSign::Signed, a.1))
+        }
+        Opcode::L4_loadbsw4_ur => {
+            let a = req!(addr_ur(decoded, immext));
+            req!(loadunpack(decoded, a.0, 4, MemSign::Signed, a.1))
+        }
+        // ---- BZW (memubh, zero-extend unpack) — 2 bytes (:1 scale) ----
+        Opcode::L2_loadbzw2_io => {
+            let a = req!(addr_io_n(decoded, 1, immext));
+            req!(loadunpack(decoded, a.0, 2, MemSign::Unsigned, a.1))
+        }
+        Opcode::L2_loadbzw2_pi => req!(loadunpack(decoded, req!(addr_pi_n(decoded, 1)), 2, MemSign::Unsigned, false)),
+        Opcode::L2_loadbzw2_pr => req!(loadunpack(decoded, req!(addr_pr(decoded)), 2, MemSign::Unsigned, false)),
+        Opcode::L2_loadbzw2_pbr => req!(loadunpack(decoded, req!(addr_pbr(decoded)), 2, MemSign::Unsigned, false)),
+        Opcode::L2_loadbzw2_pci => req!(loadunpack(decoded, req!(addr_pci_n(decoded, 1)), 2, MemSign::Unsigned, false)),
+        Opcode::L2_loadbzw2_pcr => req!(loadunpack(decoded, req!(addr_pcr_n(decoded, 1)), 2, MemSign::Unsigned, false)),
+        Opcode::L4_loadbzw2_ap => {
+            let a = req!(addr_ap(decoded, immext));
+            req!(loadunpack(decoded, a.0, 2, MemSign::Unsigned, a.1))
+        }
+        Opcode::L4_loadbzw2_ur => {
+            let a = req!(addr_ur(decoded, immext));
+            req!(loadunpack(decoded, a.0, 2, MemSign::Unsigned, a.1))
+        }
+        // ---- BZW (memubh) — 4 bytes (:2 scale, Rdd pair) ----
+        Opcode::L2_loadbzw4_io => {
+            let a = req!(addr_io_n(decoded, 2, immext));
+            req!(loadunpack(decoded, a.0, 4, MemSign::Unsigned, a.1))
+        }
+        Opcode::L2_loadbzw4_pi => req!(loadunpack(decoded, req!(addr_pi_n(decoded, 2)), 4, MemSign::Unsigned, false)),
+        Opcode::L2_loadbzw4_pr => req!(loadunpack(decoded, req!(addr_pr(decoded)), 4, MemSign::Unsigned, false)),
+        Opcode::L2_loadbzw4_pbr => req!(loadunpack(decoded, req!(addr_pbr(decoded)), 4, MemSign::Unsigned, false)),
+        Opcode::L2_loadbzw4_pci => req!(loadunpack(decoded, req!(addr_pci_n(decoded, 2)), 4, MemSign::Unsigned, false)),
+        Opcode::L2_loadbzw4_pcr => req!(loadunpack(decoded, req!(addr_pcr_n(decoded, 2)), 4, MemSign::Unsigned, false)),
+        Opcode::L4_loadbzw4_ap => {
+            let a = req!(addr_ap(decoded, immext));
+            req!(loadunpack(decoded, a.0, 4, MemSign::Unsigned, a.1))
+        }
+        Opcode::L4_loadbzw4_ur => {
+            let a = req!(addr_ur(decoded, immext));
+            req!(loadunpack(decoded, a.0, 4, MemSign::Unsigned, a.1))
         }
         Opcode::S2_pstorerbt_io | Opcode::S2_pstorerbf_io => {
             let sense = matches!(decoded.opcode, Opcode::S2_pstorerbt_io);
