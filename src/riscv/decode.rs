@@ -448,6 +448,11 @@ pub enum Op {
     Vmadc,
     Vsbc,
     Vmsbc,
+    // ---- V (saturating fixed-point add/subtract) ----
+    Vsaddu,
+    Vsadd,
+    Vssubu,
+    Vssub,
     // ---- sentinel ----
     Illegal,
 }
@@ -726,6 +731,11 @@ fn decode_vector(w: u32) -> Insn {
             0b010001 => Op::Vmadc,
             0b010010 if f3 != 0b011 => Op::Vsbc,
             0b010011 if f3 != 0b011 => Op::Vmsbc,
+            // Saturating add/subtract (ssub variants have no immediate form).
+            0b100000 => Op::Vsaddu,
+            0b100001 => Op::Vsadd,
+            0b100010 if f3 != 0b011 => Op::Vssubu,
+            0b100011 if f3 != 0b011 => Op::Vssub,
             _ => return Insn::illegal(w, 4),
         };
         return base(op, w);

@@ -244,6 +244,18 @@ impl RiscVCpu {
         self.vtype = vtype;
     }
 
+    /// Read `vcsr` = {vxrm[2:1], vxsat[0]}.
+    #[inline]
+    pub fn vcsr(&self) -> u64 {
+        (self.vxrm << 1) | self.vxsat
+    }
+    /// Write `vcsr`, splitting it into the `vxrm`/`vxsat` CSRs.
+    #[inline]
+    pub fn set_vcsr(&mut self, v: u64) {
+        self.vxsat = v & 1;
+        self.vxrm = (v >> 1) & 3;
+    }
+
     // ---------------------------------------------------------------
     // Public accessors (used by tests, the diff oracle, and embedders).
     // ---------------------------------------------------------------
@@ -749,9 +761,8 @@ impl RiscVCpu {
             | Op::Vfirst | Op::Vmsbf | Op::Vmsof | Op::Vmsif | Op::Viota | Op::Vid
             | Op::Vslideup | Op::Vslidedown | Op::Vslide1up | Op::Vslide1down
             | Op::Vfslide1up | Op::Vfslide1down | Op::Vrgather | Op::Vrgatherei16
-            | Op::Vcompress | Op::Vadc | Op::Vmadc | Op::Vsbc | Op::Vmsbc => {
-                self.exec_vector(insn)?
-            }
+            | Op::Vcompress | Op::Vadc | Op::Vmadc | Op::Vsbc | Op::Vmsbc | Op::Vsaddu
+            | Op::Vsadd | Op::Vssubu | Op::Vssub => self.exec_vector(insn)?,
 
             Op::Illegal => return Err(Trap::illegal(insn.raw)),
 
@@ -1744,6 +1755,62 @@ impl RiscVCpu {
                     }
                     let v = if e + 1 < vl { self.velem(vs2, e + 1, eb) } else { scalar };
                     self.set_velem(vd, e, eb, v & mask);
+                }
+            }
+            Op::Vsaddu | Op::Vsadd | Op::Vssubu | Op::Vssub => {
+                // Saturating fixed-point add/subtract; sets vxsat on clamp.
+                let eb = self.sew_bytes();
+                let mask = Self::sew_mask(eb);
+                let bits = (eb * 8) as u32;
+                let smax = (1i128 << (bits - 1)) - 1;
+                let smin = -(1i128 << (bits - 1));
+                let scalar = match insn.funct3 {
+                    0b100 => self.x(insn.rs1) & mask,
+                    0b011 => sext5(insn.rs1) & mask,
+                    _ => 0,
+                };
+                let is_vv = insn.funct3 == 0b000;
+                let mut sat = false;
+                for e in vstart..vl {
+                    if !vm && !self.vmask_bit(e) {
+                        continue;
+                    }
+                    let a = self.velem(vs2, e, eb);
+                    let b = if is_vv { self.velem(insn.rs1, e, eb) } else { scalar };
+                    let (r, s) = match insn.op {
+                        Op::Vsaddu => {
+                            let full = a as u128 + b as u128;
+                            if full > mask as u128 { (mask, true) } else { (full as u64, false) }
+                        }
+                        Op::Vssubu => {
+                            if a < b { (0, true) } else { (a - b, false) }
+                        }
+                        Op::Vsadd => {
+                            let sum = sext_sew(a, eb) as i128 + sext_sew(b, eb) as i128;
+                            if sum > smax {
+                                (smax as u64 & mask, true)
+                            } else if sum < smin {
+                                (smin as u64 & mask, true)
+                            } else {
+                                (sum as u64 & mask, false)
+                            }
+                        }
+                        _ => {
+                            let diff = sext_sew(a, eb) as i128 - sext_sew(b, eb) as i128;
+                            if diff > smax {
+                                (smax as u64 & mask, true)
+                            } else if diff < smin {
+                                (smin as u64 & mask, true)
+                            } else {
+                                (diff as u64 & mask, false)
+                            }
+                        }
+                    };
+                    self.set_velem(vd, e, eb, r & mask);
+                    sat |= s;
+                }
+                if sat {
+                    self.vxsat = 1;
                 }
             }
             Op::Vadc | Op::Vsbc => {
