@@ -1172,6 +1172,53 @@ pub enum OpKind {
 }
 
 impl OpKind {
+    /// Fail-safe whitelist for the SMIR native hot-block JIT: returns true ONLY
+    /// for register/immediate-only integer ops that have been validated
+    /// bit-exact against KVM (the `smir_native_*` differentials) and that touch
+    /// NO memory (their operands are `VReg`/`SrcOperand`, never an `Address`).
+    /// Everything else — memory/stack ops (Load/Store/Push/Pop/string/atomic),
+    /// DivU/DivS (the shared single-width div IR mismodels x86's RDX:RAX
+    /// dividend → wrong results), FP/SIMD, flags-register plumbing, syscalls,
+    /// and any unvalidated op — returns false so the JIT BAILS to the
+    /// interpreter rather than risk incorrect native execution. This is the
+    /// correctness gate that makes the JIT safe to auto-trigger on real code
+    /// (e.g. a booting kernel): an unknown or memory-touching op never executes
+    /// natively.
+    pub fn is_jit_safe(&self) -> bool {
+        matches!(
+            self,
+            OpKind::Add { .. }
+                | OpKind::Sub { .. }
+                | OpKind::Adc { .. }
+                | OpKind::Sbb { .. }
+                | OpKind::Neg { .. }
+                | OpKind::Inc { .. }
+                | OpKind::Dec { .. }
+                | OpKind::Cmp { .. }
+                | OpKind::And { .. }
+                | OpKind::Or { .. }
+                | OpKind::Xor { .. }
+                | OpKind::Not { .. }
+                | OpKind::Test { .. }
+                | OpKind::Shl { .. }
+                | OpKind::Shr { .. }
+                | OpKind::Sar { .. }
+                | OpKind::Shld { .. }
+                | OpKind::Shrd { .. }
+                | OpKind::Rol { .. }
+                | OpKind::Ror { .. }
+                | OpKind::MulU { .. }
+                | OpKind::MulS { .. }
+                | OpKind::Mov { .. }
+                | OpKind::ZeroExtend { .. }
+                | OpKind::SignExtend { .. }
+                | OpKind::SetCC { .. }
+                | OpKind::TestCondition { .. }
+                | OpKind::CMove { .. }
+                | OpKind::Nop
+        )
+    }
+
     /// Get destination register(s) if any
     pub fn dests(&self) -> Vec<VReg> {
         match self {

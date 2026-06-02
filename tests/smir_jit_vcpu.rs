@@ -139,6 +139,20 @@ fn jit_bails_on_ineligible() {
         !v.jit_try_block().expect("jit_try_block"),
         "a frontier-less infinite loop must bail (no native exit)"
     );
+
+    // (d) A loop whose body READS MEMORY (mov eax,[rbx]; dec ecx; jnz) — memory
+    //     ops are not on the JIT whitelist (they would access wrong host
+    //     addresses under native exec); the region MUST bail to the interpreter
+    //     and never execute natively. This is the kernel-safety gate.
+    let mut v = make_vcpu_code(&[0x8B, 0x03, 0xFF, 0xC9, 0x75, 0xFA, 0xF4]);
+    let mut r = v.get_regs().unwrap();
+    r.rcx = 5;
+    r.rbx = LOAD_ADDR;
+    v.set_regs(&r).unwrap();
+    assert!(
+        !v.jit_try_block().expect("jit_try_block"),
+        "a memory-touching loop must bail (not JIT-safe)"
+    );
 }
 
 fn run_interp(vcpu: &mut X86_64Vcpu) {

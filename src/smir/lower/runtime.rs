@@ -242,10 +242,13 @@ pub fn is_native_clobber_safe_excluding(
         .all(block_is_clobber_safe)
 }
 
-/// True if `block`'s ops write only architectural registers (no virtual temp
-/// that would alias a guest GPR under the identity map). A trailing
-/// `TestCondition` feeding the block's `CondBranch` is exempt (the lowerer folds
-/// it into a direct `Jcc` and never materializes its dst).
+/// True if every op in `block` is safe to execute natively under the JIT:
+///   (1) it is on the fail-safe register-only whitelist ([`OpKind::is_jit_safe`])
+///       — so it touches no memory and is validated bit-exact vs KVM; and
+///   (2) it writes only architectural registers (no virtual temp, which would
+///       alias a guest GPR under the identity register map).
+/// A trailing `TestCondition` feeding the block's `CondBranch` is exempt (the
+/// lowerer folds it into a direct `Jcc` and never materializes its dst).
 fn block_is_clobber_safe(block: &crate::smir::ir::SmirBlock) -> bool {
     use crate::smir::ir::Terminator;
     use crate::smir::ops::OpKind;
@@ -262,6 +265,12 @@ fn block_is_clobber_safe(block: &crate::smir::ir::SmirBlock) -> bool {
                 }
             }
         }
+        // (1) fail-safe whitelist: any non-whitelisted op (memory, div, FP/SIMD,
+        // syscall, unvalidated) makes the whole region ineligible.
+        if !op.kind.is_jit_safe() {
+            return false;
+        }
+        // (2) no virtual-temp writes (would clobber a guest GPR).
         if op.kind.dests().iter().any(|d| matches!(d, VReg::Virtual(_))) {
             return false;
         }
