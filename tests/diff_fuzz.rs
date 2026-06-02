@@ -4837,3 +4837,59 @@ fn smir_native_branch() {
     }
     stats.finish("native_branch");
 }
+
+// Generate a self-looping block: 1-3 random reg-reg ALU body ops, then
+// `dec ecx; jnz loop` (back-edge to the block entry), then hlt. ecx is a small
+// trip count so KVM runs it fast. Validates GENERAL arch-reg loops native vs
+// KVM (multi-iteration register/flag evolution across the native back-edge),
+// generalizing the fixed `smir_native_loop_dragon` to arbitrary bodies.
+//   loop: <body...> ; dec ecx ; jnz loop ; hlt        (ecx = trip via init)
+fn gen_loop_case(rng: &mut Rng) -> (Vec<u8>, Registers, CompareOpts, String) {
+    let ops: &[(u8, &str)] = &[
+        (0x01, "add"), (0x29, "sub"), (0x31, "xor"), (0x21, "and"), (0x09, "or"),
+    ];
+    // 32-bit reg encodings, excluding ecx(1)=counter, esp(4), ebp(5).
+    let regs = [0u8, 3, 2, 6, 7]; // eax, ebx, edx, esi, edi
+    let nbody = (rng.below(3) + 1) as usize;
+    let mut code = Vec::new();
+    let mut desc = String::new();
+    for _ in 0..nbody {
+        let &(op, name) = rng.pick(ops);
+        let d = *rng.pick(&regs);
+        let s = *rng.pick(&regs);
+        code.push(op);
+        code.push(0xC0 | (s << 3) | d); // modrm: mod=11, reg=src, rm=dst
+        desc.push_str(&format!("{name} r{d},r{s}; "));
+    }
+    code.extend_from_slice(&[0xFF, 0xC9]); // dec ecx
+    let jnz_end = code.len() + 2;
+    let rel = -(jnz_end as i64); // back-edge to CODE_ADDR (block entry)
+    code.push(0x75); // jnz
+    code.push((rel as i8) as u8);
+    code.push(0xF4); // hlt
+
+    let trip = rng.below(40) + 2; // 2..=41 iterations
+    let mut r = Registers::default();
+    r.rax = rng.next_u64();
+    r.rbx = rng.next_u64();
+    r.rdx = rng.next_u64();
+    r.rsi = rng.next_u64();
+    r.rdi = rng.next_u64();
+    r.rcx = trip;
+    r.rflags = 0x2;
+    let inputs = format!("loop x{trip}: {desc}");
+    (code, r, CompareOpts::default(), inputs)
+}
+
+#[test]
+fn smir_native_loop() {
+    let mut rng = Rng::new(0x100_9EE7_C0DE_5A5A);
+    let mut stats = SmirStats::new();
+    for _ in 0..400 {
+        let (code, r, opts, inputs) = gen_loop_case(&mut rng);
+        if !stats.check_native_cfg("smir_native_loop", &code, r, [0u8; 64], opts, inputs) {
+            break;
+        }
+    }
+    stats.finish("native_loop");
+}
