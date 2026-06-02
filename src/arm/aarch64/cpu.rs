@@ -9516,10 +9516,8 @@ impl AArch64Cpu {
                 let r = if is_fmul {
                     match esz {
                         2 => fp16_mul(ne as u16, mm as u16) as u64,
-                        4 => {
-                            (f32::from_bits(ne as u32) * f32::from_bits(mm as u32)).to_bits() as u64
-                        }
-                        _ => (f64::from_bits(ne) * f64::from_bits(mm)).to_bits(),
+                        4 => fp_three_same_f32(FpKind::Mul, ne as u32, mm as u32, 0) as u64,
+                        _ => fp_three_same_f64(FpKind::Mul, ne, mm, 0),
                     }
                 } else {
                     let nn = if is_fmls { fp_neg_bits(ne, ebits) } else { ne };
@@ -9916,7 +9914,8 @@ impl AArch64Cpu {
             0b00110 => (FpKind::Max, false),
             0b00111 => (FpKind::Min, false),
             0b01000 => (FpKind::Abd, false),
-            0b01100 => (FpKind::Div, true), // FDIVR
+            0b01010 => (FpKind::Mulx, false), // FMULX
+            0b01100 => (FpKind::Div, true),   // FDIVR
             0b01101 => (FpKind::Div, false),
             _ => return Ok(CpuExit::Undefined(insn)),
         };
@@ -14903,42 +14902,160 @@ fn fp_two_reg_f64(kind: TwoRegFp, bits: u64) -> u64 {
 }
 
 /// Compute one f32 element of an Advanced SIMD three-same FP operation.
+#[inline]
+fn is_nan32(x: u32) -> bool {
+    x & 0x7F80_0000 == 0x7F80_0000 && x & 0x007F_FFFF != 0
+}
+#[inline]
+fn is_snan32(x: u32) -> bool {
+    is_nan32(x) && x & 0x0040_0000 == 0
+}
+#[inline]
+fn is_nan64(x: u64) -> bool {
+    x & 0x7FF0_0000_0000_0000 == 0x7FF0_0000_0000_0000 && x & 0x000F_FFFF_FFFF_FFFF != 0
+}
+#[inline]
+fn is_snan64(x: u64) -> bool {
+    is_nan64(x) && x & 0x0008_0000_0000_0000 == 0
+}
+
+/// ARM FPProcessNaNs for two f32 operands (FPCR.DN=0): a signaling NaN is
+/// quieted (sign+payload preserved), a quiet NaN is returned as-is; sNaN takes
+/// priority, then operand order.
+fn fp32_nan2(a: u32, b: u32) -> Option<u32> {
+    if is_snan32(a) {
+        Some(a | 0x0040_0000)
+    } else if is_snan32(b) {
+        Some(b | 0x0040_0000)
+    } else if is_nan32(a) {
+        Some(a)
+    } else if is_nan32(b) {
+        Some(b)
+    } else {
+        None
+    }
+}
+/// FPProcessNaNs over three f32 operands (for the fused multiply-add forms),
+/// processed in (addend, op1, op2) order as ARM FPMulAdd does.
+fn fp32_nan3(a: u32, b: u32, c: u32) -> Option<u32> {
+    for &x in &[a, b, c] {
+        if is_snan32(x) {
+            return Some(x | 0x0040_0000);
+        }
+    }
+    for &x in &[a, b, c] {
+        if is_nan32(x) {
+            return Some(x);
+        }
+    }
+    None
+}
+fn fp64_nan2(a: u64, b: u64) -> Option<u64> {
+    if is_snan64(a) {
+        Some(a | 0x0008_0000_0000_0000)
+    } else if is_snan64(b) {
+        Some(b | 0x0008_0000_0000_0000)
+    } else if is_nan64(a) {
+        Some(a)
+    } else if is_nan64(b) {
+        Some(b)
+    } else {
+        None
+    }
+}
+fn fp64_nan3(a: u64, b: u64, c: u64) -> Option<u64> {
+    for &x in &[a, b, c] {
+        if is_snan64(x) {
+            return Some(x | 0x0008_0000_0000_0000);
+        }
+    }
+    for &x in &[a, b, c] {
+        if is_nan64(x) {
+            return Some(x);
+        }
+    }
+    None
+}
+
 fn fp_three_same_f32(kind: FpKind, a: u32, b: u32, d: u32) -> u32 {
     use FpKind::*;
+    // ARM NaN handling (FPCR.DN=0, the qemu-user default): a NaN input
+    // propagates quieted; an invalid operation on non-NaN inputs yields the
+    // default NaN 0x7FC00000 (native x86 arithmetic would give 0xFFC00000).
+    match kind {
+        // FABD = FPAbs(FPSub(a,b)): a propagated NaN has its sign cleared.
+        Abd => {
+            if let Some(n) = fp32_nan2(a, b) {
+                return n & 0x7FFF_FFFF;
+            }
+        }
+        Add | Sub | Mul | Div | Mulx | Addp | Max | Maxp | Min | Minp | Recps | Rsqrts => {
+            if let Some(n) = fp32_nan2(a, b) {
+                return n;
+            }
+        }
+        Mla | Mls => {
+            if let Some(n) = fp32_nan3(d, a, b) {
+                return n;
+            }
+        }
+        MaxNm | MaxNmp | MinNm | MinNmp => {
+            // sNaN propagates (quieted); a lone qNaN loses to the number below.
+            if is_snan32(a) {
+                return a | 0x0040_0000;
+            }
+            if is_snan32(b) {
+                return b | 0x0040_0000;
+            }
+        }
+        _ => {}
+    }
     let x = f32::from_bits(a);
     let y = f32::from_bits(b);
     let acc = f32::from_bits(d);
     let mask = |c: bool| if c { u32::MAX } else { 0 };
+    let canon = |r: f32| -> u32 {
+        if r.is_nan() { 0x7FC0_0000 } else { r.to_bits() }
+    };
+    let inf0 = |p: f32, q: f32| (p.is_infinite() && q == 0.0) || (p == 0.0 && q.is_infinite());
     match kind {
-        Add => (x + y).to_bits(),
-        Sub => (x - y).to_bits(),
-        Mul => (x * y).to_bits(),
-        Div => (x / y).to_bits(),
+        Add => canon(x + y),
+        Sub => canon(x - y),
+        Mul => canon(x * y),
+        Div => canon(x / y),
         Mulx => {
-            if (x == 0.0 && y.is_infinite()) || (x.is_infinite() && y == 0.0) {
-                (2.0f32).copysign(x).copysign(y).to_bits()
+            if inf0(x, y) {
+                // FMULX(inf,0)=+/-2.0 with sign = sign(x) XOR sign(y).
+                let neg = x.is_sign_negative() ^ y.is_sign_negative();
+                (if neg { -2.0f32 } else { 2.0f32 }).to_bits()
             } else {
-                (x * y).to_bits()
+                canon(x * y)
             }
         }
-        Mla => x.mul_add(y, acc).to_bits(),
-        Mls => (-x).mul_add(y, acc).to_bits(),
+        Mla => canon(x.mul_add(y, acc)),
+        Mls => canon((-x).mul_add(y, acc)),
         Max | Maxp => fp_max_f32(x, y).to_bits(),
         Min | Minp => fp_min_f32(x, y).to_bits(),
         MaxNm | MaxNmp => {
-            if x.is_nan() {
-                y.to_bits()
-            } else if y.is_nan() {
-                x.to_bits()
+            let (aq, bq) = (is_nan32(a), is_nan32(b));
+            if aq && bq {
+                a
+            } else if aq {
+                b
+            } else if bq {
+                a
             } else {
                 fp_max_f32(x, y).to_bits()
             }
         }
         MinNm | MinNmp => {
-            if x.is_nan() {
-                y.to_bits()
-            } else if y.is_nan() {
-                x.to_bits()
+            let (aq, bq) = (is_nan32(a), is_nan32(b));
+            if aq && bq {
+                a
+            } else if aq {
+                b
+            } else if bq {
+                a
             } else {
                 fp_min_f32(x, y).to_bits()
             }
@@ -14948,50 +15065,99 @@ fn fp_three_same_f32(kind: FpKind, a: u32, b: u32, d: u32) -> u32 {
         CmGt => mask(x > y),
         AcGe => mask(x.abs() >= y.abs()),
         AcGt => mask(x.abs() > y.abs()),
-        Abd => (x - y).abs().to_bits(),
-        Recps => (2.0f32 - x * y).to_bits(),
-        Rsqrts => ((3.0f32 - x * y) / 2.0).to_bits(),
-        Addp => (x + y).to_bits(),
+        Abd => canon((x - y).abs()),
+        Recps => {
+            if inf0(x, y) {
+                2.0f32.to_bits()
+            } else {
+                canon(2.0f32 - x * y)
+            }
+        }
+        Rsqrts => {
+            if inf0(x, y) {
+                1.5f32.to_bits()
+            } else {
+                canon((3.0f32 - x * y) / 2.0)
+            }
+        }
+        Addp => canon(x + y),
     }
 }
 
 /// Compute one f64 element of an Advanced SIMD three-same FP operation.
 fn fp_three_same_f64(kind: FpKind, a: u64, b: u64, d: u64) -> u64 {
     use FpKind::*;
+    match kind {
+        Abd => {
+            if let Some(n) = fp64_nan2(a, b) {
+                return n & 0x7FFF_FFFF_FFFF_FFFF;
+            }
+        }
+        Add | Sub | Mul | Div | Mulx | Addp | Max | Maxp | Min | Minp | Recps | Rsqrts => {
+            if let Some(n) = fp64_nan2(a, b) {
+                return n;
+            }
+        }
+        Mla | Mls => {
+            if let Some(n) = fp64_nan3(d, a, b) {
+                return n;
+            }
+        }
+        MaxNm | MaxNmp | MinNm | MinNmp => {
+            if is_snan64(a) {
+                return a | 0x0008_0000_0000_0000;
+            }
+            if is_snan64(b) {
+                return b | 0x0008_0000_0000_0000;
+            }
+        }
+        _ => {}
+    }
     let x = f64::from_bits(a);
     let y = f64::from_bits(b);
     let acc = f64::from_bits(d);
     let mask = |c: bool| if c { u64::MAX } else { 0 };
+    let canon = |r: f64| -> u64 {
+        if r.is_nan() { 0x7FF8_0000_0000_0000 } else { r.to_bits() }
+    };
+    let inf0 = |p: f64, q: f64| (p.is_infinite() && q == 0.0) || (p == 0.0 && q.is_infinite());
     match kind {
-        Add => (x + y).to_bits(),
-        Sub => (x - y).to_bits(),
-        Mul => (x * y).to_bits(),
-        Div => (x / y).to_bits(),
+        Add => canon(x + y),
+        Sub => canon(x - y),
+        Mul => canon(x * y),
+        Div => canon(x / y),
         Mulx => {
-            if (x == 0.0 && y.is_infinite()) || (x.is_infinite() && y == 0.0) {
-                (2.0f64).copysign(x).copysign(y).to_bits()
+            if inf0(x, y) {
+                let neg = x.is_sign_negative() ^ y.is_sign_negative();
+                (if neg { -2.0f64 } else { 2.0f64 }).to_bits()
             } else {
-                (x * y).to_bits()
+                canon(x * y)
             }
         }
-        Mla => x.mul_add(y, acc).to_bits(),
-        Mls => (-x).mul_add(y, acc).to_bits(),
+        Mla => canon(x.mul_add(y, acc)),
+        Mls => canon((-x).mul_add(y, acc)),
         Max | Maxp => fp_max_f64(x, y).to_bits(),
         Min | Minp => fp_min_f64(x, y).to_bits(),
         MaxNm | MaxNmp => {
-            if x.is_nan() {
-                y.to_bits()
-            } else if y.is_nan() {
-                x.to_bits()
+            let (aq, bq) = (is_nan64(a), is_nan64(b));
+            if aq && bq {
+                a
+            } else if aq {
+                b
+            } else if bq {
+                a
             } else {
                 fp_max_f64(x, y).to_bits()
             }
         }
         MinNm | MinNmp => {
-            if x.is_nan() {
-                y.to_bits()
-            } else if y.is_nan() {
-                x.to_bits()
+            let (aq, bq) = (is_nan64(a), is_nan64(b));
+            if aq && bq {
+                a
+            } else if aq {
+                b
+            } else if bq {
+                a
             } else {
                 fp_min_f64(x, y).to_bits()
             }
@@ -15001,10 +15167,22 @@ fn fp_three_same_f64(kind: FpKind, a: u64, b: u64, d: u64) -> u64 {
         CmGt => mask(x > y),
         AcGe => mask(x.abs() >= y.abs()),
         AcGt => mask(x.abs() > y.abs()),
-        Abd => (x - y).abs().to_bits(),
-        Recps => (2.0f64 - x * y).to_bits(),
-        Rsqrts => ((3.0f64 - x * y) / 2.0).to_bits(),
-        Addp => (x + y).to_bits(),
+        Abd => canon((x - y).abs()),
+        Recps => {
+            if inf0(x, y) {
+                2.0f64.to_bits()
+            } else {
+                canon(2.0f64 - x * y)
+            }
+        }
+        Rsqrts => {
+            if inf0(x, y) {
+                1.5f64.to_bits()
+            } else {
+                canon((3.0f64 - x * y) / 2.0)
+            }
+        }
+        Addp => canon(x + y),
     }
 }
 
@@ -15823,22 +16001,30 @@ fn sve_recps(esize: usize, x: u64, y: u64) -> u64 {
     match esize {
         2 => fp16_recps(x as u16, y as u16) as u64,
         4 => {
+            // FPRecipStepFused negates op1 first, so the propagated NaN sign
+            // flips relative to the original op1.
+            if let Some(n) = fp32_nan2((x as u32) ^ 0x8000_0000, y as u32) {
+                return n as u64;
+            }
             let (a, b) = (f32::from_bits(x as u32), f32::from_bits(y as u32));
             let r = if (a.is_infinite() && b == 0.0) || (b.is_infinite() && a == 0.0) {
                 2.0
             } else {
                 (-a).mul_add(b, 2.0)
             };
-            r.to_bits() as u64
+            (if r.is_nan() { 0x7FC0_0000 } else { r.to_bits() }) as u64
         }
         _ => {
+            if let Some(n) = fp64_nan2(x ^ 0x8000_0000_0000_0000, y) {
+                return n;
+            }
             let (a, b) = (f64::from_bits(x), f64::from_bits(y));
             let r = if (a.is_infinite() && b == 0.0) || (b.is_infinite() && a == 0.0) {
                 2.0
             } else {
                 (-a).mul_add(b, 2.0)
             };
-            r.to_bits()
+            if r.is_nan() { 0x7FF8_0000_0000_0000 } else { r.to_bits() }
         }
     }
 }
@@ -15848,22 +16034,28 @@ fn sve_rsqrts(esize: usize, x: u64, y: u64) -> u64 {
     match esize {
         2 => fp16_rsqrts(x as u16, y as u16) as u64,
         4 => {
+            if let Some(n) = fp32_nan2((x as u32) ^ 0x8000_0000, y as u32) {
+                return n as u64;
+            }
             let (a, b) = (f32::from_bits(x as u32), f32::from_bits(y as u32));
             let r = if (a.is_infinite() && b == 0.0) || (b.is_infinite() && a == 0.0) {
                 1.5
             } else {
                 (-a).mul_add(b, 3.0) * 0.5
             };
-            r.to_bits() as u64
+            (if r.is_nan() { 0x7FC0_0000 } else { r.to_bits() }) as u64
         }
         _ => {
+            if let Some(n) = fp64_nan2(x ^ 0x8000_0000_0000_0000, y) {
+                return n;
+            }
             let (a, b) = (f64::from_bits(x), f64::from_bits(y));
             let r = if (a.is_infinite() && b == 0.0) || (b.is_infinite() && a == 0.0) {
                 1.5
             } else {
                 (-a).mul_add(b, 3.0) * 0.5
             };
-            r.to_bits()
+            if r.is_nan() { 0x7FF8_0000_0000_0000 } else { r.to_bits() }
         }
     }
 }
@@ -16384,7 +16576,8 @@ fn fp16_abd(a: u16, b: u16) -> u16 {
 }
 
 fn fp16_recps(a: u16, b: u16) -> u16 {
-    if let Some(n) = fp16_nan2(a, b) {
+    // FPRecipStepFused negates op1 first, flipping the propagated NaN sign.
+    if let Some(n) = fp16_nan2(a ^ 0x8000, b) {
         return n;
     }
     if (fp16_is_zero(a) && fp16_is_inf(b)) || (fp16_is_inf(a) && fp16_is_zero(b)) {
@@ -16394,7 +16587,7 @@ fn fp16_recps(a: u16, b: u16) -> u16 {
 }
 
 fn fp16_rsqrts(a: u16, b: u16) -> u16 {
-    if let Some(n) = fp16_nan2(a, b) {
+    if let Some(n) = fp16_nan2(a ^ 0x8000, b) {
         return n;
     }
     if (fp16_is_zero(a) && fp16_is_inf(b)) || (fp16_is_inf(a) && fp16_is_zero(b)) {

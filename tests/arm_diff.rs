@@ -3479,6 +3479,56 @@ fn diff_sve_sincdecp() {
     run_batch("sve_sincdecp", batch);
 }
 
+#[test]
+fn diff_sve_fp_specials() {
+    // SVE predicated FP arithmetic and FP step ops with NaN/inf/denormal/-0
+    // operands: exercises ARM's default-NaN-for-invalid-op rule and quiet-NaN
+    // propagation (FPCR.DN=0), which native x86 f32/f64 arithmetic gets wrong
+    // (x86 indefinite NaN 0xFFC00000 vs ARM default 0x7FC00000), plus the
+    // FRECPS/FRSQRTS FPNeg-first NaN sign and the FMULX inf*0 -> +/-2.0 sign.
+    let enc: [u32; 23] = [
+        0x65808420, 0x65818420, 0x65828420, 0x658d8420, 0x65cc8420, 0x65838420, 0x65848420,
+        0x65858420, 0x65c68420, 0x65878420, 0x65888420, 0x658a8420, 0x65ca8420, 0x65a20420,
+        0x65e22420, 0x65a24420, 0x64b22020, 0x64aa0020, 0x65821820, 0x65c21c20, 0x65421820,
+        0x65c08420, 0x65408420,
+    ];
+    let specials: [u64; 12] = [
+        0x7F800000_7F800000,
+        0xFF800000_FF800000,
+        0x7FC00000_7FC00000,
+        0x7F800001_FF800001,
+        0x00000001_80000001,
+        0x80000000_00000000,
+        0x3F800000_BF800000,
+        0x7F7FFFFF_FF7FFFFF,
+        0x7FF0000000000000,
+        0xFFF0000000000000,
+        0x7FF8000000000000,
+        0x0008000000000000,
+    ];
+    let mut rng = Rng::new(0x1_0038);
+    let mut batch: Vec<(String, u32, ArmState)> = Vec::new();
+    for (k, &insn) in enc.iter().enumerate() {
+        for (i, &sp) in specials.iter().enumerate() {
+            let mut st = ArmState::zeroed();
+            st.set_vreg(0, sp, specials[(i + 3) % specials.len()]);
+            st.set_vreg(1, sp, specials[(i + 5) % specials.len()]);
+            st.set_vreg(2, specials[(i + 7) % specials.len()], sp);
+            st.set_preg(1, rng.next() as u16);
+            batch.push((format!("fp{k}"), insn, st));
+        }
+        for _ in 0..14 {
+            let mut st = ArmState::zeroed();
+            for z in 0..3usize {
+                st.set_vreg(z, rng.next(), rng.next());
+            }
+            st.set_preg(1, rng.next() as u16);
+            batch.push((format!("fp{k} rnd"), insn, st));
+        }
+    }
+    run_batch("sve_fp_specials", batch);
+}
+
 /// SVE predicate-on-predicate logical: `00100101 bit23 S 00 Pm 01 Pg o2 Pn o3
 /// Pd`. The S-bit forms set NZCV; SEL is (bit23,o2,o3)=(0,1,1). Pg=p1, Pn=p2,
 /// Pm=p3, Pd=p0.
