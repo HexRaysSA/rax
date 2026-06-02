@@ -6611,6 +6611,54 @@ impl AArch64Cpu {
                 Ok(CpuExit::Continue)
             }
 
+            // SVE2 CDOT by indexed element: 0x44, bit21==1, bits[15:12]==0100.
+            // Like CDOT but the Zm complex element is taken from a fixed index
+            // within the 128-bit segment and shared across the segment. .s:
+            // index=bits[20:19], Zm=bits[18:16]; .d: index=bit20, Zm=bits[19:16].
+            0b010
+                if (insn >> 24) & 0xFF == 0b01000100
+                    && (insn >> 21) & 1 == 1
+                    && (insn >> 12) & 0xF == 0b0100 =>
+            {
+                let size = (insn >> 22) & 0x3;
+                if size < 2 {
+                    return Ok(CpuExit::Undefined(insn));
+                }
+                let esize = 1usize << size;
+                let nb = esize / 4;
+                let nbits = (nb * 8) as u32;
+                let dbits = (esize * 8) as u32;
+                let mask = elem_mask(dbits);
+                let rot = (insn >> 10) & 0x3;
+                let sel_a = (rot & 1) as usize;
+                let sel_b = sel_a ^ 1;
+                let sub_i: i128 = if rot == 0 || rot == 3 { -1 } else { 1 };
+                let (index, zmr) = if size == 2 {
+                    (((insn >> 19) & 0x3) as usize, ((insn >> 16) & 0x7) as usize)
+                } else {
+                    (((insn >> 20) & 1) as usize, ((insn >> 16) & 0xF) as usize)
+                };
+                let n = self.v[zn].to_le_bytes();
+                let m = self.v[zmr].to_le_bytes();
+                let a = self.v[zd].to_le_bytes();
+                let m_base = index * esize;
+                let mut dst = [0u8; 16];
+                for e in 0..(16 / esize) {
+                    let mut acc = sext_elem(read_elem(&a, e * esize, esize), dbits);
+                    let nbase = e * esize;
+                    for i in 0..2 {
+                        let e1r = sext_elem(read_elem(&n, nbase + i * 2 * nb, nb), nbits);
+                        let e1i = sext_elem(read_elem(&n, nbase + i * 2 * nb + nb, nb), nbits);
+                        let e2a = sext_elem(read_elem(&m, m_base + i * 2 * nb + nb * sel_a, nb), nbits);
+                        let e2b = sext_elem(read_elem(&m, m_base + i * 2 * nb + nb * sel_b, nb), nbits);
+                        acc += e1r * e2a + e1i * e2b * sub_i;
+                    }
+                    write_elem(&mut dst, e * esize, esize, acc as u64 & mask);
+                }
+                self.v[zd] = u128::from_le_bytes(dst);
+                Ok(CpuExit::Continue)
+            }
+
             // SVE integer dot product (vector): 0x44, bit21==0, with bit23==1
             // and bits[15:11]==00000 (SDOT/UDOT, u=bit10) or bits[23:22]==10 and
             // bits[15:10]==011110 (USDOT).

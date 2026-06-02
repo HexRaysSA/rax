@@ -3480,6 +3480,27 @@ fn diff_sve_sincdecp() {
 }
 
 #[test]
+fn diff_sve2_cdot_indexed() {
+    // SVE2 CDOT by indexed element (complex integer dot product): the Zm
+    // complex element is taken from a fixed index in the segment.
+    let enc: [u32; 6] = [
+        0x44a24020, 0x44ba4420, 0x44aa4820, 0x44b24c20, 0x44e24420, 0x44f24c20,
+    ];
+    let mut rng = Rng::new(0x1_0039);
+    let mut batch: Vec<(String, u32, ArmState)> = Vec::new();
+    for (k, &insn) in enc.iter().enumerate() {
+        for _ in 0..20 {
+            let mut st = ArmState::zeroed();
+            for z in 0..3usize {
+                st.set_vreg(z, rng.next(), rng.next());
+            }
+            batch.push((format!("cdoti{k}"), insn, st));
+        }
+    }
+    run_batch("sve2_cdot_indexed", batch);
+}
+
+#[test]
 fn diff_sve_fp_specials() {
     // SVE predicated FP arithmetic and FP step ops with NaN/inf/denormal/-0
     // operands: exercises ARM's default-NaN-for-invalid-op rule and quiet-NaN
