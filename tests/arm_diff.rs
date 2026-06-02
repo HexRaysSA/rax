@@ -1669,6 +1669,19 @@ fn enc_sve2_fmlal(sub: u32, top: u32) -> u32 {
         | RD
 }
 
+/// SVE2 ADCLB/ADCLT/SBCLB/SBCLT: `0100 0101 inv size 0 Zm 11010 T Zn Zda`.
+/// inv=bit23 (0=ADC,1=SBC); d_form=bit22 (0=.s,1=.d); T=bit10.
+fn enc_sve2_adcl(inv: u32, d_form: u32, top: u32) -> u32 {
+    (0x45 << 24) | (inv << 23) | (d_form << 22) | (RM << 16) | (0b11010 << 11) | (top << 10)
+        | (RN << 5)
+        | RD
+}
+
+/// SVE2 EORBT/EORTB: `0100 0101 size 0 Zm 10010 TB Zn Zd`. TB=bit10 (0=EORBT).
+fn enc_sve2_eorbt(size: u32, tb: u32) -> u32 {
+    (0x45 << 24) | (size << 22) | (RM << 16) | (0b10010 << 11) | (tb << 10) | (RN << 5) | RD
+}
+
 /// SVE2 PMULLB/PMULLT: `0100 0101 size 0 Zm 011 01 T Zn Zd`. size: 0=.q(64->128),
 /// 1=.h(8->16), 3=.d(32->64); T=bit10 (0=B,1=T). Zn=z1(RN), Zm=z2(RM), Zd=z0(RD).
 fn enc_sve2_pmull(size: u32, top: u32) -> u32 {
@@ -2869,6 +2882,52 @@ fn diff_sve2_fmlal() {
         }
     }
     run_batch("sve2_fmlal", batch);
+}
+
+#[test]
+fn diff_sve2_adcl() {
+    // ADCLB/ADCLT/SBCLB/SBCLT long add/subtract with carry. The carry-in comes
+    // from the high half of each Zm element, so random Zm exercises both carry
+    // states; .s and .d, both halves, add and subtract.
+    let mut rng = Rng::new(0x6_c001);
+    let mut batch: Vec<(String, u32, ArmState)> = Vec::new();
+    for inv in 0..2u32 {
+        for d_form in 0..2u32 {
+            for top in 0..2u32 {
+                let insn = enc_sve2_adcl(inv, d_form, top);
+                let nm = if inv == 1 { "sbcl" } else { "adcl" };
+                for _ in 0..20 {
+                    let mut st = ArmState::zeroed();
+                    st.set_vreg(1, rng.next(), rng.next());
+                    st.set_vreg(2, rng.next(), rng.next());
+                    st.set_vreg(0, rng.next(), rng.next());
+                    batch.push((format!("{nm} d{d_form} t{top}"), insn, st));
+                }
+            }
+        }
+    }
+    run_batch("sve2_adcl", batch);
+}
+
+#[test]
+fn diff_sve2_eorbt() {
+    // EORBT/EORTB interleaving exclusive OR; the unwritten half of Zd must be
+    // preserved, so a random prior Zd is supplied.
+    let mut rng = Rng::new(0x6_e001);
+    let mut batch: Vec<(String, u32, ArmState)> = Vec::new();
+    for size in 0..4u32 {
+        for tb in 0..2u32 {
+            let insn = enc_sve2_eorbt(size, tb);
+            for _ in 0..16 {
+                let mut st = ArmState::zeroed();
+                st.set_vreg(1, rng.next(), rng.next());
+                st.set_vreg(2, rng.next(), rng.next());
+                st.set_vreg(0, rng.next(), rng.next()); // prior Zd
+                batch.push((format!("eorbt s{size} tb{tb}"), insn, st));
+            }
+        }
+    }
+    run_batch("sve2_eorbt", batch);
 }
 
 #[test]

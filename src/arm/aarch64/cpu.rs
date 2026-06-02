@@ -6114,6 +6114,70 @@ impl AArch64Cpu {
                 self.exec_sve2_crypto(insn)
             }
 
+            // SVE2 ADCLB/ADCLT/SBCLB/SBCLT (long add/subtract with carry): 0x45,
+            // bit21==0, bits[15:11]==11010. The carry-in is bit `esize` of each
+            // Zm element; bit23 inverts the Zn operand (SBCL = add of the one's
+            // complement); bit22 selects .d (1) / .s (0); bit10 (T) the odd/even
+            // Zn half. Zda holds the low half; the full sum (with carry-out) is
+            // written across the doubled container.
+            0b010
+                if (insn >> 24) & 0xFF == 0b01000101
+                    && (insn >> 21) & 1 == 0
+                    && (insn >> 11) & 0x1F == 0b11010 =>
+            {
+                let d_form = (insn >> 22) & 1 == 1;
+                let top = ((insn >> 10) & 1) as u32;
+                let inv = (insn >> 23) & 1 == 1;
+                if d_form {
+                    let e1 = self.v[zd] as u64;
+                    let mut e2 = (self.v[zn] >> (top * 64)) as u64;
+                    if inv {
+                        e2 = !e2;
+                    }
+                    let c = ((self.v[zm] >> 64) & 1) as u64;
+                    self.v[zd] = (e1 as u128) + (e2 as u128) + (c as u128);
+                } else {
+                    let mut dst = 0u128;
+                    for i in 0..2 {
+                        let e1 = (self.v[zd] >> (i * 64)) as u32;
+                        let mut e2 = ((self.v[zn] >> (i * 64)) >> (top * 32)) as u32;
+                        if inv {
+                            e2 = !e2;
+                        }
+                        let c = ((self.v[zm] >> (i * 64 + 32)) & 1) as u32;
+                        let sum = e1 as u64 + e2 as u64 + c as u64; // 33-bit, holds carry-out
+                        dst |= (sum as u128) << (i * 64);
+                    }
+                    self.v[zd] = dst;
+                }
+                Ok(CpuExit::Continue)
+            }
+
+            // SVE2 EORBT/EORTB (interleaving exclusive OR): 0x45, bit21==0,
+            // bits[15:11]==10010, bit10 selects EORTB(1)/EORBT(0). EORBT writes
+            // the even result lanes as Zn_even ^ Zm_odd (odd lanes keep the prior
+            // Zd); EORTB writes the odd lanes as Zn_odd ^ Zm_even.
+            0b010
+                if (insn >> 24) & 0xFF == 0b01000101
+                    && (insn >> 21) & 1 == 0
+                    && (insn >> 11) & 0x1F == 0b10010 =>
+            {
+                let esize = 1usize << ((insn >> 22) & 0x3);
+                let tb = (insn >> 10) & 1 == 1; // EORTB
+                let (sel1, sel2) = if tb { (1usize, 0usize) } else { (0usize, 1usize) };
+                let n = self.v[zn].to_le_bytes();
+                let m = self.v[zm].to_le_bytes();
+                let mut dst = self.v[zd].to_le_bytes(); // keep prior Zd in unwritten lanes
+                for p in 0..((16 / esize) / 2) {
+                    let base = 2 * p * esize;
+                    let nn = read_elem(&n, base + sel1 * esize, esize);
+                    let mm = read_elem(&m, base + sel2 * esize, esize);
+                    write_elem(&mut dst, base + sel1 * esize, esize, nn ^ mm);
+                }
+                self.v[zd] = u128::from_le_bytes(dst);
+                Ok(CpuExit::Continue)
+            }
+
             // Load/Store
             0b100 | 0b101 | 0b110 | 0b111 => self.exec_sve_ldst(insn),
 
