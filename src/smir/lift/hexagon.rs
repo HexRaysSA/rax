@@ -4640,6 +4640,49 @@ impl HexagonLifter {
                 });
             }
 
+            // ---- vmpyie/vmpyio: word * (even/odd) sub-halfword of Vv, low 32 ----
+            // sem (hvx_mpys.rs): per word lane i (out_elem=I32),
+            //   V6_vmpyiewuh:      Vd.w[i] = sw(Vu,i) * uh(Vv, 2i)     (even, UNsigned hw)
+            //   V6_vmpyiewuh_acc:  Vx.w[i] += sw(Vu,i) * uh(Vv, 2i)
+            //   V6_vmpyiowh:       Vd.w[i] = sw(Vu,i) * sh(Vv, 2i+1)   (odd, signed hw)
+            //   V6_vmpyiewh_acc:   Vx.w[i] += sw(Vu,i) * sh(Vv, 2i)    (even, signed hw)
+            // VMulSubLane with out_elem=I32 (olanes=32), sub_elem=I16 (ratio=2)
+            // reads src1 word lane i (== sw(Vu,i)) and src2 sub-half index
+            // i*2 + (odd?1:0) — exactly the even (2i) / odd (2i+1) halfword of
+            // word lane i of Vv. signed1=true (sw); signed2 selects uh vs sh.
+            // The product's low 32 bits match the sem's `as u32`; the acc path
+            // sign-extends the 32-bit lane (== sem's `get_w_signed`). dst base =
+            // fld('d') (plain) / fld('x') (_acc). There is no non-acc vmpyiewh.
+            Opcode::V6_vmpyiewuh
+            | Opcode::V6_vmpyiewuh_acc
+            | Opcode::V6_vmpyiowh
+            | Opcode::V6_vmpyiewh_acc => {
+                let acc = matches!(
+                    op,
+                    Opcode::V6_vmpyiewuh_acc | Opcode::V6_vmpyiewh_acc
+                );
+                let (odd, signed2) = match op {
+                    // even, unsigned halfword
+                    Opcode::V6_vmpyiewuh | Opcode::V6_vmpyiewuh_acc => (false, false),
+                    // odd, signed halfword
+                    Opcode::V6_vmpyiowh => (true, true),
+                    // even, signed halfword (vmpyiewh_acc)
+                    _ => (false, true),
+                };
+                let base = if acc { rx_n } else { rd_n };
+                push_op!(OpKind::VMulSubLane {
+                    dst: self.hex_v(base),
+                    src1: self.hex_v(fld(b'u')),
+                    src2: self.hex_v(fld(b'v')),
+                    out_elem: VecElementType::I32,
+                    sub_elem: VecElementType::I16,
+                    odd,
+                    signed1: true,
+                    signed2,
+                    acc,
+                });
+            }
+
             // Everything else: not implemented here.
             _ => return Err(unsupported()),
         }

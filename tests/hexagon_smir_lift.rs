@@ -1503,3 +1503,24 @@ fn lift_hvx_vmpyihb_scalar() {
         0x7032,
     );
 }
+
+// vmpyie/vmpyio: word * (even/odd) sub-halfword of Vv, low 32, via VMulSubLane.
+//   vmpyiewuh:     Vd.w[i] = Vu.w[i] * Vv.uh[even hw of word i]   (even, unsigned)
+//   vmpyiewuh_acc: Vx.w[i] += same
+//   vmpyiowh:      Vd.w[i] = Vu.w[i] * Vv.h[odd  hw of word i]    (odd, signed)
+//   vmpyiewh_acc:  Vx.w[i] += Vu.w[i] * Vv.h[even hw of word i]   (even, signed)
+// The `_acc` forms seed the dest vector to exercise the read-modify-write path.
+#[test]
+fn lift_hvx_vmpyie_vmpyio() {
+    lift_family(
+        "hvx_vmpyie_vmpyio",
+        &[
+            ("vmpyiewuh", "{ v2.w = vmpyie(v0.w,v1.uh) }"),
+            ("vmpyiewuh_acc", "{ v2.w += vmpyie(v0.w,v1.uh) }"),
+            ("vmpyiowh", "{ v2.w = vmpyio(v0.w,v1.h) }"),
+            ("vmpyiewh_acc", "{ v2.w += vmpyie(v0.w,v1.h) }"),
+        ],
+        16,
+        0x7033,
+    );
+}
