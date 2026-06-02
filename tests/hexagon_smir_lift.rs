@@ -927,3 +927,51 @@ fn lift_hvx_vabsdiff() {
         0x700e,
     );
 }
+
+// ---- Wave 3: vector-by-vector WIDENING multiplies (OpKind::VWidenMul) ----
+// `Vdd.<2w> = vmpy(Vu.<w>,Vv.<w>)`: each pair of adjacent narrow lanes is
+// multiplied into a double-width product; even narrow lanes' products -> the
+// low dest vector (V[base]), odd lanes' -> the high (V[base+1]). The dest is a
+// register PAIR (`v3:2` => base v2, hi v3). Mirrors sem/hvx_mpyv.rs.
+#[test]
+fn lift_hvx_vmpyv_widen() {
+    lift_family(
+        "hvx_vmpyv_widen",
+        &[
+            // signed byte x signed byte -> halfword pair
+            ("vmpybv", "{ v3:2.h = vmpy(v0.b,v1.b) }"),
+            // unsigned byte x signed byte -> halfword pair
+            ("vmpybusv", "{ v3:2.h = vmpy(v0.ub,v1.b) }"),
+            // unsigned byte x unsigned byte -> uh pair
+            ("vmpyubv", "{ v3:2.uh = vmpy(v0.ub,v1.ub) }"),
+            // signed half x signed half -> word pair
+            ("vmpyhv", "{ v3:2.w = vmpy(v0.h,v1.h) }"),
+            // signed half x unsigned half -> word pair
+            ("vmpyhus", "{ v3:2.w = vmpy(v0.h,v1.uh) }"),
+            // unsigned half x unsigned half -> uw pair
+            ("vmpyuhv", "{ v3:2.uw = vmpy(v0.uh,v1.uh) }"),
+        ],
+        12,
+        0x700f,
+    );
+}
+
+#[test]
+fn lift_hvx_vmpyv_widen_acc() {
+    // Accumulate forms (`Vxx += ...`): read-modify-write of the dst pair. The
+    // harness seeds all V registers with random values, so v2/v3 are non-zero
+    // and the read-modify-write path is exercised.
+    lift_family(
+        "hvx_vmpyv_widen_acc",
+        &[
+            ("vmpybv_acc", "{ v3:2.h += vmpy(v0.b,v1.b) }"),
+            ("vmpybusv_acc", "{ v3:2.h += vmpy(v0.ub,v1.b) }"),
+            ("vmpyubv_acc", "{ v3:2.uh += vmpy(v0.ub,v1.ub) }"),
+            ("vmpyhv_acc", "{ v3:2.w += vmpy(v0.h,v1.h) }"),
+            ("vmpyhus_acc", "{ v3:2.w += vmpy(v0.h,v1.uh) }"),
+            ("vmpyuhv_acc", "{ v3:2.uw += vmpy(v0.uh,v1.uh) }"),
+        ],
+        12,
+        0x7010,
+    );
+}

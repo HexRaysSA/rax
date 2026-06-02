@@ -2689,6 +2689,109 @@ impl HexagonLifter {
             Opcode::V6_vabsdiffh => vlane!(VLaneOp::AbsDiff, VecElementType::I16, 64, true),
             Opcode::V6_vabsdiffw => vlane!(VLaneOp::AbsDiff, VecElementType::I32, 32, true),
 
+            // ============================================================
+            // HVX vector-by-vector WIDENING multiplies -> register PAIR.
+            //
+            // `Vdd.<2w> = vmpy(Vu.<w>, Vv.<w>)` (and the `Vxx += ...` acc form):
+            // each pair of adjacent NARROW lanes is multiplied into a
+            // double-width product; the EVEN narrow lanes' products go to the
+            // low vector (V[base]) and the ODD lanes' to the high (V[base+1]).
+            // OpKind::VWidenMul models exactly this layout (see interp.rs):
+            // even/odd split, per-operand signedness, and `acc` read-modify-
+            // write of the dst pair. `src_elem` is the NARROW lane type — I8
+            // for byte multiplies (-> halfword pair), I16 for half (-> word
+            // pair). The dst pair base is `fld(b'd')` for the plain form and
+            // `fld(b'x')` for the `_acc` form (which reads+writes that pair).
+            //
+            // Mapping (confirmed against sem/hvx_mpyv.rs):
+            //   vmpybv   Vu.b  x Vv.b  -> .h pair  signed×signed
+            //   vmpybusv Vu.ub x Vv.b  -> .h pair  unsigned×signed
+            //   vmpyubv  Vu.ub x Vv.ub -> .uh pair unsigned×unsigned
+            //   vmpyhv   Vu.h  x Vv.h  -> .w pair  signed×signed
+            //   vmpyhus  Vu.h  x Vv.uh -> .w pair  signed×unsigned
+            //   vmpyuhv  Vu.uh x Vv.uh -> .uw pair unsigned×unsigned
+            // The sem layer wraps the (acc + product) into the lane width via
+            // `as u16`/`as u32`, identical to VWidenMul's wrapping_add + masked
+            // set_lane, so signed/unsigned accumulate forms are bit-identical.
+            Opcode::V6_vmpybv | Opcode::V6_vmpybv_acc => {
+                let base = if matches!(op, Opcode::V6_vmpybv_acc) { rx_n } else { rd_n };
+                push_op!(OpKind::VWidenMul {
+                    dst_lo: self.hex_v(base),
+                    dst_hi: self.hex_v(base + 1),
+                    src1: self.hex_v(fld(b'u')),
+                    src2: self.hex_v(fld(b'v')),
+                    src_elem: VecElementType::I8,
+                    signed1: true,
+                    signed2: true,
+                    acc: matches!(op, Opcode::V6_vmpybv_acc),
+                });
+            }
+            Opcode::V6_vmpybusv | Opcode::V6_vmpybusv_acc => {
+                let base = if matches!(op, Opcode::V6_vmpybusv_acc) { rx_n } else { rd_n };
+                push_op!(OpKind::VWidenMul {
+                    dst_lo: self.hex_v(base),
+                    dst_hi: self.hex_v(base + 1),
+                    src1: self.hex_v(fld(b'u')),
+                    src2: self.hex_v(fld(b'v')),
+                    src_elem: VecElementType::I8,
+                    signed1: false,
+                    signed2: true,
+                    acc: matches!(op, Opcode::V6_vmpybusv_acc),
+                });
+            }
+            Opcode::V6_vmpyubv | Opcode::V6_vmpyubv_acc => {
+                let base = if matches!(op, Opcode::V6_vmpyubv_acc) { rx_n } else { rd_n };
+                push_op!(OpKind::VWidenMul {
+                    dst_lo: self.hex_v(base),
+                    dst_hi: self.hex_v(base + 1),
+                    src1: self.hex_v(fld(b'u')),
+                    src2: self.hex_v(fld(b'v')),
+                    src_elem: VecElementType::I8,
+                    signed1: false,
+                    signed2: false,
+                    acc: matches!(op, Opcode::V6_vmpyubv_acc),
+                });
+            }
+            Opcode::V6_vmpyhv | Opcode::V6_vmpyhv_acc => {
+                let base = if matches!(op, Opcode::V6_vmpyhv_acc) { rx_n } else { rd_n };
+                push_op!(OpKind::VWidenMul {
+                    dst_lo: self.hex_v(base),
+                    dst_hi: self.hex_v(base + 1),
+                    src1: self.hex_v(fld(b'u')),
+                    src2: self.hex_v(fld(b'v')),
+                    src_elem: VecElementType::I16,
+                    signed1: true,
+                    signed2: true,
+                    acc: matches!(op, Opcode::V6_vmpyhv_acc),
+                });
+            }
+            Opcode::V6_vmpyhus | Opcode::V6_vmpyhus_acc => {
+                let base = if matches!(op, Opcode::V6_vmpyhus_acc) { rx_n } else { rd_n };
+                push_op!(OpKind::VWidenMul {
+                    dst_lo: self.hex_v(base),
+                    dst_hi: self.hex_v(base + 1),
+                    src1: self.hex_v(fld(b'u')),
+                    src2: self.hex_v(fld(b'v')),
+                    src_elem: VecElementType::I16,
+                    signed1: true,
+                    signed2: false,
+                    acc: matches!(op, Opcode::V6_vmpyhus_acc),
+                });
+            }
+            Opcode::V6_vmpyuhv | Opcode::V6_vmpyuhv_acc => {
+                let base = if matches!(op, Opcode::V6_vmpyuhv_acc) { rx_n } else { rd_n };
+                push_op!(OpKind::VWidenMul {
+                    dst_lo: self.hex_v(base),
+                    dst_hi: self.hex_v(base + 1),
+                    src1: self.hex_v(fld(b'u')),
+                    src2: self.hex_v(fld(b'v')),
+                    src_elem: VecElementType::I16,
+                    signed1: false,
+                    signed2: false,
+                    acc: matches!(op, Opcode::V6_vmpyuhv_acc),
+                });
+            }
+
             // Everything else: not implemented here.
             _ => return Err(unsupported()),
         }
