@@ -5649,6 +5649,50 @@ impl AArch64Cpu {
                 Ok(CpuExit::Continue)
             }
 
+            // SVE2 predicated integer pairwise: 0x44, bits[21:19]==010,
+            // bits[15:13]==101. opc=bits[18:17] (00=ADDP, 10=MAXP, 11=MINP),
+            // U=bit16. The pairwise results of Zdn and Zm are INTERLEAVED (even
+            // output = Zdn pair, odd = Zm pair); merged into Zdn under Pg.
+            0b010
+                if (insn >> 24) & 0xFF == 0b01000100
+                    && (insn >> 19) & 0x7 == 0b010
+                    && (insn >> 13) & 0x7 == 0b101 =>
+            {
+                let opc = (insn >> 17) & 0x3;
+                let unsigned = (insn >> 16) & 1 == 1;
+                let bits = (esize * 8) as u32;
+                let mask = elem_mask(bits);
+                let elements = 16 / esize;
+                let h = elements / 2;
+                let pred = self.sve_p[pg];
+                let dn = self.v[zd].to_le_bytes(); // Zdn
+                let m = self.v[zn].to_le_bytes(); // Zm
+                let op = |a: u64, b: u64| -> u64 {
+                    match opc {
+                        0b00 => a.wrapping_add(b) & mask,
+                        0b10 if unsigned => a.max(b),
+                        0b10 => (sext_elem(a, bits).max(sext_elem(b, bits)) as u64) & mask,
+                        _ if unsigned => a.min(b),
+                        _ => (sext_elem(a, bits).min(sext_elem(b, bits)) as u64) & mask,
+                    }
+                };
+                let mut res = [0u8; 16];
+                for p in 0..h {
+                    let dnv = op(read_elem(&dn, 2 * p * esize, esize), read_elem(&dn, (2 * p + 1) * esize, esize));
+                    let mv = op(read_elem(&m, 2 * p * esize, esize), read_elem(&m, (2 * p + 1) * esize, esize));
+                    write_elem(&mut res, 2 * p * esize, esize, dnv);
+                    write_elem(&mut res, (2 * p + 1) * esize, esize, mv);
+                }
+                let mut dst = dn;
+                for e in 0..elements {
+                    if (pred >> (e * esize)) & 1 == 1 {
+                        write_elem(&mut dst, e * esize, esize, read_elem(&res, e * esize, esize));
+                    }
+                }
+                self.v[zd] = u128::from_le_bytes(dst);
+                Ok(CpuExit::Continue)
+            }
+
             // SVE2 SQRDMLAH/SQRDMLSH (saturating rounding doubling multiply-add):
             // 0x44, bit21==0, bits[15:11]==01110. S=bit10 selects subtract. The
             // rounded doubling-high is unsaturated; only the accumulate saturates.

@@ -1635,6 +1635,13 @@ fn enc_sve2_shll(tsz: u32, imm3: u32, u: u32, t: u32) -> u32 {
         | (u << 11) | (t << 10) | (RN << 5) | RD
 }
 
+/// SVE2 predicated pairwise: `01000100 size 010 opc U 101 Pg Zm Zdn`. Pg=p0,
+/// Zm=z1(RN), Zdn=z0(RD).
+fn enc_sve2_pairwise(size: u32, opc: u32, u: u32) -> u32 {
+    (0b01000100 << 24) | (size << 22) | (0b010 << 19) | (opc << 17) | (u << 16) | (0b101 << 13)
+        | (RN << 5) | RD
+}
+
 /// SVE2 bit permute: `01000101 size 0 Zm 1011 opc Zn Zd`. opc: 00=BEXT, 01=BDEP,
 /// 10=BGRP. Zn=z1(RN), Zm=z2(RM), Zd=z0(RD).
 fn enc_sve2_bperm(size: u32, opc: u32) -> u32 {
@@ -3679,6 +3686,33 @@ fn diff_sve2_bperm() {
         }
     }
     run_family("sve2_bperm", cases, 20, 0x5_B001);
+}
+
+#[test]
+fn diff_sve2_pairwise() {
+    // SVE2 predicated integer pairwise: ADDP/SMAXP/UMAXP/SMINP/UMINP.
+    let ops: &[(u32, u32, &str)] = &[
+        (0b00, 1, "addp"),
+        (0b10, 0, "smaxp"),
+        (0b10, 1, "umaxp"),
+        (0b11, 0, "sminp"),
+        (0b11, 1, "uminp"),
+    ];
+    let mut rng = Rng::new(0x5_C001);
+    let mut batch: Vec<(String, u32, ArmState)> = Vec::new();
+    for size in 0..4u32 {
+        for &(opc, u, name) in ops {
+            let insn = enc_sve2_pairwise(size, opc, u);
+            for _ in 0..16 {
+                let mut st = ArmState::zeroed();
+                st.set_vreg(0, rng.next(), rng.next());
+                st.set_vreg(1, rng.next(), rng.next());
+                st.set_preg(0, rng.next() as u16);
+                batch.push((format!("{name} sz{size}"), insn, st));
+            }
+        }
+    }
+    run_batch("sve2_pairwise", batch);
 }
 
 #[test]
