@@ -4683,6 +4683,96 @@ impl HexagonLifter {
                 });
             }
 
+            // ============================================================
+            // Wave 17: vmpa scalar-pair byte/half multiply-add (vmpabus/abuu/
+            // ahb/auhb + _acc). Source is a register PAIR Vuu = (V[u], V[u+1]);
+            // the scalar Rt's 4 sub-elements are reused per output lane. The sem
+            // (hvx_mpys.rs) computes, per output lane i:
+            //   dst_lo[i] = Vuu0.narrow[2i]   * Rt.sub[0] + Vuu1.narrow[2i]   * Rt.sub[1]
+            //   dst_hi[i] = Vuu0.narrow[2i+1] * Rt.sub[2] + Vuu1.narrow[2i+1] * Rt.sub[3]
+            // which is EXACTLY OpKind::VPairReduceMul with src_lo=Vuu0=V[u],
+            // src_hi=Vuu1=V[u+1], src2 = an I32-broadcast of Rt (so src2.byte[k] =
+            // Rt.byte[k%4], hence sub[0..3] = Rt.byte[0..3], matching rt_sb/rt_ub
+            // index 0..3). pair_elem = the narrow source width, rt_elem = the Rt
+            // sub width, out_elem = the (doubled) result width. The acc forms read
+            // the existing dst lane and wrapping-add the low out_elem bits — the
+            // sem's get_h_signed/get_w_signed read + `as u16`/`as u32` store keep
+            // the same low bits (signed-read vs unsigned-read only differ above the
+            // stored width, which is masked off). dst pair base = fld('d') plain /
+            // fld('x') for _acc.
+            //   vmpabus(_acc): Vuu.ub * Rt.b  -> .h  (s1=u, s2=s, i8/i8/i16)
+            //   vmpabuu(_acc): Vuu.ub * Rt.ub -> .uh (s1=u, s2=u, i8/i8/i16)
+            //   vmpahb(_acc):  Vuu.h  * Rt.b  -> .w  (s1=s, s2=s, i16/i8/i32)
+            //   vmpauhb(_acc): Vuu.uh * Rt.b  -> .w  (s1=u, s2=s, i16/i8/i32)
+            Opcode::V6_vmpabus
+            | Opcode::V6_vmpabus_acc
+            | Opcode::V6_vmpabuu
+            | Opcode::V6_vmpabuu_acc
+            | Opcode::V6_vmpahb
+            | Opcode::V6_vmpahb_acc
+            | Opcode::V6_vmpauhb
+            | Opcode::V6_vmpauhb_acc => {
+                let acc = matches!(
+                    op,
+                    Opcode::V6_vmpabus_acc
+                        | Opcode::V6_vmpabuu_acc
+                        | Opcode::V6_vmpahb_acc
+                        | Opcode::V6_vmpauhb_acc
+                );
+                let (pair_elem, rt_elem, out_elem, signed1, signed2) = match op {
+                    Opcode::V6_vmpabus | Opcode::V6_vmpabus_acc => (
+                        VecElementType::I8,
+                        VecElementType::I8,
+                        VecElementType::I16,
+                        false,
+                        true,
+                    ),
+                    Opcode::V6_vmpabuu | Opcode::V6_vmpabuu_acc => (
+                        VecElementType::I8,
+                        VecElementType::I8,
+                        VecElementType::I16,
+                        false,
+                        false,
+                    ),
+                    Opcode::V6_vmpahb | Opcode::V6_vmpahb_acc => (
+                        VecElementType::I16,
+                        VecElementType::I8,
+                        VecElementType::I32,
+                        true,
+                        true,
+                    ),
+                    // V6_vmpauhb(_acc)
+                    _ => (
+                        VecElementType::I16,
+                        VecElementType::I8,
+                        VecElementType::I32,
+                        false,
+                        true,
+                    ),
+                };
+                let base = if acc { rx_n } else { rd_n };
+                let t = ctx.alloc_vreg();
+                push_op!(OpKind::VBroadcast {
+                    dst: t,
+                    scalar: self.hex_reg(fld(b't')),
+                    elem: VecElementType::I32,
+                    lanes: 32,
+                });
+                push_op!(OpKind::VPairReduceMul {
+                    dst_lo: self.hex_v(base),
+                    dst_hi: self.hex_v(base + 1),
+                    src_lo: self.hex_v(fld(b'u')),
+                    src_hi: self.hex_v(fld(b'u') + 1),
+                    src2: t,
+                    pair_elem,
+                    rt_elem,
+                    out_elem,
+                    signed1,
+                    signed2,
+                    acc,
+                });
+            }
+
             // Everything else: not implemented here.
             _ => return Err(unsupported()),
         }

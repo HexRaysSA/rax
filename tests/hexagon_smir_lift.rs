@@ -1524,3 +1524,32 @@ fn lift_hvx_vmpyie_vmpyio() {
         0x7033,
     );
 }
+
+// ---- Wave 17: vmpa scalar-pair byte/half multiply-add ----
+// Source is a register PAIR Vuu = (V[u], V[u+1]); the scalar Rt's 4 sub-bytes
+// are reused per output lane. Lowered as VBroadcast(Rt, I32) + VPairReduceMul:
+//   dst_lo[i] = Vuu0.narrow[2i]   * Rt.sub[0] + Vuu1.narrow[2i]   * Rt.sub[1]
+//   dst_hi[i] = Vuu0.narrow[2i+1] * Rt.sub[2] + Vuu1.narrow[2i+1] * Rt.sub[3]
+// The `_acc` forms target the same dst pair, exercising the read-modify-write
+// accumulate (wrapping in the low out_elem bits). Note: llvm-mc spells the
+// vmpabuu (unsigned * unsigned) destination as `.h` (not `.uh`).
+//   vmpabus: Vuu.ub * Rt.b  -> .h    vmpabuu: Vuu.ub * Rt.ub -> .h
+//   vmpahb:  Vuu.h  * Rt.b  -> .w    vmpauhb: Vuu.uh * Rt.b  -> .w
+#[test]
+fn lift_hvx_vmpa_scalar() {
+    lift_family(
+        "hvx_vmpa_scalar",
+        &[
+            ("vmpabus", "{ v3:2.h = vmpa(v5:4.ub,r3.b) }"),
+            ("vmpabus_acc", "{ v3:2.h += vmpa(v5:4.ub,r3.b) }"),
+            ("vmpabuu", "{ v3:2.h = vmpa(v5:4.ub,r3.ub) }"),
+            ("vmpabuu_acc", "{ v3:2.h += vmpa(v5:4.ub,r3.ub) }"),
+            ("vmpahb", "{ v3:2.w = vmpa(v5:4.h,r3.b) }"),
+            ("vmpahb_acc", "{ v3:2.w += vmpa(v5:4.h,r3.b) }"),
+            ("vmpauhb", "{ v3:2.w = vmpa(v5:4.uh,r3.b) }"),
+            ("vmpauhb_acc", "{ v3:2.w += vmpa(v5:4.uh,r3.b) }"),
+        ],
+        16,
+        0x7034,
+    );
+}
