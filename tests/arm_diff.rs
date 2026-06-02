@@ -1713,6 +1713,24 @@ fn enc_sve2_fmlal_idx(sub: u32, top: u32, index: u32, zm: u32) -> u32 {
         | RD
 }
 
+/// SVE FP multiply/multiply-add by indexed element: 0x64, bit21==1, op=bits
+/// [15:10] (000000 FMLA, 000001 FMLS, 001000 FMUL). size 1=.h,2=.s,3=.d with
+/// per-size index/Zm packing. Zn=z1(RN), Zd=z0(RD).
+fn enc_sve_fp_idx(op: u32, size: u32, index: u32, zm: u32) -> u32 {
+    let base = (0x64u32 << 24) | (1 << 21) | (op << 10) | (RN << 5) | RD;
+    match size {
+        1 => base | (((index >> 2) & 1) << 22) | ((index & 0x3) << 19) | ((zm & 0x7) << 16),
+        2 => base | (0b10 << 22) | ((index & 0x3) << 19) | ((zm & 0x7) << 16),
+        _ => base | (0b11 << 22) | ((index & 1) << 20) | ((zm & 0xF) << 16),
+    }
+}
+
+/// SVE FRECPS/FRSQRTS: `01100101 size 0 Zm 00011 r Zn Zd`. r=bit10 (0=FRECPS,
+/// 1=FRSQRTS). Zn=z1(RN), Zm=z2(RM), Zd=z0(RD).
+fn enc_sve_recps(size: u32, rsqrt: u32) -> u32 {
+    (0x65 << 24) | (size << 22) | (RM << 16) | (0b00011 << 11) | (rsqrt << 10) | (RN << 5) | RD
+}
+
 /// SVE integer dot product (vector SDOT/UDOT): `01000100 1 sz 0 Zm 00000 u Zn
 /// Zda`. sz: 0=.s,1=.d; u=bit10. Zn=z1(RN), Zm=z2(RM), Zda=z0(RD).
 fn enc_sve_dot_vec(sz: u32, u: u32) -> u32 {
@@ -3143,6 +3161,56 @@ fn diff_sve2_fmlal_indexed() {
         }
     }
     run_batch("sve2_fmlal_indexed", batch);
+}
+
+#[test]
+fn diff_sve_fp_indexed() {
+    // FMLA/FMLS/FMUL by indexed FP element, all sizes and indices, finite inputs.
+    let mut rng = Rng::new(0x8_3001);
+    let mut batch: Vec<(String, u32, ArmState)> = Vec::new();
+    for (op, name) in [(0b000000u32, "fmla"), (0b000001, "fmls"), (0b001000, "fmul")] {
+        for (size, esz, idxn) in [(1u32, 2usize, 8u32), (2, 4, 4), (3, 8, 2)] {
+            for index in 0..idxn {
+                let insn = enc_sve_fp_idx(op, size, index, RM);
+                for _ in 0..3 {
+                    let mut st = ArmState::zeroed();
+                    for r in 0..3 {
+                        let mut v = 0u128;
+                        for l in 0..(16 / esz) {
+                            v |= (finite_fp_bits(&mut rng, esz) as u128) << (l * esz * 8);
+                        }
+                        st.set_vreg(r, v as u64, (v >> 64) as u64);
+                    }
+                    batch.push((format!("{name}_idx s{size} i{index}"), insn, st));
+                }
+            }
+        }
+    }
+    run_batch("sve_fp_indexed", batch);
+}
+
+#[test]
+fn diff_sve_recps() {
+    // FRECPS / FRSQRTS reciprocal steps, all sizes, finite inputs.
+    let mut rng = Rng::new(0x8_4001);
+    let mut batch: Vec<(String, u32, ArmState)> = Vec::new();
+    for (size, esz) in [(1u32, 2usize), (2, 4), (3, 8)] {
+        for rsqrt in 0..2u32 {
+            let insn = enc_sve_recps(size, rsqrt);
+            for _ in 0..16 {
+                let mut st = ArmState::zeroed();
+                for r in 1..3 {
+                    let mut v = 0u128;
+                    for l in 0..(16 / esz) {
+                        v |= (finite_fp_bits(&mut rng, esz) as u128) << (l * esz * 8);
+                    }
+                    st.set_vreg(r, v as u64, (v >> 64) as u64);
+                }
+                batch.push((format!("recps s{size} r{rsqrt}"), insn, st));
+            }
+        }
+    }
+    run_batch("sve_recps", batch);
 }
 
 #[test]

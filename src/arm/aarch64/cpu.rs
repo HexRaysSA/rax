@@ -8363,6 +8363,52 @@ impl AArch64Cpu {
             return Ok(CpuExit::Continue);
         }
 
+        // SVE FP multiply / multiply-add by indexed element: 0x64, bit21==1,
+        // bits[15:11]==00000 (FMLA=000000 / FMLS=000001) or bits[15:10]==001000
+        // (FMUL). The indexed Zm element is broadcast. Size: bit23==0 -> .h
+        // (fp16, bit22 is the index MSB), bits[23:22]==10 -> .s, ==11 -> .d.
+        // FMLA/FMLS are fused; FMUL is a plain multiply (unpredicated).
+        if (insn >> 24) & 0xFF == 0b01100100
+            && (insn >> 21) & 1 == 1
+            && ((insn >> 11) & 0x1F == 0b00000 || (insn >> 10) & 0x3F == 0b001000)
+        {
+            let (esz, index, zmr): (usize, usize, usize) = if (insn >> 23) & 1 == 0 {
+                // .h: index = bit22:bits[20:19], Zm = bits[18:16].
+                let idx = (((insn >> 22) & 1) << 2) | ((insn >> 19) & 0x3);
+                (2, idx as usize, ((insn >> 16) & 0x7) as usize)
+            } else if (insn >> 22) & 1 == 0 {
+                (4, ((insn >> 19) & 0x3) as usize, ((insn >> 16) & 0x7) as usize)
+            } else {
+                (8, ((insn >> 20) & 1) as usize, ((insn >> 16) & 0xF) as usize)
+            };
+            let ebits = (esz * 8) as u32;
+            let is_fmul = (insn >> 10) & 0x3F == 0b001000;
+            let is_fmls = !is_fmul && (insn >> 10) & 1 == 1;
+            let n = self.v[zn].to_le_bytes();
+            let m = self.v[zmr].to_le_bytes();
+            let acc = self.v[zd].to_le_bytes();
+            let mm = read_elem(&m, index * esz, esz); // Zm[index]
+            let mut dst = acc;
+            for e in 0..(16 / esz) {
+                let off = e * esz;
+                let ne = read_elem(&n, off, esz);
+                let r = if is_fmul {
+                    match esz {
+                        2 => fp16_mul(ne as u16, mm as u16) as u64,
+                        4 => (f32::from_bits(ne as u32) * f32::from_bits(mm as u32)).to_bits()
+                            as u64,
+                        _ => (f64::from_bits(ne) * f64::from_bits(mm)).to_bits(),
+                    }
+                } else {
+                    let nn = if is_fmls { fp_neg_bits(ne, ebits) } else { ne };
+                    fp_muladd_bits(read_elem(&acc, off, esz), nn, mm, ebits)
+                };
+                write_elem(&mut dst, off, esz, r);
+            }
+            self.v[zd] = u128::from_le_bytes(dst);
+            return Ok(CpuExit::Continue);
+        }
+
         // SVE FCMLA by indexed element: 0x64, bit21==1, bits[15:12]==0001.
         // rot=bits[11:10]; the indexed Zm complex pair (2*index) is broadcast.
         // Unpredicated, fused. .h: index=bits[20:19], Zm=bits[18:16]; .s:
@@ -8449,6 +8495,32 @@ impl AArch64Cpu {
                     a = fp_neg_bits(a, ebits);
                 }
                 let r = fp_muladd_bits(a, n, read_elem(&mb, off, esz), ebits);
+                write_elem(&mut dst, off, esz, r);
+            }
+            self.v[zd] = u128::from_le_bytes(dst);
+            return Ok(CpuExit::Continue);
+        }
+
+        // SVE FRECPS / FRSQRTS (reciprocal / reciprocal-sqrt step, unpredicated):
+        // 0x65, bit21==0, bits[15:10]==000110 (FRECPS) / 000111 (FRSQRTS).
+        // Fused step with the inf*0 special (2.0 / 1.5).
+        if (insn >> 24) & 0xFF == 0b01100101
+            && (insn >> 21) & 1 == 0
+            && matches!((insn >> 10) & 0x3F, 0b000110 | 0b000111)
+        {
+            let size = (insn >> 22) & 0x3;
+            if size == 0 {
+                return Ok(CpuExit::Undefined(insn));
+            }
+            let esz = 1usize << size;
+            let rsqrt = (insn >> 10) & 1 == 1;
+            let n = self.v[zn].to_le_bytes();
+            let m = self.v[zm].to_le_bytes();
+            let mut dst = [0u8; 16];
+            for e in 0..(16 / esz) {
+                let off = e * esz;
+                let (x, y) = (read_elem(&n, off, esz), read_elem(&m, off, esz));
+                let r = if rsqrt { sve_rsqrts(esz, x, y) } else { sve_recps(esz, x, y) };
                 write_elem(&mut dst, off, esz, r);
             }
             self.v[zd] = u128::from_le_bytes(dst);
@@ -13890,6 +13962,57 @@ fn sve_bfdot_lane(acc_bits: u32, n: u32, m: u32) -> u32 {
     let p1 = bf16_to_f32(n as u16) as f64 * bf16_to_f32(m as u16) as f64;
     let p2 = bf16_to_f32((n >> 16) as u16) as f64 * bf16_to_f32((m >> 16) as u16) as f64;
     round_odd_f64_to_f32(acc + bf_odd_add(p1, p2))
+}
+
+/// SVE FRECPS reciprocal step: fused (2.0 - x*y), with inf*0 -> 2.0. Matches
+/// qemu recpsf (FPCR.AH=0, FZ=0).
+fn sve_recps(esize: usize, x: u64, y: u64) -> u64 {
+    match esize {
+        2 => fp16_recps(x as u16, y as u16) as u64,
+        4 => {
+            let (a, b) = (f32::from_bits(x as u32), f32::from_bits(y as u32));
+            let r = if (a.is_infinite() && b == 0.0) || (b.is_infinite() && a == 0.0) {
+                2.0
+            } else {
+                (-a).mul_add(b, 2.0)
+            };
+            r.to_bits() as u64
+        }
+        _ => {
+            let (a, b) = (f64::from_bits(x), f64::from_bits(y));
+            let r = if (a.is_infinite() && b == 0.0) || (b.is_infinite() && a == 0.0) {
+                2.0
+            } else {
+                (-a).mul_add(b, 2.0)
+            };
+            r.to_bits()
+        }
+    }
+}
+
+/// SVE FRSQRTS reciprocal-sqrt step: fused (3.0 - x*y)/2, with inf*0 -> 1.5.
+fn sve_rsqrts(esize: usize, x: u64, y: u64) -> u64 {
+    match esize {
+        2 => fp16_rsqrts(x as u16, y as u16) as u64,
+        4 => {
+            let (a, b) = (f32::from_bits(x as u32), f32::from_bits(y as u32));
+            let r = if (a.is_infinite() && b == 0.0) || (b.is_infinite() && a == 0.0) {
+                1.5
+            } else {
+                (-a).mul_add(b, 3.0) * 0.5
+            };
+            r.to_bits() as u64
+        }
+        _ => {
+            let (a, b) = (f64::from_bits(x), f64::from_bits(y));
+            let r = if (a.is_infinite() && b == 0.0) || (b.is_infinite() && a == 0.0) {
+                1.5
+            } else {
+                (-a).mul_add(b, 3.0) * 0.5
+            };
+            r.to_bits()
+        }
+    }
 }
 
 /// SVE FTSMUL: square `x` and set the result sign to `sgn` (bit0 of Zm),
