@@ -1576,7 +1576,7 @@ impl RiscVLifter {
                 // divisor and don't implement RISC-V's div-by-zero/overflow
                 // results; lifted via a non-trapping sequence below instead.
                 0b100 | 0b101 | 0b110 | 0b111 => {
-                    return self.lift_div_rem(insn, addr, dst, rs1, rs2, width, ctx);
+                    return self.lift_div_rem(insn, addr, dst, rs1, rs2, width, i64::MIN, ctx);
                 }
                 _ => unreachable!(),
             };
@@ -1599,6 +1599,7 @@ impl RiscVLifter {
         rs1: VReg,
         rs2: VReg,
         width: OpWidth,
+        ovf_min: i64,
         ctx: &mut LiftContext,
     ) -> Result<(Vec<SmirOp>, ControlFlow), LiftError> {
         let funct3 = Self::funct3(insn);
@@ -1651,7 +1652,7 @@ impl RiscVLifter {
         let is_zero = setcc(ctx, &mut ops, rs2, 0, Condition::Eq);
         // For signed forms, detect MIN / -1 overflow.
         let (need_special, ovf) = if signed {
-            let min = if width == OpWidth::W64 { i64::MIN } else { -(1i64 << 31) };
+            let min = ovf_min;
             let is_min = setcc(ctx, &mut ops, rs1, min, Condition::Eq);
             let is_neg1 = setcc(ctx, &mut ops, rs2, -1, Condition::Eq);
             let ovf = ctx.alloc_vreg();
@@ -1769,6 +1770,43 @@ impl RiscVLifter {
         let rs2 = self.get_x_reg(rs2_reg, ctx);
         let width = OpWidth::W32;
 
+        // Word div/rem: sign/zero-extend the operands to 64 bits, run the
+        // non-trapping div sequence at W64 with a 32-bit overflow min, then
+        // sign-extend the low 32 bits of the result into rd. (Operating the div
+        // directly at W32 trips the interp's x86-style quotient-overflow #DE.)
+        if matches!(funct3, 0b100 | 0b101 | 0b110 | 0b111) {
+            let signed = matches!(funct3, 0b100 | 0b110);
+            let ext_kind = |dst, src| {
+                if signed {
+                    OpKind::SignExtend { dst, src, from_width: OpWidth::W32, to_width: OpWidth::W64 }
+                } else {
+                    OpKind::ZeroExtend { dst, src, from_width: OpWidth::W32, to_width: OpWidth::W64 }
+                }
+            };
+            let mut ops2 = Vec::new();
+            let e1 = ctx.alloc_vreg();
+            ops2.push(SmirOp::new(ctx.next_op_id(), addr, ext_kind(e1, rs1)));
+            let e2 = ctx.alloc_vreg();
+            ops2.push(SmirOp::new(ctx.next_op_id(), addr, ext_kind(e2, rs2)));
+            let tmp = ctx.alloc_vreg();
+            let (dr_ops, cf) =
+                self.lift_div_rem(insn, addr, tmp, e1, e2, OpWidth::W64, -(1i64 << 31), ctx)?;
+            ops2.extend(dr_ops);
+            if let Some(dst) = self.def_x_reg(rd, ctx) {
+                ops2.push(SmirOp::new(
+                    ctx.next_op_id(),
+                    addr,
+                    OpKind::SignExtend {
+                        dst,
+                        src: tmp,
+                        from_width: OpWidth::W32,
+                        to_width: OpWidth::W64,
+                    },
+                ));
+            }
+            return Ok((ops2, cf));
+        }
+
         let mut ops = Vec::new();
 
         if let Some(dst) = self.def_x_reg(rd, ctx) {
@@ -1784,14 +1822,6 @@ impl RiscVLifter {
                     width,
                     flags: FlagUpdate::None,
                 },
-                // Word div/rem need a W32 non-trapping sequence plus result
-                // sign-extension — not yet lifted (gap, never wrong).
-                0b100 | 0b101 | 0b110 | 0b111 => {
-                    return Err(LiftError::Unsupported {
-                        addr,
-                        mnemonic: format!("div/rem.w funct3={funct3:#05b}"),
-                    });
-                }
                 _ => {
                     return Err(LiftError::Unsupported {
                         addr,
