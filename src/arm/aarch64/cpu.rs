@@ -5186,6 +5186,53 @@ impl AArch64Cpu {
                 Ok(CpuExit::Continue)
             }
 
+            // SVE2 integer multiply long: 0x45, bit21==0, bits[15:13]==011.
+            // (op=bit12, U=bit11): (1,0)=SMULLB/T, (1,1)=UMULLB/T, (0,0)=
+            // SQDMULLB/T (saturating doubling), (0,1)=PMULLB/T (polynomial).
+            // Source elements are half-width; T picks odd/even. size=00 reserved;
+            // PMULL is only defined for the H form (size=01) in base SVE2.
+            0b010
+                if (insn >> 24) & 0xFF == 0b01000101
+                    && (insn >> 21) & 1 == 0
+                    && (insn >> 13) & 0x7 == 0b011 =>
+            {
+                let size = (insn >> 22) & 0x3;
+                let op = (insn >> 12) & 1;
+                let unsigned = (insn >> 11) & 1 == 1;
+                let top = (insn >> 10) & 1 == 1;
+                if size == 0 || (op == 0 && unsigned && size != 1) {
+                    return Ok(CpuExit::Undefined(insn)); // PMULL: H form only
+                }
+                let d_esize = 1usize << size;
+                let s_esize = d_esize / 2;
+                let s_bits = (s_esize * 8) as u32;
+                let d_bits = (d_esize * 8) as u32;
+                let elements = 16 / d_esize;
+                let a = self.v[zn].to_le_bytes();
+                let b = self.v[zm].to_le_bytes();
+                let mut dst = [0u8; 16];
+                let mask = elem_mask(d_bits);
+                for d in 0..elements {
+                    let off = (2 * d + top as usize) * s_esize;
+                    let xn = read_elem(&a, off, s_esize);
+                    let xm = read_elem(&b, off, s_esize);
+                    let r: u64 = match (op, unsigned) {
+                        (1, false) => (sext_elem(xn, s_bits) * sext_elem(xm, s_bits)) as u64 & mask,
+                        (1, true) => (uext_elem(xn, s_bits) * uext_elem(xm, s_bits)) as u64 & mask,
+                        (0, false) => {
+                            let prod = 2i128 * sext_elem(xn, s_bits) * sext_elem(xm, s_bits);
+                            let hi = (1i128 << (d_bits - 1)) - 1;
+                            let lo = -(1i128 << (d_bits - 1));
+                            prod.clamp(lo, hi) as u64 & mask
+                        }
+                        _ => poly_mul_wide(xn, xm, s_bits) & mask,
+                    };
+                    write_elem(&mut dst, d * d_esize, d_esize, r);
+                }
+                self.v[zd] = u128::from_le_bytes(dst);
+                Ok(CpuExit::Continue)
+            }
+
             // Load/Store
             0b100 | 0b101 | 0b110 | 0b111 => self.exec_sve_ldst(insn),
 

@@ -1586,6 +1586,11 @@ fn enc_sve2_addw(size: u32, s: u32, u: u32, t: u32) -> u32 {
     (0b01000101 << 24) | (size << 22) | (RM << 16) | (0b010 << 13) | (s << 12) | (u << 11)
         | (t << 10) | (RN << 5) | RD
 }
+/// SVE2 multiply long: `01000101 size 0 Zm 011 op U T Zn Zd`.
+fn enc_sve2_mull(size: u32, op: u32, u: u32, t: u32) -> u32 {
+    (0b01000101 << 24) | (size << 22) | (RM << 16) | (0b011 << 13) | (op << 12) | (u << 11)
+        | (t << 10) | (RN << 5) | RD
+}
 
 /// SVE INDEX variants. base=imm5[9:5] or Xn; step=imm5[20:16] or Xm. Rn=x1, Rm=x2.
 fn enc_index_ii(sz: u32, imm_step: u32, imm_base: u32) -> u32 {
@@ -3396,6 +3401,24 @@ fn diff_sve2_addl() {
         }
     }
     run_family("sve2_addl", cases, 16, 0x5_1001);
+}
+
+#[test]
+fn diff_sve2_mull() {
+    // SVE2 integer multiply long: SMULL/UMULL/SQDMULL (sizes H/S/D) and PMULL
+    // (H form only).
+    let mut cases: Vec<(String, u32)> = Vec::new();
+    for size in 1..4u32 {
+        for t in 0..2u32 {
+            cases.push((format!("smull sz{size} t{t}"), enc_sve2_mull(size, 1, 0, t)));
+            cases.push((format!("umull sz{size} t{t}"), enc_sve2_mull(size, 1, 1, t)));
+            cases.push((format!("sqdmull sz{size} t{t}"), enc_sve2_mull(size, 0, 0, t)));
+        }
+    }
+    for t in 0..2u32 {
+        cases.push((format!("pmull t{t}"), enc_sve2_mull(1, 0, 1, t)));
+    }
+    run_family("sve2_mull", cases, 16, 0x5_2001);
 }
 
 #[test]
