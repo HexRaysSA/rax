@@ -3486,6 +3486,51 @@ fn enc_sve_while_gt(esz: u32, sf: u32, u: u32, eqbit: u32) -> u32 {
     (0x25 << 24) | (esz << 22) | (1 << 21) | (1 << 16) | (sf << 12) | (u << 11) | (eqbit << 4)
 }
 
+/// SVE2 SABA/UABA: `01000101 esz 0 Zm 11111 u Zn Zda`. u=1 unsigned. Zda=z0,
+/// Zn=z1, Zm=z2.
+fn enc_sve2_saba(esz: u32, u: u32) -> u32 {
+    (0x45 << 24) | (esz << 22) | (2 << 16) | (0b11111 << 11) | (u << 10) | (1 << 5)
+}
+
+#[test]
+fn diff_sve2_saba() {
+    // SABA/UABA: Zda += |Zn - Zm| per element. Seeds the abs-difference extremes
+    // (INT_MIN vs INT_MAX, 0 vs UMAX) that exercise the widened subtraction.
+    let pats: [u64; 6] = [
+        0x0000_0000_0000_0000,
+        0x8080_8080_8080_8080,
+        0x7F7F_7F7F_7F7F_7F7F,
+        0xFFFF_FFFF_FFFF_FFFF,
+        0x8000_8000_8000_8000,
+        0x7FFF_7FFF_7FFF_7FFF,
+    ];
+    let mut rng = Rng::new(0x1_0033);
+    let mut batch: Vec<(String, u32, ArmState)> = Vec::new();
+    for esz in 0..4u32 {
+        for u in 0..2u32 {
+            let insn = enc_sve2_saba(esz, u);
+            let nm = format!("saba e{esz} u{u}");
+            for &p1 in pats.iter() {
+                for &p2 in pats.iter() {
+                    let mut st = ArmState::zeroed();
+                    st.set_vreg(0, rng.next(), rng.next()); // accumulator
+                    st.set_vreg(1, p1, p1);
+                    st.set_vreg(2, p2, p2);
+                    batch.push((nm.clone(), insn, st));
+                }
+            }
+            for _ in 0..8 {
+                let mut st = ArmState::zeroed();
+                st.set_vreg(0, rng.next(), rng.next());
+                st.set_vreg(1, rng.next(), rng.next());
+                st.set_vreg(2, rng.next(), rng.next());
+                batch.push((format!("{nm} rnd"), insn, st));
+            }
+        }
+    }
+    run_batch("sve2_saba", batch);
+}
+
 #[test]
 fn diff_sve_while_gt() {
     // WHILEGT/WHILEGE/WHILEHI/WHILEHS: the gt-family WHILE producing a top-

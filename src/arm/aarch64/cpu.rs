@@ -5899,6 +5899,43 @@ impl AArch64Cpu {
                 Ok(CpuExit::Continue)
             }
 
+            // SVE2 SABA/UABA (abs-diff accumulate, same width): 0x45, bit21==0,
+            // bits[15:11]==11111, bit10 selects UABA(1)/SABA(0). The destination
+            // accumulates the per-element absolute difference at full width.
+            0b010
+                if (insn >> 24) & 0xFF == 0b01000101
+                    && (insn >> 21) & 1 == 0
+                    && (insn >> 11) & 0x1F == 0b11111 =>
+            {
+                let bits = (esize * 8) as u32;
+                let mask = elem_mask(bits);
+                let unsigned = (insn >> 10) & 1 == 1;
+                let elements = 16 / esize;
+                let acc = self.v[zd].to_le_bytes();
+                let a = self.v[zn].to_le_bytes();
+                let b = self.v[zm].to_le_bytes();
+                let mut dst = acc;
+                for e in 0..elements {
+                    let off = e * esize;
+                    let (av, bv) = if unsigned {
+                        (
+                            uext_elem(read_elem(&a, off, esize), bits) as i128,
+                            uext_elem(read_elem(&b, off, esize), bits) as i128,
+                        )
+                    } else {
+                        (
+                            sext_elem(read_elem(&a, off, esize), bits),
+                            sext_elem(read_elem(&b, off, esize), bits),
+                        )
+                    };
+                    let diff = (av - bv).abs() as u64 & mask;
+                    let cur = read_elem(&acc, off, esize);
+                    write_elem(&mut dst, off, esize, cur.wrapping_add(diff) & mask);
+                }
+                self.v[zd] = u128::from_le_bytes(dst);
+                Ok(CpuExit::Continue)
+            }
+
             // SVE2 bit permute (BEXT/BDEP/BGRP): 0x45, bit21==0, bits[15:12]==1011.
             // opc=bits[11:10]: 00=BEXT (gather Zn bits at Zm's set bits to the
             // bottom, like PEXT), 01=BDEP (scatter Zn's low bits to Zm's set bits,
