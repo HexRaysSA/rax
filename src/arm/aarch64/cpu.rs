@@ -4715,24 +4715,12 @@ impl AArch64Cpu {
             } else {
                 (sign << 15) | (0x1F << 10) | ((mant >> 13) as u16 & 0x3FF).max(1)
             }
-        } else if exp == 0 {
-            sign << 15
         } else {
-            let new_exp = exp - 127 + 15;
-            if new_exp >= 0x1F {
-                (sign << 15) | (0x1F << 10)
-            } else if new_exp <= 0 {
-                if new_exp < -10 {
-                    sign << 15
-                } else {
-                    let shift = 1 - new_exp;
-                    let m = (0x800000 | mant) >> (13 + shift);
-                    (sign << 15) | (m as u16 & 0x3FF)
-                }
-            } else {
-                let new_mant = (mant >> 13) as u16;
-                (sign << 15) | ((new_exp as u16) << 10) | (new_mant & 0x3FF)
-            }
+            // f32 -> f64 is exact, so a single fp16_round is correctly rounded
+            // (round-to-nearest-even, with carry into the exponent and the
+            // proper overflow/subnormal thresholds). The prior code truncated
+            // the mantissa, which lost the rounding bit.
+            fp16_round(f as f64)
         }
     }
 
@@ -6460,6 +6448,12 @@ impl AArch64Cpu {
         pg: usize,
         esize: usize,
     ) -> Result<CpuExit, ArmError> {
+        // FCVT (FP precision conversion): bits[21:18]==0010. Here bits[23:22]
+        // (opc) and bits[17:16] (opc2) select the src/dst float widths, NOT the
+        // element size, so it bypasses the size-derived esize path entirely.
+        if (insn >> 18) & 0xF == 0b0010 {
+            return self.exec_sve_fcvt(insn, zd, zn, pg);
+        }
         if esize < 2 {
             return Ok(CpuExit::Undefined(insn));
         }
@@ -6507,6 +6501,54 @@ impl AArch64Cpu {
                 _ => return Ok(CpuExit::Undefined(insn)),
             };
             write_elem(&mut dst, off, esize, r);
+        }
+        self.v[zd] = u128::from_le_bytes(dst);
+        Ok(CpuExit::Continue)
+    }
+
+    /// Execute SVE FCVT (predicated FP precision conversion between fp16/fp32/
+    /// fp64). The per-element container size is the larger of the source and
+    /// destination widths; the source value occupies the low bits of its
+    /// container and the (zero-extended) result is written back. Predication is
+    /// byte-granular at the container size and merges (inactive lanes keep Zd).
+    fn exec_sve_fcvt(
+        &mut self,
+        insn: u32,
+        zd: usize,
+        zn: usize,
+        pg: usize,
+    ) -> Result<CpuExit, ArmError> {
+        let opc = (insn >> 22) & 0x3;
+        let opc2 = (insn >> 16) & 0x3;
+        let (src_sz, dst_sz): (usize, usize) = match (opc, opc2) {
+            (0b10, 0b01) => (2, 4), // half   -> single
+            (0b11, 0b01) => (2, 8), // half   -> double
+            (0b10, 0b00) => (4, 2), // single -> half
+            (0b11, 0b11) => (4, 8), // single -> double
+            (0b11, 0b00) => (8, 2), // double -> half
+            (0b11, 0b10) => (8, 4), // double -> single
+            _ => return Ok(CpuExit::Undefined(insn)),
+        };
+        let cont = src_sz.max(dst_sz);
+        let elements = 16 / cont;
+        let pred = self.sve_p[pg];
+        let operand = self.v[zn].to_le_bytes();
+        let mut dst = self.v[zd].to_le_bytes(); // merging: start from Zd
+        for e in 0..elements {
+            let off = e * cont;
+            if (pred >> off) & 1 == 0 {
+                continue;
+            }
+            let x = read_elem(&operand, off, src_sz);
+            let res = match (src_sz, dst_sz) {
+                (2, 4) => Self::fp16_to_f32(x as u16).to_bits() as u64,
+                (2, 8) => fp16_to_f64(x as u16).to_bits(),
+                (4, 2) => Self::f32_to_fp16(f32::from_bits(x as u32)) as u64,
+                (4, 8) => (f32::from_bits(x as u32) as f64).to_bits(),
+                (8, 2) => fp16_round(f64::from_bits(x)) as u64,
+                _ => (f64::from_bits(x) as f32).to_bits() as u64, // double -> single
+            };
+            write_elem(&mut dst, off, cont, res);
         }
         self.v[zd] = u128::from_le_bytes(dst);
         Ok(CpuExit::Continue)

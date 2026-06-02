@@ -1595,6 +1595,39 @@ fn enc_sve_tbl(sz: u32) -> u32 {
         | (0b001100 << 10) | (RN << 5) | RD
 }
 
+/// SVE FCVT (precision conversion): `01100101 opc 0010 opc2 101 Pg Zn Zd`.
+/// Pg=p0, Zn=z1, Zd=z0.
+fn enc_sve_fcvt(opc: u32, opc2: u32) -> u32 {
+    (0b01100101 << 24) | (opc << 22) | (0b0010 << 18) | (opc2 << 16)
+        | (0b101 << 13) | (RN << 5) | RD
+}
+
+/// A finite FP bit pattern of width `sz` bytes (no Inf/NaN). For 4/8-byte
+/// sources the exponent is kept inside the fp16 normal range so the random
+/// mantissa exercises narrowing rounding without overflow/subnormal noise.
+fn finite_fp_bits(rng: &mut Rng, sz: usize) -> u64 {
+    match sz {
+        2 => {
+            let sign = (rng.next() & 1) as u64;
+            let exp = (rng.next() % 18 + 6) as u64;
+            let mant = rng.next() & 0x3FF;
+            (sign << 15) | (exp << 10) | mant
+        }
+        4 => {
+            let sign = (rng.next() & 1) as u32;
+            let exp = (rng.next() % 28 + 113) as u32; // 2^-14 .. 2^13
+            let mant = (rng.next() as u32) & 0x7F_FFFF;
+            ((sign << 31) | (exp << 23) | mant) as u64
+        }
+        _ => {
+            let sign = rng.next() & 1;
+            let exp = rng.next() % 28 + 1009; // 2^-14 .. 2^13
+            let mant = rng.next() & 0xF_FFFF_FFFF_FFFF;
+            (sign << 63) | (exp << 52) | mant
+        }
+    }
+}
+
 /// SVE TBX (table lookup, keep destination): `00000101 size 1 Zm 001011 Zn Zd`.
 /// Table=Zn(RN), indices=Zm(RM), dest=Zd(RD, also the out-of-range source).
 fn enc_sve_tbx(sz: u32) -> u32 {
@@ -2218,6 +2251,40 @@ fn diff_sve_tbx() {
         cases.push((format!("sve_tbx sz{sz}"), enc_sve_tbx(sz)));
     }
     run_family("sve_tbx", cases, 24, 0x2_F001);
+}
+
+#[test]
+fn diff_sve_fcvt() {
+    // Predicated FP precision conversions. Source values are packed at the
+    // (larger) container boundary; merging keeps the prior Zd in inactive lanes.
+    let convs = [
+        (0b10u32, 0b01u32, 2usize, 4usize, "h2s"),
+        (0b11, 0b01, 2, 8, "h2d"),
+        (0b10, 0b00, 4, 2, "s2h"),
+        (0b11, 0b11, 4, 8, "s2d"),
+        (0b11, 0b00, 8, 2, "d2h"),
+        (0b11, 0b10, 8, 4, "d2s"),
+    ];
+    let mut rng = Rng::new(0x3_0001);
+    let mut batch: Vec<(String, u32, ArmState)> = Vec::new();
+    for (opc, opc2, src_sz, dst_sz, name) in convs {
+        let insn = enc_sve_fcvt(opc, opc2);
+        let cont = src_sz.max(dst_sz);
+        let elements = 16 / cont;
+        for _ in 0..24 {
+            let mut st = ArmState::zeroed();
+            let mut zn: u128 = 0;
+            for e in 0..elements {
+                let bits = finite_fp_bits(&mut rng, src_sz);
+                zn |= (bits as u128) << (e * cont * 8);
+            }
+            st.set_vreg(1, zn as u64, (zn >> 64) as u64);
+            st.set_vreg(0, rng.next(), rng.next()); // prior Zd (merge target)
+            st.set_preg(0, rng.next() as u16);
+            batch.push((format!("fcvt_{name}"), insn, st));
+        }
+    }
+    run_batch("sve_fcvt", batch);
 }
 
 #[test]
