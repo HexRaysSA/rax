@@ -5942,6 +5942,23 @@ impl AArch64Cpu {
                 Ok(CpuExit::Continue)
             }
 
+            // SVE2 integer multiply / multiply-add (indexed): 0x44, bit21==1.
+            // The second factor is a single element Zm[index] broadcast to every
+            // lane; the (index, Zm) packing depends on the element size.
+            // bits[15:10] selects MUL/SQDMULH/SQRDMULH (1111xx) or MLA/MLS
+            // (00001x). Other op fields (SQRDMLAH, SMLALB, CMLA, ...) fall
+            // through to the unimplemented arm.
+            0b010
+                if (insn >> 24) & 0xFF == 0b01000100
+                    && (insn >> 21) & 1 == 1
+                    && matches!(
+                        (insn >> 10) & 0x3F,
+                        0b111110 | 0b111100 | 0b111101 | 0b000010 | 0b000011
+                    ) =>
+            {
+                self.exec_sve2_mul_indexed(insn, zn, zd)
+            }
+
             // Load/Store
             0b100 | 0b101 | 0b110 | 0b111 => self.exec_sve_ldst(insn),
 
@@ -5950,6 +5967,67 @@ impl AArch64Cpu {
                 op0, op1
             ))),
         }
+    }
+
+    /// Execute SVE2 integer multiply / multiply-add by an indexed element.
+    /// `Zm[index]` (selected within the single 128-bit segment for VL=128) is
+    /// the shared second factor for every destination lane. MUL/MLA/MLS take
+    /// the truncated low half of the product; SQDMULH/SQRDMULH take the
+    /// saturating (optionally rounded) doubled high half.
+    fn exec_sve2_mul_indexed(
+        &mut self,
+        insn: u32,
+        zn: usize,
+        zd: usize,
+    ) -> Result<CpuExit, ArmError> {
+        // Element size and (index, Zm) packing differ per size: H uses a 3-bit
+        // index (bit22:bit20:bit19) with Zm in z0-z7; S a 2-bit index
+        // (bit20:bit19) with Zm in z0-z7; D a 1-bit index (bit20), Zm in z0-z15.
+        let (esize, index, zm): (usize, usize, usize) = if (insn >> 23) & 1 == 0 {
+            let idx = (((insn >> 22) & 1) << 2) | (((insn >> 20) & 1) << 1) | ((insn >> 19) & 1);
+            (2, idx as usize, ((insn >> 16) & 0x7) as usize)
+        } else if (insn >> 22) & 1 == 0 {
+            let idx = (((insn >> 20) & 1) << 1) | ((insn >> 19) & 1);
+            (4, idx as usize, ((insn >> 16) & 0x7) as usize)
+        } else {
+            (8, ((insn >> 20) & 1) as usize, ((insn >> 16) & 0xF) as usize)
+        };
+        let bits = (esize * 8) as u32;
+        let mask = elem_mask(bits);
+        let op = (insn >> 10) & 0x3F;
+        let n = self.v[zn].to_le_bytes();
+        let m = self.v[zm].to_le_bytes();
+        let acc = self.v[zd].to_le_bytes();
+        let mut dst = acc;
+        let m_val = read_elem(&m, index * esize, esize);
+        let m_s = sext_elem(m_val, bits);
+        let lo = -(1i128 << (bits - 1));
+        let hi = (1i128 << (bits - 1)) - 1;
+        let elements = 16 / esize;
+        for e in 0..elements {
+            let off = e * esize;
+            let a = read_elem(&n, off, esize);
+            let res: u64 = match op {
+                0b111110 => a.wrapping_mul(m_val) & mask, // MUL (low half)
+                0b000010 => read_elem(&acc, off, esize).wrapping_add(a.wrapping_mul(m_val)) & mask, // MLA
+                0b000011 => read_elem(&acc, off, esize).wrapping_sub(a.wrapping_mul(m_val)) & mask, // MLS
+                0b111100 => {
+                    // SQDMULH: sat((2*a*b) >> bits) == sat((a*b) >> (bits-1)).
+                    let prod = sext_elem(a, bits) * m_s;
+                    (prod >> (bits - 1)).clamp(lo, hi) as u64 & mask
+                }
+                0b111101 => {
+                    // SQRDMULH: sat((2*a*b + 2^(bits-1)) >> bits), rewritten as
+                    // sat((a*b + 2^(bits-2)) >> (bits-1)) to avoid i128 overflow.
+                    let prod = sext_elem(a, bits) * m_s;
+                    ((prod + (1i128 << (bits - 2))) >> (bits - 1)).clamp(lo, hi) as u64 & mask
+                }
+                _ => return Ok(CpuExit::Undefined(insn)),
+            };
+            write_elem(&mut dst, off, esize, res);
+        }
+        self.v[zd] = u128::from_le_bytes(dst);
+        Ok(CpuExit::Continue)
     }
 
     /// Execute SVE integer predicated operations.

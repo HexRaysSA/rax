@@ -1661,6 +1661,31 @@ fn sli_tsz_imm(esize_bits: u32, amount: u32) -> (u32, u32) {
     ((tszimm >> 3) & 0xF, tszimm & 0x7)
 }
 
+/// SVE2 integer multiply (indexed): `0100 0100 <size:idx:Zm> <op6> Zn Zd`.
+/// `op6` is bits[15:10] (MUL/SQDMULH/SQRDMULH/MLA/MLS); `size` is 1=h,2=s,3=d;
+/// the (index, Zm) packing depends on size. Zn=z1(RN), Zd=z0(RD).
+fn enc_sve2_mul_idx(op6: u32, size: u32, index: u32, zm: u32) -> u32 {
+    let field = match size {
+        1 => {
+            // H: bit23=0, bit22=i[2], bit21=1, bit20=i[1], bit19=i[0], Zm[18:16].
+            (((index >> 2) & 1) << 6)
+                | (1 << 5)
+                | (((index >> 1) & 1) << 4)
+                | ((index & 1) << 3)
+                | (zm & 0x7)
+        }
+        2 => {
+            // S: bits[23:22]=10, bit21=1, bit20=i[1], bit19=i[0], Zm[18:16].
+            (0b10 << 6) | (1 << 5) | (((index >> 1) & 1) << 4) | ((index & 1) << 3) | (zm & 0x7)
+        }
+        _ => {
+            // D: bits[23:22]=11, bit21=1, bit20=i[0], Zm[19:16].
+            (0b11 << 6) | (1 << 5) | ((index & 1) << 4) | (zm & 0xF)
+        }
+    };
+    (0b01000100 << 24) | (field << 16) | (op6 << 10) | (RN << 5) | RD
+}
+
 /// SVE2 FLOGB (find exponent): `01100101 00011 size 0 101 Pg Zn Zd`. size is
 /// 1=h, 2=s, 3=d. Pg=p0, Zn=z1(RN), Zd=z0(RD).
 fn enc_sve_flogb(size: u32) -> u32 {
@@ -2732,6 +2757,52 @@ fn diff_sve2_fcvtx() {
         }
     }
     run_batch("sve2_fcvtx", batch);
+}
+
+#[test]
+fn diff_sve2_mul_indexed() {
+    // MUL/MLA/MLS/SQDMULH/SQRDMULH by an indexed Zm element, across all sizes
+    // and index positions. Random operands plus a min*min saturation edge for
+    // the two saturating-high forms.
+    let ops: [(u32, &str); 5] = [
+        (0b111110, "mul"),
+        (0b000010, "mla"),
+        (0b000011, "mls"),
+        (0b111100, "sqdmulh"),
+        (0b111101, "sqrdmulh"),
+    ];
+    let sizes: [(u32, usize, u32); 3] = [(1, 2, 8), (2, 4, 4), (3, 8, 2)]; // size, esize, #idx
+    let mut rng = Rng::new(0x6_3001);
+    let mut batch: Vec<(String, u32, ArmState)> = Vec::new();
+    for (op6, opname) in ops {
+        let saturating = op6 == 0b111100 || op6 == 0b111101;
+        for (size, esz, idxn) in sizes {
+            for index in 0..idxn {
+                let insn = enc_sve2_mul_idx(op6, size, index, RM); // Zm = z2
+                for _ in 0..6 {
+                    let mut st = ArmState::zeroed();
+                    st.set_vreg(1, rng.next(), rng.next()); // Zn
+                    st.set_vreg(2, rng.next(), rng.next()); // Zm
+                    st.set_vreg(0, rng.next(), rng.next()); // Zd (accumulator)
+                    batch.push((format!("{opname}_sz{size}_i{index}"), insn, st));
+                }
+                if saturating {
+                    // Force min*min in every lane to exercise the saturation clamp.
+                    let m_elem = 1u128 << (esz * 8 - 1);
+                    let mut minv = 0u128;
+                    for l in 0..(16 / esz) {
+                        minv |= m_elem << (l * esz * 8);
+                    }
+                    let mut st = ArmState::zeroed();
+                    st.set_vreg(1, minv as u64, (minv >> 64) as u64);
+                    st.set_vreg(2, minv as u64, (minv >> 64) as u64);
+                    st.set_vreg(0, rng.next(), rng.next());
+                    batch.push((format!("{opname}_sz{size}_i{index}_sat"), insn, st));
+                }
+            }
+        }
+    }
+    run_batch("sve2_mul_indexed", batch);
 }
 
 #[test]
