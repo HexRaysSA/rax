@@ -4877,6 +4877,7 @@ impl HexagonLifter {
                     mask_q: self.hex_q(fld(b'v')),
                     src: self.hex_v(fld(b'u')),
                     negate,
+                    oracc: false,
                 });
             }
 
@@ -4900,6 +4901,7 @@ impl HexagonLifter {
                     mask_q: self.hex_q(fld(b'u')),
                     src: t,
                     negate,
+                    oracc: false,
                 });
             }
 
@@ -4919,8 +4921,200 @@ impl HexagonLifter {
                     dst: self.hex_q(fld(b'd')),
                     src1: self.hex_v(fld(b'u')),
                     src2: t,
+                    oracc: false,
                 });
             }
+
+            // ---- HVX Q<->V / V<->Q OR-accumulating bridges (vand*_acc) ----
+            // vandqrt_acc / vandnqrt_acc: Vx.ub[i] |= (Qu.bit[i] ^ neg) ? Rt.b[i%4] : 0.
+            // Fields: x=Vx (RMW dest), t=Rt, u=Qu (sem/hvx_misc.rs).
+            Opcode::V6_vandqrt_acc | Opcode::V6_vandnqrt_acc => {
+                let negate = matches!(op, Opcode::V6_vandnqrt_acc);
+                let t = ctx.alloc_vreg();
+                push_op!(OpKind::VBroadcast {
+                    dst: t,
+                    scalar: self.hex_reg(fld(b't')),
+                    elem: VecElementType::I32,
+                    lanes: 32,
+                });
+                push_op!(OpKind::VMaskZero {
+                    dst: self.hex_v(fld(b'x')),
+                    mask_q: self.hex_q(fld(b'u')),
+                    src: t,
+                    negate,
+                    oracc: true,
+                });
+            }
+            // vandvrt_acc: Qx.bit[i] |= (Vu.ub[i] & Rt.b[i%4]) != 0.
+            // Fields: x=Qx (RMW dest), t=Rt, u=Vu (sem/hvx_misc.rs).
+            Opcode::V6_vandvrt_acc => {
+                let t = ctx.alloc_vreg();
+                push_op!(OpKind::VBroadcast {
+                    dst: t,
+                    scalar: self.hex_reg(fld(b't')),
+                    elem: VecElementType::I32,
+                    lanes: 32,
+                });
+                push_op!(OpKind::VQFromVAndR {
+                    dst: self.hex_q(fld(b'x')),
+                    src1: self.hex_v(fld(b'u')),
+                    src2: t,
+                    oracc: true,
+                });
+            }
+
+            // ---- HVX Q-predicated conditional add/sub (vadd*q / vadd*nq) ----
+            // `if (Qv[!]) Vx {+,-}= Vu`: read-modify-write of Vx, per-byte masked
+            // by Qv covering each elem-wide lane. Fields x=Vx, u=Vu, v=Qv (the
+            // OLD architectural Q; no in-packet forwarding) (sem/hvx_predop.rs).
+            Opcode::V6_vaddbq
+            | Opcode::V6_vaddbnq
+            | Opcode::V6_vaddhq
+            | Opcode::V6_vaddhnq
+            | Opcode::V6_vaddwq
+            | Opcode::V6_vaddwnq
+            | Opcode::V6_vsubbq
+            | Opcode::V6_vsubbnq
+            | Opcode::V6_vsubhq
+            | Opcode::V6_vsubhnq
+            | Opcode::V6_vsubwq
+            | Opcode::V6_vsubwnq => {
+                let (elem, lanes, sub, negate) = match op {
+                    Opcode::V6_vaddbq => (VecElementType::I8, 128, false, false),
+                    Opcode::V6_vaddbnq => (VecElementType::I8, 128, false, true),
+                    Opcode::V6_vaddhq => (VecElementType::I16, 64, false, false),
+                    Opcode::V6_vaddhnq => (VecElementType::I16, 64, false, true),
+                    Opcode::V6_vaddwq => (VecElementType::I32, 32, false, false),
+                    Opcode::V6_vaddwnq => (VecElementType::I32, 32, false, true),
+                    Opcode::V6_vsubbq => (VecElementType::I8, 128, true, false),
+                    Opcode::V6_vsubbnq => (VecElementType::I8, 128, true, true),
+                    Opcode::V6_vsubhq => (VecElementType::I16, 64, true, false),
+                    Opcode::V6_vsubhnq => (VecElementType::I16, 64, true, true),
+                    Opcode::V6_vsubwq => (VecElementType::I32, 32, true, false),
+                    // V6_vsubwnq
+                    _ => (VecElementType::I32, 32, true, true),
+                };
+                push_op!(OpKind::VLaneCond {
+                    dst: self.hex_v(fld(b'x')),
+                    src: self.hex_v(fld(b'u')),
+                    mask_q: self.hex_q(fld(b'v')),
+                    elem,
+                    lanes,
+                    sub,
+                    negate,
+                });
+            }
+
+            // ---- HVX carry add/sub (vadd/vsub(Vu.w,Vv.w,Qx):carry + variants) ----
+            // carry: Qx carries in AND out (field x). carryo: cin=0 (subcarryo
+            // cin=1), carry-out to a separate Qe (field e). carrysat: cin from Qs
+            // (field s), no carry-out, signed sat_32 (sem/hvx_carry.rs).
+            Opcode::V6_vaddcarry | Opcode::V6_vsubcarry => {
+                let sub = matches!(op, Opcode::V6_vsubcarry);
+                push_op!(OpKind::VCarry {
+                    dst: self.hex_v(fld(b'd')),
+                    src1: self.hex_v(fld(b'u')),
+                    src2: self.hex_v(fld(b'v')),
+                    q_inout: self.hex_q(fld(b'x')),
+                    sub,
+                    has_cin: true,
+                    cin0: false,
+                    has_cout: true,
+                    sat: false,
+                });
+            }
+            Opcode::V6_vaddcarryo | Opcode::V6_vsubcarryo => {
+                let sub = matches!(op, Opcode::V6_vsubcarryo);
+                push_op!(OpKind::VCarry {
+                    dst: self.hex_v(fld(b'd')),
+                    src1: self.hex_v(fld(b'u')),
+                    src2: self.hex_v(fld(b'v')),
+                    q_inout: self.hex_q(fld(b'e')),
+                    sub,
+                    has_cin: false,
+                    cin0: sub, // subcarryo uses cin=1 (Vu + ~Vv + 1)
+                    has_cout: true,
+                    sat: false,
+                });
+            }
+            Opcode::V6_vaddcarrysat => {
+                push_op!(OpKind::VCarry {
+                    dst: self.hex_v(fld(b'd')),
+                    src1: self.hex_v(fld(b'u')),
+                    src2: self.hex_v(fld(b'v')),
+                    q_inout: self.hex_q(fld(b's')),
+                    sub: false,
+                    has_cin: true,
+                    cin0: false,
+                    has_cout: false,
+                    sat: true,
+                });
+            }
+
+            // ---- HVX vswap: Vdd = vswap(Qt, Vu, Vv) (pair Q-blend) ----
+            // v[0].b[i]=Qt[i]?Vu:Vv; v[1].b[i]=Qt[i]?Vv:Vu. Fields d=Vdd, t=Qt,
+            // u=Vu, v=Vv (sem/hvx_permx.rs). The encoded pair base is even.
+            Opcode::V6_vswap => {
+                let dd = fld(b'd');
+                push_op!(OpKind::VSwap {
+                    dst_lo: self.hex_v(dd),
+                    dst_hi: self.hex_v(dd + 1),
+                    mask_q: self.hex_q(fld(b't')),
+                    src1: self.hex_v(fld(b'u')),
+                    src2: self.hex_v(fld(b'v')),
+                });
+            }
+
+            // ---- HVX scalar-predicated move / combine (vcmov / vccombine) ----
+            // vcmov:   if (Ps.lsb)  Vd = Vu                 (vncmov: if !Ps)
+            // vccombine: if (Ps)   Vdd.v[0]=Vv, Vdd.v[1]=Vu (vnccombine: if !Ps)
+            // CANCEL (no write) when false. Fields s=Ps, u=Vu, v=Vv, d=Vd/Vdd
+            // (sem/hvx_predop.rs).
+            Opcode::V6_vcmov | Opcode::V6_vncmov => {
+                let negate = matches!(op, Opcode::V6_vncmov);
+                push_op!(OpKind::VCondMove {
+                    dst_lo: self.hex_v(fld(b'd')),
+                    dst_hi: None,
+                    src_lo: self.hex_v(fld(b'u')),
+                    src_hi: self.hex_v(fld(b'u')),
+                    pred: self.hex_pred(fld(b's')),
+                    negate,
+                });
+            }
+            Opcode::V6_vccombine | Opcode::V6_vnccombine => {
+                let negate = matches!(op, Opcode::V6_vnccombine);
+                let dd = fld(b'd');
+                push_op!(OpKind::VCondMove {
+                    dst_lo: self.hex_v(dd),       // Vdd.v[0] = Vv (low)
+                    dst_hi: Some(self.hex_v(dd + 1)), // Vdd.v[1] = Vu (high)
+                    src_lo: self.hex_v(fld(b'v')),
+                    src_hi: self.hex_v(fld(b'u')),
+                    pred: self.hex_pred(fld(b's')),
+                    negate,
+                });
+            }
+
+            // ---- HVX Q prefix-sum (vprefixqb/qh/qw) ----
+            // Vd.<e>[i] = running popcount of Q bits over all bytes at byte index
+            // < (i+1)*ebytes. Fields d=Vd, v=Qv (sem/hvx_misc.rs).
+            Opcode::V6_vprefixqb => push_op!(OpKind::VPrefixSumQ {
+                dst: self.hex_v(fld(b'd')),
+                mask_q: self.hex_q(fld(b'v')),
+                elem: VecElementType::I8,
+                lanes: 128,
+            }),
+            Opcode::V6_vprefixqh => push_op!(OpKind::VPrefixSumQ {
+                dst: self.hex_v(fld(b'd')),
+                mask_q: self.hex_q(fld(b'v')),
+                elem: VecElementType::I16,
+                lanes: 64,
+            }),
+            Opcode::V6_vprefixqw => push_op!(OpKind::VPrefixSumQ {
+                dst: self.hex_v(fld(b'd')),
+                mask_q: self.hex_q(fld(b'v')),
+                elem: VecElementType::I32,
+                lanes: 32,
+            }),
 
             // ============================================================
             // Wave 15: more HVX integer multiply variants.

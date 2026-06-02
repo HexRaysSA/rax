@@ -1705,14 +1705,62 @@ impl OpKind {
                 result.push(*src_false);
             }
 
-            OpKind::VMaskZero { mask_q, src, .. } => {
+            OpKind::VMaskZero { mask_q, src, dst, oracc, .. } => {
                 result.push(*mask_q);
                 result.push(*src);
+                // oracc (vandqrt_acc) OR-accumulates into the existing dst.
+                if *oracc {
+                    result.push(*dst);
+                }
             }
 
-            OpKind::VQFromVAndR { src1, src2, .. } => {
+            OpKind::VQFromVAndR { src1, src2, dst, oracc } => {
                 result.push(*src1);
                 result.push(*src2);
+                // oracc (vandvrt_acc) OR-accumulates into the existing dst Q.
+                if *oracc {
+                    result.push(*dst);
+                }
+            }
+
+            // Q-predicated conditional add/sub: dst is read-modify-written.
+            OpKind::VLaneCond { dst, src, mask_q, .. } => {
+                result.push(*dst);
+                result.push(*src);
+                result.push(*mask_q);
+            }
+
+            // Carry add/sub: reads both vectors; reads the carry Q when it has a
+            // carry-in (carry / carrysat forms).
+            OpKind::VCarry { src1, src2, q_inout, has_cin, .. } => {
+                result.push(*src1);
+                result.push(*src2);
+                if *has_cin {
+                    result.push(*q_inout);
+                }
+            }
+
+            OpKind::VSwap { mask_q, src1, src2, .. } => {
+                result.push(*mask_q);
+                result.push(*src1);
+                result.push(*src2);
+            }
+
+            // Scalar-predicate-gated move/combine: when the gate is false the
+            // dest(s) keep their prior value, so they are read; also reads the
+            // predicate and the candidate sources.
+            OpKind::VCondMove { dst_lo, dst_hi, src_lo, src_hi, pred, .. } => {
+                result.push(*pred);
+                result.push(*src_lo);
+                result.push(*dst_lo);
+                if let Some(hi) = dst_hi {
+                    result.push(*src_hi);
+                    result.push(*hi);
+                }
+            }
+
+            OpKind::VPrefixSumQ { mask_q, .. } => {
+                result.push(*mask_q);
             }
 
             OpKind::VMov { src, .. } | OpKind::VBroadcast { scalar: src, .. } => {

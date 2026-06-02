@@ -2058,3 +2058,110 @@ fn lift_hvx_vaddclb() {
         0x1a08,
     );
 }
+
+// ---- Wave 16: HVX Q-predicated add/sub, carry, vswap, cmov, prefix, vand_acc ----
+// The harness seeds Q0-3 and P0-3 randomly, so the predicated forms exercise both
+// the take and skip paths and both Q polarities.
+
+// Q-predicated conditional add/sub: `if (Qv[!]) Vx {+,-}= Vu` (VLaneCond). The
+// destination Vx is read-modify-written, masked per vector byte by the OLD Qv.
+#[test]
+fn lift_hvx_vaddsubq() {
+    lift_family(
+        "hvx_vaddsubq",
+        &[
+            ("vaddbq", "{ if (q0) v0.b += v1.b }"),
+            ("vaddbnq", "{ if (!q0) v0.b += v1.b }"),
+            ("vaddhq", "{ if (q0) v0.h += v1.h }"),
+            ("vaddhnq", "{ if (!q0) v0.h += v1.h }"),
+            ("vaddwq", "{ if (q0) v0.w += v1.w }"),
+            ("vaddwnq", "{ if (!q0) v0.w += v1.w }"),
+            ("vsubbq", "{ if (q0) v0.b -= v1.b }"),
+            ("vsubbnq", "{ if (!q0) v0.b -= v1.b }"),
+            ("vsubhq", "{ if (q0) v0.h -= v1.h }"),
+            ("vsubhnq", "{ if (!q0) v0.h -= v1.h }"),
+            ("vsubwq", "{ if (q0) v0.w -= v1.w }"),
+            ("vsubwnq", "{ if (!q0) v0.w -= v1.w }"),
+        ],
+        16,
+        0x1b00,
+    );
+}
+
+// Carry add/sub: per-word add/sub with a Q vector-predicate carry (VCarry).
+// carry: Q is carry-in AND out; carryo: carry-out only; carrysat: carry-in,
+// no carry-out, signed sat_32. The harness compares the result V AND the Q.
+#[test]
+fn lift_hvx_vcarry() {
+    lift_family(
+        "hvx_vcarry",
+        &[
+            ("vaddcarry", "{ v0.w = vadd(v1.w,v2.w,q3):carry }"),
+            ("vsubcarry", "{ v0.w = vsub(v1.w,v2.w,q3):carry }"),
+            ("vaddcarryo", "{ v0.w,q3 = vadd(v1.w,v2.w):carry }"),
+            ("vsubcarryo", "{ v0.w,q3 = vsub(v1.w,v2.w):carry }"),
+            ("vaddcarrysat", "{ v0.w = vadd(v1.w,v2.w,q3):carry:sat }"),
+        ],
+        16,
+        0x1b01,
+    );
+}
+
+// vswap: Vdd = vswap(Qt, Vu, Vv) — a pair Q-blend (VSwap).
+#[test]
+fn lift_hvx_vswap() {
+    lift_family(
+        "hvx_vswap",
+        &[("vswap", "{ v1:0 = vswap(q3,v2,v3) }")],
+        16,
+        0x1b02,
+    );
+}
+
+// Scalar-predicated whole-vector move / combine (VCondMove). CANCELs (no write)
+// when the gate is false; the harness seeds P0-3 so both paths run.
+#[test]
+fn lift_hvx_vcmov() {
+    lift_family(
+        "hvx_vcmov",
+        &[
+            ("vcmov", "{ if (p0) v0 = v1 }"),
+            ("vncmov", "{ if (!p0) v0 = v1 }"),
+            ("vccombine", "{ if (p0) v1:0 = vcombine(v2,v3) }"),
+            ("vnccombine", "{ if (!p0) v1:0 = vcombine(v2,v3) }"),
+        ],
+        16,
+        0x1b03,
+    );
+}
+
+// Q prefix-sum (VPrefixSumQ): running popcount of a Q's bits into b/h/w lanes.
+#[test]
+fn lift_hvx_vprefixq() {
+    lift_family(
+        "hvx_vprefixq",
+        &[
+            ("vprefixqb", "{ v0.b = prefixsum(q0) }"),
+            ("vprefixqh", "{ v0.h = prefixsum(q0) }"),
+            ("vprefixqw", "{ v0.w = prefixsum(q0) }"),
+        ],
+        16,
+        0x1b04,
+    );
+}
+
+// OR-accumulating Q<->V / V<->Q bridges (vand*_acc): read-modify the dst V/Q.
+// The harness seeds V0-31 and Q0-3 so the OR-accumulate path is meaningful.
+#[test]
+fn lift_hvx_vand_acc() {
+    lift_family(
+        "hvx_vand_acc",
+        &[
+            ("vandqrt_acc", "{ v0 |= vand(q0,r3) }"),
+            ("vandnqrt_acc", "{ v0 |= vand(!q0,r3) }"),
+            ("vandvrt_acc", "{ q0 |= vand(v1,r3) }"),
+        ],
+        16,
+        0x1b05,
+    );
+}

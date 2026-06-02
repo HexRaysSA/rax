@@ -2449,10 +2449,16 @@ impl SmirInterpreter {
                 Self::write_vec(ctx, *dst, q);
             }
 
-            OpKind::VQFromVAndR { dst, src1, src2 } => {
+            OpKind::VQFromVAndR { dst, src1, src2, oracc } => {
                 let a = Self::read_vec(ctx, *src1);
                 let b = Self::read_vec(ctx, *src2);
-                let mut q = [0u64; 16];
+                // vandvrt_acc OR-accumulates into the existing dst Q; otherwise
+                // overwrite (start from a clean Q).
+                let mut q = if *oracc {
+                    Self::read_vec(ctx, *dst)
+                } else {
+                    [0u64; 16]
+                };
                 for byte in 0..128usize {
                     let av = Self::get_lane(&a, byte as u8, 8);
                     let bv = Self::get_lane(&b, byte as u8, 8);
@@ -2468,20 +2474,193 @@ impl SmirInterpreter {
                 mask_q,
                 src,
                 negate,
+                oracc,
             } => {
                 let m = Self::read_vec(ctx, *mask_q);
                 let s = Self::read_vec(ctx, *src);
-                let mut result = [0u64; 16];
+                // vandqrt_acc OR-accumulates the gated bytes into the existing
+                // dst; the plain forms overwrite (unselected bytes -> 0).
+                let mut result = if *oracc {
+                    Self::read_vec(ctx, *dst)
+                } else {
+                    [0u64; 16]
+                };
                 for byte in 0..128usize {
                     let bit = (m[byte >> 6] >> (byte & 63)) & 1 != 0;
                     if bit ^ *negate {
-                        Self::set_lane(
-                            &mut result,
-                            byte as u8,
-                            8,
-                            Self::get_lane(&s, byte as u8, 8),
-                        );
+                        let sv = Self::get_lane(&s, byte as u8, 8);
+                        if *oracc {
+                            let prev = Self::get_lane(&result, byte as u8, 8);
+                            Self::set_lane(&mut result, byte as u8, 8, prev | sv);
+                        } else {
+                            Self::set_lane(&mut result, byte as u8, 8, sv);
+                        }
                     }
+                }
+                Self::write_vec(ctx, *dst, result);
+            }
+
+            OpKind::VLaneCond {
+                dst,
+                src,
+                mask_q,
+                elem,
+                lanes,
+                sub,
+                negate,
+            } => {
+                let x = Self::read_vec(ctx, *dst);
+                let u = Self::read_vec(ctx, *src);
+                let m = Self::read_vec(ctx, *mask_q);
+                let elem_bits = elem.bytes() * 8;
+                let ebytes = elem.bytes() as usize;
+                let mut result = x;
+                for lane in 0..*lanes {
+                    let a = Self::get_lane(&x, lane, elem_bits);
+                    let b = Self::get_lane(&u, lane, elem_bits);
+                    let r = if *sub {
+                        a.wrapping_sub(b)
+                    } else {
+                        a.wrapping_add(b)
+                    };
+                    let rb = r.to_le_bytes();
+                    let base = lane as usize * ebytes;
+                    // Per-byte select: each Q bit covering this lane's bytes
+                    // chooses op-result vs unchanged dst (fCONDMASK{8,16,32}).
+                    for byte in 0..ebytes {
+                        let bidx = base + byte;
+                        let qb = (m[bidx >> 6] >> (bidx & 63)) & 1 != 0;
+                        if qb ^ *negate {
+                            Self::set_lane(&mut result, bidx as u8, 8, rb[byte] as u64);
+                        }
+                    }
+                }
+                Self::write_vec(ctx, *dst, result);
+            }
+
+            OpKind::VCarry {
+                dst,
+                src1,
+                src2,
+                q_inout,
+                sub,
+                has_cin,
+                cin0,
+                has_cout,
+                sat,
+            } => {
+                let a = Self::read_vec(ctx, *src1);
+                let b = Self::read_vec(ctx, *src2);
+                let qin = if *has_cin {
+                    Self::read_vec(ctx, *q_inout)
+                } else {
+                    [0u64; 16]
+                };
+                let mut out = [0u64; 16];
+                let mut qout = [0u64; 16];
+                for i in 0..32usize {
+                    let av = Self::get_lane(&a, i as u8, 32) as u32;
+                    let bv0 = Self::get_lane(&b, i as u8, 32) as u32;
+                    let bv = if *sub { !bv0 } else { bv0 };
+                    let cin = if *has_cin {
+                        let bit = i * 4;
+                        ((qin[bit >> 6] >> (bit & 63)) & 1) as u32
+                    } else {
+                        *cin0 as u32
+                    };
+                    if *sat {
+                        // vaddcarrysat: signed sat_32 of Vu + Vv + cin (no
+                        // carry-out). `sub` is never set for the sat form.
+                        let s = av as i32 as i64 + bv0 as i32 as i64 + cin as i64;
+                        let clamped = s.clamp(i32::MIN as i64, i32::MAX as i64) as u32;
+                        Self::set_lane(&mut out, i as u8, 32, clamped as u64);
+                    } else {
+                        let full = av as u64 + bv as u64 + cin as u64;
+                        Self::set_lane(&mut out, i as u8, 32, full & 0xffff_ffff);
+                        let carry = (full >> 32) != 0;
+                        if *has_cout {
+                            for byte in 0..4 {
+                                let bit = i * 4 + byte;
+                                if carry {
+                                    qout[bit >> 6] |= 1u64 << (bit & 63);
+                                }
+                            }
+                        }
+                    }
+                }
+                Self::write_vec(ctx, *dst, out);
+                if *has_cout {
+                    Self::write_vec(ctx, *q_inout, qout);
+                }
+            }
+
+            OpKind::VSwap {
+                dst_lo,
+                dst_hi,
+                mask_q,
+                src1,
+                src2,
+            } => {
+                let m = Self::read_vec(ctx, *mask_q);
+                let u = Self::read_vec(ctx, *src1);
+                let v = Self::read_vec(ctx, *src2);
+                let mut lo = [0u64; 16];
+                let mut hi = [0u64; 16];
+                for byte in 0..128usize {
+                    let qb = (m[byte >> 6] >> (byte & 63)) & 1 != 0;
+                    let uv = Self::get_lane(&u, byte as u8, 8);
+                    let vv = Self::get_lane(&v, byte as u8, 8);
+                    if qb {
+                        Self::set_lane(&mut lo, byte as u8, 8, uv);
+                        Self::set_lane(&mut hi, byte as u8, 8, vv);
+                    } else {
+                        Self::set_lane(&mut lo, byte as u8, 8, vv);
+                        Self::set_lane(&mut hi, byte as u8, 8, uv);
+                    }
+                }
+                Self::write_vec(ctx, *dst_lo, lo);
+                Self::write_vec(ctx, *dst_hi, hi);
+            }
+
+            OpKind::VCondMove {
+                dst_lo,
+                dst_hi,
+                src_lo,
+                src_hi,
+                pred,
+                negate,
+            } => {
+                let p = ctx.read_vreg(*pred) & 1;
+                let take = if *negate { p == 0 } else { p != 0 };
+                if take {
+                    let lo = Self::read_vec(ctx, *src_lo);
+                    Self::write_vec(ctx, *dst_lo, lo);
+                    if let Some(hi) = dst_hi {
+                        let hv = Self::read_vec(ctx, *src_hi);
+                        Self::write_vec(ctx, *hi, hv);
+                    }
+                }
+                // CANCEL (no write) when the condition is false.
+            }
+
+            OpKind::VPrefixSumQ {
+                dst,
+                mask_q,
+                elem,
+                lanes,
+            } => {
+                let m = Self::read_vec(ctx, *mask_q);
+                let elem_bits = elem.bytes() * 8;
+                let ebytes = elem.bytes() as usize;
+                let mut result = [0u64; 16];
+                let mut acc: u64 = 0;
+                for lane in 0..*lanes {
+                    let base = lane as usize * ebytes;
+                    for byte in 0..ebytes {
+                        let bidx = base + byte;
+                        acc = acc.wrapping_add((m[bidx >> 6] >> (bidx & 63)) & 1);
+                    }
+                    Self::set_lane(&mut result, lane, elem_bits, acc);
                 }
                 Self::write_vec(ctx, *dst, result);
             }
@@ -5555,6 +5734,7 @@ mod tests {
                     dst: VReg::Arch(ArchReg::Hexagon(HexagonReg::Q(0))),
                     src1: mkv(0),
                     src2: mkv(1),
+                    oracc: false,
                 },
                 x86_hint: None,
             }],
@@ -5593,6 +5773,7 @@ mod tests {
                     mask_q: VReg::Arch(ArchReg::Hexagon(HexagonReg::Q(0))),
                     src: mkv(0),
                     negate,
+                    oracc: false,
                 },
                 x86_hint: None,
             }],
@@ -5922,6 +6103,298 @@ mod tests {
         interp.execute_block(&mut ctx, &mut memory, &block);
         if let ArchRegState::Hexagon(hex) = &ctx.arch_regs {
             assert_eq!(hex.get_v(2), [0xDEAD_BEEF_DEAD_BEEFu64; 16]);
+        }
+    }
+
+    // Run an op with V0=Vx(dst), V1=Vu, Q0 seeded; return V0 after.
+    fn run_lanecond(vx: [u64; 16], vu: [u64; 16], q: [u64; 16], op: OpKind) -> [u64; 16] {
+        let mut ctx = SmirContext::new_hexagon();
+        let mut memory = FlatMemory::new(0x1000);
+        let interp = SmirInterpreter::new();
+        if let ArchRegState::Hexagon(hex) = &mut ctx.arch_regs {
+            hex.set_v(0, vx);
+            hex.set_v(1, vu);
+            hex.set_q(0, q);
+        }
+        let block = SmirBlock {
+            id: BlockId(0),
+            guest_pc: 0x1000,
+            phis: vec![],
+            ops: vec![SmirOp { id: OpId(0), guest_pc: 0x1000, kind: op, x86_hint: None }],
+            terminator: Terminator::Trap { kind: TrapKind::Halt },
+            exec_count: 0,
+        };
+        interp.execute_block(&mut ctx, &mut memory, &block);
+        match &ctx.arch_regs {
+            ArchRegState::Hexagon(hex) => hex.get_v(0),
+            _ => panic!("not hexagon"),
+        }
+    }
+
+    #[test]
+    fn test_vlanecond_byte() {
+        // if (Q0) V0.b += V1.b: byte0 Q-set -> add, byte1 Q-clear -> unchanged.
+        let mut vx = [0u64; 16];
+        vx[0] = 0x0000_0000_0000_2010; // byte0=0x10, byte1=0x20
+        let mut vu = [0u64; 16];
+        vu[0] = 0x0000_0000_0000_0505; // byte0=0x05, byte1=0x05
+        let mut q = [0u64; 16];
+        q[0] = 0b01; // only Q bit0 set (covers byte0)
+        let mkv = |n| VReg::Arch(ArchReg::Hexagon(HexagonReg::V(n)));
+        let out = run_lanecond(
+            vx,
+            vu,
+            q,
+            OpKind::VLaneCond {
+                dst: mkv(0),
+                src: mkv(1),
+                mask_q: VReg::Arch(ArchReg::Hexagon(HexagonReg::Q(0))),
+                elem: VecElementType::I8,
+                lanes: 128,
+                sub: false,
+                negate: false,
+            },
+        );
+        // byte0: 0x10+0x05=0x15 (Q set); byte1: 0x20 unchanged (Q clear).
+        assert_eq!(out[0] & 0xffff, 0x2015);
+        // negate: byte0 unchanged, byte1 adds.
+        let out_n = run_lanecond(
+            vx,
+            vu,
+            q,
+            OpKind::VLaneCond {
+                dst: mkv(0),
+                src: mkv(1),
+                mask_q: VReg::Arch(ArchReg::Hexagon(HexagonReg::Q(0))),
+                elem: VecElementType::I8,
+                lanes: 128,
+                sub: false,
+                negate: true,
+            },
+        );
+        assert_eq!(out_n[0] & 0xffff, 0x2510); // byte0=0x10, byte1=0x20+0x05=0x25
+    }
+
+    #[test]
+    fn test_vcarry_addcarryo() {
+        // carryo: V0.w,Q3 = vadd(V1.w,V2.w):carry (cin=0). Lane0: 0xFFFFFFFF +
+        // 0x00000001 = 0 with carry-out -> all 4 Q bits of group 0 set.
+        let mut v1 = [0u64; 16];
+        v1[0] = 0x0000_0001_FFFF_FFFF; // word0=0xFFFFFFFF, word1=1
+        let mut v2 = [0u64; 16];
+        v2[0] = 0x0000_0000_0000_0001; // word0=1, word1=0
+        let mut ctx = SmirContext::new_hexagon();
+        let mut memory = FlatMemory::new(0x1000);
+        let interp = SmirInterpreter::new();
+        if let ArchRegState::Hexagon(hex) = &mut ctx.arch_regs {
+            hex.set_v(1, v1);
+            hex.set_v(2, v2);
+        }
+        let mkv = |n| VReg::Arch(ArchReg::Hexagon(HexagonReg::V(n)));
+        let block = SmirBlock {
+            id: BlockId(0),
+            guest_pc: 0x1000,
+            phis: vec![],
+            ops: vec![SmirOp {
+                id: OpId(0),
+                guest_pc: 0x1000,
+                kind: OpKind::VCarry {
+                    dst: mkv(0),
+                    src1: mkv(1),
+                    src2: mkv(2),
+                    q_inout: VReg::Arch(ArchReg::Hexagon(HexagonReg::Q(3))),
+                    sub: false,
+                    has_cin: false,
+                    cin0: false,
+                    has_cout: true,
+                    sat: false,
+                },
+                x86_hint: None,
+            }],
+            terminator: Terminator::Trap { kind: TrapKind::Halt },
+            exec_count: 0,
+        };
+        interp.execute_block(&mut ctx, &mut memory, &block);
+        if let ArchRegState::Hexagon(hex) = &ctx.arch_regs {
+            let v = hex.get_v(0);
+            assert_eq!(v[0], 0x0000_0001_0000_0000); // word0=0(carry), word1=1+0=1
+            let q = hex.get_q(3);
+            assert_eq!(q[0] & 0xff, 0x0f); // group0 all set (carry), group1 clear
+        }
+    }
+
+    #[test]
+    fn test_vswap_pair() {
+        // Vdd = vswap(Q0, V0, V1): byte0 Q-set -> lo=Vu(V0), hi=Vv(V1);
+        // byte1 Q-clear -> lo=Vv(V1), hi=Vu(V0).
+        let mut v0 = [0u64; 16];
+        v0[0] = 0x0000_0000_0000_1110; // byte0=0x10, byte1=0x11 (Vu)
+        let mut v1 = [0u64; 16];
+        v1[0] = 0x0000_0000_0000_2120; // byte0=0x20, byte1=0x21 (Vv)
+        let mut q = [0u64; 16];
+        q[0] = 0b01; // byte0 Q-set
+        let mut ctx = SmirContext::new_hexagon();
+        let mut memory = FlatMemory::new(0x1000);
+        let interp = SmirInterpreter::new();
+        if let ArchRegState::Hexagon(hex) = &mut ctx.arch_regs {
+            hex.set_v(0, v0);
+            hex.set_v(1, v1);
+            hex.set_q(0, q);
+        }
+        let mkv = |n| VReg::Arch(ArchReg::Hexagon(HexagonReg::V(n)));
+        let block = SmirBlock {
+            id: BlockId(0),
+            guest_pc: 0x1000,
+            phis: vec![],
+            ops: vec![SmirOp {
+                id: OpId(0),
+                guest_pc: 0x1000,
+                kind: OpKind::VSwap {
+                    dst_lo: mkv(2),
+                    dst_hi: mkv(3),
+                    mask_q: VReg::Arch(ArchReg::Hexagon(HexagonReg::Q(0))),
+                    src1: mkv(0),
+                    src2: mkv(1),
+                },
+                x86_hint: None,
+            }],
+            terminator: Terminator::Trap { kind: TrapKind::Halt },
+            exec_count: 0,
+        };
+        interp.execute_block(&mut ctx, &mut memory, &block);
+        if let ArchRegState::Hexagon(hex) = &ctx.arch_regs {
+            // lo: byte0 = Vu(0x10), byte1 = Vv(0x21)
+            assert_eq!(hex.get_v(2)[0] & 0xffff, 0x2110);
+            // hi: byte0 = Vv(0x20), byte1 = Vu(0x11)
+            assert_eq!(hex.get_v(3)[0] & 0xffff, 0x1120);
+        }
+    }
+
+    #[test]
+    fn test_vcondmove_cancel() {
+        // if (P0) V0=V1. P0=false -> V0 keeps its prior value (no write).
+        let v_old = [0x1111_1111_1111_1111u64; 16];
+        let v_new = [0x2222_2222_2222_2222u64; 16];
+        let mkv = |n| VReg::Arch(ArchReg::Hexagon(HexagonReg::V(n)));
+        let run = |pval: u64, negate: bool| -> [u64; 16] {
+            let mut ctx = SmirContext::new_hexagon();
+            let mut memory = FlatMemory::new(0x1000);
+            let interp = SmirInterpreter::new();
+            ctx.write_arch_reg(ArchReg::Hexagon(HexagonReg::P(0)), pval);
+            if let ArchRegState::Hexagon(hex) = &mut ctx.arch_regs {
+                hex.set_v(0, v_old);
+                hex.set_v(1, v_new);
+            }
+            let block = SmirBlock {
+                id: BlockId(0),
+                guest_pc: 0x1000,
+                phis: vec![],
+                ops: vec![SmirOp {
+                    id: OpId(0),
+                    guest_pc: 0x1000,
+                    kind: OpKind::VCondMove {
+                        dst_lo: mkv(0),
+                        dst_hi: None,
+                        src_lo: mkv(1),
+                        src_hi: mkv(1),
+                        pred: VReg::Arch(ArchReg::Hexagon(HexagonReg::P(0))),
+                        negate,
+                    },
+                    x86_hint: None,
+                }],
+                terminator: Terminator::Trap { kind: TrapKind::Halt },
+                exec_count: 0,
+            };
+            interp.execute_block(&mut ctx, &mut memory, &block);
+            match &ctx.arch_regs {
+                ArchRegState::Hexagon(hex) => hex.get_v(0),
+                _ => panic!(),
+            }
+        };
+        assert_eq!(run(1, false), v_new); // P0 true -> move
+        assert_eq!(run(0, false), v_old); // P0 false -> cancel
+        assert_eq!(run(0, true), v_new); // !P0 (P0 false) -> move
+        assert_eq!(run(1, true), v_old); // !P0 (P0 true) -> cancel
+    }
+
+    #[test]
+    fn test_vprefixqb() {
+        // V0.b = prefixsum(Q0): byte i = count of set Q bits in bytes 0..=i.
+        // Q0 bits: byte0 set, byte2 set -> prefix b0=1,b1=1,b2=2,b3=2,...
+        let mut q = [0u64; 16];
+        q[0] = 0b0101; // bits 0 and 2 set
+        let mut ctx = SmirContext::new_hexagon();
+        let mut memory = FlatMemory::new(0x1000);
+        let interp = SmirInterpreter::new();
+        if let ArchRegState::Hexagon(hex) = &mut ctx.arch_regs {
+            hex.set_q(0, q);
+        }
+        let mkv = |n| VReg::Arch(ArchReg::Hexagon(HexagonReg::V(n)));
+        let block = SmirBlock {
+            id: BlockId(0),
+            guest_pc: 0x1000,
+            phis: vec![],
+            ops: vec![SmirOp {
+                id: OpId(0),
+                guest_pc: 0x1000,
+                kind: OpKind::VPrefixSumQ {
+                    dst: mkv(0),
+                    mask_q: VReg::Arch(ArchReg::Hexagon(HexagonReg::Q(0))),
+                    elem: VecElementType::I8,
+                    lanes: 128,
+                },
+                x86_hint: None,
+            }],
+            terminator: Terminator::Trap { kind: TrapKind::Halt },
+            exec_count: 0,
+        };
+        interp.execute_block(&mut ctx, &mut memory, &block);
+        if let ArchRegState::Hexagon(hex) = &ctx.arch_regs {
+            let v = hex.get_v(0);
+            // bytes: b0=1, b1=1, b2=2, b3=2 -> word0 low = 0x02020101
+            assert_eq!(v[0] & 0xffff_ffff, 0x0202_0101);
+        }
+    }
+
+    #[test]
+    fn test_vmaskzero_oracc() {
+        // vandqrt_acc: V2 |= (Q0 ? src : 0). V2 prior = 0x0F per byte;
+        // src = 0xF0 per byte; Q0 byte0 set -> byte0 = 0x0F|0xF0=0xFF, others 0x0F.
+        let mut q = [0u64; 16];
+        q[0] = 0b01;
+        let mut ctx = SmirContext::new_hexagon();
+        let mut memory = FlatMemory::new(0x1000);
+        let interp = SmirInterpreter::new();
+        if let ArchRegState::Hexagon(hex) = &mut ctx.arch_regs {
+            hex.set_v(2, [0x0F0F_0F0F_0F0F_0F0Fu64; 16]); // dst prior
+            hex.set_v(0, [0xF0F0_F0F0_F0F0_F0F0u64; 16]); // src
+            hex.set_q(0, q);
+        }
+        let mkv = |n| VReg::Arch(ArchReg::Hexagon(HexagonReg::V(n)));
+        let block = SmirBlock {
+            id: BlockId(0),
+            guest_pc: 0x1000,
+            phis: vec![],
+            ops: vec![SmirOp {
+                id: OpId(0),
+                guest_pc: 0x1000,
+                kind: OpKind::VMaskZero {
+                    dst: mkv(2),
+                    mask_q: VReg::Arch(ArchReg::Hexagon(HexagonReg::Q(0))),
+                    src: mkv(0),
+                    negate: false,
+                    oracc: true,
+                },
+                x86_hint: None,
+            }],
+            terminator: Terminator::Trap { kind: TrapKind::Halt },
+            exec_count: 0,
+        };
+        interp.execute_block(&mut ctx, &mut memory, &block);
+        if let ArchRegState::Hexagon(hex) = &ctx.arch_regs {
+            let v = hex.get_v(2);
+            assert_eq!(v[0] & 0xff, 0xFF); // byte0 OR'd
+            assert_eq!((v[0] >> 8) & 0xff, 0x0F); // byte1 unchanged
         }
     }
 }

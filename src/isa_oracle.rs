@@ -1856,13 +1856,21 @@ fn smir_op_kind_json(kind: &OpKind) -> Value {
             lanes,
             accumulate,
         } => op_json!("vcmp_to_q", dst, src1, src2, cond, elem, lanes, accumulate),
-        OpKind::VQFromVAndR { dst, src1, src2 } => op_json!("vq_from_v_and_r", dst, src1, src2),
+        OpKind::VQFromVAndR { dst, src1, src2, oracc } => {
+            op_json!("vq_from_v_and_r", dst, src1, src2, oracc)
+        }
         OpKind::VMaskZero {
             dst,
             mask_q,
             src,
             negate,
-        } => op_json!("vmask_zero", dst, mask_q, src, negate),
+            oracc,
+        } => op_json!("vmask_zero", dst, mask_q, src, negate, oracc),
+        OpKind::VLaneCond { .. } => op_json!("vlane_cond"),
+        OpKind::VCarry { .. } => op_json!("vcarry"),
+        OpKind::VSwap { .. } => op_json!("vswap"),
+        OpKind::VCondMove { .. } => op_json!("vcond_move"),
+        OpKind::VPrefixSumQ { .. } => op_json!("vprefix_sum_q"),
         OpKind::VBlend {
             dst,
             mask_q,
