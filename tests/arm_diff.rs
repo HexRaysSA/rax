@@ -3608,6 +3608,63 @@ fn diff_sve2_saba() {
 }
 
 #[test]
+fn diff_bf16_dot() {
+    // BFDOT / BFMMLA (NEON + SVE), FPCR.EBF==0. Exercises the round-to-odd-inf
+    // overflow (-> +/-inf), the inf*0 / inf-inf default-NaN, and the denormal
+    // flush-to-zero paths that distinguish the bf16 dot rounding from naive
+    // f32 arithmetic, plus fully random lanes.
+    let enc: &[(&str, u32)] = &[
+        ("neon_bfdot_4s", 0x6e42fc20),
+        ("neon_bfdot_2s", 0x2e42fc20),
+        ("neon_bfdot_i", 0x4f62f020),
+        ("neon_bfmmla", 0x6e42ec20),
+        ("sve_bfdot", 0x64628020),
+        ("sve_bfdot_i", 0x64624020),
+        ("sve_bfmmla", 0x6462e420),
+    ];
+    let bf_specials: [u16; 10] = [
+        0x0000, // +0
+        0x8000, // -0
+        0x0001, // smallest +denormal
+        0x007F, // largest +denormal
+        0x3F80, // 1.0
+        0x7F7F, // max normal
+        0xFF7F, // -max normal
+        0x7F80, // +inf
+        0xFF80, // -inf
+        0x7FC0, // qNaN
+    ];
+    // Tile each 32-bit f32 slot with a pair of special bf16 lanes.
+    let mut pats: Vec<u64> = Vec::new();
+    for &x in bf_specials.iter() {
+        for &y in bf_specials.iter() {
+            let slot = (x as u32) | ((y as u32) << 16);
+            pats.push((slot as u64) | ((slot as u64) << 32));
+        }
+    }
+    let mut rng = Rng::new(0x1_0035);
+    let mut batch: Vec<(String, u32, ArmState)> = Vec::new();
+    for &(name, insn) in enc {
+        for (i, &w1) in pats.iter().enumerate() {
+            let w2 = pats[(i * 13) % pats.len()];
+            let mut st = ArmState::zeroed();
+            st.set_vreg(0, rng.next(), rng.next()); // accumulator
+            st.set_vreg(1, w1, w1.rotate_left(16));
+            st.set_vreg(2, w2, w2.rotate_left(48));
+            batch.push((name.to_string(), insn, st));
+        }
+        for _ in 0..60 {
+            let mut st = ArmState::zeroed();
+            st.set_vreg(0, rng.next(), rng.next());
+            st.set_vreg(1, rng.next(), rng.next());
+            st.set_vreg(2, rng.next(), rng.next());
+            batch.push((format!("{name} rnd"), insn, st));
+        }
+    }
+    run_batch("bf16_dot", batch);
+}
+
+#[test]
 fn diff_sve_while_gt() {
     // WHILEGT/WHILEGE/WHILEHI/WHILEHS: the gt-family WHILE producing a top-
     // anchored contiguous predicate. Stresses the signed/unsigned boundaries

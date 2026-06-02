@@ -2769,18 +2769,16 @@ impl AArch64Cpu {
             let rm = ((insn >> 16) & 0x1F) as usize;
             (self.v[rm], None)
         };
+        let _ = &bf16;
         let mut result = self.v[rd];
         for e in 0..lanes {
-            let acc = f32::from_bits((op3 >> (e * 32)) as u32) as f64;
-            let (i2lo, i2hi) = match idx {
-                Some(ix) => (2 * ix, 2 * ix + 1),
-                None => (2 * e, 2 * e + 1),
+            let acc_bits = (op3 >> (e * 32)) as u32;
+            let n_pair = (op1 >> (e * 32)) as u32;
+            let m_pair = match idx {
+                Some(ix) => (op2 >> (ix * 32)) as u32,
+                None => (op2 >> (e * 32)) as u32,
             };
-            let p1 = bf16_to_f32(bf16(op1, 2 * e)) as f64 * bf16_to_f32(bf16(op2, i2lo)) as f64;
-            let p2 = bf16_to_f32(bf16(op1, 2 * e + 1)) as f64 * bf16_to_f32(bf16(op2, i2hi)) as f64;
-            // Hardware: t = round_odd(p1+p2); result = round_odd(acc+t).
-            let t = bf_odd_add(p1, p2);
-            let r = round_odd_f64_to_f32(acc + t);
+            let r = bfdotadd_ebf0(acc_bits, n_pair, m_pair);
             result = (result & !(0xFFFF_FFFFu128 << (e * 32))) | ((r as u128) << (e * 32));
         }
         if q == 0 {
@@ -2820,22 +2818,19 @@ impl AArch64Cpu {
         let op1 = self.v[rn];
         let op2 = self.v[rm];
         let acc = self.v[rd];
-        let bf16 = |v: u128, lane: usize| -> u16 { (v >> (lane * 16)) as u16 };
         let mut result = 0u128;
         for i in 0..2 {
             for j in 0..2 {
                 let lane = 2 * i + j;
-                let mut s = f32::from_bits((acc >> (lane * 32)) as u32) as f64;
-                // Two per-pair round-to-odd accumulations (k=0,1 then k=2,3),
-                // matching the hardware's two bfdotadd steps.
-                let prod = |k: usize| -> f64 {
-                    bf16_to_f32(bf16(op1, 4 * i + k)) as f64
-                        * bf16_to_f32(bf16(op2, 4 * j + k)) as f64
-                };
-                let t01 = bf_odd_add(prod(0), prod(1));
-                s = bf_odd_add(s, t01);
-                let t23 = bf_odd_add(prod(2), prod(3));
-                let r = round_odd_f64_to_f32(s + t23);
+                let acc_bits = (acc >> (lane * 32)) as u32;
+                // Two bfdotadd steps over the k=0,1 and k=2,3 bf16 pairs, exactly
+                // as qemu gvec_bfmmla processes each output lane.
+                let n01 = (op1 >> ((4 * i) * 16)) as u32; // bf16 lanes 4i, 4i+1
+                let m01 = (op2 >> ((4 * j) * 16)) as u32; // bf16 lanes 4j, 4j+1
+                let n23 = (op1 >> ((4 * i + 2) * 16)) as u32; // lanes 4i+2, 4i+3
+                let m23 = (op2 >> ((4 * j + 2) * 16)) as u32; // lanes 4j+2, 4j+3
+                let s = bfdotadd_ebf0(acc_bits, n01, m01);
+                let r = bfdotadd_ebf0(s, n23, m23);
                 result |= (r as u128) << (lane * 32);
             }
         }
@@ -15306,6 +15301,120 @@ fn round_odd_f64_to_f32(x: f64) -> u32 {
     sign | f
 }
 
+/// Round an f64 to f32 with round-to-odd-INF (the BF16 dot-product rounding,
+/// FPCR.EBF==0): like `round_odd_f64_to_f32` but overflow rounds to infinity
+/// (not the max finite), and any NaN collapses to the default NaN 0x7FC00000
+/// (default-NaN mode is forced for these instructions). The f64 input is the
+/// exact value to round (the add path pre-rounds to odd at f64 precision so the
+/// final f32 round-to-odd is double-rounding-safe).
+fn round_odd_inf_f64_to_f32(x: f64) -> u32 {
+    if x.is_nan() {
+        return 0x7FC0_0000; // default NaN
+    }
+    let sign = (x.is_sign_negative() as u32) << 31;
+    let a = x.abs();
+    if a == 0.0 {
+        return sign;
+    }
+    if a.is_infinite() {
+        return sign | 0x7F80_0000;
+    }
+    let bits = a.to_bits();
+    let exp = ((bits >> 52) & 0x7FF) as i64 - 1023;
+    let mant = bits & 0x000F_FFFF_FFFF_FFFF;
+    if exp > 127 {
+        return sign | 0x7F80_0000; // round-to-odd-INF: overflow -> infinity
+    }
+    if exp >= -126 {
+        let frac = (mant >> 29) as u32;
+        let dropped = mant & ((1u64 << 29) - 1);
+        let f = if dropped != 0 { frac | 1 } else { frac };
+        let e = (exp + 127) as u32;
+        return sign | (e << 23) | f;
+    }
+    // Subnormal f32: value = 1.mant * 2^exp, exp <= -127.
+    let sig = (1u64 << 52) | mant;
+    let shift = (-(exp + 97)) as u32;
+    if shift >= 64 {
+        return sign | 1;
+    }
+    let frac = (sig >> shift) as u32 & 0x7F_FFFF;
+    let dropped = sig & ((1u64 << shift) - 1);
+    let f = if dropped != 0 { frac | 1 } else { frac };
+    sign | f
+}
+
+/// Flush an f32 denormal (raw bits) to a sign-preserving zero, per FPCR.FZ /
+/// FZ-of-inputs. Used by the EBF==0 BF16 dot path. Inf/NaN pass through.
+#[inline]
+fn ftz_f32_bits(bits: u32) -> u32 {
+    let exp = (bits >> 23) & 0xFF;
+    let mant = bits & 0x007F_FFFF;
+    if exp == 0 && mant != 0 {
+        bits & 0x8000_0000
+    } else {
+        bits
+    }
+}
+
+/// Move a finite, nonzero f64 one ULP toward +inf (`up`) or -inf.
+#[inline]
+fn nextafter_f64(x: f64, up: bool) -> f64 {
+    let bits = x.to_bits();
+    let neg = (bits >> 63) == 1;
+    let nb = if up == !neg { bits + 1 } else { bits - 1 };
+    f64::from_bits(nb)
+}
+
+/// One f32 multiply for the EBF==0 BF16 dot path: flush-to-zero inputs, exact
+/// product in f64 (the widened bf16 operands have <=8-bit significands so the
+/// product is exact), round-to-odd-INF to f32, flush-to-zero result. Mirrors
+/// qemu float32_mul under the is_ebf(EBF=0) float_status.
+fn bf_f32_mul(a: u32, b: u32) -> u32 {
+    let af = f32::from_bits(ftz_f32_bits(a)) as f64;
+    let bf = f32::from_bits(ftz_f32_bits(b)) as f64;
+    ftz_f32_bits(round_odd_inf_f64_to_f32(af * bf))
+}
+
+/// One f32 add for the EBF==0 BF16 dot path: flush-to-zero inputs, EXACT sum via
+/// 2Sum, round-to-odd at f64, then round-to-odd-INF to f32, flush-to-zero
+/// result. The 2Sum + f64 round-to-odd captures the sticky bit even when the
+/// operands differ by more than f64 precision (where a plain f64 add would lose
+/// it), so the final f32 round-to-odd is exact. Mirrors qemu float32_add.
+fn bf_f32_add(a: u32, b: u32) -> u32 {
+    let af = f32::from_bits(ftz_f32_bits(a)) as f64;
+    let bf = f32::from_bits(ftz_f32_bits(b)) as f64;
+    let hi = af + bf;
+    if hi.is_nan() {
+        return 0x7FC0_0000;
+    }
+    if hi.is_infinite() {
+        return round_odd_inf_f64_to_f32(hi);
+    }
+    // Knuth 2Sum: lo is the exact rounding error, hi + lo == af + bf exactly.
+    let bb = hi - af;
+    let lo = (af - (hi - bb)) + (bf - bb);
+    let v64 = if lo == 0.0 {
+        hi
+    } else if hi.to_bits() & 1 == 1 {
+        hi // hi already has an odd mantissa LSB
+    } else {
+        nextafter_f64(hi, lo > 0.0)
+    };
+    ftz_f32_bits(round_odd_inf_f64_to_f32(v64))
+}
+
+/// BFloat16 2-way dot product accumulate (FPCR.EBF==0), the qemu-user default.
+/// Mirrors qemu bfdotadd: two products and two adds, each an f32 op under the
+/// round-to-odd-INF / flush-to-zero / default-NaN float_status. `e1`/`e2` are
+/// the 32-bit source slots (two bf16 each); `sum_bits` is the f32 accumulator.
+fn bfdotadd_ebf0(sum_bits: u32, e1: u32, e2: u32) -> u32 {
+    let t1 = bf_f32_mul(e1 << 16, e2 << 16);
+    let t2 = bf_f32_mul(e1 & 0xFFFF_0000, e2 & 0xFFFF_0000);
+    let t = bf_f32_add(t1, t2);
+    bf_f32_add(sum_bits, t)
+}
+
 /// SVE2 FLOGB: floor(log2(|x|)) of an `esize`-byte IEEE float as a signed
 /// integer of the same width. Finite non-zero values yield their unbiased
 /// base-2 exponent (normal: biased_exp - bias; subnormal: normalized away
@@ -15343,14 +15452,11 @@ fn sve_flogb(esize: usize, bits: u64) -> i64 {
     exp as i64 - bias // normal: 1 <= significand < 2, so floor(log2) == exponent
 }
 
-/// One f32 lane of SVE BFDOT (non-EBF, the qemu-user default): the two bf16
-/// products are summed with round-to-odd, then added to the accumulator and
-/// rounded to odd. Matches the verified NEON BFDOT per-lane math.
+/// One f32 lane of SVE BFDOT (FPCR.EBF==0, the qemu-user default): a 2-way bf16
+/// dot product accumulated into the f32 lane. Delegates to the canonical
+/// bfdotadd_ebf0 (round-to-odd-INF / flush-to-zero / default-NaN).
 fn sve_bfdot_lane(acc_bits: u32, n: u32, m: u32) -> u32 {
-    let acc = f32::from_bits(acc_bits) as f64;
-    let p1 = bf16_to_f32(n as u16) as f64 * bf16_to_f32(m as u16) as f64;
-    let p2 = bf16_to_f32((n >> 16) as u16) as f64 * bf16_to_f32((m >> 16) as u16) as f64;
-    round_odd_f64_to_f32(acc + bf_odd_add(p1, p2))
+    bfdotadd_ebf0(acc_bits, n, m)
 }
 
 /// FEXPA coefficient tables (ARM pseudocode): the low bits of Zn index a
