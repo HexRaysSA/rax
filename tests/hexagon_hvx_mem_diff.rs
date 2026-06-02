@@ -606,6 +606,123 @@ fn run_family_q(name: &str, cases: &[(&str, &str)], n: usize, seed: u64, qsrc_ra
     }
 }
 
+// Second base register: producer loads for new-value vector stores read from
+// here (`v3 = vmem(r5+#0)`), pointed one vector into the arena so the produced
+// vector differs from the store target's old contents.
+const PROD_REG: usize = 5;
+const PROD_OFF: u32 = 128; // r5 = arena + 128 (one vector in)
+
+/// Extended HVX-mem harness for the `ppu` (post-inc-by-Mu) and new-value forms.
+/// Like `run_family_q` but additionally seeds:
+///   * M0/M1 (C6/C7) = one / two vectors (128 / 256 bytes) — the `ppu` increment;
+///   * r5 (`PROD_REG`) = arena + PROD_OFF — the new-value store's producer base.
+/// All V registers, GPRs (including the post-incremented base and M0/M1) and the
+/// arena are diffed against the oracle. `qsrc_random` seeds the OLD Q predicates
+/// (for the q-masked `ppu` stores).
+fn run_family_ext(name: &str, cases: &[(&str, &str)], n: usize, seed: u64, qsrc_random: bool) {
+    let (bin, varena) = match oracle() {
+        Some(x) => x,
+        None => {
+            eprintln!("[hexagon_hvx_mem_diff] {name}: toolchain unavailable -> skipping");
+            return;
+        }
+    };
+    let asms: Vec<String> = cases.iter().map(|(_, a)| a.to_string()).collect();
+    let words_per = match assemble(&asms) {
+        Some(w) => w,
+        None => {
+            eprintln!("[hexagon_hvx_mem_diff] {name}: assembly failed -> skipping");
+            return;
+        }
+    };
+    let mut rng = Rng::new(seed);
+    let mut batch = Vec::new();
+    let mut labels = Vec::new();
+    for ((label, _), words) in cases.iter().zip(words_per.iter()) {
+        for _ in 0..n {
+            let mut st = [0u32; ST_WORDS];
+            for r in 0..NREG {
+                st[r] = rng.next() as u32;
+            }
+            st[BASE_REG] = varena; // r4 = arena base (128-aligned)
+            st[PROD_REG] = varena + PROD_OFF; // r5 = producer source (arena + 1 vec)
+            st[I_M0] = 128; // M0 = one vector: ppu post-inc by 128
+            st[I_M1] = 256; // M1 = two vectors: ppu post-inc by 256
+            let mut pred = 0u32;
+            for k in 0..4 {
+                if rng.next() & 1 == 1 {
+                    pred |= 0xffu32 << (8 * k);
+                }
+            }
+            st[I_PRED] = pred;
+            let mut v = [[0u32; VWORDS]; VREGS];
+            for r in 0..VREGS {
+                for w in 0..VWORDS {
+                    v[r][w] = rng.next() as u32;
+                }
+            }
+            let mut arena = [0u8; ARENA];
+            for b in arena.iter_mut() {
+                *b = rng.next() as u8;
+            }
+            let mut qsrc = [[0u8; 128]; QSRC_VECS];
+            if qsrc_random {
+                for q in qsrc.iter_mut() {
+                    for b in q.iter_mut() {
+                        *b = rng.next() as u8;
+                    }
+                }
+            }
+            labels.push(*label);
+            batch.push(Case { words: words.clone(), st, v, arena, qsrc });
+        }
+    }
+    let outs = match run_oracle(&bin, &batch) {
+        Some(o) => o,
+        None => {
+            eprintln!("[hexagon_hvx_mem_diff] {name}: oracle failed -> skipping");
+            return;
+        }
+    };
+    let mut mismatches = Vec::new();
+    for (i, c) in batch.iter().enumerate() {
+        let rax = match run_rax(&c.words, c, varena) {
+            Some(r) => r,
+            None => {
+                mismatches.push(format!("[{}] rax rejected", labels[i]));
+                continue;
+            }
+        };
+        let mut diffs = Vec::new();
+        for vr in 0..VREGS {
+            if rax.v[vr] != outs[i].v[vr] {
+                let w = (0..VWORDS).find(|&w| rax.v[vr][w] != outs[i].v[vr][w]).unwrap();
+                diffs.push(format!("v{vr}.w[{w}]:rax={:#x},hw={:#x}", rax.v[vr][w], outs[i].v[vr][w]));
+                break;
+            }
+        }
+        if rax.arena != outs[i].arena {
+            let j = (0..ARENA).find(|&j| rax.arena[j] != outs[i].arena[j]).unwrap();
+            diffs.push(format!("arena[{j}]:rax={:#x},hw={:#x}", rax.arena[j], outs[i].arena[j]));
+        }
+        for r in 0..NREG {
+            if rax.st[r] != outs[i].st[r] {
+                diffs.push(format!("r{r}:rax={:#x},hw={:#x}", rax.st[r], outs[i].st[r]));
+            }
+        }
+        if !diffs.is_empty() {
+            mismatches.push(format!("[{}] {}", labels[i], diffs.join(" ")));
+        }
+    }
+    if !mismatches.is_empty() {
+        eprintln!("\n==== {name}: {} mismatches ====", mismatches.len());
+        for m in mismatches.iter().take(20) {
+            eprintln!("  {m}");
+        }
+        panic!("{name}: {} HVX-mem divergences vs oracle", mismatches.len());
+    }
+}
+
 #[test]
 fn diff_hvx_load() {
     // base r4 = g_varena (128-aligned); offsets in vector units stay in arena.
@@ -779,5 +896,209 @@ fn diff_hvx_gather() {
         24,
         0x6a73,
         true,
+    );
+}
+
+#[test]
+fn diff_hvx_ppu() {
+    // `ppu` post-increment by the modifier register Mu (vmem(Rt++Mu)). M0 = 128
+    // (one vector), M1 = 256 (two vectors); r4 = arena. After the access the base
+    // must advance by Mu (verified via the r4 diff). The loaded/stored vector and
+    // the arena are diffed too. Covers aligned/unaligned loads & stores.
+    run_family_ext(
+        "hvx_ppu",
+        &[
+            ("vL32b_ppu_m0", "{ v0 = vmem(r4++m0) }"),
+            ("vL32b_ppu_m1", "{ v0 = vmem(r4++m1) }"),
+            ("vL32b_nt_ppu", "{ v0 = vmem(r4++m0):nt }"),
+            ("vL32Ub_ppu", "{ v0 = vmemu(r4++m0) }"),
+            ("vS32b_ppu_m0", "{ vmem(r4++m0) = v1 }"),
+            ("vS32b_ppu_m1", "{ vmem(r4++m1) = v2 }"),
+            ("vS32b_nt_ppu", "{ vmem(r4++m0):nt = v3 }"),
+            ("vS32Ub_ppu", "{ vmemu(r4++m0) = v4 }"),
+        ],
+        8,
+        0xb10,
+        false,
+    );
+}
+
+#[test]
+fn diff_hvx_ppu_cur_tmp() {
+    // `.cur` (commit) and `.tmp` (forward-only, no commit) loads with the `ppu`
+    // post-increment. For `.tmp` the value is NOT committed to Vd, so the V file
+    // is unchanged (apart from the r4 post-inc); for `.cur` it IS committed.
+    run_family_ext(
+        "hvx_ppu_cur_tmp",
+        &[
+            ("vL32b_cur_ppu", "{ v0.cur = vmem(r4++m0) }"),
+            ("vL32b_tmp_ppu", "{ v0.tmp = vmem(r4++m0) }"),
+            ("vL32b_nt_cur_ppu", "{ v0.cur = vmem(r4++m0):nt }"),
+            ("vL32b_nt_tmp_ppu", "{ v0.tmp = vmem(r4++m0):nt }"),
+            ("vL32b_nt_cur_ai", "{ v0.cur = vmem(r4+#0):nt }"),
+            ("vL32b_nt_tmp_ai", "{ v0.tmp = vmem(r4+#0):nt }"),
+            ("vL32b_nt_cur_pi", "{ v0.cur = vmem(r4++#1):nt }"),
+            ("vL32b_nt_tmp_pi", "{ v0.tmp = vmem(r4++#1):nt }"),
+        ],
+        8,
+        0xb20,
+        false,
+    );
+}
+
+#[test]
+fn diff_hvx_load_pred() {
+    // Scalar-predicated loads: if (Pv[!]) Vd[.cur|.tmp] = vmem(...). On a false
+    // predicate the load is cancelled (no register write, no post-increment).
+    // P0..P3 are independently 0x00/0xff, so both senses are exercised; the V
+    // file, arena and r4 (post-inc only when taken) are diffed.
+    run_family_ext(
+        "hvx_load_pred",
+        &[
+            ("vL32b_pred_ai", "{ if (p0) v0 = vmem(r4+#0) }"),
+            ("vL32b_npred_ai", "{ if (!p1) v0 = vmem(r4+#0) }"),
+            ("vL32b_pred_pi", "{ if (p2) v0 = vmem(r4++#1) }"),
+            ("vL32b_npred_pi", "{ if (!p3) v0 = vmem(r4++#1) }"),
+            ("vL32b_pred_ppu", "{ if (p0) v0 = vmem(r4++m0) }"),
+            ("vL32b_npred_ppu", "{ if (!p1) v0 = vmem(r4++m0) }"),
+            ("vL32b_cur_pred_ppu", "{ if (p2) v0.cur = vmem(r4++m0) }"),
+            ("vL32b_cur_npred_ai", "{ if (!p3) v0.cur = vmem(r4+#0) }"),
+            ("vL32b_cur_pred_ai", "{ if (p0) v0.cur = vmem(r4+#0) }"),
+            ("vL32b_cur_pred_pi", "{ if (p1) v0.cur = vmem(r4++#1) }"),
+            ("vL32b_cur_npred_pi", "{ if (!p2) v0.cur = vmem(r4++#1) }"),
+            ("vL32b_cur_npred_ppu", "{ if (!p3) v0.cur = vmem(r4++m0) }"),
+            ("vL32b_tmp_pred_ppu", "{ if (p0) v0.tmp = vmem(r4++m0) }"),
+            ("vL32b_tmp_npred_pi", "{ if (!p1) v0.tmp = vmem(r4++#1) }"),
+            ("vL32b_tmp_pred_ai", "{ if (p2) v0.tmp = vmem(r4+#0) }"),
+            ("vL32b_tmp_npred_ai", "{ if (!p3) v0.tmp = vmem(r4+#0) }"),
+            ("vL32b_tmp_pred_pi", "{ if (p0) v0.tmp = vmem(r4++#1) }"),
+            ("vL32b_tmp_npred_ppu", "{ if (!p1) v0.tmp = vmem(r4++m0) }"),
+            ("vL32b_nt_pred_ppu", "{ if (p2) v0 = vmem(r4++m0):nt }"),
+            ("vL32b_nt_pred_ai", "{ if (p3) v0 = vmem(r4+#0):nt }"),
+            ("vL32b_nt_pred_pi", "{ if (p0) v0 = vmem(r4++#1):nt }"),
+            ("vL32b_nt_npred_ai", "{ if (!p1) v0 = vmem(r4+#0):nt }"),
+            ("vL32b_nt_npred_pi", "{ if (!p2) v0 = vmem(r4++#1):nt }"),
+            ("vL32b_nt_npred_ppu", "{ if (!p3) v0 = vmem(r4++m0):nt }"),
+            ("vL32b_nt_cur_npred_ppu", "{ if (!p3) v0.cur = vmem(r4++m0):nt }"),
+            ("vL32b_nt_cur_pred_ai", "{ if (p0) v0.cur = vmem(r4+#0):nt }"),
+            ("vL32b_nt_cur_pred_pi", "{ if (p1) v0.cur = vmem(r4++#1):nt }"),
+            ("vL32b_nt_cur_pred_ppu", "{ if (p2) v0.cur = vmem(r4++m0):nt }"),
+            ("vL32b_nt_cur_npred_ai", "{ if (!p3) v0.cur = vmem(r4+#0):nt }"),
+            ("vL32b_nt_cur_npred_pi", "{ if (!p0) v0.cur = vmem(r4++#1):nt }"),
+            ("vL32b_nt_tmp_pred_ai", "{ if (p1) v0.tmp = vmem(r4+#0):nt }"),
+            ("vL32b_nt_tmp_pred_pi", "{ if (p2) v0.tmp = vmem(r4++#1):nt }"),
+            ("vL32b_nt_tmp_pred_ppu", "{ if (p3) v0.tmp = vmem(r4++m0):nt }"),
+            ("vL32b_nt_tmp_npred_ai", "{ if (!p0) v0.tmp = vmem(r4+#0):nt }"),
+            ("vL32b_nt_tmp_npred_pi", "{ if (!p1) v0.tmp = vmem(r4++#1):nt }"),
+            ("vL32b_nt_tmp_npred_ppu", "{ if (!p2) v0.tmp = vmem(r4++m0):nt }"),
+        ],
+        12,
+        0xb30,
+        false,
+    );
+}
+
+#[test]
+fn diff_hvx_store_pred_ppu() {
+    // Scalar-predicated stores with the `ppu` increment (and the unaligned
+    // vS32Ub predicated forms). A false predicate CANCELS the whole op (no store,
+    // no post-increment).
+    run_family_ext(
+        "hvx_store_pred_ppu",
+        &[
+            ("vS32b_pred_ppu", "{ if (p0) vmem(r4++m0) = v1 }"),
+            ("vS32b_npred_ppu", "{ if (!p1) vmem(r4++m0) = v2 }"),
+            ("vS32b_nt_pred_ppu", "{ if (p2) vmem(r4++m0):nt = v3 }"),
+            ("vS32b_nt_npred_ppu", "{ if (!p3) vmem(r4++m0):nt = v4 }"),
+            ("vS32b_nt_pred_ai", "{ if (p0) vmem(r4+#0):nt = v1 }"),
+            ("vS32b_nt_npred_ai", "{ if (!p1) vmem(r4+#0):nt = v2 }"),
+            ("vS32b_nt_pred_pi", "{ if (p2) vmem(r4++#1):nt = v3 }"),
+            ("vS32b_nt_npred_pi", "{ if (!p3) vmem(r4++#1):nt = v4 }"),
+            ("vS32Ub_pred_ai", "{ if (p0) vmemu(r4+#0) = v1 }"),
+            ("vS32Ub_npred_ai", "{ if (!p1) vmemu(r4+#0) = v2 }"),
+            ("vS32Ub_pred_pi", "{ if (p2) vmemu(r4++#1) = v3 }"),
+            ("vS32Ub_npred_pi", "{ if (!p3) vmemu(r4++#1) = v4 }"),
+            ("vS32Ub_pred_ppu", "{ if (p2) vmemu(r4++m0) = v3 }"),
+            ("vS32Ub_npred_ppu", "{ if (!p3) vmemu(r4++m0) = v4 }"),
+        ],
+        12,
+        0xb40,
+        false,
+    );
+}
+
+#[test]
+fn diff_hvx_store_qmask_ppu() {
+    // Byte-masked vector stores with the `ppu` increment. Reads the OLD
+    // architectural Q (seeded via the qsrc block on both oracle and rax). Lanes
+    // where Q == sense are stored; the rest of memory is preserved. The base
+    // always post-increments by Mu (a q-masked store is not cancelled).
+    run_family_ext(
+        "hvx_store_qmask_ppu",
+        &[
+            ("vS32b_qpred_ppu", "{ if (q0) vmem(r4++m0) = v1 }"),
+            ("vS32b_nqpred_ppu", "{ if (!q1) vmem(r4++m0) = v2 }"),
+            ("vS32b_nt_qpred_ppu", "{ if (q2) vmem(r4++m0):nt = v3 }"),
+            ("vS32b_nt_nqpred_ppu", "{ if (!q3) vmem(r4++m0):nt = v4 }"),
+            ("vS32b_nt_qpred_ai", "{ if (q0) vmem(r4+#0):nt = v5 }"),
+            ("vS32b_nt_qpred_pi", "{ if (q1) vmem(r4++#1):nt = v6 }"),
+            ("vS32b_nt_nqpred_ai", "{ if (!q2) vmem(r4+#0):nt = v7 }"),
+            ("vS32b_nt_nqpred_pi", "{ if (!q3) vmem(r4++#1):nt = v8 }"),
+        ],
+        12,
+        0xb50,
+        true,
+    );
+}
+
+#[test]
+fn diff_hvx_store_new() {
+    // New-value vector store: the source is the vector produced earlier in the
+    // packet. The producer `v3 = vmem(r5+#0)` (r5 = arena + 128) loads the second
+    // arena vector; the `.new` store then writes it to the target (r4 = arena).
+    // Covers ai/pi/ppu, the `:nt` hint, and the scalar-predicated new-value forms.
+    run_family_ext(
+        "hvx_store_new",
+        &[
+            ("vS32b_new_ai", "{ v3 = vmem(r5+#0); vmem(r4+#0) = v3.new }"),
+            ("vS32b_new_pi", "{ v3 = vmem(r5+#0); vmem(r4++#1) = v3.new }"),
+            ("vS32b_new_ppu", "{ v3 = vmem(r5+#0); vmem(r4++m0) = v3.new }"),
+            ("vS32b_nt_new_ai", "{ v3 = vmem(r5+#0); vmem(r4+#0):nt = v3.new }"),
+            ("vS32b_nt_new_pi", "{ v3 = vmem(r5+#0); vmem(r4++#1):nt = v3.new }"),
+            ("vS32b_nt_new_ppu", "{ v3 = vmem(r5+#0); vmem(r4++m0):nt = v3.new }"),
+            ("vS32b_new_pred_ai", "{ v3 = vmem(r5+#0); if (p0) vmem(r4+#0) = v3.new }"),
+            ("vS32b_new_npred_ai", "{ v3 = vmem(r5+#0); if (!p1) vmem(r4+#0) = v3.new }"),
+            ("vS32b_new_pred_pi", "{ v3 = vmem(r5+#0); if (p2) vmem(r4++#1) = v3.new }"),
+            ("vS32b_new_npred_pi", "{ v3 = vmem(r5+#0); if (!p3) vmem(r4++#1) = v3.new }"),
+            ("vS32b_new_pred_ppu", "{ v3 = vmem(r5+#0); if (p0) vmem(r4++m0) = v3.new }"),
+            ("vS32b_new_npred_ppu", "{ v3 = vmem(r5+#0); if (!p1) vmem(r4++m0) = v3.new }"),
+            ("vS32b_nt_new_pred_ai", "{ v3 = vmem(r5+#0); if (p2) vmem(r4+#0):nt = v3.new }"),
+            ("vS32b_nt_new_npred_ppu", "{ v3 = vmem(r5+#0); if (!p3) vmem(r4++m0):nt = v3.new }"),
+            ("vS32b_nt_new_pred_pi", "{ v3 = vmem(r5+#0); if (p0) vmem(r4++#1):nt = v3.new }"),
+            ("vS32b_nt_new_pred_ppu", "{ v3 = vmem(r5+#0); if (p1) vmem(r4++m0):nt = v3.new }"),
+            ("vS32b_nt_new_npred_ai", "{ v3 = vmem(r5+#0); if (!p2) vmem(r4+#0):nt = v3.new }"),
+            ("vS32b_nt_new_npred_pi", "{ v3 = vmem(r5+#0); if (!p3) vmem(r4++#1):nt = v3.new }"),
+        ],
+        14,
+        0xb60,
+        false,
+    );
+}
+
+#[test]
+fn diff_hvx_srls() {
+    // Store-release barrier `vmem(...):scatter_release`: no vector source and no
+    // memory write — only the post-increment (if any) takes effect. The arena
+    // must be unchanged; r4 advances by one vector (pi) / by Mu (ppu).
+    run_family_ext(
+        "hvx_srls",
+        &[
+            ("vS32b_srls_ai", "{ vmem(r4+#0):scatter_release }"),
+            ("vS32b_srls_pi", "{ vmem(r4++#1):scatter_release }"),
+            ("vS32b_srls_ppu", "{ vmem(r4++m0):scatter_release }"),
+        ],
+        8,
+        0xb70,
+        false,
     );
 }

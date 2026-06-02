@@ -268,6 +268,11 @@ pub struct HexagonVcpu {
     /// only in-range / predicate-on lanes are overwritten; the paired store thus
     /// writes only the `valid` bytes, leaving the rest of the destination intact.
     gather_tmp: Option<([u8; 128], [bool; 128])>,
+    /// The most recently produced architectural HVX vector register in the current
+    /// packet (in execution order). Resolves a new-value vector store
+    /// (`vmem(...) = V.new`) to its in-packet producer. `None` when no vector has
+    /// been produced yet (then a `vmem=vtmp.new` store falls back to `gather_tmp`).
+    last_v_produced: Option<u8>,
 }
 
 impl HexagonVcpu {
@@ -285,6 +290,7 @@ impl HexagonVcpu {
             new_q: [None; 4],
             new_v_tmp: [None; 32],
             gather_tmp: None,
+            last_v_produced: None,
         }
     }
 
@@ -1465,27 +1471,41 @@ impl HexagonVcpu {
                 base,
                 offset,
                 post_inc,
+                post_inc_mod,
                 aligned,
                 commit,
+                pred,
             } => {
-                let mut ea = self.regs.r[base as usize].wrapping_add(offset as u32);
-                if aligned {
-                    ea &= !127;
-                }
-                // Read always (a `.tmp` load still faults on a bad address). A
-                // normal/`.cur` load buffers into `new_v` (committed at packet
-                // end); a `.tmp` load forwards into the scratch buffer so a
-                // same-packet consumer (e.g. vhist) sees it, but it is never
-                // committed architecturally.
-                let vec = self.read_vec(ea)?;
-                if commit {
-                    self.new_v[dst as usize] = Some(vec);
-                } else {
-                    self.new_v_tmp[dst as usize] = Some(vec);
-                }
-                if let Some(inc) = post_inc {
-                    new_r[base as usize] =
-                        Some(self.regs.r[base as usize].wrapping_add(inc as u32));
+                // Scalar-predicated load: CANCEL (no register write, no
+                // post-increment) when the predicate is false.
+                let do_load = match pred {
+                    Some(cond) => self.eval_pred(cond, new_p),
+                    None => true,
+                };
+                if do_load {
+                    let mut ea = self.regs.r[base as usize].wrapping_add(offset as u32);
+                    if aligned {
+                        ea &= !127;
+                    }
+                    // Read always (a `.tmp` load still faults on a bad address). A
+                    // normal/`.cur` load buffers into `new_v` (committed at packet
+                    // end); a `.tmp` load forwards into the scratch buffer so a
+                    // same-packet consumer (e.g. vhist) sees it, but it is never
+                    // committed architecturally.
+                    let vec = self.read_vec(ea)?;
+                    if commit {
+                        self.new_v[dst as usize] = Some(vec);
+                        self.last_v_produced = Some(dst);
+                    } else {
+                        self.new_v_tmp[dst as usize] = Some(vec);
+                    }
+                    // Post-increment: `pi` by the (vector-unit) immediate, `ppu` by
+                    // the modifier register Mu (full byte value).
+                    let inc = post_inc.map(|i| i as u32).or_else(|| post_inc_mod.map(|m| self.modifier(m)));
+                    if let Some(inc) = inc {
+                        new_r[base as usize] =
+                            Some(self.regs.r[base as usize].wrapping_add(inc));
+                    }
                 }
             }
             // HVX vector store: vmem(base + offset) = Vs.
@@ -1494,10 +1514,12 @@ impl HexagonVcpu {
                 base,
                 offset,
                 post_inc,
+                post_inc_mod,
                 aligned,
                 pred,
                 qmask,
                 from_gather,
+                srls,
             } => {
                 // Scalar-predicated store: CANCEL (no write, no post-increment)
                 // when the predicate is false. A byte-masked (qmask) store always
@@ -1511,24 +1533,37 @@ impl HexagonVcpu {
                     if aligned {
                         ea &= !127;
                     }
-                    let mut bytes = if from_gather {
-                        // A `vmem=vtmp.new` store commits the packet's gather
-                        // result. Only the gathered (valid) bytes are written; the
-                        // rest of the destination memory is preserved (the gather
-                        // temp is initialised from this memory on hardware).
-                        let (data, valid) = self.gather_tmp.unwrap_or(([0u8; 128], [false; 128]));
-                        let cur = vec_to_bytes(&self.read_vec(ea)?);
-                        let mut b = cur;
-                        for i in 0..128 {
-                            if valid[i] {
-                                b[i] = data[i];
+                    // `srls` (scatter_release) is a barrier with no vector source:
+                    // it performs no memory write (only the post-increment, below).
+                    let mut bytes = if srls {
+                        None
+                    } else if from_gather {
+                        // New-value vector store `vmem(...) = V.new`. Normally the
+                        // source is the vector produced earlier in this packet
+                        // (`new_v[last producer]`). For the gather idiom
+                        // (`vmem=vtmp.new`, no architectural vector producer), it
+                        // is the gather scratch: only the gathered (valid) bytes
+                        // are written, the rest of memory is preserved (the gather
+                        // temp is seeded from this memory on hardware).
+                        if let Some(p) = self.last_v_produced {
+                            let v = self.new_v[p as usize].unwrap_or(self.regs.v[p as usize]);
+                            Some(vec_to_bytes(&v))
+                        } else {
+                            let (data, valid) =
+                                self.gather_tmp.unwrap_or(([0u8; 128], [false; 128]));
+                            let cur = vec_to_bytes(&self.read_vec(ea)?);
+                            let mut b = cur;
+                            for i in 0..128 {
+                                if valid[i] {
+                                    b[i] = data[i];
+                                }
                             }
+                            Some(b)
                         }
-                        b
                     } else {
-                        vec_to_bytes(&self.regs.v[src as usize])
+                        Some(vec_to_bytes(&self.regs.v[src as usize]))
                     };
-                    if let Some((q, sense)) = qmask {
+                    if let (Some(bytes), Some((q, sense))) = (bytes.as_mut(), qmask) {
                         // Read-modify-write: keep existing bytes where the Q mask
                         // doesn't select. The Qv operand reads the OLD predicate
                         // (it is not a `.new` operand).
@@ -1541,10 +1576,22 @@ impl HexagonVcpu {
                             }
                         }
                     }
-                    self.write_vec(ea, &bytes_to_vec(&bytes))?;
-                    if let Some(inc) = post_inc {
+                    if let Some(bytes) = bytes {
+                        self.write_vec(ea, &bytes_to_vec(&bytes))?;
+                    }
+                    // Post-increment: `pi` by the (vector-unit) immediate, `ppu` by
+                    // the modifier register Mu. The `srls` scatter-release barrier
+                    // is a pure ordering hint and does NOT write back the base, so
+                    // its `_pi`/`_ppu` forms perform no post-increment (matching
+                    // qemu-hexagon).
+                    let inc = if srls {
+                        None
+                    } else {
+                        post_inc.map(|i| i as u32).or_else(|| post_inc_mod.map(|m| self.modifier(m)))
+                    };
+                    if let Some(inc) = inc {
                         new_r[base as usize] =
-                            Some(self.regs.r[base as usize].wrapping_add(inc as u32));
+                            Some(self.regs.r[base as usize].wrapping_add(inc));
                     }
                 }
             }
@@ -1691,6 +1738,8 @@ impl HexagonVcpu {
         };
         for (i, val) in v_writes {
             self.new_v[i as usize] = Some(val);
+            // Track the in-packet vector producer for new-value vector stores.
+            self.last_v_produced = Some(i);
         }
         for (i, val) in q_writes {
             self.new_q[i as usize] = Some(val);
@@ -1798,6 +1847,7 @@ impl HexagonVcpu {
             self.new_q = [None; 4];
             self.new_v_tmp = [None; 32];
             self.gather_tmp = None;
+            self.last_v_produced = None;
             // Pre-execute vector `.tmp` loads so their data is visible to a
             // same-packet consumer (e.g. vhist, which the assembler encodes
             // BEFORE the producing `.tmp` load). Read-only here: the producing

@@ -417,10 +417,17 @@ pub enum DecodedInsn {
         base: u8,
         offset: i32,
         post_inc: Option<i32>,
+        /// `ppu` post-increment by the modifier register Mu (`Some(modsel)`,
+        /// 0 => M0/C6, 1 => M1/C7). Mutually exclusive with `post_inc` (the
+        /// `pi` immediate form). The increment is the full Mu byte value.
+        post_inc_mod: Option<u8>,
         aligned: bool,
         /// `false` for a `.tmp` load: the value is only forwardable within the
         /// packet and is NOT committed to the architectural vector register.
         commit: bool,
+        /// Scalar predicate for the `if (Pv[!]) Vd = vmem(...)` forms. On a false
+        /// predicate the load is cancelled: no register write, no post-increment.
+        pred: Option<PredCond>,
     },
     /// HVX vector store: `vmem(base + offset) = Vs`, optionally scalar-predicated
     /// (`if (Pv[!]) vmem(...) = Vs`).
@@ -429,15 +436,22 @@ pub enum DecodedInsn {
         base: u8,
         offset: i32,
         post_inc: Option<i32>,
+        /// `ppu` post-increment by the modifier register Mu (`Some(modsel)`).
+        post_inc_mod: Option<u8>,
         aligned: bool,
         pred: Option<PredCond>,
         /// Byte-mask store: `(Qv register, sense)`. When set, byte `i` is stored
         /// iff `Q.bit[i] == sense` (`qpred` => true, `nqpred` => false).
         qmask: Option<(u8, bool)>,
-        /// New-value vector store whose source is the per-packet gather scratch
-        /// (`vmem(Rs+#k) = vtmp.new`). When set, the store data is the gathered
-        /// vector (`gather_tmp`) rather than `regs.v[src]`.
+        /// New-value vector store (`vmem(...) = V.new`). The store data is the
+        /// vector produced earlier in this packet. When a same-packet `vgather`
+        /// produced no architectural vector (the `vmem=vtmp.new` idiom), the data
+        /// is the per-packet gather scratch (`gather_tmp`) instead.
         from_gather: bool,
+        /// `srls` (`vmem(...):scatter_release`): a scatter-release barrier with no
+        /// vector source. Architecturally a no-op apart from the post-increment;
+        /// no memory is written.
+        srls: bool,
     },
     /// HVX V65 scatter: for each element, store (or accumulate) the data element
     /// to `Rt + offset[i]` when the (aligned) effective address lies within the
@@ -1649,52 +1663,115 @@ fn memop(
 
 const HVX_VEC_BYTES: i32 = 128;
 
-/// Decode an HVX vector load `Vd = vmem(...)`. `post_inc` selects the `Rx++#s3`
-/// form (base field `x`, immediate is the post-increment) vs the `Rt+#s4` form
-/// (base field `t`, immediate is the offset). The immediate is in vector units.
-fn vmem_load(decoded: &DecodedOp, post_inc: bool, aligned: bool) -> Option<(DecodedInsn, bool)> {
-    vmem_load_c(decoded, post_inc, aligned, true)
+/// HVX vmem addressing mode.
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum VAddr {
+    /// `vmem(Rt+#s4)` — offset form (base field `t`, immediate is the offset).
+    Ai,
+    /// `vmem(Rt++#s3)` — post-increment by an immediate (base field `x`).
+    Pi,
+    /// `vmem(Rt++Mu)` — post-increment by the modifier register (base field `x`,
+    /// modifier-select field `u`: 0 => M0/C6, 1 => M1/C7).
+    Ppu,
+}
+
+impl VAddr {
+    /// Base register field letter: `t` for the offset form, `x` (read-modify) for
+    /// either post-increment form.
+    fn base_letter(self) -> u8 {
+        match self {
+            VAddr::Ai => b't',
+            VAddr::Pi | VAddr::Ppu => b'x',
+        }
+    }
+
+    /// Resolve to `(offset, post_inc, post_inc_mod)` from the decoded fields.
+    fn addr_fields(self, decoded: &DecodedOp) -> Option<(i32, Option<i32>, Option<u8>)> {
+        match self {
+            VAddr::Ai => {
+                let imm = decode_field_simm(decoded, b'i', None)?.0 * HVX_VEC_BYTES;
+                Some((imm, None, None))
+            }
+            VAddr::Pi => {
+                let imm = decode_field_simm(decoded, b'i', None)?.0 * HVX_VEC_BYTES;
+                Some((0, Some(imm), None))
+            }
+            VAddr::Ppu => {
+                let modsel = field_u8(decoded, b'u')?;
+                Some((0, None, Some(modsel)))
+            }
+        }
+    }
+}
+
+/// Decode an HVX vector load `Vd = vmem(...)`. `am` selects the addressing mode.
+fn vmem_load(decoded: &DecodedOp, am: VAddr, aligned: bool) -> Option<(DecodedInsn, bool)> {
+    vmem_load_full(decoded, am, aligned, true, None)
 }
 
 fn vmem_load_c(
     decoded: &DecodedOp,
-    post_inc: bool,
+    am: VAddr,
     aligned: bool,
     commit: bool,
 ) -> Option<(DecodedInsn, bool)> {
+    vmem_load_full(decoded, am, aligned, commit, None)
+}
+
+/// Scalar-predicated load `if (Pv[!]) Vd[.cur|.tmp] = vmem(...)`. Predicate field
+/// is `v`; `commit` distinguishes the committing forms (plain / `.cur`) from the
+/// non-committing `.tmp` form.
+fn vmem_load_pred(
+    decoded: &DecodedOp,
+    am: VAddr,
+    aligned: bool,
+    sense: bool,
+    commit: bool,
+) -> Option<(DecodedInsn, bool)> {
+    let pred = pred_cond(field_u8(decoded, b'v')?, sense, false);
+    vmem_load_full(decoded, am, aligned, commit, Some(pred))
+}
+
+fn vmem_load_full(
+    decoded: &DecodedOp,
+    am: VAddr,
+    aligned: bool,
+    commit: bool,
+    pred: Option<PredCond>,
+) -> Option<(DecodedInsn, bool)> {
     let dst = field_u8(decoded, b'd')?;
-    let base = field_u8(decoded, if post_inc { b'x' } else { b't' })?;
-    let imm = decode_field_simm(decoded, b'i', None)?.0 * HVX_VEC_BYTES;
-    let (offset, pi) = if post_inc { (0, Some(imm)) } else { (imm, None) };
+    let base = field_u8(decoded, am.base_letter())?;
+    let (offset, post_inc, post_inc_mod) = am.addr_fields(decoded)?;
     Some((
         DecodedInsn::VLoad {
             dst,
             base,
             offset,
-            post_inc: pi,
+            post_inc,
+            post_inc_mod,
             aligned,
             commit,
+            pred,
         },
         false,
     ))
 }
 
-fn vmem_store(decoded: &DecodedOp, post_inc: bool, aligned: bool) -> Option<(DecodedInsn, bool)> {
-    vmem_store_pred(decoded, post_inc, aligned, None)
+fn vmem_store(decoded: &DecodedOp, am: VAddr, aligned: bool) -> Option<(DecodedInsn, bool)> {
+    vmem_store_pred(decoded, am, aligned, None)
 }
 
 /// `pred_sense`: `Some(true)` for `if (Pv) ...`, `Some(false)` for `if (!Pv) ...`,
 /// `None` for an unconditional store. The predicate operand is field `v`.
 fn vmem_store_pred(
     decoded: &DecodedOp,
-    post_inc: bool,
+    am: VAddr,
     aligned: bool,
     pred_sense: Option<bool>,
 ) -> Option<(DecodedInsn, bool)> {
     let src = field_u8(decoded, b's')?;
-    let base = field_u8(decoded, if post_inc { b'x' } else { b't' })?;
-    let imm = decode_field_simm(decoded, b'i', None)?.0 * HVX_VEC_BYTES;
-    let (offset, pi) = if post_inc { (0, Some(imm)) } else { (imm, None) };
+    let base = field_u8(decoded, am.base_letter())?;
+    let (offset, post_inc, post_inc_mod) = am.addr_fields(decoded)?;
     let pred = match pred_sense {
         Some(sense) => Some(pred_cond(field_u8(decoded, b'v')?, sense, false)),
         None => None,
@@ -1704,59 +1781,91 @@ fn vmem_store_pred(
             src,
             base,
             offset,
-            post_inc: pi,
+            post_inc,
+            post_inc_mod,
             aligned,
             pred,
             qmask: None,
             from_gather: false,
+            srls: false,
         },
         false,
     ))
 }
 
 /// Byte-masked vector store `if (Qv[!]) vmem(...) = Vs` (`qpred`/`nqpred`).
-fn vmem_store_q(
-    decoded: &DecodedOp,
-    post_inc: bool,
-    sense: bool,
-) -> Option<(DecodedInsn, bool)> {
+fn vmem_store_q(decoded: &DecodedOp, am: VAddr, sense: bool) -> Option<(DecodedInsn, bool)> {
     let src = field_u8(decoded, b's')?;
-    let base = field_u8(decoded, if post_inc { b'x' } else { b't' })?;
+    let base = field_u8(decoded, am.base_letter())?;
     let qv = field_u8(decoded, b'v')?;
-    let imm = decode_field_simm(decoded, b'i', None)?.0 * HVX_VEC_BYTES;
-    let (offset, pi) = if post_inc { (0, Some(imm)) } else { (imm, None) };
+    let (offset, post_inc, post_inc_mod) = am.addr_fields(decoded)?;
     Some((
         DecodedInsn::VStore {
             src,
             base,
             offset,
-            post_inc: pi,
+            post_inc,
+            post_inc_mod,
             aligned: true,
             pred: None,
             qmask: Some((qv, sense)),
             from_gather: false,
+            srls: false,
         },
         false,
     ))
 }
 
-/// New-value vector store `vmem(Rs+#k) = vtmp.new`, where the `.new` source is
-/// the per-packet gather scratch (`gather_tmp`). Field `t` is the base register
-/// `Rs`; the immediate is in vector units.
-fn vmem_store_new_gather(decoded: &DecodedOp, post_inc: bool) -> Option<(DecodedInsn, bool)> {
-    let base = field_u8(decoded, if post_inc { b'x' } else { b't' })?;
-    let imm = decode_field_simm(decoded, b'i', None)?.0 * HVX_VEC_BYTES;
-    let (offset, pi) = if post_inc { (0, Some(imm)) } else { (imm, None) };
+/// New-value vector store `vmem(...) = V.new` (`vS32b_new[_pred|_npred]`). The
+/// `.new` source is the vector produced earlier in this packet (or the per-packet
+/// gather scratch for the `vmem=vtmp.new` idiom); the executor resolves it. Base
+/// register field is `t` (offset) or `x` (post-inc). `pred_sense` is `Some` for
+/// the scalar-predicated `if (Pv[!])` forms (predicate field `v`).
+fn vmem_store_new(
+    decoded: &DecodedOp,
+    am: VAddr,
+    pred_sense: Option<bool>,
+) -> Option<(DecodedInsn, bool)> {
+    let base = field_u8(decoded, am.base_letter())?;
+    let (offset, post_inc, post_inc_mod) = am.addr_fields(decoded)?;
+    let pred = match pred_sense {
+        Some(sense) => Some(pred_cond(field_u8(decoded, b'v')?, sense, false)),
+        None => None,
+    };
     Some((
         DecodedInsn::VStore {
             src: 0,
             base,
             offset,
-            post_inc: pi,
+            post_inc,
+            post_inc_mod,
+            aligned: true,
+            pred,
+            qmask: None,
+            from_gather: true,
+            srls: false,
+        },
+        false,
+    ))
+}
+
+/// Store-release barrier `vmem(...):scatter_release` (`vS32b_srls`). No vector
+/// source and no memory write; only the post-increment (if any) takes effect.
+fn vmem_store_srls(decoded: &DecodedOp, am: VAddr) -> Option<(DecodedInsn, bool)> {
+    let base = field_u8(decoded, am.base_letter())?;
+    let (offset, post_inc, post_inc_mod) = am.addr_fields(decoded)?;
+    Some((
+        DecodedInsn::VStore {
+            src: 0,
+            base,
+            offset,
+            post_inc,
+            post_inc_mod,
             aligned: true,
             pred: None,
             qmask: None,
-            from_gather: true,
+            from_gather: false,
+            srls: true,
         },
         false,
     ))
@@ -3238,34 +3347,193 @@ fn decode_main(decoded: &DecodedOp, word: u32, immext: Option<u32>) -> (DecodedI
         Opcode::L4_iand_memopw_io => req!(memop(decoded, MemWidth::Word, MemOpKind::ClrBit, true)),
         Opcode::L4_ior_memopw_io => req!(memop(decoded, MemWidth::Word, MemOpKind::SetBit, true)),
         // ---- HVX vector loads/stores (vmem / vmemu) ----
-        Opcode::V6_vL32b_ai | Opcode::V6_vL32b_nt_ai => req!(vmem_load(decoded, false, true)),
-        Opcode::V6_vL32Ub_ai => req!(vmem_load(decoded, false, false)),
-        Opcode::V6_vL32b_pi | Opcode::V6_vL32b_nt_pi => req!(vmem_load(decoded, true, true)),
-        Opcode::V6_vL32Ub_pi => req!(vmem_load(decoded, true, false)),
+        // Aligned loads (`vL32b`); `:nt` is a cache hint with no architectural
+        // effect. `ai` = vmem(Rt+#s4), `pi` = vmem(Rt++#s4), `ppu` = vmem(Rt++Mu).
+        Opcode::V6_vL32b_ai | Opcode::V6_vL32b_nt_ai => req!(vmem_load(decoded, VAddr::Ai, true)),
+        Opcode::V6_vL32b_pi | Opcode::V6_vL32b_nt_pi => req!(vmem_load(decoded, VAddr::Pi, true)),
+        Opcode::V6_vL32b_ppu | Opcode::V6_vL32b_nt_ppu => {
+            req!(vmem_load(decoded, VAddr::Ppu, true))
+        }
+        // Unaligned loads (`vL32Ub` / `vmemu`).
+        Opcode::V6_vL32Ub_ai => req!(vmem_load(decoded, VAddr::Ai, false)),
+        Opcode::V6_vL32Ub_pi => req!(vmem_load(decoded, VAddr::Pi, false)),
+        Opcode::V6_vL32Ub_ppu => req!(vmem_load(decoded, VAddr::Ppu, false)),
         // `cur` loads commit the value to Vd (and forward it within the packet);
         // `tmp` loads do NOT commit (scratch, forward-only) — same loaded data.
-        Opcode::V6_vL32b_cur_ai => req!(vmem_load_c(decoded, false, true, true)),
-        Opcode::V6_vL32b_cur_pi => req!(vmem_load_c(decoded, true, true, true)),
-        Opcode::V6_vL32b_tmp_ai => req!(vmem_load_c(decoded, false, true, false)),
-        Opcode::V6_vL32b_tmp_pi => req!(vmem_load_c(decoded, true, true, false)),
-        Opcode::V6_vS32b_ai | Opcode::V6_vS32b_nt_ai => req!(vmem_store(decoded, false, true)),
-        Opcode::V6_vS32Ub_ai => req!(vmem_store(decoded, false, false)),
-        Opcode::V6_vS32b_pi | Opcode::V6_vS32b_nt_pi => req!(vmem_store(decoded, true, true)),
-        Opcode::V6_vS32Ub_pi => req!(vmem_store(decoded, true, false)),
+        // `:nt` is just a hint, so the `nt_cur`/`nt_tmp` forms behave identically.
+        Opcode::V6_vL32b_cur_ai | Opcode::V6_vL32b_nt_cur_ai => {
+            req!(vmem_load_c(decoded, VAddr::Ai, true, true))
+        }
+        Opcode::V6_vL32b_cur_pi | Opcode::V6_vL32b_nt_cur_pi => {
+            req!(vmem_load_c(decoded, VAddr::Pi, true, true))
+        }
+        Opcode::V6_vL32b_cur_ppu | Opcode::V6_vL32b_nt_cur_ppu => {
+            req!(vmem_load_c(decoded, VAddr::Ppu, true, true))
+        }
+        Opcode::V6_vL32b_tmp_ai | Opcode::V6_vL32b_nt_tmp_ai => {
+            req!(vmem_load_c(decoded, VAddr::Ai, true, false))
+        }
+        Opcode::V6_vL32b_tmp_pi | Opcode::V6_vL32b_nt_tmp_pi => {
+            req!(vmem_load_c(decoded, VAddr::Pi, true, false))
+        }
+        Opcode::V6_vL32b_tmp_ppu | Opcode::V6_vL32b_nt_tmp_ppu => {
+            req!(vmem_load_c(decoded, VAddr::Ppu, true, false))
+        }
+        // Scalar-predicated loads (`if (Pv[!]) Vd[.cur|.tmp] = vmem(...)`). The
+        // predicate operand is field `v`; on a false predicate the load is
+        // cancelled (no register write, no post-increment) — handled by the
+        // executor via the load's `pred` field. Plain (non-cur/tmp) predicated
+        // loads commit; `.cur` commits; `.tmp` does not.
+        Opcode::V6_vL32b_pred_ai | Opcode::V6_vL32b_nt_pred_ai => {
+            req!(vmem_load_pred(decoded, VAddr::Ai, true, true, true))
+        }
+        Opcode::V6_vL32b_pred_pi | Opcode::V6_vL32b_nt_pred_pi => {
+            req!(vmem_load_pred(decoded, VAddr::Pi, true, true, true))
+        }
+        Opcode::V6_vL32b_pred_ppu | Opcode::V6_vL32b_nt_pred_ppu => {
+            req!(vmem_load_pred(decoded, VAddr::Ppu, true, true, true))
+        }
+        Opcode::V6_vL32b_npred_ai | Opcode::V6_vL32b_nt_npred_ai => {
+            req!(vmem_load_pred(decoded, VAddr::Ai, true, false, true))
+        }
+        Opcode::V6_vL32b_npred_pi | Opcode::V6_vL32b_nt_npred_pi => {
+            req!(vmem_load_pred(decoded, VAddr::Pi, true, false, true))
+        }
+        Opcode::V6_vL32b_npred_ppu | Opcode::V6_vL32b_nt_npred_ppu => {
+            req!(vmem_load_pred(decoded, VAddr::Ppu, true, false, true))
+        }
+        Opcode::V6_vL32b_cur_pred_ai | Opcode::V6_vL32b_nt_cur_pred_ai => {
+            req!(vmem_load_pred(decoded, VAddr::Ai, true, true, true))
+        }
+        Opcode::V6_vL32b_cur_pred_pi | Opcode::V6_vL32b_nt_cur_pred_pi => {
+            req!(vmem_load_pred(decoded, VAddr::Pi, true, true, true))
+        }
+        Opcode::V6_vL32b_cur_pred_ppu | Opcode::V6_vL32b_nt_cur_pred_ppu => {
+            req!(vmem_load_pred(decoded, VAddr::Ppu, true, true, true))
+        }
+        Opcode::V6_vL32b_cur_npred_ai | Opcode::V6_vL32b_nt_cur_npred_ai => {
+            req!(vmem_load_pred(decoded, VAddr::Ai, true, false, true))
+        }
+        Opcode::V6_vL32b_cur_npred_pi | Opcode::V6_vL32b_nt_cur_npred_pi => {
+            req!(vmem_load_pred(decoded, VAddr::Pi, true, false, true))
+        }
+        Opcode::V6_vL32b_cur_npred_ppu | Opcode::V6_vL32b_nt_cur_npred_ppu => {
+            req!(vmem_load_pred(decoded, VAddr::Ppu, true, false, true))
+        }
+        Opcode::V6_vL32b_tmp_pred_ai | Opcode::V6_vL32b_nt_tmp_pred_ai => {
+            req!(vmem_load_pred(decoded, VAddr::Ai, true, true, false))
+        }
+        Opcode::V6_vL32b_tmp_pred_pi | Opcode::V6_vL32b_nt_tmp_pred_pi => {
+            req!(vmem_load_pred(decoded, VAddr::Pi, true, true, false))
+        }
+        Opcode::V6_vL32b_tmp_pred_ppu | Opcode::V6_vL32b_nt_tmp_pred_ppu => {
+            req!(vmem_load_pred(decoded, VAddr::Ppu, true, true, false))
+        }
+        Opcode::V6_vL32b_tmp_npred_ai | Opcode::V6_vL32b_nt_tmp_npred_ai => {
+            req!(vmem_load_pred(decoded, VAddr::Ai, true, false, false))
+        }
+        Opcode::V6_vL32b_tmp_npred_pi | Opcode::V6_vL32b_nt_tmp_npred_pi => {
+            req!(vmem_load_pred(decoded, VAddr::Pi, true, false, false))
+        }
+        Opcode::V6_vL32b_tmp_npred_ppu | Opcode::V6_vL32b_nt_tmp_npred_ppu => {
+            req!(vmem_load_pred(decoded, VAddr::Ppu, true, false, false))
+        }
+        // Unaligned post-inc-by-Mu store (`vS32Ub_ppu` + ai/pi already below).
+        Opcode::V6_vS32Ub_ppu => req!(vmem_store(decoded, VAddr::Ppu, false)),
+        // Aligned stores (`vS32b`); `:nt` hint only.
+        Opcode::V6_vS32b_ai | Opcode::V6_vS32b_nt_ai => req!(vmem_store(decoded, VAddr::Ai, true)),
+        Opcode::V6_vS32b_pi | Opcode::V6_vS32b_nt_pi => req!(vmem_store(decoded, VAddr::Pi, true)),
+        Opcode::V6_vS32b_ppu | Opcode::V6_vS32b_nt_ppu => {
+            req!(vmem_store(decoded, VAddr::Ppu, true))
+        }
+        Opcode::V6_vS32Ub_ai => req!(vmem_store(decoded, VAddr::Ai, false)),
+        Opcode::V6_vS32Ub_pi => req!(vmem_store(decoded, VAddr::Pi, false)),
         // Scalar-predicated vector stores: if (Pv[!]) vmem(...) = Vs.
-        Opcode::V6_vS32b_pred_ai => req!(vmem_store_pred(decoded, false, true, Some(true))),
-        Opcode::V6_vS32b_npred_ai => req!(vmem_store_pred(decoded, false, true, Some(false))),
-        Opcode::V6_vS32b_pred_pi => req!(vmem_store_pred(decoded, true, true, Some(true))),
-        Opcode::V6_vS32b_npred_pi => req!(vmem_store_pred(decoded, true, true, Some(false))),
+        Opcode::V6_vS32b_pred_ai => req!(vmem_store_pred(decoded, VAddr::Ai, true, Some(true))),
+        Opcode::V6_vS32b_npred_ai => req!(vmem_store_pred(decoded, VAddr::Ai, true, Some(false))),
+        Opcode::V6_vS32b_pred_pi => req!(vmem_store_pred(decoded, VAddr::Pi, true, Some(true))),
+        Opcode::V6_vS32b_npred_pi => req!(vmem_store_pred(decoded, VAddr::Pi, true, Some(false))),
+        Opcode::V6_vS32b_pred_ppu | Opcode::V6_vS32b_nt_pred_ppu => {
+            req!(vmem_store_pred(decoded, VAddr::Ppu, true, Some(true)))
+        }
+        Opcode::V6_vS32b_npred_ppu | Opcode::V6_vS32b_nt_npred_ppu => {
+            req!(vmem_store_pred(decoded, VAddr::Ppu, true, Some(false)))
+        }
+        Opcode::V6_vS32b_nt_pred_ai => req!(vmem_store_pred(decoded, VAddr::Ai, true, Some(true))),
+        Opcode::V6_vS32b_nt_npred_ai => {
+            req!(vmem_store_pred(decoded, VAddr::Ai, true, Some(false)))
+        }
+        Opcode::V6_vS32b_nt_pred_pi => req!(vmem_store_pred(decoded, VAddr::Pi, true, Some(true))),
+        Opcode::V6_vS32b_nt_npred_pi => {
+            req!(vmem_store_pred(decoded, VAddr::Pi, true, Some(false)))
+        }
+        // Unaligned predicated stores (`vS32Ub_[n]pred_*`).
+        Opcode::V6_vS32Ub_pred_ai => req!(vmem_store_pred(decoded, VAddr::Ai, false, Some(true))),
+        Opcode::V6_vS32Ub_npred_ai => {
+            req!(vmem_store_pred(decoded, VAddr::Ai, false, Some(false)))
+        }
+        Opcode::V6_vS32Ub_pred_pi => req!(vmem_store_pred(decoded, VAddr::Pi, false, Some(true))),
+        Opcode::V6_vS32Ub_npred_pi => {
+            req!(vmem_store_pred(decoded, VAddr::Pi, false, Some(false)))
+        }
+        Opcode::V6_vS32Ub_pred_ppu => {
+            req!(vmem_store_pred(decoded, VAddr::Ppu, false, Some(true)))
+        }
+        Opcode::V6_vS32Ub_npred_ppu => {
+            req!(vmem_store_pred(decoded, VAddr::Ppu, false, Some(false)))
+        }
         // Byte-masked vector stores: if (Qv[!]) vmem(...) = Vs.
-        Opcode::V6_vS32b_qpred_ai => req!(vmem_store_q(decoded, false, true)),
-        Opcode::V6_vS32b_nqpred_ai => req!(vmem_store_q(decoded, false, false)),
-        Opcode::V6_vS32b_qpred_pi => req!(vmem_store_q(decoded, true, true)),
-        Opcode::V6_vS32b_nqpred_pi => req!(vmem_store_q(decoded, true, false)),
-        // New-value vector store `vmem(Rs+#k) = vtmp.new`: the source is the
-        // per-packet gather scratch. (Field `t` = base Rs, `i` = vector offset.)
-        Opcode::V6_vS32b_new_ai => req!(vmem_store_new_gather(decoded, false)),
-        Opcode::V6_vS32b_new_pi => req!(vmem_store_new_gather(decoded, true)),
+        Opcode::V6_vS32b_qpred_ai | Opcode::V6_vS32b_nt_qpred_ai => {
+            req!(vmem_store_q(decoded, VAddr::Ai, true))
+        }
+        Opcode::V6_vS32b_nqpred_ai | Opcode::V6_vS32b_nt_nqpred_ai => {
+            req!(vmem_store_q(decoded, VAddr::Ai, false))
+        }
+        Opcode::V6_vS32b_qpred_pi | Opcode::V6_vS32b_nt_qpred_pi => {
+            req!(vmem_store_q(decoded, VAddr::Pi, true))
+        }
+        Opcode::V6_vS32b_nqpred_pi | Opcode::V6_vS32b_nt_nqpred_pi => {
+            req!(vmem_store_q(decoded, VAddr::Pi, false))
+        }
+        Opcode::V6_vS32b_qpred_ppu | Opcode::V6_vS32b_nt_qpred_ppu => {
+            req!(vmem_store_q(decoded, VAddr::Ppu, true))
+        }
+        Opcode::V6_vS32b_nqpred_ppu | Opcode::V6_vS32b_nt_nqpred_ppu => {
+            req!(vmem_store_q(decoded, VAddr::Ppu, false))
+        }
+        // New-value vector store `vmem(...) = V.new`: the source is the vector
+        // produced earlier in the packet (or the gather scratch). `:nt` hint only.
+        Opcode::V6_vS32b_new_ai | Opcode::V6_vS32b_nt_new_ai => {
+            req!(vmem_store_new(decoded, VAddr::Ai, None))
+        }
+        Opcode::V6_vS32b_new_pi | Opcode::V6_vS32b_nt_new_pi => {
+            req!(vmem_store_new(decoded, VAddr::Pi, None))
+        }
+        Opcode::V6_vS32b_new_ppu | Opcode::V6_vS32b_nt_new_ppu => {
+            req!(vmem_store_new(decoded, VAddr::Ppu, None))
+        }
+        Opcode::V6_vS32b_new_pred_ai | Opcode::V6_vS32b_nt_new_pred_ai => {
+            req!(vmem_store_new(decoded, VAddr::Ai, Some(true)))
+        }
+        Opcode::V6_vS32b_new_npred_ai | Opcode::V6_vS32b_nt_new_npred_ai => {
+            req!(vmem_store_new(decoded, VAddr::Ai, Some(false)))
+        }
+        Opcode::V6_vS32b_new_pred_pi | Opcode::V6_vS32b_nt_new_pred_pi => {
+            req!(vmem_store_new(decoded, VAddr::Pi, Some(true)))
+        }
+        Opcode::V6_vS32b_new_npred_pi | Opcode::V6_vS32b_nt_new_npred_pi => {
+            req!(vmem_store_new(decoded, VAddr::Pi, Some(false)))
+        }
+        Opcode::V6_vS32b_new_pred_ppu | Opcode::V6_vS32b_nt_new_pred_ppu => {
+            req!(vmem_store_new(decoded, VAddr::Ppu, Some(true)))
+        }
+        Opcode::V6_vS32b_new_npred_ppu | Opcode::V6_vS32b_nt_new_npred_ppu => {
+            req!(vmem_store_new(decoded, VAddr::Ppu, Some(false)))
+        }
+        // Store-release barrier `vmem(...):scatter_release` (no vector source).
+        Opcode::V6_vS32b_srls_ai => req!(vmem_store_srls(decoded, VAddr::Ai)),
+        Opcode::V6_vS32b_srls_pi => req!(vmem_store_srls(decoded, VAddr::Pi)),
+        Opcode::V6_vS32b_srls_ppu => req!(vmem_store_srls(decoded, VAddr::Ppu)),
         // ---- HVX V65 scatter (vscatter) ----
         // esz, off_pair, add, predicated.
         Opcode::V6_vscattermw => req!(vscatter(decoded, 4, false, false, false)),
