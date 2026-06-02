@@ -414,3 +414,313 @@ fn diff_hvx_logical() {
         0x109,
     );
 }
+
+// ==== hvx_shift (workflow) ====
+#[test]
+fn diff_hvx_shift_scalar() {
+    // Per-lane shift by scalar Rt; r3 holds the (random) shift amount, masked
+    // to the lane width by the instruction.
+    run_family(
+        "hvx_shift_scalar",
+        &[
+            ("vaslh", "{ v0.h = vasl(v1.h,r3) }"),
+            ("vaslw", "{ v0.w = vasl(v1.w,r3) }"),
+            ("vasrh", "{ v0.h = vasr(v1.h,r3) }"),
+            ("vasrw", "{ v0.w = vasr(v1.w,r3) }"),
+            ("vlsrh", "{ v0.uh = vlsr(v1.uh,r3) }"),
+            ("vlsrw", "{ v0.uw = vlsr(v1.uw,r3) }"),
+            ("vlsrb", "{ v0.ub = vlsr(v1.ub,r3) }"),
+        ],
+        8,
+        0x5417,
+    );
+}
+
+#[test]
+fn diff_hvx_shift_vector() {
+    // Per-lane bidirectional shift by vector Vv (amount = sign-extended low
+    // bits of each lane).
+    run_family(
+        "hvx_shift_vector",
+        &[
+            ("vaslhv", "{ v0.h = vasl(v1.h,v2.h) }"),
+            ("vaslwv", "{ v0.w = vasl(v1.w,v2.w) }"),
+            ("vasrhv", "{ v0.h = vasr(v1.h,v2.h) }"),
+            ("vasrwv", "{ v0.w = vasr(v1.w,v2.w) }"),
+            ("vlsrhv", "{ v0.h = vlsr(v1.h,v2.h) }"),
+            ("vlsrwv", "{ v0.w = vlsr(v1.w,v2.w) }"),
+        ],
+        8,
+        0x91c2,
+    );
+}
+
+#[test]
+fn diff_hvx_ror() {
+    run_family(
+        "hvx_ror",
+        &[("vror", "{ v0 = vror(v1,r3) }")],
+        10,
+        0x7be1,
+    );
+}
+
+#[test]
+fn diff_hvx_bitcount() {
+    run_family(
+        "hvx_bitcount",
+        &[
+            ("vcl0h", "{ v0.uh = vcl0(v1.uh) }"),
+            ("vcl0w", "{ v0.uw = vcl0(v1.uw) }"),
+            ("vnormamth", "{ v0.h = vnormamt(v1.h) }"),
+            ("vnormamtw", "{ v0.w = vnormamt(v1.w) }"),
+            ("vpopcounth", "{ v0.h = vpopcount(v1.h) }"),
+        ],
+        8,
+        0x3d09,
+    );
+}
+
+#[test]
+fn diff_hvx_shift_narrow() {
+    // Narrowing rounding/saturating right shifts: Vu/Vv -> packed narrow Vd
+    // (even sub-lane from Vv, odd from Vu); r3 holds the shift amount.
+    run_family(
+        "hvx_shift_narrow",
+        &[
+            ("vasrwh", "{ v0.h = vasr(v1.w,v2.w,r3) }"),
+            ("vasrwhsat", "{ v0.h = vasr(v1.w,v2.w,r3):sat }"),
+            ("vasrwhrndsat", "{ v0.h = vasr(v1.w,v2.w,r3):rnd:sat }"),
+            ("vasrwuhsat", "{ v0.uh = vasr(v1.w,v2.w,r3):sat }"),
+            ("vasrwuhrndsat", "{ v0.uh = vasr(v1.w,v2.w,r3):rnd:sat }"),
+            ("vasruwuhsat", "{ v0.uh = vasr(v1.uw,v2.uw,r3):sat }"),
+            ("vasruwuhrndsat", "{ v0.uh = vasr(v1.uw,v2.uw,r3):rnd:sat }"),
+            ("vasrhubsat", "{ v0.ub = vasr(v1.h,v2.h,r3):sat }"),
+            ("vasrhubrndsat", "{ v0.ub = vasr(v1.h,v2.h,r3):rnd:sat }"),
+            ("vasrhbsat", "{ v0.b = vasr(v1.h,v2.h,r3):sat }"),
+            ("vasrhbrndsat", "{ v0.b = vasr(v1.h,v2.h,r3):rnd:sat }"),
+            ("vasruhubsat", "{ v0.ub = vasr(v1.uh,v2.uh,r3):sat }"),
+            ("vasruhubrndsat", "{ v0.ub = vasr(v1.uh,v2.uh,r3):rnd:sat }"),
+        ],
+        8,
+        0x2af6,
+    );
+}
+
+// ==== hvx_perm (workflow) ====
+#[test]
+fn diff_hvx_perm_move() {
+    run_family(
+        "hvx_perm_move",
+        &[
+            ("vassign", "{ v0 = v1 }"),
+            ("vcombine", "{ v1:0 = vcombine(v3,v2) }"),
+            ("vsplatb", "{ v0.b = vsplat(r1) }"),
+            ("vsplath", "{ v0.h = vsplat(r1) }"),
+            ("vsplatw", "{ v0 = vsplat(r1) }"),
+        ],
+        6,
+        0x9101,
+    );
+}
+
+#[test]
+fn diff_hvx_perm_align() {
+    run_family(
+        "hvx_perm_align",
+        &[
+            ("valignb", "{ v0 = valign(v1,v2,r3) }"),
+            ("vlalignb", "{ v0 = vlalign(v1,v2,r3) }"),
+            ("valignbi", "{ v0 = valign(v1,v2,#3) }"),
+            ("vlalignbi", "{ v0 = vlalign(v1,v2,#5) }"),
+            ("vror", "{ v0 = vror(v1,r2) }"),
+        ],
+        8,
+        0x9102,
+    );
+}
+
+#[test]
+fn diff_hvx_perm_shuffle() {
+    run_family(
+        "hvx_perm_shuffle",
+        &[
+            ("vshuffb", "{ v0.b = vshuff(v1.b) }"),
+            ("vshuffh", "{ v0.h = vshuff(v1.h) }"),
+            ("vdealb", "{ v0.b = vdeal(v1.b) }"),
+            ("vdealh", "{ v0.h = vdeal(v1.h) }"),
+            ("vdealb4w", "{ v0.b = vdeale(v1.b,v2.b) }"),
+            ("vshuffeb", "{ v0.b = vshuffe(v1.b,v2.b) }"),
+            ("vshuffob", "{ v0.b = vshuffo(v1.b,v2.b) }"),
+            ("vshufeh", "{ v0.h = vshuffe(v1.h,v2.h) }"),
+            ("vshufoh", "{ v0.h = vshuffo(v1.h,v2.h) }"),
+            ("vshuffvdd", "{ v1:0 = vshuff(v3,v2,r4) }"),
+        ],
+        8,
+        0x9103,
+    );
+}
+
+#[test]
+fn diff_hvx_perm_pack() {
+    run_family(
+        "hvx_perm_pack",
+        &[
+            ("vpackeb", "{ v0.b = vpacke(v1.h,v2.h) }"),
+            ("vpackeh", "{ v0.h = vpacke(v1.w,v2.w) }"),
+            ("vpackob", "{ v0.b = vpacko(v1.h,v2.h) }"),
+            ("vpackoh", "{ v0.h = vpacko(v1.w,v2.w) }"),
+            ("vpackhb_sat", "{ v0.b = vpack(v1.h,v2.h):sat }"),
+            ("vpackhub_sat", "{ v0.ub = vpack(v1.h,v2.h):sat }"),
+            ("vpackwh_sat", "{ v0.h = vpack(v1.w,v2.w):sat }"),
+            ("vpackwuh_sat", "{ v0.uh = vpack(v1.w,v2.w):sat }"),
+        ],
+        8,
+        0x9104,
+    );
+}
+
+#[test]
+fn diff_hvx_perm_widen() {
+    run_family(
+        "hvx_perm_widen",
+        &[
+            ("vzb", "{ v1:0.uh = vzxt(v2.ub) }"),
+            ("vsb", "{ v1:0.h = vsxt(v2.b) }"),
+            ("vzh", "{ v1:0.uw = vzxt(v2.uh) }"),
+            ("vsh", "{ v1:0.w = vsxt(v2.h) }"),
+            ("vunpackub", "{ v1:0.uh = vunpack(v2.ub) }"),
+            ("vunpackb", "{ v1:0.h = vunpack(v2.b) }"),
+            ("vunpackuh", "{ v1:0.uw = vunpack(v2.uh) }"),
+            ("vunpackh", "{ v1:0.w = vunpack(v2.h) }"),
+            ("vunpackob", "{ v1:0.h |= vunpacko(v2.b) }"),
+            ("vunpackoh", "{ v1:0.w |= vunpacko(v2.h) }"),
+        ],
+        8,
+        0x9105,
+    );
+}
+
+// ==== hvx_cmp (workflow) ====
+// --- hvx_cmp: vector compares verified by consuming Q in a vmux into a V ----
+// The oracle does NOT capture Q, so each Q-producer feeds a vmux into V0, which
+// is captured and diffed. A vector predicate written by one packet is only
+// visible to a consumer in a *later* packet (Hexagon does not forward Q within a
+// packet), so the producer and consumer are split into two packets per case.
+
+#[test]
+fn diff_hvx_cmp() {
+    run_family(
+        "hvx_cmp",
+        &[
+            ("veqb", "{ q0 = vcmp.eq(v1.b,v2.b) }\n{ v0 = vmux(q0,v3,v4) }"),
+            ("vgtb", "{ q0 = vcmp.gt(v1.b,v2.b) }\n{ v0 = vmux(q0,v3,v4) }"),
+            ("vgtub", "{ q0 = vcmp.gt(v1.ub,v2.ub) }\n{ v0 = vmux(q0,v3,v4) }"),
+            ("veqh", "{ q0 = vcmp.eq(v1.h,v2.h) }\n{ v0 = vmux(q0,v3,v4) }"),
+            ("vgth", "{ q0 = vcmp.gt(v1.h,v2.h) }\n{ v0 = vmux(q0,v3,v4) }"),
+            ("vgtuh", "{ q0 = vcmp.gt(v1.uh,v2.uh) }\n{ v0 = vmux(q0,v3,v4) }"),
+            ("veqw", "{ q0 = vcmp.eq(v1.w,v2.w) }\n{ v0 = vmux(q0,v3,v4) }"),
+            ("vgtw", "{ q0 = vcmp.gt(v1.w,v2.w) }\n{ v0 = vmux(q0,v3,v4) }"),
+            ("vgtuw", "{ q0 = vcmp.gt(v1.uw,v2.uw) }\n{ v0 = vmux(q0,v3,v4) }"),
+        ],
+        8,
+        0x6311,
+    );
+}
+
+// Force the boundary cases by comparing a register against itself (eq -> all
+// true, gt -> all false), exercising both vmux branches with a uniform Q.
+#[test]
+fn diff_hvx_cmp_self() {
+    run_family(
+        "hvx_cmp_self",
+        &[
+            ("veqb_self", "{ q0 = vcmp.eq(v1.b,v1.b) }\n{ v0 = vmux(q0,v3,v4) }"),
+            ("vgtb_self", "{ q0 = vcmp.gt(v1.b,v1.b) }\n{ v0 = vmux(q0,v3,v4) }"),
+            ("veqh_self", "{ q0 = vcmp.eq(v1.h,v1.h) }\n{ v0 = vmux(q0,v3,v4) }"),
+            ("vgtw_self", "{ q0 = vcmp.gt(v1.w,v1.w) }\n{ v0 = vmux(q0,v3,v4) }"),
+            ("vgtuw_self", "{ q0 = vcmp.gt(v1.uw,v1.uw) }\n{ v0 = vmux(q0,v3,v4) }"),
+        ],
+        6,
+        0x77a2,
+    );
+}
+
+// Q-predicate logic, verified by combining two independent compare-produced Q
+// predicates and feeding the result into vmux. Producer compares are in packet
+// 1, the Q-logic in packet 2, the vmux in packet 3.
+#[test]
+fn diff_hvx_pred_logic() {
+    run_family(
+        "hvx_pred_logic",
+        &[
+            (
+                "pred_and",
+                "{ q0 = vcmp.gt(v1.b,v2.b); q1 = vcmp.gt(v5.b,v6.b) }\n{ q2 = and(q0,q1) }\n{ v0 = vmux(q2,v3,v4) }",
+            ),
+            (
+                "pred_or",
+                "{ q0 = vcmp.gt(v1.b,v2.b); q1 = vcmp.gt(v5.b,v6.b) }\n{ q2 = or(q0,q1) }\n{ v0 = vmux(q2,v3,v4) }",
+            ),
+            (
+                "pred_xor",
+                "{ q0 = vcmp.gt(v1.b,v2.b); q1 = vcmp.gt(v5.b,v6.b) }\n{ q2 = xor(q0,q1) }\n{ v0 = vmux(q2,v3,v4) }",
+            ),
+            (
+                "pred_and_n",
+                "{ q0 = vcmp.gt(v1.b,v2.b); q1 = vcmp.gt(v5.b,v6.b) }\n{ q2 = and(q0,!q1) }\n{ v0 = vmux(q2,v3,v4) }",
+            ),
+            (
+                "pred_or_n",
+                "{ q0 = vcmp.gt(v1.b,v2.b); q1 = vcmp.gt(v5.b,v6.b) }\n{ q2 = or(q0,!q1) }\n{ v0 = vmux(q2,v3,v4) }",
+            ),
+            (
+                "pred_not",
+                "{ q0 = vcmp.gt(v1.b,v2.b) }\n{ q1 = not(q0) }\n{ v0 = vmux(q1,v3,v4) }",
+            ),
+        ],
+        8,
+        0x91c3,
+    );
+}
+
+// vand bridges: Q<->V (vandvqv / vandvnqv), Q<->R (vandqrt / vandnqrt), and
+// V<->R producing a Q (vandvrt, consumed by vmux). Each Q-producer is in its own
+// packet; the consumer (which yields a captured V) follows in the next packet.
+#[test]
+fn diff_hvx_vand_bridge() {
+    run_family(
+        "hvx_vand_bridge",
+        &[
+            ("vandvqv", "{ q0 = vcmp.gt(v1.b,v2.b) }\n{ v0 = vand(q0,v3) }"),
+            ("vandvnqv", "{ q0 = vcmp.gt(v1.b,v2.b) }\n{ v0 = vand(!q0,v3) }"),
+            ("vandqrt", "{ q0 = vcmp.gt(v1.b,v2.b) }\n{ v0 = vand(q0,r3) }"),
+            ("vandnqrt", "{ q0 = vcmp.gt(v1.b,v2.b) }\n{ v0 = vand(!q0,r3) }"),
+            ("vandvrt", "{ q0 = vand(v1,r2) }\n{ v0 = vmux(q0,v3,v4) }"),
+        ],
+        8,
+        0xa4d7,
+    );
+}
+
+#[test]
+fn diff_hvx_minmax() {
+    run_family(
+        "hvx_minmax",
+        &[
+            ("vmaxh", "{ v0.h = vmax(v1.h,v2.h) }"),
+            ("vmaxub", "{ v0.ub = vmax(v1.ub,v2.ub) }"),
+            ("vminw", "{ v0.w = vmin(v1.w,v2.w) }"),
+            ("vavgh", "{ v0.h = vavg(v1.h,v2.h) }"),
+            ("vavgub", "{ v0.ub = vavg(v1.ub,v2.ub) }"),
+            ("vavghrnd", "{ v0.h = vavg(v1.h,v2.h):rnd }"),
+            ("vnavgh", "{ v0.h = vnavg(v1.h,v2.h) }"),
+            ("vabsh", "{ v0.h = vabs(v1.h) }"),
+            ("vabsw_sat", "{ v0.w = vabs(v1.w):sat }"),
+            ("vabsdiffh", "{ v0.uh = vabsdiff(v1.h,v2.h) }"),
+            ("vabsdiffub", "{ v0.ub = vabsdiff(v1.ub,v2.ub) }"),
+        ],
+        6,
+        0xa1b2,
+    );
+}

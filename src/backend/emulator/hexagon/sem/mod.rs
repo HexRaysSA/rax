@@ -142,6 +142,13 @@ impl SemCtx<'_> {
         self.regs.q[reg as usize]
     }
 
+    /// Read a vector-predicate's `.new` value (in-flight if produced earlier in
+    /// the packet, else the old architectural value).
+    #[inline]
+    pub fn qread_new(&self, reg: u8) -> [u32; 4] {
+        self.qnew[reg as usize].unwrap_or(self.regs.q[reg as usize])
+    }
+
     /// Write a vector-predicate register.
     #[inline]
     pub fn set_q(&mut self, reg: u8, value: [u32; 4]) {
