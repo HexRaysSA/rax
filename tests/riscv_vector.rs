@@ -444,6 +444,53 @@ fn diff_v_merge() {
 }
 
 #[test]
+fn diff_v_compare() {
+    let mut rng = Rng::new(0x7EC_710);
+    let mut batch = Vec::new();
+    // (name, funct6, has_vv, has_vi)
+    let ops: &[(&str, u32, bool, bool)] = &[
+        ("vmseq", 0b011000, true, true),
+        ("vmsne", 0b011001, true, true),
+        ("vmsltu", 0b011010, true, false),
+        ("vmslt", 0b011011, true, false),
+        ("vmsleu", 0b011100, true, true),
+        ("vmsle", 0b011101, true, true),
+        ("vmsgtu", 0b011110, false, true),
+        ("vmsgt", 0b011111, false, true),
+    ];
+    for sew_log2 in 0..4u32 {
+        let vmax = vlmax(sew_log2);
+        for vl in [vmax, (vmax / 2).max(1)] {
+            for &(name, f6, has_vv, has_vi) in ops {
+                for _ in 0..6 {
+                    let vd = VPOOL[(rng.next() % 6) as usize];
+                    let vs2 = VPOOL[(rng.next() % 6) as usize];
+                    let vs1 = VPOOL[(rng.next() % 6) as usize];
+                    let rs1 = XPOOL[(rng.next() % 5) as usize];
+                    let st = rand_vstate(&mut rng, sew_log2, vl);
+                    if has_vv {
+                        batch.push((format!("{name}.vv"), op_iv(f6, 1, vs2, vs1, 0b000, vd), st));
+                    }
+                    batch.push((format!("{name}.vx"), op_iv(f6, 1, vs2, rs1, 0b100, vd), st));
+                    if has_vi {
+                        let imm = (rng.next() & 0x1f) as u32;
+                        batch.push((format!("{name}.vi"), op_iv(f6, 1, vs2, imm, 0b011, vd), st));
+                    }
+                    // masked vv (vd != v0)
+                    if has_vv && vd != 0 {
+                        let mut stm = st;
+                        stm.v[0] = rng.next();
+                        stm.v[1] = rng.next();
+                        batch.push((format!("{name}.vv.m"), op_iv(f6, 0, vs2, vs1, 0b000, vd), stm));
+                    }
+                }
+            }
+        }
+    }
+    run_batch(&batch);
+}
+
+#[test]
 fn diff_v_loadstore() {
     let mut rng = Rng::new(0x7EC_705);
     let mut batch = Vec::new();

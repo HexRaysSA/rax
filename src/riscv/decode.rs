@@ -346,6 +346,14 @@ pub enum Op {
     Vsrl,
     Vsra,
     Vmerge, // also vmv.v.* when vm=1
+    Vmseq,
+    Vmsne,
+    Vmsltu,
+    Vmslt,
+    Vmsleu,
+    Vmsle,
+    Vmsgtu,
+    Vmsgt,
     // ---- sentinel ----
     Illegal,
 }
@@ -605,6 +613,14 @@ fn decode_vector(w: u32) -> Insn {
             0b101000 => Op::Vsrl,
             0b101001 => Op::Vsra,
             0b010111 => Op::Vmerge, // vmerge (vm=0) / vmv.v.* (vm=1)
+            0b011000 => Op::Vmseq,  // vv/vx/vi
+            0b011001 => Op::Vmsne,
+            0b011010 if f3 != 0b011 => Op::Vmsltu, // vv/vx
+            0b011011 if f3 != 0b011 => Op::Vmslt,
+            0b011100 => Op::Vmsleu, // vv/vx/vi
+            0b011101 => Op::Vmsle,
+            0b011110 if f3 != 0b000 => Op::Vmsgtu, // vx/vi
+            0b011111 if f3 != 0b000 => Op::Vmsgt,
             _ => return Insn::illegal(w, 4),
         };
         return base(op, w);

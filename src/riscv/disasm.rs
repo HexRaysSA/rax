@@ -315,6 +315,14 @@ impl Op {
             Vsrl => "vsrl",
             Vsra => "vsra",
             Vmerge => "vmerge",
+            Vmseq => "vmseq",
+            Vmsne => "vmsne",
+            Vmsltu => "vmsltu",
+            Vmslt => "vmslt",
+            Vmsleu => "vmsleu",
+            Vmsle => "vmsle",
+            Vmsgtu => "vmsgtu",
+            Vmsgt => "vmsgt",
             Illegal => "illegal",
         }
     }

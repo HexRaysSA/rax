@@ -733,7 +733,8 @@ impl RiscVCpu {
             // ---- V: vector data path ----
             Op::Vle | Op::Vse | Op::Vadd | Op::Vsub | Op::Vrsub | Op::Vand | Op::Vor | Op::Vxor
             | Op::Vminu | Op::Vmin | Op::Vmaxu | Op::Vmax | Op::Vsll | Op::Vsrl | Op::Vsra
-            | Op::Vmerge => self.exec_vector(insn)?,
+            | Op::Vmerge | Op::Vmseq | Op::Vmsne | Op::Vmsltu | Op::Vmslt | Op::Vmsleu
+            | Op::Vmsle | Op::Vmsgtu | Op::Vmsgt => self.exec_vector(insn)?,
 
             Op::Illegal => return Err(Trap::illegal(insn.raw)),
 
@@ -1229,6 +1230,18 @@ impl RiscVCpu {
     fn vmask_bit(&self, e: usize) -> bool {
         (self.v[e / 8] >> (e % 8)) & 1 != 0
     }
+    /// Set/clear mask bit `e` of vector register `vreg`.
+    #[inline]
+    fn set_vmask_bit(&mut self, vreg: u8, e: usize, val: bool) {
+        let byte = vreg as usize * VLENB as usize + e / 8;
+        if byte < self.v.len() {
+            if val {
+                self.v[byte] |= 1 << (e % 8);
+            } else {
+                self.v[byte] &= !(1 << (e % 8));
+            }
+        }
+    }
     #[inline]
     fn sew_mask(eb: usize) -> u64 {
         if eb >= 8 {
@@ -1364,6 +1377,40 @@ impl RiscVCpu {
                         _ => unreachable!(),
                     };
                     self.set_velem(vd, e, eb, r & mask);
+                }
+            }
+            Op::Vmseq | Op::Vmsne | Op::Vmsltu | Op::Vmslt | Op::Vmsleu | Op::Vmsle
+            | Op::Vmsgtu | Op::Vmsgt => {
+                let eb = self.sew_bytes();
+                let mask = Self::sew_mask(eb);
+                let scalar = match insn.funct3 {
+                    0b100 => self.x(insn.rs1) & mask,
+                    0b011 => sext5(insn.rs1) & mask,
+                    _ => 0,
+                };
+                for e in vstart..vl {
+                    if !vm && !self.vmask_bit(e) {
+                        continue; // masked-off: undisturbed
+                    }
+                    let a = self.velem(vs2, e, eb);
+                    let b = if insn.funct3 == 0b000 {
+                        self.velem(insn.rs1, e, eb)
+                    } else {
+                        scalar
+                    };
+                    let (sa, sb) = (sext_sew(a, eb), sext_sew(b, eb));
+                    let r = match insn.op {
+                        Op::Vmseq => a == b,
+                        Op::Vmsne => a != b,
+                        Op::Vmsltu => a < b,
+                        Op::Vmslt => sa < sb,
+                        Op::Vmsleu => a <= b,
+                        Op::Vmsle => sa <= sb,
+                        Op::Vmsgtu => a > b,
+                        Op::Vmsgt => sa > sb,
+                        _ => unreachable!(),
+                    };
+                    self.set_vmask_bit(vd, e, r);
                 }
             }
             _ => return Err(Trap::illegal(insn.raw)),
