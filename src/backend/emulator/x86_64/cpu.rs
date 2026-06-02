@@ -2003,40 +2003,91 @@ impl X86_64Vcpu {
 
     // Condition checking for Jcc/SETcc/CMOVcc - materializes lazy flags first
     pub(super) fn check_condition(&mut self, cc: u8) -> bool {
-        // Read flags without materializing: a conditional branch does not modify
-        // RFLAGS, so we evaluate the predicate directly from the lazy-flag state
-        // (read-only) and leave the lazy op intact. This removes the RFLAGS
-        // read-modify-write store + the lazy-clear store from every taken/untaken
-        // Jcc/SETcc/CMOVcc on the hot path.
-        let rflags = if self.lazy_flags.op == LazyFlagOp::None {
-            self.regs.rflags
+        // Evaluate the predicate without materializing RFLAGS (a conditional
+        // branch doesn't modify flags, so the lazy op is left intact). ZF/SF are
+        // cheap and computed eagerly; CF/OF/PF are closures so a condition only
+        // pays for the flags it actually reads — e.g. JZ/JNZ touch ZF alone and
+        // skip the PF popcount + OF/CF work entirely. Results are identical to
+        // materialize-then-read; this just avoids computing unused flags + the
+        // RFLAGS round-trip on every Jcc/SETcc/CMOVcc.
+        let lf = self.lazy_flags;
+        let materialized = lf.op == LazyFlagOp::None;
+        let rflags = self.regs.rflags;
+
+        // Geometry of the pending lazy op (ignored when already materialized).
+        let (mask, sign_bit) = match lf.size {
+            1 => (0xFFu64, 0x80u64),
+            2 => (0xFFFFu64, 0x8000u64),
+            4 => (0xFFFF_FFFFu64, 0x8000_0000u64),
+            _ => (u64::MAX, 0x8000_0000_0000_0000u64),
+        };
+        let result_m = lf.result & mask;
+        let a_m = lf.src & mask;
+        let b_m = lf.dst & mask;
+
+        let zf = if materialized {
+            rflags & flags::bits::ZF != 0
         } else {
-            self.compute_materialized_rflags()
+            result_m == 0
+        };
+        let sf = if materialized {
+            rflags & flags::bits::SF != 0
+        } else {
+            (result_m & sign_bit) != 0
+        };
+        let cf = || {
+            if materialized {
+                rflags & flags::bits::CF != 0
+            } else {
+                match lf.op {
+                    LazyFlagOp::Add => result_m < a_m,
+                    LazyFlagOp::Sub => a_m < b_m,
+                    // INC/DEC preserve CF (its prior value lives in RFLAGS).
+                    LazyFlagOp::Inc | LazyFlagOp::Dec => rflags & flags::bits::CF != 0,
+                    _ => false, // Logic
+                }
+            }
+        };
+        let of = || {
+            if materialized {
+                rflags & flags::bits::OF != 0
+            } else {
+                match lf.op {
+                    LazyFlagOp::Add | LazyFlagOp::Inc => {
+                        ((a_m ^ result_m) & (b_m ^ result_m) & sign_bit) != 0
+                    }
+                    LazyFlagOp::Sub | LazyFlagOp::Dec => {
+                        ((a_m ^ b_m) & (a_m ^ result_m) & sign_bit) != 0
+                    }
+                    _ => false, // Logic
+                }
+            }
+        };
+        let pf = || {
+            if materialized {
+                rflags & flags::bits::PF != 0
+            } else {
+                (lf.result as u8).count_ones() & 1 == 0
+            }
         };
 
-        let cf = rflags & flags::bits::CF != 0;
-        let zf = rflags & flags::bits::ZF != 0;
-        let sf = rflags & flags::bits::SF != 0;
-        let of = rflags & flags::bits::OF != 0;
-        let pf = rflags & flags::bits::PF != 0;
-
         match cc {
-            0x0 => of,                // O
-            0x1 => !of,               // NO
-            0x2 => cf,                // B/NAE/C
-            0x3 => !cf,               // NB/AE/NC
+            0x0 => of(),              // O
+            0x1 => !of(),             // NO
+            0x2 => cf(),              // B/NAE/C
+            0x3 => !cf(),             // NB/AE/NC
             0x4 => zf,                // E/Z
             0x5 => !zf,               // NE/NZ
-            0x6 => cf || zf,          // BE/NA
-            0x7 => !cf && !zf,        // NBE/A
+            0x6 => cf() || zf,        // BE/NA
+            0x7 => !cf() && !zf,      // NBE/A
             0x8 => sf,                // S
             0x9 => !sf,               // NS
-            0xA => pf,                // P/PE
-            0xB => !pf,               // NP/PO
-            0xC => sf != of,          // L/NGE
-            0xD => sf == of,          // NL/GE
-            0xE => zf || (sf != of),  // LE/NG
-            0xF => !zf && (sf == of), // NLE/G
+            0xA => pf(),              // P/PE
+            0xB => !pf(),             // NP/PO
+            0xC => sf != of(),        // L/NGE
+            0xD => sf == of(),        // NL/GE
+            0xE => zf || (sf != of()), // LE/NG
+            0xF => !zf && (sf == of()), // NLE/G
             _ => false,
         }
     }
