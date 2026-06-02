@@ -19,7 +19,7 @@ LINUX_DIR     := linux/kernel/linux
 LINUX_VMLINUX := linux/vmlinux
 NPROC         := $(shell nproc 2>/dev/null || echo 4)
 
-.PHONY: all build build-debug test tests test-quick microkernel run-microkernel linux run-linux clean clean-linux help
+.PHONY: all build build-debug pgo bench test tests test-quick microkernel run-microkernel linux run-linux clean clean-linux help
 
 # Default target
 all: build
@@ -31,6 +31,18 @@ build:
 # Build rax in debug mode
 build-debug:
 	cargo build
+
+# Profile-guided optimization build (~+20% interpreter throughput).
+# Produces target/release/rax optimized for the build host (target-cpu=native).
+# For a portable PGO build: PGO_TARGET_CPU=x86-64-v3 make pgo
+pgo:
+	@bash scripts/pgo-build.sh
+
+# Build + run the interpreter throughput benchmarks (MIPS).
+bench:
+	RUSTFLAGS="-C target-cpu=native" cargo build --release --example bench_loop --example bench_mem
+	./target/release/examples/bench_loop
+	./target/release/examples/bench_mem
 
 # Run all tests (unit tests, integration tests, hexagon tests, and x86_64-suite)
 test:
