@@ -1386,6 +1386,24 @@ impl AArch64Cpu {
                     };
                     self.v[rd as usize] = r as u128;
                 }
+                0b11 => {
+                    let a = self.v[rn as usize] as u16;
+                    let r: u16 = match kind {
+                        None => a, // FMOV
+                        Some(TwoRegFp::Fabs) => a & 0x7FFF,
+                        Some(TwoRegFp::Fneg) => a ^ 0x8000,
+                        Some(TwoRegFp::Fsqrt) => fp16_sqrt(a),
+                        Some(TwoRegFp::RintN) | Some(TwoRegFp::RintX) | Some(TwoRegFp::RintI) => {
+                            fp16_frint(a, 0)
+                        }
+                        Some(TwoRegFp::RintM) => fp16_frint(a, 1),
+                        Some(TwoRegFp::RintP) => fp16_frint(a, 2),
+                        Some(TwoRegFp::RintZ) => fp16_frint(a, 3),
+                        Some(TwoRegFp::RintA) => fp16_frint(a, 4),
+                        _ => return Err(ArmError::UndefinedInstruction(insn)),
+                    };
+                    self.v[rd as usize] = r as u128;
+                }
                 _ => return Err(ArmError::UndefinedInstruction(insn)),
             }
             return Ok(CpuExit::Continue);
@@ -1403,7 +1421,7 @@ impl AArch64Cpu {
             && (insn >> 21) & 1 == 1
             && (insn >> 14) & 0x3 == 0
             && (insn >> 10) & 0xF == 0b1000
-            && (insn >> 3) & 0x3 != 0b11
+            && (insn & 0x7) == 0
         {
             let fp_type = (insn >> 22) & 0x3;
             let rm = ((insn >> 16) & 0x1F) as u8;
@@ -1465,7 +1483,29 @@ impl AArch64Cpu {
                     self.set_c(c);
                     self.set_v(v);
                 }
-                _ => return Err(ArmError::Unimplemented("FP16/reserved compare".to_string())),
+                0b11 => {
+                    // Half precision (compared exactly via f64).
+                    let op1 = fp16_to_f64(self.v[rn as usize] as u16);
+                    let op2 = if cmp_with_zero {
+                        0.0f64
+                    } else {
+                        fp16_to_f64(self.v[rm as usize] as u16)
+                    };
+                    let (n, z, c, v) = if op1.is_nan() || op2.is_nan() {
+                        (false, false, true, true)
+                    } else if op1 == op2 {
+                        (false, true, true, false)
+                    } else if op1 < op2 {
+                        (true, false, false, false)
+                    } else {
+                        (false, false, true, false)
+                    };
+                    self.set_n(n);
+                    self.set_z(z);
+                    self.set_c(c);
+                    self.set_v(v);
+                }
+                _ => return Err(ArmError::UndefinedInstruction(insn)),
             }
             return Ok(CpuExit::Continue);
         }

@@ -3480,6 +3480,52 @@ fn diff_sve_sincdecp() {
 }
 
 #[test]
+fn diff_scalar_fp_cmp() {
+    // Scalar FP compares (FCMP/FCMPE incl. compare-with-zero, with the NaN ->
+    // unordered NZCV), FCCMP/FCCMPE, FCSEL, half-precision arithmetic/compare/
+    // FSQRT/FMADD, and more FP<->int conversions (round modes, x/w widths).
+    let enc: &[u32] = &[0x1e212000, 0x1e612000, 0x1e212010, 0x1e202008, 0x1e602018, 0x1e210405, 0x1e21141a, 0x1e22cc20, 0x1e62bc20, 0x1ee22820, 0x1ee20820, 0x1ee21820, 0x1ee24820, 0x1ee1c020, 0x1ee12000, 0x1fc20c20, 0x1e780020, 0x9e390020, 0x1e280020, 0x9e710020, 0x1e240020, 0x9e630020, 0x1e63c020, 0x1ee2c020];
+    let sp: [u64; 12] = [
+        0x7F800000_7F800000,
+        0xFF800000_FF800000,
+        0x7FC00000_7FC00000,
+        0x7F800001_FF800001,
+        0x00000001_80000001,
+        0x80000000_00000000,
+        0x3F800000_BF800000,
+        0x7F7FFFFF_FF7FFFFF,
+        0x7FF0000000000000,
+        0x7C007E007C007E00,
+        0x7FF8000000000000,
+        0x4000_4000_4000_4000,
+    ];
+    let mut rng = Rng::new(0x1_003D);
+    let mut batch: Vec<(String, u32, ArmState)> = Vec::new();
+    for (k, &insn) in enc.iter().enumerate() {
+        for (i, &v) in sp.iter().enumerate() {
+            let mut st = ArmState::zeroed();
+            st.set_vreg(0, v, 0);
+            st.set_vreg(1, sp[(i + 3) % 12], 0);
+            st.set_vreg(2, sp[(i + 5) % 12], 0);
+            st.set_vreg(3, sp[(i + 7) % 12], 0);
+            st.x[1] = v;
+            st.pstate = rng.next() & 0xF000_0000;
+            batch.push((format!("c{k}"), insn, st));
+        }
+        for _ in 0..8 {
+            let mut st = ArmState::zeroed();
+            for z in 0..4usize {
+                st.set_vreg(z, rng.next(), rng.next());
+            }
+            st.x[1] = rng.next();
+            st.pstate = rng.next() & 0xF000_0000;
+            batch.push((format!("c{k} rnd"), insn, st));
+        }
+    }
+    run_batch("scalar_fp_cmp", batch);
+}
+
+#[test]
 fn diff_scalar_fp() {
     // Scalar FP data-processing (2-source FMUL/FDIV/FADD/FSUB/FMAX/FMIN/FMAXNM/
     // FMINNM/FNMUL, 3-source FMADD/FMSUB/FNMADD/FNMSUB, 1-source FSQRT/FABS/
