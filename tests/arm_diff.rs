@@ -3479,6 +3479,63 @@ fn diff_sve_sincdecp() {
     run_batch("sve_sincdecp", batch);
 }
 
+/// SVE predicate-on-predicate logical: `00100101 bit23 S 00 Pm 01 Pg o2 Pn o3
+/// Pd`. The S-bit forms set NZCV; SEL is (bit23,o2,o3)=(0,1,1). Pg=p1, Pn=p2,
+/// Pm=p3, Pd=p0.
+fn enc_sve_pred_logical(bit23: u32, o2: u32, o3: u32, s: u32) -> u32 {
+    (0x25 << 24)
+        | (bit23 << 23)
+        | (s << 22)
+        | (3 << 16)
+        | (0b01 << 14)
+        | (1 << 10)
+        | (o2 << 9)
+        | (2 << 5)
+        | (o3 << 4)
+}
+
+#[test]
+fn diff_sve_pred_logical() {
+    // Predicate logical AND/BIC/EOR/ORR/ORN/NOR/NAND (+ flag-setting S forms,
+    // i.e. ANDS..MOVS) and SEL, plus RDFFRS. Random predicate inputs exercise
+    // the PredTest first/last/none NZCV cases.
+    let ops: [(u32, u32, u32, &str); 8] = [
+        (0, 0, 0, "and"),
+        (0, 0, 1, "bic"),
+        (0, 1, 0, "eor"),
+        (0, 1, 1, "sel"),
+        (1, 0, 0, "orr"),
+        (1, 0, 1, "orn"),
+        (1, 1, 0, "nor"),
+        (1, 1, 1, "nand"),
+    ];
+    let mut rng = Rng::new(0x1_0037);
+    let mut batch: Vec<(String, u32, ArmState)> = Vec::new();
+    for &(b23, o2, o3, name) in ops.iter() {
+        // SEL has no flag-setting form; the rest cover S=0 and S=1.
+        let s_vals: &[u32] = if name == "sel" { &[0] } else { &[0, 1] };
+        for &s in s_vals {
+            let insn = enc_sve_pred_logical(b23, o2, o3, s);
+            for _ in 0..10 {
+                let mut st = ArmState::zeroed();
+                for p in 0..4usize {
+                    st.set_preg(p, rng.next() as u16);
+                }
+                batch.push((format!("p_{name} s{s}"), insn, st));
+            }
+        }
+    }
+    // RDFFRS p0, p1/z (reads FFR, which the harness initialises consistently).
+    for _ in 0..8 {
+        let mut st = ArmState::zeroed();
+        for p in 0..2usize {
+            st.set_preg(p, rng.next() as u16);
+        }
+        batch.push(("rdffrs".to_string(), 0x2558f020, st));
+    }
+    run_batch("sve_pred_logical", batch);
+}
+
 #[test]
 fn diff_sve_elem_count() {
     // SVE element-count / inc-dec-by-count / stack-allocation family:
