@@ -898,6 +898,63 @@ fn fp16_vec(rng: &mut Rng) -> (u64, u64) {
     (lo, hi)
 }
 
+/// Advanced SIMD two-register miscellaneous (FP16):
+/// `0 Q U 01110 a 1 11100 opcode 10 Rn Rd`. Rd=v0, Rn=v1.
+fn enc_fp16_2r(q: u32, u: u32, a: u32, opcode: u32) -> u32 {
+    (q << 30) | (u << 29) | (0b01110 << 24) | (a << 23) | (1 << 22)
+        | (0b11100 << 17) | (opcode << 12) | (0b10 << 10) | (RN << 5) | RD
+}
+
+#[test]
+fn diff_simd_fp16_2reg() {
+    // (U, a=bit23, opcode) table for the FP16 two-register-misc group.
+    let ops: &[(u32, u32, u32, &str)] = &[
+        (0, 1, 0b01111, "fabs"),
+        (1, 1, 0b01111, "fneg"),
+        (1, 1, 0b11111, "fsqrt"),
+        (0, 1, 0b11101, "frecpe"),
+        (1, 1, 0b11101, "frsqrte"),
+        (0, 1, 0b01100, "fcmgt0"),
+        (0, 1, 0b01101, "fcmeq0"),
+        (0, 1, 0b01110, "fcmlt0"),
+        (1, 1, 0b01100, "fcmge0"),
+        (1, 1, 0b01101, "fcmle0"),
+        (0, 0, 0b11000, "frintn"),
+        (0, 0, 0b11001, "frintm"),
+        (0, 1, 0b11000, "frintp"),
+        (0, 1, 0b11001, "frintz"),
+        (1, 0, 0b11000, "frinta"),
+        (1, 0, 0b11001, "frintx"),
+        (1, 1, 0b11001, "frinti"),
+        (0, 0, 0b11010, "fcvtns"),
+        (0, 0, 0b11011, "fcvtms"),
+        (0, 0, 0b11100, "fcvtas"),
+        (0, 1, 0b11010, "fcvtps"),
+        (0, 1, 0b11011, "fcvtzs"),
+        (1, 0, 0b11010, "fcvtnu"),
+        (1, 0, 0b11011, "fcvtmu"),
+        (1, 0, 0b11100, "fcvtau"),
+        (1, 1, 0b11010, "fcvtpu"),
+        (1, 1, 0b11011, "fcvtzu"),
+        (0, 0, 0b11101, "scvtf"),
+        (1, 0, 0b11101, "ucvtf"),
+    ];
+    let mut rng = Rng::new(0x1_0012);
+    let mut batch: Vec<(String, u32, ArmState)> = Vec::new();
+    for &(u, a, opcode, name) in ops {
+        for q in 0..2u32 {
+            let insn = enc_fp16_2r(q, u, a, opcode);
+            for _ in 0..24 {
+                let mut st = ArmState::zeroed();
+                let (lo, hi) = fp16_vec(&mut rng);
+                st.set_vreg(1, lo, hi);
+                batch.push((format!("{name} q{q}"), insn, st));
+            }
+        }
+    }
+    run_batch("simd_fp16_2reg", batch);
+}
+
 #[test]
 fn diff_simd_fp16_3same() {
     // Full (U, a, opcode) table of the FP16 three-same group.

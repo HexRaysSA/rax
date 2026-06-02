@@ -2124,7 +2124,7 @@ impl AArch64Cpu {
     fn exec_simd_fp16_two_reg(&mut self, insn: u32) -> Result<CpuExit, ArmError> {
         let q = (insn >> 30) & 1;
         let u = (insn >> 29) & 1;
-        let a = (insn >> 16) & 1; // Selects between operations
+        let a = (insn >> 23) & 1; // bit23 sub-group selector (the FP16 "sz" low bit)
         let opcode = (insn >> 12) & 0x1F;
         let rn = ((insn >> 5) & 0x1F) as usize;
         let rd = (insn & 0x1F) as usize;
@@ -2140,124 +2140,59 @@ impl AArch64Cpu {
         };
         let elements = datasize / 2;
 
-        let src = self.v[rn].to_le_bytes();
-        let mut dst = [0u8; 16];
+        let lane = |v: u128, e: usize| -> u16 { (v >> (e * 16)) as u16 };
+        let src = self.v[rn];
+        let mut dst = 0u128;
 
         for e in 0..elements {
-            let offset = e * 2;
-            let src_bits = u16::from_le_bytes([src[offset], src[offset + 1]]);
-            let val = Self::fp16_to_f32(src_bits);
-
-            let result = match (u, a, opcode) {
-                // FRINTN - round to nearest with ties to even
-                (0, 0, 0b11000) => val.round(),
-                // FRINTM - round towards minus infinity
-                (0, 0, 0b11001) => val.floor(),
-                // FCVTNS - convert to signed integer, round to nearest
-                (0, 0, 0b11010) => (val.round() as i16) as f32,
-                // FCVTMS - convert to signed integer, round towards minus infinity
-                (0, 0, 0b11011) => (val.floor() as i16) as f32,
-                // FCVTAS - convert to signed integer, round towards nearest
-                (0, 0, 0b11100) => (val.round() as i16) as f32,
-                // SCVTF - convert signed int to FP
-                (0, 0, 0b11101) => (src_bits as i16) as f32,
-                // FCMGT #0
-                (0, 1, 0b01100) => {
-                    if val > 0.0 {
-                        f32::from_bits(0xFFFFFFFF)
-                    } else {
-                        0.0
-                    }
-                }
-                // FCMEQ #0
-                (0, 1, 0b01101) => {
-                    if val == 0.0 {
-                        f32::from_bits(0xFFFFFFFF)
-                    } else {
-                        0.0
-                    }
-                }
-                // FCMLT #0
-                (0, 1, 0b01110) => {
-                    if val < 0.0 {
-                        f32::from_bits(0xFFFFFFFF)
-                    } else {
-                        0.0
-                    }
-                }
-                // FABS
-                (0, 1, 0b01111) => val.abs(),
-                // FRINTP - round towards plus infinity
-                (0, 1, 0b11000) => val.ceil(),
-                // FRINTZ - round towards zero
-                (0, 1, 0b11001) => val.trunc(),
-                // FCVTPS - convert to signed integer, round towards plus infinity
-                (0, 1, 0b11010) => (val.ceil() as i16) as f32,
-                // FCVTZS - convert to signed integer, round towards zero
-                (0, 1, 0b11011) => (val.trunc() as i16) as f32,
-                // FCVTAS - convert to signed integer, round to nearest with ties away
-                (0, 1, 0b11100) => {
-                    // Round to nearest, ties away from zero
-                    let rounded = if val >= 0.0 {
-                        (val + 0.5).floor()
-                    } else {
-                        (val - 0.5).ceil()
-                    };
-                    (rounded as i16) as f32
-                }
-                // FRECPE - reciprocal estimate
-                (0, 1, 0b11101) => 1.0 / val,
-                // FRECPX - reciprocal exponent (simplified)
-                (0, 1, 0b11111) => 1.0 / val,
-                // FRINTA - round to nearest with ties to away
-                (1, 0, 0b11000) => val.round(),
-                // FRINTX - round exact
-                (1, 0, 0b11001) => val.round(),
-                // FCVTNU - convert to unsigned integer
-                (1, 0, 0b11010) => (val.round().max(0.0) as u16) as f32,
-                // FCVTMU - convert to unsigned, round to minus infinity
-                (1, 0, 0b11011) => (val.floor().max(0.0) as u16) as f32,
-                // FCVTAU - convert to unsigned, round to nearest
-                (1, 0, 0b11100) => (val.round().max(0.0) as u16) as f32,
-                // UCVTF - convert unsigned int to FP
-                (1, 0, 0b11101) => src_bits as f32,
-                // FCMGE #0
-                (1, 1, 0b01100) => {
-                    if val >= 0.0 {
-                        f32::from_bits(0xFFFFFFFF)
-                    } else {
-                        0.0
-                    }
-                }
-                // FCMLE #0
-                (1, 1, 0b01101) => {
-                    if val <= 0.0 {
-                        f32::from_bits(0xFFFFFFFF)
-                    } else {
-                        0.0
-                    }
-                }
-                // FNEG
-                (1, 1, 0b01111) => -val,
-                // FRINTI - round using FPCR rounding mode
-                (1, 1, 0b11001) => val.round(),
-                // FCVTPU - convert to unsigned, round towards plus infinity
-                (1, 1, 0b11010) => (val.ceil().max(0.0) as u16) as f32,
-                // FCVTZU - convert to unsigned, round towards zero
-                (1, 1, 0b11011) => (val.trunc().max(0.0) as u16) as f32,
-                // FRSQRTE - reciprocal square root estimate
-                (1, 1, 0b11101) => 1.0 / val.sqrt(),
-                // FSQRT
-                (1, 1, 0b11111) => val.sqrt(),
+            let s = lane(src, e);
+            // Decode by (U, a=bit23, opcode=bits[16:12]) per the Arm "Advanced
+            // SIMD two-register miscellaneous (FP16)" table. FCVT* produce a
+            // 16-bit integer lane; SCVTF/UCVTF consume one; the rest are FP16.
+            let r: u16 = match (u, a, opcode) {
+                // Sign manipulation.
+                (0, 1, 0b01111) => s & 0x7FFF, // FABS
+                (1, 1, 0b01111) => s ^ 0x8000, // FNEG
+                // Square root and reciprocal-family estimates.
+                (1, 1, 0b11111) => fp16_sqrt(s),   // FSQRT
+                (0, 1, 0b11111) => fp16_recpx(s),  // FRECPX (scalar form)
+                (0, 1, 0b11101) => fp16_recpe(s),  // FRECPE
+                (1, 1, 0b11101) => fp16_rsqrte(s), // FRSQRTE
+                // Compare against zero.
+                (0, 1, 0b01100) => fp16_cmp0(s, 0), // FCMGT #0
+                (0, 1, 0b01101) => fp16_cmp0(s, 2), // FCMEQ #0
+                (0, 1, 0b01110) => fp16_cmp0(s, 4), // FCMLT #0
+                (1, 1, 0b01100) => fp16_cmp0(s, 1), // FCMGE #0
+                (1, 1, 0b01101) => fp16_cmp0(s, 3), // FCMLE #0
+                // Round to integral.
+                (0, 0, 0b11000) => fp16_frint(s, 0), // FRINTN
+                (0, 0, 0b11001) => fp16_frint(s, 1), // FRINTM
+                (0, 1, 0b11000) => fp16_frint(s, 2), // FRINTP
+                (0, 1, 0b11001) => fp16_frint(s, 3), // FRINTZ
+                (1, 0, 0b11000) => fp16_frint(s, 4), // FRINTA
+                (1, 0, 0b11001) => fp16_frint(s, 0), // FRINTX (current mode = RNE)
+                (1, 1, 0b11001) => fp16_frint(s, 0), // FRINTI (current mode = RNE)
+                // Floating-point to integer (signed).
+                (0, 0, 0b11010) => fp16_to_int16(s, true, 0), // FCVTNS
+                (0, 0, 0b11011) => fp16_to_int16(s, true, 1), // FCVTMS
+                (0, 0, 0b11100) => fp16_to_int16(s, true, 4), // FCVTAS
+                (0, 1, 0b11010) => fp16_to_int16(s, true, 2), // FCVTPS
+                (0, 1, 0b11011) => fp16_to_int16(s, true, 3), // FCVTZS
+                // Floating-point to integer (unsigned).
+                (1, 0, 0b11010) => fp16_to_int16(s, false, 0), // FCVTNU
+                (1, 0, 0b11011) => fp16_to_int16(s, false, 1), // FCVTMU
+                (1, 0, 0b11100) => fp16_to_int16(s, false, 4), // FCVTAU
+                (1, 1, 0b11010) => fp16_to_int16(s, false, 2), // FCVTPU
+                (1, 1, 0b11011) => fp16_to_int16(s, false, 3), // FCVTZU
+                // Integer to floating-point.
+                (0, 0, 0b11101) => int16_to_fp16(s, true),  // SCVTF
+                (1, 0, 0b11101) => int16_to_fp16(s, false), // UCVTF
                 _ => return Ok(CpuExit::Undefined(insn)),
             };
-
-            let out_bits = Self::f32_to_fp16(result);
-            let bytes = out_bits.to_le_bytes();
-            dst[offset..offset + 2].copy_from_slice(&bytes);
+            dst |= (r as u128) << (e * 16);
         }
 
-        self.v[rd] = u128::from_le_bytes(dst);
+        self.v[rd] = dst;
         Ok(CpuExit::Continue)
     }
 
@@ -9099,6 +9034,187 @@ fn fp16_cmp(a: u16, b: u16, kind: u8) -> u16 {
         _ => x.abs() > y.abs(),
     };
     if r { 0xFFFF } else { 0 }
+}
+
+/// FP16 comparison against zero (two-reg-misc forms).
+/// `kind`: 0=GT, 1=GE, 2=EQ, 3=LE, 4=LT.
+fn fp16_cmp0(a: u16, kind: u8) -> u16 {
+    if fp16_is_nan(a) {
+        return 0;
+    }
+    let x = fp16_to_f64(a);
+    let r = match kind {
+        0 => x > 0.0,
+        1 => x >= 0.0,
+        2 => x == 0.0,
+        3 => x <= 0.0,
+        _ => x < 0.0,
+    };
+    if r { 0xFFFF } else { 0 }
+}
+
+/// FP16 square root (provably correctly rounded via f64: 53 >= 2*11+2).
+fn fp16_sqrt(a: u16) -> u16 {
+    if fp16_is_nan(a) {
+        return a | 0x0200;
+    }
+    fp16_round(fp16_to_f64(a).sqrt())
+}
+
+/// FP16 round-to-integral. `mode`: 0=TIEEVEN, 1=NEGINF, 2=POSINF, 3=ZERO,
+/// 4=TIEAWAY. The result is an integral binary16 value.
+fn fp16_frint(a: u16, mode: u8) -> u16 {
+    if fp16_is_nan(a) {
+        return a | 0x0200;
+    }
+    let x = fp16_to_f64(a);
+    if x == 0.0 || x.is_infinite() {
+        return a; // ±0 and ±inf are returned unchanged
+    }
+    let r = match mode {
+        0 => x.round_ties_even(),
+        1 => x.floor(),
+        2 => x.ceil(),
+        3 => x.trunc(),
+        _ => x.round(), // ties away from zero
+    };
+    // Preserve the sign of a zero result (e.g. round(-0.3) == -0.0).
+    if r == 0.0 {
+        return (a & 0x8000) | 0;
+    }
+    fp16_round(r)
+}
+
+/// FPRecipEstimate for binary16 (FPCR default: RNE, FZ16=0). Ported from the
+/// Arm ASL using the shared `recip_estimate` 8-bit core.
+fn fp16_recpe(op: u16) -> u16 {
+    let sign = (op >> 15) as u64 & 1;
+    let exp = ((op >> 10) & 0x1F) as i32;
+    let frac = (op & 0x3FF) as u64;
+    if exp == 0x1F {
+        return if frac != 0 { op | 0x0200 } else { (sign << 15) as u16 };
+    }
+    if exp == 0 && frac == 0 {
+        return ((sign << 15) as u16) | 0x7C00; // zero -> infinity
+    }
+    if exp == 0 && frac < 256 {
+        // |value| < 2^-16: overflow to infinity (RNE).
+        return ((sign << 15) as u16) | 0x7C00;
+    }
+    let mut fraction: u64 = frac << 42; // operand<9:0> : Zeros(42)
+    let mut e = exp;
+    if exp == 0 {
+        if (fraction >> 51) & 1 == 0 {
+            e = -1;
+            fraction = (fraction & ((1u64 << 50) - 1)) << 2;
+        } else {
+            fraction = (fraction & ((1u64 << 51) - 1)) << 1;
+        }
+    }
+    let scaled = 0x100u32 | ((fraction >> 44) & 0xFF) as u32;
+    let mut result_exp = 29 - e;
+    let estimate = (recip_estimate(scaled) & 0xFF) as u64;
+    let mut frac2: u64 = estimate << 44; // estimate<7:0> : Zeros(44)
+    if result_exp == 0 {
+        frac2 = (1u64 << 51) | (frac2 >> 1);
+    } else if result_exp == -1 {
+        frac2 = (1u64 << 50) | (frac2 >> 2);
+        result_exp = 0;
+    }
+    ((sign as u16) << 15) | (((result_exp as u16) & 0x1F) << 10) | ((frac2 >> 42) & 0x3FF) as u16
+}
+
+/// FPRSqrtEstimate for binary16. Ported from the Arm ASL.
+fn fp16_rsqrte(op: u16) -> u16 {
+    let sign = (op >> 15) as u64 & 1;
+    let exp = ((op >> 10) & 0x1F) as i32;
+    let frac = (op & 0x3FF) as u64;
+    if exp == 0x1F && frac != 0 {
+        return op | 0x0200; // NaN -> quiet
+    }
+    if exp == 0 && frac == 0 {
+        return ((sign << 15) as u16) | 0x7C00; // zero -> +/-inf
+    }
+    if sign == 1 {
+        return 0x7E00; // negative -> default NaN
+    }
+    if exp == 0x1F {
+        return 0; // +inf -> +0
+    }
+    let mut fraction: u64 = frac << 42;
+    let mut e = exp;
+    if exp == 0 {
+        while (fraction >> 51) & 1 == 0 {
+            fraction = (fraction & ((1u64 << 51) - 1)) << 1;
+            e -= 1;
+        }
+        fraction = (fraction & ((1u64 << 51) - 1)) << 1;
+    }
+    let scaled = if e & 1 == 0 {
+        0x100u32 | ((fraction >> 44) & 0xFF) as u32 // '1':fraction<51:44>
+    } else {
+        0x080u32 | ((fraction >> 45) & 0x7F) as u32 // '01':fraction<51:45>
+    };
+    let result_exp = (44 - e).div_euclid(2);
+    let estimate = (recip_sqrt_estimate(scaled) & 0xFF) as u16;
+    (((result_exp as u16) & 0x1F) << 10) | (estimate << 2)
+}
+
+/// FPRecpX (reciprocal exponent) for binary16.
+fn fp16_recpx(op: u16) -> u16 {
+    if fp16_is_nan(op) {
+        return op | 0x0200;
+    }
+    let sign = op & 0x8000;
+    let exp = (op >> 10) & 0x1F;
+    if exp == 0 {
+        sign | (30 << 10) // max_exp = Ones(5) - 1
+    } else {
+        sign | ((!exp & 0x1F) << 10)
+    }
+}
+
+/// Convert binary16 to a 16-bit integer lane with saturation.
+/// `mode`: 0=TIEEVEN, 1=NEGINF, 2=POSINF, 3=ZERO, 4=TIEAWAY.
+fn fp16_to_int16(a: u16, signed: bool, mode: u8) -> u16 {
+    if fp16_is_nan(a) {
+        return 0;
+    }
+    let x = fp16_to_f64(a);
+    let r = match mode {
+        0 => x.round_ties_even(),
+        1 => x.floor(),
+        2 => x.ceil(),
+        3 => x.trunc(),
+        _ => x.round(),
+    };
+    if signed {
+        if r >= 32767.0 {
+            return 32767i16 as u16;
+        }
+        if r <= -32768.0 {
+            return -32768i16 as u16;
+        }
+        (r as i64 as i16) as u16
+    } else {
+        if r >= 65535.0 {
+            return 0xFFFF;
+        }
+        if r <= 0.0 {
+            return 0;
+        }
+        r as i64 as u16
+    }
+}
+
+/// Convert a 16-bit integer lane to binary16 (round to nearest even).
+fn int16_to_fp16(lane: u16, signed: bool) -> u16 {
+    let v = if signed {
+        (lane as i16) as f64
+    } else {
+        lane as f64
+    };
+    fp16_round(v)
 }
 
 /// AES S-box and inverse S-box (FIPS-197).
