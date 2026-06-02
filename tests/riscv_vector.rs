@@ -1323,6 +1323,48 @@ fn diff_v_widen_mul() {
 }
 
 #[test]
+fn diff_v_narrow() {
+    let mut rng = Rng::new(0x7EC_830);
+    let mut batch = Vec::new();
+    // (name, funct6, is_clip)
+    let ops: &[(&str, u32, bool)] = &[
+        ("vnsrl", 0b101100, false),
+        ("vnsra", 0b101101, false),
+        ("vnclipu", 0b101110, true),
+        ("vnclip", 0b101111, true),
+    ];
+    for sew_log2 in 0..3u32 {
+        let vmax = vlmax(sew_log2);
+        for vl in [vmax, (vmax / 2).max(1)] {
+            for vxrm in 0..4u64 {
+                for &(name, f6, is_clip) in ops {
+                    for k in 0..3 {
+                        // (vd narrow, vs2 wide group, vs1 shift)
+                        let (vd, vs2, vs1) = WIDEN_REGS[(rng.next() % 4) as usize];
+                        let rs1 = XPOOL[(rng.next() % 5) as usize];
+                        let imm = (rng.next() & 0x1f) as u32;
+                        let mut st = rand_vstate(&mut rng, sew_log2, vl);
+                        if is_clip {
+                            st.vcsr = (vxrm << 1) | (rng.next() & 1);
+                        }
+                        batch.push((format!("{name}.wv"), op_iv(f6, 1, vs2, vs1, 0b000, vd), st));
+                        batch.push((format!("{name}.wx"), op_iv(f6, 1, vs2, rs1, 0b100, vd), st));
+                        batch.push((format!("{name}.wi"), op_iv(f6, 1, vs2, imm, 0b011, vd), st));
+                        if k % 2 == 0 {
+                            let mut stm = st;
+                            stm.v[0] = rng.next();
+                            stm.v[1] = rng.next();
+                            batch.push((format!("{name}.wv.m"), op_iv(f6, 0, vs2, vs1, 0b000, vd), stm));
+                        }
+                    }
+                }
+            }
+        }
+    }
+    run_batch(&batch);
+}
+
+#[test]
 fn diff_v_loadstore() {
     let mut rng = Rng::new(0x7EC_705);
     let mut batch = Vec::new();

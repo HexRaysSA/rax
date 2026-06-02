@@ -766,7 +766,9 @@ impl RiscVCpu {
             | Op::Vasub | Op::Vssrl | Op::Vssra | Op::Vsmul | Op::Vwaddu | Op::Vwadd
             | Op::Vwsubu | Op::Vwsub | Op::VwadduW | Op::VwaddW | Op::VwsubuW | Op::VwsubW
             | Op::Vwmulu | Op::Vwmulsu | Op::Vwmul | Op::Vwmaccu | Op::Vwmacc | Op::Vwmaccsu
-            | Op::Vwmaccus => self.exec_vector(insn)?,
+            | Op::Vwmaccus | Op::Vnsrl | Op::Vnsra | Op::Vnclipu | Op::Vnclip => {
+                self.exec_vector(insn)?
+            }
 
             Op::Illegal => return Err(Trap::illegal(insn.raw)),
 
@@ -1836,6 +1838,68 @@ impl RiscVCpu {
                         prod = prod.wrapping_add(self.velem(vd, e, web) as i128);
                     }
                     self.set_velem(vd, e, web, (prod as u64) & wmask);
+                }
+            }
+            Op::Vnsrl | Op::Vnsra | Op::Vnclipu | Op::Vnclip => {
+                // Narrowing shift/clip: 2*SEW source vs2 -> SEW result.
+                let eb = self.sew_bytes();
+                if eb > 4 {
+                    return Err(Trap::illegal(insn.raw));
+                }
+                let web = eb * 2;
+                let mask = Self::sew_mask(eb);
+                let bits = (eb * 8) as u32;
+                let sh_mask = (web * 8 - 1) as u32;
+                let vxrm = self.vxrm;
+                let smax = (1i128 << (bits - 1)) - 1;
+                let smin = -(1i128 << (bits - 1));
+                let is_clip = matches!(insn.op, Op::Vnclipu | Op::Vnclip);
+                let signed = matches!(insn.op, Op::Vnsra | Op::Vnclip);
+                let is_vv = insn.funct3 == 0b000;
+                let scalar = match insn.funct3 {
+                    0b100 => self.x(insn.rs1),
+                    0b011 => insn.rs1 as u64,
+                    _ => 0,
+                };
+                let mut sat = false;
+                for e in vstart..vl {
+                    if !vm && !self.vmask_bit(e) {
+                        continue;
+                    }
+                    let aw = self.velem(vs2, e, web);
+                    let sh = (if is_vv { self.velem(insn.rs1, e, eb) } else { scalar }) as u32
+                        & sh_mask;
+                    let r = if !is_clip {
+                        if signed {
+                            (sext_sew(aw, web) >> sh) as u64
+                        } else {
+                            aw >> sh
+                        }
+                    } else if !signed {
+                        let v = (aw >> sh) as u128 + round_incr(aw as u128, sh, vxrm);
+                        if v > mask as u128 {
+                            sat = true;
+                            mask
+                        } else {
+                            v as u64
+                        }
+                    } else {
+                        let sa = sext_sew(aw, web) as i128;
+                        let v = (sa >> sh) + round_incr(sa as u128, sh, vxrm) as i128;
+                        if v > smax {
+                            sat = true;
+                            smax as u64
+                        } else if v < smin {
+                            sat = true;
+                            smin as u64
+                        } else {
+                            v as u64
+                        }
+                    };
+                    self.set_velem(vd, e, eb, r & mask);
+                }
+                if sat {
+                    self.vxsat = 1;
                 }
             }
             Op::Vssrl | Op::Vssra => {

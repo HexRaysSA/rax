@@ -479,6 +479,11 @@ pub enum Op {
     Vwmacc,
     Vwmaccsu,
     Vwmaccus,
+    // ---- V (narrowing shift / clip) ----
+    Vnsrl,
+    Vnsra,
+    Vnclipu,
+    Vnclip,
     // ---- sentinel ----
     Illegal,
 }
@@ -766,6 +771,11 @@ fn decode_vector(w: u32) -> Insn {
             0b101010 => Op::Vssrl,
             0b101011 => Op::Vssra,
             0b100111 if f3 != 0b011 => Op::Vsmul,
+            // Narrowing shift / clip (wide 2*SEW vs2 source).
+            0b101100 => Op::Vnsrl,
+            0b101101 => Op::Vnsra,
+            0b101110 => Op::Vnclipu,
+            0b101111 => Op::Vnclip,
             _ => return Insn::illegal(w, 4),
         };
         return base(op, w);

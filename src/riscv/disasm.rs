@@ -433,6 +433,10 @@ impl Op {
             Vwmacc => "vwmacc",
             Vwmaccsu => "vwmaccsu",
             Vwmaccus => "vwmaccus",
+            Vnsrl => "vnsrl",
+            Vnsra => "vnsra",
+            Vnclipu => "vnclipu",
+            Vnclip => "vnclip",
             Illegal => "illegal",
         }
     }
