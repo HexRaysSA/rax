@@ -656,40 +656,36 @@ impl RiscVLifter {
                     width,
                     flags: FlagUpdate::None,
                 },
-                0b001 => OpKind::Shl {
-                    // SLLI
+                // SLLI: RV64 funct6 (bits[31:26]) must be 0; other funct6 values
+                // are Zbb/Zbs/crypto immediates handled elsewhere (or not yet
+                // lifted) — never silently lower them as a plain shift.
+                0b001 if (insn >> 26) & 0x3F == 0 => OpKind::Shl {
                     dst,
                     src: rs1,
                     amount: SrcOperand::Imm(shamt as i64),
                     width,
                     flags: FlagUpdate::None,
                 },
-                0b101 => {
-                    let funct7 = Self::funct7(insn);
-                    if funct7 & 0x20 == 0 {
-                        OpKind::Shr {
-                            // SRLI
-                            dst,
-                            src: rs1,
-                            amount: SrcOperand::Imm(shamt as i64),
-                            width,
-                            flags: FlagUpdate::None,
-                        }
-                    } else {
-                        OpKind::Sar {
-                            // SRAI
-                            dst,
-                            src: rs1,
-                            amount: SrcOperand::Imm(shamt as i64),
-                            width,
-                            flags: FlagUpdate::None,
-                        }
-                    }
-                }
+                // SRLI (funct6 == 0) / SRAI (funct6 == 0b010000). Any other funct6
+                // (RORI/BEXTI/...) is not this instruction.
+                0b101 if (insn >> 26) & 0x3F == 0 => OpKind::Shr {
+                    dst,
+                    src: rs1,
+                    amount: SrcOperand::Imm(shamt as i64),
+                    width,
+                    flags: FlagUpdate::None,
+                },
+                0b101 if (insn >> 26) & 0x3F == 0b010000 => OpKind::Sar {
+                    dst,
+                    src: rs1,
+                    amount: SrcOperand::Imm(shamt as i64),
+                    width,
+                    flags: FlagUpdate::None,
+                },
                 _ => {
-                    return Err(LiftError::InvalidEncoding {
+                    return Err(LiftError::Unsupported {
                         addr,
-                        bytes: insn.to_le_bytes().to_vec(),
+                        mnemonic: format!("OP-IMM funct3={funct3:#05b} insn={insn:#010x}"),
                     })
                 }
             };
@@ -742,8 +738,9 @@ impl RiscVLifter {
                         to_width: OpWidth::W64,
                     }
                 }
-                0b001 => {
-                    // SLLIW
+                // SLLIW: funct7 must be 0 (Zba slli.uw uses funct7 0b0000010 and
+                // a 6-bit shamt — not this instruction).
+                0b001 if Self::funct7(insn) == 0 => {
                     ops.push(SmirOp::new(
                         ctx.next_op_id(),
                         addr,
@@ -762,35 +759,28 @@ impl RiscVLifter {
                         to_width: OpWidth::W64,
                     }
                 }
-                0b101 => {
-                    let funct7 = Self::funct7(insn);
-                    if funct7 & 0x20 == 0 {
-                        ops.push(SmirOp::new(
-                            ctx.next_op_id(),
-                            addr,
-                            OpKind::Shr {
-                                // SRLIW
-                                dst: tmp,
-                                src: rs1,
-                                amount: SrcOperand::Imm(shamt as i64),
-                                width,
-                                flags: FlagUpdate::None,
-                            },
-                        ));
+                // SRLIW (funct7 == 0) / SRAIW (funct7 == 0b0100000). RORIW
+                // (funct7 == 0b0110000) is not lowered here.
+                0b101 if matches!(Self::funct7(insn), 0x00 | 0x20) => {
+                    let arith = Self::funct7(insn) == 0x20;
+                    let shift = if arith {
+                        OpKind::Sar {
+                            dst: tmp,
+                            src: rs1,
+                            amount: SrcOperand::Imm(shamt as i64),
+                            width,
+                            flags: FlagUpdate::None,
+                        }
                     } else {
-                        ops.push(SmirOp::new(
-                            ctx.next_op_id(),
-                            addr,
-                            OpKind::Sar {
-                                // SRAIW
-                                dst: tmp,
-                                src: rs1,
-                                amount: SrcOperand::Imm(shamt as i64),
-                                width,
-                                flags: FlagUpdate::None,
-                            },
-                        ));
-                    }
+                        OpKind::Shr {
+                            dst: tmp,
+                            src: rs1,
+                            amount: SrcOperand::Imm(shamt as i64),
+                            width,
+                            flags: FlagUpdate::None,
+                        }
+                    };
+                    ops.push(SmirOp::new(ctx.next_op_id(), addr, shift));
                     OpKind::SignExtend {
                         dst,
                         src: tmp,
@@ -799,9 +789,9 @@ impl RiscVLifter {
                     }
                 }
                 _ => {
-                    return Err(LiftError::InvalidEncoding {
+                    return Err(LiftError::Unsupported {
                         addr,
-                        bytes: insn.to_le_bytes().to_vec(),
+                        mnemonic: format!("OP-IMM-32 funct3={funct3:#05b} insn={insn:#010x}"),
                     })
                 }
             };
@@ -994,35 +984,52 @@ impl RiscVLifter {
                     width,
                     flags: FlagUpdate::None,
                 },
-                (0x00, 0b001) => OpKind::Shl {
-                    // SLLW
-                    dst: tmp,
-                    src: rs1,
-                    amount: SrcOperand::Reg(rs2),
-                    width,
-                    flags: FlagUpdate::None,
-                },
-                (0x00, 0b101) => OpKind::Shr {
-                    // SRLW
-                    dst: tmp,
-                    src: rs1,
-                    amount: SrcOperand::Reg(rs2),
-                    width,
-                    flags: FlagUpdate::None,
-                },
-                (0x20, 0b101) => OpKind::Sar {
-                    // SRAW
-                    dst: tmp,
-                    src: rs1,
-                    amount: SrcOperand::Reg(rs2),
-                    width,
-                    flags: FlagUpdate::None,
-                },
-                _ => {
-                    return Err(LiftError::InvalidEncoding {
+                // Word shifts: RISC-V masks the shift amount to 5 bits, but the
+                // SMIR shift only zeroes at >= width.bits() (after a 6-bit mask),
+                // so pre-mask rs2 to 0x1F.
+                (0x00, 0b001) | (0x00, 0b101) | (0x20, 0b101) => {
+                    let amt = ctx.alloc_vreg();
+                    ops.push(SmirOp::new(
+                        ctx.next_op_id(),
                         addr,
-                        bytes: insn.to_le_bytes().to_vec(),
-                    })
+                        OpKind::And {
+                            dst: amt,
+                            src1: rs2,
+                            src2: SrcOperand::Imm(0x1F),
+                            width: OpWidth::W64,
+                            flags: FlagUpdate::None,
+                        },
+                    ));
+                    let amount = SrcOperand::Reg(amt);
+                    match (funct7, funct3) {
+                        (0x00, 0b001) => OpKind::Shl {
+                            dst: tmp,
+                            src: rs1,
+                            amount,
+                            width,
+                            flags: FlagUpdate::None,
+                        },
+                        (0x00, 0b101) => OpKind::Shr {
+                            dst: tmp,
+                            src: rs1,
+                            amount,
+                            width,
+                            flags: FlagUpdate::None,
+                        },
+                        _ => OpKind::Sar {
+                            dst: tmp,
+                            src: rs1,
+                            amount,
+                            width,
+                            flags: FlagUpdate::None,
+                        },
+                    }
+                }
+                _ => {
+                    return Err(LiftError::Unsupported {
+                        addr,
+                        mnemonic: format!("OP-32 funct7={funct7:#x} funct3={funct3:#05b}"),
+                    });
                 }
             };
 
@@ -1084,18 +1091,13 @@ impl RiscVLifter {
                     }
                 }
                 0b010 => {
-                    // MULHSU (upper bits, signed * unsigned)
-                    // This is tricky - we'll need to handle it specially
-                    // For now, emit as MulS and note it's incomplete
-                    let lo = ctx.alloc_vreg();
-                    OpKind::MulS {
-                        dst_lo: lo,
-                        dst_hi: Some(dst),
-                        src1: rs1,
-                        src2: SrcOperand::Reg(rs2),
-                        width,
-                        flags: FlagUpdate::None,
-                    }
+                    // MULHSU (signed * unsigned, high word): no direct SMIR op
+                    // and a correct sequence is non-trivial — leave unlifted
+                    // rather than emit the wrong (signed*signed) result.
+                    return Err(LiftError::Unsupported {
+                        addr,
+                        mnemonic: "mulhsu".into(),
+                    });
                 }
                 0b011 => {
                     // MULHU (upper bits, unsigned * unsigned)
@@ -1109,49 +1111,183 @@ impl RiscVLifter {
                         flags: FlagUpdate::None,
                     }
                 }
-                0b100 => OpKind::DivS {
-                    // DIV
-                    quot: dst,
-                    rem: None,
-                    src1: rs1,
-                    src2: SrcOperand::Reg(rs2),
-                    width,
-                },
-                0b101 => OpKind::DivU {
-                    // DIVU
-                    quot: dst,
-                    rem: None,
-                    src1: rs1,
-                    src2: SrcOperand::Reg(rs2),
-                    width,
-                },
-                0b110 => {
-                    // REM
-                    let quot = ctx.alloc_vreg();
-                    OpKind::DivS {
-                        quot,
-                        rem: Some(dst),
-                        src1: rs1,
-                        src2: SrcOperand::Reg(rs2),
-                        width,
-                    }
-                }
-                0b111 => {
-                    // REMU
-                    let quot = ctx.alloc_vreg();
-                    OpKind::DivU {
-                        quot,
-                        rem: Some(dst),
-                        src1: rs1,
-                        src2: SrcOperand::Reg(rs2),
-                        width,
-                    }
+                // DIV/DIVU/REM/REMU: SMIR's DivS/DivU trap (x86 #DE) on a zero
+                // divisor and don't implement RISC-V's div-by-zero/overflow
+                // results; lifted via a non-trapping sequence below instead.
+                0b100 | 0b101 | 0b110 | 0b111 => {
+                    return self.lift_div_rem(insn, addr, dst, rs1, rs2, width, ctx);
                 }
                 _ => unreachable!(),
             };
 
             ops.push(SmirOp::new(ctx.next_op_id(), addr, kind));
         }
+
+        Ok((ops, ControlFlow::NextInsn))
+    }
+
+    /// Lift DIV/DIVU/REM/REMU via a non-trapping sequence implementing RISC-V's
+    /// divide-by-zero and signed MIN/-1 overflow results (SMIR's DivS/DivU trap
+    /// like x86 #DE, so the divisor is first sanitized and the special results
+    /// are selected afterward). `width` is W64 (64-bit forms only).
+    fn lift_div_rem(
+        &mut self,
+        insn: u32,
+        addr: GuestAddr,
+        dst: VReg,
+        rs1: VReg,
+        rs2: VReg,
+        width: OpWidth,
+        ctx: &mut LiftContext,
+    ) -> Result<(Vec<SmirOp>, ControlFlow), LiftError> {
+        let funct3 = Self::funct3(insn);
+        let signed = matches!(funct3, 0b100 | 0b110); // DIV, REM
+        let is_rem = matches!(funct3, 0b110 | 0b111);
+        let mut ops = Vec::new();
+        let mk = |ctx: &mut LiftContext, k: OpKind| SmirOp::new(ctx.next_op_id(), addr, k);
+        let mov = |ctx: &mut LiftContext, ops: &mut Vec<SmirOp>, v: i64| -> VReg {
+            let t = ctx.alloc_vreg();
+            ops.push(SmirOp::new(
+                ctx.next_op_id(),
+                addr,
+                OpKind::Mov {
+                    dst: t,
+                    src: SrcOperand::Imm(v),
+                    width,
+                },
+            ));
+            t
+        };
+        let setcc = |ctx: &mut LiftContext,
+                     ops: &mut Vec<SmirOp>,
+                     a: VReg,
+                     b: i64,
+                     cond: Condition|
+         -> VReg {
+            ops.push(SmirOp::new(
+                ctx.next_op_id(),
+                addr,
+                OpKind::Cmp {
+                    src1: a,
+                    src2: SrcOperand::Imm(b),
+                    width,
+                },
+            ));
+            let r = ctx.alloc_vreg();
+            ops.push(SmirOp::new(
+                ctx.next_op_id(),
+                addr,
+                OpKind::SetCC {
+                    dst: r,
+                    cond,
+                    width: OpWidth::W64,
+                },
+            ));
+            r
+        };
+
+        // is_zero = (rs2 == 0)
+        let is_zero = setcc(ctx, &mut ops, rs2, 0, Condition::Eq);
+        // For signed forms, detect MIN / -1 overflow.
+        let (need_special, ovf) = if signed {
+            let min = if width == OpWidth::W64 { i64::MIN } else { -(1i64 << 31) };
+            let is_min = setcc(ctx, &mut ops, rs1, min, Condition::Eq);
+            let is_neg1 = setcc(ctx, &mut ops, rs2, -1, Condition::Eq);
+            let ovf = ctx.alloc_vreg();
+            ops.push(mk(
+                ctx,
+                OpKind::And {
+                    dst: ovf,
+                    src1: is_min,
+                    src2: SrcOperand::Reg(is_neg1),
+                    width: OpWidth::W64,
+                    flags: FlagUpdate::None,
+                },
+            ));
+            let nsp = ctx.alloc_vreg();
+            ops.push(mk(
+                ctx,
+                OpKind::Or {
+                    dst: nsp,
+                    src1: is_zero,
+                    src2: SrcOperand::Reg(ovf),
+                    width: OpWidth::W64,
+                    flags: FlagUpdate::None,
+                },
+            ));
+            (nsp, Some(ovf))
+        } else {
+            (is_zero, None)
+        };
+
+        // safe_divisor = need_special ? 1 : rs2  (avoids /0 and signed MIN/-1).
+        let one = mov(ctx, &mut ops, 1);
+        let safe = ctx.alloc_vreg();
+        ops.push(mk(
+            ctx,
+            OpKind::Select {
+                dst: safe,
+                cond: need_special,
+                src_true: one,
+                src_false: rs2,
+                width,
+            },
+        ));
+        // Raw quotient / remainder over the sanitized divisor.
+        let raw = ctx.alloc_vreg();
+        let divkind = if signed {
+            OpKind::DivS {
+                quot: if is_rem { ctx.alloc_vreg() } else { raw },
+                rem: if is_rem { Some(raw) } else { None },
+                src1: rs1,
+                src2: SrcOperand::Reg(safe),
+                width,
+            }
+        } else {
+            OpKind::DivU {
+                quot: if is_rem { ctx.alloc_vreg() } else { raw },
+                rem: if is_rem { Some(raw) } else { None },
+                src1: rs1,
+                src2: SrcOperand::Reg(safe),
+                width,
+            }
+        };
+        ops.push(mk(ctx, divkind));
+
+        // Apply the overflow special-case for signed forms.
+        let after_ovf = if let Some(ovf) = ovf {
+            let ov_val = mov(ctx, &mut ops, if is_rem { 0 } else { i64::MIN });
+            let t = ctx.alloc_vreg();
+            ops.push(mk(
+                ctx,
+                OpKind::Select {
+                    dst: t,
+                    cond: ovf,
+                    src_true: ov_val,
+                    src_false: raw,
+                    width,
+                },
+            ));
+            t
+        } else {
+            raw
+        };
+        // Apply the divide-by-zero special-case: REM->dividend, DIV->all-ones.
+        let zero_val = if is_rem {
+            rs1
+        } else {
+            mov(ctx, &mut ops, -1)
+        };
+        ops.push(mk(
+            ctx,
+            OpKind::Select {
+                dst,
+                cond: is_zero,
+                src_true: zero_val,
+                src_false: after_ovf,
+                width,
+            },
+        ));
 
         Ok((ops, ControlFlow::NextInsn))
     }
@@ -1187,49 +1323,19 @@ impl RiscVLifter {
                     width,
                     flags: FlagUpdate::None,
                 },
-                0b100 => OpKind::DivS {
-                    // DIVW
-                    quot: tmp,
-                    rem: None,
-                    src1: rs1,
-                    src2: SrcOperand::Reg(rs2),
-                    width,
-                },
-                0b101 => OpKind::DivU {
-                    // DIVUW
-                    quot: tmp,
-                    rem: None,
-                    src1: rs1,
-                    src2: SrcOperand::Reg(rs2),
-                    width,
-                },
-                0b110 => {
-                    // REMW
-                    let quot = ctx.alloc_vreg();
-                    OpKind::DivS {
-                        quot,
-                        rem: Some(tmp),
-                        src1: rs1,
-                        src2: SrcOperand::Reg(rs2),
-                        width,
-                    }
-                }
-                0b111 => {
-                    // REMUW
-                    let quot = ctx.alloc_vreg();
-                    OpKind::DivU {
-                        quot,
-                        rem: Some(tmp),
-                        src1: rs1,
-                        src2: SrcOperand::Reg(rs2),
-                        width,
-                    }
+                // Word div/rem need a W32 non-trapping sequence plus result
+                // sign-extension — not yet lifted (gap, never wrong).
+                0b100 | 0b101 | 0b110 | 0b111 => {
+                    return Err(LiftError::Unsupported {
+                        addr,
+                        mnemonic: format!("div/rem.w funct3={funct3:#05b}"),
+                    });
                 }
                 _ => {
-                    return Err(LiftError::InvalidEncoding {
+                    return Err(LiftError::Unsupported {
                         addr,
-                        bytes: insn.to_le_bytes().to_vec(),
-                    })
+                        mnemonic: format!("OP-32-M funct3={funct3:#05b}"),
+                    });
                 }
             };
 
@@ -1288,12 +1394,20 @@ impl RiscVLifter {
         let mut ops = Vec::new();
         let address = Address::Direct(rs1);
 
-        if let Some(dst) = self.def_x_reg(rd, ctx) {
+        {
+            // AMO/SC have a memory side effect that must occur even when rd==x0
+            // (the loaded value is simply discarded), so never gate the whole
+            // op on a non-x0 destination — use a throwaway vreg for rd==x0.
+            let dst = self.def_x_reg(rd, ctx).unwrap_or_else(|| ctx.alloc_vreg());
+            // Word LR/AMO results are sign-extended into rd (SC writes a 0/1
+            // status, so it is excluded).
+            let needs_sext = width == MemWidth::B4 && funct5 != 0b00011;
+            let result = if needs_sext { ctx.alloc_vreg() } else { dst };
             let kind = match funct5 {
                 0b00010 => {
                     // LR.W/D (Load Reserved)
                     OpKind::LoadExclusive {
-                        dst,
+                        dst: result,
                         addr: address,
                         width,
                     }
@@ -1310,7 +1424,7 @@ impl RiscVLifter {
                 }
                 0b00001 => OpKind::AtomicRmw {
                     // AMOSWAP
-                    dst,
+                    dst: result,
                     addr: address,
                     src: rs2,
                     op: AtomicOp::Swap,
@@ -1319,7 +1433,7 @@ impl RiscVLifter {
                 },
                 0b00000 => OpKind::AtomicRmw {
                     // AMOADD
-                    dst,
+                    dst: result,
                     addr: address,
                     src: rs2,
                     op: AtomicOp::Add,
@@ -1328,7 +1442,7 @@ impl RiscVLifter {
                 },
                 0b00100 => OpKind::AtomicRmw {
                     // AMOXOR
-                    dst,
+                    dst: result,
                     addr: address,
                     src: rs2,
                     op: AtomicOp::Xor,
@@ -1337,7 +1451,7 @@ impl RiscVLifter {
                 },
                 0b01100 => OpKind::AtomicRmw {
                     // AMOAND
-                    dst,
+                    dst: result,
                     addr: address,
                     src: rs2,
                     op: AtomicOp::And,
@@ -1346,7 +1460,7 @@ impl RiscVLifter {
                 },
                 0b01000 => OpKind::AtomicRmw {
                     // AMOOR
-                    dst,
+                    dst: result,
                     addr: address,
                     src: rs2,
                     op: AtomicOp::Or,
@@ -1355,7 +1469,7 @@ impl RiscVLifter {
                 },
                 0b10000 => OpKind::AtomicRmw {
                     // AMOMIN
-                    dst,
+                    dst: result,
                     addr: address,
                     src: rs2,
                     op: AtomicOp::Min,
@@ -1364,7 +1478,7 @@ impl RiscVLifter {
                 },
                 0b10100 => OpKind::AtomicRmw {
                     // AMOMAX
-                    dst,
+                    dst: result,
                     addr: address,
                     src: rs2,
                     op: AtomicOp::Max,
@@ -1373,7 +1487,7 @@ impl RiscVLifter {
                 },
                 0b11000 => OpKind::AtomicRmw {
                     // AMOMINU
-                    dst,
+                    dst: result,
                     addr: address,
                     src: rs2,
                     op: AtomicOp::Umin,
@@ -1382,7 +1496,7 @@ impl RiscVLifter {
                 },
                 0b11100 => OpKind::AtomicRmw {
                     // AMOMAXU
-                    dst,
+                    dst: result,
                     addr: address,
                     src: rs2,
                     op: AtomicOp::Umax,
@@ -1398,6 +1512,18 @@ impl RiscVLifter {
             };
 
             ops.push(SmirOp::new(ctx.next_op_id(), addr, kind));
+            if needs_sext {
+                ops.push(SmirOp::new(
+                    ctx.next_op_id(),
+                    addr,
+                    OpKind::SignExtend {
+                        dst,
+                        src: result,
+                        from_width: OpWidth::W32,
+                        to_width: OpWidth::W64,
+                    },
+                ));
+            }
         }
 
         Ok((ops, ControlFlow::NextInsn))

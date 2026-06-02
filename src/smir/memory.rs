@@ -302,21 +302,35 @@ impl SmirMemory for FlatMemory {
         _order: MemoryOrder,
     ) -> Result<u64, MemoryError> {
         let old = self.atomic_load(addr, size, MemoryOrder::SeqCst)?;
-        let new = match op {
-            AtomicOp::Add => old.wrapping_add(operand),
-            AtomicOp::Sub => old.wrapping_sub(operand),
-            AtomicOp::And => old & operand,
-            AtomicOp::Or => old | operand,
-            AtomicOp::Xor => old ^ operand,
-            AtomicOp::Nand => !(old & operand),
-            AtomicOp::Max => std::cmp::max(old as i64, operand as i64) as u64,
-            AtomicOp::Min => std::cmp::min(old as i64, operand as i64) as u64,
-            AtomicOp::Umax => std::cmp::max(old, operand),
-            AtomicOp::Umin => std::cmp::min(old, operand),
-            AtomicOp::Swap => operand,
+        // Operate at the access width: mask both operands, and for signed
+        // min/max sign-extend from `size` bits so e.g. AMOMAX.W compares the
+        // 32-bit values as signed (not the zero-extended 64-bit values).
+        let bits = size.bytes() * 8;
+        let mask = if bits >= 64 { u64::MAX } else { (1u64 << bits) - 1 };
+        let o = operand & mask;
+        let old_m = old & mask;
+        let sext = |v: u64| -> i64 {
+            if bits >= 64 {
+                v as i64
+            } else {
+                ((v << (64 - bits)) as i64) >> (64 - bits)
+            }
         };
+        let new = match op {
+            AtomicOp::Add => old_m.wrapping_add(o),
+            AtomicOp::Sub => old_m.wrapping_sub(o),
+            AtomicOp::And => old_m & o,
+            AtomicOp::Or => old_m | o,
+            AtomicOp::Xor => old_m ^ o,
+            AtomicOp::Nand => !(old_m & o),
+            AtomicOp::Max => std::cmp::max(sext(old_m), sext(o)) as u64,
+            AtomicOp::Min => std::cmp::min(sext(old_m), sext(o)) as u64,
+            AtomicOp::Umax => std::cmp::max(old_m, o),
+            AtomicOp::Umin => std::cmp::min(old_m, o),
+            AtomicOp::Swap => o,
+        } & mask;
         self.atomic_store(addr, new, size, MemoryOrder::SeqCst)?;
-        Ok(old)
+        Ok(old_m)
     }
 
     fn load_exclusive(&mut self, addr: GuestAddr, size: MemWidth) -> Result<u64, MemoryError> {
