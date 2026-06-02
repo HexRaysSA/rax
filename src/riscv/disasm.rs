@@ -339,6 +339,8 @@ impl Op {
             Vsm => "vsm.v",
             Vlre => "vlre.v",
             Vsre => "vsre.v",
+            Vlseg => "vlseg",
+            Vsseg => "vsseg",
             Vfadd => "vfadd",
             Vfsub => "vfsub",
             Vfrsub => "vfrsub",

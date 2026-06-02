@@ -339,6 +339,8 @@ pub enum Op {
     Vsm,
     Vlre,
     Vsre,
+    Vlseg,
+    Vsseg,
     // ---- V (vector integer arithmetic; form vv/vx/vi in funct3) ----
     Vadd,
     Vsub,
@@ -1503,12 +1505,15 @@ fn decode_load_fp(w: u32, isa: &Isa) -> Insn {
         return match mop {
             0b00 => match lumop {
                 0b00000 if nf == 0 => base(Op::Vle, w),
+                0b00000 => base(Op::Vlseg, w),    // unit-stride segment (nf+1 fields)
                 0b01000 => base(Op::Vlre, w),     // whole register (nf+1 regs)
                 0b01011 if nf == 0 => base(Op::Vlm, w),
                 _ => Insn::illegal(w, 4),
             },
             0b10 if nf == 0 => base(Op::Vlse, w), // strided
+            0b10 => base(Op::Vlseg, w),           // strided segment
             0b01 | 0b11 if nf == 0 => base(Op::Vlxei, w), // indexed
+            0b01 | 0b11 => base(Op::Vlseg, w),    // indexed segment
             _ => Insn::illegal(w, 4),
         };
     }
@@ -1531,12 +1536,15 @@ fn decode_store_fp(w: u32, isa: &Isa) -> Insn {
         return match mop {
             0b00 => match sumop {
                 0b00000 if nf == 0 => base(Op::Vse, w),
+                0b00000 => base(Op::Vsseg, w),    // unit-stride segment
                 0b01000 => base(Op::Vsre, w),     // whole register
                 0b01011 if nf == 0 => base(Op::Vsm, w),
                 _ => Insn::illegal(w, 4),
             },
             0b10 if nf == 0 => base(Op::Vsse, w), // strided
+            0b10 => base(Op::Vsseg, w),           // strided segment
             0b01 | 0b11 if nf == 0 => base(Op::Vsxei, w), // indexed
+            0b01 | 0b11 => base(Op::Vsseg, w),    // indexed segment
             _ => Insn::illegal(w, 4),
         };
     }

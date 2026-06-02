@@ -1754,6 +1754,54 @@ fn diff_v_estimate() {
 }
 
 #[test]
+fn diff_v_segment() {
+    let mut rng = Rng::new(0x7EC_8D0);
+    let mut batch = Vec::new();
+    let widths: [(u32, u32); 3] = [(0, 0), (5, 1), (6, 2)]; // eb 1/2/4 (fit window)
+    for (w3, sew_log2) in widths {
+        let eb = 1u64 << sew_log2;
+        for nf in 2..=4u32 {
+            let nf_field = nf - 1;
+            let vmax = vlmax(sew_log2);
+            // keep vl * nf * eb within the 256-byte scratch window
+            let maxvl = (192 / (nf as u64 * eb)).min(vmax).max(1);
+            for vl in [maxvl, (maxvl / 2).max(1)] {
+                for _ in 0..3 {
+                    let vd = 8u32; // fields 8..8+nf-1
+                    let idxreg = 2u32;
+                    let mut st = rand_vstate(&mut rng, sew_log2, vl);
+                    st.x[10] = SCRATCH_BASE;
+                    st.x[11] = nf as u64 * eb; // strided element stride = segment size
+                    for s in st.scratch.iter_mut() {
+                        *s = rng.next();
+                    }
+                    // index register: contiguous segment byte offsets (in-window)
+                    let mut ib = [0u8; VLENB];
+                    for e in 0..(VLENB / eb as usize) {
+                        let off = (e as u64 * nf as u64 * eb) % 192;
+                        ib[e * eb as usize..(e + 1) * eb as usize]
+                            .copy_from_slice(&off.to_le_bytes()[..eb as usize]);
+                    }
+                    st.set_vreg_bytes(idxreg as usize, &ib);
+
+                    let seg = |mop: u32, rs2: u32, op: u32| {
+                        (nf_field << 29) | (mop << 26) | (1 << 25) | (rs2 << 20)
+                            | (10 << 15) | (w3 << 12) | (vd << 7) | op
+                    };
+                    batch.push(("vlseg".into(), seg(0b00, 0, 0x07), st)); // unit-stride
+                    batch.push(("vsseg".into(), seg(0b00, 0, 0x27), st));
+                    batch.push(("vlsseg".into(), seg(0b10, 11, 0x07), st)); // strided
+                    batch.push(("vssseg".into(), seg(0b10, 11, 0x27), st));
+                    batch.push(("vlxseg".into(), seg(0b01, idxreg, 0x07), st)); // indexed
+                    batch.push(("vsxseg".into(), seg(0b01, idxreg, 0x27), st));
+                }
+            }
+        }
+    }
+    run_batch(&batch);
+}
+
+#[test]
 fn diff_v_loadstore() {
     let mut rng = Rng::new(0x7EC_705);
     let mut batch = Vec::new();

@@ -744,7 +744,8 @@ impl RiscVCpu {
 
             // ---- V: vector data path ----
             Op::Vle | Op::Vse | Op::Vlse | Op::Vsse | Op::Vlxei | Op::Vsxei | Op::Vlm | Op::Vsm
-            | Op::Vlre | Op::Vsre | Op::Vadd | Op::Vsub | Op::Vrsub | Op::Vand | Op::Vor | Op::Vxor
+            | Op::Vlre | Op::Vsre | Op::Vlseg | Op::Vsseg | Op::Vadd | Op::Vsub | Op::Vrsub
+            | Op::Vand | Op::Vor | Op::Vxor
             | Op::Vminu | Op::Vmin | Op::Vmaxu | Op::Vmax | Op::Vsll | Op::Vsrl | Op::Vsra
             | Op::Vmerge | Op::Vmseq | Op::Vmsne | Op::Vmsltu | Op::Vmslt | Op::Vmsleu
             | Op::Vmsle | Op::Vmsgtu | Op::Vmsgt | Op::Vmul | Op::Vmulh | Op::Vmulhu
@@ -1416,6 +1417,51 @@ impl RiscVCpu {
                         self.mem
                             .write(addr, &val.to_le_bytes()[..eb])
                             .map_err(|_| acc_fault(true, addr))?;
+                    }
+                }
+            }
+            Op::Vlseg | Op::Vsseg => {
+                // Segment load/store: nf+1 fields per element, de-interleaved into
+                // consecutive registers vd..vd+nf. Addressing per mop.
+                let nf = ((insn.raw >> 29) & 7) as usize + 1;
+                let mop = (insn.raw >> 26) & 3;
+                let is_load = insn.op == Op::Vlseg;
+                let indexed = mop == 0b01 || mop == 0b11;
+                let width = match insn.funct3 {
+                    0 => 1,
+                    5 => 2,
+                    6 => 4,
+                    7 => 8,
+                    _ => return Err(Trap::illegal(insn.raw)),
+                };
+                // For indexed segments data EEW = SEW, index EEW = funct3 width.
+                let eb = if indexed { self.sew_bytes() } else { width };
+                let base = self.x(insn.rs1) & self.xmask();
+                let stride = self.x(insn.rs2) as i64;
+                for e in vstart..vl {
+                    if !vm && !self.vmask_bit(e) {
+                        continue;
+                    }
+                    let elem_base = match mop {
+                        0b00 => base.wrapping_add((e * nf * eb) as u64),
+                        0b10 => base.wrapping_add((e as i64).wrapping_mul(stride) as u64),
+                        _ => base.wrapping_add(self.velem(insn.rs2, e, width)),
+                    } & self.xmask();
+                    for f in 0..nf {
+                        let addr = elem_base.wrapping_add((f * eb) as u64) & self.xmask();
+                        let reg = (vd as usize + f) as u8;
+                        if is_load {
+                            let mut buf = [0u8; 8];
+                            self.mem
+                                .read(addr, &mut buf[..eb])
+                                .map_err(|_| acc_fault(false, addr))?;
+                            self.set_velem(reg, e, eb, u64::from_le_bytes(buf));
+                        } else {
+                            let val = self.velem(reg, e, eb);
+                            self.mem
+                                .write(addr, &val.to_le_bytes()[..eb])
+                                .map_err(|_| acc_fault(true, addr))?;
+                        }
                     }
                 }
             }
