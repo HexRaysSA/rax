@@ -24,18 +24,27 @@ fn apply_iret_flags(vcpu: &mut X86_64Vcpu, size: u8, value: u64) -> Result<()> {
         2 => {
             let mask = 0xFFFFu64;
             vcpu.regs.rflags = (vcpu.regs.rflags & !mask) | (value & mask) | 0x2;
-            Ok(())
         }
         4 | 8 => {
             let mask = 0x00000000_00257FD5u64;
             vcpu.regs.rflags = (value & mask) | 0x2;
-            Ok(())
         }
-        _ => Err(Error::Emulator(format!(
-            "invalid IRET flags size: {}",
-            size
-        ))),
+        _ => {
+            return Err(Error::Emulator(format!(
+                "invalid IRET flags size: {}",
+                size
+            )));
+        }
     }
+    // IRET restores RFLAGS wholesale into `regs.rflags`. Any pending lazy-flag op
+    // left by the returning handler is now stale and MUST be invalidated, or the
+    // resumed code would evaluate conditions from the HANDLER's CF/ZF/... instead
+    // of the restored flags. That silently corrupts any flag-dependent loop an
+    // interrupt landed in the middle of (e.g. memcpy_orig's `sub;jae`, vsnprintf's
+    // digit `dec;jnz`), producing wrong copy lengths / digit counts and, over a
+    // boot's worth of timer interrupts, scattered guest-memory corruption.
+    vcpu.clear_lazy_flags();
+    Ok(())
 }
 
 /// INT3 (0xCC) - Debug breakpoint interrupt
@@ -131,8 +140,12 @@ pub fn iret(vcpu: &mut X86_64Vcpu, ctx: &mut InsnContext) -> Result<Option<VcpuE
     // Log when IRET should restore IF but doesn't
     let saved_if = (flags & 0x200) != 0;
     if saved_if && !if_after {
-        eprintln!("[IRET BUG] saved_IF=1 but IF not restored! rflags_before={:#x} flags_popped={:#x} rflags_after={:#x}",
-            if if_before { 0x200u64 } else { 0u64 }, flags, vcpu.regs.rflags);
+        eprintln!(
+            "[IRET BUG] saved_IF=1 but IF not restored! rflags_before={:#x} flags_popped={:#x} rflags_after={:#x}",
+            if if_before { 0x200u64 } else { 0u64 },
+            flags,
+            vcpu.regs.rflags
+        );
     }
 
     log_if_transition(ret_ip, if_before, if_after, "IRET");
