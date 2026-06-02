@@ -5217,6 +5217,71 @@ impl AArch64Cpu {
                 Ok(CpuExit::Continue)
             }
 
+            // SVE2 bit permute (BEXT/BDEP/BGRP): 0x45, bit21==0, bits[15:12]==1011.
+            // opc=bits[11:10]: 00=BEXT (gather Zn bits at Zm's set bits to the
+            // bottom, like PEXT), 01=BDEP (scatter Zn's low bits to Zm's set bits,
+            // like PDEP), 10=BGRP (Zm-selected bits to the bottom, rest on top).
+            0b010
+                if (insn >> 24) & 0xFF == 0b01000101
+                    && (insn >> 21) & 1 == 0
+                    && (insn >> 12) & 0xF == 0b1011 =>
+            {
+                let opc = (insn >> 10) & 0x3;
+                let bits = (esize * 8) as u32;
+                let mask = elem_mask(bits);
+                let elements = 16 / esize;
+                let a = self.v[zn].to_le_bytes();
+                let b = self.v[zm].to_le_bytes();
+                let mut dst = [0u8; 16];
+                for e in 0..elements {
+                    let off = e * esize;
+                    let zn_e = read_elem(&a, off, esize);
+                    let zm_e = read_elem(&b, off, esize);
+                    let r = match opc {
+                        0b00 => {
+                            let mut r = 0u64;
+                            let mut k = 0;
+                            for i in 0..bits {
+                                if (zm_e >> i) & 1 == 1 {
+                                    r |= ((zn_e >> i) & 1) << k;
+                                    k += 1;
+                                }
+                            }
+                            r
+                        }
+                        0b01 => {
+                            let mut r = 0u64;
+                            let mut k = 0;
+                            for i in 0..bits {
+                                if (zm_e >> i) & 1 == 1 {
+                                    r |= ((zn_e >> k) & 1) << i;
+                                    k += 1;
+                                }
+                            }
+                            r
+                        }
+                        0b10 => {
+                            let (mut low, mut lk, mut high, mut hk) = (0u64, 0u32, 0u64, 0u32);
+                            for i in 0..bits {
+                                let bit = (zn_e >> i) & 1;
+                                if (zm_e >> i) & 1 == 1 {
+                                    low |= bit << lk;
+                                    lk += 1;
+                                } else {
+                                    high |= bit << hk;
+                                    hk += 1;
+                                }
+                            }
+                            low | (high << lk)
+                        }
+                        _ => return Ok(CpuExit::Undefined(insn)),
+                    };
+                    write_elem(&mut dst, off, esize, r & mask);
+                }
+                self.v[zd] = u128::from_le_bytes(dst);
+                Ok(CpuExit::Continue)
+            }
+
             // SVE2 shift left long: 010001010 tszh 0 tszl imm3 1010 U T Zn Zd.
             // Widens the half-width source elements (signed U=0 / unsigned U=1,
             // even T=0 / odd T=1) and shifts them left. src esize from highest

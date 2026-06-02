@@ -1635,6 +1635,13 @@ fn enc_sve2_shll(tsz: u32, imm3: u32, u: u32, t: u32) -> u32 {
         | (u << 11) | (t << 10) | (RN << 5) | RD
 }
 
+/// SVE2 bit permute: `01000101 size 0 Zm 1011 opc Zn Zd`. opc: 00=BEXT, 01=BDEP,
+/// 10=BGRP. Zn=z1(RN), Zm=z2(RM), Zd=z0(RD).
+fn enc_sve2_bperm(size: u32, opc: u32) -> u32 {
+    (0b01000101 << 24) | (size << 22) | (RM << 16) | (0b1011 << 12) | (opc << 10) | (RN << 5)
+        | RD
+}
+
 /// SVE2 SQDMULH/SQRDMULH: `00000100 size 1 Zm 01110 R Zn Zd`.
 fn enc_sve2_sqdmulh(size: u32, r: u32) -> u32 {
     (0b00000100 << 24) | (size << 22) | (1 << 21) | (RM << 16) | (0b01110 << 11) | (r << 10)
@@ -3660,6 +3667,18 @@ fn diff_sve2_shll() {
         }
     }
     run_family("sve2_shll", cases, 16, 0x5_A001);
+}
+
+#[test]
+fn diff_sve2_bperm() {
+    // SVE2 bit permute: BEXT/BDEP/BGRP, all element sizes.
+    let mut cases: Vec<(String, u32)> = Vec::new();
+    for size in 0..4u32 {
+        for opc in 0..3u32 {
+            cases.push((format!("bperm sz{size} opc{opc}"), enc_sve2_bperm(size, opc)));
+        }
+    }
+    run_family("sve2_bperm", cases, 20, 0x5_B001);
 }
 
 #[test]
