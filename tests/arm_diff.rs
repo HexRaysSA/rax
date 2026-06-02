@@ -1606,6 +1606,14 @@ fn enc_sve2_addhn(size: u32, s: u32, r: u32, t: u32) -> u32 {
     (0b01000101 << 24) | (size << 22) | (1 << 21) | (RM << 16) | (0b011 << 13) | (s << 12)
         | (r << 11) | (t << 10) | (RN << 5) | RD
 }
+/// SVE2 saturating extract narrow: `010001010 tszh 1 tszl 000010 vv T Zn Zd`.
+/// vv (bits[12:11]): 00=SQXTN, 01=UQXTN, 10=SQXTUN.
+fn enc_sve2_xtn(tsz: u32, variant: u32, t: u32) -> u32 {
+    let tszh = (tsz >> 2) & 1;
+    let tszl = tsz & 0x3;
+    (0b010001010 << 23) | (tszh << 22) | (1 << 21) | (tszl << 19) | (0b000010 << 13)
+        | (variant << 11) | (t << 10) | (RN << 5) | RD
+}
 
 /// SVE INDEX variants. base=imm5[9:5] or Xn; step=imm5[20:16] or Xm. Rn=x1, Rm=x2.
 fn enc_index_ii(sz: u32, imm_step: u32, imm_base: u32) -> u32 {
@@ -3474,6 +3482,23 @@ fn diff_sve2_addhn() {
         }
     }
     run_family("sve2_addhn", cases, 16, 0x5_4001);
+}
+
+#[test]
+fn diff_sve2_xtn() {
+    // SVE2 saturating extract narrow: SQXTN/UQXTN/SQXTUN (bottom/top), dest B/H/S.
+    let mut cases: Vec<(String, u32)> = Vec::new();
+    for &tsz in &[0b001u32, 0b010, 0b100] {
+        for variant in 0..3u32 {
+            for t in 0..2u32 {
+                cases.push((
+                    format!("xtn tsz{tsz} v{variant} t{t}"),
+                    enc_sve2_xtn(tsz, variant, t),
+                ));
+            }
+        }
+    }
+    run_family("sve2_xtn", cases, 16, 0x5_5001);
 }
 
 #[test]

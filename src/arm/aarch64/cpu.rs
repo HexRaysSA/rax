@@ -5233,6 +5233,49 @@ impl AArch64Cpu {
                 Ok(CpuExit::Continue)
             }
 
+            // SVE2 saturating extract narrow: 010001010 tszh 1 tszl 000010 vv T.
+            // (bit12,bit11): 00=SQXTN (signed->signed sat), 01=UQXTN (unsigned->
+            // unsigned sat), 10=SQXTUN (signed->unsigned sat). The dest element
+            // size comes from the highest set bit of tsz=tszh:tszl, source 2x.
+            0b010
+                if (insn >> 24) & 0xFF == 0b01000101
+                    && (insn >> 23) & 1 == 0
+                    && (insn >> 21) & 1 == 1
+                    && (insn >> 13) & 0x3F == 0b000010 =>
+            {
+                let tsz = (((insn >> 22) & 1) << 2) | ((insn >> 19) & 0x3);
+                if tsz == 0 {
+                    return Ok(CpuExit::Undefined(insn));
+                }
+                let hsb = 31 - tsz.leading_zeros();
+                let dst_esize = 1usize << hsb;
+                let src_esize = dst_esize * 2;
+                let dst_bits = (dst_esize * 8) as u32;
+                let src_bits = (src_esize * 8) as u32;
+                let dmask = elem_mask(dst_bits);
+                let variant = (insn >> 11) & 0x3;
+                let top = (insn >> 10) & 1 == 1;
+                let n_src = 16 / src_esize;
+                let a = self.v[zn].to_le_bytes();
+                let mut dst = if top { self.v[zd].to_le_bytes() } else { [0u8; 16] };
+                for d in 0..n_src {
+                    let x = read_elem(&a, d * src_esize, src_esize);
+                    let narrow: u64 = match variant {
+                        0b00 => {
+                            let v = sext_elem(x, src_bits);
+                            let hi = (1i128 << (dst_bits - 1)) - 1;
+                            let lo = -(1i128 << (dst_bits - 1));
+                            v.clamp(lo, hi) as u64 & dmask
+                        }
+                        0b01 => uext_elem(x, src_bits).min(dmask as u128) as u64,
+                        _ => sext_elem(x, src_bits).clamp(0, dmask as i128) as u64,
+                    };
+                    write_elem(&mut dst, (2 * d + top as usize) * dst_esize, dst_esize, narrow);
+                }
+                self.v[zd] = u128::from_le_bytes(dst);
+                Ok(CpuExit::Continue)
+            }
+
             // SVE2 add/subtract high narrow: 0x45, bit21==1, bits[15:13]==011.
             // ADDHN/SUBHN (S=bit12) with optional rounding (R=bit11). The result
             // is the high half of the (full-width) sum/difference, written to the
