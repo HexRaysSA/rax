@@ -1304,3 +1304,34 @@ fn diff_hvx_v69() {
         0x6900,
     );
 }
+
+// ==== hvx_v6mpy (V69 workflow) ====
+#[test]
+fn diff_hvx_v6mpy() {
+    // V69 byte-matrix multiply: Vuu.ub * Vvv.b coefficients -> Vdd/Vxx.w pair,
+    // for both :h (horizontal) and :v (vertical) phases, all four #u2 phases,
+    // and the += accumulate forms. Pairs use distinct even bases.
+    run_family(
+        "hvx_v6mpy",
+        &[
+            ("v6mpyh_u0", "{ v1:0.w = v6mpy(v3:2.ub,v5:4.b,#0):h }"),
+            ("v6mpyh_u1", "{ v1:0.w = v6mpy(v3:2.ub,v5:4.b,#1):h }"),
+            ("v6mpyh_u2", "{ v1:0.w = v6mpy(v3:2.ub,v5:4.b,#2):h }"),
+            ("v6mpyh_u3", "{ v1:0.w = v6mpy(v3:2.ub,v5:4.b,#3):h }"),
+            ("v6mpyv_u0", "{ v1:0.w = v6mpy(v3:2.ub,v5:4.b,#0):v }"),
+            ("v6mpyv_u1", "{ v1:0.w = v6mpy(v3:2.ub,v5:4.b,#1):v }"),
+            ("v6mpyv_u2", "{ v1:0.w = v6mpy(v3:2.ub,v5:4.b,#2):v }"),
+            ("v6mpyv_u3", "{ v1:0.w = v6mpy(v3:2.ub,v5:4.b,#3):v }"),
+            ("v6mpyh_acc_u0", "{ v1:0.w += v6mpy(v3:2.ub,v5:4.b,#0):h }"),
+            ("v6mpyh_acc_u1", "{ v1:0.w += v6mpy(v3:2.ub,v5:4.b,#1):h }"),
+            ("v6mpyh_acc_u2", "{ v1:0.w += v6mpy(v3:2.ub,v5:4.b,#2):h }"),
+            ("v6mpyh_acc_u3", "{ v1:0.w += v6mpy(v3:2.ub,v5:4.b,#3):h }"),
+            ("v6mpyv_acc_u0", "{ v1:0.w += v6mpy(v3:2.ub,v5:4.b,#0):v }"),
+            ("v6mpyv_acc_u1", "{ v1:0.w += v6mpy(v3:2.ub,v5:4.b,#1):v }"),
+            ("v6mpyv_acc_u2", "{ v1:0.w += v6mpy(v3:2.ub,v5:4.b,#2):v }"),
+            ("v6mpyv_acc_u3", "{ v1:0.w += v6mpy(v3:2.ub,v5:4.b,#3):v }"),
+        ],
+        12,
+        0x6909,
+    );
+}
