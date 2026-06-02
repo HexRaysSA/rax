@@ -948,3 +948,274 @@ fn diff_hvx_lut() {
         0x1c7e,
     );
 }
+
+// ==== hvx_addsub (wave-2 workflow) ====
+// ==== hvx_addsub_dv: widening, dual-vector and saturating-special add/sub ====
+#[test]
+fn diff_hvx_addsub_dv() {
+    run_family(
+        "hvx_addsub_dv",
+        &[
+            // ---- dual-vector (Vdd = op(Vuu, Vvv)) ----
+            ("vaddb_dv", "{ v1:0.b = vadd(v3:2.b,v5:4.b) }"),
+            ("vaddh_dv", "{ v1:0.h = vadd(v3:2.h,v5:4.h) }"),
+            ("vaddw_dv", "{ v1:0.w = vadd(v3:2.w,v5:4.w) }"),
+            ("vaddbsat_dv", "{ v1:0.b = vadd(v3:2.b,v5:4.b):sat }"),
+            ("vaddhsat_dv", "{ v1:0.h = vadd(v3:2.h,v5:4.h):sat }"),
+            ("vaddwsat_dv", "{ v1:0.w = vadd(v3:2.w,v5:4.w):sat }"),
+            ("vaddubsat_dv", "{ v1:0.ub = vadd(v3:2.ub,v5:4.ub):sat }"),
+            ("vadduhsat_dv", "{ v1:0.uh = vadd(v3:2.uh,v5:4.uh):sat }"),
+            ("vadduwsat_dv", "{ v1:0.uw = vadd(v3:2.uw,v5:4.uw):sat }"),
+            ("vsubb_dv", "{ v1:0.b = vsub(v3:2.b,v5:4.b) }"),
+            ("vsubh_dv", "{ v1:0.h = vsub(v3:2.h,v5:4.h) }"),
+            ("vsubw_dv", "{ v1:0.w = vsub(v3:2.w,v5:4.w) }"),
+            ("vsubbsat_dv", "{ v1:0.b = vsub(v3:2.b,v5:4.b):sat }"),
+            ("vsubhsat_dv", "{ v1:0.h = vsub(v3:2.h,v5:4.h):sat }"),
+            ("vsubwsat_dv", "{ v1:0.w = vsub(v3:2.w,v5:4.w):sat }"),
+            ("vsububsat_dv", "{ v1:0.ub = vsub(v3:2.ub,v5:4.ub):sat }"),
+            ("vsubuhsat_dv", "{ v1:0.uh = vsub(v3:2.uh,v5:4.uh):sat }"),
+            ("vsubuwsat_dv", "{ v1:0.uw = vsub(v3:2.uw,v5:4.uw):sat }"),
+            // ---- widening (single source -> pair dest) ----
+            ("vaddubh", "{ v1:0.h = vadd(v2.ub,v3.ub) }"),
+            ("vaddubh_acc", "{ v1:0.h += vadd(v2.ub,v3.ub) }"),
+            ("vsububh", "{ v1:0.h = vsub(v2.ub,v3.ub) }"),
+            ("vaddhw", "{ v1:0.w = vadd(v2.h,v3.h) }"),
+            ("vaddhw_acc", "{ v1:0.w += vadd(v2.h,v3.h) }"),
+            ("vsubhw", "{ v1:0.w = vsub(v2.h,v3.h) }"),
+            ("vadduhw", "{ v1:0.w = vadd(v2.uh,v3.uh) }"),
+            ("vadduhw_acc", "{ v1:0.w += vadd(v2.uh,v3.uh) }"),
+            ("vsubuhw", "{ v1:0.w = vsub(v2.uh,v3.uh) }"),
+            // ---- special ----
+            ("vaddububb_sat", "{ v0.ub = vadd(v1.ub,v2.b):sat }"),
+            ("vsubububb_sat", "{ v0.ub = vsub(v1.ub,v2.b):sat }"),
+            ("vaddclbh", "{ v0.h = vadd(vclb(v1.h),v2.h) }"),
+            ("vaddclbw", "{ v0.w = vadd(vclb(v1.w),v2.w) }"),
+        ],
+        8,
+        0x2add,
+    );
+}
+
+// ==== hvx_round (wave-2 workflow) ====
+// ==== hvx_round (workflow: rounding/saturating narrows + accumulating shifts) ====
+#[test]
+fn diff_hvx_round() {
+    // Narrowing rounding/saturating converts (vround*, vsat*), the 64-bit
+    // saturate (vsatdw), the accumulating shifts (v{asr,asl}{h,w}_acc, Vx seeded
+    // random) and the shift-into overlay (vasr_into, Vxx pair seeded random).
+    // The vasrv*sat per-element variable narrows are V69+ and do not assemble at
+    // -mcpu=hexagonv68, so they are exercised in rax only (verified by reasoning
+    // against the spec, not the oracle).
+    run_family(
+        "hvx_round",
+        &[
+            ("vroundhb", "{ v0.b = vround(v1.h,v2.h):sat }"),
+            ("vroundhub", "{ v0.ub = vround(v1.h,v2.h):sat }"),
+            ("vrounduhub", "{ v0.ub = vround(v1.uh,v2.uh):sat }"),
+            ("vroundwh", "{ v0.h = vround(v1.w,v2.w):sat }"),
+            ("vroundwuh", "{ v0.uh = vround(v1.w,v2.w):sat }"),
+            ("vrounduwuh", "{ v0.uh = vround(v1.uw,v2.uw):sat }"),
+            ("vsathub", "{ v0.ub = vsat(v1.h,v2.h) }"),
+            ("vsatwh", "{ v0.h = vsat(v1.w,v2.w) }"),
+            ("vsatuwuh", "{ v0.uh = vsat(v1.uw,v2.uw) }"),
+            ("vsatdw", "{ v0.w = vsatdw(v1.w,v2.w) }"),
+            ("vasrh_acc", "{ v0.h += vasr(v1.h,r5) }"),
+            ("vaslh_acc", "{ v0.h += vasl(v1.h,r5) }"),
+            ("vasrw_acc", "{ v0.w += vasr(v1.w,r5) }"),
+            ("vaslw_acc", "{ v0.w += vasl(v1.w,r5) }"),
+            ("vasr_into", "{ v1:0.w = vasrinto(v2.w,v3.w) }"),
+        ],
+        10,
+        0x52ad,
+    );
+}
+
+// ==== hvx_permx (wave-2 workflow) ====
+// ==== hvx_permx (workflow: extended permutes) ====
+// Full shuffle/deal (in-place dual-register vshuff/vdeal + pair-dest vdealvdd),
+// odd/even shuffle into a pair (vshufoeb/vshufoeh), the vdelta/vrdelta byte
+// permute networks, Q-selected vswap, and per-word bit rotate vrotr.
+//
+// vshuff/vdeal write BOTH source registers in place (Vy and Vx), and both are
+// seeded random, so the diff over all 32 V regs verifies both halves. vswap
+// consumes a vector predicate Q; Hexagon does not forward Q within a packet, so
+// the Q is produced by a vcmp in an earlier packet and consumed by vswap in a
+// later one (the captured V pair reflects the produced Q).
+#[test]
+fn diff_hvx_permx() {
+    run_family(
+        "hvx_permx",
+        &[
+            // in-place dual-register full shuffle / deal (control = r5)
+            ("vshuff", "{ vshuff(v1,v0,r5) }"),
+            ("vdeal", "{ vdeal(v1,v0,r5) }"),
+            // pair-dest deal: Vdd = vdeal(Vu,Vv,Rt)
+            ("vdealvdd", "{ v1:0 = vdeal(v3,v2,r5) }"),
+            // odd/even shuffle into a vector pair
+            ("vshufoeb", "{ v1:0.b = vshuffoe(v3.b,v2.b) }"),
+            ("vshufoeh", "{ v1:0.h = vshuffoe(v3.h,v2.h) }"),
+            // byte permute networks (control vector Vv = v2)
+            ("vdelta", "{ v0 = vdelta(v1,v2) }"),
+            ("vrdelta", "{ v0 = vrdelta(v1,v2) }"),
+            // per-word bit rotate right
+            ("vrotr", "{ v0.uw = vrotr(v1.uw,v2.uw) }"),
+            // Q-selected swap: produce Q0 in packet 1, consume in packet 2.
+            ("vswap", "{ q0 = vcmp.gt(v5.b,v6.b) }\n{ v1:0 = vswap(q0,v3,v2) }"),
+        ],
+        12,
+        0x9106,
+    );
+}
+
+// ==== hvx_predop (wave-2 workflow) ====
+// ==== hvx_predop (workflow: vector-predicated add/sub + scalar-pred mov/combine) ====
+// The vector-predicated add/sub forms consume a Q produced in an EARLIER packet
+// (Hexagon does not forward Q within a packet); the destination v0 is a
+// read-modify-write accumulator (seeded random) that the oracle captures. The
+// scalar-predicated mov/combine forms are single-packet: P0 is seeded all-0 /
+// all-1 so both the take and CANCEL branches are exercised across iterations.
+#[test]
+fn diff_hvx_predop() {
+    run_family(
+        "hvx_predop",
+        &[
+            // if (Qv) Vx += Vu  /  if (!Qv) Vx += Vu  (byte/half/word)
+            ("vaddbq", "{ q0 = vcmp.gt(v5.b,v6.b) }\n{ if (q0) v0.b += v1.b }"),
+            ("vaddbnq", "{ q0 = vcmp.gt(v5.b,v6.b) }\n{ if (!q0) v0.b += v1.b }"),
+            ("vaddhq", "{ q0 = vcmp.gt(v5.h,v6.h) }\n{ if (q0) v0.h += v1.h }"),
+            ("vaddhnq", "{ q0 = vcmp.gt(v5.h,v6.h) }\n{ if (!q0) v0.h += v1.h }"),
+            ("vaddwq", "{ q0 = vcmp.gt(v5.w,v6.w) }\n{ if (q0) v0.w += v1.w }"),
+            ("vaddwnq", "{ q0 = vcmp.gt(v5.w,v6.w) }\n{ if (!q0) v0.w += v1.w }"),
+            // if (Qv) Vx -= Vu  /  if (!Qv) Vx -= Vu
+            ("vsubbq", "{ q0 = vcmp.gt(v5.b,v6.b) }\n{ if (q0) v0.b -= v1.b }"),
+            ("vsubbnq", "{ q0 = vcmp.gt(v5.b,v6.b) }\n{ if (!q0) v0.b -= v1.b }"),
+            ("vsubhq", "{ q0 = vcmp.gt(v5.h,v6.h) }\n{ if (q0) v0.h -= v1.h }"),
+            ("vsubhnq", "{ q0 = vcmp.gt(v5.h,v6.h) }\n{ if (!q0) v0.h -= v1.h }"),
+            ("vsubwq", "{ q0 = vcmp.gt(v5.w,v6.w) }\n{ if (q0) v0.w -= v1.w }"),
+            ("vsubwnq", "{ q0 = vcmp.gt(v5.w,v6.w) }\n{ if (!q0) v0.w -= v1.w }"),
+            // scalar-predicated move: if (Ps) Vd = Vu  /  vncmov: if (!Ps)
+            ("vcmov", "{ if (p0) v0 = v1 }"),
+            ("vncmov", "{ if (!p0) v0 = v1 }"),
+            // scalar-predicated combine: if (Ps) Vdd = vcombine(Vu, Vv)
+            ("vccombine", "{ if (p0) v1:0 = vcombine(v3,v2) }"),
+            ("vnccombine", "{ if (!p0) v1:0 = vcombine(v3,v2) }"),
+        ],
+        8,
+        0x6b1f,
+    );
+}
+
+// ==== hvx_cmpacc (wave-2 workflow) ====
+// --- hvx_cmpacc: compare-accumulate vector predicates -----------------------
+// `Qx {&=,|=,^=} vcmp.{gt,eq}(Vu.<t>,Vv.<t>)` reads-modifies an existing Q. The
+// accumulator Q must come from an *earlier* packet (Hexagon does not forward Q
+// within a packet), so each case is a 3-packet chain: packet 1 seeds q0 with an
+// independent compare, packet 2 is the compare-accumulate under test, packet 3
+// muxes the final q0 into the oracle-captured v0. The eq unsigned (ub/uh/uw)
+// forms are assembler aliases of the signed (b/h/w) encodings, so only the gt
+// forms have distinct signed/unsigned opcodes.
+#[test]
+fn diff_hvx_cmpacc() {
+    run_family(
+        "hvx_cmpacc",
+        &[
+            // ---- gt signed byte ----
+            ("vgtb_and", "{ q0 = vcmp.gt(v5.b,v6.b) }\n{ q0 &= vcmp.gt(v1.b,v2.b) }\n{ v0 = vmux(q0,v3,v4) }"),
+            ("vgtb_or", "{ q0 = vcmp.gt(v5.b,v6.b) }\n{ q0 |= vcmp.gt(v1.b,v2.b) }\n{ v0 = vmux(q0,v3,v4) }"),
+            ("vgtb_xor", "{ q0 = vcmp.gt(v5.b,v6.b) }\n{ q0 ^= vcmp.gt(v1.b,v2.b) }\n{ v0 = vmux(q0,v3,v4) }"),
+            // ---- gt signed halfword ----
+            ("vgth_and", "{ q0 = vcmp.gt(v5.h,v6.h) }\n{ q0 &= vcmp.gt(v1.h,v2.h) }\n{ v0 = vmux(q0,v3,v4) }"),
+            ("vgth_or", "{ q0 = vcmp.gt(v5.h,v6.h) }\n{ q0 |= vcmp.gt(v1.h,v2.h) }\n{ v0 = vmux(q0,v3,v4) }"),
+            ("vgth_xor", "{ q0 = vcmp.gt(v5.h,v6.h) }\n{ q0 ^= vcmp.gt(v1.h,v2.h) }\n{ v0 = vmux(q0,v3,v4) }"),
+            // ---- gt signed word ----
+            ("vgtw_and", "{ q0 = vcmp.gt(v5.w,v6.w) }\n{ q0 &= vcmp.gt(v1.w,v2.w) }\n{ v0 = vmux(q0,v3,v4) }"),
+            ("vgtw_or", "{ q0 = vcmp.gt(v5.w,v6.w) }\n{ q0 |= vcmp.gt(v1.w,v2.w) }\n{ v0 = vmux(q0,v3,v4) }"),
+            ("vgtw_xor", "{ q0 = vcmp.gt(v5.w,v6.w) }\n{ q0 ^= vcmp.gt(v1.w,v2.w) }\n{ v0 = vmux(q0,v3,v4) }"),
+            // ---- gt unsigned byte ----
+            ("vgtub_and", "{ q0 = vcmp.gt(v5.ub,v6.ub) }\n{ q0 &= vcmp.gt(v1.ub,v2.ub) }\n{ v0 = vmux(q0,v3,v4) }"),
+            ("vgtub_or", "{ q0 = vcmp.gt(v5.ub,v6.ub) }\n{ q0 |= vcmp.gt(v1.ub,v2.ub) }\n{ v0 = vmux(q0,v3,v4) }"),
+            ("vgtub_xor", "{ q0 = vcmp.gt(v5.ub,v6.ub) }\n{ q0 ^= vcmp.gt(v1.ub,v2.ub) }\n{ v0 = vmux(q0,v3,v4) }"),
+            // ---- gt unsigned halfword ----
+            ("vgtuh_and", "{ q0 = vcmp.gt(v5.uh,v6.uh) }\n{ q0 &= vcmp.gt(v1.uh,v2.uh) }\n{ v0 = vmux(q0,v3,v4) }"),
+            ("vgtuh_or", "{ q0 = vcmp.gt(v5.uh,v6.uh) }\n{ q0 |= vcmp.gt(v1.uh,v2.uh) }\n{ v0 = vmux(q0,v3,v4) }"),
+            ("vgtuh_xor", "{ q0 = vcmp.gt(v5.uh,v6.uh) }\n{ q0 ^= vcmp.gt(v1.uh,v2.uh) }\n{ v0 = vmux(q0,v3,v4) }"),
+            // ---- gt unsigned word ----
+            ("vgtuw_and", "{ q0 = vcmp.gt(v5.uw,v6.uw) }\n{ q0 &= vcmp.gt(v1.uw,v2.uw) }\n{ v0 = vmux(q0,v3,v4) }"),
+            ("vgtuw_or", "{ q0 = vcmp.gt(v5.uw,v6.uw) }\n{ q0 |= vcmp.gt(v1.uw,v2.uw) }\n{ v0 = vmux(q0,v3,v4) }"),
+            ("vgtuw_xor", "{ q0 = vcmp.gt(v5.uw,v6.uw) }\n{ q0 ^= vcmp.gt(v1.uw,v2.uw) }\n{ v0 = vmux(q0,v3,v4) }"),
+            // ---- eq byte ----
+            ("veqb_and", "{ q0 = vcmp.eq(v5.b,v6.b) }\n{ q0 &= vcmp.eq(v1.b,v2.b) }\n{ v0 = vmux(q0,v3,v4) }"),
+            ("veqb_or", "{ q0 = vcmp.eq(v5.b,v6.b) }\n{ q0 |= vcmp.eq(v1.b,v2.b) }\n{ v0 = vmux(q0,v3,v4) }"),
+            ("veqb_xor", "{ q0 = vcmp.eq(v5.b,v6.b) }\n{ q0 ^= vcmp.eq(v1.b,v2.b) }\n{ v0 = vmux(q0,v3,v4) }"),
+            // ---- eq halfword ----
+            ("veqh_and", "{ q0 = vcmp.eq(v5.h,v6.h) }\n{ q0 &= vcmp.eq(v1.h,v2.h) }\n{ v0 = vmux(q0,v3,v4) }"),
+            ("veqh_or", "{ q0 = vcmp.eq(v5.h,v6.h) }\n{ q0 |= vcmp.eq(v1.h,v2.h) }\n{ v0 = vmux(q0,v3,v4) }"),
+            ("veqh_xor", "{ q0 = vcmp.eq(v5.h,v6.h) }\n{ q0 ^= vcmp.eq(v1.h,v2.h) }\n{ v0 = vmux(q0,v3,v4) }"),
+            // ---- eq word ----
+            ("veqw_and", "{ q0 = vcmp.eq(v5.w,v6.w) }\n{ q0 &= vcmp.eq(v1.w,v2.w) }\n{ v0 = vmux(q0,v3,v4) }"),
+            ("veqw_or", "{ q0 = vcmp.eq(v5.w,v6.w) }\n{ q0 |= vcmp.eq(v1.w,v2.w) }\n{ v0 = vmux(q0,v3,v4) }"),
+            ("veqw_xor", "{ q0 = vcmp.eq(v5.w,v6.w) }\n{ q0 ^= vcmp.eq(v1.w,v2.w) }\n{ v0 = vmux(q0,v3,v4) }"),
+        ],
+        8,
+        0x2cac,
+    );
+}
+
+// ==== hvx_misc (wave-2 workflow) ====
+// ==== hvx_misc (workflow: misc HVX bridges/housekeeping) ====
+// vnot, vinsertwr, extractw, the Q<->R/V accumulate bridges, predicate prefix
+// sums, vsetq, and the predicate shuffle/shrink ops. Scalar Rt = r5.
+//   * Acc bridges (vand{,n}qrt_acc) read+write v0 (seeded random) and consume a
+//     Q produced in an earlier packet (Hexagon does not forward Q intra-packet).
+//   * Q-producing ops (vandvrt_acc, vsetq, shuffeq{h,w}) are verified by feeding
+//     the produced Q into a later vmux whose captured V0 reflects the whole chain.
+//   * vinsertwr seeds v0 random and replaces word 0; extractw captures r1.
+#[test]
+fn diff_hvx_misc() {
+    run_family(
+        "hvx_misc",
+        &[
+            ("vnot", "{ v0 = vnot(v1) }"),
+            ("vinsertwr", "{ v0.w = vinsert(r5) }"),
+            ("extractw", "{ r1 = vextract(v0,r2) }"),
+            (
+                "vandqrt_acc",
+                "{ q0 = vcmp.gt(v5.b,v6.b) }\n{ v0.ub |= vand(q0.ub,r5.ub) }",
+            ),
+            (
+                "vandnqrt_acc",
+                "{ q0 = vcmp.gt(v5.b,v6.b) }\n{ v0.ub |= vand(!q0.ub,r5.ub) }",
+            ),
+            (
+                "vandvrt_acc",
+                "{ q0 = vcmp.gt(v5.b,v6.b) }\n{ q0 |= vand(v1,r5) }\n{ v0 = vmux(q0,v3,v4) }",
+            ),
+            (
+                "vprefixqb",
+                "{ q0 = vcmp.gt(v5.b,v6.b) }\n{ v0.b = prefixsum(q0) }",
+            ),
+            (
+                "vprefixqh",
+                "{ q0 = vcmp.gt(v5.b,v6.b) }\n{ v0.h = prefixsum(q0) }",
+            ),
+            (
+                "vprefixqw",
+                "{ q0 = vcmp.gt(v5.b,v6.b) }\n{ v0.w = prefixsum(q0) }",
+            ),
+            (
+                "pred_scalar2",
+                "{ q0 = vsetq(r5) }\n{ v0 = vmux(q0,v3,v4) }",
+            ),
+            (
+                "shuffeqh",
+                "{ q1 = vcmp.gt(v5.b,v6.b); q2 = vcmp.gt(v7.b,v8.b) }\n{ q0.b = vshuffe(q1.h,q2.h) }\n{ v0 = vmux(q0,v3,v4) }",
+            ),
+            (
+                "shuffeqw",
+                "{ q1 = vcmp.gt(v5.b,v6.b); q2 = vcmp.gt(v7.b,v8.b) }\n{ q0.h = vshuffe(q1.w,q2.w) }\n{ v0 = vmux(q0,v3,v4) }",
+            ),
+        ],
+        16,
+        0xd1f5,
+    );
+}
