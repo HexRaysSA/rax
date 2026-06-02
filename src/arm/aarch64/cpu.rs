@@ -5233,6 +5233,87 @@ impl AArch64Cpu {
                 Ok(CpuExit::Continue)
             }
 
+            // SVE2 integer multiply-add long: 0x44, bit21==0, bits[15:13]==010.
+            // S?MLALB/T (S=0) and S?MLSLB/T (S=1); U widening sign; T odd/even.
+            // Zda (the destination, bits[4:0]) accumulates widen(Zn)*widen(Zm).
+            0b010
+                if (insn >> 24) & 0xFF == 0b01000100
+                    && (insn >> 21) & 1 == 0
+                    && (insn >> 13) & 0x7 == 0b010 =>
+            {
+                let size = (insn >> 22) & 0x3;
+                if size == 0 {
+                    return Ok(CpuExit::Undefined(insn));
+                }
+                let d_esize = 1usize << size;
+                let s_esize = d_esize / 2;
+                let s_bits = (s_esize * 8) as u32;
+                let mask = elem_mask((d_esize * 8) as u32);
+                let sub = (insn >> 12) & 1 == 1;
+                let unsigned = (insn >> 11) & 1 == 1;
+                let top = (insn >> 10) & 1 == 1;
+                let elements = 16 / d_esize;
+                let acc = self.v[zd].to_le_bytes();
+                let a = self.v[zn].to_le_bytes();
+                let b = self.v[zm].to_le_bytes();
+                let mut dst = acc;
+                for d in 0..elements {
+                    let off = (2 * d + top as usize) * s_esize;
+                    let xn = read_elem(&a, off, s_esize);
+                    let xm = read_elem(&b, off, s_esize);
+                    let prod: i128 = if unsigned {
+                        (uext_elem(xn, s_bits) * uext_elem(xm, s_bits)) as i128
+                    } else {
+                        sext_elem(xn, s_bits) * sext_elem(xm, s_bits)
+                    };
+                    let cur = read_elem(&acc, d * d_esize, d_esize) as i128;
+                    let r = if sub { cur - prod } else { cur + prod };
+                    write_elem(&mut dst, d * d_esize, d_esize, (r as u64) & mask);
+                }
+                self.v[zd] = u128::from_le_bytes(dst);
+                Ok(CpuExit::Continue)
+            }
+
+            // SVE2 saturating doubling multiply-add long: 0x44, bit21==0,
+            // bits[15:12]==0110. SQDMLALB/T (S=0) / SQDMLSLB/T (S=1). The doubled
+            // signed product is saturated, then the accumulate is saturated.
+            0b010
+                if (insn >> 24) & 0xFF == 0b01000100
+                    && (insn >> 21) & 1 == 0
+                    && (insn >> 12) & 0xF == 0b0110 =>
+            {
+                let size = (insn >> 22) & 0x3;
+                if size == 0 {
+                    return Ok(CpuExit::Undefined(insn));
+                }
+                let d_esize = 1usize << size;
+                let s_esize = d_esize / 2;
+                let s_bits = (s_esize * 8) as u32;
+                let d_bits = (d_esize * 8) as u32;
+                let mask = elem_mask(d_bits);
+                let sub = (insn >> 11) & 1 == 1;
+                let top = (insn >> 10) & 1 == 1;
+                let elements = 16 / d_esize;
+                let hi = (1i128 << (d_bits - 1)) - 1;
+                let lo = -(1i128 << (d_bits - 1));
+                let acc = self.v[zd].to_le_bytes();
+                let a = self.v[zn].to_le_bytes();
+                let b = self.v[zm].to_le_bytes();
+                let mut dst = acc;
+                for d in 0..elements {
+                    let off = (2 * d + top as usize) * s_esize;
+                    let prod = 2i128
+                        * sext_elem(read_elem(&a, off, s_esize), s_bits)
+                        * sext_elem(read_elem(&b, off, s_esize), s_bits);
+                    let sat = prod.clamp(lo, hi);
+                    let cur = sext_elem(read_elem(&acc, d * d_esize, d_esize), d_bits);
+                    let r = if sub { cur - sat } else { cur + sat };
+                    write_elem(&mut dst, d * d_esize, d_esize, (r.clamp(lo, hi) as u64) & mask);
+                }
+                self.v[zd] = u128::from_le_bytes(dst);
+                Ok(CpuExit::Continue)
+            }
+
             // Load/Store
             0b100 | 0b101 | 0b110 | 0b111 => self.exec_sve_ldst(insn),
 

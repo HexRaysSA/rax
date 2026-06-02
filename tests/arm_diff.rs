@@ -1591,6 +1591,16 @@ fn enc_sve2_mull(size: u32, op: u32, u: u32, t: u32) -> u32 {
     (0b01000101 << 24) | (size << 22) | (RM << 16) | (0b011 << 13) | (op << 12) | (u << 11)
         | (t << 10) | (RN << 5) | RD
 }
+/// SVE2 multiply-add long: `01000100 size 0 Zm 010 S U T Zn Zda`.
+fn enc_sve2_mlal(size: u32, s: u32, u: u32, t: u32) -> u32 {
+    (0b01000100 << 24) | (size << 22) | (RM << 16) | (0b010 << 13) | (s << 12) | (u << 11)
+        | (t << 10) | (RN << 5) | RD
+}
+/// SVE2 saturating doubling multiply-add long: `01000100 size 0 Zm 0110 S T Zn Zda`.
+fn enc_sve2_sqdmlal(size: u32, s: u32, t: u32) -> u32 {
+    (0b01000100 << 24) | (size << 22) | (RM << 16) | (0b0110 << 12) | (s << 11) | (t << 10)
+        | (RN << 5) | RD
+}
 
 /// SVE INDEX variants. base=imm5[9:5] or Xn; step=imm5[20:16] or Xm. Rn=x1, Rm=x2.
 fn enc_index_ii(sz: u32, imm_step: u32, imm_base: u32) -> u32 {
@@ -3419,6 +3429,27 @@ fn diff_sve2_mull() {
         cases.push((format!("pmull t{t}"), enc_sve2_mull(1, 0, 1, t)));
     }
     run_family("sve2_mull", cases, 16, 0x5_2001);
+}
+
+#[test]
+fn diff_sve2_mlal() {
+    // SVE2 multiply-add long (S?MLAL/S?MLSL) and saturating doubling MAC long
+    // (SQDMLAL/SQDMLSL).
+    let mut cases: Vec<(String, u32)> = Vec::new();
+    for size in 1..4u32 {
+        for t in 0..2u32 {
+            for s in 0..2u32 {
+                for u in 0..2u32 {
+                    cases.push((
+                        format!("mlal sz{size} s{s} u{u} t{t}"),
+                        enc_sve2_mlal(size, s, u, t),
+                    ));
+                }
+                cases.push((format!("sqdmlal sz{size} s{s} t{t}"), enc_sve2_sqdmlal(size, s, t)));
+            }
+        }
+    }
+    run_family("sve2_mlal", cases, 16, 0x5_3001);
 }
 
 #[test]
