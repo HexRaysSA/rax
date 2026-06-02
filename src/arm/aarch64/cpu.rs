@@ -1729,13 +1729,8 @@ impl AArch64Cpu {
             return Ok(CpuExit::Continue);
         }
 
-        // Vector FP16 add (binary uniform add)
-        if (insn >> 24) & 0x1F == 0b01110
-            && (insn >> 21) & 0x7 == 0b010
-            && (insn >> 10) & 0x3F == 0b000101
-        {
-            return self.exec_simd_fp16_add(insn);
-        }
+        // (FADD/FADDP FP16 fall through to the unified three-same FP16 handler
+        // below; the previous dedicated add handler rounded incorrectly.)
 
         // Advanced SIMD copy (DUP element/general, INS element/general, SMOV,
         // UMOV). Identified by bits[23:21]==000 (bit22==0 distinguishes it from
@@ -2020,58 +2015,6 @@ impl AArch64Cpu {
         Ok(CpuExit::Continue)
     }
 
-    /// Execute SIMD FP16 add (binary uniform add).
-    fn exec_simd_fp16_add(&mut self, insn: u32) -> Result<CpuExit, ArmError> {
-        let q = (insn >> 30) & 1;
-        let pair = ((insn >> 29) & 1) != 0;
-        let rm = ((insn >> 16) & 0x1F) as usize;
-        let rn = ((insn >> 5) & 0x1F) as usize;
-        let rd = (insn & 0x1F) as usize;
-
-        let datasize = if q == 1 { 16 } else { 8 };
-        let esize = 2usize;
-        let elements = datasize / esize;
-
-        let src1 = self.v[rn].to_le_bytes();
-        let src2 = self.v[rm].to_le_bytes();
-        let mut dst = [0u8; 16];
-        let mut concat = [0u8; 32];
-
-        if pair {
-            concat[..datasize].copy_from_slice(&src1[..datasize]);
-            concat[datasize..datasize * 2].copy_from_slice(&src2[..datasize]);
-        }
-
-        for e in 0..elements {
-            let out_off = e * esize;
-            let (a_bits, b_bits) = if pair {
-                let idx1 = 2 * e;
-                let idx2 = idx1 + 1;
-                let a_off = idx1 * esize;
-                let b_off = idx2 * esize;
-                (
-                    u16::from_le_bytes([concat[a_off], concat[a_off + 1]]),
-                    u16::from_le_bytes([concat[b_off], concat[b_off + 1]]),
-                )
-            } else {
-                let a_off = e * esize;
-                let b_off = e * esize;
-                (
-                    u16::from_le_bytes([src1[a_off], src1[a_off + 1]]),
-                    u16::from_le_bytes([src2[b_off], src2[b_off + 1]]),
-                )
-            };
-
-            let result = Self::fp16_to_f32(a_bits) + Self::fp16_to_f32(b_bits);
-            let out_bits = Self::f32_to_fp16(result);
-            let bytes = out_bits.to_le_bytes();
-            dst[out_off..out_off + 2].copy_from_slice(&bytes);
-        }
-
-        self.v[rd] = u128::from_le_bytes(dst);
-        Ok(CpuExit::Continue)
-    }
-
     /// Execute SIMD FP16 three-same register instructions.
     fn exec_simd_fp16_three_same(&mut self, insn: u32) -> Result<CpuExit, ArmError> {
         let q = (insn >> 30) & 1;
@@ -2082,7 +2025,7 @@ impl AArch64Cpu {
         let rn = ((insn >> 5) & 0x1F) as usize;
         let rd = (insn & 0x1F) as usize;
 
-        // For scalar, bit[28]=1 (but scalar FP16 three-same also has q=1 in encoding)
+        // For scalar (bit28=1) only the low halfword is processed.
         let is_scalar = ((insn >> 28) & 1) == 1;
         let datasize = if is_scalar {
             2
@@ -2093,122 +2036,87 @@ impl AArch64Cpu {
         };
         let elements = datasize / 2;
 
-        let src1 = self.v[rn].to_le_bytes();
-        let src2 = self.v[rm].to_le_bytes();
-        let mut dst = [0u8; 16];
+        // Classify the operation. `Bin` is a per-lane binary op; `Mla`/`Mls`
+        // are the fused multiply-accumulate forms (they read the destination);
+        // `Pair` is a pairwise-reduction op. See the Arm "Advanced SIMD
+        // three-same (FP16)" table indexed by (U, a=bit23, opcode=bits[13:11]).
+        enum Fp16Op {
+            Bin(fn(u16, u16) -> u16),
+            Pair(fn(u16, u16) -> u16),
+            Mla,
+            Mls,
+        }
+        let op = match (u, a, opcode) {
+            // U=0
+            (0, 0, 0b000) => Fp16Op::Bin(fp16_maxnm),
+            (0, 1, 0b000) => Fp16Op::Bin(fp16_minnm),
+            (0, 0, 0b001) => Fp16Op::Mla,
+            (0, 1, 0b001) => Fp16Op::Mls,
+            (0, 0, 0b010) => Fp16Op::Bin(fp16_add),
+            (0, 1, 0b010) => Fp16Op::Bin(fp16_sub),
+            (0, 0, 0b011) => Fp16Op::Bin(fp16_mulx),
+            (0, 0, 0b100) => Fp16Op::Bin(|x, y| fp16_cmp(x, y, 0)), // FCMEQ
+            (0, 0, 0b110) => Fp16Op::Bin(fp16_max),
+            (0, 1, 0b110) => Fp16Op::Bin(fp16_min),
+            (0, 0, 0b111) => Fp16Op::Bin(fp16_recps),
+            (0, 1, 0b111) => Fp16Op::Bin(fp16_rsqrts),
+            // U=1
+            (1, 0, 0b000) => Fp16Op::Pair(fp16_maxnm),
+            (1, 1, 0b000) => Fp16Op::Pair(fp16_minnm),
+            (1, 0, 0b010) => Fp16Op::Pair(fp16_add),
+            (1, 1, 0b010) => Fp16Op::Bin(fp16_abd),
+            (1, 0, 0b011) => Fp16Op::Bin(fp16_mul),
+            (1, 0, 0b100) => Fp16Op::Bin(|x, y| fp16_cmp(x, y, 1)), // FCMGE
+            (1, 1, 0b100) => Fp16Op::Bin(|x, y| fp16_cmp(x, y, 2)), // FCMGT
+            (1, 0, 0b101) => Fp16Op::Bin(|x, y| fp16_cmp(x, y, 3)), // FACGE
+            (1, 1, 0b101) => Fp16Op::Bin(|x, y| fp16_cmp(x, y, 4)), // FACGT
+            (1, 0, 0b110) => Fp16Op::Pair(fp16_max),
+            (1, 1, 0b110) => Fp16Op::Pair(fp16_min),
+            (1, 0, 0b111) => Fp16Op::Bin(fp16_div),
+            _ => return Ok(CpuExit::Undefined(insn)),
+        };
 
-        for e in 0..elements {
-            let offset = e * 2;
-            let a_bits = u16::from_le_bytes([src1[offset], src1[offset + 1]]);
-            let b_bits = u16::from_le_bytes([src2[offset], src2[offset + 1]]);
+        let lane = |v: u128, e: usize| -> u16 { (v >> (e * 16)) as u16 };
+        let src1 = self.v[rn];
+        let src2 = self.v[rm];
+        let acc = self.v[rd];
+        let mut dst = 0u128;
 
-            let op1 = Self::fp16_to_f32(a_bits);
-            let op2 = Self::fp16_to_f32(b_bits);
-
-            // FP16 three-same operations based on 'a' bit (bit 23):
-            // a=0 group: FMAXNM, FMINNM, FMULX, FMAX, FMIN, FRECPS, FRSQRTS, FCMGE, FACGE, FCMGT, FACGT
-            // a=1 group: FADD, FSUB, FMUL, FDIV, FMAX, FMIN, FMAXNM, FMINNM, FABS, FNEG, FCMEQ, etc.
-            let result = match (a, u, opcode) {
-                // a=0 group
-                (0, 0, 0b000) => self.fp_maxnm_f32(op1, op2), // FMAXNM
-                (0, 1, 0b000) => self.fp_minnm_f32(op1, op2), // FMINNM
-                (0, 0, 0b011) => op1 * op2,                   // FMULX (simplified as MUL)
-                (0, 1, 0b011) => op1 / op2,                   // FDIV
-                (0, 0, 0b110) => op1.max(op2),                // FMAX
-                (0, 1, 0b110) => op1.min(op2),                // FMIN
-                (0, 0, 0b111) => 2.0 - op1 * op2,             // FRECPS
-                (0, 1, 0b111) => (3.0 - op1 * op2) / 2.0,     // FRSQRTS
-                (0, 0, 0b100) => {
-                    // FCMGE - compare greater or equal
-                    if op1 >= op2 {
-                        f32::from_bits(0xFFFFFFFF)
-                    } else {
-                        0.0
-                    }
+        match op {
+            Fp16Op::Bin(f) => {
+                for e in 0..elements {
+                    let r = f(lane(src1, e), lane(src2, e));
+                    dst |= (r as u128) << (e * 16);
                 }
-                (0, 1, 0b100) => {
-                    // FCMGT - compare greater than
-                    if op1 > op2 {
-                        f32::from_bits(0xFFFFFFFF)
-                    } else {
-                        0.0
-                    }
+            }
+            Fp16Op::Mla => {
+                for e in 0..elements {
+                    let r = fp16_mla(lane(acc, e), lane(src1, e), lane(src2, e));
+                    dst |= (r as u128) << (e * 16);
                 }
-                (0, 0, 0b101) => {
-                    // FACGE - compare absolute greater or equal
-                    if op1.abs() >= op2.abs() {
-                        f32::from_bits(0xFFFFFFFF)
-                    } else {
-                        0.0
-                    }
+            }
+            Fp16Op::Mls => {
+                for e in 0..elements {
+                    let r = fp16_mls(lane(acc, e), lane(src1, e), lane(src2, e));
+                    dst |= (r as u128) << (e * 16);
                 }
-                (0, 1, 0b101) => {
-                    // FACGT - compare absolute greater than
-                    if op1.abs() > op2.abs() {
-                        f32::from_bits(0xFFFFFFFF)
-                    } else {
-                        0.0
-                    }
+            }
+            Fp16Op::Pair(f) => {
+                // Pairwise: the lower half of the result comes from adjacent
+                // pairs of Vn, the upper half from adjacent pairs of Vm.
+                let pairs = elements / 2;
+                for i in 0..pairs {
+                    let r = f(lane(src1, 2 * i), lane(src1, 2 * i + 1));
+                    dst |= (r as u128) << (i * 16);
                 }
-                // a=1 group
-                (1, 0, 0b010) => op1 + op2,                   // FADD
-                (1, 1, 0b010) => op1 - op2,                   // FSUB
-                (1, 0, 0b011) => op1 * op2,                   // FMUL
-                (1, 1, 0b011) => op1 / op2,                   // FDIV (also in a=1 group)
-                (1, 0, 0b000) => self.fp_maxnm_f32(op1, op2), // FMAXNM (also in a=1)
-                (1, 1, 0b000) => self.fp_minnm_f32(op1, op2), // FMINNM (also in a=1)
-                (1, 0, 0b110) => op1.max(op2),                // FMAX
-                (1, 1, 0b110) => op1.min(op2),                // FMIN
-                (1, 0, 0b100) => {
-                    // FCMEQ - compare equal
-                    if op1 == op2 {
-                        f32::from_bits(0xFFFFFFFF)
-                    } else {
-                        0.0
-                    }
+                for i in 0..pairs {
+                    let r = f(lane(src2, 2 * i), lane(src2, 2 * i + 1));
+                    dst |= (r as u128) << ((pairs + i) * 16);
                 }
-                (1, 1, 0b100) => {
-                    // FCMGE - compare greater or equal
-                    if op1 >= op2 {
-                        f32::from_bits(0xFFFFFFFF)
-                    } else {
-                        0.0
-                    }
-                }
-                (1, 0, 0b101) => {
-                    // FACGE - compare absolute greater or equal
-                    if op1.abs() >= op2.abs() {
-                        f32::from_bits(0xFFFFFFFF)
-                    } else {
-                        0.0
-                    }
-                }
-                (1, 1, 0b101) => {
-                    // FCMGT/FACGT - compare greater than
-                    if op1 > op2 {
-                        f32::from_bits(0xFFFFFFFF)
-                    } else {
-                        0.0
-                    }
-                }
-                (1, 0, 0b111) => {
-                    // FACGT - compare absolute greater than
-                    if op1.abs() > op2.abs() {
-                        f32::from_bits(0xFFFFFFFF)
-                    } else {
-                        0.0
-                    }
-                }
-                (1, 1, 0b111) => (3.0 - op1 * op2) / 2.0, // FRSQRTS
-                _ => return Ok(CpuExit::Undefined(insn)),
-            };
-
-            let out_bits = Self::f32_to_fp16(result);
-            let bytes = out_bits.to_le_bytes();
-            dst[offset..offset + 2].copy_from_slice(&bytes);
+            }
         }
 
-        self.v[rd] = u128::from_le_bytes(dst);
+        self.v[rd] = dst;
         Ok(CpuExit::Continue)
     }
 
@@ -4272,7 +4180,10 @@ impl AArch64Cpu {
                     e += 1;
                 }
                 m &= 0x3FF;
-                let new_exp = (127 - 15 - e) as u32;
+                // A binary16 subnormal has value mant*2^-24; once normalised so
+                // the implicit 1 sits at bit 10 (after `e` left shifts) the
+                // unbiased exponent is -14-e, i.e. biased (127-14-e).
+                let new_exp = (127 - 14 - e) as u32;
                 (sign << 31) | (new_exp << 23) | (m << 13)
             }
         } else if exp == 0x1F {
@@ -8916,6 +8827,278 @@ fn sha1_hash(x_in: u128, y_in: u32, w: u128, f: fn(u32, u32, u32) -> u32) -> u12
         x = new_x;
     }
     x
+}
+
+// ---- Software half-precision (IEEE binary16) for AdvSIMD FP16 ----
+//
+// All operations follow the Arm ASL with the default FPCR (round-to-nearest
+// even, no flush-to-zero, DN=0 so input NaNs propagate quieted). Arithmetic is
+// evaluated in f64 — exact for binary16 add/sub/mul and the fused step/estimate
+// forms — then rounded once to binary16 with `fp16_round`.
+
+#[inline]
+fn fp16_to_f64(h: u16) -> f64 {
+    AArch64Cpu::fp16_to_f32(h) as f64
+}
+
+#[inline]
+fn fp16_is_nan(h: u16) -> bool {
+    (h & 0x7C00) == 0x7C00 && (h & 0x03FF) != 0
+}
+
+#[inline]
+fn fp16_is_inf(h: u16) -> bool {
+    (h & 0x7FFF) == 0x7C00
+}
+
+#[inline]
+fn fp16_is_zero(h: u16) -> bool {
+    (h & 0x7FFF) == 0
+}
+
+/// FPProcessNaNs over two operands (DN=0): propagate a NaN if present,
+/// quieting signaling NaNs and giving them priority. Returns None if neither
+/// operand is a NaN.
+fn fp16_nan2(a: u16, b: u16) -> Option<u16> {
+    let a_nan = fp16_is_nan(a);
+    let b_nan = fp16_is_nan(b);
+    if a_nan && (a & 0x0200) == 0 {
+        Some(a | 0x0200)
+    } else if b_nan && (b & 0x0200) == 0 {
+        Some(b | 0x0200)
+    } else if a_nan {
+        Some(a)
+    } else if b_nan {
+        Some(b)
+    } else {
+        None
+    }
+}
+
+/// FPProcessNaNs over three operands (for the fused multiply-add forms).
+fn fp16_nan3(a: u16, b: u16, c: u16) -> Option<u16> {
+    for &x in &[a, b, c] {
+        if fp16_is_nan(x) && (x & 0x0200) == 0 {
+            return Some(x | 0x0200);
+        }
+    }
+    for &x in &[a, b, c] {
+        if fp16_is_nan(x) {
+            return Some(x);
+        }
+    }
+    None
+}
+
+/// Round `v / 2^shift` to nearest, ties to even.
+fn round_shift_u64(v: u64, shift: u32) -> u64 {
+    if shift == 0 {
+        return v;
+    }
+    if shift >= 64 {
+        return 0;
+    }
+    let result = v >> shift;
+    let rem = v & ((1u64 << shift) - 1);
+    let half = 1u64 << (shift - 1);
+    if rem > half || (rem == half && (result & 1) == 1) {
+        result + 1
+    } else {
+        result
+    }
+}
+
+/// Round an f64 to IEEE binary16 (round-to-nearest even, no flush-to-zero).
+/// A NaN input maps to the default binary16 NaN; callers that must preserve an
+/// operand NaN handle propagation before calling this.
+fn fp16_round(x: f64) -> u16 {
+    if x.is_nan() {
+        return 0x7E00;
+    }
+    let sign: u16 = if x.is_sign_negative() { 0x8000 } else { 0 };
+    let a = x.abs();
+    if a == 0.0 {
+        return sign;
+    }
+    if a.is_infinite() || a >= 65520.0 {
+        // 65520 is the round-to-nearest overflow threshold (halfway to 2^16).
+        return sign | 0x7C00;
+    }
+    let bits = a.to_bits();
+    let exp = ((bits >> 52) & 0x7FF) as i32 - 1023; // `a` is a normal f64 here
+    let mant52 = bits & 0x000F_FFFF_FFFF_FFFF;
+    if exp < -14 {
+        // Subnormal binary16 (or rounding up into the smallest normal).
+        let sig = (1u64 << 52) | mant52; // 1.mant52 scaled by 2^52
+        let shift = (28 - exp) as u32; // value * 2^24 == sig >> (28 - exp)
+        let m = round_shift_u64(sig, shift);
+        if m >= 1024 {
+            return sign | (1 << 10) | ((m as u16) & 0x3FF);
+        }
+        return sign | (m as u16 & 0x3FF);
+    }
+    let e16 = (exp + 15) as u16; // biased binary16 exponent in [1, 30]
+    let m = round_shift_u64(mant52, 42); // round the 52-bit fraction to 10 bits
+    if m >= 1024 {
+        let e2 = e16 + 1;
+        if e2 >= 0x1F {
+            return sign | 0x7C00;
+        }
+        return sign | (e2 << 10);
+    }
+    sign | (e16 << 10) | (m as u16 & 0x3FF)
+}
+
+fn fp16_add(a: u16, b: u16) -> u16 {
+    if let Some(n) = fp16_nan2(a, b) {
+        return n;
+    }
+    fp16_round(fp16_to_f64(a) + fp16_to_f64(b))
+}
+
+fn fp16_sub(a: u16, b: u16) -> u16 {
+    if let Some(n) = fp16_nan2(a, b) {
+        return n;
+    }
+    fp16_round(fp16_to_f64(a) - fp16_to_f64(b))
+}
+
+fn fp16_mul(a: u16, b: u16) -> u16 {
+    if let Some(n) = fp16_nan2(a, b) {
+        return n;
+    }
+    fp16_round(fp16_to_f64(a) * fp16_to_f64(b))
+}
+
+fn fp16_div(a: u16, b: u16) -> u16 {
+    if let Some(n) = fp16_nan2(a, b) {
+        return n;
+    }
+    fp16_round(fp16_to_f64(a) / fp16_to_f64(b))
+}
+
+fn fp16_mulx(a: u16, b: u16) -> u16 {
+    if let Some(n) = fp16_nan2(a, b) {
+        return n;
+    }
+    if (fp16_is_zero(a) && fp16_is_inf(b)) || (fp16_is_inf(a) && fp16_is_zero(b)) {
+        let sign = ((a >> 15) ^ (b >> 15)) & 1;
+        return (sign << 15) | 0x4000; // ±2.0
+    }
+    fp16_round(fp16_to_f64(a) * fp16_to_f64(b))
+}
+
+fn fp16_max_min(a: u16, b: u16, is_min: bool) -> u16 {
+    if let Some(n) = fp16_nan2(a, b) {
+        return n;
+    }
+    let x = fp16_to_f64(a);
+    let y = fp16_to_f64(b);
+    if x == 0.0 && y == 0.0 {
+        // Both zero: FMAX prefers +0, FMIN prefers -0.
+        let s = if is_min {
+            ((a | b) >> 15) & 1
+        } else {
+            ((a & b) >> 15) & 1
+        };
+        return s << 15;
+    }
+    let pick_a = if is_min { x < y } else { x > y };
+    let pick_b = if is_min { y < x } else { y > x };
+    if pick_a {
+        a
+    } else if pick_b {
+        b
+    } else {
+        a
+    }
+}
+
+fn fp16_max(a: u16, b: u16) -> u16 {
+    fp16_max_min(a, b, false)
+}
+
+fn fp16_min(a: u16, b: u16) -> u16 {
+    fp16_max_min(a, b, true)
+}
+
+fn fp16_maxnum_minnum(a: u16, b: u16, is_min: bool) -> u16 {
+    let an = fp16_is_nan(a);
+    let bn = fp16_is_nan(b);
+    if an && bn {
+        return fp16_nan2(a, b).unwrap();
+    }
+    if an {
+        return b;
+    }
+    if bn {
+        return a;
+    }
+    fp16_max_min(a, b, is_min)
+}
+
+fn fp16_maxnm(a: u16, b: u16) -> u16 {
+    fp16_maxnum_minnum(a, b, false)
+}
+
+fn fp16_minnm(a: u16, b: u16) -> u16 {
+    fp16_maxnum_minnum(a, b, true)
+}
+
+fn fp16_abd(a: u16, b: u16) -> u16 {
+    fp16_sub(a, b) & 0x7FFF
+}
+
+fn fp16_recps(a: u16, b: u16) -> u16 {
+    if let Some(n) = fp16_nan2(a, b) {
+        return n;
+    }
+    if (fp16_is_zero(a) && fp16_is_inf(b)) || (fp16_is_inf(a) && fp16_is_zero(b)) {
+        return 0x4000; // 2.0
+    }
+    fp16_round(2.0 - fp16_to_f64(a) * fp16_to_f64(b))
+}
+
+fn fp16_rsqrts(a: u16, b: u16) -> u16 {
+    if let Some(n) = fp16_nan2(a, b) {
+        return n;
+    }
+    if (fp16_is_zero(a) && fp16_is_inf(b)) || (fp16_is_inf(a) && fp16_is_zero(b)) {
+        return 0x3E00; // 1.5
+    }
+    fp16_round((3.0 - fp16_to_f64(a) * fp16_to_f64(b)) / 2.0)
+}
+
+fn fp16_mla(acc: u16, a: u16, b: u16) -> u16 {
+    if let Some(n) = fp16_nan3(a, b, acc) {
+        return n;
+    }
+    fp16_round(fp16_to_f64(acc) + fp16_to_f64(a) * fp16_to_f64(b))
+}
+
+fn fp16_mls(acc: u16, a: u16, b: u16) -> u16 {
+    if let Some(n) = fp16_nan3(a, b, acc) {
+        return n;
+    }
+    fp16_round(fp16_to_f64(acc) - fp16_to_f64(a) * fp16_to_f64(b))
+}
+
+/// FP16 comparisons returning an all-ones (true) / all-zeros (false) lane.
+/// `kind`: 0=EQ, 1=GE, 2=GT, 3=ACGE (abs), 4=ACGT (abs).
+fn fp16_cmp(a: u16, b: u16, kind: u8) -> u16 {
+    if fp16_is_nan(a) || fp16_is_nan(b) {
+        return 0; // unordered compares are false
+    }
+    let x = fp16_to_f64(a);
+    let y = fp16_to_f64(b);
+    let r = match kind {
+        0 => x == y,
+        1 => x >= y,
+        2 => x > y,
+        3 => x.abs() >= y.abs(),
+        _ => x.abs() > y.abs(),
+    };
+    if r { 0xFFFF } else { 0 }
 }
 
 /// AES S-box and inverse S-box (FIPS-197).

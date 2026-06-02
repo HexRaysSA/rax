@@ -865,6 +865,89 @@ fn enc_aes(opcode: u32) -> u32 {
     0x4e28_0800 | (opcode << 12) | (RN << 5) | RD
 }
 
+/// Advanced SIMD three-same (FP16): `0 Q U 01110 a 10 Rm 00 opcode 1 Rn Rd`.
+/// Rd=v0, Rn=v1, Rm=v2.
+fn enc_fp16_3s(q: u32, u: u32, a: u32, opcode: u32) -> u32 {
+    (q << 30) | (u << 29) | (0b01110 << 24) | (a << 23) | (1 << 22)
+        | (RM << 16) | (opcode << 11) | (1 << 10) | (RN << 5) | RD
+}
+
+/// Generate a finite/inf/zero/subnormal binary16 value (never a NaN, to keep
+/// NaN-payload propagation out of the differential comparison).
+fn rand_fp16(rng: &mut Rng) -> u16 {
+    let sign = (rng.next() & 1) as u16;
+    match rng.next() % 16 {
+        0 => sign << 15,                                    // zero
+        1 => (sign << 15) | 0x7C00,                         // infinity
+        2 => (sign << 15) | (rng.next() as u16 & 0x3FF),    // subnormal
+        _ => {
+            let exp = (rng.next() % 28 + 1) as u16; // normal exponent 1..28
+            let mant = rng.next() as u16 & 0x3FF;
+            (sign << 15) | (exp << 10) | mant
+        }
+    }
+}
+
+fn fp16_vec(rng: &mut Rng) -> (u64, u64) {
+    let mut lo = 0u64;
+    let mut hi = 0u64;
+    for e in 0..4 {
+        lo |= (rand_fp16(rng) as u64) << (e * 16);
+        hi |= (rand_fp16(rng) as u64) << (e * 16);
+    }
+    (lo, hi)
+}
+
+#[test]
+fn diff_simd_fp16_3same() {
+    // Full (U, a, opcode) table of the FP16 three-same group.
+    let ops: &[(u32, u32, u32, &str)] = &[
+        (0, 0, 0b000, "fmaxnm"),
+        (0, 1, 0b000, "fminnm"),
+        (0, 0, 0b001, "fmla"),
+        (0, 1, 0b001, "fmls"),
+        (0, 0, 0b010, "fadd"),
+        (0, 1, 0b010, "fsub"),
+        (0, 0, 0b011, "fmulx"),
+        (0, 0, 0b100, "fcmeq"),
+        (0, 0, 0b110, "fmax"),
+        (0, 1, 0b110, "fmin"),
+        (0, 0, 0b111, "frecps"),
+        (0, 1, 0b111, "frsqrts"),
+        (1, 0, 0b000, "fmaxnmp"),
+        (1, 1, 0b000, "fminnmp"),
+        (1, 0, 0b010, "faddp"),
+        (1, 1, 0b010, "fabd"),
+        (1, 0, 0b011, "fmul"),
+        (1, 0, 0b100, "fcmge"),
+        (1, 1, 0b100, "fcmgt"),
+        (1, 0, 0b101, "facge"),
+        (1, 1, 0b101, "facgt"),
+        (1, 0, 0b110, "fmaxp"),
+        (1, 1, 0b110, "fminp"),
+        (1, 0, 0b111, "fdiv"),
+    ];
+    let mut rng = Rng::new(0x1_0011);
+    let mut batch: Vec<(String, u32, ArmState)> = Vec::new();
+    for &(u, a, opcode, name) in ops {
+        for q in 0..2u32 {
+            let insn = enc_fp16_3s(q, u, a, opcode);
+            for _ in 0..24 {
+                let mut st = ArmState::zeroed();
+                // v0 (Rd) seeds the FMLA/FMLS accumulator; v1/v2 are the sources.
+                let (a0, b0) = fp16_vec(&mut rng);
+                let (a1, b1) = fp16_vec(&mut rng);
+                let (a2, b2) = fp16_vec(&mut rng);
+                st.set_vreg(0, a0, b0);
+                st.set_vreg(1, a1, b1);
+                st.set_vreg(2, a2, b2);
+                batch.push((format!("{name} q{q}"), insn, st));
+            }
+        }
+    }
+    run_batch("simd_fp16_3same", batch);
+}
+
 #[test]
 fn diff_simd_urecpe() {
     // URECPE (U=0) / URSQRTE (U=1): 32-bit unsigned integer estimates.
