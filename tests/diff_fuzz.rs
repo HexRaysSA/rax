@@ -3949,6 +3949,58 @@ impl SmirStats {
         }
         true
     }
+
+    /// Like `check`, but validates the CRASH-FREE re-lift of the lowered code
+    /// vs KVM. RSP/RBP are excluded (the re-lifted epilogue perturbs them).
+    fn check_lowered(
+        &mut self,
+        label: &str,
+        code: &[u8],
+        init: Registers,
+        scratch_init: [u8; 64],
+        opts: CompareOpts,
+        inputs: String,
+    ) -> bool {
+        let opts = CompareOpts { stack: false, ..opts };
+        let kvm = match run_kvm(code, &init, &scratch_init) {
+            Ok(Some(s)) => s,
+            Ok(None) => {
+                self.kvm_ok = false;
+                return false;
+            }
+            Err(e) => {
+                self.mismatches.push(Mismatch {
+                    label: format!("{label} (kvm error)"),
+                    code: code.to_vec(),
+                    inputs,
+                    diffs: vec![e],
+                });
+                return true;
+            }
+        };
+        match run_smir_lowered(code, &init, &scratch_init) {
+            Ok(SmirOutcome::Ran(smir)) => {
+                self.ran += 1;
+                let diffs = compare(&smir, &kvm, opts, &[]);
+                if !diffs.is_empty() {
+                    self.mismatches.push(Mismatch {
+                        label: label.to_string(),
+                        code: code.to_vec(),
+                        inputs,
+                        diffs,
+                    });
+                }
+            }
+            Ok(SmirOutcome::Skipped(_)) => self.skipped += 1,
+            Err(e) => self.mismatches.push(Mismatch {
+                label: format!("{label} (lowered error)"),
+                code: code.to_vec(),
+                inputs,
+                diffs: vec![e],
+            }),
+        }
+        true
+    }
 }
 
 // M2 gate (GREEN): native-lowered ALU executed on real hardware vs KVM. Lifts
@@ -4222,4 +4274,95 @@ fn smir_lowered_alu() {
         stats.kvm_ok = true;
     }
     stats.finish("lowered_alu");
+}
+
+// Shared shift-case generator (mirrors smir_shifts) so the interp/lowered/native
+// validators all exercise identical encodings + per-op flag masks.
+fn gen_shift_case(rng: &mut Rng) -> (Vec<u8>, Registers, CompareOpts, String) {
+    let sizes = [Size::B8, Size::B16, Size::B32, Size::B64];
+    let groups: &[(u8, &str)] = &[
+        (0, "rol"), (1, "ror"), (2, "rcl"), (3, "rcr"), (4, "shl"), (5, "shr"), (7, "sar"),
+    ];
+    let size = *rng.pick(&sizes);
+    let &(digit, name) = rng.pick(groups);
+    let dst = pick_gpr(rng);
+    let by_cl = rng.below(2) == 0;
+    let is_rotate = digit <= 3;
+    let mut r = Registers::default();
+    let dval = rng.operand();
+    set_reg(&mut r, dst, dval);
+    let cf_in = rng.below(2) == 1;
+    if cf_in {
+        r.rflags |= flags::bits::CF;
+    }
+    let max_count = if size == Size::B64 { 63 } else { 31 };
+    let count = (rng.below(max_count as u64 + 1)) as u8;
+    let mut code = size_prefix(size);
+    if let Some(rex) = rex_byte(size, true) {
+        code.push(rex);
+    }
+    let byte = size == Size::B8;
+    let inputs;
+    if by_cl {
+        r.rcx = count as u64;
+        code.push(if byte { 0xD2 } else { 0xD3 });
+        code.push(modrm(0b11, digit, dst));
+        inputs = format!("{} {} {}, cl={} (cf_in={}); dst={:#x}", name, size.name(), reg_name(dst), count, cf_in, dval);
+    } else if count == 1 {
+        code.push(if byte { 0xD0 } else { 0xD1 });
+        code.push(modrm(0b11, digit, dst));
+        inputs = format!("{} {} {}, 1 (cf_in={}); dst={:#x}", name, size.name(), reg_name(dst), cf_in, dval);
+    } else {
+        code.push(if byte { 0xC0 } else { 0xC1 });
+        code.push(modrm(0b11, digit, dst));
+        code.push(count);
+        inputs = format!("{} {} {}, imm8={} (cf_in={}); dst={:#x}", name, size.name(), reg_name(dst), count, cf_in, dval);
+    }
+    code.push(HLT);
+    let mask_bits = if size == Size::B64 { 63u32 } else { 31u32 };
+    let masked_count = (count as u32) & mask_bits;
+    let width = size.bits();
+    let is_sar = digit == 7;
+    let shift_no_of = flags::bits::CF | flags::bits::PF | flags::bits::ZF | flags::bits::SF;
+    let flag_mask = if masked_count == 0 {
+        FLAG_MASK
+    } else if masked_count == 1 {
+        if is_rotate { flags::bits::CF | flags::bits::OF } else { FLAG_MASK }
+    } else if is_rotate {
+        flags::bits::CF
+    } else if masked_count <= width {
+        shift_no_of
+    } else if is_sar {
+        shift_no_of
+    } else {
+        flags::bits::PF | flags::bits::ZF | flags::bits::SF
+    };
+    let opts = CompareOpts { flag_mask, ..CompareOpts::default() };
+    (code, r, opts, inputs)
+}
+
+#[test]
+fn smir_lowered_shifts() {
+    let mut rng = Rng::new(0x5417_C0DE_5417_C0DE);
+    let mut stats = SmirStats::new();
+    for _ in 0..400 {
+        let (code, r, opts, inputs) = gen_shift_case(&mut rng);
+        if !stats.check_lowered("smir_lowered_shifts", &code, r, [0u8; 64], opts, inputs) {
+            break;
+        }
+    }
+    stats.finish("lowered_shifts");
+}
+
+#[test]
+fn smir_native_shifts() {
+    let mut rng = Rng::new(0x5417_C0DE_5417_C0DE);
+    let mut stats = SmirStats::new();
+    for _ in 0..400 {
+        let (code, r, opts, inputs) = gen_shift_case(&mut rng);
+        if !stats.check_native("smir_native_shifts", &code, r, [0u8; 64], opts, inputs) {
+            break;
+        }
+    }
+    stats.finish("native_shifts");
 }

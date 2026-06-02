@@ -841,7 +841,11 @@ impl SmirInterpreter {
             } => {
                 let val = ctx.read_vreg(*src) & width.mask();
                 let bits = width.bits() as u64;
-                let amt = self.read_src_operand(ctx, amount) % bits;
+                // x86 masks the count to 5 bits (6 for 64-bit); the rotation
+                // amount is that masked count mod the width.
+                let cmask = if bits == 64 { 0x3F } else { 0x1F };
+                let masked = self.read_src_operand(ctx, amount) & cmask;
+                let amt = masked % bits;
                 let result = if amt == 0 {
                     val
                 } else {
@@ -850,13 +854,15 @@ impl SmirInterpreter {
 
                 Self::write_gpr(ctx, *dst, result, *width);
 
-                // Rotate by a masked count of 0 leaves CF/OF unchanged.
-                if amt != 0 && flags.updates_any() {
+                // CF/OF update iff the MASKED count != 0 — even when the rotation
+                // amount (masked mod width) is 0, e.g. ROL r16 by 16. `right`
+                // carries the masked count so OF keys on masked==1.
+                if masked != 0 && flags.updates_any() {
                     ctx.flags.lazy = Some(LazyFlags {
                         op: LazyFlagOp::Rotate,
                         result,
                         left: val,
-                        right: amt,
+                        right: masked,
                         width: *width,
                         high: 0,
                     });
@@ -872,7 +878,9 @@ impl SmirInterpreter {
             } => {
                 let val = ctx.read_vreg(*src) & width.mask();
                 let bits = width.bits() as u64;
-                let amt = self.read_src_operand(ctx, amount) % bits;
+                let cmask = if bits == 64 { 0x3F } else { 0x1F };
+                let masked = self.read_src_operand(ctx, amount) & cmask;
+                let amt = masked % bits;
                 let result = if amt == 0 {
                     val
                 } else {
@@ -881,13 +889,13 @@ impl SmirInterpreter {
 
                 Self::write_gpr(ctx, *dst, result, *width);
 
-                // Rotate by a masked count of 0 leaves CF/OF unchanged.
-                if amt != 0 && flags.updates_any() {
+                // CF/OF update iff the MASKED count != 0 (see Rol).
+                if masked != 0 && flags.updates_any() {
                     ctx.flags.lazy = Some(LazyFlags {
                         op: LazyFlagOp::Ror,
                         result,
                         left: val,
-                        right: amt,
+                        right: masked,
                         width: *width,
                         high: 0,
                     });
