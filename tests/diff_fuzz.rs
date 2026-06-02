@@ -2428,3 +2428,79 @@ fn fuzz_alu_mem() {
     }
     h.finish("alu_mem");
 }
+
+// ===========================================================================
+// GENERATOR: REP MOVS / REP STOS (string copy/fill) vs KVM
+// ===========================================================================
+//
+// String ops were entirely unfuzzed, yet they drive the bulk memcpy/memset
+// fast paths (and the per-element fallback) through the host-pointer accessors.
+// This sets RSI/RDI into two non-overlapping halves of the scratch region,
+// RCX to a small count, DF=0 (forward), and runs REP MOVS / REP STOS across
+// all four element sizes, comparing the destination bytes + RSI/RDI/RCX (which
+// must end advanced by count*size, RCX=0) against KVM.
+#[test]
+fn fuzz_string_rep() {
+    const CASES: usize = 500;
+    let mut h = Harness::new(0x5717_900D_B01C_F00D);
+    // element sizes 1/2/4/8
+    let sizes = [Size::B8, Size::B16, Size::B32, Size::B64];
+
+    for _ in 0..CASES {
+        let size = *h.rng.pick(&sizes);
+        let bytes = (size.bits() / 8) as u64;
+        let is_stos = h.rng.below(2) == 0;
+        // src in [0,32), dst in [32,64); count*size <= 32 so both stay in-bounds.
+        let max_count = 32 / bytes;
+        let count = 1 + h.rng.below(max_count); // 1..=max_count
+
+        let mut r = Registers::default();
+        r.rcx = count;
+        r.rdi = DATA_ADDR + 32; // destination
+        if is_stos {
+            r.rax = h.rng.operand(); // value to store (AL/AX/EAX/RAX)
+        } else {
+            r.rsi = DATA_ADDR; // source
+        }
+        // DF=0 (forward) — default; rflags |= 0x2 added by harness.
+
+        let mut code = Vec::new();
+        code.push(0xF3); // REP
+        if size == Size::B16 {
+            code.push(0x66);
+        }
+        if size == Size::B64 {
+            code.push(0x48); // REX.W
+        }
+        let opc = match (is_stos, size == Size::B8) {
+            (false, true) => 0xA4,  // MOVSB
+            (false, false) => 0xA5, // MOVSW/D/Q
+            (true, true) => 0xAA,   // STOSB
+            (true, false) => 0xAB,  // STOSW/D/Q
+        };
+        code.push(opc);
+        code.push(HLT);
+
+        let mut scratch = [0u8; 64];
+        for b in scratch.iter_mut() {
+            *b = h.rng.next_u32() as u8;
+        }
+
+        let op = if is_stos { "rep stos" } else { "rep movs" };
+        let inputs = format!(
+            "{}.{} count={} rax={:#x}",
+            op,
+            size.name(),
+            count,
+            r.rax
+        );
+        let opts = CompareOpts {
+            scratch: true,
+            ..CompareOpts::default()
+        };
+        if !h.run_case("string_rep", &code, r, scratch, opts, inputs, &[]) {
+            break;
+        }
+    }
+    h.finish("string_rep");
+}
