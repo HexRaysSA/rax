@@ -6905,7 +6905,12 @@ impl AArch64Cpu {
         // 1100010 msz ig1 Zm 1 U ff Pg Rn Zt. esize=64; addr[e] = Xn +
         // (Zm[e] << scale); scale = msz when scaled (bits[22:21]==11) else 0;
         // load msize bytes and sign(U=0)/zero(U=1)-extend; inactive lanes zero.
-        if insn >> 25 == 0b1100010 && (insn >> 15) & 1 == 1 && (insn >> 13) & 1 == 0 {
+        // bit22==1 (ig1 high) separates it from the vector-base form (ig1==01).
+        if insn >> 25 == 0b1100010
+            && (insn >> 22) & 1 == 1
+            && (insn >> 15) & 1 == 1
+            && (insn >> 13) & 1 == 0
+        {
             let msz = (insn >> 23) & 0x3;
             let scaled = (insn >> 21) & 0x3 == 0b11;
             let unsigned = (insn >> 14) & 1 == 1;
@@ -7017,7 +7022,8 @@ impl AArch64Cpu {
         // 1110010 msz ig1 Zm 101 Pg Rn Zt. addr[e] = Xn + (Zm[e] << scale);
         // scale = msz when scaled (bits[22:21]==01) else 0; store the low msize
         // bytes of each active D element (inactive lanes leave memory unchanged).
-        if insn >> 25 == 0b1110010 && (insn >> 13) & 0x7 == 0b101 {
+        // bit22==0 separates it from the vector-base scatter (ig1==10).
+        if insn >> 25 == 0b1110010 && (insn >> 22) & 1 == 0 && (insn >> 13) & 0x7 == 0b101 {
             let msz = (insn >> 23) & 0x3;
             let scaled = (insn >> 21) & 0x3 == 0b01;
             let zm = ((insn >> 16) & 0x1F) as usize;
@@ -7120,8 +7126,77 @@ impl AArch64Cpu {
             return Ok(CpuExit::Continue);
         }
 
-        // Other SVE memory forms (vector-base gather/scatter, multi-register
-        // LD2-4/ST2-4) are not yet modelled.
+        // LD1 gather (vector base + immediate, D elements): 1100010 msz 01 imm5
+        // 1 U ff Pg Zn Zt. Each element's base IS Zn[e]; addr[e] = Zn[e] +
+        // imm5 * mbytes. esize=64; load msize bytes, sign/zero-extend; zeroing.
+        if insn >> 25 == 0b1100010
+            && (insn >> 21) & 0x3 == 0b01
+            && (insn >> 15) & 1 == 1
+            && (insn >> 13) & 1 == 0
+        {
+            let msz = (insn >> 23) & 0x3;
+            let unsigned = (insn >> 14) & 1 == 1;
+            let imm5 = (insn >> 16) & 0x1F;
+            let zn_base = ((insn >> 5) & 0x1F) as usize;
+            let mbytes = 1usize << msz;
+            let esize = 8usize; // D
+            let elements = 16 / esize;
+            let bases = self.v[zn_base].to_le_bytes();
+            let mut dst = [0u8; 16];
+            for e in 0..elements {
+                if (pred >> (e * esize)) & 1 == 0 {
+                    continue;
+                }
+                let elem_base = read_elem(&bases, e * esize, esize);
+                let ea = elem_base.wrapping_add((imm5 as u64) * (mbytes as u64));
+                let pa = self.translate_address(ea, false, false)?;
+                let raw: u64 = match mbytes {
+                    1 => self.memory.read_u8(pa)? as u64,
+                    2 => self.memory.read_u16(pa)? as u64,
+                    4 => self.memory.read_u32(pa)? as u64,
+                    _ => self.memory.read_u64(pa)?,
+                };
+                let val = if unsigned { raw } else { sext_elem(raw, (mbytes * 8) as u32) as u64 };
+                write_elem(&mut dst, e * esize, esize, val);
+            }
+            self.v[zt] = u128::from_le_bytes(dst);
+            return Ok(CpuExit::Continue);
+        }
+
+        // ST1 scatter (vector base + immediate, D elements): 1110010 msz 10 imm5
+        // 101 Pg Zn Zt. addr[e] = Zn[e] + imm5 * mbytes; store low msize bytes.
+        if insn >> 25 == 0b1110010
+            && (insn >> 21) & 0x3 == 0b10
+            && (insn >> 13) & 0x7 == 0b101
+        {
+            let msz = (insn >> 23) & 0x3;
+            let imm5 = (insn >> 16) & 0x1F;
+            let zn_base = ((insn >> 5) & 0x1F) as usize;
+            let mbytes = 1usize << msz;
+            let esize = 8usize; // D
+            let elements = 16 / esize;
+            let bases = self.v[zn_base].to_le_bytes();
+            let src = self.v[zt].to_le_bytes();
+            for e in 0..elements {
+                if (pred >> (e * esize)) & 1 == 0 {
+                    continue;
+                }
+                let elem_base = read_elem(&bases, e * esize, esize);
+                let ea = elem_base.wrapping_add((imm5 as u64) * (mbytes as u64));
+                let pa = self.translate_address(ea, true, false)?;
+                let val = read_elem(&src, e * esize, esize);
+                match mbytes {
+                    1 => self.memory.write_u8(pa, val as u8)?,
+                    2 => self.memory.write_u16(pa, val as u16)?,
+                    4 => self.memory.write_u32(pa, val as u32)?,
+                    _ => self.memory.write_u64(pa, val)?,
+                }
+            }
+            return Ok(CpuExit::Continue);
+        }
+
+        // Other SVE memory forms (S-form vector-base, multi-register LD2-4/ST2-4)
+        // are not yet modelled.
         Ok(CpuExit::Undefined(insn))
     }
 
