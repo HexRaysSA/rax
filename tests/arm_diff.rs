@@ -1616,6 +1616,18 @@ fn enc_sve_st1(msz: u32, size: u32, imm4: i32) -> u32 {
         | (0b111 << 13) | (RN << 5) | RD
 }
 
+/// SVE MOVPRFX Zd, Zn (unpredicated): `00000100 001 00000 101111 Zn Zd`.
+fn enc_movprfx_z() -> u32 {
+    (0b00000100 << 24) | (0b001 << 21) | (0b101111 << 10) | (RN << 5) | RD
+}
+
+/// SVE MOVPRFX Zd.T, Pg, Zn.T (predicated): `00000100 size 0100 0 M 001 Pg Zn Zd`.
+/// M: 1=merging, 0=zeroing. Pg=p0, Zn=z1, Zd=z0.
+fn enc_movprfx_p(size: u32, m: u32) -> u32 {
+    (0b00000100 << 24) | (size << 22) | (0b0100 << 18) | (m << 16)
+        | (0b001 << 13) | (RN << 5) | RD
+}
+
 /// SVE LD1R (load and replicate): `1000010 dtypeh 1 imm6 1 dtypel Pg Rn Zt`.
 /// Pg=p0, Rn=x1, Zt=z0.
 fn enc_ld1r(dtypeh: u32, dtypel: u32, imm6: u32) -> u32 {
@@ -2370,6 +2382,34 @@ fn diff_sve_st1() {
         }
     }
     run_batch("sve_st1", batch);
+}
+
+#[test]
+fn diff_sve_movprfx() {
+    // MOVPRFX standalone is a move: unpredicated copies the whole register; the
+    // predicated form copies active lanes and merges/zeros the inactive ones.
+    let mut rng = Rng::new(0x3_6001);
+    let mut batch: Vec<(String, u32, ArmState)> = Vec::new();
+    let zi = enc_movprfx_z();
+    for _ in 0..12 {
+        let mut st = ArmState::zeroed();
+        st.set_vreg(0, rng.next(), rng.next());
+        st.set_vreg(1, rng.next(), rng.next());
+        batch.push(("movprfx_z".to_string(), zi, st));
+    }
+    for size in 0..4u32 {
+        for m in 0..2u32 {
+            let insn = enc_movprfx_p(size, m);
+            for _ in 0..8 {
+                let mut st = ArmState::zeroed();
+                st.set_vreg(0, rng.next(), rng.next()); // prior Zd (merge target)
+                st.set_vreg(1, rng.next(), rng.next()); // Zn
+                st.set_preg(0, rng.next() as u16);
+                batch.push((format!("movprfx_p e{size} m{m}"), insn, st));
+            }
+        }
+    }
+    run_batch("sve_movprfx", batch);
 }
 
 #[test]
