@@ -21,19 +21,25 @@ use rax::cpu::{CpuState, HexagonRegisters, VCpu, VcpuExit};
 
 const NREG: usize = 32;
 const I_PRED: usize = 32;
+// State-word indices for the control registers the oracle loads (byte offset / 4
+// within the 176-byte HexState; mirrors `CREGS` in gen_oracle_hvx_mem.py).
+const I_M0: usize = 34; // M0 / C6 (scatter/gather modifier = region length-1)
+const I_M1: usize = 35; // M1 / C7
 const ST_WORDS: usize = 44;
 const VREGS: usize = 32;
 const VWORDS: usize = 32;
-const ARENA: usize = 512;
+const ARENA: usize = 1024;
 const VOFF: usize = 256;
 const AOFF: usize = VOFF + VREGS * VWORDS * 4; // 4352
-const QSRC_OFF: usize = AOFF + ARENA; // 4864 (Q0..Q3 mask-source vectors)
+const QSRC_OFF: usize = AOFF + ARENA; // 5376 (Q0..Q3 mask-source vectors)
 const QSRC_VECS: usize = 4;
 const IN_SIZE: usize = QSRC_OFF + QSRC_VECS * 128; // InCase carries the qsrc block
 const OUT_SIZE: usize = AOFF + ARENA; // OutCase does not (Q is not captured)
 const WIRE_MAGIC: u32 = 0x3158_4548;
 const CODE_ADDR: u32 = 0x1000;
 const BASE_REG: usize = 4; // r4 points at the arena
+const GATHER_REG: usize = 6; // r6 points at the gather store target (arena+512)
+const GATHER_OFF: u32 = 512; // gather writes its 128B result here (upper half)
 
 #[derive(Clone)]
 struct Case {
@@ -252,6 +258,10 @@ fn run_rax(words: &[u32], c: &Case, varena: u32) -> Option<Out> {
     for i in 0..4 {
         regs.p[i] = ((c.st[I_PRED] >> (8 * i)) & 0xff) as u8;
     }
+    // Scatter/gather modifier registers M0/M1 (C6/C7): the region length-1. The
+    // oracle loads these from the same state words via its CREGS table.
+    regs.c[6] = c.st[I_M0];
+    regs.c[7] = c.st[I_M1];
     regs.v = c.v;
     // OLD vector predicates Q0..Q3 from the per-byte LSB of the source vectors
     // (matching the oracle's vandvrt seeding).
@@ -310,6 +320,184 @@ impl Rng {
 
 fn run_family(name: &str, cases: &[(&str, &str)], n: usize, seed: u64) {
     run_family_q(name, cases, n, seed, false);
+}
+
+/// Offset-vector layout for a scatter/gather case. Decides how the harness seeds
+/// the offset register(s) with valid, in-range, element-aligned byte offsets
+/// (random 32-bit offsets are virtually all out-of-range, so nothing would
+/// scatter/gather). `gather` selects the constrained source window so the
+/// gather's 128-byte store target (upper arena half) never overlaps the source.
+#[derive(Clone, Copy)]
+enum SgKind {
+    /// 32 word offsets in `v1` (esz = 4).
+    Word,
+    /// 64 halfword offsets in `v1` (esz = 2).
+    Half,
+    /// 64 word-sized offsets in the `v1:0` register pair (v0 = low, v1 = high),
+    /// feeding 64 halfword data elements (esz = 2).
+    Hw,
+}
+
+/// Seed the offset register(s) for `kind` into `v` with distinct, element-aligned
+/// byte offsets (mostly in `[0, region)`, ~1/4 deliberately out-of-range).
+/// Distinct offsets avoid same-address scatter-collision ambiguity. `region` is
+/// the exclusive upper bound for a full element to fit.
+fn seed_offsets(v: &mut [[u32; VWORDS]; VREGS], kind: SgKind, region: u32, rng: &mut Rng) {
+    // Pick `count` distinct aligned offsets, mostly in [0, region - align] but
+    // ~1/4 deliberately out-of-range (aligned, but >= region) so the drop /
+    // destination-preserve paths are exercised against the oracle too. For the
+    // halfword layout offsets must fit in 16 bits, so out-of-range stays < 0x10000.
+    let pick = |count: usize, align: u32, rng: &mut Rng| -> Vec<u32> {
+        let slots = (region / align).max(1);
+        let oor_cap = 0x1_0000 / align; // keep halfword offsets within 16 bits
+        let mut used = std::collections::HashSet::new();
+        let mut out = Vec::with_capacity(count);
+        while out.len() < count {
+            let oor = rng.next() & 3 == 0;
+            let slot = if oor {
+                slots + (rng.next() as u32) % (oor_cap.saturating_sub(slots)).max(1)
+            } else {
+                (rng.next() as u32) % slots
+            };
+            if !oor && slot * align + align > region {
+                continue;
+            }
+            if used.insert(slot) {
+                out.push(slot.wrapping_mul(align));
+            }
+        }
+        out
+    };
+    match kind {
+        SgKind::Word => {
+            let offs = pick(32, 4, rng);
+            for (w, o) in offs.iter().enumerate() {
+                v[1][w] = *o;
+            }
+        }
+        SgKind::Half => {
+            // 64 halfword offsets packed two-per-word into v1.
+            let offs = pick(64, 2, rng);
+            for w in 0..32 {
+                v[1][w] = (offs[2 * w] & 0xffff) | (offs[2 * w + 1] << 16);
+            }
+        }
+        SgKind::Hw => {
+            // 64 word-sized offsets: low halves in v0, high halves in v1.
+            let offs = pick(64, 2, rng);
+            for i in 0..32 {
+                v[0][i] = offs[2 * i]; // even element k=2i  (low vector of pair)
+                v[1][i] = offs[2 * i + 1]; // odd element  k=2i+1 (high vector)
+            }
+        }
+    }
+}
+
+/// Scatter/gather differential harness. Each case carries its offset layout
+/// (`SgKind`). The harness seeds M0 = ARENA-1 (the whole arena is the region),
+/// r6 = arena + GATHER_OFF (gather store target), and constrains the offset
+/// register(s); Q0..Q3 are seeded from random per-byte LSBs for the predicated
+/// (`q`) forms. The diff over the arena + register file then verifies the op.
+fn run_family_sg(name: &str, cases: &[(&str, &str, SgKind)], n: usize, seed: u64, gather: bool) {
+    let (bin, varena) = match oracle() {
+        Some(x) => x,
+        None => {
+            eprintln!("[hexagon_hvx_mem_diff] {name}: toolchain unavailable -> skipping");
+            return;
+        }
+    };
+    let asms: Vec<String> = cases.iter().map(|(_, a, _)| a.to_string()).collect();
+    let words_per = match assemble(&asms) {
+        Some(w) => w,
+        None => {
+            eprintln!("[hexagon_hvx_mem_diff] {name}: assembly failed -> skipping");
+            return;
+        }
+    };
+    // Region for offsets: scatter spans the whole arena; gather is constrained to
+    // the lower half so its source never overlaps the upper-half store target.
+    let region = if gather { GATHER_OFF } else { ARENA as u32 };
+    let mut rng = Rng::new(seed);
+    let mut batch = Vec::new();
+    let mut labels = Vec::new();
+    for ((label, _, kind), words) in cases.iter().zip(words_per.iter()) {
+        for _ in 0..n {
+            let mut st = [0u32; ST_WORDS];
+            for r in 0..NREG {
+                st[r] = rng.next() as u32;
+            }
+            st[BASE_REG] = varena; // r4 = region base (128-aligned arena)
+            st[I_M0] = ARENA as u32 - 1; // M0 = length-1: whole arena is the region
+            st[I_M1] = ARENA as u32 - 1;
+            if gather {
+                st[GATHER_REG] = varena + GATHER_OFF; // r6 = gather store target
+            }
+            let mut pred = 0u32;
+            for k in 0..4 {
+                if rng.next() & 1 == 1 {
+                    pred |= 0xffu32 << (8 * k);
+                }
+            }
+            st[I_PRED] = pred;
+            let mut v = [[0u32; VWORDS]; VREGS];
+            for r in 0..VREGS {
+                for w in 0..VWORDS {
+                    v[r][w] = rng.next() as u32;
+                }
+            }
+            seed_offsets(&mut v, *kind, region, &mut rng);
+            let mut arena = [0u8; ARENA];
+            for b in arena.iter_mut() {
+                *b = rng.next() as u8;
+            }
+            // Q0..Q3 from random per-byte LSBs (predicated forms read OLD Q).
+            let mut qsrc = [[0u8; 128]; QSRC_VECS];
+            for q in qsrc.iter_mut() {
+                for b in q.iter_mut() {
+                    *b = rng.next() as u8;
+                }
+            }
+            labels.push(*label);
+            batch.push(Case { words: words.clone(), st, v, arena, qsrc });
+        }
+    }
+    let outs = match run_oracle(&bin, &batch) {
+        Some(o) => o,
+        None => {
+            eprintln!("[hexagon_hvx_mem_diff] {name}: oracle failed -> skipping");
+            return;
+        }
+    };
+    let mut mismatches = Vec::new();
+    for (i, c) in batch.iter().enumerate() {
+        let rax = match run_rax(&c.words, c, varena) {
+            Some(r) => r,
+            None => {
+                mismatches.push(format!("[{}] rax rejected", labels[i]));
+                continue;
+            }
+        };
+        let mut diffs = Vec::new();
+        if rax.arena != outs[i].arena {
+            let j = (0..ARENA).find(|&j| rax.arena[j] != outs[i].arena[j]).unwrap();
+            diffs.push(format!("arena[{j}]:rax={:#x},hw={:#x}", rax.arena[j], outs[i].arena[j]));
+        }
+        for r in 0..NREG {
+            if rax.st[r] != outs[i].st[r] {
+                diffs.push(format!("r{r}:rax={:#x},hw={:#x}", rax.st[r], outs[i].st[r]));
+            }
+        }
+        if !diffs.is_empty() {
+            mismatches.push(format!("[{}] {}", labels[i], diffs.join(" ")));
+        }
+    }
+    if !mismatches.is_empty() {
+        eprintln!("\n==== {name}: {} mismatches ====", mismatches.len());
+        for m in mismatches.iter().take(20) {
+            eprintln!("  {m}");
+        }
+        panic!("{name}: {} HVX-mem divergences vs oracle", mismatches.len());
+    }
 }
 
 /// As `run_family`, but when `qsrc_random` is set the OLD vector predicates
@@ -527,6 +715,69 @@ fn diff_hvx_hist() {
         ],
         8,
         0x4157,
+        true,
+    );
+}
+
+#[test]
+fn diff_hvx_scatter() {
+    // HVX V65 scatter family. r4 = arena base, M0 = ARENA-1 (whole-arena region).
+    // The offset vector v1 (and v0 for the `hw` pair forms) holds valid in-range,
+    // element-aligned byte offsets; v2 is the data. Plain forms store, `_add`
+    // forms accumulate, and `q` forms gate per-element on the OLD vector predicate
+    // Q0. The arena diff verifies the scattered result.
+    run_family_sg(
+        "hvx_scatter",
+        &[
+            ("vscattermw", "{ vscatter(r4,m0,v1.w).w=v2 }", SgKind::Word),
+            ("vscattermh", "{ vscatter(r4,m0,v1.h).h=v2 }", SgKind::Half),
+            ("vscattermhw", "{ vscatter(r4,m0,v1:0.w).h=v2 }", SgKind::Hw),
+            ("vscattermw_add", "{ vscatter(r4,m0,v1.w).w+=v2 }", SgKind::Word),
+            ("vscattermh_add", "{ vscatter(r4,m0,v1.h).h+=v2 }", SgKind::Half),
+            ("vscattermhw_add", "{ vscatter(r4,m0,v1:0.w).h+=v2 }", SgKind::Hw),
+            ("vscattermwq", "{ if (q0) vscatter(r4,m0,v1.w).w=v2 }", SgKind::Word),
+            ("vscattermhq", "{ if (q0) vscatter(r4,m0,v1.h).h=v2 }", SgKind::Half),
+            ("vscattermhwq", "{ if (q0) vscatter(r4,m0,v1:0.w).h=v2 }", SgKind::Hw),
+        ],
+        24,
+        0x5ca7,
+        false,
+    );
+}
+
+#[test]
+fn diff_hvx_gather() {
+    // HVX V65 gather family. r4 = arena base, M0 = ARENA-1; offsets in v1 (and v0
+    // for `hw`) point into the lower arena half. The gather collects the in-range
+    // (and, for `q` forms, predicate-on) bytes into an internal vtmp; the paired
+    // `vmem(r6+#0)=vtmp.new` store (r6 = arena+512) commits only those bytes,
+    // leaving the rest of the destination intact (matching hardware, which seeds
+    // the gather temp from the destination memory). Diffing the upper arena half
+    // against the oracle verifies the gather.
+    run_family_sg(
+        "hvx_gather",
+        &[
+            ("vgathermw", "{ vmem(r6+#0)=vtmp.new; vtmp.w=vgather(r4,m0,v1.w).w }", SgKind::Word),
+            ("vgathermh", "{ vmem(r6+#0)=vtmp.new; vtmp.h=vgather(r4,m0,v1.h).h }", SgKind::Half),
+            ("vgathermhw", "{ vmem(r6+#0)=vtmp.new; vtmp.h=vgather(r4,m0,v1:0.w).h }", SgKind::Hw),
+            (
+                "vgathermwq",
+                "{ vmem(r6+#0)=vtmp.new; if (q0) vtmp.w=vgather(r4,m0,v1.w).w }",
+                SgKind::Word,
+            ),
+            (
+                "vgathermhq",
+                "{ vmem(r6+#0)=vtmp.new; if (q0) vtmp.h=vgather(r4,m0,v1.h).h }",
+                SgKind::Half,
+            ),
+            (
+                "vgathermhwq",
+                "{ vmem(r6+#0)=vtmp.new; if (q0) vtmp.h=vgather(r4,m0,v1:0.w).h }",
+                SgKind::Hw,
+            ),
+        ],
+        24,
+        0x6a73,
         true,
     );
 }

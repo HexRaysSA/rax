@@ -16,7 +16,10 @@ import sys
 NOP = 0x7F00C000
 VREGS = 32
 VBYTES = 128
-ARENA = 512  # 4 vectors
+# 8 vectors. The scatter/gather region spans the whole arena (m0 = ARENA-1, set
+# on the wire as control reg M0/C6). Gather writes its 128-byte result to the
+# upper half (r6 = arena + 512) so it never overlaps the gathered source range.
+ARENA = 1024
 
 O_R = 0
 O_PRED = 128
@@ -44,7 +47,7 @@ CASE_VREGS = 256
 CASE_ARENA = CASE_VREGS + VREGS * VBYTES  # 4352
 # Q-predicate source block: 4 vectors whose per-byte LSB seeds Q0..Q3 (via
 # vandvrt) so the OLD vector predicates can be set from the wire.
-CASE_QSRC = CASE_ARENA + ARENA  # 4864 (128-aligned)
+CASE_QSRC = CASE_ARENA + ARENA  # 5376 (128-aligned)
 QSRC_VECS = 4
 CASE_SIZE = CASE_QSRC + QSRC_VECS * VBYTES
 OUT_ST = 0

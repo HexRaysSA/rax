@@ -228,6 +228,15 @@ pub struct HexagonVcpu {
     /// `vread_new`) but NEVER committed to the architectural register file —
     /// `.tmp` is scratch. Cleared each packet alongside `new_v`.
     new_v_tmp: [Option<[u32; 32]>; 32],
+    /// Per-packet HVX gather scratch (`vtmp`, qemu `tmp_VRegs[0]`): the result of
+    /// the packet's `vgather`, consumed by the paired `vmem(Rs+#k)=vtmp.new`
+    /// store. A packet has at most one gather. Cleared each packet.
+    ///
+    /// `(data, valid)`: byte `b` of `data` is meaningful only where `valid[b]`.
+    /// On hardware the gather temp is initialised from the destination memory and
+    /// only in-range / predicate-on lanes are overwritten; the paired store thus
+    /// writes only the `valid` bytes, leaving the rest of the destination intact.
+    gather_tmp: Option<([u8; 128], [bool; 128])>,
 }
 
 impl HexagonVcpu {
@@ -244,6 +253,7 @@ impl HexagonVcpu {
             new_v: [None; 32],
             new_q: [None; 4],
             new_v_tmp: [None; 32],
+            gather_tmp: None,
         }
     }
 
@@ -353,6 +363,152 @@ impl HexagonVcpu {
             .write_slice(&buf, GuestAddress(addr as u64))
             .map_err(Error::from)?;
         Ok(())
+    }
+
+    /// Read element `idx` (0-based) of an HVX vector register `vreg` as an
+    /// `esz`-byte little-endian value (`esz` = 2 or 4).
+    fn velem(&self, vreg: u8, esz: u8, idx: usize) -> u32 {
+        let bytes = vec_to_bytes(&self.regs.v[vreg as usize]);
+        let off = idx * esz as usize;
+        match esz {
+            2 => u16::from_le_bytes([bytes[off], bytes[off + 1]]) as u32,
+            _ => u32::from_le_bytes([bytes[off], bytes[off + 1], bytes[off + 2], bytes[off + 3]]),
+        }
+    }
+
+    /// Vector-byte predicate bit `i` (0..128) of vector predicate register `q`.
+    /// Predicated scatter/gather mask per byte: byte `b` of element `k` is gated
+    /// on bit `k*esz + b` (qemu's byte-granular scatter/gather predicate).
+    fn qbit(&self, q: u8, i: usize) -> bool {
+        let qv = self.regs.q[q as usize];
+        (qv[i / 32] >> (i % 32)) & 1 != 0
+    }
+
+    /// HVX V65 scatter. For each element the (data) effective address is
+    /// `EA = Rt + offset[i]`; the element is committed only if `Rt <= EA <= Rt+Mu`
+    /// (and, for the `q` forms, its predicate bit is set). `_add` forms align the
+    /// offset (`offset &= ~(esz-1)`) and accumulate (`*EA += data`); plain forms
+    /// store (`*EA = data`). Elements are processed in order (later wins).
+    #[allow(clippy::too_many_arguments)]
+    fn exec_scatter(
+        &mut self,
+        base: u8,
+        modsel: u8,
+        offsets: u8,
+        data: u8,
+        esz: u8,
+        off_pair: bool,
+        add: bool,
+        pred: Option<u8>,
+    ) -> Result<()> {
+        let mask = (esz as u32) - 1;
+        let rt = self.regs.r[base as usize] & !mask;
+        let mu = self.modifier(modsel) | mask;
+        let rt_hi = rt.wrapping_add(mu);
+        // hw (off_pair) forms: 64 halfword elements, each from a word offset in
+        // the Vvv pair; element k's offset is word (k>>1) of vector (offsets+(k&1)).
+        let nelem = if off_pair { 64 } else { 128 / esz as usize };
+        let width = if esz == 2 {
+            MemWidth::Half
+        } else {
+            MemWidth::Word
+        };
+        let esz = esz as usize;
+        for k in 0..nelem {
+            let mut off = if off_pair {
+                self.velem(offsets + (k & 1) as u8, 4, k >> 1)
+            } else {
+                self.velem(offsets, esz as u8, k)
+            };
+            if add {
+                off &= !mask;
+            }
+            let ea = rt.wrapping_add(off);
+            if ea < rt || ea > rt_hi {
+                continue;
+            }
+            let datum = self.velem(data, esz as u8, k);
+            if add {
+                // Accumulate forms are never predicated (no `q` variant); RMW the
+                // whole element width, wrapping at that width.
+                let cur = self.load_mem(ea, width, MemSign::Unsigned)?;
+                let sum = match esz {
+                    2 => (cur as u16).wrapping_add(datum as u16) as u32,
+                    _ => cur.wrapping_add(datum),
+                };
+                self.store_mem(ea, width, sum)?;
+            } else {
+                // Plain store. The `q` forms mask PER BYTE: byte `b` of element
+                // `k` is written iff predicate bit `k*esz + b` is set (matching
+                // qemu's byte-granular scatter predicate).
+                let bytes = datum.to_le_bytes();
+                for b in 0..esz {
+                    if let Some(q) = pred {
+                        if !self.qbit(q, k * esz + b) {
+                            continue;
+                        }
+                    }
+                    self.store_mem(ea.wrapping_add(b as u32), MemWidth::Byte, bytes[b] as u32)?;
+                }
+            }
+        }
+        Ok(())
+    }
+
+    /// HVX V65 gather: read elements from `Rt + offset[i]` into a 128-byte vector,
+    /// returning `(data, valid)`. Byte `b` is gathered (`valid[b] = true`) iff its
+    /// element's effective address is in range and (for the `q` forms) its
+    /// predicate bit is set; non-valid bytes are left for the paired store to
+    /// preserve from the destination memory (matching hardware, where the gather
+    /// temp is initialised from the destination and only valid lanes overwrite).
+    fn exec_gather(
+        &self,
+        base: u8,
+        modsel: u8,
+        offsets: u8,
+        esz: u8,
+        off_pair: bool,
+        pred: Option<u8>,
+    ) -> Result<([u8; 128], [bool; 128])> {
+        let mask = (esz as u32) - 1;
+        let rt = self.regs.r[base as usize] & !mask;
+        let mu = self.modifier(modsel) | mask;
+        let rt_hi = rt.wrapping_add(mu);
+        let nelem = if off_pair { 64 } else { 128 / esz as usize };
+        let width = if esz == 2 {
+            MemWidth::Half
+        } else {
+            MemWidth::Word
+        };
+        let esz = esz as usize;
+        let mut out = [0u8; 128];
+        let mut valid = [false; 128];
+        for k in 0..nelem {
+            let off = if off_pair {
+                self.velem(offsets + (k & 1) as u8, 4, k >> 1)
+            } else {
+                self.velem(offsets, esz as u8, k)
+            };
+            let ea = rt.wrapping_add(off);
+            if ea < rt || ea > rt_hi {
+                continue;
+            }
+            let datum = self.load_mem(ea, width, MemSign::Unsigned)?;
+            let bytes = datum.to_le_bytes();
+            let dst = k * esz;
+            // The `q` forms gather PER BYTE: byte `b` of element `k` is gathered
+            // iff predicate bit `k*esz + b` is set.
+            for b in 0..esz {
+                if let Some(q) = pred {
+                    if !self.qbit(q, k * esz + b) {
+                        continue;
+                    }
+                }
+                out[dst + b] = bytes[b];
+                valid[dst + b] = true;
+            }
+        }
+        Ok((out, valid))
     }
 
     fn fetch_word(&self, pc: u32) -> Result<u32> {
@@ -1100,6 +1256,7 @@ impl HexagonVcpu {
                 aligned,
                 pred,
                 qmask,
+                from_gather,
             } => {
                 // Scalar-predicated store: CANCEL (no write, no post-increment)
                 // when the predicate is false. A byte-masked (qmask) store always
@@ -1113,7 +1270,23 @@ impl HexagonVcpu {
                     if aligned {
                         ea &= !127;
                     }
-                    let mut bytes = vec_to_bytes(&self.regs.v[src as usize]);
+                    let mut bytes = if from_gather {
+                        // A `vmem=vtmp.new` store commits the packet's gather
+                        // result. Only the gathered (valid) bytes are written; the
+                        // rest of the destination memory is preserved (the gather
+                        // temp is initialised from this memory on hardware).
+                        let (data, valid) = self.gather_tmp.unwrap_or(([0u8; 128], [false; 128]));
+                        let cur = vec_to_bytes(&self.read_vec(ea)?);
+                        let mut b = cur;
+                        for i in 0..128 {
+                            if valid[i] {
+                                b[i] = data[i];
+                            }
+                        }
+                        b
+                    } else {
+                        vec_to_bytes(&self.regs.v[src as usize])
+                    };
                     if let Some((q, sense)) = qmask {
                         // Read-modify-write: keep existing bytes where the Q mask
                         // doesn't select. The Qv operand reads the OLD predicate
@@ -1133,6 +1306,34 @@ impl HexagonVcpu {
                             Some(self.regs.r[base as usize].wrapping_add(inc as u32));
                     }
                 }
+            }
+            // HVX V65 scatter: store/accumulate elements into the region.
+            DecodedInsn::VScatter {
+                base,
+                modsel,
+                offsets,
+                data,
+                esz,
+                off_pair,
+                add,
+                pred,
+            } => {
+                self.exec_scatter(base, modsel, offsets, data, esz, off_pair, add, pred)?;
+            }
+            // HVX V65 gather: build the gathered vector into the per-packet scratch
+            // (`gather_tmp`), consumed by the paired `vmem=vtmp.new` store. The
+            // gather is also pre-run at packet start (the assembler encodes it
+            // AFTER its consuming store); re-running here is idempotent.
+            DecodedInsn::VGather {
+                base,
+                modsel,
+                offsets,
+                esz,
+                off_pair,
+                pred,
+            } => {
+                self.gather_tmp =
+                    Some(self.exec_gather(base, modsel, offsets, esz, off_pair, pred)?);
             }
             // Absolute value: Rd = |Rs|, with optional saturation
             DecodedInsn::Abs { dst, src, sat } => {
@@ -1339,6 +1540,7 @@ impl HexagonVcpu {
             self.new_v = [None; 32];
             self.new_q = [None; 4];
             self.new_v_tmp = [None; 32];
+            self.gather_tmp = None;
             // Pre-execute vector `.tmp` loads so their data is visible to a
             // same-packet consumer (e.g. vhist, which the assembler encodes
             // BEFORE the producing `.tmp` load). Read-only here: the producing
@@ -1350,22 +1552,42 @@ impl HexagonVcpu {
                     Err(_) => break,
                 };
                 let pb = (w >> 14) & 0x3;
-                if let DecodedInsn::VLoad {
-                    dst,
-                    base,
-                    offset,
-                    aligned,
-                    commit: false,
-                    ..
-                } = decode(w, None, self._isa).insn
-                {
-                    let mut ea = self.regs.r[base as usize].wrapping_add(offset as u32);
-                    if aligned {
-                        ea &= !127;
+                match decode(w, None, self._isa).insn {
+                    DecodedInsn::VLoad {
+                        dst,
+                        base,
+                        offset,
+                        aligned,
+                        commit: false,
+                        ..
+                    } => {
+                        let mut ea = self.regs.r[base as usize].wrapping_add(offset as u32);
+                        if aligned {
+                            ea &= !127;
+                        }
+                        if let Ok(vec) = self.read_vec(ea) {
+                            self.new_v_tmp[dst as usize] = Some(vec);
+                        }
                     }
-                    if let Ok(vec) = self.read_vec(ea) {
-                        self.new_v_tmp[dst as usize] = Some(vec);
+                    // Pre-run the gather: its result (`gather_tmp`) feeds the
+                    // paired `vmem=vtmp.new` store, which the assembler encodes
+                    // BEFORE the gather. The gather instruction itself still runs
+                    // in the main loop (recomputing the same scratch).
+                    DecodedInsn::VGather {
+                        base,
+                        modsel,
+                        offsets,
+                        esz,
+                        off_pair,
+                        pred,
+                    } => {
+                        if let Ok(vec) =
+                            self.exec_gather(base, modsel, offsets, esz, off_pair, pred)
+                        {
+                            self.gather_tmp = Some(vec);
+                        }
                     }
+                    _ => {}
                 }
                 scan_pc = scan_pc.wrapping_add(4);
                 if pb == 0b11 || pb == 0b00 {

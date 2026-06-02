@@ -329,6 +329,45 @@ pub enum DecodedInsn {
         /// Byte-mask store: `(Qv register, sense)`. When set, byte `i` is stored
         /// iff `Q.bit[i] == sense` (`qpred` => true, `nqpred` => false).
         qmask: Option<(u8, bool)>,
+        /// New-value vector store whose source is the per-packet gather scratch
+        /// (`vmem(Rs+#k) = vtmp.new`). When set, the store data is the gathered
+        /// vector (`gather_tmp`) rather than `regs.v[src]`.
+        from_gather: bool,
+    },
+    /// HVX V65 scatter: for each element, store (or accumulate) the data element
+    /// to `Rt + offset[i]` when the (aligned) effective address lies within the
+    /// region `[Rt, Rt+Mu]`. See `cpu.rs` for the element/range semantics.
+    VScatter {
+        /// Region base register `Rt`.
+        base: u8,
+        /// Modifier select for `Mu` (0 => M0/C6, 1 => M1/C7); holds `length-1`.
+        modsel: u8,
+        /// Offset vector register `Vv` (for `hw` forms, the even base of the
+        /// `Vvv` register pair).
+        offsets: u8,
+        /// Data vector register `Vw`.
+        data: u8,
+        /// Element size in bytes (2 = halfword, 4 = word).
+        esz: u8,
+        /// `true` for the half-word-offset (`hw`) double-resource forms: a 64
+        /// word-sized offset pair feeding 64 halfword data elements.
+        off_pair: bool,
+        /// `true` for the accumulate (`_add`) forms (`*EA += data`).
+        add: bool,
+        /// Vector predicate `Qs` for the `q` (predicated) forms.
+        pred: Option<u8>,
+    },
+    /// HVX V65 gather: read in-range (and, for `q` forms, predicate-on) elements
+    /// from `Rt + offset[i]` into the per-packet gather scratch. A paired
+    /// `vmem(Rs+#k)=vtmp.new` store commits only the gathered bytes (the rest of
+    /// the destination is preserved). See `cpu.rs`.
+    VGather {
+        base: u8,
+        modsel: u8,
+        offsets: u8,
+        esz: u8,
+        off_pair: bool,
+        pred: Option<u8>,
     },
     /// New-value store: stores the register produced earlier in this packet,
     /// selected by the `Nt8` field. The packet driver resolves `nt` to the
@@ -1040,6 +1079,7 @@ fn vmem_store_pred(
             aligned,
             pred,
             qmask: None,
+            from_gather: false,
         },
         false,
     ))
@@ -1065,6 +1105,93 @@ fn vmem_store_q(
             aligned: true,
             pred: None,
             qmask: Some((qv, sense)),
+            from_gather: false,
+        },
+        false,
+    ))
+}
+
+/// New-value vector store `vmem(Rs+#k) = vtmp.new`, where the `.new` source is
+/// the per-packet gather scratch (`gather_tmp`). Field `t` is the base register
+/// `Rs`; the immediate is in vector units.
+fn vmem_store_new_gather(decoded: &DecodedOp, post_inc: bool) -> Option<(DecodedInsn, bool)> {
+    let base = field_u8(decoded, if post_inc { b'x' } else { b't' })?;
+    let imm = decode_field_simm(decoded, b'i', None)?.0 * HVX_VEC_BYTES;
+    let (offset, pi) = if post_inc { (0, Some(imm)) } else { (imm, None) };
+    Some((
+        DecodedInsn::VStore {
+            src: 0,
+            base,
+            offset,
+            post_inc: pi,
+            aligned: true,
+            pred: None,
+            qmask: None,
+            from_gather: true,
+        },
+        false,
+    ))
+}
+
+/// HVX V65 scatter (`vscatter(Rt,Mu,Vv.{w,h})[.{w,h}][+]=Vw`). `esz` is the data
+/// element size (2 or 4); `off_pair` selects the `Vvv.w` double-resource forms;
+/// `add` selects accumulate; `pred_sense` (`Some`) marks the `q` predicated forms.
+fn vscatter(
+    decoded: &DecodedOp,
+    esz: u8,
+    off_pair: bool,
+    add: bool,
+    predicated: bool,
+) -> Option<(DecodedInsn, bool)> {
+    let base = field_u8(decoded, b't')?;
+    let modsel = field_u8(decoded, b'u')?;
+    let offsets = field_u8(decoded, b'v')?;
+    let data = field_u8(decoded, b'w')?;
+    let pred = if predicated {
+        Some(field_u8(decoded, b's')?)
+    } else {
+        None
+    };
+    Some((
+        DecodedInsn::VScatter {
+            base,
+            modsel,
+            offsets,
+            data,
+            esz,
+            off_pair,
+            add,
+            pred,
+        },
+        false,
+    ))
+}
+
+/// HVX V65 gather (`vtmp.{w,h}=vgather(Rt,Mu,Vv.{w,h}).{w,h}`). The gather has no
+/// architectural destination; it writes the per-packet scratch consumed by a
+/// paired `vmem(Rs+#k)=vtmp.new`.
+fn vgather(
+    decoded: &DecodedOp,
+    esz: u8,
+    off_pair: bool,
+    predicated: bool,
+) -> Option<(DecodedInsn, bool)> {
+    let base = field_u8(decoded, b't')?;
+    let modsel = field_u8(decoded, b'u')?;
+    let offsets = field_u8(decoded, b'v')?;
+    let pred = if predicated {
+        Some(field_u8(decoded, b's')?)
+    } else {
+        None
+    };
+    Some((
+        DecodedInsn::VGather {
+            base,
+            modsel,
+            offsets,
+            esz,
+            off_pair,
+            pred,
         },
         false,
     ))
@@ -1809,6 +1936,28 @@ fn decode_main(decoded: &DecodedOp, word: u32, immext: Option<u32>) -> (DecodedI
         Opcode::V6_vS32b_nqpred_ai => req!(vmem_store_q(decoded, false, false)),
         Opcode::V6_vS32b_qpred_pi => req!(vmem_store_q(decoded, true, true)),
         Opcode::V6_vS32b_nqpred_pi => req!(vmem_store_q(decoded, true, false)),
+        // New-value vector store `vmem(Rs+#k) = vtmp.new`: the source is the
+        // per-packet gather scratch. (Field `t` = base Rs, `i` = vector offset.)
+        Opcode::V6_vS32b_new_ai => req!(vmem_store_new_gather(decoded, false)),
+        Opcode::V6_vS32b_new_pi => req!(vmem_store_new_gather(decoded, true)),
+        // ---- HVX V65 scatter (vscatter) ----
+        // esz, off_pair, add, predicated.
+        Opcode::V6_vscattermw => req!(vscatter(decoded, 4, false, false, false)),
+        Opcode::V6_vscattermh => req!(vscatter(decoded, 2, false, false, false)),
+        Opcode::V6_vscattermhw => req!(vscatter(decoded, 2, true, false, false)),
+        Opcode::V6_vscattermw_add => req!(vscatter(decoded, 4, false, true, false)),
+        Opcode::V6_vscattermh_add => req!(vscatter(decoded, 2, false, true, false)),
+        Opcode::V6_vscattermhw_add => req!(vscatter(decoded, 2, true, true, false)),
+        Opcode::V6_vscattermwq => req!(vscatter(decoded, 4, false, false, true)),
+        Opcode::V6_vscattermhq => req!(vscatter(decoded, 2, false, false, true)),
+        Opcode::V6_vscattermhwq => req!(vscatter(decoded, 2, true, false, true)),
+        // ---- HVX V65 gather (vgather) ----
+        Opcode::V6_vgathermw => req!(vgather(decoded, 4, false, false)),
+        Opcode::V6_vgathermh => req!(vgather(decoded, 2, false, false)),
+        Opcode::V6_vgathermhw => req!(vgather(decoded, 2, true, false)),
+        Opcode::V6_vgathermwq => req!(vgather(decoded, 4, false, true)),
+        Opcode::V6_vgathermhq => req!(vgather(decoded, 2, false, true)),
+        Opcode::V6_vgathermhwq => req!(vgather(decoded, 2, true, true)),
         _ => (DecodedInsn::Unknown(word), false),
     }
 }
