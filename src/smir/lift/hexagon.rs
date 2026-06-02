@@ -3178,6 +3178,85 @@ impl HexagonLifter {
                 });
             }
 
+            // ============================================================
+            // HVX single-vector shuffle / deal (Wave 7)
+            //
+            // `OpKind::VShuffle2` reorders narrow lanes of one vector.
+            //   shuffle (deal=false): out[2i]=src[i], out[2i+1]=src[i+half]
+            //   deal    (deal=true):  out[i]=src[2i], out[i+half]=src[2i+1]
+            // half = (1024/elem_bits)/2. Confirmed against sem/hvx_perm.rs:
+            //   vshuffb (I8):  out[2i]=Vu[i], out[2i+1]=Vu[i+64]   (half=64)
+            //   vshuffh (I16): out_h[2i]=Vu_h[i], out_h[2i+1]=Vu_h[i+32]
+            //   vdealb  (I8):  out[i]=Vu[2i], out[i+64]=Vu[2i+1]
+            //   vdealh  (I16): out_h[i]=Vu_h[2i], out_h[i+32]=Vu_h[2i+1]
+            // Single source is Vu (fld 'u'); dest is Vd (fld 'd').
+            // ============================================================
+            Opcode::V6_vshuffb => push_op!(OpKind::VShuffle2 {
+                dst: self.hex_v(fld(b'd')),
+                src: self.hex_v(fld(b'u')),
+                elem: VecElementType::I8,
+                deal: false,
+            }),
+            Opcode::V6_vshuffh => push_op!(OpKind::VShuffle2 {
+                dst: self.hex_v(fld(b'd')),
+                src: self.hex_v(fld(b'u')),
+                elem: VecElementType::I16,
+                deal: false,
+            }),
+            Opcode::V6_vdealb => push_op!(OpKind::VShuffle2 {
+                dst: self.hex_v(fld(b'd')),
+                src: self.hex_v(fld(b'u')),
+                elem: VecElementType::I8,
+                deal: true,
+            }),
+            Opcode::V6_vdealh => push_op!(OpKind::VShuffle2 {
+                dst: self.hex_v(fld(b'd')),
+                src: self.hex_v(fld(b'u')),
+                elem: VecElementType::I16,
+                deal: true,
+            }),
+
+            // ============================================================
+            // HVX two-vector even/odd shuffle (Wave 7)
+            //
+            // `OpKind::VShuffleEO` interleaves the even (odd=false) or odd
+            // (odd=true) narrow sub-elements of two vectors:
+            //   out[2i] = src2[2i+odd], out[2i+1] = src1[2i+odd]
+            // Confirmed against sem/hvx_perm.rs (src1=Vu, src2=Vv):
+            //   vshuffeb (I8,  even): out[2i]=Vv[2i],   out[2i+1]=Vu[2i]
+            //   vshuffob (I8,  odd):  out[2i]=Vv[2i+1], out[2i+1]=Vu[2i+1]
+            //   vshufeh  (I16, even): out_h[2i]=Vv_h[2i],   out_h[2i+1]=Vu_h[2i]
+            //   vshufoh  (I16, odd):  out_h[2i]=Vv_h[2i+1], out_h[2i+1]=Vu_h[2i+1]
+            // ============================================================
+            Opcode::V6_vshuffeb => push_op!(OpKind::VShuffleEO {
+                dst: self.hex_v(fld(b'd')),
+                src1: self.hex_v(fld(b'u')),
+                src2: self.hex_v(fld(b'v')),
+                elem: VecElementType::I8,
+                odd: false,
+            }),
+            Opcode::V6_vshuffob => push_op!(OpKind::VShuffleEO {
+                dst: self.hex_v(fld(b'd')),
+                src1: self.hex_v(fld(b'u')),
+                src2: self.hex_v(fld(b'v')),
+                elem: VecElementType::I8,
+                odd: true,
+            }),
+            Opcode::V6_vshufeh => push_op!(OpKind::VShuffleEO {
+                dst: self.hex_v(fld(b'd')),
+                src1: self.hex_v(fld(b'u')),
+                src2: self.hex_v(fld(b'v')),
+                elem: VecElementType::I16,
+                odd: false,
+            }),
+            Opcode::V6_vshufoh => push_op!(OpKind::VShuffleEO {
+                dst: self.hex_v(fld(b'd')),
+                src1: self.hex_v(fld(b'u')),
+                src2: self.hex_v(fld(b'v')),
+                elem: VecElementType::I16,
+                odd: true,
+            }),
+
             // Everything else: not implemented here.
             _ => return Err(unsupported()),
         }

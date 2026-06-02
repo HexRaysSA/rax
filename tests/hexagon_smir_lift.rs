@@ -1201,3 +1201,41 @@ fn lift_hvx_vpack_sat() {
         0x701d,
     );
 }
+
+#[test]
+fn lift_hvx_vshuff_deal() {
+    // Single-vector shuffle/deal of narrow lanes (VShuffle2).
+    //   vshuff (deal=false): out[2i]=Vu[i], out[2i+1]=Vu[i+half]
+    //   vdeal  (deal=true):  out[i]=Vu[2i], out[i+half]=Vu[2i+1]
+    // half = (1024/elem_bits)/2; elem is the lane type (b -> I8, h -> I16).
+    lift_family(
+        "hvx_vshuff_deal",
+        &[
+            ("vshuffb", "{ v2.b = vshuff(v0.b) }"),
+            ("vshuffh", "{ v2.h = vshuff(v0.h) }"),
+            ("vdealb", "{ v2.b = vdeal(v0.b) }"),
+            ("vdealh", "{ v2.h = vdeal(v0.h) }"),
+        ],
+        12,
+        0x701e,
+    );
+}
+
+#[test]
+fn lift_hvx_vshuff_eo() {
+    // Two-vector even/odd shuffle (VShuffleEO): interleave the even (e) or odd
+    // (o) narrow sub-elements of two source vectors.
+    //   out[2i] = src2[2i+odd], out[2i+1] = src1[2i+odd]   (src1=Vu, src2=Vv)
+    // vshuffe* takes the even sub-element, vshuffo* the odd one.
+    lift_family(
+        "hvx_vshuff_eo",
+        &[
+            ("vshuffeb", "{ v2.b = vshuffe(v0.b,v1.b) }"),
+            ("vshuffob", "{ v2.b = vshuffo(v0.b,v1.b) }"),
+            ("vshufeh", "{ v2.h = vshuffe(v0.h,v1.h) }"),
+            ("vshufoh", "{ v2.h = vshuffo(v0.h,v1.h) }"),
+        ],
+        12,
+        0x701f,
+    );
+}
