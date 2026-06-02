@@ -863,3 +863,408 @@ fn diff_dfmpyhh() {
     // pair against a small set of accumulators that cover the acc fold positions.
     run_df_mpyhh("dfmpyhh", "{ r1:0 += dfmpyhh(r3:2,r5:4) }");
 }
+
+// ---- reciprocal / inverse-sqrt seed + fixup (recipa/invsqrta/fixupn/d/r) ----
+
+/// Differential runner for the recip/invsqrt family. `binary` selects whether
+/// the op reads Rt (r3) too; `check_pe` selects whether the op also writes the
+/// p0 predicate (recipa/invsqrta) which we compare alongside Rd and the USR FP
+/// flags. Rs in r2, Rt in r3, Rd in r1, Pe in p0. Drives every (Rs[,Rt]) pair
+/// from `f32_values()` (incl. ±0, ±inf, denormals, qNaN, sNaN).
+fn run_recip_family(name: &str, asm: &str, binary: bool, check_pe: bool) {
+    let oracle = match oracle_path() {
+        Some(p) => p,
+        None => {
+            eprintln!("[hexagon_float_diff] {name}: toolchain unavailable -> skipping");
+            return;
+        }
+    };
+    let words = match assemble_packets(&[asm.to_string()]) {
+        Some(w) => w.into_iter().next().unwrap(),
+        None => {
+            eprintln!("[hexagon_float_diff] {name}: assembly failed -> skipping");
+            return;
+        }
+    };
+    let vals = f32_values();
+    let mut cases: Vec<(Vec<u32>, HexState)> = Vec::new();
+    if binary {
+        for &a in &vals {
+            for &b in &vals {
+                let mut st = HexState::zeroed();
+                st.w[2] = a;
+                st.w[3] = b;
+                cases.push((words.clone(), st));
+            }
+        }
+    } else {
+        for &a in &vals {
+            let mut st = HexState::zeroed();
+            st.w[2] = a;
+            cases.push((words.clone(), st));
+        }
+    }
+    let outs = match run_oracle(&oracle, &cases) {
+        Some(o) => o,
+        None => {
+            eprintln!("[hexagon_float_diff] {name}: oracle run failed -> skipping");
+            return;
+        }
+    };
+    let mut mismatches = Vec::new();
+    for ((w, st), out) in cases.iter().zip(outs.iter()) {
+        let rax = match run_rax(w, st) {
+            Some(s) => s,
+            None => {
+                mismatches.push(Mismatch {
+                    label: name.into(),
+                    asm: asm.into(),
+                    detail: "hw executed but rax rejected the encoding".into(),
+                });
+                continue;
+            }
+        };
+        let mut diffs = Vec::new();
+        if rax.w[1] != out.w[1] {
+            diffs.push(format!("Rd(r1): rax={:#010x} hw={:#010x}", rax.w[1], out.w[1]));
+        }
+        if check_pe {
+            let rax_pe = rax.w[I_PRED] & 0xff;
+            let hw_pe = out.w[I_PRED] & 0xff;
+            if rax_pe != hw_pe {
+                diffs.push(format!("Pe(p0): rax={rax_pe:#04x} hw={hw_pe:#04x}"));
+            }
+        }
+        let rax_fp = rax.w[I_USR] & USR_FP_MASK;
+        let hw_fp = out.w[I_USR] & USR_FP_MASK;
+        if rax_fp != hw_fp {
+            diffs.push(format!("USR(fp): rax={rax_fp:#04x} hw={hw_fp:#04x}"));
+        }
+        if !diffs.is_empty() {
+            mismatches.push(Mismatch {
+                label: name.into(),
+                asm: asm.into(),
+                detail: format!(
+                    "Rs={:#010x} Rt={:#010x}  {}",
+                    st.w[2],
+                    st.w[3],
+                    diffs.join("  |  ")
+                ),
+            });
+        }
+    }
+    let n = cases.len();
+    report_and_panic(name, n, mismatches);
+}
+
+/// Covers all 5 reciprocal/inverse-sqrt ops over `f32_values()` (incl. specials
+/// + denormals); recipa/invsqrta verify Rd AND the multi-bit Pe predicate AND
+/// the USR FP flags exactly; fixupn/d/r verify Rd AND USR.
+#[test]
+fn diff_fp_recip() {
+    run_recip_family("sfrecipa", "{ r1,p0 = sfrecipa(r2,r3) }", true, true);
+    run_recip_family("sfinvsqrta", "{ r1,p0 = sfinvsqrta(r2) }", false, true);
+    run_recip_family("sffixupn", "{ r1 = sffixupn(r2,r3) }", true, false);
+    run_recip_family("sffixupd", "{ r1 = sffixupd(r2,r3) }", true, false);
+    run_recip_family("sffixupr", "{ r1 = sffixupr(r2) }", false, false);
+}
+
+// ---------------------------------------------------------------------------
+// PROBE: recover the recip / invsqrt seed tables and the adjust/Pe rules from
+// the qemu-hexagon oracle (ground truth). Run with:
+//   cargo test --test hexagon_float_diff probe_recip -- --ignored --nocapture
+// ---------------------------------------------------------------------------
+
+/// Run a single sfrecipa case: returns (Rd, Pe).
+fn probe_one(oracle: &PathBuf, asm: &str, r2: u32, r3: u32) -> (u32, u32) {
+    let words = assemble_packets(&[asm.to_string()]).unwrap().into_iter().next().unwrap();
+    let mut st = HexState::zeroed();
+    st.w[2] = r2;
+    st.w[3] = r3;
+    let outs = run_oracle(oracle, &[(words, st)]).unwrap();
+    let o = &outs[0];
+    (o.w[1], o.w[I_PRED] & 0xff)
+}
+
+/// Run a single case, returning (Rd, Pe, USR_fp).
+fn probe_usr(oracle: &PathBuf, asm: &str, r2: u32, r3: u32) -> (u32, u32, u32) {
+    let words = assemble_packets(&[asm.to_string()]).unwrap().into_iter().next().unwrap();
+    let mut st = HexState::zeroed();
+    st.w[2] = r2;
+    st.w[3] = r3;
+    let outs = run_oracle(oracle, &[(words, st)]).unwrap();
+    let o = &outs[0];
+    (o.w[1], o.w[I_PRED] & 0xff, o.w[I_USR] & USR_FP_MASK)
+}
+
+/// Wide differential sweep over many exponents/mantissas/signs to stress the
+/// recip_common 5-way exponent-adjust branch ordering and scalbn rounding well
+/// beyond the small clean corpus. Ground truth = oracle. (#[ignore]: slow.)
+#[test]
+#[ignore]
+fn probe_recip_wide() {
+    let oracle = match oracle_path() {
+        Some(p) => p,
+        None => return,
+    };
+    let recipa = assemble_packets(&["{ r1,p0 = sfrecipa(r2,r3) }".to_string()])
+        .unwrap().into_iter().next().unwrap();
+    let invsqrta = assemble_packets(&["{ r1,p0 = sfinvsqrta(r2) }".to_string()])
+        .unwrap().into_iter().next().unwrap();
+    let fixn = assemble_packets(&["{ r1 = sffixupn(r2,r3) }".to_string()])
+        .unwrap().into_iter().next().unwrap();
+    let fixd = assemble_packets(&["{ r1 = sffixupd(r2,r3) }".to_string()])
+        .unwrap().into_iter().next().unwrap();
+    let fixr = assemble_packets(&["{ r1 = sffixupr(r2) }".to_string()])
+        .unwrap().into_iter().next().unwrap();
+
+    // A deterministic LCG over a spread of exponents/mantissas/signs.
+    let mut seed: u64 = 0x1234_5678_9abc_def1;
+    let mut next = || {
+        seed = seed.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407);
+        (seed >> 33) as u32
+    };
+    let mut mk = |r: &mut dyn FnMut() -> u32| -> u32 {
+        let exp = (r() % 256) as u32; // full exponent range incl 0/255
+        let mant = r() & 0x7f_ffff;
+        let sign = (r() & 1) << 31;
+        sign | (exp << 23) | mant
+    };
+
+    let mut cases_r: Vec<(Vec<u32>, HexState, u8)> = Vec::new(); // (words, st, kind)
+    for _ in 0..6000 {
+        let rs = mk(&mut next);
+        let rt = mk(&mut next);
+        for (w, kind) in [(&recipa, 0u8), (&fixn, 2), (&fixd, 3)] {
+            let mut st = HexState::zeroed();
+            st.w[2] = rs;
+            st.w[3] = rt;
+            cases_r.push((w.clone(), st, kind));
+        }
+        let mut st = HexState::zeroed();
+        st.w[2] = rs;
+        cases_r.push((invsqrta.clone(), st, 1));
+        let mut st = HexState::zeroed();
+        st.w[2] = rs;
+        cases_r.push((fixr.clone(), st, 4));
+    }
+    let plain: Vec<(Vec<u32>, HexState)> =
+        cases_r.iter().map(|(w, s, _)| (w.clone(), *s)).collect();
+    let outs = run_oracle(&oracle, &plain).unwrap();
+    let mut bad = 0u32;
+    for ((w, st, kind), out) in cases_r.iter().zip(outs.iter()) {
+        let rax = run_rax(w, st).unwrap();
+        let check_pe = *kind < 2;
+        let mut diff = String::new();
+        if rax.w[1] != out.w[1] {
+            diff += &format!(" Rd rax={:#010x} hw={:#010x}", rax.w[1], out.w[1]);
+        }
+        if check_pe && (rax.w[I_PRED] & 0xff) != (out.w[I_PRED] & 0xff) {
+            diff += &format!(" Pe rax={:#04x} hw={:#04x}", rax.w[I_PRED] & 0xff, out.w[I_PRED] & 0xff);
+        }
+        if (rax.w[I_USR] & USR_FP_MASK) != (out.w[I_USR] & USR_FP_MASK) {
+            diff += &format!(" USR rax={:#04x} hw={:#04x}", rax.w[I_USR] & USR_FP_MASK, out.w[I_USR] & USR_FP_MASK);
+        }
+        if !diff.is_empty() {
+            bad += 1;
+            if bad <= 30 {
+                eprintln!("kind={kind} Rs={:#010x} Rt={:#010x}{diff}", st.w[2], st.w[3]);
+            }
+        }
+    }
+    eprintln!("probe_recip_wide: {bad} divergences over {} cases", cases_r.len());
+    assert_eq!(bad, 0, "wide recip sweep diverged");
+}
+
+#[test]
+#[ignore]
+fn probe_usr_flags() {
+    let oracle = match oracle_path() {
+        Some(p) => p,
+        None => return,
+    };
+    let recipa = "{ r1,p0 = sfrecipa(r2,r3) }";
+    let invsqrta = "{ r1,p0 = sfinvsqrta(r2) }";
+    eprintln!("-- recipa USR flags --");
+    let rcases: &[(&str, u32, u32)] = &[
+        ("0/0", 0, 0),
+        ("inf/inf", 0x7f80_0000, 0x7f80_0000),
+        ("1/0", 0x3f80_0000, 0),
+        ("2/0", 0x4000_0000, 0),
+        ("inf/0", 0x7f80_0000, 0),
+        ("0/1", 0, 0x3f80_0000),
+        ("snan/1", 0x7fa0_0000, 0x3f80_0000),
+        ("normal", 0x3f80_0000, 0x40490fdb),
+        ("denRs", 0x0000_0001, 0x3f80_0000),
+        ("denRt", 0x3f80_0000, 0x0000_0001),
+        ("smallRt", 0x3f80_0000, 0x0080_0000),
+        ("bigRt", 0x3f80_0000, 0x7f00_0000),
+    ];
+    for (lbl, rs, rt) in rcases {
+        let (rd, pe, usr) = probe_usr(&oracle, recipa, *rs, *rt);
+        eprintln!("  {lbl:10} -> Rd={rd:#010x} Pe={pe:#04x} USR={usr:#04x}");
+    }
+    eprintln!("-- invsqrta USR flags --");
+    let icases: &[(&str, u32)] = &[
+        ("0", 0), ("-0", 0x8000_0000), ("inf", 0x7f80_0000), ("-inf", 0xff80_0000),
+        ("snan", 0x7fa0_0000), ("-1", 0xbf80_0000), ("normal", 0x4049_0fdb),
+        ("den+", 0x0000_0001), ("bigden", 0x0040_0000),
+    ];
+    for (lbl, rs) in icases {
+        let (rd, pe, usr) = probe_usr(&oracle, invsqrta, *rs, 0);
+        eprintln!("  {lbl:8} -> Rd={rd:#010x} Pe={pe:#04x} USR={usr:#04x}");
+    }
+    eprintln!("-- fixup USR flags --");
+    for (lbl, asm) in &[("fixupn","{ r1 = sffixupn(r2,r3) }"), ("fixupd","{ r1 = sffixupd(r2,r3) }"), ("fixupr","{ r1 = sffixupr(r2) }")] {
+        for (clbl, rs, rt) in rcases {
+            let (rd, _pe, usr) = probe_usr(&oracle, asm, *rs, *rt);
+            eprintln!("  {lbl} {clbl:10} -> Rd={rd:#010x} USR={usr:#04x}");
+        }
+    }
+}
+
+#[test]
+#[ignore]
+fn probe_recip() {
+    let oracle = match oracle_path() {
+        Some(p) => p,
+        None => {
+            eprintln!("toolchain unavailable");
+            return;
+        }
+    };
+    let recipa = "{ r1,p0 = sfrecipa(r2,r3) }";
+    let invsqrta = "{ r1,p0 = sfinvsqrta(r2) }";
+
+    // ---- RECIP_TABLE: idx 0..128, Rs=1.0, Rt in [1,2) ----
+    let mut recip_table = [0u8; 128];
+    for idx in 0..128u32 {
+        let rt = 0x3f80_0000 | (idx << 16);
+        let (rd, _pe) = probe_one(&oracle, recipa, 0x3f80_0000, rt);
+        recip_table[idx as usize] = ((rd >> 15) & 0xff) as u8;
+    }
+    eprintln!("RECIP_TABLE (128 bytes):");
+    for row in recip_table.chunks(16) {
+        eprintln!("    {}", row.iter().map(|b| format!("0x{b:02x}")).collect::<Vec<_>>().join(", ") + ",");
+    }
+
+    // ---- recip Rd_exp adjust across Rt exponents (Rs=1.0, Rt mant=0) ----
+    eprintln!("\n-- recip Rt exponent sweep (Rs=1.0, Rt = 1.0 * 2^k) --");
+    for exp in 0u32..=255 {
+        let rt = (exp << 23) | 0; // mant 0
+        let (rd, pe) = probe_one(&oracle, recipa, 0x3f80_0000, rt);
+        let rd_exp = (rd >> 23) & 0xff;
+        eprintln!("  Rt_exp={exp:3}  Rd={rd:#010x} Rd_exp={rd_exp:3} Pe={pe:#04x}");
+    }
+
+    // ---- recip denormal / special cases ----
+    eprintln!("\n-- recip specials (Rs,Rt) --");
+    let specials: &[(&str, u32, u32)] = &[
+        ("0/0",        0x0000_0000, 0x0000_0000),
+        ("inf/inf",    0x7f80_0000, 0x7f80_0000),
+        ("1/0",        0x3f80_0000, 0x0000_0000),
+        ("0/1",        0x0000_0000, 0x3f80_0000),
+        ("1/inf",      0x3f80_0000, 0x7f80_0000),
+        ("inf/1",      0x7f80_0000, 0x3f80_0000),
+        ("nan/1",      0x7fc0_0000, 0x3f80_0000),
+        ("1/nan",      0x3f80_0000, 0x7fc0_0000),
+        ("snan/1",     0x7fa0_0000, 0x3f80_0000),
+        ("1/snan",     0x3f80_0000, 0x7fa0_0000),
+        ("denormRs",   0x0000_0001, 0x3f80_0000),
+        ("denormRt",   0x3f80_0000, 0x0000_0001),
+        ("denormRsRt", 0x0000_0001, 0x0040_0000),
+        ("bigRtdenRs", 0x0000_0001, 0x7f00_0000),
+        ("Rt=-2",      0x3f80_0000, 0xc000_0000),
+        ("Rt small norm", 0x3f80_0000, 0x0080_0000),
+        ("Rt large norm", 0x3f80_0000, 0x7f00_0000),
+    ];
+    for (lbl, rs, rt) in specials {
+        let (rd, pe) = probe_one(&oracle, recipa, *rs, *rt);
+        eprintln!("  {lbl:14} Rs={rs:#010x} Rt={rt:#010x} -> Rd={rd:#010x} Pe={pe:#04x}");
+    }
+
+    // ---- INVSQRT_TABLE: idx 0..128 for even and odd exponent ----
+    // idx = (Rs >> 17) & 0x7f. To set the top 7 mantissa bits = idx, the
+    // mantissa is idx << 16. Use exp giving an even/odd unbiased exponent.
+    let mut invsqrt_even = [0u8; 128]; // Rs_exp = 127 (unbiased 0, even)
+    let mut invsqrt_odd = [0u8; 128]; // Rs_exp = 128 (unbiased 1, odd)
+    for idx in 0..128u32 {
+        let rs_even = (127u32 << 23) | (idx << 16);
+        let rs_odd = (128u32 << 23) | (idx << 16);
+        let (rd_e, _) = probe_one(&oracle, invsqrta, rs_even, 0);
+        let (rd_o, _) = probe_one(&oracle, invsqrta, rs_odd, 0);
+        invsqrt_even[idx as usize] = ((rd_e >> 15) & 0xff) as u8;
+        invsqrt_odd[idx as usize] = ((rd_o >> 15) & 0xff) as u8;
+    }
+    eprintln!("\nINVSQRT (even exp 127, mantbits): seed = (Rd>>15)&0xff");
+    for row in invsqrt_even.chunks(16) {
+        eprintln!("    {}", row.iter().map(|b| format!("0x{b:02x}")).collect::<Vec<_>>().join(", ") + ",");
+    }
+    eprintln!("INVSQRT (odd exp 128):");
+    for row in invsqrt_odd.chunks(16) {
+        eprintln!("    {}", row.iter().map(|b| format!("0x{b:02x}")).collect::<Vec<_>>().join(", ") + ",");
+    }
+
+    // ---- invsqrt exponent sweep ----
+    eprintln!("\n-- invsqrt Rs exponent sweep (mant=0) --");
+    for exp in 0u32..=255 {
+        let rs = exp << 23;
+        let (rd, pe) = probe_one(&oracle, invsqrta, rs, 0);
+        let rd_exp = (rd >> 23) & 0xff;
+        let seed = (rd >> 15) & 0xff;
+        let mant_lo = rd & 0x7fff;
+        eprintln!("  Rs_exp={exp:3}  Rd={rd:#010x} Rd_exp={rd_exp:3} seed={seed:#04x} mlo={mant_lo:#06x} Pe={pe:#04x}");
+    }
+
+    // ---- invsqrt specials ----
+    eprintln!("\n-- invsqrt specials (Rs) --");
+    let isp: &[(&str, u32)] = &[
+        ("0",       0x0000_0000),
+        ("-0",      0x8000_0000),
+        ("inf",     0x7f80_0000),
+        ("-inf",    0xff80_0000),
+        ("nan",     0x7fc0_0000),
+        ("snan",    0x7fa0_0000),
+        ("-1",      0xbf80_0000),
+        ("-2",      0xc000_0000),
+        ("denorm+", 0x0000_0001),
+        ("denorm-", 0x8000_0001),
+        ("bigdenorm",0x0040_0000),
+    ];
+    for (lbl, rs) in isp {
+        let (rd, pe) = probe_one(&oracle, invsqrta, *rs, 0);
+        eprintln!("  {lbl:10} Rs={rs:#010x} -> Rd={rd:#010x} Pe={pe:#04x}");
+    }
+
+    // ---- fixup probes ----
+    eprintln!("\n-- sffixupn/d/r over normals, denormals, specials --");
+    let fixn = "{ r1 = sffixupn(r2,r3) }";
+    let fixd = "{ r1 = sffixupd(r2,r3) }";
+    let fixr = "{ r1 = sffixupr(r2) }";
+    let fvals: &[u32] = &[
+        0x3f80_0000, 0xc000_0000, 0x0000_0001, 0x8000_0001, 0x0040_0000,
+        0x007f_ffff, 0x7f80_0000, 0xff80_0000, 0x0000_0000, 0x8000_0000,
+        0x7fc0_0000, 0x7fa0_0000, 0x0080_0000, 0x7f7f_ffff,
+    ];
+    for &rt in fvals {
+        // fixupn: Rd = adjusted Rs (Rs is the numerator); vary Rs, fix Rt=1.0
+        let (rdn, _) = probe_one(&oracle, fixn, rt, 0x3f80_0000);
+        // fixupd: Rd = adjusted Rt; vary Rt, fix Rs=1.0
+        let (rdd, _) = probe_one(&oracle, fixd, 0x3f80_0000, rt);
+        let (rdr, _) = probe_one(&oracle, fixr, rt, 0);
+        eprintln!("  in={rt:#010x} fixupn={rdn:#010x} fixupd={rdd:#010x} fixupr={rdr:#010x}");
+    }
+    // fixupn/d: also vary the OTHER operand to see cross-dependence
+    eprintln!("\n-- fixupn with Rt denormal (does denormal Rt affect adjusted Rs?) --");
+    for &rs in fvals {
+        let (rdn, _) = probe_one(&oracle, fixn, rs, 0x0000_0001); // Rt denormal
+        let (rdn2, _) = probe_one(&oracle, fixn, rs, 0x7f80_0000); // Rt inf
+        eprintln!("  Rs={rs:#010x} fixupn(Rt=den)={rdn:#010x} fixupn(Rt=inf)={rdn2:#010x}");
+    }
+    eprintln!("\n-- fixupd with Rs denormal/special --");
+    for &rt in fvals {
+        let (rdd, _) = probe_one(&oracle, fixd, 0x0000_0001, rt); // Rs denormal
+        let (rdd2, _) = probe_one(&oracle, fixd, 0x7fc0_0000, rt); // Rs nan
+        eprintln!("  Rt={rt:#010x} fixupd(Rs=den)={rdd:#010x} fixupd(Rs=nan)={rdd2:#010x}");
+    }
+}

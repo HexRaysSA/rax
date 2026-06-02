@@ -21,13 +21,19 @@
 //! dfmpyll/dfmpylh/dfmpyfix, and dfmpyhh (the high-half step of the 3-instruction
 //! f64 multiply; see `df_mpyhh`).
 //!
-//! Intentionally NOT implemented (fall through): sfrecipa/sfinvsqrta/sffixup*
-//! (depend on the proprietary `arch_sf_*` reciprocal/inv-sqrt seed lookup tables).
+//! Reciprocal / inverse-sqrt seed + fixup ops (sfrecipa/sfinvsqrta/sffixupn/
+//! sffixupd/sffixupr): implemented as a faithful port of QEMU's
+//! `arch_sf_recip_common` / `arch_sf_invsqrt_common` (target/hexagon/arch.c)
+//! plus the idef seed-table lookup (`fSF_RECIP_LOOKUP`/`fSF_INVSQRT_LOOKUP`).
+//! The two 128-entry seed tables and the exact branch order / scalbn adjust /
+//! Pe-flag rules were cross-checked against the qemu-hexagon oracle (every
+//! exponent + the IEEE specials; result, Pe predicate, AND USR flags bit-exact).
 
 use super::super::opcode::{DecodedOp, Opcode};
 use super::{fld, SemCtx};
 
 const USR_FPINVF: u32 = 1 << 1; // invalid operation sticky flag
+const USR_FPDBZF: u32 = 1 << 2; // divide-by-zero sticky flag
 const USR_FPOVFF: u32 = 1 << 3; // overflow sticky flag
 const USR_FPUNFF: u32 = 1 << 4; // underflow sticky flag
 const USR_FPINPF: u32 = 1 << 5; // inexact sticky flag
@@ -684,6 +690,250 @@ fn df_mpyhh(araw: u64, braw: u64, acc: u64, ctx: &mut SemCtx) -> u64 {
     v
 }
 
+// ---- reciprocal / inverse-sqrt seed + fixup --------------------------------
+//
+// Faithful port of QEMU `target/hexagon/arch.c`:
+//   * `arch_sf_recip_common(Rs,Rt,Rd,adjust)` and
+//   * `arch_sf_invsqrt_common(Rs,Rd,adjust)`
+// drive the special-case canonicalisation, the denormal/extreme-exponent
+// `scalbn` adjustments, and the multi-bit `adjust` value that lands in `Pe`.
+// The seed mantissa then comes from the idef:
+//   recip:   idx = (RtV>>16)&0x7f; mant = (RECIP[idx]<<15)|1; exp = 253-getexp(Rt)
+//   invsqrt: idx = (RsV>>17)&0x7f; mant =  INVSQRT[idx]<<15;  exp = 127 - ((getexp(Rs)-127)>>1) - 1
+// (`RsV`/`RtV` here are recip/invsqrt_common's *adjusted* operands.)
+//
+// The 128-entry seed tables were recovered byte-for-byte from the qemu oracle
+// and are identical to QEMU's `recip_lookup_table` / `invsqrt_lookup_table`.
+
+const RECIP_LOOKUP: [u8; 128] = [
+    0xfe, 0xfa, 0xf6, 0xf2, 0xef, 0xeb, 0xe7, 0xe4, 0xe0, 0xdd, 0xd9, 0xd6, 0xd2, 0xcf, 0xcc, 0xc9,
+    0xc6, 0xc2, 0xbf, 0xbc, 0xb9, 0xb6, 0xb3, 0xb1, 0xae, 0xab, 0xa8, 0xa5, 0xa3, 0xa0, 0x9d, 0x9b,
+    0x98, 0x96, 0x93, 0x91, 0x8e, 0x8c, 0x8a, 0x87, 0x85, 0x83, 0x80, 0x7e, 0x7c, 0x7a, 0x78, 0x75,
+    0x73, 0x71, 0x6f, 0x6d, 0x6b, 0x69, 0x67, 0x65, 0x63, 0x61, 0x5f, 0x5e, 0x5c, 0x5a, 0x58, 0x56,
+    0x54, 0x53, 0x51, 0x4f, 0x4e, 0x4c, 0x4a, 0x49, 0x47, 0x45, 0x44, 0x42, 0x40, 0x3f, 0x3d, 0x3c,
+    0x3a, 0x39, 0x37, 0x36, 0x34, 0x33, 0x32, 0x30, 0x2f, 0x2d, 0x2c, 0x2b, 0x29, 0x28, 0x27, 0x25,
+    0x24, 0x23, 0x21, 0x20, 0x1f, 0x1e, 0x1c, 0x1b, 0x1a, 0x19, 0x17, 0x16, 0x15, 0x14, 0x13, 0x12,
+    0x11, 0x0f, 0x0e, 0x0d, 0x0c, 0x0b, 0x0a, 0x09, 0x08, 0x07, 0x06, 0x05, 0x04, 0x03, 0x02, 0x00,
+];
+
+const INVSQRT_LOOKUP: [u8; 128] = [
+    0x69, 0x66, 0x63, 0x61, 0x5e, 0x5b, 0x59, 0x57, 0x54, 0x52, 0x50, 0x4d, 0x4b, 0x49, 0x47, 0x45,
+    0x43, 0x41, 0x3f, 0x3d, 0x3b, 0x39, 0x37, 0x36, 0x34, 0x32, 0x30, 0x2f, 0x2d, 0x2c, 0x2a, 0x28,
+    0x27, 0x25, 0x24, 0x22, 0x21, 0x1f, 0x1e, 0x1d, 0x1b, 0x1a, 0x19, 0x17, 0x16, 0x15, 0x14, 0x12,
+    0x11, 0x10, 0x0f, 0x0d, 0x0c, 0x0b, 0x0a, 0x09, 0x08, 0x07, 0x06, 0x05, 0x04, 0x03, 0x02, 0x01,
+    0xfe, 0xfa, 0xf6, 0xf3, 0xef, 0xeb, 0xe8, 0xe4, 0xe1, 0xde, 0xdb, 0xd7, 0xd4, 0xd1, 0xce, 0xcb,
+    0xc9, 0xc6, 0xc3, 0xc0, 0xbe, 0xbb, 0xb8, 0xb6, 0xb3, 0xb1, 0xaf, 0xac, 0xaa, 0xa8, 0xa5, 0xa3,
+    0xa1, 0x9f, 0x9d, 0x9b, 0x99, 0x97, 0x95, 0x93, 0x91, 0x8f, 0x8d, 0x8b, 0x89, 0x87, 0x86, 0x84,
+    0x82, 0x80, 0x7f, 0x7d, 0x7b, 0x7a, 0x78, 0x77, 0x75, 0x74, 0x72, 0x71, 0x6f, 0x6e, 0x6c, 0x6b,
+];
+
+const SF_BIAS: i32 = 127;
+const SF_MANTBITS: i32 = 23;
+const SF_MAXEXP: i32 = 254;
+const F32_ONE: u32 = 0x3f80_0000;
+const F32_NAN: u32 = 0xffff_ffff; // Hexagon default NaN (all ones)
+
+#[inline]
+fn f32_is_inf(b: u32) -> bool {
+    (b & 0x7fff_ffff) == 0x7f80_0000
+}
+#[inline]
+fn f32_is_zero(b: u32) -> bool {
+    (b & 0x7fff_ffff) == 0
+}
+#[inline]
+fn f32_is_neg(b: u32) -> bool {
+    (b >> 31) & 1 == 1
+}
+#[inline]
+fn f32_is_normal(b: u32) -> bool {
+    let e = (b >> 23) & 0xff;
+    e != 0 && e != 0xff
+}
+#[inline]
+fn f32_is_denormal(b: u32) -> bool {
+    (b >> 23) & 0xff == 0 && (b & 0x007f_ffff) != 0
+}
+#[inline]
+fn f32_getexp_raw(b: u32) -> i32 {
+    ((b >> 23) & 0xff) as i32
+}
+/// QEMU `float32_getexp`: raw exp for normals; raw+1 for denormals; -1 else.
+#[inline]
+fn f32_getexp(b: u32) -> i32 {
+    let raw = f32_getexp_raw(b);
+    if f32_is_normal(b) {
+        raw
+    } else if f32_is_denormal(b) {
+        raw + 1
+    } else {
+        -1
+    }
+}
+#[inline]
+fn infinite_f32(neg: bool) -> u32 {
+    if neg {
+        0xff80_0000
+    } else {
+        0x7f80_0000
+    }
+}
+
+/// softfloat `float32_scalbn(f, n)` for finite, *nonzero* `f` (the only kind
+/// reached on the recip/invsqrt normal path). Round-to-nearest-even with the
+/// usual softfloat underflow/inexact flags (reusing the proven exact-rounder).
+/// For all corpus inputs the adjust scales (±32/±64) are exact, so no flag is
+/// raised — but routing through `round_exact_to_f32` keeps that faithful in the
+/// general case too.
+fn f32_scalbn(b: u32, n: i32, ctx: &mut SemCtx) -> u32 {
+    let neg = f32_is_neg(b);
+    if f32_is_zero(b) {
+        return b;
+    }
+    let dec = sf_decode(b); // exact (sign, m, e); m != 0 here
+    round_exact_to_f32(neg, dec.m, dec.e + n, false, false, ctx)
+}
+
+/// Port of `arch_sf_recip_common`. Returns `(ret, RsV, RtV, RdV, PeV)` where
+/// `ret` is 1 on the normal seed path (caller computes the seed) and 0 when a
+/// special case already produced `RdV`. `RsV`/`RtV` are the (possibly adjusted)
+/// operands the fixup ops return.
+fn sf_recip_common(rsv: u32, rtv: u32, ctx: &mut SemCtx) -> (bool, u32, u32, u32, u8) {
+    let rs_nan = f32_is_nan(rsv);
+    let rt_nan = f32_is_nan(rtv);
+    if rs_nan && rt_nan {
+        // invalid unless both are quiet (bit22 set in BOTH).
+        if (rsv & rtv) & 0x0040_0000 == 0 {
+            ctx.usr_or |= USR_FPINVF;
+        }
+        return (false, F32_NAN, F32_NAN, F32_NAN, 0);
+    }
+    if rs_nan {
+        if rsv & 0x0040_0000 == 0 {
+            ctx.usr_or |= USR_FPINVF;
+        }
+        return (false, F32_NAN, F32_NAN, F32_NAN, 0);
+    }
+    if rt_nan {
+        if rtv & 0x0040_0000 == 0 {
+            ctx.usr_or |= USR_FPINVF;
+        }
+        return (false, F32_NAN, F32_NAN, F32_NAN, 0);
+    }
+    if f32_is_inf(rsv) && f32_is_inf(rtv) {
+        ctx.usr_or |= USR_FPINVF;
+        return (false, F32_NAN, F32_NAN, F32_NAN, 0);
+    }
+    if f32_is_zero(rsv) && f32_is_zero(rtv) {
+        ctx.usr_or |= USR_FPINVF;
+        return (false, F32_NAN, F32_NAN, F32_NAN, 0);
+    }
+    if f32_is_zero(rtv) {
+        let sign = f32_is_neg(rsv) ^ f32_is_neg(rtv);
+        if !f32_is_inf(rsv) {
+            ctx.usr_or |= USR_FPDBZF;
+        }
+        return (false, infinite_f32(sign), F32_ONE, F32_ONE, 0);
+    }
+    if f32_is_inf(rtv) {
+        let rs = 0x8000_0000 & (rsv ^ rtv);
+        return (false, rs, F32_ONE, F32_ONE, 0);
+    }
+    if f32_is_zero(rsv) {
+        let rs = 0x8000_0000 & (rsv ^ rtv);
+        return (false, rs, F32_ONE, F32_ONE, 0);
+    }
+    if f32_is_inf(rsv) {
+        let sign = f32_is_neg(rsv) ^ f32_is_neg(rtv);
+        return (false, infinite_f32(sign), F32_ONE, F32_ONE, 0);
+    }
+    // Normal path: adjust extreme exponents, set PeV. Branch order is QEMU's.
+    let mut pe: u8 = 0x00;
+    let n_exp = f32_getexp_raw(rsv);
+    let d_exp = f32_getexp_raw(rtv);
+    let (mut rs, mut rt) = (rsv, rtv);
+    if (n_exp - d_exp + SF_BIAS) <= SF_MANTBITS {
+        pe = 0x80;
+        rt = f32_scalbn(rt, -64, ctx);
+        rs = f32_scalbn(rs, 64, ctx);
+    } else if (n_exp - d_exp + SF_BIAS) > (SF_MAXEXP - 24) {
+        pe = 0x40;
+        rt = f32_scalbn(rt, 32, ctx);
+        rs = f32_scalbn(rs, -32, ctx);
+    } else if n_exp <= SF_MANTBITS + 2 {
+        rt = f32_scalbn(rt, 64, ctx);
+        rs = f32_scalbn(rs, 64, ctx);
+    } else if d_exp <= 1 {
+        rt = f32_scalbn(rt, 32, ctx);
+        rs = f32_scalbn(rs, 32, ctx);
+    } else if d_exp > 252 {
+        rt = f32_scalbn(rt, -32, ctx);
+        rs = f32_scalbn(rs, -32, ctx);
+    }
+    (true, rs, rt, 0, pe)
+}
+
+/// Port of `arch_sf_invsqrt_common`. Returns `(ret, RsV, RdV, PeV)`.
+fn sf_invsqrt_common(rsv: u32, ctx: &mut SemCtx) -> (bool, u32, u32, u8) {
+    if f32_is_nan(rsv) {
+        if rsv & 0x0040_0000 == 0 {
+            ctx.usr_or |= USR_FPINVF;
+        }
+        return (false, F32_NAN, F32_NAN, 0);
+    }
+    // float32_lt(RsV, 0): ordered less-than zero (NaN already handled; -0 is
+    // NOT < 0, so it falls through to the is_zero branch -> +1.0).
+    if f32_is_neg(rsv) && !f32_is_zero(rsv) {
+        ctx.usr_or |= USR_FPINVF;
+        return (false, F32_NAN, F32_NAN, 0);
+    }
+    if f32_is_inf(rsv) {
+        // RsV (sign cleared by infinite_float32(1)? QEMU sets RsV = inf(1), Rd
+        // = inf(1)) -> negative inf for both. (Only +inf reaches here.)
+        return (false, infinite_f32(true), infinite_f32(true), 0);
+    }
+    if f32_is_zero(rsv) {
+        return (false, rsv, F32_ONE, 0);
+    }
+    let mut pe: u8 = 0x00;
+    let mut rs = rsv;
+    let r_exp = f32_getexp(rsv);
+    if r_exp <= 24 {
+        rs = f32_scalbn(rs, 64, ctx);
+        pe = 0xe0;
+    }
+    (true, rs, 0, pe)
+}
+
+#[inline]
+fn make_sf(sign: u32, exp: i32, mant: u32) -> u32 {
+    ((sign & 1) << 31) | (((exp as u32) & 0xff) << 23) | (mant & 0x007f_ffff)
+}
+
+/// `Rd,Pe = sfrecipa(Rs,Rt)`: reciprocal seed of Rt.
+fn sf_recipa(rsv: u32, rtv: u32, ctx: &mut SemCtx) -> (u32, u8) {
+    let (ret, _rs, rt, rd, pe) = sf_recip_common(rsv, rtv, ctx);
+    if !ret {
+        return (rd, pe);
+    }
+    let idx = ((rt >> 16) & 0x7f) as usize;
+    let mant = ((RECIP_LOOKUP[idx] as u32) << 15) | 1;
+    let exp = SF_BIAS - (f32_getexp_raw(rt) - SF_BIAS) - 1;
+    (make_sf(rt >> 31, exp, mant), pe)
+}
+
+/// `Rd,Pe = sfinvsqrta(Rs)`: inverse-sqrt seed of Rs.
+fn sf_invsqrta(rsv: u32, ctx: &mut SemCtx) -> (u32, u8) {
+    let (ret, rs, rd, pe) = sf_invsqrt_common(rsv, ctx);
+    if !ret {
+        return (rd, pe);
+    }
+    let idx = ((rs >> 17) & 0x7f) as usize;
+    let mant = (INVSQRT_LOOKUP[idx] as u32) << 15;
+    let exp = SF_BIAS - ((f32_getexp_raw(rs) - SF_BIAS) >> 1) - 1;
+    (make_sf(rs >> 31, exp, mant), pe)
+}
+
 /// Execute a float_ext opcode. Returns `false` if `op` is not handled here.
 pub fn exec(op: Opcode, d: &DecodedOp, ctx: &mut SemCtx) -> bool {
     let rd = fld(d, b'd');
@@ -801,6 +1051,33 @@ pub fn exec(op: Opcode, d: &DecodedOp, ctx: &mut SemCtx) -> bool {
                 rdd |= byte << (i * 8);
             }
             ctx.set_rp(rd, rdd);
+        }
+
+        // ---- reciprocal / inverse-sqrt seed + fixup ----
+        Opcode::F2_sfrecipa => {
+            let (v, pe) = sf_recipa(s(ctx), t(ctx), ctx);
+            ctx.set_r(rd, v);
+            ctx.set_p(fld(d, b'e'), pe);
+        }
+        Opcode::F2_sfinvsqrta => {
+            let (v, pe) = sf_invsqrta(s(ctx), ctx);
+            ctx.set_r(rd, v);
+            ctx.set_p(fld(d, b'e'), pe);
+        }
+        Opcode::F2_sffixupn => {
+            // Rd = recip_common's adjusted Rs (the numerator).
+            let (_ret, rs, _rt, _rd, _pe) = sf_recip_common(s(ctx), t(ctx), ctx);
+            ctx.set_r(rd, rs);
+        }
+        Opcode::F2_sffixupd => {
+            // Rd = recip_common's adjusted Rt (the denominator).
+            let (_ret, _rs, rt, _rd, _pe) = sf_recip_common(s(ctx), t(ctx), ctx);
+            ctx.set_r(rd, rt);
+        }
+        Opcode::F2_sffixupr => {
+            // Rd = invsqrt_common's adjusted Rs (the radicand).
+            let (_ret, rs, _rd, _pe) = sf_invsqrt_common(s(ctx), ctx);
+            ctx.set_r(rd, rs);
         }
 
         // ---- cache / sync / memory-ordering ops: no architectural register or
