@@ -875,6 +875,24 @@ pub enum OpKind {
         acc: bool,
     },
 
+    /// Widening element extension into a destination register pair.
+    ///
+    /// Models the HVX `Vdd = vzxt/vsxt(Vu)` (interleaved: even narrow lanes ->
+    /// dst_lo, odd -> dst_hi) and `Vdd = vunpack(Vu)` (sequential: the low half
+    /// of the narrow lanes -> dst_lo, the high half -> dst_hi) widen-extend
+    /// families. Each `src_elem`-wide lane is zero- or sign-extended (`signed`)
+    /// to double width.
+    VWidenExt {
+        dst_lo: VReg,
+        dst_hi: VReg,
+        src: VReg,
+        /// Narrow source element type (I8 or I16); result lanes are double width.
+        src_elem: VecElementType,
+        signed: bool,
+        /// true = interleaved (even/odd -> lo/hi); false = sequential (low/high half).
+        interleave: bool,
+    },
+
     /// Reducing (dot-product) multiply.
     ///
     /// Models the HVX `vrmpy`/`vdmpy` vector-by-vector reduce family: each output
@@ -1379,7 +1397,8 @@ impl OpKind {
                 VReg::Arch(ArchReg::X86(X86Reg::Rbp)),
             ],
 
-            OpKind::VWidenMul { dst_lo, dst_hi, .. } => vec![*dst_lo, *dst_hi],
+            OpKind::VWidenMul { dst_lo, dst_hi, .. }
+            | OpKind::VWidenExt { dst_lo, dst_hi, .. } => vec![*dst_lo, *dst_hi],
 
             OpKind::VReduceMul { dst, .. } => vec![*dst],
 

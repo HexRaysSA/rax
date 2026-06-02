@@ -1557,6 +1557,10 @@ impl OpKind {
                 }
             }
 
+            OpKind::VWidenExt { src, .. } => {
+                result.push(*src);
+            }
+
             OpKind::VMov { src, .. } | OpKind::VBroadcast { scalar: src, .. } => {
                 result.push(*src);
             }

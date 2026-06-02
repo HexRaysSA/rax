@@ -1814,6 +1814,41 @@ impl SmirInterpreter {
                 Self::write_vec(ctx, *dst_hi, hi);
             }
 
+            OpKind::VWidenExt {
+                dst_lo,
+                dst_hi,
+                src,
+                src_elem,
+                signed,
+                interleave,
+            } => {
+                let s = Self::read_vec(ctx, *src);
+                let nbits = src_elem.bytes() * 8;
+                let wbits = nbits * 2;
+                let wide_lanes = (1024 / wbits) as u8; // wide lanes per output vector
+                let ext = |raw: u64| -> u64 {
+                    if *signed {
+                        let sh = 64 - nbits;
+                        (((raw << sh) as i64) >> sh) as u64
+                    } else {
+                        raw
+                    }
+                };
+                let mut lo = [0u64; 16];
+                let mut hi = [0u64; 16];
+                for i in 0..wide_lanes {
+                    let (lo_idx, hi_idx) = if *interleave {
+                        (i * 2, i * 2 + 1)
+                    } else {
+                        (i, i + wide_lanes)
+                    };
+                    Self::set_lane(&mut lo, i, wbits, ext(Self::get_lane(&s, lo_idx, nbits)));
+                    Self::set_lane(&mut hi, i, wbits, ext(Self::get_lane(&s, hi_idx, nbits)));
+                }
+                Self::write_vec(ctx, *dst_lo, lo);
+                Self::write_vec(ctx, *dst_hi, hi);
+            }
+
             OpKind::VReduceMul {
                 dst,
                 src1,
@@ -3146,6 +3181,72 @@ mod tests {
         if let ArchRegState::Hexagon(hex) = &ctx.arch_regs {
             assert_eq!(hex.get_v(2), [0xFFFF_FFF8_FFFF_FFF8u64; 16]); // word = -8
         }
+    }
+
+    fn run_widenext(
+        v0: [u64; 16],
+        src_elem: VecElementType,
+        signed: bool,
+        interleave: bool,
+    ) -> ([u64; 16], [u64; 16]) {
+        let mut ctx = SmirContext::new_hexagon();
+        let mut memory = FlatMemory::new(0x1000);
+        let interp = SmirInterpreter::new();
+        if let ArchRegState::Hexagon(hex) = &mut ctx.arch_regs {
+            hex.set_v(0, v0);
+        }
+        let mkv = |n| VReg::Arch(ArchReg::Hexagon(HexagonReg::V(n)));
+        let block = SmirBlock {
+            id: BlockId(0),
+            guest_pc: 0x1000,
+            phis: vec![],
+            ops: vec![SmirOp {
+                id: OpId(0),
+                guest_pc: 0x1000,
+                kind: OpKind::VWidenExt {
+                    dst_lo: mkv(2),
+                    dst_hi: mkv(3),
+                    src: mkv(0),
+                    src_elem,
+                    signed,
+                    interleave,
+                },
+                x86_hint: None,
+            }],
+            terminator: Terminator::Trap { kind: TrapKind::Halt },
+            exec_count: 0,
+        };
+        interp.execute_block(&mut ctx, &mut memory, &block);
+        match &ctx.arch_regs {
+            ArchRegState::Hexagon(hex) => (hex.get_v(2), hex.get_v(3)),
+            _ => panic!("not hexagon"),
+        }
+    }
+
+    #[test]
+    fn test_vwidenext_interleave_zero() {
+        // vzb: every byte = 0xAB. Interleaved zero-extend byte->half.
+        // lo.h[i] = ZE(byte 2i) = 0x00AB; hi.h[i] = ZE(byte 2i+1) = 0x00AB.
+        let (lo, hi) = run_widenext([0xABAB_ABAB_ABAB_ABABu64; 16], VecElementType::I8, false, true);
+        assert_eq!(lo, [0x00AB_00AB_00AB_00ABu64; 16]);
+        assert_eq!(hi, [0x00AB_00AB_00AB_00ABu64; 16]);
+    }
+
+    #[test]
+    fn test_vwidenext_interleave_sign() {
+        // vsb: every byte = 0x80 (-128). Sign-extend byte->half = 0xFF80.
+        let (lo, hi) = run_widenext([0x8080_8080_8080_8080u64; 16], VecElementType::I8, true, true);
+        assert_eq!(lo, [0xFF80_FF80_FF80_FF80u64; 16]);
+        assert_eq!(hi, [0xFF80_FF80_FF80_FF80u64; 16]);
+    }
+
+    #[test]
+    fn test_vwidenext_sequential() {
+        // vunpackub: sequential. lo.h[i] = ZE(byte i), hi.h[i] = ZE(byte i+64).
+        // All bytes = 0x07 -> every output halfword = 0x0007.
+        let (lo, hi) = run_widenext([0x0707_0707_0707_0707u64; 16], VecElementType::I8, false, false);
+        assert_eq!(lo, [0x0007_0007_0007_0007u64; 16]);
+        assert_eq!(hi, [0x0007_0007_0007_0007u64; 16]);
     }
 
     #[test]
