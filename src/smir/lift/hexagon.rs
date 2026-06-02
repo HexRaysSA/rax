@@ -3257,6 +3257,59 @@ impl HexagonLifter {
                 odd: true,
             }),
 
+            // ============================================================
+            // HVX byte-align / rotate (Wave 8)
+            //
+            // `OpKind::VAlign` byte-aligns the 256-byte concat `src1:src2`:
+            // with byte shift `s` (right/left=false: s = amount&127; left=true:
+            // s = 128 - (amount&127)) the result byte i = src2[i+s] when i+s<128,
+            // else src1[i+s-128]. Confirmed against sem/hvx_perm.rs
+            // `align(vu, vv, shift)` with src1 = Vu (fld 'u'), src2 = Vv (fld 'v').
+            //
+            //   vror      : align(Vu, Vu, Rt&127)        -> src1=src2=Vu, right
+            //   valignb   : align(Vu, Vv, Rt&127)        -> right
+            //   vlalignb  : align(Vu, Vv, 128-(Rt&127))  -> left
+            //   valignbi  : align(Vu, Vv, #u3)           -> right, imm
+            //   vlalignbi : align(Vu, Vv, 128-#u3)       -> left, imm
+            // The interp masks `amount & 127` and applies `left` internally, so we
+            // pass the raw Rt register / #u3 immediate unchanged.
+            // ============================================================
+            Opcode::V6_vror => push_op!(OpKind::VAlign {
+                dst: self.hex_v(fld(b'd')),
+                src1: self.hex_v(fld(b'u')),
+                src2: self.hex_v(fld(b'u')),
+                amount: SrcOperand::Reg(self.hex_reg(fld(b't'))),
+                left: false,
+            }),
+            Opcode::V6_valignb => push_op!(OpKind::VAlign {
+                dst: self.hex_v(fld(b'd')),
+                src1: self.hex_v(fld(b'u')),
+                src2: self.hex_v(fld(b'v')),
+                amount: SrcOperand::Reg(self.hex_reg(fld(b't'))),
+                left: false,
+            }),
+            Opcode::V6_vlalignb => push_op!(OpKind::VAlign {
+                dst: self.hex_v(fld(b'd')),
+                src1: self.hex_v(fld(b'u')),
+                src2: self.hex_v(fld(b'v')),
+                amount: SrcOperand::Reg(self.hex_reg(fld(b't'))),
+                left: true,
+            }),
+            Opcode::V6_valignbi => push_op!(OpKind::VAlign {
+                dst: self.hex_v(fld(b'd')),
+                src1: self.hex_v(fld(b'u')),
+                src2: self.hex_v(fld(b'v')),
+                amount: SrcOperand::Imm((fimm_u(b'i') & 0x7) as i64),
+                left: false,
+            }),
+            Opcode::V6_vlalignbi => push_op!(OpKind::VAlign {
+                dst: self.hex_v(fld(b'd')),
+                src1: self.hex_v(fld(b'u')),
+                src2: self.hex_v(fld(b'v')),
+                amount: SrcOperand::Imm((fimm_u(b'i') & 0x7) as i64),
+                left: true,
+            }),
+
             // Everything else: not implemented here.
             _ => return Err(unsupported()),
         }

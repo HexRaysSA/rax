@@ -1239,3 +1239,25 @@ fn lift_hvx_vshuff_eo() {
         0x701f,
     );
 }
+
+#[test]
+fn lift_hvx_valign() {
+    // Byte-align / rotate of the 256-byte concat src1:src2 (VAlign).
+    //   out[i] = src2[i+s] when i+s<128, else src1[i+s-128]
+    // with byte shift s = (amount & 127) for right forms (valign/valignbi) and
+    // s = 128 - (amount & 127) for left forms (vlalign/vlalignbi). src1 = Vu
+    // (assembler first vector operand), src2 = Vv (second). vror rotates a single
+    // vector: align(Vu, Vu, Rt & 127). Confirmed against sem/hvx_perm.rs.
+    lift_family(
+        "hvx_valign",
+        &[
+            ("vror", "{ v2 = vror(v0,r3) }"),
+            ("valignb", "{ v2 = valign(v0,v1,r3) }"),
+            ("vlalignb", "{ v2 = vlalign(v0,v1,r3) }"),
+            ("valignbi", "{ v2 = valign(v0,v1,#3) }"),
+            ("vlalignbi", "{ v2 = vlalign(v0,v1,#3) }"),
+        ],
+        12,
+        0x7020,
+    );
+}
