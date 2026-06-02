@@ -3495,6 +3495,7 @@ impl HexagonLifter {
                     cond,
                     elem,
                     lanes,
+                    accumulate: None,
                 });
             }
 

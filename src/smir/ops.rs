@@ -966,6 +966,9 @@ pub enum OpKind {
         cond: VecCmpCond,
         elem: VecElementType,
         lanes: u8,
+        /// None = overwrite `dst`; Some(And/Or/Xor) = combine the compare mask
+        /// into the existing `dst` Q (HVX accumulating compares veqb_and/or/xor).
+        accumulate: Option<VLaneOp>,
     },
 
     /// Per-byte select by a Q vector predicate. Models HVX `vmux`:

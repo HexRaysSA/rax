@@ -1981,6 +1981,7 @@ impl SmirInterpreter {
                 cond,
                 elem,
                 lanes,
+                accumulate,
             } => {
                 let a = Self::read_vec(ctx, *src1);
                 let b = Self::read_vec(ctx, *src2);
@@ -2011,6 +2012,18 @@ impl SmirInterpreter {
                             let bit = lane as usize * ebytes + byte;
                             q[bit >> 6] |= 1u64 << (bit & 63);
                         }
+                    }
+                }
+                // Accumulating compares combine the new mask into the existing Q.
+                if let Some(combine) = accumulate {
+                    let prev = Self::read_vec(ctx, *dst);
+                    for w in 0..2 {
+                        q[w] = match combine {
+                            VLaneOp::And => prev[w] & q[w],
+                            VLaneOp::Or => prev[w] | q[w],
+                            VLaneOp::Xor => prev[w] ^ q[w],
+                            _ => q[w],
+                        };
                     }
                 }
                 Self::write_vec(ctx, *dst, q);
@@ -3701,6 +3714,7 @@ mod tests {
                     cond: VecCmpCond::Eq,
                     elem: VecElementType::I8,
                     lanes: 128,
+                    accumulate: None,
                 },
                 x86_hint: None,
             }],
