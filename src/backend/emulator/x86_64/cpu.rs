@@ -2647,6 +2647,13 @@ impl X86_64Vcpu {
     pub fn jit_try_block(&mut self) -> Result<bool> {
         match self.jit_compile_region()? {
             Some(region) => {
+                if std::env::var_os("RAX_JIT_LOG").is_some() {
+                    eprintln!(
+                        "[JIT] compiled hot region @ {:#x} (regions cached: {})",
+                        self.regs.rip,
+                        self.jit_region_count()
+                    );
+                }
                 self.jit_run_region(&region);
                 Ok(true)
             }
@@ -2823,6 +2830,16 @@ impl X86_64Vcpu {
     /// `jit_compile_region` compiles exactly there. Ineligible heads are cached
     /// as `None` so they are never retried.
     fn jit_sample_backedge(&mut self, rip_before: u64) {
+        // Diagnostic kill-switch: RAX_NO_JIT disables hot-region promotion so the
+        // interpreter handles everything (isolates JIT-codegen bugs from the
+        // sampling/SMC infrastructure). Cached once — back-edges are hot.
+        {
+            use std::sync::OnceLock;
+            static OFF: OnceLock<bool> = OnceLock::new();
+            if *OFF.get_or_init(|| std::env::var_os("RAX_NO_JIT").is_some()) {
+                return;
+            }
+        }
         let head = self.regs.rip;
         if head >= rip_before {
             return; // forward/fallthrough — not a loop back-edge
@@ -2845,6 +2862,12 @@ impl X86_64Vcpu {
             .ok()
             .flatten()
             .map(std::sync::Arc::new);
+        if std::env::var_os("RAX_JIT_LOG").is_some() {
+            eprintln!(
+                "[JIT] promote @ {head:#x} -> {}",
+                if region.is_some() { "compiled" } else { "ineligible" }
+            );
+        }
         self.jit_cache.insert((head, mt), region.clone());
         if let Some(region) = region {
             self.jit_run_region(&region);
