@@ -7906,10 +7906,20 @@ impl AArch64Cpu {
             self.sve_p[pd] = self.sve_ffr;
             return Ok(CpuExit::Continue);
         }
-        // RDFFR Pd, Pg/Z (predicated): P[Pd] = FFR & P[Pg] (zeroing).
-        if (insn >> 10) & 0x3FFF == 0x63C && (insn >> 9) & 1 == 0 && (insn >> 4) & 1 == 0 {
-            let pg = ((insn >> 5) & 0xF) as usize;
-            self.sve_p[pd] = self.sve_ffr & self.sve_p[pg];
+        // RDFFR/RDFFRS Pd, Pg/Z (predicated): P[Pd] = FFR & P[Pg] (zeroing). The
+        // S-bit form (bit22, RDFFRS) also sets NZCV = PredTest(Pg, result). The
+        // mask ignores bit22 (==bit12 of the shifted field).
+        if (insn >> 10) & 0x2FFF == 0x63C && (insn >> 9) & 1 == 0 && (insn >> 4) & 1 == 0 {
+            let pgl = ((insn >> 5) & 0xF) as usize;
+            let r = self.sve_ffr & self.sve_p[pgl];
+            self.sve_p[pd] = r;
+            if (insn >> 22) & 1 == 1 {
+                let (n, z, c, v) = pred_test(self.sve_p[pgl], r, 16, 1);
+                self.set_n(n);
+                self.set_z(z);
+                self.set_c(c);
+                self.set_v(v);
+            }
             return Ok(CpuExit::Continue);
         }
 
@@ -8224,20 +8234,36 @@ impl AArch64Cpu {
             let pm = ((insn >> 16) & 0xF) as usize;
             let pgl = ((insn >> 10) & 0xF) as usize;
             let pn = ((insn >> 5) & 0xF) as usize;
+            let s = (insn >> 22) & 1;
             let vg = self.sve_p[pgl];
             let vn = self.sve_p[pn];
             let vm = self.sve_p[pm];
-            let r = match ((insn >> 23) & 1, (insn >> 9) & 1, (insn >> 4) & 1) {
-                (0, 0, 0) => vg & vn & vm,    // AND
-                (0, 0, 1) => vg & vn & !vm,   // BIC
-                (0, 1, 0) => vg & (vn ^ vm),  // EOR
-                (1, 0, 0) => vg & (vn | vm),  // ORR
-                (1, 0, 1) => vg & (vn | !vm), // ORN
-                (1, 1, 0) => vg & !(vn | vm), // NOR
-                (1, 1, 1) => vg & !(vn & vm), // NAND
-                _ => return Ok(CpuExit::Undefined(insn)),
-            } & 0xFFFF;
+            let sel = (insn >> 23) & 1 == 0 && (insn >> 9) & 1 == 1 && (insn >> 4) & 1 == 1;
+            let r = if sel {
+                // SEL Pd = Pg ? Pn : Pm (per bit). Not zeroing, never sets flags.
+                ((vg & vn) | (!vg & vm)) & 0xFFFF
+            } else {
+                (match ((insn >> 23) & 1, (insn >> 9) & 1, (insn >> 4) & 1) {
+                    (0, 0, 0) => vg & vn & vm,    // AND(S)
+                    (0, 0, 1) => vg & vn & !vm,   // BIC(S)
+                    (0, 1, 0) => vg & (vn ^ vm),  // EOR(S)
+                    (1, 0, 0) => vg & (vn | vm),  // ORR(S)
+                    (1, 0, 1) => vg & (vn | !vm), // ORN(S)
+                    (1, 1, 0) => vg & !(vn | vm), // NOR(S)
+                    (1, 1, 1) => vg & !(vn & vm), // NAND(S)
+                    _ => return Ok(CpuExit::Undefined(insn)),
+                }) & 0xFFFF
+            };
             self.sve_p[pd] = r;
+            // The S-bit forms (ANDS/BICS/.../MOVS) set NZCV = PredTest(Pg, Pd);
+            // SEL never sets flags.
+            if s == 1 && !sel {
+                let (n, z, c, v) = pred_test(vg, r, 16, 1);
+                self.set_n(n);
+                self.set_z(z);
+                self.set_c(c);
+                self.set_v(v);
+            }
             return Ok(CpuExit::Continue);
         }
 
