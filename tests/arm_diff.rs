@@ -1635,6 +1635,12 @@ fn enc_sve2_shll(tsz: u32, imm3: u32, u: u32, t: u32) -> u32 {
         | (u << 11) | (t << 10) | (RN << 5) | RD
 }
 
+/// SVE2 abs-diff accumulate long: `01000101 size 0 Zm 1100 U T Zn Zda`.
+fn enc_sve2_abal(size: u32, u: u32, t: u32) -> u32 {
+    (0b01000101 << 24) | (size << 22) | (RM << 16) | (0b1100 << 12) | (u << 11) | (t << 10)
+        | (RN << 5) | RD
+}
+
 /// SVE2 predicated pairwise: `01000100 size 010 opc U 101 Pg Zm Zdn`. Pg=p0,
 /// Zm=z1(RN), Zdn=z0(RD).
 fn enc_sve2_pairwise(size: u32, opc: u32, u: u32) -> u32 {
@@ -3713,6 +3719,20 @@ fn diff_sve2_pairwise() {
         }
     }
     run_batch("sve2_pairwise", batch);
+}
+
+#[test]
+fn diff_sve2_abal() {
+    // SVE2 absolute-difference accumulate long (SABAL/UABAL, bottom/top).
+    let mut cases: Vec<(String, u32)> = Vec::new();
+    for size in 1..4u32 {
+        for u in 0..2u32 {
+            for t in 0..2u32 {
+                cases.push((format!("abal sz{size} u{u} t{t}"), enc_sve2_abal(size, u, t)));
+            }
+        }
+    }
+    run_family("sve2_abal", cases, 16, 0x5_D001);
 }
 
 #[test]

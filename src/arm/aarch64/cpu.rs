@@ -5217,6 +5217,42 @@ impl AArch64Cpu {
                 Ok(CpuExit::Continue)
             }
 
+            // SVE2 abs-diff accumulate long: 0x45, bit21==0, bits[15:12]==1100.
+            // SABALB/T (U=0) / UABALB/T (U=1): Zda += |widen(Zn) - widen(Zm)| over
+            // the half-width even (T=0) / odd (T=1) source elements.
+            0b010
+                if (insn >> 24) & 0xFF == 0b01000101
+                    && (insn >> 21) & 1 == 0
+                    && (insn >> 12) & 0xF == 0b1100 =>
+            {
+                let size = (insn >> 22) & 0x3;
+                if size == 0 {
+                    return Ok(CpuExit::Undefined(insn));
+                }
+                let d_esize = 1usize << size;
+                let s_esize = d_esize / 2;
+                let s_bits = (s_esize * 8) as u32;
+                let mask = elem_mask((d_esize * 8) as u32);
+                let unsigned = (insn >> 11) & 1 == 1;
+                let top = (insn >> 10) & 1 == 1;
+                let elements = 16 / d_esize;
+                let acc = self.v[zd].to_le_bytes();
+                let a = self.v[zn].to_le_bytes();
+                let b = self.v[zm].to_le_bytes();
+                let mut dst = acc;
+                let widen = |x: u64| -> i128 {
+                    if unsigned { uext_elem(x, s_bits) as i128 } else { sext_elem(x, s_bits) }
+                };
+                for d in 0..elements {
+                    let off = (2 * d + top as usize) * s_esize;
+                    let diff = (widen(read_elem(&a, off, s_esize)) - widen(read_elem(&b, off, s_esize))).abs();
+                    let cur = read_elem(&acc, d * d_esize, d_esize) as i128;
+                    write_elem(&mut dst, d * d_esize, d_esize, (cur + diff) as u64 & mask);
+                }
+                self.v[zd] = u128::from_le_bytes(dst);
+                Ok(CpuExit::Continue)
+            }
+
             // SVE2 bit permute (BEXT/BDEP/BGRP): 0x45, bit21==0, bits[15:12]==1011.
             // opc=bits[11:10]: 00=BEXT (gather Zn bits at Zm's set bits to the
             // bottom, like PEXT), 01=BDEP (scatter Zn's low bits to Zm's set bits,
