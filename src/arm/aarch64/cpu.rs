@@ -4850,6 +4850,12 @@ impl AArch64Cpu {
                 Ok(CpuExit::Continue)
             }
 
+            // Integer reductions to a scalar (SADDV/UADDV/SMAXV/.../ANDV/ORV/
+            // EORV): bit21==0, bits[15:13]==001.
+            0b000 if (insn >> 21) & 1 == 0 && (insn >> 13) & 0x7 == 0b001 => {
+                self.exec_sve_int_reduce(insn, esize)
+            }
+
             // Integer predicated binary operations
             0b000 if (op1 & 0x2) == 0 && (op2 & 0x10) == 0 => {
                 self.exec_sve_int_pred(insn, zd, zn, zm, pg, esize)
@@ -4953,6 +4959,57 @@ impl AArch64Cpu {
             write_elem(&mut dst, off, esize, r);
         }
         self.v[zd] = u128::from_le_bytes(dst);
+        Ok(CpuExit::Continue)
+    }
+
+    /// Execute SVE integer reduction (predicated) to a scalar in Vd. opc6 =
+    /// bits[21:16]: SADDV(000000)/UADDV(000001) give a 64-bit sum; SMAXV/UMAXV/
+    /// SMINV/UMINV (0010xx) and ANDV/ORV/EORV (0110xx) give an esize result.
+    /// Inactive elements use the operation identity. Pg is byte-granular.
+    fn exec_sve_int_reduce(&mut self, insn: u32, esize: usize) -> Result<CpuExit, ArmError> {
+        let opc6 = (insn >> 16) & 0x3F;
+        // SADDV has no 64-bit form (use UADDV.D for that).
+        if opc6 == 0b000000 && esize == 8 {
+            return Ok(CpuExit::Undefined(insn));
+        }
+        let pg = ((insn >> 10) & 0x7) as usize;
+        let zn = ((insn >> 5) & 0x1F) as usize;
+        let vd = (insn & 0x1F) as usize;
+        let pred = self.sve_p[pg];
+        let elements = 16 / esize;
+        let bits = (esize * 8) as u32;
+        let mask = elem_mask(bits);
+        let src = self.v[zn].to_le_bytes();
+        let mut act: Vec<u64> = Vec::with_capacity(elements);
+        for e in 0..elements {
+            if (pred >> (e * esize)) & 1 == 1 {
+                act.push(read_elem(&src, e * esize, esize));
+            }
+        }
+        let result: u128 = match opc6 {
+            0b000000 => (act.iter().map(|&x| sext_elem(x, bits)).sum::<i128>() as u64) as u128,
+            0b000001 => (act.iter().map(|&x| uext_elem(x, bits)).sum::<u128>() as u64) as u128,
+            0b001000 => {
+                (act.iter().map(|&x| sext_elem(x, bits)).max().unwrap_or(-(1i128 << (bits - 1)))
+                    as u64
+                    & mask) as u128
+            }
+            0b001001 => (act.iter().map(|&x| uext_elem(x, bits)).max().unwrap_or(0) as u64 & mask)
+                as u128,
+            0b001010 => {
+                (act.iter().map(|&x| sext_elem(x, bits)).min().unwrap_or((1i128 << (bits - 1)) - 1)
+                    as u64
+                    & mask) as u128
+            }
+            0b001011 => (act.iter().map(|&x| uext_elem(x, bits)).min().unwrap_or(mask as u128)
+                as u64
+                & mask) as u128,
+            0b011000 => (act.iter().fold(0u64, |a, &x| a | x) & mask) as u128, // ORV
+            0b011001 => (act.iter().fold(0u64, |a, &x| a ^ x) & mask) as u128, // EORV
+            0b011010 => (act.iter().fold(mask, |a, &x| a & x) & mask) as u128, // ANDV
+            _ => return Ok(CpuExit::Undefined(insn)),
+        };
+        self.v[vd] = result;
         Ok(CpuExit::Continue)
     }
 

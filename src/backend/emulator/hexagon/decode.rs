@@ -326,6 +326,9 @@ pub enum DecodedInsn {
         post_inc: Option<i32>,
         aligned: bool,
         pred: Option<PredCond>,
+        /// Byte-mask store: `(Qv register, sense)`. When set, byte `i` is stored
+        /// iff `Q.bit[i] == sense` (`qpred` => true, `nqpred` => false).
+        qmask: Option<(u8, bool)>,
     },
     /// New-value store: stores the register produced earlier in this packet,
     /// selected by the `Nt8` field. The packet driver resolves `nt` to the
@@ -1036,6 +1039,32 @@ fn vmem_store_pred(
             post_inc: pi,
             aligned,
             pred,
+            qmask: None,
+        },
+        false,
+    ))
+}
+
+/// Byte-masked vector store `if (Qv[!]) vmem(...) = Vs` (`qpred`/`nqpred`).
+fn vmem_store_q(
+    decoded: &DecodedOp,
+    post_inc: bool,
+    sense: bool,
+) -> Option<(DecodedInsn, bool)> {
+    let src = field_u8(decoded, b's')?;
+    let base = field_u8(decoded, if post_inc { b'x' } else { b't' })?;
+    let qv = field_u8(decoded, b'v')?;
+    let imm = decode_field_simm(decoded, b'i', None)?.0 * HVX_VEC_BYTES;
+    let (offset, pi) = if post_inc { (0, Some(imm)) } else { (imm, None) };
+    Some((
+        DecodedInsn::VStore {
+            src,
+            base,
+            offset,
+            post_inc: pi,
+            aligned: true,
+            pred: None,
+            qmask: Some((qv, sense)),
         },
         false,
     ))
@@ -1775,6 +1804,11 @@ fn decode_main(decoded: &DecodedOp, word: u32, immext: Option<u32>) -> (DecodedI
         Opcode::V6_vS32b_npred_ai => req!(vmem_store_pred(decoded, false, true, Some(false))),
         Opcode::V6_vS32b_pred_pi => req!(vmem_store_pred(decoded, true, true, Some(true))),
         Opcode::V6_vS32b_npred_pi => req!(vmem_store_pred(decoded, true, true, Some(false))),
+        // Byte-masked vector stores: if (Qv[!]) vmem(...) = Vs.
+        Opcode::V6_vS32b_qpred_ai => req!(vmem_store_q(decoded, false, true)),
+        Opcode::V6_vS32b_nqpred_ai => req!(vmem_store_q(decoded, false, false)),
+        Opcode::V6_vS32b_qpred_pi => req!(vmem_store_q(decoded, true, true)),
+        Opcode::V6_vS32b_nqpred_pi => req!(vmem_store_q(decoded, true, false)),
         _ => (DecodedInsn::Unknown(word), false),
     }
 }
