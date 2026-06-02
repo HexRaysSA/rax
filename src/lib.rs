@@ -7,6 +7,7 @@ pub mod devices;
 pub mod error;
 #[cfg(feature = "debug")]
 pub mod gdb;
+pub mod isa_oracle;
 pub mod memory;
 #[cfg(feature = "profiling")]
 pub mod profiling;
