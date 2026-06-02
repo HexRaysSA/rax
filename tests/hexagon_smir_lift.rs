@@ -322,3 +322,254 @@ fn lift_shift_imm() {
         0x5113,
     );
 }
+
+// ---- newly-lifted scalar register opcodes (re-decoded from Unknown) ----
+
+#[test]
+fn lift_a2_pair_logical() {
+    lift_family(
+        "a2_pair_logical",
+        &[
+            ("addp", "{ r1:0 = add(r3:2, r5:4) }"),
+            ("subp", "{ r1:0 = sub(r3:2, r5:4) }"),
+            ("andp", "{ r1:0 = and(r3:2, r5:4) }"),
+            ("orp", "{ r1:0 = or(r3:2, r5:4) }"),
+            ("xorp", "{ r1:0 = xor(r3:2, r5:4) }"),
+            ("negp", "{ r1:0 = neg(r3:2) }"),
+            ("notp", "{ r1:0 = not(r3:2) }"),
+            ("andnp", "{ r1:0 = and(r3:2, ~r5:4) }"),
+            ("ornp", "{ r1:0 = or(r3:2, ~r5:4) }"),
+            ("sxtw", "{ r1:0 = sxtw(r2) }"),
+        ],
+        20,
+        0x6201,
+    );
+}
+
+#[test]
+fn lift_a2_minmax() {
+    lift_family(
+        "a2_minmax",
+        &[
+            ("max", "{ r0 = max(r1,r2) }"),
+            ("maxu", "{ r0 = maxu(r1,r2) }"),
+            ("min", "{ r0 = min(r1,r2) }"),
+            ("minu", "{ r0 = minu(r1,r2) }"),
+            ("maxp", "{ r1:0 = max(r3:2, r5:4) }"),
+            ("maxup", "{ r1:0 = maxu(r3:2, r5:4) }"),
+            ("minp", "{ r1:0 = min(r3:2, r5:4) }"),
+            ("minup", "{ r1:0 = minu(r3:2, r5:4) }"),
+        ],
+        20,
+        0x6202,
+    );
+}
+
+#[test]
+fn lift_a2_misc() {
+    lift_family(
+        "a2_misc",
+        &[
+            ("orir", "{ r0 = or(r1,#129) }"),
+            ("subri", "{ r0 = sub(#100,r1) }"),
+            ("aslh", "{ r0 = aslh(r1) }"),
+            ("asrh", "{ r0 = asrh(r1) }"),
+            ("nop", "{ nop }"),
+            ("andn", "{ r0 = and(r1, ~r2) }"),
+            ("orn", "{ r0 = or(r1, ~r2) }"),
+        ],
+        20,
+        0x6203,
+    );
+}
+
+#[test]
+fn lift_a2_combine() {
+    lift_family(
+        "a2_combine",
+        &[
+            ("combinew", "{ r1:0 = combine(r2,r3) }"),
+            ("combineii", "{ r1:0 = combine(#7,#100) }"),
+            ("combineri", "{ r1:0 = combine(r2,#5) }"),
+            ("combineir", "{ r1:0 = combine(#5,r2) }"),
+            ("combine_hh", "{ r0 = combine(r1.h,r2.h) }"),
+            ("combine_hl", "{ r0 = combine(r1.h,r2.l) }"),
+            ("combine_lh", "{ r0 = combine(r1.l,r2.h) }"),
+            ("combine_ll", "{ r0 = combine(r1.l,r2.l) }"),
+        ],
+        20,
+        0x6204,
+    );
+}
+
+#[test]
+fn lift_a4_rcmp() {
+    lift_family(
+        "a4_rcmp",
+        &[
+            ("rcmpeq", "{ r0 = cmp.eq(r1,r2) }"),
+            ("rcmpneq", "{ r0 = !cmp.eq(r1,r2) }"),
+            ("rcmpeqi", "{ r0 = cmp.eq(r1,#5) }"),
+            ("rcmpneqi", "{ r0 = !cmp.eq(r1,#5) }"),
+        ],
+        20,
+        0x6205,
+    );
+}
+
+#[test]
+fn lift_c2_cmp_extra() {
+    lift_family(
+        "c2_cmp_extra",
+        &[
+            ("cmpneq", "{ p0 = !cmp.eq(r1,r2) }"),
+            ("cmplte", "{ p0 = !cmp.gt(r1,r2) }"),
+            ("cmplteu", "{ p0 = !cmp.gtu(r1,r2) }"),
+            ("cmpeqp", "{ p0 = cmp.eq(r1:0, r3:2) }"),
+            ("cmpgtp", "{ p0 = cmp.gt(r1:0, r3:2) }"),
+            ("cmpgtup", "{ p0 = cmp.gtu(r1:0, r3:2) }"),
+            ("cmpltei", "{ p0 = !cmp.gt(r1,#5) }"),
+            ("cmplteui", "{ p0 = !cmp.gtu(r1,#5) }"),
+        ],
+        20,
+        0x6206,
+    );
+}
+
+#[test]
+fn lift_c2_bitstest() {
+    lift_family(
+        "c2_bitstest",
+        &[
+            ("bitsset", "{ p0 = bitsset(r1,r2) }"),
+            ("bitsclr", "{ p0 = bitsclr(r1,r2) }"),
+            ("bitsclri", "{ p0 = bitsclr(r1,#5) }"),
+            ("nbitsset", "{ p0 = !bitsset(r1,r2) }"),
+            ("nbitsclr", "{ p0 = !bitsclr(r1,r2) }"),
+            ("nbitsclri", "{ p0 = !bitsclr(r1,#5) }"),
+        ],
+        20,
+        0x6207,
+    );
+}
+
+#[test]
+fn lift_c2_mux() {
+    lift_family(
+        "c2_mux",
+        &[
+            ("mux", "{ r0 = mux(p0,r1,r2) }"),
+            ("muxir", "{ r0 = mux(p0,r1,#5) }"),
+            ("muxri", "{ r0 = mux(p0,#5,r1) }"),
+            ("muxii", "{ r0 = mux(p0,#7,#9) }"),
+        ],
+        20,
+        0x6208,
+    );
+}
+
+#[test]
+fn lift_c2_predlogic() {
+    lift_family(
+        "c2_predlogic",
+        &[
+            ("and", "{ p0 = and(p1,p2) }"),
+            ("or", "{ p0 = or(p1,p2) }"),
+            ("xor", "{ p0 = xor(p1,p2) }"),
+            ("not", "{ p0 = not(p1) }"),
+            ("andn", "{ p0 = and(p1,!p2) }"),
+            ("orn", "{ p0 = or(p1,!p2) }"),
+            ("tfrrp", "{ p0 = r1 }"),
+        ],
+        20,
+        0x6209,
+    );
+}
+
+#[test]
+fn lift_s2_shift_pair() {
+    lift_family(
+        "s2_shift_pair",
+        &[
+            ("asl_i_p", "{ r1:0 = asl(r3:2,#5) }"),
+            ("asr_i_p", "{ r1:0 = asr(r3:2,#5) }"),
+            ("lsr_i_p", "{ r1:0 = lsr(r3:2,#5) }"),
+            ("rol_i_r", "{ r0 = rol(r1,#5) }"),
+            ("rol_i_p", "{ r1:0 = rol(r3:2,#5) }"),
+        ],
+        20,
+        0x620a,
+    );
+}
+
+#[test]
+fn lift_s2_bitmanip() {
+    lift_family(
+        "s2_bitmanip",
+        &[
+            ("setbit_i", "{ r0 = setbit(r1,#5) }"),
+            ("clrbit_i", "{ r0 = clrbit(r1,#5) }"),
+            ("togglebit_i", "{ r0 = togglebit(r1,#5) }"),
+            ("tstbit_i", "{ p0 = tstbit(r1,#5) }"),
+            ("ntstbit_i", "{ p0 = !tstbit(r1,#5) }"),
+            ("extractu", "{ r0 = extractu(r1,#8,#4) }"),
+            ("extractu2", "{ r0 = extractu(r1,#13,#11) }"),
+            ("insert", "{ r0 = insert(r1,#8,#4) }"),
+            ("insert2", "{ r0 = insert(r1,#17,#9) }"),
+            ("cl0", "{ r0 = cl0(r1) }"),
+            ("cl1", "{ r0 = cl1(r1) }"),
+            ("ct0", "{ r0 = ct0(r1) }"),
+            ("ct1", "{ r0 = ct1(r1) }"),
+            ("brev", "{ r0 = brev(r1) }"),
+            ("vsplatrb", "{ r0 = vsplatb(r1) }"),
+            ("vsplatrh", "{ r1:0 = vsplath(r2) }"),
+        ],
+        20,
+        0x620b,
+    );
+}
+
+#[test]
+fn lift_s4_addasl() {
+    lift_family(
+        "s4_addasl",
+        &[("addasl", "{ r0 = addasl(r1,r2,#3) }")],
+        20,
+        0x620c,
+    );
+}
+
+#[test]
+fn lift_m2_mpy() {
+    lift_family(
+        "m2_mpy",
+        &[
+            ("dpmpyss", "{ r1:0 = mpy(r2,r3) }"),
+            ("dpmpyuu", "{ r1:0 = mpyu(r2,r3) }"),
+            ("dpmpyss_acc", "{ r1:0 += mpy(r2,r3) }"),
+            ("dpmpyss_nac", "{ r1:0 -= mpy(r2,r3) }"),
+            ("dpmpyuu_acc", "{ r1:0 += mpyu(r2,r3) }"),
+            ("dpmpyuu_nac", "{ r1:0 -= mpyu(r2,r3) }"),
+            ("dpmpyss_rnd", "{ r0 = mpy(r1,r2):rnd }"),
+            ("mpy_up", "{ r0 = mpy(r1,r2) }"),
+            ("mpyu_up", "{ r0 = mpyu(r1,r2) }"),
+            ("mpysu_up", "{ r0 = mpysu(r1,r2) }"),
+            ("mpy_up_s1", "{ r0 = mpy(r1,r2):<<1 }"),
+            ("mpysip", "{ r0 = mpyi(r1,#100) }"),
+            ("mpysin", "{ r0 = mpyi(r1,#-100) }"),
+            ("maci", "{ r0 += mpyi(r1,r2) }"),
+            ("mnaci", "{ r0 -= mpyi(r1,r2) }"),
+            ("macsip", "{ r0 += mpyi(r1,#100) }"),
+            ("macsin", "{ r0 -= mpyi(r1,#100) }"),
+            ("acci", "{ r0 += add(r1,r2) }"),
+            ("accii", "{ r0 += add(r1,#5) }"),
+            ("nacci", "{ r0 -= add(r1,r2) }"),
+            ("naccii", "{ r0 -= add(r1,#5) }"),
+            ("subacc", "{ r0 += sub(r2,r1) }"),
+            ("xor_xacc", "{ r0 ^= xor(r1,r2) }"),
+            ("m4_xor_xacc", "{ r1:0 ^= xor(r3:2,r5:4) }"),
+        ],
+        20,
+        0x620d,
+    );
+}
