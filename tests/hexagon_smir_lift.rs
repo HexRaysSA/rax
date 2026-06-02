@@ -1590,6 +1590,7 @@ fn lift_hvx_vmpyewuh_vmpyowh() {
         &[
             ("vmpyewuh", "{ v2.w = vmpye(v0.w,v1.uh) }"),
             ("vmpyowh", "{ v2.w = vmpyo(v0.w,v1.h):<<1:sat }"),
+            ("vmpyowh_rnd", "{ v2.w = vmpyo(v0.w,v1.h):<<1:rnd:sat }"),
         ],
         16,
         0x18c0,

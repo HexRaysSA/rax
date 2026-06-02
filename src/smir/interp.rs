@@ -2368,9 +2368,12 @@ impl SmirInterpreter {
                 rnd,
                 shift,
                 sat,
+                acc,
+                rnd2,
             } => {
                 let a = Self::read_vec(ctx, *src1);
                 let b = Self::read_vec(ctx, *src2);
+                let d = if *acc { Self::read_vec(ctx, *dst) } else { [0u64; 16] };
                 let obits = out_elem.bytes() * 8;
                 let sbits = sub_elem.bytes() * 8;
                 let olanes = (1024 / obits) as u8;
@@ -2392,10 +2395,18 @@ impl SmirInterpreter {
                     if *shl1 {
                         p <<= 1;
                     }
-                    if *rnd && *shift > 0 {
-                        p += 1i64 << (*shift - 1);
+                    if *acc {
+                        // sacc: add the existing full-precision dst lane before shifting.
+                        p += exf(Self::get_lane(&d, i, obits), obits, true);
                     }
-                    p >>= *shift;
+                    if *rnd2 {
+                        p = ((p >> (*shift - 1)) + 1) >> 1;
+                    } else {
+                        if *rnd && *shift > 0 {
+                            p += 1i64 << (*shift - 1);
+                        }
+                        p >>= *shift;
+                    }
                     if *sat && obits < 64 {
                         let lo = -(1i64 << (obits - 1));
                         let hi = (1i64 << (obits - 1)) - 1;
@@ -3895,7 +3906,7 @@ mod tests {
             dst: mkv(2), src1: mkv(0), src2: mkv(1),
             out_elem: VecElementType::I32, sub_elem: VecElementType::I16,
             odd: false, signed1: true, signed2: false,
-            shl1: false, rnd: false, shift: 16, sat: false,
+            shl1: false, rnd: false, shift: 16, sat: false, acc: false, rnd2: false,
         });
         assert_eq!(out, [0x0000_0040_0000_0040u64; 16]);
     }

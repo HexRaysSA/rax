@@ -1075,6 +1075,10 @@ pub enum OpKind {
         rnd: bool,
         shift: u8,
         sat: bool,
+        /// sacc: add the existing dst lane (full precision) to the product before shifting.
+        acc: bool,
+        /// Alternate rounding `((p >> (shift-1)) + 1) >> 1` (HVX :rnd form) instead of `+1<<(shift-1)`.
+        rnd2: bool,
     },
 
     /// Even-lane widening multiply into a single vector. Models HVX `vmpyuhe`:
