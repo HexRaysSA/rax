@@ -4513,6 +4513,133 @@ impl HexagonLifter {
                 });
             }
 
+            // ============================================================
+            // Wave 15: more HVX integer multiply variants.
+            // ============================================================
+            //
+            // ---- vmpyuhe: even unsigned-halfword * scalar unsigned-halfword ---
+            // sem (hvx_mpyv.rs): Vd.uw[i] = Vu.uw[i].uh[0] * Rt.uh[0]  (the LOW,
+            // even halfword of each word lane times Rt's low halfword), and the
+            // `_acc` form wraps `Vx.uw[i] += ...`. VMulEvenWiden multiplies the
+            // EVEN narrow sub-lane (index 2i) of each double-wide output lane:
+            // with src_elem=I16 it reads a.half[2i]=Vu.uw[i].uh[0]. Broadcasting
+            // Rt as I32 word lanes makes b.half[2i]=Rt.half[0]=Rt.uh[0], so the
+            // even-lane product matches exactly. Both operands unsigned. The acc
+            // path reads `get_lane(out,i,32)` (zero-extended) and `wrapping_add`s,
+            // identical to the sem's wrapping unsigned-word accumulate. dst base
+            // = fld('d') (plain) / fld('x') (_acc).
+            Opcode::V6_vmpyuhe | Opcode::V6_vmpyuhe_acc => {
+                let acc = matches!(op, Opcode::V6_vmpyuhe_acc);
+                let dst = if acc { self.hex_v(rx_n) } else { self.hex_v(fld(b'd')) };
+                let t = ctx.alloc_vreg();
+                push_op!(OpKind::VBroadcast {
+                    dst: t,
+                    scalar: self.hex_reg(fld(b't')),
+                    elem: VecElementType::I32,
+                    lanes: 32,
+                });
+                push_op!(OpKind::VMulEvenWiden {
+                    dst,
+                    src1: self.hex_v(fld(b'u')),
+                    src2: t,
+                    src_elem: VecElementType::I16,
+                    signed1: false,
+                    signed2: false,
+                    acc,
+                });
+            }
+
+            // ---- vmpyiwb / vmpyiwub / vmpyiwh: word * scalar sub-element, low 32
+            // sem (hvx_mpy.rs / hvx_mpys.rs): per word lane i,
+            //   vmpyiwb   Vd.w[i] = Vu.w[i] * Rt.b[i%4]   (signed byte)
+            //   vmpyiwub  Vd.w[i] = Vu.w[i] * Rt.ub[i%4]  (unsigned byte)
+            //   vmpyiwh   Vd.w[i] = Vu.w[i] * Rt.h[i%2]   (signed half)
+            // keeping the LOW 32 bits, and the `_acc` form adds the (sign-extended)
+            // existing word lane. Broadcasting Rt as I32 word lanes makes the temp
+            // word i equal Rt, so for a 1-tap VReduceMul (out_elem=I32, olanes=32)
+            // the per-lane src2 sub-element read at idx=i is:
+            //   src2_elem=I8  -> byte  i of the temp = Rt.byte[i%4]
+            //   src2_elem=I16 -> half  i of the temp = Rt.half[i%2]
+            // exactly the sem's `rt_*(rt, i%4)` / `rt_*(rt, i%2)` reuse. src1_elem
+            // =I32 reads Vu.w[i]. The product's low 32 bits are signedness-
+            // independent, and VReduceMul masks the i64 sum to 32 bits (== sem's
+            // `as u32`); the acc path sign-extends the 32-bit lane (== sem's
+            // `get_w_signed`). dst base = fld('d') (plain) / fld('x') (_acc).
+            Opcode::V6_vmpyiwb
+            | Opcode::V6_vmpyiwb_acc
+            | Opcode::V6_vmpyiwub
+            | Opcode::V6_vmpyiwub_acc
+            | Opcode::V6_vmpyiwh
+            | Opcode::V6_vmpyiwh_acc => {
+                let acc = matches!(
+                    op,
+                    Opcode::V6_vmpyiwb_acc | Opcode::V6_vmpyiwub_acc | Opcode::V6_vmpyiwh_acc
+                );
+                let (src2_elem, signed2) = match op {
+                    Opcode::V6_vmpyiwb | Opcode::V6_vmpyiwb_acc => (VecElementType::I8, true),
+                    Opcode::V6_vmpyiwub | Opcode::V6_vmpyiwub_acc => (VecElementType::I8, false),
+                    // vmpyiwh (signed half)
+                    _ => (VecElementType::I16, true),
+                };
+                let base = if acc { rx_n } else { rd_n };
+                let t = ctx.alloc_vreg();
+                push_op!(OpKind::VBroadcast {
+                    dst: t,
+                    scalar: self.hex_reg(fld(b't')),
+                    elem: VecElementType::I32,
+                    lanes: 32,
+                });
+                push_op!(OpKind::VReduceMul {
+                    dst: self.hex_v(base),
+                    src1: self.hex_v(fld(b'u')),
+                    src2: t,
+                    src1_elem: VecElementType::I32,
+                    src2_elem,
+                    out_elem: VecElementType::I32,
+                    taps: 1,
+                    signed1: true,
+                    signed2,
+                    sat: false,
+                    acc,
+                });
+            }
+
+            // ---- vmpyihb: integer halfword * scalar signed byte, low 16 -------
+            // sem (hvx_mpy.rs / hvx_mpys.rs): per halfword lane i,
+            //   Vd.h[i] = Vu.h[i] * Rt.b[i%4]   (low 16 bits), `_acc` adds the
+            //   (sign-extended) existing halfword lane.
+            // A 1-tap VReduceMul with out_elem=I16 (olanes=64) reads, for lane i,
+            // src1 half i (Vu.h[i]) and src2 byte i. Broadcasting Rt as I32 word
+            // lanes makes byte i of the temp = Rt.byte[i%4], exactly matching the
+            // sem's `rt_sb(rt, i%4)` where i is the halfword index (the output lane
+            // index == the byte index passed to get_lane). Low 16 bits are
+            // signedness-independent; VReduceMul masks to 16 bits and the acc path
+            // sign-extends the 16-bit lane (== sem's `get_h_signed`).
+            Opcode::V6_vmpyihb | Opcode::V6_vmpyihb_acc => {
+                let acc = matches!(op, Opcode::V6_vmpyihb_acc);
+                let base = if acc { rx_n } else { rd_n };
+                let t = ctx.alloc_vreg();
+                push_op!(OpKind::VBroadcast {
+                    dst: t,
+                    scalar: self.hex_reg(fld(b't')),
+                    elem: VecElementType::I32,
+                    lanes: 32,
+                });
+                push_op!(OpKind::VReduceMul {
+                    dst: self.hex_v(base),
+                    src1: self.hex_v(fld(b'u')),
+                    src2: t,
+                    src1_elem: VecElementType::I16,
+                    src2_elem: VecElementType::I8,
+                    out_elem: VecElementType::I16,
+                    taps: 1,
+                    signed1: true,
+                    signed2: true,
+                    sat: false,
+                    acc,
+                });
+            }
+
             // Everything else: not implemented here.
             _ => return Err(unsupported()),
         }
