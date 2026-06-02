@@ -100,6 +100,18 @@ impl HexagonLifter {
                 disp: 0,
                 disp_size: DispSize::Auto,
             },
+            // `memX(Re=##U6)`: the absolute-set forms also write Re; the
+            // interpreter handles that side effect (these reach the lifter only
+            // via the rejecting `Load` arm below, which never calls `hex_addr`).
+            AddrMode::AbsSet { addr, .. } => Address::Absolute(*addr as u64),
+            // `memX(Ru<<#u2+##U6)`: scaled index plus an absolute displacement.
+            AddrMode::IndexAbs { index, shift, addr } => Address::BaseIndexScale {
+                base: None,
+                index: self.hex_reg(*index),
+                scale: 1u8 << *shift,
+                disp: *addr as i32,
+                disp_size: DispSize::Auto,
+            },
         }
     }
 
@@ -558,6 +570,19 @@ impl HexagonLifter {
             // ================================================================
             // Memory
             // ================================================================
+            // `memX(Re=##U6)` absolute-set loads also WRITE the address
+            // register Re; the simple Load op below cannot model that side
+            // effect, so reject and let the interpreter handle it.
+            DecodedInsn::Load {
+                addr: AddrMode::AbsSet { .. },
+                ..
+            } => {
+                return Err(LiftError::Unsupported {
+                    addr,
+                    mnemonic: "load_abs_set".to_string(),
+                });
+            }
+
             DecodedInsn::Load {
                 dst,
                 addr,
@@ -588,6 +613,23 @@ impl HexagonLifter {
                     });
                 }
                 ControlFlow::Fallthrough
+            }
+
+            // Shift-and-insert FIFO loads (`memX_fifo`, loadalign) read-modify a
+            // register pair and the byte/half-unpack loads (membh/memubh) build
+            // a halfword vector; both need bespoke commit semantics handled by
+            // the interpreter path. Reject in the lifter so callers fall back.
+            DecodedInsn::LoadAlign { .. } => {
+                return Err(LiftError::Unsupported {
+                    addr,
+                    mnemonic: "loadalign".to_string(),
+                });
+            }
+            DecodedInsn::LoadUnpack { .. } => {
+                return Err(LiftError::Unsupported {
+                    addr,
+                    mnemonic: "load_unpack".to_string(),
+                });
             }
 
             // Predicated and high-half (`storerf`) stores need conditional /
