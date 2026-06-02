@@ -11,6 +11,23 @@ use crate::smir::types::*;
 
 use super::{ControlFlow, LiftContext, LiftError, LiftResult, MemoryReader, SmirLifter};
 
+/// A term in a SHA/SM3 xor-fold: a rotate / shift / identity of the source.
+#[derive(Clone, Copy)]
+enum CryptoTerm {
+    /// ror, 32-bit width
+    R,
+    /// ror, 64-bit width
+    RW,
+    /// rol, 32-bit width
+    L,
+    /// logical shift right, 32-bit
+    S,
+    /// logical shift right, 64-bit
+    SW,
+    /// identity (use the source directly)
+    X,
+}
+
 // ============================================================================
 // RISC-V Extensions Configuration
 // ============================================================================
@@ -718,6 +735,7 @@ impl RiscVLifter {
         addr: GuestAddr,
         ctx: &mut LiftContext,
     ) -> Result<(Vec<SmirOp>, ControlFlow), LiftError> {
+        use CryptoTerm::*;
         let xl = if self.xlen == 64 { RvXlen::Rv64 } else { RvXlen::Rv32 };
         let d = rv_decode(insn, xl, &RvIsa::rv64gc());
         let rs1 = self.get_x_reg(d.rs1, ctx);
@@ -747,6 +765,18 @@ impl RiscVLifter {
             RvOp::SextB => ops.push(mk(ctx, OpKind::SignExtend { dst, src: rs1, from_width: OpWidth::W8, to_width: w })),
             RvOp::SextH => ops.push(mk(ctx, OpKind::SignExtend { dst, src: rs1, from_width: OpWidth::W16, to_width: w })),
             RvOp::Rev8 => ops.push(mk(ctx, OpKind::Bswap { dst, src: rs1, width: w })),
+            // SHA / SM3: xor-folds of rotates and a logical shift. 32-bit ops
+            // (sha256/sm3) sign-extend the W32 result; sha512 are native W64.
+            RvOp::Sha256Sig0 => self.crypto_xor3(ctx, &mut ops, addr, rs1, dst, &[(R, 7), (R, 18), (S, 3)], true),
+            RvOp::Sha256Sig1 => self.crypto_xor3(ctx, &mut ops, addr, rs1, dst, &[(R, 17), (R, 19), (S, 10)], true),
+            RvOp::Sha256Sum0 => self.crypto_xor3(ctx, &mut ops, addr, rs1, dst, &[(R, 2), (R, 13), (R, 22)], true),
+            RvOp::Sha256Sum1 => self.crypto_xor3(ctx, &mut ops, addr, rs1, dst, &[(R, 6), (R, 11), (R, 25)], true),
+            RvOp::Sha512Sig0 => self.crypto_xor3(ctx, &mut ops, addr, rs1, dst, &[(RW, 1), (RW, 8), (SW, 7)], false),
+            RvOp::Sha512Sig1 => self.crypto_xor3(ctx, &mut ops, addr, rs1, dst, &[(RW, 19), (RW, 61), (SW, 6)], false),
+            RvOp::Sha512Sum0 => self.crypto_xor3(ctx, &mut ops, addr, rs1, dst, &[(RW, 28), (RW, 34), (RW, 39)], false),
+            RvOp::Sha512Sum1 => self.crypto_xor3(ctx, &mut ops, addr, rs1, dst, &[(RW, 14), (RW, 18), (RW, 41)], false),
+            RvOp::Sm3p0 => self.crypto_xor3(ctx, &mut ops, addr, rs1, dst, &[(X, 0), (L, 9), (L, 17)], true),
+            RvOp::Sm3p1 => self.crypto_xor3(ctx, &mut ops, addr, rs1, dst, &[(X, 0), (L, 15), (L, 23)], true),
             _ => {
                 return Err(LiftError::Unsupported {
                     addr,
@@ -756,6 +786,55 @@ impl RiscVLifter {
         }
 
         Ok((ops, ControlFlow::NextInsn))
+    }
+
+    /// Emit `dst = term0 ^ term1 ^ term2` where each term is a rotate / shift /
+    /// identity of `src`, optionally sign-extending a 32-bit result to 64 bits.
+    fn crypto_xor3(
+        &mut self,
+        ctx: &mut LiftContext,
+        ops: &mut Vec<SmirOp>,
+        addr: GuestAddr,
+        src: VReg,
+        dst: VReg,
+        terms: &[(CryptoTerm, i64)],
+        sext32: bool,
+    ) {
+        let mk = |ctx: &mut LiftContext, k: OpKind| SmirOp::new(ctx.next_op_id(), addr, k);
+        let term = |ctx: &mut LiftContext, ops: &mut Vec<SmirOp>, kind: CryptoTerm, amt: i64| -> VReg {
+            if matches!(kind, CryptoTerm::X) {
+                return src;
+            }
+            let (tw, op): (OpWidth, u8) = match kind {
+                CryptoTerm::R => (OpWidth::W32, 0),
+                CryptoTerm::RW => (OpWidth::W64, 0),
+                CryptoTerm::L => (OpWidth::W32, 1),
+                CryptoTerm::S => (OpWidth::W32, 2),
+                CryptoTerm::SW => (OpWidth::W64, 2),
+                CryptoTerm::X => unreachable!(),
+            };
+            let t = ctx.alloc_vreg();
+            let k = match op {
+                0 => OpKind::Ror { dst: t, src, amount: SrcOperand::Imm(amt), width: tw, flags: FlagUpdate::None },
+                1 => OpKind::Rol { dst: t, src, amount: SrcOperand::Imm(amt), width: tw, flags: FlagUpdate::None },
+                _ => OpKind::Shr { dst: t, src, amount: SrcOperand::Imm(amt), width: tw, flags: FlagUpdate::None },
+            };
+            ops.push(mk(ctx, k));
+            t
+        };
+        let xw = if sext32 { OpWidth::W32 } else { OpWidth::W64 };
+        let a = term(ctx, ops, terms[0].0, terms[0].1);
+        let b = term(ctx, ops, terms[1].0, terms[1].1);
+        let c = term(ctx, ops, terms[2].0, terms[2].1);
+        let ab = ctx.alloc_vreg();
+        ops.push(mk(ctx, OpKind::Xor { dst: ab, src1: a, src2: SrcOperand::Reg(b), width: xw, flags: FlagUpdate::None }));
+        if sext32 {
+            let abc = ctx.alloc_vreg();
+            ops.push(mk(ctx, OpKind::Xor { dst: abc, src1: ab, src2: SrcOperand::Reg(c), width: xw, flags: FlagUpdate::None }));
+            ops.push(mk(ctx, OpKind::SignExtend { dst, src: abc, from_width: OpWidth::W32, to_width: OpWidth::W64 }));
+        } else {
+            ops.push(mk(ctx, OpKind::Xor { dst, src1: ab, src2: SrcOperand::Reg(c), width: xw, flags: FlagUpdate::None }));
+        }
     }
 
     /// 32-bit integer register-immediate operations (RV64 only)
