@@ -2126,6 +2126,13 @@ impl OpKind {
                 | OpKind::SetCC { .. }
                 | OpKind::TestCondition { .. }
                 | OpKind::CMove { .. }
+                // Register-only address arithmetic + bit-scan: LEA computes an
+                // address into a GPR without touching memory; BSF/BSR scan a
+                // register. All write only a GPR (+ flags) and never dereference
+                // memory, so they are safe for the identity-mapped native JIT.
+                | OpKind::Lea { .. }
+                | OpKind::Bsf { .. }
+                | OpKind::Bsr { .. }
                 | OpKind::Nop
         )
     }

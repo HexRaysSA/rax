@@ -199,6 +199,44 @@ fn jit_matches_interpreter() {
     assert_eq!(jr.rcx & 0xffff_ffff, 0);
 }
 
+/// Register-only LEA (address arithmetic, no dereference) + BSF (bit-scan) in a
+/// hot loop must JIT bit-exactly vs the interpreter — verifies the whitelist
+/// additions (Lea/Bsf/Bsr) lower correctly under the native runtime.
+#[test]
+fn jit_lea_bsf_matches_interpreter() {
+    // xor eax,eax; xor esi,esi; mov ecx,300
+    // loop: lea edx,[rax+8]; bsf ebx,edx; add eax,1; dec ecx; jnz loop; hlt
+    let code: &[u8] = &[
+        0x31, 0xC0, // xor eax,eax
+        0x31, 0xF6, // xor esi,esi
+        0xB9, 0x2C, 0x01, 0x00, 0x00, // mov ecx,300
+        0x8D, 0x50, 0x08, // loop: lea edx,[rax+8]
+        0x0F, 0xBC, 0xDA, // bsf ebx,edx
+        0x83, 0xC0, 0x01, // add eax,1
+        0xFF, 0xC9, // dec ecx
+        0x75, 0xF3, // jnz loop
+        0xF4, // hlt
+    ];
+
+    let mut jit = make_vcpu_code(code);
+    assert!(
+        jit.jit_try_block().expect("jit_try_block"),
+        "LEA/BSF loop should JIT and advance to its exit"
+    );
+    run_interp(&mut jit);
+    let jr = jit.get_regs().unwrap();
+
+    let mut interp = make_vcpu_code(code);
+    run_interp(&mut interp);
+    let ir = interp.get_regs().unwrap();
+
+    assert_eq!(jr.rax, ir.rax, "rax");
+    assert_eq!(jr.rbx, ir.rbx, "rbx (bsf result)");
+    assert_eq!(jr.rcx, ir.rcx, "rcx");
+    assert_eq!(jr.rdx, ir.rdx, "rdx (lea result)");
+    assert_eq!(jr.rax & 0xffff_ffff, 300, "closed form: eax == iters");
+}
+
 /// A realistic hot loop with an INTERNAL conditional (if-inside-loop): multiple
 /// internal blocks, a forward branch + a join, two back-edges to the head, and a
 /// HLT frontier — all run natively by `jit_try_block`. JIT final state must equal
