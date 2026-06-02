@@ -955,7 +955,7 @@ fn diff_compressed_fuzz() {
     let isa = Isa::rv64gc();
     let mut batch = Vec::new();
     let mut tries = 0;
-    while batch.len() < 4000 && tries < 200_000 {
+    while batch.len() < 8000 && tries < 400_000 {
         tries += 1;
         let half = (rng.next() & 0xffff) as u16;
         if half & 0x3 == 0x3 || half == 0 {
@@ -1602,7 +1602,7 @@ fn install_fp(st: &mut RvState, a: u32, b: u32, c: u32, frm: u64, dbl: bool) {
 fn diff_fuzz_exhaustive() {
     let mut rng = Rng::new(0x5EED_1234);
     let mut batch = Vec::with_capacity(40000);
-    for _ in 0..40000 {
+    for _ in 0..90000 {
         let (insn, st) = fuzz_one(&mut rng);
         batch.push(("fuzz".to_string(), insn, st));
     }
@@ -1679,8 +1679,8 @@ fn diff_decode_fuzz() {
     let mut rng = Rng::new(0xDEC0_DE99);
     let opcodes: [u32; 9] = [0x33, 0x13, 0x3b, 0x1b, 0x53, 0x43, 0x47, 0x4b, 0x4f];
     let safe: [u32; 11] = [1, 5, 6, 7, 8, 9, 10, 11, 12, 28, 31];
-    let mut batch = Vec::with_capacity(60000);
-    for _ in 0..60000 {
+    let mut batch = Vec::with_capacity(140000);
+    for _ in 0..140000 {
         let opc = opcodes[(rng.next() as usize) % opcodes.len()];
         let mut w = (rng.next() as u32 & !0x7f) | opc;
         let rd = safe[(rng.next() as usize) % 11];
@@ -2024,7 +2024,7 @@ fn diff_mem_fuzz() {
     let opcodes: [u32; 5] = [0x03, 0x23, 0x07, 0x27, 0x2f];
     let mut batch = Vec::with_capacity(40000);
     let mut tries = 0;
-    while batch.len() < 30000 && tries < 200_000 {
+    while batch.len() < 70000 && tries < 500_000 {
         tries += 1;
         let opc = opcodes[(rng.next() as usize) % opcodes.len()];
         let mut w = (rng.next() as u32 & !0x7f) | opc;
