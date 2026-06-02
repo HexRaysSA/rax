@@ -5412,6 +5412,19 @@ impl AArch64Cpu {
                 Ok(CpuExit::Continue)
             }
 
+            // SVE element count / inc-dec / stack allocation (0x04). The stack
+            // forms (ADDVL/ADDPL/RDVL, bits[15:11]==01010) share bits[15:13]==010
+            // with INDEX but differ at bit12; the count forms have bits[15:14]==11.
+            // Routed before INDEX so the stack forms are not mis-decoded.
+            0b000
+                if (insn >> 24) & 0xFF == 0b00000100
+                    && (((insn >> 11) & 0x1F == 0b01010)
+                        || ((insn >> 21) & 1 == 1
+                            && matches!((insn >> 12) & 0xF, 0b1100 | 0b1110 | 0b1111))) =>
+            {
+                self.exec_sve_elem_count(insn)
+            }
+
             // INDEX (immediate/scalar variants): bit21==1, bits[15:13]==010.
             0b000 if (insn >> 21) & 1 == 1 && (insn >> 13) & 0x7 == 0b010 => {
                 self.exec_sve_index(insn, zd, esize)
@@ -7900,6 +7913,20 @@ impl AArch64Cpu {
             return Ok(CpuExit::Continue);
         }
 
+        // PTEST Pg, Pn.B: NZCV = PredTest(Pg, Pn) at byte granularity (the
+        // predicate result is unchanged; only flags are written). Encoding
+        // 00100101 01 010000 11 pg 0 rn 0 0000.
+        if insn & 0xFFFF_C21F == 0x2550_C000 {
+            let pgl = ((insn >> 10) & 0xF) as usize;
+            let pn = ((insn >> 5) & 0xF) as usize;
+            let (n, z, c, v) = pred_test(self.sve_p[pgl], self.sve_p[pn], 16, 1);
+            self.set_n(n);
+            self.set_z(z);
+            self.set_c(c);
+            self.set_v(v);
+            return Ok(CpuExit::Continue);
+        }
+
         // FDUP: broadcast an FP modified-immediate to all lanes. 0x25,
         // bits[21:13]==111001110. Unpredicated; size 0 reserved.
         if (insn >> 13) & 0x1FF == 0b111001110 {
@@ -8643,6 +8670,106 @@ impl AArch64Cpu {
         }
         self.v[zd] = dst;
         Ok(CpuExit::Continue)
+    }
+
+    /// Execute the SVE element-count / inc-dec-by-element-count / stack-
+    /// allocation family (all 0x04): ADDVL/ADDPL/RDVL, CNTB/H/W/D, INCB/DECB...
+    /// to a GPR or Z register, and the saturating SQINCB/UQINCB.../SQDECB...
+    /// forms. The pattern selects how many elements of size esz the predicate
+    /// would have, scaled by MUL #(imm4+1).
+    fn exec_sve_elem_count(&mut self, insn: u32) -> Result<CpuExit, ArmError> {
+        let rd = (insn & 0x1F) as u8;
+        // Stack-allocation forms (ADDVL/ADDPL/RDVL): bits[15:11]==01010. These
+        // use the stack-pointer register encoding (reg 31 == SP, not XZR).
+        if (insn >> 11) & 0x1F == 0b01010 {
+            let imm6 = (((insn >> 5) & 0x3F) as i64) << 58 >> 58; // sign-extend 6
+            let vl_bytes = (self.sve_vl / 8) as i64;
+            let rn = ((insn >> 16) & 0x1F) as u8;
+            let base = if rn == 31 { self.get_sp() } else { self.get_x(rn) };
+            let val = match (insn >> 21) & 0x7 {
+                0b001 => base.wrapping_add((imm6 * vl_bytes) as u64), // ADDVL
+                0b011 => base.wrapping_add((imm6 * (vl_bytes / 8)) as u64), // ADDPL
+                0b101 => (imm6 * vl_bytes) as u64,                    // RDVL (rn==31)
+                _ => return Ok(CpuExit::Undefined(insn)),
+            };
+            if rd == 31 {
+                self.set_sp(val);
+            } else {
+                self.set_x(rd, val);
+            }
+            return Ok(CpuExit::Continue);
+        }
+        // Element-count forms: count = pattern_count(pat, esz) * (imm4 + 1).
+        let esz = (insn >> 22) & 0x3;
+        let esize_bits = 8u32 << esz; // 8/16/32/64
+        let elements = (self.sve_vl as usize) / esize_bits as usize;
+        let pattern = (insn >> 5) & 0x1F;
+        let mul = (((insn >> 16) & 0xF) + 1) as u64;
+        let count = sve_pattern_count(pattern, elements) as u64 * mul;
+        match (insn >> 12) & 0xF {
+            0b1110 => {
+                if (insn >> 20) & 0x3 == 0b10 {
+                    // CNT_r: Rd = count.
+                    self.set_x(rd, count);
+                } else {
+                    // INCDEC_r: Rd = Xd +/- count (64-bit wrapping). d = bit10.
+                    let cur = self.get_x(rd);
+                    let v = if (insn >> 10) & 1 == 1 {
+                        cur.wrapping_sub(count)
+                    } else {
+                        cur.wrapping_add(count)
+                    };
+                    self.set_x(rd, v);
+                }
+                Ok(CpuExit::Continue)
+            }
+            0b1111 => {
+                // SINCDEC_r: saturating GPR. bits[21:20]==10 => 32-bit, 11 => 64.
+                let sf64 = (insn >> 20) & 0x3 == 0b11;
+                let dec = (insn >> 11) & 1 == 1;
+                let uns = (insn >> 10) & 1 == 1;
+                let cur = self.get_x(rd);
+                let res = if sf64 {
+                    sat_addsub_64(cur, count, uns, dec)
+                } else {
+                    sat_addsub_32(cur, count, uns, dec)
+                };
+                self.set_x(rd, res);
+                Ok(CpuExit::Continue)
+            }
+            0b1100 => {
+                // Vector inc/dec. Byte elements (esz==0) are unallocated.
+                if esize_bits == 8 {
+                    return Ok(CpuExit::Undefined(insn));
+                }
+                let esize = esize_bits as usize / 8;
+                let a = self.v[rd as usize].to_le_bytes();
+                let mut dst = a;
+                let nlanes = 16 / esize;
+                let sat = (insn >> 20) & 0x3 == 0b10; // SINCDEC_v vs INCDEC_v
+                let mask = elem_mask(esize_bits);
+                for e in 0..nlanes {
+                    let off = e * esize;
+                    let v = read_elem(&a, off, esize);
+                    let r = if sat {
+                        let dec = (insn >> 11) & 1 == 1;
+                        let uns = (insn >> 10) & 1 == 1;
+                        sat_addsub_elem(v, count, esize_bits, uns, dec)
+                    } else {
+                        let dec = (insn >> 10) & 1 == 1;
+                        (if dec {
+                            v.wrapping_sub(count)
+                        } else {
+                            v.wrapping_add(count)
+                        }) & mask
+                    };
+                    write_elem(&mut dst, off, esize, r);
+                }
+                self.v[rd as usize] = u128::from_le_bytes(dst);
+                Ok(CpuExit::Continue)
+            }
+            _ => Ok(CpuExit::Undefined(insn)),
+        }
     }
 
     /// Execute SVE ZIP1/ZIP2/UZP1/UZP2/TRN1/TRN2 (unpredicated vector permute).
