@@ -3480,6 +3480,43 @@ fn diff_sve_sincdecp() {
 }
 
 #[test]
+fn diff_sve_fp16_fma_specials() {
+    // f16 predicated FMLA/FMLS and indexed FMLA with NaN/inf/denormal operands:
+    // FPProcessNaNs over the fused form must use (addend, op1, op2) order.
+    let enc: [u32; 3] = [0x65620420, 0x65622420, 0x646a0020];
+    let sp: [u64; 7] = [
+        0x7E007E00_7E007E00,
+        0x7C00FC00_7C00FC00,
+        0x7DF87DF8_7DF87DF8,
+        0x00010001_00010001,
+        0x3C00BC00_3C00BC00,
+        0x7E01FE01_7E01FE01,
+        0x0200820002008200,
+    ];
+    let mut rng = Rng::new(0x1_003A);
+    let mut batch: Vec<(String, u32, ArmState)> = Vec::new();
+    for (k, &insn) in enc.iter().enumerate() {
+        for (i, &v) in sp.iter().enumerate() {
+            let mut st = ArmState::zeroed();
+            st.set_vreg(0, v, sp[(i + 2) % 7]);
+            st.set_vreg(1, v, sp[(i + 4) % 7]);
+            st.set_vreg(2, sp[(i + 1) % 7], v);
+            st.set_preg(1, rng.next() as u16);
+            batch.push((format!("h{k}"), insn, st));
+        }
+        for _ in 0..12 {
+            let mut st = ArmState::zeroed();
+            for z in 0..3usize {
+                st.set_vreg(z, rng.next(), rng.next());
+            }
+            st.set_preg(1, rng.next() as u16);
+            batch.push((format!("h{k} rnd"), insn, st));
+        }
+    }
+    run_batch("sve_fp16_fma_specials", batch);
+}
+
+#[test]
 fn diff_sve2_cdot_indexed() {
     // SVE2 CDOT by indexed element (complex integer dot product): the Zm
     // complex element is taken from a fixed index in the segment.
