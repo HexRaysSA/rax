@@ -1580,6 +1580,17 @@ impl OpKind {
                 result.push(*src);
             }
 
+            OpKind::VLut { src_idx, table, sel, dst, oracc, .. } => {
+                result.push(*src_idx);
+                result.push(*table);
+                if let SrcOperand::Reg(r) = sel {
+                    result.push(*r);
+                }
+                if *oracc {
+                    result.push(*dst);
+                }
+            }
+
             OpKind::VPack { src1, src2, .. }
             | OpKind::VPackSat { src1, src2, .. }
             | OpKind::VShuffleEO { src1, src2, .. }

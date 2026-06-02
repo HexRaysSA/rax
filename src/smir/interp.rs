@@ -1826,6 +1826,45 @@ impl SmirInterpreter {
                 Self::write_vec(ctx, *dst_hi, hi);
             }
 
+            OpKind::VLut {
+                dst,
+                src_idx,
+                table,
+                sel,
+                nomatch,
+                oracc,
+            } => {
+                let vu = Self::read_vec(ctx, *src_idx);
+                let vv = Self::read_vec(ctx, *table);
+                let sel_v = match sel {
+                    SrcOperand::Imm(v) => *v as u32,
+                    SrcOperand::Reg(r) => ctx.read_vreg(*r) as u32,
+                    _ => 0,
+                };
+                let matchval = (sel_v & 0x7) as u8;
+                let oh = ((sel_v >> 1) & 0x1) as u8;
+                let mut out = if *oracc { Self::read_vec(ctx, *dst) } else { [0u64; 16] };
+                for i in 0..128u8 {
+                    let idx = Self::get_lane(&vu, i, 8) as u8;
+                    let val: u8 = if *nomatch {
+                        let lut_idx = ((idx & 0x1f) | (matchval << 5)) as usize;
+                        Self::get_lane(&vv, ((lut_idx % 64) * 2) as u8 + oh, 8) as u8
+                    } else if (idx & 0xe0) == (matchval << 5) {
+                        let lut_idx = idx as usize;
+                        Self::get_lane(&vv, ((lut_idx % 64) * 2) as u8 + oh, 8) as u8
+                    } else {
+                        0
+                    };
+                    if *oracc {
+                        let prev = Self::get_lane(&out, i, 8) as u8;
+                        Self::set_lane(&mut out, i, 8, (prev | val) as u64);
+                    } else {
+                        Self::set_lane(&mut out, i, 8, val as u64);
+                    }
+                }
+                Self::write_vec(ctx, *dst, out);
+            }
+
             OpKind::VDealB4W { dst, src1, src2 } => {
                 let u = Self::read_vec(ctx, *src1);
                 let v = Self::read_vec(ctx, *src2);
@@ -4400,6 +4439,27 @@ mod tests {
             },
         );
         assert_eq!(out, [0xFFFE_FFFE_FFFE_FFFEu64; 16]);
+    }
+
+    #[test]
+    fn test_vlut_byte() {
+        // vlutvvb, sel=0 (matchval=0, oh=0): idx=1 (<32, matches group 0) -> out.b[i] = table.b[1*2+0]=table.b[2].
+        // Vu all bytes = 1; Vv byte[2] = 0xAB -> out all bytes = 0xAB.
+        let v0 = [0x0101_0101_0101_0101u64; 16]; // Vu: idx=1
+        let mut v1 = [0u64; 16];
+        v1[0] = 0x0000_0000_00AB_0000; // byte 2 = 0xAB
+        let mkv = |n| VReg::Arch(ArchReg::Hexagon(HexagonReg::V(n)));
+        let out = run_vec2(v0, v1, OpKind::VLut {
+            dst: mkv(2), src_idx: mkv(0), table: mkv(1),
+            sel: SrcOperand::Imm(0), nomatch: false, oracc: false,
+        });
+        assert_eq!(out, [0xABAB_ABAB_ABAB_ABABu64; 16]);
+        // out-of-group idx (>=32) with matchval 0 -> 0.
+        let out2 = run_vec2([0x4040_4040_4040_4040u64; 16], v1, OpKind::VLut {
+            dst: mkv(2), src_idx: mkv(0), table: mkv(1),
+            sel: SrcOperand::Imm(0), nomatch: false, oracc: false,
+        });
+        assert_eq!(out2, [0u64; 16]); // idx=0x40 -> (0x40 & 0xe0)=0x40 != 0 -> no match -> 0
     }
 
     #[test]

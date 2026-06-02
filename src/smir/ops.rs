@@ -919,6 +919,20 @@ pub enum OpKind {
         to_unsigned: bool,
     },
 
+    /// HVX byte lookup-table gather (`vlut32`: vlutvvb/_nm/bi/_oracc/_oracci).
+    /// `matchval = sel & 7`, `oh = (sel>>1)&1`; per byte i with `idx = src_idx.b[i]`:
+    /// match form `out.b[i] = ((idx&0xe0)==(matchval<<5)) ? table.b[(idx%64)*2+oh] : 0`;
+    /// nomatch form `out.b[i] = table.b[(((idx&0x1f)|(matchval<<5))%64)*2+oh]`.
+    /// `oracc` ORs into the existing dst. `sel` is Rt (Reg) or a #u3 (Imm).
+    VLut {
+        dst: VReg,
+        src_idx: VReg,
+        table: VReg,
+        sel: SrcOperand,
+        nomatch: bool,
+        oracc: bool,
+    },
+
     /// HVX `vdealb4w` (`Vd.b = vdeale(Vu.b, Vv.b)`): deal bytes 0 and 2 of each
     /// word. For word lane i (0..32): `dst.b[i]=src2.b[4i]`, `dst.b[32+i]=src2.b[4i+2]`,
     /// `dst.b[64+i]=src1.b[4i]`, `dst.b[96+i]=src1.b[4i+2]` (src1=Vu, src2=Vv).
@@ -1659,6 +1673,7 @@ impl OpKind {
             | OpKind::VShuffle2 { dst, .. }
             | OpKind::VShuffleEO { dst, .. }
             | OpKind::VDealB4W { dst, .. }
+            | OpKind::VLut { dst, .. }
             | OpKind::VAlign { dst, .. }
             | OpKind::VMulShiftSat { dst, .. }
             | OpKind::VShiftV { dst, .. }

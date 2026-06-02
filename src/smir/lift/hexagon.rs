@@ -4807,6 +4807,31 @@ impl HexagonLifter {
                 src2: self.hex_v(fld(b'v')),
             }),
 
+            // vlut32 byte lookup-table: vlutvvb(i)/_nm/_oracc(i).
+            Opcode::V6_vlutvvb
+            | Opcode::V6_vlutvvb_nm
+            | Opcode::V6_vlutvvbi
+            | Opcode::V6_vlutvvb_oracc
+            | Opcode::V6_vlutvvb_oracci => {
+                let nomatch = matches!(op, Opcode::V6_vlutvvb_nm);
+                let oracc = matches!(op, Opcode::V6_vlutvvb_oracc | Opcode::V6_vlutvvb_oracci);
+                let imm = matches!(op, Opcode::V6_vlutvvbi | Opcode::V6_vlutvvb_oracci);
+                let sel = if imm {
+                    SrcOperand::Imm(fimm_u(b'i') as i64)
+                } else {
+                    SrcOperand::Reg(self.hex_reg(fld(b't')))
+                };
+                let dst = if oracc { self.hex_v(rx_n) } else { self.hex_v(fld(b'd')) };
+                push_op!(OpKind::VLut {
+                    dst,
+                    src_idx: self.hex_v(fld(b'u')),
+                    table: self.hex_v(fld(b'v')),
+                    sel,
+                    nomatch,
+                    oracc,
+                });
+            }
+
             // vmpyewuh: Vd.w = (Vu.w * Vv.uh[even]) >> 16.
             Opcode::V6_vmpyewuh => push_op!(OpKind::VMulSubLaneFrac {
                 dst: self.hex_v(fld(b'd')),

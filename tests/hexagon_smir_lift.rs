@@ -1598,3 +1598,21 @@ fn lift_hvx_vmpyewuh_vmpyowh() {
         0x18c0,
     );
 }
+
+// vlut32 byte lookup-table family (VLut). Seeds randomize Vu/Vv/Rt so the
+// group-match / nomatch / oracc paths are all exercised.
+#[test]
+fn lift_hvx_vlutvvb() {
+    lift_family(
+        "hvx_vlutvvb",
+        &[
+            ("vlutvvb", "{ v2.b = vlut32(v0.b,v1.b,r3) }"),
+            ("vlutvvb_nm", "{ v2.b = vlut32(v0.b,v1.b,r3):nomatch }"),
+            ("vlutvvbi", "{ v2.b = vlut32(v0.b,v1.b,#3) }"),
+            ("vlutvvb_oracc", "{ v2.b |= vlut32(v0.b,v1.b,r3) }"),
+            ("vlutvvb_oracci", "{ v2.b |= vlut32(v0.b,v1.b,#3) }"),
+        ],
+        16,
+        0x18d0,
+    );
+}
