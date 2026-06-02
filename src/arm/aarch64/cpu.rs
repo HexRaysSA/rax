@@ -5233,6 +5233,48 @@ impl AArch64Cpu {
                 Ok(CpuExit::Continue)
             }
 
+            // SVE2 add/subtract high narrow: 0x45, bit21==1, bits[15:13]==011.
+            // ADDHN/SUBHN (S=bit12) with optional rounding (R=bit11). The result
+            // is the high half of the (full-width) sum/difference, written to the
+            // even (T=0, bottom, other half zeroed) or odd (T=1, top, other half
+            // preserved) narrow elements. size=00 reserved.
+            0b010
+                if (insn >> 24) & 0xFF == 0b01000101
+                    && (insn >> 21) & 1 == 1
+                    && (insn >> 13) & 0x7 == 0b011 =>
+            {
+                let size = (insn >> 22) & 0x3;
+                if size == 0 {
+                    return Ok(CpuExit::Undefined(insn));
+                }
+                let src_esize = 1usize << size;
+                let dst_esize = src_esize / 2;
+                let src_mask = elem_mask((src_esize * 8) as u32);
+                let dst_bits = (dst_esize * 8) as u32;
+                let dst_mask = elem_mask(dst_bits);
+                let sub = (insn >> 12) & 1 == 1;
+                let round = (insn >> 11) & 1 == 1;
+                let top = (insn >> 10) & 1 == 1;
+                let n_src = 16 / src_esize;
+                let a = self.v[zn].to_le_bytes();
+                let b = self.v[zm].to_le_bytes();
+                let mut dst = if top { self.v[zd].to_le_bytes() } else { [0u8; 16] };
+                for d in 0..n_src {
+                    let xn = read_elem(&a, d * src_esize, src_esize);
+                    let xm = read_elem(&b, d * src_esize, src_esize);
+                    let sum = if sub { xn.wrapping_sub(xm) } else { xn.wrapping_add(xm) };
+                    let rounded = if round {
+                        sum.wrapping_add(1u64 << (dst_bits - 1))
+                    } else {
+                        sum
+                    } & src_mask;
+                    let narrow = (rounded >> dst_bits) & dst_mask;
+                    write_elem(&mut dst, (2 * d + top as usize) * dst_esize, dst_esize, narrow);
+                }
+                self.v[zd] = u128::from_le_bytes(dst);
+                Ok(CpuExit::Continue)
+            }
+
             // SVE2 integer multiply-add long: 0x44, bit21==0, bits[15:13]==010.
             // S?MLALB/T (S=0) and S?MLSLB/T (S=1); U widening sign; T odd/even.
             // Zda (the destination, bits[4:0]) accumulates widen(Zn)*widen(Zm).

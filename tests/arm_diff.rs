@@ -1601,6 +1601,11 @@ fn enc_sve2_sqdmlal(size: u32, s: u32, t: u32) -> u32 {
     (0b01000100 << 24) | (size << 22) | (RM << 16) | (0b0110 << 12) | (s << 11) | (t << 10)
         | (RN << 5) | RD
 }
+/// SVE2 add/subtract high narrow: `01000101 size 1 Zm 011 S R T Zn Zd`.
+fn enc_sve2_addhn(size: u32, s: u32, r: u32, t: u32) -> u32 {
+    (0b01000101 << 24) | (size << 22) | (1 << 21) | (RM << 16) | (0b011 << 13) | (s << 12)
+        | (r << 11) | (t << 10) | (RN << 5) | RD
+}
 
 /// SVE INDEX variants. base=imm5[9:5] or Xn; step=imm5[20:16] or Xm. Rn=x1, Rm=x2.
 fn enc_index_ii(sz: u32, imm_step: u32, imm_base: u32) -> u32 {
@@ -3450,6 +3455,25 @@ fn diff_sve2_mlal() {
         }
     }
     run_family("sve2_mlal", cases, 16, 0x5_3001);
+}
+
+#[test]
+fn diff_sve2_addhn() {
+    // SVE2 add/subtract high narrow (ADDHN/SUBHN/RADDHN/RSUBHN, bottom/top).
+    let mut cases: Vec<(String, u32)> = Vec::new();
+    for size in 1..4u32 {
+        for s in 0..2u32 {
+            for r in 0..2u32 {
+                for t in 0..2u32 {
+                    cases.push((
+                        format!("addhn sz{size} s{s} r{r} t{t}"),
+                        enc_sve2_addhn(size, s, r, t),
+                    ));
+                }
+            }
+        }
+    }
+    run_family("sve2_addhn", cases, 16, 0x5_4001);
 }
 
 #[test]
