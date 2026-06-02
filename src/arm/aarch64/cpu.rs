@@ -4935,6 +4935,149 @@ impl AArch64Cpu {
                 Ok(CpuExit::Continue)
             }
 
+            // SVE REVB/REVH/REVW/RBIT (predicated, merging): 0x05, bit21==1,
+            // bits[20:18]==001, bits[15:13]==100. bits[17:16]: 00=REVB (reverse
+            // bytes within each element), 01=REVH (halfwords), 10=REVW (words),
+            // 11=RBIT (bits). @rd_pg_rn.
+            0b000
+                if (insn >> 24) & 0xFF == 0b00000101
+                    && (insn >> 21) & 1 == 1
+                    && (insn >> 18) & 0x7 == 0b001
+                    && (insn >> 13) & 0x7 == 0b100 =>
+            {
+                let op = (insn >> 16) & 0x3;
+                let unit = match op {
+                    0b00 => 1usize,            // REVB
+                    0b01 if esize >= 4 => 2,   // REVH (S/D)
+                    0b10 if esize == 8 => 4,   // REVW (D)
+                    0b11 => 0,                 // RBIT
+                    _ => return Ok(CpuExit::Undefined(insn)),
+                };
+                if op == 0b00 && esize < 2 {
+                    return Ok(CpuExit::Undefined(insn)); // REVB.b is reserved
+                }
+                let pg = ((insn >> 10) & 0x7) as usize;
+                let rn = ((insn >> 5) & 0x1F) as usize;
+                let pred = self.sve_p[pg];
+                let mask = elem_mask((esize * 8) as u32);
+                let src = self.v[rn].to_le_bytes();
+                let mut dst = self.v[zd].to_le_bytes();
+                for e in 0..(16 / esize) {
+                    let off = e * esize;
+                    if (pred >> off) & 1 == 0 {
+                        continue;
+                    }
+                    let v = read_elem(&src, off, esize);
+                    let r = if op == 0b11 {
+                        (v & mask).reverse_bits() >> (64 - esize * 8)
+                    } else {
+                        reverse_chunks(v, esize, unit) & mask
+                    };
+                    write_elem(&mut dst, off, esize, r);
+                }
+                self.v[zd] = u128::from_le_bytes(dst);
+                Ok(CpuExit::Continue)
+            }
+
+            // SVE INSR (insert scalar, shifting the vector up one element): 0x05,
+            // bit21==1, bits[15:10]==001110, bits[20:16]==00100 (GPR) or 10100
+            // (SIMD scalar). New Zdn = [scalar, Zdn[0..N-1]].
+            0b000
+                if (insn >> 24) & 0xFF == 0b00000101
+                    && (insn >> 21) & 1 == 1
+                    && (insn >> 10) & 0x3F == 0b001110
+                    && matches!((insn >> 16) & 0x1F, 0b00100 | 0b10100) =>
+            {
+                let insr_f = (insn >> 20) & 1 == 1; // SIMD&FP scalar form
+                let rmf = ((insn >> 5) & 0x1F) as usize;
+                let esbits = esize * 8;
+                let smask: u128 = (1u128 << esbits) - 1;
+                let scalar = if insr_f {
+                    self.v[rmf] & smask
+                } else {
+                    (self.get_x(rmf as u8) as u128) & smask
+                };
+                self.v[zd] = (self.v[zd] << esbits) | scalar;
+                Ok(CpuExit::Continue)
+            }
+
+            // SVE CLASTA/CLASTB to vector or SIMD&FP scalar: 0x05,
+            // bits[21:17]==10100 (vector) / 10101 (scalar), bit16=A(0)/B(1),
+            // bits[15:13]==100. The element at (CLASTB) / after (CLASTA) the last
+            // active lane of Zm is broadcast to Zdn (vector) or written to Vd
+            // (scalar); with no active lane the destination is unchanged.
+            0b000
+                if (insn >> 24) & 0xFF == 0b00000101
+                    && matches!((insn >> 17) & 0x1F, 0b10100 | 0b10101)
+                    && (insn >> 13) & 0x7 == 0b100 =>
+            {
+                let scalar_form = (insn >> 17) & 1 == 1;
+                let before = (insn >> 16) & 1 == 1; // CLASTB
+                let pg = ((insn >> 10) & 0x7) as usize;
+                let src_reg = ((insn >> 5) & 0x1F) as usize;
+                let n = 16 / esize;
+                let pred = self.sve_p[pg];
+                let mask = elem_mask((esize * 8) as u32);
+                let src = self.v[src_reg].to_le_bytes();
+                let mut last: i32 = -1;
+                for e in (0..n).rev() {
+                    if (pred >> (e * esize)) & 1 == 1 {
+                        last = e as i32;
+                        break;
+                    }
+                }
+                let selected = if last >= 0 {
+                    let idx = if before {
+                        last as usize
+                    } else {
+                        let i = (last + 1) as usize;
+                        if i >= n { 0 } else { i }
+                    };
+                    Some(read_elem(&src, idx * esize, esize) & mask)
+                } else {
+                    None
+                };
+                if scalar_form {
+                    // Writing to a SIMD&FP scalar always zeroes the upper bits;
+                    // with no active element the prior low element is preserved.
+                    let val = selected.unwrap_or((self.v[zd] as u64) & mask);
+                    self.v[zd] = val as u128;
+                } else if let Some(val) = selected {
+                    // Vector form: broadcast; unchanged if no active element.
+                    let mut out = 0u128;
+                    for e in 0..n {
+                        out |= (val as u128) << (e * esize * 8);
+                    }
+                    self.v[zd] = out;
+                }
+                Ok(CpuExit::Continue)
+            }
+
+            // SVE FCPY (copy FP immediate into Pg-active lanes, merging): 0x05,
+            // bits[21:20]==01, bits[15:13]==110. Pg is 4-bit (bits[19:16]).
+            0b000
+                if (insn >> 24) & 0xFF == 0b00000101
+                    && (insn >> 20) & 0x3 == 0b01
+                    && (insn >> 13) & 0x7 == 0b110 =>
+            {
+                if esize < 2 {
+                    return Ok(CpuExit::Undefined(insn));
+                }
+                let pg = ((insn >> 16) & 0xF) as usize;
+                let imm8 = ((insn >> 5) & 0xFF) as u8;
+                let val = vfp_expand_imm(imm8, esize);
+                let pred = self.sve_p[pg];
+                let mut dst = self.v[zd].to_le_bytes();
+                for e in 0..(16 / esize) {
+                    let off = e * esize;
+                    if (pred >> off) & 1 == 1 {
+                        write_elem(&mut dst, off, esize, val);
+                    }
+                }
+                self.v[zd] = u128::from_le_bytes(dst);
+                Ok(CpuExit::Continue)
+            }
+
             // SVE FTSSEL (trigonometric select coefficient): 0x04, bit21==1,
             // bits[15:10]==101100. Per lane: result = Zm[e]&1 ? 1.0 : Zn[e];
             // then if Zm[e]&2 negate. Unpredicated; Zn=bits[9:5], Zm=bits[20:16].
@@ -7239,6 +7382,22 @@ impl AArch64Cpu {
         if (insn >> 10) & 0x3FFF == 0x63C && (insn >> 9) & 1 == 0 && (insn >> 4) & 1 == 0 {
             let pg = ((insn >> 5) & 0xF) as usize;
             self.sve_p[pd] = self.sve_ffr & self.sve_p[pg];
+            return Ok(CpuExit::Continue);
+        }
+
+        // FDUP: broadcast an FP modified-immediate to all lanes. 0x25,
+        // bits[21:13]==111001110. Unpredicated; size 0 reserved.
+        if (insn >> 13) & 0x1FF == 0b111001110 {
+            if esize < 2 {
+                return Ok(CpuExit::Undefined(insn));
+            }
+            let zd = (insn & 0x1F) as usize;
+            let val = vfp_expand_imm(((insn >> 5) & 0xFF) as u8, esize);
+            let mut out = 0u128;
+            for e in 0..elements {
+                out |= (val as u128) << (e * esize * 8);
+            }
+            self.v[zd] = out;
             return Ok(CpuExit::Continue);
         }
 
@@ -12930,6 +13089,35 @@ fn adv_simd_three_same_int(u: u32, opcode: u32, bits: u32, a: u64, b: u64, d: u6
 }
 
 /// VFPExpandImm for single precision: 8-bit immediate -> f32 bit pattern.
+/// VFP modified FP immediate expansion for half precision.
+fn vfp_expand_imm_f16(imm8: u8) -> u16 {
+    let sign = ((imm8 >> 7) & 1) as u16;
+    let frac = (imm8 & 0x3F) as u16;
+    (sign << 15) | (if (imm8 >> 6) & 1 == 1 { 0x3000 } else { 0x4000 }) | (frac << 6)
+}
+
+/// VFP modified FP immediate expanded for an `esize`-byte element.
+fn vfp_expand_imm(imm8: u8, esize: usize) -> u64 {
+    match esize {
+        2 => vfp_expand_imm_f16(imm8) as u64,
+        4 => vfp_expand_imm_f32(imm8) as u64,
+        _ => vfp_expand_imm_f64(imm8),
+    }
+}
+
+/// Reverse the `unit`-byte chunks within an `esize`-byte little-endian value
+/// (REVB unit=1, REVH unit=2, REVW unit=4).
+fn reverse_chunks(val: u64, esize: usize, unit: usize) -> u64 {
+    let bytes = val.to_le_bytes();
+    let mut out = [0u8; 8];
+    let n = esize / unit;
+    for c in 0..n {
+        let dst = (n - 1 - c) * unit;
+        out[dst..dst + unit].copy_from_slice(&bytes[c * unit..c * unit + unit]);
+    }
+    u64::from_le_bytes(out)
+}
+
 fn vfp_expand_imm_f32(imm8: u8) -> u32 {
     let imm8 = imm8 as u32;
     let sign = (imm8 >> 7) & 1;

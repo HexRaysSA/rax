@@ -1774,6 +1774,38 @@ fn enc_sve_int_mla(size: u32, op3: u32) -> u32 {
     (0x04 << 24) | (size << 22) | (RM << 16) | (op3 << 13) | (RN << 5) | RD
 }
 
+/// SVE REVB/REVH/REVW/RBIT: `00000101 size 1 001 op 100 Pg Zn Zd`. op=bits[17:16]
+/// (00 REVB,01 REVH,10 REVW,11 RBIT). Pg=p0, Zn=z1(RN), Zd=z0(RD).
+fn enc_sve_rev_rbit(size: u32, op: u32) -> u32 {
+    (0x05 << 24) | (size << 22) | (1 << 21) | (0b001 << 18) | (op << 16) | (0b100 << 13) | (RN << 5)
+        | RD
+}
+
+/// SVE INSR: `00000101 size 1 form 001110 Rm Zdn`. form=bits[20:16] (00100 GPR,
+/// 10100 SIMD scalar). Rm/Vm=z1(RN), Zdn=z0(RD).
+fn enc_sve_insr(size: u32, f: u32) -> u32 {
+    let form = if f == 1 { 0b10100u32 } else { 0b00100 };
+    (0x05 << 24) | (size << 22) | (1 << 21) | (form << 16) | (0b001110 << 10) | (RN << 5) | RD
+}
+
+/// SVE CLASTA/CLASTB to vector/scalar: `00000101 size 1010 sc b 100 Pg Zm Zdn`.
+/// sc=bit17 (0=vector,1=scalar), b=bit16 (CLASTB). Pg=p0, Zm/Zn=z1(RN), Zd=z0(RD).
+fn enc_sve_clast(size: u32, scalar: u32, before: u32) -> u32 {
+    (0x05 << 24) | (size << 22) | (0b10100 << 17) | (scalar << 17) | (before << 16) | (0b100 << 13)
+        | (RN << 5)
+        | RD
+}
+
+/// SVE FCPY: `00000101 size 01 Pg4 110 imm8 Zd`. Pg4=p0, Zd=z0(RD).
+fn enc_sve_fcpy(size: u32, imm8: u32) -> u32 {
+    (0x05 << 24) | (size << 22) | (0b01 << 20) | (0b110 << 13) | ((imm8 & 0xFF) << 5) | RD
+}
+
+/// SVE FDUP: `00100101 size 111001110 imm8 Zd`. Zd=z0(RD).
+fn enc_sve_fdup(size: u32, imm8: u32) -> u32 {
+    (0x25 << 24) | (size << 22) | (0b111001110 << 13) | ((imm8 & 0xFF) << 5) | RD
+}
+
 /// SVE CTERMEQ/CTERMNE: `00100101 1 sf 1 Rm 001000 Rn 0 ne`. sf=bit22 (0=32,
 /// 1=64), ne=bit4. Rn=x1(RN), Rm=x2(RM).
 fn enc_sve_cterm(sf: u32, ne: u32) -> u32 {
@@ -3412,6 +3444,86 @@ fn diff_sve2_pred_alu() {
         }
     }
     run_batch("sve2_pred_alu", batch);
+}
+
+#[test]
+fn diff_sve_rev_rbit() {
+    // REVB/REVH/REVW/RBIT reverse byte/halfword/word/bit order within elements.
+    let mut rng = Rng::new(0x9_1001);
+    let mut batch: Vec<(String, u32, ArmState)> = Vec::new();
+    let cases: &[(u32, &[u32])] = &[(0b00, &[1, 2, 3]), (0b01, &[2, 3]), (0b10, &[3]), (0b11, &[0, 1, 2, 3])];
+    for &(op, sizes) in cases {
+        for &size in sizes {
+            let insn = enc_sve_rev_rbit(size, op);
+            for _ in 0..6 {
+                let mut st = ArmState::zeroed();
+                st.set_vreg(1, rng.next(), rng.next());
+                st.set_vreg(0, rng.next(), rng.next());
+                st.set_preg(0, rng.next() as u16);
+                batch.push((format!("rev op{op:b} s{size}"), insn, st));
+            }
+        }
+    }
+    run_batch("sve_rev_rbit", batch);
+}
+
+#[test]
+fn diff_sve_insr() {
+    // INSR inserts a GPR or SIMD-scalar element at the bottom, shifting up.
+    let mut rng = Rng::new(0x9_2001);
+    let mut batch: Vec<(String, u32, ArmState)> = Vec::new();
+    for size in 0..4u32 {
+        for f in 0..2u32 {
+            let insn = enc_sve_insr(size, f);
+            for _ in 0..6 {
+                let mut st = ArmState::zeroed();
+                st.set_vreg(0, rng.next(), rng.next());
+                st.set_vreg(1, rng.next(), rng.next());
+                st.x[1] = rng.next();
+                batch.push((format!("insr s{size} f{f}"), insn, st));
+            }
+        }
+    }
+    run_batch("sve_insr", batch);
+}
+
+#[test]
+fn diff_sve_clast_dst() {
+    // CLASTA/CLASTB to vector and SIMD-scalar destinations.
+    let mut rng = Rng::new(0x9_3001);
+    let mut batch: Vec<(String, u32, ArmState)> = Vec::new();
+    for size in 0..4u32 {
+        for scalar in 0..2u32 {
+            for before in 0..2u32 {
+                let insn = enc_sve_clast(size, scalar, before);
+                for _ in 0..6 {
+                    let mut st = ArmState::zeroed();
+                    st.set_vreg(0, rng.next(), rng.next());
+                    st.set_vreg(1, rng.next(), rng.next());
+                    st.set_preg(0, rng.next() as u16);
+                    batch.push((format!("clast s{size} sc{scalar} b{before}"), insn, st));
+                }
+            }
+        }
+    }
+    run_batch("sve_clast_dst", batch);
+}
+
+#[test]
+fn diff_sve_fcpy_fdup() {
+    // FCPY (predicated FP immediate copy) and FDUP (FP immediate broadcast).
+    let mut rng = Rng::new(0x9_4001);
+    let mut batch: Vec<(String, u32, ArmState)> = Vec::new();
+    for size in 1..4u32 {
+        for imm8 in [0x78u32, 0x80, 0x00, 0xe0, 0x55, 0xaa, 0x3f] {
+            let mut st = ArmState::zeroed();
+            st.set_vreg(0, rng.next(), rng.next());
+            st.set_preg(0, rng.next() as u16);
+            batch.push((format!("fcpy s{size} i{imm8:x}"), enc_sve_fcpy(size, imm8), st));
+            batch.push((format!("fdup s{size} i{imm8:x}"), enc_sve_fdup(size, imm8), ArmState::zeroed()));
+        }
+    }
+    run_batch("sve_fcpy_fdup", batch);
 }
 
 #[test]
