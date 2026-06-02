@@ -1646,6 +1646,32 @@ fn diff_sve_pred_gen() {
     run_batch("sve_pred_gen", batch);
 }
 
+/// SVE predicated ADD/SUB/SUBR (destructive): `00000100 sz 0000 opc Pg Zm Zdn`.
+/// Zdn=z0, Zm=z1, Pg=p0.
+fn enc_sve_padd(sz: u32, opc: u32) -> u32 {
+    (0x04 << 24) | (sz << 22) | (opc << 16) | (RN << 5) | RD
+}
+
+#[test]
+fn diff_sve_padd() {
+    let ops = [(0b000u32, "add"), (0b001, "sub"), (0b011, "subr")];
+    let mut rng = Rng::new(0x1_0024);
+    let mut batch: Vec<(String, u32, ArmState)> = Vec::new();
+    for sz in 0..4u32 {
+        for (opc, name) in ops {
+            let insn = enc_sve_padd(sz, opc);
+            for _ in 0..16 {
+                let mut st = ArmState::zeroed();
+                st.set_vreg(0, rng.next(), rng.next()); // Zdn (dest + first source)
+                st.set_vreg(1, rng.next(), rng.next()); // Zm
+                st.set_preg(0, rng.next() as u16); // governing predicate
+                batch.push((format!("p{name} sz{sz}"), insn, st));
+            }
+        }
+    }
+    run_batch("sve_padd", batch);
+}
+
 #[test]
 fn diff_sve_perm() {
     let mut cases: Vec<(String, u32)> = Vec::new();

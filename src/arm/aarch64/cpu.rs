@@ -4861,107 +4861,33 @@ impl AArch64Cpu {
         pg: usize,
         esize: usize,
     ) -> Result<CpuExit, ArmError> {
+        // SVE integer add/subtract (predicated), destructive: Zdn = op(Zdn, Zm)
+        // for active elements, Zdn unchanged for inactive. opc=bits[18:16]:
+        // 000=ADD, 001=SUB, 011=SUBR. The governing predicate is BYTE-granular:
+        // element e (esize bytes) is active iff bit e*esize of Pg is set.
         let opc = (insn >> 16) & 0x7;
         let pred = self.sve_p[pg];
-
-        // Number of elements in VL=128
         let elements = 16 / esize;
-
-        // Get source and destination as byte arrays
-        let src = self.v[zn].to_le_bytes();
-        let zm_idx = ((insn >> 16) & 0x1F) as usize;
-        let src2 = self.v[zm_idx].to_le_bytes();
-        let mut dst = self.v[zd].to_le_bytes();
-
+        let bits = (esize * 8) as u32;
+        let mask = elem_mask(bits);
+        let a_reg = self.v[zd].to_le_bytes(); // Zdn (first source, also dest)
+        let b_reg = self.v[zn].to_le_bytes(); // Zm (second source)
+        let mut dst = a_reg;
         for e in 0..elements {
-            // Check predicate bit for this element
-            let pred_bit = (pred >> e) & 1;
-            if pred_bit == 0 {
-                continue; // Skip inactive elements
+            if (pred >> (e * esize)) & 1 == 0 {
+                continue;
             }
-
-            let offset = e * esize;
-            match esize {
-                1 => {
-                    let a = src[offset];
-                    let b = src2[offset];
-                    let result = match opc {
-                        0b000 => a.wrapping_add(b),
-                        0b001 => a.wrapping_sub(b),
-                        0b011 => b.wrapping_sub(a), // SUBR
-                        _ => a,
-                    };
-                    dst[offset] = result;
-                }
-                2 => {
-                    let a = u16::from_le_bytes([src[offset], src[offset + 1]]);
-                    let b = u16::from_le_bytes([src2[offset], src2[offset + 1]]);
-                    let result = match opc {
-                        0b000 => a.wrapping_add(b),
-                        0b001 => a.wrapping_sub(b),
-                        0b011 => b.wrapping_sub(a),
-                        _ => a,
-                    };
-                    let bytes = result.to_le_bytes();
-                    dst[offset] = bytes[0];
-                    dst[offset + 1] = bytes[1];
-                }
-                4 => {
-                    let a = u32::from_le_bytes([
-                        src[offset],
-                        src[offset + 1],
-                        src[offset + 2],
-                        src[offset + 3],
-                    ]);
-                    let b = u32::from_le_bytes([
-                        src2[offset],
-                        src2[offset + 1],
-                        src2[offset + 2],
-                        src2[offset + 3],
-                    ]);
-                    let result = match opc {
-                        0b000 => a.wrapping_add(b),
-                        0b001 => a.wrapping_sub(b),
-                        0b011 => b.wrapping_sub(a),
-                        _ => a,
-                    };
-                    let bytes = result.to_le_bytes();
-                    dst[offset..offset + 4].copy_from_slice(&bytes);
-                }
-                8 => {
-                    let a = u64::from_le_bytes([
-                        src[offset],
-                        src[offset + 1],
-                        src[offset + 2],
-                        src[offset + 3],
-                        src[offset + 4],
-                        src[offset + 5],
-                        src[offset + 6],
-                        src[offset + 7],
-                    ]);
-                    let b = u64::from_le_bytes([
-                        src2[offset],
-                        src2[offset + 1],
-                        src2[offset + 2],
-                        src2[offset + 3],
-                        src2[offset + 4],
-                        src2[offset + 5],
-                        src2[offset + 6],
-                        src2[offset + 7],
-                    ]);
-                    let result = match opc {
-                        0b000 => a.wrapping_add(b),
-                        0b001 => a.wrapping_sub(b),
-                        0b011 => b.wrapping_sub(a),
-                        _ => a,
-                    };
-                    let bytes = result.to_le_bytes();
-                    dst[offset..offset + 8].copy_from_slice(&bytes);
-                }
-                _ => {}
-            }
+            let off = e * esize;
+            let a = read_elem(&a_reg, off, esize);
+            let b = read_elem(&b_reg, off, esize);
+            let r = match opc {
+                0b000 => a.wrapping_add(b),
+                0b001 => a.wrapping_sub(b),
+                0b011 => b.wrapping_sub(a),
+                _ => return Ok(CpuExit::Undefined(insn)),
+            } & mask;
+            write_elem(&mut dst, off, esize, r);
         }
-
         self.v[zd] = u128::from_le_bytes(dst);
         Ok(CpuExit::Continue)
     }
