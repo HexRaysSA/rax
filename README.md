@@ -8,13 +8,14 @@ against a reference that cannot be argued with: real silicon (KVM) for x86-64, a
 The x86-64 core is a complete machine. It boots a real Linux kernel two ways — through hardware<br/>
 virtualization (KVM on Linux, Hypervisor.framework on macOS) at near-native speed, or through a<br/>
 from-scratch interpreter you can trace, single-step, snapshot, and profile — and it covers the ISA out<br/>
-to AVX-512, AVX10.2, and Intel APX. Alongside it run three more software CPUs of real depth: AArch64<br/>
-with SVE/SVE2, NEON, and the Cortex-M line; Hexagon with its VLIW packets and HVX vectors; and a<br/>
-correctly-rounded RV64GC. A shared multi-architecture IR (SMIR) lifts all four toward one interpreter<br/>
-and one in-progress JIT.
+to AVX-512, AVX10.2, and Intel APX. Behind it sits SMIR, a shared multi-architecture IR with a working<br/>
+hot-block JIT that lifts hot x86-64 loops to native code at ~80× the interpreter. Three more software<br/>
+CPUs run alongside: a fully oracle-verified Hexagon (every opcode, scalar + HVX), an AArch64 with<br/>
+complete SVE, and a correctly-rounded RV64GC — RISC-V and Hexagon are bootable emulator backends in
+their own right.
 </h5>
 
-<div align="center"><code>Rust</code> • <code>x86-64 · AArch64+SVE · Hexagon+HVX · RV64GC</code> • <code>boots Linux</code> • <code>121k+ tests</code></div>
+<div align="center"><code>Rust</code> • <code>x86-64 · AArch64+SVE · Hexagon+HVX · RV64GC</code> • <code>boots Linux</code> • <code>hot-block JIT</code> • <code>121k+ tests</code></div>
 
 ---
 
@@ -34,18 +35,24 @@ cargo build --release
 # 3. ...and trace every instruction the kernel executes, SDE-compatible.
 ./target/release/rax --backend emulator --kernel bzImage --trace boot.trace
 
-# 4. ...or single-step it from your debugger.
-./target/release/rax --backend emulator --kernel bzImage --gdb 1234 --wait-gdb
+# 4. ...turn on the native JIT for hot loops (~80× on register-heavy code).
+cargo run --release --features smir-jit -- --backend emulator --kernel bzImage
 ```
 
-The other three CPU cores aren't VM backends — they're software ISAs you exercise through their oracle
-harnesses, which run each instruction on both rax and QEMU and diff the result:
+RISC-V and Hexagon are bootable emulator backends too (bare-metal programs, UART + halt):
 
 ```bash
-cargo test --release --test arm_diff           # AArch64     vs. qemu-aarch64
-cargo test --release --test hexagon_hvx_diff   # Hexagon HVX vs. qemu-hexagon
-cargo test --release --test riscv_diff         # RV64GC      vs. qemu-riscv64
-cargo test --release --test differential       # x86-64      vs. KVM (the silicon)
+./target/release/rax --arch riscv64 --backend emulator --kernel program.elf
+```
+
+And all four cores are checked against a reference oracle — each harness runs an instruction on both rax
+and the reference from an identical state, then diffs the result:
+
+```bash
+cargo test --release --test differential       # x86-64  vs. KVM (the silicon)
+cargo test --release --test arm_diff           # AArch64 vs. qemu-aarch64
+cargo test --release --test hexagon_hvx_diff   # Hexagon vs. qemu-hexagon
+cargo test --release --test riscv_diff         # RV64GC  vs. qemu-riscv64
 ```
 
 > **Good to know** Every oracle harness self-skips cleanly if the cross-compiler / QEMU / `/dev/kvm`
@@ -75,7 +82,9 @@ against something authoritative. So that comparison is the project's spine, not 
 
 That methodology is what lets rax be both *legible* — you can open `insn/arith/add.rs` and read exactly
 what `ADD` does to the flags — and *trusted*: it tracks four instruction sets out to their modern vector
-extensions, and tens of thousands of cases stand between a change and a regression.
+extensions, and well over a hundred thousand cases stand between a change and a regression. It is also
+what lets the JIT exist at all: a native code generator is only safe if you can prove its output matches
+the interpreter, and the same oracle does that proof.
 
 ---
 
@@ -89,10 +98,14 @@ $ RUSTFLAGS="-C target-cpu=native" cargo run --release --example bench_loop
 [bench] iterations    : 268435456 (0x10000000)
 [bench] expected insns: 1342177283
 [bench] executed insns: 1342177283
-[bench] elapsed       : 12.78 s
-[bench] throughput    : 105.0 MIPS
+[bench] elapsed       : 9.26 s
+[bench] throughput    : ~145 MIPS
 [bench] final eax=0x20000000 ecx=0x0
 ```
+
+Turn on `--features smir-jit` and that same loop is detected as hot, lifted to SMIR, lowered to native
+x86-64, and run directly — **~11,000 MIPS, roughly 80×**, bit-identical to the interpreter (the JIT-tier
+vcpu test asserts register-for-register equality).
 
 Boot a kernel under the emulator with `--trace`, and every retired instruction lands in an
 SDE-compatible trace file — instruction, register changes, and (when they happen) memory reads/writes
@@ -116,20 +129,21 @@ Write *(UINT64*)0x9000 = 0x000000000000a003
 
 ## Four CPUs
 
-x86-64 is the complete VM target — it boots, with the full device platform, boot protocol, tracing, GDB,
-and snapshots. The other three are software CPU cores of real depth, validated standalone against QEMU
-(not yet driveable as bootable VM backends from the CLI). All four also have SMIR lifters.
+x86-64 is the complete VM target — it boots Linux, with the full device platform, boot protocol, tracing,
+GDB, snapshots, and the JIT. Hexagon and RISC-V are bootable emulator backends for bare-metal programs.
+AArch64 is the deepest-tested core but the one *not* yet wired as a runnable backend — it lives entirely
+behind its oracle. All four also have SMIR lifters.
 
-| Core | Size | Coverage | Oracle |
-|------|-----:|----------|--------|
-| **x86-64** | ~50k LOC | Legacy → SSE/AVX/AVX2 → AVX-512 → AVX10.1/10.2 → APX; x87; AES/SHA/GFNI; XSAVE | KVM (real hardware) |
-| **AArch64 / ARM** | ~43k LOC | A64 base, SVE/SVE2, NEON/VFP, FP16; AArch32/Thumb; Cortex-M (M0–M85), Cortex-R | qemu-aarch64 + ASL |
-| **Hexagon** | ~33k LOC | V68 scalar, VLIW packets, HVX vectors | qemu-hexagon |
-| **RISC-V** | ~4k LOC | RV64GC (IMAFDC) + Zicsr/Zifencei + Zba/Zbb/Zbc/Zbs | qemu-riscv64 |
+| Core | Size | Runnable? | Coverage | Oracle |
+|------|-----:|-----------|----------|--------|
+| **x86-64** | ~50k LOC | **boots Linux** (KVM/HVF/emulator) + JIT | Legacy → SSE/AVX/AVX2 → AVX-512 → AVX10.1/10.2 → APX; x87; AES/SHA/GFNI; XSAVE | KVM (real hardware) |
+| **Hexagon** | ~37k LOC | bare-metal (`--arch hexagon`) | V73 scalar + VLIW packets + HVX — **every opcode verified** | qemu-hexagon |
+| **RISC-V** | ~7k LOC | bare-metal (`--arch riscv64`) | full RVA23 *scalar* set (RV64GC + Zfh/Zicond/Zfa/Zbk\*/Zcb + scalar crypto + vector-config) | qemu-riscv64 |
+| **AArch64 / ARM** | ~45k LOC | validated only (no backend yet) | A64 base, **complete SVE** + SVE2, NEON/VFP, FP16; AArch32/Thumb; Cortex-M (M0–M85) | qemu-aarch64 + ASL |
 
 ### x86-64 — the complete machine
 
-The primary target and the only bootable one. A full decoder handles the entire encoding zoo (REX and
+The primary target and the one that boots Linux. A full decoder handles the entire encoding zoo (REX and
 REX2, every legacy prefix including the `0x67` address-size override, ModR/M + SIB, VEX2/VEX3, EVEX
 including APX Map 4, RIP-relative), feeding 88 instruction-implementation files.
 
@@ -145,41 +159,43 @@ including APX Map 4, RIP-relative), feeding 88 instruction-implementation files.
 | **APX** | REX2, EGPRs R16–R31, NDD (3-operand), NF (no-flags), EVEX Map 4 |
 | **Crypto / state / system** | AES, SHA1/256, GFNI (FIPS/SDM known-answer tested); XSAVE/XRSTOR/XCR0; CPUID, MSRs, CR/DR, descriptor-table loads — CPL-checked, faults injected (`#UD`/`#GP`) |
 
-### AArch64 / ARM — deep, and growing fast
+### Hexagon — complete, every opcode
 
-A near-complete A64 base (arithmetic, logical, bitfield, load/store incl. LSE atomics, branches, system
-register access across EL0–EL3, 4-level MMU, GICv3) with substantial recent vector work:
-
-- **SVE / SVE2** — ~120 decoded mnemonics at VL=128: predicate ops (PTRUE, PFALSE, WHILE, PFIRST, PNEXT,
-  PTEST, predicate count/logical), permutes (ZIP/UZP/TRN, EXT, TBL, COMPACT, SPLICE, REV), reductions
-  (SADDV…ORV/EORV), predicated integer & FP ALU, CPY/DUP/SEL/CMP, shifts, INDEX/CNT*; SVE2 unpredicated
-  multiplies. (Some SVE2 bit-permute/crypto families are still being filled in.)
-- **NEON / VFP** — full Advanced SIMD and scalar FP, including FP16, across V0–V31.
-- **AArch32 / Thumb-2** — A32 and Thumb decoders with IT-block conditional execution.
-- **Cortex-M (M0–M85)** — NVIC, SysTick, SCB, MPU; ARMv6-M through ARMv8.1-M (MVE/Helium on M55/M85).
-- **Features** — 30+ optional extensions gated through `features.rs`/`isa.rs`, spanning ARMv8.0–v9.5.
-
-### Hexagon — VLIW and HVX
-
-A Qualcomm Hexagon (V68) implementation that takes the hard parts seriously:
+A Qualcomm Hexagon (V73) implementation where **all 2,178 instruction opcodes are decoded, executed, and
+differentially verified against qemu-hexagon at zero divergence** — scalar core, the full HVX vector set,
+even the awkward corners (CABAC bin decode, scatter/gather, FP reciprocal/sqrt seed tables recovered from
+the oracle). It takes the hard parts seriously:
 
 - **VLIW packets** — true parallel-packet semantics: all instructions read the old register file and
   commit atomically at packet end; `.new` value forwarding for scalars *and* HVX vectors; duplex
   encodings; hardware loops (SA0/LC0, SA1/LC1) with circular and bit-reversed addressing; dual stores.
-- **Scalar core** — full ALU, multiplies, shifts, loads/stores, control flow, predicates P0–P3.
-- **HVX** — 1024-bit vector registers V0–V31 and predicates Q0–Q3: add/sub/avg, compare, min/max,
-  multiplies (vmpyi/vmpyv/vmpys/rmpy/cmpy), permute, shift, round/saturate, LUT, vector-predicate ops,
-  and `vmem` loads/stores with `.cur`/`.tmp` and scalar-predicated forms. (Carry-chain, conversion, and
-  histogram families are scaffolded for a later wave.)
+- **HVX** — 1024-bit vectors V0–V31 and predicates Q0–Q3: ALU, compare, min/max, the full multiply
+  family, permute, shift, round/saturate, LUT, histogram, vector-predicate ops, `vmem` loads/stores
+  (`.cur`/`.tmp`, scalar-predicated), and V65 scatter/gather.
 
-### RISC-V — small and correct
+### RISC-V — small, correct, and bootable
 
-A complete **RV64GC** interpreter in ~4k lines: RV64I base, M (mul/div), A (LR/SC + AMO, single-hart),
-F/D, C (compressed), Zicsr (21 CSRs, machine-mode trap state), Zifencei, and the Zba/Zbb/Zbc/Zbs
-bit-manipulation extensions. The floating-point core is the highlight — it computes the round-to-nearest
-result, recovers the *exact* residual (2Sum / FMA / Newton), and uses it to select the correctly-rounded
-answer in all five RISC-V rounding modes without depending on the host's rounding, setting all five IEEE
-exception flags per operation.
+A complete **RV64GC** core (~7k lines) wired into the VMM as a real `--arch riscv64 --backend emulator`
+target: it loads an ELF, drives a 16550 UART over MMIO, and halts on `ecall`. Coverage is the **entire
+RVA23 scalar set** — RV64I/M/A/F/D, **Zfh** half-precision, C (compressed), Zicsr/Zifencei,
+Zba/Zbb/Zbc/Zbs, Zicond, Zfa, Zbkb/Zbkx/Zcb, the full scalar **crypto** suite (Zknh SHA-256/512, Zksh
+SM3, Zksed SM4, Zkne/Zknd AES), and the vector *configuration* instructions (vsetvl\*, VLEN=128). The
+floating-point core computes the round-to-nearest result, recovers the *exact* residual (2Sum / FMA /
+Newton), and uses it to deliver correctly-rounded answers in all five rounding modes with all five IEEE
+flags. It's checked against qemu-riscv64 by fuzzers that drive ~300k comparisons across the whole
+non-control-flow opcode space.
+
+### AArch64 / ARM — the deepest core
+
+The largest and most thoroughly tested ISA, even though it isn't a runnable backend yet:
+
+- **SVE** — **complete**: no valid SVE encoding is unhandled. The full data-processing set (predicate
+  generation/logical, predicated integer & FP ALU, reductions, permutes, CPY/SEL/CMP, shifts), the
+  entire memory subsystem (contiguous, gather/scatter, LD2-4/ST2-4, first-fault + FFR), all at VL=128.
+- **SVE2** — broad and growing: long/wide/narrow integer ops, complex arithmetic, bit-permute,
+  saturating multiplies, pairwise, FP conversions, indexed multiplies.
+- **NEON / VFP** — full Advanced SIMD and scalar FP including FP16; full crypto (AES, SHA1/256, SM3, SM4).
+- **AArch32 / Thumb-2 / Cortex-M (M0–M85)** — A32 + Thumb decoders, NVIC/SysTick/SCB/MPU, ARMv6-M → v8.1-M.
 
 ---
 
@@ -194,16 +210,16 @@ fields and driven with many pseudo-random states, so a single `#[test]` function
 | Harness | rax core | Oracle | `#[test]` fns | Compares |
 |---------|----------|--------|-------------:|----------|
 | `tests/differential.rs` | x86-64 | **KVM** (hardware) | 463 | GPRs, RIP, RFLAGS, XMM, memory |
-| `tests/arm_diff.rs` | AArch64 | `qemu-aarch64` | 86 | X0–X30, SP, NZCV, V0–V31 |
-| `tests/hexagon_*_diff.rs` | Hexagon (scalar / cf / float / mem / HVX / HVX-mem) | `qemu-hexagon` | 86 | GPRs, P3:0, USR, loop regs, V0–V31, Q0–Q3 |
-| `tests/riscv_diff.rs` | RV64GC | `qemu-riscv64` | 16 | x1–x31, f0–f31, fcsr, scratch |
-| `tests/diff_fuzz.rs` | SMIR (lift → interp / native) | KVM | 28 | guest state after lift+run |
-| `tests/smir_avx10_roundtrip.rs` | SMIR AVX10 | — | 48 | lift → lower fidelity |
+| `tests/arm_diff.rs` | AArch64 + SVE/SVE2 | `qemu-aarch64` | 134 | X0–X30, SP, NZCV, V0–V31, P0–P15 |
+| `tests/hexagon_*_diff.rs` | Hexagon (scalar / cf / float / mem / HVX / HVX-mem) | `qemu-hexagon` | 134 | GPRs, P3:0, USR, loop regs, V0–V31, Q0–Q3 |
+| `tests/riscv_diff.rs` | RV64GC | `qemu-riscv64` | 29 | x1–x31, f0–f31, fcsr, scratch |
+| `tests/diff_fuzz.rs` | SMIR (lift → interp / native) | KVM | 35 | guest state after lift+run |
+| `tests/smir_jit_vcpu.rs` | SMIR JIT in the real vcpu | interpreter | 7 | register-for-register + throughput |
 
 > **Good to know** Those `#[test]` counts understate the work by orders of magnitude — each function
-> enumerates many encodings and many random input states internally (the ARM families alone drive ~1,000
-> cases apiece). The reference harnesses are tiny C/asm programs (`tools/{arm,riscv,hexagon}-diff/`) that
-> QEMU runs as the ground truth; for x86 the ground truth is KVM itself.
+> enumerates many encodings and many random input states internally (the ARM and RISC-V fuzzers drive
+> hundreds of thousands of comparisons per run). The reference harnesses are tiny C/asm programs
+> (`tools/{arm,riscv,hexagon}-diff/`) that QEMU runs as ground truth; for x86 the ground truth is KVM.
 
 ### Tests by the numbers
 
@@ -213,52 +229,61 @@ On top of the oracles, there are exhaustive unit suites:
 |-------|------:|-----|
 | **ARM (ASL-generated)** | 92,131 | generated from ARM's official machine-readable **ASL** spec via `tools/asl-parser/` |
 | **x86-64 instruction suite** | 28,554 | `tests/x86_64/` (850 files), behind `--features x86_64-suite` |
-| **Everything else** | ~900 | oracle harnesses, Hexagon bare-metal, crypto known-answer (FIPS/SDM), SMIR |
-| **Total** | **121,603** | `#[test]` functions across `tests/` |
+| **Everything else** | ~1,000 | oracle harnesses, Hexagon bare-metal, RISC-V boot, crypto known-answer (FIPS/SDM), SMIR |
+| **Total** | **121,734** | `#[test]` functions across `tests/` |
 
 The ARM tests are not written by hand: the `asl-parser` downloads and parses ARM's ASL release and emits
 exhaustive instruction tests from it, which is how 92,000+ ARM cases exist at all.
 
 ---
 
-## SMIR — the shared IR
+## SMIR and the hot-block JIT
 
-**SMIR** (Sigma Machine IR, `src/smir/`, ~35k LOC; spec in
+**SMIR** (Sigma Machine IR, `src/smir/`, ~36k LOC; spec in
 [`docs/specifications/smir/`](docs/specifications/smir/)) is the layer that makes "four CPUs" one
 project. Each guest architecture has a *lifter* that translates its instructions into a common set of
-100+ typed operations; the IR is then interpreted directly today, and lowered to native host code on an
-in-progress JIT path.
+100+ typed operations; the IR is interpreted directly, optimized, and — for x86-64 — lowered to native
+host machine code.
 
 ```text
-  x86-64        AArch64        Hexagon        RISC-V        AVX10
-    │              │              │              │             │
-    ▼              ▼              ▼              ▼             ▼
- ┌──────────────────────────────────────────────────────────────┐
- │                          Lifters                             │
- └───────────────────────────────┬──────────────────────────────┘
-                                 ▼
-                      ┌────────────────────┐
-                      │     SMIR Module    │   SmirFunction → SmirBlock → SmirOp
-                      └─────────┬──────────┘
-              ┌─────────────────┼─────────────────┐
-              ▼                 ▼                 ▼
-        Interpreter       optimizer        x86-64 JIT lowering
-        (primary)      (O0/O1/O2 passes)   (emitter + regalloc)
+  ┌─────────────────────────────────────────────────┐
+  │   x86-64 · AArch64 · Hexagon · RISC-V · AVX10   │   per-arch lifters
+  └────────────────────────┬────────────────────────┘
+                           ▼
+  ┌─────────────────────────────────────────────────┐
+  │                   SMIR Module                   │   SmirFunction → SmirBlock → SmirOp
+  └────────────────────────┬────────────────────────┘
+         ┌─────────────────┼─────────────────┐
+         ▼                 ▼                 ▼
+     Interpreter       optimizer        x86-64 JIT → native
+     (lazy flags)      (O0/O1/O2)       (emit · regalloc · W^X)
 ```
+
+The native JIT is real and integrated. Behind the `smir-jit` feature, the `X86_64Vcpu` run loop
+auto-detects hot loops (a back-edge counter promotes a region at a threshold of 64), lifts the region to
+SMIR, lowers it to native x86-64, caches the compiled block, and runs it through a W^X `mmap` trampoline.
+On the bench loop the lowered body is one native instruction per guest instruction — **~80× the
+interpreter (~11,000 MIPS)**, bit-identical to interpreting it.
+
+What makes that safe to ship is a **fail-safe whitelist**: only register-only operations that have been
+proven equal to KVM (ALU, shifts, multiply, mov/extend, setcc/cmov, branches) are JIT-eligible. Anything
+touching memory, division (the RDX:RAX double-width model isn't lowered yet), FP/SIMD, or an unknown op
+makes the region **bail back to the interpreter** — it never executes natively unless it is known
+correct. Self-modifying code invalidates compiled blocks via the MMU's dirty-page journal, and a
+frontier-less spin loop is refused so native code can't trap the vcpu.
 
 | Piece | Where | State |
 |-------|-------|-------|
-| **Lifters** | `lift/` | x86-64 (most mature), AArch64, Hexagon, RISC-V, and a dedicated AVX10 lifter |
-| **Interpreter** | `interp.rs` | the primary execution path; lazy flags, block caching |
-| **Optimizer** | `opt.rs` | dead-flag elimination, constant propagation, strength reduction, block merging |
-| **JIT lowering** | `lower/x86_64.rs`, `lower/regalloc.rs` | a real x86-64 emitter + register allocator that JIT-compiles SMIR to machine code |
+| **Lifters** | `lift/` | x86-64 (most mature), AArch64, Hexagon, RISC-V, AVX10 |
+| **Interpreter** | `interp.rs` | direct execution; lazy flags, block caching |
+| **Optimizer** | `opt.rs` | dead-flag elimination, constant propagation, strength reduction |
+| **JIT lowering** | `lower/x86_64.rs`, `lower/regalloc.rs`, `lower/runtime.rs` | x86-64 emitter, 1:1 register map, W^X exec runtime + trampoline |
+| **JIT integration** | `backend/.../x86_64/cpu.rs` (`smir-jit`) | hot-loop detection, region cache, safety gate, SMC invalidation |
 
-> **Good to know — honest status of the JIT.** The lowering path emits genuine x86-64 and *runs*:
-> hand-built SMIR (e.g. `add rbx, rcx`) lowers to native code and executes correctly
-> (`smir_native_m0_add` passes). The end-to-end path — lift a real x86-64 binary → lower → execute
-> natively — still has integer-encoding codegen bugs (malformed immediate widths) that crash it, so the
-> auto-lifted native test (`smir_native_alu`) is `#[ignore]`d while those are fixed. The interpreter is
-> the production path; the JIT is close but not yet trustworthy on lifted code.
+> **Good to know** The JIT accelerates without changing behaviour: a kernel boots identically with it on
+> or off, because every region it can't prove correct degrades gracefully to the interpreter. What
+> remains for a *general* JIT is memory-operand blocks (guest RAM mapped at host addresses), the
+> double-width DIV model, and native block-to-block chaining.
 
 ---
 
@@ -293,13 +318,14 @@ loop {
 
 | Mechanism | What it does |
 |-----------|--------------|
-| **Decode cache** | 4096 entries indexed by RIP, keyed on a mode tag (`CR3 \| CS.L \| CS.D`). A hit reuses the cached bytes and **skips the guest-memory fetch entirely** — the biggest hot-path win. Kept coherent by SMC detection on guest writes and a flush on external state changes. |
+| **Decode cache** | 4096 entries indexed by RIP, keyed on a mode tag (`CR3 \| CS.L \| CS.D`). A hit reuses the cached bytes and **skips the guest-memory fetch entirely**. Kept coherent by SMC detection on guest writes. |
 | **Lazy flags** | Arithmetic records its operands and defers RFLAGS materialization until a consumer (a `Jcc`, a `PUSHF`) reads them. Most computed flags are never needed. |
-| **Fast paths** | A direct host-pointer path for physical RAM (bypassing the `vm-memory` round-trip), a fast path for common ModR/M memory operands, and page-at-a-time `REP MOVS`/`STOS`. |
+| **Fast paths** | A direct host-pointer path for physical RAM, a fast path for common ModR/M memory operands, and page-at-a-time `REP MOVS`/`STOS`. |
+| **Hot-block JIT** | With `--features smir-jit`, hot loops promote to native code (see above). |
 | **TLB** | 256-entry direct-mapped cache over the 4-level page walk (4 KiB / 2 MiB / 1 GiB pages). |
-| **Deterministic TSC** | RDTSC is `insn_count × 3000` — reproducible across runs, enough to satisfy kernel delay loops. |
 
-On a modern host (`target-cpu=native`), the register-only loop sustains around **105 MIPS**.
+The interpreter sustains around **145 MIPS** on the register loop; the JIT tier lifts that to ~11,000 on
+hot regions.
 
 ---
 
@@ -339,20 +365,17 @@ Because the interpreter owns the step loop, the introspection tools see the real
 
 ## Usage
 
-x86-64 is the bootable target; these options drive the VM.
-
 ```
 --kernel <path>            Kernel image: ELF or bzImage (required)
 --initrd <path>            Initial ramdisk
+--arch <x86_64|riscv64|hexagon|…>   Target architecture (default x86_64)
 --backend <kvm|emulator>   Virtualization backend (hvf on macOS)
 --memory <size>            Guest memory, e.g. "512M", "2G"
---vcpus <N>                Number of vCPUs
 --cmdline <string>         Kernel command line
 --config <file>            Load a TOML config
 --trace <file>             Write an SDE-compatible instruction trace   (--features trace)
 --gdb <port> [--wait-gdb]  Start a GDB stub, optionally wait for attach (--features debug)
 --snapshot-interval <N>    Snapshot every N instructions (0 = off)
---snapshot-at <a,b,c>      Snapshot at specific instruction counts
 --resume <file>            Resume from a snapshot
 --profile [--profile-output <json>]   Instruction profiling             (--features profiling)
 ```
@@ -377,6 +400,9 @@ cargo build --release
 # Cross-platform: software emulator only, no KVM.
 cargo build --release --no-default-features
 
+# With the native hot-block JIT (x86-64 host).
+cargo build --release --features smir-jit
+
 # Fastest local interpreter (uses your host's full ISA).
 RUSTFLAGS="-C target-cpu=native" cargo build --release
 ```
@@ -388,6 +414,7 @@ RUSTFLAGS="-C target-cpu=native" cargo build --release
 | Feature | Default | Enables |
 |---------|---------|---------|
 | `kvm` | ✓ (Linux) | KVM backend (`kvm-bindings` / `kvm-ioctls`) |
+| `smir-jit` | | SMIR native hot-block JIT tier (x86-64 host; brings in the W^X exec runtime) |
 | `trace` | | SDE-compatible instruction tracing |
 | `debug` | | GDB Remote Serial Protocol server |
 | `profiling` | | per-mnemonic profiler + JSON export |
@@ -416,21 +443,22 @@ make test-sde      # run it under Intel SDE for a reference trace
 src/
 ├── main.rs · lib.rs · config.rs · vmm.rs   # CLI, VM monitor, run loop
 ├── memory.rs · timing.rs · trace.rs · snapshot.rs
-├── cpu/            # VCpu trait, register/system state, exit reasons
-├── arch/x86_64/    # boot protocol, GDT, page tables, ACPI, device setup
+├── cpu/            # VCpu trait, register/system state (x86 · hexagon · riscv), exit reasons
+├── arch/           # boot protocols + loaders: x86_64/ · riscv.rs · hexagon · arm
 ├── backend/
 │   ├── kvm/        # Linux hardware virtualization (HVF for macOS)
 │   └── emulator/
-│       ├── x86_64/ # ~50k LOC: decoder, mmu, flags, dispatch/{legacy,twobyte,vex,evex}, insn/ (88 files)
-│       └── hexagon/# ~33k LOC: scalar core, VLIW packets, HVX (sem/hvx_*.rs)
-├── arm/            # ~43k LOC: aarch64 (+SVE) · cortex_m · decoder · vfp · sysreg · cp15 · features
-├── riscv/          # ~4k LOC: RV64GC interpreter — cpu · decode · rvc · float · csr
-├── smir/           # ~35k LOC: ir · ops · types · interp · opt · lift/ · lower/
+│       ├── x86_64/ # ~50k LOC: decoder, mmu, flags, dispatch/{legacy,twobyte,vex,evex}, insn/ (88 files), JIT integration
+│       ├── hexagon/# ~37k LOC: scalar core, VLIW packets, full HVX — every opcode verified
+│       └── riscv/  # RiscVVcpu — bridges the rax::riscv interpreter into the VMM
+├── arm/            # ~45k LOC: aarch64 (complete SVE) · cortex_m · decoder · vfp · sysreg · cp15
+├── riscv/          # ~7k LOC: RV64GC + RVA23 scalar — cpu · decode · rvc · float · csr · crypto · disasm
+├── smir/           # ~36k LOC: ir · ops · types · interp · opt · lift/ · lower/ (x86_64 · regalloc · runtime)
 ├── devices/        # serial·pit·pic·lapic·ioapic·rtc·hpet·pci·fw_cfg  +  ahci·nvme·ide·virtio·e1000·vga·ac97·uhci·fdc·dma
 ├── gdb/            # Remote Serial Protocol server      (--features debug)
 └── profiling/      # per-mnemonic profiler              (--features profiling)
 
-tests/              # differential (x86↔KVM) · arm_diff/riscv_diff/hexagon_*_diff (↔QEMU)
+tests/              # differential (x86↔KVM) · arm_diff/riscv_diff/hexagon_*_diff (↔QEMU) · smir_jit_vcpu · riscv_boot
                     # x86_64/ (28,554) · arm/generated (92,131, from ASL) · diff_fuzz · smir_avx10_roundtrip
 tools/              # asl-parser (ARM ASL → tests) · arm-diff · riscv-diff · hexagon-diff (QEMU oracles)
 microkernel/        # bare-metal x86-64 test kernel
@@ -444,19 +472,21 @@ docs/specifications/# smir/ (the IR spec) · riscv/ (vendored RISC-V specs) · a
 | Path | State |
 |------|-------|
 | **x86-64 — KVM/HVF** | Boots Linux to an interactive shell |
-| **x86-64 — software** | Runs the full modern ISA; 463 differential cases vs. KVM; runs the bare-metal microkernel; driving toward a complete software Linux boot |
-| **AArch64 / ARM** | A64 + SVE/SVE2 + NEON + Cortex-M; validated vs. qemu-aarch64; ~92k ASL-generated tests |
-| **Hexagon** | V68 scalar + VLIW + HVX; validated vs. qemu-hexagon |
-| **RISC-V** | Complete RV64GC interpreter; validated vs. qemu-riscv64 |
-| **SMIR** | 5 lifters + interpreter + optimizer; x86-64 JIT runs hand-built IR, lifted-code path in progress |
+| **x86-64 — software** | Full modern ISA; 463 differential cases vs. KVM; native JIT (`smir-jit`) at ~80× on hot loops |
+| **Hexagon** | **Every opcode** (scalar + HVX) verified vs. qemu-hexagon; bootable bare-metal backend |
+| **RISC-V** | Full RVA23 scalar set + crypto; bootable `--arch riscv64` backend; verified vs. qemu-riscv64 |
+| **AArch64 / ARM** | Complete SVE + broad SVE2 + NEON + Cortex-M; ~92k ASL tests; not yet a runnable backend |
+| **SMIR JIT** | Integrated + auto-triggered + fail-safe; register-only hot loops native, bit-exact vs. KVM |
 
 ### What's missing
 
-A production hypervisor this is not — by design. The VM is x86-64 only (the ARM/Hexagon/RISC-V cores are
-validated software ISAs, not yet bootable backends). There is no SMP (one vCPU executes), and the larger
-device controllers aren't attached to the default machine yet. The software emulator's full Linux boot is
-still being chased (the last known sticking point is fixmap virtual-address computation during early
-kernel init); the KVM path boots cleanly. And the SMIR JIT runs hand-built IR but not yet lifted code.
+A production hypervisor this is not — by design. Only x86-64 boots a general-purpose OS; the ARM core is
+validated but not yet wired as a backend, and the larger device controllers aren't attached to the
+default machine. There is no SMP (one vCPU executes). The JIT covers register-only hot loops; memory
+blocks, double-width DIV, and block chaining are future work. RISC-V lacks the RVV vector data path and a
+privileged/Sv39 MMU. And the **software** full Linux boot is still being chased: with mitigation
+work-arounds on the cmdline it reaches clocksource calibration before spinning on a bug in rax's
+emulation of the kernel's alternatives/relocation patching — the KVM path boots cleanly throughout.
 
 ---
 
