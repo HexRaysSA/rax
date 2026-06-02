@@ -1774,6 +1774,17 @@ fn enc_sve_int_mla(size: u32, op3: u32) -> u32 {
     (0x04 << 24) | (size << 22) | (RM << 16) | (op3 << 13) | (RN << 5) | RD
 }
 
+/// SVE predicate ZIP/UZP/TRN: `00000101 esz 10 Pm 010 opc 0 Pn 0 Pd`. opc=bits
+/// [12:10]. Pd=p0, Pn=p1, Pm=p2.
+fn enc_sve_pred_permute(esz: u32, opc: u32) -> u32 {
+    (0x05 << 24) | (esz << 22) | (0b10 << 20) | (2 << 16) | (0b010 << 13) | (opc << 10) | (1 << 5)
+}
+
+/// SVE predicate REV (REV_p): `00000101 esz 110100 010000 Pn Pd`. Pd=p0, Pn=p1.
+fn enc_sve_rev_p(esz: u32) -> u32 {
+    (0x05 << 24) | (esz << 22) | (0b110100 << 16) | (0b010000 << 10) | (1 << 5)
+}
+
 /// SVE predicated integer/FP unary: `00000100 size opc6 101 Pg Zn Zd`.
 /// opc6=bits[21:16]. Pg=p0, Zn=z1(RN), Zd=z0(RD).
 fn enc_sve_pred_unary(size: u32, opc6: u32) -> u32 {
@@ -3476,6 +3487,32 @@ fn diff_sve2_pred_alu() {
         }
     }
     run_batch("sve2_pred_alu", batch);
+}
+
+#[test]
+fn diff_sve_pred_permute() {
+    // Predicate ZIP1/ZIP2/UZP1/UZP2/TRN1/TRN2 and REV, all element sizes.
+    let mut rng = Rng::new(0x9_b001);
+    let mut batch: Vec<(String, u32, ArmState)> = Vec::new();
+    for esz in 0..4u32 {
+        for opc in 0..6u32 {
+            let insn = enc_sve_pred_permute(esz, opc);
+            for _ in 0..6 {
+                let mut st = ArmState::zeroed();
+                for p in 0..3 {
+                    st.set_preg(p, rng.next() as u16);
+                }
+                batch.push((format!("permp esz{esz} op{opc}"), insn, st));
+            }
+        }
+        let insn = enc_sve_rev_p(esz);
+        for _ in 0..6 {
+            let mut st = ArmState::zeroed();
+            st.set_preg(1, rng.next() as u16);
+            batch.push((format!("revp esz{esz}"), insn, st));
+        }
+    }
+    run_batch("sve_pred_permute", batch);
 }
 
 #[test]

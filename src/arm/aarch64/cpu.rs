@@ -4846,6 +4846,72 @@ impl AArch64Cpu {
                 Ok(CpuExit::Continue)
             }
 
+            // Predicate ZIP/UZP/TRN (ZIP1_p..TRN2_p): 0x05, bits[21:20]==10,
+            // bits[15:13]==010. opc=bits[12:10]. Permutes the esize-bit chunks
+            // of the byte-granular predicates Pn (bits[8:5]) and Pm (bits[19:16]).
+            0b000
+                if (insn >> 24) & 0xFF == 0b00000101
+                    && (insn >> 20) & 0x3 == 0b10
+                    && (insn >> 13) & 0x7 == 0b010 =>
+            {
+                let opc = (insn >> 10) & 0x7;
+                let esize = 1usize << ((insn >> 22) & 0x3);
+                let n = 16 / esize;
+                let cmask = (1u32 << esize) - 1;
+                let pn = self.sve_p[((insn >> 5) & 0xF) as usize];
+                let pm = self.sve_p[((insn >> 16) & 0xF) as usize];
+                let chunk = |p: u32, i: usize| (p >> (i * esize)) & cmask;
+                let mut out = 0u32;
+                let h = n / 2;
+                for i in 0..h {
+                    let (lo, hi) = match opc {
+                        0b000 => (chunk(pn, i), chunk(pm, i)),                 // ZIP1
+                        0b001 => (chunk(pn, h + i), chunk(pm, h + i)),         // ZIP2
+                        0b100 => (chunk(pn, 2 * i), chunk(pm, 2 * i)),         // TRN1
+                        0b101 => (chunk(pn, 2 * i + 1), chunk(pm, 2 * i + 1)), // TRN2
+                        _ => (0, 0),
+                    };
+                    if matches!(opc, 0b000 | 0b001 | 0b100 | 0b101) {
+                        out |= lo << (2 * i * esize);
+                        out |= hi << ((2 * i + 1) * esize);
+                    }
+                }
+                if opc == 0b010 || opc == 0b011 {
+                    let odd = opc == 0b011; // UZP2 takes odd elements
+                    for i in 0..n {
+                        let v = if i < h {
+                            chunk(pn, 2 * i + odd as usize)
+                        } else {
+                            chunk(pm, 2 * (i - h) + odd as usize)
+                        };
+                        out |= v << (i * esize);
+                    }
+                } else if opc > 0b101 {
+                    return Ok(CpuExit::Undefined(insn));
+                }
+                self.sve_p[(insn & 0xF) as usize] = out;
+                Ok(CpuExit::Continue)
+            }
+
+            // Predicate REV (REV_p): 0x05, bits[21:16]==110100, bits[15:10]==
+            // 010000. Reverse the esize-bit chunks of the predicate Pn.
+            0b000
+                if (insn >> 24) & 0xFF == 0b00000101
+                    && (insn >> 16) & 0x3F == 0b110100
+                    && (insn >> 10) & 0x3F == 0b010000 =>
+            {
+                let esize = 1usize << ((insn >> 22) & 0x3);
+                let n = 16 / esize;
+                let cmask = (1u32 << esize) - 1;
+                let pn = self.sve_p[((insn >> 5) & 0xF) as usize];
+                let mut out = 0u32;
+                for i in 0..n {
+                    out |= ((pn >> ((n - 1 - i) * esize)) & cmask) << (i * esize);
+                }
+                self.sve_p[(insn & 0xF) as usize] = out;
+                Ok(CpuExit::Continue)
+            }
+
             // PUNPKLO/PUNPKHI (predicate unpack): 0x05, bits[23:20]==0011,
             // bits[19:17]==000, bits[15:10]==010000. Each of the low (lo) / high
             // (hi, bit16) 8 source predicate bits expands to bit 2i of the dest.
