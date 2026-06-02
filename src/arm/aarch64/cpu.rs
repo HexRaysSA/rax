@@ -4912,6 +4912,37 @@ impl AArch64Cpu {
                 Ok(CpuExit::Continue)
             }
 
+            // SVE2 SQDMULH/SQRDMULH (unpredicated saturating doubling multiply
+            // high): 0x04, bit21==1, bits[15:11]==01110. R=bit10 adds rounding.
+            0b000
+                if (insn >> 24) & 0xFF == 0b00000100
+                    && (insn >> 21) & 1 == 1
+                    && (insn >> 11) & 0x1F == 0b01110 =>
+            {
+                let round = (insn >> 10) & 1 == 1;
+                let bits = (esize * 8) as u32;
+                let mask = elem_mask(bits);
+                let elements = 16 / esize;
+                let a = self.v[zn].to_le_bytes();
+                let b = self.v[zm].to_le_bytes();
+                let mut dst = [0u8; 16];
+                let hi = (1i128 << (bits - 1)) - 1;
+                let lo = -(1i128 << (bits - 1));
+                for e in 0..elements {
+                    let off = e * esize;
+                    let prod = sext_elem(read_elem(&a, off, esize), bits)
+                        * sext_elem(read_elem(&b, off, esize), bits);
+                    let high = if round {
+                        (prod + (1i128 << (bits - 2))) >> (bits - 1)
+                    } else {
+                        prod >> (bits - 1)
+                    };
+                    write_elem(&mut dst, off, esize, high.clamp(lo, hi) as u64 & mask);
+                }
+                self.v[zd] = u128::from_le_bytes(dst);
+                Ok(CpuExit::Continue)
+            }
+
             // INDEX (immediate/scalar variants): bit21==1, bits[15:13]==010.
             0b000 if (insn >> 21) & 1 == 1 && (insn >> 13) & 0x7 == 0b010 => {
                 self.exec_sve_index(insn, zd, esize)
@@ -5510,6 +5541,37 @@ impl AArch64Cpu {
                     let cur = sext_elem(read_elem(&acc, d * d_esize, d_esize), d_bits);
                     let r = if sub { cur - sat } else { cur + sat };
                     write_elem(&mut dst, d * d_esize, d_esize, (r.clamp(lo, hi) as u64) & mask);
+                }
+                self.v[zd] = u128::from_le_bytes(dst);
+                Ok(CpuExit::Continue)
+            }
+
+            // SVE2 SQRDMLAH/SQRDMLSH (saturating rounding doubling multiply-add):
+            // 0x44, bit21==0, bits[15:11]==01110. S=bit10 selects subtract. The
+            // rounded doubling-high is unsaturated; only the accumulate saturates.
+            0b010
+                if (insn >> 24) & 0xFF == 0b01000100
+                    && (insn >> 21) & 1 == 0
+                    && (insn >> 11) & 0x1F == 0b01110 =>
+            {
+                let sub = (insn >> 10) & 1 == 1;
+                let bits = (esize * 8) as u32;
+                let mask = elem_mask(bits);
+                let elements = 16 / esize;
+                let acc = self.v[zd].to_le_bytes();
+                let a = self.v[zn].to_le_bytes();
+                let b = self.v[zm].to_le_bytes();
+                let mut dst = acc;
+                let hi = (1i128 << (bits - 1)) - 1;
+                let lo = -(1i128 << (bits - 1));
+                for e in 0..elements {
+                    let off = e * esize;
+                    let prod = sext_elem(read_elem(&a, off, esize), bits)
+                        * sext_elem(read_elem(&b, off, esize), bits);
+                    let sdrh = (prod + (1i128 << (bits - 2))) >> (bits - 1);
+                    let cur = sext_elem(read_elem(&acc, off, esize), bits);
+                    let r = if sub { cur - sdrh } else { cur + sdrh };
+                    write_elem(&mut dst, off, esize, r.clamp(lo, hi) as u64 & mask);
                 }
                 self.v[zd] = u128::from_le_bytes(dst);
                 Ok(CpuExit::Continue)

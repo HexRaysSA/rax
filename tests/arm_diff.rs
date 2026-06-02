@@ -1626,6 +1626,16 @@ fn enc_sve2_cmla(size: u32, op: u32, rot: u32) -> u32 {
     (0b01000100 << 24) | (size << 22) | (RM << 16) | (0b001 << 13) | (op << 12) | (rot << 10)
         | (RN << 5) | RD
 }
+/// SVE2 SQDMULH/SQRDMULH: `00000100 size 1 Zm 01110 R Zn Zd`.
+fn enc_sve2_sqdmulh(size: u32, r: u32) -> u32 {
+    (0b00000100 << 24) | (size << 22) | (1 << 21) | (RM << 16) | (0b01110 << 11) | (r << 10)
+        | (RN << 5) | RD
+}
+/// SVE2 SQRDMLAH/SQRDMLSH: `01000100 size 0 Zm 01110 S Zn Zda`.
+fn enc_sve2_sqrdmlah(size: u32, s: u32) -> u32 {
+    (0b01000100 << 24) | (size << 22) | (RM << 16) | (0b01110 << 11) | (s << 10) | (RN << 5) | RD
+}
+
 /// SVE2 shift right narrow: `010001010 tszh 1 tszl imm3 00 op U R T Zn Zd`.
 fn enc_sve2_shrn(tsz: u32, imm3: u32, op: u32, u: u32, r: u32, t: u32) -> u32 {
     let tszh = (tsz >> 2) & 1;
@@ -3592,6 +3602,19 @@ fn diff_sve2_shrn() {
         }
     }
     run_family("sve2_shrn", cases, 12, 0x5_8001);
+}
+
+#[test]
+fn diff_sve2_sqdmulh() {
+    // SVE2 SQDMULH/SQRDMULH and SQRDMLAH/SQRDMLSH (saturating doubling).
+    let mut cases: Vec<(String, u32)> = Vec::new();
+    for size in 0..4u32 {
+        cases.push((format!("sqdmulh sz{size}"), enc_sve2_sqdmulh(size, 0)));
+        cases.push((format!("sqrdmulh sz{size}"), enc_sve2_sqdmulh(size, 1)));
+        cases.push((format!("sqrdmlah sz{size}"), enc_sve2_sqrdmlah(size, 0)));
+        cases.push((format!("sqrdmlsh sz{size}"), enc_sve2_sqrdmlah(size, 1)));
+    }
+    run_family("sve2_sqdmulh", cases, 16, 0x5_9001);
 }
 
 #[test]
