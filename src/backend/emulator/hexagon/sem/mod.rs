@@ -22,6 +22,7 @@ mod alu_pred;
 mod bitmanip;
 mod compare;
 mod extra;
+mod extra2;
 mod float;
 mod float_ext;
 mod hvx;
@@ -262,6 +263,7 @@ pub fn dispatch(d: &DecodedOp, ctx: &mut SemCtx) -> bool {
         || shift::exec(op, d, ctx)
         || vecalu::exec(op, d, ctx)
         || extra::exec(op, d, ctx)
+        || extra2::exec(op, d, ctx)
         || hvx::exec(op, d, ctx)
         || hvx_mpy::exec(op, d, ctx)
         || hvx_perm::exec(op, d, ctx)

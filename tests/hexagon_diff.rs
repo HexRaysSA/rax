@@ -822,6 +822,206 @@ fn diff_scalar_alu_ext() {
     run_family("scalar_alu_ext", scalar_alu_ext_cases(), 40, 0x7373);
 }
 
+/// A5_ACS (vacsh): read-modify Rxx halfword pair + predicate write Pe.
+/// The harness seeds all GPRs randomly, so Rxx=r1:0, Rss=r3:2, Rtt=r5:4 are
+/// all exercised. Compares GPRs (Rxx) + predicates (Pe=P0) + USR.
+#[test]
+fn diff_vacsh() {
+    let cases = vec![("vacsh".to_string(), "{ r1:0,p0 = vacsh(r3:2,r5:4) }".to_string())];
+    run_family("vacsh", cases, 200, 0xac55);
+}
+
+/// S2_cabacdecbin (decbin): Rdd = decbin(Rss,Rtt), also writes P0.
+///
+/// `decbin` is an A_ARCHV3 instruction that the harness's `-mcpu=hexagonv73`
+/// assembler refuses to emit (it is gone from the v73 ISA table), so we cannot
+/// route it through `run_family`/`assemble_packets`. The machine word is fixed
+/// and known (`llvm-mc -mcpu=hexagonv69`), and qemu-hexagon -cpu v73 executes
+/// the raw encoding without faulting, so we drive the oracle with the literal
+/// word and random inputs here.
+const DECBIN_WORD: u32 = 0xc1c2_c4c0; // { r1:0 = decbin(r3:2,r5:4) }
+
+#[test]
+fn diff_decbin() {
+    let oracle = match oracle_path() {
+        Some(p) => p,
+        None => {
+            eprintln!("[hexagon_diff] decbin: toolchain unavailable -> skipping");
+            return;
+        }
+    };
+    let words = vec![DECBIN_WORD];
+    let mut rng = Rng::new(0xcaba);
+    let mut cases: Vec<(Vec<u32>, HexState)> = Vec::new();
+    for _ in 0..600 {
+        cases.push((words.clone(), gen_input(&mut rng)));
+    }
+    let outs = match run_oracle(&oracle, &cases) {
+        Some(o) => o,
+        None => {
+            eprintln!("[hexagon_diff] decbin: oracle run failed -> skipping");
+            return;
+        }
+    };
+    let mut mism = 0;
+    for (i, (w, st)) in cases.iter().enumerate() {
+        let rx = run_rax(w, st).expect("rax decbin");
+        let hw = &outs[i];
+        if rx.w[0] != hw.w[0] || rx.w[1] != hw.w[1] || rx.w[I_PRED] != hw.w[I_PRED] {
+            if mism < 25 {
+                eprintln!(
+                    "decbin: in r2={:#010x} r3={:#010x} r4={:#010x} r5={:#010x} | \
+                     rax r0={:#010x} r1={:#010x} P={:#x} | hw r0={:#010x} r1={:#010x} P={:#x}",
+                    st.w[2], st.w[3], st.w[4], st.w[5],
+                    rx.w[0], rx.w[1], rx.w[I_PRED], hw.w[0], hw.w[1], hw.w[I_PRED]
+                );
+            }
+            mism += 1;
+        }
+    }
+    assert_eq!(mism, 0, "decbin: {mism} divergences vs oracle");
+}
+
+/// A4_tlbmatch: Pd = tlbmatch(Rss,Rt) (pure function of the register pair Rss
+/// and word Rt; no MMU state involved).
+#[test]
+fn diff_tlbmatch() {
+    let cases = vec![("tlbmatch".to_string(), "{ p0 = tlbmatch(r3:2,r4) }".to_string())];
+    run_family("tlbmatch", cases, 200, 0x71b);
+}
+
+/// Probe the oracle to recover the three CABAC tables decbin uses.
+/// Run with: cargo test --test hexagon_diff recover_decbin_tables -- --ignored --nocapture
+#[test]
+#[ignore]
+fn recover_decbin_tables() {
+    let oracle = oracle_path().expect("toolchain");
+    let words = vec![DECBIN_WORD];
+
+    // MPS path (offset=0 -> always < rMPS): r0[5:0] = AC_next_state_MPS_64[state].
+    // LPS path (offset huge -> >= rMPS): r0[5:0] = AC_next_state_LPS_64[state].
+    let mut cases: Vec<(Vec<u32>, HexState)> = Vec::new();
+    for state in 0u32..64 {
+        for which in 0u32..2 {
+            let range = (1u32 << 29) | 0x0010_0000; // bucket 0, bit29 set
+            let offset = if which == 0 { 0 } else { 0xffff_ffff };
+            let mut st = HexState::zeroed();
+            st.w[2] = range;
+            st.w[3] = offset;
+            st.w[4] = 0;
+            st.w[5] = state; // valMPS=0
+            cases.push((words.clone(), st));
+        }
+    }
+    let outs = run_oracle(&oracle, &cases).expect("oracle");
+    let mut mps = [0u8; 64];
+    let mut lps = [0u8; 64];
+    for state in 0usize..64 {
+        mps[state] = (outs[state * 2].w[0] & 0x3f) as u8;
+        lps[state] = (outs[state * 2 + 1].w[0] & 0x3f) as u8;
+    }
+    eprintln!("AC_next_state_MPS_64 = {mps:?}");
+    eprintln!("AC_next_state_LPS_64 = {lps:?}");
+
+    // rLPS table: r0[31:23] in the LPS branch encodes rLPS>>23, and
+    // rLPS_table[state][bucket] = (rLPS>>23). Probe with offset huge.
+    let mut rlps: Vec<[u8; 4]> = vec![[0; 4]; 64];
+    let mut rcases: Vec<(Vec<u32>, HexState)> = Vec::new();
+    for state in 0u32..64 {
+        for bucket in 0u32..4 {
+            // (range>>29)&3 reads bits [30:29]; bit31 set so range stays large.
+            let range = (1u32 << 31) | (bucket << 29) | 0x0010_0000;
+            let mut st = HexState::zeroed();
+            st.w[2] = range;
+            st.w[3] = 0xffff_ffff; // LPS branch
+            st.w[4] = 0;
+            st.w[5] = state;
+            rcases.push((words.clone(), st));
+        }
+    }
+    let routs = run_oracle(&oracle, &rcases).expect("oracle");
+    for state in 0usize..64 {
+        for bucket in 0usize..4 {
+            let r0 = routs[state * 4 + bucket].w[0];
+            rlps[state][bucket] = ((r0 >> 23) & 0x1ff) as u8;
+        }
+    }
+    eprintln!("rLPS_table_64x4 =");
+    for state in 0..64 {
+        eprintln!("  [{}] = {:?}", state, rlps[state]);
+    }
+}
+
+/// Exhaustive decbin coverage: sweep every CABAC state (0..63), every range
+/// bucket ((range>>29)&3), and both the MPS and LPS decision paths, comparing
+/// rax against the oracle. This validates every cell of rLPS_table_64x4,
+/// AC_next_state_MPS_64, and AC_next_state_LPS_64 (the random `diff_decbin`
+/// family does not guarantee full state/bucket coverage).
+#[test]
+fn diff_decbin_exhaustive() {
+    let oracle = match oracle_path() {
+        Some(p) => p,
+        None => {
+            eprintln!("[hexagon_diff] decbin_exhaustive: toolchain unavailable -> skipping");
+            return;
+        }
+    };
+    let words = vec![DECBIN_WORD];
+
+    // Build crafted (state, val_mps, bitpos, range, offset) cases. range is
+    // chosen so (range>>29)&3 sweeps all 4 buckets; offset chosen to land in
+    // both the MPS region (offset small) and the LPS region (offset large).
+    let mut cases: Vec<(Vec<u32>, HexState)> = Vec::new();
+    let mut meta: Vec<(u32, u32, u32, u32)> = Vec::new(); // state,bucket,valmps,which
+    for state in 0u32..64 {
+        for bucket in 0u32..4 {
+            for val_mps in 0u32..2 {
+                for which in 0u32..2 {
+                    // (range>>29)&3 reads bits [30:29] (bitpos=0); bit31 set so
+                    // range stays large enough to exercise both regions.
+                    let range = (1u32 << 31) | (bucket << 29) | 0x0010_0000;
+                    let offset = if which == 0 { 0 } else { 0xffff_ffff };
+                    let mut st = HexState::zeroed();
+                    // Rss = r3:2 -> r2=range (w0), r3=offset (w1)
+                    st.w[2] = range;
+                    st.w[3] = offset;
+                    // Rtt = r5:4 -> r4=w0 (bitpos[4:0]=0), r5=w1 (state[5:0],valMPS[8])
+                    st.w[4] = 0;
+                    st.w[5] = state | (val_mps << 8);
+                    cases.push((words.clone(), st));
+                    meta.push((state, bucket, val_mps, which));
+                }
+            }
+        }
+    }
+
+    let outs = match run_oracle(&oracle, &cases) {
+        Some(o) => o,
+        None => {
+            eprintln!("[hexagon_diff] decbin_exhaustive: oracle run failed -> skipping");
+            return;
+        }
+    };
+
+    let mut mism = 0;
+    for (i, (w, st)) in cases.iter().enumerate() {
+        let rx = run_rax(w, st).expect("rax decbin");
+        let hw = &outs[i];
+        let (state, bucket, val_mps, which) = meta[i];
+        if rx.w[0] != hw.w[0] || rx.w[1] != hw.w[1] || rx.w[I_PRED] != hw.w[I_PRED] {
+            if mism < 30 {
+                eprintln!(
+                    "decbin state={state} bucket={bucket} valMPS={val_mps} which={which}: \
+                     rax r0={:#010x} r1={:#010x} P={:#x} | hw r0={:#010x} r1={:#010x} P={:#x}",
+                    rx.w[0], rx.w[1], rx.w[I_PRED], hw.w[0], hw.w[1], hw.w[I_PRED]
+                );
+            }
+            mism += 1;
+        }
+    }
+    assert_eq!(mism, 0, "decbin_exhaustive: {mism} divergences vs oracle");
+}
+
 /// Per-instruction survey outcome.
 #[derive(Default, Clone)]
 struct Stat {
