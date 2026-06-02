@@ -1785,6 +1785,41 @@ fn enc_sve_rev_p(esz: u32) -> u32 {
     (0x05 << 24) | (esz << 22) | (0b110100 << 16) | (0b010000 << 10) | (1 << 5)
 }
 
+/// SVE FP compare (register): `01100101 size 0 Zm cc13 Pg Zn bit4 Pd`. Pg=p1,
+/// Zn=z1(RN), Zm=z2(RM), Pd=p0.
+fn enc_sve_fp_cmp(size: u32, cc13: u32, bit4: u32) -> u32 {
+    (0x65 << 24) | (size << 22) | (RM << 16) | (cc13 << 13) | (1 << 10) | (RN << 5) | (bit4 << 4)
+}
+
+/// SVE FP compare with zero: `01100101 size 0100 sub 001 Pg Zn bit4 Pd`. Pg=p1,
+/// Zn=z1(RN), Pd=p0.
+fn enc_sve_fp_cmp0(size: u32, sub: u32, bit4: u32) -> u32 {
+    (0x65 << 24) | (size << 22) | (0b0100 << 18) | (sub << 16) | (0b001 << 13) | (1 << 10)
+        | (RN << 5)
+        | (bit4 << 4)
+}
+
+/// SVE integer compare with signed immediate: `00100101 size 0 imm5 cc13 Pg Zn
+/// bit4 Pd`. Pg=p1, Zn=z1(RN), Pd=p0.
+fn enc_sve_cmp_imm_s(size: u32, cc13: u32, bit4: u32, imm5: u32) -> u32 {
+    (0x25 << 24) | (size << 22) | ((imm5 & 0x1F) << 16) | (cc13 << 13) | (1 << 10) | (RN << 5)
+        | (bit4 << 4)
+}
+
+/// SVE integer compare with unsigned immediate: `00100100 size 1 imm7 lo Pg Zn
+/// hi Pd`. Pg=p1, Zn=z1(RN), Pd=p0.
+fn enc_sve_cmp_imm_u(size: u32, lo: u32, hi: u32, imm7: u32) -> u32 {
+    (0x24 << 24) | (size << 22) | (1 << 21) | ((imm7 & 0x7F) << 14) | (lo << 13) | (1 << 10)
+        | (RN << 5)
+        | (hi << 4)
+}
+
+/// SVE BFCVT (f32->bf16, predicated): `01100101 10 0010 10 101 Pg Zn Zd`. Pg=p0,
+/// Zn=z1(RN), Zd=z0(RD).
+fn enc_sve_bfcvt() -> u32 {
+    (0x65 << 24) | (0b10 << 22) | (0b0010 << 18) | (0b10 << 16) | (0b101 << 13) | (RN << 5) | RD
+}
+
 /// SVE predicated integer/FP unary: `00000100 size opc6 101 Pg Zn Zd`.
 /// opc6=bits[21:16]. Pg=p0, Zn=z1(RN), Zd=z0(RD).
 fn enc_sve_pred_unary(size: u32, opc6: u32) -> u32 {
@@ -3487,6 +3522,91 @@ fn diff_sve2_pred_alu() {
         }
     }
     run_batch("sve2_pred_alu", batch);
+}
+
+#[test]
+fn diff_sve_fp_cmp() {
+    // FP compare (register) and compare-with-zero -> predicate, incl. NaN/inf
+    // (random bit patterns), all sizes; checks predicate result AND NZCV.
+    let mut rng = Rng::new(0x9_c001);
+    let mut batch: Vec<(String, u32, ArmState)> = Vec::new();
+    let regconds = [(0b010u32, 0u32), (0b010, 1), (0b011, 0), (0b011, 1), (0b110, 0), (0b110, 1), (0b111, 1)];
+    let zeroconds = [(0b00u32, 0u32), (0b00, 1), (0b01, 0), (0b01, 1), (0b10, 0), (0b11, 0)];
+    for size in 1..4u32 {
+        for (cc13, bit4) in regconds {
+            let insn = enc_sve_fp_cmp(size, cc13, bit4);
+            for _ in 0..6 {
+                let mut st = ArmState::zeroed();
+                st.set_vreg(1, rng.next(), rng.next());
+                st.set_vreg(2, rng.next(), rng.next());
+                st.set_preg(1, rng.next() as u16);
+                batch.push((format!("fcmp s{size} c{cc13}{bit4}"), insn, st));
+            }
+        }
+        for (sub, bit4) in zeroconds {
+            let insn = enc_sve_fp_cmp0(size, sub, bit4);
+            for _ in 0..6 {
+                let mut st = ArmState::zeroed();
+                st.set_vreg(1, rng.next(), rng.next());
+                st.set_preg(1, rng.next() as u16);
+                batch.push((format!("fcmp0 s{size} c{sub}{bit4}"), insn, st));
+            }
+        }
+    }
+    run_batch("sve_fp_cmp", batch);
+}
+
+#[test]
+fn diff_sve_cmp_imm() {
+    // Integer compare with signed/unsigned immediate -> predicate + NZCV.
+    let mut rng = Rng::new(0x9_d001);
+    let mut batch: Vec<(String, u32, ArmState)> = Vec::new();
+    let sconds = [(0b000u32, 0u32), (0b000, 1), (0b001, 0), (0b001, 1), (0b100, 0), (0b100, 1)];
+    for size in 0..4u32 {
+        for (cc13, bit4) in sconds {
+            for imm5 in [0u32, 5, 0x1F, 0x10, 1] {
+                let insn = enc_sve_cmp_imm_s(size, cc13, bit4, imm5);
+                for _ in 0..3 {
+                    let mut st = ArmState::zeroed();
+                    st.set_vreg(1, rng.next(), rng.next());
+                    st.set_preg(1, rng.next() as u16);
+                    batch.push((format!("cmps s{size} c{cc13}{bit4} i{imm5}"), insn, st));
+                }
+            }
+        }
+        for (lo, hi) in [(0u32, 0u32), (0, 1), (1, 0), (1, 1)] {
+            for imm7 in [0u32, 9, 0x7F, 0x40] {
+                let insn = enc_sve_cmp_imm_u(size, lo, hi, imm7);
+                for _ in 0..3 {
+                    let mut st = ArmState::zeroed();
+                    st.set_vreg(1, rng.next(), rng.next());
+                    st.set_preg(1, rng.next() as u16);
+                    batch.push((format!("cmpu s{size} {lo}{hi} i{imm7}"), insn, st));
+                }
+            }
+        }
+    }
+    run_batch("sve_cmp_imm", batch);
+}
+
+#[test]
+fn diff_sve_bfcvt() {
+    // BFCVT f32 -> bf16, predicated merging, finite inputs.
+    let insn = enc_sve_bfcvt();
+    let mut rng = Rng::new(0x9_e001);
+    let mut batch: Vec<(String, u32, ArmState)> = Vec::new();
+    for _ in 0..40 {
+        let mut zn = 0u128;
+        for l in 0..4 {
+            zn |= (finite_fp_bits(&mut rng, 4) as u128) << (l * 32);
+        }
+        let mut st = ArmState::zeroed();
+        st.set_vreg(1, zn as u64, (zn >> 64) as u64);
+        st.set_vreg(0, rng.next(), rng.next());
+        st.set_preg(0, rng.next() as u16);
+        batch.push(("bfcvt".to_string(), insn, st));
+    }
+    run_batch("sve_bfcvt", batch);
 }
 
 #[test]

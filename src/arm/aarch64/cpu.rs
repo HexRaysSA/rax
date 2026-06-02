@@ -7601,6 +7601,86 @@ impl AArch64Cpu {
             return Ok(CpuExit::Continue);
         }
 
+        // SVE integer compare with signed immediate -> predicate: 0x25,
+        // bit21==0, condition (bits[15:13], bit4): GE/GT/LT/LE/EQ/NE. imm5 is
+        // signed (bits[20:16]). Zeroing under Pg; sets NZCV via PredTest(Pg).
+        if (insn >> 24) & 0xFF == 0b00100101
+            && (insn >> 21) & 1 == 0
+            && matches!(
+                ((insn >> 13) & 0x7, (insn >> 4) & 1),
+                (0b000, 0) | (0b000, 1) | (0b001, 0) | (0b001, 1) | (0b100, 0) | (0b100, 1)
+            )
+        {
+            let cc = ((insn >> 13) & 0x7, (insn >> 4) & 1);
+            let imm = (((insn >> 16) & 0x1F) as i64) << 59 >> 59; // sign-extend imm5
+            let pgi = ((insn >> 10) & 0x7) as usize;
+            let bits = (esize * 8) as u32;
+            let pred = self.sve_p[pgi];
+            let n = self.v[((insn >> 5) & 0x1F) as usize].to_le_bytes();
+            let mut result = 0u32;
+            for e in 0..elements {
+                let off = e * esize;
+                if (pred >> off) & 1 == 0 {
+                    continue;
+                }
+                let a = sext_elem(read_elem(&n, off, esize), bits) as i64;
+                let r = match cc {
+                    (0b000, 0) => a >= imm,
+                    (0b000, 1) => a > imm,
+                    (0b001, 0) => a < imm,
+                    (0b001, 1) => a <= imm,
+                    (0b100, 0) => a == imm,
+                    _ => a != imm,
+                };
+                if r {
+                    result |= 1 << off;
+                }
+            }
+            self.sve_p[pd] = result;
+            let (nf, zf, cf, vf) = pred_test(pred, result, elements, esize);
+            self.set_n(nf);
+            self.set_z(zf);
+            self.set_c(cf);
+            self.set_v(vf);
+            return Ok(CpuExit::Continue);
+        }
+
+        // SVE integer compare with unsigned immediate -> predicate: 0x24,
+        // bit21==1. imm7=bits[20:14] (unsigned); condition (bit13, bit4):
+        // HS/HI/LO/LS. Zeroing under Pg; sets NZCV via PredTest(Pg).
+        if (insn >> 24) & 0xFF == 0b00100100 && (insn >> 21) & 1 == 1 {
+            let imm = ((insn >> 14) & 0x7F) as u64;
+            let lohi = ((insn >> 13) & 1, (insn >> 4) & 1);
+            let pgi = ((insn >> 10) & 0x7) as usize;
+            let bits = (esize * 8) as u32;
+            let pred = self.sve_p[pgi];
+            let n = self.v[((insn >> 5) & 0x1F) as usize].to_le_bytes();
+            let mut result = 0u32;
+            for e in 0..elements {
+                let off = e * esize;
+                if (pred >> off) & 1 == 0 {
+                    continue;
+                }
+                let a = uext_elem(read_elem(&n, off, esize), bits) as u64;
+                let r = match lohi {
+                    (0, 0) => a >= imm,
+                    (0, 1) => a > imm,
+                    (1, 0) => a < imm,
+                    _ => a <= imm,
+                };
+                if r {
+                    result |= 1 << off;
+                }
+            }
+            self.sve_p[pd] = result;
+            let (nf, zf, cf, vf) = pred_test(pred, result, elements, esize);
+            self.set_n(nf);
+            self.set_z(zf);
+            self.set_c(cf);
+            self.set_v(vf);
+            return Ok(CpuExit::Continue);
+        }
+
         // DUP Zd.T, #imm{,LSL #8} (unpredicated immediate broadcast): bits[21:16]
         // ==111000, bits[15:14]==11. (Distinct from PTRUE by bit21==1.)
         if (insn >> 16) & 0x3F == 0b111000 && (insn >> 14) & 0x3 == 0b11 {
@@ -8956,6 +9036,72 @@ impl AArch64Cpu {
             return Ok(CpuExit::Continue);
         }
 
+        // SVE FP compare (register) -> predicate: 0x65, bit21==0, the condition
+        // is (bits[15:13], bit4): FCMGE/FCMGT/FCMEQ/FCMNE/FCMUO/FACGE/FACGT.
+        // Zeroing under Pg; sets NZCV via PredTest(Pg).
+        if (insn >> 24) & 0xFF == 0b01100101
+            && (insn >> 21) & 1 == 0
+            && matches!(
+                ((insn >> 13) & 0x7, (insn >> 4) & 1),
+                (0b010, 0) | (0b010, 1) | (0b011, 0) | (0b011, 1) | (0b110, 0) | (0b110, 1) | (0b111, 1)
+            )
+        {
+            let size = (insn >> 22) & 0x3;
+            if size == 0 {
+                return Ok(CpuExit::Undefined(insn));
+            }
+            let esz = 1usize << size;
+            let cc = ((insn >> 13) & 0x7, (insn >> 4) & 1);
+            let pred = self.sve_p[pg];
+            let n = self.v[zn].to_le_bytes();
+            let m = self.v[zm].to_le_bytes();
+            let mut pd = 0u32;
+            for e in 0..(16 / esz) {
+                let off = e * esz;
+                if (pred >> off) & 1 == 1
+                    && sve_fp_compare(esz, cc, read_elem(&n, off, esz), read_elem(&m, off, esz))
+                {
+                    pd |= 1 << off;
+                }
+            }
+            // FP compares write only the predicate; they do not set NZCV.
+            self.sve_p[(insn & 0xF) as usize] = pd;
+            return Ok(CpuExit::Continue);
+        }
+
+        // SVE FP compare with zero -> predicate: 0x65, bits[21:18]==0100,
+        // bits[15:13]==001. bits[17:16] select GE/GT (00), LT/LE (01), EQ/NE
+        // (10); bit4 picks within. Zeroing; sets NZCV via PredTest(Pg).
+        if (insn >> 24) & 0xFF == 0b01100101
+            && (insn >> 18) & 0xF == 0b0100
+            && (insn >> 13) & 0x7 == 0b001
+        {
+            let size = (insn >> 22) & 0x3;
+            if size == 0 {
+                return Ok(CpuExit::Undefined(insn));
+            }
+            let esz = 1usize << size;
+            let sub = (insn >> 16) & 0x3;
+            let bit4 = (insn >> 4) & 1;
+            // Valid: GE/GT (00,0/1), LT/LE (01,0/1), EQ (10,0), NE (11,0).
+            // (10,1) and (11,1) are unallocated and fault on hardware.
+            if (sub == 0b10 || sub == 0b11) && bit4 == 1 {
+                return Ok(CpuExit::Undefined(insn));
+            }
+            let pred = self.sve_p[pg];
+            let n = self.v[zn].to_le_bytes();
+            let mut pd = 0u32;
+            for e in 0..(16 / esz) {
+                let off = e * esz;
+                if (pred >> off) & 1 == 1 && sve_fp_compare_zero(esz, sub, bit4, read_elem(&n, off, esz)) {
+                    pd |= 1 << off;
+                }
+            }
+            // FP compares write only the predicate; they do not set NZCV.
+            self.sve_p[(insn & 0xF) as usize] = pd;
+            return Ok(CpuExit::Continue);
+        }
+
         // SVE FRECPS / FRSQRTS (reciprocal / reciprocal-sqrt step, unpredicated):
         // 0x65, bit21==0, bits[15:10]==000110 (FRECPS) / 000111 (FRSQRTS).
         // Fused step with the inf*0 special (2.0 / 1.5).
@@ -9354,14 +9500,15 @@ impl AArch64Cpu {
         let opc2 = (insn >> 16) & 0x3;
         // round_odd marks FCVTX (double->single, round-to-odd) which shares the
         // (8,4) widths with regular FCVT double->single but uses RO rounding.
-        let (src_sz, dst_sz, round_odd): (usize, usize, bool) = match (opc, opc2) {
-            (0b10, 0b01) => (2, 4, false), // half   -> single
-            (0b11, 0b01) => (2, 8, false), // half   -> double
-            (0b10, 0b00) => (4, 2, false), // single -> half
-            (0b11, 0b11) => (4, 8, false), // single -> double
-            (0b11, 0b00) => (8, 2, false), // double -> half
-            (0b11, 0b10) => (8, 4, false), // double -> single
-            (0b00, 0b10) => (8, 4, true),  // FCVTX  double -> single (round-to-odd)
+        let (src_sz, dst_sz, round_odd, bf): (usize, usize, bool, bool) = match (opc, opc2) {
+            (0b10, 0b01) => (2, 4, false, false), // half   -> single
+            (0b11, 0b01) => (2, 8, false, false), // half   -> double
+            (0b10, 0b00) => (4, 2, false, false), // single -> half
+            (0b11, 0b11) => (4, 8, false, false), // single -> double
+            (0b11, 0b00) => (8, 2, false, false), // double -> half
+            (0b11, 0b10) => (8, 4, false, false), // double -> single
+            (0b00, 0b10) => (8, 4, true, false),  // FCVTX  double -> single (round-to-odd)
+            (0b10, 0b10) => (4, 2, false, true),  // BFCVT  single -> bf16
             _ => return Ok(CpuExit::Undefined(insn)),
         };
         let cont = src_sz.max(dst_sz);
@@ -9378,6 +9525,7 @@ impl AArch64Cpu {
             let res = match (src_sz, dst_sz) {
                 (2, 4) => Self::fp16_to_f32(x as u16).to_bits() as u64,
                 (2, 8) => fp16_to_f64(x as u16).to_bits(),
+                (4, 2) if bf => f32_to_bf16(x as u32) as u64, // BFCVT
                 (4, 2) => Self::f32_to_fp16(f32::from_bits(x as u32)) as u64,
                 (4, 8) => (f32::from_bits(x as u32) as f64).to_bits(),
                 (8, 2) => fp16_round(f64::from_bits(x)) as u64,
@@ -14599,6 +14747,44 @@ fn sve_fscale(esize: usize, x: u64, n: i64) -> u64 {
 /// 2^n as an f64, exact for |n| <= 1023.
 fn exp2_f64(n: i32) -> f64 {
     f64::from_bits(((0x3FF + n) as u64) << 52)
+}
+
+/// Widen an `esize`-byte IEEE float to f64 (exact) for SVE compares.
+fn sve_fp_to_f64(esize: usize, x: u64) -> f64 {
+    match esize {
+        2 => fp16_to_f64(x as u16),
+        4 => f32::from_bits(x as u32) as f64,
+        _ => f64::from_bits(x),
+    }
+}
+
+/// SVE FP compare (register) condition, keyed on (bits[15:13], bit4). Rust's
+/// native comparisons already give the IEEE unordered (NaN) behaviour.
+fn sve_fp_compare(esize: usize, cc: (u32, u32), a: u64, b: u64) -> bool {
+    let (av, bv) = (sve_fp_to_f64(esize, a), sve_fp_to_f64(esize, b));
+    match cc {
+        (0b010, 0) => av >= bv,                  // FCMGE
+        (0b010, 1) => av > bv,                   // FCMGT
+        (0b011, 0) => av == bv,                  // FCMEQ
+        (0b011, 1) => av != bv,                  // FCMNE
+        (0b110, 0) => av.is_nan() || bv.is_nan(), // FCMUO
+        (0b110, 1) => av.abs() >= bv.abs(),      // FACGE
+        (0b111, 1) => av.abs() > bv.abs(),       // FACGT
+        _ => false,
+    }
+}
+
+/// SVE FP compare with zero, keyed on (bits[17:16], bit4).
+fn sve_fp_compare_zero(esize: usize, sub: u32, bit4: u32, a: u64) -> bool {
+    let av = sve_fp_to_f64(esize, a);
+    match (sub, bit4) {
+        (0b00, 0) => av >= 0.0, // FCMGE
+        (0b00, 1) => av > 0.0,  // FCMGT
+        (0b01, 0) => av < 0.0,  // FCMLT
+        (0b01, 1) => av <= 0.0, // FCMLE
+        (0b10, 0) => av == 0.0, // FCMEQ
+        _ => av != 0.0,         // FCMNE
+    }
 }
 
 /// SVE FRECPS reciprocal step: fused (2.0 - x*y), with inf*0 -> 2.0. Matches
