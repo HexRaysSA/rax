@@ -1469,6 +1469,202 @@ impl HexagonLifter {
             }};
         }
 
+        // Helper: extract a 16-bit half of `$reg` (W32) and sign/zero-extend it
+        // to a full 32-bit value in a fresh temp. `$high` selects bits 31:16
+        // (true) vs 15:0 (false); `$uns` selects unsigned (zero) extension.
+        //   signed low  -> SignExtend(W16->W32)         = (Rs as i16) as i32
+        //   signed high -> Sar(Rs, 16, W32)             = (Rs as i32) >> 16
+        //   unsigned low  -> And(Rs, 0xffff)            = Rs & 0xffff
+        //   unsigned high -> Shr(Rs, 16, W32)           = Rs >> 16
+        macro_rules! half_ext {
+            ($reg:expr, $high:expr, $uns:expr) => {{
+                let v = ctx.alloc_vreg();
+                match ($high, $uns) {
+                    (false, false) => push_op!(OpKind::SignExtend {
+                        dst: v,
+                        src: $reg,
+                        from_width: OpWidth::W16,
+                        to_width: OpWidth::W32,
+                    }),
+                    (true, false) => push_op!(OpKind::Sar {
+                        dst: v,
+                        src: $reg,
+                        amount: SrcOperand::Imm(16),
+                        width: OpWidth::W32,
+                        flags: FlagUpdate::None,
+                    }),
+                    (false, true) => push_op!(OpKind::And {
+                        dst: v,
+                        src1: $reg,
+                        src2: SrcOperand::Imm(0xffff),
+                        width: OpWidth::W32,
+                        flags: FlagUpdate::None,
+                    }),
+                    (true, true) => push_op!(OpKind::Shr {
+                        dst: v,
+                        src: $reg,
+                        amount: SrcOperand::Imm(16),
+                        width: OpWidth::W32,
+                        flags: FlagUpdate::None,
+                    }),
+                };
+                v
+            }};
+        }
+
+        // The `M2_mpy*` 16x16 multiply matrix (mirrors sem/mpy_ext.rs `mpy16`).
+        // Computes a 16x16 product of the selected halves of Rs/Rt, optionally
+        // `:<<1` scaled, optionally accumulated into the destination, with no
+        // saturation/rounding (those forms divergence on the value/USR and are
+        // left Unsupported).
+        //   $sh/$th: select Rs/Rt high half (true) vs low half (false).
+        //   $uns:    unsigned halves (mpyu/mpyud) vs signed (mpy/mpyd).
+        //   $s1:     fSCALE(1,..) — left-shift the product by one.
+        //   $acc:    0 = Set (Rd=prod), 1 = Add (Rx+=), 2 = Sub (Rx-=).
+        //   $wide:   64-bit Rdd/Rxx (mpyd/mpyud) vs 32-bit Rd/Rx.
+        // For the wide form the full product is built in W64 so the `:<<1` and
+        // accumulate stay exact; the narrow form keeps low-32 arithmetic.
+        macro_rules! mpy16 {
+            ($sh:expr, $th:expr, $uns:expr, $s1:expr, $acc:expr, $wide:expr) => {{
+                let ha = half_ext!(rs, $sh, $uns);
+                let hb = half_ext!(rt, $th, $uns);
+                if $wide {
+                    // Widen the (already 16-bit-valued, 32-bit) halves to 64 and
+                    // multiply: signed for mpyd, unsigned for mpyud.
+                    let wa = ctx.alloc_vreg();
+                    let wb = ctx.alloc_vreg();
+                    if $uns {
+                        push_op!(OpKind::ZeroExtend {
+                            dst: wa,
+                            src: ha,
+                            from_width: OpWidth::W32,
+                            to_width: OpWidth::W64,
+                        });
+                        push_op!(OpKind::ZeroExtend {
+                            dst: wb,
+                            src: hb,
+                            from_width: OpWidth::W32,
+                            to_width: OpWidth::W64,
+                        });
+                    } else {
+                        push_op!(OpKind::SignExtend {
+                            dst: wa,
+                            src: ha,
+                            from_width: OpWidth::W32,
+                            to_width: OpWidth::W64,
+                        });
+                        push_op!(OpKind::SignExtend {
+                            dst: wb,
+                            src: hb,
+                            from_width: OpWidth::W32,
+                            to_width: OpWidth::W64,
+                        });
+                    }
+                    let prod = ctx.alloc_vreg();
+                    if $uns {
+                        push_op!(OpKind::MulU {
+                            dst_lo: prod,
+                            dst_hi: None,
+                            src1: wa,
+                            src2: SrcOperand::Reg(wb),
+                            width: OpWidth::W64,
+                            flags: FlagUpdate::None,
+                        });
+                    } else {
+                        push_op!(OpKind::MulS {
+                            dst_lo: prod,
+                            dst_hi: None,
+                            src1: wa,
+                            src2: SrcOperand::Reg(wb),
+                            width: OpWidth::W64,
+                            flags: FlagUpdate::None,
+                        });
+                    }
+                    let scaled = if $s1 {
+                        let s = ctx.alloc_vreg();
+                        push_op!(OpKind::Shl {
+                            dst: s,
+                            src: prod,
+                            amount: SrcOperand::Imm(1),
+                            width: OpWidth::W64,
+                            flags: FlagUpdate::None,
+                        });
+                        s
+                    } else {
+                        prod
+                    };
+                    if $acc == 0 {
+                        write_pair!(rd_n, scaled);
+                    } else {
+                        let acc = read_pair!(rx_n);
+                        let r = ctx.alloc_vreg();
+                        if $acc == 1 {
+                            push_op!(OpKind::Add {
+                                dst: r,
+                                src1: acc,
+                                src2: SrcOperand::Reg(scaled),
+                                width: OpWidth::W64,
+                                flags: FlagUpdate::None,
+                            });
+                        } else {
+                            push_op!(OpKind::Sub {
+                                dst: r,
+                                src1: acc,
+                                src2: SrcOperand::Reg(scaled),
+                                width: OpWidth::W64,
+                                flags: FlagUpdate::None,
+                            });
+                        }
+                        write_pair!(rx_n, r);
+                    }
+                } else {
+                    // Narrow 32-bit form: low-32 product (signed/unsigned agree on
+                    // low 32 bits), optional `:<<1`, optional accumulate.
+                    let prod = ctx.alloc_vreg();
+                    push_op!(OpKind::MulU {
+                        dst_lo: prod,
+                        dst_hi: None,
+                        src1: ha,
+                        src2: SrcOperand::Reg(hb),
+                        width: OpWidth::W32,
+                        flags: FlagUpdate::None,
+                    });
+                    let scaled = if $s1 {
+                        let s = ctx.alloc_vreg();
+                        push_op!(OpKind::Shl {
+                            dst: s,
+                            src: prod,
+                            amount: SrcOperand::Imm(1),
+                            width: OpWidth::W32,
+                            flags: FlagUpdate::None,
+                        });
+                        s
+                    } else {
+                        prod
+                    };
+                    if $acc == 0 {
+                        set_r!(scaled);
+                    } else if $acc == 1 {
+                        push_op!(OpKind::Add {
+                            dst: rx,
+                            src1: rx,
+                            src2: SrcOperand::Reg(scaled),
+                            width: OpWidth::W32,
+                            flags: FlagUpdate::None,
+                        });
+                    } else {
+                        push_op!(OpKind::Sub {
+                            dst: rx,
+                            src1: rx,
+                            src2: SrcOperand::Reg(scaled),
+                            width: OpWidth::W32,
+                            flags: FlagUpdate::None,
+                        });
+                    }
+                }
+            }};
+        }
+
         // Emit a single-vector HVX elementwise op `Vd = op(Vu, Vv)` over the
         // full 1024-bit vector (`$lanes` elements of `$elem` bits, `$signed`).
         // Field layout mirrors the VV-form sem (dest `d`, sources `u`/`v`).
@@ -6130,6 +6326,1463 @@ impl HexagonLifter {
                 src2: self.hex_v(fld(b'v')),
                 mode: 1,
             }),
+
+            // ============================================================
+            // M2 16x16 halfword multiply matrix (mpy / mpyu / mpyd / mpyud),
+            // set / acc / nac, s0 / s1. NON-saturating, NON-rounding only.
+            // ============================================================
+            // signed, 32-bit result (Rd = Rs.H/L * Rt.H/L [:<<1])
+            Opcode::M2_mpy_hh_s0 => mpy16!(true, true, false, false, 0, false),
+            Opcode::M2_mpy_hh_s1 => mpy16!(true, true, false, true, 0, false),
+            Opcode::M2_mpy_hl_s0 => mpy16!(true, false, false, false, 0, false),
+            Opcode::M2_mpy_hl_s1 => mpy16!(true, false, false, true, 0, false),
+            Opcode::M2_mpy_lh_s0 => mpy16!(false, true, false, false, 0, false),
+            Opcode::M2_mpy_lh_s1 => mpy16!(false, true, false, true, 0, false),
+            Opcode::M2_mpy_ll_s0 => mpy16!(false, false, false, false, 0, false),
+            Opcode::M2_mpy_ll_s1 => mpy16!(false, false, false, true, 0, false),
+            // signed acc/nac, 32-bit
+            Opcode::M2_mpy_acc_hh_s0 => mpy16!(true, true, false, false, 1, false),
+            Opcode::M2_mpy_acc_hh_s1 => mpy16!(true, true, false, true, 1, false),
+            Opcode::M2_mpy_acc_hl_s0 => mpy16!(true, false, false, false, 1, false),
+            Opcode::M2_mpy_acc_hl_s1 => mpy16!(true, false, false, true, 1, false),
+            Opcode::M2_mpy_acc_lh_s0 => mpy16!(false, true, false, false, 1, false),
+            Opcode::M2_mpy_acc_lh_s1 => mpy16!(false, true, false, true, 1, false),
+            Opcode::M2_mpy_acc_ll_s0 => mpy16!(false, false, false, false, 1, false),
+            Opcode::M2_mpy_acc_ll_s1 => mpy16!(false, false, false, true, 1, false),
+            Opcode::M2_mpy_nac_hh_s0 => mpy16!(true, true, false, false, 2, false),
+            Opcode::M2_mpy_nac_hh_s1 => mpy16!(true, true, false, true, 2, false),
+            Opcode::M2_mpy_nac_hl_s0 => mpy16!(true, false, false, false, 2, false),
+            Opcode::M2_mpy_nac_hl_s1 => mpy16!(true, false, false, true, 2, false),
+            Opcode::M2_mpy_nac_lh_s0 => mpy16!(false, true, false, false, 2, false),
+            Opcode::M2_mpy_nac_lh_s1 => mpy16!(false, true, false, true, 2, false),
+            Opcode::M2_mpy_nac_ll_s0 => mpy16!(false, false, false, false, 2, false),
+            Opcode::M2_mpy_nac_ll_s1 => mpy16!(false, false, false, true, 2, false),
+            // unsigned, 32-bit result
+            Opcode::M2_mpyu_hh_s0 => mpy16!(true, true, true, false, 0, false),
+            Opcode::M2_mpyu_hh_s1 => mpy16!(true, true, true, true, 0, false),
+            Opcode::M2_mpyu_hl_s0 => mpy16!(true, false, true, false, 0, false),
+            Opcode::M2_mpyu_hl_s1 => mpy16!(true, false, true, true, 0, false),
+            Opcode::M2_mpyu_lh_s0 => mpy16!(false, true, true, false, 0, false),
+            Opcode::M2_mpyu_lh_s1 => mpy16!(false, true, true, true, 0, false),
+            Opcode::M2_mpyu_ll_s0 => mpy16!(false, false, true, false, 0, false),
+            Opcode::M2_mpyu_ll_s1 => mpy16!(false, false, true, true, 0, false),
+            // unsigned acc/nac, 32-bit
+            Opcode::M2_mpyu_acc_hh_s0 => mpy16!(true, true, true, false, 1, false),
+            Opcode::M2_mpyu_acc_hh_s1 => mpy16!(true, true, true, true, 1, false),
+            Opcode::M2_mpyu_acc_hl_s0 => mpy16!(true, false, true, false, 1, false),
+            Opcode::M2_mpyu_acc_hl_s1 => mpy16!(true, false, true, true, 1, false),
+            Opcode::M2_mpyu_acc_lh_s0 => mpy16!(false, true, true, false, 1, false),
+            Opcode::M2_mpyu_acc_lh_s1 => mpy16!(false, true, true, true, 1, false),
+            Opcode::M2_mpyu_acc_ll_s0 => mpy16!(false, false, true, false, 1, false),
+            Opcode::M2_mpyu_acc_ll_s1 => mpy16!(false, false, true, true, 1, false),
+            Opcode::M2_mpyu_nac_hh_s0 => mpy16!(true, true, true, false, 2, false),
+            Opcode::M2_mpyu_nac_hh_s1 => mpy16!(true, true, true, true, 2, false),
+            Opcode::M2_mpyu_nac_hl_s0 => mpy16!(true, false, true, false, 2, false),
+            Opcode::M2_mpyu_nac_hl_s1 => mpy16!(true, false, true, true, 2, false),
+            Opcode::M2_mpyu_nac_lh_s0 => mpy16!(false, true, true, false, 2, false),
+            Opcode::M2_mpyu_nac_lh_s1 => mpy16!(false, true, true, true, 2, false),
+            Opcode::M2_mpyu_nac_ll_s0 => mpy16!(false, false, true, false, 2, false),
+            Opcode::M2_mpyu_nac_ll_s1 => mpy16!(false, false, true, true, 2, false),
+            // signed, 64-bit pair result (mpyd)
+            Opcode::M2_mpyd_hh_s0 => mpy16!(true, true, false, false, 0, true),
+            Opcode::M2_mpyd_hh_s1 => mpy16!(true, true, false, true, 0, true),
+            Opcode::M2_mpyd_hl_s0 => mpy16!(true, false, false, false, 0, true),
+            Opcode::M2_mpyd_hl_s1 => mpy16!(true, false, false, true, 0, true),
+            Opcode::M2_mpyd_lh_s0 => mpy16!(false, true, false, false, 0, true),
+            Opcode::M2_mpyd_lh_s1 => mpy16!(false, true, false, true, 0, true),
+            Opcode::M2_mpyd_ll_s0 => mpy16!(false, false, false, false, 0, true),
+            Opcode::M2_mpyd_ll_s1 => mpy16!(false, false, false, true, 0, true),
+            Opcode::M2_mpyd_acc_hh_s0 => mpy16!(true, true, false, false, 1, true),
+            Opcode::M2_mpyd_acc_hh_s1 => mpy16!(true, true, false, true, 1, true),
+            Opcode::M2_mpyd_acc_hl_s0 => mpy16!(true, false, false, false, 1, true),
+            Opcode::M2_mpyd_acc_hl_s1 => mpy16!(true, false, false, true, 1, true),
+            Opcode::M2_mpyd_acc_lh_s0 => mpy16!(false, true, false, false, 1, true),
+            Opcode::M2_mpyd_acc_lh_s1 => mpy16!(false, true, false, true, 1, true),
+            Opcode::M2_mpyd_acc_ll_s0 => mpy16!(false, false, false, false, 1, true),
+            Opcode::M2_mpyd_acc_ll_s1 => mpy16!(false, false, false, true, 1, true),
+            Opcode::M2_mpyd_nac_hh_s0 => mpy16!(true, true, false, false, 2, true),
+            Opcode::M2_mpyd_nac_hh_s1 => mpy16!(true, true, false, true, 2, true),
+            Opcode::M2_mpyd_nac_hl_s0 => mpy16!(true, false, false, false, 2, true),
+            Opcode::M2_mpyd_nac_hl_s1 => mpy16!(true, false, false, true, 2, true),
+            Opcode::M2_mpyd_nac_lh_s0 => mpy16!(false, true, false, false, 2, true),
+            Opcode::M2_mpyd_nac_lh_s1 => mpy16!(false, true, false, true, 2, true),
+            Opcode::M2_mpyd_nac_ll_s0 => mpy16!(false, false, false, false, 2, true),
+            Opcode::M2_mpyd_nac_ll_s1 => mpy16!(false, false, false, true, 2, true),
+            // unsigned, 64-bit pair result (mpyud)
+            Opcode::M2_mpyud_hh_s0 => mpy16!(true, true, true, false, 0, true),
+            Opcode::M2_mpyud_hh_s1 => mpy16!(true, true, true, true, 0, true),
+            Opcode::M2_mpyud_hl_s0 => mpy16!(true, false, true, false, 0, true),
+            Opcode::M2_mpyud_hl_s1 => mpy16!(true, false, true, true, 0, true),
+            Opcode::M2_mpyud_lh_s0 => mpy16!(false, true, true, false, 0, true),
+            Opcode::M2_mpyud_lh_s1 => mpy16!(false, true, true, true, 0, true),
+            Opcode::M2_mpyud_ll_s0 => mpy16!(false, false, true, false, 0, true),
+            Opcode::M2_mpyud_ll_s1 => mpy16!(false, false, true, true, 0, true),
+            Opcode::M2_mpyud_acc_hh_s0 => mpy16!(true, true, true, false, 1, true),
+            Opcode::M2_mpyud_acc_hh_s1 => mpy16!(true, true, true, true, 1, true),
+            Opcode::M2_mpyud_acc_hl_s0 => mpy16!(true, false, true, false, 1, true),
+            Opcode::M2_mpyud_acc_hl_s1 => mpy16!(true, false, true, true, 1, true),
+            Opcode::M2_mpyud_acc_lh_s0 => mpy16!(false, true, true, false, 1, true),
+            Opcode::M2_mpyud_acc_lh_s1 => mpy16!(false, true, true, true, 1, true),
+            Opcode::M2_mpyud_acc_ll_s0 => mpy16!(false, false, true, false, 1, true),
+            Opcode::M2_mpyud_acc_ll_s1 => mpy16!(false, false, true, true, 1, true),
+            Opcode::M2_mpyud_nac_hh_s0 => mpy16!(true, true, true, false, 2, true),
+            Opcode::M2_mpyud_nac_hh_s1 => mpy16!(true, true, true, true, 2, true),
+            Opcode::M2_mpyud_nac_hl_s0 => mpy16!(true, false, true, false, 2, true),
+            Opcode::M2_mpyud_nac_hl_s1 => mpy16!(true, false, true, true, 2, true),
+            Opcode::M2_mpyud_nac_lh_s0 => mpy16!(false, true, true, false, 2, true),
+            Opcode::M2_mpyud_nac_lh_s1 => mpy16!(false, true, true, true, 2, true),
+            Opcode::M2_mpyud_nac_ll_s0 => mpy16!(false, false, true, false, 2, true),
+            Opcode::M2_mpyud_nac_ll_s1 => mpy16!(false, false, true, true, 2, true),
+
+            // ============================================================
+            // M2_mpyi / M4 mpyi-add / M4 accumulating-logical
+            // ============================================================
+            // Rd = Rs * Rt (low 32 bits).
+            Opcode::M2_mpyi => {
+                push_op!(OpKind::MulU {
+                    dst_lo: rd,
+                    dst_hi: None,
+                    src1: rs,
+                    src2: SrcOperand::Reg(rt),
+                    width: OpWidth::W32,
+                    flags: FlagUpdate::None,
+                });
+            }
+            // Ry = Ru + Rs * Ry  (dest is field y, also a source).
+            Opcode::M4_mpyrr_addr => {
+                let ry = self.hex_reg(fld(b'y'));
+                let p = ctx.alloc_vreg();
+                push_op!(OpKind::MulU {
+                    dst_lo: p,
+                    dst_hi: None,
+                    src1: rs,
+                    src2: SrcOperand::Reg(ry),
+                    width: OpWidth::W32,
+                    flags: FlagUpdate::None,
+                });
+                push_op!(OpKind::Add {
+                    dst: ry,
+                    src1: ru,
+                    src2: SrcOperand::Reg(p),
+                    width: OpWidth::W32,
+                    flags: FlagUpdate::None,
+                });
+            }
+            // Rd = #u6 + Rs * Rt (extendable imm).
+            Opcode::M4_mpyrr_addi => {
+                let imm = fimm_u(b'i');
+                let p = ctx.alloc_vreg();
+                push_op!(OpKind::MulU {
+                    dst_lo: p,
+                    dst_hi: None,
+                    src1: rs,
+                    src2: SrcOperand::Reg(rt),
+                    width: OpWidth::W32,
+                    flags: FlagUpdate::None,
+                });
+                push_op!(OpKind::Add {
+                    dst: rd,
+                    src1: p,
+                    src2: SrcOperand::Imm(imm as i64),
+                    width: OpWidth::W32,
+                    flags: FlagUpdate::None,
+                });
+            }
+            // Rd = Ru + Rs * #u6 (extendable imm).
+            Opcode::M4_mpyri_addr => {
+                let imm = fimm_u(b'i');
+                let p = ctx.alloc_vreg();
+                push_op!(OpKind::MulU {
+                    dst_lo: p,
+                    dst_hi: None,
+                    src1: rs,
+                    src2: SrcOperand::Imm(imm as i64),
+                    width: OpWidth::W32,
+                    flags: FlagUpdate::None,
+                });
+                push_op!(OpKind::Add {
+                    dst: rd,
+                    src1: ru,
+                    src2: SrcOperand::Reg(p),
+                    width: OpWidth::W32,
+                    flags: FlagUpdate::None,
+                });
+            }
+            // Rd = Ru + Rs * #u6:2 (not extendable; field scaled by 4).
+            Opcode::M4_mpyri_addr_u2 => {
+                let imm = (fld(b'i') as u32) << 2;
+                let p = ctx.alloc_vreg();
+                push_op!(OpKind::MulU {
+                    dst_lo: p,
+                    dst_hi: None,
+                    src1: rs,
+                    src2: SrcOperand::Imm(imm as i64),
+                    width: OpWidth::W32,
+                    flags: FlagUpdate::None,
+                });
+                push_op!(OpKind::Add {
+                    dst: rd,
+                    src1: ru,
+                    src2: SrcOperand::Reg(p),
+                    width: OpWidth::W32,
+                    flags: FlagUpdate::None,
+                });
+            }
+            // Rd = #u6 + Rs * #U6  (i extendable, I not).
+            Opcode::M4_mpyri_addi => {
+                let imm_i = fimm_u(b'i');
+                let imm_uu = fld(b'I') as u32;
+                let p = ctx.alloc_vreg();
+                push_op!(OpKind::MulU {
+                    dst_lo: p,
+                    dst_hi: None,
+                    src1: rs,
+                    src2: SrcOperand::Imm(imm_uu as i64),
+                    width: OpWidth::W32,
+                    flags: FlagUpdate::None,
+                });
+                push_op!(OpKind::Add {
+                    dst: rd,
+                    src1: p,
+                    src2: SrcOperand::Imm(imm_i as i64),
+                    width: OpWidth::W32,
+                    flags: FlagUpdate::None,
+                });
+            }
+            // M4 accumulating logical (single word): Rx OP (Rs OP2 Rt).
+            Opcode::M4_and_and
+            | Opcode::M4_and_or
+            | Opcode::M4_and_xor
+            | Opcode::M4_and_andn
+            | Opcode::M4_or_and
+            | Opcode::M4_or_or
+            | Opcode::M4_or_xor
+            | Opcode::M4_or_andn
+            | Opcode::M4_xor_and
+            | Opcode::M4_xor_or
+            | Opcode::M4_xor_andn => {
+                // inner = Rs OP2 Rt  (andn -> Rs & ~Rt).
+                let inner = ctx.alloc_vreg();
+                match op {
+                    Opcode::M4_and_and | Opcode::M4_or_and | Opcode::M4_xor_and => {
+                        push_op!(OpKind::And {
+                            dst: inner,
+                            src1: rs,
+                            src2: SrcOperand::Reg(rt),
+                            width: OpWidth::W32,
+                            flags: FlagUpdate::None,
+                        });
+                    }
+                    Opcode::M4_and_or | Opcode::M4_or_or | Opcode::M4_xor_or => {
+                        push_op!(OpKind::Or {
+                            dst: inner,
+                            src1: rs,
+                            src2: SrcOperand::Reg(rt),
+                            width: OpWidth::W32,
+                            flags: FlagUpdate::None,
+                        });
+                    }
+                    Opcode::M4_and_xor | Opcode::M4_or_xor => {
+                        // inner = Rs ^ Rt (xor-inner opcodes: and_xor, or_xor).
+                        push_op!(OpKind::Xor {
+                            dst: inner,
+                            src1: rs,
+                            src2: SrcOperand::Reg(rt),
+                            width: OpWidth::W32,
+                            flags: FlagUpdate::None,
+                        });
+                    }
+                    // andn forms (and_andn, or_andn, xor_andn): inner = Rs & ~Rt.
+                    _ => {
+                        push_op!(OpKind::AndNot {
+                            dst: inner,
+                            src1: rs,
+                            src2: SrcOperand::Reg(rt),
+                            width: OpWidth::W32,
+                            flags: FlagUpdate::None,
+                        });
+                    }
+                }
+                // outer = Rx OP inner
+                match op {
+                    Opcode::M4_and_and
+                    | Opcode::M4_and_or
+                    | Opcode::M4_and_xor
+                    | Opcode::M4_and_andn => push_op!(OpKind::And {
+                        dst: rx,
+                        src1: rx,
+                        src2: SrcOperand::Reg(inner),
+                        width: OpWidth::W32,
+                        flags: FlagUpdate::None,
+                    }),
+                    Opcode::M4_or_and
+                    | Opcode::M4_or_or
+                    | Opcode::M4_or_xor
+                    | Opcode::M4_or_andn => push_op!(OpKind::Or {
+                        dst: rx,
+                        src1: rx,
+                        src2: SrcOperand::Reg(inner),
+                        width: OpWidth::W32,
+                        flags: FlagUpdate::None,
+                    }),
+                    _ => push_op!(OpKind::Xor {
+                        dst: rx,
+                        src1: rx,
+                        src2: SrcOperand::Reg(inner),
+                        width: OpWidth::W32,
+                        flags: FlagUpdate::None,
+                    }),
+                }
+            }
+
+            // ============================================================
+            // S2 immediate single-word shift-accumulate (Rx OP shift(Rs,#u5))
+            // ============================================================
+            Opcode::S2_asl_i_r_acc
+            | Opcode::S2_asl_i_r_nac
+            | Opcode::S2_asl_i_r_and
+            | Opcode::S2_asl_i_r_or
+            | Opcode::S2_asl_i_r_xacc
+            | Opcode::S2_asr_i_r_acc
+            | Opcode::S2_asr_i_r_nac
+            | Opcode::S2_asr_i_r_and
+            | Opcode::S2_asr_i_r_or
+            | Opcode::S2_lsr_i_r_acc
+            | Opcode::S2_lsr_i_r_nac
+            | Opcode::S2_lsr_i_r_and
+            | Opcode::S2_lsr_i_r_or
+            | Opcode::S2_lsr_i_r_xacc
+            | Opcode::S6_rol_i_r_acc
+            | Opcode::S6_rol_i_r_nac
+            | Opcode::S6_rol_i_r_and
+            | Opcode::S6_rol_i_r_or
+            | Opcode::S6_rol_i_r_xacc => {
+                let n = fimm_u(b'i');
+                let sh = ctx.alloc_vreg();
+                // shifted = asl/asr/lsr/rol(Rs, #n) over 32 bits.
+                match op {
+                    Opcode::S2_asl_i_r_acc
+                    | Opcode::S2_asl_i_r_nac
+                    | Opcode::S2_asl_i_r_and
+                    | Opcode::S2_asl_i_r_or
+                    | Opcode::S2_asl_i_r_xacc => push_op!(OpKind::Shl {
+                        dst: sh,
+                        src: rs,
+                        amount: SrcOperand::Imm(n as i64),
+                        width: OpWidth::W32,
+                        flags: FlagUpdate::None,
+                    }),
+                    Opcode::S2_asr_i_r_acc
+                    | Opcode::S2_asr_i_r_nac
+                    | Opcode::S2_asr_i_r_and
+                    | Opcode::S2_asr_i_r_or => push_op!(OpKind::Sar {
+                        dst: sh,
+                        src: rs,
+                        amount: SrcOperand::Imm(n as i64),
+                        width: OpWidth::W32,
+                        flags: FlagUpdate::None,
+                    }),
+                    Opcode::S2_lsr_i_r_acc
+                    | Opcode::S2_lsr_i_r_nac
+                    | Opcode::S2_lsr_i_r_and
+                    | Opcode::S2_lsr_i_r_or
+                    | Opcode::S2_lsr_i_r_xacc => push_op!(OpKind::Shr {
+                        dst: sh,
+                        src: rs,
+                        amount: SrcOperand::Imm(n as i64),
+                        width: OpWidth::W32,
+                        flags: FlagUpdate::None,
+                    }),
+                    // rol forms
+                    _ => push_op!(OpKind::Rol {
+                        dst: sh,
+                        src: rs,
+                        amount: SrcOperand::Imm(n as i64),
+                        width: OpWidth::W32,
+                        flags: FlagUpdate::None,
+                    }),
+                }
+                // Rx OP= shifted.
+                match op {
+                    Opcode::S2_asl_i_r_acc
+                    | Opcode::S2_asr_i_r_acc
+                    | Opcode::S2_lsr_i_r_acc
+                    | Opcode::S6_rol_i_r_acc => push_op!(OpKind::Add {
+                        dst: rx,
+                        src1: rx,
+                        src2: SrcOperand::Reg(sh),
+                        width: OpWidth::W32,
+                        flags: FlagUpdate::None,
+                    }),
+                    Opcode::S2_asl_i_r_nac
+                    | Opcode::S2_asr_i_r_nac
+                    | Opcode::S2_lsr_i_r_nac
+                    | Opcode::S6_rol_i_r_nac => push_op!(OpKind::Sub {
+                        dst: rx,
+                        src1: rx,
+                        src2: SrcOperand::Reg(sh),
+                        width: OpWidth::W32,
+                        flags: FlagUpdate::None,
+                    }),
+                    Opcode::S2_asl_i_r_and
+                    | Opcode::S2_asr_i_r_and
+                    | Opcode::S2_lsr_i_r_and
+                    | Opcode::S6_rol_i_r_and => push_op!(OpKind::And {
+                        dst: rx,
+                        src1: rx,
+                        src2: SrcOperand::Reg(sh),
+                        width: OpWidth::W32,
+                        flags: FlagUpdate::None,
+                    }),
+                    Opcode::S2_asl_i_r_or
+                    | Opcode::S2_asr_i_r_or
+                    | Opcode::S2_lsr_i_r_or
+                    | Opcode::S6_rol_i_r_or => push_op!(OpKind::Or {
+                        dst: rx,
+                        src1: rx,
+                        src2: SrcOperand::Reg(sh),
+                        width: OpWidth::W32,
+                        flags: FlagUpdate::None,
+                    }),
+                    // xacc forms (asl/lsr/rol xor-accumulate)
+                    _ => push_op!(OpKind::Xor {
+                        dst: rx,
+                        src1: rx,
+                        src2: SrcOperand::Reg(sh),
+                        width: OpWidth::W32,
+                        flags: FlagUpdate::None,
+                    }),
+                }
+            }
+
+            // ============================================================
+            // S2 immediate pair shift-accumulate (Rxx OP shift(Rss,#u6))
+            // ============================================================
+            Opcode::S2_asl_i_p_acc
+            | Opcode::S2_asl_i_p_nac
+            | Opcode::S2_asl_i_p_and
+            | Opcode::S2_asl_i_p_or
+            | Opcode::S2_asl_i_p_xacc
+            | Opcode::S2_asr_i_p_acc
+            | Opcode::S2_asr_i_p_nac
+            | Opcode::S2_asr_i_p_and
+            | Opcode::S2_asr_i_p_or
+            | Opcode::S2_lsr_i_p_acc
+            | Opcode::S2_lsr_i_p_nac
+            | Opcode::S2_lsr_i_p_and
+            | Opcode::S2_lsr_i_p_or
+            | Opcode::S2_lsr_i_p_xacc
+            | Opcode::S6_rol_i_p_acc
+            | Opcode::S6_rol_i_p_nac
+            | Opcode::S6_rol_i_p_and
+            | Opcode::S6_rol_i_p_or
+            | Opcode::S6_rol_i_p_xacc => {
+                let n = fimm_u(b'i');
+                let a = read_pair!(fld(b's'));
+                let sh = ctx.alloc_vreg();
+                match op {
+                    Opcode::S2_asl_i_p_acc
+                    | Opcode::S2_asl_i_p_nac
+                    | Opcode::S2_asl_i_p_and
+                    | Opcode::S2_asl_i_p_or
+                    | Opcode::S2_asl_i_p_xacc => push_op!(OpKind::Shl {
+                        dst: sh,
+                        src: a,
+                        amount: SrcOperand::Imm(n as i64),
+                        width: OpWidth::W64,
+                        flags: FlagUpdate::None,
+                    }),
+                    Opcode::S2_asr_i_p_acc
+                    | Opcode::S2_asr_i_p_nac
+                    | Opcode::S2_asr_i_p_and
+                    | Opcode::S2_asr_i_p_or => push_op!(OpKind::Sar {
+                        dst: sh,
+                        src: a,
+                        amount: SrcOperand::Imm(n as i64),
+                        width: OpWidth::W64,
+                        flags: FlagUpdate::None,
+                    }),
+                    Opcode::S2_lsr_i_p_acc
+                    | Opcode::S2_lsr_i_p_nac
+                    | Opcode::S2_lsr_i_p_and
+                    | Opcode::S2_lsr_i_p_or
+                    | Opcode::S2_lsr_i_p_xacc => push_op!(OpKind::Shr {
+                        dst: sh,
+                        src: a,
+                        amount: SrcOperand::Imm(n as i64),
+                        width: OpWidth::W64,
+                        flags: FlagUpdate::None,
+                    }),
+                    _ => push_op!(OpKind::Rol {
+                        dst: sh,
+                        src: a,
+                        amount: SrcOperand::Imm(n as i64),
+                        width: OpWidth::W64,
+                        flags: FlagUpdate::None,
+                    }),
+                }
+                let x = read_pair!(rx_n);
+                let r = ctx.alloc_vreg();
+                match op {
+                    Opcode::S2_asl_i_p_acc
+                    | Opcode::S2_asr_i_p_acc
+                    | Opcode::S2_lsr_i_p_acc
+                    | Opcode::S6_rol_i_p_acc => push_op!(OpKind::Add {
+                        dst: r,
+                        src1: x,
+                        src2: SrcOperand::Reg(sh),
+                        width: OpWidth::W64,
+                        flags: FlagUpdate::None,
+                    }),
+                    Opcode::S2_asl_i_p_nac
+                    | Opcode::S2_asr_i_p_nac
+                    | Opcode::S2_lsr_i_p_nac
+                    | Opcode::S6_rol_i_p_nac => push_op!(OpKind::Sub {
+                        dst: r,
+                        src1: x,
+                        src2: SrcOperand::Reg(sh),
+                        width: OpWidth::W64,
+                        flags: FlagUpdate::None,
+                    }),
+                    Opcode::S2_asl_i_p_and
+                    | Opcode::S2_asr_i_p_and
+                    | Opcode::S2_lsr_i_p_and
+                    | Opcode::S6_rol_i_p_and => push_op!(OpKind::And {
+                        dst: r,
+                        src1: x,
+                        src2: SrcOperand::Reg(sh),
+                        width: OpWidth::W64,
+                        flags: FlagUpdate::None,
+                    }),
+                    Opcode::S2_asl_i_p_or
+                    | Opcode::S2_asr_i_p_or
+                    | Opcode::S2_lsr_i_p_or
+                    | Opcode::S6_rol_i_p_or => push_op!(OpKind::Or {
+                        dst: r,
+                        src1: x,
+                        src2: SrcOperand::Reg(sh),
+                        width: OpWidth::W64,
+                        flags: FlagUpdate::None,
+                    }),
+                    _ => push_op!(OpKind::Xor {
+                        dst: r,
+                        src1: x,
+                        src2: SrcOperand::Reg(sh),
+                        width: OpWidth::W64,
+                        flags: FlagUpdate::None,
+                    }),
+                }
+                write_pair!(rx_n, r);
+            }
+
+            // ============================================================
+            // S2/S4 bit-manip extras (clb/clbnorm, *p count, brevp, packhl,
+            // swiz, parity, popcountp, register set/clr/toggle, mask)
+            // ============================================================
+            // clb = max(clz(Rs), clz(~Rs)).
+            Opcode::S2_clb => {
+                let nz = ctx.alloc_vreg();
+                let n = ctx.alloc_vreg();
+                let nz_n = ctx.alloc_vreg();
+                push_op!(OpKind::Clz {
+                    dst: nz,
+                    src: rs,
+                    width: OpWidth::W32
+                });
+                push_op!(OpKind::Not {
+                    dst: n,
+                    src: rs,
+                    width: OpWidth::W32
+                });
+                push_op!(OpKind::Clz {
+                    dst: nz_n,
+                    src: n,
+                    width: OpWidth::W32
+                });
+                let c = ctx.alloc_vreg();
+                push_op!(OpKind::Cmp {
+                    src1: nz,
+                    src2: SrcOperand::Reg(nz_n),
+                    width: OpWidth::W32
+                });
+                push_op!(OpKind::SetCC {
+                    dst: c,
+                    cond: Condition::Ugt,
+                    width: OpWidth::W32
+                });
+                push_op!(OpKind::Select {
+                    dst: rd,
+                    cond: c,
+                    src_true: nz,
+                    src_false: nz_n,
+                    width: OpWidth::W32
+                });
+            }
+            // clbnorm = (Rs == 0) ? 0 : clb(Rs) - 1.
+            Opcode::S2_clbnorm => {
+                let nz = ctx.alloc_vreg();
+                let n = ctx.alloc_vreg();
+                let nz_n = ctx.alloc_vreg();
+                push_op!(OpKind::Clz {
+                    dst: nz,
+                    src: rs,
+                    width: OpWidth::W32
+                });
+                push_op!(OpKind::Not {
+                    dst: n,
+                    src: rs,
+                    width: OpWidth::W32
+                });
+                push_op!(OpKind::Clz {
+                    dst: nz_n,
+                    src: n,
+                    width: OpWidth::W32
+                });
+                let cmax = ctx.alloc_vreg();
+                let c = ctx.alloc_vreg();
+                push_op!(OpKind::Cmp {
+                    src1: nz,
+                    src2: SrcOperand::Reg(nz_n),
+                    width: OpWidth::W32
+                });
+                push_op!(OpKind::SetCC {
+                    dst: c,
+                    cond: Condition::Ugt,
+                    width: OpWidth::W32
+                });
+                push_op!(OpKind::Select {
+                    dst: cmax,
+                    cond: c,
+                    src_true: nz,
+                    src_false: nz_n,
+                    width: OpWidth::W32
+                });
+                // clb - 1
+                let dec = ctx.alloc_vreg();
+                push_op!(OpKind::Sub {
+                    dst: dec,
+                    src1: cmax,
+                    src2: SrcOperand::Imm(1),
+                    width: OpWidth::W32,
+                    flags: FlagUpdate::None
+                });
+                // zero = (Rs == 0)
+                let z = ctx.alloc_vreg();
+                push_op!(OpKind::Cmp {
+                    src1: rs,
+                    src2: SrcOperand::Imm(0),
+                    width: OpWidth::W32
+                });
+                push_op!(OpKind::SetCC {
+                    dst: z,
+                    cond: Condition::Eq,
+                    width: OpWidth::W32
+                });
+                let zero = ctx.alloc_vreg();
+                push_op!(OpKind::Mov {
+                    dst: zero,
+                    src: SrcOperand::Imm(0),
+                    width: OpWidth::W32
+                });
+                push_op!(OpKind::Select {
+                    dst: rd,
+                    cond: z,
+                    src_true: zero,
+                    src_false: dec,
+                    width: OpWidth::W32
+                });
+            }
+            // cl0p/cl1p/clbp on a 64-bit pair -> 32-bit count.
+            // cl0 = count leading zeros (Clz); cl1 = count leading ones = Clz(~x).
+            Opcode::S2_cl0p => {
+                let a = read_pair!(fld(b's'));
+                push_op!(OpKind::Clz {
+                    dst: rd,
+                    src: a,
+                    width: OpWidth::W64
+                });
+            }
+            Opcode::S2_cl1p => {
+                let a = read_pair!(fld(b's'));
+                let n = ctx.alloc_vreg();
+                push_op!(OpKind::Not {
+                    dst: n,
+                    src: a,
+                    width: OpWidth::W64
+                });
+                push_op!(OpKind::Clz {
+                    dst: rd,
+                    src: n,
+                    width: OpWidth::W64
+                });
+            }
+            Opcode::S2_clbp => {
+                let a = read_pair!(fld(b's'));
+                let nz = ctx.alloc_vreg();
+                let n = ctx.alloc_vreg();
+                let nz_n = ctx.alloc_vreg();
+                push_op!(OpKind::Clz {
+                    dst: nz,
+                    src: a,
+                    width: OpWidth::W64
+                });
+                push_op!(OpKind::Not {
+                    dst: n,
+                    src: a,
+                    width: OpWidth::W64
+                });
+                push_op!(OpKind::Clz {
+                    dst: nz_n,
+                    src: n,
+                    width: OpWidth::W64
+                });
+                let c = ctx.alloc_vreg();
+                push_op!(OpKind::Cmp {
+                    src1: nz,
+                    src2: SrcOperand::Reg(nz_n),
+                    width: OpWidth::W32
+                });
+                push_op!(OpKind::SetCC {
+                    dst: c,
+                    cond: Condition::Ugt,
+                    width: OpWidth::W32
+                });
+                push_op!(OpKind::Select {
+                    dst: rd,
+                    cond: c,
+                    src_true: nz,
+                    src_false: nz_n,
+                    width: OpWidth::W32
+                });
+            }
+            // ct0p/ct1p: count trailing zeros/ones of a 64-bit pair.
+            Opcode::S2_ct0p => {
+                let a = read_pair!(fld(b's'));
+                push_op!(OpKind::Ctz {
+                    dst: rd,
+                    src: a,
+                    width: OpWidth::W64
+                });
+            }
+            Opcode::S2_ct1p => {
+                let a = read_pair!(fld(b's'));
+                let n = ctx.alloc_vreg();
+                push_op!(OpKind::Not {
+                    dst: n,
+                    src: a,
+                    width: OpWidth::W64
+                });
+                push_op!(OpKind::Ctz {
+                    dst: rd,
+                    src: n,
+                    width: OpWidth::W64
+                });
+            }
+            // brevp: bit-reverse a 64-bit pair.
+            Opcode::S2_brevp => {
+                let a = read_pair!(fld(b's'));
+                let r = ctx.alloc_vreg();
+                push_op!(OpKind::Rbit {
+                    dst: r,
+                    src: a,
+                    width: OpWidth::W64
+                });
+                write_pair!(rd_n, r);
+            }
+            // popcountp: 32-bit population count of a 64-bit pair.
+            Opcode::S5_popcountp => {
+                let a = read_pair!(fld(b's'));
+                push_op!(OpKind::Popcnt {
+                    dst: rd,
+                    src: a,
+                    width: OpWidth::W64
+                });
+            }
+            // parity: Rd = popcount(Rs & Rt) & 1.
+            Opcode::S4_parity => {
+                let m = ctx.alloc_vreg();
+                push_op!(OpKind::And {
+                    dst: m,
+                    src1: rs,
+                    src2: SrcOperand::Reg(rt),
+                    width: OpWidth::W32,
+                    flags: FlagUpdate::None
+                });
+                let pc = ctx.alloc_vreg();
+                push_op!(OpKind::Popcnt {
+                    dst: pc,
+                    src: m,
+                    width: OpWidth::W32
+                });
+                push_op!(OpKind::And {
+                    dst: rd,
+                    src1: pc,
+                    src2: SrcOperand::Imm(1),
+                    width: OpWidth::W32,
+                    flags: FlagUpdate::None
+                });
+            }
+            // parityp: Rd = popcount(Rss & Rtt) & 1.
+            Opcode::S2_parityp => {
+                let a = read_pair!(fld(b's'));
+                let b = read_pair!(fld(b't'));
+                let m = ctx.alloc_vreg();
+                push_op!(OpKind::And {
+                    dst: m,
+                    src1: a,
+                    src2: SrcOperand::Reg(b),
+                    width: OpWidth::W64,
+                    flags: FlagUpdate::None
+                });
+                let pc = ctx.alloc_vreg();
+                push_op!(OpKind::Popcnt {
+                    dst: pc,
+                    src: m,
+                    width: OpWidth::W64
+                });
+                push_op!(OpKind::And {
+                    dst: rd,
+                    src1: pc,
+                    src2: SrcOperand::Imm(1),
+                    width: OpWidth::W32,
+                    flags: FlagUpdate::None
+                });
+            }
+            // S2_mask: Rd = ((1<<width)-1) << offset  (width=#u5(i), off=#U5(I)).
+            Opcode::S2_mask => {
+                let width = fimm_u(b'i');
+                let offset = fimm_u(b'I');
+                let m: i64 = (((1u64 << width) - 1) << offset) as u32 as i64;
+                push_op!(OpKind::Mov {
+                    dst: rd,
+                    src: SrcOperand::Imm(m),
+                    width: OpWidth::W32
+                });
+            }
+            // S2_packhl: Rdd = [Rs.h0, Rt.h0, Rs.h1, Rt.h1] little-endian halves.
+            // out.h0 = Rt.l, out.h1 = Rs.l, out.h2 = Rt.h, out.h3 = Rs.h.
+            Opcode::S2_packhl => {
+                let rs_lo = ctx.alloc_vreg();
+                let rt_lo = ctx.alloc_vreg();
+                let rs_hi = ctx.alloc_vreg();
+                let rt_hi = ctx.alloc_vreg();
+                push_op!(OpKind::And {
+                    dst: rs_lo,
+                    src1: rs,
+                    src2: SrcOperand::Imm(0xffff),
+                    width: OpWidth::W32,
+                    flags: FlagUpdate::None
+                });
+                push_op!(OpKind::And {
+                    dst: rt_lo,
+                    src1: rt,
+                    src2: SrcOperand::Imm(0xffff),
+                    width: OpWidth::W32,
+                    flags: FlagUpdate::None
+                });
+                push_op!(OpKind::Shr {
+                    dst: rs_hi,
+                    src: rs,
+                    amount: SrcOperand::Imm(16),
+                    width: OpWidth::W32,
+                    flags: FlagUpdate::None
+                });
+                push_op!(OpKind::Shr {
+                    dst: rt_hi,
+                    src: rt,
+                    amount: SrcOperand::Imm(16),
+                    width: OpWidth::W32,
+                    flags: FlagUpdate::None
+                });
+                // low word = (Rs.l << 16) | Rt.l
+                let lo_sh = ctx.alloc_vreg();
+                let lo = ctx.alloc_vreg();
+                push_op!(OpKind::Shl {
+                    dst: lo_sh,
+                    src: rs_lo,
+                    amount: SrcOperand::Imm(16),
+                    width: OpWidth::W32,
+                    flags: FlagUpdate::None
+                });
+                push_op!(OpKind::Or {
+                    dst: lo,
+                    src1: lo_sh,
+                    src2: SrcOperand::Reg(rt_lo),
+                    width: OpWidth::W32,
+                    flags: FlagUpdate::None
+                });
+                // high word = (Rs.h << 16) | Rt.h
+                let hi_sh = ctx.alloc_vreg();
+                let hi = ctx.alloc_vreg();
+                push_op!(OpKind::Shl {
+                    dst: hi_sh,
+                    src: rs_hi,
+                    amount: SrcOperand::Imm(16),
+                    width: OpWidth::W32,
+                    flags: FlagUpdate::None
+                });
+                push_op!(OpKind::Or {
+                    dst: hi,
+                    src1: hi_sh,
+                    src2: SrcOperand::Reg(rt_hi),
+                    width: OpWidth::W32,
+                    flags: FlagUpdate::None
+                });
+                push_op!(OpKind::Mov {
+                    dst: self.hex_reg(rd_n & !1),
+                    src: SrcOperand::Reg(lo),
+                    width: OpWidth::W32
+                });
+                push_op!(OpKind::Mov {
+                    dst: self.hex_reg((rd_n & !1) + 1),
+                    src: SrcOperand::Reg(hi),
+                    width: OpWidth::W32
+                });
+            }
+            // A2_swiz: byte-reverse Rs into Rd (Bswap over 32 bits).
+            Opcode::A2_swiz => {
+                push_op!(OpKind::Bswap {
+                    dst: rd,
+                    src: rs,
+                    width: OpWidth::W32
+                });
+            }
+            // register set/clr/togglebit (S2_*bit_r) use a *bidirectional* shift
+            // of 1 by sxtn7(Rt) ∈ [-64, 63] computed in 64 bits, then OR/ANDN/XOR
+            // into the 32-bit Rs (so amounts ≥ 32 or < 0 are no-ops). SMIR's Shl
+            // masks the amount to 6 bits and cannot express the negative or the
+            // ≥64-zero behaviour, so this is left Unsupported.
+
+            // ============================================================
+            // S4 compound add/sub/and/or with immediate and shift
+            // ============================================================
+            // Rd = Rs + Ru + #s6
+            Opcode::S4_addaddi => {
+                let imm = fimm_s(b'i');
+                let t = ctx.alloc_vreg();
+                push_op!(OpKind::Add {
+                    dst: t,
+                    src1: rs,
+                    src2: SrcOperand::Reg(ru),
+                    width: OpWidth::W32,
+                    flags: FlagUpdate::None
+                });
+                push_op!(OpKind::Add {
+                    dst: rd,
+                    src1: t,
+                    src2: SrcOperand::Imm(imm as i64),
+                    width: OpWidth::W32,
+                    flags: FlagUpdate::None
+                });
+            }
+            // Rd = Rs - Ru + #s6
+            Opcode::S4_subaddi => {
+                let imm = fimm_s(b'i');
+                let t = ctx.alloc_vreg();
+                push_op!(OpKind::Sub {
+                    dst: t,
+                    src1: rs,
+                    src2: SrcOperand::Reg(ru),
+                    width: OpWidth::W32,
+                    flags: FlagUpdate::None
+                });
+                push_op!(OpKind::Add {
+                    dst: rd,
+                    src1: t,
+                    src2: SrcOperand::Imm(imm as i64),
+                    width: OpWidth::W32,
+                    flags: FlagUpdate::None
+                });
+            }
+            // Rx = #u8 OP (Rx SHIFT #U5)  (i extendable, I shift amount).
+            Opcode::S4_addi_asl_ri
+            | Opcode::S4_addi_lsr_ri
+            | Opcode::S4_subi_asl_ri
+            | Opcode::S4_subi_lsr_ri
+            | Opcode::S4_andi_asl_ri
+            | Opcode::S4_andi_lsr_ri
+            | Opcode::S4_ori_asl_ri
+            | Opcode::S4_ori_lsr_ri => {
+                let imm = fimm_u(b'i');
+                let sh = fld(b'I') as u32;
+                let shifted = ctx.alloc_vreg();
+                let left = matches!(
+                    op,
+                    Opcode::S4_addi_asl_ri
+                        | Opcode::S4_subi_asl_ri
+                        | Opcode::S4_andi_asl_ri
+                        | Opcode::S4_ori_asl_ri
+                );
+                if left {
+                    push_op!(OpKind::Shl {
+                        dst: shifted,
+                        src: rx,
+                        amount: SrcOperand::Imm(sh as i64),
+                        width: OpWidth::W32,
+                        flags: FlagUpdate::None
+                    });
+                } else {
+                    push_op!(OpKind::Shr {
+                        dst: shifted,
+                        src: rx,
+                        amount: SrcOperand::Imm(sh as i64),
+                        width: OpWidth::W32,
+                        flags: FlagUpdate::None
+                    });
+                }
+                // imm OP shifted  (note: for add/sub the imm is the LHS).
+                match op {
+                    Opcode::S4_addi_asl_ri | Opcode::S4_addi_lsr_ri => {
+                        push_op!(OpKind::Add {
+                            dst: rx,
+                            src1: shifted,
+                            src2: SrcOperand::Imm(imm as i64),
+                            width: OpWidth::W32,
+                            flags: FlagUpdate::None
+                        });
+                    }
+                    Opcode::S4_subi_asl_ri | Opcode::S4_subi_lsr_ri => {
+                        let iv = ctx.alloc_vreg();
+                        push_op!(OpKind::Mov {
+                            dst: iv,
+                            src: SrcOperand::Imm(imm as i64),
+                            width: OpWidth::W32
+                        });
+                        push_op!(OpKind::Sub {
+                            dst: rx,
+                            src1: iv,
+                            src2: SrcOperand::Reg(shifted),
+                            width: OpWidth::W32,
+                            flags: FlagUpdate::None
+                        });
+                    }
+                    Opcode::S4_andi_asl_ri | Opcode::S4_andi_lsr_ri => {
+                        push_op!(OpKind::And {
+                            dst: rx,
+                            src1: shifted,
+                            src2: SrcOperand::Imm(imm as i64),
+                            width: OpWidth::W32,
+                            flags: FlagUpdate::None
+                        });
+                    }
+                    _ => {
+                        push_op!(OpKind::Or {
+                            dst: rx,
+                            src1: shifted,
+                            src2: SrcOperand::Imm(imm as i64),
+                            width: OpWidth::W32,
+                            flags: FlagUpdate::None
+                        });
+                    }
+                }
+            }
+            // Rx = Rx | (Rs & #s10)
+            Opcode::S4_or_andi => {
+                let imm = fimm_s(b'i');
+                let t = ctx.alloc_vreg();
+                push_op!(OpKind::And {
+                    dst: t,
+                    src1: rs,
+                    src2: SrcOperand::Imm(imm as i64),
+                    width: OpWidth::W32,
+                    flags: FlagUpdate::None
+                });
+                push_op!(OpKind::Or {
+                    dst: rx,
+                    src1: rx,
+                    src2: SrcOperand::Reg(t),
+                    width: OpWidth::W32,
+                    flags: FlagUpdate::None
+                });
+            }
+            // Rx = Ru | (Rx & #s10)
+            Opcode::S4_or_andix => {
+                let imm = fimm_s(b'i');
+                let t = ctx.alloc_vreg();
+                push_op!(OpKind::And {
+                    dst: t,
+                    src1: rx,
+                    src2: SrcOperand::Imm(imm as i64),
+                    width: OpWidth::W32,
+                    flags: FlagUpdate::None
+                });
+                push_op!(OpKind::Or {
+                    dst: rx,
+                    src1: ru,
+                    src2: SrcOperand::Reg(t),
+                    width: OpWidth::W32,
+                    flags: FlagUpdate::None
+                });
+            }
+            // Rx = Rx | (Rs | #s10)
+            Opcode::S4_or_ori => {
+                let imm = fimm_s(b'i');
+                let t = ctx.alloc_vreg();
+                push_op!(OpKind::Or {
+                    dst: t,
+                    src1: rs,
+                    src2: SrcOperand::Imm(imm as i64),
+                    width: OpWidth::W32,
+                    flags: FlagUpdate::None
+                });
+                push_op!(OpKind::Or {
+                    dst: rx,
+                    src1: rx,
+                    src2: SrcOperand::Reg(t),
+                    width: OpWidth::W32,
+                    flags: FlagUpdate::None
+                });
+            }
+
+            // ============================================================
+            // A4 low-lane byte/halfword compares -> predicate (single truth bit)
+            // ============================================================
+            // The sem masks to the low byte/halfword and compares; the result is
+            // 0xff/0x00 but the harness checks only the predicate LSB, so a 0/1
+            // SetCC is LSB-exact. Signed forms sign-extend the low lane first.
+            Opcode::A4_cmpbeq => {
+                let sm = ctx.alloc_vreg();
+                let tm = ctx.alloc_vreg();
+                push_op!(OpKind::And {
+                    dst: sm,
+                    src1: rs,
+                    src2: SrcOperand::Imm(0xff),
+                    width: OpWidth::W32,
+                    flags: FlagUpdate::None
+                });
+                push_op!(OpKind::And {
+                    dst: tm,
+                    src1: rt,
+                    src2: SrcOperand::Imm(0xff),
+                    width: OpWidth::W32,
+                    flags: FlagUpdate::None
+                });
+                cmp_set_pred!(rd_n, sm, SrcOperand::Reg(tm), Condition::Eq);
+            }
+            Opcode::A4_cmpbeqi => {
+                let imm = fimm_u(b'i');
+                let sm = ctx.alloc_vreg();
+                push_op!(OpKind::And {
+                    dst: sm,
+                    src1: rs,
+                    src2: SrcOperand::Imm(0xff),
+                    width: OpWidth::W32,
+                    flags: FlagUpdate::None
+                });
+                cmp_set_pred!(rd_n, sm, SrcOperand::Imm(imm as i64), Condition::Eq);
+            }
+            Opcode::A4_cmpbgt => {
+                let ss = ctx.alloc_vreg();
+                let ts = ctx.alloc_vreg();
+                push_op!(OpKind::SignExtend {
+                    dst: ss,
+                    src: rs,
+                    from_width: OpWidth::W8,
+                    to_width: OpWidth::W32
+                });
+                push_op!(OpKind::SignExtend {
+                    dst: ts,
+                    src: rt,
+                    from_width: OpWidth::W8,
+                    to_width: OpWidth::W32
+                });
+                cmp_set_pred!(rd_n, ss, SrcOperand::Reg(ts), Condition::Sgt);
+            }
+            Opcode::A4_cmpbgti => {
+                let imm = fimm_s(b'i');
+                let ss = ctx.alloc_vreg();
+                push_op!(OpKind::SignExtend {
+                    dst: ss,
+                    src: rs,
+                    from_width: OpWidth::W8,
+                    to_width: OpWidth::W32
+                });
+                cmp_set_pred!(rd_n, ss, SrcOperand::Imm(imm as i64), Condition::Sgt);
+            }
+            Opcode::A4_cmpbgtu => {
+                let sm = ctx.alloc_vreg();
+                let tm = ctx.alloc_vreg();
+                push_op!(OpKind::And {
+                    dst: sm,
+                    src1: rs,
+                    src2: SrcOperand::Imm(0xff),
+                    width: OpWidth::W32,
+                    flags: FlagUpdate::None
+                });
+                push_op!(OpKind::And {
+                    dst: tm,
+                    src1: rt,
+                    src2: SrcOperand::Imm(0xff),
+                    width: OpWidth::W32,
+                    flags: FlagUpdate::None
+                });
+                cmp_set_pred!(rd_n, sm, SrcOperand::Reg(tm), Condition::Ugt);
+            }
+            Opcode::A4_cmpbgtui => {
+                let imm = fimm_u(b'i');
+                let sm = ctx.alloc_vreg();
+                push_op!(OpKind::And {
+                    dst: sm,
+                    src1: rs,
+                    src2: SrcOperand::Imm(0xff),
+                    width: OpWidth::W32,
+                    flags: FlagUpdate::None
+                });
+                cmp_set_pred!(rd_n, sm, SrcOperand::Imm(imm as i64), Condition::Ugt);
+            }
+            Opcode::A4_cmpheq => {
+                let sm = ctx.alloc_vreg();
+                let tm = ctx.alloc_vreg();
+                push_op!(OpKind::And {
+                    dst: sm,
+                    src1: rs,
+                    src2: SrcOperand::Imm(0xffff),
+                    width: OpWidth::W32,
+                    flags: FlagUpdate::None
+                });
+                push_op!(OpKind::And {
+                    dst: tm,
+                    src1: rt,
+                    src2: SrcOperand::Imm(0xffff),
+                    width: OpWidth::W32,
+                    flags: FlagUpdate::None
+                });
+                cmp_set_pred!(rd_n, sm, SrcOperand::Reg(tm), Condition::Eq);
+            }
+            Opcode::A4_cmpheqi => {
+                // imm is signed #s8; sem compares sign-extended low half == imm.
+                let imm = fimm_s(b'i');
+                let ss = ctx.alloc_vreg();
+                push_op!(OpKind::SignExtend {
+                    dst: ss,
+                    src: rs,
+                    from_width: OpWidth::W16,
+                    to_width: OpWidth::W32
+                });
+                cmp_set_pred!(rd_n, ss, SrcOperand::Imm(imm as i64), Condition::Eq);
+            }
+            Opcode::A4_cmphgt => {
+                let ss = ctx.alloc_vreg();
+                let ts = ctx.alloc_vreg();
+                push_op!(OpKind::SignExtend {
+                    dst: ss,
+                    src: rs,
+                    from_width: OpWidth::W16,
+                    to_width: OpWidth::W32
+                });
+                push_op!(OpKind::SignExtend {
+                    dst: ts,
+                    src: rt,
+                    from_width: OpWidth::W16,
+                    to_width: OpWidth::W32
+                });
+                cmp_set_pred!(rd_n, ss, SrcOperand::Reg(ts), Condition::Sgt);
+            }
+            Opcode::A4_cmphgti => {
+                let imm = fimm_s(b'i');
+                let ss = ctx.alloc_vreg();
+                push_op!(OpKind::SignExtend {
+                    dst: ss,
+                    src: rs,
+                    from_width: OpWidth::W16,
+                    to_width: OpWidth::W32
+                });
+                cmp_set_pred!(rd_n, ss, SrcOperand::Imm(imm as i64), Condition::Sgt);
+            }
+            Opcode::A4_cmphgtu => {
+                let sm = ctx.alloc_vreg();
+                let tm = ctx.alloc_vreg();
+                push_op!(OpKind::And {
+                    dst: sm,
+                    src1: rs,
+                    src2: SrcOperand::Imm(0xffff),
+                    width: OpWidth::W32,
+                    flags: FlagUpdate::None
+                });
+                push_op!(OpKind::And {
+                    dst: tm,
+                    src1: rt,
+                    src2: SrcOperand::Imm(0xffff),
+                    width: OpWidth::W32,
+                    flags: FlagUpdate::None
+                });
+                cmp_set_pred!(rd_n, sm, SrcOperand::Reg(tm), Condition::Ugt);
+            }
+            Opcode::A4_cmphgtui => {
+                let imm = fimm_u(b'i');
+                let sm = ctx.alloc_vreg();
+                push_op!(OpKind::And {
+                    dst: sm,
+                    src1: rs,
+                    src2: SrcOperand::Imm(0xffff),
+                    width: OpWidth::W32,
+                    flags: FlagUpdate::None
+                });
+                cmp_set_pred!(rd_n, sm, SrcOperand::Imm(imm as i64), Condition::Ugt);
+            }
+
+            // ============================================================
+            // A4_modwrapu: unsigned modulo wrap.
+            //   if (Rs as i32) < 0   -> Rs + Rt
+            //   else if Rs >= Rt     -> Rs - Rt
+            //   else                 -> Rs
+            // ============================================================
+            Opcode::A4_modwrapu => {
+                let add = ctx.alloc_vreg();
+                let sub = ctx.alloc_vreg();
+                push_op!(OpKind::Add {
+                    dst: add,
+                    src1: rs,
+                    src2: SrcOperand::Reg(rt),
+                    width: OpWidth::W32,
+                    flags: FlagUpdate::None
+                });
+                push_op!(OpKind::Sub {
+                    dst: sub,
+                    src1: rs,
+                    src2: SrcOperand::Reg(rt),
+                    width: OpWidth::W32,
+                    flags: FlagUpdate::None
+                });
+                // ge = (Rs >=u Rt) ? sub : Rs
+                let cge = ctx.alloc_vreg();
+                push_op!(OpKind::Cmp {
+                    src1: rs,
+                    src2: SrcOperand::Reg(rt),
+                    width: OpWidth::W32
+                });
+                push_op!(OpKind::SetCC {
+                    dst: cge,
+                    cond: Condition::Uge,
+                    width: OpWidth::W32
+                });
+                let ge_sel = ctx.alloc_vreg();
+                push_op!(OpKind::Select {
+                    dst: ge_sel,
+                    cond: cge,
+                    src_true: sub,
+                    src_false: rs,
+                    width: OpWidth::W32
+                });
+                // neg = (Rs as i32) < 0
+                let cneg = ctx.alloc_vreg();
+                push_op!(OpKind::Cmp {
+                    src1: rs,
+                    src2: SrcOperand::Imm(0),
+                    width: OpWidth::W32
+                });
+                push_op!(OpKind::SetCC {
+                    dst: cneg,
+                    cond: Condition::Slt,
+                    width: OpWidth::W32
+                });
+                push_op!(OpKind::Select {
+                    dst: rd,
+                    cond: cneg,
+                    src_true: add,
+                    src_false: ge_sel,
+                    width: OpWidth::W32
+                });
+            }
+
+            // ============================================================
+            // C4 compound predicate logic (operate on 0/1 predicate truth)
+            // ============================================================
+            // The SMIR predicate holds only 0/1, so model `~Pu` on the LSB as
+            // `Pu ^ 1` (a full bitwise NOT would set high bits that read back
+            // truthy). All terms are 0/1, so AND/OR keep the result in {0,1}.
+            Opcode::C4_and_and
+            | Opcode::C4_and_or
+            | Opcode::C4_or_and
+            | Opcode::C4_or_or
+            | Opcode::C4_and_andn
+            | Opcode::C4_and_orn
+            | Opcode::C4_or_andn
+            | Opcode::C4_or_orn => {
+                let ps = self.hex_pred(fld(b's'));
+                let pt = self.hex_pred(fld(b't'));
+                let pu = self.hex_pred(fld(b'u'));
+                let pd = self.hex_pred(rd_n);
+                // pu_eff = (andn/orn) ? (Pu ^ 1) : Pu
+                let neg = matches!(
+                    op,
+                    Opcode::C4_and_andn
+                        | Opcode::C4_and_orn
+                        | Opcode::C4_or_andn
+                        | Opcode::C4_or_orn
+                );
+                let pu_eff = if neg {
+                    let n = ctx.alloc_vreg();
+                    push_op!(OpKind::Xor {
+                        dst: n,
+                        src1: pu,
+                        src2: SrcOperand::Imm(1),
+                        width: OpWidth::W32,
+                        flags: FlagUpdate::None
+                    });
+                    n
+                } else {
+                    pu
+                };
+                // inner = Pt OP2 Pu_eff, where OP2 is AND for *_and/*_andn,
+                //                                    OR  for *_or/*_orn.
+                let inner = ctx.alloc_vreg();
+                let inner_and = matches!(
+                    op,
+                    Opcode::C4_and_and | Opcode::C4_or_and | Opcode::C4_and_andn | Opcode::C4_or_andn
+                );
+                if inner_and {
+                    push_op!(OpKind::And {
+                        dst: inner,
+                        src1: pt,
+                        src2: SrcOperand::Reg(pu_eff),
+                        width: OpWidth::W32,
+                        flags: FlagUpdate::None
+                    });
+                } else {
+                    push_op!(OpKind::Or {
+                        dst: inner,
+                        src1: pt,
+                        src2: SrcOperand::Reg(pu_eff),
+                        width: OpWidth::W32,
+                        flags: FlagUpdate::None
+                    });
+                }
+                // Pd = Ps OP inner, OP is AND for and_*, OR for or_*.
+                let outer_and = matches!(
+                    op,
+                    Opcode::C4_and_and | Opcode::C4_and_or | Opcode::C4_and_andn | Opcode::C4_and_orn
+                );
+                if outer_and {
+                    push_op!(OpKind::And {
+                        dst: pd,
+                        src1: ps,
+                        src2: SrcOperand::Reg(inner),
+                        width: OpWidth::W32,
+                        flags: FlagUpdate::None
+                    });
+                } else {
+                    push_op!(OpKind::Or {
+                        dst: pd,
+                        src1: ps,
+                        src2: SrcOperand::Reg(inner),
+                        width: OpWidth::W32,
+                        flags: FlagUpdate::None
+                    });
+                }
+            }
+            // C2_any8: Pd = (Ps != 0). The SMIR predicate is 0/1 so Ps != 0
+            // equals Ps's truth; copy it through (LSB-exact for the harness).
+            Opcode::C2_any8 => {
+                push_op!(OpKind::Mov {
+                    dst: self.hex_pred(rd_n),
+                    src: SrcOperand::Reg(self.hex_pred(fld(b's'))),
+                    width: OpWidth::W32
+                });
+            }
+            // C2_all8: Pd = (Ps == 0xff). The interpreter stores the full 8-bit
+            // predicate, but the SMIR predicate is only 0/1, so the full-byte
+            // comparison cannot be reproduced — left Unsupported.
 
             // Everything else: not implemented here.
             _ => return Err(unsupported()),

@@ -2669,3 +2669,258 @@ fn lift_hvx_vwhist256() {
         0x1c03,
     );
 }
+
+// ---- newly-lifted scalar register opcodes (wave 3: M2/M4/S2/S4/S6/A4/C4) ----
+
+#[test]
+fn lift_m2_mpy16_set() {
+    // 16x16 halfword multiplies, set form, signed/unsigned, 32-bit and pair,
+    // s0 and :<<1 (s1). NON-saturating only.
+    lift_family(
+        "m2_mpy16_set",
+        &[
+            ("mpy_hh_s0", "{ r0 = mpy(r1.h,r2.h) }"),
+            ("mpy_hl_s0", "{ r0 = mpy(r1.h,r2.l) }"),
+            ("mpy_lh_s0", "{ r0 = mpy(r1.l,r2.h) }"),
+            ("mpy_ll_s0", "{ r0 = mpy(r1.l,r2.l) }"),
+            ("mpy_hh_s1", "{ r0 = mpy(r1.h,r2.h):<<1 }"),
+            ("mpy_ll_s1", "{ r0 = mpy(r1.l,r2.l):<<1 }"),
+            ("mpyu_hh_s0", "{ r0 = mpyu(r1.h,r2.h) }"),
+            ("mpyu_ll_s0", "{ r0 = mpyu(r1.l,r2.l) }"),
+            ("mpyu_lh_s1", "{ r0 = mpyu(r1.l,r2.h):<<1 }"),
+            ("mpyd_hh_s0", "{ r1:0 = mpy(r2.h,r3.h) }"),
+            ("mpyd_ll_s0", "{ r1:0 = mpy(r2.l,r3.l) }"),
+            ("mpyd_hl_s1", "{ r1:0 = mpy(r2.h,r3.l):<<1 }"),
+            ("mpyud_hh_s0", "{ r1:0 = mpyu(r2.h,r3.h) }"),
+            ("mpyud_ll_s0", "{ r1:0 = mpyu(r2.l,r3.l) }"),
+            ("mpyud_lh_s1", "{ r1:0 = mpyu(r2.l,r3.h):<<1 }"),
+        ],
+        24,
+        0x7301,
+    );
+}
+
+#[test]
+fn lift_m2_mpy16_acc() {
+    // 16x16 halfword multiplies, acc (+=) and nac (-=) forms.
+    lift_family(
+        "m2_mpy16_acc",
+        &[
+            ("mpy_acc_hh_s0", "{ r0 += mpy(r1.h,r2.h) }"),
+            ("mpy_acc_ll_s0", "{ r0 += mpy(r1.l,r2.l) }"),
+            ("mpy_acc_lh_s1", "{ r0 += mpy(r1.l,r2.h):<<1 }"),
+            ("mpy_nac_hh_s0", "{ r0 -= mpy(r1.h,r2.h) }"),
+            ("mpy_nac_ll_s1", "{ r0 -= mpy(r1.l,r2.l):<<1 }"),
+            ("mpyu_acc_hh_s0", "{ r0 += mpyu(r1.h,r2.h) }"),
+            ("mpyu_nac_ll_s0", "{ r0 -= mpyu(r1.l,r2.l) }"),
+            ("mpyd_acc_hh_s0", "{ r1:0 += mpy(r2.h,r3.h) }"),
+            ("mpyd_acc_ll_s1", "{ r1:0 += mpy(r2.l,r3.l):<<1 }"),
+            ("mpyd_nac_hl_s0", "{ r1:0 -= mpy(r2.h,r3.l) }"),
+            ("mpyud_acc_hh_s0", "{ r1:0 += mpyu(r2.h,r3.h) }"),
+            ("mpyud_nac_ll_s0", "{ r1:0 -= mpyu(r2.l,r3.l) }"),
+        ],
+        24,
+        0x7302,
+    );
+}
+
+#[test]
+fn lift_m2_m4_mpyi() {
+    lift_family(
+        "m2_m4_mpyi",
+        &[
+            ("mpyi", "{ r0 = mpyi(r1,r2) }"),
+            ("mpyrr_addr", "{ r0 = add(r1,mpyi(r0,r2)) }"),
+            ("mpyrr_addi", "{ r0 = add(#10,mpyi(r1,r2)) }"),
+            ("mpyri_addr", "{ r0 = add(r1,mpyi(r2,#5)) }"),
+            ("mpyri_addr_u2", "{ r0 = add(r1,mpyi(r2,#8)) }"),
+            ("mpyri_addi", "{ r0 = add(#10,mpyi(r1,#5)) }"),
+        ],
+        24,
+        0x7303,
+    );
+}
+
+#[test]
+fn lift_m4_acc_logical() {
+    lift_family(
+        "m4_acc_logical",
+        &[
+            ("and_and", "{ r0 &= and(r1,r2) }"),
+            ("and_or", "{ r0 &= or(r1,r2) }"),
+            ("and_xor", "{ r0 &= xor(r1,r2) }"),
+            ("and_andn", "{ r0 &= and(r1,~r2) }"),
+            ("or_and", "{ r0 |= and(r1,r2) }"),
+            ("or_or", "{ r0 |= or(r1,r2) }"),
+            ("or_xor", "{ r0 |= xor(r1,r2) }"),
+            ("or_andn", "{ r0 |= and(r1,~r2) }"),
+            ("xor_and", "{ r0 ^= and(r1,r2) }"),
+            ("xor_or", "{ r0 ^= or(r1,r2) }"),
+            ("xor_andn", "{ r0 ^= and(r1,~r2) }"),
+        ],
+        24,
+        0x7304,
+    );
+}
+
+#[test]
+fn lift_s2_shift_acc_r() {
+    lift_family(
+        "s2_shift_acc_r",
+        &[
+            ("asl_acc", "{ r0 += asl(r1,#5) }"),
+            ("asl_nac", "{ r0 -= asl(r1,#5) }"),
+            ("asl_and", "{ r0 &= asl(r1,#5) }"),
+            ("asl_or", "{ r0 |= asl(r1,#5) }"),
+            ("asl_xacc", "{ r0 ^= asl(r1,#5) }"),
+            ("asr_acc", "{ r0 += asr(r1,#5) }"),
+            ("asr_nac", "{ r0 -= asr(r1,#5) }"),
+            ("asr_and", "{ r0 &= asr(r1,#5) }"),
+            ("asr_or", "{ r0 |= asr(r1,#5) }"),
+            ("lsr_acc", "{ r0 += lsr(r1,#5) }"),
+            ("lsr_nac", "{ r0 -= lsr(r1,#5) }"),
+            ("lsr_and", "{ r0 &= lsr(r1,#5) }"),
+            ("lsr_or", "{ r0 |= lsr(r1,#5) }"),
+            ("lsr_xacc", "{ r0 ^= lsr(r1,#5) }"),
+            ("rol_acc", "{ r0 += rol(r1,#5) }"),
+            ("rol_nac", "{ r0 -= rol(r1,#5) }"),
+            ("rol_and", "{ r0 &= rol(r1,#5) }"),
+            ("rol_or", "{ r0 |= rol(r1,#5) }"),
+            ("rol_xacc", "{ r0 ^= rol(r1,#5) }"),
+        ],
+        24,
+        0x7305,
+    );
+}
+
+#[test]
+fn lift_s2_shift_acc_p() {
+    lift_family(
+        "s2_shift_acc_p",
+        &[
+            ("asl_p_acc", "{ r1:0 += asl(r3:2,#5) }"),
+            ("asl_p_nac", "{ r1:0 -= asl(r3:2,#5) }"),
+            ("asl_p_and", "{ r1:0 &= asl(r3:2,#5) }"),
+            ("asl_p_or", "{ r1:0 |= asl(r3:2,#5) }"),
+            ("asl_p_xacc", "{ r1:0 ^= asl(r3:2,#5) }"),
+            ("asr_p_acc", "{ r1:0 += asr(r3:2,#5) }"),
+            ("asr_p_nac", "{ r1:0 -= asr(r3:2,#5) }"),
+            ("asr_p_and", "{ r1:0 &= asr(r3:2,#5) }"),
+            ("asr_p_or", "{ r1:0 |= asr(r3:2,#5) }"),
+            ("lsr_p_acc", "{ r1:0 += lsr(r3:2,#5) }"),
+            ("lsr_p_nac", "{ r1:0 -= lsr(r3:2,#5) }"),
+            ("lsr_p_and", "{ r1:0 &= lsr(r3:2,#5) }"),
+            ("lsr_p_or", "{ r1:0 |= lsr(r3:2,#5) }"),
+            ("lsr_p_xacc", "{ r1:0 ^= lsr(r3:2,#5) }"),
+            ("rol_p_acc", "{ r1:0 += rol(r3:2,#5) }"),
+            ("rol_p_nac", "{ r1:0 -= rol(r3:2,#5) }"),
+            ("rol_p_and", "{ r1:0 &= rol(r3:2,#5) }"),
+            ("rol_p_or", "{ r1:0 |= rol(r3:2,#5) }"),
+            ("rol_p_xacc", "{ r1:0 ^= rol(r3:2,#5) }"),
+        ],
+        24,
+        0x7306,
+    );
+}
+
+#[test]
+fn lift_s2_bitmanip2() {
+    lift_family(
+        "s2_bitmanip2",
+        &[
+            ("clb", "{ r0 = clb(r1) }"),
+            ("clbnorm", "{ r0 = normamt(r1) }"),
+            ("cl0p", "{ r0 = cl0(r3:2) }"),
+            ("cl1p", "{ r0 = cl1(r3:2) }"),
+            ("clbp", "{ r0 = clb(r3:2) }"),
+            ("ct0p", "{ r0 = ct0(r3:2) }"),
+            ("ct1p", "{ r0 = ct1(r3:2) }"),
+            ("brevp", "{ r1:0 = brev(r3:2) }"),
+            ("popcountp", "{ r0 = popcount(r3:2) }"),
+            ("parity", "{ r0 = parity(r1,r2) }"),
+            ("parityp", "{ r0 = parity(r3:2,r5:4) }"),
+            ("mask", "{ r0 = mask(#8,#4) }"),
+            ("packhl", "{ r1:0 = packhl(r2,r3) }"),
+            ("swiz", "{ r0 = swiz(r1) }"),
+        ],
+        24,
+        0x7307,
+    );
+}
+
+#[test]
+fn lift_s4_compound() {
+    lift_family(
+        "s4_compound",
+        &[
+            ("addaddi", "{ r0 = add(r1,add(r2,#5)) }"),
+            ("subaddi", "{ r0 = add(r1,sub(#5,r2)) }"),
+            ("addi_asl", "{ r0 = add(#100,asl(r0,#5)) }"),
+            ("addi_lsr", "{ r0 = add(#100,lsr(r0,#5)) }"),
+            ("subi_asl", "{ r0 = sub(#100,asl(r0,#5)) }"),
+            ("subi_lsr", "{ r0 = sub(#100,lsr(r0,#5)) }"),
+            ("andi_asl", "{ r0 = and(#100,asl(r0,#5)) }"),
+            ("andi_lsr", "{ r0 = and(#100,lsr(r0,#5)) }"),
+            ("ori_asl", "{ r0 = or(#100,asl(r0,#5)) }"),
+            ("ori_lsr", "{ r0 = or(#100,lsr(r0,#5)) }"),
+            ("or_andi", "{ r0 |= and(r1,#100) }"),
+            ("or_andix", "{ r0 = or(r1,and(r0,#100)) }"),
+            ("or_ori", "{ r0 |= or(r1,#100) }"),
+        ],
+        24,
+        0x7308,
+    );
+}
+
+#[test]
+fn lift_a4_subword_cmp() {
+    lift_family(
+        "a4_subword_cmp",
+        &[
+            ("cmpbeq", "{ p0 = cmpb.eq(r1,r2) }"),
+            ("cmpbeqi", "{ p0 = cmpb.eq(r1,#5) }"),
+            ("cmpbgt", "{ p0 = cmpb.gt(r1,r2) }"),
+            ("cmpbgti", "{ p0 = cmpb.gt(r1,#5) }"),
+            ("cmpbgtu", "{ p0 = cmpb.gtu(r1,r2) }"),
+            ("cmpbgtui", "{ p0 = cmpb.gtu(r1,#5) }"),
+            ("cmpheq", "{ p0 = cmph.eq(r1,r2) }"),
+            ("cmpheqi", "{ p0 = cmph.eq(r1,#5) }"),
+            ("cmphgt", "{ p0 = cmph.gt(r1,r2) }"),
+            ("cmphgti", "{ p0 = cmph.gt(r1,#5) }"),
+            ("cmphgtu", "{ p0 = cmph.gtu(r1,r2) }"),
+            ("cmphgtui", "{ p0 = cmph.gtu(r1,#5) }"),
+        ],
+        24,
+        0x7309,
+    );
+}
+
+#[test]
+fn lift_a4_modwrap() {
+    lift_family(
+        "a4_modwrap",
+        &[("modwrapu", "{ r0 = modwrap(r1,r2) }")],
+        24,
+        0x730a,
+    );
+}
+
+#[test]
+fn lift_c4_predlogic() {
+    lift_family(
+        "c4_predlogic",
+        &[
+            ("and_and", "{ p0 = and(p1,and(p2,p3)) }"),
+            ("and_or", "{ p0 = and(p1,or(p2,p3)) }"),
+            ("or_and", "{ p0 = or(p1,and(p2,p3)) }"),
+            ("or_or", "{ p0 = or(p1,or(p2,p3)) }"),
+            ("and_andn", "{ p0 = and(p1,and(p2,!p3)) }"),
+            ("and_orn", "{ p0 = and(p1,or(p2,!p3)) }"),
+            ("or_andn", "{ p0 = or(p1,and(p2,!p3)) }"),
+            ("or_orn", "{ p0 = or(p1,or(p2,!p3)) }"),
+            ("any8", "{ p0 = any8(p1) }"),
+        ],
+        24,
+        0x730b,
+    );
+}
