@@ -1669,6 +1669,20 @@ fn enc_sve2_fmlal(sub: u32, top: u32) -> u32 {
         | RD
 }
 
+/// SVE2 CMLA by indexed element: `0100 0100 size 1 <idx:Zm> 0110 rot Zn Zda`.
+/// size 2=.h,3=.s; .h: index=bits[20:19] Zm=bits[18:16]; .s: index=bit20
+/// Zm=bits[19:16]. rot=bits[11:10]. Zn=z1(RN), Zda=z0(RD).
+fn enc_sve2_cmla_idx(size: u32, index: u32, zm: u32, rot: u32) -> u32 {
+    let field = if size == 2 { ((index & 0x3) << 3) | (zm & 0x7) } else { ((index & 1) << 4) | (zm & 0xF) };
+    (0x44 << 24) | (size << 22) | (1 << 21) | (field << 16) | (0b0110 << 12) | (rot << 10) | (RN << 5) | RD
+}
+
+/// SVE FCMLA by indexed element: like enc_sve2_cmla_idx but 0x64 / opcode 0001.
+fn enc_sve_fcmla_idx(size: u32, index: u32, zm: u32, rot: u32) -> u32 {
+    let field = if size == 2 { ((index & 0x3) << 3) | (zm & 0x7) } else { ((index & 1) << 4) | (zm & 0xF) };
+    (0x64 << 24) | (size << 22) | (1 << 21) | (field << 16) | (0b0001 << 12) | (rot << 10) | (RN << 5) | RD
+}
+
 /// SVE2 CDOT: `0100 0100 size 0 Zm 0001 rot Zn Zda`. size 2=.s,3=.d; rot=bits
 /// [11:10]. Zn=z1(RN), Zm=z2(RM), Zda=z0(RD).
 fn enc_sve2_cdot(size: u32, rot: u32) -> u32 {
@@ -2948,6 +2962,56 @@ fn diff_sve2_fmlal() {
         }
     }
     run_batch("sve2_fmlal", batch);
+}
+
+#[test]
+fn diff_sve2_cmla_indexed() {
+    // CMLA by indexed element, integer, .h and .s, all indices and rotations.
+    let mut rng = Rng::new(0x7_a001);
+    let mut batch: Vec<(String, u32, ArmState)> = Vec::new();
+    for (size, idxn) in [(2u32, 4u32), (3, 2)] {
+        for index in 0..idxn {
+            for rot in 0..4u32 {
+                let insn = enc_sve2_cmla_idx(size, index, RM, rot);
+                for _ in 0..4 {
+                    let mut st = ArmState::zeroed();
+                    st.set_vreg(1, rng.next(), rng.next());
+                    st.set_vreg(2, rng.next(), rng.next());
+                    st.set_vreg(0, rng.next(), rng.next());
+                    batch.push((format!("cmla_idx s{size} i{index} r{rot}"), insn, st));
+                }
+            }
+        }
+    }
+    run_batch("sve2_cmla_indexed", batch);
+}
+
+#[test]
+fn diff_sve_fcmla_indexed() {
+    // FCMLA by indexed element, finite FP, .h and .s, all indices/rotations.
+    let mut rng = Rng::new(0x7_b001);
+    let mut batch: Vec<(String, u32, ArmState)> = Vec::new();
+    for (size, esz, idxn) in [(2u32, 2usize, 4u32), (3, 4, 2)] {
+        for index in 0..idxn {
+            for rot in 0..4u32 {
+                let insn = enc_sve_fcmla_idx(size, index, RM, rot);
+                for _ in 0..4 {
+                    let (mut za, mut zn, mut zm) = (0u128, 0u128, 0u128);
+                    for l in 0..(16 / esz) {
+                        za |= (finite_fp_bits(&mut rng, esz) as u128) << (l * esz * 8);
+                        zn |= (finite_fp_bits(&mut rng, esz) as u128) << (l * esz * 8);
+                        zm |= (finite_fp_bits(&mut rng, esz) as u128) << (l * esz * 8);
+                    }
+                    let mut st = ArmState::zeroed();
+                    st.set_vreg(0, za as u64, (za >> 64) as u64);
+                    st.set_vreg(1, zn as u64, (zn >> 64) as u64);
+                    st.set_vreg(2, zm as u64, (zm >> 64) as u64);
+                    batch.push((format!("fcmla_idx s{size} i{index} r{rot}"), insn, st));
+                }
+            }
+        }
+    }
+    run_batch("sve_fcmla_indexed", batch);
 }
 
 #[test]
