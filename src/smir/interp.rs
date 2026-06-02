@@ -2129,6 +2129,38 @@ impl SmirInterpreter {
                 Self::write_vec(ctx, *dst, result);
             }
 
+            OpKind::VMulEvenWiden {
+                dst,
+                src1,
+                src2,
+                src_elem,
+                signed1,
+                signed2,
+                acc,
+            } => {
+                let a = Self::read_vec(ctx, *src1);
+                let b = Self::read_vec(ctx, *src2);
+                let nbits = src_elem.bytes() * 8;
+                let wbits = nbits * 2;
+                let olanes = (1024 / wbits) as u8;
+                let mut out = if *acc { Self::read_vec(ctx, *dst) } else { [0u64; 16] };
+                let ext = |v: u64, signed: bool| -> i64 {
+                    if signed {
+                        let sh = 64 - nbits;
+                        ((v << sh) as i64) >> sh
+                    } else {
+                        v as i64
+                    }
+                };
+                for i in 0..olanes {
+                    let p = ext(Self::get_lane(&a, i * 2, nbits), *signed1)
+                        .wrapping_mul(ext(Self::get_lane(&b, i * 2, nbits), *signed2));
+                    let acc_v = if *acc { Self::get_lane(&out, i, wbits) as i64 } else { 0 };
+                    Self::set_lane(&mut out, i, wbits, acc_v.wrapping_add(p) as u64);
+                }
+                Self::write_vec(ctx, *dst, out);
+            }
+
             OpKind::VReduceMul {
                 dst,
                 src1,
@@ -3439,6 +3471,30 @@ mod tests {
         if let ArchRegState::Hexagon(hex) = &ctx.arch_regs {
             assert_eq!(hex.get_v(2), [0x0000_0030_0000_0030u64; 16]); // word = 48
         }
+    }
+
+    #[test]
+    fn test_vmulevenwiden() {
+        // vmpyuhe: out.uw[i] = Vu.uh[2i] * Vv.uh[2i]. V0 even halfwords = 3, V1 even = 5 -> 15.
+        // V0 word = 0x0007_0003 (uh[2i]=3, uh[2i+1]=7); V1 word = 0x0009_0005 (uh[2i]=5).
+        let v0 = [0x0007_0003_0007_0003u64; 16];
+        let v1 = [0x0009_0005_0009_0005u64; 16];
+        let mkv = |n| VReg::Arch(ArchReg::Hexagon(HexagonReg::V(n)));
+        let out = run_vec2(
+            v0,
+            v1,
+            OpKind::VMulEvenWiden {
+                dst: mkv(2),
+                src1: mkv(0),
+                src2: mkv(1),
+                src_elem: VecElementType::I16,
+                signed1: false,
+                signed2: false,
+                acc: false,
+            },
+        );
+        // each word = even_uh(3) * even_uh(5) = 15 = 0x0000000F.
+        assert_eq!(out, [0x0000_000F_0000_000Fu64; 16]);
     }
 
     #[test]

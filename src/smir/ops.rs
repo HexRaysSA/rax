@@ -1011,6 +1011,20 @@ pub enum OpKind {
         out_shift: u8,
     },
 
+    /// Even-lane widening multiply into a single vector. Models HVX `vmpyuhe`:
+    /// `dst.wide[i] = (acc ? dst[i] : 0) + src1.narrow[2i] * src2.narrow[2i]`
+    /// (only the even narrow sub-lane of each output-width lane is used), with
+    /// optional wrapping accumulate.
+    VMulEvenWiden {
+        dst: VReg,
+        src1: VReg,
+        src2: VReg,
+        src_elem: VecElementType,
+        signed1: bool,
+        signed2: bool,
+        acc: bool,
+    },
+
     /// Reducing (dot-product) multiply.
     ///
     /// Models the HVX `vrmpy`/`vdmpy` vector-by-vector reduce family: each output
@@ -1525,6 +1539,7 @@ impl OpKind {
             | OpKind::VWidenExt { dst_lo, dst_hi, .. } => vec![*dst_lo, *dst_hi],
 
             OpKind::VReduceMul { dst, .. }
+            | OpKind::VMulEvenWiden { dst, .. }
             | OpKind::VPack { dst, .. }
             | OpKind::VPackSat { dst, .. }
             | OpKind::VShuffle2 { dst, .. }
