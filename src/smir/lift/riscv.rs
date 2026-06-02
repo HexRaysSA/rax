@@ -2210,6 +2210,7 @@ impl RiscVLifter {
         match (op, funct3) {
             // Quadrant 0
             (0b00, 0b000) if insn != 0 => self.lift_c_addi4spn(insn, addr, ctx),
+            (0b00, 0b100) => self.lift_c_zcb_ldst(insn, addr, ctx),
             (0b00, 0b010) => self.lift_c_lw(insn, addr, ctx),
             (0b00, 0b011) if self.xlen == 64 => self.lift_c_ld(insn, addr, ctx),
             (0b00, 0b110) => self.lift_c_sw(insn, addr, ctx),
@@ -2244,6 +2245,59 @@ impl RiscVLifter {
     /// Get compressed register (rd', rs1', rs2' - maps 0-7 to x8-x15)
     fn creg(r: u8) -> u8 {
         8 + (r & 0x7)
+    }
+
+    // Zcb quadrant-0 byte/half loads and stores (c.lbu/lhu/lh/sb/sh). Decoded
+    // through the rax decoder for the precise op and resolved rd'/rs1'/rs2'/imm.
+    fn lift_c_zcb_ldst(
+        &mut self,
+        insn: u16,
+        addr: GuestAddr,
+        ctx: &mut LiftContext,
+    ) -> Result<(Vec<SmirOp>, ControlFlow), LiftError> {
+        let xl = if self.xlen == 64 { RvXlen::Rv64 } else { RvXlen::Rv32 };
+        let d = crate::riscv::decode::decode_compressed(insn, xl, &RvIsa::rv64gc());
+        if d.is_illegal() {
+            return Err(LiftError::InvalidEncoding {
+                addr,
+                bytes: insn.to_le_bytes().to_vec(),
+            });
+        }
+        let base = self.get_x_reg(d.rs1, ctx);
+        let address = Address::BaseOffset {
+            base,
+            offset: d.imm,
+            disp_size: DispSize::Auto,
+        };
+        let mut ops = Vec::new();
+        let (width, sign, is_store) = match d.op {
+            RvOp::Lbu => (MemWidth::B1, SignExtend::Zero, false),
+            RvOp::Lhu => (MemWidth::B2, SignExtend::Zero, false),
+            RvOp::Lh => (MemWidth::B2, SignExtend::Sign, false),
+            RvOp::Sb => (MemWidth::B1, SignExtend::Zero, true),
+            RvOp::Sh => (MemWidth::B2, SignExtend::Zero, true),
+            _ => {
+                return Err(LiftError::Unsupported {
+                    addr,
+                    mnemonic: format!("{:?}", d.op),
+                })
+            }
+        };
+        if is_store {
+            let src = self.get_x_reg(d.rs2, ctx);
+            ops.push(SmirOp::new(
+                ctx.next_op_id(),
+                addr,
+                OpKind::Store { src, addr: address, width },
+            ));
+        } else if let Some(dst) = self.def_x_reg(d.rd, ctx) {
+            ops.push(SmirOp::new(
+                ctx.next_op_id(),
+                addr,
+                OpKind::Load { dst, addr: address, width, sign },
+            ));
+        }
+        Ok((ops, ControlFlow::NextInsn))
     }
 
     // C.ADDI4SPN: rd' = sp + nzuimm
