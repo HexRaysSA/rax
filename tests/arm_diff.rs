@@ -1713,6 +1713,19 @@ fn enc_sve2_fmlal_idx(sub: u32, top: u32, index: u32, zm: u32) -> u32 {
         | RD
 }
 
+/// SVE predicated FP FMA: `01100101 size 1 Rm op3 Pg Rn Rd`. op3=bits[15:13]
+/// (0-3 FMLA/FMLS/FNMLA/FNMLS, 4-7 FMAD/FMSB/FNMAD/FNMSB). Rd=z0, Rn=z1, Rm=z2,
+/// Pg=p0.
+fn enc_sve_fp_fma(size: u32, op3: u32) -> u32 {
+    (0x65 << 24) | (size << 22) | (1 << 21) | (RM << 16) | (op3 << 13) | (RN << 5) | RD
+}
+
+/// SVE predicated integer multiply-add: `00000100 size 0 Rm op3 Pg Rn Rd`.
+/// op3=bits[15:13] (010 MLA, 011 MLS, 110 MAD, 111 MSB). Rd=z0, Rn=z1, Rm=z2.
+fn enc_sve_int_mla(size: u32, op3: u32) -> u32 {
+    (0x04 << 24) | (size << 22) | (RM << 16) | (op3 << 13) | (RN << 5) | RD
+}
+
 /// SVE2 predicated integer ALU: `01000100 size opc6 op3 Pg Zm Zdn`. opc6=bits
 /// [21:16], op3=bits[15:13] (100 binary, 101 unary). Pg=p0, Zm/Zn=z1(RN),
 /// Zdn/Zd=z0(RD).
@@ -3111,6 +3124,52 @@ fn diff_sve2_fmlal_indexed() {
         }
     }
     run_batch("sve2_fmlal_indexed", batch);
+}
+
+#[test]
+fn diff_sve_fp_fma() {
+    // Predicated FP fused multiply-add, all 8 variants and sizes, finite inputs.
+    let mut rng = Rng::new(0x8_0001);
+    let mut batch: Vec<(String, u32, ArmState)> = Vec::new();
+    for (size, esz) in [(1u32, 2usize), (2, 4), (3, 8)] {
+        for op3 in 0..8u32 {
+            let insn = enc_sve_fp_fma(size, op3);
+            for _ in 0..6 {
+                let mut st = ArmState::zeroed();
+                for r in 0..3 {
+                    let mut v = 0u128;
+                    for l in 0..(16 / esz) {
+                        v |= (finite_fp_bits(&mut rng, esz) as u128) << (l * esz * 8);
+                    }
+                    st.set_vreg(r, v as u64, (v >> 64) as u64);
+                }
+                st.set_preg(0, rng.next() as u16);
+                batch.push((format!("fma s{size} op{op3}"), insn, st));
+            }
+        }
+    }
+    run_batch("sve_fp_fma", batch);
+}
+
+#[test]
+fn diff_sve_int_mla() {
+    // Predicated integer MLA/MLS/MAD/MSB, all sizes, random operands.
+    let mut rng = Rng::new(0x8_1001);
+    let mut batch: Vec<(String, u32, ArmState)> = Vec::new();
+    for size in 0..4u32 {
+        for op3 in [0b010u32, 0b011, 0b110, 0b111] {
+            let insn = enc_sve_int_mla(size, op3);
+            for _ in 0..6 {
+                let mut st = ArmState::zeroed();
+                st.set_vreg(0, rng.next(), rng.next());
+                st.set_vreg(1, rng.next(), rng.next());
+                st.set_vreg(2, rng.next(), rng.next());
+                st.set_preg(0, rng.next() as u16);
+                batch.push((format!("mla s{size} op{op3:b}"), insn, st));
+            }
+        }
+    }
+    run_batch("sve_int_mla", batch);
 }
 
 #[test]

@@ -5231,6 +5231,41 @@ impl AArch64Cpu {
                 Ok(CpuExit::Continue)
             }
 
+            // SVE predicated integer multiply-add: 0x04, bit21==0, bits[15:13]
+            // ==010 (MLA: d=Za+Zn*Zm), 011 (MLS: d=Za-Zn*Zm), 110 (MAD:
+            // d=Za+Zdn*Zm), 111 (MSB: d=Za-Zdn*Zm). Low-half integer multiply,
+            // merging. MLA/MLS keep Za in Zd; MAD/MSB keep a multiplicand in Zd.
+            0b000
+                if (insn >> 24) & 0xFF == 0b00000100
+                    && (insn >> 21) & 1 == 0
+                    && matches!((insn >> 13) & 0x7, 0b010 | 0b011 | 0b110 | 0b111) =>
+            {
+                let op3 = (insn >> 13) & 0x7;
+                let sub = op3 & 1 == 1; // MLS/MSB
+                let mad = op3 & 0x4 != 0; // MAD/MSB (Zdn is a multiplicand)
+                let rm = ((insn >> 16) & 0x1F) as usize;
+                let r95 = ((insn >> 5) & 0x1F) as usize;
+                let (f1, f2, ar) = if mad { (zd, rm, r95) } else { (r95, rm, zd) };
+                let pred = self.sve_p[pg];
+                let mask = elem_mask((esize * 8) as u32);
+                let fb1 = self.v[f1].to_le_bytes();
+                let fb2 = self.v[f2].to_le_bytes();
+                let ab = self.v[ar].to_le_bytes();
+                let mut dst = self.v[zd].to_le_bytes();
+                for e in 0..(16 / esize) {
+                    let off = e * esize;
+                    if (pred >> off) & 1 == 0 {
+                        continue;
+                    }
+                    let prod = read_elem(&fb1, off, esize).wrapping_mul(read_elem(&fb2, off, esize));
+                    let a = read_elem(&ab, off, esize);
+                    let r = if sub { a.wrapping_sub(prod) } else { a.wrapping_add(prod) } & mask;
+                    write_elem(&mut dst, off, esize, r);
+                }
+                self.v[zd] = u128::from_le_bytes(dst);
+                Ok(CpuExit::Continue)
+            }
+
             // Integer predicated binary operations
             0b000 if (op1 & 0x2) == 0 && (op2 & 0x10) == 0 => {
                 self.exec_sve_int_pred(insn, zd, zn, zm, pg, esize)
@@ -8286,6 +8321,54 @@ impl AArch64Cpu {
                 result = (result & !(mask << (im * bits as usize))) | (di << (im * bits as usize));
             }
             self.v[zd] = result;
+            return Ok(CpuExit::Continue);
+        }
+
+        // SVE predicated FP fused multiply-add: 0x65, bit21==1. bits[14:13]
+        // select FMLA(00)/FMLS(01)/FNMLA(10)/FNMLS(11); bit15 picks the form
+        // (0: Zd is the addend Za, multiplicands Zn/Zm; 1: Zd is a multiplicand
+        // Zdn with addend Za). neg_prod=bit13^bit14, neg_addend=bit14 (FPCR.AH=0
+        // negates via the sign bit). Single fused multiply-add; merging.
+        if (insn >> 24) & 0xFF == 0b01100101 && (insn >> 21) & 1 == 1 {
+            let size = (insn >> 22) & 0x3;
+            if size == 0 {
+                return Ok(CpuExit::Undefined(insn));
+            }
+            let esz = 1usize << size;
+            let ebits = (esz * 8) as u32;
+            let neg_prod = ((insn >> 13) & 1) ^ ((insn >> 14) & 1) == 1;
+            let neg_add = (insn >> 14) & 1 == 1;
+            let rm = ((insn >> 16) & 0x1F) as usize;
+            let r95 = ((insn >> 5) & 0x1F) as usize;
+            // mad form (bit15==1): Zdn=zd is a multiplicand, Zm=bits[9:5],
+            // addend=bits[20:16]. else: Zn=bits[9:5], Zm=bits[20:16], addend=Za=zd.
+            let (n_reg, m_reg, a_reg) = if (insn >> 15) & 1 == 1 {
+                (zd, r95, rm)
+            } else {
+                (r95, rm, zd)
+            };
+            let pred = self.sve_p[pg];
+            let nb = self.v[n_reg].to_le_bytes();
+            let mb = self.v[m_reg].to_le_bytes();
+            let ab = self.v[a_reg].to_le_bytes();
+            let mut dst = self.v[zd].to_le_bytes();
+            for e in 0..(16 / esz) {
+                let off = e * esz;
+                if (pred >> off) & 1 == 0 {
+                    continue;
+                }
+                let mut n = read_elem(&nb, off, esz);
+                if neg_prod {
+                    n = fp_neg_bits(n, ebits);
+                }
+                let mut a = read_elem(&ab, off, esz);
+                if neg_add {
+                    a = fp_neg_bits(a, ebits);
+                }
+                let r = fp_muladd_bits(a, n, read_elem(&mb, off, esz), ebits);
+                write_elem(&mut dst, off, esz, r);
+            }
+            self.v[zd] = u128::from_le_bytes(dst);
             return Ok(CpuExit::Continue);
         }
 
