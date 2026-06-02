@@ -56,6 +56,23 @@ fn decodes_x86_with_smir_lift() {
 }
 
 #[test]
+fn emits_structured_smir_ops() {
+    let mut opts = OracleOptions::default();
+    opts.isa = OracleIsa::X86_64;
+
+    let value = decode_to_json(&[0xb8, 0x34, 0x12, 0x00, 0x00], &opts).unwrap();
+    let op = &value["smir"]["ops"][0];
+
+    assert_eq!(op["opcode"], "mov");
+    assert_eq!(op["kind"]["opcode"], "mov");
+    assert_eq!(op["kind"]["dst"]["kind"], "arch");
+    assert_eq!(op["kind"]["dst"]["name"], "rax");
+    assert_eq!(op["kind"]["src"]["kind"], "imm");
+    assert_eq!(op["kind"]["src"]["value"], 0x1234);
+    assert!(op.get("debug").is_none());
+}
+
+#[test]
 fn reports_seeded_side_effects() {
     let mut opts = OracleOptions::default();
     opts.isa = OracleIsa::X86_64;

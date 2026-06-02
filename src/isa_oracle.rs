@@ -10,10 +10,14 @@ use crate::config::{Endianness, HexagonIsa};
 use crate::riscv::decode as rv_decode;
 use crate::riscv::{Isa as RvIsa, Op as RvOp, Xlen};
 use crate::smir::lift::riscv::RiscVExtensions;
+use crate::smir::types::DispSize;
 use crate::smir::{
-    Aarch64Lifter, ArchReg, ArmReg, BlockId, CallTarget, ControlFlow, FlatMemory, HexagonLifter,
-    HexagonReg, LiftContext, OpId, RiscVLifter, RiscVReg, SmirBlock, SmirContext, SmirInterpreter,
-    SmirLifter, SmirMemory, SourceArch, Terminator, TrapKind, X86Reg, X86_64Lifter,
+    Aarch64Lifter, Address, ArchReg, ArmReg, AtomicOp, Avx10FP16Op, BlockId, CallTarget, Condition,
+    ControlFlow, ExtendOp, FenceKind, FlagSet, FlagUpdate, FlatMemory, FpPrecision, FpRoundMode,
+    HexagonLifter, HexagonReg, LiftContext, MemWidth, MemoryOrder, OpId, OpKind, OpWidth,
+    RiscVLifter, RiscVReg, ShiftOp, SignExtend, SmirBlock, SmirContext, SmirInterpreter,
+    SmirLifter, SmirMemory, SmirOp, SourceArch, SrcOperand, Terminator, TrapKind, VLaneOp, VReg,
+    VShiftVKind, VecCmpCond, VecElementType, VecWidth, X86Reg, X86_64Lifter,
 };
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -948,19 +952,7 @@ fn lift_smir(source: SourceArch, bytes: &[u8], opts: &OracleOptions) -> Value {
 
     match result {
         Ok(result) => {
-            let ops = result
-                .ops
-                .iter()
-                .map(|op| {
-                    json!({
-                        "id": op.id.0,
-                        "guest_pc": hex_u64(op.guest_pc),
-                        "kind": format!("{:?}", op.kind),
-                        "x86_hint": op.x86_hint.map(|hint| format!("{hint:?}")),
-                        "debug": format!("{op:?}"),
-                    })
-                })
-                .collect::<Vec<_>>();
+            let ops = result.ops.iter().map(smir_op_json).collect::<Vec<_>>();
             let control_flow = control_flow_json(&result.control_flow);
             json!({
                 "available": true,
@@ -980,6 +972,1555 @@ fn lift_smir(source: SourceArch, bytes: &[u8], opts: &OracleOptions) -> Value {
             "debug": format!("{err:?}"),
         }),
     }
+}
+
+trait OracleJson {
+    fn oracle_json(&self) -> Value;
+}
+
+impl<T: OracleJson + ?Sized> OracleJson for &T {
+    fn oracle_json(&self) -> Value {
+        (*self).oracle_json()
+    }
+}
+
+impl<T: OracleJson> OracleJson for Option<T> {
+    fn oracle_json(&self) -> Value {
+        self.as_ref()
+            .map(OracleJson::oracle_json)
+            .unwrap_or(Value::Null)
+    }
+}
+
+impl<T: OracleJson> OracleJson for Vec<T> {
+    fn oracle_json(&self) -> Value {
+        Value::Array(self.iter().map(OracleJson::oracle_json).collect())
+    }
+}
+
+macro_rules! number_json {
+    ($($ty:ty),* $(,)?) => {
+        $(
+            impl OracleJson for $ty {
+                fn oracle_json(&self) -> Value {
+                    json!(*self)
+                }
+            }
+        )*
+    };
+}
+
+number_json!(u8, u16, u32, u64, usize, i8, i16, i32, i64);
+
+impl OracleJson for bool {
+    fn oracle_json(&self) -> Value {
+        json!(*self)
+    }
+}
+
+macro_rules! debug_name_json {
+    ($($ty:ty),* $(,)?) => {
+        $(
+            impl OracleJson for $ty {
+                fn oracle_json(&self) -> Value {
+                    json!(debug_name(self))
+                }
+            }
+        )*
+    };
+}
+
+debug_name_json!(
+    OpWidth,
+    MemWidth,
+    SignExtend,
+    DispSize,
+    ShiftOp,
+    ExtendOp,
+    MemoryOrder,
+    FenceKind,
+    AtomicOp,
+    FpPrecision,
+    FpRoundMode,
+    VecWidth,
+    VecElementType,
+    VecCmpCond,
+    VShiftVKind,
+    VLaneOp,
+    Avx10FP16Op,
+    Condition,
+);
+
+impl OracleJson for FlagSet {
+    fn oracle_json(&self) -> Value {
+        let mut names = Vec::new();
+        for (name, flag) in [
+            ("cf", FlagSet::CF),
+            ("zf", FlagSet::ZF),
+            ("sf", FlagSet::SF),
+            ("of", FlagSet::OF),
+            ("pf", FlagSet::PF),
+            ("af", FlagSet::AF),
+        ] {
+            if self.contains(flag) {
+                names.push(name);
+            }
+        }
+        json!({
+            "mask": self.0,
+            "names": names,
+        })
+    }
+}
+
+impl OracleJson for FlagUpdate {
+    fn oracle_json(&self) -> Value {
+        match self {
+            FlagUpdate::None => json!({"mode": "none", "set": FlagSet::EMPTY.oracle_json()}),
+            FlagUpdate::All => json!({"mode": "all", "set": self.as_set().oracle_json()}),
+            FlagUpdate::Specific(set) => json!({"mode": "specific", "set": set.oracle_json()}),
+        }
+    }
+}
+
+impl OracleJson for VReg {
+    fn oracle_json(&self) -> Value {
+        match self {
+            VReg::Virtual(id) => json!({
+                "kind": "virtual",
+                "id": id.0,
+            }),
+            VReg::Arch(reg) => {
+                let mut obj = arch_reg_json(reg);
+                obj.insert("kind".to_string(), json!("arch"));
+                Value::Object(obj)
+            }
+            VReg::Imm(value) => json!({
+                "kind": "imm",
+                "value": value,
+                "hex": hex_i64(*value),
+            }),
+        }
+    }
+}
+
+impl OracleJson for SrcOperand {
+    fn oracle_json(&self) -> Value {
+        match self {
+            SrcOperand::Reg(reg) => json!({
+                "kind": "reg",
+                "reg": reg.oracle_json(),
+            }),
+            SrcOperand::Imm(value) => json!({
+                "kind": "imm",
+                "value": value,
+                "hex": hex_i64(*value),
+            }),
+            SrcOperand::Imm64(value) => json!({
+                "kind": "imm64",
+                "value": value,
+                "hex": hex_i64(*value),
+            }),
+            SrcOperand::Shifted { reg, shift, amount } => json!({
+                "kind": "shifted",
+                "reg": reg.oracle_json(),
+                "shift": shift.oracle_json(),
+                "amount": amount,
+            }),
+            SrcOperand::Extended { reg, extend, shift } => json!({
+                "kind": "extended",
+                "reg": reg.oracle_json(),
+                "extend": extend.oracle_json(),
+                "shift": shift,
+            }),
+        }
+    }
+}
+
+impl OracleJson for Address {
+    fn oracle_json(&self) -> Value {
+        match self {
+            Address::Direct(reg) => json!({
+                "kind": "direct",
+                "reg": reg.oracle_json(),
+            }),
+            Address::BaseOffset {
+                base,
+                offset,
+                disp_size,
+            } => json!({
+                "kind": "base_offset",
+                "base": base.oracle_json(),
+                "offset": offset,
+                "disp_size": disp_size.oracle_json(),
+            }),
+            Address::BaseIndexScale {
+                base,
+                index,
+                scale,
+                disp,
+                disp_size,
+            } => json!({
+                "kind": "base_index_scale",
+                "base": base.oracle_json(),
+                "index": index.oracle_json(),
+                "scale": scale,
+                "disp": disp,
+                "disp_size": disp_size.oracle_json(),
+            }),
+            Address::PcRel {
+                offset,
+                disp_size,
+                base,
+            } => json!({
+                "kind": "pc_relative",
+                "offset": offset,
+                "disp_size": disp_size.oracle_json(),
+                "base": base.map(hex_u64),
+            }),
+            Address::GpRel { offset } => json!({
+                "kind": "gp_relative",
+                "offset": offset,
+            }),
+            Address::Absolute(addr) => json!({
+                "kind": "absolute",
+                "addr": hex_u64(*addr),
+            }),
+        }
+    }
+}
+
+fn smir_op_json(op: &SmirOp) -> Value {
+    let kind = smir_op_kind_json(&op.kind);
+    let opcode = kind
+        .get("opcode")
+        .and_then(Value::as_str)
+        .unwrap_or("unknown")
+        .to_string();
+    json!({
+        "id": op.id.0,
+        "guest_pc": hex_u64(op.guest_pc),
+        "opcode": opcode,
+        "kind": kind,
+        "writes": op.kind.dests().iter().map(OracleJson::oracle_json).collect::<Vec<_>>(),
+        "memory": {
+            "reads": op.kind.reads_memory(),
+            "writes": op.kind.writes_memory(),
+        },
+        "side_effects": op.kind.has_side_effects(),
+        "x86_hint": op.x86_hint.map(|hint| debug_name(&hint)),
+    })
+}
+
+fn smir_op_kind_json(kind: &OpKind) -> Value {
+    macro_rules! op_json {
+        ($opcode:literal $(, $field:ident)*) => {{
+            let mut obj = Map::new();
+            obj.insert("opcode".to_string(), json!($opcode));
+            $(
+                obj.insert(stringify!($field).to_string(), $field.oracle_json());
+            )*
+            Value::Object(obj)
+        }};
+    }
+
+    match kind {
+        OpKind::Add {
+            dst,
+            src1,
+            src2,
+            width,
+            flags,
+        } => op_json!("add", dst, src1, src2, width, flags),
+        OpKind::Sub {
+            dst,
+            src1,
+            src2,
+            width,
+            flags,
+        } => op_json!("sub", dst, src1, src2, width, flags),
+        OpKind::Adc {
+            dst,
+            src1,
+            src2,
+            width,
+            flags,
+        } => op_json!("adc", dst, src1, src2, width, flags),
+        OpKind::Sbb {
+            dst,
+            src1,
+            src2,
+            width,
+            flags,
+        } => op_json!("sbb", dst, src1, src2, width, flags),
+        OpKind::Neg {
+            dst,
+            src,
+            width,
+            flags,
+        } => op_json!("neg", dst, src, width, flags),
+        OpKind::Inc {
+            dst,
+            src,
+            width,
+            flags,
+        } => op_json!("inc", dst, src, width, flags),
+        OpKind::Dec {
+            dst,
+            src,
+            width,
+            flags,
+        } => op_json!("dec", dst, src, width, flags),
+        OpKind::Cmp { src1, src2, width } => op_json!("cmp", src1, src2, width),
+        OpKind::MulU {
+            dst_lo,
+            dst_hi,
+            src1,
+            src2,
+            width,
+            flags,
+        } => op_json!("mul_u", dst_lo, dst_hi, src1, src2, width, flags),
+        OpKind::MulS {
+            dst_lo,
+            dst_hi,
+            src1,
+            src2,
+            width,
+            flags,
+        } => op_json!("mul_s", dst_lo, dst_hi, src1, src2, width, flags),
+        OpKind::MulAdd {
+            dst,
+            acc,
+            src1,
+            src2,
+            width,
+        } => op_json!("mul_add", dst, acc, src1, src2, width),
+        OpKind::MulSub {
+            dst,
+            acc,
+            src1,
+            src2,
+            width,
+        } => op_json!("mul_sub", dst, acc, src1, src2, width),
+        OpKind::DivU {
+            quot,
+            rem,
+            src1,
+            src2,
+            width,
+        } => op_json!("div_u", quot, rem, src1, src2, width),
+        OpKind::DivS {
+            quot,
+            rem,
+            src1,
+            src2,
+            width,
+        } => op_json!("div_s", quot, rem, src1, src2, width),
+        OpKind::And {
+            dst,
+            src1,
+            src2,
+            width,
+            flags,
+        } => op_json!("and", dst, src1, src2, width, flags),
+        OpKind::Or {
+            dst,
+            src1,
+            src2,
+            width,
+            flags,
+        } => op_json!("or", dst, src1, src2, width, flags),
+        OpKind::Xor {
+            dst,
+            src1,
+            src2,
+            width,
+            flags,
+        } => op_json!("xor", dst, src1, src2, width, flags),
+        OpKind::Not { dst, src, width } => op_json!("not", dst, src, width),
+        OpKind::Test { src1, src2, width } => op_json!("test", src1, src2, width),
+        OpKind::AndNot {
+            dst,
+            src1,
+            src2,
+            width,
+            flags,
+        } => op_json!("and_not", dst, src1, src2, width, flags),
+        OpKind::Shl {
+            dst,
+            src,
+            amount,
+            width,
+            flags,
+        } => op_json!("shl", dst, src, amount, width, flags),
+        OpKind::Shr {
+            dst,
+            src,
+            amount,
+            width,
+            flags,
+        } => op_json!("shr", dst, src, amount, width, flags),
+        OpKind::Sar {
+            dst,
+            src,
+            amount,
+            width,
+            flags,
+        } => op_json!("sar", dst, src, amount, width, flags),
+        OpKind::Shld {
+            dst,
+            src,
+            amount,
+            width,
+            flags,
+        } => op_json!("shld", dst, src, amount, width, flags),
+        OpKind::Shrd {
+            dst,
+            src,
+            amount,
+            width,
+            flags,
+        } => op_json!("shrd", dst, src, amount, width, flags),
+        OpKind::Rol {
+            dst,
+            src,
+            amount,
+            width,
+            flags,
+        } => op_json!("rol", dst, src, amount, width, flags),
+        OpKind::Ror {
+            dst,
+            src,
+            amount,
+            width,
+            flags,
+        } => op_json!("ror", dst, src, amount, width, flags),
+        OpKind::Bt { src, index, width } => op_json!("bt", src, index, width),
+        OpKind::Bts {
+            dst,
+            src,
+            index,
+            width,
+        } => op_json!("bts", dst, src, index, width),
+        OpKind::Btr {
+            dst,
+            src,
+            index,
+            width,
+        } => op_json!("btr", dst, src, index, width),
+        OpKind::Btc {
+            dst,
+            src,
+            index,
+            width,
+        } => op_json!("btc", dst, src, index, width),
+        OpKind::Bsf {
+            dst,
+            src,
+            width,
+            flags,
+        } => op_json!("bsf", dst, src, width, flags),
+        OpKind::Bsr {
+            dst,
+            src,
+            width,
+            flags,
+        } => op_json!("bsr", dst, src, width, flags),
+        OpKind::Clz { dst, src, width } => op_json!("clz", dst, src, width),
+        OpKind::Ctz { dst, src, width } => op_json!("ctz", dst, src, width),
+        OpKind::Popcnt { dst, src, width } => op_json!("popcnt", dst, src, width),
+        OpKind::Bswap { dst, src, width } => op_json!("bswap", dst, src, width),
+        OpKind::Rbit { dst, src, width } => op_json!("rbit", dst, src, width),
+        OpKind::Bfx {
+            dst,
+            src,
+            lsb,
+            width_bits,
+            sign_extend,
+            op_width,
+        } => op_json!("bfx", dst, src, lsb, width_bits, sign_extend, op_width),
+        OpKind::Bfi {
+            dst,
+            dst_in,
+            src,
+            lsb,
+            width_bits,
+            op_width,
+        } => op_json!("bfi", dst, dst_in, src, lsb, width_bits, op_width),
+        OpKind::Mov { dst, src, width } => op_json!("mov", dst, src, width),
+        OpKind::CMove {
+            dst,
+            src,
+            cond,
+            width,
+        } => op_json!("cmove", dst, src, cond, width),
+        OpKind::Select {
+            dst,
+            cond,
+            src_true,
+            src_false,
+            width,
+        } => op_json!("select", dst, cond, src_true, src_false, width),
+        OpKind::ZeroExtend {
+            dst,
+            src,
+            from_width,
+            to_width,
+        } => op_json!("zero_extend", dst, src, from_width, to_width),
+        OpKind::SignExtend {
+            dst,
+            src,
+            from_width,
+            to_width,
+        } => op_json!("sign_extend", dst, src, from_width, to_width),
+        OpKind::Cwd { dst, src, width } => op_json!("cwd", dst, src, width),
+        OpKind::Truncate {
+            dst,
+            src,
+            from_width,
+            to_width,
+        } => op_json!("truncate", dst, src, from_width, to_width),
+        OpKind::Lea { dst, addr } => op_json!("lea", dst, addr),
+        OpKind::Xchg { reg1, reg2, width } => op_json!("xchg", reg1, reg2, width),
+        OpKind::Load {
+            dst,
+            addr,
+            width,
+            sign,
+        } => op_json!("load", dst, addr, width, sign),
+        OpKind::Store { src, addr, width } => op_json!("store", src, addr, width),
+        OpKind::RepStos {
+            dst,
+            src,
+            count,
+            width,
+        } => op_json!("rep_stos", dst, src, count, width),
+        OpKind::RepMovs {
+            dst,
+            src,
+            count,
+            width,
+        } => op_json!("rep_movs", dst, src, count, width),
+        OpKind::LoadPair {
+            dst1,
+            dst2,
+            addr,
+            width,
+        } => op_json!("load_pair", dst1, dst2, addr, width),
+        OpKind::StorePair {
+            src1,
+            src2,
+            addr,
+            width,
+        } => op_json!("store_pair", src1, src2, addr, width),
+        OpKind::AtomicLoad {
+            dst,
+            addr,
+            width,
+            order,
+        } => op_json!("atomic_load", dst, addr, width, order),
+        OpKind::AtomicStore {
+            src,
+            addr,
+            width,
+            order,
+        } => op_json!("atomic_store", src, addr, width, order),
+        OpKind::AtomicRmw {
+            dst,
+            addr,
+            src,
+            op,
+            width,
+            order,
+        } => op_json!("atomic_rmw", dst, addr, src, op, width, order),
+        OpKind::Cas {
+            dst,
+            success,
+            addr,
+            expected,
+            new_val,
+            width,
+            order,
+        } => op_json!("cas", dst, success, addr, expected, new_val, width, order),
+        OpKind::LoadExclusive { dst, addr, width } => op_json!("load_exclusive", dst, addr, width),
+        OpKind::StoreExclusive {
+            status,
+            src,
+            addr,
+            width,
+        } => op_json!("store_exclusive", status, src, addr, width),
+        OpKind::ClearExclusive => op_json!("clear_exclusive"),
+        OpKind::Prefetch { addr, write } => op_json!("prefetch", addr, write),
+        OpKind::Fence { kind } => op_json!("fence", kind),
+        OpKind::FAdd {
+            dst,
+            src1,
+            src2,
+            precision,
+        } => op_json!("fadd", dst, src1, src2, precision),
+        OpKind::FSub {
+            dst,
+            src1,
+            src2,
+            precision,
+        } => op_json!("fsub", dst, src1, src2, precision),
+        OpKind::FMul {
+            dst,
+            src1,
+            src2,
+            precision,
+        } => op_json!("fmul", dst, src1, src2, precision),
+        OpKind::FDiv {
+            dst,
+            src1,
+            src2,
+            precision,
+        } => op_json!("fdiv", dst, src1, src2, precision),
+        OpKind::FFma {
+            dst,
+            src1,
+            src2,
+            src3,
+            precision,
+        } => op_json!("ffma", dst, src1, src2, src3, precision),
+        OpKind::FAbs {
+            dst,
+            src,
+            precision,
+        } => op_json!("fabs", dst, src, precision),
+        OpKind::FNeg {
+            dst,
+            src,
+            precision,
+        } => op_json!("fneg", dst, src, precision),
+        OpKind::FSqrt {
+            dst,
+            src,
+            precision,
+        } => op_json!("fsqrt", dst, src, precision),
+        OpKind::FMin {
+            dst,
+            src1,
+            src2,
+            precision,
+        } => op_json!("fmin", dst, src1, src2, precision),
+        OpKind::FMax {
+            dst,
+            src1,
+            src2,
+            precision,
+        } => op_json!("fmax", dst, src1, src2, precision),
+        OpKind::FCmp {
+            src1,
+            src2,
+            precision,
+        } => op_json!("fcmp", src1, src2, precision),
+        OpKind::FConvert { dst, src, from, to } => op_json!("fconvert", dst, src, from, to),
+        OpKind::IntToFp {
+            dst,
+            src,
+            int_width,
+            fp_precision,
+            signed,
+        } => op_json!("int_to_fp", dst, src, int_width, fp_precision, signed),
+        OpKind::FpToInt {
+            dst,
+            src,
+            fp_precision,
+            int_width,
+            signed,
+            round,
+        } => op_json!(
+            "fp_to_int",
+            dst,
+            src,
+            fp_precision,
+            int_width,
+            signed,
+            round
+        ),
+        OpKind::FRound {
+            dst,
+            src,
+            precision,
+            mode,
+        } => op_json!("fround", dst, src, precision, mode),
+        OpKind::VAdd {
+            dst,
+            src1,
+            src2,
+            elem,
+            lanes,
+        } => op_json!("vadd", dst, src1, src2, elem, lanes),
+        OpKind::VSub {
+            dst,
+            src1,
+            src2,
+            elem,
+            lanes,
+        } => op_json!("vsub", dst, src1, src2, elem, lanes),
+        OpKind::VMax {
+            dst,
+            src1,
+            src2,
+            elem,
+            lanes,
+        } => op_json!("vmax", dst, src1, src2, elem, lanes),
+        OpKind::VMul {
+            dst,
+            src1,
+            src2,
+            elem,
+            lanes,
+        } => op_json!("vmul", dst, src1, src2, elem, lanes),
+        OpKind::VAnd {
+            dst,
+            src1,
+            src2,
+            width,
+        } => op_json!("vand", dst, src1, src2, width),
+        OpKind::VOr {
+            dst,
+            src1,
+            src2,
+            width,
+        } => op_json!("vor", dst, src1, src2, width),
+        OpKind::VXor {
+            dst,
+            src1,
+            src2,
+            width,
+        } => op_json!("vxor", dst, src1, src2, width),
+        OpKind::VLane {
+            dst,
+            src1,
+            src2,
+            elem,
+            lanes,
+            op,
+            signed,
+        } => op_json!("vlane", dst, src1, src2, elem, lanes, op, signed),
+        OpKind::VWidenMul {
+            dst_lo,
+            dst_hi,
+            src1,
+            src2,
+            src_elem,
+            signed1,
+            signed2,
+            acc,
+        } => op_json!(
+            "vwiden_mul",
+            dst_lo,
+            dst_hi,
+            src1,
+            src2,
+            src_elem,
+            signed1,
+            signed2,
+            acc
+        ),
+        OpKind::VWidenExt {
+            dst_lo,
+            dst_hi,
+            src,
+            src_elem,
+            signed,
+            interleave,
+        } => op_json!(
+            "vwiden_ext",
+            dst_lo,
+            dst_hi,
+            src,
+            src_elem,
+            signed,
+            interleave
+        ),
+        OpKind::VWidenAddSub {
+            dst_lo,
+            dst_hi,
+            src1,
+            src2,
+            src_elem,
+            signed1,
+            signed2,
+            sub,
+            acc,
+        } => op_json!(
+            "vwiden_add_sub",
+            dst_lo,
+            dst_hi,
+            src1,
+            src2,
+            src_elem,
+            signed1,
+            signed2,
+            sub,
+            acc
+        ),
+        OpKind::VLaneUnary {
+            dst,
+            src,
+            elem,
+            lanes,
+            op,
+            signed,
+        } => op_json!("vlane_unary", dst, src, elem, lanes, op, signed),
+        OpKind::VNavg {
+            dst,
+            src1,
+            src2,
+            elem,
+            lanes,
+            signed,
+        } => op_json!("vnavg", dst, src1, src2, elem, lanes, signed),
+        OpKind::VShiftAcc {
+            dst,
+            src,
+            amount,
+            shift,
+            elem,
+            lanes,
+        } => op_json!("vshift_acc", dst, src, amount, shift, elem, lanes),
+        OpKind::VPack {
+            dst,
+            src1,
+            src2,
+            elem,
+            odd,
+        } => op_json!("vpack", dst, src1, src2, elem, odd),
+        OpKind::VPackSat {
+            dst,
+            src1,
+            src2,
+            src_elem,
+            to_unsigned,
+        } => op_json!("vpack_sat", dst, src1, src2, src_elem, to_unsigned),
+        OpKind::VLut16 {
+            dst_lo,
+            dst_hi,
+            src_idx,
+            table,
+            sel,
+            nomatch,
+            oracc,
+        } => op_json!("vlut16", dst_lo, dst_hi, src_idx, table, sel, nomatch, oracc),
+        OpKind::VLut {
+            dst,
+            src_idx,
+            table,
+            sel,
+            nomatch,
+            oracc,
+        } => op_json!("vlut", dst, src_idx, table, sel, nomatch, oracc),
+        OpKind::VDelta {
+            dst,
+            src,
+            control,
+            ascending,
+        } => op_json!("vdelta", dst, src, control, ascending),
+        OpKind::VShuffVdd {
+            dst_lo,
+            dst_hi,
+            src_lo,
+            src_hi,
+            amount,
+        } => op_json!("vshuff_vdd", dst_lo, dst_hi, src_lo, src_hi, amount),
+        OpKind::VDealB4W { dst, src1, src2 } => op_json!("vdeal_b4w", dst, src1, src2),
+        OpKind::VAlign {
+            dst,
+            src1,
+            src2,
+            amount,
+            left,
+        } => op_json!("valign", dst, src1, src2, amount, left),
+        OpKind::VShuffle2 {
+            dst,
+            src,
+            elem,
+            deal,
+        } => op_json!("vshuffle2", dst, src, elem, deal),
+        OpKind::VShuffleEO {
+            dst,
+            src1,
+            src2,
+            elem,
+            odd,
+        } => op_json!("vshuffle_eo", dst, src1, src2, elem, odd),
+        OpKind::VCmpToQ {
+            dst,
+            src1,
+            src2,
+            cond,
+            elem,
+            lanes,
+            accumulate,
+        } => op_json!("vcmp_to_q", dst, src1, src2, cond, elem, lanes, accumulate),
+        OpKind::VQFromVAndR { dst, src1, src2 } => op_json!("vq_from_v_and_r", dst, src1, src2),
+        OpKind::VMaskZero {
+            dst,
+            mask_q,
+            src,
+            negate,
+        } => op_json!("vmask_zero", dst, mask_q, src, negate),
+        OpKind::VBlend {
+            dst,
+            mask_q,
+            src_true,
+            src_false,
+        } => op_json!("vblend", dst, mask_q, src_true, src_false),
+        OpKind::VShiftV {
+            dst,
+            src,
+            amount,
+            elem,
+            lanes,
+            kind,
+        } => op_json!("vshift_v", dst, src, amount, elem, lanes, kind),
+        OpKind::VMulShiftSat {
+            dst,
+            src1,
+            src2,
+            src_elem,
+            signed1,
+            signed2,
+            shift_left,
+            round,
+            sat_bits,
+            out_shift,
+        } => op_json!(
+            "vmul_shift_sat",
+            dst,
+            src1,
+            src2,
+            src_elem,
+            signed1,
+            signed2,
+            shift_left,
+            round,
+            sat_bits,
+            out_shift
+        ),
+        OpKind::VNarrowShiftSat {
+            dst,
+            src_lo,
+            src_hi,
+            src_elem,
+            amount,
+            arith,
+            round,
+            sat,
+        } => op_json!(
+            "vnarrow_shift_sat",
+            dst,
+            src_lo,
+            src_hi,
+            src_elem,
+            amount,
+            arith,
+            round,
+            sat
+        ),
+        OpKind::VSatDW {
+            dst,
+            src_lo,
+            src_hi,
+        } => op_json!("vsat_dw", dst, src_lo, src_hi),
+        OpKind::VNarrowShiftV {
+            dst,
+            src_lo,
+            src_hi,
+            amount,
+            src_elem,
+            arith,
+            round,
+        } => op_json!(
+            "vnarrow_shift_v",
+            dst,
+            src_lo,
+            src_hi,
+            amount,
+            src_elem,
+            arith,
+            round
+        ),
+        OpKind::VMulSubLane {
+            dst,
+            src1,
+            src2,
+            out_elem,
+            sub_elem,
+            odd,
+            signed1,
+            signed2,
+            acc,
+        } => op_json!(
+            "vmul_sub_lane",
+            dst,
+            src1,
+            src2,
+            out_elem,
+            sub_elem,
+            odd,
+            signed1,
+            signed2,
+            acc
+        ),
+        OpKind::VMulSubLaneFrac {
+            dst,
+            src1,
+            src2,
+            out_elem,
+            sub_elem,
+            odd,
+            signed1,
+            signed2,
+            shl1,
+            rnd,
+            shift,
+            sat,
+            acc,
+            rnd2,
+        } => op_json!(
+            "vmul_sub_lane_frac",
+            dst,
+            src1,
+            src2,
+            out_elem,
+            sub_elem,
+            odd,
+            signed1,
+            signed2,
+            shl1,
+            rnd,
+            shift,
+            sat,
+            acc,
+            rnd2
+        ),
+        OpKind::VMulSubLaneSh {
+            dst,
+            src1,
+            src2,
+            out_elem,
+            sub_elem,
+            odd1,
+            odd2,
+            signed1,
+            signed2,
+            shl,
+        } => op_json!(
+            "vmul_sub_lane_sh",
+            dst,
+            src1,
+            src2,
+            out_elem,
+            sub_elem,
+            odd1,
+            odd2,
+            signed1,
+            signed2,
+            shl
+        ),
+        OpKind::VMulWord64Pair {
+            dst_lo,
+            dst_hi,
+            src1,
+            src2,
+            mode,
+        } => op_json!("vmul_word64_pair", dst_lo, dst_hi, src1, src2, mode),
+        OpKind::VMulEvenWiden {
+            dst,
+            src1,
+            src2,
+            src_elem,
+            signed1,
+            signed2,
+            acc,
+        } => op_json!(
+            "vmul_even_widen",
+            dst,
+            src1,
+            src2,
+            src_elem,
+            signed1,
+            signed2,
+            acc
+        ),
+        OpKind::VPairPairReduceMul {
+            dst_lo,
+            dst_hi,
+            src_lo,
+            src_hi,
+            src2_lo,
+            src2_hi,
+            narrow_elem,
+            out_elem,
+            signed1,
+            signed2,
+        } => op_json!(
+            "vpair_pair_reduce_mul",
+            dst_lo,
+            dst_hi,
+            src_lo,
+            src_hi,
+            src2_lo,
+            src2_hi,
+            narrow_elem,
+            out_elem,
+            signed1,
+            signed2
+        ),
+        OpKind::VPairReduceMul {
+            dst_lo,
+            dst_hi,
+            src_lo,
+            src_hi,
+            src2,
+            pair_elem,
+            rt_elem,
+            out_elem,
+            signed1,
+            signed2,
+            acc,
+        } => op_json!(
+            "vpair_reduce_mul",
+            dst_lo,
+            dst_hi,
+            src_lo,
+            src_hi,
+            src2,
+            pair_elem,
+            rt_elem,
+            out_elem,
+            signed1,
+            signed2,
+            acc
+        ),
+        OpKind::VSlideReduceMul {
+            dst_lo,
+            dst_hi,
+            src_lo,
+            src_hi,
+            src2,
+            src_elem,
+            rt_elem,
+            out_elem,
+            mode,
+            signed1,
+            signed2,
+            sat,
+            acc,
+        } => op_json!(
+            "vslide_reduce_mul",
+            dst_lo,
+            dst_hi,
+            src_lo,
+            src_hi,
+            src2,
+            src_elem,
+            rt_elem,
+            out_elem,
+            mode,
+            signed1,
+            signed2,
+            sat,
+            acc
+        ),
+        OpKind::VRotReduceMulPair {
+            dst_lo,
+            dst_hi,
+            src_lo,
+            src_hi,
+            src2,
+            src_elem,
+            rt_elem,
+            out_elem,
+            imm,
+            mode,
+            signed1,
+            signed2,
+            acc,
+            abs_diff,
+        } => op_json!(
+            "vrot_reduce_mul_pair",
+            dst_lo,
+            dst_hi,
+            src_lo,
+            src_hi,
+            src2,
+            src_elem,
+            rt_elem,
+            out_elem,
+            imm,
+            mode,
+            signed1,
+            signed2,
+            acc,
+            abs_diff
+        ),
+        OpKind::VReduceMul {
+            dst,
+            src1,
+            src2,
+            src1_elem,
+            src2_elem,
+            out_elem,
+            taps,
+            signed1,
+            signed2,
+            sat,
+            acc,
+        } => op_json!(
+            "vreduce_mul",
+            dst,
+            src1,
+            src2,
+            src1_elem,
+            src2_elem,
+            out_elem,
+            taps,
+            signed1,
+            signed2,
+            sat,
+            acc
+        ),
+        OpKind::VShift {
+            dst,
+            src,
+            amount,
+            shift,
+            elem,
+            lanes,
+        } => op_json!("vshift", dst, src, amount, shift, elem, lanes),
+        OpKind::VCmp {
+            dst,
+            src1,
+            src2,
+            cond,
+            elem,
+            lanes,
+        } => op_json!("vcmp", dst, src1, src2, cond, elem, lanes),
+        OpKind::VMov { dst, src, width } => op_json!("vmov", dst, src, width),
+        OpKind::VInsertLane {
+            dst,
+            vec,
+            scalar,
+            lane,
+            elem,
+        } => op_json!("vinsert_lane", dst, vec, scalar, lane, elem),
+        OpKind::VExtractLane {
+            dst,
+            vec,
+            lane,
+            elem,
+            sign,
+        } => op_json!("vextract_lane", dst, vec, lane, elem, sign),
+        OpKind::VShuffle {
+            dst,
+            src1,
+            src2,
+            indices,
+            elem,
+        } => op_json!("vshuffle", dst, src1, src2, indices, elem),
+        OpKind::VLoad { dst, addr, width } => op_json!("vload", dst, addr, width),
+        OpKind::VStore { src, addr, width } => op_json!("vstore", src, addr, width),
+        OpKind::Leave => op_json!("leave"),
+        OpKind::IoIn { dst, port, width } => op_json!("io_in", dst, port, width),
+        OpKind::IoOut { port, value, width } => op_json!("io_out", port, value, width),
+        OpKind::VBroadcast {
+            dst,
+            scalar,
+            elem,
+            lanes,
+        } => op_json!("vbroadcast", dst, scalar, elem, lanes),
+        OpKind::VMin {
+            dst,
+            src1,
+            src2,
+            elem,
+            lanes,
+            signed,
+        } => op_json!("vmin", dst, src1, src2, elem, lanes, signed),
+        OpKind::VFma {
+            dst,
+            src1,
+            src2,
+            acc,
+            elem,
+            lanes,
+            negate_product,
+            negate_acc,
+        } => op_json!(
+            "vfma",
+            dst,
+            src1,
+            src2,
+            acc,
+            elem,
+            lanes,
+            negate_product,
+            negate_acc
+        ),
+        OpKind::VDotProduct {
+            dst,
+            acc,
+            src1,
+            src2,
+            src_elem,
+            acc_elem,
+            width,
+            src1_unsigned,
+            saturate,
+        } => op_json!(
+            "vdot_product",
+            dst,
+            acc,
+            src1,
+            src2,
+            src_elem,
+            acc_elem,
+            width,
+            src1_unsigned,
+            saturate
+        ),
+        OpKind::VMultiplyAdd52 {
+            dst,
+            acc,
+            src1,
+            src2,
+            width,
+            high,
+        } => op_json!("vmultiply_add52", dst, acc, src1, src2, width, high),
+        OpKind::VPopcnt {
+            dst,
+            src,
+            elem,
+            width,
+        } => op_json!("vpopcnt", dst, src, elem, width),
+        OpKind::VPermute {
+            dst,
+            src1,
+            src2,
+            indices,
+            elem,
+            width,
+            overwrite_table,
+        } => op_json!(
+            "vpermute",
+            dst,
+            src1,
+            src2,
+            indices,
+            elem,
+            width,
+            overwrite_table
+        ),
+        OpKind::VShuffleBitQM {
+            dst,
+            src,
+            indices,
+            width,
+        } => op_json!("vshuffle_bit_qm", dst, src, indices, width),
+        OpKind::VDotProductBF16 {
+            dst,
+            acc,
+            src1,
+            src2,
+            width,
+        } => op_json!("vdot_product_bf16", dst, acc, src1, src2, width),
+        OpKind::VCvtFP32ToBF16 {
+            dst,
+            src1,
+            src2,
+            width,
+        } => op_json!("vcvt_fp32_to_bf16", dst, src1, src2, width),
+        OpKind::VCvtBF16ToFP32 { dst, src, width } => {
+            op_json!("vcvt_bf16_to_fp32", dst, src, width)
+        }
+        OpKind::VFP16Arith {
+            dst,
+            src1,
+            src2,
+            op,
+            width,
+        } => op_json!("vfp16_arith", dst, src1, src2, op, width),
+        OpKind::VCvtFpToIntSat {
+            dst,
+            src,
+            fp_elem,
+            int_elem,
+            width,
+            signed,
+        } => op_json!(
+            "vcvt_fp_to_int_sat",
+            dst,
+            src,
+            fp_elem,
+            int_elem,
+            width,
+            signed
+        ),
+        OpKind::VMinMax {
+            dst,
+            src1,
+            src2,
+            elem,
+            width,
+            imm,
+        } => op_json!("vmin_max", dst, src1, src2, elem, width, imm),
+        OpKind::VMpsadbw {
+            dst,
+            src1,
+            src2,
+            width,
+            imm,
+        } => op_json!("vmpsadbw", dst, src1, src2, width, imm),
+        OpKind::VDotProductExt {
+            dst,
+            acc,
+            src1,
+            src2,
+            src_elem,
+            acc_elem,
+            width,
+            src1_signed,
+            src2_signed,
+            saturate,
+        } => op_json!(
+            "vdot_product_ext",
+            dst,
+            acc,
+            src1,
+            src2,
+            src_elem,
+            acc_elem,
+            width,
+            src1_signed,
+            src2_signed,
+            saturate
+        ),
+        OpKind::ReadFlags { dst } => op_json!("read_flags", dst),
+        OpKind::WriteFlags { src } => op_json!("write_flags", src),
+        OpKind::SetCF { value } => op_json!("set_cf", value),
+        OpKind::SetDF { value } => op_json!("set_df", value),
+        OpKind::CmcCF => op_json!("cmc_cf"),
+        OpKind::MaterializeFlags => op_json!("materialize_flags"),
+        OpKind::TestCondition { dst, cond } => op_json!("test_condition", dst, cond),
+        OpKind::SetCC { dst, cond, width } => op_json!("set_cc", dst, cond, width),
+        OpKind::Syscall { num, args } => op_json!("syscall", num, args),
+        OpKind::Swi { imm } => op_json!("swi", imm),
+        OpKind::ReadSysReg { dst, reg } => op_json!("read_sys_reg", dst, reg),
+        OpKind::WriteSysReg { reg, src } => op_json!("write_sys_reg", reg, src),
+        OpKind::Nop => op_json!("nop"),
+        OpKind::Undefined { opcode } => {
+            let mut obj = Map::new();
+            obj.insert("opcode".to_string(), json!("undefined"));
+            obj.insert("raw_opcode".to_string(), opcode.oracle_json());
+            Value::Object(obj)
+        }
+        OpKind::Breakpoint => op_json!("breakpoint"),
+    }
+}
+
+fn arch_reg_json(reg: &ArchReg) -> Map<String, Value> {
+    let mut obj = Map::new();
+    match reg {
+        ArchReg::X86(reg) => {
+            obj.insert("arch".to_string(), json!("x86_64"));
+            obj.insert("name".to_string(), json!(x86_reg_name(reg)));
+        }
+        ArchReg::Arm(reg) => {
+            obj.insert("arch".to_string(), json!("aarch64"));
+            obj.insert("name".to_string(), json!(arm_reg_name(reg)));
+        }
+        ArchReg::Hexagon(reg) => {
+            obj.insert("arch".to_string(), json!("hexagon"));
+            obj.insert("name".to_string(), json!(hexagon_reg_name(reg)));
+        }
+        ArchReg::RiscV(reg) => {
+            obj.insert("arch".to_string(), json!("riscv"));
+            obj.insert("name".to_string(), json!(riscv_reg_name(reg)));
+        }
+    }
+    obj
+}
+
+fn x86_reg_name(reg: &X86Reg) -> String {
+    match reg {
+        X86Reg::Rax => "rax".to_string(),
+        X86Reg::Rcx => "rcx".to_string(),
+        X86Reg::Rdx => "rdx".to_string(),
+        X86Reg::Rbx => "rbx".to_string(),
+        X86Reg::Rsp => "rsp".to_string(),
+        X86Reg::Rbp => "rbp".to_string(),
+        X86Reg::Rsi => "rsi".to_string(),
+        X86Reg::Rdi => "rdi".to_string(),
+        X86Reg::R8 => "r8".to_string(),
+        X86Reg::R9 => "r9".to_string(),
+        X86Reg::R10 => "r10".to_string(),
+        X86Reg::R11 => "r11".to_string(),
+        X86Reg::R12 => "r12".to_string(),
+        X86Reg::R13 => "r13".to_string(),
+        X86Reg::R14 => "r14".to_string(),
+        X86Reg::R15 => "r15".to_string(),
+        X86Reg::Rip => "rip".to_string(),
+        X86Reg::Rflags => "rflags".to_string(),
+        X86Reg::FsBase => "fs_base".to_string(),
+        X86Reg::GsBase => "gs_base".to_string(),
+        X86Reg::Xmm(n) => format!("xmm{n}"),
+        X86Reg::Ymm(n) => format!("ymm{n}"),
+        X86Reg::Zmm(n) => format!("zmm{n}"),
+        X86Reg::K(n) => format!("k{n}"),
+    }
+}
+
+fn arm_reg_name(reg: &ArmReg) -> String {
+    match reg {
+        ArmReg::X(n) => format!("x{n}"),
+        ArmReg::Sp => "sp".to_string(),
+        ArmReg::Pc => "pc".to_string(),
+        ArmReg::Nzcv => "nzcv".to_string(),
+        ArmReg::V(n) => format!("v{n}"),
+        ArmReg::Fpcr => "fpcr".to_string(),
+        ArmReg::Fpsr => "fpsr".to_string(),
+        ArmReg::SysReg(reg) => format!("sysreg_{reg:#x}"),
+    }
+}
+
+fn hexagon_reg_name(reg: &HexagonReg) -> String {
+    match reg {
+        HexagonReg::R(n) => format!("r{n}"),
+        HexagonReg::P(n) => format!("p{n}"),
+        HexagonReg::Pc => "pc".to_string(),
+        HexagonReg::Gp => "gp".to_string(),
+        HexagonReg::Lr => "lr".to_string(),
+        HexagonReg::Sp => "sp".to_string(),
+        HexagonReg::Fp => "fp".to_string(),
+        HexagonReg::Lc0 => "lc0".to_string(),
+        HexagonReg::Lc1 => "lc1".to_string(),
+        HexagonReg::Sa0 => "sa0".to_string(),
+        HexagonReg::Sa1 => "sa1".to_string(),
+        HexagonReg::Usr => "usr".to_string(),
+        HexagonReg::V(n) => format!("v{n}"),
+        HexagonReg::Q(n) => format!("q{n}"),
+        HexagonReg::M(n) => format!("m{n}"),
+        HexagonReg::Cs(n) => format!("cs{n}"),
+    }
+}
+
+fn riscv_reg_name(reg: &RiscVReg) -> String {
+    match reg {
+        RiscVReg::X(n) => format!("x{n}"),
+        RiscVReg::F(n) => format!("f{n}"),
+        RiscVReg::V(n) => format!("v{n}"),
+        RiscVReg::Pc => "pc".to_string(),
+        RiscVReg::Csr(reg) => format!("csr_{reg:#x}"),
+    }
+}
+
+fn debug_name(value: &impl std::fmt::Debug) -> String {
+    format!("{value:?}")
 }
 
 fn decode_x86_prefix_metadata(bytes: &[u8]) -> Value {
@@ -1358,6 +2899,14 @@ fn hex_u8(value: u8) -> String {
 
 fn hex_u32(value: u32) -> String {
     format!("0x{value:08x}")
+}
+
+fn hex_i64(value: i64) -> String {
+    if value < 0 {
+        format!("-0x{:x}", value.unsigned_abs())
+    } else {
+        hex_u64(value as u64)
+    }
 }
 
 fn hex_u64(value: u64) -> String {
