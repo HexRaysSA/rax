@@ -231,6 +231,9 @@ pub enum Op {
     Binvi,
     Bset,
     Bseti,
+    // ---- Zicond ----
+    CzeroEqz,
+    CzeroNez,
     // ---- sentinel ----
     Illegal,
 }
@@ -694,6 +697,14 @@ fn decode_op(w: u32, isa: &Isa) -> Insn {
             (0b0100100, 5) => return base(Op::Bext, w),
             (0b0110100, 1) => return base(Op::Binv, w),
             (0b0010100, 1) => return base(Op::Bset, w),
+            _ => {}
+        }
+    }
+    // Zicond integer conditional.
+    if isa.zicond && f7 == 0b0000111 {
+        match f3 {
+            5 => return base(Op::CzeroEqz, w),
+            7 => return base(Op::CzeroNez, w),
             _ => {}
         }
     }

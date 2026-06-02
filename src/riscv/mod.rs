@@ -96,6 +96,8 @@ pub struct Isa {
     pub zbc: bool,
     /// Zbs: single-bit instructions.
     pub zbs: bool,
+    /// Zicond: integer conditional operations.
+    pub zicond: bool,
 }
 
 impl Isa {
@@ -113,6 +115,7 @@ impl Isa {
             zbb: true,
             zbc: true,
             zbs: true,
+            zicond: true,
         }
     }
 
@@ -130,6 +133,7 @@ impl Isa {
             zbb: false,
             zbc: false,
             zbs: false,
+            zicond: false,
         }
     }
 

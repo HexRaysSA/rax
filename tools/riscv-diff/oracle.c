@@ -190,8 +190,9 @@ int main(void) {
     code[n++] = enc_ld(31, 31, IN_X_OFF + 31 * 8); /* x31 last */
 
     int test_slot = n;
-    code[n++] = EBREAK; /* test instruction (patched per case)   */
-    code[n++] = EBREAK; /* trailing trap for 4-byte test insns   */
+    code[n++] = EBREAK; /* test instruction (patched per case)        */
+    code[n++] = EBREAK; /* +4: fall-through trap (not-taken branch)   */
+    code[n++] = EBREAK; /* +8: target trap for taken branches (imm=8) */
     __builtin___clear_cache((char *)code, (char *)code + n * 4);
 
     /* Install signal handlers on an alternate stack. */
@@ -249,7 +250,9 @@ int main(void) {
         memset(oc, 0, sizeof(*oc));
         for (int i = 1; i < 32; i++) oc->st.x[i] = g_out.x[i];
         for (int i = 0; i < 32; i++) oc->st.f[i] = g_out.f[i];
-        oc->st.pc = g_out.pc;
+        /* Report PC as a displacement from the test slot so PC-relative control
+         * flow can be checked independent of the (runtime) code address. */
+        oc->st.pc = g_out.pc - (uint64_t)(uintptr_t)&code[test_slot];
         oc->st.fcsr = g_out.fcsr;
         memcpy(oc->st.scratch, (void *)SCRATCH_ADDR, sizeof(oc->st.scratch));
         oc->trapped = g_trapped;

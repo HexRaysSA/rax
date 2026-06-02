@@ -1070,17 +1070,29 @@ pub fn sf_div(fmt: Fmt, a: u64, b: u64, mode: RoundingMode, flags: &mut u32) -> 
         }
         (
             Dec::Finite {
-                mant: ma, exp: ea, ..
+                mant: ma,
+                exp: mut ea,
+                ..
             },
             Dec::Finite {
-                mant: mb, exp: eb, ..
+                mant: mb,
+                exp: mut eb,
+                ..
             },
         ) => {
-            let k = 64u32;
-            let num = (ma as u128) << k;
-            let q = num / (mb as u128);
-            let sticky = (num % (mb as u128)) != 0;
-            round_pack(fmt, sign, q, ea - eb - k as i32, sticky, mode, flags)
+            // Normalize both significands so their MSBs sit at bit 63; otherwise
+            // a small (e.g. subnormal) dividend over a wide divisor yields a
+            // quotient with too few significant bits to round correctly.
+            let na = (ma as u64).leading_zeros();
+            let nb = (mb as u64).leading_zeros();
+            let ma = (ma as u128) << na;
+            let mb = (mb as u128) << nb;
+            ea -= na as i32;
+            eb -= nb as i32;
+            let num = ma << 64; // ma MSB at 63 -> num MSB at 127
+            let q = num / mb;
+            let sticky = (num % mb) != 0;
+            round_pack(fmt, sign, q, ea - eb - 64, sticky, mode, flags)
         }
         _ => unreachable!(),
     }
