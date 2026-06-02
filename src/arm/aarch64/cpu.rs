@@ -5555,9 +5555,14 @@ impl AArch64Cpu {
         }
 
         // Predicate-on-predicate logical ops (Pd = Pg & op(Pn, Pm), zeroing):
-        // 0x25, bits[15:14]==01. Op selected by (bit23, bit9, bit4). These work
-        // on the raw VL/8-bit (16 at VL=128) predicate values, no element size.
-        if (insn >> 24) & 0xFF == 0b00100101 && (insn >> 14) & 0x3 == 0b01 {
+        // 0x25, bits[21:20]==00, bits[15:14]==01. Op selected by (bit23, bit9,
+        // bit4). These work on the raw VL/8-bit (16 at VL=128) predicate values,
+        // no element size. bits[21:20] MUST be 00 — the BRKA/BRKB/BRKN family
+        // shares bits[15:14]==01 but has bits[21:20]==01.
+        if (insn >> 24) & 0xFF == 0b00100101
+            && (insn >> 20) & 0x3 == 0b00
+            && (insn >> 14) & 0x3 == 0b01
+        {
             let pm = ((insn >> 16) & 0xF) as usize;
             let pgl = ((insn >> 10) & 0xF) as usize;
             let pn = ((insn >> 5) & 0xF) as usize;
@@ -5662,6 +5667,131 @@ impl AArch64Cpu {
             self.set_z(z);
             self.set_c(c);
             self.set_v(v);
+            return Ok(CpuExit::Continue);
+        }
+
+        // BRKA / BRKB (break after / before the first true element of Pn,
+        // single source): 0x25, bits[21:16]==010000, bits[15:14]==01, bit9==0.
+        // bit23 picks BRKA(0)/BRKB(1); bit22 the flag-setting S form; bit4 the
+        // merging(1)/zeroing(0) of Pg-inactive elements. esize is always 1 byte.
+        if (insn >> 24) & 1 == 1
+            && (insn >> 16) & 0x3F == 0b010000
+            && (insn >> 14) & 0x3 == 0b01
+            && (insn >> 9) & 1 == 0
+        {
+            let before = (insn >> 23) & 1 == 1; // BRKB
+            let setflags = (insn >> 22) & 1 == 1;
+            let merging = (insn >> 4) & 1 == 1;
+            // The flag-setting form (BRKAS/BRKBS) is always zeroing: M (bit4)
+            // must be 0, so S=1 with M=1 is an unallocated encoding.
+            if setflags && merging {
+                return Ok(CpuExit::Undefined(insn));
+            }
+            let pg = ((insn >> 10) & 0xF) as usize;
+            let pn = ((insn >> 5) & 0xF) as usize;
+            let mask = self.sve_p[pg];
+            let operand = self.sve_p[pn];
+            let prior = self.sve_p[pd];
+            let mut result = 0u32;
+            let mut brk = false;
+            for e in 0..16 {
+                let elem = (operand >> e) & 1 == 1;
+                if (mask >> e) & 1 == 1 {
+                    if before {
+                        brk = brk || elem;
+                        if !brk {
+                            result |= 1 << e;
+                        }
+                    } else {
+                        if !brk {
+                            result |= 1 << e;
+                        }
+                        brk = brk || elem;
+                    }
+                } else if merging && (prior >> e) & 1 == 1 {
+                    result |= 1 << e;
+                }
+            }
+            if setflags {
+                let (n, z, c, v) = pred_test(mask, result, 16, 1);
+                self.set_n(n);
+                self.set_z(z);
+                self.set_c(c);
+                self.set_v(v);
+            }
+            self.sve_p[pd] = result;
+            return Ok(CpuExit::Continue);
+        }
+
+        // BRKN: 0x25, bit23==0, bits[21:16]==011000, bits[15:14]==01. If the
+        // last Pg-active element of Pn is true, the result is Pdm unchanged,
+        // else all-false. BRKNS (bit22==1) sets NZCV via PredTest(Ones,result).
+        if (insn >> 24) & 1 == 1
+            && (insn >> 23) & 1 == 0
+            && (insn >> 16) & 0x3F == 0b011000
+            && (insn >> 14) & 0x3 == 0b01
+        {
+            let setflags = (insn >> 22) & 1 == 1;
+            let pg = ((insn >> 10) & 0xF) as usize;
+            let pn = ((insn >> 5) & 0xF) as usize;
+            let mask = self.sve_p[pg];
+            let operand1 = self.sve_p[pn];
+            let operand2 = self.sve_p[pd]; // Pdm (source + dest)
+            let result = if last_active(mask, operand1, 16, 1) { operand2 } else { 0 };
+            if setflags {
+                let (n, z, c, v) = pred_test(0xFFFF, result, 16, 1);
+                self.set_n(n);
+                self.set_z(z);
+                self.set_c(c);
+                self.set_v(v);
+            }
+            self.sve_p[pd] = result;
+            return Ok(CpuExit::Continue);
+        }
+
+        // BRKPA / BRKPB (propagating partition break): 0x25, bit23==0,
+        // bits[21:20]==00, bits[15:14]==11, bit9==0. The carry-in is whether
+        // the last Pg-active element of Pn is set; within Pg-active elements the
+        // result stays true until the Pm break (after for BRKPA, before BRKPB).
+        if (insn >> 24) & 1 == 1
+            && (insn >> 23) & 1 == 0
+            && (insn >> 20) & 0x3 == 0b00
+            && (insn >> 14) & 0x3 == 0b11
+            && (insn >> 9) & 1 == 0
+        {
+            let before = (insn >> 4) & 1 == 1; // BRKPB
+            let setflags = (insn >> 22) & 1 == 1;
+            let pm = ((insn >> 16) & 0xF) as usize;
+            let pg = ((insn >> 10) & 0xF) as usize;
+            let pn = ((insn >> 5) & 0xF) as usize;
+            let mask = self.sve_p[pg];
+            let operand1 = self.sve_p[pn];
+            let operand2 = self.sve_p[pm];
+            let mut last = last_active(mask, operand1, 16, 1);
+            let mut result = 0u32;
+            for e in 0..16 {
+                if (mask >> e) & 1 == 1 {
+                    if before {
+                        last = last && (operand2 >> e) & 1 == 0;
+                        if last {
+                            result |= 1 << e;
+                        }
+                    } else {
+                        if last {
+                            result |= 1 << e;
+                        }
+                        last = last && (operand2 >> e) & 1 == 0;
+                    }
+                }
+            }
+            if setflags {
+                let (n, z, c, v) = pred_test(mask, result, 16, 1);
+                self.set_n(n);
+                self.set_z(z);
+                self.set_c(c);
+                self.set_v(v);
+            }
+            self.sve_p[pd] = result;
             return Ok(CpuExit::Continue);
         }
 
@@ -10218,6 +10348,19 @@ fn pred_test(mask: u32, result: u32, elements: usize, esize: usize) -> (bool, bo
         }
     }
     (n, z, !last_r, false)
+}
+
+/// SVE LastActive(mask, operand): true iff the highest-indexed mask-active
+/// element is set in `operand`. Both predicates are byte-granular (element `e`
+/// of size `esize` bytes is governed by bit `e*esize`).
+fn last_active(mask: u32, operand: u32, elements: usize, esize: usize) -> bool {
+    for e in (0..elements).rev() {
+        let b = e * esize;
+        if (mask >> b) & 1 == 1 {
+            return (operand >> b) & 1 == 1;
+        }
+    }
+    false
 }
 
 /// Combine two FP element bit-values with an `FpKind` op at the given esize,

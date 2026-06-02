@@ -1618,6 +1618,24 @@ fn enc_pnext(sz: u32, pg: u32, pdn: u32) -> u32 {
         | ((pg & 0xF) << 5) | (pdn & 0xF)
 }
 
+/// SVE BRKA/BRKB: `00100101 B S 010000 01 Pg 0 Pn M Pd`. B: 0=BRKA, 1=BRKB.
+fn enc_brka(b: u32, s: u32, m: u32, pg: u32, pn: u32, pd: u32) -> u32 {
+    (0x25 << 24) | (b << 23) | (s << 22) | (0b010000 << 16) | (0b01 << 14)
+        | ((pg & 0xF) << 10) | ((pn & 0xF) << 5) | ((m & 1) << 4) | (pd & 0xF)
+}
+
+/// SVE BRKN: `00100101 0 S 011000 01 Pg 0 Pn 0 Pdm`.
+fn enc_brkn(s: u32, pg: u32, pn: u32, pdm: u32) -> u32 {
+    (0x25 << 24) | (s << 22) | (0b011000 << 16) | (0b01 << 14)
+        | ((pg & 0xF) << 10) | ((pn & 0xF) << 5) | (pdm & 0xF)
+}
+
+/// SVE BRKPA/BRKPB: `00100101 0 S 00 Pm 11 Pg 0 Pn B Pd`. B: 0=BRKPA, 1=BRKPB.
+fn enc_brkp(b: u32, s: u32, pm: u32, pg: u32, pn: u32, pd: u32) -> u32 {
+    (0x25 << 24) | (s << 22) | ((pm & 0xF) << 16) | (0b11 << 14)
+        | ((pg & 0xF) << 10) | ((pn & 0xF) << 5) | ((b & 1) << 4) | (pd & 0xF)
+}
+
 #[test]
 fn diff_sve_index() {
     let mut cases: Vec<(String, u32)> = Vec::new();
@@ -2245,6 +2263,69 @@ fn diff_sve_pnext() {
         }
     }
     run_batch("sve_pnext", batch);
+}
+
+#[test]
+fn diff_sve_brk() {
+    // BRKA (break after) / BRKB (break before) the first Pn-true element, in
+    // both merging/zeroing and flag-setting forms. Random Pg/Pn/prior-Pd.
+    let mut rng = Rng::new(0x2_B001);
+    let mut batch: Vec<(String, u32, ArmState)> = Vec::new();
+    for b in 0..2u32 {
+        for s in 0..2u32 {
+            for m in 0..2u32 {
+                let insn = enc_brka(b, s, m, 1, 2, 0); // Pg=p1, Pn=p2, Pd=p0
+                let name = format!("brk{} s{s} m{m}", if b == 0 { "a" } else { "b" });
+                for _ in 0..16 {
+                    let mut st = ArmState::zeroed();
+                    st.set_preg(0, rng.next() as u16); // Pd (merge source)
+                    st.set_preg(1, rng.next() as u16); // Pg
+                    st.set_preg(2, rng.next() as u16); // Pn
+                    batch.push((name.clone(), insn, st));
+                }
+            }
+        }
+    }
+    run_batch("sve_brk", batch);
+}
+
+#[test]
+fn diff_sve_brkn() {
+    // BRKN: result = Pdm if the last Pg-active element of Pn is set, else 0.
+    let mut rng = Rng::new(0x2_C001);
+    let mut batch: Vec<(String, u32, ArmState)> = Vec::new();
+    for s in 0..2u32 {
+        let insn = enc_brkn(s, 1, 2, 0); // Pg=p1, Pn=p2, Pdm=p0
+        for _ in 0..24 {
+            let mut st = ArmState::zeroed();
+            st.set_preg(0, rng.next() as u16); // Pdm (source + dest)
+            st.set_preg(1, rng.next() as u16); // Pg
+            st.set_preg(2, rng.next() as u16); // Pn
+            batch.push((format!("brkn s{s}"), insn, st));
+        }
+    }
+    run_batch("sve_brkn", batch);
+}
+
+#[test]
+fn diff_sve_brkp() {
+    // BRKPA / BRKPB propagating partition break (Pm break condition, Pn carry).
+    let mut rng = Rng::new(0x2_D001);
+    let mut batch: Vec<(String, u32, ArmState)> = Vec::new();
+    for b in 0..2u32 {
+        for s in 0..2u32 {
+            let insn = enc_brkp(b, s, 3, 1, 2, 0); // Pm=p3, Pg=p1, Pn=p2, Pd=p0
+            let name = format!("brkp{} s{s}", if b == 0 { "a" } else { "b" });
+            for _ in 0..16 {
+                let mut st = ArmState::zeroed();
+                st.set_preg(1, rng.next() as u16); // Pg
+                st.set_preg(2, rng.next() as u16); // Pn
+                st.set_preg(3, rng.next() as u16); // Pm
+                batch.push((name.clone(), insn, st));
+            }
+        }
+    }
+    run_batch("sve_brkp", batch);
 }
 
 #[test]
