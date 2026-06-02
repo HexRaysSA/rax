@@ -975,3 +975,89 @@ fn lift_hvx_vmpyv_widen_acc() {
         0x7010,
     );
 }
+
+// ---- Wave 4: HVX horizontal reduce multiplies + scalar splats ----
+// `OpKind::VReduceMul` models the vrmpy/vdmpy reduce family: each output lane
+// is the sum of `taps` adjacent narrow sub-lane products, so the output lane is
+// `src_elem_bits*taps` wide. `OpKind::VBroadcast` splats the low bits of a GPR
+// into every lane. Scalar (Rt) reduce forms compose VBroadcast + VReduceMul.
+// All non-saturating; matches sem/hvx_rmpy.rs + sem/hvx_perm.rs bit-for-bit.
+
+#[test]
+fn lift_hvx_vrmpy_vv() {
+    // VECTOR-VECTOR 4-tap byte dot product -> word (single dest vector).
+    lift_family(
+        "hvx_vrmpy_vv",
+        &[
+            ("vrmpyubv", "{ v2.uw = vrmpy(v0.ub,v1.ub) }"),
+            ("vrmpybv", "{ v2.w = vrmpy(v0.b,v1.b) }"),
+            ("vrmpybusv", "{ v2.w = vrmpy(v0.ub,v1.b) }"),
+        ],
+        12,
+        0x7011,
+    );
+}
+
+#[test]
+fn lift_hvx_vrmpy_vv_acc() {
+    // Accumulate forms (`Vx += ...`): read-modify-write of the dest vector.
+    // The harness seeds V2 with random values, exercising the acc read path.
+    lift_family(
+        "hvx_vrmpy_vv_acc",
+        &[
+            ("vrmpyubv_acc", "{ v2.uw += vrmpy(v0.ub,v1.ub) }"),
+            ("vrmpybv_acc", "{ v2.w += vrmpy(v0.b,v1.b) }"),
+            ("vrmpybusv_acc", "{ v2.w += vrmpy(v0.ub,v1.b) }"),
+        ],
+        12,
+        0x7012,
+    );
+}
+
+#[test]
+fn lift_hvx_vrmpy_scalar() {
+    // SCALAR 4-tap vrmpy (Vu.byte * Rt.byte, Rt's 4 bytes reused per word lane)
+    // composed as VBroadcast(Rt, I32) + 4-tap byte VReduceMul.
+    lift_family(
+        "hvx_vrmpy_scalar",
+        &[
+            ("vrmpyub", "{ v2.uw = vrmpy(v0.ub,r3.ub) }"),
+            ("vrmpybus", "{ v2.w = vrmpy(v0.ub,r3.b) }"),
+            ("vrmpyub_acc", "{ v2.uw += vrmpy(v0.ub,r3.ub) }"),
+            ("vrmpybus_acc", "{ v2.w += vrmpy(v0.ub,r3.b) }"),
+        ],
+        12,
+        0x7013,
+    );
+}
+
+#[test]
+fn lift_hvx_vsplat() {
+    // Scalar splat to all lanes: word / half / byte lanes.
+    lift_family(
+        "hvx_vsplat",
+        &[
+            ("lvsplatw", "{ v2 = vsplat(r3) }"),
+            ("lvsplath", "{ v2.h = vsplat(r3) }"),
+            ("lvsplatb", "{ v2.b = vsplat(r3) }"),
+        ],
+        12,
+        0x7014,
+    );
+}
+
+#[test]
+fn lift_hvx_vdmpybus_scalar() {
+    // SCALAR 2-tap vdmpybus (Vu.ub * Rt.b -> halfword) composed as
+    // VBroadcast(Rt, I32) + 2-tap byte VReduceMul. The I32-broadcast makes the
+    // temp's byte n equal Rt.byte[n%4], matching the sem's per-lane Rt reuse.
+    lift_family(
+        "hvx_vdmpybus_scalar",
+        &[
+            ("vdmpybus", "{ v2.h = vdmpy(v0.ub,r3.b) }"),
+            ("vdmpybus_acc", "{ v2.h += vdmpy(v0.ub,r3.b) }"),
+        ],
+        12,
+        0x7015,
+    );
+}

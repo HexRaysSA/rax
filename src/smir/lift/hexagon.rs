@@ -2792,6 +2792,160 @@ impl HexagonLifter {
                 });
             }
 
+            // ============================================================
+            // Wave 4: HVX horizontal reduce multiplies (OpKind::VReduceMul)
+            // and scalar splats (OpKind::VBroadcast).
+            // ============================================================
+            //
+            // `OpKind::VReduceMul` models the vrmpy/vdmpy reduce family:
+            //   dst.lane[i] = (acc?dst[i]:0)
+            //               + Σ_{k<taps} ext(src1[taps*i+k]) · ext(src2[taps*i+k])
+            // where the OUTPUT lane is `src_elem_bits*taps` wide. `signed1`/
+            // `signed2` select per-operand signedness of the sub-lane products.
+            // This is bit-identical to the sem `set_w`/`set_h` wrapping stores
+            // (interp wraps `s as u64` into the masked output lane), so the
+            // non-saturating forms map exactly.
+            //
+            // VECTOR-VECTOR 4-tap byte dot product -> word (sem/hvx_rmpy.rs):
+            //   vrmpyubv   ub*ub -> uw   unsigned×unsigned
+            //   vrmpybv    b*b   -> w    signed×signed
+            //   vrmpybusv  ub*b  -> w    unsigned×signed
+            // dst base = fld('d') (plain) / fld('x') (_acc); the _acc form reads
+            // and re-writes that vector (matched by VReduceMul `acc:true`).
+            Opcode::V6_vrmpyubv | Opcode::V6_vrmpyubv_acc => {
+                let acc = matches!(op, Opcode::V6_vrmpyubv_acc);
+                let base = if acc { rx_n } else { rd_n };
+                push_op!(OpKind::VReduceMul {
+                    dst: self.hex_v(base),
+                    src1: self.hex_v(fld(b'u')),
+                    src2: self.hex_v(fld(b'v')),
+                    src_elem: VecElementType::I8,
+                    taps: 4,
+                    signed1: false,
+                    signed2: false,
+                    acc,
+                });
+            }
+            Opcode::V6_vrmpybv | Opcode::V6_vrmpybv_acc => {
+                let acc = matches!(op, Opcode::V6_vrmpybv_acc);
+                let base = if acc { rx_n } else { rd_n };
+                push_op!(OpKind::VReduceMul {
+                    dst: self.hex_v(base),
+                    src1: self.hex_v(fld(b'u')),
+                    src2: self.hex_v(fld(b'v')),
+                    src_elem: VecElementType::I8,
+                    taps: 4,
+                    signed1: true,
+                    signed2: true,
+                    acc,
+                });
+            }
+            Opcode::V6_vrmpybusv | Opcode::V6_vrmpybusv_acc => {
+                let acc = matches!(op, Opcode::V6_vrmpybusv_acc);
+                let base = if acc { rx_n } else { rd_n };
+                push_op!(OpKind::VReduceMul {
+                    dst: self.hex_v(base),
+                    src1: self.hex_v(fld(b'u')),
+                    src2: self.hex_v(fld(b'v')),
+                    src_elem: VecElementType::I8,
+                    taps: 4,
+                    signed1: false, // Vu.ub
+                    signed2: true,  // Vv.b
+                    acc,
+                });
+            }
+
+            // SCALAR splats: replicate the low `elem` bits of a GPR into every
+            // lane (sem/hvx_perm.rs). lvsplatw -> word lanes, lvsplath -> half
+            // lanes, lvsplatb -> byte lanes; dst = fld('d'), scalar = fld('t').
+            Opcode::V6_lvsplatw => {
+                push_op!(OpKind::VBroadcast {
+                    dst: self.hex_v(fld(b'd')),
+                    scalar: self.hex_reg(fld(b't')),
+                    elem: VecElementType::I32,
+                    lanes: 32,
+                });
+            }
+            Opcode::V6_lvsplath => {
+                push_op!(OpKind::VBroadcast {
+                    dst: self.hex_v(fld(b'd')),
+                    scalar: self.hex_reg(fld(b't')),
+                    elem: VecElementType::I16,
+                    lanes: 64,
+                });
+            }
+            Opcode::V6_lvsplatb => {
+                push_op!(OpKind::VBroadcast {
+                    dst: self.hex_v(fld(b'd')),
+                    scalar: self.hex_reg(fld(b't')),
+                    elem: VecElementType::I8,
+                    lanes: 128,
+                });
+            }
+
+            // SCALAR 4-tap vrmpy (Vu.byte * Rt.byte, Rt's 4 bytes reused per
+            // word lane): broadcast Rt across all 32 word lanes into an SSA temp
+            // (so temp.byte[4i+k] = Rt.byte[k], the exact scalar reuse), then run
+            // a 4-tap byte VReduceMul of Vu against that temp. dst base =
+            // fld('d') (plain) / fld('x') (_acc).
+            //   vrmpyub   ub*Rt.ub -> uw   unsigned×unsigned
+            //   vrmpybus  ub*Rt.b  -> w    unsigned×signed
+            Opcode::V6_vrmpyub
+            | Opcode::V6_vrmpyub_acc
+            | Opcode::V6_vrmpybus
+            | Opcode::V6_vrmpybus_acc => {
+                let acc = matches!(op, Opcode::V6_vrmpyub_acc | Opcode::V6_vrmpybus_acc);
+                let signed2 = matches!(op, Opcode::V6_vrmpybus | Opcode::V6_vrmpybus_acc);
+                let base = if acc { rx_n } else { rd_n };
+                let t = ctx.alloc_vreg();
+                push_op!(OpKind::VBroadcast {
+                    dst: t,
+                    scalar: self.hex_reg(fld(b't')),
+                    elem: VecElementType::I32,
+                    lanes: 32,
+                });
+                push_op!(OpKind::VReduceMul {
+                    dst: self.hex_v(base),
+                    src1: self.hex_v(fld(b'u')),
+                    src2: t,
+                    src_elem: VecElementType::I8,
+                    taps: 4,
+                    signed1: false, // Vu.ub
+                    signed2,
+                    acc,
+                });
+            }
+
+            // SCALAR 2-tap vdmpybus (Vu.ub * Rt.b -> halfword). The sem reuses
+            // Rt bytes by lane: halfword lane i uses Rt.byte[(2i)%4] and
+            // Rt.byte[(2i+1)%4]. Broadcasting Rt as I32 word lanes makes the
+            // temp's byte n equal Rt.byte[n%4], so a 2-tap byte VReduceMul of Vu
+            // against the temp sums temp.byte[2i] = Rt.byte[(2i)%4] and
+            // temp.byte[2i+1] = Rt.byte[(2i+1)%4] — exactly the sem reuse. Output
+            // halfword lane wraps via `s as u16`, identical to VReduceMul's
+            // masked 16-bit store. dst base = fld('d') / fld('x').
+            Opcode::V6_vdmpybus | Opcode::V6_vdmpybus_acc => {
+                let acc = matches!(op, Opcode::V6_vdmpybus_acc);
+                let base = if acc { rx_n } else { rd_n };
+                let t = ctx.alloc_vreg();
+                push_op!(OpKind::VBroadcast {
+                    dst: t,
+                    scalar: self.hex_reg(fld(b't')),
+                    elem: VecElementType::I32,
+                    lanes: 32,
+                });
+                push_op!(OpKind::VReduceMul {
+                    dst: self.hex_v(base),
+                    src1: self.hex_v(fld(b'u')),
+                    src2: t,
+                    src_elem: VecElementType::I8,
+                    taps: 2,
+                    signed1: false, // Vu.ub
+                    signed2: true,  // Rt.b
+                    acc,
+                });
+            }
+
             // Everything else: not implemented here.
             _ => return Err(unsupported()),
         }
