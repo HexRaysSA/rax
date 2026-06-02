@@ -5217,6 +5217,44 @@ impl AArch64Cpu {
                 Ok(CpuExit::Continue)
             }
 
+            // SVE2 shift left long: 010001010 tszh 0 tszl imm3 1010 U T Zn Zd.
+            // Widens the half-width source elements (signed U=0 / unsigned U=1,
+            // even T=0 / odd T=1) and shifts them left. src esize from highest
+            // set bit of tsz, dst 2x; shift = tsz:imm3 - src_bits.
+            0b010
+                if (insn >> 24) & 0xFF == 0b01000101
+                    && (insn >> 23) & 1 == 0
+                    && (insn >> 21) & 1 == 0
+                    && (insn >> 12) & 0xF == 0b1010 =>
+            {
+                let tsize = (((insn >> 22) & 1) << 2) | ((insn >> 19) & 0x3);
+                if tsize == 0 {
+                    return Ok(CpuExit::Undefined(insn));
+                }
+                let src_esize = 1usize << (31 - tsize.leading_zeros());
+                let dst_esize = src_esize * 2;
+                let src_bits = (src_esize * 8) as u32;
+                let dst_bits = (dst_esize * 8) as u32;
+                let dmask = elem_mask(dst_bits);
+                let amount = ((tsize << 3) | ((insn >> 16) & 0x7)) - src_bits;
+                let unsigned = (insn >> 11) & 1 == 1;
+                let top = (insn >> 10) & 1 == 1;
+                let n_dst = 16 / dst_esize;
+                let a = self.v[zn].to_le_bytes();
+                let mut dst = [0u8; 16];
+                for d in 0..n_dst {
+                    let x = read_elem(&a, (2 * d + top as usize) * src_esize, src_esize);
+                    let widened: u128 = if unsigned {
+                        uext_elem(x, src_bits)
+                    } else {
+                        sext_elem(x, src_bits) as u128
+                    };
+                    write_elem(&mut dst, d * dst_esize, dst_esize, (widened << amount) as u64 & dmask);
+                }
+                self.v[zd] = u128::from_le_bytes(dst);
+                Ok(CpuExit::Continue)
+            }
+
             // SVE2 integer multiply long: 0x45, bit21==0, bits[15:13]==011.
             // (op=bit12, U=bit11): (1,0)=SMULLB/T, (1,1)=UMULLB/T, (0,0)=
             // SQDMULLB/T (saturating doubling), (0,1)=PMULLB/T (polynomial).

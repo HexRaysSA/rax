@@ -1626,6 +1626,15 @@ fn enc_sve2_cmla(size: u32, op: u32, rot: u32) -> u32 {
     (0b01000100 << 24) | (size << 22) | (RM << 16) | (0b001 << 13) | (op << 12) | (rot << 10)
         | (RN << 5) | RD
 }
+/// SVE2 shift left long: `010001010 tszh 0 tszl imm3 1010 U T Zn Zd`. The
+/// (tsz,imm3) encodes the source size and shift: tsz:imm3 = src_bits + amount.
+fn enc_sve2_shll(tsz: u32, imm3: u32, u: u32, t: u32) -> u32 {
+    let tszh = (tsz >> 2) & 1;
+    let tszl = tsz & 0x3;
+    (0b010001010 << 23) | (tszh << 22) | (tszl << 19) | (imm3 << 16) | (0b1010 << 12)
+        | (u << 11) | (t << 10) | (RN << 5) | RD
+}
+
 /// SVE2 SQDMULH/SQRDMULH: `00000100 size 1 Zm 01110 R Zn Zd`.
 fn enc_sve2_sqdmulh(size: u32, r: u32) -> u32 {
     (0b00000100 << 24) | (size << 22) | (1 << 21) | (RM << 16) | (0b01110 << 11) | (r << 10)
@@ -3615,6 +3624,42 @@ fn diff_sve2_sqdmulh() {
         cases.push((format!("sqrdmlsh sz{size}"), enc_sve2_sqrdmlah(size, 1)));
     }
     run_family("sve2_sqdmulh", cases, 16, 0x5_9001);
+}
+
+/// (tsz, imm3) for a shift-left-long with source width `src_bits` and shift
+/// `amount` (0..src_bits): tsz:imm3 = src_bits + amount.
+fn shll_tsz_imm(src_bits: u32, amount: u32) -> (u32, u32) {
+    let tszimm = src_bits + amount;
+    ((tszimm >> 3) & 0x7, tszimm & 0x7)
+}
+
+#[test]
+fn diff_sve2_shll() {
+    // SVE2 shift left long (SSHLL/USHLL, bottom/top), across source sizes and
+    // shift amounts.
+    let mut cases: Vec<(String, u32)> = Vec::new();
+    for &(sb, amt) in &[
+        (8u32, 0u32),
+        (8, 3),
+        (8, 7),
+        (16, 0),
+        (16, 8),
+        (16, 15),
+        (32, 0),
+        (32, 16),
+        (32, 31),
+    ] {
+        let (tsz, imm3) = shll_tsz_imm(sb, amt);
+        for u in 0..2u32 {
+            for t in 0..2u32 {
+                cases.push((
+                    format!("shll s{sb} a{amt} u{u} t{t}"),
+                    enc_sve2_shll(tsz, imm3, u, t),
+                ));
+            }
+        }
+    }
+    run_family("sve2_shll", cases, 16, 0x5_A001);
 }
 
 #[test]
