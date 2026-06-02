@@ -1584,6 +1584,7 @@ impl OpKind {
             | OpKind::VPackSat { src1, src2, .. }
             | OpKind::VShuffleEO { src1, src2, .. }
             | OpKind::VDealB4W { src1, src2, .. }
+            | OpKind::VMulSubLaneFrac { src1, src2, .. }
             | OpKind::VMulShiftSat { src1, src2, .. } => {
                 result.push(*src1);
                 result.push(*src2);

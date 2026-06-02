@@ -2355,6 +2355,57 @@ impl SmirInterpreter {
                 Self::write_vec(ctx, *dst, out);
             }
 
+            OpKind::VMulSubLaneFrac {
+                dst,
+                src1,
+                src2,
+                out_elem,
+                sub_elem,
+                odd,
+                signed1,
+                signed2,
+                shl1,
+                rnd,
+                shift,
+                sat,
+            } => {
+                let a = Self::read_vec(ctx, *src1);
+                let b = Self::read_vec(ctx, *src2);
+                let obits = out_elem.bytes() * 8;
+                let sbits = sub_elem.bytes() * 8;
+                let olanes = (1024 / obits) as u8;
+                let ratio = (obits / sbits) as u8;
+                let exf = |v: u64, bits: u32, signed: bool| -> i64 {
+                    if signed {
+                        let sh = 64 - bits;
+                        ((v << sh) as i64) >> sh
+                    } else {
+                        v as i64
+                    }
+                };
+                let mut out = [0u64; 16];
+                for i in 0..olanes {
+                    let s1 = exf(Self::get_lane(&a, i, obits), obits, *signed1);
+                    let sub_idx = i * ratio + if *odd { 1 } else { 0 };
+                    let s2 = exf(Self::get_lane(&b, sub_idx, sbits), sbits, *signed2);
+                    let mut p = s1.wrapping_mul(s2);
+                    if *shl1 {
+                        p <<= 1;
+                    }
+                    if *rnd && *shift > 0 {
+                        p += 1i64 << (*shift - 1);
+                    }
+                    p >>= *shift;
+                    if *sat && obits < 64 {
+                        let lo = -(1i64 << (obits - 1));
+                        let hi = (1i64 << (obits - 1)) - 1;
+                        p = p.clamp(lo, hi);
+                    }
+                    Self::set_lane(&mut out, i, obits, p as u64);
+                }
+                Self::write_vec(ctx, *dst, out);
+            }
+
             OpKind::VMulEvenWiden {
                 dst,
                 src1,
@@ -3832,6 +3883,21 @@ mod tests {
             odd: true, signed1: true, signed2: false, acc: false,
         });
         assert_eq!(odd, [0x0000_0015_0000_0015u64; 16]); // 3*7 = 21
+    }
+
+    #[test]
+    fn test_vmulsublanefrac() {
+        // vmpyewuh: (Vu.w * Vv.uh[even]) >> 16. Vu.w=0x00100000, Vv.uh[even]=4 -> *4=0x400000 >>16 = 0x40.
+        let v0 = [0x0010_0000_0010_0000u64; 16];
+        let v1 = [0x0007_0004_0007_0004u64; 16]; // even hw = 0x0004, odd = 0x0007
+        let mkv = |n| VReg::Arch(ArchReg::Hexagon(HexagonReg::V(n)));
+        let out = run_vec2(v0, v1, OpKind::VMulSubLaneFrac {
+            dst: mkv(2), src1: mkv(0), src2: mkv(1),
+            out_elem: VecElementType::I32, sub_elem: VecElementType::I16,
+            odd: false, signed1: true, signed2: false,
+            shl1: false, rnd: false, shift: 16, sat: false,
+        });
+        assert_eq!(out, [0x0000_0040_0000_0040u64; 16]);
     }
 
     #[test]
