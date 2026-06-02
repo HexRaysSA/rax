@@ -299,6 +299,14 @@ impl Op {
             Vsetvli => "vsetvli",
             Vsetivli => "vsetivli",
             Vsetvl => "vsetvl",
+            Vle => "vle.v",
+            Vse => "vse.v",
+            Vadd => "vadd",
+            Vsub => "vsub",
+            Vrsub => "vrsub",
+            Vand => "vand",
+            Vor => "vor",
+            Vxor => "vxor",
             Illegal => "illegal",
         }
     }

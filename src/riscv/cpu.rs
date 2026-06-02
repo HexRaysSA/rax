@@ -162,12 +162,16 @@ pub struct RiscVCpu {
     time: u64,
     instret: u64,
 
-    // ---- vector configuration state (V extension) ----
+    // ---- vector state (V extension) ----
     vl: u64,
     vtype: u64,
     vstart: u64,
     vxrm: u64,
     vxsat: u64,
+    /// Vector register file: 32 registers of VLEN bits, stored as a flat byte
+    /// array (register `r` element-byte `b` at `v[r*VLENB + b]`), so LMUL groups
+    /// and element strides index naturally.
+    v: [u8; 32 * VLENB as usize],
 
     /// Guest memory.
     mem: Box<dyn Memory>,
@@ -175,6 +179,8 @@ pub struct RiscVCpu {
 
 /// Vector register length in bits (matches the qemu-riscv64 default).
 const VLEN: u64 = 128;
+/// Vector register length in bytes.
+const VLENB: u64 = VLEN / 8;
 
 impl RiscVCpu {
     /// Create a hart with the given configuration and memory.
@@ -207,8 +213,35 @@ impl RiscVCpu {
             vstart: 0,
             vxrm: 0,
             vxsat: 0,
+            v: [0; 32 * VLENB as usize],
             mem,
         }
+    }
+
+    /// Read the raw 16-byte contents of vector register `i`.
+    pub fn vreg(&self, i: u8) -> [u8; VLENB as usize] {
+        let base = (i as usize & 31) * VLENB as usize;
+        let mut out = [0u8; VLENB as usize];
+        out.copy_from_slice(&self.v[base..base + VLENB as usize]);
+        out
+    }
+
+    /// Write the raw 16-byte contents of vector register `i`.
+    pub fn set_vreg(&mut self, i: u8, val: &[u8; VLENB as usize]) {
+        let base = (i as usize & 31) * VLENB as usize;
+        self.v[base..base + VLENB as usize].copy_from_slice(val);
+    }
+
+    /// Current `vl` / `vtype` (for the vector execution path and tests).
+    pub fn vl(&self) -> u64 {
+        self.vl
+    }
+    pub fn vtype(&self) -> u64 {
+        self.vtype
+    }
+    pub fn set_vl_vtype(&mut self, vl: u64, vtype: u64) {
+        self.vl = vl;
+        self.vtype = vtype;
     }
 
     // ---------------------------------------------------------------
@@ -697,6 +730,10 @@ impl RiscVCpu {
                 self.set_x(rd, vl);
             }
 
+            // ---- V: vector data path ----
+            Op::Vle | Op::Vse | Op::Vadd | Op::Vsub | Op::Vrsub | Op::Vand | Op::Vor
+            | Op::Vxor => self.exec_vector(insn)?,
+
             Op::Illegal => return Err(Trap::illegal(insn.raw)),
 
             // FP handled above via exec_fp.
@@ -1158,6 +1195,126 @@ impl RiscVCpu {
             _ => Priv::User,
         };
         self.mstatus &= !(0b11 << 11); // MPP = U (0)
+    }
+
+    // ---------------------------------------------------------------
+    // V: vector element access and the data-path execution.
+    // ---------------------------------------------------------------
+
+    /// SEW (element width) in bytes from the current `vtype`.
+    #[inline]
+    fn sew_bytes(&self) -> usize {
+        1usize << ((self.vtype >> 3) & 0x7)
+    }
+    /// Read element `e` (of `eb` bytes) from vector register group `vreg`.
+    #[inline]
+    fn velem(&self, vreg: u8, e: usize, eb: usize) -> u64 {
+        let off = vreg as usize * VLENB as usize + e * eb;
+        let mut buf = [0u8; 8];
+        if off + eb <= self.v.len() {
+            buf[..eb].copy_from_slice(&self.v[off..off + eb]);
+        }
+        u64::from_le_bytes(buf)
+    }
+    #[inline]
+    fn set_velem(&mut self, vreg: u8, e: usize, eb: usize, val: u64) {
+        let off = vreg as usize * VLENB as usize + e * eb;
+        if off + eb <= self.v.len() {
+            self.v[off..off + eb].copy_from_slice(&val.to_le_bytes()[..eb]);
+        }
+    }
+    /// Mask bit `e` of `v0`.
+    #[inline]
+    fn vmask_bit(&self, e: usize) -> bool {
+        (self.v[e / 8] >> (e % 8)) & 1 != 0
+    }
+    #[inline]
+    fn sew_mask(eb: usize) -> u64 {
+        if eb >= 8 {
+            u64::MAX
+        } else {
+            (1u64 << (eb * 8)) - 1
+        }
+    }
+
+    /// Execute a vector data-path instruction. The tail/mask policy is
+    /// undisturbed (only active body elements are written).
+    fn exec_vector(&mut self, insn: &Insn) -> Result<(), Trap> {
+        // vill (vtype MSB) => any vector instruction is illegal.
+        if self.vtype >> (self.xbits() - 1) & 1 != 0 {
+            return Err(Trap::illegal(insn.raw));
+        }
+        let vm = (insn.raw >> 25) & 1 != 0; // 1 = unmasked
+        let vd = insn.rd;
+        let vs2 = insn.rs2;
+        let vstart = self.vstart as usize;
+        let vl = self.vl as usize;
+
+        match insn.op {
+            Op::Vle | Op::Vse => {
+                // Effective element width from the load/store funct3 field.
+                let eb = match insn.funct3 {
+                    0 => 1,
+                    5 => 2,
+                    6 => 4,
+                    7 => 8,
+                    _ => return Err(Trap::illegal(insn.raw)),
+                };
+                let base = self.x(insn.rs1) & self.xmask();
+                for e in vstart..vl {
+                    if !vm && !self.vmask_bit(e) {
+                        continue;
+                    }
+                    let addr = base.wrapping_add((e * eb) as u64) & self.xmask();
+                    if insn.op == Op::Vle {
+                        let mut buf = [0u8; 8];
+                        self.mem
+                            .read(addr, &mut buf[..eb])
+                            .map_err(|_| acc_fault(false, addr))?;
+                        self.set_velem(vd, e, eb, u64::from_le_bytes(buf));
+                    } else {
+                        let val = self.velem(vd, e, eb); // vd holds the store data (vs3)
+                        self.mem
+                            .write(addr, &val.to_le_bytes()[..eb])
+                            .map_err(|_| acc_fault(true, addr))?;
+                    }
+                }
+            }
+            Op::Vadd | Op::Vsub | Op::Vrsub | Op::Vand | Op::Vor | Op::Vxor => {
+                let eb = self.sew_bytes();
+                let mask = Self::sew_mask(eb);
+                // Operand form: OPIVV(0) uses vs1, OPIVX(4) a scalar, OPIVI(3) imm.
+                let scalar = match insn.funct3 {
+                    0b100 => self.x(insn.rs1) & mask,
+                    0b011 => (((insn.rs1 as i8) << 3 >> 3) as i64 as u64) & mask, // sext5
+                    _ => 0,
+                };
+                for e in vstart..vl {
+                    if !vm && !self.vmask_bit(e) {
+                        continue;
+                    }
+                    let a = self.velem(vs2, e, eb);
+                    let b = if insn.funct3 == 0b000 {
+                        self.velem(insn.rs1, e, eb)
+                    } else {
+                        scalar
+                    };
+                    let r = match insn.op {
+                        Op::Vadd => a.wrapping_add(b),
+                        Op::Vsub => a.wrapping_sub(b),
+                        Op::Vrsub => b.wrapping_sub(a),
+                        Op::Vand => a & b,
+                        Op::Vor => a | b,
+                        Op::Vxor => a ^ b,
+                        _ => unreachable!(),
+                    };
+                    self.set_velem(vd, e, eb, r & mask);
+                }
+            }
+            _ => return Err(Trap::illegal(insn.raw)),
+        }
+        self.vstart = 0;
+        Ok(())
     }
 
     // ---------------------------------------------------------------
