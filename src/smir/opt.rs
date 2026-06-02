@@ -1539,6 +1539,16 @@ impl OpKind {
                 }
             }
 
+            OpKind::VWidenMul { src1, src2, dst_lo, dst_hi, acc, .. } => {
+                result.push(*src1);
+                result.push(*src2);
+                if *acc {
+                    // accumulating form reads the existing destination pair
+                    result.push(*dst_lo);
+                    result.push(*dst_hi);
+                }
+            }
+
             OpKind::VMov { src, .. } | OpKind::VBroadcast { scalar: src, .. } => {
                 result.push(*src);
             }

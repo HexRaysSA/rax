@@ -855,6 +855,26 @@ pub enum OpKind {
         signed: bool,
     },
 
+    /// Widening elementwise multiply into a destination register pair.
+    ///
+    /// Models the HVX `Vdd.<2w> = vmpy(Vu.<w>, Vv.<w>)` family: each pair of
+    /// adjacent `src_elem`-wide lanes is multiplied into a doubled-width result,
+    /// with the EVEN source lanes' products written to `dst_lo` and the ODD
+    /// lanes' products to `dst_hi` (the Hexagon even/odd vector-pair layout).
+    /// `signed1`/`signed2` select per-operand signedness; when `acc` is set the
+    /// products are added into the existing `dst_lo`/`dst_hi` lanes.
+    VWidenMul {
+        dst_lo: VReg,
+        dst_hi: VReg,
+        src1: VReg,
+        src2: VReg,
+        /// Narrow source element type (I8 or I16); result lanes are double width.
+        src_elem: VecElementType,
+        signed1: bool,
+        signed2: bool,
+        acc: bool,
+    },
+
     /// Vector shift
     VShift {
         dst: VReg,
@@ -1338,6 +1358,8 @@ impl OpKind {
                 VReg::Arch(ArchReg::X86(X86Reg::Rsp)),
                 VReg::Arch(ArchReg::X86(X86Reg::Rbp)),
             ],
+
+            OpKind::VWidenMul { dst_lo, dst_hi, .. } => vec![*dst_lo, *dst_hi],
 
             OpKind::MulU { dst_lo, dst_hi, .. } | OpKind::MulS { dst_lo, dst_hi, .. } => {
                 let mut v = vec![*dst_lo];
