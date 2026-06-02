@@ -1602,6 +1602,22 @@ fn enc_sve_fcvt(opc: u32, opc2: u32) -> u32 {
         | (0b101 << 13) | (RN << 5) | RD
 }
 
+/// SVE LD1 gather (64-bit scalar+vector, D-form): `1100010 msz ig1 Zm 1 U 0 Pg
+/// Rn Zt`. ig1=10 unscaled / 11 scaled. Rn=x1 (base), Zm=z2 (offsets), Zt=z0.
+fn enc_gather_d(msz: u32, scaled: bool, u: u32) -> u32 {
+    let ig1: u32 = if scaled { 0b11 } else { 0b10 };
+    (0b1100010 << 25) | (msz << 23) | (ig1 << 21) | (RM << 16)
+        | (1 << 15) | (u << 14) | (RN << 5) | RD
+}
+
+/// SVE ST1 scatter (64-bit scalar+vector, D-form): `1110010 msz ig1 Zm 101 Pg
+/// Rn Zt`. ig1=00 unscaled / 01 scaled. Rn=x1 (base), Zm=z2 (offsets), Zt=z0.
+fn enc_scatter_d(msz: u32, scaled: bool) -> u32 {
+    let ig1: u32 = if scaled { 0b01 } else { 0b00 };
+    (0b1110010 << 25) | (msz << 23) | (ig1 << 21) | (RM << 16)
+        | (0b101 << 13) | (RN << 5) | RD
+}
+
 /// SVE LD1 (scalar+scalar): `1010010 dtype Rm 010 Pg Rn Zt`. Rn=x1, Rm=x2.
 fn enc_sve_ld1_ss(dtype: u32) -> u32 {
     (0b1010010 << 25) | (dtype << 21) | (RM << 16) | (0b010 << 13) | (RN << 5) | RD
@@ -2355,6 +2371,64 @@ fn diff_sve_fcvt() {
         }
     }
     run_batch("sve_fcvt", batch);
+}
+
+#[test]
+fn diff_sve_gather_d() {
+    // 64-bit gather load: each active D lane reads from Xn + (Zm[e] << scale).
+    // Zm offsets are kept small so every gathered address stays in the window.
+    let mut rng = Rng::new(0x4_0001);
+    let mut batch: Vec<(String, u32, ArmState)> = Vec::new();
+    for msz in 0..4u32 {
+        for &scaled in &[false, true] {
+            if scaled && msz == 0 {
+                continue; // no scaled byte form
+            }
+            for u in 0..2u32 {
+                if u == 0 && msz == 3 {
+                    continue; // no signed 64-bit load (LD1SD does not exist)
+                }
+                let insn = enc_gather_d(msz, scaled, u);
+                let name = format!("gather m{msz} sc{} u{u}", scaled as u32);
+                for _ in 0..8 {
+                    let mut st = mem_input(&mut rng);
+                    let e0 = (rng.next() % 4) as u128;
+                    let e1 = (rng.next() % 4) as u128;
+                    let zm = e0 | (e1 << 64);
+                    st.set_vreg(2, zm as u64, (zm >> 64) as u64); // Zm offsets
+                    st.set_preg(0, rng.next() as u16);
+                    batch.push((name.clone(), insn, st));
+                }
+            }
+        }
+    }
+    run_batch("sve_gather_d", batch);
+}
+
+#[test]
+fn diff_sve_scatter_d() {
+    // 64-bit scatter store: each active D lane writes to Xn + (Zm[e] << scale).
+    let mut rng = Rng::new(0x4_1001);
+    let mut batch: Vec<(String, u32, ArmState)> = Vec::new();
+    for msz in 0..4u32 {
+        for &scaled in &[false, true] {
+            if scaled && msz == 0 {
+                continue;
+            }
+            let insn = enc_scatter_d(msz, scaled);
+            let name = format!("scatter m{msz} sc{}", scaled as u32);
+            for _ in 0..8 {
+                let mut st = mem_input(&mut rng);
+                let e0 = (rng.next() % 4) as u128;
+                let e1 = (rng.next() % 4) as u128;
+                let zm = e0 | (e1 << 64);
+                st.set_vreg(2, zm as u64, (zm >> 64) as u64); // Zm offsets
+                st.set_preg(0, rng.next() as u16);
+                batch.push((name.clone(), insn, st));
+            }
+        }
+    }
+    run_batch("sve_scatter_d", batch);
 }
 
 #[test]
