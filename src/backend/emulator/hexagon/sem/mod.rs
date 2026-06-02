@@ -43,6 +43,7 @@ mod hvx_predop;
 mod hvx_rmpy;
 mod hvx_round;
 mod hvx_shift;
+mod hvx_v6mpy;
 mod mpy;
 mod mpy_ext;
 mod shift;
@@ -280,6 +281,7 @@ pub fn dispatch(d: &DecodedOp, ctx: &mut SemCtx) -> bool {
         || hvx_misc::exec(op, d, ctx)
         || hvx_carry::exec(op, d, ctx)
         || hvx_hist::exec(op, d, ctx)
+        || hvx_v6mpy::exec(op, d, ctx)
         || mpy_ext::exec(op, d, ctx)
         || shift_ext::exec(op, d, ctx)
         || alu_ext::exec(op, d, ctx)
