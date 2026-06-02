@@ -1595,6 +1595,18 @@ fn enc_sve_tbl(sz: u32) -> u32 {
         | (0b001100 << 10) | (RN << 5) | RD
 }
 
+/// SVE COMPACT: `00000101 1 sz 100001 100 Pg Zn Zd`. sz: 0=S, 1=D. Zn=z1, Pg=p0.
+fn enc_sve_compact(sz: u32) -> u32 {
+    (0b00000101 << 24) | (1 << 23) | (sz << 22) | (0b100001 << 16)
+        | (0b100 << 13) | (RN << 5) | RD
+}
+
+/// SVE SPLICE (destructive): `00000101 size 101100 100 Pg Zm Zdn`. Zm=z1, Pg=p0,
+/// Zdn=z0 (both source-1 and destination).
+fn enc_sve_splice(sz: u32) -> u32 {
+    (0b00000101 << 24) | (sz << 22) | (0b101100 << 16) | (0b100 << 13) | (RN << 5) | RD
+}
+
 #[test]
 fn diff_sve_index() {
     let mut cases: Vec<(String, u32)> = Vec::new();
@@ -2150,6 +2162,44 @@ fn diff_sve_tbl() {
         cases.push((format!("sve_tbl sz{sz}"), enc_sve_tbl(sz)));
     }
     run_family("sve_tbl", cases, 24, 0x2_6001);
+}
+
+#[test]
+fn diff_sve_compact() {
+    // COMPACT packs Pg-active S/D elements of Zn to the bottom of Zd, zeroing
+    // the rest. A random predicate exercises arbitrary active-element patterns.
+    let mut rng = Rng::new(0x2_7001);
+    let mut batch: Vec<(String, u32, ArmState)> = Vec::new();
+    for sz in 0..2u32 {
+        let insn = enc_sve_compact(sz);
+        for _ in 0..24 {
+            let mut st = ArmState::zeroed();
+            st.set_vreg(1, rng.next(), rng.next());
+            st.set_preg(0, rng.next() as u16);
+            batch.push((format!("compact sz{sz}"), insn, st));
+        }
+    }
+    run_batch("sve_compact", batch);
+}
+
+#[test]
+fn diff_sve_splice() {
+    // SPLICE copies Zdn's active span (first..last active) to the low result,
+    // then fills the remainder from Zm. Random Zdn/Zm/Pg cover the active-span,
+    // wrap, and empty-predicate (result == Zm) paths.
+    let mut rng = Rng::new(0x2_8001);
+    let mut batch: Vec<(String, u32, ArmState)> = Vec::new();
+    for sz in 0..4u32 {
+        let insn = enc_sve_splice(sz);
+        for _ in 0..24 {
+            let mut st = ArmState::zeroed();
+            st.set_vreg(0, rng.next(), rng.next()); // Zdn (source-1 + dest)
+            st.set_vreg(1, rng.next(), rng.next()); // Zm
+            st.set_preg(0, rng.next() as u16);
+            batch.push((format!("splice sz{sz}"), insn, st));
+        }
+    }
+    run_batch("sve_splice", batch);
 }
 
 #[test]
