@@ -6,6 +6,7 @@
 //! control left the instruction (normal retire, environment call, breakpoint,
 //! wait-for-interrupt, or a synchronous trap).
 
+use super::crypto;
 use super::csr::Csr;
 use super::decode::{decode_at, DecodeError, Insn, Op};
 use super::float::RoundingMode;
@@ -615,6 +616,37 @@ impl RiscVCpu {
             Op::Packh => self.set_x(rd, ((b & 0xff) << 8) | (a & 0xff)),
             Op::Packw => self.set_x(rd, word((((b & 0xffff) << 16) | (a & 0xffff)) as u32)),
             Op::Brev8 => self.set_x(rd, brev8(a) & self.xmask()),
+
+            // ---- Zbkx ----
+            Op::Xperm4 => self.set_x(rd, crypto::xperm4(a, b, self.xbits())),
+            Op::Xperm8 => self.set_x(rd, crypto::xperm8(a, b, self.xbits())),
+
+            // ---- Zknh (SHA) ----
+            Op::Sha256Sig0 => self.set_x(rd, crypto::sha256sig0(a)),
+            Op::Sha256Sig1 => self.set_x(rd, crypto::sha256sig1(a)),
+            Op::Sha256Sum0 => self.set_x(rd, crypto::sha256sum0(a)),
+            Op::Sha256Sum1 => self.set_x(rd, crypto::sha256sum1(a)),
+            Op::Sha512Sig0 => self.set_x(rd, crypto::sha512sig0(a)),
+            Op::Sha512Sig1 => self.set_x(rd, crypto::sha512sig1(a)),
+            Op::Sha512Sum0 => self.set_x(rd, crypto::sha512sum0(a)),
+            Op::Sha512Sum1 => self.set_x(rd, crypto::sha512sum1(a)),
+
+            // ---- Zksh (SM3) ----
+            Op::Sm3p0 => self.set_x(rd, crypto::sm3p0(a)),
+            Op::Sm3p1 => self.set_x(rd, crypto::sm3p1(a)),
+
+            // ---- Zksed (SM4) ----
+            Op::Sm4ed => self.set_x(rd, crypto::sm4ed(a, b, (insn.raw >> 30) & 3)),
+            Op::Sm4ks => self.set_x(rd, crypto::sm4ks(a, b, (insn.raw >> 30) & 3)),
+
+            // ---- Zkne / Zknd (AES-64) ----
+            Op::Aes64es => self.set_x(rd, crypto::aes64es(a, b)),
+            Op::Aes64esm => self.set_x(rd, crypto::aes64esm(a, b)),
+            Op::Aes64ds => self.set_x(rd, crypto::aes64ds(a, b)),
+            Op::Aes64dsm => self.set_x(rd, crypto::aes64dsm(a, b)),
+            Op::Aes64im => self.set_x(rd, crypto::aes64im(a)),
+            Op::Aes64ks1i => self.set_x(rd, crypto::aes64ks1i(a, (insn.raw >> 20) & 0xf)),
+            Op::Aes64ks2 => self.set_x(rd, crypto::aes64ks2(a, b)),
 
             Op::Illegal => return Err(Trap::illegal(insn.raw)),
 

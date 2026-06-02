@@ -1692,9 +1692,12 @@ fn diff_decode_fuzz() {
             let rs2 = safe[(rng.next() as usize) % 11];
             w = (w & !(0x1f << 20)) | (rs2 << 20);
         }
-        // Scope to the encodings rax implements: this fuzzer proves that every
-        // instruction rax decodes matches qemu. Encodings rax does not decode
-        // (e.g. scalar-crypto extensions qemu enables) are out of scope here.
+        // This fuzzer proves that every encoding rax *decodes* matches qemu.
+        // rax follows the spec strictly; qemu's FP decoder is occasionally more
+        // lenient (e.g. it accepts fcvt.h.s with a reserved non-zero rs2 field),
+        // so encodings rax treats as illegal are out of scope here. With the
+        // full extension set implemented, this skips only those reserved-field
+        // leniencies -- every encoding rax accepts is checked against qemu.
         if decode(w, Xlen::Rv64, &Isa::rv64gc()).is_illegal() {
             continue;
         }
@@ -1853,4 +1856,52 @@ fn diff_zfh() {
         batch.push((format!("fli.h#{idx}"), fp(0x7a, 1, idx, 0, fd), RvState::zeroed()));
     }
     run_batch(&batch, true);
+}
+
+// ---------------------------------------------------------------------------
+// Scalar cryptography (Zbkx, Zknh, Zksh, Zksed, Zkne, Zknd).
+// ---------------------------------------------------------------------------
+
+/// OP-IMM unary crypto (sha/sm3/aes64im/aes64ks1i): funct7, rs2 selector.
+fn op_imm_u(funct7: u32, rs2: u32, rs1: u32, rd: u32) -> u32 {
+    (funct7 << 25) | (rs2 << 20) | (rs1 << 15) | (1 << 12) | (rd << 7) | 0x13
+}
+
+#[test]
+fn diff_crypto() {
+    let mut rng = Rng::new(0xC2_19_70);
+    let mut batch = Vec::new();
+    let r = |rng: &mut Rng| POOL[(rng.next() % 6) as usize];
+    for _ in 0..60 {
+        let (rd, rs1, rs2) = (r(&mut rng), r(&mut rng), r(&mut rng));
+        // Zbkx
+        batch.push(("xperm8".into(), r_type(0b0010100, rs2, rs1, 4, rd, 0x33), rand_state(&mut rng)));
+        batch.push(("xperm4".into(), r_type(0b0010100, rs2, rs1, 2, rd, 0x33), rand_state(&mut rng)));
+        // Zknh (OP-IMM unary)
+        for (name, sel) in [
+            ("sha256sum0", 0u32), ("sha256sum1", 1), ("sha256sig0", 2), ("sha256sig1", 3),
+            ("sha512sum0", 4), ("sha512sum1", 5), ("sha512sig0", 6), ("sha512sig1", 7),
+        ] {
+            batch.push((name.into(), op_imm_u(0b0001000, sel, rs1, rd), rand_state(&mut rng)));
+        }
+        // Zksh (SM3)
+        batch.push(("sm3p0".into(), op_imm_u(0b0001000, 8, rs1, rd), rand_state(&mut rng)));
+        batch.push(("sm3p1".into(), op_imm_u(0b0001000, 9, rs1, rd), rand_state(&mut rng)));
+        // Zksed (SM4) all byte-selects
+        for bs in 0..4u32 {
+            batch.push(("sm4ed".into(), r_type((bs << 5) | 0b11000, rs2, rs1, 0, rd, 0x33), rand_state(&mut rng)));
+            batch.push(("sm4ks".into(), r_type((bs << 5) | 0b11010, rs2, rs1, 0, rd, 0x33), rand_state(&mut rng)));
+        }
+        // Zkne / Zknd (AES-64)
+        batch.push(("aes64es".into(), r_type(0b0011001, rs2, rs1, 0, rd, 0x33), rand_state(&mut rng)));
+        batch.push(("aes64esm".into(), r_type(0b0011011, rs2, rs1, 0, rd, 0x33), rand_state(&mut rng)));
+        batch.push(("aes64ds".into(), r_type(0b0011101, rs2, rs1, 0, rd, 0x33), rand_state(&mut rng)));
+        batch.push(("aes64dsm".into(), r_type(0b0011111, rs2, rs1, 0, rd, 0x33), rand_state(&mut rng)));
+        batch.push(("aes64ks2".into(), r_type(0b0111111, rs2, rs1, 0, rd, 0x33), rand_state(&mut rng)));
+        batch.push(("aes64im".into(), op_imm_u(0b0011000, 0, rs1, rd), rand_state(&mut rng)));
+        for rnum in 0..=0xAu32 {
+            batch.push(("aes64ks1i".into(), op_imm_u(0b0011000, 0x10 | rnum, rs1, rd), rand_state(&mut rng)));
+        }
+    }
+    run_batch(&batch, false);
 }

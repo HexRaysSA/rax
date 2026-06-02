@@ -275,6 +275,27 @@ impl Op {
             FroundnxH => "froundnx.h",
             FleqH => "fleq.h",
             FltqH => "fltq.h",
+            Xperm4 => "xperm4",
+            Xperm8 => "xperm8",
+            Sha256Sig0 => "sha256sig0",
+            Sha256Sig1 => "sha256sig1",
+            Sha256Sum0 => "sha256sum0",
+            Sha256Sum1 => "sha256sum1",
+            Sha512Sig0 => "sha512sig0",
+            Sha512Sig1 => "sha512sig1",
+            Sha512Sum0 => "sha512sum0",
+            Sha512Sum1 => "sha512sum1",
+            Sm3p0 => "sm3p0",
+            Sm3p1 => "sm3p1",
+            Sm4ed => "sm4ed",
+            Sm4ks => "sm4ks",
+            Aes64es => "aes64es",
+            Aes64esm => "aes64esm",
+            Aes64ds => "aes64ds",
+            Aes64dsm => "aes64dsm",
+            Aes64ks1i => "aes64ks1i",
+            Aes64ks2 => "aes64ks2",
+            Aes64im => "aes64im",
             Illegal => "illegal",
         }
     }
@@ -302,7 +323,9 @@ impl Op {
             ScW | ScD | AmoswapW | AmoaddW | AmoxorW | AmoandW | AmoorW | AmominW | AmomaxW
             | AmominuW | AmomaxuW | AmoswapD | AmoaddD | AmoxorD | AmoandD | AmoorD | AmominD
             | AmomaxD | AmominuD | AmomaxuD => Class::Amo,
-            Clz | Ctz | Cpop | SextB | SextH | ZextH | Clzw | Ctzw | Cpopw | Brev8 => Class::Unary,
+            Clz | Ctz | Cpop | SextB | SextH | ZextH | Clzw | Ctzw | Cpopw | Brev8 | Sha256Sig0
+            | Sha256Sig1 | Sha256Sum0 | Sha256Sum1 | Sha512Sig0 | Sha512Sig1 | Sha512Sum0
+            | Sha512Sum1 | Sm3p0 | Sm3p1 | Aes64im | Aes64ks1i => Class::Unary,
             FsqrtS | FsqrtD | FroundS | FroundnxS | FroundD | FroundnxD | FsqrtH | FroundH
             | FroundnxH => Class::FUnary,
             FaddS | FsubS | FmulS | FdivS | FsgnjS | FsgnjnS | FsgnjxS | FminS | FmaxS | FaddD

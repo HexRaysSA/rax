@@ -28,6 +28,7 @@
 //! default backing store.
 
 pub mod cpu;
+pub mod crypto;
 pub mod csr;
 pub mod decode;
 pub mod disasm;
@@ -104,6 +105,18 @@ pub struct Isa {
     pub zbkb: bool,
     /// Zfh: half-precision floating point.
     pub zfh: bool,
+    /// Zbkx: crossbar permutations (crypto).
+    pub zbkx: bool,
+    /// Zknh: NIST SHA-256/512 hash transforms.
+    pub zknh: bool,
+    /// Zksh: ShangMi SM3 hash transforms.
+    pub zksh: bool,
+    /// Zksed: ShangMi SM4 block cipher.
+    pub zksed: bool,
+    /// Zkne: NIST AES encryption.
+    pub zkne: bool,
+    /// Zknd: NIST AES decryption.
+    pub zknd: bool,
 }
 
 impl Isa {
@@ -125,6 +138,12 @@ impl Isa {
             zfa: true,
             zbkb: true,
             zfh: true,
+            zbkx: true,
+            zknh: true,
+            zksh: true,
+            zksed: true,
+            zkne: true,
+            zknd: true,
         }
     }
 
@@ -146,6 +165,12 @@ impl Isa {
             zfa: false,
             zbkb: false,
             zfh: false,
+            zbkx: false,
+            zknh: false,
+            zksh: false,
+            zksed: false,
+            zkne: false,
+            zknd: false,
         }
     }
 

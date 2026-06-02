@@ -298,6 +298,32 @@ pub enum Op {
     FroundnxH,
     FleqH,
     FltqH,
+    // ---- Zbkx ----
+    Xperm4,
+    Xperm8,
+    // ---- Zknh (SHA) ----
+    Sha256Sig0,
+    Sha256Sig1,
+    Sha256Sum0,
+    Sha256Sum1,
+    Sha512Sig0,
+    Sha512Sig1,
+    Sha512Sum0,
+    Sha512Sum1,
+    // ---- Zksh (SM3) ----
+    Sm3p0,
+    Sm3p1,
+    // ---- Zksed (SM4) ----
+    Sm4ed,
+    Sm4ks,
+    // ---- Zkne / Zknd (AES) ----
+    Aes64es,
+    Aes64esm,
+    Aes64ds,
+    Aes64dsm,
+    Aes64ks1i,
+    Aes64ks2,
+    Aes64im,
     // ---- sentinel ----
     Illegal,
 }
@@ -599,6 +625,34 @@ fn decode_shift_left_imm(w: u32, rv64: bool, isa: &Isa) -> Insn {
     let funct7 = funct7(w);
     let shamt = ((w >> 20) & if rv64 { 0x3f } else { 0x1f }) as i64;
     let rs2f = rs2(w);
+    // SHA / SM3 message-schedule transforms (funct7 = 0b0001000).
+    if funct7 == 0b0001000 {
+        match rs2f {
+            0b00000 if isa.zknh => return base(Op::Sha256Sum0, w),
+            0b00001 if isa.zknh => return base(Op::Sha256Sum1, w),
+            0b00010 if isa.zknh => return base(Op::Sha256Sig0, w),
+            0b00011 if isa.zknh => return base(Op::Sha256Sig1, w),
+            0b00100 if isa.zknh => return base(Op::Sha512Sum0, w),
+            0b00101 if isa.zknh => return base(Op::Sha512Sum1, w),
+            0b00110 if isa.zknh => return base(Op::Sha512Sig0, w),
+            0b00111 if isa.zknh => return base(Op::Sha512Sig1, w),
+            0b01000 if isa.zksh => return base(Op::Sm3p0, w),
+            0b01001 if isa.zksh => return base(Op::Sm3p1, w),
+            _ => {}
+        }
+    }
+    // AES-64 decrypt InvMixColumns / key-schedule step 1 (funct7 = 0b0011000).
+    if funct7 == 0b0011000 {
+        if rs2f == 0 && isa.zknd {
+            return base(Op::Aes64im, w);
+        }
+        if rs2f & 0b10000 != 0 && (isa.zkne || isa.zknd) {
+            // aes64ks1i: rnum in rs2[3:0], must be <= 0xA.
+            if (rs2f & 0xf) <= 0xA {
+                return base(Op::Aes64ks1i, w);
+            }
+        }
+    }
     // CLZ/CTZ/CPOP/SEXT.B/SEXT.H share funct7=0b0110000.
     if isa.zbb && funct7 == 0b0110000 {
         let op = match rs2f {
@@ -795,6 +849,33 @@ fn decode_op(w: u32, isa: &Isa) -> Insn {
             4 => return base(Op::Pack, w),
             7 => return base(Op::Packh, w),
             _ => {}
+        }
+    }
+    // Zbkx crossbar permute.
+    if isa.zbkx && f7 == 0b0010100 {
+        match f3 {
+            2 => return base(Op::Xperm4, w),
+            4 => return base(Op::Xperm8, w),
+            _ => {}
+        }
+    }
+    if f3 == 0 {
+        // AES-64 round / key-schedule (Zkne / Zknd).
+        match f7 {
+            0b0011001 if isa.zkne => return base(Op::Aes64es, w),
+            0b0011011 if isa.zkne => return base(Op::Aes64esm, w),
+            0b0011101 if isa.zknd => return base(Op::Aes64ds, w),
+            0b0011111 if isa.zknd => return base(Op::Aes64dsm, w),
+            0b0111111 if isa.zkne || isa.zknd => return base(Op::Aes64ks2, w),
+            _ => {}
+        }
+        // SM4 (Zksed): funct7 low 5 bits select ed/ks, top 2 bits carry `bs`.
+        if isa.zksed {
+            match f7 & 0b0011111 {
+                0b11000 => return base(Op::Sm4ed, w),
+                0b11010 => return base(Op::Sm4ks, w),
+                _ => {}
+            }
         }
     }
     // Base RV32I/RV64I.
