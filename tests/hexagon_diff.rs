@@ -584,6 +584,22 @@ fn diff_alu_rr() {
 }
 
 #[test]
+fn diff_misc_noop() {
+    // Sync / cache / memory-ordering hints with no architectural register effect
+    // in user mode: they must leave all state identical on rax and the oracle.
+    let cases = vec![
+        ("barrier".to_string(), "{ barrier }".to_string()),
+        ("isync".to_string(), "{ isync }".to_string()),
+        ("syncht".to_string(), "{ syncht }".to_string()),
+        ("dcfetch".to_string(), "{ dcfetch(r2+#0) }".to_string()),
+        ("icinva".to_string(), "{ icinva(r2) }".to_string()),
+        ("release_at".to_string(), "{ release(r2):at }".to_string()),
+        ("release_st".to_string(), "{ release(r2):st }".to_string()),
+    ];
+    run_family("misc_noop", cases, 8, 0x1f0a);
+}
+
+#[test]
 fn diff_alu_imm() {
     let cases = vec![
         ("addi".to_string(), "{ r0 = add(r1,#10) }".to_string()),

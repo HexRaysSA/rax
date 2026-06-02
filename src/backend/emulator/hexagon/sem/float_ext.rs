@@ -803,13 +803,22 @@ pub fn exec(op: Opcode, d: &DecodedOp, ctx: &mut SemCtx) -> bool {
             ctx.set_rp(rd, rdd);
         }
 
-        // ---- cache ops: no architectural register/predicate effect -> no-op ----
+        // ---- cache / sync / memory-ordering ops: no architectural register or
+        // predicate effect in user mode -> no-op ----
         Opcode::Y2_dccleana
         | Opcode::Y2_dccleaninva
         | Opcode::Y2_dcinva
         | Opcode::Y4_l2fetch
-        | Opcode::Y5_l2fetch => {
-            // Memory-hierarchy hints only; leave all registers unchanged.
+        | Opcode::Y5_l2fetch
+        | Opcode::Y2_barrier
+        | Opcode::Y2_dcfetchbo
+        | Opcode::Y2_icinva
+        | Opcode::Y2_isync
+        | Opcode::Y2_syncht
+        | Opcode::R6_release_at_vi
+        | Opcode::R6_release_st_vi => {
+            // Memory-hierarchy / synchronization / memory-ordering hints only;
+            // they leave all architectural registers unchanged.
         }
 
         _ => return false,
