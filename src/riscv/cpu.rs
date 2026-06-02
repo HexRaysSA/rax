@@ -731,8 +731,9 @@ impl RiscVCpu {
             }
 
             // ---- V: vector data path ----
-            Op::Vle | Op::Vse | Op::Vadd | Op::Vsub | Op::Vrsub | Op::Vand | Op::Vor
-            | Op::Vxor => self.exec_vector(insn)?,
+            Op::Vle | Op::Vse | Op::Vadd | Op::Vsub | Op::Vrsub | Op::Vand | Op::Vor | Op::Vxor
+            | Op::Vminu | Op::Vmin | Op::Vmaxu | Op::Vmax | Op::Vsll | Op::Vsrl | Op::Vsra
+            | Op::Vmerge => self.exec_vector(insn)?,
 
             Op::Illegal => return Err(Trap::illegal(insn.raw)),
 
@@ -1280,13 +1281,39 @@ impl RiscVCpu {
                     }
                 }
             }
-            Op::Vadd | Op::Vsub | Op::Vrsub | Op::Vand | Op::Vor | Op::Vxor => {
+            Op::Vmerge => {
+                // vmerge.v*m (vm=0): per-element select via v0; vmv.v.* (vm=1):
+                // splat the second operand. Both write every body element.
                 let eb = self.sew_bytes();
                 let mask = Self::sew_mask(eb);
+                let scalar = match insn.funct3 {
+                    0b100 => self.x(insn.rs1) & mask,
+                    0b011 => sext5(insn.rs1) & mask,
+                    _ => 0,
+                };
+                for e in vstart..vl {
+                    let b = if insn.funct3 == 0b000 {
+                        self.velem(insn.rs1, e, eb)
+                    } else {
+                        scalar
+                    };
+                    let r = if vm || self.vmask_bit(e) {
+                        b
+                    } else {
+                        self.velem(vs2, e, eb)
+                    };
+                    self.set_velem(vd, e, eb, r & mask);
+                }
+            }
+            Op::Vadd | Op::Vsub | Op::Vrsub | Op::Vand | Op::Vor | Op::Vxor | Op::Vminu
+            | Op::Vmin | Op::Vmaxu | Op::Vmax | Op::Vsll | Op::Vsrl | Op::Vsra => {
+                let eb = self.sew_bytes();
+                let mask = Self::sew_mask(eb);
+                let bits = (eb * 8) as u32;
                 // Operand form: OPIVV(0) uses vs1, OPIVX(4) a scalar, OPIVI(3) imm.
                 let scalar = match insn.funct3 {
                     0b100 => self.x(insn.rs1) & mask,
-                    0b011 => (((insn.rs1 as i8) << 3 >> 3) as i64 as u64) & mask, // sext5
+                    0b011 => sext5(insn.rs1) & mask,
                     _ => 0,
                 };
                 for e in vstart..vl {
@@ -1299,6 +1326,15 @@ impl RiscVCpu {
                     } else {
                         scalar
                     };
+                    let sa = sext_sew(a, eb);
+                    let sb = sext_sew(b, eb);
+                    // Shift amount: OPIVI uses the unsigned 5-bit field, else the
+                    // low bits of the operand.
+                    let sh = if insn.funct3 == 0b011 {
+                        insn.rs1 as u32 & (bits - 1)
+                    } else {
+                        (b as u32) & (bits - 1)
+                    };
                     let r = match insn.op {
                         Op::Vadd => a.wrapping_add(b),
                         Op::Vsub => a.wrapping_sub(b),
@@ -1306,6 +1342,25 @@ impl RiscVCpu {
                         Op::Vand => a & b,
                         Op::Vor => a | b,
                         Op::Vxor => a ^ b,
+                        Op::Vminu => a.min(b),
+                        Op::Vmaxu => a.max(b),
+                        Op::Vmin => {
+                            if sa <= sb {
+                                a
+                            } else {
+                                b
+                            }
+                        }
+                        Op::Vmax => {
+                            if sa >= sb {
+                                a
+                            } else {
+                                b
+                            }
+                        }
+                        Op::Vsll => a << sh,
+                        Op::Vsrl => (a & mask) >> sh,
+                        Op::Vsra => (sa >> sh) as u64,
                         _ => unreachable!(),
                     };
                     self.set_velem(vd, e, eb, r & mask);
@@ -2079,6 +2134,22 @@ fn rev8(a: u64, rv32: bool) -> u64 {
         (a as u32).swap_bytes() as u64
     } else {
         a.swap_bytes()
+    }
+}
+
+/// Sign-extend a 5-bit immediate field to 64 bits (vector OPIVI).
+#[inline]
+fn sext5(field: u8) -> u64 {
+    (((field << 3) as i8) >> 3) as i64 as u64
+}
+/// Sign-extend an `eb`-byte element value to a signed 64-bit integer.
+#[inline]
+fn sext_sew(val: u64, eb: usize) -> i64 {
+    let shift = 64 - eb * 8;
+    if shift == 0 {
+        val as i64
+    } else {
+        ((val << shift) as i64) >> shift
     }
 }
 

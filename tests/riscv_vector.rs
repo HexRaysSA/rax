@@ -370,6 +370,13 @@ fn diff_v_arith() {
         ("vand", 0b001001, true, true),
         ("vor", 0b001010, true, true),
         ("vxor", 0b001011, true, true),
+        ("vminu", 0b000100, true, false),
+        ("vmin", 0b000101, true, false),
+        ("vmaxu", 0b000110, true, false),
+        ("vmax", 0b000111, true, false),
+        ("vsll", 0b100101, true, true),
+        ("vsrl", 0b101000, true, true),
+        ("vsra", 0b101001, true, true),
     ];
     for sew_log2 in 0..4u32 {
         let vmax = vlmax(sew_log2);
@@ -400,6 +407,36 @@ fn diff_v_arith() {
                         batch.push((format!("{name}.vv.m"), op_iv(f6, 0, vs2, vs1, 0b000, vd), stm));
                     }
                 }
+            }
+        }
+    }
+    run_batch(&batch);
+}
+
+#[test]
+fn diff_v_merge() {
+    let mut rng = Rng::new(0x7EC_70E);
+    let mut batch = Vec::new();
+    for sew_log2 in 0..4u32 {
+        let vmax = vlmax(sew_log2);
+        for vl in [vmax, (vmax / 2).max(1)] {
+            for _ in 0..10 {
+                let vd = VPOOL[(rng.next() % 6) as usize];
+                let vs2 = VPOOL[(rng.next() % 6) as usize];
+                let vs1 = VPOOL[(rng.next() % 6) as usize];
+                let rs1 = XPOOL[(rng.next() % 5) as usize];
+                let imm = (rng.next() & 0x1f) as u32;
+                let mut st = rand_vstate(&mut rng, sew_log2, vl);
+                st.v[0] = rng.next(); // mask
+                st.v[1] = rng.next();
+                // vmerge.vvm / vxm / vim (vm=0)
+                batch.push(("vmerge.vvm".into(), op_iv(0b010111, 0, vs2, vs1, 0b000, vd), st));
+                batch.push(("vmerge.vxm".into(), op_iv(0b010111, 0, vs2, rs1, 0b100, vd), st));
+                batch.push(("vmerge.vim".into(), op_iv(0b010111, 0, vs2, imm, 0b011, vd), st));
+                // vmv.v.v / vx / vi (vm=1, vs2=0)
+                batch.push(("vmv.v.v".into(), op_iv(0b010111, 1, 0, vs1, 0b000, vd), st));
+                batch.push(("vmv.v.x".into(), op_iv(0b010111, 1, 0, rs1, 0b100, vd), st));
+                batch.push(("vmv.v.i".into(), op_iv(0b010111, 1, 0, imm, 0b011, vd), st));
             }
         }
     }

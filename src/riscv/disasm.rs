@@ -307,6 +307,14 @@ impl Op {
             Vand => "vand",
             Vor => "vor",
             Vxor => "vxor",
+            Vminu => "vminu",
+            Vmin => "vmin",
+            Vmaxu => "vmaxu",
+            Vmax => "vmax",
+            Vsll => "vsll",
+            Vsrl => "vsrl",
+            Vsra => "vsra",
+            Vmerge => "vmerge",
             Illegal => "illegal",
         }
     }
