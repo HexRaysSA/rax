@@ -1193,29 +1193,32 @@ impl AArch64Cpu {
             let rn = ((insn >> 5) & 0x1F) as usize;
             let rd = (insn & 0x1F) as usize;
             match fp_type {
-                0b00 => {
-                    let n = f32::from_bits(self.v[rn] as u32);
-                    let m = f32::from_bits(self.v[rm] as u32);
-                    let a = f32::from_bits(self.v[ra] as u32);
-                    let r = match (o1, o0) {
-                        (0, 0) => n.mul_add(m, a),     // FMADD:  a + n*m
-                        (0, 1) => (-n).mul_add(m, a),  // FMSUB:  a - n*m
-                        (1, 0) => (-n).mul_add(m, -a), // FNMADD: -a - n*m
-                        _ => n.mul_add(m, -a),         // FNMSUB: -a + n*m
+                0b00 | 0b01 | 0b11 => {
+                    // Route through the canonicalising fused multiply-add. ARM
+                    // negates the product (FMSUB/FNMADD) and/or the addend
+                    // (FNMADD/FNMSUB) before FPMulAdd, which also flips the
+                    // propagated NaN sign.
+                    let eb: u32 = match fp_type {
+                        0b00 => 32,
+                        0b01 => 64,
+                        _ => 16,
                     };
-                    self.v[rd] = r.to_bits() as u128;
-                }
-                0b01 => {
-                    let n = f64::from_bits(self.v[rn] as u64);
-                    let m = f64::from_bits(self.v[rm] as u64);
-                    let a = f64::from_bits(self.v[ra] as u64);
-                    let r = match (o1, o0) {
-                        (0, 0) => n.mul_add(m, a),
-                        (0, 1) => (-n).mul_add(m, a),
-                        (1, 0) => (-n).mul_add(m, -a),
-                        _ => n.mul_add(m, -a),
+                    let m_mask: u64 = if eb == 64 {
+                        u64::MAX
+                    } else {
+                        (1u64 << eb) - 1
                     };
-                    self.v[rd] = r.to_bits() as u128;
+                    let n = self.v[rn] as u64 & m_mask;
+                    let m = self.v[rm] as u64 & m_mask;
+                    let a = self.v[ra] as u64 & m_mask;
+                    let (nn, aa) = match (o1, o0) {
+                        (0, 0) => (n, a),                                    // FMADD
+                        (0, 1) => (fp_neg_bits(n, eb), a),                   // FMSUB
+                        (1, 0) => (fp_neg_bits(n, eb), fp_neg_bits(a, eb)),  // FNMADD
+                        _ => (n, fp_neg_bits(a, eb)),                        // FNMSUB
+                    };
+                    let r = fp_muladd_bits(aa, nn, m, eb);
+                    self.v[rd] = (r & m_mask) as u128;
                 }
                 _ => return Err(ArmError::UndefinedInstruction(insn)),
             }
@@ -1236,47 +1239,44 @@ impl AArch64Cpu {
             let rn = ((insn >> 5) & 0x1F) as u8;
             let rd = (insn & 0x1F) as u8;
 
-            // Determine precision
+            // FMUL/FDIV/FADD/FSUB/FMAX/FMIN/FMAXNM/FMINNM via the canonicalising
+            // helper; FNMUL = FPNeg(FPMul) flips the product's (incl. NaN) sign.
+            let kind = match opcode {
+                0b0000 | 0b1000 => FpKind::Mul,
+                0b0001 => FpKind::Div,
+                0b0010 => FpKind::Add,
+                0b0011 => FpKind::Sub,
+                0b0100 => FpKind::Max,
+                0b0101 => FpKind::Min,
+                0b0110 => FpKind::MaxNm,
+                0b0111 => FpKind::MinNm,
+                _ => return Err(ArmError::Unimplemented(format!("FP opcode {}", opcode))),
+            };
+            let nmul = opcode == 0b1000;
             match fp_type {
                 0b00 => {
-                    // Single precision (32-bit)
-                    let op1 = f32::from_bits(self.v[rn as usize] as u32);
-                    let op2 = f32::from_bits(self.v[rm as usize] as u32);
-
-                    let result = match opcode {
-                        0b0000 => op1 * op2,                   // FMUL
-                        0b0001 => op1 / op2,                   // FDIV
-                        0b0010 => op1 + op2,                   // FADD
-                        0b0011 => op1 - op2,                   // FSUB
-                        0b0100 => op1.max(op2),                // FMAX
-                        0b0101 => op1.min(op2),                // FMIN
-                        0b0110 => self.fp_maxnm_f32(op1, op2), // FMAXNM
-                        0b0111 => self.fp_minnm_f32(op1, op2), // FMINNM
-                        0b1000 => self.fp_nmul_f32(op1, op2),  // FNMUL
-                        _ => return Err(ArmError::Unimplemented(format!("FP opcode {}", opcode))),
-                    };
-
-                    self.v[rd as usize] = result.to_bits() as u128;
+                    let (n, m) = (self.v[rn as usize] as u32, self.v[rm as usize] as u32);
+                    let mut r = fp_three_same_f32(kind, n, m, 0);
+                    if nmul {
+                        r ^= 0x8000_0000;
+                    }
+                    self.v[rd as usize] = r as u128;
                 }
                 0b01 => {
-                    // Double precision (64-bit)
-                    let op1 = f64::from_bits(self.v[rn as usize] as u64);
-                    let op2 = f64::from_bits(self.v[rm as usize] as u64);
-
-                    let result = match opcode {
-                        0b0000 => op1 * op2,                   // FMUL
-                        0b0001 => op1 / op2,                   // FDIV
-                        0b0010 => op1 + op2,                   // FADD
-                        0b0011 => op1 - op2,                   // FSUB
-                        0b0100 => op1.max(op2),                // FMAX
-                        0b0101 => op1.min(op2),                // FMIN
-                        0b0110 => self.fp_maxnm_f64(op1, op2), // FMAXNM
-                        0b0111 => self.fp_minnm_f64(op1, op2), // FMINNM
-                        0b1000 => self.fp_nmul_f64(op1, op2),  // FNMUL
-                        _ => return Err(ArmError::Unimplemented(format!("FP opcode {}", opcode))),
-                    };
-
-                    self.v[rd as usize] = result.to_bits() as u128;
+                    let (n, m) = (self.v[rn as usize] as u64, self.v[rm as usize] as u64);
+                    let mut r = fp_three_same_f64(kind, n, m, 0);
+                    if nmul {
+                        r ^= 0x8000_0000_0000_0000;
+                    }
+                    self.v[rd as usize] = r as u128;
+                }
+                0b11 => {
+                    let (n, m) = (self.v[rn as usize] as u16, self.v[rm as usize] as u16);
+                    let mut r = sve_fp16_binop(kind, n, m);
+                    if nmul {
+                        r ^= 0x8000;
+                    }
+                    self.v[rd as usize] = r as u128;
                 }
                 _ => return Err(ArmError::Unimplemented("FP16/reserved".to_string())),
             }
@@ -1303,6 +1303,51 @@ impl AArch64Cpu {
             if fp_type == 0b01 && opcode == 0b00110 {
                 let bf = f32_to_bf16(self.v[rn as usize] as u32);
                 self.v[rd as usize] = bf as u128;
+                return Ok(CpuExit::Continue);
+            }
+
+            // FCVT (precision change between h/s/d): opcode 0b001xx, bits[16:15]
+            // (=opcode&3) select the destination precision (00=s,01=d,11=h),
+            // ptype the source. Round-to-nearest-even; NaN via FPConvertNaN.
+            if matches!(opcode, 0b00100 | 0b00101 | 0b00111) {
+                let dst = opcode & 0x3;
+                if dst == fp_type {
+                    return Err(ArmError::UndefinedInstruction(insn));
+                }
+                let src_prec = match fp_type {
+                    0b00 => 4usize,
+                    0b01 => 8,
+                    0b11 => 2,
+                    _ => return Err(ArmError::UndefinedInstruction(insn)),
+                };
+                let dst_prec = match dst {
+                    0b00 => 4usize,
+                    0b01 => 8,
+                    _ => 2,
+                };
+                let sb = self.v[rn as usize];
+                // Read the source as f64, and detect a NaN at source precision.
+                let (val, is_nan) = match src_prec {
+                    4 => {
+                        let b = sb as u32;
+                        (f32::from_bits(b) as f64, is_nan32(b))
+                    }
+                    8 => (f64::from_bits(sb as u64), is_nan64(sb as u64)),
+                    _ => {
+                        let b = sb as u16;
+                        (fp16_to_f64(b), (b & 0x7C00) == 0x7C00 && (b & 0x3FF) != 0)
+                    }
+                };
+                let r: u64 = if is_nan {
+                    fp_convert_nan(sb as u64, src_prec, dst_prec)
+                } else {
+                    match dst_prec {
+                        4 => (val as f32).to_bits() as u64,
+                        8 => val.to_bits(),
+                        _ => fp16_round(val) as u64,
+                    }
+                };
+                self.v[rd as usize] = r as u128;
                 return Ok(CpuExit::Continue);
             }
 
@@ -1502,7 +1547,11 @@ impl AArch64Cpu {
         // bits[20:19] = rmode
         // bits[18:16] = opcode
         // bits[15:10] = 000000
-        if (insn >> 24) & 0x7F == 0b0011110 && (insn >> 21) & 1 == 1 && (insn >> 10) & 0x3F == 0 {
+        if (insn >> 24) & 0x7F == 0b0011110
+            && (insn >> 21) & 1 == 1
+            && (insn >> 10) & 0x3F == 0
+            && (insn >> 16) & 0x7 >= 0b110
+        {
             let sf = (insn >> 31) & 1;
             let fp_type = (insn >> 22) & 0x3;
             let rmode = (insn >> 19) & 0x3;
@@ -1592,144 +1641,89 @@ impl AArch64Cpu {
             return Ok(CpuExit::Continue);
         }
 
-        // SCVTF/UCVTF - Signed/Unsigned integer to floating-point
-        // Encoding: 0_sf_0_11110_type_1_00_opcode_000000_Rn_Rd
-        // opcode: 010=SCVTF, 011=UCVTF
+        // Conversion between floating-point and integer (scalar, GPR-involved):
+        // sf 0 0 11110 ptype 1 rmode opcode 000000 Rn Rd. rmode=bits[20:19],
+        // opcode=bits[18:16]. FMOV (opcode 11x) is handled above; here are the
+        // FP<->int conversions: SCVTF/UCVTF (opcode 010/011, int->FP) and
+        // FCVTNS/NU/PS/PU/MS/MU/ZS/ZU/AS/AU (FP->int, rounding from rmode, or
+        // ties-away for opcode 100/101).
         if (insn >> 24) & 0x7F == 0b0011110
             && (insn >> 21) & 1 == 1
-            && (insn >> 17) & 0x3 == 0b00
             && (insn >> 10) & 0x3F == 0
         {
             let sf = (insn >> 31) & 1;
-            let fp_type = (insn >> 22) & 0x3;
+            let ptype = (insn >> 22) & 0x3;
+            let rmode = (insn >> 19) & 0x3;
             let opcode = (insn >> 16) & 0x7;
             let rn = ((insn >> 5) & 0x1F) as u8;
             let rd = (insn & 0x1F) as u8;
-
-            let is_double = fp_type == 0b01;
-            let is_signed = (opcode & 1) == 0;
-
-            let int_val = if sf == 1 {
-                self.get_x(rn)
-            } else {
-                self.get_w(rn) as u64
-            };
-
-            if is_double {
-                let result = if is_signed {
-                    if sf == 1 {
-                        (int_val as i64) as f64
-                    } else {
-                        (int_val as i32) as f64
-                    }
-                } else {
-                    if sf == 1 {
-                        int_val as f64
-                    } else {
-                        (int_val as u32) as f64
-                    }
-                };
-                self.v[rd as usize] = result.to_bits() as u128;
-            } else {
-                let result = if is_signed {
-                    if sf == 1 {
-                        (int_val as i64) as f32
-                    } else {
-                        (int_val as i32) as f32
-                    }
-                } else {
-                    if sf == 1 {
-                        int_val as f32
-                    } else {
-                        (int_val as u32) as f32
-                    }
-                };
-                self.v[rd as usize] = result.to_bits() as u128;
+            if opcode >= 0b110 {
+                // FMOV (general) is handled earlier; anything else is unallocated.
+                return Err(ArmError::UndefinedInstruction(insn));
             }
-
-            return Ok(CpuExit::Continue);
-        }
-
-        // FCVTZS/FCVTZU - Floating-point to signed/unsigned integer with round toward zero
-        // Encoding: 0_sf_0_11110_type_1_11_opcode_000000_Rn_Rd
-        // opcode: 000=FCVTNS, 001=FCVTNU, 010=SCVTF, 011=UCVTF,
-        //         100=FCVTAS, 101=FCVTAU, 110=FMOV, 111=FMOV
-        //         type=0x: 000=FCVTMS/FCVTMU, 001=FCVTZS/FCVTZU, 010=FCVTPS/FCVTPU
-        if (insn >> 24) & 0x7F == 0b0011110
-            && (insn >> 21) & 1 == 1
-            && (insn >> 17) & 0x3 == 0b11
-            && (insn >> 10) & 0x3F == 0
-        {
-            let sf = (insn >> 31) & 1;
-            let fp_type = (insn >> 22) & 0x3;
-            let opcode = (insn >> 16) & 0x7;
-            let rn = ((insn >> 5) & 0x1F) as u8;
-            let rd = (insn & 0x1F) as u8;
-
-            let is_double = fp_type == 0b01;
-            let is_signed = (opcode & 1) == 0;
-
-            // Get the floating point value
-            let (result_signed, result_unsigned): (i64, u64) = if is_double {
-                let fp_val = f64::from_bits(self.v[rn as usize] as u64);
-                let truncated = fp_val.trunc();
-
-                if is_signed {
-                    let result = if sf == 1 {
-                        truncated as i64
-                    } else {
-                        (truncated as i32) as i64
-                    };
-                    (result, result as u64)
+            if opcode == 0b010 || opcode == 0b011 {
+                // SCVTF / UCVTF: integer (GPR) -> floating-point.
+                let signed = opcode == 0b010;
+                let iv = if sf == 1 { self.get_x(rn) } else { self.get_w(rn) as u64 };
+                let val: f64 = if signed {
+                    if sf == 1 { iv as i64 as f64 } else { iv as i32 as f64 }
+                } else if sf == 1 {
+                    iv as f64
                 } else {
-                    let result = if sf == 1 {
-                        truncated as u64
-                    } else {
-                        (truncated as u32) as u64
-                    };
-                    (result as i64, result)
-                }
+                    iv as u32 as f64
+                };
+                let r: u64 = match ptype {
+                    0b00 => {
+                        // Round the (exact-in-f64) value to f32.
+                        let f: f32 = if signed {
+                            if sf == 1 { iv as i64 as f32 } else { iv as i32 as f32 }
+                        } else if sf == 1 {
+                            iv as f32
+                        } else {
+                            iv as u32 as f32
+                        };
+                        f.to_bits() as u64
+                    }
+                    0b01 => val.to_bits(),
+                    0b11 => fp16_round(val) as u64,
+                    _ => return Err(ArmError::UndefinedInstruction(insn)),
+                };
+                self.v[rd as usize] = r as u128;
+                return Ok(CpuExit::Continue);
+            }
+            // FP -> integer. signed = even opcode; rounding from rmode (or
+            // ties-away for FCVTA* opcode 100/101).
+            let signed = (opcode & 1) == 0;
+            let fval: f64 = match ptype {
+                0b00 => f32::from_bits(self.v[rn as usize] as u32) as f64,
+                0b01 => f64::from_bits(self.v[rn as usize] as u64),
+                0b11 => fp16_to_f64(self.v[rn as usize] as u16),
+                _ => return Err(ArmError::UndefinedInstruction(insn)),
+            };
+            let rounded = if opcode >= 0b100 {
+                fval.round() // FCVTAS/FCVTAU: round to nearest, ties away
             } else {
-                let fp_val = f32::from_bits(self.v[rn as usize] as u32);
-                let truncated = fp_val.trunc();
-
-                if is_signed {
-                    let result = if sf == 1 {
-                        truncated as i64
-                    } else {
-                        (truncated as i32) as i64
-                    };
-                    (result, result as u64)
-                } else {
-                    let result = if sf == 1 {
-                        truncated as u64
-                    } else {
-                        (truncated as u32) as u64
-                    };
-                    (result as i64, result)
+                match rmode {
+                    0b00 => fval.round_ties_even(),
+                    0b01 => fval.ceil(),
+                    0b10 => fval.floor(),
+                    _ => fval.trunc(),
                 }
             };
-
+            // Saturate into the sf-width signed/unsigned range; NaN -> 0 (Rust's
+            // float-to-int `as` already truncates/saturates/maps NaN to 0, and the
+            // input is already integral).
+            let res: u64 = match (sf == 1, signed) {
+                (true, true) => rounded as i64 as u64,
+                (true, false) => rounded as u64,
+                (false, true) => (rounded as i32) as u32 as u64,
+                (false, false) => (rounded as u32) as u64,
+            };
             if sf == 1 {
-                self.set_x(
-                    rd,
-                    if is_signed {
-                        result_signed as u64
-                    } else {
-                        result_unsigned
-                    },
-                );
+                self.set_x(rd, res);
             } else {
-                self.set_w(
-                    rd,
-                    if is_signed {
-                        result_signed as u32
-                    } else {
-                        result_unsigned as u32
-                    },
-                );
+                self.set_w(rd, res as u32);
             }
-
             return Ok(CpuExit::Continue);
         }
 
@@ -16348,6 +16342,31 @@ fn sha1_hash(x_in: u128, y_in: u32, w: u128, f: fn(u32, u32, u32) -> u32) -> u12
 // forms — then rounded once to binary16 with `fp16_round`.
 
 #[inline]
+/// ARM FPConvertNaN (FPCR.DN=0): convert a NaN between FP precisions, preserving
+/// the sign, quieting, and aligning the payload to the MSB of the destination
+/// mantissa. `prec` is the byte width: 2=f16(10-bit mantissa), 4=f32(23), 8=f64(52).
+fn fp_convert_nan(src: u64, src_prec: usize, dst_prec: usize) -> u64 {
+    let fields = |p: usize| -> (u32, u32) {
+        match p {
+            2 => (10, 5),
+            4 => (23, 8),
+            _ => (52, 11),
+        }
+    };
+    let (sm, se) = fields(src_prec);
+    let (dm, de) = fields(dst_prec);
+    let sign = (src >> (sm + se)) & 1;
+    let payload = src & ((1u64 << sm) - 1);
+    let aligned = if dm >= sm {
+        payload << (dm - sm)
+    } else {
+        payload >> (sm - dm)
+    };
+    let quiet = 1u64 << (dm - 1);
+    let exp_all = (1u64 << de) - 1;
+    (sign << (dm + de)) | (exp_all << dm) | quiet | aligned
+}
+
 fn fp16_to_f64(h: u16) -> f64 {
     AArch64Cpu::fp16_to_f32(h) as f64
 }

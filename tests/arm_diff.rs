@@ -3480,6 +3480,54 @@ fn diff_sve_sincdecp() {
 }
 
 #[test]
+fn diff_scalar_fp() {
+    // Scalar FP data-processing (2-source FMUL/FDIV/FADD/FSUB/FMAX/FMIN/FMAXNM/
+    // FMINNM/FNMUL, 3-source FMADD/FMSUB/FNMADD/FNMSUB, 1-source FSQRT/FABS/
+    // FNEG/FRINT, FCVT precision change, and FP<->integer FCVTxS/xU/SCVTF/UCVTF)
+    // with NaN/inf/denormal/-0 operands: the ARM default-NaN/quiet-propagation,
+    // FNMUL/FMSUB/FNMADD sign flips, FCVT NaN payload conversion, and the
+    // round-mode FP-to-int conversions.
+    let enc: &[u32] = &[0x1e222820, 0x1e220820, 0x1e621820, 0x1e224820, 0x1e225820, 0x1e226820, 0x1e227820, 0x1e228820, 0x1f020c20, 0x1f028c20, 0x1f220c20, 0x1f628c20, 0x1e21c020, 0x1e60c020, 0x1e214020, 0x1e244020, 0x1e24c020, 0x1e65c020, 0x1e22c020, 0x1e624020, 0x1e23c020, 0x1ee24020, 0x1e380020, 0x1e220020, 0x1e210400, 0x1e221c20, 0x1e628820];
+    let sp: [u64; 12] = [
+        0x7F800000_7F800000,
+        0xFF800000_FF800000,
+        0x7FC00000_7FC00000,
+        0x7F800001_FF800001,
+        0x00000001_80000001,
+        0x80000000_00000000,
+        0x3F800000_BF800000,
+        0x7F7FFFFF_FF7FFFFF,
+        0x7FF0000000000000,
+        0xFFF0000000000000,
+        0x7FF8000000000000,
+        0x7E007C007DF80200,
+    ];
+    let mut rng = Rng::new(0x1_003C);
+    let mut batch: Vec<(String, u32, ArmState)> = Vec::new();
+    for (k, &insn) in enc.iter().enumerate() {
+        for (i, &v) in sp.iter().enumerate() {
+            let mut st = ArmState::zeroed();
+            st.set_vreg(1, v, 0);
+            st.set_vreg(2, sp[(i + 5) % 12], 0);
+            st.set_vreg(3, sp[(i + 7) % 12], 0);
+            st.x[1] = v;
+            st.pstate = rng.next() & 0xF000_0000;
+            batch.push((format!("s{k}"), insn, st));
+        }
+        for _ in 0..8 {
+            let mut st = ArmState::zeroed();
+            for z in 1..4usize {
+                st.set_vreg(z, rng.next(), rng.next());
+            }
+            st.x[1] = rng.next();
+            st.pstate = rng.next() & 0xF000_0000;
+            batch.push((format!("s{k} rnd"), insn, st));
+        }
+    }
+    run_batch("scalar_fp", batch);
+}
+
+#[test]
 fn diff_neon_fp_specials() {
     // NEON FP three-same / estimate / step ops with NaN/inf/denormal/-0
     // operands (single, double and half precision): the ARM default-NaN and
