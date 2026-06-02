@@ -1646,21 +1646,46 @@ fn diff_sve_pred_gen() {
     run_batch("sve_pred_gen", batch);
 }
 
-/// SVE predicated ADD/SUB/SUBR (destructive): `00000100 sz 0000 opc Pg Zm Zdn`.
+/// SVE predicated integer ALU (destructive): `00000100 sz group opc Pg Zm Zdn`.
 /// Zdn=z0, Zm=z1, Pg=p0.
-fn enc_sve_padd(sz: u32, opc: u32) -> u32 {
-    (0x04 << 24) | (sz << 22) | (opc << 16) | (RN << 5) | RD
+fn enc_sve_palu(sz: u32, group: u32, opc: u32) -> u32 {
+    (0x04 << 24) | (sz << 22) | (group << 19) | (opc << 16) | (RN << 5) | RD
 }
 
 #[test]
-fn diff_sve_padd() {
-    let ops = [(0b000u32, "add"), (0b001, "sub"), (0b011, "subr")];
+fn diff_sve_palu() {
+    // (group, opc, name, min_sz)
+    let ops: &[(u32, u32, &str, u32)] = &[
+        (0, 0, "add", 0),
+        (0, 1, "sub", 0),
+        (0, 3, "subr", 0),
+        (1, 0, "smax", 0),
+        (1, 1, "umax", 0),
+        (1, 2, "smin", 0),
+        (1, 3, "umin", 0),
+        (1, 4, "sabd", 0),
+        (1, 5, "uabd", 0),
+        (2, 0, "mul", 0),
+        (2, 2, "smulh", 0),
+        (2, 3, "umulh", 0),
+        (2, 4, "sdiv", 2),
+        (2, 5, "udiv", 2),
+        (2, 6, "sdivr", 2),
+        (2, 7, "udivr", 2),
+        (3, 0, "orr", 0),
+        (3, 1, "eor", 0),
+        (3, 2, "and", 0),
+        (3, 3, "bic", 0),
+    ];
     let mut rng = Rng::new(0x1_0024);
     let mut batch: Vec<(String, u32, ArmState)> = Vec::new();
     for sz in 0..4u32 {
-        for (opc, name) in ops {
-            let insn = enc_sve_padd(sz, opc);
-            for _ in 0..16 {
+        for &(group, opc, name, min_sz) in ops {
+            if sz < min_sz {
+                continue;
+            }
+            let insn = enc_sve_palu(sz, group, opc);
+            for _ in 0..14 {
                 let mut st = ArmState::zeroed();
                 st.set_vreg(0, rng.next(), rng.next()); // Zdn (dest + first source)
                 st.set_vreg(1, rng.next(), rng.next()); // Zm
@@ -1669,7 +1694,7 @@ fn diff_sve_padd() {
             }
         }
     }
-    run_batch("sve_padd", batch);
+    run_batch("sve_palu", batch);
 }
 
 #[test]
