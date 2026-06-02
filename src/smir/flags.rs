@@ -100,6 +100,10 @@ pub enum LazyFlagOp {
     Add,
     /// Subtraction: result = left - right
     Sub,
+    /// Add with carry: result = left + right + carry_in (carry_in stored in `high`)
+    Adc,
+    /// Subtract with borrow: result = left - right - carry_in (carry_in in `high`)
+    Sbb,
     /// Logical (AND, OR, XOR): clears CF and OF; sets ZF, SF from result
     Logic,
     /// Increment: preserves CF
@@ -165,6 +169,33 @@ impl LazyFlags {
             right,
             width,
             high: 0,
+        }
+    }
+
+    /// Create new lazy flags for an add-with-carry (ADC) operation. `carry_in`
+    /// (0/1) is kept in `high` so CF/AF/OF are computed from the ORIGINAL
+    /// operands — folding it into `right` loses the carry-out and flips signs
+    /// (the SMIR bug the smir_alu differential test caught).
+    pub fn adc(left: u64, right: u64, carry_in: u64, result: u64, width: OpWidth) -> Self {
+        LazyFlags {
+            op: LazyFlagOp::Adc,
+            result,
+            left,
+            right,
+            width,
+            high: carry_in & 1,
+        }
+    }
+
+    /// Create new lazy flags for a subtract-with-borrow (SBB) operation.
+    pub fn sbb(left: u64, right: u64, carry_in: u64, result: u64, width: OpWidth) -> Self {
+        LazyFlags {
+            op: LazyFlagOp::Sbb,
+            result,
+            left,
+            right,
+            width,
+            high: carry_in & 1,
         }
     }
 
@@ -324,6 +355,16 @@ impl FlagState {
         self.lazy = Some(LazyFlags::sub(left, right, result, width));
     }
 
+    /// Set lazy flags from an add-with-carry (ADC) operation
+    pub fn set_lazy_adc(&mut self, left: u64, right: u64, carry_in: u64, result: u64, width: OpWidth) {
+        self.lazy = Some(LazyFlags::adc(left, right, carry_in, result, width));
+    }
+
+    /// Set lazy flags from a subtract-with-borrow (SBB) operation
+    pub fn set_lazy_sbb(&mut self, left: u64, right: u64, carry_in: u64, result: u64, width: OpWidth) {
+        self.lazy = Some(LazyFlags::sbb(left, right, carry_in, result, width));
+    }
+
     /// Set lazy flags from a logical operation
     pub fn set_lazy_logic(&mut self, result: u64, width: OpWidth) {
         self.lazy = Some(LazyFlags::logic(result, width));
@@ -395,6 +436,16 @@ impl FlagState {
                 // CF = borrow (left < right)
                 (lazy.left & mask) < (lazy.right & mask)
             }
+            LazyFlagOp::Adc => {
+                // CF = true carry out of (left + right + carry_in) at width
+                let l = (lazy.left & mask) as u128;
+                let r = (lazy.right & mask) as u128;
+                (l + r + lazy.high as u128) > mask as u128
+            }
+            LazyFlagOp::Sbb => {
+                // CF = borrow: left < right + carry_in
+                ((lazy.left & mask) as u128) < (lazy.right & mask) as u128 + lazy.high as u128
+            }
             LazyFlagOp::Logic => false,
             LazyFlagOp::Inc | LazyFlagOp::Dec => {
                 // Preserve previous CF
@@ -461,6 +512,20 @@ impl FlagState {
                 let result_sign = (lazy.result & sign_bit) != 0;
                 left_sign != right_sign && result_sign != left_sign
             }
+            LazyFlagOp::Adc => {
+                // Same signed-overflow rule as ADD; `result` already includes
+                // the carry-in, so comparing original-operand signs is correct.
+                let left_sign = (lazy.left & sign_bit) != 0;
+                let right_sign = (lazy.right & sign_bit) != 0;
+                let result_sign = (lazy.result & sign_bit) != 0;
+                left_sign == right_sign && result_sign != left_sign
+            }
+            LazyFlagOp::Sbb => {
+                let left_sign = (lazy.left & sign_bit) != 0;
+                let right_sign = (lazy.right & sign_bit) != 0;
+                let result_sign = (lazy.result & sign_bit) != 0;
+                left_sign != right_sign && result_sign != left_sign
+            }
             LazyFlagOp::Logic => false,
             LazyFlagOp::Inc => (lazy.result & lazy.width.mask()) == sign_bit,
             LazyFlagOp::Dec => (lazy.result & lazy.width.mask()) == (sign_bit - 1),
@@ -509,6 +574,9 @@ impl FlagState {
             LazyFlagOp::Add | LazyFlagOp::Sub => {
                 ((lazy.left ^ lazy.right ^ lazy.result) & 0x10) != 0
             }
+            // AF = nibble carry/borrow including the carry-in.
+            LazyFlagOp::Adc => ((lazy.left & 0xF) + (lazy.right & 0xF) + lazy.high) > 0xF,
+            LazyFlagOp::Sbb => (lazy.left & 0xF) < (lazy.right & 0xF) + lazy.high,
             LazyFlagOp::Inc => (lazy.result & 0x0F) == 0,
             LazyFlagOp::Dec => (lazy.result & 0x0F) == 0x0F,
             LazyFlagOp::Logic => false,

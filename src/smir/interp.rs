@@ -149,6 +149,28 @@ impl SmirInterpreter {
         self.execute_terminator(ctx, memory, &block.terminator)
     }
 
+    /// Write a width-tagged operation result to a destination, applying x86
+    /// sub-register write semantics for architectural GPRs: an 8-bit or 16-bit
+    /// write MERGES into the existing register (the upper bits are preserved),
+    /// a 32-bit write zero-extends (the caller already masked `value` to 32
+    /// bits, so a full store clears the upper 32), and 64-bit is a full store.
+    /// Virtual (SSA temp) and non-x86 destinations are written as-is. Without
+    /// this, an 8/16-bit ALU result would zero-extend the whole register, which
+    /// the smir_alu differential test against KVM flagged.
+    #[inline]
+    fn write_gpr(ctx: &mut SmirContext, dst: VReg, value: u64, width: OpWidth) {
+        if let VReg::Arch(ArchReg::X86(_)) = dst {
+            let merged = match width {
+                OpWidth::W8 => (ctx.read_vreg(dst) & !0xFFu64) | (value & 0xFF),
+                OpWidth::W16 => (ctx.read_vreg(dst) & !0xFFFFu64) | (value & 0xFFFF),
+                _ => value,
+            };
+            ctx.write_vreg(dst, merged);
+        } else {
+            ctx.write_vreg(dst, value);
+        }
+    }
+
     /// Execute a single operation
     fn execute_op(
         &self,
@@ -171,7 +193,7 @@ impl SmirInterpreter {
                 let b = self.read_src_operand(ctx, src2);
                 let result = a.wrapping_add(b) & width.mask();
 
-                ctx.write_vreg(*dst, result);
+                Self::write_gpr(ctx, *dst, result, *width);
 
                 if flags.updates_any() {
                     ctx.flags.set_lazy_add(a, b, result, *width);
@@ -189,7 +211,7 @@ impl SmirInterpreter {
                 let b = self.read_src_operand(ctx, src2);
                 let result = a.wrapping_sub(b) & width.mask();
 
-                ctx.write_vreg(*dst, result);
+                Self::write_gpr(ctx, *dst, result, *width);
 
                 if flags.updates_any() {
                     ctx.flags.set_lazy_sub(a, b, result, *width);
@@ -208,11 +230,12 @@ impl SmirInterpreter {
                 let cf = if ctx.flags.get_cf() { 1u64 } else { 0 };
                 let result = a.wrapping_add(b).wrapping_add(cf) & width.mask();
 
-                ctx.write_vreg(*dst, result);
+                Self::write_gpr(ctx, *dst, result, *width);
 
                 if flags.updates_any() {
-                    ctx.flags
-                        .set_lazy_add(a, b.wrapping_add(cf), result, *width);
+                    // Original operands + carry-in: CF/AF/OF must account for the
+                    // carry (folding cf into `b` loses the carry-out).
+                    ctx.flags.set_lazy_adc(a, b, cf, result, *width);
                 }
             }
 
@@ -228,11 +251,10 @@ impl SmirInterpreter {
                 let cf = if ctx.flags.get_cf() { 1u64 } else { 0 };
                 let result = a.wrapping_sub(b).wrapping_sub(cf) & width.mask();
 
-                ctx.write_vreg(*dst, result);
+                Self::write_gpr(ctx, *dst, result, *width);
 
                 if flags.updates_any() {
-                    ctx.flags
-                        .set_lazy_sub(a, b.wrapping_add(cf), result, *width);
+                    ctx.flags.set_lazy_sbb(a, b, cf, result, *width);
                 }
             }
 
@@ -245,7 +267,7 @@ impl SmirInterpreter {
                 let a = ctx.read_vreg(*src);
                 let result = (0u64.wrapping_sub(a)) & width.mask();
 
-                ctx.write_vreg(*dst, result);
+                Self::write_gpr(ctx, *dst, result, *width);
 
                 if flags.updates_any() {
                     ctx.flags.lazy = Some(LazyFlags {
@@ -410,7 +432,7 @@ impl SmirInterpreter {
                 let b = ctx.read_vreg(*src2) & width.mask();
                 let c = ctx.read_vreg(*acc) & width.mask();
                 let result = c.wrapping_add(a.wrapping_mul(b)) & width.mask();
-                ctx.write_vreg(*dst, result);
+                Self::write_gpr(ctx, *dst, result, *width);
             }
 
             OpKind::MulSub {
@@ -424,7 +446,7 @@ impl SmirInterpreter {
                 let b = ctx.read_vreg(*src2) & width.mask();
                 let c = ctx.read_vreg(*acc) & width.mask();
                 let result = c.wrapping_sub(a.wrapping_mul(b)) & width.mask();
-                ctx.write_vreg(*dst, result);
+                Self::write_gpr(ctx, *dst, result, *width);
             }
 
             OpKind::DivU {
@@ -495,7 +517,7 @@ impl SmirInterpreter {
                 let b = self.read_src_operand(ctx, src2);
                 let result = (a & b) & width.mask();
 
-                ctx.write_vreg(*dst, result);
+                Self::write_gpr(ctx, *dst, result, *width);
 
                 if flags.updates_any() {
                     ctx.flags.set_lazy_logic(result, *width);
@@ -513,7 +535,7 @@ impl SmirInterpreter {
                 let b = self.read_src_operand(ctx, src2);
                 let result = (a | b) & width.mask();
 
-                ctx.write_vreg(*dst, result);
+                Self::write_gpr(ctx, *dst, result, *width);
 
                 if flags.updates_any() {
                     ctx.flags.set_lazy_logic(result, *width);
@@ -531,7 +553,7 @@ impl SmirInterpreter {
                 let b = self.read_src_operand(ctx, src2);
                 let result = (a ^ b) & width.mask();
 
-                ctx.write_vreg(*dst, result);
+                Self::write_gpr(ctx, *dst, result, *width);
 
                 if flags.updates_any() {
                     ctx.flags.set_lazy_logic(result, *width);
@@ -541,7 +563,7 @@ impl SmirInterpreter {
             OpKind::Not { dst, src, width } => {
                 let a = ctx.read_vreg(*src);
                 let result = (!a) & width.mask();
-                ctx.write_vreg(*dst, result);
+                Self::write_gpr(ctx, *dst, result, *width);
             }
 
             OpKind::Test { src1, src2, width } => {
@@ -563,7 +585,7 @@ impl SmirInterpreter {
                 let b = self.read_src_operand(ctx, src2);
                 let result = (a & !b) & width.mask();
 
-                ctx.write_vreg(*dst, result);
+                Self::write_gpr(ctx, *dst, result, *width);
 
                 if flags.updates_any() {
                     ctx.flags.set_lazy_logic(result, *width);
@@ -588,7 +610,7 @@ impl SmirInterpreter {
                     (val << amt) & width.mask()
                 };
 
-                ctx.write_vreg(*dst, result);
+                Self::write_gpr(ctx, *dst, result, *width);
 
                 if flags.updates_any() {
                     ctx.flags.lazy = Some(LazyFlags {
@@ -617,7 +639,7 @@ impl SmirInterpreter {
                     (val >> amt) & width.mask()
                 };
 
-                ctx.write_vreg(*dst, result);
+                Self::write_gpr(ctx, *dst, result, *width);
 
                 if flags.updates_any() {
                     ctx.flags.lazy = Some(LazyFlags {
@@ -650,7 +672,7 @@ impl SmirInterpreter {
                     ((val as i64 >> amt) as u64) & width.mask()
                 };
 
-                ctx.write_vreg(*dst, result);
+                Self::write_gpr(ctx, *dst, result, *width);
 
                 if flags.updates_any() {
                     ctx.flags.lazy = Some(LazyFlags {
@@ -682,7 +704,7 @@ impl SmirInterpreter {
                     ((left << amt) | (right >> (bits - amt))) & width.mask()
                 };
 
-                ctx.write_vreg(*dst, result);
+                Self::write_gpr(ctx, *dst, result, *width);
 
                 if flags.updates_any() {
                     ctx.flags.set_lazy_logic(result, *width);
@@ -707,7 +729,7 @@ impl SmirInterpreter {
                     ((left >> amt) | (right << (bits - amt))) & width.mask()
                 };
 
-                ctx.write_vreg(*dst, result);
+                Self::write_gpr(ctx, *dst, result, *width);
 
                 if flags.updates_any() {
                     ctx.flags.set_lazy_logic(result, *width);
@@ -730,7 +752,7 @@ impl SmirInterpreter {
                     ((val << amt) | (val >> (bits - amt))) & width.mask()
                 };
 
-                ctx.write_vreg(*dst, result);
+                Self::write_gpr(ctx, *dst, result, *width);
 
                 if flags.updates_any() {
                     ctx.flags.lazy = Some(LazyFlags {
@@ -760,7 +782,7 @@ impl SmirInterpreter {
                     ((val >> amt) | (val << (bits - amt))) & width.mask()
                 };
 
-                ctx.write_vreg(*dst, result);
+                Self::write_gpr(ctx, *dst, result, *width);
 
                 if flags.updates_any() {
                     ctx.flags.lazy = Some(LazyFlags {
@@ -870,7 +892,7 @@ impl SmirInterpreter {
                     val.trailing_zeros() as u64
                 };
 
-                ctx.write_vreg(*dst, result);
+                Self::write_gpr(ctx, *dst, result, *width);
 
                 if flags.updates_any() {
                     ctx.flags.set_lazy_logic(val, *width);
@@ -890,7 +912,7 @@ impl SmirInterpreter {
                     (width.bits() - 1 - val.leading_zeros()) as u64
                 };
 
-                ctx.write_vreg(*dst, result);
+                Self::write_gpr(ctx, *dst, result, *width);
 
                 if flags.updates_any() {
                     ctx.flags.set_lazy_logic(val, *width);
@@ -901,7 +923,7 @@ impl SmirInterpreter {
                 let val = ctx.read_vreg(*src) & width.mask();
                 let extra_bits = 64 - width.bits();
                 let result = (val.leading_zeros() - extra_bits) as u64;
-                ctx.write_vreg(*dst, result);
+                Self::write_gpr(ctx, *dst, result, *width);
             }
 
             OpKind::Ctz { dst, src, width } => {
@@ -911,7 +933,7 @@ impl SmirInterpreter {
                 } else {
                     val.trailing_zeros() as u64
                 };
-                ctx.write_vreg(*dst, result);
+                Self::write_gpr(ctx, *dst, result, *width);
             }
 
             OpKind::Popcnt { dst, src, width } => {
@@ -927,7 +949,7 @@ impl SmirInterpreter {
                     OpWidth::W64 => val.swap_bytes(),
                     _ => val,
                 };
-                ctx.write_vreg(*dst, result);
+                Self::write_gpr(ctx, *dst, result, *width);
             }
 
             OpKind::Rbit { dst, src, width } => {
@@ -937,7 +959,7 @@ impl SmirInterpreter {
                     OpWidth::W64 => val.reverse_bits(),
                     _ => val,
                 };
-                ctx.write_vreg(*dst, result);
+                Self::write_gpr(ctx, *dst, result, *width);
             }
 
             OpKind::Bfx {

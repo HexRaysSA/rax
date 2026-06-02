@@ -2580,3 +2580,295 @@ fn fuzz_cmpxchg_xadd() {
     }
     h.finish("cmpxchg_xadd");
 }
+
+// ===========================================================================
+// SMIR backend: lift x86 -> SMIR -> SMIR-interpret -> compare to KVM
+// ===========================================================================
+//
+// The first milestone of integrating SMIR (src/smir/) as a tiered hot-block
+// JIT: validate that the x86 lifter + SMIR interpreter reproduce KVM's
+// architectural state bit-for-bit. We reuse this file's KVM oracle (run_kvm),
+// the comparison logic (compare), and the random instruction generators.
+//
+// Key state-bridge facts (verified against src/smir):
+//  * GPRs map 1:1 via ctx.write_arch_reg / read_arch_reg (RAX,RCX,RDX,RBX,...).
+//  * FLAGS are double-stored: the interpreter updates ctx.flags (lazy/material),
+//    NOT the x86.rflags field. So we SET init flags via MaterializedFlags::
+//    from_rflags + clear lazy, and READ final flags via materialize_all()/
+//    to_rflags() — NOT read_arch_reg(Rflags).
+//  * RIP lives only in ctx.pc (interp never writes x86.rip); compare() ignores
+//    rip, so the harness is unaffected.
+//  * Lift in STRICT mode: unsupported opcodes -> Err -> skip the case (the
+//    lifter covers ~65-75% of common integer user-mode insns; SIMD/atomics/
+//    LOOP/SCAS etc. are gaps and are skipped, not failed).
+
+enum SmirOutcome {
+    Ran(FinalState),
+    Skipped(String),
+}
+
+fn run_smir(code: &[u8], init: &Registers, scratch_init: &[u8; 64]) -> Result<SmirOutcome, String> {
+    use rax::smir::context::{ExitReason, SmirContext};
+    use rax::smir::flags::MaterializedFlags;
+    use rax::smir::interp::SmirInterpreter;
+    use rax::smir::lift::x86_64::X86_64Lifter;
+    use rax::smir::lift::{LiftContext, MemoryReader, SmirLifter};
+    use rax::smir::memory::{FlatMemory, MemoryError, SmirMemory};
+    use rax::smir::types::{ArchReg, SourceArch, X86Reg};
+
+    // Lifter reads code starting at CODE_ADDR.
+    struct CodeReader {
+        base: u64,
+        bytes: Vec<u8>,
+    }
+    impl MemoryReader for CodeReader {
+        fn read(&self, addr: u64, size: usize) -> Result<Vec<u8>, MemoryError> {
+            let off = addr
+                .checked_sub(self.base)
+                .filter(|&o| (o as usize) < self.bytes.len())
+                .ok_or(MemoryError::OutOfBounds { addr })? as usize;
+            let n = (self.bytes.len() - off).min(size);
+            Ok(self.bytes[off..off + n].to_vec())
+        }
+    }
+
+    let reader = CodeReader {
+        base: CODE_ADDR,
+        bytes: code.to_vec(),
+    };
+    let mut lifter = X86_64Lifter::strict();
+    let mut lctx = LiftContext::new(SourceArch::X86_64);
+    let block = match lifter.lift_block(CODE_ADDR, &reader, &mut lctx) {
+        Ok(b) => b,
+        Err(e) => return Ok(SmirOutcome::Skipped(format!("lift: {e:?}"))),
+    };
+
+    let mut interp = SmirInterpreter::new();
+    interp.set_max_insns(MAX_ITERS);
+    interp.add_block(CODE_ADDR, block);
+
+    // Flat execution memory covering code(0x10000)/stack(0x20000)/data(0x30000).
+    let mut mem = FlatMemory::new(0x40_000);
+    mem.load(CODE_ADDR as usize, code);
+    mem.load(DATA_ADDR as usize, scratch_init);
+
+    let mut ctx = SmirContext::new_x86_64();
+    ctx.pc = CODE_ADDR;
+    let gprs = [
+        (X86Reg::Rax, init.rax),
+        (X86Reg::Rcx, init.rcx),
+        (X86Reg::Rdx, init.rdx),
+        (X86Reg::Rbx, init.rbx),
+        (X86Reg::Rsp, if init.rsp == 0 { STACK_ADDR } else { init.rsp }),
+        (X86Reg::Rbp, init.rbp),
+        (X86Reg::Rsi, init.rsi),
+        (X86Reg::Rdi, init.rdi),
+        (X86Reg::R8, init.r8),
+        (X86Reg::R9, init.r9),
+        (X86Reg::R10, init.r10),
+        (X86Reg::R11, init.r11),
+        (X86Reg::R12, init.r12),
+        (X86Reg::R13, init.r13),
+        (X86Reg::R14, init.r14),
+        (X86Reg::R15, init.r15),
+    ];
+    for (r, v) in gprs {
+        ctx.write_arch_reg(ArchReg::X86(r), v);
+    }
+    // Init flags through the lazy-flag model (NOT the dead x86.rflags field).
+    ctx.flags.materialized = MaterializedFlags::from_rflags(init.rflags | 0x2);
+    ctx.flags.lazy = None;
+
+    let exit = interp.run(&mut ctx, &mut mem);
+    match exit {
+        ExitReason::Halt => {}
+        other => return Ok(SmirOutcome::Skipped(format!("exit: {other:?}"))),
+    }
+
+    let mut regs = Registers::default();
+    regs.rax = ctx.read_arch_reg(ArchReg::X86(X86Reg::Rax));
+    regs.rcx = ctx.read_arch_reg(ArchReg::X86(X86Reg::Rcx));
+    regs.rdx = ctx.read_arch_reg(ArchReg::X86(X86Reg::Rdx));
+    regs.rbx = ctx.read_arch_reg(ArchReg::X86(X86Reg::Rbx));
+    regs.rsp = ctx.read_arch_reg(ArchReg::X86(X86Reg::Rsp));
+    regs.rbp = ctx.read_arch_reg(ArchReg::X86(X86Reg::Rbp));
+    regs.rsi = ctx.read_arch_reg(ArchReg::X86(X86Reg::Rsi));
+    regs.rdi = ctx.read_arch_reg(ArchReg::X86(X86Reg::Rdi));
+    regs.r8 = ctx.read_arch_reg(ArchReg::X86(X86Reg::R8));
+    regs.r9 = ctx.read_arch_reg(ArchReg::X86(X86Reg::R9));
+    regs.r10 = ctx.read_arch_reg(ArchReg::X86(X86Reg::R10));
+    regs.r11 = ctx.read_arch_reg(ArchReg::X86(X86Reg::R11));
+    regs.r12 = ctx.read_arch_reg(ArchReg::X86(X86Reg::R12));
+    regs.r13 = ctx.read_arch_reg(ArchReg::X86(X86Reg::R13));
+    regs.r14 = ctx.read_arch_reg(ArchReg::X86(X86Reg::R14));
+    regs.r15 = ctx.read_arch_reg(ArchReg::X86(X86Reg::R15));
+    ctx.flags.materialize_all();
+    regs.rflags = ctx.flags.materialized.to_rflags();
+    regs.rip = ctx.pc;
+
+    let mut scratch = [0u8; 64];
+    mem.read(DATA_ADDR, &mut scratch)
+        .map_err(|e| format!("scratch read: {e:?}"))?;
+
+    Ok(SmirOutcome::Ran(FinalState {
+        xmm: [[0u64; 2]; 16],
+        regs,
+        scratch,
+    }))
+}
+
+/// Accumulator for a SMIR-vs-KVM generator: counts lifted/skipped cases and
+/// collects divergences (mirrors `Harness` but for the SMIR backend).
+struct SmirStats {
+    ran: usize,
+    skipped: usize,
+    kvm_ok: bool,
+    mismatches: Vec<Mismatch>,
+}
+
+impl SmirStats {
+    fn new() -> Self {
+        SmirStats { ran: 0, skipped: 0, kvm_ok: true, mismatches: Vec::new() }
+    }
+
+    fn check(
+        &mut self,
+        label: &str,
+        code: &[u8],
+        init: Registers,
+        scratch_init: [u8; 64],
+        opts: CompareOpts,
+        inputs: String,
+    ) -> bool {
+        let kvm = match run_kvm(code, &init, &scratch_init) {
+            Ok(Some(s)) => s,
+            Ok(None) => {
+                self.kvm_ok = false;
+                return false;
+            }
+            Err(e) => {
+                self.mismatches.push(Mismatch {
+                    label: format!("{label} (kvm error)"),
+                    code: code.to_vec(),
+                    inputs,
+                    diffs: vec![e],
+                });
+                return true;
+            }
+        };
+        match run_smir(code, &init, &scratch_init) {
+            Ok(SmirOutcome::Ran(smir)) => {
+                self.ran += 1;
+                let diffs = compare(&smir, &kvm, opts, &[]);
+                if !diffs.is_empty() {
+                    self.mismatches.push(Mismatch {
+                        label: label.to_string(),
+                        code: code.to_vec(),
+                        inputs,
+                        diffs,
+                    });
+                }
+            }
+            Ok(SmirOutcome::Skipped(_)) => self.skipped += 1,
+            Err(e) => self.mismatches.push(Mismatch {
+                label: format!("{label} (smir error)"),
+                code: code.to_vec(),
+                inputs,
+                diffs: vec![e],
+            }),
+        }
+        true
+    }
+
+    fn finish(self, class: &str) {
+        if !self.kvm_ok && self.ran == 0 {
+            eprintln!("[skip] /dev/kvm unavailable; skipping smir {class}");
+            return;
+        }
+        if !self.mismatches.is_empty() {
+            let mut out = format!(
+                "SMIR DIVERGENCES in `{class}` (smir vs KVM): {} of {} lifted cases diverged ({} skipped/unsupported):\n",
+                self.mismatches.len(),
+                self.ran,
+                self.skipped
+            );
+            for m in self.mismatches.iter().take(20) {
+                out.push_str(&m.render());
+                out.push('\n');
+            }
+            if self.mismatches.len() > 20 {
+                out.push_str(&format!("  ... and {} more\n", self.mismatches.len() - 20));
+            }
+            panic!("{out}");
+        }
+        eprintln!(
+            "[ok] smir {class}: {} lifted cases agree with KVM ({} skipped/unsupported)",
+            self.ran, self.skipped
+        );
+    }
+}
+
+// SMIR validation: ALU reg,reg and reg,imm (the lifter's strongest area; the
+// hardest test of the flag bridge). Mirrors fuzz_alu's generation.
+#[test]
+fn smir_alu() {
+    const CASES: usize = 400;
+    let mut rng = Rng::new(0x5317_A1FA_B0BA_CAFE);
+    let mut stats = SmirStats::new();
+    let sizes = [Size::B8, Size::B16, Size::B32, Size::B64];
+
+    for _ in 0..CASES {
+        let size = *rng.pick(&sizes);
+        let op = *rng.pick(ALU_OPS);
+        let dst = pick_gpr(&mut rng);
+        let src = pick_gpr(&mut rng);
+        let use_imm = rng.below(2) == 0;
+
+        let mut r = Registers::default();
+        let dval = rng.operand();
+        let sval = rng.operand();
+        set_reg(&mut r, dst, dval);
+        if !use_imm {
+            set_reg(&mut r, src, sval);
+        }
+        let cf_in = rng.below(2) == 1;
+        if cf_in {
+            r.rflags |= flags::bits::CF;
+        }
+
+        let mut code = size_prefix(size);
+        if let Some(rex) = rex_byte(size, true) {
+            code.push(rex);
+        }
+        let inputs;
+        if use_imm {
+            let imm = rng.operand();
+            let opc = if size == Size::B8 { 0x80 } else { 0x81 };
+            code.push(opc);
+            code.push(modrm(0b11, op.imm_digit, dst));
+            match size {
+                Size::B8 => code.push(imm as u8),
+                Size::B16 => code.extend_from_slice(&(imm as u16).to_le_bytes()),
+                _ => code.extend_from_slice(&(imm as u32).to_le_bytes()),
+            }
+            inputs = format!(
+                "{} {} {}, imm={:#x} (cf_in={}); dst={:#x}",
+                op.name, size.name(), reg_name(dst), imm, cf_in, dval
+            );
+        } else {
+            let opc = if size == Size::B8 { op.rm_r_op8 } else { op.rm_r_op8 + 1 };
+            code.push(opc);
+            code.push(modrm(0b11, src, dst));
+            inputs = format!(
+                "{} {} {}, {} (cf_in={}); dst={:#x} src={:#x}",
+                op.name, size.name(), reg_name(dst), reg_name(src), cf_in, dval, sval
+            );
+        }
+        code.push(HLT);
+
+        if !stats.check("smir_alu", &code, r, [0u8; 64], CompareOpts::default(), inputs) {
+            break;
+        }
+    }
+    stats.finish("alu");
+}
