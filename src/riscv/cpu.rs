@@ -285,6 +285,15 @@ impl RiscVCpu {
         self.mem.read_u64(addr)
     }
 
+    /// Decode and disassemble the instruction at `addr` (for tracing /
+    /// diagnostics). Returns `<unreadable>` if the fetch faults.
+    pub fn disassemble_at(&self, addr: u64) -> String {
+        match decode_at(self.mem.as_ref(), addr, self.cfg.xlen, &self.cfg.isa) {
+            Ok(insn) => insn.to_string(),
+            Err(_) => "<unreadable>".to_string(),
+        }
+    }
+
     // ---------------------------------------------------------------
     // XLEN helpers.
     // ---------------------------------------------------------------

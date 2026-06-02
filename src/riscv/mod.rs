@@ -30,6 +30,7 @@
 pub mod cpu;
 pub mod csr;
 pub mod decode;
+pub mod disasm;
 pub mod float;
 pub mod memory;
 pub mod rvc;
