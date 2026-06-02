@@ -1693,7 +1693,7 @@ impl SmirInterpreter {
                     _ => panic!(),
                 });
                 if let VReg::Virtual(id) = *dst {
-                    let mut result = [0u64; 8];
+                    let mut result = [0u64; 16];
                     let word_count = (width.bytes() / 8) as usize;
                     for i in 0..word_count {
                         result[i] = a[i] & b[i];
@@ -1717,7 +1717,7 @@ impl SmirInterpreter {
                     _ => panic!(),
                 });
                 if let VReg::Virtual(id) = *dst {
-                    let mut result = [0u64; 8];
+                    let mut result = [0u64; 16];
                     let word_count = (width.bytes() / 8) as usize;
                     for i in 0..word_count {
                         result[i] = a[i] | b[i];
@@ -1741,7 +1741,7 @@ impl SmirInterpreter {
                     _ => panic!(),
                 });
                 if let VReg::Virtual(id) = *dst {
-                    let mut result = [0u64; 8];
+                    let mut result = [0u64; 16];
                     let word_count = (width.bytes() / 8) as usize;
                     for i in 0..word_count {
                         result[i] = a[i] ^ b[i];
@@ -1775,7 +1775,7 @@ impl SmirInterpreter {
                     (1u64 << elem_bits) - 1
                 };
                 let src_val = Self::read_vec(ctx, *src);
-                let mut result = [0u64; 8];
+                let mut result = [0u64; 16];
                 for lane in 0..*lanes {
                     let val = Self::get_lane(&src_val, lane, elem_bits);
                     let shifted = match shift {
@@ -1803,7 +1803,7 @@ impl SmirInterpreter {
                 let size = width.bytes() as usize;
                 memory.read(effective_addr, &mut buf[..size])?;
 
-                let mut vec = [0u64; 8];
+                let mut vec = [0u64; 16];
                 let words = (size + 7) / 8;
                 for i in 0..words {
                     let start = i * 8;
@@ -1964,9 +1964,9 @@ impl SmirInterpreter {
             | VReg::Arch(ArchReg::X86(X86Reg::Ymm(n)))
             | VReg::Arch(ArchReg::X86(X86Reg::Zmm(n))) => match &ctx.arch_regs {
                 ArchRegState::X86_64(x86) => x86.xmm[n as usize],
-                _ => [0; 8],
+                _ => [0; 16],
             },
-            _ => [0; 8],
+            _ => [0; 16],
         }
     }
 
@@ -2380,7 +2380,7 @@ impl SmirInterpreter {
         let b = Self::read_vec(ctx, src2);
 
         let elem_bits = elem.bytes() * 8;
-        let mut result = [0u64; 8];
+        let mut result = [0u64; 16];
 
         for lane in 0..lanes {
             let a_elem = Self::get_lane(&a, lane, elem_bits);
@@ -2405,7 +2405,7 @@ impl SmirInterpreter {
     {
         let a = Self::read_vec(ctx, src1);
         let b = Self::read_vec(ctx, src2);
-        let mut result = [0u64; 8];
+        let mut result = [0u64; 16];
 
         for lane in 0..lanes {
             let a_bits = Self::get_lane(&a, lane, 32) as u32;
@@ -2430,7 +2430,7 @@ impl SmirInterpreter {
     {
         let a = Self::read_vec(ctx, src1);
         let b = Self::read_vec(ctx, src2);
-        let mut result = [0u64; 8];
+        let mut result = [0u64; 16];
 
         for lane in 0..lanes {
             let a_bits = Self::get_lane(&a, lane, 64);

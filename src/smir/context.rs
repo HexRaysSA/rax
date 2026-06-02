@@ -76,7 +76,7 @@ impl DebugState {
 // Virtual Register File
 // ============================================================================
 
-pub type VecValue = [u64; 8];
+pub type VecValue = [u64; 16]; // 1024-bit: fits x86 ZMM (512) AND Hexagon HVX (1024)
 
 /// Virtual register file
 #[derive(Clone, Debug, Default)]
@@ -101,7 +101,7 @@ impl VRegFile {
     }
 
     pub fn get_vec(&self, id: VirtualId) -> VecValue {
-        self.vec_values.get(&id).copied().unwrap_or([0; 8])
+        self.vec_values.get(&id).copied().unwrap_or([0; 16])
     }
 
     pub fn set_vec(&mut self, id: VirtualId, value: VecValue) {
