@@ -43,6 +43,9 @@ pub enum AddrMode {
     /// increment is the I field of M[modsel] (`fREAD_IREG`), shifted by the
     /// access size, applied with the same circular wrap.
     PostIncCircReg { base: u8, modsel: u8, shift: u8 },
+    /// `memX(Rs+Ru<<#u2)` — register-offset addressing (`S4_*_rr`). The
+    /// effective address is `Rs + (Ru << shift)`.
+    RegScaled { base: u8, index: u8, shift: u8 },
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -246,6 +249,9 @@ pub enum DecodedInsn {
         width: MemWidth,
         pred: Option<PredCond>,
         src_new: bool,
+        /// `storerf` high-half store: the stored halfword is `Rt[31:16]`
+        /// (always `MemWidth::Half`). `false` for all other stores.
+        high_half: bool,
     },
     StoreImm {
         value: u32,
@@ -626,6 +632,33 @@ fn pred_cond(pred: u8, sense: bool, pred_new: bool) -> PredCond {
     }
 }
 
+/// Decode the predicate condition `(sense, pred_new)` from a predicated-store
+/// opcode by parsing the trailing condition segment of its mnemonic. The
+/// mnemonic ends in `<cond>_<mode>` where `cond` is one of `t`/`f`/`tnew`/`fnew`
+/// (`t`/`f` = test `Pv`, `tnew`/`fnew` = test `Pv.new`). For new-value stores
+/// (`...new<cond>_<mode>`) the `new` segment precedes the condition, so we
+/// only inspect the condition immediately before the final `_<mode>`.
+fn pstore_cond(opcode: Opcode) -> (bool, bool) {
+    let name = opcode::opcode_name(opcode);
+    // Strip the addressing-mode suffix (`_io` / `_pi` / `_rr` / `_abs`).
+    let body = name
+        .rsplit_once('_')
+        .map(|(head, _)| head)
+        .unwrap_or(name);
+    // `tnew`/`fnew` -> dot-new predicate; `t`/`f` -> plain predicate. The
+    // data-side `new` of a new-value store (e.g. `pstorerbnewt`) is always
+    // followed by the `t`/`f`/`tnew`/`fnew` condition, so suffix tests are safe.
+    if body.ends_with("tnew") {
+        (true, true)
+    } else if body.ends_with("fnew") {
+        (false, true)
+    } else if body.ends_with('t') {
+        (true, false)
+    } else {
+        (false, false)
+    }
+}
+
 fn load_io(
     decoded: &DecodedOp,
     width: MemWidth,
@@ -711,6 +744,7 @@ fn store_io(
             width,
             pred: None,
             src_new,
+            high_half: false,
         },
         used,
     ))
@@ -737,13 +771,15 @@ fn store_new_io(
     ))
 }
 
-/// Predicated new-value store (`if ([!]Pv) memX(Rs+#u6:N)=Nt8.new`). The store
-/// data is the `Nt8` producer (field `t`), resolved against the packet's
+/// Predicated new-value store (`if ([!]Pv[.new]) memX(Rs+#u6:N)=Nt8.new`). The
+/// store data is the `Nt8` producer (field `t`), resolved against the packet's
 /// producers, not a direct register read — hence `StoreNew` with a predicate.
+/// `pred_new` selects whether the guarding predicate is `.new` (tnew/fnew).
 fn pred_store_new_io(
     decoded: &DecodedOp,
     width: MemWidth,
     sense: bool,
+    pred_new: bool,
 ) -> Option<(DecodedInsn, bool)> {
     let base = field_u8(decoded, b's')?;
     let nt = field_u8(decoded, b't')?;
@@ -755,7 +791,7 @@ fn pred_store_new_io(
             nt,
             addr: AddrMode::Offset { base, offset },
             width,
-            pred: Some(pred_cond(pred, sense, false)),
+            pred: Some(pred_cond(pred, sense, pred_new)),
         },
         false,
     ))
@@ -783,6 +819,7 @@ fn store_gp(
             width,
             pred: None,
             src_new,
+            high_half: false,
         },
         used,
     ))
@@ -800,6 +837,7 @@ fn store_pi(decoded: &DecodedOp, width: MemWidth, src_new: bool) -> Option<(Deco
             width,
             pred: None,
             src_new,
+            high_half: false,
         },
         false,
     ))
@@ -897,6 +935,7 @@ fn store_pr(decoded: &DecodedOp, width: MemWidth, src_new: bool) -> Option<(Deco
             width,
             pred: None,
             src_new,
+            high_half: false,
         },
         false,
     ))
@@ -914,6 +953,7 @@ fn store_pbr(decoded: &DecodedOp, width: MemWidth, src_new: bool) -> Option<(Dec
             width,
             pred: None,
             src_new,
+            high_half: false,
         },
         false,
     ))
@@ -938,6 +978,7 @@ fn store_pci(decoded: &DecodedOp, width: MemWidth, src_new: bool) -> Option<(Dec
             width,
             pred: None,
             src_new,
+            high_half: false,
         },
         false,
     ))
@@ -960,6 +1001,7 @@ fn store_pcr(decoded: &DecodedOp, width: MemWidth, src_new: bool) -> Option<(Dec
             width,
             pred: None,
             src_new,
+            high_half: false,
         },
         false,
     ))
@@ -1063,6 +1105,7 @@ fn pred_store_io(
     sense: bool,
     pred_new: bool,
     src_new: bool,
+    high_half: bool,
 ) -> Option<(DecodedInsn, bool)> {
     let base = field_u8(decoded, b's')?;
     let src = field_u8(decoded, b't')?;
@@ -1076,6 +1119,192 @@ fn pred_store_io(
             width,
             pred: Some(pred_cond(pred, sense, pred_new)),
             src_new,
+            high_half,
+        },
+        false,
+    ))
+}
+
+/// Predicated post-increment store (`if ([!]Pv[.new]) memX(Rx++#s4:N)=Rt[.h]`).
+/// Fields: `x` = base (post-incremented), `t` = data Rt, `v` = Pv, `i` = signed
+/// increment (scaled by the access size). A not-taken store performs NO
+/// post-increment (full cancel).
+fn pred_store_pi(
+    decoded: &DecodedOp,
+    width: MemWidth,
+    sense: bool,
+    pred_new: bool,
+    high_half: bool,
+) -> Option<(DecodedInsn, bool)> {
+    let base = field_u8(decoded, b'x')?;
+    let src = field_u8(decoded, b't')?;
+    let pred = field_u8(decoded, b'v')?;
+    let (imm, _) = decode_field_simm(decoded, b'i', None)?;
+    let offset = imm.wrapping_shl(width_shift(width) as u32);
+    Some((
+        DecodedInsn::Store {
+            src,
+            addr: AddrMode::PostIncImm { base, offset },
+            width,
+            pred: Some(pred_cond(pred, sense, pred_new)),
+            src_new: false,
+            high_half,
+        },
+        false,
+    ))
+}
+
+/// Predicated NEW-VALUE post-increment store (`if ([!]Pv[.new]) memX(Rx++#s4:N)
+/// =Nt8.new`). Like `pred_store_pi` but the data source is the `Nt8` producer
+/// (resolved against the packet's producers), so we emit `StoreNew`.
+fn pred_store_new_pi(
+    decoded: &DecodedOp,
+    width: MemWidth,
+    sense: bool,
+    pred_new: bool,
+) -> Option<(DecodedInsn, bool)> {
+    let base = field_u8(decoded, b'x')?;
+    let nt = field_u8(decoded, b't')?;
+    let pred = field_u8(decoded, b'v')?;
+    let (imm, _) = decode_field_simm(decoded, b'i', None)?;
+    let offset = imm.wrapping_shl(width_shift(width) as u32);
+    Some((
+        DecodedInsn::StoreNew {
+            nt,
+            addr: AddrMode::PostIncImm { base, offset },
+            width,
+            pred: Some(pred_cond(pred, sense, pred_new)),
+        },
+        false,
+    ))
+}
+
+/// Predicated register-offset store (`if ([!]Pv[.new]) memX(Rs+Ru<<#u2)=Rt[.h]`,
+/// `S4_pstorer*_rr`). Fields: `s` = Rs base, `u` = Ru index, `i` = #u2 shift,
+/// `t` = data Rt, `v` = Pv.
+fn pred_store_rr(
+    decoded: &DecodedOp,
+    width: MemWidth,
+    sense: bool,
+    pred_new: bool,
+    high_half: bool,
+) -> Option<(DecodedInsn, bool)> {
+    let base = field_u8(decoded, b's')?;
+    let index = field_u8(decoded, b'u')?;
+    let src = field_u8(decoded, b't')?;
+    let pred = field_u8(decoded, b'v')?;
+    let shift = decode_field_uimm(decoded, b'i', None)?.0 as u8;
+    Some((
+        DecodedInsn::Store {
+            src,
+            addr: AddrMode::RegScaled { base, index, shift },
+            width,
+            pred: Some(pred_cond(pred, sense, pred_new)),
+            src_new: false,
+            high_half,
+        },
+        false,
+    ))
+}
+
+/// Predicated NEW-VALUE register-offset store (`S4_pstorer*new_rr`). The data
+/// source is the `Nt8` producer (`t`), so we emit `StoreNew`.
+fn pred_store_new_rr(
+    decoded: &DecodedOp,
+    width: MemWidth,
+    sense: bool,
+    pred_new: bool,
+) -> Option<(DecodedInsn, bool)> {
+    let base = field_u8(decoded, b's')?;
+    let index = field_u8(decoded, b'u')?;
+    let nt = field_u8(decoded, b't')?;
+    let pred = field_u8(decoded, b'v')?;
+    let shift = decode_field_uimm(decoded, b'i', None)?.0 as u8;
+    Some((
+        DecodedInsn::StoreNew {
+            nt,
+            addr: AddrMode::RegScaled { base, index, shift },
+            width,
+            pred: Some(pred_cond(pred, sense, pred_new)),
+        },
+        false,
+    ))
+}
+
+/// Predicated absolute store (`if ([!]Pv[.new]) memX(##addr)=Rt[.h]`,
+/// `S4_pstorer*_abs`). The address is the constant-extended `i` field. Fields:
+/// `i` = absolute address (extended), `t` = data Rt, `v` = Pv.
+fn pred_store_abs(
+    decoded: &DecodedOp,
+    width: MemWidth,
+    sense: bool,
+    pred_new: bool,
+    high_half: bool,
+    immext: Option<u32>,
+) -> Option<(DecodedInsn, bool)> {
+    let src = field_u8(decoded, b't')?;
+    let pred = field_u8(decoded, b'v')?;
+    let (addr, used) = decode_field_uimm(decoded, b'i', immext)?;
+    Some((
+        DecodedInsn::Store {
+            src,
+            addr: AddrMode::Abs { addr },
+            width,
+            pred: Some(pred_cond(pred, sense, pred_new)),
+            src_new: false,
+            high_half,
+        },
+        used,
+    ))
+}
+
+/// Predicated NEW-VALUE absolute store (`S4_pstorer*new_abs`). Data source is
+/// the `Nt8` producer (`t`), so we emit `StoreNew`.
+fn pred_store_new_abs(
+    decoded: &DecodedOp,
+    width: MemWidth,
+    sense: bool,
+    pred_new: bool,
+    immext: Option<u32>,
+) -> Option<(DecodedInsn, bool)> {
+    let nt = field_u8(decoded, b't')?;
+    let pred = field_u8(decoded, b'v')?;
+    let (addr, used) = decode_field_uimm(decoded, b'i', immext)?;
+    Some((
+        DecodedInsn::StoreNew {
+            nt,
+            addr: AddrMode::Abs { addr },
+            width,
+            pred: Some(pred_cond(pred, sense, pred_new)),
+        },
+        used,
+    ))
+}
+
+/// Store-immediate `memX(Rs+#u6:N)=#s6` (`S4_storeir<W>[cond]_io`). Fields:
+/// `s` = base, `i` = unsigned offset (scaled by access size), `I` = signed #s6
+/// value, `v` = Pv (only for the predicated forms). The value is sign-extended
+/// from 6 bits. `pred` is `None` for the unconditional `S4_storeir<W>_io`.
+fn store_imm_io(
+    decoded: &DecodedOp,
+    width: MemWidth,
+    pred: Option<(bool, bool)>,
+) -> Option<(DecodedInsn, bool)> {
+    let base = field_u8(decoded, b's')?;
+    let (imm, _) = decode_field_uimm(decoded, b'i', None)?;
+    let offset = (imm << width_shift(width)) as i32;
+    let raw = decode_field_uimm(decoded, b'I', None)?.0;
+    let value = sign_extend(raw, 6) as u32;
+    let pred = match pred {
+        Some((sense, pred_new)) => Some(pred_cond(field_u8(decoded, b'v')?, sense, pred_new)),
+        None => None,
+    };
+    Some((
+        DecodedInsn::StoreImm {
+            value,
+            addr: AddrMode::Offset { base, offset },
+            width,
+            pred,
         },
         false,
     ))
@@ -2131,27 +2360,27 @@ fn decode_main(decoded: &DecodedOp, word: u32, immext: Option<u32>) -> (DecodedI
         }
         Opcode::S2_pstorerbt_io | Opcode::S2_pstorerbf_io => {
             let sense = matches!(decoded.opcode, Opcode::S2_pstorerbt_io);
-            req!(pred_store_io(decoded, MemWidth::Byte, sense, false, false))
+            req!(pred_store_io(decoded, MemWidth::Byte, sense, false, false, false))
         }
         Opcode::S2_pstorerbnewt_io | Opcode::S2_pstorerbnewf_io => {
             let sense = matches!(decoded.opcode, Opcode::S2_pstorerbnewt_io);
-            req!(pred_store_new_io(decoded, MemWidth::Byte, sense))
+            req!(pred_store_new_io(decoded, MemWidth::Byte, sense, false))
         }
         Opcode::S2_pstorerht_io | Opcode::S2_pstorerhf_io => {
             let sense = matches!(decoded.opcode, Opcode::S2_pstorerht_io);
-            req!(pred_store_io(decoded, MemWidth::Half, sense, false, false))
+            req!(pred_store_io(decoded, MemWidth::Half, sense, false, false, false))
         }
         Opcode::S2_pstorerhnewt_io | Opcode::S2_pstorerhnewf_io => {
             let sense = matches!(decoded.opcode, Opcode::S2_pstorerhnewt_io);
-            req!(pred_store_new_io(decoded, MemWidth::Half, sense))
+            req!(pred_store_new_io(decoded, MemWidth::Half, sense, false))
         }
         Opcode::S2_pstorerit_io | Opcode::S2_pstorerif_io => {
             let sense = matches!(decoded.opcode, Opcode::S2_pstorerit_io);
-            req!(pred_store_io(decoded, MemWidth::Word, sense, false, false))
+            req!(pred_store_io(decoded, MemWidth::Word, sense, false, false, false))
         }
         Opcode::S2_pstorerinewt_io | Opcode::S2_pstorerinewf_io => {
             let sense = matches!(decoded.opcode, Opcode::S2_pstorerinewt_io);
-            req!(pred_store_new_io(decoded, MemWidth::Word, sense))
+            req!(pred_store_new_io(decoded, MemWidth::Word, sense, false))
         }
         Opcode::S2_pstorerdt_io | Opcode::S2_pstorerdf_io => {
             let sense = matches!(decoded.opcode, Opcode::S2_pstorerdt_io);
@@ -2160,8 +2389,251 @@ fn decode_main(decoded: &DecodedOp, word: u32, immext: Option<u32>) -> (DecodedI
                 MemWidth::Double,
                 sense,
                 false,
+                false,
                 false
             ))
+        }
+        // ---- storerf (high-half) predicated _io: stores Rt[31:16] as a half ----
+        Opcode::S2_pstorerft_io | Opcode::S2_pstorerff_io => {
+            let sense = matches!(decoded.opcode, Opcode::S2_pstorerft_io);
+            req!(pred_store_io(decoded, MemWidth::Half, sense, false, false, true))
+        }
+        // ---- S4 _io predicated stores with a .new predicate (tnew/fnew) ----
+        Opcode::S4_pstorerbtnew_io | Opcode::S4_pstorerbfnew_io => {
+            let (sense, pred_new) = pstore_cond(decoded.opcode);
+            req!(pred_store_io(decoded, MemWidth::Byte, sense, pred_new, false, false))
+        }
+        Opcode::S4_pstorerhtnew_io | Opcode::S4_pstorerhfnew_io => {
+            let (sense, pred_new) = pstore_cond(decoded.opcode);
+            req!(pred_store_io(decoded, MemWidth::Half, sense, pred_new, false, false))
+        }
+        Opcode::S4_pstoreritnew_io | Opcode::S4_pstorerifnew_io => {
+            let (sense, pred_new) = pstore_cond(decoded.opcode);
+            req!(pred_store_io(decoded, MemWidth::Word, sense, pred_new, false, false))
+        }
+        Opcode::S4_pstorerdtnew_io | Opcode::S4_pstorerdfnew_io => {
+            let (sense, pred_new) = pstore_cond(decoded.opcode);
+            req!(pred_store_io(decoded, MemWidth::Double, sense, pred_new, false, false))
+        }
+        Opcode::S4_pstorerftnew_io | Opcode::S4_pstorerffnew_io => {
+            let (sense, pred_new) = pstore_cond(decoded.opcode);
+            req!(pred_store_io(decoded, MemWidth::Half, sense, pred_new, false, true))
+        }
+        // S4 new-value _io stores with a .new predicate.
+        Opcode::S4_pstorerbnewtnew_io | Opcode::S4_pstorerbnewfnew_io => {
+            let (sense, pred_new) = pstore_cond(decoded.opcode);
+            req!(pred_store_new_io(decoded, MemWidth::Byte, sense, pred_new))
+        }
+        Opcode::S4_pstorerhnewtnew_io | Opcode::S4_pstorerhnewfnew_io => {
+            let (sense, pred_new) = pstore_cond(decoded.opcode);
+            req!(pred_store_new_io(decoded, MemWidth::Half, sense, pred_new))
+        }
+        Opcode::S4_pstorerinewtnew_io | Opcode::S4_pstorerinewfnew_io => {
+            let (sense, pred_new) = pstore_cond(decoded.opcode);
+            req!(pred_store_new_io(decoded, MemWidth::Word, sense, pred_new))
+        }
+        // ================================================================
+        // Predicated post-increment stores (S2_pstorer*_pi / *new_pi)
+        // ================================================================
+        Opcode::S2_pstorerbt_pi
+        | Opcode::S2_pstorerbf_pi
+        | Opcode::S2_pstorerbtnew_pi
+        | Opcode::S2_pstorerbfnew_pi => {
+            let (sense, pred_new) = pstore_cond(decoded.opcode);
+            req!(pred_store_pi(decoded, MemWidth::Byte, sense, pred_new, false))
+        }
+        Opcode::S2_pstorerht_pi
+        | Opcode::S2_pstorerhf_pi
+        | Opcode::S2_pstorerhtnew_pi
+        | Opcode::S2_pstorerhfnew_pi => {
+            let (sense, pred_new) = pstore_cond(decoded.opcode);
+            req!(pred_store_pi(decoded, MemWidth::Half, sense, pred_new, false))
+        }
+        Opcode::S2_pstorerit_pi
+        | Opcode::S2_pstorerif_pi
+        | Opcode::S2_pstoreritnew_pi
+        | Opcode::S2_pstorerifnew_pi => {
+            let (sense, pred_new) = pstore_cond(decoded.opcode);
+            req!(pred_store_pi(decoded, MemWidth::Word, sense, pred_new, false))
+        }
+        Opcode::S2_pstorerdt_pi
+        | Opcode::S2_pstorerdf_pi
+        | Opcode::S2_pstorerdtnew_pi
+        | Opcode::S2_pstorerdfnew_pi => {
+            let (sense, pred_new) = pstore_cond(decoded.opcode);
+            req!(pred_store_pi(decoded, MemWidth::Double, sense, pred_new, false))
+        }
+        // storerf post-increment (high half): Rt[31:16] as a halfword.
+        Opcode::S2_pstorerft_pi
+        | Opcode::S2_pstorerff_pi
+        | Opcode::S2_pstorerftnew_pi
+        | Opcode::S2_pstorerffnew_pi => {
+            let (sense, pred_new) = pstore_cond(decoded.opcode);
+            req!(pred_store_pi(decoded, MemWidth::Half, sense, pred_new, true))
+        }
+        // new-value post-increment (storerXnew_pi): source is the Nt8 producer.
+        Opcode::S2_pstorerbnewt_pi
+        | Opcode::S2_pstorerbnewf_pi
+        | Opcode::S2_pstorerbnewtnew_pi
+        | Opcode::S2_pstorerbnewfnew_pi => {
+            let (sense, pred_new) = pstore_cond(decoded.opcode);
+            req!(pred_store_new_pi(decoded, MemWidth::Byte, sense, pred_new))
+        }
+        Opcode::S2_pstorerhnewt_pi
+        | Opcode::S2_pstorerhnewf_pi
+        | Opcode::S2_pstorerhnewtnew_pi
+        | Opcode::S2_pstorerhnewfnew_pi => {
+            let (sense, pred_new) = pstore_cond(decoded.opcode);
+            req!(pred_store_new_pi(decoded, MemWidth::Half, sense, pred_new))
+        }
+        Opcode::S2_pstorerinewt_pi
+        | Opcode::S2_pstorerinewf_pi
+        | Opcode::S2_pstorerinewtnew_pi
+        | Opcode::S2_pstorerinewfnew_pi => {
+            let (sense, pred_new) = pstore_cond(decoded.opcode);
+            req!(pred_store_new_pi(decoded, MemWidth::Word, sense, pred_new))
+        }
+        // ================================================================
+        // Predicated register-offset stores (S4_pstorer*_rr / *new_rr)
+        // ================================================================
+        Opcode::S4_pstorerbt_rr
+        | Opcode::S4_pstorerbf_rr
+        | Opcode::S4_pstorerbtnew_rr
+        | Opcode::S4_pstorerbfnew_rr => {
+            let (sense, pred_new) = pstore_cond(decoded.opcode);
+            req!(pred_store_rr(decoded, MemWidth::Byte, sense, pred_new, false))
+        }
+        Opcode::S4_pstorerht_rr
+        | Opcode::S4_pstorerhf_rr
+        | Opcode::S4_pstorerhtnew_rr
+        | Opcode::S4_pstorerhfnew_rr => {
+            let (sense, pred_new) = pstore_cond(decoded.opcode);
+            req!(pred_store_rr(decoded, MemWidth::Half, sense, pred_new, false))
+        }
+        Opcode::S4_pstorerit_rr
+        | Opcode::S4_pstorerif_rr
+        | Opcode::S4_pstoreritnew_rr
+        | Opcode::S4_pstorerifnew_rr => {
+            let (sense, pred_new) = pstore_cond(decoded.opcode);
+            req!(pred_store_rr(decoded, MemWidth::Word, sense, pred_new, false))
+        }
+        Opcode::S4_pstorerdt_rr
+        | Opcode::S4_pstorerdf_rr
+        | Opcode::S4_pstorerdtnew_rr
+        | Opcode::S4_pstorerdfnew_rr => {
+            let (sense, pred_new) = pstore_cond(decoded.opcode);
+            req!(pred_store_rr(decoded, MemWidth::Double, sense, pred_new, false))
+        }
+        Opcode::S4_pstorerft_rr
+        | Opcode::S4_pstorerff_rr
+        | Opcode::S4_pstorerftnew_rr
+        | Opcode::S4_pstorerffnew_rr => {
+            let (sense, pred_new) = pstore_cond(decoded.opcode);
+            req!(pred_store_rr(decoded, MemWidth::Half, sense, pred_new, true))
+        }
+        Opcode::S4_pstorerbnewt_rr
+        | Opcode::S4_pstorerbnewf_rr
+        | Opcode::S4_pstorerbnewtnew_rr
+        | Opcode::S4_pstorerbnewfnew_rr => {
+            let (sense, pred_new) = pstore_cond(decoded.opcode);
+            req!(pred_store_new_rr(decoded, MemWidth::Byte, sense, pred_new))
+        }
+        Opcode::S4_pstorerhnewt_rr
+        | Opcode::S4_pstorerhnewf_rr
+        | Opcode::S4_pstorerhnewtnew_rr
+        | Opcode::S4_pstorerhnewfnew_rr => {
+            let (sense, pred_new) = pstore_cond(decoded.opcode);
+            req!(pred_store_new_rr(decoded, MemWidth::Half, sense, pred_new))
+        }
+        Opcode::S4_pstorerinewt_rr
+        | Opcode::S4_pstorerinewf_rr
+        | Opcode::S4_pstorerinewtnew_rr
+        | Opcode::S4_pstorerinewfnew_rr => {
+            let (sense, pred_new) = pstore_cond(decoded.opcode);
+            req!(pred_store_new_rr(decoded, MemWidth::Word, sense, pred_new))
+        }
+        // ================================================================
+        // Predicated absolute stores (S4_pstorer*_abs / *new_abs)
+        // ================================================================
+        Opcode::S4_pstorerbt_abs
+        | Opcode::S4_pstorerbf_abs
+        | Opcode::S4_pstorerbtnew_abs
+        | Opcode::S4_pstorerbfnew_abs => {
+            let (sense, pred_new) = pstore_cond(decoded.opcode);
+            req!(pred_store_abs(decoded, MemWidth::Byte, sense, pred_new, false, immext))
+        }
+        Opcode::S4_pstorerht_abs
+        | Opcode::S4_pstorerhf_abs
+        | Opcode::S4_pstorerhtnew_abs
+        | Opcode::S4_pstorerhfnew_abs => {
+            let (sense, pred_new) = pstore_cond(decoded.opcode);
+            req!(pred_store_abs(decoded, MemWidth::Half, sense, pred_new, false, immext))
+        }
+        Opcode::S4_pstorerit_abs
+        | Opcode::S4_pstorerif_abs
+        | Opcode::S4_pstoreritnew_abs
+        | Opcode::S4_pstorerifnew_abs => {
+            let (sense, pred_new) = pstore_cond(decoded.opcode);
+            req!(pred_store_abs(decoded, MemWidth::Word, sense, pred_new, false, immext))
+        }
+        Opcode::S4_pstorerdt_abs
+        | Opcode::S4_pstorerdf_abs
+        | Opcode::S4_pstorerdtnew_abs
+        | Opcode::S4_pstorerdfnew_abs => {
+            let (sense, pred_new) = pstore_cond(decoded.opcode);
+            req!(pred_store_abs(decoded, MemWidth::Double, sense, pred_new, false, immext))
+        }
+        Opcode::S4_pstorerft_abs
+        | Opcode::S4_pstorerff_abs
+        | Opcode::S4_pstorerftnew_abs
+        | Opcode::S4_pstorerffnew_abs => {
+            let (sense, pred_new) = pstore_cond(decoded.opcode);
+            req!(pred_store_abs(decoded, MemWidth::Half, sense, pred_new, true, immext))
+        }
+        Opcode::S4_pstorerbnewt_abs
+        | Opcode::S4_pstorerbnewf_abs
+        | Opcode::S4_pstorerbnewtnew_abs
+        | Opcode::S4_pstorerbnewfnew_abs => {
+            let (sense, pred_new) = pstore_cond(decoded.opcode);
+            req!(pred_store_new_abs(decoded, MemWidth::Byte, sense, pred_new, immext))
+        }
+        Opcode::S4_pstorerhnewt_abs
+        | Opcode::S4_pstorerhnewf_abs
+        | Opcode::S4_pstorerhnewtnew_abs
+        | Opcode::S4_pstorerhnewfnew_abs => {
+            let (sense, pred_new) = pstore_cond(decoded.opcode);
+            req!(pred_store_new_abs(decoded, MemWidth::Half, sense, pred_new, immext))
+        }
+        Opcode::S4_pstorerinewt_abs
+        | Opcode::S4_pstorerinewf_abs
+        | Opcode::S4_pstorerinewtnew_abs
+        | Opcode::S4_pstorerinewfnew_abs => {
+            let (sense, pred_new) = pstore_cond(decoded.opcode);
+            req!(pred_store_new_abs(decoded, MemWidth::Word, sense, pred_new, immext))
+        }
+        // ================================================================
+        // Store-immediate (S4_storeir<W>[cond]_io): mem = sign-extended #s6
+        // ================================================================
+        Opcode::S4_storeirb_io => req!(store_imm_io(decoded, MemWidth::Byte, None)),
+        Opcode::S4_storeirh_io => req!(store_imm_io(decoded, MemWidth::Half, None)),
+        Opcode::S4_storeiri_io => req!(store_imm_io(decoded, MemWidth::Word, None)),
+        Opcode::S4_storeirbt_io
+        | Opcode::S4_storeirbf_io
+        | Opcode::S4_storeirbtnew_io
+        | Opcode::S4_storeirbfnew_io => {
+            req!(store_imm_io(decoded, MemWidth::Byte, Some(pstore_cond(decoded.opcode))))
+        }
+        Opcode::S4_storeirht_io
+        | Opcode::S4_storeirhf_io
+        | Opcode::S4_storeirhtnew_io
+        | Opcode::S4_storeirhfnew_io => {
+            req!(store_imm_io(decoded, MemWidth::Half, Some(pstore_cond(decoded.opcode))))
+        }
+        Opcode::S4_storeirit_io
+        | Opcode::S4_storeirif_io
+        | Opcode::S4_storeiritnew_io
+        | Opcode::S4_storeirifnew_io => {
+            req!(store_imm_io(decoded, MemWidth::Word, Some(pstore_cond(decoded.opcode))))
         }
         // ---- read-modify-write memops (memX(Rs+#u6:N) OP= Rt | #U5) ----
         Opcode::L4_add_memopb_io => req!(memop(decoded, MemWidth::Byte, MemOpKind::Add, false)),
@@ -2286,6 +2758,7 @@ fn decode_subinsn(sub: u16, class: EncClass, isa: HexagonIsa) -> Option<DecodedS
                 width: MemWidth::Word,
                 pred: None,
                 src_new: false,
+                high_half: false,
             }
         }
         Opcode::SS1_storeb_io => {
@@ -2298,6 +2771,7 @@ fn decode_subinsn(sub: u16, class: EncClass, isa: HexagonIsa) -> Option<DecodedS
                 width: MemWidth::Byte,
                 pred: None,
                 src_new: false,
+                high_half: false,
             }
         }
         Opcode::SL2_loadrh_io => {
@@ -2450,6 +2924,7 @@ fn decode_subinsn(sub: u16, class: EncClass, isa: HexagonIsa) -> Option<DecodedS
                 width: MemWidth::Half,
                 pred: None,
                 src_new: false,
+                high_half: false,
             }
         }
         Opcode::SS2_storew_sp => {
@@ -2464,6 +2939,7 @@ fn decode_subinsn(sub: u16, class: EncClass, isa: HexagonIsa) -> Option<DecodedS
                 width: MemWidth::Word,
                 pred: None,
                 src_new: false,
+                high_half: false,
             }
         }
         Opcode::SS2_stored_sp => {
@@ -2478,6 +2954,7 @@ fn decode_subinsn(sub: u16, class: EncClass, isa: HexagonIsa) -> Option<DecodedS
                 width: MemWidth::Double,
                 pred: None,
                 src_new: false,
+                high_half: false,
             }
         }
         Opcode::SS2_storewi0 => {

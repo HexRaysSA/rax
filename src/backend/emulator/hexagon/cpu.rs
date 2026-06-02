@@ -162,6 +162,7 @@ fn resolve_new_value(insn: DecodedInsn, producers: &[u8]) -> DecodedInsn {
                 width,
                 pred,
                 src_new: true,
+                high_half: false,
             }
         }
         // New-value compound compare-and-jump (`_jumpnv`): `src1` is the `Ns8`
@@ -719,6 +720,11 @@ impl HexagonVcpu {
                 let new_base = hex_circ_add(base_val, incr, m, self.circ_start(modsel));
                 (base_val, Some((base, new_base)))
             }
+            AddrMode::RegScaled { base, index, shift } => {
+                let base_val = self.regs.r[base as usize];
+                let idx = self.regs.r[index as usize].wrapping_shl(shift as u32);
+                (base_val.wrapping_add(idx), None)
+            }
         }
     }
 
@@ -879,9 +885,11 @@ impl HexagonVcpu {
                 width,
                 pred,
                 src_new,
+                high_half,
             } => {
                 if let Some(cond) = pred {
                     if !self.eval_pred(cond, new_p) {
+                        // Cancelled store: no memory write AND no post-increment.
                         return Ok(None);
                     }
                 }
@@ -918,11 +926,15 @@ impl HexagonVcpu {
                     let combined = ((odd_val as u64) << 32) | even_val as u64;
                     self.write_u64(addr, combined)?;
                 } else {
-                    let val = if src_new {
+                    let mut val = if src_new {
                         self.read_reg_with_new(src, new_r)
                     } else {
                         self.regs.r[src as usize]
                     };
+                    // `storerf` high-half store: the stored halfword is Rt[31:16].
+                    if high_half {
+                        val >>= 16;
+                    }
 
                     if Self::is_mmio(addr) {
                         let data = match width {
@@ -970,6 +982,11 @@ impl HexagonVcpu {
                         gp.wrapping_add(offset as u32)
                     }
                     AddrMode::Abs { addr } => addr,
+                    AddrMode::RegScaled { base, index, shift } => {
+                        let base_val = self.regs.r[base as usize];
+                        let idx = self.regs.r[index as usize].wrapping_shl(shift as u32);
+                        base_val.wrapping_add(idx)
+                    }
                     AddrMode::PostIncImm { .. }
                     | AddrMode::PostIncReg { .. }
                     | AddrMode::PostIncBrev { .. }

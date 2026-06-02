@@ -93,6 +93,13 @@ impl HexagonLifter {
                 Address::GpRel { offset }
             }
             AddrMode::Abs { addr } => Address::Absolute(*addr as u64),
+            AddrMode::RegScaled { base, index, shift } => Address::BaseIndexScale {
+                base: Some(self.hex_reg(*base)),
+                index: self.hex_reg(*index),
+                scale: 1u8 << *shift,
+                disp: 0,
+                disp_size: DispSize::Auto,
+            },
         }
     }
 
@@ -583,12 +590,29 @@ impl HexagonLifter {
                 ControlFlow::Fallthrough
             }
 
+            // Predicated and high-half (`storerf`) stores need conditional /
+            // sub-word commit semantics that the simple Store op below does not
+            // model; the interpreter path handles them. Reject so callers fall
+            // back rather than silently storing unconditionally / the wrong half.
+            DecodedInsn::Store {
+                pred: Some(_), ..
+            }
+            | DecodedInsn::Store {
+                high_half: true, ..
+            } => {
+                return Err(LiftError::Unsupported {
+                    addr,
+                    mnemonic: "pred_or_high_half_store".to_string(),
+                });
+            }
+
             DecodedInsn::Store {
                 src,
                 addr,
                 width,
                 pred: _,
                 src_new: _,
+                high_half: _,
             } => {
                 let smir_addr = self.hex_addr(addr, ctx);
                 let mem_width = self.hex_mem_width(*width);
@@ -611,6 +635,15 @@ impl HexagonLifter {
                     });
                 }
                 ControlFlow::Fallthrough
+            }
+
+            // Predicated store-immediate (`if (Pv) memX(Rs+#u)=#s6`) needs the
+            // conditional commit the interpreter provides; reject here.
+            DecodedInsn::StoreImm { pred: Some(_), .. } => {
+                return Err(LiftError::Unsupported {
+                    addr,
+                    mnemonic: "pred_store_imm".to_string(),
+                });
             }
 
             DecodedInsn::StoreImm {

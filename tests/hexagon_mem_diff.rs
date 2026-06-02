@@ -689,6 +689,16 @@ where
                 st[r] = rng.next() as u32;
             }
             st[I_USR] = 0;
+            // Seed each predicate P0..P3 independently 0x00 / 0xff so predicated
+            // (`if (Pv)` / `if (!Pv)`) stores exercise both the store and the
+            // cancel path. Non-predicated cases ignore this and are unaffected.
+            let mut pred = 0u32;
+            for k in 0..4 {
+                if rng.next() & 1 == 1 {
+                    pred |= 0xffu32 << (8 * k);
+                }
+            }
+            st[I_PRED] = pred;
             let mut arena = [0u8; ARENA];
             for b in arena.iter_mut() {
                 *b = rng.next() as u8;
@@ -1010,6 +1020,248 @@ fn diff_mem_pred_newvalue() {
         4,
         16,
         0x700d,
+    );
+}
+
+#[test]
+fn diff_storeir() {
+    // Store-immediate (`S4_storeir<W>[cond]_io`): a sign-extended #s6 is written
+    // to mem[Rs+#u]. Unconditional and predicated (t/f/tnew/fnew) forms; the
+    // value is exercised across positive, negative, and zero #s6. p0 drives the
+    // predicated cases. Producers seed p0.new for the *new* forms.
+    run_family(
+        "storeir",
+        &[
+            // Unconditional store-immediate, all widths + signed values.
+            ("storeirb", "{ memb(r4+#0) = #5 }"),
+            ("storeirb_neg", "{ memb(r4+#1) = #-5 }"),
+            ("storeirh", "{ memh(r4+#2) = #17 }"),
+            ("storeirh_neg", "{ memh(r4+#2) = #-1 }"),
+            ("storeiri", "{ memw(r4+#4) = #31 }"),
+            ("storeiri_neg", "{ memw(r4+#8) = #-32 }"),
+            // Predicated (plain Pv).
+            ("storeirbt", "{ if (p0) memb(r4+#0) = #7 }"),
+            ("storeirbf", "{ if (!p0) memb(r4+#1) = #-7 }"),
+            ("storeirht", "{ if (p0) memh(r4+#2) = #21 }"),
+            ("storeirhf", "{ if (!p0) memh(r4+#2) = #-21 }"),
+            ("storeirit", "{ if (p0) memw(r4+#4) = #9 }"),
+            ("storeirif", "{ if (!p0) memw(r4+#8) = #-9 }"),
+            // Predicated with Pv.new (the producer sets p0 in-packet).
+            ("storeirbtnew", "{ p0 = cmp.eq(r2,r2); if (p0.new) memb(r4+#0) = #3 }"),
+            ("storeirbfnew", "{ p0 = cmp.eq(r2,r3); if (!p0.new) memb(r4+#1) = #-3 }"),
+            ("storeirhtnew", "{ p0 = cmp.gt(r2,r3); if (p0.new) memh(r4+#2) = #13 }"),
+            ("storeiritnew", "{ p0 = cmp.eq(r2,r3); if (p0.new) memw(r4+#4) = #25 }"),
+            ("storeirifnew", "{ p0 = cmp.eq(r2,r2); if (!p0.new) memw(r4+#8) = #-25 }"),
+        ],
+        4,
+        16,
+        0x710a,
+    );
+}
+
+#[test]
+fn diff_pred_store_pi() {
+    // Predicated immediate post-increment stores (`if (Pv[.new]) memX(Rx++#s4:N)
+    // = Rt[.h]`). A not-taken store must perform NO post-increment (full cancel),
+    // so r4 must match the oracle whether or not the store happened. Covers all
+    // widths, t/f/tnew/fnew, storerf high-half, and new-value forms.
+    let bodies = &[
+        // Plain predicate (Pv) register-source stores.
+        ("pstorerbt_pi", "{ if (p0) memb(r4++#1) = r5 }"),
+        ("pstorerbf_pi", "{ if (!p0) memb(r4++#1) = r5 }"),
+        ("pstorerht_pi", "{ if (p0) memh(r4++#2) = r5 }"),
+        ("pstorerhf_pi", "{ if (!p0) memh(r4++#2) = r5 }"),
+        ("pstorerit_pi", "{ if (p0) memw(r4++#4) = r5 }"),
+        ("pstorerif_pi", "{ if (!p0) memw(r4++#4) = r5 }"),
+        ("pstorerdt_pi", "{ if (p0) memd(r4++#8) = r5:4 }"),
+        ("pstorerdf_pi", "{ if (!p0) memd(r4++#8) = r5:4 }"),
+        // storerf (high half) post-increment.
+        ("pstorerft_pi", "{ if (p0) memh(r4++#2) = r5.h }"),
+        ("pstorerff_pi", "{ if (!p0) memh(r4++#2) = r5.h }"),
+        // .new predicate (the producer sets p1 in-packet).
+        ("pstorerbtnew_pi", "{ p1 = cmp.eq(r2,r2); if (p1.new) memb(r4++#1) = r5 }"),
+        ("pstorerbfnew_pi", "{ p1 = cmp.eq(r2,r3); if (!p1.new) memb(r4++#1) = r5 }"),
+        ("pstoreritnew_pi", "{ p1 = cmp.eq(r2,r2); if (p1.new) memw(r4++#4) = r5 }"),
+        ("pstorerftnew_pi", "{ p1 = cmp.gt(r2,r3); if (p1.new) memh(r4++#2) = r5.h }"),
+        // New-value post-increment, plain + dot-new predicate.
+        ("pstorerbnewt_pi", "{ r5 = add(r2,r3); if (p0) memb(r4++#1) = r5.new }"),
+        ("pstorerbnewf_pi", "{ r5 = or(r2,r3); if (!p0) memb(r4++#1) = r5.new }"),
+        ("pstorerinewt_pi", "{ r5 = add(r2,r3); if (p0) memw(r4++#4) = r5.new }"),
+        ("pstorerhnewtnew_pi", "{ p1 = cmp.eq(r2,r2); r5 = add(r2,r3); if (p1.new) memh(r4++#2) = r5.new }"),
+        ("pstorerhnewfnew_pi", "{ p1 = cmp.eq(r2,r3); r5 = add(r2,r3); if (!p1.new) memh(r4++#2) = r5.new }"),
+    ];
+    run_custom("pred_store_pi", bodies, 16, 0x710b, |_, arena, st, _| {
+        st[4] = arena + BASE_OFF;
+    });
+}
+
+#[test]
+fn diff_pred_store_rr() {
+    // Predicated register-offset stores (`if (Pv[.new]) memX(Rs+Ru<<#u2)=Rt[.h]`,
+    // S4_pstorer*_rr). Base r4 = arena; index r6 is a small in-range element
+    // offset; the shift is the access size. Covers all widths, t/f/tnew/fnew,
+    // storerf, and new-value forms.
+    let bodies = &[
+        ("pstorerbt_rr", "{ if (p0) memb(r4+r6<<#0) = r5 }"),
+        ("pstorerbf_rr", "{ if (!p0) memb(r4+r6<<#1) = r5 }"),
+        ("pstorerht_rr", "{ if (p0) memh(r4+r6<<#1) = r5 }"),
+        ("pstorerhf_rr", "{ if (!p0) memh(r4+r6<<#1) = r5 }"),
+        ("pstorerit_rr", "{ if (p0) memw(r4+r6<<#2) = r5 }"),
+        ("pstorerif_rr", "{ if (!p0) memw(r4+r6<<#2) = r5 }"),
+        ("pstorerdt_rr", "{ if (p0) memd(r4+r6<<#3) = r5:4 }"),
+        ("pstorerdf_rr", "{ if (!p0) memd(r4+r6<<#3) = r5:4 }"),
+        ("pstorerft_rr", "{ if (p0) memh(r4+r6<<#1) = r5.h }"),
+        ("pstorerff_rr", "{ if (!p0) memh(r4+r6<<#1) = r5.h }"),
+        ("pstorerbtnew_rr", "{ p1 = cmp.eq(r2,r2); if (p1.new) memb(r4+r6<<#0) = r5 }"),
+        ("pstorerifnew_rr", "{ p1 = cmp.eq(r2,r3); if (!p1.new) memw(r4+r6<<#2) = r5 }"),
+        ("pstorerbnewt_rr", "{ r5 = add(r2,r3); if (p0) memb(r4+r6<<#0) = r5.new }"),
+        ("pstorerinewt_rr", "{ r5 = add(r2,r3); if (p0) memw(r4+r6<<#2) = r5.new }"),
+        ("pstorerhnewfnew_rr", "{ p1 = cmp.eq(r2,r3); r5 = add(r2,r3); if (!p1.new) memh(r4+r6<<#1) = r5.new }"),
+    ];
+    run_custom("pred_store_rr", bodies, 16, 0x710c, |rng, arena, st, _| {
+        st[4] = arena; // base at arena start
+        // Index in [0, 7] elements; with shift<=3 (memd) this stays <= 56 bytes,
+        // well inside the 256-byte arena.
+        st[6] = (rng.next() % 8) as u32;
+    });
+}
+
+#[test]
+fn diff_pred_store_abs() {
+    // Predicated absolute stores (`if (Pv[.new]) memX(##addr)=Rt[.h]`,
+    // S4_pstorer*_abs). The address is a constant-extended literal baked to a
+    // (width-aligned) arena slot. p0 drives plain forms; producers set p1.new.
+    let (bin, arena_addr) = match oracle_mem() {
+        Some(x) => x,
+        None => {
+            eprintln!("[hexagon_mem_diff] pred_store_abs: toolchain unavailable -> skipping");
+            return;
+        }
+    };
+    let a_b = arena_addr + 5;
+    let a_h = arena_addr + 10;
+    let a_w = arena_addr + 16;
+    let a_d = arena_addr + 24;
+    let asms = vec![
+        format!("{{ if (p0) memb(##0x{a_b:x}) = r5 }}"),
+        format!("{{ if (!p0) memb(##0x{a_b:x}) = r5 }}"),
+        format!("{{ if (p0) memh(##0x{a_h:x}) = r5 }}"),
+        format!("{{ if (!p0) memh(##0x{a_h:x}) = r5 }}"),
+        format!("{{ if (p0) memw(##0x{a_w:x}) = r5 }}"),
+        format!("{{ if (!p0) memw(##0x{a_w:x}) = r5 }}"),
+        format!("{{ if (p0) memd(##0x{a_d:x}) = r5:4 }}"),
+        format!("{{ if (!p0) memd(##0x{a_d:x}) = r5:4 }}"),
+        format!("{{ if (p0) memh(##0x{a_h:x}) = r5.h }}"),
+        format!("{{ if (!p0) memh(##0x{a_h:x}) = r5.h }}"),
+        format!("{{ p1 = cmp.eq(r2,r2); if (p1.new) memb(##0x{a_b:x}) = r5 }}"),
+        format!("{{ p1 = cmp.eq(r2,r3); if (!p1.new) memw(##0x{a_w:x}) = r5 }}"),
+        format!("{{ r5 = add(r2,r3); if (p0) memb(##0x{a_b:x}) = r5.new }}"),
+        format!("{{ r5 = add(r2,r3); if (p0) memw(##0x{a_w:x}) = r5.new }}"),
+        format!("{{ p1 = cmp.eq(r2,r3); r5 = add(r2,r3); if (!p1.new) memh(##0x{a_h:x}) = r5.new }}"),
+    ];
+    let labels = [
+        "pstorerbt_abs", "pstorerbf_abs", "pstorerht_abs", "pstorerhf_abs",
+        "pstorerit_abs", "pstorerif_abs", "pstorerdt_abs", "pstorerdf_abs",
+        "pstorerft_abs", "pstorerff_abs", "pstorerbtnew_abs", "pstorerifnew_abs",
+        "pstorerbnewt_abs", "pstorerinewt_abs", "pstorerhnewfnew_abs",
+    ];
+    let words_per = match assemble(&asms) {
+        Some(w) => w,
+        None => {
+            eprintln!("[hexagon_mem_diff] pred_store_abs: assembly failed -> skipping");
+            return;
+        }
+    };
+    let mut rng = Rng::new(0x710d);
+    let mut batch = Vec::new();
+    let mut lbl = Vec::new();
+    for (i, words) in words_per.iter().enumerate() {
+        for _ in 0..16 {
+            let mut st = [0u32; ST_WORDS];
+            for r in 0..NREG {
+                st[r] = rng.next() as u32;
+            }
+            st[I_USR] = 0;
+            let mut pred = 0u32;
+            for k in 0..4 {
+                if rng.next() & 1 == 1 {
+                    pred |= 0xffu32 << (8 * k);
+                }
+            }
+            st[I_PRED] = pred;
+            let mut arena = [0u8; ARENA];
+            for b in arena.iter_mut() {
+                *b = rng.next() as u8;
+            }
+            lbl.push(labels[i]);
+            batch.push(Case { words: words.clone(), st, arena });
+        }
+    }
+    let outs = match run_oracle(&bin, &batch) {
+        Some(o) => o,
+        None => {
+            eprintln!("[hexagon_mem_diff] pred_store_abs: oracle failed -> skipping");
+            return;
+        }
+    };
+    let mut mismatches = Vec::new();
+    for (i, c) in batch.iter().enumerate() {
+        let rax = match run_rax(&c.words, c, arena_addr) {
+            Some(r) => r,
+            None => {
+                mismatches.push(format!("[{}] rax rejected", lbl[i]));
+                continue;
+            }
+        };
+        let mut diffs = Vec::new();
+        for r in 0..NREG {
+            if rax.st[r] != outs[i].st[r] {
+                diffs.push(format!("r{r}:rax={:#x},hw={:#x}", rax.st[r], outs[i].st[r]));
+            }
+        }
+        if rax.arena != outs[i].arena {
+            let j = (0..ARENA).find(|&j| rax.arena[j] != outs[i].arena[j]).unwrap();
+            diffs.push(format!("arena[{j}]:rax={:#x},hw={:#x}", rax.arena[j], outs[i].arena[j]));
+        }
+        if !diffs.is_empty() {
+            mismatches.push(format!("[{}] {}", lbl[i], diffs.join(" ")));
+        }
+    }
+    if !mismatches.is_empty() {
+        eprintln!("\n==== pred_store_abs: {} mismatches ====", mismatches.len());
+        for m in mismatches.iter().take(25) {
+            eprintln!("  {m}");
+        }
+        panic!("pred_store_abs: {} divergences vs oracle", mismatches.len());
+    }
+}
+
+#[test]
+fn diff_pred_store_io_dotnew() {
+    // S4 _io predicated stores whose guarding predicate is `.new` (tnew/fnew),
+    // plus the storerf high-half _io forms. The producer sets p0 in-packet.
+    run_family(
+        "pred_store_io_dotnew",
+        &[
+            // storerf high-half _io (plain Pv): stores Rt[31:16].
+            ("pstorerft_io", "{ if (p0) memh(r4+#2) = r5.h }"),
+            ("pstorerff_io", "{ if (!p0) memh(r4+#2) = r5.h }"),
+            // S4 _io with Pv.new predicate, register source.
+            ("pstorerbtnew_io", "{ p0 = cmp.eq(r2,r2); if (p0.new) memb(r4+#1) = r5 }"),
+            ("pstorerbfnew_io", "{ p0 = cmp.eq(r2,r3); if (!p0.new) memb(r4+#1) = r5 }"),
+            ("pstorerhtnew_io", "{ p0 = cmp.gt(r2,r3); if (p0.new) memh(r4+#2) = r5 }"),
+            ("pstoreritnew_io", "{ p0 = cmp.eq(r2,r2); if (p0.new) memw(r4+#4) = r5 }"),
+            ("pstorerdtnew_io", "{ p0 = cmp.eq(r2,r2); if (p0.new) memd(r4+#8) = r5:4 }"),
+            ("pstorerftnew_io", "{ p0 = cmp.gt(r2,r3); if (p0.new) memh(r4+#2) = r5.h }"),
+            ("pstorerffnew_io", "{ p0 = cmp.eq(r2,r3); if (!p0.new) memh(r4+#2) = r5.h }"),
+            // S4 _io new-value with Pv.new predicate.
+            ("pstorerbnewtnew_io", "{ p0 = cmp.eq(r2,r2); r5 = add(r2,r3); if (p0.new) memb(r4+#1) = r5.new }"),
+            ("pstorerinewtnew_io", "{ p0 = cmp.eq(r2,r2); r5 = add(r2,r3); if (p0.new) memw(r4+#4) = r5.new }"),
+            ("pstorerhnewfnew_io", "{ p0 = cmp.eq(r2,r3); r5 = add(r2,r3); if (!p0.new) memh(r4+#2) = r5.new }"),
+        ],
+        4,
+        16,
+        0x710e,
     );
 }
 
