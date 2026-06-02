@@ -602,6 +602,10 @@ impl RiscVCpu {
             Op::Bset => self.set_x(rd, a | (1u64 << (b & (self.xbits() as u64 - 1)))),
             Op::Bseti => self.set_x(rd, a | (1u64 << (imm & (self.xbits() as u64 - 1)))),
 
+            // ---- Zicond ----
+            Op::CzeroEqz => self.set_x(rd, if b == 0 { 0 } else { a }),
+            Op::CzeroNez => self.set_x(rd, if b != 0 { 0 } else { a }),
+
             Op::Illegal => return Err(Trap::illegal(insn.raw)),
 
             // FP handled above via exec_fp.

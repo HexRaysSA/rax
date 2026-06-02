@@ -144,6 +144,15 @@ fn s_type(imm: i32, rs2: u32, rs1: u32, funct3: u32, opcode: u32) -> u32 {
 fn amo(funct5: u32, rs2: u32, rs1: u32, funct3: u32, rd: u32) -> u32 {
     (funct5 << 27) | (rs2 << 20) | (rs1 << 15) | (funct3 << 12) | (rd << 7) | 0x2f
 }
+fn b_type(imm: i32, rs2: u32, rs1: u32, funct3: u32) -> u32 {
+    let u = (imm as u32) & 0x1fff;
+    let b12 = (u >> 12) & 1;
+    let b11 = (u >> 11) & 1;
+    let b10_5 = (u >> 5) & 0x3f;
+    let b4_1 = (u >> 1) & 0xf;
+    (b12 << 31) | (b10_5 << 25) | (rs2 << 20) | (rs1 << 15) | (funct3 << 12) | (b4_1 << 8)
+        | (b11 << 7) | 0x63
+}
 
 // ---------------------------------------------------------------------------
 // Oracle build + run.
@@ -267,6 +276,8 @@ fn run_rax(insn: u32, len: u32, input: &RvState) -> Option<RvState> {
         out.f[i as usize] = cpu.f(i);
     }
     out.fcsr = cpu.fcsr() as u64;
+    // PC as displacement from the instruction address, matching the oracle.
+    out.pc = cpu.pc().wrapping_sub(INSN_ADDR);
     for (i, w) in out.scratch.iter_mut().enumerate() {
         *w = cpu.mem_read_u64(SCRATCH_ADDR + (i as u64) * 8).ok()?;
     }
@@ -289,6 +300,7 @@ fn compare_case(
     input: &RvState,
     oracle: &OutCase,
     cmp_fp: bool,
+    cmp_pc: bool,
     mismatches: &mut Vec<Mismatch>,
 ) {
     let rax = run_rax(insn, if insn & 3 == 3 { 4 } else { 2 }, input);
@@ -354,6 +366,12 @@ fn compare_case(
             ));
         }
     }
+    if cmp_pc && rax.pc != oracle.st.pc {
+        diffs.push(format!(
+            "pc-disp: rax={:#x} hw={:#x}",
+            rax.pc, oracle.st.pc
+        ));
+    }
 
     if !diffs.is_empty() {
         mismatches.push(Mismatch {
@@ -367,6 +385,12 @@ fn compare_case(
 /// Run a batch of `(label, insn, input_state)` cases against the oracle and
 /// fail with a report if any diverge. Self-skips if the toolchain is absent.
 fn run_batch(batch: &[(String, u32, RvState)], cmp_fp: bool) {
+    run_batch_opts(batch, cmp_fp, false);
+}
+
+/// As [`run_batch`], with explicit control over PC-displacement comparison
+/// (for PC-relative control-flow instructions).
+fn run_batch_opts(batch: &[(String, u32, RvState)], cmp_fp: bool, cmp_pc: bool) {
     let oracle = match oracle_path() {
         Some(p) => p,
         None => {
@@ -387,7 +411,7 @@ fn run_batch(batch: &[(String, u32, RvState)], cmp_fp: bool) {
     };
     let mut mismatches = Vec::new();
     for ((label, insn, st), oc) in batch.iter().zip(outs.iter()) {
-        compare_case(label, *insn, st, oc, cmp_fp, &mut mismatches);
+        compare_case(label, *insn, st, oc, cmp_fp, cmp_pc, &mut mismatches);
     }
     if !mismatches.is_empty() {
         let mut msg = format!("\n{} divergence(s) from qemu-riscv64:\n", mismatches.len());
@@ -1261,4 +1285,281 @@ fn diff_atomics() {
         }
     }
     run_batch(&batch, false);
+}
+
+// ---------------------------------------------------------------------------
+// Zicond.
+// ---------------------------------------------------------------------------
+
+#[test]
+fn diff_zicond() {
+    let mut rng = Rng::new(0xC04D);
+    let mut batch = Vec::new();
+    for (name, f3) in [("czero.eqz", 5u32), ("czero.nez", 7)] {
+        for _ in 0..80 {
+            let rd = POOL[(rng.next() % 6) as usize];
+            let rs1 = POOL[(rng.next() % 6) as usize];
+            let rs2 = POOL[(rng.next() % 6) as usize];
+            let mut st = rand_state(&mut rng);
+            // Bias rs2 towards zero half the time to exercise both selections.
+            if rng.next() & 1 == 0 {
+                st.x[rs2 as usize] = 0;
+            }
+            batch.push((name.into(), r_type(0b0000111, rs2, rs1, f3, rd, 0x33), st));
+        }
+    }
+    run_batch(&batch, false);
+}
+
+// ---------------------------------------------------------------------------
+// FP loads / stores.
+// ---------------------------------------------------------------------------
+
+#[test]
+fn diff_fp_loadstore() {
+    let mut rng = Rng::new(0xF105);
+    let mut batch = Vec::new();
+    let offs: [i32; 4] = [0, 8, 16, 24];
+    for &off in offs.iter() {
+        for _ in 0..15 {
+            let fd = FPOOL[(rng.next() % 8) as usize];
+            let frs2 = FPOOL[(rng.next() % 8) as usize];
+            let mut st = rand_state(&mut rng);
+            st.x[10] = SCRATCH_BASE;
+            for s in st.scratch.iter_mut() {
+                *s = rng.next();
+            }
+            for fi in st.f.iter_mut() {
+                *fi = rng.next();
+            }
+            // flw/fld fd, off(x10)  (opcode 0x07)
+            batch.push(("flw".into(), i_type(off, 10, 2, fd, 0x07), st));
+            batch.push(("fld".into(), i_type(off, 10, 3, fd, 0x07), st));
+            // fsw/fsd frs2, off(x10)  (opcode 0x27)
+            batch.push(("fsw".into(), s_type(off, frs2, 10, 2, 0x27), st));
+            batch.push(("fsd".into(), s_type(off, frs2, 10, 3, 0x27), st));
+        }
+    }
+    run_batch(&batch, true);
+}
+
+// ---------------------------------------------------------------------------
+// Branches (verified via PC displacement; imm=+8 reaches the oracle's taken
+// target trap, fall-through reaches the +4 trap).
+// ---------------------------------------------------------------------------
+
+#[test]
+fn diff_branches() {
+    let mut rng = Rng::new(0xB4A4);
+    let mut batch = Vec::new();
+    let branches: &[(&str, u32)] = &[
+        ("beq", 0),
+        ("bne", 1),
+        ("blt", 4),
+        ("bge", 5),
+        ("bltu", 6),
+        ("bgeu", 7),
+    ];
+    for (name, f3) in branches {
+        for i in 0..60 {
+            let rs1 = POOL[(rng.next() % 6) as usize];
+            // Half the cases compare a register with itself (forces equality);
+            // the rest use independent random operands.
+            let rs2 = if i % 2 == 0 {
+                rs1
+            } else {
+                POOL[(rng.next() % 6) as usize]
+            };
+            batch.push((name.to_string(), b_type(8, rs2, rs1, *f3), rand_state(&mut rng)));
+        }
+    }
+    run_batch_opts(&batch, false, true);
+}
+
+// ---------------------------------------------------------------------------
+// Exhaustive random fuzzer: high-volume coverage across every register/
+// immediate-only comparable op family with full random operands and all
+// rounding modes. Any divergence from qemu fails the test.
+// ---------------------------------------------------------------------------
+
+/// Valid (funct7, funct3) pairs for OP (0x33), covering base/M/Zb/Zicond.
+const OP_RR: &[(u32, u32)] = &[
+    (0x00, 0), (0x20, 0), (0x00, 1), (0x00, 2), (0x00, 3), (0x00, 4), (0x00, 5), (0x20, 5),
+    (0x00, 6), (0x00, 7), // base I
+    (0x01, 0), (0x01, 1), (0x01, 2), (0x01, 3), (0x01, 4), (0x01, 5), (0x01, 6), (0x01, 7), // M
+    (0x10, 2), (0x10, 4), (0x10, 6), // Zba sh*add
+    (0x20, 7), (0x20, 6), (0x20, 4), // Zbb andn/orn/xnor
+    (0x30, 1), (0x30, 5), // Zbb rol/ror
+    (0x05, 1), (0x05, 2), (0x05, 3), // Zbc clmul/clmulr/clmulh
+    (0x05, 4), (0x05, 5), (0x05, 6), (0x05, 7), // Zbb min/minu/max/maxu
+    (0x24, 1), (0x24, 5), (0x34, 1), (0x14, 1), // Zbs bclr/bext/binv/bset
+    (0x07, 5), (0x07, 7), // Zicond
+];
+/// Valid (funct7, funct3) for OP-32 (0x3b).
+const OP32_RR: &[(u32, u32)] = &[
+    (0x00, 0), (0x20, 0), (0x00, 1), (0x00, 5), (0x20, 5), // base W
+    (0x01, 0), (0x01, 4), (0x01, 5), (0x01, 6), (0x01, 7), // M W
+    (0x04, 0), (0x10, 2), (0x10, 4), (0x10, 6), // Zba add.uw/sh*add.uw
+    (0x30, 1), (0x30, 5), // Zbb rolw/rorw
+];
+/// FP binary (funct7) for single/double arithmetic + sgnj/minmax.
+const FP_BIN: &[u32] = &[
+    0x00, 0x04, 0x08, 0x0c, // add/sub/mul/div .s
+    0x01, 0x05, 0x09, 0x0d, // .d
+    0x10, 0x11, 0x14, 0x15, // sgnj/minmax .s/.d
+];
+
+fn rand_ipool(rng: &mut Rng) -> u32 {
+    // Wide integer register pool excluding x0, x3 (gp), x4 (tp).
+    const P: [u32; 13] = [1, 5, 6, 7, 8, 9, 10, 11, 12, 28, 29, 30, 31];
+    P[(rng.next() % 13) as usize]
+}
+
+fn fuzz_one(rng: &mut Rng) -> (u32, RvState) {
+    let family = rng.next() % 12;
+    let rd = rand_ipool(rng);
+    let rs1 = rand_ipool(rng);
+    let rs2 = rand_ipool(rng);
+    let fd = FPOOL[(rng.next() % 8) as usize];
+    let f1 = FPOOL[(rng.next() % 8) as usize];
+    let f2 = FPOOL[(rng.next() % 8) as usize];
+    let f3 = FPOOL[(rng.next() % 8) as usize];
+    let rm = [0u32, 1, 2, 3, 4, 7][(rng.next() % 6) as usize];
+    let frm = (rng.next() % 5) << 5;
+    let mut st = rand_state(rng);
+
+    let insn = match family {
+        0 => {
+            let (f7, f3) = OP_RR[(rng.next() as usize) % OP_RR.len()];
+            // bias rs2 to zero sometimes (Zicond / shifts)
+            if rng.next() & 3 == 0 {
+                st.x[rs2 as usize] = 0;
+            }
+            r_type(f7, rs2, rs1, f3, rd, 0x33)
+        }
+        1 => {
+            let (f7, f3) = OP32_RR[(rng.next() as usize) % OP32_RR.len()];
+            r_type(f7, rs2, rs1, f3, rd, 0x3b)
+        }
+        2 => {
+            // OP-IMM
+            let f3 = [0u32, 2, 3, 4, 6, 7][(rng.next() % 6) as usize];
+            let imm = (rng.next() as i32 % 4096) - 2048;
+            i_type(imm, rs1, f3, rd, 0x13)
+        }
+        3 => {
+            // shift immediates (RV64 6-bit)
+            let (f6, f3) = [(0b000000u32, 1u32), (0b000000, 5), (0b010000, 5), (0b011000, 5)]
+                [(rng.next() % 4) as usize];
+            shift_imm(f6, (rng.next() % 64) as u32, rs1, f3, rd, 0x13)
+        }
+        4 => {
+            // OP-IMM-32
+            if rng.next() & 1 == 0 {
+                i_type((rng.next() as i32 % 4096) - 2048, rs1, 0, rd, 0x1b) // addiw
+            } else {
+                let (f7, f3) = [(0u32, 1u32), (0, 5), (0x20, 5)][(rng.next() % 3) as usize];
+                shift_imm_w(f7, (rng.next() % 32) as u32, rs1, f3, rd, 0x1b)
+            }
+        }
+        5 | 6 => {
+            // FP single binary
+            let f7 = FP_BIN[(rng.next() as usize) % FP_BIN.len()];
+            install_fp(&mut st, f1, f2, f3, frm, false);
+            // sgnj uses funct3 0/1/2; min/max only 0/1; arithmetic uses rm.
+            let f3field = match f7 {
+                0x10 | 0x11 => rng.next() as u32 % 3,
+                0x14 | 0x15 => rng.next() as u32 % 2,
+                _ => rm,
+            };
+            // double family if odd funct7; install double operands accordingly
+            if f7 & 1 == 1 {
+                install_fp(&mut st, f1, f2, f3, frm, true);
+            }
+            fp(f7, f2, f1, f3field, fd)
+        }
+        7 => {
+            // FP fma (single + double)
+            let opc = [0x43u32, 0x47, 0x4b, 0x4f][(rng.next() % 4) as usize];
+            let dbl = rng.next() & 1 == 1;
+            install_fp(&mut st, f1, f2, f3, frm, dbl);
+            fma_enc(f3, if dbl { 1 } else { 0 }, f2, f1, rm, fd, opc)
+        }
+        8 => {
+            // FP sqrt
+            let dbl = rng.next() & 1 == 1;
+            install_fp(&mut st, f1, f1, f1, frm, dbl);
+            fp(if dbl { 0x2d } else { 0x2c }, 0, f1, rm, fd)
+        }
+        9 => {
+            // FP <-> int conversions
+            let dbl = rng.next() & 1 == 1;
+            match rng.next() % 3 {
+                0 => {
+                    // f -> int
+                    install_fp(&mut st, f1, f1, f1, frm, dbl);
+                    let rs2sel = (rng.next() % 4) as u32;
+                    fp(if dbl { 0x61 } else { 0x60 }, rs2sel, f1, rm, rd)
+                }
+                1 => {
+                    // int -> f
+                    st.fcsr = frm;
+                    let rs2sel = (rng.next() % 4) as u32;
+                    fp(if dbl { 0x69 } else { 0x68 }, rs2sel, rs1, rm, fd)
+                }
+                _ => {
+                    // f <-> f
+                    if dbl {
+                        install_fp(&mut st, f1, f1, f1, frm, false);
+                        fp(0x21, 0, f1, rm, fd) // fcvt.d.s
+                    } else {
+                        install_fp(&mut st, f1, f1, f1, frm, true);
+                        fp(0x20, 1, f1, rm, fd) // fcvt.s.d
+                    }
+                }
+            }
+        }
+        10 => {
+            // FP compare / classify / move-to-int
+            let dbl = rng.next() & 1 == 1;
+            install_fp(&mut st, f1, f2, f2, 0, dbl);
+            match rng.next() % 3 {
+                0 => fp(if dbl { 0x51 } else { 0x50 }, f2, f1, (rng.next() % 3) as u32, rd), // cmp
+                1 => fp(if dbl { 0x71 } else { 0x70 }, 0, f1, 1, rd),                        // fclass
+                _ => fp(if dbl { 0x71 } else { 0x70 }, 0, f1, 0, rd),                        // fmv.x
+            }
+        }
+        _ => {
+            // FP move-from-int
+            let dbl = rng.next() & 1 == 1;
+            st.fcsr = 0;
+            fp(if dbl { 0x79 } else { 0x78 }, 0, rs1, 0, fd)
+        }
+    };
+    (insn, st)
+}
+
+/// Install random FP operands (NaN-boxed singles or raw doubles) and a frm.
+fn install_fp(st: &mut RvState, a: u32, b: u32, c: u32, frm: u64, dbl: bool) {
+    let mut rng = Rng::new((st.x[1] ^ st.x[5] ^ (a as u64) << 8 ^ (frm << 1)).wrapping_add(0x9e3779b9));
+    for i in 0..32usize {
+        st.f[i] = if dbl {
+            rand_f64_bits(&mut rng)
+        } else {
+            box32(rand_f32_bits(&mut rng))
+        };
+    }
+    let _ = (a, b, c);
+    st.fcsr = frm;
+}
+
+#[test]
+fn diff_fuzz_exhaustive() {
+    let mut rng = Rng::new(0x5EED_1234);
+    let mut batch = Vec::with_capacity(40000);
+    for _ in 0..40000 {
+        let (insn, st) = fuzz_one(&mut rng);
+        batch.push(("fuzz".to_string(), insn, st));
+    }
+    run_batch(&batch, true);
 }

@@ -213,6 +213,8 @@ impl Op {
             Binvi => "binvi",
             Bset => "bset",
             Bseti => "bseti",
+            CzeroEqz => "czero.eqz",
+            CzeroNez => "czero.nez",
             Illegal => "illegal",
         }
     }
