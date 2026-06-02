@@ -7276,6 +7276,48 @@ impl AArch64Cpu {
             0b100 => {}
             _ => return Ok(CpuExit::Undefined(insn)),
         }
+        // FP pairwise (FADDP/FMAXNMP/FMINNMP/FMAXP/FMINP): 0x64, bits[21:19]==010.
+        // Interleaves the pairwise results of Zdn and Zm (even = Zdn pair, odd =
+        // Zm pair), merged into Zdn under Pg. opc=bits[18:16].
+        if (insn >> 24) & 0xFF == 0b01100100 && (insn >> 19) & 0x7 == 0b010 {
+            let kind = match (insn >> 16) & 0x7 {
+                0b000 => FpKind::Add,
+                0b100 => FpKind::MaxNm,
+                0b101 => FpKind::MinNm,
+                0b110 => FpKind::Max,
+                _ => FpKind::Min,
+            };
+            let pred = self.sve_p[pg];
+            let elements = 16 / esize;
+            let h = elements / 2;
+            let dn = self.v[zd].to_le_bytes(); // Zdn
+            let m = self.v[zn].to_le_bytes(); // Zm
+            let mut res = [0u8; 16];
+            for p in 0..h {
+                let dnv = sve_fp_combine(
+                    kind,
+                    esize,
+                    read_elem(&dn, 2 * p * esize, esize),
+                    read_elem(&dn, (2 * p + 1) * esize, esize),
+                );
+                let mv = sve_fp_combine(
+                    kind,
+                    esize,
+                    read_elem(&m, 2 * p * esize, esize),
+                    read_elem(&m, (2 * p + 1) * esize, esize),
+                );
+                write_elem(&mut res, 2 * p * esize, esize, dnv);
+                write_elem(&mut res, (2 * p + 1) * esize, esize, mv);
+            }
+            let mut dst = dn;
+            for e in 0..elements {
+                if (pred >> (e * esize)) & 1 == 1 {
+                    write_elem(&mut dst, e * esize, esize, read_elem(&res, e * esize, esize));
+                }
+            }
+            self.v[zd] = u128::from_le_bytes(dst);
+            return Ok(CpuExit::Continue);
+        }
         let opc5 = (insn >> 16) & 0x1F;
         let (kind, swap) = match opc5 {
             0b00000 => (FpKind::Add, false),

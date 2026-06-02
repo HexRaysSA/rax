@@ -1661,6 +1661,13 @@ fn sli_tsz_imm(esize_bits: u32, amount: u32) -> (u32, u32) {
     ((tszimm >> 3) & 0xF, tszimm & 0x7)
 }
 
+/// SVE2 FP pairwise: `01100100 size 010 opc 100 Pg Zm Zdn`. Pg=p0, Zm=z1(RN),
+/// Zdn=z0(RD). opc: 000=FADDP, 100=FMAXNMP, 101=FMINNMP, 110=FMAXP, 111=FMINP.
+fn enc_sve2_fpairwise(size: u32, opc: u32) -> u32 {
+    (0b01100100 << 24) | (size << 22) | (0b010 << 19) | (opc << 16) | (0b100 << 13) | (RN << 5)
+        | RD
+}
+
 /// SVE2 add long pairwise accumulate: `01000100 size 00010 U 101 Pg Zn Zda`.
 /// Pg=p0, Zn=z1(RN), Zda=z0(RD).
 fn enc_sve2_adalp(size: u32, u: u32) -> u32 {
@@ -3812,6 +3819,37 @@ fn diff_sve2_ssra() {
         }
     }
     run_family("sve2_ssra", cases, 12, 0x5_F001);
+}
+
+#[test]
+fn diff_sve2_fpairwise() {
+    // SVE2 FP pairwise: FADDP/FMAXNMP/FMINNMP/FMAXP/FMINP (predicated, merging).
+    let ops: &[(u32, &str)] = &[
+        (0b000, "faddp"),
+        (0b100, "fmaxnmp"),
+        (0b101, "fminnmp"),
+        (0b110, "fmaxp"),
+        (0b111, "fminp"),
+    ];
+    let mut rng = Rng::new(0x6_0001);
+    let mut batch: Vec<(String, u32, ArmState)> = Vec::new();
+    for size in 1..4u32 {
+        let eb = 8 << size; // element bits: 16 / 32 / 64
+        let lanes = (128 / eb) as usize;
+        for &(opc, name) in ops {
+            let insn = enc_sve2_fpairwise(size, opc);
+            for _ in 0..16 {
+                let mut st = ArmState::zeroed();
+                let (l0, h0) = fill_finite_fp(&mut rng, eb, lanes);
+                st.set_vreg(0, l0, h0);
+                let (l1, h1) = fill_finite_fp(&mut rng, eb, lanes);
+                st.set_vreg(1, l1, h1);
+                st.set_preg(0, rng.next() as u16);
+                batch.push((format!("{name} sz{size}"), insn, st));
+            }
+        }
+    }
+    run_batch("sve2_fpairwise", batch);
 }
 
 #[test]
