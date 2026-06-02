@@ -4850,6 +4850,30 @@ impl AArch64Cpu {
                 Ok(CpuExit::Continue)
             }
 
+            // CPY/MOV (predicated copy of immediate / scalar GPR / SIMD scalar),
+            // all in the 0x05 space.
+            0b000
+                if (insn >> 24) & 0xFF == 0b00000101
+                    && (insn >> 20) & 0x3 == 0b01
+                    && (insn >> 15) & 1 == 0 =>
+            {
+                self.exec_sve_cpy(insn, esize, 0) // CPY immediate
+            }
+            0b000
+                if (insn >> 24) & 0xFF == 0b00000101
+                    && (insn >> 16) & 0x3F == 0b101000
+                    && (insn >> 13) & 0x7 == 0b101 =>
+            {
+                self.exec_sve_cpy(insn, esize, 1) // CPY scalar GPR
+            }
+            0b000
+                if (insn >> 24) & 0xFF == 0b00000101
+                    && (insn >> 16) & 0x3F == 0b100000
+                    && (insn >> 13) & 0x7 == 0b100 =>
+            {
+                self.exec_sve_cpy(insn, esize, 2) // CPY SIMD scalar
+            }
+
             // Integer reductions to a scalar (SADDV/UADDV/SMAXV/.../ANDV/ORV/
             // EORV): bit21==0, bits[15:13]==001.
             0b000 if (insn >> 21) & 1 == 0 && (insn >> 13) & 0x7 == 0b001 => {
@@ -5045,6 +5069,49 @@ impl AArch64Cpu {
         Ok(CpuExit::Continue)
     }
 
+    /// Execute SVE CPY/MOV (predicated copy). `mode`: 0=immediate (Pg=4-bit,
+    /// merging or zeroing), 1=scalar GPR (Rn, SP if 31, merging), 2=SIMD scalar
+    /// Vn (merging). Pg is byte-granular.
+    fn exec_sve_cpy(&mut self, insn: u32, esize: usize, mode: u32) -> Result<CpuExit, ArmError> {
+        let zd = (insn & 0x1F) as usize;
+        let bits = (esize * 8) as u32;
+        let mask = elem_mask(bits);
+        let elements = 16 / esize;
+        let (pg, merging, elem_val) = match mode {
+            0 => {
+                // LSL #8 (sh=1) is undefined for byte elements.
+                if esize == 1 && (insn >> 13) & 1 == 1 {
+                    return Ok(CpuExit::Undefined(insn));
+                }
+                let pg = ((insn >> 16) & 0xF) as usize; // 4-bit predicate
+                let merging = (insn >> 14) & 1 == 1;
+                let imm8 = ((insn >> 5) & 0xFF) as u8 as i8 as i64;
+                let imm = if (insn >> 13) & 1 == 1 { imm8 << 8 } else { imm8 };
+                (pg, merging, (imm as u64) & mask)
+            }
+            1 => {
+                let pg = ((insn >> 10) & 0x7) as usize;
+                let rn = ((insn >> 5) & 0x1F) as u8;
+                let v = if rn == 31 { self.current_sp() } else { self.get_x(rn) };
+                (pg, true, v & mask)
+            }
+            _ => {
+                let pg = ((insn >> 10) & 0x7) as usize;
+                let vn = ((insn >> 5) & 0x1F) as usize;
+                (pg, true, (self.v[vn] as u64) & mask)
+            }
+        };
+        let pred = self.sve_p[pg];
+        let mut dst = if merging { self.v[zd].to_le_bytes() } else { [0u8; 16] };
+        for e in 0..elements {
+            if (pred >> (e * esize)) & 1 == 1 {
+                write_elem(&mut dst, e * esize, esize, elem_val);
+            }
+        }
+        self.v[zd] = u128::from_le_bytes(dst);
+        Ok(CpuExit::Continue)
+    }
+
     /// Execute SVE integer reduction (predicated) to a scalar in Vd. opc6 =
     /// bits[21:16]: SADDV(000000)/UADDV(000001) give a 64-bit sum; SMAXV/UMAXV/
     /// SMINV/UMINV (0010xx) and ANDV/ORV/EORV (0110xx) give an esize result.
@@ -5163,6 +5230,25 @@ impl AArch64Cpu {
         let elements = 16 / esize;
         let pd = (insn & 0xF) as usize;
         let b15_10 = (insn >> 10) & 0x3F;
+
+        // DUP Zd.T, #imm{,LSL #8} (unpredicated immediate broadcast): bits[21:16]
+        // ==111000, bits[15:14]==11. (Distinct from PTRUE by bit21==1.)
+        if (insn >> 16) & 0x3F == 0b111000 && (insn >> 14) & 0x3 == 0b11 {
+            // LSL #8 (sh=1) is undefined for byte elements.
+            if esize == 1 && (insn >> 13) & 1 == 1 {
+                return Ok(CpuExit::Undefined(insn));
+            }
+            let zd = (insn & 0x1F) as usize;
+            let imm8 = ((insn >> 5) & 0xFF) as u8 as i8 as i64;
+            let imm = if (insn >> 13) & 1 == 1 { imm8 << 8 } else { imm8 };
+            let elem_val = (imm as u64) & elem_mask((esize * 8) as u32);
+            let mut dst = [0u8; 16];
+            for e in 0..(16 / esize) {
+                write_elem(&mut dst, e * esize, esize, elem_val);
+            }
+            self.v[zd] = u128::from_le_bytes(dst);
+            return Ok(CpuExit::Continue);
+        }
 
         // CMP<cc>_P.P.ZZ (bits[31:24]==0x24): predicated vector compare producing
         // a zeroing predicate Pd, then NZCV = PredTest(Pg, result). The compare
