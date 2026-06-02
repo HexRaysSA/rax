@@ -1047,6 +1047,13 @@ impl HexagonLifter {
                     mnemonic: "vmem".to_string(),
                 });
             }
+            // HVX V65 scatter/gather are handled by the interpreter path.
+            DecodedInsn::VScatter { .. } | DecodedInsn::VGather { .. } => {
+                return Err(LiftError::Unsupported {
+                    addr,
+                    mnemonic: "vscatter_gather".to_string(),
+                });
+            }
 
             // ================================================================
             // Unknown
