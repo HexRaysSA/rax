@@ -41,37 +41,15 @@ impl X86_64Vcpu {
             }
             // UD2 - Undefined Instruction (intentional #UD exception)
             0x0B => {
-                use std::sync::atomic::{AtomicU64, Ordering};
-                static UD2_COUNT: AtomicU64 = AtomicU64::new(0);
-                static UD2_SKIP_COUNT: AtomicU64 = AtomicU64::new(0);
-
-                let rip = self.regs.rip;
-                let count = UD2_COUNT.fetch_add(1, Ordering::Relaxed);
-
-                // WORKAROUND: During early boot, the kernel's alternative_instructions
-                // function calls cpa_flush which has a BUG_ON(irqs_disabled() && !early_boot_irqs_disabled).
-                // This triggers because the CLI/STI loop in text_poke exits with IF=0.
-                // Skip ud2 if we're in the kernel text section during early boot to allow boot to continue.
-                //
-                // The crash happens at cpa_flush+0x2e6/0x2f0 which is around 0xffffffff8143xxxx.
-                // We detect this by checking if RIP is in kernel text and we're in early boot.
-                let is_kernel_text = rip >= 0xffffffff81000000 && rip < 0xffffffff84000000;
-                let skip_count = UD2_SKIP_COUNT.load(Ordering::Relaxed);
-
-                // Skip the first few ud2 instructions in kernel text during early boot
-                // This allows the kernel to continue past BUG_ON checks that are overly strict
-                if is_kernel_text && skip_count < 10 {
-                    UD2_SKIP_COUNT.fetch_add(1, Ordering::Relaxed);
-                    eprintln!(
-                        "[UD2 #{} SKIPPED - early boot BUG workaround] RIP={:#x}",
-                        count, rip
-                    );
-                    // Skip the 2-byte ud2 instruction (0F 0B)
-                    self.regs.rip += ctx.cursor as u64;
-                    return Ok(None);
-                }
-
-                // Don't advance RIP - #UD is a fault, exception points to faulting instruction
+                // Inject #UD so the guest's own handler runs. The kernel encodes
+                // WARN()/BUG() as UD2 + a __bug_table entry: do_invalid_op /
+                // report_bug then either prints a warning and RESUMES (WARN) or
+                // panics (BUG). A genuinely-unreachable UD2 (reached only via a
+                // mis-emulated branch) faults as "invalid opcode", which is far
+                // more diagnosable than silently skipping it into garbage.
+                // (An earlier "skip the first N kernel-text UD2s" workaround
+                // masked real emulation bugs and corrupted control flow — removed.)
+                // #UD is a fault: RIP stays on the faulting instruction.
                 self.inject_exception(6, None)?; // #UD = vector 6
                 Ok(None)
             }
