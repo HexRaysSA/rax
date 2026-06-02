@@ -1772,6 +1772,48 @@ impl SmirInterpreter {
                 Self::write_vec(ctx, *dst, result);
             }
 
+            OpKind::VWidenMul {
+                dst_lo,
+                dst_hi,
+                src1,
+                src2,
+                src_elem,
+                signed1,
+                signed2,
+                acc,
+            } => {
+                let a = Self::read_vec(ctx, *src1);
+                let b = Self::read_vec(ctx, *src2);
+                let nbits = src_elem.bytes() * 8;
+                let wbits = nbits * 2;
+                let wide_lanes = (1024 / nbits as usize) / 2; // wide lanes per output vector
+                let mut lo = if *acc { Self::read_vec(ctx, *dst_lo) } else { [0u64; 16] };
+                let mut hi = if *acc { Self::read_vec(ctx, *dst_hi) } else { [0u64; 16] };
+                // Sign- or zero-extend an `nbits` zero-extended lane value to i64.
+                let ext = |v: u64, signed: bool| -> i64 {
+                    if signed {
+                        let shift = 64 - nbits;
+                        ((v << shift) as i64) >> shift
+                    } else {
+                        v as i64
+                    }
+                };
+                for i in 0..wide_lanes {
+                    let even = i as u8 * 2;
+                    let odd = even + 1;
+                    let pe = ext(Self::get_lane(&a, even, nbits), *signed1)
+                        .wrapping_mul(ext(Self::get_lane(&b, even, nbits), *signed2));
+                    let po = ext(Self::get_lane(&a, odd, nbits), *signed1)
+                        .wrapping_mul(ext(Self::get_lane(&b, odd, nbits), *signed2));
+                    let ae = if *acc { Self::get_lane(&lo, i as u8, wbits) as i64 } else { 0 };
+                    let ao = if *acc { Self::get_lane(&hi, i as u8, wbits) as i64 } else { 0 };
+                    Self::set_lane(&mut lo, i as u8, wbits, ae.wrapping_add(pe) as u64);
+                    Self::set_lane(&mut hi, i as u8, wbits, ao.wrapping_add(po) as u64);
+                }
+                Self::write_vec(ctx, *dst_lo, lo);
+                Self::write_vec(ctx, *dst_hi, hi);
+            }
+
             OpKind::VMov { dst, src, width: _ } => {
                 let val = Self::read_vec(ctx, *src);
                 Self::write_vec(ctx, *dst, val);
@@ -2861,5 +2903,83 @@ mod tests {
         } else {
             panic!("not hexagon");
         }
+    }
+
+    fn run_widenmul(
+        v0: [u64; 16],
+        v1: [u64; 16],
+        src_elem: VecElementType,
+        signed1: bool,
+        signed2: bool,
+    ) -> ([u64; 16], [u64; 16]) {
+        let mut ctx = SmirContext::new_hexagon();
+        let mut memory = FlatMemory::new(0x1000);
+        let interp = SmirInterpreter::new();
+        if let ArchRegState::Hexagon(hex) = &mut ctx.arch_regs {
+            hex.set_v(0, v0);
+            hex.set_v(1, v1);
+        }
+        let mkv = |n| VReg::Arch(ArchReg::Hexagon(HexagonReg::V(n)));
+        let block = SmirBlock {
+            id: BlockId(0),
+            guest_pc: 0x1000,
+            phis: vec![],
+            ops: vec![SmirOp {
+                id: OpId(0),
+                guest_pc: 0x1000,
+                kind: OpKind::VWidenMul {
+                    dst_lo: mkv(2),
+                    dst_hi: mkv(3),
+                    src1: mkv(0),
+                    src2: mkv(1),
+                    src_elem,
+                    signed1,
+                    signed2,
+                    acc: false,
+                },
+                x86_hint: None,
+            }],
+            terminator: Terminator::Trap { kind: TrapKind::Halt },
+            exec_count: 0,
+        };
+        interp.execute_block(&mut ctx, &mut memory, &block);
+        match &ctx.arch_regs {
+            ArchRegState::Hexagon(hex) => (hex.get_v(2), hex.get_v(3)),
+            _ => panic!("not hexagon"),
+        }
+    }
+
+    #[test]
+    fn test_vwidenmul_byte_layout() {
+        // V0 bytes = [3,7,3,7,...], V1 = [5,2,5,2,...].
+        // lo.h[i] = even_byte products = 3*5 = 15; hi.h[i] = odd = 7*2 = 14.
+        let v0 = [0x0703_0703_0703_0703u64; 16];
+        let v1 = [0x0205_0205_0205_0205u64; 16];
+        let (lo, hi) = run_widenmul(v0, v1, VecElementType::I8, true, true);
+        assert_eq!(lo, [0x000F_000F_000F_000Fu64; 16]); // 15 per halfword
+        assert_eq!(hi, [0x000E_000E_000E_000Eu64; 16]); // 14 per halfword
+    }
+
+    #[test]
+    fn test_vwidenmul_signedness() {
+        // Every byte of V0 = 0xFF, V1 = 0x02.
+        let v0 = [0xFFFF_FFFF_FFFF_FFFFu64; 16];
+        let v1 = [0x0202_0202_0202_0202u64; 16];
+        // signed*signed: (-1)*2 = -2 = 0xFFFE per halfword.
+        let (lo, _hi) = run_widenmul(v0, v1, VecElementType::I8, true, true);
+        assert_eq!(lo, [0xFFFE_FFFE_FFFE_FFFEu64; 16]);
+        // unsigned*unsigned: 255*2 = 510 = 0x01FE per halfword.
+        let (lo_u, _hi) = run_widenmul(v0, v1, VecElementType::I8, false, false);
+        assert_eq!(lo_u, [0x01FE_01FE_01FE_01FEu64; 16]);
+    }
+
+    #[test]
+    fn test_vwidenmul_half_to_word() {
+        // half*half -> word pair. V0 half = 0x0003, V1 half = 0x0005 -> 15.
+        let v0 = [0x0003_0003_0003_0003u64; 16];
+        let v1 = [0x0005_0005_0005_0005u64; 16];
+        let (lo, hi) = run_widenmul(v0, v1, VecElementType::I16, true, true);
+        assert_eq!(lo, [0x0000_000F_0000_000Fu64; 16]); // word = 15
+        assert_eq!(hi, [0x0000_000F_0000_000Fu64; 16]);
     }
 }
