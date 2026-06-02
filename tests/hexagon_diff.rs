@@ -734,7 +734,7 @@ fn survey_spec_corpus() {
         }
     }
     eprintln!("\n-- REJECTED (unimplemented), first 100 --");
-    for tag in rejected.iter().take(100) {
+    for tag in rejected.iter().take(400) {
         eprint!("{tag} ");
     }
     eprintln!();

@@ -17,13 +17,17 @@ use super::opcode::DecodedOp;
 use crate::cpu::HexagonRegisters;
 
 mod alu;
+mod alu_ext;
 mod alu_pred;
 mod bitmanip;
 mod compare;
 mod extra;
 mod float;
+mod float_ext;
 mod mpy;
+mod mpy_ext;
 mod shift;
+mod shift_ext;
 mod vecalu;
 
 /// USR sticky overflow / saturation bit (`USR:0`).
@@ -176,4 +180,8 @@ pub fn dispatch(d: &DecodedOp, ctx: &mut SemCtx) -> bool {
         || shift::exec(op, d, ctx)
         || vecalu::exec(op, d, ctx)
         || extra::exec(op, d, ctx)
+        || mpy_ext::exec(op, d, ctx)
+        || shift_ext::exec(op, d, ctx)
+        || alu_ext::exec(op, d, ctx)
+        || float_ext::exec(op, d, ctx)
 }

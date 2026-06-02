@@ -5804,7 +5804,49 @@ impl AArch64Cpu {
             return Ok(CpuExit::Continue);
         }
 
-        let is_pair = o2 == 1;
+        // CASP/CASPA/CASPL/CASPAL (FEAT_LSE): compare-and-swap pair.
+        // Encoding: 0 sz 001000 0 L 1 Rs o0 11111 Rn Rt (bit31==0, o2==0, o1==1).
+        // sz==0 -> 32-bit pair, sz==1 -> 64-bit pair. Rs/Rt must be even.
+        if o2 == 0 && o1 == 1 && (insn >> 31) & 1 == 0 {
+            let sz = (insn >> 30) & 1; // 0 = 32-bit pair, 1 = 64-bit pair
+            let addr = if rn == 31 { self.current_sp() } else { self.get_x(rn) };
+            let s = rs as usize;
+            let t = rt as usize;
+            if sz == 0 {
+                // 32-bit pair: low element at addr, high element at addr+4.
+                let lo = self.mem_read_u32(addr)?;
+                let hi = self.mem_read_u32(addr + 4)?;
+                let s1 = self.get_x(rs) as u32; // compare low
+                let s2 = self.get_x((s + 1) as u8) as u32; // compare high
+                if lo == s1 && hi == s2 {
+                    let t1 = self.get_x(rt) as u32;
+                    let t2 = self.get_x((t + 1) as u8) as u32;
+                    self.mem_write_u32(addr, t1)?;
+                    self.mem_write_u32(addr + 4, t2)?;
+                }
+                self.set_w(rs, lo);
+                self.set_w((s + 1) as u8, hi);
+            } else {
+                // 64-bit pair: low element at addr, high element at addr+8.
+                let lo = self.mem_read_u64(addr)?;
+                let hi = self.mem_read_u64(addr + 8)?;
+                let s1 = self.get_x(rs);
+                let s2 = self.get_x((s + 1) as u8);
+                if lo == s1 && hi == s2 {
+                    let t1 = self.get_x(rt);
+                    let t2 = self.get_x((t + 1) as u8);
+                    self.mem_write_u64(addr, t1)?;
+                    self.mem_write_u64(addr + 8, t2)?;
+                }
+                self.set_x(rs, lo);
+                self.set_x((s + 1) as u8, hi);
+            }
+            return Ok(CpuExit::Continue);
+        }
+
+        // Pair exclusive ops (LDXP/STXP/LDAXP/STLXP) are flagged by o1 (bit21);
+        // single LDXR/STXR have o1==0.
+        let is_pair = o1 == 1;
         let is_load = l == 1;
         let is_ordered = o0 == 1; // acquire/release semantics (LDAXR/STLXR)
 

@@ -1059,6 +1059,101 @@ fn diff_mem_cas() {
     run_batch("mem_cas", batch);
 }
 
+/// LDXP: `1 sz 001000 0 1 1 11111 o0 Rt2 Rn Rt`. Rt=x4, Rt2=x5, Rn=x1.
+/// sz64 selects 64-bit (size=11) vs 32-bit (size=10) element pair.
+fn enc_ldxp(sz64: bool, o0: u32) -> u32 {
+    let size = if sz64 { 3 } else { 2 };
+    (size << 30) | (0b001000 << 24) | (1 << 22) | (1 << 21) | (0b11111 << 16)
+        | (o0 << 15) | (5 << 10) | (RN << 5) | 4
+}
+
+/// STXP: `1 sz 001000 0 0 1 Rs o0 Rt2 Rn Rt`. Rs=x6 (status), Rt=x4, Rt2=x5, Rn=x1.
+fn enc_stxp(sz64: bool, o0: u32) -> u32 {
+    let size = if sz64 { 3 } else { 2 };
+    (size << 30) | (0b001000 << 24) | (1 << 21) | (6 << 16)
+        | (o0 << 15) | (5 << 10) | (RN << 5) | 4
+}
+
+#[test]
+fn diff_excl_ldxp() {
+    let mut cases: Vec<(String, u32)> = Vec::new();
+    for &sz64 in &[false, true] {
+        for o0 in 0..2 {
+            cases.push((format!("ldxp sz64{sz64} o0{o0}"), enc_ldxp(sz64, o0)));
+        }
+    }
+    let mut rng = Rng::new(0x1_000F);
+    let mut batch: Vec<(String, u32, ArmState)> = Vec::new();
+    for (label, insn) in &cases {
+        for _ in 0..10 {
+            batch.push((label.clone(), *insn, mem_input(&mut rng)));
+        }
+    }
+    run_batch("excl_ldxp", batch);
+}
+
+#[test]
+fn diff_excl_stxp() {
+    // LDXP then STXP (round-trip): the monitor set by LDXP lets STXP succeed.
+    let mut cases: Vec<(String, u32, u32)> = Vec::new();
+    for &sz64 in &[false, true] {
+        for o0 in 0..2 {
+            cases.push((
+                format!("ldxp_stxp sz64{sz64} o0{o0}"),
+                enc_ldxp(sz64, o0),
+                enc_stxp(sz64, o0),
+            ));
+        }
+    }
+    let mut rng = Rng::new(0x1_0010);
+    let mut batch: Vec<(String, u32, u32, ArmState)> = Vec::new();
+    for (label, ldxp, stxp) in &cases {
+        for _ in 0..10 {
+            batch.push((label.clone(), *ldxp, *stxp, mem_input(&mut rng)));
+        }
+    }
+    run_batch_pair("excl_stxp", batch);
+}
+
+/// CASP: `0 sz 001000 0 L 1 Rs o0 11111 Rn Rt`. Rs=x2:x3 (compare/old),
+/// Rt=x4:x5 (new), Rn=x1. sz selects 32-bit (0) or 64-bit (1) element pair.
+fn enc_casp(sz: u32, l: u32, o0: u32) -> u32 {
+    (sz << 30) | (0b001000 << 24) | (l << 22) | (1 << 21) | (2 << 16)
+        | (o0 << 15) | (0b11111 << 10) | (RN << 5) | 4
+}
+
+#[test]
+fn diff_mem_casp() {
+    let mut cases: Vec<(String, u32, u32)> = Vec::new();
+    for sz in 0..2u32 {
+        for l in 0..2 {
+            for o0 in 0..2 {
+                cases.push((format!("casp sz{sz} l{l} o0{o0}"), enc_casp(sz, l, o0), sz));
+            }
+        }
+    }
+    let mut rng = Rng::new(0x1_000E);
+    let mut batch: Vec<(String, u32, ArmState)> = Vec::new();
+    for (label, insn, sz) in &cases {
+        for k in 0..12 {
+            let mut st = mem_input(&mut rng);
+            // Half the cases: make the compare pair (x2:x3) equal the memory pair
+            // at SCRATCH_BASE (scratch[8]/scratch[9]) so the swap succeeds.
+            if k % 2 == 0 {
+                if *sz == 0 {
+                    st.x[2] = st.scratch[8] & 0xFFFF_FFFF;
+                    st.x[3] = st.scratch[8] >> 32;
+                } else {
+                    st.x[2] = st.scratch[8];
+                    st.x[3] = st.scratch[9];
+                }
+            }
+            batch.push((label.clone(), *insn, st));
+        }
+    }
+    run_batch("mem_casp", batch);
+}
+
 /// Atomic memory op: `size 111 0 00 A R 1 Rs o3 opc 00 Rn Rt`. Rs=x2, Rn=x1, Rt=x0.
 fn enc_atomic(size: u32, a: u32, r: u32, o3: u32, opc: u32) -> u32 {
     (size << 30) | (0b111 << 27) | (a << 23) | (r << 22) | (1 << 21) | (2 << 16)
