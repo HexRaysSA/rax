@@ -5454,8 +5454,21 @@ impl AArch64Cpu {
                 let op = (insn >> 12) & 1;
                 let unsigned = (insn >> 11) & 1 == 1;
                 let top = (insn >> 10) & 1 == 1;
-                if size == 0 || (op == 0 && unsigned && size != 1) {
-                    return Ok(CpuExit::Undefined(insn)); // PMULL: H form only
+                let is_pmull = op == 0 && unsigned;
+                // SMULL/UMULL/SQDMULL need a half-width source so size==0 is
+                // reserved; PMULL is valid for .q (size==0, 64->128), .h
+                // (size==01, 8->16) and .d (size==11, 32->64) but not size==10.
+                if (size == 0 && !is_pmull) || (is_pmull && size == 2) {
+                    return Ok(CpuExit::Undefined(insn));
+                }
+                if is_pmull && size == 0 {
+                    // PMULLB/T .q <- .d: 64x64 -> 128 carryless. T selects the
+                    // odd (high) 64-bit lane of the segment, B the even (low).
+                    let lane = top as usize;
+                    let xn = (self.v[zn] >> (lane * 64)) as u64;
+                    let xm = (self.v[zm] >> (lane * 64)) as u64;
+                    self.v[zd] = poly_mul_64(xn, xm);
+                    return Ok(CpuExit::Continue);
                 }
                 let d_esize = 1usize << size;
                 let s_esize = d_esize / 2;

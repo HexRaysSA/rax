@@ -1661,6 +1661,13 @@ fn sli_tsz_imm(esize_bits: u32, amount: u32) -> (u32, u32) {
     ((tszimm >> 3) & 0xF, tszimm & 0x7)
 }
 
+/// SVE2 PMULLB/PMULLT: `0100 0101 size 0 Zm 011 01 T Zn Zd`. size: 0=.q(64->128),
+/// 1=.h(8->16), 3=.d(32->64); T=bit10 (0=B,1=T). Zn=z1(RN), Zm=z2(RM), Zd=z0(RD).
+fn enc_sve2_pmull(size: u32, top: u32) -> u32 {
+    (0x45 << 24) | (size << 22) | (RM << 16) | (0b011 << 13) | (1 << 11) | (top << 10) | (RN << 5)
+        | RD
+}
+
 /// SVE2 AES/SM4E family: `0100 0101 <third> 11100 op Zm Zd`. third=bits[23:16]
 /// (0x22 AESE/AESD, 0x23 SM4E); op=bit10. Zm=z1(RN), Zd=z0(RD).
 fn enc_sve2_aes(third: u32, op: u32) -> u32 {
@@ -2802,6 +2809,27 @@ fn diff_sve2_fcvtx() {
         }
     }
     run_batch("sve2_fcvtx", batch);
+}
+
+#[test]
+fn diff_sve2_pmull() {
+    // PMULLB/PMULLT carryless multiply long: .q (64->128, needs PMULL128), .h
+    // (8->16) and .d (32->64), both even (B) and odd (T) halves. Random inputs.
+    let mut rng = Rng::new(0x6_9001);
+    let mut batch: Vec<(String, u32, ArmState)> = Vec::new();
+    for size in [0u32, 1, 3] {
+        for top in 0..2u32 {
+            let insn = enc_sve2_pmull(size, top);
+            for _ in 0..16 {
+                let mut st = ArmState::zeroed();
+                st.set_vreg(1, rng.next(), rng.next());
+                st.set_vreg(2, rng.next(), rng.next());
+                st.set_vreg(0, rng.next(), rng.next()); // dest (overwritten)
+                batch.push((format!("pmull sz{size} t{top}"), insn, st));
+            }
+        }
+    }
+    run_batch("sve2_pmull", batch);
 }
 
 #[test]
