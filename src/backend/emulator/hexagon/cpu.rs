@@ -5,6 +5,7 @@ use vm_memory::{Bytes, GuestAddress, GuestMemoryMmap};
 use super::decode::{
     decode, decode_duplex, isa_supports_insn, AddrMode, CmpKind, CombineOperand, DecodedInsn,
     DecodedSub, ExtendKind, MemOpKind, MemOpSrc, MemSign, MemWidth, PredCond, ShiftKind,
+    SpliceAmount,
 };
 use super::opcode::Opcode;
 use crate::config::{Endianness, HexagonIsa};
@@ -273,6 +274,11 @@ pub struct HexagonVcpu {
     /// (`vmem(...) = V.new`) to its in-packet producer. `None` when no vector has
     /// been produced yet (then a `vmem=vtmp.new` store falls back to `gather_tmp`).
     last_v_produced: Option<u8>,
+    /// LL/SC reservation: the (word/dword-aligned) address reserved by the most
+    /// recent load-locked, or `None`. A store-conditional succeeds (and clears
+    /// it) only when this matches the SC address; otherwise the SC fails. Models
+    /// the qemu-hexagon behaviour where a bare store-conditional fails.
+    lock_addr: Option<u32>,
 }
 
 impl HexagonVcpu {
@@ -291,6 +297,7 @@ impl HexagonVcpu {
             new_v_tmp: [None; 32],
             gather_tmp: None,
             last_v_produced: None,
+            lock_addr: None,
         }
     }
 
@@ -1689,6 +1696,106 @@ impl HexagonVcpu {
                 return Err(Error::Emulator(
                     "unresolved new-value store".to_string(),
                 ));
+            }
+            DecodedInsn::LoadLocked { dst, base, width } => {
+                // Plain word/dword load at `Rs+0` that also sets the LL
+                // reservation on the accessed address.
+                let addr = self.regs.r[base as usize];
+                if Self::is_mmio(addr) {
+                    return Err(Error::Emulator(
+                        "atomic load from mmio not supported".to_string(),
+                    ));
+                }
+                if width == MemWidth::Double {
+                    let even = dst & !1;
+                    let odd = even.wrapping_add(1);
+                    if odd >= 32 {
+                        return Err(Error::Emulator(
+                            "invalid register pair for doubleword load".to_string(),
+                        ));
+                    }
+                    let val = self.read_u64(addr)?;
+                    new_r[even as usize] = Some(val as u32);
+                    new_r[odd as usize] = Some((val >> 32) as u32);
+                } else {
+                    new_r[dst as usize] = Some(self.read_u32(addr)?);
+                }
+                self.lock_addr = Some(addr);
+            }
+            DecodedInsn::StoreCond {
+                src,
+                base,
+                width,
+                success_pred,
+            } => {
+                // Store-conditional / store-release at `Rs+0`.
+                let addr = self.regs.r[base as usize];
+                if Self::is_mmio(addr) {
+                    return Err(Error::Emulator(
+                        "atomic store to mmio not supported".to_string(),
+                    ));
+                }
+                // A `_locked` store-conditional succeeds only when the LL
+                // reservation matches this address (a bare SC fails). Release
+                // stores (`success_pred == None`) always store unconditionally.
+                let succeed = match success_pred {
+                    Some(_) => self.lock_addr == Some(addr),
+                    None => true,
+                };
+                // Any store-conditional attempt clears the reservation.
+                if success_pred.is_some() {
+                    self.lock_addr = None;
+                }
+                if succeed {
+                    if width == MemWidth::Double {
+                        let even = src & !1;
+                        let odd = even.wrapping_add(1);
+                        if odd >= 32 {
+                            return Err(Error::Emulator(
+                                "invalid register pair for doubleword store".to_string(),
+                            ));
+                        }
+                        let combined = ((self.regs.r[odd as usize] as u64) << 32)
+                            | self.regs.r[even as usize] as u64;
+                        self.write_u64(addr, combined)?;
+                    } else {
+                        self.store_mem(addr, width, self.regs.r[src as usize])?;
+                    }
+                }
+                // The `_locked` forms set Pd to the success result (TRUE on a held
+                // reservation, FALSE otherwise); release stores set no predicate.
+                if let Some(pd) = success_pred {
+                    new_p[pd as usize] = Some(if succeed { 0xff } else { 0 });
+                }
+            }
+            DecodedInsn::Vsplice {
+                dst,
+                src_low,
+                src_high,
+                amount,
+            } => {
+                // Rdd = Rtt << N*8 | zxt(N*8)(Rss): low N bytes from Rss, high
+                // (8-N) bytes from Rtt. N is #u3 or Pu&7 (range 0..=7, so the
+                // shift is always < 64 and well-defined).
+                let n = match amount {
+                    SpliceAmount::Imm(v) => (v & 0x7) as u32,
+                    SpliceAmount::Pred(p) => (self.regs.p[p as usize] & 0x7) as u32,
+                };
+                let bits = n * 8;
+                let rss_even = src_low & !1;
+                let rss_odd = rss_even.wrapping_add(1);
+                let rtt_even = src_high & !1;
+                let rtt_odd = rtt_even.wrapping_add(1);
+                let rss = ((self.regs.r[rss_odd as usize] as u64) << 32)
+                    | self.regs.r[rss_even as usize] as u64;
+                let rtt = ((self.regs.r[rtt_odd as usize] as u64) << 32)
+                    | self.regs.r[rtt_even as usize] as u64;
+                let low_mask = if bits == 0 { 0 } else { (1u64 << bits) - 1 };
+                let result = (rtt << bits) | (rss & low_mask);
+                let even = dst & !1;
+                let odd = even.wrapping_add(1);
+                new_r[even as usize] = Some(result as u32);
+                new_r[odd as usize] = Some((result >> 32) as u32);
             }
             DecodedInsn::Unknown(word) => {
                 // Fall through to the direct opcode-dispatch semantic layer,

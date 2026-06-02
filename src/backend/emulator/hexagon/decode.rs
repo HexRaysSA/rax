@@ -23,6 +23,14 @@ pub enum MemSign {
     Unsigned,
 }
 
+/// Splice byte count `N` for `Vsplice` (`vspliceb`): an immediate `#u3` or the
+/// low 3 bits of a predicate `Pu`.
+#[derive(Clone, Copy, Debug)]
+pub enum SpliceAmount {
+    Imm(u8),
+    Pred(u8),
+}
+
 #[derive(Clone, Copy, Debug)]
 pub enum AddrMode {
     Offset { base: u8, offset: i32 },
@@ -498,6 +506,39 @@ pub enum DecodedInsn {
         width: MemWidth,
         pred: Option<PredCond>,
     },
+    /// Load-locked (`Rd=memw_locked(Rs)` / `Rdd=memd_locked(Rs)`): a plain word /
+    /// doubleword load at `Rs+0` that ALSO sets the LL reservation on that
+    /// address. A later matching store-conditional succeeds; a store-conditional
+    /// with no (or a stale) reservation fails.
+    LoadLocked {
+        dst: u8,
+        base: u8,
+        width: MemWidth,
+    },
+    /// Store-conditional / store-release at `Rs+0` (`memw_locked(Rs,Pd)=Rt`,
+    /// `memd_locked(Rs,Pd)=Rtt`, and the `memX_rl(Rs):at/:st` release stores).
+    /// `base` is Rs, `src` is the data register (the EVEN reg of the pair for
+    /// `MemWidth::Double`). `success_pred` is `Some(Pd)` for the `_locked`
+    /// store-conditional forms: the store happens and `Pd` is set TRUE (0xff)
+    /// ONLY if the LL reservation set by a preceding load-locked matches `Rs`;
+    /// otherwise the store is skipped and `Pd` is cleared. `None` for the plain
+    /// release stores (always store; no reservation, no predicate side effect).
+    StoreCond {
+        src: u8,
+        base: u8,
+        width: MemWidth,
+        success_pred: Option<u8>,
+    },
+    /// Vector byte splice (`Rdd=vspliceb(Rss,Rtt,#u3|Pu)`). The low `N` bytes
+    /// come from `src_low` (Rss) and the high `8-N` bytes from `src_high` (Rtt);
+    /// `amount` gives `N` (an immediate `#u3` or `Pu & 7`). A register-pair write
+    /// to `dst` (the even reg of Rdd); touches no memory.
+    Vsplice {
+        dst: u8,
+        src_low: u8,
+        src_high: u8,
+        amount: SpliceAmount,
+    },
     MemOp {
         base: u8,
         offset: i32,
@@ -816,6 +857,26 @@ fn store_io(
     ))
 }
 
+/// `storerf` high-half store with register+immediate offset (`memh(Rs+#s11:1)
+/// =Rt.h`, `S2_storerf_io`). Always `MemWidth::Half`; stores `Rt[31:16]`.
+fn store_io_high(decoded: &DecodedOp, immext: Option<u32>) -> Option<(DecodedInsn, bool)> {
+    let base = field_u8(decoded, b's')?;
+    let src = field_u8(decoded, b't')?;
+    let (imm, used) = decode_field_simm(decoded, b'i', immext)?;
+    let offset = imm.wrapping_shl(width_shift(MemWidth::Half) as u32);
+    Some((
+        DecodedInsn::Store {
+            src,
+            addr: AddrMode::Offset { base, offset },
+            width: MemWidth::Half,
+            pred: None,
+            src_new: false,
+            high_half: true,
+        },
+        used,
+    ))
+}
+
 /// New-value store with register+immediate offset (`memX(Rs+#s11:N)=Nt8.new`).
 fn store_new_io(
     decoded: &DecodedOp,
@@ -904,6 +965,337 @@ fn store_pi(decoded: &DecodedOp, width: MemWidth, src_new: bool) -> Option<(Deco
             pred: None,
             src_new,
             high_half: false,
+        },
+        false,
+    ))
+}
+
+/// Base register-offset store (`memX(Rs+Ru<<#u2)=Rt[.h]`, `S4_storer*_rr`).
+/// Fields: `s` = Rs base, `u` = Ru index, `i` = #u2 shift, `t` = data Rt. (Note
+/// the load form `L4_loadr*_rr` instead carries the index in field `t`.)
+fn store_rr(decoded: &DecodedOp, width: MemWidth, high_half: bool) -> Option<(DecodedInsn, bool)> {
+    let base = field_u8(decoded, b's')?;
+    let index = field_u8(decoded, b'u')?;
+    let src = field_u8(decoded, b't')?;
+    let shift = decode_field_uimm(decoded, b'i', None)?.0 as u8;
+    Some((
+        DecodedInsn::Store {
+            src,
+            addr: AddrMode::RegScaled { base, index, shift },
+            width,
+            pred: None,
+            src_new: false,
+            high_half,
+        },
+        false,
+    ))
+}
+
+/// NEW-VALUE register-offset store (`S4_storer*new_rr`). The data source is the
+/// `Nt8` producer (field `t`); index is `u`, base is `s`, shift is `i`.
+fn store_new_rr(decoded: &DecodedOp, width: MemWidth) -> Option<(DecodedInsn, bool)> {
+    let base = field_u8(decoded, b's')?;
+    let index = field_u8(decoded, b'u')?;
+    let nt = field_u8(decoded, b't')?;
+    let shift = decode_field_uimm(decoded, b'i', None)?.0 as u8;
+    Some((
+        DecodedInsn::StoreNew {
+            nt,
+            addr: AddrMode::RegScaled { base, index, shift },
+            width,
+            pred: None,
+        },
+        false,
+    ))
+}
+
+/// Absolute-set store (`memX(Re=##U6)=Rt[.h]`, `S4_storer*_ap`). The EA is the
+/// constant-extended `I` field; the address register `Re` (field `e`) is also
+/// written with that absolute. Data is `Rt` (field `t`). Requires an extender.
+fn store_ap(
+    decoded: &DecodedOp,
+    width: MemWidth,
+    high_half: bool,
+    immext: Option<u32>,
+) -> Option<(DecodedInsn, bool)> {
+    let src = field_u8(decoded, b't')?;
+    let areg = field_u8(decoded, b'e')?;
+    let (addr, used) = decode_field_uimm(decoded, b'I', immext)?;
+    Some((
+        DecodedInsn::Store {
+            src,
+            addr: AddrMode::AbsSet { areg, addr },
+            width,
+            pred: None,
+            src_new: false,
+            high_half,
+        },
+        used,
+    ))
+}
+
+/// NEW-VALUE absolute-set store (`S4_storer*new_ap`). Data source is the `Nt8`
+/// producer (field `t`); the address register `Re` is also written.
+fn store_new_ap(
+    decoded: &DecodedOp,
+    width: MemWidth,
+    immext: Option<u32>,
+) -> Option<(DecodedInsn, bool)> {
+    let nt = field_u8(decoded, b't')?;
+    let areg = field_u8(decoded, b'e')?;
+    let (addr, used) = decode_field_uimm(decoded, b'I', immext)?;
+    Some((
+        DecodedInsn::StoreNew {
+            nt,
+            addr: AddrMode::AbsSet { areg, addr },
+            width,
+            pred: None,
+        },
+        used,
+    ))
+}
+
+/// Scaled-index absolute store (`memX(Ru<<#u2+##U6)=Rt[.h]`, `S4_storer*_ur`).
+/// The EA is `addr + (Ru << shift)` with `addr` the constant-extended `I` field.
+/// Fields: `u` = Ru index, `i` = #u2 shift, `t` = data Rt. (The load form
+/// `L4_loadr*_ur` instead carries the index in field `t`.)
+fn store_ur(
+    decoded: &DecodedOp,
+    width: MemWidth,
+    high_half: bool,
+    immext: Option<u32>,
+) -> Option<(DecodedInsn, bool)> {
+    let src = field_u8(decoded, b't')?;
+    let index = field_u8(decoded, b'u')?;
+    let shift = decode_field_uimm(decoded, b'i', None)?.0 as u8;
+    let (addr, used) = decode_field_uimm(decoded, b'I', immext)?;
+    Some((
+        DecodedInsn::Store {
+            src,
+            addr: AddrMode::IndexAbs { index, shift, addr },
+            width,
+            pred: None,
+            src_new: false,
+            high_half,
+        },
+        used,
+    ))
+}
+
+/// NEW-VALUE scaled-index absolute store (`S4_storer*new_ur`). Data source is
+/// the `Nt8` producer (field `t`); index is `u`, shift is `i`.
+fn store_new_ur(
+    decoded: &DecodedOp,
+    width: MemWidth,
+    immext: Option<u32>,
+) -> Option<(DecodedInsn, bool)> {
+    let nt = field_u8(decoded, b't')?;
+    let index = field_u8(decoded, b'u')?;
+    let shift = decode_field_uimm(decoded, b'i', None)?.0 as u8;
+    let (addr, used) = decode_field_uimm(decoded, b'I', immext)?;
+    Some((
+        DecodedInsn::StoreNew {
+            nt,
+            addr: AddrMode::IndexAbs { index, shift, addr },
+            width,
+            pred: None,
+        },
+        used,
+    ))
+}
+
+/// `storerf` post-increment-by-immediate store (`memh(Rx++#s4:1)=Rt.h`,
+/// `S2_storerf_pi`). Like `store_pi` but stores the high halfword `Rt[31:16]`.
+fn store_high_pi(decoded: &DecodedOp, width: MemWidth) -> Option<(DecodedInsn, bool)> {
+    let base = field_u8(decoded, b'x')?;
+    let src = field_u8(decoded, b't')?;
+    let (imm, _) = decode_field_simm(decoded, b'i', None)?;
+    let offset = imm.wrapping_shl(width_shift(width) as u32);
+    Some((
+        DecodedInsn::Store {
+            src,
+            addr: AddrMode::PostIncImm { base, offset },
+            width,
+            pred: None,
+            src_new: false,
+            high_half: true,
+        },
+        false,
+    ))
+}
+
+/// `storerf` register / bit-reverse post-increment store (`S2_storerf_pr` /
+/// `_pbr`). `x` = base (post-incremented), `u` = Mu select, `t` = data Rt.
+fn store_high_pr(decoded: &DecodedOp, width: MemWidth, brev: bool) -> Option<(DecodedInsn, bool)> {
+    let base = field_u8(decoded, b'x')?;
+    let modsel = field_u8(decoded, b'u')?;
+    let src = field_u8(decoded, b't')?;
+    let addr = if brev {
+        AddrMode::PostIncBrev { base, modsel }
+    } else {
+        AddrMode::PostIncReg { base, modsel }
+    };
+    Some((
+        DecodedInsn::Store {
+            src,
+            addr,
+            width,
+            pred: None,
+            src_new: false,
+            high_half: true,
+        },
+        false,
+    ))
+}
+
+/// `storerf` circular post-increment store by immediate (`S2_storerf_pci`).
+/// `x` = base, `u` = Mu select, `i` = signed #s4 increment (scaled), `t` = data.
+fn store_high_pci(decoded: &DecodedOp, width: MemWidth) -> Option<(DecodedInsn, bool)> {
+    let base = field_u8(decoded, b'x')?;
+    let modsel = field_u8(decoded, b'u')?;
+    let src = field_u8(decoded, b't')?;
+    let (imm, _) = decode_field_simm(decoded, b'i', None)?;
+    let incr = imm.wrapping_shl(width_shift(width) as u32);
+    Some((
+        DecodedInsn::Store {
+            src,
+            addr: AddrMode::PostIncCircImm { base, modsel, incr },
+            width,
+            pred: None,
+            src_new: false,
+            high_half: true,
+        },
+        false,
+    ))
+}
+
+/// `storerf` circular post-increment store by the M I-field (`S2_storerf_pcr`).
+/// `x` = base, `u` = Mu select, `t` = data Rt.
+fn store_high_pcr(decoded: &DecodedOp, width: MemWidth) -> Option<(DecodedInsn, bool)> {
+    let base = field_u8(decoded, b'x')?;
+    let modsel = field_u8(decoded, b'u')?;
+    let src = field_u8(decoded, b't')?;
+    Some((
+        DecodedInsn::Store {
+            src,
+            addr: AddrMode::PostIncCircReg {
+                base,
+                modsel,
+                shift: width_shift(width),
+            },
+            width,
+            pred: None,
+            src_new: false,
+            high_half: true,
+        },
+        false,
+    ))
+}
+
+/// NEW-VALUE GP-relative store (`memX(gp+#u16:N)=Nt8.new`, `S2_storer*newgp`).
+/// Data is the `Nt8` producer (field `t`); offset is `i` (scaled by access
+/// size, or the full byte address if a constant extender is present).
+fn store_new_gp(
+    decoded: &DecodedOp,
+    width: MemWidth,
+    immext: Option<u32>,
+) -> Option<(DecodedInsn, bool)> {
+    let nt = field_u8(decoded, b't')?;
+    let (imm, used) = decode_field_uimm(decoded, b'i', immext)?;
+    let addr = if used {
+        AddrMode::Abs { addr: imm }
+    } else {
+        AddrMode::GpOffset {
+            offset: (imm << width_shift(width)) as i32,
+        }
+    };
+    Some((
+        DecodedInsn::StoreNew {
+            nt,
+            addr,
+            width,
+            pred: None,
+        },
+        used,
+    ))
+}
+
+/// `storerfgp` GP-relative high-half store (`memh(gp+#u16:1)=Rt.h`). Like
+/// `store_gp` but stores `Rt[31:16]`.
+fn store_high_gp(
+    decoded: &DecodedOp,
+    width: MemWidth,
+    immext: Option<u32>,
+) -> Option<(DecodedInsn, bool)> {
+    let src = field_u8(decoded, b't')?;
+    let (imm, used) = decode_field_uimm(decoded, b'i', immext)?;
+    let addr = if used {
+        AddrMode::Abs { addr: imm }
+    } else {
+        AddrMode::GpOffset {
+            offset: (imm << width_shift(width)) as i32,
+        }
+    };
+    Some((
+        DecodedInsn::Store {
+            src,
+            addr,
+            width,
+            pred: None,
+            src_new: false,
+            high_half: true,
+        },
+        used,
+    ))
+}
+
+/// Store-conditional / store-release (`memw_locked(Rs,Pd)=Rt`,
+/// `memd_locked(Rs,Pd)=Rtt`, and the `memX_rl(Rs):at/:st` release stores). The
+/// EA is always `Rs+0` (field `s`); data is `Rt`/`Rtt` (field `t`). For the
+/// `_locked` forms field `d` is the success predicate Pd, which in single-thread
+/// user mode is always set TRUE (the reservation never fails). Release stores
+/// have no success predicate.
+fn store_cond(
+    decoded: &DecodedOp,
+    width: MemWidth,
+    set_pred: bool,
+) -> Option<(DecodedInsn, bool)> {
+    let base = field_u8(decoded, b's')?;
+    let src = field_u8(decoded, b't')?;
+    let success_pred = if set_pred {
+        Some(field_u8(decoded, b'd')?)
+    } else {
+        None
+    };
+    Some((
+        DecodedInsn::StoreCond {
+            src,
+            base,
+            width,
+            success_pred,
+        },
+        false,
+    ))
+}
+
+/// Vector byte splice (`Rdd=vspliceb(Rss,Rtt,#u3|Pu)`, `S2_vsplice{ib,rb}`). The
+/// low `N` bytes come from Rss and the high `8-N` bytes from Rtt, where `N` is
+/// the `#u3` immediate (`ib`) or `Pu & 7` (`rb`). A pure register-pair write.
+fn vsplice(decoded: &DecodedOp, imm_n: bool) -> Option<(DecodedInsn, bool)> {
+    let dst = field_u8(decoded, b'd')?;
+    let src_low = field_u8(decoded, b's')?; // Rss
+    let src_high = field_u8(decoded, b't')?; // Rtt
+    let amount = if imm_n {
+        SpliceAmount::Imm(decode_field_uimm(decoded, b'i', None)?.0 as u8)
+    } else {
+        SpliceAmount::Pred(field_u8(decoded, b'u')?)
+    };
+    Some((
+        DecodedInsn::Vsplice {
+            dst,
+            src_low,
+            src_high,
+            amount,
         },
         false,
     ))
@@ -1146,22 +1538,28 @@ fn load_simple(
 
 /// Atomic load (`L2_loadw_locked`/`_aq`, `L4_loadd_locked`/`_aq`). In
 /// single-thread user mode these are plain word / doubleword loads
-/// (`Rd=memw(Rs)` / `Rdd=memd(Rs)`); the reservation / acquire-barrier has no
-/// observable effect on register / memory state. Fields: `s` = base, `d` =
-/// dest. Always reads at `Rs+0`.
-fn load_atomic(decoded: &DecodedOp, width: MemWidth) -> Option<(DecodedInsn, bool)> {
+/// (`Rd=memw(Rs)` / `Rdd=memd(Rs)`); the acquire-barrier has no observable
+/// effect on register / memory state. The `_locked` forms additionally set a
+/// reservation on the accessed address (consumed by a later store-conditional),
+/// so they decode to `LoadLocked`; the `_aq` forms are plain `Load`. Fields:
+/// `s` = base, `d` = dest. Always reads at `Rs+0`.
+fn load_atomic(decoded: &DecodedOp, width: MemWidth, locked: bool) -> Option<(DecodedInsn, bool)> {
     let base = field_u8(decoded, b's')?;
     let dst = field_u8(decoded, b'd')?;
-    Some((
-        DecodedInsn::Load {
-            dst,
-            addr: AddrMode::Offset { base, offset: 0 },
-            width,
-            sign: MemSign::Unsigned,
-            pred: None,
-        },
-        false,
-    ))
+    if locked {
+        Some((DecodedInsn::LoadLocked { dst, base, width }, false))
+    } else {
+        Some((
+            DecodedInsn::Load {
+                dst,
+                addr: AddrMode::Offset { base, offset: 0 },
+                width,
+                sign: MemSign::Unsigned,
+                pred: None,
+            },
+            false,
+        ))
+    }
 }
 
 /// Predicated post-increment load (`if ([!]Pv[.new]) Rd=memX(Rx++#s4:N)`,
@@ -2602,6 +3000,57 @@ fn decode_main(decoded: &DecodedOp, word: u32, immext: Option<u32>) -> (DecodedI
         Opcode::S2_storerhgp => req!(store_gp(decoded, MemWidth::Half, false, immext)),
         Opcode::S2_storerigp => req!(store_gp(decoded, MemWidth::Word, false, immext)),
         Opcode::S2_storerdgp => req!(store_gp(decoded, MemWidth::Double, false, immext)),
+        // ---- S4 base register-offset stores `memX(Rs+Ru<<#u2)=Rt` (_rr) ----
+        Opcode::S4_storerb_rr => req!(store_rr(decoded, MemWidth::Byte, false)),
+        Opcode::S4_storerh_rr => req!(store_rr(decoded, MemWidth::Half, false)),
+        Opcode::S4_storeri_rr => req!(store_rr(decoded, MemWidth::Word, false)),
+        Opcode::S4_storerd_rr => req!(store_rr(decoded, MemWidth::Double, false)),
+        Opcode::S4_storerf_rr => req!(store_rr(decoded, MemWidth::Half, true)),
+        Opcode::S4_storerbnew_rr => req!(store_new_rr(decoded, MemWidth::Byte)),
+        Opcode::S4_storerhnew_rr => req!(store_new_rr(decoded, MemWidth::Half)),
+        Opcode::S4_storerinew_rr => req!(store_new_rr(decoded, MemWidth::Word)),
+        // ---- S4 absolute-set stores `memX(Re=##U6)=Rt` (_ap) ----
+        Opcode::S4_storerb_ap => req!(store_ap(decoded, MemWidth::Byte, false, immext)),
+        Opcode::S4_storerh_ap => req!(store_ap(decoded, MemWidth::Half, false, immext)),
+        Opcode::S4_storeri_ap => req!(store_ap(decoded, MemWidth::Word, false, immext)),
+        Opcode::S4_storerd_ap => req!(store_ap(decoded, MemWidth::Double, false, immext)),
+        Opcode::S4_storerf_ap => req!(store_ap(decoded, MemWidth::Half, true, immext)),
+        Opcode::S4_storerbnew_ap => req!(store_new_ap(decoded, MemWidth::Byte, immext)),
+        Opcode::S4_storerhnew_ap => req!(store_new_ap(decoded, MemWidth::Half, immext)),
+        Opcode::S4_storerinew_ap => req!(store_new_ap(decoded, MemWidth::Word, immext)),
+        // ---- S4 scaled-index absolute stores `memX(Ru<<#u2+##U6)=Rt` (_ur) ----
+        Opcode::S4_storerb_ur => req!(store_ur(decoded, MemWidth::Byte, false, immext)),
+        Opcode::S4_storerh_ur => req!(store_ur(decoded, MemWidth::Half, false, immext)),
+        Opcode::S4_storeri_ur => req!(store_ur(decoded, MemWidth::Word, false, immext)),
+        Opcode::S4_storerd_ur => req!(store_ur(decoded, MemWidth::Double, false, immext)),
+        Opcode::S4_storerf_ur => req!(store_ur(decoded, MemWidth::Half, true, immext)),
+        Opcode::S4_storerbnew_ur => req!(store_new_ur(decoded, MemWidth::Byte, immext)),
+        Opcode::S4_storerhnew_ur => req!(store_new_ur(decoded, MemWidth::Half, immext)),
+        Opcode::S4_storerinew_ur => req!(store_new_ur(decoded, MemWidth::Word, immext)),
+        // ---- storerf high-half stores `memh(...)=Rt.h` (all address modes) ----
+        Opcode::S2_storerf_io => req!(store_io_high(decoded, immext)),
+        Opcode::S2_storerf_pi => req!(store_high_pi(decoded, MemWidth::Half)),
+        Opcode::S2_storerf_pr => req!(store_high_pr(decoded, MemWidth::Half, false)),
+        Opcode::S2_storerf_pbr => req!(store_high_pr(decoded, MemWidth::Half, true)),
+        Opcode::S2_storerf_pci => req!(store_high_pci(decoded, MemWidth::Half)),
+        Opcode::S2_storerf_pcr => req!(store_high_pcr(decoded, MemWidth::Half)),
+        // ---- GP-relative high-half + new-value stores ----
+        Opcode::S2_storerfgp => req!(store_high_gp(decoded, MemWidth::Half, immext)),
+        Opcode::S2_storerbnewgp => req!(store_new_gp(decoded, MemWidth::Byte, immext)),
+        Opcode::S2_storerhnewgp => req!(store_new_gp(decoded, MemWidth::Half, immext)),
+        Opcode::S2_storerinewgp => req!(store_new_gp(decoded, MemWidth::Word, immext)),
+        // ---- store-conditional (locked) and store-release (rl) ----
+        Opcode::S2_storew_locked => req!(store_cond(decoded, MemWidth::Word, true)),
+        Opcode::S4_stored_locked => req!(store_cond(decoded, MemWidth::Double, true)),
+        Opcode::S2_storew_rl_at_vi | Opcode::S2_storew_rl_st_vi => {
+            req!(store_cond(decoded, MemWidth::Word, false))
+        }
+        Opcode::S4_stored_rl_at_vi | Opcode::S4_stored_rl_st_vi => {
+            req!(store_cond(decoded, MemWidth::Double, false))
+        }
+        // ---- vector byte splice (register-only) ----
+        Opcode::S2_vspliceib => req!(vsplice(decoded, true)),
+        Opcode::S2_vsplicerb => req!(vsplice(decoded, false)),
         Opcode::S2_storerbnew_io => req!(store_new_io(decoded, MemWidth::Byte, immext)),
         Opcode::S2_storerhnew_io => req!(store_new_io(decoded, MemWidth::Half, immext)),
         Opcode::S2_storerinew_io => req!(store_new_io(decoded, MemWidth::Word, immext)),
@@ -2923,13 +3372,11 @@ fn decode_main(decoded: &DecodedOp, word: u32, immext: Option<u32>) -> (DecodedI
         Opcode::L4_loadruh_ap => req!(load_simple(decoded, MemWidth::Half, MemSign::Unsigned, req!(addr_ap(decoded, immext)))),
         Opcode::L4_loadri_ap => req!(load_simple(decoded, MemWidth::Word, MemSign::Unsigned, req!(addr_ap(decoded, immext)))),
         Opcode::L4_loadrd_ap => req!(load_simple(decoded, MemWidth::Double, MemSign::Unsigned, req!(addr_ap(decoded, immext)))),
-        // ---- atomic loads (single-thread user mode == plain loads) ----
-        Opcode::L2_loadw_locked | Opcode::L2_loadw_aq => {
-            req!(load_atomic(decoded, MemWidth::Word))
-        }
-        Opcode::L4_loadd_locked | Opcode::L4_loadd_aq => {
-            req!(load_atomic(decoded, MemWidth::Double))
-        }
+        // ---- atomic loads (acquire == plain load; locked sets a reservation) ----
+        Opcode::L2_loadw_locked => req!(load_atomic(decoded, MemWidth::Word, true)),
+        Opcode::L2_loadw_aq => req!(load_atomic(decoded, MemWidth::Word, false)),
+        Opcode::L4_loadd_locked => req!(load_atomic(decoded, MemWidth::Double, true)),
+        Opcode::L4_loadd_aq => req!(load_atomic(decoded, MemWidth::Double, false)),
         // ---- LOADALIGN (FIFO) — byte (shift 8) ----
         Opcode::L2_loadalignb_io => {
             let a = req!(addr_io_n(decoded, 0, immext));

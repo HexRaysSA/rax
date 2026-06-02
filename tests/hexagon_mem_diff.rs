@@ -1675,3 +1675,424 @@ fn diff_load_atomic() {
         },
     );
 }
+
+/// Run a family whose asm contains constant-extended *runtime* arena addresses
+/// (built by `make_asms` from the resolved `arena_addr`). `fixup` post-processes
+/// each random input state (e.g. to clamp an index register into the arena).
+/// Compares all GPRs, USR, predicates, and the arena. Used by `_ap`/`_ur`/gp
+/// store families that must bake the live arena address into the literal.
+fn run_baked(
+    name: &str,
+    n: usize,
+    seed: u64,
+    make_asms: impl Fn(u32) -> Vec<(String, String)>,
+    fixup: impl Fn(&mut Rng, u32, &mut [u32; ST_WORDS]),
+) {
+    let (bin, arena_addr) = match oracle_mem() {
+        Some(x) => x,
+        None => {
+            eprintln!("[hexagon_mem_diff] {name}: toolchain unavailable -> skipping");
+            return;
+        }
+    };
+    let cases = make_asms(arena_addr);
+    let asms: Vec<String> = cases.iter().map(|(_, a)| a.clone()).collect();
+    let words_per = match assemble(&asms) {
+        Some(w) => w,
+        None => {
+            eprintln!("[hexagon_mem_diff] {name}: assembly failed -> skipping");
+            return;
+        }
+    };
+    let mut rng = Rng::new(seed);
+    let mut labels = Vec::new();
+    let mut batch = Vec::new();
+    for ((label, _), words) in cases.iter().zip(words_per.iter()) {
+        for _ in 0..n {
+            let mut st = [0u32; ST_WORDS];
+            for r in 0..NREG {
+                st[r] = rng.next() as u32;
+            }
+            st[I_USR] = 0;
+            let mut pred = 0u32;
+            for k in 0..4 {
+                if rng.next() & 1 == 1 {
+                    pred |= 0xffu32 << (8 * k);
+                }
+            }
+            st[I_PRED] = pred;
+            let mut arena = [0u8; ARENA];
+            for b in arena.iter_mut() {
+                *b = rng.next() as u8;
+            }
+            fixup(&mut rng, arena_addr, &mut st);
+            labels.push(label.clone());
+            batch.push(Case { words: words.clone(), st, arena });
+        }
+    }
+    let outs = match run_oracle(&bin, &batch) {
+        Some(o) => o,
+        None => {
+            eprintln!("[hexagon_mem_diff] {name}: oracle failed -> skipping");
+            return;
+        }
+    };
+    let mut mismatches = Vec::new();
+    for (i, c) in batch.iter().enumerate() {
+        let rax = match run_rax(&c.words, c, arena_addr) {
+            Some(r) => r,
+            None => {
+                mismatches.push(format!("[{}] rax rejected", labels[i]));
+                continue;
+            }
+        };
+        let mut diffs = Vec::new();
+        for r in 0..NREG {
+            if rax.st[r] != outs[i].st[r] {
+                diffs.push(format!("r{r}:rax={:#x},hw={:#x}", rax.st[r], outs[i].st[r]));
+            }
+        }
+        if rax.st[I_USR] != outs[i].st[I_USR] {
+            diffs.push(format!("USR:rax={:#x},hw={:#x}", rax.st[I_USR], outs[i].st[I_USR]));
+        }
+        if rax.st[I_PRED] != outs[i].st[I_PRED] {
+            diffs.push(format!("P:rax={:#x},hw={:#x}", rax.st[I_PRED], outs[i].st[I_PRED]));
+        }
+        if rax.arena != outs[i].arena {
+            let j = (0..ARENA).find(|&j| rax.arena[j] != outs[i].arena[j]).unwrap();
+            diffs.push(format!("arena[{j}]:rax={:#x},hw={:#x}", rax.arena[j], outs[i].arena[j]));
+        }
+        if !diffs.is_empty() {
+            mismatches.push(format!("[{}] {}", labels[i], diffs.join(" ")));
+        }
+    }
+    if !mismatches.is_empty() {
+        eprintln!("\n==== {name}: {} mismatches ====", mismatches.len());
+        for m in mismatches.iter().take(25) {
+            eprintln!("  {m}");
+        }
+        panic!("{name}: {} memory divergences vs oracle", mismatches.len());
+    }
+}
+
+#[test]
+fn diff_store_l4modes() {
+    // S4 base register-offset (`_rr`: Rs+Ru<<#u2), absolute-set (`_ap`: Re=##abs,
+    // also WRITES Re), and scaled-index-abs (`_ur`: ##abs+Ru<<#u2) stores, in
+    // b/h/i/d/f widths plus the new-value (`new`) forms. The `_rr` forms use a
+    // register base (r4=arena); `_ap`/`_ur` bake the live arena address. The
+    // harness checks all GPRs, so the `_ap` address-register (r6) write and the
+    // post-increment-free index are verified too.
+
+    // `_rr`: base r4 = arena, index r6 in [0,7] elements (shift<=3 stays in arena).
+    run_custom(
+        "store_rr",
+        &[
+            ("storerb_rr", "{ memb(r4+r6<<#0) = r5 }"),
+            ("storerh_rr", "{ memh(r4+r6<<#1) = r5 }"),
+            ("storeri_rr", "{ memw(r4+r6<<#2) = r5 }"),
+            ("storerd_rr", "{ memd(r4+r6<<#3) = r5:4 }"),
+            ("storerf_rr", "{ memh(r4+r6<<#1) = r5.h }"),
+            ("storerbnew_rr", "{ r5 = add(r2,r3); memb(r4+r6<<#0) = r5.new }"),
+            ("storerhnew_rr", "{ r5 = or(r2,r3); memh(r4+r6<<#1) = r5.new }"),
+            ("storerinew_rr", "{ r5 = xor(r2,r3); memw(r4+r6<<#2) = r5.new }"),
+        ],
+        16,
+        0x7301,
+        |rng, arena, st, _| {
+            st[4] = arena;
+            st[6] = (rng.next() % 8) as u32;
+        },
+    );
+
+    // `_ap` / `_ur`: bake live arena addresses (word/dword aligned per width).
+    run_baked("store_l4_apur", 16, 0x7302, |arena_addr| {
+        let a_b = arena_addr + 8;
+        let a_w = arena_addr + 16;
+        let a_d = arena_addr + 24;
+        let u = arena_addr; // _ur base; r6<<#shift stays in-arena (r6 small).
+        vec![
+            // _ap base stores (write r6 = abs address).
+            ("storerb_ap".into(), format!("{{ memb(r6=##0x{a_b:x}) = r5 }}")),
+            ("storerh_ap".into(), format!("{{ memh(r6=##0x{a_w:x}) = r5 }}")),
+            ("storeri_ap".into(), format!("{{ memw(r6=##0x{a_w:x}) = r5 }}")),
+            ("storerd_ap".into(), format!("{{ memd(r6=##0x{a_d:x}) = r5:4 }}")),
+            ("storerf_ap".into(), format!("{{ memh(r6=##0x{a_w:x}) = r5.h }}")),
+            ("storerbnew_ap".into(), format!("{{ r5 = add(r2,r3); memb(r6=##0x{a_b:x}) = r5.new }}")),
+            ("storerhnew_ap".into(), format!("{{ r5 = or(r2,r3); memh(r6=##0x{a_w:x}) = r5.new }}")),
+            ("storerinew_ap".into(), format!("{{ r5 = xor(r2,r3); memw(r6=##0x{a_w:x}) = r5.new }}")),
+            // _ur scaled-index-abs stores (r7 small index, shift = access size).
+            ("storerb_ur".into(), format!("{{ memb(r7<<#0+##0x{u:x}) = r5 }}")),
+            ("storerh_ur".into(), format!("{{ memh(r7<<#1+##0x{u:x}) = r5 }}")),
+            ("storeri_ur".into(), format!("{{ memw(r7<<#2+##0x{u:x}) = r5 }}")),
+            ("storerd_ur".into(), format!("{{ memd(r7<<#3+##0x{u:x}) = r5:4 }}")),
+            ("storerf_ur".into(), format!("{{ memh(r7<<#1+##0x{u:x}) = r5.h }}")),
+            ("storerbnew_ur".into(), format!("{{ r5 = add(r2,r3); memb(r7<<#0+##0x{u:x}) = r5.new }}")),
+            ("storerhnew_ur".into(), format!("{{ r5 = or(r2,r3); memh(r7<<#1+##0x{u:x}) = r5.new }}")),
+            ("storerinew_ur".into(), format!("{{ r5 = xor(r2,r3); memw(r7<<#2+##0x{u:x}) = r5.new }}")),
+        ]
+    }, |rng, _arena, st| {
+        // `_ur` index r7 in [0,7] elements keeps `##abs + r7<<#shift` in-arena.
+        st[7] = (rng.next() % 8) as u32;
+    });
+}
+
+#[test]
+fn diff_storerf_modes() {
+    // S2 high-half store `memh(...)=Rt.h` (stores Rt[31:16]) in all base/post-inc
+    // address modes: io, pi, pr, pbr, pci, pcr. Register/brev/circular forms need
+    // the M0/M1/CS0/CS1 seeding `run_custom` provides; base r4 points at arena.
+    // pbr (bit-reverse): Rx = brev(target) so the effective address lands
+    // in-arena. M1 holds a small post-increment.
+    run_custom(
+        "storerf_pbr",
+        &[("storerf_pbr", "{ memh(r4++m1:brev) = r5.h }")],
+        16,
+        0x7303,
+        |rng, arena, st, _| {
+            let off = ((rng.next() % 31) * 8) as u32;
+            st[4] = brev16(arena + off);
+            st[I_M1] = ((rng.next() % 9) as i32 - 4) as u32;
+        },
+    );
+    // io / pi / pr use a plain in-arena base; the M register holds a small raw
+    // byte post-increment for pr.
+    run_custom(
+        "storerf_base",
+        &[
+            ("storerf_io", "{ memh(r4+#2) = r5.h }"),
+            ("storerf_io0", "{ memh(r4+#0) = r5.h }"),
+            ("storerf_pi", "{ memh(r4++#2) = r5.h }"),
+            ("storerf_pin", "{ memh(r4++#-2) = r5.h }"),
+            ("storerf_pr", "{ memh(r4++m0) = r5.h }"),
+        ],
+        16,
+        0x7304,
+        |rng, arena, st, _| {
+            st[4] = arena + BASE_OFF;
+            st[I_M0] = ((rng.next() % 17) as i32 - 8) as u32;
+        },
+    );
+    // pci / pcr (circular): CS base = arena, M holds K=0 + a buffer length (and,
+    // for pcr, a small signed I field). Rx starts at the buffer base.
+    run_custom(
+        "storerf_circ",
+        &[
+            ("storerf_pci", "{ memh(r4++#2:circ(m0)) = r5.h }"),
+            ("storerf_pcin", "{ memh(r4++#-2:circ(m0)) = r5.h }"),
+            ("storerf_pcr", "{ memh(r4++I:circ(m1)) = r5.h }"),
+        ],
+        16,
+        0x7305,
+        |rng, arena, st, _| {
+            let length = 16 + ((rng.next() % 15) * 8) as u32;
+            st[4] = arena;
+            st[I_CS0] = arena;
+            st[I_CS1] = arena;
+            let i_field = ((rng.next() % 5) as i32 - 2) as u32 & 0x7ff;
+            st[I_M0] = circ_m(length);
+            st[I_M1] = circ_m(length) | (((i_field >> 7) & 0xf) << 28) | ((i_field & 0x7f) << 17);
+        },
+    );
+}
+
+#[test]
+fn diff_store_gp() {
+    // GP-relative stores: storerfgp (high-half) and the new-value gp stores
+    // (storer{b,h,i}newgp). The base is GP (C11). The immediate is GP-relative
+    // and constant-extended; with no extender it is scaled by the access size.
+    // We exercise the non-extended (GP+scaled #u16) form: base GP -> arena.
+    run_custom(
+        "store_gp",
+        &[
+            ("storerfgp", "{ memh(gp+#2) = r5.h }"),
+            ("storerfgp0", "{ memh(gp+#0) = r5.h }"),
+            ("storerbnewgp", "{ r5 = add(r2,r3); memb(gp+#1) = r5.new }"),
+            ("storerhnewgp", "{ r5 = or(r2,r3); memh(gp+#2) = r5.new }"),
+            ("storerinewgp", "{ r5 = xor(r2,r3); memw(gp+#4) = r5.new }"),
+        ],
+        16,
+        0x7401,
+        |_, arena, st, _| {
+            st[I_GP] = arena + BASE_OFF;
+        },
+    );
+    // Extended GP-relative store forms: `memX(##addr)` assembles to the gp-store
+    // opcodes (storerfgp / storer*newgp) with a constant extender that supplies
+    // the full byte address (GP unused). Bake the live arena address. Covers the
+    // high-half (storerfgp) and new-value gp stores in their extended form.
+    run_baked("store_gp_ext", 16, 0x7402, |arena_addr| {
+        let a_b = arena_addr + 5;
+        let a_h = arena_addr + 10;
+        let a_w = arena_addr + 16;
+        vec![
+            ("storerfgp_ext".into(), format!("{{ memh(##0x{a_h:x}) = r5.h }}")),
+            ("storerbnewgp_ext".into(), format!("{{ r5 = add(r2,r3); memb(##0x{a_b:x}) = r5.new }}")),
+            ("storerhnewgp_ext".into(), format!("{{ r5 = or(r2,r3); memh(##0x{a_h:x}) = r5.new }}")),
+            ("storerinewgp_ext".into(), format!("{{ r5 = xor(r2,r3); memw(##0x{a_w:x}) = r5.new }}")),
+        ]
+    }, |_, _, _| {});
+}
+
+#[test]
+fn diff_store_cond() {
+    // Store-conditional (`memw_locked(Rs,Pd)=Rt`, `memd_locked(Rs,Pd)=Rtt`) and
+    // store-release (`memX_rl(Rs):at/:st`). A bare store-conditional FAILS on
+    // hardware/qemu (no reservation): the store is skipped and Pd is cleared. A
+    // store-conditional that follows a matching load-locked SUCCEEDS — the store
+    // happens and Pd is set TRUE (0xff). To exercise the success path we run a
+    // `memX_locked(Rs)` LOAD packet immediately before the SC packet (two packets
+    // concatenated into one test sequence; the oracle's testslot and rax both run
+    // them in order). The release stores are plain stores (no reservation). Base
+    // r4 = arena; the LL loads into a scratch pair (r9:8).
+    let (bin, arena_addr) = match oracle_mem() {
+        Some(x) => x,
+        None => {
+            eprintln!("[hexagon_mem_diff] store_cond: toolchain unavailable -> skipping");
+            return;
+        }
+    };
+    // Each entry: (label, optional LL setup packet, the test packet). The setup
+    // packet (if any) runs first; its words are prepended to the sequence.
+    let cases: &[(&str, &str, &str)] = &[
+        ("storew_locked", "{ r9 = memw_locked(r4) }", "{ memw_locked(r4,p0) = r5 }"),
+        ("stored_locked", "{ r9:8 = memd_locked(r4) }", "{ memd_locked(r4,p1) = r5:4 }"),
+        ("storew_locked_p2", "{ r9 = memw_locked(r4) }", "{ memw_locked(r4,p2) = r5 }"),
+        ("stored_locked_p3", "{ r9:8 = memd_locked(r4) }", "{ memd_locked(r4,p3) = r5:4 }"),
+        // Bare SC (no LL): fails on the oracle, Pd cleared, no store. rax must
+        // model the reservation so it agrees (no store, Pd=0).
+        ("storew_locked_bare", "", "{ memw_locked(r4,p0) = r5 }"),
+        ("stored_locked_bare", "", "{ memd_locked(r4,p1) = r5:4 }"),
+        // Release stores: plain word/dword stores (no reservation needed).
+        ("storew_rl_at", "", "{ memw_rl(r4):at = r5 }"),
+        ("storew_rl_st", "", "{ memw_rl(r4):st = r5 }"),
+        ("stored_rl_at", "", "{ memd_rl(r4):at = r5:4 }"),
+        ("stored_rl_st", "", "{ memd_rl(r4):st = r5:4 }"),
+    ];
+    // Assemble the setup + test packets (one llvm-mc invocation each).
+    let mut asms: Vec<String> = Vec::new();
+    for (_, pre, test) in cases {
+        if !pre.is_empty() {
+            asms.push((*pre).to_string());
+        }
+        asms.push((*test).to_string());
+    }
+    let words_per = match assemble(&asms) {
+        Some(w) => w,
+        None => {
+            eprintln!("[hexagon_mem_diff] store_cond: assembly failed -> skipping");
+            return;
+        }
+    };
+    // Re-split the flat word list back into per-case sequences (pre ++ test).
+    let mut seqs: Vec<(&str, Vec<u32>)> = Vec::new();
+    let mut idx = 0;
+    for (label, pre, _) in cases {
+        let mut seq = Vec::new();
+        if !pre.is_empty() {
+            seq.extend_from_slice(&words_per[idx]);
+            idx += 1;
+        }
+        seq.extend_from_slice(&words_per[idx]);
+        idx += 1;
+        seqs.push((label, seq));
+    }
+    let mut rng = Rng::new(0x7307);
+    let mut labels = Vec::new();
+    let mut batch = Vec::new();
+    for (label, seq) in &seqs {
+        for _ in 0..16 {
+            let mut st = [0u32; ST_WORDS];
+            for r in 0..NREG {
+                st[r] = rng.next() as u32;
+            }
+            st[I_USR] = 0;
+            let mut pred = 0u32;
+            for k in 0..4 {
+                if rng.next() & 1 == 1 {
+                    pred |= 0xffu32 << (8 * k);
+                }
+            }
+            st[I_PRED] = pred;
+            st[4] = arena_addr + BASE_OFF;
+            let mut arena = [0u8; ARENA];
+            for b in arena.iter_mut() {
+                *b = rng.next() as u8;
+            }
+            labels.push(*label);
+            batch.push(Case { words: seq.clone(), st, arena });
+        }
+    }
+    let outs = match run_oracle(&bin, &batch) {
+        Some(o) => o,
+        None => {
+            eprintln!("[hexagon_mem_diff] store_cond: oracle failed -> skipping");
+            return;
+        }
+    };
+    let mut mismatches = Vec::new();
+    for (i, c) in batch.iter().enumerate() {
+        let rax = match run_rax(&c.words, c, arena_addr) {
+            Some(r) => r,
+            None => {
+                mismatches.push(format!("[{}] rax rejected", labels[i]));
+                continue;
+            }
+        };
+        let mut diffs = Vec::new();
+        for r in 0..NREG {
+            if rax.st[r] != outs[i].st[r] {
+                diffs.push(format!("r{r}:rax={:#x},hw={:#x}", rax.st[r], outs[i].st[r]));
+            }
+        }
+        if rax.st[I_PRED] != outs[i].st[I_PRED] {
+            diffs.push(format!("P:rax={:#x},hw={:#x}", rax.st[I_PRED], outs[i].st[I_PRED]));
+        }
+        if rax.arena != outs[i].arena {
+            let j = (0..ARENA).find(|&j| rax.arena[j] != outs[i].arena[j]).unwrap();
+            diffs.push(format!("arena[{j}]:rax={:#x},hw={:#x}", rax.arena[j], outs[i].arena[j]));
+        }
+        if !diffs.is_empty() {
+            mismatches.push(format!("[{}] {}", labels[i], diffs.join(" ")));
+        }
+    }
+    if !mismatches.is_empty() {
+        eprintln!("\n==== store_cond: {} mismatches ====", mismatches.len());
+        for m in mismatches.iter().take(25) {
+            eprintln!("  {m}");
+        }
+        panic!("store_cond: {} memory divergences vs oracle", mismatches.len());
+    }
+}
+
+#[test]
+fn diff_vsplice() {
+    // Vector byte splice (`Rdd=vspliceb(Rss,Rtt,#u3|Pu)`): low N bytes from Rss,
+    // high (8-N) bytes from Rtt. A pure register-pair op (no memory). The harness
+    // checks all GPRs, so the Rdd pair write is verified. N spans 0..=7 via the
+    // immediate; the Pu form reads p0..p3 from the random state.
+    run_custom(
+        "vsplice",
+        &[
+            ("vsplice_i0", "{ r1:0 = vspliceb(r5:4,r7:6,#0) }"),
+            ("vsplice_i1", "{ r1:0 = vspliceb(r5:4,r7:6,#1) }"),
+            ("vsplice_i3", "{ r1:0 = vspliceb(r5:4,r7:6,#3) }"),
+            ("vsplice_i4", "{ r1:0 = vspliceb(r5:4,r7:6,#4) }"),
+            ("vsplice_i7", "{ r1:0 = vspliceb(r5:4,r7:6,#7) }"),
+            ("vsplice_p0", "{ r1:0 = vspliceb(r5:4,r7:6,p0) }"),
+            ("vsplice_p1", "{ r1:0 = vspliceb(r5:4,r7:6,p1) }"),
+            ("vsplice_p2", "{ r3:2 = vspliceb(r5:4,r7:6,p2) }"),
+            ("vsplice_p3", "{ r9:8 = vspliceb(r5:4,r7:6,p3) }"),
+        ],
+        16,
+        0x7308,
+        |rng, _arena, st, _| {
+            // Predicates carry arbitrary low-3-bit splice counts for the Pu form.
+            let mut pred = 0u32;
+            for k in 0..4 {
+                pred |= ((rng.next() & 0xff) as u32) << (8 * k);
+            }
+            st[I_PRED] = pred;
+        },
+    );
+}

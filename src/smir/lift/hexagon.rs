@@ -1133,6 +1133,33 @@ impl HexagonLifter {
                 });
             }
 
+            // Load-locked sets an LL reservation the simple Load op does not
+            // track; interpreter-only for now.
+            DecodedInsn::LoadLocked { .. } => {
+                return Err(LiftError::Unsupported {
+                    addr,
+                    mnemonic: "load_locked".to_string(),
+                });
+            }
+
+            // Store-conditional / store-release sets a predicate side effect the
+            // simple Store op does not model; interpreter-only for now.
+            DecodedInsn::StoreCond { .. } => {
+                return Err(LiftError::Unsupported {
+                    addr,
+                    mnemonic: "store_cond".to_string(),
+                });
+            }
+
+            // Vector byte splice (`vspliceb`): register-pair op handled by the
+            // interpreter path; reject in the lifter so callers fall back.
+            DecodedInsn::Vsplice { .. } => {
+                return Err(LiftError::Unsupported {
+                    addr,
+                    mnemonic: "vspliceb".to_string(),
+                });
+            }
+
             // Read-modify-write memops are not lifted to SMIR (the interpreter
             // path in cpu.rs handles them); reject so callers fall back.
             DecodedInsn::MemOp { .. } => {
