@@ -1549,6 +1549,16 @@ impl OpKind {
                 }
             }
 
+            OpKind::VPairReduceMul { src_lo, src_hi, src2, dst_lo, dst_hi, acc, .. } => {
+                result.push(*src_lo);
+                result.push(*src_hi);
+                result.push(*src2);
+                if *acc {
+                    result.push(*dst_lo);
+                    result.push(*dst_hi);
+                }
+            }
+
             OpKind::VReduceMul { src1, src2, dst, acc, .. }
             | OpKind::VMulEvenWiden { src1, src2, dst, acc, .. }
             | OpKind::VMulSubLane { src1, src2, dst, acc, .. } => {

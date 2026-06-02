@@ -1062,6 +1062,27 @@ pub enum OpKind {
         acc: bool,
     },
 
+    /// Cross-register pair multiply-add into a destination pair. Models the HVX
+    /// `vmpa*` family (`Vdd = vmpa(Vuu, Rt)`): with source pair (src_lo, src_hi)
+    /// of `pair_elem` lanes and src2 (an Rt broadcast) of `rt_elem` sub-lanes,
+    /// per output lane i (`out_elem` wide):
+    ///   `dst_lo[i] = src_lo.narrow[2i]·src2.sub[0] + src_hi.narrow[2i]·src2.sub[1]`
+    ///   `dst_hi[i] = src_lo.narrow[2i+1]·src2.sub[2] + src_hi.narrow[2i+1]·src2.sub[3]`
+    /// `acc` adds into the existing dst pair.
+    VPairReduceMul {
+        dst_lo: VReg,
+        dst_hi: VReg,
+        src_lo: VReg,
+        src_hi: VReg,
+        src2: VReg,
+        pair_elem: VecElementType,
+        rt_elem: VecElementType,
+        out_elem: VecElementType,
+        signed1: bool,
+        signed2: bool,
+        acc: bool,
+    },
+
     /// Reducing (dot-product) multiply.
     ///
     /// Models the HVX `vrmpy`/`vdmpy` vector-by-vector reduce family: each output
@@ -1572,7 +1593,9 @@ impl OpKind {
                 VReg::Arch(ArchReg::X86(X86Reg::Rbp)),
             ],
 
-            OpKind::VWidenMul { dst_lo, dst_hi, .. } | OpKind::VWidenExt { dst_lo, dst_hi, .. } => {
+            OpKind::VWidenMul { dst_lo, dst_hi, .. }
+            | OpKind::VWidenExt { dst_lo, dst_hi, .. }
+            | OpKind::VPairReduceMul { dst_lo, dst_hi, .. } => {
                 vec![*dst_lo, *dst_hi]
             }
 
