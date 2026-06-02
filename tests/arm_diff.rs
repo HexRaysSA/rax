@@ -1374,6 +1374,27 @@ fn diff_simd_dot() {
     run_family("simd_dot", cases, 40, 0x1_0018);
 }
 
+/// SDOT/UDOT by element: `0 Q U 01111 10 L M Rm 1110 H 0 Rn Rd`. Rm=v2, the
+/// H:L index selects a 32-bit group of Vm. Rd=v0, Rn=v1.
+fn enc_dot_idx(q: u32, u: u32, index: u32) -> u32 {
+    let h = (index >> 1) & 1;
+    let l = index & 1;
+    (q << 30) | (u << 29) | (0b01111 << 24) | (0b10 << 22) | (l << 21)
+        | (RM << 16) | (0b1110 << 12) | (h << 11) | (RN << 5) | RD
+}
+
+#[test]
+fn diff_simd_dot_indexed() {
+    let mut cases: Vec<(String, u32)> = Vec::new();
+    for q in 0..2u32 {
+        for index in 0..4u32 {
+            cases.push((format!("sdot q{q} i{index}"), enc_dot_idx(q, 0, index)));
+            cases.push((format!("udot q{q} i{index}"), enc_dot_idx(q, 1, index)));
+        }
+    }
+    run_family("simd_dot_indexed", cases, 24, 0x1_0019);
+}
+
 #[test]
 fn diff_crypto_sm4() {
     let cases: Vec<(String, u32)> = vec![

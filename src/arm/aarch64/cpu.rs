@@ -3085,6 +3085,40 @@ impl AArch64Cpu {
             return Ok(CpuExit::Continue);
         }
 
+        // SDOT/UDOT by element (opcode 1110): the index selects a 32-bit
+        // (4-byte) group of Vm that is reused for every output lane.
+        if opcode == 0b1110 {
+            if size != 0b10 {
+                return Ok(CpuExit::Undefined(insn));
+            }
+            let signed = u == 0;
+            let lanes = if q == 1 { 4 } else { 2 };
+            let op1 = self.v[rn];
+            let vm_bytes = vm_elem as u32; // the selected 4-byte group
+            let mut result = self.v[rd];
+            for e in 0..lanes {
+                let mut res: i64 = 0;
+                for i in 0..4 {
+                    let b1 = (op1 >> ((4 * e + i) * 8)) as u8;
+                    let b2 = (vm_bytes >> (i * 8)) as u8;
+                    res += if signed {
+                        (b1 as i8 as i64) * (b2 as i8 as i64)
+                    } else {
+                        (b1 as i64) * (b2 as i64)
+                    };
+                }
+                let lane = (result >> (e * 32)) as u32;
+                let updated = (lane as i64).wrapping_add(res) as u32;
+                result =
+                    (result & !(0xFFFF_FFFFu128 << (e * 32))) | ((updated as u128) << (e * 32));
+            }
+            if q == 0 {
+                result &= 0xFFFF_FFFF_FFFF_FFFF;
+            }
+            self.v[rd] = result;
+            return Ok(CpuExit::Continue);
+        }
+
         // Integer indexed ops use 16- or 32-bit elements only.
         if size != 0b01 && size != 0b10 {
             return Err(ArmError::UndefinedInstruction(insn));
