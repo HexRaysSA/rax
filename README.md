@@ -1,5 +1,7 @@
 <h1 align="center">rax</h1>
 
+<img width="1536" height="750" alt="rax" src="assets/hero.png" />
+
 <h5 align="center">
 rax is a CPU emulator that does not trust itself. It implements four instruction sets in software<br/>
 (x86-64, AArch64, Hexagon, and RISC-V) and checks every one of them, instruction by instruction,<br/>
