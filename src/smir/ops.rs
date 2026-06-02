@@ -837,6 +837,24 @@ pub enum OpKind {
         width: VecWidth,
     },
 
+    /// Width-general, architecture-register-aware elementwise lane operation.
+    ///
+    /// Operates on `lanes` elements of `elem` bits across the full vector
+    /// register (up to 1024 bits), reading/writing via the arch-aware vector
+    /// path so it works on Hexagon HVX V registers (and virtual regs). `op`
+    /// selects the per-lane operation and `signed` its signedness where it
+    /// matters (min/max/avg/saturate/absdiff). This is the lift target for HVX
+    /// integer elementwise instructions.
+    VLane {
+        dst: VReg,
+        src1: VReg,
+        src2: VReg,
+        elem: VecElementType,
+        lanes: u8,
+        op: VLaneOp,
+        signed: bool,
+    },
+
     /// Vector shift
     VShift {
         dst: VReg,
@@ -1283,6 +1301,7 @@ impl OpKind {
             | OpKind::VSub { dst, .. }
             | OpKind::VMax { dst, .. }
             | OpKind::VMul { dst, .. }
+            | OpKind::VLane { dst, .. }
             | OpKind::VAnd { dst, .. }
             | OpKind::VOr { dst, .. }
             | OpKind::VXor { dst, .. }

@@ -102,6 +102,6 @@ pub use types::{
     Address, ArchReg, ArmReg, AtomicOp, Avx10DotProductKind, Avx10Encoding, Avx10FP16Op, BlockId,
     BlockIdAllocator, Condition, Endian, ExtendOp, FenceKind, FpPrecision, FpRoundMode, FunctionId,
     GuestAddr, HexagonReg, LocalId, MemWidth, MemoryOrder, ModuleId, OpId, OpWidth, RiscVReg,
-    ShiftOp, SignExtend, SourceArch, SrcOperand, VReg, VRegAllocator, VecCmpCond, VecElementType,
-    VecWidth, VirtualId, X86Reg,
+    ShiftOp, SignExtend, SourceArch, SrcOperand, VLaneOp, VReg, VRegAllocator, VecCmpCond,
+    VecElementType, VecWidth, VirtualId, X86Reg,
 };
