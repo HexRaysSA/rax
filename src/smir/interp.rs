@@ -1814,6 +1814,46 @@ impl SmirInterpreter {
                 Self::write_vec(ctx, *dst_hi, hi);
             }
 
+            OpKind::VShuffle2 { dst, src, elem, deal } => {
+                let s = Self::read_vec(ctx, *src);
+                let nbits = elem.bytes() * 8;
+                let total = (1024 / nbits) as u8;
+                let half = total / 2;
+                let mut result = [0u64; 16];
+                for i in 0..half {
+                    if *deal {
+                        Self::set_lane(&mut result, i, nbits, Self::get_lane(&s, i * 2, nbits));
+                        Self::set_lane(&mut result, i + half, nbits, Self::get_lane(&s, i * 2 + 1, nbits));
+                    } else {
+                        Self::set_lane(&mut result, i * 2, nbits, Self::get_lane(&s, i, nbits));
+                        Self::set_lane(&mut result, i * 2 + 1, nbits, Self::get_lane(&s, i + half, nbits));
+                    }
+                }
+                Self::write_vec(ctx, *dst, result);
+            }
+
+            OpKind::VShuffleEO {
+                dst,
+                src1,
+                src2,
+                elem,
+                odd,
+            } => {
+                let u = Self::read_vec(ctx, *src1);
+                let v = Self::read_vec(ctx, *src2);
+                let nbits = elem.bytes() * 8;
+                let total = (1024 / nbits) as u8;
+                let half = total / 2;
+                let parity = if *odd { 1 } else { 0 };
+                let mut result = [0u64; 16];
+                for i in 0..half {
+                    let sel = i * 2 + parity;
+                    Self::set_lane(&mut result, i * 2, nbits, Self::get_lane(&v, sel, nbits));
+                    Self::set_lane(&mut result, i * 2 + 1, nbits, Self::get_lane(&u, sel, nbits));
+                }
+                Self::write_vec(ctx, *dst, result);
+            }
+
             OpKind::VPack {
                 dst,
                 src1,
@@ -3372,6 +3412,53 @@ mod tests {
         assert_eq!(out[7], 0xFFFF_FFFF_FFFF_FFFFu64);
         assert_eq!(out[8], 0x0000_0000_0000_0000u64);
         assert_eq!(out[15], 0x0000_0000_0000_0000u64);
+    }
+
+    #[test]
+    fn test_vshuffle2_byte_roundtrip() {
+        // shuffle then deal must be identity. Use a distinguishable per-byte pattern.
+        let mut v0 = [0u64; 16];
+        for (i, w) in v0.iter_mut().enumerate() {
+            // each byte = its global index (mod 256)
+            let mut x = 0u64;
+            for b in 0..8 {
+                x |= (((i * 8 + b) as u64) & 0xff) << (b * 8);
+            }
+            *w = x;
+        }
+        let mkv = |n| VReg::Arch(ArchReg::Hexagon(HexagonReg::V(n)));
+        // shuffle V0 -> V2
+        let shuffled = run_vec2(
+            v0,
+            [0u64; 16],
+            OpKind::VShuffle2 { dst: mkv(2), src: mkv(0), elem: VecElementType::I8, deal: false },
+        );
+        // deal the shuffled value -> should recover v0
+        let dealt = run_vec2(
+            shuffled,
+            [0u64; 16],
+            OpKind::VShuffle2 { dst: mkv(2), src: mkv(0), elem: VecElementType::I8, deal: true },
+        );
+        assert_eq!(dealt, v0, "deal(shuffle(x)) must equal x");
+        // explicit check: shuffle out[0]=src.b[0], out[1]=src.b[64].
+        assert_eq!((shuffled[0] & 0xff) as u8, 0); // src byte 0
+        assert_eq!(((shuffled[0] >> 8) & 0xff) as u8, 64); // src byte 64
+    }
+
+    #[test]
+    fn test_vshuffleeo_even_byte() {
+        // vshuffeb: out.b[2i] = Vv.b[2i], out.b[2i+1] = Vu.b[2i].
+        // V0(=Vu) halfwords = 0x__11 (byte0=0x11), V1(=Vv) = 0x__22 (byte0=0x22).
+        let v0 = [0xAA11_AA11_AA11_AA11u64; 16];
+        let v1 = [0xBB22_BB22_BB22_BB22u64; 16];
+        let mkv = |n| VReg::Arch(ArchReg::Hexagon(HexagonReg::V(n)));
+        let out = run_vec2(
+            v0,
+            v1,
+            OpKind::VShuffleEO { dst: mkv(2), src1: mkv(0), src2: mkv(1), elem: VecElementType::I8, odd: false },
+        );
+        // every output halfword = Vv.b0(0x22) | Vu.b0(0x11)<<8 = 0x1122.
+        assert_eq!(out, [0x1122_1122_1122_1122u64; 16]);
     }
 
     #[test]

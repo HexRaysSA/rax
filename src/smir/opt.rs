@@ -1561,9 +1561,15 @@ impl OpKind {
                 result.push(*src);
             }
 
-            OpKind::VPack { src1, src2, .. } | OpKind::VPackSat { src1, src2, .. } => {
+            OpKind::VPack { src1, src2, .. }
+            | OpKind::VPackSat { src1, src2, .. }
+            | OpKind::VShuffleEO { src1, src2, .. } => {
                 result.push(*src1);
                 result.push(*src2);
+            }
+
+            OpKind::VShuffle2 { src, .. } => {
+                result.push(*src);
             }
 
             OpKind::VMov { src, .. } | OpKind::VBroadcast { scalar: src, .. } => {

@@ -919,6 +919,29 @@ pub enum OpKind {
         to_unsigned: bool,
     },
 
+    /// Single-vector shuffle (interleave) or deal (deinterleave) of narrow lanes.
+    /// Models HVX `vshuffb/h` (shuffle: out[2i]=src[i], out[2i+1]=src[i+half]) and
+    /// `vdealb/h` (deal: out[i]=src[2i], out[i+half]=src[2i+1]). `elem` is the lane.
+    VShuffle2 {
+        dst: VReg,
+        src: VReg,
+        elem: VecElementType,
+        /// false = shuffle (interleave halves), true = deal (deinterleave).
+        deal: bool,
+    },
+
+    /// Two-vector even/odd shuffle. Models HVX `vshuffeb/ob` and `vshufeh/oh`:
+    /// `out[2i] = src2[2i+odd]`, `out[2i+1] = src1[2i+odd]` — interleaving the
+    /// even (or odd) narrow sub-elements of two source vectors.
+    VShuffleEO {
+        dst: VReg,
+        src1: VReg,
+        src2: VReg,
+        elem: VecElementType,
+        /// false = even sub-elements, true = odd.
+        odd: bool,
+    },
+
     /// Reducing (dot-product) multiply.
     ///
     /// Models the HVX `vrmpy`/`vdmpy` vector-by-vector reduce family: each output
@@ -1428,7 +1451,9 @@ impl OpKind {
 
             OpKind::VReduceMul { dst, .. }
             | OpKind::VPack { dst, .. }
-            | OpKind::VPackSat { dst, .. } => vec![*dst],
+            | OpKind::VPackSat { dst, .. }
+            | OpKind::VShuffle2 { dst, .. }
+            | OpKind::VShuffleEO { dst, .. } => vec![*dst],
 
             OpKind::MulU { dst_lo, dst_hi, .. } | OpKind::MulS { dst_lo, dst_hi, .. } => {
                 let mut v = vec![*dst_lo];
