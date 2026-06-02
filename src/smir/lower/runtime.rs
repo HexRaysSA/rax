@@ -183,6 +183,14 @@ impl Drop for ExecMem {
     }
 }
 
+// SAFETY: an ExecMem owns a private W^X mapping of immutable native code. After
+// construction the bytes never change, and execution only reads them; the
+// owning vcpu is the sole accessor. Sending the mapping to another thread (when
+// a vcpu migrates) or sharing &ExecMem for read-only execution is therefore
+// sound. The raw pointer alone makes ExecMem !Send/!Sync by default.
+unsafe impl Send for ExecMem {}
+unsafe impl Sync for ExecMem {}
+
 /// Errors mapping/executing a lowered block.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum ExecMemError {

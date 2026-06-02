@@ -275,6 +275,15 @@ pub struct X86_64Vcpu {
     /// Single-step mode for GDB debugging.
     #[cfg(feature = "debug")]
     single_step: bool,
+    /// SMIR hot-block JIT: compiled native regions keyed by (RIP, mode_tag);
+    /// `Some` = runnable, `None` = known-ineligible (don't recompile). Evicted
+    /// when the guest writes the corresponding code page (SMC).
+    #[cfg(all(feature = "smir-jit", target_arch = "x86_64"))]
+    jit_cache: std::collections::HashMap<(u64, u64), Option<std::sync::Arc<JitRegion>>>,
+    /// SMIR hot-block JIT: per-loop-head backward-branch hit counter; a head is
+    /// promoted (compiled) once it crosses the hotness threshold.
+    #[cfg(all(feature = "smir-jit", target_arch = "x86_64"))]
+    jit_hot: std::collections::HashMap<u64, u32>,
 }
 
 /// Pending I/O operation.
@@ -798,6 +807,10 @@ impl X86_64Vcpu {
             lazy_flags: LazyFlags::default(),
             #[cfg(feature = "debug")]
             single_step: false,
+            #[cfg(all(feature = "smir-jit", target_arch = "x86_64"))]
+            jit_cache: std::collections::HashMap::new(),
+            #[cfg(all(feature = "smir-jit", target_arch = "x86_64"))]
+            jit_hot: std::collections::HashMap::new(),
         }
     }
 
@@ -2265,12 +2278,35 @@ impl VCpu for X86_64Vcpu {
                 return Ok(VcpuExit::Hlt);
             }
 
+            // SMIR hot-block JIT fast path: if the region at RIP has been
+            // compiled, run it natively (whole loop in one call) and continue.
+            // Cheap O(1) guard keeps the interpreter path untouched until any
+            // region has actually been promoted. `_jit_rip_before` snapshots RIP
+            // so the post-step back-edge sampler can spot loop heads.
+            #[cfg(all(feature = "smir-jit", target_arch = "x86_64"))]
+            let _jit_rip_before = {
+                let rip = self.regs.rip;
+                if !self.jit_cache.is_empty() {
+                    let key = (rip, self.jit_mode_tag());
+                    if let Some(slot) = self.jit_cache.get(&key).cloned() {
+                        if let Some(region) = slot {
+                            self.jit_run_region(&region);
+                            continue;
+                        }
+                        // None ⇒ known-ineligible: fall through to the interpreter.
+                    }
+                }
+                rip
+            };
+
             match self.step() {
                 Ok(Some(exit)) => {
                     publish_instruction_count(self.insn_count);
                     return Ok(exit);
                 }
                 Ok(None) => {
+                    #[cfg(all(feature = "smir-jit", target_arch = "x86_64"))]
+                    self.jit_sample_backedge(_jit_rip_before);
                     // Check for single-step mode (GDB debugging)
                     #[cfg(feature = "debug")]
                     if self.single_step {
@@ -2536,6 +2572,22 @@ pub fn publish_instruction_count(count: u64) {
 // loops stay internal via native back-edges (the "dragon" path). Validated
 // bit-exact vs KVM by the `smir_native_*` differential tests.
 // ============================================================================
+/// Backward-branch hits at a loop head before the JIT promotes (compiles) it.
+/// Low enough to catch real hot loops quickly, high enough to skip loops that
+/// run only a handful of times (where lift+lower would not pay off).
+#[cfg(all(feature = "smir-jit", target_arch = "x86_64"))]
+const JIT_HOT_THRESHOLD: u32 = 64;
+
+/// A compiled native hot-block region. The lowered code is register-state
+/// independent (it marshals guest state in/out per run), so one `JitRegion` is
+/// cached by (RIP, mode_tag) and re-run for every later entry to that RIP until
+/// the underlying guest code page is written (SMC invalidation).
+#[cfg(all(feature = "smir-jit", target_arch = "x86_64"))]
+pub(super) struct JitRegion {
+    exec: crate::smir::lower::runtime::ExecMem,
+    entry_offset: usize,
+}
+
 #[cfg(all(feature = "smir-jit", target_arch = "x86_64"))]
 impl X86_64Vcpu {
     /// Attempt to JIT-compile and natively execute the hot region at the current
@@ -2560,10 +2612,25 @@ impl X86_64Vcpu {
     /// native code uninterruptibly — callers should only invoke this for
     /// regions known to terminate (e.g. promoted hot loops with an exit edge).
     pub fn jit_try_block(&mut self) -> Result<bool> {
+        match self.jit_compile_region()? {
+            Some(region) => {
+                self.jit_run_region(&region);
+                Ok(true)
+            }
+            None => Ok(false),
+        }
+    }
+
+    /// Compile the hot region at the current RIP into a native [`JitRegion`], or
+    /// return `Ok(None)` if it is ineligible (see [`Self::jit_try_block`] for the
+    /// eligibility rules). This is the cacheable half — the returned region is
+    /// register-state-independent and may be re-run for any later entry to the
+    /// same RIP (until the underlying guest code changes; see SMC invalidation).
+    pub(super) fn jit_compile_region(&mut self) -> Result<Option<JitRegion>> {
         use crate::smir::ir::Terminator;
         use crate::smir::lift::x86_64::X86_64Lifter;
         use crate::smir::lift::{LiftContext, MemoryReader, SmirLifter};
-        use crate::smir::lower::runtime::{is_native_clobber_safe_excluding, ExecMem, GuestRegs};
+        use crate::smir::lower::runtime::{is_native_clobber_safe_excluding, ExecMem};
         use crate::smir::lower::x86_64::X86_64Lowerer;
         use crate::smir::lower::SmirLowerer;
         use crate::smir::memory::MemoryError;
@@ -2578,7 +2645,7 @@ impl X86_64Vcpu {
         const WINDOW: usize = 512;
         let bytes = match self.read_bytes(entry, WINDOW) {
             Ok(b) => b,
-            Err(_) => return Ok(false),
+            Err(_) => return Ok(None),
         };
 
         struct Win {
@@ -2601,7 +2668,7 @@ impl X86_64Vcpu {
         let mut lctx = LiftContext::new(SourceArch::X86_64);
         let func = match lifter.lift_function(entry, &reader, &mut lctx) {
             Ok(f) => f,
-            Err(_) => return Ok(false),
+            Err(_) => return Ok(None),
         };
 
         // Mark every frontier terminal (the JIT cannot continue through it) as a
@@ -2627,35 +2694,43 @@ impl X86_64Vcpu {
         // loop); executing it natively would loop uninterruptibly with no way
         // back to the interpreter. Bail.
         if exits.is_empty() {
-            return Ok(false);
+            return Ok(None);
         }
         // If the entry block is itself a frontier, there is no native work to do.
         if exits.contains_key(&func.entry) {
-            return Ok(false);
+            return Ok(None);
         }
-        // Clobber-safety gate over the EXECUTED blocks (exit blocks are skipped
-        // at lowering, so their ops never run — exclude them so a loop whose
-        // continuation uses a virtual temp can still JIT).
+        // Fail-safe gate over the EXECUTED blocks (exit blocks are skipped at
+        // lowering, so their ops never run): all ops must be on the register-only
+        // JIT whitelist and write no virtual temp.
         if !is_native_clobber_safe_excluding(&func, &exits) {
-            return Ok(false);
+            return Ok(None);
         }
 
         let mut lowerer = X86_64Lowerer::new();
         lowerer.set_native_exits(exits);
         let res = match lowerer.lower_function(&func) {
             Ok(r) if r.relocations.is_empty() => r,
-            _ => return Ok(false),
+            _ => return Ok(None),
         };
         let code = match lowerer.finalize() {
             Ok(c) => c,
-            Err(_) => return Ok(false),
+            Err(_) => return Ok(None),
         };
-        let mem = match ExecMem::new(&code) {
+        let exec = match ExecMem::new(&code) {
             Ok(m) => m,
-            Err(_) => return Ok(false),
+            Err(_) => return Ok(None),
         };
+        Ok(Some(JitRegion { exec, entry_offset: res.entry_offset }))
+    }
 
-        // Bridge guest GPRs + flags into the native register file.
+    /// Execute a (possibly cached) compiled region with the current guest state,
+    /// then resume at the recorded exit PC. Marshals guest GPRs+flags into the
+    /// native file, runs, and bridges the result back. RSP is neither loaded nor
+    /// written by the trampoline (the block runs on the host stack).
+    pub(super) fn jit_run_region(&mut self, region: &JitRegion) {
+        use crate::smir::lower::runtime::GuestRegs;
+
         let mut gr = GuestRegs::default();
         gr.gpr[0] = self.regs.rax;
         gr.gpr[1] = self.regs.rcx;
@@ -2674,12 +2749,10 @@ impl X86_64Vcpu {
         gr.gpr[14] = self.regs.r14;
         gr.gpr[15] = self.regs.r15;
         gr.rflags = self.regs.rflags;
-        gr.exit_pc = entry; // fallback (an exit stub overwrites this on return)
+        gr.exit_pc = self.regs.rip; // fallback (an exit stub overwrites this)
 
-        mem.run(res.entry_offset, &mut gr);
+        region.exec.run(region.entry_offset, &mut gr);
 
-        // Bridge back. RSP is neither loaded nor written by the trampoline (the
-        // block runs on the host stack), so keep our RSP.
         self.regs.rax = gr.gpr[0];
         self.regs.rcx = gr.gpr[1];
         self.regs.rdx = gr.gpr[2];
@@ -2696,9 +2769,55 @@ impl X86_64Vcpu {
         self.regs.r14 = gr.gpr[14];
         self.regs.r15 = gr.gpr[15];
         self.regs.rflags = gr.rflags;
-        // Resume the interpreter at the recorded exit address.
         self.regs.rip = gr.exit_pc;
+    }
 
-        Ok(true)
+    /// The decode/JIT cache key discriminator: address space (CR3) + CPU mode
+    /// (CS.L long-mode, CS.DB default-size). A cached region can never be reused
+    /// across a context or mode switch.
+    #[inline]
+    pub(super) fn jit_mode_tag(&self) -> u64 {
+        (self.sregs.cr3 & !0xFFF) | (self.sregs.cs.l as u64) | ((self.sregs.cs.db as u64) << 1)
+    }
+
+    /// Loop-head hotness sampling: called after an interpreted instruction. If
+    /// the instruction was a BACKWARD branch (rip decreased) — i.e. a loop
+    /// back-edge to `rip` — bump that head's counter and, once hot, compile +
+    /// cache the region (and run it immediately). RIP now equals the head, so
+    /// `jit_compile_region` compiles exactly there. Ineligible heads are cached
+    /// as `None` so they are never retried.
+    fn jit_sample_backedge(&mut self, rip_before: u64) {
+        let head = self.regs.rip;
+        if head >= rip_before {
+            return; // forward/fallthrough — not a loop back-edge
+        }
+        let mt = self.jit_mode_tag();
+        if self.jit_cache.contains_key(&(head, mt)) {
+            return; // already promoted or known-ineligible
+        }
+        let hot = {
+            let c = self.jit_hot.entry(head).or_insert(0);
+            *c = c.saturating_add(1);
+            *c
+        };
+        if hot < JIT_HOT_THRESHOLD {
+            return;
+        }
+        self.jit_hot.remove(&head);
+        let region = self
+            .jit_compile_region()
+            .ok()
+            .flatten()
+            .map(std::sync::Arc::new);
+        self.jit_cache.insert((head, mt), region.clone());
+        if let Some(region) = region {
+            self.jit_run_region(&region);
+        }
+    }
+
+    /// Number of distinct regions the JIT has compiled (cache entries that
+    /// produced runnable native code). For tests / diagnostics.
+    pub fn jit_region_count(&self) -> usize {
+        self.jit_cache.values().filter(|v| v.is_some()).count()
     }
 }

@@ -354,6 +354,36 @@ fn jit_general_exit_matches_interp_at_handoff() {
     assert_eq!(gr.gpr[3] & 0xffff_ffff, 0x1111, "ebx unchanged — exit block skipped");
 }
 
+/// THE M5c GOAL: `run()` itself auto-detects the hot loop, compiles it, and
+/// executes it natively — with no manual `jit_try_block` call — and produces the
+/// correct architectural result. Proves the auto-trigger + cache + back-edge
+/// hotness path end-to-end through the real run loop.
+#[test]
+fn run_auto_jits_hot_loop() {
+    let n = 5000u32;
+    let mut vcpu = make_vcpu(n);
+    // run() services ~1ms slices and returns Hlt on the timer as well as on a
+    // real guest HALT, so loop until the guest loop has actually drained
+    // (ecx==0), bounded so a bug can't hang the test.
+    let mut slices = 0;
+    loop {
+        let _ = vcpu.run().expect("run");
+        slices += 1;
+        if vcpu.get_regs().unwrap().rcx & 0xffff_ffff == 0 || slices > 10_000 {
+            break;
+        }
+    }
+    let r = vcpu.get_regs().unwrap();
+    assert_eq!(r.rcx & 0xffff_ffff, 0, "the hot loop drained under run()");
+    assert_eq!(r.rax & 0xffff_ffff, (2 * n as u64) & 0xffff_ffff, "eax = 2*n (correct result)");
+    // The auto-trigger must have fired: at least one region was compiled.
+    assert!(
+        vcpu.jit_region_count() >= 1,
+        "run() should have auto-compiled the hot loop, got {} regions",
+        vcpu.jit_region_count()
+    );
+}
+
 /// Report JIT vs interpreter throughput on the same loop (informational).
 #[test]
 fn jit_throughput() {
