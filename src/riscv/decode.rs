@@ -518,6 +518,11 @@ pub enum Op {
     Vfwnmacc,
     Vfwmsac,
     Vfwnmsac,
+    // ---- V (widening reductions) ----
+    Vwredsumu,
+    Vwredsum,
+    Vfwredusum,
+    Vfwredosum,
     // ---- sentinel ----
     Illegal,
 }
@@ -791,6 +796,9 @@ fn decode_vector(w: u32) -> Insn {
             // Gathers: vrgather (vv/vx/vi), vrgatherei16 (vv only).
             0b001100 => Op::Vrgather,
             0b001110 if f3 == 0b000 => Op::Vrgatherei16,
+            // Widening integer sum reductions (.vs form, OPIVV only).
+            0b110000 if f3 == 0b000 => Op::Vwredsumu,
+            0b110001 if f3 == 0b000 => Op::Vwredsum,
             // Add/subtract with carry/borrow (vsbc/vmsbc have no immediate form).
             0b010000 => Op::Vadc,
             0b010001 => Op::Vmadc,
@@ -947,6 +955,8 @@ fn decode_vector(w: u32) -> Insn {
             0b000011 if !vf => Op::Vfredosum,
             0b000101 if !vf => Op::Vfredmin,
             0b000111 if !vf => Op::Vfredmax,
+            0b110001 if !vf => Op::Vfwredusum,
+            0b110011 if !vf => Op::Vfwredosum,
             // FP scalar element moves (VWFUNARY0 / VRFUNARY0), funct6 = 010000.
             0b010000 if !vf && vs1 == 0 => Op::VfmvFS,
             0b010000 if vf && (w >> 20) & 0x1f == 0 => Op::VfmvSF,

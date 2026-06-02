@@ -772,7 +772,8 @@ impl RiscVCpu {
             | Op::VfwcvtRtzXuF | Op::VfwcvtRtzXF | Op::VfncvtXuF | Op::VfncvtXF | Op::VfncvtFXu
             | Op::VfncvtFX | Op::VfncvtFF | Op::VfncvtRodFF | Op::VfncvtRtzXuF
             | Op::VfncvtRtzXF | Op::Vfwadd | Op::Vfwsub | Op::Vfwmul | Op::VfwaddW
-            | Op::VfwsubW | Op::Vfwmacc | Op::Vfwnmacc | Op::Vfwmsac | Op::Vfwnmsac => {
+            | Op::VfwsubW | Op::Vfwmacc | Op::Vfwnmacc | Op::Vfwmsac | Op::Vfwnmsac
+            | Op::Vwredsumu | Op::Vwredsum | Op::Vfwredusum | Op::Vfwredosum => {
                 self.exec_vector(insn)?
             }
 
@@ -1673,6 +1674,57 @@ impl RiscVCpu {
                         super::float::itof_fmt(fmt_eb(eb), v, frm, &mut flags)
                     };
                     self.set_velem(vd, e, eb, r & mask);
+                }
+                self.accrue(flags);
+            }
+            Op::Vwredsumu | Op::Vwredsum => {
+                // Widening integer sum reduction: 2*SEW accumulator seeded by vs1[0].
+                let eb = self.sew_bytes();
+                if eb > 4 {
+                    return Err(Trap::illegal(insn.raw));
+                }
+                let web = eb * 2;
+                let wmask = Self::sew_mask(web);
+                let signed = insn.op == Op::Vwredsum;
+                let mut acc = self.velem(insn.rs1, 0, web);
+                for e in vstart..vl {
+                    if !vm && !self.vmask_bit(e) {
+                        continue;
+                    }
+                    let x = self.velem(vs2, e, eb);
+                    let xe = if signed { sext_sew(x, eb) as u64 } else { x };
+                    acc = acc.wrapping_add(xe) & wmask;
+                }
+                if vl > vstart {
+                    self.set_velem(vd, 0, web, acc & wmask);
+                }
+            }
+            Op::Vfwredusum | Op::Vfwredosum => {
+                // Widening FP sum reduction: 2*SEW accumulator seeded by vs1[0].
+                let eb = self.sew_bytes();
+                if eb > 4 {
+                    return Err(Trap::illegal(insn.raw));
+                }
+                let web = eb * 2;
+                let wmask = Self::sew_mask(web);
+                let frm = RoundingMode::from_bits(self.frm()).unwrap_or(RoundingMode::Rne);
+                let mut flags = 0u32;
+                let mut acc = self.velem(insn.rs1, 0, web);
+                for e in vstart..vl {
+                    if !vm && !self.vmask_bit(e) {
+                        continue;
+                    }
+                    let x = super::float::fcvt_round(
+                        fmt_eb(eb),
+                        fmt_eb(web),
+                        self.velem(vs2, e, eb),
+                        frm,
+                        &mut flags,
+                    );
+                    acc = vfp_bin(Op::Vfadd, web, acc, x, frm, &mut flags) & wmask;
+                }
+                if vl > vstart {
+                    self.set_velem(vd, 0, web, acc & wmask);
                 }
                 self.accrue(flags);
             }

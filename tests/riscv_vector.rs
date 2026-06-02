@@ -1581,6 +1581,44 @@ fn diff_v_fwmac() {
 }
 
 #[test]
+fn diff_v_wredux() {
+    let mut rng = Rng::new(0x7EC_890);
+    let mut batch = Vec::new();
+    for sew_log2 in 1..3u32 {
+        let eb = 1usize << sew_log2;
+        let vmax = vlmax(sew_log2);
+        for vl in [vmax, (vmax / 2).max(1), 1] {
+            for frm in 0..5u64 {
+                // distinct vd / vs2 / vs1
+                let vd = VPOOL[(rng.next() % 6) as usize];
+                let mut vs2 = VPOOL[(rng.next() % 6) as usize];
+                while vs2 == vd {
+                    vs2 = VPOOL[(rng.next() % 6) as usize];
+                }
+                let mut vs1 = VPOOL[(rng.next() % 6) as usize];
+                while vs1 == vd || vs1 == vs2 {
+                    vs1 = VPOOL[(rng.next() % 6) as usize];
+                }
+                let mut st = rand_vstate(&mut rng, sew_log2, vl);
+                st.fcsr = frm << 5;
+                fp_setup(&mut st, &mut rng, eb);
+                for r in [vs2, vs1] {
+                    st.v[r as usize * 2] = rng.next();
+                    st.v[r as usize * 2 + 1] = rng.next();
+                }
+                // Integer widening sum reductions (.vs).
+                batch.push(("vwredsumu.vs".into(), op_iv(0b110000, 1, vs2, vs1, 0b000, vd), st));
+                batch.push(("vwredsum.vs".into(), op_iv(0b110001, 1, vs2, vs1, 0b000, vd), st));
+                // FP widening sum reductions (.vs).
+                batch.push(("vfwredusum.vs".into(), op_iv(0b110001, 1, vs2, vs1, 0b001, vd), st));
+                batch.push(("vfwredosum.vs".into(), op_iv(0b110011, 1, vs2, vs1, 0b001, vd), st));
+            }
+        }
+    }
+    run_batch(&batch);
+}
+
+#[test]
 fn diff_v_loadstore() {
     let mut rng = Rng::new(0x7EC_705);
     let mut batch = Vec::new();

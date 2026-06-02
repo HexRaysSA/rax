@@ -467,6 +467,10 @@ impl Op {
             Vfwnmacc => "vfwnmacc",
             Vfwmsac => "vfwmsac",
             Vfwnmsac => "vfwnmsac",
+            Vwredsumu => "vwredsumu",
+            Vwredsum => "vwredsum",
+            Vfwredusum => "vfwredusum",
+            Vfwredosum => "vfwredosum",
             Illegal => "illegal",
         }
     }
