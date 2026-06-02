@@ -534,6 +534,9 @@ pub enum Op {
     // ---- V (classify / whole-register move) ----
     Vfclass,
     Vmvr,
+    // ---- V (reciprocal / rsqrt estimates) ----
+    Vfrsqrt7,
+    Vfrec7,
     // ---- sentinel ----
     Illegal,
 }
@@ -998,6 +1001,8 @@ fn decode_vector(w: u32) -> Insn {
                 _ => return Insn::illegal(w, 4),
             },
             0b010011 if !vf && vs1 == 0 => Op::Vfsqrt,
+            0b010011 if !vf && vs1 == 0b00100 => Op::Vfrsqrt7,
+            0b010011 if !vf && vs1 == 0b00101 => Op::Vfrec7,
             0b010011 if !vf && vs1 == 0b10000 => Op::Vfclass,
             _ => return Insn::illegal(w, 4),
         };

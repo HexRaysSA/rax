@@ -481,6 +481,8 @@ impl Op {
             Vfwredosum => "vfwredosum",
             Vfclass => "vfclass.v",
             Vmvr => "vmvr.v",
+            Vfrsqrt7 => "vfrsqrt7.v",
+            Vfrec7 => "vfrec7.v",
             Illegal => "illegal",
         }
     }

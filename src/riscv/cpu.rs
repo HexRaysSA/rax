@@ -775,7 +775,7 @@ impl RiscVCpu {
             | Op::VfncvtRtzXF | Op::Vfwadd | Op::Vfwsub | Op::Vfwmul | Op::VfwaddW
             | Op::VfwsubW | Op::Vfwmacc | Op::Vfwnmacc | Op::Vfwmsac | Op::Vfwnmsac
             | Op::Vwredsumu | Op::Vwredsum | Op::Vfwredusum | Op::Vfwredosum | Op::Vfclass
-            | Op::Vmvr => self.exec_vector(insn)?,
+            | Op::Vmvr | Op::Vfrsqrt7 | Op::Vfrec7 => self.exec_vector(insn)?,
 
             Op::Illegal => return Err(Trap::illegal(insn.raw)),
 
@@ -2518,6 +2518,26 @@ impl RiscVCpu {
                     };
                     self.set_vmask_bit(vd, e, out);
                 }
+            }
+            Op::Vfrsqrt7 | Op::Vfrec7 => {
+                // 7-bit reciprocal / reciprocal-sqrt estimates.
+                let eb = self.sew_bytes();
+                let mask = Self::sew_mask(eb);
+                let rm = RoundingMode::from_bits(self.frm()).unwrap_or(RoundingMode::Rne);
+                let mut flags = 0u32;
+                for e in vstart..vl {
+                    if !vm && !self.vmask_bit(e) {
+                        continue;
+                    }
+                    let a = self.velem(vs2, e, eb);
+                    let r = if insn.op == Op::Vfrsqrt7 {
+                        super::float::vfrsqrt7(fmt_eb(eb), a, &mut flags)
+                    } else {
+                        super::float::vfrec7(fmt_eb(eb), a, rm, &mut flags)
+                    };
+                    self.set_velem(vd, e, eb, r & mask);
+                }
+                self.accrue(flags);
             }
             Op::Vfclass => {
                 // vd[i] = 10-bit IEEE class of vs2[i].

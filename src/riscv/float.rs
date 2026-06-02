@@ -1234,6 +1234,142 @@ pub const F32: Fmt = Fmt { p: 24, exp_bits: 8 };
 /// Double precision (binary64).
 pub const F64: Fmt = Fmt { p: 53, exp_bits: 11 };
 
+/// `vfrsqrt7.v` lookup table: 7 MSBs of the output significand indexed by
+/// (exp[0] << 6) | sig[MSB-:6]. (RISC-V V-spec Table 58.)
+#[rustfmt::skip]
+const RSQRT7_TABLE: [u8; 128] = [
+    52, 51, 50, 48, 47, 46, 44, 43, 42, 41, 40, 39, 38, 36, 35, 34,
+    33, 32, 31, 30, 30, 29, 28, 27, 26, 25, 24, 23, 23, 22, 21, 20,
+    19, 19, 18, 17, 16, 16, 15, 14, 14, 13, 12, 12, 11, 10, 10,  9,
+     9,  8,  7,  7,  6,  6,  5,  4,  4,  3,  3,  2,  2,  1,  1,  0,
+    127, 125, 123, 121, 119, 118, 116, 114, 113, 111, 109, 108, 106, 105, 103, 102,
+    100, 99, 97, 96, 95, 93, 92, 91, 90, 88, 87, 86, 85, 84, 83, 82,
+    80, 79, 78, 77, 76, 75, 74, 73, 72, 71, 70, 70, 69, 68, 67, 66,
+    65, 64, 63, 63, 62, 61, 60, 59, 59, 58, 57, 56, 56, 55, 54, 53,
+];
+
+/// `vfrec7.v` lookup table: 7 MSBs of the output significand indexed by the
+/// 7 MSBs of the normalized input significand. (RISC-V V-spec Table 59.)
+#[rustfmt::skip]
+const REC7_TABLE: [u8; 128] = [
+    127, 125, 123, 121, 119, 117, 116, 114, 112, 110, 109, 107, 105, 104, 102, 100,
+    99, 97, 96, 94, 93, 91, 90, 88, 87, 85, 84, 83, 81, 80, 79, 77,
+    76, 75, 74, 72, 71, 70, 69, 68, 66, 65, 64, 63, 62, 61, 60, 59,
+    58, 57, 56, 55, 54, 53, 52, 51, 50, 49, 48, 47, 46, 45, 44, 43,
+    42, 41, 40, 40, 39, 38, 37, 36, 35, 35, 34, 33, 32, 31, 31, 30,
+    29, 28, 28, 27, 26, 25, 25, 24, 23, 23, 22, 21, 21, 20, 19, 19,
+    18, 17, 17, 16, 15, 15, 14, 14, 13, 12, 12, 11, 11, 10, 9, 9,
+    8, 8, 7, 7, 6, 5, 5, 4, 4, 3, 3, 2, 2, 1, 1, 0,
+];
+
+/// `vfrsqrt7.v`: 7-bit estimate of 1/sqrt(x). Independent of rounding mode.
+pub fn vfrsqrt7(fmt: Fmt, bits: u64, flags: &mut u32) -> u64 {
+    let m = fmt.p - 1; // significand fraction bits
+    let eb = fmt.exp_bits;
+    let bias = (1i64 << (eb - 1)) - 1;
+    let exp_mask = (1u64 << eb) - 1;
+    let sig_mask = (1u64 << m) - 1;
+    let sign = (bits >> (m + eb)) & 1;
+    let exp = (bits >> m) & exp_mask;
+    let sig = bits & sig_mask;
+    let canon_nan = (exp_mask << m) | (1u64 << (m - 1));
+    if exp == exp_mask {
+        if sig == 0 {
+            // +/-inf
+            if sign == 1 {
+                *flags |= fflags::NV;
+                return canon_nan;
+            }
+            return 0; // +inf -> +0
+        }
+        if sig & (1u64 << (m - 1)) == 0 {
+            *flags |= fflags::NV; // sNaN
+        }
+        return canon_nan;
+    }
+    if exp == 0 && sig == 0 {
+        *flags |= fflags::DZ;
+        return (sign << (m + eb)) | (exp_mask << m); // +/-inf
+    }
+    if sign == 1 {
+        *flags |= fflags::NV; // negative -> canonical NaN
+        return canon_nan;
+    }
+    let (norm_exp, norm_sig) = if exp != 0 {
+        (exp as i64, sig)
+    } else {
+        let lz = (sig << (64 - m)).leading_zeros() as i64;
+        (-lz, (sig << (1 + lz)) & sig_mask)
+    };
+    let idx = (((norm_exp & 1) as u64) << 6) | (norm_sig >> (m - 6));
+    let sig_out = RSQRT7_TABLE[idx as usize] as u64;
+    let out_exp = (3 * bias - 1 - norm_exp) / 2;
+    ((out_exp as u64) << m) | (sig_out << (m - 7))
+}
+
+/// `vfrec7.v`: 7-bit estimate of 1/x. Overflow result depends on rounding mode.
+pub fn vfrec7(fmt: Fmt, bits: u64, mode: RoundingMode, flags: &mut u32) -> u64 {
+    let m = fmt.p - 1;
+    let eb = fmt.exp_bits;
+    let bias = (1i64 << (eb - 1)) - 1;
+    let exp_mask = (1u64 << eb) - 1;
+    let sig_mask = (1u64 << m) - 1;
+    let sign = (bits >> (m + eb)) & 1;
+    let exp = (bits >> m) & exp_mask;
+    let sig = bits & sig_mask;
+    let sbit = sign << (m + eb);
+    let canon_nan = (exp_mask << m) | (1u64 << (m - 1));
+    if exp == exp_mask {
+        if sig == 0 {
+            return sbit; // +/-inf -> +/-0
+        }
+        if sig & (1u64 << (m - 1)) == 0 {
+            *flags |= fflags::NV;
+        }
+        return canon_nan;
+    }
+    if exp == 0 && sig == 0 {
+        *flags |= fflags::DZ;
+        return sbit | (exp_mask << m); // +/-inf
+    }
+    let (norm_exp, norm_sig) = if exp != 0 {
+        (exp as i64, sig)
+    } else {
+        let lz = (sig << (64 - m)).leading_zeros() as i64;
+        (-lz, (sig << (1 + lz)) & sig_mask)
+    };
+    let out_exp = 2 * bias - 1 - norm_exp;
+    if out_exp > 2 * bias {
+        // Overflow: result depends on sign and rounding mode.
+        *flags |= fflags::NX | fflags::OF;
+        let max_finite = ((exp_mask - 1) << m) | sig_mask;
+        let inf = exp_mask << m;
+        use RoundingMode::*;
+        let mag = if sign == 0 {
+            match mode {
+                Rup | Rne | Rmm => inf,
+                _ => max_finite, // Rdn, Rtz
+            }
+        } else {
+            match mode {
+                Rup | Rtz => max_finite,
+                _ => inf, // Rdn, Rne, Rmm
+            }
+        };
+        return sbit | mag;
+    }
+    let idx = norm_sig >> (m - 7);
+    let sig_out = REC7_TABLE[idx as usize] as u64;
+    if out_exp >= 1 {
+        sbit | ((out_exp as u64) << m) | (sig_out << (m - 7))
+    } else {
+        // Subnormal output: denormalize the 1.sig_out significand.
+        let full = (1u64 << m) | (sig_out << (m - 7));
+        let shift = (1 - out_exp) as u32;
+        sbit | (full >> shift)
+    }
+}
+
 impl Fmt {
     #[inline]
     fn width(&self) -> u32 {
