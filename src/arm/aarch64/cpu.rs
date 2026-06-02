@@ -7928,26 +7928,96 @@ impl AArch64Cpu {
         pg: usize,
         esize: usize,
     ) -> Result<CpuExit, ArmError> {
-        // SVE2 FMLALB/FMLALT/FMLSLB/FMLSLT (f16 widening fused multiply-add into
-        // f32): 0x64, bit21==1, bits[15:11]==10000 (FMLAL) or 10100 (FMLSL);
-        // bit13 picks subtract, bit10 picks the odd (T) / even (B) f16 lane.
-        // Unpredicated; the f16->f32 widening is exact and the accumulate is a
-        // single fused muladd. FMLSL negates the Zn factor (FPCR.AH=0 default).
+        // SVE BFDOT (bf16 dot product, round-to-odd): 0x64, bits[23:22]==01,
+        // bit21==1, bits[15:10]==100000 (zzzz) or 010000 (zzxw indexed). Each
+        // f32 lane sums two bf16 products; the indexed form broadcasts Zm's
+        // 32-bit group at `index` (bits[20:19], Zm in bits[18:16]).
+        if (insn >> 24) & 0xFF == 0b01100100
+            && (insn >> 22) & 0x3 == 0b01
+            && (insn >> 21) & 1 == 1
+            && matches!((insn >> 10) & 0x3F, 0b100000 | 0b010000)
+        {
+            let indexed = (insn >> 10) & 0x3F == 0b010000;
+            let (m, a) = (
+                if indexed { self.v[((insn >> 16) & 0x7) as usize] } else { self.v[zm] },
+                self.v[zd],
+            );
+            let n = self.v[zn];
+            let m_idx = if indexed { (m >> (((insn >> 19) & 0x3) * 32)) as u32 } else { 0 };
+            let mut r = 0u128;
+            for e in 0..4 {
+                let m_pair = if indexed { m_idx } else { (m >> (e * 32)) as u32 };
+                let res = sve_bfdot_lane((a >> (e * 32)) as u32, (n >> (e * 32)) as u32, m_pair);
+                r |= (res as u128) << (e * 32);
+            }
+            self.v[zd] = r;
+            return Ok(CpuExit::Continue);
+        }
+
+        // SVE2 FMLAL/FMLSL (f16) and BFMLALB/T (bf16) widening fused
+        // multiply-add into f32: 0x64, bit21==1, bits[15:11]==10000 (add) or
+        // 10100 (sub); bit10 picks the odd(T)/even(B) lane. bits[23:22] selects
+        // the source format: 10=f16, 11=bf16 (the bf16 subtract form BFMLSL
+        // needs SVE2p1 and is unallocated here). The widening is exact and the
+        // accumulate is a single fused muladd; the sub form negates Zn.
         if (insn >> 24) & 0xFF == 0b01100100
             && (insn >> 21) & 1 == 1
+            && matches!((insn >> 22) & 0x3, 0b10 | 0b11)
             && matches!((insn >> 11) & 0x1F, 0b10000 | 0b10100)
         {
-            let sub = (insn >> 13) & 1 == 1; // FMLSL
-            let top = (insn >> 10) & 1 == 1; // odd f16 half
+            let bf = (insn >> 22) & 0x3 == 0b11;
+            let sub = (insn >> 13) & 1 == 1;
+            if bf && sub {
+                return Ok(CpuExit::Undefined(insn)); // BFMLSL: needs SVE2p1
+            }
+            let top = (insn >> 10) & 1 == 1;
             let n = self.v[zn].to_le_bytes();
             let m = self.v[zm].to_le_bytes();
-            let acc = self.v[zd].to_le_bytes(); // Zda
+            let acc = self.v[zd].to_le_bytes();
+            let widen =
+                |b: u16| if bf { f32::from_bits((b as u32) << 16) } else { Self::fp16_to_f32(b) };
             let mut dst = acc;
             for j in 0..4 {
                 let h_off = (2 * j + top as usize) * 2;
                 let nbits = read_elem(&n, h_off, 2) as u16 ^ if sub { 0x8000 } else { 0 };
-                let nn = Self::fp16_to_f32(nbits);
-                let mm = Self::fp16_to_f32(read_elem(&m, h_off, 2) as u16);
+                let nn = widen(nbits);
+                let mm = widen(read_elem(&m, h_off, 2) as u16);
+                let aa = f32::from_bits(read_elem(&acc, j * 4, 4) as u32);
+                write_elem(&mut dst, j * 4, 4, nn.mul_add(mm, aa).to_bits() as u64);
+            }
+            self.v[zd] = u128::from_le_bytes(dst);
+            return Ok(CpuExit::Continue);
+        }
+
+        // SVE2 FMLAL/FMLSL (f16) and BFMLALB/T (bf16) by indexed element: 0x64,
+        // bit21==1, bits[23:22]==10(f16)/11(bf16), bits[15:14]==01, bit12==0.
+        // sub=bit13, T=bit10, Zm=bits[18:16], index=(bits[20:19]<<1)|bit11. Like
+        // the non-indexed form but Zm.h[index] is the broadcast second factor.
+        if (insn >> 24) & 0xFF == 0b01100100
+            && (insn >> 21) & 1 == 1
+            && matches!((insn >> 22) & 0x3, 0b10 | 0b11)
+            && (insn >> 14) & 0x3 == 0b01
+            && (insn >> 12) & 1 == 0
+        {
+            let bf = (insn >> 22) & 0x3 == 0b11;
+            let sub = (insn >> 13) & 1 == 1; // FMLSL
+            if bf && sub {
+                return Ok(CpuExit::Undefined(insn)); // BFMLSL: needs SVE2p1
+            }
+            let top = (insn >> 10) & 1 == 1; // odd half of Zn
+            let index = ((((insn >> 19) & 0x3) << 1) | ((insn >> 11) & 1)) as usize;
+            let zmr = ((insn >> 16) & 0x7) as usize;
+            let n = self.v[zn].to_le_bytes();
+            let m = self.v[zmr].to_le_bytes();
+            let acc = self.v[zd].to_le_bytes();
+            let widen =
+                |b: u16| if bf { f32::from_bits((b as u32) << 16) } else { Self::fp16_to_f32(b) };
+            let mm = widen(read_elem(&m, index * 2, 2) as u16); // Zm.h[index]
+            let mut dst = acc;
+            for j in 0..4 {
+                let h_off = (2 * j + top as usize) * 2;
+                let nbits = read_elem(&n, h_off, 2) as u16 ^ if sub { 0x8000 } else { 0 };
+                let nn = widen(nbits);
                 let aa = f32::from_bits(read_elem(&acc, j * 4, 4) as u32);
                 write_elem(&mut dst, j * 4, 4, nn.mul_add(mm, aa).to_bits() as u64);
             }
@@ -13434,6 +13504,16 @@ fn sve_flogb(esize: usize, bits: u64) -> i64 {
         return emin - fracbits as i64 + msb;
     }
     exp as i64 - bias // normal: 1 <= significand < 2, so floor(log2) == exponent
+}
+
+/// One f32 lane of SVE BFDOT (non-EBF, the qemu-user default): the two bf16
+/// products are summed with round-to-odd, then added to the accumulator and
+/// rounded to odd. Matches the verified NEON BFDOT per-lane math.
+fn sve_bfdot_lane(acc_bits: u32, n: u32, m: u32) -> u32 {
+    let acc = f32::from_bits(acc_bits) as f64;
+    let p1 = bf16_to_f32(n as u16) as f64 * bf16_to_f32(m as u16) as f64;
+    let p2 = bf16_to_f32((n >> 16) as u16) as f64 * bf16_to_f32((m >> 16) as u16) as f64;
+    round_odd_f64_to_f32(acc + bf_odd_add(p1, p2))
 }
 
 /// SVE FTSMUL: square `x` and set the result sign to `sgn` (bit0 of Zm),

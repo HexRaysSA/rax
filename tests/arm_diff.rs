@@ -1669,6 +1669,50 @@ fn enc_sve2_fmlal(sub: u32, top: u32) -> u32 {
         | RD
 }
 
+/// SVE BFDOT (zzzz): `01100100 01 1 Zm 100000 Zn Zda`. Zn=z1(RN), Zda=z0(RD).
+fn enc_sve_bfdot(zm: u32) -> u32 {
+    (0x64 << 24) | (0b01 << 22) | (1 << 21) | (zm << 16) | (0b100000 << 10) | (RN << 5) | RD
+}
+
+/// SVE BFDOT (indexed zzxw): `01100100 01 1 idx Zm[2:0] 010000 Zn Zda`.
+/// index=bits[20:19], Zm z0-z7. Zn=z1(RN), Zda=z0(RD).
+fn enc_sve_bfdot_idx(index: u32, zm: u32) -> u32 {
+    (0x64 << 24) | (0b01 << 22) | (1 << 21) | (index << 19) | ((zm & 0x7) << 16)
+        | (0b010000 << 10)
+        | (RN << 5)
+        | RD
+}
+
+/// SVE BFMLALB/T (zzzw): `01100100 11 1 Zm 10000 T Zn Zda`. T=bit10. Zn=z1(RN),
+/// Zda=z0(RD).
+fn enc_sve_bfmlal(top: u32, zm: u32) -> u32 {
+    (0x64 << 24) | (0b11 << 22) | (1 << 21) | (zm << 16) | (0b10000 << 11) | (top << 10) | (RN << 5)
+        | RD
+}
+
+/// SVE BFMLALB/T by indexed element (zzxw): bf16 variant of enc_sve2_fmlal_idx
+/// (bits[23:22]=11, add only). T=bit10, index 0-7, Zm z0-z7.
+fn enc_sve_bfmlal_idx(top: u32, index: u32, zm: u32) -> u32 {
+    (0x64 << 24) | (0b11 << 22) | (1 << 21) | (((index >> 1) & 0x3) << 19) | ((zm & 0x7) << 16)
+        | (0b01 << 14)
+        | ((index & 1) << 11)
+        | (top << 10)
+        | (RN << 5)
+        | RD
+}
+
+/// SVE2 FMLAL/FMLSL by indexed element: `01100100 10 1 i[2:1] Zm[2:0] 01 sub 0
+/// i[0] T Zn Zda`. sub=bit13, T=bit10. index 0-7, Zm z0-z7. Zn=z1(RN), Zda=z0.
+fn enc_sve2_fmlal_idx(sub: u32, top: u32, index: u32, zm: u32) -> u32 {
+    (0x64 << 24) | (0b10 << 22) | (1 << 21) | (((index >> 1) & 0x3) << 19) | ((zm & 0x7) << 16)
+        | (0b01 << 14)
+        | (sub << 13)
+        | ((index & 1) << 11)
+        | (top << 10)
+        | (RN << 5)
+        | RD
+}
+
 /// SVE2 CMLA by indexed element: `0100 0100 size 1 <idx:Zm> 0110 rot Zn Zda`.
 /// size 2=.h,3=.s; .h: index=bits[20:19] Zm=bits[18:16]; .s: index=bit20
 /// Zm=bits[19:16]. rot=bits[11:10]. Zn=z1(RN), Zda=z0(RD).
@@ -2962,6 +3006,104 @@ fn diff_sve2_fmlal() {
         }
     }
     run_batch("sve2_fmlal", batch);
+}
+
+#[test]
+fn diff_sve_bfdot() {
+    // BFDOT bf16 dot product, both the three-register and indexed forms.
+    let mut rng = Rng::new(0x7_d001);
+    let mut batch: Vec<(String, u32, ArmState)> = Vec::new();
+    let mk = |rng: &mut Rng| {
+        let (mut zn, mut zm, mut za) = (0u128, 0u128, 0u128);
+        for h in 0..8 {
+            zn |= ((finite_fp_bits(rng, 4) >> 16) as u128) << (h * 16);
+            zm |= ((finite_fp_bits(rng, 4) >> 16) as u128) << (h * 16);
+        }
+        for s in 0..4 {
+            za |= (finite_fp_bits(rng, 4) as u128) << (s * 32);
+        }
+        let mut st = ArmState::zeroed();
+        st.set_vreg(1, zn as u64, (zn >> 64) as u64);
+        st.set_vreg(2, zm as u64, (zm >> 64) as u64);
+        st.set_vreg(0, za as u64, (za >> 64) as u64);
+        st
+    };
+    let insn = enc_sve_bfdot(RM);
+    for _ in 0..30 {
+        batch.push(("bfdot".to_string(), insn, mk(&mut rng)));
+    }
+    for index in 0..4u32 {
+        let insn = enc_sve_bfdot_idx(index, RM);
+        for _ in 0..8 {
+            batch.push((format!("bfdot_idx i{index}"), insn, mk(&mut rng)));
+        }
+    }
+    run_batch("sve_bfdot", batch);
+}
+
+#[test]
+fn diff_sve_bfmlal() {
+    // BFMLALB/T bf16 widening fused multiply-add, three-register and indexed.
+    let mut rng = Rng::new(0x7_e001);
+    let mut batch: Vec<(String, u32, ArmState)> = Vec::new();
+    let mk = |rng: &mut Rng| {
+        let (mut zn, mut zm, mut za) = (0u128, 0u128, 0u128);
+        for h in 0..8 {
+            zn |= ((finite_fp_bits(rng, 4) >> 16) as u128) << (h * 16);
+            zm |= ((finite_fp_bits(rng, 4) >> 16) as u128) << (h * 16);
+        }
+        for s in 0..4 {
+            za |= (finite_fp_bits(rng, 4) as u128) << (s * 32);
+        }
+        let mut st = ArmState::zeroed();
+        st.set_vreg(1, zn as u64, (zn >> 64) as u64);
+        st.set_vreg(2, zm as u64, (zm >> 64) as u64);
+        st.set_vreg(0, za as u64, (za >> 64) as u64);
+        st
+    };
+    for top in 0..2u32 {
+        let insn = enc_sve_bfmlal(top, RM);
+        for _ in 0..16 {
+            batch.push((format!("bfmlal t{top}"), insn, mk(&mut rng)));
+        }
+        for index in 0..8u32 {
+            let insn = enc_sve_bfmlal_idx(top, index, RM);
+            for _ in 0..3 {
+                batch.push((format!("bfmlal_idx t{top} i{index}"), insn, mk(&mut rng)));
+            }
+        }
+    }
+    run_batch("sve_bfmlal", batch);
+}
+
+#[test]
+fn diff_sve2_fmlal_indexed() {
+    // FMLALB/T and FMLSLB/T by indexed Zm.h[index] (broadcast), all indices.
+    let mut rng = Rng::new(0x7_c001);
+    let mut batch: Vec<(String, u32, ArmState)> = Vec::new();
+    for sub in 0..2u32 {
+        for top in 0..2u32 {
+            for index in 0..8u32 {
+                let insn = enc_sve2_fmlal_idx(sub, top, index, RM);
+                for _ in 0..3 {
+                    let (mut zn, mut zm, mut za) = (0u128, 0u128, 0u128);
+                    for h in 0..8 {
+                        zn |= (finite_fp_bits(&mut rng, 2) as u128) << (h * 16);
+                        zm |= (finite_fp_bits(&mut rng, 2) as u128) << (h * 16);
+                    }
+                    for s in 0..4 {
+                        za |= (finite_fp_bits(&mut rng, 4) as u128) << (s * 32);
+                    }
+                    let mut st = ArmState::zeroed();
+                    st.set_vreg(1, zn as u64, (zn >> 64) as u64);
+                    st.set_vreg(2, zm as u64, (zm >> 64) as u64);
+                    st.set_vreg(0, za as u64, (za >> 64) as u64);
+                    batch.push((format!("fmlal_idx sub{sub} t{top} i{index}"), insn, st));
+                }
+            }
+        }
+    }
+    run_batch("sve2_fmlal_indexed", batch);
 }
 
 #[test]
