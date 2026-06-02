@@ -1713,6 +1713,25 @@ fn enc_sve2_fmlal_idx(sub: u32, top: u32, index: u32, zm: u32) -> u32 {
         | RD
 }
 
+/// SVE integer dot product (vector SDOT/UDOT): `01000100 1 sz 0 Zm 00000 u Zn
+/// Zda`. sz: 0=.s,1=.d; u=bit10. Zn=z1(RN), Zm=z2(RM), Zda=z0(RD).
+fn enc_sve_dot_vec(sz: u32, u: u32) -> u32 {
+    (0x44 << 24) | (1 << 23) | (sz << 22) | (RM << 16) | (u << 10) | (RN << 5) | RD
+}
+
+/// SVE USDOT (vector): `01000100 10 0 Zm 011110 Zn Zda`. Zn=z1, Zm=z2, Zda=z0.
+fn enc_sve_usdot_vec() -> u32 {
+    (0x44 << 24) | (0b10 << 22) | (RM << 16) | (0b011110 << 10) | (RN << 5) | RD
+}
+
+/// SVE integer dot product (indexed): `01000100 1 sz 1 <idx:Zm> op Zn Zda`.
+/// sz 0=.s (index bits[20:19], Zm[18:16]), 1=.d (index bit20, Zm[19:16]). op=
+/// bits[15:10]. Zn=z1(RN), Zda=z0(RD).
+fn enc_sve_dot_idx(sz: u32, op: u32, index: u32, zm: u32) -> u32 {
+    let field = if sz == 0 { ((index & 0x3) << 3) | (zm & 0x7) } else { ((index & 1) << 4) | (zm & 0xF) };
+    (0x44 << 24) | (1 << 23) | (sz << 22) | (1 << 21) | (field << 16) | (op << 10) | (RN << 5) | RD
+}
+
 /// SVE predicated FP FMA: `01100101 size 1 Rm op3 Pg Rn Rd`. op3=bits[15:13]
 /// (0-3 FMLA/FMLS/FNMLA/FNMLS, 4-7 FMAD/FMSB/FNMAD/FNMSB). Rd=z0, Rn=z1, Rm=z2,
 /// Pg=p0.
@@ -3124,6 +3143,47 @@ fn diff_sve2_fmlal_indexed() {
         }
     }
     run_batch("sve2_fmlal_indexed", batch);
+}
+
+#[test]
+fn diff_sve_dot() {
+    // SVE integer dot product: vector SDOT/UDOT (.s/.d), USDOT, and the indexed
+    // SDOT/UDOT/USDOT/SUDOT forms.
+    let mut rng = Rng::new(0x8_2001);
+    let mut batch: Vec<(String, u32, ArmState)> = Vec::new();
+    let setup = |rng: &mut Rng| {
+        let mut st = ArmState::zeroed();
+        st.set_vreg(0, rng.next(), rng.next());
+        st.set_vreg(1, rng.next(), rng.next());
+        st.set_vreg(2, rng.next(), rng.next());
+        st
+    };
+    for sz in 0..2u32 {
+        for u in 0..2u32 {
+            let insn = enc_sve_dot_vec(sz, u);
+            for _ in 0..10 {
+                batch.push((format!("dot_v sz{sz} u{u}"), insn, setup(&mut rng)));
+            }
+        }
+    }
+    let insn = enc_sve_usdot_vec();
+    for _ in 0..10 {
+        batch.push(("usdot_v".to_string(), insn, setup(&mut rng)));
+    }
+    let idxops = [
+        (0u32, 0b000000u32, "sdot"), (0, 0b000001, "udot"), (0, 0b000110, "usdot"),
+        (0, 0b000111, "sudot"), (1, 0b000000, "sdot_d"), (1, 0b000001, "udot_d"),
+    ];
+    for (sz, op, name) in idxops {
+        let idxn = if sz == 0 { 4 } else { 2 };
+        for index in 0..idxn {
+            let insn = enc_sve_dot_idx(sz, op, index, RM);
+            for _ in 0..4 {
+                batch.push((format!("{name}_idx i{index}"), insn, setup(&mut rng)));
+            }
+        }
+    }
+    run_batch("sve_dot", batch);
 }
 
 #[test]

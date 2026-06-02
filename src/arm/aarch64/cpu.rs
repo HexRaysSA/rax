@@ -6058,6 +6058,28 @@ impl AArch64Cpu {
                 Ok(CpuExit::Continue)
             }
 
+            // SVE integer dot product (vector): 0x44, bit21==0, with bit23==1
+            // and bits[15:11]==00000 (SDOT/UDOT, u=bit10) or bits[23:22]==10 and
+            // bits[15:10]==011110 (USDOT).
+            0b010
+                if (insn >> 24) & 0xFF == 0b01000100
+                    && (insn >> 21) & 1 == 0
+                    && (((insn >> 23) & 1 == 1 && (insn >> 11) & 0x1F == 0b00000)
+                        || ((insn >> 22) & 0x3 == 0b10 && (insn >> 10) & 0x3F == 0b011110)) =>
+            {
+                self.exec_sve_dot(insn)
+            }
+
+            // SVE integer dot product (indexed): 0x44, bit21==1,
+            // bits[15:10] in {SDOT, UDOT, USDOT, SUDOT}.
+            0b010
+                if (insn >> 24) & 0xFF == 0b01000100
+                    && (insn >> 21) & 1 == 1
+                    && matches!((insn >> 10) & 0x3F, 0b000000 | 0b000001 | 0b000110 | 0b000111) =>
+            {
+                self.exec_sve_dot(insn)
+            }
+
             // SVE2 predicated integer ALU (saturating/rounding shifts, halving
             // add/sub, saturating add/sub, SQABS/SQNEG): 0x44, bit21==0,
             // bits[15:13]==100, or bits[15:13]==101 with bits[21:19]==001. The
@@ -6442,6 +6464,67 @@ impl AArch64Cpu {
                 op0, op1
             ))),
         }
+    }
+
+    /// Execute SVE integer dot product (SDOT/UDOT/USDOT/SUDOT), vector and
+    /// indexed. Each destination element (S from 8-bit sources, D from 16-bit)
+    /// accumulates a 4-element dot product; the indexed form broadcasts the
+    /// index-th 4-element group of Zm across the segment. Sign treatment is
+    /// per-operand; no saturation.
+    fn exec_sve_dot(&mut self, insn: u32) -> Result<CpuExit, ArmError> {
+        let indexed = (insn >> 21) & 1 == 1;
+        let d_esize = if (insn >> 22) & 1 == 0 { 4usize } else { 8 };
+        let s_esize = d_esize / 4;
+        let s_bits = (s_esize * 8) as u32;
+        let d_bits = (d_esize * 8) as u32;
+        let mask = elem_mask(d_bits);
+        let (n_signed, m_signed) = if indexed {
+            match (insn >> 10) & 0x3F {
+                0b000000 => (true, true),   // SDOT
+                0b000001 => (false, false), // UDOT
+                0b000110 => (false, true),  // USDOT (Zn unsigned, Zm signed)
+                0b000111 => (true, false),  // SUDOT (Zn signed, Zm unsigned)
+                _ => return Ok(CpuExit::Undefined(insn)),
+            }
+        } else if (insn >> 10) & 0x3F == 0b011110 {
+            (false, true) // USDOT vector
+        } else {
+            let u = (insn >> 10) & 1 == 1;
+            (!u, !u) // SDOT(u=0) / UDOT(u=1)
+        };
+        let zd = (insn & 0x1F) as usize;
+        let zn = ((insn >> 5) & 0x1F) as usize;
+        let (zm, index) = if indexed {
+            if d_esize == 4 {
+                (((insn >> 16) & 0x7) as usize, ((insn >> 19) & 0x3) as usize)
+            } else {
+                (((insn >> 16) & 0xF) as usize, ((insn >> 20) & 1) as usize)
+            }
+        } else {
+            (((insn >> 16) & 0x1F) as usize, 0)
+        };
+        let n = self.v[zn].to_le_bytes();
+        let m = self.v[zm].to_le_bytes();
+        let a = self.v[zd].to_le_bytes();
+        let ext = |b: &[u8; 16], off: usize, s: bool| -> i128 {
+            if s {
+                sext_elem(read_elem(b, off, s_esize), s_bits)
+            } else {
+                uext_elem(read_elem(b, off, s_esize), s_bits) as i128
+            }
+        };
+        let mut dst = [0u8; 16];
+        for i in 0..(16 / d_esize) {
+            let mut acc = sext_elem(read_elem(&a, i * d_esize, d_esize), d_bits);
+            for k in 0..4 {
+                let n_off = i * d_esize + k * s_esize;
+                let m_off = if indexed { (index * 4 + k) * s_esize } else { n_off };
+                acc += ext(&n, n_off, n_signed) * ext(&m, m_off, m_signed);
+            }
+            write_elem(&mut dst, i * d_esize, d_esize, acc as u64 & mask);
+        }
+        self.v[zd] = u128::from_le_bytes(dst);
+        Ok(CpuExit::Continue)
     }
 
     /// Execute the SVE2 predicated integer ALU group at 0x44 bits[15:14]==10:
