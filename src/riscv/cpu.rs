@@ -769,7 +769,9 @@ impl RiscVCpu {
             | Op::Vwmaccus | Op::Vnsrl | Op::Vnsra | Op::Vnclipu | Op::Vnclip | Op::VfcvtXuF
             | Op::VfcvtXF | Op::VfcvtFXu | Op::VfcvtFX | Op::VfcvtRtzXuF | Op::VfcvtRtzXF
             | Op::VfwcvtXuF | Op::VfwcvtXF | Op::VfwcvtFXu | Op::VfwcvtFX | Op::VfwcvtFF
-            | Op::VfwcvtRtzXuF | Op::VfwcvtRtzXF => self.exec_vector(insn)?,
+            | Op::VfwcvtRtzXuF | Op::VfwcvtRtzXF | Op::VfncvtXuF | Op::VfncvtXF | Op::VfncvtFXu
+            | Op::VfncvtFX | Op::VfncvtFF | Op::VfncvtRodFF | Op::VfncvtRtzXuF
+            | Op::VfncvtRtzXF => self.exec_vector(insn)?,
 
             Op::Illegal => return Err(Trap::illegal(insn.raw)),
 
@@ -1723,6 +1725,74 @@ impl RiscVCpu {
                         _ => super::float::fcvt_round(fmt_eb(eb), fmt_eb(web), a, frm, &mut flags),
                     };
                     self.set_velem(vd, e, web, r & wmask);
+                }
+                self.accrue(flags);
+            }
+            Op::VfncvtXuF | Op::VfncvtXF | Op::VfncvtFXu | Op::VfncvtFX | Op::VfncvtFF
+            | Op::VfncvtRodFF | Op::VfncvtRtzXuF | Op::VfncvtRtzXF => {
+                // Narrowing conversions: 2*SEW source vs2 -> SEW result.
+                let eb = self.sew_bytes();
+                if eb > 4 {
+                    return Err(Trap::illegal(insn.raw));
+                }
+                let web = eb * 2;
+                let mask = Self::sew_mask(eb);
+                let frm = RoundingMode::from_bits(self.frm()).unwrap_or(RoundingMode::Rne);
+                let mut flags = 0u32;
+                for e in vstart..vl {
+                    if !vm && !self.vmask_bit(e) {
+                        continue;
+                    }
+                    let aw = self.velem(vs2, e, web);
+                    let r = match insn.op {
+                        Op::VfncvtXuF | Op::VfncvtXF | Op::VfncvtRtzXuF | Op::VfncvtRtzXF => {
+                            let signed = matches!(insn.op, Op::VfncvtXF | Op::VfncvtRtzXF);
+                            let rm = if matches!(insn.op, Op::VfncvtRtzXuF | Op::VfncvtRtzXF) {
+                                RoundingMode::Rtz
+                            } else {
+                                frm
+                            };
+                            match web {
+                                4 => super::float::ftoi(
+                                    f32::from_bits(aw as u32),
+                                    signed,
+                                    (eb * 8) as u32,
+                                    rm,
+                                    &mut flags,
+                                ),
+                                _ => super::float::ftoi(
+                                    f64::from_bits(aw),
+                                    signed,
+                                    (eb * 8) as u32,
+                                    rm,
+                                    &mut flags,
+                                ),
+                            }
+                        }
+                        Op::VfncvtFXu | Op::VfncvtFX => {
+                            let v: i128 = if insn.op == Op::VfncvtFX {
+                                sext_sew(aw, web) as i128
+                            } else {
+                                aw as i128
+                            };
+                            super::float::itof_fmt(fmt_eb(eb), v, frm, &mut flags)
+                        }
+                        Op::VfncvtRodFF => {
+                            // Round-to-odd: truncate, then force the LSB on inexact.
+                            let mut t = 0u32;
+                            let r = super::float::fcvt_round(
+                                fmt_eb(web),
+                                fmt_eb(eb),
+                                aw,
+                                RoundingMode::Rtz,
+                                &mut t,
+                            );
+                            flags |= t;
+                            if t & 1 != 0 { r | 1 } else { r } // NX is fflags bit 0
+                        }
+                        _ => super::float::fcvt_round(fmt_eb(web), fmt_eb(eb), aw, frm, &mut flags),
+                    };
+                    self.set_velem(vd, e, eb, r & mask);
                 }
                 self.accrue(flags);
             }
