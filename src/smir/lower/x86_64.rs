@@ -3109,6 +3109,16 @@ pub struct X86_64Lowerer {
     /// Pending return immediate for current block
     pending_ret_imm: Option<u16>,
 
+    /// Folded condition for the current block's `CondBranch` terminator.
+    /// Set by `lower_block` when the block's last op is a `TestCondition`
+    /// feeding the terminator's `cond` vreg: the SETcc-into-a-vreg + `test`
+    /// round-trip is elided and the terminator emits `Jcc<cond>` directly off
+    /// the live guest flags (the body's last flag-setting op). This avoids
+    /// materializing the condition into a host register — which, under the 1:1
+    /// identity reg map where every GPR is guest-live, would clobber guest
+    /// state (no free scratch). Also faster: one `jcc` instead of setcc+test+jnz.
+    pending_cond: Option<Condition>,
+
     /// Whether to adjust PC-relative displacements for code layout
     pcrel_adjust: bool,
 }
@@ -3126,6 +3136,7 @@ impl X86_64Lowerer {
             pcrel_adjust: true,
             block_guest_pcs: HashMap::new(),
             pending_ret_imm: None,
+            pending_cond: None,
         }
     }
 
@@ -5558,21 +5569,25 @@ impl X86_64Lowerer {
                 true_target,
                 false_target,
             } => {
-                // The condition should already be in flags from a previous Cmp/Test
-                // For now, assume cond is a vreg holding 0 or 1
-                let cond_reg = self.get_reg(*cond)?;
-
-                // TEST cond, cond
-                {
+                // Determine the native condition for the taken branch. If
+                // `lower_block` folded a trailing `TestCondition` (the common
+                // guest-Jcc shape), branch directly off the live guest flags
+                // with the guest condition — no register is touched. Otherwise
+                // fall back to materializing the cond vreg and `test`ing it.
+                let taken = if let Some(c) = self.pending_cond.take() {
+                    X86Cond::from_condition(c)
+                } else {
+                    let cond_reg = self.get_reg(*cond)?;
                     let mut emitter = X86Emitter::new(&mut self.code);
                     emitter.emit_test_rr(cond_reg, cond_reg, OpWidth::W64);
-                }
+                    X86Cond::Ne
+                };
 
-                // JNZ true_target
+                // Jcc<taken> true_target
                 let jnz_offset = self.code.position();
                 {
                     let mut emitter = X86Emitter::new(&mut self.code);
-                    emitter.emit_jcc_rel32(X86Cond::Ne, 0); // Placeholder
+                    emitter.emit_jcc_rel32(taken, 0); // Placeholder
                 }
                 self.pending_jumps
                     .push((jnz_offset + 2, *true_target, RelocKind::PcRel32));
@@ -8342,6 +8357,29 @@ impl X86_64Lowerer {
             }
         }
 
+        // Fold a trailing `TestCondition` that exists only to feed this block's
+        // `CondBranch` into a direct `Jcc<cond>` off live flags. The x86 lifter
+        // emits, for a guest Jcc, `TestCondition { dst, cond }` as the block's
+        // last op plus `CondBranch { cond: dst, .. }`. Materializing `dst` into
+        // a host register would clobber guest state under the identity reg map
+        // (no free scratch GPR), so skip the op and let `lower_terminator` read
+        // the flags the block body's last flag-setting op (e.g. `dec`) produced.
+        self.pending_cond = None;
+        if let Terminator::CondBranch { cond, .. } = &block.terminator {
+            if end_idx > 0 {
+                if let OpKind::TestCondition {
+                    dst,
+                    cond: guest_cond,
+                } = &block.ops[end_idx - 1].kind
+                {
+                    if dst == cond {
+                        self.pending_cond = Some(*guest_cond);
+                        end_idx -= 1;
+                    }
+                }
+            }
+        }
+
         // Lower each operation
         let mut idx = 0;
         while idx < end_idx {
@@ -8447,6 +8485,7 @@ impl SmirLowerer for X86_64Lowerer {
         self.pending_jumps.clear();
         self.guest_base = func.guest_range.0;
         self.pending_ret_imm = None;
+        self.pending_cond = None;
         self.block_guest_pcs = func
             .blocks
             .iter()

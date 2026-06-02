@@ -4506,3 +4506,124 @@ fn smir_native_muldiv() {
     }
     stats.finish("native_muldiv");
 }
+
+// DRAGON: lift an entire hot LOOP (body + back-edge Jcc) via `lift_function`
+// into a multi-block SMIR function, lower it so the back-edge stays an INTERNAL
+// native jump, and run the WHOLE loop in ONE `enter_native` call — no per-
+// iteration marshalling. Measures sustained native MIPS vs the ~143 MIPS
+// interpreter. This is the payoff of the `TestCondition` fold in the lowerer +
+// the bidirectional `fixup_jumps` back-edge codegen. The lifted loop is exactly
+// the `examples/bench_loop` hot loop, so the numbers are directly comparable.
+#[test]
+fn smir_native_loop_dragon() {
+    use rax::smir::ir::Terminator;
+    use rax::smir::lift::x86_64::X86_64Lifter;
+    use rax::smir::lift::{LiftContext, MemoryReader, SmirLifter};
+    use rax::smir::lower::x86_64::X86_64Lowerer;
+    use rax::smir::lower::SmirLowerer;
+    use rax::smir::memory::MemoryError;
+    use rax::smir::types::SourceArch;
+    use std::time::Instant;
+
+    struct CR {
+        base: u64,
+        bytes: Vec<u8>,
+    }
+    impl MemoryReader for CR {
+        fn read(&self, addr: u64, size: usize) -> Result<Vec<u8>, MemoryError> {
+            let off = addr
+                .checked_sub(self.base)
+                .filter(|&o| (o as usize) < self.bytes.len())
+                .ok_or(MemoryError::OutOfBounds { addr })? as usize;
+            let n = (self.bytes.len() - off).min(size);
+            Ok(self.bytes[off..off + n].to_vec())
+        }
+    }
+
+    // The bench_loop hot loop, lifted from the loop head:
+    //   head: add eax,3 ; xor edx,edx ; sub eax,1 ; dec ecx ; jnz head ; hlt
+    let head: u64 = 0x10_0007;
+    let bytes = vec![
+        0x83, 0xC0, 0x03, // add eax,3
+        0x31, 0xD2, // xor edx,edx
+        0x83, 0xE8, 0x01, // sub eax,1
+        0xFF, 0xC9, // dec ecx
+        0x75, 0xF4, // jnz head (rel8 -12)
+        0xF4, // hlt
+    ];
+
+    let mut lifter = X86_64Lifter::strict();
+    let mut lctx = LiftContext::new(SourceArch::X86_64);
+    let reader = CR { base: head, bytes };
+    let mut func = lifter
+        .lift_function(head, &reader, &mut lctx)
+        .expect("lift_function");
+
+    // The loop exit (the `hlt` block) lifts to Trap{Halt}, which the lowerer
+    // cannot emit; turn it into a Return so `enter_native` returns cleanly.
+    let mut patched = 0;
+    for b in func.blocks.iter_mut() {
+        if matches!(b.terminator, Terminator::Trap { .. }) {
+            b.set_terminator(Terminator::Return { values: vec![] });
+            patched += 1;
+        }
+    }
+    assert!(
+        patched >= 1,
+        "expected a Trap(hlt) exit block to patch; blocks={}",
+        func.blocks.len()
+    );
+    assert!(
+        func.blocks
+            .iter()
+            .any(|b| matches!(b.terminator, Terminator::CondBranch { .. })),
+        "expected a CondBranch back-edge in the lifted loop"
+    );
+
+    let mut lowerer = X86_64Lowerer::new();
+    let res = lowerer
+        .lower_function(&func)
+        .expect("lower_function (loop with back-edge)");
+    assert!(
+        res.relocations.is_empty(),
+        "unresolved relocations: {:?}",
+        res.relocations
+    );
+    let code = lowerer.finalize().expect("finalize");
+
+    let exec = ExecMem::new(&code).expect("ExecMem");
+
+    let iters: u64 = 200_000_000;
+    let mut regs = GuestRegs::default();
+    regs.gpr[0] = 0; // rax (eax accumulator)
+    regs.gpr[1] = iters; // rcx (loop counter)
+    regs.rflags = 0x2;
+
+    let t = Instant::now();
+    exec.run(res.entry_offset, &mut regs);
+    let dt = t.elapsed();
+
+    // 5 guest insns per iteration (add, xor, sub, dec, jnz).
+    let executed = iters * 5;
+    let mips = executed as f64 / dt.as_secs_f64() / 1e6;
+
+    let eax = regs.gpr[0] & 0xffff_ffff;
+    let ecx = regs.gpr[1] & 0xffff_ffff;
+    println!(
+        "[dragon] native loop: {} insns in {:.4}s => {:.1} MIPS  (interp ~143 MIPS)",
+        executed,
+        dt.as_secs_f64(),
+        mips
+    );
+    println!(
+        "[dragon] final eax={:#x} (expect {:#x}), ecx={:#x} (expect 0), blocks={}",
+        eax,
+        (2 * iters) & 0xffff_ffff,
+        ecx,
+        func.blocks.len()
+    );
+
+    // Correctness: the whole loop ran natively with the right back-edge + cond.
+    assert_eq!(ecx, 0, "loop counter must reach 0");
+    assert_eq!(eax, (2 * iters) & 0xffff_ffff, "eax = 2*iters mod 2^32");
+}
