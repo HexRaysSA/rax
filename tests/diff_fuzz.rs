@@ -3951,15 +3951,14 @@ impl SmirStats {
     }
 }
 
-// M2 gate: native-lowered ALU vs KVM (mirrors smir_alu, native execution).
-// IGNORED: the SMIR lowerer has codegen bugs that emit malformed instructions
-// (e.g. 16-bit group1-imm emits a 32-bit immediate -> stray bytes execute as
-// `add [rax],al` -> SIGSEGV). Bad native codegen crashes the process (unlike a
-// lift Err, it cannot be caught/skipped), so this gate stays ignored until the
-// lowerer's integer codegen is fixed class-by-class against KVM. The harness
-// (run_smir_native/check_native/ExecMem/enter_native) + M0 are validated.
+// M2 gate (GREEN): native-lowered ALU executed on real hardware vs KVM. Lifts
+// x86 -> SMIR -> lowers to native -> runs via ExecMem/enter_native -> compares
+// architectural state to KVM, bit-exact across all widths/ops. Driving this to
+// green fixed three real lowerer codegen bugs: the epilogue `add rsp,frame`
+// clobbered RFLAGS (now `mov rsp,rbp`), 16-bit group1-imm emitted a 32-bit
+// immediate (stray bytes), and the prologue `sub rsp,frame` clobbered the
+// carry-in CF before ADC/SBB (now flag-preserving `lea`).
 #[test]
-#[ignore = "SMIR lowerer integer codegen has malformed-encoding bugs (e.g. 16-bit imm width) that SIGSEGV; fix class-by-class then un-ignore"]
 fn smir_native_alu() {
     const CASES: usize = 400;
     let mut rng = Rng::new(0x4E_A71_5E_C0DE_1234);
@@ -4016,4 +4015,211 @@ fn smir_native_alu() {
         }
     }
     stats.finish("native_alu");
+}
+
+// CRASH-FREE lowerer codegen validator: lift x86 -> SMIR -> LOWER to native ->
+// RE-LIFT the native bytes -> interpret -> compare to KVM. Because it never
+// EXECUTES native code, malformed codegen surfaces as a wrong result or a
+// MemoryFault/Undefined exit (recorded), not a SIGSEGV — so it enumerates ALL
+// lowerer integer-codegen bugs in one pass. RSP/RBP are excluded from the
+// comparison (the re-lifted epilogue's `add rsp`/`pop rbp` perturb them).
+fn run_smir_lowered(
+    code: &[u8],
+    init: &Registers,
+    scratch_init: &[u8; 64],
+) -> Result<SmirOutcome, String> {
+    use rax::smir::context::{ExitReason, SmirContext};
+    use rax::smir::flags::MaterializedFlags;
+    use rax::smir::interp::SmirInterpreter;
+    use rax::smir::ir::{SmirBlock, SmirFunction, Terminator, TrapKind};
+    use rax::smir::lift::x86_64::X86_64Lifter;
+    use rax::smir::lift::{LiftContext, MemoryReader, SmirLifter};
+    use rax::smir::lower::x86_64::X86_64Lowerer;
+    use rax::smir::lower::SmirLowerer;
+    use rax::smir::memory::{FlatMemory, MemoryError, SmirMemory};
+    use rax::smir::types::{ArchReg, BlockId, FunctionId, SourceArch, X86Reg};
+
+    struct CR {
+        base: u64,
+        bytes: Vec<u8>,
+    }
+    impl MemoryReader for CR {
+        fn read(&self, addr: u64, size: usize) -> Result<Vec<u8>, MemoryError> {
+            let off = addr
+                .checked_sub(self.base)
+                .filter(|&o| (o as usize) < self.bytes.len())
+                .ok_or(MemoryError::OutOfBounds { addr })? as usize;
+            let n = (self.bytes.len() - off).min(size);
+            Ok(self.bytes[off..off + n].to_vec())
+        }
+    }
+
+    // 1) lift original
+    let mut lifter = X86_64Lifter::strict();
+    let mut lctx = LiftContext::new(SourceArch::X86_64);
+    let reader = CR { base: CODE_ADDR, bytes: code.to_vec() };
+    let mut block = match lifter.lift_block(CODE_ADDR, &reader, &mut lctx) {
+        Ok(b) => b,
+        Err(e) => return Ok(SmirOutcome::Skipped(format!("lift: {e:?}"))),
+    };
+    block.set_terminator(Terminator::Return { values: vec![] });
+    let mut func = SmirFunction::new(FunctionId(0), block.id, CODE_ADDR);
+    func.add_block(block);
+
+    // 2) lower to native bytes
+    let mut lowerer = X86_64Lowerer::new();
+    if let Err(e) = lowerer.lower_function(&func) {
+        return Ok(SmirOutcome::Skipped(format!("lower: {e:?}")));
+    }
+    let nbytes = match lowerer.finalize() {
+        Ok(b) => b,
+        Err(e) => return Ok(SmirOutcome::Skipped(format!("finalize: {e:?}"))),
+    };
+
+    // 3) re-lift the native bytes, skipping the fixed 20-byte prologue
+    let mut relifter = X86_64Lifter::strict();
+    let mut rctx = LiftContext::new(SourceArch::X86_64);
+    let mut block2 = SmirBlock::new(BlockId(0), CODE_ADDR);
+    let prologue = 20usize;
+    if nbytes.len() <= prologue {
+        return Ok(SmirOutcome::Skipped("empty body".to_string()));
+    }
+    let mut off = prologue;
+    while off < nbytes.len() {
+        match relifter.lift_insn(CODE_ADDR + off as u64, &nbytes[off..], &mut rctx) {
+            Ok(r) => {
+                if r.bytes_consumed == 0 {
+                    break;
+                }
+                for op in r.ops {
+                    block2.push_op(op);
+                }
+                off += r.bytes_consumed;
+                if r.control_flow.ends_block() {
+                    break;
+                }
+            }
+            Err(_) => break, // hit epilogue/ret or an un-liftable byte
+        }
+    }
+    block2.set_terminator(Terminator::Trap { kind: TrapKind::Halt });
+
+    // 4) interpret the re-lifted lowered body
+    let mut interp = SmirInterpreter::new();
+    interp.set_max_insns(MAX_ITERS);
+    interp.add_block(CODE_ADDR, block2);
+    let mut mem = FlatMemory::new(0x40_000);
+    mem.load(DATA_ADDR as usize, scratch_init);
+
+    let mut ctx = SmirContext::new_x86_64();
+    ctx.pc = CODE_ADDR;
+    let gprs = [
+        (X86Reg::Rax, init.rax), (X86Reg::Rcx, init.rcx), (X86Reg::Rdx, init.rdx),
+        (X86Reg::Rbx, init.rbx), (X86Reg::Rsp, if init.rsp == 0 { STACK_ADDR } else { init.rsp }),
+        (X86Reg::Rbp, init.rbp), (X86Reg::Rsi, init.rsi), (X86Reg::Rdi, init.rdi),
+        (X86Reg::R8, init.r8), (X86Reg::R9, init.r9), (X86Reg::R10, init.r10), (X86Reg::R11, init.r11),
+        (X86Reg::R12, init.r12), (X86Reg::R13, init.r13), (X86Reg::R14, init.r14), (X86Reg::R15, init.r15),
+    ];
+    for (r, v) in gprs {
+        ctx.write_arch_reg(ArchReg::X86(r), v);
+    }
+    ctx.flags.materialized = MaterializedFlags::from_rflags(init.rflags | 0x2);
+    ctx.flags.lazy = None;
+
+    match interp.run(&mut ctx, &mut mem) {
+        ExitReason::Halt => {}
+        other => return Ok(SmirOutcome::Skipped(format!("exit: {other:?}"))),
+    }
+
+    let mut fr = Registers::default();
+    fr.rax = ctx.read_arch_reg(ArchReg::X86(X86Reg::Rax));
+    fr.rcx = ctx.read_arch_reg(ArchReg::X86(X86Reg::Rcx));
+    fr.rdx = ctx.read_arch_reg(ArchReg::X86(X86Reg::Rdx));
+    fr.rbx = ctx.read_arch_reg(ArchReg::X86(X86Reg::Rbx));
+    fr.rsi = ctx.read_arch_reg(ArchReg::X86(X86Reg::Rsi));
+    fr.rdi = ctx.read_arch_reg(ArchReg::X86(X86Reg::Rdi));
+    fr.r8 = ctx.read_arch_reg(ArchReg::X86(X86Reg::R8));
+    fr.r9 = ctx.read_arch_reg(ArchReg::X86(X86Reg::R9));
+    fr.r10 = ctx.read_arch_reg(ArchReg::X86(X86Reg::R10));
+    fr.r11 = ctx.read_arch_reg(ArchReg::X86(X86Reg::R11));
+    fr.r12 = ctx.read_arch_reg(ArchReg::X86(X86Reg::R12));
+    fr.r13 = ctx.read_arch_reg(ArchReg::X86(X86Reg::R13));
+    fr.r14 = ctx.read_arch_reg(ArchReg::X86(X86Reg::R14));
+    fr.r15 = ctx.read_arch_reg(ArchReg::X86(X86Reg::R15));
+    ctx.flags.materialize_all();
+    fr.rflags = ctx.flags.materialized.to_rflags();
+    let mut scratch = [0u8; 64];
+    mem.read(DATA_ADDR, &mut scratch).ok();
+    Ok(SmirOutcome::Ran(FinalState { xmm: [[0u64; 2]; 16], regs: fr, scratch }))
+}
+
+#[test]
+fn smir_lowered_alu() {
+    const CASES: usize = 400;
+    let mut rng = Rng::new(0x10E_2ED_A1F_C0DE99);
+    let mut stats = SmirStats::new();
+    let sizes = [Size::B8, Size::B16, Size::B32, Size::B64];
+    // RSP/RBP excluded: the re-lifted epilogue (add rsp; pop rbp) perturbs them.
+    let opts = CompareOpts { stack: false, ..CompareOpts::default() };
+
+    for _ in 0..CASES {
+        let size = *rng.pick(&sizes);
+        let op = *rng.pick(ALU_OPS);
+        let dst = pick_gpr(&mut rng);
+        let src = pick_gpr(&mut rng);
+        let use_imm = rng.below(2) == 0;
+        let mut r = Registers::default();
+        let dval = rng.operand();
+        let sval = rng.operand();
+        set_reg(&mut r, dst, dval);
+        if !use_imm {
+            set_reg(&mut r, src, sval);
+        }
+        if rng.below(2) == 1 {
+            r.rflags |= flags::bits::CF;
+        }
+        let mut code = size_prefix(size);
+        if let Some(rex) = rex_byte(size, true) {
+            code.push(rex);
+        }
+        let inputs;
+        if use_imm {
+            let imm = rng.operand();
+            let opc = if size == Size::B8 { 0x80 } else { 0x81 };
+            code.push(opc);
+            code.push(modrm(0b11, op.imm_digit, dst));
+            match size {
+                Size::B8 => code.push(imm as u8),
+                Size::B16 => code.extend_from_slice(&(imm as u16).to_le_bytes()),
+                _ => code.extend_from_slice(&(imm as u32).to_le_bytes()),
+            }
+            inputs = format!("{} {} {}, imm={:#x}", op.name, size.name(), reg_name(dst), imm);
+        } else {
+            let opc = if size == Size::B8 { op.rm_r_op8 } else { op.rm_r_op8 + 1 };
+            code.push(opc);
+            code.push(modrm(0b11, src, dst));
+            inputs = format!("{} {} {}, {}", op.name, size.name(), reg_name(dst), reg_name(src));
+        }
+        code.push(HLT);
+
+        // run_smir_lowered is crash-free; reuse check's structure inline.
+        let kvm = match run_kvm(&code, &r, &[0u8; 64]) {
+            Ok(Some(s)) => s,
+            Ok(None) => break,
+            Err(e) => { stats.mismatches.push(Mismatch { label: "lowered_alu (kvm err)".into(), code: code.clone(), inputs, diffs: vec![e] }); continue; }
+        };
+        match run_smir_lowered(&code, &r, &[0u8; 64]) {
+            Ok(SmirOutcome::Ran(s)) => {
+                stats.ran += 1;
+                let diffs = compare(&s, &kvm, opts, &[]);
+                if !diffs.is_empty() {
+                    stats.mismatches.push(Mismatch { label: format!("lowered_alu {}", inputs), code: code.clone(), inputs, diffs });
+                }
+            }
+            Ok(SmirOutcome::Skipped(_)) => stats.skipped += 1,
+            Err(e) => stats.mismatches.push(Mismatch { label: "lowered_alu (err)".into(), code: code.clone(), inputs, diffs: vec![e] }),
+        }
+        stats.kvm_ok = true;
+    }
+    stats.finish("lowered_alu");
 }

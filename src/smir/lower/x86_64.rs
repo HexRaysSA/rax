@@ -1585,7 +1585,15 @@ impl<'a> X86Emitter<'a> {
                 } else {
                     self.code.emit_u8(0x81);
                     self.emit_modrm_digit(0b11, digit, dst);
-                    self.code.emit_i32(imm as i32);
+                    // Immediate width follows the operand: 16-bit op (0x66
+                    // prefix) takes imm16, else imm32 (sign-extended for 64-bit).
+                    // Emitting imm32 for a W16 op left 2 stray bytes that the CPU
+                    // decoded as a separate instruction (`add [rax],al`).
+                    if width == OpWidth::W16 {
+                        self.code.emit_u16(imm as u16);
+                    } else {
+                        self.code.emit_i32(imm as i32);
+                    }
                 }
             }
         }
@@ -3193,11 +3201,11 @@ impl X86_64Lowerer {
     fn emit_epilogue_with_ret(&mut self, ret_imm: Option<u16>) {
         let mut emitter = X86Emitter::new(&mut self.code);
 
-        // Deallocate stack space
-        let frame_size = self.regalloc.frame_size();
-        if frame_size > 0 {
-            emitter.emit_add_ri(PhysReg::Rsp, frame_size as i64, OpWidth::W64);
-        }
+        // Deallocate stack space with `mov rsp, rbp` (flag-preserving) rather
+        // than `add rsp, frame` (which sets RFLAGS, clobbering the guest flags
+        // the block body computed). RBP = RSP after the prologue's `push rbp`,
+        // so this exactly undoes the frame `sub rsp, frame`.
+        emitter.emit_mov_rr(PhysReg::Rsp, PhysReg::Rbp, OpWidth::W64);
 
         // NOTE: callee-saved guest registers are intentionally NOT restored
         // here. A lowered block owns all GPRs (identity-mapped guest state), and
@@ -8495,7 +8503,11 @@ impl SmirLowerer for X86_64Lowerer {
                 let mut e = X86Emitter::new(&mut tmp);
                 let frame = self.regalloc.frame_size();
                 if frame > 0 {
-                    e.emit_sub_ri(PhysReg::Rsp, frame as i64, OpWidth::W64);
+                    // Flag-preserving frame allocation: LEA, not SUB. The entry
+                    // shim sets the guest's RFLAGS (incl. CF) before the block;
+                    // a `sub rsp,frame` here would clobber CF before the body's
+                    // ADC/SBB read it as a carry-in.
+                    e.emit_lea(PhysReg::Rsp, PhysReg::Rsp, -(frame as i32));
                 }
             }
             let bytes = tmp.data().to_vec();
