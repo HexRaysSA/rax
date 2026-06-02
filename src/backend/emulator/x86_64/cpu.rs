@@ -2524,3 +2524,162 @@ pub fn get_total_instruction_count() -> u64 {
 pub fn publish_instruction_count(count: u64) {
     GLOBAL_INSN_COUNT.store(count, std::sync::atomic::Ordering::Relaxed);
 }
+
+// ============================================================================
+// SMIR native hot-block JIT tier (opt-in via the `smir-jit` feature).
+//
+// This is an additive fast tier that sits BESIDE the interpreter — it never
+// touches the `step()` hot path. Given a self-contained basic-block region at
+// the current RIP (a hot loop / ALU chain that exits via HLT), it lifts the
+// region to SMIR, verifies it is clobber-safe under the 1:1 identity register
+// map, lowers it to native x86-64, and runs the WHOLE region in one call —
+// loops stay internal via native back-edges (the "dragon" path). Validated
+// bit-exact vs KVM by the `smir_native_*` differential tests.
+// ============================================================================
+#[cfg(all(feature = "smir-jit", target_arch = "x86_64"))]
+impl X86_64Vcpu {
+    /// Attempt to JIT-compile and natively execute the basic-block region at the
+    /// current RIP. Returns `Ok(Some(VcpuExit::Hlt))` if the region ran natively
+    /// to a HALT (guest registers + RIP are updated), or `Ok(None)` if the
+    /// region is not eligible — in which case the caller falls back to `step()`.
+    ///
+    /// Eligibility (conservative): the lifted region's only "leaving" exits are
+    /// HALTs (internal Branch/CondBranch back-edges are fine), it is
+    /// clobber-safe (writes only architectural registers — see
+    /// [`crate::smir::lower::runtime::is_native_clobber_safe`]), and it lowers
+    /// with no unresolved relocations. Anything else (calls, indirect/computed
+    /// branches, syscalls, virtual-temp writes, page-crossing lifts) bails.
+    pub fn jit_try_block(&mut self) -> Result<Option<VcpuExit>> {
+        use crate::smir::ir::{Terminator, TrapKind};
+        use crate::smir::lift::x86_64::X86_64Lifter;
+        use crate::smir::lift::{LiftContext, MemoryReader, SmirLifter};
+        use crate::smir::lower::runtime::{is_native_clobber_safe, ExecMem, GuestRegs};
+        use crate::smir::lower::x86_64::X86_64Lowerer;
+        use crate::smir::lower::SmirLowerer;
+        use crate::smir::memory::MemoryError;
+        use crate::smir::types::SourceArch;
+
+        let entry = self.regs.rip;
+
+        // Snapshot a window of guest code to lift from. 512B covers typical hot
+        // loops; lifting past it (or across an unmapped page) yields an error
+        // and we bail to the interpreter.
+        const WINDOW: usize = 512;
+        let bytes = match self.read_bytes(entry, WINDOW) {
+            Ok(b) => b,
+            Err(_) => return Ok(None),
+        };
+
+        struct Win {
+            base: u64,
+            bytes: Vec<u8>,
+        }
+        impl MemoryReader for Win {
+            fn read(&self, addr: u64, size: usize) -> core::result::Result<Vec<u8>, MemoryError> {
+                let off = addr
+                    .checked_sub(self.base)
+                    .filter(|&o| (o as usize) < self.bytes.len())
+                    .ok_or(MemoryError::OutOfBounds { addr })? as usize;
+                let n = (self.bytes.len() - off).min(size);
+                Ok(self.bytes[off..off + n].to_vec())
+            }
+        }
+        let reader = Win { base: entry, bytes };
+
+        let mut lifter = X86_64Lifter::strict();
+        let mut lctx = LiftContext::new(SourceArch::X86_64);
+        let mut func = match lifter.lift_function(entry, &reader, &mut lctx) {
+            Ok(f) => f,
+            Err(_) => return Ok(None),
+        };
+
+        // Eligibility: every leaving exit must be a HALT; record where it is.
+        // Internal Branch/CondBranch (loop back-edges, if/else) are fine.
+        let mut hlt_addr: Option<u64> = None;
+        for b in &func.blocks {
+            match &b.terminator {
+                Terminator::Trap { kind: TrapKind::Halt } => {
+                    hlt_addr = Some(b.guest_pc);
+                }
+                Terminator::Branch { .. }
+                | Terminator::CondBranch { .. }
+                | Terminator::Return { .. } => {}
+                _ => return Ok(None), // call / indirect / syscall / switch / trap
+            }
+        }
+        let hlt_addr = match hlt_addr {
+            Some(a) => a,
+            None => return Ok(None),
+        };
+
+        // Clobber-safety gate: a virtual-temp write would corrupt a guest GPR.
+        if !is_native_clobber_safe(&func) {
+            return Ok(None);
+        }
+
+        // Rewrite each HALT exit to a Return so the native block returns to us.
+        for b in func.blocks.iter_mut() {
+            if matches!(b.terminator, Terminator::Trap { .. }) {
+                b.set_terminator(Terminator::Return { values: vec![] });
+            }
+        }
+
+        let mut lowerer = X86_64Lowerer::new();
+        let res = match lowerer.lower_function(&func) {
+            Ok(r) if r.relocations.is_empty() => r,
+            _ => return Ok(None),
+        };
+        let code = match lowerer.finalize() {
+            Ok(c) => c,
+            Err(_) => return Ok(None),
+        };
+        let mem = match ExecMem::new(&code) {
+            Ok(m) => m,
+            Err(_) => return Ok(None),
+        };
+
+        // Bridge guest GPRs + flags into the native register file.
+        let mut gr = GuestRegs::default();
+        gr.gpr[0] = self.regs.rax;
+        gr.gpr[1] = self.regs.rcx;
+        gr.gpr[2] = self.regs.rdx;
+        gr.gpr[3] = self.regs.rbx;
+        gr.gpr[4] = self.regs.rsp;
+        gr.gpr[5] = self.regs.rbp;
+        gr.gpr[6] = self.regs.rsi;
+        gr.gpr[7] = self.regs.rdi;
+        gr.gpr[8] = self.regs.r8;
+        gr.gpr[9] = self.regs.r9;
+        gr.gpr[10] = self.regs.r10;
+        gr.gpr[11] = self.regs.r11;
+        gr.gpr[12] = self.regs.r12;
+        gr.gpr[13] = self.regs.r13;
+        gr.gpr[14] = self.regs.r14;
+        gr.gpr[15] = self.regs.r15;
+        gr.rflags = self.regs.rflags;
+
+        mem.run(res.entry_offset, &mut gr);
+
+        // Bridge back. RSP is neither loaded nor written by the trampoline (the
+        // block runs on the host stack), so keep our RSP.
+        self.regs.rax = gr.gpr[0];
+        self.regs.rcx = gr.gpr[1];
+        self.regs.rdx = gr.gpr[2];
+        self.regs.rbx = gr.gpr[3];
+        self.regs.rbp = gr.gpr[5];
+        self.regs.rsi = gr.gpr[6];
+        self.regs.rdi = gr.gpr[7];
+        self.regs.r8 = gr.gpr[8];
+        self.regs.r9 = gr.gpr[9];
+        self.regs.r10 = gr.gpr[10];
+        self.regs.r11 = gr.gpr[11];
+        self.regs.r12 = gr.gpr[12];
+        self.regs.r13 = gr.gpr[13];
+        self.regs.r14 = gr.gpr[14];
+        self.regs.r15 = gr.gpr[15];
+        self.regs.rflags = gr.rflags;
+        self.regs.rip = hlt_addr;
+
+        Ok(Some(VcpuExit::Hlt))
+    }
+}
