@@ -1624,11 +1624,102 @@ impl OpKind {
                 }
             }
 
-            OpKind::VShuffVdd { src_lo, src_hi, amount, .. } => {
+            OpKind::VShuffVdd { src_lo, src_hi, amount, .. }
+            | OpKind::VDealVdd { src_lo, src_hi, amount, .. } => {
                 result.push(*src_lo);
                 result.push(*src_hi);
                 if let SrcOperand::Reg(r) = amount {
                     result.push(*r);
+                }
+            }
+
+            OpKind::VShuffleEOPair { src1, src2, .. } => {
+                result.push(*src1);
+                result.push(*src2);
+            }
+
+            // In-place dual-register shuffle/deal reads AND writes both Vy and Vx.
+            OpKind::VShuffleDeal { dst_y, dst_x, amount, .. } => {
+                result.push(*dst_y);
+                result.push(*dst_x);
+                if let SrcOperand::Reg(r) = amount {
+                    result.push(*r);
+                }
+            }
+
+            // vunpacko OR-accumulates the source into the existing dst pair.
+            OpKind::VUnpackOAcc { src, dst_lo, dst_hi, .. } => {
+                result.push(*src);
+                result.push(*dst_lo);
+                result.push(*dst_hi);
+            }
+
+            OpKind::VInsertWordR { dst, scalar } => {
+                // read-modify-write: preserves the other words of dst.
+                result.push(*dst);
+                result.push(*scalar);
+            }
+
+            OpKind::VExtractWord { src, sel, .. } => {
+                result.push(*src);
+                result.push(*sel);
+            }
+
+            OpKind::VLut4 { src, table, .. } => {
+                result.push(*src);
+                result.push(*table);
+            }
+
+            OpKind::VRotr { src, amount, .. } => {
+                result.push(*src);
+                result.push(*amount);
+            }
+
+            OpKind::VAddSubMixedSat { src1, src2, .. } => {
+                result.push(*src1);
+                result.push(*src2);
+            }
+
+            OpKind::VSetPredQ { scalar, .. } => {
+                result.push(*scalar);
+            }
+
+            OpKind::VShuffEqQ { src1, src2, .. } => {
+                result.push(*src1);
+                result.push(*src2);
+            }
+
+            // vmpa(Vx, Vu, Rtt):sat reads the dst (Vx) accumulator, Vu, and Rtt.
+            OpKind::VMpaHhSat { dst, src, table, .. } => {
+                result.push(*dst);
+                result.push(*src);
+                result.push(*table);
+            }
+
+            // vmpyhsat_acc accumulates into the existing dst pair.
+            OpKind::VMpyHsatAcc { dst_lo, dst_hi, src, scalar } => {
+                result.push(*dst_lo);
+                result.push(*dst_hi);
+                result.push(*src);
+                result.push(*scalar);
+            }
+
+            // vasr_into shifts Vu into the running accumulator pair (read+write).
+            OpKind::VAsrInto { dst_lo, dst_hi, src, amount } => {
+                result.push(*dst_lo);
+                result.push(*dst_hi);
+                result.push(*src);
+                result.push(*amount);
+            }
+
+            OpKind::V6Mpy { src_lo, src_hi, src2_lo, src2_hi, dst_lo, dst_hi, acc, .. } => {
+                result.push(*src_lo);
+                result.push(*src_hi);
+                result.push(*src2_lo);
+                result.push(*src2_hi);
+                if *acc {
+                    result.push(*dst_lo);
+                    result.push(*dst_hi);
                 }
             }
 

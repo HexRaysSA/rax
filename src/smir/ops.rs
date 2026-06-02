@@ -1204,6 +1204,192 @@ pub enum OpKind {
         src2: VReg,
     },
 
+    /// HVX odd/even shuffle of two vectors into a register PAIR. Models
+    /// `vshufoeb`/`vshufoeh` (`Vdd = vshuffoe(Vu, Vv)`): for each output narrow
+    /// lane index `i` in 0..half, `dst_lo` (the EVEN shuffle) gets sub-lane `2i`
+    /// of (src2, src1) interleaved, and `dst_hi` (the ODD shuffle) gets sub-lane
+    /// `2i+1`. Per output wide pair k (0..half): low half from src2, high from
+    /// src1, exactly like two `VShuffleEO` (even -> dst_lo, odd -> dst_hi).
+    /// `elem` is the NARROW element. src1=Vu, src2=Vv.
+    VShuffleEOPair {
+        dst_lo: VReg,
+        dst_hi: VReg,
+        src1: VReg,
+        src2: VReg,
+        elem: VecElementType,
+    },
+
+    /// HVX in-place dual-register byte shuffle/deal network. Models
+    /// `vshuff(Vy,Vx,Rt)` / `vdeal(Vy,Vx,Rt)`: both `dst_y`(=Vy) and `dst_x`(=Vx)
+    /// are READ and WRITTEN. For each power-of-two `offset` (shuffle: ascending
+    /// 1..64; deal: descending 64..1) whose bit is set in `amount`, swap byte k of
+    /// Vy with byte `k+offset` of Vx for every k with `k&offset==0`.
+    VShuffleDeal {
+        dst_y: VReg,
+        dst_x: VReg,
+        amount: SrcOperand,
+        /// false = shuffle (offsets ascending 1..64), true = deal (descending 64..1).
+        deal: bool,
+    },
+
+    /// HVX `vdealvdd` (`Vdd = vdeal(Vu, Vv, Rt)`): Rt-controlled byte deal network
+    /// over the 256-byte pair (dst_lo=Vv, dst_hi=Vu initially). For each
+    /// power-of-two `offset` (descending 64..1) whose bit is set in `amount`, swap
+    /// byte k of the high reg with byte `k+offset` of the low reg for every k with
+    /// `k&offset==0`. (The deal-direction sibling of `VShuffVdd`.)
+    VDealVdd {
+        dst_lo: VReg,
+        dst_hi: VReg,
+        src_lo: VReg,
+        src_hi: VReg,
+        amount: SrcOperand,
+    },
+
+    /// HVX `vunpackob`/`vunpackoh` (`Vxx.<2w> |= vunpacko(Vu.<w>)`): read-modify-
+    /// write OR-accumulate of the ODD-extended narrow lanes. Each `src_elem`-wide
+    /// narrow lane `i` of `src` is zero-extended to double width, shifted left by
+    /// `src_elem` bits (placing it in the high half of the wide lane), and OR'd
+    /// into the existing dst pair lane: lanes 0..half -> dst_lo, half..total ->
+    /// dst_hi (sequential, like `vunpack`). `dst_lo`/`dst_hi` are read and written.
+    VUnpackOAcc {
+        dst_lo: VReg,
+        dst_hi: VReg,
+        src: VReg,
+        /// Narrow source element type (I8 or I16); result lanes are double width.
+        src_elem: VecElementType,
+    },
+
+    /// HVX `vinsertwr` (`Vx.w[0] = Rt`): insert scalar GPR `scalar` into word lane
+    /// 0 of vector `dst`; all other words preserved. `dst` is read-modify-written.
+    VInsertWordR {
+        dst: VReg,
+        scalar: VReg,
+    },
+
+    /// HVX `extractw` (`Rd = vextract(Vu, Rs)`): extract word lane `(Rs & 127) >> 2`
+    /// of vector `src` into the GPR `dst` (a SCALAR result, moving V -> R).
+    VExtractWord {
+        dst: VReg,
+        src: VReg,
+        sel: VReg,
+    },
+
+    /// HVX `vlut4` (`Vd.h = vlut4(Vu.uh, Rtt.h)`): each halfword lane `i` of `src`
+    /// selects (via its top two bits, `(uh >> 14) & 3`) one of four halfwords
+    /// packed in the 64-bit scalar pair `table`. `table` is a W64 temp holding Rtt.
+    VLut4 {
+        dst: VReg,
+        src: VReg,
+        table: VReg,
+    },
+
+    /// HVX `vrotr` (`Vd.uw = vrotr(Vu.uw, Vv.uw)`): per-word bit rotate-right of
+    /// `src` lane by `amount` lane masked to 5 bits.
+    VRotr {
+        dst: VReg,
+        src: VReg,
+        amount: VReg,
+    },
+
+    /// HVX `vaddububb_sat`/`vsubububb_sat` (`Vd.ub = vadd/vsub(Vu.ub, Vv.b):sat`):
+    /// per byte lane, unsigned src1 `+/-` SIGNED src2, saturated to the unsigned
+    /// byte range. (Mixed-signedness saturating byte add/sub, no plain VLane form.)
+    VAddSubMixedSat {
+        dst: VReg,
+        src1: VReg,
+        src2: VReg,
+        /// false = add, true = subtract.
+        sub: bool,
+    },
+
+    /// HVX `vsetq`/`vsetq2` (`Qd = vsetq(Rt)`): build a Q vector predicate from a
+    /// scalar length. `v2` selects the variant:
+    ///   false (`pred_scalar2`/vsetq): set the low `Rt & 127` byte-bits (`bit[i]=i<n`).
+    ///   true  (`pred_scalar2v2`/vsetq2): set bits `0..=((Rt-1) & 127)` (Rt==0 -> all 128).
+    VSetPredQ {
+        dst: VReg,
+        scalar: VReg,
+        v2: bool,
+    },
+
+    /// HVX `shuffeqh`/`shuffeqw` (`Qd.<n> = vshuffe(Qs.<2n>, Qt.<2n>)`): predicate
+    /// shrink/shuffle of two Q vectors. Per vector-byte bit `i` (0..128):
+    ///   halfword form (`stride`=1): `bit[i] = (i&1) ? Qs[i-1] : Qt[i]`.
+    ///   word form     (`stride`=2): `bit[i] = (i&2) ? Qs[i-2] : Qt[i]`.
+    VShuffEqQ {
+        dst: VReg,
+        src1: VReg,
+        src2: VReg,
+        /// 1 = halfword (shuffeqh), 2 = word (shuffeqw).
+        stride: u8,
+    },
+
+    /// HVX saturating halfword multiply-accumulate-pair-scalar. Models
+    /// `vmpahhsat`/`vmpauhuhsat`/`vmpsuhuhsat` (`Vx.h = vmpa/vmps(Vx.h, Vu.<h/uh>,
+    /// Rtt.<h/uh>):sat`). Per halfword lane i: `x = Vx.h[i]` (signed), `u = Vu`
+    /// lane (signed iff `signed_u`), `idx = (Vu.uh[i] >> 14) & 3` selects one of
+    /// four scalar-pair halfwords `t = Rtt[idx]` (signed iff `signed_t`). The
+    /// product `p = (x*u << shl) + (t << 15)` then `Vx.h[i] = sat16(p >> 16)`.
+    /// `vmps` uses `sub=true` (`- (t<<15)`). `Vx` is read-modify-written; `table`
+    /// is a W64 temp holding Rtt.
+    VMpaHhSat {
+        dst: VReg,
+        src: VReg,
+        table: VReg,
+        signed_u: bool,
+        signed_t: bool,
+        /// extra left shift applied to the x*u product (1 for vmpahhsat, else 0).
+        shl: u8,
+        /// false = vmpa (add t<<15), true = vmps (subtract t<<15).
+        sub: bool,
+    },
+
+    /// HVX `vmpyhsat_acc` (`Vxx.w += vmpy(Vu.h, Rt.h):sat`): saturating word
+    /// accumulate. Per word lane i: `dst_lo.w[i] = sat32(dst_lo.w[i] + Vu.h[2i] *
+    /// Rt.h[0])` and `dst_hi.w[i] = sat32(dst_hi.w[i] + Vu.h[2i+1] * Rt.h[1])`.
+    /// Both halfwords signed; `dst_lo`/`dst_hi` are read-modify-written; `scalar`
+    /// is the GPR Rt (its two signed halfwords).
+    VMpyHsatAcc {
+        dst_lo: VReg,
+        dst_hi: VReg,
+        src: VReg,
+        scalar: VReg,
+    },
+
+    /// HVX `vasr_into` (`Vxx.w = vasrinto(Vu.w, Vv.w)`): bidirectional shift of
+    /// each word lane of `src` (placed in the high 32 bits of a 64-bit value) into
+    /// the running accumulator pair `dst_lo`(Vxx.v[0]) sign-hi / `dst_hi` overlay,
+    /// controlled per-lane by `amount`(Vv) in [-0x40, 0x3f]. The dropped low bits
+    /// spill into the MSBs of dst_lo; result hi32 -> dst_hi, lo32 -> dst_lo.
+    /// `dst_lo`/`dst_hi` are read-modify-written.
+    VAsrInto {
+        dst_lo: VReg,
+        dst_hi: VReg,
+        src: VReg,
+        amount: VReg,
+    },
+
+    /// HVX V69 byte-matrix multiply `v6mpy` (`Vdd.w = v6mpy(Vuu.ub, Vvv.b, #u2)
+    /// :h/:v`). For each 32-bit lane i, six signed 10-bit coefficients are unpacked
+    /// from the Vvv pair (`src2_lo`/`src2_hi`): low 8 bits from `ub[j]`, high 2 bits
+    /// from `ub[3] >> (2j)`, sign-extended. The `phase` (`#u2`) and `horizontal`
+    /// flag select a 9-term table mapping (which unsigned byte of which Vuu vector
+    /// multiplies which coefficient, into dst_lo or dst_hi). `acc` adds into the
+    /// existing dst pair. src_lo/src_hi = Vuu pair, src2_lo/src2_hi = Vvv pair.
+    V6Mpy {
+        dst_lo: VReg,
+        dst_hi: VReg,
+        src_lo: VReg,
+        src_hi: VReg,
+        src2_lo: VReg,
+        src2_hi: VReg,
+        /// true = `:h` (horizontal) term table, false = `:v` (vertical).
+        horizontal: bool,
+        /// `#u2` phase (0..3) selecting the term table row.
+        phase: u8,
+        acc: bool,
+    },
+
     /// Scalar-predicate-gated whole-vector conditional move / combine. Models HVX
     /// `vcmov`/`vncmov` (`if (Ps[.lsb]) Vd = Vu`; CANCEL/no-write when false) and
     /// `vccombine`/`vnccombine` (`if (Ps) { Vdd.v[0]=Vv; Vdd.v[1]=Vu }`). The gate
@@ -2055,9 +2241,18 @@ impl OpKind {
             | OpKind::VPairPairReduceMul { dst_lo, dst_hi, .. }
             | OpKind::VLut16 { dst_lo, dst_hi, .. }
             | OpKind::VMulWord64Pair { dst_lo, dst_hi, .. }
+            | OpKind::VShuffleEOPair { dst_lo, dst_hi, .. }
+            | OpKind::VDealVdd { dst_lo, dst_hi, .. }
+            | OpKind::VUnpackOAcc { dst_lo, dst_hi, .. }
+            | OpKind::VMpyHsatAcc { dst_lo, dst_hi, .. }
+            | OpKind::VAsrInto { dst_lo, dst_hi, .. }
+            | OpKind::V6Mpy { dst_lo, dst_hi, .. }
             | OpKind::VShuffVdd { dst_lo, dst_hi, .. } => {
                 vec![*dst_lo, *dst_hi]
             }
+
+            // In-place dual-register shuffle/deal writes BOTH Vy and Vx.
+            OpKind::VShuffleDeal { dst_y, dst_x, .. } => vec![*dst_y, *dst_x],
 
             OpKind::VReduceMul { dst, .. }
             | OpKind::VMulEvenWiden { dst, .. }
@@ -2085,6 +2280,14 @@ impl OpKind {
             | OpKind::VMaskZero { dst, .. }
             | OpKind::VLaneCond { dst, .. }
             | OpKind::VPrefixSumQ { dst, .. }
+            | OpKind::VInsertWordR { dst, .. }
+            | OpKind::VExtractWord { dst, .. }
+            | OpKind::VLut4 { dst, .. }
+            | OpKind::VRotr { dst, .. }
+            | OpKind::VAddSubMixedSat { dst, .. }
+            | OpKind::VSetPredQ { dst, .. }
+            | OpKind::VShuffEqQ { dst, .. }
+            | OpKind::VMpaHhSat { dst, .. }
             | OpKind::VQFromVAndR { dst, .. } => vec![*dst],
 
             // Carry forms write the result vector and (carry/carryo) the Q.

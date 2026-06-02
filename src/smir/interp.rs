@@ -2622,6 +2622,388 @@ impl SmirInterpreter {
                 Self::write_vec(ctx, *dst_hi, hi);
             }
 
+            // HVX vshufoeb/vshufoeh: even shuffle -> dst_lo, odd shuffle -> dst_hi.
+            // out_lo[2i]=src2[2i], out_lo[2i+1]=src1[2i]; out_hi uses sub-lane 2i+1.
+            OpKind::VShuffleEOPair {
+                dst_lo,
+                dst_hi,
+                src1,
+                src2,
+                elem,
+            } => {
+                let u = Self::read_vec(ctx, *src1);
+                let v = Self::read_vec(ctx, *src2);
+                let nbits = elem.bytes() * 8;
+                let total = (1024 / nbits) as u8;
+                let half = total / 2;
+                let mut lo = [0u64; 16];
+                let mut hi = [0u64; 16];
+                for i in 0..half {
+                    let e = i * 2;
+                    let o = i * 2 + 1;
+                    Self::set_lane(&mut lo, i * 2, nbits, Self::get_lane(&v, e, nbits));
+                    Self::set_lane(&mut lo, i * 2 + 1, nbits, Self::get_lane(&u, e, nbits));
+                    Self::set_lane(&mut hi, i * 2, nbits, Self::get_lane(&v, o, nbits));
+                    Self::set_lane(&mut hi, i * 2 + 1, nbits, Self::get_lane(&u, o, nbits));
+                }
+                Self::write_vec(ctx, *dst_lo, lo);
+                Self::write_vec(ctx, *dst_hi, hi);
+            }
+
+            // HVX in-place dual-register byte shuffle/deal: swap Vy.b[k] <-> Vx.b[k+offset].
+            OpKind::VShuffleDeal {
+                dst_y,
+                dst_x,
+                amount,
+                deal,
+            } => {
+                let mut vy = Self::read_vec(ctx, *dst_y);
+                let mut vx = Self::read_vec(ctx, *dst_x);
+                let rt = match amount {
+                    SrcOperand::Imm(v) => *v as usize,
+                    SrcOperand::Reg(r) => ctx.read_vreg(*r) as usize,
+                    _ => 0,
+                };
+                // shuffle: offset ascending 1..64; deal: descending 64..1.
+                let offsets: [usize; 7] = if *deal {
+                    [64, 32, 16, 8, 4, 2, 1]
+                } else {
+                    [1, 2, 4, 8, 16, 32, 64]
+                };
+                for &offset in offsets.iter() {
+                    if rt & offset != 0 {
+                        for k in 0..128usize {
+                            if k & offset == 0 {
+                                let a = Self::get_lane(&vy, k as u8, 8);
+                                let b = Self::get_lane(&vx, (k + offset) as u8, 8);
+                                Self::set_lane(&mut vy, k as u8, 8, b);
+                                Self::set_lane(&mut vx, (k + offset) as u8, 8, a);
+                            }
+                        }
+                    }
+                }
+                Self::write_vec(ctx, *dst_y, vy);
+                Self::write_vec(ctx, *dst_x, vx);
+            }
+
+            // HVX vdealvdd: deal-direction byte swap network over a pair (lo=Vv, hi=Vu).
+            OpKind::VDealVdd {
+                dst_lo,
+                dst_hi,
+                src_lo,
+                src_hi,
+                amount,
+            } => {
+                let mut lo = Self::read_vec(ctx, *src_lo);
+                let mut hi = Self::read_vec(ctx, *src_hi);
+                let rt = match amount {
+                    SrcOperand::Imm(v) => *v as usize,
+                    SrcOperand::Reg(r) => ctx.read_vreg(*r) as usize,
+                    _ => 0,
+                };
+                let mut offset = 64usize;
+                while offset > 0 {
+                    if rt & offset != 0 {
+                        for k in 0..128usize {
+                            if k & offset == 0 {
+                                let a = Self::get_lane(&hi, k as u8, 8);
+                                let b = Self::get_lane(&lo, (k + offset) as u8, 8);
+                                Self::set_lane(&mut hi, k as u8, 8, b);
+                                Self::set_lane(&mut lo, (k + offset) as u8, 8, a);
+                            }
+                        }
+                    }
+                    offset >>= 1;
+                }
+                Self::write_vec(ctx, *dst_lo, lo);
+                Self::write_vec(ctx, *dst_hi, hi);
+            }
+
+            // HVX vunpackob/oh: Vxx.<2w>[i] |= ZE(Vu.<w>[i]) << nbits (sequential split).
+            OpKind::VUnpackOAcc {
+                dst_lo,
+                dst_hi,
+                src,
+                src_elem,
+            } => {
+                let s = Self::read_vec(ctx, *src);
+                let nbits = src_elem.bytes() * 8;
+                let wbits = nbits * 2;
+                let total = (1024 / nbits as usize); // narrow lanes total
+                let half = (total / 2) as u8;
+                let mut lo = Self::read_vec(ctx, *dst_lo);
+                let mut hi = Self::read_vec(ctx, *dst_hi);
+                for i in 0..total as u8 {
+                    let add = Self::get_lane(&s, i, nbits) << nbits;
+                    if i < half {
+                        let cur = Self::get_lane(&lo, i, wbits);
+                        Self::set_lane(&mut lo, i, wbits, cur | add);
+                    } else {
+                        let cur = Self::get_lane(&hi, i - half, wbits);
+                        Self::set_lane(&mut hi, i - half, wbits, cur | add);
+                    }
+                }
+                Self::write_vec(ctx, *dst_lo, lo);
+                Self::write_vec(ctx, *dst_hi, hi);
+            }
+
+            // HVX vinsertwr: Vx.w[0] = Rt (other words preserved).
+            OpKind::VInsertWordR { dst, scalar } => {
+                let mut v = Self::read_vec(ctx, *dst);
+                let rt = ctx.read_vreg(*scalar) as u32 as u64;
+                Self::set_lane(&mut v, 0, 32, rt);
+                Self::write_vec(ctx, *dst, v);
+            }
+
+            // HVX extractw: Rd = Vu.uw[(Rs & 127) >> 2].
+            OpKind::VExtractWord { dst, src, sel } => {
+                let v = Self::read_vec(ctx, *src);
+                let rs = ctx.read_vreg(*sel) as u32;
+                let idx = ((rs & 127) >> 2) as u8;
+                let word = Self::get_lane(&v, idx, 32);
+                ctx.write_vreg(*dst, word & 0xffff_ffff);
+            }
+
+            // HVX vlut4: Vd.h[i] = Rtt.h[(Vu.uh[i] >> 14) & 3].
+            OpKind::VLut4 { dst, src, table } => {
+                let u = Self::read_vec(ctx, *src);
+                let rtt = ctx.read_vreg(*table);
+                let mut out = [0u64; 16];
+                for i in 0..64u8 {
+                    let sel = (Self::get_lane(&u, i, 16) >> 14) & 3;
+                    let entry = (rtt >> (sel * 16)) & 0xffff;
+                    Self::set_lane(&mut out, i, 16, entry);
+                }
+                Self::write_vec(ctx, *dst, out);
+            }
+
+            // HVX vrotr: Vd.uw[i] = rotate_right(Vu.uw[i], Vv.uw[i] & 0x1f).
+            OpKind::VRotr { dst, src, amount } => {
+                let u = Self::read_vec(ctx, *src);
+                let v = Self::read_vec(ctx, *amount);
+                let mut out = [0u64; 16];
+                for i in 0..32u8 {
+                    let amt = (Self::get_lane(&v, i, 32) & 0x1f) as u32;
+                    let val = Self::get_lane(&u, i, 32) as u32;
+                    Self::set_lane(&mut out, i, 32, val.rotate_right(amt) as u64);
+                }
+                Self::write_vec(ctx, *dst, out);
+            }
+
+            // HVX vaddububb_sat/vsubububb_sat: Vd.ub = sat_u8(Vu.ub +/- Vv.b).
+            OpKind::VAddSubMixedSat { dst, src1, src2, sub } => {
+                let u = Self::read_vec(ctx, *src1);
+                let v = Self::read_vec(ctx, *src2);
+                let mut out = [0u64; 16];
+                for i in 0..128u8 {
+                    let a = Self::get_lane(&u, i, 8) as i32; // unsigned byte
+                    let b = Self::get_lane(&v, i, 8) as u8 as i8 as i32; // signed byte
+                    let r = if *sub { a - b } else { a + b };
+                    let s = r.clamp(0, 255) as u64;
+                    Self::set_lane(&mut out, i, 8, s);
+                }
+                Self::write_vec(ctx, *dst, out);
+            }
+
+            // HVX vsetq / vsetq2: build a Q vector predicate from a scalar length.
+            OpKind::VSetPredQ { dst, scalar, v2 } => {
+                let rt = ctx.read_vreg(*scalar) as u32;
+                let mut q = [0u64; 16];
+                if *v2 {
+                    // vsetq2: set bits 0..=((Rt-1) & 127) (Rt==0 -> all 128).
+                    let last = (rt.wrapping_sub(1) & 127) as usize;
+                    for i in 0..=last {
+                        q[i >> 6] |= 1u64 << (i & 63);
+                    }
+                } else {
+                    // vsetq: set the low (Rt & 127) bits.
+                    let n = (rt & 127) as usize;
+                    for i in 0..n {
+                        q[i >> 6] |= 1u64 << (i & 63);
+                    }
+                }
+                Self::write_vec(ctx, *dst, q);
+            }
+
+            // HVX shuffeqh/shuffeqw: Q-predicate shrink/shuffle.
+            OpKind::VShuffEqQ { dst, src1, src2, stride } => {
+                let qs = Self::read_vec(ctx, *src1);
+                let qt = Self::read_vec(ctx, *src2);
+                let qbit = |q: &VecValue, i: usize| (q[i >> 6] >> (i & 63)) & 1 != 0;
+                let st = *stride as usize;
+                let mut q = [0u64; 16];
+                for i in 0..128usize {
+                    let bit = if i & st != 0 {
+                        qbit(&qs, i - st)
+                    } else {
+                        qbit(&qt, i)
+                    };
+                    if bit {
+                        q[i >> 6] |= 1u64 << (i & 63);
+                    }
+                }
+                Self::write_vec(ctx, *dst, q);
+            }
+
+            // HVX vmpahhsat/vmpauhuhsat/vmpsuhuhsat: saturating halfword mpa pair-scalar.
+            OpKind::VMpaHhSat {
+                dst,
+                src,
+                table,
+                signed_u,
+                signed_t,
+                shl,
+                sub,
+            } => {
+                let vx = Self::read_vec(ctx, *dst);
+                let vu = Self::read_vec(ctx, *src);
+                let rtt = ctx.read_vreg(*table);
+                let mut out = [0u64; 16];
+                for i in 0..64u8 {
+                    let x = Self::get_lane(&vx, i, 16) as u16 as i16 as i64; // Vx.h signed
+                    let raw = Self::get_lane(&vu, i, 16) as u16;
+                    let u = if *signed_u {
+                        raw as i16 as i64
+                    } else {
+                        raw as i64
+                    };
+                    let idx = ((raw >> 14) & 3) as u64;
+                    let t_raw = ((rtt >> (idx * 16)) & 0xffff) as u16;
+                    let t = if *signed_t {
+                        t_raw as i16 as i64
+                    } else {
+                        t_raw as i64
+                    };
+                    let addend = t << 15;
+                    // vmps subtracts the scalar term; vmpa adds it.
+                    let prod = ((x * u) << *shl) + if *sub { -addend } else { addend };
+                    let r = (prod >> 16).clamp(-(1i64 << 15), (1i64 << 15) - 1);
+                    Self::set_lane(&mut out, i, 16, r as u64 & 0xffff);
+                }
+                Self::write_vec(ctx, *dst, out);
+            }
+
+            // HVX vmpyhsat_acc: Vxx.w[i] += sat32(Vu.h[2i/2i+1] * Rt.h[0/1]).
+            OpKind::VMpyHsatAcc { dst_lo, dst_hi, src, scalar } => {
+                let vu = Self::read_vec(ctx, *src);
+                let rt = ctx.read_vreg(*scalar) as u32;
+                let rt0 = (rt & 0xffff) as u16 as i16 as i64;
+                let rt1 = ((rt >> 16) & 0xffff) as u16 as i16 as i64;
+                let mut lo = Self::read_vec(ctx, *dst_lo);
+                let mut hi = Self::read_vec(ctx, *dst_hi);
+                let smin = -(1i64 << 31);
+                let smax = (1i64 << 31) - 1;
+                for i in 0..32u8 {
+                    let p0 = (Self::get_lane(&vu, 2 * i, 16) as u16 as i16 as i64) * rt0;
+                    let p1 = (Self::get_lane(&vu, 2 * i + 1, 16) as u16 as i16 as i64) * rt1;
+                    let a0 = Self::get_lane(&lo, i, 32) as u32 as i32 as i64;
+                    let a1 = Self::get_lane(&hi, i, 32) as u32 as i32 as i64;
+                    let s0 = (a0 + p0).clamp(smin, smax);
+                    let s1 = (a1 + p1).clamp(smin, smax);
+                    Self::set_lane(&mut lo, i, 32, s0 as u64 & 0xffff_ffff);
+                    Self::set_lane(&mut hi, i, 32, s1 as u64 & 0xffff_ffff);
+                }
+                Self::write_vec(ctx, *dst_lo, lo);
+                Self::write_vec(ctx, *dst_hi, hi);
+            }
+
+            // HVX vasr_into: shift Vu.w into the running accumulator pair Vxx.
+            OpKind::VAsrInto { dst_lo, dst_hi, src, amount } => {
+                let vu = Self::read_vec(ctx, *src);
+                let vv = Self::read_vec(ctx, *amount);
+                let mut x0 = Self::read_vec(ctx, *dst_lo); // Vxx.v[0]
+                let mut x1 = Self::read_vec(ctx, *dst_hi); // Vxx.v[1]
+                for i in 0..32u8 {
+                    // fSE32_64(Vu.w[i]) << 32 — Vu.w is SIGN-extended in the sem.
+                    let shift = ((Self::get_lane(&vu, i, 32) as u32 as i32 as i64) << 32) as i64;
+                    let xlo = Self::get_lane(&x0, i, 32) as u32 as i64; // ZE lo
+                    // SE hi: (fSE32_64(x0.w[i]) << 32) | ZE lo (matches sem's get_w<<32).
+                    let xhi = (Self::get_lane(&x0, i, 32) as u32 as i32 as i64) << 32;
+                    let mask = xhi | xlo;
+                    let lomask: i64 = (1i64 << 32) - 1;
+                    let vvw = Self::get_lane(&vv, i, 32) as u32 as i32;
+                    let count = -(0x40 & vvw) + (vvw & 0x3f);
+                    let result: i64 = if count == -0x40 {
+                        0
+                    } else if count < 0 {
+                        let n = (-count) as u32;
+                        (shift << n) | (mask & (lomask << n))
+                    } else {
+                        let n = count as u32;
+                        (shift >> n) | (mask & ((lomask as u64 >> n) as i64))
+                    };
+                    Self::set_lane(&mut x1, i, 32, ((result >> 32) & 0xffff_ffff) as u64);
+                    Self::set_lane(&mut x0, i, 32, (result & 0xffff_ffff) as u64);
+                }
+                Self::write_vec(ctx, *dst_lo, x0);
+                Self::write_vec(ctx, *dst_hi, x1);
+            }
+
+            // HVX v6mpy: V69 byte-matrix multiply with packed signed-10-bit coeffs.
+            OpKind::V6Mpy {
+                dst_lo,
+                dst_hi,
+                src_lo,
+                src_hi,
+                src2_lo,
+                src2_hi,
+                horizontal,
+                phase,
+                acc,
+            } => {
+                let u0 = Self::read_vec(ctx, *src_lo); // Vuu.v[0]
+                let u1 = Self::read_vec(ctx, *src_hi); // Vuu.v[1]
+                let cv0 = Self::read_vec(ctx, *src2_lo); // Vvv.v[0] -> c0j
+                let cv1 = Self::read_vec(ctx, *src2_hi); // Vvv.v[1] -> c1j
+                // unsigned byte k (0..3) of word lane i.
+                let ub = |b: &VecValue, i: u8, k: u8| -> i64 {
+                    (Self::get_lane(b, i * 4 + k, 8) & 0xff) as i64
+                };
+                // signed 10-bit coeff j (0..2) of word lane i: lo8 from ub[j], hi2 from ub[3]>>(2j).
+                let coeff = |b: &VecValue, i: u8, j: u8| -> i64 {
+                    let hi2 = (ub(b, i, 3) >> (2 * j)) & 3;
+                    let lo8 = ub(b, i, j);
+                    let v10 = (hi2 << 8) | lo8;
+                    ((v10 & 0x3ff) << 54) >> 54
+                };
+                let terms = Self::v6mpy_terms(*horizontal, *phase);
+                let mut o0 = if *acc { Self::read_vec(ctx, *dst_lo) } else { [0u64; 16] };
+                let mut o1 = if *acc { Self::read_vec(ctx, *dst_hi) } else { [0u64; 16] };
+                for i in 0..32u8 {
+                    let c = [
+                        coeff(&cv0, i, 0),
+                        coeff(&cv0, i, 1),
+                        coeff(&cv0, i, 2),
+                        coeff(&cv1, i, 0),
+                        coeff(&cv1, i, 1),
+                        coeff(&cv1, i, 2),
+                    ];
+                    let mut s0 = if *acc {
+                        Self::get_lane(&o0, i, 32) as u32 as i32 as i64
+                    } else {
+                        0
+                    };
+                    let mut s1 = if *acc {
+                        Self::get_lane(&o1, i, 32) as u32 as i32 as i64
+                    } else {
+                        0
+                    };
+                    for &(vsel, byte, ci, osel) in terms {
+                        let uv = if vsel == 0 { &u0 } else { &u1 };
+                        let prod = ub(uv, i, byte) * c[ci as usize];
+                        if osel == 0 {
+                            s0 = s0.wrapping_add(prod);
+                        } else {
+                            s1 = s1.wrapping_add(prod);
+                        }
+                    }
+                    Self::set_lane(&mut o0, i, 32, s0 as u64 & 0xffff_ffff);
+                    Self::set_lane(&mut o1, i, 32, s1 as u64 & 0xffff_ffff);
+                }
+                Self::write_vec(ctx, *dst_lo, o0);
+                Self::write_vec(ctx, *dst_hi, o1);
+            }
+
             OpKind::VCondMove {
                 dst_lo,
                 dst_hi,
@@ -4091,6 +4473,55 @@ impl SmirInterpreter {
             FpPrecision::F64 | FpPrecision::F80 => value.to_bits(),
         };
         ctx.write_vreg(vreg, bits);
+    }
+
+    /// v6mpy product-term table: `(vsel, byte, ci, osel)` — which Vuu vector
+    /// (0=lo,1=hi), which byte (0..3) of the word lane, which of the six
+    /// coefficients (0=c00..2=c02, 3=c10..5=c12), and which output vector
+    /// (0=lo,1=hi). Mirrors sem/hvx_v6mpy.rs H_TERMS / V_TERMS exactly.
+    fn v6mpy_terms(horizontal: bool, phase: u8) -> &'static [(u8, u8, u8, u8)] {
+        const H_TERMS: [&[(u8, u8, u8, u8)]; 4] = [
+            &[
+                (1, 3, 3, 1), (1, 1, 4, 1), (0, 3, 5, 1), (1, 2, 0, 1), (1, 0, 1, 1), (0, 2, 2, 1),
+                (1, 2, 3, 0), (1, 0, 4, 0), (0, 2, 5, 0),
+            ],
+            &[
+                (1, 3, 0, 1), (1, 1, 1, 1), (0, 3, 2, 1),
+                (1, 3, 3, 0), (1, 1, 4, 0), (0, 3, 5, 0), (1, 2, 0, 0), (1, 0, 1, 0), (0, 2, 2, 0),
+            ],
+            &[
+                (1, 1, 3, 1), (0, 3, 4, 1), (0, 1, 5, 1), (1, 0, 0, 1), (0, 2, 1, 1), (0, 0, 2, 1),
+                (1, 0, 3, 0), (0, 2, 4, 0), (0, 0, 5, 0),
+            ],
+            &[
+                (1, 1, 0, 1), (0, 3, 1, 1), (0, 1, 2, 1),
+                (1, 1, 3, 0), (0, 3, 4, 0), (0, 1, 5, 0), (1, 0, 0, 0), (0, 2, 1, 0), (0, 0, 2, 0),
+            ],
+        ];
+        const V_TERMS: [&[(u8, u8, u8, u8)]; 4] = [
+            &[
+                (0, 3, 3, 1), (1, 2, 4, 1), (1, 3, 5, 1), (0, 1, 0, 1), (1, 0, 1, 1), (1, 1, 2, 1),
+                (0, 1, 3, 0), (1, 0, 4, 0), (1, 1, 5, 0),
+            ],
+            &[
+                (0, 3, 0, 1), (1, 2, 1, 1), (1, 3, 2, 1),
+                (0, 3, 3, 0), (1, 2, 4, 0), (1, 3, 5, 0), (0, 1, 0, 0), (1, 0, 1, 0), (1, 1, 2, 0),
+            ],
+            &[
+                (0, 2, 3, 1), (0, 3, 4, 1), (1, 2, 5, 1), (0, 0, 0, 1), (0, 1, 1, 1), (1, 0, 2, 1),
+                (0, 0, 3, 0), (0, 1, 4, 0), (1, 0, 5, 0),
+            ],
+            &[
+                (0, 2, 0, 1), (0, 3, 1, 1), (1, 2, 2, 1),
+                (0, 2, 3, 0), (0, 3, 4, 0), (1, 2, 5, 0), (0, 0, 0, 0), (0, 1, 1, 0), (1, 0, 2, 0),
+            ],
+        ];
+        let p = (phase & 3) as usize;
+        if horizontal {
+            H_TERMS[p]
+        } else {
+            V_TERMS[p]
+        }
     }
 
     fn get_lane(value: &VecValue, lane: u8, elem_bits: u32) -> u64 {
@@ -6395,6 +6826,67 @@ mod tests {
             let v = hex.get_v(2);
             assert_eq!(v[0] & 0xff, 0xFF); // byte0 OR'd
             assert_eq!((v[0] >> 8) & 0xff, 0x0F); // byte1 unchanged
+        }
+    }
+
+    #[test]
+    fn test_vrotr() {
+        // Vd.uw[i] = rotate_right(Vu.uw[i], amt&0x1f). Vu word = 0x0000_0001,
+        // amt = 4 -> rotate_right(1,4) = 0x1000_0000.
+        let mkv = |n| VReg::Arch(ArchReg::Hexagon(HexagonReg::V(n)));
+        let out = run_vec2(
+            [0x0000_0001_0000_0001u64; 16],
+            [0x0000_0004_0000_0004u64; 16],
+            OpKind::VRotr { dst: mkv(2), src: mkv(0), amount: mkv(1) },
+        );
+        assert_eq!(out, [0x1000_0000_1000_0000u64; 16]);
+    }
+
+    #[test]
+    fn test_vaddsub_mixed_sat() {
+        // vaddububb_sat: ub + b:sat. 0xFF + (+1) -> saturate to 0xFF.
+        // 0x01 + (-2 = 0xFE) -> -1 -> saturate to 0. Use byte pattern u=0xFF01..,
+        // v=0x01FE.. -> bytes alternate.
+        let mkv = |n| VReg::Arch(ArchReg::Hexagon(HexagonReg::V(n)));
+        let out = run_vec2(
+            [0x0000_0000_0000_01FFu64; 16],
+            [0x0000_0000_0000_FE01u64; 16],
+            OpKind::VAddSubMixedSat { dst: mkv(2), src1: mkv(0), src2: mkv(1), sub: false },
+        );
+        // byte0: 0xFF + 1 = 256 -> 255 (0xFF); byte1: 0x01 + (-2) = -1 -> 0.
+        assert_eq!(out[0] & 0xffff, 0x00FF);
+    }
+
+    #[test]
+    fn test_vsetq() {
+        // vsetq(5): low 5 bits set -> 0x1F.
+        let mkv = |n| VReg::Arch(ArchReg::Hexagon(HexagonReg::V(n)));
+        let mkq = |n| VReg::Arch(ArchReg::Hexagon(HexagonReg::Q(n)));
+        let mut ctx = SmirContext::new_hexagon();
+        let mut memory = FlatMemory::new(0x1000);
+        let interp = SmirInterpreter::new();
+        ctx.write_arch_reg(ArchReg::Hexagon(HexagonReg::R(5)), 5);
+        let block = SmirBlock {
+            id: BlockId(0),
+            guest_pc: 0x1000,
+            phis: vec![],
+            ops: vec![SmirOp {
+                id: OpId(0),
+                guest_pc: 0x1000,
+                kind: OpKind::VSetPredQ {
+                    dst: mkq(0),
+                    scalar: VReg::Arch(ArchReg::Hexagon(HexagonReg::R(5))),
+                    v2: false,
+                },
+                x86_hint: None,
+            }],
+            terminator: Terminator::Trap { kind: TrapKind::Halt },
+            exec_count: 0,
+        };
+        interp.execute_block(&mut ctx, &mut memory, &block);
+        let _ = mkv;
+        if let ArchRegState::Hexagon(hex) = &ctx.arch_regs {
+            assert_eq!(hex.get_q(0)[0], 0x1F);
         }
     }
 }

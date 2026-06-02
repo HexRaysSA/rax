@@ -2165,3 +2165,210 @@ fn lift_hvx_vand_acc() {
         0x1b05,
     );
 }
+
+// ---- Wave: FINAL tractable HVX misc opcodes (VShuffleEOPair, VShuffleDeal,
+// VDealVdd, VUnpackOAcc, VInsertWordR, VExtractWord, VLut4, VRotr,
+// VAddSubMixedSat, VSetPredQ, VShuffEqQ, VMpaHhSat, VMpyHsatAcc, VAsrInto, V6Mpy)
+
+// vshufoeb/vshufoeh: odd/even shuffle into a pair (VShuffleEOPair).
+#[test]
+fn lift_hvx_vshufoe() {
+    lift_family(
+        "hvx_vshufoe",
+        &[
+            ("vshufoeb", "{ v1:0.b = vshuffoe(v3.b,v2.b) }"),
+            ("vshufoeh", "{ v1:0.h = vshuffoe(v3.h,v2.h) }"),
+        ],
+        16,
+        0x1b10,
+    );
+}
+
+// vshuff/vdeal: in-place dual-register byte shuffle/deal (VShuffleDeal).
+#[test]
+fn lift_hvx_vshuff_vdeal_inplace() {
+    lift_family(
+        "hvx_vshuff_vdeal_inplace",
+        &[
+            ("vshuff", "{ vshuff(v1,v0,r5) }"),
+            ("vdeal", "{ vdeal(v1,v0,r5) }"),
+        ],
+        16,
+        0x1b11,
+    );
+}
+
+// vdealvdd: pair-dest deal Vdd = vdeal(Vu,Vv,Rt) (VDealVdd).
+#[test]
+fn lift_hvx_vdealvdd() {
+    lift_family(
+        "hvx_vdealvdd",
+        &[("vdealvdd", "{ v1:0 = vdeal(v3,v2,r5) }")],
+        16,
+        0x1b12,
+    );
+}
+
+// vunpackob/vunpackoh: OR-accumulate the odd-extended lanes (VUnpackOAcc).
+#[test]
+fn lift_hvx_vunpacko() {
+    lift_family(
+        "hvx_vunpacko",
+        &[
+            ("vunpackob", "{ v1:0.h |= vunpacko(v2.b) }"),
+            ("vunpackoh", "{ v1:0.w |= vunpacko(v2.h) }"),
+        ],
+        16,
+        0x1b13,
+    );
+}
+
+// vinsertwr / extractw: V<->R word moves (VInsertWordR / VExtractWord).
+#[test]
+fn lift_hvx_vinsert_extract() {
+    lift_family(
+        "hvx_vinsert_extract",
+        &[
+            ("vinsertwr", "{ v0.w = vinsert(r5) }"),
+            ("extractw", "{ r1 = vextract(v0,r2) }"),
+        ],
+        16,
+        0x1b14,
+    );
+}
+
+// vlut4: 4-entry halfword lookup from a scalar pair (VLut4).
+#[test]
+fn lift_hvx_vlut4() {
+    lift_family(
+        "hvx_vlut4",
+        &[("vlut4", "{ v0.h = vlut4(v1.uh,r5:4.h) }")],
+        16,
+        0x1b15,
+    );
+}
+
+// vrotr: per-word bit rotate-right (VRotr).
+#[test]
+fn lift_hvx_vrotr() {
+    lift_family(
+        "hvx_vrotr",
+        &[("vrotr", "{ v0.uw = vrotr(v1.uw,v2.uw) }")],
+        16,
+        0x1b16,
+    );
+}
+
+// vaddububb_sat/vsubububb_sat (ub +/- b -> ub:sat) and vsubuwsat (uw - uw -> uw:sat).
+#[test]
+fn lift_hvx_addsub_sat_misc() {
+    lift_family(
+        "hvx_addsub_sat_misc",
+        &[
+            ("vaddububb_sat", "{ v0.ub = vadd(v1.ub,v2.b):sat }"),
+            ("vsubububb_sat", "{ v0.ub = vsub(v1.ub,v2.b):sat }"),
+            ("vsubuwsat", "{ v0.uw = vsub(v1.uw,v2.uw):sat }"),
+        ],
+        16,
+        0x1b17,
+    );
+}
+
+// vsetq / vsetq2: build a Q predicate from a scalar (VSetPredQ). Q compared directly.
+#[test]
+fn lift_hvx_vsetq() {
+    lift_family(
+        "hvx_vsetq",
+        &[
+            ("vsetq", "{ q0 = vsetq(r5) }"),
+            ("vsetq2", "{ q0 = vsetq2(r5) }"),
+        ],
+        24,
+        0x1b18,
+    );
+}
+
+// shuffeqh/shuffeqw: Q-predicate shrink/shuffle (VShuffEqQ). Q compared directly.
+#[test]
+fn lift_hvx_shuffeq() {
+    lift_family(
+        "hvx_shuffeq",
+        &[
+            ("shuffeqh", "{ q0.b = vshuffe(q1.h,q2.h) }"),
+            ("shuffeqw", "{ q0.h = vshuffe(q1.w,q2.w) }"),
+        ],
+        16,
+        0x1b19,
+    );
+}
+
+// vmpahhsat / vmpauhuhsat / vmpsuhuhsat: saturating halfword mpa/mps (VMpaHhSat).
+#[test]
+fn lift_hvx_vmpa_hh_sat() {
+    lift_family(
+        "hvx_vmpa_hh_sat",
+        &[
+            ("vmpahhsat", "{ v0.h = vmpa(v0.h,v2.h,r5:4.h):sat }"),
+            ("vmpauhuhsat", "{ v0.h = vmpa(v0.h,v2.uh,r5:4.uh):sat }"),
+            ("vmpsuhuhsat", "{ v0.h = vmps(v0.h,v2.uh,r5:4.uh):sat }"),
+        ],
+        16,
+        0x1b1a,
+    );
+}
+
+// vmpyhsat_acc: saturating word accumulate (VMpyHsatAcc).
+#[test]
+fn lift_hvx_vmpyhsat_acc() {
+    lift_family(
+        "hvx_vmpyhsat_acc",
+        &[("vmpyhsat_acc", "{ v1:0.w += vmpy(v4.h,r5.h):sat }")],
+        16,
+        0x1b1b,
+    );
+}
+
+// vasr_into: shift-into-accumulator (VAsrInto).
+#[test]
+fn lift_hvx_vasr_into() {
+    lift_family(
+        "hvx_vasr_into",
+        &[("vasr_into", "{ v1:0.w = vasrinto(v2.w,v3.w) }")],
+        16,
+        0x1b1c,
+    );
+}
+
+// vassign_tmp / vcombine_tmp: .tmp register moves (VMov / pair copy).
+#[test]
+fn lift_hvx_tmp_moves() {
+    lift_family(
+        "hvx_tmp_moves",
+        &[
+            ("vassign_tmp", "{ v0.tmp = v1 }"),
+            ("vcombine_tmp", "{ v1:0.tmp = vcombine(v3,v2) }"),
+        ],
+        12,
+        0x1b1d,
+    );
+}
+
+// v6mpy: V69 byte-matrix multiply, :h/:v phases + acc forms (V6Mpy).
+#[test]
+fn lift_hvx_v6mpy() {
+    lift_family(
+        "hvx_v6mpy",
+        &[
+            ("v6mpyh_u0", "{ v1:0.w = v6mpy(v3:2.ub,v5:4.b,#0):h }"),
+            ("v6mpyh_u1", "{ v1:0.w = v6mpy(v3:2.ub,v5:4.b,#1):h }"),
+            ("v6mpyh_u2", "{ v1:0.w = v6mpy(v3:2.ub,v5:4.b,#2):h }"),
+            ("v6mpyh_u3", "{ v1:0.w = v6mpy(v3:2.ub,v5:4.b,#3):h }"),
+            ("v6mpyv_u0", "{ v1:0.w = v6mpy(v3:2.ub,v5:4.b,#0):v }"),
+            ("v6mpyv_u3", "{ v1:0.w = v6mpy(v3:2.ub,v5:4.b,#3):v }"),
+            ("v6mpyh_acc_u1", "{ v1:0.w += v6mpy(v3:2.ub,v5:4.b,#1):h }"),
+            ("v6mpyv_acc_u2", "{ v1:0.w += v6mpy(v3:2.ub,v5:4.b,#2):v }"),
+        ],
+        12,
+        0x1b1e,
+    );
+}

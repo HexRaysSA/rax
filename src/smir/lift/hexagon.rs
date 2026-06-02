@@ -5687,6 +5687,209 @@ impl HexagonLifter {
                 ascending: matches!(op, Opcode::V6_vrdelta),
             }),
 
+            // ============================================================
+            // HVX final misc permute / extract / table / saturating ops
+            // ============================================================
+
+            // vshufoeb/vshufoeh: Vdd = vshuffoe(Vu, Vv); even shuffle -> v[0],
+            // odd shuffle -> v[1]. src1=Vu, src2=Vv. NARROW elem b/h.
+            Opcode::V6_vshufoeb | Opcode::V6_vshufoeh => {
+                let elem = if matches!(op, Opcode::V6_vshufoeh) {
+                    VecElementType::I16
+                } else {
+                    VecElementType::I8
+                };
+                push_op!(OpKind::VShuffleEOPair {
+                    dst_lo: self.hex_v(rd_n),
+                    dst_hi: self.hex_v(rd_n + 1),
+                    src1: self.hex_v(fld(b'u')),
+                    src2: self.hex_v(fld(b'v')),
+                    elem,
+                });
+            }
+
+            // vshuff(Vy,Vx,Rt) / vdeal(Vy,Vx,Rt): in-place dual-register byte
+            // shuffle/deal. Both Vy and Vx are read AND written.
+            Opcode::V6_vshuff | Opcode::V6_vdeal => push_op!(OpKind::VShuffleDeal {
+                dst_y: self.hex_v(fld(b'y')),
+                dst_x: self.hex_v(fld(b'x')),
+                amount: SrcOperand::Reg(self.hex_reg(fld(b't'))),
+                deal: matches!(op, Opcode::V6_vdeal),
+            }),
+
+            // vdealvdd: Vdd = vdeal(Vu,Vv,Rt). lo := Vv, hi := Vu (deal direction).
+            Opcode::V6_vdealvdd => push_op!(OpKind::VDealVdd {
+                dst_lo: self.hex_v(rd_n),
+                dst_hi: self.hex_v(rd_n + 1),
+                src_lo: self.hex_v(fld(b'v')),
+                src_hi: self.hex_v(fld(b'u')),
+                amount: SrcOperand::Reg(self.hex_reg(fld(b't'))),
+            }),
+
+            // vunpackob/vunpackoh: Vxx.<2w> |= vunpacko(Vu.<w>) — OR-accumulate the
+            // odd-extended narrow lanes into the existing dst pair. Base reg is Vx.
+            Opcode::V6_vunpackob | Opcode::V6_vunpackoh => {
+                let src_elem = if matches!(op, Opcode::V6_vunpackoh) {
+                    VecElementType::I16
+                } else {
+                    VecElementType::I8
+                };
+                push_op!(OpKind::VUnpackOAcc {
+                    dst_lo: self.hex_v(rx_n),
+                    dst_hi: self.hex_v(rx_n + 1),
+                    src: self.hex_v(fld(b'u')),
+                    src_elem,
+                });
+            }
+
+            // vinsertwr: Vx.w[0] = Rt (other words preserved).
+            Opcode::V6_vinsertwr => push_op!(OpKind::VInsertWordR {
+                dst: self.hex_v(rx_n),
+                scalar: self.hex_reg(fld(b't')),
+            }),
+
+            // extractw: Rd = vextract(Vu, Rs) — V word lane (Rs&127)>>2 -> GPR.
+            Opcode::V6_extractw => push_op!(OpKind::VExtractWord {
+                dst: rd,
+                src: self.hex_v(fld(b'u')),
+                sel: rs,
+            }),
+
+            // vlut4: Vd.h[i] = Rtt.h[(Vu.uh[i] >> 14) & 3]. Read Rtt as a W64 temp.
+            Opcode::V6_vlut4 => {
+                let table = read_pair!(fld(b't'));
+                push_op!(OpKind::VLut4 {
+                    dst: self.hex_v(fld(b'd')),
+                    src: self.hex_v(fld(b'u')),
+                    table,
+                });
+            }
+
+            // vrotr: Vd.uw[i] = rotate_right(Vu.uw[i], Vv.uw[i] & 0x1f).
+            Opcode::V6_vrotr => push_op!(OpKind::VRotr {
+                dst: self.hex_v(fld(b'd')),
+                src: self.hex_v(fld(b'u')),
+                amount: self.hex_v(fld(b'v')),
+            }),
+
+            // vaddububb_sat/vsubububb_sat: Vd.ub = sat_u8(Vu.ub +/- Vv.b).
+            Opcode::V6_vaddububb_sat | Opcode::V6_vsubububb_sat => {
+                push_op!(OpKind::VAddSubMixedSat {
+                    dst: self.hex_v(fld(b'd')),
+                    src1: self.hex_v(fld(b'u')),
+                    src2: self.hex_v(fld(b'v')),
+                    sub: matches!(op, Opcode::V6_vsubububb_sat),
+                });
+            }
+
+            // vsubuwsat: Vd.uw = sat_u32(Vu.uw - Vv.uw) — plain per-lane SubSat.
+            Opcode::V6_vsubuwsat => {
+                vlane!(VLaneOp::SubSat, VecElementType::I32, 32, false);
+            }
+
+            // vsetq / vsetq2: build a Q vector predicate from a scalar length.
+            Opcode::V6_pred_scalar2 | Opcode::V6_pred_scalar2v2 => {
+                push_op!(OpKind::VSetPredQ {
+                    dst: self.hex_q(fld(b'd')),
+                    scalar: self.hex_reg(fld(b't')),
+                    v2: matches!(op, Opcode::V6_pred_scalar2v2),
+                });
+            }
+
+            // shuffeqh/shuffeqw: Q-predicate shrink/shuffle. stride 1 = h, 2 = w.
+            Opcode::V6_shuffeqh | Opcode::V6_shuffeqw => {
+                push_op!(OpKind::VShuffEqQ {
+                    dst: self.hex_q(fld(b'd')),
+                    src1: self.hex_q(fld(b's')),
+                    src2: self.hex_q(fld(b't')),
+                    stride: if matches!(op, Opcode::V6_shuffeqw) { 2 } else { 1 },
+                });
+            }
+
+            // vmpahhsat / vmpauhuhsat / vmpsuhuhsat: saturating halfword mpa/mps
+            // pair-scalar. Vx read-modify-written; Rtt read as a W64 temp.
+            Opcode::V6_vmpahhsat | Opcode::V6_vmpauhuhsat | Opcode::V6_vmpsuhuhsat => {
+                let table = read_pair!(fld(b't'));
+                let (signed_u, signed_t, shl, sub) = match op {
+                    // vmpahhsat: Vu.h signed, Rtt.h signed, product <<1 (then <<15 add).
+                    Opcode::V6_vmpahhsat => (true, true, 1u8, false),
+                    // vmpauhuhsat: Vu.uh unsigned, Rtt.uh unsigned, no extra shift.
+                    Opcode::V6_vmpauhuhsat => (false, false, 0u8, false),
+                    // vmpsuhuhsat: same but SUBTRACT the scalar term.
+                    _ => (false, false, 0u8, true),
+                };
+                push_op!(OpKind::VMpaHhSat {
+                    dst: self.hex_v(rx_n),
+                    src: self.hex_v(fld(b'u')),
+                    table,
+                    signed_u,
+                    signed_t,
+                    shl,
+                    sub,
+                });
+            }
+
+            // vmpyhsat_acc: Vxx.w += vmpy(Vu.h, Rt.h):sat (saturating word accumulate).
+            Opcode::V6_vmpyhsat_acc => push_op!(OpKind::VMpyHsatAcc {
+                dst_lo: self.hex_v(rx_n),
+                dst_hi: self.hex_v(rx_n + 1),
+                src: self.hex_v(fld(b'u')),
+                scalar: self.hex_reg(fld(b't')),
+            }),
+
+            // vasr_into: shift Vu.w into the running accumulator pair Vxx.
+            Opcode::V6_vasr_into => push_op!(OpKind::VAsrInto {
+                dst_lo: self.hex_v(rx_n),
+                dst_hi: self.hex_v(rx_n + 1),
+                src: self.hex_v(fld(b'u')),
+                amount: self.hex_v(fld(b'v')),
+            }),
+
+            // v6mpy: V69 byte-matrix multiply, #u2 phase + :h/:v term table.
+            Opcode::V6_v6mpyhubs10
+            | Opcode::V6_v6mpyhubs10_vxx
+            | Opcode::V6_v6mpyvubs10
+            | Opcode::V6_v6mpyvubs10_vxx => {
+                let horizontal =
+                    matches!(op, Opcode::V6_v6mpyhubs10 | Opcode::V6_v6mpyhubs10_vxx);
+                let acc =
+                    matches!(op, Opcode::V6_v6mpyhubs10_vxx | Opcode::V6_v6mpyvubs10_vxx);
+                let base = if acc { rx_n } else { rd_n };
+                let ubase = fld(b'u');
+                let vbase = fld(b'v');
+                push_op!(OpKind::V6Mpy {
+                    dst_lo: self.hex_v(base),
+                    dst_hi: self.hex_v(base + 1),
+                    src_lo: self.hex_v(ubase),
+                    src_hi: self.hex_v(ubase + 1),
+                    src2_lo: self.hex_v(vbase),
+                    src2_hi: self.hex_v(vbase + 1),
+                    horizontal,
+                    phase: (fimm_u(b'i') & 3) as u8,
+                    acc,
+                });
+            }
+
+            // .tmp register moves: for a single-instruction lift these behave
+            // exactly like vassign / vcombine (no in-packet .tmp consumer here).
+            Opcode::V6_vassign_tmp => push_op!(OpKind::VMov {
+                dst: self.hex_v(fld(b'd')),
+                src: self.hex_v(fld(b'u')),
+                width: VecWidth::V512,
+            }),
+            Opcode::V6_vcombine_tmp => {
+                push_op!(OpKind::VMov {
+                    dst: self.hex_v(rd_n),
+                    src: self.hex_v(fld(b'v')),
+                    width: VecWidth::V512,
+                });
+                push_op!(OpKind::VMov {
+                    dst: self.hex_v(rd_n + 1),
+                    src: self.hex_v(fld(b'u')),
+                    width: VecWidth::V512,
+                });
+            }
+
             // vlut32 byte lookup-table: vlutvvb(i)/_nm/_oracc(i).
             Opcode::V6_vlutvvb
             | Opcode::V6_vlutvvb_nm
