@@ -1602,6 +1602,15 @@ fn enc_sve_fcvt(opc: u32, opc2: u32) -> u32 {
         | (0b101 << 13) | (RN << 5) | RD
 }
 
+/// SVE LD1 (scalar+scalar): `1010010 dtype Rm 010 Pg Rn Zt`. Rn=x1, Rm=x2.
+fn enc_sve_ld1_ss(dtype: u32) -> u32 {
+    (0b1010010 << 25) | (dtype << 21) | (RM << 16) | (0b010 << 13) | (RN << 5) | RD
+}
+/// SVE ST1 (scalar+scalar): `1110010 msz size Rm 010 Pg Rn Zt`. Rn=x1, Rm=x2.
+fn enc_sve_st1_ss(msz: u32, size: u32) -> u32 {
+    (0b1110010 << 25) | (msz << 23) | (size << 21) | (RM << 16) | (0b010 << 13) | (RN << 5) | RD
+}
+
 /// SVE contiguous LD1 (scalar+imm): `1010010 dtype 0 imm4 101 Pg Rn Zt`.
 /// Pg=p0, Rn=x1 (base), Zt=z0.
 fn enc_sve_ld1(dtype: u32, imm4: i32) -> u32 {
@@ -2346,6 +2355,45 @@ fn diff_sve_fcvt() {
         }
     }
     run_batch("sve_fcvt", batch);
+}
+
+#[test]
+fn diff_sve_ld1_ss() {
+    // LD1 with a scalar index register (element addresses base + (Xm+e)*mbytes).
+    let mut rng = Rng::new(0x3_8001);
+    let mut batch: Vec<(String, u32, ArmState)> = Vec::new();
+    for dtype in 0..16u32 {
+        for &xm in &[0u64, 1, 2] {
+            let insn = enc_sve_ld1_ss(dtype);
+            for _ in 0..4 {
+                let mut st = mem_input(&mut rng);
+                st.x[2] = xm; // index register Rm
+                st.set_preg(0, rng.next() as u16);
+                batch.push((format!("ld1ss dt{dtype} x{xm}"), insn, st));
+            }
+        }
+    }
+    run_batch("sve_ld1_ss", batch);
+}
+
+#[test]
+fn diff_sve_st1_ss() {
+    let mut rng = Rng::new(0x3_9001);
+    let mut batch: Vec<(String, u32, ArmState)> = Vec::new();
+    for msz in 0..4u32 {
+        for size in msz..4u32 {
+            for &xm in &[0u64, 1, 2] {
+                let insn = enc_sve_st1_ss(msz, size);
+                for _ in 0..4 {
+                    let mut st = mem_input(&mut rng);
+                    st.x[2] = xm;
+                    st.set_preg(0, rng.next() as u16);
+                    batch.push((format!("st1ss m{msz} e{size} x{xm}"), insn, st));
+                }
+            }
+        }
+    }
+    run_batch("sve_st1_ss", batch);
 }
 
 #[test]

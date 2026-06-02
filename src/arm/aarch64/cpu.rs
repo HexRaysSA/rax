@@ -6835,8 +6835,74 @@ impl AArch64Cpu {
             return Ok(CpuExit::Continue);
         }
 
-        // Other SVE memory forms (LDR/STR vector, register-offset, gather/
-        // scatter, multi-register LD2-4/ST2-4) are not yet modelled.
+        // LD1 (scalar + scalar register offset): 1010010 dtype Rm 010 Pg Rn Zt.
+        // addr = base + (Xm + e) * mbytes. Rm==31 is UNDEFINED.
+        if !is_store && insn >> 25 == 0b1010010 && b15_13 == 0b010 {
+            let rm = ((insn >> 16) & 0x1F) as u8;
+            if rm == 31 {
+                return Ok(CpuExit::Undefined(insn));
+            }
+            let dtype = (insn >> 21) & 0xF;
+            let (esize, mbytes, signed) = sve_ld1_dtype(dtype);
+            let elements = 16 / esize;
+            let addr0 = base.wrapping_add(self.get_x(rm).wrapping_mul(mbytes as u64));
+            let mut dst = [0u8; 16];
+            for e in 0..elements {
+                if (pred >> (e * esize)) & 1 == 0 {
+                    continue;
+                }
+                let pa = self.translate_address(addr0 + (e * mbytes) as u64, false, false)?;
+                let raw: u64 = match mbytes {
+                    1 => self.memory.read_u8(pa)? as u64,
+                    2 => self.memory.read_u16(pa)? as u64,
+                    4 => self.memory.read_u32(pa)? as u64,
+                    _ => self.memory.read_u64(pa)?,
+                };
+                let val = if signed {
+                    (sext_elem(raw, (mbytes * 8) as u32) as u64) & elem_mask((esize * 8) as u32)
+                } else {
+                    raw
+                };
+                write_elem(&mut dst, e * esize, esize, val);
+            }
+            self.v[zt] = u128::from_le_bytes(dst);
+            return Ok(CpuExit::Continue);
+        }
+
+        // ST1 (scalar + scalar register offset): 1110010 msz size Rm 010 Pg Rn Zt.
+        if is_store && insn >> 25 == 0b1110010 && b15_13 == 0b010 {
+            let rm = ((insn >> 16) & 0x1F) as u8;
+            if rm == 31 {
+                return Ok(CpuExit::Undefined(insn));
+            }
+            let msz = (insn >> 23) & 0x3;
+            let size = (insn >> 21) & 0x3;
+            if size < msz {
+                return Ok(CpuExit::Undefined(insn));
+            }
+            let esize = 1usize << size;
+            let mbytes = 1usize << msz;
+            let elements = 16 / esize;
+            let addr0 = base.wrapping_add(self.get_x(rm).wrapping_mul(mbytes as u64));
+            let src = self.v[zt].to_le_bytes();
+            for e in 0..elements {
+                if (pred >> (e * esize)) & 1 == 0 {
+                    continue;
+                }
+                let pa = self.translate_address(addr0 + (e * mbytes) as u64, true, false)?;
+                let val = read_elem(&src, e * esize, esize);
+                match mbytes {
+                    1 => self.memory.write_u8(pa, val as u8)?,
+                    2 => self.memory.write_u16(pa, val as u16)?,
+                    4 => self.memory.write_u32(pa, val as u32)?,
+                    _ => self.memory.write_u64(pa, val)?,
+                }
+            }
+            return Ok(CpuExit::Continue);
+        }
+
+        // Other SVE memory forms (gather/scatter, multi-register LD2-4/ST2-4)
+        // are not yet modelled.
         Ok(CpuExit::Undefined(insn))
     }
 
