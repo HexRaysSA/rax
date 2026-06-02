@@ -230,6 +230,51 @@ impl Op {
             FleqD => "fleq.d",
             FltqD => "fltq.d",
             FcvtmodWD => "fcvtmod.w.d",
+            Pack => "pack",
+            Packh => "packh",
+            Packw => "packw",
+            Brev8 => "brev8",
+            Flh => "flh",
+            Fsh => "fsh",
+            FaddH => "fadd.h",
+            FsubH => "fsub.h",
+            FmulH => "fmul.h",
+            FdivH => "fdiv.h",
+            FsqrtH => "fsqrt.h",
+            FmaddH => "fmadd.h",
+            FmsubH => "fmsub.h",
+            FnmsubH => "fnmsub.h",
+            FnmaddH => "fnmadd.h",
+            FsgnjH => "fsgnj.h",
+            FsgnjnH => "fsgnjn.h",
+            FsgnjxH => "fsgnjx.h",
+            FminH => "fmin.h",
+            FmaxH => "fmax.h",
+            FeqH => "feq.h",
+            FltH => "flt.h",
+            FleH => "fle.h",
+            FclassH => "fclass.h",
+            FcvtSH => "fcvt.s.h",
+            FcvtHS => "fcvt.h.s",
+            FcvtDH => "fcvt.d.h",
+            FcvtHD => "fcvt.h.d",
+            FcvtWH => "fcvt.w.h",
+            FcvtWuH => "fcvt.wu.h",
+            FcvtLH => "fcvt.l.h",
+            FcvtLuH => "fcvt.lu.h",
+            FcvtHW => "fcvt.h.w",
+            FcvtHWu => "fcvt.h.wu",
+            FcvtHL => "fcvt.h.l",
+            FcvtHLu => "fcvt.h.lu",
+            FmvXH => "fmv.x.h",
+            FmvHX => "fmv.h.x",
+            FliH => "fli.h",
+            FminmH => "fminm.h",
+            FmaxmH => "fmaxm.h",
+            FroundH => "fround.h",
+            FroundnxH => "froundnx.h",
+            FleqH => "fleq.h",
+            FltqH => "fltq.h",
             Illegal => "illegal",
         }
     }
@@ -244,8 +289,8 @@ impl Op {
             Beq | Bne | Blt | Bge | Bltu | Bgeu => Class::B,
             Lb | Lh | Lw | Lbu | Lhu | Lwu | Ld => Class::Load,
             Sb | Sh | Sw | Sd => Class::Store,
-            Flw | Fld => Class::FLoad,
-            Fsw | Fsd => Class::FStore,
+            Flw | Fld | Flh => Class::FLoad,
+            Fsw | Fsd | Fsh => Class::FStore,
             Addi | Slti | Sltiu | Xori | Ori | Andi | Addiw => Class::IArith,
             Slli | Srli | Srai | Slliw | Srliw | Sraiw | SlliUw | Rori | Roriw | Bclri | Bexti
             | Binvi | Bseti => Class::Shift,
@@ -257,19 +302,24 @@ impl Op {
             ScW | ScD | AmoswapW | AmoaddW | AmoxorW | AmoandW | AmoorW | AmominW | AmomaxW
             | AmominuW | AmomaxuW | AmoswapD | AmoaddD | AmoxorD | AmoandD | AmoorD | AmominD
             | AmomaxD | AmominuD | AmomaxuD => Class::Amo,
-            Clz | Ctz | Cpop | SextB | SextH | ZextH | Clzw | Ctzw | Cpopw => Class::Unary,
-            FsqrtS | FsqrtD | FroundS | FroundnxS | FroundD | FroundnxD => Class::FUnary,
+            Clz | Ctz | Cpop | SextB | SextH | ZextH | Clzw | Ctzw | Cpopw | Brev8 => Class::Unary,
+            FsqrtS | FsqrtD | FroundS | FroundnxS | FroundD | FroundnxD | FsqrtH | FroundH
+            | FroundnxH => Class::FUnary,
             FaddS | FsubS | FmulS | FdivS | FsgnjS | FsgnjnS | FsgnjxS | FminS | FmaxS | FaddD
             | FsubD | FmulD | FdivD | FsgnjD | FsgnjnD | FsgnjxD | FminD | FmaxD | FminmS
-            | FmaxmS | FminmD | FmaxmD => Class::FBin,
-            FmaddS | FmsubS | FnmsubS | FnmaddS | FmaddD | FmsubD | FnmsubD | FnmaddD => Class::FMA,
-            FeqS | FltS | FleS | FeqD | FltD | FleD | FleqS | FltqS | FleqD | FltqD => Class::FCmp,
-            FliS | FliD => Class::Fli,
+            | FmaxmS | FminmD | FmaxmD | FaddH | FsubH | FmulH | FdivH | FsgnjH | FsgnjnH
+            | FsgnjxH | FminH | FmaxH | FminmH | FmaxmH => Class::FBin,
+            FmaddS | FmsubS | FnmsubS | FnmaddS | FmaddD | FmsubD | FnmsubD | FnmaddD | FmaddH
+            | FmsubH | FnmsubH | FnmaddH => Class::FMA,
+            FeqS | FltS | FleS | FeqD | FltD | FleD | FleqS | FltqS | FleqD | FltqD | FeqH | FltH
+            | FleH | FleqH | FltqH => Class::FCmp,
+            FliS | FliD | FliH => Class::Fli,
             FcvtWS | FcvtWuS | FcvtLS | FcvtLuS | FmvXW | FclassS | FcvtWD | FcvtWuD | FcvtLD
-            | FcvtLuD | FmvXD | FclassD | FcvtmodWD => Class::FToX,
+            | FcvtLuD | FmvXD | FclassD | FcvtmodWD | FcvtWH | FcvtWuH | FcvtLH | FcvtLuH | FmvXH
+            | FclassH => Class::FToX,
             FcvtSW | FcvtSWu | FcvtSL | FcvtSLu | FmvWX | FcvtDW | FcvtDWu | FcvtDL | FcvtDLu
-            | FmvDX => Class::XToF,
-            FcvtSD | FcvtDS => Class::FToF,
+            | FmvDX | FcvtHW | FcvtHWu | FcvtHL | FcvtHLu | FmvHX => Class::XToF,
+            FcvtSD | FcvtDS | FcvtSH | FcvtHS | FcvtDH | FcvtHD => Class::FToF,
             Illegal => Class::Bare,
             _ => Class::RArith, // OP / OP-32 / M / Zb register-register
         }

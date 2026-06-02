@@ -250,6 +250,54 @@ pub enum Op {
     FleqD,
     FltqD,
     FcvtmodWD,
+    // ---- Zbkb ----
+    Pack,
+    Packh,
+    Packw,
+    Brev8,
+    // ---- Zfh (half precision) ----
+    Flh,
+    Fsh,
+    FaddH,
+    FsubH,
+    FmulH,
+    FdivH,
+    FsqrtH,
+    FmaddH,
+    FmsubH,
+    FnmsubH,
+    FnmaddH,
+    FsgnjH,
+    FsgnjnH,
+    FsgnjxH,
+    FminH,
+    FmaxH,
+    FeqH,
+    FltH,
+    FleH,
+    FclassH,
+    FcvtSH,
+    FcvtHS,
+    FcvtDH,
+    FcvtHD,
+    FcvtWH,
+    FcvtWuH,
+    FcvtLH,
+    FcvtLuH,
+    FcvtHW,
+    FcvtHWu,
+    FcvtHL,
+    FcvtHLu,
+    FmvXH,
+    FmvHX,
+    // ---- Zfh + Zfa (half) ----
+    FliH,
+    FminmH,
+    FmaxmH,
+    FroundH,
+    FroundnxH,
+    FleqH,
+    FltqH,
     // ---- sentinel ----
     Illegal,
 }
@@ -280,6 +328,14 @@ impl Op {
                 | FliS | FliD | FminmS | FmaxmS | FminmD | FmaxmD
                 | FroundS | FroundnxS | FroundD | FroundnxD
                 | FleqS | FltqS | FleqD | FltqD | FcvtmodWD
+                | Flh | Fsh | FaddH | FsubH | FmulH | FdivH | FsqrtH
+                | FmaddH | FmsubH | FnmsubH | FnmaddH
+                | FsgnjH | FsgnjnH | FsgnjxH | FminH | FmaxH
+                | FeqH | FltH | FleH | FclassH
+                | FcvtSH | FcvtHS | FcvtDH | FcvtHD
+                | FcvtWH | FcvtWuH | FcvtLH | FcvtLuH
+                | FcvtHW | FcvtHWu | FcvtHL | FcvtHLu | FmvXH | FmvHX
+                | FliH | FminmH | FmaxmH | FroundH | FroundnxH | FleqH | FltqH
         )
     }
 }
@@ -470,10 +526,10 @@ pub fn decode(w: u32, xlen: Xlen, isa: &Isa) -> Insn {
         0x07 if isa.f => decode_load_fp(w, isa),
         0x27 if isa.f => decode_store_fp(w, isa),
         0x53 if isa.f => decode_op_fp(w, rv64, isa),
-        0x43 if isa.f => decode_fma(Op::FmaddS, Op::FmaddD, w, isa),
-        0x47 if isa.f => decode_fma(Op::FmsubS, Op::FmsubD, w, isa),
-        0x4b if isa.f => decode_fma(Op::FnmsubS, Op::FnmsubD, w, isa),
-        0x4f if isa.f => decode_fma(Op::FnmaddS, Op::FnmaddD, w, isa),
+        0x43 if isa.f => decode_fma(Op::FmaddS, Op::FmaddD, Op::FmaddH, w, isa),
+        0x47 if isa.f => decode_fma(Op::FmsubS, Op::FmsubD, Op::FmsubH, w, isa),
+        0x4b if isa.f => decode_fma(Op::FnmsubS, Op::FnmsubD, Op::FnmsubH, w, isa),
+        0x4f if isa.f => decode_fma(Op::FnmaddS, Op::FnmaddD, Op::FnmaddH, w, isa),
         _ => Insn::illegal(w, 4),
     }
 }
@@ -586,6 +642,12 @@ fn decode_shift_right_imm(w: u32, rv64: bool, isa: &Isa) -> Insn {
         if (rv64 && funct12 == 0b0110_1011_1000) || (!rv64 && funct12 == 0b0110_1001_1000) {
             return base(Op::Rev8, w);
         }
+    }
+    // Zbkb brev8: funct7=0b0110100, rs2=0b00111, funct3=5.
+    if isa.zbkb && funct7 == 0b0110100 && rs2f == 0b00111 {
+        return base(Op::Brev8, w);
+    }
+    if isa.zbb {
         if funct6 == 0b011000 {
             return with_imm(Op::Rori, w, shamt);
         }
@@ -727,6 +789,14 @@ fn decode_op(w: u32, isa: &Isa) -> Insn {
             _ => {}
         }
     }
+    // Zbkb pack/packh.
+    if isa.zbkb && f7 == 0b0000100 {
+        match f3 {
+            4 => return base(Op::Pack, w),
+            7 => return base(Op::Packh, w),
+            _ => {}
+        }
+    }
     // Base RV32I/RV64I.
     let op = match (f7, f3) {
         (0b0000000, 0) => Op::Add,
@@ -780,6 +850,10 @@ fn decode_op32(w: u32, isa: &Isa) -> Insn {
                 _ => {}
             }
         }
+    }
+    // Zbkb packw (RV64): funct7=0b0000100, funct3=4, rs2 != 0.
+    if isa.zbkb && f7 == 0b0000100 && f3 == 4 && rs2(w) != 0 {
+        return base(Op::Packw, w);
     }
     let op = match (f7, f3) {
         (0b0000000, 0) => Op::Addw,
@@ -871,6 +945,7 @@ fn decode_amo(w: u32, rv64: bool) -> Insn {
 
 fn decode_load_fp(w: u32, isa: &Isa) -> Insn {
     let op = match funct3(w) {
+        1 if isa.zfh => Op::Flh,
         2 => Op::Flw,
         3 if isa.d => Op::Fld,
         _ => return Insn::illegal(w, 4),
@@ -880,6 +955,7 @@ fn decode_load_fp(w: u32, isa: &Isa) -> Insn {
 
 fn decode_store_fp(w: u32, isa: &Isa) -> Insn {
     let op = match funct3(w) {
+        1 if isa.zfh => Op::Fsh,
         2 => Op::Fsw,
         3 if isa.d => Op::Fsd,
         _ => return Insn::illegal(w, 4),
@@ -887,10 +963,11 @@ fn decode_store_fp(w: u32, isa: &Isa) -> Insn {
     with_imm(op, w, imm_s(w))
 }
 
-fn decode_fma(single: Op, double: Op, w: u32, isa: &Isa) -> Insn {
+fn decode_fma(single: Op, double: Op, half: Op, w: u32, isa: &Isa) -> Insn {
     match funct2(w) {
         0b00 => base(single, w),
         0b01 if isa.d => base(double, w),
+        0b10 if isa.zfh => base(half, w),
         _ => Insn::illegal(w, 4),
     }
 }
@@ -918,6 +995,49 @@ fn decode_zfa(f7: u32, f3: u8, rs2f: u8, isa: &Isa) -> Option<Op> {
     })
 }
 
+/// Zfh half-precision ops layered over the OP-FP encoding space (`fmt = 10`).
+fn decode_zfh(f7: u32, f3: u8, rs2f: u8, rv64: bool, isa: &Isa) -> Option<Op> {
+    let zfa = isa.zfa;
+    Some(match (f7, f3, rs2f) {
+        (0b0000010, _, _) => Op::FaddH,
+        (0b0000110, _, _) => Op::FsubH,
+        (0b0001010, _, _) => Op::FmulH,
+        (0b0001110, _, _) => Op::FdivH,
+        (0b0101110, _, 0) => Op::FsqrtH,
+        (0b0010010, 0, _) => Op::FsgnjH,
+        (0b0010010, 1, _) => Op::FsgnjnH,
+        (0b0010010, 2, _) => Op::FsgnjxH,
+        (0b0010110, 0, _) => Op::FminH,
+        (0b0010110, 1, _) => Op::FmaxH,
+        (0b0010110, 2, _) if zfa => Op::FminmH,
+        (0b0010110, 3, _) if zfa => Op::FmaxmH,
+        (0b0100000, _, 2) => Op::FcvtSH,
+        (0b0100010, _, 0) => Op::FcvtHS,
+        (0b0100001, _, 2) if isa.d => Op::FcvtDH,
+        (0b0100010, _, 1) if isa.d => Op::FcvtHD,
+        (0b0100010, _, 4) if zfa => Op::FroundH,
+        (0b0100010, _, 5) if zfa => Op::FroundnxH,
+        (0b1100010, _, 0) => Op::FcvtWH,
+        (0b1100010, _, 1) => Op::FcvtWuH,
+        (0b1100010, _, 2) if rv64 => Op::FcvtLH,
+        (0b1100010, _, 3) if rv64 => Op::FcvtLuH,
+        (0b1101010, _, 0) => Op::FcvtHW,
+        (0b1101010, _, 1) => Op::FcvtHWu,
+        (0b1101010, _, 2) if rv64 => Op::FcvtHL,
+        (0b1101010, _, 3) if rv64 => Op::FcvtHLu,
+        (0b1110010, 0, 0) => Op::FmvXH,
+        (0b1110010, 1, 0) => Op::FclassH,
+        (0b1111010, 0, 0) => Op::FmvHX,
+        (0b1111010, 0, 1) if zfa => Op::FliH,
+        (0b1010010, 0, _) => Op::FleH,
+        (0b1010010, 1, _) => Op::FltH,
+        (0b1010010, 2, _) => Op::FeqH,
+        (0b1010010, 4, _) if zfa => Op::FleqH,
+        (0b1010010, 5, _) if zfa => Op::FltqH,
+        _ => return None,
+    })
+}
+
 fn decode_op_fp(w: u32, rv64: bool, isa: &Isa) -> Insn {
     let f7 = funct7(w);
     let f3 = funct3(w);
@@ -925,6 +1045,11 @@ fn decode_op_fp(w: u32, rv64: bool, isa: &Isa) -> Insn {
     let d = isa.d;
     if isa.zfa {
         if let Some(op) = decode_zfa(f7, f3, rs2f, isa) {
+            return base(op, w);
+        }
+    }
+    if isa.zfh {
+        if let Some(op) = decode_zfh(f7, f3, rs2f, rv64, isa) {
             return base(op, w);
         }
     }

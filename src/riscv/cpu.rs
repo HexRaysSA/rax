@@ -606,6 +606,16 @@ impl RiscVCpu {
             Op::CzeroEqz => self.set_x(rd, if b == 0 { 0 } else { a }),
             Op::CzeroNez => self.set_x(rd, if b != 0 { 0 } else { a }),
 
+            // ---- Zbkb ----
+            Op::Pack => {
+                let half = self.xbits() / 2;
+                let mask = (1u64 << half) - 1;
+                self.set_x(rd, ((b & mask) << half) | (a & mask));
+            }
+            Op::Packh => self.set_x(rd, ((b & 0xff) << 8) | (a & 0xff)),
+            Op::Packw => self.set_x(rd, word((((b & 0xffff) << 16) | (a & 0xffff)) as u32)),
+            Op::Brev8 => self.set_x(rd, brev8(a) & self.xmask()),
+
             Op::Illegal => return Err(Trap::illegal(insn.raw)),
 
             // FP handled above via exec_fp.
@@ -1106,6 +1116,26 @@ impl RiscVCpu {
     fn s32(&self, i: u8) -> u64 {
         self.rf32(i).to_bits() as u64
     }
+    /// Read a half-precision operand, applying NaN-unboxing (upper 48 bits == 1).
+    #[inline]
+    fn rf16(&self, i: u8) -> u16 {
+        let bits = self.f(i);
+        if (bits >> 16) == 0xffff_ffff_ffff {
+            bits as u16
+        } else {
+            0x7e00 // canonical half qNaN
+        }
+    }
+    /// Write a half-precision result, NaN-boxing into the 64-bit register.
+    #[inline]
+    fn wf16(&mut self, rd: u8, bits: u16) {
+        self.set_f(rd, 0xffff_ffff_ffff_0000 | bits as u64);
+    }
+    /// Unboxed half-precision operand as a raw 16-bit pattern (in a u64).
+    #[inline]
+    fn h(&self, i: u8) -> u64 {
+        self.rf16(i) as u64
+    }
     /// Write a single-precision result, NaN-boxing into the 64-bit register.
     #[inline]
     fn wf32(&mut self, rd: u8, bits: u32) {
@@ -1142,6 +1172,11 @@ impl RiscVCpu {
                 | Op::FminmS | Op::FmaxmS | Op::FminmD | Op::FmaxmD
                 | Op::FleqS | Op::FltqS | Op::FleqD | Op::FltqD
                 | Op::FcvtmodWD
+                // Zfh sub-op / non-rounding encodings
+                | Op::Flh | Op::Fsh
+                | Op::FsgnjH | Op::FsgnjnH | Op::FsgnjxH | Op::FminH | Op::FmaxH
+                | Op::FeqH | Op::FltH | Op::FleH | Op::FclassH | Op::FmvXH | Op::FmvHX
+                | Op::FliH | Op::FminmH | Op::FmaxmH | Op::FleqH | Op::FltqH
         );
         let rm = if needs_rm {
             match self.eff_rm(insn.rm()) {
@@ -1444,6 +1479,148 @@ impl RiscVCpu {
             }
             Op::FcvtmodWD => self.set_x(rd, ff::fcvtmod_w_d(self.rf64(rs1), &mut flags)),
 
+            // ---- Zfh half-precision ----
+            Op::Flh => {
+                let addr = self.x(rs1).wrapping_add(insn.imm as u64) & self.xmask();
+                let v = self.mem.read_u16(addr).map_err(|_| acc_fault(false, addr))?;
+                self.wf16(rd, v);
+            }
+            Op::Fsh => {
+                let addr = self.x(rs1).wrapping_add(insn.imm as u64) & self.xmask();
+                self.mem
+                    .write_u16(addr, self.f(rs2) as u16)
+                    .map_err(|_| acc_fault(true, addr))?;
+            }
+            Op::FaddH => {
+                let r = ff::sf_add(ff::F16, self.h(rs1), self.h(rs2), rm, &mut flags);
+                self.wf16(rd, r as u16);
+            }
+            Op::FsubH => {
+                let r = ff::sf_sub(ff::F16, self.h(rs1), self.h(rs2), rm, &mut flags);
+                self.wf16(rd, r as u16);
+            }
+            Op::FmulH => {
+                let r = ff::sf_mul(ff::F16, self.h(rs1), self.h(rs2), rm, &mut flags);
+                self.wf16(rd, r as u16);
+            }
+            Op::FdivH => {
+                let r = ff::sf_div(ff::F16, self.h(rs1), self.h(rs2), rm, &mut flags);
+                self.wf16(rd, r as u16);
+            }
+            Op::FsqrtH => {
+                let r = ff::sf_sqrt(ff::F16, self.h(rs1), rm, &mut flags);
+                self.wf16(rd, r as u16);
+            }
+            Op::FmaddH => {
+                let r = ff::sf_fma(ff::F16, self.h(rs1), self.h(rs2), self.h(rs3), rm, &mut flags);
+                self.wf16(rd, r as u16);
+            }
+            Op::FmsubH => {
+                let r = ff::sf_fma(ff::F16, self.h(rs1), self.h(rs2), neg16(self.h(rs3)), rm, &mut flags);
+                self.wf16(rd, r as u16);
+            }
+            Op::FnmsubH => {
+                let r = ff::sf_fma(ff::F16, neg16(self.h(rs1)), self.h(rs2), self.h(rs3), rm, &mut flags);
+                self.wf16(rd, r as u16);
+            }
+            Op::FnmaddH => {
+                let r = ff::sf_fma(ff::F16, neg16(self.h(rs1)), self.h(rs2), neg16(self.h(rs3)), rm, &mut flags);
+                self.wf16(rd, r as u16);
+            }
+            Op::FsgnjH | Op::FsgnjnH | Op::FsgnjxH => {
+                let a = self.rf16(rs1);
+                let b = self.rf16(rs2);
+                let sign = match insn.op {
+                    Op::FsgnjH => b & 0x8000,
+                    Op::FsgnjnH => !b & 0x8000,
+                    _ => (a ^ b) & 0x8000,
+                };
+                self.wf16(rd, (a & 0x7fff) | sign);
+            }
+            Op::FminH => {
+                let r = ff::fmin_h(self.rf16(rs1), self.rf16(rs2), &mut flags);
+                self.wf16(rd, r);
+            }
+            Op::FmaxH => {
+                let r = ff::fmax_h(self.rf16(rs1), self.rf16(rs2), &mut flags);
+                self.wf16(rd, r);
+            }
+            Op::FminmH => {
+                let r = ff::fminm_h(self.rf16(rs1), self.rf16(rs2), &mut flags);
+                self.wf16(rd, r);
+            }
+            Op::FmaxmH => {
+                let r = ff::fmaxm_h(self.rf16(rs1), self.rf16(rs2), &mut flags);
+                self.wf16(rd, r);
+            }
+            Op::FeqH => self.set_x(rd, ff::feq_h(self.rf16(rs1), self.rf16(rs2), &mut flags) as u64),
+            Op::FltH => self.set_x(rd, ff::flt_h(self.rf16(rs1), self.rf16(rs2), &mut flags) as u64),
+            Op::FleH => self.set_x(rd, ff::fle_h(self.rf16(rs1), self.rf16(rs2), &mut flags) as u64),
+            Op::FleqH => self.set_x(rd, ff::fleq_h(self.rf16(rs1), self.rf16(rs2), &mut flags) as u64),
+            Op::FltqH => self.set_x(rd, ff::fltq_h(self.rf16(rs1), self.rf16(rs2), &mut flags) as u64),
+            Op::FclassH => self.set_x(rd, ff::fclass_bits(ff::F16, self.h(rs1))),
+            Op::FroundH => {
+                let r = ff::fround_h(self.rf16(rs1), rm, false, &mut flags);
+                self.wf16(rd, r);
+            }
+            Op::FroundnxH => {
+                let r = ff::fround_h(self.rf16(rs1), rm, true, &mut flags);
+                self.wf16(rd, r);
+            }
+            Op::FliH => self.wf16(rd, ff::fli(ff::F16, rs1) as u16),
+            // half <-> single/double
+            Op::FcvtSH => {
+                let r = ff::fcvt_round(ff::F16, ff::F32, self.h(rs1), rm, &mut flags);
+                self.wf32(rd, r as u32);
+            }
+            Op::FcvtHS => {
+                let r = ff::fcvt_round(ff::F32, ff::F16, self.s32(rs1), rm, &mut flags);
+                self.wf16(rd, r as u16);
+            }
+            Op::FcvtDH => {
+                let r = ff::fcvt_round(ff::F16, ff::F64, self.h(rs1), rm, &mut flags);
+                self.wf64(rd, r);
+            }
+            Op::FcvtHD => {
+                let r = ff::fcvt_round(ff::F64, ff::F16, self.f(rs1), rm, &mut flags);
+                self.wf16(rd, r as u16);
+            }
+            // half <-> integer
+            Op::FcvtWH => {
+                let w = ff::h_widen(self.rf16(rs1));
+                self.set_x(rd, ff::ftoi(w, true, 32, rm, &mut flags));
+            }
+            Op::FcvtWuH => {
+                let w = ff::h_widen(self.rf16(rs1));
+                self.set_x(rd, ff::ftoi(w, false, 32, rm, &mut flags));
+            }
+            Op::FcvtLH => {
+                let w = ff::h_widen(self.rf16(rs1));
+                self.set_x(rd, ff::ftoi(w, true, 64, rm, &mut flags));
+            }
+            Op::FcvtLuH => {
+                let w = ff::h_widen(self.rf16(rs1));
+                self.set_x(rd, ff::ftoi(w, false, 64, rm, &mut flags));
+            }
+            Op::FcvtHW => {
+                let r = ff::itof_fmt(ff::F16, self.x(rs1) as i32 as i128, rm, &mut flags);
+                self.wf16(rd, r as u16);
+            }
+            Op::FcvtHWu => {
+                let r = ff::itof_fmt(ff::F16, self.x(rs1) as u32 as i128, rm, &mut flags);
+                self.wf16(rd, r as u16);
+            }
+            Op::FcvtHL => {
+                let r = ff::itof_fmt(ff::F16, self.x(rs1) as i64 as i128, rm, &mut flags);
+                self.wf16(rd, r as u16);
+            }
+            Op::FcvtHLu => {
+                let r = ff::itof_fmt(ff::F16, self.x(rs1) as i128, rm, &mut flags);
+                self.wf16(rd, r as u16);
+            }
+            Op::FmvXH => self.set_x(rd, self.f(rs1) as u16 as i16 as i64 as u64),
+            Op::FmvHX => self.wf16(rd, self.x(rs1) as u16),
+
             _ => return Err(Trap::illegal(insn.raw)),
         }
 
@@ -1465,6 +1642,11 @@ fn neg32(bits: u64) -> u64 {
 #[inline]
 fn neg64(bits: u64) -> u64 {
     bits ^ 0x8000_0000_0000_0000
+}
+/// Flip the sign bit of a half-precision bit pattern.
+#[inline]
+fn neg16(bits: u64) -> u64 {
+    bits ^ 0x8000
 }
 
 /// Sign-extend the low `size` bytes of `raw` to 64 bits.
@@ -1599,6 +1781,16 @@ fn rev8(a: u64, rv32: bool) -> u64 {
     } else {
         a.swap_bytes()
     }
+}
+
+/// Zbkb `brev8`: reverse the bit order within each byte.
+fn brev8(a: u64) -> u64 {
+    let mut out = 0u64;
+    for i in 0..8 {
+        let byte = ((a >> (i * 8)) & 0xff) as u8;
+        out |= (byte.reverse_bits() as u64) << (i * 8);
+    }
+    out
 }
 
 /// Carry-less multiply (low XLEN bits).

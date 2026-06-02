@@ -675,10 +675,10 @@ pub fn fli(fmt: Fmt, idx: u8) -> u64 {
         31 => fmt.canon(),               // canonical qNaN
         i => {
             let v = TBL[i as usize];
-            if fmt.p == F32.p {
-                (v as f32).to_bits() as u64
-            } else {
-                v.to_bits()
+            match fmt.p {
+                p if p == F64.p => v.to_bits(),
+                p if p == F32.p => (v as f32).to_bits() as u64,
+                _ => fcvt_round(F64, fmt, v.to_bits(), RoundingMode::Rne, &mut 0u32),
             }
         }
     }
@@ -925,6 +925,266 @@ pub fn f32_to_f64(x: f32, flags: &mut u32) -> u64 {
 }
 
 // ===========================================================================
+// Format-generic helpers (used by all of F16/F32/F64, notably half precision).
+// ===========================================================================
+
+/// Generic add: `a + b` in `fmt`.
+pub fn sf_add(fmt: Fmt, a: u64, b: u64, mode: RoundingMode, flags: &mut u32) -> u64 {
+    let (da, db) = (decompose(fmt, a), decompose(fmt, b));
+    if matches!(da, Dec::Nan(_)) || matches!(db, Dec::Nan(_)) {
+        if matches!(da, Dec::Nan(true)) || matches!(db, Dec::Nan(true)) {
+            *flags |= fflags::NV;
+        }
+        return fmt.canon();
+    }
+    match (da, db) {
+        (Dec::Inf(s1), Dec::Inf(s2)) => {
+            if s1 != s2 {
+                *flags |= fflags::NV;
+                fmt.canon()
+            } else {
+                fmt.pack_inf(s1)
+            }
+        }
+        (Dec::Inf(s), _) | (_, Dec::Inf(s)) => fmt.pack_inf(s),
+        (Dec::Zero(s1), Dec::Zero(s2)) => {
+            if s1 == s2 {
+                fmt.pack_zero(s1)
+            } else {
+                fmt.pack_zero(mode == RoundingMode::Rdn)
+            }
+        }
+        (Dec::Zero(_), _) => b,
+        (_, Dec::Zero(_)) => a,
+        (
+            Dec::Finite { sign: s1, mant: m1, exp: e1 },
+            Dec::Finite { sign: s2, mant: m2, exp: e2 },
+        ) => add_wide(fmt, s1, m1 as u128, e1, s2, m2 as u128, e2, mode, flags),
+        _ => unreachable!(),
+    }
+}
+
+/// Generic subtract: `a - b` in `fmt`.
+pub fn sf_sub(fmt: Fmt, a: u64, b: u64, mode: RoundingMode, flags: &mut u32) -> u64 {
+    sf_add(fmt, a, b ^ fmt.sign_bit(), mode, flags)
+}
+
+/// Generic float-to-float conversion (rounds when narrowing, exact when
+/// widening). Replaces the bespoke `f64<->f32` helpers and supports half.
+pub fn fcvt_round(src: Fmt, dst: Fmt, bits: u64, mode: RoundingMode, flags: &mut u32) -> u64 {
+    match decompose(src, bits) {
+        Dec::Nan(sig) => {
+            if sig {
+                *flags |= fflags::NV;
+            }
+            dst.canon()
+        }
+        Dec::Inf(s) => dst.pack_inf(s),
+        Dec::Zero(s) => dst.pack_zero(s),
+        Dec::Finite { sign, mant, exp } => {
+            round_pack(dst, sign, mant as u128, exp, false, mode, flags)
+        }
+    }
+}
+
+/// Generic integer-to-float conversion into `fmt`.
+pub fn itof_fmt(fmt: Fmt, v: i128, mode: RoundingMode, flags: &mut u32) -> u64 {
+    if v == 0 {
+        return 0;
+    }
+    round_pack(fmt, v < 0, v.unsigned_abs(), 0, false, mode, flags)
+}
+
+/// Format-generic 10-bit classification mask.
+pub fn fclass_bits(fmt: Fmt, bits: u64) -> u64 {
+    match decompose(fmt, bits) {
+        Dec::Nan(sig) => {
+            if sig {
+                1 << 8
+            } else {
+                1 << 9
+            }
+        }
+        Dec::Inf(s) => {
+            if s {
+                1 << 0
+            } else {
+                1 << 7
+            }
+        }
+        Dec::Zero(s) => {
+            if s {
+                1 << 3
+            } else {
+                1 << 4
+            }
+        }
+        Dec::Finite { sign, mant, .. } => {
+            let subnormal = mant < (1u64 << (fmt.p - 1));
+            match (sign, subnormal) {
+                (true, true) => 1 << 2,
+                (false, true) => 1 << 5,
+                (true, false) => 1 << 1,
+                (false, false) => 1 << 6,
+            }
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Half-precision (Zfh) min/max, compares and round-to-integral. These widen to
+// f32 (exact, since f16 ⊂ f32) for ordering, with signaling detection on the
+// raw 16-bit operands.
+// ---------------------------------------------------------------------------
+
+/// Widen a half to f32 exactly.
+pub fn h_widen(bits: u16) -> f32 {
+    f32::from_bits(fcvt_round(F16, F32, bits as u64, RoundingMode::Rne, &mut 0u32) as u32)
+}
+fn h_snan(bits: u16) -> bool {
+    matches!(decompose(F16, bits as u64), Dec::Nan(true))
+}
+fn h_nan(bits: u16) -> bool {
+    matches!(decompose(F16, bits as u64), Dec::Nan(_))
+}
+const H_CANON: u16 = 0x7e00;
+
+/// `fmin.h` / `fminm.h` (NaN-propagating when `propagate`).
+fn hmin(a: u16, b: u16, propagate: bool, flags: &mut u32) -> u16 {
+    if h_snan(a) || h_snan(b) {
+        *flags |= fflags::NV;
+    }
+    let (an, bn) = (h_nan(a), h_nan(b));
+    if propagate && (an || bn) {
+        return H_CANON;
+    }
+    if an && bn {
+        return H_CANON;
+    }
+    if an {
+        return b;
+    }
+    if bn {
+        return a;
+    }
+    let (af, bf) = (h_widen(a), h_widen(b));
+    if af == 0.0 && bf == 0.0 {
+        return if (a >> 15) & 1 == 1 { a } else { b };
+    }
+    if af < bf {
+        a
+    } else {
+        b
+    }
+}
+/// `fmax.h` / `fmaxm.h`.
+fn hmax(a: u16, b: u16, propagate: bool, flags: &mut u32) -> u16 {
+    if h_snan(a) || h_snan(b) {
+        *flags |= fflags::NV;
+    }
+    let (an, bn) = (h_nan(a), h_nan(b));
+    if propagate && (an || bn) {
+        return H_CANON;
+    }
+    if an && bn {
+        return H_CANON;
+    }
+    if an {
+        return b;
+    }
+    if bn {
+        return a;
+    }
+    let (af, bf) = (h_widen(a), h_widen(b));
+    if af == 0.0 && bf == 0.0 {
+        return if (a >> 15) & 1 == 1 { b } else { a };
+    }
+    if af > bf {
+        a
+    } else {
+        b
+    }
+}
+pub fn fmin_h(a: u16, b: u16, flags: &mut u32) -> u16 {
+    hmin(a, b, false, flags)
+}
+pub fn fmax_h(a: u16, b: u16, flags: &mut u32) -> u16 {
+    hmax(a, b, false, flags)
+}
+pub fn fminm_h(a: u16, b: u16, flags: &mut u32) -> u16 {
+    hmin(a, b, true, flags)
+}
+pub fn fmaxm_h(a: u16, b: u16, flags: &mut u32) -> u16 {
+    hmax(a, b, true, flags)
+}
+
+/// Half compares. `signaling` raises NV on any NaN; otherwise only on sNaN.
+fn hcmp_eq(a: u16, b: u16, signaling: bool, flags: &mut u32) -> bool {
+    if h_snan(a) || h_snan(b) || (signaling && (h_nan(a) || h_nan(b))) {
+        *flags |= fflags::NV;
+    }
+    if h_nan(a) || h_nan(b) {
+        return false;
+    }
+    h_widen(a) == h_widen(b)
+}
+fn hcmp_lt(a: u16, b: u16, signaling: bool, flags: &mut u32) -> bool {
+    if h_snan(a) || h_snan(b) || (signaling && (h_nan(a) || h_nan(b))) {
+        *flags |= fflags::NV;
+    }
+    if h_nan(a) || h_nan(b) {
+        return false;
+    }
+    h_widen(a) < h_widen(b)
+}
+fn hcmp_le(a: u16, b: u16, signaling: bool, flags: &mut u32) -> bool {
+    if h_snan(a) || h_snan(b) || (signaling && (h_nan(a) || h_nan(b))) {
+        *flags |= fflags::NV;
+    }
+    if h_nan(a) || h_nan(b) {
+        return false;
+    }
+    h_widen(a) <= h_widen(b)
+}
+pub fn feq_h(a: u16, b: u16, flags: &mut u32) -> bool {
+    hcmp_eq(a, b, false, flags)
+}
+pub fn flt_h(a: u16, b: u16, flags: &mut u32) -> bool {
+    hcmp_lt(a, b, true, flags)
+}
+pub fn fle_h(a: u16, b: u16, flags: &mut u32) -> bool {
+    hcmp_le(a, b, true, flags)
+}
+pub fn fleq_h(a: u16, b: u16, flags: &mut u32) -> bool {
+    hcmp_le(a, b, false, flags)
+}
+pub fn fltq_h(a: u16, b: u16, flags: &mut u32) -> bool {
+    hcmp_lt(a, b, false, flags)
+}
+
+/// `fround.h` / `froundnx.h`.
+pub fn fround_h(bits: u16, mode: RoundingMode, set_nx: bool, flags: &mut u32) -> u16 {
+    match decompose(F16, bits as u64) {
+        Dec::Nan(sig) => {
+            if sig {
+                *flags |= fflags::NV;
+            }
+            H_CANON
+        }
+        Dec::Inf(_) | Dec::Zero(_) => bits,
+        Dec::Finite { .. } => {
+            let r = h_widen(bits).round_integral(mode);
+            let rbits =
+                fcvt_round(F32, F16, r.to_bits() as u64, mode, &mut 0u32) as u16;
+            if set_nx && rbits != bits {
+                *flags |= fflags::NX;
+            }
+            rbits
+        }
+    }
+}
+
+// ===========================================================================
 // Integer-significand soft-float for mul / div / sqrt / fma.
 //
 // These operations need exact intermediate significands (up to 2x precision for
@@ -943,6 +1203,8 @@ pub struct Fmt {
     exp_bits: u32,
 }
 
+/// Half precision (binary16).
+pub const F16: Fmt = Fmt { p: 11, exp_bits: 5 };
 /// Single precision (binary32).
 pub const F32: Fmt = Fmt { p: 24, exp_bits: 8 };
 /// Double precision (binary64).

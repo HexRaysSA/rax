@@ -28,7 +28,7 @@ use std::io::{Read, Write};
 use std::path::PathBuf;
 use std::process::{Command, Stdio};
 
-use rax::riscv::decode::{decode_compressed, Op};
+use rax::riscv::decode::{decode, decode_compressed, Op};
 use rax::riscv::{FlatMemory, Isa, RiscVConfig, RiscVCpu, RiscVExit, Xlen};
 
 // ---------------------------------------------------------------------------
@@ -1661,6 +1661,196 @@ fn diff_zfa() {
         let rd = POOL[(rng.next() % 6) as usize];
         let f1 = FPOOL[(rng.next() % 8) as usize];
         batch.push(("fcvtmod.w.d".into(), fp(0x61, 8, f1, 1, rd), fp_state_d(&mut rng, f1, 0, 0, 0)));
+    }
+    run_batch(&batch, true);
+}
+
+// ---------------------------------------------------------------------------
+// Opcode-constrained decode/execute fuzzer: random words across the register-
+// only opcode spaces (OP, OP-IMM, OP-32, OP-IMM-32, OP-FP, FMADD..FNMADD) with
+// full random state. Proves decode+execute agreement with qemu across the
+// entire encoding space (catches any instruction qemu implements that rax does
+// not, and vice versa). rd/rs1 are constrained to a safe pool so a write or
+// read never touches gp/tp (reserved by the oracle).
+// ---------------------------------------------------------------------------
+
+#[test]
+fn diff_decode_fuzz() {
+    let mut rng = Rng::new(0xDEC0_DE99);
+    let opcodes: [u32; 9] = [0x33, 0x13, 0x3b, 0x1b, 0x53, 0x43, 0x47, 0x4b, 0x4f];
+    let safe: [u32; 11] = [1, 5, 6, 7, 8, 9, 10, 11, 12, 28, 31];
+    let mut batch = Vec::with_capacity(60000);
+    for _ in 0..60000 {
+        let opc = opcodes[(rng.next() as usize) % opcodes.len()];
+        let mut w = (rng.next() as u32 & !0x7f) | opc;
+        let rd = safe[(rng.next() as usize) % 11];
+        let rs1 = safe[(rng.next() as usize) % 11];
+        w = (w & !(0x1f << 7)) | (rd << 7);
+        w = (w & !(0x1f << 15)) | (rs1 << 15);
+        // For integer register-register ops, rs2 is a GPR read: keep it safe.
+        if opc == 0x33 || opc == 0x3b {
+            let rs2 = safe[(rng.next() as usize) % 11];
+            w = (w & !(0x1f << 20)) | (rs2 << 20);
+        }
+        // Scope to the encodings rax implements: this fuzzer proves that every
+        // instruction rax decodes matches qemu. Encodings rax does not decode
+        // (e.g. scalar-crypto extensions qemu enables) are out of scope here.
+        if decode(w, Xlen::Rv64, &Isa::rv64gc()).is_illegal() {
+            continue;
+        }
+        let mut st = rand_state(&mut rng);
+        for fi in st.f.iter_mut() {
+            *fi = match rng.next() % 4 {
+                0 => box32(rand_f32_bits(&mut rng)),
+                1 => rand_f64_bits(&mut rng),
+                2 => rng.next(),
+                _ => box32(rng.next() as u32),
+            };
+        }
+        st.fcsr = (rng.next() % 5) << 5;
+        batch.push(("decode".to_string(), w, st));
+    }
+    run_batch(&batch, true);
+}
+
+// ---------------------------------------------------------------------------
+// Zbkb (bit-manip for crypto).
+// ---------------------------------------------------------------------------
+
+#[test]
+fn diff_zbkb() {
+    let mut rng = Rng::new(0xB8B0);
+    let mut batch = Vec::new();
+    for _ in 0..70 {
+        let rd = POOL[(rng.next() % 6) as usize];
+        let rs1 = POOL[(rng.next() % 6) as usize];
+        let rs2 = POOL[(rng.next() % 6) as usize]; // pool excludes 0, so packw != zext.h
+        batch.push(("pack".into(), r_type(0b0000100, rs2, rs1, 4, rd, 0x33), rand_state(&mut rng)));
+        batch.push(("packh".into(), r_type(0b0000100, rs2, rs1, 7, rd, 0x33), rand_state(&mut rng)));
+        batch.push(("packw".into(), r_type(0b0000100, rs2, rs1, 4, rd, 0x3b), rand_state(&mut rng)));
+        batch.push(("brev8".into(), r_type(0b0110100, 0b00111, rs1, 5, rd, 0x13), rand_state(&mut rng)));
+    }
+    run_batch(&batch, false);
+}
+
+// ---------------------------------------------------------------------------
+// Zfh (half precision).
+// ---------------------------------------------------------------------------
+
+fn box16(b: u16) -> u64 {
+    0xffff_ffff_ffff_0000 | b as u64
+}
+fn rand_f16_bits(rng: &mut Rng) -> u16 {
+    match rng.next() % 16 {
+        0 => 0x0000,
+        1 => 0x8000,
+        2 => 0x7c00, // +inf
+        3 => 0xfc00, // -inf
+        4 => 0x7e00, // qNaN
+        5 => 0x7c01, // sNaN
+        6 => 0x3c00, // 1.0
+        7 => 0xbc00, // -1.0
+        8 => 0x0001, // min subnormal
+        9 => 0x0400, // min normal
+        10 => 0x7bff, // max normal
+        11 => (rng.next() as u16) & 0x83ff, // small exponent
+        _ => rng.next() as u16,
+    }
+}
+fn fp_state_h(rng: &mut Rng, fs1: u32, fs2: u32, fs3: u32, frm: u64) -> RvState {
+    let mut st = RvState::zeroed();
+    for i in 0..32usize {
+        st.f[i] = box16(0x7e00);
+    }
+    st.f[fs1 as usize] = box16(rand_f16_bits(rng));
+    st.f[fs2 as usize] = box16(rand_f16_bits(rng));
+    st.f[fs3 as usize] = box16(rand_f16_bits(rng));
+    st.fcsr = frm << 5;
+    st
+}
+
+#[test]
+fn diff_zfh() {
+    let mut rng = Rng::new(0x21F0);
+    let mut batch = Vec::new();
+    let modes: [(u32, u64); 6] = [(0, 0), (1, 0), (2, 0), (3, 0), (4, 0), (7, 2)];
+    // arithmetic (funct7 fmt=10)
+    let bin: &[(&str, u32)] = &[("fadd.h", 0x02), ("fsub.h", 0x06), ("fmul.h", 0x0a), ("fdiv.h", 0x0e)];
+    for (name, f7) in bin {
+        for &(rm, frm) in modes.iter() {
+            for _ in 0..12 {
+                let (fd, f1, f2) = (FPOOL[(rng.next() % 8) as usize], FPOOL[(rng.next() % 8) as usize], FPOOL[(rng.next() % 8) as usize]);
+                batch.push((name.to_string(), fp(*f7, f2, f1, rm, fd), fp_state_h(&mut rng, f1, f2, 0, frm)));
+            }
+        }
+    }
+    for &(rm, frm) in modes.iter() {
+        for _ in 0..15 {
+            let (fd, f1) = (FPOOL[(rng.next() % 8) as usize], FPOOL[(rng.next() % 8) as usize]);
+            batch.push(("fsqrt.h".into(), fp(0x2e, 0, f1, rm, fd), fp_state_h(&mut rng, f1, 0, 0, frm)));
+        }
+    }
+    // fma half (funct2=10)
+    for (name, opc) in [("fmadd.h", 0x43u32), ("fmsub.h", 0x47), ("fnmsub.h", 0x4b), ("fnmadd.h", 0x4f)] {
+        for &(rm, frm) in modes.iter() {
+            for _ in 0..8 {
+                let (fd, f1, f2, f3) = (FPOOL[(rng.next() % 8) as usize], FPOOL[(rng.next() % 8) as usize], FPOOL[(rng.next() % 8) as usize], FPOOL[(rng.next() % 8) as usize]);
+                batch.push((name.into(), fma_enc(f3, 0b10, f2, f1, rm, fd, opc), fp_state_h(&mut rng, f1, f2, f3, frm)));
+            }
+        }
+    }
+    // sgnj / min / max / minm / maxm
+    for _ in 0..40 {
+        let (fd, f1, f2) = (FPOOL[(rng.next() % 8) as usize], FPOOL[(rng.next() % 8) as usize], FPOOL[(rng.next() % 8) as usize]);
+        for f3 in 0..3u32 {
+            batch.push((format!("fsgnj.h{f3}"), fp(0x12, f2, f1, f3, fd), fp_state_h(&mut rng, f1, f2, 0, 0)));
+        }
+        batch.push(("fmin.h".into(), fp(0x16, f2, f1, 0, fd), fp_state_h(&mut rng, f1, f2, 0, 0)));
+        batch.push(("fmax.h".into(), fp(0x16, f2, f1, 1, fd), fp_state_h(&mut rng, f1, f2, 0, 0)));
+        batch.push(("fminm.h".into(), fp(0x16, f2, f1, 2, fd), fp_state_h(&mut rng, f1, f2, 0, 0)));
+        batch.push(("fmaxm.h".into(), fp(0x16, f2, f1, 3, fd), fp_state_h(&mut rng, f1, f2, 0, 0)));
+    }
+    // compares / class -> int rd
+    for _ in 0..40 {
+        let (rd, f1, f2) = (POOL[(rng.next() % 6) as usize], FPOOL[(rng.next() % 8) as usize], FPOOL[(rng.next() % 8) as usize]);
+        batch.push(("feq.h".into(), fp(0x52, f2, f1, 2, rd), fp_state_h(&mut rng, f1, f2, 0, 0)));
+        batch.push(("flt.h".into(), fp(0x52, f2, f1, 1, rd), fp_state_h(&mut rng, f1, f2, 0, 0)));
+        batch.push(("fle.h".into(), fp(0x52, f2, f1, 0, rd), fp_state_h(&mut rng, f1, f2, 0, 0)));
+        batch.push(("fleq.h".into(), fp(0x52, f2, f1, 4, rd), fp_state_h(&mut rng, f1, f2, 0, 0)));
+        batch.push(("fltq.h".into(), fp(0x52, f2, f1, 5, rd), fp_state_h(&mut rng, f1, f2, 0, 0)));
+        batch.push(("fclass.h".into(), fp(0x72, 0, f1, 1, rd), fp_state_h(&mut rng, f1, 0, 0, 0)));
+        batch.push(("fmv.x.h".into(), fp(0x72, 0, f1, 0, rd), fp_state_h(&mut rng, f1, 0, 0, 0)));
+    }
+    // round
+    for &(rm, frm) in modes.iter() {
+        for _ in 0..12 {
+            let (fd, f1) = (FPOOL[(rng.next() % 8) as usize], FPOOL[(rng.next() % 8) as usize]);
+            batch.push(("fround.h".into(), fp(0x22, 4, f1, rm, fd), fp_state_h(&mut rng, f1, 0, 0, frm)));
+            batch.push(("froundnx.h".into(), fp(0x22, 5, f1, rm, fd), fp_state_h(&mut rng, f1, 0, 0, frm)));
+        }
+    }
+    // conversions half<->single/double, half<->int, fli.h, fmv.h.x
+    for &(rm, frm) in modes.iter() {
+        for _ in 0..15 {
+            let (fd, f1, ri) = (FPOOL[(rng.next() % 8) as usize], FPOOL[(rng.next() % 8) as usize], POOL[(rng.next() % 6) as usize]);
+            batch.push(("fcvt.s.h".into(), fp(0x20, 2, f1, rm, fd), fp_state_h(&mut rng, f1, 0, 0, frm)));
+            batch.push(("fcvt.d.h".into(), fp(0x21, 2, f1, rm, fd), fp_state_h(&mut rng, f1, 0, 0, frm)));
+            batch.push(("fcvt.h.s".into(), fp(0x22, 0, f1, rm, fd), fp_state_s(&mut rng, f1, 0, 0, frm)));
+            batch.push(("fcvt.h.d".into(), fp(0x22, 1, f1, rm, fd), fp_state_d(&mut rng, f1, 0, 0, frm)));
+            for (name, rs2) in [("fcvt.w.h", 0u32), ("fcvt.wu.h", 1), ("fcvt.l.h", 2), ("fcvt.lu.h", 3)] {
+                batch.push((name.into(), fp(0x62, rs2, f1, rm, POOL[(rng.next() % 6) as usize]), fp_state_h(&mut rng, f1, 0, 0, frm)));
+            }
+            let mut st_i = rand_state(&mut rng);
+            st_i.fcsr = frm << 5;
+            for (name, rs2) in [("fcvt.h.w", 0u32), ("fcvt.h.wu", 1), ("fcvt.h.l", 2), ("fcvt.h.lu", 3)] {
+                batch.push((name.into(), fp(0x6a, rs2, ri, rm, fd), st_i));
+            }
+            batch.push(("fmv.h.x".into(), fp(0x7a, 0, ri, 0, fd), st_i));
+        }
+    }
+    for idx in 0..32u32 {
+        let fd = FPOOL[(rng.next() % 8) as usize];
+        batch.push((format!("fli.h#{idx}"), fp(0x7a, 1, idx, 0, fd), RvState::zeroed()));
     }
     run_batch(&batch, true);
 }

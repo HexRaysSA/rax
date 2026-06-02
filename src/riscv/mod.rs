@@ -100,6 +100,10 @@ pub struct Isa {
     pub zicond: bool,
     /// Zfa: additional floating-point instructions.
     pub zfa: bool,
+    /// Zbkb: bit-manipulation for cryptography.
+    pub zbkb: bool,
+    /// Zfh: half-precision floating point.
+    pub zfh: bool,
 }
 
 impl Isa {
@@ -119,6 +123,8 @@ impl Isa {
             zbs: true,
             zicond: true,
             zfa: true,
+            zbkb: true,
+            zfh: true,
         }
     }
 
@@ -138,6 +144,8 @@ impl Isa {
             zbs: false,
             zicond: false,
             zfa: false,
+            zbkb: false,
+            zfh: false,
         }
     }
 
