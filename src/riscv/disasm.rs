@@ -415,6 +415,9 @@ impl Op {
             Vaadd => "vaadd",
             Vasubu => "vasubu",
             Vasub => "vasub",
+            Vssrl => "vssrl",
+            Vssra => "vssra",
+            Vsmul => "vsmul",
             Illegal => "illegal",
         }
     }

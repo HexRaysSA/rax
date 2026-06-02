@@ -458,6 +458,10 @@ pub enum Op {
     Vaadd,
     Vasubu,
     Vasub,
+    // ---- V (scaling shift / fractional multiply) ----
+    Vssrl,
+    Vssra,
+    Vsmul,
     // ---- sentinel ----
     Illegal,
 }
@@ -741,6 +745,10 @@ fn decode_vector(w: u32) -> Insn {
             0b100001 => Op::Vsadd,
             0b100010 if f3 != 0b011 => Op::Vssubu,
             0b100011 if f3 != 0b011 => Op::Vssub,
+            // Scaling shift right (vv/vx/vi) and fractional multiply (vv/vx).
+            0b101010 => Op::Vssrl,
+            0b101011 => Op::Vssra,
+            0b100111 if f3 != 0b011 => Op::Vsmul,
             _ => return Insn::illegal(w, 4),
         };
         return base(op, w);

@@ -763,7 +763,7 @@ impl RiscVCpu {
             | Op::Vfslide1up | Op::Vfslide1down | Op::Vrgather | Op::Vrgatherei16
             | Op::Vcompress | Op::Vadc | Op::Vmadc | Op::Vsbc | Op::Vmsbc | Op::Vsaddu
             | Op::Vsadd | Op::Vssubu | Op::Vssub | Op::Vaaddu | Op::Vaadd | Op::Vasubu
-            | Op::Vasub => self.exec_vector(insn)?,
+            | Op::Vasub | Op::Vssrl | Op::Vssra | Op::Vsmul => self.exec_vector(insn)?,
 
             Op::Illegal => return Err(Trap::illegal(insn.raw)),
 
@@ -1756,6 +1756,68 @@ impl RiscVCpu {
                     }
                     let v = if e + 1 < vl { self.velem(vs2, e + 1, eb) } else { scalar };
                     self.set_velem(vd, e, eb, v & mask);
+                }
+            }
+            Op::Vssrl | Op::Vssra => {
+                // Scaling shift right by (amount & (SEW-1)), rounded per vxrm.
+                let eb = self.sew_bytes();
+                let mask = Self::sew_mask(eb);
+                let bits = (eb * 8) as u32;
+                let shmask = bits - 1;
+                let vxrm = self.vxrm;
+                let scalar = match insn.funct3 {
+                    0b100 => self.x(insn.rs1),
+                    0b011 => insn.rs1 as u64, // unsigned 5-bit shift immediate
+                    _ => 0,
+                };
+                let is_vv = insn.funct3 == 0b000;
+                for e in vstart..vl {
+                    if !vm && !self.vmask_bit(e) {
+                        continue;
+                    }
+                    let a = self.velem(vs2, e, eb);
+                    let sh = (if is_vv { self.velem(insn.rs1, e, eb) } else { scalar }) as u32
+                        & shmask;
+                    let incr = round_incr(a as u128, sh, vxrm);
+                    let res = if insn.op == Op::Vssrl {
+                        ((a >> sh) as u128 + incr) as u64
+                    } else {
+                        (sext_sew(a, eb) >> sh).wrapping_add(incr as i64) as u64
+                    };
+                    self.set_velem(vd, e, eb, res & mask);
+                }
+            }
+            Op::Vsmul => {
+                // Signed fractional multiply: (a*b) >> (SEW-1), rounded + saturated.
+                let eb = self.sew_bytes();
+                let mask = Self::sew_mask(eb);
+                let bits = (eb * 8) as u32;
+                let smax = (1i128 << (bits - 1)) - 1;
+                let smin = -(1i128 << (bits - 1));
+                let vxrm = self.vxrm;
+                let is_vv = insn.funct3 == 0b000;
+                let scalar = self.x(insn.rs1) & mask;
+                let mut sat = false;
+                for e in vstart..vl {
+                    if !vm && !self.vmask_bit(e) {
+                        continue;
+                    }
+                    let a = self.velem(vs2, e, eb);
+                    let b = if is_vv { self.velem(insn.rs1, e, eb) } else { scalar };
+                    let prod = sext_sew(a, eb) as i128 * sext_sew(b, eb) as i128;
+                    let incr = round_incr(prod as u128, bits - 1, vxrm) as i128;
+                    let mut r = (prod >> (bits - 1)) + incr;
+                    if r > smax {
+                        r = smax;
+                        sat = true;
+                    } else if r < smin {
+                        r = smin;
+                        sat = true;
+                    }
+                    self.set_velem(vd, e, eb, r as u64 & mask);
+                }
+                if sat {
+                    self.vxsat = 1;
                 }
             }
             Op::Vaaddu | Op::Vaadd | Op::Vasubu | Op::Vasub => {

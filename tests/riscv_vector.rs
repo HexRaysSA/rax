@@ -1200,6 +1200,46 @@ fn diff_v_avg() {
 }
 
 #[test]
+fn diff_v_scale() {
+    let mut rng = Rng::new(0x7EC_800);
+    let mut batch = Vec::new();
+    for sew_log2 in 0..4u32 {
+        let vmax = vlmax(sew_log2);
+        for vl in [vmax, (vmax / 2).max(1)] {
+            for vxrm in 0..4u64 {
+                for k in 0..4 {
+                    let vd = VPOOL[(rng.next() % 6) as usize];
+                    let vs2 = VPOOL[(rng.next() % 6) as usize];
+                    let vs1 = VPOOL[(rng.next() % 6) as usize];
+                    let rs1 = XPOOL[(rng.next() % 5) as usize];
+                    let imm = (rng.next() & 0x1f) as u32;
+                    let mut st = rand_vstate(&mut rng, sew_log2, vl);
+                    st.vcsr = (vxrm << 1) | (rng.next() & 1);
+                    // vssrl / vssra: vv/vx/vi
+                    batch.push(("vssrl.vv".into(), op_iv(0b101010, 1, vs2, vs1, 0b000, vd), st));
+                    batch.push(("vssrl.vx".into(), op_iv(0b101010, 1, vs2, rs1, 0b100, vd), st));
+                    batch.push(("vssrl.vi".into(), op_iv(0b101010, 1, vs2, imm, 0b011, vd), st));
+                    batch.push(("vssra.vv".into(), op_iv(0b101011, 1, vs2, vs1, 0b000, vd), st));
+                    batch.push(("vssra.vx".into(), op_iv(0b101011, 1, vs2, rs1, 0b100, vd), st));
+                    batch.push(("vssra.vi".into(), op_iv(0b101011, 1, vs2, imm, 0b011, vd), st));
+                    // vsmul: vv/vx (signed fractional multiply, saturating)
+                    batch.push(("vsmul.vv".into(), op_iv(0b100111, 1, vs2, vs1, 0b000, vd), st));
+                    batch.push(("vsmul.vx".into(), op_iv(0b100111, 1, vs2, rs1, 0b100, vd), st));
+                    if vd != 0 && k % 2 == 0 {
+                        let mut stm = st;
+                        stm.v[0] = rng.next();
+                        stm.v[1] = rng.next();
+                        batch.push(("vssra.vv.m".into(), op_iv(0b101011, 0, vs2, vs1, 0b000, vd), stm));
+                        batch.push(("vsmul.vv.m".into(), op_iv(0b100111, 0, vs2, vs1, 0b000, vd), stm));
+                    }
+                }
+            }
+        }
+    }
+    run_batch(&batch);
+}
+
+#[test]
 fn diff_v_loadstore() {
     let mut rng = Rng::new(0x7EC_705);
     let mut batch = Vec::new();
