@@ -1581,6 +1581,11 @@ impl OpKind {
                 }
             }
 
+            OpKind::VShiftV { src, amount, .. } => {
+                result.push(*src);
+                result.push(*amount);
+            }
+
             OpKind::VMov { src, .. } | OpKind::VBroadcast { scalar: src, .. } => {
                 result.push(*src);
             }

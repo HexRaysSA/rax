@@ -1974,6 +1974,59 @@ impl SmirInterpreter {
                 Self::write_vec(ctx, *dst_hi, hi);
             }
 
+            OpKind::VShiftV {
+                dst,
+                src,
+                amount,
+                elem,
+                lanes,
+                kind,
+            } => {
+                let s = Self::read_vec(ctx, *src);
+                let amt = Self::read_vec(ctx, *amount);
+                let nbits = elem.bytes() * 8;
+                let n_amt = nbits.trailing_zeros() + 1; // 16->5, 32->6
+                let mut result = [0u64; 16];
+                for i in 0..*lanes {
+                    let raw = Self::get_lane(&s, i, nbits);
+                    // sign-extend the low n_amt bits of the amount lane.
+                    let araw = Self::get_lane(&amt, i, nbits) & ((1u64 << n_amt) - 1);
+                    let sh = 64 - n_amt;
+                    let shamt = (((araw << sh) as i64) >> sh) as i32;
+                    let sext = |v: u64| -> i64 {
+                        let sh = 64 - nbits;
+                        ((v << sh) as i64) >> sh
+                    };
+                    let out: u64 = match kind {
+                        VShiftVKind::AshiftL => {
+                            let sa = sext(raw);
+                            if shamt >= 0 {
+                                (sa << shamt) as u64
+                            } else {
+                                (sa >> (-shamt)) as u64
+                            }
+                        }
+                        VShiftVKind::AshiftR => {
+                            let sa = sext(raw);
+                            if shamt >= 0 {
+                                (sa >> shamt) as u64
+                            } else {
+                                (sa << (-shamt)) as u64
+                            }
+                        }
+                        VShiftVKind::LshiftR => {
+                            if shamt >= 0 {
+                                raw >> shamt
+                            } else {
+                                raw << (-shamt)
+                            }
+                        }
+                    };
+                    Self::set_lane(&mut result, i, nbits, out);
+                }
+                Self::write_vec(ctx, *dst, result);
+            }
+
             OpKind::VMulShiftSat {
                 dst,
                 src1,
@@ -3482,6 +3535,31 @@ mod tests {
         assert_eq!(out[7], 0xFFFF_FFFF_FFFF_FFFFu64);
         assert_eq!(out[8], 0x0000_0000_0000_0000u64);
         assert_eq!(out[15], 0x0000_0000_0000_0000u64);
+    }
+
+    #[test]
+    fn test_vshiftv_halfword() {
+        let mkv = |n| VReg::Arch(ArchReg::Hexagon(HexagonReg::V(n)));
+        let sv = |kind| OpKind::VShiftV {
+            dst: mkv(2),
+            src: mkv(0),
+            amount: mkv(1),
+            elem: VecElementType::I16,
+            lanes: 64,
+            kind,
+        };
+        // vasrhv, +2: 0x0100 >> 2 = 0x0040.
+        let out = run_vec2([0x0100_0100_0100_0100u64; 16], [0x0002_0002_0002_0002u64; 16],
+            sv(VShiftVKind::AshiftR));
+        assert_eq!(out, [0x0040_0040_0040_0040u64; 16]);
+        // vasrhv, amt=30 -> sxtn(30,5) = -2 -> arithmetic LEFT by 2: 0x0100 << 2 = 0x0400.
+        let out2 = run_vec2([0x0100_0100_0100_0100u64; 16], [0x001E_001E_001E_001Eu64; 16],
+            sv(VShiftVKind::AshiftR));
+        assert_eq!(out2, [0x0400_0400_0400_0400u64; 16]);
+        // vlsrhv, +2: logical right of 0x8000 = 0x2000 (no sign fill).
+        let out3 = run_vec2([0x8000_8000_8000_8000u64; 16], [0x0002_0002_0002_0002u64; 16],
+            sv(VShiftVKind::LshiftR));
+        assert_eq!(out3, [0x2000_2000_2000_2000u64; 16]);
     }
 
     #[test]

@@ -812,6 +812,19 @@ pub enum VecCmpCond {
     Geu,
 }
 
+/// Per-lane bidirectional shift kind for `OpKind::VShiftV` (HVX vector-amount
+/// shifts). The shift amount is a per-lane signed value; positive shifts in the
+/// op's nominal direction, negative in the opposite.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub enum VShiftVKind {
+    /// Arithmetic left (HVX vaslhv/vaslwv): +amt arithmetic left, -amt arithmetic right.
+    AshiftL,
+    /// Arithmetic right (HVX vasrhv/vasrwv): +amt arithmetic right, -amt arithmetic left.
+    AshiftR,
+    /// Logical right (HVX vlsrhv/vlsrwv): +amt logical right, -amt left.
+    LshiftR,
+}
+
 /// Per-lane operation for the width-general, Arch-aware `OpKind::VLane`.
 ///
 /// Unlike the AVX-oriented `VAdd`/`VAnd`/... (which are register-width-bounded

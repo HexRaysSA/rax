@@ -956,6 +956,19 @@ pub enum OpKind {
         odd: bool,
     },
 
+    /// Per-lane shift by a vector amount (HVX vaslhv/vasrhv/vlsrhv + _w forms).
+    /// Each lane is shifted by `sxtn(amount_lane, log2(elem_bits)+1)` — a signed
+    /// per-lane amount; the `kind` selects arithmetic-left / arithmetic-right /
+    /// logical-right, each bidirectional (negative amount shifts the other way).
+    VShiftV {
+        dst: VReg,
+        src: VReg,
+        amount: VReg,
+        elem: VecElementType,
+        lanes: u8,
+        kind: VShiftVKind,
+    },
+
     /// Multiply with post-shift, optional rounding, optional signed saturation,
     /// and high-part extraction. Models HVX `vmpyhvsrs` (`(Vu·Vv)<<1 +0x8000`,
     /// sat32, `>>16`), `vmpyuhvs` (`(Vu·Vv)>>16`), and (via a VBroadcast of Rt)
@@ -1490,7 +1503,8 @@ impl OpKind {
             | OpKind::VShuffle2 { dst, .. }
             | OpKind::VShuffleEO { dst, .. }
             | OpKind::VAlign { dst, .. }
-            | OpKind::VMulShiftSat { dst, .. } => vec![*dst],
+            | OpKind::VMulShiftSat { dst, .. }
+            | OpKind::VShiftV { dst, .. } => vec![*dst],
 
             OpKind::MulU { dst_lo, dst_hi, .. } | OpKind::MulS { dst_lo, dst_hi, .. } => {
                 let mut v = vec![*dst_lo];
