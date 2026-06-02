@@ -1022,12 +1022,18 @@ pub enum OpKind {
         dst: VReg,
         src1: VReg,
         src2: VReg,
-        /// Narrow source element type (I8 or I16).
-        src_elem: VecElementType,
+        /// src1 source element type (I8 or I16).
+        src1_elem: VecElementType,
+        /// src2 source element type (may differ from src1 for mixed-width reduce).
+        src2_elem: VecElementType,
+        /// Output element type (e.g. I32 word for a byte×4 or half×2 reduce).
+        out_elem: VecElementType,
         /// Number of source sub-lanes summed per output lane (2 or 4).
         taps: u8,
         signed1: bool,
         signed2: bool,
+        /// Saturate the accumulated lane to the signed out_elem range.
+        sat: bool,
         acc: bool,
     },
 
