@@ -403,6 +403,10 @@ impl Op {
             Vrgather => "vrgather",
             Vrgatherei16 => "vrgatherei16",
             Vcompress => "vcompress",
+            Vadc => "vadc",
+            Vmadc => "vmadc",
+            Vsbc => "vsbc",
+            Vmsbc => "vmsbc",
             Illegal => "illegal",
         }
     }
