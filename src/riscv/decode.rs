@@ -443,6 +443,11 @@ pub enum Op {
     Vrgather,
     Vrgatherei16,
     Vcompress,
+    // ---- V (add/subtract with carry/borrow) ----
+    Vadc,
+    Vmadc,
+    Vsbc,
+    Vmsbc,
     // ---- sentinel ----
     Illegal,
 }
@@ -716,6 +721,11 @@ fn decode_vector(w: u32) -> Insn {
             // Gathers: vrgather (vv/vx/vi), vrgatherei16 (vv only).
             0b001100 => Op::Vrgather,
             0b001110 if f3 == 0b000 => Op::Vrgatherei16,
+            // Add/subtract with carry/borrow (vsbc/vmsbc have no immediate form).
+            0b010000 => Op::Vadc,
+            0b010001 => Op::Vmadc,
+            0b010010 if f3 != 0b011 => Op::Vsbc,
+            0b010011 if f3 != 0b011 => Op::Vmsbc,
             _ => return Insn::illegal(w, 4),
         };
         return base(op, w);

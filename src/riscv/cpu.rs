@@ -749,7 +749,9 @@ impl RiscVCpu {
             | Op::Vfirst | Op::Vmsbf | Op::Vmsof | Op::Vmsif | Op::Viota | Op::Vid
             | Op::Vslideup | Op::Vslidedown | Op::Vslide1up | Op::Vslide1down
             | Op::Vfslide1up | Op::Vfslide1down | Op::Vrgather | Op::Vrgatherei16
-            | Op::Vcompress => self.exec_vector(insn)?,
+            | Op::Vcompress | Op::Vadc | Op::Vmadc | Op::Vsbc | Op::Vmsbc => {
+                self.exec_vector(insn)?
+            }
 
             Op::Illegal => return Err(Trap::illegal(insn.raw)),
 
@@ -1742,6 +1744,55 @@ impl RiscVCpu {
                     }
                     let v = if e + 1 < vl { self.velem(vs2, e + 1, eb) } else { scalar };
                     self.set_velem(vd, e, eb, v & mask);
+                }
+            }
+            Op::Vadc | Op::Vsbc => {
+                // vd[i] = vs2[i] +/- op[i] +/- v0.mask[i]; every body lane written.
+                let eb = self.sew_bytes();
+                let mask = Self::sew_mask(eb);
+                let scalar = match insn.funct3 {
+                    0b100 => self.x(insn.rs1) & mask,
+                    0b011 => sext5(insn.rs1) & mask,
+                    _ => 0,
+                };
+                let is_vv = insn.funct3 == 0b000;
+                for e in vstart..vl {
+                    let a = self.velem(vs2, e, eb);
+                    let b = if is_vv { self.velem(insn.rs1, e, eb) } else { scalar };
+                    let cin = self.vmask_bit(e) as u64; // v0 carry/borrow-in
+                    let r = if insn.op == Op::Vadc {
+                        a.wrapping_add(b).wrapping_add(cin)
+                    } else {
+                        a.wrapping_sub(b).wrapping_sub(cin)
+                    };
+                    self.set_velem(vd, e, eb, r & mask);
+                }
+            }
+            Op::Vmadc | Op::Vmsbc => {
+                // vd.mask[i] = carry/borrow-out; carry-in from v0 only when vm == 0.
+                let eb = self.sew_bytes();
+                let mask = Self::sew_mask(eb) as u128;
+                let scalar = match insn.funct3 {
+                    0b100 => self.x(insn.rs1) & Self::sew_mask(eb),
+                    0b011 => sext5(insn.rs1) & Self::sew_mask(eb),
+                    _ => 0,
+                };
+                let is_vv = insn.funct3 == 0b000;
+                let use_cin = !vm;
+                for e in vstart..vl {
+                    let a = self.velem(vs2, e, eb) as u128;
+                    let b = if is_vv {
+                        self.velem(insn.rs1, e, eb)
+                    } else {
+                        scalar
+                    } as u128;
+                    let cin = if use_cin { self.vmask_bit(e) as u128 } else { 0 };
+                    let out = if insn.op == Op::Vmadc {
+                        a + b + cin > mask
+                    } else {
+                        a < b + cin
+                    };
+                    self.set_vmask_bit(vd, e, out);
                 }
             }
             Op::Vcompress => {

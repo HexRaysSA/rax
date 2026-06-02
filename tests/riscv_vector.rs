@@ -1072,6 +1072,43 @@ fn diff_v_compress() {
 }
 
 #[test]
+fn diff_v_carry() {
+    let mut rng = Rng::new(0x7EC_7D0);
+    let mut batch = Vec::new();
+    for sew_log2 in 0..4u32 {
+        let vmax = vlmax(sew_log2);
+        for vl in [vmax, (vmax / 2).max(1)] {
+            for _ in 0..8 {
+                let vd = VPOOL[(rng.next() % 6) as usize]; // != v0 (carry source)
+                let vs2 = VPOOL[(rng.next() % 6) as usize];
+                let vs1 = VPOOL[(rng.next() % 6) as usize];
+                let rs1 = XPOOL[(rng.next() % 5) as usize];
+                let imm = (rng.next() & 0x1f) as u32;
+                let mut st = rand_vstate(&mut rng, sew_log2, vl);
+                st.v[0] = rng.next(); // v0 carry-in bits
+                st.v[1] = rng.next();
+                // vadc (write data) — vvm/vxm/vim, vm=0.
+                batch.push(("vadc.vvm".into(), op_iv(0b010000, 0, vs2, vs1, 0b000, vd), st));
+                batch.push(("vadc.vxm".into(), op_iv(0b010000, 0, vs2, rs1, 0b100, vd), st));
+                batch.push(("vadc.vim".into(), op_iv(0b010000, 0, vs2, imm, 0b011, vd), st));
+                batch.push(("vsbc.vvm".into(), op_iv(0b010010, 0, vs2, vs1, 0b000, vd), st));
+                batch.push(("vsbc.vxm".into(), op_iv(0b010010, 0, vs2, rs1, 0b100, vd), st));
+                // vmadc/vmsbc (write mask) — with carry (vm=0) and without (vm=1).
+                batch.push(("vmadc.vvm".into(), op_iv(0b010001, 0, vs2, vs1, 0b000, vd), st));
+                batch.push(("vmadc.vv".into(), op_iv(0b010001, 1, vs2, vs1, 0b000, vd), st));
+                batch.push(("vmadc.vim".into(), op_iv(0b010001, 0, vs2, imm, 0b011, vd), st));
+                batch.push(("vmadc.vi".into(), op_iv(0b010001, 1, vs2, imm, 0b011, vd), st));
+                batch.push(("vmsbc.vvm".into(), op_iv(0b010011, 0, vs2, vs1, 0b000, vd), st));
+                batch.push(("vmsbc.vv".into(), op_iv(0b010011, 1, vs2, vs1, 0b000, vd), st));
+                batch.push(("vmadc.vxm".into(), op_iv(0b010001, 0, vs2, rs1, 0b100, vd), st));
+                batch.push(("vmsbc.vx".into(), op_iv(0b010011, 1, vs2, rs1, 0b100, vd), st));
+            }
+        }
+    }
+    run_batch(&batch);
+}
+
+#[test]
 fn diff_v_loadstore() {
     let mut rng = Rng::new(0x7EC_705);
     let mut batch = Vec::new();
