@@ -1826,6 +1826,238 @@ impl SmirInterpreter {
                 Self::write_vec(ctx, *dst_hi, hi);
             }
 
+            OpKind::VWidenAddSub {
+                dst_lo,
+                dst_hi,
+                src1,
+                src2,
+                src_elem,
+                signed1,
+                signed2,
+                sub,
+                acc,
+            } => {
+                let a = Self::read_vec(ctx, *src1);
+                let b = Self::read_vec(ctx, *src2);
+                let nbits = src_elem.bytes() * 8;
+                let wbits = nbits * 2;
+                let wide_lanes = (1024 / nbits as usize) / 2; // wide lanes per output vector
+                let mut lo = if *acc {
+                    Self::read_vec(ctx, *dst_lo)
+                } else {
+                    [0u64; 16]
+                };
+                let mut hi = if *acc {
+                    Self::read_vec(ctx, *dst_hi)
+                } else {
+                    [0u64; 16]
+                };
+                // Sign- or zero-extend an `nbits` zero-extended lane value to i64.
+                let ext = |v: u64, signed: bool| -> i64 {
+                    if signed {
+                        let shift = 64 - nbits;
+                        ((v << shift) as i64) >> shift
+                    } else {
+                        v as i64
+                    }
+                };
+                let combine = |x: i64, y: i64| -> i64 {
+                    if *sub {
+                        x.wrapping_sub(y)
+                    } else {
+                        x.wrapping_add(y)
+                    }
+                };
+                for i in 0..wide_lanes {
+                    let even = i as u8 * 2;
+                    let odd = even + 1;
+                    let re = combine(
+                        ext(Self::get_lane(&a, even, nbits), *signed1),
+                        ext(Self::get_lane(&b, even, nbits), *signed2),
+                    );
+                    let ro = combine(
+                        ext(Self::get_lane(&a, odd, nbits), *signed1),
+                        ext(Self::get_lane(&b, odd, nbits), *signed2),
+                    );
+                    let ae = if *acc {
+                        // sign-extend the existing wide lane so accumulate wraps signed
+                        let v = Self::get_lane(&lo, i as u8, wbits);
+                        let s = 64 - wbits;
+                        ((v << s) as i64) >> s
+                    } else {
+                        0
+                    };
+                    let ao = if *acc {
+                        let v = Self::get_lane(&hi, i as u8, wbits);
+                        let s = 64 - wbits;
+                        ((v << s) as i64) >> s
+                    } else {
+                        0
+                    };
+                    Self::set_lane(&mut lo, i as u8, wbits, ae.wrapping_add(re) as u64);
+                    Self::set_lane(&mut hi, i as u8, wbits, ao.wrapping_add(ro) as u64);
+                }
+                Self::write_vec(ctx, *dst_lo, lo);
+                Self::write_vec(ctx, *dst_hi, hi);
+            }
+
+            OpKind::VLaneUnary {
+                dst,
+                src,
+                elem,
+                lanes,
+                op,
+                signed,
+            } => {
+                let a = Self::read_vec(ctx, *src);
+                let elem_bits = elem.bytes() * 8;
+                let mask: u64 = if elem_bits >= 64 {
+                    u64::MAX
+                } else {
+                    (1u64 << elem_bits) - 1
+                };
+                // Sign-extend a zero-extended `elem_bits` lane value to i64.
+                let sx = |v: u64| -> i64 {
+                    if elem_bits >= 64 {
+                        v as i64
+                    } else {
+                        let shift = 64 - elem_bits;
+                        ((v << shift) as i64) >> shift
+                    }
+                };
+                let smax: i64 = if elem_bits >= 64 {
+                    i64::MAX
+                } else {
+                    (1i64 << (elem_bits - 1)) - 1
+                };
+                let mut result = [0u64; 16];
+                for lane in 0..*lanes {
+                    let av = Self::get_lane(&a, lane, elem_bits);
+                    let rv: u64 = match op {
+                        // Not
+                        0 => !av,
+                        // Abs (wrapping: MIN -> MIN)
+                        1 => (sx(av).wrapping_abs()) as u64,
+                        // AbsSat: clamp |a| to the signed max (MIN -> MAX)
+                        2 => {
+                            let s = sx(av);
+                            // wrapping_abs of MIN stays MIN (negative); clamp via i128
+                            ((s as i128).abs().min(smax as i128)) as u64
+                        }
+                        // Clz within the elem-wide lane
+                        3 => {
+                            let v = av & mask;
+                            (v << (64 - elem_bits)).leading_zeros() as u64
+                        }
+                        // Popcount of the elem-wide lane
+                        4 => (av & mask).count_ones() as u64,
+                        // NormAmt: max(clz(a), clz(!a)) - 1 within the lane
+                        5 => {
+                            let v = (av & mask) << (64 - elem_bits);
+                            let nv = (!av & mask) << (64 - elem_bits);
+                            let n = v.leading_zeros().max(nv.leading_zeros());
+                            (n - 1) as u64
+                        }
+                        // Neg (two's complement)
+                        6 => sx(av).wrapping_neg() as u64,
+                        // Clb: count leading sign bits = max(clz, clo) capped at
+                        // the element width, on the left-justified lane value.
+                        7 => {
+                            let lj = (av & mask) << (64 - elem_bits);
+                            let zeros = lj.leading_zeros().min(elem_bits);
+                            let ones = lj.leading_ones().min(elem_bits);
+                            zeros.max(ones) as u64
+                        }
+                        _ => av,
+                    };
+                    let _ = signed;
+                    Self::set_lane(&mut result, lane, elem_bits, rv & mask);
+                }
+                Self::write_vec(ctx, *dst, result);
+            }
+
+            OpKind::VNavg {
+                dst,
+                src1,
+                src2,
+                elem,
+                lanes,
+                signed,
+            } => {
+                let a = Self::read_vec(ctx, *src1);
+                let b = Self::read_vec(ctx, *src2);
+                let elem_bits = elem.bytes() * 8;
+                let mask: u64 = if elem_bits >= 64 {
+                    u64::MAX
+                } else {
+                    (1u64 << elem_bits) - 1
+                };
+                let ext = |v: u64| -> i64 {
+                    if *signed {
+                        if elem_bits >= 64 {
+                            v as i64
+                        } else {
+                            let shift = 64 - elem_bits;
+                            ((v << shift) as i64) >> shift
+                        }
+                    } else {
+                        (v & mask) as i64
+                    }
+                };
+                let mut result = [0u64; 16];
+                for lane in 0..*lanes {
+                    let av = ext(Self::get_lane(&a, lane, elem_bits));
+                    let bv = ext(Self::get_lane(&b, lane, elem_bits));
+                    let r = (av.wrapping_sub(bv)) >> 1; // arithmetic, like sem `>> 1`
+                    Self::set_lane(&mut result, lane, elem_bits, (r as u64) & mask);
+                }
+                Self::write_vec(ctx, *dst, result);
+            }
+
+            OpKind::VShiftAcc {
+                dst,
+                src,
+                amount,
+                shift,
+                elem,
+                lanes,
+            } => {
+                let amt = match amount {
+                    SrcOperand::Imm(val) => *val as u32,
+                    SrcOperand::Reg(reg) => ctx.read_vreg(*reg) as u32,
+                    _ => 0,
+                };
+                let elem_bits = elem.bytes() * 8;
+                let mask = if elem_bits >= 64 {
+                    u64::MAX
+                } else {
+                    (1u64 << elem_bits) - 1
+                };
+                let sh = amt % elem_bits;
+                let src_val = Self::read_vec(ctx, *src);
+                let mut result = Self::read_vec(ctx, *dst);
+                for lane in 0..*lanes {
+                    let val = Self::get_lane(&src_val, lane, elem_bits);
+                    let shifted = match shift {
+                        ShiftOp::Lsl => (val << sh) & mask,
+                        ShiftOp::Lsr => (val >> sh) & mask,
+                        ShiftOp::Asr => {
+                            let sv = if elem_bits >= 64 {
+                                val as i64
+                            } else {
+                                let s = 64 - elem_bits;
+                                ((val << s) as i64) >> s
+                            };
+                            ((sv >> sh) as u64) & mask
+                        }
+                        _ => val & mask,
+                    };
+                    let prev = Self::get_lane(&result, lane, elem_bits);
+                    Self::set_lane(&mut result, lane, elem_bits, prev.wrapping_add(shifted) & mask);
+                }
+                Self::write_vec(ctx, *dst, result);
+            }
+
             OpKind::VLut16 {
                 dst_lo,
                 dst_hi,
@@ -4128,6 +4360,148 @@ mod tests {
         let (lo, hi) = run_widenmul(v0, v1, VecElementType::I16, true, true);
         assert_eq!(lo, [0x0000_000F_0000_000Fu64; 16]); // word = 15
         assert_eq!(hi, [0x0000_000F_0000_000Fu64; 16]);
+    }
+
+    #[test]
+    fn test_vwidenaddsub_byte_layout() {
+        // V0 bytes = [3,7,...], V1 = [5,2,...]. Even-byte add -> lo.h = 3+5=8,
+        // odd-byte add -> hi.h = 7+2=9. Sub: lo.h = 3-5=-2=0xFFFE, hi.h=7-2=5.
+        let v0 = [0x0703_0703_0703_0703u64; 16];
+        let v1 = [0x0205_0205_0205_0205u64; 16];
+        let run = |sub: bool, s1: bool, s2: bool, acc: bool| -> ([u64; 16], [u64; 16]) {
+            let mut ctx = SmirContext::new_hexagon();
+            let mut memory = FlatMemory::new(0x1000);
+            let interp = SmirInterpreter::new();
+            if let ArchRegState::Hexagon(hex) = &mut ctx.arch_regs {
+                hex.set_v(0, v0);
+                hex.set_v(1, v1);
+                hex.set_v(2, [0u64; 16]);
+                hex.set_v(3, [0u64; 16]);
+            }
+            let mkv = |n| VReg::Arch(ArchReg::Hexagon(HexagonReg::V(n)));
+            let block = SmirBlock {
+                id: BlockId(0),
+                guest_pc: 0x1000,
+                phis: vec![],
+                ops: vec![SmirOp {
+                    id: OpId(0),
+                    guest_pc: 0x1000,
+                    kind: OpKind::VWidenAddSub {
+                        dst_lo: mkv(2),
+                        dst_hi: mkv(3),
+                        src1: mkv(0),
+                        src2: mkv(1),
+                        src_elem: VecElementType::I8,
+                        signed1: s1,
+                        signed2: s2,
+                        sub,
+                        acc,
+                    },
+                    x86_hint: None,
+                }],
+                terminator: Terminator::Trap { kind: TrapKind::Halt },
+                exec_count: 0,
+            };
+            interp.execute_block(&mut ctx, &mut memory, &block);
+            match &ctx.arch_regs {
+                ArchRegState::Hexagon(hex) => (hex.get_v(2), hex.get_v(3)),
+                _ => panic!("not hexagon"),
+            }
+        };
+        let (lo, hi) = run(false, false, false, false);
+        assert_eq!(lo, [0x0008_0008_0008_0008u64; 16]); // 3+5=8
+        assert_eq!(hi, [0x0009_0009_0009_0009u64; 16]); // 7+2=9
+        let (lo, hi) = run(true, false, false, false);
+        assert_eq!(lo, [0xFFFE_FFFE_FFFE_FFFEu64; 16]); // 3-5=-2
+        assert_eq!(hi, [0x0005_0005_0005_0005u64; 16]); // 7-2=5
+    }
+
+    #[test]
+    fn test_vlaneunary_ops() {
+        let run = |v: [u64; 16], elem: VecElementType, lanes: u8, op: u8| -> [u64; 16] {
+            let mut ctx = SmirContext::new_hexagon();
+            let mut memory = FlatMemory::new(0x1000);
+            let interp = SmirInterpreter::new();
+            if let ArchRegState::Hexagon(hex) = &mut ctx.arch_regs {
+                hex.set_v(0, v);
+            }
+            let mkv = |n| VReg::Arch(ArchReg::Hexagon(HexagonReg::V(n)));
+            let block = SmirBlock {
+                id: BlockId(0),
+                guest_pc: 0x1000,
+                phis: vec![],
+                ops: vec![SmirOp {
+                    id: OpId(0),
+                    guest_pc: 0x1000,
+                    kind: OpKind::VLaneUnary {
+                        dst: mkv(1),
+                        src: mkv(0),
+                        elem,
+                        lanes,
+                        op,
+                        signed: true,
+                    },
+                    x86_hint: None,
+                }],
+                terminator: Terminator::Trap { kind: TrapKind::Halt },
+                exec_count: 0,
+            };
+            interp.execute_block(&mut ctx, &mut memory, &block);
+            match &ctx.arch_regs {
+                ArchRegState::Hexagon(hex) => hex.get_v(1),
+                _ => panic!("not hexagon"),
+            }
+        };
+        // Not: ~0 = 0xFFFF... (op 0)
+        assert_eq!(run([0u64; 16], VecElementType::I32, 32, 0), [0xFFFF_FFFF_FFFF_FFFFu64; 16]);
+        // Abs of 0xFFFE (=-2 as i16) per halfword -> 2 (op 1)
+        assert_eq!(run([0xFFFE_FFFE_FFFE_FFFEu64; 16], VecElementType::I16, 64, 1), [0x0002_0002_0002_0002u64; 16]);
+        // Clz of 0x0001 halfword -> 15 (op 3)
+        assert_eq!(run([0x0001_0001_0001_0001u64; 16], VecElementType::I16, 64, 3), [0x000F_000F_000F_000Fu64; 16]);
+        // Popcount of 0x00FF halfword -> 8 (op 4)
+        assert_eq!(run([0x00FF_00FF_00FF_00FFu64; 16], VecElementType::I16, 64, 4), [0x0008_0008_0008_0008u64; 16]);
+        // NormAmt of 0x0001 halfword: max(clz=15, clz(~)=0)-1 = 14 (op 5)
+        assert_eq!(run([0x0001_0001_0001_0001u64; 16], VecElementType::I16, 64, 5), [0x000E_000E_000E_000Eu64; 16]);
+    }
+
+    #[test]
+    fn test_vshiftacc() {
+        // dst.h[i] += src.h[i] << 2, with dst seeded to 1 per halfword.
+        let mut ctx = SmirContext::new_hexagon();
+        let mut memory = FlatMemory::new(0x1000);
+        let interp = SmirInterpreter::new();
+        if let ArchRegState::Hexagon(hex) = &mut ctx.arch_regs {
+            hex.set_v(0, [0x0003_0003_0003_0003u64; 16]); // src = 3
+            hex.set_v(1, [0x0001_0001_0001_0001u64; 16]); // dst seed = 1
+        }
+        ctx.write_arch_reg(ArchReg::Hexagon(HexagonReg::R(0)), 2); // shift amount = 2
+        let mkv = |n| VReg::Arch(ArchReg::Hexagon(HexagonReg::V(n)));
+        let block = SmirBlock {
+            id: BlockId(0),
+            guest_pc: 0x1000,
+            phis: vec![],
+            ops: vec![SmirOp {
+                id: OpId(0),
+                guest_pc: 0x1000,
+                kind: OpKind::VShiftAcc {
+                    dst: mkv(1),
+                    src: mkv(0),
+                    amount: SrcOperand::Reg(VReg::Arch(ArchReg::Hexagon(HexagonReg::R(0)))),
+                    shift: ShiftOp::Lsl,
+                    elem: VecElementType::I16,
+                    lanes: 64,
+                },
+                x86_hint: None,
+            }],
+            terminator: Terminator::Trap { kind: TrapKind::Halt },
+            exec_count: 0,
+        };
+        interp.execute_block(&mut ctx, &mut memory, &block);
+        // 1 + (3<<2) = 13 = 0x000D per halfword.
+        match &ctx.arch_regs {
+            ArchRegState::Hexagon(hex) => assert_eq!(hex.get_v(1), [0x000D_000D_000D_000Du64; 16]),
+            _ => panic!("not hexagon"),
+        }
     }
 
     #[test]
