@@ -875,6 +875,26 @@ pub enum OpKind {
         acc: bool,
     },
 
+    /// Reducing (dot-product) multiply.
+    ///
+    /// Models the HVX `vrmpy`/`vdmpy` vector-by-vector reduce family: each output
+    /// lane is the sum of `taps` adjacent `src_elem`-wide sub-lane products, so the
+    /// output element is `src_elem_bits * taps` wide:
+    /// `dst[i] = (acc ? dst[i] : 0) + Σ_{k<taps} ext(src1[taps*i+k])·ext(src2[taps*i+k])`.
+    /// `signed1`/`signed2` select per-operand signedness.
+    VReduceMul {
+        dst: VReg,
+        src1: VReg,
+        src2: VReg,
+        /// Narrow source element type (I8 or I16).
+        src_elem: VecElementType,
+        /// Number of source sub-lanes summed per output lane (2 or 4).
+        taps: u8,
+        signed1: bool,
+        signed2: bool,
+        acc: bool,
+    },
+
     /// Vector shift
     VShift {
         dst: VReg,
@@ -1360,6 +1380,8 @@ impl OpKind {
             ],
 
             OpKind::VWidenMul { dst_lo, dst_hi, .. } => vec![*dst_lo, *dst_hi],
+
+            OpKind::VReduceMul { dst, .. } => vec![*dst],
 
             OpKind::MulU { dst_lo, dst_hi, .. } | OpKind::MulS { dst_lo, dst_hi, .. } => {
                 let mut v = vec![*dst_lo];
