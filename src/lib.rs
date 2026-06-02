@@ -10,6 +10,7 @@ pub mod gdb;
 pub mod memory;
 #[cfg(feature = "profiling")]
 pub mod profiling;
+pub mod riscv;
 pub mod smir;
 pub mod snapshot;
 pub mod timing;
