@@ -5972,6 +5972,23 @@ impl AArch64Cpu {
                 self.exec_sve2_mul_indexed(insn, zn, zd)
             }
 
+            // SVE2 widening multiply-add long by indexed element: 0x44, bit21==1.
+            // bits[15:12] selects S/U MULL/MLAL/MLSL and SQDMULL/SQDMLAL/SQDMLSL;
+            // the narrow source is half the destination width and bit10 (T) picks
+            // the odd/even narrow lane. Distinct op fields from the same-width
+            // indexed group above (1111xx / 0000xx), so no overlap.
+            0b010
+                if (insn >> 24) & 0xFF == 0b01000100
+                    && (insn >> 21) & 1 == 1
+                    && matches!(
+                        (insn >> 12) & 0xF,
+                        0b1000 | 0b1001 | 0b1010 | 0b1011 | 0b1100 | 0b1101 | 0b1110 | 0b0010
+                            | 0b0011
+                    ) =>
+            {
+                self.exec_sve2_mull_indexed(insn, zn, zd)
+            }
+
             // SVE2 MATCH / NMATCH (character match -> predicate): 0x45, bit21==1,
             // bits[15:13]==100. For each Pg-active Zn element the result bit is
             // set if that element value equals any Zm element in the same
@@ -6095,6 +6112,71 @@ impl AArch64Cpu {
                 op0, op1
             ))),
         }
+    }
+
+    /// Execute SVE2 widening multiply-add long by an indexed element. The
+    /// narrow source elements (half the destination width) are sign- or
+    /// zero-extended; `Zm[index]` is the shared broadcast factor and bit10 (T)
+    /// selects the odd/even narrow lane of Zn. SQDMULL doubles-and-saturates;
+    /// the SQDMLAL/SQDMLSL accumulate saturates a second time.
+    fn exec_sve2_mull_indexed(
+        &mut self,
+        insn: u32,
+        zn: usize,
+        zd: usize,
+    ) -> Result<CpuExit, ArmError> {
+        let size = (insn >> 22) & 0x3; // 2=.s (h src), 3=.d (s src)
+        if size < 2 {
+            return Ok(CpuExit::Undefined(insn));
+        }
+        let d_esize = 1usize << size;
+        let s_esize = d_esize / 2;
+        let s_bits = (s_esize * 8) as u32;
+        let d_bits = (d_esize * 8) as u32;
+        let top = (insn >> 10) & 1 == 1;
+        let op = (insn >> 12) & 0xF;
+        // Index and Zm packing differ per size: .s uses a 3-bit index
+        // (bit20:bit19:bit11) with Zm in z0-z7; .d a 2-bit index (bit20:bit11)
+        // with Zm in z0-z15.
+        let (index, zm) = if size == 2 {
+            let idx = (((insn >> 20) & 1) << 2) | (((insn >> 19) & 1) << 1) | ((insn >> 11) & 1);
+            (idx as usize, ((insn >> 16) & 0x7) as usize)
+        } else {
+            let idx = (((insn >> 20) & 1) << 1) | ((insn >> 11) & 1);
+            (idx as usize, ((insn >> 16) & 0xF) as usize)
+        };
+        let n = self.v[zn].to_le_bytes();
+        let m = self.v[zm].to_le_bytes();
+        let acc = self.v[zd].to_le_bytes();
+        let mut dst = [0u8; 16];
+        let mask = elem_mask(d_bits);
+        let hi = (1i128 << (d_bits - 1)) - 1;
+        let lo = -(1i128 << (d_bits - 1));
+        let m_raw = read_elem(&m, index * s_esize, s_esize);
+        let elements = 16 / d_esize;
+        for e in 0..elements {
+            let n_raw = read_elem(&n, (2 * e + top as usize) * s_esize, s_esize);
+            let aa = read_elem(&acc, e * d_esize, d_esize);
+            let aa_s = sext_elem(aa, d_bits);
+            let nm_s = sext_elem(n_raw, s_bits) * sext_elem(m_raw, s_bits);
+            let nm_u = (uext_elem(n_raw, s_bits) * uext_elem(m_raw, s_bits)) as i128;
+            let sqdmull = (2 * nm_s).clamp(lo, hi); // saturating doubling product
+            let r: u64 = match op {
+                0b1100 => nm_s as u64 & mask,                          // SMULLB/T
+                0b1101 => nm_u as u64 & mask,                          // UMULLB/T
+                0b1000 => (aa_s + nm_s) as u64 & mask,                 // SMLALB/T
+                0b1001 => (aa_s + nm_u) as u64 & mask,                 // UMLALB/T
+                0b1010 => (aa_s - nm_s) as u64 & mask,                 // SMLSLB/T
+                0b1011 => (aa_s - nm_u) as u64 & mask,                 // UMLSLB/T
+                0b1110 => sqdmull as u64 & mask,                       // SQDMULLB/T
+                0b0010 => (aa_s + sqdmull).clamp(lo, hi) as u64 & mask, // SQDMLALB/T
+                0b0011 => (aa_s - sqdmull).clamp(lo, hi) as u64 & mask, // SQDMLSLB/T
+                _ => return Ok(CpuExit::Undefined(insn)),
+            };
+            write_elem(&mut dst, e * d_esize, d_esize, r);
+        }
+        self.v[zd] = u128::from_le_bytes(dst);
+        Ok(CpuExit::Continue)
     }
 
     /// Execute the SVE2 crypto group (AES round/mix, SM4, SHA3 RAX1). At

@@ -1746,6 +1746,28 @@ fn enc_sve2_mul_idx(op6: u32, size: u32, index: u32, zm: u32) -> u32 {
     (0b01000100 << 24) | (field << 16) | (op6 << 10) | (RN << 5) | RD
 }
 
+/// SVE2 widening multiply-add long by indexed element: `0100 0100 size 1
+/// <idx/Zm> <op4> i0 T Zn Zd`. op=bits[15:12]; size 2=.s(h src), 3=.d(s src);
+/// per-size index/Zm packing; T=bit10. Zn=z1(RN), Zd=z0(RD).
+fn enc_sve2_mull_idx(op: u32, size: u32, index: u32, zm: u32, top: u32) -> u32 {
+    let (field, i0) = if size == 2 {
+        // .s: i2->bit20, i1->bit19, Zm in bits[18:16]; i0 -> bit11.
+        ((((index >> 2) & 1) << 4) | (((index >> 1) & 1) << 3) | (zm & 0x7), index & 1)
+    } else {
+        // .d: i1->bit20, Zm in bits[19:16]; i0 -> bit11.
+        ((((index >> 1) & 1) << 4) | (zm & 0xF), index & 1)
+    };
+    (0b01000100 << 24)
+        | (size << 22)
+        | (1 << 21)
+        | (field << 16)
+        | (op << 12)
+        | (i0 << 11)
+        | (top << 10)
+        | (RN << 5)
+        | RD
+}
+
 /// SVE2 FLOGB (find exponent): `01100101 00011 size 0 101 Pg Zn Zd`. size is
 /// 1=h, 2=s, 3=d. Pg=p0, Zn=z1(RN), Zd=z0(RD).
 fn enc_sve_flogb(size: u32) -> u32 {
@@ -3023,6 +3045,57 @@ fn diff_sve2_whilerw() {
         }
     }
     run_batch("sve2_whilerw", batch);
+}
+
+#[test]
+fn diff_sve2_mull_indexed() {
+    // Indexed widening multiply-long: S/U MULL/MLAL/MLSL and the saturating
+    // SQDMULL/SQDMLAL/SQDMLSL, across .s and .d, all indices and both halves.
+    // Random operands plus a min*min saturation edge for the saturating forms.
+    let ops: [(u32, &str, bool); 9] = [
+        (0b1100, "smullb", false),
+        (0b1101, "umullb", false),
+        (0b1000, "smlalb", false),
+        (0b1001, "umlalb", false),
+        (0b1010, "smlslb", false),
+        (0b1011, "umlslb", false),
+        (0b1110, "sqdmullb", true),
+        (0b0010, "sqdmlalb", true),
+        (0b0011, "sqdmlslb", true),
+    ];
+    let mut rng = Rng::new(0x6_b001);
+    let mut batch: Vec<(String, u32, ArmState)> = Vec::new();
+    for (op, name, sat) in ops {
+        for size in [2u32, 3] {
+            let idxn = if size == 2 { 8 } else { 4 };
+            let s_esize = 1usize << (size - 1);
+            for index in 0..idxn {
+                for top in 0..2u32 {
+                    let insn = enc_sve2_mull_idx(op, size, index, RM, top);
+                    for _ in 0..4 {
+                        let mut st = ArmState::zeroed();
+                        st.set_vreg(1, rng.next(), rng.next());
+                        st.set_vreg(2, rng.next(), rng.next());
+                        st.set_vreg(0, rng.next(), rng.next());
+                        batch.push((format!("{name}_s{size}_i{index}_t{top}"), insn, st));
+                    }
+                    if sat {
+                        let m_elem = 1u128 << (s_esize * 8 - 1);
+                        let mut minv = 0u128;
+                        for l in 0..(16 / s_esize) {
+                            minv |= m_elem << (l * s_esize * 8);
+                        }
+                        let mut st = ArmState::zeroed();
+                        st.set_vreg(1, minv as u64, (minv >> 64) as u64);
+                        st.set_vreg(2, minv as u64, (minv >> 64) as u64);
+                        st.set_vreg(0, rng.next(), rng.next());
+                        batch.push((format!("{name}_s{size}_i{index}_t{top}_sat"), insn, st));
+                    }
+                }
+            }
+        }
+    }
+    run_batch("sve2_mull_indexed", batch);
 }
 
 #[test]
