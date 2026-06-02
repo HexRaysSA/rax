@@ -3486,6 +3486,82 @@ fn enc_sve_while_gt(esz: u32, sf: u32, u: u32, eqbit: u32) -> u32 {
     (0x25 << 24) | (esz << 22) | (1 << 21) | (1 << 16) | (sf << 12) | (u << 11) | (eqbit << 4)
 }
 
+/// SVE predicated shift-by-immediate (destructive): `00000100 tszh op6 100 pg
+/// tszl imm3 rd`. op6 is bits[21:16]. Rdn=z0, Pg=p1.
+fn enc_sve_shift_imm_pred(op6: u32, esize_bits: u32, amt: u32) -> u32 {
+    let tsize = match esize_bits {
+        8 => 0b0001u32,
+        16 => 0b0010,
+        32 => 0b0100,
+        _ => 0b1000,
+    };
+    let is_shl = matches!(op6, 0b000_011 | 0b000_110 | 0b000_111 | 0b001_111);
+    let tszimm = if is_shl {
+        esize_bits + amt
+    } else {
+        2 * esize_bits - amt
+    };
+    let imm3 = tszimm & 7;
+    let tszh = tsize >> 2;
+    let tszl = tsize & 3;
+    (0b00000100u32 << 24)
+        | (tszh << 22)
+        | (op6 << 16)
+        | (0b100 << 13)
+        | (1 << 10)
+        | (tszl << 8)
+        | (imm3 << 5)
+}
+
+#[test]
+fn diff_sve2_shift_imm_sat() {
+    // ASRD / SQSHL / UQSHL / SRSHR / URSHR / SQSHLU predicated shift-by-
+    // immediate, seeded with the signed/unsigned extremes to exercise the
+    // rounding and saturation paths. (ASR/LSR/LSL are covered by
+    // diff_sve_shift_imm.) Shift amounts stay in [1, bits-1] to avoid the
+    // architecturally-ambiguous shift==width corner.
+    let ops: [(u32, &str); 6] = [
+        (0b000_100, "asrd"),
+        (0b000_110, "sqshl"),
+        (0b000_111, "uqshl"),
+        (0b001_100, "srshr"),
+        (0b001_101, "urshr"),
+        (0b001_111, "sqshlu"),
+    ];
+    let pats: [u64; 6] = [
+        0x0000_0000_0000_0000,
+        0x8080_8080_8080_8080,
+        0x7F7F_7F7F_7F7F_7F7F,
+        0xFFFF_FFFF_FFFF_FFFF,
+        0x8000_0000_8000_0000,
+        0x1234_5678_9ABC_DEF0,
+    ];
+    let mut rng = Rng::new(0x1_0034);
+    let mut batch: Vec<(String, u32, ArmState)> = Vec::new();
+    for &(op6, name) in ops.iter() {
+        for &bits in &[8u32, 16, 32, 64] {
+            let amts = [1u32, 2, (bits / 2).max(1), bits - 1];
+            for &amt in amts.iter() {
+                let insn = enc_sve_shift_imm_pred(op6, bits, amt);
+                let nm = format!("{name} b{bits} a{amt}");
+                for &p in pats.iter() {
+                    let mut st = ArmState::zeroed();
+                    st.set_vreg(0, p, p);
+                    st.set_preg(1, 0xFFFF);
+                    batch.push((nm.clone(), insn, st));
+                }
+                for _ in 0..3 {
+                    let mut st = ArmState::zeroed();
+                    st.set_vreg(0, rng.next(), rng.next());
+                    st.set_preg(1, rng.next() as u16);
+                    batch.push((format!("{nm} rnd"), insn, st));
+                }
+            }
+        }
+    }
+    run_batch("sve2_shift_imm_sat", batch);
+}
+
 /// SVE2 SABA/UABA: `01000101 esz 0 Zm 11111 u Zn Zda`. u=1 unsigned. Zda=z0,
 /// Zn=z1, Zm=z2.
 fn enc_sve2_saba(esz: u32, u: u32) -> u32 {

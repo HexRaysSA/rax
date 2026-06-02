@@ -5601,9 +5601,10 @@ impl AArch64Cpu {
                 self.exec_sve_shift_pred(insn, zd, zn, pg, esize)
             }
 
-            // Predicated shift by immediate (ASR/LSR/LSL Zdn, Pg/M, Zdn, #imm):
-            // bits[15:13]==100, bits[21:19]==000.
-            0b000 if (insn >> 13) & 0x7 == 0b100 && (insn >> 19) & 0x7 == 0b000 => {
+            // Predicated shift by immediate: bits[15:13]==100, bits[21:20]==00
+            // (bits[21:19] 000 => ASR/LSR/LSL/ASRD/SQSHL/UQSHL, 001 => SRSHR/
+            // URSHR/SQSHLU).
+            0b000 if (insn >> 13) & 0x7 == 0b100 && (insn >> 20) & 0x3 == 0b00 => {
                 self.exec_sve_shift_imm(insn)
             }
 
@@ -7524,11 +7525,16 @@ impl AArch64Cpu {
         };
         let esize = (bits / 8) as usize;
         let tszimm = (tsize << 3) | imm3;
-        let opc = (insn >> 16) & 0x7; // ASR=000, LSR=001, LSL=011
-        let amount = match opc {
-            0b011 => tszimm - bits,
-            0b000 | 0b001 => 2 * bits - tszimm,
-            _ => return Ok(CpuExit::Undefined(insn)),
+        // The operation is the full bits[21:16]; the low three bits alone do not
+        // distinguish e.g. ASRD (000_100) from SRSHR (001_100).
+        let op6 = (insn >> 16) & 0x3F;
+        // Shift-left ops take amount = tszimm - bits; shift-right ops take
+        // amount = 2*bits - tszimm.
+        let is_shl = matches!(op6, 0b000_011 | 0b000_110 | 0b000_111 | 0b001_111);
+        let amount = if is_shl {
+            tszimm - bits
+        } else {
+            2 * bits - tszimm
         };
         let pg = ((insn >> 10) & 0x7) as usize;
         let zd = (insn & 0x1F) as usize;
@@ -7543,10 +7549,50 @@ impl AArch64Cpu {
             }
             let off = e * esize;
             let v = read_elem(&a_reg, off, esize);
-            let r = match opc {
-                0b000 => (sext_elem(v, bits) >> amount) as u64 & mask,
-                0b001 => ((v as u128) >> amount) as u64 & mask,
-                _ => ((v as u128) << amount) as u64 & mask,
+            let r = match op6 {
+                0b000_000 => (sext_elem(v, bits) >> amount) as u64 & mask, // ASR
+                0b000_001 => (uext_elem(v, bits) >> amount) as u64 & mask, // LSR
+                0b000_011 => (uext_elem(v, bits) << amount) as u64 & mask, // LSL
+                0b000_100 => {
+                    // ASRD: signed shift-right rounding toward zero (divide).
+                    let n = sext_elem(v, bits);
+                    let bias = if n < 0 { (1i128 << amount) - 1 } else { 0 };
+                    ((n + bias) >> amount) as u64 & mask
+                }
+                0b000_110 => {
+                    // SQSHL: signed saturating shift left.
+                    if bits == 64 {
+                        sqrshl_d(v as i64, amount as i64, false, true) as u64 & mask
+                    } else {
+                        sqrshl_bhs(sext_elem(v, bits) as i32, amount as i32, bits, false, true)
+                            as u64
+                            & mask
+                    }
+                }
+                0b000_111 => {
+                    // UQSHL: unsigned saturating shift left.
+                    if bits == 64 {
+                        uqrshl_d(uext_elem(v, bits) as u64, amount as i64, false, true) & mask
+                    } else {
+                        uqrshl_bhs(uext_elem(v, bits) as u32, amount as i32, bits, false, true)
+                            as u64
+                            & mask
+                    }
+                }
+                0b001_100 => sve_srshr(sext_elem(v, bits) as i64, amount) as u64 & mask, // SRSHR
+                0b001_101 => sve_urshr(uext_elem(v, bits) as u64, amount) & mask,        // URSHR
+                0b001_111 => {
+                    // SQSHLU: signed shift left, saturating into the unsigned range.
+                    let src = sext_elem(v, bits);
+                    if src < 0 {
+                        0
+                    } else if bits == 64 {
+                        uqrshl_d(src as u64, amount as i64, false, true) & mask
+                    } else {
+                        uqrshl_bhs(src as u32, amount as i32, bits, false, true) as u64 & mask
+                    }
+                }
+                _ => return Ok(CpuExit::Undefined(insn)),
             };
             write_elem(&mut dst, off, esize, r);
         }
@@ -13679,6 +13725,30 @@ fn sext_elem(v: u64, bits: u32) -> i128 {
 #[inline]
 fn uext_elem(v: u64, bits: u32) -> u128 {
     (v & elem_mask(bits)) as u128
+}
+
+/// Signed rounding shift right (SRSHR), 64-bit. Port of qemu do_srshr; the
+/// element is sign-extended to 64 bits before the rounding add.
+#[inline]
+fn sve_srshr(x: i64, sh: u32) -> i64 {
+    if sh < 64 {
+        (x >> sh) + ((x >> (sh - 1)) & 1)
+    } else {
+        // Rounding the sign bit always produces 0.
+        0
+    }
+}
+
+/// Unsigned rounding shift right (URSHR), 64-bit. Port of qemu do_urshr.
+#[inline]
+fn sve_urshr(x: u64, sh: u32) -> u64 {
+    if sh < 64 {
+        (x >> sh) + ((x >> (sh - 1)) & 1)
+    } else if sh == 64 {
+        x >> 63
+    } else {
+        0
+    }
 }
 
 /// Saturate a signed value to the `bits`-bit signed range, returned as raw bits.
