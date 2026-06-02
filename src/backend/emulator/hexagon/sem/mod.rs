@@ -24,6 +24,7 @@ mod compare;
 mod extra;
 mod float;
 mod float_ext;
+mod hvx;
 mod mpy;
 mod mpy_ext;
 mod shift;
@@ -45,6 +46,15 @@ pub struct SemCtx<'a> {
     pub immext: Option<u32>,
     /// Bits to OR into USR on commit (sticky saturation flag).
     pub usr_or: u32,
+    /// In-flight HVX vector writes from earlier in this packet (for `.new`
+    /// vector reads). Read-only; the driver owns the buffer.
+    pub vnew: &'a [Option<[u32; 32]>; 32],
+    /// In-flight HVX vector-predicate writes.
+    pub qnew: &'a [Option<[u32; 4]>; 4],
+    /// HVX vector writes produced by this instruction (applied after dispatch).
+    pub v_writes: Vec<(u8, [u32; 32])>,
+    /// HVX vector-predicate writes produced by this instruction.
+    pub q_writes: Vec<(u8, [u32; 4])>,
 }
 
 impl SemCtx<'_> {
@@ -99,6 +109,38 @@ impl SemCtx<'_> {
     #[inline]
     pub fn set_ovf(&mut self) {
         self.usr_or |= USR_OVF;
+    }
+
+    /// Read an HVX vector register V0..V31 (old architectural value), as 32 LE
+    /// u32 words (128 bytes).
+    #[inline]
+    pub fn vread(&self, reg: u8) -> [u32; 32] {
+        self.regs.v[reg as usize]
+    }
+
+    /// Read a vector's `.new` value (in-flight if produced earlier in the
+    /// packet, else the old architectural value).
+    #[inline]
+    pub fn vread_new(&self, reg: u8) -> [u32; 32] {
+        self.vnew[reg as usize].unwrap_or(self.regs.v[reg as usize])
+    }
+
+    /// Write an HVX vector register.
+    #[inline]
+    pub fn set_v(&mut self, reg: u8, value: [u32; 32]) {
+        self.v_writes.push((reg, value));
+    }
+
+    /// Read a vector-predicate register Q0..Q3 (old), as 4 LE u32 (128 bits).
+    #[inline]
+    pub fn qread(&self, reg: u8) -> [u32; 4] {
+        self.regs.q[reg as usize]
+    }
+
+    /// Write a vector-predicate register.
+    #[inline]
+    pub fn set_q(&mut self, reg: u8, value: [u32; 4]) {
+        self.q_writes.push((reg, value));
     }
 
     /// Saturate a value to a signed `n`-bit range, flagging overflow (`fSATN`).
@@ -188,6 +230,7 @@ pub fn dispatch(d: &DecodedOp, ctx: &mut SemCtx) -> bool {
         || shift::exec(op, d, ctx)
         || vecalu::exec(op, d, ctx)
         || extra::exec(op, d, ctx)
+        || hvx::exec(op, d, ctx)
         || mpy_ext::exec(op, d, ctx)
         || shift_ext::exec(op, d, ctx)
         || alu_ext::exec(op, d, ctx)

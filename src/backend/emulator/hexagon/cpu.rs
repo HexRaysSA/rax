@@ -202,6 +202,10 @@ pub struct HexagonVcpu {
     pending_packet: Option<PacketState>,
     _isa: HexagonIsa,
     endian: Endianness,
+    /// In-flight HVX vector writes for the current packet (committed at packet
+    /// end so vector reads observe old values, matching VLIW semantics).
+    new_v: [Option<[u32; 32]>; 32],
+    new_q: [Option<[u32; 4]>; 4],
 }
 
 impl HexagonVcpu {
@@ -215,6 +219,8 @@ impl HexagonVcpu {
             pending_packet: None,
             _isa: isa,
             endian,
+            new_v: [None; 32],
+            new_q: [None; 4],
         }
     }
 
@@ -371,6 +377,17 @@ impl HexagonVcpu {
         for (idx, val) in new_p.iter().enumerate() {
             if let Some(value) = val {
                 self.regs.set_predicate(idx, *value);
+            }
+        }
+        // Commit in-flight HVX vector / vector-predicate writes.
+        for idx in 0..32 {
+            if let Some(value) = self.new_v[idx].take() {
+                self.regs.v[idx] = value;
+            }
+        }
+        for idx in 0..4 {
+            if let Some(value) = self.new_q[idx].take() {
+                self.regs.q[idx] = value;
             }
         }
     }
@@ -1088,19 +1105,29 @@ impl HexagonVcpu {
             Some(d) => d,
             None => return Ok(false),
         };
-        let usr_or = {
+        let (usr_or, v_writes, q_writes) = {
             let mut ctx = super::sem::SemCtx {
                 regs: &self.regs,
                 new_r: &mut *new_r,
                 new_p: &mut *new_p,
+                vnew: &self.new_v,
+                qnew: &self.new_q,
+                v_writes: Vec::new(),
+                q_writes: Vec::new(),
                 immext,
                 usr_or: 0,
             };
             if !super::sem::dispatch(&dop, &mut ctx) {
                 return Ok(false);
             }
-            ctx.usr_or
+            (ctx.usr_or, ctx.v_writes, ctx.q_writes)
         };
+        for (i, val) in v_writes {
+            self.new_v[i as usize] = Some(val);
+        }
+        for (i, val) in q_writes {
+            self.new_q[i as usize] = Some(val);
+        }
         if usr_or != 0 {
             self.regs.c[8] |= usr_or;
         }
@@ -1176,10 +1203,17 @@ impl HexagonVcpu {
     }
 
     fn step_packet(&mut self) -> Result<Option<VcpuExit>> {
+        let resuming = self.pending_packet.is_some();
         let mut state = self
             .pending_packet
             .take()
             .unwrap_or_else(|| PacketState::new(self.regs.pc()));
+        // Fresh packet: clear the in-flight HVX vector write buffers (they
+        // persist across an MMIO suspend/resume of the same packet).
+        if !resuming {
+            self.new_v = [None; 32];
+            self.new_q = [None; 4];
+        }
 
         let mut pc = state.pc;
         let packet_pc = state.packet_pc;

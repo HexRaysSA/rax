@@ -142,6 +142,12 @@ pub struct HexagonRegisters {
     /// conditional execution tests only the least-significant bit.
     pub p: [u8; 4],
     pub c: [u32; 32],
+    /// HVX vector registers V0..V31. Each is 1024-bit (128 bytes), stored as 32
+    /// little-endian u32 words.
+    pub v: [[u32; 32]; 32],
+    /// HVX vector predicate registers Q0..Q3 (128-bit, one bit per vector byte),
+    /// stored as 4 u32 words each.
+    pub q: [[u32; 4]; 4],
 }
 
 impl Default for HexagonRegisters {
@@ -150,6 +156,8 @@ impl Default for HexagonRegisters {
             r: [0u32; 32],
             p: [0u8; 4],
             c: [0u32; 32],
+            v: [[0u32; 32]; 32],
+            q: [[0u32; 4]; 4],
         }
     }
 }
