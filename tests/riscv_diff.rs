@@ -28,7 +28,8 @@ use std::io::{Read, Write};
 use std::path::PathBuf;
 use std::process::{Command, Stdio};
 
-use rax::riscv::{FlatMemory, RiscVConfig, RiscVCpu, RiscVExit};
+use rax::riscv::decode::{decode_compressed, Op};
+use rax::riscv::{FlatMemory, Isa, RiscVConfig, RiscVCpu, RiscVExit, Xlen};
 
 // ---------------------------------------------------------------------------
 // Wire format -- must match tools/riscv-diff/oracle.c byte for byte.
@@ -705,6 +706,246 @@ fn diff_loads_stores() {
                 batch.push((name.to_string(), s_type(off, rs2, 10, *f3, 0x23), st));
             }
         }
+    }
+    run_batch(&batch, false);
+}
+
+// ---------------------------------------------------------------------------
+// Compressed (C) extension.
+// ---------------------------------------------------------------------------
+
+/// Compressed 3-bit register field for x8..x15.
+fn cr(x: u32) -> u32 {
+    x - 8
+}
+
+// Structured 16-bit RVC encoders (q = quadrant in low 2 bits).
+fn c_addi(rd: u32, imm: i32) -> u32 {
+    let u = (imm as u32) & 0x3f;
+    (0b000 << 13) | (((u >> 5) & 1) << 12) | (rd << 7) | ((u & 0x1f) << 2) | 0b01
+}
+fn c_addiw(rd: u32, imm: i32) -> u32 {
+    let u = (imm as u32) & 0x3f;
+    (0b001 << 13) | (((u >> 5) & 1) << 12) | (rd << 7) | ((u & 0x1f) << 2) | 0b01
+}
+fn c_li(rd: u32, imm: i32) -> u32 {
+    let u = (imm as u32) & 0x3f;
+    (0b010 << 13) | (((u >> 5) & 1) << 12) | (rd << 7) | ((u & 0x1f) << 2) | 0b01
+}
+fn c_lui(rd: u32, imm17: u32) -> u32 {
+    (0b011 << 13) | (((imm17 >> 17) & 1) << 12) | (rd << 7) | (((imm17 >> 12) & 0x1f) << 2) | 0b01
+}
+fn c_addi16sp(v: i32) -> u32 {
+    let u = (v as u32) & 0x3ff;
+    (0b011 << 13)
+        | (((u >> 9) & 1) << 12)
+        | (2 << 7)
+        | (((u >> 4) & 1) << 6)
+        | (((u >> 6) & 1) << 5)
+        | (((u >> 7) & 3) << 3)
+        | (((u >> 5) & 1) << 2)
+        | 0b01
+}
+fn c_addi4spn(rd_: u32, u: u32) -> u32 {
+    (0b000 << 13)
+        | (((u >> 4) & 3) << 11)
+        | (((u >> 6) & 0xf) << 7)
+        | (((u >> 2) & 1) << 6)
+        | (((u >> 3) & 1) << 5)
+        | (cr(rd_) << 2)
+        | 0b00
+}
+fn c_mv(rd: u32, rs2: u32) -> u32 {
+    (0b100 << 13) | (0 << 12) | (rd << 7) | (rs2 << 2) | 0b10
+}
+fn c_add(rd: u32, rs2: u32) -> u32 {
+    (0b100 << 13) | (1 << 12) | (rd << 7) | (rs2 << 2) | 0b10
+}
+fn c_alu(rd_: u32, rs2_: u32, bit12: u32, sel: u32) -> u32 {
+    (0b100 << 13) | (bit12 << 12) | (0b11 << 10) | (cr(rd_) << 7) | (sel << 5) | (cr(rs2_) << 2) | 0b01
+}
+fn c_shift(rd_: u32, sh: u32, funct2: u32) -> u32 {
+    (0b100 << 13) | (((sh >> 5) & 1) << 12) | (funct2 << 10) | (cr(rd_) << 7) | ((sh & 0x1f) << 2) | 0b01
+}
+fn c_andi(rd_: u32, imm: i32) -> u32 {
+    let u = (imm as u32) & 0x3f;
+    (0b100 << 13) | (((u >> 5) & 1) << 12) | (0b10 << 10) | (cr(rd_) << 7) | ((u & 0x1f) << 2) | 0b01
+}
+fn c_slli(rd: u32, sh: u32) -> u32 {
+    (0b000 << 13) | (((sh >> 5) & 1) << 12) | (rd << 7) | ((sh & 0x1f) << 2) | 0b10
+}
+fn c_lwsp(rd: u32, u: u32) -> u32 {
+    (0b010 << 13) | (((u >> 5) & 1) << 12) | (rd << 7) | (((u >> 2) & 7) << 4) | (((u >> 6) & 3) << 2) | 0b10
+}
+fn c_ldsp(rd: u32, u: u32) -> u32 {
+    (0b011 << 13) | (((u >> 5) & 1) << 12) | (rd << 7) | (((u >> 3) & 3) << 5) | (((u >> 6) & 7) << 2) | 0b10
+}
+fn c_swsp(rs2: u32, u: u32) -> u32 {
+    (0b110 << 13) | (((u >> 2) & 0xf) << 9) | (((u >> 6) & 3) << 7) | (rs2 << 2) | 0b10
+}
+fn c_sdsp(rs2: u32, u: u32) -> u32 {
+    (0b111 << 13) | (((u >> 3) & 7) << 10) | (((u >> 6) & 7) << 7) | (rs2 << 2) | 0b10
+}
+fn c_lw(rd_: u32, rs1_: u32, u: u32) -> u32 {
+    (0b010 << 13) | (((u >> 3) & 7) << 10) | (cr(rs1_) << 7) | (((u >> 2) & 1) << 6) | (((u >> 6) & 1) << 5) | (cr(rd_) << 2) | 0b00
+}
+fn c_ld(rd_: u32, rs1_: u32, u: u32) -> u32 {
+    (0b011 << 13) | (((u >> 3) & 7) << 10) | (cr(rs1_) << 7) | (((u >> 6) & 3) << 5) | (cr(rd_) << 2) | 0b00
+}
+fn c_sw(rs2_: u32, rs1_: u32, u: u32) -> u32 {
+    (0b110 << 13) | (((u >> 3) & 7) << 10) | (cr(rs1_) << 7) | (((u >> 2) & 1) << 6) | (((u >> 6) & 1) << 5) | (cr(rs2_) << 2) | 0b00
+}
+fn c_sd(rs2_: u32, rs1_: u32, u: u32) -> u32 {
+    (0b111 << 13) | (((u >> 3) & 7) << 10) | (cr(rs1_) << 7) | (((u >> 6) & 3) << 5) | (cr(rs2_) << 2) | 0b00
+}
+
+/// Ops the compressed differential test can compare (register/immediate only,
+/// no control flow, no memory, no FP, no system).
+fn diffable_compressed(op: Op) -> bool {
+    use Op::*;
+    matches!(
+        op,
+        Lui | Addi | Slti | Sltiu | Xori | Ori | Andi | Slli | Srli | Srai | Add | Sub | Sll
+            | Slt | Sltu | Xor | Srl | Sra | Or | And | Addiw | Slliw | Srliw | Sraiw | Addw
+            | Subw | Sllw | Srlw | Sraw
+    )
+}
+
+#[test]
+fn diff_compressed_alu() {
+    let mut rng = Rng::new(0x8888);
+    let mut batch = Vec::new();
+    let cpool = [8u32, 9, 10, 11, 12, 13, 14, 15];
+    // Immediate / register integer forms.
+    for _ in 0..30 {
+        let rd = POOL[(rng.next() % 6) as usize];
+        let rd_nz = if rd == 0 { 1 } else { rd };
+        let imm = (rng.next() as i32 % 64) - 32;
+        batch.push(("c.addi".into(), c_addi(rd_nz, imm), rand_state(&mut rng)));
+        batch.push(("c.li".into(), c_li(rd_nz, imm), rand_state(&mut rng)));
+        if rd_nz != 0 {
+            batch.push(("c.addiw".into(), c_addiw(rd_nz, imm), rand_state(&mut rng)));
+        }
+        // c.lui rd!=0,2 with non-zero imm
+        let rl = POOL[(rng.next() % 6) as usize];
+        if rl != 0 && rl != 2 {
+            let imm17 = ((rng.next() as u32) & 0x3f000) | 0x1000; // ensure nonzero
+            batch.push(("c.lui".into(), c_lui(rl, imm17), rand_state(&mut rng)));
+        }
+        // c.addi16sp (nonzero multiple of 16)
+        let v = (((rng.next() as i32) % 32) - 16) * 16;
+        if v != 0 {
+            batch.push(("c.addi16sp".into(), c_addi16sp(v), rand_state(&mut rng)));
+        }
+        // c.addi4spn -> needs x2 base set; rand_state sets x2 random, fine (no mem)
+        let rdp = cpool[(rng.next() % 8) as usize];
+        let u = (((rng.next() as u32) % 64) + 1) * 4; // nonzero multiple of 4
+        let mut st = rand_state(&mut rng);
+        st.x[2] = rng.next();
+        batch.push(("c.addi4spn".into(), c_addi4spn(rdp, u & 0x3ff), st));
+        // c.mv / c.add
+        let r1 = POOL[(rng.next() % 6) as usize];
+        let r2 = POOL[(rng.next() % 6) as usize];
+        if r1 != 0 && r2 != 0 {
+            batch.push(("c.mv".into(), c_mv(r1, r2), rand_state(&mut rng)));
+            batch.push(("c.add".into(), c_add(r1, r2), rand_state(&mut rng)));
+        }
+        // c.sub/xor/or/and/subw/addw (reg' forms)
+        let a = cpool[(rng.next() % 8) as usize];
+        let b = cpool[(rng.next() % 8) as usize];
+        for (name, b12, sel) in [
+            ("c.sub", 0u32, 0b00u32),
+            ("c.xor", 0, 0b01),
+            ("c.or", 0, 0b10),
+            ("c.and", 0, 0b11),
+            ("c.subw", 1, 0b00),
+            ("c.addw", 1, 0b01),
+        ] {
+            batch.push((name.into(), c_alu(a, b, b12, sel), rand_state(&mut rng)));
+        }
+        // c.srli/srai/andi/slli
+        let sh = (rng.next() % 64) as u32;
+        batch.push(("c.srli".into(), c_shift(a, sh, 0b00), rand_state(&mut rng)));
+        batch.push(("c.srai".into(), c_shift(a, sh, 0b01), rand_state(&mut rng)));
+        batch.push(("c.andi".into(), c_andi(a, imm), rand_state(&mut rng)));
+        if rd_nz != 0 {
+            batch.push(("c.slli".into(), c_slli(rd_nz, sh), rand_state(&mut rng)));
+        }
+    }
+    run_batch(&batch, false);
+}
+
+#[test]
+fn diff_compressed_mem() {
+    let mut rng = Rng::new(0x9999);
+    let mut batch = Vec::new();
+    let cpool = [8u32, 9, 11, 12, 13, 14, 15]; // exclude x10 (used as base)
+    // SP-relative: base x2 = SCRATCH_BASE.
+    for _ in 0..20 {
+        let rd = POOL[(rng.next() % 6) as usize];
+        let rd_nz = if rd == 0 || rd == 2 { 1 } else { rd };
+        let rs2 = POOL[(rng.next() % 6) as usize];
+        let mk_state = |rng: &mut Rng| {
+            let mut st = rand_state(rng);
+            st.x[2] = SCRATCH_BASE;
+            for s in st.scratch.iter_mut() {
+                *s = rng.next();
+            }
+            st
+        };
+        let uw = (rng.next() % 8) as u32 * 4; // word offset within window
+        let ud = (rng.next() % 4) as u32 * 8; // dword offset within window
+        batch.push(("c.lwsp".into(), c_lwsp(rd_nz, uw), mk_state(&mut rng)));
+        batch.push(("c.ldsp".into(), c_ldsp(rd_nz, ud), mk_state(&mut rng)));
+        batch.push(("c.swsp".into(), c_swsp(rs2, uw), mk_state(&mut rng)));
+        batch.push(("c.sdsp".into(), c_sdsp(rs2, ud), mk_state(&mut rng)));
+    }
+    // reg'-relative: base x10 (cr=2) = SCRATCH_BASE.
+    for _ in 0..20 {
+        let rdp = cpool[(rng.next() % 7) as usize];
+        let rs2p = cpool[(rng.next() % 7) as usize];
+        let mk_state = |rng: &mut Rng| {
+            let mut st = rand_state(rng);
+            st.x[10] = SCRATCH_BASE;
+            for s in st.scratch.iter_mut() {
+                *s = rng.next();
+            }
+            st
+        };
+        let uw = (rng.next() % 8) as u32 * 4;
+        let ud = (rng.next() % 4) as u32 * 8;
+        batch.push(("c.lw".into(), c_lw(rdp, 10, uw), mk_state(&mut rng)));
+        batch.push(("c.ld".into(), c_ld(rdp, 10, ud), mk_state(&mut rng)));
+        batch.push(("c.sw".into(), c_sw(rs2p, 10, uw), mk_state(&mut rng)));
+        batch.push(("c.sd".into(), c_sd(rs2p, 10, ud), mk_state(&mut rng)));
+    }
+    run_batch(&batch, false);
+}
+
+#[test]
+fn diff_compressed_fuzz() {
+    // Throw random 16-bit parcels at both rax and qemu, keeping only those rax
+    // decodes to a register/immediate integer op (no memory/control/FP/system),
+    // so any decoder divergence surfaces independent of our structured encoders.
+    let mut rng = Rng::new(0xABCD);
+    let isa = Isa::rv64gc();
+    let mut batch = Vec::new();
+    let mut tries = 0;
+    while batch.len() < 4000 && tries < 200_000 {
+        tries += 1;
+        let half = (rng.next() & 0xffff) as u16;
+        if half & 0x3 == 0x3 || half == 0 {
+            continue; // not a (legal) compressed parcel
+        }
+        let insn = decode_compressed(half, Xlen::Rv64, &isa);
+        if insn.is_illegal() || !diffable_compressed(insn.op) {
+            continue;
+        }
+        // Reject encodings that read x3/x4 (reserved) as a source.
+        if insn.rs1 == 3 || insn.rs1 == 4 || insn.rs2 == 3 || insn.rs2 == 4 || insn.rd == 3 || insn.rd == 4 {
+            continue;
+        }
+        batch.push(("fuzz".into(), half as u32, rand_state(&mut rng)));
     }
     run_batch(&batch, false);
 }
