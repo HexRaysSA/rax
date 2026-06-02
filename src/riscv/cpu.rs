@@ -774,9 +774,8 @@ impl RiscVCpu {
             | Op::VfncvtFX | Op::VfncvtFF | Op::VfncvtRodFF | Op::VfncvtRtzXuF
             | Op::VfncvtRtzXF | Op::Vfwadd | Op::Vfwsub | Op::Vfwmul | Op::VfwaddW
             | Op::VfwsubW | Op::Vfwmacc | Op::Vfwnmacc | Op::Vfwmsac | Op::Vfwnmsac
-            | Op::Vwredsumu | Op::Vwredsum | Op::Vfwredusum | Op::Vfwredosum => {
-                self.exec_vector(insn)?
-            }
+            | Op::Vwredsumu | Op::Vwredsum | Op::Vfwredusum | Op::Vfwredosum | Op::Vfclass
+            | Op::Vmvr => self.exec_vector(insn)?,
 
             Op::Illegal => return Err(Trap::illegal(insn.raw)),
 
@@ -2518,6 +2517,27 @@ impl RiscVCpu {
                         a < b + cin
                     };
                     self.set_vmask_bit(vd, e, out);
+                }
+            }
+            Op::Vfclass => {
+                // vd[i] = 10-bit IEEE class of vs2[i].
+                let eb = self.sew_bytes();
+                let mask = Self::sew_mask(eb);
+                for e in vstart..vl {
+                    if !vm && !self.vmask_bit(e) {
+                        continue;
+                    }
+                    let r = super::float::fclass_bits(fmt_eb(eb), self.velem(vs2, e, eb));
+                    self.set_velem(vd, e, eb, r & mask);
+                }
+            }
+            Op::Vmvr => {
+                // Whole-register move: copy (simm+1) registers vs2 -> vd, raw bytes.
+                let nreg = insn.rs1 as usize + 1;
+                let total = nreg * VLENB as usize;
+                for i in 0..total {
+                    let b = self.velem(vs2, i, 1);
+                    self.set_velem(vd, i, 1, b);
                 }
             }
             Op::Vcompress => {

@@ -531,6 +531,9 @@ pub enum Op {
     Vwredsum,
     Vfwredusum,
     Vfwredosum,
+    // ---- V (classify / whole-register move) ----
+    Vfclass,
+    Vmvr,
     // ---- sentinel ----
     Illegal,
 }
@@ -821,6 +824,7 @@ fn decode_vector(w: u32) -> Insn {
             0b101010 => Op::Vssrl,
             0b101011 => Op::Vssra,
             0b100111 if f3 != 0b011 => Op::Vsmul,
+            0b100111 if f3 == 0b011 => Op::Vmvr, // vmv<nr>r.v whole-register move
             // Narrowing shift / clip (wide 2*SEW vs2 source).
             0b101100 => Op::Vnsrl,
             0b101101 => Op::Vnsra,
@@ -994,6 +998,7 @@ fn decode_vector(w: u32) -> Insn {
                 _ => return Insn::illegal(w, 4),
             },
             0b010011 if !vf && vs1 == 0 => Op::Vfsqrt,
+            0b010011 if !vf && vs1 == 0b10000 => Op::Vfclass,
             _ => return Insn::illegal(w, 4),
         };
         return base(op, w);

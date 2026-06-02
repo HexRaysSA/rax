@@ -1683,6 +1683,43 @@ fn diff_v_loadstore_adv() {
 }
 
 #[test]
+fn diff_v_class_mvr() {
+    let mut rng = Rng::new(0x7EC_8B0);
+    let mut batch = Vec::new();
+    // vfclass.v across SEW 16/32/64
+    for sew_log2 in 1..4u32 {
+        let eb = 1usize << sew_log2;
+        let vmax = vlmax(sew_log2);
+        for vl in [vmax, (vmax / 2).max(1)] {
+            for k in 0..6 {
+                let vd = VPOOL[(rng.next() % 6) as usize];
+                let vs2 = VPOOL[(rng.next() % 6) as usize];
+                let mut st = rand_vstate(&mut rng, sew_log2, vl);
+                fp_setup(&mut st, &mut rng, eb);
+                st.v[vs2 as usize * 2] = rng.next();
+                st.v[vs2 as usize * 2 + 1] = rng.next();
+                batch.push(("vfclass.v".into(), op_iv(0b010011, 1, vs2, 0b10000, 0b001, vd), st));
+                if vd != 0 && k % 2 == 0 {
+                    let mut stm = st;
+                    stm.v[0] = rng.next();
+                    stm.v[1] = rng.next();
+                    batch.push(("vfclass.v.m".into(), op_iv(0b010011, 0, vs2, 0b10000, 0b001, vd), stm));
+                }
+            }
+        }
+    }
+    // vmv<nr>r.v whole-register move (simm = nreg-1 in {0,1,3,7}).
+    for &simm in &[0u32, 1, 3, 7] {
+        for _ in 0..4 {
+            let st = rand_vstate(&mut rng, 0, 16);
+            // vd=8, vs2=16 are aligned to 8, valid for all nreg.
+            batch.push((format!("vmv{}r.v", simm + 1), op_iv(0b100111, 1, 16, simm, 0b011, 8), st));
+        }
+    }
+    run_batch(&batch);
+}
+
+#[test]
 fn diff_v_loadstore() {
     let mut rng = Rng::new(0x7EC_705);
     let mut batch = Vec::new();
