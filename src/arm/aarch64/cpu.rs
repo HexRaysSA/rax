@@ -6935,6 +6935,49 @@ impl AArch64Cpu {
             return Ok(CpuExit::Continue);
         }
 
+        // LD1 gather (32-bit scalar base + vector offset, S elements): 1000010
+        // msz xs scaled Zm 0 U ff Pg Rn Zt. esize=32; offset[e] = extend(Zm[e]
+        // <31:0>, xs) << scale (xs=1 SXTW signed, 0 UXTW unsigned). Checked after
+        // LDR/STR/LD1R (which share the 1000010 prefix but have bits[24:23]==11
+        // or bit15==1), so those win first for their encodings.
+        if insn >> 25 == 0b1000010 && (insn >> 15) & 1 == 0 && (insn >> 13) & 1 == 0 {
+            let msz = (insn >> 23) & 0x3;
+            if msz == 3 {
+                return Ok(CpuExit::Undefined(insn)); // no doubleword in S-form
+            }
+            let xs_signed = (insn >> 22) & 1 == 1;
+            let scaled = (insn >> 21) & 1 == 1;
+            let unsigned = (insn >> 14) & 1 == 1;
+            let zm = ((insn >> 16) & 0x1F) as usize;
+            let mbytes = 1usize << msz;
+            let scale = if scaled { msz } else { 0 };
+            let esize = 4usize; // S
+            let elements = 16 / esize;
+            let offs = self.v[zm].to_le_bytes();
+            let mut dst = [0u8; 16];
+            for e in 0..elements {
+                if (pred >> (e * esize)) & 1 == 0 {
+                    continue;
+                }
+                let off32 = read_elem(&offs, e * esize, esize) as u32;
+                let off = if xs_signed { off32 as i32 as i64 as u64 } else { off32 as u64 };
+                let pa = self.translate_address(base.wrapping_add(off << scale), false, false)?;
+                let raw: u64 = match mbytes {
+                    1 => self.memory.read_u8(pa)? as u64,
+                    2 => self.memory.read_u16(pa)? as u64,
+                    _ => self.memory.read_u32(pa)? as u64,
+                };
+                let val = if unsigned {
+                    raw
+                } else {
+                    (sext_elem(raw, (mbytes * 8) as u32) as u64) & elem_mask(32)
+                };
+                write_elem(&mut dst, e * esize, esize, val);
+            }
+            self.v[zt] = u128::from_le_bytes(dst);
+            return Ok(CpuExit::Continue);
+        }
+
         // ST1 scatter (64-bit scalar base + vector offset, D elements):
         // 1110010 msz ig1 Zm 101 Pg Rn Zt. addr[e] = Xn + (Zm[e] << scale);
         // scale = msz when scaled (bits[22:21]==01) else 0; store the low msize
@@ -6966,7 +7009,42 @@ impl AArch64Cpu {
             return Ok(CpuExit::Continue);
         }
 
-        // Other SVE memory forms (32-bit/unpacked gather/scatter, multi-register
+        // ST1 scatter (32-bit scalar base + vector offset, S elements): 1110010
+        // msz ig1 Zm 1 xs 0 Pg Rn Zt. esize=32; offset[e] = extend(Zm[e]<31:0>,
+        // xs) << scale; scale = msz when scaled (bits[22:21]==11) else 0. bit13==0
+        // separates this from the D-form scatter (bits[15:13]==101).
+        if insn >> 25 == 0b1110010 && (insn >> 15) & 1 == 1 && (insn >> 13) & 1 == 0 {
+            let msz = (insn >> 23) & 0x3;
+            if msz == 3 {
+                return Ok(CpuExit::Undefined(insn));
+            }
+            let scaled = (insn >> 21) & 0x3 == 0b11;
+            let xs_signed = (insn >> 14) & 1 == 1;
+            let zm = ((insn >> 16) & 0x1F) as usize;
+            let mbytes = 1usize << msz;
+            let scale = if scaled { msz } else { 0 };
+            let esize = 4usize; // S
+            let elements = 16 / esize;
+            let offs = self.v[zm].to_le_bytes();
+            let src = self.v[zt].to_le_bytes();
+            for e in 0..elements {
+                if (pred >> (e * esize)) & 1 == 0 {
+                    continue;
+                }
+                let off32 = read_elem(&offs, e * esize, esize) as u32;
+                let off = if xs_signed { off32 as i32 as i64 as u64 } else { off32 as u64 };
+                let pa = self.translate_address(base.wrapping_add(off << scale), true, false)?;
+                let val = read_elem(&src, e * esize, esize);
+                match mbytes {
+                    1 => self.memory.write_u8(pa, val as u8)?,
+                    2 => self.memory.write_u16(pa, val as u16)?,
+                    _ => self.memory.write_u32(pa, val as u32)?,
+                }
+            }
+            return Ok(CpuExit::Continue);
+        }
+
+        // Other SVE memory forms (unpacked x32 gather/scatter, multi-register
         // LD2-4/ST2-4) are not yet modelled.
         Ok(CpuExit::Undefined(insn))
     }
