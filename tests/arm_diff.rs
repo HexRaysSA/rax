@@ -3100,21 +3100,24 @@ fn diff_sve2_mull_indexed() {
 
 #[test]
 fn diff_sve2_mul_indexed() {
-    // MUL/MLA/MLS/SQDMULH/SQRDMULH by an indexed Zm element, across all sizes
-    // and index positions. Random operands plus a min*min saturation edge for
-    // the two saturating-high forms.
-    let ops: [(u32, &str); 5] = [
+    // MUL/MLA/MLS/SQDMULH/SQRDMULH and the saturating-rounding accumulate
+    // SQRDMLAH/SQRDMLSH by an indexed Zm element, across all sizes and index
+    // positions. Random operands plus a min*min saturation edge for the
+    // saturating forms.
+    let ops: [(u32, &str); 7] = [
         (0b111110, "mul"),
         (0b000010, "mla"),
         (0b000011, "mls"),
         (0b111100, "sqdmulh"),
         (0b111101, "sqrdmulh"),
+        (0b000100, "sqrdmlah"),
+        (0b000101, "sqrdmlsh"),
     ];
     let sizes: [(u32, usize, u32); 3] = [(1, 2, 8), (2, 4, 4), (3, 8, 2)]; // size, esize, #idx
     let mut rng = Rng::new(0x6_3001);
     let mut batch: Vec<(String, u32, ArmState)> = Vec::new();
     for (op6, opname) in ops {
-        let saturating = op6 == 0b111100 || op6 == 0b111101;
+        let saturating = matches!(op6, 0b111100 | 0b111101 | 0b000100 | 0b000101);
         for (size, esz, idxn) in sizes {
             for index in 0..idxn {
                 let insn = enc_sve2_mul_idx(op6, size, index, RM); // Zm = z2
@@ -3140,6 +3143,25 @@ fn diff_sve2_mul_indexed() {
                 }
             }
         }
+    }
+    // Rounding-tie edge for SQRDMLSH .h: with every Zn lane and Zm[0] = 0x0080
+    // the product is exactly 2^14, so the rounded doubling-high is 0 only when
+    // the product is negated BEFORE the rounding bias (qemu); negating the
+    // rounded SQRDMLAH result instead would give -1. The result must equal Zda.
+    for op6 in [0b000101u32, 0b000100] {
+        let insn = enc_sve2_mul_idx(op6, 1, 0, RM);
+        let lanes: u128 = {
+            let mut v = 0u128;
+            for l in 0..8 {
+                v |= 0x0080u128 << (l * 16);
+            }
+            v
+        };
+        let mut st = ArmState::zeroed();
+        st.set_vreg(1, lanes as u64, (lanes >> 64) as u64);
+        st.set_vreg(2, lanes as u64, (lanes >> 64) as u64);
+        st.set_vreg(0, rng.next(), rng.next());
+        batch.push((format!("sqrdml_tie_{op6:b}"), insn, st));
     }
     run_batch("sve2_mul_indexed", batch);
 }
@@ -4211,6 +4233,29 @@ fn diff_sve2_sqdmulh() {
         cases.push((format!("sqrdmlsh sz{size}"), enc_sve2_sqrdmlah(size, 1)));
     }
     run_family("sve2_sqdmulh", cases, 16, 0x5_9001);
+}
+
+#[test]
+fn diff_sve2_sqrdmlsh_tie() {
+    // Rounding-tie edge: every Zn/Zm .h lane = 0x0080, so the product is exactly
+    // 2^14. SQRDMLSH negates the product before adding the rounding bias, giving
+    // a doubling-high of 0 (result == Zda); negating the rounded SQRDMLAH result
+    // would instead give -1 per lane.
+    let mut rng = Rng::new(0x5_9101);
+    let mut lanes = 0u128;
+    for l in 0..8 {
+        lanes |= 0x0080u128 << (l * 16);
+    }
+    let mut batch: Vec<(String, u32, ArmState)> = Vec::new();
+    for s in 0..2u32 {
+        let insn = enc_sve2_sqrdmlah(1, s); // .h
+        let mut st = ArmState::zeroed();
+        st.set_vreg(1, lanes as u64, (lanes >> 64) as u64);
+        st.set_vreg(2, lanes as u64, (lanes >> 64) as u64);
+        st.set_vreg(0, rng.next(), rng.next()); // Zda
+        batch.push((format!("sqrdml_tie s{s}"), insn, st));
+    }
+    run_batch("sve2_sqrdmlsh_tie", batch);
 }
 
 /// (tsz, imm3) for a shift-left-long with source width `src_bits` and shift

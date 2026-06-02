@@ -5887,10 +5887,14 @@ impl AArch64Cpu {
                     let off = e * esize;
                     let prod = sext_elem(read_elem(&a, off, esize), bits)
                         * sext_elem(read_elem(&b, off, esize), bits);
-                    let sdrh = (prod + (1i128 << (bits - 2))) >> (bits - 1);
+                    // The Zm factor is negated BEFORE the rounding bias is added
+                    // (matching qemu), so the rounding of SQRDMLSH is applied to
+                    // -prod rather than negating the rounded SQRDMLAH result —
+                    // the two differ at exact rounding ties.
+                    let p = if sub { -prod } else { prod };
+                    let sdrh = (p + (1i128 << (bits - 2))) >> (bits - 1);
                     let cur = sext_elem(read_elem(&acc, off, esize), bits);
-                    let r = if sub { cur - sdrh } else { cur + sdrh };
-                    write_elem(&mut dst, off, esize, r.clamp(lo, hi) as u64 & mask);
+                    write_elem(&mut dst, off, esize, (cur + sdrh).clamp(lo, hi) as u64 & mask);
                 }
                 self.v[zd] = u128::from_le_bytes(dst);
                 Ok(CpuExit::Continue)
@@ -5958,15 +5962,21 @@ impl AArch64Cpu {
             // SVE2 integer multiply / multiply-add (indexed): 0x44, bit21==1.
             // The second factor is a single element Zm[index] broadcast to every
             // lane; the (index, Zm) packing depends on the element size.
-            // bits[15:10] selects MUL/SQDMULH/SQRDMULH (1111xx) or MLA/MLS
-            // (00001x). Other op fields (SQRDMLAH, SMLALB, CMLA, ...) fall
-            // through to the unimplemented arm.
+            // bits[15:10] selects MUL/SQDMULH/SQRDMULH (1111xx), MLA/MLS
+            // (00001x) or SQRDMLAH/SQRDMLSH (00010x). Other op fields (SMLALB,
+            // CMLA, ...) fall through to the unimplemented arm.
             0b010
                 if (insn >> 24) & 0xFF == 0b01000100
                     && (insn >> 21) & 1 == 1
                     && matches!(
                         (insn >> 10) & 0x3F,
-                        0b111110 | 0b111100 | 0b111101 | 0b000010 | 0b000011
+                        0b111110
+                            | 0b111100
+                            | 0b111101
+                            | 0b000010
+                            | 0b000011
+                            | 0b000100
+                            | 0b000101
                     ) =>
             {
                 self.exec_sve2_mul_indexed(insn, zn, zd)
@@ -6273,6 +6283,17 @@ impl AArch64Cpu {
                     // sat((a*b + 2^(bits-2)) >> (bits-1)) to avoid i128 overflow.
                     let prod = sext_elem(a, bits) * m_s;
                     ((prod + (1i128 << (bits - 2))) >> (bits - 1)).clamp(lo, hi) as u64 & mask
+                }
+                0b000100 | 0b000101 => {
+                    // SQRDMLAH (000100) / SQRDMLSH (000101): Zda + rounded
+                    // doubling-high of (+/-)a*Zm[idx]; the accumulate saturates.
+                    // The product is negated before the rounding bias, matching
+                    // qemu (differs from negating the rounded result at ties).
+                    let prod = sext_elem(a, bits) * m_s;
+                    let p = if op == 0b000101 { -prod } else { prod };
+                    let sdrh = (p + (1i128 << (bits - 2))) >> (bits - 1);
+                    let cur = sext_elem(read_elem(&acc, off, esize), bits);
+                    (cur + sdrh).clamp(lo, hi) as u64 & mask
                 }
                 _ => return Ok(CpuExit::Undefined(insn)),
             };
