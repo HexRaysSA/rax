@@ -1163,3 +1163,41 @@ fn lift_hvx_vmpy_scalar_widen_acc() {
         0x701b,
     );
 }
+
+// ---- Wave 6: HVX pack even/odd + saturating narrowing pack ----
+
+#[test]
+fn lift_hvx_vpack_evenodd() {
+    // vpacke/vpacko: pick the even (e) or odd (o) narrow sub-element of each
+    // wide lane. Output low half comes from Vv (second operand), high half from
+    // Vu (first). VPack { elem = narrow output element, odd }.
+    lift_family(
+        "hvx_vpack_evenodd",
+        &[
+            ("vpackeb", "{ v2.b = vpacke(v0.h,v1.h) }"),
+            ("vpackob", "{ v2.b = vpacko(v0.h,v1.h) }"),
+            ("vpackeh", "{ v2.h = vpacke(v0.w,v1.w) }"),
+            ("vpackoh", "{ v2.h = vpacko(v0.w,v1.w) }"),
+        ],
+        12,
+        0x701c,
+    );
+}
+
+#[test]
+fn lift_hvx_vpack_sat() {
+    // Saturating narrowing pack: each signed wide lane is clamped to half width
+    // (unsigned range for ub/uh, signed for b/h). Low half from Vv, high from
+    // Vu. VPackSat { src_elem = wide source element, to_unsigned }.
+    lift_family(
+        "hvx_vpack_sat",
+        &[
+            ("vpackhub_sat", "{ v2.ub = vpack(v0.h,v1.h):sat }"),
+            ("vpackhb_sat", "{ v2.b = vpack(v0.h,v1.h):sat }"),
+            ("vpackwuh_sat", "{ v2.uh = vpack(v0.w,v1.w):sat }"),
+            ("vpackwh_sat", "{ v2.h = vpack(v0.w,v1.w):sat }"),
+        ],
+        12,
+        0x701d,
+    );
+}

@@ -3129,6 +3129,55 @@ impl HexagonLifter {
                 });
             }
 
+            // ============================================================
+            // HVX pack even/odd (Vd = narrow sub-element of two wide srcs)
+            // sem (sem/hvx_perm.rs): out[i] (low half)  = sub-elem of Vv;
+            //                        out[i+half] (high) = sub-elem of Vu.
+            // VPack encodes src2->low, src1->high, so src1=Vu, src2=Vv.
+            // ============================================================
+            Opcode::V6_vpackeb
+            | Opcode::V6_vpackob
+            | Opcode::V6_vpackeh
+            | Opcode::V6_vpackoh => {
+                let (elem, odd) = match op {
+                    Opcode::V6_vpackeb => (VecElementType::I8, false),
+                    Opcode::V6_vpackob => (VecElementType::I8, true),
+                    Opcode::V6_vpackeh => (VecElementType::I16, false),
+                    // V6_vpackoh
+                    _ => (VecElementType::I16, true),
+                };
+                push_op!(OpKind::VPack {
+                    dst: self.hex_v(fld(b'd')),
+                    src1: self.hex_v(fld(b'u')),
+                    src2: self.hex_v(fld(b'v')),
+                    elem,
+                    odd,
+                });
+            }
+
+            // HVX saturating narrowing pack (signed wide src -> half-width).
+            // sem: out low half = sat(Vv lane), high half = sat(Vu lane);
+            // VPackSat encodes src2->low, src1->high, so src1=Vu, src2=Vv.
+            Opcode::V6_vpackhub_sat
+            | Opcode::V6_vpackhb_sat
+            | Opcode::V6_vpackwuh_sat
+            | Opcode::V6_vpackwh_sat => {
+                let (src_elem, to_unsigned) = match op {
+                    Opcode::V6_vpackhub_sat => (VecElementType::I16, true),
+                    Opcode::V6_vpackhb_sat => (VecElementType::I16, false),
+                    Opcode::V6_vpackwuh_sat => (VecElementType::I32, true),
+                    // V6_vpackwh_sat
+                    _ => (VecElementType::I32, false),
+                };
+                push_op!(OpKind::VPackSat {
+                    dst: self.hex_v(fld(b'd')),
+                    src1: self.hex_v(fld(b'u')),
+                    src2: self.hex_v(fld(b'v')),
+                    src_elem,
+                    to_unsigned,
+                });
+            }
+
             // Everything else: not implemented here.
             _ => return Err(unsupported()),
         }
