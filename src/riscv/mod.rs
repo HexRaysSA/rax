@@ -98,6 +98,8 @@ pub struct Isa {
     pub zbs: bool,
     /// Zicond: integer conditional operations.
     pub zicond: bool,
+    /// Zfa: additional floating-point instructions.
+    pub zfa: bool,
 }
 
 impl Isa {
@@ -116,6 +118,7 @@ impl Isa {
             zbc: true,
             zbs: true,
             zicond: true,
+            zfa: true,
         }
     }
 
@@ -134,6 +137,7 @@ impl Isa {
             zbc: false,
             zbs: false,
             zicond: false,
+            zfa: false,
         }
     }
 

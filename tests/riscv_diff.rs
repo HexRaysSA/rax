@@ -1416,7 +1416,7 @@ fn rand_ipool(rng: &mut Rng) -> u32 {
 }
 
 fn fuzz_one(rng: &mut Rng) -> (u32, RvState) {
-    let family = rng.next() % 12;
+    let family = rng.next() % 14;
     let rd = rand_ipool(rng);
     let rs1 = rand_ipool(rng);
     let rs2 = rand_ipool(rng);
@@ -1529,11 +1529,56 @@ fn fuzz_one(rng: &mut Rng) -> (u32, RvState) {
                 _ => fp(if dbl { 0x71 } else { 0x70 }, 0, f1, 0, rd),                        // fmv.x
             }
         }
-        _ => {
+        11 => {
             // FP move-from-int
             let dbl = rng.next() & 1 == 1;
             st.fcsr = 0;
             fp(if dbl { 0x79 } else { 0x78 }, 0, rs1, 0, fd)
+        }
+        12 => {
+            // Zfa: fminm/fmaxm/fround/froundnx/fli
+            let dbl = rng.next() & 1 == 1;
+            match rng.next() % 5 {
+                0 => {
+                    install_fp(&mut st, f1, f2, f2, 0, dbl);
+                    fp(if dbl { 0x15 } else { 0x14 }, f2, f1, 2, fd)
+                }
+                1 => {
+                    install_fp(&mut st, f1, f2, f2, 0, dbl);
+                    fp(if dbl { 0x15 } else { 0x14 }, f2, f1, 3, fd)
+                }
+                2 => {
+                    install_fp(&mut st, f1, f1, f1, frm, dbl);
+                    fp(if dbl { 0x21 } else { 0x20 }, 4, f1, rm, fd)
+                }
+                3 => {
+                    install_fp(&mut st, f1, f1, f1, frm, dbl);
+                    fp(if dbl { 0x21 } else { 0x20 }, 5, f1, rm, fd)
+                }
+                _ => {
+                    st.fcsr = 0;
+                    fp(if dbl { 0x79 } else { 0x78 }, 1, (rng.next() % 32) as u32, 0, fd)
+                }
+            }
+        }
+        _ => {
+            // Zfa: fleq/fltq/fcvtmod.w.d -> integer rd
+            match rng.next() % 3 {
+                0 => {
+                    let dbl = rng.next() & 1 == 1;
+                    install_fp(&mut st, f1, f2, f2, 0, dbl);
+                    fp(if dbl { 0x51 } else { 0x50 }, f2, f1, 4, rd)
+                }
+                1 => {
+                    let dbl = rng.next() & 1 == 1;
+                    install_fp(&mut st, f1, f2, f2, 0, dbl);
+                    fp(if dbl { 0x51 } else { 0x50 }, f2, f1, 5, rd)
+                }
+                _ => {
+                    install_fp(&mut st, f1, f1, f1, 0, true);
+                    fp(0x61, 8, f1, 1, rd)
+                }
+            }
         }
     };
     (insn, st)
@@ -1560,6 +1605,62 @@ fn diff_fuzz_exhaustive() {
     for _ in 0..40000 {
         let (insn, st) = fuzz_one(&mut rng);
         batch.push(("fuzz".to_string(), insn, st));
+    }
+    run_batch(&batch, true);
+}
+
+// ---------------------------------------------------------------------------
+// Zfa (additional FP).
+// ---------------------------------------------------------------------------
+
+#[test]
+fn diff_zfa() {
+    let mut rng = Rng::new(0x2FA0);
+    let mut batch = Vec::new();
+    let modes: [(u32, u64); 6] = [(0, 0), (1, 0), (2, 0), (3, 0), (4, 0), (7, 2)];
+
+    // fminm / fmaxm (NaN-propagating).
+    for _ in 0..40 {
+        let fd = FPOOL[(rng.next() % 8) as usize];
+        let f1 = FPOOL[(rng.next() % 8) as usize];
+        let f2 = FPOOL[(rng.next() % 8) as usize];
+        batch.push(("fminm.s".into(), fp(0x14, f2, f1, 2, fd), fp_state_s(&mut rng, f1, f2, 0, 0)));
+        batch.push(("fmaxm.s".into(), fp(0x14, f2, f1, 3, fd), fp_state_s(&mut rng, f1, f2, 0, 0)));
+        batch.push(("fminm.d".into(), fp(0x15, f2, f1, 2, fd), fp_state_d(&mut rng, f1, f2, 0, 0)));
+        batch.push(("fmaxm.d".into(), fp(0x15, f2, f1, 3, fd), fp_state_d(&mut rng, f1, f2, 0, 0)));
+    }
+    // fround / froundnx (rounding mode in funct3).
+    for &(rm, frm) in modes.iter() {
+        for _ in 0..15 {
+            let fd = FPOOL[(rng.next() % 8) as usize];
+            let f1 = FPOOL[(rng.next() % 8) as usize];
+            batch.push(("fround.s".into(), fp(0x20, 4, f1, rm, fd), fp_state_s(&mut rng, f1, 0, 0, frm)));
+            batch.push(("froundnx.s".into(), fp(0x20, 5, f1, rm, fd), fp_state_s(&mut rng, f1, 0, 0, frm)));
+            batch.push(("fround.d".into(), fp(0x21, 4, f1, rm, fd), fp_state_d(&mut rng, f1, 0, 0, frm)));
+            batch.push(("froundnx.d".into(), fp(0x21, 5, f1, rm, fd), fp_state_d(&mut rng, f1, 0, 0, frm)));
+        }
+    }
+    // fleq / fltq -> integer rd.
+    for _ in 0..40 {
+        let rd = POOL[(rng.next() % 6) as usize];
+        let f1 = FPOOL[(rng.next() % 8) as usize];
+        let f2 = FPOOL[(rng.next() % 8) as usize];
+        batch.push(("fleq.s".into(), fp(0x50, f2, f1, 4, rd), fp_state_s(&mut rng, f1, f2, 0, 0)));
+        batch.push(("fltq.s".into(), fp(0x50, f2, f1, 5, rd), fp_state_s(&mut rng, f1, f2, 0, 0)));
+        batch.push(("fleq.d".into(), fp(0x51, f2, f1, 4, rd), fp_state_d(&mut rng, f1, f2, 0, 0)));
+        batch.push(("fltq.d".into(), fp(0x51, f2, f1, 5, rd), fp_state_d(&mut rng, f1, f2, 0, 0)));
+    }
+    // fli — exhaustively cover all 32 constant-table indices.
+    for idx in 0..32u32 {
+        let fd = FPOOL[(rng.next() % 8) as usize];
+        batch.push((format!("fli.s#{idx}"), fp(0x78, 1, idx, 0, fd), RvState::zeroed()));
+        batch.push((format!("fli.d#{idx}"), fp(0x79, 1, idx, 0, fd), RvState::zeroed()));
+    }
+    // fcvtmod.w.d -> integer rd (modular truncation of a double).
+    for _ in 0..60 {
+        let rd = POOL[(rng.next() % 6) as usize];
+        let f1 = FPOOL[(rng.next() % 8) as usize];
+        batch.push(("fcvtmod.w.d".into(), fp(0x61, 8, f1, 1, rd), fp_state_d(&mut rng, f1, 0, 0, 0)));
     }
     run_batch(&batch, true);
 }

@@ -578,6 +578,167 @@ pub fn fclass<F: Sf>(x: F) -> u64 {
 }
 
 // ---------------------------------------------------------------------------
+// Zfa: NaN-propagating min/max, round-to-integral, quiet compares, fli, fcvtmod.
+// ---------------------------------------------------------------------------
+
+/// Zfa `fminm`: like `fmin` but a NaN operand yields the canonical NaN.
+pub fn fminm<F: Sf>(a: F, b: F, flags: &mut u32) -> F {
+    if a.signaling_nan() || b.signaling_nan() {
+        *flags |= fflags::NV;
+    }
+    if a.is_nan() || b.is_nan() {
+        return F::canon();
+    }
+    if a.is_zero() && b.is_zero() {
+        return if a.is_sign_negative() { a } else { b };
+    }
+    if a < b {
+        a
+    } else {
+        b
+    }
+}
+
+/// Zfa `fmaxm`: like `fmax` but a NaN operand yields the canonical NaN.
+pub fn fmaxm<F: Sf>(a: F, b: F, flags: &mut u32) -> F {
+    if a.signaling_nan() || b.signaling_nan() {
+        *flags |= fflags::NV;
+    }
+    if a.is_nan() || b.is_nan() {
+        return F::canon();
+    }
+    if a.is_zero() && b.is_zero() {
+        return if a.is_sign_negative() { b } else { a };
+    }
+    if a > b {
+        a
+    } else {
+        b
+    }
+}
+
+/// Zfa `fleq` — quiet `<=` (only a signaling NaN raises NV).
+pub fn fleq<F: Sf>(a: F, b: F, flags: &mut u32) -> bool {
+    if a.signaling_nan() || b.signaling_nan() {
+        *flags |= fflags::NV;
+    }
+    if a.is_nan() || b.is_nan() {
+        return false;
+    }
+    a <= b
+}
+
+/// Zfa `fltq` — quiet `<` (only a signaling NaN raises NV).
+pub fn fltq<F: Sf>(a: F, b: F, flags: &mut u32) -> bool {
+    if a.signaling_nan() || b.signaling_nan() {
+        *flags |= fflags::NV;
+    }
+    if a.is_nan() || b.is_nan() {
+        return false;
+    }
+    a < b
+}
+
+/// Zfa `fround`/`froundnx` — round to an integral value in the given mode.
+/// `set_nx` (froundnx) raises NX when the result differs from the input.
+pub fn fround<F: Sf>(x: F, mode: RoundingMode, set_nx: bool, flags: &mut u32) -> F {
+    if x.is_nan() {
+        if x.signaling_nan() {
+            *flags |= fflags::NV;
+        }
+        return F::canon();
+    }
+    if x.is_infinite() || x.is_zero() {
+        return x;
+    }
+    let r = x.round_integral(mode);
+    if set_nx && r.to_bits() != x.to_bits() {
+        *flags |= fflags::NX;
+    }
+    r
+}
+
+/// Zfa `fli` constant for table index `idx` (0..31) in format `fmt`.
+pub fn fli(fmt: Fmt, idx: u8) -> u64 {
+    // f64 values for indices 2..29; 0/1/30/31 are handled specially.
+    const TBL: [f64; 32] = [
+        -1.0, 0.0, // 0: -1.0, 1: min normal (special)
+        0.0000152587890625, 0.000030517578125, 0.00390625, 0.0078125, 0.0625, 0.125, // 2^-16..2^-3
+        0.25, 0.3125, 0.375, 0.4375, 0.5, 0.625, 0.75, 0.875, // 8..15
+        1.0, 1.25, 1.5, 1.75, 2.0, 2.5, 3.0, 4.0, // 16..23
+        8.0, 16.0, 128.0, 256.0, 32768.0, 65536.0, // 24..29 (incl 2^15, 2^16)
+        0.0, 0.0, // 30: +inf, 31: qNaN (special)
+    ];
+    match idx & 31 {
+        1 => fmt.pack(false, 1, 0),      // minimum positive normal
+        30 => fmt.pack_inf(false),       // +inf
+        31 => fmt.canon(),               // canonical qNaN
+        i => {
+            let v = TBL[i as usize];
+            if fmt.p == F32.p {
+                (v as f32).to_bits() as u64
+            } else {
+                v.to_bits()
+            }
+        }
+    }
+}
+
+/// Zfa `fcvtmod.w.d` — truncate a double toward zero, take the result modulo
+/// 2^32 as a signed 32-bit value, sign-extended. NaN/inf -> 0 with NV; a dropped
+/// fraction raises NX.
+pub fn fcvtmod_w_d(x: f64, flags: &mut u32) -> u64 {
+    if x.is_nan() || x.is_infinite() {
+        *flags |= fflags::NV;
+        return 0;
+    }
+    match decompose(F64, x.to_bits()) {
+        Dec::Zero(_) => 0,
+        Dec::Finite { sign, mant, exp } => {
+            // Integer value V = mant * 2^exp; report V mod 2^32 sign-extended.
+            // The fraction is inexact when any bit below 2^0 is dropped.
+            let inexact = exp < 0 && (mant & ((1u64 << (-exp).min(63)) - 1)) != 0;
+            // Invalid when the truncated value does not fit a signed 32-bit int.
+            let msb_exp = (63 - (mant as u64).leading_zeros()) as i32 + exp;
+            let out_of_range = if msb_exp >= 32 {
+                true
+            } else {
+                let m = mant as i128;
+                let v = if exp >= 0 {
+                    m << exp
+                } else {
+                    m >> ((-exp) as u32).min(127)
+                };
+                let v = if sign { -v } else { v };
+                !(v >= -(1i128 << 31) && v < (1i128 << 31))
+            };
+            // Invalid suppresses inexact (as with the saturating FCVT forms).
+            if out_of_range {
+                *flags |= fflags::NV;
+            } else if inexact {
+                *flags |= fflags::NX;
+            }
+            let m = mant as u128;
+            let vmod: u32 = if exp >= 32 {
+                0
+            } else if exp >= 0 {
+                ((m << exp) & 0xffff_ffff) as u32
+            } else {
+                let s = (-exp) as u32;
+                if s >= 128 {
+                    0
+                } else {
+                    ((m >> s) & 0xffff_ffff) as u32
+                }
+            };
+            let r32 = if sign { vmod.wrapping_neg() } else { vmod };
+            r32 as i32 as i64 as u64
+        }
+        _ => 0,
+    }
+}
+
+// ---------------------------------------------------------------------------
 // Conversions: float -> integer, integer -> float, and f64 <-> f32.
 // ---------------------------------------------------------------------------
 

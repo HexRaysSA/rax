@@ -234,6 +234,22 @@ pub enum Op {
     // ---- Zicond ----
     CzeroEqz,
     CzeroNez,
+    // ---- Zfa ----
+    FliS,
+    FliD,
+    FminmS,
+    FmaxmS,
+    FminmD,
+    FmaxmD,
+    FroundS,
+    FroundnxS,
+    FroundD,
+    FroundnxD,
+    FleqS,
+    FltqS,
+    FleqD,
+    FltqD,
+    FcvtmodWD,
     // ---- sentinel ----
     Illegal,
 }
@@ -261,6 +277,9 @@ impl Op {
                 | FcvtWD | FcvtWuD | FcvtLD | FcvtLuD
                 | FcvtDW | FcvtDWu | FcvtDL | FcvtDLu
                 | FmvXD | FmvDX
+                | FliS | FliD | FminmS | FmaxmS | FminmD | FmaxmD
+                | FroundS | FroundnxS | FroundD | FroundnxD
+                | FleqS | FltqS | FleqD | FltqD | FcvtmodWD
         )
     }
 }
@@ -877,11 +896,38 @@ fn decode_fma(single: Op, double: Op, w: u32, isa: &Isa) -> Insn {
 }
 
 // OP-FP (0x53): selected by funct7, with funct3 reused as rm or sub-op.
+/// Zfa additional FP ops layered over the OP-FP encoding space.
+fn decode_zfa(f7: u32, f3: u8, rs2f: u8, isa: &Isa) -> Option<Op> {
+    Some(match (f7, f3, rs2f) {
+        (0b0010100, 2, _) => Op::FminmS,
+        (0b0010100, 3, _) => Op::FmaxmS,
+        (0b0010101, 2, _) if isa.d => Op::FminmD,
+        (0b0010101, 3, _) if isa.d => Op::FmaxmD,
+        (0b0100000, _, 4) => Op::FroundS,
+        (0b0100000, _, 5) => Op::FroundnxS,
+        (0b0100001, _, 4) if isa.d => Op::FroundD,
+        (0b0100001, _, 5) if isa.d => Op::FroundnxD,
+        (0b1010000, 4, _) => Op::FleqS,
+        (0b1010000, 5, _) => Op::FltqS,
+        (0b1010001, 4, _) if isa.d => Op::FleqD,
+        (0b1010001, 5, _) if isa.d => Op::FltqD,
+        (0b1111000, 0, 1) => Op::FliS,
+        (0b1111001, 0, 1) if isa.d => Op::FliD,
+        (0b1100001, 1, 8) if isa.d => Op::FcvtmodWD,
+        _ => return None,
+    })
+}
+
 fn decode_op_fp(w: u32, rv64: bool, isa: &Isa) -> Insn {
     let f7 = funct7(w);
     let f3 = funct3(w);
     let rs2f = rs2(w);
     let d = isa.d;
+    if isa.zfa {
+        if let Some(op) = decode_zfa(f7, f3, rs2f, isa) {
+            return base(op, w);
+        }
+    }
     let op = match f7 {
         0b0000000 => Op::FaddS,
         0b0000001 if d => Op::FaddD,

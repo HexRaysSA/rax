@@ -215,6 +215,21 @@ impl Op {
             Bseti => "bseti",
             CzeroEqz => "czero.eqz",
             CzeroNez => "czero.nez",
+            FliS => "fli.s",
+            FliD => "fli.d",
+            FminmS => "fminm.s",
+            FmaxmS => "fmaxm.s",
+            FminmD => "fminm.d",
+            FmaxmD => "fmaxm.d",
+            FroundS => "fround.s",
+            FroundnxS => "froundnx.s",
+            FroundD => "fround.d",
+            FroundnxD => "froundnx.d",
+            FleqS => "fleq.s",
+            FltqS => "fltq.s",
+            FleqD => "fleq.d",
+            FltqD => "fltq.d",
+            FcvtmodWD => "fcvtmod.w.d",
             Illegal => "illegal",
         }
     }
@@ -243,13 +258,15 @@ impl Op {
             | AmominuW | AmomaxuW | AmoswapD | AmoaddD | AmoxorD | AmoandD | AmoorD | AmominD
             | AmomaxD | AmominuD | AmomaxuD => Class::Amo,
             Clz | Ctz | Cpop | SextB | SextH | ZextH | Clzw | Ctzw | Cpopw => Class::Unary,
-            FsqrtS | FsqrtD => Class::FUnary,
+            FsqrtS | FsqrtD | FroundS | FroundnxS | FroundD | FroundnxD => Class::FUnary,
             FaddS | FsubS | FmulS | FdivS | FsgnjS | FsgnjnS | FsgnjxS | FminS | FmaxS | FaddD
-            | FsubD | FmulD | FdivD | FsgnjD | FsgnjnD | FsgnjxD | FminD | FmaxD => Class::FBin,
+            | FsubD | FmulD | FdivD | FsgnjD | FsgnjnD | FsgnjxD | FminD | FmaxD | FminmS
+            | FmaxmS | FminmD | FmaxmD => Class::FBin,
             FmaddS | FmsubS | FnmsubS | FnmaddS | FmaddD | FmsubD | FnmsubD | FnmaddD => Class::FMA,
-            FeqS | FltS | FleS | FeqD | FltD | FleD => Class::FCmp,
+            FeqS | FltS | FleS | FeqD | FltD | FleD | FleqS | FltqS | FleqD | FltqD => Class::FCmp,
+            FliS | FliD => Class::Fli,
             FcvtWS | FcvtWuS | FcvtLS | FcvtLuS | FmvXW | FclassS | FcvtWD | FcvtWuD | FcvtLD
-            | FcvtLuD | FmvXD | FclassD => Class::FToX,
+            | FcvtLuD | FmvXD | FclassD | FcvtmodWD => Class::FToX,
             FcvtSW | FcvtSWu | FcvtSL | FcvtSLu | FmvWX | FcvtDW | FcvtDWu | FcvtDL | FcvtDLu
             | FmvDX => Class::XToF,
             FcvtSD | FcvtDS => Class::FToF,
@@ -284,6 +301,7 @@ enum Class {
     FToX,
     XToF,
     FToF,
+    Fli,
 }
 
 impl fmt::Display for Insn {
@@ -322,6 +340,7 @@ impl fmt::Display for Insn {
             Class::FToX => write!(f, "{m} {rd}, {frs1}"),
             Class::XToF => write!(f, "{m} {frd}, {rs1}"),
             Class::FToF => write!(f, "{m} {frd}, {frs1}"),
+            Class::Fli => write!(f, "{m} {frd}, #{}", self.rs1),
         }
     }
 }

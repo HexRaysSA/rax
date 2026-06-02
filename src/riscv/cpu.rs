@@ -1137,6 +1137,11 @@ impl RiscVCpu {
                 | Op::FeqS | Op::FltS | Op::FleS | Op::FeqD | Op::FltD | Op::FleD
                 | Op::FclassS | Op::FclassD
                 | Op::FmvXW | Op::FmvWX | Op::FmvXD | Op::FmvDX
+                // Zfa sub-op encodings (funct3 selects the op, not a rounding mode)
+                | Op::FliS | Op::FliD
+                | Op::FminmS | Op::FmaxmS | Op::FminmD | Op::FmaxmD
+                | Op::FleqS | Op::FltqS | Op::FleqD | Op::FltqD
+                | Op::FcvtmodWD
         );
         let rm = if needs_rm {
             match self.eff_rm(insn.rm()) {
@@ -1385,6 +1390,59 @@ impl RiscVCpu {
                 let bits = ff::f32_to_f64(self.rf32(rs1), &mut flags);
                 self.wf64(rd, bits);
             }
+
+            // ---- Zfa ----
+            Op::FliS => self.wf32(rd, ff::fli(ff::F32, rs1) as u32),
+            Op::FliD => self.wf64(rd, ff::fli(ff::F64, rs1)),
+            Op::FminmS => {
+                let r = ff::fminm(self.rf32(rs1), self.rf32(rs2), &mut flags);
+                self.wf32(rd, r.to_bits());
+            }
+            Op::FmaxmS => {
+                let r = ff::fmaxm(self.rf32(rs1), self.rf32(rs2), &mut flags);
+                self.wf32(rd, r.to_bits());
+            }
+            Op::FminmD => {
+                let r = ff::fminm(self.rf64(rs1), self.rf64(rs2), &mut flags);
+                self.wf64(rd, r.to_bits());
+            }
+            Op::FmaxmD => {
+                let r = ff::fmaxm(self.rf64(rs1), self.rf64(rs2), &mut flags);
+                self.wf64(rd, r.to_bits());
+            }
+            Op::FroundS => {
+                let r = ff::fround(self.rf32(rs1), rm, false, &mut flags);
+                self.wf32(rd, r.to_bits());
+            }
+            Op::FroundnxS => {
+                let r = ff::fround(self.rf32(rs1), rm, true, &mut flags);
+                self.wf32(rd, r.to_bits());
+            }
+            Op::FroundD => {
+                let r = ff::fround(self.rf64(rs1), rm, false, &mut flags);
+                self.wf64(rd, r.to_bits());
+            }
+            Op::FroundnxD => {
+                let r = ff::fround(self.rf64(rs1), rm, true, &mut flags);
+                self.wf64(rd, r.to_bits());
+            }
+            Op::FleqS => {
+                let v = ff::fleq(self.rf32(rs1), self.rf32(rs2), &mut flags);
+                self.set_x(rd, v as u64);
+            }
+            Op::FltqS => {
+                let v = ff::fltq(self.rf32(rs1), self.rf32(rs2), &mut flags);
+                self.set_x(rd, v as u64);
+            }
+            Op::FleqD => {
+                let v = ff::fleq(self.rf64(rs1), self.rf64(rs2), &mut flags);
+                self.set_x(rd, v as u64);
+            }
+            Op::FltqD => {
+                let v = ff::fltq(self.rf64(rs1), self.rf64(rs2), &mut flags);
+                self.set_x(rd, v as u64);
+            }
+            Op::FcvtmodWD => self.set_x(rd, ff::fcvtmod_w_d(self.rf64(rs1), &mut flags)),
 
             _ => return Err(Trap::illegal(insn.raw)),
         }
