@@ -6063,6 +6063,17 @@ impl AArch64Cpu {
                 Ok(CpuExit::Continue)
             }
 
+            // SVE2 crypto (AES / SM4 / SHA3-RAX1): 0x45, bit21==1,
+            // bits[15:13]==111. At VL=128 each op acts on the single 128-bit
+            // segment, identical to its NEON counterpart.
+            0b010
+                if (insn >> 24) & 0xFF == 0b01000101
+                    && (insn >> 21) & 1 == 1
+                    && (insn >> 13) & 0x7 == 0b111 =>
+            {
+                self.exec_sve2_crypto(insn)
+            }
+
             // Load/Store
             0b100 | 0b101 | 0b110 | 0b111 => self.exec_sve_ldst(insn),
 
@@ -6070,6 +6081,48 @@ impl AArch64Cpu {
                 "SVE op0={:03b} op1={:02b}",
                 op0, op1
             ))),
+        }
+    }
+
+    /// Execute the SVE2 crypto group (AES round/mix, SM4, SHA3 RAX1). At
+    /// VL=128 every operation works on the single 128-bit segment, so it reuses
+    /// the NEON primitives directly. AES family: bits[15:11]==11100, sub-decoded
+    /// by bits[23:16] and bit10; SM4EKEY/RAX1: bits[15:11]==11110, bit10.
+    fn exec_sve2_crypto(&mut self, insn: u32) -> Result<CpuExit, ArmError> {
+        let zd = (insn & 0x1F) as usize;
+        let n = ((insn >> 5) & 0x1F) as usize; // bits[9:5] (Zm for AES/SM4E, Zn for *KEY/RAX1)
+        let m = ((insn >> 16) & 0x1F) as usize; // bits[20:16] (Zm for *KEY/RAX1)
+        let inv = (insn >> 10) & 1 == 1;
+        match (insn >> 11) & 0x1F {
+            0b11100 => {
+                match (insn >> 16) & 0xFF {
+                    // AESMC / AESIMC: Zd = (Inv)MixColumns(Zd). bits[9:5] must be 0.
+                    0x20 if n == 0 => self.v[zd] = aes_mix_columns(self.v[zd], inv),
+                    // AESE / AESD: Zd = (Inv)SubBytes((Inv)ShiftRows(Zd ^ Zm)).
+                    0x22 => {
+                        let st = self.v[zd] ^ self.v[n];
+                        self.v[zd] = aes_sub_bytes(aes_shift_rows(st, inv), inv);
+                    }
+                    // SM4E: Zd = SM4E(Zd, Zm).
+                    0x23 if !inv => self.v[zd] = sm4_rounds(self.v[zd], self.v[n], true),
+                    _ => return Ok(CpuExit::Undefined(insn)),
+                }
+                Ok(CpuExit::Continue)
+            }
+            0b11110 => {
+                if !inv {
+                    // SM4EKEY: Zd = SM4EKEY(Zn, Zm).
+                    self.v[zd] = sm4_rounds(self.v[n], self.v[m], false);
+                } else {
+                    // RAX1: per 64-bit element, Zd = Zn ^ ROL(Zm, 1).
+                    let (zn, zm) = (self.v[n], self.v[m]);
+                    let lo = (zn as u64) ^ (zm as u64).rotate_left(1);
+                    let hi = ((zn >> 64) as u64) ^ ((zm >> 64) as u64).rotate_left(1);
+                    self.v[zd] = (lo as u128) | ((hi as u128) << 64);
+                }
+                Ok(CpuExit::Continue)
+            }
+            _ => Ok(CpuExit::Undefined(insn)),
         }
     }
 

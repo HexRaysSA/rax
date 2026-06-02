@@ -1661,6 +1661,24 @@ fn sli_tsz_imm(esize_bits: u32, amount: u32) -> (u32, u32) {
     ((tszimm >> 3) & 0xF, tszimm & 0x7)
 }
 
+/// SVE2 AES/SM4E family: `0100 0101 <third> 11100 op Zm Zd`. third=bits[23:16]
+/// (0x22 AESE/AESD, 0x23 SM4E); op=bit10. Zm=z1(RN), Zd=z0(RD).
+fn enc_sve2_aes(third: u32, op: u32) -> u32 {
+    (0x45 << 24) | (third << 16) | (0b11100 << 11) | (op << 10) | (RN << 5) | RD
+}
+
+/// SVE2 AESMC/AESIMC: `0100 0101 00100000 11100 op 00000 Zd`. op=bit10
+/// (0=AESMC,1=AESIMC). Zd=z0(RD); the bits[9:5] source field is fixed 0.
+fn enc_sve2_aesmc(op: u32) -> u32 {
+    (0x45 << 24) | (0x20 << 16) | (0b11100 << 11) | (op << 10) | RD
+}
+
+/// SVE2 SM4EKEY/RAX1: `0100 0101 001 Zm 11110 op Zn Zd`. op=bit10 (0=SM4EKEY,
+/// 1=RAX1). Zn=z1(RN), Zm=z2(RM), Zd=z0(RD).
+fn enc_sve2_sm4ekey(op: u32) -> u32 {
+    (0x45 << 24) | (1 << 21) | (RM << 16) | (0b11110 << 11) | (op << 10) | (RN << 5) | RD
+}
+
 /// SVE2 HISTCNT: `0100 0101 size 1 Zm 110 Pg Zn Zd`. size: 2=s,3=d. Pg=p0,
 /// Zn=z1(RN), Zm=z2(RM), Zd=z0(RD).
 fn enc_sve2_histcnt(size: u32) -> u32 {
@@ -2784,6 +2802,34 @@ fn diff_sve2_fcvtx() {
         }
     }
     run_batch("sve2_fcvtx", batch);
+}
+
+#[test]
+fn diff_sve2_crypto() {
+    // SVE2 AES/SM4/RAX1 at VL=128 operate on the single 128-bit segment.
+    // Random operands suffice (no special-value handling). The slice lists the
+    // registers each form reads (and, where destructive, also writes).
+    let mut rng = Rng::new(0x6_8001);
+    let mut batch: Vec<(String, u32, ArmState)> = Vec::new();
+    let cases: [(&str, u32, &[usize]); 7] = [
+        ("aesmc", enc_sve2_aesmc(0), &[0]),
+        ("aesimc", enc_sve2_aesmc(1), &[0]),
+        ("aese", enc_sve2_aes(0x22, 0), &[0, 1]),
+        ("aesd", enc_sve2_aes(0x22, 1), &[0, 1]),
+        ("sm4e", enc_sve2_aes(0x23, 0), &[0, 1]),
+        ("sm4ekey", enc_sve2_sm4ekey(0), &[1, 2]),
+        ("rax1", enc_sve2_sm4ekey(1), &[1, 2]),
+    ];
+    for (name, insn, regs) in cases {
+        for _ in 0..20 {
+            let mut st = ArmState::zeroed();
+            for &r in regs {
+                st.set_vreg(r, rng.next(), rng.next());
+            }
+            batch.push((name.to_string(), insn, st));
+        }
+    }
+    run_batch("sve2_crypto", batch);
 }
 
 #[test]
