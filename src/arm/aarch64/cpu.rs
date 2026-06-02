@@ -11,12 +11,12 @@ use std::collections::HashSet;
 use std::fmt::Debug;
 
 use super::exceptions::{
-    build_spsr, exception_target_el, parse_spsr, vector_offset, ExceptionType, SyndromeRegister,
+    ExceptionType, SyndromeRegister, build_spsr, exception_target_el, parse_spsr, vector_offset,
 };
 use super::gic::{Gic, GicConfig};
 use super::mmu::{Mmu, MmuConfig, TranslationFault, TranslationGranule};
 use super::sysregs::SystemRegisters;
-use super::{sctlr, NUM_ELS, NUM_GPRS, NUM_SIMD_REGS};
+use super::{NUM_ELS, NUM_GPRS, NUM_SIMD_REGS, sctlr};
 
 use crate::arm::cpu_trait::{
     ArmCpu, ArmError, ArmException, ArmProfile, ArmVersion, CpuExit, MemoryFaultInfo,
@@ -1198,10 +1198,10 @@ impl AArch64Cpu {
                     let m = f32::from_bits(self.v[rm] as u32);
                     let a = f32::from_bits(self.v[ra] as u32);
                     let r = match (o1, o0) {
-                        (0, 0) => n.mul_add(m, a),    // FMADD:  a + n*m
-                        (0, 1) => (-n).mul_add(m, a), // FMSUB:  a - n*m
-                        (1, 0) => (-n).mul_add(m, -a),// FNMADD: -a - n*m
-                        _ => n.mul_add(m, -a),        // FNMSUB: -a + n*m
+                        (0, 0) => n.mul_add(m, a),     // FMADD:  a + n*m
+                        (0, 1) => (-n).mul_add(m, a),  // FMSUB:  a - n*m
+                        (1, 0) => (-n).mul_add(m, -a), // FNMADD: -a - n*m
+                        _ => n.mul_add(m, -a),         // FNMSUB: -a + n*m
                     };
                     self.v[rd] = r.to_bits() as u128;
                 }
@@ -1427,9 +1427,7 @@ impl AArch64Cpu {
 
         // Floating-point conditional compare (FCCMP / FCCMPE)
         // bits[31:24]=0001_1110, bit21=1, bits[11:10]=01
-        if (insn >> 24) & 0xFF == 0b00011110
-            && (insn >> 21) & 1 == 1
-            && (insn >> 10) & 0x3 == 0b01
+        if (insn >> 24) & 0xFF == 0b00011110 && (insn >> 21) & 1 == 1 && (insn >> 10) & 0x3 == 0b01
         {
             let fp_type = (insn >> 22) & 0x3;
             let rm = ((insn >> 16) & 0x1F) as usize;
@@ -1472,9 +1470,7 @@ impl AArch64Cpu {
 
         // Floating-point conditional select (FCSEL)
         // bits[31:24]=0001_1110, bit21=1, bits[11:10]=11
-        if (insn >> 24) & 0xFF == 0b00011110
-            && (insn >> 21) & 1 == 1
-            && (insn >> 10) & 0x3 == 0b11
+        if (insn >> 24) & 0xFF == 0b00011110 && (insn >> 21) & 1 == 1 && (insn >> 10) & 0x3 == 0b11
         {
             let fp_type = (insn >> 22) & 0x3;
             let rm = ((insn >> 16) & 0x1F) as usize;
@@ -1920,7 +1916,7 @@ impl AArch64Cpu {
             match (insn >> 22) & 0x3 {
                 0b00 => return self.exec_simd_dot_indexed_mixed(insn, true, false), // SUDOT: Vn signed, Vm unsigned
                 0b10 => return self.exec_simd_dot_indexed_mixed(insn, false, true), // USDOT: Vn unsigned, Vm signed
-                0b01 => return self.exec_simd_bfdot(insn, true),  // BFDOT by element
+                0b01 => return self.exec_simd_bfdot(insn, true), // BFDOT by element
                 0b11 => return self.exec_simd_bfmlal(insn, true), // BFMLALB/T by element
                 _ => {}
             }
@@ -2320,7 +2316,7 @@ impl AArch64Cpu {
                 (1, 1, 0b11010) => fp16_to_int16(s, false, 2), // FCVTPU
                 (1, 1, 0b11011) => fp16_to_int16(s, false, 3), // FCVTZU
                 // Integer to floating-point.
-                (0, 0, 0b11101) => int16_to_fp16(s, true),  // SCVTF
+                (0, 0, 0b11101) => int16_to_fp16(s, true), // SCVTF
                 (1, 0, 0b11101) => int16_to_fp16(s, false), // UCVTF
                 _ => return Ok(CpuExit::Undefined(insn)),
             };
@@ -2453,11 +2449,12 @@ impl AArch64Cpu {
                     };
                     let dval = ((vd >> (e * dbits as usize)) & dmask) as u64;
                     let r: u128 = match opcode {
-                        0b0000 => ((av + bv) as u128) & dmask,          // SADDL/UADDL
-                        0b0010 => ((av - bv) as u128) & dmask,          // SSUBL/USUBL
-                        0b0111 => (((av - bv).abs()) as u128) & dmask,  // SABDL/UABDL
+                        0b0000 => ((av + bv) as u128) & dmask,         // SADDL/UADDL
+                        0b0010 => ((av - bv) as u128) & dmask,         // SSUBL/USUBL
+                        0b0111 => (((av - bv).abs()) as u128) & dmask, // SABDL/UABDL
                         0b0101 => {
-                            ((sext_elem_wide(dval as u128, dbits) + (av - bv).abs()) as u128) & dmask
+                            ((sext_elem_wide(dval as u128, dbits) + (av - bv).abs()) as u128)
+                                & dmask
                             // SABAL/UABAL
                         }
                         0b1000 => {
@@ -2466,7 +2463,7 @@ impl AArch64Cpu {
                         0b1010 => {
                             ((sext_elem_wide(dval as u128, dbits) - av * bv) as u128) & dmask // SMLSL/UMLSL
                         }
-                        0b1100 => ((av * bv) as u128) & dmask,          // SMULL/UMULL
+                        0b1100 => ((av * bv) as u128) & dmask, // SMULL/UMULL
                         0b1110 => {
                             if u == 1 {
                                 return Err(ArmError::UndefinedInstruction(insn));
@@ -2535,7 +2532,12 @@ impl AArch64Cpu {
                 let (xr, yr, xi, yi) = match rot {
                     0b00 => (a_re, b_re, a_re, b_im),
                     0b01 => (a_im, fp_neg_bits(b_im, esize), a_im, b_re),
-                    0b10 => (a_re, fp_neg_bits(b_re, esize), a_re, fp_neg_bits(b_im, esize)),
+                    0b10 => (
+                        a_re,
+                        fp_neg_bits(b_re, esize),
+                        a_re,
+                        fp_neg_bits(b_im, esize),
+                    ),
                     _ => (a_im, b_im, a_im, fp_neg_bits(b_re, esize)),
                 };
                 (
@@ -2693,8 +2695,8 @@ impl AArch64Cpu {
         for e in 0..lanes {
             let mut res: i64 = 0;
             for i in 0..4 {
-                res += byte(op1, (4 * e + i) * 8, op1_signed)
-                    * byte(op2, (base + i) * 8, op2_signed);
+                res +=
+                    byte(op1, (4 * e + i) * 8, op1_signed) * byte(op2, (base + i) * 8, op2_signed);
             }
             let lane = (result >> (e * 32)) as u32;
             let updated = (lane as i64).wrapping_add(res) as u32;
@@ -2774,10 +2776,8 @@ impl AArch64Cpu {
                 Some(ix) => (2 * ix, 2 * ix + 1),
                 None => (2 * e, 2 * e + 1),
             };
-            let p1 =
-                bf16_to_f32(bf16(op1, 2 * e)) as f64 * bf16_to_f32(bf16(op2, i2lo)) as f64;
-            let p2 = bf16_to_f32(bf16(op1, 2 * e + 1)) as f64
-                * bf16_to_f32(bf16(op2, i2hi)) as f64;
+            let p1 = bf16_to_f32(bf16(op1, 2 * e)) as f64 * bf16_to_f32(bf16(op2, i2lo)) as f64;
+            let p2 = bf16_to_f32(bf16(op1, 2 * e + 1)) as f64 * bf16_to_f32(bf16(op2, i2hi)) as f64;
             // Hardware: t = round_odd(p1+p2); result = round_odd(acc+t).
             let t = bf_odd_add(p1, p2);
             let r = round_odd_f64_to_f32(acc + t);
@@ -3103,9 +3103,9 @@ impl AArch64Cpu {
         // Reductions are defined for 8B/16B/4H/8H and (Q==1) 4S; never 64-bit,
         // and 8B/4H also exclude the single-element degenerate cases.
         let valid_size = match size {
-            0b00 => true,            // 8B / 16B
-            0b01 => true,            // 4H / 8H
-            0b10 => q == 1,          // 4S only
+            0b00 => true,   // 8B / 16B
+            0b01 => true,   // 4H / 8H
+            0b10 => q == 1, // 4S only
             _ => false,
         };
         if !valid_size {
@@ -3140,7 +3140,11 @@ impl AArch64Cpu {
                 for e in 1..elements {
                     let v = read_elem(&src, e * esize, esize);
                     acc = if u == 0 {
-                        if sext_elem(v, bits) > sext_elem(acc, bits) { v } else { acc }
+                        if sext_elem(v, bits) > sext_elem(acc, bits) {
+                            v
+                        } else {
+                            acc
+                        }
                     } else if uext_elem(v, bits) > uext_elem(acc, bits) {
                         v
                     } else {
@@ -3155,7 +3159,11 @@ impl AArch64Cpu {
                 for e in 1..elements {
                     let v = read_elem(&src, e * esize, esize);
                     acc = if u == 0 {
-                        if sext_elem(v, bits) < sext_elem(acc, bits) { v } else { acc }
+                        if sext_elem(v, bits) < sext_elem(acc, bits) {
+                            v
+                        } else {
+                            acc
+                        }
                     } else if uext_elem(v, bits) < uext_elem(acc, bits) {
                         v
                     } else {
@@ -3345,7 +3353,10 @@ impl AArch64Cpu {
                         }
                         _ => {
                             // UQSHRN / UQRSHRN: unsigned source, unsigned saturate.
-                            sat_unsigned(simd_rshift_full(s, shift, src_bits, false, rounding), bits)
+                            sat_unsigned(
+                                simd_rshift_full(s, shift, src_bits, false, rounding),
+                                bits,
+                            )
                         }
                     };
                     packed |= (r & elem_mask(bits)) << (e * bits as usize);
@@ -3445,7 +3456,13 @@ impl AArch64Cpu {
             if bits == 64 && q == 0 && !scalar {
                 return Err(ArmError::UndefinedInstruction(insn));
             }
-            let datasize = if scalar { esize } else if q == 1 { 16 } else { 8 };
+            let datasize = if scalar {
+                esize
+            } else if q == 1 {
+                16
+            } else {
+                8
+            };
             let elements = datasize / esize;
             let vn = self.v[rn].to_le_bytes();
             let vd_old = self.v[rd].to_le_bytes();
@@ -3572,7 +3589,13 @@ impl AArch64Cpu {
         if bits == 64 && q == 0 && !scalar {
             return Err(ArmError::UndefinedInstruction(insn));
         }
-        let datasize = if scalar { esize } else if q == 1 { 16 } else { 8 };
+        let datasize = if scalar {
+            esize
+        } else if q == 1 {
+            16
+        } else {
+            8
+        };
         let elements = datasize / esize;
         let vn = self.v[rn].to_le_bytes();
         let vd_old = self.v[rd].to_le_bytes();
@@ -3947,7 +3970,11 @@ impl AArch64Cpu {
                 (1, 0b11) => dd ^ ((dd ^ n1) & !n2), // BIF
                 _ => unreachable!(),
             };
-            let mask = if q == 1 { u128::MAX } else { 0xFFFF_FFFF_FFFF_FFFF };
+            let mask = if q == 1 {
+                u128::MAX
+            } else {
+                0xFFFF_FFFF_FFFF_FFFF
+            };
             self.v[rd] = result & mask;
             return Ok(CpuExit::Continue);
         }
@@ -3980,7 +4007,15 @@ impl AArch64Cpu {
         // have no 64-bit (size==0b11) vector form.
         let no_64 = matches!(
             opcode,
-            0b00000 | 0b00010 | 0b00100 | 0b01100 | 0b01101 | 0b01110 | 0b01111 | 0b10010 | 0b10100
+            0b00000
+                | 0b00010
+                | 0b00100
+                | 0b01100
+                | 0b01101
+                | 0b01110
+                | 0b01111
+                | 0b10010
+                | 0b10100
                 | 0b10101
         );
         if size == 0b11 && no_64 {
@@ -4539,7 +4574,13 @@ impl AArch64Cpu {
             if sz != 0 {
                 return Some(Err(ArmError::UndefinedInstruction(insn)));
             }
-            let datasize = if scalar { 4usize } else if q == 1 { 16 } else { 8 };
+            let datasize = if scalar {
+                4usize
+            } else if q == 1 {
+                16
+            } else {
+                8
+            };
             let elements = datasize / 4;
             let src = self.v[rn].to_le_bytes();
             let mut dst = [0u8; 16];
@@ -4565,7 +4606,13 @@ impl AArch64Cpu {
                 return Some(Err(ArmError::UndefinedInstruction(insn)));
             }
             let esize = if sz == 0 { 4usize } else { 8 };
-            let datasize = if scalar { esize } else if q == 1 { 16 } else { 8 };
+            let datasize = if scalar {
+                esize
+            } else if q == 1 {
+                16
+            } else {
+                8
+            };
             let elements = datasize / esize;
             let src = self.v[rn].to_le_bytes();
             let mut dst = [0u8; 16];
@@ -4592,7 +4639,13 @@ impl AArch64Cpu {
             return Some(Err(ArmError::UndefinedInstruction(insn)));
         }
         let esize = if sz == 0 { 4usize } else { 8 };
-        let datasize = if scalar { esize } else if q == 1 { 16 } else { 8 };
+        let datasize = if scalar {
+            esize
+        } else if q == 1 {
+            16
+        } else {
+            8
+        };
         let elements = datasize / esize;
         let src = self.v[rn].to_le_bytes();
         let mut dst = [0u8; 16];
@@ -4784,7 +4837,11 @@ impl AArch64Cpu {
                 let high = self.v[zn]; // operand2 (Zm)  = high half of concat
                 let pos = if imm8 >= 16 { 0 } else { imm8 };
                 let s = pos * 8; // byte offset -> bit offset (0..=120)
-                self.v[zd] = if s == 0 { low } else { (low >> s) | (high << (128 - s)) };
+                self.v[zd] = if s == 0 {
+                    low
+                } else {
+                    (low >> s) | (high << (128 - s))
+                };
                 Ok(CpuExit::Continue)
             }
 
@@ -5066,10 +5123,10 @@ impl AArch64Cpu {
             {
                 let op = (insn >> 16) & 0x3;
                 let unit = match op {
-                    0b00 => 1usize,            // REVB
-                    0b01 if esize >= 4 => 2,   // REVH (S/D)
-                    0b10 if esize == 8 => 4,   // REVW (D)
-                    0b11 => 0,                 // RBIT
+                    0b00 => 1usize,          // REVB
+                    0b01 if esize >= 4 => 2, // REVH (S/D)
+                    0b10 if esize == 8 => 4, // REVW (D)
+                    0b11 => 0,               // RBIT
                     _ => return Ok(CpuExit::Undefined(insn)),
                 };
                 if op == 0b00 && esize < 2 {
@@ -5411,7 +5468,12 @@ impl AArch64Cpu {
                 let a = self.v[zn].to_le_bytes();
                 let mut dst = [0u8; 16];
                 for e in 0..n {
-                    write_elem(&mut dst, e * esize, esize, read_elem(&a, (n - 1 - e) * esize, esize));
+                    write_elem(
+                        &mut dst,
+                        e * esize,
+                        esize,
+                        read_elem(&a, (n - 1 - e) * esize, esize),
+                    );
                 }
                 self.v[zd] = u128::from_le_bytes(dst);
                 Ok(CpuExit::Continue)
@@ -5577,13 +5639,13 @@ impl AArch64Cpu {
                         0b010101 if ext_ok(32) => v & 0xFFFF_FFFF,              // UXTW
                         0b010110 => sext_elem(v, bits).unsigned_abs() as u64 & mask, // ABS
                         0b010111 => (-sext_elem(v, bits)) as u64 & mask,        // NEG
-                        0b011000 => count_leading_sign(v, bits),               // CLS
-                        0b011001 => count_leading_zeros_elem(v, bits),         // CLZ
-                        0b011010 => (v & mask).count_ones() as u64,            // CNT
-                        0b011011 => u64::from(v & mask == 0),                  // CNOT
-                        0b011100 if esize >= 2 => v & !signbit,                // FABS
-                        0b011101 if esize >= 2 => v ^ signbit,                 // FNEG
-                        0b011110 => !v & mask,                                 // NOT
+                        0b011000 => count_leading_sign(v, bits),                // CLS
+                        0b011001 => count_leading_zeros_elem(v, bits),          // CLZ
+                        0b011010 => (v & mask).count_ones() as u64,             // CNT
+                        0b011011 => u64::from(v & mask == 0),                   // CNOT
+                        0b011100 if esize >= 2 => v & !signbit,                 // FABS
+                        0b011101 if esize >= 2 => v ^ signbit,                  // FNEG
+                        0b011110 => !v & mask,                                  // NOT
                         _ => return Ok(CpuExit::Undefined(insn)),
                     };
                     write_elem(&mut dst, off, esize, r);
@@ -5618,9 +5680,14 @@ impl AArch64Cpu {
                     if (pred >> off) & 1 == 0 {
                         continue;
                     }
-                    let prod = read_elem(&fb1, off, esize).wrapping_mul(read_elem(&fb2, off, esize));
+                    let prod =
+                        read_elem(&fb1, off, esize).wrapping_mul(read_elem(&fb2, off, esize));
                     let a = read_elem(&ab, off, esize);
-                    let r = if sub { a.wrapping_sub(prod) } else { a.wrapping_add(prod) } & mask;
+                    let r = if sub {
+                        a.wrapping_sub(prod)
+                    } else {
+                        a.wrapping_add(prod)
+                    } & mask;
                     write_elem(&mut dst, off, esize, r);
                 }
                 self.v[zd] = u128::from_le_bytes(dst);
@@ -5672,7 +5739,11 @@ impl AArch64Cpu {
                 let mut dst = [0u8; 16];
                 let mask = elem_mask((d_esize * 8) as u32);
                 let widen = |x: u64| -> i128 {
-                    if unsigned { uext_elem(x, s_bits) as i128 } else { sext_elem(x, s_bits) }
+                    if unsigned {
+                        uext_elem(x, s_bits) as i128
+                    } else {
+                        sext_elem(x, s_bits)
+                    }
                 };
                 for d in 0..elements {
                     let s_off = (2 * d + top as usize) * s_esize;
@@ -5708,7 +5779,7 @@ impl AArch64Cpu {
                 }
                 let bits = 8 << (31 - tsize.leading_zeros());
                 let esize = (bits / 8) as usize;
-                let amount = 2 * bits - (((tsize << 3) | ((insn >> 16) & 0x7)));
+                let amount = 2 * bits - ((tsize << 3) | ((insn >> 16) & 0x7));
                 let round = (insn >> 11) & 1 == 1;
                 let unsigned = (insn >> 10) & 1 == 1;
                 let mask = elem_mask(bits);
@@ -5752,7 +5823,11 @@ impl AArch64Cpu {
                 let esize = (bits / 8) as usize;
                 let tszimm = (tsize << 3) | ((insn >> 16) & 0x7);
                 let sli = (insn >> 10) & 1 == 1;
-                let amount = if sli { tszimm - bits } else { 2 * bits - tszimm };
+                let amount = if sli {
+                    tszimm - bits
+                } else {
+                    2 * bits - tszimm
+                };
                 let mask = elem_mask(bits);
                 let elements = 16 / esize;
                 let dn = self.v[zd].to_le_bytes();
@@ -5768,7 +5843,11 @@ impl AArch64Cpu {
                     } else {
                         // SRI shift is 1..=esize; a full-width shift yields 0 (a
                         // u64 `>> bits` would otherwise wrap when bits==64).
-                        let shifted = if amount >= bits { 0 } else { (x >> amount) & mask };
+                        let shifted = if amount >= bits {
+                            0
+                        } else {
+                            (x >> amount) & mask
+                        };
                         let keep = mask & !((1u64 << (bits - amount)).wrapping_sub(1)); // high bits
                         shifted | (d & keep)
                     };
@@ -5802,11 +5881,17 @@ impl AArch64Cpu {
                 let b = self.v[zm].to_le_bytes();
                 let mut dst = acc;
                 let widen = |x: u64| -> i128 {
-                    if unsigned { uext_elem(x, s_bits) as i128 } else { sext_elem(x, s_bits) }
+                    if unsigned {
+                        uext_elem(x, s_bits) as i128
+                    } else {
+                        sext_elem(x, s_bits)
+                    }
                 };
                 for d in 0..elements {
                     let off = (2 * d + top as usize) * s_esize;
-                    let diff = (widen(read_elem(&a, off, s_esize)) - widen(read_elem(&b, off, s_esize))).abs();
+                    let diff = (widen(read_elem(&a, off, s_esize))
+                        - widen(read_elem(&b, off, s_esize)))
+                    .abs();
                     let cur = read_elem(&acc, d * d_esize, d_esize) as i128;
                     write_elem(&mut dst, d * d_esize, d_esize, (cur + diff) as u64 & mask);
                 }
@@ -5911,7 +5996,12 @@ impl AArch64Cpu {
                     } else {
                         sext_elem(x, src_bits) as u128
                     };
-                    write_elem(&mut dst, d * dst_esize, dst_esize, (widened << amount) as u64 & dmask);
+                    write_elem(
+                        &mut dst,
+                        d * dst_esize,
+                        dst_esize,
+                        (widened << amount) as u64 & dmask,
+                    );
                 }
                 self.v[zd] = u128::from_le_bytes(dst);
                 Ok(CpuExit::Continue)
@@ -6044,7 +6134,11 @@ impl AArch64Cpu {
                 let top = (insn >> 10) & 1 == 1;
                 let n_src = 16 / src_esize;
                 let a = self.v[zn].to_le_bytes();
-                let mut dst = if top { self.v[zd].to_le_bytes() } else { [0u8; 16] };
+                let mut dst = if top {
+                    self.v[zd].to_le_bytes()
+                } else {
+                    [0u8; 16]
+                };
                 for d in 0..n_src {
                     let x = read_elem(&a, d * src_esize, src_esize);
                     let narrow: u64 = match (op, u) {
@@ -6087,7 +6181,12 @@ impl AArch64Cpu {
                             r.min(dmask as u128) as u64
                         }
                     };
-                    write_elem(&mut dst, (2 * d + top as usize) * dst_esize, dst_esize, narrow);
+                    write_elem(
+                        &mut dst,
+                        (2 * d + top as usize) * dst_esize,
+                        dst_esize,
+                        narrow,
+                    );
                 }
                 self.v[zd] = u128::from_le_bytes(dst);
                 Ok(CpuExit::Continue)
@@ -6117,7 +6216,11 @@ impl AArch64Cpu {
                 let top = (insn >> 10) & 1 == 1;
                 let n_src = 16 / src_esize;
                 let a = self.v[zn].to_le_bytes();
-                let mut dst = if top { self.v[zd].to_le_bytes() } else { [0u8; 16] };
+                let mut dst = if top {
+                    self.v[zd].to_le_bytes()
+                } else {
+                    [0u8; 16]
+                };
                 for d in 0..n_src {
                     let x = read_elem(&a, d * src_esize, src_esize);
                     let narrow: u64 = match variant {
@@ -6130,7 +6233,12 @@ impl AArch64Cpu {
                         0b01 => uext_elem(x, src_bits).min(dmask as u128) as u64,
                         _ => sext_elem(x, src_bits).clamp(0, dmask as i128) as u64,
                     };
-                    write_elem(&mut dst, (2 * d + top as usize) * dst_esize, dst_esize, narrow);
+                    write_elem(
+                        &mut dst,
+                        (2 * d + top as usize) * dst_esize,
+                        dst_esize,
+                        narrow,
+                    );
                 }
                 self.v[zd] = u128::from_le_bytes(dst);
                 Ok(CpuExit::Continue)
@@ -6161,18 +6269,31 @@ impl AArch64Cpu {
                 let n_src = 16 / src_esize;
                 let a = self.v[zn].to_le_bytes();
                 let b = self.v[zm].to_le_bytes();
-                let mut dst = if top { self.v[zd].to_le_bytes() } else { [0u8; 16] };
+                let mut dst = if top {
+                    self.v[zd].to_le_bytes()
+                } else {
+                    [0u8; 16]
+                };
                 for d in 0..n_src {
                     let xn = read_elem(&a, d * src_esize, src_esize);
                     let xm = read_elem(&b, d * src_esize, src_esize);
-                    let sum = if sub { xn.wrapping_sub(xm) } else { xn.wrapping_add(xm) };
+                    let sum = if sub {
+                        xn.wrapping_sub(xm)
+                    } else {
+                        xn.wrapping_add(xm)
+                    };
                     let rounded = if round {
                         sum.wrapping_add(1u64 << (dst_bits - 1))
                     } else {
                         sum
                     } & src_mask;
                     let narrow = (rounded >> dst_bits) & dst_mask;
-                    write_elem(&mut dst, (2 * d + top as usize) * dst_esize, dst_esize, narrow);
+                    write_elem(
+                        &mut dst,
+                        (2 * d + top as usize) * dst_esize,
+                        dst_esize,
+                        narrow,
+                    );
                 }
                 self.v[zd] = u128::from_le_bytes(dst);
                 Ok(CpuExit::Continue)
@@ -6253,7 +6374,12 @@ impl AArch64Cpu {
                     let sat = prod.clamp(lo, hi);
                     let cur = sext_elem(read_elem(&acc, d * d_esize, d_esize), d_bits);
                     let r = if sub { cur - sat } else { cur + sat };
-                    write_elem(&mut dst, d * d_esize, d_esize, (r.clamp(lo, hi) as u64) & mask);
+                    write_elem(
+                        &mut dst,
+                        d * d_esize,
+                        d_esize,
+                        (r.clamp(lo, hi) as u64) & mask,
+                    );
                 }
                 self.v[zd] = u128::from_le_bytes(dst);
                 Ok(CpuExit::Continue)
@@ -6283,7 +6409,11 @@ impl AArch64Cpu {
                 let n = self.v[zn].to_le_bytes();
                 let mut dst = acc;
                 let widen = |x: u64| -> i128 {
-                    if unsigned { uext_elem(x, s_bits) as i128 } else { sext_elem(x, s_bits) }
+                    if unsigned {
+                        uext_elem(x, s_bits) as i128
+                    } else {
+                        sext_elem(x, s_bits)
+                    }
                 };
                 for d in 0..elements {
                     if (pred >> (d * d_esize)) & 1 == 0 {
@@ -6327,15 +6457,26 @@ impl AArch64Cpu {
                 };
                 let mut res = [0u8; 16];
                 for p in 0..h {
-                    let dnv = op(read_elem(&dn, 2 * p * esize, esize), read_elem(&dn, (2 * p + 1) * esize, esize));
-                    let mv = op(read_elem(&m, 2 * p * esize, esize), read_elem(&m, (2 * p + 1) * esize, esize));
+                    let dnv = op(
+                        read_elem(&dn, 2 * p * esize, esize),
+                        read_elem(&dn, (2 * p + 1) * esize, esize),
+                    );
+                    let mv = op(
+                        read_elem(&m, 2 * p * esize, esize),
+                        read_elem(&m, (2 * p + 1) * esize, esize),
+                    );
                     write_elem(&mut res, 2 * p * esize, esize, dnv);
                     write_elem(&mut res, (2 * p + 1) * esize, esize, mv);
                 }
                 let mut dst = dn;
                 for e in 0..elements {
                     if (pred >> (e * esize)) & 1 == 1 {
-                        write_elem(&mut dst, e * esize, esize, read_elem(&res, e * esize, esize));
+                        write_elem(
+                            &mut dst,
+                            e * esize,
+                            esize,
+                            read_elem(&res, e * esize, esize),
+                        );
                     }
                 }
                 self.v[zd] = u128::from_le_bytes(dst);
@@ -6371,7 +6512,12 @@ impl AArch64Cpu {
                     let p = if sub { -prod } else { prod };
                     let sdrh = (p + (1i128 << (bits - 2))) >> (bits - 1);
                     let cur = sext_elem(read_elem(&acc, off, esize), bits);
-                    write_elem(&mut dst, off, esize, (cur + sdrh).clamp(lo, hi) as u64 & mask);
+                    write_elem(
+                        &mut dst,
+                        off,
+                        esize,
+                        (cur + sdrh).clamp(lo, hi) as u64 & mask,
+                    );
                 }
                 self.v[zd] = u128::from_le_bytes(dst);
                 Ok(CpuExit::Continue)
@@ -6436,7 +6582,10 @@ impl AArch64Cpu {
             0b010
                 if (insn >> 24) & 0xFF == 0b01000100
                     && (insn >> 21) & 1 == 1
-                    && matches!((insn >> 10) & 0x3F, 0b000000 | 0b000001 | 0b000110 | 0b000111) =>
+                    && matches!(
+                        (insn >> 10) & 0x3F,
+                        0b000000 | 0b000001 | 0b000110 | 0b000111
+                    ) =>
             {
                 self.exec_sve_dot(insn)
             }
@@ -6528,13 +6677,7 @@ impl AArch64Cpu {
                     && (insn >> 21) & 1 == 1
                     && matches!(
                         (insn >> 10) & 0x3F,
-                        0b111110
-                            | 0b111100
-                            | 0b111101
-                            | 0b000010
-                            | 0b000011
-                            | 0b000100
-                            | 0b000101
+                        0b111110 | 0b111100 | 0b111101 | 0b000010 | 0b000011 | 0b000100 | 0b000101
                     ) =>
             {
                 self.exec_sve2_mul_indexed(insn, zn, zd)
@@ -6550,7 +6693,14 @@ impl AArch64Cpu {
                     && (insn >> 21) & 1 == 1
                     && matches!(
                         (insn >> 12) & 0xF,
-                        0b1000 | 0b1001 | 0b1010 | 0b1011 | 0b1100 | 0b1101 | 0b1110 | 0b0010
+                        0b1000
+                            | 0b1001
+                            | 0b1010
+                            | 0b1011
+                            | 0b1100
+                            | 0b1101
+                            | 0b1110
+                            | 0b0010
                             | 0b0011
                     ) =>
             {
@@ -6595,8 +6745,18 @@ impl AArch64Cpu {
                     let e1 = sext_elem(read_elem(&n, (re + sel_a) * esize, esize), bits);
                     let ar = sext_elem(read_elem(&a, re * esize, esize), bits);
                     let ai = sext_elem(read_elem(&a, im * esize, esize), bits);
-                    write_elem(&mut dst, re * esize, esize, (ar + e1 * e2a * sub_r) as u64 & mask);
-                    write_elem(&mut dst, im * esize, esize, (ai + e1 * e2b * sub_i) as u64 & mask);
+                    write_elem(
+                        &mut dst,
+                        re * esize,
+                        esize,
+                        (ar + e1 * e2a * sub_r) as u64 & mask,
+                    );
+                    write_elem(
+                        &mut dst,
+                        im * esize,
+                        esize,
+                        (ai + e1 * e2b * sub_i) as u64 & mask,
+                    );
                 }
                 self.v[zd] = u128::from_le_bytes(dst);
                 Ok(CpuExit::Continue)
@@ -6767,7 +6927,11 @@ impl AArch64Cpu {
             {
                 let esize = 1usize << ((insn >> 22) & 0x3);
                 let tb = (insn >> 10) & 1 == 1; // EORTB
-                let (sel1, sel2) = if tb { (1usize, 0usize) } else { (0usize, 1usize) };
+                let (sel1, sel2) = if tb {
+                    (1usize, 0usize)
+                } else {
+                    (0usize, 1usize)
+                };
                 let n = self.v[zn].to_le_bytes();
                 let m = self.v[zm].to_le_bytes();
                 let mut dst = self.v[zd].to_le_bytes(); // keep prior Zd in unwritten lanes
@@ -6882,7 +7046,11 @@ impl AArch64Cpu {
             let mut acc = sext_elem(read_elem(&a, i * d_esize, d_esize), d_bits);
             for k in 0..4 {
                 let n_off = i * d_esize + k * s_esize;
-                let m_off = if indexed { (index * 4 + k) * s_esize } else { n_off };
+                let m_off = if indexed {
+                    (index * 4 + k) * s_esize
+                } else {
+                    n_off
+                };
                 acc += ext(&n, n_off, n_signed) * ext(&m, m_off, m_signed);
             }
             write_elem(&mut dst, i * d_esize, d_esize, acc as u64 & mask);
@@ -6927,10 +7095,18 @@ impl AArch64Cpu {
                 }
                 let r = if recip {
                     let a = read_elem(&src, off, 4) as u32;
-                    (if sel { unsigned_rsqrt_estimate(a) } else { unsigned_recip_estimate(a) }) as u64
+                    (if sel {
+                        unsigned_rsqrt_estimate(a)
+                    } else {
+                        unsigned_recip_estimate(a)
+                    }) as u64
                 } else {
                     let n = sext_elem(read_elem(&src, off, esize), bits);
-                    if sel { sat_signed(-n, bits) } else { sat_signed(n.abs(), bits) }
+                    if sel {
+                        sat_signed(-n, bits)
+                    } else {
+                        sat_signed(n.abs(), bits)
+                    }
                 };
                 write_elem(&mut dst, off, esize, r);
             }
@@ -6941,7 +7117,14 @@ impl AArch64Cpu {
         let opc6 = (insn >> 16) & 0x3F;
         let reversed = matches!(
             opc6,
-            0b000110 | 0b000111 | 0b001100 | 0b001101 | 0b001110 | 0b001111 | 0b010110 | 0b010111
+            0b000110
+                | 0b000111
+                | 0b001100
+                | 0b001101
+                | 0b001110
+                | 0b001111
+                | 0b010110
+                | 0b010111
                 | 0b011110
                 | 0b011111
         );
@@ -6974,20 +7157,20 @@ impl AArch64Cpu {
                 0b000011 | 0b000111 => do_shift(a, sb as i64, false, true, false), // URSHL(R)
                 0b001000 | 0b001100 => do_shift(a, sb as i64, true, false, true), // SQSHL(R)
                 0b001001 | 0b001101 => do_shift(a, sb as i64, false, false, true), // UQSHL(R)
-                0b001010 | 0b001110 => do_shift(a, sb as i64, true, true, true), // SQRSHL(R)
+                0b001010 | 0b001110 => do_shift(a, sb as i64, true, true, true),  // SQRSHL(R)
                 0b001011 | 0b001111 => do_shift(a, sb as i64, false, true, true), // UQRSHL(R)
-                0b010000 => ((sa + sb) >> 1) as u64 & mask,         // SHADD
-                0b010001 => ((ua + ub) >> 1) as u64 & mask,         // UHADD
-                0b010010 | 0b010110 => ((sa - sb) >> 1) as u64 & mask, // SHSUB(R)
-                0b010011 | 0b010111 => ((ua - ub) >> 1) as u64 & mask, // UHSUB(R)
-                0b010100 => ((sa + sb + 1) >> 1) as u64 & mask,     // SRHADD
-                0b010101 => ((ua + ub + 1) >> 1) as u64 & mask,     // URHADD
-                0b011000 => sat_signed(sa + sb, bits),              // SQADD
-                0b011001 => sat_unsigned(ua + ub, bits),            // UQADD
-                0b011010 | 0b011110 => sat_signed(sa - sb, bits),   // SQSUB(R)
-                0b011011 | 0b011111 => sat_unsigned(ua - ub, bits), // UQSUB(R)
-                0b011100 => sat_signed(sa + ub, bits),              // SUQADD
-                0b011101 => sat_unsigned(ua + sb, bits),            // USQADD
+                0b010000 => ((sa + sb) >> 1) as u64 & mask,                       // SHADD
+                0b010001 => ((ua + ub) >> 1) as u64 & mask,                       // UHADD
+                0b010010 | 0b010110 => ((sa - sb) >> 1) as u64 & mask,            // SHSUB(R)
+                0b010011 | 0b010111 => ((ua - ub) >> 1) as u64 & mask,            // UHSUB(R)
+                0b010100 => ((sa + sb + 1) >> 1) as u64 & mask,                   // SRHADD
+                0b010101 => ((ua + ub + 1) >> 1) as u64 & mask,                   // URHADD
+                0b011000 => sat_signed(sa + sb, bits),                            // SQADD
+                0b011001 => sat_unsigned(ua + ub, bits),                          // UQADD
+                0b011010 | 0b011110 => sat_signed(sa - sb, bits),                 // SQSUB(R)
+                0b011011 | 0b011111 => sat_unsigned(ua - ub, bits),               // UQSUB(R)
+                0b011100 => sat_signed(sa + ub, bits),                            // SUQADD
+                0b011101 => sat_unsigned(ua + sb, bits),                          // USQADD
                 _ => return Ok(CpuExit::Undefined(insn)),
             };
             write_elem(&mut dst, off, esize, r);
@@ -7044,13 +7227,13 @@ impl AArch64Cpu {
             let nm_u = (uext_elem(n_raw, s_bits) * uext_elem(m_raw, s_bits)) as i128;
             let sqdmull = (2 * nm_s).clamp(lo, hi); // saturating doubling product
             let r: u64 = match op {
-                0b1100 => nm_s as u64 & mask,                          // SMULLB/T
-                0b1101 => nm_u as u64 & mask,                          // UMULLB/T
-                0b1000 => (aa_s + nm_s) as u64 & mask,                 // SMLALB/T
-                0b1001 => (aa_s + nm_u) as u64 & mask,                 // UMLALB/T
-                0b1010 => (aa_s - nm_s) as u64 & mask,                 // SMLSLB/T
-                0b1011 => (aa_s - nm_u) as u64 & mask,                 // UMLSLB/T
-                0b1110 => sqdmull as u64 & mask,                       // SQDMULLB/T
+                0b1100 => nm_s as u64 & mask,                           // SMULLB/T
+                0b1101 => nm_u as u64 & mask,                           // UMULLB/T
+                0b1000 => (aa_s + nm_s) as u64 & mask,                  // SMLALB/T
+                0b1001 => (aa_s + nm_u) as u64 & mask,                  // UMLALB/T
+                0b1010 => (aa_s - nm_s) as u64 & mask,                  // SMLSLB/T
+                0b1011 => (aa_s - nm_u) as u64 & mask,                  // UMLSLB/T
+                0b1110 => sqdmull as u64 & mask,                        // SQDMULLB/T
                 0b0010 => (aa_s + sqdmull).clamp(lo, hi) as u64 & mask, // SQDMLALB/T
                 0b0011 => (aa_s - sqdmull).clamp(lo, hi) as u64 & mask, // SQDMLSLB/T
                 _ => return Ok(CpuExit::Undefined(insn)),
@@ -7124,7 +7307,11 @@ impl AArch64Cpu {
             let idx = (((insn >> 20) & 1) << 1) | ((insn >> 19) & 1);
             (4, idx as usize, ((insn >> 16) & 0x7) as usize)
         } else {
-            (8, ((insn >> 20) & 1) as usize, ((insn >> 16) & 0xF) as usize)
+            (
+                8,
+                ((insn >> 20) & 1) as usize,
+                ((insn >> 16) & 0xF) as usize,
+            )
         };
         let bits = (esize * 8) as u32;
         let mask = elem_mask(bits);
@@ -7227,16 +7414,32 @@ impl AArch64Cpu {
                 (0b000, 0b001) => a.wrapping_sub(b),
                 (0b000, 0b011) => b.wrapping_sub(a),
                 (0b001, 0b000) => {
-                    if sa > sb { a } else { b }
+                    if sa > sb {
+                        a
+                    } else {
+                        b
+                    }
                 }
                 (0b001, 0b001) => {
-                    if ua > ub { a } else { b }
+                    if ua > ub {
+                        a
+                    } else {
+                        b
+                    }
                 }
                 (0b001, 0b010) => {
-                    if sa < sb { a } else { b }
+                    if sa < sb {
+                        a
+                    } else {
+                        b
+                    }
                 }
                 (0b001, 0b011) => {
-                    if ua < ub { a } else { b }
+                    if ua < ub {
+                        a
+                    } else {
+                        b
+                    }
                 }
                 (0b001, 0b100) => (sa - sb).unsigned_abs() as u64,
                 (0b001, 0b101) => (if ua > ub { ua - ub } else { ub - ua }) as u64,
@@ -7352,10 +7555,18 @@ impl AArch64Cpu {
                     (sext_elem(a, bits) >> s) as u64 & mask
                 }
                 0b001 => {
-                    if sh >= bits as u64 { 0 } else { (a >> sh) & mask }
+                    if sh >= bits as u64 {
+                        0
+                    } else {
+                        (a >> sh) & mask
+                    }
                 }
                 0b011 => {
-                    if sh >= bits as u64 { 0 } else { (a << sh) & mask }
+                    if sh >= bits as u64 {
+                        0
+                    } else {
+                        (a << sh) & mask
+                    }
                 }
                 _ => return Ok(CpuExit::Undefined(insn)),
             };
@@ -7417,13 +7628,21 @@ impl AArch64Cpu {
                 let pg = ((insn >> 16) & 0xF) as usize; // 4-bit predicate
                 let merging = (insn >> 14) & 1 == 1;
                 let imm8 = ((insn >> 5) & 0xFF) as u8 as i8 as i64;
-                let imm = if (insn >> 13) & 1 == 1 { imm8 << 8 } else { imm8 };
+                let imm = if (insn >> 13) & 1 == 1 {
+                    imm8 << 8
+                } else {
+                    imm8
+                };
                 (pg, merging, (imm as u64) & mask)
             }
             1 => {
                 let pg = ((insn >> 10) & 0x7) as usize;
                 let rn = ((insn >> 5) & 0x1F) as u8;
-                let v = if rn == 31 { self.current_sp() } else { self.get_x(rn) };
+                let v = if rn == 31 {
+                    self.current_sp()
+                } else {
+                    self.get_x(rn)
+                };
                 (pg, true, v & mask)
             }
             _ => {
@@ -7433,7 +7652,11 @@ impl AArch64Cpu {
             }
         };
         let pred = self.sve_p[pg];
-        let mut dst = if merging { self.v[zd].to_le_bytes() } else { [0u8; 16] };
+        let mut dst = if merging {
+            self.v[zd].to_le_bytes()
+        } else {
+            [0u8; 16]
+        };
         for e in 0..elements {
             if (pred >> (e * esize)) & 1 == 1 {
                 write_elem(&mut dst, e * esize, esize, elem_val);
@@ -7471,20 +7694,29 @@ impl AArch64Cpu {
             0b000000 => (act.iter().map(|&x| sext_elem(x, bits)).sum::<i128>() as u64) as u128,
             0b000001 => (act.iter().map(|&x| uext_elem(x, bits)).sum::<u128>() as u64) as u128,
             0b001000 => {
-                (act.iter().map(|&x| sext_elem(x, bits)).max().unwrap_or(-(1i128 << (bits - 1)))
-                    as u64
+                (act.iter()
+                    .map(|&x| sext_elem(x, bits))
+                    .max()
+                    .unwrap_or(-(1i128 << (bits - 1))) as u64
                     & mask) as u128
             }
-            0b001001 => (act.iter().map(|&x| uext_elem(x, bits)).max().unwrap_or(0) as u64 & mask)
-                as u128,
+            0b001001 => {
+                (act.iter().map(|&x| uext_elem(x, bits)).max().unwrap_or(0) as u64 & mask) as u128
+            }
             0b001010 => {
-                (act.iter().map(|&x| sext_elem(x, bits)).min().unwrap_or((1i128 << (bits - 1)) - 1)
-                    as u64
+                (act.iter()
+                    .map(|&x| sext_elem(x, bits))
+                    .min()
+                    .unwrap_or((1i128 << (bits - 1)) - 1) as u64
                     & mask) as u128
             }
-            0b001011 => (act.iter().map(|&x| uext_elem(x, bits)).min().unwrap_or(mask as u128)
-                as u64
-                & mask) as u128,
+            0b001011 => {
+                (act.iter()
+                    .map(|&x| uext_elem(x, bits))
+                    .min()
+                    .unwrap_or(mask as u128) as u64
+                    & mask) as u128
+            }
             0b011000 => (act.iter().fold(0u64, |a, &x| a | x) & mask) as u128, // ORV
             0b011001 => (act.iter().fold(0u64, |a, &x| a ^ x) & mask) as u128, // EORV
             0b011010 => (act.iter().fold(mask, |a, &x| a & x) & mask) as u128, // ANDV
@@ -7524,7 +7756,12 @@ impl AArch64Cpu {
             let off = e * esize;
             let a = read_elem(&src, off, esize);
             let b = read_elem(&src2, off, esize);
-            write_elem(&mut dst, off, esize, adv_simd_three_same_int(u, neon_op, bits, a, b, 0));
+            write_elem(
+                &mut dst,
+                off,
+                esize,
+                adv_simd_three_same_int(u, neon_op, bits, a, b, 0),
+            );
         }
         self.v[zd] = u128::from_le_bytes(dst);
         Ok(CpuExit::Continue)
@@ -7542,10 +7779,10 @@ impl AArch64Cpu {
         let a = self.v[zn];
         let b = self.v[zm];
         self.v[zd] = match (insn >> 22) & 0x3 {
-            0b00 => a & b,  // AND
-            0b01 => a | b,  // ORR
-            0b10 => a ^ b,  // EOR
-            _ => a & !b,    // BIC
+            0b00 => a & b, // AND
+            0b01 => a | b, // ORR
+            0b10 => a ^ b, // EOR
+            _ => a & !b,   // BIC
         };
         Ok(CpuExit::Continue)
     }
@@ -7690,7 +7927,11 @@ impl AArch64Cpu {
             }
             let zd = (insn & 0x1F) as usize;
             let imm8 = ((insn >> 5) & 0xFF) as u8 as i8 as i64;
-            let imm = if (insn >> 13) & 1 == 1 { imm8 << 8 } else { imm8 };
+            let imm = if (insn >> 13) & 1 == 1 {
+                imm8 << 8
+            } else {
+                imm8
+            };
             let elem_val = (imm as u64) & elem_mask((esize * 8) as u32);
             let mut dst = [0u8; 16];
             for e in 0..(16 / esize) {
@@ -7771,6 +8012,57 @@ impl AArch64Cpu {
             return Ok(CpuExit::Continue);
         }
 
+        // SQINCP/UQINCP/SQDECP/UQDECP (saturating INCP/DECP): bits[21:18]==1010,
+        // d=bit17 (0=inc, 1=dec), u=bit16 (0=signed SQ, 1=unsigned UQ),
+        // bits[15:11]==10001 (GPR r-form) / 10000 (vector z-form). For the GPR
+        // form bit10 selects 64-bit (1) vs 32-bit (0) saturation width. The
+        // count of active Pg elements (at this esz) is the saturating delta.
+        if (insn >> 24) & 0xFF == 0b00100101
+            && (insn >> 18) & 0xF == 0b1010
+            && (insn >> 12) & 0xF == 0b1000
+        {
+            let dec = (insn >> 17) & 1 == 1;
+            let uns = (insn >> 16) & 1 == 1;
+            let is_z = (insn >> 11) & 1 == 0;
+            let pgl = ((insn >> 5) & 0xF) as usize;
+            let dn = (insn & 0x1F) as usize;
+            let mask = self.sve_p[pgl];
+            let mut count = 0u64;
+            for e in 0..(16 / esize) {
+                if (mask >> (e * esize)) & 1 == 1 {
+                    count += 1;
+                }
+            }
+            if is_z {
+                // Vector form: per-element saturating add/sub. esz==0 (byte) is
+                // unallocated for the z-form.
+                if esize == 1 {
+                    return Ok(CpuExit::Undefined(insn));
+                }
+                let a = self.v[dn].to_le_bytes();
+                let mut dst = a;
+                let bits = (esize * 8) as u32;
+                for e in 0..(16 / esize) {
+                    let off = e * esize;
+                    let v = read_elem(&a, off, esize);
+                    let r = sat_addsub_elem(v, count, bits, uns, dec);
+                    write_elem(&mut dst, off, esize, r);
+                }
+                self.v[dn] = u128::from_le_bytes(dst);
+            } else {
+                // GPR form: bit10 picks 64-bit vs 32-bit saturation width.
+                let sf64 = (insn >> 10) & 1 == 1;
+                let cur = self.get_x(dn as u8);
+                let res = if sf64 {
+                    sat_addsub_64(cur, count, uns, dec)
+                } else {
+                    sat_addsub_32(cur, count, uns, dec)
+                };
+                self.set_x(dn as u8, res);
+            }
+            return Ok(CpuExit::Continue);
+        }
+
         // CMP<cc>_P.P.ZZ (bits[31:24]==0x24): predicated vector compare producing
         // a zeroing predicate Pd, then NZCV = PredTest(Pg, result). The compare
         // is (bits[15:13], bit4): (000,0)HS (000,1)HI (100,0)GE (100,1)GT
@@ -7831,13 +8123,13 @@ impl AArch64Cpu {
             let vn = self.sve_p[pn];
             let vm = self.sve_p[pm];
             let r = match ((insn >> 23) & 1, (insn >> 9) & 1, (insn >> 4) & 1) {
-                (0, 0, 0) => vg & vn & vm,        // AND
-                (0, 0, 1) => vg & vn & !vm,       // BIC
-                (0, 1, 0) => vg & (vn ^ vm),      // EOR
-                (1, 0, 0) => vg & (vn | vm),      // ORR
-                (1, 0, 1) => vg & (vn | !vm),     // ORN
-                (1, 1, 0) => vg & !(vn | vm),     // NOR
-                (1, 1, 1) => vg & !(vn & vm),     // NAND
+                (0, 0, 0) => vg & vn & vm,    // AND
+                (0, 0, 1) => vg & vn & !vm,   // BIC
+                (0, 1, 0) => vg & (vn ^ vm),  // EOR
+                (1, 0, 0) => vg & (vn | vm),  // ORR
+                (1, 0, 1) => vg & (vn | !vm), // ORN
+                (1, 1, 0) => vg & !(vn | vm), // NOR
+                (1, 1, 1) => vg & !(vn & vm), // NAND
                 _ => return Ok(CpuExit::Undefined(insn)),
             } & 0xFFFF;
             self.sve_p[pd] = r;
@@ -8056,7 +8348,11 @@ impl AArch64Cpu {
             let mask = self.sve_p[pg];
             let operand1 = self.sve_p[pn];
             let operand2 = self.sve_p[pd]; // Pdm (source + dest)
-            let result = if last_active(mask, operand1, 16, 1) { operand2 } else { 0 };
+            let result = if last_active(mask, operand1, 16, 1) {
+                operand2
+            } else {
+                0
+            };
             if setflags {
                 let (n, z, c, v) = pred_test(0xFFFF, result, 16, 1);
                 self.set_n(n);
@@ -8571,7 +8867,7 @@ impl AArch64Cpu {
                         return Err(ArmError::Unimplemented(format!(
                             "SVE ZIP/UZP/TRN opc={}",
                             opc
-                        )))
+                        )));
                     }
                 }
 
@@ -8661,14 +8957,26 @@ impl AArch64Cpu {
         {
             let indexed = (insn >> 10) & 0x3F == 0b010000;
             let (m, a) = (
-                if indexed { self.v[((insn >> 16) & 0x7) as usize] } else { self.v[zm] },
+                if indexed {
+                    self.v[((insn >> 16) & 0x7) as usize]
+                } else {
+                    self.v[zm]
+                },
                 self.v[zd],
             );
             let n = self.v[zn];
-            let m_idx = if indexed { (m >> (((insn >> 19) & 0x3) * 32)) as u32 } else { 0 };
+            let m_idx = if indexed {
+                (m >> (((insn >> 19) & 0x3) * 32)) as u32
+            } else {
+                0
+            };
             let mut r = 0u128;
             for e in 0..4 {
-                let m_pair = if indexed { m_idx } else { (m >> (e * 32)) as u32 };
+                let m_pair = if indexed {
+                    m_idx
+                } else {
+                    (m >> (e * 32)) as u32
+                };
                 let res = sve_bfdot_lane((a >> (e * 32)) as u32, (n >> (e * 32)) as u32, m_pair);
                 r |= (res as u128) << (e * 32);
             }
@@ -8696,8 +9004,13 @@ impl AArch64Cpu {
             let n = self.v[zn].to_le_bytes();
             let m = self.v[zm].to_le_bytes();
             let acc = self.v[zd].to_le_bytes();
-            let widen =
-                |b: u16| if bf { f32::from_bits((b as u32) << 16) } else { Self::fp16_to_f32(b) };
+            let widen = |b: u16| {
+                if bf {
+                    f32::from_bits((b as u32) << 16)
+                } else {
+                    Self::fp16_to_f32(b)
+                }
+            };
             let mut dst = acc;
             for j in 0..4 {
                 let h_off = (2 * j + top as usize) * 2;
@@ -8732,8 +9045,13 @@ impl AArch64Cpu {
             let n = self.v[zn].to_le_bytes();
             let m = self.v[zmr].to_le_bytes();
             let acc = self.v[zd].to_le_bytes();
-            let widen =
-                |b: u16| if bf { f32::from_bits((b as u32) << 16) } else { Self::fp16_to_f32(b) };
+            let widen = |b: u16| {
+                if bf {
+                    f32::from_bits((b as u32) << 16)
+                } else {
+                    Self::fp16_to_f32(b)
+                }
+            };
             let mm = widen(read_elem(&m, index * 2, 2) as u16); // Zm.h[index]
             let mut dst = acc;
             for j in 0..4 {
@@ -8809,11 +9127,13 @@ impl AArch64Cpu {
                 };
                 if (pred >> (re * esz)) & 1 == 1 {
                     let r = fp_add_bits(elem(dn, re), add_re, bits) as u128 & mask;
-                    result = (result & !(mask << (re * bits as usize))) | (r << (re * bits as usize));
+                    result =
+                        (result & !(mask << (re * bits as usize))) | (r << (re * bits as usize));
                 }
                 if (pred >> (im * esz)) & 1 == 1 {
                     let r = fp_add_bits(elem(dn, im), add_im, bits) as u128 & mask;
-                    result = (result & !(mask << (im * bits as usize))) | (r << (im * bits as usize));
+                    result =
+                        (result & !(mask << (im * bits as usize))) | (r << (im * bits as usize));
                 }
             }
             self.v[zd] = result;
@@ -8848,11 +9168,13 @@ impl AArch64Cpu {
                 };
                 if (pred >> (re * esz)) & 1 == 1 {
                     let r = fp_muladd_bits(elem(acc, re), xr, yr, bits) as u128 & mask;
-                    result = (result & !(mask << (re * bits as usize))) | (r << (re * bits as usize));
+                    result =
+                        (result & !(mask << (re * bits as usize))) | (r << (re * bits as usize));
                 }
                 if (pred >> (im * esz)) & 1 == 1 {
                     let r = fp_muladd_bits(elem(acc, im), xi, yi, bits) as u128 & mask;
-                    result = (result & !(mask << (im * bits as usize))) | (r << (im * bits as usize));
+                    result =
+                        (result & !(mask << (im * bits as usize))) | (r << (im * bits as usize));
                 }
             }
             self.v[zd] = result;
@@ -8873,9 +9195,17 @@ impl AArch64Cpu {
                 let idx = (((insn >> 22) & 1) << 2) | ((insn >> 19) & 0x3);
                 (2, idx as usize, ((insn >> 16) & 0x7) as usize)
             } else if (insn >> 22) & 1 == 0 {
-                (4, ((insn >> 19) & 0x3) as usize, ((insn >> 16) & 0x7) as usize)
+                (
+                    4,
+                    ((insn >> 19) & 0x3) as usize,
+                    ((insn >> 16) & 0x7) as usize,
+                )
             } else {
-                (8, ((insn >> 20) & 1) as usize, ((insn >> 16) & 0xF) as usize)
+                (
+                    8,
+                    ((insn >> 20) & 1) as usize,
+                    ((insn >> 16) & 0xF) as usize,
+                )
             };
             let ebits = (esz * 8) as u32;
             let is_fmul = (insn >> 10) & 0x3F == 0b001000;
@@ -8891,8 +9221,9 @@ impl AArch64Cpu {
                 let r = if is_fmul {
                     match esz {
                         2 => fp16_mul(ne as u16, mm as u16) as u64,
-                        4 => (f32::from_bits(ne as u32) * f32::from_bits(mm as u32)).to_bits()
-                            as u64,
+                        4 => {
+                            (f32::from_bits(ne as u32) * f32::from_bits(mm as u32)).to_bits() as u64
+                        }
                         _ => (f64::from_bits(ne) * f64::from_bits(mm)).to_bits(),
                     }
                 } else {
@@ -8934,8 +9265,16 @@ impl AArch64Cpu {
             let (mr, mi) = (elem(mv, 2 * index), elem(mv, 2 * index + 1));
             let e1b = if flip == 1 { mi } else { mr };
             let e3b = if flip == 1 { mr } else { mi };
-            let e1 = if negf_real == 1 { fp_neg_bits(e1b, bits) } else { e1b };
-            let e3 = if negf_imag == 1 { fp_neg_bits(e3b, bits) } else { e3b };
+            let e1 = if negf_real == 1 {
+                fp_neg_bits(e1b, bits)
+            } else {
+                e1b
+            };
+            let e3 = if negf_imag == 1 {
+                fp_neg_bits(e3b, bits)
+            } else {
+                e3b
+            };
             let mut result = acc;
             for p in 0..((16 / esize) / 2) {
                 let (re, im) = (2 * p, 2 * p + 1);
@@ -9016,12 +9355,20 @@ impl AArch64Cpu {
                 let off = e * esz;
                 let x = read_elem(&n, off, esz);
                 let r = match esz {
-                    2 => (if rsqrt { fp16_rsqrte(x as u16) } else { fp16_recpe(x as u16) }) as u64,
-                    4 => (if rsqrt {
-                        fp_rsqrt_estimate_f32(x as u32)
-                    } else {
-                        fp_recip_estimate_f32(x as u32)
-                    }) as u64,
+                    2 => {
+                        (if rsqrt {
+                            fp16_rsqrte(x as u16)
+                        } else {
+                            fp16_recpe(x as u16)
+                        }) as u64
+                    }
+                    4 => {
+                        (if rsqrt {
+                            fp_rsqrt_estimate_f32(x as u32)
+                        } else {
+                            fp_recip_estimate_f32(x as u32)
+                        }) as u64
+                    }
                     _ => {
                         if rsqrt {
                             fp_rsqrt_estimate_f64(x)
@@ -9043,7 +9390,13 @@ impl AArch64Cpu {
             && (insn >> 21) & 1 == 0
             && matches!(
                 ((insn >> 13) & 0x7, (insn >> 4) & 1),
-                (0b010, 0) | (0b010, 1) | (0b011, 0) | (0b011, 1) | (0b110, 0) | (0b110, 1) | (0b111, 1)
+                (0b010, 0)
+                    | (0b010, 1)
+                    | (0b011, 0)
+                    | (0b011, 1)
+                    | (0b110, 0)
+                    | (0b110, 1)
+                    | (0b111, 1)
             )
         {
             let size = (insn >> 22) & 0x3;
@@ -9093,7 +9446,9 @@ impl AArch64Cpu {
             let mut pd = 0u32;
             for e in 0..(16 / esz) {
                 let off = e * esz;
-                if (pred >> off) & 1 == 1 && sve_fp_compare_zero(esz, sub, bit4, read_elem(&n, off, esz)) {
+                if (pred >> off) & 1 == 1
+                    && sve_fp_compare_zero(esz, sub, bit4, read_elem(&n, off, esz))
+                {
                     pd |= 1 << off;
                 }
             }
@@ -9121,7 +9476,11 @@ impl AArch64Cpu {
             for e in 0..(16 / esz) {
                 let off = e * esz;
                 let (x, y) = (read_elem(&n, off, esz), read_elem(&m, off, esz));
-                let r = if rsqrt { sve_rsqrts(esz, x, y) } else { sve_recps(esz, x, y) };
+                let r = if rsqrt {
+                    sve_rsqrts(esz, x, y)
+                } else {
+                    sve_recps(esz, x, y)
+                };
                 write_elem(&mut dst, off, esz, r);
             }
             self.v[zd] = u128::from_le_bytes(dst);
@@ -9220,7 +9579,12 @@ impl AArch64Cpu {
             let mut dst = dn;
             for e in 0..elements {
                 if (pred >> (e * esize)) & 1 == 1 {
-                    write_elem(&mut dst, e * esize, esize, read_elem(&res, e * esize, esize));
+                    write_elem(
+                        &mut dst,
+                        e * esize,
+                        esize,
+                        read_elem(&res, e * esize, esize),
+                    );
                 }
             }
             self.v[zd] = u128::from_le_bytes(dst);
@@ -9306,7 +9670,12 @@ impl AArch64Cpu {
             let mut acc = read_elem(&vd_bytes, 0, esize);
             for e in 0..elements {
                 if (pred >> (e * esize)) & 1 == 1 {
-                    acc = sve_fp_combine(FpKind::Add, esize, acc, read_elem(&m_reg, e * esize, esize));
+                    acc = sve_fp_combine(
+                        FpKind::Add,
+                        esize,
+                        acc,
+                        read_elem(&m_reg, e * esize, esize),
+                    );
                 }
             }
             self.v[vd] = (acc as u128) & mask;
@@ -9395,9 +9764,9 @@ impl AArch64Cpu {
             let opc2 = (insn >> 16) & 0x3;
             let (src_sz, dst_sz, round_odd, narrow): (usize, usize, bool, bool) = match (opc, opc2)
             {
-                (0b00, 0b10) => (8, 4, true, true),  // FCVTXNT d->s
-                (0b10, 0b00) => (4, 2, false, true), // FCVTNT  s->h
-                (0b11, 0b10) => (8, 4, false, true), // FCVTNT  d->s
+                (0b00, 0b10) => (8, 4, true, true),   // FCVTXNT d->s
+                (0b10, 0b00) => (4, 2, false, true),  // FCVTNT  s->h
+                (0b11, 0b10) => (8, 4, false, true),  // FCVTNT  d->s
                 (0b10, 0b01) => (2, 4, false, false), // FCVTLT h->s
                 (0b11, 0b11) => (4, 8, false, false), // FCVTLT s->d
                 _ => return Ok(CpuExit::Undefined(insn)),
@@ -9637,7 +10006,11 @@ impl AArch64Cpu {
             let addr = (base as i64 + imm9 * 16) as u64;
             let mut bytes = [0u8; 16];
             for (i, b) in bytes.iter_mut().enumerate() {
-                *b = self.memory.read_u8(self.translate_address(addr + i as u64, false, false)?)?;
+                *b = self.memory.read_u8(self.translate_address(
+                    addr + i as u64,
+                    false,
+                    false,
+                )?)?;
             }
             self.v[zt] = u128::from_le_bytes(bytes);
             return Ok(CpuExit::Continue);
@@ -9646,15 +10019,21 @@ impl AArch64Cpu {
             let addr = (base as i64 + imm9 * 16) as u64;
             let bytes = self.v[zt].to_le_bytes();
             for (i, b) in bytes.iter().enumerate() {
-                self.memory.write_u8(self.translate_address(addr + i as u64, true, false)?, *b)?;
+                self.memory
+                    .write_u8(self.translate_address(addr + i as u64, true, false)?, *b)?;
             }
             return Ok(CpuExit::Continue);
         }
         if insn >> 22 == 0b1000010110 && b15_13 == 0b000 {
             let pt = (insn & 0xF) as usize;
             let addr = (base as i64 + imm9 * 2) as u64;
-            let b0 = self.memory.read_u8(self.translate_address(addr, false, false)?)? as u32;
-            let b1 = self.memory.read_u8(self.translate_address(addr + 1, false, false)?)? as u32;
+            let b0 = self
+                .memory
+                .read_u8(self.translate_address(addr, false, false)?)? as u32;
+            let b1 = self
+                .memory
+                .read_u8(self.translate_address(addr + 1, false, false)?)?
+                as u32;
             self.sve_p[pt] = b0 | (b1 << 8);
             return Ok(CpuExit::Continue);
         }
@@ -9662,8 +10041,12 @@ impl AArch64Cpu {
             let pt = (insn & 0xF) as usize;
             let addr = (base as i64 + imm9 * 2) as u64;
             let p = self.sve_p[pt];
-            self.memory.write_u8(self.translate_address(addr, true, false)?, p as u8)?;
-            self.memory.write_u8(self.translate_address(addr + 1, true, false)?, (p >> 8) as u8)?;
+            self.memory
+                .write_u8(self.translate_address(addr, true, false)?, p as u8)?;
+            self.memory.write_u8(
+                self.translate_address(addr + 1, true, false)?,
+                (p >> 8) as u8,
+            )?;
             return Ok(CpuExit::Continue);
         }
 
@@ -9883,7 +10266,11 @@ impl AArch64Cpu {
                     4 => self.memory.read_u32(pa)? as u64,
                     _ => self.memory.read_u64(pa)?,
                 };
-                let val = if unsigned { raw } else { sext_elem(raw, (mbytes * 8) as u32) as u64 };
+                let val = if unsigned {
+                    raw
+                } else {
+                    sext_elem(raw, (mbytes * 8) as u32) as u64
+                };
                 write_elem(&mut dst, e * esize, esize, val);
             }
             self.v[zt] = u128::from_le_bytes(dst);
@@ -9911,7 +10298,11 @@ impl AArch64Cpu {
                     continue;
                 }
                 let off32 = read_elem(&offs, e * esize, 4) as u32; // low 32 bits
-                let off = if xs_signed { off32 as i32 as i64 as u64 } else { off32 as u64 };
+                let off = if xs_signed {
+                    off32 as i32 as i64 as u64
+                } else {
+                    off32 as u64
+                };
                 let pa = self.translate_address(base.wrapping_add(off << scale), false, false)?;
                 let raw: u64 = match mbytes {
                     1 => self.memory.read_u8(pa)? as u64,
@@ -9919,7 +10310,11 @@ impl AArch64Cpu {
                     4 => self.memory.read_u32(pa)? as u64,
                     _ => self.memory.read_u64(pa)?,
                 };
-                let val = if unsigned { raw } else { sext_elem(raw, (mbytes * 8) as u32) as u64 };
+                let val = if unsigned {
+                    raw
+                } else {
+                    sext_elem(raw, (mbytes * 8) as u32) as u64
+                };
                 write_elem(&mut dst, e * esize, esize, val);
             }
             self.v[zt] = u128::from_le_bytes(dst);
@@ -9951,7 +10346,11 @@ impl AArch64Cpu {
                     continue;
                 }
                 let off32 = read_elem(&offs, e * esize, esize) as u32;
-                let off = if xs_signed { off32 as i32 as i64 as u64 } else { off32 as u64 };
+                let off = if xs_signed {
+                    off32 as i32 as i64 as u64
+                } else {
+                    off32 as u64
+                };
                 let pa = self.translate_address(base.wrapping_add(off << scale), false, false)?;
                 let raw: u64 = match mbytes {
                     1 => self.memory.read_u8(pa)? as u64,
@@ -10029,7 +10428,11 @@ impl AArch64Cpu {
                     continue;
                 }
                 let off32 = read_elem(&offs, e * esize, esize) as u32;
-                let off = if xs_signed { off32 as i32 as i64 as u64 } else { off32 as u64 };
+                let off = if xs_signed {
+                    off32 as i32 as i64 as u64
+                } else {
+                    off32 as u64
+                };
                 let pa = self.translate_address(base.wrapping_add(off << scale), true, false)?;
                 let val = read_elem(&src, e * esize, esize);
                 match mbytes {
@@ -10064,7 +10467,11 @@ impl AArch64Cpu {
                     continue;
                 }
                 let off32 = read_elem(&offs, e * esize, 4) as u32;
-                let off = if xs_signed { off32 as i32 as i64 as u64 } else { off32 as u64 };
+                let off = if xs_signed {
+                    off32 as i32 as i64 as u64
+                } else {
+                    off32 as u64
+                };
                 let pa = self.translate_address(base.wrapping_add(off << scale), true, false)?;
                 let val = read_elem(&src, e * esize, esize);
                 match mbytes {
@@ -10104,7 +10511,11 @@ impl AArch64Cpu {
                     4 => self.memory.read_u32(pa)? as u64,
                     _ => self.memory.read_u64(pa)?,
                 };
-                let val = if unsigned { raw } else { sext_elem(raw, (mbytes * 8) as u32) as u64 };
+                let val = if unsigned {
+                    raw
+                } else {
+                    sext_elem(raw, (mbytes * 8) as u32) as u64
+                };
                 write_elem(&mut dst, e * esize, esize, val);
             }
             self.v[zt] = u128::from_le_bytes(dst);
@@ -10113,10 +10524,7 @@ impl AArch64Cpu {
 
         // ST1 scatter (vector base + immediate, D elements): 1110010 msz 10 imm5
         // 101 Pg Zn Zt. addr[e] = Zn[e] + imm5 * mbytes; store low msize bytes.
-        if insn >> 25 == 0b1110010
-            && (insn >> 21) & 0x3 == 0b10
-            && (insn >> 13) & 0x7 == 0b101
-        {
+        if insn >> 25 == 0b1110010 && (insn >> 21) & 0x3 == 0b10 && (insn >> 13) & 0x7 == 0b101 {
             let msz = (insn >> 23) & 0x3;
             let imm5 = (insn >> 16) & 0x1F;
             let zn_base = ((insn >> 5) & 0x1F) as usize;
@@ -10233,11 +10641,7 @@ impl AArch64Cpu {
         // Pg Rn Zt. opc=bits[22:21] in {01,10,11} -> nreg in {2,3,4}. Reads
         // nreg*elements consecutive structures and de-interleaves them so that
         // Z[(t+r)%32][e] = Mem[base + (e*nreg + r)*mbytes]; zeroes inactive lanes.
-        if !is_store
-            && insn >> 25 == 0b1010010
-            && b15_13 == 0b111
-            && (insn >> 21) & 0x3 != 0b00
-        {
+        if !is_store && insn >> 25 == 0b1010010 && b15_13 == 0b111 && (insn >> 21) & 0x3 != 0b00 {
             let nreg = (((insn >> 21) & 0x3) + 1) as usize;
             let msz = (insn >> 23) & 0x3;
             let esize = 1usize << msz;
@@ -10350,10 +10754,7 @@ impl AArch64Cpu {
         // ST1 scatter (S-form vector base + immediate): 1110010 msz 11 imm5 101
         // Pg Zn Zt. esize=32; addr[e] = Zn[e]<31:0> + imm5*mbytes. bits[22:21]
         // ==11 separates it from the D.64 (00/01) and D vector-base (10) forms.
-        if insn >> 25 == 0b1110010
-            && (insn >> 21) & 0x3 == 0b11
-            && (insn >> 13) & 0x7 == 0b101
-        {
+        if insn >> 25 == 0b1110010 && (insn >> 21) & 0x3 == 0b11 && (insn >> 13) & 0x7 == 0b101 {
             let msz = (insn >> 23) & 0x3;
             if msz == 3 {
                 return Ok(CpuExit::Undefined(insn));
@@ -10418,9 +10819,21 @@ impl AArch64Cpu {
             let ea = addr0 + (e * mbytes) as u64;
             let read: Result<u64, ArmError> = match self.translate_address(ea, false, false) {
                 Ok(pa) => match mbytes {
-                    1 => self.memory.read_u8(pa).map(|v| v as u64).map_err(Into::into),
-                    2 => self.memory.read_u16(pa).map(|v| v as u64).map_err(Into::into),
-                    4 => self.memory.read_u32(pa).map(|v| v as u64).map_err(Into::into),
+                    1 => self
+                        .memory
+                        .read_u8(pa)
+                        .map(|v| v as u64)
+                        .map_err(Into::into),
+                    2 => self
+                        .memory
+                        .read_u16(pa)
+                        .map(|v| v as u64)
+                        .map_err(Into::into),
+                    4 => self
+                        .memory
+                        .read_u32(pa)
+                        .map(|v| v as u64)
+                        .map_err(Into::into),
                     _ => self.memory.read_u64(pa).map_err(Into::into),
                 },
                 Err(err) => Err(err),
@@ -10699,11 +11112,7 @@ impl AArch64Cpu {
             0b00 => {
                 // MOVN
                 let val = imm16 << shift;
-                if sf != 0 {
-                    !val
-                } else {
-                    (!val) & 0xFFFF_FFFF
-                }
+                if sf != 0 { !val } else { (!val) & 0xFFFF_FFFF }
             }
             0b10 => {
                 // MOVZ
@@ -11107,7 +11516,11 @@ impl AArch64Cpu {
         if o2 == 1 && o1 == 1 {
             let bits = 8u32 << size;
             let m = elem_mask(bits);
-            let addr = if rn == 31 { self.current_sp() } else { self.get_x(rn) };
+            let addr = if rn == 31 {
+                self.current_sp()
+            } else {
+                self.get_x(rn)
+            };
             let old = match size {
                 0 => self.mem_read_u8(addr)? as u64,
                 1 => self.mem_read_u16(addr)? as u64,
@@ -11137,7 +11550,11 @@ impl AArch64Cpu {
         // sz==0 -> 32-bit pair, sz==1 -> 64-bit pair. Rs/Rt must be even.
         if o2 == 0 && o1 == 1 && (insn >> 31) & 1 == 0 {
             let sz = (insn >> 30) & 1; // 0 = 32-bit pair, 1 = 64-bit pair
-            let addr = if rn == 31 { self.current_sp() } else { self.get_x(rn) };
+            let addr = if rn == 31 {
+                self.current_sp()
+            } else {
+                self.get_x(rn)
+            };
             let s = rs as usize;
             let t = rt as usize;
             if sz == 0 {
@@ -11382,17 +11799,17 @@ impl AArch64Cpu {
         // Element (per-register) size in bytes and whether LDPSW sign-extends.
         let (bytes, ldpsw) = if v != 0 {
             let b = match opc {
-                0b00 => 4usize,  // S
-                0b01 => 8,       // D
-                0b10 => 16,      // Q
+                0b00 => 4usize, // S
+                0b01 => 8,      // D
+                0b10 => 16,     // Q
                 _ => return Err(ArmError::UndefinedInstruction(insn)),
             };
             (b, false)
         } else {
             match opc {
-                0b00 => (4usize, false),       // 32-bit
-                0b01 => (4, true),             // LDPSW (load only)
-                0b10 => (8, false),            // 64-bit
+                0b00 => (4usize, false), // 32-bit
+                0b01 => (4, true),       // LDPSW (load only)
+                0b10 => (8, false),      // 64-bit
                 _ => return Err(ArmError::UndefinedInstruction(insn)),
             }
         };
@@ -11521,7 +11938,11 @@ impl AArch64Cpu {
         let datasize = if q == 1 { 16usize } else { 8 };
         let emask = elem_mask_u128(esize);
 
-        let base = if rn == 31 { self.current_sp() } else { self.get_x(rn) };
+        let base = if rn == 31 {
+            self.current_sp()
+        } else {
+            self.get_x(rn)
+        };
         let mut addr = base;
 
         for sct in 0..selem {
@@ -11558,7 +11979,11 @@ impl AArch64Cpu {
         }
 
         if post != 0 {
-            let inc = if rm == 31 { selem as u64 * ebytes } else { self.get_x(rm) };
+            let inc = if rm == 31 {
+                selem as u64 * ebytes
+            } else {
+                self.get_x(rm)
+            };
             let new = base.wrapping_add(inc);
             if rn == 31 {
                 self.set_current_sp(new);
@@ -11671,7 +12096,11 @@ impl AArch64Cpu {
         let bits = 8u32 << size;
         let m = elem_mask(bits);
 
-        let addr = if rn == 31 { self.current_sp() } else { self.get_x(rn) };
+        let addr = if rn == 31 {
+            self.current_sp()
+        } else {
+            self.get_x(rn)
+        };
         let old = match size {
             0 => self.mem_read_u8(addr)? as u64,
             1 => self.mem_read_u16(addr)? as u64,
@@ -11688,14 +12117,14 @@ impl AArch64Cpu {
             }
         } else {
             match opc {
-                0b000 => old.wrapping_add(operand),         // LDADD
-                0b001 => old & !operand,                    // LDCLR
-                0b010 => old ^ operand,                     // LDEOR
-                0b011 => old | operand,                     // LDSET
+                0b000 => old.wrapping_add(operand), // LDADD
+                0b001 => old & !operand,            // LDCLR
+                0b010 => old ^ operand,             // LDEOR
+                0b011 => old | operand,             // LDSET
                 0b100 => (sext_elem(old, bits).max(sext_elem(operand, bits)) as u64) & m, // LDSMAX
                 0b101 => (sext_elem(old, bits).min(sext_elem(operand, bits)) as u64) & m, // LDSMIN
-                0b110 => (old & m).max(operand & m),        // LDUMAX
-                0b111 => (old & m).min(operand & m),        // LDUMIN
+                0b110 => (old & m).max(operand & m), // LDUMAX
+                0b111 => (old & m).min(operand & m), // LDUMIN
                 _ => return Err(ArmError::UndefinedInstruction(insn)),
             }
         };
@@ -11724,11 +12153,7 @@ impl AArch64Cpu {
         let rt = (insn & 0x1F) as u8;
 
         // Atomic memory operations (FEAT_LSE): bit24=0, bit21=1, bits[11:10]=00.
-        if v == 0
-            && (insn >> 24) & 1 == 0
-            && (insn >> 21) & 1 == 1
-            && (insn >> 10) & 0x3 == 0
-        {
+        if v == 0 && (insn >> 24) & 1 == 0 && (insn >> 21) & 1 == 1 && (insn >> 10) & 0x3 == 0 {
             return self.exec_atomic_memop(insn);
         }
 
@@ -13054,6 +13479,93 @@ fn elem_mask(bits: u32) -> u64 {
     }
 }
 
+/// Saturating signed/unsigned add/subtract of a small non-negative `val` into
+/// the low 32 bits of a 64-bit GPR (SQINCP/UQINCP/SQDECP/UQDECP, 32-bit form).
+/// Matches qemu do_sat_addsub_32: the signed result is sign-extended to 64
+/// bits, the unsigned result zero-extended.
+fn sat_addsub_32(reg: u64, val: u64, u: bool, d: bool) -> u64 {
+    if u {
+        let r = (reg as u32) as i64; // zero-extend
+        let res = if d {
+            (r - val as i64).max(0)
+        } else {
+            (r + val as i64).min(u32::MAX as i64)
+        };
+        res as u64 // in [0, UINT32_MAX] -> zero-extended
+    } else {
+        let r = (reg as u32) as i32 as i64; // sign-extend
+        let res = if d {
+            (r - val as i64).max(i32::MIN as i64)
+        } else {
+            (r + val as i64).min(i32::MAX as i64)
+        };
+        res as u64 // sign-extended 64-bit pattern
+    }
+}
+
+/// Saturating signed/unsigned add/subtract of a small non-negative `val` into a
+/// full 64-bit GPR (SQINCP/UQINCP/SQDECP/UQDECP, 64-bit form). Matches qemu
+/// do_sat_addsub_64.
+fn sat_addsub_64(reg: u64, val: u64, u: bool, d: bool) -> u64 {
+    if u {
+        if d {
+            reg.saturating_sub(val)
+        } else {
+            reg.saturating_add(val)
+        }
+    } else {
+        let r = reg as i64;
+        let v = val as i64;
+        (if d {
+            r.saturating_sub(v)
+        } else {
+            r.saturating_add(v)
+        }) as u64
+    }
+}
+
+/// Per-element saturating add/sub of `count` for the SINCDECP vector form.
+/// `bits` ∈ {16,32,64}; increments add `count`, decrements subtract it,
+/// saturating into the element's signed (`u`=false) or unsigned (`u`=true)
+/// range. Matches qemu sve_{s,u}q{add,sub}i_{h,s,d}.
+fn sat_addsub_elem(elem: u64, count: u64, bits: u32, u: bool, dec: bool) -> u64 {
+    let mask = elem_mask(bits);
+    if u {
+        if bits >= 64 {
+            return if dec {
+                elem.saturating_sub(count)
+            } else {
+                elem.saturating_add(count)
+            };
+        }
+        let n = (elem & mask) as i128;
+        let r = if dec {
+            n - count as i128
+        } else {
+            n + count as i128
+        };
+        (r.clamp(0, mask as i128) as u64) & mask
+    } else {
+        let n = sext_elem(elem, bits);
+        if bits >= 64 {
+            let r = if dec {
+                (n as i64).saturating_sub(count as i64)
+            } else {
+                (n as i64).saturating_add(count as i64)
+            };
+            return r as u64;
+        }
+        let r = if dec {
+            n - count as i128
+        } else {
+            n + count as i128
+        };
+        let smax = (1i128 << (bits - 1)) - 1;
+        let smin = -(1i128 << (bits - 1));
+        (r.clamp(smin, smax) as u64) & mask
+    }
+}
+
 /// Sign-extend the low `bits` bits of `v` to i128.
 #[inline]
 fn sext_elem(v: u64, bits: u32) -> i128 {
@@ -13125,7 +13637,11 @@ fn uqrshl_bhs(src: u32, shift: i32, bits: u32, round: bool, sat: bool) -> u32 {
     } else if !sat || src == 0 {
         return 0;
     }
-    if bits == 32 { u32::MAX } else { (1u32 << bits) - 1 }
+    if bits == 32 {
+        u32::MAX
+    } else {
+        (1u32 << bits) - 1
+    }
 }
 
 /// Signed saturating/rounding shift-left for 64-bit elements. Port of qemu
@@ -13428,7 +13944,11 @@ fn adv_simd_three_same_int(u: u32, opcode: u32, bits: u32, a: u64, b: u64, d: u6
         }
         0b01111 => {
             // SABA / UABA  (accumulate absolute difference)
-            let abd = if u == 0 { (sa - sb).abs() } else { (ua - ub).abs() };
+            let abd = if u == 0 {
+                (sa - sb).abs()
+            } else {
+                (ua - ub).abs()
+            };
             ((ud as i128 + abd) as u64) & m
         }
         0b10000 => {
@@ -13704,7 +14224,11 @@ fn adv_simd_shift_imm_elem(u: u32, opcode: u32, bits: u32, shift: u32, a: u64, d
         }
         0b01000 => {
             // SRI (u==1): shift right and insert.
-            let low_mask = if shift >= bits { 0 } else { (1u64 << (bits - shift)) - 1 };
+            let low_mask = if shift >= bits {
+                0
+            } else {
+                (1u64 << (bits - shift)) - 1
+            };
             let shifted = (uext_elem(a, bits) >> shift) as u64 & low_mask;
             shifted | (d & !low_mask & m)
         }
@@ -13796,16 +14320,16 @@ fn adv_simd_two_reg_int(u: u32, opcode: u32, bits: u32, a: u64, d: u64) -> Optio
     Some(match (u, opcode) {
         (0, 0b00011) => sat_signed(sext_elem(d, bits) + uext_elem(a, bits) as i128, bits), // SUQADD
         (1, 0b00011) => sat_unsigned(uext_elem(d, bits) as i128 + sext_elem(a, bits), bits), // USQADD
-        (0, 0b00100) => count_leading_sign(a, bits) & m, // CLS
-        (1, 0b00100) => count_leading_zeros_elem(a, bits) & m, // CLZ
-        (0, 0b00101) => (a & 0xFF).count_ones() as u64,        // CNT (per byte; bits==8)
+        (0, 0b00100) => count_leading_sign(a, bits) & m,                                     // CLS
+        (1, 0b00100) => count_leading_zeros_elem(a, bits) & m,                               // CLZ
+        (0, 0b00101) => (a & 0xFF).count_ones() as u64, // CNT (per byte; bits==8)
         (0, 0b00111) => sat_signed(sext_elem(a, bits).abs(), bits), // SQABS
-        (1, 0b00111) => sat_signed(-sext_elem(a, bits), bits),      // SQNEG
-        (0, 0b01000) => bool_mask(sa > 0, bits),  // CMGT #0
-        (1, 0b01000) => bool_mask(sa >= 0, bits), // CMGE #0
-        (0, 0b01001) => bool_mask(sa == 0, bits), // CMEQ #0
-        (1, 0b01001) => bool_mask(sa <= 0, bits), // CMLE #0
-        (0, 0b01010) => bool_mask(sa < 0, bits),  // CMLT #0
+        (1, 0b00111) => sat_signed(-sext_elem(a, bits), bits), // SQNEG
+        (0, 0b01000) => bool_mask(sa > 0, bits),        // CMGT #0
+        (1, 0b01000) => bool_mask(sa >= 0, bits),       // CMGE #0
+        (0, 0b01001) => bool_mask(sa == 0, bits),       // CMEQ #0
+        (1, 0b01001) => bool_mask(sa <= 0, bits),       // CMLE #0
+        (0, 0b01010) => bool_mask(sa < 0, bits),        // CMLT #0
         (0, 0b01011) => (sa.unsigned_abs() as u64) & m, // ABS
         (1, 0b01011) => ((-sa) as u64) & m,             // NEG
         _ => return None,
@@ -14165,7 +14689,6 @@ fn fp_three_same_f64(kind: FpKind, a: u64, b: u64, d: u64) -> u64 {
     }
 }
 
-
 /// ARM RecipEstimate integer core (input a in [256,512)).
 fn recip_estimate(a: u32) -> u32 {
     let a = a * 2 + 1;
@@ -14179,7 +14702,11 @@ fn fp_recip_estimate_f32(bits: u32) -> u32 {
     let exp = (bits >> 23) & 0xFF;
     let frac = bits & 0x7F_FFFF;
     if exp == 0xFF {
-        return if frac != 0 { bits | 0x40_0000 } else { sign << 31 }; // NaN->qNaN, inf->0
+        return if frac != 0 {
+            bits | 0x40_0000
+        } else {
+            sign << 31
+        }; // NaN->qNaN, inf->0
     }
     if exp == 0 && frac == 0 {
         return (sign << 31) | (0xFF << 23); // zero -> infinity
@@ -14196,7 +14723,11 @@ fn fp_recip_estimate_f64(bits: u64) -> u64 {
     let exp = ((bits >> 52) & 0x7FF) as u32;
     let frac = bits & 0xF_FFFF_FFFF_FFFF;
     if exp == 0x7FF {
-        return if frac != 0 { bits | 0x8_0000_0000_0000 } else { sign << 63 };
+        return if frac != 0 {
+            bits | 0x8_0000_0000_0000
+        } else {
+            sign << 63
+        };
     }
     if exp == 0 && frac == 0 {
         return (sign << 63) | (0x7FFu64 << 52);
@@ -14228,10 +14759,18 @@ fn fp_rsqrt_estimate_f32(bits: u32) -> u32 {
     let sign = bits >> 31;
     let exp = (bits >> 23) & 0xFF;
     let frac = bits & 0x7F_FFFF;
-    if exp == 0xFF && frac != 0 { return bits | 0x40_0000; } // NaN -> qNaN
-    if exp == 0 && frac == 0 { return (sign << 31) | (0xFF << 23); } // zero -> inf
-    if sign == 1 { return 0x7FC0_0000; } // negative -> default NaN
-    if exp == 0xFF { return 0; } // +inf -> +0
+    if exp == 0xFF && frac != 0 {
+        return bits | 0x40_0000;
+    } // NaN -> qNaN
+    if exp == 0 && frac == 0 {
+        return (sign << 31) | (0xFF << 23);
+    } // zero -> inf
+    if sign == 1 {
+        return 0x7FC0_0000;
+    } // negative -> default NaN
+    if exp == 0xFF {
+        return 0;
+    } // +inf -> +0
     let mut fraction: u64 = (frac as u64) << 29; // bits<51:29>
     let mut e = exp as i32;
     if e == 0 {
@@ -14256,10 +14795,18 @@ fn fp_rsqrt_estimate_f64(bits: u64) -> u64 {
     let sign = bits >> 63;
     let exp = ((bits >> 52) & 0x7FF) as i32;
     let frac = bits & 0xF_FFFF_FFFF_FFFF;
-    if exp == 0x7FF && frac != 0 { return bits | 0x8_0000_0000_0000; }
-    if exp == 0 && frac == 0 { return (sign << 63) | (0x7FFu64 << 52); }
-    if sign == 1 { return 0x7FF8_0000_0000_0000; }
-    if exp == 0x7FF { return 0; }
+    if exp == 0x7FF && frac != 0 {
+        return bits | 0x8_0000_0000_0000;
+    }
+    if exp == 0 && frac == 0 {
+        return (sign << 63) | (0x7FFu64 << 52);
+    }
+    if sign == 1 {
+        return 0x7FF8_0000_0000_0000;
+    }
+    if exp == 0x7FF {
+        return 0;
+    }
     let mut fraction: u64 = frac;
     let mut e = exp;
     if e == 0 {
@@ -14493,8 +15040,7 @@ fn sve_fp_recpx(esize: usize, lane: u64) -> u64 {
         }
         _ => {
             let x = lane;
-            if (x & 0x7FF0_0000_0000_0000) == 0x7FF0_0000_0000_0000
-                && (x & 0xF_FFFF_FFFF_FFFF) != 0
+            if (x & 0x7FF0_0000_0000_0000) == 0x7FF0_0000_0000_0000 && (x & 0xF_FFFF_FFFF_FFFF) != 0
             {
                 return x | 0x8_0000_0000_0000; // NaN -> quiet
             }
@@ -14654,19 +15200,70 @@ const FEXPA_S: [u32; 64] = [
     0x7d3e0c,
 ];
 const FEXPA_D: [u64; 64] = [
-    0x0000000000000, 0x02C9A3E778061, 0x059B0D3158574, 0x0874518759BC8, 0x0B5586CF9890F,
-    0x0E3EC32D3D1A2, 0x11301D0125B51, 0x1429AAEA92DE0, 0x172B83C7D517B, 0x1A35BEB6FCB75,
-    0x1D4873168B9AA, 0x2063B88628CD6, 0x2387A6E756238, 0x26B4565E27CDD, 0x29E9DF51FDEE1,
-    0x2D285A6E4030B, 0x306FE0A31B715, 0x33C08B26416FF, 0x371A7373AA9CB, 0x3A7DB34E59FF7,
-    0x3DEA64C123422, 0x4160A21F72E2A, 0x44E086061892D, 0x486A2B5C13CD0, 0x4BFDAD5362A27,
-    0x4F9B2769D2CA7, 0x5342B569D4F82, 0x56F4736B527DA, 0x5AB07DD485429, 0x5E76F15AD2148,
-    0x6247EB03A5585, 0x6623882552225, 0x6A09E667F3BCD, 0x6DFB23C651A2F, 0x71F75E8EC5F74,
-    0x75FEB564267C9, 0x7A11473EB0187, 0x7E2F336CF4E62, 0x82589994CCE13, 0x868D99B4492ED,
-    0x8ACE5422AA0DB, 0x8F1AE99157736, 0x93737B0CDC5E5, 0x97D829FDE4E50, 0x9C49182A3F090,
-    0xA0C667B5DE565, 0xA5503B23E255D, 0xA9E6B5579FDBF, 0xAE89F995AD3AD, 0xB33A2B84F15FB,
-    0xB7F76F2FB5E47, 0xBCC1E904BC1D2, 0xC199BDD85529C, 0xC67F12E57D14B, 0xCB720DCEF9069,
-    0xD072D4A07897C, 0xD5818DCFBA487, 0xDA9E603DB3285, 0xDFC97337B9B5F, 0xE502EE78B3FF6,
-    0xEA4AFA2A490DA, 0xEFA1BEE615A27, 0xF50765B6E4540, 0xFA7C1819E90D8,
+    0x0000000000000,
+    0x02C9A3E778061,
+    0x059B0D3158574,
+    0x0874518759BC8,
+    0x0B5586CF9890F,
+    0x0E3EC32D3D1A2,
+    0x11301D0125B51,
+    0x1429AAEA92DE0,
+    0x172B83C7D517B,
+    0x1A35BEB6FCB75,
+    0x1D4873168B9AA,
+    0x2063B88628CD6,
+    0x2387A6E756238,
+    0x26B4565E27CDD,
+    0x29E9DF51FDEE1,
+    0x2D285A6E4030B,
+    0x306FE0A31B715,
+    0x33C08B26416FF,
+    0x371A7373AA9CB,
+    0x3A7DB34E59FF7,
+    0x3DEA64C123422,
+    0x4160A21F72E2A,
+    0x44E086061892D,
+    0x486A2B5C13CD0,
+    0x4BFDAD5362A27,
+    0x4F9B2769D2CA7,
+    0x5342B569D4F82,
+    0x56F4736B527DA,
+    0x5AB07DD485429,
+    0x5E76F15AD2148,
+    0x6247EB03A5585,
+    0x6623882552225,
+    0x6A09E667F3BCD,
+    0x6DFB23C651A2F,
+    0x71F75E8EC5F74,
+    0x75FEB564267C9,
+    0x7A11473EB0187,
+    0x7E2F336CF4E62,
+    0x82589994CCE13,
+    0x868D99B4492ED,
+    0x8ACE5422AA0DB,
+    0x8F1AE99157736,
+    0x93737B0CDC5E5,
+    0x97D829FDE4E50,
+    0x9C49182A3F090,
+    0xA0C667B5DE565,
+    0xA5503B23E255D,
+    0xA9E6B5579FDBF,
+    0xAE89F995AD3AD,
+    0xB33A2B84F15FB,
+    0xB7F76F2FB5E47,
+    0xBCC1E904BC1D2,
+    0xC199BDD85529C,
+    0xC67F12E57D14B,
+    0xCB720DCEF9069,
+    0xD072D4A07897C,
+    0xD5818DCFBA487,
+    0xDA9E603DB3285,
+    0xDFC97337B9B5F,
+    0xE502EE78B3FF6,
+    0xEA4AFA2A490DA,
+    0xEFA1BEE615A27,
+    0xF50765B6E4540,
+    0xFA7C1819E90D8,
 ];
 
 /// SVE FEXPA (exponential accelerator): build a float from a table significand
@@ -14738,8 +15335,11 @@ fn scalbn_f64(x: f64, mut n: i64) -> f64 {
 fn sve_fscale(esize: usize, x: u64, n: i64) -> u64 {
     match esize {
         2 => fp16_round(fp16_to_f64(x as u16) * exp2_f64(n.clamp(-1023, 1023) as i32)) as u64,
-        4 => scalbn_f32(f32::from_bits(x as u32), n.clamp(i32::MIN as i64, i32::MAX as i64) as i32)
-            .to_bits() as u64,
+        4 => scalbn_f32(
+            f32::from_bits(x as u32),
+            n.clamp(i32::MIN as i64, i32::MAX as i64) as i32,
+        )
+        .to_bits() as u64,
         _ => scalbn_f64(f64::from_bits(x), n).to_bits(),
     }
 }
@@ -14763,13 +15363,13 @@ fn sve_fp_to_f64(esize: usize, x: u64) -> f64 {
 fn sve_fp_compare(esize: usize, cc: (u32, u32), a: u64, b: u64) -> bool {
     let (av, bv) = (sve_fp_to_f64(esize, a), sve_fp_to_f64(esize, b));
     match cc {
-        (0b010, 0) => av >= bv,                  // FCMGE
-        (0b010, 1) => av > bv,                   // FCMGT
-        (0b011, 0) => av == bv,                  // FCMEQ
-        (0b011, 1) => av != bv,                  // FCMNE
+        (0b010, 0) => av >= bv,                   // FCMGE
+        (0b010, 1) => av > bv,                    // FCMGT
+        (0b011, 0) => av == bv,                   // FCMEQ
+        (0b011, 1) => av != bv,                   // FCMNE
         (0b110, 0) => av.is_nan() || bv.is_nan(), // FCMUO
-        (0b110, 1) => av.abs() >= bv.abs(),      // FACGE
-        (0b111, 1) => av.abs() > bv.abs(),       // FACGT
+        (0b110, 1) => av.abs() >= bv.abs(),       // FACGE
+        (0b111, 1) => av.abs() > bv.abs(),        // FACGT
         _ => false,
     }
 }
@@ -14875,8 +15475,22 @@ const FTMAD_COEFF_H: [u16; 16] = [
     0x3c00, 0xb155, 0x2030, 0, 0, 0, 0, 0, 0x3c00, 0xb800, 0x293a, 0, 0, 0, 0, 0,
 ];
 const FTMAD_COEFF_S: [u32; 16] = [
-    0x3f80_0000, 0xbe2a_aaab, 0x3c08_8886, 0xb950_08b9, 0x3636_9d6d, 0, 0, 0, 0x3f80_0000,
-    0xbf00_0000, 0x3d2a_aaa6, 0xbab6_0705, 0x37cd_37cc, 0, 0, 0,
+    0x3f80_0000,
+    0xbe2a_aaab,
+    0x3c08_8886,
+    0xb950_08b9,
+    0x3636_9d6d,
+    0,
+    0,
+    0,
+    0x3f80_0000,
+    0xbf00_0000,
+    0x3d2a_aaa6,
+    0xbab6_0705,
+    0x37cd_37cc,
+    0,
+    0,
+    0,
 ];
 const FTMAD_COEFF_D: [u64; 16] = [
     0x3ff0_0000_0000_0000,
@@ -14920,7 +15534,9 @@ fn sve_ftmad(esize: usize, nn: u64, mm: u64, imm: usize) -> u64 {
             let neg = mm & 0x8000_0000_0000_0000 != 0;
             let m = if neg { mm & 0x7FFF_FFFF_FFFF_FFFF } else { mm };
             let coeff = f64::from_bits(FTMAD_COEFF_D[imm + if neg { 8 } else { 0 }]);
-            f64::from_bits(nn).mul_add(f64::from_bits(m), coeff).to_bits()
+            f64::from_bits(nn)
+                .mul_add(f64::from_bits(m), coeff)
+                .to_bits()
         }
     }
 }
@@ -15445,7 +16061,11 @@ fn fp16_recpe(op: u16) -> u16 {
     let exp = ((op >> 10) & 0x1F) as i32;
     let frac = (op & 0x3FF) as u64;
     if exp == 0x1F {
-        return if frac != 0 { op | 0x0200 } else { (sign << 15) as u16 };
+        return if frac != 0 {
+            op | 0x0200
+        } else {
+            (sign << 15) as u16
+        };
     }
     if exp == 0 && frac == 0 {
         return ((sign << 15) as u16) | 0x7C00; // zero -> infinity
@@ -15722,7 +16342,6 @@ fn sm3_partw2(vd: u128, vn: u128, vm: u128) -> u128 {
 
 /// AES S-box and inverse S-box (FIPS-197).
 const AES_SBOX: [u8; 256] = [
-
     0x63, 0x7c, 0x77, 0x7b, 0xf2, 0x6b, 0x6f, 0xc5, 0x30, 0x01, 0x67, 0x2b, 0xfe, 0xd7, 0xab, 0x76,
     0xca, 0x82, 0xc9, 0x7d, 0xfa, 0x59, 0x47, 0xf0, 0xad, 0xd4, 0xa2, 0xaf, 0x9c, 0xa4, 0x72, 0xc0,
     0xb7, 0xfd, 0x93, 0x26, 0x36, 0x3f, 0xf7, 0xcc, 0x34, 0xa5, 0xe5, 0xf1, 0x71, 0xd8, 0x31, 0x15,
@@ -15741,7 +16360,6 @@ const AES_SBOX: [u8; 256] = [
     0x8c, 0xa1, 0x89, 0x0d, 0xbf, 0xe6, 0x42, 0x68, 0x41, 0x99, 0x2d, 0x0f, 0xb0, 0x54, 0xbb, 0x16,
 ];
 const AES_INV_SBOX: [u8; 256] = [
-
     0x52, 0x09, 0x6a, 0xd5, 0x30, 0x36, 0xa5, 0x38, 0xbf, 0x40, 0xa3, 0x9e, 0x81, 0xf3, 0xd7, 0xfb,
     0x7c, 0xe3, 0x39, 0x82, 0x9b, 0x2f, 0xff, 0x87, 0x34, 0x8e, 0x43, 0x44, 0xc4, 0xde, 0xe9, 0xcb,
     0x54, 0x7b, 0x94, 0x32, 0xa6, 0xc2, 0x23, 0x3d, 0xee, 0x4c, 0x95, 0x0b, 0x42, 0xfa, 0xc3, 0x4e,
@@ -15765,10 +16383,14 @@ const AES_INV_SBOX: [u8; 256] = [
 fn aes_gmul(mut a: u8, mut b: u8) -> u8 {
     let mut p = 0u8;
     for _ in 0..8 {
-        if b & 1 != 0 { p ^= a; }
+        if b & 1 != 0 {
+            p ^= a;
+        }
         let hi = a & 0x80;
         a <<= 1;
-        if hi != 0 { a ^= 0x1b; }
+        if hi != 0 {
+            a ^= 0x1b;
+        }
         b >>= 1;
     }
     p
@@ -15778,7 +16400,9 @@ fn aes_gmul(mut a: u8, mut b: u8) -> u8 {
 fn aes_sub_bytes(state: u128, inverse: bool) -> u128 {
     let table = if inverse { &AES_INV_SBOX } else { &AES_SBOX };
     let mut b = state.to_le_bytes();
-    for x in b.iter_mut() { *x = table[*x as usize]; }
+    for x in b.iter_mut() {
+        *x = table[*x as usize];
+    }
     u128::from_le_bytes(b)
 }
 
@@ -15789,7 +16413,11 @@ fn aes_shift_rows(state: u128, inverse: bool) -> u128 {
     let mut out = [0u8; 16];
     for r in 0..4usize {
         for c in 0..4usize {
-            let src_c = if inverse { (c + 4 - r) % 4 } else { (c + r) % 4 };
+            let src_c = if inverse {
+                (c + 4 - r) % 4
+            } else {
+                (c + r) % 4
+            };
             out[c * 4 + r] = s[src_c * 4 + r];
         }
     }

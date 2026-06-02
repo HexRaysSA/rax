@@ -36,15 +36,15 @@ use rax::arm::{AArch64Config, AArch64Cpu, ArmCpu, CpuExit, FlatMemory};
 #[repr(C)]
 #[derive(Clone, Copy)]
 struct ArmState {
-    x: [u64; 31],     // X0..X30
-    sp: u64,          // SP
-    pc: u64,          // input: unused; output: post-instruction PC
-    pstate: u64,      // NZCV in bits [31:28]
+    x: [u64; 31], // X0..X30
+    sp: u64,      // SP
+    pc: u64,      // input: unused; output: post-instruction PC
+    pstate: u64,  // NZCV in bits [31:28]
     fpsr: u64,
     fpcr: u64,
-    v: [u64; 64],     // V0..V31 as lo/hi u64 pairs
+    v: [u64; 64],       // V0..V31 as lo/hi u64 pairs
     scratch: [u64; 32], // shared scratch window (256 bytes) for load/store tests
-    preds: [u64; 4],  // SVE P0..P15 packed as 16 x 16-bit (VL=128), byte-granular
+    preds: [u64; 4],    // SVE P0..P15 packed as 16 x 16-bit (VL=128), byte-granular
 }
 
 /// AArch64 NOP (used to fill the oracle's unused second instruction slot).
@@ -172,7 +172,11 @@ fn run_oracle(oracle: &PathBuf, cases: &[(u32, u32, ArmState)]) -> Option<Vec<Ou
     payload.extend_from_slice(&WIRE_MAGIC.to_le_bytes());
     payload.extend_from_slice(&(cases.len() as u32).to_le_bytes());
     for (insn, insn2, st) in cases {
-        let ic = InCase { insn: *insn, flags: *insn2, st: *st };
+        let ic = InCase {
+            insn: *insn,
+            flags: *insn2,
+            st: *st,
+        };
         payload.extend_from_slice(as_bytes(&ic));
     }
 
@@ -231,7 +235,12 @@ fn run_rax(insn: u32, input: &ArmState) -> Option<ArmState> {
     }
     cpu.set_current_sp(input.sp);
     let ps = input.pstate;
-    cpu.set_nzcv(ps & (1 << 31) != 0, ps & (1 << 30) != 0, ps & (1 << 29) != 0, ps & (1 << 28) != 0);
+    cpu.set_nzcv(
+        ps & (1 << 31) != 0,
+        ps & (1 << 30) != 0,
+        ps & (1 << 29) != 0,
+        ps & (1 << 28) != 0,
+    );
     for r in 0..32u8 {
         let (lo, hi) = input.vreg(r as usize);
         cpu.set_simd_reg(r, lo, hi).ok()?;
@@ -259,10 +268,18 @@ fn run_rax(insn: u32, input: &ArmState) -> Option<ArmState> {
     out.sp = cpu.current_sp();
     out.pc = cpu.get_pc();
     let mut pstate = 0u64;
-    if cpu.get_n() { pstate |= 1 << 31; }
-    if cpu.get_z() { pstate |= 1 << 30; }
-    if cpu.get_c() { pstate |= 1 << 29; }
-    if cpu.get_v() { pstate |= 1 << 28; }
+    if cpu.get_n() {
+        pstate |= 1 << 31;
+    }
+    if cpu.get_z() {
+        pstate |= 1 << 30;
+    }
+    if cpu.get_c() {
+        pstate |= 1 << 29;
+    }
+    if cpu.get_v() {
+        pstate |= 1 << 28;
+    }
     out.pstate = pstate;
     for r in 0..32u8 {
         if let Some((lo, hi)) = cpu.get_simd_reg(r) {
@@ -330,11 +347,17 @@ fn compare_case(
     let mut diffs = Vec::new();
     for i in 0..31 {
         if rax.x[i] != oracle.st.x[i] {
-            diffs.push(format!("x{i}: rax={:#018x} hw={:#018x}", rax.x[i], oracle.st.x[i]));
+            diffs.push(format!(
+                "x{i}: rax={:#018x} hw={:#018x}",
+                rax.x[i], oracle.st.x[i]
+            ));
         }
     }
     if rax.sp != oracle.st.sp {
-        diffs.push(format!("sp: rax={:#018x} hw={:#018x}", rax.sp, oracle.st.sp));
+        diffs.push(format!(
+            "sp: rax={:#018x} hw={:#018x}",
+            rax.sp, oracle.st.sp
+        ));
     }
     let rax_nzcv = (rax.pstate >> 28) & 0xF;
     let hw_nzcv = (oracle.st.pstate >> 28) & 0xF;
@@ -441,8 +464,16 @@ const RA: u32 = 3;
 /// Advanced SIMD three-same (integer + FP), main encoding:
 /// `0 Q U 01110 size 1 Rm opcode 1 Rn Rd`
 fn enc_three_same(q: u32, u: u32, size: u32, opcode: u32) -> u32 {
-    (q << 30) | (u << 29) | (0b01110 << 24) | (size << 22) | (1 << 21)
-        | (RM << 16) | (opcode << 11) | (1 << 10) | (RN << 5) | RD
+    (q << 30)
+        | (u << 29)
+        | (0b01110 << 24)
+        | (size << 22)
+        | (1 << 21)
+        | (RM << 16)
+        | (opcode << 11)
+        | (1 << 10)
+        | (RN << 5)
+        | RD
 }
 
 /// Build the full list of three-same encodings to test (over-generates; illegal
@@ -456,10 +487,7 @@ fn three_same_cases() -> Vec<(String, u32)> {
                 // exercised separately with NaN-aware comparison.
                 for opcode in 0..0b11000u32 {
                     let insn = enc_three_same(q, u, size, opcode);
-                    v.push((
-                        format!("3same q{q} u{u} sz{size} op{:05b}", opcode),
-                        insn,
-                    ));
+                    v.push((format!("3same q{q} u{u} sz{size} op{:05b}", opcode), insn));
                 }
             }
         }
@@ -490,8 +518,14 @@ fn enc_dp3(sf: u32, op31: u32, o0: u32) -> u32 {
 
 /// Same, but with an explicit Ra field (SMULH/UMULH require Ra = 31/xzr).
 fn enc_dp3_ra(sf: u32, op31: u32, o0: u32, ra: u32) -> u32 {
-    (sf << 31) | (0b11011 << 24) | (op31 << 21) | (RM << 16) | (o0 << 15)
-        | (ra << 10) | (RN << 5) | RD
+    (sf << 31)
+        | (0b11011 << 24)
+        | (op31 << 21)
+        | (RM << 16)
+        | (o0 << 15)
+        | (ra << 10)
+        | (RN << 5)
+        | RD
 }
 
 fn dp3_cases() -> Vec<(String, u32)> {
@@ -514,8 +548,15 @@ fn dp3_cases() -> Vec<(String, u32)> {
 
 /// Add/subtract (shifted register): `sf op S 01011 shift 0 Rm imm6 Rn Rd`
 fn enc_addsub_shift(sf: u32, op: u32, s: u32, shift: u32, imm6: u32) -> u32 {
-    (sf << 31) | (op << 30) | (s << 29) | (0b01011 << 24) | (shift << 22)
-        | (RM << 16) | (imm6 << 10) | (RN << 5) | RD
+    (sf << 31)
+        | (op << 30)
+        | (s << 29)
+        | (0b01011 << 24)
+        | (shift << 22)
+        | (RM << 16)
+        | (imm6 << 10)
+        | (RN << 5)
+        | RD
 }
 
 fn addsub_shift_cases() -> Vec<(String, u32)> {
@@ -540,8 +581,15 @@ fn addsub_shift_cases() -> Vec<(String, u32)> {
 
 /// Logical (shifted register): `sf opc 01010 shift N Rm imm6 Rn Rd`
 fn enc_logical_shift(sf: u32, opc: u32, shift: u32, n: u32, imm6: u32) -> u32 {
-    (sf << 31) | (opc << 29) | (0b01010 << 24) | (shift << 22) | (n << 21)
-        | (RM << 16) | (imm6 << 10) | (RN << 5) | RD
+    (sf << 31)
+        | (opc << 29)
+        | (0b01010 << 24)
+        | (shift << 22)
+        | (n << 21)
+        | (RM << 16)
+        | (imm6 << 10)
+        | (RN << 5)
+        | RD
 }
 
 fn logical_shift_cases() -> Vec<(String, u32)> {
@@ -619,7 +667,11 @@ fn run_batch(name: &str, batch: Vec<(String, u32, ArmState)>) {
         for m in &mismatches {
             *by_label.entry(m.label.clone()).or_default() += 1;
         }
-        eprintln!("\n==== {name}: {} mismatches across {} cases ====", mismatches.len(), batch.len());
+        eprintln!(
+            "\n==== {name}: {} mismatches across {} cases ====",
+            mismatches.len(),
+            batch.len()
+        );
         eprintln!("-- by encoding --");
         for (label, count) in &by_label {
             eprintln!("  {count:5}x  {label}");
@@ -628,7 +680,10 @@ fn run_batch(name: &str, batch: Vec<(String, u32, ArmState)>) {
         for m in mismatches.iter().take(25) {
             eprintln!("  [{}] {:#010x}: {}", m.label, m.insn, m.detail);
         }
-        panic!("{name}: {} divergences vs hardware oracle", mismatches.len());
+        panic!(
+            "{name}: {} divergences vs hardware oracle",
+            mismatches.len()
+        );
     }
 }
 
@@ -641,7 +696,12 @@ fn run_rax_pair(insn: u32, insn2: u32, input: &ArmState) -> Option<ArmState> {
     }
     cpu.set_current_sp(input.sp);
     let ps = input.pstate;
-    cpu.set_nzcv(ps & (1 << 31) != 0, ps & (1 << 30) != 0, ps & (1 << 29) != 0, ps & (1 << 28) != 0);
+    cpu.set_nzcv(
+        ps & (1 << 31) != 0,
+        ps & (1 << 30) != 0,
+        ps & (1 << 29) != 0,
+        ps & (1 << 28) != 0,
+    );
     for r in 0..32u8 {
         let (lo, hi) = input.vreg(r as usize);
         cpu.set_simd_reg(r, lo, hi).ok()?;
@@ -669,10 +729,18 @@ fn run_rax_pair(insn: u32, insn2: u32, input: &ArmState) -> Option<ArmState> {
     out.sp = cpu.current_sp();
     out.pc = cpu.get_pc();
     let mut pstate = 0u64;
-    if cpu.get_n() { pstate |= 1 << 31; }
-    if cpu.get_z() { pstate |= 1 << 30; }
-    if cpu.get_c() { pstate |= 1 << 29; }
-    if cpu.get_v() { pstate |= 1 << 28; }
+    if cpu.get_n() {
+        pstate |= 1 << 31;
+    }
+    if cpu.get_z() {
+        pstate |= 1 << 30;
+    }
+    if cpu.get_c() {
+        pstate |= 1 << 29;
+    }
+    if cpu.get_v() {
+        pstate |= 1 << 28;
+    }
     out.pstate = pstate;
     for r in 0..32u8 {
         if let Some((lo, hi)) = cpu.get_simd_reg(r) {
@@ -710,32 +778,89 @@ fn run_batch_pair(name: &str, batch: Vec<(String, u32, u32, ArmState)>) {
         let rax = run_rax_pair(*insn, *insn2, st);
         if out.trapped != 0 {
             if rax.is_some() {
-                mismatches.push(Mismatch { label: batch[i].0.clone(), insn: *insn, detail: format!("hw faulted (sig {}) but rax executed", out.trapped) });
+                mismatches.push(Mismatch {
+                    label: batch[i].0.clone(),
+                    insn: *insn,
+                    detail: format!("hw faulted (sig {}) but rax executed", out.trapped),
+                });
             }
             continue;
         }
         let rax = match rax {
             Some(r) => r,
-            None => { mismatches.push(Mismatch { label: batch[i].0.clone(), insn: *insn, detail: "hw executed but rax rejected".into() }); continue; }
+            None => {
+                mismatches.push(Mismatch {
+                    label: batch[i].0.clone(),
+                    insn: *insn,
+                    detail: "hw executed but rax rejected".into(),
+                });
+                continue;
+            }
         };
         let mut diffs = Vec::new();
-        for r in 0..31 { if rax.x[r] != out.st.x[r] { diffs.push(format!("x{r}: rax={:#x} hw={:#x}", rax.x[r], out.st.x[r])); } }
-        if (rax.pstate>>28)&0xF != (out.st.pstate>>28)&0xF { diffs.push(format!("nzcv: rax={:#x} hw={:#x}", (rax.pstate>>28)&0xF, (out.st.pstate>>28)&0xF)); }
-        for r in 0..32 { if rax.vreg(r) != out.st.vreg(r) { diffs.push(format!("v{r} differs")); } }
-        for r in 0..16 { if rax.preg(r) != out.st.preg(r) { diffs.push(format!("p{r}: rax={:#06x} hw={:#06x}", rax.preg(r), out.st.preg(r))); } }
-        for k in 0..32 { if rax.scratch[k] != out.st.scratch[k] { diffs.push(format!("scratch[{k}]: rax={:#x} hw={:#x}", rax.scratch[k], out.st.scratch[k])); } }
+        for r in 0..31 {
+            if rax.x[r] != out.st.x[r] {
+                diffs.push(format!("x{r}: rax={:#x} hw={:#x}", rax.x[r], out.st.x[r]));
+            }
+        }
+        if (rax.pstate >> 28) & 0xF != (out.st.pstate >> 28) & 0xF {
+            diffs.push(format!(
+                "nzcv: rax={:#x} hw={:#x}",
+                (rax.pstate >> 28) & 0xF,
+                (out.st.pstate >> 28) & 0xF
+            ));
+        }
+        for r in 0..32 {
+            if rax.vreg(r) != out.st.vreg(r) {
+                diffs.push(format!("v{r} differs"));
+            }
+        }
+        for r in 0..16 {
+            if rax.preg(r) != out.st.preg(r) {
+                diffs.push(format!(
+                    "p{r}: rax={:#06x} hw={:#06x}",
+                    rax.preg(r),
+                    out.st.preg(r)
+                ));
+            }
+        }
+        for k in 0..32 {
+            if rax.scratch[k] != out.st.scratch[k] {
+                diffs.push(format!(
+                    "scratch[{k}]: rax={:#x} hw={:#x}",
+                    rax.scratch[k], out.st.scratch[k]
+                ));
+            }
+        }
         if !diffs.is_empty() {
-            mismatches.push(Mismatch { label: batch[i].0.clone(), insn: *insn, detail: diffs.join("  |  ") });
+            mismatches.push(Mismatch {
+                label: batch[i].0.clone(),
+                insn: *insn,
+                detail: diffs.join("  |  "),
+            });
         }
     }
     if !mismatches.is_empty() {
         use std::collections::BTreeMap;
         let mut by_label: BTreeMap<String, usize> = BTreeMap::new();
-        for m in &mismatches { *by_label.entry(m.label.clone()).or_default() += 1; }
-        eprintln!("\n==== {name}: {} mismatches across {} cases ====", mismatches.len(), cases.len());
-        for (label, count) in &by_label { eprintln!("  {count:5}x  {label}"); }
-        for m in mismatches.iter().take(25) { eprintln!("  [{}] {:#010x}: {}", m.label, m.insn, m.detail); }
-        panic!("{name}: {} divergences vs hardware oracle", mismatches.len());
+        for m in &mismatches {
+            *by_label.entry(m.label.clone()).or_default() += 1;
+        }
+        eprintln!(
+            "\n==== {name}: {} mismatches across {} cases ====",
+            mismatches.len(),
+            cases.len()
+        );
+        for (label, count) in &by_label {
+            eprintln!("  {count:5}x  {label}");
+        }
+        for m in mismatches.iter().take(25) {
+            eprintln!("  [{}] {:#010x}: {}", m.label, m.insn, m.detail);
+        }
+        panic!(
+            "{name}: {} divergences vs hardware oracle",
+            mismatches.len()
+        );
     }
 }
 
@@ -811,7 +936,7 @@ fn diff_fmlal() {
                     } else {
                         let sign = (rng.next() & 1) as u128;
                         match rng.next() % 4 {
-                            0 => sign << 15,                              // signed zero
+                            0 => sign << 15,                                  // signed zero
                             1 => (sign << 15) | (rng.next() as u128 & 0x3FF), // subnormal
                             _ => {
                                 let exp = (rng.next() % 30 + 1) as u128; // normal 1..30
@@ -838,9 +963,27 @@ fn diff_fmlal() {
 
 /// AdvSIMD load/store single structure:
 /// `0 Q 001101 post L R Rm opcode S size Rn Rt`. Rn=x1, Rt=v0.
-fn enc_single_fields(q: u32, post: u32, l: u32, r: u32, rm: u32, opcode: u32, s: u32, size: u32) -> u32 {
-    (q << 30) | (0b001101 << 24) | (post << 23) | (l << 22) | (r << 21) | (rm << 16)
-        | (opcode << 13) | (s << 12) | (size << 10) | (RN << 5) | RD
+fn enc_single_fields(
+    q: u32,
+    post: u32,
+    l: u32,
+    r: u32,
+    rm: u32,
+    opcode: u32,
+    s: u32,
+    size: u32,
+) -> u32 {
+    (q << 30)
+        | (0b001101 << 24)
+        | (post << 23)
+        | (l << 22)
+        | (r << 21)
+        | (rm << 16)
+        | (opcode << 13)
+        | (s << 12)
+        | (size << 10)
+        | (RN << 5)
+        | RD
 }
 
 /// Single-element form for element-log2-size `esz` (0=B,1=H,2=S,3=D), structure
@@ -878,13 +1021,22 @@ fn diff_mem_ldst_single() {
             for &index in &[0u32, max_index - 1] {
                 for l in 0..2 {
                     let op = if l == 1 { "ld" } else { "st" };
-                    cases.push((format!("{op}{selem}_single e{esz} i{index}"), enc_single(esz, selem, index, l, 0)));
-                    cases.push((format!("{op}{selem}_single e{esz} i{index} post"), enc_single(esz, selem, index, l, 1)));
+                    cases.push((
+                        format!("{op}{selem}_single e{esz} i{index}"),
+                        enc_single(esz, selem, index, l, 0),
+                    ));
+                    cases.push((
+                        format!("{op}{selem}_single e{esz} i{index} post"),
+                        enc_single(esz, selem, index, l, 1),
+                    ));
                 }
             }
             // Replicating loads (LD1R-LD4R)
             for q in 0..2 {
-                cases.push((format!("ld{selem}r e{esz} q{q}"), enc_single_rep(esz, selem, q, 0)));
+                cases.push((
+                    format!("ld{selem}r e{esz} q{q}"),
+                    enc_single_rep(esz, selem, q, 0),
+                ));
             }
         }
     }
@@ -900,8 +1052,14 @@ fn diff_mem_ldst_single() {
 
 /// LDXR/LDAXR <Rt>, [Rn]: `size 001000 0 1 0 11111 o0 11111 Rn Rt`. Rt=x0, Rn=x1.
 fn enc_ldxr(size: u32, o0: u32) -> u32 {
-    (size << 30) | (0b001000 << 24) | (1 << 22) | (0b11111 << 16) | (o0 << 15)
-        | (0b11111 << 10) | (RN << 5) | RD
+    (size << 30)
+        | (0b001000 << 24)
+        | (1 << 22)
+        | (0b11111 << 16)
+        | (o0 << 15)
+        | (0b11111 << 10)
+        | (RN << 5)
+        | RD
 }
 /// STXR/STLXR <Ws>, <Rt>, [Rn]: `size 001000 0 0 0 Rs o0 11111 Rn Rt`. Ws=x2, Rt=x3, Rn=x1.
 fn enc_stxr(size: u32, o0: u32) -> u32 {
@@ -916,8 +1074,16 @@ fn enc_aes(opcode: u32) -> u32 {
 /// Advanced SIMD three-same (FP16): `0 Q U 01110 a 10 Rm 00 opcode 1 Rn Rd`.
 /// Rd=v0, Rn=v1, Rm=v2.
 fn enc_fp16_3s(q: u32, u: u32, a: u32, opcode: u32) -> u32 {
-    (q << 30) | (u << 29) | (0b01110 << 24) | (a << 23) | (1 << 22)
-        | (RM << 16) | (opcode << 11) | (1 << 10) | (RN << 5) | RD
+    (q << 30)
+        | (u << 29)
+        | (0b01110 << 24)
+        | (a << 23)
+        | (1 << 22)
+        | (RM << 16)
+        | (opcode << 11)
+        | (1 << 10)
+        | (RN << 5)
+        | RD
 }
 
 /// Generate a finite/inf/zero/subnormal binary16 value (never a NaN, to keep
@@ -925,9 +1091,9 @@ fn enc_fp16_3s(q: u32, u: u32, a: u32, opcode: u32) -> u32 {
 fn rand_fp16(rng: &mut Rng) -> u16 {
     let sign = (rng.next() & 1) as u16;
     match rng.next() % 16 {
-        0 => sign << 15,                                    // zero
-        1 => (sign << 15) | 0x7C00,                         // infinity
-        2 => (sign << 15) | (rng.next() as u16 & 0x3FF),    // subnormal
+        0 => sign << 15,                                 // zero
+        1 => (sign << 15) | 0x7C00,                      // infinity
+        2 => (sign << 15) | (rng.next() as u16 & 0x3FF), // subnormal
         _ => {
             let exp = (rng.next() % 28 + 1) as u16; // normal exponent 1..28
             let mant = rng.next() as u16 & 0x3FF;
@@ -953,20 +1119,44 @@ fn enc_fp16_idx(q: u32, u: u32, opcode: u32, index: u32) -> u32 {
     let h = (index >> 2) & 1;
     let l = (index >> 1) & 1;
     let m = index & 1;
-    (q << 30) | (u << 29) | (0b01111 << 24) | (l << 21) | (m << 20)
-        | (RM << 16) | (opcode << 12) | (h << 11) | (RN << 5) | RD
+    (q << 30)
+        | (u << 29)
+        | (0b01111 << 24)
+        | (l << 21)
+        | (m << 20)
+        | (RM << 16)
+        | (opcode << 12)
+        | (h << 11)
+        | (RN << 5)
+        | RD
 }
 
 /// Scalar three-same FP16: `01 U 11110 a 10 Rm 00 opcode 1 Rn Rd`.
 fn enc_fp16_3s_scalar(u: u32, a: u32, opcode: u32) -> u32 {
-    (1 << 30) | (u << 29) | (0b11110 << 24) | (a << 23) | (1 << 22)
-        | (RM << 16) | (opcode << 11) | (1 << 10) | (RN << 5) | RD
+    (1 << 30)
+        | (u << 29)
+        | (0b11110 << 24)
+        | (a << 23)
+        | (1 << 22)
+        | (RM << 16)
+        | (opcode << 11)
+        | (1 << 10)
+        | (RN << 5)
+        | RD
 }
 
 /// Scalar two-reg-misc FP16: `01 U 11110 a 1 11100 opcode 10 Rn Rd`.
 fn enc_fp16_2r_scalar(u: u32, a: u32, opcode: u32) -> u32 {
-    (1 << 30) | (u << 29) | (0b11110 << 24) | (a << 23) | (1 << 22)
-        | (0b11100 << 17) | (opcode << 12) | (0b10 << 10) | (RN << 5) | RD
+    (1 << 30)
+        | (u << 29)
+        | (0b11110 << 24)
+        | (a << 23)
+        | (1 << 22)
+        | (0b11100 << 17)
+        | (opcode << 12)
+        | (0b10 << 10)
+        | (RN << 5)
+        | RD
 }
 
 #[test]
@@ -1151,8 +1341,16 @@ fn diff_simd_fp16_indexed() {
 /// Advanced SIMD two-register miscellaneous (FP16):
 /// `0 Q U 01110 a 1 11100 opcode 10 Rn Rd`. Rd=v0, Rn=v1.
 fn enc_fp16_2r(q: u32, u: u32, a: u32, opcode: u32) -> u32 {
-    (q << 30) | (u << 29) | (0b01110 << 24) | (a << 23) | (1 << 22)
-        | (0b11100 << 17) | (opcode << 12) | (0b10 << 10) | (RN << 5) | RD
+    (q << 30)
+        | (u << 29)
+        | (0b01110 << 24)
+        | (a << 23)
+        | (1 << 22)
+        | (0b11100 << 17)
+        | (opcode << 12)
+        | (0b10 << 10)
+        | (RN << 5)
+        | RD
 }
 
 #[test]
@@ -1271,7 +1469,11 @@ fn diff_simd_frecpe() {
     // FRECPE: U=0, opcode 11101, sz_hi=1 -> size = 0b10 (f32) / 0b11 (f64).
     let mut cases: Vec<(String, u32, bool)> = Vec::new();
     for q in 0..2 {
-        cases.push((format!("frecpe f32 q{q}"), enc_two_reg(q, 0, 0b10, 0b11101), false));
+        cases.push((
+            format!("frecpe f32 q{q}"),
+            enc_two_reg(q, 0, 0b10, 0b11101),
+            false,
+        ));
     }
     cases.push(("frecpe f64".into(), enc_two_reg(1, 0, 0b11, 0b11101), true));
     // Normal positive finite inputs so no special-case / over-underflow paths.
@@ -1303,7 +1505,11 @@ fn diff_simd_frecpe() {
 fn diff_simd_frsqrte() {
     let mut cases: Vec<(String, u32, bool)> = Vec::new();
     for q in 0..2 {
-        cases.push((format!("frsqrte f32 q{q}"), enc_two_reg(q, 1, 0b10, 0b11101), false));
+        cases.push((
+            format!("frsqrte f32 q{q}"),
+            enc_two_reg(q, 1, 0b10, 0b11101),
+            false,
+        ));
     }
     cases.push(("frsqrte f64".into(), enc_two_reg(1, 1, 0b11, 0b11101), true));
     let mut rng = Rng::new(0x1_000B);
@@ -1393,8 +1599,14 @@ fn enc_sm4ekey() -> u32 {
 
 /// SDOT/UDOT: `0 Q U 01110 10 0 Rm 100101 Rn Rd`. Rd=v0, Rn=v1, Rm=v2.
 fn enc_dot(q: u32, u: u32) -> u32 {
-    (q << 30) | (u << 29) | (0b01110 << 24) | (0b10 << 22) | (RM << 16)
-        | (0b100101 << 10) | (RN << 5) | RD
+    (q << 30)
+        | (u << 29)
+        | (0b01110 << 24)
+        | (0b10 << 22)
+        | (RM << 16)
+        | (0b100101 << 10)
+        | (RN << 5)
+        | RD
 }
 
 #[test]
@@ -1434,14 +1646,30 @@ fn fill_finite_fp(rng: &mut Rng, esize: u32, lanes: usize) -> (u64, u64) {
 
 /// FCADD: `0 Q 1 01110 size 0 Rm 111 rot 01 Rn Rd`. Rd=v0, Rn=v1, Rm=v2.
 fn enc_fcadd(q: u32, size: u32, rot: u32) -> u32 {
-    (q << 30) | (1 << 29) | (0b01110 << 24) | (size << 22) | (RM << 16)
-        | (0b111 << 13) | (rot << 12) | (0b01 << 10) | (RN << 5) | RD
+    (q << 30)
+        | (1 << 29)
+        | (0b01110 << 24)
+        | (size << 22)
+        | (RM << 16)
+        | (0b111 << 13)
+        | (rot << 12)
+        | (0b01 << 10)
+        | (RN << 5)
+        | RD
 }
 
 /// FCMLA (vector): `0 Q 1 01110 size 0 Rm 110 rot 1 Rn Rd` (rot is 2 bits).
 fn enc_fcmla(q: u32, size: u32, rot: u32) -> u32 {
-    (q << 30) | (1 << 29) | (0b01110 << 24) | (size << 22) | (RM << 16)
-        | (0b110 << 13) | (rot << 11) | (1 << 10) | (RN << 5) | RD
+    (q << 30)
+        | (1 << 29)
+        | (0b01110 << 24)
+        | (size << 22)
+        | (RM << 16)
+        | (0b110 << 13)
+        | (rot << 11)
+        | (1 << 10)
+        | (RN << 5)
+        | RD
 }
 
 #[test]
@@ -1496,8 +1724,17 @@ fn enc_fcmla_idx(q: u32, size: u32, rot: u32, index: u32) -> u32 {
     } else {
         (index & 1, 0)
     };
-    (q << 30) | (1 << 29) | (0b01111 << 24) | (size << 22) | (l << 21)
-        | (RM << 16) | (rot << 13) | (1 << 12) | (h << 11) | (RN << 5) | RD
+    (q << 30)
+        | (1 << 29)
+        | (0b01111 << 24)
+        | (size << 22)
+        | (l << 21)
+        | (RM << 16)
+        | (rot << 13)
+        | (1 << 12)
+        | (h << 11)
+        | (RN << 5)
+        | RD
 }
 
 #[test]
@@ -1508,7 +1745,11 @@ fn diff_simd_complex_indexed() {
         for q in 0..2u32 {
             // f32 needs Q=1; f16 index range depends on Q.
             let max_index = if size == 0b10 {
-                if q == 0 { continue; } else { 2 }
+                if q == 0 {
+                    continue;
+                } else {
+                    2
+                }
             } else if q == 1 {
                 4
             } else {
@@ -1541,8 +1782,16 @@ fn diff_simd_complex_indexed() {
 fn enc_dot_idx(q: u32, u: u32, index: u32) -> u32 {
     let h = (index >> 1) & 1;
     let l = index & 1;
-    (q << 30) | (u << 29) | (0b01111 << 24) | (0b10 << 22) | (l << 21)
-        | (RM << 16) | (0b1110 << 12) | (h << 11) | (RN << 5) | RD
+    (q << 30)
+        | (u << 29)
+        | (0b01111 << 24)
+        | (0b10 << 22)
+        | (l << 21)
+        | (RM << 16)
+        | (0b1110 << 12)
+        | (h << 11)
+        | (RN << 5)
+        | RD
 }
 
 /// SVE unpredicated integer arithmetic: `00000100 sz 1 Zm opc6 Zn Zd`.
@@ -1559,96 +1808,188 @@ fn enc_sve_logical(opc: u32) -> u32 {
 /// SVE2 unpredicated multiply: `00000100 size 1 Zm 0110 opc Zn Zd`.
 /// opc (bits[11:10]): 00=MUL, 10=SMULH, 11=UMULH.
 fn enc_sve_mul(sz: u32, opc: u32) -> u32 {
-    (0b00000100 << 24) | (sz << 22) | (1 << 21) | (RM << 16)
-        | (0b0110 << 12) | (opc << 10) | (RN << 5) | RD
+    (0b00000100 << 24)
+        | (sz << 22)
+        | (1 << 21)
+        | (RM << 16)
+        | (0b0110 << 12)
+        | (opc << 10)
+        | (RN << 5)
+        | RD
 }
 
 /// SVE2 bitwise ternary: `00000100 opc 1 Zm 00111 o2 Zk Zdn`. Zdn=z0, Zk=z1(RN),
 /// Zm=z2(RM).
 fn enc_sve2_tern(opc: u32, o2: u32) -> u32 {
-    (0b00000100 << 24) | (opc << 22) | (1 << 21) | (RM << 16)
-        | (0b00111 << 11) | (o2 << 10) | (RN << 5) | RD
+    (0b00000100 << 24)
+        | (opc << 22)
+        | (1 << 21)
+        | (RM << 16)
+        | (0b00111 << 11)
+        | (o2 << 10)
+        | (RN << 5)
+        | RD
 }
 
 /// SVE2 integer add/subtract long: `01000101 size 0 Zm 000 S U T Zn Zd`.
 /// Zn=z1(RN), Zm=z2(RM), Zd=z0(RD).
 fn enc_sve2_addl(size: u32, s: u32, u: u32, t: u32) -> u32 {
-    (0b01000101 << 24) | (size << 22) | (RM << 16) | (s << 12) | (u << 11) | (t << 10)
-        | (RN << 5) | RD
+    (0b01000101 << 24)
+        | (size << 22)
+        | (RM << 16)
+        | (s << 12)
+        | (u << 11)
+        | (t << 10)
+        | (RN << 5)
+        | RD
 }
 /// SVE2 abs-diff long (S=1): `01000101 size 0 Zm 001 1 U T Zn Zd`.
 fn enc_sve2_abdl(size: u32, u: u32, t: u32) -> u32 {
-    (0b01000101 << 24) | (size << 22) | (RM << 16) | (0b001 << 13) | (1 << 12) | (u << 11)
-        | (t << 10) | (RN << 5) | RD
+    (0b01000101 << 24)
+        | (size << 22)
+        | (RM << 16)
+        | (0b001 << 13)
+        | (1 << 12)
+        | (u << 11)
+        | (t << 10)
+        | (RN << 5)
+        | RD
 }
 /// SVE2 add/subtract wide: `01000101 size 0 Zm 010 S U T Zn Zd`.
 fn enc_sve2_addw(size: u32, s: u32, u: u32, t: u32) -> u32 {
-    (0b01000101 << 24) | (size << 22) | (RM << 16) | (0b010 << 13) | (s << 12) | (u << 11)
-        | (t << 10) | (RN << 5) | RD
+    (0b01000101 << 24)
+        | (size << 22)
+        | (RM << 16)
+        | (0b010 << 13)
+        | (s << 12)
+        | (u << 11)
+        | (t << 10)
+        | (RN << 5)
+        | RD
 }
 /// SVE2 multiply long: `01000101 size 0 Zm 011 op U T Zn Zd`.
 fn enc_sve2_mull(size: u32, op: u32, u: u32, t: u32) -> u32 {
-    (0b01000101 << 24) | (size << 22) | (RM << 16) | (0b011 << 13) | (op << 12) | (u << 11)
-        | (t << 10) | (RN << 5) | RD
+    (0b01000101 << 24)
+        | (size << 22)
+        | (RM << 16)
+        | (0b011 << 13)
+        | (op << 12)
+        | (u << 11)
+        | (t << 10)
+        | (RN << 5)
+        | RD
 }
 /// SVE2 multiply-add long: `01000100 size 0 Zm 010 S U T Zn Zda`.
 fn enc_sve2_mlal(size: u32, s: u32, u: u32, t: u32) -> u32 {
-    (0b01000100 << 24) | (size << 22) | (RM << 16) | (0b010 << 13) | (s << 12) | (u << 11)
-        | (t << 10) | (RN << 5) | RD
+    (0b01000100 << 24)
+        | (size << 22)
+        | (RM << 16)
+        | (0b010 << 13)
+        | (s << 12)
+        | (u << 11)
+        | (t << 10)
+        | (RN << 5)
+        | RD
 }
 /// SVE2 saturating doubling multiply-add long: `01000100 size 0 Zm 0110 S T Zn Zda`.
 fn enc_sve2_sqdmlal(size: u32, s: u32, t: u32) -> u32 {
-    (0b01000100 << 24) | (size << 22) | (RM << 16) | (0b0110 << 12) | (s << 11) | (t << 10)
-        | (RN << 5) | RD
+    (0b01000100 << 24)
+        | (size << 22)
+        | (RM << 16)
+        | (0b0110 << 12)
+        | (s << 11)
+        | (t << 10)
+        | (RN << 5)
+        | RD
 }
 /// SVE2 add/subtract high narrow: `01000101 size 1 Zm 011 S R T Zn Zd`.
 fn enc_sve2_addhn(size: u32, s: u32, r: u32, t: u32) -> u32 {
-    (0b01000101 << 24) | (size << 22) | (1 << 21) | (RM << 16) | (0b011 << 13) | (s << 12)
-        | (r << 11) | (t << 10) | (RN << 5) | RD
+    (0b01000101 << 24)
+        | (size << 22)
+        | (1 << 21)
+        | (RM << 16)
+        | (0b011 << 13)
+        | (s << 12)
+        | (r << 11)
+        | (t << 10)
+        | (RN << 5)
+        | RD
 }
 /// SVE2 saturating extract narrow: `010001010 tszh 1 tszl 000010 vv T Zn Zd`.
 /// vv (bits[12:11]): 00=SQXTN, 01=UQXTN, 10=SQXTUN.
 fn enc_sve2_xtn(tsz: u32, variant: u32, t: u32) -> u32 {
     let tszh = (tsz >> 2) & 1;
     let tszl = tsz & 0x3;
-    (0b010001010 << 23) | (tszh << 22) | (1 << 21) | (tszl << 19) | (0b000010 << 13)
-        | (variant << 11) | (t << 10) | (RN << 5) | RD
+    (0b010001010 << 23)
+        | (tszh << 22)
+        | (1 << 21)
+        | (tszl << 19)
+        | (0b000010 << 13)
+        | (variant << 11)
+        | (t << 10)
+        | (RN << 5)
+        | RD
 }
 /// SVE2 complex integer add: `01000101 size 00000 op 11011 rot Zm Zdn`.
 /// Zm=z1(RN), Zdn=z0(RD).
 fn enc_sve2_cadd(size: u32, op: u32, rot: u32) -> u32 {
-    (0b01000101 << 24) | (size << 22) | (op << 16) | (0b11011 << 11) | (rot << 10) | (RN << 5)
-        | RD
+    (0b01000101 << 24) | (size << 22) | (op << 16) | (0b11011 << 11) | (rot << 10) | (RN << 5) | RD
 }
 /// SVE2 complex integer multiply-add: `01000100 size 0 Zm 001 op rot Zn Zda`.
 /// Zm=z2(RM), Zn=z1(RN), Zda=z0(RD).
 fn enc_sve2_cmla(size: u32, op: u32, rot: u32) -> u32 {
-    (0b01000100 << 24) | (size << 22) | (RM << 16) | (0b001 << 13) | (op << 12) | (rot << 10)
-        | (RN << 5) | RD
+    (0b01000100 << 24)
+        | (size << 22)
+        | (RM << 16)
+        | (0b001 << 13)
+        | (op << 12)
+        | (rot << 10)
+        | (RN << 5)
+        | RD
 }
 /// SVE2 shift left long: `010001010 tszh 0 tszl imm3 1010 U T Zn Zd`. The
 /// (tsz,imm3) encodes the source size and shift: tsz:imm3 = src_bits + amount.
 fn enc_sve2_shll(tsz: u32, imm3: u32, u: u32, t: u32) -> u32 {
     let tszh = (tsz >> 2) & 1;
     let tszl = tsz & 0x3;
-    (0b010001010 << 23) | (tszh << 22) | (tszl << 19) | (imm3 << 16) | (0b1010 << 12)
-        | (u << 11) | (t << 10) | (RN << 5) | RD
+    (0b010001010 << 23)
+        | (tszh << 22)
+        | (tszl << 19)
+        | (imm3 << 16)
+        | (0b1010 << 12)
+        | (u << 11)
+        | (t << 10)
+        | (RN << 5)
+        | RD
 }
 
 /// SVE2 shift right and accumulate: `01000101 tszh 0 tszl imm3 1110 R U Zn Zda`.
 fn enc_sve2_ssra(tsz: u32, imm3: u32, r: u32, u: u32) -> u32 {
     let tszh = (tsz >> 2) & 0x3;
     let tszl = tsz & 0x3;
-    (0b01000101 << 24) | (tszh << 22) | (tszl << 19) | (imm3 << 16) | (0b1110 << 12) | (r << 11)
-        | (u << 10) | (RN << 5) | RD
+    (0b01000101 << 24)
+        | (tszh << 22)
+        | (tszl << 19)
+        | (imm3 << 16)
+        | (0b1110 << 12)
+        | (r << 11)
+        | (u << 10)
+        | (RN << 5)
+        | RD
 }
 /// SVE2 shift and insert: `01000101 tszh 0 tszl imm3 11110 op Zn Zd`. op: 0=SRI,
 /// 1=SLI.
 fn enc_sve2_sri(tsz: u32, imm3: u32, op: u32) -> u32 {
     let tszh = (tsz >> 2) & 0x3;
     let tszl = tsz & 0x3;
-    (0b01000101 << 24) | (tszh << 22) | (tszl << 19) | (imm3 << 16) | (0b11110 << 11)
-        | (op << 10) | (RN << 5) | RD
+    (0b01000101 << 24)
+        | (tszh << 22)
+        | (tszl << 19)
+        | (imm3 << 16)
+        | (0b11110 << 11)
+        | (op << 10)
+        | (RN << 5)
+        | RD
 }
 /// (tsz, imm3) for a same-size right shift of `amount` (1..=esize): 2*esize-amt.
 fn ssra_tsz_imm(esize_bits: u32, amount: u32) -> (u32, u32) {
@@ -1664,7 +2005,13 @@ fn sli_tsz_imm(esize_bits: u32, amount: u32) -> (u32, u32) {
 /// SVE2 FMLALB/FMLALT/FMLSLB/FMLSLT: `0110 0100 10 1 Zm 10 sub 00 T Zn Zd`.
 /// sub=bit13 (0=FMLAL,1=FMLSL), T=bit10. Zn=z1(RN), Zm=z2(RM), Zda=z0(RD).
 fn enc_sve2_fmlal(sub: u32, top: u32) -> u32 {
-    (0x64 << 24) | (0b10 << 22) | (1 << 21) | (RM << 16) | (0b10 << 14) | (sub << 13) | (top << 10)
+    (0x64 << 24)
+        | (0b10 << 22)
+        | (1 << 21)
+        | (RM << 16)
+        | (0b10 << 14)
+        | (sub << 13)
+        | (top << 10)
         | (RN << 5)
         | RD
 }
@@ -1677,7 +2024,11 @@ fn enc_sve_bfdot(zm: u32) -> u32 {
 /// SVE BFDOT (indexed zzxw): `01100100 01 1 idx Zm[2:0] 010000 Zn Zda`.
 /// index=bits[20:19], Zm z0-z7. Zn=z1(RN), Zda=z0(RD).
 fn enc_sve_bfdot_idx(index: u32, zm: u32) -> u32 {
-    (0x64 << 24) | (0b01 << 22) | (1 << 21) | (index << 19) | ((zm & 0x7) << 16)
+    (0x64 << 24)
+        | (0b01 << 22)
+        | (1 << 21)
+        | (index << 19)
+        | ((zm & 0x7) << 16)
         | (0b010000 << 10)
         | (RN << 5)
         | RD
@@ -1686,14 +2037,24 @@ fn enc_sve_bfdot_idx(index: u32, zm: u32) -> u32 {
 /// SVE BFMLALB/T (zzzw): `01100100 11 1 Zm 10000 T Zn Zda`. T=bit10. Zn=z1(RN),
 /// Zda=z0(RD).
 fn enc_sve_bfmlal(top: u32, zm: u32) -> u32 {
-    (0x64 << 24) | (0b11 << 22) | (1 << 21) | (zm << 16) | (0b10000 << 11) | (top << 10) | (RN << 5)
+    (0x64 << 24)
+        | (0b11 << 22)
+        | (1 << 21)
+        | (zm << 16)
+        | (0b10000 << 11)
+        | (top << 10)
+        | (RN << 5)
         | RD
 }
 
 /// SVE BFMLALB/T by indexed element (zzxw): bf16 variant of enc_sve2_fmlal_idx
 /// (bits[23:22]=11, add only). T=bit10, index 0-7, Zm z0-z7.
 fn enc_sve_bfmlal_idx(top: u32, index: u32, zm: u32) -> u32 {
-    (0x64 << 24) | (0b11 << 22) | (1 << 21) | (((index >> 1) & 0x3) << 19) | ((zm & 0x7) << 16)
+    (0x64 << 24)
+        | (0b11 << 22)
+        | (1 << 21)
+        | (((index >> 1) & 0x3) << 19)
+        | ((zm & 0x7) << 16)
         | (0b01 << 14)
         | ((index & 1) << 11)
         | (top << 10)
@@ -1704,7 +2065,11 @@ fn enc_sve_bfmlal_idx(top: u32, index: u32, zm: u32) -> u32 {
 /// SVE2 FMLAL/FMLSL by indexed element: `01100100 10 1 i[2:1] Zm[2:0] 01 sub 0
 /// i[0] T Zn Zda`. sub=bit13, T=bit10. index 0-7, Zm z0-z7. Zn=z1(RN), Zda=z0.
 fn enc_sve2_fmlal_idx(sub: u32, top: u32, index: u32, zm: u32) -> u32 {
-    (0x64 << 24) | (0b10 << 22) | (1 << 21) | (((index >> 1) & 0x3) << 19) | ((zm & 0x7) << 16)
+    (0x64 << 24)
+        | (0b10 << 22)
+        | (1 << 21)
+        | (((index >> 1) & 0x3) << 19)
+        | ((zm & 0x7) << 16)
         | (0b01 << 14)
         | (sub << 13)
         | ((index & 1) << 11)
@@ -1757,7 +2122,11 @@ fn enc_sve_usdot_vec() -> u32 {
 /// sz 0=.s (index bits[20:19], Zm[18:16]), 1=.d (index bit20, Zm[19:16]). op=
 /// bits[15:10]. Zn=z1(RN), Zda=z0(RD).
 fn enc_sve_dot_idx(sz: u32, op: u32, index: u32, zm: u32) -> u32 {
-    let field = if sz == 0 { ((index & 0x3) << 3) | (zm & 0x7) } else { ((index & 1) << 4) | (zm & 0xF) };
+    let field = if sz == 0 {
+        ((index & 0x3) << 3) | (zm & 0x7)
+    } else {
+        ((index & 1) << 4) | (zm & 0xF)
+    };
     (0x44 << 24) | (1 << 23) | (sz << 22) | (1 << 21) | (field << 16) | (op << 10) | (RN << 5) | RD
 }
 
@@ -1791,10 +2160,42 @@ fn enc_sve_fp_cmp(size: u32, cc13: u32, bit4: u32) -> u32 {
     (0x65 << 24) | (size << 22) | (RM << 16) | (cc13 << 13) | (1 << 10) | (RN << 5) | (bit4 << 4)
 }
 
+/// SQINCP/UQINCP/SQDECP/UQDECP, GPR form: `00100101 esz 1010 d u 10001 sf 0 Pg
+/// Rdn`. d=0 inc/1 dec, u=0 signed/1 unsigned, sf=0 32-bit/1 64-bit. Rdn=rd.
+fn enc_sve_sincdecp_r(esz: u32, d: u32, u: u32, sf64: u32, pg: u32, rd: u32) -> u32 {
+    (0x25 << 24)
+        | (esz << 22)
+        | (0b1010 << 18)
+        | (d << 17)
+        | (u << 16)
+        | (0b10001 << 11)
+        | (sf64 << 10)
+        | (pg << 5)
+        | rd
+}
+
+/// SQINCP/UQINCP/SQDECP/UQDECP, vector form: `00100101 esz 1010 d u 10000 00 Pg
+/// Zdn`. Per-element saturating add/sub (esz>=1). Zdn=rd.
+fn enc_sve_sincdecp_z(esz: u32, d: u32, u: u32, pg: u32, rd: u32) -> u32 {
+    (0x25 << 24)
+        | (esz << 22)
+        | (0b1010 << 18)
+        | (d << 17)
+        | (u << 16)
+        | (0b10000 << 11)
+        | (pg << 5)
+        | rd
+}
+
 /// SVE FP compare with zero: `01100101 size 0100 sub 001 Pg Zn bit4 Pd`. Pg=p1,
 /// Zn=z1(RN), Pd=p0.
 fn enc_sve_fp_cmp0(size: u32, sub: u32, bit4: u32) -> u32 {
-    (0x65 << 24) | (size << 22) | (0b0100 << 18) | (sub << 16) | (0b001 << 13) | (1 << 10)
+    (0x65 << 24)
+        | (size << 22)
+        | (0b0100 << 18)
+        | (sub << 16)
+        | (0b001 << 13)
+        | (1 << 10)
         | (RN << 5)
         | (bit4 << 4)
 }
@@ -1802,14 +2203,24 @@ fn enc_sve_fp_cmp0(size: u32, sub: u32, bit4: u32) -> u32 {
 /// SVE integer compare with signed immediate: `00100101 size 0 imm5 cc13 Pg Zn
 /// bit4 Pd`. Pg=p1, Zn=z1(RN), Pd=p0.
 fn enc_sve_cmp_imm_s(size: u32, cc13: u32, bit4: u32, imm5: u32) -> u32 {
-    (0x25 << 24) | (size << 22) | ((imm5 & 0x1F) << 16) | (cc13 << 13) | (1 << 10) | (RN << 5)
+    (0x25 << 24)
+        | (size << 22)
+        | ((imm5 & 0x1F) << 16)
+        | (cc13 << 13)
+        | (1 << 10)
+        | (RN << 5)
         | (bit4 << 4)
 }
 
 /// SVE integer compare with unsigned immediate: `00100100 size 1 imm7 lo Pg Zn
 /// hi Pd`. Pg=p1, Zn=z1(RN), Pd=p0.
 fn enc_sve_cmp_imm_u(size: u32, lo: u32, hi: u32, imm7: u32) -> u32 {
-    (0x24 << 24) | (size << 22) | (1 << 21) | ((imm7 & 0x7F) << 14) | (lo << 13) | (1 << 10)
+    (0x24 << 24)
+        | (size << 22)
+        | (1 << 21)
+        | ((imm7 & 0x7F) << 14)
+        | (lo << 13)
+        | (1 << 10)
         | (RN << 5)
         | (hi << 4)
 }
@@ -1829,7 +2240,12 @@ fn enc_sve_pred_unary(size: u32, opc6: u32) -> u32 {
 /// SVE UNPK (SUNPK/UUNPK HI/LO): `00000101 size 1100 u h 001110 Zn Zd`.
 /// Zn=z1(RN), Zd=z0(RD).
 fn enc_sve_unpk(size: u32, u: u32, h: u32) -> u32 {
-    (0x05 << 24) | (size << 22) | (0b1100 << 18) | (u << 17) | (h << 16) | (0b001110 << 10)
+    (0x05 << 24)
+        | (size << 22)
+        | (0b1100 << 18)
+        | (u << 17)
+        | (h << 16)
+        | (0b001110 << 10)
         | (RN << 5)
         | RD
 }
@@ -1855,7 +2271,13 @@ fn enc_sve_shift_pred_v(size: u32, opc: u32) -> u32 {
 /// SVE REVB/REVH/REVW/RBIT: `00000101 size 1 001 op 100 Pg Zn Zd`. op=bits[17:16]
 /// (00 REVB,01 REVH,10 REVW,11 RBIT). Pg=p0, Zn=z1(RN), Zd=z0(RD).
 fn enc_sve_rev_rbit(size: u32, op: u32) -> u32 {
-    (0x05 << 24) | (size << 22) | (1 << 21) | (0b001 << 18) | (op << 16) | (0b100 << 13) | (RN << 5)
+    (0x05 << 24)
+        | (size << 22)
+        | (1 << 21)
+        | (0b001 << 18)
+        | (op << 16)
+        | (0b100 << 13)
+        | (RN << 5)
         | RD
 }
 
@@ -1869,7 +2291,12 @@ fn enc_sve_insr(size: u32, f: u32) -> u32 {
 /// SVE CLASTA/CLASTB to vector/scalar: `00000101 size 1010 sc b 100 Pg Zm Zdn`.
 /// sc=bit17 (0=vector,1=scalar), b=bit16 (CLASTB). Pg=p0, Zm/Zn=z1(RN), Zd=z0(RD).
 fn enc_sve_clast(size: u32, scalar: u32, before: u32) -> u32 {
-    (0x05 << 24) | (size << 22) | (0b10100 << 17) | (scalar << 17) | (before << 16) | (0b100 << 13)
+    (0x05 << 24)
+        | (size << 22)
+        | (0b10100 << 17)
+        | (scalar << 17)
+        | (before << 16)
+        | (0b100 << 13)
         | (RN << 5)
         | RD
 }
@@ -1887,7 +2314,13 @@ fn enc_sve_fdup(size: u32, imm8: u32) -> u32 {
 /// SVE CTERMEQ/CTERMNE: `00100101 1 sf 1 Rm 001000 Rn 0 ne`. sf=bit22 (0=32,
 /// 1=64), ne=bit4. Rn=x1(RN), Rm=x2(RM).
 fn enc_sve_cterm(sf: u32, ne: u32) -> u32 {
-    (0x25 << 24) | (1 << 23) | (sf << 22) | (1 << 21) | (RM << 16) | (0b001000 << 10) | (RN << 5)
+    (0x25 << 24)
+        | (1 << 23)
+        | (sf << 22)
+        | (1 << 21)
+        | (RM << 16)
+        | (0b001000 << 10)
+        | (RN << 5)
         | (ne << 4)
 }
 
@@ -1902,14 +2335,36 @@ fn enc_sve2_pred_alu(size: u32, opc6: u32, op3: u32) -> u32 {
 /// size 2=.h,3=.s; .h: index=bits[20:19] Zm=bits[18:16]; .s: index=bit20
 /// Zm=bits[19:16]. rot=bits[11:10]. Zn=z1(RN), Zda=z0(RD).
 fn enc_sve2_cmla_idx(size: u32, index: u32, zm: u32, rot: u32) -> u32 {
-    let field = if size == 2 { ((index & 0x3) << 3) | (zm & 0x7) } else { ((index & 1) << 4) | (zm & 0xF) };
-    (0x44 << 24) | (size << 22) | (1 << 21) | (field << 16) | (0b0110 << 12) | (rot << 10) | (RN << 5) | RD
+    let field = if size == 2 {
+        ((index & 0x3) << 3) | (zm & 0x7)
+    } else {
+        ((index & 1) << 4) | (zm & 0xF)
+    };
+    (0x44 << 24)
+        | (size << 22)
+        | (1 << 21)
+        | (field << 16)
+        | (0b0110 << 12)
+        | (rot << 10)
+        | (RN << 5)
+        | RD
 }
 
 /// SVE FCMLA by indexed element: like enc_sve2_cmla_idx but 0x64 / opcode 0001.
 fn enc_sve_fcmla_idx(size: u32, index: u32, zm: u32, rot: u32) -> u32 {
-    let field = if size == 2 { ((index & 0x3) << 3) | (zm & 0x7) } else { ((index & 1) << 4) | (zm & 0xF) };
-    (0x64 << 24) | (size << 22) | (1 << 21) | (field << 16) | (0b0001 << 12) | (rot << 10) | (RN << 5) | RD
+    let field = if size == 2 {
+        ((index & 0x3) << 3) | (zm & 0x7)
+    } else {
+        ((index & 1) << 4) | (zm & 0xF)
+    };
+    (0x64 << 24)
+        | (size << 22)
+        | (1 << 21)
+        | (field << 16)
+        | (0b0001 << 12)
+        | (rot << 10)
+        | (RN << 5)
+        | RD
 }
 
 /// SVE2 CDOT: `0100 0100 size 0 Zm 0001 rot Zn Zda`. size 2=.s,3=.d; rot=bits
@@ -1966,7 +2421,11 @@ fn enc_sve2_xar(size_log: u32, amount: u32) -> u32 {
     let tszimm = 2 * bits - amount;
     let tsz = tszimm >> 3;
     let imm3 = tszimm & 7;
-    (0x04 << 24) | ((tsz >> 2) << 22) | (1 << 21) | ((tsz & 3) << 19) | (imm3 << 16)
+    (0x04 << 24)
+        | ((tsz >> 2) << 22)
+        | (1 << 21)
+        | ((tsz & 3) << 19)
+        | (imm3 << 16)
         | (0b001101 << 10)
         | (RN << 5)
         | RD
@@ -1981,7 +2440,12 @@ fn enc_sve_fcvtx() -> u32 {
 /// SVE2 ADCLB/ADCLT/SBCLB/SBCLT: `0100 0101 inv size 0 Zm 11010 T Zn Zda`.
 /// inv=bit23 (0=ADC,1=SBC); d_form=bit22 (0=.s,1=.d); T=bit10.
 fn enc_sve2_adcl(inv: u32, d_form: u32, top: u32) -> u32 {
-    (0x45 << 24) | (inv << 23) | (d_form << 22) | (RM << 16) | (0b11010 << 11) | (top << 10)
+    (0x45 << 24)
+        | (inv << 23)
+        | (d_form << 22)
+        | (RM << 16)
+        | (0b11010 << 11)
+        | (top << 10)
         | (RN << 5)
         | RD
 }
@@ -1994,7 +2458,13 @@ fn enc_sve2_eorbt(size: u32, tb: u32) -> u32 {
 /// SVE2 PMULLB/PMULLT: `0100 0101 size 0 Zm 011 01 T Zn Zd`. size: 0=.q(64->128),
 /// 1=.h(8->16), 3=.d(32->64); T=bit10 (0=B,1=T). Zn=z1(RN), Zm=z2(RM), Zd=z0(RD).
 fn enc_sve2_pmull(size: u32, top: u32) -> u32 {
-    (0x45 << 24) | (size << 22) | (RM << 16) | (0b011 << 13) | (1 << 11) | (top << 10) | (RN << 5)
+    (0x45 << 24)
+        | (size << 22)
+        | (RM << 16)
+        | (0b011 << 13)
+        | (1 << 11)
+        | (top << 10)
+        | (RN << 5)
         | RD
 }
 
@@ -2032,7 +2502,13 @@ fn enc_sve2_histseg() -> u32 {
 /// Pg Zn op4 Pd`. size: 0=b,1=h; op4=bit4 (0=MATCH,1=NMATCH). Pg=p1, Zn=z1(RN),
 /// Zm=z2(RM), Pd=p0.
 fn enc_sve2_match(size: u32, nmatch: u32) -> u32 {
-    (0x45 << 24) | (size << 22) | (1 << 21) | (RM << 16) | (0b100 << 13) | (1 << 10) | (RN << 5)
+    (0x45 << 24)
+        | (size << 22)
+        | (1 << 21)
+        | (RM << 16)
+        | (0b100 << 13)
+        | (1 << 10)
+        | (RN << 5)
         | (nmatch << 4)
 }
 
@@ -2074,7 +2550,10 @@ fn enc_sve2_mul_idx(op6: u32, size: u32, index: u32, zm: u32) -> u32 {
 fn enc_sve2_mull_idx(op: u32, size: u32, index: u32, zm: u32, top: u32) -> u32 {
     let (field, i0) = if size == 2 {
         // .s: i2->bit20, i1->bit19, Zm in bits[18:16]; i0 -> bit11.
-        ((((index >> 2) & 1) << 4) | (((index >> 1) & 1) << 3) | (zm & 0x7), index & 1)
+        (
+            (((index >> 2) & 1) << 4) | (((index >> 1) & 1) << 3) | (zm & 0x7),
+            index & 1,
+        )
     } else {
         // .d: i1->bit20, Zm in bits[19:16]; i0 -> bit11.
         ((((index >> 1) & 1) << 4) | (zm & 0xF), index & 1)
@@ -2131,48 +2610,68 @@ fn flogb_specials(esize: usize) -> Vec<u64> {
 /// SVE2 FCVTNT/FCVTLT/FCVTXNT: `01100100 opc 0010 opc2 101 Pg Zn Zd`. Pg=p0,
 /// Zn=z1(RN), Zd=z0(RD).
 fn enc_sve2_fcvtx(opc: u32, opc2: u32) -> u32 {
-    (0b01100100 << 24) | (opc << 22) | (0b0010 << 18) | (opc2 << 16) | (0b101 << 13) | (RN << 5)
+    (0b01100100 << 24)
+        | (opc << 22)
+        | (0b0010 << 18)
+        | (opc2 << 16)
+        | (0b101 << 13)
+        | (RN << 5)
         | RD
 }
 
 /// SVE2 FP pairwise: `01100100 size 010 opc 100 Pg Zm Zdn`. Pg=p0, Zm=z1(RN),
 /// Zdn=z0(RD). opc: 000=FADDP, 100=FMAXNMP, 101=FMINNMP, 110=FMAXP, 111=FMINP.
 fn enc_sve2_fpairwise(size: u32, opc: u32) -> u32 {
-    (0b01100100 << 24) | (size << 22) | (0b010 << 19) | (opc << 16) | (0b100 << 13) | (RN << 5)
-        | RD
+    (0b01100100 << 24) | (size << 22) | (0b010 << 19) | (opc << 16) | (0b100 << 13) | (RN << 5) | RD
 }
 
 /// SVE2 add long pairwise accumulate: `01000100 size 00010 U 101 Pg Zn Zda`.
 /// Pg=p0, Zn=z1(RN), Zda=z0(RD).
 fn enc_sve2_adalp(size: u32, u: u32) -> u32 {
-    (0b01000100 << 24) | (size << 22) | (0b00010 << 17) | (u << 16) | (0b101 << 13) | (RN << 5)
-        | RD
+    (0b01000100 << 24) | (size << 22) | (0b00010 << 17) | (u << 16) | (0b101 << 13) | (RN << 5) | RD
 }
 
 /// SVE2 abs-diff accumulate long: `01000101 size 0 Zm 1100 U T Zn Zda`.
 fn enc_sve2_abal(size: u32, u: u32, t: u32) -> u32 {
-    (0b01000101 << 24) | (size << 22) | (RM << 16) | (0b1100 << 12) | (u << 11) | (t << 10)
-        | (RN << 5) | RD
+    (0b01000101 << 24)
+        | (size << 22)
+        | (RM << 16)
+        | (0b1100 << 12)
+        | (u << 11)
+        | (t << 10)
+        | (RN << 5)
+        | RD
 }
 
 /// SVE2 predicated pairwise: `01000100 size 010 opc U 101 Pg Zm Zdn`. Pg=p0,
 /// Zm=z1(RN), Zdn=z0(RD).
 fn enc_sve2_pairwise(size: u32, opc: u32, u: u32) -> u32 {
-    (0b01000100 << 24) | (size << 22) | (0b010 << 19) | (opc << 17) | (u << 16) | (0b101 << 13)
-        | (RN << 5) | RD
+    (0b01000100 << 24)
+        | (size << 22)
+        | (0b010 << 19)
+        | (opc << 17)
+        | (u << 16)
+        | (0b101 << 13)
+        | (RN << 5)
+        | RD
 }
 
 /// SVE2 bit permute: `01000101 size 0 Zm 1011 opc Zn Zd`. opc: 00=BEXT, 01=BDEP,
 /// 10=BGRP. Zn=z1(RN), Zm=z2(RM), Zd=z0(RD).
 fn enc_sve2_bperm(size: u32, opc: u32) -> u32 {
-    (0b01000101 << 24) | (size << 22) | (RM << 16) | (0b1011 << 12) | (opc << 10) | (RN << 5)
-        | RD
+    (0b01000101 << 24) | (size << 22) | (RM << 16) | (0b1011 << 12) | (opc << 10) | (RN << 5) | RD
 }
 
 /// SVE2 SQDMULH/SQRDMULH: `00000100 size 1 Zm 01110 R Zn Zd`.
 fn enc_sve2_sqdmulh(size: u32, r: u32) -> u32 {
-    (0b00000100 << 24) | (size << 22) | (1 << 21) | (RM << 16) | (0b01110 << 11) | (r << 10)
-        | (RN << 5) | RD
+    (0b00000100 << 24)
+        | (size << 22)
+        | (1 << 21)
+        | (RM << 16)
+        | (0b01110 << 11)
+        | (r << 10)
+        | (RN << 5)
+        | RD
 }
 /// SVE2 SQRDMLAH/SQRDMLSH: `01000100 size 0 Zm 01110 S Zn Zda`.
 fn enc_sve2_sqrdmlah(size: u32, s: u32) -> u32 {
@@ -2183,8 +2682,17 @@ fn enc_sve2_sqrdmlah(size: u32, s: u32) -> u32 {
 fn enc_sve2_shrn(tsz: u32, imm3: u32, op: u32, u: u32, r: u32, t: u32) -> u32 {
     let tszh = (tsz >> 2) & 1;
     let tszl = tsz & 0x3;
-    (0b010001010 << 23) | (tszh << 22) | (1 << 21) | (tszl << 19) | (imm3 << 16) | (op << 13)
-        | (u << 12) | (r << 11) | (t << 10) | (RN << 5) | RD
+    (0b010001010 << 23)
+        | (tszh << 22)
+        | (1 << 21)
+        | (tszl << 19)
+        | (imm3 << 16)
+        | (op << 13)
+        | (u << 12)
+        | (r << 11)
+        | (t << 10)
+        | (RN << 5)
+        | RD
 }
 /// (tsz, imm3) for a shift-right-narrow with destination width `dst_bits` and
 /// shift `amount` (1..=dst_bits): tsz:imm3 = 2*dst_bits - amount.
@@ -2195,26 +2703,46 @@ fn shrn_tsz_imm(dst_bits: u32, amount: u32) -> (u32, u32) {
 
 /// SVE INDEX variants. base=imm5[9:5] or Xn; step=imm5[20:16] or Xm. Rn=x1, Rm=x2.
 fn enc_index_ii(sz: u32, imm_step: u32, imm_base: u32) -> u32 {
-    (0b00000100 << 24) | (sz << 22) | (1 << 21) | ((imm_step & 0x1F) << 16)
-        | (0b010000 << 10) | ((imm_base & 0x1F) << 5) | RD
+    (0b00000100 << 24)
+        | (sz << 22)
+        | (1 << 21)
+        | ((imm_step & 0x1F) << 16)
+        | (0b010000 << 10)
+        | ((imm_base & 0x1F) << 5)
+        | RD
 }
 fn enc_index_ri(sz: u32, imm_step: u32) -> u32 {
-    (0b00000100 << 24) | (sz << 22) | (1 << 21) | ((imm_step & 0x1F) << 16)
-        | (0b010001 << 10) | (RN << 5) | RD // base = Xn (x1)
+    (0b00000100 << 24)
+        | (sz << 22)
+        | (1 << 21)
+        | ((imm_step & 0x1F) << 16)
+        | (0b010001 << 10)
+        | (RN << 5)
+        | RD // base = Xn (x1)
 }
 fn enc_index_ir(sz: u32, imm_base: u32) -> u32 {
-    (0b00000100 << 24) | (sz << 22) | (1 << 21) | (RM << 16)
-        | (0b010010 << 10) | ((imm_base & 0x1F) << 5) | RD // step = Xm (x2)
+    (0b00000100 << 24)
+        | (sz << 22)
+        | (1 << 21)
+        | (RM << 16)
+        | (0b010010 << 10)
+        | ((imm_base & 0x1F) << 5)
+        | RD // step = Xm (x2)
 }
 fn enc_index_rr(sz: u32) -> u32 {
-    (0b00000100 << 24) | (sz << 22) | (1 << 21) | (RM << 16)
-        | (0b010011 << 10) | (RN << 5) | RD // base = x1, step = x2
+    (0b00000100 << 24) | (sz << 22) | (1 << 21) | (RM << 16) | (0b010011 << 10) | (RN << 5) | RD // base = x1, step = x2
 }
 
 /// SVE ZIP/UZP/TRN (unpredicated): `00000101 sz 1 Zm 011 opc Zn Zd`.
 fn enc_sve_perm(sz: u32, opc: u32) -> u32 {
-    (0b00000101 << 24) | (sz << 22) | (1 << 21) | (RM << 16)
-        | (0b011 << 13) | (opc << 10) | (RN << 5) | RD
+    (0b00000101 << 24)
+        | (sz << 22)
+        | (1 << 21)
+        | (RM << 16)
+        | (0b011 << 13)
+        | (opc << 10)
+        | (RN << 5)
+        | RD
 }
 
 /// SVE EXT (destructive): `00000101 001 imm8h 000 imm8l Zm Zdn`. imm8=imm8h:imm8l
@@ -2228,31 +2756,40 @@ fn enc_sve_ext(imm8: u32) -> u32 {
 /// SVE TBL (single source table): `00000101 size 1 Zm 001100 Zn Zd`.
 /// Table=Zn(RN), indices=Zm(RM), dest=Zd(RD).
 fn enc_sve_tbl(sz: u32) -> u32 {
-    (0b00000101 << 24) | (sz << 22) | (1 << 21) | (RM << 16)
-        | (0b001100 << 10) | (RN << 5) | RD
+    (0b00000101 << 24) | (sz << 22) | (1 << 21) | (RM << 16) | (0b001100 << 10) | (RN << 5) | RD
 }
 
 /// SVE FCVT (precision conversion): `01100101 opc 0010 opc2 101 Pg Zn Zd`.
 /// Pg=p0, Zn=z1, Zd=z0.
 fn enc_sve_fcvt(opc: u32, opc2: u32) -> u32 {
-    (0b01100101 << 24) | (opc << 22) | (0b0010 << 18) | (opc2 << 16)
-        | (0b101 << 13) | (RN << 5) | RD
+    (0b01100101 << 24)
+        | (opc << 22)
+        | (0b0010 << 18)
+        | (opc2 << 16)
+        | (0b101 << 13)
+        | (RN << 5)
+        | RD
 }
 
 /// SVE LD1 gather (64-bit scalar+vector, D-form): `1100010 msz ig1 Zm 1 U 0 Pg
 /// Rn Zt`. ig1=10 unscaled / 11 scaled. Rn=x1 (base), Zm=z2 (offsets), Zt=z0.
 fn enc_gather_d(msz: u32, scaled: bool, u: u32) -> u32 {
     let ig1: u32 = if scaled { 0b11 } else { 0b10 };
-    (0b1100010 << 25) | (msz << 23) | (ig1 << 21) | (RM << 16)
-        | (1 << 15) | (u << 14) | (RN << 5) | RD
+    (0b1100010 << 25)
+        | (msz << 23)
+        | (ig1 << 21)
+        | (RM << 16)
+        | (1 << 15)
+        | (u << 14)
+        | (RN << 5)
+        | RD
 }
 
 /// SVE ST1 scatter (64-bit scalar+vector, D-form): `1110010 msz ig1 Zm 101 Pg
 /// Rn Zt`. ig1=00 unscaled / 01 scaled. Rn=x1 (base), Zm=z2 (offsets), Zt=z0.
 fn enc_scatter_d(msz: u32, scaled: bool) -> u32 {
     let ig1: u32 = if scaled { 0b01 } else { 0b00 };
-    (0b1110010 << 25) | (msz << 23) | (ig1 << 21) | (RM << 16)
-        | (0b101 << 13) | (RN << 5) | RD
+    (0b1110010 << 25) | (msz << 23) | (ig1 << 21) | (RM << 16) | (0b101 << 13) | (RN << 5) | RD
 }
 
 /// SVE LDFF1 (first-fault, scalar+scalar): `1010010 dtype Rm 011 Pg Rn Zt`.
@@ -2261,8 +2798,13 @@ fn enc_ldff1(dtype: u32) -> u32 {
 }
 /// SVE LDNF1 (non-fault, scalar+imm): `1010010 dtype 1 imm4 101 Pg Rn Zt`.
 fn enc_ldnf1(dtype: u32, imm4: i32) -> u32 {
-    (0b1010010 << 25) | (dtype << 21) | (1 << 20) | (((imm4 as u32) & 0xF) << 16)
-        | (0b101 << 13) | (RN << 5) | RD
+    (0b1010010 << 25)
+        | (dtype << 21)
+        | (1 << 20)
+        | (((imm4 as u32) & 0xF) << 16)
+        | (0b101 << 13)
+        | (RN << 5)
+        | RD
 }
 
 /// SVE FFR-manipulation encodings (fully fixed apart from the predicate fields).
@@ -2294,79 +2836,141 @@ fn enc_ldnt1(msz: u32, imm4: i32) -> u32 {
     (0b1010010 << 25) | (msz << 23) | (((imm4 as u32) & 0xF) << 16) | (0b111 << 13) | (RN << 5) | RD
 }
 fn enc_stnt1(msz: u32, imm4: i32) -> u32 {
-    (0b1110010 << 25) | (msz << 23) | (1 << 20) | (((imm4 as u32) & 0xF) << 16)
-        | (0b111 << 13) | (RN << 5) | RD
+    (0b1110010 << 25)
+        | (msz << 23)
+        | (1 << 20)
+        | (((imm4 as u32) & 0xF) << 16)
+        | (0b111 << 13)
+        | (RN << 5)
+        | RD
 }
 
 /// SVE LD2/3/4 (de-interleaving): `1010010 msz opc 0 imm4 111 Pg Rn Zt`.
 /// opc=nreg-1. Rn=x1, Zt=z0.
 fn enc_ldn(msz: u32, nreg: u32, imm4: i32) -> u32 {
-    (0b1010010 << 25) | (msz << 23) | ((nreg - 1) << 21) | (((imm4 as u32) & 0xF) << 16)
-        | (0b111 << 13) | (RN << 5) | RD
+    (0b1010010 << 25)
+        | (msz << 23)
+        | ((nreg - 1) << 21)
+        | (((imm4 as u32) & 0xF) << 16)
+        | (0b111 << 13)
+        | (RN << 5)
+        | RD
 }
 /// SVE ST2/3/4 (interleaving): `1110010 msz opc 1 imm4 111 Pg Rn Zt`.
 fn enc_stn(msz: u32, nreg: u32, imm4: i32) -> u32 {
-    (0b1110010 << 25) | (msz << 23) | ((nreg - 1) << 21) | (1 << 20)
-        | (((imm4 as u32) & 0xF) << 16) | (0b111 << 13) | (RN << 5) | RD
+    (0b1110010 << 25)
+        | (msz << 23)
+        | ((nreg - 1) << 21)
+        | (1 << 20)
+        | (((imm4 as u32) & 0xF) << 16)
+        | (0b111 << 13)
+        | (RN << 5)
+        | RD
 }
 
 /// SVE LD1 gather (S-form vector base + immediate): `1000010 msz 01 imm5 1 U 0
 /// Pg Zn Zt`. Zn=z1 (32-bit per-element bases), Zt=z0.
 fn enc_gather_ai_s(msz: u32, imm5: u32, u: u32) -> u32 {
-    (0b1000010 << 25) | (msz << 23) | (0b01 << 21) | ((imm5 & 0x1F) << 16)
-        | (1 << 15) | (u << 14) | (RN << 5) | RD
+    (0b1000010 << 25)
+        | (msz << 23)
+        | (0b01 << 21)
+        | ((imm5 & 0x1F) << 16)
+        | (1 << 15)
+        | (u << 14)
+        | (RN << 5)
+        | RD
 }
 /// SVE ST1 scatter (S-form vector base + immediate): `1110010 msz 11 imm5 101 Pg
 /// Zn Zt`. Zn=z1, Zt=z0.
 fn enc_scatter_ai_s(msz: u32, imm5: u32) -> u32 {
-    (0b1110010 << 25) | (msz << 23) | (0b11 << 21) | ((imm5 & 0x1F) << 16)
-        | (0b101 << 13) | (RN << 5) | RD
+    (0b1110010 << 25)
+        | (msz << 23)
+        | (0b11 << 21)
+        | ((imm5 & 0x1F) << 16)
+        | (0b101 << 13)
+        | (RN << 5)
+        | RD
 }
 
 /// SVE LD1 gather (vector base + immediate, D-form): `1100010 msz 01 imm5 1 U 0
 /// Pg Zn Zt`. Zn=z1 (per-element bases), Zt=z0.
 fn enc_gather_ai(msz: u32, imm5: u32, u: u32) -> u32 {
-    (0b1100010 << 25) | (msz << 23) | (0b01 << 21) | ((imm5 & 0x1F) << 16)
-        | (1 << 15) | (u << 14) | (RN << 5) | RD
+    (0b1100010 << 25)
+        | (msz << 23)
+        | (0b01 << 21)
+        | ((imm5 & 0x1F) << 16)
+        | (1 << 15)
+        | (u << 14)
+        | (RN << 5)
+        | RD
 }
 
 /// SVE ST1 scatter (vector base + immediate, D-form): `1110010 msz 10 imm5 101
 /// Pg Zn Zt`. Zn=z1, Zt=z0.
 fn enc_scatter_ai(msz: u32, imm5: u32) -> u32 {
-    (0b1110010 << 25) | (msz << 23) | (0b10 << 21) | ((imm5 & 0x1F) << 16)
-        | (0b101 << 13) | (RN << 5) | RD
+    (0b1110010 << 25)
+        | (msz << 23)
+        | (0b10 << 21)
+        | ((imm5 & 0x1F) << 16)
+        | (0b101 << 13)
+        | (RN << 5)
+        | RD
 }
 
 /// SVE LD1 gather (unpacked x32: D-elem, 32-bit offset): `1100010 msz xs scaled
 /// Zm 0 U 0 Pg Rn Zt`. Rn=x1, Zm=z2, Zt=z0.
 fn enc_gather_x32(msz: u32, xs: u32, scaled: bool, u: u32) -> u32 {
     let sc: u32 = if scaled { 1 } else { 0 };
-    (0b1100010 << 25) | (msz << 23) | (xs << 22) | (sc << 21) | (RM << 16)
-        | (u << 14) | (RN << 5) | RD
+    (0b1100010 << 25)
+        | (msz << 23)
+        | (xs << 22)
+        | (sc << 21)
+        | (RM << 16)
+        | (u << 14)
+        | (RN << 5)
+        | RD
 }
 
 /// SVE ST1 scatter (unpacked x32: D-elem, 32-bit offset): `1110010 msz 0 scaled
 /// Zm 1 xs 0 Pg Rn Zt` (ig1 high bit clear). Rn=x1, Zm=z2, Zt=z0.
 fn enc_scatter_x32(msz: u32, xs: u32, scaled: bool) -> u32 {
     let sc: u32 = if scaled { 1 } else { 0 };
-    (0b1110010 << 25) | (msz << 23) | (sc << 21) | (RM << 16)
-        | (1 << 15) | (xs << 14) | (RN << 5) | RD
+    (0b1110010 << 25)
+        | (msz << 23)
+        | (sc << 21)
+        | (RM << 16)
+        | (1 << 15)
+        | (xs << 14)
+        | (RN << 5)
+        | RD
 }
 
 /// SVE LD1 gather (32-bit scalar+vector, S-form): `1000010 msz xs scaled Zm 0 U
 /// 0 Pg Rn Zt`. Rn=x1 (base), Zm=z2 (offsets), Zt=z0.
 fn enc_gather_s(msz: u32, xs: u32, scaled: bool, u: u32) -> u32 {
     let sc: u32 = if scaled { 1 } else { 0 };
-    (0b1000010 << 25) | (msz << 23) | (xs << 22) | (sc << 21) | (RM << 16)
-        | (u << 14) | (RN << 5) | RD
+    (0b1000010 << 25)
+        | (msz << 23)
+        | (xs << 22)
+        | (sc << 21)
+        | (RM << 16)
+        | (u << 14)
+        | (RN << 5)
+        | RD
 }
 
 /// SVE ST1 scatter (32-bit scalar+vector, S-form): `1110010 msz ig1 Zm 1 xs 0 Pg
 /// Rn Zt`. ig1=10 unscaled / 11 scaled. Rn=x1, Zm=z2, Zt=z0.
 fn enc_scatter_s(msz: u32, xs: u32, scaled: bool) -> u32 {
     let ig1: u32 = if scaled { 0b11 } else { 0b10 };
-    (0b1110010 << 25) | (msz << 23) | (ig1 << 21) | (RM << 16)
-        | (1 << 15) | (xs << 14) | (RN << 5) | RD
+    (0b1110010 << 25)
+        | (msz << 23)
+        | (ig1 << 21)
+        | (RM << 16)
+        | (1 << 15)
+        | (xs << 14)
+        | (RN << 5)
+        | RD
 }
 
 /// SVE LD1 (scalar+scalar): `1010010 dtype Rm 010 Pg Rn Zt`. Rn=x1, Rm=x2.
@@ -2381,21 +2985,36 @@ fn enc_sve_st1_ss(msz: u32, size: u32) -> u32 {
 /// SVE contiguous LD1 (scalar+imm): `1010010 dtype 0 imm4 101 Pg Rn Zt`.
 /// Pg=p0, Rn=x1 (base), Zt=z0.
 fn enc_sve_ld1(dtype: u32, imm4: i32) -> u32 {
-    (0b1010010 << 25) | (dtype << 21) | (((imm4 as u32) & 0xF) << 16)
-        | (0b101 << 13) | (RN << 5) | RD
+    (0b1010010 << 25)
+        | (dtype << 21)
+        | (((imm4 as u32) & 0xF) << 16)
+        | (0b101 << 13)
+        | (RN << 5)
+        | RD
 }
 
 /// SVE contiguous ST1 (scalar+imm): `1110010 msz size 0 imm4 111 Pg Rn Zt`.
 /// msz=memory width, size=element width (>= msz). Pg=p0, Rn=x1, Zt=z0.
 fn enc_sve_st1(msz: u32, size: u32, imm4: i32) -> u32 {
-    (0b1110010 << 25) | (msz << 23) | (size << 21) | (((imm4 as u32) & 0xF) << 16)
-        | (0b111 << 13) | (RN << 5) | RD
+    (0b1110010 << 25)
+        | (msz << 23)
+        | (size << 21)
+        | (((imm4 as u32) & 0xF) << 16)
+        | (0b111 << 13)
+        | (RN << 5)
+        | RD
 }
 
 /// SVE ADR: `00000100 mode 1 Zm 1010 msz Zn Zd`. Zd=z0, Zn=z1, Zm=z2.
 fn enc_sve_adr(mode: u32, msz: u32) -> u32 {
-    (0b00000100 << 24) | (mode << 22) | (1 << 21) | (RM << 16)
-        | (0b1010 << 12) | (msz << 10) | (RN << 5) | RD
+    (0b00000100 << 24)
+        | (mode << 22)
+        | (1 << 21)
+        | (RM << 16)
+        | (0b1010 << 12)
+        | (msz << 10)
+        | (RN << 5)
+        | RD
 }
 
 /// SVE MOVPRFX Zd, Zn (unpredicated): `00000100 001 00000 101111 Zn Zd`.
@@ -2406,15 +3025,20 @@ fn enc_movprfx_z() -> u32 {
 /// SVE MOVPRFX Zd.T, Pg, Zn.T (predicated): `00000100 size 0100 0 M 001 Pg Zn Zd`.
 /// M: 1=merging, 0=zeroing. Pg=p0, Zn=z1, Zd=z0.
 fn enc_movprfx_p(size: u32, m: u32) -> u32 {
-    (0b00000100 << 24) | (size << 22) | (0b0100 << 18) | (m << 16)
-        | (0b001 << 13) | (RN << 5) | RD
+    (0b00000100 << 24) | (size << 22) | (0b0100 << 18) | (m << 16) | (0b001 << 13) | (RN << 5) | RD
 }
 
 /// SVE LD1R (load and replicate): `1000010 dtypeh 1 imm6 1 dtypel Pg Rn Zt`.
 /// Pg=p0, Rn=x1, Zt=z0.
 fn enc_ld1r(dtypeh: u32, dtypel: u32, imm6: u32) -> u32 {
-    (0b1000010 << 25) | (dtypeh << 23) | (1 << 22) | ((imm6 & 0x3F) << 16)
-        | (1 << 15) | (dtypel << 13) | (RN << 5) | RD
+    (0b1000010 << 25)
+        | (dtypeh << 23)
+        | (1 << 22)
+        | ((imm6 & 0x3F) << 16)
+        | (1 << 15)
+        | (dtypel << 13)
+        | (RN << 5)
+        | RD
 }
 
 /// SVE LDR/STR whole-register fill/spill. `1000010110`(LDR)/`1110010110`(STR)
@@ -2435,8 +3059,14 @@ fn enc_ldstr_p(store: bool, imm9: i32) -> u32 {
 /// SVE FP<->int convert: `01100101 opc ig1 opc2 int_U 101 Pg Zn Zd`. ig1: 011=
 /// FCVTZS/U (FP->int), 010=SCVTF/UCVTF (int->FP). int_U: 0=signed, 1=unsigned.
 fn enc_sve_cvt(opc: u32, ig1: u32, opc2: u32, u: u32) -> u32 {
-    (0b01100101 << 24) | (opc << 22) | (ig1 << 19) | (opc2 << 17) | (u << 16)
-        | (0b101 << 13) | (RN << 5) | RD
+    (0b01100101 << 24)
+        | (opc << 22)
+        | (ig1 << 19)
+        | (opc2 << 17)
+        | (u << 16)
+        | (0b101 << 13)
+        | (RN << 5)
+        | RD
 }
 
 /// A finite FP bit pattern of width `sz` bytes (no Inf/NaN). For 4/8-byte
@@ -2468,8 +3098,7 @@ fn finite_fp_bits(rng: &mut Rng, sz: usize) -> u64 {
 /// SVE TBX (table lookup, keep destination): `00000101 size 1 Zm 001011 Zn Zd`.
 /// Table=Zn(RN), indices=Zm(RM), dest=Zd(RD, also the out-of-range source).
 fn enc_sve_tbx(sz: u32) -> u32 {
-    (0b00000101 << 24) | (sz << 22) | (1 << 21) | (RM << 16)
-        | (0b001011 << 10) | (RN << 5) | RD
+    (0b00000101 << 24) | (sz << 22) | (1 << 21) | (RM << 16) | (0b001011 << 10) | (RN << 5) | RD
 }
 
 /// SVE DUP (indexed): `00000101 imm2 1 tsz 001000 Zn Zd`. esize_log selects the
@@ -2478,14 +3107,12 @@ fn enc_dup_idx(esize_log: u32, index: u32) -> u32 {
     let imm = (index << (esize_log + 1)) | (1 << esize_log); // 7-bit imm2:tsz
     let imm2 = (imm >> 5) & 0x3;
     let tsz = imm & 0x1F;
-    (0b00000101 << 24) | (imm2 << 22) | (1 << 21) | (tsz << 16)
-        | (0b001000 << 10) | (RN << 5) | RD
+    (0b00000101 << 24) | (imm2 << 22) | (1 << 21) | (tsz << 16) | (0b001000 << 10) | (RN << 5) | RD
 }
 
 /// SVE COMPACT: `00000101 1 sz 100001 100 Pg Zn Zd`. sz: 0=S, 1=D. Zn=z1, Pg=p0.
 fn enc_sve_compact(sz: u32) -> u32 {
-    (0b00000101 << 24) | (1 << 23) | (sz << 22) | (0b100001 << 16)
-        | (0b100 << 13) | (RN << 5) | RD
+    (0b00000101 << 24) | (1 << 23) | (sz << 22) | (0b100001 << 16) | (0b100 << 13) | (RN << 5) | RD
 }
 
 /// SVE SPLICE (destructive): `00000101 size 101100 100 Pg Zm Zdn`. Zm=z1, Pg=p0,
@@ -2501,26 +3128,48 @@ fn enc_pfirst(pg: u32, pdn: u32) -> u32 {
 
 /// SVE PNEXT Pdn.T, Pg, Pdn.T: `00100101 size 011001 1100010 Pg Pdn`.
 fn enc_pnext(sz: u32, pg: u32, pdn: u32) -> u32 {
-    (0x25 << 24) | (sz << 22) | (0b011001 << 16) | (0b1100010 << 9)
-        | ((pg & 0xF) << 5) | (pdn & 0xF)
+    (0x25 << 24)
+        | (sz << 22)
+        | (0b011001 << 16)
+        | (0b1100010 << 9)
+        | ((pg & 0xF) << 5)
+        | (pdn & 0xF)
 }
 
 /// SVE BRKA/BRKB: `00100101 B S 010000 01 Pg 0 Pn M Pd`. B: 0=BRKA, 1=BRKB.
 fn enc_brka(b: u32, s: u32, m: u32, pg: u32, pn: u32, pd: u32) -> u32 {
-    (0x25 << 24) | (b << 23) | (s << 22) | (0b010000 << 16) | (0b01 << 14)
-        | ((pg & 0xF) << 10) | ((pn & 0xF) << 5) | ((m & 1) << 4) | (pd & 0xF)
+    (0x25 << 24)
+        | (b << 23)
+        | (s << 22)
+        | (0b010000 << 16)
+        | (0b01 << 14)
+        | ((pg & 0xF) << 10)
+        | ((pn & 0xF) << 5)
+        | ((m & 1) << 4)
+        | (pd & 0xF)
 }
 
 /// SVE BRKN: `00100101 0 S 011000 01 Pg 0 Pn 0 Pdm`.
 fn enc_brkn(s: u32, pg: u32, pn: u32, pdm: u32) -> u32 {
-    (0x25 << 24) | (s << 22) | (0b011000 << 16) | (0b01 << 14)
-        | ((pg & 0xF) << 10) | ((pn & 0xF) << 5) | (pdm & 0xF)
+    (0x25 << 24)
+        | (s << 22)
+        | (0b011000 << 16)
+        | (0b01 << 14)
+        | ((pg & 0xF) << 10)
+        | ((pn & 0xF) << 5)
+        | (pdm & 0xF)
 }
 
 /// SVE BRKPA/BRKPB: `00100101 0 S 00 Pm 11 Pg 0 Pn B Pd`. B: 0=BRKPA, 1=BRKPB.
 fn enc_brkp(b: u32, s: u32, pm: u32, pg: u32, pn: u32, pd: u32) -> u32 {
-    (0x25 << 24) | (s << 22) | ((pm & 0xF) << 16) | (0b11 << 14)
-        | ((pg & 0xF) << 10) | ((pn & 0xF) << 5) | ((b & 1) << 4) | (pd & 0xF)
+    (0x25 << 24)
+        | (s << 22)
+        | ((pm & 0xF) << 16)
+        | (0b11 << 14)
+        | ((pg & 0xF) << 10)
+        | ((pn & 0xF) << 5)
+        | ((b & 1) << 4)
+        | (pd & 0xF)
 }
 
 #[test]
@@ -2538,8 +3187,13 @@ fn diff_sve_index() {
 
 /// SVE REV Zd.T, Zn.T: `00000101 sz 1 11000 001110 Zn Zd`.
 fn enc_sve_rev(sz: u32) -> u32 {
-    (0b00000101 << 24) | (sz << 22) | (1 << 21) | (0b11000 << 16)
-        | (0b001110 << 10) | (RN << 5) | RD
+    (0b00000101 << 24)
+        | (sz << 22)
+        | (1 << 21)
+        | (0b11000 << 16)
+        | (0b001110 << 10)
+        | (RN << 5)
+        | RD
 }
 
 #[test]
@@ -2560,8 +3214,14 @@ const PFALSE: u32 = 0x2518_E400;
 /// WHILE{LT,LE,LO,LS} Pd.T, {Wn,Xn}, {Wm,Xm}. Rn=x1, Rm=x2, Pd=p0.
 fn enc_while(sz: u32, sf: u32, unsigned: bool, le: bool) -> u32 {
     let b1110 = if unsigned { 0b11 } else { 0b01 };
-    (0x25 << 24) | (sz << 22) | (1 << 21) | (RM << 16) | (sf << 12) | (b1110 << 10)
-        | (RN << 5) | ((le as u32) << 4)
+    (0x25 << 24)
+        | (sz << 22)
+        | (1 << 21)
+        | (RM << 16)
+        | (sf << 12)
+        | (b1110 << 10)
+        | (RN << 5)
+        | ((le as u32) << 4)
 }
 
 #[test]
@@ -2572,7 +3232,11 @@ fn diff_sve_pred_gen() {
     for sz in 0..4u32 {
         for pat in [0u32, 1, 2, 3, 4, 5, 7, 8, 0b11101, 0b11110, 0b11111] {
             for s in 0..2u32 {
-                batch.push((format!("ptrue sz{sz} p{pat} s{s}"), enc_ptrue(sz, pat, s), ArmState::zeroed()));
+                batch.push((
+                    format!("ptrue sz{sz} p{pat} s{s}"),
+                    enc_ptrue(sz, pat, s),
+                    ArmState::zeroed(),
+                ));
             }
         }
     }
@@ -2628,8 +3292,7 @@ fn diff_sve_sel() {
 /// SVE CMP<cc>_P.P.ZZ: `00100100 sz 0 Zm cmp_hi Pg Zn cmp_lo Pd`. Zn=z1, Zm=z2,
 /// Pg=p1, Pd=p0.
 fn enc_sve_cmp(sz: u32, cmp_hi: u32, cmp_lo: u32) -> u32 {
-    (0x24 << 24) | (sz << 22) | (RM << 16) | (cmp_hi << 13) | (1 << 10)
-        | (RN << 5) | (cmp_lo << 4)
+    (0x24 << 24) | (sz << 22) | (RM << 16) | (cmp_hi << 13) | (1 << 10) | (RN << 5) | (cmp_lo << 4)
 }
 
 #[test]
@@ -2699,10 +3362,13 @@ fn diff_sve_pcount() {
     let mut batch: Vec<(String, u32, ArmState)> = Vec::new();
     for sz in 0..4u32 {
         // CNTP Rd(x0), Pg=p1, Pn=p2.
-        let cntp = (0x25 << 24) | (sz << 22) | (0b100000 << 16) | (0b10 << 14) | (1 << 10) | (2 << 5);
+        let cntp =
+            (0x25 << 24) | (sz << 22) | (0b100000 << 16) | (0b10 << 14) | (1 << 10) | (2 << 5);
         // INCP/DECP scalar (Rdn=x0, Pg=p1) and vector (Zdn=z0, Pg=p1).
-        let incp_r = (0x25 << 24) | (sz << 22) | (0b101100 << 16) | (0b1000 << 12) | (1 << 11) | (1 << 5);
-        let decp_r = (0x25 << 24) | (sz << 22) | (0b101101 << 16) | (0b1000 << 12) | (1 << 11) | (1 << 5);
+        let incp_r =
+            (0x25 << 24) | (sz << 22) | (0b101100 << 16) | (0b1000 << 12) | (1 << 11) | (1 << 5);
+        let decp_r =
+            (0x25 << 24) | (sz << 22) | (0b101101 << 16) | (0b1000 << 12) | (1 << 11) | (1 << 5);
         let incp_z = (0x25 << 24) | (sz << 22) | (0b101100 << 16) | (0b1000 << 12) | (1 << 5);
         let decp_z = (0x25 << 24) | (sz << 22) | (0b101101 << 16) | (0b1000 << 12) | (1 << 5);
         // LASTA/LASTB/CLASTA/CLASTB -> x0, Pg=p0, Zn=z1.
@@ -2737,6 +3403,83 @@ fn diff_sve_pcount() {
 }
 
 #[test]
+fn diff_sve_sincdecp() {
+    // SQINCP/UQINCP/SQDECP/UQDECP: saturating INCP/DECP. GPR forms (32/64-bit,
+    // signed/unsigned) and vector forms (per-element saturating). Seeds Xdn/Zdn
+    // near the signed/unsigned limits to exercise the saturation boundaries.
+    let mut rng = Rng::new(0x1_0030);
+    let mut batch: Vec<(String, u32, ArmState)> = Vec::new();
+    let gpr_vals: [u64; 12] = [
+        0,
+        1,
+        u64::MAX,
+        0x7FFF_FFFF,
+        0x8000_0000,
+        0xFFFF_FFFF,
+        0x7FFF_FFFF_FFFF_FFFF,
+        0x8000_0000_0000_0000,
+        0xFFFF_FFFF_FFFF_FFF0,
+        0x0000_0000_0000_0005,
+        0xFFFF_FFFF_FFFF_FFFB,
+        0x7FFF_FFFF_FFFF_FFFA,
+    ];
+    let vec_pats: [u64; 8] = [
+        0x0000_0000_0000_0000,
+        0x7FFF_7FFF_7FFF_7FFF,
+        0x8000_8000_8000_8000,
+        0xFFFF_FFFF_FFFF_FFFF,
+        0x7FFF_FFFF_7FFF_FFFF,
+        0x8000_0000_8000_0000,
+        0x7FFF_FFFF_FFFF_FFFF,
+        0x8000_0000_0000_0000,
+    ];
+    let preds = [0xFFFFu16, 0x5555, 0x0101, 0x0001, 0x0000];
+    for esz in 0..4u32 {
+        for d in 0..2u32 {
+            for u in 0..2u32 {
+                for sf64 in 0..2u32 {
+                    let insn = enc_sve_sincdecp_r(esz, d, u, sf64, 1, 0);
+                    let nm = format!("sincdecp_r e{esz} d{d} u{u} s{sf64}");
+                    for &xv in gpr_vals.iter() {
+                        for &pp in preds.iter() {
+                            let mut st = ArmState::zeroed();
+                            st.x[0] = xv;
+                            st.set_preg(1, pp);
+                            batch.push((nm.clone(), insn, st));
+                        }
+                    }
+                    for _ in 0..4 {
+                        let mut st = ArmState::zeroed();
+                        st.x[0] = rng.next();
+                        st.set_preg(1, rng.next() as u16);
+                        batch.push((format!("{nm} rnd"), insn, st));
+                    }
+                }
+                if esz >= 1 {
+                    let insn = enc_sve_sincdecp_z(esz, d, u, 1, 0);
+                    let nm = format!("sincdecp_z e{esz} d{d} u{u}");
+                    for &vp in vec_pats.iter() {
+                        for &pp in preds.iter() {
+                            let mut st = ArmState::zeroed();
+                            st.set_vreg(0, vp, vp);
+                            st.set_preg(1, pp);
+                            batch.push((nm.clone(), insn, st));
+                        }
+                    }
+                    for _ in 0..4 {
+                        let mut st = ArmState::zeroed();
+                        st.set_vreg(0, rng.next(), rng.next());
+                        st.set_preg(1, rng.next() as u16);
+                        batch.push((format!("{nm} rnd"), insn, st));
+                    }
+                }
+            }
+        }
+    }
+    run_batch("sve_sincdecp", batch);
+}
+
+#[test]
 fn diff_sve_shift_imm() {
     let ops = [(0b000u32, "asr"), (0b001, "lsr"), (0b011, "lsl")];
     let mut rng = Rng::new(0x1_002E);
@@ -2758,8 +3501,13 @@ fn diff_sve_shift_imm() {
                 let tsize = (tszimm >> 3) as u32;
                 let imm3 = (tszimm & 7) as u32;
                 let (tszh, tszl) = (tsize >> 2, tsize & 3);
-                let insn = (0x04 << 24) | (tszh << 22) | (opc << 16) | (0b100 << 13)
-                    | (tszl << 8) | (imm3 << 5) | RD;
+                let insn = (0x04 << 24)
+                    | (tszh << 22)
+                    | (opc << 16)
+                    | (0b100 << 13)
+                    | (tszl << 8)
+                    | (imm3 << 5)
+                    | RD;
                 for _ in 0..8 {
                     let mut st = ArmState::zeroed();
                     st.set_vreg(0, rng.next(), rng.next());
@@ -2774,8 +3522,13 @@ fn diff_sve_shift_imm() {
 
 /// SVE CPY immediate: `00000101 sz 01 Pg M sh imm8 Zd`. Pg=p0, Zd=z0.
 fn enc_cpy_imm(sz: u32, m: u32, sh: u32, imm8: i32) -> u32 {
-    (0x05 << 24) | (sz << 22) | (0b01 << 20) | (m << 14) | (sh << 13)
-        | (((imm8 as u32) & 0xFF) << 5) | RD
+    (0x05 << 24)
+        | (sz << 22)
+        | (0b01 << 20)
+        | (m << 14)
+        | (sh << 13)
+        | (((imm8 as u32) & 0xFF) << 5)
+        | RD
 }
 
 #[test]
@@ -2800,7 +3553,13 @@ fn diff_sve_cpy() {
         let cpyv = (0x05 << 24) | (sz << 22) | (0b100000 << 16) | (0b100 << 13) | (RN << 5) | RD;
         // DUP immediate broadcast.
         let dup = (0x25 << 24) | (sz << 22) | (0b111000 << 16) | (0b11 << 14) | (0x33 << 5) | RD;
-        let dup2 = (0x25 << 24) | (sz << 22) | (0b111000 << 16) | (0b11 << 14) | (1 << 13) | (0xA1 << 5) | RD;
+        let dup2 = (0x25 << 24)
+            | (sz << 22)
+            | (0b111000 << 16)
+            | (0b11 << 14)
+            | (1 << 13)
+            | (0xA1 << 5)
+            | RD;
         for _ in 0..10 {
             let mut st = ArmState::zeroed();
             st.set_vreg(0, rng.next(), rng.next());
@@ -2924,7 +3683,13 @@ fn diff_sve_reduce() {
 /// SVE predicate-logical: `00100101 S000 Pm 01 Pg b9 Pn b4 Pd`. Pg=p1, Pm=p2,
 /// Pn=p3, Pd=p0.
 fn enc_sve_plog(s: u32, b9: u32, b4: u32) -> u32 {
-    (0x25 << 24) | (s << 23) | (2 << 16) | (0b01 << 14) | (1 << 10) | (b9 << 9) | (3 << 5)
+    (0x25 << 24)
+        | (s << 23)
+        | (2 << 16)
+        | (0b01 << 14)
+        | (1 << 10)
+        | (b9 << 9)
+        | (3 << 5)
         | (b4 << 4)
 }
 
@@ -3169,7 +3934,12 @@ fn diff_sve2_fmlal() {
     // into the f32 destination. Finite f16 sources and a finite f32 accumulator.
     let mut rng = Rng::new(0x6_a001);
     let mut batch: Vec<(String, u32, ArmState)> = Vec::new();
-    let variants = [(0u32, 0u32, "fmlalb"), (0, 1, "fmlalt"), (1, 0, "fmlslb"), (1, 1, "fmlslt")];
+    let variants = [
+        (0u32, 0u32, "fmlalb"),
+        (0, 1, "fmlalt"),
+        (1, 0, "fmlslb"),
+        (1, 1, "fmlslt"),
+    ];
     for (sub, top, name) in variants {
         let insn = enc_sve2_fmlal(sub, top);
         for _ in 0..24 {
@@ -3299,7 +4069,11 @@ fn diff_sve_fscale() {
     let mut batch: Vec<(String, u32, ArmState)> = Vec::new();
     for (size, esz) in [(1u32, 2usize), (2, 4), (3, 8)] {
         let insn = enc_sve_fscale(size);
-        let emask: u64 = if esz == 8 { u64::MAX } else { (1u64 << (esz * 8)) - 1 };
+        let emask: u64 = if esz == 8 {
+            u64::MAX
+        } else {
+            (1u64 << (esz * 8)) - 1
+        };
         for _ in 0..20 {
             let (mut zdn, mut zm) = (0u128, 0u128);
             for l in 0..(16 / esz) {
@@ -3340,7 +4114,11 @@ fn diff_sve_fp_indexed() {
     // FMLA/FMLS/FMUL by indexed FP element, all sizes and indices, finite inputs.
     let mut rng = Rng::new(0x8_3001);
     let mut batch: Vec<(String, u32, ArmState)> = Vec::new();
-    for (op, name) in [(0b000000u32, "fmla"), (0b000001, "fmls"), (0b001000, "fmul")] {
+    for (op, name) in [
+        (0b000000u32, "fmla"),
+        (0b000001, "fmls"),
+        (0b001000, "fmul"),
+    ] {
         for (size, esz, idxn) in [(1u32, 2usize, 8u32), (2, 4, 4), (3, 8, 2)] {
             for index in 0..idxn {
                 let insn = enc_sve_fp_idx(op, size, index, RM);
@@ -3411,8 +4189,12 @@ fn diff_sve_dot() {
         batch.push(("usdot_v".to_string(), insn, setup(&mut rng)));
     }
     let idxops = [
-        (0u32, 0b000000u32, "sdot"), (0, 0b000001, "udot"), (0, 0b000110, "usdot"),
-        (0, 0b000111, "sudot"), (1, 0b000000, "sdot_d"), (1, 0b000001, "udot_d"),
+        (0u32, 0b000000u32, "sdot"),
+        (0, 0b000001, "udot"),
+        (0, 0b000110, "usdot"),
+        (0, 0b000111, "sudot"),
+        (1, 0b000000, "sdot_d"),
+        (1, 0b000001, "udot_d"),
     ];
     for (sz, op, name) in idxops {
         let idxn = if sz == 0 { 4 } else { 2 };
@@ -3478,13 +4260,34 @@ fn diff_sve2_pred_alu() {
     // operands give full-range (large/negative) shift amounts and saturation
     // edges; the predicate is random (merging).
     let ops: [(u32, &str); 28] = [
-        (0b000010, "srshl"), (0b000011, "urshl"), (0b000110, "srshlr"), (0b000111, "urshlr"),
-        (0b001000, "sqshl"), (0b001001, "uqshl"), (0b001100, "sqshlr"), (0b001101, "uqshlr"),
-        (0b001010, "sqrshl"), (0b001011, "uqrshl"), (0b001110, "sqrshlr"), (0b001111, "uqrshlr"),
-        (0b010000, "shadd"), (0b010001, "uhadd"), (0b010010, "shsub"), (0b010011, "uhsub"),
-        (0b010100, "srhadd"), (0b010101, "urhadd"), (0b010110, "shsubr"), (0b010111, "uhsubr"),
-        (0b011000, "sqadd"), (0b011001, "uqadd"), (0b011010, "sqsub"), (0b011011, "uqsub"),
-        (0b011100, "suqadd"), (0b011101, "usqadd"), (0b011110, "sqsubr"), (0b011111, "uqsubr"),
+        (0b000010, "srshl"),
+        (0b000011, "urshl"),
+        (0b000110, "srshlr"),
+        (0b000111, "urshlr"),
+        (0b001000, "sqshl"),
+        (0b001001, "uqshl"),
+        (0b001100, "sqshlr"),
+        (0b001101, "uqshlr"),
+        (0b001010, "sqrshl"),
+        (0b001011, "uqrshl"),
+        (0b001110, "sqrshlr"),
+        (0b001111, "uqrshlr"),
+        (0b010000, "shadd"),
+        (0b010001, "uhadd"),
+        (0b010010, "shsub"),
+        (0b010011, "uhsub"),
+        (0b010100, "srhadd"),
+        (0b010101, "urhadd"),
+        (0b010110, "shsubr"),
+        (0b010111, "uhsubr"),
+        (0b011000, "sqadd"),
+        (0b011001, "uqadd"),
+        (0b011010, "sqsub"),
+        (0b011011, "uqsub"),
+        (0b011100, "suqadd"),
+        (0b011101, "usqadd"),
+        (0b011110, "sqsubr"),
+        (0b011111, "uqsubr"),
     ];
     let mut rng = Rng::new(0x7_f001);
     let mut batch: Vec<(String, u32, ArmState)> = Vec::new();
@@ -3530,8 +4333,23 @@ fn diff_sve_fp_cmp() {
     // (random bit patterns), all sizes; checks predicate result AND NZCV.
     let mut rng = Rng::new(0x9_c001);
     let mut batch: Vec<(String, u32, ArmState)> = Vec::new();
-    let regconds = [(0b010u32, 0u32), (0b010, 1), (0b011, 0), (0b011, 1), (0b110, 0), (0b110, 1), (0b111, 1)];
-    let zeroconds = [(0b00u32, 0u32), (0b00, 1), (0b01, 0), (0b01, 1), (0b10, 0), (0b11, 0)];
+    let regconds = [
+        (0b010u32, 0u32),
+        (0b010, 1),
+        (0b011, 0),
+        (0b011, 1),
+        (0b110, 0),
+        (0b110, 1),
+        (0b111, 1),
+    ];
+    let zeroconds = [
+        (0b00u32, 0u32),
+        (0b00, 1),
+        (0b01, 0),
+        (0b01, 1),
+        (0b10, 0),
+        (0b11, 0),
+    ];
     for size in 1..4u32 {
         for (cc13, bit4) in regconds {
             let insn = enc_sve_fp_cmp(size, cc13, bit4);
@@ -3561,7 +4379,14 @@ fn diff_sve_cmp_imm() {
     // Integer compare with signed/unsigned immediate -> predicate + NZCV.
     let mut rng = Rng::new(0x9_d001);
     let mut batch: Vec<(String, u32, ArmState)> = Vec::new();
-    let sconds = [(0b000u32, 0u32), (0b000, 1), (0b001, 0), (0b001, 1), (0b100, 0), (0b100, 1)];
+    let sconds = [
+        (0b000u32, 0u32),
+        (0b000, 1),
+        (0b001, 0),
+        (0b001, 1),
+        (0b100, 0),
+        (0b100, 1),
+    ];
     for size in 0..4u32 {
         for (cc13, bit4) in sconds {
             for imm5 in [0u32, 5, 0x1F, 0x10, 1] {
@@ -3639,13 +4464,20 @@ fn diff_sve_pred_permute() {
 fn diff_sve_pred_unary() {
     // SVE predicated integer/FP unary across all ops and their valid sizes.
     let ops: &[(u32, &str, &[u32])] = &[
-        (0b010000, "sxtb", &[1, 2, 3]), (0b010001, "uxtb", &[1, 2, 3]),
-        (0b010010, "sxth", &[2, 3]), (0b010011, "uxth", &[2, 3]),
-        (0b010100, "sxtw", &[3]), (0b010101, "uxtw", &[3]),
-        (0b010110, "abs", &[0, 1, 2, 3]), (0b010111, "neg", &[0, 1, 2, 3]),
-        (0b011000, "cls", &[0, 1, 2, 3]), (0b011001, "clz", &[0, 1, 2, 3]),
-        (0b011010, "cnt", &[0, 1, 2, 3]), (0b011011, "cnot", &[0, 1, 2, 3]),
-        (0b011100, "fabs", &[1, 2, 3]), (0b011101, "fneg", &[1, 2, 3]),
+        (0b010000, "sxtb", &[1, 2, 3]),
+        (0b010001, "uxtb", &[1, 2, 3]),
+        (0b010010, "sxth", &[2, 3]),
+        (0b010011, "uxth", &[2, 3]),
+        (0b010100, "sxtw", &[3]),
+        (0b010101, "uxtw", &[3]),
+        (0b010110, "abs", &[0, 1, 2, 3]),
+        (0b010111, "neg", &[0, 1, 2, 3]),
+        (0b011000, "cls", &[0, 1, 2, 3]),
+        (0b011001, "clz", &[0, 1, 2, 3]),
+        (0b011010, "cnt", &[0, 1, 2, 3]),
+        (0b011011, "cnot", &[0, 1, 2, 3]),
+        (0b011100, "fabs", &[1, 2, 3]),
+        (0b011101, "fneg", &[1, 2, 3]),
         (0b011110, "not", &[0, 1, 2, 3]),
     ];
     let mut rng = Rng::new(0x9_6001);
@@ -3690,11 +4522,21 @@ fn diff_sve_dupm() {
     // DUPM logical-immediate broadcast across element sizes and patterns.
     let mut batch: Vec<(String, u32, ArmState)> = Vec::new();
     let cases = [
-        (0u32, 8u32, 39u32), (0, 0, 0b111100), (1, 0, 0), (1, 0, 62),
-        (0, 4, 0b011111), (0, 1, 0b110000), (0, 0, 0b000000), (1, 16, 31),
+        (0u32, 8u32, 39u32),
+        (0, 0, 0b111100),
+        (1, 0, 0),
+        (1, 0, 62),
+        (0, 4, 0b011111),
+        (0, 1, 0b110000),
+        (0, 0, 0b000000),
+        (1, 16, 31),
     ];
     for (n, immr, imms) in cases {
-        batch.push((format!("dupm n{n} r{immr} s{imms}"), enc_sve_dupm(n, immr, imms), ArmState::zeroed()));
+        batch.push((
+            format!("dupm n{n} r{immr} s{imms}"),
+            enc_sve_dupm(n, immr, imms),
+            ArmState::zeroed(),
+        ));
     }
     run_batch("sve_dupm", batch);
 }
@@ -3746,7 +4588,12 @@ fn diff_sve_rev_rbit() {
     // REVB/REVH/REVW/RBIT reverse byte/halfword/word/bit order within elements.
     let mut rng = Rng::new(0x9_1001);
     let mut batch: Vec<(String, u32, ArmState)> = Vec::new();
-    let cases: &[(u32, &[u32])] = &[(0b00, &[1, 2, 3]), (0b01, &[2, 3]), (0b10, &[3]), (0b11, &[0, 1, 2, 3])];
+    let cases: &[(u32, &[u32])] = &[
+        (0b00, &[1, 2, 3]),
+        (0b01, &[2, 3]),
+        (0b10, &[3]),
+        (0b11, &[0, 1, 2, 3]),
+    ];
     for &(op, sizes) in cases {
         for &size in sizes {
             let insn = enc_sve_rev_rbit(size, op);
@@ -3814,8 +4661,16 @@ fn diff_sve_fcpy_fdup() {
             let mut st = ArmState::zeroed();
             st.set_vreg(0, rng.next(), rng.next());
             st.set_preg(0, rng.next() as u16);
-            batch.push((format!("fcpy s{size} i{imm8:x}"), enc_sve_fcpy(size, imm8), st));
-            batch.push((format!("fdup s{size} i{imm8:x}"), enc_sve_fdup(size, imm8), ArmState::zeroed()));
+            batch.push((
+                format!("fcpy s{size} i{imm8:x}"),
+                enc_sve_fcpy(size, imm8),
+                st,
+            ));
+            batch.push((
+                format!("fdup s{size} i{imm8:x}"),
+                enc_sve_fdup(size, imm8),
+                ArmState::zeroed(),
+            ));
         }
     }
     run_batch("sve_fcpy_fdup", batch);
@@ -3834,7 +4689,11 @@ fn diff_sve_cterm() {
                 let mut st = ArmState::zeroed();
                 let base = rng.next();
                 st.x[1] = base;
-                st.x[2] = if rng.next() & 1 == 0 { base } else { rng.next() };
+                st.x[2] = if rng.next() & 1 == 0 {
+                    base
+                } else {
+                    rng.next()
+                };
                 st.pstate = (rng.next() & 0xF) << 28; // random input NZCV
                 batch.push((format!("cterm sf{sf} ne{ne}"), insn, st));
             }
@@ -4252,7 +5111,11 @@ fn diff_sve2_histcnt() {
         let esize = 1usize << size;
         let elements = 16 / esize;
         let shift = esize * 8;
-        let emask: u128 = if shift >= 128 { u128::MAX } else { (1u128 << shift) - 1 };
+        let emask: u128 = if shift >= 128 {
+            u128::MAX
+        } else {
+            (1u128 << shift) - 1
+        };
         let insn = enc_sve2_histcnt(size);
         for _ in 0..40 {
             let pool: Vec<u128> = (0..3).map(|_| (rng.next() as u128) & emask).collect();
@@ -4499,7 +5362,11 @@ fn diff_sve2_flogb() {
         let insn = enc_sve_flogb(size);
         let specials = flogb_specials(esz);
         let lanes = 16 / esz;
-        let mask: u64 = if esz == 8 { u64::MAX } else { (1u64 << (esz * 8)) - 1 };
+        let mask: u64 = if esz == 8 {
+            u64::MAX
+        } else {
+            (1u64 << (esz * 8)) - 1
+        };
         for _ in 0..48 {
             let mut st = ArmState::zeroed();
             let mut zn: u128 = 0;
@@ -5167,7 +6034,11 @@ fn diff_sve_cvt() {
                     fp_sz * 8,
                     int_sz * 8
                 );
-                let imask: u64 = if int_sz == 8 { u64::MAX } else { (1u64 << (int_sz * 8)) - 1 };
+                let imask: u64 = if int_sz == 8 {
+                    u64::MAX
+                } else {
+                    (1u64 << (int_sz * 8)) - 1
+                };
                 for _ in 0..20 {
                     let mut st = ArmState::zeroed();
                     let mut zn: u128 = 0;
@@ -5195,7 +6066,13 @@ fn diff_sve_dup_idx() {
     // DUP indexed broadcasts one element of Zn to all lanes; an index past the
     // end broadcasts zero. Covers every element size and in/out-of-range index.
     let mut cases: Vec<(String, u32)> = Vec::new();
-    for (elog, name, nelem) in [(0u32, "b", 16u32), (1, "h", 8), (2, "s", 4), (3, "d", 2), (4, "q", 1)] {
+    for (elog, name, nelem) in [
+        (0u32, "b", 16u32),
+        (1, "h", 8),
+        (2, "s", 4),
+        (3, "d", 2),
+        (4, "q", 1),
+    ] {
         for index in [0u32, 1, nelem / 2, nelem - 1, nelem, nelem + 2] {
             cases.push((format!("dup_idx {name}[{index}]"), enc_dup_idx(elog, index)));
         }
@@ -5351,7 +6228,12 @@ fn diff_sve_unpred() {
         cases.push((format!("sve_sqsub sz{sz}"), enc_sve_arith(sz, 0b000110)));
         cases.push((format!("sve_uqsub sz{sz}"), enc_sve_arith(sz, 0b000111)));
     }
-    for (opc, name) in [(0b00u32, "and"), (0b01, "orr"), (0b10, "eor"), (0b11, "bic")] {
+    for (opc, name) in [
+        (0b00u32, "and"),
+        (0b01, "orr"),
+        (0b10, "eor"),
+        (0b11, "bic"),
+    ] {
         cases.push((format!("sve_{name}"), enc_sve_logical(opc)));
     }
     run_family("sve_unpred", cases, 16, 0x1_001F);
@@ -5409,7 +6291,10 @@ fn diff_sve2_mull() {
         for t in 0..2u32 {
             cases.push((format!("smull sz{size} t{t}"), enc_sve2_mull(size, 1, 0, t)));
             cases.push((format!("umull sz{size} t{t}"), enc_sve2_mull(size, 1, 1, t)));
-            cases.push((format!("sqdmull sz{size} t{t}"), enc_sve2_mull(size, 0, 0, t)));
+            cases.push((
+                format!("sqdmull sz{size} t{t}"),
+                enc_sve2_mull(size, 0, 0, t),
+            ));
         }
     }
     for t in 0..2u32 {
@@ -5432,7 +6317,10 @@ fn diff_sve2_mlal() {
                         enc_sve2_mlal(size, s, u, t),
                     ));
                 }
-                cases.push((format!("sqdmlal sz{size} s{s} t{t}"), enc_sve2_sqdmlal(size, s, t)));
+                cases.push((
+                    format!("sqdmlal sz{size} s{s} t{t}"),
+                    enc_sve2_sqdmlal(size, s, t),
+                ));
             }
         }
     }
@@ -5621,7 +6509,10 @@ fn diff_sve2_bperm() {
     let mut cases: Vec<(String, u32)> = Vec::new();
     for size in 0..4u32 {
         for opc in 0..3u32 {
-            cases.push((format!("bperm sz{size} opc{opc}"), enc_sve2_bperm(size, opc)));
+            cases.push((
+                format!("bperm sz{size} opc{opc}"),
+                enc_sve2_bperm(size, opc),
+            ));
         }
     }
     run_family("sve2_bperm", cases, 20, 0x5_B001);
@@ -5661,7 +6552,10 @@ fn diff_sve2_abal() {
     for size in 1..4u32 {
         for u in 0..2u32 {
             for t in 0..2u32 {
-                cases.push((format!("abal sz{size} u{u} t{t}"), enc_sve2_abal(size, u, t)));
+                cases.push((
+                    format!("abal sz{size} u{u} t{t}"),
+                    enc_sve2_abal(size, u, t),
+                ));
             }
         }
     }
@@ -5791,8 +6685,14 @@ fn f32_acc_vec(rng: &mut Rng) -> (u64, u64) {
 
 /// BFMLALB/T (vector): `0 Q 1 01110 11 0 Rm 111111 Rn Rd`. Q=B(0)/T(1).
 fn enc_bfmlal(q: u32) -> u32 {
-    (q << 30) | (1 << 29) | (0b01110 << 24) | (0b11 << 22) | (RM << 16)
-        | (0b111111 << 10) | (RN << 5) | RD
+    (q << 30)
+        | (1 << 29)
+        | (0b01110 << 24)
+        | (0b11 << 22)
+        | (RM << 16)
+        | (0b111111 << 10)
+        | (RN << 5)
+        | RD
 }
 
 /// BFMLALB/T (by element): `0 Q 0 01111 11 L M Rm 1111 H 0 Rn Rd`. index=H:L:M.
@@ -5800,28 +6700,55 @@ fn enc_bfmlal_idx(q: u32, index: u32) -> u32 {
     let h = (index >> 2) & 1;
     let l = (index >> 1) & 1;
     let m = index & 1;
-    (q << 30) | (0b01111 << 24) | (0b11 << 22) | (l << 21) | (m << 20)
-        | (RM << 16) | (0b1111 << 12) | (h << 11) | (RN << 5) | RD
+    (q << 30)
+        | (0b01111 << 24)
+        | (0b11 << 22)
+        | (l << 21)
+        | (m << 20)
+        | (RM << 16)
+        | (0b1111 << 12)
+        | (h << 11)
+        | (RN << 5)
+        | RD
 }
 
 /// BFDOT (vector): `0 Q 1 01110 01 0 Rm 111111 Rn Rd`. Q=datasize.
 fn enc_bfdot(q: u32) -> u32 {
-    (q << 30) | (1 << 29) | (0b01110 << 24) | (0b01 << 22) | (RM << 16)
-        | (0b111111 << 10) | (RN << 5) | RD
+    (q << 30)
+        | (1 << 29)
+        | (0b01110 << 24)
+        | (0b01 << 22)
+        | (RM << 16)
+        | (0b111111 << 10)
+        | (RN << 5)
+        | RD
 }
 
 /// BFDOT (by element): `0 Q 0 01111 01 L M Rm 1111 H 0 Rn Rd`. index=H:L.
 fn enc_bfdot_idx(q: u32, index: u32) -> u32 {
     let h = (index >> 1) & 1;
     let l = index & 1;
-    (q << 30) | (0b01111 << 24) | (0b01 << 22) | (l << 21) | (RM << 16)
-        | (0b1111 << 12) | (h << 11) | (RN << 5) | RD
+    (q << 30)
+        | (0b01111 << 24)
+        | (0b01 << 22)
+        | (l << 21)
+        | (RM << 16)
+        | (0b1111 << 12)
+        | (h << 11)
+        | (RN << 5)
+        | RD
 }
 
 /// BFMMLA: `0 1 1 01110 01 0 Rm 111011 Rn Rd`.
 fn enc_bfmmla() -> u32 {
-    (1 << 30) | (1 << 29) | (0b01110 << 24) | (0b01 << 22) | (RM << 16)
-        | (0b111011 << 10) | (RN << 5) | RD
+    (1 << 30)
+        | (1 << 29)
+        | (0b01110 << 24)
+        | (0b01 << 22)
+        | (RM << 16)
+        | (0b111011 << 10)
+        | (RN << 5)
+        | RD
 }
 
 /// A varied f32 bit pattern for BFCVT testing: finite normals, tie cases,
@@ -5829,13 +6756,13 @@ fn enc_bfmmla() -> u32 {
 /// payload-propagation out of the comparison.
 fn rand_f32_for_bfcvt(rng: &mut Rng) -> u32 {
     match rng.next() % 12 {
-        0 => 0x3F80_8000, // tie, bf16 lsb 0 -> rounds down
-        1 => 0x3F81_8000, // tie, bf16 lsb 1 -> rounds up
-        2 => 0x7F7F_FFFF, // max f32 -> overflow to bf16 inf
-        3 => 0x0000_0000, // +0
-        4 => 0x8000_0000, // -0
-        5 => 0x7F80_0000, // +inf
-        6 => 0xFF80_0000, // -inf
+        0 => 0x3F80_8000,                     // tie, bf16 lsb 0 -> rounds down
+        1 => 0x3F81_8000,                     // tie, bf16 lsb 1 -> rounds up
+        2 => 0x7F7F_FFFF,                     // max f32 -> overflow to bf16 inf
+        3 => 0x0000_0000,                     // +0
+        4 => 0x8000_0000,                     // -0
+        5 => 0x7F80_0000,                     // +inf
+        6 => 0xFF80_0000,                     // -inf
         7 => rng.next() as u32 & 0x0000_FFFF, // tiny / subnormal-ish low bits
         _ => {
             let sign = (rng.next() & 1) as u32;
@@ -5887,7 +6814,10 @@ fn diff_simd_bf16() {
             cases.push((format!("bfdot_idx q{q} i{index}"), enc_bfdot_idx(q, index)));
         }
         for index in 0..8u32 {
-            cases.push((format!("bfmlal_idx q{q} i{index}"), enc_bfmlal_idx(q, index)));
+            cases.push((
+                format!("bfmlal_idx q{q} i{index}"),
+                enc_bfmlal_idx(q, index),
+            ));
         }
     }
     cases.push(("bfmmla".to_string(), enc_bfmmla()));
@@ -5915,8 +6845,15 @@ fn enc_usdot(q: u32) -> u32 {
 fn enc_usdot_idx(q: u32, us: u32, index: u32) -> u32 {
     let h = (index >> 1) & 1;
     let l = index & 1;
-    (q << 30) | (0b01111 << 24) | (us << 23) | (l << 21) | (RM << 16)
-        | (0b1111 << 12) | (h << 11) | (RN << 5) | RD
+    (q << 30)
+        | (0b01111 << 24)
+        | (us << 23)
+        | (l << 21)
+        | (RM << 16)
+        | (0b1111 << 12)
+        | (h << 11)
+        | (RN << 5)
+        | RD
 }
 
 #[test]
@@ -5925,8 +6862,14 @@ fn diff_simd_usdot() {
     for q in 0..2u32 {
         cases.push((format!("usdot q{q}"), enc_usdot(q)));
         for index in 0..4u32 {
-            cases.push((format!("usdot_idx q{q} i{index}"), enc_usdot_idx(q, 1, index)));
-            cases.push((format!("sudot_idx q{q} i{index}"), enc_usdot_idx(q, 0, index)));
+            cases.push((
+                format!("usdot_idx q{q} i{index}"),
+                enc_usdot_idx(q, 1, index),
+            ));
+            cases.push((
+                format!("sudot_idx q{q} i{index}"),
+                enc_usdot_idx(q, 0, index),
+            ));
         }
     }
     run_family("simd_usdot", cases, 32, 0x1_001C);
@@ -5966,7 +6909,12 @@ fn diff_crypto_sm3() {
         ("sm3partw2".to_string(), partw2),
     ];
     // SM3TT{1,2}{A,B}: 11001110 010 Rm 10 imm2 sel Rn Rd (sel=bits[11:10]).
-    for (sel, nm) in [(0b00u32, "tt1a"), (0b01, "tt1b"), (0b10, "tt2a"), (0b11, "tt2b")] {
+    for (sel, nm) in [
+        (0b00u32, "tt1a"),
+        (0b01, "tt1b"),
+        (0b10, "tt2a"),
+        (0b11, "tt2b"),
+    ] {
         for i in 0..4u32 {
             let insn = 0xCE00_0000
                 | (0b010 << 21)
@@ -6005,7 +6953,11 @@ fn diff_excl_pair() {
     let mut cases: Vec<(String, u32, u32)> = Vec::new();
     for size in 0..4u32 {
         for o0 in 0..2 {
-            cases.push((format!("ldxr_stxr sz{size} o0{o0}"), enc_ldxr(size, o0), enc_stxr(size, o0)));
+            cases.push((
+                format!("ldxr_stxr sz{size} o0{o0}"),
+                enc_ldxr(size, o0),
+                enc_stxr(size, o0),
+            ));
         }
     }
     let mut rng = Rng::new(0x1_0008);
@@ -6020,8 +6972,16 @@ fn diff_excl_pair() {
 
 /// CAS: `size 0010001 L 1 Rs o0 11111 Rn Rt`. Rs=x2 (compare/old), Rn=x1, Rt=x0 (new).
 fn enc_cas(size: u32, l: u32, o0: u32) -> u32 {
-    (size << 30) | (0b001000 << 24) | (1 << 23) | (l << 22) | (1 << 21) | (2 << 16)
-        | (o0 << 15) | (0b11111 << 10) | (RN << 5) | RD
+    (size << 30)
+        | (0b001000 << 24)
+        | (1 << 23)
+        | (l << 22)
+        | (1 << 21)
+        | (2 << 16)
+        | (o0 << 15)
+        | (0b11111 << 10)
+        | (RN << 5)
+        | RD
 }
 
 #[test]
@@ -6054,15 +7014,21 @@ fn diff_mem_cas() {
 /// sz64 selects 64-bit (size=11) vs 32-bit (size=10) element pair.
 fn enc_ldxp(sz64: bool, o0: u32) -> u32 {
     let size = if sz64 { 3 } else { 2 };
-    (size << 30) | (0b001000 << 24) | (1 << 22) | (1 << 21) | (0b11111 << 16)
-        | (o0 << 15) | (5 << 10) | (RN << 5) | 4
+    (size << 30)
+        | (0b001000 << 24)
+        | (1 << 22)
+        | (1 << 21)
+        | (0b11111 << 16)
+        | (o0 << 15)
+        | (5 << 10)
+        | (RN << 5)
+        | 4
 }
 
 /// STXP: `1 sz 001000 0 0 1 Rs o0 Rt2 Rn Rt`. Rs=x6 (status), Rt=x4, Rt2=x5, Rn=x1.
 fn enc_stxp(sz64: bool, o0: u32) -> u32 {
     let size = if sz64 { 3 } else { 2 };
-    (size << 30) | (0b001000 << 24) | (1 << 21) | (6 << 16)
-        | (o0 << 15) | (5 << 10) | (RN << 5) | 4
+    (size << 30) | (0b001000 << 24) | (1 << 21) | (6 << 16) | (o0 << 15) | (5 << 10) | (RN << 5) | 4
 }
 
 #[test]
@@ -6109,8 +7075,15 @@ fn diff_excl_stxp() {
 /// CASP: `0 sz 001000 0 L 1 Rs o0 11111 Rn Rt`. Rs=x2:x3 (compare/old),
 /// Rt=x4:x5 (new), Rn=x1. sz selects 32-bit (0) or 64-bit (1) element pair.
 fn enc_casp(sz: u32, l: u32, o0: u32) -> u32 {
-    (sz << 30) | (0b001000 << 24) | (l << 22) | (1 << 21) | (2 << 16)
-        | (o0 << 15) | (0b11111 << 10) | (RN << 5) | 4
+    (sz << 30)
+        | (0b001000 << 24)
+        | (l << 22)
+        | (1 << 21)
+        | (2 << 16)
+        | (o0 << 15)
+        | (0b11111 << 10)
+        | (RN << 5)
+        | 4
 }
 
 #[test]
@@ -6147,8 +7120,16 @@ fn diff_mem_casp() {
 
 /// Atomic memory op: `size 111 0 00 A R 1 Rs o3 opc 00 Rn Rt`. Rs=x2, Rn=x1, Rt=x0.
 fn enc_atomic(size: u32, a: u32, r: u32, o3: u32, opc: u32) -> u32 {
-    (size << 30) | (0b111 << 27) | (a << 23) | (r << 22) | (1 << 21) | (2 << 16)
-        | (o3 << 15) | (opc << 12) | (RN << 5) | RD
+    (size << 30)
+        | (0b111 << 27)
+        | (a << 23)
+        | (r << 22)
+        | (1 << 21)
+        | (2 << 16)
+        | (o3 << 15)
+        | (opc << 12)
+        | (RN << 5)
+        | RD
 }
 
 #[test]
@@ -6168,7 +7149,10 @@ fn diff_mem_atomic() {
     for &(o3, opc, name) in ops {
         for size in 0..4u32 {
             for &(a, r) in &[(0u32, 0u32), (1, 1)] {
-                cases.push((format!("{name} sz{size} a{a}r{r}"), enc_atomic(size, a, r, o3, opc)));
+                cases.push((
+                    format!("{name} sz{size} a{a}r{r}"),
+                    enc_atomic(size, a, r, o3, opc),
+                ));
             }
         }
     }
@@ -6184,8 +7168,15 @@ fn diff_mem_atomic() {
 
 /// AdvSIMD load/store multiple structures: `0 Q 0011 0 0 post L rm opcode size Rn Rt`.
 fn enc_ldst_struct(q: u32, post: u32, l: u32, rm: u32, opcode: u32, size: u32) -> u32 {
-    (q << 30) | (0b001100 << 24) | (post << 23) | (l << 22) | (rm << 16) | (opcode << 12)
-        | (size << 10) | (RN << 5) | RD
+    (q << 30)
+        | (0b001100 << 24)
+        | (post << 23)
+        | (l << 22)
+        | (rm << 16)
+        | (opcode << 12)
+        | (size << 10)
+        | (RN << 5)
+        | RD
 }
 
 #[test]
@@ -6205,11 +7196,21 @@ fn diff_mem_ldst_struct() {
         for size in 0..4u32 {
             for q in 0..2 {
                 for l in 0..2 {
-                    let op = if l == 1 { name.to_string() } else { name.replace("ld", "st") };
+                    let op = if l == 1 {
+                        name.to_string()
+                    } else {
+                        name.replace("ld", "st")
+                    };
                     // no-offset
-                    cases.push((format!("{op} sz{size} q{q} noff"), enc_ldst_struct(q, 0, l, 0, opcode, size)));
+                    cases.push((
+                        format!("{op} sz{size} q{q} noff"),
+                        enc_ldst_struct(q, 0, l, 0, opcode, size),
+                    ));
                     // post-index, immediate increment (Rm == 31)
-                    cases.push((format!("{op} sz{size} q{q} post"), enc_ldst_struct(q, 1, l, 31, opcode, size)));
+                    cases.push((
+                        format!("{op} sz{size} q{q} post"),
+                        enc_ldst_struct(q, 1, l, 31, opcode, size),
+                    ));
                 }
             }
         }
@@ -6226,8 +7227,15 @@ fn diff_mem_ldst_struct() {
 
 /// Load/store pair: `opc 101 V 0 mode L imm7 Rt2 Rn Rt`. Rt=x0, Rt2=x2, Rn=x1.
 fn enc_ldp(opc: u32, v: u32, mode: u32, l: u32, imm7: u32) -> u32 {
-    (opc << 30) | (0b101 << 27) | (v << 26) | (mode << 23) | (l << 22) | ((imm7 & 0x7F) << 15)
-        | (2 << 10) | (RN << 5) | RD
+    (opc << 30)
+        | (0b101 << 27)
+        | (v << 26)
+        | (mode << 23)
+        | (l << 22)
+        | ((imm7 & 0x7F) << 15)
+        | (2 << 10)
+        | (RN << 5)
+        | RD
 }
 
 #[test]
@@ -6245,14 +7253,21 @@ fn diff_mem_ldp_stp() {
     for &(opc, v, load_only, name) in kinds {
         // modes: 10=signed offset, 01=post-index, 11=pre-index
         for &mode in &[0b10u32, 0b01, 0b11] {
-            for &l in if load_only { &[1u32][..] } else { &[0u32, 1][..] } {
+            for &l in if load_only {
+                &[1u32][..]
+            } else {
+                &[0u32, 1][..]
+            } {
                 for imm7 in 0..3u32 {
                     let nm = if l == 1 && !load_only {
                         name.replace("stp", "ldp")
                     } else {
                         name.to_string()
                     };
-                    cases.push((format!("{nm} m{mode} #{imm7}"), enc_ldp(opc, v, mode, l, imm7)));
+                    cases.push((
+                        format!("{nm} m{mode} #{imm7}"),
+                        enc_ldp(opc, v, mode, l, imm7),
+                    ));
                 }
             }
         }
@@ -6270,8 +7285,14 @@ fn diff_mem_ldp_stp() {
 /// Load/store register, unsigned immediate offset:
 /// `size 111 V 01 opc imm12 Rn Rt`. Rn=base (x1), Rt=Rd (x0/v0).
 fn enc_ldst_uimm(size: u32, v: u32, opc: u32, imm12: u32) -> u32 {
-    (size << 30) | (0b111 << 27) | (v << 26) | (0b01 << 24) | (opc << 22) | (imm12 << 10)
-        | (RN << 5) | RD
+    (size << 30)
+        | (0b111 << 27)
+        | (v << 26)
+        | (0b01 << 24)
+        | (opc << 22)
+        | (imm12 << 10)
+        | (RN << 5)
+        | RD
 }
 
 /// Build a memory-test input: base register x1 -> SCRATCH_BASE, random scratch
@@ -6313,7 +7334,10 @@ fn diff_mem_ldst_imm() {
     let mut cases: Vec<(String, u32)> = Vec::new();
     for &(size, v, opc, name) in ops {
         for imm12 in 0..4u32 {
-            cases.push((format!("{name} #{imm12}"), enc_ldst_uimm(size, v, opc, imm12)));
+            cases.push((
+                format!("{name} #{imm12}"),
+                enc_ldst_uimm(size, v, opc, imm12),
+            ));
         }
     }
     // Custom batch with memory inputs.
@@ -6329,18 +7353,35 @@ fn diff_mem_ldst_imm() {
 
 /// Scalar FP 3-source: `0001_1111 type o1 Rm o0 Ra Rn Rd`.
 fn enc_fp3(fp_type: u32, o1: u32, o0: u32) -> u32 {
-    (0b00011111 << 24) | (fp_type << 22) | (o1 << 21) | (RM << 16) | (o0 << 15)
-        | (RA << 10) | (RN << 5) | RD
+    (0b00011111 << 24)
+        | (fp_type << 22)
+        | (o1 << 21)
+        | (RM << 16)
+        | (o0 << 15)
+        | (RA << 10)
+        | (RN << 5)
+        | RD
 }
 /// Scalar FP 2-source: `0001_1110 type 1 Rm opcode 10 Rn Rd`.
 fn enc_fp2(fp_type: u32, opcode: u32) -> u32 {
-    (0b00011110 << 24) | (fp_type << 22) | (1 << 21) | (RM << 16) | (opcode << 12)
-        | (0b10 << 10) | (RN << 5) | RD
+    (0b00011110 << 24)
+        | (fp_type << 22)
+        | (1 << 21)
+        | (RM << 16)
+        | (opcode << 12)
+        | (0b10 << 10)
+        | (RN << 5)
+        | RD
 }
 /// Scalar FP 1-source: `0001_1110 type 1 opcode 10000 Rn Rd`.
 fn enc_fp1(fp_type: u32, opcode: u32) -> u32 {
-    (0b00011110 << 24) | (fp_type << 22) | (1 << 21) | (opcode << 15) | (0b10000 << 10)
-        | (RN << 5) | RD
+    (0b00011110 << 24)
+        | (fp_type << 22)
+        | (1 << 21)
+        | (opcode << 15)
+        | (0b10000 << 10)
+        | (RN << 5)
+        | RD
 }
 
 /// Fill v0..v3 low elements with finite (non-zero) floats. `nonneg` keeps them
@@ -6348,7 +7389,13 @@ fn enc_fp1(fp_type: u32, opcode: u32) -> u32 {
 fn fill_scalar_fp(st: &mut ArmState, rng: &mut Rng, f64op: bool, nonneg: bool) {
     for r in 0..4usize {
         let n = (rng.next() % 40) as i64 - 20;
-        let iv = if nonneg { (n.abs()) + 1 } else if n == 0 { 1 } else { n };
+        let iv = if nonneg {
+            (n.abs()) + 1
+        } else if n == 0 {
+            1
+        } else {
+            n
+        };
         if f64op {
             let v = iv as f64 * 0.25;
             st.set_vreg(r, v.to_bits(), 0);
@@ -6367,7 +7414,11 @@ fn diff_fp_scalar() {
         // 3-source: FMADD/FMSUB/FNMADD/FNMSUB
         for o1 in 0..2 {
             for o0 in 0..2 {
-                cases.push((format!("fp3 t{ft} o1{o1} o0{o0}"), enc_fp3(ft, o1, o0), f64op));
+                cases.push((
+                    format!("fp3 t{ft} o1{o1} o0{o0}"),
+                    enc_fp3(ft, o1, o0),
+                    f64op,
+                ));
             }
         }
         // 2-source: FMUL/FDIV/FADD/FSUB/FMAX/FMIN/FMAXNM/FMINNM/FNMUL
@@ -6375,8 +7426,23 @@ fn diff_fp_scalar() {
             cases.push((format!("fp2 t{ft} op{opcode}"), enc_fp2(ft, opcode), f64op));
         }
         // 1-source: FMOV/FABS/FNEG + FRINT family (skip FSQRT here; tested below)
-        for &opcode in &[0b000000u32, 0b000001, 0b000010, 0b001000, 0b001001, 0b001010, 0b001011, 0b001100, 0b001110, 0b001111] {
-            cases.push((format!("fp1 t{ft} op{opcode:06b}"), enc_fp1(ft, opcode), f64op));
+        for &opcode in &[
+            0b000000u32,
+            0b000001,
+            0b000010,
+            0b001000,
+            0b001001,
+            0b001010,
+            0b001011,
+            0b001100,
+            0b001110,
+            0b001111,
+        ] {
+            cases.push((
+                format!("fp1 t{ft} op{opcode:06b}"),
+                enc_fp1(ft, opcode),
+                f64op,
+            ));
         }
     }
     let mut rng = Rng::new(0xF101);
@@ -6427,7 +7493,10 @@ fn diff_fp_ccmp() {
                         | (RN << 5)
                         | (op << 4)
                         | nzcv;
-                    cases.push((format!("fccmp ty{fp_type} cond{cond} op{op} nzcv{nzcv}"), insn));
+                    cases.push((
+                        format!("fccmp ty{fp_type} cond{cond} op{op} nzcv{nzcv}"),
+                        insn,
+                    ));
                 }
             }
         }
@@ -6439,8 +7508,15 @@ fn diff_fp_ccmp() {
 fn enc_shift_imm(q: u32, u: u32, opcode: u32, immhimmb: u32) -> u32 {
     let immh = (immhimmb >> 3) & 0xF;
     let immb = immhimmb & 0x7;
-    (q << 30) | (u << 29) | (0b011110 << 23) | (immh << 19) | (immb << 16)
-        | (opcode << 11) | (1 << 10) | (RN << 5) | RD
+    (q << 30)
+        | (u << 29)
+        | (0b011110 << 23)
+        | (immh << 19)
+        | (immb << 16)
+        | (opcode << 11)
+        | (1 << 10)
+        | (RN << 5)
+        | RD
 }
 
 /// Integer shift-by-immediate cases: same-size, widening and narrowing forms
@@ -6555,14 +7631,20 @@ fn diff_simd_shift_fixedpoint() {
                 let word: u64 = if is_fcvt {
                     // small finite float values
                     let val = ((rng.next() % 41) as i64 - 20) as f64 * 0.25;
-                    if bits64 { val.to_bits() } else { (val as f32).to_bits() as u64 }
+                    if bits64 {
+                        val.to_bits()
+                    } else {
+                        (val as f32).to_bits() as u64
+                    }
                 } else {
                     // small signed integers
                     ((rng.next() % 4001) as i64 - 2000) as u64
                 };
                 if bits64 {
                     packed |= (word as u128) << (64 * lane.min(1));
-                    if lane == 1 { break; }
+                    if lane == 1 {
+                        break;
+                    }
                 } else {
                     packed |= ((word as u32) as u128) << (32 * lane);
                 }
@@ -6576,8 +7658,15 @@ fn diff_simd_shift_fixedpoint() {
 
 /// Advanced SIMD three-different (widening/narrowing): `0 Q U 01110 size 1 Rm opcode 00 Rn Rd`.
 fn enc_3diff(q: u32, u: u32, size: u32, opcode: u32) -> u32 {
-    (q << 30) | (u << 29) | (0b01110 << 24) | (size << 22) | (1 << 21) | (RM << 16)
-        | (opcode << 12) | (RN << 5) | RD
+    (q << 30)
+        | (u << 29)
+        | (0b01110 << 24)
+        | (size << 22)
+        | (1 << 21)
+        | (RM << 16)
+        | (opcode << 12)
+        | (RN << 5)
+        | RD
 }
 
 #[test]
@@ -6605,7 +7694,10 @@ fn diff_simd_three_diff() {
         for &u in us {
             for size in 0..3 {
                 for q in 0..2 {
-                    cases.push((format!("{name} sz{size} q{q}"), enc_3diff(q, u, size, opcode)));
+                    cases.push((
+                        format!("{name} sz{size} q{q}"),
+                        enc_3diff(q, u, size, opcode),
+                    ));
                 }
             }
             // PMULL.1Q (size==3) for the polynomial op only.
@@ -6621,8 +7713,15 @@ fn diff_simd_three_diff() {
 
 /// Advanced SIMD across-lanes reduction: `0 Q U 01110 size 11000 opcode 10 Rn Rd`.
 fn enc_across(q: u32, u: u32, size: u32, opcode: u32) -> u32 {
-    (q << 30) | (u << 29) | (0b01110 << 24) | (size << 22) | (0b11000 << 17)
-        | (opcode << 12) | (0b10 << 10) | (RN << 5) | RD
+    (q << 30)
+        | (u << 29)
+        | (0b01110 << 24)
+        | (size << 22)
+        | (0b11000 << 17)
+        | (opcode << 12)
+        | (0b10 << 10)
+        | (RN << 5)
+        | RD
 }
 
 #[test]
@@ -6640,7 +7739,10 @@ fn diff_simd_across_int() {
     for &(u, opcode, name) in ops {
         for size in 0..4 {
             for q in 0..2 {
-                cases.push((format!("{name} sz{size} q{q}"), enc_across(q, u, size, opcode)));
+                cases.push((
+                    format!("{name} sz{size} q{q}"),
+                    enc_across(q, u, size, opcode),
+                ));
             }
         }
     }
@@ -6705,9 +7807,17 @@ fn diff_simd_three_same_fp() {
     let mut cases: Vec<(String, u32, bool)> = Vec::new();
     for &(u, a, opcode, name) in ops {
         for q in 0..2 {
-            cases.push((format!("{name} f32 q{q}"), enc_three_same(q, u, a << 1, opcode), false));
+            cases.push((
+                format!("{name} f32 q{q}"),
+                enc_three_same(q, u, a << 1, opcode),
+                false,
+            ));
         }
-        cases.push((format!("{name} f64"), enc_three_same(1, u, (a << 1) | 1, opcode), true));
+        cases.push((
+            format!("{name} f64"),
+            enc_three_same(1, u, (a << 1) | 1, opcode),
+            true,
+        ));
     }
     // Non-zero finite lanes (multiples of 0.25) so FDIV is well-defined and
     // products/sums stay exactly representable.
@@ -6741,8 +7851,16 @@ fn diff_simd_three_same_fp() {
 
 /// Scalar Advanced SIMD three-same: `01 U 11110 size 1 Rm opcode 1 Rn Rd`.
 fn enc_scalar_3same(u: u32, size: u32, opcode: u32) -> u32 {
-    (0b01 << 30) | (u << 29) | (0b11110 << 24) | (size << 22) | (1 << 21) | (RM << 16)
-        | (opcode << 11) | (1 << 10) | (RN << 5) | RD
+    (0b01 << 30)
+        | (u << 29)
+        | (0b11110 << 24)
+        | (size << 22)
+        | (1 << 21)
+        | (RM << 16)
+        | (opcode << 11)
+        | (1 << 10)
+        | (RN << 5)
+        | RD
 }
 
 #[test]
@@ -6766,7 +7884,10 @@ fn diff_simd_scalar_three_same() {
     for &(opcode, name) in opcodes {
         for u in 0..2 {
             for size in 0..4 {
-                cases.push((format!("{name} u{u} sz{size}"), enc_scalar_3same(u, size, opcode)));
+                cases.push((
+                    format!("{name} u{u} sz{size}"),
+                    enc_scalar_3same(u, size, opcode),
+                ));
             }
         }
     }
@@ -6777,8 +7898,14 @@ fn diff_simd_scalar_three_same() {
 fn enc_modimm(q: u32, op: u32, cmode: u32, imm8: u32) -> u32 {
     let abc = (imm8 >> 5) & 0x7;
     let defgh = imm8 & 0x1F;
-    (q << 30) | (op << 29) | (0x0F << 24) | (abc << 16) | (cmode << 12) | (1 << 10)
-        | (defgh << 5) | RD
+    (q << 30)
+        | (op << 29)
+        | (0x0F << 24)
+        | (abc << 16)
+        | (cmode << 12)
+        | (1 << 10)
+        | (defgh << 5)
+        | RD
 }
 
 #[test]
@@ -6801,8 +7928,14 @@ fn diff_simd_modimm() {
 
 /// Advanced SIMD permute (ZIP/UZP/TRN): `0 Q 0 01110 size 0 Rm 0 opcode 10 Rn Rd`.
 fn enc_permute(q: u32, size: u32, opcode: u32) -> u32 {
-    (q << 30) | (0b01110 << 24) | (size << 22) | (RM << 16) | (opcode << 12) | (0b10 << 10)
-        | (RN << 5) | RD
+    (q << 30)
+        | (0b01110 << 24)
+        | (size << 22)
+        | (RM << 16)
+        | (opcode << 12)
+        | (0b10 << 10)
+        | (RN << 5)
+        | RD
 }
 
 #[test]
@@ -6819,7 +7952,10 @@ fn diff_simd_permute() {
     for &(opcode, name) in ops {
         for size in 0..4 {
             for q in 0..2 {
-                cases.push((format!("{name} sz{size} q{q}"), enc_permute(q, size, opcode)));
+                cases.push((
+                    format!("{name} sz{size} q{q}"),
+                    enc_permute(q, size, opcode),
+                ));
             }
         }
     }
@@ -6864,8 +8000,14 @@ fn diff_simd_tbl() {
 
 /// Advanced SIMD copy: `0 Q op 01110000 imm5 0 imm4 1 Rn Rd`.
 fn enc_copy(q: u32, op: u32, imm5: u32, imm4: u32) -> u32 {
-    (q << 30) | (op << 29) | (0b01110 << 24) | (imm5 << 16) | (imm4 << 11) | (1 << 10)
-        | (RN << 5) | RD
+    (q << 30)
+        | (op << 29)
+        | (0b01110 << 24)
+        | (imm5 << 16)
+        | (imm4 << 11)
+        | (1 << 10)
+        | (RN << 5)
+        | RD
 }
 
 /// imm5 for a given element size index (0=B,1=H,2=S,3=D) and lane index.
@@ -6882,16 +8024,34 @@ fn diff_simd_copy() {
         let lanes: u32 = 16u32 >> size; // lanes in 128 bits (16/8/4/2)
         for &index in &[0u32, lanes - 1] {
             for q in 0..2 {
-                cases.push((format!("dupelem sz{size} i{index} q{q}"), enc_copy(q, 0, copy_imm5(size, index), 0b0000)));
-                cases.push((format!("dupgen sz{size} i{index} q{q}"), enc_copy(q, 0, copy_imm5(size, index), 0b0001)));
-                cases.push((format!("smov sz{size} i{index} q{q}"), enc_copy(q, 0, copy_imm5(size, index), 0b0101)));
-                cases.push((format!("umov sz{size} i{index} q{q}"), enc_copy(q, 0, copy_imm5(size, index), 0b0111)));
+                cases.push((
+                    format!("dupelem sz{size} i{index} q{q}"),
+                    enc_copy(q, 0, copy_imm5(size, index), 0b0000),
+                ));
+                cases.push((
+                    format!("dupgen sz{size} i{index} q{q}"),
+                    enc_copy(q, 0, copy_imm5(size, index), 0b0001),
+                ));
+                cases.push((
+                    format!("smov sz{size} i{index} q{q}"),
+                    enc_copy(q, 0, copy_imm5(size, index), 0b0101),
+                ));
+                cases.push((
+                    format!("umov sz{size} i{index} q{q}"),
+                    enc_copy(q, 0, copy_imm5(size, index), 0b0111),
+                ));
             }
             // INS general/element are always 128-bit (Q=1 in the encoding).
-            cases.push((format!("insgen sz{size} i{index}"), enc_copy(1, 0, copy_imm5(size, index), 0b0011)));
+            cases.push((
+                format!("insgen sz{size} i{index}"),
+                enc_copy(1, 0, copy_imm5(size, index), 0b0011),
+            ));
             // INS element: dest index from imm5, source index from imm4 (per size).
             let src = (index + 1) % lanes;
-            cases.push((format!("inselem sz{size} d{index} s{src}"), enc_copy(1, 1, copy_imm5(size, index), src << size)));
+            cases.push((
+                format!("inselem sz{size} d{index} s{src}"),
+                enc_copy(1, 1, copy_imm5(size, index), src << size),
+            ));
         }
     }
     run_family("simd_copy", cases, 8, 0x9001);
@@ -6899,8 +8059,15 @@ fn diff_simd_copy() {
 
 /// Advanced SIMD two-register miscellaneous: `0 Q U 01110 size 10000 opcode 10 Rn Rd`.
 fn enc_two_reg(q: u32, u: u32, size: u32, opcode: u32) -> u32 {
-    (q << 30) | (u << 29) | (0b01110 << 24) | (size << 22) | (0b10000 << 17)
-        | (opcode << 12) | (0b10 << 10) | (RN << 5) | RD
+    (q << 30)
+        | (u << 29)
+        | (0b01110 << 24)
+        | (size << 22)
+        | (0b10000 << 17)
+        | (opcode << 12)
+        | (0b10 << 10)
+        | (RN << 5)
+        | RD
 }
 
 #[test]
@@ -6930,7 +8097,10 @@ fn diff_simd_two_reg_int() {
     for &(u, opcode, name) in ops {
         for size in 0..4 {
             for q in 0..2 {
-                cases.push((format!("{name} sz{size} q{q}"), enc_two_reg(q, u, size, opcode)));
+                cases.push((
+                    format!("{name} sz{size} q{q}"),
+                    enc_two_reg(q, u, size, opcode),
+                ));
             }
         }
     }
@@ -6955,7 +8125,10 @@ fn diff_simd_two_reg_widen() {
     for &(u, opcode, name) in ops {
         for size in 0..3 {
             for q in 0..2 {
-                cases.push((format!("{name} sz{size} q{q}"), enc_two_reg(q, u, size, opcode)));
+                cases.push((
+                    format!("{name} sz{size} q{q}"),
+                    enc_two_reg(q, u, size, opcode),
+                ));
             }
         }
     }
@@ -6999,7 +8172,11 @@ fn fp_two_reg_batch(
         // f32: 2S (q=0) and 4S (q=1)
         for q in 0..2 {
             let size = sz_hi << 1; // sz=0
-            cases.push((format!("{name} f32 q{q}"), enc_two_reg(q, u, size, opcode), false));
+            cases.push((
+                format!("{name} f32 q{q}"),
+                enc_two_reg(q, u, size, opcode),
+                false,
+            ));
         }
         // f64: 2D (q=1 only)
         let size = (sz_hi << 1) | 1;
@@ -7052,7 +8229,10 @@ fn diff_simd_two_reg_fp() {
 #[test]
 fn diff_simd_two_reg_fsqrt() {
     let ops: &[(u32, u32, u32, &str)] = &[(1, 1, 0b11111, "fsqrt")];
-    run_batch("simd_two_reg_fsqrt", fp_two_reg_batch(ops, 0xA002, 24, true));
+    run_batch(
+        "simd_two_reg_fsqrt",
+        fp_two_reg_batch(ops, 0xA002, 24, true),
+    );
 }
 
 #[test]
@@ -7062,9 +8242,17 @@ fn diff_simd_two_reg_cvtf() {
     let mut cases: Vec<(String, u32, bool)> = Vec::new();
     for &(u, sz_hi, opcode, name) in ops {
         for q in 0..2 {
-            cases.push((format!("{name} 32 q{q}"), enc_two_reg(q, u, sz_hi << 1, opcode), false));
+            cases.push((
+                format!("{name} 32 q{q}"),
+                enc_two_reg(q, u, sz_hi << 1, opcode),
+                false,
+            ));
         }
-        cases.push((format!("{name} 64"), enc_two_reg(1, u, (sz_hi << 1) | 1, opcode), true));
+        cases.push((
+            format!("{name} 64"),
+            enc_two_reg(1, u, (sz_hi << 1) | 1, opcode),
+            true,
+        ));
     }
     let mut rng = Rng::new(0xA003);
     let mut batch = Vec::new();
@@ -7096,8 +8284,17 @@ fn enc_indexed(q: u32, u: u32, size: u32, opcode: u32, vm: u32, index: u32) -> u
         0b11 => (vm & 0xF, (vm >> 4) & 1, 0, index & 1),
         _ => (0, 0, 0, 0),
     };
-    (q << 30) | (u << 29) | (0b01111 << 24) | (size << 22) | (lbit << 21) | (mbit << 20)
-        | (rm << 16) | (opcode << 12) | (hbit << 11) | (RN << 5) | RD
+    (q << 30)
+        | (u << 29)
+        | (0b01111 << 24)
+        | (size << 22)
+        | (lbit << 21)
+        | (mbit << 20)
+        | (rm << 16)
+        | (opcode << 12)
+        | (hbit << 11)
+        | (RN << 5)
+        | RD
 }
 
 #[test]
