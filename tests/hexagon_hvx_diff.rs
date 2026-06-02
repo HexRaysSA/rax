@@ -20,6 +20,7 @@ use rax::config::{Endianness, HexagonIsa};
 use rax::cpu::{CpuState, HexagonRegisters, VCpu, VcpuExit};
 
 const NREG: usize = 32;
+const I_PRED: usize = 32;
 const I_USR: usize = 33;
 const ST_WORDS: usize = 44;
 const VREGS: usize = 32;
@@ -228,6 +229,11 @@ fn run_rax(words: &[u32], c: &Case) -> Option<Out> {
         regs.r[i] = c.st[i];
     }
     regs.c[8] = c.st[I_USR];
+    // Scalar predicates P0..P3 (one packed byte each), matching the oracle's c4
+    // seeding — needed for scalar-predicated vector ops (vcmov, vccombine, …).
+    for i in 0..4 {
+        regs.p[i] = ((c.st[I_PRED] >> (8 * i)) & 0xff) as u8;
+    }
     regs.v = c.v;
     regs.set_pc(CODE_ADDR);
 
@@ -299,6 +305,15 @@ fn run_family(name: &str, cases: &[(&str, &str)], n: usize, seed: u64) {
                 st[r] = rng.next() as u32;
             }
             st[I_USR] = 0;
+            // Each scalar predicate P0..P3 independently all-0 / all-1, so
+            // scalar-predicated vector ops exercise both branches.
+            let mut pred = 0u32;
+            for k in 0..4 {
+                if rng.next() & 1 == 1 {
+                    pred |= 0xffu32 << (8 * k);
+                }
+            }
+            st[I_PRED] = pred;
             let mut v = [[0u32; VWORDS]; VREGS];
             for r in 0..VREGS {
                 for w in 0..VWORDS {
