@@ -746,9 +746,9 @@ impl RiscVCpu {
             | Op::VfmvFS | Op::VfmvSF | Op::Vmand | Op::Vmnand | Op::Vmandn | Op::Vmxor
             | Op::Vmor | Op::Vmnor | Op::Vmorn | Op::Vmxnor | Op::VzextVf2 | Op::VsextVf2
             | Op::VzextVf4 | Op::VsextVf4 | Op::VzextVf8 | Op::VsextVf8 | Op::Vcpop
-            | Op::Vfirst | Op::Vmsbf | Op::Vmsof | Op::Vmsif | Op::Viota | Op::Vid => {
-                self.exec_vector(insn)?
-            }
+            | Op::Vfirst | Op::Vmsbf | Op::Vmsof | Op::Vmsif | Op::Viota | Op::Vid
+            | Op::Vslideup | Op::Vslidedown | Op::Vslide1up | Op::Vslide1down
+            | Op::Vfslide1up | Op::Vfslide1down => self.exec_vector(insn)?,
 
             Op::Illegal => return Err(Trap::illegal(insn.raw)),
 
@@ -1222,6 +1222,21 @@ impl RiscVCpu {
     fn sew_bytes(&self) -> usize {
         1usize << ((self.vtype >> 3) & 0x7)
     }
+    /// VLMAX (maximum element count) for the current `vtype`.
+    #[inline]
+    fn vlmax_elems(&self) -> usize {
+        let sew = 8u64 << ((self.vtype >> 3) & 0x7);
+        (match self.vtype & 0x7 {
+            0 => VLEN / sew,
+            1 => VLEN * 2 / sew,
+            2 => VLEN * 4 / sew,
+            3 => VLEN * 8 / sew,
+            5 => VLEN / 8 / sew,
+            6 => VLEN / 4 / sew,
+            7 => VLEN / 2 / sew,
+            _ => 0,
+        }) as usize
+    }
     /// Read element `e` (of `eb` bytes) from vector register group `vreg`.
     #[inline]
     fn velem(&self, vreg: u8, e: usize, eb: usize) -> u64 {
@@ -1647,6 +1662,85 @@ impl RiscVCpu {
                         _ => unreachable!(),
                     };
                     self.set_vmask_bit(vd, e, r);
+                }
+            }
+            Op::Vslideup => {
+                // vd[i] = vs2[i - offset] for i >= offset; lower elements untouched.
+                let eb = self.sew_bytes();
+                let mask = Self::sew_mask(eb);
+                let offset = if insn.funct3 == 0b011 {
+                    insn.rs1 as u64
+                } else {
+                    self.x(insn.rs1)
+                };
+                let start = vstart.max(offset as usize);
+                for e in start..vl {
+                    if !vm && !self.vmask_bit(e) {
+                        continue;
+                    }
+                    let v = self.velem(vs2, e - offset as usize, eb);
+                    self.set_velem(vd, e, eb, v & mask);
+                }
+            }
+            Op::Vslidedown => {
+                // vd[i] = vs2[i + offset], or 0 when i + offset >= VLMAX.
+                let eb = self.sew_bytes();
+                let mask = Self::sew_mask(eb);
+                let vlmax = self.vlmax_elems() as u64;
+                let offset = if insn.funct3 == 0b011 {
+                    insn.rs1 as u64
+                } else {
+                    self.x(insn.rs1)
+                };
+                for e in vstart..vl {
+                    if !vm && !self.vmask_bit(e) {
+                        continue;
+                    }
+                    let src = (e as u64).wrapping_add(offset);
+                    let v = if src < vlmax { self.velem(vs2, src as usize, eb) } else { 0 };
+                    self.set_velem(vd, e, eb, v & mask);
+                }
+            }
+            Op::Vslide1up | Op::Vfslide1up => {
+                // vd[0] = scalar; vd[i] = vs2[i-1] for i >= 1.
+                let eb = self.sew_bytes();
+                let mask = Self::sew_mask(eb);
+                let scalar = if insn.op == Op::Vfslide1up {
+                    match eb {
+                        2 => self.h(insn.rs1),
+                        4 => self.s32(insn.rs1),
+                        _ => self.f(insn.rs1),
+                    }
+                } else {
+                    self.x(insn.rs1)
+                } & mask;
+                for e in vstart..vl {
+                    if !vm && !self.vmask_bit(e) {
+                        continue;
+                    }
+                    let v = if e == 0 { scalar } else { self.velem(vs2, e - 1, eb) };
+                    self.set_velem(vd, e, eb, v & mask);
+                }
+            }
+            Op::Vslide1down | Op::Vfslide1down => {
+                // vd[i] = vs2[i+1] for i < vl-1; vd[vl-1] = scalar.
+                let eb = self.sew_bytes();
+                let mask = Self::sew_mask(eb);
+                let scalar = if insn.op == Op::Vfslide1down {
+                    match eb {
+                        2 => self.h(insn.rs1),
+                        4 => self.s32(insn.rs1),
+                        _ => self.f(insn.rs1),
+                    }
+                } else {
+                    self.x(insn.rs1)
+                } & mask;
+                for e in vstart..vl {
+                    if !vm && !self.vmask_bit(e) {
+                        continue;
+                    }
+                    let v = if e + 1 < vl { self.velem(vs2, e + 1, eb) } else { scalar };
+                    self.set_velem(vd, e, eb, v & mask);
                 }
             }
             Op::Vcpop => {

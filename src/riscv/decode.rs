@@ -433,6 +433,13 @@ pub enum Op {
     Vmsif,
     Viota,
     Vid,
+    // ---- V (slides) ----
+    Vslideup,
+    Vslidedown,
+    Vslide1up,
+    Vslide1down,
+    Vfslide1up,
+    Vfslide1down,
     // ---- sentinel ----
     Illegal,
 }
@@ -700,6 +707,9 @@ fn decode_vector(w: u32) -> Insn {
             0b011101 => Op::Vmsle,
             0b011110 if f3 != 0b000 => Op::Vmsgtu, // vx/vi
             0b011111 if f3 != 0b000 => Op::Vmsgt,
+            // Slides (vx/vi forms; OPIVV 0b001110 is vrgatherei16, handled elsewhere).
+            0b001110 if f3 != 0b000 => Op::Vslideup,
+            0b001111 if f3 != 0b000 => Op::Vslidedown,
             _ => return Insn::illegal(w, 4),
         };
         return base(op, w);
@@ -739,6 +749,9 @@ fn decode_vector(w: u32) -> Insn {
                 0b10001 => Op::Vid,
                 _ => return Insn::illegal(w, 4),
             },
+            // Slide-by-one (OPMVX form, funct3 == 0b110).
+            0b001110 if f3 == 0b110 => Op::Vslide1up,
+            0b001111 if f3 == 0b110 => Op::Vslide1down,
             // Mask-register logical ops are OPMVV-only (funct3 == 0b010).
             0b011000 if f3 == 0b010 => Op::Vmandn,
             0b011001 if f3 == 0b010 => Op::Vmand,
@@ -771,6 +784,8 @@ fn decode_vector(w: u32) -> Insn {
             0b000000 => Op::Vfadd,
             0b000010 => Op::Vfsub,
             0b100111 if vf => Op::Vfrsub,
+            0b001110 if vf => Op::Vfslide1up,
+            0b001111 if vf => Op::Vfslide1down,
             0b100100 => Op::Vfmul,
             0b100000 => Op::Vfdiv,
             0b100001 if vf => Op::Vfrdiv,

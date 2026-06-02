@@ -394,6 +394,12 @@ impl Op {
             Vmsif => "vmsif.m",
             Viota => "viota.m",
             Vid => "vid.v",
+            Vslideup => "vslideup",
+            Vslidedown => "vslidedown",
+            Vslide1up => "vslide1up",
+            Vslide1down => "vslide1down",
+            Vfslide1up => "vfslide1up",
+            Vfslide1down => "vfslide1down",
             Illegal => "illegal",
         }
     }

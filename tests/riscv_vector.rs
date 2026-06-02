@@ -932,6 +932,55 @@ fn diff_v_mask_ops() {
 }
 
 #[test]
+fn diff_v_slide() {
+    let mut rng = Rng::new(0x7EC_7A0);
+    let mut batch = Vec::new();
+    let fpool: [u32; 5] = [0, 1, 8, 15, 20];
+    for sew_log2 in 0..4u32 {
+        let eb = 1usize << sew_log2;
+        let vmax = vlmax(sew_log2);
+        for vl in [vmax, (vmax / 2).max(1)] {
+            for k in 0..8 {
+                let vd = VPOOL[(rng.next() % 6) as usize];
+                let mut vs2 = VPOOL[(rng.next() % 6) as usize];
+                if vs2 == vd {
+                    vs2 = if vd == VPOOL[0] { VPOOL[1] } else { VPOOL[0] };
+                }
+                let rs1 = XPOOL[(rng.next() % 5) as usize];
+                let fr = fpool[(rng.next() % 5) as usize];
+                let imm = (rng.next() % (vmax + 2)) as u32; // small slide amount
+                let mut st = rand_vstate(&mut rng, sew_log2, vl);
+                fp_setup(&mut st, &mut rng, eb.max(2));
+                st.x[rs1 as usize] = rng.next() % (vmax + 3); // small vx offset
+                batch.push(("vslideup.vx".into(), op_iv(0b001110, 1, vs2, rs1, 0b100, vd), st));
+                batch.push(("vslidedown.vx".into(), op_iv(0b001111, 1, vs2, rs1, 0b100, vd), st));
+                batch.push(("vslideup.vi".into(), op_iv(0b001110, 1, vs2, imm, 0b011, vd), st));
+                batch.push(("vslidedown.vi".into(), op_iv(0b001111, 1, vs2, imm, 0b011, vd), st));
+                // slide-by-1 with scalar insertion (x[rs1] arbitrary here)
+                let mut st2 = st;
+                st2.x[rs1 as usize] = rng.next();
+                batch.push(("vslide1up.vx".into(), op_iv(0b001110, 1, vs2, rs1, 0b110, vd), st2));
+                batch.push(("vslide1down.vx".into(), op_iv(0b001111, 1, vs2, rs1, 0b110, vd), st2));
+                if sew_log2 >= 1 {
+                    // FP slide-by-1 valid only for SEW in {16,32,64}.
+                    batch.push(("vfslide1up.vf".into(), op_iv(0b001110, 1, vs2, fr, 0b101, vd), st2));
+                    batch.push(("vfslide1down.vf".into(), op_iv(0b001111, 1, vs2, fr, 0b101, vd), st2));
+                }
+                if vd != 0 && k % 2 == 0 {
+                    let mut stm = st;
+                    stm.v[0] = rng.next();
+                    stm.v[1] = rng.next();
+                    batch.push(("vslideup.vx.m".into(), op_iv(0b001110, 0, vs2, rs1, 0b100, vd), stm));
+                    batch.push(("vslidedown.vi.m".into(), op_iv(0b001111, 0, vs2, imm, 0b011, vd), stm));
+                    batch.push(("vslide1up.vx.m".into(), op_iv(0b001110, 0, vs2, rs1, 0b110, vd), stm));
+                }
+            }
+        }
+    }
+    run_batch(&batch);
+}
+
+#[test]
 fn diff_v_loadstore() {
     let mut rng = Rng::new(0x7EC_705);
     let mut batch = Vec::new();
