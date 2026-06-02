@@ -4818,6 +4818,27 @@ impl AArch64Cpu {
                 self.exec_sve_tbl(zd, zn, zm, esize)
             }
 
+            // COMPACT (pack active elements down): 0x05, bit23==1,
+            // bits[21:16]==100001, bits[15:13]==100. S/D elements only.
+            0b000
+                if (insn >> 24) & 0xFF == 0b00000101
+                    && (insn >> 23) & 1 == 1
+                    && (insn >> 16) & 0x3F == 0b100001
+                    && (insn >> 13) & 0x7 == 0b100 =>
+            {
+                self.exec_sve_compact(insn, zd, zn, pg)
+            }
+
+            // SPLICE (destructive): 0x05, bits[21:16]==101100, bits[15:13]==100.
+            // Zdn's active span is packed low, the rest filled from Zm.
+            0b000
+                if (insn >> 24) & 0xFF == 0b00000101
+                    && (insn >> 16) & 0x3F == 0b101100
+                    && (insn >> 13) & 0x7 == 0b100 =>
+            {
+                self.exec_sve_splice(insn, zd, zn, pg)
+            }
+
             // Unpredicated bitwise logical (AND/ORR/EOR/BIC): bits[15:10]=001100.
             0b000 if (insn >> 21) & 1 == 1 && (insn >> 10) & 0x3F == 0b001100 => {
                 self.exec_sve_logical_unpred(insn, zd, zn, zm)
@@ -5748,6 +5769,81 @@ impl AArch64Cpu {
                 write_elem(&mut dst, e * esize, esize, val);
             }
             // Out-of-range index leaves the destination element as 0.
+        }
+        self.v[zd] = u128::from_le_bytes(dst);
+        Ok(CpuExit::Continue)
+    }
+
+    /// Execute SVE COMPACT: pack the active (per Pg) elements of Zn contiguously
+    /// into the low elements of Zd, zeroing the remaining high elements. Only
+    /// 32-bit (S) and 64-bit (D) element sizes are defined (esize = 32 << sz).
+    fn exec_sve_compact(
+        &mut self,
+        insn: u32,
+        zd: usize,
+        zn: usize,
+        pg: usize,
+    ) -> Result<CpuExit, ArmError> {
+        let esize = 4usize << ((insn >> 22) & 1); // bytes: 4 (S) or 8 (D)
+        let elements = 16 / esize;
+        let pred = self.sve_p[pg];
+        let src = self.v[zn].to_le_bytes();
+        let mut dst = [0u8; 16];
+        let mut x = 0;
+        for e in 0..elements {
+            if (pred >> (e * esize)) & 1 == 1 {
+                let val = read_elem(&src, e * esize, esize);
+                write_elem(&mut dst, x * esize, esize, val);
+                x += 1;
+            }
+        }
+        self.v[zd] = u128::from_le_bytes(dst);
+        Ok(CpuExit::Continue)
+    }
+
+    /// Execute SVE SPLICE (destructive): copy the elements of Zdn spanning from
+    /// the first to the last active element (inclusive, regardless of the
+    /// predicate value of elements in between) into the low part of the result,
+    /// then fill the remaining elements from the low elements of Zm. With no
+    /// active element the result is Zm unchanged. `zd`=Zdn, `zn`=Zm.
+    fn exec_sve_splice(
+        &mut self,
+        insn: u32,
+        zd: usize,
+        zn: usize,
+        pg: usize,
+    ) -> Result<CpuExit, ArmError> {
+        let esize = 1usize << ((insn >> 22) & 0x3); // bytes
+        let elements = 16 / esize;
+        let pred = self.sve_p[pg];
+        let op1 = self.v[zd].to_le_bytes(); // Zdn
+        let op2 = self.v[zn].to_le_bytes(); // Zm
+        let mut dst = [0u8; 16];
+        let mut x = 0usize;
+        let mut lastnum: i32 = -1;
+        for e in 0..elements {
+            if (pred >> (e * esize)) & 1 == 1 {
+                lastnum = e as i32;
+            }
+        }
+        if lastnum >= 0 {
+            let mut active = false;
+            for e in 0..=(lastnum as usize) {
+                if (pred >> (e * esize)) & 1 == 1 {
+                    active = true;
+                }
+                if active {
+                    let val = read_elem(&op1, e * esize, esize);
+                    write_elem(&mut dst, x * esize, esize, val);
+                    x += 1;
+                }
+            }
+        }
+        // Fill the remaining (elements - x) destination slots from Zm's low part.
+        for e in 0..(elements - x) {
+            let val = read_elem(&op2, e * esize, esize);
+            write_elem(&mut dst, x * esize, esize, val);
+            x += 1;
         }
         self.v[zd] = u128::from_le_bytes(dst);
         Ok(CpuExit::Continue)
