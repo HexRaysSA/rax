@@ -26,9 +26,11 @@ mod float;
 mod float_ext;
 mod hvx;
 mod hvx_addsub;
+mod hvx_carry;
 mod hvx_cmp;
 mod hvx_cmpacc;
 mod hvx_cmpy;
+mod hvx_hist;
 mod hvx_lut;
 mod hvx_minmax;
 mod hvx_misc;
@@ -270,6 +272,8 @@ pub fn dispatch(d: &DecodedOp, ctx: &mut SemCtx) -> bool {
         || hvx_predop::exec(op, d, ctx)
         || hvx_cmpacc::exec(op, d, ctx)
         || hvx_misc::exec(op, d, ctx)
+        || hvx_carry::exec(op, d, ctx)
+        || hvx_hist::exec(op, d, ctx)
         || mpy_ext::exec(op, d, ctx)
         || shift_ext::exec(op, d, ctx)
         || alu_ext::exec(op, d, ctx)
