@@ -1743,6 +1743,42 @@ fn diff_sve_shift_pred() {
     run_batch("sve_shift_pred", batch);
 }
 
+#[test]
+fn diff_sve_shift_imm() {
+    let ops = [(0b000u32, "asr"), (0b001, "lsr"), (0b011, "lsl")];
+    let mut rng = Rng::new(0x1_002E);
+    let mut batch: Vec<(String, u32, ArmState)> = Vec::new();
+    for &esize in &[1usize, 2, 4, 8] {
+        let ebits = esize * 8;
+        for &(opc, name) in &ops {
+            let amounts: Vec<usize> = if opc == 0b011 {
+                vec![0, 1, ebits / 2, ebits - 1]
+            } else {
+                vec![1, 2, ebits / 2, ebits]
+            };
+            for &amount in &amounts {
+                let tszimm = if opc == 0b011 {
+                    ebits + amount
+                } else {
+                    2 * ebits - amount
+                };
+                let tsize = (tszimm >> 3) as u32;
+                let imm3 = (tszimm & 7) as u32;
+                let (tszh, tszl) = (tsize >> 2, tsize & 3);
+                let insn = (0x04 << 24) | (tszh << 22) | (opc << 16) | (0b100 << 13)
+                    | (tszl << 8) | (imm3 << 5) | RD;
+                for _ in 0..8 {
+                    let mut st = ArmState::zeroed();
+                    st.set_vreg(0, rng.next(), rng.next());
+                    st.set_preg(0, rng.next() as u16);
+                    batch.push((format!("{name} e{ebits} a{amount}"), insn, st));
+                }
+            }
+        }
+    }
+    run_batch("sve_shift_imm", batch);
+}
+
 /// SVE CPY immediate: `00000101 sz 01 Pg M sh imm8 Zd`. Pg=p0, Zd=z0.
 fn enc_cpy_imm(sz: u32, m: u32, sh: u32, imm8: i32) -> u32 {
     (0x05 << 24) | (sz << 22) | (0b01 << 20) | (m << 14) | (sh << 13)

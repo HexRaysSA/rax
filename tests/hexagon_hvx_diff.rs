@@ -724,3 +724,207 @@ fn diff_hvx_minmax() {
         0xa1b2,
     );
 }
+
+// ==== hvx_rmpy (workflow: HVX multiply family) ====
+#[test]
+fn diff_hvx_rmpy() {
+    // Reduction multiplies (vrmpy / vdmpy / vtmpy / vdsad / vrsad). Scalar = r5.
+    // Accumulate forms read+write v0 (seeded random); pair dest = v1:0, pair src = v3:2.
+    run_family(
+        "hvx_rmpy",
+        &[
+            // vrmpy scalar single-vector
+            ("vrmpyub", "{ v0.uw = vrmpy(v4.ub,r5.ub) }"),
+            ("vrmpyub_acc", "{ v0.uw += vrmpy(v4.ub,r5.ub) }"),
+            ("vrmpybus", "{ v0.w = vrmpy(v4.ub,r5.b) }"),
+            ("vrmpybus_acc", "{ v0.w += vrmpy(v4.ub,r5.b) }"),
+            // vrmpy vector-vector
+            ("vrmpyubv", "{ v0.uw = vrmpy(v4.ub,v6.ub) }"),
+            ("vrmpyubv_acc", "{ v0.uw += vrmpy(v4.ub,v6.ub) }"),
+            ("vrmpybv", "{ v0.w = vrmpy(v4.b,v6.b) }"),
+            ("vrmpybv_acc", "{ v0.w += vrmpy(v4.b,v6.b) }"),
+            ("vrmpybusv", "{ v0.w = vrmpy(v4.ub,v6.b) }"),
+            ("vrmpybusv_acc", "{ v0.w += vrmpy(v4.ub,v6.b) }"),
+            // vrmpy pair with #u1 byte rotate
+            ("vrmpyubi0", "{ v1:0.uw = vrmpy(v3:2.ub,r5.ub,#0) }"),
+            ("vrmpyubi1", "{ v1:0.uw = vrmpy(v3:2.ub,r5.ub,#1) }"),
+            ("vrmpyubi_acc", "{ v1:0.uw += vrmpy(v3:2.ub,r5.ub,#1) }"),
+            ("vrmpybusi0", "{ v1:0.w = vrmpy(v3:2.ub,r5.b,#0) }"),
+            ("vrmpybusi1", "{ v1:0.w = vrmpy(v3:2.ub,r5.b,#1) }"),
+            ("vrmpybusi_acc", "{ v1:0.w += vrmpy(v3:2.ub,r5.b,#1) }"),
+            // vrsad pair with #u1 byte rotate
+            ("vrsadubi0", "{ v1:0.uw = vrsad(v3:2.ub,r5.ub,#0) }"),
+            ("vrsadubi1", "{ v1:0.uw = vrsad(v3:2.ub,r5.ub,#1) }"),
+            ("vrsadubi_acc", "{ v1:0.uw += vrsad(v3:2.ub,r5.ub,#1) }"),
+            // vdsad pair
+            ("vdsaduh", "{ v1:0.uw = vdsad(v3:2.uh,r5.uh) }"),
+            ("vdsaduh_acc", "{ v1:0.uw += vdsad(v3:2.uh,r5.uh) }"),
+            // vdmpybus single + dv
+            ("vdmpybus", "{ v0.h = vdmpy(v4.ub,r5.b) }"),
+            ("vdmpybus_acc", "{ v0.h += vdmpy(v4.ub,r5.b) }"),
+            ("vdmpybus_dv", "{ v1:0.h = vdmpy(v3:2.ub,r5.b) }"),
+            ("vdmpybus_dv_acc", "{ v1:0.h += vdmpy(v3:2.ub,r5.b) }"),
+            // vdmpyhb single + dv
+            ("vdmpyhb", "{ v0.w = vdmpy(v4.h,r5.b) }"),
+            ("vdmpyhb_acc", "{ v0.w += vdmpy(v4.h,r5.b) }"),
+            ("vdmpyhb_dv", "{ v1:0.w = vdmpy(v3:2.h,r5.b) }"),
+            ("vdmpyhb_dv_acc", "{ v1:0.w += vdmpy(v3:2.h,r5.b) }"),
+            // vdmpyh*sat single
+            ("vdmpyhsat", "{ v0.w = vdmpy(v4.h,r5.h):sat }"),
+            ("vdmpyhsat_acc", "{ v0.w += vdmpy(v4.h,r5.h):sat }"),
+            ("vdmpyhsusat", "{ v0.w = vdmpy(v4.h,r5.uh):sat }"),
+            ("vdmpyhsusat_acc", "{ v0.w += vdmpy(v4.h,r5.uh):sat }"),
+            // vdmpyh*isat pair-src -> single
+            ("vdmpyhisat", "{ v0.w = vdmpy(v3:2.h,r5.h):sat }"),
+            ("vdmpyhisat_acc", "{ v0.w += vdmpy(v3:2.h,r5.h):sat }"),
+            ("vdmpyhsuisat", "{ v0.w = vdmpy(v3:2.h,r5.uh,#1):sat }"),
+            ("vdmpyhsuisat_acc", "{ v0.w += vdmpy(v3:2.h,r5.uh,#1):sat }"),
+            // vdmpyhvsat vector-vector
+            ("vdmpyhvsat", "{ v0.w = vdmpy(v4.h,v6.h):sat }"),
+            ("vdmpyhvsat_acc", "{ v0.w += vdmpy(v4.h,v6.h):sat }"),
+            // vtmpy pair 3-wide sliding window
+            ("vtmpyb", "{ v1:0.h = vtmpy(v3:2.b,r5.b) }"),
+            ("vtmpyb_acc", "{ v1:0.h += vtmpy(v3:2.b,r5.b) }"),
+            ("vtmpybus", "{ v1:0.h = vtmpy(v3:2.ub,r5.b) }"),
+            ("vtmpybus_acc", "{ v1:0.h += vtmpy(v3:2.ub,r5.b) }"),
+            ("vtmpyhb", "{ v1:0.w = vtmpy(v3:2.h,r5.b) }"),
+            ("vtmpyhb_acc", "{ v1:0.w += vtmpy(v3:2.h,r5.b) }"),
+        ],
+        8,
+        0x7a1d,
+    );
+}
+
+// ==== hvx_mpys (workflow: HVX multiply family) ====
+#[test]
+fn diff_hvx_mpys() {
+    // Scalar multiply-add / piecewise (vmpa*) and integer multiply-accumulate
+    // scalar forms. Scalar Rt = r5, scalar pair Rtt = r5:4 (all GPRs seeded).
+    // Pair source = v3:2, pair dest = v1:0 (v0/v1 seeded random so accumulate
+    // and read-modify-write forms are exercised).
+    run_family(
+        "hvx_mpys",
+        &[
+            ("vmpabus", "{ v1:0.h = vmpa(v3:2.ub,r5.b) }"),
+            ("vmpabus_acc", "{ v1:0.h += vmpa(v3:2.ub,r5.b) }"),
+            ("vmpabuu", "{ v1:0.h = vmpa(v3:2.ub,r5.ub) }"),
+            ("vmpabuu_acc", "{ v1:0.h += vmpa(v3:2.ub,r5.ub) }"),
+            ("vmpahb", "{ v1:0.w = vmpa(v3:2.h,r5.b) }"),
+            ("vmpahb_acc", "{ v1:0.w += vmpa(v3:2.h,r5.b) }"),
+            ("vmpauhb", "{ v1:0.w = vmpa(v3:2.uh,r5.b) }"),
+            ("vmpauhb_acc", "{ v1:0.w += vmpa(v3:2.uh,r5.b) }"),
+            ("vmpabusv", "{ v1:0.h = vmpa(v3:2.ub,v5:4.b) }"),
+            ("vmpabuuv", "{ v1:0.h = vmpa(v3:2.ub,v5:4.ub) }"),
+            ("vmpahhsat", "{ v0.h = vmpa(v0.h,v2.h,r5:4.h):sat }"),
+            ("vmpauhuhsat", "{ v0.h = vmpa(v0.h,v2.uh,r5:4.uh):sat }"),
+            ("vmpsuhuhsat", "{ v0.h = vmps(v0.h,v2.uh,r5:4.uh):sat }"),
+            ("vmpyih_acc", "{ v0.h += vmpyi(v2.h,v3.h) }"),
+            ("vmpyihb_acc", "{ v0.h += vmpyi(v2.h,r5.b) }"),
+            ("vmpyiwb_acc", "{ v0.w += vmpyi(v2.w,r5.b) }"),
+            ("vmpyiwh_acc", "{ v0.w += vmpyi(v2.w,r5.h) }"),
+            ("vmpyieoh", "{ v0.w = vmpyieo(v2.h,v3.h) }"),
+            ("vmpyiewh_acc", "{ v0.w += vmpyie(v2.w,v3.h) }"),
+            ("vmpyiewuh", "{ v0.w = vmpyie(v2.w,v3.uh) }"),
+            ("vmpyiewuh_acc", "{ v0.w += vmpyie(v2.w,v3.uh) }"),
+            ("vmpyiowh", "{ v0.w = vmpyio(v2.w,v3.h) }"),
+            ("vmpyiwub", "{ v0.w = vmpyi(v2.w,r5.ub) }"),
+            ("vmpyiwub_acc", "{ v0.w += vmpyi(v2.w,r5.ub) }"),
+        ],
+        8,
+        0x6d7a,
+    );
+}
+
+// ==== hvx_mpyv (workflow: HVX multiply family) ====
+#[test]
+fn diff_hvx_mpyv() {
+    // Widening vector-by-vector and vector-by-scalar multiplies. Pair dests use
+    // v1:0 (even=v0, odd=v1, both seeded random so acc forms are exercised);
+    // scalar operand is r5. Sources use distinct, non-overlapping v4/v5.
+    run_family(
+        "hvx_mpyv",
+        &[
+            // vector-by-vector, widening -> pair
+            ("vmpybv", "{ v1:0.h = vmpy(v4.b,v5.b) }"),
+            ("vmpybv_acc", "{ v1:0.h += vmpy(v4.b,v5.b) }"),
+            ("vmpybusv", "{ v1:0.h = vmpy(v4.ub,v5.b) }"),
+            ("vmpybusv_acc", "{ v1:0.h += vmpy(v4.ub,v5.b) }"),
+            ("vmpyubv", "{ v1:0.uh = vmpy(v4.ub,v5.ub) }"),
+            ("vmpyubv_acc", "{ v1:0.uh += vmpy(v4.ub,v5.ub) }"),
+            ("vmpyhv", "{ v1:0.w = vmpy(v4.h,v5.h) }"),
+            ("vmpyhv_acc", "{ v1:0.w += vmpy(v4.h,v5.h) }"),
+            ("vmpyhus", "{ v1:0.w = vmpy(v4.h,v5.uh) }"),
+            ("vmpyhus_acc", "{ v1:0.w += vmpy(v4.h,v5.uh) }"),
+            ("vmpyuhv", "{ v1:0.uw = vmpy(v4.uh,v5.uh) }"),
+            ("vmpyuhv_acc", "{ v1:0.uw += vmpy(v4.uh,v5.uh) }"),
+            // vector-by-vector, halfword <<1:rnd:sat -> single
+            ("vmpyhvsrs", "{ v0.h = vmpy(v4.h,v5.h):<<1:rnd:sat }"),
+            // vector-by-scalar, widening -> pair
+            ("vmpybus", "{ v1:0.h = vmpy(v4.ub,r5.b) }"),
+            ("vmpybus_acc", "{ v1:0.h += vmpy(v4.ub,r5.b) }"),
+            ("vmpyub", "{ v1:0.uh = vmpy(v4.ub,r5.ub) }"),
+            ("vmpyub_acc", "{ v1:0.uh += vmpy(v4.ub,r5.ub) }"),
+            ("vmpyh", "{ v1:0.w = vmpy(v4.h,r5.h) }"),
+            ("vmpyh_acc", "{ v1:0.w += vmpy(v4.h,r5.h) }"),
+            ("vmpyhsat_acc", "{ v1:0.w += vmpy(v4.h,r5.h):sat }"),
+            ("vmpyuh", "{ v1:0.uw = vmpy(v4.uh,r5.uh) }"),
+            ("vmpyuh_acc", "{ v1:0.uw += vmpy(v4.uh,r5.uh) }"),
+            // vector-by-scalar, halfword <<1 sat / rnd:sat -> single
+            ("vmpyhss", "{ v0.h = vmpy(v4.h,r5.h):<<1:sat }"),
+            ("vmpyhsrs", "{ v0.h = vmpy(v4.h,r5.h):<<1:rnd:sat }"),
+            // even unsigned halfword by scalar unsigned halfword -> single
+            ("vmpyuhe", "{ v0.uw = vmpye(v4.uh,r5.uh) }"),
+            ("vmpyuhe_acc", "{ v0.uw += vmpye(v4.uh,r5.uh) }"),
+        ],
+        8,
+        0x7be,
+    );
+}
+
+// ==== hvx_cmpy (workflow: HVX multiply family) ====
+#[test]
+fn diff_hvx_cmpy() {
+    // Even/odd word multiplies (vmpyewuh / vmpyowh): Vu.w * Vv.uh[0] (even,
+    // unsigned low half) or Vu.w * Vv.h[1] (odd, signed high half). Accumulate
+    // forms write v0 (seeded random); pair dest is v1:0, pair source v3:2.
+    run_family(
+        "hvx_cmpy",
+        &[
+            ("vmpyewuh", "{ v4.w = vmpye(v2.w,v3.uh) }"),
+            ("vmpyewuh_64", "{ v1:0 = vmpye(v2.w,v3.uh) }"),
+            ("vmpyowh", "{ v4.w = vmpyo(v2.w,v3.h):<<1:sat }"),
+            ("vmpyowh_rnd", "{ v4.w = vmpyo(v2.w,v3.h):<<1:rnd:sat }"),
+            ("vmpyowh_sacc", "{ v0.w += vmpyo(v2.w,v3.h):<<1:sat:shift }"),
+            ("vmpyowh_rnd_sacc", "{ v0.w += vmpyo(v2.w,v3.h):<<1:rnd:sat:shift }"),
+            ("vmpyowh_64_acc", "{ v1:0 += vmpyo(v2.w,v3.h) }"),
+        ],
+        32,
+        0xc91a,
+    );
+}
+
+// ==== hvx_lut (workflow: HVX multiply family) ====
+#[test]
+fn diff_hvx_lut() {
+    run_family(
+        "hvx_lut",
+        &[
+            // 4-entry lookup from a scalar register pair (r5:4).
+            ("vlut4", "{ v0.h = vlut4(v1.uh,r5:4.h) }"),
+            // vlut32: byte lookups. Scalar Rt = r5; immediate = #3.
+            ("vlutvvb", "{ v0.b = vlut32(v1.b,v2.b,r5) }"),
+            ("vlutvvb_nm", "{ v0.b = vlut32(v1.b,v2.b,r5):nomatch }"),
+            ("vlutvvbi", "{ v0.b = vlut32(v1.b,v2.b,#3) }"),
+            ("vlutvvb_oracc", "{ v0.b |= vlut32(v1.b,v2.b,r5) }"),
+            ("vlutvvb_oracci", "{ v0.b |= vlut32(v1.b,v2.b,#3) }"),
+            // vlut16: halfword lookups, vector-pair dest (v1:0).
+            ("vlutvwh", "{ v1:0.h = vlut16(v2.b,v3.h,r5) }"),
+            ("vlutvwh_nm", "{ v1:0.h = vlut16(v2.b,v3.h,r5):nomatch }"),
+            ("vlutvwhi", "{ v1:0.h = vlut16(v2.b,v3.h,#3) }"),
+            ("vlutvwh_oracc", "{ v1:0.h |= vlut16(v2.b,v3.h,r5) }"),
+            ("vlutvwh_oracci", "{ v1:0.h |= vlut16(v2.b,v3.h,#3) }"),
+        ],
+        8,
+        0x1c7e,
+    );
+}

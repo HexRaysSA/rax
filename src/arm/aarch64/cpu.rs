@@ -4890,6 +4890,12 @@ impl AArch64Cpu {
                 self.exec_sve_shift_pred(insn, zd, zn, pg, esize)
             }
 
+            // Predicated shift by immediate (ASR/LSR/LSL Zdn, Pg/M, Zdn, #imm):
+            // bits[15:13]==100, bits[21:19]==000.
+            0b000 if (insn >> 13) & 0x7 == 0b100 && (insn >> 19) & 0x7 == 0b000 => {
+                self.exec_sve_shift_imm(insn)
+            }
+
             // FABS/FNEG (predicated, merging): bits[21:17]==01110, bits[15:13]==
             // 101, bit16 selects FNEG. Pure sign-bit ops.
             0b000 if (insn >> 17) & 0x1F == 0b01110 && (insn >> 13) & 0x7 == 0b101 => {
@@ -5017,6 +5023,61 @@ impl AArch64Cpu {
                 (0b011, 0b011) => a & !b,
                 _ => return Ok(CpuExit::Undefined(insn)),
             } & mask;
+            write_elem(&mut dst, off, esize, r);
+        }
+        self.v[zd] = u128::from_le_bytes(dst);
+        Ok(CpuExit::Continue)
+    }
+
+    /// Execute SVE predicated shift by immediate (destructive, merging). The
+    /// element size AND shift amount are jointly encoded in tsz:imm: esize is
+    /// the lowest set bit of tsize=tszh:tszl; for ASR/LSR amount = 2*esize -
+    /// tszimm, for LSL amount = tszimm - esize.
+    fn exec_sve_shift_imm(&mut self, insn: u32) -> Result<CpuExit, ArmError> {
+        let tszh = (insn >> 22) & 0x3;
+        let tszl = (insn >> 8) & 0x3;
+        let imm3 = (insn >> 5) & 0x7;
+        let tsize = (tszh << 2) | tszl;
+        if tsize == 0 {
+            return Ok(CpuExit::Undefined(insn));
+        }
+        // esize from the highest set bit of tsize (0001->8, 001x->16, 01xx->32,
+        // 1xxx->64).
+        let bits: u32 = if tsize & 0b1000 != 0 {
+            64
+        } else if tsize & 0b0100 != 0 {
+            32
+        } else if tsize & 0b0010 != 0 {
+            16
+        } else {
+            8
+        };
+        let esize = (bits / 8) as usize;
+        let tszimm = (tsize << 3) | imm3;
+        let opc = (insn >> 16) & 0x7; // ASR=000, LSR=001, LSL=011
+        let amount = match opc {
+            0b011 => tszimm - bits,
+            0b000 | 0b001 => 2 * bits - tszimm,
+            _ => return Ok(CpuExit::Undefined(insn)),
+        };
+        let pg = ((insn >> 10) & 0x7) as usize;
+        let zd = (insn & 0x1F) as usize;
+        let pred = self.sve_p[pg];
+        let elements = 16 / esize;
+        let mask = elem_mask(bits);
+        let a_reg = self.v[zd].to_le_bytes();
+        let mut dst = a_reg;
+        for e in 0..elements {
+            if (pred >> (e * esize)) & 1 == 0 {
+                continue;
+            }
+            let off = e * esize;
+            let v = read_elem(&a_reg, off, esize);
+            let r = match opc {
+                0b000 => (sext_elem(v, bits) >> amount) as u64 & mask,
+                0b001 => ((v as u128) >> amount) as u64 & mask,
+                _ => ((v as u128) << amount) as u64 & mask,
+            };
             write_elem(&mut dst, off, esize, r);
         }
         self.v[zd] = u128::from_le_bytes(dst);
