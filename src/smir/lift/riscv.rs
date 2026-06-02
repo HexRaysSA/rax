@@ -2227,7 +2227,7 @@ impl RiscVLifter {
         let imm = {
             let imm5 = ((insn >> 12) & 1) as i8;
             let imm4_0 = ((insn >> 2) & 0x1F) as i8;
-            (((imm5 << 5) | imm4_0) as i8) as i64 // Sign-extend from 6 bits
+            ((((imm5 << 5) | imm4_0) << 2) >> 2) as i64 // sign-extend from bit 5
         };
 
         if rd == 0 {
@@ -2269,7 +2269,7 @@ impl RiscVLifter {
         let imm = {
             let imm5 = ((insn >> 12) & 1) as i8;
             let imm4_0 = ((insn >> 2) & 0x1F) as i8;
-            (((imm5 << 5) | imm4_0) as i8) as i64
+            ((((imm5 << 5) | imm4_0) << 2) >> 2) as i64 // sign-extend from bit 5
         };
 
         let rs1 = self.get_x_reg(rd, ctx);
@@ -2343,7 +2343,7 @@ impl RiscVLifter {
         let imm = {
             let imm5 = ((insn >> 12) & 1) as i8;
             let imm4_0 = ((insn >> 2) & 0x1F) as i8;
-            (((imm5 << 5) | imm4_0) as i8) as i64
+            ((((imm5 << 5) | imm4_0) << 2) >> 2) as i64 // sign-extend from bit 5
         };
 
         let mut ops = Vec::new();
@@ -2482,7 +2482,7 @@ impl RiscVLifter {
                 let imm = {
                     let imm5 = ((insn >> 12) & 1) as i8;
                     let imm4_0 = ((insn >> 2) & 0x1F) as i8;
-                    (((imm5 << 5) | imm4_0) as i8) as i64
+                    ((((imm5 << 5) | imm4_0) << 2) >> 2) as i64 // sign-extend from bit 5
                 };
                 if let Some(dst) = self.def_x_reg(rd, ctx) {
                     ops.push(SmirOp::new(

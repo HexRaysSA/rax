@@ -16,7 +16,7 @@
 
 use std::collections::BTreeMap;
 
-use rax::riscv::{decode, FlatMemory as RvMem, Isa, Op, RiscVConfig, RiscVCpu, RiscVExit, Xlen};
+use rax::riscv::{decode, decode_at, FlatMemory as RvMem, Isa, Memory as RvMemory, Op, RiscVConfig, RiscVCpu, RiscVExit, Xlen};
 use rax::smir::types::{ArchReg, BlockId, OpId, RiscVReg, SourceArch};
 use rax::smir::{
     ArchRegState, FlatMemory as SmirMem, LiftContext, LiftError, RiscVLifter, SmirBlock,
@@ -335,6 +335,83 @@ fn lift_op() {
 fn lift_mem() {
     // loads (0x03), stores (0x23), AMO (0x2f)
     sweep(0x5117_0003, &[0x03, 0x23, 0x2f], 40_000);
+}
+
+/// Sweep compressed (16-bit) instructions. Base registers x2 (sp) and x8..x15
+/// point into the scratch window so compressed loads/stores stay mapped; the
+/// reference filters illegal/odd encodings (returns None) and they are skipped.
+#[test]
+fn lift_c() {
+    let mut rng = Rng::new(0x5117_0005);
+    let mut matched = 0usize;
+    let mut gaps: BTreeMap<String, usize> = BTreeMap::new();
+    let mut diverged: Vec<(u16, String)> = Vec::new();
+    let isa = Isa::rv64gc();
+    let mut tried = 0usize;
+    let mut iters = 0usize;
+    while tried < 20_000 && iters < 4_000_000 {
+        iters += 1;
+        let w16 = (rng.next() as u16) & 0xFFFF;
+        if w16 & 3 == 3 {
+            continue; // 32-bit encoding
+        }
+        // Decode the 16-bit parcel through a scratch memory (decode_at handles
+        // compressed parcels by length).
+        let mut dmem = RvMem::new(0, 8);
+        if RvMemory::write(&mut dmem, 0, &w16.to_le_bytes()).is_err() {
+            continue;
+        }
+        let insn = match decode_at(&dmem, 0, Xlen::Rv64, &isa) {
+            Ok(i) if !i.is_illegal() && i.len == 2 => i,
+            _ => continue,
+        };
+        // Skip control-flow / system that aren't single-step register compares.
+        if matches!(insn.op, Op::Jal | Op::Jalr | Op::Beq | Op::Bne | Op::Ebreak) {
+            continue;
+        }
+        tried += 1;
+        let mut st = rand_state(&mut rng);
+        // Point compressed base registers at the scratch window.
+        st.x[2] = SCRATCH + 0x80;
+        for r in 8..16 {
+            st.x[r] = SCRATCH + 0x80;
+        }
+        let bytes = w16.to_le_bytes();
+        let r = match run_ref(&bytes, &st) {
+            Some(r) => r,
+            None => continue,
+        };
+        match run_smir(&bytes, &st) {
+            Ok(Some(s)) => {
+                if let Some(d) = r.eq_regs(&s) {
+                    if diverged.len() < 40 {
+                        diverged.push((w16, format!("{:?}: {d}", insn.op)));
+                    }
+                } else {
+                    matched += 1;
+                }
+            }
+            Ok(None) => *gaps.entry(format!("{:?}", insn.op)).or_default() += 1,
+            Err(e) => diverged.push((w16, format!("{:?}: {e}", insn.op))),
+        }
+    }
+    eprintln!(
+        "sweep(compressed): matched={matched}, gap-ops={}, diverged={}",
+        gaps.len(),
+        diverged.len()
+    );
+    let mut gv: Vec<_> = gaps.iter().collect();
+    gv.sort_by(|a, b| b.1.cmp(a.1));
+    for (op, n) in gv.iter().take(40) {
+        eprintln!("  GAP {op}: {n}");
+    }
+    if !diverged.is_empty() {
+        let mut msg = format!("\n{} compressed lift divergence(s):\n", diverged.len());
+        for (w, d) in diverged.iter().take(40) {
+            msg += &format!("  insn={w:#06x}: {d}\n");
+        }
+        panic!("{msg}");
+    }
 }
 
 #[test]
