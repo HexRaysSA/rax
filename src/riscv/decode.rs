@@ -491,6 +491,14 @@ pub enum Op {
     VfcvtFX,
     VfcvtRtzXuF,
     VfcvtRtzXF,
+    // ---- V (widening FP/integer conversions) ----
+    VfwcvtXuF,
+    VfwcvtXF,
+    VfwcvtFXu,
+    VfwcvtFX,
+    VfwcvtFF,
+    VfwcvtRtzXuF,
+    VfwcvtRtzXF,
     // ---- sentinel ----
     Illegal,
 }
@@ -921,6 +929,13 @@ fn decode_vector(w: u32) -> Insn {
                 0b00011 => Op::VfcvtFX,
                 0b00110 => Op::VfcvtRtzXuF,
                 0b00111 => Op::VfcvtRtzXF,
+                0b01000 => Op::VfwcvtXuF,
+                0b01001 => Op::VfwcvtXF,
+                0b01010 => Op::VfwcvtFXu,
+                0b01011 => Op::VfwcvtFX,
+                0b01100 => Op::VfwcvtFF,
+                0b01110 => Op::VfwcvtRtzXuF,
+                0b01111 => Op::VfwcvtRtzXF,
                 _ => return Insn::illegal(w, 4),
             },
             0b010011 if !vf && vs1 == 0 => Op::Vfsqrt,

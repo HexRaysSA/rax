@@ -682,3 +682,89 @@ fn hvx_harness_probe() {
         Err(e) => panic!("lift error on HVX vadd: {e}"),
     }
 }
+
+// ---- HVX (V6_*) elementwise integer vector lift verification ----
+// Each family compares the SMIR-lifted V/Q state against the qemu-verified
+// HexagonVcpu interpreter (lift_family now also compares V0-31 / Q0-3).
+
+#[test]
+fn lift_hvx_vadd() {
+    lift_family(
+        "hvx_vadd",
+        &[
+            ("vaddb", "{ v2.b = vadd(v0.b,v1.b) }"),
+            ("vaddh", "{ v2.h = vadd(v0.h,v1.h) }"),
+            ("vaddw", "{ v2.w = vadd(v0.w,v1.w) }"),
+        ],
+        12,
+        0x7001,
+    );
+}
+
+#[test]
+fn lift_hvx_vsub() {
+    lift_family(
+        "hvx_vsub",
+        &[
+            ("vsubb", "{ v2.b = vsub(v0.b,v1.b) }"),
+            ("vsubh", "{ v2.h = vsub(v0.h,v1.h) }"),
+            ("vsubw", "{ v2.w = vsub(v0.w,v1.w) }"),
+        ],
+        12,
+        0x7002,
+    );
+}
+
+#[test]
+fn lift_hvx_vmaxu() {
+    // Unsigned vector max only — the SMIR VMax does an unsigned lane compare.
+    lift_family(
+        "hvx_vmaxu",
+        &[
+            ("vmaxub", "{ v2.ub = vmax(v0.ub,v1.ub) }"),
+            ("vmaxuh", "{ v2.uh = vmax(v0.uh,v1.uh) }"),
+        ],
+        12,
+        0x7003,
+    );
+}
+
+#[test]
+fn lift_hvx_vshift() {
+    // Logical-left (vasl) and logical-right (vlsr) shift-by-scalar only.
+    lift_family(
+        "hvx_vshift",
+        &[
+            ("vaslh", "{ v2.h = vasl(v0.h,r1) }"),
+            ("vaslw", "{ v2.w = vasl(v0.w,r1) }"),
+            ("vlsrb", "{ v2.ub = vlsr(v0.ub,r1) }"),
+            ("vlsrh", "{ v2.uh = vlsr(v0.uh,r1) }"),
+            ("vlsrw", "{ v2.uw = vlsr(v0.uw,r1) }"),
+        ],
+        12,
+        0x7004,
+    );
+}
+
+#[test]
+fn lift_hvx_vassign() {
+    lift_family(
+        "hvx_vassign",
+        &[("vassign", "{ v2 = v0 }")],
+        12,
+        0x7005,
+    );
+}
+
+#[test]
+fn lift_hvx_vmpyih() {
+    // Non-widening per-halfword integer multiply keeping the low 16 bits.
+    // VMul (wrapping_mul on zero-extended lanes, masked to 16b) is bit-exact
+    // with the signed sem multiply because low product bits are sign-agnostic.
+    lift_family(
+        "hvx_vmpyih",
+        &[("vmpyih", "{ v2.h = vmpyi(v0.h,v1.h) }")],
+        12,
+        0x7006,
+    );
+}

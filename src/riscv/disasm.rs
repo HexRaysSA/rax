@@ -443,6 +443,13 @@ impl Op {
             VfcvtFX => "vfcvt.f.x.v",
             VfcvtRtzXuF => "vfcvt.rtz.xu.f.v",
             VfcvtRtzXF => "vfcvt.rtz.x.f.v",
+            VfwcvtXuF => "vfwcvt.xu.f.v",
+            VfwcvtXF => "vfwcvt.x.f.v",
+            VfwcvtFXu => "vfwcvt.f.xu.v",
+            VfwcvtFX => "vfwcvt.f.x.v",
+            VfwcvtFF => "vfwcvt.f.f.v",
+            VfwcvtRtzXuF => "vfwcvt.rtz.xu.f.v",
+            VfwcvtRtzXF => "vfwcvt.rtz.x.f.v",
             Illegal => "illegal",
         }
     }
