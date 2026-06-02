@@ -1717,6 +1717,39 @@ fn diff_sve_cmp() {
     run_batch("sve_cmp", batch);
 }
 
+/// SVE predicate-logical: `00100101 S000 Pm 01 Pg b9 Pn b4 Pd`. Pg=p1, Pm=p2,
+/// Pn=p3, Pd=p0.
+fn enc_sve_plog(s: u32, b9: u32, b4: u32) -> u32 {
+    (0x25 << 24) | (s << 23) | (2 << 16) | (0b01 << 14) | (1 << 10) | (b9 << 9) | (3 << 5)
+        | (b4 << 4)
+}
+
+#[test]
+fn diff_sve_plog() {
+    let ops: &[(u32, u32, u32, &str)] = &[
+        (0, 0, 0, "and"),
+        (0, 0, 1, "bic"),
+        (0, 1, 0, "eor"),
+        (1, 0, 0, "orr"),
+        (1, 0, 1, "orn"),
+        (1, 1, 0, "nor"),
+        (1, 1, 1, "nand"),
+    ];
+    let mut rng = Rng::new(0x1_0028);
+    let mut batch: Vec<(String, u32, ArmState)> = Vec::new();
+    for &(s, b9, b4, name) in ops {
+        let insn = enc_sve_plog(s, b9, b4);
+        for _ in 0..16 {
+            let mut st = ArmState::zeroed();
+            st.set_preg(1, rng.next() as u16);
+            st.set_preg(2, rng.next() as u16);
+            st.set_preg(3, rng.next() as u16);
+            batch.push((format!("p{name}"), insn, st));
+        }
+    }
+    run_batch("sve_plog", batch);
+}
+
 /// SVE predicated FP binary arith: `01100101 sz opc5 100 Pg Zm Zdn`. Zdn=z0,
 /// Zm=z1, Pg=p0.
 fn enc_sve_fpp(sz: u32, opc5: u32) -> u32 {

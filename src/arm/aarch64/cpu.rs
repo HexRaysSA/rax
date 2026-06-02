@@ -5068,6 +5068,30 @@ impl AArch64Cpu {
             return Ok(CpuExit::Continue);
         }
 
+        // Predicate-on-predicate logical ops (Pd = Pg & op(Pn, Pm), zeroing):
+        // 0x25, bits[15:14]==01. Op selected by (bit23, bit9, bit4). These work
+        // on the raw VL/8-bit (16 at VL=128) predicate values, no element size.
+        if (insn >> 24) & 0xFF == 0b00100101 && (insn >> 14) & 0x3 == 0b01 {
+            let pm = ((insn >> 16) & 0xF) as usize;
+            let pgl = ((insn >> 10) & 0xF) as usize;
+            let pn = ((insn >> 5) & 0xF) as usize;
+            let vg = self.sve_p[pgl];
+            let vn = self.sve_p[pn];
+            let vm = self.sve_p[pm];
+            let r = match ((insn >> 23) & 1, (insn >> 9) & 1, (insn >> 4) & 1) {
+                (0, 0, 0) => vg & vn & vm,        // AND
+                (0, 0, 1) => vg & vn & !vm,       // BIC
+                (0, 1, 0) => vg & (vn ^ vm),      // EOR
+                (1, 0, 0) => vg & (vn | vm),      // ORR
+                (1, 0, 1) => vg & (vn | !vm),     // ORN
+                (1, 1, 0) => vg & !(vn | vm),     // NOR
+                (1, 1, 1) => vg & !(vn & vm),     // NAND
+                _ => return Ok(CpuExit::Undefined(insn)),
+            } & 0xFFFF;
+            self.sve_p[pd] = r;
+            return Ok(CpuExit::Continue);
+        }
+
         // PFALSE Pd: writes an all-false predicate (bits[15:10]==111001).
         if b15_10 == 0b111001 {
             self.sve_p[pd] = 0;
