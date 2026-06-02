@@ -6685,6 +6685,44 @@ impl AArch64Cpu {
             return Ok(CpuExit::Continue);
         }
 
+        // WHILERW / WHILEWR (memory-hazard predicate): 0x25, bit21==1,
+        // bits[15:10]==001100, bit4 picks WHILERW(1)/WHILEWR(0). Both produce a
+        // monotone prefix of `count` active elements, then set NZCV like the
+        // WHILE family. The count (clamped to the element count) follows qemu:
+        //   WHILEWR: Xn>=Xm -> all; else (Xm - Xn) >> esz   (no WAR hazard)
+        //   WHILERW: Xn==Xm -> all; else |Xn - Xm| >> esz   (no RAW hazard)
+        if (insn >> 21) & 1 == 1 && b15_10 == 0b001100 {
+            let rn = ((insn >> 5) & 0x1F) as u8;
+            let rm = ((insn >> 16) & 0x1F) as u8;
+            let rw = (insn >> 4) & 1 == 1;
+            let xn = self.get_x(rn);
+            let xm = self.get_x(rm);
+            let tmax = elements as u64;
+            let count = if rw {
+                if xn == xm {
+                    tmax
+                } else {
+                    let d = if xn >= xm { xn - xm } else { xm - xn };
+                    (d >> size).min(tmax)
+                }
+            } else if xn >= xm {
+                tmax
+            } else {
+                ((xm - xn) >> size).min(tmax)
+            };
+            let mut pred = 0u32;
+            for e in 0..count as usize {
+                pred |= 1 << (e * esize);
+            }
+            self.sve_p[pd] = pred;
+            let (n, z, c, v) = pred_test_flags(pred, elements, esize);
+            self.set_n(n);
+            self.set_z(z);
+            self.set_c(c);
+            self.set_v(v);
+            return Ok(CpuExit::Continue);
+        }
+
         // BRKA / BRKB (break after / before the first true element of Pn,
         // single source): 0x25, bits[21:16]==010000, bits[15:14]==01, bit9==0.
         // bit23 picks BRKA(0)/BRKB(1); bit22 the flag-setting S form; bit4 the

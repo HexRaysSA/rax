@@ -1661,6 +1661,13 @@ fn sli_tsz_imm(esize_bits: u32, amount: u32) -> (u32, u32) {
     ((tszimm >> 3) & 0xF, tszimm & 0x7)
 }
 
+/// SVE2 WHILERW/WHILEWR (memory-hazard predicate): `0010 0101 sz 1 Rm 001100
+/// Rn rw Pd`. sz: 0=b..3=d; rw: 1=WHILERW, 0=WHILEWR. Rn=x1(RN), Rm=x2(RM),
+/// Pd=p0.
+fn enc_whilerw(sz: u32, rw: u32) -> u32 {
+    (0x25 << 24) | (sz << 22) | (1 << 21) | (RM << 16) | (0b001100 << 10) | (RN << 5) | (rw << 4)
+}
+
 /// SVE2 integer multiply (indexed): `0100 0100 <size:idx:Zm> <op6> Zn Zd`.
 /// `op6` is bits[15:10] (MUL/SQDMULH/SQRDMULH/MLA/MLS); `size` is 1=h,2=s,3=d;
 /// the (index, Zm) packing depends on size. Zn=z1(RN), Zd=z0(RD).
@@ -2757,6 +2764,36 @@ fn diff_sve2_fcvtx() {
         }
     }
     run_batch("sve2_fcvtx", batch);
+}
+
+#[test]
+fn diff_sve2_whilerw() {
+    // WHILERW/WHILEWR generate a hazard predicate from the byte distance between
+    // two pointers. Probe controlled deltas spanning the per-element boundary
+    // (including Xn>Xm and Xn==Xm), plus fully random address pairs.
+    let mut rng = Rng::new(0x6_4001);
+    let mut batch: Vec<(String, u32, ArmState)> = Vec::new();
+    let deltas: [i64; 16] = [-40, -8, -1, 0, 1, 2, 3, 4, 7, 8, 15, 16, 32, 40, 64, 200];
+    for sz in 0..4u32 {
+        for rw in 0..2u32 {
+            let insn = enc_whilerw(sz, rw);
+            for &base in &[0x1000u64, 0x200040, 0xFFFF_FFF0] {
+                for &delta in &deltas {
+                    let mut st = gen_input(&mut rng);
+                    st.x[1] = base; // Xn
+                    st.x[2] = base.wrapping_add(delta as u64); // Xm
+                    batch.push((format!("whilerw sz{sz} rw{rw} d{delta}"), insn, st));
+                }
+            }
+            for _ in 0..16 {
+                let mut st = gen_input(&mut rng);
+                st.x[1] = rng.next();
+                st.x[2] = rng.next();
+                batch.push((format!("whilerw sz{sz} rw{rw} rand"), insn, st));
+            }
+        }
+    }
+    run_batch("sve2_whilerw", batch);
 }
 
 #[test]
