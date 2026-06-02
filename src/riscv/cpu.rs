@@ -1685,6 +1685,88 @@ mod tests {
         assert_eq!(c.mem_read_u64(0x2000).unwrap(), 15);
     }
 
+    // Encode B/J/U/I-type for control-flow tests.
+    fn b_type(imm: i32, rs2: u32, rs1: u32, funct3: u32) -> u32 {
+        let u = (imm as u32) & 0x1fff;
+        let b12 = (u >> 12) & 1;
+        let b11 = (u >> 11) & 1;
+        let b10_5 = (u >> 5) & 0x3f;
+        let b4_1 = (u >> 1) & 0xf;
+        (b12 << 31) | (b10_5 << 25) | (rs2 << 20) | (rs1 << 15) | (funct3 << 12)
+            | (b4_1 << 8) | (b11 << 7) | 0x63
+    }
+    fn j_type(imm: i32, rd: u32) -> u32 {
+        let u = (imm as u32) & 0x1f_ffff;
+        let b20 = (u >> 20) & 1;
+        let b19_12 = (u >> 12) & 0xff;
+        let b11 = (u >> 11) & 1;
+        let b10_1 = (u >> 1) & 0x3ff;
+        (b20 << 31) | (b10_1 << 21) | (b11 << 20) | (b19_12 << 12) | (rd << 7) | 0x6f
+    }
+
+    #[test]
+    fn branches_all_conditions() {
+        let cases: &[(u32, &str, u64, u64, bool)] = &[
+            (0, "beq", 5, 5, true),
+            (0, "beq", 5, 6, false),
+            (1, "bne", 5, 6, true),
+            (1, "bne", 5, 5, false),
+            (4, "blt", (-1i64) as u64, 1, true), // signed: -1 < 1
+            (4, "blt", 1, (-1i64) as u64, false),
+            (5, "bge", 1, (-1i64) as u64, true), // signed: 1 >= -1
+            (5, "bge", (-1i64) as u64, 1, false),
+            (6, "bltu", 1, 2, true), // unsigned
+            (6, "bltu", 0xffff_ffff_ffff_ffff, 1, false),
+            (7, "bgeu", 0xffff_ffff_ffff_ffff, 1, true),
+            (7, "bgeu", 1, 2, false),
+        ];
+        for &(f3, name, a, b, taken) in cases {
+            let mut c = cpu();
+            c.set_pc(0x400);
+            c.set_x(1, a);
+            c.set_x(2, b);
+            run_one(&mut c, b_type(0x40, 2, 1, f3)); // imm = +0x40
+            let expect = if taken { 0x440 } else { 0x404 };
+            assert_eq!(c.pc(), expect, "{name} a={a:#x} b={b:#x} taken={taken}");
+        }
+        // negative (backward) branch offset
+        let mut c = cpu();
+        c.set_pc(0x400);
+        c.set_x(1, 1);
+        c.set_x(2, 1);
+        run_one(&mut c, b_type(-0x10, 2, 1, 0)); // beq, imm=-0x10
+        assert_eq!(c.pc(), 0x3f0);
+    }
+
+    #[test]
+    fn jal_jalr_link_and_target() {
+        let mut c = cpu();
+        c.set_pc(0x1000);
+        // jal x1, +0x20 : x1 = 0x1004, pc = 0x1020
+        run_one(&mut c, j_type(0x20, 1));
+        assert_eq!(c.x(1), 0x1004);
+        assert_eq!(c.pc(), 0x1020);
+        // jalr x5, x6, 3 : target = (x6 + 3) & ~1, link = pc+4
+        c.set_pc(0x2000);
+        c.set_x(6, 0x3001);
+        run_one(&mut c, (3u32 << 20) | (6 << 15) | (0 << 12) | (5 << 7) | 0x67);
+        assert_eq!(c.x(5), 0x2004);
+        assert_eq!(c.pc(), 0x3004 & !1); // (0x3001+3)=0x3004, &~1 = 0x3004
+    }
+
+    #[test]
+    fn lui_auipc() {
+        let mut c = cpu();
+        c.set_pc(0x8000);
+        // lui x1, 0xfffff (sign-extended): x1 = 0xfffffffff_ffff000
+        run_one(&mut c, (0xfffffu32 << 12) | (1 << 7) | 0x37);
+        assert_eq!(c.x(1), 0xffff_ffff_ffff_f000);
+        // auipc x2, 0x1 : x2 = pc + 0x1000 = 0x8004 + 0x1000... pc at auipc is 0x8004
+        c.set_pc(0x8004);
+        run_one(&mut c, (0x1u32 << 12) | (2 << 7) | 0x17);
+        assert_eq!(c.x(2), 0x9004);
+    }
+
     #[test]
     fn system_ecall_ebreak_fence() {
         let mut c = cpu();
