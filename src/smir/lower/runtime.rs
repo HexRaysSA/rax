@@ -224,26 +224,46 @@ impl std::error::Error for ExecMemError {}
 /// Pure architectural-register blocks (counter/pointer loops, ALU chains,
 /// guest-conditional branches) pass — which is the bulk of hot code.
 pub fn is_native_clobber_safe(func: &crate::smir::ir::SmirFunction) -> bool {
+    func.blocks.iter().all(block_is_clobber_safe)
+}
+
+/// Like [`is_native_clobber_safe`] but skips blocks in `excluded` (block-id ⇒
+/// resume PC, i.e. the native-exit stubs). Those blocks are lowered to exit
+/// stubs and never execute natively, so their ops can't clobber guest state —
+/// excluding them lets the JIT accept regions whose loop is clobber-safe even
+/// when an exit/continuation block uses a virtual temporary.
+pub fn is_native_clobber_safe_excluding(
+    func: &crate::smir::ir::SmirFunction,
+    excluded: &std::collections::HashMap<crate::smir::types::BlockId, u64>,
+) -> bool {
+    func.blocks
+        .iter()
+        .filter(|b| !excluded.contains_key(&b.id))
+        .all(block_is_clobber_safe)
+}
+
+/// True if `block`'s ops write only architectural registers (no virtual temp
+/// that would alias a guest GPR under the identity map). A trailing
+/// `TestCondition` feeding the block's `CondBranch` is exempt (the lowerer folds
+/// it into a direct `Jcc` and never materializes its dst).
+fn block_is_clobber_safe(block: &crate::smir::ir::SmirBlock) -> bool {
     use crate::smir::ir::Terminator;
     use crate::smir::ops::OpKind;
     use crate::smir::types::VReg;
 
-    for block in &func.blocks {
-        let n = block.ops.len();
-        for (i, op) in block.ops.iter().enumerate() {
-            // Exempt the folded trailing TestCondition (-> direct Jcc).
-            if i + 1 == n {
-                if let (Terminator::CondBranch { cond, .. }, OpKind::TestCondition { dst, .. }) =
-                    (&block.terminator, &op.kind)
-                {
-                    if dst == cond {
-                        continue;
-                    }
+    let n = block.ops.len();
+    for (i, op) in block.ops.iter().enumerate() {
+        if i + 1 == n {
+            if let (Terminator::CondBranch { cond, .. }, OpKind::TestCondition { dst, .. }) =
+                (&block.terminator, &op.kind)
+            {
+                if dst == cond {
+                    continue;
                 }
             }
-            if op.kind.dests().iter().any(|d| matches!(d, VReg::Virtual(_))) {
-                return false;
-            }
+        }
+        if op.kind.dests().iter().any(|d| matches!(d, VReg::Virtual(_))) {
+            return false;
         }
     }
     true
@@ -311,7 +331,7 @@ mod tests {
     }
 
     use crate::smir::flags::FlagUpdate;
-    use crate::smir::ir::{FunctionBuilder, Terminator};
+    use crate::smir::ir::{FunctionBuilder, Terminator, TrapKind};
     use crate::smir::ops::OpKind;
     use crate::smir::types::{ArchReg, Condition, FunctionId, OpWidth, SrcOperand, VReg, X86Reg};
 
@@ -355,6 +375,47 @@ mod tests {
         );
         b.set_terminator(Terminator::Return { values: vec![] });
         assert!(!is_native_clobber_safe(&b.finish()));
+    }
+
+    #[test]
+    fn clobber_gate_excludes_exit_blocks() {
+        // entry: add rax,rcx (arch) → Branch to exit_blk
+        // exit_blk: writes a VIRTUAL temp, then Trap (a frontier the JIT skips).
+        let mut b = FunctionBuilder::new(FunctionId(0), 0x1000);
+        let exit_blk = b.create_block(0x2000);
+        b.push_op(
+            0x1000,
+            OpKind::Add {
+                dst: rax(),
+                src1: rax(),
+                src2: SrcOperand::Reg(rcx()),
+                width: OpWidth::W64,
+                flags: FlagUpdate::None,
+            },
+        );
+        b.set_terminator(Terminator::Branch { target: exit_blk });
+        b.switch_to_block(exit_blk);
+        let tmp = b.alloc_vreg();
+        b.push_op(
+            0x2000,
+            OpKind::Add {
+                dst: tmp, // virtual temp — only safe because this block is skipped
+                src1: rax(),
+                src2: SrcOperand::Reg(rcx()),
+                width: OpWidth::W64,
+                flags: FlagUpdate::None,
+            },
+        );
+        b.set_terminator(Terminator::Trap { kind: TrapKind::Halt });
+        let func = b.finish();
+
+        assert!(!is_native_clobber_safe(&func), "exit block's virtual write trips the strict gate");
+        let mut exits = std::collections::HashMap::new();
+        exits.insert(exit_blk, 0x2000u64);
+        assert!(
+            is_native_clobber_safe_excluding(&func, &exits),
+            "excluding the (skipped) exit block, the executed region is safe"
+        );
     }
 
     #[test]
