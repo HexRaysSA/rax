@@ -6002,6 +6002,67 @@ impl AArch64Cpu {
                 Ok(CpuExit::Continue)
             }
 
+            // SVE2 HISTSEG (histogram segment): 0x45, bit21==1,
+            // bits[15:10]==101000, size==b. Each result byte is the number of Zm
+            // bytes (in the 128-bit segment) equal to the corresponding Zn byte.
+            // Unpredicated.
+            0b010
+                if (insn >> 24) & 0xFF == 0b01000101
+                    && (insn >> 21) & 1 == 1
+                    && (insn >> 10) & 0x3F == 0b101000 =>
+            {
+                if (insn >> 22) & 0x3 != 0 {
+                    return Ok(CpuExit::Undefined(insn));
+                }
+                let n = self.v[zn].to_le_bytes();
+                let m = self.v[zm].to_le_bytes();
+                let mut dst = [0u8; 16];
+                for e in 0..16 {
+                    dst[e] = m.iter().filter(|&&b| b == n[e]).count() as u8;
+                }
+                self.v[zd] = u128::from_le_bytes(dst);
+                Ok(CpuExit::Continue)
+            }
+
+            // SVE2 HISTCNT (histogram count): 0x45, bit21==1, bits[15:13]==110,
+            // size s/d. For each Pg-active element i, the result is the number of
+            // active elements j<=i whose Zm value equals Zn[i]; inactive lanes
+            // are zeroed.
+            0b010
+                if (insn >> 24) & 0xFF == 0b01000101
+                    && (insn >> 21) & 1 == 1
+                    && (insn >> 13) & 0x7 == 0b110 =>
+            {
+                let size = (insn >> 22) & 0x3;
+                if size < 2 {
+                    return Ok(CpuExit::Undefined(insn));
+                }
+                let esize = 1usize << size;
+                let elements = 16 / esize;
+                let pg = ((insn >> 10) & 0x7) as usize;
+                let gov = self.sve_p[pg];
+                let n = self.v[zn].to_le_bytes();
+                let m = self.v[zm].to_le_bytes();
+                let mut dst = [0u8; 16];
+                for i in 0..elements {
+                    let off_i = i * esize;
+                    if (gov >> off_i) & 1 == 0 {
+                        continue; // zeroing
+                    }
+                    let nn = read_elem(&n, off_i, esize);
+                    let mut count = 0u64;
+                    for j in 0..=i {
+                        let off_j = j * esize;
+                        if (gov >> off_j) & 1 == 1 && read_elem(&m, off_j, esize) == nn {
+                            count += 1;
+                        }
+                    }
+                    write_elem(&mut dst, off_i, esize, count);
+                }
+                self.v[zd] = u128::from_le_bytes(dst);
+                Ok(CpuExit::Continue)
+            }
+
             // Load/Store
             0b100 | 0b101 | 0b110 | 0b111 => self.exec_sve_ldst(insn),
 
