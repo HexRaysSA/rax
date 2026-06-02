@@ -1602,6 +1602,13 @@ fn enc_sve_fcvt(opc: u32, opc2: u32) -> u32 {
         | (0b101 << 13) | (RN << 5) | RD
 }
 
+/// SVE FP<->int convert: `01100101 opc ig1 opc2 int_U 101 Pg Zn Zd`. ig1: 011=
+/// FCVTZS/U (FP->int), 010=SCVTF/UCVTF (int->FP). int_U: 0=signed, 1=unsigned.
+fn enc_sve_cvt(opc: u32, ig1: u32, opc2: u32, u: u32) -> u32 {
+    (0b01100101 << 24) | (opc << 22) | (ig1 << 19) | (opc2 << 17) | (u << 16)
+        | (0b101 << 13) | (RN << 5) | RD
+}
+
 /// A finite FP bit pattern of width `sz` bytes (no Inf/NaN). For 4/8-byte
 /// sources the exponent is kept inside the fp16 normal range so the random
 /// mantissa exercises narrowing rounding without overflow/subnormal noise.
@@ -2285,6 +2292,58 @@ fn diff_sve_fcvt() {
         }
     }
     run_batch("sve_fcvt", batch);
+}
+
+#[test]
+fn diff_sve_cvt() {
+    // Predicated FCVTZS/FCVTZU (FP->int, trunc+saturate) and SCVTF/UCVTF
+    // (int->FP, round-to-nearest). Each (opc,opc2) fixes the FP/int width pair;
+    // ig1 picks the direction and int_U the signedness.
+    let table = [
+        (0b01u32, 0b01u32, 2usize, 2usize),
+        (0b01, 0b10, 2, 4),
+        (0b01, 0b11, 2, 8),
+        (0b10, 0b10, 4, 4),
+        (0b11, 0b10, 4, 8),
+        (0b11, 0b00, 8, 4),
+        (0b11, 0b11, 8, 8),
+    ];
+    let mut rng = Rng::new(0x3_1001);
+    let mut batch: Vec<(String, u32, ArmState)> = Vec::new();
+    for (opc, opc2, fp_sz, int_sz) in table {
+        let cont = fp_sz.max(int_sz);
+        let elements = 16 / cont;
+        for (ig1, to_int) in [(0b011u32, true), (0b010u32, false)] {
+            for u in 0..2u32 {
+                let insn = enc_sve_cvt(opc, ig1, opc2, u);
+                let name = format!(
+                    "{}{}_f{}i{}",
+                    if to_int { "fcvtz" } else { "cvtf" },
+                    if u == 0 { "s" } else { "u" },
+                    fp_sz * 8,
+                    int_sz * 8
+                );
+                let imask: u64 = if int_sz == 8 { u64::MAX } else { (1u64 << (int_sz * 8)) - 1 };
+                for _ in 0..20 {
+                    let mut st = ArmState::zeroed();
+                    let mut zn: u128 = 0;
+                    for e in 0..elements {
+                        let bits = if to_int {
+                            finite_fp_bits(&mut rng, fp_sz)
+                        } else {
+                            rng.next() & imask
+                        };
+                        zn |= (bits as u128) << (e * cont * 8);
+                    }
+                    st.set_vreg(1, zn as u64, (zn >> 64) as u64);
+                    st.set_vreg(0, rng.next(), rng.next()); // prior Zd (merge)
+                    st.set_preg(0, rng.next() as u16);
+                    batch.push((name.clone(), insn, st));
+                }
+            }
+        }
+    }
+    run_batch("sve_cvt", batch);
 }
 
 #[test]
