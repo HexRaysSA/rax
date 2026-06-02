@@ -171,6 +171,17 @@ impl SmirInterpreter {
         }
     }
 
+    /// Sign-extend the low `bits` of `v` to a full i128.
+    #[inline]
+    fn sext128(v: u128, bits: u32) -> i128 {
+        if bits >= 128 {
+            v as i128
+        } else {
+            let shift = 128 - bits;
+            ((v << shift) as i128) >> shift
+        }
+    }
+
     /// Execute a single operation
     fn execute_op(
         &self,
@@ -353,9 +364,15 @@ impl SmirInterpreter {
                     }
                 };
 
-                ctx.write_vreg(*dst_lo, result_lo);
-                if let Some(hi) = dst_hi {
-                    ctx.write_vreg(*hi, result_hi);
+                if *width == OpWidth::W8 {
+                    // 8-bit MUL: the full 16-bit product lives in AX (AH:AL);
+                    // DX is untouched. Merge the 16-bit product into AX.
+                    Self::write_gpr(ctx, *dst_lo, result_lo | (result_hi << 8), OpWidth::W16);
+                } else {
+                    Self::write_gpr(ctx, *dst_lo, result_lo, *width);
+                    if let Some(hi) = dst_hi {
+                        Self::write_gpr(ctx, *hi, result_hi, *width);
+                    }
                 }
 
                 if flags.updates_any() {
@@ -404,14 +421,22 @@ impl SmirInterpreter {
                     OpWidth::W128 => ((a as i64).wrapping_mul(b as i64) as u64, 0),
                 };
 
-                ctx.write_vreg(*dst_lo, result_lo);
-                if let Some(hi) = dst_hi {
-                    ctx.write_vreg(*hi, result_hi);
+                if *width == OpWidth::W8 {
+                    // 8-bit IMUL: the full 16-bit product lives in AX (AH:AL);
+                    // DX is untouched.
+                    Self::write_gpr(ctx, *dst_lo, result_lo | (result_hi << 8), OpWidth::W16);
+                } else {
+                    Self::write_gpr(ctx, *dst_lo, result_lo, *width);
+                    if let Some(hi) = dst_hi {
+                        Self::write_gpr(ctx, *hi, result_hi, *width);
+                    }
                 }
 
                 if flags.updates_any() {
                     ctx.flags.lazy = Some(LazyFlags {
-                        op: LazyFlagOp::Mul,
+                        // Signed: CF/OF iff the product isn't the sign-extension
+                        // of the low half (distinct from unsigned Mul's high!=0).
+                        op: LazyFlagOp::Imul,
                         result: result_lo,
                         left: a as u64,
                         right: b as u64,
@@ -456,9 +481,8 @@ impl SmirInterpreter {
                 src2,
                 width,
             } => {
-                let a = ctx.read_vreg(*src1) & width.mask();
-                let b = self.read_src_operand(ctx, src2) & width.mask();
-
+                let mask = width.mask();
+                let b = (self.read_src_operand(ctx, src2) & mask) as u128;
                 if b == 0 {
                     ctx.request_exit(ExitReason::Undefined {
                         addr: ctx.pc,
@@ -466,13 +490,39 @@ impl SmirInterpreter {
                     });
                     return Ok(());
                 }
-
-                let q = a / b;
-                let r = a % b;
-
-                ctx.write_vreg(*quot, q);
-                if let Some(rem_reg) = rem {
-                    ctx.write_vreg(*rem_reg, r);
+                // x86 DIV divides the double-width RDX:RAX (AX for 8-bit) by the
+                // operand; non-x86 contexts have no high half (single-width div).
+                let lo = ctx.read_vreg(*src1) & mask;
+                let is_x86 = matches!(ctx.arch_regs, ArchRegState::X86_64(_));
+                let dividend: u128 = if !is_x86 {
+                    lo as u128
+                } else if *width == OpWidth::W8 {
+                    (ctx.read_arch_reg(ArchReg::X86(X86Reg::Rax)) & 0xFFFF) as u128
+                } else {
+                    let hi = ctx.read_arch_reg(ArchReg::X86(X86Reg::Rdx)) & mask;
+                    ((hi as u128) << width.bits()) | (lo as u128)
+                };
+                let q = dividend / b;
+                let r = dividend % b;
+                if q > mask as u128 {
+                    // Quotient overflow -> #DE.
+                    ctx.request_exit(ExitReason::Undefined {
+                        addr: ctx.pc,
+                        opcode: 0,
+                    });
+                    return Ok(());
+                }
+                let (q, r) = (q as u64, r as u64);
+                if is_x86 && *width == OpWidth::W8 {
+                    // 8-bit: quotient -> AL, remainder -> AH.
+                    let rax = ctx.read_arch_reg(ArchReg::X86(X86Reg::Rax));
+                    let new = (rax & !0xFFFF) | ((r & 0xFF) << 8) | (q & 0xFF);
+                    ctx.write_arch_reg(ArchReg::X86(X86Reg::Rax), new);
+                } else {
+                    Self::write_gpr(ctx, *quot, q, *width);
+                    if let Some(rem_reg) = rem {
+                        Self::write_gpr(ctx, *rem_reg, r, *width);
+                    }
                 }
             }
 
@@ -483,9 +533,9 @@ impl SmirInterpreter {
                 src2,
                 width,
             } => {
-                let a = self.sign_extend(ctx.read_vreg(*src1), *width) as i64;
-                let b = self.sign_extend(self.read_src_operand(ctx, src2), *width) as i64;
-
+                let mask = width.mask();
+                let bits = width.bits();
+                let b = self.sign_extend(self.read_src_operand(ctx, src2), *width) as i64 as i128;
                 if b == 0 {
                     ctx.request_exit(ExitReason::Undefined {
                         addr: ctx.pc,
@@ -493,13 +543,40 @@ impl SmirInterpreter {
                     });
                     return Ok(());
                 }
-
-                let q = a.wrapping_div(b);
-                let r = a.wrapping_rem(b);
-
-                ctx.write_vreg(*quot, (q as u64) & width.mask());
-                if let Some(rem_reg) = rem {
-                    ctx.write_vreg(*rem_reg, (r as u64) & width.mask());
+                let is_x86 = matches!(ctx.arch_regs, ArchRegState::X86_64(_));
+                // Signed double-width dividend: RDX:RAX (AX for 8-bit) on x86.
+                let dividend: i128 = if !is_x86 {
+                    self.sign_extend(ctx.read_vreg(*src1), *width) as i64 as i128
+                } else if *width == OpWidth::W8 {
+                    ((ctx.read_arch_reg(ArchReg::X86(X86Reg::Rax)) & 0xFFFF) as u16) as i16 as i128
+                } else {
+                    let lo = ctx.read_vreg(*src1) & mask;
+                    let hi = ctx.read_arch_reg(ArchReg::X86(X86Reg::Rdx)) & mask;
+                    let combined = ((hi as u128) << bits) | (lo as u128);
+                    Self::sext128(combined, bits * 2)
+                };
+                let q = dividend.wrapping_div(b);
+                let r = dividend.wrapping_rem(b);
+                // Signed quotient must fit in `bits`, else #DE.
+                let qmax = (1i128 << (bits - 1)) - 1;
+                let qmin = -(1i128 << (bits - 1));
+                if q < qmin || q > qmax {
+                    ctx.request_exit(ExitReason::Undefined {
+                        addr: ctx.pc,
+                        opcode: 0,
+                    });
+                    return Ok(());
+                }
+                let (q, r) = ((q as u64) & mask, (r as u64) & mask);
+                if is_x86 && *width == OpWidth::W8 {
+                    let rax = ctx.read_arch_reg(ArchReg::X86(X86Reg::Rax));
+                    let new = (rax & !0xFFFF) | ((r & 0xFF) << 8) | (q & 0xFF);
+                    ctx.write_arch_reg(ArchReg::X86(X86Reg::Rax), new);
+                } else {
+                    Self::write_gpr(ctx, *quot, q, *width);
+                    if let Some(rem_reg) = rem {
+                        Self::write_gpr(ctx, *rem_reg, r, *width);
+                    }
                 }
             }
 
@@ -612,7 +689,7 @@ impl SmirInterpreter {
 
                 Self::write_gpr(ctx, *dst, result, *width);
 
-                if flags.updates_any() {
+                if amt != 0 && flags.updates_any() {
                     ctx.flags.lazy = Some(LazyFlags {
                         op: LazyFlagOp::Shl,
                         result,
@@ -641,7 +718,7 @@ impl SmirInterpreter {
 
                 Self::write_gpr(ctx, *dst, result, *width);
 
-                if flags.updates_any() {
+                if amt != 0 && flags.updates_any() {
                     ctx.flags.lazy = Some(LazyFlags {
                         op: LazyFlagOp::Shr,
                         result,
@@ -660,7 +737,9 @@ impl SmirInterpreter {
                 width,
                 flags,
             } => {
-                let val = self.sign_extend(ctx.read_vreg(*src), *width);
+                // Mask to the operand width BEFORE sign-extending, or stale upper
+                // register bits leak into both the shifted-out bits and the sign.
+                let val = self.sign_extend(ctx.read_vreg(*src) & width.mask(), *width);
                 let amt = self.read_src_operand(ctx, amount) & 0x3F;
                 let result = if amt >= width.bits() as u64 {
                     if (val as i64) < 0 {
@@ -674,7 +753,8 @@ impl SmirInterpreter {
 
                 Self::write_gpr(ctx, *dst, result, *width);
 
-                if flags.updates_any() {
+                // A masked shift count of 0 leaves all status flags unchanged.
+                if amt != 0 && flags.updates_any() {
                     ctx.flags.lazy = Some(LazyFlags {
                         op: LazyFlagOp::Sar,
                         result,
@@ -706,8 +786,16 @@ impl SmirInterpreter {
 
                 Self::write_gpr(ctx, *dst, result, *width);
 
-                if flags.updates_any() {
-                    ctx.flags.set_lazy_logic(result, *width);
+                // count==0 leaves flags unchanged; else CF = last bit out of dst's top.
+                if amt != 0 && flags.updates_any() {
+                    ctx.flags.lazy = Some(LazyFlags {
+                        op: LazyFlagOp::Shld,
+                        result,
+                        left,
+                        right: amt,
+                        width: *width,
+                        high: 0,
+                    });
                 }
             }
 
@@ -731,8 +819,16 @@ impl SmirInterpreter {
 
                 Self::write_gpr(ctx, *dst, result, *width);
 
-                if flags.updates_any() {
-                    ctx.flags.set_lazy_logic(result, *width);
+                // count==0 leaves flags unchanged; else CF = last bit out of dst's bottom.
+                if amt != 0 && flags.updates_any() {
+                    ctx.flags.lazy = Some(LazyFlags {
+                        op: LazyFlagOp::Shrd,
+                        result,
+                        left,
+                        right: amt,
+                        width: *width,
+                        high: 0,
+                    });
                 }
             }
 
@@ -754,7 +850,8 @@ impl SmirInterpreter {
 
                 Self::write_gpr(ctx, *dst, result, *width);
 
-                if flags.updates_any() {
+                // Rotate by a masked count of 0 leaves CF/OF unchanged.
+                if amt != 0 && flags.updates_any() {
                     ctx.flags.lazy = Some(LazyFlags {
                         op: LazyFlagOp::Rotate,
                         result,
@@ -784,9 +881,10 @@ impl SmirInterpreter {
 
                 Self::write_gpr(ctx, *dst, result, *width);
 
-                if flags.updates_any() {
+                // Rotate by a masked count of 0 leaves CF/OF unchanged.
+                if amt != 0 && flags.updates_any() {
                     ctx.flags.lazy = Some(LazyFlags {
-                        op: LazyFlagOp::Rotate,
+                        op: LazyFlagOp::Ror,
                         result,
                         left: val,
                         right: amt,

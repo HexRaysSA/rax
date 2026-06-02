@@ -118,10 +118,21 @@ pub enum LazyFlagOp {
     Shr,
     /// Arithmetic shift right
     Sar,
-    /// Rotate
+    /// Rotate left (ROL): CF = LSB of result
     Rotate,
-    /// Multiply: high:low = left * right
+    /// Rotate right (ROR): CF = MSB of result
+    Ror,
+    /// Double-precision shift left (SHLD): CF = last bit shifted out of dst's
+    /// top. `left` = original dst, `right` = masked count.
+    Shld,
+    /// Double-precision shift right (SHRD): CF = last bit shifted out of dst's
+    /// bottom. `left` = original dst, `right` = masked count.
+    Shrd,
+    /// Unsigned multiply: high:low = left * right; CF=OF iff high != 0
     Mul,
+    /// Signed multiply (IMUL); CF=OF iff the full product is not the
+    /// sign-extension of the low half. `result` = low half, `high` = high half.
+    Imul,
     /// Bit test: CF = (left >> right) & 1
     Bt,
 }
@@ -452,8 +463,9 @@ impl FlagState {
                 self.materialized.cf
             }
             LazyFlagOp::Neg => {
-                // CF = (src != 0)
-                lazy.left != 0
+                // CF = (src != 0), tested at the operand width (the stored
+                // operand may carry stale upper bits).
+                (lazy.left & mask) != 0
             }
             LazyFlagOp::Shl => {
                 if lazy.right == 0 {
@@ -476,7 +488,25 @@ impl FlagState {
                 }
             }
             LazyFlagOp::Rotate => (lazy.result & 1) != 0,
+            // ROR: CF = the bit rotated out of the low end = MSB of the result.
+            LazyFlagOp::Ror => (lazy.result & lazy.width.sign_bit()) != 0,
+            // SHLD CF = last bit shifted out of the top of dst = bit (width-count).
+            LazyFlagOp::Shld => {
+                let bits = lazy.width.bits() as u64;
+                (lazy.left >> (bits - lazy.right)) & 1 != 0
+            }
+            // SHRD CF = last bit shifted out of the bottom of dst = bit (count-1).
+            LazyFlagOp::Shrd => (lazy.left >> (lazy.right - 1)) & 1 != 0,
             LazyFlagOp::Mul => lazy.high != 0,
+            LazyFlagOp::Imul => {
+                // CF set iff high half != sign-extension of the low half.
+                let expected_hi = if (lazy.result & lazy.width.sign_bit()) != 0 {
+                    mask
+                } else {
+                    0
+                };
+                lazy.high != expected_hi
+            }
             LazyFlagOp::Bt => {
                 let bit_pos = lazy.right & (lazy.width.bits() as u64 - 1);
                 ((lazy.left >> bit_pos) & 1) != 0
@@ -556,7 +586,33 @@ impl FlagState {
                     false
                 }
             }
+            LazyFlagOp::Ror => {
+                // ROR by 1: OF = the two most-significant bits of the result differ.
+                if lazy.right == 1 {
+                    let msb = (lazy.result & sign_bit) != 0;
+                    let second = (lazy.result & (sign_bit >> 1)) != 0;
+                    msb != second
+                } else {
+                    false
+                }
+            }
+            // SHLD/SHRD OF (count==1 only): set iff the sign bit of dst changed.
+            LazyFlagOp::Shld | LazyFlagOp::Shrd => {
+                if lazy.right == 1 {
+                    ((lazy.result ^ lazy.left) & sign_bit) != 0
+                } else {
+                    false
+                }
+            }
             LazyFlagOp::Mul => lazy.high != 0,
+            LazyFlagOp::Imul => {
+                let expected_hi = if (lazy.result & sign_bit) != 0 {
+                    lazy.width.mask()
+                } else {
+                    0
+                };
+                lazy.high != expected_hi
+            }
             LazyFlagOp::Bt => false,
             LazyFlagOp::None => self.materialized.of,
         }
@@ -579,6 +635,8 @@ impl FlagState {
             LazyFlagOp::Sbb => (lazy.left & 0xF) < (lazy.right & 0xF) + lazy.high,
             LazyFlagOp::Inc => (lazy.result & 0x0F) == 0,
             LazyFlagOp::Dec => (lazy.result & 0x0F) == 0x0F,
+            // NEG borrows from bit 4 iff the low nibble of the source is nonzero.
+            LazyFlagOp::Neg => (lazy.left & 0x0F) != 0,
             LazyFlagOp::Logic => false,
             _ => self.materialized.af,
         }

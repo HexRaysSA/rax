@@ -2872,3 +2872,725 @@ fn smir_alu() {
     }
     stats.finish("alu");
 }
+
+
+// SMIR validation: SHL/SHR/SAR/ROL/ROR/RCL/RCR by imm8/1/CL. Mirrors
+// fuzz_shifts's generation EXACTLY (same opcodes/encodings/operands/flag masks)
+// but drives the SMIR backend via SmirStats.
+#[test]
+fn smir_shifts() {
+    const CASES: usize = 400;
+    let mut rng = Rng::new(0xDEAD_BEEF_F00D_CAFE);
+    let mut stats = SmirStats::new();
+    let sizes = [Size::B8, Size::B16, Size::B32, Size::B64];
+    // (/digit, name); skip /6 (alias of SHL).
+    let groups: &[(u8, &str)] = &[
+        (0, "rol"),
+        (1, "ror"),
+        (2, "rcl"),
+        (3, "rcr"),
+        (4, "shl"),
+        (5, "shr"),
+        (7, "sar"),
+    ];
+
+    for _ in 0..CASES {
+        let size = *rng.pick(&sizes);
+        let &(digit, name) = rng.pick(groups);
+        let dst = pick_gpr(&mut rng);
+        let by_cl = rng.below(2) == 0;
+        let is_rotate = digit <= 3;
+
+        let mut r = Registers::default();
+        let dval = rng.operand();
+        set_reg(&mut r, dst, dval);
+        // RCL/RCR feed CF in; randomize it.
+        let cf_in = rng.below(2) == 1;
+        if cf_in {
+            r.rflags |= flags::bits::CF;
+        }
+
+        // Choose a shift count. The hardware masks the count to 5 bits (or 6 for
+        // 64-bit). For RCL/RCR the modulo is by (opsize+1). Use a range that
+        // exercises both small and large counts but is well-defined.
+        let max_count = if size == Size::B64 { 63 } else { 31 };
+        let count = (rng.below(max_count as u64 + 1)) as u8;
+
+        let mut code = size_prefix(size);
+        if let Some(rex) = rex_byte(size, true) {
+            code.push(rex);
+        }
+        let byte = size == Size::B8;
+
+        let inputs;
+        if by_cl {
+            r.rcx = count as u64;
+            code.push(if byte { 0xD2 } else { 0xD3 });
+            code.push(modrm(0b11, digit, dst));
+            inputs = format!(
+                "{} {} {}, cl={} (cf_in={}); dst={:#x}",
+                name, size.name(), reg_name(dst), count, cf_in, dval
+            );
+        } else if count == 1 {
+            // Use the dedicated by-1 form so OF is well-defined.
+            code.push(if byte { 0xD0 } else { 0xD1 });
+            code.push(modrm(0b11, digit, dst));
+            inputs = format!(
+                "{} {} {}, 1 (cf_in={}); dst={:#x}",
+                name, size.name(), reg_name(dst), cf_in, dval
+            );
+        } else {
+            code.push(if byte { 0xC0 } else { 0xC1 });
+            code.push(modrm(0b11, digit, dst));
+            code.push(count);
+            inputs = format!(
+                "{} {} {}, imm8={} (cf_in={}); dst={:#x}",
+                name, size.name(), reg_name(dst), count, cf_in, dval
+            );
+        }
+        code.push(HLT);
+
+        // Flag mask. The hardware masks the count to 5 bits (6 for 64-bit) and
+        // performs the shift by that masked count WITHOUT re-clamping to the
+        // operand width. So for 8/16-bit ops the (masked) count can legitimately
+        // exceed the operand width, which matters for CF definedness:
+        //
+        //  - masked count == 0 : nothing happens; ALL status flags unchanged.
+        //  - count == 1        : OF defined. Rotate -> CF|OF; shift -> all.
+        //  - 1 < count <= width: OF undefined. Rotate -> CF; shift -> CF|PF|ZF|SF.
+        //  - count > width (only 8/16-bit):
+        //      * SAR : result sign-fills, CF = sign bit (defined). -> CF|PF|ZF|SF.
+        //      * SHL/SHR : result 0, but CF is architecturally UNDEFINED.
+        //                  -> PF|ZF|SF only (drop CF and OF).
+        //      * ROL/ROR/RCL/RCR : rotate amount is taken modulo (width) or
+        //                  (width+1), so CF stays defined. -> CF.
+        let mask_bits = if size == Size::B64 { 63u32 } else { 31u32 };
+        let masked_count = (count as u32) & mask_bits;
+        let width = size.bits();
+        let is_sar = digit == 7;
+        let shift_no_of = flags::bits::CF | flags::bits::PF | flags::bits::ZF | flags::bits::SF;
+        let flag_mask = if masked_count == 0 {
+            FLAG_MASK
+        } else if masked_count == 1 {
+            if is_rotate {
+                flags::bits::CF | flags::bits::OF
+            } else {
+                FLAG_MASK
+            }
+        } else if is_rotate {
+            flags::bits::CF
+        } else if masked_count <= width {
+            shift_no_of
+        } else if is_sar {
+            shift_no_of // SAR CF defined (= sign bit) even past the width.
+        } else {
+            // SHL/SHR past the width: CF undefined, result is 0 (PF/ZF/SF defined).
+            flags::bits::PF | flags::bits::ZF | flags::bits::SF
+        };
+
+        let opts = CompareOpts {
+            flag_mask,
+            ..CompareOpts::default()
+        };
+        if !stats.check("smir_shifts", &code, r, [0u8; 64], opts, inputs) {
+            break;
+        }
+    }
+    stats.finish("shifts");
+}
+
+// SMIR validation: SHLD/SHRD by imm8 and CL. Mirrors fuzz_double_shifts's
+// generation exactly but drives the SMIR backend via SmirStats.
+#[test]
+fn smir_double_shifts() {
+    const CASES: usize = 250;
+    let mut rng = Rng::new(0x0F0F_1E2D_3C4B_5A69);
+    let mut stats = SmirStats::new();
+    let sizes = [Size::B16, Size::B32, Size::B64];
+
+    for _ in 0..CASES {
+        let size = *rng.pick(&sizes);
+        let dst = pick_gpr(&mut rng);
+        let mut src = pick_gpr(&mut rng);
+        while src == dst {
+            src = pick_gpr(&mut rng);
+        }
+        let left = rng.below(2) == 0; // SHLD vs SHRD
+        let by_cl = rng.below(2) == 0;
+
+        let mut r = Registers::default();
+        let dval = rng.operand();
+        let sval = rng.operand();
+        set_reg(&mut r, dst, dval);
+        set_reg(&mut r, src, sval);
+
+        // Count must be < operand size to keep the result architecturally defined.
+        let count = (rng.below(size.bits() as u64)) as u8;
+
+        let mut code = size_prefix(size);
+        if size == Size::B64 {
+            code.push(0x48);
+        }
+        // SHLD imm = 0F A4, SHLD CL = 0F A5; SHRD imm = 0F AC, SHRD CL = 0F AD.
+        code.push(0x0F);
+        let name;
+        if by_cl {
+            r.rcx = count as u64;
+            code.push(if left { 0xA5 } else { 0xAD });
+            code.push(modrm(0b11, src, dst)); // reg=src, rm=dst
+            name = if left { "shld_cl" } else { "shrd_cl" };
+        } else {
+            code.push(if left { 0xA4 } else { 0xAC });
+            code.push(modrm(0b11, src, dst));
+            code.push(count);
+            name = if left { "shld_imm" } else { "shrd_imm" };
+        }
+        code.push(HLT);
+
+        // OF defined only for count==1; AF undefined; count==0 -> no change.
+        let flag_mask = if count == 0 {
+            FLAG_MASK
+        } else if count == 1 {
+            flags::bits::CF | flags::bits::PF | flags::bits::ZF | flags::bits::SF | flags::bits::OF
+        } else {
+            flags::bits::CF | flags::bits::PF | flags::bits::ZF | flags::bits::SF
+        };
+
+        let inputs = format!(
+            "{} {} {}, {}, {} ; dst={:#x} src={:#x}",
+            name, size.name(), reg_name(dst), reg_name(src), count, dval, sval
+        );
+        let opts = CompareOpts {
+            flag_mask,
+            ..CompareOpts::default()
+        };
+        if !stats.check("smir_double_shifts", &code, r, [0u8; 64], opts, inputs) {
+            break;
+        }
+    }
+    stats.finish("double_shifts");
+}
+
+// SMIR validation: MUL/IMUL/DIV/IDIV. Mirrors fuzz_muldiv's generation exactly
+// (same opcodes/encodings/operands), but drives the SMIR backend.
+#[test]
+fn smir_muldiv() {
+    const CASES: usize = 350;
+    let mut rng = Rng::new(0xABCD_1234_5678_9EF0);
+    let mut stats = SmirStats::new();
+    let sizes = [Size::B8, Size::B16, Size::B32, Size::B64];
+    let muldiv_defined = flags::bits::CF | flags::bits::OF;
+
+    for _ in 0..CASES {
+        let size = *rng.pick(&sizes);
+        let kind = rng.below(4); // 0=mul 1=imul1 2=div 3=idiv (one-operand)
+        // 2-operand IMUL (0F AF) has no 8-bit form, so only for 16/32/64-bit.
+        let two_op = kind == 1 && size != Size::B8 && rng.below(2) == 0;
+
+        let mut r = Registers::default();
+        let bits = size.bits();
+        let mask: u128 = if bits == 64 { u128::MAX >> 64 } else { (1u128 << bits) - 1 };
+
+        let src = pick_gpr(&mut rng);
+        // Don't use rax/rdx as the explicit source for 1-op forms (they're implicit).
+        let mut srcr = src;
+        while srcr == 0 || srcr == 2 {
+            srcr = pick_gpr(&mut rng);
+        }
+
+        let mut code = size_prefix(size);
+        let inputs;
+        let flag_mask;
+
+        if two_op {
+            // IMUL r, r/m : [REX.W] 0F AF /r  (reg = dest = reg * rm). 2-operand
+            // defines CF/OF; result is the low half (truncated), GPR defined.
+            let dst = pick_gpr(&mut rng);
+            let a = rng.operand();
+            let b = rng.operand();
+            set_reg(&mut r, dst, a);
+            let s2 = if dst == srcr { (srcr + 1) & 7 } else { srcr };
+            let s2 = if s2 == 4 || s2 == 5 { 6 } else { s2 };
+            set_reg(&mut r, s2, b);
+            if size == Size::B64 {
+                code.push(0x48);
+            }
+            code.push(0x0F);
+            code.push(0xAF);
+            code.push(modrm(0b11, dst, s2));
+            code.push(HLT);
+            flag_mask = muldiv_defined;
+            inputs = format!(
+                "imul2 {} {}, {} ; a={:#x} b={:#x}",
+                size.name(), reg_name(dst), reg_name(s2), a, b
+            );
+            let opts = CompareOpts {
+                flag_mask,
+                ..CompareOpts::default()
+            };
+            if !stats.check("smir_muldiv", &code, r, [0u8; 64], opts, inputs) {
+                break;
+            }
+            continue;
+        }
+
+        let byte = size == Size::B8;
+        if size == Size::B64 {
+            code.push(0x48);
+        } else if byte {
+            // Force a REX prefix for 8-bit so modrm.rm in {6,7} addresses
+            // SIL/DIL (low bytes) rather than aliasing to DH/BH, which would
+            // read garbage and spuriously raise #DE on the divide.
+            code.push(0x40);
+        }
+
+        match kind {
+            0 | 1 => {
+                // MUL (/4) or IMUL (/5) one-operand. Implicit op in (R)AX,
+                // result in (R)DX:(R)AX (or AX for 8-bit). Random operands.
+                let a = rng.operand();
+                let b = rng.operand();
+                r.rax = a;
+                set_reg(&mut r, srcr, b);
+                code.push(if byte { 0xF6 } else { 0xF7 });
+                code.push(modrm(0b11, if kind == 0 { 4 } else { 5 }, srcr));
+                flag_mask = muldiv_defined;
+                inputs = format!(
+                    "{} {} {} ; rax={:#x} {}={:#x}",
+                    if kind == 0 { "mul" } else { "imul1" },
+                    size.name(),
+                    reg_name(srcr),
+                    a,
+                    reg_name(srcr),
+                    b
+                );
+            }
+            _ => {
+                // DIV (/6) or IDIV (/7). Build dividend so the quotient fits and
+                // the divisor is nonzero, avoiding #DE entirely.
+                let divisor = {
+                    let mut d = rng.operand() & (mask as u64);
+                    if d == 0 {
+                        d = 1;
+                    }
+                    d
+                };
+                set_reg(&mut r, srcr, divisor);
+
+                if kind == 2 {
+                    // Unsigned: pick quotient < divisor-bound and remainder < divisor,
+                    // then dividend = quotient*divisor + remainder fits in 2*bits.
+                    let q = (rng.operand() as u128) & mask; // quotient fits in `bits`
+                    let rem = (rng.operand() as u128) % (divisor as u128); // < divisor
+                    // dividend = q*divisor + rem is exact and its high half fits in
+                    // `bits` because q <= mask and the product can't exceed 2*bits.
+                    let dividend = q * (divisor as u128) + rem;
+                    let lo = dividend & mask;
+                    let hi = (dividend >> bits) & mask;
+                    place_dividend(&mut r, size, lo as u64, hi as u64);
+                    code.push(if byte { 0xF6 } else { 0xF7 });
+                    code.push(modrm(0b11, 6, srcr));
+                    flag_mask = 0; // all flags undefined for DIV.
+                    inputs = format!(
+                        "div {} {}={:#x} ; dividend_lo={:#x} hi={:#x}",
+                        size.name(), reg_name(srcr), divisor, lo as u64, hi as u64
+                    );
+                } else {
+                    // Signed IDIV. Build from a signed quotient/remainder that fit.
+                    let smax: i128 = if bits == 64 {
+                        i64::MAX as i128
+                    } else {
+                        (1i128 << (bits - 1)) - 1
+                    };
+                    let sdiv = {
+                        let mut d = sign_extend(divisor, bits) as i128;
+                        if d == 0 {
+                            d = 1;
+                        }
+                        d
+                    };
+                    // quotient in a safe range so it fits in `bits` signed and the
+                    // product doesn't overflow the double-width dividend.
+                    let q = (sign_extend(rng.operand(), bits) as i128) % (smax / sdiv.abs().max(1) + 1).max(1);
+                    let rem_bound = sdiv.abs();
+                    let mut rem = (rng.next_u64() as i128) % rem_bound.max(1);
+                    // remainder sign follows the dividend; keep |rem| < |divisor|.
+                    if q < 0 || (q == 0 && rem != 0 && rng.below(2) == 0) {
+                        rem = -rem.abs();
+                    } else {
+                        rem = rem.abs();
+                    }
+                    let dividend: i128 = q * sdiv + rem;
+                    let unsigned = (dividend as u128) & (mask | (mask << bits));
+                    let lo = (unsigned & mask) as u64;
+                    let hi = ((unsigned >> bits) & mask) as u64;
+                    place_dividend(&mut r, size, lo, hi);
+                    code.push(if byte { 0xF6 } else { 0xF7 });
+                    code.push(modrm(0b11, 7, srcr));
+                    flag_mask = 0;
+                    inputs = format!(
+                        "idiv {} {}={:#x} ; dividend_lo={:#x} hi={:#x} (q={} rem={})",
+                        size.name(), reg_name(srcr), divisor, lo, hi, q, rem
+                    );
+                }
+            }
+        }
+        code.push(HLT);
+
+        let opts = CompareOpts {
+            flag_mask,
+            ..CompareOpts::default()
+        };
+        if !stats.check("smir_muldiv", &code, r, [0u8; 64], opts, inputs) {
+            break;
+        }
+    }
+    stats.finish("muldiv");
+}
+
+// SMIR validation: INC/DEC (preserve CF), NEG, NOT, TEST — partial-register +
+// flag edge cases. Mirrors fuzz_unary's generation exactly but drives SMIR.
+#[test]
+fn smir_unary() {
+    const CASES: usize = 300;
+    let mut rng = Rng::new(0x55AA_55AA_1234_9876);
+    let mut stats = SmirStats::new();
+    let sizes = [Size::B8, Size::B16, Size::B32, Size::B64];
+    // (name, group opcode for non-byte, /digit, sets-CF?)
+    // INC=FF/0, DEC=FF/1 (8-bit FE), NEG=F7/3, NOT=F7/2 (8-bit F6). TEST=group F7/0 with imm.
+    #[derive(Clone, Copy)]
+    enum U {
+        Inc,
+        Dec,
+        Neg,
+        Not,
+        Test,
+    }
+    let ops = [U::Inc, U::Dec, U::Neg, U::Not, U::Test];
+
+    for _ in 0..CASES {
+        let size = *rng.pick(&sizes);
+        let u = *rng.pick(&ops);
+        let dst = pick_gpr(&mut rng);
+        let mut r = Registers::default();
+        let dval = rng.operand();
+        set_reg(&mut r, dst, dval);
+        // Preserve incoming CF to verify INC/DEC don't touch it.
+        let cf_in = rng.below(2) == 1;
+        if cf_in {
+            r.rflags |= flags::bits::CF;
+        }
+
+        let mut code = size_prefix(size);
+        if let Some(rex) = rex_byte(size, true) {
+            code.push(rex);
+        }
+        let byte = size == Size::B8;
+        let name;
+        match u {
+            U::Inc => {
+                code.push(if byte { 0xFE } else { 0xFF });
+                code.push(modrm(0b11, 0, dst));
+                name = "inc";
+            }
+            U::Dec => {
+                code.push(if byte { 0xFE } else { 0xFF });
+                code.push(modrm(0b11, 1, dst));
+                name = "dec";
+            }
+            U::Not => {
+                code.push(if byte { 0xF6 } else { 0xF7 });
+                code.push(modrm(0b11, 2, dst));
+                name = "not";
+            }
+            U::Neg => {
+                code.push(if byte { 0xF6 } else { 0xF7 });
+                code.push(modrm(0b11, 3, dst));
+                name = "neg";
+            }
+            U::Test => {
+                // group F6/F7 /0 with immediate.
+                let imm = rng.operand();
+                code.push(if byte { 0xF6 } else { 0xF7 });
+                code.push(modrm(0b11, 0, dst));
+                match size {
+                    Size::B8 => code.push(imm as u8),
+                    Size::B16 => code.extend_from_slice(&(imm as u16).to_le_bytes()),
+                    _ => code.extend_from_slice(&(imm as u32).to_le_bytes()),
+                }
+                name = "test";
+            }
+        }
+        code.push(HLT);
+
+        let inputs = format!("{} {} {} (cf_in={}); dst={:#x}", name, size.name(), reg_name(dst), cf_in, dval);
+        if !stats.check("smir_unary", &code, r, [0u8; 64], CompareOpts::default(), inputs) {
+            break;
+        }
+    }
+    stats.finish("unary");
+}
+
+// SMIR validation: MOVZX/MOVSX/MOVSXD/BSWAP — zero/sign extension widths and the
+// sub-register merge interaction. Mirrors fuzz_movext_bswap's generation exactly.
+#[test]
+fn smir_movext() {
+    const CASES: usize = 300;
+    let mut rng = Rng::new(0x1A2B_3C4D_5E6F_7081);
+    let mut stats = SmirStats::new();
+
+    for _ in 0..CASES {
+        let kind = rng.below(5); // 0=movzxb 1=movsxb 2=movzxw 3=movsxw 4=movsxd
+        let dst = pick_gpr(&mut rng);
+        let mut src = pick_gpr(&mut rng);
+        while src == dst {
+            src = pick_gpr(&mut rng);
+        }
+        // Destination 64-bit (REX.W) so we see the full extension.
+        let mut r = Registers::default();
+        let sval = rng.operand();
+        set_reg(&mut r, src, sval);
+        // Preload dst to detect partial-write bugs.
+        set_reg(&mut r, dst, 0xCCCC_CCCC_CCCC_CCCC);
+
+        let mut code = vec![0x48]; // REX.W
+        let name;
+        match kind {
+            0 => {
+                code.extend_from_slice(&[0x0F, 0xB6, modrm(0b11, dst, src)]);
+                name = "movzx_b";
+            }
+            1 => {
+                code.extend_from_slice(&[0x0F, 0xBE, modrm(0b11, dst, src)]);
+                name = "movsx_b";
+            }
+            2 => {
+                code.extend_from_slice(&[0x0F, 0xB7, modrm(0b11, dst, src)]);
+                name = "movzx_w";
+            }
+            3 => {
+                code.extend_from_slice(&[0x0F, 0xBF, modrm(0b11, dst, src)]);
+                name = "movsx_w";
+            }
+            _ => {
+                // MOVSXD r64, r/m32 = REX.W 63 /r.
+                code.extend_from_slice(&[0x63, modrm(0b11, dst, src)]);
+                name = "movsxd";
+            }
+        }
+        code.push(HLT);
+
+        let inputs = format!("{} {}, {} ; src={:#x}", name, reg_name(dst), reg_name(src), sval);
+        // mov-extend ops don't touch flags -> compare all (they should be unchanged).
+        if !stats.check("smir_movext", &code, r, [0u8; 64], CompareOpts::default(), inputs) {
+            break;
+        }
+    }
+    stats.finish("movext");
+}
+
+// SMIR validation: SETcc / CMOVcc across all 16 condition codes. Mirrors
+// fuzz_setcc_cmovcc's generation EXACTLY (same opcodes/encodings/operands), but
+// drives the SMIR backend. Exercises SMIR's condition evaluation against the
+// materialized RFLAGS produced by a preceding CMP.
+#[test]
+fn smir_setcc_cmov() {
+    const CASES: usize = 400;
+    let mut rng = Rng::new(0x9988_7766_5544_3322);
+    let mut stats = SmirStats::new();
+
+    for _ in 0..CASES {
+        // First establish a random flag state via CMP of two random values, then
+        // run SETcc or CMOVcc and compare. The flag state is fully defined so we
+        // compare all status flags and the destination.
+        let cc = (rng.below(16)) as u8; // condition 0..15 -> opcode 0x90+cc / 0x40+cc
+        let is_cmov = rng.below(2) == 0;
+
+        let a = rng.operand();
+        let b = rng.operand();
+        let mut r = Registers::default();
+        r.rax = a;
+        r.rbx = b;
+
+        // cmp rax, rbx (REX.W 39 /r): reg=rbx(3), rm=rax(0).
+        let mut code = vec![0x48, 0x39, modrm(0b11, 3, 0)];
+        if is_cmov {
+            // cmovcc rax, rcx : REX.W 0F (40+cc) /r, reg=rax(0), rm=rcx(1).
+            let cval = rng.operand();
+            r.rcx = cval;
+            // sentinel already in rax via `a`; CMOV may or may not overwrite.
+            code.extend_from_slice(&[0x48, 0x0F, 0x40 + cc, modrm(0b11, 0, 1)]);
+            code.push(HLT);
+            let inputs = format!("cmp+cmov cc={:#x} ; a={:#x} b={:#x} c={:#x}", cc, a, b, cval);
+            if !stats.check("smir_cmov", &code, r, [0u8; 64], CompareOpts::default(), inputs) {
+                break;
+            }
+        } else {
+            // setcc al : 0F (90+cc) /0, then movzx eax, al for a clean 0/1.
+            code.extend_from_slice(&[0x0F, 0x90 + cc, modrm(0b11, 0, 0)]);
+            code.extend_from_slice(&[0x0F, 0xB6, 0xC0]); // movzx eax, al
+            code.push(HLT);
+            let inputs = format!("cmp+setcc cc={:#x} ; a={:#x} b={:#x}", cc, a, b);
+            if !stats.check("smir_setcc", &code, r, [0u8; 64], CompareOpts::default(), inputs) {
+                break;
+            }
+        }
+    }
+    stats.finish("setcc_cmov");
+}
+
+// SMIR validation: MOV loads/stores across all ModRM/SIB/disp/RIP addressing
+// forms. Exercises the SMIR memory path + effective-address computation +
+// scratch compare. Mirrors fuzz_mem_addressing's generation EXACTLY.
+#[test]
+fn smir_memaddr() {
+    const CASES: usize = 700;
+    let mut rng = Rng::new(0xADD4_E55F_0FF5_E701);
+    let mut stats = SmirStats::new();
+    let sizes = [Size::B8, Size::B16, Size::B32, Size::B64];
+    let forms = [
+        AddrForm::Base,
+        AddrForm::BaseDisp8,
+        AddrForm::BaseDisp32,
+        AddrForm::Sib,
+        AddrForm::SibDisp8,
+        AddrForm::SibDisp32,
+        AddrForm::SibNoIndex,
+        AddrForm::SibNoBase,
+        AddrForm::RipRel,
+    ];
+
+    const REG: u8 = 0; // rax, the moved register (reg field)
+    const BASE: u8 = 3; // rbx
+    const INDEX: u8 = 6; // rsi
+
+    for _ in 0..CASES {
+        let size = *rng.pick(&sizes);
+        let bytes = (size.bits() / 8) as u64;
+        let form = *rng.pick(&forms);
+        let is_store = rng.below(2) == 0;
+
+        // Effective address: keep [EA, EA+bytes) inside the 64-byte scratch.
+        let target_off = rng.below(64 - bytes + 1);
+        let ea = DATA_ADDR + target_off;
+
+        let scale_bits = rng.below(4) as u8; // 0..3 -> *1,*2,*4,*8
+        let scale = 1u64 << scale_bits;
+        let idxv = rng.below(8); // small index value
+
+        let mut r = Registers::default();
+        let sval = rng.operand(); // source value for stores
+        set_reg(&mut r, REG, sval);
+
+        let mut code = size_prefix(size);
+        if let Some(rex) = rex_byte(size, true) {
+            code.push(rex);
+        }
+        let opcode = match (is_store, size == Size::B8) {
+            (true, true) => 0x88,
+            (true, false) => 0x89,
+            (false, true) => 0x8A,
+            (false, false) => 0x8B,
+        };
+        code.push(opcode);
+
+        match form {
+            AddrForm::Base => {
+                code.push(modrm(0b00, REG, BASE));
+                set_reg(&mut r, BASE, ea);
+            }
+            AddrForm::BaseDisp8 => {
+                let d8 = (rng.next_u32() as i8) as i64;
+                code.push(modrm(0b01, REG, BASE));
+                set_reg(&mut r, BASE, ea.wrapping_sub(d8 as u64));
+                code.push(d8 as u8);
+            }
+            AddrForm::BaseDisp32 => {
+                let d32 = rng.next_u32() as i32 as i64;
+                code.push(modrm(0b10, REG, BASE));
+                set_reg(&mut r, BASE, ea.wrapping_sub(d32 as u64));
+                code.extend_from_slice(&(d32 as i32).to_le_bytes());
+            }
+            AddrForm::Sib => {
+                code.push(modrm(0b00, REG, 4));
+                code.push((scale_bits << 6) | (INDEX << 3) | BASE);
+                set_reg(&mut r, INDEX, idxv);
+                set_reg(&mut r, BASE, ea.wrapping_sub(idxv.wrapping_mul(scale)));
+            }
+            AddrForm::SibDisp8 => {
+                let d8 = (rng.next_u32() as i8) as i64;
+                code.push(modrm(0b01, REG, 4));
+                code.push((scale_bits << 6) | (INDEX << 3) | BASE);
+                set_reg(&mut r, INDEX, idxv);
+                set_reg(
+                    &mut r,
+                    BASE,
+                    ea.wrapping_sub(idxv.wrapping_mul(scale)).wrapping_sub(d8 as u64),
+                );
+                code.push(d8 as u8);
+            }
+            AddrForm::SibDisp32 => {
+                let d32 = rng.next_u32() as i32 as i64;
+                code.push(modrm(0b10, REG, 4));
+                code.push((scale_bits << 6) | (INDEX << 3) | BASE);
+                set_reg(&mut r, INDEX, idxv);
+                set_reg(
+                    &mut r,
+                    BASE,
+                    ea.wrapping_sub(idxv.wrapping_mul(scale)).wrapping_sub(d32 as u64),
+                );
+                code.extend_from_slice(&(d32 as i32).to_le_bytes());
+            }
+            AddrForm::SibNoIndex => {
+                // index=4 in SIB encodes "no index". EA = base.
+                code.push(modrm(0b00, REG, 4));
+                code.push((scale_bits << 6) | (4 << 3) | BASE);
+                set_reg(&mut r, BASE, ea);
+            }
+            AddrForm::SibNoBase => {
+                // mod=00, SIB base=5 => no base register, disp32 follows.
+                // EA = index*scale + disp32.
+                code.push(modrm(0b00, REG, 4));
+                code.push((scale_bits << 6) | (INDEX << 3) | 5);
+                set_reg(&mut r, INDEX, idxv);
+                let disp = ea.wrapping_sub(idxv.wrapping_mul(scale)) as i64 as i32;
+                code.extend_from_slice(&disp.to_le_bytes());
+            }
+            AddrForm::RipRel => {
+                // mod=00, rm=5 => [rip + disp32], rip = address of NEXT insn.
+                code.push(modrm(0b00, REG, 5));
+                let rip_after = CODE_ADDR + code.len() as u64 + 4;
+                let disp = ea.wrapping_sub(rip_after) as i64 as i32;
+                code.extend_from_slice(&disp.to_le_bytes());
+            }
+        }
+        code.push(HLT);
+
+        // Random scratch contents (the load source / store target window).
+        let mut scratch = [0u8; 64];
+        for b in scratch.iter_mut() {
+            *b = rng.next_u32() as u8;
+        }
+
+        let dir = if is_store { "store" } else { "load" };
+        let inputs = format!(
+            "mov.{} {} ea={:#x} off={} scale={} idxv={}",
+            size.name(),
+            dir,
+            ea,
+            target_off,
+            scale,
+            idxv
+        );
+        // MOV does not affect flags; compare scratch (stores) + all GPRs (loads).
+        let opts = CompareOpts {
+            flag_mask: 0,
+            scratch: true,
+            ..CompareOpts::default()
+        };
+        if !stats.check("smir_memaddr", &code, r, scratch, opts, inputs) {
+            break;
+        }
+    }
+    stats.finish("memaddr");
+}
