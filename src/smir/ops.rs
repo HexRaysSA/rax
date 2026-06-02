@@ -971,6 +971,16 @@ pub enum OpKind {
         accumulate: Option<VLaneOp>,
     },
 
+    /// Per-byte Q-gated mask-to-zero. Models HVX `vandvqv`/`vandvnqv` (and, via a
+    /// VBroadcast of Rt, `vandqrt`/`vandnqrt`): `dst.byte[i] = (mask_q.bit[i] ^
+    /// negate) ? src.byte[i] : 0`.
+    VMaskZero {
+        dst: VReg,
+        mask_q: VReg,
+        src: VReg,
+        negate: bool,
+    },
+
     /// Per-byte select by a Q vector predicate. Models HVX `vmux`:
     /// `dst.byte[i] = mask_q.bit[i] ? src_true.byte[i] : src_false.byte[i]`.
     VBlend {
@@ -1551,7 +1561,8 @@ impl OpKind {
             | OpKind::VMulShiftSat { dst, .. }
             | OpKind::VShiftV { dst, .. }
             | OpKind::VCmpToQ { dst, .. }
-            | OpKind::VBlend { dst, .. } => vec![*dst],
+            | OpKind::VBlend { dst, .. }
+            | OpKind::VMaskZero { dst, .. } => vec![*dst],
 
             OpKind::MulU { dst_lo, dst_hi, .. } | OpKind::MulS { dst_lo, dst_hi, .. } => {
                 let mut v = vec![*dst_lo];

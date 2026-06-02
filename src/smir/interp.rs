@@ -2029,6 +2029,24 @@ impl SmirInterpreter {
                 Self::write_vec(ctx, *dst, q);
             }
 
+            OpKind::VMaskZero {
+                dst,
+                mask_q,
+                src,
+                negate,
+            } => {
+                let m = Self::read_vec(ctx, *mask_q);
+                let s = Self::read_vec(ctx, *src);
+                let mut result = [0u64; 16];
+                for byte in 0..128usize {
+                    let bit = (m[byte >> 6] >> (byte & 63)) & 1 != 0;
+                    if bit ^ *negate {
+                        Self::set_lane(&mut result, byte as u8, 8, Self::get_lane(&s, byte as u8, 8));
+                    }
+                }
+                Self::write_vec(ctx, *dst, result);
+            }
+
             OpKind::VBlend {
                 dst,
                 mask_q,
@@ -3726,6 +3744,50 @@ mod tests {
             let q = hex.get_q(0);
             assert_eq!(q[0], 0xFFFF_FFFF_FFFF_FFFE); // bit0 (byte0) clear, rest set
             assert_eq!(q[1], 0xFFFF_FFFF_FFFF_FFFF); // bytes 64-127 all equal
+        }
+    }
+
+    #[test]
+    fn test_vmaskzero() {
+        // vandvqv: Q0 byte0 bit set; src(V0)=0xAA. out.byte0=0xAA, rest 0.
+        let mut q = [0u64; 16];
+        q[0] = 0x1;
+        let mut ctx = SmirContext::new_hexagon();
+        let mut memory = FlatMemory::new(0x1000);
+        let interp = SmirInterpreter::new();
+        if let ArchRegState::Hexagon(hex) = &mut ctx.arch_regs {
+            hex.set_v(0, [0xAAAA_AAAA_AAAA_AAAAu64; 16]);
+            hex.set_q(0, q);
+        }
+        let mkv = |n| VReg::Arch(ArchReg::Hexagon(HexagonReg::V(n)));
+        let mkblock = |negate| SmirBlock {
+            id: BlockId(0),
+            guest_pc: 0x1000,
+            phis: vec![],
+            ops: vec![SmirOp {
+                id: OpId(0),
+                guest_pc: 0x1000,
+                kind: OpKind::VMaskZero {
+                    dst: mkv(2),
+                    mask_q: VReg::Arch(ArchReg::Hexagon(HexagonReg::Q(0))),
+                    src: mkv(0),
+                    negate,
+                },
+                x86_hint: None,
+            }],
+            terminator: Terminator::Trap { kind: TrapKind::Halt },
+            exec_count: 0,
+        };
+        interp.execute_block(&mut ctx, &mut memory, &mkblock(false));
+        if let ArchRegState::Hexagon(hex) = &ctx.arch_regs {
+            assert_eq!(hex.get_v(2)[0], 0x0000_0000_0000_00AA); // byte0 = 0xAA, rest 0
+            assert_eq!(hex.get_v(2)[1], 0);
+        }
+        // negate: byte0 -> 0, all other bytes -> 0xAA.
+        interp.execute_block(&mut ctx, &mut memory, &mkblock(true));
+        if let ArchRegState::Hexagon(hex) = &ctx.arch_regs {
+            assert_eq!(hex.get_v(2)[0], 0xAAAA_AAAA_AAAA_AA00);
+            assert_eq!(hex.get_v(2)[1], 0xAAAA_AAAA_AAAA_AAAA);
         }
     }
 

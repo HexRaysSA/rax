@@ -1598,6 +1598,11 @@ impl OpKind {
                 result.push(*src_false);
             }
 
+            OpKind::VMaskZero { mask_q, src, .. } => {
+                result.push(*mask_q);
+                result.push(*src);
+            }
+
             OpKind::VMov { src, .. } | OpKind::VBroadcast { scalar: src, .. } => {
                 result.push(*src);
             }
