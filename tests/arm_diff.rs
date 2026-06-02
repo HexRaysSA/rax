@@ -766,11 +766,26 @@ fn diff_fmlal() {
     for (label, insn) in &cases {
         for _ in 0..32 {
             let mut st = ArmState::zeroed();
-            // v1 (Rn) and v2 (Rm): 8 finite FP16 lanes each.
+            // v1 (Rn) and v2 (Rm): 8 finite FP16 lanes each (mix of the fixed
+            // clean set with random finite normals/subnormals/zeros so the
+            // subnormal fp16->fp32 widening path is exercised). No inf/NaN to
+            // avoid 0*inf -> NaN payload ambiguity.
             for r in [1usize, 2] {
                 let mut packed: u128 = 0;
                 for lane in 0..8 {
-                    let h = F16_VALUES[(rng.next() as usize) % F16_VALUES.len()] as u128;
+                    let h = if rng.next() & 1 == 0 {
+                        F16_VALUES[(rng.next() as usize) % F16_VALUES.len()] as u128
+                    } else {
+                        let sign = (rng.next() & 1) as u128;
+                        match rng.next() % 4 {
+                            0 => sign << 15,                              // signed zero
+                            1 => (sign << 15) | (rng.next() as u128 & 0x3FF), // subnormal
+                            _ => {
+                                let exp = (rng.next() % 30 + 1) as u128; // normal 1..30
+                                (sign << 15) | (exp << 10) | (rng.next() as u128 & 0x3FF)
+                            }
+                        }
+                    };
                     packed |= h << (16 * lane);
                 }
                 st.set_vreg(r, packed as u64, (packed >> 64) as u64);
