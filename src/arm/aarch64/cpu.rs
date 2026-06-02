@@ -4887,6 +4887,31 @@ impl AArch64Cpu {
                 Ok(CpuExit::Continue)
             }
 
+            // SVE2 bitwise ternary (whole-register): 0x04, bit21==1,
+            // bits[15:11]==00111. Zdn=bits[4:0], Zk=bits[9:5], Zm=bits[20:16];
+            // opc=bits[23:22], o2=bit10 select the operation.
+            0b000
+                if (insn >> 24) & 0xFF == 0b00000100
+                    && (insn >> 21) & 1 == 1
+                    && (insn >> 11) & 0x1F == 0b00111 =>
+            {
+                let opc = (insn >> 22) & 0x3;
+                let o2 = (insn >> 10) & 1;
+                let dn = self.v[zd]; // Zdn (first source + destination)
+                let k = self.v[zn]; // Zk (select mask)
+                let m = self.v[zm]; // Zm (second source)
+                self.v[zd] = match (opc, o2) {
+                    (0b00, 0) => dn ^ m ^ k,             // EOR3
+                    (0b01, 0) => dn ^ (m & !k),          // BCAX
+                    (0b00, 1) => (dn & k) | (m & !k),    // BSL
+                    (0b01, 1) => (!dn & k) | (m & !k),   // BSL1N
+                    (0b10, 1) => (dn & k) | (!m & !k),   // BSL2N
+                    (0b11, 1) => !((dn & k) | (m & !k)), // NBSL
+                    _ => return Ok(CpuExit::Undefined(insn)),
+                };
+                Ok(CpuExit::Continue)
+            }
+
             // INDEX (immediate/scalar variants): bit21==1, bits[15:13]==010.
             0b000 if (insn >> 21) & 1 == 1 && (insn >> 13) & 0x7 == 0b010 => {
                 self.exec_sve_index(insn, zd, esize)
