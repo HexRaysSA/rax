@@ -8972,18 +8972,20 @@ fn fp16_min(a: u16, b: u16) -> u16 {
 }
 
 fn fp16_maxnum_minnum(a: u16, b: u16, is_min: bool) -> u16 {
-    let an = fp16_is_nan(a);
-    let bn = fp16_is_nan(b);
-    if an && bn {
-        return fp16_nan2(a, b).unwrap();
+    // Per the ASL FPMaxNum/FPMinNum: a *quiet* NaN operand is replaced by the
+    // identity (-inf for max, +inf for min) so the numeric operand wins; a
+    // signaling NaN is left in place and propagates (quieted) via FPMax/FPMin.
+    let a_qnan = fp16_is_nan(a) && (a & 0x0200) != 0;
+    let b_qnan = fp16_is_nan(b) && (b & 0x0200) != 0;
+    let ident = if is_min { 0x7C00 } else { 0xFC00 };
+    let mut x = a;
+    let mut y = b;
+    if a_qnan && !b_qnan {
+        x = ident;
+    } else if !a_qnan && b_qnan {
+        y = ident;
     }
-    if an {
-        return b;
-    }
-    if bn {
-        return a;
-    }
-    fp16_max_min(a, b, is_min)
+    fp16_max_min(x, y, is_min)
 }
 
 fn fp16_maxnm(a: u16, b: u16) -> u16 {

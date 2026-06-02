@@ -909,6 +909,89 @@ fn enc_fp16_idx(q: u32, u: u32, opcode: u32, index: u32) -> u32 {
         | (RM << 16) | (opcode << 12) | (h << 11) | (RN << 5) | RD
 }
 
+/// A binary16 NaN (signaling or quiet), random sign/payload (payload != 0).
+fn rand_fp16_nan(rng: &mut Rng) -> u16 {
+    let sign = (rng.next() & 1) as u16;
+    let quiet = (rng.next() & 1) as u16; // bit9 (0x0200) set => quiet
+    let payload = ((rng.next() as u16) & 0x1FF).max(1); // bits[8:0], nonzero
+    (sign << 15) | 0x7C00 | (quiet << 9) | payload
+}
+
+#[test]
+fn diff_simd_fp16_nan() {
+    // Verify NaN propagation/quieting with exactly one NaN operand (so the
+    // result is unambiguous — no two-NaN ordering dependence).
+    let three: &[(u32, u32, u32, &str)] = &[
+        (0, 0, 0b010, "fadd"),
+        (0, 1, 0b010, "fsub"),
+        (1, 0, 0b011, "fmul"),
+        (0, 0, 0b000, "fmaxnm"),
+        (0, 0, 0b110, "fmax"),
+        (0, 0, 0b001, "fmla"),
+        (0, 0, 0b100, "fcmeq"),
+    ];
+    let two: &[(u32, u32, u32, &str)] = &[
+        (0, 1, 0b01111, "fabs"),
+        (1, 1, 0b01111, "fneg"),
+        (1, 1, 0b11111, "fsqrt"),
+        (0, 1, 0b11101, "frecpe"),
+        (1, 1, 0b11101, "frsqrte"),
+        (1, 1, 0b11001, "frinti"),
+        (0, 1, 0b11011, "fcvtzs"),
+    ];
+    let mut rng = Rng::new(0x1_0014);
+    let mut batch: Vec<(String, u32, ArmState)> = Vec::new();
+    // Three-same: NaN in exactly one of v1/v2 per lane, finite elsewhere. v0
+    // (the FMLA accumulator) stays finite.
+    for &(u, a, opcode, name) in three {
+        let insn = enc_fp16_3s(1, u, a, opcode);
+        for _ in 0..32 {
+            let mut st = ArmState::zeroed();
+            let (mut a1, mut b1) = fp16_vec(&mut rng);
+            let (mut a2, mut b2) = fp16_vec(&mut rng);
+            let (a0, b0) = fp16_vec(&mut rng);
+            // Force one operand of each 16-bit lane to be a NaN, the other finite.
+            for lane in 0..8 {
+                let nan = rand_fp16_nan(&mut rng) as u64;
+                let pick = rng.next() & 1;
+                let sh = (lane % 4) * 16;
+                let (v1, v2) = if lane < 4 {
+                    (&mut a1, &mut a2)
+                } else {
+                    (&mut b1, &mut b2)
+                };
+                if pick == 0 {
+                    *v1 = (*v1 & !(0xFFFFu64 << sh)) | (nan << sh);
+                } else {
+                    *v2 = (*v2 & !(0xFFFFu64 << sh)) | (nan << sh);
+                }
+            }
+            st.set_vreg(0, a0, b0);
+            st.set_vreg(1, a1, b1);
+            st.set_vreg(2, a2, b2);
+            batch.push((format!("3s {name}"), insn, st));
+        }
+    }
+    // Two-reg-misc: NaN inputs in v1.
+    for &(u, a, opcode, name) in two {
+        let insn = enc_fp16_2r(1, u, a, opcode);
+        for _ in 0..32 {
+            let mut st = ArmState::zeroed();
+            let lo = ((rand_fp16_nan(&mut rng) as u64) << 48)
+                | ((rand_fp16_nan(&mut rng) as u64) << 32)
+                | ((rand_fp16_nan(&mut rng) as u64) << 16)
+                | rand_fp16_nan(&mut rng) as u64;
+            let hi = ((rand_fp16_nan(&mut rng) as u64) << 48)
+                | ((rand_fp16_nan(&mut rng) as u64) << 32)
+                | ((rand_fp16_nan(&mut rng) as u64) << 16)
+                | rand_fp16_nan(&mut rng) as u64;
+            st.set_vreg(1, lo, hi);
+            batch.push((format!("2r {name}"), insn, st));
+        }
+    }
+    run_batch("simd_fp16_nan", batch);
+}
+
 #[test]
 fn diff_simd_fp16_indexed() {
     let ops: &[(u32, u32, &str)] = &[
