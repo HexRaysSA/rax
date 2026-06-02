@@ -919,6 +919,15 @@ pub enum OpKind {
         to_unsigned: bool,
     },
 
+    /// HVX `vdealb4w` (`Vd.b = vdeale(Vu.b, Vv.b)`): deal bytes 0 and 2 of each
+    /// word. For word lane i (0..32): `dst.b[i]=src2.b[4i]`, `dst.b[32+i]=src2.b[4i+2]`,
+    /// `dst.b[64+i]=src1.b[4i]`, `dst.b[96+i]=src1.b[4i+2]` (src1=Vu, src2=Vv).
+    VDealB4W {
+        dst: VReg,
+        src1: VReg,
+        src2: VReg,
+    },
+
     /// Byte-granular alignment/rotate of the 256-byte concatenation `src1:src2`.
     /// Models HVX `valignb/vlalignb` (+imm forms) and `vror`: with byte shift
     /// `s` (right: `amount & 127`; left: `128 - (amount & 127)`), the result
@@ -1624,6 +1633,7 @@ impl OpKind {
             | OpKind::VPackSat { dst, .. }
             | OpKind::VShuffle2 { dst, .. }
             | OpKind::VShuffleEO { dst, .. }
+            | OpKind::VDealB4W { dst, .. }
             | OpKind::VAlign { dst, .. }
             | OpKind::VMulShiftSat { dst, .. }
             | OpKind::VShiftV { dst, .. }

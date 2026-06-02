@@ -4800,6 +4800,13 @@ impl HexagonLifter {
                 });
             }
 
+            // vdealb4w (Vd.b = vdeale(Vu.b,Vv.b)): deal bytes 0,2 of each word.
+            Opcode::V6_vdealb4w => push_op!(OpKind::VDealB4W {
+                dst: self.hex_v(fld(b'd')),
+                src1: self.hex_v(fld(b'u')),
+                src2: self.hex_v(fld(b'v')),
+            }),
+
             // Everything else: not implemented here.
             _ => return Err(unsupported()),
         }

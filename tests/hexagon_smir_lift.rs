@@ -1570,3 +1570,14 @@ fn lift_hvx_vmpa_pairpair() {
         0x18a4,
     );
 }
+
+// vdealb4w: deal bytes 0,2 of each word from two vectors into one (VDealB4W).
+#[test]
+fn lift_hvx_vdealb4w() {
+    lift_family(
+        "hvx_vdealb4w",
+        &[("vdealb4w", "{ v2.b = vdeale(v0.b,v1.b) }")],
+        16,
+        0x18b0,
+    );
+}

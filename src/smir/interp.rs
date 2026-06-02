@@ -1826,6 +1826,19 @@ impl SmirInterpreter {
                 Self::write_vec(ctx, *dst_hi, hi);
             }
 
+            OpKind::VDealB4W { dst, src1, src2 } => {
+                let u = Self::read_vec(ctx, *src1);
+                let v = Self::read_vec(ctx, *src2);
+                let mut result = [0u64; 16];
+                for i in 0..32u8 {
+                    Self::set_lane(&mut result, i, 8, Self::get_lane(&v, i * 4, 8));
+                    Self::set_lane(&mut result, 32 + i, 8, Self::get_lane(&v, i * 4 + 2, 8));
+                    Self::set_lane(&mut result, 64 + i, 8, Self::get_lane(&u, i * 4, 8));
+                    Self::set_lane(&mut result, 96 + i, 8, Self::get_lane(&u, i * 4 + 2, 8));
+                }
+                Self::write_vec(ctx, *dst, result);
+            }
+
             OpKind::VAlign {
                 dst,
                 src1,
@@ -4310,6 +4323,20 @@ mod tests {
             },
         );
         assert_eq!(out, [0xFFFE_FFFE_FFFE_FFFEu64; 16]);
+    }
+
+    #[test]
+    fn test_vdealb4w() {
+        // Vu words = 0x04030201 (byte0=1, byte2=3); Vv words = 0x08070605 (byte0=5, byte2=7).
+        // out: bytes 0-31 = Vv.b0=5, 32-63 = Vv.b2=7, 64-95 = Vu.b0=1, 96-127 = Vu.b2=3.
+        let v0 = [0x0403_0201_0403_0201u64; 16]; // Vu
+        let v1 = [0x0807_0605_0807_0605u64; 16]; // Vv
+        let mkv = |n| VReg::Arch(ArchReg::Hexagon(HexagonReg::V(n)));
+        let out = run_vec2(v0, v1, OpKind::VDealB4W { dst: mkv(2), src1: mkv(0), src2: mkv(1) });
+        assert_eq!(out[0], 0x0505_0505_0505_0505u64); // bytes 0-7 = Vv.b0
+        assert_eq!(out[4], 0x0707_0707_0707_0707u64); // bytes 32-39 = Vv.b2
+        assert_eq!(out[8], 0x0101_0101_0101_0101u64); // bytes 64-71 = Vu.b0
+        assert_eq!(out[12], 0x0303_0303_0303_0303u64); // bytes 96-103 = Vu.b2
     }
 
     #[test]
