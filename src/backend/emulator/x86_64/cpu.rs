@@ -1202,6 +1202,11 @@ impl X86_64Vcpu {
         // hot path (published to the global counter at run() yield boundaries).
         self.insn_count = self.insn_count.wrapping_add(1);
 
+        // Self-modifying-code: invalidate decode + JIT caches for any code page
+        // written since the previous instruction, so a freshly-modified opcode
+        // is re-decoded before it executes. Guarded — zero work when idle.
+        self.drain_smc();
+
         // Start profiling timer
         #[cfg(feature = "profiling")]
         let prof_start = profiling::begin_instruction();
@@ -1628,23 +1633,56 @@ impl X86_64Vcpu {
         }
     }
 
-    /// Check if a memory write is to a code page and invalidate decode cache if so.
-    /// This handles self-modifying code by ensuring we don't use stale cached decodes.
+    /// Check if a memory write is to a code page and invalidate caches if so.
+    /// This is the IMMEDIATE path for the vcpu write wrappers. The complete SMC
+    /// coverage comes from the MMU journal drained in `step` (see
+    /// `drain_smc`) — this just shortcuts the common case.
     #[inline(always)]
     fn check_smc(&mut self, addr: u64) {
         if self.mmu.is_code_page(addr) {
-            // Self-modifying code detected - invalidate decode cache for this page.
-            // We need to check ALL cache entries since any RIP on this page could
-            // have a cached decode. The cache is indexed by (RIP & 0xFFF), so we
-            // iterate over all 4096 cache entries and invalidate any that point
-            // to this page.
-            let page_base = addr & !0xFFF;
-            for idx in 0..DECODE_CACHE_SIZE {
-                let entry = &mut self.decode_cache[idx];
-                if entry.rip != 0 && (entry.rip & !0xFFF) == page_base {
-                    entry.rip = 0; // Invalidate
-                }
+            self.invalidate_code_page(addr & !0xFFF);
+        }
+    }
+
+    /// Drain the MMU's self-modifying-code journal (code pages written by ANY
+    /// store, including the ~39 handlers that call `mmu.write_u*` directly) and
+    /// invalidate the decode + JIT caches for each. Called at every instruction
+    /// boundary so a modified instruction is always re-decoded before it next
+    /// executes. The `has_smc_dirty` guard keeps the hot path free of work when
+    /// no code page has been written.
+    #[inline(always)]
+    fn drain_smc(&mut self) {
+        if self.mmu.has_smc_dirty() {
+            for page_base in self.mmu.take_smc_dirty() {
+                self.invalidate_code_page(page_base);
             }
+        }
+    }
+
+    /// Invalidate every cached decode and JIT region overlapping the 4 KiB page
+    /// at `page_base`. The decode cache is indexed by `RIP & 0xFFF`, so all 4096
+    /// entries are scanned. JIT regions are keyed by entry RIP; a region's body
+    /// fits in one ≤512B lift window, so a write to page P can stale a region
+    /// keyed on P (body starts here) or on P-1 (body extends into P) — evict
+    /// both, and drop their hotness counters so they re-promote against the new
+    /// code.
+    fn invalidate_code_page(&mut self, page_base: u64) {
+        for idx in 0..DECODE_CACHE_SIZE {
+            let entry = &mut self.decode_cache[idx];
+            if entry.rip != 0 && (entry.rip & !0xFFF) == page_base {
+                entry.rip = 0; // Invalidate
+            }
+        }
+
+        #[cfg(all(feature = "smir-jit", target_arch = "x86_64"))]
+        if !self.jit_cache.is_empty() || !self.jit_hot.is_empty() {
+            let prev_page = page_base.wrapping_sub(0x1000);
+            let overlaps = |rip: u64| {
+                let p = rip & !0xFFF;
+                p == page_base || p == prev_page
+            };
+            self.jit_cache.retain(|&(rip, _), _| !overlaps(rip));
+            self.jit_hot.retain(|&rip, _| !overlaps(rip));
         }
     }
 

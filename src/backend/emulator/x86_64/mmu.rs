@@ -418,6 +418,14 @@ pub struct Mmu {
     /// Used for self-modifying code detection: writes to code pages
     /// require decode cache invalidation.
     code_page_bitmap: Box<[u8; CODE_PAGE_BITMAP_SIZE]>,
+    /// Self-modifying-code journal: page bases (virtual) of code pages written
+    /// since the vcpu last drained it. EVERY guest write funnels through the
+    /// `write_u*` methods, which record code-page writes here; the vcpu drains
+    /// this at each instruction boundary (`step`) and invalidates the decode +
+    /// JIT caches for those pages. This is the single, complete SMC choke point
+    /// (the old per-handler `check_smc` missed the ~39 sites that call
+    /// `write_u*` directly).
+    smc_dirty_pages: Vec<u64>,
     /// Inline LAPIC for emulator (handles MMIO to 0xFEE00000)
     /// Uses RefCell for interior mutability since read_phys/write_phys take &self
     lapic: RefCell<InlineLapic>,
@@ -461,6 +469,7 @@ impl Mmu {
             tlb: [TlbEntry::default(); TLB_SIZE],
             cached_cr3: 0,
             code_page_bitmap: Box::new([0u8; CODE_PAGE_BITMAP_SIZE]),
+            smc_dirty_pages: Vec::new(),
             lapic: RefCell::new(InlineLapic::new()),
             ram_host_base,
             ram_len,
@@ -571,6 +580,31 @@ impl Mmu {
     pub fn is_code_page(&self, vaddr: u64) -> bool {
         let (byte_idx, bit_mask) = Self::code_page_index(vaddr);
         (self.code_page_bitmap[byte_idx] & bit_mask) != 0
+    }
+
+    /// Record that `vaddr` was written, if it lies on a known code page (SMC).
+    /// Called from every `write_u*` entry point so no store can bypass SMC
+    /// detection. The vcpu drains [`Self::take_smc_dirty`] each instruction.
+    #[inline(always)]
+    fn note_smc(&mut self, vaddr: u64) {
+        if self.is_code_page(vaddr) {
+            let page = vaddr & !0xFFF;
+            if !self.smc_dirty_pages.contains(&page) {
+                self.smc_dirty_pages.push(page);
+            }
+        }
+    }
+
+    /// True if any code page has been written since the last drain (cheap guard
+    /// for the per-instruction hot path).
+    #[inline(always)]
+    pub fn has_smc_dirty(&self) -> bool {
+        !self.smc_dirty_pages.is_empty()
+    }
+
+    /// Take and clear the set of code-page bases written since the last drain.
+    pub fn take_smc_dirty(&mut self) -> Vec<u64> {
+        std::mem::take(&mut self.smc_dirty_pages)
     }
 
     /// Clear the code page bitmap.
@@ -1145,6 +1179,11 @@ impl Mmu {
     #[inline]
     pub fn write(&mut self, vaddr: u64, buf: &[u8], sregs: &SystemRegisters) -> Result<()> {
         let len = buf.len();
+        self.note_smc(vaddr);
+        if len > 1 {
+            // A multi-byte write may straddle into the next page.
+            self.note_smc(vaddr.wrapping_add(len as u64 - 1));
+        }
 
         // Fast path: access doesn't cross page boundary
         let page_offset = (vaddr & 0xFFF) as usize;
@@ -1268,6 +1307,7 @@ impl Mmu {
     /// Write a u8 to virtual address.
     #[inline(always)]
     pub fn write_u8(&mut self, vaddr: u64, value: u8, sregs: &SystemRegisters) -> Result<()> {
+        self.note_smc(vaddr);
         #[cfg(feature = "profiling")]
         profiling::memory::record_write(1);
 
@@ -1283,6 +1323,7 @@ impl Mmu {
     /// Write a u16 to virtual address.
     #[inline(always)]
     pub fn write_u16(&mut self, vaddr: u64, value: u16, sregs: &SystemRegisters) -> Result<()> {
+        self.note_smc(vaddr);
         #[cfg(feature = "profiling")]
         profiling::memory::record_write(2);
 
@@ -1302,6 +1343,7 @@ impl Mmu {
     /// Write a u32 to virtual address.
     #[inline(always)]
     pub fn write_u32(&mut self, vaddr: u64, value: u32, sregs: &SystemRegisters) -> Result<()> {
+        self.note_smc(vaddr);
         #[cfg(feature = "profiling")]
         profiling::memory::record_write(4);
 
@@ -1321,6 +1363,7 @@ impl Mmu {
     /// Write a u64 to virtual address.
     #[inline(always)]
     pub fn write_u64(&mut self, vaddr: u64, value: u64, sregs: &SystemRegisters) -> Result<()> {
+        self.note_smc(vaddr);
         #[cfg(feature = "profiling")]
         profiling::memory::record_write(8);
 

@@ -384,6 +384,58 @@ fn run_auto_jits_hot_loop() {
     );
 }
 
+/// SMC safety: a guest store to a code page that has a cached JIT region must
+/// EVICT that region (so stale native code never runs) — essential for a kernel
+/// that patches/loads code. Control case confirms the region would otherwise
+/// stay cached.
+#[test]
+fn run_smc_evicts_jit_region() {
+    // add eax,1 ; dec ecx ; jnz loop   (back-edge to LOAD_ADDR)
+    let loop_bytes = [0x83, 0xC0, 0x01, 0xFF, 0xC9, 0x75, 0xF9];
+    let mk = |store: bool| -> X86_64Vcpu {
+        let mut code = loop_bytes.to_vec();
+        if store {
+            // mov rbx, LOAD_ADDR ; mov byte [rbx], 0x90   (self-modify code page)
+            code.extend_from_slice(&[0x48, 0xBB]);
+            code.extend_from_slice(&LOAD_ADDR.to_le_bytes());
+            code.extend_from_slice(&[0xC6, 0x03, 0x90]);
+        }
+        code.push(0xF4); // hlt
+        let mut v = make_vcpu_code(&code);
+        let mut r = v.get_regs().unwrap();
+        r.rcx = 500; // well past the 64-hit JIT threshold
+        v.set_regs(&r).unwrap();
+        v
+    };
+    let drive = |v: &mut X86_64Vcpu| {
+        for _ in 0..10_000 {
+            let _ = v.run().expect("run");
+            if v.get_regs().unwrap().rcx & 0xffff_ffff == 0 {
+                let _ = v.run().expect("run"); // let the continuation (store+hlt) finish
+                break;
+            }
+        }
+    };
+
+    // Control: no self-modifying write — the compiled region remains cached.
+    let mut a = mk(false);
+    drive(&mut a);
+    assert!(
+        a.jit_region_count() >= 1,
+        "control: the hot loop should compile and stay cached (got {})",
+        a.jit_region_count()
+    );
+
+    // SMC: the guest store to the loop's code page must evict the region.
+    let mut b = mk(true);
+    drive(&mut b);
+    assert_eq!(
+        b.jit_region_count(),
+        0,
+        "a self-modifying store must evict the cached JIT region"
+    );
+}
+
 /// Report JIT vs interpreter throughput on the same loop (informational).
 #[test]
 fn jit_throughput() {
