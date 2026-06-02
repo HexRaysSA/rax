@@ -1814,6 +1814,34 @@ impl SmirInterpreter {
                 Self::write_vec(ctx, *dst_hi, hi);
             }
 
+            OpKind::VAlign {
+                dst,
+                src1,
+                src2,
+                amount,
+                left,
+            } => {
+                let amt = match amount {
+                    SrcOperand::Imm(v) => *v as usize,
+                    SrcOperand::Reg(r) => ctx.read_vreg(*r) as usize,
+                    _ => 0,
+                };
+                let shift = if *left { 128 - (amt & 127) } else { amt & 127 };
+                let u = Self::read_vec(ctx, *src1);
+                let v = Self::read_vec(ctx, *src2);
+                let mut result = [0u64; 16];
+                for i in 0..128u8 {
+                    let j = i as usize + shift;
+                    let byte = if j < 128 {
+                        Self::get_lane(&v, j as u8, 8)
+                    } else {
+                        Self::get_lane(&u, (j - 128) as u8, 8)
+                    };
+                    Self::set_lane(&mut result, i, 8, byte);
+                }
+                Self::write_vec(ctx, *dst, result);
+            }
+
             OpKind::VShuffle2 { dst, src, elem, deal } => {
                 let s = Self::read_vec(ctx, *src);
                 let nbits = elem.bytes() * 8;
@@ -3412,6 +3440,56 @@ mod tests {
         assert_eq!(out[7], 0xFFFF_FFFF_FFFF_FFFFu64);
         assert_eq!(out[8], 0x0000_0000_0000_0000u64);
         assert_eq!(out[15], 0x0000_0000_0000_0000u64);
+    }
+
+    #[test]
+    fn test_valign_right_shift4() {
+        // valignb shift=4: out[i] = i+4<128 ? Vv[i+4] : Vu[i+4-128].
+        // Vu(V0) all 0xAA, Vv(V1) all 0xBB -> bytes 0..123 = 0xBB, 124..127 = 0xAA.
+        let v0 = [0xAAAA_AAAA_AAAA_AAAAu64; 16]; // Vu
+        let v1 = [0xBBBB_BBBB_BBBB_BBBBu64; 16]; // Vv
+        let mkv = |n| VReg::Arch(ArchReg::Hexagon(HexagonReg::V(n)));
+        let out = run_vec2(
+            v0,
+            v1,
+            OpKind::VAlign {
+                dst: mkv(2),
+                src1: mkv(0),
+                src2: mkv(1),
+                amount: SrcOperand::Imm(4),
+                left: false,
+            },
+        );
+        assert_eq!(out[0], 0xBBBB_BBBB_BBBB_BBBBu64); // bytes 0-7 from Vv
+        // bytes 120-123 = 0xBB (from Vv), 124-127 = 0xAA (wrapped from Vu)
+        assert_eq!(out[15], 0xAAAA_AAAA_BBBB_BBBBu64);
+    }
+
+    #[test]
+    fn test_valign_vror() {
+        // vror = VAlign(src,src,Rt,left=false): out[i] = src[(i+amt)&127].
+        // Distinguishable: V0 lane0 low byte = 0x11, all else 0. amt=127 -> rotate so
+        // the byte at index 0 moves to index 1 (out[127]=src[(127+127)&127]=src[126]=0,
+        // out[0]=src[127]=0, ... out[1]=src[(1+127)&127]=src[0]=0x11).
+        let mut v0 = [0u64; 16];
+        v0[0] = 0x11; // byte 0 = 0x11
+        let mkv = |n| VReg::Arch(ArchReg::Hexagon(HexagonReg::V(n)));
+        let out = run_vec2(
+            v0,
+            v0,
+            OpKind::VAlign {
+                dst: mkv(2),
+                src1: mkv(0),
+                src2: mkv(0),
+                amount: SrcOperand::Imm(127),
+                left: false,
+            },
+        );
+        // out byte 1 = src byte 0 = 0x11; everything else 0.
+        assert_eq!(out[0], 0x0000_0000_0000_1100u64); // byte1 = 0x11
+        for w in &out[1..] {
+            assert_eq!(*w, 0);
+        }
     }
 
     #[test]

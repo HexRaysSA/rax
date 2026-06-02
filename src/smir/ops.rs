@@ -919,6 +919,20 @@ pub enum OpKind {
         to_unsigned: bool,
     },
 
+    /// Byte-granular alignment/rotate of the 256-byte concatenation `src1:src2`.
+    /// Models HVX `valignb/vlalignb` (+imm forms) and `vror`: with byte shift
+    /// `s` (right: `amount & 127`; left: `128 - (amount & 127)`), the result
+    /// byte `i` = `src2[i+s]` when `i+s < 128`, else `src1[i+s-128]`. `vror` is
+    /// `VAlign(src, src, Rt, left=false)`.
+    VAlign {
+        dst: VReg,
+        src1: VReg,
+        src2: VReg,
+        amount: SrcOperand,
+        /// false = right-align (shift = amount&127); true = left (128 - amount&127).
+        left: bool,
+    },
+
     /// Single-vector shuffle (interleave) or deal (deinterleave) of narrow lanes.
     /// Models HVX `vshuffb/h` (shuffle: out[2i]=src[i], out[2i+1]=src[i+half]) and
     /// `vdealb/h` (deal: out[i]=src[2i], out[i+half]=src[2i+1]). `elem` is the lane.
@@ -1453,7 +1467,8 @@ impl OpKind {
             | OpKind::VPack { dst, .. }
             | OpKind::VPackSat { dst, .. }
             | OpKind::VShuffle2 { dst, .. }
-            | OpKind::VShuffleEO { dst, .. } => vec![*dst],
+            | OpKind::VShuffleEO { dst, .. }
+            | OpKind::VAlign { dst, .. } => vec![*dst],
 
             OpKind::MulU { dst_lo, dst_hi, .. } | OpKind::MulS { dst_lo, dst_hi, .. } => {
                 let mut v = vec![*dst_lo];
