@@ -1652,6 +1652,71 @@ fn enc_sve_palu(sz: u32, group: u32, opc: u32) -> u32 {
     (0x04 << 24) | (sz << 22) | (group << 19) | (opc << 16) | (RN << 5) | RD
 }
 
+/// SVE SEL Zd.T, Pg, Zn, Zm: `00000101 sz 1 Zm 11 Pg Zn Zd`. Zd=z0, Zn=z1,
+/// Zm=z2, Pg=p0.
+fn enc_sve_sel(sz: u32) -> u32 {
+    (0x05 << 24) | (sz << 22) | (1 << 21) | (RM << 16) | (0b11 << 14) | (RN << 5) | RD
+}
+
+#[test]
+fn diff_sve_sel() {
+    let mut rng = Rng::new(0x1_0025);
+    let mut batch: Vec<(String, u32, ArmState)> = Vec::new();
+    for sz in 0..4u32 {
+        let insn = enc_sve_sel(sz);
+        for _ in 0..16 {
+            let mut st = ArmState::zeroed();
+            st.set_vreg(1, rng.next(), rng.next());
+            st.set_vreg(2, rng.next(), rng.next());
+            st.set_preg(0, rng.next() as u16);
+            batch.push((format!("sel sz{sz}"), insn, st));
+        }
+    }
+    run_batch("sve_sel", batch);
+}
+
+/// SVE CMP<cc>_P.P.ZZ: `00100100 sz 0 Zm cmp_hi Pg Zn cmp_lo Pd`. Zn=z1, Zm=z2,
+/// Pg=p1, Pd=p0.
+fn enc_sve_cmp(sz: u32, cmp_hi: u32, cmp_lo: u32) -> u32 {
+    (0x24 << 24) | (sz << 22) | (RM << 16) | (cmp_hi << 13) | (1 << 10)
+        | (RN << 5) | (cmp_lo << 4)
+}
+
+#[test]
+fn diff_sve_cmp() {
+    let ops: &[(u32, u32, &str)] = &[
+        (0b000, 0, "hs"),
+        (0b000, 1, "hi"),
+        (0b100, 0, "ge"),
+        (0b100, 1, "gt"),
+        (0b101, 0, "eq"),
+        (0b101, 1, "ne"),
+    ];
+    let mut rng = Rng::new(0x1_0026);
+    let mut batch: Vec<(String, u32, ArmState)> = Vec::new();
+    for sz in 0..4u32 {
+        for &(hi, lo, name) in ops {
+            let insn = enc_sve_cmp(sz, hi, lo);
+            for _ in 0..14 {
+                let mut st = ArmState::zeroed();
+                // Narrow values so equalities actually occur for EQ/NE/GE/GT.
+                let narrow = |r: &mut Rng| -> u64 {
+                    let mut v = 0u64;
+                    for b in 0..8 {
+                        v |= ((r.next() % 6) as u64) << (b * 8);
+                    }
+                    v
+                };
+                st.set_vreg(1, narrow(&mut rng), narrow(&mut rng));
+                st.set_vreg(2, narrow(&mut rng), narrow(&mut rng));
+                st.set_preg(1, rng.next() as u16); // governing predicate Pg=p1
+                batch.push((format!("cmp{name} sz{sz}"), insn, st));
+            }
+        }
+    }
+    run_batch("sve_cmp", batch);
+}
+
 #[test]
 fn diff_sve_palu() {
     // (group, opc, name, min_sz)

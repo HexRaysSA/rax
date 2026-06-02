@@ -4807,6 +4807,32 @@ impl AArch64Cpu {
                 self.exec_sve_zip_uzp_trn(insn, zd, zn, zm, esize)
             }
 
+            // SEL Zd.T, Pg, Zn, Zm: 0x05, bit21==1, bits[15:14]==11. Per-element
+            // merge governed by the 4-bit predicate Pg (bits[13:10]).
+            0b000
+                if (insn >> 24) & 0xFF == 0b00000101
+                    && (insn >> 21) & 1 == 1
+                    && (insn >> 14) & 0x3 == 0b11 =>
+            {
+                let pg = ((insn >> 10) & 0xF) as usize;
+                let pred = self.sve_p[pg];
+                let elements = 16 / esize;
+                let n_reg = self.v[zn].to_le_bytes();
+                let m_reg = self.v[zm].to_le_bytes();
+                let mut dst = [0u8; 16];
+                for e in 0..elements {
+                    let off = e * esize;
+                    let src = if (pred >> (e * esize)) & 1 == 1 {
+                        &n_reg
+                    } else {
+                        &m_reg
+                    };
+                    write_elem(&mut dst, off, esize, read_elem(src, off, esize));
+                }
+                self.v[zd] = u128::from_le_bytes(dst);
+                Ok(CpuExit::Continue)
+            }
+
             // REV Zd.T, Zn.T (reverse all elements): 0x05, bits[20:16]==11000,
             // bits[15:10]==001110.
             0b000
@@ -4997,6 +5023,50 @@ impl AArch64Cpu {
         let elements = 16 / esize;
         let pd = (insn & 0xF) as usize;
         let b15_10 = (insn >> 10) & 0x3F;
+
+        // CMP<cc>_P.P.ZZ (bits[31:24]==0x24): predicated vector compare producing
+        // a zeroing predicate Pd, then NZCV = PredTest(Pg, result). The compare
+        // is (bits[15:13], bit4): (000,0)HS (000,1)HI (100,0)GE (100,1)GT
+        // (101,0)EQ (101,1)NE.
+        if (insn >> 24) & 0xFF == 0b00100100 && (insn >> 21) & 1 == 0 {
+            let cmp_hi = (insn >> 13) & 0x7;
+            let cmp_lo = (insn >> 4) & 1;
+            let pg = ((insn >> 10) & 0x7) as usize;
+            let zn = ((insn >> 5) & 0x1F) as usize;
+            let zm = ((insn >> 16) & 0x1F) as usize;
+            let n_reg = self.v[zn].to_le_bytes();
+            let m_reg = self.v[zm].to_le_bytes();
+            let gov = self.sve_p[pg];
+            let bits = (esize * 8) as u32;
+            let mut result = 0u32;
+            for e in 0..elements {
+                let b = e * esize;
+                if (gov >> b) & 1 == 0 {
+                    continue; // inactive -> 0 (zeroing predicate)
+                }
+                let a = read_elem(&n_reg, b, esize);
+                let c = read_elem(&m_reg, b, esize);
+                let cond = match (cmp_hi, cmp_lo) {
+                    (0b000, 0) => uext_elem(a, bits) >= uext_elem(c, bits),
+                    (0b000, 1) => uext_elem(a, bits) > uext_elem(c, bits),
+                    (0b100, 0) => sext_elem(a, bits) >= sext_elem(c, bits),
+                    (0b100, 1) => sext_elem(a, bits) > sext_elem(c, bits),
+                    (0b101, 0) => a == c,
+                    (0b101, 1) => a != c,
+                    _ => return Ok(CpuExit::Undefined(insn)),
+                };
+                if cond {
+                    result |= 1 << b;
+                }
+            }
+            self.sve_p[pd] = result;
+            let (n, z, cf, v) = pred_test(gov, result, elements, esize);
+            self.set_n(n);
+            self.set_z(z);
+            self.set_c(cf);
+            self.set_v(v);
+            return Ok(CpuExit::Continue);
+        }
 
         // PFALSE Pd: writes an all-false predicate (bits[15:10]==111001).
         if b15_10 == 0b111001 {
@@ -9375,6 +9445,31 @@ fn pred_test_flags(pred: u32, elements: usize, esize: usize) -> (bool, bool, boo
     let none = pred == 0;
     let last = (pred >> ((elements - 1) * esize)) & 1 != 0;
     (first, none, !last, false)
+}
+
+/// General SVE PredTest(mask, result): N=is the first mask-active element set in
+/// result, Z=no mask-active element is set, C=!is the last mask-active element
+/// set, V=0. Both predicates are byte-granular.
+fn pred_test(mask: u32, result: u32, elements: usize, esize: usize) -> (bool, bool, bool, bool) {
+    let mut n = false;
+    let mut first = true;
+    let mut z = true;
+    let mut last_r = false;
+    for e in 0..elements {
+        let b = e * esize;
+        if (mask >> b) & 1 == 1 {
+            let r = (result >> b) & 1 == 1;
+            if first {
+                n = r;
+                first = false;
+            }
+            if r {
+                z = false;
+            }
+            last_r = r;
+        }
+    }
+    (n, z, !last_r, false)
 }
 
 // ---- BFloat16 (bf16) helpers (FEAT_BF16) ----
