@@ -6952,11 +6952,10 @@ impl AArch64Cpu {
         // (Zm[e] << scale); scale = msz when scaled (bits[22:21]==11) else 0;
         // load msize bytes and sign(U=0)/zero(U=1)-extend; inactive lanes zero.
         // bit22==1 (ig1 high) separates it from the vector-base form (ig1==01).
-        if insn >> 25 == 0b1100010
-            && (insn >> 22) & 1 == 1
-            && (insn >> 15) & 1 == 1
-            && (insn >> 13) & 1 == 0
-        {
+        // ff=bit13 is free: ff=1 is the first-fault LDFF1 gather, which on the
+        // (untestable in this harness) fault path would suppress + clear FFR;
+        // the no-fault path is identical to the plain gather modelled here.
+        if insn >> 25 == 0b1100010 && (insn >> 22) & 1 == 1 && (insn >> 15) & 1 == 1 {
             let msz = (insn >> 23) & 0x3;
             let scaled = (insn >> 21) & 0x3 == 0b11;
             let unsigned = (insn >> 14) & 1 == 1;
@@ -6988,8 +6987,9 @@ impl AArch64Cpu {
 
         // LD1 gather (unpacked: D elements, 32-bit vector offset): 1100010 msz
         // xs scaled Zm 0 U ff Pg Rn Zt (bit15==0 vs the D.64 form's bit15==1).
-        // esize=64; offset[e] = extend(Zm[e]<31:0>, xs) << scale.
-        if insn >> 25 == 0b1100010 && (insn >> 15) & 1 == 0 && (insn >> 13) & 1 == 0 {
+        // esize=64; offset[e] = extend(Zm[e]<31:0>, xs) << scale. ff=bit13 free
+        // (first-fault variant; no-fault path identical).
+        if insn >> 25 == 0b1100010 && (insn >> 15) & 1 == 0 {
             let msz = (insn >> 23) & 0x3;
             let xs_signed = (insn >> 22) & 1 == 1;
             let scaled = (insn >> 21) & 1 == 1;
@@ -7026,7 +7026,7 @@ impl AArch64Cpu {
         // <31:0>, xs) << scale (xs=1 SXTW signed, 0 UXTW unsigned). Checked after
         // LDR/STR/LD1R (which share the 1000010 prefix but have bits[24:23]==11
         // or bit15==1), so those win first for their encodings.
-        if insn >> 25 == 0b1000010 && (insn >> 15) & 1 == 0 && (insn >> 13) & 1 == 0 {
+        if insn >> 25 == 0b1000010 && (insn >> 15) & 1 == 0 {
             let msz = (insn >> 23) & 0x3;
             if msz == 3 {
                 return Ok(CpuExit::Undefined(insn)); // no doubleword in S-form
@@ -7175,11 +7175,8 @@ impl AArch64Cpu {
         // LD1 gather (vector base + immediate, D elements): 1100010 msz 01 imm5
         // 1 U ff Pg Zn Zt. Each element's base IS Zn[e]; addr[e] = Zn[e] +
         // imm5 * mbytes. esize=64; load msize bytes, sign/zero-extend; zeroing.
-        if insn >> 25 == 0b1100010
-            && (insn >> 21) & 0x3 == 0b01
-            && (insn >> 15) & 1 == 1
-            && (insn >> 13) & 1 == 0
-        {
+        // ff=bit13 free (first-fault variant; no-fault path identical).
+        if insn >> 25 == 0b1100010 && (insn >> 21) & 0x3 == 0b01 && (insn >> 15) & 1 == 1 {
             let msz = (insn >> 23) & 0x3;
             let unsigned = (insn >> 14) & 1 == 1;
             let imm5 = (insn >> 16) & 0x1F;
@@ -7408,12 +7405,8 @@ impl AArch64Cpu {
         // LD1 gather (S-form vector base + immediate): 1000010 msz 01 imm5 1 U
         // ff Pg Zn Zt. esize=32; the per-element base is the 32-bit Zn[e]
         // (zero-extended); addr[e] = Zn[e] + imm5*mbytes. bit22==0 (bits[22:21]
-        // ==01) separates it from LD1R (bit22==1).
-        if insn >> 25 == 0b1000010
-            && (insn >> 21) & 0x3 == 0b01
-            && (insn >> 15) & 1 == 1
-            && (insn >> 13) & 1 == 0
-        {
+        // ==01) separates it from LD1R (bit22==1). ff=bit13 free (first-fault).
+        if insn >> 25 == 0b1000010 && (insn >> 21) & 0x3 == 0b01 && (insn >> 15) & 1 == 1 {
             let msz = (insn >> 23) & 0x3;
             if msz == 3 {
                 return Ok(CpuExit::Undefined(insn)); // no doubleword in S-form

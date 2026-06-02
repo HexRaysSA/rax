@@ -2583,6 +2583,37 @@ fn diff_sve_ldff1() {
 }
 
 #[test]
+fn diff_sve_ldff1_gather() {
+    // First-fault gather (D-form, ff=bit13 set). As with contiguous LDFF1, only
+    // element 0 is architecturally guaranteed, so it alone is activated with FFR
+    // pre-set; the loaded lane then equals the plain gather.
+    let mut rng = Rng::new(0x4_F001);
+    let mut batch: Vec<(String, u32, u32, ArmState)> = Vec::new();
+    for msz in 0..4u32 {
+        for &scaled in &[false, true] {
+            if scaled && msz == 0 {
+                continue; // no scaled byte form
+            }
+            for u in 0..2u32 {
+                if u == 0 && msz == 3 {
+                    continue;
+                }
+                let insn = enc_gather_d(msz, scaled, u) | (1 << 13); // ff=1 -> LDFF1
+                let name = format!("ldff1g m{msz} sc{} u{u}", scaled as u32);
+                for _ in 0..4 {
+                    let mut st = mem_input(&mut rng);
+                    let e0 = (rng.next() % 4) as u64;
+                    st.set_vreg(2, e0, 0); // element-0 offset
+                    st.set_preg(0, 1); // only element 0 active
+                    batch.push((name.clone(), enc_setffr(), insn, st));
+                }
+            }
+        }
+    }
+    run_batch_pair("sve_ldff1_gather", batch);
+}
+
+#[test]
 fn diff_sve_ffr() {
     // FFR manipulation, tested as two-instruction sequences that read the FFR
     // back into a captured predicate (p0): SETFFR/WRFFR then RDFFR.
