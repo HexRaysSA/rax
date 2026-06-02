@@ -102,12 +102,18 @@ static void handler(int sig, siginfo_t *si, void *ucv) {
     siglongjmp(g_harness, 1);
 }
 
-/* RV64 instruction encoders for the generated prologue. */
+/* Instruction encoders for the generated prologue. The integer load width
+ * follows the target XLEN (ld on RV64, lw on RV32). */
 static uint32_t enc_lui(int rd, uint32_t imm20) {
     return (imm20 << 12) | ((uint32_t)rd << 7) | 0x37u;
 }
+#if __riscv_xlen == 32
+#define XLOAD_FUNCT3 2u /* lw */
+#else
+#define XLOAD_FUNCT3 3u /* ld */
+#endif
 static uint32_t enc_ld(int rd, int rs1, int off) {
-    return (((uint32_t)(off & 0xfff)) << 20) | ((uint32_t)rs1 << 15) | (3u << 12) |
+    return (((uint32_t)(off & 0xfff)) << 20) | ((uint32_t)rs1 << 15) | (XLOAD_FUNCT3 << 12) |
            ((uint32_t)rd << 7) | 0x03u;
 }
 static uint32_t enc_fld(int rd, int rs1, int off) {

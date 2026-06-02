@@ -1739,6 +1739,91 @@ mod tests {
         (addr << 20) | (rs1 << 15) | (funct3 << 12) | (rd << 7) | 0x73
     }
 
+    // -- RV32: exercise every XLEN-sensitive branch (32-bit wrap, 5-bit shift
+    //    amounts, 32-bit signed/unsigned semantics, 32-bit mulh/div). --
+
+    fn rv32() -> RiscVCpu {
+        let cfg = RiscVConfig {
+            xlen: Xlen::Rv32,
+            isa: Isa::rv64gc(),
+        };
+        RiscVCpu::new(cfg, Box::new(FlatMemory::new(0, 0x1_0000)))
+    }
+
+    #[test]
+    fn rv32_add_wraps_32() {
+        let mut c = rv32();
+        c.set_x(1, 0xffff_ffff);
+        c.set_x(2, 1);
+        run_one(&mut c, r_type(0, 2, 1, 0, 3, 0x33)); // add
+        assert_eq!(c.x(3), 0); // wraps at 32 bits, zero-extended
+    }
+
+    #[test]
+    fn rv32_shift_amount_masked_5_bits() {
+        let mut c = rv32();
+        c.set_x(1, 1);
+        c.set_x(2, 33); // 33 & 31 == 1
+        run_one(&mut c, r_type(0, 2, 1, 1, 3, 0x33)); // sll
+        assert_eq!(c.x(3), 2);
+    }
+
+    #[test]
+    fn rv32_sra_signed_32() {
+        let mut c = rv32();
+        c.set_x(1, 0xffff_0000); // negative i32
+        c.set_x(2, 4);
+        run_one(&mut c, r_type(0b0100000, 2, 1, 5, 3, 0x33)); // sra
+        assert_eq!(c.x(3), 0xffff_f000);
+    }
+
+    #[test]
+    fn rv32_slt_signed() {
+        let mut c = rv32();
+        c.set_x(1, 0xffff_ffff); // -1 as i32
+        c.set_x(2, 1);
+        run_one(&mut c, r_type(0, 2, 1, 2, 3, 0x33)); // slt -> -1 < 1 == 1
+        assert_eq!(c.x(3), 1);
+        run_one(&mut c, r_type(0, 2, 1, 3, 4, 0x33)); // sltu -> 0xffffffff < 1 == 0
+        assert_eq!(c.x(4), 0);
+    }
+
+    #[test]
+    fn rv32_mulh_div() {
+        let mut c = rv32();
+        c.set_x(1, 0x8000_0000); // i32::MIN
+        c.set_x(2, 2);
+        run_one(&mut c, r_type(1, 2, 1, 1, 3, 0x33)); // mulh (signed high 32)
+        // (-2^31) * 2 = -2^32; high 32 bits = 0xffffffff
+        assert_eq!(c.x(3), 0xffff_ffff);
+        // div overflow: i32::MIN / -1 = i32::MIN
+        c.set_x(2, 0xffff_ffff);
+        run_one(&mut c, r_type(1, 2, 1, 4, 4, 0x33)); // div
+        assert_eq!(c.x(4), 0x8000_0000);
+        run_one(&mut c, r_type(1, 2, 1, 6, 5, 0x33)); // rem -> 0
+        assert_eq!(c.x(5), 0);
+    }
+
+    #[test]
+    fn rv32_load_sign_extends_to_32() {
+        let mut c = rv32();
+        c.set_x(1, 0x100);
+        c.write_memory(0x100, &[0x80]).unwrap();
+        // lb x2, 0(x1): 0x80 -> sign-extended to 0xffffff80 (32-bit, zero-ext to 64)
+        run_one(&mut c, (0u32 << 20) | (1 << 15) | (0 << 12) | (2 << 7) | 0x03);
+        assert_eq!(c.x(2), 0xffff_ff80);
+    }
+
+    #[test]
+    fn rv32_no_word_ops() {
+        // ADDW (OP-32) is illegal on RV32.
+        let mut c = rv32();
+        assert!(matches!(
+            run_one(&mut c, r_type(0, 2, 1, 0, 3, 0x3b)),
+            RiscVExit::Trap(_)
+        ));
+    }
+
     #[test]
     fn clz_cpop() {
         let mut c = cpu();
