@@ -1814,6 +1814,48 @@ impl SmirInterpreter {
                 Self::write_vec(ctx, *dst_hi, hi);
             }
 
+            OpKind::VReduceMul {
+                dst,
+                src1,
+                src2,
+                src_elem,
+                taps,
+                signed1,
+                signed2,
+                acc,
+            } => {
+                let a = Self::read_vec(ctx, *src1);
+                let b = Self::read_vec(ctx, *src2);
+                let nbits = src_elem.bytes() * 8;
+                let obits = nbits * (*taps as u32);
+                let olanes = (1024 / obits) as u8;
+                let mut out = if *acc { Self::read_vec(ctx, *dst) } else { [0u64; 16] };
+                let ext = |v: u64, signed: bool| -> i64 {
+                    if signed {
+                        let shift = 64 - nbits;
+                        ((v << shift) as i64) >> shift
+                    } else {
+                        v as i64
+                    }
+                };
+                for i in 0..olanes {
+                    let mut s: i64 = if *acc {
+                        Self::get_lane(&out, i, obits) as i64
+                    } else {
+                        0
+                    };
+                    for k in 0..*taps {
+                        let idx = i * *taps + k;
+                        s = s.wrapping_add(
+                            ext(Self::get_lane(&a, idx, nbits), *signed1)
+                                .wrapping_mul(ext(Self::get_lane(&b, idx, nbits), *signed2)),
+                        );
+                    }
+                    Self::set_lane(&mut out, i, obits, s as u64);
+                }
+                Self::write_vec(ctx, *dst, out);
+            }
+
             OpKind::VMov { dst, src, width: _ } => {
                 let val = Self::read_vec(ctx, *src);
                 Self::write_vec(ctx, *dst, val);
@@ -2981,5 +3023,102 @@ mod tests {
         let (lo, hi) = run_widenmul(v0, v1, VecElementType::I16, true, true);
         assert_eq!(lo, [0x0000_000F_0000_000Fu64; 16]); // word = 15
         assert_eq!(hi, [0x0000_000F_0000_000Fu64; 16]);
+    }
+
+    #[test]
+    fn test_vreducemul_byte4_to_word() {
+        // 4-tap byte dot product -> word. Every byte of V0 = 2, V1 = 3.
+        // Each word lane = sum of 4 products = 4 * (2*3) = 24 = 0x18.
+        let mut ctx = SmirContext::new_hexagon();
+        let mut memory = FlatMemory::new(0x1000);
+        let interp = SmirInterpreter::new();
+        if let ArchRegState::Hexagon(hex) = &mut ctx.arch_regs {
+            hex.set_v(0, [0x0202_0202_0202_0202u64; 16]);
+            hex.set_v(1, [0x0303_0303_0303_0303u64; 16]);
+        }
+        let mkv = |n| VReg::Arch(ArchReg::Hexagon(HexagonReg::V(n)));
+        let mk = |op| SmirBlock {
+            id: BlockId(0),
+            guest_pc: 0x1000,
+            phis: vec![],
+            ops: vec![SmirOp { id: OpId(0), guest_pc: 0x1000, kind: op, x86_hint: None }],
+            terminator: Terminator::Trap { kind: TrapKind::Halt },
+            exec_count: 0,
+        };
+        interp.execute_block(
+            &mut ctx,
+            &mut memory,
+            &mk(OpKind::VReduceMul {
+                dst: mkv(2),
+                src1: mkv(0),
+                src2: mkv(1),
+                src_elem: VecElementType::I8,
+                taps: 4,
+                signed1: false,
+                signed2: false,
+                acc: false,
+            }),
+        );
+        if let ArchRegState::Hexagon(hex) = &ctx.arch_regs {
+            assert_eq!(hex.get_v(2), [0x0000_0018_0000_0018u64; 16]); // word = 24
+        }
+        // Accumulate: dst already holds 24 per word; +24 -> 48 = 0x30.
+        interp.execute_block(
+            &mut ctx,
+            &mut memory,
+            &mk(OpKind::VReduceMul {
+                dst: mkv(2),
+                src1: mkv(0),
+                src2: mkv(1),
+                src_elem: VecElementType::I8,
+                taps: 4,
+                signed1: false,
+                signed2: false,
+                acc: true,
+            }),
+        );
+        if let ArchRegState::Hexagon(hex) = &ctx.arch_regs {
+            assert_eq!(hex.get_v(2), [0x0000_0030_0000_0030u64; 16]); // word = 48
+        }
+    }
+
+    #[test]
+    fn test_vreducemul_signed() {
+        // signed byte dot product: V0 byte = 0xFF (-1), V1 byte = 2.
+        // Each word = 4 * (-1 * 2) = -8 = 0xFFFFFFF8.
+        let mut ctx = SmirContext::new_hexagon();
+        let mut memory = FlatMemory::new(0x1000);
+        let interp = SmirInterpreter::new();
+        if let ArchRegState::Hexagon(hex) = &mut ctx.arch_regs {
+            hex.set_v(0, [0xFFFF_FFFF_FFFF_FFFFu64; 16]);
+            hex.set_v(1, [0x0202_0202_0202_0202u64; 16]);
+        }
+        let mkv = |n| VReg::Arch(ArchReg::Hexagon(HexagonReg::V(n)));
+        let block = SmirBlock {
+            id: BlockId(0),
+            guest_pc: 0x1000,
+            phis: vec![],
+            ops: vec![SmirOp {
+                id: OpId(0),
+                guest_pc: 0x1000,
+                kind: OpKind::VReduceMul {
+                    dst: mkv(2),
+                    src1: mkv(0),
+                    src2: mkv(1),
+                    src_elem: VecElementType::I8,
+                    taps: 4,
+                    signed1: true,
+                    signed2: true,
+                    acc: false,
+                },
+                x86_hint: None,
+            }],
+            terminator: Terminator::Trap { kind: TrapKind::Halt },
+            exec_count: 0,
+        };
+        interp.execute_block(&mut ctx, &mut memory, &block);
+        if let ArchRegState::Hexagon(hex) = &ctx.arch_regs {
+            assert_eq!(hex.get_v(2), [0xFFFF_FFF8_FFFF_FFF8u64; 16]); // word = -8
+        }
     }
 }
