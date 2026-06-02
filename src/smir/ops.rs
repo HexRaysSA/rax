@@ -919,6 +919,22 @@ pub enum OpKind {
         to_unsigned: bool,
     },
 
+    /// HVX halfword lookup-table gather into a register pair (`vlut16`: vlutvwh
+    /// family). `matchval = sel & 0xF`, `oh = (sel>>1)&1`; per output halfword i:
+    /// `idx0 = src_idx.b[2i]`, `idx1 = src_idx.b[2i+1]`; for each, match form yields
+    /// `((idx&0xF0)==(matchval<<4)) ? table.h[(idx%32)*2+oh] : 0`, nomatch yields
+    /// `table.h[(((idx&0x0F)|(matchval<<4))%32)*2+oh]`. idx0→dst_lo[i], idx1→dst_hi[i].
+    /// `oracc` ORs into the existing dst pair. `sel` is Rt (Reg) or a #u3 (Imm).
+    VLut16 {
+        dst_lo: VReg,
+        dst_hi: VReg,
+        src_idx: VReg,
+        table: VReg,
+        sel: SrcOperand,
+        nomatch: bool,
+        oracc: bool,
+    },
+
     /// HVX byte lookup-table gather (`vlut32`: vlutvvb/_nm/bi/_oracc/_oracci).
     /// `matchval = sel & 7`, `oh = (sel>>1)&1`; per byte i with `idx = src_idx.b[i]`:
     /// match form `out.b[i] = ((idx&0xe0)==(matchval<<5)) ? table.b[(idx%64)*2+oh] : 0`;
@@ -1660,7 +1676,8 @@ impl OpKind {
             OpKind::VWidenMul { dst_lo, dst_hi, .. }
             | OpKind::VWidenExt { dst_lo, dst_hi, .. }
             | OpKind::VPairReduceMul { dst_lo, dst_hi, .. }
-            | OpKind::VPairPairReduceMul { dst_lo, dst_hi, .. } => {
+            | OpKind::VPairPairReduceMul { dst_lo, dst_hi, .. }
+            | OpKind::VLut16 { dst_lo, dst_hi, .. } => {
                 vec![*dst_lo, *dst_hi]
             }
 

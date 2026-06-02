@@ -1826,6 +1826,54 @@ impl SmirInterpreter {
                 Self::write_vec(ctx, *dst_hi, hi);
             }
 
+            OpKind::VLut16 {
+                dst_lo,
+                dst_hi,
+                src_idx,
+                table,
+                sel,
+                nomatch,
+                oracc,
+            } => {
+                let vu = Self::read_vec(ctx, *src_idx);
+                let vv = Self::read_vec(ctx, *table);
+                let sel_v = match sel {
+                    SrcOperand::Imm(v) => *v as u32,
+                    SrcOperand::Reg(r) => ctx.read_vreg(*r) as u32,
+                    _ => 0,
+                };
+                let matchval = (sel_v & 0xF) as u8;
+                let oh = ((sel_v >> 1) & 0x1) as u8;
+                let mut lo = if *oracc { Self::read_vec(ctx, *dst_lo) } else { [0u64; 16] };
+                let mut hi = if *oracc { Self::read_vec(ctx, *dst_hi) } else { [0u64; 16] };
+                let look = |idx: u8| -> u16 {
+                    if *nomatch {
+                        let k = ((idx & 0x0F) | (matchval << 4)) as usize;
+                        Self::get_lane(&vv, ((k % 32) * 2) as u8 + oh, 16) as u16
+                    } else if (idx & 0xF0) == (matchval << 4) {
+                        let k = idx as usize;
+                        Self::get_lane(&vv, ((k % 32) * 2) as u8 + oh, 16) as u16
+                    } else {
+                        0
+                    }
+                };
+                for i in 0..64u8 {
+                    let v_lo = look(Self::get_lane(&vu, i * 2, 8) as u8);
+                    let v_hi = look(Self::get_lane(&vu, i * 2 + 1, 8) as u8);
+                    if *oracc {
+                        let plo = Self::get_lane(&lo, i, 16) as u16;
+                        let phi = Self::get_lane(&hi, i, 16) as u16;
+                        Self::set_lane(&mut lo, i, 16, (plo | v_lo) as u64);
+                        Self::set_lane(&mut hi, i, 16, (phi | v_hi) as u64);
+                    } else {
+                        Self::set_lane(&mut lo, i, 16, v_lo as u64);
+                        Self::set_lane(&mut hi, i, 16, v_hi as u64);
+                    }
+                }
+                Self::write_vec(ctx, *dst_lo, lo);
+                Self::write_vec(ctx, *dst_hi, hi);
+            }
+
             OpKind::VLut {
                 dst,
                 src_idx,

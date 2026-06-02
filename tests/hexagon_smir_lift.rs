@@ -1616,3 +1616,20 @@ fn lift_hvx_vlutvvb() {
         0x18d0,
     );
 }
+
+// vlut16 halfword lookup-table -> pair (VLut16).
+#[test]
+fn lift_hvx_vlutvwh() {
+    lift_family(
+        "hvx_vlutvwh",
+        &[
+            ("vlutvwh", "{ v3:2.h = vlut16(v0.b,v1.h,r3) }"),
+            ("vlutvwh_nm", "{ v3:2.h = vlut16(v0.b,v1.h,r3):nomatch }"),
+            ("vlutvwhi", "{ v3:2.h = vlut16(v0.b,v1.h,#3) }"),
+            ("vlutvwh_oracc", "{ v3:2.h |= vlut16(v0.b,v1.h,r3) }"),
+            ("vlutvwh_oracci", "{ v3:2.h |= vlut16(v0.b,v1.h,#3) }"),
+        ],
+        16,
+        0x18e0,
+    );
+}

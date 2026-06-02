@@ -4832,6 +4832,32 @@ impl HexagonLifter {
                 });
             }
 
+            // vlut16 halfword lookup-table -> pair: vlutvwh(i)/_nm/_oracc(i).
+            Opcode::V6_vlutvwh
+            | Opcode::V6_vlutvwh_nm
+            | Opcode::V6_vlutvwhi
+            | Opcode::V6_vlutvwh_oracc
+            | Opcode::V6_vlutvwh_oracci => {
+                let nomatch = matches!(op, Opcode::V6_vlutvwh_nm);
+                let oracc = matches!(op, Opcode::V6_vlutvwh_oracc | Opcode::V6_vlutvwh_oracci);
+                let imm = matches!(op, Opcode::V6_vlutvwhi | Opcode::V6_vlutvwh_oracci);
+                let sel = if imm {
+                    SrcOperand::Imm(fimm_u(b'i') as i64)
+                } else {
+                    SrcOperand::Reg(self.hex_reg(fld(b't')))
+                };
+                let base = if oracc { rx_n } else { rd_n };
+                push_op!(OpKind::VLut16 {
+                    dst_lo: self.hex_v(base),
+                    dst_hi: self.hex_v(base + 1),
+                    src_idx: self.hex_v(fld(b'u')),
+                    table: self.hex_v(fld(b'v')),
+                    sel,
+                    nomatch,
+                    oracc,
+                });
+            }
+
             // vmpyewuh: Vd.w = (Vu.w * Vv.uh[even]) >> 16.
             Opcode::V6_vmpyewuh => push_op!(OpKind::VMulSubLaneFrac {
                 dst: self.hex_v(fld(b'd')),
