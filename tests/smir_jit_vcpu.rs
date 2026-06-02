@@ -387,6 +387,43 @@ fn jit_loop_with_call_matches_interpreter() {
     assert_eq!(jr.rax & 0xffff_ffff, 5, "5 iterations");
 }
 
+/// Conditional CALL where the FALL-THROUGH (not the taken branch) is the
+/// frontier — the exact polarity of the kernel hrtimer region (`test;jcc cont;
+/// call`). Exercises the JIT exiting on a fall-through frontier with the correct
+/// resume PC. Must match interp.
+#[test]
+fn jit_loop_cond_call_matches_interpreter() {
+    // xor eax,eax; mov ecx,5
+    // loop: add eax,1; test al,1; jnz cont; call func; cont: dec ecx; jnz loop; hlt
+    // func: ret
+    let code: &[u8] = &[
+        0x31, 0xC0, // xor eax,eax
+        0xB9, 0x05, 0x00, 0x00, 0x00, // mov ecx,5
+        0x83, 0xC0, 0x01, // loop: add eax,1
+        0xA8, 0x01, // test al,1
+        0x75, 0x05, // jnz cont (skip call)
+        0xE8, 0x05, 0x00, 0x00, 0x00, // call func (fall-through frontier)
+        0xFF, 0xC9, // cont: dec ecx
+        0x75, 0xF0, // jnz loop
+        0xF4, // hlt
+        0xC3, // func: ret
+    ];
+
+    let mut jit = make_vcpu_code(code);
+    let _ = jit.jit_try_block().expect("jit_try_block");
+    run_interp(&mut jit);
+    let jr = jit.get_regs().unwrap();
+
+    let mut interp = make_vcpu_code(code);
+    run_interp(&mut interp);
+    let ir = interp.get_regs().unwrap();
+
+    assert_eq!(jr.rax, ir.rax, "rax");
+    assert_eq!(jr.rcx, ir.rcx, "rcx");
+    assert_eq!(jr.rsp, ir.rsp, "rsp (call/ret balance)");
+    assert_eq!(jr.rax & 0xffff_ffff, 5, "5 iterations");
+}
+
 /// A realistic hot loop with an INTERNAL conditional (if-inside-loop): multiple
 /// internal blocks, a forward branch + a join, two back-edges to the head, and a
 /// HLT frontier — all run natively by `jit_try_block`. JIT final state must equal
