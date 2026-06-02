@@ -1602,6 +1602,20 @@ fn enc_sve_fcvt(opc: u32, opc2: u32) -> u32 {
         | (0b101 << 13) | (RN << 5) | RD
 }
 
+/// SVE contiguous LD1 (scalar+imm): `1010010 dtype 0 imm4 101 Pg Rn Zt`.
+/// Pg=p0, Rn=x1 (base), Zt=z0.
+fn enc_sve_ld1(dtype: u32, imm4: i32) -> u32 {
+    (0b1010010 << 25) | (dtype << 21) | (((imm4 as u32) & 0xF) << 16)
+        | (0b101 << 13) | (RN << 5) | RD
+}
+
+/// SVE contiguous ST1 (scalar+imm): `1110010 msz size 0 imm4 111 Pg Rn Zt`.
+/// msz=memory width, size=element width (>= msz). Pg=p0, Rn=x1, Zt=z0.
+fn enc_sve_st1(msz: u32, size: u32, imm4: i32) -> u32 {
+    (0b1110010 << 25) | (msz << 23) | (size << 21) | (((imm4 as u32) & 0xF) << 16)
+        | (0b111 << 13) | (RN << 5) | RD
+}
+
 /// SVE FP<->int convert: `01100101 opc ig1 opc2 int_U 101 Pg Zn Zd`. ig1: 011=
 /// FCVTZS/U (FP->int), 010=SCVTF/UCVTF (int->FP). int_U: 0=signed, 1=unsigned.
 fn enc_sve_cvt(opc: u32, ig1: u32, opc2: u32, u: u32) -> u32 {
@@ -2292,6 +2306,48 @@ fn diff_sve_fcvt() {
         }
     }
     run_batch("sve_fcvt", batch);
+}
+
+#[test]
+fn diff_sve_ld1() {
+    // Contiguous LD1{B,H,W,D}/LD1S{B,H,W} from the scratch window. The random
+    // predicate exercises the byte-granular governing and zeroing of inactive
+    // lanes; the various dtypes cover every mem-size/element-size/sign pairing.
+    let mut rng = Rng::new(0x3_2001);
+    let mut batch: Vec<(String, u32, ArmState)> = Vec::new();
+    for dtype in 0..16u32 {
+        for &imm in &[0i32, 1, -1] {
+            let insn = enc_sve_ld1(dtype, imm);
+            for _ in 0..6 {
+                let mut st = mem_input(&mut rng);
+                st.set_preg(0, rng.next() as u16);
+                batch.push((format!("ld1 dt{dtype} i{imm}"), insn, st));
+            }
+        }
+    }
+    run_batch("sve_ld1", batch);
+}
+
+#[test]
+fn diff_sve_st1() {
+    // Contiguous ST1{B,H,W,D} to the scratch window (element width >= memory
+    // width). Inactive lanes leave memory untouched; the store truncates each
+    // element to the memory width.
+    let mut rng = Rng::new(0x3_3001);
+    let mut batch: Vec<(String, u32, ArmState)> = Vec::new();
+    for msz in 0..4u32 {
+        for size in msz..4u32 {
+            for &imm in &[0i32, 1] {
+                let insn = enc_sve_st1(msz, size, imm);
+                for _ in 0..6 {
+                    let mut st = mem_input(&mut rng);
+                    st.set_preg(0, rng.next() as u16);
+                    batch.push((format!("st1 m{msz} e{size} i{imm}"), insn, st));
+                }
+            }
+        }
+    }
+    run_batch("sve_st1", batch);
 }
 
 #[test]

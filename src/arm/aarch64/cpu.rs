@@ -6607,116 +6607,87 @@ impl AArch64Cpu {
         Ok(CpuExit::Continue)
     }
 
-    /// Execute SVE load/store instructions.
+    /// Execute SVE load/store instructions. Currently models the contiguous
+    /// LD1{B,H,W,D}/LD1S{B,H,W} and ST1{B,H,W,D} forms with a scalar base plus a
+    /// VL-scaled immediate (the `_Z.P.BI_` encodings). Predication is
+    /// byte-granular; loads zero inactive elements, stores skip them.
     fn exec_sve_ldst(&mut self, insn: u32) -> Result<CpuExit, ArmError> {
-        let op0 = (insn >> 29) & 0x7;
-        let msz = (insn >> 23) & 0x3;
-        let is_load = (op0 & 0x1) == 0;
-
-        let zt = (insn & 0x1F) as usize;
-        let rn = ((insn >> 5) & 0x1F) as u8;
         let pg = ((insn >> 10) & 0x7) as usize;
-
-        let esize = 1usize << msz;
-        let elements = 16 / esize;
+        let rn = ((insn >> 5) & 0x1F) as u8;
+        let zt = (insn & 0x1F) as usize;
+        let imm4 = ((((insn >> 16) & 0xF) as i32) << 28 >> 28) as i64; // signed 4-bit
         let pred = self.sve_p[pg];
-
-        // Get base address
         let base = if rn == 31 {
             self.current_sp()
         } else {
             self.get_x(rn)
         };
+        let is_store = (insn >> 30) & 1 == 1;
+        let b15_13 = (insn >> 13) & 0x7;
 
-        // Get immediate offset (scaled by VL)
-        let imm4 = ((insn >> 16) & 0xF) as i64;
-        let offset = if imm4 & 0x8 != 0 {
-            (imm4 | !0xF) * 16 // Sign extend and scale by VL bytes
-        } else {
-            imm4 * 16
-        };
-
-        let address = (base as i64 + offset) as u64;
-
-        if is_load {
+        // Contiguous LD1 (scalar + immediate): 1010010 dtype 0 imm4 101 Pg Rn Zt.
+        if !is_store && insn >> 25 == 0b1010010 && b15_13 == 0b101 && (insn >> 20) & 1 == 0 {
+            let dtype = (insn >> 21) & 0xF;
+            let (esize, mbytes, signed) = sve_ld1_dtype(dtype);
+            let elements = 16 / esize;
+            let addr0 = (base as i64 + imm4 * (elements * mbytes) as i64) as u64;
             let mut dst = [0u8; 16];
             for e in 0..elements {
-                if (pred >> e) & 1 == 0 {
-                    continue; // Skip inactive elements (zeroing)
+                if (pred >> (e * esize)) & 1 == 0 {
+                    continue; // inactive -> zero (LD1 is zeroing)
                 }
-
-                let elem_addr = address + (e * esize) as u64;
-                let pa = self.translate_address(elem_addr, false, false)?;
-
-                match esize {
-                    1 => {
-                        dst[e] = self.memory.read_u8(pa)?;
-                    }
-                    2 => {
-                        let val = self.memory.read_u16(pa)?;
-                        let bytes = val.to_le_bytes();
-                        dst[e * 2..e * 2 + 2].copy_from_slice(&bytes);
-                    }
-                    4 => {
-                        let val = self.memory.read_u32(pa)?;
-                        let bytes = val.to_le_bytes();
-                        dst[e * 4..e * 4 + 4].copy_from_slice(&bytes);
-                    }
-                    8 => {
-                        let val = self.memory.read_u64(pa)?;
-                        let bytes = val.to_le_bytes();
-                        dst[e * 8..e * 8 + 8].copy_from_slice(&bytes);
-                    }
-                    _ => {}
-                }
+                let ea = addr0 + (e * mbytes) as u64;
+                let pa = self.translate_address(ea, false, false)?;
+                let raw: u64 = match mbytes {
+                    1 => self.memory.read_u8(pa)? as u64,
+                    2 => self.memory.read_u16(pa)? as u64,
+                    4 => self.memory.read_u32(pa)? as u64,
+                    _ => self.memory.read_u64(pa)?,
+                };
+                let val = if signed {
+                    (sext_elem(raw, (mbytes * 8) as u32) as u64) & elem_mask((esize * 8) as u32)
+                } else {
+                    raw
+                };
+                write_elem(&mut dst, e * esize, esize, val);
             }
             self.v[zt] = u128::from_le_bytes(dst);
-        } else {
-            let src = self.v[zt].to_le_bytes();
-            for e in 0..elements {
-                if (pred >> e) & 1 == 0 {
-                    continue; // Skip inactive elements
-                }
-
-                let elem_addr = address + (e * esize) as u64;
-                let pa = self.translate_address(elem_addr, true, false)?;
-
-                match esize {
-                    1 => {
-                        self.memory.write_u8(pa, src[e])?;
-                    }
-                    2 => {
-                        let val = u16::from_le_bytes([src[e * 2], src[e * 2 + 1]]);
-                        self.memory.write_u16(pa, val)?;
-                    }
-                    4 => {
-                        let val = u32::from_le_bytes([
-                            src[e * 4],
-                            src[e * 4 + 1],
-                            src[e * 4 + 2],
-                            src[e * 4 + 3],
-                        ]);
-                        self.memory.write_u32(pa, val)?;
-                    }
-                    8 => {
-                        let val = u64::from_le_bytes([
-                            src[e * 8],
-                            src[e * 8 + 1],
-                            src[e * 8 + 2],
-                            src[e * 8 + 3],
-                            src[e * 8 + 4],
-                            src[e * 8 + 5],
-                            src[e * 8 + 6],
-                            src[e * 8 + 7],
-                        ]);
-                        self.memory.write_u64(pa, val)?;
-                    }
-                    _ => {}
-                }
-            }
+            return Ok(CpuExit::Continue);
         }
 
-        Ok(CpuExit::Continue)
+        // Contiguous ST1 (scalar + immediate): 1110010 msz size 0 imm4 111 Pg Rn Zt.
+        // msz=bits[24:23] memory width, size=bits[22:21] element width (>= msz).
+        if is_store && insn >> 25 == 0b1110010 && b15_13 == 0b111 && (insn >> 20) & 1 == 0 {
+            let msz = (insn >> 23) & 0x3;
+            let size = (insn >> 21) & 0x3;
+            if size < msz {
+                return Ok(CpuExit::Undefined(insn)); // element must be >= memory size
+            }
+            let esize = 1usize << size;
+            let mbytes = 1usize << msz;
+            let elements = 16 / esize;
+            let addr0 = (base as i64 + imm4 * (elements * mbytes) as i64) as u64;
+            let src = self.v[zt].to_le_bytes();
+            for e in 0..elements {
+                if (pred >> (e * esize)) & 1 == 0 {
+                    continue; // inactive -> leave memory unchanged
+                }
+                let ea = addr0 + (e * mbytes) as u64;
+                let pa = self.translate_address(ea, true, false)?;
+                let val = read_elem(&src, e * esize, esize); // low msize bytes stored
+                match mbytes {
+                    1 => self.memory.write_u8(pa, val as u8)?,
+                    2 => self.memory.write_u16(pa, val as u16)?,
+                    4 => self.memory.write_u32(pa, val as u32)?,
+                    _ => self.memory.write_u64(pa, val)?,
+                }
+            }
+            return Ok(CpuExit::Continue);
+        }
+
+        // Other SVE memory forms (LDR/STR vector, register-offset, gather/
+        // scatter, multi-register LD2-4/ST2-4) are not yet modelled.
+        Ok(CpuExit::Undefined(insn))
     }
 
     // =========================================================================
@@ -10530,6 +10501,30 @@ fn pred_test(mask: u32, result: u32, elements: usize, esize: usize) -> (bool, bo
         }
     }
     (n, z, !last_r, false)
+}
+
+/// Decode the 4-bit SVE contiguous-load `dtype` field into the destination
+/// element size, the memory access size (both in bytes) and whether the loaded
+/// value is sign-extended. msize <= esize always; signed loads sign-extend.
+fn sve_ld1_dtype(dtype: u32) -> (usize, usize, bool) {
+    match dtype {
+        0b0000 => (1, 1, false), // LD1B  -> 8
+        0b0001 => (2, 1, false), // LD1B  -> 16
+        0b0010 => (4, 1, false), // LD1B  -> 32
+        0b0011 => (8, 1, false), // LD1B  -> 64
+        0b0100 => (8, 4, true),  // LD1SW -> 64
+        0b0101 => (2, 2, false), // LD1H  -> 16
+        0b0110 => (4, 2, false), // LD1H  -> 32
+        0b0111 => (8, 2, false), // LD1H  -> 64
+        0b1000 => (8, 2, true),  // LD1SH -> 64
+        0b1001 => (4, 2, true),  // LD1SH -> 32
+        0b1010 => (4, 4, false), // LD1W  -> 32
+        0b1011 => (8, 4, false), // LD1W  -> 64
+        0b1100 => (8, 1, true),  // LD1SB -> 64
+        0b1101 => (4, 1, true),  // LD1SB -> 32
+        0b1110 => (2, 1, true),  // LD1SB -> 16
+        _ => (8, 8, false),      // 1111: LD1D -> 64
+    }
 }
 
 /// SVE LastActive(mask, operand): true iff the highest-indexed mask-active
