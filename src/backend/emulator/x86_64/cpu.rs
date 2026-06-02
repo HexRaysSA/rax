@@ -1202,11 +1202,6 @@ impl X86_64Vcpu {
         // hot path (published to the global counter at run() yield boundaries).
         self.insn_count = self.insn_count.wrapping_add(1);
 
-        // Self-modifying-code: invalidate decode + JIT caches for any code page
-        // written since the previous instruction, so a freshly-modified opcode
-        // is re-decoded before it executes. Guarded — zero work when idle.
-        self.drain_smc();
-
         // Start profiling timer
         #[cfg(feature = "profiling")]
         let prof_start = profiling::begin_instruction();
@@ -2315,6 +2310,17 @@ impl VCpu for X86_64Vcpu {
                 }
                 return Ok(VcpuExit::Hlt);
             }
+
+            // Self-modifying-code: drain the MMU's write journal and invalidate
+            // decode + JIT caches for any code page written since the previous
+            // instruction, so a freshly-modified opcode is re-decoded (and any
+            // stale native region dropped) before it next executes. Guarded —
+            // zero work when no code page has been written. Sits on the
+            // run-loop path (where real guest execution and the JIT live); for
+            // a JIT'd hot loop it costs one guarded check per whole-loop run,
+            // not per iteration. (`check_smc` still handles the immediate path
+            // for the vcpu write wrappers.)
+            self.drain_smc();
 
             // SMIR hot-block JIT fast path: if the region at RIP has been
             // compiled, run it natively (whole loop in one call) and continue.
