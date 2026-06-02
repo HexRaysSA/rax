@@ -1704,11 +1704,132 @@ impl RiscVLifter {
                 let u2 = unbox(ctx, &mut ops, fs2, 16, 0xffff_ffff_ffff, 0xffff, 0x7e00);
                 sgnj(ctx, &mut ops, u1, u2, 0x8000, BOX_H, m);
             }
+            // Classify (fflags-free): canonicalize narrow operands, then build
+            // the 10-bit class mask. (FCLASS does not depend on rounding.)
+            RvOp::FclassD => {
+                let fs = getf(d.rs1, ctx);
+                if let Some(dst) = self.def_x_reg(d.rd, ctx) {
+                    self.emit_fclass(ctx, &mut ops, addr, fs, 52, 11, dst);
+                }
+            }
+            RvOp::FclassS => {
+                let fs = getf(d.rs1, ctx);
+                let u = unbox(ctx, &mut ops, fs, 32, 0xffff_ffff, 0xffff_ffff, 0x7fc0_0000);
+                if let Some(dst) = self.def_x_reg(d.rd, ctx) {
+                    self.emit_fclass(ctx, &mut ops, addr, u, 23, 8, dst);
+                }
+            }
+            RvOp::FclassH => {
+                let fs = getf(d.rs1, ctx);
+                let u = unbox(ctx, &mut ops, fs, 16, 0xffff_ffff_ffff, 0xffff, 0x7e00);
+                if let Some(dst) = self.def_x_reg(d.rd, ctx) {
+                    self.emit_fclass(ctx, &mut ops, addr, u, 10, 5, dst);
+                }
+            }
             _ => {
                 return Err(LiftError::Unsupported { addr, mnemonic: format!("{:?}", d.op) });
             }
         }
         Ok((ops, ControlFlow::NextInsn))
+    }
+
+    /// Emit the RISC-V FCLASS 10-bit classification of FP value `f` (the value
+    /// must already be unboxed for .S/.H) into integer register `dst`.
+    fn emit_fclass(
+        &mut self,
+        ctx: &mut LiftContext,
+        ops: &mut Vec<SmirOp>,
+        addr: GuestAddr,
+        f: VReg,
+        mant_bits: u32,
+        exp_bits: u32,
+        dst: VReg,
+    ) {
+        let w = OpWidth::W64;
+        let emask = (1i64 << exp_bits) - 1;
+        let mmask = (1i64 << mant_bits) - 1;
+        let push = |ctx: &mut LiftContext, ops: &mut Vec<SmirOp>, k: OpKind| {
+            ops.push(SmirOp::new(ctx.next_op_id(), addr, k));
+        };
+        let shr = |ctx: &mut LiftContext, ops: &mut Vec<SmirOp>, src: VReg, amt: i64| -> VReg {
+            let r = ctx.alloc_vreg();
+            push(ctx, ops, OpKind::Shr { dst: r, src, amount: SrcOperand::Imm(amt), width: w, flags: FlagUpdate::None });
+            r
+        };
+        let andi = |ctx: &mut LiftContext, ops: &mut Vec<SmirOp>, src: VReg, imm: i64| -> VReg {
+            let r = ctx.alloc_vreg();
+            push(ctx, ops, OpKind::And { dst: r, src1: src, src2: SrcOperand::Imm(imm), width: w, flags: FlagUpdate::None });
+            r
+        };
+        let cmpset = |ctx: &mut LiftContext, ops: &mut Vec<SmirOp>, a: VReg, imm: i64, cond: Condition| -> VReg {
+            push(ctx, ops, OpKind::Cmp { src1: a, src2: SrcOperand::Imm(imm), width: w });
+            let r = ctx.alloc_vreg();
+            push(ctx, ops, OpKind::SetCC { dst: r, cond, width: w });
+            r
+        };
+        let andv = |ctx: &mut LiftContext, ops: &mut Vec<SmirOp>, a: VReg, b: VReg| -> VReg {
+            let r = ctx.alloc_vreg();
+            push(ctx, ops, OpKind::And { dst: r, src1: a, src2: SrcOperand::Reg(b), width: w, flags: FlagUpdate::None });
+            r
+        };
+        let not1 = |ctx: &mut LiftContext, ops: &mut Vec<SmirOp>, a: VReg| -> VReg {
+            let r = ctx.alloc_vreg();
+            push(ctx, ops, OpKind::Xor { dst: r, src1: a, src2: SrcOperand::Imm(1), width: w, flags: FlagUpdate::None });
+            r
+        };
+
+        let exp_sh = shr(ctx, ops, f, mant_bits as i64);
+        let exp = andi(ctx, ops, exp_sh, emask);
+        let sign_sh = shr(ctx, ops, f, (mant_bits + exp_bits) as i64);
+        let sign = andi(ctx, ops, sign_sh, 1);
+        let mant = andi(ctx, ops, f, mmask);
+        let mq_sh = shr(ctx, ops, mant, (mant_bits - 1) as i64);
+        let mq = andi(ctx, ops, mq_sh, 1);
+
+        let emax = cmpset(ctx, ops, exp, emask, Condition::Eq);
+        let ezero = cmpset(ctx, ops, exp, 0, Condition::Eq);
+        let mzero = cmpset(ctx, ops, mant, 0, Condition::Eq);
+        let mnz = not1(ctx, ops, mzero);
+        let pos = not1(ctx, ops, sign);
+        let nmq = not1(ctx, ops, mq);
+        let enorm = {
+            let a = not1(ctx, ops, emax);
+            let b = not1(ctx, ops, ezero);
+            andv(ctx, ops, a, b)
+        };
+
+        // (class bit index, condition vreg)
+        let emz = andv(ctx, ops, emax, mzero);
+        let emnz = andv(ctx, ops, emax, mnz);
+        let ezmz = andv(ctx, ops, ezero, mzero);
+        let ezmnz = andv(ctx, ops, ezero, mnz);
+        let bits: [(i64, VReg); 10] = [
+            (0, andv(ctx, ops, emz, sign)),    // -inf
+            (7, andv(ctx, ops, emz, pos)),     // +inf
+            (9, andv(ctx, ops, emnz, mq)),     // qNaN
+            (8, andv(ctx, ops, emnz, nmq)),    // sNaN
+            (3, andv(ctx, ops, ezmz, sign)),   // -0
+            (4, andv(ctx, ops, ezmz, pos)),    // +0
+            (2, andv(ctx, ops, ezmnz, sign)),  // -subnormal
+            (5, andv(ctx, ops, ezmnz, pos)),   // +subnormal
+            (1, andv(ctx, ops, enorm, sign)),  // -normal
+            (6, andv(ctx, ops, enorm, pos)),   // +normal
+        ];
+        // acc = OR of (bit << k); first term initializes via Shl into acc.
+        let mut acc: Option<VReg> = None;
+        for (k, b) in bits {
+            let t = ctx.alloc_vreg();
+            push(ctx, ops, OpKind::Shl { dst: t, src: b, amount: SrcOperand::Imm(k), width: w, flags: FlagUpdate::None });
+            acc = Some(match acc {
+                None => t,
+                Some(a) => {
+                    let r = ctx.alloc_vreg();
+                    push(ctx, ops, OpKind::Or { dst: r, src1: a, src2: SrcOperand::Reg(t), width: w, flags: FlagUpdate::None });
+                    r
+                }
+            });
+        }
+        push(ctx, ops, OpKind::Mov { dst, src: SrcOperand::Reg(acc.unwrap()), width: w });
     }
 
     /// M extension multiply/divide operations
