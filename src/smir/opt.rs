@@ -1603,6 +1603,14 @@ impl OpKind {
                 }
             }
 
+            OpKind::VShuffVdd { src_lo, src_hi, amount, .. } => {
+                result.push(*src_lo);
+                result.push(*src_hi);
+                if let SrcOperand::Reg(r) = amount {
+                    result.push(*r);
+                }
+            }
+
             OpKind::VPack { src1, src2, .. }
             | OpKind::VPackSat { src1, src2, .. }
             | OpKind::VShuffleEO { src1, src2, .. }

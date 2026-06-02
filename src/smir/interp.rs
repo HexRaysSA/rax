@@ -1913,6 +1913,38 @@ impl SmirInterpreter {
                 Self::write_vec(ctx, *dst, out);
             }
 
+            OpKind::VShuffVdd {
+                dst_lo,
+                dst_hi,
+                src_lo,
+                src_hi,
+                amount,
+            } => {
+                let mut lo = Self::read_vec(ctx, *src_lo);
+                let mut hi = Self::read_vec(ctx, *src_hi);
+                let rt = match amount {
+                    SrcOperand::Imm(v) => *v as usize,
+                    SrcOperand::Reg(r) => ctx.read_vreg(*r) as usize,
+                    _ => 0,
+                };
+                let mut offset = 1usize;
+                while offset < 128 {
+                    if rt & offset != 0 {
+                        for k in 0..128usize {
+                            if k & offset == 0 {
+                                let a = Self::get_lane(&hi, k as u8, 8);
+                                let b = Self::get_lane(&lo, (k + offset) as u8, 8);
+                                Self::set_lane(&mut hi, k as u8, 8, b);
+                                Self::set_lane(&mut lo, (k + offset) as u8, 8, a);
+                            }
+                        }
+                    }
+                    offset <<= 1;
+                }
+                Self::write_vec(ctx, *dst_lo, lo);
+                Self::write_vec(ctx, *dst_hi, hi);
+            }
+
             OpKind::VDealB4W { dst, src1, src2 } => {
                 let u = Self::read_vec(ctx, *src1);
                 let v = Self::read_vec(ctx, *src2);

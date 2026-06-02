@@ -949,6 +949,18 @@ pub enum OpKind {
         oracc: bool,
     },
 
+    /// HVX `vshuffvdd` (`Vdd = vshuff(Vu, Vv, Rt)`): Rt-controlled byte swap
+    /// network over the 256-byte pair (dst_lo=Vv, dst_hi=Vu initially). For each
+    /// power-of-two `offset` (1..64) whose bit is set in `amount`, swap byte k of
+    /// the high reg with byte k+offset of the low reg for every k with `k&offset==0`.
+    VShuffVdd {
+        dst_lo: VReg,
+        dst_hi: VReg,
+        src_lo: VReg,
+        src_hi: VReg,
+        amount: SrcOperand,
+    },
+
     /// HVX `vdealb4w` (`Vd.b = vdeale(Vu.b, Vv.b)`): deal bytes 0 and 2 of each
     /// word. For word lane i (0..32): `dst.b[i]=src2.b[4i]`, `dst.b[32+i]=src2.b[4i+2]`,
     /// `dst.b[64+i]=src1.b[4i]`, `dst.b[96+i]=src1.b[4i+2]` (src1=Vu, src2=Vv).
@@ -1677,7 +1689,8 @@ impl OpKind {
             | OpKind::VWidenExt { dst_lo, dst_hi, .. }
             | OpKind::VPairReduceMul { dst_lo, dst_hi, .. }
             | OpKind::VPairPairReduceMul { dst_lo, dst_hi, .. }
-            | OpKind::VLut16 { dst_lo, dst_hi, .. } => {
+            | OpKind::VLut16 { dst_lo, dst_hi, .. }
+            | OpKind::VShuffVdd { dst_lo, dst_hi, .. } => {
                 vec![*dst_lo, *dst_hi]
             }
 

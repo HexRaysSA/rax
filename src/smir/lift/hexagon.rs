@@ -4807,6 +4807,16 @@ impl HexagonLifter {
                 src2: self.hex_v(fld(b'v')),
             }),
 
+            // vshuffvdd: Rt-controlled byte swap network (Vdd = vshuff(Vu,Vv,Rt)).
+            // lo := Vv, hi := Vu.
+            Opcode::V6_vshuffvdd => push_op!(OpKind::VShuffVdd {
+                dst_lo: self.hex_v(rd_n),
+                dst_hi: self.hex_v(rd_n + 1),
+                src_lo: self.hex_v(fld(b'v')),
+                src_hi: self.hex_v(fld(b'u')),
+                amount: SrcOperand::Reg(self.hex_reg(fld(b't'))),
+            }),
+
             // vlut32 byte lookup-table: vlutvvb(i)/_nm/_oracc(i).
             Opcode::V6_vlutvvb
             | Opcode::V6_vlutvvb_nm

@@ -1633,3 +1633,14 @@ fn lift_hvx_vlutvwh() {
         0x18e0,
     );
 }
+
+// vshuffvdd: Rt-controlled byte swap network over a pair (VShuffVdd).
+#[test]
+fn lift_hvx_vshuffvdd() {
+    lift_family(
+        "hvx_vshuffvdd",
+        &[("vshuffvdd", "{ v3:2 = vshuff(v5,v4,r3) }")],
+        16,
+        0x18f0,
+    );
+}
