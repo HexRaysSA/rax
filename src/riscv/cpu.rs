@@ -744,7 +744,10 @@ impl RiscVCpu {
             | Op::Vredminu | Op::Vredmin | Op::Vredmaxu | Op::Vredmax | Op::Vfredusum
             | Op::Vfredosum | Op::Vfredmin | Op::Vfredmax | Op::VmvXS | Op::VmvSX
             | Op::VfmvFS | Op::VfmvSF | Op::Vmand | Op::Vmnand | Op::Vmandn | Op::Vmxor
-            | Op::Vmor | Op::Vmnor | Op::Vmorn | Op::Vmxnor => self.exec_vector(insn)?,
+            | Op::Vmor | Op::Vmnor | Op::Vmorn | Op::Vmxnor | Op::VzextVf2 | Op::VsextVf2
+            | Op::VzextVf4 | Op::VsextVf4 | Op::VzextVf8 | Op::VsextVf8 => {
+                self.exec_vector(insn)?
+            }
 
             Op::Illegal => return Err(Trap::illegal(insn.raw)),
 
@@ -1598,6 +1601,31 @@ impl RiscVCpu {
                     self.set_vmask_bit(vd, e, r);
                 }
                 self.accrue(flags);
+            }
+            Op::VzextVf2 | Op::VsextVf2 | Op::VzextVf4 | Op::VsextVf4 | Op::VzextVf8
+            | Op::VsextVf8 => {
+                let eb = self.sew_bytes();
+                let mask = Self::sew_mask(eb);
+                let (factor, signed) = match insn.op {
+                    Op::VzextVf2 => (2usize, false),
+                    Op::VsextVf2 => (2, true),
+                    Op::VzextVf4 => (4, false),
+                    Op::VsextVf4 => (4, true),
+                    Op::VzextVf8 => (8, false),
+                    _ => (8, true),
+                };
+                if eb < factor {
+                    return Err(Trap::illegal(insn.raw)); // SEW too narrow for the source
+                }
+                let neb = eb / factor; // narrow source element width
+                for e in vstart..vl {
+                    if !vm && !self.vmask_bit(e) {
+                        continue;
+                    }
+                    let src = self.velem(vs2, e, neb);
+                    let v = if signed { sext_sew(src, neb) as u64 } else { src };
+                    self.set_velem(vd, e, eb, v & mask);
+                }
             }
             Op::Vmand | Op::Vmnand | Op::Vmandn | Op::Vmxor | Op::Vmor | Op::Vmnor | Op::Vmorn
             | Op::Vmxnor => {

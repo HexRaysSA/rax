@@ -381,6 +381,12 @@ impl Op {
             Vmnor => "vmnor",
             Vmorn => "vmorn",
             Vmxnor => "vmxnor",
+            VzextVf2 => "vzext.vf2",
+            VsextVf2 => "vsext.vf2",
+            VzextVf4 => "vzext.vf4",
+            VsextVf4 => "vsext.vf4",
+            VzextVf8 => "vzext.vf8",
+            VsextVf8 => "vsext.vf8",
             Illegal => "illegal",
         }
     }
