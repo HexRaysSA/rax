@@ -305,6 +305,33 @@ impl HexagonVcpu {
         Ok(())
     }
 
+    /// Read a 128-byte HVX vector from memory as 32 little-endian words. HVX
+    /// vmem is byte-transparent (the vector's byte order is memory order), so
+    /// the words use the same LE packing as the `v[]` register storage.
+    fn read_vec(&self, addr: u32) -> Result<[u32; 32]> {
+        let mut buf = [0u8; 128];
+        self.mem
+            .read_slice(&mut buf, GuestAddress(addr as u64))
+            .map_err(Error::from)?;
+        let mut v = [0u32; 32];
+        for i in 0..32 {
+            v[i] = u32::from_le_bytes([buf[i * 4], buf[i * 4 + 1], buf[i * 4 + 2], buf[i * 4 + 3]]);
+        }
+        Ok(v)
+    }
+
+    /// Write a 128-byte HVX vector to memory (32 little-endian words).
+    fn write_vec(&self, addr: u32, vec: &[u32; 32]) -> Result<()> {
+        let mut buf = [0u8; 128];
+        for i in 0..32 {
+            buf[i * 4..i * 4 + 4].copy_from_slice(&vec[i].to_le_bytes());
+        }
+        self.mem
+            .write_slice(&buf, GuestAddress(addr as u64))
+            .map_err(Error::from)?;
+        Ok(())
+    }
+
     fn fetch_word(&self, pc: u32) -> Result<u32> {
         self.read_u32(pc)
     }
@@ -1009,6 +1036,44 @@ impl HexagonVcpu {
                     MemOpKind::SetBit => cur | (1u32 << (srcval & 0x1f)),
                 };
                 self.store_mem(ea, width, result)?;
+            }
+            // HVX vector load: Vd = vmem(base + offset) (buffered to new_v).
+            DecodedInsn::VLoad {
+                dst,
+                base,
+                offset,
+                post_inc,
+                aligned,
+            } => {
+                let mut ea = self.regs.r[base as usize].wrapping_add(offset as u32);
+                if aligned {
+                    ea &= !127;
+                }
+                let vec = self.read_vec(ea)?;
+                self.new_v[dst as usize] = Some(vec);
+                if let Some(inc) = post_inc {
+                    new_r[base as usize] =
+                        Some(self.regs.r[base as usize].wrapping_add(inc as u32));
+                }
+            }
+            // HVX vector store: vmem(base + offset) = Vs.
+            DecodedInsn::VStore {
+                src,
+                base,
+                offset,
+                post_inc,
+                aligned,
+            } => {
+                let mut ea = self.regs.r[base as usize].wrapping_add(offset as u32);
+                if aligned {
+                    ea &= !127;
+                }
+                let vec = self.regs.v[src as usize];
+                self.write_vec(ea, &vec)?;
+                if let Some(inc) = post_inc {
+                    new_r[base as usize] =
+                        Some(self.regs.r[base as usize].wrapping_add(inc as u32));
+                }
             }
             // Absolute value: Rd = |Rs|, with optional saturation
             DecodedInsn::Abs { dst, src, sat } => {

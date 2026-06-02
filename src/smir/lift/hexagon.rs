@@ -1040,6 +1040,13 @@ impl HexagonLifter {
                     mnemonic: "memop".to_string(),
                 });
             }
+            // HVX vector loads/stores are handled by the interpreter path.
+            DecodedInsn::VLoad { .. } | DecodedInsn::VStore { .. } => {
+                return Err(LiftError::Unsupported {
+                    addr,
+                    mnemonic: "vmem".to_string(),
+                });
+            }
 
             // ================================================================
             // Unknown

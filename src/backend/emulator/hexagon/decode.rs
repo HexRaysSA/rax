@@ -304,6 +304,24 @@ pub enum DecodedInsn {
         count: u32,
     },
     Trap0,
+    /// HVX vector load: `Vd = vmem(base + offset)`; `post_inc` updates `base` by
+    /// that many bytes; `aligned` masks the effective address to a 128-byte
+    /// boundary (false for the `vmemu` unaligned form).
+    VLoad {
+        dst: u8,
+        base: u8,
+        offset: i32,
+        post_inc: Option<i32>,
+        aligned: bool,
+    },
+    /// HVX vector store: `vmem(base + offset) = Vs`.
+    VStore {
+        src: u8,
+        base: u8,
+        offset: i32,
+        post_inc: Option<i32>,
+        aligned: bool,
+    },
     /// New-value store: stores the register produced earlier in this packet,
     /// selected by the `Nt8` field. The packet driver resolves `nt` to the
     /// producer register (using `Nt8 >> 1` as the back-distance among the
@@ -948,6 +966,45 @@ fn memop(
             width,
             op,
             src,
+        },
+        false,
+    ))
+}
+
+const HVX_VEC_BYTES: i32 = 128;
+
+/// Decode an HVX vector load `Vd = vmem(...)`. `post_inc` selects the `Rx++#s3`
+/// form (base field `x`, immediate is the post-increment) vs the `Rt+#s4` form
+/// (base field `t`, immediate is the offset). The immediate is in vector units.
+fn vmem_load(decoded: &DecodedOp, post_inc: bool, aligned: bool) -> Option<(DecodedInsn, bool)> {
+    let dst = field_u8(decoded, b'd')?;
+    let base = field_u8(decoded, if post_inc { b'x' } else { b't' })?;
+    let imm = decode_field_simm(decoded, b'i', None)?.0 * HVX_VEC_BYTES;
+    let (offset, pi) = if post_inc { (0, Some(imm)) } else { (imm, None) };
+    Some((
+        DecodedInsn::VLoad {
+            dst,
+            base,
+            offset,
+            post_inc: pi,
+            aligned,
+        },
+        false,
+    ))
+}
+
+fn vmem_store(decoded: &DecodedOp, post_inc: bool, aligned: bool) -> Option<(DecodedInsn, bool)> {
+    let src = field_u8(decoded, b's')?;
+    let base = field_u8(decoded, if post_inc { b'x' } else { b't' })?;
+    let imm = decode_field_simm(decoded, b'i', None)?.0 * HVX_VEC_BYTES;
+    let (offset, pi) = if post_inc { (0, Some(imm)) } else { (imm, None) };
+    Some((
+        DecodedInsn::VStore {
+            src,
+            base,
+            offset,
+            post_inc: pi,
+            aligned,
         },
         false,
     ))
@@ -1667,6 +1724,15 @@ fn decode_main(decoded: &DecodedOp, word: u32, immext: Option<u32>) -> (DecodedI
         Opcode::L4_isub_memopw_io => req!(memop(decoded, MemWidth::Word, MemOpKind::Sub, true)),
         Opcode::L4_iand_memopw_io => req!(memop(decoded, MemWidth::Word, MemOpKind::ClrBit, true)),
         Opcode::L4_ior_memopw_io => req!(memop(decoded, MemWidth::Word, MemOpKind::SetBit, true)),
+        // ---- HVX vector loads/stores (vmem / vmemu) ----
+        Opcode::V6_vL32b_ai | Opcode::V6_vL32b_nt_ai => req!(vmem_load(decoded, false, true)),
+        Opcode::V6_vL32Ub_ai => req!(vmem_load(decoded, false, false)),
+        Opcode::V6_vL32b_pi | Opcode::V6_vL32b_nt_pi => req!(vmem_load(decoded, true, true)),
+        Opcode::V6_vL32Ub_pi => req!(vmem_load(decoded, true, false)),
+        Opcode::V6_vS32b_ai | Opcode::V6_vS32b_nt_ai => req!(vmem_store(decoded, false, true)),
+        Opcode::V6_vS32Ub_ai => req!(vmem_store(decoded, false, false)),
+        Opcode::V6_vS32b_pi | Opcode::V6_vS32b_nt_pi => req!(vmem_store(decoded, true, true)),
+        Opcode::V6_vS32Ub_pi => req!(vmem_store(decoded, true, false)),
         _ => (DecodedInsn::Unknown(word), false),
     }
 }
