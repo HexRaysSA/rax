@@ -2744,41 +2744,41 @@ impl RiscVLifter {
                         };
                         ops.push(SmirOp::new(ctx.next_op_id(), addr, kind));
                     } else if self.xlen == 64 {
-                        // C.SUBW / C.ADDW
-                        let tmp = ctx.alloc_vreg();
-                        let kind = match funct2b {
-                            0b00 => OpKind::Sub {
-                                dst: tmp,
-                                src1: rs1,
-                                src2: SrcOperand::Reg(rs2_val),
-                                width: OpWidth::W32,
-                                flags: FlagUpdate::None,
-                            },
-                            0b01 => OpKind::Add {
-                                dst: tmp,
-                                src1: rs1,
-                                src2: SrcOperand::Reg(rs2_val),
-                                width: OpWidth::W32,
-                                flags: FlagUpdate::None,
-                            },
-                            _ => {
-                                return Err(LiftError::InvalidEncoding {
-                                    addr,
-                                    bytes: insn.to_le_bytes().to_vec(),
-                                })
+                        let w = self.op_width();
+                        match funct2b {
+                            // C.SUBW / C.ADDW: W32 op then sign-extend.
+                            0b00 | 0b01 => {
+                                let tmp = ctx.alloc_vreg();
+                                let k = if funct2b == 0b00 {
+                                    OpKind::Sub { dst: tmp, src1: rs1, src2: SrcOperand::Reg(rs2_val), width: OpWidth::W32, flags: FlagUpdate::None }
+                                } else {
+                                    OpKind::Add { dst: tmp, src1: rs1, src2: SrcOperand::Reg(rs2_val), width: OpWidth::W32, flags: FlagUpdate::None }
+                                };
+                                ops.push(SmirOp::new(ctx.next_op_id(), addr, k));
+                                ops.push(SmirOp::new(ctx.next_op_id(), addr, OpKind::SignExtend { dst, src: tmp, from_width: OpWidth::W32, to_width: OpWidth::W64 }));
                             }
-                        };
-                        ops.push(SmirOp::new(ctx.next_op_id(), addr, kind));
-                        ops.push(SmirOp::new(
-                            ctx.next_op_id(),
-                            addr,
-                            OpKind::SignExtend {
-                                dst,
-                                src: tmp,
-                                from_width: OpWidth::W32,
-                                to_width: OpWidth::W64,
-                            },
-                        ));
+                            // Zcb c.mul.
+                            0b10 => ops.push(SmirOp::new(ctx.next_op_id(), addr, OpKind::MulS { dst_lo: dst, dst_hi: None, src1: rs1, src2: SrcOperand::Reg(rs2_val), width: w, flags: FlagUpdate::None })),
+                            // Zcb unary: c.zext.b/sext.b/zext.h/sext.h/zext.w/not.
+                            _ => {
+                                let sub = (insn >> 2) & 0x7;
+                                let k = match sub {
+                                    0b000 => OpKind::And { dst, src1: rs1, src2: SrcOperand::Imm(0xff), width: w, flags: FlagUpdate::None },
+                                    0b001 => OpKind::SignExtend { dst, src: rs1, from_width: OpWidth::W8, to_width: w },
+                                    0b010 => OpKind::ZeroExtend { dst, src: rs1, from_width: OpWidth::W16, to_width: w },
+                                    0b011 => OpKind::SignExtend { dst, src: rs1, from_width: OpWidth::W16, to_width: w },
+                                    0b100 => OpKind::ZeroExtend { dst, src: rs1, from_width: OpWidth::W32, to_width: w },
+                                    0b101 => OpKind::Xor { dst, src1: rs1, src2: SrcOperand::Imm(-1), width: w, flags: FlagUpdate::None },
+                                    _ => {
+                                        return Err(LiftError::Unsupported {
+                                            addr,
+                                            mnemonic: format!("c.zcb sub={sub:#05b}"),
+                                        })
+                                    }
+                                };
+                                ops.push(SmirOp::new(ctx.next_op_id(), addr, k));
+                            }
+                        }
                     } else {
                         return Err(LiftError::InvalidEncoding {
                             addr,
