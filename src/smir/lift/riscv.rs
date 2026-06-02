@@ -3,6 +3,7 @@
 //! This module lifts RISC-V instructions to SMIR operations.
 //! Supports RV64I base, M (multiply/divide), A (atomics), and C (compressed) extensions.
 
+use crate::riscv::{decode as rv_decode, Isa as RvIsa, Op as RvOp, Xlen as RvXlen};
 use crate::smir::flags::FlagUpdate;
 use crate::smir::ir::{SmirBlock, SmirFunction, Terminator};
 use crate::smir::ops::{OpKind, SmirOp};
@@ -823,6 +824,12 @@ impl RiscVLifter {
         if funct7 == 0x01 && self.extensions.m {
             return self.lift_op_m(insn, addr, ctx);
         }
+        // Anything that isn't a base RV64I register ALU op (Zba/Zbb/Zbs/Zbc/
+        // Zicond/crypto) is lowered through the decode-driven bit-manip path.
+        let is_base = funct7 == 0x00 || (funct7 == 0x20 && matches!(funct3, 0b000 | 0b101));
+        if !is_base {
+            return self.lift_zb_op(insn, addr, ctx);
+        }
 
         let mut ops = Vec::new();
 
@@ -1044,6 +1051,213 @@ impl RiscVLifter {
                     to_width: OpWidth::W64,
                 },
             ));
+        }
+
+        Ok((ops, ControlFlow::NextInsn))
+    }
+
+    /// Decode-driven lowering of OP-space bit-manipulation / conditional ops
+    /// (Zba/Zbb/Zbs/Zicond). Uses the verified RISC-V decoder for the precise
+    /// operation; unsupported ops (Zbc carry-less mul, crypto, xperm) return
+    /// `Unsupported`.
+    fn lift_zb_op(
+        &mut self,
+        insn: u32,
+        addr: GuestAddr,
+        ctx: &mut LiftContext,
+    ) -> Result<(Vec<SmirOp>, ControlFlow), LiftError> {
+        let xlen = if self.xlen == 64 { RvXlen::Rv64 } else { RvXlen::Rv32 };
+        let d = rv_decode(insn, xlen, &RvIsa::rv64gc());
+        let rs1 = self.get_x_reg(d.rs1, ctx);
+        let rs2 = self.get_x_reg(d.rs2, ctx);
+        let mut ops = Vec::new();
+        let mk = |ctx: &mut LiftContext, k: OpKind| SmirOp::new(ctx.next_op_id(), addr, k);
+        let dst = match self.def_x_reg(d.rd, ctx) {
+            Some(dst) => dst,
+            None => return Ok((ops, ControlFlow::NextInsn)), // rd == x0: pure no-op
+        };
+        let w = OpWidth::W64;
+
+        // Helper: dst = min/max(rs1, rs2) using a compare + select.
+        let mut minmax = |ctx: &mut LiftContext, ops: &mut Vec<SmirOp>, cond: Condition| {
+            ops.push(mk(
+                ctx,
+                OpKind::Cmp {
+                    src1: rs1,
+                    src2: SrcOperand::Reg(rs2),
+                    width: w,
+                },
+            ));
+            let c = ctx.alloc_vreg();
+            ops.push(mk(ctx, OpKind::SetCC { dst: c, cond, width: w }));
+            ops.push(mk(
+                ctx,
+                OpKind::Select {
+                    dst,
+                    cond: c,
+                    src_true: rs1,
+                    src_false: rs2,
+                    width: w,
+                },
+            ));
+        };
+
+        // Helper: shift-add  dst = (rs1 << sh) + rs2  (optionally zext.w rs1 first)
+        let mut shadd = |ctx: &mut LiftContext, ops: &mut Vec<SmirOp>, sh: i64, uw: bool| {
+            let base = if uw {
+                let z = ctx.alloc_vreg();
+                ops.push(mk(
+                    ctx,
+                    OpKind::ZeroExtend {
+                        dst: z,
+                        src: rs1,
+                        from_width: OpWidth::W32,
+                        to_width: w,
+                    },
+                ));
+                z
+            } else {
+                rs1
+            };
+            let s = ctx.alloc_vreg();
+            ops.push(mk(
+                ctx,
+                OpKind::Shl {
+                    dst: s,
+                    src: base,
+                    amount: SrcOperand::Imm(sh),
+                    width: w,
+                    flags: FlagUpdate::None,
+                },
+            ));
+            ops.push(mk(
+                ctx,
+                OpKind::Add {
+                    dst,
+                    src1: s,
+                    src2: SrcOperand::Reg(rs2),
+                    width: w,
+                    flags: FlagUpdate::None,
+                },
+            ));
+        };
+
+        // Helper: single-bit op  bit = 1 << (rs2 & (XLEN-1)); then apply.
+        let mut bitop = |ctx: &mut LiftContext, ops: &mut Vec<SmirOp>, which: u8| {
+            let one = ctx.alloc_vreg();
+            ops.push(mk(
+                ctx,
+                OpKind::Mov {
+                    dst: one,
+                    src: SrcOperand::Imm(1),
+                    width: w,
+                },
+            ));
+            let bit = ctx.alloc_vreg();
+            ops.push(mk(
+                ctx,
+                OpKind::Shl {
+                    dst: bit,
+                    src: one,
+                    amount: SrcOperand::Reg(rs2),
+                    width: w,
+                    flags: FlagUpdate::None,
+                },
+            ));
+            let k = match which {
+                0 => OpKind::AndNot { dst, src1: rs1, src2: SrcOperand::Reg(bit), width: w, flags: FlagUpdate::None }, // bclr
+                1 => OpKind::Or { dst, src1: rs1, src2: SrcOperand::Reg(bit), width: w, flags: FlagUpdate::None }, // bset
+                _ => OpKind::Xor { dst, src1: rs1, src2: SrcOperand::Reg(bit), width: w, flags: FlagUpdate::None }, // binv
+            };
+            ops.push(mk(ctx, k));
+        };
+
+        // Helper: word op into a temp, then sign-extend W32 -> W64.
+        let mut wordret = |ctx: &mut LiftContext, ops: &mut Vec<SmirOp>, inner: OpKind, tmp: VReg| {
+            ops.push(mk(ctx, inner));
+            ops.push(mk(
+                ctx,
+                OpKind::SignExtend {
+                    dst,
+                    src: tmp,
+                    from_width: OpWidth::W32,
+                    to_width: w,
+                },
+            ));
+        };
+
+        match d.op {
+            RvOp::Andn => ops.push(mk(ctx, OpKind::AndNot { dst, src1: rs1, src2: SrcOperand::Reg(rs2), width: w, flags: FlagUpdate::None })),
+            RvOp::Orn => {
+                let n = ctx.alloc_vreg();
+                ops.push(mk(ctx, OpKind::Not { dst: n, src: rs2, width: w }));
+                ops.push(mk(ctx, OpKind::Or { dst, src1: rs1, src2: SrcOperand::Reg(n), width: w, flags: FlagUpdate::None }));
+            }
+            RvOp::Xnor => {
+                let x = ctx.alloc_vreg();
+                ops.push(mk(ctx, OpKind::Xor { dst: x, src1: rs1, src2: SrcOperand::Reg(rs2), width: w, flags: FlagUpdate::None }));
+                ops.push(mk(ctx, OpKind::Not { dst, src: x, width: w }));
+            }
+            RvOp::Rol => ops.push(mk(ctx, OpKind::Rol { dst, src: rs1, amount: SrcOperand::Reg(rs2), width: w, flags: FlagUpdate::None })),
+            RvOp::Ror => ops.push(mk(ctx, OpKind::Ror { dst, src: rs1, amount: SrcOperand::Reg(rs2), width: w, flags: FlagUpdate::None })),
+            RvOp::Rolw => {
+                let t = ctx.alloc_vreg();
+                wordret(ctx, &mut ops, OpKind::Rol { dst: t, src: rs1, amount: SrcOperand::Reg(rs2), width: OpWidth::W32, flags: FlagUpdate::None }, t);
+            }
+            RvOp::Rorw => {
+                let t = ctx.alloc_vreg();
+                wordret(ctx, &mut ops, OpKind::Ror { dst: t, src: rs1, amount: SrcOperand::Reg(rs2), width: OpWidth::W32, flags: FlagUpdate::None }, t);
+            }
+            RvOp::Min => minmax(ctx, &mut ops, Condition::Slt),
+            RvOp::Minu => minmax(ctx, &mut ops, Condition::Ult),
+            RvOp::Max => minmax(ctx, &mut ops, Condition::Sgt),
+            RvOp::Maxu => minmax(ctx, &mut ops, Condition::Ugt),
+            RvOp::SextB => ops.push(mk(ctx, OpKind::SignExtend { dst, src: rs1, from_width: OpWidth::W8, to_width: w })),
+            RvOp::SextH => ops.push(mk(ctx, OpKind::SignExtend { dst, src: rs1, from_width: OpWidth::W16, to_width: w })),
+            RvOp::ZextH => ops.push(mk(ctx, OpKind::ZeroExtend { dst, src: rs1, from_width: OpWidth::W16, to_width: w })),
+            RvOp::Sh1add => shadd(ctx, &mut ops, 1, false),
+            RvOp::Sh2add => shadd(ctx, &mut ops, 2, false),
+            RvOp::Sh3add => shadd(ctx, &mut ops, 3, false),
+            RvOp::Sh1addUw => shadd(ctx, &mut ops, 1, true),
+            RvOp::Sh2addUw => shadd(ctx, &mut ops, 2, true),
+            RvOp::Sh3addUw => shadd(ctx, &mut ops, 3, true),
+            RvOp::AddUw => {
+                let z = ctx.alloc_vreg();
+                ops.push(mk(ctx, OpKind::ZeroExtend { dst: z, src: rs1, from_width: OpWidth::W32, to_width: w }));
+                ops.push(mk(ctx, OpKind::Add { dst, src1: z, src2: SrcOperand::Reg(rs2), width: w, flags: FlagUpdate::None }));
+            }
+            RvOp::Bclr => bitop(ctx, &mut ops, 0),
+            RvOp::Bset => bitop(ctx, &mut ops, 1),
+            RvOp::Binv => bitop(ctx, &mut ops, 2),
+            RvOp::Bext => {
+                let s = ctx.alloc_vreg();
+                ops.push(mk(ctx, OpKind::Shr { dst: s, src: rs1, amount: SrcOperand::Reg(rs2), width: w, flags: FlagUpdate::None }));
+                ops.push(mk(ctx, OpKind::And { dst, src1: s, src2: SrcOperand::Imm(1), width: w, flags: FlagUpdate::None }));
+            }
+            RvOp::CzeroEqz => {
+                // rd = (rs2 != 0) ? rs1 : 0
+                ops.push(mk(ctx, OpKind::Cmp { src1: rs2, src2: SrcOperand::Imm(0), width: w }));
+                let nz = ctx.alloc_vreg();
+                ops.push(mk(ctx, OpKind::SetCC { dst: nz, cond: Condition::Ne, width: w }));
+                let zero = ctx.alloc_vreg();
+                ops.push(mk(ctx, OpKind::Mov { dst: zero, src: SrcOperand::Imm(0), width: w }));
+                ops.push(mk(ctx, OpKind::Select { dst, cond: nz, src_true: rs1, src_false: zero, width: w }));
+            }
+            RvOp::CzeroNez => {
+                // rd = (rs2 == 0) ? rs1 : 0
+                ops.push(mk(ctx, OpKind::Cmp { src1: rs2, src2: SrcOperand::Imm(0), width: w }));
+                let z = ctx.alloc_vreg();
+                ops.push(mk(ctx, OpKind::SetCC { dst: z, cond: Condition::Eq, width: w }));
+                let zero = ctx.alloc_vreg();
+                ops.push(mk(ctx, OpKind::Mov { dst: zero, src: SrcOperand::Imm(0), width: w }));
+                ops.push(mk(ctx, OpKind::Select { dst, cond: z, src_true: rs1, src_false: zero, width: w }));
+            }
+            _ => {
+                return Err(LiftError::Unsupported {
+                    addr,
+                    mnemonic: format!("{:?}", d.op),
+                })
+            }
         }
 
         Ok((ops, ControlFlow::NextInsn))
