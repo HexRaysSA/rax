@@ -811,6 +811,39 @@ fn diff_v_scalar_move() {
 }
 
 #[test]
+fn diff_v_mask_logic() {
+    let mut rng = Rng::new(0x7EC_770);
+    let mut batch = Vec::new();
+    // OPMVV mask-register logicals (funct3 = 0b010), always unmasked (vm=1).
+    let ops: &[(&str, u32)] = &[
+        ("vmandn", 0b011000),
+        ("vmand", 0b011001),
+        ("vmor", 0b011010),
+        ("vmxor", 0b011011),
+        ("vmorn", 0b011100),
+        ("vmnand", 0b011101),
+        ("vmnor", 0b011110),
+        ("vmxnor", 0b011111),
+    ];
+    for sew_log2 in 0..4u32 {
+        let vmax = vlmax(sew_log2);
+        for vl in [vmax, (vmax / 2).max(1), 1] {
+            for &(name, f6) in ops {
+                for _ in 0..6 {
+                    let vd = VPOOL[(rng.next() % 6) as usize];
+                    let vs2 = VPOOL[(rng.next() % 6) as usize];
+                    let vs1 = VPOOL[(rng.next() % 6) as usize];
+                    // Random mask-register contents in all source lanes.
+                    let st = rand_vstate(&mut rng, sew_log2, vl);
+                    batch.push((format!("{name}.mm"), op_iv(f6, 1, vs2, vs1, 0b010, vd), st));
+                }
+            }
+        }
+    }
+    run_batch(&batch);
+}
+
+#[test]
 fn diff_v_loadstore() {
     let mut rng = Rng::new(0x7EC_705);
     let mut batch = Vec::new();

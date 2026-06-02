@@ -409,6 +409,15 @@ pub enum Op {
     VmvSX,
     VfmvFS,
     VfmvSF,
+    // ---- V (mask-register logical) ----
+    Vmand,
+    Vmnand,
+    Vmandn,
+    Vmxor,
+    Vmor,
+    Vmnor,
+    Vmorn,
+    Vmxnor,
     // ---- sentinel ----
     Illegal,
 }
@@ -704,6 +713,15 @@ fn decode_vector(w: u32) -> Insn {
             // Scalar element moves (VWXUNARY0 / VRXUNARY0), funct6 = 010000.
             0b010000 if f3 == 0b010 && (w >> 15) & 0x1f == 0 => Op::VmvXS,
             0b010000 if f3 == 0b110 && (w >> 20) & 0x1f == 0 => Op::VmvSX,
+            // Mask-register logical ops are OPMVV-only (funct3 == 0b010).
+            0b011000 if f3 == 0b010 => Op::Vmandn,
+            0b011001 if f3 == 0b010 => Op::Vmand,
+            0b011010 if f3 == 0b010 => Op::Vmor,
+            0b011011 if f3 == 0b010 => Op::Vmxor,
+            0b011100 if f3 == 0b010 => Op::Vmorn,
+            0b011101 if f3 == 0b010 => Op::Vmnand,
+            0b011110 if f3 == 0b010 => Op::Vmnor,
+            0b011111 if f3 == 0b010 => Op::Vmxnor,
             _ => return Insn::illegal(w, 4),
         };
         return base(op, w);

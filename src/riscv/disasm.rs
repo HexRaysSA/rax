@@ -373,6 +373,14 @@ impl Op {
             VmvSX => "vmv.s.x",
             VfmvFS => "vfmv.f.s",
             VfmvSF => "vfmv.s.f",
+            Vmand => "vmand",
+            Vmnand => "vmnand",
+            Vmandn => "vmandn",
+            Vmxor => "vmxor",
+            Vmor => "vmor",
+            Vmnor => "vmnor",
+            Vmorn => "vmorn",
+            Vmxnor => "vmxnor",
             Illegal => "illegal",
         }
     }

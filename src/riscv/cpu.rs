@@ -743,7 +743,8 @@ impl RiscVCpu {
             | Op::Vfnmsub | Op::Vredsum | Op::Vredand | Op::Vredor | Op::Vredxor
             | Op::Vredminu | Op::Vredmin | Op::Vredmaxu | Op::Vredmax | Op::Vfredusum
             | Op::Vfredosum | Op::Vfredmin | Op::Vfredmax | Op::VmvXS | Op::VmvSX
-            | Op::VfmvFS | Op::VfmvSF => self.exec_vector(insn)?,
+            | Op::VfmvFS | Op::VfmvSF | Op::Vmand | Op::Vmnand | Op::Vmandn | Op::Vmxor
+            | Op::Vmor | Op::Vmnor | Op::Vmorn | Op::Vmxnor => self.exec_vector(insn)?,
 
             Op::Illegal => return Err(Trap::illegal(insn.raw)),
 
@@ -1239,6 +1240,12 @@ impl RiscVCpu {
     fn vmask_bit(&self, e: usize) -> bool {
         (self.v[e / 8] >> (e % 8)) & 1 != 0
     }
+    /// Mask bit `e` of an arbitrary vector register `vreg`.
+    #[inline]
+    fn vbit(&self, vreg: u8, e: usize) -> bool {
+        let byte = vreg as usize * VLENB as usize + e / 8;
+        byte < self.v.len() && (self.v[byte] >> (e % 8)) & 1 != 0
+    }
     /// Set/clear mask bit `e` of vector register `vreg`.
     #[inline]
     fn set_vmask_bit(&mut self, vreg: u8, e: usize, val: bool) {
@@ -1591,6 +1598,27 @@ impl RiscVCpu {
                     self.set_vmask_bit(vd, e, r);
                 }
                 self.accrue(flags);
+            }
+            Op::Vmand | Op::Vmnand | Op::Vmandn | Op::Vmxor | Op::Vmor | Op::Vmnor | Op::Vmorn
+            | Op::Vmxnor => {
+                // Mask-register logicals: vd.bit[i] = vs2.bit[i] OP vs1.bit[i],
+                // always unmasked, over the body [vstart, vl).
+                for e in vstart..vl {
+                    let a = self.vbit(vs2, e);
+                    let b = self.vbit(insn.rs1, e);
+                    let r = match insn.op {
+                        Op::Vmand => a & b,
+                        Op::Vmnand => !(a & b),
+                        Op::Vmandn => a & !b,
+                        Op::Vmxor => a ^ b,
+                        Op::Vmor => a | b,
+                        Op::Vmnor => !(a | b),
+                        Op::Vmorn => a | !b,
+                        Op::Vmxnor => !(a ^ b),
+                        _ => unreachable!(),
+                    };
+                    self.set_vmask_bit(vd, e, r);
+                }
             }
             Op::VmvXS => {
                 // x[rd] = sign-extended lane 0 of vs2 (ignores vl/vstart).
