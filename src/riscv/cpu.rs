@@ -763,7 +763,10 @@ impl RiscVCpu {
             | Op::Vfslide1up | Op::Vfslide1down | Op::Vrgather | Op::Vrgatherei16
             | Op::Vcompress | Op::Vadc | Op::Vmadc | Op::Vsbc | Op::Vmsbc | Op::Vsaddu
             | Op::Vsadd | Op::Vssubu | Op::Vssub | Op::Vaaddu | Op::Vaadd | Op::Vasubu
-            | Op::Vasub | Op::Vssrl | Op::Vssra | Op::Vsmul => self.exec_vector(insn)?,
+            | Op::Vasub | Op::Vssrl | Op::Vssra | Op::Vsmul | Op::Vwaddu | Op::Vwadd
+            | Op::Vwsubu | Op::Vwsub | Op::VwadduW | Op::VwaddW | Op::VwsubuW | Op::VwsubW => {
+                self.exec_vector(insn)?
+            }
 
             Op::Illegal => return Err(Trap::illegal(insn.raw)),
 
@@ -1756,6 +1759,46 @@ impl RiscVCpu {
                     }
                     let v = if e + 1 < vl { self.velem(vs2, e + 1, eb) } else { scalar };
                     self.set_velem(vd, e, eb, v & mask);
+                }
+            }
+            Op::Vwaddu | Op::Vwadd | Op::Vwsubu | Op::Vwsub | Op::VwadduW | Op::VwaddW
+            | Op::VwsubuW | Op::VwsubW => {
+                // Widening add/subtract: 2*SEW result. `.w` forms read a wide vs2.
+                let eb = self.sew_bytes();
+                if eb > 4 {
+                    return Err(Trap::illegal(insn.raw)); // 2*SEW must fit ELEN=64
+                }
+                let web = eb * 2;
+                let wmask = Self::sew_mask(web);
+                let signed = matches!(
+                    insn.op,
+                    Op::Vwadd | Op::Vwsub | Op::VwaddW | Op::VwsubW
+                );
+                let sub = matches!(
+                    insn.op,
+                    Op::Vwsubu | Op::Vwsub | Op::VwsubuW | Op::VwsubW
+                );
+                let wide_vs2 = matches!(
+                    insn.op,
+                    Op::VwadduW | Op::VwaddW | Op::VwsubuW | Op::VwsubW
+                );
+                let is_vv = insn.funct3 == 0b010;
+                let scalar = self.x(insn.rs1) & Self::sew_mask(eb);
+                for e in vstart..vl {
+                    if !vm && !self.vmask_bit(e) {
+                        continue;
+                    }
+                    let a: i128 = if wide_vs2 {
+                        let raw = self.velem(vs2, e, web);
+                        if signed { sext_sew(raw, web) as i128 } else { raw as i128 }
+                    } else {
+                        let raw = self.velem(vs2, e, eb);
+                        if signed { sext_sew(raw, eb) as i128 } else { raw as i128 }
+                    };
+                    let braw = if is_vv { self.velem(insn.rs1, e, eb) } else { scalar };
+                    let b: i128 = if signed { sext_sew(braw, eb) as i128 } else { braw as i128 };
+                    let r = if sub { a - b } else { a + b };
+                    self.set_velem(vd, e, web, (r as u64) & wmask);
                 }
             }
             Op::Vssrl | Op::Vssra => {

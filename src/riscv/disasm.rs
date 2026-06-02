@@ -418,6 +418,14 @@ impl Op {
             Vssrl => "vssrl",
             Vssra => "vssra",
             Vsmul => "vsmul",
+            Vwaddu => "vwaddu",
+            Vwadd => "vwadd",
+            Vwsubu => "vwsubu",
+            Vwsub => "vwsub",
+            VwadduW => "vwaddu.w",
+            VwaddW => "vwadd.w",
+            VwsubuW => "vwsubu.w",
+            VwsubW => "vwsub.w",
             Illegal => "illegal",
         }
     }

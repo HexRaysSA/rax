@@ -1239,6 +1239,48 @@ fn diff_v_scale() {
     run_batch(&batch);
 }
 
+// Disjoint (vd-group, vs2-group, vs1) register triples for widening ops, where
+// the destination and `.w` source span two registers each.
+const WIDEN_REGS: [(u32, u32, u32); 4] = [(2, 8, 12), (4, 16, 20), (6, 24, 28), (10, 14, 18)];
+
+#[test]
+fn diff_v_widen_add() {
+    let mut rng = Rng::new(0x7EC_810);
+    let mut batch = Vec::new();
+    let ops: &[(&str, u32)] = &[
+        ("vwaddu", 0b110000),
+        ("vwadd", 0b110001),
+        ("vwsubu", 0b110010),
+        ("vwsub", 0b110011),
+        ("vwaddu.w", 0b110100),
+        ("vwadd.w", 0b110101),
+        ("vwsubu.w", 0b110110),
+        ("vwsub.w", 0b110111),
+    ];
+    for sew_log2 in 0..3u32 {
+        // widening valid only for SEW <= 32
+        let vmax = vlmax(sew_log2);
+        for vl in [vmax, (vmax / 2).max(1)] {
+            for &(name, f6) in ops {
+                for k in 0..4 {
+                    let (vd, vs2, vs1) = WIDEN_REGS[(rng.next() % 4) as usize];
+                    let rs1 = XPOOL[(rng.next() % 5) as usize];
+                    let st = rand_vstate(&mut rng, sew_log2, vl);
+                    batch.push((format!("{name}.vv"), op_iv(f6, 1, vs2, vs1, 0b010, vd), st));
+                    batch.push((format!("{name}.vx"), op_iv(f6, 1, vs2, rs1, 0b110, vd), st));
+                    if k % 2 == 0 {
+                        let mut stm = st;
+                        stm.v[0] = rng.next();
+                        stm.v[1] = rng.next();
+                        batch.push((format!("{name}.vv.m"), op_iv(f6, 0, vs2, vs1, 0b010, vd), stm));
+                    }
+                }
+            }
+        }
+    }
+    run_batch(&batch);
+}
+
 #[test]
 fn diff_v_loadstore() {
     let mut rng = Rng::new(0x7EC_705);

@@ -462,6 +462,15 @@ pub enum Op {
     Vssrl,
     Vssra,
     Vsmul,
+    // ---- V (widening integer add/subtract) ----
+    Vwaddu,
+    Vwadd,
+    Vwsubu,
+    Vwsub,
+    VwadduW,
+    VwaddW,
+    VwsubuW,
+    VwsubW,
     // ---- sentinel ----
     Illegal,
 }
@@ -793,6 +802,15 @@ fn decode_vector(w: u32) -> Insn {
             0b001001 => Op::Vaadd,
             0b001010 => Op::Vasubu,
             0b001011 => Op::Vasub,
+            // Widening integer add/subtract (.w forms take a wide vs2).
+            0b110000 => Op::Vwaddu,
+            0b110001 => Op::Vwadd,
+            0b110010 => Op::Vwsubu,
+            0b110011 => Op::Vwsub,
+            0b110100 => Op::VwadduW,
+            0b110101 => Op::VwaddW,
+            0b110110 => Op::VwsubuW,
+            0b110111 => Op::VwsubW,
             // Slide-by-one (OPMVX form, funct3 == 0b110).
             0b001110 if f3 == 0b110 => Op::Vslide1up,
             0b001111 if f3 == 0b110 => Op::Vslide1down,
