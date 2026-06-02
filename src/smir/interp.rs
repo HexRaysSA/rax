@@ -742,11 +742,7 @@ impl SmirInterpreter {
                 let val = self.sign_extend(ctx.read_vreg(*src) & width.mask(), *width);
                 let amt = self.read_src_operand(ctx, amount) & 0x3F;
                 let result = if amt >= width.bits() as u64 {
-                    if (val as i64) < 0 {
-                        width.mask()
-                    } else {
-                        0
-                    }
+                    if (val as i64) < 0 { width.mask() } else { 0 }
                 } else {
                     ((val as i64 >> amt) as u64) & width.mask()
                 };
@@ -1787,8 +1783,16 @@ impl SmirInterpreter {
                 let nbits = src_elem.bytes() * 8;
                 let wbits = nbits * 2;
                 let wide_lanes = (1024 / nbits as usize) / 2; // wide lanes per output vector
-                let mut lo = if *acc { Self::read_vec(ctx, *dst_lo) } else { [0u64; 16] };
-                let mut hi = if *acc { Self::read_vec(ctx, *dst_hi) } else { [0u64; 16] };
+                let mut lo = if *acc {
+                    Self::read_vec(ctx, *dst_lo)
+                } else {
+                    [0u64; 16]
+                };
+                let mut hi = if *acc {
+                    Self::read_vec(ctx, *dst_hi)
+                } else {
+                    [0u64; 16]
+                };
                 // Sign- or zero-extend an `nbits` zero-extended lane value to i64.
                 let ext = |v: u64, signed: bool| -> i64 {
                     if signed {
@@ -1805,8 +1809,16 @@ impl SmirInterpreter {
                         .wrapping_mul(ext(Self::get_lane(&b, even, nbits), *signed2));
                     let po = ext(Self::get_lane(&a, odd, nbits), *signed1)
                         .wrapping_mul(ext(Self::get_lane(&b, odd, nbits), *signed2));
-                    let ae = if *acc { Self::get_lane(&lo, i as u8, wbits) as i64 } else { 0 };
-                    let ao = if *acc { Self::get_lane(&hi, i as u8, wbits) as i64 } else { 0 };
+                    let ae = if *acc {
+                        Self::get_lane(&lo, i as u8, wbits) as i64
+                    } else {
+                        0
+                    };
+                    let ao = if *acc {
+                        Self::get_lane(&hi, i as u8, wbits) as i64
+                    } else {
+                        0
+                    };
                     Self::set_lane(&mut lo, i as u8, wbits, ae.wrapping_add(pe) as u64);
                     Self::set_lane(&mut hi, i as u8, wbits, ao.wrapping_add(po) as u64);
                 }
@@ -1842,7 +1854,12 @@ impl SmirInterpreter {
                 Self::write_vec(ctx, *dst, result);
             }
 
-            OpKind::VShuffle2 { dst, src, elem, deal } => {
+            OpKind::VShuffle2 {
+                dst,
+                src,
+                elem,
+                deal,
+            } => {
                 let s = Self::read_vec(ctx, *src);
                 let nbits = elem.bytes() * 8;
                 let total = (1024 / nbits) as u8;
@@ -1851,10 +1868,20 @@ impl SmirInterpreter {
                 for i in 0..half {
                     if *deal {
                         Self::set_lane(&mut result, i, nbits, Self::get_lane(&s, i * 2, nbits));
-                        Self::set_lane(&mut result, i + half, nbits, Self::get_lane(&s, i * 2 + 1, nbits));
+                        Self::set_lane(
+                            &mut result,
+                            i + half,
+                            nbits,
+                            Self::get_lane(&s, i * 2 + 1, nbits),
+                        );
                     } else {
                         Self::set_lane(&mut result, i * 2, nbits, Self::get_lane(&s, i, nbits));
-                        Self::set_lane(&mut result, i * 2 + 1, nbits, Self::get_lane(&s, i + half, nbits));
+                        Self::set_lane(
+                            &mut result,
+                            i * 2 + 1,
+                            nbits,
+                            Self::get_lane(&s, i + half, nbits),
+                        );
                     }
                 }
                 Self::write_vec(ctx, *dst, result);
@@ -1877,7 +1904,12 @@ impl SmirInterpreter {
                 for i in 0..half {
                     let sel = i * 2 + parity;
                     Self::set_lane(&mut result, i * 2, nbits, Self::get_lane(&v, sel, nbits));
-                    Self::set_lane(&mut result, i * 2 + 1, nbits, Self::get_lane(&u, sel, nbits));
+                    Self::set_lane(
+                        &mut result,
+                        i * 2 + 1,
+                        nbits,
+                        Self::get_lane(&u, sel, nbits),
+                    );
                 }
                 Self::write_vec(ctx, *dst, result);
             }
@@ -2029,6 +2061,20 @@ impl SmirInterpreter {
                 Self::write_vec(ctx, *dst, q);
             }
 
+            OpKind::VQFromVAndR { dst, src1, src2 } => {
+                let a = Self::read_vec(ctx, *src1);
+                let b = Self::read_vec(ctx, *src2);
+                let mut q = [0u64; 16];
+                for byte in 0..128usize {
+                    let av = Self::get_lane(&a, byte as u8, 8);
+                    let bv = Self::get_lane(&b, byte as u8, 8);
+                    if (av & bv) != 0 {
+                        q[byte >> 6] |= 1u64 << (byte & 63);
+                    }
+                }
+                Self::write_vec(ctx, *dst, q);
+            }
+
             OpKind::VMaskZero {
                 dst,
                 mask_q,
@@ -2041,7 +2087,12 @@ impl SmirInterpreter {
                 for byte in 0..128usize {
                     let bit = (m[byte >> 6] >> (byte & 63)) & 1 != 0;
                     if bit ^ *negate {
-                        Self::set_lane(&mut result, byte as u8, 8, Self::get_lane(&s, byte as u8, 8));
+                        Self::set_lane(
+                            &mut result,
+                            byte as u8,
+                            8,
+                            Self::get_lane(&s, byte as u8, 8),
+                        );
                     }
                 }
                 Self::write_vec(ctx, *dst, result);
@@ -2060,7 +2111,12 @@ impl SmirInterpreter {
                 for byte in 0..128usize {
                     let bit_set = (m[byte >> 6] >> (byte & 63)) & 1 != 0;
                     let src = if bit_set { &t } else { &f };
-                    Self::set_lane(&mut result, byte as u8, 8, Self::get_lane(src, byte as u8, 8));
+                    Self::set_lane(
+                        &mut result,
+                        byte as u8,
+                        8,
+                        Self::get_lane(src, byte as u8, 8),
+                    );
                 }
                 Self::write_vec(ctx, *dst, result);
             }
@@ -2174,7 +2230,11 @@ impl SmirInterpreter {
                 let nbits = src_elem.bytes() * 8;
                 let wbits = nbits * 2;
                 let olanes = (1024 / wbits) as u8;
-                let mut out = if *acc { Self::read_vec(ctx, *dst) } else { [0u64; 16] };
+                let mut out = if *acc {
+                    Self::read_vec(ctx, *dst)
+                } else {
+                    [0u64; 16]
+                };
                 let ext = |v: u64, signed: bool| -> i64 {
                     if signed {
                         let sh = 64 - nbits;
@@ -2186,7 +2246,11 @@ impl SmirInterpreter {
                 for i in 0..olanes {
                     let p = ext(Self::get_lane(&a, i * 2, nbits), *signed1)
                         .wrapping_mul(ext(Self::get_lane(&b, i * 2, nbits), *signed2));
-                    let acc_v = if *acc { Self::get_lane(&out, i, wbits) as i64 } else { 0 };
+                    let acc_v = if *acc {
+                        Self::get_lane(&out, i, wbits) as i64
+                    } else {
+                        0
+                    };
                     Self::set_lane(&mut out, i, wbits, acc_v.wrapping_add(p) as u64);
                 }
                 Self::write_vec(ctx, *dst, out);
@@ -2211,7 +2275,11 @@ impl SmirInterpreter {
                 let n2 = src2_elem.bytes() * 8;
                 let obits = out_elem.bytes() * 8;
                 let olanes = (1024 / obits) as u8;
-                let mut out = if *acc { Self::read_vec(ctx, *dst) } else { [0u64; 16] };
+                let mut out = if *acc {
+                    Self::read_vec(ctx, *dst)
+                } else {
+                    [0u64; 16]
+                };
                 let ext = |v: u64, bits: u32, signed: bool| -> i64 {
                     if signed {
                         let shift = 64 - bits;
@@ -2230,8 +2298,11 @@ impl SmirInterpreter {
                     for k in 0..*taps {
                         let idx = i * *taps + k;
                         s = s.wrapping_add(
-                            ext(Self::get_lane(&a, idx, n1), n1, *signed1)
-                                .wrapping_mul(ext(Self::get_lane(&b, idx, n2), n2, *signed2)),
+                            ext(Self::get_lane(&a, idx, n1), n1, *signed1).wrapping_mul(ext(
+                                Self::get_lane(&b, idx, n2),
+                                n2,
+                                *signed2,
+                            )),
                         );
                     }
                     if *sat && obits < 64 {
@@ -2988,11 +3059,7 @@ impl SmirInterpreter {
                     (sx(a) as i128 - sx(b) as i128).unsigned_abs() as u64
                 } else {
                     let (x, y) = (a & mask, b & mask);
-                    if x >= y {
-                        x - y
-                    } else {
-                        y - x
-                    }
+                    if x >= y { x - y } else { y - x }
                 }
             }
         };
@@ -3352,7 +3419,9 @@ mod tests {
                 },
                 x86_hint: None,
             }],
-            terminator: Terminator::Trap { kind: TrapKind::Halt },
+            terminator: Terminator::Trap {
+                kind: TrapKind::Halt,
+            },
             exec_count: 0,
         };
         interp.execute_block(&mut ctx, &mut memory, &block);
@@ -3397,7 +3466,9 @@ mod tests {
                 },
                 x86_hint: None,
             }],
-            terminator: Terminator::Trap { kind: TrapKind::Halt },
+            terminator: Terminator::Trap {
+                kind: TrapKind::Halt,
+            },
             exec_count: 0,
         };
         interp.execute_block(&mut ctx, &mut memory, &block);
@@ -3457,8 +3528,15 @@ mod tests {
             id: BlockId(0),
             guest_pc: 0x1000,
             phis: vec![],
-            ops: vec![SmirOp { id: OpId(0), guest_pc: 0x1000, kind: op, x86_hint: None }],
-            terminator: Terminator::Trap { kind: TrapKind::Halt },
+            ops: vec![SmirOp {
+                id: OpId(0),
+                guest_pc: 0x1000,
+                kind: op,
+                x86_hint: None,
+            }],
+            terminator: Terminator::Trap {
+                kind: TrapKind::Halt,
+            },
             exec_count: 0,
         };
         interp.execute_block(
@@ -3562,7 +3640,9 @@ mod tests {
                 },
                 x86_hint: None,
             }],
-            terminator: Terminator::Trap { kind: TrapKind::Halt },
+            terminator: Terminator::Trap {
+                kind: TrapKind::Halt,
+            },
             exec_count: 0,
         };
         interp.execute_block(&mut ctx, &mut memory, &block);
@@ -3601,7 +3681,9 @@ mod tests {
                 },
                 x86_hint: None,
             }],
-            terminator: Terminator::Trap { kind: TrapKind::Halt },
+            terminator: Terminator::Trap {
+                kind: TrapKind::Halt,
+            },
             exec_count: 0,
         };
         interp.execute_block(&mut ctx, &mut memory, &block);
@@ -3615,7 +3697,12 @@ mod tests {
     fn test_vwidenext_interleave_zero() {
         // vzb: every byte = 0xAB. Interleaved zero-extend byte->half.
         // lo.h[i] = ZE(byte 2i) = 0x00AB; hi.h[i] = ZE(byte 2i+1) = 0x00AB.
-        let (lo, hi) = run_widenext([0xABAB_ABAB_ABAB_ABABu64; 16], VecElementType::I8, false, true);
+        let (lo, hi) = run_widenext(
+            [0xABAB_ABAB_ABAB_ABABu64; 16],
+            VecElementType::I8,
+            false,
+            true,
+        );
         assert_eq!(lo, [0x00AB_00AB_00AB_00ABu64; 16]);
         assert_eq!(hi, [0x00AB_00AB_00AB_00ABu64; 16]);
     }
@@ -3623,7 +3710,12 @@ mod tests {
     #[test]
     fn test_vwidenext_interleave_sign() {
         // vsb: every byte = 0x80 (-128). Sign-extend byte->half = 0xFF80.
-        let (lo, hi) = run_widenext([0x8080_8080_8080_8080u64; 16], VecElementType::I8, true, true);
+        let (lo, hi) = run_widenext(
+            [0x8080_8080_8080_8080u64; 16],
+            VecElementType::I8,
+            true,
+            true,
+        );
         assert_eq!(lo, [0xFF80_FF80_FF80_FF80u64; 16]);
         assert_eq!(hi, [0xFF80_FF80_FF80_FF80u64; 16]);
     }
@@ -3632,7 +3724,12 @@ mod tests {
     fn test_vwidenext_sequential() {
         // vunpackub: sequential. lo.h[i] = ZE(byte i), hi.h[i] = ZE(byte i+64).
         // All bytes = 0x07 -> every output halfword = 0x0007.
-        let (lo, hi) = run_widenext([0x0707_0707_0707_0707u64; 16], VecElementType::I8, false, false);
+        let (lo, hi) = run_widenext(
+            [0x0707_0707_0707_0707u64; 16],
+            VecElementType::I8,
+            false,
+            false,
+        );
         assert_eq!(lo, [0x0007_0007_0007_0007u64; 16]);
         assert_eq!(hi, [0x0007_0007_0007_0007u64; 16]);
     }
@@ -3649,8 +3746,15 @@ mod tests {
             id: BlockId(0),
             guest_pc: 0x1000,
             phis: vec![],
-            ops: vec![SmirOp { id: OpId(0), guest_pc: 0x1000, kind: op, x86_hint: None }],
-            terminator: Terminator::Trap { kind: TrapKind::Halt },
+            ops: vec![SmirOp {
+                id: OpId(0),
+                guest_pc: 0x1000,
+                kind: op,
+                x86_hint: None,
+            }],
+            terminator: Terminator::Trap {
+                kind: TrapKind::Halt,
+            },
             exec_count: 0,
         };
         interp.execute_block(&mut ctx, &mut memory, &block);
@@ -3671,7 +3775,13 @@ mod tests {
         let out = run_vec2(
             v0,
             v1,
-            OpKind::VPack { dst: mkv(2), src1: mkv(0), src2: mkv(1), elem: VecElementType::I8, odd: false },
+            OpKind::VPack {
+                dst: mkv(2),
+                src1: mkv(0),
+                src2: mkv(1),
+                elem: VecElementType::I8,
+                odd: false,
+            },
         );
         // low 64 bytes (lanes 0..7 u64) = 0x22 everywhere; high 64 bytes = 0x11.
         assert_eq!(out[0], 0x2222_2222_2222_2222u64);
@@ -3736,7 +3846,9 @@ mod tests {
                 },
                 x86_hint: None,
             }],
-            terminator: Terminator::Trap { kind: TrapKind::Halt },
+            terminator: Terminator::Trap {
+                kind: TrapKind::Halt,
+            },
             exec_count: 0,
         };
         interp.execute_block(&mut ctx, &mut memory, &block);
@@ -3744,6 +3856,44 @@ mod tests {
             let q = hex.get_q(0);
             assert_eq!(q[0], 0xFFFF_FFFF_FFFF_FFFE); // bit0 (byte0) clear, rest set
             assert_eq!(q[1], 0xFFFF_FFFF_FFFF_FFFF); // bytes 64-127 all equal
+        }
+    }
+
+    #[test]
+    fn test_vqfromvandr() {
+        // vandvrt: Qd.bit[i] = (V0.byte[i] & V1.byte[i]) != 0.
+        // V0 byte0 = 0x01, rest 0; V1 all 0xFF -> only bit0 set.
+        let mut v0 = [0u64; 16];
+        v0[0] = 0x01;
+        let mkv = |n| VReg::Arch(ArchReg::Hexagon(HexagonReg::V(n)));
+        let mut ctx = SmirContext::new_hexagon();
+        let mut memory = FlatMemory::new(0x1000);
+        let interp = SmirInterpreter::new();
+        if let ArchRegState::Hexagon(hex) = &mut ctx.arch_regs {
+            hex.set_v(0, v0);
+            hex.set_v(1, [0xFFFF_FFFF_FFFF_FFFFu64; 16]);
+        }
+        let block = SmirBlock {
+            id: BlockId(0),
+            guest_pc: 0x1000,
+            phis: vec![],
+            ops: vec![SmirOp {
+                id: OpId(0),
+                guest_pc: 0x1000,
+                kind: OpKind::VQFromVAndR {
+                    dst: VReg::Arch(ArchReg::Hexagon(HexagonReg::Q(0))),
+                    src1: mkv(0),
+                    src2: mkv(1),
+                },
+                x86_hint: None,
+            }],
+            terminator: Terminator::Trap { kind: TrapKind::Halt },
+            exec_count: 0,
+        };
+        interp.execute_block(&mut ctx, &mut memory, &block);
+        if let ArchRegState::Hexagon(hex) = &ctx.arch_regs {
+            assert_eq!(hex.get_q(0)[0], 0x1); // only byte 0 -> bit 0
+            assert_eq!(hex.get_q(0)[1], 0);
         }
     }
 
@@ -3775,7 +3925,9 @@ mod tests {
                 },
                 x86_hint: None,
             }],
-            terminator: Terminator::Trap { kind: TrapKind::Halt },
+            terminator: Terminator::Trap {
+                kind: TrapKind::Halt,
+            },
             exec_count: 0,
         };
         interp.execute_block(&mut ctx, &mut memory, &mkblock(false));
@@ -3820,7 +3972,9 @@ mod tests {
                 },
                 x86_hint: None,
             }],
-            terminator: Terminator::Trap { kind: TrapKind::Halt },
+            terminator: Terminator::Trap {
+                kind: TrapKind::Halt,
+            },
             exec_count: 0,
         };
         interp.execute_block(&mut ctx, &mut memory, &block);
@@ -3843,16 +3997,25 @@ mod tests {
             kind,
         };
         // vasrhv, +2: 0x0100 >> 2 = 0x0040.
-        let out = run_vec2([0x0100_0100_0100_0100u64; 16], [0x0002_0002_0002_0002u64; 16],
-            sv(VShiftVKind::AshiftR));
+        let out = run_vec2(
+            [0x0100_0100_0100_0100u64; 16],
+            [0x0002_0002_0002_0002u64; 16],
+            sv(VShiftVKind::AshiftR),
+        );
         assert_eq!(out, [0x0040_0040_0040_0040u64; 16]);
         // vasrhv, amt=30 -> sxtn(30,5) = -2 -> arithmetic LEFT by 2: 0x0100 << 2 = 0x0400.
-        let out2 = run_vec2([0x0100_0100_0100_0100u64; 16], [0x001E_001E_001E_001Eu64; 16],
-            sv(VShiftVKind::AshiftR));
+        let out2 = run_vec2(
+            [0x0100_0100_0100_0100u64; 16],
+            [0x001E_001E_001E_001Eu64; 16],
+            sv(VShiftVKind::AshiftR),
+        );
         assert_eq!(out2, [0x0400_0400_0400_0400u64; 16]);
         // vlsrhv, +2: logical right of 0x8000 = 0x2000 (no sign fill).
-        let out3 = run_vec2([0x8000_8000_8000_8000u64; 16], [0x0002_0002_0002_0002u64; 16],
-            sv(VShiftVKind::LshiftR));
+        let out3 = run_vec2(
+            [0x8000_8000_8000_8000u64; 16],
+            [0x0002_0002_0002_0002u64; 16],
+            sv(VShiftVKind::LshiftR),
+        );
         assert_eq!(out3, [0x2000_2000_2000_2000u64; 16]);
     }
 
@@ -3872,12 +4035,18 @@ mod tests {
             out_shift: 16,
         };
         // non-saturating: 0x4000*0x4000<<1 +0x8000 = 0x20008000; >>16 = 0x2000.
-        let out = run_vec2([0x4000_4000_4000_4000u64; 16], [0x4000_4000_4000_4000u64; 16],
-            op(mkv(2), mkv(0), mkv(1)));
+        let out = run_vec2(
+            [0x4000_4000_4000_4000u64; 16],
+            [0x4000_4000_4000_4000u64; 16],
+            op(mkv(2), mkv(0), mkv(1)),
+        );
         assert_eq!(out, [0x2000_2000_2000_2000u64; 16]);
         // saturating: (-32768)^2<<1 +0x8000 overflows i32 -> clamp 0x7FFFFFFF; >>16 = 0x7FFF.
-        let out2 = run_vec2([0x8000_8000_8000_8000u64; 16], [0x8000_8000_8000_8000u64; 16],
-            op(mkv(2), mkv(0), mkv(1)));
+        let out2 = run_vec2(
+            [0x8000_8000_8000_8000u64; 16],
+            [0x8000_8000_8000_8000u64; 16],
+            op(mkv(2), mkv(0), mkv(1)),
+        );
         assert_eq!(out2, [0x7FFF_7FFF_7FFF_7FFFu64; 16]);
     }
 
@@ -3971,13 +4140,23 @@ mod tests {
         let shuffled = run_vec2(
             v0,
             [0u64; 16],
-            OpKind::VShuffle2 { dst: mkv(2), src: mkv(0), elem: VecElementType::I8, deal: false },
+            OpKind::VShuffle2 {
+                dst: mkv(2),
+                src: mkv(0),
+                elem: VecElementType::I8,
+                deal: false,
+            },
         );
         // deal the shuffled value -> should recover v0
         let dealt = run_vec2(
             shuffled,
             [0u64; 16],
-            OpKind::VShuffle2 { dst: mkv(2), src: mkv(0), elem: VecElementType::I8, deal: true },
+            OpKind::VShuffle2 {
+                dst: mkv(2),
+                src: mkv(0),
+                elem: VecElementType::I8,
+                deal: true,
+            },
         );
         assert_eq!(dealt, v0, "deal(shuffle(x)) must equal x");
         // explicit check: shuffle out[0]=src.b[0], out[1]=src.b[64].
@@ -3995,7 +4174,13 @@ mod tests {
         let out = run_vec2(
             v0,
             v1,
-            OpKind::VShuffleEO { dst: mkv(2), src1: mkv(0), src2: mkv(1), elem: VecElementType::I8, odd: false },
+            OpKind::VShuffleEO {
+                dst: mkv(2),
+                src1: mkv(0),
+                src2: mkv(1),
+                elem: VecElementType::I8,
+                odd: false,
+            },
         );
         // every output halfword = Vv.b0(0x22) | Vu.b0(0x11)<<8 = 0x1122.
         assert_eq!(out, [0x1122_1122_1122_1122u64; 16]);
@@ -4023,7 +4208,9 @@ mod tests {
                 },
                 x86_hint: None,
             }],
-            terminator: Terminator::Trap { kind: TrapKind::Halt },
+            terminator: Terminator::Trap {
+                kind: TrapKind::Halt,
+            },
             exec_count: 0,
         };
         interp.execute_block(&mut ctx, &mut memory, &block);

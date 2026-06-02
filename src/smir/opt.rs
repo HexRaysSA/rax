@@ -1603,6 +1603,11 @@ impl OpKind {
                 result.push(*src);
             }
 
+            OpKind::VQFromVAndR { src1, src2, .. } => {
+                result.push(*src1);
+                result.push(*src2);
+            }
+
             OpKind::VMov { src, .. } | OpKind::VBroadcast { scalar: src, .. } => {
                 result.push(*src);
             }

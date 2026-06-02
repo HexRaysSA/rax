@@ -971,6 +971,14 @@ pub enum OpKind {
         accumulate: Option<VLaneOp>,
     },
 
+    /// Build a Q vector predicate from a per-byte AND test. Models HVX `vandvrt`
+    /// (with src2 = a VBroadcast of Rt): `dst.bit[i] = (src1.byte[i] & src2.byte[i]) != 0`.
+    VQFromVAndR {
+        dst: VReg,
+        src1: VReg,
+        src2: VReg,
+    },
+
     /// Per-byte Q-gated mask-to-zero. Models HVX `vandvqv`/`vandvnqv` (and, via a
     /// VBroadcast of Rt, `vandqrt`/`vandnqrt`): `dst.byte[i] = (mask_q.bit[i] ^
     /// negate) ? src.byte[i] : 0`.
@@ -1548,8 +1556,9 @@ impl OpKind {
                 VReg::Arch(ArchReg::X86(X86Reg::Rbp)),
             ],
 
-            OpKind::VWidenMul { dst_lo, dst_hi, .. }
-            | OpKind::VWidenExt { dst_lo, dst_hi, .. } => vec![*dst_lo, *dst_hi],
+            OpKind::VWidenMul { dst_lo, dst_hi, .. } | OpKind::VWidenExt { dst_lo, dst_hi, .. } => {
+                vec![*dst_lo, *dst_hi]
+            }
 
             OpKind::VReduceMul { dst, .. }
             | OpKind::VMulEvenWiden { dst, .. }
@@ -1562,7 +1571,8 @@ impl OpKind {
             | OpKind::VShiftV { dst, .. }
             | OpKind::VCmpToQ { dst, .. }
             | OpKind::VBlend { dst, .. }
-            | OpKind::VMaskZero { dst, .. } => vec![*dst],
+            | OpKind::VMaskZero { dst, .. }
+            | OpKind::VQFromVAndR { dst, .. } => vec![*dst],
 
             OpKind::MulU { dst_lo, dst_hi, .. } | OpKind::MulS { dst_lo, dst_hi, .. } => {
                 let mut v = vec![*dst_lo];
