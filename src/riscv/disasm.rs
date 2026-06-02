@@ -365,6 +365,10 @@ impl Op {
             Vredmin => "vredmin",
             Vredmaxu => "vredmaxu",
             Vredmax => "vredmax",
+            Vfredusum => "vfredusum",
+            Vfredosum => "vfredosum",
+            Vfredmin => "vfredmin",
+            Vfredmax => "vfredmax",
             Illegal => "illegal",
         }
     }

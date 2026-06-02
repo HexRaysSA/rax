@@ -399,6 +399,11 @@ pub enum Op {
     Vredmin,
     Vredmaxu,
     Vredmax,
+    // ---- V (OPFVV floating-point reductions) ----
+    Vfredusum,
+    Vfredosum,
+    Vfredmin,
+    Vfredmax,
     // ---- sentinel ----
     Illegal,
 }
@@ -726,6 +731,11 @@ fn decode_vector(w: u32) -> Insn {
             0b101001 => Op::Vfnmadd,
             0b101010 => Op::Vfmsub,
             0b101011 => Op::Vfnmsub,
+            // FP reductions are OPFVV-only (.vs form).
+            0b000001 if !vf => Op::Vfredusum,
+            0b000011 if !vf => Op::Vfredosum,
+            0b000101 if !vf => Op::Vfredmin,
+            0b000111 if !vf => Op::Vfredmax,
             0b010011 if !vf && vs1 == 0 => Op::Vfsqrt,
             _ => return Insn::illegal(w, 4),
         };

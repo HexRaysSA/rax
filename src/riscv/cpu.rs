@@ -741,7 +741,8 @@ impl RiscVCpu {
             | Op::Vmfne | Op::Vmflt | Op::Vmfle | Op::Vmfgt | Op::Vmfge | Op::Vfmacc
             | Op::Vfnmacc | Op::Vfmsac | Op::Vfnmsac | Op::Vfmadd | Op::Vfnmadd | Op::Vfmsub
             | Op::Vfnmsub | Op::Vredsum | Op::Vredand | Op::Vredor | Op::Vredxor
-            | Op::Vredminu | Op::Vredmin | Op::Vredmaxu | Op::Vredmax => self.exec_vector(insn)?,
+            | Op::Vredminu | Op::Vredmin | Op::Vredmaxu | Op::Vredmax | Op::Vfredusum
+            | Op::Vfredosum | Op::Vfredmin | Op::Vfredmax => self.exec_vector(insn)?,
 
             Op::Illegal => return Err(Trap::illegal(insn.raw)),
 
@@ -1544,6 +1545,29 @@ impl RiscVCpu {
                     let vde = self.velem(vd, e, eb);
                     let r = vfp_fma(insn.op, eb, src, vs2e, vde, rm, &mut flags);
                     self.set_velem(vd, e, eb, r & mask);
+                }
+                self.accrue(flags);
+            }
+            Op::Vfredusum | Op::Vfredosum | Op::Vfredmin | Op::Vfredmax => {
+                let eb = self.sew_bytes();
+                let mask = Self::sew_mask(eb);
+                let rm = RoundingMode::from_bits(self.frm()).unwrap_or(RoundingMode::Rne);
+                let mut flags = 0u32;
+                let mut acc = self.velem(insn.rs1, 0, eb); // vs1[0] seed
+                for e in vstart..vl {
+                    if !vm && !self.vmask_bit(e) {
+                        continue;
+                    }
+                    let x = self.velem(vs2, e, eb);
+                    let sub = match insn.op {
+                        Op::Vfredusum | Op::Vfredosum => Op::Vfadd,
+                        Op::Vfredmin => Op::Vfmin,
+                        _ => Op::Vfmax,
+                    };
+                    acc = vfp_bin(sub, eb, acc, x, rm, &mut flags) & mask;
+                }
+                if vl > vstart {
+                    self.set_velem(vd, 0, eb, acc & mask);
                 }
                 self.accrue(flags);
             }
