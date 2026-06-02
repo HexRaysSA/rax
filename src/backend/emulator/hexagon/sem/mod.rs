@@ -25,6 +25,11 @@ mod extra;
 mod float;
 mod float_ext;
 mod hvx;
+mod hvx_cmp;
+mod hvx_minmax;
+mod hvx_mpy;
+mod hvx_perm;
+mod hvx_shift;
 mod mpy;
 mod mpy_ext;
 mod shift;
@@ -231,6 +236,11 @@ pub fn dispatch(d: &DecodedOp, ctx: &mut SemCtx) -> bool {
         || vecalu::exec(op, d, ctx)
         || extra::exec(op, d, ctx)
         || hvx::exec(op, d, ctx)
+        || hvx_mpy::exec(op, d, ctx)
+        || hvx_perm::exec(op, d, ctx)
+        || hvx_cmp::exec(op, d, ctx)
+        || hvx_shift::exec(op, d, ctx)
+        || hvx_minmax::exec(op, d, ctx)
         || mpy_ext::exec(op, d, ctx)
         || shift_ext::exec(op, d, ctx)
         || alu_ext::exec(op, d, ctx)
