@@ -2462,6 +2462,111 @@ impl SmirInterpreter {
                 Self::write_vec(ctx, *dst_hi, hi);
             }
 
+            OpKind::VSlideReduceMul {
+                dst_lo,
+                dst_hi,
+                src_lo,
+                src_hi,
+                src2,
+                src_elem,
+                rt_elem,
+                out_elem,
+                mode,
+                signed1,
+                signed2,
+                sat,
+                acc,
+            } => {
+                let v0 = Self::read_vec(ctx, *src_lo);
+                let v1 = Self::read_vec(ctx, *src_hi);
+                let r = Self::read_vec(ctx, *src2);
+                let nbits = src_elem.bytes() * 8; // multiplicand width
+                let rbits = rt_elem.bytes() * 8; // Rt sub-lane width
+                let obits = out_elem.bytes() * 8; // output width
+                let olanes = (1024 / obits) as u8;
+                let ext = |v: u64, bits: u32, signed: bool| -> i64 {
+                    if signed {
+                        let sh = 64 - bits;
+                        ((v << sh) as i64) >> sh
+                    } else {
+                        v as i64
+                    }
+                };
+                // narrow multiplicand lane reader
+                let m = |vec: &VecValue, lane: u8| ext(Self::get_lane(vec, lane, nbits), nbits, *signed1);
+                // Rt sub-lane reader (from the I32-broadcast `src2`)
+                let rt = |lane: u8| ext(Self::get_lane(&r, lane, rbits), rbits, *signed2);
+                let mut lo = if *acc { Self::read_vec(ctx, *dst_lo) } else { [0u64; 16] };
+                let mut hi = if *acc && *mode != 2 {
+                    Self::read_vec(ctx, *dst_hi)
+                } else {
+                    [0u64; 16]
+                };
+                let satn = |s: i64| -> i64 {
+                    if *sat && obits < 64 {
+                        let l = -(1i64 << (obits - 1));
+                        let h = (1i64 << (obits - 1)) - 1;
+                        s.clamp(l, h)
+                    } else {
+                        s
+                    }
+                };
+                for i in 0..olanes {
+                    let n0 = (2 * i) as u8; // narrow lane 2i
+                    let n1 = (2 * i + 1) as u8; // narrow lane 2i+1
+                    let rb0 = rt(n0); // Rt[(2i)%subs] via broadcast
+                    let rb1 = rt(n1); // Rt[(2i+1)%subs]
+                    match *mode {
+                        0 => {
+                            // _dv 2-tap sliding (pair -> pair)
+                            let alo = if *acc { Self::get_lane(&lo, i, obits) as i64 } else { 0 };
+                            let s0 = alo
+                                .wrapping_add(m(&v0, n0).wrapping_mul(rb0))
+                                .wrapping_add(m(&v0, n1).wrapping_mul(rb1));
+                            Self::set_lane(&mut lo, i, obits, s0 as u64);
+                            let ahi = if *acc { Self::get_lane(&hi, i, obits) as i64 } else { 0 };
+                            let s1 = ahi
+                                .wrapping_add(m(&v0, n1).wrapping_mul(rb0))
+                                .wrapping_add(m(&v1, n0).wrapping_mul(rb1));
+                            Self::set_lane(&mut hi, i, obits, s1 as u64);
+                        }
+                        1 => {
+                            // vtmpy 3-tap sliding with a free (un-multiplied) addend tap
+                            let alo = if *acc { Self::get_lane(&lo, i, obits) as i64 } else { 0 };
+                            let s0 = alo
+                                .wrapping_add(m(&v0, n0).wrapping_mul(rb0))
+                                .wrapping_add(m(&v0, n1).wrapping_mul(rb1))
+                                .wrapping_add(m(&v1, n0));
+                            Self::set_lane(&mut lo, i, obits, s0 as u64);
+                            let ahi = if *acc { Self::get_lane(&hi, i, obits) as i64 } else { 0 };
+                            let s1 = ahi
+                                .wrapping_add(m(&v0, n1).wrapping_mul(rb0))
+                                .wrapping_add(m(&v1, n0).wrapping_mul(rb1))
+                                .wrapping_add(m(&v1, n1));
+                            Self::set_lane(&mut hi, i, obits, s1 as u64);
+                        }
+                        _ => {
+                            // mode 2: pair -> single, straddle, saturated. Rt taps are
+                            // fixed sub-lanes 0/1 (Rt.h[0], Rt.h[1]) read from the
+                            // I32-broadcast src2.
+                            let acc_v = if *acc {
+                                ext(Self::get_lane(&lo, i, obits), obits, true)
+                            } else {
+                                0
+                            };
+                            let s = acc_v
+                                .wrapping_add(m(&v0, n1).wrapping_mul(rt(0)))
+                                .wrapping_add(m(&v1, n0).wrapping_mul(rt(1)));
+                            Self::set_lane(&mut lo, i, obits, satn(s) as u64);
+                        }
+                    }
+                }
+                Self::write_vec(ctx, *dst_lo, lo);
+                if *mode != 2 {
+                    Self::write_vec(ctx, *dst_hi, hi);
+                }
+            }
+
             OpKind::VMulSubLane {
                 dst,
                 src1,
@@ -4015,6 +4120,70 @@ mod tests {
             assert_eq!(hex.get_v(3), [0x0005_0005_0005_0005u64; 16]); // lo = 5
             assert_eq!(hex.get_v(4), [0x0005_0005_0005_0005u64; 16]); // hi = 5
         }
+    }
+
+    #[test]
+    fn test_vslidereducemul() {
+        let mkv = |n| VReg::Arch(ArchReg::Hexagon(HexagonReg::V(n)));
+        let run = |v0: [u64; 16], v1: [u64; 16], rt: [u64; 16], op: OpKind| -> ([u64; 16], [u64; 16]) {
+            let mut ctx = SmirContext::new_hexagon();
+            let mut memory = FlatMemory::new(0x1000);
+            let interp = SmirInterpreter::new();
+            if let ArchRegState::Hexagon(hex) = &mut ctx.arch_regs {
+                hex.set_v(0, v0);
+                hex.set_v(1, v1);
+                hex.set_v(2, rt); // I32-broadcast of Rt
+            }
+            let block = SmirBlock {
+                id: BlockId(0),
+                guest_pc: 0x1000,
+                phis: vec![],
+                ops: vec![SmirOp { id: OpId(0), guest_pc: 0x1000, kind: op, x86_hint: None }],
+                terminator: Terminator::Trap { kind: TrapKind::Halt },
+                exec_count: 0,
+            };
+            interp.execute_block(&mut ctx, &mut memory, &block);
+            if let ArchRegState::Hexagon(hex) = &ctx.arch_regs {
+                (hex.get_v(3), hex.get_v(4))
+            } else {
+                unreachable!()
+            }
+        };
+        // mode 0 (vdmpyhb_dv): v0.h=2, v1.h=4, Rt bytes=1 (so all taps=1).
+        //   o0 = v0.h[2i]*1 + v0.h[2i+1]*1 = 2+2 = 4
+        //   o1 = v0.h[2i+1]*1 + v1.h[2i]*1 = 2+4 = 6
+        let v0 = [0x0002_0002_0002_0002u64; 16];
+        let v1 = [0x0004_0004_0004_0004u64; 16];
+        let rt = [0x0101_0101_0101_0101u64; 16];
+        let (lo, hi) = run(v0, v1, rt, OpKind::VSlideReduceMul {
+            dst_lo: mkv(3), dst_hi: mkv(4), src_lo: mkv(0), src_hi: mkv(1), src2: mkv(2),
+            src_elem: VecElementType::I16, rt_elem: VecElementType::I8, out_elem: VecElementType::I32,
+            mode: 0, signed1: true, signed2: true, sat: false, acc: false,
+        });
+        assert_eq!(lo, [0x0000_0004_0000_0004u64; 16]);
+        assert_eq!(hi, [0x0000_0006_0000_0006u64; 16]);
+
+        // mode 1 (vtmpyhb): adds a free addend tap.
+        //   o0 = v0.h[2i]*1 + v0.h[2i+1]*1 + v1.h[2i]   = 2+2+4 = 8
+        //   o1 = v0.h[2i+1]*1 + v1.h[2i]*1 + v1.h[2i+1] = 2+4+4 = 10
+        let (lo, hi) = run(v0, v1, rt, OpKind::VSlideReduceMul {
+            dst_lo: mkv(3), dst_hi: mkv(4), src_lo: mkv(0), src_hi: mkv(1), src2: mkv(2),
+            src_elem: VecElementType::I16, rt_elem: VecElementType::I8, out_elem: VecElementType::I32,
+            mode: 1, signed1: true, signed2: true, sat: false, acc: false,
+        });
+        assert_eq!(lo, [0x0000_0008_0000_0008u64; 16]);
+        assert_eq!(hi, [0x0000_000A_0000_000Au64; 16]);
+
+        // mode 2 (vdmpyhisat): pair -> single, o[i] = v0.h[2i+1]*Rt.h0 + v1.h[2i]*Rt.h1.
+        // Rt.h0 = Rt.h1 = 1 (rt bytes all 1 -> halfword = 0x0101 = 257). Use Rt=1 per half.
+        let rt2 = [0x0001_0001_0001_0001u64; 16];
+        let (lo, _hi) = run(v0, v1, rt2, OpKind::VSlideReduceMul {
+            dst_lo: mkv(3), dst_hi: mkv(3), src_lo: mkv(0), src_hi: mkv(1), src2: mkv(2),
+            src_elem: VecElementType::I16, rt_elem: VecElementType::I16, out_elem: VecElementType::I32,
+            mode: 2, signed1: true, signed2: true, sat: true, acc: false,
+        });
+        // o = v0.h[2i+1]*1 + v1.h[2i]*1 = 2 + 4 = 6.
+        assert_eq!(lo, [0x0000_0006_0000_0006u64; 16]);
     }
 
     #[test]

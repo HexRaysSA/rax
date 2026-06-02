@@ -4800,6 +4800,159 @@ impl HexagonLifter {
                 });
             }
 
+            // ============================================================
+            // Wave 19: cross-register SLIDING-WINDOW reduces (sem/hvx_rmpy.rs),
+            // modeled by OpKind::VSlideReduceMul. The source is a register PAIR
+            // Vuu=(V[u],V[u+1]); the window straddles the pair boundary so that
+            // V[u+1] supplies the elements that slide into the high output reg.
+            // Rt is I32-broadcast into an SSA temp `t` so that t.byte[n]=Rt.byte
+            // [n%4] / t.h[n]=Rt.h[n%2], matching the sem's lane-indexed Rt reuse.
+            // ============================================================
+            //
+            // --- _dv 2-tap sliding (mode 0, pair -> pair) ---------------------
+            //   vdmpyhb_dv : Vuu.h(s)  * Rt.b(s) -> .w  (src I16, out I32)
+            //   vdmpybus_dv: Vuu.ub(u) * Rt.b(s) -> .h  (src I8,  out I16)
+            // Per word/half lane i:
+            //   o0[i] = v0.n[2i]*Rt[(2i)%4]   + v0.n[2i+1]*Rt[(2i+1)%4]
+            //   o1[i] = v0.n[2i+1]*Rt[(2i)%4] + v1.n[2i]*Rt[(2i+1)%4]
+            // reading t.byte[2i]/[2i+1] picks Rt.byte[(2i)%4]/[(2i+1)%4]. dst pair
+            // base = fld('d') plain / fld('x') for _acc; acc wraps-adds the lane.
+            Opcode::V6_vdmpyhb_dv
+            | Opcode::V6_vdmpyhb_dv_acc
+            | Opcode::V6_vdmpybus_dv
+            | Opcode::V6_vdmpybus_dv_acc => {
+                let acc = matches!(
+                    op,
+                    Opcode::V6_vdmpyhb_dv_acc | Opcode::V6_vdmpybus_dv_acc
+                );
+                let (src_elem, out_elem, signed1) = match op {
+                    Opcode::V6_vdmpyhb_dv | Opcode::V6_vdmpyhb_dv_acc => {
+                        (VecElementType::I16, VecElementType::I32, true)
+                    }
+                    // V6_vdmpybus_dv(_acc): Vuu.ub
+                    _ => (VecElementType::I8, VecElementType::I16, false),
+                };
+                let base = if acc { rx_n } else { rd_n };
+                let t = ctx.alloc_vreg();
+                push_op!(OpKind::VBroadcast {
+                    dst: t,
+                    scalar: self.hex_reg(fld(b't')),
+                    elem: VecElementType::I32,
+                    lanes: 32,
+                });
+                push_op!(OpKind::VSlideReduceMul {
+                    dst_lo: self.hex_v(base),
+                    dst_hi: self.hex_v(base + 1),
+                    src_lo: self.hex_v(fld(b'u')),
+                    src_hi: self.hex_v(fld(b'u') + 1),
+                    src2: t,
+                    src_elem,
+                    rt_elem: VecElementType::I8,
+                    out_elem,
+                    mode: 0,
+                    signed1,
+                    signed2: true, // Rt.b is signed (rt_sb)
+                    sat: false,
+                    acc,
+                });
+            }
+
+            // --- vtmpy 3-tap sliding with FREE addend (mode 1, pair -> pair) ---
+            //   vtmpyb  : Vuu.b(s)  * Rt.b(s) -> .h  (src I8,  out I16)
+            //   vtmpybus: Vuu.ub(u) * Rt.b(s) -> .h  (src I8,  out I16)
+            //   vtmpyhb : Vuu.h(s)  * Rt.b(s) -> .w  (src I16, out I32)
+            // Per lane i, the third (un-multiplied) addend is v1.n[2i] (lo) /
+            // v1.n[2i+1] (hi); the sem reads it with the SAME signedness as the
+            // multiplicand, which VSlideReduceMul's `signed1` reader matches.
+            Opcode::V6_vtmpyb
+            | Opcode::V6_vtmpyb_acc
+            | Opcode::V6_vtmpybus
+            | Opcode::V6_vtmpybus_acc
+            | Opcode::V6_vtmpyhb
+            | Opcode::V6_vtmpyhb_acc => {
+                let acc = matches!(
+                    op,
+                    Opcode::V6_vtmpyb_acc | Opcode::V6_vtmpybus_acc | Opcode::V6_vtmpyhb_acc
+                );
+                let (src_elem, out_elem, signed1) = match op {
+                    Opcode::V6_vtmpyb | Opcode::V6_vtmpyb_acc => {
+                        (VecElementType::I8, VecElementType::I16, true)
+                    }
+                    Opcode::V6_vtmpybus | Opcode::V6_vtmpybus_acc => {
+                        (VecElementType::I8, VecElementType::I16, false)
+                    }
+                    // V6_vtmpyhb(_acc): Vuu.h
+                    _ => (VecElementType::I16, VecElementType::I32, true),
+                };
+                let base = if acc { rx_n } else { rd_n };
+                let t = ctx.alloc_vreg();
+                push_op!(OpKind::VBroadcast {
+                    dst: t,
+                    scalar: self.hex_reg(fld(b't')),
+                    elem: VecElementType::I32,
+                    lanes: 32,
+                });
+                push_op!(OpKind::VSlideReduceMul {
+                    dst_lo: self.hex_v(base),
+                    dst_hi: self.hex_v(base + 1),
+                    src_lo: self.hex_v(fld(b'u')),
+                    src_hi: self.hex_v(fld(b'u') + 1),
+                    src2: t,
+                    src_elem,
+                    rt_elem: VecElementType::I8,
+                    out_elem,
+                    mode: 1,
+                    signed1,
+                    signed2: true, // Rt.b is signed (rt_sb)
+                    sat: false,
+                    acc,
+                });
+            }
+
+            // --- pair -> SINGLE straddle, saturated (mode 2) ------------------
+            //   vdmpyhisat   : Vuu.h(s) * Rt.h(s)  -> .w :sat  (Rt.h signed)
+            //   vdmpyhsuisat : Vuu.h(s) * Rt.uh(u) -> .w :sat  (Rt.uh unsigned)
+            // Per word lane i: o[i] = v0.h[2i+1]*Rt.h[0] + v1.h[2i]*Rt.h[1], sat32.
+            // Rt.h[0]/Rt.h[1] = t.h[0]/t.h[1] from the I32 broadcast (rt_elem I16).
+            Opcode::V6_vdmpyhisat
+            | Opcode::V6_vdmpyhisat_acc
+            | Opcode::V6_vdmpyhsuisat
+            | Opcode::V6_vdmpyhsuisat_acc => {
+                let acc = matches!(
+                    op,
+                    Opcode::V6_vdmpyhisat_acc | Opcode::V6_vdmpyhsuisat_acc
+                );
+                // vdmpyhsuisat: Rt.uh is unsigned; vdmpyhisat: Rt.h signed.
+                let signed2 = matches!(
+                    op,
+                    Opcode::V6_vdmpyhisat | Opcode::V6_vdmpyhisat_acc
+                );
+                let base = if acc { rx_n } else { rd_n };
+                let t = ctx.alloc_vreg();
+                push_op!(OpKind::VBroadcast {
+                    dst: t,
+                    scalar: self.hex_reg(fld(b't')),
+                    elem: VecElementType::I32,
+                    lanes: 32,
+                });
+                let dst = self.hex_v(base);
+                push_op!(OpKind::VSlideReduceMul {
+                    dst_lo: dst,
+                    dst_hi: dst, // pair -> single: only dst_lo is written
+                    src_lo: self.hex_v(fld(b'u')),
+                    src_hi: self.hex_v(fld(b'u') + 1),
+                    src2: t,
+                    src_elem: VecElementType::I16,
+                    rt_elem: VecElementType::I16,
+                    out_elem: VecElementType::I32,
+                    mode: 2,
+                    signed1: true, // Vuu.h signed (get_h)
+                    signed2,
+                    sat: true,
+                    acc,
+                });
+            }
+
             // vdealb4w (Vd.b = vdeale(Vu.b,Vv.b)): deal bytes 0,2 of each word.
             Opcode::V6_vdealb4w => push_op!(OpKind::VDealB4W {
                 dst: self.hex_v(fld(b'd')),

@@ -1186,6 +1186,43 @@ pub enum OpKind {
         acc: bool,
     },
 
+    /// Cross-register SLIDING-WINDOW reduce. Models the HVX `vdmpy*_dv`,
+    /// `vtmpy*` and `vdmpyh{i,sui}sat` families that read a SOURCE PAIR
+    /// `Vuu = (src_lo, src_hi)` and whose output-lane taps straddle the pair
+    /// boundary (`src_hi` supplies the "next" elements that slide in). `src2`
+    /// is an I32 broadcast of Rt so that `src2.sub[k] = Rt.sub[k % subs]`.
+    ///
+    /// `mode` selects the exact window pattern (kept as a small discriminant so
+    /// no new enum type is introduced):
+    ///   0 = `_dv` 2-tap sliding (pair -> pair). Per output lane i:
+    ///       `dst_lo[i] = src_lo.n[2i]*Rt[(2i)%4]   + src_lo.n[2i+1]*Rt[(2i+1)%4]`
+    ///       `dst_hi[i] = src_lo.n[2i+1]*Rt[(2i)%4] + src_hi.n[2i]*Rt[(2i+1)%4]`
+    ///   1 = `vtmpy*` 3-tap sliding with a FREE (un-multiplied) addend tap
+    ///       (pair -> pair). Per output lane i:
+    ///       `dst_lo[i] = src_lo.n[2i]*Rt[(2i)%4]   + src_lo.n[2i+1]*Rt[(2i+1)%4] + src_hi.n[2i]`
+    ///       `dst_hi[i] = src_lo.n[2i+1]*Rt[(2i)%4] + src_hi.n[2i]*Rt[(2i+1)%4]   + src_hi.n[2i+1]`
+    ///   2 = `vdmpyh{i,sui}sat` straddle (pair -> SINGLE, dst_lo only), saturated:
+    ///       `dst[i] = src_lo.h[2i+1]*Rt.sub[0] + src_hi.h[2i]*Rt.sub[1]`
+    /// `src_elem` is the multiplicand width (I8/I16), `rt_elem` the Rt sub-lane
+    /// width (I8 for modes 0/1, I16 for mode 2), `out_elem` the result width.
+    /// `signed1`/`signed2` select multiplicand / Rt signedness; `sat` saturates
+    /// the lane (mode 2); `acc` adds into the existing dst lane(s).
+    VSlideReduceMul {
+        dst_lo: VReg,
+        dst_hi: VReg,
+        src_lo: VReg,
+        src_hi: VReg,
+        src2: VReg,
+        src_elem: VecElementType,
+        rt_elem: VecElementType,
+        out_elem: VecElementType,
+        mode: u8,
+        signed1: bool,
+        signed2: bool,
+        sat: bool,
+        acc: bool,
+    },
+
     /// Reducing (dot-product) multiply.
     ///
     /// Models the HVX `vrmpy`/`vdmpy` vector-by-vector reduce family: each output
@@ -1699,6 +1736,7 @@ impl OpKind {
             OpKind::VWidenMul { dst_lo, dst_hi, .. }
             | OpKind::VWidenExt { dst_lo, dst_hi, .. }
             | OpKind::VPairReduceMul { dst_lo, dst_hi, .. }
+            | OpKind::VSlideReduceMul { dst_lo, dst_hi, .. }
             | OpKind::VPairPairReduceMul { dst_lo, dst_hi, .. }
             | OpKind::VLut16 { dst_lo, dst_hi, .. }
             | OpKind::VShuffVdd { dst_lo, dst_hi, .. } => {

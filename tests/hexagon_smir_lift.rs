@@ -1658,3 +1658,65 @@ fn lift_hvx_vdelta() {
         0x1900,
     );
 }
+
+// ---- Wave 19: cross-register SLIDING-WINDOW reduces (OpKind::VSlideReduceMul).
+// Source is a register PAIR Vuu = (V[u], V[u+1]); the window straddles the pair
+// boundary so V[u+1] supplies the elements that slide into the high output. Rt
+// is I32-broadcast into a temp so its sub-elements are reused per output lane.
+
+// _dv 2-tap sliding (mode 0, pair -> pair):
+//   vdmpyhb_dv : Vuu.h  * Rt.b -> .w
+//   vdmpybus_dv: Vuu.ub * Rt.b -> .h
+#[test]
+fn lift_hvx_vdmpy_dv() {
+    lift_family(
+        "hvx_vdmpy_dv",
+        &[
+            ("vdmpyhb_dv", "{ v3:2.w = vdmpy(v5:4.h,r6.b) }"),
+            ("vdmpyhb_dv_acc", "{ v3:2.w += vdmpy(v5:4.h,r6.b) }"),
+            ("vdmpybus_dv", "{ v3:2.h = vdmpy(v5:4.ub,r6.b) }"),
+            ("vdmpybus_dv_acc", "{ v3:2.h += vdmpy(v5:4.ub,r6.b) }"),
+        ],
+        16,
+        0x1910,
+    );
+}
+
+// vtmpy 3-tap sliding with a free (un-multiplied) addend tap (mode 1, pair->pair):
+//   vtmpyb  : Vuu.b  * Rt.b -> .h
+//   vtmpybus: Vuu.ub * Rt.b -> .h
+//   vtmpyhb : Vuu.h  * Rt.b -> .w
+#[test]
+fn lift_hvx_vtmpy() {
+    lift_family(
+        "hvx_vtmpy",
+        &[
+            ("vtmpyb", "{ v3:2.h = vtmpy(v5:4.b,r6.b) }"),
+            ("vtmpyb_acc", "{ v3:2.h += vtmpy(v5:4.b,r6.b) }"),
+            ("vtmpybus", "{ v3:2.h = vtmpy(v5:4.ub,r6.b) }"),
+            ("vtmpybus_acc", "{ v3:2.h += vtmpy(v5:4.ub,r6.b) }"),
+            ("vtmpyhb", "{ v3:2.w = vtmpy(v5:4.h,r6.b) }"),
+            ("vtmpyhb_acc", "{ v3:2.w += vtmpy(v5:4.h,r6.b) }"),
+        ],
+        16,
+        0x1920,
+    );
+}
+
+// pair -> SINGLE straddle, saturated (mode 2):
+//   vdmpyhisat   : Vuu.h * Rt.h  -> .w :sat
+//   vdmpyhsuisat : Vuu.h * Rt.uh -> .w :sat (the #1 is structural, not an operand)
+#[test]
+fn lift_hvx_vdmpyhisat() {
+    lift_family(
+        "hvx_vdmpyhisat",
+        &[
+            ("vdmpyhisat", "{ v2.w = vdmpy(v5:4.h,r6.h):sat }"),
+            ("vdmpyhisat_acc", "{ v2.w += vdmpy(v5:4.h,r6.h):sat }"),
+            ("vdmpyhsuisat", "{ v2.w = vdmpy(v5:4.h,r6.uh,#1):sat }"),
+            ("vdmpyhsuisat_acc", "{ v2.w += vdmpy(v5:4.h,r6.uh,#1):sat }"),
+        ],
+        16,
+        0x1930,
+    );
+}
