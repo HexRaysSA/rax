@@ -80,8 +80,12 @@ impl HexagonLifter {
                     disp_size: DispSize::Auto,
                 }
             }
-            AddrMode::PostIncImm { base, offset: _ } => {
-                // Post-increment: use base address, increment handled separately
+            AddrMode::PostIncImm { base, offset: _ }
+            | AddrMode::PostIncReg { base, .. }
+            | AddrMode::PostIncBrev { base, .. }
+            | AddrMode::PostIncCircImm { base, .. }
+            | AddrMode::PostIncCircReg { base, .. } => {
+                // Post-increment: use base address, increment handled separately.
                 Address::Direct(self.hex_reg(*base))
             }
             AddrMode::GpOffset { offset } => {

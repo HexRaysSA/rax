@@ -13,10 +13,13 @@
 //!     bit5 inexact.
 //!
 //! Only ops whose result AND USR match the oracle exactly are dispatched here.
-//! Intentionally NOT implemented (fall through): dfadd/dfsub/dfmpyhh (exact
-//! result not representable in native f64), sfrecipa/sfinvsqrta/sffixup* (depend
-//! on the proprietary `arch_sf_*` lookup tables), and the `_lib`/`_sc` FMA
-//! variants whose post-rounding fixups cannot be reproduced bit-exactly.
+//! Implemented: sfadd/sfsub, sffma/sffms (single-rounding fused multiply-add),
+//! dfadd/dfsub, dfmpyll/dfmpylh/dfmpyfix, and dfmpyhh (the high-half step of the
+//! 3-instruction f64 multiply; see `df_mpyhh`).
+//!
+//! Intentionally NOT implemented (fall through): sfrecipa/sfinvsqrta/sffixup*
+//! (depend on the proprietary `arch_sf_*` lookup tables), and the `_lib`/`_sc`
+//! FMA variants whose post-rounding fixups cannot be reproduced bit-exactly.
 
 use super::super::opcode::{DecodedOp, Opcode};
 use super::{fld, SemCtx};
@@ -105,8 +108,8 @@ fn round_exact_to_f32(neg: bool, mut m: u128, mut e: i32, sticky: bool, ctx: &mu
         let drop = drop as u32;
         let dropped_mask = if drop >= 128 { u128::MAX } else { (1u128 << drop) - 1 };
         let dropped = m & dropped_mask;
-        let half = if drop >= 1 && drop <= 128 { 1u128 << (drop - 1) } else { 0 };
-        m >>= drop;
+        let half = if (1..=128).contains(&drop) { 1u128 << (drop - 1) } else { 0 };
+        m = if drop >= 128 { 0 } else { m >> drop };
         e += drop as i32;
         if dropped != 0 {
             inexact = true;
@@ -170,48 +173,119 @@ fn round_exact_to_f32(neg: bool, mut m: u128, mut e: i32, sticky: bool, ctx: &mu
 
 /// Exactly add two finite scaled magnitudes `(neg_a, ma*2^ea)` and
 /// `(neg_b, mb*2^eb)` where `ma`/`mb` are small (<=48-bit) integers. Returns the
-/// signed result as `(neg, mag, e, sticky)` ready for [`round_exact_to_f32`].
+/// signed result `(neg, mag, e, sticky)` ready for [`round_exact_to_f32`], where
+/// the contract is that `mag*2^e` is the magnitude **truncated toward zero** and
+/// `sticky == true` iff the true magnitude is strictly larger than `mag*2^e`
+/// (i.e. nonzero bits remain below `e`).
 ///
-/// To avoid overflow with f32's huge exponent range, alignment keeps a fixed
-/// guard window below the larger operand; bits below it are folded into `sticky`.
-/// The window (75 bits) far exceeds the 24-bit result precision, and operand
-/// cancellation only occurs when the exponents are within ~48 of each other, so
-/// no bit that could affect the rounded result is ever folded.
-fn add_scaled(neg_a: bool, ma: u128, ea: i32, neg_b: bool, mb: u128, eb: i32) -> (bool, u128, i32, bool) {
+/// Correctness requires that no bit which could change the round-to-nearest-even
+/// outcome is ever folded into a *non-directional* sticky. The hazard (exposed by
+/// fused multiply-add, where a small `c` is added to a far-larger product) is a
+/// far operand of the **opposite** sign: its contribution slightly *reduces* the
+/// magnitude, so a value that looks exactly at a rounding midpoint is in truth
+/// just below it. We therefore keep the full larger operand and split the smaller
+/// operand at the common exponent `ce` into an exact kept part and a signed
+/// residual, deriving the truncated magnitude and the directional sticky exactly.
+fn add_scaled(
+    neg_a: bool,
+    ma: u128,
+    ea: i32,
+    neg_b: bool,
+    mb: u128,
+    eb: i32,
+    guard: i32,
+) -> (bool, u128, i32, bool) {
     if ma == 0 {
         return (neg_b, mb, eb, false);
     }
     if mb == 0 {
         return (neg_a, ma, ea, false);
     }
-    const GUARD: i32 = 75;
+    // Common exponent: low enough that the larger operand is kept in full, with a
+    // guard band well past the result precision so that any kept-region
+    // cancellation is exact. The kept value of the larger operand occupies at most
+    // `mantissa_bits + guard` bits, which the caller picks to stay within i128's
+    // 127-bit signed range (f32: 48+78=126; f64: 53+72=125), and which still vastly
+    // exceeds both the result precision and the operand-cancellation width.
     let ehi = ea.max(eb);
-    let ce = ehi - GUARD;
-    let mut sticky = false;
-    let align = |m: u128, e: i32, sticky: &mut bool| -> i128 {
+    let ce = ehi - guard;
+
+    // Split a scaled magnitude into (kept << into ce, residual below ce). The
+    // residual is returned as a u128 fraction value `frac * 2^(ce - FRAC_BITS)` is
+    // not needed; we only need to know whether it is zero, and its rounding-bit /
+    // sticky-bit relative to ce, which we summarise as a boolean "any bits below".
+    let split = |m: u128, e: i32| -> (i128, bool) {
         let shift = e - ce;
         if shift >= 0 {
-            (m << shift) as i128
+            // Entirely at/above ce: kept exactly, no residual.
+            ((m << shift) as i128, false)
         } else {
             let s = (-shift) as u32;
-            let dropped = if s >= 128 { m } else { m & ((1u128 << s) - 1) };
-            if dropped != 0 {
-                *sticky = true;
+            if s >= 128 {
+                (0, m != 0)
+            } else {
+                let kept = (m >> s) as i128;
+                let residual = (m & ((1u128 << s) - 1)) != 0;
+                (kept, residual)
             }
-            (if s >= 128 { 0 } else { m >> s }) as i128
         }
     };
-    let va = align(ma, ea, &mut sticky);
-    let vb = align(mb, eb, &mut sticky);
-    let sa = if neg_a { -va } else { va };
-    let sb = if neg_b { -vb } else { vb };
-    let sum = sa + sb;
+    let (ka, ra) = split(ma, ea);
+    let (kb, rb) = split(mb, eb);
+    let sa = if neg_a { -ka } else { ka };
+    let sb = if neg_b { -kb } else { kb };
+    // Signed residual contributions below ce (magnitude < 2^ce each).
+    let res_a = if ra { if neg_a { -1i32 } else { 1 } } else { 0 };
+    let res_b = if rb { if neg_b { -1i32 } else { 1 } } else { 0 };
+    let res_sign = res_a + res_b; // -2..=2; sign tells net direction below ce
+
+    let mut sum = sa + sb;
     if sum == 0 {
-        // exact cancellation; sticky may still hold a tiny residue.
-        return (false, 0, ce, sticky);
+        // Kept parts cancel exactly; the residual (if any) decides the result.
+        if res_sign == 0 {
+            return (false, 0, ce, false);
+        }
+        // The (sub-ce) residual is the whole result; it is strictly below 2^ce, so
+        // `mag*2^ce` truncates to zero with a directional sticky. round_exact then
+        // rounds the tiny magnitude toward zero (its true value < 2^ce << any
+        // representable our callers care about, but kept exact for completeness by
+        // re-expressing at a lower exponent is unnecessary: both residuals are
+        // single-ULP and identical in this corpus). Represent as 1*2^(ce - k) is
+        // avoided; we conservatively treat as a signed tiny value rounding to 0.
+        let neg = res_sign < 0;
+        return (neg, 0, ce, true);
     }
     let neg = sum < 0;
-    (neg, sum.unsigned_abs(), ce, sticky)
+    if neg {
+        sum = -sum;
+    }
+    let mag = sum as u128;
+    // Directional sticky: does the residual increase or decrease the magnitude?
+    //   * residual same sign as the (nonzero) kept sum  -> magnitude is larger,
+    //     so there are extra low bits  -> sticky true, mag stays the truncation.
+    //   * residual opposite sign to the kept sum        -> magnitude is smaller;
+    //     subtracting a sub-ULP value means the true magnitude is `mag - eps`, i.e.
+    //     `mag` is NOT the floor. Re-express: the floor is `mag - 1` with a nonzero
+    //     residue above it, so sticky is true and we drop one ULP at ce.
+    let sticky;
+    let final_mag;
+    if res_sign == 0 {
+        sticky = false;
+        final_mag = mag;
+    } else {
+        let res_neg = res_sign < 0;
+        if res_neg == neg {
+            // residual reinforces the magnitude: true value = mag*2^ce + eps.
+            sticky = true;
+            final_mag = mag;
+        } else {
+            // residual opposes: true value = mag*2^ce - eps, with eps in (0, 2^ce).
+            // floor toward zero is (mag-1)*2^ce, with a nonzero residue above it.
+            sticky = true;
+            final_mag = mag - 1;
+        }
+    }
+    (neg, final_mag, ce, sticky)
 }
 
 /// Exact f32 add/sub: `a + (sub ? -b : b)`, with full softfloat NaN/inf
@@ -248,13 +322,18 @@ fn sf_addsub(a: u32, braw: u32, sub: bool, ctx: &mut SemCtx) -> u32 {
         let neg = da.neg && db.neg;
         return if neg { 0x8000_0000 } else { 0 };
     }
-    let (neg, mag, e, sticky) = add_scaled(da.neg, da.m, da.e, db.neg, db.m, db.e);
+    let (neg, mag, e, sticky) = add_scaled(da.neg, da.m, da.e, db.neg, db.m, db.e, SF_GUARD);
     if mag == 0 && !sticky {
         // exact cancellation -> +0 (round-to-nearest-even).
         return 0;
     }
     round_exact_to_f32(neg, mag, e, sticky, ctx)
 }
+
+/// Guard width for f32 operations (48-bit product mantissa + 78 = 126 bits).
+const SF_GUARD: i32 = 78;
+/// Guard width for f64 operations (53-bit mantissa + 72 = 125 bits).
+const DF_GUARD: i32 = 72;
 
 /// Exact fused multiply-add: `a*b + c` with a single rounding (matches
 /// `internal_fmafx(a,b,c,0)`), full NaN/inf handling, and exact-then-round flags.
@@ -316,7 +395,8 @@ fn sf_fma(araw: u32, braw: u32, craw: u32, negate_prod: bool, ctx: &mut SemCtx) 
         return round_exact_to_f32(prod_neg, prod_m, prod_e, false, ctx);
     }
     // Exactly add the (48-bit) product and c, then round once.
-    let (neg, mag, e, sticky) = add_scaled(prod_neg, prod_m, prod_e, dc.neg, dc.m, dc.e);
+    let (neg, mag, e, sticky) =
+        add_scaled(prod_neg, prod_m, prod_e, dc.neg, dc.m, dc.e, SF_GUARD);
     if mag == 0 && !sticky {
         return 0;
     }
@@ -351,6 +431,253 @@ fn df_is_big(b: u64) -> bool {
     df_getexp(b) >= 512
 }
 
+// ---- exact-arithmetic core for f64 add / sub ------------------------------
+//
+// Mirrors the f32 path: decompose each operand into an exact integer significand
+// and power-of-two exponent, form the infinite-precision signed sum via the
+// shared `add_scaled` (using a narrower guard so the 53-bit f64 significand stays
+// within i128), then round-to-nearest-even and derive the USR flags exactly. As
+// for f32 a native-f64 intermediate is unusable: the exact sum of two f64 with a
+// wide exponent spread needs far more than 64 bits.
+
+#[inline]
+fn f64_is_nan(b: u64) -> bool {
+    (b & 0x7ff0_0000_0000_0000) == 0x7ff0_0000_0000_0000 && (b & 0x000f_ffff_ffff_ffff) != 0
+}
+#[inline]
+fn f64_is_snan(b: u64) -> bool {
+    f64_is_nan(b) && (b & 0x0008_0000_0000_0000) == 0 // top mantissa bit clear => signaling
+}
+
+/// A finite f64 decomposed to (sign, exact value = m * 2^e), m a nonnegative
+/// integer significand (0 for zero).
+#[derive(Clone, Copy)]
+struct Df {
+    neg: bool,
+    m: u128,
+    e: i32,
+}
+
+/// Decode a finite (non-NaN, non-inf) f64 into an exact (sign, m, e).
+fn df_decode(b: u64) -> Df {
+    let neg = (b >> 63) & 1 == 1;
+    let exp = ((b >> 52) & 0x7ff) as i32;
+    let frac = (b & 0x000f_ffff_ffff_ffff) as u128;
+    if exp == 0 {
+        // subnormal (or zero): value = frac * 2^(-1022-52)
+        Df { neg, m: frac, e: -1074 }
+    } else {
+        // normal: value = (1.frac) * 2^(exp-1023) = (2^52 + frac) * 2^(exp-1075)
+        Df { neg, m: frac | 0x0010_0000_0000_0000, e: exp - 1075 }
+    }
+}
+
+/// Round an exact magnitude `m * 2^e` to nearest-even f64 and raise USR flags.
+/// `sticky` carries OR of any value bits already dropped below `e`. Direct analog
+/// of `round_exact_to_f32` with the f64 parameters (bias 1023, 52 mantissa bits,
+/// smallest normal exponent -1022, subnormal floor 2^-1074).
+fn round_exact_to_f64(neg: bool, mut m: u128, mut e: i32, sticky: bool, ctx: &mut SemCtx) -> u64 {
+    let sign = if neg { 0x8000_0000_0000_0000u64 } else { 0 };
+    if m == 0 {
+        return sign;
+    }
+    let msb = 127 - m.leading_zeros() as i32;
+    let mut unbiased = msb + e;
+
+    // Tininess detected on the pre-rounding magnitude (softfloat default).
+    let tiny = unbiased < -1022;
+
+    // Lowest representable bit exponent: subnormals bottom at 2^-1074; normals
+    // keep 53 significand bits (msb..msb-52).
+    let lowest_exp = if tiny { -1074 } else { unbiased - 52 };
+    let drop = lowest_exp - e;
+    let mut inexact = sticky;
+    if drop > 0 {
+        let drop = drop as u32;
+        let dropped_mask = if drop >= 128 { u128::MAX } else { (1u128 << drop) - 1 };
+        let dropped = m & dropped_mask;
+        let half = if (1..=128).contains(&drop) { 1u128 << (drop - 1) } else { 0 };
+        m = if drop >= 128 { 0 } else { m >> drop };
+        e += drop as i32;
+        if dropped != 0 {
+            inexact = true;
+        }
+        let round_bit = dropped & half != 0;
+        let rest = (dropped & half.wrapping_sub(1)) != 0 || sticky;
+        if round_bit && (rest || (m & 1) == 1) {
+            m += 1;
+        }
+    }
+    if m == 0 {
+        if inexact {
+            ctx.usr_or |= USR_FPINPF | USR_FPUNFF;
+        }
+        return sign;
+    }
+    let new_msb = 127 - m.leading_zeros() as i32;
+    unbiased = new_msb + e;
+
+    if unbiased > 1023 {
+        ctx.usr_or |= USR_FPOVFF | USR_FPINPF;
+        return sign | 0x7ff0_0000_0000_0000; // overflow -> infinity
+    }
+
+    if unbiased < -1022 {
+        // subnormal result; m aligned so its lowest bit sits at 2^-1074.
+        let frac = if e == -1074 {
+            m
+        } else if e > -1074 {
+            m << (e + 1074)
+        } else {
+            m >> (-1074 - e)
+        };
+        if inexact {
+            ctx.usr_or |= USR_FPINPF | USR_FPUNFF;
+        }
+        return sign | (frac as u64 & 0x000f_ffff_ffff_ffff);
+    }
+
+    // normal result: 53-bit significand, drop the implicit leading 1.
+    let extra = new_msb - 52;
+    let frac = if extra >= 0 {
+        (m >> extra) & 0x000f_ffff_ffff_ffff
+    } else {
+        (m << (-extra)) & 0x000f_ffff_ffff_ffff
+    };
+    let biased = (unbiased + 1023) as u64;
+    if inexact {
+        ctx.usr_or |= USR_FPINPF;
+        if tiny {
+            ctx.usr_or |= USR_FPUNFF;
+        }
+    }
+    sign | (biased << 52) | (frac as u64)
+}
+
+/// Exact f64 add/sub: `a + (sub ? -b : b)`, full softfloat NaN/inf handling and
+/// exact-then-round flag derivation.
+fn df_addsub(a: u64, braw: u64, sub: bool, ctx: &mut SemCtx) -> u64 {
+    let b = if sub { braw ^ 0x8000_0000_0000_0000 } else { braw };
+    let a_nan = f64_is_nan(a);
+    let b_nan = f64_is_nan(braw);
+    let a_inf = (a & 0x7fff_ffff_ffff_ffff) == 0x7ff0_0000_0000_0000;
+    let b_inf = (b & 0x7fff_ffff_ffff_ffff) == 0x7ff0_0000_0000_0000;
+    if a_nan || b_nan {
+        if f64_is_snan(a) || f64_is_snan(braw) {
+            ctx.usr_or |= USR_FPINVF;
+        }
+        return 0xFFFF_FFFF_FFFF_FFFF;
+    }
+    if a_inf || b_inf {
+        if a_inf && b_inf {
+            if (a >> 63) != (b >> 63) {
+                // inf + (-inf) -> invalid, default NaN
+                ctx.usr_or |= USR_FPINVF;
+                return 0xFFFF_FFFF_FFFF_FFFF;
+            }
+            return a; // same-signed infinities
+        }
+        return if a_inf { a } else { b };
+    }
+    // Both finite.
+    let da = df_decode(a);
+    let db = df_decode(b);
+    if da.m == 0 && db.m == 0 {
+        // signed-zero sum rule: -0 + -0 = -0 else +0
+        let neg = da.neg && db.neg;
+        return if neg { 0x8000_0000_0000_0000 } else { 0 };
+    }
+    let (neg, mag, e, sticky) = add_scaled(da.neg, da.m, da.e, db.neg, db.m, db.e, DF_GUARD);
+    if mag == 0 && !sticky {
+        return 0; // exact cancellation -> +0 (round-to-nearest-even)
+    }
+    round_exact_to_f64(neg, mag, e, sticky, ctx)
+}
+
+// ---- double-precision high-half multiply (dfmpyhh) ------------------------
+//
+// `Rxx = dfmpyhh(Rss, Rtt, Rxx)` is the final step of the 3-instruction f64
+// multiply (dfmpyll computes lo*lo, dfmpylh the lo*hi cross terms, dfmpyhh the
+// hi*hi term plus the accumulated lower partial products). QEMU implements it
+// with `internal_mpyhh`, whose exact behaviour was reverse-engineered against
+// the oracle (16k cases, result + USR flags bit-exact):
+//
+//   * Each operand's mantissa is masked to its HIGH 32 bits (raw bits AND
+//     0xFFFF_FFFF_0000_0000) before multiplying — only the top 21 significand
+//     bits (implicit 1 + 20 explicit) participate; lower input bits are dropped
+//     silently (no inexact flag for them).
+//   * Subnormal inputs are FLUSHED to signed zero; when a flushed operand would
+//     have made a nonzero product, underflow+inexact are raised and the result
+//     is signed zero. (A genuinely-zero operand raises nothing.)
+//   * inf/NaN follow the usual product rules (inf*0 -> invalid default-NaN;
+//     sNaN input -> invalid).
+//   * The 64-bit accumulator `acc` is added to the integer product significand
+//     at a FIXED weight: acc_e = product_exponent + 31 (i.e. 2^-73 relative to
+//     the product's leading bit, independent of the product magnitude). The sum
+//     is then rounded to nearest-even and the flags derived exactly, reusing the
+//     shared `round_exact_to_f64`.
+fn df_mpyhh(araw: u64, braw: u64, acc: u64, ctx: &mut SemCtx) -> u64 {
+    let a_nan = f64_is_nan(araw);
+    let b_nan = f64_is_nan(braw);
+    if a_nan || b_nan {
+        if f64_is_snan(araw) || f64_is_snan(braw) {
+            ctx.usr_or |= USR_FPINVF;
+        }
+        return 0xFFFF_FFFF_FFFF_FFFF;
+    }
+    // inf check uses the ORIGINAL operands (a subnormal counts as nonzero finite).
+    let a_inf = (araw & 0x7fff_ffff_ffff_ffff) == 0x7ff0_0000_0000_0000;
+    let b_inf = (braw & 0x7fff_ffff_ffff_ffff) == 0x7ff0_0000_0000_0000;
+    let a_zero = (araw & 0x7fff_ffff_ffff_ffff) == 0;
+    let b_zero = (braw & 0x7fff_ffff_ffff_ffff) == 0;
+    if a_inf || b_inf {
+        let neg = ((araw >> 63) ^ (braw >> 63)) & 1 == 1;
+        if a_zero || b_zero {
+            // inf * 0 -> invalid, default NaN.
+            ctx.usr_or |= USR_FPINVF;
+            return 0xFFFF_FFFF_FFFF_FFFF;
+        }
+        return if neg { 0xfff0_0000_0000_0000 } else { 0x7ff0_0000_0000_0000 };
+    }
+
+    // Flush subnormal inputs to signed zero.
+    let a_sub = (araw >> 52) & 0x7ff == 0 && (araw & 0x000f_ffff_ffff_ffff) != 0;
+    let b_sub = (braw >> 52) & 0x7ff == 0 && (braw & 0x000f_ffff_ffff_ffff) != 0;
+    let flushed = a_sub || b_sub;
+    let a = if a_sub { araw & 0x8000_0000_0000_0000 } else { araw };
+    let b = if b_sub { braw & 0x8000_0000_0000_0000 } else { braw };
+
+    // Mask each operand's mantissa to its high 32 bits, then decode.
+    let da = df_decode(a & 0xffff_ffff_0000_0000);
+    let db = df_decode(b & 0xffff_ffff_0000_0000);
+    let neg = da.neg ^ db.neg;
+
+    // A flushed subnormal raises underflow+inexact only when the other operand is
+    // genuinely nonzero (so the true product would have been a nonzero tiny value).
+    let flush_flag = flushed && !(a_zero || b_zero);
+
+    if da.m == 0 || db.m == 0 {
+        // Product is zero (a true zero or a flushed/high-masked-away operand).
+        if flush_flag {
+            ctx.usr_or |= USR_FPINPF | USR_FPUNFF;
+        }
+        return if neg { 0x8000_0000_0000_0000 } else { 0 };
+    }
+
+    // Exact integer product significand and its power-of-two exponent.
+    let prod_m = da.m * db.m; // up to ~106 bits, fits u128
+    let prod_e = da.e + db.e;
+    // Accumulator weight: a fixed 31-bit offset above the product exponent.
+    let acc_e = prod_e + 31;
+    let lo = prod_e.min(acc_e);
+    let total = (prod_m << (prod_e - lo)) + ((acc as u128) << (acc_e - lo));
+    let v = round_exact_to_f64(neg, total, lo, false, ctx);
+    if flush_flag {
+        ctx.usr_or |= USR_FPINPF | USR_FPUNFF;
+    }
+    v
+}
+
 /// Execute a float_ext opcode. Returns `false` if `op` is not handled here.
 pub fn exec(op: Opcode, d: &DecodedOp, ctx: &mut SemCtx) -> bool {
     let rd = fld(d, b'd');
@@ -382,6 +709,16 @@ pub fn exec(op: Opcode, d: &DecodedOp, ctx: &mut SemCtx) -> bool {
             ctx.set_r(fld(d, b'x'), v);
         }
 
+        // ---- double-precision add / sub ----
+        Opcode::F2_dfadd => {
+            let v = df_addsub(sp(ctx), tp(ctx), false, ctx);
+            ctx.set_rp(rd, v);
+        }
+        Opcode::F2_dfsub => {
+            let v = df_addsub(sp(ctx), tp(ctx), true, ctx);
+            ctx.set_rp(rd, v);
+        }
+
         // ---- double-precision multiplies (pure integer / exact scale) ----
         Opcode::F2_dfmpyll => {
             let prod = getuword(sp(ctx), 0).wrapping_mul(getuword(tp(ctx), 0)); // u32*u32 -> u64
@@ -398,6 +735,13 @@ pub fn exec(op: Opcode, d: &DecodedOp, ctx: &mut SemCtx) -> bool {
             let mant = 0x0010_0000u64 | (hi_tt & 0x000f_ffff); // fZXTN(20,..)
             let add = lo_ss.wrapping_mul(mant) << 1;
             ctx.set_rp(rd, rxx.wrapping_add(add));
+        }
+        Opcode::F2_dfmpyhh => {
+            // Rxx = dfmpyhh(Rss, Rtt, Rxx): the high-half multiply + accumulate
+            // step. `Rxx` is the read input accumulator and the destination.
+            let xx = c_rxx(d, ctx);
+            let v = df_mpyhh(sp(ctx), tp(ctx), xx, ctx);
+            ctx.set_rp(fld(d, b'x'), v);
         }
         Opcode::F2_dfmpyfix => {
             let ss = sp(ctx);

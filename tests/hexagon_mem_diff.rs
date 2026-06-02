@@ -25,7 +25,11 @@ use rax::cpu::{CpuState, HexagonRegisters, VCpu, VcpuExit};
 const NREG: usize = 32;
 const I_PRED: usize = 32;
 const I_USR: usize = 33;
+const I_M0: usize = 34; // C6 (M0).
+const I_M1: usize = 35; // C7 (M1).
 const I_GP: usize = 36; // C11 (GP), per the oracle HexState layout.
+const I_CS0: usize = 37; // C12 (CS0), paired with M0.
+const I_CS1: usize = 38; // C13 (CS1), paired with M1.
 const ST_WORDS: usize = 44;
 /// Sentinel `base_reg` meaning "the address base is GP (C11)", not a GPR.
 const BASE_GP: usize = usize::MAX;
@@ -246,7 +250,11 @@ fn run_rax(words: &[u32], c: &Case, arena_addr: u32) -> Option<Out> {
         regs.p[i] = ((c.st[I_PRED] >> (8 * i)) & 0xff) as u8;
     }
     regs.c[8] = c.st[I_USR];
+    regs.c[6] = c.st[I_M0]; // M0, paired with CS0 for circular addressing
+    regs.c[7] = c.st[I_M1]; // M1, paired with CS1 for circular addressing
     regs.c[11] = c.st[I_GP]; // GP, for GP-relative addressing
+    regs.c[12] = c.st[I_CS0]; // CS0, circular-buffer base for M0
+    regs.c[13] = c.st[I_CS1]; // CS1, circular-buffer base for M1
     regs.set_pc(CODE_ADDR);
 
     let mut vcpu = HexagonVcpu::new(0, mem.clone(), HexagonIsa::V68, Endianness::Little);
@@ -613,9 +621,420 @@ fn diff_mem_load_pi() {
             ("loadrb_pi", "{ r0 = memb(r4++#1) }"),
             ("loadri_pi", "{ r0 = memw(r4++#4) }"),
             ("loadrd_pi", "{ r1:0 = memd(r4++#8) }"),
+            // Additional immediate post-increment widths and signs.
+            ("loadrub_pi", "{ r0 = memub(r4++#1) }"),
+            ("loadrh_pi", "{ r0 = memh(r4++#2) }"),
+            ("loadruh_pi", "{ r0 = memuh(r4++#2) }"),
+            ("loadrb_pin", "{ r0 = memb(r4++#-1) }"),
+            ("loadri_pin", "{ r0 = memw(r4++#-4) }"),
         ],
         4,
         12,
         0x3333,
     );
+}
+
+#[test]
+fn diff_mem_store_pi() {
+    // Immediate post-increment stores: base r4 advances; source is r5/r5:4.
+    run_family(
+        "store_pi",
+        &[
+            ("storerb_pi", "{ memb(r4++#1) = r5 }"),
+            ("storerh_pi", "{ memh(r4++#2) = r5 }"),
+            ("storeri_pi", "{ memw(r4++#4) = r5 }"),
+            ("storerd_pi", "{ memd(r4++#8) = r5:4 }"),
+            ("storerb_pin", "{ memb(r4++#-1) = r5 }"),
+            ("storeri_pin", "{ memw(r4++#-8) = r5 }"),
+        ],
+        4,
+        12,
+        0x3a3a,
+    );
+}
+
+/// Fully-specified differential case: `build` populates the entire input
+/// HexState (base register, M0/M1, CS0/CS1, etc.) and the arena. Both the
+/// oracle and rax run from this exact state, then all GPRs / USR / preds / M /
+/// CS / arena are compared. This is needed for circular and bit-reverse
+/// addressing, where the base register, the modifier register, and the
+/// circular-start register must be set up so the effective address lands
+/// inside the 256-byte arena.
+fn run_custom<F>(name: &str, cases: &[(&str, &str)], n: usize, seed: u64, build: F)
+where
+    F: Fn(&mut Rng, u32, &mut [u32; ST_WORDS], &mut [u8; ARENA]),
+{
+    let (bin, arena_addr) = match oracle_mem() {
+        Some(x) => x,
+        None => {
+            eprintln!("[hexagon_mem_diff] {name}: toolchain unavailable -> skipping");
+            return;
+        }
+    };
+    let asms: Vec<String> = cases.iter().map(|(_, a)| a.to_string()).collect();
+    let words_per = match assemble(&asms) {
+        Some(w) => w,
+        None => {
+            eprintln!("[hexagon_mem_diff] {name}: assembly failed -> skipping");
+            return;
+        }
+    };
+    let mut rng = Rng::new(seed);
+    let mut labels = Vec::new();
+    let mut batch = Vec::new();
+    for ((label, _), words) in cases.iter().zip(words_per.iter()) {
+        for _ in 0..n {
+            let mut st = [0u32; ST_WORDS];
+            for r in 0..NREG {
+                st[r] = rng.next() as u32;
+            }
+            st[I_USR] = 0;
+            let mut arena = [0u8; ARENA];
+            for b in arena.iter_mut() {
+                *b = rng.next() as u8;
+            }
+            build(&mut rng, arena_addr, &mut st, &mut arena);
+            labels.push(*label);
+            batch.push(Case { words: words.clone(), st, arena });
+        }
+    }
+    let outs = match run_oracle(&bin, &batch) {
+        Some(o) => o,
+        None => {
+            eprintln!("[hexagon_mem_diff] {name}: oracle failed -> skipping");
+            return;
+        }
+    };
+    let mut mismatches = Vec::new();
+    for (i, c) in batch.iter().enumerate() {
+        let rax = match run_rax(&c.words, c, arena_addr) {
+            Some(r) => r,
+            None => {
+                mismatches.push(format!("[{}] rax rejected", labels[i]));
+                continue;
+            }
+        };
+        let mut diffs = Vec::new();
+        for r in 0..NREG {
+            if rax.st[r] != outs[i].st[r] {
+                diffs.push(format!("r{r}:rax={:#x},hw={:#x}", rax.st[r], outs[i].st[r]));
+            }
+        }
+        if rax.st[I_USR] != outs[i].st[I_USR] {
+            diffs.push(format!("USR:rax={:#x},hw={:#x}", rax.st[I_USR], outs[i].st[I_USR]));
+        }
+        if rax.st[I_PRED] != outs[i].st[I_PRED] {
+            diffs.push(format!("P:rax={:#x},hw={:#x}", rax.st[I_PRED], outs[i].st[I_PRED]));
+        }
+        if rax.arena != outs[i].arena {
+            let j = (0..ARENA).find(|&j| rax.arena[j] != outs[i].arena[j]).unwrap();
+            diffs.push(format!("arena[{j}]:rax={:#x},hw={:#x}", rax.arena[j], outs[i].arena[j]));
+        }
+        if !diffs.is_empty() {
+            mismatches.push(format!("[{}] {}", labels[i], diffs.join(" ")));
+        }
+    }
+    if !mismatches.is_empty() {
+        eprintln!("\n==== {name}: {} mismatches ====", mismatches.len());
+        for m in mismatches.iter().take(25) {
+            eprintln!("  {m}");
+        }
+        panic!("{name}: {} memory divergences vs oracle", mismatches.len());
+    }
+}
+
+#[test]
+fn diff_mem_load_pr() {
+    // `memX(Rx++Mu)` register post-increment. Base r4 starts inside the arena;
+    // the M register is a small increment so the access stays mapped.
+    let bodies = &[
+        ("loadrb_pr", "{ r0 = memb(r4++m0) }"),
+        ("loadrub_pr", "{ r0 = memub(r4++m1) }"),
+        ("loadrh_pr", "{ r0 = memh(r4++m0) }"),
+        ("loadruh_pr", "{ r0 = memuh(r4++m1) }"),
+        ("loadri_pr", "{ r0 = memw(r4++m0) }"),
+        ("loadrd_pr", "{ r1:0 = memd(r4++m1) }"),
+    ];
+    run_custom("load_pr", bodies, 12, 0x7001, |rng, arena, st, _| {
+        st[4] = arena + BASE_OFF;
+        // M0/M1 hold raw byte increments in a small signed range.
+        let m0 = (rng.next() % 33) as i32 - 16;
+        let m1 = (rng.next() % 33) as i32 - 16;
+        st[I_M0] = m0 as u32;
+        st[I_M1] = m1 as u32;
+    });
+}
+
+#[test]
+fn diff_mem_store_pr() {
+    let bodies = &[
+        ("storerb_pr", "{ memb(r4++m0) = r5 }"),
+        ("storerh_pr", "{ memh(r4++m1) = r5 }"),
+        ("storeri_pr", "{ memw(r4++m0) = r5 }"),
+        ("storerd_pr", "{ memd(r4++m1) = r5:4 }"),
+    ];
+    run_custom("store_pr", bodies, 12, 0x7002, |rng, arena, st, _| {
+        st[4] = arena + BASE_OFF;
+        st[I_M0] = ((rng.next() % 33) as i32 - 16) as u32;
+        st[I_M1] = ((rng.next() % 33) as i32 - 16) as u32;
+    });
+}
+
+/// Bit-reverse the low 16 bits of `v` (matches `fbrev`/`fEA_BREVR`).
+fn brev16(v: u32) -> u32 {
+    let low = (v & 0xffff) as u16;
+    (v & 0xffff_0000) | (low.reverse_bits() as u32)
+}
+
+#[test]
+fn diff_mem_load_pbr() {
+    // `memX(Rx++Mu:brev)` bit-reverse post-increment. The effective address is
+    // brev(Rx); we pick Rx so brev(Rx) lands word-aligned inside the arena.
+    let bodies = &[
+        ("loadrb_pbr", "{ r0 = memb(r4++m0:brev) }"),
+        ("loadrub_pbr", "{ r0 = memub(r4++m1:brev) }"),
+        ("loadrh_pbr", "{ r0 = memh(r4++m0:brev) }"),
+        ("loadruh_pbr", "{ r0 = memuh(r4++m1:brev) }"),
+        ("loadri_pbr", "{ r0 = memw(r4++m0:brev) }"),
+        ("loadrd_pbr", "{ r1:0 = memd(r4++m1:brev) }"),
+    ];
+    run_custom("load_pbr", bodies, 16, 0x7003, |rng, arena, st, _| {
+        // Choose a doubleword-aligned target in [arena, arena+248] so that all
+        // widths (including memd) stay mapped; then set Rx = brev(target) so
+        // brev(Rx) == target. brev is an involution on the low 16 bits as long
+        // as the high 16 bits of target match the arena's high half.
+        let off = ((rng.next() % 31) * 8) as u32; // 0,8,..,240
+        let target = arena + off;
+        st[4] = brev16(target);
+        st[I_M0] = ((rng.next() % 9) as i32 - 4) as u32;
+        st[I_M1] = ((rng.next() % 9) as i32 - 4) as u32;
+    });
+}
+
+#[test]
+fn diff_mem_store_pbr() {
+    let bodies = &[
+        ("storerb_pbr", "{ memb(r4++m0:brev) = r5 }"),
+        ("storerh_pbr", "{ memh(r4++m1:brev) = r5 }"),
+        ("storeri_pbr", "{ memw(r4++m0:brev) = r5 }"),
+        ("storerd_pbr", "{ memd(r4++m1:brev) = r5:4 }"),
+    ];
+    run_custom("store_pbr", bodies, 16, 0x7004, |rng, arena, st, _| {
+        let off = ((rng.next() % 31) * 8) as u32;
+        st[4] = brev16(arena + off);
+        st[I_M0] = ((rng.next() % 9) as i32 - 4) as u32;
+        st[I_M1] = ((rng.next() % 9) as i32 - 4) as u32;
+    });
+}
+
+/// Build a modifier register value for circular addressing: K==0 and the buffer
+/// `length` in bits 0..16 (the simple, well-defined wrap case).
+fn circ_m(length: u32) -> u32 {
+    length & 0x0001_ffff
+}
+
+#[test]
+fn diff_mem_load_pci() {
+    // `memX(Rx++#s4:N:circ(Mu))` circular post-increment by immediate.
+    // Buffer base = CSx = arena; M holds K=0 + a length that keeps the buffer
+    // (and all accessed widths) inside the arena. Rx starts at the base.
+    let bodies = &[
+        ("loadrb_pci", "{ r0 = memb(r4++#1:circ(m0)) }"),
+        ("loadrub_pci", "{ r0 = memub(r4++#1:circ(m1)) }"),
+        ("loadrh_pci", "{ r0 = memh(r4++#2:circ(m0)) }"),
+        ("loadruh_pci", "{ r0 = memuh(r4++#2:circ(m1)) }"),
+        ("loadri_pci", "{ r0 = memw(r4++#4:circ(m0)) }"),
+        ("loadrd_pci", "{ r1:0 = memd(r4++#8:circ(m1)) }"),
+        ("loadri_pcin", "{ r0 = memw(r4++#-4:circ(m0)) }"),
+    ];
+    run_custom("load_pci", bodies, 16, 0x7005, |rng, arena, st, _| {
+        // Buffer length: multiple of 8 in [16, 128] (>=4, keeps memd in range).
+        let length = 16 + ((rng.next() % 15) * 8) as u32;
+        let base = arena; // CS0/CS1 base; Rx starts at the base (in-buffer).
+        st[4] = base;
+        st[I_CS0] = base;
+        st[I_CS1] = base;
+        st[I_M0] = circ_m(length);
+        st[I_M1] = circ_m(length);
+    });
+}
+
+#[test]
+fn diff_mem_store_pci() {
+    let bodies = &[
+        ("storerb_pci", "{ memb(r4++#1:circ(m0)) = r5 }"),
+        ("storerh_pci", "{ memh(r4++#2:circ(m1)) = r5 }"),
+        ("storeri_pci", "{ memw(r4++#4:circ(m0)) = r5 }"),
+        ("storerd_pci", "{ memd(r4++#8:circ(m1)) = r5:4 }"),
+        ("storeri_pcin", "{ memw(r4++#-4:circ(m0)) = r5 }"),
+    ];
+    run_custom("store_pci", bodies, 16, 0x7006, |rng, arena, st, _| {
+        let length = 16 + ((rng.next() % 15) * 8) as u32;
+        st[4] = arena;
+        st[I_CS0] = arena;
+        st[I_CS1] = arena;
+        st[I_M0] = circ_m(length);
+        st[I_M1] = circ_m(length);
+    });
+}
+
+#[test]
+fn diff_mem_load_pci_midbuffer() {
+    // Same, but Rx starts partway into the buffer and the increment can carry
+    // it past the end (exercising the wrap), and CS base is offset within the
+    // arena so wrap math differs from the access base.
+    let bodies = &[
+        ("loadri_pci_w", "{ r0 = memw(r4++#4:circ(m0)) }"),
+        ("loadrb_pci_w", "{ r0 = memb(r4++#3:circ(m1)) }"),
+        ("loadrh_pci_w", "{ r0 = memh(r4++#-2:circ(m0)) }"),
+    ];
+    run_custom("load_pci_mid", bodies, 24, 0x7007, |rng, arena, st, _| {
+        // CS base offset 0..64 within the arena; length keeps buffer in arena.
+        let cs_off = ((rng.next() % 9) * 4) as u32; // 0..32
+        let length = 16 + ((rng.next() % 13) * 4) as u32; // 16..64, mult of 4
+        let base = arena + cs_off;
+        // Rx anywhere within [base, base+length-4] (word-aligned, leaves a word).
+        let words = (length / 4).max(1);
+        let rx_off = (rng.next() % words as u64) as u32 * 4;
+        st[4] = base + rx_off;
+        st[I_CS0] = base;
+        st[I_CS1] = base;
+        st[I_M0] = circ_m(length);
+        st[I_M1] = circ_m(length);
+    });
+}
+
+#[test]
+fn diff_mem_load_pcr() {
+    // `memX(Rx++I:circ(Mu))` circular post-increment by the M register's I
+    // field. I is an 11-bit signed value packed in M bits {27..24, 23..17}.
+    let bodies = &[
+        ("loadrb_pcr", "{ r0 = memb(r4++I:circ(m0)) }"),
+        ("loadrh_pcr", "{ r0 = memh(r4++I:circ(m1)) }"),
+        ("loadri_pcr", "{ r0 = memw(r4++I:circ(m0)) }"),
+        ("loadrd_pcr", "{ r1:0 = memd(r4++I:circ(m1)) }"),
+    ];
+    run_custom("load_pcr", bodies, 20, 0x7008, |rng, arena, st, _| {
+        let length = 32 + ((rng.next() % 13) * 8) as u32; // 32..128, mult of 8
+        // I field: small signed element increment in [-2, 2].
+        let i_field = ((rng.next() % 5) as i32 - 2) as u32 & 0x7ff;
+        let m = circ_m(length) | (((i_field >> 7) & 0xf) << 28) | ((i_field & 0x7f) << 17);
+        st[4] = arena;
+        st[I_CS0] = arena;
+        st[I_CS1] = arena;
+        st[I_M0] = m;
+        st[I_M1] = m;
+    });
+}
+
+#[test]
+fn diff_mem_store_pcr() {
+    let bodies = &[
+        ("storerb_pcr", "{ memb(r4++I:circ(m0)) = r5 }"),
+        ("storerh_pcr", "{ memh(r4++I:circ(m1)) = r5 }"),
+        ("storeri_pcr", "{ memw(r4++I:circ(m0)) = r5 }"),
+        ("storerd_pcr", "{ memd(r4++I:circ(m1)) = r5:4 }"),
+    ];
+    run_custom("store_pcr", bodies, 20, 0x7009, |rng, arena, st, _| {
+        let length = 32 + ((rng.next() % 13) * 8) as u32;
+        let i_field = ((rng.next() % 5) as i32 - 2) as u32 & 0x7ff;
+        let m = circ_m(length) | (((i_field >> 7) & 0xf) << 28) | ((i_field & 0x7f) << 17);
+        st[4] = arena;
+        st[I_CS0] = arena;
+        st[I_CS1] = arena;
+        st[I_M0] = m;
+        st[I_M1] = m;
+    });
+}
+
+#[test]
+fn diff_mem_newvalue_pi() {
+    // New-value stores with immediate / register / circular / brev
+    // post-increment. A producer writes r5 in the same packet; the store
+    // commits the new value while the base register also advances.
+    let bodies = &[
+        ("storerinew_pi", "{ r5 = add(r2,r3); memw(r4++#4) = r5.new }"),
+        ("storerbnew_pi", "{ r5 = add(r2,r3); memb(r4++#1) = r5.new }"),
+        ("storerhnew_pi", "{ r5 = add(r2,r3); memh(r4++#2) = r5.new }"),
+    ];
+    run_custom("newvalue_pi", bodies, 12, 0x700a, |_, arena, st, _| {
+        st[4] = arena + BASE_OFF;
+    });
+}
+
+#[test]
+fn diff_mem_newvalue_pr() {
+    let bodies = &[
+        ("storerinew_pr", "{ r5 = add(r2,r3); memw(r4++m0) = r5.new }"),
+        ("storerbnew_pr", "{ r5 = or(r2,r3); memb(r4++m1) = r5.new }"),
+        ("storerhnew_pr", "{ r5 = xor(r2,r3); memh(r4++m0) = r5.new }"),
+    ];
+    run_custom("newvalue_pr", bodies, 12, 0x700b, |rng, arena, st, _| {
+        st[4] = arena + BASE_OFF;
+        st[I_M0] = ((rng.next() % 17) as i32 - 8) as u32;
+        st[I_M1] = ((rng.next() % 17) as i32 - 8) as u32;
+    });
+}
+
+#[test]
+fn diff_mem_newvalue_pci() {
+    let bodies = &[
+        ("storerinew_pci", "{ r5 = add(r2,r3); memw(r4++#4:circ(m0)) = r5.new }"),
+        ("storerbnew_pci", "{ r5 = or(r2,r3); memb(r4++#1:circ(m1)) = r5.new }"),
+        ("storerhnew_pci", "{ r5 = xor(r2,r3); memh(r4++#2:circ(m0)) = r5.new }"),
+    ];
+    run_custom("newvalue_pci", bodies, 12, 0x700c, |rng, arena, st, _| {
+        let length = 16 + ((rng.next() % 15) * 8) as u32;
+        st[4] = arena;
+        st[I_CS0] = arena;
+        st[I_CS1] = arena;
+        st[I_M0] = circ_m(length);
+        st[I_M1] = circ_m(length);
+    });
+}
+
+#[test]
+fn diff_mem_pred_newvalue() {
+    // Predicated new-value stores (`if (p0) memX(Rs+#u) = Rt.new`). p0 comes
+    // from the random state; the producer writes r5 first.
+    run_family(
+        "pred_newvalue",
+        &[
+            ("pstorerinewt", "{ r5 = add(r2,r3); if (p0) memw(r4+#0) = r5.new }"),
+            ("pstorerinewf", "{ r5 = add(r2,r3); if (!p0) memw(r4+#4) = r5.new }"),
+            ("pstorerbnewt", "{ r5 = add(r2,r3); if (p0) memb(r4+#1) = r5.new }"),
+            ("pstorerbnewf", "{ r5 = or(r2,r3); if (!p0) memb(r4+#1) = r5.new }"),
+            ("pstorerhnewt", "{ r5 = xor(r2,r3); if (p0) memh(r4+#2) = r5.new }"),
+            ("pstorerhnewf", "{ r5 = and(r2,r3); if (!p0) memh(r4+#2) = r5.new }"),
+        ],
+        4,
+        16,
+        0x700d,
+    );
+}
+
+#[test]
+fn diff_mem_circ_kfield_probe() {
+    // Exploratory: K != 0 circular addressing. With K != 0 the wrap window is
+    // derived from the *masked pointer* (start = reg & ~mask), so we set the
+    // pointer to a mask-aligned address inside the arena and a small length so
+    // the access + wrap stays mapped. Confirms bit-exactness vs the oracle.
+    let bodies = &[
+        ("loadri_pci_k", "{ r0 = memw(r4++#4:circ(m0)) }"),
+        ("loadrb_pci_k", "{ r0 = memb(r4++#1:circ(m1)) }"),
+    ];
+    run_custom("circ_kfield", bodies, 24, 0x70f0, |rng, arena, st, _| {
+        let k = 1 + (rng.next() % 3) as u32; // K in {1,2,3}
+        let mask: u32 = (1u32 << (k + 2)) - 1;
+        // length's low (k+2) bits select the in-window end; keep small.
+        let length = ((rng.next() % (mask as u64 + 1)) as u32) & mask;
+        // Align the base so start = reg & ~mask lands at a fixed arena slot.
+        let slot = (rng.next() % 8) as u32 * 32; // 0,32,..,224 (mask<=31 here)
+        let base = (arena + slot) & !mask;
+        st[4] = base; // mask-aligned pointer
+        st[I_CS0] = base;
+        st[I_CS1] = base;
+        st[I_M0] = (k << 24) | length;
+        st[I_M1] = (k << 24) | length;
+    });
 }

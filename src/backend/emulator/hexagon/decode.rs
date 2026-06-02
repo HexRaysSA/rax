@@ -29,6 +29,20 @@ pub enum AddrMode {
     PostIncImm { base: u8, offset: i32 },
     GpOffset { offset: i32 },
     Abs { addr: u32 },
+    /// `memX(Rx++Mu)` — post-increment the base by the M register (M0 or M1
+    /// selected by `modsel`; the raw M value is added, not the I-field).
+    PostIncReg { base: u8, modsel: u8 },
+    /// `memX(Rx++Mu:brev)` — the effective address is the bit-reversed base;
+    /// the base is then post-incremented by the M register.
+    PostIncBrev { base: u8, modsel: u8 },
+    /// `memX(Rx++#s4:N:circ(Mu))` — circular post-increment by an immediate.
+    /// `incr` is the (already scaled) byte increment; the buffer length/K come
+    /// from M[modsel] and the base wraps within [CS[modsel], CS+length).
+    PostIncCircImm { base: u8, modsel: u8, incr: i32 },
+    /// `memX(Rx++I:circ(Mu))` — circular post-increment by register. The
+    /// increment is the I field of M[modsel] (`fREAD_IREG`), shifted by the
+    /// access size, applied with the same circular wrap.
+    PostIncCircReg { base: u8, modsel: u8, shift: u8 },
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -566,6 +580,30 @@ fn store_new_io(
     ))
 }
 
+/// Predicated new-value store (`if ([!]Pv) memX(Rs+#u6:N)=Nt8.new`). The store
+/// data is the `Nt8` producer (field `t`), resolved against the packet's
+/// producers, not a direct register read — hence `StoreNew` with a predicate.
+fn pred_store_new_io(
+    decoded: &DecodedOp,
+    width: MemWidth,
+    sense: bool,
+) -> Option<(DecodedInsn, bool)> {
+    let base = field_u8(decoded, b's')?;
+    let nt = field_u8(decoded, b't')?;
+    let pred = field_u8(decoded, b'v')?;
+    let (imm, _) = decode_field_uimm(decoded, b'i', None)?;
+    let offset = (imm << width_shift(width)) as i32;
+    Some((
+        DecodedInsn::StoreNew {
+            nt,
+            addr: AddrMode::Offset { base, offset },
+            width,
+            pred: Some(pred_cond(pred, sense, false)),
+        },
+        false,
+    ))
+}
+
 fn store_gp(
     decoded: &DecodedOp,
     width: MemWidth,
@@ -608,6 +646,234 @@ fn store_pi(decoded: &DecodedOp, width: MemWidth, src_new: bool) -> Option<(Deco
         },
         false,
     ))
+}
+
+/// `memX(Rx++Mu)` post-increment by the M register (`L2_load*_pr`).
+fn load_pr(decoded: &DecodedOp, width: MemWidth, sign: MemSign) -> Option<(DecodedInsn, bool)> {
+    let base = field_u8(decoded, b'x')?;
+    let dst = field_u8(decoded, b'd')?;
+    let modsel = field_u8(decoded, b'u')?;
+    Some((
+        DecodedInsn::Load {
+            dst,
+            addr: AddrMode::PostIncReg { base, modsel },
+            width,
+            sign,
+            pred: None,
+        },
+        false,
+    ))
+}
+
+/// `memX(Rx++Mu:brev)` bit-reverse post-increment (`L2_load*_pbr`).
+fn load_pbr(decoded: &DecodedOp, width: MemWidth, sign: MemSign) -> Option<(DecodedInsn, bool)> {
+    let base = field_u8(decoded, b'x')?;
+    let dst = field_u8(decoded, b'd')?;
+    let modsel = field_u8(decoded, b'u')?;
+    Some((
+        DecodedInsn::Load {
+            dst,
+            addr: AddrMode::PostIncBrev { base, modsel },
+            width,
+            sign,
+            pred: None,
+        },
+        false,
+    ))
+}
+
+/// `memX(Rx++#s4:N:circ(Mu))` circular post-increment by immediate
+/// (`L2_load*_pci`). The s4 field is scaled by the access size.
+fn load_pci(decoded: &DecodedOp, width: MemWidth, sign: MemSign) -> Option<(DecodedInsn, bool)> {
+    let base = field_u8(decoded, b'x')?;
+    let dst = field_u8(decoded, b'd')?;
+    let modsel = field_u8(decoded, b'u')?;
+    let (imm, _) = decode_field_simm(decoded, b'i', None)?;
+    let incr = imm.wrapping_shl(width_shift(width) as u32);
+    Some((
+        DecodedInsn::Load {
+            dst,
+            addr: AddrMode::PostIncCircImm {
+                base,
+                modsel,
+                incr,
+            },
+            width,
+            sign,
+            pred: None,
+        },
+        false,
+    ))
+}
+
+/// `memX(Rx++I:circ(Mu))` circular post-increment by the M register's I field
+/// (`L2_load*_pcr`).
+fn load_pcr(decoded: &DecodedOp, width: MemWidth, sign: MemSign) -> Option<(DecodedInsn, bool)> {
+    let base = field_u8(decoded, b'x')?;
+    let dst = field_u8(decoded, b'd')?;
+    let modsel = field_u8(decoded, b'u')?;
+    Some((
+        DecodedInsn::Load {
+            dst,
+            addr: AddrMode::PostIncCircReg {
+                base,
+                modsel,
+                shift: width_shift(width),
+            },
+            width,
+            sign,
+            pred: None,
+        },
+        false,
+    ))
+}
+
+/// `memX(Rx++Mu)=Rt` post-increment store by the M register (`S2_store*_pr`).
+fn store_pr(decoded: &DecodedOp, width: MemWidth, src_new: bool) -> Option<(DecodedInsn, bool)> {
+    let base = field_u8(decoded, b'x')?;
+    let src = field_u8(decoded, b't')?;
+    let modsel = field_u8(decoded, b'u')?;
+    Some((
+        DecodedInsn::Store {
+            src,
+            addr: AddrMode::PostIncReg { base, modsel },
+            width,
+            pred: None,
+            src_new,
+        },
+        false,
+    ))
+}
+
+/// `memX(Rx++Mu:brev)=Rt` bit-reverse post-increment store (`S2_store*_pbr`).
+fn store_pbr(decoded: &DecodedOp, width: MemWidth, src_new: bool) -> Option<(DecodedInsn, bool)> {
+    let base = field_u8(decoded, b'x')?;
+    let src = field_u8(decoded, b't')?;
+    let modsel = field_u8(decoded, b'u')?;
+    Some((
+        DecodedInsn::Store {
+            src,
+            addr: AddrMode::PostIncBrev { base, modsel },
+            width,
+            pred: None,
+            src_new,
+        },
+        false,
+    ))
+}
+
+/// `memX(Rx++#s4:N:circ(Mu))=Rt` circular post-increment store by immediate
+/// (`S2_store*_pci`). The store source for *_pci uses the `t`/`SRC` field.
+fn store_pci(decoded: &DecodedOp, width: MemWidth, src_new: bool) -> Option<(DecodedInsn, bool)> {
+    let base = field_u8(decoded, b'x')?;
+    let src = field_u8(decoded, b't')?;
+    let modsel = field_u8(decoded, b'u')?;
+    let (imm, _) = decode_field_simm(decoded, b'i', None)?;
+    let incr = imm.wrapping_shl(width_shift(width) as u32);
+    Some((
+        DecodedInsn::Store {
+            src,
+            addr: AddrMode::PostIncCircImm {
+                base,
+                modsel,
+                incr,
+            },
+            width,
+            pred: None,
+            src_new,
+        },
+        false,
+    ))
+}
+
+/// `memX(Rx++I:circ(Mu))=Rt` circular post-increment store by register
+/// (`S2_store*_pcr`).
+fn store_pcr(decoded: &DecodedOp, width: MemWidth, src_new: bool) -> Option<(DecodedInsn, bool)> {
+    let base = field_u8(decoded, b'x')?;
+    let src = field_u8(decoded, b't')?;
+    let modsel = field_u8(decoded, b'u')?;
+    Some((
+        DecodedInsn::Store {
+            src,
+            addr: AddrMode::PostIncCircReg {
+                base,
+                modsel,
+                shift: width_shift(width),
+            },
+            width,
+            pred: None,
+            src_new,
+        },
+        false,
+    ))
+}
+
+/// New-value store with circular/post-increment register addressing. The
+/// new-value source register comes from `t` (the `Nt8` field).
+fn store_new_addr(
+    decoded: &DecodedOp,
+    width: MemWidth,
+    addr: AddrMode,
+) -> Option<(DecodedInsn, bool)> {
+    let nt = field_u8(decoded, b't')?;
+    Some((
+        DecodedInsn::StoreNew {
+            nt,
+            addr,
+            width,
+            pred: None,
+        },
+        false,
+    ))
+}
+
+fn store_new_pi(decoded: &DecodedOp, width: MemWidth) -> Option<(DecodedInsn, bool)> {
+    let base = field_u8(decoded, b'x')?;
+    let (imm, _) = decode_field_simm(decoded, b'i', None)?;
+    let offset = imm.wrapping_shl(width_shift(width) as u32);
+    store_new_addr(decoded, width, AddrMode::PostIncImm { base, offset })
+}
+
+fn store_new_pr(decoded: &DecodedOp, width: MemWidth) -> Option<(DecodedInsn, bool)> {
+    let base = field_u8(decoded, b'x')?;
+    let modsel = field_u8(decoded, b'u')?;
+    store_new_addr(decoded, width, AddrMode::PostIncReg { base, modsel })
+}
+
+fn store_new_pbr(decoded: &DecodedOp, width: MemWidth) -> Option<(DecodedInsn, bool)> {
+    let base = field_u8(decoded, b'x')?;
+    let modsel = field_u8(decoded, b'u')?;
+    store_new_addr(decoded, width, AddrMode::PostIncBrev { base, modsel })
+}
+
+fn store_new_pci(decoded: &DecodedOp, width: MemWidth) -> Option<(DecodedInsn, bool)> {
+    let base = field_u8(decoded, b'x')?;
+    let modsel = field_u8(decoded, b'u')?;
+    let (imm, _) = decode_field_simm(decoded, b'i', None)?;
+    let incr = imm.wrapping_shl(width_shift(width) as u32);
+    store_new_addr(
+        decoded,
+        width,
+        AddrMode::PostIncCircImm {
+            base,
+            modsel,
+            incr,
+        },
+    )
+}
+
+fn store_new_pcr(decoded: &DecodedOp, width: MemWidth) -> Option<(DecodedInsn, bool)> {
+    let base = field_u8(decoded, b'x')?;
+    let modsel = field_u8(decoded, b'u')?;
+    store_new_addr(
+        decoded,
+        width,
+        AddrMode::PostIncCircReg {
+            base,
+            modsel,
+            shift: width_shift(width),
+        },
+    )
 }
 
 fn pred_load_io(
@@ -1176,6 +1442,64 @@ fn decode_main(decoded: &DecodedOp, word: u32, immext: Option<u32>) -> (DecodedI
         Opcode::S2_storerh_pi => req!(store_pi(decoded, MemWidth::Half, false)),
         Opcode::S2_storeri_pi => req!(store_pi(decoded, MemWidth::Word, false)),
         Opcode::S2_storerd_pi => req!(store_pi(decoded, MemWidth::Double, false)),
+        // ---- register / bit-reverse / circular post-increment loads ----
+        Opcode::L2_loadrb_pr => req!(load_pr(decoded, MemWidth::Byte, MemSign::Signed)),
+        Opcode::L2_loadrub_pr => req!(load_pr(decoded, MemWidth::Byte, MemSign::Unsigned)),
+        Opcode::L2_loadrh_pr => req!(load_pr(decoded, MemWidth::Half, MemSign::Signed)),
+        Opcode::L2_loadruh_pr => req!(load_pr(decoded, MemWidth::Half, MemSign::Unsigned)),
+        Opcode::L2_loadri_pr => req!(load_pr(decoded, MemWidth::Word, MemSign::Unsigned)),
+        Opcode::L2_loadrd_pr => req!(load_pr(decoded, MemWidth::Double, MemSign::Unsigned)),
+        Opcode::L2_loadrb_pbr => req!(load_pbr(decoded, MemWidth::Byte, MemSign::Signed)),
+        Opcode::L2_loadrub_pbr => req!(load_pbr(decoded, MemWidth::Byte, MemSign::Unsigned)),
+        Opcode::L2_loadrh_pbr => req!(load_pbr(decoded, MemWidth::Half, MemSign::Signed)),
+        Opcode::L2_loadruh_pbr => req!(load_pbr(decoded, MemWidth::Half, MemSign::Unsigned)),
+        Opcode::L2_loadri_pbr => req!(load_pbr(decoded, MemWidth::Word, MemSign::Unsigned)),
+        Opcode::L2_loadrd_pbr => req!(load_pbr(decoded, MemWidth::Double, MemSign::Unsigned)),
+        Opcode::L2_loadrb_pci => req!(load_pci(decoded, MemWidth::Byte, MemSign::Signed)),
+        Opcode::L2_loadrub_pci => req!(load_pci(decoded, MemWidth::Byte, MemSign::Unsigned)),
+        Opcode::L2_loadrh_pci => req!(load_pci(decoded, MemWidth::Half, MemSign::Signed)),
+        Opcode::L2_loadruh_pci => req!(load_pci(decoded, MemWidth::Half, MemSign::Unsigned)),
+        Opcode::L2_loadri_pci => req!(load_pci(decoded, MemWidth::Word, MemSign::Unsigned)),
+        Opcode::L2_loadrd_pci => req!(load_pci(decoded, MemWidth::Double, MemSign::Unsigned)),
+        Opcode::L2_loadrb_pcr => req!(load_pcr(decoded, MemWidth::Byte, MemSign::Signed)),
+        Opcode::L2_loadrub_pcr => req!(load_pcr(decoded, MemWidth::Byte, MemSign::Unsigned)),
+        Opcode::L2_loadrh_pcr => req!(load_pcr(decoded, MemWidth::Half, MemSign::Signed)),
+        Opcode::L2_loadruh_pcr => req!(load_pcr(decoded, MemWidth::Half, MemSign::Unsigned)),
+        Opcode::L2_loadri_pcr => req!(load_pcr(decoded, MemWidth::Word, MemSign::Unsigned)),
+        Opcode::L2_loadrd_pcr => req!(load_pcr(decoded, MemWidth::Double, MemSign::Unsigned)),
+        // ---- register / bit-reverse / circular post-increment stores ----
+        Opcode::S2_storerb_pr => req!(store_pr(decoded, MemWidth::Byte, false)),
+        Opcode::S2_storerh_pr => req!(store_pr(decoded, MemWidth::Half, false)),
+        Opcode::S2_storeri_pr => req!(store_pr(decoded, MemWidth::Word, false)),
+        Opcode::S2_storerd_pr => req!(store_pr(decoded, MemWidth::Double, false)),
+        Opcode::S2_storerb_pbr => req!(store_pbr(decoded, MemWidth::Byte, false)),
+        Opcode::S2_storerh_pbr => req!(store_pbr(decoded, MemWidth::Half, false)),
+        Opcode::S2_storeri_pbr => req!(store_pbr(decoded, MemWidth::Word, false)),
+        Opcode::S2_storerd_pbr => req!(store_pbr(decoded, MemWidth::Double, false)),
+        Opcode::S2_storerb_pci => req!(store_pci(decoded, MemWidth::Byte, false)),
+        Opcode::S2_storerh_pci => req!(store_pci(decoded, MemWidth::Half, false)),
+        Opcode::S2_storeri_pci => req!(store_pci(decoded, MemWidth::Word, false)),
+        Opcode::S2_storerd_pci => req!(store_pci(decoded, MemWidth::Double, false)),
+        Opcode::S2_storerb_pcr => req!(store_pcr(decoded, MemWidth::Byte, false)),
+        Opcode::S2_storerh_pcr => req!(store_pcr(decoded, MemWidth::Half, false)),
+        Opcode::S2_storeri_pcr => req!(store_pcr(decoded, MemWidth::Word, false)),
+        Opcode::S2_storerd_pcr => req!(store_pcr(decoded, MemWidth::Double, false)),
+        // ---- new-value post-increment stores (register/brev/circular) ----
+        Opcode::S2_storerbnew_pi => req!(store_new_pi(decoded, MemWidth::Byte)),
+        Opcode::S2_storerhnew_pi => req!(store_new_pi(decoded, MemWidth::Half)),
+        Opcode::S2_storerinew_pi => req!(store_new_pi(decoded, MemWidth::Word)),
+        Opcode::S2_storerbnew_pr => req!(store_new_pr(decoded, MemWidth::Byte)),
+        Opcode::S2_storerhnew_pr => req!(store_new_pr(decoded, MemWidth::Half)),
+        Opcode::S2_storerinew_pr => req!(store_new_pr(decoded, MemWidth::Word)),
+        Opcode::S2_storerbnew_pbr => req!(store_new_pbr(decoded, MemWidth::Byte)),
+        Opcode::S2_storerhnew_pbr => req!(store_new_pbr(decoded, MemWidth::Half)),
+        Opcode::S2_storerinew_pbr => req!(store_new_pbr(decoded, MemWidth::Word)),
+        Opcode::S2_storerbnew_pci => req!(store_new_pci(decoded, MemWidth::Byte)),
+        Opcode::S2_storerhnew_pci => req!(store_new_pci(decoded, MemWidth::Half)),
+        Opcode::S2_storerinew_pci => req!(store_new_pci(decoded, MemWidth::Word)),
+        Opcode::S2_storerbnew_pcr => req!(store_new_pcr(decoded, MemWidth::Byte)),
+        Opcode::S2_storerhnew_pcr => req!(store_new_pcr(decoded, MemWidth::Half)),
+        Opcode::S2_storerinew_pcr => req!(store_new_pcr(decoded, MemWidth::Word)),
         Opcode::L2_ploadrbt_io
         | Opcode::L2_ploadrbf_io
         | Opcode::L2_ploadrbtnew_io
@@ -1290,7 +1614,7 @@ fn decode_main(decoded: &DecodedOp, word: u32, immext: Option<u32>) -> (DecodedI
         }
         Opcode::S2_pstorerbnewt_io | Opcode::S2_pstorerbnewf_io => {
             let sense = matches!(decoded.opcode, Opcode::S2_pstorerbnewt_io);
-            req!(pred_store_io(decoded, MemWidth::Byte, sense, false, true))
+            req!(pred_store_new_io(decoded, MemWidth::Byte, sense))
         }
         Opcode::S2_pstorerht_io | Opcode::S2_pstorerhf_io => {
             let sense = matches!(decoded.opcode, Opcode::S2_pstorerht_io);
@@ -1298,7 +1622,7 @@ fn decode_main(decoded: &DecodedOp, word: u32, immext: Option<u32>) -> (DecodedI
         }
         Opcode::S2_pstorerhnewt_io | Opcode::S2_pstorerhnewf_io => {
             let sense = matches!(decoded.opcode, Opcode::S2_pstorerhnewt_io);
-            req!(pred_store_io(decoded, MemWidth::Half, sense, false, true))
+            req!(pred_store_new_io(decoded, MemWidth::Half, sense))
         }
         Opcode::S2_pstorerit_io | Opcode::S2_pstorerif_io => {
             let sense = matches!(decoded.opcode, Opcode::S2_pstorerit_io);
@@ -1306,7 +1630,7 @@ fn decode_main(decoded: &DecodedOp, word: u32, immext: Option<u32>) -> (DecodedI
         }
         Opcode::S2_pstorerinewt_io | Opcode::S2_pstorerinewf_io => {
             let sense = matches!(decoded.opcode, Opcode::S2_pstorerinewt_io);
-            req!(pred_store_io(decoded, MemWidth::Word, sense, false, true))
+            req!(pred_store_new_io(decoded, MemWidth::Word, sense))
         }
         Opcode::S2_pstorerdt_io | Opcode::S2_pstorerdf_io => {
             let sense = matches!(decoded.opcode, Opcode::S2_pstorerdt_io);

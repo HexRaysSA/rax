@@ -60,6 +60,50 @@ fn hex_reg_shift32(val: u32, rt: u32, kind: ShiftKind) -> u32 {
     result as u32
 }
 
+/// Bit-reverse the low 16 bits of `addr`, keeping the upper 16 bits intact
+/// (`fbrev`/`fEA_BREVR`). Used by bit-reverse post-increment addressing, where
+/// the FFT-style address is `brev(Rx)`.
+fn hex_brev(addr: u32) -> u32 {
+    let low = (addr & 0xffff) as u16;
+    let rev = low.reverse_bits() as u32;
+    (addr & 0xffff_0000) | rev
+}
+
+/// Hexagon circular-buffer post-increment (`fcirc_add`). `reg` is the current
+/// pointer, `incr` the signed byte increment, `m` the modifier register
+/// (M0/M1: bits 0..16 are the buffer length, bits 24..27 the K field), and
+/// `cs` the circular-start register (CS0/CS1). The pointer wraps within
+/// `[start, start+length)`. With `K==0` (the common case) `start` is exactly
+/// `cs`; otherwise the start is derived from the masked pointer (matching
+/// hardware behavior, which is only well-defined for K==0 / length>=4).
+fn hex_circ_add(reg: u32, incr: i32, m: u32, cs: u32) -> u32 {
+    let length = m & 0x0001_ffff;
+    let k_const = (m >> 24) & 0xf;
+    let new_ptr = reg.wrapping_add(incr as u32);
+    let (start_addr, end_addr) = if k_const == 0 && length >= 4 {
+        (cs, cs.wrapping_add(length))
+    } else {
+        let mask = (1u32 << (k_const + 2)).wrapping_sub(1);
+        let start = reg & !mask;
+        (start, start | (length & mask))
+    };
+    if new_ptr >= end_addr {
+        new_ptr.wrapping_sub(length)
+    } else if new_ptr < start_addr {
+        new_ptr.wrapping_add(length)
+    } else {
+        new_ptr
+    }
+}
+
+/// Read the I field of a modifier register (`fREAD_IREG`): an 11-bit signed
+/// value packed as `((M & 0xf0000000) >> 21) | ((M >> 17) & 0x7f)`.
+fn hex_read_ireg(m: u32) -> i32 {
+    let packed = ((m & 0xf000_0000) >> 21) | ((m >> 17) & 0x7f);
+    // Sign-extend the 11-bit value.
+    ((packed << 21) as i32) >> 21
+}
+
 /// Snapshot of which GPRs currently have a buffered (in-flight) write.
 fn producer_mask(new_r: &[Option<u32>; 32]) -> [bool; 32] {
     std::array::from_fn(|i| new_r[i].is_some())
@@ -350,6 +394,69 @@ impl HexagonVcpu {
         new_r[reg as usize].unwrap_or(self.regs.r[reg as usize])
     }
 
+    /// Modifier register value for `modsel` (0 -> M0/C6, 1 -> M1/C7).
+    fn modifier(&self, modsel: u8) -> u32 {
+        self.regs.control(if modsel & 1 == 0 { 6 } else { 7 })
+    }
+
+    /// Circular-start register for `modsel` (0 -> CS0/C12, 1 -> CS1/C13).
+    fn circ_start(&self, modsel: u8) -> u32 {
+        self.regs.control(if modsel & 1 == 0 { 12 } else { 13 })
+    }
+
+    /// Resolve a load/store `AddrMode` to `(effective_addr, base_update)`,
+    /// where `base_update` is the post-increment write-back `(reg, value)`.
+    fn resolve_addr(&self, addr: AddrMode) -> (u32, Option<(u8, u32)>) {
+        match addr {
+            AddrMode::Offset { base, offset } => {
+                let base_val = self.regs.r[base as usize];
+                (base_val.wrapping_add(offset as u32), None)
+            }
+            AddrMode::PostIncImm { base, offset } => {
+                let base_val = self.regs.r[base as usize];
+                let new_base = base_val.wrapping_add(offset as u32);
+                (base_val, Some((base, new_base)))
+            }
+            AddrMode::GpOffset { offset } => {
+                let gp = self.regs.control(11) & !0x3f; // GP low 6 bits hardwired zero
+                (gp.wrapping_add(offset as u32), None)
+            }
+            AddrMode::Abs { addr } => (addr, None),
+            AddrMode::PostIncReg { base, modsel } => {
+                let base_val = self.regs.r[base as usize];
+                let new_base = base_val.wrapping_add(self.modifier(modsel));
+                (base_val, Some((base, new_base)))
+            }
+            AddrMode::PostIncBrev { base, modsel } => {
+                let base_val = self.regs.r[base as usize];
+                let ea = hex_brev(base_val);
+                let new_base = base_val.wrapping_add(self.modifier(modsel));
+                (ea, Some((base, new_base)))
+            }
+            AddrMode::PostIncCircImm {
+                base,
+                modsel,
+                incr,
+            } => {
+                let base_val = self.regs.r[base as usize];
+                let new_base =
+                    hex_circ_add(base_val, incr, self.modifier(modsel), self.circ_start(modsel));
+                (base_val, Some((base, new_base)))
+            }
+            AddrMode::PostIncCircReg {
+                base,
+                modsel,
+                shift,
+            } => {
+                let base_val = self.regs.r[base as usize];
+                let m = self.modifier(modsel);
+                let incr = hex_read_ireg(m).wrapping_shl(shift as u32);
+                let new_base = hex_circ_add(base_val, incr, m, self.circ_start(modsel));
+                (base_val, Some((base, new_base)))
+            }
+        }
+    }
+
     fn set_branch(
         &self,
         branch: &mut Option<BranchTarget>,
@@ -460,22 +567,7 @@ impl HexagonVcpu {
                     }
                 }
 
-                let (addr, update) = match addr {
-                    AddrMode::Offset { base, offset } => {
-                        let base_val = self.regs.r[base as usize];
-                        (base_val.wrapping_add(offset as u32), None)
-                    }
-                    AddrMode::PostIncImm { base, offset } => {
-                        let base_val = self.regs.r[base as usize];
-                        let new_base = base_val.wrapping_add(offset as u32);
-                        (base_val, Some((base, new_base)))
-                    }
-                    AddrMode::GpOffset { offset } => {
-                        let gp = self.regs.control(11) & !0x3f; // GP low 6 bits are hardwired zero
-                        (gp.wrapping_add(offset as u32), None)
-                    }
-                    AddrMode::Abs { addr } => (addr, None),
-                };
+                let (addr, update) = self.resolve_addr(addr);
 
                 if let Some((reg, value)) = update {
                     new_r[reg as usize] = Some(value);
@@ -529,22 +621,7 @@ impl HexagonVcpu {
                     }
                 }
 
-                let (addr, update) = match addr {
-                    AddrMode::Offset { base, offset } => {
-                        let base_val = self.regs.r[base as usize];
-                        (base_val.wrapping_add(offset as u32), None)
-                    }
-                    AddrMode::PostIncImm { base, offset } => {
-                        let base_val = self.regs.r[base as usize];
-                        let new_base = base_val.wrapping_add(offset as u32);
-                        (base_val, Some((base, new_base)))
-                    }
-                    AddrMode::GpOffset { offset } => {
-                        let gp = self.regs.control(11) & !0x3f; // GP low 6 bits are hardwired zero
-                        (gp.wrapping_add(offset as u32), None)
-                    }
-                    AddrMode::Abs { addr } => (addr, None),
-                };
+                let (addr, update) = self.resolve_addr(addr);
 
                 if let Some((reg, value)) = update {
                     new_r[reg as usize] = Some(value);
@@ -627,12 +704,16 @@ impl HexagonVcpu {
                         let gp = self.regs.control(11) & !0x3f; // GP low 6 bits are hardwired zero
                         gp.wrapping_add(offset as u32)
                     }
-                    AddrMode::PostIncImm { .. } => {
+                    AddrMode::Abs { addr } => addr,
+                    AddrMode::PostIncImm { .. }
+                    | AddrMode::PostIncReg { .. }
+                    | AddrMode::PostIncBrev { .. }
+                    | AddrMode::PostIncCircImm { .. }
+                    | AddrMode::PostIncCircReg { .. } => {
                         return Err(Error::Emulator(
                             "post-increment store immediate not supported".to_string(),
                         ))
                     }
-                    AddrMode::Abs { addr } => addr,
                 };
 
                 if Self::is_mmio(addr) {
