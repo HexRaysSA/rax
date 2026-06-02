@@ -4626,6 +4626,21 @@ impl AArch64Cpu {
             return Some(Ok(CpuExit::Continue));
         }
 
+        // FRECPX (reciprocal exponent): sz_hi=1, opcode 11111, U=0. Scalar-only
+        // in AArch64 (no vector form), so only lane 0 is written and the rest of
+        // the register is zeroed.
+        if (insn >> 23) & 1 == 1 && opcode == 0b11111 && u == 0 {
+            if !scalar {
+                return Some(Err(ArmError::UndefinedInstruction(insn)));
+            }
+            let esize = if sz == 0 { 4usize } else { 8 };
+            let a = read_elem(&self.v[rn].to_le_bytes(), 0, esize);
+            let mut dst = [0u8; 16];
+            write_elem(&mut dst, 0, esize, sve_fp_recpx(esize, a));
+            self.v[rd] = u128::from_le_bytes(dst);
+            return Some(Ok(CpuExit::Continue));
+        }
+
         if kind.is_none() && cvtf.is_none() {
             return None;
         }
@@ -15037,13 +15052,20 @@ fn fp_three_same_f32(kind: FpKind, a: u32, b: u32, d: u32) -> u32 {
                 return n & 0x7FFF_FFFF;
             }
         }
-        Add | Sub | Mul | Div | Mulx | Addp | Max | Maxp | Min | Minp | Recps | Rsqrts => {
+        Add | Sub | Mul | Div | Mulx | Addp | Max | Maxp | Min | Minp => {
             if let Some(n) = fp32_nan2(a, b) {
                 return n;
             }
         }
-        Mla | Mls => {
+        Mla => {
             if let Some(n) = fp32_nan3(d, a, b) {
+                return n;
+            }
+        }
+        // FMLS negates op1 (a) before the fused multiply-add, flipping its NaN
+        // sign for propagation.
+        Mls => {
+            if let Some(n) = fp32_nan3(d, a ^ 0x8000_0000, b) {
                 return n;
             }
         }
@@ -15056,6 +15078,7 @@ fn fp_three_same_f32(kind: FpKind, a: u32, b: u32, d: u32) -> u32 {
                 return b | 0x0040_0000;
             }
         }
+        // Recps/Rsqrts delegate to sve_recps/sve_rsqrts (fused + FPNeg-first NaN).
         _ => {}
     }
     let x = f32::from_bits(a);
@@ -15114,20 +15137,8 @@ fn fp_three_same_f32(kind: FpKind, a: u32, b: u32, d: u32) -> u32 {
         AcGe => mask(x.abs() >= y.abs()),
         AcGt => mask(x.abs() > y.abs()),
         Abd => canon((x - y).abs()),
-        Recps => {
-            if inf0(x, y) {
-                2.0f32.to_bits()
-            } else {
-                canon(2.0f32 - x * y)
-            }
-        }
-        Rsqrts => {
-            if inf0(x, y) {
-                1.5f32.to_bits()
-            } else {
-                canon((3.0f32 - x * y) / 2.0)
-            }
-        }
+        Recps => sve_recps(4, a as u64, b as u64) as u32,
+        Rsqrts => sve_rsqrts(4, a as u64, b as u64) as u32,
         Addp => canon(x + y),
     }
 }
@@ -15141,13 +15152,18 @@ fn fp_three_same_f64(kind: FpKind, a: u64, b: u64, d: u64) -> u64 {
                 return n & 0x7FFF_FFFF_FFFF_FFFF;
             }
         }
-        Add | Sub | Mul | Div | Mulx | Addp | Max | Maxp | Min | Minp | Recps | Rsqrts => {
+        Add | Sub | Mul | Div | Mulx | Addp | Max | Maxp | Min | Minp => {
             if let Some(n) = fp64_nan2(a, b) {
                 return n;
             }
         }
-        Mla | Mls => {
+        Mla => {
             if let Some(n) = fp64_nan3(d, a, b) {
+                return n;
+            }
+        }
+        Mls => {
+            if let Some(n) = fp64_nan3(d, a ^ 0x8000_0000_0000_0000, b) {
                 return n;
             }
         }
@@ -15216,20 +15232,8 @@ fn fp_three_same_f64(kind: FpKind, a: u64, b: u64, d: u64) -> u64 {
         AcGe => mask(x.abs() >= y.abs()),
         AcGt => mask(x.abs() > y.abs()),
         Abd => canon((x - y).abs()),
-        Recps => {
-            if inf0(x, y) {
-                2.0f64.to_bits()
-            } else {
-                canon(2.0f64 - x * y)
-            }
-        }
-        Rsqrts => {
-            if inf0(x, y) {
-                1.5f64.to_bits()
-            } else {
-                canon((3.0f64 - x * y) / 2.0)
-            }
-        }
+        Recps => sve_recps(8, a, b),
+        Rsqrts => sve_rsqrts(8, a, b),
         Addp => canon(x + y),
     }
 }
@@ -15247,40 +15251,76 @@ fn fp_recip_estimate_f32(bits: u32) -> u32 {
     let exp = (bits >> 23) & 0xFF;
     let frac = bits & 0x7F_FFFF;
     if exp == 0xFF {
-        return if frac != 0 {
-            bits | 0x40_0000
-        } else {
-            sign << 31
-        }; // NaN->qNaN, inf->0
+        return if frac != 0 { bits | 0x40_0000 } else { sign << 31 }; // NaN->qNaN, inf->0
     }
     if exp == 0 && frac == 0 {
         return (sign << 31) | (0xFF << 23); // zero -> infinity
     }
-    let scaled = 256 + (frac >> 15);
-    let r = recip_estimate(scaled);
-    let result_exp = 253u32.wrapping_sub(exp) & 0xFF;
-    (sign << 31) | (result_exp << 23) | ((r & 0xFF) << 15)
+    // |value| < 2^-128 -> the reciprocal overflows -> +/-inf (round-to-nearest).
+    if exp == 0 && frac < 0x20_0000 {
+        return (sign << 31) | (0xFF << 23);
+    }
+    // Work with a 52-bit fraction (ASL maps the f32 significand to f64 width).
+    let mut fraction: u64 = (frac as u64) << 29;
+    let mut e = exp as i32;
+    if e == 0 {
+        // Normalise a denormal input (value >= 2^-128).
+        if (fraction >> 51) & 1 == 0 {
+            e = -1;
+            fraction = (fraction << 2) & ((1u64 << 52) - 1);
+        } else {
+            fraction = (fraction << 1) & ((1u64 << 52) - 1);
+        }
+    }
+    let scaled = 0x100 | ((fraction >> 44) & 0xFF) as u32;
+    let estimate = recip_estimate(scaled);
+    let mut result_exp = 253i32 - e;
+    let mut out_frac: u64 = ((estimate & 0xFF) as u64) << 44;
+    if result_exp == 0 {
+        out_frac = (1u64 << 51) | (out_frac >> 1); // denormal output
+    } else if result_exp == -1 {
+        out_frac = (1u64 << 50) | (out_frac >> 2);
+        result_exp = 0;
+    }
+    (sign << 31) | (((result_exp as u32) & 0xFF) << 23) | ((out_frac >> 29) as u32 & 0x7F_FFFF)
 }
 
 /// FRECPE for f64 (normal inputs).
 fn fp_recip_estimate_f64(bits: u64) -> u64 {
     let sign = bits >> 63;
-    let exp = ((bits >> 52) & 0x7FF) as u32;
+    let exp = ((bits >> 52) & 0x7FF) as i32;
     let frac = bits & 0xF_FFFF_FFFF_FFFF;
     if exp == 0x7FF {
-        return if frac != 0 {
-            bits | 0x8_0000_0000_0000
-        } else {
-            sign << 63
-        };
+        return if frac != 0 { bits | 0x8_0000_0000_0000 } else { sign << 63 };
     }
     if exp == 0 && frac == 0 {
         return (sign << 63) | (0x7FFu64 << 52);
     }
-    let scaled = 256 + ((frac >> 44) as u32);
-    let r = recip_estimate(scaled);
-    let result_exp = (2045u32.wrapping_sub(exp) & 0x7FF) as u64;
-    (sign << 63) | (result_exp << 52) | (((r & 0xFF) as u64) << 44)
+    // |value| < 2^-1024 -> overflow -> +/-inf.
+    if exp == 0 && frac < (1u64 << 50) {
+        return (sign << 63) | (0x7FFu64 << 52);
+    }
+    let mut fraction = frac;
+    let mut e = exp;
+    if e == 0 {
+        if (fraction >> 51) & 1 == 0 {
+            e = -1;
+            fraction = (fraction << 2) & ((1u64 << 52) - 1);
+        } else {
+            fraction = (fraction << 1) & ((1u64 << 52) - 1);
+        }
+    }
+    let scaled = 0x100 | ((fraction >> 44) & 0xFF) as u32;
+    let estimate = recip_estimate(scaled);
+    let mut result_exp = 2045i32 - e;
+    let mut out_frac: u64 = ((estimate & 0xFF) as u64) << 44;
+    if result_exp == 0 {
+        out_frac = (1u64 << 51) | (out_frac >> 1);
+    } else if result_exp == -1 {
+        out_frac = (1u64 << 50) | (out_frac >> 2);
+        result_exp = 0;
+    }
+    (sign << 63) | (((result_exp as u64) & 0x7FF) << 52) | (out_frac & 0xF_FFFF_FFFF_FFFF)
 }
 
 /// ARM RecipSqrtEstimate integer core (input a in [128,512)).

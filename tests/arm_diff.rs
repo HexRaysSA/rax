@@ -3480,6 +3480,53 @@ fn diff_sve_sincdecp() {
 }
 
 #[test]
+fn diff_neon_fp_specials() {
+    // NEON FP three-same / estimate / step ops with NaN/inf/denormal/-0
+    // operands (single, double and half precision): the ARM default-NaN and
+    // FPProcessNaNs rules, the fused FRECPS/FRSQRTS with FPNeg-first NaN sign,
+    // FMLS op1-negation, FRECPE's denormal-output / tiny-input-overflow, and
+    // FRECPX's scalar-only form.
+    let enc: &[u32] = &[
+        0x4e22d420, 0x6e22dc20, 0x6e62fc20, 0x4e22cc20, 0x4ee2cc20, 0x4e22dc20, 0x6ea2d420,
+        0x4e22fc20, 0x4ee2fc20, 0x4e22c420, 0x4ea2c420, 0x4e22f420, 0x4e421420, 0x4e423c20,
+        0x4e421c20, 0x4e420c20, 0x4ea1d820, 0x6ea1d820, 0x6ea1f820, 0x5ea1f820,
+    ];
+    let sp: [u64; 12] = [
+        0x7F800000_7F800000,
+        0xFF800000_FF800000,
+        0x7FC00000_7FC00000,
+        0x7F800001_FF800001,
+        0x00000001_80000001,
+        0x80000000_00000000,
+        0x3F800000_BF800000,
+        0x7F7FFFFF_FF7FFFFF,
+        0x7FF0000000000000,
+        0xFFF0000000000000,
+        0x7FF8000000000000,
+        0x7E007C007DF80200,
+    ];
+    let mut rng = Rng::new(0x1_003B);
+    let mut batch: Vec<(String, u32, ArmState)> = Vec::new();
+    for (k, &insn) in enc.iter().enumerate() {
+        for (i, &v) in sp.iter().enumerate() {
+            let mut st = ArmState::zeroed();
+            st.set_vreg(0, v, sp[(i + 3) % 12]);
+            st.set_vreg(1, v, sp[(i + 5) % 12]);
+            st.set_vreg(2, sp[(i + 7) % 12], v);
+            batch.push((format!("n{k}"), insn, st));
+        }
+        for _ in 0..10 {
+            let mut st = ArmState::zeroed();
+            for z in 0..3usize {
+                st.set_vreg(z, rng.next(), rng.next());
+            }
+            batch.push((format!("n{k} rnd"), insn, st));
+        }
+    }
+    run_batch("neon_fp_specials", batch);
+}
+
+#[test]
 fn diff_sve_fp16_fma_specials() {
     // f16 predicated FMLA/FMLS and indexed FMLA with NaN/inf/denormal operands:
     // FPProcessNaNs over the fused form must use (addend, op1, op2) order.
