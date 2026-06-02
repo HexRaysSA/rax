@@ -7902,6 +7902,84 @@ impl AArch64Cpu {
             }
         }
 
+        // SVE FCADD (FP complex add, predicated): 0x64, bits[21:17]==00000,
+        // bits[15:13]==100. rot=bit16 (0=90,1=270). Per complex pair, merging:
+        // re = Zdn_re + (rot? Zm_im : -Zm_im); im = Zdn_im + (rot? -Zm_re : Zm_re).
+        if (insn >> 24) & 0xFF == 0b01100100
+            && (insn >> 17) & 0x1F == 0
+            && (insn >> 13) & 0x7 == 0b100
+        {
+            let size = (insn >> 22) & 0x3;
+            if size == 0 {
+                return Ok(CpuExit::Undefined(insn));
+            }
+            let bits = 8u32 << size;
+            let esz = (bits / 8) as usize;
+            let rot = (insn >> 16) & 1;
+            let (dn, zmv) = (self.v[zd], self.v[zn]); // Zdn, Zm
+            let pred = self.sve_p[pg];
+            let mask = elem_mask(bits) as u128;
+            let elem = |v: u128, idx: usize| ((v >> (idx * bits as usize)) & mask) as u64;
+            let mut result = dn;
+            for e in 0..(16 / (2 * esz)) {
+                let (re, im) = (2 * e, 2 * e + 1);
+                let (add_re, add_im) = if rot == 0 {
+                    (fp_neg_bits(elem(zmv, im), bits), elem(zmv, re))
+                } else {
+                    (elem(zmv, im), fp_neg_bits(elem(zmv, re), bits))
+                };
+                if (pred >> (re * esz)) & 1 == 1 {
+                    let r = fp_add_bits(elem(dn, re), add_re, bits) as u128 & mask;
+                    result = (result & !(mask << (re * bits as usize))) | (r << (re * bits as usize));
+                }
+                if (pred >> (im * esz)) & 1 == 1 {
+                    let r = fp_add_bits(elem(dn, im), add_im, bits) as u128 & mask;
+                    result = (result & !(mask << (im * bits as usize))) | (r << (im * bits as usize));
+                }
+            }
+            self.v[zd] = result;
+            return Ok(CpuExit::Continue);
+        }
+
+        // SVE FCMLA (FP complex multiply-add, predicated): 0x64, bit21==0,
+        // bit15==0. rot=bits[14:13]; Zn=bits[9:5], Zm=bits[20:16], Zda=Zd. Per
+        // complex pair, merging, same operand selection as NEON FCMLA.
+        if (insn >> 24) & 0xFF == 0b01100100 && (insn >> 21) & 1 == 0 && (insn >> 15) & 1 == 0 {
+            let size = (insn >> 22) & 0x3;
+            if size == 0 {
+                return Ok(CpuExit::Undefined(insn));
+            }
+            let bits = 8u32 << size;
+            let esz = (bits / 8) as usize;
+            let rot = (insn >> 13) & 0x3;
+            let (n, mv, acc) = (self.v[zn], self.v[zm], self.v[zd]);
+            let pred = self.sve_p[pg];
+            let mask = elem_mask(bits) as u128;
+            let elem = |v: u128, idx: usize| ((v >> (idx * bits as usize)) & mask) as u64;
+            let mut result = acc;
+            for e in 0..(16 / (2 * esz)) {
+                let (re, im) = (2 * e, 2 * e + 1);
+                let (a_re, a_im) = (elem(n, re), elem(n, im));
+                let (b_re, b_im) = (elem(mv, re), elem(mv, im));
+                let (xr, yr, xi, yi) = match rot {
+                    0b00 => (a_re, b_re, a_re, b_im),
+                    0b01 => (a_im, fp_neg_bits(b_im, bits), a_im, b_re),
+                    0b10 => (a_re, fp_neg_bits(b_re, bits), a_re, fp_neg_bits(b_im, bits)),
+                    _ => (a_im, b_im, a_im, fp_neg_bits(b_re, bits)),
+                };
+                if (pred >> (re * esz)) & 1 == 1 {
+                    let r = fp_muladd_bits(elem(acc, re), xr, yr, bits) as u128 & mask;
+                    result = (result & !(mask << (re * bits as usize))) | (r << (re * bits as usize));
+                }
+                if (pred >> (im * esz)) & 1 == 1 {
+                    let r = fp_muladd_bits(elem(acc, im), xi, yi, bits) as u128 & mask;
+                    result = (result & !(mask << (im * bits as usize))) | (r << (im * bits as usize));
+                }
+            }
+            self.v[zd] = result;
+            return Ok(CpuExit::Continue);
+        }
+
         // SVE FTSMUL (trigonometric starting value): 0x65, bit21==0,
         // bits[15:10]==000011. result = Zn[e]^2 with sign from Zm[e] bit0.
         if (insn >> 24) & 0xFF == 0b01100101

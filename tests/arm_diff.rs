@@ -1669,6 +1669,18 @@ fn enc_sve2_fmlal(sub: u32, top: u32) -> u32 {
         | RD
 }
 
+/// SVE FCADD (predicated): `01100100 esz 00000 rot 100 Pg Zm Zdn`. rot=bit16.
+/// Zdn=z0(RD), Zm=z1(RN at bits[9:5]), Pg=p0.
+fn enc_sve_fcadd(size: u32, rot: u32) -> u32 {
+    (0x64 << 24) | (size << 22) | (rot << 16) | (0b100 << 13) | (RN << 5) | RD
+}
+
+/// SVE FCMLA (predicated): `01100100 esz 0 Zm 0 rot 1? Pg Zn Zda`. rot=bits[14:13].
+/// Zda=z0(RD), Zn=z1(RN), Zm=z2(RM), Pg=p0.
+fn enc_sve_fcmla(size: u32, rot: u32) -> u32 {
+    (0x64 << 24) | (size << 22) | (RM << 16) | (rot << 13) | (RN << 5) | RD
+}
+
 /// SVE FTSMUL: `01100101 size 0 Zm 000011 Zn Zd`. Zn=z1(RN), Zm=z2(RM), Zd=z0.
 fn enc_sve_ftsmul(size: u32) -> u32 {
     (0x65 << 24) | (size << 22) | (RM << 16) | (0b000011 << 10) | (RN << 5) | RD
@@ -2930,6 +2942,58 @@ fn diff_sve2_fmlal() {
         }
     }
     run_batch("sve2_fmlal", batch);
+}
+
+#[test]
+fn diff_sve_fcadd() {
+    // FCADD predicated FP complex add, both rotations, all sizes.
+    let mut rng = Rng::new(0x7_7001);
+    let mut batch: Vec<(String, u32, ArmState)> = Vec::new();
+    for (size, esz) in [(1u32, 2usize), (2, 4), (3, 8)] {
+        for rot in 0..2u32 {
+            let insn = enc_sve_fcadd(size, rot);
+            for _ in 0..16 {
+                let (mut a, mut b) = (0u128, 0u128);
+                for l in 0..(16 / esz) {
+                    a |= (finite_fp_bits(&mut rng, esz) as u128) << (l * esz * 8);
+                    b |= (finite_fp_bits(&mut rng, esz) as u128) << (l * esz * 8);
+                }
+                let mut st = ArmState::zeroed();
+                st.set_vreg(0, a as u64, (a >> 64) as u64); // Zdn
+                st.set_vreg(1, b as u64, (b >> 64) as u64); // Zm
+                st.set_preg(0, rng.next() as u16);
+                batch.push((format!("fcadd s{size} r{rot}"), insn, st));
+            }
+        }
+    }
+    run_batch("sve_fcadd", batch);
+}
+
+#[test]
+fn diff_sve_fcmla() {
+    // FCMLA predicated FP complex multiply-add, all four rotations and sizes.
+    let mut rng = Rng::new(0x7_8001);
+    let mut batch: Vec<(String, u32, ArmState)> = Vec::new();
+    for (size, esz) in [(1u32, 2usize), (2, 4), (3, 8)] {
+        for rot in 0..4u32 {
+            let insn = enc_sve_fcmla(size, rot);
+            for _ in 0..12 {
+                let (mut za, mut zn, mut zm) = (0u128, 0u128, 0u128);
+                for l in 0..(16 / esz) {
+                    za |= (finite_fp_bits(&mut rng, esz) as u128) << (l * esz * 8);
+                    zn |= (finite_fp_bits(&mut rng, esz) as u128) << (l * esz * 8);
+                    zm |= (finite_fp_bits(&mut rng, esz) as u128) << (l * esz * 8);
+                }
+                let mut st = ArmState::zeroed();
+                st.set_vreg(0, za as u64, (za >> 64) as u64); // Zda
+                st.set_vreg(1, zn as u64, (zn >> 64) as u64); // Zn
+                st.set_vreg(2, zm as u64, (zm >> 64) as u64); // Zm
+                st.set_preg(0, rng.next() as u16);
+                batch.push((format!("fcmla s{size} r{rot}"), insn, st));
+            }
+        }
+    }
+    run_batch("sve_fcmla", batch);
 }
 
 #[test]
