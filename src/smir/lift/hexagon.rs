@@ -4826,12 +4826,17 @@ impl HexagonLifter {
             }),
             // vmpyowh:<<1[:rnd]:sat[:sacc]: Vd.w = sat32((Vu.w * Vv.h[odd])>>15) with
             // optional alt-round (rnd2) and optional pre-shift accumulate of Vx (sacc).
-            // (the _sacc accumulate forms are left Unsupported: their assembler
-            // syntax could not be verified, so they are not shipped.)
-            Opcode::V6_vmpyowh | Opcode::V6_vmpyowh_rnd => {
-                let rnd2 = matches!(op, Opcode::V6_vmpyowh_rnd);
+            // vmpyowh:<<1[:rnd]:sat[:shift]: the plain and shift-accumulate (sacc)
+            // forms. sacc (`Vx += ...:shift`) adds the existing Vx before the >>15.
+            Opcode::V6_vmpyowh
+            | Opcode::V6_vmpyowh_rnd
+            | Opcode::V6_vmpyowh_sacc
+            | Opcode::V6_vmpyowh_rnd_sacc => {
+                let acc = matches!(op, Opcode::V6_vmpyowh_sacc | Opcode::V6_vmpyowh_rnd_sacc);
+                let rnd2 = matches!(op, Opcode::V6_vmpyowh_rnd | Opcode::V6_vmpyowh_rnd_sacc);
+                let dst = if acc { self.hex_v(rx_n) } else { self.hex_v(fld(b'd')) };
                 push_op!(OpKind::VMulSubLaneFrac {
-                    dst: self.hex_v(fld(b'd')),
+                    dst,
                     src1: self.hex_v(fld(b'u')),
                     src2: self.hex_v(fld(b'v')),
                     out_elem: VecElementType::I32,
@@ -4843,7 +4848,7 @@ impl HexagonLifter {
                     rnd: false,
                     shift: 15,
                     sat: true,
-                    acc: false,
+                    acc,
                     rnd2,
                 });
             }
