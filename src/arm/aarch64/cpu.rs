@@ -6122,6 +6122,51 @@ impl AArch64Cpu {
                 self.exec_sve2_mull_indexed(insn, zn, zd)
             }
 
+            // SVE2 CMLA by indexed element: 0x44, bit21==1, bits[15:12]==0110.
+            // rot=bits[11:10]; the indexed Zm complex pair (at 2*index) is
+            // broadcast. .h: index=bits[20:19], Zm=bits[18:16]; .s: index=bit20,
+            // Zm=bits[19:16]. Integer, non-saturating.
+            0b010
+                if (insn >> 24) & 0xFF == 0b01000100
+                    && (insn >> 21) & 1 == 1
+                    && (insn >> 12) & 0xF == 0b0110 =>
+            {
+                let size = (insn >> 22) & 0x3;
+                if size < 2 {
+                    return Ok(CpuExit::Undefined(insn));
+                }
+                let esize = 1usize << (size - 1); // .h=2, .s=4
+                let bits = (esize * 8) as u32;
+                let mask = elem_mask(bits);
+                let rot = (insn >> 10) & 0x3;
+                let sel_a = (rot & 1) as usize;
+                let sel_b = sel_a ^ 1;
+                let sub_r: i128 = if rot == 1 || rot == 2 { -1 } else { 1 };
+                let sub_i: i128 = if rot >= 2 { -1 } else { 1 };
+                let (index, zm) = if size == 2 {
+                    (((insn >> 19) & 0x3) as usize, ((insn >> 16) & 0x7) as usize)
+                } else {
+                    (((insn >> 20) & 1) as usize, ((insn >> 16) & 0xF) as usize)
+                };
+                let idx = index * 2;
+                let n = self.v[zn].to_le_bytes();
+                let m = self.v[zm].to_le_bytes();
+                let a = self.v[zd].to_le_bytes();
+                let e2a = sext_elem(read_elem(&m, (idx + sel_a) * esize, esize), bits);
+                let e2b = sext_elem(read_elem(&m, (idx + sel_b) * esize, esize), bits);
+                let mut dst = [0u8; 16];
+                for p in 0..((16 / esize) / 2) {
+                    let (re, im) = (2 * p, 2 * p + 1);
+                    let e1 = sext_elem(read_elem(&n, (re + sel_a) * esize, esize), bits);
+                    let ar = sext_elem(read_elem(&a, re * esize, esize), bits);
+                    let ai = sext_elem(read_elem(&a, im * esize, esize), bits);
+                    write_elem(&mut dst, re * esize, esize, (ar + e1 * e2a * sub_r) as u64 & mask);
+                    write_elem(&mut dst, im * esize, esize, (ai + e1 * e2b * sub_i) as u64 & mask);
+                }
+                self.v[zd] = u128::from_le_bytes(dst);
+                Ok(CpuExit::Continue)
+            }
+
             // SVE2 MATCH / NMATCH (character match -> predicate): 0x45, bit21==1,
             // bits[15:13]==100. For each Pg-active Zn element the result bit is
             // set if that element value equals any Zm element in the same
@@ -8017,6 +8062,50 @@ impl AArch64Cpu {
                     let r = fp_muladd_bits(elem(acc, im), xi, yi, bits) as u128 & mask;
                     result = (result & !(mask << (im * bits as usize))) | (r << (im * bits as usize));
                 }
+            }
+            self.v[zd] = result;
+            return Ok(CpuExit::Continue);
+        }
+
+        // SVE FCMLA by indexed element: 0x64, bit21==1, bits[15:12]==0001.
+        // rot=bits[11:10]; the indexed Zm complex pair (2*index) is broadcast.
+        // Unpredicated, fused. .h: index=bits[20:19], Zm=bits[18:16]; .s:
+        // index=bit20, Zm=bits[19:16]. Same flip/negate math as FCMLA.
+        if (insn >> 24) & 0xFF == 0b01100100
+            && (insn >> 21) & 1 == 1
+            && (insn >> 12) & 0xF == 0b0001
+        {
+            let size = (insn >> 22) & 0x3;
+            if size < 2 {
+                return Ok(CpuExit::Undefined(insn));
+            }
+            let esize = 1usize << (size - 1); // .h=2, .s=4
+            let bits = (esize * 8) as u32;
+            let mask = elem_mask(bits) as u128;
+            let rot = (insn >> 10) & 0x3;
+            let flip = rot & 1;
+            let negf_imag = (rot >> 1) & 1;
+            let negf_real = flip ^ negf_imag;
+            let (index, zmr) = if size == 2 {
+                (((insn >> 19) & 0x3) as usize, ((insn >> 16) & 0x7) as usize)
+            } else {
+                (((insn >> 20) & 1) as usize, ((insn >> 16) & 0xF) as usize)
+            };
+            let (n, mv, acc) = (self.v[zn], self.v[zmr], self.v[zd]);
+            let elem = |v: u128, e: usize| ((v >> (e * bits as usize)) & mask) as u64;
+            let (mr, mi) = (elem(mv, 2 * index), elem(mv, 2 * index + 1));
+            let e1b = if flip == 1 { mi } else { mr };
+            let e3b = if flip == 1 { mr } else { mi };
+            let e1 = if negf_real == 1 { fp_neg_bits(e1b, bits) } else { e1b };
+            let e3 = if negf_imag == 1 { fp_neg_bits(e3b, bits) } else { e3b };
+            let mut result = acc;
+            for p in 0..((16 / esize) / 2) {
+                let (re, im) = (2 * p, 2 * p + 1);
+                let e2 = if flip == 1 { elem(n, im) } else { elem(n, re) };
+                let dr = fp_muladd_bits(elem(acc, re), e2, e1, bits) as u128 & mask;
+                let di = fp_muladd_bits(elem(acc, im), e2, e3, bits) as u128 & mask;
+                result = (result & !(mask << (re * bits as usize))) | (dr << (re * bits as usize));
+                result = (result & !(mask << (im * bits as usize))) | (di << (im * bits as usize));
             }
             self.v[zd] = result;
             return Ok(CpuExit::Continue);
