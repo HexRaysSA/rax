@@ -1887,7 +1887,18 @@ impl SmirInterpreter {
                     let shifted = match shift {
                         ShiftOp::Lsl => (val << (amt % elem_bits)) & mask,
                         ShiftOp::Lsr => (val >> (amt % elem_bits)) & mask,
-                        ShiftOp::Asr => ((val as i64) >> (amt % elem_bits)) as u64 & mask,
+                        ShiftOp::Asr => {
+                            // Sign-extend the element to i64 before the arithmetic
+                            // shift (get_lane zero-extends), so high lanes are
+                            // replicated with the element's sign bit, not 0.
+                            let sv = if elem_bits >= 64 {
+                                val as i64
+                            } else {
+                                let sh = 64 - elem_bits;
+                                ((val << sh) as i64) >> sh
+                            };
+                            ((sv >> (amt % elem_bits)) as u64) & mask
+                        }
                         _ => val,
                     };
                     Self::set_lane(&mut result, lane, elem_bits, shifted);
