@@ -51,7 +51,17 @@ typedef struct {
     uint64_t fpcr;
     uint64_t v[64];   /* V0..V31 as lo/hi u64 pairs       */
     uint64_t scratch[32]; /* contents of the shared scratch window (256 bytes) */
+    uint64_t preds[4]; /* SVE P0..P15 packed: 16 x 16-bit (VL=128), 2 bytes each */
 } ArmState;
+
+/* SVE signal-frame record. At VL=128 (vq=1) the Z registers alias V, and the
+ * 16 predicate registers are 2 bytes each. Record layout: 16-byte header, then
+ * Z[32]*16B (=512), then P[16]*2B (=32) at +528, then FFR at +560. */
+#ifndef SVE_MAGIC
+#define SVE_MAGIC 0x53564501u
+#endif
+#define SVE_PREGS_OFFSET 528
+#define SVE_RECORD_FULL  560
 
 /* Shared scratch memory for load/store tests. The window is MAP_FIXED so the
  * same numeric address is valid in both qemu-user and the rax FlatMemory.
@@ -90,6 +100,7 @@ extern const uint32_t harness_end[];
 
 __asm__(
     ".pushsection .text\n"
+    ".arch armv8-a+sve\n"
     ".balign 4\n"
     ".global harness_prologue\n"
     ".global harness_testslot\n"
@@ -127,6 +138,27 @@ __asm__(
     "    ldr q29, [x0, #752]\n"
     "    ldr q30, [x0, #768]\n"
     "    ldr q31, [x0, #784]\n"
+    /* Load SVE predicate registers P0..P15 from preds[] at offset 1056. The
+     * `mul vl` multiplier is the predicate size in bytes (VL/64 = 2 at VL=128),
+     * so successive imm offsets address the contiguous 2-byte predicates. This
+     * also marks the predicates live so the captured sigframe is full-size. */
+    "    add x1, x0, #1056\n"
+    "    ldr p0,  [x1, #0,  mul vl]\n"
+    "    ldr p1,  [x1, #1,  mul vl]\n"
+    "    ldr p2,  [x1, #2,  mul vl]\n"
+    "    ldr p3,  [x1, #3,  mul vl]\n"
+    "    ldr p4,  [x1, #4,  mul vl]\n"
+    "    ldr p5,  [x1, #5,  mul vl]\n"
+    "    ldr p6,  [x1, #6,  mul vl]\n"
+    "    ldr p7,  [x1, #7,  mul vl]\n"
+    "    ldr p8,  [x1, #8,  mul vl]\n"
+    "    ldr p9,  [x1, #9,  mul vl]\n"
+    "    ldr p10, [x1, #10, mul vl]\n"
+    "    ldr p11, [x1, #11, mul vl]\n"
+    "    ldr p12, [x1, #12, mul vl]\n"
+    "    ldr p13, [x1, #13, mul vl]\n"
+    "    ldr p14, [x1, #14, mul vl]\n"
+    "    ldr p15, [x1, #15, mul vl]\n"
     "    ldr w1, [x0, #280]\n"
     "    msr fpcr, x1\n"
     "    ldr w1, [x0, #272]\n"
@@ -191,14 +223,19 @@ static void capture_fpsimd(const mcontext_t *mc, ArmState *st) {
     for (int i = 0; i < 64; i++) {
         const struct fpsimd_ctx_hdr *h = (const struct fpsimd_ctx_hdr *)p;
         if (h->magic == FPSIMD_MAGIC) {
-            const uint32_t *fpsr = (const uint32_t *)(p + 8);
-            const uint32_t *fpcr = (const uint32_t *)(p + 12);
-            st->fpsr = *fpsr;
-            st->fpcr = *fpcr;
+            st->fpsr = *(const uint32_t *)(p + 8);
+            st->fpcr = *(const uint32_t *)(p + 12);
             memcpy(st->v, p + 16, sizeof st->v);
+            /* keep walking: the SVE record (predicates) follows FPSIMD */
+        } else if (h->magic == SVE_MAGIC) {
+            /* Capture the 16 predicate registers if the record is full-size
+             * (i.e. the SVE registers are live for this frame). */
+            if (h->size >= SVE_RECORD_FULL) {
+                memcpy(st->preds, p + SVE_PREGS_OFFSET, sizeof st->preds);
+            }
+        } else if (h->magic == 0 && h->size == 0) {
             return;
         }
-        if (h->magic == 0 && h->size == 0) return;
         if (h->size == 0) return;
         p += h->size;
     }

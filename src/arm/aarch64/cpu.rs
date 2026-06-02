@@ -4741,6 +4741,17 @@ impl AArch64Cpu {
     // =========================================================================
 
     /// Execute SVE instruction.
+    /// Read SVE predicate register `i` (the low VL/8 bits are meaningful;
+    /// 16 bits at VL=128). Exposed for the differential harness.
+    pub fn sve_pred(&self, i: usize) -> u32 {
+        self.sve_p[i]
+    }
+
+    /// Write SVE predicate register `i`. Exposed for the differential harness.
+    pub fn set_sve_pred(&mut self, i: usize, v: u32) {
+        self.sve_p[i] = v;
+    }
+
     fn exec_sve(&mut self, insn: u32) -> Result<CpuExit, ArmError> {
         // Check if SVE is enabled (CPACR_EL1.ZEN)
         let cpacr = self.sysregs.el1.cpacr;
@@ -5011,99 +5022,109 @@ impl AArch64Cpu {
         Ok(CpuExit::Continue)
     }
 
-    /// Execute SVE predicate operations (PTRUE, PFALSE, WHILE, etc.).
+    /// Execute SVE predicate-generating operations (PTRUE/PTRUES, PFALSE, the
+    /// WHILE family). Predicates are stored BYTE-granular: element `e` (size
+    /// `esize` bytes) is governed by bit `e*esize`, matching the architecture
+    /// and the differential oracle. The dispatch keys on the real opcode bits
+    /// (NOT on op1=bits[24:23], which folds the size field's high bit).
     fn exec_sve_pred_ops(&mut self, insn: u32) -> Result<CpuExit, ArmError> {
-        let op1 = (insn >> 23) & 0x3;
-        let op3 = (insn >> 10) & 0x3F;
+        let size = (insn >> 22) & 0x3;
+        let esize = 1usize << size;
+        let elements = 16 / esize;
+        let pd = (insn & 0xF) as usize;
+        let b15_10 = (insn >> 10) & 0x3F;
 
-        match op1 {
-            // WHILE instructions
-            0b00 => {
-                let lt = (insn >> 4) & 1;
-                let sf = (insn >> 12) & 1;
-                let pd = (insn & 0xF) as usize;
-                let rn = ((insn >> 5) & 0x1F) as u8;
-                let rm = ((insn >> 16) & 0x1F) as u8;
-                let size = (insn >> 22) & 0x3;
-
-                let op1_val = if sf == 1 {
-                    self.get_x(rn) as i64
-                } else {
-                    self.get_w(rn) as i32 as i64
-                };
-                let op2_val = if sf == 1 {
-                    self.get_x(rm) as i64
-                } else {
-                    self.get_w(rm) as i32 as i64
-                };
-
-                let esize = 1usize << size;
-                let elements = 16 / esize;
-                let mut pred = 0u32;
-
-                for e in 0..elements {
-                    let idx = op1_val.wrapping_add(e as i64);
-                    let active = if lt == 1 {
-                        idx < op2_val // WHILELT
-                    } else {
-                        idx <= op2_val // WHILELE
-                    };
-                    if active {
-                        pred |= 1 << e;
-                    }
-                }
-
-                self.sve_p[pd] = pred;
-
-                // Update condition flags based on predicate result
-                let all_false = pred == 0;
-                let last = ((pred >> (elements - 1)) & 1) != 0;
-                self.set_n(!all_false && !last);
-                self.set_z(all_false);
-                self.set_c(!all_false);
-                self.set_v(false);
-
-                Ok(CpuExit::Continue)
-            }
-
-            // PTRUE/PFALSE
-            0b01 if (op3 & 0x30) == 0x10 => {
-                let s = (insn >> 16) & 1;
-                let pd = (insn & 0xF) as usize;
-                let size = (insn >> 22) & 0x3;
-                let pattern = (insn >> 5) & 0x1F;
-
-                let esize = 1usize << size;
-                let elements = 16 / esize;
-
-                if s == 1 {
-                    // PFALSE
-                    self.sve_p[pd] = 0;
-                } else {
-                    // PTRUE - set active elements based on pattern
-                    let active_count = match pattern {
-                        0b00000 => 1, // POW2
-                        0b00001..=0b00111 => (pattern as usize).min(elements),
-                        0b11101 => elements / 4,
-                        0b11110 => elements / 2,
-                        0b11111 => elements, // ALL
-                        _ => elements,
-                    };
-                    let mut pred = 0u32;
-                    for e in 0..active_count.min(elements) {
-                        pred |= 1 << e;
-                    }
-                    self.sve_p[pd] = pred;
-                }
-
-                Ok(CpuExit::Continue)
-            }
-
-            _ => Err(ArmError::Unimplemented(format!(
-                "SVE predicate op1={:02b} op3={:06b}",
-                op1, op3
-            ))),
+        // PFALSE Pd: writes an all-false predicate (bits[15:10]==111001).
+        if b15_10 == 0b111001 {
+            self.sve_p[pd] = 0;
+            return Ok(CpuExit::Continue);
         }
+
+        // PTRUE / PTRUES Pd.T, pattern: bits[15:10]==111000, S=bit16. PTRUES
+        // sets NZCV = PredTest(result, result) — i.e. the result governs itself,
+        // so C = !LastActive collapses to (result == 0).
+        if b15_10 == 0b111000 {
+            let s = (insn >> 16) & 1;
+            let pattern = (insn >> 5) & 0x1F;
+            let count = sve_pattern_count(pattern, elements);
+            let mut pred = 0u32;
+            for e in 0..count {
+                pred |= 1 << (e * esize);
+            }
+            self.sve_p[pd] = pred;
+            if s == 1 {
+                let empty = pred == 0;
+                self.set_n(!empty);
+                self.set_z(empty);
+                self.set_c(empty);
+                self.set_v(false);
+            }
+            return Ok(CpuExit::Continue);
+        }
+
+        // WHILE family (RR): bit21==1, bits[15:13]==000, bit10==1. Compares a
+        // running index against a limit; bits[11:10]: 01=signed, 11=unsigned;
+        // bit4: 0=strict (<), 1=inclusive (<=). The result is a contiguous run
+        // of active elements from element 0, and NZCV is set from the result.
+        if (insn >> 21) & 1 == 1 && (insn >> 13) & 0x7 == 0 && (insn >> 10) & 1 == 1 {
+            let sf = (insn >> 12) & 1;
+            let unsigned = (insn >> 10) & 0x3 == 0b11;
+            let inclusive = (insn >> 4) & 1 == 1;
+            let rn = ((insn >> 5) & 0x1F) as u8;
+            let rm = ((insn >> 16) & 0x1F) as u8;
+            let mut pred = 0u32;
+            for e in 0..elements {
+                let active = if unsigned {
+                    let a = if sf == 1 {
+                        self.get_x(rn)
+                    } else {
+                        self.get_w(rn) as u64
+                    };
+                    let b = if sf == 1 {
+                        self.get_x(rm)
+                    } else {
+                        self.get_w(rm) as u64
+                    };
+                    let idx = a.wrapping_add(e as u64);
+                    // Once the running index wraps below the start it stays inactive.
+                    if idx < a {
+                        false
+                    } else if inclusive {
+                        idx <= b
+                    } else {
+                        idx < b
+                    }
+                } else {
+                    let a = if sf == 1 {
+                        self.get_x(rn) as i64
+                    } else {
+                        self.get_w(rn) as i32 as i64
+                    };
+                    let b = if sf == 1 {
+                        self.get_x(rm) as i64
+                    } else {
+                        self.get_w(rm) as i32 as i64
+                    };
+                    let idx = a.wrapping_add(e as i64);
+                    if inclusive { idx <= b } else { idx < b }
+                };
+                if active {
+                    pred |= 1 << (e * esize);
+                }
+            }
+            self.sve_p[pd] = pred;
+            let (n, z, c, v) = pred_test_flags(pred, elements, esize);
+            self.set_n(n);
+            self.set_z(z);
+            self.set_c(c);
+            self.set_v(v);
+            return Ok(CpuExit::Continue);
+        }
+
+        Err(ArmError::Unimplemented(format!(
+            "SVE predicate op bits[15:10]={:06b}",
+            b15_10
+        )))
     }
 
     /// Execute SVE INDEX: Zd[e] = base + e*step, with base/step from either a
@@ -9348,6 +9369,48 @@ fn fp_muladd_bits(acc: u64, x: u64, y: u64, esize: u32) -> u64 {
         32 => fp_three_same_f32(FpKind::Mla, x as u32, y as u32, acc as u32) as u64,
         _ => fp_three_same_f64(FpKind::Mla, x, y, acc),
     }
+}
+
+// ---- SVE predicate helpers ----
+
+/// Number of leading active elements selected by an SVE predicate `pattern`
+/// (POW2/VL1..VL256/MUL3/MUL4/ALL) given the element count. Unallocated
+/// patterns select zero elements.
+fn sve_pattern_count(pattern: u32, elements: usize) -> usize {
+    match pattern {
+        0b00000 => {
+            // POW2: largest power of two <= elements.
+            let mut p = 1;
+            while p * 2 <= elements {
+                p *= 2;
+            }
+            p
+        }
+        0b00001..=0b00111 => {
+            let c = pattern as usize; // VL1..VL7
+            if c <= elements { c } else { 0 }
+        }
+        0b01000 => (8 <= elements).then_some(8).unwrap_or(0),
+        0b01001 => (16 <= elements).then_some(16).unwrap_or(0),
+        0b01010 => (32 <= elements).then_some(32).unwrap_or(0),
+        0b01011 => (64 <= elements).then_some(64).unwrap_or(0),
+        0b01100 => (128 <= elements).then_some(128).unwrap_or(0),
+        0b01101 => (256 <= elements).then_some(256).unwrap_or(0),
+        0b11101 => (elements / 4) * 4, // MUL4
+        0b11110 => (elements / 3) * 3, // MUL3
+        0b11111 => elements,           // ALL
+        _ => 0,
+    }
+}
+
+/// NZCV produced by an SVE predicate-setting op (PTEST convention with an
+/// all-true governing predicate): N=First active, Z=None active, C=!Last
+/// active, V=0. `pred` is byte-granular; element `e` is bit `e*esize`.
+fn pred_test_flags(pred: u32, elements: usize, esize: usize) -> (bool, bool, bool, bool) {
+    let first = pred & 1 != 0;
+    let none = pred == 0;
+    let last = (pred >> ((elements - 1) * esize)) & 1 != 0;
+    (first, none, !last, false)
 }
 
 // ---- BFloat16 (bf16) helpers (FEAT_BF16) ----

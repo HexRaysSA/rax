@@ -44,6 +44,7 @@ struct ArmState {
     fpcr: u64,
     v: [u64; 64],     // V0..V31 as lo/hi u64 pairs
     scratch: [u64; 32], // shared scratch window (256 bytes) for load/store tests
+    preds: [u64; 4],  // SVE P0..P15 packed as 16 x 16-bit (VL=128), byte-granular
 }
 
 /// AArch64 NOP (used to fill the oracle's unused second instruction slot).
@@ -64,6 +65,7 @@ impl ArmState {
             fpcr: 0,
             v: [0; 64],
             scratch: [0; 32],
+            preds: [0; 4],
         }
     }
     fn vreg(&self, r: usize) -> (u64, u64) {
@@ -72,6 +74,15 @@ impl ArmState {
     fn set_vreg(&mut self, r: usize, lo: u64, hi: u64) {
         self.v[2 * r] = lo;
         self.v[2 * r + 1] = hi;
+    }
+    /// Read SVE predicate `r` (16 bits at VL=128) from the packed `preds`.
+    fn preg(&self, r: usize) -> u16 {
+        (self.preds[r / 4] >> (16 * (r % 4))) as u16
+    }
+    /// Write SVE predicate `r` (16 bits at VL=128) into the packed `preds`.
+    fn set_preg(&mut self, r: usize, v: u16) {
+        let shift = 16 * (r % 4);
+        self.preds[r / 4] = (self.preds[r / 4] & !(0xFFFFu64 << shift)) | ((v as u64) << shift);
     }
 }
 
@@ -93,10 +104,10 @@ struct OutCase {
 
 const WIRE_MAGIC: u32 = 0x314d_5241; // 'A','R','M','1'
 
-// Compile-time guarantee the layout matches the C side.
-const _: () = assert!(core::mem::size_of::<ArmState>() == 1056);
-const _: () = assert!(core::mem::size_of::<InCase>() == 1064);
-const _: () = assert!(core::mem::size_of::<OutCase>() == 1064);
+// Compile-time guarantee the layout matches the C side (preds[4] adds 32 bytes).
+const _: () = assert!(core::mem::size_of::<ArmState>() == 1088);
+const _: () = assert!(core::mem::size_of::<InCase>() == 1096);
+const _: () = assert!(core::mem::size_of::<OutCase>() == 1096);
 
 // ---------------------------------------------------------------------------
 // Byte (de)serialisation helpers -- plain little-endian copies of the structs.
@@ -225,6 +236,9 @@ fn run_rax(insn: u32, input: &ArmState) -> Option<ArmState> {
         let (lo, hi) = input.vreg(r as usize);
         cpu.set_simd_reg(r, lo, hi).ok()?;
     }
+    for r in 0..16usize {
+        cpu.set_sve_pred(r, input.preg(r) as u32);
+    }
 
     // Install the scratch window at SCRATCH_ADDR.
     let scratch_bytes: Vec<u8> = input.scratch.iter().flat_map(|w| w.to_le_bytes()).collect();
@@ -258,6 +272,9 @@ fn run_rax(insn: u32, input: &ArmState) -> Option<ArmState> {
     // Read the scratch window back.
     for (i, w) in out.scratch.iter_mut().enumerate() {
         *w = cpu.mem_read_u64(SCRATCH_ADDR + (i as u64) * 8).ok()?;
+    }
+    for r in 0..16usize {
+        out.set_preg(r, cpu.sve_pred(r) as u16);
     }
     Some(out)
 }
@@ -339,6 +356,15 @@ fn compare_case(
             diffs.push(format!(
                 "scratch[{i}]: rax={:#018x} hw={:#018x}",
                 rax.scratch[i], oracle.st.scratch[i]
+            ));
+        }
+    }
+    for r in 0..16 {
+        if rax.preg(r) != oracle.st.preg(r) {
+            diffs.push(format!(
+                "p{r}: rax={:#06x} hw={:#06x}",
+                rax.preg(r),
+                oracle.st.preg(r)
             ));
         }
     }
@@ -1573,6 +1599,51 @@ fn diff_sve_rev() {
         cases.push((format!("rev sz{sz}"), enc_sve_rev(sz)));
     }
     run_family("sve_rev", cases, 16, 0x1_0022);
+}
+
+/// PTRUE/PTRUES Pd.T, pattern: `00100101 sz 01100 S 111000 pattern 0 Pd`. Pd=p0.
+fn enc_ptrue(sz: u32, pat: u32, s: u32) -> u32 {
+    (0x25 << 24) | (sz << 22) | ((0b011000 | s) << 16) | (0b111000 << 10) | ((pat & 0x1F) << 5)
+}
+/// PFALSE p0.
+const PFALSE: u32 = 0x2518_E400;
+/// WHILE{LT,LE,LO,LS} Pd.T, {Wn,Xn}, {Wm,Xm}. Rn=x1, Rm=x2, Pd=p0.
+fn enc_while(sz: u32, sf: u32, unsigned: bool, le: bool) -> u32 {
+    let b1110 = if unsigned { 0b11 } else { 0b01 };
+    (0x25 << 24) | (sz << 22) | (1 << 21) | (RM << 16) | (sf << 12) | (b1110 << 10)
+        | (RN << 5) | ((le as u32) << 4)
+}
+
+#[test]
+fn diff_sve_pred_gen() {
+    let mut rng = Rng::new(0x1_0023);
+    let mut batch: Vec<(String, u32, ArmState)> = Vec::new();
+    // PTRUE/PTRUES + PFALSE: deterministic, no register inputs.
+    for sz in 0..4u32 {
+        for pat in [0u32, 1, 2, 3, 4, 5, 7, 8, 0b11101, 0b11110, 0b11111] {
+            for s in 0..2u32 {
+                batch.push((format!("ptrue sz{sz} p{pat} s{s}"), enc_ptrue(sz, pat, s), ArmState::zeroed()));
+            }
+        }
+    }
+    batch.push(("pfalse".into(), PFALSE, ArmState::zeroed()));
+    // WHILE: small random index/limit in x1/x2 to exercise partial predicates.
+    for sz in 0..4u32 {
+        for sf in 0..2u32 {
+            for u in 0..2u32 {
+                for le in 0..2u32 {
+                    let insn = enc_while(sz, sf, u == 1, le == 1);
+                    for _ in 0..12 {
+                        let mut st = gen_input(&mut rng);
+                        st.x[1] = rng.next() % 24;
+                        st.x[2] = rng.next() % 24;
+                        batch.push((format!("while sz{sz} sf{sf} u{u} le{le}"), insn, st));
+                    }
+                }
+            }
+        }
+    }
+    run_batch("sve_pred_gen", batch);
 }
 
 #[test]
