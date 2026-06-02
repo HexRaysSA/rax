@@ -7195,8 +7195,86 @@ impl AArch64Cpu {
             return Ok(CpuExit::Continue);
         }
 
-        // Other SVE memory forms (S-form vector-base, multi-register LD2-4/ST2-4)
-        // are not yet modelled.
+        // LD2/LD3/LD4 (contiguous, de-interleaving): 1010010 msz opc 0 imm4 111
+        // Pg Rn Zt. opc=bits[22:21] in {01,10,11} -> nreg in {2,3,4}. Reads
+        // nreg*elements consecutive structures and de-interleaves them so that
+        // Z[(t+r)%32][e] = Mem[base + (e*nreg + r)*mbytes]; zeroes inactive lanes.
+        if !is_store
+            && insn >> 25 == 0b1010010
+            && b15_13 == 0b111
+            && (insn >> 21) & 0x3 != 0b00
+        {
+            let nreg = (((insn >> 21) & 0x3) + 1) as usize;
+            let msz = (insn >> 23) & 0x3;
+            let esize = 1usize << msz;
+            let elements = 16 / esize;
+            let mbytes = esize;
+            let addr0 = (base as i64 + imm4 * (elements * nreg * mbytes) as i64) as u64;
+            let mut regs = [[0u8; 16]; 4];
+            let mut a = addr0;
+            for e in 0..elements {
+                let active = (pred >> (e * esize)) & 1 == 1;
+                for reg in regs.iter_mut().take(nreg) {
+                    if active {
+                        let pa = self.translate_address(a, false, false)?;
+                        let val: u64 = match mbytes {
+                            1 => self.memory.read_u8(pa)? as u64,
+                            2 => self.memory.read_u16(pa)? as u64,
+                            4 => self.memory.read_u32(pa)? as u64,
+                            _ => self.memory.read_u64(pa)?,
+                        };
+                        write_elem(reg, e * esize, esize, val);
+                    }
+                    a = a.wrapping_add(mbytes as u64);
+                }
+            }
+            for r in 0..nreg {
+                self.v[(zt + r) % 32] = u128::from_le_bytes(regs[r]);
+            }
+            return Ok(CpuExit::Continue);
+        }
+
+        // ST2/ST3/ST4 (contiguous, interleaving): 1110010 msz opc 1 imm4 111 Pg
+        // Rn Zt. bit20==1 separates it from ST1 (bit20==0). Interleaves the nreg
+        // source registers: Mem[base + (e*nreg + r)*mbytes] = Z[(t+r)%32][e].
+        if is_store
+            && insn >> 25 == 0b1110010
+            && b15_13 == 0b111
+            && (insn >> 20) & 1 == 1
+            && (insn >> 21) & 0x3 != 0b00
+        {
+            let nreg = (((insn >> 21) & 0x3) + 1) as usize;
+            let msz = (insn >> 23) & 0x3;
+            let esize = 1usize << msz;
+            let elements = 16 / esize;
+            let mbytes = esize;
+            let addr0 = (base as i64 + imm4 * (elements * nreg * mbytes) as i64) as u64;
+            let mut srcs = [[0u8; 16]; 4];
+            for r in 0..nreg {
+                srcs[r] = self.v[(zt + r) % 32].to_le_bytes();
+            }
+            let mut a = addr0;
+            for e in 0..elements {
+                let active = (pred >> (e * esize)) & 1 == 1;
+                for src in srcs.iter().take(nreg) {
+                    if active {
+                        let pa = self.translate_address(a, true, false)?;
+                        let val = read_elem(src, e * esize, esize);
+                        match mbytes {
+                            1 => self.memory.write_u8(pa, val as u8)?,
+                            2 => self.memory.write_u16(pa, val as u16)?,
+                            4 => self.memory.write_u32(pa, val as u32)?,
+                            _ => self.memory.write_u64(pa, val)?,
+                        }
+                    }
+                    a = a.wrapping_add(mbytes as u64);
+                }
+            }
+            return Ok(CpuExit::Continue);
+        }
+
+        // Other SVE memory forms (S-form vector-base, LD1RQ, first-fault) are not
+        // yet modelled.
         Ok(CpuExit::Undefined(insn))
     }
 

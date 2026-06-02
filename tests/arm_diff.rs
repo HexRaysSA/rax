@@ -1618,6 +1618,18 @@ fn enc_scatter_d(msz: u32, scaled: bool) -> u32 {
         | (0b101 << 13) | (RN << 5) | RD
 }
 
+/// SVE LD2/3/4 (de-interleaving): `1010010 msz opc 0 imm4 111 Pg Rn Zt`.
+/// opc=nreg-1. Rn=x1, Zt=z0.
+fn enc_ldn(msz: u32, nreg: u32, imm4: i32) -> u32 {
+    (0b1010010 << 25) | (msz << 23) | ((nreg - 1) << 21) | (((imm4 as u32) & 0xF) << 16)
+        | (0b111 << 13) | (RN << 5) | RD
+}
+/// SVE ST2/3/4 (interleaving): `1110010 msz opc 1 imm4 111 Pg Rn Zt`.
+fn enc_stn(msz: u32, nreg: u32, imm4: i32) -> u32 {
+    (0b1110010 << 25) | (msz << 23) | ((nreg - 1) << 21) | (1 << 20)
+        | (((imm4 as u32) & 0xF) << 16) | (0b111 << 13) | (RN << 5) | RD
+}
+
 /// SVE LD1 gather (vector base + immediate, D-form): `1100010 msz 01 imm5 1 U 0
 /// Pg Zn Zt`. Zn=z1 (per-element bases), Zt=z0.
 fn enc_gather_ai(msz: u32, imm5: u32, u: u32) -> u32 {
@@ -2475,6 +2487,31 @@ fn diff_sve_scatter_d() {
         }
     }
     run_batch("sve_scatter_d", batch);
+}
+
+#[test]
+fn diff_sve_ldn_stn() {
+    // Multi-register de-interleaving loads (LD2/3/4) and interleaving stores
+    // (ST2/3/4), all element sizes and structure counts.
+    let mut rng = Rng::new(0x4_8001);
+    let mut batch: Vec<(String, u32, ArmState)> = Vec::new();
+    for msz in 0..4u32 {
+        for nreg in 2..=4u32 {
+            for &imm4 in &[0i32, 1] {
+                let ld = enc_ldn(msz, nreg, imm4);
+                let st = enc_stn(msz, nreg, imm4);
+                for _ in 0..4 {
+                    let mut s1 = mem_input(&mut rng);
+                    s1.set_preg(0, rng.next() as u16);
+                    batch.push((format!("ld{nreg} m{msz} i{imm4}"), ld, s1));
+                    let mut s2 = mem_input(&mut rng);
+                    s2.set_preg(0, rng.next() as u16);
+                    batch.push((format!("st{nreg} m{msz} i{imm4}"), st, s2));
+                }
+            }
+        }
+    }
+    run_batch("sve_ldn_stn", batch);
 }
 
 #[test]
