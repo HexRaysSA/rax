@@ -296,6 +296,9 @@ impl Op {
             Aes64ks1i => "aes64ks1i",
             Aes64ks2 => "aes64ks2",
             Aes64im => "aes64im",
+            Vsetvli => "vsetvli",
+            Vsetivli => "vsetivli",
+            Vsetvl => "vsetvl",
             Illegal => "illegal",
         }
     }
@@ -343,6 +346,8 @@ impl Op {
             FcvtSW | FcvtSWu | FcvtSL | FcvtSLu | FmvWX | FcvtDW | FcvtDWu | FcvtDL | FcvtDLu
             | FmvDX | FcvtHW | FcvtHWu | FcvtHL | FcvtHLu | FmvHX => Class::XToF,
             FcvtSD | FcvtDS | FcvtSH | FcvtHS | FcvtDH | FcvtHD => Class::FToF,
+            Vsetvli | Vsetvl => Class::Vset,
+            Vsetivli => Class::Vseti,
             Illegal => Class::Bare,
             _ => Class::RArith, // OP / OP-32 / M / Zb register-register
         }
@@ -375,6 +380,8 @@ enum Class {
     XToF,
     FToF,
     Fli,
+    Vset,
+    Vseti,
 }
 
 impl fmt::Display for Insn {
@@ -414,6 +421,8 @@ impl fmt::Display for Insn {
             Class::XToF => write!(f, "{m} {frd}, {rs1}"),
             Class::FToF => write!(f, "{m} {frd}, {frs1}"),
             Class::Fli => write!(f, "{m} {frd}, #{}", self.rs1),
+            Class::Vset => write!(f, "{m} {rd}, {rs1}, {:#x}", self.imm),
+            Class::Vseti => write!(f, "{m} {rd}, {}, {:#x}", self.rs1, self.imm),
         }
     }
 }
