@@ -1717,6 +1717,47 @@ fn diff_sve_cmp() {
     run_batch("sve_cmp", batch);
 }
 
+/// SVE predicated FP binary arith: `01100101 sz opc5 100 Pg Zm Zdn`. Zdn=z0,
+/// Zm=z1, Pg=p0.
+fn enc_sve_fpp(sz: u32, opc5: u32) -> u32 {
+    (0x65 << 24) | (sz << 22) | (opc5 << 16) | (0b100 << 13) | (RN << 5) | RD
+}
+
+#[test]
+fn diff_sve_fp_pred() {
+    let ops: &[(u32, &str)] = &[
+        (0b00000, "fadd"),
+        (0b00001, "fsub"),
+        (0b00010, "fmul"),
+        (0b00011, "fsubr"),
+        (0b00100, "fmaxnm"),
+        (0b00101, "fminnm"),
+        (0b00110, "fmax"),
+        (0b00111, "fmin"),
+        (0b01000, "fabd"),
+        (0b01100, "fdivr"),
+        (0b01101, "fdiv"),
+    ];
+    let mut rng = Rng::new(0x1_0027);
+    let mut batch: Vec<(String, u32, ArmState)> = Vec::new();
+    for &(sz, esize) in &[(1u32, 16u32), (2, 32), (3, 64)] {
+        let lanes = 128 / esize as usize;
+        for &(opc5, name) in ops {
+            let insn = enc_sve_fpp(sz, opc5);
+            for _ in 0..14 {
+                let mut st = ArmState::zeroed();
+                let (l0, h0) = fill_finite_fp(&mut rng, esize, lanes);
+                let (l1, h1) = fill_finite_fp(&mut rng, esize, lanes);
+                st.set_vreg(0, l0, h0);
+                st.set_vreg(1, l1, h1);
+                st.set_preg(0, rng.next() as u16);
+                batch.push((format!("{name} sz{sz}"), insn, st));
+            }
+        }
+    }
+    run_batch("sve_fp_pred", batch);
+}
+
 #[test]
 fn diff_sve_palu() {
     // (group, opc, name, min_sz)
