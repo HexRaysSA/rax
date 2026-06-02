@@ -323,6 +323,14 @@ impl Op {
             Vmsle => "vmsle",
             Vmsgtu => "vmsgtu",
             Vmsgt => "vmsgt",
+            Vmul => "vmul",
+            Vmulh => "vmulh",
+            Vmulhu => "vmulhu",
+            Vmulhsu => "vmulhsu",
+            Vdivu => "vdivu",
+            Vdiv => "vdiv",
+            Vremu => "vremu",
+            Vrem => "vrem",
             Illegal => "illegal",
         }
     }

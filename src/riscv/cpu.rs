@@ -734,7 +734,10 @@ impl RiscVCpu {
             Op::Vle | Op::Vse | Op::Vadd | Op::Vsub | Op::Vrsub | Op::Vand | Op::Vor | Op::Vxor
             | Op::Vminu | Op::Vmin | Op::Vmaxu | Op::Vmax | Op::Vsll | Op::Vsrl | Op::Vsra
             | Op::Vmerge | Op::Vmseq | Op::Vmsne | Op::Vmsltu | Op::Vmslt | Op::Vmsleu
-            | Op::Vmsle | Op::Vmsgtu | Op::Vmsgt => self.exec_vector(insn)?,
+            | Op::Vmsle | Op::Vmsgtu | Op::Vmsgt | Op::Vmul | Op::Vmulh | Op::Vmulhu
+            | Op::Vmulhsu | Op::Vdivu | Op::Vdiv | Op::Vremu | Op::Vrem => {
+                self.exec_vector(insn)?
+            }
 
             Op::Illegal => return Err(Trap::illegal(insn.raw)),
 
@@ -1374,6 +1377,49 @@ impl RiscVCpu {
                         Op::Vsll => a << sh,
                         Op::Vsrl => (a & mask) >> sh,
                         Op::Vsra => (sa >> sh) as u64,
+                        _ => unreachable!(),
+                    };
+                    self.set_velem(vd, e, eb, r & mask);
+                }
+            }
+            Op::Vmul | Op::Vmulh | Op::Vmulhu | Op::Vmulhsu | Op::Vdivu | Op::Vdiv | Op::Vremu
+            | Op::Vrem => {
+                let eb = self.sew_bytes();
+                let mask = Self::sew_mask(eb);
+                let bits = (eb * 8) as u32;
+                let is_vv = insn.funct3 == 0b010; // OPMVV vs OPMVX
+                let scalar = self.x(insn.rs1) & mask;
+                for e in vstart..vl {
+                    if !vm && !self.vmask_bit(e) {
+                        continue;
+                    }
+                    let a = self.velem(vs2, e, eb);
+                    let b = if is_vv {
+                        self.velem(insn.rs1, e, eb)
+                    } else {
+                        scalar
+                    };
+                    let r = match insn.op {
+                        Op::Vmul => a.wrapping_mul(b),
+                        Op::Vmulhu => vmulh_u(a, b, bits),
+                        Op::Vmulh => vmulh_s(a, b, eb, bits),
+                        Op::Vmulhsu => vmulh_su(a, b, eb, bits),
+                        Op::Vdivu => {
+                            if b == 0 {
+                                mask
+                            } else {
+                                a / b
+                            }
+                        }
+                        Op::Vremu => {
+                            if b == 0 {
+                                a
+                            } else {
+                                a % b
+                            }
+                        }
+                        Op::Vdiv => vdiv_sew(a, b, eb, bits, false),
+                        Op::Vrem => vdiv_sew(a, b, eb, bits, true),
                         _ => unreachable!(),
                     };
                     self.set_velem(vd, e, eb, r & mask);
@@ -2197,6 +2243,37 @@ fn sext_sew(val: u64, eb: usize) -> i64 {
         val as i64
     } else {
         ((val << shift) as i64) >> shift
+    }
+}
+
+/// Per-element high multiply (unsigned/signed/signed-unsigned) at `bits` width.
+#[inline]
+fn vmulh_u(a: u64, b: u64, bits: u32) -> u64 {
+    ((a as u128).wrapping_mul(b as u128) >> bits) as u64
+}
+#[inline]
+fn vmulh_s(a: u64, b: u64, eb: usize, bits: u32) -> u64 {
+    let p = (sext_sew(a, eb) as i128).wrapping_mul(sext_sew(b, eb) as i128);
+    (p >> bits) as u64
+}
+#[inline]
+fn vmulh_su(a: u64, b: u64, eb: usize, bits: u32) -> u64 {
+    let p = (sext_sew(a, eb) as i128).wrapping_mul(b as i128);
+    (p >> bits) as u64
+}
+/// Per-element signed divide / remainder at SEW with M-extension corner cases.
+#[inline]
+fn vdiv_sew(a: u64, b: u64, eb: usize, bits: u32, rem: bool) -> u64 {
+    let (sa, sb) = (sext_sew(a, eb), sext_sew(b, eb));
+    let min = -1i64 << (bits - 1);
+    if sb == 0 {
+        if rem { sa as u64 } else { -1i64 as u64 }
+    } else if sa == min && sb == -1 {
+        if rem { 0 } else { min as u64 }
+    } else if rem {
+        (sa % sb) as u64
+    } else {
+        (sa / sb) as u64
     }
 }
 

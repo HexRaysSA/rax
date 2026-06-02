@@ -491,6 +491,51 @@ fn diff_v_compare() {
 }
 
 #[test]
+fn diff_v_muldiv() {
+    let mut rng = Rng::new(0x7EC_712);
+    let mut batch = Vec::new();
+    let ops: &[(&str, u32)] = &[
+        ("vmul", 0b100101),
+        ("vmulh", 0b100111),
+        ("vmulhu", 0b100100),
+        ("vmulhsu", 0b100110),
+        ("vdivu", 0b100000),
+        ("vdiv", 0b100001),
+        ("vremu", 0b100010),
+        ("vrem", 0b100011),
+    ];
+    for sew_log2 in 0..4u32 {
+        let vmax = vlmax(sew_log2);
+        for vl in [vmax, (vmax / 2).max(1)] {
+            for &(name, f6) in ops {
+                for k in 0..8 {
+                    let vd = VPOOL[(rng.next() % 6) as usize];
+                    let vs2 = VPOOL[(rng.next() % 6) as usize];
+                    let vs1 = VPOOL[(rng.next() % 6) as usize];
+                    let rs1 = XPOOL[(rng.next() % 5) as usize];
+                    let mut st = rand_vstate(&mut rng, sew_log2, vl);
+                    // Exercise divide-by-zero / overflow corners.
+                    if k % 3 == 0 {
+                        st.x[rs1 as usize] = 0;
+                        st.v[vs1 as usize * 2] = 0;
+                        st.v[vs1 as usize * 2 + 1] = 0;
+                    }
+                    batch.push((format!("{name}.vv"), op_iv(f6, 1, vs2, vs1, 0b010, vd), st));
+                    batch.push((format!("{name}.vx"), op_iv(f6, 1, vs2, rs1, 0b110, vd), st));
+                    if vd != 0 {
+                        let mut stm = st;
+                        stm.v[0] = rng.next();
+                        stm.v[1] = rng.next();
+                        batch.push((format!("{name}.vv.m"), op_iv(f6, 0, vs2, vs1, 0b010, vd), stm));
+                    }
+                }
+            }
+        }
+    }
+    run_batch(&batch);
+}
+
+#[test]
 fn diff_v_loadstore() {
     let mut rng = Rng::new(0x7EC_705);
     let mut batch = Vec::new();

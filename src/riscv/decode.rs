@@ -354,6 +354,15 @@ pub enum Op {
     Vmsle,
     Vmsgtu,
     Vmsgt,
+    // ---- V (OPMVV/OPMVX integer multiply/divide) ----
+    Vmul,
+    Vmulh,
+    Vmulhu,
+    Vmulhsu,
+    Vdivu,
+    Vdiv,
+    Vremu,
+    Vrem,
     // ---- sentinel ----
     Illegal,
 }
@@ -621,6 +630,22 @@ fn decode_vector(w: u32) -> Insn {
             0b011101 => Op::Vmsle,
             0b011110 if f3 != 0b000 => Op::Vmsgtu, // vx/vi
             0b011111 if f3 != 0b000 => Op::Vmsgt,
+            _ => return Insn::illegal(w, 4),
+        };
+        return base(op, w);
+    }
+    // OPMVV(010) / OPMVX(110): integer multiply/divide.
+    if f3 == 0b010 || f3 == 0b110 {
+        let funct6 = w >> 26;
+        let op = match funct6 {
+            0b100101 => Op::Vmul,
+            0b100111 => Op::Vmulh,
+            0b100100 => Op::Vmulhu,
+            0b100110 => Op::Vmulhsu,
+            0b100000 => Op::Vdivu,
+            0b100001 => Op::Vdiv,
+            0b100010 => Op::Vremu,
+            0b100011 => Op::Vrem,
             _ => return Insn::illegal(w, 4),
         };
         return base(op, w);
