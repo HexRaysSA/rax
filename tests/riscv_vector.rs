@@ -33,6 +33,7 @@ struct VState {
     vl: u64,
     vstart: u64,
     fcsr: u64,
+    vcsr: u64,
     v: [u64; 64],
     scratch: [u64; 32],
 }
@@ -46,6 +47,7 @@ impl VState {
             vl: 0,
             vstart: 0,
             fcsr: 0,
+            vcsr: 0,
             v: [0; 64],
             scratch: [0; 32],
         }
@@ -187,6 +189,7 @@ fn run_vrax(insn: u32, input: &VState) -> Option<VState> {
         cpu.set_f(i, input.f[i as usize]);
     }
     cpu.set_fcsr(input.fcsr as u32);
+    cpu.set_vcsr(input.vcsr);
     cpu.set_vl_vtype(input.vl, input.vtype);
     for r in 0..32usize {
         cpu.set_vreg(r as u8, &input.vreg_bytes(r));
@@ -210,6 +213,7 @@ fn run_vrax(insn: u32, input: &VState) -> Option<VState> {
         out.f[i as usize] = cpu.f(i);
     }
     out.fcsr = cpu.fcsr() as u64;
+    out.vcsr = cpu.vcsr();
     out.vl = cpu.vl();
     out.vtype = cpu.vtype();
     for r in 0..32usize {
@@ -267,6 +271,9 @@ fn compare(label: &str, insn: u32, input: &VState, oracle: &VOutCase, ms: &mut V
     }
     if rax.fcsr != oracle.st.fcsr {
         d.push(format!("fcsr: rax={:#x} hw={:#x}", rax.fcsr, oracle.st.fcsr));
+    }
+    if rax.vcsr != oracle.st.vcsr {
+        d.push(format!("vcsr: rax={:#x} hw={:#x}", rax.vcsr, oracle.st.vcsr));
     }
     for i in 0..32usize {
         if rax.f[i] != oracle.st.f[i] {
@@ -1102,6 +1109,48 @@ fn diff_v_carry() {
                 batch.push(("vmsbc.vv".into(), op_iv(0b010011, 1, vs2, vs1, 0b000, vd), st));
                 batch.push(("vmadc.vxm".into(), op_iv(0b010001, 0, vs2, rs1, 0b100, vd), st));
                 batch.push(("vmsbc.vx".into(), op_iv(0b010011, 1, vs2, rs1, 0b100, vd), st));
+            }
+        }
+    }
+    run_batch(&batch);
+}
+
+#[test]
+fn diff_v_satadd() {
+    let mut rng = Rng::new(0x7EC_7E0);
+    let mut batch = Vec::new();
+    let ops: &[(&str, u32, bool, bool)] = &[
+        // (name, funct6, has_vi, signed)
+        ("vsaddu", 0b100000, true, false),
+        ("vsadd", 0b100001, true, true),
+        ("vssubu", 0b100010, false, false),
+        ("vssub", 0b100011, false, true),
+    ];
+    for sew_log2 in 0..4u32 {
+        let vmax = vlmax(sew_log2);
+        for vl in [vmax, (vmax / 2).max(1)] {
+            for &(name, f6, has_vi, _signed) in ops {
+                for k in 0..6 {
+                    let vd = VPOOL[(rng.next() % 6) as usize];
+                    let vs2 = VPOOL[(rng.next() % 6) as usize];
+                    let vs1 = VPOOL[(rng.next() % 6) as usize];
+                    let rs1 = XPOOL[(rng.next() % 5) as usize];
+                    let imm = (rng.next() & 0x1f) as u32;
+                    let mut st = rand_vstate(&mut rng, sew_log2, vl);
+                    // Start vxsat = 0 sometimes, 1 sometimes, to verify stickiness.
+                    st.vcsr = (rng.next() & 1) | ((rng.next() & 3) << 1);
+                    batch.push((format!("{name}.vv"), op_iv(f6, 1, vs2, vs1, 0b000, vd), st));
+                    batch.push((format!("{name}.vx"), op_iv(f6, 1, vs2, rs1, 0b100, vd), st));
+                    if has_vi {
+                        batch.push((format!("{name}.vi"), op_iv(f6, 1, vs2, imm, 0b011, vd), st));
+                    }
+                    if vd != 0 && k % 2 == 0 {
+                        let mut stm = st;
+                        stm.v[0] = rng.next();
+                        stm.v[1] = rng.next();
+                        batch.push((format!("{name}.vv.m"), op_iv(f6, 0, vs2, vs1, 0b000, vd), stm));
+                    }
+                }
             }
         }
     }

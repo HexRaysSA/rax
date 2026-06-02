@@ -39,6 +39,7 @@
 #define IN_FCSR_OFF (64 * 8)
 #define IN_VTYPE_OFF (65 * 8)
 #define IN_VL_OFF (66 * 8)
+#define IN_VCSR_OFF (67 * 8)
 
 typedef struct {
     uint64_t x[32];
@@ -47,6 +48,7 @@ typedef struct {
     uint64_t vl;
     uint64_t vstart;
     uint64_t fcsr;
+    uint64_t vcsr; /* {vxrm[2:1], vxsat[0]} */
     uint64_t v[64];       /* 32 regs * 16 bytes = 512 bytes (2 u64 each) */
     uint64_t scratch[32]; /* shared 256-byte window */
 } VState;
@@ -95,6 +97,7 @@ static void handler(int sig, siginfo_t *si, void *ucv) {
             g_out.vl = v->vl;
             g_out.vtype = v->vtype;
             g_out.vstart = v->vstart;
+            g_out.vcsr = v->vcsr;
             unsigned char *regs = v->datap ? (unsigned char *)v->datap
                                            : (unsigned char *)(v + 1);
             memcpy((void *)g_out.v, regs, 32 * VLENB);
@@ -125,6 +128,10 @@ static uint32_t enc_addi(int rd, int rs1, int imm) {
 }
 static uint32_t enc_fscsr(int rs1) {
     return (0x003u << 20) | ((uint32_t)rs1 << 15) | (1u << 12) | (0u << 7) | 0x73u;
+}
+/* csrrw x0, csr, rs1 */
+static uint32_t enc_csrw(uint32_t csr, int rs1) {
+    return (csr << 20) | ((uint32_t)rs1 << 15) | (1u << 12) | (0u << 7) | 0x73u;
 }
 /* vsetvli rd, rs1, vtypei */
 static uint32_t enc_vsetvli(int rd, int rs1, uint32_t vtypei) {
@@ -191,6 +198,9 @@ int main(void) {
     for (int i = 0; i < 32; i++) code[n++] = enc_fld(i, 31, IN_F_OFF + i * 8);
     code[n++] = enc_ld(30, 31, IN_FCSR_OFF);
     code[n++] = enc_fscsr(30);
+    /* vcsr (vxrm/vxsat) */
+    code[n++] = enc_ld(29, 31, IN_VCSR_OFF);
+    code[n++] = enc_csrw(0x00Fu, 29);
     /* vector setup: x5 <- VIN_ADDR; vsetvli x6,x0,e8m1 (vl=16); load v0..v31 */
     code[n++] = enc_lui(5, (uint32_t)(VIN_ADDR >> 12));
     code[n++] = enc_vsetvli(6, 0, 0); /* e8,m1 -> vl = VLEN/8 = 16 */
@@ -246,6 +256,7 @@ int main(void) {
         memcpy((char *)INPUT_ADDR + IN_FCSR_OFF, &ic->st.fcsr, 8);
         memcpy((char *)INPUT_ADDR + IN_VTYPE_OFF, &ic->st.vtype, 8);
         memcpy((char *)INPUT_ADDR + IN_VL_OFF, &ic->st.vl, 8);
+        memcpy((char *)INPUT_ADDR + IN_VCSR_OFF, &ic->st.vcsr, 8);
         memcpy((void *)VIN_ADDR, ic->st.v, 32 * VLENB);
         memcpy((void *)SCRATCH_ADDR, ic->st.scratch, sizeof(ic->st.scratch));
 
@@ -266,6 +277,7 @@ int main(void) {
         for (int i = 1; i < 32; i++) oc->st.x[i] = g_out.x[i];
         for (int i = 0; i < 32; i++) oc->st.f[i] = g_out.f[i];
         oc->st.fcsr = g_out.fcsr;
+        oc->st.vcsr = g_out.vcsr;
         oc->st.vl = g_out.vl;
         oc->st.vtype = g_out.vtype;
         oc->st.vstart = g_out.vstart;
