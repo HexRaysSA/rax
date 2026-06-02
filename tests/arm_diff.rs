@@ -1618,6 +1618,16 @@ fn enc_scatter_d(msz: u32, scaled: bool) -> u32 {
         | (0b101 << 13) | (RN << 5) | RD
 }
 
+/// SVE LDNT1/STNT1 (non-temporal contiguous): `1010010 msz 000 imm4 111`(LD) /
+/// `1110010 msz 001 imm4 111`(ST). Rn=x1, Zt=z0.
+fn enc_ldnt1(msz: u32, imm4: i32) -> u32 {
+    (0b1010010 << 25) | (msz << 23) | (((imm4 as u32) & 0xF) << 16) | (0b111 << 13) | (RN << 5) | RD
+}
+fn enc_stnt1(msz: u32, imm4: i32) -> u32 {
+    (0b1110010 << 25) | (msz << 23) | (1 << 20) | (((imm4 as u32) & 0xF) << 16)
+        | (0b111 << 13) | (RN << 5) | RD
+}
+
 /// SVE LD2/3/4 (de-interleaving): `1010010 msz opc 0 imm4 111 Pg Rn Zt`.
 /// opc=nreg-1. Rn=x1, Zt=z0.
 fn enc_ldn(msz: u32, nreg: u32, imm4: i32) -> u32 {
@@ -2487,6 +2497,26 @@ fn diff_sve_scatter_d() {
         }
     }
     run_batch("sve_scatter_d", batch);
+}
+
+#[test]
+fn diff_sve_ldnt1() {
+    // Non-temporal contiguous load/store (behaves like packed LD1/ST1).
+    let mut rng = Rng::new(0x4_9001);
+    let mut batch: Vec<(String, u32, ArmState)> = Vec::new();
+    for msz in 0..4u32 {
+        for &imm4 in &[0i32, 1, -1] {
+            for _ in 0..6 {
+                let mut s1 = mem_input(&mut rng);
+                s1.set_preg(0, rng.next() as u16);
+                batch.push((format!("ldnt1 m{msz} i{imm4}"), enc_ldnt1(msz, imm4), s1));
+                let mut s2 = mem_input(&mut rng);
+                s2.set_preg(0, rng.next() as u16);
+                batch.push((format!("stnt1 m{msz} i{imm4}"), enc_stnt1(msz, imm4), s2));
+            }
+        }
+    }
+    run_batch("sve_ldnt1", batch);
 }
 
 #[test]

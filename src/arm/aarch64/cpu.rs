@@ -7195,6 +7195,54 @@ impl AArch64Cpu {
             return Ok(CpuExit::Continue);
         }
 
+        // LDNT1 (non-temporal contiguous load): 1010010 msz 000 imm4 111 Pg Rn
+        // Zt. The non-temporal hint has no architectural effect, so this is a
+        // packed LD1 (esize=msize, no extension, zeroing inactive).
+        if !is_store && insn >> 25 == 0b1010010 && b15_13 == 0b111 && (insn >> 20) & 0x7 == 0b000 {
+            let esize = 1usize << ((insn >> 23) & 0x3);
+            let elements = 16 / esize;
+            let addr0 = (base as i64 + imm4 * (elements * esize) as i64) as u64;
+            let mut dst = [0u8; 16];
+            for e in 0..elements {
+                if (pred >> (e * esize)) & 1 == 0 {
+                    continue;
+                }
+                let pa = self.translate_address(addr0 + (e * esize) as u64, false, false)?;
+                let val: u64 = match esize {
+                    1 => self.memory.read_u8(pa)? as u64,
+                    2 => self.memory.read_u16(pa)? as u64,
+                    4 => self.memory.read_u32(pa)? as u64,
+                    _ => self.memory.read_u64(pa)?,
+                };
+                write_elem(&mut dst, e * esize, esize, val);
+            }
+            self.v[zt] = u128::from_le_bytes(dst);
+            return Ok(CpuExit::Continue);
+        }
+
+        // STNT1 (non-temporal contiguous store): 1110010 msz 001 imm4 111 Pg Rn
+        // Zt (bits[22:20]==001). A packed ST1.
+        if is_store && insn >> 25 == 0b1110010 && b15_13 == 0b111 && (insn >> 20) & 0x7 == 0b001 {
+            let esize = 1usize << ((insn >> 23) & 0x3);
+            let elements = 16 / esize;
+            let addr0 = (base as i64 + imm4 * (elements * esize) as i64) as u64;
+            let src = self.v[zt].to_le_bytes();
+            for e in 0..elements {
+                if (pred >> (e * esize)) & 1 == 0 {
+                    continue;
+                }
+                let pa = self.translate_address(addr0 + (e * esize) as u64, true, false)?;
+                let val = read_elem(&src, e * esize, esize);
+                match esize {
+                    1 => self.memory.write_u8(pa, val as u8)?,
+                    2 => self.memory.write_u16(pa, val as u16)?,
+                    4 => self.memory.write_u32(pa, val as u32)?,
+                    _ => self.memory.write_u64(pa, val)?,
+                }
+            }
+            return Ok(CpuExit::Continue);
+        }
+
         // LD2/LD3/LD4 (contiguous, de-interleaving): 1010010 msz opc 0 imm4 111
         // Pg Rn Zt. opc=bits[22:21] in {01,10,11} -> nreg in {2,3,4}. Reads
         // nreg*elements consecutive structures and de-interleaves them so that
