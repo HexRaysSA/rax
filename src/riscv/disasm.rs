@@ -349,6 +349,14 @@ impl Op {
             Vmfle => "vmfle",
             Vmfgt => "vmfgt",
             Vmfge => "vmfge",
+            Vfmacc => "vfmacc",
+            Vfnmacc => "vfnmacc",
+            Vfmsac => "vfmsac",
+            Vfnmsac => "vfnmsac",
+            Vfmadd => "vfmadd",
+            Vfnmadd => "vfnmadd",
+            Vfmsub => "vfmsub",
+            Vfnmsub => "vfnmsub",
             Illegal => "illegal",
         }
     }

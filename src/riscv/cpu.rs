@@ -738,9 +738,9 @@ impl RiscVCpu {
             | Op::Vmulhsu | Op::Vdivu | Op::Vdiv | Op::Vremu | Op::Vrem | Op::Vfadd
             | Op::Vfsub | Op::Vfrsub | Op::Vfmul | Op::Vfdiv | Op::Vfrdiv | Op::Vfsqrt
             | Op::Vfmin | Op::Vfmax | Op::Vfsgnj | Op::Vfsgnjn | Op::Vfsgnjx | Op::Vmfeq
-            | Op::Vmfne | Op::Vmflt | Op::Vmfle | Op::Vmfgt | Op::Vmfge => {
-                self.exec_vector(insn)?
-            }
+            | Op::Vmfne | Op::Vmflt | Op::Vmfle | Op::Vmfgt | Op::Vmfge | Op::Vfmacc
+            | Op::Vfnmacc | Op::Vfmsac | Op::Vfnmsac | Op::Vfmadd | Op::Vfnmadd | Op::Vfmsub
+            | Op::Vfnmsub => self.exec_vector(insn)?,
 
             Op::Illegal => return Err(Trap::illegal(insn.raw)),
 
@@ -1486,6 +1486,30 @@ impl RiscVCpu {
                         let b = if is_vv { self.velem(insn.rs1, e, eb) } else { scalar };
                         vfp_bin(insn.op, eb, a, b, rm, &mut flags)
                     };
+                    self.set_velem(vd, e, eb, r & mask);
+                }
+                self.accrue(flags);
+            }
+            Op::Vfmacc | Op::Vfnmacc | Op::Vfmsac | Op::Vfnmsac | Op::Vfmadd | Op::Vfnmadd
+            | Op::Vfmsub | Op::Vfnmsub => {
+                let eb = self.sew_bytes();
+                let mask = Self::sew_mask(eb);
+                let rm = RoundingMode::from_bits(self.frm()).unwrap_or(RoundingMode::Rne);
+                let is_vv = insn.funct3 == 0b001;
+                let scalar = match eb {
+                    2 => self.h(insn.rs1),
+                    4 => self.s32(insn.rs1),
+                    _ => self.f(insn.rs1),
+                };
+                let mut flags = 0u32;
+                for e in vstart..vl {
+                    if !vm && !self.vmask_bit(e) {
+                        continue;
+                    }
+                    let src = if is_vv { self.velem(insn.rs1, e, eb) } else { scalar };
+                    let vs2e = self.velem(vs2, e, eb);
+                    let vde = self.velem(vd, e, eb);
+                    let r = vfp_fma(insn.op, eb, src, vs2e, vde, rm, &mut flags);
                     self.set_velem(vd, e, eb, r & mask);
                 }
                 self.accrue(flags);
@@ -2384,6 +2408,35 @@ fn vfp_bin(op: Op, eb: usize, a: u64, b: u64, rm: RoundingMode, flags: &mut u32)
         }
         _ => unreachable!(),
     }
+}
+
+/// Per-element vector fused multiply-add. `src` is vs1[i] (vv) or the f[rs1]
+/// scalar (vf); the multiplicand/addend roles of vs2/vd and the product/sum
+/// signs follow the eight macc/madd variants.
+fn vfp_fma(
+    op: Op,
+    eb: usize,
+    src: u64,
+    vs2: u64,
+    vd: u64,
+    rm: RoundingMode,
+    flags: &mut u32,
+) -> u64 {
+    let neg = |x: u64| x ^ (1u64 << (eb * 8 - 1));
+    let (a, b, c) = match op {
+        // accumulator forms: product = src * vs2, addend = vd
+        Op::Vfmacc => (src, vs2, vd),
+        Op::Vfnmacc => (neg(src), vs2, neg(vd)),
+        Op::Vfmsac => (src, vs2, neg(vd)),
+        Op::Vfnmsac => (neg(src), vs2, vd),
+        // multiplicand forms: product = src * vd, addend = vs2
+        Op::Vfmadd => (src, vd, vs2),
+        Op::Vfnmadd => (neg(src), vd, neg(vs2)),
+        Op::Vfmsub => (src, vd, neg(vs2)),
+        Op::Vfnmsub => (neg(src), vd, vs2),
+        _ => unreachable!(),
+    };
+    super::float::sf_fma(fmt_eb(eb), a, b, c, rm, flags)
 }
 
 /// Per-element vector floating-point compare; returns the mask bit.
