@@ -1713,6 +1713,13 @@ fn enc_sve2_fmlal_idx(sub: u32, top: u32, index: u32, zm: u32) -> u32 {
         | RD
 }
 
+/// SVE2 predicated integer ALU: `01000100 size opc6 op3 Pg Zm Zdn`. opc6=bits
+/// [21:16], op3=bits[15:13] (100 binary, 101 unary). Pg=p0, Zm/Zn=z1(RN),
+/// Zdn/Zd=z0(RD).
+fn enc_sve2_pred_alu(size: u32, opc6: u32, op3: u32) -> u32 {
+    (0x44 << 24) | (size << 22) | (opc6 << 16) | (op3 << 13) | (RN << 5) | RD
+}
+
 /// SVE2 CMLA by indexed element: `0100 0100 size 1 <idx:Zm> 0110 rot Zn Zda`.
 /// size 2=.h,3=.s; .h: index=bits[20:19] Zm=bits[18:16]; .s: index=bit20
 /// Zm=bits[19:16]. rot=bits[11:10]. Zn=z1(RN), Zda=z0(RD).
@@ -3104,6 +3111,47 @@ fn diff_sve2_fmlal_indexed() {
         }
     }
     run_batch("sve2_fmlal_indexed", batch);
+}
+
+#[test]
+fn diff_sve2_pred_alu() {
+    // SVE2 predicated shifts/halving/saturating add-sub and SQABS/SQNEG. Random
+    // operands give full-range (large/negative) shift amounts and saturation
+    // edges; the predicate is random (merging).
+    let ops: [(u32, &str); 28] = [
+        (0b000010, "srshl"), (0b000011, "urshl"), (0b000110, "srshlr"), (0b000111, "urshlr"),
+        (0b001000, "sqshl"), (0b001001, "uqshl"), (0b001100, "sqshlr"), (0b001101, "uqshlr"),
+        (0b001010, "sqrshl"), (0b001011, "uqrshl"), (0b001110, "sqrshlr"), (0b001111, "uqrshlr"),
+        (0b010000, "shadd"), (0b010001, "uhadd"), (0b010010, "shsub"), (0b010011, "uhsub"),
+        (0b010100, "srhadd"), (0b010101, "urhadd"), (0b010110, "shsubr"), (0b010111, "uhsubr"),
+        (0b011000, "sqadd"), (0b011001, "uqadd"), (0b011010, "sqsub"), (0b011011, "uqsub"),
+        (0b011100, "suqadd"), (0b011101, "usqadd"), (0b011110, "sqsubr"), (0b011111, "uqsubr"),
+    ];
+    let mut rng = Rng::new(0x7_f001);
+    let mut batch: Vec<(String, u32, ArmState)> = Vec::new();
+    for size in 0..4u32 {
+        for &(opc6, name) in &ops {
+            let insn = enc_sve2_pred_alu(size, opc6, 0b100);
+            for _ in 0..6 {
+                let mut st = ArmState::zeroed();
+                st.set_vreg(0, rng.next(), rng.next()); // Zdn
+                st.set_vreg(1, rng.next(), rng.next()); // Zm
+                st.set_preg(0, rng.next() as u16);
+                batch.push((format!("{name} s{size}"), insn, st));
+            }
+        }
+        for &(opc6, name) in &[(0b001000u32, "sqabs"), (0b001001, "sqneg")] {
+            let insn = enc_sve2_pred_alu(size, opc6, 0b101);
+            for _ in 0..8 {
+                let mut st = ArmState::zeroed();
+                st.set_vreg(1, rng.next(), rng.next()); // source
+                st.set_vreg(0, rng.next(), rng.next()); // merge target
+                st.set_preg(0, rng.next() as u16);
+                batch.push((format!("{name} s{size}"), insn, st));
+            }
+        }
+    }
+    run_batch("sve2_pred_alu", batch);
 }
 
 #[test]
