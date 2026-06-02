@@ -458,6 +458,11 @@ impl Op {
             VfncvtRodFF => "vfncvt.rod.f.f.w",
             VfncvtRtzXuF => "vfncvt.rtz.xu.f.w",
             VfncvtRtzXF => "vfncvt.rtz.x.f.w",
+            Vfwadd => "vfwadd",
+            Vfwsub => "vfwsub",
+            Vfwmul => "vfwmul",
+            VfwaddW => "vfwadd.w",
+            VfwsubW => "vfwsub.w",
             Illegal => "illegal",
         }
     }

@@ -508,6 +508,12 @@ pub enum Op {
     VfncvtRodFF,
     VfncvtRtzXuF,
     VfncvtRtzXF,
+    // ---- V (widening FP arithmetic) ----
+    Vfwadd,
+    Vfwsub,
+    Vfwmul,
+    VfwaddW,
+    VfwsubW,
     // ---- sentinel ----
     Illegal,
 }
@@ -900,6 +906,12 @@ fn decode_vector(w: u32) -> Insn {
             0b100111 if vf => Op::Vfrsub,
             0b001110 if vf => Op::Vfslide1up,
             0b001111 if vf => Op::Vfslide1down,
+            // Widening FP arithmetic.
+            0b110000 => Op::Vfwadd,
+            0b110010 => Op::Vfwsub,
+            0b110100 => Op::VfwaddW,
+            0b110110 => Op::VfwsubW,
+            0b111000 => Op::Vfwmul,
             0b100100 => Op::Vfmul,
             0b100000 => Op::Vfdiv,
             0b100001 if vf => Op::Vfrdiv,
