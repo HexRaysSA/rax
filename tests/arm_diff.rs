@@ -1549,6 +1549,13 @@ fn enc_sve_logical(opc: u32) -> u32 {
     (0b00000100 << 24) | (opc << 22) | (1 << 21) | (RM << 16) | (0b001100 << 10) | (RN << 5) | RD
 }
 
+/// SVE2 unpredicated multiply: `00000100 size 1 Zm 0110 opc Zn Zd`.
+/// opc (bits[11:10]): 00=MUL, 10=SMULH, 11=UMULH.
+fn enc_sve_mul(sz: u32, opc: u32) -> u32 {
+    (0b00000100 << 24) | (sz << 22) | (1 << 21) | (RM << 16)
+        | (0b0110 << 12) | (opc << 10) | (RN << 5) | RD
+}
+
 /// SVE INDEX variants. base=imm5[9:5] or Xn; step=imm5[20:16] or Xm. Rn=x1, Rm=x2.
 fn enc_index_ii(sz: u32, imm_step: u32, imm_base: u32) -> u32 {
     (0b00000100 << 24) | (sz << 22) | (1 << 21) | ((imm_step & 0x1F) << 16)
@@ -2125,6 +2132,20 @@ fn diff_sve_unpred() {
         cases.push((format!("sve_{name}"), enc_sve_logical(opc)));
     }
     run_family("sve_unpred", cases, 16, 0x1_001F);
+}
+
+#[test]
+fn diff_sve_mul() {
+    // SVE2 unpredicated MUL/SMULH/UMULH. SMULH/UMULH return the high half of
+    // the double-width product; MUL returns the low half. Element-wise, so the
+    // low 128 bits match at any VL (oracle pins VL=128).
+    let mut cases: Vec<(String, u32)> = Vec::new();
+    for sz in 0..4u32 {
+        cases.push((format!("sve_mul sz{sz}"), enc_sve_mul(sz, 0b00)));
+        cases.push((format!("sve_smulh sz{sz}"), enc_sve_mul(sz, 0b10)));
+        cases.push((format!("sve_umulh sz{sz}"), enc_sve_mul(sz, 0b11)));
+    }
+    run_family("sve_mul", cases, 16, 0x2_4001);
 }
 
 /// A finite bf16 value with a moderate exponent (so f64 dot-product sums stay

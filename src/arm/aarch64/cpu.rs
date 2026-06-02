@@ -4793,6 +4793,37 @@ impl AArch64Cpu {
                 self.exec_sve_logical_unpred(insn, zd, zn, zm)
             }
 
+            // SVE2 unpredicated multiply: 0x04, bit21==1, bits[15:12]==0110,
+            // bits[11:10] opc (00=MUL, 10=SMULH, 11=UMULH). The 0x05 sibling of
+            // bits[15:12]==0110 is ZIP/UZP/TRN, so this MUST gate on the op byte.
+            0b000
+                if (insn >> 24) & 0xFF == 0b00000100
+                    && (insn >> 21) & 1 == 1
+                    && (insn >> 12) & 0xF == 0b0110
+                    && (insn >> 10) & 0x3 != 0b01 =>
+            {
+                let opc = (insn >> 10) & 0x3;
+                let bits = (esize * 8) as u32;
+                let mask = elem_mask(bits);
+                let elements = 16 / esize;
+                let a = self.v[zn].to_le_bytes();
+                let b = self.v[zm].to_le_bytes();
+                let mut dst = [0u8; 16];
+                for e in 0..elements {
+                    let off = e * esize;
+                    let x = read_elem(&a, off, esize);
+                    let y = read_elem(&b, off, esize);
+                    let r = match opc {
+                        0b00 => x.wrapping_mul(y) & mask,
+                        0b10 => ((sext_elem(x, bits) * sext_elem(y, bits)) >> bits) as u64 & mask,
+                        _ => ((uext_elem(x, bits) * uext_elem(y, bits)) >> bits) as u64 & mask,
+                    };
+                    write_elem(&mut dst, off, esize, r);
+                }
+                self.v[zd] = u128::from_le_bytes(dst);
+                Ok(CpuExit::Continue)
+            }
+
             // INDEX (immediate/scalar variants): bit21==1, bits[15:13]==010.
             0b000 if (insn >> 21) & 1 == 1 && (insn >> 13) & 0x7 == 0b010 => {
                 self.exec_sve_index(insn, zd, esize)
