@@ -7,9 +7,10 @@ against a reference that cannot be argued with: real silicon (KVM) for x86-64, a
 <br/>
 The x86-64 core is a complete machine. It boots a real Linux kernel two ways: through hardware<br/>
 virtualization (KVM on Linux, Hypervisor.framework on macOS) at near-native speed, or through a<br/>
-from-scratch interpreter you can trace, single-step, snapshot, and profile. It covers the ISA out to<br/>
-AVX-512, AVX10.2, and Intel APX, and behind it sits SMIR, a shared multi-architecture IR whose<br/>
-working hot-block JIT lifts hot x86-64 loops to native code at ~80× the interpreter.<br/>
+from-scratch interpreter that traces, single-steps, snapshots, and profiles every instruction it<br/>
+runs, and now boots all the way to a BusyBox shell. It covers the ISA out to AVX-512, AVX10.2, and<br/>
+Intel APX, and behind it sits SMIR, a shared multi-architecture IR whose hot-block JIT lifts hot<br/>
+x86-64 loops to native code at ~80× the interpreter.<br/>
 <br/>
 Three more software CPUs run alongside: a fully oracle-verified Hexagon (every opcode, scalar + HVX),<br/>
 an AArch64 with complete SVE, and a correctly-rounded RV64GC. RISC-V and Hexagon are bootable<br/>
@@ -30,14 +31,15 @@ cargo build --release
 # 1. Boot a real Linux kernel on hardware virtualization (Linux + KVM).
 ./target/release/rax --kernel bzImage --initrd initrd.img
 
-# 2. Boot the same kernel on the software CPU. Slower, but every instruction is yours.
-./target/release/rax --backend emulator --kernel bzImage --initrd initrd.img
+# 2. Boot it on the software CPU instead: slower, but every instruction is yours, and it
+#    now runs all the way to a BusyBox shell. (Use an ELF vmlinux; bzImage real-mode boot is WIP.)
+./target/release/rax --backend emulator --kernel vmlinux --initrd initrd.cpio
 
 # 3. ...and trace every instruction the kernel executes, SDE-compatible.
-./target/release/rax --backend emulator --kernel bzImage --trace boot.trace
+./target/release/rax --backend emulator --kernel vmlinux --trace boot.trace
 
 # 4. ...turn on the native JIT for hot loops (~80× on register-heavy code).
-cargo run --release --features smir-jit -- --backend emulator --kernel bzImage
+cargo run --release --features smir-jit -- --backend emulator --kernel vmlinux
 ```
 
 RISC-V and Hexagon are bootable emulator backends too (bare-metal programs, UART + halt):
@@ -113,7 +115,7 @@ SDE-compatible trace file: instruction, register changes, and (when they happen)
 and XMM updates, which you can diff against Intel's own Software Development Emulator:
 
 ```text
-$ ./target/release/rax --backend emulator --kernel bzImage --trace boot.trace
+$ ./target/release/rax --backend emulator --kernel vmlinux --trace boot.trace
 ...
 $ head -4 boot.trace
 INS 0x00000000010000f0   xor eax, eax                                       | eax=0x00000000
@@ -215,6 +217,8 @@ fields and driven with many pseudo-random states, so a single `#[test]` function
 | `tests/hexagon_*_diff.rs` | Hexagon (scalar / cf / float / mem / HVX / HVX-mem) | `qemu-hexagon` | 134 | GPRs, P3:0, USR, loop regs, V0-V31, Q0-Q3 |
 | `tests/riscv_diff.rs` | RV64GC | `qemu-riscv64` | 29 | x1-x31, f0-f31, fcsr, scratch |
 | `tests/diff_fuzz.rs` | SMIR (lift → interp / native) | KVM | 35 | guest state after lift+run |
+| `tests/riscv_smir_lift.rs` | RISC-V → SMIR lift | rax RISC-V interp | 5 | x/f/fcsr (~150k insns, 0 divergence) |
+| `tests/hexagon_smir_lift.rs` | Hexagon → SMIR lift | rax Hexagon interp | 88 | R/P/USR/V/Q (scalar + ~260 HVX ops) |
 | `tests/smir_jit_vcpu.rs` | SMIR JIT in the real vcpu | interpreter | 7 | register-for-register + throughput |
 
 > **Good to know** Those `#[test]` counts understate the work by orders of magnitude. Each function
@@ -230,8 +234,8 @@ On top of the oracles, there are exhaustive unit suites:
 |-------|------:|-----|
 | **ARM (ASL-generated)** | 92,131 | generated from ARM's official machine-readable **ASL** spec via `tools/asl-parser/` |
 | **x86-64 instruction suite** | 28,554 | `tests/x86_64/` (850 files), behind `--features x86_64-suite` |
-| **Everything else** | ~1,000 | oracle harnesses, Hexagon bare-metal, RISC-V boot, crypto known-answer (FIPS/SDM), SMIR |
-| **Total** | **121,734** | `#[test]` functions across `tests/` |
+| **Everything else** | ~1,200 | oracle + SMIR-lift harnesses, Hexagon bare-metal, RISC-V boot, crypto known-answer (FIPS/SDM) |
+| **Total** | **121,927** | `#[test]` functions across `tests/` |
 
 The ARM tests are not written by hand: the `asl-parser` downloads and parses ARM's ASL release and emits
 exhaustive instruction tests from it, which is how 92,000+ ARM cases exist at all.
@@ -285,6 +289,11 @@ frontier-less spin loop is refused so native code can't trap the vcpu.
 > or off, because every region it can't prove correct degrades gracefully to the interpreter. What
 > remains for a *general* JIT is memory-operand blocks (guest RAM mapped at host addresses), the
 > double-width DIV model, and native block-to-block chaining.
+
+> **Good to know** The lifters are checked too, not just the JIT's native output. `tests/riscv_smir_lift.rs`
+> and `tests/hexagon_smir_lift.rs` lift each instruction to SMIR, interpret it, and diff against that
+> architecture's own qemu-verified interpreter: RISC-V lifts the integer RV64GC set at zero divergence over
+> ~150k instructions, and Hexagon lifts its scalar core plus ~260 HVX opcodes.
 
 ---
 
@@ -385,8 +394,8 @@ Because the interpreter owns the step loop, the introspection tools see the real
 # config.toml
 backend = "emulator"
 memory  = "512M"
-kernel  = "/path/to/bzImage"
-initrd  = "/path/to/initrd.img"
+kernel  = "/path/to/vmlinux"
+initrd  = "/path/to/initrd.cpio"
 cmdline = "console=ttyS0 earlyprintk=serial"
 ```
 
@@ -473,11 +482,11 @@ docs/specifications/# smir/ (the IR spec) · riscv/ (vendored RISC-V specs) · a
 | Path | State |
 |------|-------|
 | **x86-64 (KVM/HVF)** | Boots Linux to an interactive shell |
-| **x86-64 (software)** | Full modern ISA; 463 differential cases vs. KVM; native JIT (`smir-jit`) at ~80× on hot loops |
+| **x86-64 (software)** | Boots Linux to a BusyBox shell; full modern ISA; 463 differential cases vs. KVM; native JIT (`smir-jit`) at ~80× on hot loops |
 | **Hexagon** | **Every opcode** (scalar + HVX) verified vs. qemu-hexagon; bootable bare-metal backend |
 | **RISC-V** | Full RVA23 scalar set + crypto; bootable `--arch riscv64` backend; verified vs. qemu-riscv64 |
 | **AArch64 / ARM** | Complete SVE + broad SVE2 + NEON + Cortex-M; ~92k ASL tests; not yet a runnable backend |
-| **SMIR JIT** | Integrated + auto-triggered + fail-safe; register-only hot loops native, bit-exact vs. KVM |
+| **SMIR** | JIT integrated, auto-triggered, fail-safe (register-only hot loops native, bit-exact vs. KVM); lifters verified for x86-64 / RISC-V / Hexagon |
 
 ### What's missing
 
@@ -485,9 +494,9 @@ A production hypervisor this is not, by design. Only x86-64 boots a general-purp
 validated but not yet wired as a backend, and the larger device controllers aren't attached to the
 default machine. There is no SMP (one vCPU executes). The JIT covers register-only hot loops; memory
 blocks, double-width DIV, and block chaining are future work. RISC-V lacks the RVV vector data path and a
-privileged/Sv39 MMU. And the **software** full Linux boot is still being chased: with mitigation
-work-arounds on the cmdline it reaches clocksource calibration before spinning on a bug in rax's
-emulation of the kernel's alternatives/relocation patching; the KVM path boots cleanly throughout.
+privileged/Sv39 MMU. The **software** Linux boot now reaches a BusyBox shell on a mitigations-off ELF kernel; wider
+configurations (CFI/FineIBT, bzImage real-mode entry, fuller device probing) are still being worked
+through, and the KVM path boots cleanly throughout.
 
 ---
 
