@@ -1669,6 +1669,26 @@ fn enc_sve2_fmlal(sub: u32, top: u32) -> u32 {
         | RD
 }
 
+/// SVE2 XAR (exclusive-or and rotate right by imm): `00000100 tszh 1 tszl imm3
+/// 001101 Zm Zdn`. size_log 0=.b..3=.d; amount in 1..=esize_bits. Zm=z1(RN),
+/// Zdn=z0(RD).
+fn enc_sve2_xar(size_log: u32, amount: u32) -> u32 {
+    let bits = 8u32 << size_log;
+    let tszimm = 2 * bits - amount;
+    let tsz = tszimm >> 3;
+    let imm3 = tszimm & 7;
+    (0x04 << 24) | ((tsz >> 2) << 22) | (1 << 21) | ((tsz & 3) << 19) | (imm3 << 16)
+        | (0b001101 << 10)
+        | (RN << 5)
+        | RD
+}
+
+/// SVE FCVTX (double->single, round-to-odd, predicated): `01100101 00 0010 10
+/// 101 Pg Zn Zd`. Pg=p0, Zn=z1(RN), Zd=z0(RD).
+fn enc_sve_fcvtx() -> u32 {
+    (0x65 << 24) | (0b0010 << 18) | (0b10 << 16) | (0b101 << 13) | (RN << 5) | RD
+}
+
 /// SVE2 ADCLB/ADCLT/SBCLB/SBCLT: `0100 0101 inv size 0 Zm 11010 T Zn Zda`.
 /// inv=bit23 (0=ADC,1=SBC); d_form=bit22 (0=.s,1=.d); T=bit10.
 fn enc_sve2_adcl(inv: u32, d_form: u32, top: u32) -> u32 {
@@ -2882,6 +2902,47 @@ fn diff_sve2_fmlal() {
         }
     }
     run_batch("sve2_fmlal", batch);
+}
+
+#[test]
+fn diff_sve2_xar() {
+    // XAR rotates (Zdn ^ Zm) right by an immediate, per element. Test every size
+    // and a spread of rotate amounts including the full-width (identity) case.
+    let mut rng = Rng::new(0x6_f001);
+    let mut batch: Vec<(String, u32, ArmState)> = Vec::new();
+    for size_log in 0..4u32 {
+        let bits = 8u32 << size_log;
+        for &amount in &[1, 2, bits / 2, bits - 1, bits] {
+            let insn = enc_sve2_xar(size_log, amount);
+            for _ in 0..8 {
+                let mut st = ArmState::zeroed();
+                st.set_vreg(0, rng.next(), rng.next()); // Zdn
+                st.set_vreg(1, rng.next(), rng.next()); // Zm
+                batch.push((format!("xar sl{size_log} a{amount}"), insn, st));
+            }
+        }
+    }
+    run_batch("sve2_xar", batch);
+}
+
+#[test]
+fn diff_sve_fcvtx() {
+    // FCVTX narrows f64 lanes to f32 with round-to-odd, merging under Pg.
+    let insn = enc_sve_fcvtx();
+    let mut rng = Rng::new(0x7_0001);
+    let mut batch: Vec<(String, u32, ArmState)> = Vec::new();
+    for _ in 0..40 {
+        let mut zn = 0u128;
+        for l in 0..2 {
+            zn |= (finite_fp_bits(&mut rng, 8) as u128) << (l * 64);
+        }
+        let mut st = ArmState::zeroed();
+        st.set_vreg(1, zn as u64, (zn >> 64) as u64);
+        st.set_vreg(0, rng.next(), rng.next()); // merge target
+        st.set_preg(0, rng.next() as u16);
+        batch.push(("fcvtx".to_string(), insn, st));
+    }
+    run_batch("sve_fcvtx", batch);
 }
 
 #[test]

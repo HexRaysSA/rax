@@ -4912,6 +4912,49 @@ impl AArch64Cpu {
                 Ok(CpuExit::Continue)
             }
 
+            // SVE2 XAR (exclusive-or and rotate right by immediate): 0x04,
+            // bit21==1, bits[15:10]==001101. Zdn=bits[4:0], Zm=bits[9:5]; the
+            // tsz:imm3 field gives the element size and rotate amount (1..bits).
+            // Destructive: Zdn = ROR(Zdn ^ Zm, amount) per element.
+            0b000
+                if (insn >> 24) & 0xFF == 0b00000100
+                    && (insn >> 21) & 1 == 1
+                    && (insn >> 10) & 0x3F == 0b001101 =>
+            {
+                let tsz = (((insn >> 22) & 0x3) << 2) | ((insn >> 19) & 0x3);
+                if tsz == 0 {
+                    return Ok(CpuExit::Undefined(insn));
+                }
+                let bits: u32 = if tsz & 0b1000 != 0 {
+                    64
+                } else if tsz & 0b0100 != 0 {
+                    32
+                } else if tsz & 0b0010 != 0 {
+                    16
+                } else {
+                    8
+                };
+                let esize = (bits / 8) as usize;
+                let tszimm = (tsz << 3) | ((insn >> 16) & 0x7);
+                let amount = (2 * bits - tszimm) % bits; // 1..bits, bits == identity
+                let a = self.v[zd].to_le_bytes();
+                let b = self.v[zn].to_le_bytes();
+                let mask = elem_mask(bits);
+                let mut dst = [0u8; 16];
+                for e in 0..(16 / esize) {
+                    let off = e * esize;
+                    let x = (read_elem(&a, off, esize) ^ read_elem(&b, off, esize)) & mask;
+                    let r = if amount == 0 {
+                        x
+                    } else {
+                        ((x >> amount) | (x << (bits - amount))) & mask
+                    };
+                    write_elem(&mut dst, off, esize, r);
+                }
+                self.v[zd] = u128::from_le_bytes(dst);
+                Ok(CpuExit::Continue)
+            }
+
             // SVE2 SQDMULH/SQRDMULH (unpredicated saturating doubling multiply
             // high): 0x04, bit21==1, bits[15:11]==01110. R=bit10 adds rounding.
             0b000
@@ -8050,13 +8093,16 @@ impl AArch64Cpu {
     ) -> Result<CpuExit, ArmError> {
         let opc = (insn >> 22) & 0x3;
         let opc2 = (insn >> 16) & 0x3;
-        let (src_sz, dst_sz): (usize, usize) = match (opc, opc2) {
-            (0b10, 0b01) => (2, 4), // half   -> single
-            (0b11, 0b01) => (2, 8), // half   -> double
-            (0b10, 0b00) => (4, 2), // single -> half
-            (0b11, 0b11) => (4, 8), // single -> double
-            (0b11, 0b00) => (8, 2), // double -> half
-            (0b11, 0b10) => (8, 4), // double -> single
+        // round_odd marks FCVTX (double->single, round-to-odd) which shares the
+        // (8,4) widths with regular FCVT double->single but uses RO rounding.
+        let (src_sz, dst_sz, round_odd): (usize, usize, bool) = match (opc, opc2) {
+            (0b10, 0b01) => (2, 4, false), // half   -> single
+            (0b11, 0b01) => (2, 8, false), // half   -> double
+            (0b10, 0b00) => (4, 2, false), // single -> half
+            (0b11, 0b11) => (4, 8, false), // single -> double
+            (0b11, 0b00) => (8, 2, false), // double -> half
+            (0b11, 0b10) => (8, 4, false), // double -> single
+            (0b00, 0b10) => (8, 4, true),  // FCVTX  double -> single (round-to-odd)
             _ => return Ok(CpuExit::Undefined(insn)),
         };
         let cont = src_sz.max(dst_sz);
@@ -8076,6 +8122,7 @@ impl AArch64Cpu {
                 (4, 2) => Self::f32_to_fp16(f32::from_bits(x as u32)) as u64,
                 (4, 8) => (f32::from_bits(x as u32) as f64).to_bits(),
                 (8, 2) => fp16_round(f64::from_bits(x)) as u64,
+                _ if round_odd => round_odd_f64_to_f32(f64::from_bits(x)) as u64, // FCVTX
                 _ => (f64::from_bits(x) as f32).to_bits() as u64, // double -> single
             };
             write_elem(&mut dst, off, cont, res);
