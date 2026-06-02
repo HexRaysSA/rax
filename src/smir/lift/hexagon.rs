@@ -2946,6 +2946,189 @@ impl HexagonLifter {
                 });
             }
 
+            // ============================================================
+            // Wave 5: widen-extend pairs, vcombine, vector arithmetic
+            // right-shift by scalar, and vector-by-scalar widening multiplies.
+            // ============================================================
+            //
+            // ---- widen-extend a single vector into a register PAIR ----------
+            // `OpKind::VWidenExt` zero/sign-extends each narrow lane to double
+            // width into the pair (dst_lo = V[base], dst_hi = V[base+1]). The
+            // INTERLEAVED forms (vzxt/vsxt: vzb/vsb/vzh/vsh) route even narrow
+            // lanes -> dst_lo and odd -> dst_hi, exactly matching the sem's
+            // `set_h(lo, i, byte 2i)` / `set_h(hi, i, byte 2i+1)` interleave.
+            // The SEQUENTIAL forms (vunpack) route the low half of the narrow
+            // lanes -> dst_lo and the high half -> dst_hi, matching the sem's
+            // `i<64 -> lo[i]` / `i>=64 -> hi[i-64]` split. src = V[fld('u')].
+            // signed = sign-extend (vsxt/vunpackb/vunpackh) vs zero (vzxt/...ub).
+            Opcode::V6_vzb => push_op!(OpKind::VWidenExt {
+                dst_lo: self.hex_v(rd_n),
+                dst_hi: self.hex_v(rd_n + 1),
+                src: self.hex_v(fld(b'u')),
+                src_elem: VecElementType::I8,
+                signed: false,
+                interleave: true,
+            }),
+            Opcode::V6_vsb => push_op!(OpKind::VWidenExt {
+                dst_lo: self.hex_v(rd_n),
+                dst_hi: self.hex_v(rd_n + 1),
+                src: self.hex_v(fld(b'u')),
+                src_elem: VecElementType::I8,
+                signed: true,
+                interleave: true,
+            }),
+            Opcode::V6_vzh => push_op!(OpKind::VWidenExt {
+                dst_lo: self.hex_v(rd_n),
+                dst_hi: self.hex_v(rd_n + 1),
+                src: self.hex_v(fld(b'u')),
+                src_elem: VecElementType::I16,
+                signed: false,
+                interleave: true,
+            }),
+            Opcode::V6_vsh => push_op!(OpKind::VWidenExt {
+                dst_lo: self.hex_v(rd_n),
+                dst_hi: self.hex_v(rd_n + 1),
+                src: self.hex_v(fld(b'u')),
+                src_elem: VecElementType::I16,
+                signed: true,
+                interleave: true,
+            }),
+            Opcode::V6_vunpackub => push_op!(OpKind::VWidenExt {
+                dst_lo: self.hex_v(rd_n),
+                dst_hi: self.hex_v(rd_n + 1),
+                src: self.hex_v(fld(b'u')),
+                src_elem: VecElementType::I8,
+                signed: false,
+                interleave: false,
+            }),
+            Opcode::V6_vunpackb => push_op!(OpKind::VWidenExt {
+                dst_lo: self.hex_v(rd_n),
+                dst_hi: self.hex_v(rd_n + 1),
+                src: self.hex_v(fld(b'u')),
+                src_elem: VecElementType::I8,
+                signed: true,
+                interleave: false,
+            }),
+            Opcode::V6_vunpackuh => push_op!(OpKind::VWidenExt {
+                dst_lo: self.hex_v(rd_n),
+                dst_hi: self.hex_v(rd_n + 1),
+                src: self.hex_v(fld(b'u')),
+                src_elem: VecElementType::I16,
+                signed: false,
+                interleave: false,
+            }),
+            Opcode::V6_vunpackh => push_op!(OpKind::VWidenExt {
+                dst_lo: self.hex_v(rd_n),
+                dst_hi: self.hex_v(rd_n + 1),
+                src: self.hex_v(fld(b'u')),
+                src_elem: VecElementType::I16,
+                signed: true,
+                interleave: false,
+            }),
+
+            // ---- vcombine: Vdd = vcombine(Vu, Vv) ---------------------------
+            // sem (hvx_perm.rs): set_v(rd, Vv) [low := Vv], set_v(rd+1, Vu)
+            // [high := Vu]. Emit two full-vector copies in that exact mapping.
+            Opcode::V6_vcombine => {
+                push_op!(OpKind::VMov {
+                    dst: self.hex_v(rd_n),
+                    src: self.hex_v(fld(b'v')),
+                    width: VecWidth::V512,
+                });
+                push_op!(OpKind::VMov {
+                    dst: self.hex_v(rd_n + 1),
+                    src: self.hex_v(fld(b'u')),
+                    width: VecWidth::V512,
+                });
+            }
+
+            // ---- vector arithmetic right shift by scalar Rt -----------------
+            // sem (hvx_shift.rs): vasrh = map_h(|x| ((x as i16) >> (rt & 15)));
+            // vasrw = map_w(|x| ((x as i32) >> (rt & 31))). `VShift` Asr now
+            // sign-extends each lane to i64 before the arithmetic shift and
+            // computes `amt % elem_bits` (== rt & (elem_bits-1)), so it is
+            // bit-exact with the sem per-lane signed right shift.
+            Opcode::V6_vasrh => push_op!(OpKind::VShift {
+                dst: self.hex_v(fld(b'd')),
+                src: self.hex_v(fld(b'u')),
+                amount: SrcOperand::Reg(self.hex_reg(fld(b't'))),
+                shift: ShiftOp::Asr,
+                elem: VecElementType::I16,
+                lanes: 64,
+            }),
+            Opcode::V6_vasrw => push_op!(OpKind::VShift {
+                dst: self.hex_v(fld(b'd')),
+                src: self.hex_v(fld(b'u')),
+                amount: SrcOperand::Reg(self.hex_reg(fld(b't'))),
+                shift: ShiftOp::Asr,
+                elem: VecElementType::I32,
+                lanes: 32,
+            }),
+
+            // ---- vector-by-SCALAR widening multiplies -> register PAIR ------
+            // sem (hvx_mpyv.rs): per output lane i, even uses Rt sub-element
+            // [(2i)%4 byte | half 0], odd uses Rt sub-element [(2i+1)%4 byte |
+            // half 1]. COMPOSE: broadcast Rt as I32 word lanes into a temp t
+            // (so t.byte[n]=Rt.byte[n%4], t.half[n]=Rt.half[n%2]) then run a
+            // VWidenMul of Vu against t. VWidenMul reads t at even=2i / odd=2i+1
+            // lane indices, i.e. t.byte[2i]=Rt.byte[(2i)%4], t.byte[2i+1]=
+            // Rt.byte[(2i+1)%4] (byte forms) and t.half[2i]=Rt.half[0],
+            // t.half[2i+1]=Rt.half[1] (half forms) — the exact sem sub-element
+            // reuse. dst base = fld('d') (plain) / fld('x') (_acc); the _acc
+            // form reads+rewrites the pair (VWidenMul `acc:true`). Output lanes
+            // wrap via `as u16`/`as u32`, matching VWidenMul's masked store.
+            //   vmpybus  ub*Rt.b  -> h pair   signed1=false signed2=true
+            //   vmpyub   ub*Rt.ub -> uh pair  signed1=false signed2=false
+            //   vmpyh    h *Rt.h  -> w pair   signed1=true  signed2=true
+            //   vmpyuh   uh*Rt.uh -> uw pair  signed1=false signed2=false
+            Opcode::V6_vmpybus
+            | Opcode::V6_vmpybus_acc
+            | Opcode::V6_vmpyub
+            | Opcode::V6_vmpyub_acc
+            | Opcode::V6_vmpyh
+            | Opcode::V6_vmpyh_acc
+            | Opcode::V6_vmpyuh
+            | Opcode::V6_vmpyuh_acc => {
+                let acc = matches!(
+                    op,
+                    Opcode::V6_vmpybus_acc
+                        | Opcode::V6_vmpyub_acc
+                        | Opcode::V6_vmpyh_acc
+                        | Opcode::V6_vmpyuh_acc
+                );
+                let (src_elem, signed1, signed2) = match op {
+                    Opcode::V6_vmpybus | Opcode::V6_vmpybus_acc => {
+                        (VecElementType::I8, false, true)
+                    }
+                    Opcode::V6_vmpyub | Opcode::V6_vmpyub_acc => {
+                        (VecElementType::I8, false, false)
+                    }
+                    Opcode::V6_vmpyh | Opcode::V6_vmpyh_acc => {
+                        (VecElementType::I16, true, true)
+                    }
+                    // vmpyuh
+                    _ => (VecElementType::I16, false, false),
+                };
+                let base = if acc { rx_n } else { rd_n };
+                let t = ctx.alloc_vreg();
+                push_op!(OpKind::VBroadcast {
+                    dst: t,
+                    scalar: self.hex_reg(fld(b't')),
+                    elem: VecElementType::I32,
+                    lanes: 32,
+                });
+                push_op!(OpKind::VWidenMul {
+                    dst_lo: self.hex_v(base),
+                    dst_hi: self.hex_v(base + 1),
+                    src1: self.hex_v(fld(b'u')),
+                    src2: t,
+                    src_elem,
+                    signed1,
+                    signed2,
+                    acc,
+                });
+            }
+
             // Everything else: not implemented here.
             _ => return Err(unsupported()),
         }

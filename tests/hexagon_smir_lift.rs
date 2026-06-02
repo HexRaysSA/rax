@@ -1061,3 +1061,105 @@ fn lift_hvx_vdmpybus_scalar() {
         0x7015,
     );
 }
+
+// ---- Wave 5: widen-extend pairs, vcombine, vector ASR-by-scalar,
+// vector-by-scalar widening multiplies ----
+
+#[test]
+fn lift_hvx_vwiden_ext() {
+    // Interleaved zero/sign extend a vector into a pair (vzxt/vsxt):
+    // vzb/vsb widen byte->half, vzh/vsh widen half->word. Even narrow lanes
+    // -> v[base], odd -> v[base+1] (OpKind::VWidenExt interleave:true).
+    lift_family(
+        "hvx_vwiden_ext",
+        &[
+            ("vzb", "{ v3:2.uh = vzxt(v0.ub) }"),
+            ("vsb", "{ v3:2.h = vsxt(v0.b) }"),
+            ("vzh", "{ v3:2.uw = vzxt(v0.uh) }"),
+            ("vsh", "{ v3:2.w = vsxt(v0.h) }"),
+        ],
+        12,
+        0x7016,
+    );
+}
+
+#[test]
+fn lift_hvx_vunpack() {
+    // Sequential unpack of a vector into a pair (vunpack): the low half of the
+    // narrow lanes -> v[base], the high half -> v[base+1]
+    // (OpKind::VWidenExt interleave:false), zero/sign per u/s.
+    lift_family(
+        "hvx_vunpack",
+        &[
+            ("vunpackub", "{ v3:2.uh = vunpack(v0.ub) }"),
+            ("vunpackb", "{ v3:2.h = vunpack(v0.b) }"),
+            ("vunpackuh", "{ v3:2.uw = vunpack(v0.uh) }"),
+            ("vunpackh", "{ v3:2.w = vunpack(v0.h) }"),
+        ],
+        12,
+        0x7017,
+    );
+}
+
+#[test]
+fn lift_hvx_vcombine() {
+    // Vdd = vcombine(Vu, Vv): register-pair copy with low := Vv, high := Vu.
+    // Emitted as two VMov copies in that mapping.
+    lift_family(
+        "hvx_vcombine",
+        &[("vcombine", "{ v3:2 = vcombine(v1,v0) }")],
+        12,
+        0x7018,
+    );
+}
+
+#[test]
+fn lift_hvx_vasr_scalar() {
+    // Per-lane arithmetic right shift by scalar Rt (vasrh/vasrw).
+    // VShift Asr sign-extends each lane, so this is bit-exact with the sem.
+    lift_family(
+        "hvx_vasr_scalar",
+        &[
+            ("vasrh", "{ v2.h = vasr(v0.h,r3) }"),
+            ("vasrw", "{ v2.w = vasr(v0.w,r3) }"),
+        ],
+        12,
+        0x7019,
+    );
+}
+
+#[test]
+fn lift_hvx_vmpy_scalar_widen() {
+    // Vector-by-SCALAR widening multiply -> register PAIR, composed as
+    // VBroadcast(Rt, I32) + VWidenMul. The I32-broadcast reuses Rt's sub-
+    // elements per lane exactly as the sem (byte[(2i+k)%4], half[k]).
+    lift_family(
+        "hvx_vmpy_scalar_widen",
+        &[
+            ("vmpybus", "{ v3:2.h = vmpy(v0.ub,r3.b) }"),
+            ("vmpyub", "{ v3:2.uh = vmpy(v0.ub,r3.ub) }"),
+            ("vmpyh", "{ v3:2.w = vmpy(v0.h,r3.h) }"),
+            ("vmpyuh", "{ v3:2.uw = vmpy(v0.uh,r3.uh) }"),
+        ],
+        12,
+        0x701a,
+    );
+}
+
+#[test]
+fn lift_hvx_vmpy_scalar_widen_acc() {
+    // Accumulate forms (`Vxx += ...`): read-modify-write of the dst pair
+    // (VWidenMul acc:true). The harness seeds all V registers non-zero so the
+    // read-modify-write path is exercised.
+    lift_family(
+        "hvx_vmpy_scalar_widen_acc",
+        &[
+            ("vmpybus_acc", "{ v3:2.h += vmpy(v0.ub,r3.b) }"),
+            ("vmpyub_acc", "{ v3:2.uh += vmpy(v0.ub,r3.ub) }"),
+            ("vmpyh_acc", "{ v3:2.w += vmpy(v0.h,r3.h) }"),
+            ("vmpyuh_acc", "{ v3:2.uw += vmpy(v0.uh,r3.uh) }"),
+        ],
+        12,
+        0x701b,
+    );
+}
