@@ -4781,6 +4781,25 @@ impl AArch64Cpu {
         let esize = 1usize << size; // 1, 2, 4, or 8 bytes
 
         match op0 {
+            // EXT (destructive): 0x05, bits[23:21]==001, bits[15:13]==000.
+            // Zdn.B = (Zm:Zdn) extracted at byte offset imm8 (imm8h:imm8l).
+            // Must precede the int_unpred arm below (which shares bit21==1 &&
+            // bits[15:13]==000 but does not check the op byte). At VL=128 there
+            // are 16 byte-elements; if imm8>=16 the offset wraps to 0.
+            0b000
+                if (insn >> 24) & 0xFF == 0b00000101
+                    && (insn >> 21) & 0x7 == 0b001
+                    && (insn >> 13) & 0x7 == 0b000 =>
+            {
+                let imm8 = (((insn >> 16) & 0x1F) << 3) | ((insn >> 10) & 0x7);
+                let low = self.v[zd]; // operand1 (Zdn) = low half of concat
+                let high = self.v[zn]; // operand2 (Zm)  = high half of concat
+                let pos = if imm8 >= 16 { 0 } else { imm8 };
+                let s = pos * 8; // byte offset -> bit offset (0..=120)
+                self.v[zd] = if s == 0 { low } else { (low >> s) | (high << (128 - s)) };
+                Ok(CpuExit::Continue)
+            }
+
             // Unpredicated integer add/subtract (ADD/SUB/SQADD/UQADD/SQSUB/
             // UQSUB): bit21==1, bits[15:13]==000. Size is the full bits[23:22],
             // so this must NOT be gated on op1 (which folds size's high bit).

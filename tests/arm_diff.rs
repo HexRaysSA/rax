@@ -1580,6 +1580,14 @@ fn enc_sve_perm(sz: u32, opc: u32) -> u32 {
         | (0b011 << 13) | (opc << 10) | (RN << 5) | RD
 }
 
+/// SVE EXT (destructive): `00000101 001 imm8h 000 imm8l Zm Zdn`. imm8=imm8h:imm8l
+/// is the byte offset into the concatenation Zm:Zdn. Zdn=Z0(RD), Zm=Z1(bits[9:5]).
+fn enc_sve_ext(imm8: u32) -> u32 {
+    let imm8h = (imm8 >> 3) & 0x1F;
+    let imm8l = imm8 & 0x7;
+    (0b00000101 << 24) | (0b001 << 21) | (imm8h << 16) | (imm8l << 10) | (RN << 5) | RD
+}
+
 #[test]
 fn diff_sve_index() {
     let mut cases: Vec<(String, u32)> = Vec::new();
@@ -2113,6 +2121,17 @@ fn diff_sve_perm() {
         }
     }
     run_family("sve_perm", cases, 12, 0x1_0021);
+}
+
+#[test]
+fn diff_sve_ext() {
+    // EXT extracts a VL-wide window from the byte concatenation Zm:Zdn at a
+    // byte offset. imm8>=16 (at VL=128) wraps the offset to 0 (Zdn unchanged).
+    let mut cases: Vec<(String, u32)> = Vec::new();
+    for imm8 in [0u32, 1, 2, 3, 7, 8, 11, 15, 16, 20, 31] {
+        cases.push((format!("sve_ext #{imm8}"), enc_sve_ext(imm8)));
+    }
+    run_family("sve_ext", cases, 16, 0x2_5001);
 }
 
 #[test]
