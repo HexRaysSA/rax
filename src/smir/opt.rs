@@ -1550,7 +1550,8 @@ impl OpKind {
             }
 
             OpKind::VReduceMul { src1, src2, dst, acc, .. }
-            | OpKind::VMulEvenWiden { src1, src2, dst, acc, .. } => {
+            | OpKind::VMulEvenWiden { src1, src2, dst, acc, .. }
+            | OpKind::VMulSubLane { src1, src2, dst, acc, .. } => {
                 result.push(*src1);
                 result.push(*src2);
                 if *acc {

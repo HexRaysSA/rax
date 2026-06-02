@@ -2216,6 +2216,42 @@ impl SmirInterpreter {
                 Self::write_vec(ctx, *dst, result);
             }
 
+            OpKind::VMulSubLane {
+                dst,
+                src1,
+                src2,
+                out_elem,
+                sub_elem,
+                odd,
+                signed1,
+                signed2,
+                acc,
+            } => {
+                let a = Self::read_vec(ctx, *src1);
+                let b = Self::read_vec(ctx, *src2);
+                let obits = out_elem.bytes() * 8;
+                let sbits = sub_elem.bytes() * 8;
+                let olanes = (1024 / obits) as u8;
+                let ratio = (obits / sbits) as u8;
+                let mut out = if *acc { Self::read_vec(ctx, *dst) } else { [0u64; 16] };
+                let exts = |v: u64, bits: u32, signed: bool| -> i64 {
+                    if signed {
+                        let sh = 64 - bits;
+                        ((v << sh) as i64) >> sh
+                    } else {
+                        v as i64
+                    }
+                };
+                for i in 0..olanes {
+                    let s1 = exts(Self::get_lane(&a, i, obits), obits, *signed1);
+                    let sub_idx = i * ratio + if *odd { 1 } else { 0 };
+                    let s2 = exts(Self::get_lane(&b, sub_idx, sbits), sbits, *signed2);
+                    let accv = if *acc { Self::get_lane(&out, i, obits) as i64 } else { 0 };
+                    Self::set_lane(&mut out, i, obits, accv.wrapping_add(s1.wrapping_mul(s2)) as u64);
+                }
+                Self::write_vec(ctx, *dst, out);
+            }
+
             OpKind::VMulEvenWiden {
                 dst,
                 src1,
@@ -3580,6 +3616,28 @@ mod tests {
         if let ArchRegState::Hexagon(hex) = &ctx.arch_regs {
             assert_eq!(hex.get_v(2), [0x0000_0030_0000_0030u64; 16]); // word = 48
         }
+    }
+
+    #[test]
+    fn test_vmulsublane() {
+        // vmpyiewuh-like: Vu.w[i] * Vv.uh[2i] (even halfword), low 32. V0 word=3, V1 even-half=5.
+        // V1 word = 0x0007_0005 (uh[2i]=5 even, uh[2i+1]=7 odd) -> even pick 5 -> 3*5=15.
+        let v0 = [0x0000_0003_0000_0003u64; 16];
+        let v1 = [0x0007_0005_0007_0005u64; 16];
+        let mkv = |n| VReg::Arch(ArchReg::Hexagon(HexagonReg::V(n)));
+        let even = run_vec2(v0, v1, OpKind::VMulSubLane {
+            dst: mkv(2), src1: mkv(0), src2: mkv(1),
+            out_elem: VecElementType::I32, sub_elem: VecElementType::I16,
+            odd: false, signed1: true, signed2: false, acc: false,
+        });
+        assert_eq!(even, [0x0000_000F_0000_000Fu64; 16]); // 3*5 = 15
+        // odd pick: 3 * 7 = 21 = 0x15.
+        let odd = run_vec2(v0, v1, OpKind::VMulSubLane {
+            dst: mkv(2), src1: mkv(0), src2: mkv(1),
+            out_elem: VecElementType::I32, sub_elem: VecElementType::I16,
+            odd: true, signed1: true, signed2: false, acc: false,
+        });
+        assert_eq!(odd, [0x0000_0015_0000_0015u64; 16]); // 3*7 = 21
     }
 
     #[test]

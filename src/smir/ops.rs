@@ -1032,6 +1032,22 @@ pub enum OpKind {
         out_shift: u8,
     },
 
+    /// Multiply each `out_elem` lane of src1 by the even/odd `sub_elem` sub-lane
+    /// of src2 within that lane. Models HVX `vmpyiewuh`/`vmpyiowh` (Vu.w *
+    /// Vv.uh[even] / Vv.h[odd] -> low word): per output lane i, src2 sub-lane
+    /// index = i*(out_elem/sub_elem) + (odd?1:0). Optional wrapping accumulate.
+    VMulSubLane {
+        dst: VReg,
+        src1: VReg,
+        src2: VReg,
+        out_elem: VecElementType,
+        sub_elem: VecElementType,
+        odd: bool,
+        signed1: bool,
+        signed2: bool,
+        acc: bool,
+    },
+
     /// Even-lane widening multiply into a single vector. Models HVX `vmpyuhe`:
     /// `dst.wide[i] = (acc ? dst[i] : 0) + src1.narrow[2i] * src2.narrow[2i]`
     /// (only the even narrow sub-lane of each output-width lane is used), with
@@ -1562,6 +1578,7 @@ impl OpKind {
 
             OpKind::VReduceMul { dst, .. }
             | OpKind::VMulEvenWiden { dst, .. }
+            | OpKind::VMulSubLane { dst, .. }
             | OpKind::VPack { dst, .. }
             | OpKind::VPackSat { dst, .. }
             | OpKind::VShuffle2 { dst, .. }
