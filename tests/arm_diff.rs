@@ -1616,6 +1616,12 @@ fn enc_sve_st1(msz: u32, size: u32, imm4: i32) -> u32 {
         | (0b111 << 13) | (RN << 5) | RD
 }
 
+/// SVE ADR: `00000100 mode 1 Zm 1010 msz Zn Zd`. Zd=z0, Zn=z1, Zm=z2.
+fn enc_sve_adr(mode: u32, msz: u32) -> u32 {
+    (0b00000100 << 24) | (mode << 22) | (1 << 21) | (RM << 16)
+        | (0b1010 << 12) | (msz << 10) | (RN << 5) | RD
+}
+
 /// SVE MOVPRFX Zd, Zn (unpredicated): `00000100 001 00000 101111 Zn Zd`.
 fn enc_movprfx_z() -> u32 {
     (0b00000100 << 24) | (0b001 << 21) | (0b101111 << 10) | (RN << 5) | RD
@@ -2385,6 +2391,19 @@ fn diff_sve_st1() {
 }
 
 #[test]
+fn diff_sve_adr() {
+    // Vector address generation across all four forms (D+SXTW, D+UXTW, S/D
+    // packed) and shift amounts.
+    let mut cases: Vec<(String, u32)> = Vec::new();
+    for mode in 0..4u32 {
+        for msz in 0..4u32 {
+            cases.push((format!("adr m{mode} s{msz}"), enc_sve_adr(mode, msz)));
+        }
+    }
+    run_family("sve_adr", cases, 16, 0x3_7001);
+}
+
+#[test]
 fn diff_sve_movprfx() {
     // MOVPRFX standalone is a move: unpredicated copies the whole register; the
     // predicated form copies active lanes and merges/zeros the inactive ones.
@@ -2685,6 +2704,8 @@ fn diff_sve_mul() {
         cases.push((format!("sve_smulh sz{sz}"), enc_sve_mul(sz, 0b10)));
         cases.push((format!("sve_umulh sz{sz}"), enc_sve_mul(sz, 0b11)));
     }
+    // PMUL (SVE2 carry-less polynomial multiply) is byte-elements only.
+    cases.push(("sve_pmul".to_string(), enc_sve_mul(0, 0b01)));
     run_family("sve_mul", cases, 16, 0x2_4001);
 }
 

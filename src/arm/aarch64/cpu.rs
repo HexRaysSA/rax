@@ -4855,13 +4855,14 @@ impl AArch64Cpu {
             }
 
             // SVE2 unpredicated multiply: 0x04, bit21==1, bits[15:12]==0110,
-            // bits[11:10] opc (00=MUL, 10=SMULH, 11=UMULH). The 0x05 sibling of
-            // bits[15:12]==0110 is ZIP/UZP/TRN, so this MUST gate on the op byte.
+            // bits[11:10] opc (00=MUL, 01=PMUL byte-only, 10=SMULH, 11=UMULH).
+            // The 0x05 sibling of bits[15:12]==0110 is ZIP/UZP/TRN, so this MUST
+            // gate on the op byte. PMUL is defined for byte elements only.
             0b000
                 if (insn >> 24) & 0xFF == 0b00000100
                     && (insn >> 21) & 1 == 1
                     && (insn >> 12) & 0xF == 0b0110
-                    && (insn >> 10) & 0x3 != 0b01 =>
+                    && ((insn >> 10) & 0x3 != 0b01 || esize == 1) =>
             {
                 let opc = (insn >> 10) & 0x3;
                 let bits = (esize * 8) as u32;
@@ -4876,6 +4877,7 @@ impl AArch64Cpu {
                     let y = read_elem(&b, off, esize);
                     let r = match opc {
                         0b00 => x.wrapping_mul(y) & mask,
+                        0b01 => poly_mul_8(x, y), // PMUL.B (carry-less)
                         0b10 => ((sext_elem(x, bits) * sext_elem(y, bits)) >> bits) as u64 & mask,
                         _ => ((uext_elem(x, bits) * uext_elem(y, bits)) >> bits) as u64 & mask,
                     };
@@ -4975,6 +4977,38 @@ impl AArch64Cpu {
                     && (insn >> 17) & 0x7 == 0b000 =>
             {
                 self.exec_sve_lastx(insn, esize)
+            }
+
+            // ADR (vector address generation): 0x04, bit21==1, bits[15:12]==1010.
+            // Zd[e] = Zn[e] + offset(Zm[e]) * 2^msz. bits[23:22] selects the
+            // form: 00=D+SXTW(Zm<31:0>), 01=D+UXTW(Zm<31:0>), 10=S packed,
+            // 11=D packed. msz = bits[11:10].
+            0b000
+                if (insn >> 24) & 0xFF == 0b00000100
+                    && (insn >> 21) & 1 == 1
+                    && (insn >> 12) & 0xF == 0b1010 =>
+            {
+                let mode = (insn >> 22) & 0x3;
+                let msz = (insn >> 10) & 0x3;
+                let esize = if mode == 0b10 { 4 } else { 8 };
+                let elements = 16 / esize;
+                let m = elem_mask((esize * 8) as u32);
+                let a = self.v[zn].to_le_bytes();
+                let b = self.v[zm].to_le_bytes();
+                let mut dst = [0u8; 16];
+                for e in 0..elements {
+                    let off = e * esize;
+                    let base = read_elem(&a, off, esize);
+                    let zmv = read_elem(&b, off, esize);
+                    let offset = match mode {
+                        0b00 => (zmv as u32 as i32 as i64 as u64) << msz, // SXTW
+                        0b01 => (zmv as u32 as u64) << msz,               // UXTW
+                        _ => zmv << msz,                                  // packed S/D
+                    };
+                    write_elem(&mut dst, off, esize, base.wrapping_add(offset) & m);
+                }
+                self.v[zd] = u128::from_le_bytes(dst);
+                Ok(CpuExit::Continue)
             }
 
             // MOVPRFX Zd, Zn (unpredicated whole-register copy): 0x04,
