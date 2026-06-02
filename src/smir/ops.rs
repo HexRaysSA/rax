@@ -956,6 +956,27 @@ pub enum OpKind {
         odd: bool,
     },
 
+    /// Vector compare producing a Hexagon Q vector predicate. Models HVX
+    /// `veqb/vgtb/vgtub/...`: for each `elem`-wide lane, the comparison result
+    /// (per `cond`) sets all of that lane's per-byte Q bits in `dst` (a Q reg).
+    VCmpToQ {
+        dst: VReg,
+        src1: VReg,
+        src2: VReg,
+        cond: VecCmpCond,
+        elem: VecElementType,
+        lanes: u8,
+    },
+
+    /// Per-byte select by a Q vector predicate. Models HVX `vmux`:
+    /// `dst.byte[i] = mask_q.bit[i] ? src_true.byte[i] : src_false.byte[i]`.
+    VBlend {
+        dst: VReg,
+        mask_q: VReg,
+        src_true: VReg,
+        src_false: VReg,
+    },
+
     /// Per-lane shift by a vector amount (HVX vaslhv/vasrhv/vlsrhv + _w forms).
     /// Each lane is shifted by `sxtn(amount_lane, log2(elem_bits)+1)` — a signed
     /// per-lane amount; the `kind` selects arithmetic-left / arithmetic-right /
@@ -1504,7 +1525,9 @@ impl OpKind {
             | OpKind::VShuffleEO { dst, .. }
             | OpKind::VAlign { dst, .. }
             | OpKind::VMulShiftSat { dst, .. }
-            | OpKind::VShiftV { dst, .. } => vec![*dst],
+            | OpKind::VShiftV { dst, .. }
+            | OpKind::VCmpToQ { dst, .. }
+            | OpKind::VBlend { dst, .. } => vec![*dst],
 
             OpKind::MulU { dst_lo, dst_hi, .. } | OpKind::MulS { dst_lo, dst_hi, .. } => {
                 let mut v = vec![*dst_lo];
