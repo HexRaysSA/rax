@@ -1713,6 +1713,17 @@ fn enc_sve2_fmlal_idx(sub: u32, top: u32, index: u32, zm: u32) -> u32 {
         | RD
 }
 
+/// SVE FSCALE: `01100101 size 00 1001 100 Pg Zm Zdn`. Zdn=z0(RD), Zm=z1(RN),
+/// Pg=p0.
+fn enc_sve_fscale(size: u32) -> u32 {
+    (0x65 << 24) | (size << 22) | (0b01001 << 16) | (0b100 << 13) | (RN << 5) | RD
+}
+
+/// SVE FEXPA: `00000100 size 1 00000 101110 Zn Zd`. Zn=z1(RN), Zd=z0(RD).
+fn enc_sve_fexpa(size: u32) -> u32 {
+    (0x04 << 24) | (size << 22) | (1 << 21) | (0b101110 << 10) | (RN << 5) | RD
+}
+
 /// SVE FP multiply/multiply-add by indexed element: 0x64, bit21==1, op=bits
 /// [15:10] (000000 FMLA, 000001 FMLS, 001000 FMUL). size 1=.h,2=.s,3=.d with
 /// per-size index/Zm packing. Zn=z1(RN), Zd=z0(RD).
@@ -3161,6 +3172,50 @@ fn diff_sve2_fmlal_indexed() {
         }
     }
     run_batch("sve2_fmlal_indexed", batch);
+}
+
+#[test]
+fn diff_sve_fscale() {
+    // FSCALE multiplies each FP lane by 2^(signed Zm element). Use moderate
+    // exponents (-40..40) so results stay in range and vary.
+    let mut rng = Rng::new(0x8_5001);
+    let mut batch: Vec<(String, u32, ArmState)> = Vec::new();
+    for (size, esz) in [(1u32, 2usize), (2, 4), (3, 8)] {
+        let insn = enc_sve_fscale(size);
+        let emask: u64 = if esz == 8 { u64::MAX } else { (1u64 << (esz * 8)) - 1 };
+        for _ in 0..20 {
+            let (mut zdn, mut zm) = (0u128, 0u128);
+            for l in 0..(16 / esz) {
+                zdn |= (finite_fp_bits(&mut rng, esz) as u128) << (l * esz * 8);
+                let n = (rng.next() % 81) as i64 - 40;
+                zm |= (((n as u64) & emask) as u128) << (l * esz * 8);
+            }
+            let mut st = ArmState::zeroed();
+            st.set_vreg(0, zdn as u64, (zdn >> 64) as u64);
+            st.set_vreg(1, zm as u64, (zm >> 64) as u64);
+            st.set_preg(0, rng.next() as u16);
+            batch.push((format!("fscale s{size}"), insn, st));
+        }
+    }
+    run_batch("sve_fscale", batch);
+}
+
+#[test]
+fn diff_sve_fexpa() {
+    // FEXPA table lookup; the source bits are arbitrary (low bits index, next
+    // bits become the exponent).
+    let mut rng = Rng::new(0x8_6001);
+    let mut batch: Vec<(String, u32, ArmState)> = Vec::new();
+    for size in 1..4u32 {
+        let insn = enc_sve_fexpa(size);
+        for _ in 0..16 {
+            let mut st = ArmState::zeroed();
+            st.set_vreg(1, rng.next(), rng.next()); // Zn
+            st.set_vreg(0, rng.next(), rng.next()); // dest (overwritten)
+            batch.push((format!("fexpa s{size}"), insn, st));
+        }
+    }
+    run_batch("sve_fexpa", batch);
 }
 
 #[test]
