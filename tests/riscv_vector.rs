@@ -890,6 +890,48 @@ fn diff_v_ext() {
 }
 
 #[test]
+fn diff_v_mask_ops() {
+    let mut rng = Rng::new(0x7EC_790);
+    let mut batch = Vec::new();
+    for sew_log2 in 0..4u32 {
+        let vmax = vlmax(sew_log2);
+        for vl in [vmax, (vmax / 2).max(1), 1] {
+            for _ in 0..8 {
+                let vd = VPOOL[(rng.next() % 6) as usize];
+                // vd must not overlap vs2 for the set/iota ops.
+                let mut vs2 = VPOOL[(rng.next() % 6) as usize];
+                if vs2 == vd {
+                    vs2 = if vd == VPOOL[0] { VPOOL[1] } else { VPOOL[0] };
+                }
+                let rd = XPOOL[(rng.next() % 5) as usize];
+                let mut st = rand_vstate(&mut rng, sew_log2, vl);
+                st.v[0] = rng.next(); // v0 mask + general source bits
+                // vcpop.m / vfirst.m write x[rd].
+                batch.push(("vcpop.m".into(), op_iv(0b010000, 1, vs2, 0b10000, 0b010, rd), st));
+                batch.push(("vfirst.m".into(), op_iv(0b010000, 1, vs2, 0b10001, 0b010, rd), st));
+                batch.push(("vcpop.m.m".into(), op_iv(0b010000, 0, vs2, 0b10000, 0b010, rd), st));
+                batch.push(("vfirst.m.m".into(), op_iv(0b010000, 0, vs2, 0b10001, 0b010, rd), st));
+                // vmsbf/vmsof/vmsif.m and viota.m / vid.v write a vector register.
+                batch.push(("vmsbf.m".into(), op_iv(0b010100, 1, vs2, 0b00001, 0b010, vd), st));
+                batch.push(("vmsof.m".into(), op_iv(0b010100, 1, vs2, 0b00010, 0b010, vd), st));
+                batch.push(("vmsif.m".into(), op_iv(0b010100, 1, vs2, 0b00011, 0b010, vd), st));
+                batch.push(("viota.m".into(), op_iv(0b010100, 1, vs2, 0b10000, 0b010, vd), st));
+                batch.push(("vid.v".into(), op_iv(0b010100, 1, 0, 0b10001, 0b010, vd), st));
+                // Masked forms (vm=0, vd != v0); v0 supplies the active mask.
+                if vd != 0 {
+                    batch.push(("vmsbf.m.m".into(), op_iv(0b010100, 0, vs2, 0b00001, 0b010, vd), st));
+                    batch.push(("vmsif.m.m".into(), op_iv(0b010100, 0, vs2, 0b00011, 0b010, vd), st));
+                    batch.push(("vmsof.m.m".into(), op_iv(0b010100, 0, vs2, 0b00010, 0b010, vd), st));
+                    batch.push(("viota.m.m".into(), op_iv(0b010100, 0, vs2, 0b10000, 0b010, vd), st));
+                    batch.push(("vid.v.m".into(), op_iv(0b010100, 0, 0, 0b10001, 0b010, vd), st));
+                }
+            }
+        }
+    }
+    run_batch(&batch);
+}
+
+#[test]
 fn diff_v_loadstore() {
     let mut rng = Rng::new(0x7EC_705);
     let mut batch = Vec::new();

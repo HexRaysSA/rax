@@ -425,6 +425,14 @@ pub enum Op {
     VsextVf4,
     VzextVf8,
     VsextVf8,
+    // ---- V (mask population / set / index) ----
+    Vcpop,
+    Vfirst,
+    Vmsbf,
+    Vmsof,
+    Vmsif,
+    Viota,
+    Vid,
     // ---- sentinel ----
     Illegal,
 }
@@ -719,7 +727,18 @@ fn decode_vector(w: u32) -> Insn {
             0b000111 if f3 == 0b010 => Op::Vredmax,
             // Scalar element moves (VWXUNARY0 / VRXUNARY0), funct6 = 010000.
             0b010000 if f3 == 0b010 && (w >> 15) & 0x1f == 0 => Op::VmvXS,
+            0b010000 if f3 == 0b010 && (w >> 15) & 0x1f == 0b10000 => Op::Vcpop,
+            0b010000 if f3 == 0b010 && (w >> 15) & 0x1f == 0b10001 => Op::Vfirst,
             0b010000 if f3 == 0b110 && (w >> 20) & 0x1f == 0 => Op::VmvSX,
+            // Mask set / iota / id (VMUNARY0); vs1 field selects the variant.
+            0b010100 if f3 == 0b010 => match (w >> 15) & 0x1f {
+                0b00001 => Op::Vmsbf,
+                0b00010 => Op::Vmsof,
+                0b00011 => Op::Vmsif,
+                0b10000 => Op::Viota,
+                0b10001 => Op::Vid,
+                _ => return Insn::illegal(w, 4),
+            },
             // Mask-register logical ops are OPMVV-only (funct3 == 0b010).
             0b011000 if f3 == 0b010 => Op::Vmandn,
             0b011001 if f3 == 0b010 => Op::Vmand,

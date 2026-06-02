@@ -387,6 +387,13 @@ impl Op {
             VsextVf4 => "vsext.vf4",
             VzextVf8 => "vzext.vf8",
             VsextVf8 => "vsext.vf8",
+            Vcpop => "vcpop.m",
+            Vfirst => "vfirst.m",
+            Vmsbf => "vmsbf.m",
+            Vmsof => "vmsof.m",
+            Vmsif => "vmsif.m",
+            Viota => "viota.m",
+            Vid => "vid.v",
             Illegal => "illegal",
         }
     }

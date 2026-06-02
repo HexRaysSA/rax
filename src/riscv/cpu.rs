@@ -745,7 +745,8 @@ impl RiscVCpu {
             | Op::Vfredosum | Op::Vfredmin | Op::Vfredmax | Op::VmvXS | Op::VmvSX
             | Op::VfmvFS | Op::VfmvSF | Op::Vmand | Op::Vmnand | Op::Vmandn | Op::Vmxor
             | Op::Vmor | Op::Vmnor | Op::Vmorn | Op::Vmxnor | Op::VzextVf2 | Op::VsextVf2
-            | Op::VzextVf4 | Op::VsextVf4 | Op::VzextVf8 | Op::VsextVf8 => {
+            | Op::VzextVf4 | Op::VsextVf4 | Op::VzextVf8 | Op::VsextVf8 | Op::Vcpop
+            | Op::Vfirst | Op::Vmsbf | Op::Vmsof | Op::Vmsif | Op::Viota | Op::Vid => {
                 self.exec_vector(insn)?
             }
 
@@ -1646,6 +1647,80 @@ impl RiscVCpu {
                         _ => unreachable!(),
                     };
                     self.set_vmask_bit(vd, e, r);
+                }
+            }
+            Op::Vcpop => {
+                // x[rd] = number of active mask bits set in vs2.
+                let mut count = 0u64;
+                for e in vstart..vl {
+                    if !vm && !self.vmask_bit(e) {
+                        continue;
+                    }
+                    if self.vbit(vs2, e) {
+                        count += 1;
+                    }
+                }
+                self.set_x(insn.rd, count);
+            }
+            Op::Vfirst => {
+                // x[rd] = index of first active set mask bit, or -1.
+                let mut idx: i64 = -1;
+                for e in vstart..vl {
+                    if !vm && !self.vmask_bit(e) {
+                        continue;
+                    }
+                    if self.vbit(vs2, e) {
+                        idx = e as i64;
+                        break;
+                    }
+                }
+                self.set_x(insn.rd, idx as u64);
+            }
+            Op::Vmsbf | Op::Vmsif | Op::Vmsof => {
+                // Set-before / set-including / set-only the first active set bit.
+                let mut found = false;
+                for e in vstart..vl {
+                    if !vm && !self.vmask_bit(e) {
+                        continue; // masked-off destination undisturbed
+                    }
+                    let s = self.vbit(vs2, e);
+                    let out = if !found {
+                        if s {
+                            found = true;
+                            insn.op != Op::Vmsbf // bf->0, if/of->1 at the first set
+                        } else {
+                            insn.op != Op::Vmsof // bf/if->1, of->0 before the first set
+                        }
+                    } else {
+                        false
+                    };
+                    self.set_vmask_bit(vd, e, out);
+                }
+            }
+            Op::Viota => {
+                // vd[i] = count of active set bits in vs2 strictly before i.
+                let eb = self.sew_bytes();
+                let mask = Self::sew_mask(eb);
+                let mut sum = 0u64;
+                for e in vstart..vl {
+                    if !vm && !self.vmask_bit(e) {
+                        continue;
+                    }
+                    self.set_velem(vd, e, eb, sum & mask);
+                    if self.vbit(vs2, e) {
+                        sum += 1;
+                    }
+                }
+            }
+            Op::Vid => {
+                // vd[i] = i (element index); source vs2 ignored.
+                let eb = self.sew_bytes();
+                let mask = Self::sew_mask(eb);
+                for e in vstart..vl {
+                    if !vm && !self.vmask_bit(e) {
+                        continue;
+                    }
+                    self.set_velem(vd, e, eb, (e as u64) & mask);
                 }
             }
             Op::VmvXS => {
