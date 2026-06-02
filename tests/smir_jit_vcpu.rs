@@ -70,6 +70,68 @@ fn make_vcpu(iters: u32) -> X86_64Vcpu {
     vcpu
 }
 
+/// Build a vcpu loaded with arbitrary guest `code` at LOAD_ADDR.
+fn make_vcpu_code(code: &[u8]) -> X86_64Vcpu {
+    let region = MmapRegion::new(MEM_SIZE as usize).unwrap();
+    let guest_region = GuestRegionMmap::new(region, GuestAddress(0)).unwrap();
+    let memory = Arc::new(GuestMemoryMmap::from_regions(vec![guest_region]).unwrap());
+    memory.write_slice(code, GuestAddress(LOAD_ADDR)).unwrap();
+
+    let mut regs = Registers::default();
+    regs.rip = LOAD_ADDR;
+    regs.rsp = 0x11_0000;
+    regs.rflags = 0x2;
+
+    let mut sregs = SystemRegisters::default();
+    sregs.cr0 = 0x21;
+    sregs.cr4 = 0x20;
+    sregs.efer = 0x500;
+    sregs.cs.limit = 0xFFFFFFFF;
+    sregs.cs.selector = 0x8;
+    sregs.cs.type_ = 0xB;
+    sregs.cs.present = true;
+    sregs.cs.s = true;
+    sregs.cs.l = true;
+    sregs.cs.g = true;
+    sregs.ds.limit = 0xFFFFFFFF;
+    sregs.ds.selector = 0x10;
+    sregs.ds.type_ = 0x3;
+    sregs.ds.present = true;
+    sregs.ds.db = true;
+    sregs.ds.s = true;
+    sregs.ds.g = true;
+    sregs.es = sregs.ds.clone();
+    sregs.fs = sregs.ds.clone();
+    sregs.gs = sregs.ds.clone();
+    sregs.ss = sregs.ds.clone();
+
+    let mut vcpu = X86_64Vcpu::new(0, memory);
+    vcpu.set_regs(&regs).unwrap();
+    vcpu.set_sregs(&sregs).unwrap();
+    vcpu
+}
+
+/// The eligibility/clobber checks must DECLINE ineligible regions (returning
+/// None so a caller falls back to the interpreter) rather than mis-compile —
+/// the safety net for a future automatic `run()` integration.
+#[test]
+fn jit_bails_on_ineligible() {
+    // (a) A region with a CALL terminator — not a self-contained HALT region.
+    //     call $+5 ; hlt
+    let mut v = make_vcpu_code(&[0xE8, 0x00, 0x00, 0x00, 0x00, 0xF4]);
+    assert!(
+        v.jit_try_block().expect("jit_try_block").is_none(),
+        "a CALL region must bail to the interpreter"
+    );
+
+    // (b) A region with no HALT exit — `mov eax,5 ; ret`.
+    let mut v = make_vcpu_code(&[0xB8, 0x05, 0x00, 0x00, 0x00, 0xC3]);
+    assert!(
+        v.jit_try_block().expect("jit_try_block").is_none(),
+        "a region without a HALT exit must bail"
+    );
+}
+
 fn run_interp(vcpu: &mut X86_64Vcpu) {
     loop {
         match vcpu.step() {
