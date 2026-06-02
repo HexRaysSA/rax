@@ -60,6 +60,36 @@ pub enum CmpKind {
     Ne,
     Lte,
     Lteu,
+    /// Signed `>=` (used by the `jumprgtez` compare-to-zero jump).
+    Gte,
+}
+
+/// Compare performed by a J4 compound compare-and-jump
+/// (`J4_<cmp>_<cond>_jump[nv]_<hint>`).
+#[derive(Clone, Copy, Debug)]
+pub enum CmpJumpKind {
+    /// `cmp.eq(Rs, Rt)` / for jumpnv `cmp.eq(Ns.new, Rt)`.
+    Eq,
+    /// `cmp.gt(Rs, Rt)` (signed).
+    Gt,
+    /// `cmp.gtu(Rs, Rt)` (unsigned).
+    Gtu,
+    /// `cmp.eq(Rs, #u5)` (the `_cmpeqi_` forms).
+    EqImm(i32),
+    /// `cmp.gt(Rs, #u5)` (signed, `_cmpgti_` forms).
+    GtImm(i32),
+    /// `cmp.gtu(Rs, #u5)` (unsigned, `_cmpgtui_` forms).
+    GtuImm(u32),
+    /// `cmp.eq(Rs, #-1)` (the `_cmpeqn1_` forms).
+    EqN1,
+    /// `cmp.gt(Rs, #-1)` (signed, `_cmpgtn1_` forms).
+    GtN1,
+    /// `cmp.lt(Rs, Rt)` == `cmp.gt(Rt, Rs)` (signed; only exists as jumpnv).
+    Lt,
+    /// `cmp.ltu(Rs, Rt)` == `cmp.gtu(Rt, Rs)` (unsigned; only exists as jumpnv).
+    Ltu,
+    /// `tstbit(Rs, #0)` — test bit 0 of Rs.
+    TstBit0,
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -72,6 +102,13 @@ pub enum ExtendKind {
 
 #[derive(Clone, Copy, Debug)]
 pub enum CombineOperand {
+    Reg(u8),
+    Imm(u32),
+}
+
+/// Source operand of a `J4_jumpset{i,r}` (`Rd = <#u6 | Rs> ; jump #r`).
+#[derive(Clone, Copy, Debug)]
+pub enum JumpSetSrc {
     Reg(u8),
     Imm(u32),
 }
@@ -249,11 +286,34 @@ pub enum DecodedInsn {
         sense: bool,
         pred_new: bool,
     },
+    /// `if (cmp.<kind>(Rs,#0)) jump #r13:2` — the J2 jumpr-compare-zero family
+    /// (`jumprz`/`jumprnz`/`jumprgtez`/`jumprltez` and their `pt` hints). Despite
+    /// the `jumpr` mnemonic these are DIRECT PC-relative jumps (target =
+    /// `PC + offset`); only the *condition* is a register compare against zero.
+    JumpRegZero {
+        src: u8,
+        kind: CmpKind,
+        offset: i32,
+    },
+    /// `Rd = <value> ; jump #r` — the J4 jumpset{i,r} compound. Writes `Rd`
+    /// (always, unconditionally) and then takes the PC-relative branch.
+    JumpSet {
+        dst: u8,
+        value: JumpSetSrc,
+        offset: i32,
+    },
+    /// Architectural NOP (e.g. `J2_pause`): advances PC only.
+    Nop,
     Call {
         offset: i32,
+        /// `Some` for the predicated `J2_callt`/`J2_callf` forms: the call (and
+        /// its `r31` link) only happens when the predicate condition holds.
+        pred: Option<PredCond>,
     },
     CallReg {
         src: u8,
+        /// `Some` for the predicated `J2_callrt`/`J2_callrf` forms.
+        pred: Option<PredCond>,
     },
     Cmp {
         pred: u8,
@@ -297,11 +357,17 @@ pub enum DecodedInsn {
         loop_id: u8,
         start_offset: i32,
         count_reg: u8,
+        /// `Some(n)` for the `spNloop0` (`J2_ploopNsr`) software-pipelined
+        /// variants: also sets USR.LPCFG = n and presets P3 = 0. `None` for the
+        /// plain `loop0`/`loop1`.
+        lpcfg: Option<u8>,
     },
     LoopStartImm {
         loop_id: u8,
         start_offset: i32,
         count: u32,
+        /// See `LoopStartReg::lpcfg`.
+        lpcfg: Option<u8>,
     },
     Trap0,
     /// HVX vector load: `Vd = vmem(base + offset)`; `post_inc` updates `base` by
@@ -386,6 +452,28 @@ pub enum DecodedInsn {
         op: MemOpKind,
         src: MemOpSrc,
     },
+    /// J4 compound compare-and-jump (`J4_<cmp>_<cond>_jump[nv]_<hint>`): a single
+    /// instruction that evaluates a compare and branches on the result.
+    ///
+    /// * `kind` is the comparison (reg/reg, reg/imm, or vs the constants -1 / bit
+    ///   0). `src1` is `Rs` (or, when `new_value` is set, the `Ns8` producer
+    ///   index resolved against the packet's GPR producers exactly like a
+    ///   new-value store). `src2` is `Rt` for the register/`Lt`/`Ltu` forms.
+    /// * `write_pred` is `Some(p)` for the predicate-writing `_jump` forms
+    ///   (`tp0`/`fp0` write P0, `tp1`/`fp1` write P1); it is `None` for the
+    ///   `_jumpnv` (new-value compare-and-branch) forms which write no predicate.
+    /// * `sense` is `true` for the `t*` (jump-if-true) forms and `false` for the
+    ///   `f*` (jump-if-false) forms.
+    /// * `offset` is the (already `<<2`-scaled) PC-relative branch displacement.
+    CompoundCmpJump {
+        kind: CmpJumpKind,
+        src1: u8,
+        src2: u8,
+        write_pred: Option<u8>,
+        sense: bool,
+        new_value: bool,
+        offset: i32,
+    },
     Unknown(u32),
 }
 
@@ -445,6 +533,10 @@ fn insn_uses_dotnew(insn: &DecodedInsn) -> bool {
         DecodedInsn::JumpRegCond { pred_new, .. } => *pred_new,
         DecodedInsn::DeallocReturn { pred, .. } => pred_uses_dotnew(*pred),
         DecodedInsn::ClearCond { pred, .. } => pred.pred_new,
+        // The `_jumpnv` compound forms compare a register produced earlier in the
+        // same packet (a new-value operand); the predicate-writing `_jump` forms
+        // produce and consume their `.new` predicate within the one instruction.
+        DecodedInsn::CompoundCmpJump { .. } => true,
         _ => false,
     }
 }
@@ -1197,6 +1289,77 @@ fn vgather(
     ))
 }
 
+/// Decode a J4 compound compare-and-jump (`J4_<cmp>_<cond>_jump[nv]_<hint>`) by
+/// parsing the mnemonic. Returns `(insn, used_ext)`. The branch displacement is
+/// the `i` field (signed, `<<2`); the immediate compares read `#u5`/`#u6` from
+/// the `I` field with the imm-extension applied (so a preceding `immext` widens
+/// the compare constant). Falls through to `None` for any unrecognised name.
+fn decode_compound_cmpjump(
+    decoded: &DecodedOp,
+    name: &str,
+    immext: Option<u32>,
+) -> Option<(DecodedInsn, bool)> {
+    // name == "J4_<cmp>_<cond>_jump[nv]_<hint>"
+    let body = name.strip_prefix("J4_")?;
+    // Split off the hint (last segment, "_t" or "_nt"): no architectural effect.
+    let body = body
+        .strip_suffix("_t")
+        .or_else(|| body.strip_suffix("_nt"))?;
+    let new_value = body.ends_with("_jumpnv");
+    let core = body
+        .strip_suffix("_jumpnv")
+        .or_else(|| body.strip_suffix("_jump"))?;
+    // core == "<cmp>_<cond>"; cond is the final "_<tp0|fp0|tp1|fp1|t|f>".
+    let (cmp, cond) = core.rsplit_once('_')?;
+
+    // Taken sense + predicate-to-write from the condition segment.
+    let (sense, write_pred) = match cond {
+        "tp0" => (true, Some(0u8)),
+        "fp0" => (false, Some(0u8)),
+        "tp1" => (true, Some(1u8)),
+        "fp1" => (false, Some(1u8)),
+        "t" => (true, None),
+        "f" => (false, None),
+        _ => return None,
+    };
+
+    // Only the branch offset (`ri`) is imm-extensible (`fIMMEXT(riV)`); the
+    // compare immediate `#u5` is a fixed 5-bit field and is never extended.
+    let (offset, used) = decode_field_simm(decoded, b'i', immext)?;
+    let offset = offset << 2;
+    let src1 = field_u8(decoded, b's')?;
+    // `Rt` (or `#u5`) operand depending on the compare form.
+    let src2 = field_u8(decoded, b't').unwrap_or(0);
+
+    let kind = match cmp {
+        "cmpeq" => CmpJumpKind::Eq,
+        "cmpgt" => CmpJumpKind::Gt,
+        "cmpgtu" => CmpJumpKind::Gtu,
+        "cmplt" => CmpJumpKind::Lt,
+        "cmpltu" => CmpJumpKind::Ltu,
+        "cmpeqn1" => CmpJumpKind::EqN1,
+        "cmpgtn1" => CmpJumpKind::GtN1,
+        "tstbit0" => CmpJumpKind::TstBit0,
+        "cmpeqi" => CmpJumpKind::EqImm(decode_field_uimm(decoded, b'I', None)?.0 as i32),
+        "cmpgti" => CmpJumpKind::GtImm(decode_field_uimm(decoded, b'I', None)?.0 as i32),
+        "cmpgtui" => CmpJumpKind::GtuImm(decode_field_uimm(decoded, b'I', None)?.0),
+        _ => return None,
+    };
+
+    Some((
+        DecodedInsn::CompoundCmpJump {
+            kind,
+            src1,
+            src2,
+            write_pred,
+            sense,
+            new_value,
+            offset,
+        },
+        used,
+    ))
+}
+
 fn decode_main(decoded: &DecodedOp, word: u32, immext: Option<u32>) -> (DecodedInsn, bool) {
     macro_rules! req {
         ($expr:expr) => {
@@ -1500,15 +1663,115 @@ fn decode_main(decoded: &DecodedOp, word: u32, immext: Option<u32>) -> (DecodedI
         }
         Opcode::J2_call => {
             let (imm, used) = req!(decode_field_simm(decoded, b'i', immext));
-            (DecodedInsn::Call { offset: imm << 2 }, used)
+            (
+                DecodedInsn::Call {
+                    offset: imm << 2,
+                    pred: None,
+                },
+                used,
+            )
         }
-        Opcode::J2_jumpr => {
+        Opcode::J2_callt | Opcode::J2_callf => {
+            let pred = req!(field_u8(decoded, b'u'));
+            let sense = matches!(decoded.opcode, Opcode::J2_callt);
+            let (imm, used) = req!(decode_field_simm(decoded, b'i', immext));
+            (
+                DecodedInsn::Call {
+                    offset: imm << 2,
+                    pred: Some(pred_cond(pred, sense, false)),
+                },
+                used,
+            )
+        }
+        Opcode::J2_jumpr | Opcode::J2_jumprh => {
+            // `jumprh` is a jump-register with a prefetch hint; same effect.
             let src = req!(field_u8(decoded, b's'));
             (DecodedInsn::JumpReg { src }, false)
         }
-        Opcode::J2_callr => {
+        Opcode::J4_hintjumpr => {
+            // Jump-register hint: behaves exactly like `jumpr Rs`.
             let src = req!(field_u8(decoded, b's'));
-            (DecodedInsn::CallReg { src }, false)
+            (DecodedInsn::JumpReg { src }, false)
+        }
+        Opcode::J2_callr | Opcode::J2_callrh => {
+            // `callrh` is a call-register with a prefetch hint; same effect.
+            let src = req!(field_u8(decoded, b's'));
+            (DecodedInsn::CallReg { src, pred: None }, false)
+        }
+        Opcode::J2_callrt | Opcode::J2_callrf => {
+            let src = req!(field_u8(decoded, b's'));
+            let pred = req!(field_u8(decoded, b'u'));
+            let sense = matches!(decoded.opcode, Opcode::J2_callrt);
+            (
+                DecodedInsn::CallReg {
+                    src,
+                    pred: Some(pred_cond(pred, sense, false)),
+                },
+                false,
+            )
+        }
+        Opcode::J2_jumprz
+        | Opcode::J2_jumprzpt
+        | Opcode::J2_jumprnz
+        | Opcode::J2_jumprnzpt
+        | Opcode::J2_jumprgtez
+        | Opcode::J2_jumprgtezpt
+        | Opcode::J2_jumprltez
+        | Opcode::J2_jumprltezpt => {
+            // `if (cmp.<..>(Rs,#0)) jump #r13:2`: a DIRECT PC-relative jump whose
+            // condition is a register compare-to-zero (the `pt` variants are a
+            // taken hint with no architectural effect). Per the PRM/idef:
+            //   jumprz   -> if (Rs != 0)   jumprnz  -> if (Rs == 0)
+            //   jumprgtez-> if (Rs >= 0)   jumprltez-> if (Rs <= 0)
+            let src = req!(field_u8(decoded, b's'));
+            let (off, used) = req!(decode_field_simm(decoded, b'i', immext));
+            let kind = match decoded.opcode {
+                Opcode::J2_jumprz | Opcode::J2_jumprzpt => CmpKind::Ne,
+                Opcode::J2_jumprnz | Opcode::J2_jumprnzpt => CmpKind::Eq,
+                Opcode::J2_jumprgtez | Opcode::J2_jumprgtezpt => CmpKind::Gte,
+                _ => CmpKind::Lte,
+            };
+            (
+                DecodedInsn::JumpRegZero {
+                    src,
+                    kind,
+                    offset: off << 2,
+                },
+                used,
+            )
+        }
+        Opcode::J4_jumpseti => {
+            // `Rd = #u6 ; jump #r` — set a register then jump.
+            let dst = req!(field_u8(decoded, b'd'));
+            let imm = req!(decode_field_uimm(decoded, b'I', None)).0;
+            let (off, used) = req!(decode_field_simm(decoded, b'i', immext));
+            (
+                DecodedInsn::JumpSet {
+                    dst,
+                    value: JumpSetSrc::Imm(imm),
+                    offset: off << 2,
+                },
+                used,
+            )
+        }
+        Opcode::J4_jumpsetr => {
+            // `Rd = Rs ; jump #r` — copy a register then jump.
+            let dst = req!(field_u8(decoded, b'd'));
+            let src = req!(field_u8(decoded, b's'));
+            let (off, used) = req!(decode_field_simm(decoded, b'i', immext));
+            (
+                DecodedInsn::JumpSet {
+                    dst,
+                    value: JumpSetSrc::Reg(src),
+                    offset: off << 2,
+                },
+                used,
+            )
+        }
+        Opcode::J2_pause => {
+            // Architecturally a NOP for our purposes (no observable state change
+            // beyond advancing PC). The `#u8` operand is the pause cycle count.
+            (DecodedInsn::Nop, false)
         }
         Opcode::J2_jumpt
         | Opcode::J2_jumptpt
@@ -1562,11 +1825,17 @@ fn decode_main(decoded: &DecodedOp, word: u32, immext: Option<u32>) -> (DecodedI
                 false,
             )
         }
-        Opcode::J2_loop0r | Opcode::J2_loop1r => {
-            let loop_id = if matches!(decoded.opcode, Opcode::J2_loop0r) {
-                0
-            } else {
-                1
+        Opcode::J2_loop0r
+        | Opcode::J2_loop1r
+        | Opcode::J2_ploop1sr
+        | Opcode::J2_ploop2sr
+        | Opcode::J2_ploop3sr => {
+            let (loop_id, lpcfg) = match decoded.opcode {
+                Opcode::J2_loop0r => (0, None),
+                Opcode::J2_loop1r => (1, None),
+                Opcode::J2_ploop1sr => (0, Some(1)),
+                Opcode::J2_ploop2sr => (0, Some(2)),
+                _ => (0, Some(3)),
             };
             let count_reg = req!(field_u8(decoded, b's'));
             let (imm, used) = req!(decode_field_simm(decoded, b'i', immext));
@@ -1575,15 +1844,22 @@ fn decode_main(decoded: &DecodedOp, word: u32, immext: Option<u32>) -> (DecodedI
                     loop_id,
                     start_offset: imm << 2,
                     count_reg,
+                    lpcfg,
                 },
                 used,
             )
         }
-        Opcode::J2_loop0i | Opcode::J2_loop1i => {
-            let loop_id = if matches!(decoded.opcode, Opcode::J2_loop0i) {
-                0
-            } else {
-                1
+        Opcode::J2_loop0i
+        | Opcode::J2_loop1i
+        | Opcode::J2_ploop1si
+        | Opcode::J2_ploop2si
+        | Opcode::J2_ploop3si => {
+            let (loop_id, lpcfg) = match decoded.opcode {
+                Opcode::J2_loop0i => (0, None),
+                Opcode::J2_loop1i => (1, None),
+                Opcode::J2_ploop1si => (0, Some(1)),
+                Opcode::J2_ploop2si => (0, Some(2)),
+                _ => (0, Some(3)),
             };
             let (imm, used) = req!(decode_field_simm(decoded, b'i', immext));
             let count = req!(decode_field_uimm(decoded, b'I', None)).0;
@@ -1592,6 +1868,7 @@ fn decode_main(decoded: &DecodedOp, word: u32, immext: Option<u32>) -> (DecodedI
                     loop_id,
                     start_offset: imm << 2,
                     count,
+                    lpcfg,
                 },
                 used,
             )
@@ -1958,7 +2235,12 @@ fn decode_main(decoded: &DecodedOp, word: u32, immext: Option<u32>) -> (DecodedI
         Opcode::V6_vgathermwq => req!(vgather(decoded, 4, false, true)),
         Opcode::V6_vgathermhq => req!(vgather(decoded, 2, false, true)),
         Opcode::V6_vgathermhwq => req!(vgather(decoded, 2, true, true)),
-        _ => (DecodedInsn::Unknown(word), false),
+        // J4 compound compare-and-jump (`J4_<cmp>_<cond>_jump[nv]_<hint>`): there
+        // are 119 of these, decoded uniformly by parsing the mnemonic.
+        _ => match decode_compound_cmpjump(decoded, opcode::opcode_name(decoded.opcode), immext) {
+            Some(result) => result,
+            None => (DecodedInsn::Unknown(word), false),
+        },
     }
 }
 

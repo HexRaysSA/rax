@@ -613,12 +613,14 @@ fn run_family(
 // accumulating body never overflows in a way that obscures a mismatch (it would
 // still be bit-exact, but small keeps any failure legible).
 //
-// Only rax-implemented control flow is exercised so the suite stays green:
-// plain (non-compound) conditional jumps, unconditional call + `jumpr r31`
-// return, and the J2_loop*/J2_endloop* hardware loops. Instructions rax does
-// not yet decode (compound compare-and-jump `J4_cmp*_*_jump*`, predicated calls
-// `J2_callt`/`J2_callf`, and any dot-new jump, which must be compound) are
-// deliberately omitted -- see the file-level notes / task report.
+// The families cover the full rax control-flow surface: plain conditional
+// jumps, unconditional call + `jumpr r31` return, and the J2_loop*/J2_endloop*
+// hardware loops (the original set), plus the J4 compound compare-and-jump
+// family (`J4_cmp*_*_jump[nv]_*`, both predicate-writing and new-value forms;
+// see `diff_cf_cmpjump`), predicated direct/indirect calls
+// (`J2_callt`/`callf`/`callrt`/`callrf`), the jumpr-compare-zero family, the
+// software-pipelined `sp*loop0` loops, jumpset/hintjr and `pause`
+// (see `diff_cf_calls_loops`).
 
 const AF_NONE: AddrFields = AddrFields { sa: false, lr: false };
 const AF_SA: AddrFields = AddrFields { sa: true, lr: false };
@@ -909,6 +911,473 @@ fn cf_call_return() {
     run_family("call_return", cases, 12, 0xC0F5, false, AF_LR);
 }
 
+/// J4 compound compare-and-jump (`J4_<cmp>_<cond>_jump[nv]_<hint>`): a single
+/// instruction that both compares and branches. Two families are exercised:
+///
+///  * Predicate-writing `_jump` forms (`tp0`/`fp0`/`tp1`/`fp1`): a fused
+///    `pN = cmp...; if ([!]pN.new) jump` — verifies BOTH the branch direction
+///    (via the r0 sentinel) AND that the named predicate (P0/P1) is written with
+///    the raw compare result (captured in P3:0).
+///  * New-value `_jumpnv` forms: a producing insn in the same packet feeds a
+///    `r5.new` operand to the compare; the branch is taken on the compare result
+///    and NO architectural predicate is written.
+///
+/// Inputs span both taken and not-taken (small random GPRs make the eq/gt
+/// compares sometimes true and sometimes false across the seeds).
+#[test]
+fn diff_cf_cmpjump() {
+    let cases = &[
+        // ---- predicate-writing forms (write P0/P1, then branch) ----
+        (
+            "cmpeq_tp0",
+            "{ p0 = cmp.eq(r1,r2); if (p0.new) jump:t .Lt }\n\
+             { r0 = #100 }\n\
+             { jump .Ld }\n\
+             .Lt:\n\
+             { r0 = #200 }\n\
+             .Ld:\n",
+        ),
+        (
+            "cmpeq_fp0",
+            "{ p0 = cmp.eq(r1,r2); if (!p0.new) jump:nt .Lt }\n\
+             { r0 = #100 }\n\
+             { jump .Ld }\n\
+             .Lt:\n\
+             { r0 = #200 }\n\
+             .Ld:\n",
+        ),
+        (
+            "cmpgt_tp1",
+            "{ p1 = cmp.gt(r1,r2); if (p1.new) jump:t .Lt }\n\
+             { r0 = #100 }\n\
+             { jump .Ld }\n\
+             .Lt:\n\
+             { r0 = #200 }\n\
+             .Ld:\n",
+        ),
+        (
+            "cmpgtu_fp1",
+            "{ p1 = cmp.gtu(r1,r2); if (!p1.new) jump:nt .Lt }\n\
+             { r0 = #100 }\n\
+             { jump .Ld }\n\
+             .Lt:\n\
+             { r0 = #200 }\n\
+             .Ld:\n",
+        ),
+        (
+            "cmpeqi_tp0",
+            "{ p0 = cmp.eq(r1,#3); if (p0.new) jump:t .Lt }\n\
+             { r0 = #100 }\n\
+             { jump .Ld }\n\
+             .Lt:\n\
+             { r0 = #200 }\n\
+             .Ld:\n",
+        ),
+        (
+            "cmpgti_fp0",
+            "{ p0 = cmp.gt(r1,#5); if (!p0.new) jump:t .Lt }\n\
+             { r0 = #100 }\n\
+             { jump .Ld }\n\
+             .Lt:\n\
+             { r0 = #200 }\n\
+             .Ld:\n",
+        ),
+        (
+            "cmpgtui_tp1",
+            "{ p1 = cmp.gtu(r1,#4); if (p1.new) jump:nt .Lt }\n\
+             { r0 = #100 }\n\
+             { jump .Ld }\n\
+             .Lt:\n\
+             { r0 = #200 }\n\
+             .Ld:\n",
+        ),
+        (
+            "cmpeqn1_tp0",
+            "{ p0 = cmp.eq(r1,#-1); if (p0.new) jump:t .Lt }\n\
+             { r0 = #100 }\n\
+             { jump .Ld }\n\
+             .Lt:\n\
+             { r0 = #200 }\n\
+             .Ld:\n",
+        ),
+        (
+            "cmpgtn1_fp1",
+            "{ p1 = cmp.gt(r1,#-1); if (!p1.new) jump:t .Lt }\n\
+             { r0 = #100 }\n\
+             { jump .Ld }\n\
+             .Lt:\n\
+             { r0 = #200 }\n\
+             .Ld:\n",
+        ),
+        (
+            "tstbit0_tp0",
+            "{ p0 = tstbit(r1,#0); if (p0.new) jump:t .Lt }\n\
+             { r0 = #100 }\n\
+             { jump .Ld }\n\
+             .Lt:\n\
+             { r0 = #200 }\n\
+             .Ld:\n",
+        ),
+        // ---- new-value compare-and-branch (`_jumpnv`); producer in the packet ----
+        (
+            "nv_cmpeq_t",
+            "{ r5 = add(r4,#1); if (cmp.eq(r5.new,r6)) jump:t .Lt }\n\
+             { r0 = #100 }\n\
+             { jump .Ld }\n\
+             .Lt:\n\
+             { r0 = #200 }\n\
+             .Ld:\n",
+        ),
+        (
+            "nv_cmpeq_f",
+            "{ r5 = add(r4,#1); if (!cmp.eq(r5.new,r6)) jump:t .Lt }\n\
+             { r0 = #100 }\n\
+             { jump .Ld }\n\
+             .Lt:\n\
+             { r0 = #200 }\n\
+             .Ld:\n",
+        ),
+        (
+            "nv_cmpgt_t",
+            "{ r5 = add(r4,#1); if (cmp.gt(r5.new,r6)) jump:nt .Lt }\n\
+             { r0 = #100 }\n\
+             { jump .Ld }\n\
+             .Lt:\n\
+             { r0 = #200 }\n\
+             .Ld:\n",
+        ),
+        (
+            "nv_cmpgtu_f",
+            "{ r5 = add(r4,#1); if (!cmp.gtu(r5.new,r6)) jump:t .Lt }\n\
+             { r0 = #100 }\n\
+             { jump .Ld }\n\
+             .Lt:\n\
+             { r0 = #200 }\n\
+             .Ld:\n",
+        ),
+        (
+            // cmplt is encoded as cmp.gt with operands swapped (Rt, Ns.new).
+            "nv_cmplt_t",
+            "{ r5 = add(r4,#1); if (cmp.gt(r6,r5.new)) jump:t .Lt }\n\
+             { r0 = #100 }\n\
+             { jump .Ld }\n\
+             .Lt:\n\
+             { r0 = #200 }\n\
+             .Ld:\n",
+        ),
+        (
+            "nv_cmpltu_t",
+            "{ r5 = add(r4,#1); if (cmp.gtu(r6,r5.new)) jump:t .Lt }\n\
+             { r0 = #100 }\n\
+             { jump .Ld }\n\
+             .Lt:\n\
+             { r0 = #200 }\n\
+             .Ld:\n",
+        ),
+        (
+            "nv_cmpeqi_t",
+            "{ r5 = add(r4,#1); if (cmp.eq(r5.new,#3)) jump:t .Lt }\n\
+             { r0 = #100 }\n\
+             { jump .Ld }\n\
+             .Lt:\n\
+             { r0 = #200 }\n\
+             .Ld:\n",
+        ),
+        (
+            "nv_cmpgti_f",
+            "{ r5 = add(r4,#1); if (!cmp.gt(r5.new,#5)) jump:t .Lt }\n\
+             { r0 = #100 }\n\
+             { jump .Ld }\n\
+             .Lt:\n\
+             { r0 = #200 }\n\
+             .Ld:\n",
+        ),
+        (
+            "nv_cmpgtui_t",
+            "{ r5 = add(r4,#1); if (cmp.gtu(r5.new,#4)) jump:t .Lt }\n\
+             { r0 = #100 }\n\
+             { jump .Ld }\n\
+             .Lt:\n\
+             { r0 = #200 }\n\
+             .Ld:\n",
+        ),
+        (
+            "nv_cmpeqn1_t",
+            "{ r5 = add(r4,#-1); if (cmp.eq(r5.new,#-1)) jump:t .Lt }\n\
+             { r0 = #100 }\n\
+             { jump .Ld }\n\
+             .Lt:\n\
+             { r0 = #200 }\n\
+             .Ld:\n",
+        ),
+        (
+            "nv_cmpgtn1_f",
+            "{ r5 = add(r4,#1); if (!cmp.gt(r5.new,#-1)) jump:t .Lt }\n\
+             { r0 = #100 }\n\
+             { jump .Ld }\n\
+             .Lt:\n\
+             { r0 = #200 }\n\
+             .Ld:\n",
+        ),
+        (
+            "nv_tstbit0_t",
+            "{ r5 = add(r4,#1); if (tstbit(r5.new,#0)) jump:t .Lt }\n\
+             { r0 = #100 }\n\
+             { jump .Ld }\n\
+             .Lt:\n\
+             { r0 = #200 }\n\
+             .Ld:\n",
+        ),
+        (
+            "nv_tstbit0_f",
+            "{ r5 = add(r4,#1); if (!tstbit(r5.new,#0)) jump:t .Lt }\n\
+             { r0 = #100 }\n\
+             { jump .Ld }\n\
+             .Lt:\n\
+             { r0 = #200 }\n\
+             .Ld:\n",
+        ),
+    ];
+    // Small inputs keep the eq/gt compares straddling true/false across seeds.
+    run_family("cmpjump", cases, 16, 0xC0FB, true, AF_NONE);
+}
+
+/// J2 conditional calls, jumpr-compare-zero, software-pipelined loops, and the
+/// J4 jumpset/hintjumpr specials.
+///
+///  * Predicated calls `J2_callt`/`J2_callf` (+ `callr` variants): the call (and
+///    its r31 link) happens only when the predicate holds; r31 (base-normalised)
+///    and the callee accumulator are captured.
+///  * `jumprz`/`jumprnz`/`jumprgtez`/`jumprltez`: `if (cmp.<>(Rs,#0)) jumpr Rs`.
+///  * `p3 = sp<N>loop0(...)`: sets SA0/LC0, USR.LPCFG=N and presets P3=0; the
+///    `endloop0` back-edges set the pipeline predicate P3 when LPCFG drains.
+///  * `J4_jumpseti`/`J4_jumpsetr`: `Rd = <#u6|Rs> ; jump`.
+#[test]
+fn diff_cf_calls_loops() {
+    // Predicated calls: the r0 sentinel reveals whether the call (callee adds
+    // #100) executed vs. the fall-through (adds #10). r31 is normalised to a
+    // base-independent value at the reconverge point so the (path-dependent,
+    // absolute) link address never pollutes the raw comparison; the link value
+    // itself is verified by the unconditional `cf_call_return` family. AF_NONE.
+    let calls = &[
+        (
+            "callt_taken_or_not",
+            "{ p0 = cmp.eq(r1,r2) }\n\
+             { if (p0) call .Lsub }\n\
+             { r0 = add(r0,#10) }\n\
+             { jump .Ld }\n\
+             .Lsub:\n\
+             { r0 = add(r0,#100) }\n\
+             { jumpr r31 }\n\
+             .Ld:\n\
+             { r31 = #0 }\n",
+        ),
+        (
+            "callf_taken_or_not",
+            "{ p0 = cmp.eq(r1,r2) }\n\
+             { if (!p0) call .Lsub }\n\
+             { r0 = add(r0,#10) }\n\
+             { jump .Ld }\n\
+             .Lsub:\n\
+             { r0 = add(r0,#100) }\n\
+             { jumpr r31 }\n\
+             .Ld:\n\
+             { r31 = #0 }\n",
+        ),
+    ];
+    run_family("cf_calls", calls, 12, 0xC0FC, false, AF_NONE);
+
+    // Predicated indirect call `if (Pu) callr Rs`: callee address is computed
+    // PC-relative (base-dependent) into r4, so r4 is normalised away by clearing
+    // it after reconverge; the r0 sentinel proves the call path.
+    let callr = &[
+        (
+            "callrt",
+            "{ p0 = cmp.eq(r1,r2) }\n\
+             { r4 = add(pc,#16) }\n\
+             { if (p0) callr r4 }\n\
+             { r0 = add(r0,#10) }\n\
+             { jump .Ld }\n\
+             { r0 = add(r0,#100) }\n\
+             { jumpr r31 }\n\
+             .Ld:\n\
+             { r4 = #0 ; r31 = #0 }\n",
+        ),
+        (
+            "callrf",
+            "{ p0 = cmp.eq(r1,r2) }\n\
+             { r4 = add(pc,#16) }\n\
+             { if (!p0) callr r4 }\n\
+             { r0 = add(r0,#10) }\n\
+             { jump .Ld }\n\
+             { r0 = add(r0,#100) }\n\
+             { jumpr r31 }\n\
+             .Ld:\n\
+             { r4 = #0 ; r31 = #0 }\n",
+        ),
+    ];
+    run_family("cf_callr", callr, 12, 0xC0FC, false, AF_NONE);
+
+    // The J2 jumpr-compare-zero family are DIRECT conditional jumps whose
+    // condition is a register compared to zero. The r0 sentinel reveals the
+    // path; the random r5 straddles zero / both signs across seeds. The `pt`
+    // (jump:t) hint variants are also exercised to confirm the hint has no
+    // architectural effect. AF_NONE.
+    let jumprz = &[
+        (
+            // `if (r5!=#0) jump:nt` == J2_jumprz (jump-if-register-true).
+            "jumprz_ne",
+            "{ r0 = #100 }\n\
+             { if (r5!=#0) jump:nt .Lt }\n\
+             { r0 = #1 }\n\
+             { jump .Ld }\n\
+             .Lt:\n\
+             { r0 = #2 }\n\
+             .Ld:\n",
+        ),
+        (
+            // `if (r5==#0) jump:nt` == J2_jumprnz (jump-if-register-false).
+            "jumprnz_eq",
+            "{ r0 = #100 }\n\
+             { if (r5==#0) jump:nt .Lt }\n\
+             { r0 = #1 }\n\
+             { jump .Ld }\n\
+             .Lt:\n\
+             { r0 = #2 }\n\
+             .Ld:\n",
+        ),
+        (
+            "jumprgtez",
+            "{ r0 = #100 }\n\
+             { if (r5>=#0) jump:nt .Lt }\n\
+             { r0 = #1 }\n\
+             { jump .Ld }\n\
+             .Lt:\n\
+             { r0 = #2 }\n\
+             .Ld:\n",
+        ),
+        (
+            "jumprltez",
+            "{ r0 = #100 }\n\
+             { if (r5<=#0) jump:nt .Lt }\n\
+             { r0 = #1 }\n\
+             { jump .Ld }\n\
+             .Lt:\n\
+             { r0 = #2 }\n\
+             .Ld:\n",
+        ),
+        (
+            // `pt` (jump:t) prediction-hint variant: must give identical results.
+            "jumprz_ne_pt",
+            "{ r0 = #100 }\n\
+             { if (r5!=#0) jump:t .Lt }\n\
+             { r0 = #1 }\n\
+             { jump .Ld }\n\
+             .Lt:\n\
+             { r0 = #2 }\n\
+             .Ld:\n",
+        ),
+        (
+            "jumprgtez_pt",
+            "{ r0 = #100 }\n\
+             { if (r5>=#0) jump:t .Lt }\n\
+             { r0 = #1 }\n\
+             { jump .Ld }\n\
+             .Lt:\n\
+             { r0 = #2 }\n\
+             .Ld:\n",
+        ),
+    ];
+    // Signed (non-small) inputs give r5 both signs and an occasional zero.
+    run_family("cf_jumprz", jumprz, 24, 0xC0FD, false, AF_NONE);
+
+    let ploop = &[
+        (
+            "sp1loop0_3",
+            "{ r0 = #0 }\n\
+             { p3 = sp1loop0(.Lb,#3) }\n\
+             .Lb:\n\
+             { r0 = add(r0,#1) }:endloop0\n",
+        ),
+        (
+            "sp2loop0_4",
+            "{ r0 = #0 }\n\
+             { p3 = sp2loop0(.Lb,#4) }\n\
+             .Lb:\n\
+             { r0 = add(r0,#1) }:endloop0\n",
+        ),
+        (
+            "sp3loop0_5",
+            "{ r0 = #0 }\n\
+             { p3 = sp3loop0(.Lb,#5) }\n\
+             .Lb:\n\
+             { r0 = add(r0,#1) }:endloop0\n",
+        ),
+        (
+            "sp1loop0_r",
+            "{ r0 = #0 }\n\
+             { p3 = sp1loop0(.Lb,r5) }\n\
+             .Lb:\n\
+             { r0 = add(r0,#1) }:endloop0\n",
+        ),
+        (
+            "sp2loop0_r",
+            "{ r0 = #0 }\n\
+             { p3 = sp2loop0(.Lb,r5) }\n\
+             .Lb:\n\
+             { r0 = add(r0,#1) }:endloop0\n",
+        ),
+    ];
+    // Small inputs: r5 trip counts in 0..63 (loop body stays tame).
+    run_family("cf_ploop", ploop, 10, 0xC0FE, true, AF_SA);
+
+    let jumpset = &[
+        (
+            "jumpseti",
+            "{ r3 = #42 ; jump .Lt }\n\
+             { r0 = #1 }\n\
+             { jump .Ld }\n\
+             .Lt:\n\
+             { r0 = #2 }\n\
+             .Ld:\n",
+        ),
+        (
+            "jumpsetr",
+            "{ r3 = r4 ; jump .Lt }\n\
+             { r0 = #1 }\n\
+             { jump .Ld }\n\
+             .Lt:\n\
+             { r0 = #2 }\n\
+             .Ld:\n",
+        ),
+    ];
+    run_family("cf_jumpset", jumpset, 8, 0xC0FF, false, AF_NONE);
+
+    // Miscellaneous specials: `pause` (architectural NOP) and `hintjr` (a
+    // jump-register hint that behaves exactly like `jumpr Rs`). For hintjr the
+    // target is computed PC-relative into r5 so the fragment reconverges; r5 is
+    // cleared afterwards to keep the (base-dependent) target out of the raw
+    // comparison.
+    let misc = &[
+        (
+            // pause is a NOP: the surrounding adds must accumulate normally.
+            "pause_nop",
+            "{ r0 = add(r1,#5) }\n\
+             { pause(#1) }\n\
+             { r0 = add(r0,#1) }\n",
+        ),
+        (
+            "hintjr",
+            "{ r5 = add(pc,#8) }\n\
+             { hintjr(r5) }\n\
+             { r0 = #99 }\n\
+             { r0 = #7 }\n\
+             { r5 = #0 }\n",
+        ),
+    ];
+    run_family("cf_misc", misc, 8, 0xC100, false, AF_NONE);
+}
+
 /// A plain conditional jump *inside* a hardware-loop body: each iteration picks
 /// one of two accumulations, then both paths reconverge before `:endloop0`.
 /// Stresses branch + loop-back-edge interaction. (The compare and the jump are
@@ -932,3 +1401,4 @@ fn cf_loop_with_branch() {
     )];
     run_family("loop_with_branch", cases, 6, 0xC0F6, true, AF_SA);
 }
+

@@ -164,6 +164,36 @@ fn resolve_new_value(insn: DecodedInsn, producers: &[u8]) -> DecodedInsn {
                 src_new: true,
             }
         }
+        // New-value compound compare-and-jump (`_jumpnv`): `src1` is the `Ns8`
+        // producer index (`Ns8 >> 1` = back-distance among the packet's GPR
+        // producers, identical to a new-value store). Rewrite `src1` to the
+        // resolved producer register and clear the `new_value` flag so the
+        // executor reads the (already-committed-in-flight) GPR directly.
+        DecodedInsn::CompoundCmpJump {
+            kind,
+            src1,
+            src2,
+            write_pred,
+            sense,
+            new_value: true,
+            offset,
+        } => {
+            let back = (src1 >> 1) as usize;
+            let resolved = if back >= 1 && back <= producers.len() {
+                producers[producers.len() - back]
+            } else {
+                0
+            };
+            DecodedInsn::CompoundCmpJump {
+                kind,
+                src1: resolved,
+                src2,
+                write_pred,
+                sense,
+                new_value: false,
+                offset,
+            }
+        }
         other => other,
     }
 }
@@ -538,6 +568,16 @@ impl HexagonVcpu {
 
     fn set_pc(&mut self, pc: u32) {
         self.regs.set_pc(pc);
+    }
+
+    /// USR.LPCFG (bits 9:8): software-pipelined loop config. Counts the number of
+    /// loop iterations remaining before the pipeline predicate (P3) is set.
+    fn get_lpcfg(&self) -> u32 {
+        (self.regs.c[8] >> 8) & 0x3
+    }
+
+    fn set_lpcfg(&mut self, value: u32) {
+        self.regs.c[8] = (self.regs.c[8] & !(0x3 << 8)) | ((value & 0x3) << 8);
     }
 
     fn load_mem(&self, addr: u32, width: MemWidth, sign: MemSign) -> Result<u32> {
@@ -1071,13 +1111,86 @@ impl HexagonVcpu {
                     self.set_branch(branch, target, false)?;
                 }
             }
-            DecodedInsn::Call { offset } => {
-                let target = packet_pc.wrapping_add(offset as u32) & !0x3;
-                self.set_branch(branch, target, true)?;
+            DecodedInsn::JumpRegZero { src, kind, offset } => {
+                // `if (cmp.<kind>(Rs,#0)) jump #r13:2`: a DIRECT PC-relative jump
+                // (target = packet_pc + offset) conditioned on a register
+                // compare-to-zero.
+                let a = self.regs.r[src as usize] as i32;
+                let take = match kind {
+                    CmpKind::Eq => a == 0,
+                    CmpKind::Ne => a != 0,
+                    CmpKind::Gte => a >= 0,
+                    CmpKind::Lte => a <= 0,
+                    _ => false,
+                };
+                if take {
+                    let target = packet_pc.wrapping_add(offset as u32) & !0x3;
+                    self.set_branch(branch, target, false)?;
+                }
             }
-            DecodedInsn::CallReg { src } => {
-                let target = self.regs.r[src as usize] & !0x3;
-                self.set_branch(branch, target, true)?;
+            DecodedInsn::JumpSet { dst, value, offset } => {
+                let val = match value {
+                    crate::backend::emulator::hexagon::decode::JumpSetSrc::Reg(reg) => {
+                        self.regs.r[reg as usize]
+                    }
+                    crate::backend::emulator::hexagon::decode::JumpSetSrc::Imm(imm) => imm,
+                };
+                new_r[dst as usize] = Some(val);
+                let target = packet_pc.wrapping_add(offset as u32) & !0x3;
+                self.set_branch(branch, target, false)?;
+            }
+            DecodedInsn::Nop => {}
+            DecodedInsn::CompoundCmpJump {
+                kind,
+                src1,
+                src2,
+                write_pred,
+                sense,
+                new_value: _,
+                offset,
+            } => {
+                use crate::backend::emulator::hexagon::decode::CmpJumpKind;
+                // `src1` is already resolved to a real GPR by resolve_new_value
+                // for the `_jumpnv` forms; read it as an in-flight value so a
+                // same-packet producer is seen.
+                let a = self.read_reg_with_new(src1, new_r);
+                let result = match kind {
+                    CmpJumpKind::Eq => a == self.regs.r[src2 as usize],
+                    CmpJumpKind::Gt => (a as i32) > (self.regs.r[src2 as usize] as i32),
+                    CmpJumpKind::Gtu => a > self.regs.r[src2 as usize],
+                    CmpJumpKind::Lt => (a as i32) < (self.regs.r[src2 as usize] as i32),
+                    CmpJumpKind::Ltu => a < self.regs.r[src2 as usize],
+                    CmpJumpKind::EqImm(imm) => (a as i32) == imm,
+                    CmpJumpKind::GtImm(imm) => (a as i32) > imm,
+                    CmpJumpKind::GtuImm(imm) => a > imm,
+                    CmpJumpKind::EqN1 => (a as i32) == -1,
+                    CmpJumpKind::GtN1 => (a as i32) > -1,
+                    CmpJumpKind::TstBit0 => a & 1 != 0,
+                };
+                // The predicate-writing (`_jump`) forms write P0/P1 with the
+                // compare result; the `_jumpnv` forms write no predicate.
+                if let Some(p) = write_pred {
+                    new_p[p as usize] = Some(if result { 0xff } else { 0 });
+                }
+                // Branch when (compare result == taken sense).
+                if result == sense {
+                    let target = packet_pc.wrapping_add(offset as u32) & !0x3;
+                    self.set_branch(branch, target, false)?;
+                }
+            }
+            DecodedInsn::Call { offset, pred } => {
+                let take = pred.map_or(true, |cond| self.eval_pred(cond, new_p));
+                if take {
+                    let target = packet_pc.wrapping_add(offset as u32) & !0x3;
+                    self.set_branch(branch, target, true)?;
+                }
+            }
+            DecodedInsn::CallReg { src, pred } => {
+                let take = pred.map_or(true, |cond| self.eval_pred(cond, new_p));
+                if take {
+                    let target = self.regs.r[src as usize] & !0x3;
+                    self.set_branch(branch, target, true)?;
+                }
             }
             DecodedInsn::Cmp {
                 pred,
@@ -1094,6 +1207,7 @@ impl HexagonVcpu {
                     CmpKind::Ne => a != b,
                     CmpKind::Lte => (a as i32) <= (b as i32),
                     CmpKind::Lteu => a <= b,
+                    CmpKind::Gte => (a as i32) >= (b as i32),
                 };
                 new_p[pred as usize] = Some(if result { 0xff } else { 0 });
             }
@@ -1114,6 +1228,7 @@ impl HexagonVcpu {
                         CmpKind::Ne => a != b,
                         CmpKind::Lte => (a as i32) <= (b as i32),
                         CmpKind::Lteu => a <= b,
+                        CmpKind::Gte => (a as i32) >= (b as i32),
                     }
                 } else {
                     let b = imm as i32;
@@ -1124,6 +1239,7 @@ impl HexagonVcpu {
                         CmpKind::Ne => (a as i32) != b,
                         CmpKind::Lte => (a as i32) <= b,
                         CmpKind::Lteu => a <= b as u32,
+                        CmpKind::Gte => (a as i32) >= b,
                     }
                 };
                 new_p[pred as usize] = Some(if result { 0xff } else { 0 });
@@ -1168,27 +1284,39 @@ impl HexagonVcpu {
                 loop_id,
                 start_offset,
                 count_reg,
+                lpcfg,
             } => {
                 let count = self.regs.r[count_reg as usize];
+                let sa = packet_pc.wrapping_add(start_offset as u32) & !0x3;
                 if loop_id == 0 {
-                    self.regs.c[0] = packet_pc.wrapping_add(start_offset as u32) & !0x3;
+                    self.regs.c[0] = sa;
                     self.regs.c[1] = count;
                 } else {
-                    self.regs.c[2] = packet_pc.wrapping_add(start_offset as u32) & !0x3;
+                    self.regs.c[2] = sa;
                     self.regs.c[3] = count;
+                }
+                if let Some(n) = lpcfg {
+                    self.set_lpcfg(n as u32);
+                    new_p[3] = Some(0);
                 }
             }
             DecodedInsn::LoopStartImm {
                 loop_id,
                 start_offset,
                 count,
+                lpcfg,
             } => {
+                let sa = packet_pc.wrapping_add(start_offset as u32) & !0x3;
                 if loop_id == 0 {
-                    self.regs.c[0] = packet_pc.wrapping_add(start_offset as u32) & !0x3;
+                    self.regs.c[0] = sa;
                     self.regs.c[1] = count;
                 } else {
-                    self.regs.c[2] = packet_pc.wrapping_add(start_offset as u32) & !0x3;
+                    self.regs.c[2] = sa;
                     self.regs.c[3] = count;
+                }
+                if let Some(n) = lpcfg {
+                    self.set_lpcfg(n as u32);
+                    new_p[3] = Some(0);
                 }
             }
             DecodedInsn::Trap0 => {
@@ -1481,6 +1609,22 @@ impl HexagonVcpu {
             }
             _ => (false, false),
         };
+
+        // Software-pipelined loop predicate (P3) maintenance: at every `endloop0`
+        // (and the loop0 half of `endloop01`), if USR.LPCFG is non-zero then
+        // when it reaches 1 P3 is set to 0xff, after which LPCFG is decremented.
+        // This runs regardless of whether the back-edge is taken (`sp*loop0`
+        // presets P3=0 at setup; the kernel predicate goes true on the final
+        // prologue iterations).
+        if loop0_end {
+            let lpcfg = self.get_lpcfg();
+            if lpcfg != 0 {
+                if lpcfg == 1 {
+                    self.regs.set_predicate(3, 0xff);
+                }
+                self.set_lpcfg(lpcfg - 1);
+            }
+        }
 
         if let Some(branch) = branch {
             if branch.is_call {

@@ -114,6 +114,7 @@ impl HexagonLifter {
             CmpKind::Gtu => Condition::Ugt,
             CmpKind::Lte => Condition::Sle,
             CmpKind::Lteu => Condition::Ule,
+            CmpKind::Gte => Condition::Sge,
         }
     }
 
@@ -744,7 +745,16 @@ impl HexagonLifter {
                 }
             }
 
-            DecodedInsn::Call { offset } => {
+            // Predicated calls (`J2_callt`/`J2_callf`) are interpreter-only.
+            DecodedInsn::Call { pred: Some(_), .. }
+            | DecodedInsn::CallReg { pred: Some(_), .. } => {
+                return Err(LiftError::Unsupported {
+                    addr,
+                    mnemonic: "cond_call".to_string(),
+                });
+            }
+
+            DecodedInsn::Call { offset, pred: None } => {
                 let offset = ctx.extend_imm(*offset);
                 let target = addr.wrapping_add(offset as i64 as u64);
                 let ret_addr = addr + 4;
@@ -761,7 +771,7 @@ impl HexagonLifter {
                 }
             }
 
-            DecodedInsn::CallReg { src } => {
+            DecodedInsn::CallReg { src, pred: None } => {
                 let ret_addr = addr + 4;
 
                 // Save return address to LR (R31)
@@ -946,10 +956,25 @@ impl HexagonLifter {
             // ================================================================
             // Loop Setup
             // ================================================================
+            // Software-pipelined loop setup (`sp*loop0`) sets USR.LPCFG and P3 in
+            // addition to the loop registers; handled only by the interpreter.
+            DecodedInsn::LoopStartReg {
+                lpcfg: Some(_), ..
+            }
+            | DecodedInsn::LoopStartImm {
+                lpcfg: Some(_), ..
+            } => {
+                return Err(LiftError::Unsupported {
+                    addr,
+                    mnemonic: "sploop".to_string(),
+                });
+            }
+
             DecodedInsn::LoopStartReg {
                 loop_id,
                 start_offset,
                 count_reg,
+                lpcfg: None,
             } => {
                 let offset = ctx.extend_imm(*start_offset);
                 let target = addr.wrapping_add(offset as i64 as u64);
@@ -985,6 +1010,7 @@ impl HexagonLifter {
                 loop_id,
                 start_offset,
                 count,
+                lpcfg: None,
             } => {
                 let offset = ctx.extend_imm(*start_offset);
                 let target = addr.wrapping_add(offset as i64 as u64);
@@ -1052,6 +1078,33 @@ impl HexagonLifter {
                 return Err(LiftError::Unsupported {
                     addr,
                     mnemonic: "vscatter_gather".to_string(),
+                });
+            }
+
+            // J4 compound compare-and-jump, the jumpr-compare-zero family, the
+            // jumpset compound, and `pause`: interpreter-only for now.
+            DecodedInsn::CompoundCmpJump { .. } => {
+                return Err(LiftError::Unsupported {
+                    addr,
+                    mnemonic: "compound_cmpjump".to_string(),
+                });
+            }
+            DecodedInsn::JumpRegZero { .. } => {
+                return Err(LiftError::Unsupported {
+                    addr,
+                    mnemonic: "jumpr_cmpzero".to_string(),
+                });
+            }
+            DecodedInsn::JumpSet { .. } => {
+                return Err(LiftError::Unsupported {
+                    addr,
+                    mnemonic: "jumpset".to_string(),
+                });
+            }
+            DecodedInsn::Nop => {
+                return Err(LiftError::Unsupported {
+                    addr,
+                    mnemonic: "pause".to_string(),
                 });
             }
 
