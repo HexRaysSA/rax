@@ -309,6 +309,84 @@ fn jit_cmovge_matches_interpreter() {
     assert_eq!(jr.rbx & 0xffff_ffff, 100, "closed-form cmovge result");
 }
 
+/// Loop with an EARLY forward exit to a separate continuation (two distinct
+/// frontier exits + a back-edge) — the multi-exit CFG shape the kernel hot
+/// regions use. Stresses the JIT's CFG / exit-PC lowering. Must match interp.
+#[test]
+fn jit_loop_early_exit_matches_interpreter() {
+    // xor eax,eax; xor ebx,ebx; mov ecx,1000
+    // loop: add eax,1; cmp eax,500; jge early; dec ecx; jnz loop; jmp late
+    // early: mov ebx,0x1111; hlt
+    // late:  mov ebx,0x2222; hlt
+    let code: &[u8] = &[
+        0x31, 0xC0, // xor eax,eax
+        0x31, 0xDB, // xor ebx,ebx
+        0xB9, 0xE8, 0x03, 0x00, 0x00, // mov ecx,1000
+        0x83, 0xC0, 0x01, // loop: add eax,1
+        0x3D, 0xF4, 0x01, 0x00, 0x00, // cmp eax,500
+        0x7D, 0x06, // jge early
+        0xFF, 0xC9, // dec ecx
+        0x75, 0xF2, // jnz loop
+        0xEB, 0x06, // jmp late
+        0xBB, 0x11, 0x11, 0x00, 0x00, // early: mov ebx,0x1111
+        0xF4, // hlt
+        0xBB, 0x22, 0x22, 0x00, 0x00, // late: mov ebx,0x2222
+        0xF4, // hlt
+    ];
+
+    let mut jit = make_vcpu_code(code);
+    // May or may not promote in one shot; if it JITs, it must match the interp.
+    let _ = jit.jit_try_block().expect("jit_try_block");
+    run_interp(&mut jit);
+    let jr = jit.get_regs().unwrap();
+
+    let mut interp = make_vcpu_code(code);
+    run_interp(&mut interp);
+    let ir = interp.get_regs().unwrap();
+
+    assert_eq!(jr.rax, ir.rax, "rax");
+    assert_eq!(jr.rbx, ir.rbx, "rbx (which continuation ran)");
+    assert_eq!(jr.rcx, ir.rcx, "rcx");
+    // eax reaches 500 (iter 500) before ecx hits 0 → early taken → ebx=0x1111.
+    assert_eq!(jr.rbx & 0xffff_ffff, 0x1111, "early continuation taken");
+    assert_eq!(jr.rax & 0xffff_ffff, 500, "exited at eax==500");
+}
+
+/// Loop containing a CALL (a Call-terminator frontier the JIT exits through, as
+/// the kernel hrtimer/text_poke hot regions do). The JIT runs up to the call,
+/// hands back to the interpreter to execute call+ret, then re-enters. Final
+/// state must match the pure interpreter.
+#[test]
+fn jit_loop_with_call_matches_interpreter() {
+    // xor eax,eax; mov ecx,5
+    // loop: add eax,1; call func; dec ecx; jnz loop; hlt
+    // func: ret
+    let code: &[u8] = &[
+        0x31, 0xC0, // xor eax,eax
+        0xB9, 0x05, 0x00, 0x00, 0x00, // mov ecx,5
+        0x83, 0xC0, 0x01, // loop: add eax,1
+        0xE8, 0x05, 0x00, 0x00, 0x00, // call func (rel32 +5)
+        0xFF, 0xC9, // dec ecx
+        0x75, 0xF4, // jnz loop
+        0xF4, // hlt
+        0xC3, // func: ret
+    ];
+
+    let mut jit = make_vcpu_code(code);
+    let _ = jit.jit_try_block().expect("jit_try_block");
+    run_interp(&mut jit);
+    let jr = jit.get_regs().unwrap();
+
+    let mut interp = make_vcpu_code(code);
+    run_interp(&mut interp);
+    let ir = interp.get_regs().unwrap();
+
+    assert_eq!(jr.rax, ir.rax, "rax");
+    assert_eq!(jr.rcx, ir.rcx, "rcx");
+    assert_eq!(jr.rsp, ir.rsp, "rsp (call/ret balance)");
+    assert_eq!(jr.rax & 0xffff_ffff, 5, "5 iterations");
+}
+
 /// A realistic hot loop with an INTERNAL conditional (if-inside-loop): multiple
 /// internal blocks, a forward branch + a join, two back-edges to the head, and a
 /// HLT frontier — all run natively by `jit_try_block`. JIT final state must equal
