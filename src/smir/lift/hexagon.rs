@@ -4953,6 +4953,112 @@ impl HexagonLifter {
                 });
             }
 
+            // ============================================================
+            // #u1-byte-rotate pair reduce + sum-of-abs-diff (sem/hvx_rmpy.rs),
+            // modeled by OpKind::VRotReduceMulPair. The source is a register
+            // PAIR Vuu=(V[u],V[u+1]) and the dest a register PAIR. Rt is
+            // I32-broadcast into an SSA temp `t` so t.byte[k]=Rt.byte[k%4]
+            // (mode 0) / t.h[k]=Rt.h[k%2] (mode 1, vdsaduh), matching the sem's
+            // lane-indexed Rt reuse (rt_ub/rt_sb/rt_uh).
+            // ============================================================
+            //
+            // --- vrmpyubi / vrmpybusi (+_acc): 4-tap byte word reduce (mode 0)
+            // with a #u1 source-select (sel = imm ? v1 : v0) and Rt byte rotate
+            // by -imm. ubi: Rt.ub unsigned (signed2=false); busi: Rt.b signed
+            // (signed2=true). Vuu bytes are always unsigned (rt_ub/ub in the
+            // sem => signed1=false). abs_diff=false (product). dst pair base =
+            // fld('d') plain / fld('x') for _acc.
+            //
+            // --- vrsadubi (+_acc): SAME byte window/imm-rotate, but each tap is
+            // |Vuu.ub - Rt.ub| (sum of absolute differences). Rt unsigned
+            // (signed2=false), abs_diff=true. (out_elem I32 word.)
+            //
+            // --- vdsaduh (+_acc): dual SAD over halfwords (mode 1, imm ignored):
+            //   o0[i] = |v0.uh[2i]-Rt.uh[0]| + |v0.uh[2i+1]-Rt.uh[1]|
+            //   o1[i] = |v0.uh[2i+1]-Rt.uh[0]| + |v1.uh[2i]-Rt.uh[1]|
+            // Vuu/Rt unsigned halfwords (signed1=signed2=false), abs_diff=true.
+            Opcode::V6_vrmpyubi
+            | Opcode::V6_vrmpyubi_acc
+            | Opcode::V6_vrmpybusi
+            | Opcode::V6_vrmpybusi_acc
+            | Opcode::V6_vrsadubi
+            | Opcode::V6_vrsadubi_acc
+            | Opcode::V6_vdsaduh
+            | Opcode::V6_vdsaduh_acc => {
+                let acc = matches!(
+                    op,
+                    Opcode::V6_vrmpyubi_acc
+                        | Opcode::V6_vrmpybusi_acc
+                        | Opcode::V6_vrsadubi_acc
+                        | Opcode::V6_vdsaduh_acc
+                );
+                // (src_elem, rt_elem, mode, signed1, signed2, abs_diff)
+                let (src_elem, rt_elem, mode, signed1, signed2, abs_diff) = match op {
+                    // ubi: Vuu.ub * Rt.ub (both unsigned), product, byte window.
+                    Opcode::V6_vrmpyubi | Opcode::V6_vrmpyubi_acc => (
+                        VecElementType::I8,
+                        VecElementType::I8,
+                        0u8,
+                        false,
+                        false,
+                        false,
+                    ),
+                    // busi: Vuu.ub * Rt.b (Rt signed byte), product, byte window.
+                    Opcode::V6_vrmpybusi | Opcode::V6_vrmpybusi_acc => (
+                        VecElementType::I8,
+                        VecElementType::I8,
+                        0u8,
+                        false,
+                        true,
+                        false,
+                    ),
+                    // vrsadubi: |Vuu.ub - Rt.ub|, byte window, sum-of-abs-diff.
+                    Opcode::V6_vrsadubi | Opcode::V6_vrsadubi_acc => (
+                        VecElementType::I8,
+                        VecElementType::I8,
+                        0u8,
+                        false,
+                        false,
+                        true,
+                    ),
+                    // vdsaduh: |Vuu.uh - Rt.uh|, halfword window (mode 1).
+                    _ => (
+                        VecElementType::I16,
+                        VecElementType::I16,
+                        1u8,
+                        false,
+                        false,
+                        true,
+                    ),
+                };
+                // #u1 immediate (mode 0 only; vdsaduh has no imm field => 0).
+                let imm = (fimm_u(b'i') & 1) as u8;
+                let base = if acc { rx_n } else { rd_n };
+                let t = ctx.alloc_vreg();
+                push_op!(OpKind::VBroadcast {
+                    dst: t,
+                    scalar: self.hex_reg(fld(b't')),
+                    elem: VecElementType::I32,
+                    lanes: 32,
+                });
+                push_op!(OpKind::VRotReduceMulPair {
+                    dst_lo: self.hex_v(base),
+                    dst_hi: self.hex_v(base + 1),
+                    src_lo: self.hex_v(fld(b'u')),
+                    src_hi: self.hex_v(fld(b'u') + 1),
+                    src2: t,
+                    src_elem,
+                    rt_elem,
+                    out_elem: VecElementType::I32,
+                    imm,
+                    mode,
+                    signed1,
+                    signed2,
+                    acc,
+                    abs_diff,
+                });
+            }
+
             // vdealb4w (Vd.b = vdeale(Vu.b,Vv.b)): deal bytes 0,2 of each word.
             Opcode::V6_vdealb4w => push_op!(OpKind::VDealB4W {
                 dst: self.hex_v(fld(b'd')),

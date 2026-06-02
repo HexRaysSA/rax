@@ -1720,3 +1720,63 @@ fn lift_hvx_vdmpyhisat() {
         0x1930,
     );
 }
+
+// ---- Wave 20: #u1-byte-rotate pair reduce + sum-of-abs-diff
+// (OpKind::VRotReduceMulPair). Source AND dest are register PAIRs. Rt is
+// I32-broadcast so its sub-bytes/halfwords are reused per output lane.
+//
+// vrmpyubi/vrmpybusi (+_acc): 4-tap byte word reduce with a #u1 source-select
+// (sel = imm ? v1 : v0) and an Rt byte rotate by -imm. ubi = Rt.ub unsigned,
+// busi = Rt.b signed. Both #0 and #1 immediates are exercised so the
+// source-select and rotate paths are covered.
+#[test]
+fn lift_hvx_vrmpy_pair_imm() {
+    lift_family(
+        "hvx_vrmpy_pair_imm",
+        &[
+            ("vrmpyubi_0", "{ v3:2.uw = vrmpy(v5:4.ub,r6.ub,#0) }"),
+            ("vrmpyubi_1", "{ v3:2.uw = vrmpy(v5:4.ub,r6.ub,#1) }"),
+            ("vrmpyubi_acc0", "{ v3:2.uw += vrmpy(v5:4.ub,r6.ub,#0) }"),
+            ("vrmpyubi_acc1", "{ v3:2.uw += vrmpy(v5:4.ub,r6.ub,#1) }"),
+            ("vrmpybusi_0", "{ v3:2.w = vrmpy(v5:4.ub,r6.b,#0) }"),
+            ("vrmpybusi_1", "{ v3:2.w = vrmpy(v5:4.ub,r6.b,#1) }"),
+            ("vrmpybusi_acc0", "{ v3:2.w += vrmpy(v5:4.ub,r6.b,#0) }"),
+            ("vrmpybusi_acc1", "{ v3:2.w += vrmpy(v5:4.ub,r6.b,#1) }"),
+        ],
+        16,
+        0x1940,
+    );
+}
+
+// vrsadubi (+_acc): SAME byte window/imm-rotate but each tap is |Vuu.ub - Rt.ub|
+// (sum of absolute differences). Rt unsigned.
+#[test]
+fn lift_hvx_vrsad_pair_imm() {
+    lift_family(
+        "hvx_vrsad_pair_imm",
+        &[
+            ("vrsadubi_0", "{ v3:2.uw = vrsad(v5:4.ub,r6.ub,#0) }"),
+            ("vrsadubi_1", "{ v3:2.uw = vrsad(v5:4.ub,r6.ub,#1) }"),
+            ("vrsadubi_acc0", "{ v3:2.uw += vrsad(v5:4.ub,r6.ub,#0) }"),
+            ("vrsadubi_acc1", "{ v3:2.uw += vrsad(v5:4.ub,r6.ub,#1) }"),
+        ],
+        16,
+        0x1950,
+    );
+}
+
+// vdsaduh (+_acc): dual SAD over UNSIGNED halfwords (mode 1, no imm):
+//   o0[i] = |v0.uh[2i]-Rt.uh[0]| + |v0.uh[2i+1]-Rt.uh[1]|
+//   o1[i] = |v0.uh[2i+1]-Rt.uh[0]| + |v1.uh[2i]-Rt.uh[1]|
+#[test]
+fn lift_hvx_vdsaduh() {
+    lift_family(
+        "hvx_vdsaduh",
+        &[
+            ("vdsaduh", "{ v3:2.uw = vdsad(v5:4.uh,r6.uh) }"),
+            ("vdsaduh_acc", "{ v3:2.uw += vdsad(v5:4.uh,r6.uh) }"),
+        ],
+        16,
+        0x1960,
+    );
+}

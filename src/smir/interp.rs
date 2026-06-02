@@ -2567,6 +2567,100 @@ impl SmirInterpreter {
                 }
             }
 
+            OpKind::VRotReduceMulPair {
+                dst_lo,
+                dst_hi,
+                src_lo,
+                src_hi,
+                src2,
+                src_elem,
+                rt_elem,
+                out_elem,
+                imm,
+                mode,
+                signed1,
+                signed2,
+                acc,
+                abs_diff,
+            } => {
+                let v0 = Self::read_vec(ctx, *src_lo);
+                let v1 = Self::read_vec(ctx, *src_hi);
+                let r = Self::read_vec(ctx, *src2);
+                let nbits = src_elem.bytes() * 8; // multiplicand width
+                let rbits = rt_elem.bytes() * 8; // Rt sub-lane width
+                let obits = out_elem.bytes() * 8; // output width (I32)
+                let olanes = (1024 / obits) as u8;
+                let ext = |v: u64, bits: u32, signed: bool| -> i64 {
+                    if signed {
+                        let sh = 64 - bits;
+                        ((v << sh) as i64) >> sh
+                    } else {
+                        v as i64
+                    }
+                };
+                // narrow multiplicand lane reader
+                let m = |vec: &VecValue, lane: u8| ext(Self::get_lane(vec, lane, nbits), nbits, *signed1);
+                // Rt sub-lane reader (from the I32-broadcast `src2`)
+                let rt = |lane: u8| ext(Self::get_lane(&r, lane, rbits), rbits, *signed2);
+                let mut lo = if *acc { Self::read_vec(ctx, *dst_lo) } else { [0u64; 16] };
+                let mut hi = if *acc { Self::read_vec(ctx, *dst_hi) } else { [0u64; 16] };
+                // per-tap kernel: mul (a*b) or sum-of-abs-diff (|a-b|).
+                let kern = |a: i64, b: i64| -> i64 {
+                    if *abs_diff {
+                        (a - b).abs()
+                    } else {
+                        a.wrapping_mul(b)
+                    }
+                };
+                let im = (*imm as usize) & 1;
+                for i in 0..olanes {
+                    match *mode {
+                        0 => {
+                            // byte window, #u1 source-select + Rt byte rotate by -imm.
+                            let base = (i as u8) * 4;
+                            // sel = imm ? src_hi : src_lo (taps 0 and 2 of dst_lo/hi)
+                            let sel: &VecValue = if im != 0 { &v1 } else { &v0 };
+                            // rb(n) = Rt.byte[(n - imm) & 3]
+                            let rb = |n: usize| rt(((n.wrapping_sub(im)) & 3) as u8);
+                            let alo = if *acc { ext(Self::get_lane(&lo, i, obits), obits, true) } else { 0 };
+                            let s0 = alo
+                                .wrapping_add(kern(m(sel, base), rb(0)))
+                                .wrapping_add(kern(m(&v0, base + 1), rb(1)))
+                                .wrapping_add(kern(m(&v0, base + 2), rb(2)))
+                                .wrapping_add(kern(m(&v0, base + 3), rb(3)));
+                            Self::set_lane(&mut lo, i, obits, s0 as u64);
+                            let ahi = if *acc { ext(Self::get_lane(&hi, i, obits), obits, true) } else { 0 };
+                            let s1 = ahi
+                                .wrapping_add(kern(m(&v1, base), rb(2)))
+                                .wrapping_add(kern(m(&v1, base + 1), rb(3)))
+                                .wrapping_add(kern(m(sel, base + 2), rb(0)))
+                                .wrapping_add(kern(m(&v0, base + 3), rb(1)));
+                            Self::set_lane(&mut hi, i, obits, s1 as u64);
+                        }
+                        _ => {
+                            // mode 1: vdsaduh halfword window (imm ignored).
+                            // r0 = Rt.uh[0] = t.h[0]; r1 = Rt.uh[1] = t.h[1].
+                            let r0 = rt(0);
+                            let r1 = rt(1);
+                            let n0 = (i as u8) * 2; // halfword lane 2i
+                            let n1 = (i as u8) * 2 + 1; // halfword lane 2i+1
+                            let alo = if *acc { ext(Self::get_lane(&lo, i, obits), obits, true) } else { 0 };
+                            let s0 = alo
+                                .wrapping_add(kern(m(&v0, n0), r0))
+                                .wrapping_add(kern(m(&v0, n1), r1));
+                            Self::set_lane(&mut lo, i, obits, s0 as u64);
+                            let ahi = if *acc { ext(Self::get_lane(&hi, i, obits), obits, true) } else { 0 };
+                            let s1 = ahi
+                                .wrapping_add(kern(m(&v0, n1), r0))
+                                .wrapping_add(kern(m(&v1, n0), r1));
+                            Self::set_lane(&mut hi, i, obits, s1 as u64);
+                        }
+                    }
+                }
+                Self::write_vec(ctx, *dst_lo, lo);
+                Self::write_vec(ctx, *dst_hi, hi);
+            }
+
             OpKind::VMulSubLane {
                 dst,
                 src1,
@@ -4184,6 +4278,91 @@ mod tests {
         });
         // o = v0.h[2i+1]*1 + v1.h[2i]*1 = 2 + 4 = 6.
         assert_eq!(lo, [0x0000_0006_0000_0006u64; 16]);
+    }
+
+    #[test]
+    fn test_vrotreducemulpair() {
+        let mkv = |n| VReg::Arch(ArchReg::Hexagon(HexagonReg::V(n)));
+        let run = |v0: [u64; 16], v1: [u64; 16], rt: [u64; 16], op: OpKind| -> ([u64; 16], [u64; 16]) {
+            let mut ctx = SmirContext::new_hexagon();
+            let mut memory = FlatMemory::new(0x1000);
+            let interp = SmirInterpreter::new();
+            if let ArchRegState::Hexagon(hex) = &mut ctx.arch_regs {
+                hex.set_v(0, v0); // src_lo
+                hex.set_v(1, v1); // src_hi
+                hex.set_v(2, rt); // I32-broadcast of Rt
+            }
+            let block = SmirBlock {
+                id: BlockId(0),
+                guest_pc: 0x1000,
+                phis: vec![],
+                ops: vec![SmirOp { id: OpId(0), guest_pc: 0x1000, kind: op, x86_hint: None }],
+                terminator: Terminator::Trap { kind: TrapKind::Halt },
+                exec_count: 0,
+            };
+            interp.execute_block(&mut ctx, &mut memory, &block);
+            if let ArchRegState::Hexagon(hex) = &ctx.arch_regs {
+                (hex.get_v(3), hex.get_v(4))
+            } else {
+                unreachable!()
+            }
+        };
+        // ---- mode 0, imm=0, product (vrmpyubi): all Vuu bytes=2, Rt bytes=1.
+        //   o0 = sel.b[0]*1 + v0.b[1]*1 + v0.b[2]*1 + v0.b[3]*1 = 4*2 = 8
+        //   o1 = v1.b[0]*1 + v1.b[1]*1 + sel.b[2]*1 + v0.b[3]*1 = 4*2 = 8
+        let v0 = [0x0202_0202_0202_0202u64; 16];
+        let v1 = [0x0303_0303_0303_0303u64; 16];
+        let rt = [0x0101_0101_0101_0101u64; 16];
+        let (lo, hi) = run(v0, v1, rt, OpKind::VRotReduceMulPair {
+            dst_lo: mkv(3), dst_hi: mkv(4), src_lo: mkv(0), src_hi: mkv(1), src2: mkv(2),
+            src_elem: VecElementType::I8, rt_elem: VecElementType::I8, out_elem: VecElementType::I32,
+            imm: 0, mode: 0, signed1: false, signed2: false, acc: false, abs_diff: false,
+        });
+        // o0: all taps from v0 (sel=v0 since imm=0): 2*1*4 = 8.
+        assert_eq!(lo, [0x0000_0008u64 | (0x0000_0008u64 << 32); 16]);
+        // o1: v1 taps (3) at bytes 0,1; sel(v0)=2 at byte2; v0=2 at byte3:
+        //   3+3+2+2 = 10.
+        assert_eq!(hi, [0x0000_000Au64 | (0x0000_000Au64 << 32); 16]);
+
+        // ---- mode 0, imm=1 (vrmpyubi #1): sel = v1; Rt rotate by -1.
+        //   o0 = sel.b[0]*rb0 + v0.b[1]*rb1 + v0.b[2]*rb2 + v0.b[3]*rb3
+        //   with rb(n)=Rt[(n-1)&3]; all Rt bytes are 1 so rb=1 everywhere.
+        //   o0 = v1*1 + v0*1 + v0*1 + v0*1 = 3+2+2+2 = 9
+        //   o1 = v1.b[0]*rb2 + v1.b[1]*rb3 + sel.b[2]*rb0 + v0.b[3]*rb1
+        //      = 3 + 3 + 3 + 2 = 11
+        let (lo, hi) = run(v0, v1, rt, OpKind::VRotReduceMulPair {
+            dst_lo: mkv(3), dst_hi: mkv(4), src_lo: mkv(0), src_hi: mkv(1), src2: mkv(2),
+            src_elem: VecElementType::I8, rt_elem: VecElementType::I8, out_elem: VecElementType::I32,
+            imm: 1, mode: 0, signed1: false, signed2: false, acc: false, abs_diff: false,
+        });
+        assert_eq!(lo, [0x0000_0009u64 | (0x0000_0009u64 << 32); 16]);
+        assert_eq!(hi, [0x0000_000Bu64 | (0x0000_000Bu64 << 32); 16]);
+
+        // ---- mode 0, imm=0, abs_diff (vrsadubi): |Vuu.ub - Rt.ub|.
+        //   o0 = |sel-1| + |v0-1| + |v0-1| + |v0-1| = 4*|2-1| = 4
+        //   o1 = |v1-1|*2 + |sel-1| + |v0-1| = 2*2 + 1 + 1 = 6
+        let (lo, hi) = run(v0, v1, rt, OpKind::VRotReduceMulPair {
+            dst_lo: mkv(3), dst_hi: mkv(4), src_lo: mkv(0), src_hi: mkv(1), src2: mkv(2),
+            src_elem: VecElementType::I8, rt_elem: VecElementType::I8, out_elem: VecElementType::I32,
+            imm: 0, mode: 0, signed1: false, signed2: false, acc: false, abs_diff: true,
+        });
+        assert_eq!(lo, [0x0000_0004u64 | (0x0000_0004u64 << 32); 16]);
+        assert_eq!(hi, [0x0000_0006u64 | (0x0000_0006u64 << 32); 16]);
+
+        // ---- mode 1, abs_diff (vdsaduh): unsigned halfwords.
+        //   r0 = r1 = 1 (Rt.uh). v0.uh = 4, v1.uh = 6.
+        //   o0 = |v0.uh[2i]-1| + |v0.uh[2i+1]-1| = 3 + 3 = 6
+        //   o1 = |v0.uh[2i+1]-1| + |v1.uh[2i]-1| = 3 + 5 = 8
+        let v0h = [0x0004_0004_0004_0004u64; 16];
+        let v1h = [0x0006_0006_0006_0006u64; 16];
+        let rth = [0x0001_0001_0001_0001u64; 16];
+        let (lo, hi) = run(v0h, v1h, rth, OpKind::VRotReduceMulPair {
+            dst_lo: mkv(3), dst_hi: mkv(4), src_lo: mkv(0), src_hi: mkv(1), src2: mkv(2),
+            src_elem: VecElementType::I16, rt_elem: VecElementType::I16, out_elem: VecElementType::I32,
+            imm: 0, mode: 1, signed1: false, signed2: false, acc: false, abs_diff: true,
+        });
+        assert_eq!(lo, [0x0000_0006u64 | (0x0000_0006u64 << 32); 16]);
+        assert_eq!(hi, [0x0000_0008u64 | (0x0000_0008u64 << 32); 16]);
     }
 
     #[test]

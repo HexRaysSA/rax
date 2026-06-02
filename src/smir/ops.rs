@@ -1223,6 +1223,47 @@ pub enum OpKind {
         acc: bool,
     },
 
+    /// `#u1`-byte-rotate pair reduce. Models the HVX `vrmpyubi`/`vrmpybusi`,
+    /// `vrsadubi` (sum-of-absolute-differences) and `vdsaduh` (dual SAD over
+    /// halfwords) families. The source is a register PAIR `Vuu = (src_lo,
+    /// src_hi)`; `src2` is an I32-broadcast of Rt so `src2.sub[k] = Rt.sub[k %
+    /// subs]`. `abs_diff` picks the per-tap kernel: `false` sums `a·b` (vrmpy),
+    /// `true` sums `|a − b|` (vrsad/vdsad).
+    ///
+    /// `mode` selects the window (small discriminant, no new enum):
+    ///   0 = `vrmpyubi`/`vrmpybusi`/`vrsadubi` byte window with a `#u1` source-
+    ///       select (`sel = imm ? src_hi : src_lo`) and an Rt byte-index rotate
+    ///       by `-imm`. Per word lane i (taps over bytes 4i..4i+3), with
+    ///       `rb(n) = Rt.byte[(n − imm) & 3]` and kernel `f`:
+    ///         `dst_lo[i] = f(sel,4i+0,rb0)+f(src_lo,4i+1,rb1)
+    ///                      +f(src_lo,4i+2,rb2)+f(src_lo,4i+3,rb3)`
+    ///         `dst_hi[i] = f(src_hi,4i+0,rb2)+f(src_hi,4i+1,rb3)
+    ///                      +f(sel,4i+2,rb0)+f(src_lo,4i+3,rb1)`
+    ///   1 = `vdsaduh` halfword window (`imm` ignored). With `r0 = Rt.uh[0]`,
+    ///       `r1 = Rt.uh[1]`, per word lane i:
+    ///         `dst_lo[i] = |src_lo.uh[2i] − r0| + |src_lo.uh[2i+1] − r1|`
+    ///         `dst_hi[i] = |src_lo.uh[2i+1] − r0| + |src_hi.uh[2i] − r1|`
+    /// `src_elem` is the multiplicand width (I8 mode 0 / I16 mode 1), `rt_elem`
+    /// the Rt sub-lane width (matches src_elem), `out_elem` the result width
+    /// (I32). `signed1`/`signed2` select multiplicand / Rt signedness; `acc`
+    /// adds into the existing dst pair.
+    VRotReduceMulPair {
+        dst_lo: VReg,
+        dst_hi: VReg,
+        src_lo: VReg,
+        src_hi: VReg,
+        src2: VReg,
+        src_elem: VecElementType,
+        rt_elem: VecElementType,
+        out_elem: VecElementType,
+        imm: u8,
+        mode: u8,
+        signed1: bool,
+        signed2: bool,
+        acc: bool,
+        abs_diff: bool,
+    },
+
     /// Reducing (dot-product) multiply.
     ///
     /// Models the HVX `vrmpy`/`vdmpy` vector-by-vector reduce family: each output
@@ -1737,6 +1778,7 @@ impl OpKind {
             | OpKind::VWidenExt { dst_lo, dst_hi, .. }
             | OpKind::VPairReduceMul { dst_lo, dst_hi, .. }
             | OpKind::VSlideReduceMul { dst_lo, dst_hi, .. }
+            | OpKind::VRotReduceMulPair { dst_lo, dst_hi, .. }
             | OpKind::VPairPairReduceMul { dst_lo, dst_hi, .. }
             | OpKind::VLut16 { dst_lo, dst_hi, .. }
             | OpKind::VShuffVdd { dst_lo, dst_hi, .. } => {

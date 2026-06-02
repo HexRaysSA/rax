@@ -1550,7 +1550,8 @@ impl OpKind {
             }
 
             OpKind::VPairReduceMul { src_lo, src_hi, src2, dst_lo, dst_hi, acc, .. }
-            | OpKind::VSlideReduceMul { src_lo, src_hi, src2, dst_lo, dst_hi, acc, .. } => {
+            | OpKind::VSlideReduceMul { src_lo, src_hi, src2, dst_lo, dst_hi, acc, .. }
+            | OpKind::VRotReduceMulPair { src_lo, src_hi, src2, dst_lo, dst_hi, acc, .. } => {
                 result.push(*src_lo);
                 result.push(*src_hi);
                 result.push(*src2);
