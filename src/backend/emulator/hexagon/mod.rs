@@ -1,6 +1,6 @@
 mod cpu;
 pub mod decode;
-mod opcode;
+pub(crate) mod opcode;
 mod sem;
 
 pub use cpu::HexagonVcpu;
