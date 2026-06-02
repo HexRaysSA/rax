@@ -8,6 +8,7 @@
 
 use super::csr::Csr;
 use super::decode::{decode_at, DecodeError, Insn, Op};
+use super::float::RoundingMode;
 use super::memory::{MemError, Memory};
 use super::{Isa, Xlen};
 
@@ -1042,18 +1043,358 @@ impl RiscVCpu {
     }
 
     // ---------------------------------------------------------------
-    // FP dispatch (filled in by the F/D phase).
+    // Floating point (F / D).
     // ---------------------------------------------------------------
 
+    /// Dynamic rounding mode field (`fcsr.frm`).
+    #[inline]
+    fn frm(&self) -> u8 {
+        ((self.fcsr >> 5) & 0x7) as u8
+    }
+
+    /// Resolve an instruction `rm` field to a concrete rounding mode, honoring
+    /// the dynamic (`Dyn`) selection. Returns `None` for reserved encodings.
+    fn eff_rm(&self, rm_field: u8) -> Option<RoundingMode> {
+        let m = RoundingMode::from_bits(rm_field)?;
+        let m = if m == RoundingMode::Dyn {
+            RoundingMode::from_bits(self.frm())?
+        } else {
+            m
+        };
+        if m == RoundingMode::Dyn {
+            None // dynamic field itself selecting dynamic is illegal
+        } else {
+            Some(m)
+        }
+    }
+
+    /// OR new exception flags into `fcsr.fflags`.
+    #[inline]
+    fn accrue(&mut self, flags: u32) {
+        self.fcsr |= flags & 0x1f;
+    }
+
+    /// Read a single-precision operand, applying NaN-unboxing.
+    #[inline]
+    fn rf32(&self, i: u8) -> f32 {
+        let bits = self.f(i);
+        if (bits >> 32) == 0xffff_ffff {
+            f32::from_bits(bits as u32)
+        } else {
+            f32::from_bits(super::float::CANONICAL_NAN_F32)
+        }
+    }
+    #[inline]
+    fn rf64(&self, i: u8) -> f64 {
+        f64::from_bits(self.f(i))
+    }
+    /// Unboxed single-precision operand as raw 32-bit pattern (in a u64).
+    #[inline]
+    fn s32(&self, i: u8) -> u64 {
+        self.rf32(i).to_bits() as u64
+    }
+    /// Write a single-precision result, NaN-boxing into the 64-bit register.
+    #[inline]
+    fn wf32(&mut self, rd: u8, bits: u32) {
+        self.set_f(rd, 0xffff_ffff_0000_0000 | bits as u64);
+    }
+    #[inline]
+    fn wf64(&mut self, rd: u8, bits: u64) {
+        self.set_f(rd, bits);
+    }
+
     fn exec_fp(&mut self, insn: &Insn, _pc: u64) -> Result<RiscVExit, Trap> {
-        // The F/D phase replaces this with the IEEE-754 execution path.
-        Err(Trap::illegal(insn.raw))
+        use super::float as ff;
+        let rd = insn.rd;
+        let rs1 = insn.rs1;
+        let rs2 = insn.rs2;
+        let rs3 = insn.rs3;
+        let mut flags = 0u32;
+
+        // Operations whose funct3 encodes a rounding mode.
+        let needs_rm = !matches!(
+            insn.op,
+            Op::Flw
+                | Op::Fsw
+                | Op::Fld
+                | Op::Fsd
+                | Op::FsgnjS | Op::FsgnjnS | Op::FsgnjxS
+                | Op::FsgnjD | Op::FsgnjnD | Op::FsgnjxD
+                | Op::FminS | Op::FmaxS | Op::FminD | Op::FmaxD
+                | Op::FeqS | Op::FltS | Op::FleS | Op::FeqD | Op::FltD | Op::FleD
+                | Op::FclassS | Op::FclassD
+                | Op::FmvXW | Op::FmvWX | Op::FmvXD | Op::FmvDX
+        );
+        let rm = if needs_rm {
+            match self.eff_rm(insn.rm()) {
+                Some(m) => m,
+                None => return Err(Trap::illegal(insn.raw)),
+            }
+        } else {
+            RoundingMode::Rne
+        };
+
+        match insn.op {
+            // ---- loads / stores ----
+            Op::Flw => {
+                let addr = self.x(rs1).wrapping_add(insn.imm as u64) & self.xmask();
+                let v = self.mem.read_u32(addr).map_err(|_| acc_fault(false, addr))?;
+                self.wf32(rd, v);
+            }
+            Op::Fld => {
+                let addr = self.x(rs1).wrapping_add(insn.imm as u64) & self.xmask();
+                let v = self.mem.read_u64(addr).map_err(|_| acc_fault(false, addr))?;
+                self.wf64(rd, v);
+            }
+            Op::Fsw => {
+                let addr = self.x(rs1).wrapping_add(insn.imm as u64) & self.xmask();
+                self.mem
+                    .write_u32(addr, self.f(rs2) as u32)
+                    .map_err(|_| acc_fault(true, addr))?;
+            }
+            Op::Fsd => {
+                let addr = self.x(rs1).wrapping_add(insn.imm as u64) & self.xmask();
+                self.mem
+                    .write_u64(addr, self.f(rs2))
+                    .map_err(|_| acc_fault(true, addr))?;
+            }
+
+            // ---- single-precision arithmetic ----
+            Op::FaddS => {
+                let r = ff::add(self.rf32(rs1), self.rf32(rs2), rm, &mut flags);
+                self.wf32(rd, r.to_bits());
+            }
+            Op::FsubS => {
+                let r = ff::sub(self.rf32(rs1), self.rf32(rs2), rm, &mut flags);
+                self.wf32(rd, r.to_bits());
+            }
+            Op::FmulS => {
+                let r = ff::sf_mul(ff::F32, self.s32(rs1), self.s32(rs2), rm, &mut flags);
+                self.wf32(rd, r as u32);
+            }
+            Op::FdivS => {
+                let r = ff::sf_div(ff::F32, self.s32(rs1), self.s32(rs2), rm, &mut flags);
+                self.wf32(rd, r as u32);
+            }
+            Op::FsqrtS => {
+                let r = ff::sf_sqrt(ff::F32, self.s32(rs1), rm, &mut flags);
+                self.wf32(rd, r as u32);
+            }
+            Op::FmaddS => {
+                let r = ff::sf_fma(ff::F32, self.s32(rs1), self.s32(rs2), self.s32(rs3), rm, &mut flags);
+                self.wf32(rd, r as u32);
+            }
+            Op::FmsubS => {
+                let r = ff::sf_fma(ff::F32, self.s32(rs1), self.s32(rs2), neg32(self.s32(rs3)), rm, &mut flags);
+                self.wf32(rd, r as u32);
+            }
+            Op::FnmsubS => {
+                let r = ff::sf_fma(ff::F32, neg32(self.s32(rs1)), self.s32(rs2), self.s32(rs3), rm, &mut flags);
+                self.wf32(rd, r as u32);
+            }
+            Op::FnmaddS => {
+                let r = ff::sf_fma(ff::F32, neg32(self.s32(rs1)), self.s32(rs2), neg32(self.s32(rs3)), rm, &mut flags);
+                self.wf32(rd, r as u32);
+            }
+
+            // ---- double-precision arithmetic ----
+            Op::FaddD => {
+                let r = ff::add(self.rf64(rs1), self.rf64(rs2), rm, &mut flags);
+                self.wf64(rd, r.to_bits());
+            }
+            Op::FsubD => {
+                let r = ff::sub(self.rf64(rs1), self.rf64(rs2), rm, &mut flags);
+                self.wf64(rd, r.to_bits());
+            }
+            Op::FmulD => {
+                let r = ff::sf_mul(ff::F64, self.f(rs1), self.f(rs2), rm, &mut flags);
+                self.wf64(rd, r);
+            }
+            Op::FdivD => {
+                let r = ff::sf_div(ff::F64, self.f(rs1), self.f(rs2), rm, &mut flags);
+                self.wf64(rd, r);
+            }
+            Op::FsqrtD => {
+                let r = ff::sf_sqrt(ff::F64, self.f(rs1), rm, &mut flags);
+                self.wf64(rd, r);
+            }
+            Op::FmaddD => {
+                let r = ff::sf_fma(ff::F64, self.f(rs1), self.f(rs2), self.f(rs3), rm, &mut flags);
+                self.wf64(rd, r);
+            }
+            Op::FmsubD => {
+                let r = ff::sf_fma(ff::F64, self.f(rs1), self.f(rs2), neg64(self.f(rs3)), rm, &mut flags);
+                self.wf64(rd, r);
+            }
+            Op::FnmsubD => {
+                let r = ff::sf_fma(ff::F64, neg64(self.f(rs1)), self.f(rs2), self.f(rs3), rm, &mut flags);
+                self.wf64(rd, r);
+            }
+            Op::FnmaddD => {
+                let r = ff::sf_fma(ff::F64, neg64(self.f(rs1)), self.f(rs2), neg64(self.f(rs3)), rm, &mut flags);
+                self.wf64(rd, r);
+            }
+
+            // ---- sign injection ----
+            Op::FsgnjS | Op::FsgnjnS | Op::FsgnjxS => {
+                let a = self.rf32(rs1).to_bits();
+                let b = self.rf32(rs2).to_bits();
+                let sign = match insn.op {
+                    Op::FsgnjS => b & 0x8000_0000,
+                    Op::FsgnjnS => !b & 0x8000_0000,
+                    _ => (a ^ b) & 0x8000_0000,
+                };
+                self.wf32(rd, (a & 0x7fff_ffff) | sign);
+            }
+            Op::FsgnjD | Op::FsgnjnD | Op::FsgnjxD => {
+                let a = self.f(rs1);
+                let b = self.f(rs2);
+                let sign = match insn.op {
+                    Op::FsgnjD => b & 0x8000_0000_0000_0000,
+                    Op::FsgnjnD => !b & 0x8000_0000_0000_0000,
+                    _ => (a ^ b) & 0x8000_0000_0000_0000,
+                };
+                self.wf64(rd, (a & 0x7fff_ffff_ffff_ffff) | sign);
+            }
+
+            // ---- min / max ----
+            Op::FminS => {
+                let r = ff::fmin(self.rf32(rs1), self.rf32(rs2), &mut flags);
+                self.wf32(rd, r.to_bits());
+            }
+            Op::FmaxS => {
+                let r = ff::fmax(self.rf32(rs1), self.rf32(rs2), &mut flags);
+                self.wf32(rd, r.to_bits());
+            }
+            Op::FminD => {
+                let r = ff::fmin(self.rf64(rs1), self.rf64(rs2), &mut flags);
+                self.wf64(rd, r.to_bits());
+            }
+            Op::FmaxD => {
+                let r = ff::fmax(self.rf64(rs1), self.rf64(rs2), &mut flags);
+                self.wf64(rd, r.to_bits());
+            }
+
+            // ---- comparisons ----
+            Op::FeqS => {
+                let v = ff::feq(self.rf32(rs1), self.rf32(rs2), &mut flags);
+                self.set_x(rd, v as u64);
+            }
+            Op::FltS => {
+                let v = ff::flt(self.rf32(rs1), self.rf32(rs2), &mut flags);
+                self.set_x(rd, v as u64);
+            }
+            Op::FleS => {
+                let v = ff::fle(self.rf32(rs1), self.rf32(rs2), &mut flags);
+                self.set_x(rd, v as u64);
+            }
+            Op::FeqD => {
+                let v = ff::feq(self.rf64(rs1), self.rf64(rs2), &mut flags);
+                self.set_x(rd, v as u64);
+            }
+            Op::FltD => {
+                let v = ff::flt(self.rf64(rs1), self.rf64(rs2), &mut flags);
+                self.set_x(rd, v as u64);
+            }
+            Op::FleD => {
+                let v = ff::fle(self.rf64(rs1), self.rf64(rs2), &mut flags);
+                self.set_x(rd, v as u64);
+            }
+
+            // ---- classify ----
+            Op::FclassS => self.set_x(rd, ff::fclass(self.rf32(rs1))),
+            Op::FclassD => self.set_x(rd, ff::fclass(self.rf64(rs1))),
+
+            // ---- moves between FP and integer registers ----
+            Op::FmvXW => self.set_x(rd, self.f(rs1) as u32 as i32 as i64 as u64),
+            Op::FmvWX => self.wf32(rd, self.x(rs1) as u32),
+            Op::FmvXD => self.set_x(rd, self.f(rs1)),
+            Op::FmvDX => self.wf64(rd, self.x(rs1)),
+
+            // ---- float -> integer conversions ----
+            Op::FcvtWS => self.set_x(rd, ff::ftoi(self.rf32(rs1), true, 32, rm, &mut flags)),
+            Op::FcvtWuS => self.set_x(rd, ff::ftoi(self.rf32(rs1), false, 32, rm, &mut flags)),
+            Op::FcvtLS => self.set_x(rd, ff::ftoi(self.rf32(rs1), true, 64, rm, &mut flags)),
+            Op::FcvtLuS => self.set_x(rd, ff::ftoi(self.rf32(rs1), false, 64, rm, &mut flags)),
+            Op::FcvtWD => self.set_x(rd, ff::ftoi(self.rf64(rs1), true, 32, rm, &mut flags)),
+            Op::FcvtWuD => self.set_x(rd, ff::ftoi(self.rf64(rs1), false, 32, rm, &mut flags)),
+            Op::FcvtLD => self.set_x(rd, ff::ftoi(self.rf64(rs1), true, 64, rm, &mut flags)),
+            Op::FcvtLuD => self.set_x(rd, ff::ftoi(self.rf64(rs1), false, 64, rm, &mut flags)),
+
+            // ---- integer -> float conversions ----
+            Op::FcvtSW => {
+                let v = self.x(rs1) as i32 as i128;
+                let r: f32 = ff::itof(v, rm, &mut flags);
+                self.wf32(rd, r.to_bits());
+            }
+            Op::FcvtSWu => {
+                let v = self.x(rs1) as u32 as i128;
+                let r: f32 = ff::itof(v, rm, &mut flags);
+                self.wf32(rd, r.to_bits());
+            }
+            Op::FcvtSL => {
+                let v = self.x(rs1) as i64 as i128;
+                let r: f32 = ff::itof(v, rm, &mut flags);
+                self.wf32(rd, r.to_bits());
+            }
+            Op::FcvtSLu => {
+                let v = self.x(rs1) as i128; // u64 zero-extended
+                let r: f32 = ff::itof(v, rm, &mut flags);
+                self.wf32(rd, r.to_bits());
+            }
+            Op::FcvtDW => {
+                let v = self.x(rs1) as i32 as i128;
+                let r: f64 = ff::itof(v, rm, &mut flags);
+                self.wf64(rd, r.to_bits());
+            }
+            Op::FcvtDWu => {
+                let v = self.x(rs1) as u32 as i128;
+                let r: f64 = ff::itof(v, rm, &mut flags);
+                self.wf64(rd, r.to_bits());
+            }
+            Op::FcvtDL => {
+                let v = self.x(rs1) as i64 as i128;
+                let r: f64 = ff::itof(v, rm, &mut flags);
+                self.wf64(rd, r.to_bits());
+            }
+            Op::FcvtDLu => {
+                let v = self.x(rs1) as i128;
+                let r: f64 = ff::itof(v, rm, &mut flags);
+                self.wf64(rd, r.to_bits());
+            }
+
+            // ---- float <-> float conversions ----
+            Op::FcvtSD => {
+                let bits = ff::f64_to_f32(self.rf64(rs1), rm, &mut flags);
+                self.wf32(rd, bits);
+            }
+            Op::FcvtDS => {
+                let bits = ff::f32_to_f64(self.rf32(rs1), &mut flags);
+                self.wf64(rd, bits);
+            }
+
+            _ => return Err(Trap::illegal(insn.raw)),
+        }
+
+        self.accrue(flags);
+        Ok(RiscVExit::Continue)
     }
 }
 
 // ---------------------------------------------------------------------------
 // Free helpers.
 // ---------------------------------------------------------------------------
+
+/// Flip the sign bit of a single-precision bit pattern.
+#[inline]
+fn neg32(bits: u64) -> u64 {
+    bits ^ 0x8000_0000
+}
+/// Flip the sign bit of a double-precision bit pattern.
+#[inline]
+fn neg64(bits: u64) -> u64 {
+    bits ^ 0x8000_0000_0000_0000
+}
 
 /// Sign-extend the low `size` bytes of `raw` to 64 bits.
 #[inline]

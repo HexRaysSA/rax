@@ -1,9 +1,16 @@
 //! IEEE-754 floating-point support for the F and D extensions.
 //!
-//! Rounding-mode plumbing and the accrued-exception flag bits live here; the
-//! arithmetic itself is filled in by the F/D phase. The RISC-V FP model keeps
-//! all five rounding modes plus the `fflags` accrued-exception bits inside the
-//! `fcsr` CSR, which the CPU owns.
+//! The arithmetic uses the host FPU for the correctly-rounded round-to-nearest
+//! result and then, for the directed rounding modes, corrects it using the
+//! *exact residual* `delta = true_result - rne_result`. For `+`, `-`, `*`,
+//! `/` and `sqrt` the residual is itself representable and is recovered with a
+//! fused multiply-add (or 2Sum), giving correctly-rounded results in every RISC-V
+//! rounding mode without depending on the host rounding mode. Accrued exception
+//! flags (`fflags`) are computed alongside each operation.
+//!
+//! All results follow RISC-V conventions: any NaN result is the canonical quiet
+//! NaN, signaling-NaN inputs and invalid operations raise NV, and single-
+//! precision values are NaN-boxed by the caller in [`crate::riscv::cpu`].
 
 /// RISC-V floating-point rounding modes (`frm` field, also the instruction
 /// `rm` field; `Dyn` selects the CSR `frm`).
@@ -52,7 +59,1329 @@ pub mod fflags {
     pub const NV: u32 = 0x10;
 }
 
-/// Canonical quiet NaN bit patterns.
+/// Canonical quiet NaN bit pattern for single precision.
 pub const CANONICAL_NAN_F32: u32 = 0x7fc0_0000;
 /// Canonical quiet NaN for double precision.
 pub const CANONICAL_NAN_F64: u64 = 0x7ff8_0000_0000_0000;
+
+// ===========================================================================
+// Float abstraction shared by f32 and f64.
+// ===========================================================================
+
+/// Operations needed by the generic arithmetic core, implemented for `f32`
+/// and `f64`.
+pub trait Sf: Copy + PartialOrd {
+    /// Underlying bit representation (`u32` / `u64`).
+    type Bits: Copy + Eq;
+
+    const CANON_NAN: Self::Bits;
+    const ZERO: Self;
+    const PINF: Self;
+    const NINF: Self;
+    /// Mantissa width (including the implicit bit): 24 / 53.
+    const MANT_BITS: u32;
+    /// Width in bits: 32 / 64.
+    const WIDTH: u32;
+
+    fn from_bits(b: Self::Bits) -> Self;
+    fn to_bits(self) -> Self::Bits;
+    fn add(self, o: Self) -> Self;
+    fn sub(self, o: Self) -> Self;
+    fn mul(self, o: Self) -> Self;
+    fn div(self, o: Self) -> Self;
+    fn sqrt(self) -> Self;
+    fn mul_add(self, b: Self, c: Self) -> Self;
+    fn is_nan(self) -> bool;
+    fn is_infinite(self) -> bool;
+    fn is_finite(self) -> bool;
+    fn is_sign_negative(self) -> bool;
+    fn abs(self) -> Self;
+    fn neg(self) -> Self;
+    fn is_zero(self) -> bool;
+    /// Largest finite magnitude.
+    fn max_finite() -> Self;
+    /// Smallest positive normal.
+    fn min_normal() -> Self;
+    fn signaling_nan(self) -> bool;
+    /// Convert an integer to this float, rounding to nearest-even.
+    fn from_i128(v: i128) -> Self;
+    /// Truncate an integral float to an integer (saturating).
+    fn to_i128(self) -> i128;
+    /// Round to an integral value per `mode` (the value stays in this format).
+    fn round_integral(self, mode: RoundingMode) -> Self;
+    fn canon() -> Self {
+        Self::from_bits(Self::CANON_NAN)
+    }
+}
+
+macro_rules! impl_sf {
+    ($t:ty, $b:ty, $canon:expr, $mant:expr, $width:expr, $maxf:expr, $minn:expr) => {
+        impl Sf for $t {
+            type Bits = $b;
+            const CANON_NAN: $b = $canon;
+            const ZERO: $t = 0.0;
+            const PINF: $t = <$t>::INFINITY;
+            const NINF: $t = <$t>::NEG_INFINITY;
+            const MANT_BITS: u32 = $mant;
+            const WIDTH: u32 = $width;
+            #[inline]
+            fn from_bits(b: $b) -> $t {
+                <$t>::from_bits(b)
+            }
+            #[inline]
+            fn to_bits(self) -> $b {
+                <$t>::to_bits(self)
+            }
+            #[inline]
+            fn add(self, o: $t) -> $t {
+                self + o
+            }
+            #[inline]
+            fn sub(self, o: $t) -> $t {
+                self - o
+            }
+            #[inline]
+            fn mul(self, o: $t) -> $t {
+                self * o
+            }
+            #[inline]
+            fn div(self, o: $t) -> $t {
+                self / o
+            }
+            #[inline]
+            fn sqrt(self) -> $t {
+                <$t>::sqrt(self)
+            }
+            #[inline]
+            fn mul_add(self, b: $t, c: $t) -> $t {
+                <$t>::mul_add(self, b, c)
+            }
+            #[inline]
+            fn is_nan(self) -> bool {
+                <$t>::is_nan(self)
+            }
+            #[inline]
+            fn is_infinite(self) -> bool {
+                <$t>::is_infinite(self)
+            }
+            #[inline]
+            fn is_finite(self) -> bool {
+                <$t>::is_finite(self)
+            }
+            #[inline]
+            fn is_sign_negative(self) -> bool {
+                <$t>::is_sign_negative(self)
+            }
+            #[inline]
+            fn abs(self) -> $t {
+                <$t>::abs(self)
+            }
+            #[inline]
+            fn neg(self) -> $t {
+                -self
+            }
+            #[inline]
+            fn is_zero(self) -> bool {
+                self == 0.0
+            }
+            #[inline]
+            fn max_finite() -> $t {
+                $maxf
+            }
+            #[inline]
+            fn min_normal() -> $t {
+                $minn
+            }
+            #[inline]
+            fn signaling_nan(self) -> bool {
+                // NaN with the quiet bit (MSB of mantissa) clear.
+                if !self.is_nan() {
+                    return false;
+                }
+                let qbit: $b = 1 << ($mant - 2);
+                (self.to_bits() & qbit) == 0
+            }
+            #[inline]
+            fn from_i128(v: i128) -> $t {
+                v as $t
+            }
+            #[inline]
+            fn to_i128(self) -> i128 {
+                self as i128
+            }
+            #[inline]
+            fn round_integral(self, mode: RoundingMode) -> $t {
+                match mode {
+                    RoundingMode::Rtz => self.trunc(),
+                    RoundingMode::Rdn => self.floor(),
+                    RoundingMode::Rup => self.ceil(),
+                    RoundingMode::Rmm => self.round(),
+                    _ => self.round_ties_even(),
+                }
+            }
+        }
+    };
+}
+
+impl_sf!(f32, u32, 0x7fc0_0000, 24, 32, f32::MAX, f32::MIN_POSITIVE);
+impl_sf!(
+    f64,
+    u64,
+    0x7ff8_0000_0000_0000,
+    53,
+    64,
+    f64::MAX,
+    f64::MIN_POSITIVE
+);
+
+// ---------------------------------------------------------------------------
+// ULP neighbours (bit-level next-representable).
+// ---------------------------------------------------------------------------
+
+fn next_up<F: Sf>(x: F) -> F {
+    if x.is_nan() || (x.is_infinite() && !x.is_sign_negative()) {
+        return x;
+    }
+    if x.is_zero() {
+        // smallest positive subnormal
+        let mut b = F::ZERO.to_bits();
+        b = inc_bits::<F>(b);
+        return F::from_bits(b);
+    }
+    let b = x.to_bits();
+    let nb = if x.is_sign_negative() {
+        dec_bits::<F>(b)
+    } else {
+        inc_bits::<F>(b)
+    };
+    F::from_bits(nb)
+}
+
+fn next_down<F: Sf>(x: F) -> F {
+    next_up(x.neg()).neg()
+}
+
+#[inline]
+fn inc_bits<F: Sf>(b: F::Bits) -> F::Bits {
+    // Generic +1 on the bit pattern via u64 round-trip is not possible without
+    // numeric ops on the associated type; specialize through the width.
+    add_bits::<F>(b, 1)
+}
+#[inline]
+fn dec_bits<F: Sf>(b: F::Bits) -> F::Bits {
+    add_bits::<F>(b, u64::MAX) // -1
+}
+
+/// Add `delta` (mod 2^WIDTH) to a raw bit pattern.
+fn add_bits<F: Sf>(b: F::Bits, delta: u64) -> F::Bits {
+    // Round-trip through u64 using the float to recover an integer is awkward;
+    // instead reinterpret via to/from on the concrete widths.
+    if F::WIDTH == 32 {
+        let v = bits_to_u64::<F>(b) as u32;
+        u64_to_bits::<F>(v.wrapping_add(delta as u32) as u64)
+    } else {
+        let v = bits_to_u64::<F>(b);
+        u64_to_bits::<F>(v.wrapping_add(delta))
+    }
+}
+
+// Helpers to move between the associated Bits type and u64 generically.
+fn bits_to_u64<F: Sf>(b: F::Bits) -> u64 {
+    // SAFETY: Bits is u32 or u64 (Copy, no padding); read its bytes.
+    let mut out: u64 = 0;
+    let n = (F::WIDTH / 8) as usize;
+    unsafe {
+        std::ptr::copy_nonoverlapping(
+            &b as *const F::Bits as *const u8,
+            &mut out as *mut u64 as *mut u8,
+            n,
+        );
+    }
+    out
+}
+fn u64_to_bits<F: Sf>(v: u64) -> F::Bits {
+    let mut out: F::Bits = F::CANON_NAN;
+    let n = (F::WIDTH / 8) as usize;
+    unsafe {
+        std::ptr::copy_nonoverlapping(
+            &v as *const u64 as *const u8,
+            &mut out as *mut F::Bits as *mut u8,
+            n,
+        );
+    }
+    out
+}
+
+// ---------------------------------------------------------------------------
+// Directed-rounding corrector.
+// ---------------------------------------------------------------------------
+
+/// Given the round-to-nearest result `rne` and the exact residual
+/// `delta = true - rne`, produce the value for `mode`, setting NX/OF/UF.
+/// `inputs_finite` indicates whether both operands were finite (for overflow).
+fn correct<F: Sf>(
+    rne: F,
+    delta: F,
+    mode: RoundingMode,
+    inputs_finite: bool,
+    flags: &mut u32,
+) -> F {
+    // Overflow: native produced infinity from finite inputs.
+    if rne.is_infinite() && inputs_finite {
+        *flags |= fflags::OF | fflags::NX;
+        let neg = rne.is_sign_negative();
+        return match mode {
+            RoundingMode::Rtz => {
+                if neg {
+                    F::max_finite().neg()
+                } else {
+                    F::max_finite()
+                }
+            }
+            RoundingMode::Rdn => {
+                if neg {
+                    rne
+                } else {
+                    F::max_finite()
+                }
+            }
+            RoundingMode::Rup => {
+                if neg {
+                    F::max_finite().neg()
+                } else {
+                    rne
+                }
+            }
+            _ => rne, // Rne / Rmm -> inf
+        };
+    }
+
+    if delta.is_zero() {
+        return rne; // exact
+    }
+    *flags |= fflags::NX;
+
+    let up = delta > F::ZERO; // true result above rne
+    let (lo, hi) = if up {
+        (rne, next_up(rne))
+    } else {
+        (next_down(rne), rne)
+    };
+
+    let result = match mode {
+        RoundingMode::Rne | RoundingMode::Dyn => rne,
+        RoundingMode::Rtz => min_mag(lo, hi),
+        RoundingMode::Rdn => lo,
+        RoundingMode::Rup => hi,
+        RoundingMode::Rmm => {
+            // Tie iff 2*|delta| == (hi - lo).
+            let two_d = delta.abs().add(delta.abs());
+            let ulp = hi.sub(lo);
+            if two_d == ulp {
+                max_mag(lo, hi)
+            } else {
+                rne
+            }
+        }
+    };
+
+    // Overflow produced by pushing to infinity in a directed mode.
+    if result.is_infinite() && inputs_finite {
+        *flags |= fflags::OF;
+    }
+    // Underflow: tiny (subnormal) and inexact.
+    if result.is_finite() && !result.is_zero() && result.abs() < F::min_normal() {
+        *flags |= fflags::UF;
+    }
+    result
+}
+
+fn min_mag<F: Sf>(a: F, b: F) -> F {
+    if a.abs() <= b.abs() {
+        a
+    } else {
+        b
+    }
+}
+fn max_mag<F: Sf>(a: F, b: F) -> F {
+    if a.abs() >= b.abs() {
+        a
+    } else {
+        b
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Arithmetic operations (return canonical-NaN bits on NaN results).
+// ---------------------------------------------------------------------------
+
+fn nan_result<F: Sf>(flags: &mut u32, sig: bool) -> F {
+    if sig {
+        *flags |= fflags::NV;
+    }
+    F::canon()
+}
+
+/// Was any operand a signaling NaN?
+fn any_snan<F: Sf>(ops: &[F]) -> bool {
+    ops.iter().any(|o| o.signaling_nan())
+}
+
+/// `a + b`.
+pub fn add<F: Sf>(a: F, b: F, mode: RoundingMode, flags: &mut u32) -> F {
+    if a.is_nan() || b.is_nan() {
+        return nan_result::<F>(flags, any_snan(&[a, b]));
+    }
+    // inf + (-inf) is invalid.
+    if a.is_infinite() && b.is_infinite() && (a.is_sign_negative() != b.is_sign_negative()) {
+        *flags |= fflags::NV;
+        return F::canon();
+    }
+    if a.is_infinite() || b.is_infinite() {
+        return a.add(b);
+    }
+    let r = a.add(b);
+    if r.is_infinite() {
+        return correct(r, F::ZERO, mode, true, flags);
+    }
+    // Sign of an exact-zero sum: +0 in every mode except round-down, where it is
+    // -0 -- unless both addends are +0 (a zero with that same sign is retained).
+    if r.is_zero() && !r.is_sign_negative() && mode == RoundingMode::Rdn {
+        let both_pos_zero =
+            a.is_zero() && !a.is_sign_negative() && b.is_zero() && !b.is_sign_negative();
+        if !both_pos_zero {
+            return F::ZERO.neg();
+        }
+    }
+    // 2Sum exact residual: a + b == r + e.
+    let bv = r.sub(a);
+    let e = a.sub(r.sub(bv)).add(b.sub(bv));
+    correct(r, e, mode, true, flags)
+}
+
+/// `a - b`.
+pub fn sub<F: Sf>(a: F, b: F, mode: RoundingMode, flags: &mut u32) -> F {
+    add(a, b.neg(), mode, flags)
+}
+
+/// `a * b`.
+pub fn mul<F: Sf>(a: F, b: F, mode: RoundingMode, flags: &mut u32) -> F {
+    if a.is_nan() || b.is_nan() {
+        return nan_result::<F>(flags, any_snan(&[a, b]));
+    }
+    // 0 * inf is invalid.
+    if (a.is_zero() && b.is_infinite()) || (b.is_zero() && a.is_infinite()) {
+        *flags |= fflags::NV;
+        return F::canon();
+    }
+    if a.is_infinite() || b.is_infinite() {
+        return a.mul(b);
+    }
+    let r = a.mul(b);
+    if r.is_infinite() {
+        return correct(r, F::ZERO, mode, true, flags);
+    }
+    // Exact residual via fma: a*b - r.
+    let e = a.mul_add(b, r.neg());
+    correct(r, e, mode, true, flags)
+}
+
+/// `a / b`.
+pub fn div<F: Sf>(a: F, b: F, mode: RoundingMode, flags: &mut u32) -> F {
+    if a.is_nan() || b.is_nan() {
+        return nan_result::<F>(flags, any_snan(&[a, b]));
+    }
+    // 0/0 and inf/inf are invalid.
+    if (a.is_zero() && b.is_zero()) || (a.is_infinite() && b.is_infinite()) {
+        *flags |= fflags::NV;
+        return F::canon();
+    }
+    // finite nonzero / 0 -> divide by zero.
+    if b.is_zero() && a.is_finite() && !a.is_zero() {
+        *flags |= fflags::DZ;
+        let neg = a.is_sign_negative() != b.is_sign_negative();
+        return if neg { F::NINF } else { F::PINF };
+    }
+    if a.is_infinite() || b.is_infinite() || a.is_zero() {
+        return a.div(b);
+    }
+    let r = a.div(b);
+    if r.is_infinite() {
+        return correct(r, F::ZERO, mode, true, flags);
+    }
+    // residual of a/b - r equals (a - r*b)/b. The numerator is exact via fma.
+    let neg_num = r.mul_add(b, a.neg()); // = r*b - a
+    let resid_num = neg_num.neg(); // a - r*b
+    let delta = resid_num.div(b);
+    correct(r, delta, mode, true, flags)
+}
+
+/// `sqrt(a)`.
+pub fn sqrt<F: Sf>(a: F, mode: RoundingMode, flags: &mut u32) -> F {
+    if a.is_nan() {
+        return nan_result::<F>(flags, a.signaling_nan());
+    }
+    if a.is_zero() {
+        return a; // sqrt(+/-0) = +/-0
+    }
+    if a.is_sign_negative() {
+        *flags |= fflags::NV;
+        return F::canon();
+    }
+    if a.is_infinite() {
+        return a; // sqrt(+inf) = +inf
+    }
+    let r = a.sqrt();
+    // residual of sqrt: sign(sqrt(a) - r) = sign(a - r*r); delta ~ (a - r*r)/(2r)
+    let neg = r.mul_add(r, a.neg()); // r*r - a
+    let resid = neg.neg(); // a - r*r
+    let delta = resid.div(r.add(r)); // (a - r^2)/(2r)
+    correct(r, delta, mode, true, flags)
+}
+
+/// `a * b + c` (fused, single rounding).
+pub fn fma<F: Sf>(a: F, b: F, c: F, mode: RoundingMode, flags: &mut u32) -> F {
+    if a.is_nan() || b.is_nan() || c.is_nan() {
+        return nan_result::<F>(flags, any_snan(&[a, b, c]));
+    }
+    // 0*inf invalid (even before adding c, unless c is NaN handled above).
+    if (a.is_zero() && b.is_infinite()) || (b.is_zero() && a.is_infinite()) {
+        *flags |= fflags::NV;
+        return F::canon();
+    }
+    let prod_inf = a.is_infinite() || b.is_infinite();
+    if prod_inf {
+        // product is +/-inf; inf + (-inf) with c invalid.
+        let prod_neg = a.is_sign_negative() != b.is_sign_negative();
+        if c.is_infinite() && (c.is_sign_negative() != prod_neg) {
+            *flags |= fflags::NV;
+            return F::canon();
+        }
+        return if prod_neg { F::NINF } else { F::PINF };
+    }
+    if c.is_infinite() {
+        return c;
+    }
+    let r = a.mul_add(b, c);
+    if r.is_infinite() {
+        return correct(r, F::ZERO, mode, true, flags);
+    }
+    // Exact residual of a*b + c - r.
+    // 2Prod: a*b = ph + pl exactly.
+    let ph = a.mul(b);
+    let pl = a.mul_add(b, ph.neg());
+    // s = ph + c (rounded), with residual sc: ph + c = s + sc.
+    let s = ph.add(c);
+    let bv = s.sub(ph);
+    let sc = ph.sub(s.sub(bv)).add(c.sub(bv));
+    // true = s + sc + pl ; r = round(true). delta = (s - r) + (sc + pl).
+    let delta = s.sub(r).add(sc.add(pl));
+    correct(r, delta, mode, true, flags)
+}
+
+// ---------------------------------------------------------------------------
+// Min / Max, comparisons, classify, sign-injection.
+// ---------------------------------------------------------------------------
+
+/// RISC-V `fmin` (returns the smaller; NaN handling: quiet NaN ignored, sNaN
+/// raises NV; both NaN -> canonical; -0 < +0).
+pub fn fmin<F: Sf>(a: F, b: F, flags: &mut u32) -> F {
+    if a.signaling_nan() || b.signaling_nan() {
+        *flags |= fflags::NV;
+    }
+    if a.is_nan() && b.is_nan() {
+        return F::canon();
+    }
+    if a.is_nan() {
+        return b;
+    }
+    if b.is_nan() {
+        return a;
+    }
+    if a.is_zero() && b.is_zero() {
+        // -0 is less than +0
+        return if a.is_sign_negative() { a } else { b };
+    }
+    if a < b {
+        a
+    } else {
+        b
+    }
+}
+
+/// RISC-V `fmax`.
+pub fn fmax<F: Sf>(a: F, b: F, flags: &mut u32) -> F {
+    if a.signaling_nan() || b.signaling_nan() {
+        *flags |= fflags::NV;
+    }
+    if a.is_nan() && b.is_nan() {
+        return F::canon();
+    }
+    if a.is_nan() {
+        return b;
+    }
+    if b.is_nan() {
+        return a;
+    }
+    if a.is_zero() && b.is_zero() {
+        return if a.is_sign_negative() { b } else { a };
+    }
+    if a > b {
+        a
+    } else {
+        b
+    }
+}
+
+/// `feq` (quiet: only sNaN raises NV).
+pub fn feq<F: Sf>(a: F, b: F, flags: &mut u32) -> bool {
+    if a.signaling_nan() || b.signaling_nan() {
+        *flags |= fflags::NV;
+    }
+    if a.is_nan() || b.is_nan() {
+        return false;
+    }
+    a == b
+}
+
+/// `flt` (signaling: any NaN raises NV).
+pub fn flt<F: Sf>(a: F, b: F, flags: &mut u32) -> bool {
+    if a.is_nan() || b.is_nan() {
+        *flags |= fflags::NV;
+        return false;
+    }
+    a < b
+}
+
+/// `fle` (signaling: any NaN raises NV).
+pub fn fle<F: Sf>(a: F, b: F, flags: &mut u32) -> bool {
+    if a.is_nan() || b.is_nan() {
+        *flags |= fflags::NV;
+        return false;
+    }
+    a <= b
+}
+
+/// `fclass` 10-bit classification mask.
+pub fn fclass<F: Sf>(x: F) -> u64 {
+    let neg = x.is_sign_negative();
+    if x.is_nan() {
+        return if x.signaling_nan() { 1 << 8 } else { 1 << 9 };
+    }
+    if x.is_infinite() {
+        return if neg { 1 << 0 } else { 1 << 7 };
+    }
+    if x.is_zero() {
+        return if neg { 1 << 3 } else { 1 << 4 };
+    }
+    let subnormal = x.abs() < F::min_normal();
+    if subnormal {
+        if neg {
+            1 << 2
+        } else {
+            1 << 5
+        }
+    } else if neg {
+        1 << 1
+    } else {
+        1 << 6
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Conversions: float -> integer, integer -> float, and f64 <-> f32.
+// ---------------------------------------------------------------------------
+
+/// Convert a float to an integer. `signed`/`width` (32 or 64) select the
+/// destination type; 32-bit results are sign-extended to 64 bits per the RISC-V
+/// convention (including unsigned forms). Out-of-range and NaN inputs saturate
+/// and raise NV; in-range inexact results raise NX.
+pub fn ftoi<F: Sf>(x: F, signed: bool, width: u32, mode: RoundingMode, flags: &mut u32) -> u64 {
+    // NaN saturates to the maximum of the destination type.
+    if x.is_nan() {
+        *flags |= fflags::NV;
+        return match (signed, width) {
+            (true, 32) => i32::MAX as i64 as u64,
+            (false, 32) => u32::MAX as i32 as i64 as u64, // sign-extend 0xffffffff
+            (true, 64) => i64::MAX as u64,
+            (false, 64) => u64::MAX,
+            _ => 0,
+        };
+    }
+    let intg = x.round_integral(mode);
+    let inexact = (intg.to_bits() != x.to_bits()) && !(intg.is_zero() && x.is_zero());
+    let v = intg.to_i128(); // saturates at i128 bounds for huge magnitudes
+
+    macro_rules! finish {
+        ($ok:expr) => {{
+            if inexact {
+                *flags |= fflags::NX;
+            }
+            $ok
+        }};
+    }
+
+    match (signed, width) {
+        (true, 32) => {
+            if v < i32::MIN as i128 {
+                *flags |= fflags::NV;
+                i32::MIN as i64 as u64
+            } else if v > i32::MAX as i128 {
+                *flags |= fflags::NV;
+                i32::MAX as i64 as u64
+            } else {
+                finish!(v as i32 as i64 as u64)
+            }
+        }
+        (false, 32) => {
+            if v < 0 {
+                *flags |= fflags::NV;
+                0
+            } else if v > u32::MAX as i128 {
+                *flags |= fflags::NV;
+                u32::MAX as i32 as i64 as u64
+            } else {
+                finish!((v as u32) as i32 as i64 as u64)
+            }
+        }
+        (true, 64) => {
+            if v < i64::MIN as i128 {
+                *flags |= fflags::NV;
+                i64::MIN as u64
+            } else if v > i64::MAX as i128 {
+                *flags |= fflags::NV;
+                i64::MAX as u64
+            } else {
+                finish!(v as i64 as u64)
+            }
+        }
+        (false, 64) => {
+            if v < 0 {
+                *flags |= fflags::NV;
+                0
+            } else if v > u64::MAX as i128 {
+                *flags |= fflags::NV;
+                u64::MAX
+            } else {
+                finish!(v as u64)
+            }
+        }
+        _ => 0,
+    }
+}
+
+/// Convert an integer (already sign/zero-extended into `i128`) to a float,
+/// rounding per `mode`. Integer-to-float never overflows the F/D exponent
+/// range, so only NX can be raised.
+pub fn itof<F: Sf>(v: i128, mode: RoundingMode, flags: &mut u32) -> F {
+    if v == 0 {
+        return F::ZERO; // +0.0
+    }
+    let r = F::from_i128(v); // round-to-nearest-even
+    let r_int = r.to_i128();
+    let delta = v - r_int; // exact integer residual
+    if delta == 0 {
+        return r;
+    }
+    *flags |= fflags::NX;
+    let up = delta > 0;
+    let (lo, hi) = if up { (r, next_up(r)) } else { (next_down(r), r) };
+    match mode {
+        RoundingMode::Rtz => min_mag(lo, hi),
+        RoundingMode::Rdn => lo,
+        RoundingMode::Rup => hi,
+        RoundingMode::Rmm => {
+            let ulp = hi.to_i128() - lo.to_i128();
+            if 2 * delta.unsigned_abs() as i128 == ulp {
+                max_mag(lo, hi)
+            } else {
+                r
+            }
+        }
+        _ => r,
+    }
+}
+
+/// Narrow an `f64` to `f32` with rounding and flags.
+pub fn f64_to_f32(x: f64, mode: RoundingMode, flags: &mut u32) -> u32 {
+    if x.is_nan() {
+        if x.signaling_nan() {
+            *flags |= fflags::NV;
+        }
+        return CANONICAL_NAN_F32;
+    }
+    if x.is_infinite() {
+        return if x.is_sign_negative() {
+            f32::NEG_INFINITY.to_bits()
+        } else {
+            f32::INFINITY.to_bits()
+        };
+    }
+    let r = x as f32; // round-to-nearest-even
+    let inputs_finite = true;
+    // Overflow.
+    if r.is_infinite() {
+        let mut f = 0u32;
+        let res = correct::<f32>(r, 0.0, mode, inputs_finite, &mut f);
+        *flags |= f;
+        return res.to_bits();
+    }
+    // Exact residual in f64 (f32 widened to f64 is exact).
+    let delta = x - (r as f64);
+    if delta == 0.0 {
+        return r.to_bits();
+    }
+    *flags |= fflags::NX;
+    let up = delta > 0.0;
+    let (lo, hi) = if up {
+        (r, next_up(r))
+    } else {
+        (next_down(r), r)
+    };
+    let result = match mode {
+        RoundingMode::Rtz => min_mag(lo, hi),
+        RoundingMode::Rdn => lo,
+        RoundingMode::Rup => hi,
+        RoundingMode::Rmm => {
+            let two_d = (delta.abs()) * 2.0;
+            let ulp = (hi as f64) - (lo as f64);
+            if two_d == ulp {
+                max_mag(lo, hi)
+            } else {
+                r
+            }
+        }
+        _ => r,
+    };
+    if result.is_infinite() {
+        *flags |= fflags::OF;
+    }
+    // Tiny + inexact -> underflow (covers both subnormal and flush-to-zero).
+    if result.is_finite() && result.abs() < f32::MIN_POSITIVE {
+        *flags |= fflags::UF;
+    }
+    result.to_bits()
+}
+
+/// Widen an `f32` to `f64` (always exact; only NV on sNaN).
+pub fn f32_to_f64(x: f32, flags: &mut u32) -> u64 {
+    if x.is_nan() {
+        if x.signaling_nan() {
+            *flags |= fflags::NV;
+        }
+        return CANONICAL_NAN_F64;
+    }
+    (x as f64).to_bits()
+}
+
+// ===========================================================================
+// Integer-significand soft-float for mul / div / sqrt / fma.
+//
+// These operations need exact intermediate significands (up to 2x precision for
+// products) to round correctly in every mode and to detect inexactness and
+// underflow for subnormal results -- something the host f32/f64 (round-to-
+// nearest only) cannot provide. Add/sub instead stay on the host FPU with an
+// exact 2Sum residual, which is exact even for subnormal results.
+// ===========================================================================
+
+/// IEEE binary format parameters.
+#[derive(Clone, Copy)]
+pub struct Fmt {
+    /// Precision in bits (significand including the implicit bit): 24 / 53.
+    p: u32,
+    /// Exponent field width: 8 / 11.
+    exp_bits: u32,
+}
+
+/// Single precision (binary32).
+pub const F32: Fmt = Fmt { p: 24, exp_bits: 8 };
+/// Double precision (binary64).
+pub const F64: Fmt = Fmt { p: 53, exp_bits: 11 };
+
+impl Fmt {
+    #[inline]
+    fn width(&self) -> u32 {
+        self.p + self.exp_bits
+    }
+    #[inline]
+    fn bias(&self) -> i32 {
+        (1 << (self.exp_bits - 1)) - 1
+    }
+    #[inline]
+    fn mant_bits(&self) -> u32 {
+        self.p - 1
+    }
+    #[inline]
+    fn max_field(&self) -> u32 {
+        (1 << self.exp_bits) - 1
+    }
+    #[inline]
+    fn frac_mask(&self) -> u64 {
+        (1u64 << self.mant_bits()) - 1
+    }
+    #[inline]
+    fn sign_bit(&self) -> u64 {
+        1u64 << (self.width() - 1)
+    }
+    /// Canonical quiet NaN.
+    fn canon(&self) -> u64 {
+        ((self.max_field() as u64) << self.mant_bits()) | (1u64 << (self.mant_bits() - 1))
+    }
+    fn pack_zero(&self, sign: bool) -> u64 {
+        if sign {
+            self.sign_bit()
+        } else {
+            0
+        }
+    }
+    fn pack_inf(&self, sign: bool) -> u64 {
+        self.pack_zero(sign) | ((self.max_field() as u64) << self.mant_bits())
+    }
+    fn pack_max(&self, sign: bool) -> u64 {
+        self.pack_zero(sign) | (((self.max_field() - 1) as u64) << self.mant_bits()) | self.frac_mask()
+    }
+    fn pack(&self, sign: bool, field: u64, frac: u64) -> u64 {
+        self.pack_zero(sign) | (field << self.mant_bits()) | (frac & self.frac_mask())
+    }
+}
+
+/// A decomposed float operand.
+enum Dec {
+    Zero(bool),
+    Inf(bool),
+    /// `signaling` true for an sNaN.
+    Nan(bool),
+    /// Finite nonzero: value = (-1)^sign * mant * 2^exp.
+    Finite { sign: bool, mant: u64, exp: i32 },
+}
+
+fn decompose(fmt: Fmt, bits: u64) -> Dec {
+    let sign = (bits >> (fmt.width() - 1)) & 1 != 0;
+    let field = ((bits >> fmt.mant_bits()) & (fmt.max_field() as u64)) as u32;
+    let frac = bits & fmt.frac_mask();
+    if field == fmt.max_field() {
+        if frac == 0 {
+            Dec::Inf(sign)
+        } else {
+            // signaling if the top fraction bit is clear
+            Dec::Nan((frac >> (fmt.mant_bits() - 1)) & 1 == 0)
+        }
+    } else if field == 0 {
+        if frac == 0 {
+            Dec::Zero(sign)
+        } else {
+            Dec::Finite {
+                sign,
+                mant: frac,
+                exp: 1 - fmt.bias() - fmt.mant_bits() as i32,
+            }
+        }
+    } else {
+        Dec::Finite {
+            sign,
+            mant: frac | (1u64 << fmt.mant_bits()),
+            exp: field as i32 - fmt.bias() - fmt.mant_bits() as i32,
+        }
+    }
+}
+
+fn overflow_value(fmt: Fmt, sign: bool, mode: RoundingMode) -> u64 {
+    match mode {
+        RoundingMode::Rtz => fmt.pack_max(sign),
+        RoundingMode::Rdn => {
+            if sign {
+                fmt.pack_inf(sign)
+            } else {
+                fmt.pack_max(sign)
+            }
+        }
+        RoundingMode::Rup => {
+            if sign {
+                fmt.pack_max(sign)
+            } else {
+                fmt.pack_inf(sign)
+            }
+        }
+        _ => fmt.pack_inf(sign),
+    }
+}
+
+/// Round the value `(-1)^sign * mag * 2^exp` (plus extra `sticky_in` bits below
+/// the LSB of `mag`) to `fmt`, setting NX/UF/OF.
+fn round_pack(
+    fmt: Fmt,
+    sign: bool,
+    mut mag: u128,
+    mut exp: i32,
+    sticky_in: bool,
+    mode: RoundingMode,
+    flags: &mut u32,
+) -> u64 {
+    if mag == 0 {
+        if sticky_in {
+            // an exact cancellation already produced zero with a tiny residual;
+            // treat as inexact underflow to signed zero.
+            *flags |= fflags::NX;
+        }
+        return fmt.pack_zero(sign);
+    }
+    let p = fmt.p as i32;
+    let bias = fmt.bias();
+    // Normalize the MSB of mag to bit 127.
+    let lz = mag.leading_zeros();
+    mag <<= lz;
+    exp -= lz as i32;
+    let e = 127 + exp; // unbiased exponent of the leading 1
+    let mut biased = e + bias;
+    let mut rshift = 128 - p;
+    if biased < 1 {
+        rshift += 1 - biased;
+        biased = 0;
+    }
+    let (sig, guard, sticky) = if rshift > 128 {
+        (0u128, 0u128, sticky_in || mag != 0)
+    } else if rshift == 128 {
+        // The guard bit is the MSB; everything below is sticky.
+        let g = (mag >> 127) & 1;
+        let low = (mag & ((1u128 << 127) - 1)) != 0;
+        (0u128, g, sticky_in || low)
+    } else {
+        let g = (mag >> (rshift - 1)) & 1;
+        let low = (mag & ((1u128 << (rshift - 1)) - 1)) != 0;
+        (mag >> rshift, g, sticky_in || low)
+    };
+    let mut sigm = sig as u64;
+    let inexact = guard != 0 || sticky;
+    let round_up = match mode {
+        RoundingMode::Rtz => false,
+        RoundingMode::Rdn => sign && inexact,
+        RoundingMode::Rup => !sign && inexact,
+        RoundingMode::Rmm => guard != 0,
+        _ => guard != 0 && (sticky || (sigm & 1) != 0),
+    };
+    if round_up {
+        sigm += 1;
+    }
+    if inexact {
+        *flags |= fflags::NX;
+    }
+
+    if biased == 0 {
+        // Subnormal candidate.
+        if sigm >> fmt.mant_bits() != 0 {
+            // Rounded up to the smallest normal: not tiny, so no underflow flag.
+            return fmt.pack(sign, 1, 0);
+        }
+        if inexact {
+            *flags |= fflags::UF;
+        }
+        return fmt.pack(sign, 0, sigm);
+    }
+    // Normal; a rounding carry can bump the significand to 2^p.
+    if sigm >> fmt.p != 0 {
+        sigm >>= 1;
+        biased += 1;
+    }
+    if biased >= fmt.max_field() as i32 {
+        *flags |= fflags::OF | fflags::NX;
+        return overflow_value(fmt, sign, mode);
+    }
+    fmt.pack(sign, biased as u64, sigm & fmt.frac_mask())
+}
+
+/// Integer square root of a u128, returning `(floor(sqrt(n)), remainder != 0)`.
+fn isqrt_u128(n: u128) -> (u128, bool) {
+    if n == 0 {
+        return (0, false);
+    }
+    let mut bit: u128 = 1u128 << (((127 - n.leading_zeros()) & !1) as u32);
+    let mut res: u128 = 0;
+    let mut rem = n;
+    while bit != 0 {
+        if rem >= res + bit {
+            rem -= res + bit;
+            res = (res >> 1) + bit;
+        } else {
+            res >>= 1;
+        }
+        bit >>= 2;
+    }
+    (res, rem != 0)
+}
+
+/// `a * b` (soft-float).
+pub fn sf_mul(fmt: Fmt, a: u64, b: u64, mode: RoundingMode, flags: &mut u32) -> u64 {
+    let (da, db) = (decompose(fmt, a), decompose(fmt, b));
+    if matches!(da, Dec::Nan(_)) || matches!(db, Dec::Nan(_)) {
+        if matches!(da, Dec::Nan(true)) || matches!(db, Dec::Nan(true)) {
+            *flags |= fflags::NV;
+        }
+        return fmt.canon();
+    }
+    let sign = dec_sign(&da) ^ dec_sign(&db);
+    match (da, db) {
+        (Dec::Inf(_), Dec::Zero(_)) | (Dec::Zero(_), Dec::Inf(_)) => {
+            *flags |= fflags::NV;
+            fmt.canon()
+        }
+        (Dec::Inf(_), _) | (_, Dec::Inf(_)) => fmt.pack_inf(sign),
+        (Dec::Zero(_), _) | (_, Dec::Zero(_)) => fmt.pack_zero(sign),
+        (
+            Dec::Finite {
+                mant: ma, exp: ea, ..
+            },
+            Dec::Finite {
+                mant: mb, exp: eb, ..
+            },
+        ) => {
+            let mag = (ma as u128) * (mb as u128);
+            round_pack(fmt, sign, mag, ea + eb, false, mode, flags)
+        }
+        (Dec::Nan(_), _) | (_, Dec::Nan(_)) => unreachable!(),
+    }
+}
+
+fn dec_sign(d: &Dec) -> bool {
+    match d {
+        Dec::Zero(s) | Dec::Inf(s) | Dec::Nan(s) => *s,
+        Dec::Finite { sign, .. } => *sign,
+    }
+}
+
+/// `a / b` (soft-float).
+pub fn sf_div(fmt: Fmt, a: u64, b: u64, mode: RoundingMode, flags: &mut u32) -> u64 {
+    let (da, db) = (decompose(fmt, a), decompose(fmt, b));
+    if let Dec::Nan(s) = da {
+        if s {
+            *flags |= fflags::NV;
+        }
+        if let Dec::Nan(true) = db {
+            *flags |= fflags::NV;
+        }
+        return fmt.canon();
+    }
+    if let Dec::Nan(s) = db {
+        if s {
+            *flags |= fflags::NV;
+        }
+        return fmt.canon();
+    }
+    let sign = dec_sign(&da) ^ dec_sign(&db);
+    match (da, db) {
+        (Dec::Inf(_), Dec::Inf(_)) | (Dec::Zero(_), Dec::Zero(_)) => {
+            *flags |= fflags::NV;
+            fmt.canon()
+        }
+        (Dec::Inf(_), _) => fmt.pack_inf(sign),
+        (_, Dec::Inf(_)) => fmt.pack_zero(sign),
+        (Dec::Zero(_), _) => fmt.pack_zero(sign),
+        (_, Dec::Zero(_)) => {
+            *flags |= fflags::DZ;
+            fmt.pack_inf(sign)
+        }
+        (
+            Dec::Finite {
+                mant: ma, exp: ea, ..
+            },
+            Dec::Finite {
+                mant: mb, exp: eb, ..
+            },
+        ) => {
+            let k = 64u32;
+            let num = (ma as u128) << k;
+            let q = num / (mb as u128);
+            let sticky = (num % (mb as u128)) != 0;
+            round_pack(fmt, sign, q, ea - eb - k as i32, sticky, mode, flags)
+        }
+        _ => unreachable!(),
+    }
+}
+
+/// `sqrt(a)` (soft-float).
+pub fn sf_sqrt(fmt: Fmt, a: u64, mode: RoundingMode, flags: &mut u32) -> u64 {
+    match decompose(fmt, a) {
+        Dec::Nan(s) => {
+            if s {
+                *flags |= fflags::NV;
+            }
+            fmt.canon()
+        }
+        Dec::Zero(s) => fmt.pack_zero(s),
+        Dec::Inf(false) => fmt.pack_inf(false),
+        Dec::Inf(true) => {
+            *flags |= fflags::NV;
+            fmt.canon()
+        }
+        Dec::Finite { sign: true, .. } => {
+            *flags |= fflags::NV;
+            fmt.canon()
+        }
+        Dec::Finite {
+            mant, exp: mut e, ..
+        } => {
+            let mut m = mant as u128;
+            if e & 1 != 0 {
+                m <<= 1;
+                e -= 1;
+            }
+            // Scale up so the radicand has >= 2p+4 bits (so the root has >= p+2).
+            let want = 2 * fmt.p + 4;
+            let cur = 128 - m.leading_zeros();
+            if cur < want {
+                let mut s = want - cur;
+                if s & 1 != 0 {
+                    s += 1;
+                }
+                m <<= s;
+                e -= s as i32;
+            }
+            let (root, rem) = isqrt_u128(m);
+            round_pack(fmt, false, root, e / 2, rem, mode, flags)
+        }
+    }
+}
+
+/// `a * b + c` fused (soft-float, single rounding).
+pub fn sf_fma(fmt: Fmt, a: u64, b: u64, c: u64, mode: RoundingMode, flags: &mut u32) -> u64 {
+    let (da, db, dc) = (decompose(fmt, a), decompose(fmt, b), decompose(fmt, c));
+    let a_zero = matches!(da, Dec::Zero(_));
+    let b_zero = matches!(db, Dec::Zero(_));
+    let a_inf = matches!(da, Dec::Inf(_));
+    let b_inf = matches!(db, Dec::Inf(_));
+    // A signaling NaN operand, or a 0*inf product, signals invalid -- the latter
+    // even when the addend is a quiet NaN (IEEE 754-2008 7.2).
+    let snan = matches!(da, Dec::Nan(true))
+        || matches!(db, Dec::Nan(true))
+        || matches!(dc, Dec::Nan(true));
+    if snan || (a_zero && b_inf) || (b_zero && a_inf) {
+        *flags |= fflags::NV;
+    }
+    if matches!(da, Dec::Nan(_)) || matches!(db, Dec::Nan(_)) || matches!(dc, Dec::Nan(_)) {
+        return fmt.canon();
+    }
+    let psign = dec_sign(&da) ^ dec_sign(&db);
+    // 0 * inf is invalid (NV already set above).
+    if (a_zero && b_inf) || (b_zero && a_inf) {
+        return fmt.canon();
+    }
+    if a_inf || b_inf {
+        // product is +/-inf
+        if let Dec::Inf(sc) = dc {
+            if sc != psign {
+                *flags |= fflags::NV;
+                return fmt.canon();
+            }
+        }
+        return fmt.pack_inf(psign);
+    }
+    if let Dec::Inf(sc) = dc {
+        return fmt.pack_inf(sc);
+    }
+    // product is finite (possibly zero).
+    if a_zero || b_zero {
+        // product is +/-0; result is c (+ signed zero).
+        return match dc {
+            Dec::Zero(sc) => {
+                // zero + zero
+                if sc == psign {
+                    fmt.pack_zero(sc)
+                } else if mode == RoundingMode::Rdn {
+                    fmt.pack_zero(true)
+                } else {
+                    fmt.pack_zero(false)
+                }
+            }
+            _ => c,
+        };
+    }
+    // Finite nonzero product + c.
+    let (ma, ea) = fin(&da);
+    let (mb, eb) = fin(&db);
+    let pmant = (ma as u128) * (mb as u128);
+    let pexp = ea + eb;
+    match dc {
+        Dec::Zero(_) => round_pack(fmt, psign, pmant, pexp, false, mode, flags),
+        Dec::Finite {
+            sign: sc,
+            mant: mc,
+            exp: ec,
+        } => add_wide(fmt, psign, pmant, pexp, sc, mc as u128, ec, mode, flags),
+        _ => unreachable!(),
+    }
+}
+
+fn fin(d: &Dec) -> (u64, i32) {
+    match d {
+        Dec::Finite { mant, exp, .. } => (*mant, *exp),
+        _ => (0, 0),
+    }
+}
+
+/// Add two scaled magnitudes `(s1, m1*2^e1)` and `(s2, m2*2^e2)` exactly, then
+/// round to `fmt`. `m1`/`m2` may be up to ~106-bit (product) significands.
+#[allow(clippy::too_many_arguments)]
+fn add_wide(
+    fmt: Fmt,
+    s1: bool,
+    m1: u128,
+    e1: i32,
+    s2: bool,
+    m2: u128,
+    e2: i32,
+    mode: RoundingMode,
+    flags: &mut u32,
+) -> u64 {
+    // Order by value-exponent of the MSB so `hi` is the larger magnitude term.
+    let v1 = e1 + (127 - m1.leading_zeros()) as i32;
+    let v2 = e2 + (127 - m2.leading_zeros()) as i32;
+    let ((sh, mh, eh), (sl, ml, el)) = if (v1, m1) >= (v2, m2) {
+        ((s1, m1, e1), (s2, m2, e2))
+    } else {
+        ((s2, m2, e2), (s1, m1, e1))
+    };
+    // Normalize hi so its MSB sits at bit 120 (headroom for carry + guard bits).
+    const TP: i32 = 120;
+    let mh_msb = (127 - mh.leading_zeros()) as i32;
+    let up = TP - mh_msb;
+    let hm = if up >= 0 { mh << up } else { mh >> (-up) };
+    let h_lsb = eh - up;
+    // Align lo to hi's LSB exponent.
+    let shift = el - h_lsb;
+    let mut sticky = false;
+    let lm = if shift >= 0 {
+        if shift >= 128 {
+            sticky = ml != 0;
+            0
+        } else {
+            ml << shift
+        }
+    } else {
+        let rs = (-shift) as u32;
+        if rs >= 128 {
+            sticky = ml != 0;
+            0
+        } else {
+            sticky = (ml & ((1u128 << rs) - 1)) != 0;
+            ml >> rs
+        }
+    };
+
+    if sh == sl {
+        round_pack(fmt, sh, hm + lm, h_lsb, sticky, mode, flags)
+    } else {
+        // Subtraction: embed the sticky as a borrow using two guard bits so the
+        // result's low bits reflect "just below" the integer difference.
+        let hm2 = hm << 2;
+        let lm2 = (lm << 2) | (sticky as u128);
+        if hm2 >= lm2 {
+            let mag = hm2 - lm2;
+            if mag == 0 {
+                let neg = mode == RoundingMode::Rdn;
+                return fmt.pack_zero(neg);
+            }
+            round_pack(fmt, sh, mag, h_lsb - 2, false, mode, flags)
+        } else {
+            round_pack(fmt, sl, lm2 - hm2, h_lsb - 2, false, mode, flags)
+        }
+    }
+}

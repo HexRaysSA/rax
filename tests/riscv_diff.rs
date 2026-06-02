@@ -950,6 +950,238 @@ fn diff_compressed_fuzz() {
     run_batch(&batch, false);
 }
 
+// ---------------------------------------------------------------------------
+// Floating point (F / D).
+// ---------------------------------------------------------------------------
+
+fn fp(funct7: u32, rs2: u32, rs1: u32, rm: u32, rd: u32) -> u32 {
+    (funct7 << 25) | (rs2 << 20) | (rs1 << 15) | (rm << 12) | (rd << 7) | 0x53
+}
+fn fma_enc(rs3: u32, funct2: u32, rs2: u32, rs1: u32, rm: u32, rd: u32, opcode: u32) -> u32 {
+    (rs3 << 27) | (funct2 << 25) | (rs2 << 20) | (rs1 << 15) | (rm << 12) | (rd << 7) | opcode
+}
+
+fn box32(b: u32) -> u64 {
+    0xffff_ffff_0000_0000 | b as u64
+}
+
+fn rand_f32_bits(rng: &mut Rng) -> u32 {
+    match rng.next() % 16 {
+        0 => 0x0000_0000,
+        1 => 0x8000_0000,
+        2 => 0x7f80_0000, // +inf
+        3 => 0xff80_0000, // -inf
+        4 => 0x7fc0_0000, // qNaN
+        5 => 0x7f80_0001, // sNaN
+        6 => 0x3f80_0000, // 1.0
+        7 => 0xbf80_0000, // -1.0
+        8 => 0x0000_0001, // min subnormal
+        9 => 0x0080_0000, // min normal
+        10 => 0x7f7f_ffff, // max normal
+        11 => (rng.next() as u32) & 0x807f_ffff, // small exponent
+        _ => rng.next() as u32,
+    }
+}
+fn rand_f64_bits(rng: &mut Rng) -> u64 {
+    match rng.next() % 16 {
+        0 => 0x0000_0000_0000_0000,
+        1 => 0x8000_0000_0000_0000,
+        2 => 0x7ff0_0000_0000_0000, // +inf
+        3 => 0xfff0_0000_0000_0000, // -inf
+        4 => 0x7ff8_0000_0000_0000, // qNaN
+        5 => 0x7ff0_0000_0000_0001, // sNaN
+        6 => 0x3ff0_0000_0000_0000, // 1.0
+        7 => 0xbff0_0000_0000_0000, // -1.0
+        8 => 0x0000_0000_0000_0001, // min subnormal
+        9 => 0x0010_0000_0000_0000, // min normal
+        10 => 0x7fef_ffff_ffff_ffff, // max normal
+        11 => rng.next() & 0x800f_ffff_ffff_ffff,
+        _ => rng.next(),
+    }
+}
+
+/// FP register pool (no reservation concerns).
+const FPOOL: [u32; 8] = [0, 1, 2, 3, 4, 5, 6, 7];
+
+/// Build a state with single-precision (NaN-boxed) operands in fs1/fs2/fs3.
+fn fp_state_s(rng: &mut Rng, fs1: u32, fs2: u32, fs3: u32, frm: u64) -> RvState {
+    let mut st = RvState::zeroed();
+    for i in 0..32usize {
+        st.f[i] = box32(0x7fc0_0000); // default canonical NaN, boxed
+    }
+    st.f[fs1 as usize] = box32(rand_f32_bits(rng));
+    st.f[fs2 as usize] = box32(rand_f32_bits(rng));
+    st.f[fs3 as usize] = box32(rand_f32_bits(rng));
+    st.fcsr = frm << 5;
+    st
+}
+fn fp_state_d(rng: &mut Rng, fs1: u32, fs2: u32, fs3: u32, frm: u64) -> RvState {
+    let mut st = RvState::zeroed();
+    st.f[fs1 as usize] = rand_f64_bits(rng);
+    st.f[fs2 as usize] = rand_f64_bits(rng);
+    st.f[fs3 as usize] = rand_f64_bits(rng);
+    st.fcsr = frm << 5;
+    st
+}
+
+#[test]
+fn diff_fp_arith() {
+    let mut rng = Rng::new(0xF10A7);
+    let mut batch = Vec::new();
+    // (name, funct7_single, funct7_double)
+    let bin: &[(&str, u32, u32)] = &[
+        ("fadd", 0x00, 0x01),
+        ("fsub", 0x04, 0x05),
+        ("fmul", 0x08, 0x09),
+        ("fdiv", 0x0c, 0x0d),
+    ];
+    // static rounding modes 0..4 plus dynamic (7) with frm 0..4.
+    let modes: [(u32, u64); 6] = [(0, 0), (1, 0), (2, 0), (3, 0), (4, 0), (7, 2)];
+    for (name, f7s, f7d) in bin {
+        for &(rm, frm) in modes.iter() {
+            for _ in 0..25 {
+                let fd = FPOOL[(rng.next() % 8) as usize];
+                let f1 = FPOOL[(rng.next() % 8) as usize];
+                let f2 = FPOOL[(rng.next() % 8) as usize];
+                batch.push((format!("{name}.s"), fp(*f7s, f2, f1, rm, fd), fp_state_s(&mut rng, f1, f2, 0, frm)));
+                batch.push((format!("{name}.d"), fp(*f7d, f2, f1, rm, fd), fp_state_d(&mut rng, f1, f2, 0, frm)));
+            }
+        }
+    }
+    // sqrt
+    for &(rm, frm) in modes.iter() {
+        for _ in 0..40 {
+            let fd = FPOOL[(rng.next() % 8) as usize];
+            let f1 = FPOOL[(rng.next() % 8) as usize];
+            batch.push(("fsqrt.s".into(), fp(0x2c, 0, f1, rm, fd), fp_state_s(&mut rng, f1, 0, 0, frm)));
+            batch.push(("fsqrt.d".into(), fp(0x2d, 0, f1, rm, fd), fp_state_d(&mut rng, f1, 0, 0, frm)));
+        }
+    }
+    run_batch(&batch, true);
+}
+
+#[test]
+fn diff_fp_fma() {
+    let mut rng = Rng::new(0xFADD);
+    let mut batch = Vec::new();
+    let fmas: &[(&str, u32)] = &[("fmadd", 0x43), ("fmsub", 0x47), ("fnmsub", 0x4b), ("fnmadd", 0x4f)];
+    let modes: [(u32, u64); 6] = [(0, 0), (1, 0), (2, 0), (3, 0), (4, 0), (7, 3)];
+    for (name, opcode) in fmas {
+        for &(rm, frm) in modes.iter() {
+            for _ in 0..20 {
+                let fd = FPOOL[(rng.next() % 8) as usize];
+                let f1 = FPOOL[(rng.next() % 8) as usize];
+                let f2 = FPOOL[(rng.next() % 8) as usize];
+                let f3 = FPOOL[(rng.next() % 8) as usize];
+                batch.push((format!("{name}.s"), fma_enc(f3, 0b00, f2, f1, rm, fd, *opcode), fp_state_s(&mut rng, f1, f2, f3, frm)));
+                batch.push((format!("{name}.d"), fma_enc(f3, 0b01, f2, f1, rm, fd, *opcode), fp_state_d(&mut rng, f1, f2, f3, frm)));
+            }
+        }
+    }
+    run_batch(&batch, true);
+}
+
+#[test]
+fn diff_fp_minmax_sgnj() {
+    let mut rng = Rng::new(0x11AC);
+    let mut batch = Vec::new();
+    for _ in 0..120 {
+        let fd = FPOOL[(rng.next() % 8) as usize];
+        let f1 = FPOOL[(rng.next() % 8) as usize];
+        let f2 = FPOOL[(rng.next() % 8) as usize];
+        // min/max (funct3 0/1, funct7 0x14/0x15)
+        batch.push(("fmin.s".into(), fp(0x14, f2, f1, 0, fd), fp_state_s(&mut rng, f1, f2, 0, 0)));
+        batch.push(("fmax.s".into(), fp(0x14, f2, f1, 1, fd), fp_state_s(&mut rng, f1, f2, 0, 0)));
+        batch.push(("fmin.d".into(), fp(0x15, f2, f1, 0, fd), fp_state_d(&mut rng, f1, f2, 0, 0)));
+        batch.push(("fmax.d".into(), fp(0x15, f2, f1, 1, fd), fp_state_d(&mut rng, f1, f2, 0, 0)));
+        // sign inject (funct7 0x10/0x11, funct3 0/1/2)
+        for f3 in 0..3u32 {
+            batch.push((format!("fsgnj.s{f3}"), fp(0x10, f2, f1, f3, fd), fp_state_s(&mut rng, f1, f2, 0, 0)));
+            batch.push((format!("fsgnj.d{f3}"), fp(0x11, f2, f1, f3, fd), fp_state_d(&mut rng, f1, f2, 0, 0)));
+        }
+    }
+    run_batch(&batch, true);
+}
+
+#[test]
+fn diff_fp_compare_class() {
+    let mut rng = Rng::new(0xC1A55);
+    let mut batch = Vec::new();
+    for _ in 0..150 {
+        let rd = POOL[(rng.next() % 6) as usize];
+        let f1 = FPOOL[(rng.next() % 8) as usize];
+        let f2 = FPOOL[(rng.next() % 8) as usize];
+        // feq/flt/fle (funct7 0x50/0x51, funct3 2/1/0)
+        batch.push(("feq.s".into(), fp(0x50, f2, f1, 2, rd), fp_state_s(&mut rng, f1, f2, 0, 0)));
+        batch.push(("flt.s".into(), fp(0x50, f2, f1, 1, rd), fp_state_s(&mut rng, f1, f2, 0, 0)));
+        batch.push(("fle.s".into(), fp(0x50, f2, f1, 0, rd), fp_state_s(&mut rng, f1, f2, 0, 0)));
+        batch.push(("feq.d".into(), fp(0x51, f2, f1, 2, rd), fp_state_d(&mut rng, f1, f2, 0, 0)));
+        batch.push(("flt.d".into(), fp(0x51, f2, f1, 1, rd), fp_state_d(&mut rng, f1, f2, 0, 0)));
+        batch.push(("fle.d".into(), fp(0x51, f2, f1, 0, rd), fp_state_d(&mut rng, f1, f2, 0, 0)));
+        // fclass (funct7 0x70/0x71, funct3=1, rs2=0)
+        batch.push(("fclass.s".into(), fp(0x70, 0, f1, 1, rd), fp_state_s(&mut rng, f1, 0, 0, 0)));
+        batch.push(("fclass.d".into(), fp(0x71, 0, f1, 1, rd), fp_state_d(&mut rng, f1, 0, 0, 0)));
+    }
+    run_batch(&batch, true);
+}
+
+#[test]
+fn diff_fp_convert() {
+    let mut rng = Rng::new(0xC0FFEE);
+    let mut batch = Vec::new();
+    let modes: [(u32, u64); 6] = [(0, 0), (1, 0), (2, 0), (3, 0), (4, 0), (7, 1)];
+    for &(rm, frm) in modes.iter() {
+        for _ in 0..40 {
+            let rd_i = POOL[(rng.next() % 6) as usize];
+            let rd_f = FPOOL[(rng.next() % 8) as usize];
+            let rs_i = POOL[(rng.next() % 6) as usize];
+            let f1 = FPOOL[(rng.next() % 8) as usize];
+            // float -> int (funct7 0x60 single / 0x61 double; rs2 selects width/sign)
+            for (name, rs2) in [("fcvt.w.s", 0u32), ("fcvt.wu.s", 1), ("fcvt.l.s", 2), ("fcvt.lu.s", 3)] {
+                batch.push((name.into(), fp(0x60, rs2, f1, rm, rd_i), fp_state_s(&mut rng, f1, 0, 0, frm)));
+            }
+            for (name, rs2) in [("fcvt.w.d", 0u32), ("fcvt.wu.d", 1), ("fcvt.l.d", 2), ("fcvt.lu.d", 3)] {
+                batch.push((name.into(), fp(0x61, rs2, f1, rm, rd_i), fp_state_d(&mut rng, f1, 0, 0, frm)));
+            }
+            // int -> float (funct7 0x68 single / 0x69 double)
+            let mut st_i = rand_state(&mut rng);
+            st_i.fcsr = frm << 5;
+            for (name, rs2) in [("fcvt.s.w", 0u32), ("fcvt.s.wu", 1), ("fcvt.s.l", 2), ("fcvt.s.lu", 3)] {
+                batch.push((name.into(), fp(0x68, rs2, rs_i, rm, rd_f), st_i));
+            }
+            for (name, rs2) in [("fcvt.d.w", 0u32), ("fcvt.d.wu", 1), ("fcvt.d.l", 2), ("fcvt.d.lu", 3)] {
+                batch.push((name.into(), fp(0x69, rs2, rs_i, rm, rd_f), st_i));
+            }
+            // float <-> float
+            batch.push(("fcvt.s.d".into(), fp(0x20, 1, f1, rm, rd_f), fp_state_d(&mut rng, f1, 0, 0, frm)));
+            batch.push(("fcvt.d.s".into(), fp(0x21, 0, f1, rm, rd_f), fp_state_s(&mut rng, f1, 0, 0, frm)));
+        }
+    }
+    run_batch(&batch, true);
+}
+
+#[test]
+fn diff_fp_move() {
+    let mut rng = Rng::new(0x301E);
+    let mut batch = Vec::new();
+    for _ in 0..120 {
+        let ri = POOL[(rng.next() % 6) as usize];
+        let f1 = FPOOL[(rng.next() % 8) as usize];
+        // fmv.x.w / fmv.x.d (funct7 0x70/0x71, funct3=0, rs2=0) -> int rd
+        batch.push(("fmv.x.w".into(), fp(0x70, 0, f1, 0, ri), fp_state_s(&mut rng, f1, 0, 0, 0)));
+        batch.push(("fmv.x.d".into(), fp(0x71, 0, f1, 0, ri), fp_state_d(&mut rng, f1, 0, 0, 0)));
+        // fmv.w.x / fmv.d.x (funct7 0x78/0x79) -> fp rd from int rs1
+        let rd_f = FPOOL[(rng.next() % 8) as usize];
+        let mut st = rand_state(&mut rng);
+        for s in st.f.iter_mut() {
+            *s = rng.next();
+        }
+        batch.push(("fmv.w.x".into(), fp(0x78, 0, ri, 0, rd_f), st));
+        batch.push(("fmv.d.x".into(), fp(0x79, 0, ri, 0, rd_f), st));
+    }
+    run_batch(&batch, true);
+}
+
 #[test]
 fn diff_atomics() {
     let mut rng = Rng::new(0x7777);
