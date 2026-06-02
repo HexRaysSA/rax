@@ -1,6 +1,6 @@
+use std::sync::Arc;
 #[cfg(feature = "debug")]
 use std::sync::mpsc::TryRecvError;
-use std::sync::Arc;
 #[cfg(feature = "debug")]
 use std::thread::JoinHandle;
 
@@ -23,7 +23,7 @@ use crate::config::VmConfig;
 use crate::cpu::{CpuState, VCpu, VcpuExit};
 use crate::devices::bus::{IoBus, IoDevice, IoRange, MmioBus, MmioRange};
 use crate::devices::lapic::{
-    IpiRequest, IpiTarget, LapicDevice, LocalApic, LAPIC_BASE, LAPIC_SIZE,
+    IpiRequest, IpiTarget, LAPIC_BASE, LAPIC_SIZE, LapicDevice, LocalApic,
 };
 use crate::devices::pic::{DualPic, MasterPicDevice, SlavePicDevice};
 use crate::devices::pit::Pit;
@@ -337,14 +337,22 @@ impl Vmm {
         }
 
         loop {
-            // Poll for input before running vCPU
-            if let Ok(mut serial) = self.serial.lock() {
-                serial.poll_input();
-
-                if serial.has_pending_interrupt() {
-                    if let Some(irq) = self.serial_irq {
-                        let _ = self.vm.set_irq_line(irq, true);
-                        let _ = self.vm.set_irq_line(irq, false);
+            // Poll host input and drive the serial RX/TX interrupt line through
+            // the inline PIC — the SAME path the PIT uses. The backend's
+            // set_irq_line() only pushes to an `irq_pending` vec that nothing
+            // drains, so serial IRQs never reached the guest and no console input
+            // (or interrupt-driven TX) ever worked. Release the serial lock before
+            // taking the PIC lock to keep a consistent lock order.
+            {
+                let pending = if let Ok(mut serial) = self.serial.lock() {
+                    serial.poll_input();
+                    serial.has_pending_interrupt()
+                } else {
+                    false
+                };
+                if let Some(irq) = self.serial_irq {
+                    if let Ok(mut pic) = self.pic.lock() {
+                        pic.set_irq(irq as u8, pending);
                     }
                 }
             }
@@ -425,7 +433,10 @@ impl Vmm {
                                     }
                                     IpiTarget::AllExcludingSelf => {
                                         // No other CPUs in single-CPU mode
-                                        debug!("IPI Fixed vector {:#x} to all-except-self (no other CPUs)", vector);
+                                        debug!(
+                                            "IPI Fixed vector {:#x} to all-except-self (no other CPUs)",
+                                            vector
+                                        );
                                     }
                                     _ => {
                                         debug!("IPI Fixed vector {:#x} to {:?}", vector, target);
@@ -624,15 +635,19 @@ impl Vmm {
 
                     let is_serial = port >= SERIAL_BASE && port < SERIAL_BASE + 8;
                     if is_serial {
-                        if let Ok(mut serial) = self.serial.lock() {
+                        let pending = if let Ok(mut serial) = self.serial.lock() {
                             for (i, byte) in data.iter().enumerate() {
                                 IoDevice::write(&mut *serial, port + i as u16, *byte);
                             }
-                            if port == SERIAL_BASE {
-                                if let Some(irq) = self.serial_irq {
-                                    let _ = self.vm.set_irq_line(irq, true);
-                                    let _ = self.vm.set_irq_line(irq, false);
-                                }
+                            serial.has_pending_interrupt()
+                        } else {
+                            false
+                        };
+                        // Drive the serial IRQ (TX-empty / line-status) through the
+                        // inline PIC, same as the RX path above.
+                        if let Some(irq) = self.serial_irq {
+                            if let Ok(mut pic) = self.pic.lock() {
+                                pic.set_irq(irq as u8, pending);
                             }
                         }
                     } else if port == 0xE9 {
@@ -656,10 +671,10 @@ impl Vmm {
                 VcpuExit::FailEntry { reason } => {
                     return Err(Error::KernelLoad(format!(
                         "vCPU fail entry: reason={reason:#x}"
-                    )))
+                    )));
                 }
                 VcpuExit::InternalError => {
-                    return Err(Error::KernelLoad("vCPU internal error".to_string()))
+                    return Err(Error::KernelLoad("vCPU internal error".to_string()));
                 }
                 VcpuExit::Debug => {
                     // INT3 breakpoint - kernel debugging, just continue

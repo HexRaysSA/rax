@@ -326,15 +326,30 @@ impl Serial16550 {
                 (CprFilterState::Normal, _) => (false, None),
             };
 
-            // Send any buffered bytes from incomplete escape sequences
+            // Stage bytes in the unbounded input buffer rather than pushing
+            // straight into the 16-byte hardware FIFO. A burst/paste larger than
+            // the FIFO would otherwise overrun and silently drop bytes (e.g. the
+            // trailing newline of a command). pump_input() then meters them into
+            // the FIFO as the guest drains it.
             if let Some(bytes) = extra_bytes {
-                for b in bytes {
-                    self.receive_byte(b);
-                }
+                self.input_buffer.extend(bytes);
             }
-
             if !filtered {
-                self.receive_byte(byte);
+                self.input_buffer.push_back(byte);
+            }
+        }
+
+        self.pump_input();
+    }
+
+    /// Meter staged host input into the 16-byte RX FIFO up to its capacity.
+    /// Called after staging and after each RBR read, so a large burst is fed to
+    /// the guest a FIFO-full at a time without loss.
+    fn pump_input(&mut self) {
+        while self.rx_fifo.len() < FIFO_SIZE {
+            match self.input_buffer.pop_front() {
+                Some(b) => self.receive_byte(b),
+                None => break,
             }
         }
     }
@@ -687,11 +702,11 @@ impl Serial16550 {
                     self.timeout_counter = 0;
                     self.timeout_active = false;
 
-                    if let Some(entry) = self.rx_fifo.pop_front() {
-                        entry.data
-                    } else {
-                        0
-                    }
+                    let byte = self.rx_fifo.pop_front().map(|e| e.data).unwrap_or(0);
+                    // Refill the FIFO from any staged host input as the guest
+                    // drains it, so a >16-byte burst is consumed within one ISR.
+                    self.pump_input();
+                    byte
                 }
             }
             IER_REG => {
