@@ -584,6 +584,18 @@ impl RiscVLifter {
         let imm = Self::imm_i(insn);
         let shamt = (imm & 0x3F) as u8; // 6-bit shift amount for RV64
 
+        // Route non-base OP-IMM (Zbb/Zbs immediates, unary count/extend) through
+        // the decode-driven bit-manip path.
+        let xl = if self.xlen == 64 { RvXlen::Rv64 } else { RvXlen::Rv32 };
+        let dop = rv_decode(insn, xl, &RvIsa::rv64gc()).op;
+        if !matches!(
+            dop,
+            RvOp::Addi | RvOp::Slti | RvOp::Sltiu | RvOp::Xori | RvOp::Ori | RvOp::Andi
+                | RvOp::Slli | RvOp::Srli | RvOp::Srai
+        ) {
+            return self.lift_zb_imm(insn, addr, ctx);
+        }
+
         let rs1 = self.get_x_reg(rs1_reg, ctx);
         let width = self.op_width();
 
@@ -697,6 +709,55 @@ impl RiscVLifter {
         Ok((ops, ControlFlow::NextInsn))
     }
 
+    /// Decode-driven lowering of OP-IMM bit-manipulation (Zbb/Zbs immediates
+    /// and the unary count/extend/reverse ops). `Orc.b`/`Brev8` (no direct SMIR
+    /// op) and crypto remain gaps.
+    fn lift_zb_imm(
+        &mut self,
+        insn: u32,
+        addr: GuestAddr,
+        ctx: &mut LiftContext,
+    ) -> Result<(Vec<SmirOp>, ControlFlow), LiftError> {
+        let xl = if self.xlen == 64 { RvXlen::Rv64 } else { RvXlen::Rv32 };
+        let d = rv_decode(insn, xl, &RvIsa::rv64gc());
+        let rs1 = self.get_x_reg(d.rs1, ctx);
+        let shamt = ((insn >> 20) & 0x3F) as i64; // 6-bit (RV64) bit/shift index
+        let mut ops = Vec::new();
+        let mk = |ctx: &mut LiftContext, k: OpKind| SmirOp::new(ctx.next_op_id(), addr, k);
+        let dst = match self.def_x_reg(d.rd, ctx) {
+            Some(dst) => dst,
+            None => return Ok((ops, ControlFlow::NextInsn)),
+        };
+        let w = OpWidth::W64;
+        let bit = 1i64.wrapping_shl(shamt as u32);
+
+        match d.op {
+            RvOp::Rori => ops.push(mk(ctx, OpKind::Ror { dst, src: rs1, amount: SrcOperand::Imm(shamt), width: w, flags: FlagUpdate::None })),
+            RvOp::Bclri => ops.push(mk(ctx, OpKind::AndNot { dst, src1: rs1, src2: SrcOperand::Imm(bit), width: w, flags: FlagUpdate::None })),
+            RvOp::Bseti => ops.push(mk(ctx, OpKind::Or { dst, src1: rs1, src2: SrcOperand::Imm(bit), width: w, flags: FlagUpdate::None })),
+            RvOp::Binvi => ops.push(mk(ctx, OpKind::Xor { dst, src1: rs1, src2: SrcOperand::Imm(bit), width: w, flags: FlagUpdate::None })),
+            RvOp::Bexti => {
+                let s = ctx.alloc_vreg();
+                ops.push(mk(ctx, OpKind::Shr { dst: s, src: rs1, amount: SrcOperand::Imm(shamt), width: w, flags: FlagUpdate::None }));
+                ops.push(mk(ctx, OpKind::And { dst, src1: s, src2: SrcOperand::Imm(1), width: w, flags: FlagUpdate::None }));
+            }
+            RvOp::Clz => ops.push(mk(ctx, OpKind::Clz { dst, src: rs1, width: w })),
+            RvOp::Ctz => ops.push(mk(ctx, OpKind::Ctz { dst, src: rs1, width: w })),
+            RvOp::Cpop => ops.push(mk(ctx, OpKind::Popcnt { dst, src: rs1, width: w })),
+            RvOp::SextB => ops.push(mk(ctx, OpKind::SignExtend { dst, src: rs1, from_width: OpWidth::W8, to_width: w })),
+            RvOp::SextH => ops.push(mk(ctx, OpKind::SignExtend { dst, src: rs1, from_width: OpWidth::W16, to_width: w })),
+            RvOp::Rev8 => ops.push(mk(ctx, OpKind::Bswap { dst, src: rs1, width: w })),
+            _ => {
+                return Err(LiftError::Unsupported {
+                    addr,
+                    mnemonic: format!("{:?}", d.op),
+                })
+            }
+        }
+
+        Ok((ops, ControlFlow::NextInsn))
+    }
+
     /// 32-bit integer register-immediate operations (RV64 only)
     fn lift_op_imm32(
         &mut self,
@@ -709,6 +770,14 @@ impl RiscVLifter {
         let funct3 = Self::funct3(insn);
         let imm = Self::imm_i(insn);
         let shamt = (imm & 0x1F) as u8; // 5-bit shift amount for 32-bit ops
+
+        // Route non-base OP-IMM-32 (Zba slli.uw, Zbb roriw/clzw/cpopw/ctzw)
+        // through the decode-driven word bit-manip path.
+        let xl = if self.xlen == 64 { RvXlen::Rv64 } else { RvXlen::Rv32 };
+        let dop = rv_decode(insn, xl, &RvIsa::rv64gc()).op;
+        if !matches!(dop, RvOp::Addiw | RvOp::Slliw | RvOp::Srliw | RvOp::Sraiw) {
+            return self.lift_zb_imm32(insn, addr, ctx);
+        }
 
         let rs1 = self.get_x_reg(rs1_reg, ctx);
         let width = OpWidth::W32;
@@ -1260,6 +1329,63 @@ impl RiscVLifter {
             }
         }
 
+        Ok((ops, ControlFlow::NextInsn))
+    }
+
+    /// Decode-driven lowering of OP-IMM-32 bit-manipulation (slli.uw, roriw,
+    /// clzw/cpopw/ctzw).
+    fn lift_zb_imm32(
+        &mut self,
+        insn: u32,
+        addr: GuestAddr,
+        ctx: &mut LiftContext,
+    ) -> Result<(Vec<SmirOp>, ControlFlow), LiftError> {
+        let xl = if self.xlen == 64 { RvXlen::Rv64 } else { RvXlen::Rv32 };
+        let d = rv_decode(insn, xl, &RvIsa::rv64gc());
+        let rs1 = self.get_x_reg(d.rs1, ctx);
+        let mut ops = Vec::new();
+        let mk = |ctx: &mut LiftContext, k: OpKind| SmirOp::new(ctx.next_op_id(), addr, k);
+        let dst = match self.def_x_reg(d.rd, ctx) {
+            Some(dst) => dst,
+            None => return Ok((ops, ControlFlow::NextInsn)),
+        };
+        let w = OpWidth::W64;
+        // Word results that are intrinsically <= 32 bits (counts) are zero-safe;
+        // shift/rotate word results must be sign-extended.
+        let sext32 = |ctx: &mut LiftContext, ops: &mut Vec<SmirOp>, tmp: VReg| {
+            ops.push(mk(
+                ctx,
+                OpKind::SignExtend {
+                    dst,
+                    src: tmp,
+                    from_width: OpWidth::W32,
+                    to_width: w,
+                },
+            ));
+        };
+        match d.op {
+            RvOp::SlliUw => {
+                let shamt = ((insn >> 20) & 0x3F) as i64; // 6-bit
+                let z = ctx.alloc_vreg();
+                ops.push(mk(ctx, OpKind::ZeroExtend { dst: z, src: rs1, from_width: OpWidth::W32, to_width: w }));
+                ops.push(mk(ctx, OpKind::Shl { dst, src: z, amount: SrcOperand::Imm(shamt), width: w, flags: FlagUpdate::None }));
+            }
+            RvOp::Roriw => {
+                let shamt = ((insn >> 20) & 0x1F) as i64;
+                let t = ctx.alloc_vreg();
+                ops.push(mk(ctx, OpKind::Ror { dst: t, src: rs1, amount: SrcOperand::Imm(shamt), width: OpWidth::W32, flags: FlagUpdate::None }));
+                sext32(ctx, &mut ops, t);
+            }
+            RvOp::Clzw => ops.push(mk(ctx, OpKind::Clz { dst, src: rs1, width: OpWidth::W32 })),
+            RvOp::Ctzw => ops.push(mk(ctx, OpKind::Ctz { dst, src: rs1, width: OpWidth::W32 })),
+            RvOp::Cpopw => ops.push(mk(ctx, OpKind::Popcnt { dst, src: rs1, width: OpWidth::W32 })),
+            _ => {
+                return Err(LiftError::Unsupported {
+                    addr,
+                    mnemonic: format!("{:?}", d.op),
+                })
+            }
+        }
         Ok((ops, ControlFlow::NextInsn))
     }
 
