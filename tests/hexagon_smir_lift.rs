@@ -26,8 +26,8 @@ use rax::backend::emulator::hexagon::HexagonVcpu;
 use rax::config::{Endianness, HexagonIsa};
 use rax::cpu::{CpuState, HexagonRegisters, VCpu, VcpuExit};
 use rax::smir::{
-    HexagonLifter, LiftContext, LiftError, SmirBlock, SmirContext, SmirInterpreter, SmirLifter,
-    Terminator, TrapKind,
+    ArchRegState, HexagonLifter, LiftContext, LiftError, SmirBlock, SmirContext, SmirInterpreter,
+    SmirLifter, Terminator, TrapKind,
 };
 use rax::smir::types::{ArchReg, BlockId, HexagonReg, OpId, SourceArch};
 
@@ -95,10 +95,21 @@ fn trap_word() -> u32 {
     *W.get_or_init(|| assemble(&["{ trap0(#0) }".to_string()]).expect("trap0")[0][0])
 }
 
+#[derive(Clone)]
 struct State {
     r: [u32; NREG],
     p: [u8; 4],
     usr: u32,
+    /// HVX vector registers V0-31 (1024-bit each, 32 LE u32 words) — interp layout.
+    v: [[u32; 32]; 32],
+    /// HVX vector predicate registers Q0-3 (128-bit each, 4 u32 words).
+    q: [[u32; 4]; 4],
+}
+
+impl State {
+    fn zeroed() -> Self {
+        State { r: [0; NREG], p: [0; 4], usr: 0, v: [[0; 32]; 32], q: [[0; 4]; 4] }
+    }
 }
 
 /// Reference: run the words on rax's Hexagon interpreter from `init`.
@@ -114,6 +125,8 @@ fn run_interp(words: &[u32], init: &State) -> Option<State> {
     regs.r = init.r;
     regs.p = init.p;
     regs.c[8] = init.usr;
+    regs.v = init.v;
+    regs.q = init.q;
     regs.set_pc(CODE_ADDR);
     let mut vcpu = HexagonVcpu::new(0, mem, HexagonIsa::V68, Endianness::Little);
     vcpu.set_state(&CpuState::hexagon(regs)).ok()?;
@@ -133,7 +146,7 @@ fn run_interp(words: &[u32], init: &State) -> Option<State> {
         CpuState::Hexagon(s) => s.regs,
         _ => return None,
     };
-    Some(State { r: regs.r, p: regs.p, usr: regs.c[8] })
+    Some(State { r: regs.r, p: regs.p, usr: regs.c[8], v: regs.v, q: regs.q })
 }
 
 /// Lift the words to SMIR and execute on the SmirInterpreter from `init`.
@@ -172,13 +185,29 @@ fn lift_and_run(words: &[u32], init: &State) -> Result<Option<State>, String> {
         ctx.write_arch_reg(ArchReg::Hexagon(HexagonReg::P(n as u8)), (init.p[n] & 1) as u64);
     }
     ctx.write_arch_reg(ArchReg::Hexagon(HexagonReg::Usr), init.usr as u64);
+    // Seed HVX V/Q (1024-bit V as 16 u64 lanes; 128-bit Q in lanes 0-1).
+    if let ArchRegState::Hexagon(hex) = &mut ctx.arch_regs {
+        for n in 0..32 {
+            let mut lanes = [0u64; 16];
+            for (j, lane) in lanes.iter_mut().enumerate() {
+                *lane = init.v[n][2 * j] as u64 | ((init.v[n][2 * j + 1] as u64) << 32);
+            }
+            hex.set_v(n as u8, lanes);
+        }
+        for n in 0..4 {
+            let mut lanes = [0u64; 16];
+            lanes[0] = init.q[n][0] as u64 | ((init.q[n][1] as u64) << 32);
+            lanes[1] = init.q[n][2] as u64 | ((init.q[n][3] as u64) << 32);
+            hex.set_q(n as u8, lanes);
+        }
+    }
     ctx.pc = CODE_ADDR as u64;
 
     let interp = SmirInterpreter::new();
     let mut mem = rax::smir::FlatMemory::with_base(0, 0x20000);
     interp.execute_block(&mut ctx, &mut mem, &block);
 
-    let mut out = State { r: [0; NREG], p: [0; 4], usr: 0 };
+    let mut out = State::zeroed();
     for n in 0..NREG {
         out.r[n] = ctx.read_arch_reg(ArchReg::Hexagon(HexagonReg::R(n as u8))) as u32;
     }
@@ -187,6 +216,22 @@ fn lift_and_run(words: &[u32], init: &State) -> Result<Option<State>, String> {
         out.p[n] = if v & 1 != 0 { 0xff } else { 0 };
     }
     out.usr = ctx.read_arch_reg(ArchReg::Hexagon(HexagonReg::Usr)) as u32;
+    if let ArchRegState::Hexagon(hex) = &ctx.arch_regs {
+        for n in 0..32 {
+            let lanes = hex.get_v(n as u8);
+            for (j, lane) in lanes.iter().enumerate() {
+                out.v[n][2 * j] = *lane as u32;
+                out.v[n][2 * j + 1] = (*lane >> 32) as u32;
+            }
+        }
+        for n in 0..4 {
+            let lanes = hex.get_q(n as u8);
+            out.q[n][0] = lanes[0] as u32;
+            out.q[n][1] = (lanes[0] >> 32) as u32;
+            out.q[n][2] = lanes[1] as u32;
+            out.q[n][3] = (lanes[1] >> 32) as u32;
+        }
+    }
     Ok(Some(out))
 }
 
@@ -224,13 +269,23 @@ fn lift_family(name: &str, cases: &[(&str, &str)], n: usize, seed: u64) {
     for ((label, _asm), words) in cases.iter().zip(words_per.iter()) {
         let mut lifted_ok = false;
         for _ in 0..n {
-            let mut st = State { r: [0; NREG], p: [0; 4], usr: 0 };
+            let mut st = State::zeroed();
             for r in st.r.iter_mut() {
                 *r = rng.next() as u32;
             }
             for k in 0..4 {
                 if rng.next() & 1 == 1 {
                     st.p[k] = 0xff;
+                }
+            }
+            for vv in st.v.iter_mut() {
+                for w in vv.iter_mut() {
+                    *w = rng.next() as u32;
+                }
+            }
+            for qq in st.q.iter_mut() {
+                for w in qq.iter_mut() {
+                    *w = rng.next() as u32;
                 }
             }
             let interp = match run_interp(words, &st) {
@@ -253,6 +308,23 @@ fn lift_family(name: &str, cases: &[(&str, &str)], n: usize, seed: u64) {
                     for k in 0..4 {
                         if (interp.p[k] & 1) != (lift.p[k] & 1) {
                             diffs.push(format!("p{k}:i={:#x},l={:#x}", interp.p[k], lift.p[k]));
+                        }
+                    }
+                    for vn in 0..32 {
+                        if interp.v[vn] != lift.v[vn] {
+                            diffs.push(format!(
+                                "v{vn}:i={:08x?},l={:08x?}",
+                                &interp.v[vn][..4],
+                                &lift.v[vn][..4]
+                            ));
+                        }
+                    }
+                    for qn in 0..4 {
+                        if interp.q[qn] != lift.q[qn] {
+                            diffs.push(format!(
+                                "q{qn}:i={:08x?},l={:08x?}",
+                                interp.q[qn], lift.q[qn]
+                            ));
                         }
                     }
                     if !diffs.is_empty() {
@@ -572,4 +644,41 @@ fn lift_m2_mpy() {
         20,
         0x620d,
     );
+}
+
+// ---- HVX harness readiness probe (not a lift assertion) ----
+// Confirms the V/Q-extended harness can drive a real HVX packet end-to-end:
+// the assembler emits HVX encodings, the interpreter executes from seeded V
+// state and mutates V, and the lifter is reached (Unsupported until HVX is
+// lifted). This proves the oracle plumbing before the HVX lift wave.
+#[test]
+fn hvx_harness_probe() {
+    let asms = vec!["{ v2.w = vadd(v0.w,v1.w) }".to_string()];
+    let words_per = match assemble(&asms) {
+        Some(w) => w,
+        None => {
+            eprintln!("[hvx_harness_probe] llvm-mc unavailable/assemble-failed -> skipping");
+            return;
+        }
+    };
+    let words = &words_per[0];
+    let mut rng = Rng::new(0x4242);
+    let mut st = State::zeroed();
+    for vv in st.v.iter_mut() {
+        for w in vv.iter_mut() {
+            *w = rng.next() as u32;
+        }
+    }
+    let interp = run_interp(words, &st).expect("interp must execute HVX vadd from seeded V");
+    // v2 = v0 + v1 lane-wise (32-bit words); prove the interp actually mutated V2.
+    for j in 0..32 {
+        let expect = st.v[0][j].wrapping_add(st.v[1][j]);
+        assert_eq!(interp.v[2][j], expect, "interp HVX vadd.w lane {j}");
+    }
+    // The lifter is reached; HVX is not yet lifted, so expect Unsupported (Ok(None)).
+    match lift_and_run(words, &st) {
+        Ok(None) => eprintln!("[hvx_harness_probe] HVX vadd: UNLIFTED (expected until lifted)"),
+        Ok(Some(_)) => eprintln!("[hvx_harness_probe] HVX vadd is now lifted"),
+        Err(e) => panic!("lift error on HVX vadd: {e}"),
+    }
 }
