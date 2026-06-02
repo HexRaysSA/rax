@@ -5439,6 +5439,65 @@ impl AArch64Cpu {
                 Ok(CpuExit::Continue)
             }
 
+            // SVE2 complex integer multiply-add (CMLA/SQRDCMLAH): 0x44, bit21==0,
+            // bits[15:13]==001. op=bit12 picks the saturating-rounding-doubling
+            // SQRDCMLAH; rot=bits[11:10] is the 0/90/180/270 rotation. Each
+            // complex pair accumulates one selected-component product.
+            0b010
+                if (insn >> 24) & 0xFF == 0b01000100
+                    && (insn >> 21) & 1 == 0
+                    && (insn >> 13) & 0x7 == 0b001 =>
+            {
+                let size = (insn >> 22) & 0x3;
+                let esize = 1usize << size;
+                let bits = (esize * 8) as u32;
+                let mask = elem_mask(bits);
+                let sat = (insn >> 12) & 1 == 1;
+                let rot = (insn >> 10) & 0x3;
+                let acc = self.v[zd].to_le_bytes();
+                let n = self.v[zn].to_le_bytes();
+                let m = self.v[zm].to_le_bytes();
+                let mut dst = acc;
+                let hi = (1i128 << (bits - 1)) - 1;
+                let lo = -(1i128 << (bits - 1));
+                let pairs = (16 / esize) / 2;
+                for p in 0..pairs {
+                    let (re, im) = (2 * p * esize, (2 * p + 1) * esize);
+                    let n_re = sext_elem(read_elem(&n, re, esize), bits);
+                    let n_im = sext_elem(read_elem(&n, im, esize), bits);
+                    let m_re = sext_elem(read_elem(&m, re, esize), bits);
+                    let m_im = sext_elem(read_elem(&m, im, esize), bits);
+                    let acc_re = sext_elem(read_elem(&acc, re, esize), bits);
+                    let acc_im = sext_elem(read_elem(&acc, im, esize), bits);
+                    let zn_sel = if rot == 0 || rot == 2 { n_re } else { n_im };
+                    // The signed Zm factor for the real/imag accumulation.
+                    let (mfr, mfi): (i128, i128) = match rot {
+                        0 => (m_re, m_im),
+                        1 => (-m_im, m_re),
+                        2 => (-m_re, -m_im),
+                        _ => (m_im, -m_re),
+                    };
+                    let (r_re, r_im) = if sat {
+                        // SignedDoublingRoundingHigh: (2*prod + 2^(bits-1)) >> bits,
+                        // rewritten as (prod + 2^(bits-2)) >> (bits-1) to avoid the
+                        // doubled product overflowing i128 at the 64-bit size. As in
+                        // NEON SQRDMLAH the rounded high part is NOT saturated; only
+                        // the final accumulate is.
+                        let sdrh = |prod: i128| (prod + (1i128 << (bits - 2))) >> (bits - 1);
+                        (
+                            (acc_re + sdrh(zn_sel * mfr)).clamp(lo, hi),
+                            (acc_im + sdrh(zn_sel * mfi)).clamp(lo, hi),
+                        )
+                    } else {
+                        (acc_re + zn_sel * mfr, acc_im + zn_sel * mfi)
+                    };
+                    write_elem(&mut dst, re, esize, r_re as u64 & mask);
+                    write_elem(&mut dst, im, esize, r_im as u64 & mask);
+                }
+                self.v[zd] = u128::from_le_bytes(dst);
+                Ok(CpuExit::Continue)
+            }
+
             // Load/Store
             0b100 | 0b101 | 0b110 | 0b111 => self.exec_sve_ldst(insn),
 
