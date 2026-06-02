@@ -2034,6 +2034,12 @@ fn diff_mem_fuzz() {
         let rs2 = safe[(rng.next() as usize) % 9];
         w = (w & !(0x1f << 7)) | (rd << 7);
         w = (w & !(0x1f << 20)) | (rs2 << 20);
+        // Vector load/store (opcode 0x07/0x27, width funct3 in {0,5,6,7}) needs a
+        // configured vector context the scalar oracle doesn't provide; those are
+        // covered with proper vtype/vl setup in tests/riscv_vector.rs.
+        if matches!(opc, 0x07 | 0x27) && matches!((w >> 12) & 7, 0 | 5 | 6 | 7) {
+            continue;
+        }
         // Only test encodings rax decodes (qemu's reserved-field leniency aside).
         if decode(w, Xlen::Rv64, &Isa::rv64gc()).is_illegal() {
             continue;
