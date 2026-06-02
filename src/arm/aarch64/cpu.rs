@@ -1806,6 +1806,12 @@ impl AArch64Cpu {
             return self.exec_simd_three_different(insn);
         }
 
+        // SDOT/UDOT (8-bit -> 32-bit dot product, FEAT_DotProd).
+        // Encoding: 0_Q_U_01110_size_0_Rm_100101_Rn_Rd (bit21==0, bits[15:10]=100101).
+        if op_bits == 0b01110 && (insn >> 21) & 1 == 0 && (insn >> 10) & 0x3F == 0b100101 {
+            return self.exec_simd_dot(insn);
+        }
+
         // Cryptographic AES/SHA operations
         // AES: 0100 1110 00 1 01000 0 opcode 10 Rn Rd (bits[31:24]=0x4E)
         // SHA two-reg: 0101 1110 00 1 01000 0 opcode 10 Rn Rd (bits[31:24]=0x5E)
@@ -2402,6 +2408,48 @@ impl AArch64Cpu {
                 Ok(CpuExit::Continue)
             }
         }
+    }
+
+    /// Execute SDOT/UDOT: the 8-bit -> 32-bit four-way dot product. Each 32-bit
+    /// lane accumulates the sum of four byte-wise products of the corresponding
+    /// Vn/Vm bytes (signed for SDOT, unsigned for UDOT).
+    fn exec_simd_dot(&mut self, insn: u32) -> Result<CpuExit, ArmError> {
+        let q = (insn >> 30) & 1;
+        let u = (insn >> 29) & 1;
+        let size = (insn >> 22) & 0x3;
+        let rm = ((insn >> 16) & 0x1F) as usize;
+        let rn = ((insn >> 5) & 0x1F) as usize;
+        let rd = (insn & 0x1F) as usize;
+        // Only the 8-bit source / 32-bit accumulator form is allocated.
+        if size != 0b10 {
+            return Ok(CpuExit::Undefined(insn));
+        }
+        let signed = u == 0;
+        let lanes = if q == 1 { 4 } else { 2 }; // 32-bit accumulator lanes
+        let op1 = self.v[rn];
+        let op2 = self.v[rm];
+        let mut result = self.v[rd];
+        for e in 0..lanes {
+            let mut res: i64 = 0;
+            for i in 0..4 {
+                let sh = (4 * e + i) * 8;
+                let b1 = (op1 >> sh) as u8;
+                let b2 = (op2 >> sh) as u8;
+                res += if signed {
+                    (b1 as i8 as i64) * (b2 as i8 as i64)
+                } else {
+                    (b1 as i64) * (b2 as i64)
+                };
+            }
+            let lane = (result >> (e * 32)) as u32;
+            let updated = (lane as i64).wrapping_add(res) as u32;
+            result = (result & !(0xFFFF_FFFFu128 << (e * 32))) | ((updated as u128) << (e * 32));
+        }
+        if q == 0 {
+            result &= 0xFFFF_FFFF_FFFF_FFFF;
+        }
+        self.v[rd] = result;
+        Ok(CpuExit::Continue)
     }
 
     /// Execute cryptographic operations (AES, SHA, SM3, SM4).

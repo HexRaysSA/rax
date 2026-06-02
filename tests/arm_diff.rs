@@ -1358,6 +1358,22 @@ fn enc_sm4ekey() -> u32 {
     0xCE00_0000 | (0b011 << 21) | (RM << 16) | (0b110010 << 10) | (RN << 5) | RD
 }
 
+/// SDOT/UDOT: `0 Q U 01110 10 0 Rm 100101 Rn Rd`. Rd=v0, Rn=v1, Rm=v2.
+fn enc_dot(q: u32, u: u32) -> u32 {
+    (q << 30) | (u << 29) | (0b01110 << 24) | (0b10 << 22) | (RM << 16)
+        | (0b100101 << 10) | (RN << 5) | RD
+}
+
+#[test]
+fn diff_simd_dot() {
+    let mut cases: Vec<(String, u32)> = Vec::new();
+    for q in 0..2u32 {
+        cases.push((format!("sdot q{q}"), enc_dot(q, 0)));
+        cases.push((format!("udot q{q}"), enc_dot(q, 1)));
+    }
+    run_family("simd_dot", cases, 40, 0x1_0018);
+}
+
 #[test]
 fn diff_crypto_sm4() {
     let cases: Vec<(String, u32)> = vec![
