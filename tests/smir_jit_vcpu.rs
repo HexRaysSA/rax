@@ -1233,3 +1233,58 @@ fn jit_mem_boot_memcpy_block0_matches_interpreter() {
         assert_eq!(jb, ib, "DST[{i}] jit vs interp");
     }
 }
+
+/// Boot block-0 with the EXACT overlap from the failing kernel region:
+/// dst = src + 24, length rdx = 0x130 (non-32-multiple). A backwards 32-byte
+/// copy within one overlapping buffer — the read-after-write geometry the
+/// non-overlapping block-0 test doesn't reach. JIT must match the interpreter.
+#[test]
+fn jit_mem_boot_memmove_overlap24_matches_interpreter() {
+    const BASE: u64 = 0x20_0000;
+    const LEN: u64 = 0x130;
+    let rsi0 = BASE + 0x200; // src end (high), copy proceeds downward
+    let rdi0 = rsi0 + 0x18; // dst end = src + 24 (overlap)
+
+    let mut code: Vec<u8> = Vec::new();
+    code.extend_from_slice(&[0x48, 0xBE]);
+    code.extend_from_slice(&rsi0.to_le_bytes()); // mov rsi, rsi0
+    code.extend_from_slice(&[0x48, 0xBF]);
+    code.extend_from_slice(&rdi0.to_le_bytes()); // mov rdi, rdi0
+    code.extend_from_slice(&[0x48, 0xBA]);
+    code.extend_from_slice(&LEN.to_le_bytes()); // mov rdx, LEN
+    code.extend_from_slice(&[0x48, 0x83, 0xEA, 0x20]); // sub rdx, 32
+    code.extend_from_slice(&[0x4C, 0x8B, 0x5E, 0xF8]); // mov r11, [rsi-8]
+    code.extend_from_slice(&[0x4C, 0x8B, 0x56, 0xF0]); // mov r10, [rsi-16]
+    code.extend_from_slice(&[0x4C, 0x8B, 0x4E, 0xE8]); // mov r9, [rsi-24]
+    code.extend_from_slice(&[0x4C, 0x8B, 0x46, 0xE0]); // mov r8, [rsi-32]
+    code.extend_from_slice(&[0x48, 0x8D, 0x76, 0xE0]); // lea rsi, [rsi-32]
+    code.extend_from_slice(&[0x4C, 0x89, 0x5F, 0xF8]); // mov [rdi-8], r11
+    code.extend_from_slice(&[0x4C, 0x89, 0x57, 0xF0]); // mov [rdi-16], r10
+    code.extend_from_slice(&[0x4C, 0x89, 0x4F, 0xE8]); // mov [rdi-24], r9
+    code.extend_from_slice(&[0x4C, 0x89, 0x47, 0xE0]); // mov [rdi-32], r8
+    code.extend_from_slice(&[0x48, 0x8D, 0x7F, 0xE0]); // lea rdi, [rdi-32]
+    code.extend_from_slice(&[0x73, 0xD2]); // jae loop
+    code.push(0xF4); // hlt
+
+    let setup = |mem: &Arc<GuestMemoryMmap>| {
+        for i in 0..0x60u64 {
+            mem.write_obj(0x100000 + i, GuestAddress(BASE + i * 8)).unwrap();
+        }
+    };
+
+    let (mut interp, imem) = make_vcpu_mem(&code);
+    setup(&imem);
+    run_interp(&mut interp);
+
+    let (mut jit, jmem) = make_vcpu_mem(&code);
+    jit.set_jit_mem(true);
+    setup(&jmem);
+    assert!(jit.jit_try_block().expect("jit_try_block"), "overlap-24 memmove should JIT");
+    run_interp(&mut jit);
+
+    for i in 0..0x60u64 {
+        let ib: u64 = imem.read_obj(GuestAddress(BASE + i * 8)).unwrap();
+        let jb: u64 = jmem.read_obj(GuestAddress(BASE + i * 8)).unwrap();
+        assert_eq!(jb, ib, "buf[{i}] jit vs interp (overlap-24 memmove)");
+    }
+}
