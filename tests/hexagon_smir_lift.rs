@@ -26,8 +26,8 @@ use rax::backend::emulator::hexagon::HexagonVcpu;
 use rax::config::{Endianness, HexagonIsa};
 use rax::cpu::{CpuState, HexagonRegisters, VCpu, VcpuExit};
 use rax::smir::{
-    ArchRegState, HexagonLifter, LiftContext, LiftError, SmirBlock, SmirContext, SmirInterpreter,
-    SmirLifter, Terminator, TrapKind,
+    ArchRegState, BlockResult, ControlFlow, ExitReason, HexagonLifter, LiftContext,
+    LiftError, SmirBlock, SmirContext, SmirInterpreter, SmirLifter, Terminator, TrapKind,
 };
 use rax::smir::types::{ArchReg, BlockId, HexagonReg, OpId, SourceArch};
 
@@ -727,6 +727,558 @@ fn lift_mem_family_idx(
         }
         panic!("{name}: {} SMIR-lift divergences vs interpreter (mem)", mismatches.len());
     }
+}
+
+// ============================================================================
+// Control-flow harness path (Step 1/2).
+//
+// The plain / mem harnesses run a block to a HARDCODED `Trap{Breakpoint}` and
+// never exercise the lifted Terminator, so the J2/J4 branch/call/loop control
+// flow was untested. The `_cf` variants below build the REAL terminator from
+// `res.control_flow` (exactly as the lifter's `lift_block` does) and compare the
+// NEXT-PC the SMIR interpreter resolves against the PC the qemu-verified
+// HexagonVcpu lands on, plus the flow-controlling registers (LR for calls,
+// LC0/LC1/SA0/SA1 for loop setup, the written predicate for compound jumps, and
+// all R/P).
+//
+// TRAP-PC CALIBRATION (verified empirically by `cf_calibrate_unconditional`):
+//   The VCPU executes the test packet at CODE_ADDR; a branch sets PC := target,
+//   fall-through sets PC := packet_end. Whatever address X it lands on holds a
+//   one-word trap0 packet. Executing that trap returns Shutdown AFTER the PC was
+//   advanced past it, so `regs.pc()` reports X+4. Hence:
+//       interp_final_pc == smir_next_pc + 4
+//   (the SMIR next-PC is the resolved branch/fall-through target X). The code
+//   window is trap-filled BOTH before and after CODE_ADDR so any small forward
+//   (or backward) target lands on a trap. The comparison below subtracts the
+//   4-byte trap size: `interp_final_pc - 4 == smir_next_pc`.
+// ============================================================================
+
+/// Bytes of trap-filled code window placed on EACH side of CODE_ADDR.
+const CF_WINDOW: u32 = 0x400;
+
+/// Map a resolved guest target PC to a `BlockId`. The SMIR interpreter has an
+/// EMPTY `block_addrs` map in this harness, so it falls back to `target.0 as
+/// u64`; encoding the guest PC into the BlockId makes the resolved address equal
+/// the guest target. Guest PCs here are ~0x1000, well within u32.
+fn bid(pc: u64) -> BlockId {
+    BlockId(pc as u32)
+}
+
+/// Build the block Terminator from a lifted `ControlFlow`, faithfully mirroring
+/// the lifter's `lift_block` mapping EXCEPT that (a) block targets carry the
+/// guest PC (see `bid`) and (b) `CondBranchReg` threads the REAL condition vreg
+/// (the `CondBranch` variant in `lift_block` allocates a fresh, unread vreg —
+/// our predicate-branch lifts emit `CondBranchReg`, so the cond is honoured).
+/// Returns `None` for a `Fallthrough` (a packet with no terminating control flow
+/// — its next-PC is simply CODE_ADDR + 4*words).
+fn cf_terminator(control_flow: &ControlFlow, fallthrough_pc: u64) -> Option<Terminator> {
+    Some(match control_flow {
+        ControlFlow::Fallthrough | ControlFlow::NextInsn => return None,
+        ControlFlow::Branch { target } | ControlFlow::DirectBranch(target) => {
+            Terminator::Branch { target: bid(*target) }
+        }
+        ControlFlow::CondBranch { .. } => {
+            // The lifter no longer emits this for predicate branches (it uses
+            // CondBranchReg). If it ever does, we cannot recover the cond vreg —
+            // fail loudly rather than silently mis-resolve.
+            panic!("cf_terminator: bare CondBranch has no cond vreg; lifter must emit CondBranchReg");
+        }
+        ControlFlow::CondBranchReg {
+            cond,
+            taken,
+            not_taken,
+        } => Terminator::CondBranch {
+            cond: *cond,
+            true_target: bid(*taken),
+            false_target: bid(*not_taken),
+        },
+        ControlFlow::IndirectBranch { target } => Terminator::IndirectBranch {
+            target: *target,
+            possible_targets: vec![],
+        },
+        ControlFlow::IndirectBranchMem { addr } => Terminator::IndirectBranchMem {
+            addr: addr.clone(),
+            possible_targets: vec![],
+        },
+        ControlFlow::Call { target } => Terminator::Call {
+            target: target.clone(),
+            args: vec![],
+            continuation: bid(fallthrough_pc),
+        },
+        ControlFlow::Return => Terminator::Return { values: vec![] },
+        ControlFlow::Trap { kind } => Terminator::Trap { kind: *kind },
+        ControlFlow::Syscall => Terminator::Trap { kind: TrapKind::SystemCall },
+    })
+}
+
+/// Reference (interp) side of the `_cf` path. Fills a trap-padded code window
+/// around CODE_ADDR, writes the test packet at CODE_ADDR, runs the VCPU to the
+/// trap, and returns the FINAL PC and register State.
+fn run_interp_cf(words: &[u32], init: &State) -> Option<(u32, State)> {
+    let mem = Arc::new(GuestMemoryMmap::<()>::from_ranges(&[(GuestAddress(0), 0x20000)]).ok()?);
+    let tw = trap_word();
+    // Trap-fill [CODE_ADDR - CF_WINDOW, CODE_ADDR + CF_WINDOW) so any forward or
+    // backward small target lands on a one-word trap packet.
+    let start = CODE_ADDR - CF_WINDOW;
+    let end = CODE_ADDR + CF_WINDOW;
+    let mut a = start;
+    while a < end {
+        mem.write_slice(&tw.to_le_bytes(), GuestAddress(a as u64)).ok()?;
+        a += 4;
+    }
+    // Overwrite CODE_ADDR with the test packet.
+    let mut off = CODE_ADDR;
+    for &w in words {
+        mem.write_slice(&w.to_le_bytes(), GuestAddress(off as u64)).ok()?;
+        off += 4;
+    }
+    let mut regs = HexagonRegisters::default();
+    regs.r = init.r;
+    regs.p = init.p;
+    regs.c[8] = init.usr;
+    regs.v = init.v;
+    regs.q = init.q;
+    // Loop registers: SA0=c[0], LC0=c[1], SA1=c[2], LC1=c[3].
+    regs.c[0] = init.cs[0]; // reuse cs[] as a generic seed carrier (sa0/sa1)
+    regs.c[2] = init.cs[1];
+    regs.c[1] = init.m[0]; // reuse m[] as lc0/lc1 seed carrier
+    regs.c[3] = init.m[1];
+    regs.set_pc(CODE_ADDR);
+    let mut vcpu = HexagonVcpu::new(0, mem, HexagonIsa::V68, Endianness::Little);
+    vcpu.set_state(&CpuState::hexagon(regs)).ok()?;
+    let mut iters = 0;
+    loop {
+        iters += 1;
+        if iters > 64 {
+            return None;
+        }
+        match vcpu.run() {
+            Ok(VcpuExit::Shutdown) => break,
+            Ok(_) => return None,
+            Err(_) => return None,
+        }
+    }
+    let regs = match vcpu.get_state().ok()? {
+        CpuState::Hexagon(s) => s.regs,
+        _ => return None,
+    };
+    Some((
+        regs.pc(),
+        State {
+            r: regs.r,
+            p: regs.p,
+            usr: regs.c[8],
+            v: regs.v,
+            q: regs.q,
+            m: [regs.c[1], regs.c[3]], // lc0, lc1
+            cs: [regs.c[0], regs.c[2]], // sa0, sa1
+            gp: regs.c[11],
+        },
+    ))
+}
+
+/// Lift side of the `_cf` path. Lifts the packet, builds the REAL terminator from
+/// the lifted control flow, runs `execute_block` ONCE, and maps the BlockResult
+/// to a next-PC. `Ok(None)` => the lift is Unsupported. The `Err` carries an
+/// unexpected exit (e.g. an Undefined trap) so a wrong lift is reported, never
+/// silently accepted.
+fn lift_and_run_cf(words: &[u32], init: &State) -> Result<Option<(u64, State)>, String> {
+    let mut lifter = HexagonLifter::default_isa();
+    let mut lctx = LiftContext::new(SourceArch::Hexagon);
+    let mut ops = Vec::new();
+    let mut control_flow = ControlFlow::Fallthrough;
+    let mut addr = CODE_ADDR as u64;
+    for &w in words {
+        match lifter.lift_insn(addr, &w.to_le_bytes(), &mut lctx) {
+            Ok(res) => {
+                ops.extend(res.ops);
+                control_flow = res.control_flow;
+            }
+            Err(LiftError::Unsupported { .. }) => return Ok(None),
+            Err(e) => return Err(format!("lift error: {e:?}")),
+        }
+        addr += 4;
+    }
+    for (i, op) in ops.iter_mut().enumerate() {
+        op.id = OpId(i as u16);
+    }
+    let fallthrough_pc = CODE_ADDR as u64 + 4 * words.len() as u64;
+    let terminator = match cf_terminator(&control_flow, fallthrough_pc) {
+        Some(t) => t,
+        None => Terminator::Branch { target: bid(fallthrough_pc) },
+    };
+    let block = SmirBlock {
+        id: BlockId(0),
+        guest_pc: CODE_ADDR as u64,
+        phis: vec![],
+        ops,
+        terminator,
+        exec_count: 0,
+    };
+    let mut ctx = SmirContext::new_hexagon();
+    for n in 0..NREG {
+        ctx.write_arch_reg(ArchReg::Hexagon(HexagonReg::R(n as u8)), init.r[n] as u64);
+    }
+    for n in 0..4 {
+        ctx.write_arch_reg(ArchReg::Hexagon(HexagonReg::P(n as u8)), (init.p[n] & 1) as u64);
+    }
+    ctx.write_arch_reg(ArchReg::Hexagon(HexagonReg::Usr), init.usr as u64);
+    // Loop / link registers (m[]=LC0/LC1, cs[]=SA0/SA1, LR=r[31] already seeded).
+    ctx.write_arch_reg(ArchReg::Hexagon(HexagonReg::Lc0), init.m[0] as u64);
+    ctx.write_arch_reg(ArchReg::Hexagon(HexagonReg::Lc1), init.m[1] as u64);
+    ctx.write_arch_reg(ArchReg::Hexagon(HexagonReg::Sa0), init.cs[0] as u64);
+    ctx.write_arch_reg(ArchReg::Hexagon(HexagonReg::Sa1), init.cs[1] as u64);
+    ctx.pc = CODE_ADDR as u64;
+
+    let interp = SmirInterpreter::new();
+    let mut mem = rax::smir::FlatMemory::with_base(0, 0x20000);
+    let next_pc = match interp.execute_block(&mut ctx, &mut mem, &block) {
+        BlockResult::Continue(pc) => pc,
+        BlockResult::Exit(ExitReason::Return { to }) => to,
+        BlockResult::Exit(other) => {
+            return Err(format!("unexpected SMIR exit: {other:?}"));
+        }
+    };
+
+    let mut out = State::zeroed();
+    for n in 0..NREG {
+        out.r[n] = ctx.read_arch_reg(ArchReg::Hexagon(HexagonReg::R(n as u8))) as u32;
+    }
+    for n in 0..4 {
+        let v = ctx.read_arch_reg(ArchReg::Hexagon(HexagonReg::P(n as u8)));
+        out.p[n] = if v & 1 != 0 { 0xff } else { 0 };
+    }
+    out.usr = ctx.read_arch_reg(ArchReg::Hexagon(HexagonReg::Usr)) as u32;
+    out.m[0] = ctx.read_arch_reg(ArchReg::Hexagon(HexagonReg::Lc0)) as u32;
+    out.m[1] = ctx.read_arch_reg(ArchReg::Hexagon(HexagonReg::Lc1)) as u32;
+    out.cs[0] = ctx.read_arch_reg(ArchReg::Hexagon(HexagonReg::Sa0)) as u32;
+    out.cs[1] = ctx.read_arch_reg(ArchReg::Hexagon(HexagonReg::Sa1)) as u32;
+    Ok(Some((next_pc, out)))
+}
+
+/// Verify a control-flow family: each (label, single-packet asm) over `n` random
+/// states. Seeds random R/P plus LC0/LC1/SA0/SA1/LR, runs both sides, and
+/// compares the NEXT-PC (`interp_final_pc - 4 == smir_next_pc`, per the trap-PC
+/// calibration) AND the flow-controlling registers (all R/P, LC/SA). Panics on a
+/// real divergence; tolerates+reports Unsupported lifts.
+fn lift_cf_family(name: &str, cases: &[(&str, &str)], n: usize, seed: u64) {
+    lift_cf_family_inner(name, cases, n, seed, false);
+}
+
+/// As `lift_cf_family`, but `invert_check` flips the expected next-PC comparison
+/// to PROVE the harness catches a wrong branch (the self-check): with it set, a
+/// CORRECT lift must be reported as a (forced) mismatch.
+fn lift_cf_family_inner(
+    name: &str,
+    cases: &[(&str, &str)],
+    n: usize,
+    seed: u64,
+    invert_check: bool,
+) -> usize {
+    let asms: Vec<String> = cases.iter().map(|(_, a)| a.to_string()).collect();
+    let words_per = match assemble(&asms) {
+        Some(w) => w,
+        None => {
+            eprintln!("[hexagon_smir_lift] {name}: llvm-mc unavailable -> skipping");
+            return 0;
+        }
+    };
+    let mut rng = Rng::new(seed);
+    let mut mismatches = Vec::new();
+    let mut unlifted = Vec::new();
+    let mut checked = 0usize;
+    for ((label, _asm), words) in cases.iter().zip(words_per.iter()) {
+        for _ in 0..n {
+            let mut st = State::zeroed();
+            // Every GPR is a word-aligned, IN-WINDOW address in [CODE_ADDR-0x80,
+            // CODE_ADDR+0x80). This serves two roles at once:
+            //   * jumpr/callr use a GPR as the branch TARGET -> stays in the
+            //     trap-filled window (so the interp lands on a trap, not a fault),
+            //   * compare-jumps compare GPR VALUES -> these aligned addresses span
+            //     64 distinct slots giving eq/gt/lt/gtu coverage.
+            for r in st.r.iter_mut() {
+                let off = ((rng.next() as u32) % 0x40) * 4;
+                *r = (CODE_ADDR - 0x80).wrapping_add(off);
+            }
+            // ~50% of the time, alias the common compare operand pairs so the
+            // `cmp.eq`/`tstbit` true branch is exercised, not just the false one.
+            if rng.next() & 1 == 0 {
+                st.r[1] = st.r[0];
+                st.r[3] = st.r[2];
+            }
+            for k in 0..4 {
+                if rng.next() & 1 == 1 {
+                    st.p[k] = 0xff;
+                }
+            }
+            // Loop counts (LC0/LC1 via m[]) and start addresses (SA0/SA1 via cs[]).
+            st.m = [rng.next() as u32, rng.next() as u32];
+            st.cs = [rng.next() as u32, rng.next() as u32];
+            let (ifin, istate) = match run_interp_cf(words, &st) {
+                Some(x) => x,
+                None => continue, // interp rejected (faulting target etc.); skip
+            };
+            // Calibrated mapping: interp final PC is the trap-after-target+4.
+            let inext = ifin.wrapping_sub(4) as u64;
+            match lift_and_run_cf(words, &st) {
+                Ok(None) => {
+                    unlifted.push(*label);
+                    break;
+                }
+                Ok(Some((lnext, lstate))) => {
+                    checked += 1;
+                    let mut diffs = Vec::new();
+                    let pc_ok = if invert_check {
+                        inext == lnext // forced-wrong: report when they DO match
+                    } else {
+                        inext != lnext
+                    };
+                    if pc_ok {
+                        diffs.push(format!("next_pc:i={inext:#x},l={lnext:#x}"));
+                    }
+                    for r in 0..NREG {
+                        if istate.r[r] != lstate.r[r] {
+                            diffs.push(format!("r{r}:i={:#x},l={:#x}", istate.r[r], lstate.r[r]));
+                        }
+                    }
+                    for k in 0..4 {
+                        if (istate.p[k] & 1) != (lstate.p[k] & 1) {
+                            diffs.push(format!("p{k}:i={:#x},l={:#x}", istate.p[k], lstate.p[k]));
+                        }
+                    }
+                    for k in 0..2 {
+                        if istate.m[k] != lstate.m[k] {
+                            diffs.push(format!("lc{k}:i={:#x},l={:#x}", istate.m[k], lstate.m[k]));
+                        }
+                        if istate.cs[k] != lstate.cs[k] {
+                            diffs.push(format!("sa{k}:i={:#x},l={:#x}", istate.cs[k], lstate.cs[k]));
+                        }
+                    }
+                    if !diffs.is_empty() {
+                        mismatches.push(format!("[{label}] {}", diffs.join(" ")));
+                    }
+                }
+                Err(e) => mismatches.push(format!("[{label}] {e}")),
+            }
+        }
+    }
+    if !unlifted.is_empty() {
+        eprintln!("[hexagon_smir_lift] {name}: UNLIFTED (gap): {:?}", unlifted);
+    }
+    if invert_check {
+        // Self-check mode: caller asserts on the returned count, do not panic.
+        return mismatches.len();
+    }
+    if !mismatches.is_empty() {
+        eprintln!("\n==== {name}: {} CF-lift mismatches ====", mismatches.len());
+        for m in mismatches.iter().take(20) {
+            eprintln!("  {m}");
+        }
+        panic!("{name}: {} SMIR-lift control-flow divergences vs interpreter", mismatches.len());
+    }
+    let _ = checked;
+    0
+}
+
+// ---- CF harness calibration + self-check ----
+
+#[test]
+fn cf_calibrate_unconditional() {
+    // KNOWN-good unconditional jump forward by 0x10. Confirms the trap-PC
+    // calibration: SMIR next_pc == branch target; interp final PC == target + 4.
+    let asms = vec!["{ jump #0x10 }".to_string()];
+    let words_per = match assemble(&asms) {
+        Some(w) => w,
+        None => {
+            eprintln!("[cf_calibrate] llvm-mc unavailable -> skipping");
+            return;
+        }
+    };
+    let words = &words_per[0];
+    let st = State::zeroed();
+    let (ifin, _) = run_interp_cf(words, &st).expect("interp must run unconditional jump");
+    let (lnext, _) = lift_and_run_cf(words, &st)
+        .expect("lift ok")
+        .expect("jump is lifted");
+    // SMIR target is CODE_ADDR + 0x10.
+    assert_eq!(lnext, CODE_ADDR as u64 + 0x10, "SMIR jump target");
+    assert_eq!(
+        ifin as u64,
+        lnext + 4,
+        "interp final PC must be SMIR next_pc + 4 (trap after target); got ifin={ifin:#x} lnext={lnext:#x}"
+    );
+    eprintln!("[cf_calibrate] OK: ifin={ifin:#x} == lnext({lnext:#x}) + 4");
+}
+
+#[test]
+fn cf_self_check_catches_wrong_branch() {
+    // SELF-CHECK: with the comparison inverted, a CORRECT conditional-jump lift
+    // must be flagged as a (forced) mismatch on EVERY iteration — proving the
+    // next_pc compare is load-bearing and a wrong target would diverge.
+    let cases: &[(&str, &str)] = &[("jumpt", "{ if (p0) jump #0x10 }")];
+    let forced = lift_cf_family_inner("cf_self_check", cases, 40, 0xBADC0DE, true);
+    assert!(
+        forced > 0,
+        "self-check: inverted next_pc comparison produced NO forced mismatches — \
+         the harness is not actually comparing the branch target"
+    );
+    eprintln!("[cf_self_check] OK: {forced} forced mismatches under inverted compare");
+}
+
+// ---- plain / already-lifted control flow (exercised via the CF path) ----
+
+#[test]
+fn cf_jump_plain() {
+    lift_cf_family(
+        "cf_jump_plain",
+        &[
+            ("jump", "{ jump #0x10 }"),
+            ("jumpr", "{ jumpr r1 }"),
+        ],
+        40,
+        0xCF01,
+    );
+}
+
+#[test]
+fn cf_jump_pred() {
+    lift_cf_family(
+        "cf_jump_pred",
+        &[
+            ("jumpt", "{ if (p0) jump #0x10 }"),
+            ("jumpf", "{ if (!p0) jump #0x10 }"),
+            ("jumpt_p1", "{ if (p1) jump #0x14 }"),
+            ("jumpf_p1", "{ if (!p1) jump #0x14 }"),
+            ("jumprt", "{ if (p0) jumpr r1 }"),
+            ("jumprf", "{ if (!p0) jumpr r1 }"),
+        ],
+        40,
+        0xCF02,
+    );
+}
+
+#[test]
+fn cf_call() {
+    lift_cf_family(
+        "cf_call",
+        &[
+            ("call", "{ call #0x10 }"),
+            ("callr", "{ callr r1 }"),
+            ("callt", "{ if (p0) call #0x10 }"),
+            ("callf", "{ if (!p0) call #0x10 }"),
+            ("callrt", "{ if (p0) callr r1 }"),
+            ("callrf", "{ if (!p0) callr r1 }"),
+        ],
+        40,
+        0xCF03,
+    );
+}
+
+#[test]
+fn cf_loop_setup() {
+    lift_cf_family(
+        "cf_loop_setup",
+        &[
+            ("loop0r", "{ loop0(#0x10, r2) }"),
+            ("loop1r", "{ loop1(#0x10, r2) }"),
+            ("loop0i", "{ loop0(#0x10, #5) }"),
+            ("loop1i", "{ loop1(#0x10, #5) }"),
+        ],
+        40,
+        0xCF04,
+    );
+}
+
+// ---- J4 compound compare-and-jump ----
+
+#[test]
+fn cf_cmpjump_rr() {
+    lift_cf_family(
+        "cf_cmpjump_rr",
+        &[
+            ("eq_tp0_nt", "{ p0 = cmp.eq(r0,r1); if (p0.new) jump:nt #0x10 }"),
+            ("eq_tp0_t", "{ p0 = cmp.eq(r0,r1); if (p0.new) jump:t #0x10 }"),
+            ("eq_fp0_nt", "{ p0 = cmp.eq(r0,r1); if (!p0.new) jump:nt #0x10 }"),
+            ("eq_tp1_nt", "{ p1 = cmp.eq(r0,r1); if (p1.new) jump:nt #0x10 }"),
+            ("eq_fp1_nt", "{ p1 = cmp.eq(r0,r1); if (!p1.new) jump:nt #0x10 }"),
+            ("gt_tp0_nt", "{ p0 = cmp.gt(r0,r1); if (p0.new) jump:nt #0x10 }"),
+            ("gt_fp0_nt", "{ p0 = cmp.gt(r0,r1); if (!p0.new) jump:nt #0x10 }"),
+            ("gtu_tp0_nt", "{ p0 = cmp.gtu(r0,r1); if (p0.new) jump:nt #0x10 }"),
+            ("gtu_fp0_nt", "{ p0 = cmp.gtu(r0,r1); if (!p0.new) jump:nt #0x10 }"),
+        ],
+        40,
+        0xCF05,
+    );
+}
+
+#[test]
+fn cf_cmpjump_ri() {
+    lift_cf_family(
+        "cf_cmpjump_ri",
+        &[
+            ("eqi_tp0_nt", "{ p0 = cmp.eq(r0,#5); if (p0.new) jump:nt #0x10 }"),
+            ("eqi_fp0_nt", "{ p0 = cmp.eq(r0,#5); if (!p0.new) jump:nt #0x10 }"),
+            ("gti_tp0_nt", "{ p0 = cmp.gt(r0,#5); if (p0.new) jump:nt #0x10 }"),
+            ("gti_fp0_nt", "{ p0 = cmp.gt(r0,#5); if (!p0.new) jump:nt #0x10 }"),
+            ("gtui_tp0_nt", "{ p0 = cmp.gtu(r0,#5); if (p0.new) jump:nt #0x10 }"),
+            ("gtui_fp0_nt", "{ p0 = cmp.gtu(r0,#5); if (!p0.new) jump:nt #0x10 }"),
+            ("eqn1_tp0_nt", "{ p0 = cmp.eq(r0,#-1); if (p0.new) jump:nt #0x10 }"),
+            ("eqn1_fp0_nt", "{ p0 = cmp.eq(r0,#-1); if (!p0.new) jump:nt #0x10 }"),
+            ("gtn1_tp0_nt", "{ p0 = cmp.gt(r0,#-1); if (p0.new) jump:nt #0x10 }"),
+            ("gtn1_fp0_nt", "{ p0 = cmp.gt(r0,#-1); if (!p0.new) jump:nt #0x10 }"),
+            ("tstbit_tp0_nt", "{ p0 = tstbit(r0,#0); if (p0.new) jump:nt #0x10 }"),
+            ("tstbit_fp0_nt", "{ p0 = tstbit(r0,#0); if (!p0.new) jump:nt #0x10 }"),
+        ],
+        40,
+        0xCF06,
+    );
+}
+
+#[test]
+fn cf_cmpjump_nv() {
+    // New-value compare-and-branch (`_jumpnv`): the compare reads a register
+    // produced EARLIER IN THE SAME PACKET. For a lone packet the producer must be
+    // present; these forms write no predicate.
+    lift_cf_family(
+        "cf_cmpjump_nv",
+        &[
+            ("eq_nv_t", "{ r0 = r4; if (cmp.eq(r0.new,r1)) jump:nt #0x10 }"),
+            ("gt_nv_t", "{ r0 = r4; if (cmp.gt(r0.new,r1)) jump:nt #0x10 }"),
+            ("gtu_nv_t", "{ r0 = r4; if (cmp.gtu(r0.new,r1)) jump:nt #0x10 }"),
+        ],
+        40,
+        0xCF07,
+    );
+}
+
+// ---- jumpr-compare-zero + jumpset ----
+
+#[test]
+fn cf_jump_regzero() {
+    lift_cf_family(
+        "cf_jump_regzero",
+        &[
+            ("jumprz", "{ if (r0!=#0) jump:nt #0x10 }"),
+            ("jumprnz", "{ if (r0==#0) jump:nt #0x10 }"),
+            ("jumprgtez", "{ if (r0>=#0) jump:nt #0x10 }"),
+            ("jumprltez", "{ if (r0<=#0) jump:nt #0x10 }"),
+        ],
+        40,
+        0xCF08,
+    );
+}
+
+#[test]
+fn cf_jumpset() {
+    lift_cf_family(
+        "cf_jumpset",
+        &[
+            ("jumpseti", "{ r0 = #5 ; jump #0x10 }"),
+            ("jumpsetr", "{ r0 = r1 ; jump #0x10 }"),
+        ],
+        40,
+        0xCF09,
+    );
 }
 
 // ---- validate the harness on instructions already lifted by the DecodedInsn path ----

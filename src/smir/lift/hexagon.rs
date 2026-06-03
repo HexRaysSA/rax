@@ -596,6 +596,79 @@ impl HexagonLifter {
         }
     }
 
+    /// Emit a fresh vreg holding the BRANCH TRUTH for a predicate condition: the
+    /// low bit of `P{pred}` (when `sense`) or its logical inverse (when not).
+    /// Used by the conditional branch/jumpr/call lifts so the
+    /// `ControlFlow::CondBranchReg`/`Select` consumers read the real value.
+    fn emit_pred_truth(
+        &self,
+        ops: &mut Vec<SmirOp>,
+        op_id: &mut u16,
+        addr: GuestAddr,
+        ctx: &mut LiftContext,
+        pred: u8,
+        sense: bool,
+    ) -> VReg {
+        let cond_vreg = ctx.alloc_vreg();
+        // The interpreter tests only the LOW BIT of the predicate; mask it so a
+        // hardware-width predicate (0x00/0xff) maps to a clean 0/1 truth value.
+        let masked = ctx.alloc_vreg();
+        let mut push = |kind: OpKind| {
+            ops.push(SmirOp::new(OpId(*op_id), addr, kind));
+            *op_id += 1;
+        };
+        push(OpKind::And {
+            dst: masked,
+            src1: self.hex_pred(pred),
+            src2: SrcOperand::Imm(1),
+            width: OpWidth::W32,
+            flags: FlagUpdate::None,
+        });
+        if sense {
+            push(OpKind::Mov {
+                dst: cond_vreg,
+                src: SrcOperand::Reg(masked),
+                width: OpWidth::W32,
+            });
+        } else {
+            // Invert: jump-if-false branches when the predicate is clear.
+            push(OpKind::Xor {
+                dst: cond_vreg,
+                src1: masked,
+                src2: SrcOperand::Imm(1),
+                width: OpWidth::W32,
+                flags: FlagUpdate::None,
+            });
+        }
+        cond_vreg
+    }
+
+    /// Emit a fresh vreg holding `src & !0x3` (the hardware target alignment of
+    /// indirect branches/calls).
+    fn emit_align4(
+        &self,
+        ops: &mut Vec<SmirOp>,
+        op_id: &mut u16,
+        addr: GuestAddr,
+        ctx: &mut LiftContext,
+        src: VReg,
+    ) -> VReg {
+        let masked = ctx.alloc_vreg();
+        ops.push(SmirOp::new(
+            OpId(*op_id),
+            addr,
+            OpKind::And {
+                dst: masked,
+                src1: src,
+                src2: SrcOperand::Imm(!0x3i64),
+                width: OpWidth::W32,
+                flags: FlagUpdate::None,
+            },
+        ));
+        *op_id += 1;
+        masked
+    }
+
     /// Convert Hexagon compare kind to SMIR condition
     fn hex_cmp_to_cond(&self, kind: CmpKind) -> Condition {
         match kind {
@@ -1586,39 +1659,28 @@ impl HexagonLifter {
                 pred_new: _,
             } => {
                 let offset = ctx.extend_imm(*offset);
-                let target = addr.wrapping_add(offset as i64 as u64);
+                let target = addr.wrapping_add(offset as i64 as u64) & !0x3;
                 let fallthrough = addr + 4;
 
-                // Test predicate
-                let cond_vreg = ctx.alloc_vreg();
-                if *sense {
-                    // Jump if predicate is true
-                    push_op!(OpKind::Mov {
-                        dst: cond_vreg,
-                        src: SrcOperand::Reg(self.hex_pred(*pred)),
-                        width: OpWidth::W32,
-                    });
-                } else {
-                    // Jump if predicate is false (invert)
-                    push_op!(OpKind::Xor {
-                        dst: cond_vreg,
-                        src1: self.hex_pred(*pred),
-                        src2: SrcOperand::Imm(1),
-                        width: OpWidth::W32,
-                        flags: FlagUpdate::None,
-                    });
-                }
+                // The truth value (low predicate bit) decides the branch; the
+                // `cond_vreg` carries it (or its inverse) into a `CondBranchReg`
+                // so the interpreter reads the ACTUAL computed predicate (the
+                // `CondBranch` mapping in `lift_block` allocates a fresh vreg and
+                // never reads this one — `CondBranchReg` threads the real vreg).
+                let cond_vreg = self.emit_pred_truth(&mut ops, &mut op_id, addr, ctx, *pred, *sense);
 
-                ControlFlow::CondBranch {
-                    cond: Condition::Ne, // cond_vreg != 0
-                    target,
-                    fallthrough,
+                ControlFlow::CondBranchReg {
+                    cond: cond_vreg,
+                    taken: target,
+                    not_taken: fallthrough,
                 }
             }
 
-            DecodedInsn::JumpReg { src } => ControlFlow::IndirectBranch {
-                target: self.hex_reg(*src),
-            },
+            DecodedInsn::JumpReg { src } => {
+                // Hardware masks the low two bits of the indirect target.
+                let masked = self.emit_align4(&mut ops, &mut op_id, addr, ctx, self.hex_reg(*src));
+                ControlFlow::IndirectBranch { target: masked }
+            }
 
             DecodedInsn::JumpRegCond {
                 src,
@@ -1626,31 +1688,140 @@ impl HexagonLifter {
                 sense,
                 pred_new: _,
             } => {
-                // This is more complex - conditional indirect branch
-                // For now, treat as unconditional (simplification)
-                let _ = (pred, sense);
-                ControlFlow::IndirectBranch {
-                    target: self.hex_reg(*src),
-                }
+                // Conditional indirect branch: `target = cond ? (Rs & !3)
+                // : (addr+4)`, then an unconditional indirect branch on that
+                // selected target (matches the interp: branch taken only when
+                // the predicate holds, else fall through).
+                let masked = self.emit_align4(&mut ops, &mut op_id, addr, ctx, self.hex_reg(*src));
+                let cond_vreg = self.emit_pred_truth(&mut ops, &mut op_id, addr, ctx, *pred, *sense);
+                let fall = ctx.alloc_vreg();
+                push_op!(OpKind::Mov {
+                    dst: fall,
+                    src: SrcOperand::Imm((addr + 4) as i64),
+                    width: OpWidth::W32,
+                });
+                let sel = ctx.alloc_vreg();
+                push_op!(OpKind::Select {
+                    dst: sel,
+                    cond: cond_vreg,
+                    src_true: masked,
+                    src_false: fall,
+                    width: OpWidth::W32,
+                });
+                ControlFlow::IndirectBranch { target: sel }
             }
 
-            // Predicated calls (`J2_callt`/`J2_callf`) are interpreter-only.
-            DecodedInsn::Call { pred: Some(_), .. }
-            | DecodedInsn::CallReg { pred: Some(_), .. } => {
-                return Err(LiftError::Unsupported {
-                    addr,
-                    mnemonic: "cond_call".to_string(),
+            // Predicated direct call (`J2_callt`/`J2_callf`): `if (cond) { LR =
+            // addr+4; PC = target }` else fall through. Model the conditional LR
+            // write and the conditional target with `Select`, then an indirect
+            // branch on the selected next-PC (taken -> target, not-taken ->
+            // addr+4 with LR unchanged), matching the interp's set_branch(.., true)
+            // only-on-taken behaviour.
+            DecodedInsn::Call {
+                offset,
+                pred: Some(cond),
+            } => {
+                let offset = ctx.extend_imm(*offset);
+                let target = addr.wrapping_add(offset as i64 as u64) & !0x3;
+                let ret_addr = addr + 4;
+                // LR == R31 on Hexagon (the SMIR context stores them separately).
+                let lr = self.hex_reg(31);
+                let cond_vreg =
+                    self.emit_pred_truth(&mut ops, &mut op_id, addr, ctx, cond.pred, cond.sense);
+
+                // LR = cond ? ret_addr : LR (conditional link).
+                let ret_v = ctx.alloc_vreg();
+                push_op!(OpKind::Mov {
+                    dst: ret_v,
+                    src: SrcOperand::Imm(ret_addr as i64),
+                    width: OpWidth::W32,
                 });
+                push_op!(OpKind::Select {
+                    dst: lr,
+                    cond: cond_vreg,
+                    src_true: ret_v,
+                    src_false: lr,
+                    width: OpWidth::W32,
+                });
+
+                // next-PC = cond ? target : ret_addr.
+                let tgt_v = ctx.alloc_vreg();
+                push_op!(OpKind::Mov {
+                    dst: tgt_v,
+                    src: SrcOperand::Imm(target as i64),
+                    width: OpWidth::W32,
+                });
+                let fall = ctx.alloc_vreg();
+                push_op!(OpKind::Mov {
+                    dst: fall,
+                    src: SrcOperand::Imm(ret_addr as i64),
+                    width: OpWidth::W32,
+                });
+                let sel = ctx.alloc_vreg();
+                push_op!(OpKind::Select {
+                    dst: sel,
+                    cond: cond_vreg,
+                    src_true: tgt_v,
+                    src_false: fall,
+                    width: OpWidth::W32,
+                });
+                ControlFlow::IndirectBranch { target: sel }
+            }
+
+            // Predicated indirect call (`J2_callrt`/`J2_callrf`): like the direct
+            // form but the target is `Rs & !3`.
+            DecodedInsn::CallReg {
+                src,
+                pred: Some(cond),
+            } => {
+                let ret_addr = addr + 4;
+                // LR == R31 on Hexagon (the SMIR context stores them separately).
+                let lr = self.hex_reg(31);
+                let masked = self.emit_align4(&mut ops, &mut op_id, addr, ctx, self.hex_reg(*src));
+                let cond_vreg =
+                    self.emit_pred_truth(&mut ops, &mut op_id, addr, ctx, cond.pred, cond.sense);
+
+                let ret_v = ctx.alloc_vreg();
+                push_op!(OpKind::Mov {
+                    dst: ret_v,
+                    src: SrcOperand::Imm(ret_addr as i64),
+                    width: OpWidth::W32,
+                });
+                push_op!(OpKind::Select {
+                    dst: lr,
+                    cond: cond_vreg,
+                    src_true: ret_v,
+                    src_false: lr,
+                    width: OpWidth::W32,
+                });
+
+                let fall = ctx.alloc_vreg();
+                push_op!(OpKind::Mov {
+                    dst: fall,
+                    src: SrcOperand::Imm(ret_addr as i64),
+                    width: OpWidth::W32,
+                });
+                let sel = ctx.alloc_vreg();
+                push_op!(OpKind::Select {
+                    dst: sel,
+                    cond: cond_vreg,
+                    src_true: masked,
+                    src_false: fall,
+                    width: OpWidth::W32,
+                });
+                ControlFlow::IndirectBranch { target: sel }
             }
 
             DecodedInsn::Call { offset, pred: None } => {
                 let offset = ctx.extend_imm(*offset);
-                let target = addr.wrapping_add(offset as i64 as u64);
+                let target = addr.wrapping_add(offset as i64 as u64) & !0x3;
                 let ret_addr = addr + 4;
 
-                // Save return address to LR (R31)
+                // Save return address to LR == R31 (on Hexagon the link register
+                // IS R31; the SMIR context stores them separately, so write R31
+                // which is what the interp's r[31] and a later `jumpr r31` read).
                 push_op!(OpKind::Mov {
-                    dst: VReg::Arch(ArchReg::Hexagon(HexagonReg::Lr)),
+                    dst: self.hex_reg(31),
                     src: SrcOperand::Imm(ret_addr as i64),
                     width: OpWidth::W32,
                 });
@@ -1663,15 +1834,17 @@ impl HexagonLifter {
             DecodedInsn::CallReg { src, pred: None } => {
                 let ret_addr = addr + 4;
 
-                // Save return address to LR (R31)
+                // Save return address to LR == R31 (see the direct-call note).
                 push_op!(OpKind::Mov {
-                    dst: VReg::Arch(ArchReg::Hexagon(HexagonReg::Lr)),
+                    dst: self.hex_reg(31),
                     src: SrcOperand::Imm(ret_addr as i64),
                     width: OpWidth::W32,
                 });
 
+                // Hardware masks the low two bits of the indirect call target.
+                let masked = self.emit_align4(&mut ops, &mut op_id, addr, ctx, self.hex_reg(*src));
                 ControlFlow::Call {
-                    target: CallTarget::Indirect(self.hex_reg(*src)),
+                    target: CallTarget::Indirect(masked),
                 }
             }
 
@@ -2166,26 +2339,193 @@ impl HexagonLifter {
                 });
             }
 
-            // J4 compound compare-and-jump, the jumpr-compare-zero family, the
-            // jumpset compound, and `pause`: interpreter-only for now.
-            DecodedInsn::CompoundCmpJump { .. } => {
+            // New-value compound compare-and-branch (`_jumpnv`): `src1` is an
+            // `Ns8` producer back-distance, NOT a register, until resolved against
+            // the packet's in-flight GPR producers (identical to a new-value
+            // store). The per-insn lifter has no packet-producer context, so this
+            // is interpreter-only — exactly like `StoreNew` above. Reject before
+            // the lift below (which assumes `src1` is a real register).
+            DecodedInsn::CompoundCmpJump { new_value: true, .. } => {
                 return Err(LiftError::Unsupported {
                     addr,
-                    mnemonic: "compound_cmpjump".to_string(),
+                    mnemonic: "compound_cmpjump_nv".to_string(),
                 });
             }
-            DecodedInsn::JumpRegZero { .. } => {
-                return Err(LiftError::Unsupported {
-                    addr,
-                    mnemonic: "jumpr_cmpzero".to_string(),
-                });
+
+            // J4 predicate-writing compound compare-and-jump
+            // (`J4_<cmp>_<cond>_jump_<hint>`): compute the compare into a fresh
+            // truth vreg, write the `.new` predicate (P0/P1), then branch when
+            // `result == sense`. The branch cond vreg is the truth value (or its
+            // inverse for `f*` forms).
+            DecodedInsn::CompoundCmpJump {
+                kind,
+                src1,
+                src2,
+                write_pred,
+                sense,
+                new_value: false,
+                offset,
+            } => {
+                let offset = ctx.extend_imm(*offset);
+                let target = addr.wrapping_add(offset as i64 as u64) & !0x3;
+                let fallthrough = addr + 4;
+
+                // Compute the compare RESULT (1 if the compare holds, else 0) into
+                // `result`.
+                let result = ctx.alloc_vreg();
+                use crate::backend::emulator::hexagon::decode::CmpJumpKind;
+                match kind {
+                    CmpJumpKind::TstBit0 => {
+                        // result = (Rs & 1) != 0.
+                        let bit = ctx.alloc_vreg();
+                        push_op!(OpKind::And {
+                            dst: bit,
+                            src1: self.hex_reg(*src1),
+                            src2: SrcOperand::Imm(1),
+                            width: OpWidth::W32,
+                            flags: FlagUpdate::None,
+                        });
+                        push_op!(OpKind::Cmp {
+                            src1: bit,
+                            src2: SrcOperand::Imm(0),
+                            width: OpWidth::W32,
+                        });
+                        push_op!(OpKind::SetCC {
+                            dst: result,
+                            cond: Condition::Ne,
+                            width: OpWidth::W32,
+                        });
+                    }
+                    _ => {
+                        let (src2_operand, cond) = match kind {
+                            CmpJumpKind::Eq => {
+                                (SrcOperand::Reg(self.hex_reg(*src2)), Condition::Eq)
+                            }
+                            CmpJumpKind::Gt => {
+                                (SrcOperand::Reg(self.hex_reg(*src2)), Condition::Sgt)
+                            }
+                            CmpJumpKind::Gtu => {
+                                (SrcOperand::Reg(self.hex_reg(*src2)), Condition::Ugt)
+                            }
+                            CmpJumpKind::Lt => {
+                                (SrcOperand::Reg(self.hex_reg(*src2)), Condition::Slt)
+                            }
+                            CmpJumpKind::Ltu => {
+                                (SrcOperand::Reg(self.hex_reg(*src2)), Condition::Ult)
+                            }
+                            CmpJumpKind::EqImm(imm) => {
+                                (SrcOperand::Imm(*imm as i64), Condition::Eq)
+                            }
+                            CmpJumpKind::GtImm(imm) => {
+                                (SrcOperand::Imm(*imm as i64), Condition::Sgt)
+                            }
+                            CmpJumpKind::GtuImm(imm) => {
+                                (SrcOperand::Imm(*imm as u32 as i64), Condition::Ugt)
+                            }
+                            CmpJumpKind::EqN1 => (SrcOperand::Imm(-1), Condition::Eq),
+                            CmpJumpKind::GtN1 => (SrcOperand::Imm(-1), Condition::Sgt),
+                            CmpJumpKind::TstBit0 => unreachable!(),
+                        };
+                        push_op!(OpKind::Cmp {
+                            src1: self.hex_reg(*src1),
+                            src2: src2_operand,
+                            width: OpWidth::W32,
+                        });
+                        push_op!(OpKind::SetCC {
+                            dst: result,
+                            cond,
+                            width: OpWidth::W32,
+                        });
+                    }
+                }
+
+                // Predicate-writing `_jump` forms set P0/P1 to the compare result.
+                if let Some(p) = write_pred {
+                    push_op!(OpKind::Mov {
+                        dst: self.hex_pred(*p),
+                        src: SrcOperand::Reg(result),
+                        width: OpWidth::W32,
+                    });
+                }
+
+                // Branch when `result == sense`. For `f*` (sense=false) invert the
+                // truth value into the branch condition vreg.
+                let cond_vreg = if *sense {
+                    result
+                } else {
+                    let inv = ctx.alloc_vreg();
+                    push_op!(OpKind::Xor {
+                        dst: inv,
+                        src1: result,
+                        src2: SrcOperand::Imm(1),
+                        width: OpWidth::W32,
+                        flags: FlagUpdate::None,
+                    });
+                    inv
+                };
+
+                ControlFlow::CondBranchReg {
+                    cond: cond_vreg,
+                    taken: target,
+                    not_taken: fallthrough,
+                }
             }
-            DecodedInsn::JumpSet { .. } => {
-                return Err(LiftError::Unsupported {
-                    addr,
-                    mnemonic: "jumpset".to_string(),
+
+            // `if (cmp.<kind>(Rs,#0)) jump #r13:2`: a DIRECT PC-relative branch
+            // conditioned on a register compare against zero. The `jumpr` mnemonic
+            // is misleading — the target is `PC + offset`, not a register.
+            DecodedInsn::JumpRegZero { src, kind, offset } => {
+                let offset = ctx.extend_imm(*offset);
+                let target = addr.wrapping_add(offset as i64 as u64) & !0x3;
+                let fallthrough = addr + 4;
+                let cond = match kind {
+                    CmpKind::Eq => Condition::Eq,
+                    CmpKind::Ne => Condition::Ne,
+                    CmpKind::Gte => Condition::Sge,
+                    CmpKind::Lte => Condition::Sle,
+                    other => {
+                        return Err(LiftError::Unsupported {
+                            addr,
+                            mnemonic: format!("jumpr_cmpzero:{other:?}"),
+                        });
+                    }
+                };
+                push_op!(OpKind::Cmp {
+                    src1: self.hex_reg(*src),
+                    src2: SrcOperand::Imm(0),
+                    width: OpWidth::W32,
                 });
+                let cond_vreg = ctx.alloc_vreg();
+                push_op!(OpKind::SetCC {
+                    dst: cond_vreg,
+                    cond,
+                    width: OpWidth::W32,
+                });
+                ControlFlow::CondBranchReg {
+                    cond: cond_vreg,
+                    taken: target,
+                    not_taken: fallthrough,
+                }
             }
+
+            // `Rd = <Rs | #u6> ; jump #r`: write Rd unconditionally, then take the
+            // PC-relative branch.
+            DecodedInsn::JumpSet { dst, value, offset } => {
+                use crate::backend::emulator::hexagon::decode::JumpSetSrc;
+                let src = match value {
+                    JumpSetSrc::Reg(reg) => SrcOperand::Reg(self.hex_reg(*reg)),
+                    JumpSetSrc::Imm(imm) => SrcOperand::Imm(*imm as i64),
+                };
+                push_op!(OpKind::Mov {
+                    dst: self.hex_reg(*dst),
+                    src,
+                    width: OpWidth::W32,
+                });
+                let offset = ctx.extend_imm(*offset);
+                let target = addr.wrapping_add(offset as i64 as u64) & !0x3;
+                ControlFlow::Branch { target }
+            }
+
             DecodedInsn::Nop => {
                 return Err(LiftError::Unsupported {
                     addr,
