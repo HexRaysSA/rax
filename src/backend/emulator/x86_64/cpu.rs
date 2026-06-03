@@ -2790,7 +2790,41 @@ impl X86_64Vcpu {
     /// native file, runs, and bridges the result back. RSP is neither loaded nor
     /// written by the trampoline (the block runs on the host stack).
     pub(super) fn jit_run_region(&mut self, region: &JitRegion) {
+        // Self-verifying mode (RAX_JIT_VERIFY=1): run the region natively, then
+        // re-run the INTERPRETER from the identical entry state up to the JIT's
+        // exit PC and diff the architectural state. On the first divergence,
+        // dump the region (entry/exit PC, code bytes, lifted+optimized ops, and
+        // the diverging registers) and abort — this pinpoints a miscompiled hot
+        // region on a live boot. Register-only regions touch no memory/RSP/RBP,
+        // so re-executing the interpreter from the snapshot is side-effect-free.
+        {
+            use std::sync::OnceLock;
+            static VERIFY: OnceLock<bool> = OnceLock::new();
+            if *VERIFY.get_or_init(|| std::env::var_os("RAX_JIT_VERIFY").is_some()) {
+                self.jit_run_region_verified(region);
+                return;
+            }
+        }
+        self.jit_run_region_native(region);
+    }
+
+    /// Native-only execution of a compiled region (the production path).
+    pub(super) fn jit_run_region_native(&mut self, region: &JitRegion) {
         use crate::smir::lower::runtime::GuestRegs;
+
+        // The interpreter keeps RFLAGS LAZY: `self.regs.rflags` is stale while a
+        // lazy op is pending (the truth lives in `self.lazy_flags`). Materialize
+        // it first so the value bridged into the native region is the real
+        // architectural RFLAGS (the region's entry may read CF/etc., and the
+        // trampoline `popfq`s `gr.rflags`).
+        self.materialize_flags();
+        // Guest RFLAGS before the region — every bit EXCEPT the six status flags
+        // (CF/PF/AF/ZF/SF/OF) must be preserved across the native region: the
+        // whitelisted ops only ever touch the status flags, and the trampoline's
+        // user-mode `popfq`/`pushfq` does NOT round-trip IF/IOPL/etc. (`pushfq`
+        // returns the HOST's IF=1), so taking those bits from the native result
+        // would spuriously ENABLE guest interrupts mid-boot and crash the kernel.
+        let pre_rflags = self.regs.rflags;
 
         let mut gr = GuestRegs::default();
         gr.gpr[0] = self.regs.rax;
@@ -2829,8 +2863,161 @@ impl X86_64Vcpu {
         self.regs.r13 = gr.gpr[13];
         self.regs.r14 = gr.gpr[14];
         self.regs.r15 = gr.gpr[15];
-        self.regs.rflags = gr.rflags;
+        // Merge: status flags from the native result, all other bits (IF, DF,
+        // IOPL, NT, reserved, …) preserved from the guest's pre-region value.
+        const STATUS: u64 = flags::bits::CF
+            | flags::bits::PF
+            | flags::bits::AF
+            | flags::bits::ZF
+            | flags::bits::SF
+            | flags::bits::OF;
+        self.regs.rflags = (pre_rflags & !STATUS) | (gr.rflags & STATUS);
         self.regs.rip = gr.exit_pc;
+        // The native region produced fully-materialized RFLAGS. Mark the lazy
+        // state as materialized so the interpreter, on resume, reads
+        // `self.regs.rflags` (the JIT result) instead of recomputing from a
+        // STALE lazy op left over from before the region — the desync that
+        // corrupted kernel state across the JIT/interp boundary.
+        self.lazy_flags = LazyFlags {
+            op: LazyFlagOp::None,
+            ..Default::default()
+        };
+    }
+
+    /// Verify a compiled region against the interpreter (RAX_JIT_VERIFY=1).
+    fn jit_run_region_verified(&mut self, region: &JitRegion) {
+        let entry_pc = self.regs.rip;
+        let snap = self.regs.clone();
+        let snap_lf = self.lazy_flags;
+
+        // 1) Run natively (materialized RFLAGS land in self.regs.rflags).
+        self.jit_run_region_native(region);
+        let jit = self.regs.clone();
+        let jit_rflags = self.regs.rflags; // already materialized by the native bridge
+        let exit_pc = self.regs.rip;
+
+        // 2) Re-run the interpreter from the same entry up to the exit PC,
+        //    restoring the LAZY flag state (the interpreter's source of truth).
+        self.regs = snap;
+        self.lazy_flags = snap_lf;
+        let cap = 50_000_000u64;
+        let mut steps = 0u64;
+        let mut reached = true;
+        while self.regs.rip != exit_pc {
+            if steps >= cap {
+                reached = false;
+                break;
+            }
+            match self.step() {
+                Ok(None) => {}
+                _ => {
+                    reached = false;
+                    break;
+                }
+            }
+            steps += 1;
+        }
+
+        if reached {
+            // Status flags (CF PF AF ZF SF OF) + IF (0x200) + DF (0x400): the JIT
+            // must change ONLY the status flags and preserve IF/DF — IF
+            // corruption (spurious interrupt enable) crashed the kernel boot.
+            const MASK: u64 = 0x0000_0000_0000_0ED5;
+            let g = [
+                ("rax", self.regs.rax, jit.rax),
+                ("rcx", self.regs.rcx, jit.rcx),
+                ("rdx", self.regs.rdx, jit.rdx),
+                ("rbx", self.regs.rbx, jit.rbx),
+                ("rsp", self.regs.rsp, jit.rsp),
+                ("rbp", self.regs.rbp, jit.rbp),
+                ("rsi", self.regs.rsi, jit.rsi),
+                ("rdi", self.regs.rdi, jit.rdi),
+                ("r8", self.regs.r8, jit.r8),
+                ("r9", self.regs.r9, jit.r9),
+                ("r10", self.regs.r10, jit.r10),
+                ("r11", self.regs.r11, jit.r11),
+                ("r12", self.regs.r12, jit.r12),
+                ("r13", self.regs.r13, jit.r13),
+                ("r14", self.regs.r14, jit.r14),
+                ("r15", self.regs.r15, jit.r15),
+            ];
+            let mut diffs: Vec<String> = Vec::new();
+            for (name, interp, native) in g {
+                if interp != native {
+                    diffs.push(format!("{name}: interp={interp:#x} jit={native:#x}"));
+                }
+            }
+            let interp_rflags = self.compute_materialized_rflags();
+            if (interp_rflags & MASK) != (jit_rflags & MASK) {
+                diffs.push(format!(
+                    "rflags: interp={:#x} jit={:#x}",
+                    interp_rflags & MASK,
+                    jit_rflags & MASK
+                ));
+            }
+            if !diffs.is_empty() {
+                let code = self.read_bytes(entry_pc, 64).unwrap_or_default();
+                eprintln!(
+                    "\n[JIT-VERIFY] DIVERGENCE entry={entry_pc:#x} exit={exit_pc:#x} steps={steps}"
+                );
+                eprintln!("[JIT-VERIFY] code@entry = {code:02x?}");
+                eprintln!("[JIT-VERIFY] lifted+optimized region:\n{}", self.jit_dump_region(entry_pc));
+                for d in &diffs {
+                    eprintln!("[JIT-VERIFY]   {d}");
+                }
+                eprintln!("[JIT-VERIFY] aborting (first divergence).");
+                std::process::exit(70);
+            }
+        }
+
+        // Matched (or unverifiable within the cap): adopt the native result.
+        self.regs = jit;
+    }
+
+    /// Re-lift + optimize the region at `entry` and pretty-print its blocks/ops
+    /// for the verify-mode divergence dump.
+    fn jit_dump_region(&mut self, entry: u64) -> String {
+        use crate::smir::lift::x86_64::X86_64Lifter;
+        use crate::smir::lift::{LiftContext, MemoryReader, SmirLifter};
+        use crate::smir::memory::MemoryError;
+        use crate::smir::opt::{OptLevel, optimize_function};
+        use crate::smir::types::SourceArch;
+
+        let bytes = match self.read_bytes(entry, 512) {
+            Ok(b) => b,
+            Err(_) => return "<unreadable>".to_string(),
+        };
+        struct Win {
+            base: u64,
+            bytes: Vec<u8>,
+        }
+        impl MemoryReader for Win {
+            fn read(&self, addr: u64, size: usize) -> core::result::Result<Vec<u8>, MemoryError> {
+                let off = addr
+                    .checked_sub(self.base)
+                    .filter(|&o| (o as usize) < self.bytes.len())
+                    .ok_or(MemoryError::OutOfBounds { addr })? as usize;
+                let n = (self.bytes.len() - off).min(size);
+                Ok(self.bytes[off..off + n].to_vec())
+            }
+        }
+        let reader = Win { base: entry, bytes };
+        let mut lifter = X86_64Lifter::strict();
+        let mut lctx = LiftContext::new(SourceArch::X86_64);
+        let mut func = match lifter.lift_function(entry, &reader, &mut lctx) {
+            Ok(f) => f,
+            Err(e) => return format!("<lift error: {e:?}>"),
+        };
+        optimize_function(&mut func, OptLevel::O2);
+        let mut s = String::new();
+        for b in &func.blocks {
+            s.push_str(&format!("  block {:?} @ {:#x}:\n", b.id, b.guest_pc));
+            for op in &b.ops {
+                s.push_str(&format!("    {:#x}: {:?}\n", op.guest_pc, op.kind));
+            }
+            s.push_str(&format!("    term: {:?}\n", b.terminator));
+        }
+        s
     }
 
     /// The decode/JIT cache key discriminator: address space (CR3) + CPU mode

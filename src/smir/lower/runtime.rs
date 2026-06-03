@@ -260,7 +260,22 @@ pub fn is_native_clobber_safe_excluding(
 fn block_is_clobber_safe(block: &crate::smir::ir::SmirBlock) -> bool {
     use crate::smir::ir::Terminator;
     use crate::smir::ops::OpKind;
-    use crate::smir::types::VReg;
+    use crate::smir::types::{ArchReg, VReg, X86Reg};
+
+    // The native trampoline runs the region on the HOST stack: guest RSP is
+    // never loaded into the host RSP, and the lowerer's prologue repurposes RBP
+    // as the frame pointer (clobbering the guest RBP loaded in). So any op that
+    // reads OR writes guest RSP/RBP would compute against the host RSP/RBP
+    // instead of the guest value — silently wrong, and a write to RSP corrupts
+    // the host stack. Such stack-frame code must stay in the interpreter. (The
+    // differential fuzzers never generate RSP/RBP operands, so this gap was
+    // invisible until real kernel code — which uses them constantly — was JIT'd.)
+    let touches_sp_bp = |v: &VReg| {
+        matches!(
+            v,
+            VReg::Arch(ArchReg::X86(X86Reg::Rsp)) | VReg::Arch(ArchReg::X86(X86Reg::Rbp))
+        )
+    };
 
     let n = block.ops.len();
     for (i, op) in block.ops.iter().enumerate() {
@@ -280,6 +295,12 @@ fn block_is_clobber_safe(block: &crate::smir::ir::SmirBlock) -> bool {
         }
         // (2) no virtual-temp writes (would clobber a guest GPR).
         if op.kind.dests().iter().any(|d| matches!(d, VReg::Virtual(_))) {
+            return false;
+        }
+        // (3) no guest RSP/RBP reads or writes (see note above).
+        if op.kind.dests().iter().any(touches_sp_bp)
+            || op.kind.source_vregs().iter().any(touches_sp_bp)
+        {
             return false;
         }
     }
