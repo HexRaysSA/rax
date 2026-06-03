@@ -6293,6 +6293,160 @@ fn lift_a5_acs() {
     );
 }
 
+// FINAL GAP RE-SCAN (audit). Probe EVERY non-V6 (scalar) opcode through the
+// lifter using its canonical encoding word (all variable fields = 0) and confirm
+// each one that still lifts to Unsupported falls into a KNOWN, classified bucket.
+// The probe feeds a SINGLE instruction with no packet context, so two buckets
+// here are PROBE-ONLY artifacts (the ops lift correctly inside a real packet and
+// are verified by other passing families) — they are recognized by their
+// `*_unresolved` rejection mnemonic:
+//   - store_new_unresolved              : a `.new` store with no in-packet
+//     producer (verified lifted by lift_mem_store_new* families).
+//   - compound_cmpjump_nv_unresolved    : a J4 `.new` compare-jump with no
+//     in-packet producer (verified lifted by cf_cmpjump_* families).
+// The remaining buckets are GENUINE boundaries, keyed by the rejection mnemonic
+// or opcode-name family:
+//   (a) F2_* scalar FP                  : needs SMIR FP OpKinds + softfloat/fflags
+//   (b) Y2_/Y4_/Y5_ + A4_tlbmatch       : system / TLB / cache / privileged state
+//   (c) S2_cabacdecbin                  : stateful CABAC tables + multi-output
+//   (d) pred_load / pred_or_newvalue_store / pred_store_new / pred_store_imm
+//       : PREDICATED loads/stores that CANCEL on a false predicate — there is no
+//         SMIR conditional-commit memory primitive (an unconditional Load/Store
+//         would wrongly commit + post-increment when the predicate is false).
+//   (e) load_locked / store_cond        : LL/SC reservation + predicate side
+//         effect not modeled by the plain Load/Store.
+//   (f) sploop                          : software-pipelined loop sets USR.LPCFG
+//         (packet/loop-config state); pause: system pause; vspliceb: register-
+//         pair splice deferred to the interpreter.
+// The test FAILS if any opcode lifts to Unsupported for a reason NOT in this set
+// — i.e. if a new tractable scalar register/memory op silently regresses.
+#[test]
+fn audit_final_scalar_gap_rescan() {
+    let unlifted = HexagonLifter::audit_unlifted_scalar();
+
+    // Histogram by rejection mnemonic (the precise reason each op was rejected).
+    let mut by_mnem: HashMap<&str, usize> = HashMap::new();
+    for (_name, m) in &unlifted {
+        *by_mnem.entry(m.as_str()).or_insert(0) += 1;
+    }
+    let mut mnems: Vec<_> = by_mnem.iter().collect();
+    mnems.sort_by(|a, b| b.1.cmp(a.1));
+    eprintln!("[audit] {} non-V6 opcodes still Unsupported; by reason:", unlifted.len());
+    for (m, n) in &mnems {
+        eprintln!("    {m}: {n}");
+    }
+
+    // Recognized rejection reasons (mnemonic-keyed) — the genuine boundaries plus
+    // the two probe-only `*_unresolved` artifacts.
+    const KNOWN_MNEMONICS: &[&str] = &[
+        // probe-only artifacts (lift fine in a real packet)
+        "store_new_unresolved",
+        "compound_cmpjump_nv_unresolved",
+        // conditional-commit (boundary d)
+        "pred_load",
+        "pred_or_newvalue_store",
+        "pred_store_new",
+        "pred_store_imm",
+        // atomic LL/SC (boundary e)
+        "load_locked",
+        "store_cond",
+        // loop-config / system (boundary f)
+        "sploop",
+        "pause",
+        "vspliceb",
+    ];
+    // The float / system / stateful ops fall through lift_unknown_op and report
+    // their OPCODE NAME as the mnemonic, so classify those by name family.
+    let is_boundary_by_name = |name: &str| -> bool {
+        name.starts_with("F2_")          // scalar FP        (boundary a)
+            || name.starts_with("Y2_")   // system           (boundary b)
+            || name.starts_with("Y4_")   // tlb              (boundary b)
+            || name.starts_with("Y5_")   // barrier/tlb      (boundary b)
+            || name == "A4_tlbmatch"     // tlb match        (boundary b)
+            || name == "S2_cabacdecbin"  // stateful CABAC   (boundary c)
+    };
+
+    let unexpected: Vec<_> = unlifted
+        .iter()
+        .filter(|(name, m)| {
+            !KNOWN_MNEMONICS.contains(&m.as_str()) && !is_boundary_by_name(name)
+        })
+        .collect();
+    if !unexpected.is_empty() {
+        eprintln!("[audit] UNEXPECTED unlifted scalar ops (not a known boundary):");
+        for (name, m) in &unexpected {
+            eprintln!("    {name}  (reason: {m})");
+        }
+    }
+    assert!(
+        unexpected.is_empty(),
+        "{} scalar op(s) outside the documented boundaries still lift to Unsupported",
+        unexpected.len()
+    );
+}
+
+// Y2_dczeroa: zero the 32-byte cache line at `Rs & !31`. The mem harness forces
+// the base register r0 = DATA_ADDR (0x8000, already 32-byte aligned), so the
+// aligned address stays in the DATA region. The 32 bytes at DATA_ADDR must
+// become zero on BOTH sides and nothing else change (the byte-for-byte memory
+// compare over the whole DATA region catches any over- or under-write).
+#[test]
+fn lift_y2_dczeroa() {
+    lift_mem_family(
+        "y2_dczeroa",
+        &[("dczeroa", "{ dczeroa(r0) }")],
+        0,
+        40,
+        0xE00D,
+    );
+}
+
+// A4_tfrcpp / A4_tfrpcp control-register PAIR transfers for the MODELED c-reg
+// pairs whose halves are M0/M1 (C7:C6) and CS0/CS1 (C13:C12). The mem harness
+// seeds + compares M0/M1 and CS0/CS1 (and all R), so a value-move lift is fully
+// provable here. tfrcpp reads the c-reg pair into a GPR pair; tfrpcp writes a
+// GPR pair into the c-reg pair. base_reg r0 is forced into the DATA region but
+// these ops never dereference memory, so it is a harmless fixed seed.
+#[test]
+fn lift_tfrcpp_tfrpcp_mcs() {
+    lift_mem_family(
+        "tfrcpp_tfrpcp_mcs",
+        &[
+            // Reads: M1:M0 -> r5:4, CS1:CS0 -> r7:6.
+            ("tfrcpp_m", "{ r5:4 = c7:6 }"),
+            ("tfrcpp_cs", "{ r7:6 = c13:12 }"),
+            // Writes: r9:8 -> M1:M0, r11:10 -> CS1:CS0.
+            ("tfrpcp_m", "{ c7:6 = r9:8 }"),
+            ("tfrpcp_cs", "{ c13:12 = r11:10 }"),
+        ],
+        0,
+        40,
+        0xE00E,
+    );
+}
+
+// A4_tfrcpp / A4_tfrpcp for the LOOP-register pairs LC0/SA0 (C1:C0) and
+// LC1/SA1 (C3:C2). The CF harness seeds + compares LC0/LC1 (via m[]) and
+// SA0/SA1 (via cs[]) plus all R, so these pairs are provable there (the plain
+// and mem harnesses do not model LC/SA). The packets fall through (next-PC =
+// packet end), which the CF harness also checks.
+#[test]
+fn lift_tfrcpp_tfrpcp_loop() {
+    lift_cf_family(
+        "tfrcpp_tfrpcp_loop",
+        &[
+            // Reads: LC0:SA0 -> r5:4, LC1:SA1 -> r7:6.
+            ("tfrcpp_l0", "{ r5:4 = c1:0 }"),
+            ("tfrcpp_l1", "{ r7:6 = c3:2 }"),
+            // Writes: r9:8 -> LC0:SA0, r11:10 -> LC1:SA1.
+            ("tfrpcp_l0", "{ c1:0 = r9:8 }"),
+            ("tfrpcp_l1", "{ c3:2 = r11:10 }"),
+        ],
+        40,
+        0xE00F,
+    );
+}
+
 // R6 release stores: in the single-threaded harness these have no observable
 // effect (the sem treats them as register-only no-ops). Lifted as an empty op
 // list; verified to leave all GPR/predicate/USR state unchanged.

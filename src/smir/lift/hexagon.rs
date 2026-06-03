@@ -202,6 +202,39 @@ impl HexagonLifter {
         VReg::Arch(ArchReg::Hexagon(HexagonReg::Cs(modsel & 1)))
     }
 
+    /// Map a Hexagon control-register index to the SMIR `HexagonReg` that models
+    /// it AS A PLAIN VALUE REGISTER, for the control-register PAIR transfers
+    /// (`tfrcpp`/`tfrpcp`). The interpreter stores control regs in `c[0..32]`
+    /// (see `HexagonRegisters::control`/`set_control` in cpu/state.rs):
+    ///   C0=SA0  C1=LC0  C2=SA1  C3=LC1  C4=P3:0  C5=(reserved)  C6=M0  C7=M1
+    ///   C8=USR  C9=PC   C10=UGP C11=GP  C12=CS0  C13=CS1
+    /// Returns `Some(vreg)` only for indices the SMIR `HexagonRegState` models as
+    /// a value register. Deliberately `None` for:
+    ///   - C4 (P3:0): packed predicates, not a single modeled register (and it is
+    ///     only ever the LOW half of the C5:C4 pair, whose high half is unmodeled);
+    ///   - C5 (reserved), C10 (UGP): unmodeled in `HexagonRegState`;
+    ///   - C9 (PC): modeled, but the program counter is NOT a plain data register
+    ///     in the per-instruction value-move model — writing it (`tfrpcp` to C9:C8)
+    ///     is a control transfer, and reading it depends on the packet-PC, neither
+    ///     of which this value-move lift captures. So the C9:C8 pair is rejected.
+    /// A pair transfer is lifted only when BOTH halves return `Some`.
+    fn hex_creg_value(&self, idx: u8) -> Option<VReg> {
+        let reg = match idx {
+            0 => HexagonReg::Sa0,
+            1 => HexagonReg::Lc0,
+            2 => HexagonReg::Sa1,
+            3 => HexagonReg::Lc1,
+            6 => HexagonReg::M(0),
+            7 => HexagonReg::M(1),
+            8 => HexagonReg::Usr,
+            11 => HexagonReg::Gp,
+            12 => HexagonReg::Cs(0),
+            13 => HexagonReg::Cs(1),
+            _ => return None,
+        };
+        Some(VReg::Arch(ArchReg::Hexagon(reg)))
+    }
+
     /// Emit `out = brev(src)` (`fbrev`/`fEA_BREVR`): reverse the LOW 16 bits of
     /// `src`, keeping the upper 16 bits intact. Matches `hex_brev` in cpu.rs.
     ///   lo16  = src & 0xffff
@@ -2296,25 +2329,109 @@ impl HexagonLifter {
                 ControlFlow::Fallthrough
             }
 
-            // Control-register PAIR transfers and the dczeroa cache-line zero are
-            // handled by the interpreter (the JIT path defers to it).
-            DecodedInsn::TfrCrRPair { .. } => {
-                return Err(LiftError::Unsupported {
-                    addr,
-                    mnemonic: "tfrcpp".to_string(),
-                });
+            // Control-register PAIR transfers.
+            //
+            // `Rdd = Css` (tfrcpp): read the even/odd control-register pair into a
+            // GPR pair. `src`/`dst` are the EVEN register number of the pair (the
+            // encoding stores the c-reg number directly, e.g. `c7:6` -> src=6).
+            // The interpreter (cpu.rs) does
+            //   new_r[dst]   = control(src);
+            //   new_r[dst+1] = control(src+1);
+            // so lift to two Movs reading the SMIR c-reg value regs into the GPRs.
+            // Only lift when BOTH halves of the pair are modeled value registers
+            // (LC/SA/M/CS/USR/GP) — see `hex_creg_value`. A pair whose half is an
+            // unmodeled c-reg (C5 reserved, C10 UGP) or the PC (C9) is rejected.
+            DecodedInsn::TfrCrRPair { dst, src } => {
+                let lo = self.hex_creg_value(*src);
+                let hi = self.hex_creg_value(*src + 1);
+                match (lo, hi) {
+                    (Some(lo), Some(hi)) => {
+                        push_op!(OpKind::Mov {
+                            dst: self.hex_reg(*dst),
+                            src: SrcOperand::Reg(lo),
+                            width: OpWidth::W32,
+                        });
+                        push_op!(OpKind::Mov {
+                            dst: self.hex_reg(*dst + 1),
+                            src: SrcOperand::Reg(hi),
+                            width: OpWidth::W32,
+                        });
+                        ControlFlow::Fallthrough
+                    }
+                    _ => {
+                        return Err(LiftError::Unsupported {
+                            addr,
+                            mnemonic: "tfrcpp".to_string(),
+                        });
+                    }
+                }
             }
-            DecodedInsn::TfrRrCrPair { .. } => {
-                return Err(LiftError::Unsupported {
-                    addr,
-                    mnemonic: "tfrpcp".to_string(),
-                });
+            // `Cdd = Rss` (tfrpcp): write a GPR pair into the control-register pair.
+            // The interpreter does
+            //   set_control(dst,   r[src]);
+            //   set_control(dst+1, r[src+1]);
+            // Lift to two Movs writing the GPRs into the SMIR c-reg value regs.
+            // Same modeled-pair gating as tfrcpp. NOTE: `set_control(11=GP, v)`
+            // masks the low 6 bits to zero, so the C13:C12=CS1:CS0 and C7:C6=M1:M0
+            // pairs (no GP) are exact; the C11:C10 (GP/UGP) pair is rejected by the
+            // unmodeled UGP half before GP-masking ever matters.
+            DecodedInsn::TfrRrCrPair { dst, src } => {
+                let lo = self.hex_creg_value(*dst);
+                let hi = self.hex_creg_value(*dst + 1);
+                match (lo, hi) {
+                    (Some(lo), Some(hi)) => {
+                        push_op!(OpKind::Mov {
+                            dst: lo,
+                            src: SrcOperand::Reg(self.hex_reg(*src)),
+                            width: OpWidth::W32,
+                        });
+                        push_op!(OpKind::Mov {
+                            dst: hi,
+                            src: SrcOperand::Reg(self.hex_reg(*src + 1)),
+                            width: OpWidth::W32,
+                        });
+                        ControlFlow::Fallthrough
+                    }
+                    _ => {
+                        return Err(LiftError::Unsupported {
+                            addr,
+                            mnemonic: "tfrpcp".to_string(),
+                        });
+                    }
+                }
             }
-            DecodedInsn::DcZero { .. } => {
-                return Err(LiftError::Unsupported {
-                    addr,
-                    mnemonic: "dczeroa".to_string(),
+            DecodedInsn::DcZero { base } => {
+                // `dczeroa(Rs)`: zero the 32-byte cache line at `Rs & !31`.
+                // Compute the aligned base address, materialize a zero register,
+                // then write 32 zero bytes via four 8-byte StorePairs (each
+                // StorePair{B4} stores src1 at EA and src2 at EA+4).
+                let aligned = ctx.alloc_vreg();
+                push_op!(OpKind::And {
+                    dst: aligned,
+                    src1: self.hex_reg(*base),
+                    src2: SrcOperand::Imm(0xFFFF_FFE0u32 as i64),
+                    width: OpWidth::W32,
+                    flags: FlagUpdate::None,
                 });
+                let zero = ctx.alloc_vreg();
+                push_op!(OpKind::Mov {
+                    dst: zero,
+                    src: SrcOperand::Imm(0),
+                    width: OpWidth::W32,
+                });
+                for i in 0..4i64 {
+                    push_op!(OpKind::StorePair {
+                        src1: zero,
+                        src2: zero,
+                        addr: Address::BaseOffset {
+                            base: aligned,
+                            offset: i * 8,
+                            disp_size: DispSize::Auto,
+                        },
+                        width: MemWidth::B4,
+                    });
+                }
+                ControlFlow::Fallthrough
             }
 
             // ================================================================
@@ -17178,6 +17295,46 @@ impl HexagonLifter {
         }
 
         Ok(ops)
+    }
+
+    /// TEST/AUDIT probe: re-scan the full Hexagon opcode table and report which
+    /// NON-V6 (scalar) opcodes still lift to `Unsupported`. For each opcode the
+    /// encoding table's `value` (all variable fields = 0) is used as a canonical
+    /// instruction word and fed through `lift_insn`. Returns the de-duplicated
+    /// sorted list of `(opcode_name, unsupported_mnemonic)` for opcodes whose
+    /// canonical word fails to lift. HVX (`V6_*`) opcodes are skipped (they are a
+    /// separate, complete subsystem). This is a coverage signal, not a semantic
+    /// check — it tells us which scalar ops remain genuinely unhandled.
+    pub fn audit_unlifted_scalar() -> Vec<(&'static str, String)> {
+        use crate::backend::emulator::hexagon::opcode::{
+            opcode_name, ENCODINGS_BY_ICLASS, ENCODINGS_MISC,
+        };
+        let mut seen: std::collections::HashSet<&'static str> = std::collections::HashSet::new();
+        let mut out: Vec<(&'static str, String)> = Vec::new();
+        let all = ENCODINGS_BY_ICLASS.iter().flat_map(|t| t.iter()).chain(ENCODINGS_MISC.iter());
+        for enc in all {
+            let name = opcode_name(enc.opcode);
+            if name.starts_with("V6_") {
+                continue;
+            }
+            if !seen.insert(name) {
+                continue;
+            }
+            let mut lifter = HexagonLifter::default_isa();
+            let mut ctx = LiftContext::new(SourceArch::Hexagon);
+            let word = enc.value;
+            match lifter.lift_insn(0x1000, &word.to_le_bytes(), &mut ctx) {
+                Ok(_) => {}
+                Err(LiftError::Unsupported { mnemonic, .. }) => {
+                    out.push((name, mnemonic));
+                }
+                Err(_) => {
+                    out.push((name, "lift_error".to_string()));
+                }
+            }
+        }
+        out.sort_by(|a, b| a.0.cmp(b.0));
+        out
     }
 }
 
