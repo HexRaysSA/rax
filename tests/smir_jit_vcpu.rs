@@ -684,3 +684,160 @@ fn jit_throughput() {
     );
     assert_eq!(r.rax & 0xffff_ffff, (2 * big as u64) & 0xffff_ffff);
 }
+
+/// Build a vcpu loaded with `code`, returning the guest memory so a test can
+/// seed/inspect scratch data. Same long-mode flat config as `make_vcpu_code`.
+fn make_vcpu_mem(code: &[u8]) -> (X86_64Vcpu, Arc<GuestMemoryMmap>) {
+    let region = MmapRegion::new(MEM_SIZE as usize).unwrap();
+    let guest_region = GuestRegionMmap::new(region, GuestAddress(0)).unwrap();
+    let memory = Arc::new(GuestMemoryMmap::from_regions(vec![guest_region]).unwrap());
+    memory.write_slice(code, GuestAddress(LOAD_ADDR)).unwrap();
+
+    let mut regs = Registers::default();
+    regs.rip = LOAD_ADDR;
+    regs.rsp = 0x11_0000;
+    regs.rflags = 0x2;
+    let mut sregs = SystemRegisters::default();
+    sregs.cr0 = 0x21;
+    sregs.cr4 = 0x20;
+    sregs.efer = 0x500;
+    sregs.cs.base = 0;
+    sregs.cs.limit = 0xFFFFFFFF;
+    sregs.cs.selector = 0x8;
+    sregs.cs.type_ = 0xB;
+    sregs.cs.present = true;
+    sregs.cs.s = true;
+    sregs.cs.l = true;
+    sregs.cs.g = true;
+    sregs.ds.base = 0;
+    sregs.ds.limit = 0xFFFFFFFF;
+    sregs.ds.selector = 0x10;
+    sregs.ds.type_ = 0x3;
+    sregs.ds.present = true;
+    sregs.ds.db = true;
+    sregs.ds.s = true;
+    sregs.ds.g = true;
+    sregs.es = sregs.ds.clone();
+    sregs.fs = sregs.ds.clone();
+    sregs.gs = sregs.ds.clone();
+    sregs.ss = sregs.ds.clone();
+
+    let mut vcpu = X86_64Vcpu::new(0, memory.clone());
+    vcpu.set_regs(&regs).unwrap();
+    vcpu.set_sregs(&sregs).unwrap();
+    (vcpu, memory)
+}
+
+/// Memory-operand JIT (RAX_JIT_MEM path): a loop that LOADS from a scratch array
+/// and STORES each element into a second array runs natively via the MMU helper
+/// calls and reproduces the interpreter's GPRs AND memory bit-exact.
+#[test]
+fn jit_mem_load_store_loop_matches_interpreter() {
+    const SCRATCH: u64 = 0x20_0000;
+    const DST: u64 = 0x20_0040;
+    const COUNT: u32 = 4;
+
+    // mov ecx,COUNT ; mov rbx,SCRATCH ;
+    // loop: mov rax,[rbx] ; mov [rbx+0x40],rax ; add rbx,8 ; dec ecx ; jnz loop ; hlt
+    let mut code: Vec<u8> = Vec::new();
+    code.push(0xB9);
+    code.extend_from_slice(&COUNT.to_le_bytes()); // mov ecx, COUNT
+    code.extend_from_slice(&[0x48, 0xBB]);
+    code.extend_from_slice(&SCRATCH.to_le_bytes()); // mov rbx, SCRATCH (movabs)
+    code.extend_from_slice(&[0x48, 0x8B, 0x03]); // mov rax, [rbx]
+    code.extend_from_slice(&[0x48, 0x89, 0x43, 0x40]); // mov [rbx+0x40], rax
+    code.extend_from_slice(&[0x48, 0x83, 0xC3, 0x08]); // add rbx, 8
+    code.extend_from_slice(&[0xFF, 0xC9]); // dec ecx
+    code.extend_from_slice(&[0x75, 0xF1]); // jnz loop (rel8 = -15)
+    code.push(0xF4); // hlt
+
+    let seed: [u64; 4] = [0x1111_2222_3333_4444, 0xAAAA_BBBB_CCCC_DDDD, 7, 0xDEAD_BEEF];
+    let setup = |mem: &Arc<GuestMemoryMmap>| {
+        for (i, &val) in seed.iter().enumerate() {
+            mem.write_obj(val, GuestAddress(SCRATCH + (i as u64) * 8)).unwrap();
+            mem.write_obj(0u64, GuestAddress(DST + (i as u64) * 8)).unwrap();
+        }
+    };
+
+    // Interpreter reference.
+    let (mut interp, imem) = make_vcpu_mem(&code);
+    setup(&imem);
+    run_interp(&mut interp);
+    let ir = interp.get_regs().unwrap();
+    let mut idst = [0u64; 4];
+    for (i, slot) in idst.iter_mut().enumerate() {
+        *slot = imem.read_obj(GuestAddress(DST + (i as u64) * 8)).unwrap();
+    }
+
+    // JIT with memory operands enabled.
+    let (mut jit, jmem) = make_vcpu_mem(&code);
+    jit.set_jit_mem(true);
+    setup(&jmem);
+    let ran = jit.jit_try_block().expect("jit_try_block");
+    assert!(ran, "the memory loop region should JIT (RAX_JIT_MEM path)");
+    run_interp(&mut jit); // step the parked HLT
+    let jr = jit.get_regs().unwrap();
+    let mut jdst = [0u64; 4];
+    for (i, slot) in jdst.iter_mut().enumerate() {
+        *slot = jmem.read_obj(GuestAddress(DST + (i as u64) * 8)).unwrap();
+    }
+
+    assert_eq!(jr.rax, ir.rax, "rax");
+    assert_eq!(jr.rbx, ir.rbx, "rbx");
+    assert_eq!(jr.rcx, ir.rcx, "rcx");
+    assert_eq!(jdst, idst, "stored array (jit) must match interpreter");
+    assert_eq!(jdst, seed, "DST should equal the seed after the copy loop");
+    assert_eq!(jr.rbx, SCRATCH + 4 * 8, "rbx walked the array");
+}
+
+/// memset-shaped loop: the loop-count flag is set by `dec` BEFORE the stores,
+/// and `jnz` reads it AFTER them — so a store that clobbers the flags makes the
+/// branch always-taken and the loop overruns. Reproduces the kernel `__memset`
+/// region the JIT crashed on. Must terminate and match the interpreter exactly.
+#[test]
+fn jit_mem_memset_loop_matches_interpreter() {
+    const SCRATCH: u64 = 0x20_0000;
+    const N: u32 = 5;
+
+    // mov rcx,N ; mov rdi,SCRATCH ; mov rax,0x4242...
+    // loop: dec rcx ; mov [rdi],rax ; mov [rdi+8],rax ; lea rdi,[rdi+16] ; jnz loop ; hlt
+    let mut code: Vec<u8> = Vec::new();
+    code.extend_from_slice(&[0x48, 0xC7, 0xC1]);
+    code.extend_from_slice(&N.to_le_bytes()); // mov rcx, N
+    code.extend_from_slice(&[0x48, 0xBF]);
+    code.extend_from_slice(&SCRATCH.to_le_bytes()); // mov rdi, SCRATCH
+    code.extend_from_slice(&[0x48, 0xB8]);
+    code.extend_from_slice(&0x4242_4242_4242_4242u64.to_le_bytes()); // mov rax, imm
+    // loop body (14 bytes): dec rcx(3) ; mov[rdi]rax(3) ; mov[rdi+8]rax(4) ; lea rdi,[rdi+16](4)
+    code.extend_from_slice(&[0x48, 0xFF, 0xC9]); // dec rcx
+    code.extend_from_slice(&[0x48, 0x89, 0x07]); // mov [rdi], rax
+    code.extend_from_slice(&[0x48, 0x89, 0x47, 0x08]); // mov [rdi+8], rax
+    code.extend_from_slice(&[0x48, 0x8D, 0x7F, 0x10]); // lea rdi, [rdi+16]
+    code.extend_from_slice(&[0x75, 0xF0]); // jnz loop (rel8 = -16)
+    code.push(0xF4); // hlt
+
+    let val = 0x4242_4242_4242_4242u64;
+
+    let (mut interp, _imem) = make_vcpu_mem(&code);
+    run_interp(&mut interp);
+    let ir = interp.get_regs().unwrap();
+
+    let (mut jit, jmem) = make_vcpu_mem(&code);
+    jit.set_jit_mem(true);
+    let ran = jit.jit_try_block().expect("jit_try_block");
+    assert!(ran, "memset loop should JIT");
+    run_interp(&mut jit);
+    let jr = jit.get_regs().unwrap();
+
+    assert_eq!(jr.rcx, ir.rcx, "rcx (loop count) — overrun if flags clobbered");
+    assert_eq!(jr.rcx, 0, "loop ran exactly N times");
+    assert_eq!(jr.rdi, ir.rdi, "rdi");
+    assert_eq!(jr.rdi, SCRATCH + (N as u64) * 16, "rdi walked N*16 bytes");
+    // The N*2 stored slots are `val`; the slot just past must be untouched (0).
+    for i in 0..(N as u64) * 2 {
+        let got: u64 = jmem.read_obj(GuestAddress(SCRATCH + i * 8)).unwrap();
+        assert_eq!(got, val, "slot {i} stored");
+    }
+    let past: u64 = jmem.read_obj(GuestAddress(SCRATCH + (N as u64) * 16)).unwrap();
+    assert_eq!(past, 0, "no overrun past the memset region");
+}

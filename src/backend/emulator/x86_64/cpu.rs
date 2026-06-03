@@ -284,6 +284,11 @@ pub struct X86_64Vcpu {
     /// promoted (compiled) once it crosses the hotness threshold.
     #[cfg(all(feature = "smir-jit", target_arch = "x86_64"))]
     jit_hot: std::collections::HashMap<u64, u32>,
+    /// JIT of memory-touching regions (Load/Store via MMU helper calls). Seeded
+    /// from `RAX_JIT_MEM` at construction; settable for tests. Off ⇒ memory ops
+    /// bail to the interpreter (the validated default).
+    #[cfg(all(feature = "smir-jit", target_arch = "x86_64"))]
+    jit_mem: bool,
 }
 
 /// Pending I/O operation.
@@ -807,6 +812,8 @@ impl X86_64Vcpu {
             jit_cache: std::collections::HashMap::new(),
             #[cfg(all(feature = "smir-jit", target_arch = "x86_64"))]
             jit_hot: std::collections::HashMap::new(),
+            #[cfg(all(feature = "smir-jit", target_arch = "x86_64"))]
+            jit_mem: jit_mem_enabled(),
         }
     }
 
@@ -2639,6 +2646,72 @@ fn jit_bail_log() -> bool {
     *ON.get_or_init(|| std::env::var_os("RAX_JIT_BAIL").is_some())
 }
 
+/// RAX_JIT_MEM=1 enables JIT of memory-touching hot regions: register Load/Store
+/// lower to MMU helper calls (`rax_jit_mem_load`/`rax_jit_mem_store`) with a
+/// per-op fault-bail to the interpreter. Off by default while it soaks; the
+/// register-only path (default) is unaffected.
+#[cfg(all(feature = "smir-jit", target_arch = "x86_64"))]
+fn jit_mem_enabled() -> bool {
+    use std::sync::OnceLock;
+    static ON: OnceLock<bool> = OnceLock::new();
+    *ON.get_or_init(|| std::env::var_os("RAX_JIT_MEM").is_some())
+}
+
+/// Result of a JIT memory load: `value` in RAX, `ok` in RDX (SysV two-eightbyte
+/// integer struct return). `ok == 0` signals a fault/MMIO/unmapped access — the
+/// native region bails to the interpreter at the faulting instruction.
+#[cfg(all(feature = "smir-jit", target_arch = "x86_64"))]
+#[repr(C)]
+struct JitLoadRet {
+    value: u64,
+    ok: u64,
+}
+
+/// JIT memory-load helper: translate + read `size` bytes at guest `addr` via the
+/// vcpu MMU, sign- or zero-extending to 64 bits. Called from lowered native code
+/// with the vcpu pointer in `ctx`.
+#[cfg(all(feature = "smir-jit", target_arch = "x86_64"))]
+unsafe extern "C" fn rax_jit_mem_load(
+    ctx: *mut X86_64Vcpu,
+    addr: u64,
+    size: u32,
+    signed: u32,
+) -> JitLoadRet {
+    let vcpu = unsafe { &mut *ctx };
+    match vcpu.read_mem(addr, size as u8) {
+        Ok(val) => {
+            let value = if signed != 0 {
+                match size {
+                    1 => val as u8 as i8 as i64 as u64,
+                    2 => val as u16 as i16 as i64 as u64,
+                    4 => val as u32 as i32 as i64 as u64,
+                    _ => val,
+                }
+            } else {
+                val
+            };
+            JitLoadRet { value, ok: 1 }
+        }
+        Err(_) => JitLoadRet { value: 0, ok: 0 },
+    }
+}
+
+/// JIT memory-store helper: translate + write `size` bytes of `value` at guest
+/// `addr` via the vcpu MMU. Returns 1 on success, 0 on fault/MMIO/unmapped.
+#[cfg(all(feature = "smir-jit", target_arch = "x86_64"))]
+unsafe extern "C" fn rax_jit_mem_store(
+    ctx: *mut X86_64Vcpu,
+    addr: u64,
+    value: u64,
+    size: u32,
+) -> u64 {
+    let vcpu = unsafe { &mut *ctx };
+    match vcpu.write_mem(addr, value, size as u8) {
+        Ok(()) => 1,
+        Err(_) => 0,
+    }
+}
+
 /// Classify the first reason an executed block of `func` fails the clobber gate:
 /// the offending op's variant name, or `rsp/rbp` / `virtual-dst`.
 #[cfg(all(feature = "smir-jit", target_arch = "x86_64"))]
@@ -2777,6 +2850,14 @@ impl X86_64Vcpu {
         // elimination, constant propagation/folding, and strength reduction.
         optimize_function(&mut func, OptLevel::O2);
 
+        if self.jit_mem && jit_bail_log() {
+            eprintln!(
+                "[JIT-MEM] region @ {:#x}:\n{}",
+                entry,
+                self.jit_dump_region(entry)
+            );
+        }
+
         // Mark every frontier terminal (the JIT cannot continue through it) as a
         // native-exit stub recording the block's guest PC. Internal Branch /
         // CondBranch edges stay native (loops, if/else).
@@ -2808,8 +2889,10 @@ impl X86_64Vcpu {
         }
         // Fail-safe gate over the EXECUTED blocks (exit blocks are skipped at
         // lowering, so their ops never run): all ops must be on the register-only
-        // JIT whitelist and write no virtual temp.
-        if !is_native_clobber_safe_excluding(&func, &exits) {
+        // JIT whitelist and write no virtual temp. With memory JIT enabled,
+        // register-destination Load/Store are also allowed (MMU helper-call path).
+        let allow_mem = self.jit_mem;
+        if !is_native_clobber_safe_excluding(&func, &exits, allow_mem) {
             if jit_bail_log() {
                 eprintln!(
                     "[JIT-BAIL] gate:{} @ {:#x}",
@@ -2822,6 +2905,9 @@ impl X86_64Vcpu {
 
         let mut lowerer = X86_64Lowerer::new();
         lowerer.set_native_exits(exits);
+        if allow_mem {
+            lowerer.set_mem_helpers(true);
+        }
         let res = match lowerer.lower_function(&func) {
             Ok(r) if r.relocations.is_empty() => r,
             Ok(r) => {
@@ -2893,6 +2979,11 @@ impl X86_64Vcpu {
         let pre_rflags = self.regs.rflags;
 
         let mut gr = GuestRegs::default();
+        // Memory-helper channel: the vcpu pointer + helper addresses, used only
+        // by regions lowered with the MMU helper-call path (RAX_JIT_MEM).
+        gr.ctx = self as *mut X86_64Vcpu as u64;
+        gr.load_fn = rax_jit_mem_load as usize as u64;
+        gr.store_fn = rax_jit_mem_store as usize as u64;
         gr.gpr[0] = self.regs.rax;
         gr.gpr[1] = self.regs.rcx;
         gr.gpr[2] = self.regs.rdx;
@@ -3149,5 +3240,11 @@ impl X86_64Vcpu {
     /// produced runnable native code). For tests / diagnostics.
     pub fn jit_region_count(&self) -> usize {
         self.jit_cache.values().filter(|v| v.is_some()).count()
+    }
+
+    /// Enable/disable JIT of memory-touching regions (Load/Store via MMU helper
+    /// calls). For tests; production seeds this from `RAX_JIT_MEM`.
+    pub fn set_jit_mem(&mut self, on: bool) {
+        self.jit_mem = on;
     }
 }

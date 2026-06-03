@@ -3132,6 +3132,13 @@ pub struct X86_64Lowerer {
 
     /// Whether to adjust PC-relative displacements for code layout
     pcrel_adjust: bool,
+
+    /// When set, `Load`/`Store` ops are lowered as calls back into the guest
+    /// MMU (via the function pointers in `GuestRegs.load_fn`/`store_fn`) with a
+    /// full guest-register spill/reload and a per-op fault-bail stub, instead of
+    /// the direct-host-pointer accesses (which assume a flat host-mapped guest
+    /// address space). Enables JIT of memory-touching hot regions under paging.
+    mem_helpers: bool,
 }
 
 impl X86_64Lowerer {
@@ -3149,7 +3156,13 @@ impl X86_64Lowerer {
             pending_ret_imm: None,
             pending_cond: None,
             native_exits: std::collections::HashMap::new(),
+            mem_helpers: false,
         }
+    }
+
+    /// Enable lowering `Load`/`Store` as MMU helper calls (see `mem_helpers`).
+    pub fn set_mem_helpers(&mut self, on: bool) {
+        self.mem_helpers = on;
     }
 
     /// Mark blocks as JIT native-exit stubs (block-id ⇒ resume guest PC). Call
@@ -4909,6 +4922,20 @@ impl X86_64Lowerer {
                 width,
                 sign,
             } => {
+                // JIT memory mode: route through the MMU helper-call path
+                // (translate + fault-bail) instead of a direct host-pointer load.
+                if self.mem_helpers {
+                    return self.emit_jit_mem_op(
+                        op.guest_pc,
+                        true,
+                        Some(*dst),
+                        None,
+                        None,
+                        addr,
+                        *width,
+                        *sign,
+                    );
+                }
                 let dst_reg = self.get_dst_reg(*dst)?;
                 let op_width = width.to_op_width().unwrap_or(OpWidth::W64);
                 let preserve_x86_partial = matches!(dst, VReg::Arch(ArchReg::X86(_)))
@@ -5098,6 +5125,23 @@ impl X86_64Lowerer {
             }
 
             OpKind::Store { src, addr, width } => {
+                // JIT memory mode: route through the MMU helper-call path.
+                if self.mem_helpers {
+                    let (src_reg, src_imm) = match src {
+                        VReg::Imm(imm) => (None, Some(*imm)),
+                        other => (Some(*other), None),
+                    };
+                    return self.emit_jit_mem_op(
+                        op.guest_pc,
+                        false,
+                        None,
+                        src_reg,
+                        src_imm,
+                        addr,
+                        *width,
+                        SignExtend::Zero,
+                    );
+                }
                 let op_width = width.to_op_width().unwrap_or(OpWidth::W64);
 
                 if let VReg::Imm(imm) = src {
@@ -8335,6 +8379,301 @@ impl X86_64Lowerer {
     }
 
     /// Lower a single basic block
+    /// x86 encoding (0..15) of an architectural GPR VReg (identity map), or Err
+    /// for a non-arch / non-GPR operand (so the region bails to the interpreter).
+    fn jit_arch_enc(&self, v: VReg) -> Result<u8, LowerError> {
+        use crate::smir::types::ArchReg;
+        match v {
+            VReg::Arch(ArchReg::X86(r)) => PhysReg::from_x86_reg(r)
+                .map(|p| p.encoding())
+                .ok_or_else(|| LowerError::UnsupportedOp {
+                    op: "jit-mem: non-GPR operand".to_string(),
+                }),
+            _ => Err(LowerError::UnsupportedOp {
+                op: "jit-mem: non-arch operand".to_string(),
+            }),
+        }
+    }
+
+    /// `mov [base+off], r<reg_enc>` (store) or `mov r<reg_enc>, [base+off]` (load),
+    /// REX.W, mod=10 disp32. `base` is always RAX or RCX here (rm 0/1, no SIB).
+    fn emit_struct_mov(&mut self, base: PhysReg, reg_enc: u8, off: i32, store: bool) {
+        let mut rex = 0x48u8; // REX.W
+        if reg_enc >= 8 {
+            rex |= 0x04; // REX.R
+        }
+        if base.encoding() >= 8 {
+            rex |= 0x01; // REX.B (base is rax/rcx -> unused)
+        }
+        self.code.emit_u8(rex);
+        self.code.emit_u8(if store { 0x89 } else { 0x8B });
+        self.code.emit_u8(0x80 | ((reg_enc & 7) << 3) | (base.encoding() & 7));
+        self.code.emit_u32(off as u32);
+    }
+
+    /// `add rsi, imm` (REX.W 81 /0 id) when `v` fits i32; else bail.
+    fn emit_add_rsi_imm(&mut self, v: i64) -> Result<(), LowerError> {
+        if v == 0 {
+            return Ok(());
+        }
+        if v < i32::MIN as i64 || v > i32::MAX as i64 {
+            return Err(LowerError::UnsupportedOp {
+                op: "jit-mem: disp out of i32 range".to_string(),
+            });
+        }
+        self.code.emit_u8(0x48);
+        self.code.emit_u8(0x81);
+        self.code.emit_u8(0xC6); // /0, rm=rsi(6)
+        self.code.emit_u32(v as u32);
+        Ok(())
+    }
+
+    /// `movabs <reg64 enc>, imm64`.
+    fn emit_movabs(&mut self, reg_enc: u8, imm: u64) {
+        let mut rex = 0x48u8;
+        if reg_enc >= 8 {
+            rex |= 0x01; // REX.B
+        }
+        self.code.emit_u8(rex);
+        self.code.emit_u8(0xB8 + (reg_enc & 7));
+        self.code.emit_u32(imm as u32);
+        self.code.emit_u32((imm >> 32) as u32);
+    }
+
+    /// Reload all 14 allocatable guest GPRs from the GuestRegs struct via `base`
+    /// (RCX, the state pointer); RSP/RBP are not JIT-managed. RCX is reloaded
+    /// LAST since it doubles as the base.
+    fn emit_reload_all(&mut self, base: PhysReg) {
+        for enc in [0u8, 2, 3, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15] {
+            self.emit_struct_mov(base, enc, (enc as i32) * 8, false);
+        }
+        self.emit_struct_mov(base, 1, 8, false); // RCX last
+    }
+
+    /// Lower a guest `Load`/`Store` as a call into the MMU via the helper
+    /// function pointers in `GuestRegs` (offsets: ctx=144, load_fn=152,
+    /// store_fn=160). Spills all guest GPRs to the struct, computes the effective
+    /// guest address, calls the helper, and on a fault/MMIO return (`ok==0`)
+    /// records `exit_pc=guest_pc` and returns to the interpreter WITHOUT
+    /// committing the op (precise restart). Only reached when `mem_helpers` is
+    /// set and the address uses no RSP/RBP/virtual base.
+    fn emit_jit_mem_op(
+        &mut self,
+        guest_pc: u64,
+        is_load: bool,
+        load_dst: Option<VReg>,
+        store_src_reg: Option<VReg>,
+        store_src_imm: Option<i64>,
+        addr: &Address,
+        mem_width: MemWidth,
+        sign: SignExtend,
+    ) -> Result<(), LowerError> {
+        let size: i32 = match mem_width {
+            MemWidth::B1 => 1,
+            MemWidth::B2 => 2,
+            MemWidth::B4 => 4,
+            MemWidth::B8 => 8,
+            _ => {
+                return Err(LowerError::UnsupportedOp {
+                    op: "jit-mem: vector width".to_string(),
+                });
+            }
+        };
+        let signed: i32 = matches!(sign, SignExtend::Sign) as i32;
+        let load_dst_enc = match load_dst {
+            Some(d) => Some(self.jit_arch_enc(d)?),
+            None => None,
+        };
+        let store_src_enc = match store_src_reg {
+            Some(s) => Some(self.jit_arch_enc(s)?),
+            None => None,
+        };
+
+        // --- spill: push rax; rax=state ptr; SAVE FLAGS; spill 13 GPRs + RAX ---
+        self.code.emit_u8(0x50); // push rax  ([rsp]=guest RAX)
+        // mov rax, [rbp+24]   (48 8B 45 18)
+        self.code.emit_u8(0x48);
+        self.code.emit_u8(0x8B);
+        self.code.emit_u8(0x45);
+        self.code.emit_u8(0x18);
+        // pushfq: preserve the guest STATUS flags across the helper call — x86
+        // loads/stores do NOT affect flags, but `call`/`test`/`add rsp` here do,
+        // and a folded `Jcc` later in the block reads the live flags. This also
+        // 16-aligns RSP for the call (push rax + pushfq = 16 bytes). After this,
+        // [rsp]=guest flags, [rsp+8]=guest RAX.
+        self.code.emit_u8(0x9C);
+        for enc in [1u8, 2, 3, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15] {
+            self.emit_struct_mov(PhysReg::Rax, enc, (enc as i32) * 8, true);
+        }
+        // mov rcx, [rsp+8]   (guest RAX, now below the saved flags)  (48 8B 4C 24 08)
+        self.code.emit_u8(0x48);
+        self.code.emit_u8(0x8B);
+        self.code.emit_u8(0x4C);
+        self.code.emit_u8(0x24);
+        self.code.emit_u8(0x08);
+        self.emit_struct_mov(PhysReg::Rax, 1, 0, true);
+
+        // --- effective guest address into RSI (enc 6), reading base/index from
+        //     the struct (state ptr in RAX) ---
+        match addr {
+            Address::Direct(b) => {
+                let b = self.jit_arch_enc(*b)?;
+                self.emit_struct_mov(PhysReg::Rax, 6, (b as i32) * 8, false);
+            }
+            Address::BaseOffset { base, offset, .. } => {
+                let b = self.jit_arch_enc(*base)?;
+                self.emit_struct_mov(PhysReg::Rax, 6, (b as i32) * 8, false);
+                self.emit_add_rsi_imm(*offset)?;
+            }
+            Address::BaseIndexScale {
+                base,
+                index,
+                scale,
+                disp,
+                ..
+            } => {
+                match base {
+                    Some(b) => {
+                        let b = self.jit_arch_enc(*b)?;
+                        self.emit_struct_mov(PhysReg::Rax, 6, (b as i32) * 8, false);
+                    }
+                    None => {
+                        // xor rsi, rsi  (48 31 F6)
+                        self.code.emit_u8(0x48);
+                        self.code.emit_u8(0x31);
+                        self.code.emit_u8(0xF6);
+                    }
+                }
+                let i = self.jit_arch_enc(*index)?;
+                self.emit_struct_mov(PhysReg::Rax, 7, (i as i32) * 8, false); // rdi = index
+                let sh = (*scale as u32).trailing_zeros() as u8; // 1->0,2->1,4->2,8->3
+                if sh > 0 {
+                    // shl rdi, sh  (48 C1 E7 ib)
+                    self.code.emit_u8(0x48);
+                    self.code.emit_u8(0xC1);
+                    self.code.emit_u8(0xE7);
+                    self.code.emit_u8(sh);
+                }
+                // add rsi, rdi  (48 01 FE)
+                self.code.emit_u8(0x48);
+                self.code.emit_u8(0x01);
+                self.code.emit_u8(0xFE);
+                self.emit_add_rsi_imm(*disp as i64)?;
+            }
+            Address::Absolute(a) => self.emit_movabs(6, *a),
+            Address::PcRel { offset, base, .. } => {
+                let b = base.ok_or_else(|| LowerError::UnsupportedOp {
+                    op: "jit-mem: pcrel without base".to_string(),
+                })?;
+                self.emit_movabs(6, b.wrapping_add(*offset as u64));
+            }
+            _ => {
+                return Err(LowerError::UnsupportedOp {
+                    op: "jit-mem: unsupported address form".to_string(),
+                });
+            }
+        }
+
+        // --- args + call ---
+        if is_load {
+            self.emit_struct_mov(PhysReg::Rax, 7, 144, false); // mov rdi, [rax+144] (ctx)
+            self.code.emit_u8(0xBA); // mov edx, size
+            self.code.emit_u32(size as u32);
+            self.code.emit_u8(0xB9); // mov ecx, signed
+            self.code.emit_u32(signed as u32);
+        } else {
+            if let Some(imm) = store_src_imm {
+                self.emit_movabs(2, imm as u64); // movabs rdx, imm (value)
+            } else if let Some(senc) = store_src_enc {
+                self.emit_struct_mov(PhysReg::Rax, 2, (senc as i32) * 8, false); // rdx = value
+            } else {
+                return Err(LowerError::UnsupportedOp {
+                    op: "jit-mem: store without source".to_string(),
+                });
+            }
+            self.emit_struct_mov(PhysReg::Rax, 7, 144, false); // rdi = ctx
+            self.code.emit_u8(0xB9); // mov ecx, size
+            self.code.emit_u32(size as u32);
+        }
+        // RSP is already 16-aligned at the call (push rax + pushfq = 16 bytes).
+        // call [rax + load_fn/store_fn]   (FF 90 id)
+        self.code.emit_u8(0xFF);
+        self.code.emit_u8(0x90);
+        self.code.emit_u32(if is_load { 152 } else { 160 });
+        // mov rcx, [rbp+24]   (state ptr; RAX now holds the return value)
+        self.code.emit_u8(0x48);
+        self.code.emit_u8(0x8B);
+        self.code.emit_u8(0x4D);
+        self.code.emit_u8(0x18);
+        // test <ok>, <ok>  : load -> ok in RDX (48 85 D2), store -> ok in RAX (48 85 C0)
+        self.code.emit_u8(0x48);
+        self.code.emit_u8(0x85);
+        self.code.emit_u8(if is_load { 0xD2 } else { 0xC0 });
+        // jz .fault  (0F 84 rel32)
+        self.code.emit_u8(0x0F);
+        self.code.emit_u8(0x84);
+        let jz_pos = self.code.position();
+        self.code.emit_u32(0);
+
+        // --- OK path ---
+        if is_load {
+            let denc = load_dst_enc.unwrap();
+            // [rcx + denc*8] = rax (deliver loaded value)
+            self.emit_struct_mov(PhysReg::Rcx, 0, (denc as i32) * 8, true);
+        }
+        self.emit_reload_all(PhysReg::Rcx);
+        // popfq: restore the guest STATUS flags saved on entry (pops [rsp]).
+        self.code.emit_u8(0x9D);
+        // lea rsp,[rsp+8]: pop the guest-RAX slot WITHOUT touching flags (an
+        // `add rsp,8` would clobber the flags we just restored, breaking a
+        // folded Jcc later in the block). (48 8D 64 24 08)
+        self.code.emit_u8(0x48);
+        self.code.emit_u8(0x8D);
+        self.code.emit_u8(0x64);
+        self.code.emit_u8(0x24);
+        self.code.emit_u8(0x08);
+        // jmp .done  (E9 rel32)
+        self.code.emit_u8(0xE9);
+        let jmp_pos = self.code.position();
+        self.code.emit_u32(0);
+
+        // --- fault path ---
+        let fault = self.code.position();
+        self.code
+            .patch_i32(jz_pos, (fault as i64 - (jz_pos as i64 + 4)) as i32);
+        self.emit_reload_all(PhysReg::Rcx);
+        // popfq: restore the guest STATUS flags (pops [rsp]).
+        self.code.emit_u8(0x9D);
+        // lea rsp,[rsp+8]: flag-preserving pop of the guest-RAX slot.
+        self.code.emit_u8(0x48);
+        self.code.emit_u8(0x8D);
+        self.code.emit_u8(0x64);
+        self.code.emit_u8(0x24);
+        self.code.emit_u8(0x08);
+        // exit stub: record exit_pc = guest_pc, return to trampoline.
+        self.code.emit_u8(0x50); // push rax
+        self.code.emit_u8(0x48);
+        self.code.emit_u8(0x8B);
+        self.code.emit_u8(0x45);
+        self.code.emit_u8(0x18); // mov rax,[rbp+24]
+        self.code.emit_u8(0xC7);
+        self.code.emit_u8(0x80);
+        self.code.emit_u32(136);
+        self.code.emit_u32(guest_pc as u32);
+        self.code.emit_u8(0xC7);
+        self.code.emit_u8(0x80);
+        self.code.emit_u32(140);
+        self.code.emit_u32((guest_pc >> 32) as u32);
+        self.code.emit_u8(0x58); // pop rax
+        self.emit_epilogue_with_ret(None);
+
+        // --- done ---
+        let done = self.code.position();
+        self.code
+            .patch_i32(jmp_pos, (done as i64 - (jmp_pos as i64 + 4)) as i32);
+        Ok(())
+    }
+
     fn lower_block(&mut self, block: &SmirBlock) -> Result<(), LowerError> {
         // Record block offset
         self.block_offsets.insert(block.id, self.code.position());
@@ -8432,37 +8771,43 @@ impl X86_64Lowerer {
         let mut idx = 0;
         while idx < end_idx {
             self.regalloc.set_current_idx(idx);
-            if let Some(consumed) = self.try_lower_mem_extend(&block.ops, idx)? {
-                idx += consumed;
-                continue;
-            }
-            if let Some(consumed) = self.try_lower_vmem_binop(&block.ops, idx)? {
-                idx += consumed;
-                continue;
-            }
-            if let Some(consumed) = self.try_lower_mem_shift(&block.ops, idx)? {
-                idx += consumed;
-                continue;
-            }
-            if let Some(consumed) = self.try_lower_mem_alu(&block.ops, idx)? {
-                idx += consumed;
-                continue;
-            }
-            if let Some(consumed) = self.try_lower_mem_imul(&block.ops, idx)? {
-                idx += consumed;
-                continue;
-            }
-            if let Some(consumed) = self.try_lower_mem_group3(&block.ops, idx)? {
-                idx += consumed;
-                continue;
-            }
-            if let Some(consumed) = self.try_lower_mem_shld(&block.ops, idx)? {
-                idx += consumed;
-                continue;
-            }
-            if let Some(consumed) = self.try_lower_push_pop(&block.ops, idx)? {
-                idx += consumed;
-                continue;
+            // The memory-fusion peepholes emit direct host-pointer accesses,
+            // which are invalid under the JIT's MMU helper-call mode. In that
+            // mode each Load/Store is lowered individually via the helper path
+            // (see `emit_jit_mem_op`), so skip the fusions.
+            if !self.mem_helpers {
+                if let Some(consumed) = self.try_lower_mem_extend(&block.ops, idx)? {
+                    idx += consumed;
+                    continue;
+                }
+                if let Some(consumed) = self.try_lower_vmem_binop(&block.ops, idx)? {
+                    idx += consumed;
+                    continue;
+                }
+                if let Some(consumed) = self.try_lower_mem_shift(&block.ops, idx)? {
+                    idx += consumed;
+                    continue;
+                }
+                if let Some(consumed) = self.try_lower_mem_alu(&block.ops, idx)? {
+                    idx += consumed;
+                    continue;
+                }
+                if let Some(consumed) = self.try_lower_mem_imul(&block.ops, idx)? {
+                    idx += consumed;
+                    continue;
+                }
+                if let Some(consumed) = self.try_lower_mem_group3(&block.ops, idx)? {
+                    idx += consumed;
+                    continue;
+                }
+                if let Some(consumed) = self.try_lower_mem_shld(&block.ops, idx)? {
+                    idx += consumed;
+                    continue;
+                }
+                if let Some(consumed) = self.try_lower_push_pop(&block.ops, idx)? {
+                    idx += consumed;
+                    continue;
+                }
             }
             self.lower_op(&block.ops[idx])?;
             idx += 1;

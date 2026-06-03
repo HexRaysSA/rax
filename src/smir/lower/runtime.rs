@@ -35,6 +35,14 @@ pub struct GuestRegs {
     /// [`enter_native`] (the R15-reserved trampoline) and the lowerer's
     /// `native_exit` mode.
     pub exit_pc: u64,
+    /// Opaque context pointer passed as arg0 to the memory helpers (the
+    /// `*mut X86_64Vcpu`). Offset 144. Set by the JIT before each run.
+    pub ctx: u64,
+    /// Address of the load helper `fn(ctx, addr, size, signed) -> (value, ok)`
+    /// (SysV: value in RAX, ok in RDX). Offset 152.
+    pub load_fn: u64,
+    /// Address of the store helper `fn(ctx, addr, value, size) -> ok`. Offset 160.
+    pub store_fn: u64,
 }
 
 // enter_native(rdi = entry ptr, rsi = *mut GuestRegs):
@@ -124,6 +132,13 @@ pub const EXIT_PC_OFFSET: i32 = 136;
 /// slot — so `[rbp+24]` holds the state pointer throughout the block. An exit
 /// stub loads it from here to record `exit_pc` (no reserved guest register).
 pub const STATE_PTR_AT_RBP: i32 = 24;
+
+/// Byte offset of `GuestRegs.ctx` (the memory-helper context pointer).
+pub const CTX_OFFSET: i32 = 144;
+/// Byte offset of `GuestRegs.load_fn` (the memory-load helper address).
+pub const LOAD_FN_OFFSET: i32 = 152;
+/// Byte offset of `GuestRegs.store_fn` (the memory-store helper address).
+pub const STORE_FN_OFFSET: i32 = 160;
 
 /// W^X executable memory holding a finalized lowered block. Maps RW, copies the
 /// code in, then flips to RX; unmaps on drop.
@@ -232,7 +247,7 @@ impl std::error::Error for ExecMemError {}
 /// Pure architectural-register blocks (counter/pointer loops, ALU chains,
 /// guest-conditional branches) pass — which is the bulk of hot code.
 pub fn is_native_clobber_safe(func: &crate::smir::ir::SmirFunction) -> bool {
-    func.blocks.iter().all(block_is_clobber_safe)
+    func.blocks.iter().all(|b| block_is_clobber_safe(b, false))
 }
 
 /// Like [`is_native_clobber_safe`] but skips blocks in `excluded` (block-id ⇒
@@ -243,11 +258,12 @@ pub fn is_native_clobber_safe(func: &crate::smir::ir::SmirFunction) -> bool {
 pub fn is_native_clobber_safe_excluding(
     func: &crate::smir::ir::SmirFunction,
     excluded: &std::collections::HashMap<crate::smir::types::BlockId, u64>,
+    allow_mem: bool,
 ) -> bool {
     func.blocks
         .iter()
         .filter(|b| !excluded.contains_key(&b.id))
-        .all(block_is_clobber_safe)
+        .all(|b| block_is_clobber_safe(b, allow_mem))
 }
 
 /// True if every op in `block` is safe to execute natively under the JIT:
@@ -257,7 +273,7 @@ pub fn is_native_clobber_safe_excluding(
 ///       alias a guest GPR under the identity register map).
 /// A trailing `TestCondition` feeding the block's `CondBranch` is exempt (the
 /// lowerer folds it into a direct `Jcc` and never materializes its dst).
-fn block_is_clobber_safe(block: &crate::smir::ir::SmirBlock) -> bool {
+fn block_is_clobber_safe(block: &crate::smir::ir::SmirBlock, allow_mem: bool) -> bool {
     use crate::smir::ir::Terminator;
     use crate::smir::ops::OpKind;
     use crate::smir::types::{ArchReg, VReg, X86Reg};
@@ -288,9 +304,14 @@ fn block_is_clobber_safe(block: &crate::smir::ir::SmirBlock) -> bool {
                 }
             }
         }
-        // (1) fail-safe whitelist: any non-whitelisted op (memory, div, FP/SIMD,
-        // syscall, unvalidated) makes the whole region ineligible.
-        if !op.kind.is_jit_safe() {
+        // (1) fail-safe whitelist: any non-whitelisted op (div, FP/SIMD,
+        // syscall, unvalidated) makes the whole region ineligible. When memory
+        // JIT is enabled, register-destination Load/Store are additionally
+        // allowed (they lower to MMU helper calls with fault-bail); RMW forms
+        // still bail via the virtual-temp check below, and RSP/RBP-based
+        // addresses via check (3).
+        let mem_ok = allow_mem && matches!(op.kind, OpKind::Load { .. } | OpKind::Store { .. });
+        if !op.kind.is_jit_safe() && !mem_ok {
             return false;
         }
         // (2) no virtual-temp writes (would clobber a guest GPR).
@@ -451,7 +472,7 @@ mod tests {
         let mut exits = std::collections::HashMap::new();
         exits.insert(exit_blk, 0x2000u64);
         assert!(
-            is_native_clobber_safe_excluding(&func, &exits),
+            is_native_clobber_safe_excluding(&func, &exits, false),
             "excluding the (skipped) exit block, the executed region is safe"
         );
     }
