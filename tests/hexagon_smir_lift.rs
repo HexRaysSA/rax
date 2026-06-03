@@ -3482,3 +3482,462 @@ fn lift_m7_dcmpy() {
         0x9a13,
     );
 }
+
+
+// ============================================================================
+// WAVE: remaining tractable scalar register ops (no mem/CF).
+// Each family verified 0-divergence (incl USR:OVF) vs the qemu-backed
+// HexagonVcpu over 40 seeded iterations.
+// ============================================================================
+
+#[test]
+fn lift_a2_abs_pair() {
+    lift_family(
+        "a2_abs_pair",
+        &[
+            ("abs", "{ r0 = abs(r1) }"),
+            ("absp", "{ r1:0 = abs(r3:2) }"),
+            ("addpsat", "{ r1:0 = add(r3:2,r5:4):sat }"),
+            ("roundsat", "{ r0 = round(r1:0):sat }"),
+        ],
+        40,
+        0x9b01,
+    );
+}
+
+#[test]
+fn lift_a2_tfrih_til() {
+    lift_family(
+        "a2_tfrih_til",
+        &[
+            ("tfrih", "{ r0.h = #5 }"),
+            ("tfril", "{ r0.l = #5 }"),
+            ("tfrih2", "{ r0.h = #65500 }"),
+            ("tfril2", "{ r0.l = #40000 }"),
+        ],
+        40,
+        0x9b02,
+    );
+}
+
+#[test]
+fn lift_a2_addsubh() {
+    lift_family(
+        "a2_addsubh",
+        &[
+            ("addh_l16_ll", "{ r0 = add(r1.l,r2.l) }"),
+            ("addh_l16_hl", "{ r0 = add(r1.l,r2.h) }"),
+            ("addh_l16_sat_ll", "{ r0 = add(r1.l,r2.l):sat }"),
+            ("addh_l16_sat_hl", "{ r0 = add(r1.l,r2.h):sat }"),
+            ("addh_h16_ll", "{ r0 = add(r1.l,r2.l):<<16 }"),
+            ("addh_h16_lh", "{ r0 = add(r1.l,r2.h):<<16 }"),
+            ("addh_h16_hl", "{ r0 = add(r1.h,r2.l):<<16 }"),
+            ("addh_h16_hh", "{ r0 = add(r1.h,r2.h):<<16 }"),
+            ("addh_h16_sat_ll", "{ r0 = add(r1.l,r2.l):sat:<<16 }"),
+            ("addh_h16_sat_lh", "{ r0 = add(r1.l,r2.h):sat:<<16 }"),
+            ("addh_h16_sat_hl", "{ r0 = add(r1.h,r2.l):sat:<<16 }"),
+            ("addh_h16_sat_hh", "{ r0 = add(r1.h,r2.h):sat:<<16 }"),
+            ("subh_l16_ll", "{ r0 = sub(r1.l,r2.l) }"),
+            ("subh_l16_hl", "{ r0 = sub(r1.l,r2.h) }"),
+            ("subh_l16_sat_ll", "{ r0 = sub(r1.l,r2.l):sat }"),
+            ("subh_l16_sat_hl", "{ r0 = sub(r1.l,r2.h):sat }"),
+            ("subh_h16_ll", "{ r0 = sub(r1.l,r2.l):<<16 }"),
+            ("subh_h16_lh", "{ r0 = sub(r1.l,r2.h):<<16 }"),
+            ("subh_h16_hl", "{ r0 = sub(r1.h,r2.l):<<16 }"),
+            ("subh_h16_hh", "{ r0 = sub(r1.h,r2.h):<<16 }"),
+            ("subh_h16_sat_ll", "{ r0 = sub(r1.l,r2.l):sat:<<16 }"),
+            ("subh_h16_sat_lh", "{ r0 = sub(r1.l,r2.h):sat:<<16 }"),
+            ("subh_h16_sat_hl", "{ r0 = sub(r1.h,r2.l):sat:<<16 }"),
+            ("subh_h16_sat_hh", "{ r0 = sub(r1.h,r2.h):sat:<<16 }"),
+        ],
+        40,
+        0x9b03,
+    );
+}
+
+#[test]
+fn lift_a4_round() {
+    lift_family(
+        "a4_round",
+        &[
+            ("round_ri", "{ r0 = round(r1,#5) }"),
+            ("round_ri0", "{ r0 = round(r1,#0) }"),
+            ("round_rr", "{ r0 = round(r1,r2) }"),
+            ("round_ri_sat", "{ r0 = round(r1,#5):sat }"),
+            ("round_rr_sat", "{ r0 = round(r1,r2):sat }"),
+        ],
+        40,
+        0x9b04,
+    );
+}
+
+#[test]
+fn lift_cround_clip() {
+    lift_family(
+        "cround_clip",
+        &[
+            ("cround_ri", "{ r0 = cround(r1,#5) }"),
+            ("cround_ri0", "{ r0 = cround(r1,#0) }"),
+            ("cround_ri1", "{ r0 = cround(r1,#1) }"),
+            ("croundd_ri", "{ r1:0 = cround(r3:2,#5) }"),
+            ("croundd_ri0", "{ r1:0 = cround(r3:2,#0) }"),
+            ("clip", "{ r0 = clip(r1,#5) }"),
+            ("clip0", "{ r0 = clip(r1,#0) }"),
+            ("clip31", "{ r0 = clip(r1,#31) }"),
+        ],
+        40,
+        0x9b05,
+    );
+}
+
+#[test]
+fn lift_a4_combineii() {
+    lift_family(
+        "a4_combineii",
+        &[
+            ("combineii", "{ r1:0 = combine(#5,#9) }"),
+            ("combineii_neg", "{ r1:0 = combine(#-7,#33) }"),
+        ],
+        40,
+        0x9b06,
+    );
+}
+
+#[test]
+fn lift_a2_predicated() {
+    lift_family(
+        "a2_predicated",
+        &[
+            ("paddt", "{ if (p0) r0 = add(r1,r2) }"),
+            ("paddf", "{ if (!p0) r0 = add(r1,r2) }"),
+            ("paddit", "{ if (p0) r0 = add(r1,#5) }"),
+            ("paddif", "{ if (!p0) r0 = add(r1,#5) }"),
+            ("psubt", "{ if (p0) r0 = sub(r1,r2) }"),
+            ("psubf", "{ if (!p0) r0 = sub(r1,r2) }"),
+            ("pandt", "{ if (p0) r0 = and(r1,r2) }"),
+            ("pandf", "{ if (!p0) r0 = and(r1,r2) }"),
+            ("port", "{ if (p0) r0 = or(r1,r2) }"),
+            ("porf", "{ if (!p0) r0 = or(r1,r2) }"),
+            ("pxort", "{ if (p0) r0 = xor(r1,r2) }"),
+            ("pxorf", "{ if (!p0) r0 = xor(r1,r2) }"),
+            ("cmoveit", "{ if (p0) r0 = #5 }"),
+            ("cmoveif", "{ if (!p0) r0 = #5 }"),
+        ],
+        40,
+        0x9b07,
+    );
+}
+
+#[test]
+fn lift_a4_pred_extend() {
+    lift_family(
+        "a4_pred_extend",
+        &[
+            ("paslht", "{ if (p0) r0 = aslh(r1) }"),
+            ("paslhf", "{ if (!p0) r0 = aslh(r1) }"),
+            ("pasrht", "{ if (p0) r0 = asrh(r1) }"),
+            ("pasrhf", "{ if (!p0) r0 = asrh(r1) }"),
+            ("psxtbt", "{ if (p0) r0 = sxtb(r1) }"),
+            ("psxtbf", "{ if (!p0) r0 = sxtb(r1) }"),
+            ("psxtht", "{ if (p0) r0 = sxth(r1) }"),
+            ("psxthf", "{ if (!p0) r0 = sxth(r1) }"),
+            ("pzxtbt", "{ if (p0) r0 = zxtb(r1) }"),
+            ("pzxtbf", "{ if (!p0) r0 = zxtb(r1) }"),
+            ("pzxtht", "{ if (p0) r0 = zxth(r1) }"),
+            ("pzxthf", "{ if (!p0) r0 = zxth(r1) }"),
+        ],
+        40,
+        0x9b08,
+    );
+}
+
+#[test]
+fn lift_c2_ccombine_vmux_mask() {
+    lift_family(
+        "c2_ccombine_vmux_mask",
+        &[
+            ("ccombinewt", "{ if (p0) r1:0 = combine(r2,r3) }"),
+            ("ccombinewf", "{ if (!p0) r1:0 = combine(r2,r3) }"),
+            ("vmux", "{ r1:0 = vmux(p0,r3:2,r5:4) }"),
+            ("mask", "{ r1:0 = mask(p0) }"),
+            ("vitpack", "{ r0 = vitpack(p1,p0) }"),
+        ],
+        40,
+        0x9b09,
+    );
+}
+
+#[test]
+fn lift_s2s4_extract_insert_pair() {
+    lift_family(
+        "s2s4_extract_insert_pair",
+        &[
+            ("extractup", "{ r1:0 = extractu(r3:2,#8,#4) }"),
+            ("extractup2", "{ r1:0 = extractu(r3:2,#40,#10) }"),
+            ("extractp", "{ r1:0 = extract(r3:2,#8,#4) }"),
+            ("extractp2", "{ r1:0 = extract(r3:2,#40,#10) }"),
+            ("extract", "{ r0 = extract(r1,#8,#4) }"),
+            ("extract2", "{ r0 = extract(r1,#13,#11) }"),
+            ("insertp", "{ r1:0 = insert(r3:2,#8,#4) }"),
+            ("insertp2", "{ r1:0 = insert(r3:2,#40,#10) }"),
+        ],
+        40,
+        0x9b0a,
+    );
+}
+
+#[test]
+fn lift_s_asr_rnd_clb() {
+    lift_family(
+        "s_asr_rnd_clb",
+        &[
+            ("asr_i_r_rnd", "{ r0 = asr(r1,#5):rnd }"),
+            ("asr_i_r_rnd0", "{ r0 = asr(r1,#0):rnd }"),
+            ("asr_i_p_rnd", "{ r1:0 = asr(r3:2,#5):rnd }"),
+            ("asr_i_p_rnd0", "{ r1:0 = asr(r3:2,#0):rnd }"),
+            ("clbaddi", "{ r0 = add(clb(r1),#3) }"),
+            ("clbaddi_neg", "{ r0 = add(clb(r1),#-2) }"),
+            ("clbpaddi", "{ r0 = add(clb(r3:2),#3) }"),
+            ("clbpnorm", "{ r0 = normamt(r3:2) }"),
+        ],
+        40,
+        0x9b0b,
+    );
+}
+
+// ============================================================================
+// SWAR vector ALU (A2_v*/A2_sv*) + M-family vabsdiff/vradd + vcmp predicates +
+// reduce-add + boundscheck + carry-predicate add/sub + register cround.
+// All composed lane-by-lane from existing scalar OpKinds; saturating lanes feed
+// the full pre-clamp value to SatN (set_ovf:true), so usr_ovf is compared too.
+// ============================================================================
+
+#[test]
+fn lift_a2_vadd_vsub() {
+    lift_family(
+        "a2_vadd_vsub",
+        &[
+            ("vaddh", "{ r1:0 = vaddh(r3:2, r5:4) }"),
+            ("vaddhs", "{ r1:0 = vaddh(r3:2, r5:4):sat }"),
+            ("vadduhs", "{ r1:0 = vadduh(r3:2, r5:4):sat }"),
+            ("vaddw", "{ r1:0 = vaddw(r3:2, r5:4) }"),
+            ("vaddws", "{ r1:0 = vaddw(r3:2, r5:4):sat }"),
+            ("vaddub", "{ r1:0 = vaddub(r3:2, r5:4) }"),
+            ("vaddubs", "{ r1:0 = vaddub(r3:2, r5:4):sat }"),
+            ("vsubh", "{ r1:0 = vsubh(r3:2, r5:4) }"),
+            ("vsubhs", "{ r1:0 = vsubh(r3:2, r5:4):sat }"),
+            ("vsubuhs", "{ r1:0 = vsubuh(r3:2, r5:4):sat }"),
+            ("vsubw", "{ r1:0 = vsubw(r3:2, r5:4) }"),
+            ("vsubws", "{ r1:0 = vsubw(r3:2, r5:4):sat }"),
+            ("vsubub", "{ r1:0 = vsubub(r3:2, r5:4) }"),
+            ("vsububs", "{ r1:0 = vsubub(r3:2, r5:4):sat }"),
+        ],
+        40,
+        0xa201,
+    );
+}
+
+#[test]
+fn lift_a2_vavg() {
+    lift_family(
+        "a2_vavg",
+        &[
+            ("vavgh", "{ r1:0 = vavgh(r3:2, r5:4) }"),
+            ("vavghr", "{ r1:0 = vavgh(r3:2, r5:4):rnd }"),
+            ("vavghcr", "{ r1:0 = vavgh(r3:2, r5:4):crnd }"),
+            ("vavgw", "{ r1:0 = vavgw(r3:2, r5:4) }"),
+            ("vavgwr", "{ r1:0 = vavgw(r3:2, r5:4):rnd }"),
+            ("vavgwcr", "{ r1:0 = vavgw(r3:2, r5:4):crnd }"),
+            ("vavgub", "{ r1:0 = vavgub(r3:2, r5:4) }"),
+            ("vavgubr", "{ r1:0 = vavgub(r3:2, r5:4):rnd }"),
+            ("vavguh", "{ r1:0 = vavguh(r3:2, r5:4) }"),
+            ("vavguhr", "{ r1:0 = vavguh(r3:2, r5:4):rnd }"),
+            ("vavguw", "{ r1:0 = vavguw(r3:2, r5:4) }"),
+            ("vavguwr", "{ r1:0 = vavguw(r3:2, r5:4):rnd }"),
+        ],
+        40,
+        0xa202,
+    );
+}
+
+#[test]
+fn lift_a2_vnavg() {
+    lift_family(
+        "a2_vnavg",
+        &[
+            ("vnavgh", "{ r1:0 = vnavgh(r3:2, r5:4) }"),
+            ("vnavghr", "{ r1:0 = vnavgh(r5:4, r3:2):rnd:sat }"),
+            ("vnavghcr", "{ r1:0 = vnavgh(r5:4, r3:2):crnd:sat }"),
+            ("vnavgw", "{ r1:0 = vnavgw(r3:2, r5:4) }"),
+            ("vnavgwr", "{ r1:0 = vnavgw(r5:4, r3:2):rnd:sat }"),
+            ("vnavgwcr", "{ r1:0 = vnavgw(r5:4, r3:2):crnd:sat }"),
+        ],
+        40,
+        0xa203,
+    );
+}
+
+#[test]
+fn lift_a2_vminmax() {
+    lift_family(
+        "a2_vminmax",
+        &[
+            ("vmaxh", "{ r1:0 = vmaxh(r3:2, r5:4) }"),
+            ("vmaxuh", "{ r1:0 = vmaxuh(r3:2, r5:4) }"),
+            ("vmaxw", "{ r1:0 = vmaxw(r3:2, r5:4) }"),
+            ("vmaxuw", "{ r1:0 = vmaxuw(r3:2, r5:4) }"),
+            ("vmaxb", "{ r1:0 = vmaxb(r3:2, r5:4) }"),
+            ("vmaxub", "{ r1:0 = vmaxub(r3:2, r5:4) }"),
+            ("vminh", "{ r1:0 = vminh(r3:2, r5:4) }"),
+            ("vminuh", "{ r1:0 = vminuh(r3:2, r5:4) }"),
+            ("vminw", "{ r1:0 = vminw(r3:2, r5:4) }"),
+            ("vminuw", "{ r1:0 = vminuw(r3:2, r5:4) }"),
+            ("vminb", "{ r1:0 = vminb(r3:2, r5:4) }"),
+            ("vminub", "{ r1:0 = vminub(r3:2, r5:4) }"),
+        ],
+        40,
+        0xa204,
+    );
+}
+
+#[test]
+fn lift_a2_vabs_vconj() {
+    lift_family(
+        "a2_vabs_vconj",
+        &[
+            ("vabsh", "{ r1:0 = vabsh(r3:2) }"),
+            ("vabshsat", "{ r1:0 = vabsh(r3:2):sat }"),
+            ("vabsw", "{ r1:0 = vabsw(r3:2) }"),
+            ("vabswsat", "{ r1:0 = vabsw(r3:2):sat }"),
+            ("vconj", "{ r1:0 = vconj(r3:2):sat }"),
+        ],
+        40,
+        0xa205,
+    );
+}
+
+#[test]
+fn lift_a2_sv() {
+    lift_family(
+        "a2_sv",
+        &[
+            ("svaddh", "{ r0 = vaddh(r1, r2) }"),
+            ("svaddhs", "{ r0 = vaddh(r1, r2):sat }"),
+            ("svadduhs", "{ r0 = vadduh(r1, r2):sat }"),
+            ("svsubh", "{ r0 = vsubh(r1, r2) }"),
+            ("svsubhs", "{ r0 = vsubh(r1, r2):sat }"),
+            ("svsubuhs", "{ r0 = vsubuh(r1, r2):sat }"),
+            ("svavgh", "{ r0 = vavgh(r1, r2) }"),
+            ("svavghs", "{ r0 = vavgh(r1, r2):rnd }"),
+            ("svnavgh", "{ r0 = vnavgh(r2, r1) }"),
+        ],
+        40,
+        0xa206,
+    );
+}
+
+#[test]
+fn lift_a_vcmp_pred() {
+    lift_family(
+        "a_vcmp_pred",
+        &[
+            ("vcmpbeq", "{ p0 = vcmpb.eq(r3:2, r5:4) }"),
+            ("vcmpbgtu", "{ p0 = vcmpb.gtu(r3:2, r5:4) }"),
+            ("vcmpbgt", "{ p0 = vcmpb.gt(r3:2, r5:4) }"),
+            ("vcmpbeqi", "{ p0 = vcmpb.eq(r3:2, #5) }"),
+            ("vcmpbgti", "{ p0 = vcmpb.gt(r3:2, #5) }"),
+            ("vcmpbgtui", "{ p0 = vcmpb.gtu(r3:2, #5) }"),
+            ("vcmpheq", "{ p0 = vcmph.eq(r3:2, r5:4) }"),
+            ("vcmphgt", "{ p0 = vcmph.gt(r3:2, r5:4) }"),
+            ("vcmphgtu", "{ p0 = vcmph.gtu(r3:2, r5:4) }"),
+            ("vcmpheqi", "{ p0 = vcmph.eq(r3:2, #5) }"),
+            ("vcmphgti", "{ p0 = vcmph.gt(r3:2, #5) }"),
+            ("vcmphgtui", "{ p0 = vcmph.gtu(r3:2, #5) }"),
+            ("vcmpweq", "{ p0 = vcmpw.eq(r3:2, r5:4) }"),
+            ("vcmpwgt", "{ p0 = vcmpw.gt(r3:2, r5:4) }"),
+            ("vcmpwgtu", "{ p0 = vcmpw.gtu(r3:2, r5:4) }"),
+            ("vcmpweqi", "{ p0 = vcmpw.eq(r3:2, #5) }"),
+            ("vcmpwgti", "{ p0 = vcmpw.gt(r3:2, #5) }"),
+            ("vcmpwgtui", "{ p0 = vcmpw.gtu(r3:2, #5) }"),
+            ("vcmpbeq_any", "{ p0 = any8(vcmpb.eq(r3:2, r5:4)) }"),
+            ("vcmpbeq_notany", "{ p0 = !any8(vcmpb.eq(r3:2, r5:4)) }"),
+        ],
+        40,
+        0xa207,
+    );
+}
+
+#[test]
+fn lift_m_vabsdiff_vradd() {
+    lift_family(
+        "m_vabsdiff_vradd",
+        &[
+            ("vabsdiffh", "{ r1:0 = vabsdiffh(r3:2, r5:4) }"),
+            ("vabsdiffw", "{ r1:0 = vabsdiffw(r3:2, r5:4) }"),
+            ("vabsdiffb", "{ r1:0 = vabsdiffb(r3:2, r5:4) }"),
+            ("vabsdiffub", "{ r1:0 = vabsdiffub(r3:2, r5:4) }"),
+            ("vraddh", "{ r0 = vraddh(r3:2, r5:4) }"),
+            ("vradduh", "{ r0 = vradduh(r3:2, r5:4) }"),
+        ],
+        40,
+        0xa208,
+    );
+}
+
+#[test]
+fn lift_a2_vraddub_vrsadub() {
+    lift_family(
+        "a2_vraddub_vrsadub",
+        &[
+            ("vraddub", "{ r1:0 = vraddub(r3:2, r5:4) }"),
+            ("vraddub_acc", "{ r1:0 += vraddub(r3:2, r5:4) }"),
+            ("vrsadub", "{ r1:0 = vrsadub(r3:2, r5:4) }"),
+            ("vrsadub_acc", "{ r1:0 += vrsadub(r3:2, r5:4) }"),
+        ],
+        40,
+        0xa209,
+    );
+}
+
+#[test]
+fn lift_a_misc_swar() {
+    lift_family(
+        "a_misc_swar",
+        &[
+            ("vaddhubs", "{ r0 = vaddhub(r3:2, r5:4):sat }"),
+            ("vclip", "{ r1:0 = vclip(r3:2, #5) }"),
+            ("vminub_RdP", "{ r1:0, p0 = vminub(r3:2, r5:4) }"),
+            ("boundscheck_lo", "{ p0 = boundscheck(r2, r5:4) }"),
+            ("boundscheck_hi", "{ p0 = boundscheck(r3, r5:4) }"),
+        ],
+        40,
+        0xa20a,
+    );
+}
+
+#[test]
+fn lift_a4_carry_addsub() {
+    lift_family(
+        "a4_carry_addsub",
+        &[
+            ("addp_c", "{ r1:0 = add(r3:2, r5:4, p0):carry }"),
+            ("subp_c", "{ r1:0 = sub(r3:2, r5:4, p0):carry }"),
+        ],
+        40,
+        0xa20b,
+    );
+}
+
+#[test]
+fn lift_cround_rr() {
+    lift_family(
+        "cround_rr",
+        &[
+            ("cround_rr", "{ r0 = cround(r1, r2) }"),
+            ("croundd_rr", "{ r1:0 = cround(r3:2, r4) }"),
+        ],
+        40,
+        0xa20c,
+    );
+}
+
