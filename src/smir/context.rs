@@ -311,8 +311,10 @@ impl Aarch64RegState {
 pub struct HexagonRegState {
     /// General purpose registers R0-R31
     pub r: [u32; 32],
-    /// Predicate registers P0-P3
-    pub p: [bool; 4],
+    /// Predicate registers P0-P3 (full 8-bit value: 0x00/0xff for scalar
+    /// compares, per-lane masks for vector compares — matches the Hexagon
+    /// byte-granular predicate model).
+    pub p: [u8; 4],
     /// Program counter
     pub pc: u32,
     /// Global pointer
@@ -581,7 +583,7 @@ impl SmirContext {
             },
             (ArchRegState::Hexagon(hex), ArchReg::Hexagon(r)) => match r {
                 HexagonReg::R(n) => hex.set_r(n, value as u32),
-                HexagonReg::P(n) => hex.p[n as usize] = value != 0,
+                HexagonReg::P(n) => hex.p[n as usize] = value as u8,
                 HexagonReg::Pc => hex.pc = value as u32,
                 HexagonReg::Gp => hex.gp = value as u32,
                 HexagonReg::Lr => hex.lr = value as u32,

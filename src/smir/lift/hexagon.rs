@@ -685,6 +685,45 @@ impl HexagonLifter {
         cond_vreg
     }
 
+    /// Expand a 0/1 truth vreg to a FULL predicate byte (`f8BITSOF`: 0x00/0xff)
+    /// and write it into predicate register `P{pred}`. This matches the Hexagon
+    /// scalar-compare predicate byte (all 8 bits set on true). `Neg` turns 0/1
+    /// into 0x00/0xffffffff; the `& 0xff` keeps the predicate byte.
+    fn emit_pred_full(
+        &self,
+        ops: &mut Vec<SmirOp>,
+        op_id: &mut u16,
+        addr: GuestAddr,
+        ctx: &mut LiftContext,
+        pred: u8,
+        truth: VReg,
+    ) {
+        let neg = ctx.alloc_vreg();
+        ops.push(SmirOp::new(
+            OpId(*op_id),
+            addr,
+            OpKind::Neg {
+                dst: neg,
+                src: truth,
+                width: OpWidth::W32,
+                flags: FlagUpdate::None,
+            },
+        ));
+        *op_id += 1;
+        ops.push(SmirOp::new(
+            OpId(*op_id),
+            addr,
+            OpKind::And {
+                dst: self.hex_pred(pred),
+                src1: neg,
+                src2: SrcOperand::Imm(0xff),
+                width: OpWidth::W32,
+                flags: FlagUpdate::None,
+            },
+        ));
+        *op_id += 1;
+    }
+
     /// Emit a fresh vreg holding `src & !0x3` (the hardware target alignment of
     /// indirect branches/calls).
     fn emit_align4(
@@ -1851,11 +1890,13 @@ impl HexagonLifter {
                     src2: SrcOperand::Reg(self.hex_reg(*src2)),
                     width: OpWidth::W32,
                 });
+                let truth = ctx.alloc_vreg();
                 push_op!(OpKind::SetCC {
-                    dst: self.hex_pred(*pred),
+                    dst: truth,
                     cond,
                     width: OpWidth::W32,
                 });
+                self.emit_pred_full(&mut ops, &mut op_id, addr, ctx, *pred, truth);
                 ControlFlow::Fallthrough
             }
 
@@ -1873,11 +1914,13 @@ impl HexagonLifter {
                     src2: SrcOperand::Imm(imm as i64),
                     width: OpWidth::W32,
                 });
+                let truth = ctx.alloc_vreg();
                 push_op!(OpKind::SetCC {
-                    dst: self.hex_pred(*pred),
+                    dst: truth,
                     cond,
                     width: OpWidth::W32,
                 });
+                self.emit_pred_full(&mut ops, &mut op_id, addr, ctx, *pred, truth);
                 ControlFlow::Fallthrough
             }
 
@@ -2752,13 +2795,11 @@ impl HexagonLifter {
                     }
                 }
 
-                // Predicate-writing `_jump` forms set P0/P1 to the compare result.
+                // Predicate-writing `_jump` forms set P0/P1 to the compare result
+                // as a FULL predicate byte (0x00/0xff), matching hardware; `result`
+                // itself stays 0/1 for the branch-condition test below.
                 if let Some(p) = write_pred {
-                    push_op!(OpKind::Mov {
-                        dst: self.hex_pred(*p),
-                        src: SrcOperand::Reg(result),
-                        width: OpWidth::W32,
-                    });
+                    self.emit_pred_full(&mut ops, &mut op_id, addr, ctx, *p, result);
                 }
 
                 // Branch when `result == sense`. For `f*` (sense=false) invert the
@@ -3007,8 +3048,9 @@ impl HexagonLifter {
             }};
         }
 
-        // Helper: write a 0/1 predicate truth from a condition-bearing flag set.
-        // Compares `a` vs `b` (W32) and sets predicate Pd via SetCC(cond).
+        // Helper: write a FULL-BYTE predicate (`f8BITSOF`: 0xff if true else 0x00)
+        // from a condition-bearing flag set. Compares `a` vs `b` (W32) and sets
+        // predicate Pd to 0xff/0x00 matching the Hexagon hardware predicate byte.
         macro_rules! cmp_set_pred {
             ($pred:expr, $a:expr, $b:expr, $cond:expr) => {{
                 push_op!(OpKind::Cmp {
@@ -3016,11 +3058,55 @@ impl HexagonLifter {
                     src2: $b,
                     width: OpWidth::W32,
                 });
+                let truth = ctx.alloc_vreg();
                 push_op!(OpKind::SetCC {
-                    dst: self.hex_pred($pred),
+                    dst: truth,
                     cond: $cond,
                     width: OpWidth::W32,
                 });
+                // Expand 0/1 -> 0x00/0xff: negate gives 0x00/0xffffffff, mask byte.
+                pred_full!($pred, truth);
+            }};
+        }
+
+        // Helper: expand a 0/1 truth vreg to a full predicate byte (0x00/0xff,
+        // i.e. f8BITSOF) and store it into predicate register P{pred}. The
+        // negate (`0 - truth`) yields 0x00/0xffffffff; masking the low byte gives
+        // 0x00/0xff — the architectural Hexagon scalar-compare predicate value.
+        macro_rules! pred_full {
+            ($pred:expr, $truth:expr) => {{
+                let neg = ctx.alloc_vreg();
+                push_op!(OpKind::Neg {
+                    dst: neg,
+                    src: $truth,
+                    width: OpWidth::W32,
+                    flags: FlagUpdate::None,
+                });
+                push_op!(OpKind::And {
+                    dst: self.hex_pred($pred),
+                    src1: neg,
+                    src2: SrcOperand::Imm(0xff),
+                    width: OpWidth::W32,
+                    flags: FlagUpdate::None,
+                });
+            }};
+        }
+
+        // Helper: read predicate `P{pred}` AS A BRANCH/SELECT CONDITION — the
+        // Hexagon `if (Pu)`/mux forms test `fLSBOLD(Pu)`, i.e. ONLY bit 0. With
+        // the full-byte predicate this must be masked: yields a fresh temp =
+        // `P{pred} & 1` (a clean 0/1 condition for Select/CMove).
+        macro_rules! pred_cond {
+            ($pred:expr) => {{
+                let c = ctx.alloc_vreg();
+                push_op!(OpKind::And {
+                    dst: c,
+                    src1: self.hex_pred($pred),
+                    src2: SrcOperand::Imm(1),
+                    width: OpWidth::W32,
+                    flags: FlagUpdate::None,
+                });
+                c
             }};
         }
 
@@ -5032,11 +5118,13 @@ impl HexagonLifter {
                     src2: SrcOperand::Reg(b),
                     width: OpWidth::W64
                 });
+                let truth = ctx.alloc_vreg();
                 push_op!(OpKind::SetCC {
-                    dst: self.hex_pred(rd_n),
+                    dst: truth,
                     cond: Condition::Eq,
                     width: OpWidth::W64
                 });
+                pred_full!(rd_n, truth);
             }
             Opcode::C2_cmpgtp => {
                 let a = read_pair!(fld(b's'));
@@ -5046,11 +5134,13 @@ impl HexagonLifter {
                     src2: SrcOperand::Reg(b),
                     width: OpWidth::W64
                 });
+                let truth = ctx.alloc_vreg();
                 push_op!(OpKind::SetCC {
-                    dst: self.hex_pred(rd_n),
+                    dst: truth,
                     cond: Condition::Sgt,
                     width: OpWidth::W64
                 });
+                pred_full!(rd_n, truth);
             }
             Opcode::C2_cmpgtup => {
                 let a = read_pair!(fld(b's'));
@@ -5060,11 +5150,13 @@ impl HexagonLifter {
                     src2: SrcOperand::Reg(b),
                     width: OpWidth::W64
                 });
+                let truth = ctx.alloc_vreg();
                 push_op!(OpKind::SetCC {
-                    dst: self.hex_pred(rd_n),
+                    dst: truth,
                     cond: Condition::Ugt,
                     width: OpWidth::W64
                 });
+                pred_full!(rd_n, truth);
             }
 
             // ============================================================
@@ -5144,7 +5236,7 @@ impl HexagonLifter {
             // C2 mux family: Rd = (Pu.lsb) ? a : b
             // ============================================================
             Opcode::C2_mux => {
-                let cond = self.hex_pred(fld(b'u'));
+                let cond = pred_cond!(fld(b'u'));
                 push_op!(OpKind::Select {
                     dst: rd,
                     cond,
@@ -5156,7 +5248,7 @@ impl HexagonLifter {
             Opcode::C2_muxir => {
                 // Pu ? Rs : #s8
                 let imm = fimm_s(b'i');
-                let cond = self.hex_pred(fld(b'u'));
+                let cond = pred_cond!(fld(b'u'));
                 let fv = ctx.alloc_vreg();
                 push_op!(OpKind::Mov {
                     dst: fv,
@@ -5174,7 +5266,7 @@ impl HexagonLifter {
             Opcode::C2_muxri => {
                 // Pu ? #s8 : Rs
                 let imm = fimm_s(b'i');
-                let cond = self.hex_pred(fld(b'u'));
+                let cond = pred_cond!(fld(b'u'));
                 let tv = ctx.alloc_vreg();
                 push_op!(OpKind::Mov {
                     dst: tv,
@@ -5199,7 +5291,7 @@ impl HexagonLifter {
                     }
                     None => 0,
                 };
-                let cond = self.hex_pred(fld(b'u'));
+                let cond = pred_cond!(fld(b'u'));
                 let tv = ctx.alloc_vreg();
                 let fv = ctx.alloc_vreg();
                 push_op!(OpKind::Mov {
@@ -5251,27 +5343,27 @@ impl HexagonLifter {
                     flags: FlagUpdate::None
                 });
             }
-            // The SMIR Hexagon context stores a predicate as a bool (truth =
-            // value != 0), and the harness compares predicate LSB. AND/OR/XOR of
-            // 0/1 predicates stay 0/1, but a bitwise NOT (`~Ps`) flips all 32
-            // bits, so `!= 0` would read back TRUE even when the LSB is 0. Model
-            // negation on the LSB only: `~Ps -> Ps ^ 1`.
+            // The SMIR Hexagon predicate now stores the FULL 8-bit byte (0x00/
+            // 0xff for scalar compares, per-lane masks for vector compares), and
+            // the harness compares the full byte. Predicate logic is 8-bit bitwise
+            // (sem/compare.rs), so a bitwise NOT must flip all 8 bits then mask the
+            // byte: `~Ps -> Ps ^ 0xff`.
             Opcode::C2_not => {
                 push_op!(OpKind::Xor {
                     dst: self.hex_pred(rd_n),
                     src1: self.hex_pred(fld(b's')),
-                    src2: SrcOperand::Imm(1),
+                    src2: SrcOperand::Imm(0xff),
                     width: OpWidth::W32,
                     flags: FlagUpdate::None
                 });
             }
             Opcode::C2_andn => {
-                // Pt & ~Ps  -> Pt & (Ps ^ 1)
+                // Pt & ~Ps  -> Pt & (Ps ^ 0xff)
                 let nps = ctx.alloc_vreg();
                 push_op!(OpKind::Xor {
                     dst: nps,
                     src1: self.hex_pred(fld(b's')),
-                    src2: SrcOperand::Imm(1),
+                    src2: SrcOperand::Imm(0xff),
                     width: OpWidth::W32,
                     flags: FlagUpdate::None
                 });
@@ -5284,12 +5376,12 @@ impl HexagonLifter {
                 });
             }
             Opcode::C2_orn => {
-                // Pt | ~Ps  -> Pt | (Ps ^ 1)
+                // Pt | ~Ps  -> Pt | (Ps ^ 0xff)
                 let nps = ctx.alloc_vreg();
                 push_op!(OpKind::Xor {
                     dst: nps,
                     src1: self.hex_pred(fld(b's')),
-                    src2: SrcOperand::Imm(1),
+                    src2: SrcOperand::Imm(0xff),
                     width: OpWidth::W32,
                     flags: FlagUpdate::None
                 });
@@ -5305,20 +5397,25 @@ impl HexagonLifter {
             // ============================================================
             // C2 predicate <-> GPR transfers
             // ============================================================
-            // Rd = zero-extend(Ps) — but the SMIR predicate holds only 0/1, so
-            // the byte-splat (0xff) is NOT modelled. The harness only compares
-            // predicate truth, but tfrpr WRITES A GPR; an 8-bit splat would
-            // mismatch the interpreter's full byte value. Reject to stay exact.
-            Opcode::C2_tfrpr => return Err(unsupported()),
-            // Pd = fGETUBYTE(0,Rs) (low byte). The SMIR predicate stores only a
-            // truth bit and the harness compares predicate LSB, so masking to
-            // bit 0 (`Rs & 1`) is LSB-exact: Pd truth = bit0 of Rs, matching the
-            // interpreter's `(Rs & 0xff) & 1`.
+            // Rd = zero-extend(Ps): the GPR receives the FULL predicate byte
+            // (0..0xff). Now that the SMIR predicate stores the full byte, this is
+            // a plain byte-masked move (`Rd = Ps & 0xff`).
+            Opcode::C2_tfrpr => {
+                push_op!(OpKind::And {
+                    dst: rd,
+                    src1: self.hex_pred(fld(b's')),
+                    src2: SrcOperand::Imm(0xff),
+                    width: OpWidth::W32,
+                    flags: FlagUpdate::None,
+                });
+            }
+            // Pd = fGETUBYTE(0,Rs) (low byte): the predicate receives the full low
+            // byte of Rs (`Pd = Rs & 0xff`), matching the interpreter's 8-bit set_p.
             Opcode::C2_tfrrp => {
                 push_op!(OpKind::And {
                     dst: self.hex_pred(rd_n),
                     src1: rs,
-                    src2: SrcOperand::Imm(1),
+                    src2: SrcOperand::Imm(0xff),
                     width: OpWidth::W32,
                     flags: FlagUpdate::None,
                 });
@@ -5856,11 +5953,13 @@ impl HexagonLifter {
                     src2: SrcOperand::Imm(0),
                     width: OpWidth::W64,
                 });
+                let truth = ctx.alloc_vreg();
                 push_op!(OpKind::SetCC {
-                    dst: self.hex_pred(rd_n),
+                    dst: truth,
                     cond,
                     width: OpWidth::W64,
                 });
+                pred_full!(rd_n, truth);
             }
             // clb/cl0/cl1/ct0/ct1 — bit counts. SMIR Clz/Ctz over 32-bit.
             Opcode::S2_cl0 => {
@@ -7239,16 +7338,16 @@ impl HexagonLifter {
             //   sv = (i16)Rss.h[i] - (i16)Rtt.h[i]   (full 32-bit, no sat)
             //   Pe[2i] = Pe[2i+1] = (xv > sv)
             //   Rxx.h[i] = fSATH(max(xv,sv))   (sat to s16, set USR:OVF on clamp)
-            // The harness compares only Pe BIT 0, so we write lane-0 truth into
-            // Pe bit 0 (And(.,1)); the per-lane 2-bit duplication is unobservable
-            // here (multi-bit-predicate limitation, REPORTED).
+            // The SMIR predicate now stores the FULL byte, so build the per-lane
+            // mask: each lane i with (xv > sv) sets the 2-bit group `0b11 << (2i)`.
             Opcode::A5_ACS => {
                 let rss = read_pair!(fld(b's'));
                 let rtt = read_pair!(fld(b't'));
                 let rxx = read_pair!(rx_n);
                 let acc = w64_zero!();
-                // lane0 (xv > sv) truth, captured for the predicate write.
-                let mut lane0_gt: Option<VReg> = None;
+                // Predicate accumulator: per-lane 2-bit groups (0b11 << 2i).
+                let pe_acc = ctx.alloc_vreg();
+                push_op!(OpKind::Mov { dst: pe_acc, src: SrcOperand::Imm(0), width: OpWidth::W32 });
                 for i in 0..4u32 {
                     let xh = ctx.alloc_vreg();
                     push_op!(OpKind::Bfx {
@@ -7305,9 +7404,20 @@ impl HexagonLifter {
                         cond: Condition::Sgt,
                         width: OpWidth::W64,
                     });
-                    if i == 0 {
-                        lane0_gt = Some(gt);
-                    }
+                    // OR (gt ? 0b11<<2i : 0) into the predicate accumulator.
+                    let grp = ctx.alloc_vreg();
+                    push_op!(OpKind::Mov { dst: grp, src: SrcOperand::Imm(0b11i64 << (i * 2)),
+                        width: OpWidth::W32 });
+                    let zero = ctx.alloc_vreg();
+                    push_op!(OpKind::Mov { dst: zero, src: SrcOperand::Imm(0), width: OpWidth::W32 });
+                    let sel = ctx.alloc_vreg();
+                    push_op!(OpKind::Select { dst: sel, cond: gt, src_true: grp,
+                        src_false: zero, width: OpWidth::W32 });
+                    let np = ctx.alloc_vreg();
+                    push_op!(OpKind::Or { dst: np, src1: pe_acc, src2: SrcOperand::Reg(sel),
+                        width: OpWidth::W32, flags: FlagUpdate::None });
+                    push_op!(OpKind::Mov { dst: pe_acc, src: SrcOperand::Reg(np),
+                        width: OpWidth::W32 });
                     // max(xv, sv).
                     let max = ctx.alloc_vreg();
                     push_op!(OpKind::Select {
@@ -7343,15 +7453,11 @@ impl HexagonLifter {
                     });
                 }
                 write_pair!(rx_n, acc);
-                // Pe bit 0 = lane0 (xv > sv). Only bit 0 is tracked/compared.
-                let g = lane0_gt.expect("lane0 gt set");
-                let pe = self.hex_pred(fld(b'e'));
-                push_op!(OpKind::And {
-                    dst: pe,
-                    src1: g,
-                    src2: SrcOperand::Imm(1),
+                // Pe = full per-lane mask (already only bits 0..7).
+                push_op!(OpKind::Mov {
+                    dst: self.hex_pred(fld(b'e')),
+                    src: SrcOperand::Reg(pe_acc),
                     width: OpWidth::W32,
-                    flags: FlagUpdate::None,
                 });
             }
 
@@ -7362,6 +7468,26 @@ impl HexagonLifter {
             // lift is an empty op list. (Ordering semantics are not modeled —
             // acceptable: no observable effect here. See report.)
             Opcode::R6_release_at_vi | Opcode::R6_release_st_vi => {}
+
+            // ---- Y2/Y4/Y5 cache / sync / prefetch / barrier hints ----
+            // The sem layer (sem/float_ext.rs) treats every one of these as a pure
+            // memory-hierarchy / memory-ordering hint with NO architectural register,
+            // predicate, or memory effect — exactly the R6_release case. The faithful
+            // lift is therefore an empty op list (the harness verifies state is
+            // unchanged, 0-div). NOTE: Y2_dczeroa is NOT here — it decodes to
+            // DecodedInsn::DcZero (a real 32-byte memory write) and is handled on the
+            // DecodedInsn path. A4_tlbmatch (predicate from TLB) is intentionally
+            // excluded — no architectural state we can reproduce.
+            Opcode::Y2_dccleana
+            | Opcode::Y2_dccleaninva
+            | Opcode::Y2_dcinva
+            | Opcode::Y2_icinva
+            | Opcode::Y2_isync
+            | Opcode::Y2_syncht
+            | Opcode::Y2_barrier
+            | Opcode::Y2_dcfetchbo
+            | Opcode::Y4_l2fetch
+            | Opcode::Y5_l2fetch => {}
 
             // ============================================================
             // S4 add/sub-with-shift compounds, S2_addasl
@@ -13466,7 +13592,7 @@ impl HexagonLifter {
                 let pt = self.hex_pred(fld(b't'));
                 let pu = self.hex_pred(fld(b'u'));
                 let pd = self.hex_pred(rd_n);
-                // pu_eff = (andn/orn) ? (Pu ^ 1) : Pu
+                // pu_eff = (andn/orn) ? (Pu ^ 0xff) : Pu  (8-bit bitwise NOT)
                 let neg = matches!(
                     op,
                     Opcode::C4_and_andn
@@ -13479,7 +13605,7 @@ impl HexagonLifter {
                     push_op!(OpKind::Xor {
                         dst: n,
                         src1: pu,
-                        src2: SrcOperand::Imm(1),
+                        src2: SrcOperand::Imm(0xff),
                         width: OpWidth::W32,
                         flags: FlagUpdate::None
                     });
@@ -13534,18 +13660,114 @@ impl HexagonLifter {
                     });
                 }
             }
-            // C2_any8: Pd = (Ps != 0). The SMIR predicate is 0/1 so Ps != 0
-            // equals Ps's truth; copy it through (LSB-exact for the harness).
+            // C2_any8: Pd = f8BITSOF(Ps != 0). Tests the FULL predicate byte:
+            // 0xff if any bit of Ps is set, else 0x00.
             Opcode::C2_any8 => {
-                push_op!(OpKind::Mov {
-                    dst: self.hex_pred(rd_n),
-                    src: SrcOperand::Reg(self.hex_pred(fld(b's'))),
-                    width: OpWidth::W32
+                push_op!(OpKind::Cmp {
+                    src1: self.hex_pred(fld(b's')),
+                    src2: SrcOperand::Imm(0),
+                    width: OpWidth::W32,
                 });
+                let truth = ctx.alloc_vreg();
+                push_op!(OpKind::SetCC { dst: truth, cond: Condition::Ne, width: OpWidth::W32 });
+                pred_full!(rd_n, truth);
             }
-            // C2_all8: Pd = (Ps == 0xff). The interpreter stores the full 8-bit
-            // predicate, but the SMIR predicate is only 0/1, so the full-byte
-            // comparison cannot be reproduced — left Unsupported.
+            // C2_all8: Pd = f8BITSOF(Ps == 0xff). Tests the FULL predicate byte:
+            // 0xff iff every bit of Ps is set, else 0x00.
+            Opcode::C2_all8 => {
+                push_op!(OpKind::Cmp {
+                    src1: self.hex_pred(fld(b's')),
+                    src2: SrcOperand::Imm(0xff),
+                    width: OpWidth::W32,
+                });
+                let truth = ctx.alloc_vreg();
+                push_op!(OpKind::SetCC { dst: truth, cond: Condition::Eq, width: OpWidth::W32 });
+                pred_full!(rd_n, truth);
+            }
+
+            // ---- C4_fastcorner9[_not]: 9-consecutive-set-bits detector ----
+            // half = ((Ps<<8)|Pt) & 0xffff; tmp = half | (half<<16); then 8 rounds
+            // of `tmp &= tmp>>1`; Pd = f8BITSOF(tmp != 0) (_not inverts the truth).
+            Opcode::C4_fastcorner9 | Opcode::C4_fastcorner9_not => {
+                let ps = self.hex_pred(fld(b's'));
+                let pt = self.hex_pred(fld(b't'));
+                // half = (Ps << 8) | Pt   (both already byte-valued)
+                let psh = ctx.alloc_vreg();
+                push_op!(OpKind::Shl { dst: psh, src: ps, amount: SrcOperand::Imm(8),
+                    width: OpWidth::W32, flags: FlagUpdate::None });
+                let half = ctx.alloc_vreg();
+                push_op!(OpKind::Or { dst: half, src1: psh, src2: SrcOperand::Reg(pt),
+                    width: OpWidth::W32, flags: FlagUpdate::None });
+                // tmp = half | (half << 16)
+                let hsh = ctx.alloc_vreg();
+                push_op!(OpKind::Shl { dst: hsh, src: half, amount: SrcOperand::Imm(16),
+                    width: OpWidth::W32, flags: FlagUpdate::None });
+                let mut tmp = ctx.alloc_vreg();
+                push_op!(OpKind::Or { dst: tmp, src1: half, src2: SrcOperand::Reg(hsh),
+                    width: OpWidth::W32, flags: FlagUpdate::None });
+                // for i in 1..9: tmp &= tmp >> 1   (8 AND-fold rounds)
+                for _ in 1..9 {
+                    let sh = ctx.alloc_vreg();
+                    push_op!(OpKind::Shr { dst: sh, src: tmp, amount: SrcOperand::Imm(1),
+                        width: OpWidth::W32, flags: FlagUpdate::None });
+                    let next = ctx.alloc_vreg();
+                    push_op!(OpKind::And { dst: next, src1: tmp, src2: SrcOperand::Reg(sh),
+                        width: OpWidth::W32, flags: FlagUpdate::None });
+                    tmp = next;
+                }
+                // truth = (tmp != 0), inverted for the _not form.
+                let truth = ctx.alloc_vreg();
+                push_op!(OpKind::Cmp { src1: tmp, src2: SrcOperand::Imm(0), width: OpWidth::W32 });
+                let cond = if op == Opcode::C4_fastcorner9_not {
+                    Condition::Eq
+                } else {
+                    Condition::Ne
+                };
+                push_op!(OpKind::SetCC { dst: truth, cond, width: OpWidth::W32 });
+                pred_full!(rd_n, truth);
+            }
+
+            // ---- S2_valignrb: byte-align two pairs by Pu&7 ----
+            // pu = Pu & 7; Rdd = (Rss >> pu*8) | (Rtt << (8-pu)*8). The high shift
+            // is (8-pu)*8 which is 64 when pu==0 (-> 0), so select that case.
+            Opcode::S2_valignrb => {
+                let pu_raw = self.hex_pred(fld(b'u'));
+                let ss = read_pair!(fld(b's'));
+                let tt = read_pair!(fld(b't'));
+                // pu = (Pu & 7); shift_lo = pu * 8.
+                let pu = ctx.alloc_vreg();
+                push_op!(OpKind::And { dst: pu, src1: pu_raw, src2: SrcOperand::Imm(7),
+                    width: OpWidth::W32, flags: FlagUpdate::None });
+                let sh_lo = ctx.alloc_vreg();
+                push_op!(OpKind::Shl { dst: sh_lo, src: pu, amount: SrcOperand::Imm(3),
+                    width: OpWidth::W32, flags: FlagUpdate::None });
+                // low = Rss >> sh_lo  (sh_lo in 0..56, always < 64).
+                let low = ctx.alloc_vreg();
+                push_op!(OpKind::Shr { dst: low, src: ss, amount: SrcOperand::Reg(sh_lo),
+                    width: OpWidth::W64, flags: FlagUpdate::None });
+                // sh_hi = (8 - pu) * 8 = 64 - sh_lo. When pu==0 this is 64 -> 0.
+                let c64 = ctx.alloc_vreg();
+                push_op!(OpKind::Mov { dst: c64, src: SrcOperand::Imm(64), width: OpWidth::W32 });
+                let sh_hi = ctx.alloc_vreg();
+                push_op!(OpKind::Sub { dst: sh_hi, src1: c64,
+                    src2: SrcOperand::Reg(sh_lo), width: OpWidth::W32, flags: FlagUpdate::None });
+                // high_shifted = Rtt << sh_hi (only valid when pu != 0; else 0).
+                let high_sh = ctx.alloc_vreg();
+                push_op!(OpKind::Shl { dst: high_sh, src: tt, amount: SrcOperand::Reg(sh_hi),
+                    width: OpWidth::W64, flags: FlagUpdate::None });
+                // pu_nz = (pu != 0); high = pu_nz ? high_sh : 0.
+                let pu_nz = ctx.alloc_vreg();
+                push_op!(OpKind::Cmp { src1: pu, src2: SrcOperand::Imm(0), width: OpWidth::W32 });
+                push_op!(OpKind::SetCC { dst: pu_nz, cond: Condition::Ne, width: OpWidth::W32 });
+                let zero = w64_zero!();
+                let high = ctx.alloc_vreg();
+                push_op!(OpKind::Select { dst: high, cond: pu_nz, src_true: high_sh,
+                    src_false: zero, width: OpWidth::W64 });
+                let res = ctx.alloc_vreg();
+                push_op!(OpKind::Or { dst: res, src1: low, src2: SrcOperand::Reg(high),
+                    width: OpWidth::W64, flags: FlagUpdate::None });
+                write_pair!(rd_n, res);
+            }
 
             // ================================================================
             // WAVE: remaining tractable scalar register ops (no mem/CF).
@@ -14041,7 +14263,7 @@ impl HexagonLifter {
                     _ =>
                         push_op!(OpKind::Xor { dst: v, src1: rs, src2: SrcOperand::Reg(rt), width: OpWidth::W32, flags: FlagUpdate::None }),
                 }
-                let cond = self.hex_pred(fld(b'u'));
+                let cond = pred_cond!(fld(b'u'));
                 let (st, sf) = if sense_true { (v, rd) } else { (rd, v) };
                 push_op!(OpKind::Select { dst: rd, cond, src_true: st, src_false: sf, width: OpWidth::W32 });
             }
@@ -14052,7 +14274,7 @@ impl HexagonLifter {
                 let imm = fimm_s(b'i');
                 let v = ctx.alloc_vreg();
                 push_op!(OpKind::Mov { dst: v, src: SrcOperand::Imm(imm as i64), width: OpWidth::W32 });
-                let cond = self.hex_pred(fld(b'u'));
+                let cond = pred_cond!(fld(b'u'));
                 let (st, sf) = if sense_true { (v, rd) } else { (rd, v) };
                 push_op!(OpKind::Select { dst: rd, cond, src_true: st, src_false: sf, width: OpWidth::W32 });
             }
@@ -14083,7 +14305,7 @@ impl HexagonLifter {
                     _ =>
                         push_op!(OpKind::And { dst: v, src1: rs, src2: SrcOperand::Imm(0xffff), width: OpWidth::W32, flags: FlagUpdate::None }),
                 }
-                let cond = self.hex_pred(fld(b'u'));
+                let cond = pred_cond!(fld(b'u'));
                 let (st, sf) = if sense_true { (v, rd) } else { (rd, v) };
                 push_op!(OpKind::Select { dst: rd, cond, src_true: st, src_false: sf, width: OpWidth::W32 });
             }
@@ -14093,7 +14315,7 @@ impl HexagonLifter {
             Opcode::C2_ccombinewt | Opcode::C2_ccombinewf
             | Opcode::C2_ccombinewnewt | Opcode::C2_ccombinewnewf => {
                 let sense_true = matches!(op, Opcode::C2_ccombinewt | Opcode::C2_ccombinewnewt);
-                let cond = self.hex_pred(fld(b'u'));
+                let cond = pred_cond!(fld(b'u'));
                 let even = rd_n & !1;
                 // low word := cond ? Rt : low; high word := cond ? Rs : high.
                 let (lt, lf) = if sense_true { (rt, self.hex_reg(even)) } else { (self.hex_reg(even), rt) };
@@ -14102,20 +14324,81 @@ impl HexagonLifter {
                 push_op!(OpKind::Select { dst: self.hex_reg(even + 1), cond, src_true: ht, src_false: hf, width: OpWidth::W32 });
             }
 
-            // ---- C2_vmux / C2_mask: per-BYTE expansion of an 8-bit predicate ----
-            // These read ALL 8 bits of the predicate independently (byte i of the
-            // result is gated by Pu/Pt bit i).  The SMIR Hexagon predicate VReg
-            // models only a single truth bit (LSB), so the other 7 bits are not
-            // available and the per-byte mask cannot be reproduced.  Left
-            // Unsupported until predicates carry their full 8-bit value.
-            Opcode::C2_vmux | Opcode::C2_mask => return Err(unsupported()),
+            // ---- C2_vmux: Rdd.b[i] = (Pu bit i) ? Rss.b[i] : Rtt.b[i] (i=0..7) ----
+            // Per-byte blend of two 64-bit pairs by the 8-bit predicate Pu. Now
+            // that the SMIR predicate carries the full byte, expand bit i to a
+            // byte mask and blend: out.b = (m & ss.b) | (~m & tt.b).
+            Opcode::C2_vmux => {
+                let pu = self.hex_pred(fld(b'u'));
+                let ss = read_pair!(fld(b's'));
+                let tt = read_pair!(fld(b't'));
+                let acc = w64_zero!();
+                for i in 0u8..8 {
+                    // bit = (Pu >> i) & 1
+                    let bit = ctx.alloc_vreg();
+                    push_op!(OpKind::Shr { dst: bit, src: pu, amount: SrcOperand::Imm(i as i64),
+                        width: OpWidth::W32, flags: FlagUpdate::None });
+                    let b1 = ctx.alloc_vreg();
+                    push_op!(OpKind::And { dst: b1, src1: bit, src2: SrcOperand::Imm(1),
+                        width: OpWidth::W32, flags: FlagUpdate::None });
+                    let sb = ctx.alloc_vreg();
+                    push_op!(OpKind::Bfx { dst: sb, src: ss, lsb: i * 8, width_bits: 8,
+                        sign_extend: false, op_width: OpWidth::W64 });
+                    let tb = ctx.alloc_vreg();
+                    push_op!(OpKind::Bfx { dst: tb, src: tt, lsb: i * 8, width_bits: 8,
+                        sign_extend: false, op_width: OpWidth::W64 });
+                    let byte = ctx.alloc_vreg();
+                    push_op!(OpKind::Select { dst: byte, cond: b1, src_true: sb,
+                        src_false: tb, width: OpWidth::W64 });
+                    let next = ctx.alloc_vreg();
+                    push_op!(OpKind::Bfi { dst: next, dst_in: acc, src: byte, lsb: i * 8,
+                        width_bits: 8, op_width: OpWidth::W64 });
+                    push_op!(OpKind::Mov { dst: acc, src: SrcOperand::Reg(next),
+                        width: OpWidth::W64 });
+                }
+                write_pair!(rd_n, acc);
+            }
+
+            // ---- C2_mask: Rdd.b[i] = (Pt bit i) ? 0xff : 0x00 (i=0..7) ----
+            // Byte-expand the 8-bit predicate Pt into a 64-bit pair.
+            Opcode::C2_mask => {
+                let pt = self.hex_pred(fld(b't'));
+                let acc = w64_zero!();
+                for i in 0u8..8 {
+                    let bit = ctx.alloc_vreg();
+                    push_op!(OpKind::Shr { dst: bit, src: pt, amount: SrcOperand::Imm(i as i64),
+                        width: OpWidth::W32, flags: FlagUpdate::None });
+                    let b1 = ctx.alloc_vreg();
+                    push_op!(OpKind::And { dst: b1, src1: bit, src2: SrcOperand::Imm(1),
+                        width: OpWidth::W32, flags: FlagUpdate::None });
+                    // byte = b1 ? 0xff : 0x00 -> Neg(b1) & 0xff
+                    let neg = ctx.alloc_vreg();
+                    push_op!(OpKind::Neg { dst: neg, src: b1, width: OpWidth::W64,
+                        flags: FlagUpdate::None });
+                    let byte = ctx.alloc_vreg();
+                    push_op!(OpKind::And { dst: byte, src1: neg, src2: SrcOperand::Imm(0xff),
+                        width: OpWidth::W64, flags: FlagUpdate::None });
+                    let next = ctx.alloc_vreg();
+                    push_op!(OpKind::Bfi { dst: next, dst_in: acc, src: byte, lsb: i * 8,
+                        width_bits: 8, op_width: OpWidth::W64 });
+                    push_op!(OpKind::Mov { dst: acc, src: SrcOperand::Reg(next),
+                        width: OpWidth::W64 });
+                }
+                write_pair!(rd_n, acc);
+            }
 
             // ---- C2_vitpack: Rd = (Ps & 0x55) | (Pt & 0xAA) ----
-            // Reads the full 8-bit predicate values (interleaving bits 0,2,4,6 of
-            // Ps with bits 1,3,5,7 of Pt).  The SMIR predicate VReg holds only the
-            // LSB, so the upper bits are unavailable — Unsupported (same boundary
-            // as C2_vmux / C2_mask).
-            Opcode::C2_vitpack => return Err(unsupported()),
+            // Interleaves bits 0,2,4,6 of Ps with bits 1,3,5,7 of Pt.
+            Opcode::C2_vitpack => {
+                let a = ctx.alloc_vreg();
+                push_op!(OpKind::And { dst: a, src1: self.hex_pred(fld(b's')),
+                    src2: SrcOperand::Imm(0x55), width: OpWidth::W32, flags: FlagUpdate::None });
+                let b = ctx.alloc_vreg();
+                push_op!(OpKind::And { dst: b, src1: self.hex_pred(fld(b't')),
+                    src2: SrcOperand::Imm(0xaa), width: OpWidth::W32, flags: FlagUpdate::None });
+                push_op!(OpKind::Or { dst: rd, src1: a, src2: SrcOperand::Reg(b),
+                    width: OpWidth::W32, flags: FlagUpdate::None });
+            }
 
             // ---- immediate-width extract/insert on pairs (S2/S4) ----
             // S2_extractup: Rdd = zxt(width, Rss >> off).
@@ -14829,12 +15112,12 @@ impl HexagonLifter {
                         push_op!(OpKind::Mov { dst: pd, src: SrcOperand::Reg(v), width: OpWidth::W32 });
                     }
                 } else {
-                    // The SMIR Hexagon predicate stores `value != 0` (a single
-                    // truth bit), and the harness compares predicate bit 0; so
-                    // write ONLY lane-0's truth (bit 0 of the lane mask) — a full
-                    // byte would read back as 1 whenever ANY lane matched.
-                    push_op!(OpKind::And { dst: pd, src1: p, src2: SrcOperand::Imm(1),
-                        width: OpWidth::W32, flags: FlagUpdate::None });
+                    // Full per-lane predicate mask (byte->1<<i, half->0b11<<2i,
+                    // word->0x0f/0xf0), matching the sem byte exactly. The SMIR
+                    // predicate now stores the full byte, so write `p` directly
+                    // (already confined to the low 8 bits).
+                    push_op!(OpKind::Mov { dst: pd, src: SrcOperand::Reg(p),
+                        width: OpWidth::W32 });
                 }
             }
 
@@ -14905,11 +15188,10 @@ impl HexagonLifter {
                     push_op!(OpKind::Mov { dst: p, src: SrcOperand::Reg(np), width: OpWidth::W32 });
                 }
                 write_pair!(rd_n, acc);
-                // SMIR predicate stores `value != 0`; harness compares bit 0, so
-                // write only lane-0's truth bit (a full byte reads back as 1
-                // whenever any lane set its bit).
-                push_op!(OpKind::And { dst: self.hex_pred(fld(b'e')), src1: p,
-                    src2: SrcOperand::Imm(1), width: OpWidth::W32, flags: FlagUpdate::None });
+                // Pe = full per-byte mask (bit i = Rtt[i] > Rss[i]), matching the
+                // sem byte; the SMIR predicate now stores the full byte.
+                push_op!(OpKind::Mov { dst: self.hex_pred(fld(b'e')), src: SrcOperand::Reg(p),
+                    width: OpWidth::W32 });
             }
 
             // ---- A4_addp_c / A4_subp_c: 64-bit add-with-carry-predicate ----

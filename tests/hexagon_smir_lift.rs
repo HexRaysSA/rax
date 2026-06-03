@@ -228,7 +228,7 @@ fn lift_and_run(words: &[u32], init: &State) -> Result<Option<State>, String> {
         ctx.write_arch_reg(ArchReg::Hexagon(HexagonReg::R(n as u8)), init.r[n] as u64);
     }
     for n in 0..4 {
-        ctx.write_arch_reg(ArchReg::Hexagon(HexagonReg::P(n as u8)), (init.p[n] & 1) as u64);
+        ctx.write_arch_reg(ArchReg::Hexagon(HexagonReg::P(n as u8)), init.p[n] as u64);
     }
     ctx.write_arch_reg(ArchReg::Hexagon(HexagonReg::Usr), init.usr as u64);
     // Seed HVX V/Q (1024-bit V as 16 u64 lanes; 128-bit Q in lanes 0-1).
@@ -259,7 +259,7 @@ fn lift_and_run(words: &[u32], init: &State) -> Result<Option<State>, String> {
     }
     for n in 0..4 {
         let v = ctx.read_arch_reg(ArchReg::Hexagon(HexagonReg::P(n as u8)));
-        out.p[n] = if v & 1 != 0 { 0xff } else { 0 };
+        out.p[n] = v as u8;
     }
     out.usr = ctx.read_arch_reg(ArchReg::Hexagon(HexagonReg::Usr)) as u32;
     if let ArchRegState::Hexagon(hex) = &ctx.arch_regs {
@@ -320,9 +320,13 @@ fn lift_family(name: &str, cases: &[(&str, &str)], n: usize, seed: u64) {
                 *r = rng.next() as u32;
             }
             for k in 0..4 {
-                if rng.next() & 1 == 1 {
-                    st.p[k] = 0xff;
-                }
+                // Seed a FULL random predicate byte (exercises per-lane masks);
+                // bias toward the common scalar values 0x00/0xff.
+                st.p[k] = match rng.next() & 3 {
+                    0 => 0x00,
+                    1 => 0xff,
+                    _ => rng.next() as u8,
+                };
             }
             for vv in st.v.iter_mut() {
                 for w in vv.iter_mut() {
@@ -352,7 +356,7 @@ fn lift_family(name: &str, cases: &[(&str, &str)], n: usize, seed: u64) {
                         }
                     }
                     for k in 0..4 {
-                        if (interp.p[k] & 1) != (lift.p[k] & 1) {
+                        if interp.p[k] != lift.p[k] {
                             diffs.push(format!("p{k}:i={:#x},l={:#x}", interp.p[k], lift.p[k]));
                         }
                     }
@@ -531,7 +535,7 @@ fn lift_and_run_mem(
         ctx.write_arch_reg(ArchReg::Hexagon(HexagonReg::R(n as u8)), init.r[n] as u64);
     }
     for n in 0..4 {
-        ctx.write_arch_reg(ArchReg::Hexagon(HexagonReg::P(n as u8)), (init.p[n] & 1) as u64);
+        ctx.write_arch_reg(ArchReg::Hexagon(HexagonReg::P(n as u8)), init.p[n] as u64);
     }
     ctx.write_arch_reg(ArchReg::Hexagon(HexagonReg::Usr), init.usr as u64);
     // Seed M0/M1, CS0/CS1, GP (HexagonRegState m[2]/cs[2]/gp via write_arch_reg).
@@ -554,7 +558,7 @@ fn lift_and_run_mem(
     }
     for n in 0..4 {
         let v = ctx.read_arch_reg(ArchReg::Hexagon(HexagonReg::P(n as u8)));
-        out.p[n] = if v & 1 != 0 { 0xff } else { 0 };
+        out.p[n] = v as u8;
     }
     out.usr = ctx.read_arch_reg(ArchReg::Hexagon(HexagonReg::Usr)) as u32;
     for n in 0..2 {
@@ -618,9 +622,13 @@ fn lift_mem_family_idx(
                 *r = rng.next() as u32;
             }
             for k in 0..4 {
-                if rng.next() & 1 == 1 {
-                    st.p[k] = 0xff;
-                }
+                // Seed a FULL random predicate byte (exercises per-lane masks);
+                // bias toward the common scalar values 0x00/0xff.
+                st.p[k] = match rng.next() & 3 {
+                    0 => 0x00,
+                    1 => 0xff,
+                    _ => rng.next() as u8,
+                };
             }
             // Force the base register to point at the DATA region. Index/scaled
             // forms keep their (random) index register; the asm uses a 0 or tiny
@@ -674,7 +682,7 @@ fn lift_mem_family_idx(
                         }
                     }
                     for k in 0..4 {
-                        if (interp.p[k] & 1) != (lift.p[k] & 1) {
+                        if interp.p[k] != lift.p[k] {
                             diffs.push(format!("p{k}:i={:#x},l={:#x}", interp.p[k], lift.p[k]));
                         }
                     }
@@ -920,7 +928,7 @@ fn lift_and_run_cf(words: &[u32], init: &State) -> Result<Option<(u64, State)>, 
         ctx.write_arch_reg(ArchReg::Hexagon(HexagonReg::R(n as u8)), init.r[n] as u64);
     }
     for n in 0..4 {
-        ctx.write_arch_reg(ArchReg::Hexagon(HexagonReg::P(n as u8)), (init.p[n] & 1) as u64);
+        ctx.write_arch_reg(ArchReg::Hexagon(HexagonReg::P(n as u8)), init.p[n] as u64);
     }
     ctx.write_arch_reg(ArchReg::Hexagon(HexagonReg::Usr), init.usr as u64);
     // Loop / link registers (m[]=LC0/LC1, cs[]=SA0/SA1, LR=r[31] already seeded).
@@ -946,7 +954,7 @@ fn lift_and_run_cf(words: &[u32], init: &State) -> Result<Option<(u64, State)>, 
     }
     for n in 0..4 {
         let v = ctx.read_arch_reg(ArchReg::Hexagon(HexagonReg::P(n as u8)));
-        out.p[n] = if v & 1 != 0 { 0xff } else { 0 };
+        out.p[n] = v as u8;
     }
     out.usr = ctx.read_arch_reg(ArchReg::Hexagon(HexagonReg::Usr)) as u32;
     out.m[0] = ctx.read_arch_reg(ArchReg::Hexagon(HexagonReg::Lc0)) as u32;
@@ -1007,9 +1015,13 @@ fn lift_cf_family_inner(
                 st.r[3] = st.r[2];
             }
             for k in 0..4 {
-                if rng.next() & 1 == 1 {
-                    st.p[k] = 0xff;
-                }
+                // Seed a FULL random predicate byte (exercises per-lane masks);
+                // bias toward the common scalar values 0x00/0xff.
+                st.p[k] = match rng.next() & 3 {
+                    0 => 0x00,
+                    1 => 0xff,
+                    _ => rng.next() as u8,
+                };
             }
             // Loop counts (LC0/LC1 via m[]) and start addresses (SA0/SA1 via cs[]).
             st.m = [rng.next() as u32, rng.next() as u32];
@@ -1042,7 +1054,7 @@ fn lift_cf_family_inner(
                         }
                     }
                     for k in 0..4 {
-                        if (istate.p[k] & 1) != (lstate.p[k] & 1) {
+                        if istate.p[k] != lstate.p[k] {
                             diffs.push(format!("p{k}:i={:#x},l={:#x}", istate.p[k], lstate.p[k]));
                         }
                     }
@@ -3495,7 +3507,7 @@ fn lift_and_run_hist(
         ctx.write_arch_reg(ArchReg::Hexagon(HexagonReg::R(n as u8)), init.r[n] as u64);
     }
     for n in 0..4 {
-        ctx.write_arch_reg(ArchReg::Hexagon(HexagonReg::P(n as u8)), (init.p[n] & 1) as u64);
+        ctx.write_arch_reg(ArchReg::Hexagon(HexagonReg::P(n as u8)), init.p[n] as u64);
     }
     ctx.write_arch_reg(ArchReg::Hexagon(HexagonReg::Usr), init.usr as u64);
     if let ArchRegState::Hexagon(hex) = &mut ctx.arch_regs {
@@ -3526,7 +3538,7 @@ fn lift_and_run_hist(
     }
     for n in 0..4 {
         let v = ctx.read_arch_reg(ArchReg::Hexagon(HexagonReg::P(n as u8)));
-        out.p[n] = if v & 1 != 0 { 0xff } else { 0 };
+        out.p[n] = v as u8;
     }
     out.usr = ctx.read_arch_reg(ArchReg::Hexagon(HexagonReg::Usr)) as u32;
     if let ArchRegState::Hexagon(hex) = &ctx.arch_regs {
@@ -3571,9 +3583,13 @@ fn lift_hist_family(name: &str, cases: &[(&str, &str)], n: usize, seed: u64) {
             // Base register for the `.tmp` load: point r0 at the input region.
             st.r[0] = HIST_INPUT_ADDR;
             for k in 0..4 {
-                if rng.next() & 1 == 1 {
-                    st.p[k] = 0xff;
-                }
+                // Seed a FULL random predicate byte (exercises per-lane masks);
+                // bias toward the common scalar values 0x00/0xff.
+                st.p[k] = match rng.next() & 3 {
+                    0 => 0x00,
+                    1 => 0xff,
+                    _ => rng.next() as u8,
+                };
             }
             for vv in st.v.iter_mut() {
                 for w in vv.iter_mut() {
@@ -3606,7 +3622,7 @@ fn lift_hist_family(name: &str, cases: &[(&str, &str)], n: usize, seed: u64) {
                         }
                     }
                     for k in 0..4 {
-                        if (interp.p[k] & 1) != (lift.p[k] & 1) {
+                        if interp.p[k] != lift.p[k] {
                             diffs.push(format!("p{k}:i={:#x},l={:#x}", interp.p[k], lift.p[k]));
                         }
                     }
@@ -4072,9 +4088,80 @@ fn lift_c4_predlogic() {
             ("or_andn", "{ p0 = or(p1,and(p2,!p3)) }"),
             ("or_orn", "{ p0 = or(p1,or(p2,!p3)) }"),
             ("any8", "{ p0 = any8(p1) }"),
+            ("all8", "{ p0 = all8(p1) }"),
         ],
         24,
         0x730b,
+    );
+}
+
+// ---- Full 8-bit predicate ops: any8/all8, vmux/mask/vitpack, fastcorner9,
+// valignrb. These need the WHOLE predicate byte (not just bit 0); the harness
+// now seeds random predicate bytes and compares the full byte. ----
+#[test]
+fn lift_c2_full_predicate() {
+    lift_family(
+        "c2_full_predicate",
+        &[
+            // per-byte blend of two pairs by Pu's 8 bits
+            ("vmux", "{ r1:0 = vmux(p0,r3:2,r5:4) }"),
+            // byte-expand Pt's 8 bits into a pair (0x00/0xff per byte)
+            ("mask", "{ r1:0 = mask(p0) }"),
+            // Rd = (Ps & 0x55) | (Pt & 0xaa)
+            ("vitpack", "{ r0 = vitpack(p1,p0) }"),
+            // any8/all8 read the full predicate byte
+            ("any8", "{ p0 = any8(p1) }"),
+            ("all8", "{ p0 = all8(p1) }"),
+        ],
+        40,
+        0x9f01,
+    );
+}
+
+#[test]
+fn lift_c4_fastcorner9() {
+    lift_family(
+        "c4_fastcorner9",
+        &[
+            ("fc9", "{ p0 = fastcorner9(p1,p2) }"),
+            ("fc9_not", "{ p0 = !fastcorner9(p1,p2) }"),
+        ],
+        40,
+        0x9f02,
+    );
+}
+
+#[test]
+fn lift_s2_valignrb() {
+    lift_family(
+        "s2_valignrb",
+        &[("valignrb", "{ r1:0 = valignb(r3:2,r5:4,p0) }")],
+        40,
+        0x9f03,
+    );
+}
+
+// ---- Y2/Y4/Y5 cache / sync / prefetch / barrier hints: architectural no-ops
+// (no register, predicate, or memory effect). Lift to an empty op list; the
+// harness verifies state is unchanged (0-div). ----
+#[test]
+fn lift_y_system_noops() {
+    lift_family(
+        "y_system_noops",
+        &[
+            ("dccleana", "{ dccleana(r0) }"),
+            ("dccleaninva", "{ dccleaninva(r0) }"),
+            ("dcinva", "{ dcinva(r0) }"),
+            ("icinva", "{ icinva(r0) }"),
+            ("isync", "{ isync }"),
+            ("syncht", "{ syncht }"),
+            ("barrier", "{ barrier }"),
+            ("dcfetch", "{ dcfetch(r0+#0) }"),
+            ("l2fetch_rr", "{ l2fetch(r0,r1) }"),
+            ("l2fetch_rp", "{ l2fetch(r0,r3:2) }"),
+        ],
+        20,
+        0x9f04,
     );
 }
 
