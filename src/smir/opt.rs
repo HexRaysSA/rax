@@ -1690,59 +1690,46 @@ fn redundant_load_elimination_block(block: &mut SmirBlock) -> usize {
                 dst,
                 addr,
                 width,
-                sign,
+                sign: _,
             } => {
-                let key = address_key(addr, *width);
-                if let Some(&existing) = mem_to_reg.get(&key) {
-                    // Replace load with move
-                    new_ops.push(SmirOp {
-                        id: op.id,
-                        guest_pc: op.guest_pc,
-                        kind: OpKind::Mov {
-                            dst: *dst,
-                            src: SrcOperand::Reg(existing),
-                            width: width.to_op_width().unwrap_or(OpWidth::W64),
-                        },
-                        x86_hint: None,
-                    });
-                    eliminated += 1;
+                // Only loads from a key-able address (Direct/BaseOffset/Absolute)
+                // are candidates. Complex addresses (BaseIndexScale, PcRel) are
+                // NOT tracked — a single sentinel key would make distinct
+                // addresses (e.g. [rsi+rdx-16] vs [rsi+rdx-8]) collide and
+                // wrongly forward one load's value to the other.
+                if let Some(key) = address_key(addr, *width) {
+                    if let Some(&existing) = mem_to_reg.get(&key) {
+                        new_ops.push(SmirOp {
+                            id: op.id,
+                            guest_pc: op.guest_pc,
+                            kind: OpKind::Mov {
+                                dst: *dst,
+                                src: SrcOperand::Reg(existing),
+                                width: width.to_op_width().unwrap_or(OpWidth::W64),
+                            },
+                            x86_hint: None,
+                        });
+                        eliminated += 1;
+                    } else {
+                        mem_to_reg.insert(key, *dst);
+                        new_ops.push(op.clone());
+                    }
                 } else {
-                    mem_to_reg.insert(key, *dst);
                     new_ops.push(op.clone());
                 }
             }
 
-            OpKind::Store { addr, width, .. } => {
-                // Invalidate any loads from this address
-                let key = address_key(addr, *width);
-                mem_to_reg.remove(&key);
-
-                // Conservatively, also invalidate overlapping addresses
-                // (For now, just invalidate all on any store for simplicity)
-                // A more sophisticated version would track precise aliasing
-                mem_to_reg.clear();
-
-                new_ops.push(op.clone());
-            }
-
-            OpKind::AtomicStore { .. }
+            OpKind::Store { .. }
+            | OpKind::AtomicStore { .. }
             | OpKind::AtomicRmw { .. }
             | OpKind::Cas { .. }
             | OpKind::StoreExclusive { .. }
-            | OpKind::Fence { .. } => {
-                // Memory operations invalidate all cached loads
-                mem_to_reg.clear();
-                new_ops.push(op.clone());
-            }
-
-            OpKind::IoIn { .. } | OpKind::IoOut { .. } => {
-                // I/O has side effects; be conservative
-                mem_to_reg.clear();
-                new_ops.push(op.clone());
-            }
-
-            OpKind::Syscall { .. } => {
-                // System calls may have memory side effects
+            | OpKind::Fence { .. }
+            | OpKind::IoIn { .. }
+            | OpKind::IoOut { .. }
+            | OpKind::Syscall { .. } => {
+                // Any store / atomic / I/O / syscall may alias an arbitrary
+                // address, so conservatively drop every cached load.
                 mem_to_reg.clear();
                 new_ops.push(op.clone());
             }
@@ -1751,20 +1738,31 @@ fn redundant_load_elimination_block(block: &mut SmirBlock) -> usize {
                 new_ops.push(op.clone());
             }
         }
+
+        // Invalidate any cached load whose BASE register this op redefines: once
+        // the base changes, the cached `(base, offset)` no longer names the same
+        // memory (e.g. `load [rsi-8]; lea rsi,[rsi-32]; load [rsi-8]` are two
+        // different addresses). Without this, the second load would be wrongly
+        // forwarded from the first.
+        for d in op.kind.dests() {
+            mem_to_reg.retain(|key, _| key.0 != Some(d));
+        }
     }
 
     block.ops = new_ops;
     eliminated
 }
 
-/// Create a key for memory address tracking
-fn address_key(addr: &Address, width: MemWidth) -> (Option<VReg>, i64, MemWidth) {
+/// Create a key for memory-address tracking, or `None` for addresses we do not
+/// track (complex forms whose equality we cannot cheaply decide). Returning
+/// `None` — never a shared sentinel — is what keeps distinct untracked
+/// addresses from aliasing each other.
+fn address_key(addr: &Address, width: MemWidth) -> Option<(Option<VReg>, i64, MemWidth)> {
     match addr {
-        Address::Direct(r) => (Some(*r), 0, width),
-        Address::BaseOffset { base, offset, .. } => (Some(*base), *offset, width),
-        Address::Absolute(a) => (None, *a as i64, width),
-        // For complex addresses, don't track (return unique key that won't match)
-        _ => (None, i64::MIN, width),
+        Address::Direct(r) => Some((Some(*r), 0, width)),
+        Address::BaseOffset { base, offset, .. } => Some((Some(*base), *offset, width)),
+        Address::Absolute(a) => Some((None, *a as i64, width)),
+        _ => None,
     }
 }
 
