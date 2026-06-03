@@ -6430,9 +6430,19 @@ fn lift_a5_acs() {
 //     in-packet producer (verified lifted by cf_cmpjump_* families).
 // The remaining buckets are GENUINE boundaries, keyed by the rejection mnemonic
 // or opcode-name family:
-//   (a) F2_* scalar FP                  : needs SMIR FP OpKinds + softfloat/fflags
-//   (b) Y2_/Y4_/Y5_ + A4_tlbmatch       : system / TLB / cache / privileged state
-//   (c) S2_cabacdecbin                  : stateful CABAC tables + multi-output
+//   (a) F2_dfmpylh ONLY                 : the reference sem writes its accumulate
+//         result to field `d` (set_rp(rd,...)), but this opcode has NO `d` field
+//         (only s/t/x) -> rd defaults to 0 and the oracle writes R1:R0 instead of
+//         the architectural Rxx. A CORRECT `Rxx += ...` lift would "diverge" from
+//         the buggy oracle, and matching the bug would ship a knowingly-wrong
+//         lift, so it is UNVERIFIABLE. (Every other F2_* scalar FP op — incl.
+//         dfmpyhh / dfmpyfix / sffma_sc — is now LIFTED + 0-div verified.)
+//   (b) Y2_/Y4_/Y5_                     : system / cache / barrier / privileged
+//         state hints (modeled as observably-empty no-ops where lifted; the
+//         remaining ones touch unmodeled privileged state). A4_tlbmatch is NOW
+//         LIFTED (a pure function of the seeded register pair Rss, not hidden TLB
+//         state) and S2_cabacdecbin is NOW LIFTED (pure function of Rss/Rtt + the
+//         constant H.264 transition tables) — neither is a boundary any longer.
 //   (d) load_locked / store_cond        : LL/SC reservation + predicate side
 //         effect not modeled by the plain Load/Store.
 //   (e) sploop                          : software-pipelined loop sets USR.LPCFG
@@ -6479,12 +6489,10 @@ fn audit_final_scalar_gap_rescan() {
     // The float / system / stateful ops fall through lift_unknown_op and report
     // their OPCODE NAME as the mnemonic, so classify those by name family.
     let is_boundary_by_name = |name: &str| -> bool {
-        name.starts_with("F2_")          // scalar FP        (boundary a)
+        name == "F2_dfmpylh"             // buggy-oracle FP  (boundary a) — ONLY F2 boundary left
             || name.starts_with("Y2_")   // system           (boundary b)
             || name.starts_with("Y4_")   // tlb              (boundary b)
             || name.starts_with("Y5_")   // barrier/tlb      (boundary b)
-            || name == "A4_tlbmatch"     // tlb match        (boundary b)
-            || name == "S2_cabacdecbin"  // stateful CABAC   (boundary c)
     };
 
     let unexpected: Vec<_> = unlifted
@@ -7283,4 +7291,296 @@ fn lift_f2_sffma_lib() {
         120,
         0xf2_000f,
     );
+}
+
+// ---- scaled fused multiply-add (`:scale`): F2_sffma_sc. Rx += Rs*Rt then
+// * 2^Pu, where Pu is a two's-complement signed-8 scale folded into the EXACT
+// product BEFORE the single rounding. Lifted via the exact integer fma core in
+// the OpKind::HexFpScFma interp arm (native f32::mul_add then a separate scale
+// would double-round). Rs/Rt/Rx are seeded from FP_SPECIAL; the predicate Pu
+// (p3 here) draws a range of signed scale values from lift_fp_special_family's
+// predicate seeding (which includes full random 8-bit bytes). ----
+#[test]
+fn lift_f2_sffma_sc() {
+    lift_fp_special_family(
+        "f2_sffma_sc",
+        &[("sffma_sc", "{ r4 += sfmpy(r1,r2,p3):scale }")],
+        160,
+        0xf2_0010,
+    );
+}
+
+/// Pool of special DOUBLE-precision FP bit patterns (full 64-bit) used to
+/// exercise the dfmpyhh / dfmpyfix special-case branches: NaN/inf/zero/denormal,
+/// the `df_is_big` (exp>=512) / `df_is_normal` classification, the high-32-bit
+/// mantissa masking, and the subnormal-flush path.
+const DF_SPECIAL: &[u64] = &[
+    0x0000_0000_0000_0000, // +0
+    0x8000_0000_0000_0000, // -0
+    0x3ff0_0000_0000_0000, // +1.0
+    0xbff0_0000_0000_0000, // -1.0
+    0x4000_0000_0000_0000, // +2.0
+    0x7ff0_0000_0000_0000, // +inf
+    0xfff0_0000_0000_0000, // -inf
+    0x7ff8_0000_0000_0000, // qNaN
+    0x7ff0_0000_0000_0001, // sNaN
+    0xfff4_0000_0000_0001, // negative NaN
+    0x0000_0000_0000_0001, // smallest +denormal
+    0x800f_ffff_ffff_ffff, // largest -denormal
+    0x0010_0000_0000_0000, // smallest +normal (exp 1)
+    0x7fef_ffff_ffff_ffff, // largest +normal (exp 0x7fe)
+    0x4ff0_0000_0000_0000, // big normal (exp 0x4ff < 512, NOT df_is_big)
+    0x5000_0000_0000_0000, // exp 0x500 == 1280 -> df_is_big & normal
+    0x2000_0000_0000_0000, // exp 0x200 == 512 -> df_is_big boundary
+    0x1fff_ffff_ffff_ffff, // exp 0x1ff == 511 -> just below df_is_big
+    0x4330_0000_0000_0000, // 2^52, mid normal
+    0xc330_0000_0000_0000, // -2^52
+    0x3fe0_0000_0000_0001, // ~0.5 with a low mantissa bit (high-mask drops it)
+    0x0000_0000_8000_0000, // denormal with only a HIGH-32 mantissa bit
+    0x0000_0000_0000_8000, // denormal with only a LOW-32 mantissa bit (masked away)
+];
+
+/// Lift-verify a double-precision F2 family whose register PAIRS are seeded from
+/// `DF_SPECIAL` so every special-case / classification branch is exercised. Each
+/// pair `R{2k+1}:R{2k}` is seeded as a whole f64 (even = low word, odd = high
+/// word). Compares ALL GPRs + USR:OVF (these ops never set OVF).
+fn lift_df_special_family(name: &str, cases: &[(&str, &str)], n: usize, seed: u64) {
+    let asms: Vec<String> = cases.iter().map(|(_, a)| a.to_string()).collect();
+    let words_per = match assemble(&asms) {
+        Some(w) => w,
+        None => {
+            eprintln!("[hexagon_smir_lift] {name}: llvm-mc unavailable -> skipping");
+            return;
+        }
+    };
+    let mut rng = Rng::new(seed);
+    let mut mismatches = Vec::new();
+    let mut unlifted = Vec::new();
+    for ((label, _asm), words) in cases.iter().zip(words_per.iter()) {
+        for _ in 0..n {
+            let mut st = State::zeroed();
+            // Seed each consecutive even/odd GPR pair as one f64 from the pool
+            // (occasionally fully random) so Rss/Rtt/Rxx land on special values.
+            for k in 0..(NREG / 2) {
+                let v = if rng.next() & 7 == 0 {
+                    rng.next()
+                } else {
+                    DF_SPECIAL[(rng.next() as usize) % DF_SPECIAL.len()]
+                };
+                st.r[2 * k] = v as u32;
+                st.r[2 * k + 1] = (v >> 32) as u32;
+            }
+            for p in st.p.iter_mut() {
+                *p = rng.next() as u8;
+            }
+            let interp = match run_interp(words, &st) {
+                Some(s) => s,
+                None => continue,
+            };
+            match lift_and_run(words, &st) {
+                Ok(None) => {
+                    unlifted.push(*label);
+                    break;
+                }
+                Ok(Some(lift)) => {
+                    let mut diffs = Vec::new();
+                    for r in 0..NREG {
+                        if interp.r[r] != lift.r[r] {
+                            diffs.push(format!("r{r}:i={:#x},l={:#x}", interp.r[r], lift.r[r]));
+                        }
+                    }
+                    for k in 0..4 {
+                        if interp.p[k] != lift.p[k] {
+                            diffs.push(format!("p{k}:i={:#x},l={:#x}", interp.p[k], lift.p[k]));
+                        }
+                    }
+                    if (interp.usr & 1) != (lift.usr & 1) {
+                        diffs.push(format!("usr_ovf:i={},l={}", interp.usr & 1, lift.usr & 1));
+                    }
+                    if !diffs.is_empty() {
+                        mismatches.push(format!("[{label}] {}", diffs.join(" ")));
+                    }
+                }
+                Err(e) => mismatches.push(format!("[{label}] {e}")),
+            }
+        }
+    }
+    if !unlifted.is_empty() {
+        eprintln!("[hexagon_smir_lift] {name}: UNLIFTED (gap): {:?}", unlifted);
+    }
+    if !mismatches.is_empty() {
+        eprintln!("\n==== {name}: {} lift mismatches ====", mismatches.len());
+        for m in mismatches.iter().take(20) {
+            eprintln!("  {m}");
+        }
+        panic!("{name}: {} SMIR-lift divergences vs interpreter", mismatches.len());
+    }
+}
+
+// ---- double-precision high-half multiply + accumulate (F2_dfmpyhh) and the
+// denormal fixup (F2_dfmpyfix). dfmpyhh masks each mantissa to its HIGH 32 bits,
+// multiplies exactly, accumulates Rxx at a FIXED weight (prod_e+31), and rounds
+// once to nearest-even — it needs the EXACT f64 rounding core (native f64
+// double-rounds). dfmpyfix is a conditional exact 2^±52 scale. Both lifted via
+// the OpKind::HexFpDf interp arm; seeded from DF_SPECIAL so the subnormal-flush,
+// df_is_big/normal classification, and high-mantissa-mask branches are hit. ----
+#[test]
+fn lift_f2_dfmpyhh() {
+    lift_df_special_family(
+        "f2_dfmpyhh",
+        &[("dfmpyhh", "{ r5:4 += dfmpyhh(r1:0, r3:2) }")],
+        200,
+        0xf2_0011,
+    );
+}
+
+#[test]
+fn lift_f2_dfmpyfix() {
+    lift_df_special_family(
+        "f2_dfmpyfix",
+        &[("dfmpyfix", "{ r5:4 = dfmpyfix(r1:0, r3:2) }")],
+        200,
+        0xf2_0012,
+    );
+}
+
+// ---- S2_cabacdecbin: Rdd = decbin(Rss,Rtt) (+P0). A PURE FUNCTION of the
+// register inputs + the constant H.264 transition tables (no hidden state).
+// Seeded to exercise the full CABAC state space: Rtt carries {state[5:0],
+// val_mps[8], bitpos[4:0]} so we sweep all 64 states incl. the boundary states
+// 0 and 63; Rss carries {range, offset} which drive the MPS/LPS region split.
+// Lifted via OpKind::HexCabacDecBin (writes the Rdd pair AND P0). ----
+#[test]
+fn lift_s2_cabacdecbin() {
+    let asm = "{ r5:4 = decbin(r1:0, r3:2) }";
+    let words = match assemble(&[asm.to_string()]) {
+        Some(w) => w.into_iter().next().unwrap(),
+        None => {
+            eprintln!("[hexagon_smir_lift] s2_cabacdecbin: llvm-mc unavailable -> skipping");
+            return;
+        }
+    };
+    let mut rng = Rng::new(0xcabac_001);
+    let mut mismatches = Vec::new();
+    // Sweep every state 0..=63 plus extra random rounds, biasing range/offset to
+    // realistic CABAC magnitudes (top bits set) and both MPS/LPS regions.
+    for round in 0..400usize {
+        let state = if round < 64 { round as u32 } else { (rng.next() % 64) as u32 };
+        let val_mps = (rng.next() & 1) as u32;
+        let bitpos = (rng.next() % 8) as u32; // small shift, keeps range in range
+        let mut st = State::zeroed();
+        // Rtt (r3:2): w1 = {val_mps<<8 | state}, w0 = {bitpos}.
+        let rtt_w1 = (val_mps << 8) | state;
+        let rtt_w0 = bitpos;
+        st.r[2] = rtt_w0;
+        st.r[3] = rtt_w1;
+        // Rss (r1:0): w0 = range (bias top bit set), w1 = offset.
+        let range = 0x8000_0000u32 | (rng.next() as u32 >> 1);
+        let offset = rng.next() as u32 >> 1; // < range often -> exercises both regions
+        st.r[0] = range;
+        st.r[1] = offset;
+        for p in st.p.iter_mut() {
+            *p = rng.next() as u8;
+        }
+        let interp = match run_interp(&words, &st) {
+            Some(s) => s,
+            None => continue,
+        };
+        match lift_and_run(&words, &st) {
+            Ok(None) => {
+                panic!("s2_cabacdecbin: UNLIFTED");
+            }
+            Ok(Some(lift)) => {
+                let mut diffs = Vec::new();
+                for r in 0..NREG {
+                    if interp.r[r] != lift.r[r] {
+                        diffs.push(format!("r{r}:i={:#x},l={:#x}", interp.r[r], lift.r[r]));
+                    }
+                }
+                for k in 0..4 {
+                    if interp.p[k] != lift.p[k] {
+                        diffs.push(format!("p{k}:i={:#x},l={:#x}", interp.p[k], lift.p[k]));
+                    }
+                }
+                if !diffs.is_empty() {
+                    mismatches.push(format!("[state={state} round={round}] {}", diffs.join(" ")));
+                }
+            }
+            Err(e) => mismatches.push(format!("[round={round}] {e}")),
+        }
+    }
+    if !mismatches.is_empty() {
+        eprintln!("\n==== s2_cabacdecbin: {} lift mismatches ====", mismatches.len());
+        for m in mismatches.iter().take(20) {
+            eprintln!("  {m}");
+        }
+        panic!("s2_cabacdecbin: {} SMIR-lift divergences vs interpreter", mismatches.len());
+    }
+}
+
+// ---- A4_tlbmatch: Pd = tlbmatch(Rss,Rt). A PURE FUNCTION of the register
+// inputs — the matched "TLB entry" IS the seeded register pair Rss, NOT hidden
+// TLB state — so it is fully reproducible. Random GPRs exercise the page-size
+// (cl1) computation, the size clamp at 6, and the valid-bit / masked-compare.
+// Bias TLBHI's bit31 (valid) and align some entries so matches actually occur.
+#[test]
+fn lift_a4_tlbmatch() {
+    let asm = "{ p3 = tlbmatch(r1:0, r2) }";
+    let words = match assemble(&[asm.to_string()]) {
+        Some(w) => w.into_iter().next().unwrap(),
+        None => {
+            eprintln!("[hexagon_smir_lift] a4_tlbmatch: llvm-mc unavailable -> skipping");
+            return;
+        }
+    };
+    let mut rng = Rng::new(0x71b_a7c4);
+    let mut mismatches = Vec::new();
+    for round in 0..400usize {
+        let mut st = State::zeroed();
+        for r in st.r.iter_mut() {
+            *r = rng.next() as u32;
+        }
+        // Bias: half the rounds set TLBHI bit31 (valid); a quarter make Rt equal
+        // TLBHI so a match can fire after masking.
+        if rng.next() & 1 == 0 {
+            st.r[1] |= 0x8000_0000;
+        }
+        if rng.next() & 3 == 0 {
+            st.r[2] = st.r[1];
+        }
+        for p in st.p.iter_mut() {
+            *p = rng.next() as u8;
+        }
+        let interp = match run_interp(&words, &st) {
+            Some(s) => s,
+            None => continue,
+        };
+        match lift_and_run(&words, &st) {
+            Ok(None) => panic!("a4_tlbmatch: UNLIFTED"),
+            Ok(Some(lift)) => {
+                let mut diffs = Vec::new();
+                for r in 0..NREG {
+                    if interp.r[r] != lift.r[r] {
+                        diffs.push(format!("r{r}:i={:#x},l={:#x}", interp.r[r], lift.r[r]));
+                    }
+                }
+                for k in 0..4 {
+                    if interp.p[k] != lift.p[k] {
+                        diffs.push(format!("p{k}:i={:#x},l={:#x}", interp.p[k], lift.p[k]));
+                    }
+                }
+                if !diffs.is_empty() {
+                    mismatches.push(format!("[round={round}] {}", diffs.join(" ")));
+                }
+            }
+            Err(e) => mismatches.push(format!("[round={round}] {e}")),
+        }
+    }
+    if !mismatches.is_empty() {
+        eprintln!("\n==== a4_tlbmatch: {} lift mismatches ====", mismatches.len());
+        for m in mismatches.iter().take(20) {
+            eprintln!("  {m}");
+        }
+        panic!("a4_tlbmatch: {} SMIR-lift divergences vs interpreter", mismatches.len());
+    }
 }

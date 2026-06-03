@@ -12,7 +12,7 @@ use crate::smir::ir::{
 use crate::smir::lift::{
     ControlFlow, LiftContext, LiftError, LiftResult, MemoryReader, SmirLifter,
 };
-use crate::smir::ops::{HexFpOp, HexFpRecipKind, OpKind, SmirOp};
+use crate::smir::ops::{HexDfOp, HexFpOp, HexFpRecipKind, OpKind, SmirOp};
 use crate::smir::types::*;
 
 // Re-use the existing Hexagon decoder types
@@ -8270,6 +8270,38 @@ impl HexagonLifter {
                 });
             }
 
+            // ---- S2_cabacdecbin: Rdd = decbin(Rss,Rtt) (+P0) ----
+            // CABAC binary arithmetic decode. A PURE FUNCTION of Rss/Rtt and the
+            // constant H.264 transition tables (no hidden global state — it is
+            // oracle-backed like the recip seed tables). The OpKind::HexCabacDecBin
+            // interp arm ports the decode + tables verbatim, writing Rdd AND P0.
+            Opcode::S2_cabacdecbin => {
+                let rss = read_pair!(fld(b's'));
+                let rtt = read_pair!(fld(b't'));
+                let r = ctx.alloc_vreg();
+                push_op!(OpKind::HexCabacDecBin {
+                    dst: r,
+                    pred: self.hex_pred(0), // writes P0
+                    src1: rss,
+                    src2: rtt,
+                });
+                write_pair!(rd_n, r);
+            }
+
+            // ---- A4_tlbmatch: Pd = tlbmatch(Rss,Rt) ----
+            // A PURE FUNCTION of the register inputs: the matched "TLB entry" IS
+            // the seeded register pair Rss (NOT hidden TLB state), so it is fully
+            // reproducible. (Earlier excluded by mistake; re-assessed — it reads
+            // no hidden state.) OpKind::HexTlbMatch interp arm.
+            Opcode::A4_tlbmatch => {
+                let rss = read_pair!(fld(b's'));
+                push_op!(OpKind::HexTlbMatch {
+                    dst: self.hex_pred(rd_n),
+                    src1: rss,
+                    src2: rt,
+                });
+            }
+
             // ---- R6 release stores ----
             // In the single-threaded harness the release / memory-ordering effect
             // is UNOBSERVABLE; the sem layer itself treats these as register-only
@@ -8285,8 +8317,8 @@ impl HexagonLifter {
             // lift is therefore an empty op list (the harness verifies state is
             // unchanged, 0-div). NOTE: Y2_dczeroa is NOT here — it decodes to
             // DecodedInsn::DcZero (a real 32-byte memory write) and is handled on the
-            // DecodedInsn path. A4_tlbmatch (predicate from TLB) is intentionally
-            // excluded — no architectural state we can reproduce.
+            // DecodedInsn path. A4_tlbmatch IS lifted (above) — it is a pure
+            // function of the seeded register pair Rss, not hidden TLB state.
             Opcode::Y2_dccleana
             | Opcode::Y2_dccleaninva
             | Opcode::Y2_dcinva
@@ -18230,6 +18262,28 @@ impl HexagonLifter {
                 });
             }
 
+            // ---- scaled fused multiply-add (`:scale`): Rx += Rs*Rt, then
+            // * 2^Pu (Pu read as a two's-complement signed-8 scale folded into
+            // the EXACT product before the single rounding). Lifted via the
+            // exact integer fma core in the OpKind::HexFpScFma interp arm —
+            // native f32::mul_add then a separate scale would double-round. ----
+            Opcode::F2_sffma_sc => {
+                let pu = self.hex_pred(fld(b'u'));
+                let r = ctx.alloc_vreg();
+                push_op!(OpKind::HexFpScFma {
+                    dst: r,
+                    src1: rs,
+                    src2: rt,
+                    src3: rx, // accumulator Rx (field `x`)
+                    scale: pu, // Pu predicate byte (read as i8 scale)
+                });
+                push_op!(OpKind::Mov {
+                    dst: rx,
+                    src: SrcOperand::Reg(r),
+                    width: OpWidth::W32,
+                });
+            }
+
             // ---- reciprocal / inverse-sqrt seed + fixup ----
             // Byte-for-byte port of arch_sf_recip_common / arch_sf_invsqrt_common
             // (seed tables + Pe predicate) in the OpKind::HexFpRecip interp arm.
@@ -18349,6 +18403,42 @@ impl HexagonLifter {
                     src2: SrcOperand::Reg(nz),
                     width: OpWidth::W64,
                     flags: FlagUpdate::None,
+                });
+                write_pair!(rd_n, r);
+            }
+
+            // ---- double-precision high-half multiply + accumulate ----
+            // Rxx += dfmpyhh(Rss, Rtt): EXACT high-32-bit-mantissa multiply,
+            // fixed-weight accumulate of Rxx (read-modify, field `x`), single
+            // round-to-nearest-even. Needs the EXACT f64 rounding core in the
+            // OpKind::HexFpDf interp arm (native f64 double-rounds).
+            Opcode::F2_dfmpyhh => {
+                let ss = read_pair!(fld(b's'));
+                let tt = read_pair!(fld(b't'));
+                let xx = read_pair!(rx_n);
+                let r = ctx.alloc_vreg();
+                push_op!(OpKind::HexFpDf {
+                    dst: r,
+                    src1: ss,
+                    src2: tt,
+                    src3: xx,
+                    op: HexDfOp::DfMpyHh,
+                });
+                write_pair!(rx_n, r);
+            }
+            // ---- double-precision fixup (conditional exact 2^±52 scale) ----
+            // Rdd = dfmpyfix(Rss, Rtt): denormal-normalisation fixup, an exact
+            // power-of-two scale (no rounding). OpKind::HexFpDf interp arm.
+            Opcode::F2_dfmpyfix => {
+                let ss = read_pair!(fld(b's'));
+                let tt = read_pair!(fld(b't'));
+                let r = ctx.alloc_vreg();
+                push_op!(OpKind::HexFpDf {
+                    dst: r,
+                    src1: ss,
+                    src2: tt,
+                    src3: ss, // unused by DfMpyFix
+                    op: HexDfOp::DfMpyFix,
                 });
                 write_pair!(rd_n, r);
             }
