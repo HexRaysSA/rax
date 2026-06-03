@@ -896,3 +896,67 @@ fn jit_mem_indexed_copy_loop_matches_interpreter() {
         assert_eq!(got, seed[i as usize], "DST[{i}] via SIB copy");
     }
 }
+
+/// Partial-width register stores (B1/B2/B4/B8) and store-immediate forms — the
+/// shapes kernel struct/array writers (e.g. text_poke batch entries) use. Each
+/// must write exactly `size` bytes via the MMU helper; must match the
+/// interpreter's memory image byte-for-byte.
+#[test]
+fn jit_mem_partial_and_imm_stores_match_interpreter() {
+    const DST: u64 = 0x21_0000;
+    const STRIDE: u64 = 0x20;
+    const N: u32 = 2;
+    let rax_val = 0xAABB_CCDD_EEFF_1122u64;
+
+    // mov rdi,DST ; mov rax,rax_val ; mov ecx,N
+    // loop:
+    //   mov [rdi],al ; mov [rdi+1],ax ; mov [rdi+4],eax ; mov [rdi+8],rax ;
+    //   mov byte [rdi+16],0x55 ; mov dword [rdi+20],0x12345678 ;
+    //   add rdi,0x20 ; dec ecx ; jnz loop ; hlt
+    let mut code: Vec<u8> = Vec::new();
+    code.extend_from_slice(&[0x48, 0xBF]);
+    code.extend_from_slice(&DST.to_le_bytes());
+    code.extend_from_slice(&[0x48, 0xB8]);
+    code.extend_from_slice(&rax_val.to_le_bytes());
+    code.push(0xB9);
+    code.extend_from_slice(&N.to_le_bytes());
+    // loop body (30 bytes):
+    code.extend_from_slice(&[0x88, 0x07]); // mov [rdi], al
+    code.extend_from_slice(&[0x66, 0x89, 0x47, 0x01]); // mov [rdi+1], ax
+    code.extend_from_slice(&[0x89, 0x47, 0x04]); // mov [rdi+4], eax
+    code.extend_from_slice(&[0x48, 0x89, 0x47, 0x08]); // mov [rdi+8], rax
+    code.extend_from_slice(&[0xC6, 0x47, 0x10, 0x55]); // mov byte [rdi+16], 0x55
+    code.extend_from_slice(&[0xC7, 0x47, 0x14, 0x78, 0x56, 0x34, 0x12]); // mov dword [rdi+20], 0x12345678
+    code.extend_from_slice(&[0x48, 0x83, 0xC7, 0x20]); // add rdi, 0x20
+    code.extend_from_slice(&[0xFF, 0xC9]); // dec ecx
+    code.extend_from_slice(&[0x75, 0xE0]); // jnz loop (rel8 = -32)
+    code.push(0xF4); // hlt
+
+    let (mut interp, imem) = make_vcpu_mem(&code);
+    for i in 0..(N as u64) * STRIDE {
+        imem.write_obj(0u8, GuestAddress(DST + i)).unwrap();
+    }
+    run_interp(&mut interp);
+
+    let (mut jit, jmem) = make_vcpu_mem(&code);
+    jit.set_jit_mem(true);
+    for i in 0..(N as u64) * STRIDE {
+        jmem.write_obj(0u8, GuestAddress(DST + i)).unwrap();
+    }
+    assert!(jit.jit_try_block().expect("jit_try_block"), "partial-store loop should JIT");
+    run_interp(&mut jit);
+
+    // Compare the whole written region byte-for-byte against the interpreter.
+    for i in 0..(N as u64) * STRIDE {
+        let ib: u8 = imem.read_obj(GuestAddress(DST + i)).unwrap();
+        let jb: u8 = jmem.read_obj(GuestAddress(DST + i)).unwrap();
+        assert_eq!(jb, ib, "byte at DST+{i:#x}: jit={jb:#x} interp={ib:#x}");
+    }
+    // Spot-check the expected pattern in the first record.
+    assert_eq!(jmem.read_obj::<u8>(GuestAddress(DST)).unwrap(), 0x22, "al");
+    assert_eq!(jmem.read_obj::<u16>(GuestAddress(DST + 1)).unwrap(), 0x1122, "ax");
+    assert_eq!(jmem.read_obj::<u32>(GuestAddress(DST + 4)).unwrap(), 0xEEFF_1122, "eax");
+    assert_eq!(jmem.read_obj::<u64>(GuestAddress(DST + 8)).unwrap(), rax_val, "rax");
+    assert_eq!(jmem.read_obj::<u8>(GuestAddress(DST + 16)).unwrap(), 0x55, "imm8");
+    assert_eq!(jmem.read_obj::<u32>(GuestAddress(DST + 20)).unwrap(), 0x1234_5678, "imm32");
+}
