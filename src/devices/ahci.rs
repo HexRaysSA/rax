@@ -459,12 +459,16 @@ impl<M: Mem> AhciController<M> {
     /// Build a controller at ABAR `base`, with guest memory `mem` and a single
     /// SATA disk backed by `disk` bytes (on port 0).
     pub fn new(base: u64, mem: M, disk: Vec<u8>) -> Self {
+        // A port only reports a present device when media is actually attached.
+        // With no disk, PxSSTS.DET reads 0 so the guest's libata probe skips the
+        // port instead of timing out on IDENTIFY for a phantom drive.
+        let present = !disk.is_empty();
         AhciController {
             base,
             mem,
             ghc: 0,
             is: 0,
-            port: Port::new(true),
+            port: Port::new(present),
             disk,
             num_slots: 32,
             interrupt_pending: false,

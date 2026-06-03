@@ -107,7 +107,6 @@ use crate::devices::fdc::Fdc;
 use crate::devices::i8042::I8042;
 use crate::devices::ide::IdeController;
 use crate::devices::map::{X86_DEBUG_PORT_BASE, X86_DEBUG_PORT_LEN};
-use crate::devices::pci::{PciStub, PCI_CONFIG_ADDRESS};
 use crate::devices::fw_cfg::FwCfg;
 use crate::devices::ioapic::IoApic;
 use crate::devices::rtc::{RtcStub, RTC_ADDRESS};
@@ -596,14 +595,9 @@ impl Arch for X86_64Arch {
     }
 
     fn setup_devices(&self, io_bus: &mut IoBus, mmio_bus: &mut MmioBus) -> Result<()> {
-        // PCI configuration space (stub - returns no devices)
-        io_bus.register(
-            IoRange {
-                base: PCI_CONFIG_ADDRESS,
-                len: 8,
-            },
-            Box::new(PciStub::new()),
-        )?;
+        // The PCI host bridge (config ports 0xCF8-0xCFF) is created and owned by
+        // the VMM so it can be shared with the emulator MMU for BAR-mapped MMIO
+        // routing; it is no longer registered here.
 
         // CMOS/RTC
         io_bus.register(

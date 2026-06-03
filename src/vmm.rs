@@ -24,7 +24,8 @@ use crate::config::BackendKind;
 use crate::config::{ArchKind, CheckpointConfig, VmConfig};
 use crate::console::{Console, ConsoleAction, ESCAPE_HELP};
 use crate::cpu::{CpuState, VCpu, VcpuExit};
-use crate::devices::bus::{IoBus, IoDevice, IoRange, MmioBus, MmioRange};
+use crate::devices::bus::{IoBus, IoDevice, IoRange, MmioBus, MmioRange, SharedIoDevice};
+use crate::devices::pci::{PciStub, PCI_CONFIG_ADDRESS};
 use crate::devices::lapic::{
     IpiRequest, IpiTarget, LAPIC_BASE, LAPIC_SIZE, LapicDevice, LocalApic,
 };
@@ -41,6 +42,13 @@ use crate::snapshot::{
 use crate::terminal::RawTty;
 
 const SERIAL_BASE: u16 = 0x3f8;
+
+/// Physical aperture diverted from RAM to PCI BAR-mapped MMIO when the optional
+/// PCI devices are attached. Chosen high (just below the IOAPIC/HPET/LAPIC fixed
+/// MMIO at 0xFEC00000+) so it sits above the guest's RAM and per-CPU overflow
+/// window, and inside the 32-bit PCI memory window the kernel advertises.
+const PCI_MMIO_AP_BASE: u64 = 0xFC00_0000;
+const PCI_MMIO_AP_END: u64 = 0xFE00_0000;
 
 /// Set by the SIGUSR1 handler to request a checkpoint from the run loop. This is
 /// the non-keyboard "event" trigger: `kill -USR1 <pid>` dumps a checkpoint to
@@ -82,6 +90,109 @@ fn null_boot_info(arch: ArchKind) -> BootInfo {
             identity_map_addr: 0,
         }),
     }
+}
+
+/// Guest-memory DMA adapter for the PCI device models (e.g. the NVMe/AHCI
+/// admin/command queues). Wraps the guest RAM mmap behind the device models'
+/// `virtio::Mem` trait so a bus-master device can read/write guest physical
+/// memory; the same mmap the CPU sees, so DMA is coherent.
+struct GuestDmaMem(Arc<vm_memory::GuestMemoryMmap>);
+
+impl crate::devices::virtio::Mem for GuestDmaMem {
+    fn read(&self, gpa: u64, buf: &mut [u8]) -> bool {
+        self.0.read_slice(buf, vm_memory::GuestAddress(gpa)).is_ok()
+    }
+    fn write(&mut self, gpa: u64, buf: &[u8]) -> bool {
+        self.0.write_slice(buf, vm_memory::GuestAddress(gpa)).is_ok()
+    }
+}
+
+/// Attach the optional PCI device models to the host bridge. Their BARs are
+/// pre-assigned (memory BARs inside [`PCI_MMIO_AP_BASE`], I/O BARs at fixed
+/// ports) so the guest sees valid firmware resources; the bridge tracks any
+/// reprogramming. Device models are built with a zero base so the bridge can
+/// feed them BAR-relative offsets wherever the BAR lands.
+fn attach_pci_devices(
+    pci: &Arc<std::sync::Mutex<PciStub>>,
+    mem: Arc<vm_memory::GuestMemoryMmap>,
+) -> Result<()> {
+    use crate::devices::pci::{Bar, ConfigSpace};
+    let mut bridge = pci
+        .lock()
+        .map_err(|_| Error::Emulator("pci bridge lock poisoned".to_string()))?;
+
+    // Intel 82540EM (e1000) NIC at 00:01.0 — BAR0 is a 128 KiB MMIO register
+    // block, pre-assigned at the base of the MMIO aperture.
+    let mac = [0x52, 0x54, 0x00, 0x12, 0x34, 0x56];
+    let mut e1000_cfg = ConfigSpace::device(0x8086, 0x100E, 0x02_00_00, 0x00);
+    e1000_cfg.set_bar(0, Bar::mem32(0x2_0000));
+    e1000_cfg.set_u32(0x10, PCI_MMIO_AP_BASE as u32);
+    e1000_cfg.set_u16(0x04, 0x0006); // memory-space + bus-master enable
+    e1000_cfg.set_u8(0x3d, 0x01); // interrupt pin INTA#
+    bridge.attach_mmio(
+        0,
+        1,
+        0,
+        e1000_cfg,
+        0,
+        Box::new(crate::devices::e1000::E1000::new(mac)),
+    );
+
+    // Intel PIIX-style UHCI USB controller at 00:02.0 — BAR4 is a 32-byte I/O
+    // window pre-assigned at port 0xC000, reached via the IoBus PCI fallback.
+    let mut uhci_cfg = ConfigSpace::device(0x8086, 0x7020, 0x0C_03_00, 0x00);
+    uhci_cfg.set_bar(4, Bar::io(0x20));
+    uhci_cfg.set_u32(0x10 + 4 * 4, 0x0000_C001); // I/O base 0xC000 (bit0 = I/O)
+    uhci_cfg.set_u16(0x04, 0x0001); // I/O-space enable
+    bridge.attach_pio(
+        0,
+        2,
+        0,
+        uhci_cfg,
+        4,
+        Box::new(crate::devices::uhci::Uhci::new(0)),
+    );
+
+    // NVMe controller at 00:03.0 — BAR0 is an 8 KiB MMIO register block. The
+    // controller DMAs its admin queues from guest RAM via the Mem adapter. With
+    // no disk attached it enumerates with zero namespaces.
+    let mut nvme_cfg = ConfigSpace::device(0x8086, 0x5845, 0x01_08_02, 0x00);
+    nvme_cfg.set_bar(0, Bar::mem32(0x2000));
+    nvme_cfg.set_u32(0x10, (PCI_MMIO_AP_BASE + 0x10_0000) as u32);
+    nvme_cfg.set_u16(0x04, 0x0006); // memory-space + bus-master enable
+    bridge.attach_mmio(
+        0,
+        3,
+        0,
+        nvme_cfg,
+        0,
+        Box::new(crate::devices::nvme::NvmeController::new(
+            0,
+            GuestDmaMem(mem.clone()),
+            Vec::new(),
+        )),
+    );
+
+    // AHCI SATA controller at 00:04.0 — ABAR (BAR5) is an 8 KiB MMIO block. No
+    // SATA drive attached, so it enumerates with no ports populated.
+    let mut ahci_cfg = ConfigSpace::device(0x8086, 0x2922, 0x01_06_01, 0x00);
+    ahci_cfg.set_bar(5, Bar::mem32(0x2000));
+    ahci_cfg.set_u32(0x10 + 5 * 4, (PCI_MMIO_AP_BASE + 0x20_0000) as u32);
+    ahci_cfg.set_u16(0x04, 0x0006);
+    bridge.attach_mmio(
+        0,
+        4,
+        0,
+        ahci_cfg,
+        5,
+        Box::new(crate::devices::ahci::AhciController::new(
+            0,
+            GuestDmaMem(mem),
+            Vec::new(),
+        )),
+    );
+
+    Ok(())
 }
 
 /// Wrapper to make Pit implement IoDevice via shared reference
@@ -229,6 +340,31 @@ impl Vmm {
         let mut mmio_bus = MmioBus::new();
         arch.setup_devices(&mut io_bus, &mut mmio_bus)?;
 
+        // PCI host bridge (x86). Owned here so it can be shared with the
+        // emulator MMU for BAR-mapped MMIO routing. The bridge (config ports
+        // 0xCF8-0xCFF) is always present on x86; the optional device models are
+        // attached only with --pci-devices.
+        let pci_bridge: Option<Arc<std::sync::Mutex<PciStub>>> =
+            if config.arch == ArchKind::X86_64 {
+                let pci = Arc::new(std::sync::Mutex::new(PciStub::new()));
+                if config.pci_devices {
+                    attach_pci_devices(&pci, Arc::new(guest_mem.memory().clone()))?;
+                    info!("attached optional PCI devices (e1000, uhci, nvme, ahci)");
+                }
+                io_bus.register(
+                    IoRange {
+                        base: PCI_CONFIG_ADDRESS,
+                        len: 8,
+                    },
+                    Box::new(SharedIoDevice::new(pci.clone())),
+                )?;
+                // Dynamically-assigned PCI I/O BARs are reached via this fallback.
+                io_bus.set_pci(pci.clone());
+                Some(pci)
+            } else {
+                None
+            };
+
         let serial_mmio_base = arch.serial_mmio_base();
         let serial_irq = arch.serial_irq();
 
@@ -319,6 +455,18 @@ impl Vmm {
 
             debug!(vcpu_id = cpu_id, "created vCPU");
             vcpus.push(vcpu);
+        }
+
+        // Hand the PCI host bridge to the BSP's MMU so BAR-mapped MMIO in the
+        // aperture is routed to PCI device handlers (emulator backend only; the
+        // default VCpu::set_pci_bridge is a no-op for KVM/HVF). Only needed when
+        // device models are actually attached.
+        if config.pci_devices {
+            if let Some(ref pci) = pci_bridge {
+                if let Some(vcpu) = vcpus.get_mut(0) {
+                    vcpu.set_pci_bridge(pci.clone(), PCI_MMIO_AP_BASE, PCI_MMIO_AP_END);
+                }
+            }
         }
 
         // Initialize GDB server if configured
