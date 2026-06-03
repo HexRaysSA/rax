@@ -2271,6 +2271,42 @@ pub enum OpKind {
     WriteSysReg { reg: u32, src: VReg },
 
     // ========================================================================
+    // HEXAGON SCALAR FLOATING POINT (F2_*)
+    // ========================================================================
+    /// Hexagon scalar FP operation, computed bit-exactly against the
+    /// `qemu-hexagon` reference semantics (`sem/float.rs` / `sem/float_ext.rs`):
+    /// native f32/f64 arithmetic plus Hexagon's default-NaN canonicalisation
+    /// (all-ones), signed-zero min/max tie rules, and the int/float conversion
+    /// special cases. `src1`/`src2` carry the raw operand bits (f32 in the low
+    /// 32 bits, f64 in 64; conversion operands are raw ints). `dst` receives the
+    /// raw result bits (a GPR/pair value, or a 0x00/0xff Hexagon predicate byte
+    /// for the compare/classify forms). `src2` is ignored for the unary ops.
+    ///
+    /// Self-contained: the whole computation lives in the interp arm so it does
+    /// NOT depend on (or perturb) the generic `FAdd`/`FCmp`/... ops shared with
+    /// the other architectures.
+    HexFp {
+        dst: VReg,
+        src1: VReg,
+        src2: VReg,
+        op: HexFpOp,
+    },
+
+    /// Hexagon single-precision fused multiply-add `Rx {+,-}= Rs*Rt` (single
+    /// IEEE rounding, native `f32::mul_add` + default-NaN canonicalisation).
+    /// `src1`=Rs, `src2`=Rt, `src3`=Rx (accumulator). Matches the F2_sffma /
+    /// F2_sffms reference result bits (the harness ignores the FP exception
+    /// flags). Self-contained, like [`OpKind::HexFp`].
+    HexFp3 {
+        dst: VReg,
+        src1: VReg,
+        src2: VReg,
+        src3: VReg,
+        /// true => negate the product (sffms: `Rx - Rs*Rt`).
+        negate_product: bool,
+    },
+
+    // ========================================================================
     // META / DEBUG
     // ========================================================================
     /// No-op
@@ -2281,6 +2317,68 @@ pub enum OpKind {
 
     /// Debug breakpoint
     Breakpoint,
+}
+
+/// Hexagon scalar floating-point sub-operation for [`OpKind::HexFp`]. Each
+/// variant mirrors a `F2_*` opcode's reference semantics exactly (result bits
+/// only — the harness compares result + USR:OVF, not the FP exception flags).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum HexFpOp {
+    // --- compares -> predicate byte (0x00 / 0xff) ---
+    SfCmpEq,
+    SfCmpGt,
+    SfCmpGe,
+    SfCmpUo,
+    DfCmpEq,
+    DfCmpGt,
+    DfCmpGe,
+    DfCmpUo,
+    // --- classify -> predicate byte (src2 = class-mask immediate bits) ---
+    SfClass,
+    DfClass,
+    // --- min / max (operand bits returned; signed-zero + NaN tie rules) ---
+    SfMin,
+    SfMax,
+    DfMin,
+    DfMax,
+    // --- arithmetic (native round-to-nearest result + default-NaN) ---
+    SfAdd,
+    SfSub,
+    SfMpy,
+    DfAdd,
+    DfSub,
+    // --- conversions ---
+    /// f64 -> f32 narrowing
+    ConvDf2Sf,
+    /// f32 -> f64 widening
+    ConvSf2Df,
+    /// signed/unsigned int (W/D) -> f32/f64; encoded by the variant below
+    ConvW2Sf,
+    ConvUw2Sf,
+    ConvD2Sf,
+    ConvUd2Sf,
+    ConvW2Df,
+    ConvUw2Df,
+    ConvD2Df,
+    ConvUd2Df,
+    /// f32 -> signed/unsigned int, round-to-nearest-even (base) or chop
+    ConvSf2W,
+    ConvSf2WChop,
+    ConvSf2Uw,
+    ConvSf2UwChop,
+    ConvSf2D,
+    ConvSf2DChop,
+    ConvSf2Ud,
+    ConvSf2UdChop,
+    /// f64 -> signed/unsigned int
+    ConvDf2W,
+    ConvDf2WChop,
+    ConvDf2Uw,
+    ConvDf2UwChop,
+    ConvDf2D,
+    ConvDf2DChop,
+    ConvDf2Ud,
+    ConvDf2UdChop,
 }
 
 impl OpKind {
@@ -2397,6 +2495,8 @@ impl OpKind {
             | OpKind::FMin { dst, .. }
             | OpKind::FMax { dst, .. }
             | OpKind::FConvert { dst, .. }
+            | OpKind::HexFp { dst, .. }
+            | OpKind::HexFp3 { dst, .. }
             | OpKind::IntToFp { dst, .. }
             | OpKind::FpToInt { dst, .. }
             | OpKind::FRound { dst, .. }

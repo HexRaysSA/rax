@@ -12,7 +12,7 @@ use crate::smir::ir::{
 use crate::smir::lift::{
     ControlFlow, LiftContext, LiftError, LiftResult, MemoryReader, SmirLifter,
 };
-use crate::smir::ops::{OpKind, SmirOp};
+use crate::smir::ops::{HexFpOp, OpKind, SmirOp};
 use crate::smir::types::*;
 
 // Re-use the existing Hexagon decoder types
@@ -17980,6 +17980,354 @@ impl HexagonLifter {
                     right: matches!(op, Opcode::S2_asr_r_r_sat),
                     width: OpWidth::W32,
                 });
+            }
+
+            // ============================================================
+            // F2 scalar floating point (oracle-backed result bits).
+            //
+            // The qemu-hexagon reference (sem/float.rs, float_ext.rs) computes
+            // these with native f32/f64 plus Hexagon's default-NaN / signed-zero
+            // / saturation rules; the harness compares the RESULT register or
+            // predicate (and USR:OVF, which none of these set). The bit-exact
+            // computation lives in the `OpKind::HexFp` interp arm. Pure-integer
+            // F2 ops (imm-make, the dfmpyll/lh integer multiplies, vmux) are
+            // composed from existing integer ops and are handled elsewhere /
+            // below without an FP op.
+            // ============================================================
+
+            // ---- compares -> predicate Pd (0x00/0xff) ----
+            Opcode::F2_sfcmpeq
+            | Opcode::F2_sfcmpgt
+            | Opcode::F2_sfcmpge
+            | Opcode::F2_sfcmpuo => {
+                let hfop = match op {
+                    Opcode::F2_sfcmpeq => HexFpOp::SfCmpEq,
+                    Opcode::F2_sfcmpgt => HexFpOp::SfCmpGt,
+                    Opcode::F2_sfcmpge => HexFpOp::SfCmpGe,
+                    _ => HexFpOp::SfCmpUo,
+                };
+                push_op!(OpKind::HexFp { dst: self.hex_pred(rd_n), src1: rs, src2: rt, op: hfop });
+            }
+            Opcode::F2_dfcmpeq
+            | Opcode::F2_dfcmpgt
+            | Opcode::F2_dfcmpge
+            | Opcode::F2_dfcmpuo => {
+                let hfop = match op {
+                    Opcode::F2_dfcmpeq => HexFpOp::DfCmpEq,
+                    Opcode::F2_dfcmpgt => HexFpOp::DfCmpGt,
+                    Opcode::F2_dfcmpge => HexFpOp::DfCmpGe,
+                    _ => HexFpOp::DfCmpUo,
+                };
+                let a = read_pair!(fld(b's'));
+                let b = read_pair!(fld(b't'));
+                push_op!(OpKind::HexFp { dst: self.hex_pred(rd_n), src1: a, src2: b, op: hfop });
+            }
+
+            // ---- classify -> predicate Pd (imm = class mask, field `i`) ----
+            Opcode::F2_sfclass => {
+                let imm = ctx.alloc_vreg();
+                push_op!(OpKind::Mov {
+                    dst: imm,
+                    src: SrcOperand::Imm(fimm_u(b'i') as i64),
+                    width: OpWidth::W32,
+                });
+                push_op!(OpKind::HexFp { dst: self.hex_pred(rd_n), src1: rs, src2: imm, op: HexFpOp::SfClass });
+            }
+            Opcode::F2_dfclass => {
+                let imm = ctx.alloc_vreg();
+                push_op!(OpKind::Mov {
+                    dst: imm,
+                    src: SrcOperand::Imm(fimm_u(b'i') as i64),
+                    width: OpWidth::W32,
+                });
+                let a = read_pair!(fld(b's'));
+                push_op!(OpKind::HexFp { dst: self.hex_pred(rd_n), src1: a, src2: imm, op: HexFpOp::DfClass });
+            }
+
+            // ---- single-precision GPR-result binary/unary FP ----
+            Opcode::F2_sfmin
+            | Opcode::F2_sfmax
+            | Opcode::F2_sfadd
+            | Opcode::F2_sfsub
+            | Opcode::F2_sfmpy => {
+                let hfop = match op {
+                    Opcode::F2_sfmin => HexFpOp::SfMin,
+                    Opcode::F2_sfmax => HexFpOp::SfMax,
+                    Opcode::F2_sfadd => HexFpOp::SfAdd,
+                    Opcode::F2_sfsub => HexFpOp::SfSub,
+                    _ => HexFpOp::SfMpy,
+                };
+                let r = ctx.alloc_vreg();
+                push_op!(OpKind::HexFp { dst: r, src1: rs, src2: rt, op: hfop });
+                set_r!(r);
+            }
+
+            // ---- double-precision GPR-pair-result binary FP ----
+            Opcode::F2_dfmin
+            | Opcode::F2_dfmax
+            | Opcode::F2_dfadd
+            | Opcode::F2_dfsub => {
+                let hfop = match op {
+                    Opcode::F2_dfmin => HexFpOp::DfMin,
+                    Opcode::F2_dfmax => HexFpOp::DfMax,
+                    Opcode::F2_dfadd => HexFpOp::DfAdd,
+                    _ => HexFpOp::DfSub,
+                };
+                let a = read_pair!(fld(b's'));
+                let b = read_pair!(fld(b't'));
+                let r = ctx.alloc_vreg();
+                push_op!(OpKind::HexFp { dst: r, src1: a, src2: b, op: hfop });
+                write_pair!(rd_n, r);
+            }
+
+            // ---- df -> sf narrowing (pair in, GPR out) ----
+            Opcode::F2_conv_df2sf => {
+                let a = read_pair!(fld(b's'));
+                let r = ctx.alloc_vreg();
+                push_op!(OpKind::HexFp { dst: r, src1: a, src2: a, op: HexFpOp::ConvDf2Sf });
+                set_r!(r);
+            }
+            // ---- sf -> df widening (GPR in, pair out) ----
+            Opcode::F2_conv_sf2df => {
+                let r = ctx.alloc_vreg();
+                push_op!(OpKind::HexFp { dst: r, src1: rs, src2: rs, op: HexFpOp::ConvSf2Df });
+                write_pair!(rd_n, r);
+            }
+
+            // ---- int (32-bit GPR) -> float, GPR result ----
+            Opcode::F2_conv_w2sf | Opcode::F2_conv_uw2sf => {
+                let hfop = if matches!(op, Opcode::F2_conv_w2sf) {
+                    HexFpOp::ConvW2Sf
+                } else {
+                    HexFpOp::ConvUw2Sf
+                };
+                let r = ctx.alloc_vreg();
+                push_op!(OpKind::HexFp { dst: r, src1: rs, src2: rs, op: hfop });
+                set_r!(r);
+            }
+            // ---- int (32-bit GPR) -> float, pair result ----
+            Opcode::F2_conv_w2df | Opcode::F2_conv_uw2df => {
+                let hfop = if matches!(op, Opcode::F2_conv_w2df) {
+                    HexFpOp::ConvW2Df
+                } else {
+                    HexFpOp::ConvUw2Df
+                };
+                let r = ctx.alloc_vreg();
+                push_op!(OpKind::HexFp { dst: r, src1: rs, src2: rs, op: hfop });
+                write_pair!(rd_n, r);
+            }
+            // ---- int (64-bit pair) -> float, GPR result ----
+            Opcode::F2_conv_d2sf | Opcode::F2_conv_ud2sf => {
+                let hfop = if matches!(op, Opcode::F2_conv_d2sf) {
+                    HexFpOp::ConvD2Sf
+                } else {
+                    HexFpOp::ConvUd2Sf
+                };
+                let a = read_pair!(fld(b's'));
+                let r = ctx.alloc_vreg();
+                push_op!(OpKind::HexFp { dst: r, src1: a, src2: a, op: hfop });
+                set_r!(r);
+            }
+            // ---- int (64-bit pair) -> float, pair result ----
+            Opcode::F2_conv_d2df | Opcode::F2_conv_ud2df => {
+                let hfop = if matches!(op, Opcode::F2_conv_d2df) {
+                    HexFpOp::ConvD2Df
+                } else {
+                    HexFpOp::ConvUd2Df
+                };
+                let a = read_pair!(fld(b's'));
+                let r = ctx.alloc_vreg();
+                push_op!(OpKind::HexFp { dst: r, src1: a, src2: a, op: hfop });
+                write_pair!(rd_n, r);
+            }
+
+            // ---- sf -> int, GPR result (32-bit dest) ----
+            Opcode::F2_conv_sf2w
+            | Opcode::F2_conv_sf2w_chop
+            | Opcode::F2_conv_sf2uw
+            | Opcode::F2_conv_sf2uw_chop => {
+                let hfop = match op {
+                    Opcode::F2_conv_sf2w => HexFpOp::ConvSf2W,
+                    Opcode::F2_conv_sf2w_chop => HexFpOp::ConvSf2WChop,
+                    Opcode::F2_conv_sf2uw => HexFpOp::ConvSf2Uw,
+                    _ => HexFpOp::ConvSf2UwChop,
+                };
+                let r = ctx.alloc_vreg();
+                push_op!(OpKind::HexFp { dst: r, src1: rs, src2: rs, op: hfop });
+                set_r!(r);
+            }
+            // ---- sf -> int, pair result (64-bit dest) ----
+            Opcode::F2_conv_sf2d
+            | Opcode::F2_conv_sf2d_chop
+            | Opcode::F2_conv_sf2ud
+            | Opcode::F2_conv_sf2ud_chop => {
+                let hfop = match op {
+                    Opcode::F2_conv_sf2d => HexFpOp::ConvSf2D,
+                    Opcode::F2_conv_sf2d_chop => HexFpOp::ConvSf2DChop,
+                    Opcode::F2_conv_sf2ud => HexFpOp::ConvSf2Ud,
+                    _ => HexFpOp::ConvSf2UdChop,
+                };
+                let r = ctx.alloc_vreg();
+                push_op!(OpKind::HexFp { dst: r, src1: rs, src2: rs, op: hfop });
+                write_pair!(rd_n, r);
+            }
+            // ---- df -> int, GPR result (32-bit dest) ----
+            Opcode::F2_conv_df2w
+            | Opcode::F2_conv_df2w_chop
+            | Opcode::F2_conv_df2uw
+            | Opcode::F2_conv_df2uw_chop => {
+                let hfop = match op {
+                    Opcode::F2_conv_df2w => HexFpOp::ConvDf2W,
+                    Opcode::F2_conv_df2w_chop => HexFpOp::ConvDf2WChop,
+                    Opcode::F2_conv_df2uw => HexFpOp::ConvDf2Uw,
+                    _ => HexFpOp::ConvDf2UwChop,
+                };
+                let a = read_pair!(fld(b's'));
+                let r = ctx.alloc_vreg();
+                push_op!(OpKind::HexFp { dst: r, src1: a, src2: a, op: hfop });
+                set_r!(r);
+            }
+            // ---- df -> int, pair result (64-bit dest) ----
+            Opcode::F2_conv_df2d
+            | Opcode::F2_conv_df2d_chop
+            | Opcode::F2_conv_df2ud
+            | Opcode::F2_conv_df2ud_chop => {
+                let hfop = match op {
+                    Opcode::F2_conv_df2d => HexFpOp::ConvDf2D,
+                    Opcode::F2_conv_df2d_chop => HexFpOp::ConvDf2DChop,
+                    Opcode::F2_conv_df2ud => HexFpOp::ConvDf2Ud,
+                    _ => HexFpOp::ConvDf2UdChop,
+                };
+                let a = read_pair!(fld(b's'));
+                let r = ctx.alloc_vreg();
+                push_op!(OpKind::HexFp { dst: r, src1: a, src2: a, op: hfop });
+                write_pair!(rd_n, r);
+            }
+
+            // ---- single-precision fused multiply-add (Rx {+,-}= Rs*Rt) ----
+            // Single IEEE rounding (native fma); result bits match the sem.
+            Opcode::F2_sffma | Opcode::F2_sffms => {
+                let r = ctx.alloc_vreg();
+                push_op!(OpKind::HexFp3 {
+                    dst: r,
+                    src1: rs,
+                    src2: rt,
+                    src3: rx, // accumulator Rx (field `x`)
+                    negate_product: matches!(op, Opcode::F2_sffms),
+                });
+                // Write back to Rx (field `x`).
+                push_op!(OpKind::Mov {
+                    dst: rx,
+                    src: SrcOperand::Reg(r),
+                    width: OpWidth::W32,
+                });
+            }
+
+            // ---- double-precision integer multiplies (pure integer, no FP) ----
+            // dfmpyll: prod = lo(Rss)*lo(Rtt) (u32*u32->u64);
+            //          Rdd = (prod>>32)<<1; if lo32(prod)!=0 { Rdd |= 1 }
+            Opcode::F2_dfmpyll => {
+                let s_even = fld(b's') & !1;
+                let t_even = fld(b't') & !1;
+                let a = ctx.alloc_vreg();
+                let b = ctx.alloc_vreg();
+                push_op!(OpKind::ZeroExtend {
+                    dst: a,
+                    src: self.hex_reg(s_even),
+                    from_width: OpWidth::W32,
+                    to_width: OpWidth::W64
+                });
+                push_op!(OpKind::ZeroExtend {
+                    dst: b,
+                    src: self.hex_reg(t_even),
+                    from_width: OpWidth::W32,
+                    to_width: OpWidth::W64
+                });
+                let prod = ctx.alloc_vreg();
+                push_op!(OpKind::MulU {
+                    dst_lo: prod,
+                    dst_hi: None,
+                    src1: a,
+                    src2: SrcOperand::Reg(b),
+                    width: OpWidth::W64,
+                    flags: FlagUpdate::None,
+                });
+                // hi2 = (prod >> 32) << 1
+                let hi = ctx.alloc_vreg();
+                push_op!(OpKind::Shr {
+                    dst: hi,
+                    src: prod,
+                    amount: SrcOperand::Imm(32),
+                    width: OpWidth::W64,
+                    flags: FlagUpdate::None,
+                });
+                let hi2 = ctx.alloc_vreg();
+                push_op!(OpKind::Shl {
+                    dst: hi2,
+                    src: hi,
+                    amount: SrcOperand::Imm(1),
+                    width: OpWidth::W64,
+                    flags: FlagUpdate::None,
+                });
+                // lobit = (lo32(prod) != 0) ? 1 : 0
+                let lo32 = ctx.alloc_vreg();
+                push_op!(OpKind::And {
+                    dst: lo32,
+                    src1: prod,
+                    src2: SrcOperand::Imm(0xffff_ffff),
+                    width: OpWidth::W64,
+                    flags: FlagUpdate::None,
+                });
+                push_op!(OpKind::Cmp { src1: lo32, src2: SrcOperand::Imm(0), width: OpWidth::W64 });
+                let nz = ctx.alloc_vreg();
+                push_op!(OpKind::SetCC { dst: nz, cond: Condition::Ne, width: OpWidth::W64 });
+                let r = ctx.alloc_vreg();
+                push_op!(OpKind::Or {
+                    dst: r,
+                    src1: hi2,
+                    src2: SrcOperand::Reg(nz),
+                    width: OpWidth::W64,
+                    flags: FlagUpdate::None,
+                });
+                write_pair!(rd_n, r);
+            }
+            // NOTE: F2_dfmpylh is intentionally NOT lifted. The reference sem
+            // (sem/float_ext.rs) writes its accumulate result to field `d`
+            // (`set_rp(rd, ...)`), but this opcode has no `d` field — only s/t/x
+            // — so `rd` defaults to 0 and the oracle writes R1:R0 instead of the
+            // architectural Rxx. A correct `Rxx += ...` lift would therefore
+            // "diverge" from the (buggy) oracle, and matching the bug would ship a
+            // knowingly-wrong lift. Left as an unverifiable boundary.
+
+            // ---- immediate make: pure integer construction (no FP op) ----
+            // sfimm_p: v = ((127-6)<<23) + (imm<<17)
+            // sfimm_n: same | (1<<31)
+            Opcode::F2_sfimm_p | Opcode::F2_sfimm_n => {
+                let imm = fimm_u(b'i');
+                let mut v = ((127u32 - 6) << 23).wrapping_add(imm << 17);
+                if matches!(op, Opcode::F2_sfimm_n) {
+                    v |= 1 << 31;
+                }
+                push_op!(OpKind::Mov {
+                    dst: rd,
+                    src: SrcOperand::Imm(v as i32 as i64),
+                    width: OpWidth::W32,
+                });
+            }
+            // dfimm_p: v = ((1023-6)<<52) + (imm<<46); dfimm_n: | (1<<63)
+            Opcode::F2_dfimm_p | Opcode::F2_dfimm_n => {
+                let imm = fimm_u(b'i') as u64;
+                let mut v = ((1023u64 - 6) << 52).wrapping_add(imm << 46);
+                if matches!(op, Opcode::F2_dfimm_n) {
+                    v |= 1u64 << 63;
+                }
+                let r = ctx.alloc_vreg();
+                push_op!(OpKind::Mov {
+                    dst: r,
+                    src: SrcOperand::Imm(v as i64),
+                    width: OpWidth::W64,
+                });
+                write_pair!(rd_n, r);
             }
 
             // Everything else: not implemented here.

@@ -1531,12 +1531,16 @@ impl OpKind {
             | OpKind::FDiv { src1, src2, .. }
             | OpKind::FMin { src1, src2, .. }
             | OpKind::FMax { src1, src2, .. }
-            | OpKind::FCmp { src1, src2, .. } => {
+            | OpKind::FCmp { src1, src2, .. }
+            | OpKind::HexFp { src1, src2, .. } => {
                 result.push(*src1);
                 result.push(*src2);
             }
 
             OpKind::FFma {
+                src1, src2, src3, ..
+            }
+            | OpKind::HexFp3 {
                 src1, src2, src3, ..
             } => {
                 result.push(*src1);

@@ -8,7 +8,7 @@ use crate::smir::context::{ArchRegState, ExitReason, SmirContext, VecValue};
 use crate::smir::flags::{FlagUpdate, LazyFlagOp, LazyFlags};
 use crate::smir::ir::{CallTarget, SmirBlock, SmirFunction, Terminator, TrapKind};
 use crate::smir::memory::{MemoryError, SmirMemory};
-use crate::smir::ops::{OpKind, SmirOp};
+use crate::smir::ops::{HexFpOp, OpKind, SmirOp};
 use crate::smir::types::*;
 
 // ============================================================================
@@ -1880,6 +1880,32 @@ impl SmirInterpreter {
             OpKind::FConvert { dst, src, from, to } => {
                 let a = self.read_fp(ctx, *src, *from);
                 self.write_fp(ctx, *dst, a, *to);
+            }
+
+            OpKind::HexFp {
+                dst,
+                src1,
+                src2,
+                op,
+            } => {
+                let a = ctx.read_vreg(*src1);
+                let b = ctx.read_vreg(*src2);
+                let r = hex_fp_eval(*op, a, b);
+                ctx.write_vreg(*dst, r);
+            }
+
+            OpKind::HexFp3 {
+                dst,
+                src1,
+                src2,
+                src3,
+                negate_product,
+            } => {
+                let a = ctx.read_vreg(*src1) as u32;
+                let b = ctx.read_vreg(*src2) as u32;
+                let c = ctx.read_vreg(*src3) as u32;
+                let r = hex_sf_fma(a, b, c, *negate_product);
+                ctx.write_vreg(*dst, r as u64);
             }
 
             OpKind::IntToFp {
@@ -5352,6 +5378,396 @@ impl Default for SmirInterpreter {
 }
 
 // ============================================================================
+// Hexagon scalar floating-point evaluation (OpKind::HexFp)
+// ============================================================================
+//
+// Bit-exact port of the `qemu-hexagon` reference semantics in
+// `src/backend/emulator/hexagon/sem/float.rs` and `float_ext.rs`. Only the
+// RESULT bit pattern is produced here (the SMIR-lift harness compares the
+// result register/predicate and USR:OVF (bit0); none of the F2 ops set OVF, and
+// the FP exception sticky bits — USR bits 1..5 — are NOT compared, so they are
+// intentionally not modeled). NaN results are canonicalised to Hexagon's
+// default all-ones NaN, matching QEMU's `default_nan_mode`.
+
+#[inline]
+fn hf32_is_nan(b: u32) -> bool {
+    (b & 0x7f80_0000) == 0x7f80_0000 && (b & 0x007f_ffff) != 0
+}
+#[inline]
+fn hf64_is_nan(b: u64) -> bool {
+    (b & 0x7ff0_0000_0000_0000) == 0x7ff0_0000_0000_0000 && (b & 0x000f_ffff_ffff_ffff) != 0
+}
+
+/// Hexagon `fpclassify` category on raw f32 bits.
+#[inline]
+fn hf32_class_bit(b: u32) -> u32 {
+    let exp = (b >> 23) & 0xff;
+    let mant = b & 0x007f_ffff;
+    if exp == 0 {
+        if mant == 0 {
+            0 // Zero
+        } else {
+            2 // Subnormal
+        }
+    } else if exp == 0xff {
+        if mant == 0 {
+            3 // Infinite
+        } else {
+            4 // Nan
+        }
+    } else {
+        1 // Normal
+    }
+}
+#[inline]
+fn hf64_class_bit(b: u64) -> u32 {
+    let exp = (b >> 52) & 0x7ff;
+    let mant = b & 0x000f_ffff_ffff_ffff;
+    if exp == 0 {
+        if mant == 0 {
+            0
+        } else {
+            2
+        }
+    } else if exp == 0x7ff {
+        if mant == 0 {
+            3
+        } else {
+            4
+        }
+    } else {
+        1
+    }
+}
+
+/// Relation result of an ordered IEEE compare (Unordered if either is NaN).
+#[derive(PartialEq, Clone, Copy)]
+enum HfRel {
+    Less,
+    Equal,
+    Greater,
+    Unordered,
+}
+
+fn hf_cmp_sf(a: u32, b: u32) -> HfRel {
+    if hf32_is_nan(a) || hf32_is_nan(b) {
+        return HfRel::Unordered;
+    }
+    let (fa, fb) = (f32::from_bits(a), f32::from_bits(b));
+    if fa < fb {
+        HfRel::Less
+    } else if fa > fb {
+        HfRel::Greater
+    } else {
+        HfRel::Equal
+    }
+}
+fn hf_cmp_df(a: u64, b: u64) -> HfRel {
+    if hf64_is_nan(a) || hf64_is_nan(b) {
+        return HfRel::Unordered;
+    }
+    let (fa, fb) = (f64::from_bits(a), f64::from_bits(b));
+    if fa < fb {
+        HfRel::Less
+    } else if fa > fb {
+        HfRel::Greater
+    } else {
+        HfRel::Equal
+    }
+}
+
+/// IEEE-754-2019 minimumNumber / maximumNumber on raw f32 bits.
+fn hf_sf_minmax(a: u32, b: u32, is_min: bool) -> u32 {
+    let an = hf32_is_nan(a);
+    let bn = hf32_is_nan(b);
+    if an || bn {
+        if !(an && bn) {
+            return if an { b } else { a };
+        }
+        return 0xFFFF_FFFF; // both NaN -> default NaN
+    }
+    let (fa, fb) = (f32::from_bits(a), f32::from_bits(b));
+    let pick_a = if fa == fb {
+        let sa = (a >> 31) & 1;
+        let sb = (b >> 31) & 1;
+        if sa == sb {
+            true
+        } else if is_min {
+            sa == 1
+        } else {
+            sa == 0
+        }
+    } else if is_min {
+        fa < fb
+    } else {
+        fa > fb
+    };
+    if pick_a {
+        a
+    } else {
+        b
+    }
+}
+fn hf_df_minmax(a: u64, b: u64, is_min: bool) -> u64 {
+    let an = hf64_is_nan(a);
+    let bn = hf64_is_nan(b);
+    if an || bn {
+        if !(an && bn) {
+            return if an { b } else { a };
+        }
+        return 0xFFFF_FFFF_FFFF_FFFF;
+    }
+    let (fa, fb) = (f64::from_bits(a), f64::from_bits(b));
+    let pick_a = if fa == fb {
+        let sa = (a >> 63) & 1;
+        let sb = (b >> 63) & 1;
+        if sa == sb {
+            true
+        } else if is_min {
+            sa == 1
+        } else {
+            sa == 0
+        }
+    } else if is_min {
+        fa < fb
+    } else {
+        fa > fb
+    };
+    if pick_a {
+        a
+    } else {
+        b
+    }
+}
+
+#[inline]
+fn hf_round_f32(f: f32, chop: bool) -> f32 {
+    if chop {
+        f.trunc()
+    } else {
+        f.round_ties_even()
+    }
+}
+#[inline]
+fn hf_round_f64(f: f64, chop: bool) -> f64 {
+    if chop {
+        f.trunc()
+    } else {
+        f.round_ties_even()
+    }
+}
+
+/// `float_to_sint` clamp (mirrors sem/float.rs).
+fn hf_to_sint(ri: f64, min: i128, max: i128) -> i128 {
+    let v = ri as i128;
+    if v < min || v > max || !ri.is_finite() {
+        if ri.is_sign_negative() {
+            min
+        } else {
+            max
+        }
+    } else {
+        v
+    }
+}
+fn hf_to_uint(ri: f64, max: u128) -> u128 {
+    if !ri.is_finite() {
+        return max;
+    }
+    let v = ri as i128;
+    if v < 0 || (v as u128) > max {
+        max
+    } else {
+        v as u128
+    }
+}
+
+fn hf_sf_to_sint(b: u32, chop: bool, min: i128, max: i128) -> i128 {
+    if hf32_is_nan(b) {
+        return -1;
+    }
+    let f = f32::from_bits(b);
+    let ri = hf_round_f32(f, chop);
+    hf_to_sint(ri as f64, min, max)
+}
+fn hf_sf_to_uint(b: u32, chop: bool, max: u128) -> u128 {
+    if hf32_is_nan(b) {
+        return max;
+    }
+    let f = f32::from_bits(b);
+    if (b & 0x8000_0000) != 0 && f != 0.0 {
+        return 0;
+    }
+    let ri = hf_round_f32(f, chop);
+    hf_to_uint(ri as f64, max)
+}
+fn hf_df_to_sint(b: u64, chop: bool, min: i128, max: i128) -> i128 {
+    if hf64_is_nan(b) {
+        return -1;
+    }
+    let f = f64::from_bits(b);
+    let ri = hf_round_f64(f, chop);
+    hf_to_sint(ri, min, max)
+}
+fn hf_df_to_uint(b: u64, chop: bool, max: u128) -> u128 {
+    if hf64_is_nan(b) {
+        return max;
+    }
+    let f = f64::from_bits(b);
+    if (b & 0x8000_0000_0000_0000) != 0 && f != 0.0 {
+        return 0;
+    }
+    let ri = hf_round_f64(f, chop);
+    hf_to_uint(ri, max)
+}
+
+/// `df -> sf` narrowing (sem `df_to_sf`); only the result bits.
+fn hf_df_to_sf(b: u64) -> u32 {
+    if hf64_is_nan(b) {
+        return 0xFFFF_FFFF;
+    }
+    (f64::from_bits(b) as f32).to_bits()
+}
+
+/// Hexagon single-precision fused multiply-add `c {+,-} a*b` with a single IEEE
+/// rounding (native `f32::mul_add`) and default-NaN canonicalisation. Mirrors
+/// the F2_sffma / F2_sffms reference (`sem/float_ext.rs::sf_fma`) for the result
+/// bits: `mul_add` is correctly-rounded (one rounding), so the finite result
+/// matches; any NaN result is canonicalised to all-ones (Hexagon default NaN),
+/// which also covers the invalid cases (sNaN input, 0*inf, inf-inf).
+fn hex_sf_fma(araw: u32, braw: u32, craw: u32, negate_product: bool) -> u32 {
+    // sffms computes Rx - Rs*Rt = (-Rs)*Rt + Rx.
+    let fa = f32::from_bits(if negate_product { araw ^ 0x8000_0000 } else { araw });
+    let fb = f32::from_bits(braw);
+    let fc = f32::from_bits(craw);
+    let r = fa.mul_add(fb, fc);
+    if r.is_nan() {
+        0xFFFF_FFFF
+    } else {
+        r.to_bits()
+    }
+}
+
+/// Evaluate a Hexagon scalar FP sub-op; `a`/`b` are raw operand bits.
+fn hex_fp_eval(op: HexFpOp, a: u64, b: u64) -> u64 {
+    use HexFpOp::*;
+    let a32 = a as u32;
+    let b32 = b as u32;
+    // Predicate helpers (Hexagon scalar predicate byte: 0x00 / 0xff).
+    let pred = |hit: bool| -> u64 {
+        if hit {
+            0xff
+        } else {
+            0x00
+        }
+    };
+    match op {
+        // ---- single compares ----
+        SfCmpEq => pred(hf_cmp_sf(a32, b32) == HfRel::Equal),
+        SfCmpGt => pred(hf_cmp_sf(a32, b32) == HfRel::Greater),
+        SfCmpGe => {
+            let r = hf_cmp_sf(a32, b32);
+            pred(r == HfRel::Greater || r == HfRel::Equal)
+        }
+        SfCmpUo => pred(hf_cmp_sf(a32, b32) == HfRel::Unordered),
+        // ---- double compares ----
+        DfCmpEq => pred(hf_cmp_df(a, b) == HfRel::Equal),
+        DfCmpGt => pred(hf_cmp_df(a, b) == HfRel::Greater),
+        DfCmpGe => {
+            let r = hf_cmp_df(a, b);
+            pred(r == HfRel::Greater || r == HfRel::Equal)
+        }
+        DfCmpUo => pred(hf_cmp_df(a, b) == HfRel::Unordered),
+        // ---- classify (b = class-mask immediate bits) ----
+        SfClass => pred((b32 >> hf32_class_bit(a32)) & 1 == 1),
+        DfClass => pred((b >> hf64_class_bit(a) as u64) & 1 == 1),
+        // ---- min / max ----
+        SfMin => hf_sf_minmax(a32, b32, true) as u64,
+        SfMax => hf_sf_minmax(a32, b32, false) as u64,
+        DfMin => hf_df_minmax(a, b, true),
+        DfMax => hf_df_minmax(a, b, false),
+        // ---- arithmetic (native round-to-nearest + default-NaN canonicalise) ----
+        SfAdd => {
+            let r = f32::from_bits(a32) + f32::from_bits(b32);
+            if r.is_nan() {
+                0xFFFF_FFFF
+            } else {
+                r.to_bits() as u64
+            }
+        }
+        SfSub => {
+            let r = f32::from_bits(a32) - f32::from_bits(b32);
+            if r.is_nan() {
+                0xFFFF_FFFF
+            } else {
+                r.to_bits() as u64
+            }
+        }
+        SfMpy => {
+            // f32*f32 is exact in f64, re-rounded to f32 (= direct f32 multiply).
+            let r = (f32::from_bits(a32) as f64 * f32::from_bits(b32) as f64) as f32;
+            if r.is_nan() {
+                0xFFFF_FFFF
+            } else {
+                r.to_bits() as u64
+            }
+        }
+        DfAdd => {
+            let r = f64::from_bits(a) + f64::from_bits(b);
+            if r.is_nan() {
+                0xFFFF_FFFF_FFFF_FFFF
+            } else {
+                r.to_bits()
+            }
+        }
+        DfSub => {
+            let r = f64::from_bits(a) - f64::from_bits(b);
+            if r.is_nan() {
+                0xFFFF_FFFF_FFFF_FFFF
+            } else {
+                r.to_bits()
+            }
+        }
+        // ---- conversions ----
+        ConvDf2Sf => hf_df_to_sf(a) as u64,
+        ConvSf2Df => {
+            if hf32_is_nan(a32) {
+                0xFFFF_FFFF_FFFF_FFFF
+            } else {
+                (f32::from_bits(a32) as f64).to_bits()
+            }
+        }
+        // int -> float (result is exact rounding; never NaN). `a` carries the raw
+        // source integer (32 or 64 bits) per the variant.
+        ConvW2Sf => ((a32 as i32 as f32).to_bits()) as u64,
+        ConvUw2Sf => ((a32 as f32).to_bits()) as u64,
+        ConvD2Sf => ((a as i64 as f32).to_bits()) as u64,
+        ConvUd2Sf => ((a as f32).to_bits()) as u64,
+        ConvW2Df => (a32 as i32 as f64).to_bits(),
+        ConvUw2Df => (a32 as f64).to_bits(),
+        ConvD2Df => (a as i64 as f64).to_bits(),
+        ConvUd2Df => (a as f64).to_bits(),
+        // float -> int
+        ConvSf2W => hf_sf_to_sint(a32, false, i32::MIN as i128, i32::MAX as i128) as i32 as u32 as u64,
+        ConvSf2WChop => hf_sf_to_sint(a32, true, i32::MIN as i128, i32::MAX as i128) as i32 as u32 as u64,
+        ConvSf2Uw => hf_sf_to_uint(a32, false, u32::MAX as u128) as u32 as u64,
+        ConvSf2UwChop => hf_sf_to_uint(a32, true, u32::MAX as u128) as u32 as u64,
+        ConvSf2D => hf_sf_to_sint(a32, false, i64::MIN as i128, i64::MAX as i128) as i64 as u64,
+        ConvSf2DChop => hf_sf_to_sint(a32, true, i64::MIN as i128, i64::MAX as i128) as i64 as u64,
+        ConvSf2Ud => hf_sf_to_uint(a32, false, u64::MAX as u128) as u64,
+        ConvSf2UdChop => hf_sf_to_uint(a32, true, u64::MAX as u128) as u64,
+        ConvDf2W => hf_df_to_sint(a, false, i32::MIN as i128, i32::MAX as i128) as i32 as u32 as u64,
+        ConvDf2WChop => hf_df_to_sint(a, true, i32::MIN as i128, i32::MAX as i128) as i32 as u32 as u64,
+        ConvDf2Uw => hf_df_to_uint(a, false, u32::MAX as u128) as u32 as u64,
+        ConvDf2UwChop => hf_df_to_uint(a, true, u32::MAX as u128) as u32 as u64,
+        ConvDf2D => hf_df_to_sint(a, false, i64::MIN as i128, i64::MAX as i128) as i64 as u64,
+        ConvDf2DChop => hf_df_to_sint(a, true, i64::MIN as i128, i64::MAX as i128) as i64 as u64,
+        ConvDf2Ud => hf_df_to_uint(a, false, u64::MAX as u128) as u64,
+        ConvDf2UdChop => hf_df_to_uint(a, true, u64::MAX as u128) as u64,
+    }
+}
+
+// ============================================================================
 // Tests
 // ============================================================================
 
@@ -5361,6 +5777,89 @@ mod tests {
     use crate::smir::flags::FlagUpdate;
     use crate::smir::ir::FunctionBuilder;
     use crate::smir::memory::FlatMemory;
+
+    #[test]
+    fn smir_hex_fp_eval_matches_sem() {
+        use HexFpOp::*;
+        let f32b = |x: f32| x.to_bits() as u64;
+        let f64b = |x: f64| x.to_bits();
+
+        // ---- compares -> predicate byte ----
+        assert_eq!(hex_fp_eval(SfCmpEq, f32b(1.0), f32b(1.0)), 0xff);
+        assert_eq!(hex_fp_eval(SfCmpEq, f32b(1.0), f32b(2.0)), 0x00);
+        assert_eq!(hex_fp_eval(SfCmpGt, f32b(2.0), f32b(1.0)), 0xff);
+        assert_eq!(hex_fp_eval(SfCmpGe, f32b(1.0), f32b(1.0)), 0xff);
+        // NaN -> unordered: eq/gt/ge false, uo true.
+        let snan32 = 0x7f80_0001u64; // signaling NaN
+        assert_eq!(hex_fp_eval(SfCmpEq, snan32, f32b(1.0)), 0x00);
+        assert_eq!(hex_fp_eval(SfCmpUo, snan32, f32b(1.0)), 0xff);
+        assert_eq!(hex_fp_eval(DfCmpGt, f64b(3.0), f64b(2.0)), 0xff);
+        assert_eq!(hex_fp_eval(DfCmpUo, f64::NAN.to_bits(), f64b(0.0)), 0xff);
+
+        // ---- classify: mask bit by category (0=zero,1=normal,2=sub,3=inf,4=nan) ----
+        assert_eq!(hex_fp_eval(SfClass, f32b(0.0), 1 << 0), 0xff); // zero
+        assert_eq!(hex_fp_eval(SfClass, f32b(1.5), 1 << 1), 0xff); // normal
+        assert_eq!(hex_fp_eval(SfClass, f32::INFINITY.to_bits() as u64, 1 << 3), 0xff);
+        assert_eq!(hex_fp_eval(SfClass, snan32, 1 << 4), 0xff); // nan
+        assert_eq!(hex_fp_eval(SfClass, f32b(1.5), 1 << 0), 0x00); // normal !zero
+        assert_eq!(hex_fp_eval(DfClass, f64b(0.0), 1 << 0), 0xff);
+
+        // ---- min / max with signed-zero tie + NaN ----
+        assert_eq!(hex_fp_eval(SfMax, f32b(1.0), f32b(2.0)), f32b(2.0));
+        assert_eq!(hex_fp_eval(SfMin, f32b(1.0), f32b(2.0)), f32b(1.0));
+        // max(+0,-0) = +0 ; min(+0,-0) = -0
+        assert_eq!(hex_fp_eval(SfMax, f32b(0.0), f32b(-0.0)), f32b(0.0));
+        assert_eq!(hex_fp_eval(SfMin, f32b(0.0), f32b(-0.0)), f32b(-0.0));
+        // one quiet NaN -> the number (no canonicalisation).
+        let qnan32 = 0x7fc0_0000u64;
+        assert_eq!(hex_fp_eval(SfMax, qnan32, f32b(3.0)), f32b(3.0));
+        // both NaN -> default all-ones.
+        assert_eq!(hex_fp_eval(SfMax, qnan32, qnan32), 0xFFFF_FFFF);
+        assert_eq!(hex_fp_eval(DfMax, f64b(1.0), f64b(2.0)), f64b(2.0));
+
+        // ---- arithmetic, native round + default-NaN ----
+        assert_eq!(hex_fp_eval(SfAdd, f32b(1.0), f32b(2.0)), f32b(3.0));
+        assert_eq!(hex_fp_eval(SfSub, f32b(5.0), f32b(2.0)), f32b(3.0));
+        assert_eq!(hex_fp_eval(SfMpy, f32b(3.0), f32b(4.0)), f32b(12.0));
+        assert_eq!(hex_fp_eval(DfAdd, f64b(1.0), f64b(2.0)), f64b(3.0));
+        assert_eq!(hex_fp_eval(DfSub, f64b(5.0), f64b(2.0)), f64b(3.0));
+        // inf - inf -> default NaN
+        assert_eq!(
+            hex_fp_eval(SfSub, f32::INFINITY.to_bits() as u64, f32::INFINITY.to_bits() as u64),
+            0xFFFF_FFFF
+        );
+
+        // ---- conversions ----
+        assert_eq!(hex_fp_eval(ConvSf2Df, f32b(2.5), 0), f64b(2.5));
+        assert_eq!(hex_fp_eval(ConvDf2Sf, f64b(2.5), 0), f32b(2.5));
+        assert_eq!(hex_fp_eval(ConvW2Sf, (-3i32) as u32 as u64, 0), f32b(-3.0));
+        assert_eq!(hex_fp_eval(ConvUw2Sf, 3u64, 0), f32b(3.0));
+        assert_eq!(hex_fp_eval(ConvW2Df, (-3i32) as u32 as u64, 0), f64b(-3.0));
+        // sf -> signed int (round-to-nearest-even): 2.5 -> 2 ; 3.5 -> 4
+        assert_eq!(hex_fp_eval(ConvSf2W, f32b(2.5), 0), 2);
+        assert_eq!(hex_fp_eval(ConvSf2W, f32b(3.5), 0), 4);
+        assert_eq!(hex_fp_eval(ConvSf2WChop, f32b(2.9), 0), 2);
+        // NaN -> -1 (signed) ; saturate max (unsigned)
+        assert_eq!(hex_fp_eval(ConvSf2W, snan32, 0), 0xFFFF_FFFF);
+        assert_eq!(hex_fp_eval(ConvSf2Uw, snan32, 0), 0xFFFF_FFFF);
+        // negative -> unsigned saturates to 0
+        assert_eq!(hex_fp_eval(ConvSf2Uw, f32b(-1.0), 0), 0);
+        // out-of-range signed saturates to i32::MAX
+        assert_eq!(hex_fp_eval(ConvSf2W, f32b(1e30), 0), i32::MAX as u32 as u64);
+        assert_eq!(hex_fp_eval(ConvDf2D, f64b(123.0), 0), 123);
+
+        // ---- fused multiply-add (single rounding) ----
+        // 2*3 + 4 = 10 ; 4 - 2*3 = -2
+        assert_eq!(hex_sf_fma(f32b(2.0) as u32, f32b(3.0) as u32, f32b(4.0) as u32, false), f32b(10.0) as u32);
+        assert_eq!(hex_sf_fma(f32b(2.0) as u32, f32b(3.0) as u32, f32b(4.0) as u32, true), f32b(-2.0) as u32);
+        // NaN accumulator -> canonical all-ones.
+        assert_eq!(hex_sf_fma(f32b(2.0) as u32, f32b(3.0) as u32, snan32 as u32, false), 0xFFFF_FFFF);
+        // 0 * inf -> NaN -> canonical.
+        assert_eq!(
+            hex_sf_fma(f32b(0.0) as u32, f32::INFINITY.to_bits(), f32b(1.0) as u32, false),
+            0xFFFF_FFFF
+        );
+    }
 
     #[test]
     fn test_basic_arithmetic() {

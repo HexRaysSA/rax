@@ -6911,3 +6911,208 @@ fn lift_mem_pstorenew_modes() {
         0xf00f,
     );
 }
+
+// ============================================================================
+// F2 scalar floating point (oracle-backed RESULT bits).
+//
+// The qemu-hexagon reference implements the full F2 family (sem/float.rs +
+// float_ext.rs), so run_interp produces a defined result for every op below and
+// nothing is auto-skipped. The harness compares the result GPR/predicate and
+// USR:OVF (bit0 — none of these set it); the FP exception sticky bits (USR
+// 1..5) are NOT compared, so the native-f32/f64 + default-NaN computation in
+// OpKind::HexFp matches bit-exactly. Random 32/64-bit GPR seeds routinely land
+// on NaN/inf/denormal/zero patterns, exercising every special-case branch.
+// ============================================================================
+
+#[test]
+fn lift_f2_sfcmp() {
+    lift_family(
+        "f2_sfcmp",
+        &[
+            ("sfcmpeq", "{ p0 = sfcmp.eq(r1,r2) }"),
+            ("sfcmpgt", "{ p0 = sfcmp.gt(r1,r2) }"),
+            ("sfcmpge", "{ p0 = sfcmp.ge(r1,r2) }"),
+            ("sfcmpuo", "{ p0 = sfcmp.uo(r1,r2) }"),
+        ],
+        40,
+        0xf2_0001,
+    );
+}
+
+#[test]
+fn lift_f2_dfcmp() {
+    lift_family(
+        "f2_dfcmp",
+        &[
+            ("dfcmpeq", "{ p0 = dfcmp.eq(r1:0,r3:2) }"),
+            ("dfcmpgt", "{ p0 = dfcmp.gt(r1:0,r3:2) }"),
+            ("dfcmpge", "{ p0 = dfcmp.ge(r1:0,r3:2) }"),
+            ("dfcmpuo", "{ p0 = dfcmp.uo(r1:0,r3:2) }"),
+        ],
+        40,
+        0xf2_0002,
+    );
+}
+
+#[test]
+fn lift_f2_class() {
+    lift_family(
+        "f2_class",
+        &[
+            ("sfclass0", "{ p0 = sfclass(r1,#0) }"),
+            ("sfclass5", "{ p0 = sfclass(r1,#5) }"),
+            ("sfclass1f", "{ p0 = sfclass(r1,#31) }"),
+            ("dfclass5", "{ p0 = dfclass(r1:0,#5) }"),
+            ("dfclass1f", "{ p0 = dfclass(r1:0,#31) }"),
+        ],
+        40,
+        0xf2_0003,
+    );
+}
+
+#[test]
+fn lift_f2_minmax() {
+    lift_family(
+        "f2_minmax",
+        &[
+            ("sfmin", "{ r4 = sfmin(r1,r2) }"),
+            ("sfmax", "{ r4 = sfmax(r1,r2) }"),
+            ("dfmin", "{ r5:4 = dfmin(r1:0,r3:2) }"),
+            ("dfmax", "{ r5:4 = dfmax(r1:0,r3:2) }"),
+        ],
+        40,
+        0xf2_0004,
+    );
+}
+
+#[test]
+fn lift_f2_arith() {
+    lift_family(
+        "f2_arith",
+        &[
+            ("sfadd", "{ r4 = sfadd(r1,r2) }"),
+            ("sfsub", "{ r4 = sfsub(r1,r2) }"),
+            ("sfmpy", "{ r4 = sfmpy(r1,r2) }"),
+            ("dfadd", "{ r5:4 = dfadd(r1:0,r3:2) }"),
+            ("dfsub", "{ r5:4 = dfsub(r1:0,r3:2) }"),
+        ],
+        40,
+        0xf2_0005,
+    );
+}
+
+#[test]
+fn lift_f2_conv_i2f() {
+    lift_family(
+        "f2_conv_i2f",
+        &[
+            ("w2sf", "{ r4 = convert_w2sf(r1) }"),
+            ("uw2sf", "{ r4 = convert_uw2sf(r1) }"),
+            ("d2sf", "{ r4 = convert_d2sf(r1:0) }"),
+            ("ud2sf", "{ r4 = convert_ud2sf(r1:0) }"),
+            ("w2df", "{ r5:4 = convert_w2df(r1) }"),
+            ("uw2df", "{ r5:4 = convert_uw2df(r1) }"),
+            ("d2df", "{ r5:4 = convert_d2df(r1:0) }"),
+            ("ud2df", "{ r5:4 = convert_ud2df(r1:0) }"),
+        ],
+        40,
+        0xf2_0006,
+    );
+}
+
+#[test]
+fn lift_f2_conv_f2i_sf() {
+    lift_family(
+        "f2_conv_f2i_sf",
+        &[
+            ("sf2w", "{ r4 = convert_sf2w(r1) }"),
+            ("sf2w_chop", "{ r4 = convert_sf2w(r1):chop }"),
+            ("sf2uw", "{ r4 = convert_sf2uw(r1) }"),
+            ("sf2uw_chop", "{ r4 = convert_sf2uw(r1):chop }"),
+            ("sf2d", "{ r5:4 = convert_sf2d(r1) }"),
+            ("sf2d_chop", "{ r5:4 = convert_sf2d(r1):chop }"),
+            ("sf2ud", "{ r5:4 = convert_sf2ud(r1) }"),
+            ("sf2ud_chop", "{ r5:4 = convert_sf2ud(r1):chop }"),
+        ],
+        40,
+        0xf2_0007,
+    );
+}
+
+#[test]
+fn lift_f2_conv_f2i_df() {
+    lift_family(
+        "f2_conv_f2i_df",
+        &[
+            ("df2w", "{ r4 = convert_df2w(r1:0) }"),
+            ("df2w_chop", "{ r4 = convert_df2w(r1:0):chop }"),
+            ("df2uw", "{ r4 = convert_df2uw(r1:0) }"),
+            ("df2uw_chop", "{ r4 = convert_df2uw(r1:0):chop }"),
+            ("df2d", "{ r5:4 = convert_df2d(r1:0) }"),
+            ("df2d_chop", "{ r5:4 = convert_df2d(r1:0):chop }"),
+            ("df2ud", "{ r5:4 = convert_df2ud(r1:0) }"),
+            ("df2ud_chop", "{ r5:4 = convert_df2ud(r1:0):chop }"),
+        ],
+        40,
+        0xf2_0008,
+    );
+}
+
+#[test]
+fn lift_f2_conv_widen_narrow() {
+    lift_family(
+        "f2_conv_widen_narrow",
+        &[
+            ("df2sf", "{ r4 = convert_df2sf(r1:0) }"),
+            ("sf2df", "{ r5:4 = convert_sf2df(r1) }"),
+        ],
+        40,
+        0xf2_0009,
+    );
+}
+
+#[test]
+fn lift_f2_imm() {
+    lift_family(
+        "f2_imm",
+        &[
+            ("sfmake_pos", "{ r4 = sfmake(#13):pos }"),
+            ("sfmake_neg", "{ r4 = sfmake(#13):neg }"),
+            ("dfmake_pos", "{ r5:4 = dfmake(#13):pos }"),
+            ("dfmake_neg", "{ r5:4 = dfmake(#13):neg }"),
+        ],
+        40,
+        0xf2_000a,
+    );
+}
+
+// Pure-integer f64 partial-product low-term multiply (no rounding, no flags).
+// The sem (sem/float_ext.rs `dfmpyll`) is a bit manipulation, lifted with
+// integer ops only. (dfmpylh is NOT lifted — its oracle sem targets the wrong
+// register; see the lift comment.)
+#[test]
+fn lift_f2_dfmpy_int() {
+    lift_family(
+        "f2_dfmpy_int",
+        &[("dfmpyll", "{ r3:2 = dfmpyll(r1:0, r5:4) }")],
+        40,
+        0xf2_000b,
+    );
+}
+
+// Single-precision fused multiply-add (single IEEE rounding). The sem
+// (sem/float_ext.rs `sf_fma`) is a faithful single-rounding fma; native
+// `f32::mul_add` is correctly-rounded so the RESULT bits match (the harness
+// ignores FP exception flags). Random seeds exercise NaN/inf/zero accumulators.
+#[test]
+fn lift_f2_sffma() {
+    lift_family(
+        "f2_sffma",
+        &[
+            ("sffma", "{ r4 += sfmpy(r1,r2) }"),
+            ("sffms", "{ r4 -= sfmpy(r1,r2) }"),
+        ],
+        40,
+        0xf2_000c,
+    );
+}
