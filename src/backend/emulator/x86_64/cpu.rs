@@ -2702,6 +2702,77 @@ struct JitLoadRet {
     ok: u64,
 }
 
+/// Guest entry PC of the JIT region currently executing natively (RAX_JIT_TRACE).
+#[cfg(all(feature = "smir-jit", target_arch = "x86_64"))]
+static JIT_LAST_ENTRY: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+
+/// SIGSEGV/SIGBUS handler: a host fault inside native JIT code prints the guest
+/// region entry + faulting address (async-signal-safe: only `write` + manual hex),
+/// then restores the default disposition and re-raises.
+#[cfg(all(feature = "smir-jit", target_arch = "x86_64"))]
+extern "C" fn jit_crash_handler(
+    sig: libc::c_int,
+    info: *mut libc::siginfo_t,
+    _ctx: *mut libc::c_void,
+) {
+    use std::sync::atomic::Ordering;
+    // Build "[JIT-CRASH] sig=NN entry=0xHEX addr=0xHEX\n" into a fixed buffer.
+    let mut buf = [0u8; 64];
+    let mut n = 0usize;
+    let mut put = |s: &[u8], buf: &mut [u8; 64], n: &mut usize| {
+        for &b in s {
+            if *n < buf.len() {
+                buf[*n] = b;
+                *n += 1;
+            }
+        }
+    };
+    let mut put_hex = |mut v: u64, buf: &mut [u8; 64], n: &mut usize| {
+        put(b"0x", buf, n);
+        let mut started = false;
+        for shift in (0..16).rev() {
+            let nib = ((v >> (shift * 4)) & 0xf) as u8;
+            if nib != 0 || started || shift == 0 {
+                started = true;
+                let c = if nib < 10 { b'0' + nib } else { b'a' + nib - 10 };
+                if *n < buf.len() {
+                    buf[*n] = c;
+                    *n += 1;
+                }
+            }
+        }
+        let _ = &mut v;
+    };
+    put(b"\n[JIT-CRASH] sig=", &mut buf, &mut n);
+    put_hex(sig as u64, &mut buf, &mut n);
+    put(b" entry=", &mut buf, &mut n);
+    put_hex(JIT_LAST_ENTRY.load(Ordering::Relaxed), &mut buf, &mut n);
+    put(b" addr=", &mut buf, &mut n);
+    let addr = unsafe { (*info).si_addr() } as u64;
+    put_hex(addr, &mut buf, &mut n);
+    put(b"\n", &mut buf, &mut n);
+    unsafe {
+        libc::write(2, buf.as_ptr() as *const libc::c_void, n);
+        // Restore default disposition and re-raise to produce the core dump.
+        libc::signal(sig, libc::SIG_DFL);
+        libc::raise(sig);
+    }
+}
+
+#[cfg(all(feature = "smir-jit", target_arch = "x86_64"))]
+fn jit_install_crash_handler() {
+    use std::sync::OnceLock;
+    static INSTALLED: OnceLock<()> = OnceLock::new();
+    INSTALLED.get_or_init(|| unsafe {
+        let mut sa: libc::sigaction = std::mem::zeroed();
+        sa.sa_sigaction = jit_crash_handler as usize;
+        sa.sa_flags = libc::SA_SIGINFO;
+        libc::sigemptyset(&mut sa.sa_mask);
+        libc::sigaction(libc::SIGSEGV, &sa, std::ptr::null_mut());
+        libc::sigaction(libc::SIGBUS, &sa, std::ptr::null_mut());
+    });
+}
+
 /// JIT memory-load helper: translate + read `size` bytes at guest `addr` via the
 /// vcpu MMU, sign- or zero-extending to 64 bits. Called from lowered native code
 /// with the vcpu pointer in `ctx`.
@@ -3035,6 +3106,34 @@ impl X86_64Vcpu {
     /// Native-only execution of a compiled region (the production path).
     pub(super) fn jit_run_region_native(&mut self, region: &JitRegion) {
         use crate::smir::lower::runtime::GuestRegs;
+
+        // Crash diagnostic (RAX_JIT_TRACE=1): record the region entry about to run
+        // natively and install a SIGSEGV/SIGBUS handler that prints it + the
+        // faulting address. Lets a host crash IN native JIT code be traced to the
+        // exact guest region. Opt-in, so default runs are untouched.
+        #[cfg(all(feature = "smir-jit", target_arch = "x86_64"))]
+        {
+            use std::sync::OnceLock;
+            use std::sync::atomic::Ordering;
+            static TRACE: OnceLock<bool> = OnceLock::new();
+            if *TRACE.get_or_init(|| std::env::var_os("RAX_JIT_TRACE").is_some()) {
+                jit_install_crash_handler();
+                JIT_LAST_ENTRY.store(self.regs.rip, Ordering::Relaxed);
+                static DUMP_AT: OnceLock<Option<u64>> = OnceLock::new();
+                let dump_at = *DUMP_AT.get_or_init(|| {
+                    std::env::var("RAX_JIT_DUMP")
+                        .ok()
+                        .and_then(|s| u64::from_str_radix(s.trim_start_matches("0x"), 16).ok())
+                });
+                if dump_at == Some(self.regs.rip) {
+                    static DONE: OnceLock<()> = OnceLock::new();
+                    if DONE.set(()).is_ok() {
+                        let rip = self.regs.rip;
+                        eprintln!("[JIT-DUMP] region {rip:#x}:\n{}", self.jit_dump_region(rip));
+                    }
+                }
+            }
+        }
 
         // The interpreter keeps RFLAGS LAZY: `self.regs.rflags` is stale while a
         // lazy op is pending (the truth lives in `self.lazy_flags`). Materialize
