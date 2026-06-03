@@ -445,10 +445,14 @@ impl I8042 {
                 status |= STATUS_AUX;
             }
         }
-        if self.pending != PendingWrite::None {
-            // A byte we are waiting on has been latched into the input buffer.
-            status |= STATUS_IBF;
-        }
+        // STATUS_IBF (input buffer full) is intentionally never asserted here.
+        // It means "the CPU wrote a byte the controller has not yet read"; this
+        // model consumes every 0x60/0x64 write synchronously, so the input
+        // buffer is always drained by the time the guest re-reads status. The
+        // guest's i8042 driver polls IBF==0 before writing the *data* byte of a
+        // two-byte command (e.g. Write-CTR 0x60 then the config byte); leaving
+        // IBF set while `pending` awaits that data byte would deadlock the write
+        // and fail controller init ("Can't write CTR while initializing i8042").
         if self.self_test_passed || (self.command_byte & CMD_BYTE_SYSF) != 0 {
             status |= STATUS_SYSF;
         }
@@ -812,11 +816,12 @@ mod tests {
         let mut kbc = fresh();
         // Write a fresh command byte: keyboard IRQ on, aux IRQ on, SYSF on.
         let new_byte = CMD_BYTE_KBD_IRQ | CMD_BYTE_AUX_IRQ | CMD_BYTE_SYSF;
+        // IBF is never asserted: writes are consumed synchronously, so the
+        // guest (which polls IBF==0 before each write) is never blocked.
+        assert_eq!(kbc.read(STATUS_PORT) & STATUS_IBF, 0);
         kbc.write(STATUS_PORT, CMD_WRITE_CMD_BYTE);
-        // After the command, IBF should be set awaiting the data byte.
-        assert_ne!(kbc.read(STATUS_PORT) & STATUS_IBF, 0);
+        assert_eq!(kbc.read(STATUS_PORT) & STATUS_IBF, 0);
         kbc.write(DATA_PORT, new_byte);
-        // IBF cleared once the data byte is consumed.
         assert_eq!(kbc.read(STATUS_PORT) & STATUS_IBF, 0);
 
         // Read it back via 0x20.
@@ -825,13 +830,16 @@ mod tests {
     }
 
     #[test]
-    fn i8042_a2_command_data_bit_in_status() {
-        // The A2 bit (status bit 3) distinguishes command vs data writes.
-        // We model it via the IBF/pending machinery; verify a command sets IBF.
+    fn i8042_ibf_stays_clear_during_two_byte_command() {
+        // Regression guard for the boot deadlock: a two-byte command must NOT
+        // leave IBF asserted while awaiting its data byte. Linux's i8042 driver
+        // polls IBF==0 before writing that data byte, so a stuck IBF makes
+        // controller init fail ("Can't write CTR while initializing i8042").
         let mut kbc = fresh();
         kbc.write(STATUS_PORT, CMD_WRITE_OUTPUT_PORT);
-        // Pending output-port write keeps IBF asserted.
-        assert_ne!(kbc.read(STATUS_PORT) & STATUS_IBF, 0);
+        assert_eq!(kbc.read(STATUS_PORT) & STATUS_IBF, 0);
+        kbc.write(DATA_PORT, 0x02); // output-port value (A20 enabled, reset high)
+        assert_eq!(kbc.read(STATUS_PORT) & STATUS_IBF, 0);
     }
 
     // ----- Scancode FIFO + OBF + IRQ1 gating ------------------------------
