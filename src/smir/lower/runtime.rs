@@ -104,6 +104,17 @@ core::arch::global_asm!(
     "pushfq",
     "pop rcx",
     "mov [rax+128], rcx",
+    // Sanitize the HOST EFLAGS before returning to Rust. The `popfq` above loaded
+    // the GUEST RFLAGS into the host, and the region runs with them — but the
+    // sticky control flags then LEAK into the host: AC (alignment check, set by
+    // the kernel's SMAP `stac` for user copies) faults the next unaligned host
+    // access with #AC/SIGBUS; DF (direction) reverses host `rep` string ops
+    // (memcpy/memset) → corruption; TF would single-step → SIGTRAP; NT corrupts
+    // a host `iret`. Clear bits 8(TF)/10(DF)/14(NT)/18(AC); the arithmetic flags
+    // are caller-saved scratch the host re-derives, so they need no restore.
+    "pushfq",
+    "and qword ptr [rsp], -0x44501", // ~0x44500: clear TF(0x100)+DF(0x400)+NT(0x4000)+AC(0x40000)
+    "popfq",
     "mov rcx, [rsp]", // saved guest RAX
     "mov [rax+0], rcx",
     "add rsp, 8",  // pop saved RAX
