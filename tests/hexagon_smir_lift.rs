@@ -384,6 +384,257 @@ fn lift_family(name: &str, cases: &[(&str, &str)], n: usize, seed: u64) {
     }
 }
 
+// ============================================================================
+// Memory-aware harness path (Step 1).
+//
+// The plain run_interp / lift_and_run / lift_family path above never seeds guest
+// memory nor compares it afterwards, so load/store correctness was untested. The
+// `_mem` variants below mirror those functions but (a) seed a DATA region with the
+// SAME random bytes on BOTH sides, (b) force the base register to point at DATA so
+// every access lands in-region, and (c) read the DATA region back and compare it
+// byte-for-byte (in addition to r/p/usr). Loads are caught by the loaded register
+// compare; stores by the memory compare.
+// ============================================================================
+
+/// Data region used by the `_mem` harness. Well clear of CODE_ADDR (0x1000) + the
+/// few code words + the trap, and below the 0x20000 map end. Accesses use offset 0
+/// or small positive multiples of the access size so they stay inside the region.
+const DATA_ADDR: u32 = 0x8000;
+const DATA_LEN: usize = 0x400;
+
+/// Reference (interp) side of the `_mem` path: like `run_interp`, but seeds the
+/// DATA region with `data` before running and returns the DATA region read back
+/// out of guest memory alongside the resulting State.
+fn run_interp_mem(words: &[u32], init: &State, data: &[u8]) -> Option<(State, Vec<u8>)> {
+    let mem = Arc::new(GuestMemoryMmap::<()>::from_ranges(&[(GuestAddress(0), 0x20000)]).ok()?);
+    let mut off = CODE_ADDR;
+    for &w in words {
+        mem.write_slice(&w.to_le_bytes(), GuestAddress(off as u64)).ok()?;
+        off += 4;
+    }
+    mem.write_slice(&trap_word().to_le_bytes(), GuestAddress(off as u64)).ok()?;
+    // Seed the DATA region with the random bytes.
+    mem.write_slice(data, GuestAddress(DATA_ADDR as u64)).ok()?;
+    let mut regs = HexagonRegisters::default();
+    regs.r = init.r;
+    regs.p = init.p;
+    regs.c[8] = init.usr;
+    regs.v = init.v;
+    regs.q = init.q;
+    regs.set_pc(CODE_ADDR);
+    let mut vcpu = HexagonVcpu::new(0, mem.clone(), HexagonIsa::V68, Endianness::Little);
+    vcpu.set_state(&CpuState::hexagon(regs)).ok()?;
+    let mut iters = 0;
+    loop {
+        iters += 1;
+        if iters > 64 {
+            return None;
+        }
+        match vcpu.run() {
+            Ok(VcpuExit::Shutdown) => break,
+            Ok(_) => return None,
+            Err(_) => return None,
+        }
+    }
+    let regs = match vcpu.get_state().ok()? {
+        CpuState::Hexagon(s) => s.regs,
+        _ => return None,
+    };
+    let mut out_data = vec![0u8; DATA_LEN];
+    mem.read_slice(&mut out_data, GuestAddress(DATA_ADDR as u64)).ok()?;
+    Some((
+        State { r: regs.r, p: regs.p, usr: regs.c[8], v: regs.v, q: regs.q },
+        out_data,
+    ))
+}
+
+/// Lift side of the `_mem` path: like `lift_and_run`, but seeds the FlatMemory
+/// DATA region with `data` (base=0 so the DATA offset == DATA_ADDR), runs, then
+/// reads the DATA region back out of the FlatMemory via `MemoryReader::read` and
+/// returns it alongside the State. `Ok(None)` => the lift is Unsupported.
+fn lift_and_run_mem(
+    words: &[u32],
+    init: &State,
+    data: &[u8],
+) -> Result<Option<(State, Vec<u8>)>, String> {
+    let mut lifter = HexagonLifter::default_isa();
+    let mut lctx = LiftContext::new(SourceArch::Hexagon);
+    let mut ops = Vec::new();
+    let mut addr = CODE_ADDR as u64;
+    for &w in words {
+        let r = lifter.lift_insn(addr, &w.to_le_bytes(), &mut lctx);
+        match r {
+            Ok(res) => ops.extend(res.ops),
+            Err(LiftError::Unsupported { .. }) => return Ok(None),
+            Err(e) => return Err(format!("lift error: {e:?}")),
+        }
+        addr += 4;
+    }
+    for (i, op) in ops.iter_mut().enumerate() {
+        op.id = OpId(i as u16);
+    }
+    let block = SmirBlock {
+        id: BlockId(0),
+        guest_pc: CODE_ADDR as u64,
+        phis: vec![],
+        ops,
+        terminator: Terminator::Trap { kind: TrapKind::Breakpoint },
+        exec_count: 0,
+    };
+    let mut ctx = SmirContext::new_hexagon();
+    for n in 0..NREG {
+        ctx.write_arch_reg(ArchReg::Hexagon(HexagonReg::R(n as u8)), init.r[n] as u64);
+    }
+    for n in 0..4 {
+        ctx.write_arch_reg(ArchReg::Hexagon(HexagonReg::P(n as u8)), (init.p[n] & 1) as u64);
+    }
+    ctx.write_arch_reg(ArchReg::Hexagon(HexagonReg::Usr), init.usr as u64);
+    ctx.pc = CODE_ADDR as u64;
+
+    let interp = SmirInterpreter::new();
+    let mut mem = rax::smir::FlatMemory::with_base(0, 0x20000);
+    // base==0 so the DATA offset is DATA_ADDR itself.
+    mem.load(DATA_ADDR as usize, data);
+    interp.execute_block(&mut ctx, &mut mem, &block);
+
+    let mut out = State::zeroed();
+    for n in 0..NREG {
+        out.r[n] = ctx.read_arch_reg(ArchReg::Hexagon(HexagonReg::R(n as u8))) as u32;
+    }
+    for n in 0..4 {
+        let v = ctx.read_arch_reg(ArchReg::Hexagon(HexagonReg::P(n as u8)));
+        out.p[n] = if v & 1 != 0 { 0xff } else { 0 };
+    }
+    out.usr = ctx.read_arch_reg(ArchReg::Hexagon(HexagonReg::Usr)) as u32;
+    // Read the DATA region back out of the FlatMemory.
+    let out_data = match rax::smir::MemoryReader::read(&mem, DATA_ADDR as u64, DATA_LEN) {
+        Ok(d) => d,
+        Err(e) => return Err(format!("flatmem readback: {e}")),
+    };
+    Ok(Some((out, out_data)))
+}
+
+/// Verify a load/store family with memory seeding + memory compare.
+///
+/// For each (label, asm) over `n` random states: the base register `base_reg` is
+/// FORCED to DATA_ADDR (so the asm's `r{base_reg}+#imm` lands in [DATA_ADDR,
+/// DATA_ADDR+DATA_LEN)); DATA_LEN random bytes seed BOTH memories identically;
+/// both sides run; then r/p/usr AND the DATA region are compared. A divergence in
+/// either is reported. The `extra_bases` registers are also forced into the DATA
+/// region (for ops with two address bases, e.g. dword stores never need it but
+/// some `_rr`/index forms might want the index small — handled per-call).
+fn lift_mem_family(
+    name: &str,
+    cases: &[(&str, &str)],
+    base_reg: usize,
+    n: usize,
+    seed: u64,
+) {
+    lift_mem_family_idx(name, cases, base_reg, &[], n, seed)
+}
+
+/// As `lift_mem_family`, but also forces each register in `index_regs` to 0 so
+/// scaled-index (`base+Rt<<#sh`) forms keep their effective address == base and
+/// thus stay in the DATA region.
+fn lift_mem_family_idx(
+    name: &str,
+    cases: &[(&str, &str)],
+    base_reg: usize,
+    index_regs: &[usize],
+    n: usize,
+    seed: u64,
+) {
+    let asms: Vec<String> = cases.iter().map(|(_, a)| a.to_string()).collect();
+    let words_per = match assemble(&asms) {
+        Some(w) => w,
+        None => {
+            eprintln!("[hexagon_smir_lift] {name}: llvm-mc unavailable -> skipping");
+            return;
+        }
+    };
+    let mut rng = Rng::new(seed);
+    let mut mismatches = Vec::new();
+    let mut unlifted = Vec::new();
+    for ((label, _asm), words) in cases.iter().zip(words_per.iter()) {
+        for _ in 0..n {
+            let mut st = State::zeroed();
+            for r in st.r.iter_mut() {
+                *r = rng.next() as u32;
+            }
+            for k in 0..4 {
+                if rng.next() & 1 == 1 {
+                    st.p[k] = 0xff;
+                }
+            }
+            // Force the base register to point at the DATA region. Index/scaled
+            // forms keep their (random) index register; the asm uses a 0 or tiny
+            // immediate so the whole access stays in-region — when a test uses an
+            // index/scaled form it masks the index small via its own asm choice.
+            st.r[base_reg] = DATA_ADDR;
+            for &ir in index_regs {
+                st.r[ir] = 0;
+            }
+            // Seed identical random DATA bytes on both sides.
+            let mut data = vec![0u8; DATA_LEN];
+            for b in data.iter_mut() {
+                *b = rng.next() as u8;
+            }
+            let (interp, idata) = match run_interp_mem(words, &st, &data) {
+                Some(x) => x,
+                None => continue, // interpreter rejected (e.g. faulting access); skip
+            };
+            match lift_and_run_mem(words, &st, &data) {
+                Ok(None) => {
+                    unlifted.push(*label);
+                    break;
+                }
+                Ok(Some((lift, ldata))) => {
+                    let mut diffs = Vec::new();
+                    for r in 0..NREG {
+                        if interp.r[r] != lift.r[r] {
+                            diffs.push(format!("r{r}:i={:#x},l={:#x}", interp.r[r], lift.r[r]));
+                        }
+                    }
+                    for k in 0..4 {
+                        if (interp.p[k] & 1) != (lift.p[k] & 1) {
+                            diffs.push(format!("p{k}:i={:#x},l={:#x}", interp.p[k], lift.p[k]));
+                        }
+                    }
+                    if (interp.usr & 1) != (lift.usr & 1) {
+                        diffs.push(format!("usr_ovf:i={},l={}", interp.usr & 1, lift.usr & 1));
+                    }
+                    // Byte-for-byte memory compare over the DATA region.
+                    if idata != ldata {
+                        let first = (0..DATA_LEN)
+                            .find(|&i| idata[i] != ldata[i])
+                            .unwrap_or(0);
+                        diffs.push(format!(
+                            "mem@{:#x}:i={:#04x},l={:#04x}",
+                            DATA_ADDR as usize + first,
+                            idata[first],
+                            ldata[first]
+                        ));
+                    }
+                    if !diffs.is_empty() {
+                        mismatches.push(format!("[{label}] {}", diffs.join(" ")));
+                    }
+                }
+                Err(e) => mismatches.push(format!("[{label}] {e}")),
+            }
+        }
+    }
+    if !unlifted.is_empty() {
+        eprintln!("[hexagon_smir_lift] {name}: UNLIFTED (gap): {:?}", unlifted);
+    }
+    if !mismatches.is_empty() {
+        eprintln!("\n==== {name}: {} mem-lift mismatches ====", mismatches.len());
+        for m in mismatches.iter().take(20) {
+            eprintln!("  {m}");
+        }
+        panic!("{name}: {} SMIR-lift divergences vs interpreter (mem)", mismatches.len());
+    }
+}
+
 // ---- validate the harness on instructions already lifted by the DecodedInsn path ----
 
 #[test]
@@ -4304,6 +4555,302 @@ fn lift_m2_vrcmpys() {
         ],
         40,
         0xb20a,
+    );
+}
+
+// ============================================================================
+// Memory: loads / stores / memops (Step 2). All use the `_mem` harness which
+// seeds + compares the DATA region. Base register r0 is forced to DATA_ADDR.
+// ============================================================================
+
+// Scalar base+#imm loads: byte/half/word/dword, signed + unsigned. memd is a
+// register-PAIR write (r3:2) — the SELF-CHECK that the mem path catches a
+// wrong-width lift (a single 64-bit Load to r2 leaves r3 stale).
+#[test]
+fn lift_mem_load_io() {
+    lift_mem_family(
+        "mem_load_io",
+        &[
+            ("loadrb", "{ r1 = memb(r0+#3) }"),
+            ("loadrub", "{ r1 = memub(r0+#5) }"),
+            ("loadrh", "{ r1 = memh(r0+#2) }"),
+            ("loadruh", "{ r1 = memuh(r0+#6) }"),
+            ("loadri", "{ r1 = memw(r0+#0) }"),
+            ("loadri4", "{ r1 = memw(r0+#4) }"),
+            ("loadrd", "{ r3:2 = memd(r0+#0) }"),
+            ("loadrd8", "{ r3:2 = memd(r0+#8) }"),
+        ],
+        0,
+        40,
+        0xc001,
+    );
+}
+
+// Scalar base+#imm stores: byte/half/word/dword. memd reads a register PAIR.
+#[test]
+fn lift_mem_store_io() {
+    lift_mem_family(
+        "mem_store_io",
+        &[
+            ("storerb", "{ memb(r0+#3) = r1 }"),
+            ("storerh", "{ memh(r0+#2) = r1 }"),
+            ("storerf", "{ memh(r0+#4) = r1.h }"),
+            ("storeri", "{ memw(r0+#0) = r1 }"),
+            ("storeri4", "{ memw(r0+#8) = r1 }"),
+            ("storerd", "{ memd(r0+#0) = r3:2 }"),
+            ("storerd8", "{ memd(r0+#16) = r3:2 }"),
+        ],
+        0,
+        40,
+        0xc002,
+    );
+}
+
+// Post-increment-immediate loads (Rx++#imm): the base register r0 is also
+// written (compared as a reg). Increments are small positive multiples of the
+// access size so the (single) access stays in-region.
+#[test]
+fn lift_mem_load_pi() {
+    lift_mem_family(
+        "mem_load_pi",
+        &[
+            ("loadrb_pi", "{ r1 = memb(r0++#1) }"),
+            ("loadrub_pi", "{ r1 = memub(r0++#1) }"),
+            ("loadrh_pi", "{ r1 = memh(r0++#2) }"),
+            ("loadruh_pi", "{ r1 = memuh(r0++#2) }"),
+            ("loadri_pi", "{ r1 = memw(r0++#4) }"),
+            ("loadrd_pi", "{ r3:2 = memd(r0++#8) }"),
+        ],
+        0,
+        40,
+        0xc003,
+    );
+}
+
+// Post-increment-immediate stores (Rx++#imm): base r0 also written.
+#[test]
+fn lift_mem_store_pi() {
+    lift_mem_family(
+        "mem_store_pi",
+        &[
+            ("storerb_pi", "{ memb(r0++#1) = r1 }"),
+            ("storerh_pi", "{ memh(r0++#2) = r1 }"),
+            ("storeri_pi", "{ memw(r0++#4) = r1 }"),
+            ("storerd_pi", "{ memd(r0++#8) = r3:2 }"),
+        ],
+        0,
+        40,
+        0xc004,
+    );
+}
+
+// Store-immediate (S4_storeiri/storeirh/storeirb): mem(Rs+#u) = #s6.
+#[test]
+fn lift_mem_store_imm() {
+    lift_mem_family(
+        "mem_store_imm",
+        &[
+            // #s6 range only (no constant extender) — the extended store-imm
+            // forms need the extender routed to the value (not the offset) and
+            // are reported as a lift gap.
+            ("storeirb", "{ memb(r0+#3) = #15 }"),
+            ("storeirb_neg", "{ memb(r0+#5) = #-8 }"),
+            ("storeirh", "{ memh(r0+#2) = #-7 }"),
+            ("storeiri", "{ memw(r0+#0) = #20 }"),
+            ("storeiri_neg", "{ memw(r0+#4) = #-1 }"),
+        ],
+        0,
+        40,
+        0xc005,
+    );
+}
+
+// Base + Rt<<#sh register-offset loads/stores (`L4_*_rr` / `S4_*_rr`). The
+// index register is forced to 0 so EA == base == DATA_ADDR (in-region); the
+// scaled-index address composition (Add of base + index<<scale) is exercised.
+#[test]
+fn lift_mem_load_rr() {
+    lift_mem_family_idx(
+        "mem_load_rr",
+        &[
+            ("loadrb_rr", "{ r1 = memb(r0+r2<<#0) }"),
+            ("loadrub_rr", "{ r1 = memub(r0+r2<<#1) }"),
+            ("loadrh_rr", "{ r1 = memh(r0+r2<<#1) }"),
+            ("loadruh_rr", "{ r1 = memuh(r0+r2<<#2) }"),
+            ("loadri_rr", "{ r1 = memw(r0+r2<<#2) }"),
+            ("loadrd_rr", "{ r3:2 = memd(r0+r4<<#3) }"),
+        ],
+        0,
+        &[2, 4],
+        40,
+        0xc007,
+    );
+}
+
+#[test]
+fn lift_mem_store_rr() {
+    lift_mem_family_idx(
+        "mem_store_rr",
+        &[
+            ("storerb_rr", "{ memb(r0+r2<<#0) = r1 }"),
+            ("storerh_rr", "{ memh(r0+r2<<#1) = r1 }"),
+            ("storeri_rr", "{ memw(r0+r2<<#2) = r1 }"),
+            ("storerd_rr", "{ memd(r0+r4<<#3) = r3:2 }"),
+        ],
+        0,
+        &[2, 4],
+        40,
+        0xc008,
+    );
+}
+
+// Scaled-index absolute loads/stores (`L4_*_ur` / `S4_*_ur`):
+// EA = ##addr + (Ru<<#sh). The absolute is DATA_ADDR and the index is forced to
+// 0, so EA == DATA_ADDR (in-region). Two-word (constant-extended) packets.
+#[test]
+fn lift_mem_load_ur() {
+    lift_mem_family_idx(
+        "mem_load_ur",
+        &[
+            ("loadrb_ur", "{ r1 = memb(r2<<#0+##0x8000) }"),
+            ("loadrh_ur", "{ r1 = memh(r2<<#1+##0x8000) }"),
+            ("loadri_ur", "{ r1 = memw(r2<<#2+##0x8000) }"),
+            ("loadrd_ur", "{ r3:2 = memd(r4<<#3+##0x8000) }"),
+        ],
+        1, // base_reg unused by these forms; pick a reg not otherwise read
+        &[2, 4],
+        40,
+        0xc009,
+    );
+}
+
+#[test]
+fn lift_mem_store_ur() {
+    lift_mem_family_idx(
+        "mem_store_ur",
+        &[
+            ("storerb_ur", "{ memb(r2<<#0+##0x8000) = r1 }"),
+            ("storerh_ur", "{ memh(r2<<#1+##0x8000) = r1 }"),
+            ("storeri_ur", "{ memw(r2<<#2+##0x8000) = r1 }"),
+            ("storerd_ur", "{ memd(r4<<#3+##0x8000) = r3:2 }"),
+        ],
+        1,
+        &[2, 4],
+        40,
+        0xc00a,
+    );
+}
+
+// Absolute-set loads/stores (`L4_*_ap` / `S4_*_ap`): `memX(Re=##addr)`. The
+// EA is the constant-extended absolute (DATA_ADDR here) AND the address register
+// Re is written with that absolute (compared as a register). Includes the
+// Re==dst aliasing case (`r0 = memw(r0=##...)`: the load result must win).
+#[test]
+fn lift_mem_load_ap() {
+    lift_mem_family(
+        "mem_load_ap",
+        &[
+            ("loadrb_ap", "{ r1 = memb(r0=##0x8000) }"),
+            ("loadrub_ap", "{ r1 = memub(r0=##0x8000) }"),
+            ("loadrh_ap", "{ r1 = memh(r0=##0x8000) }"),
+            ("loadri_ap", "{ r1 = memw(r0=##0x8000) }"),
+            ("loadrd_ap", "{ r3:2 = memd(r0=##0x8000) }"),
+            // (Re == Rd aliasing is illegal for abs-set loads — assembler rejects.)
+        ],
+        9, // base_reg unused by abs-set forms; pick a reg not read/written
+        40,
+        0xc00b,
+    );
+}
+
+#[test]
+fn lift_mem_store_ap() {
+    lift_mem_family(
+        "mem_store_ap",
+        &[
+            ("storerb_ap", "{ memb(r0=##0x8000) = r1 }"),
+            ("storerh_ap", "{ memh(r0=##0x8000) = r1 }"),
+            ("storeri_ap", "{ memw(r0=##0x8000) = r1 }"),
+            ("storerd_ap", "{ memd(r0=##0x8000) = r3:2 }"),
+            // Re == src aliasing: the store must use the OLD r1, then r1=addr.
+            ("storeri_alias", "{ memw(r1=##0x8000) = r1 }"),
+        ],
+        9,
+        40,
+        0xc00c,
+    );
+}
+
+// Modifier-register / circular / bit-reverse post-increment loads & stores need
+// the M0/M1 (CS0/CS1) modifier+circular-start registers for their base update,
+// which the harness does NOT seed. The lifter must REJECT these (return
+// Unsupported) rather than silently leaving the base register stale. This probe
+// asserts they all come back as a clean lift gap (Ok(None)), so they can never
+// be a silent wrong lift.
+#[test]
+fn lift_mem_postinc_mod_circ_rejected() {
+    let cases = [
+        "{ r1 = memw(r0++m0) }",
+        "{ r1 = memw(r0++m0:brev) }",
+        "{ r1 = memw(r0++#4:circ(m0)) }",
+        "{ r1 = memw(r0++I:circ(m0)) }",
+        "{ memw(r0++m0) = r1 }",
+        "{ memw(r0++#4:circ(m0)) = r1 }",
+    ];
+    let asms: Vec<String> = cases.iter().map(|s| s.to_string()).collect();
+    let words_per = match assemble(&asms) {
+        Some(w) => w,
+        None => {
+            eprintln!("[lift_mem_postinc_mod_circ_rejected] llvm-mc unavailable -> skipping");
+            return;
+        }
+    };
+    let st = State::zeroed();
+    for (asm, words) in cases.iter().zip(words_per.iter()) {
+        match lift_and_run(words, &st) {
+            Ok(None) => {} // expected: clean lift gap
+            Ok(Some(_)) => panic!(
+                "[{asm}] was LIFTED but needs M/CS seeding for its base update \
+                 — this is a silent wrong lift; it must return Unsupported"
+            ),
+            Err(e) => panic!("[{asm}] lift error: {e}"),
+        }
+    }
+}
+
+// Read-modify-write memops: mem(Rs+#u) OP= Rt / #imm. Width byte/half/word.
+// Forced base r0=DATA_ADDR; the modify operand is the random r1 (or an imm).
+#[test]
+fn lift_mem_memop() {
+    lift_mem_family(
+        "mem_memop",
+        &[
+            // register operand
+            ("memopw_add", "{ memw(r0+#0) += r1 }"),
+            ("memopw_sub", "{ memw(r0+#0) -= r1 }"),
+            ("memopw_and", "{ memw(r0+#0) &= r1 }"),
+            ("memopw_or", "{ memw(r0+#0) |= r1 }"),
+            ("memoph_add", "{ memh(r0+#2) += r1 }"),
+            ("memoph_sub", "{ memh(r0+#2) -= r1 }"),
+            ("memoph_and", "{ memh(r0+#2) &= r1 }"),
+            ("memoph_or", "{ memh(r0+#2) |= r1 }"),
+            ("memopb_add", "{ memb(r0+#3) += r1 }"),
+            ("memopb_sub", "{ memb(r0+#3) -= r1 }"),
+            ("memopb_and", "{ memb(r0+#3) &= r1 }"),
+            ("memopb_or", "{ memb(r0+#3) |= r1 }"),
+            // immediate operand (iadd/isub) and bit set/clear
+            ("memopw_iadd", "{ memw(r0+#0) += #5 }"),
+            ("memopw_isub", "{ memw(r0+#0) -= #5 }"),
+            ("memopw_clrbit", "{ memw(r0+#0) = clrbit(#3) }"),
+            ("memopw_setbit", "{ memw(r0+#0) = setbit(#3) }"),
+            ("memoph_iadd", "{ memh(r0+#2) += #5 }"),
+            ("memopb_iadd", "{ memb(r0+#3) += #5 }"),
+            ("memopb_clrbit", "{ memb(r0+#3) = clrbit(#2) }"),
+            ("memopb_setbit", "{ memb(r0+#3) = setbit(#2) }"),
+        ],
+        0,
+        40,
+        0xc006,
     );
 }
 

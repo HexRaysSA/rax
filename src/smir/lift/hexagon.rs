@@ -17,7 +17,8 @@ use crate::smir::types::*;
 
 // Re-use the existing Hexagon decoder types
 use crate::backend::emulator::hexagon::decode::{
-    AddrMode, CmpKind, DecodedInsn, ExtendKind, MemSign, MemWidth as HexMemWidth, ShiftKind,
+    AddrMode, CmpKind, DecodedInsn, ExtendKind, MemOpKind, MemOpSrc, MemSign,
+    MemWidth as HexMemWidth, ShiftKind,
 };
 // Direct opcode-level decoding for the ~900 scalar ops that decode to
 // `DecodedInsn::Unknown` (handled only by the sem layer in cpu.rs). The lifter
@@ -605,16 +606,32 @@ impl HexagonLifter {
             // ================================================================
             // Memory
             // ================================================================
-            // `memX(Re=##U6)` absolute-set loads also WRITE the address
-            // register Re; the simple Load op below cannot model that side
-            // effect, so reject and let the interpreter handle it.
+            // Predicated loads CANCEL when the predicate is false (no register
+            // write, no post-increment). The simple Load op below always commits,
+            // so reject predicated forms and let the interpreter handle them.
+            DecodedInsn::Load { pred: Some(_), .. } => {
+                return Err(LiftError::Unsupported {
+                    addr,
+                    mnemonic: "pred_load".to_string(),
+                });
+            }
+
+            // Post-increment-by-modifier-register, circular and bit-reverse loads
+            // depend on the M0/M1 (and CS0/CS1) modifier/circular-start registers
+            // for their base UPDATE. Without modelling that side effect the base
+            // register would be left stale (a silent wrong lift), so reject these
+            // and let the interpreter handle them.
             DecodedInsn::Load {
-                addr: AddrMode::AbsSet { .. },
+                addr:
+                    AddrMode::PostIncReg { .. }
+                    | AddrMode::PostIncBrev { .. }
+                    | AddrMode::PostIncCircImm { .. }
+                    | AddrMode::PostIncCircReg { .. },
                 ..
             } => {
                 return Err(LiftError::Unsupported {
                     addr,
-                    mnemonic: "load_abs_set".to_string(),
+                    mnemonic: "load_postinc_mod_circ".to_string(),
                 });
             }
 
@@ -629,12 +646,39 @@ impl HexagonLifter {
                 let mem_width = self.hex_mem_width(*width);
                 let sign_ext = self.hex_sign(*sign);
 
-                push_op!(OpKind::Load {
-                    dst: self.hex_reg(*dst),
-                    addr: smir_addr,
-                    width: mem_width,
-                    sign: sign_ext,
-                });
+                // `memX(Re=##addr)` absolute-set: write the address register Re
+                // with the absolute address. Emit this BEFORE the load so that if
+                // Re == dst the load result wins (matches the interpreter, which
+                // applies the base update before the dst write).
+                if let AddrMode::AbsSet { areg, addr: abs } = addr {
+                    push_op!(OpKind::Mov {
+                        dst: self.hex_reg(*areg),
+                        src: SrcOperand::Imm(*abs as i32 as i64),
+                        width: OpWidth::W32,
+                    });
+                }
+
+                if matches!(width, HexMemWidth::Double) {
+                    // `memd` writes a register PAIR (Rdd): the even register gets
+                    // the low 32 bits at the EA, the odd register the high 32 bits
+                    // at EA+4. A single 64-bit Load to R(even) would truncate to 32
+                    // bits and leave R(odd) stale, so emit a LoadPair (two 32-bit
+                    // loads at EA and EA+4) instead.
+                    let even = *dst & !1;
+                    push_op!(OpKind::LoadPair {
+                        dst1: self.hex_reg(even),
+                        dst2: self.hex_reg(even + 1),
+                        addr: smir_addr,
+                        width: MemWidth::B4,
+                    });
+                } else {
+                    push_op!(OpKind::Load {
+                        dst: self.hex_reg(*dst),
+                        addr: smir_addr,
+                        width: mem_width,
+                        sign: sign_ext,
+                    });
+                }
 
                 // Handle post-increment
                 if let AddrMode::PostIncImm { base, offset } = addr {
@@ -667,17 +711,32 @@ impl HexagonLifter {
                 });
             }
 
-            // Predicated and high-half (`storerf`) stores need conditional /
-            // sub-word commit semantics that the simple Store op below does not
-            // model; the interpreter path handles them. Reject so callers fall
-            // back rather than silently storing unconditionally / the wrong half.
+            // Predicated stores CANCEL on a false predicate; new-value (`.new`)
+            // stores read a same-packet producer's value (no static src register).
+            // The simple Store op below models neither, so reject and let the
+            // interpreter handle them.
             DecodedInsn::Store { pred: Some(_), .. }
-            | DecodedInsn::Store {
-                high_half: true, ..
+            | DecodedInsn::Store { src_new: true, .. } => {
+                return Err(LiftError::Unsupported {
+                    addr,
+                    mnemonic: "pred_or_newvalue_store".to_string(),
+                });
+            }
+
+            // Modifier-register / circular / bit-reverse post-increment stores
+            // need the M0/M1 (CS0/CS1) registers for their base update; reject so
+            // the base register is never left stale by a silent wrong lift.
+            DecodedInsn::Store {
+                addr:
+                    AddrMode::PostIncReg { .. }
+                    | AddrMode::PostIncBrev { .. }
+                    | AddrMode::PostIncCircImm { .. }
+                    | AddrMode::PostIncCircReg { .. },
+                ..
             } => {
                 return Err(LiftError::Unsupported {
                     addr,
-                    mnemonic: "pred_or_high_half_store".to_string(),
+                    mnemonic: "store_postinc_mod_circ".to_string(),
                 });
             }
 
@@ -687,16 +746,47 @@ impl HexagonLifter {
                 width,
                 pred: _,
                 src_new: _,
-                high_half: _,
+                high_half,
             } => {
                 let smir_addr = self.hex_addr(addr, ctx);
                 let mem_width = self.hex_mem_width(*width);
 
-                push_op!(OpKind::Store {
-                    src: self.hex_reg(*src),
-                    addr: smir_addr,
-                    width: mem_width,
-                });
+                // `storerf` high-half store: the stored halfword is Rt[31:16].
+                // Shift the source right by 16 into a temp and store its low 16
+                // bits (width is always Half for this form).
+                let store_src = if *high_half {
+                    let tmp = ctx.alloc_vreg();
+                    push_op!(OpKind::Shr {
+                        dst: tmp,
+                        src: self.hex_reg(*src),
+                        amount: SrcOperand::Imm(16),
+                        width: OpWidth::W32,
+                        flags: FlagUpdate::None,
+                    });
+                    tmp
+                } else {
+                    self.hex_reg(*src)
+                };
+
+                if matches!(width, HexMemWidth::Double) {
+                    // `memd` stores a register PAIR (Rss): combined = (odd<<32)|even.
+                    // A single 64-bit Store of R(even) reads only its 32 bits and
+                    // writes the high 4 bytes as zero, so emit a StorePair (two
+                    // 32-bit stores: even at EA, odd at EA+4) instead.
+                    let even = *src & !1;
+                    push_op!(OpKind::StorePair {
+                        src1: self.hex_reg(even),
+                        src2: self.hex_reg(even + 1),
+                        addr: smir_addr,
+                        width: MemWidth::B4,
+                    });
+                } else {
+                    push_op!(OpKind::Store {
+                        src: store_src,
+                        addr: smir_addr,
+                        width: mem_width,
+                    });
+                }
 
                 // Handle post-increment
                 if let AddrMode::PostIncImm { base, offset } = addr {
@@ -707,6 +797,17 @@ impl HexagonLifter {
                         src2: SrcOperand::Imm(offset as i64),
                         width: OpWidth::W32,
                         flags: FlagUpdate::None,
+                    });
+                }
+                // `memX(Re=##addr)=Rt` absolute-set: write Re with the absolute
+                // address. Emit AFTER the store so that if Re == src the store
+                // reads the OLD src value (matches the interpreter, which stores
+                // self.regs.r[src] before/independently of the base update).
+                if let AddrMode::AbsSet { areg, addr: abs } = addr {
+                    push_op!(OpKind::Mov {
+                        dst: self.hex_reg(*areg),
+                        src: SrcOperand::Imm(*abs as i32 as i64),
+                        width: OpWidth::W32,
                     });
                 }
                 ControlFlow::Fallthrough
@@ -1210,13 +1311,133 @@ impl HexagonLifter {
                 });
             }
 
-            // Read-modify-write memops are not lifted to SMIR (the interpreter
-            // path in cpu.rs handles them); reject so callers fall back.
-            DecodedInsn::MemOp { .. } => {
-                return Err(LiftError::Unsupported {
-                    addr,
-                    mnemonic: "memop".to_string(),
+            // Read-modify-write memops (`memX(Rs+#u) OP= Rt|#imm`): load the
+            // current value (zero-extended to 32 bits), apply the op in 32-bit
+            // arithmetic, and store the low `width` bytes back. Mirrors the
+            // interpreter's load_mem(Unsigned) -> op -> store_mem(width) path.
+            DecodedInsn::MemOp {
+                base,
+                offset,
+                width,
+                op,
+                src,
+            } => {
+                let mem_width = self.hex_mem_width(*width);
+                let ea = Address::BaseOffset {
+                    base: self.hex_reg(*base),
+                    offset: *offset as i64,
+                    disp_size: DispSize::Auto,
+                };
+
+                // cur = zxt(mem[ea])
+                let cur = ctx.alloc_vreg();
+                push_op!(OpKind::Load {
+                    dst: cur,
+                    addr: ea.clone(),
+                    width: mem_width,
+                    sign: SignExtend::Zero,
                 });
+
+                // The modify operand: a register or a #u5 immediate.
+                let src_op = match src {
+                    MemOpSrc::Reg(r) => SrcOperand::Reg(self.hex_reg(*r)),
+                    MemOpSrc::Imm(v) => SrcOperand::Imm(*v as i64),
+                };
+
+                let result = ctx.alloc_vreg();
+                match op {
+                    MemOpKind::Add => push_op!(OpKind::Add {
+                        dst: result,
+                        src1: cur,
+                        src2: src_op,
+                        width: OpWidth::W32,
+                        flags: FlagUpdate::None,
+                    }),
+                    MemOpKind::Sub => push_op!(OpKind::Sub {
+                        dst: result,
+                        src1: cur,
+                        src2: src_op,
+                        width: OpWidth::W32,
+                        flags: FlagUpdate::None,
+                    }),
+                    MemOpKind::And => push_op!(OpKind::And {
+                        dst: result,
+                        src1: cur,
+                        src2: src_op,
+                        width: OpWidth::W32,
+                        flags: FlagUpdate::None,
+                    }),
+                    MemOpKind::Or => push_op!(OpKind::Or {
+                        dst: result,
+                        src1: cur,
+                        src2: src_op,
+                        width: OpWidth::W32,
+                        flags: FlagUpdate::None,
+                    }),
+                    MemOpKind::SetBit | MemOpKind::ClrBit => {
+                        // mask = 1 << (src & 0x1f); SetBit: cur | mask;
+                        // ClrBit: cur & ~mask. For a register src the shift amount
+                        // must be masked to 5 bits BEFORE the shift (the SMIR Shl
+                        // would otherwise zero a >=32 amount, diverging from the
+                        // Hexagon `1 << (src & 0x1f)`).
+                        let mask = ctx.alloc_vreg();
+                        match src {
+                            MemOpSrc::Imm(v) => {
+                                push_op!(OpKind::Mov {
+                                    dst: mask,
+                                    src: SrcOperand::Imm(1i64 << (*v & 0x1f)),
+                                    width: OpWidth::W32,
+                                });
+                            }
+                            MemOpSrc::Reg(r) => {
+                                let amt = ctx.alloc_vreg();
+                                push_op!(OpKind::And {
+                                    dst: amt,
+                                    src1: self.hex_reg(*r),
+                                    src2: SrcOperand::Imm(0x1f),
+                                    width: OpWidth::W32,
+                                    flags: FlagUpdate::None,
+                                });
+                                push_op!(OpKind::Mov {
+                                    dst: mask,
+                                    src: SrcOperand::Imm(1),
+                                    width: OpWidth::W32,
+                                });
+                                push_op!(OpKind::Shl {
+                                    dst: mask,
+                                    src: mask,
+                                    amount: SrcOperand::Reg(amt),
+                                    width: OpWidth::W32,
+                                    flags: FlagUpdate::None,
+                                });
+                            }
+                        }
+                        if matches!(op, MemOpKind::SetBit) {
+                            push_op!(OpKind::Or {
+                                dst: result,
+                                src1: cur,
+                                src2: SrcOperand::Reg(mask),
+                                width: OpWidth::W32,
+                                flags: FlagUpdate::None,
+                            });
+                        } else {
+                            push_op!(OpKind::AndNot {
+                                dst: result,
+                                src1: cur,
+                                src2: SrcOperand::Reg(mask),
+                                width: OpWidth::W32,
+                                flags: FlagUpdate::None,
+                            });
+                        }
+                    }
+                }
+
+                push_op!(OpKind::Store {
+                    src: result,
+                    addr: ea,
+                    width: mem_width,
+                });
+                ControlFlow::Fallthrough
             }
             // A `.tmp` vmem load that feeds a same-packet histogram: this load is
             // the input source for the deferred `VHist` op (recorded in
