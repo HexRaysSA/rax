@@ -1289,6 +1289,33 @@ fn jit_mem_boot_memmove_overlap24_matches_interpreter() {
     }
 }
 
+/// A GS-segment-relative memory access (`65` prefix) must NOT be JIT-compiled:
+/// the helper cannot add the per-CPU/TLS segment base, so the region must bail
+/// to the interpreter (which models segments). Without the bail the JIT would
+/// read the wrong address (base+index+disp, missing the GS base).
+#[test]
+fn jit_mem_gs_relative_bails() {
+    // loop: mov al, gs:[rdi]; inc rdi; dec rcx; jne loop; hlt
+    let code: &[u8] = &[
+        0x65, 0x8a, 0x07, // mov al, gs:[rdi]
+        0x48, 0xff, 0xc7, // inc rdi
+        0x48, 0xff, 0xc9, // dec rcx
+        0x75, 0xf5, // jne loop
+        0xf4, // hlt
+    ];
+    let (mut jit, _m) = make_vcpu_mem(code);
+    jit.set_jit_mem(true);
+    let mut r = jit.get_regs().unwrap();
+    r.rdi = 0x20_0000;
+    r.rcx = 4;
+    jit.set_regs(&r).unwrap();
+    // Must refuse to JIT (lift bails on the FS/GS-relative operand).
+    assert!(
+        !jit.jit_try_block().expect("jit_try_block"),
+        "GS-relative region must not JIT (no segment-base modeling)"
+    );
+}
+
 /// `movzx ecx, dil` (REX-prefixed `40 0f b6 cf`) wedged BETWEEN two loads, as in
 /// kernel region 0x82149bd0. The lifter must not drop the movzx — if it does,
 /// rcx keeps a stale value and the dependent indexed load reads a wrong address.

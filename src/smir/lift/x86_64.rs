@@ -444,6 +444,18 @@ fn decode_modrm(bytes: &[u8], prefix: &X86Prefix, addr: u64) -> Result<ModRm, Li
         });
     }
 
+    // FS (0x64) / GS (0x65) overrides carry a non-zero segment base in long
+    // mode (TLS / per-CPU data). The JIT's memory helper computes only
+    // base+index+disp and cannot add that base, so refuse to lift such accesses
+    // — the region falls back to the interpreter, which models segments. (CS/DS/
+    // ES/SS overrides are flat/zero-based in long mode and need no special care.)
+    if matches!(prefix.segment_override, Some(0x64) | Some(0x65)) {
+        return Err(LiftError::Unsupported {
+            addr,
+            mnemonic: "fs/gs-relative memory operand".to_string(),
+        });
+    }
+
     // Memory operand - decode SIB and displacement
     let mut consumed = 1;
     let mut x86_addr = X86Address {
