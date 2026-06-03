@@ -2706,6 +2706,13 @@ unsafe extern "C" fn rax_jit_mem_store(
     size: u32,
 ) -> u64 {
     let vcpu = unsafe { &mut *ctx };
+    // A store to a code page is self-modifying code (e.g. the kernel's
+    // text_poke / alternatives patching). Bail to the interpreter so the full
+    // SMC + instruction-patching semantics (decode/JIT invalidation ordering,
+    // int3 batching) are handled there rather than mid-native-region.
+    if vcpu.mmu.is_code_page(addr) {
+        return 0;
+    }
     match vcpu.write_mem(addr, value, size as u8) {
         Ok(()) => 1,
         Err(_) => 0,
