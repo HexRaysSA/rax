@@ -2737,11 +2737,25 @@ fn jit_classify_bail(
         let s = format!("{k:?}");
         s.split([' ', '{', '(']).next().unwrap_or("?").to_string()
     };
+    use crate::smir::ir::Terminator;
+    use crate::smir::ops::OpKind;
     for b in &func.blocks {
         if exits.contains_key(&b.id) {
             continue;
         }
-        for op in &b.ops {
+        let n = b.ops.len();
+        for (i, op) in b.ops.iter().enumerate() {
+            // Mirror block_is_clobber_safe: a trailing TestCondition feeding the
+            // block's CondBranch is folded to a direct Jcc (exempt), not a bail.
+            if i + 1 == n {
+                if let (Terminator::CondBranch { cond, .. }, OpKind::TestCondition { dst, .. }) =
+                    (&b.terminator, &op.kind)
+                {
+                    if dst == cond {
+                        continue;
+                    }
+                }
+            }
             if !op.kind.is_jit_safe() {
                 return variant(&op.kind);
             }
