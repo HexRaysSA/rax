@@ -563,6 +563,10 @@ impl SmirContext {
                 RiscVReg::X(n) => rv.get_x(n),
                 RiscVReg::F(n) => rv.f[n as usize],
                 RiscVReg::Pc => rv.pc,
+                // Floating-point CSRs alias `fcsr` (fflags[4:0], frm[7:5]).
+                RiscVReg::Csr(0x001) => (rv.fcsr & 0x1f) as u64, // fflags
+                RiscVReg::Csr(0x002) => ((rv.fcsr >> 5) & 0x7) as u64, // frm
+                RiscVReg::Csr(0x003) => rv.fcsr as u64, // fcsr
                 _ => 0,
             },
             _ => 0, // Architecture mismatch
@@ -612,6 +616,12 @@ impl SmirContext {
                 RiscVReg::X(n) => rv.set_x(n, value),
                 RiscVReg::F(n) => rv.f[n as usize] = value,
                 RiscVReg::Pc => rv.pc = value,
+                // Floating-point CSRs alias `fcsr` (fflags[4:0], frm[7:5]).
+                RiscVReg::Csr(0x001) => rv.fcsr = (rv.fcsr & !0x1f) | (value as u32 & 0x1f),
+                RiscVReg::Csr(0x002) => {
+                    rv.fcsr = (rv.fcsr & !0xe0) | ((value as u32 & 0x7) << 5)
+                }
+                RiscVReg::Csr(0x003) => rv.fcsr = value as u32 & 0xff,
                 _ => {}
             },
             _ => {} // Architecture mismatch

@@ -2515,6 +2515,15 @@ fn smir_op_kind_json(kind: &OpKind) -> Value {
             src2,
         } => op_json!("hex_cabac_decbin", dst, pred, src1, src2),
         OpKind::HexTlbMatch { dst, src1, src2 } => op_json!("hex_tlbmatch", dst, src1, src2),
+        OpKind::RvFp {
+            dst,
+            fcsr_dst,
+            src1,
+            src2,
+            src3,
+            fcsr_src,
+            ..
+        } => op_json!("rv_fp", dst, fcsr_dst, src1, src2, src3, fcsr_src),
     }
 }
 

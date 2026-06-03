@@ -1563,6 +1563,15 @@ impl OpKind {
                 result.push(*scale);
             }
 
+            OpKind::RvFp {
+                src1, src2, src3, fcsr_src, ..
+            } => {
+                result.push(*src1);
+                result.push(*src2);
+                result.push(*src3);
+                result.push(*fcsr_src);
+            }
+
             OpKind::FAbs { src, .. }
             | OpKind::FNeg { src, .. }
             | OpKind::FSqrt { src, .. }

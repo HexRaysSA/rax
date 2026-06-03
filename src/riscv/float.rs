@@ -1869,3 +1869,240 @@ fn add_wide(
         }
     }
 }
+
+// ===========================================================================
+// Single-source scalar FP evaluation (shared by the RISC-V SMIR lift).
+// ===========================================================================
+
+use crate::riscv::Op as RvFpInsn;
+
+/// Does this OP-FP / FMA op write its result to an **integer** (x) register?
+/// (compares, fp->int conversions, `fclass`, `fcvtmod`, `fmv.x.*`). Everything
+/// else writes an f-register.
+pub fn fp_writes_int_dst(op: RvFpInsn) -> bool {
+    use RvFpInsn::*;
+    matches!(
+        op,
+        FeqS | FltS | FleS | FeqD | FltD | FleD | FeqH | FltH | FleH
+            | FleqS | FltqS | FleqD | FltqD | FleqH | FltqH
+            | FclassS | FclassD | FclassH
+            | FcvtWS | FcvtWuS | FcvtLS | FcvtLuS
+            | FcvtWD | FcvtWuD | FcvtLD | FcvtLuD
+            | FcvtWH | FcvtWuH | FcvtLH | FcvtLuH
+            | FcvtmodWD
+            | FmvXW | FmvXD | FmvXH
+    )
+}
+
+/// Does this OP-FP op take its first source operand from an **integer** (x)
+/// register? (int->fp conversions and `fmv.*.x`). Everything else reads an
+/// f-register.
+pub fn fp_uses_int_src1(op: RvFpInsn) -> bool {
+    use RvFpInsn::*;
+    matches!(
+        op,
+        FcvtSW | FcvtSWu | FcvtSL | FcvtSLu
+            | FcvtDW | FcvtDWu | FcvtDL | FcvtDLu
+            | FcvtHW | FcvtHWu | FcvtHL | FcvtHLu
+            | FmvWX | FmvDX | FmvHX
+    )
+}
+
+/// Pure evaluation of a scalar OP-FP / FMA RISC-V instruction. `a`/`b`/`c` carry
+/// the raw 64-bit source register values — the raw f-register bits for
+/// FP-source operands (NaN-boxed exactly as stored), or the raw x-register value
+/// in `a` for integer-source ops ([`fp_uses_int_src1`]). Returns the raw value
+/// to write into the destination register — NaN-boxed for an f-register
+/// destination, or the integer result for an x-register destination
+/// ([`fp_writes_int_dst`]) — together with the input `fcsr` with this op's
+/// accrued exception flags OR'd in. Returns `None` for an illegal rounding-mode
+/// field (hardware raises an illegal-instruction trap: no state change), and for
+/// any op outside the OP-FP / FMA arithmetic set this function covers
+/// (loads/stores, sign-injection and the moves/classify already lifted to plain
+/// SMIR are intentionally excluded).
+///
+/// This calls the same soft-float primitives ([`add`], [`sf_mul`], [`sf_fma`],
+/// …) used by `RiscVCpu::exec_fp`, so a lifted SMIR `RvFp` op is bit-identical to
+/// the qemu-verified interpreter; the thin operand wrapper below mirrors
+/// `exec_fp` exactly and is independently checked by `tests/riscv_smir_lift.rs`.
+pub fn eval_scalar_fp(
+    op: RvFpInsn,
+    rm_field: u8,
+    fcsr: u32,
+    a: u64,
+    b: u64,
+    c: u64,
+) -> Option<(u64, u32)> {
+    use RvFpInsn::*;
+
+    // Resolve the effective rounding mode (mirrors `RiscVCpu::eff_rm`). Ops whose
+    // funct3 does not encode a rounding mode never consult it.
+    let needs_rm = !matches!(
+        op,
+        FminS | FmaxS | FminD | FmaxD | FminH | FmaxH
+            | FeqS | FltS | FleS | FeqD | FltD | FleD | FeqH | FltH | FleH
+            | FminmS | FmaxmS | FminmD | FmaxmD | FminmH | FmaxmH
+            | FleqS | FltqS | FleqD | FltqD | FleqH | FltqH
+            | FliS | FliD | FliH | FcvtmodWD
+    );
+    let rm = if needs_rm {
+        let m = RoundingMode::from_bits(rm_field)?;
+        let m = if m == RoundingMode::Dyn {
+            RoundingMode::from_bits(((fcsr >> 5) & 0x7) as u8)?
+        } else {
+            m
+        };
+        if m == RoundingMode::Dyn {
+            return None; // dynamic field itself selecting dynamic is illegal
+        }
+        m
+    } else {
+        RoundingMode::Rne
+    };
+
+    let mut flags = 0u32;
+
+    // Operand unboxing (mirrors RiscVCpu::rf32/rf16/s32/h).
+    let rf32 = |bits: u64| -> f32 {
+        if (bits >> 32) == 0xffff_ffff {
+            f32::from_bits(bits as u32)
+        } else {
+            f32::from_bits(CANONICAL_NAN_F32)
+        }
+    };
+    let rf64 = |bits: u64| -> f64 { f64::from_bits(bits) };
+    let s32 = |bits: u64| -> u64 { rf32(bits).to_bits() as u64 };
+    let rf16 = |bits: u64| -> u16 {
+        if (bits >> 16) == 0xffff_ffff_ffff {
+            bits as u16
+        } else {
+            0x7e00
+        }
+    };
+    let h = |bits: u64| -> u64 { rf16(bits) as u64 };
+    // Result NaN-boxing (mirrors wf32/wf16/wf64).
+    let box_s = |bits: u32| -> u64 { 0xffff_ffff_0000_0000u64 | bits as u64 };
+    let box_h = |bits: u16| -> u64 { 0xffff_ffff_ffff_0000u64 | bits as u64 };
+    // Sign flips for the FMA variants.
+    let neg32 = |bits: u64| bits ^ 0x8000_0000;
+    let neg64 = |bits: u64| bits ^ 0x8000_0000_0000_0000;
+    let neg16 = |bits: u64| bits ^ 0x8000;
+
+    let result: u64 = match op {
+        // ---- single-precision arithmetic ----
+        FaddS => box_s(add(rf32(a), rf32(b), rm, &mut flags).to_bits()),
+        FsubS => box_s(sub(rf32(a), rf32(b), rm, &mut flags).to_bits()),
+        FmulS => box_s(sf_mul(F32, s32(a), s32(b), rm, &mut flags) as u32),
+        FdivS => box_s(sf_div(F32, s32(a), s32(b), rm, &mut flags) as u32),
+        FsqrtS => box_s(sf_sqrt(F32, s32(a), rm, &mut flags) as u32),
+        FmaddS => box_s(sf_fma(F32, s32(a), s32(b), s32(c), rm, &mut flags) as u32),
+        FmsubS => box_s(sf_fma(F32, s32(a), s32(b), neg32(s32(c)), rm, &mut flags) as u32),
+        FnmsubS => box_s(sf_fma(F32, neg32(s32(a)), s32(b), s32(c), rm, &mut flags) as u32),
+        FnmaddS => box_s(sf_fma(F32, neg32(s32(a)), s32(b), neg32(s32(c)), rm, &mut flags) as u32),
+
+        // ---- double-precision arithmetic ----
+        FaddD => add(rf64(a), rf64(b), rm, &mut flags).to_bits(),
+        FsubD => sub(rf64(a), rf64(b), rm, &mut flags).to_bits(),
+        FmulD => sf_mul(F64, a, b, rm, &mut flags),
+        FdivD => sf_div(F64, a, b, rm, &mut flags),
+        FsqrtD => sf_sqrt(F64, a, rm, &mut flags),
+        FmaddD => sf_fma(F64, a, b, c, rm, &mut flags),
+        FmsubD => sf_fma(F64, a, b, neg64(c), rm, &mut flags),
+        FnmsubD => sf_fma(F64, neg64(a), b, c, rm, &mut flags),
+        FnmaddD => sf_fma(F64, neg64(a), b, neg64(c), rm, &mut flags),
+
+        // ---- half-precision arithmetic ----
+        FaddH => box_h(sf_add(F16, h(a), h(b), rm, &mut flags) as u16),
+        FsubH => box_h(sf_sub(F16, h(a), h(b), rm, &mut flags) as u16),
+        FmulH => box_h(sf_mul(F16, h(a), h(b), rm, &mut flags) as u16),
+        FdivH => box_h(sf_div(F16, h(a), h(b), rm, &mut flags) as u16),
+        FsqrtH => box_h(sf_sqrt(F16, h(a), rm, &mut flags) as u16),
+        FmaddH => box_h(sf_fma(F16, h(a), h(b), h(c), rm, &mut flags) as u16),
+        FmsubH => box_h(sf_fma(F16, h(a), h(b), neg16(h(c)), rm, &mut flags) as u16),
+        FnmsubH => box_h(sf_fma(F16, neg16(h(a)), h(b), h(c), rm, &mut flags) as u16),
+        FnmaddH => box_h(sf_fma(F16, neg16(h(a)), h(b), neg16(h(c)), rm, &mut flags) as u16),
+
+        // ---- min / max ----
+        FminS => box_s(fmin(rf32(a), rf32(b), &mut flags).to_bits()),
+        FmaxS => box_s(fmax(rf32(a), rf32(b), &mut flags).to_bits()),
+        FminD => fmin(rf64(a), rf64(b), &mut flags).to_bits(),
+        FmaxD => fmax(rf64(a), rf64(b), &mut flags).to_bits(),
+        FminH => box_h(fmin_h(rf16(a), rf16(b), &mut flags)),
+        FmaxH => box_h(fmax_h(rf16(a), rf16(b), &mut flags)),
+        FminmS => box_s(fminm(rf32(a), rf32(b), &mut flags).to_bits()),
+        FmaxmS => box_s(fmaxm(rf32(a), rf32(b), &mut flags).to_bits()),
+        FminmD => fminm(rf64(a), rf64(b), &mut flags).to_bits(),
+        FmaxmD => fmaxm(rf64(a), rf64(b), &mut flags).to_bits(),
+        FminmH => box_h(fminm_h(rf16(a), rf16(b), &mut flags)),
+        FmaxmH => box_h(fmaxm_h(rf16(a), rf16(b), &mut flags)),
+
+        // ---- comparisons (write an integer register) ----
+        FeqS => feq(rf32(a), rf32(b), &mut flags) as u64,
+        FltS => flt(rf32(a), rf32(b), &mut flags) as u64,
+        FleS => fle(rf32(a), rf32(b), &mut flags) as u64,
+        FeqD => feq(rf64(a), rf64(b), &mut flags) as u64,
+        FltD => flt(rf64(a), rf64(b), &mut flags) as u64,
+        FleD => fle(rf64(a), rf64(b), &mut flags) as u64,
+        FeqH => feq_h(rf16(a), rf16(b), &mut flags) as u64,
+        FltH => flt_h(rf16(a), rf16(b), &mut flags) as u64,
+        FleH => fle_h(rf16(a), rf16(b), &mut flags) as u64,
+        FleqS => fleq(rf32(a), rf32(b), &mut flags) as u64,
+        FltqS => fltq(rf32(a), rf32(b), &mut flags) as u64,
+        FleqD => fleq(rf64(a), rf64(b), &mut flags) as u64,
+        FltqD => fltq(rf64(a), rf64(b), &mut flags) as u64,
+        FleqH => fleq_h(rf16(a), rf16(b), &mut flags) as u64,
+        FltqH => fltq_h(rf16(a), rf16(b), &mut flags) as u64,
+
+        // ---- round to integer ----
+        FroundS => box_s(fround(rf32(a), rm, false, &mut flags).to_bits()),
+        FroundnxS => box_s(fround(rf32(a), rm, true, &mut flags).to_bits()),
+        FroundD => fround(rf64(a), rm, false, &mut flags).to_bits(),
+        FroundnxD => fround(rf64(a), rm, true, &mut flags).to_bits(),
+        FroundH => box_h(fround_h(rf16(a), rm, false, &mut flags)),
+        FroundnxH => box_h(fround_h(rf16(a), rm, true, &mut flags)),
+
+        // ---- float -> integer conversions ----
+        FcvtWS => ftoi(rf32(a), true, 32, rm, &mut flags),
+        FcvtWuS => ftoi(rf32(a), false, 32, rm, &mut flags),
+        FcvtLS => ftoi(rf32(a), true, 64, rm, &mut flags),
+        FcvtLuS => ftoi(rf32(a), false, 64, rm, &mut flags),
+        FcvtWD => ftoi(rf64(a), true, 32, rm, &mut flags),
+        FcvtWuD => ftoi(rf64(a), false, 32, rm, &mut flags),
+        FcvtLD => ftoi(rf64(a), true, 64, rm, &mut flags),
+        FcvtLuD => ftoi(rf64(a), false, 64, rm, &mut flags),
+        FcvtWH => ftoi(h_widen(rf16(a)), true, 32, rm, &mut flags),
+        FcvtWuH => ftoi(h_widen(rf16(a)), false, 32, rm, &mut flags),
+        FcvtLH => ftoi(h_widen(rf16(a)), true, 64, rm, &mut flags),
+        FcvtLuH => ftoi(h_widen(rf16(a)), false, 64, rm, &mut flags),
+        FcvtmodWD => fcvtmod_w_d(rf64(a), &mut flags),
+
+        // ---- integer -> float conversions ----
+        FcvtSW => box_s({ let r: f32 = itof(a as i32 as i128, rm, &mut flags); r.to_bits() }),
+        FcvtSWu => box_s({ let r: f32 = itof(a as u32 as i128, rm, &mut flags); r.to_bits() }),
+        FcvtSL => box_s({ let r: f32 = itof(a as i64 as i128, rm, &mut flags); r.to_bits() }),
+        FcvtSLu => box_s({ let r: f32 = itof(a as i128, rm, &mut flags); r.to_bits() }),
+        FcvtDW => { let r: f64 = itof(a as i32 as i128, rm, &mut flags); r.to_bits() }
+        FcvtDWu => { let r: f64 = itof(a as u32 as i128, rm, &mut flags); r.to_bits() }
+        FcvtDL => { let r: f64 = itof(a as i64 as i128, rm, &mut flags); r.to_bits() }
+        FcvtDLu => { let r: f64 = itof(a as i128, rm, &mut flags); r.to_bits() }
+        FcvtHW => box_h(itof_fmt(F16, a as i32 as i128, rm, &mut flags) as u16),
+        FcvtHWu => box_h(itof_fmt(F16, a as u32 as i128, rm, &mut flags) as u16),
+        FcvtHL => box_h(itof_fmt(F16, a as i64 as i128, rm, &mut flags) as u16),
+        FcvtHLu => box_h(itof_fmt(F16, a as i128, rm, &mut flags) as u16),
+
+        // ---- float <-> float conversions ----
+        FcvtSD => box_s(f64_to_f32(rf64(a), rm, &mut flags)),
+        FcvtDS => f32_to_f64(rf32(a), &mut flags),
+        FcvtSH => box_s(fcvt_round(F16, F32, h(a), rm, &mut flags) as u32),
+        FcvtHS => box_h(fcvt_round(F32, F16, s32(a), rm, &mut flags) as u16),
+        FcvtDH => fcvt_round(F16, F64, h(a), rm, &mut flags),
+        FcvtHD => box_h(fcvt_round(F64, F16, a, rm, &mut flags) as u16),
+
+        // FliS/FliD/FliH (Zfa load-immediate) are NOT handled here: their `rs1`
+        // field is an immediate table index, not a register value, so the lift
+        // materialises the constant directly (see the lifter).
+        _ => return None,
+    };
+
+    Some((result, fcsr | (flags & 0x1f)))
+}
