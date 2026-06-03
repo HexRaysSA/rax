@@ -2607,6 +2607,31 @@ enum SmirOutcome {
     Skipped(String),
 }
 
+/// Optimize a lifted SMIR function in place at O2. Applied in EVERY SMIR
+/// differential path so the optimizer is continuously validated bit-exact
+/// against the KVM oracle: a semantics-preserving optimizer must yield the
+/// identical architectural state (GPRs / masked RFLAGS / memory).
+fn smir_optimize(func: &mut rax::smir::ir::SmirFunction) {
+    use rax::smir::opt::{optimize_function, OptLevel};
+    optimize_function(func, OptLevel::O2);
+}
+
+/// Optimize a single lifted block: wrap it in a function, optimize, return the
+/// (optimized) entry block.
+fn smir_optimize_block(block: rax::smir::ir::SmirBlock) -> rax::smir::ir::SmirBlock {
+    use rax::smir::ir::SmirFunction;
+    use rax::smir::types::FunctionId;
+    let entry = block.id;
+    let pc = block.guest_pc;
+    let mut func = SmirFunction::new(FunctionId(0), entry, pc);
+    func.add_block(block);
+    smir_optimize(&mut func);
+    func.blocks
+        .into_iter()
+        .find(|b| b.id == entry)
+        .expect("entry block survives optimization")
+}
+
 fn run_smir(code: &[u8], init: &Registers, scratch_init: &[u8; 64]) -> Result<SmirOutcome, String> {
     use rax::smir::context::{ExitReason, SmirContext};
     use rax::smir::flags::MaterializedFlags;
@@ -2642,6 +2667,7 @@ fn run_smir(code: &[u8], init: &Registers, scratch_init: &[u8; 64]) -> Result<Sm
         Ok(b) => b,
         Err(e) => return Ok(SmirOutcome::Skipped(format!("lift: {e:?}"))),
     };
+    let block = smir_optimize_block(block);
 
     let mut interp = SmirInterpreter::new();
     interp.set_max_insns(MAX_ITERS);
@@ -3839,6 +3865,7 @@ fn run_smir_native(
     let block_id = block.id;
     let mut func = SmirFunction::new(FunctionId(0), block_id, CODE_ADDR);
     func.add_block(block);
+    smir_optimize(&mut func);
 
     let mut lowerer = X86_64Lowerer::new();
     let res = match lowerer.lower_function(&func) {
@@ -4117,6 +4144,7 @@ fn run_smir_lowered(
     block.set_terminator(Terminator::Return { values: vec![] });
     let mut func = SmirFunction::new(FunctionId(0), block.id, CODE_ADDR);
     func.add_block(block);
+    smir_optimize(&mut func);
 
     // 2) lower to native bytes
     let mut lowerer = X86_64Lowerer::new();
@@ -4676,6 +4704,7 @@ fn run_smir_native_cfg(
             b.set_terminator(Terminator::Return { values: vec![] });
         }
     }
+    smir_optimize(&mut func);
 
     let mut lowerer = X86_64Lowerer::new();
     let res = match lowerer.lower_function(&func) {

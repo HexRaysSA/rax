@@ -492,8 +492,11 @@ impl<'a> X86Emitter<'a> {
 
     /// MOV r64, r64 (or r32/r16/r8)
     pub fn emit_mov_rr(&mut self, dst: PhysReg, src: PhysReg, width: OpWidth) {
-        if dst == src {
-            return; // Optimize away self-move
+        if dst == src && width != OpWidth::W32 {
+            // A same-register move is a true no-op for 8/16/64/128-bit widths,
+            // but a 32-bit `mov eax, eax` ZERO-EXTENDS bits 63:32 (the canonical
+            // x86-64 zero-extend idiom), so it must still be emitted.
+            return;
         }
 
         self.emit_rex_for_width(width, src, dst);
