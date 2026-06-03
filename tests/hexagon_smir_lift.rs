@@ -3941,3 +3941,316 @@ fn lift_cround_rr() {
     );
 }
 
+// ============================================================================
+// SIMD per-lane vector shifts (S2_*_i_v{h,w} / S2_*_r_v{h,w}) + svw_trun.
+// Composed lane-by-lane from Bfx/Shl/Sar/Shr (imm) or BidirShift (reg). No
+// saturation, so usr_ovf stays 0 and is still compared. Verified vs the
+// qemu-backed HexagonVcpu over 40 seeded iterations.
+// ============================================================================
+
+#[test]
+fn lift_s2_vshift_i() {
+    lift_family(
+        "s2_vshift_i",
+        &[
+            ("aslh", "{ r1:0 = vaslh(r3:2,#5) }"),
+            ("asrh", "{ r1:0 = vasrh(r3:2,#5) }"),
+            ("lsrh", "{ r1:0 = vlsrh(r3:2,#5) }"),
+            ("aslw", "{ r1:0 = vaslw(r3:2,#11) }"),
+            ("asrw", "{ r1:0 = vasrw(r3:2,#11) }"),
+            ("lsrw", "{ r1:0 = vlsrw(r3:2,#11) }"),
+            ("aslh0", "{ r1:0 = vaslh(r3:2,#0) }"),
+            ("asrh15", "{ r1:0 = vasrh(r3:2,#15) }"),
+        ],
+        40,
+        0xb201,
+    );
+}
+
+#[test]
+fn lift_s2_vshift_r() {
+    lift_family(
+        "s2_vshift_r",
+        &[
+            ("aslh", "{ r1:0 = vaslh(r3:2,r4) }"),
+            ("asrh", "{ r1:0 = vasrh(r3:2,r4) }"),
+            ("lsrh", "{ r1:0 = vlsrh(r3:2,r4) }"),
+            ("lslh", "{ r1:0 = vlslh(r3:2,r4) }"),
+            ("aslw", "{ r1:0 = vaslw(r3:2,r4) }"),
+            ("asrw", "{ r1:0 = vasrw(r3:2,r4) }"),
+            ("lsrw", "{ r1:0 = vlsrw(r3:2,r4) }"),
+            ("lslw", "{ r1:0 = vlslw(r3:2,r4) }"),
+        ],
+        40,
+        0xb202,
+    );
+}
+
+#[test]
+fn lift_s2_svw_trun() {
+    lift_family(
+        "s2_svw_trun",
+        &[
+            ("asr_i", "{ r0 = vasrw(r3:2,#5) }"),
+            ("asr_r", "{ r0 = vasrw(r3:2,r4) }"),
+        ],
+        40,
+        0xb203,
+    );
+}
+
+// Cross add/sub: one lane adds the adjacent Rtt lane, the next subtracts; all
+// signed-saturate (set_ovf:true, so usr_ovf is compared). The :rnd:>>1 (hr)
+// forms round (+1)>>1 before saturating. Verified vs HexagonVcpu, 40 iters.
+#[test]
+fn lift_s4_vxaddsub() {
+    lift_family(
+        "s4_vxaddsub",
+        &[
+            ("vxaddsubh", "{ r1:0 = vxaddsubh(r3:2,r5:4):sat }"),
+            ("vxsubaddh", "{ r1:0 = vxsubaddh(r3:2,r5:4):sat }"),
+            ("vxaddsubhr", "{ r1:0 = vxaddsubh(r3:2,r5:4):rnd:>>1:sat }"),
+            ("vxsubaddhr", "{ r1:0 = vxsubaddh(r3:2,r5:4):rnd:>>1:sat }"),
+            ("vxaddsubw", "{ r1:0 = vxaddsubw(r3:2,r5:4):sat }"),
+            ("vxsubaddw", "{ r1:0 = vxsubaddw(r3:2,r5:4):sat }"),
+        ],
+        40,
+        0xb204,
+    );
+}
+
+// Conditional per-half negate (vcnegh) and complex rotate (vcrotate); both
+// saturate on the negate paths (set_ovf:true). The harness seeds Rt randomly,
+// exercising all per-half / per-pair control values incl. the -32768 OVF case.
+#[test]
+fn lift_s2_vcneg_vcrotate() {
+    lift_family(
+        "s2_vcneg_vcrotate",
+        &[
+            ("vcnegh", "{ r1:0 = vcnegh(r3:2,r4) }"),
+            ("vcrotate", "{ r1:0 = vcrotate(r3:2,r4) }"),
+        ],
+        40,
+        0xb205,
+    );
+}
+
+// Complex byte-pair rotate-accumulate (vrcrotate). control byte = Rt[ui*8+:8];
+// per byte-pair a 4-way add/sub of (real,imag) terms. No saturation. The _acc
+// form seeds the running sums from the old Rxx word lanes. 40 iters vs VCPU.
+#[test]
+fn lift_s4_vrcrotate() {
+    lift_family(
+        "s4_vrcrotate",
+        &[
+            ("vrcrotate", "{ r1:0 = vrcrotate(r3:2,r4,#1) }"),
+            ("vrcrotate_acc", "{ r1:0 += vrcrotate(r3:2,r4,#2) }"),
+        ],
+        40,
+        0xb206,
+    );
+}
+
+#[test]
+fn lift_s2_vrcnegh() {
+    lift_family(
+        "s2_vrcnegh",
+        &[("vrcnegh", "{ r1:0 += vrcnegh(r3:2,r4) }")],
+        40,
+        0xb207,
+    );
+}
+
+// ============================================================================
+// Complex halfword MAC: real-only / imag-only 16x16 complex products written
+// sign-extended into the Rdd pair (cmpyi/cmpyr) or accumulated into the full
+// 64-bit Rxx pair (cmaci/cmacr). No <<1, no sat -> usr_ovf stays 0 (compared).
+// ============================================================================
+#[test]
+fn lift_m2_cmpy_cmac() {
+    lift_family(
+        "m2_cmpy_cmac",
+        &[
+            ("cmpyi", "{ r1:0 = cmpyi(r2,r3) }"),
+            ("cmpyr", "{ r1:0 = cmpyr(r2,r3) }"),
+            ("cmaci", "{ r1:0 += cmpyi(r2,r3) }"),
+            ("cmacr", "{ r1:0 += cmpyr(r2,r3) }"),
+        ],
+        40,
+        0xb208,
+    );
+}
+
+// Register-pair extract/insert: width = Rtt[37:32], offset = sxtn(7,Rtt[6:0]),
+// both runtime. Composed with runtime Shl/Shr/masks + Select on offset sign and
+// the width==0 / offset<0 edge cases. The harness seeds Rtt randomly so a wide
+// range of width/offset (incl. negative offsets and width 0) is exercised.
+#[test]
+fn lift_extract_insert_rp() {
+    lift_family(
+        "extract_insert_rp",
+        &[
+            ("extractu_rp", "{ r0 = extractu(r1,r3:2) }"),
+            ("extractup_rp", "{ r1:0 = extractu(r3:2,r5:4) }"),
+            ("extract_rp", "{ r0 = extract(r1,r3:2) }"),
+            ("extractp_rp", "{ r1:0 = extract(r3:2,r5:4) }"),
+            ("insert_rp", "{ r0 = insert(r1,r3:2) }"),
+            ("insertp_rp", "{ r1:0 = insert(r3:2,r5:4) }"),
+        ],
+        40,
+        0xb20d,
+    );
+}
+
+// Deterministic edge cases for extract/insert_rp: width==0, offset<0 (incl. the
+// minimum -64), offset==0, max width 63. The pair forms use r5:r4 as Rtt (r4 =
+// offset bits[6:0], r5 = width bits[37:32]); the 32-bit forms use r3:r2 as Rtt
+// (r2 = offset, r3 = width). We compare lift vs HexagonVcpu for each crafted
+// state, so the runtime width/offset paths are pinned, not left to chance.
+#[test]
+fn lift_extract_insert_rp_edges() {
+    // (label, asm). Pair: Rtt=r5:r4 (r4=offset, r5=width). 32-bit: Rtt=r3:r2.
+    let cases: &[(&str, &str, bool)] = &[
+        ("extractup_rp", "{ r1:0 = extractu(r3:2,r5:4) }", true),
+        ("extractp_rp", "{ r1:0 = extract(r3:2,r5:4) }", true),
+        ("insertp_rp", "{ r1:0 = insert(r3:2,r5:4) }", true),
+        ("extractu_rp", "{ r0 = extractu(r1,r3:2) }", false),
+        ("extract_rp", "{ r0 = extract(r1,r3:2) }", false),
+        ("insert_rp", "{ r0 = insert(r1,r3:2) }", false),
+    ];
+    // offsets (low 7 bits) and widths (low 6 bits) to pin.
+    let offs: [u32; 6] = [0, 1, 5, 63, 0x40 /*-64*/, 0x7f /*-1*/];
+    let widths: [u32; 5] = [0, 1, 16, 32, 63];
+    for (label, asm, is_pair) in cases.iter().copied() {
+        let words = match assemble(&[asm.to_string()]) {
+            Some(w) => w.into_iter().next().unwrap(),
+            None => {
+                eprintln!("[extract_insert_rp_edges] llvm-mc unavailable -> skip");
+                return;
+            }
+        };
+        for &off in offs.iter() {
+            for &w in widths.iter() {
+                let mut st = State::zeroed();
+                // Source / accumulator data with mixed sign bits.
+                st.r[0] = 0xdead_beef; // old r0 (insert dest, 32-bit)
+                st.r[1] = 0x1234_9abc; // Rs (32-bit src)
+                st.r[2] = 0xfedc_ba98; // Rss/Rtt lo / 32-bit Rtt offset
+                st.r[3] = 0x7654_3210; // Rss/Rtt hi / 32-bit Rtt width
+                st.r[4] = off; // pair Rtt offset bits[6:0]
+                st.r[5] = w; // pair Rtt width  bits[37:32]
+                if is_pair {
+                    // 32-bit-Rtt regs reused as Rss for the pair extract/insert.
+                    st.r[2] = 0xfedc_ba98;
+                    st.r[3] = 0x7654_3210;
+                } else {
+                    // 32-bit Rtt = r3:r2: r2=offset, r3=width.
+                    st.r[2] = off;
+                    st.r[3] = w;
+                }
+                let interp = match run_interp(&words, &st) {
+                    Some(s) => s,
+                    None => continue,
+                };
+                match lift_and_run(&words, &st) {
+                    Ok(Some(lift)) => {
+                        for r in 0..2 {
+                            assert_eq!(
+                                interp.r[r], lift.r[r],
+                                "{label} off={off:#x} w={w}: r{r} i={:#x} l={:#x}",
+                                interp.r[r], lift.r[r]
+                            );
+                        }
+                        assert_eq!(
+                            interp.usr & 1,
+                            lift.usr & 1,
+                            "{label} off={off:#x} w={w}: usr_ovf"
+                        );
+                    }
+                    Ok(None) => panic!("{label}: UNLIFTED"),
+                    Err(e) => panic!("{label}: {e}"),
+                }
+            }
+        }
+    }
+}
+
+// Vector reduce max/min with index. Rxx is both source (seed best/addr) and
+// dest; the harness seeds it randomly so the running-best thread is exercised.
+// word0 = winning value, word1 = (Ru | winning_index<<shift).
+#[test]
+fn lift_a4_vrminmax() {
+    lift_family(
+        "a4_vrminmax",
+        &[
+            ("vrmaxh", "{ r1:0 = vrmaxh(r3:2,r4) }"),
+            ("vrmaxuh", "{ r1:0 = vrmaxuh(r3:2,r4) }"),
+            ("vrmaxw", "{ r1:0 = vrmaxw(r3:2,r4) }"),
+            ("vrmaxuw", "{ r1:0 = vrmaxuw(r3:2,r4) }"),
+            ("vrminh", "{ r1:0 = vrminh(r3:2,r4) }"),
+            ("vrminuh", "{ r1:0 = vrminuh(r3:2,r4) }"),
+            ("vrminw", "{ r1:0 = vrminw(r3:2,r4) }"),
+            ("vrminuw", "{ r1:0 = vrminuw(r3:2,r4) }"),
+        ],
+        40,
+        0xb20c,
+    );
+}
+
+// Vector reduce complex multiply (sum of 4 16x16 products into the pair, no
+// sat). The `*` suffix is the conjugate (_s0c) form; `+=` is the _acc form.
+#[test]
+fn lift_m2_vrcmpy_reduce() {
+    lift_family(
+        "m2_vrcmpy_reduce",
+        &[
+            ("vrcmpyi", "{ r1:0 = vrcmpyi(r3:2,r5:4) }"),
+            ("vrcmpyr", "{ r1:0 = vrcmpyr(r3:2,r5:4) }"),
+            ("vrcmpyic", "{ r1:0 = vrcmpyi(r3:2,r5:4*) }"),
+            ("vrcmpyrc", "{ r1:0 = vrcmpyr(r3:2,r5:4*) }"),
+            ("vrcmaci", "{ r1:0 += vrcmpyi(r3:2,r5:4) }"),
+            ("vrcmacr", "{ r1:0 += vrcmpyr(r3:2,r5:4) }"),
+            ("vrcmacic", "{ r1:0 += vrcmpyi(r3:2,r5:4*) }"),
+            ("vrcmacrc", "{ r1:0 += vrcmpyr(r3:2,r5:4*) }"),
+        ],
+        40,
+        0xb20b,
+    );
+}
+
+// Vector complex multiply :sat (2 lanes, signed-32 saturate, set_ovf:true).
+#[test]
+fn lift_m2_vcmpy() {
+    lift_family(
+        "m2_vcmpy",
+        &[
+            ("vcmpyr_s0", "{ r1:0 = vcmpyr(r3:2,r5:4):sat }"),
+            ("vcmpyr_s1", "{ r1:0 = vcmpyr(r3:2,r5:4):<<1:sat }"),
+            ("vcmpyi_s0", "{ r1:0 = vcmpyi(r3:2,r5:4):sat }"),
+            ("vcmpyi_s1", "{ r1:0 = vcmpyi(r3:2,r5:4):<<1:sat }"),
+            ("vcmacr_s0", "{ r1:0 += vcmpyr(r3:2,r5:4):sat }"),
+            ("vcmaci_s0", "{ r1:0 += vcmpyi(r3:2,r5:4):sat }"),
+        ],
+        40,
+        0xb209,
+    );
+}
+
+// Vector reduce complex multiply by scalar :<<1:sat (+ acc, + round-pack).
+#[test]
+fn lift_m2_vrcmpys() {
+    lift_family(
+        "m2_vrcmpys",
+        &[
+            ("s1_h", "{ r1:0 = vrcmpys(r3:2,r5:4):<<1:sat:raw:hi }"),
+            ("s1_l", "{ r1:0 = vrcmpys(r3:2,r5:4):<<1:sat:raw:lo }"),
+            ("acc_s1_h", "{ r1:0 += vrcmpys(r3:2,r5:4):<<1:sat:raw:hi }"),
+            ("acc_s1_l", "{ r1:0 += vrcmpys(r3:2,r5:4):<<1:sat:raw:lo }"),
+            ("s1rp_h", "{ r0 = vrcmpys(r3:2,r5:4):<<1:rnd:sat:raw:hi }"),
+            ("s1rp_l", "{ r0 = vrcmpys(r3:2,r5:4):<<1:rnd:sat:raw:lo }"),
+        ],
+        40,
+        0xb20a,
+    );
+}
+
