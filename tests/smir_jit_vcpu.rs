@@ -1112,3 +1112,124 @@ fn jit_mem_extended_regs_copy_matches_interpreter() {
         assert_eq!(jb, seed[i as usize], "DST[{i}] == seed (r8-15 copy)");
     }
 }
+
+/// OVERLAPPING backwards memmove: dst = src + 8, copied high-to-low so each
+/// read precedes the overwrite of that location. This is the read-after-write
+/// memmove shape (a load reading a just-stored, overlapping address) that the
+/// kernel boot region used and that simple copies don't exercise. The JIT must
+/// match the interpreter.
+#[test]
+fn jit_mem_overlapping_memmove_matches_interpreter() {
+    const SRC: u64 = 0x20_0000;
+    const N: u32 = 4; // elements
+
+    // rsi = SRC+0x20 ; rdi = SRC+0x28 ; ecx = N
+    // loop: mov rax,[rsi-8]; mov [rdi-8],rax; sub rsi,8; sub rdi,8; dec ecx; jnz loop; hlt
+    let mut code: Vec<u8> = Vec::new();
+    code.extend_from_slice(&[0x48, 0xBE]);
+    code.extend_from_slice(&(SRC + 0x20).to_le_bytes()); // mov rsi, SRC+0x20
+    code.extend_from_slice(&[0x48, 0xBF]);
+    code.extend_from_slice(&(SRC + 0x28).to_le_bytes()); // mov rdi, SRC+0x28
+    code.push(0xB9);
+    code.extend_from_slice(&N.to_le_bytes()); // mov ecx, N
+    // loop body (18 bytes):
+    code.extend_from_slice(&[0x48, 0x8B, 0x46, 0xF8]); // mov rax, [rsi-8]
+    code.extend_from_slice(&[0x48, 0x89, 0x47, 0xF8]); // mov [rdi-8], rax
+    code.extend_from_slice(&[0x48, 0x83, 0xEE, 0x08]); // sub rsi, 8
+    code.extend_from_slice(&[0x48, 0x83, 0xEF, 0x08]); // sub rdi, 8
+    code.extend_from_slice(&[0xFF, 0xC9]); // dec ecx
+    code.extend_from_slice(&[0x75, 0xEC]); // jnz loop (rel8 = -20)
+    code.push(0xF4); // hlt
+
+    let seed: [u64; 5] = [10, 20, 30, 40, 50];
+    let setup = |mem: &Arc<GuestMemoryMmap>| {
+        for (i, &x) in seed.iter().enumerate() {
+            mem.write_obj(x, GuestAddress(SRC + (i as u64) * 8)).unwrap();
+        }
+    };
+
+    let (mut interp, imem) = make_vcpu_mem(&code);
+    setup(&imem);
+    run_interp(&mut interp);
+
+    let (mut jit, jmem) = make_vcpu_mem(&code);
+    jit.set_jit_mem(true);
+    setup(&jmem);
+    assert!(jit.jit_try_block().expect("jit_try_block"), "overlapping memmove should JIT");
+    run_interp(&mut jit);
+
+    for i in 0..5u64 {
+        let ib: u64 = imem.read_obj(GuestAddress(SRC + i * 8)).unwrap();
+        let jb: u64 = jmem.read_obj(GuestAddress(SRC + i * 8)).unwrap();
+        assert_eq!(jb, ib, "SRC[{i}] jit vs interp (overlapping memmove)");
+    }
+    // Expected memmove(SRC+8, SRC, 32): [10, 10, 20, 30, 40].
+    assert_eq!(jmem.read_obj::<u64>(GuestAddress(SRC + 8)).unwrap(), 10, "moved[1]");
+    assert_eq!(jmem.read_obj::<u64>(GuestAddress(SRC + 32)).unwrap(), 40, "moved[4]");
+}
+
+/// Exact reconstruction of the kernel-boot memmove block-0: a 32-byte backwards
+/// copy loop whose counter is `sub rdx,32` (CF/`jae`), with EIGHT memory ops
+/// (4 loads + 4 stores via r8-r11) between the flag-set and the branch. This is
+/// the region the JIT verifier flagged; the flags must survive all 8 mem ops so
+/// the CF-based loop count matches the interpreter.
+#[test]
+fn jit_mem_boot_memcpy_block0_matches_interpreter() {
+    const SRC: u64 = 0x20_0000;
+    const DST: u64 = 0x21_0000;
+    const BYTES: u64 = 0x80; // rdx start; loop copies 32 at a time
+
+    // mov rsi,SRC+BYTES ; mov rdi,DST+BYTES ; mov rdx,BYTES
+    // loop: sub rdx,32 ; mov r11,[rsi-8]; r10,[rsi-16]; r9,[rsi-24]; r8,[rsi-32];
+    //       lea rsi,[rsi-32]; mov [rdi-8],r11; [rdi-16],r10; [rdi-24],r9; [rdi-32],r8;
+    //       lea rdi,[rdi-32]; jae loop ; hlt
+    let mut code: Vec<u8> = Vec::new();
+    code.extend_from_slice(&[0x48, 0xBE]);
+    code.extend_from_slice(&(SRC + BYTES).to_le_bytes());
+    code.extend_from_slice(&[0x48, 0xBF]);
+    code.extend_from_slice(&(DST + BYTES).to_le_bytes());
+    code.extend_from_slice(&[0x48, 0xBA]);
+    code.extend_from_slice(&BYTES.to_le_bytes());
+    // block 0 (44 bytes), bytes copied verbatim from the boot region dump:
+    code.extend_from_slice(&[0x48, 0x83, 0xEA, 0x20]); // sub rdx, 32
+    code.extend_from_slice(&[0x4C, 0x8B, 0x5E, 0xF8]); // mov r11, [rsi-8]
+    code.extend_from_slice(&[0x4C, 0x8B, 0x56, 0xF0]); // mov r10, [rsi-16]
+    code.extend_from_slice(&[0x4C, 0x8B, 0x4E, 0xE8]); // mov r9, [rsi-24]
+    code.extend_from_slice(&[0x4C, 0x8B, 0x46, 0xE0]); // mov r8, [rsi-32]
+    code.extend_from_slice(&[0x48, 0x8D, 0x76, 0xE0]); // lea rsi, [rsi-32]
+    code.extend_from_slice(&[0x4C, 0x89, 0x5F, 0xF8]); // mov [rdi-8], r11
+    code.extend_from_slice(&[0x4C, 0x89, 0x57, 0xF0]); // mov [rdi-16], r10
+    code.extend_from_slice(&[0x4C, 0x89, 0x4F, 0xE8]); // mov [rdi-24], r9
+    code.extend_from_slice(&[0x4C, 0x89, 0x47, 0xE0]); // mov [rdi-32], r8
+    code.extend_from_slice(&[0x48, 0x8D, 0x7F, 0xE0]); // lea rdi, [rdi-32]
+    code.extend_from_slice(&[0x73, 0xD2]); // jae loop (rel8 = -46)
+    code.push(0xF4); // hlt
+
+    let setup = |mem: &Arc<GuestMemoryMmap>| {
+        for i in 0..(BYTES / 8) {
+            mem.write_obj(0x1000 + i, GuestAddress(SRC + i * 8)).unwrap();
+            mem.write_obj(0u64, GuestAddress(DST + i * 8)).unwrap();
+        }
+    };
+
+    let (mut interp, imem) = make_vcpu_mem(&code);
+    setup(&imem);
+    run_interp(&mut interp);
+    let ir = interp.get_regs().unwrap();
+
+    let (mut jit, jmem) = make_vcpu_mem(&code);
+    jit.set_jit_mem(true);
+    setup(&jmem);
+    assert!(jit.jit_try_block().expect("jit_try_block"), "block0 memcpy should JIT");
+    run_interp(&mut jit);
+    let jr = jit.get_regs().unwrap();
+
+    assert_eq!(jr.rdx, ir.rdx, "rdx (CF-based loop counter)");
+    assert_eq!(jr.rsi, ir.rsi, "rsi");
+    assert_eq!(jr.rdi, ir.rdi, "rdi");
+    for i in 0..(BYTES / 8) {
+        let ib: u64 = imem.read_obj(GuestAddress(DST + i * 8)).unwrap();
+        let jb: u64 = jmem.read_obj(GuestAddress(DST + i * 8)).unwrap();
+        assert_eq!(jb, ib, "DST[{i}] jit vs interp");
+    }
+}
