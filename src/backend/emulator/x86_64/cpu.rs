@@ -289,6 +289,11 @@ pub struct X86_64Vcpu {
     /// bail to the interpreter (the validated default).
     #[cfg(all(feature = "smir-jit", target_arch = "x86_64"))]
     jit_mem: bool,
+    /// When `Some`, the memory-JIT store helper logs each store's `(addr, size,
+    /// old_value)` here so verify mode can UNDO the region's writes and re-run
+    /// the interpreter for a store-sound differential. `None` in normal use.
+    #[cfg(all(feature = "smir-jit", target_arch = "x86_64"))]
+    jit_mem_log: Option<Vec<(u64, u8, u64)>>,
 }
 
 /// Pending I/O operation.
@@ -814,6 +819,8 @@ impl X86_64Vcpu {
             jit_hot: std::collections::HashMap::new(),
             #[cfg(all(feature = "smir-jit", target_arch = "x86_64"))]
             jit_mem: jit_mem_enabled(),
+            #[cfg(all(feature = "smir-jit", target_arch = "x86_64"))]
+            jit_mem_log: None,
         }
     }
 
@@ -2713,6 +2720,16 @@ unsafe extern "C" fn rax_jit_mem_store(
     if vcpu.mmu.is_code_page(addr) {
         return 0;
     }
+    // Verify mode: record the pre-store value so the region's writes can be
+    // undone and the interpreter re-run for a store-sound differential.
+    if vcpu.jit_mem_log.is_some() {
+        if let Ok(old) = vcpu.read_mem(addr, size as u8) {
+            vcpu.jit_mem_log.as_mut().unwrap().push((addr, size as u8, old));
+        } else {
+            // Can't snapshot this store → can't soundly verify; abort logging.
+            vcpu.jit_mem_log = None;
+        }
+    }
     match vcpu.write_mem(addr, value, size as u8) {
         Ok(()) => 1,
         Err(_) => 0,
@@ -2869,7 +2886,9 @@ impl X86_64Vcpu {
         // function below. Register-only JIT regions never contain memory loads,
         // so redundant-load elimination is inert here; the wins are dead-flag
         // elimination, constant propagation/folding, and strength reduction.
-        optimize_function(&mut func, OptLevel::O2);
+        if std::env::var_os("RAX_JIT_NO_OPT").is_none() {
+            optimize_function(&mut func, OptLevel::O2);
+        }
 
         if self.jit_mem && jit_bail_log() {
             eprintln!(
@@ -3068,11 +3087,35 @@ impl X86_64Vcpu {
         let snap = self.regs.clone();
         let snap_lf = self.lazy_flags;
 
-        // 1) Run natively (materialized RFLAGS land in self.regs.rflags).
+        // 1) Run natively with store-logging so its memory writes can be undone
+        //    (a store-sound differential — re-running the interp would otherwise
+        //    double-commit the stores).
+        self.jit_mem_log = Some(Vec::new());
         self.jit_run_region_native(region);
         let jit = self.regs.clone();
         let jit_rflags = self.regs.rflags; // already materialized by the native bridge
         let exit_pc = self.regs.rip;
+        let log = match self.jit_mem_log.take() {
+            Some(l) => l,
+            // Logging aborted (unreadable store target) → can't undo → adopt
+            // the native result unverified.
+            None => {
+                self.regs = jit;
+                return;
+            }
+        };
+        // Capture the native final value at each written address, then UNDO the
+        // region's writes (reverse order handles overlapping stores) so the
+        // interpreter re-runs from the original memory image.
+        let mut native_writes: Vec<(u64, u8, u64)> = Vec::with_capacity(log.len());
+        for &(addr, size, _old) in &log {
+            if let Ok(v) = self.read_mem(addr, size) {
+                native_writes.push((addr, size, v));
+            }
+        }
+        for &(addr, size, old) in log.iter().rev() {
+            let _ = self.write_mem(addr, old, size);
+        }
 
         // 2) Re-run the interpreter from the same entry up to the exit PC,
         //    restoring the LAZY flag state (the interpreter's source of truth).
@@ -3132,6 +3175,17 @@ impl X86_64Vcpu {
                     interp_rflags & MASK,
                     jit_rflags & MASK
                 ));
+            }
+            // Memory: compare the interpreter's final value at each address the
+            // native region wrote.
+            for &(addr, size, native_v) in &native_writes {
+                if let Ok(interp_v) = self.read_mem(addr, size) {
+                    if interp_v != native_v {
+                        diffs.push(format!(
+                            "mem[{addr:#x}/{size}B]: interp={interp_v:#x} jit={native_v:#x}"
+                        ));
+                    }
+                }
             }
             if !diffs.is_empty() {
                 let code = self.read_bytes(entry_pc, 64).unwrap_or_default();

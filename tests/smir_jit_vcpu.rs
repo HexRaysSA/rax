@@ -1007,3 +1007,108 @@ fn jit_mem_riprel_store_loop_matches_interpreter() {
     assert_eq!(jv, iv, "RIP-relative store target (jit vs interp)");
     assert_eq!(jv, val + 2, "last stored value (val, val+1, val+2)");
 }
+
+/// SIB with scale=1 AND a (negative) displacement into an extended register —
+/// `mov r9, [rsi + rdx*1 - 16]` — the exact shape the kernel's memmove uses that
+/// the JIT verifier flagged. Must match the interpreter.
+#[test]
+fn jit_mem_sib_scale1_disp_matches_interpreter() {
+    const SRC: u64 = 0x20_0000;
+    const DST: u64 = 0x21_0000;
+    let v = 0x0000_0000_0000_2000u64; // the value at SRC + (rdx - 16)
+
+    // mov rsi,SRC ; mov rdx,0x40 ; mov rdi,DST ; mov ecx,1
+    // loop: mov r9,[rsi+rdx*1-16] ; mov [rdi],r9 ; dec ecx ; jnz loop ; hlt
+    let mut code: Vec<u8> = Vec::new();
+    code.extend_from_slice(&[0x48, 0xBE]);
+    code.extend_from_slice(&SRC.to_le_bytes());
+    code.extend_from_slice(&[0x48, 0xBA]);
+    code.extend_from_slice(&0x40u64.to_le_bytes());
+    code.extend_from_slice(&[0x48, 0xBF]);
+    code.extend_from_slice(&DST.to_le_bytes());
+    code.push(0xB9);
+    code.extend_from_slice(&1u32.to_le_bytes());
+    code.extend_from_slice(&[0x4C, 0x8B, 0x4C, 0x16, 0xF0]); // mov r9, [rsi+rdx*1-16]
+    code.extend_from_slice(&[0x4C, 0x89, 0x0F]); // mov [rdi], r9
+    code.extend_from_slice(&[0xFF, 0xC9]); // dec ecx
+    code.extend_from_slice(&[0x75, 0xF4]); // jnz loop (rel8 = -12)
+    code.push(0xF4); // hlt
+
+    // SRC + (rdx=0x40) - 16 = SRC + 0x30.
+    let setup = |mem: &Arc<GuestMemoryMmap>| {
+        mem.write_obj(v, GuestAddress(SRC + 0x30)).unwrap();
+        mem.write_obj(0u64, GuestAddress(DST)).unwrap();
+    };
+
+    let (mut interp, imem) = make_vcpu_mem(&code);
+    setup(&imem);
+    run_interp(&mut interp);
+    let iv: u64 = imem.read_obj(GuestAddress(DST)).unwrap();
+
+    let (mut jit, jmem) = make_vcpu_mem(&code);
+    jit.set_jit_mem(true);
+    setup(&jmem);
+    assert!(jit.jit_try_block().expect("jit_try_block"), "sib-disp loop should JIT");
+    run_interp(&mut jit);
+    let jv: u64 = jmem.read_obj(GuestAddress(DST)).unwrap();
+
+    assert_eq!(jv, iv, "SIB scale=1 + disp load (jit vs interp)");
+    assert_eq!(jv, v, "loaded [rsi+rdx-16] = SRC[0x30]");
+}
+
+/// Extended registers (r8-r15) as memory-JIT load destinations AND store
+/// sources — the registers the kernel's memmove uses (r8-r11), which none of
+/// the other tests exercise. A REX miscoding in spill/reload/deliver would
+/// corrupt them. Must match the interpreter byte-for-byte.
+#[test]
+fn jit_mem_extended_regs_copy_matches_interpreter() {
+    const SRC: u64 = 0x20_0000;
+    const DST: u64 = 0x21_0000;
+    const N: u32 = 4;
+
+    // mov rbx,SRC ; mov rdi,DST ; mov ecx,N
+    // loop: mov r9,[rbx] ; mov r11,[rbx+8] ; mov [rdi],r9 ; mov [rdi+8],r11 ;
+    //       add rbx,16 ; add rdi,16 ; dec ecx ; jnz loop ; hlt
+    let mut code: Vec<u8> = Vec::new();
+    code.extend_from_slice(&[0x48, 0xBB]);
+    code.extend_from_slice(&SRC.to_le_bytes());
+    code.extend_from_slice(&[0x48, 0xBF]);
+    code.extend_from_slice(&DST.to_le_bytes());
+    code.push(0xB9);
+    code.extend_from_slice(&N.to_le_bytes());
+    // loop body (18 bytes):
+    code.extend_from_slice(&[0x4C, 0x8B, 0x0B]); // mov r9, [rbx]
+    code.extend_from_slice(&[0x4C, 0x8B, 0x5B, 0x08]); // mov r11, [rbx+8]
+    code.extend_from_slice(&[0x4C, 0x89, 0x0F]); // mov [rdi], r9
+    code.extend_from_slice(&[0x4C, 0x89, 0x5F, 0x08]); // mov [rdi+8], r11
+    code.extend_from_slice(&[0x48, 0x83, 0xC3, 0x10]); // add rbx, 16
+    code.extend_from_slice(&[0x48, 0x83, 0xC7, 0x10]); // add rdi, 16
+    code.extend_from_slice(&[0xFF, 0xC9]); // dec ecx
+    code.extend_from_slice(&[0x75, 0xE6]); // jnz loop (rel8 = -26, body is 24 bytes)
+    code.push(0xF4); // hlt
+
+    let seed: [u64; 8] = [1, 2, 3, 4, 5, 6, 7, 8];
+    let setup = |mem: &Arc<GuestMemoryMmap>| {
+        for (i, &x) in seed.iter().enumerate() {
+            mem.write_obj(x, GuestAddress(SRC + (i as u64) * 8)).unwrap();
+            mem.write_obj(0u64, GuestAddress(DST + (i as u64) * 8)).unwrap();
+        }
+    };
+
+    let (mut interp, imem) = make_vcpu_mem(&code);
+    setup(&imem);
+    run_interp(&mut interp);
+
+    let (mut jit, jmem) = make_vcpu_mem(&code);
+    jit.set_jit_mem(true);
+    setup(&jmem);
+    assert!(jit.jit_try_block().expect("jit_try_block"), "r8-15 copy should JIT");
+    run_interp(&mut jit);
+
+    for i in 0..8u64 {
+        let ib: u64 = imem.read_obj(GuestAddress(DST + i * 8)).unwrap();
+        let jb: u64 = jmem.read_obj(GuestAddress(DST + i * 8)).unwrap();
+        assert_eq!(jb, ib, "DST[{i}] jit vs interp");
+        assert_eq!(jb, seed[i as usize], "DST[{i}] == seed (r8-15 copy)");
+    }
+}
