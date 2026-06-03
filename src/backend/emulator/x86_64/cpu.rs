@@ -2630,6 +2630,54 @@ pub(super) struct JitRegion {
     entry_offset: usize,
 }
 
+/// RAX_JIT_BAIL=1 logs why each hot region is rejected by the JIT (diagnostic
+/// for expanding the whitelist toward the highest-frequency bail reasons).
+#[cfg(all(feature = "smir-jit", target_arch = "x86_64"))]
+fn jit_bail_log() -> bool {
+    use std::sync::OnceLock;
+    static ON: OnceLock<bool> = OnceLock::new();
+    *ON.get_or_init(|| std::env::var_os("RAX_JIT_BAIL").is_some())
+}
+
+/// Classify the first reason an executed block of `func` fails the clobber gate:
+/// the offending op's variant name, or `rsp/rbp` / `virtual-dst`.
+#[cfg(all(feature = "smir-jit", target_arch = "x86_64"))]
+fn jit_classify_bail(
+    func: &crate::smir::ir::SmirFunction,
+    exits: &std::collections::HashMap<crate::smir::types::BlockId, u64>,
+) -> String {
+    use crate::smir::types::{ArchReg, VReg, X86Reg};
+    let is_sp_bp = |v: &VReg| {
+        matches!(
+            v,
+            VReg::Arch(ArchReg::X86(X86Reg::Rsp)) | VReg::Arch(ArchReg::X86(X86Reg::Rbp))
+        )
+    };
+    let variant = |k: &crate::smir::ops::OpKind| -> String {
+        let s = format!("{k:?}");
+        s.split([' ', '{', '(']).next().unwrap_or("?").to_string()
+    };
+    for b in &func.blocks {
+        if exits.contains_key(&b.id) {
+            continue;
+        }
+        for op in &b.ops {
+            if !op.kind.is_jit_safe() {
+                return variant(&op.kind);
+            }
+            if op.kind.dests().iter().any(|d| matches!(d, VReg::Virtual(_))) {
+                return format!("virtual-dst:{}", variant(&op.kind));
+            }
+            if op.kind.dests().iter().any(is_sp_bp)
+                || op.kind.source_vregs().iter().any(|v| is_sp_bp(v))
+            {
+                return format!("rsp/rbp:{}", variant(&op.kind));
+            }
+        }
+    }
+    "?".to_string()
+}
+
 #[cfg(all(feature = "smir-jit", target_arch = "x86_64"))]
 impl X86_64Vcpu {
     /// Attempt to JIT-compile and natively execute the hot region at the current
@@ -2762,6 +2810,13 @@ impl X86_64Vcpu {
         // lowering, so their ops never run): all ops must be on the register-only
         // JIT whitelist and write no virtual temp.
         if !is_native_clobber_safe_excluding(&func, &exits) {
+            if jit_bail_log() {
+                eprintln!(
+                    "[JIT-BAIL] gate:{} @ {:#x}",
+                    jit_classify_bail(&func, &exits),
+                    entry
+                );
+            }
             return Ok(None);
         }
 
@@ -2769,7 +2824,18 @@ impl X86_64Vcpu {
         lowerer.set_native_exits(exits);
         let res = match lowerer.lower_function(&func) {
             Ok(r) if r.relocations.is_empty() => r,
-            _ => return Ok(None),
+            Ok(r) => {
+                if jit_bail_log() {
+                    eprintln!("[JIT-BAIL] relocs:{} @ {:#x}", r.relocations.len(), entry);
+                }
+                return Ok(None);
+            }
+            Err(e) => {
+                if jit_bail_log() {
+                    eprintln!("[JIT-BAIL] lower-err:{e:?} @ {entry:#x}");
+                }
+                return Ok(None);
+            }
         };
         let code = match lowerer.finalize() {
             Ok(c) => c,
