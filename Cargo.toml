@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2024"
 
 [features]
-default = ["kvm"]
+default = ["kvm", "smir-jit"]
 kvm = ["kvm-bindings", "kvm-ioctls"]
 hvf = []
 trace = []
@@ -12,9 +12,12 @@ debug = []
 profiling = []
 x86_64-suite = []
 x86-suite = ["x86_64-suite"]
-# SMIR native hot-block JIT tier (x86-64 host only). Off by default; brings in
-# the W^X exec-mmap runtime (uses libc, always available on unix) + the
-# X86_64Vcpu integration.
+# SMIR native hot-block JIT tier (x86-64 host only). ON by default: it is
+# fail-safe (a region that is not register-only / touches RSP-RBP / memory bails
+# to the interpreter) and boots Linux to userspace bit-exact vs the interpreter
+# (verified with RAX_JIT_VERIFY=1). Brings in the W^X exec-mmap runtime (libc,
+# always available on unix) + the X86_64Vcpu integration. Disable promotion at
+# runtime with RAX_NO_JIT=1.
 smir-jit = []
 
 [dependencies]
