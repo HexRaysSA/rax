@@ -107,6 +107,56 @@ impl crate::devices::virtio::Mem for GuestDmaMem {
     }
 }
 
+/// AC'97 has two separate I/O BARs (the 16-bit codec mixer "NAM" and the
+/// bus-master "NABM" register blocks). The PCI bridge maps one handler per BAR,
+/// so the device is shared behind an Arc<Mutex<Ac97>> and exposed through two
+/// thin window adapters that receive BAR-relative offsets.
+type SharedAc97 = Arc<std::sync::Mutex<crate::devices::ac97::Ac97>>;
+
+/// BAR0 window: the 16-bit codec mixer (NAM). The bus dispatches byte-wise, so
+/// each access maps to the appropriate byte of the 16-bit mixer register.
+struct Ac97NamWindow(SharedAc97);
+impl IoDevice for Ac97NamWindow {
+    fn read(&mut self, off: u16) -> u8 {
+        match self.0.lock() {
+            Ok(d) => {
+                let word = d.mixer_read(off & !1);
+                if off & 1 == 0 {
+                    word as u8
+                } else {
+                    (word >> 8) as u8
+                }
+            }
+            Err(_) => 0xff,
+        }
+    }
+    fn write(&mut self, off: u16, value: u8) {
+        if let Ok(mut d) = self.0.lock() {
+            let reg = off & !1;
+            let cur = d.mixer_read(reg);
+            let new = if off & 1 == 0 {
+                (cur & 0xFF00) | u16::from(value)
+            } else {
+                (cur & 0x00FF) | (u16::from(value) << 8)
+            };
+            d.mixer_write(reg, new);
+        }
+    }
+}
+
+/// BAR1 window: the bus-master register block (NABM).
+struct Ac97NabmWindow(SharedAc97);
+impl IoDevice for Ac97NabmWindow {
+    fn read(&mut self, off: u16) -> u8 {
+        self.0.lock().map(|d| d.nabm_read_u8(off)).unwrap_or(0xff)
+    }
+    fn write(&mut self, off: u16, value: u8) {
+        if let Ok(mut d) = self.0.lock() {
+            d.nabm_write_u8(off, value);
+        }
+    }
+}
+
 /// Attach the optional PCI device models to the host bridge. Their BARs are
 /// pre-assigned (memory BARs inside [`PCI_MMIO_AP_BASE`], I/O BARs at fixed
 /// ports) so the guest sees valid firmware resources; the bridge tracks any
@@ -191,6 +241,19 @@ fn attach_pci_devices(
             Vec::new(),
         )),
     );
+
+    // Intel ICH AC'97 audio at 00:05.0 — two I/O BARs: BAR0 = NAM (256-byte
+    // codec mixer), BAR1 = NABM (64-byte bus-master). One shared device, two
+    // window endpoints.
+    let ac97 = Arc::new(std::sync::Mutex::new(crate::devices::ac97::Ac97::new()));
+    let mut ac97_cfg = ConfigSpace::device(0x8086, 0x2415, 0x04_01_00, 0x00);
+    ac97_cfg.set_bar(0, Bar::io(0x100));
+    ac97_cfg.set_bar(1, Bar::io(0x40));
+    ac97_cfg.set_u32(0x10, 0x0000_D001); // NAM  @ I/O 0xD000
+    ac97_cfg.set_u32(0x14, 0x0000_D101); // NABM @ I/O 0xD100
+    ac97_cfg.set_u16(0x04, 0x0001); // I/O-space enable
+    bridge.attach_pio(0, 5, 0, ac97_cfg.clone(), 0, Box::new(Ac97NamWindow(ac97.clone())));
+    bridge.attach_pio(0, 5, 0, ac97_cfg, 1, Box::new(Ac97NabmWindow(ac97)));
 
     Ok(())
 }
@@ -349,7 +412,7 @@ impl Vmm {
                 let pci = Arc::new(std::sync::Mutex::new(PciStub::new()));
                 if config.pci_devices {
                     attach_pci_devices(&pci, Arc::new(guest_mem.memory().clone()))?;
-                    info!("attached optional PCI devices (e1000, uhci, nvme, ahci)");
+                    info!("attached optional PCI devices (e1000, uhci, nvme, ahci, ac97)");
                 }
                 io_bus.register(
                     IoRange {
