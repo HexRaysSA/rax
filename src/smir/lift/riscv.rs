@@ -795,6 +795,16 @@ impl RiscVLifter {
             RvOp::Sha512Sum1 => self.crypto_xor3(ctx, &mut ops, addr, rs1, dst, &[(RW, 14), (RW, 18), (RW, 41)], false),
             RvOp::Sm3p0 => self.crypto_xor3(ctx, &mut ops, addr, rs1, dst, &[(X, 0), (L, 9), (L, 17)], true),
             RvOp::Sm3p1 => self.crypto_xor3(ctx, &mut ops, addr, rs1, dst, &[(X, 0), (L, 15), (L, 23)], true),
+            // AES-64 inverse-MixColumns (`aes64im`, unary) and the round-key
+            // schedule step (`aes64ks1i`, with round number insn[23:20]) — S-box
+            // table ops, computed bit-exactly by the RvIntCrypto op.
+            RvOp::Aes64im | RvOp::Aes64ks1i => {
+                let imm = match d.op {
+                    RvOp::Aes64ks1i => ((insn >> 20) & 0xf) as u8,
+                    _ => 0,
+                };
+                ops.push(mk(ctx, OpKind::RvIntCrypto { dst, src1: rs1, src2: rs1, op: d.op, imm }));
+            }
             _ => {
                 return Err(LiftError::Unsupported {
                     addr,
@@ -1459,6 +1469,27 @@ impl RiscVLifter {
                 let t = ctx.alloc_vreg();
                 ops.push(mk(ctx, OpKind::Or { dst: t, src1: a, src2: SrcOperand::Reg(bsh), width: w, flags: FlagUpdate::None }));
                 ops.push(mk(ctx, OpKind::SignExtend { dst, src: t, from_width: OpWidth::W32, to_width: w }));
+            }
+            // Carry-less multiply, crossbar permute, AES-64 / SM4 round and key
+            // helpers — no clean SMIR primitive; computed bit-exactly by the
+            // RvIntCrypto op. SM4 carries its `bs` field (insn[31:30]).
+            RvOp::Clmul
+            | RvOp::Clmulh
+            | RvOp::Clmulr
+            | RvOp::Xperm4
+            | RvOp::Xperm8
+            | RvOp::Sm4ed
+            | RvOp::Sm4ks
+            | RvOp::Aes64es
+            | RvOp::Aes64esm
+            | RvOp::Aes64ds
+            | RvOp::Aes64dsm
+            | RvOp::Aes64ks2 => {
+                let imm = match d.op {
+                    RvOp::Sm4ed | RvOp::Sm4ks => ((insn >> 30) & 3) as u8,
+                    _ => 0,
+                };
+                ops.push(mk(ctx, OpKind::RvIntCrypto { dst, src1: rs1, src2: rs2, op: d.op, imm }));
             }
             _ => {
                 return Err(LiftError::Unsupported {

@@ -1572,6 +1572,11 @@ impl OpKind {
                 result.push(*fcsr_src);
             }
 
+            OpKind::RvIntCrypto { src1, src2, .. } => {
+                result.push(*src1);
+                result.push(*src2);
+            }
+
             OpKind::FAbs { src, .. }
             | OpKind::FNeg { src, .. }
             | OpKind::FSqrt { src, .. }

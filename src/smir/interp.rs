@@ -2011,6 +2011,20 @@ impl SmirInterpreter {
                 }
             }
 
+            OpKind::RvIntCrypto {
+                dst,
+                src1,
+                src2,
+                op,
+                imm,
+            } => {
+                let a = ctx.read_vreg(*src1);
+                let b = ctx.read_vreg(*src2);
+                if let Some(res) = crate::riscv::crypto::eval_int_crypto(*op, a, b, *imm) {
+                    ctx.write_vreg(*dst, res);
+                }
+            }
+
             OpKind::IntToFp {
                 dst,
                 src,

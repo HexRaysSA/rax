@@ -2524,6 +2524,9 @@ fn smir_op_kind_json(kind: &OpKind) -> Value {
             fcsr_src,
             ..
         } => op_json!("rv_fp", dst, fcsr_dst, src1, src2, src3, fcsr_src),
+        OpKind::RvIntCrypto {
+            dst, src1, src2, ..
+        } => op_json!("rv_int_crypto", dst, src1, src2),
     }
 }
 

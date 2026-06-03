@@ -336,3 +336,70 @@ pub fn aes64ks2(rs1: u64, rs2: u64) -> u64 {
     let w1 = w0 ^ (rs2 >> 32) as u32;
     (w0 as u64) | ((w1 as u64) << 32)
 }
+
+// ---------------------------------------------------------------------------
+// Carry-less multiply (Zbc) and the single-source scalar-crypto evaluator
+// shared by the RISC-V SMIR lift (OpKind::RvIntCrypto). RV64 only (xbits = 64).
+// ---------------------------------------------------------------------------
+
+/// Carry-less multiply, low XLEN bits (RV64).
+pub fn clmul(a: u64, b: u64) -> u64 {
+    let mut out = 0u64;
+    for i in 0..64 {
+        if (b >> i) & 1 != 0 {
+            out ^= a << i;
+        }
+    }
+    out
+}
+
+/// Carry-less multiply, high bits [127:64] (RV64).
+pub fn clmulh(a: u64, b: u64) -> u64 {
+    let mut out = 0u64;
+    for i in 1..64 {
+        if (b >> i) & 1 != 0 {
+            out ^= a >> (64 - i);
+        }
+    }
+    out
+}
+
+/// Carry-less multiply reversed (RV64).
+pub fn clmulr(a: u64, b: u64) -> u64 {
+    let mut out = 0u64;
+    for i in 0..64 {
+        if (b >> i) & 1 != 0 {
+            out ^= a >> (64 - i - 1);
+        }
+    }
+    out
+}
+
+/// Evaluate a scalar bit-manip / crypto R/I-type op that has no clean SMIR
+/// primitive (carry-less multiply, crossbar permute, AES-64 and SM4 round/key
+/// helpers), purely from its register operands. `a`=rs1, `b`=rs2 (ignored by
+/// the unary forms), `imm` carries the `bs` field for SM4 (`insn[31:30]`) or the
+/// round number for `aes64ks1i` (`insn[23:20]`). Returns the rd value, or `None`
+/// for an op outside this set. RV64 semantics (xbits = 64); calls the same
+/// qemu-verified primitives used by `RiscVCpu`, so a lifted `RvIntCrypto` op is
+/// bit-identical to the oracle.
+pub fn eval_int_crypto(op: crate::riscv::Op, a: u64, b: u64, imm: u8) -> Option<u64> {
+    use crate::riscv::Op::*;
+    Some(match op {
+        Clmul => clmul(a, b),
+        Clmulh => clmulh(a, b),
+        Clmulr => clmulr(a, b),
+        Xperm4 => xperm4(a, b, 64),
+        Xperm8 => xperm8(a, b, 64),
+        Sm4ed => sm4ed(a, b, imm as u32),
+        Sm4ks => sm4ks(a, b, imm as u32),
+        Aes64es => aes64es(a, b),
+        Aes64esm => aes64esm(a, b),
+        Aes64ds => aes64ds(a, b),
+        Aes64dsm => aes64dsm(a, b),
+        Aes64im => aes64im(a),
+        Aes64ks1i => aes64ks1i(a, imm as u32),
+        Aes64ks2 => aes64ks2(a, b),
+        _ => return None,
+    })
+}

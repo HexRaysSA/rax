@@ -2414,6 +2414,25 @@ pub enum OpKind {
         rm_field: u8,
     },
 
+    /// RISC-V scalar bit-manip / crypto op with no clean SMIR primitive:
+    /// carry-less multiply (Zbc `clmul`/`clmulh`/`clmulr`), crossbar permute
+    /// (Zbkx `xperm4`/`xperm8`), and the AES-64 / SM4 round and key-schedule
+    /// helpers (Zkn*/Zks*), computed bit-exactly via
+    /// `crate::riscv::crypto::eval_int_crypto` — the same qemu-verified
+    /// primitives the `RiscVCpu` interpreter uses (S-box tables, GF(2^8)
+    /// MixColumns, crossbar gather), which would need 256-entry table lookups to
+    /// express as plain SMIR. `src1`=rs1, `src2`=rs2 (ignored by the unary
+    /// `aes64im`/`aes64ks1i`); `imm` carries the SM4 `bs` or `aes64ks1i` round
+    /// number. `dst` receives the rd value. Self-contained like [`OpKind::RvFp`];
+    /// NOT JIT-whitelisted.
+    RvIntCrypto {
+        dst: VReg,
+        src1: VReg,
+        src2: VReg,
+        op: crate::riscv::Op,
+        imm: u8,
+    },
+
     // ========================================================================
     // META / DEBUG
     // ========================================================================
@@ -2778,6 +2797,8 @@ impl OpKind {
             OpKind::HexCabacDecBin { dst, pred, .. } => vec![*dst, *pred],
 
             OpKind::RvFp { dst, fcsr_dst, .. } => vec![*dst, *fcsr_dst],
+
+            OpKind::RvIntCrypto { dst, .. } => vec![*dst],
 
             OpKind::MulU { dst_lo, dst_hi, .. } | OpKind::MulS { dst_lo, dst_hi, .. } => {
                 let mut v = vec![*dst_lo];
