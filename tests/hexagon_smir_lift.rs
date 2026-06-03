@@ -5680,6 +5680,323 @@ fn lift_mem_store_imm_ext() {
     );
 }
 
+// ---------------------------------------------------------------------------
+// Byte-unpack loads (L2_loadb{s,z}w{2,4}): load 2 or 4 contiguous bytes and
+// unpack each byte into a halfword lane (membh=sign, memubh=zero). count==2
+// writes a single Rd (lanes 0,1); count==4 writes the Rdd pair (lanes 0..3).
+// Forced base r0=DATA_ADDR keeps the access in-region.
+// ---------------------------------------------------------------------------
+#[test]
+fn lift_mem_loadunpack_io() {
+    lift_mem_family(
+        "mem_loadunpack_io",
+        &[
+            ("loadbzw2", "{ r1 = memubh(r0+#0) }"),
+            ("loadbsw2", "{ r1 = membh(r0+#0) }"),
+            ("loadbzw2_off", "{ r1 = memubh(r0+#4) }"),
+            ("loadbsw2_off", "{ r1 = membh(r0+#6) }"),
+            ("loadbzw4", "{ r3:2 = memubh(r0+#0) }"),
+            ("loadbsw4", "{ r3:2 = membh(r0+#0) }"),
+            ("loadbzw4_off", "{ r3:2 = memubh(r0+#8) }"),
+            ("loadbsw4_off", "{ r3:2 = membh(r0+#12) }"),
+        ],
+        0,
+        40,
+        0xd001,
+    );
+}
+
+// Post-increment-immediate byte-unpack loads (Rx++#N): base r0 also written.
+// The increment matches the byte count (2 for bzw2/bsw2, 4 for bzw4/bsw4) so a
+// single access stays in-region.
+#[test]
+fn lift_mem_loadunpack_pi() {
+    lift_mem_family(
+        "mem_loadunpack_pi",
+        &[
+            ("loadbzw2_pi", "{ r1 = memubh(r0++#2) }"),
+            ("loadbsw2_pi", "{ r1 = membh(r0++#2) }"),
+            ("loadbzw4_pi", "{ r3:2 = memubh(r0++#4) }"),
+            ("loadbsw4_pi", "{ r3:2 = membh(r0++#4) }"),
+        ],
+        0,
+        40,
+        0xd002,
+    );
+}
+
+// Post-increment-by-modifier byte-unpack loads (Rx++Mu): base r0 += raw M.
+#[test]
+fn lift_mem_loadunpack_pr() {
+    lift_mem_family(
+        "mem_loadunpack_pr",
+        &[
+            ("loadbzw2_pr", "{ r1 = memubh(r0++m0) }"),
+            ("loadbsw2_pr", "{ r1 = membh(r0++m0) }"),
+            ("loadbzw4_pr", "{ r3:2 = memubh(r0++m0) }"),
+            ("loadbsw4_pr", "{ r3:2 = membh(r0++m1) }"),
+        ],
+        0,
+        40,
+        0xd003,
+    );
+}
+
+// Scaled-index absolute byte-unpack loads (`L4_loadb{s,z}w{2,4}_ur`):
+// EA = ##addr + (Ru<<#sh). Absolute is DATA_ADDR, index forced to 0.
+#[test]
+fn lift_mem_loadunpack_ur() {
+    lift_mem_family_idx(
+        "mem_loadunpack_ur",
+        &[
+            ("loadbzw2_ur", "{ r1 = memubh(r4<<#1+##0x8000) }"),
+            ("loadbsw2_ur", "{ r1 = membh(r4<<#1+##0x8000) }"),
+            ("loadbzw4_ur", "{ r3:2 = memubh(r4<<#2+##0x8000) }"),
+            ("loadbsw4_ur", "{ r3:2 = membh(r4<<#2+##0x8000) }"),
+        ],
+        1,
+        &[4],
+        40,
+        0xd004,
+    );
+}
+
+// Absolute-set byte-unpack loads (`L4_loadb{s,z}w{2,4}_ap`): memX(Re=##addr).
+// EA is the constant-extended absolute (DATA_ADDR); Re is written with it.
+#[test]
+fn lift_mem_loadunpack_ap() {
+    lift_mem_family(
+        "mem_loadunpack_ap",
+        &[
+            ("loadbzw2_ap", "{ r1 = memubh(r2=##0x8000) }"),
+            ("loadbsw2_ap", "{ r1 = membh(r2=##0x8000) }"),
+            ("loadbzw4_ap", "{ r5:4 = memubh(r2=##0x8000) }"),
+            ("loadbsw4_ap", "{ r5:4 = membh(r2=##0x8000) }"),
+        ],
+        9,
+        40,
+        0xd005,
+    );
+}
+
+// ---------------------------------------------------------------------------
+// New-value stores (S2/S4 storer{b,h,i}new_*): the stored value is the .new
+// result of a producer earlier in the SAME packet, selected by Nt8. The lifter
+// resolves Nt8 against the packet's GPR producers (the producer was lifted
+// earlier in the block, so its sequential SMIR write holds the .new value).
+// Each packet pairs a producer (`r1 = ...`) with the new-value store.
+// ---------------------------------------------------------------------------
+#[test]
+fn lift_mem_storenew_io() {
+    lift_mem_family(
+        "mem_storenew_io",
+        &[
+            ("storerbnew", "{ r1 = #0x55 ; memb(r0+#0) = r1.new }"),
+            ("storerhnew", "{ r1 = #0x1234 ; memh(r0+#2) = r1.new }"),
+            ("storerinew", "{ r1 = #0x778899 ; memw(r0+#0) = r1.new }"),
+            ("storerinew4", "{ r1 = #0x778899 ; memw(r0+#4) = r1.new }"),
+            // Producer is a reg-reg op; new-value store of the result.
+            ("storerinew_add", "{ r1 = add(r5,r6) ; memw(r0+#0) = r1.new }"),
+            // Two producers in the packet: the .new store must pick r2 (Nt8).
+            ("storerinew_2prod", "{ r1 = #3 ; r2 = #7 ; memw(r0+#0) = r2.new }"),
+        ],
+        0,
+        40,
+        0xd006,
+    );
+}
+
+// Post-increment-immediate new-value stores (Rx++#N).
+#[test]
+fn lift_mem_storenew_pi() {
+    lift_mem_family(
+        "mem_storenew_pi",
+        &[
+            ("storerbnew_pi", "{ r1 = #0x55 ; memb(r0++#1) = r1.new }"),
+            ("storerhnew_pi", "{ r1 = #0x1234 ; memh(r0++#2) = r1.new }"),
+            ("storerinew_pi", "{ r1 = #0x778899 ; memw(r0++#4) = r1.new }"),
+        ],
+        0,
+        40,
+        0xd007,
+    );
+}
+
+// Base+Ru<<#sh register-offset new-value stores (`S4_storer*new_rr`).
+#[test]
+fn lift_mem_storenew_rr() {
+    lift_mem_family_idx(
+        "mem_storenew_rr",
+        &[
+            ("storerbnew_rr", "{ r1 = #0x55 ; memb(r0+r2<<#0) = r1.new }"),
+            ("storerhnew_rr", "{ r1 = #0x1234 ; memh(r0+r2<<#1) = r1.new }"),
+            ("storerinew_rr", "{ r1 = #0x778899 ; memw(r0+r2<<#2) = r1.new }"),
+        ],
+        0,
+        &[2],
+        40,
+        0xd008,
+    );
+}
+
+// Scaled-index absolute new-value stores (`S4_storer*new_ur`).
+#[test]
+fn lift_mem_storenew_ur() {
+    lift_mem_family_idx(
+        "mem_storenew_ur",
+        &[
+            ("storerbnew_ur", "{ r1 = #0x55 ; memb(r2<<#0+##0x8000) = r1.new }"),
+            ("storerhnew_ur", "{ r1 = #0x1234 ; memh(r2<<#1+##0x8000) = r1.new }"),
+            ("storerinew_ur", "{ r1 = #0x778899 ; memw(r2<<#2+##0x8000) = r1.new }"),
+        ],
+        9,
+        &[2],
+        40,
+        0xd009,
+    );
+}
+
+// Post-increment-by-modifier / circular / bit-reverse new-value stores
+// (`S2_storer*new_pr/pbr/pci/pcr`): the base register is updated like the
+// regular modifier stores; the data is the same-packet .new producer. The
+// mem-family harness seeds M0/M1, CS0/CS1, GP so the access stays in-region.
+#[test]
+fn lift_mem_storenew_pr() {
+    lift_mem_family(
+        "mem_storenew_pr",
+        &[
+            ("storerinew_pr", "{ r1 = #0x778899 ; memw(r0++m0) = r1.new }"),
+            ("storerhnew_pr", "{ r1 = #0x1234 ; memh(r0++m0) = r1.new }"),
+            ("storerbnew_pr", "{ r1 = #0x55 ; memb(r0++m0) = r1.new }"),
+            ("storerinew_pci", "{ r1 = #0x778899 ; memw(r0++#4:circ(m0)) = r1.new }"),
+            ("storerinew_pcr", "{ r1 = #0x778899 ; memw(r0++I:circ(m0)) = r1.new }"),
+            ("storerinew_pbr", "{ r1 = #0x778899 ; memw(r0++m0:brev) = r1.new }"),
+        ],
+        0,
+        40,
+        0xd00c,
+    );
+}
+
+// Absolute-set new-value stores (`S4_storer*new_ap`): memX(Re=##addr)=Rt.new.
+#[test]
+fn lift_mem_storenew_ap() {
+    lift_mem_family(
+        "mem_storenew_ap",
+        &[
+            ("storerbnew_ap", "{ r1 = #0x55 ; memb(r2=##0x8000) = r1.new }"),
+            ("storerhnew_ap", "{ r1 = #0x1234 ; memh(r2=##0x8000) = r1.new }"),
+            ("storerinew_ap", "{ r1 = #0x778899 ; memw(r2=##0x8000) = r1.new }"),
+        ],
+        9,
+        40,
+        0xd00a,
+    );
+}
+
+// ---------------------------------------------------------------------------
+// New-value compound compare-and-jump (J4_cmp*_jumpnv*): the compared register
+// is the .new result of a producer in the SAME packet, selected by Ns8. The
+// lifter resolves Ns8 against the packet's producers (like a new-value store),
+// then lifts the compare on that GPR + a conditional branch. No predicate is
+// written by the _jumpnv forms. Verified via the control-flow harness.
+// ---------------------------------------------------------------------------
+#[test]
+fn lift_cf_cmpjump_nv() {
+    lift_cf_family(
+        "cf_cmpjump_nv",
+        &[
+            // reg/reg compares (producer r0 = r4)
+            ("eq_t_nt", "{ r0 = r4 ; if (cmp.eq(r0.new,r1)) jump:nt #0x10 }"),
+            ("eq_t_t", "{ r0 = r4 ; if (cmp.eq(r0.new,r1)) jump:t #0x10 }"),
+            ("eq_f_nt", "{ r0 = r4 ; if (!cmp.eq(r0.new,r1)) jump:nt #0x10 }"),
+            ("gt_t_nt", "{ r0 = r4 ; if (cmp.gt(r0.new,r1)) jump:nt #0x10 }"),
+            ("gt_f_nt", "{ r0 = r4 ; if (!cmp.gt(r0.new,r1)) jump:nt #0x10 }"),
+            ("gtu_t_nt", "{ r0 = r4 ; if (cmp.gtu(r0.new,r1)) jump:nt #0x10 }"),
+            ("gtu_f_nt", "{ r0 = r4 ; if (!cmp.gtu(r0.new,r1)) jump:nt #0x10 }"),
+            // reversed (cmplt/cmpltu): producer is the .new operand on the RHS
+            ("lt_t_nt", "{ r0 = r4 ; if (cmp.gt(r1,r0.new)) jump:nt #0x10 }"),
+            ("ltu_t_nt", "{ r0 = r4 ; if (cmp.gtu(r1,r0.new)) jump:nt #0x10 }"),
+            // reg/imm compares
+            ("eqi_t_nt", "{ r0 = r4 ; if (cmp.eq(r0.new,#5)) jump:nt #0x10 }"),
+            ("eqi_f_nt", "{ r0 = r4 ; if (!cmp.eq(r0.new,#5)) jump:nt #0x10 }"),
+            ("gti_t_nt", "{ r0 = r4 ; if (cmp.gt(r0.new,#5)) jump:nt #0x10 }"),
+            ("gtui_t_nt", "{ r0 = r4 ; if (cmp.gtu(r0.new,#5)) jump:nt #0x10 }"),
+            // compare vs -1 / bit 0
+            ("eqn1_t_nt", "{ r0 = r4 ; if (cmp.eq(r0.new,#-1)) jump:nt #0x10 }"),
+            ("gtn1_t_nt", "{ r0 = r4 ; if (cmp.gt(r0.new,#-1)) jump:nt #0x10 }"),
+            ("tstbit0_t_nt", "{ r0 = r4 ; if (tstbit(r0.new,#0)) jump:nt #0x10 }"),
+            ("tstbit0_f_nt", "{ r0 = r4 ; if (!tstbit(r0.new,#0)) jump:nt #0x10 }"),
+        ],
+        40,
+        0xd00b,
+    );
+}
+
+// ---------------------------------------------------------------------------
+// S2 within-GPR "vector" sign/zero-extend, truncate/pack, and shuffle. Pure
+// permutation/extend ops over GPRs and GPR pairs (reg-only harness). Lane
+// order matches sem/shift_ext.rs.
+// ---------------------------------------------------------------------------
+#[test]
+fn lift_s2_vec_ext_trunc_shuffle() {
+    lift_family(
+        "s2_vec_ext_trunc_shuffle",
+        &[
+            // sign/zero extend (byte->half x4, half->word x2)
+            ("vsxtbh", "{ r3:2 = vsxtbh(r0) }"),
+            ("vzxtbh", "{ r3:2 = vzxtbh(r0) }"),
+            ("vsxthw", "{ r3:2 = vsxthw(r0) }"),
+            ("vzxthw", "{ r3:2 = vzxthw(r0) }"),
+            // truncate/pack (single-source, dst is a 32-bit reg)
+            ("vtrunehb", "{ r8 = vtrunehb(r5:4) }"),
+            ("vtrunohb", "{ r8 = vtrunohb(r5:4) }"),
+            // two-source truncate/pack + shuffles (dst is a pair)
+            ("vtrunewh", "{ r9:8 = vtrunewh(r5:4,r7:6) }"),
+            ("vtrunowh", "{ r9:8 = vtrunowh(r5:4,r7:6) }"),
+            ("shuffeb", "{ r9:8 = shuffeb(r5:4,r7:6) }"),
+            ("shuffob", "{ r9:8 = shuffob(r5:4,r7:6) }"),
+            ("shuffeh", "{ r9:8 = shuffeh(r5:4,r7:6) }"),
+            ("shuffoh", "{ r9:8 = shuffoh(r5:4,r7:6) }"),
+        ],
+        40,
+        0xd00d,
+    );
+}
+
+// S2_valignib: Rdd = (Rss u>> sh*8) | (Rtt << (8-sh)*8), sh = #u3 (immediate
+// vector byte align). Covers the sh==0 boundary (result == Rss).
+#[test]
+fn lift_s2_valignib() {
+    lift_family(
+        "s2_valignib",
+        &[
+            ("valignb0", "{ r9:8 = valignb(r5:4,r7:6,#0) }"),
+            ("valignb1", "{ r9:8 = valignb(r5:4,r7:6,#1) }"),
+            ("valignb3", "{ r9:8 = valignb(r5:4,r7:6,#3) }"),
+            ("valignb7", "{ r9:8 = valignb(r5:4,r7:6,#7) }"),
+        ],
+        40,
+        0xd00f,
+    );
+}
+
+// C4_addipc: Rd = fREAD_PC() + #u6. The packet start PC (CODE_ADDR=0x1000 on
+// both sides) is folded to a compile-time constant. Reg-only harness.
+#[test]
+fn lift_c4_addipc() {
+    lift_family(
+        "c4_addipc",
+        &[
+            ("addipc0", "{ r0 = add(pc,#0) }"),
+            ("addipc8", "{ r1 = add(pc,#8) }"),
+            ("addipc_ext", "{ r2 = add(pc,##0x100) }"),
+        ],
+        40,
+        0xd00e,
+    );
+}
+
 // Read-modify-write memops: mem(Rs+#u) OP= Rt / #imm. Width byte/half/word.
 // Forced base r0=DATA_ADDR; the modify operand is the random r1 (or an imm).
 #[test]

@@ -53,12 +53,35 @@ pub struct HexagonLifter {
     isa: crate::config::HexagonIsa,
     /// A histogram opcode awaiting its same-packet `.tmp` load (see PendingHist).
     pending_hist: Option<PendingHist>,
+    /// GPR producers of the CURRENT packet, in execution (lift) order — the
+    /// lowest GPR newly written by each instruction. Mirrors the interpreter's
+    /// per-packet `producers` list (cpu.rs `record_producer`) so new-value
+    /// stores (`Nt8`) and new-value compound compare-jumps (`Ns8`) can resolve
+    /// their `.new` source register at lift time. Reset at every packet
+    /// boundary (see `prev_word_ended_packet`).
+    packet_producers: Vec<u8>,
+    /// `true` once the most recently lifted word ended its packet (parse bits
+    /// `0b11` or `0b00`). The NEXT `lift_insn` clears `packet_producers` before
+    /// processing — so producers never leak across packets within a block.
+    prev_word_ended_packet: bool,
+    /// Guest address of the FIRST instruction of the current packet (the packet
+    /// PC). Hexagon PC-relative branches are computed relative to the packet
+    /// start, not the branching instruction's own address — so a new-value
+    /// compound compare-jump (which is NOT the first word of its packet) needs
+    /// this. Updated at every packet boundary alongside `packet_producers`.
+    packet_start_pc: GuestAddr,
 }
 
 impl HexagonLifter {
     /// Create a new Hexagon lifter
     pub fn new(isa: crate::config::HexagonIsa) -> Self {
-        HexagonLifter { isa, pending_hist: None }
+        HexagonLifter {
+            isa,
+            pending_hist: None,
+            packet_producers: Vec::new(),
+            prev_word_ended_packet: true,
+            packet_start_pc: 0,
+        }
     }
 
     /// Create a lifter with default ISA (V68)
@@ -69,6 +92,25 @@ impl HexagonLifter {
     /// Convert Hexagon register to VReg
     fn hex_reg(&self, reg: u8) -> VReg {
         VReg::Arch(ArchReg::Hexagon(HexagonReg::R(reg)))
+    }
+
+    /// Resolve a new-value `.new` source: `field >> 1` is the back-distance
+    /// (1 = most recently produced) into the current packet's GPR producers.
+    /// Returns the resolved producer register if it is in range, else `None`.
+    /// Mirrors `resolve_new_value` in the Hexagon interpreter (cpu.rs): the
+    /// producers list is built by `lift_insn` as it lifts the packet's
+    /// instructions in order, so by the time a new-value store/jump is lifted
+    /// (the assembler always places it after its producer), the producer GPR is
+    /// already present. `None` means the producer is out of range (no matching
+    /// in-packet producer) — the caller must reject so we never store/compare a
+    /// wrong register.
+    fn resolve_new_value_src(&self, field: u8) -> Option<u8> {
+        let back = (field >> 1) as usize;
+        if back >= 1 && back <= self.packet_producers.len() {
+            Some(self.packet_producers[self.packet_producers.len() - back])
+        } else {
+            None
+        }
     }
 
     /// Convert Hexagon predicate register to VReg
@@ -1393,11 +1435,207 @@ impl HexagonLifter {
                 }
                 ControlFlow::Fallthrough
             }
-            DecodedInsn::LoadUnpack { .. } => {
+            // Byte-unpack load (`L2_loadb{s,z}w{2,4}` + `_io/_pi/_pr/_pbr/_pci/
+            // _pcr/_ap/_ur`): load `count` (2 or 4) contiguous bytes starting at
+            // the EA and unpack each byte into a halfword lane — byte `i` (at
+            // EA+i) lands in halfword lane `i` (bits `16*i`), SIGN-extended for
+            // `membh` (bsw) or ZERO-extended for `memubh` (bzw). `count==2` writes
+            // the single 32-bit register `dst` (lanes 0,1); `count==4` writes the
+            // register PAIR whose even half is `dst` (even = lanes 0,1, odd =
+            // lanes 2,3). Mirrors the interpreter `LoadUnpack` arm exactly.
+            //
+            // None of these forms are predicated today (the decoder always sets
+            // `pred: None`), so reject any predicated form for safety.
+            DecodedInsn::LoadUnpack { pred: Some(_), .. } => {
                 return Err(LiftError::Unsupported {
                     addr,
-                    mnemonic: "load_unpack".to_string(),
+                    mnemonic: "pred_load_unpack".to_string(),
                 });
+            }
+            DecodedInsn::LoadUnpack {
+                dst,
+                addr: am,
+                count,
+                sign,
+                pred: None,
+            } => {
+                let count = *count as u32;
+                let sign_ext = self.hex_sign(*sign);
+
+                // --- effective address (bit-reversed base for `:brev`) ---
+                let ea = if let AddrMode::PostIncBrev { base, .. } = am {
+                    let bv = self.emit_brev(&mut ops, &mut op_id, addr, ctx, self.hex_reg(*base));
+                    Address::Direct(bv)
+                } else {
+                    self.hex_addr(am, ctx)
+                };
+
+                // `memX(Re=##addr)` absolute-set: write Re BEFORE the access, so
+                // an Re==dst alias lets the loaded value win (matches the regular
+                // Load arm + the interpreter applying the base update first).
+                if let AddrMode::AbsSet { areg, addr: abs } = am {
+                    push_op!(OpKind::Mov {
+                        dst: self.hex_reg(*areg),
+                        src: SrcOperand::Imm(*abs as i32 as i64),
+                        width: OpWidth::W32,
+                    });
+                }
+
+                // Accumulate the unpacked halfword lanes into a 64-bit temp.
+                // `result |= zxt16(sxt/zxt-byte(load(EA+i))) << (16*i)`.
+                let result = ctx.alloc_vreg();
+                push_op!(OpKind::Mov {
+                    dst: result,
+                    src: SrcOperand::Imm(0),
+                    width: OpWidth::W64,
+                });
+                for i in 0..count {
+                    // Load byte i at EA+i, sign/zero-extended to 32 bits.
+                    let byte_addr = match &ea {
+                        Address::Direct(r) if i > 0 => {
+                            let off = ctx.alloc_vreg();
+                            push_op!(OpKind::Add {
+                                dst: off,
+                                src1: *r,
+                                src2: SrcOperand::Imm(i as i64),
+                                width: OpWidth::W32,
+                                flags: FlagUpdate::None,
+                            });
+                            Address::Direct(off)
+                        }
+                        Address::Direct(r) => Address::Direct(*r),
+                        Address::Absolute(a) => Address::Absolute(*a + i as u64),
+                        other => {
+                            // BaseOffset / GpRel / BaseIndexScale: fold the +i into
+                            // the displacement via a fresh BaseOffset on a computed
+                            // base is awkward; instead materialise the EA once.
+                            // For the common `_io`/`_ur`/`_gp` modes this branch
+                            // adds the lane offset onto the resolved displacement.
+                            match other {
+                                Address::BaseOffset { base, offset, disp_size } => {
+                                    Address::BaseOffset {
+                                        base: *base,
+                                        offset: offset + i as i64,
+                                        disp_size: *disp_size,
+                                    }
+                                }
+                                Address::GpRel { offset } => Address::GpRel {
+                                    offset: offset.wrapping_add(i as i32),
+                                },
+                                Address::BaseIndexScale {
+                                    base,
+                                    index,
+                                    scale,
+                                    disp,
+                                    disp_size,
+                                } => Address::BaseIndexScale {
+                                    base: *base,
+                                    index: *index,
+                                    scale: *scale,
+                                    disp: disp + i as i32,
+                                    disp_size: *disp_size,
+                                },
+                                _ => other.clone(),
+                            }
+                        }
+                    };
+                    let b = ctx.alloc_vreg();
+                    push_op!(OpKind::Load {
+                        dst: b,
+                        addr: byte_addr,
+                        width: MemWidth::B1,
+                        sign: sign_ext,
+                    });
+                    // Keep only the low 16 bits of the (sign/zero-)extended byte
+                    // so each lane is a clean halfword.
+                    let lane = ctx.alloc_vreg();
+                    push_op!(OpKind::And {
+                        dst: lane,
+                        src1: b,
+                        src2: SrcOperand::Imm(0xffff),
+                        width: OpWidth::W64,
+                        flags: FlagUpdate::None,
+                    });
+                    let shifted = if i == 0 {
+                        lane
+                    } else {
+                        let s = ctx.alloc_vreg();
+                        push_op!(OpKind::Shl {
+                            dst: s,
+                            src: lane,
+                            amount: SrcOperand::Imm((16 * i) as i64),
+                            width: OpWidth::W64,
+                            flags: FlagUpdate::None,
+                        });
+                        s
+                    };
+                    let acc = ctx.alloc_vreg();
+                    push_op!(OpKind::Or {
+                        dst: acc,
+                        src1: result,
+                        src2: SrcOperand::Reg(shifted),
+                        width: OpWidth::W64,
+                        flags: FlagUpdate::None,
+                    });
+                    push_op!(OpKind::Mov {
+                        dst: result,
+                        src: SrcOperand::Reg(acc),
+                        width: OpWidth::W64,
+                    });
+                }
+
+                // --- write the destination register(s) ---
+                if count == 2 {
+                    push_op!(OpKind::Mov {
+                        dst: self.hex_reg(*dst),
+                        src: SrcOperand::Reg(result),
+                        width: OpWidth::W32,
+                    });
+                } else {
+                    let even = *dst & !1;
+                    push_op!(OpKind::Mov {
+                        dst: self.hex_reg(even),
+                        src: SrcOperand::Reg(result),
+                        width: OpWidth::W32,
+                    });
+                    let hi = ctx.alloc_vreg();
+                    push_op!(OpKind::Shr {
+                        dst: hi,
+                        src: result,
+                        amount: SrcOperand::Imm(32),
+                        width: OpWidth::W64,
+                        flags: FlagUpdate::None,
+                    });
+                    push_op!(OpKind::Mov {
+                        dst: self.hex_reg(even + 1),
+                        src: SrcOperand::Reg(hi),
+                        width: OpWidth::W32,
+                    });
+                }
+
+                // --- base update (post-increment forms) ---
+                match am {
+                    AddrMode::PostIncImm { base, offset } => {
+                        let offset = ctx.extend_imm(*offset);
+                        push_op!(OpKind::Add {
+                            dst: self.hex_reg(*base),
+                            src1: self.hex_reg(*base),
+                            src2: SrcOperand::Imm(offset as i64),
+                            width: OpWidth::W32,
+                            flags: FlagUpdate::None,
+                        });
+                    }
+                    AddrMode::PostIncReg { base, .. }
+                    | AddrMode::PostIncBrev { base, .. }
+                    | AddrMode::PostIncCircImm { base, .. }
+                    | AddrMode::PostIncCircReg { base, .. } => {
+                        self.emit_mod_postinc(&mut ops, &mut op_id, addr, ctx, *base, am);
+                    }
+                    // Offset / GpOffset / Abs / RegScaled / IndexAbs: no base
+                    // update. AbsSet handled above (written before the access).
+                    _ => {}
+                }
+                ControlFlow::Fallthrough
             }
 
             // Predicated stores CANCEL on a false predicate; new-value (`.new`)
@@ -2128,13 +2366,50 @@ impl HexagonLifter {
                 ControlFlow::Fallthrough
             }
 
-            // New-value stores need packet producer context; the interpreter
-            // path resolves them. Reject in the lifter so callers fall back.
-            DecodedInsn::StoreNew { .. } => {
+            // New-value store (`memX(...)=Nt8.new`): the stored value is the
+            // register produced earlier in THIS packet, selected by `Nt8`. We
+            // resolve `Nt8` against the packet's GPR producers (built by
+            // `lift_insn` as it lifts the packet in order — the producer was
+            // lifted earlier in this same SmirBlock, so its sequential SMIR write
+            // already holds the `.new` value). Once resolved we delegate to the
+            // ordinary `Store` lift (the SMIR Store just reads that GPR).
+            //
+            // PREDICATED new-value stores (`if (Pv[.new]) ...`) CANCEL on a false
+            // predicate — the plain Store has no conditional commit, so reject
+            // (matching the unpredicated-store rule above).
+            DecodedInsn::StoreNew { pred: Some(_), .. } => {
                 return Err(LiftError::Unsupported {
                     addr,
-                    mnemonic: "store_new".to_string(),
+                    mnemonic: "pred_store_new".to_string(),
                 });
+            }
+            DecodedInsn::StoreNew {
+                nt,
+                addr: am,
+                width,
+                pred: None,
+            } => {
+                let src = match self.resolve_new_value_src(*nt) {
+                    Some(r) => r,
+                    None => {
+                        // No matching in-packet producer (e.g. a bare new-value
+                        // store with no preceding producer — only valid inside a
+                        // real packet). Reject rather than store a wrong reg.
+                        return Err(LiftError::Unsupported {
+                            addr,
+                            mnemonic: "store_new_unresolved".to_string(),
+                        });
+                    }
+                };
+                let store = DecodedInsn::Store {
+                    src,
+                    addr: am.clone(),
+                    width: *width,
+                    pred: None,
+                    src_new: false,
+                    high_half: false,
+                };
+                return self.lift_insn_inner(&store, addr, ctx);
             }
 
             // Load-locked sets an LL reservation the simple Load op does not
@@ -2342,14 +2617,43 @@ impl HexagonLifter {
             // New-value compound compare-and-branch (`_jumpnv`): `src1` is an
             // `Ns8` producer back-distance, NOT a register, until resolved against
             // the packet's in-flight GPR producers (identical to a new-value
-            // store). The per-insn lifter has no packet-producer context, so this
-            // is interpreter-only — exactly like `StoreNew` above. Reject before
-            // the lift below (which assumes `src1` is a real register).
-            DecodedInsn::CompoundCmpJump { new_value: true, .. } => {
-                return Err(LiftError::Unsupported {
-                    addr,
-                    mnemonic: "compound_cmpjump_nv".to_string(),
-                });
+            // store). The producer was lifted earlier in this packet, so resolve
+            // `src1` to that GPR and delegate to the regular compare-jump lift
+            // with `new_value: false` (the SMIR Cmp then reads the GPR directly).
+            // `_jumpnv` forms never write a predicate (`write_pred = None`).
+            DecodedInsn::CompoundCmpJump {
+                kind,
+                src1,
+                src2,
+                write_pred,
+                sense,
+                new_value: true,
+                offset,
+            } => {
+                let resolved = match self.resolve_new_value_src(*src1) {
+                    Some(r) => r,
+                    None => {
+                        return Err(LiftError::Unsupported {
+                            addr,
+                            mnemonic: "compound_cmpjump_nv_unresolved".to_string(),
+                        });
+                    }
+                };
+                let resolved_insn = DecodedInsn::CompoundCmpJump {
+                    kind: *kind,
+                    src1: resolved,
+                    src2: *src2,
+                    write_pred: *write_pred,
+                    sense: *sense,
+                    new_value: false,
+                    offset: *offset,
+                };
+                // Delegate with the REAL instruction `addr`: the non-new-value
+                // arm computes the branch TARGET relative to the packet start
+                // (`self.packet_start_pc`, set for this packet) and the FALL-
+                // THROUGH relative to `addr` (the jump ends the packet, so its
+                // `addr + 4` is the next-packet address).
+                return self.lift_insn_inner(&resolved_insn, addr, ctx);
             }
 
             // J4 predicate-writing compound compare-and-jump
@@ -2367,7 +2671,16 @@ impl HexagonLifter {
                 offset,
             } => {
                 let offset = ctx.extend_imm(*offset);
-                let target = addr.wrapping_add(offset as i64 as u64) & !0x3;
+                // Hexagon PC-relative branch targets are computed relative to the
+                // PACKET start (`packet_start_pc`), not the branching
+                // instruction's own address. For the FUSED predicate-writing
+                // `_jump` forms the instruction IS the whole packet, so
+                // `packet_start_pc == addr`. For a (delegated) new-value
+                // `_jumpnv` the jump is the LAST word of a multi-word packet, so
+                // the target uses the packet start while the fallthrough is the
+                // jump's own `addr + 4` (the next-packet address).
+                let target =
+                    self.packet_start_pc.wrapping_add(offset as i64 as u64) & !0x3;
                 let fallthrough = addr + 4;
 
                 // Compute the compare RESULT (1 if the compare holds, else 0) into
@@ -4699,6 +5012,18 @@ impl HexagonLifter {
                 let imm = fimm_u(b'i');
                 cmp_set_pred!(rd_n, rs, SrcOperand::Imm(imm as i64), Condition::Ule);
             }
+            // C4_addipc: Rd = fREAD_PC() + #u6. `fREAD_PC` is this PACKET's start
+            // PC, which the lifter knows (`self.packet_start_pc`) — fold it into
+            // a compile-time constant. The #u6 immediate is constant-extensible.
+            Opcode::C4_addipc => {
+                let imm = fimm_u(b'i');
+                let val = (self.packet_start_pc as u32).wrapping_add(imm);
+                push_op!(OpKind::Mov {
+                    dst: rd,
+                    src: SrcOperand::Imm(val as i32 as i64),
+                    width: OpWidth::W32,
+                });
+            }
             Opcode::C2_cmpeqp => {
                 let a = read_pair!(fld(b's'));
                 let b = read_pair!(fld(b't'));
@@ -5638,6 +5963,379 @@ impl HexagonLifter {
                     flags: FlagUpdate::None,
                 });
                 write_pair!(rd_n, r);
+            }
+
+            // ============================================================
+            // S2 vector (within-GPR SIMD) sign/zero extend, truncate/pack,
+            // and shuffle. Pure permutation/extend ops over 32-bit GPRs and
+            // 64-bit GPR pairs — composed from 64-bit shift/mask/or. Lane
+            // order mirrors sem/shift_ext.rs EXACTLY (byte/half lane i lives
+            // at bits 8*i / 16*i). No USR/saturation side effects.
+            // ============================================================
+
+            // Rdd: sign/zero-extend each of the 4 bytes of Rs into a halfword
+            // lane. lane i (bits 16*i) = {s,z}xt(byte i of Rs).
+            Opcode::S2_vsxtbh | Opcode::S2_vzxtbh => {
+                let signed = matches!(op, Opcode::S2_vsxtbh);
+                let mut acc = ctx.alloc_vreg();
+                push_op!(OpKind::Mov {
+                    dst: acc,
+                    src: SrcOperand::Imm(0),
+                    width: OpWidth::W64,
+                });
+                for i in 0..4u32 {
+                    // byte i -> low 8 bits of a temp.
+                    let b = ctx.alloc_vreg();
+                    if i == 0 {
+                        push_op!(OpKind::And {
+                            dst: b,
+                            src1: rs,
+                            src2: SrcOperand::Imm(0xff),
+                            width: OpWidth::W32,
+                            flags: FlagUpdate::None,
+                        });
+                    } else {
+                        let sh = ctx.alloc_vreg();
+                        push_op!(OpKind::Shr {
+                            dst: sh,
+                            src: rs,
+                            amount: SrcOperand::Imm((8 * i) as i64),
+                            width: OpWidth::W32,
+                            flags: FlagUpdate::None,
+                        });
+                        push_op!(OpKind::And {
+                            dst: b,
+                            src1: sh,
+                            src2: SrcOperand::Imm(0xff),
+                            width: OpWidth::W32,
+                            flags: FlagUpdate::None,
+                        });
+                    }
+                    // Extend the byte to a 16-bit halfword value.
+                    let half = ctx.alloc_vreg();
+                    if signed {
+                        push_op!(OpKind::SignExtend {
+                            dst: half,
+                            src: b,
+                            from_width: OpWidth::W8,
+                            to_width: OpWidth::W32,
+                        });
+                    } else {
+                        // already zero in [8..32) from the mask above.
+                        push_op!(OpKind::Mov {
+                            dst: half,
+                            src: SrcOperand::Reg(b),
+                            width: OpWidth::W32,
+                        });
+                    }
+                    // mask to 16 bits, widen to 64, shift into lane i, OR in.
+                    let h16 = ctx.alloc_vreg();
+                    push_op!(OpKind::And {
+                        dst: h16,
+                        src1: half,
+                        src2: SrcOperand::Imm(0xffff),
+                        width: OpWidth::W64,
+                        flags: FlagUpdate::None,
+                    });
+                    let placed = if i == 0 {
+                        h16
+                    } else {
+                        let p = ctx.alloc_vreg();
+                        push_op!(OpKind::Shl {
+                            dst: p,
+                            src: h16,
+                            amount: SrcOperand::Imm((16 * i) as i64),
+                            width: OpWidth::W64,
+                            flags: FlagUpdate::None,
+                        });
+                        p
+                    };
+                    let next = ctx.alloc_vreg();
+                    push_op!(OpKind::Or {
+                        dst: next,
+                        src1: acc,
+                        src2: SrcOperand::Reg(placed),
+                        width: OpWidth::W64,
+                        flags: FlagUpdate::None,
+                    });
+                    acc = next;
+                }
+                write_pair!(rd_n, acc);
+            }
+
+            // Rdd: sign/zero-extend each of the 2 halfwords of Rs into a word
+            // lane. lane i (bits 32*i) = {s,z}xt(half i of Rs).
+            Opcode::S2_vsxthw | Opcode::S2_vzxthw => {
+                let signed = matches!(op, Opcode::S2_vsxthw);
+                // low half -> word 0
+                let lo = ctx.alloc_vreg();
+                if signed {
+                    push_op!(OpKind::SignExtend {
+                        dst: lo,
+                        src: rs,
+                        from_width: OpWidth::W16,
+                        to_width: OpWidth::W32,
+                    });
+                } else {
+                    push_op!(OpKind::And {
+                        dst: lo,
+                        src1: rs,
+                        src2: SrcOperand::Imm(0xffff),
+                        width: OpWidth::W32,
+                        flags: FlagUpdate::None,
+                    });
+                }
+                // high half -> word 1
+                let hsh = ctx.alloc_vreg();
+                push_op!(OpKind::Shr {
+                    dst: hsh,
+                    src: rs,
+                    amount: SrcOperand::Imm(16),
+                    width: OpWidth::W32,
+                    flags: FlagUpdate::None,
+                });
+                let hi = ctx.alloc_vreg();
+                if signed {
+                    push_op!(OpKind::SignExtend {
+                        dst: hi,
+                        src: hsh,
+                        from_width: OpWidth::W16,
+                        to_width: OpWidth::W32,
+                    });
+                } else {
+                    push_op!(OpKind::And {
+                        dst: hi,
+                        src1: hsh,
+                        src2: SrcOperand::Imm(0xffff),
+                        width: OpWidth::W32,
+                        flags: FlagUpdate::None,
+                    });
+                }
+                write_pair!(rd_n, lo); // lo into even
+                // odd register gets the high word directly.
+                push_op!(OpKind::Mov {
+                    dst: self.hex_reg((rd_n & !1) + 1),
+                    src: SrcOperand::Reg(hi),
+                    width: OpWidth::W32,
+                });
+            }
+
+            // Rd: pack the even (vtrunehb) or odd (vtrunohb) byte of each of the
+            // 4 halfwords of the pair Rss into the 4 bytes of Rd.
+            Opcode::S2_vtrunehb | Opcode::S2_vtrunohb => {
+                let odd = matches!(op, Opcode::S2_vtrunohb);
+                let src = read_pair!(fld(b's'));
+                let mut acc = ctx.alloc_vreg();
+                push_op!(OpKind::Mov {
+                    dst: acc,
+                    src: SrcOperand::Imm(0),
+                    width: OpWidth::W32,
+                });
+                for i in 0..4u32 {
+                    // byte index in the 8-byte pair: 2*i (even) or 2*i+1 (odd).
+                    let bidx = 2 * i + if odd { 1 } else { 0 };
+                    let sh = ctx.alloc_vreg();
+                    push_op!(OpKind::Shr {
+                        dst: sh,
+                        src: src,
+                        amount: SrcOperand::Imm((8 * bidx) as i64),
+                        width: OpWidth::W64,
+                        flags: FlagUpdate::None,
+                    });
+                    let b = ctx.alloc_vreg();
+                    push_op!(OpKind::And {
+                        dst: b,
+                        src1: sh,
+                        src2: SrcOperand::Imm(0xff),
+                        width: OpWidth::W32,
+                        flags: FlagUpdate::None,
+                    });
+                    let placed = if i == 0 {
+                        b
+                    } else {
+                        let p = ctx.alloc_vreg();
+                        push_op!(OpKind::Shl {
+                            dst: p,
+                            src: b,
+                            amount: SrcOperand::Imm((8 * i) as i64),
+                            width: OpWidth::W32,
+                            flags: FlagUpdate::None,
+                        });
+                        p
+                    };
+                    let next = ctx.alloc_vreg();
+                    push_op!(OpKind::Or {
+                        dst: next,
+                        src1: acc,
+                        src2: SrcOperand::Reg(placed),
+                        width: OpWidth::W32,
+                        flags: FlagUpdate::None,
+                    });
+                    acc = next;
+                }
+                push_op!(OpKind::Mov {
+                    dst: rd,
+                    src: SrcOperand::Reg(acc),
+                    width: OpWidth::W32,
+                });
+            }
+
+            // Two-source pair shuffles / truncate-pack. Each output lane copies
+            // one source lane (no arithmetic), so build the 64-bit result by
+            // extracting `(src >> 8*srcbyte) & lanemask` and OR-ing it into the
+            // accumulator at `8*dstbyte`. `plan` lists (dst_byte, which_src,
+            // src_byte, lane_bytes) tuples. `which_src`: 0=Rss(s), 1=Rtt(t).
+            Opcode::S2_vtrunewh
+            | Opcode::S2_vtrunowh
+            | Opcode::S2_shuffeb
+            | Opcode::S2_shuffob
+            | Opcode::S2_shuffeh
+            | Opcode::S2_shuffoh => {
+                let rss = read_pair!(fld(b's'));
+                let rtt = read_pair!(fld(b't'));
+                // (dst_byte_offset, src(0=ss,1=tt), src_byte_offset, lane_bytes)
+                let plan: &[(u32, u8, u32, u32)] = match op {
+                    // vtrunewh: halves [tt0, tt2, ss0, ss2] -> lanes 0..3.
+                    Opcode::S2_vtrunewh => &[
+                        (0, 1, 0, 2),
+                        (2, 1, 4, 2),
+                        (4, 0, 0, 2),
+                        (6, 0, 4, 2),
+                    ],
+                    // vtrunowh: halves [tt1, tt3, ss1, ss3] -> lanes 0..3.
+                    Opcode::S2_vtrunowh => &[
+                        (0, 1, 2, 2),
+                        (2, 1, 6, 2),
+                        (4, 0, 2, 2),
+                        (6, 0, 6, 2),
+                    ],
+                    // shuffeb: dst byte 2i = tt[2i], 2i+1 = ss[2i].
+                    Opcode::S2_shuffeb => &[
+                        (0, 1, 0, 1),
+                        (1, 0, 0, 1),
+                        (2, 1, 2, 1),
+                        (3, 0, 2, 1),
+                        (4, 1, 4, 1),
+                        (5, 0, 4, 1),
+                        (6, 1, 6, 1),
+                        (7, 0, 6, 1),
+                    ],
+                    // shuffob: dst byte 2i = ss[2i+1], 2i+1 = tt[2i+1].
+                    Opcode::S2_shuffob => &[
+                        (0, 0, 1, 1),
+                        (1, 1, 1, 1),
+                        (2, 0, 3, 1),
+                        (3, 1, 3, 1),
+                        (4, 0, 5, 1),
+                        (5, 1, 5, 1),
+                        (6, 0, 7, 1),
+                        (7, 1, 7, 1),
+                    ],
+                    // shuffeh: half lane 2i = tt[2i], 2i+1 = ss[2i] (bytes).
+                    Opcode::S2_shuffeh => &[
+                        (0, 1, 0, 2),
+                        (2, 0, 0, 2),
+                        (4, 1, 4, 2),
+                        (6, 0, 4, 2),
+                    ],
+                    // shuffoh: half lane 2i = ss[2i+1], 2i+1 = tt[2i+1].
+                    Opcode::S2_shuffoh => &[
+                        (0, 0, 2, 2),
+                        (2, 1, 2, 2),
+                        (4, 0, 6, 2),
+                        (6, 1, 6, 2),
+                    ],
+                    _ => unreachable!(),
+                };
+                let mut acc = ctx.alloc_vreg();
+                push_op!(OpKind::Mov {
+                    dst: acc,
+                    src: SrcOperand::Imm(0),
+                    width: OpWidth::W64,
+                });
+                for &(dst_b, which, src_b, lane_bytes) in plan {
+                    let src = if which == 0 { rss } else { rtt };
+                    let mask: i64 = if lane_bytes == 1 { 0xff } else { 0xffff };
+                    let sh = ctx.alloc_vreg();
+                    push_op!(OpKind::Shr {
+                        dst: sh,
+                        src,
+                        amount: SrcOperand::Imm((8 * src_b) as i64),
+                        width: OpWidth::W64,
+                        flags: FlagUpdate::None,
+                    });
+                    let m = ctx.alloc_vreg();
+                    push_op!(OpKind::And {
+                        dst: m,
+                        src1: sh,
+                        src2: SrcOperand::Imm(mask),
+                        width: OpWidth::W64,
+                        flags: FlagUpdate::None,
+                    });
+                    let placed = if dst_b == 0 {
+                        m
+                    } else {
+                        let p = ctx.alloc_vreg();
+                        push_op!(OpKind::Shl {
+                            dst: p,
+                            src: m,
+                            amount: SrcOperand::Imm((8 * dst_b) as i64),
+                            width: OpWidth::W64,
+                            flags: FlagUpdate::None,
+                        });
+                        p
+                    };
+                    let next = ctx.alloc_vreg();
+                    push_op!(OpKind::Or {
+                        dst: next,
+                        src1: acc,
+                        src2: SrcOperand::Reg(placed),
+                        width: OpWidth::W64,
+                        flags: FlagUpdate::None,
+                    });
+                    acc = next;
+                }
+                write_pair!(rd_n, acc);
+            }
+
+            // S2_valignib: Rdd = (Rss u>> sh*8) | (Rtt << (8-sh)*8), sh = #u3.
+            // `sh` is a compile-time immediate, so handle the sh==0 boundary
+            // (where the interp's `Rtt << 64` yields 0, i.e. result == Rss)
+            // explicitly to avoid any shift-by-64 ambiguity. For sh in 1..8 the
+            // two shift amounts are < 64.
+            Opcode::S2_valignib => {
+                let sh = (fimm_u(b'i') & 0x7) as i64;
+                let rss = read_pair!(fld(b's'));
+                if sh == 0 {
+                    write_pair!(rd_n, rss);
+                } else {
+                    let rtt = read_pair!(fld(b't'));
+                    let lo = ctx.alloc_vreg();
+                    push_op!(OpKind::Shr {
+                        dst: lo,
+                        src: rss,
+                        amount: SrcOperand::Imm(sh * 8),
+                        width: OpWidth::W64,
+                        flags: FlagUpdate::None,
+                    });
+                    let hi = ctx.alloc_vreg();
+                    push_op!(OpKind::Shl {
+                        dst: hi,
+                        src: rtt,
+                        amount: SrcOperand::Imm((8 - sh) * 8),
+                        width: OpWidth::W64,
+                        flags: FlagUpdate::None,
+                    });
+                    let r = ctx.alloc_vreg();
+                    push_op!(OpKind::Or {
+                        dst: r,
+                        src1: lo,
+                        src2: SrcOperand::Reg(hi),
+                        width: OpWidth::W64,
+                        flags: FlagUpdate::None,
+                    });
+                    write_pair!(rd_n, r);
+                }
             }
 
             // ============================================================
@@ -15197,6 +15895,19 @@ impl SmirLifter for HexagonLifter {
 
         let word = u32::from_le_bytes(bytes[..4].try_into().unwrap());
 
+        // PACKET-PRODUCER TRACKING (for new-value `.new` resolution): the GPR
+        // producers list is per-packet. If the previous word ended its packet,
+        // start a fresh producers list before lifting this (first-of-packet)
+        // instruction. The parse bits live in word[15:14] (`0b11`/`0b00` = end).
+        if self.prev_word_ended_packet {
+            self.packet_producers.clear();
+            self.packet_start_pc = addr;
+        }
+        let parse = (word >> 14) & 0x3;
+        // `0b00` is the duplex (two 16-bit sub-insns) end-of-packet marker;
+        // `0b11` is a single-word end-of-packet (or a lone instruction).
+        self.prev_word_ended_packet = parse == 0b11 || parse == 0b00;
+
         // Use the existing Hexagon decoder
         let decoded =
             crate::backend::emulator::hexagon::decode::decode(word, ctx.extended_imm, self.isa);
@@ -15217,6 +15928,24 @@ impl SmirLifter for HexagonLifter {
         }
 
         let (ops, control_flow) = result?;
+
+        // Record this instruction's GPR producer for same-packet new-value
+        // resolution: the LOWEST Hexagon R register newly written by the ops it
+        // just emitted (mirrors the interpreter's `record_producer`, which pushes
+        // the lowest GPR with a fresh in-flight write). A pair write (even/odd)
+        // contributes only the even register; instructions that write no GPR
+        // (stores, pure predicate ops, control flow) contribute nothing.
+        let mut produced: Option<u8> = None;
+        for op in &ops {
+            for dst in op.kind.dests() {
+                if let VReg::Arch(ArchReg::Hexagon(HexagonReg::R(n))) = dst {
+                    produced = Some(produced.map_or(n, |cur| cur.min(n)));
+                }
+            }
+        }
+        if let Some(n) = produced {
+            self.packet_producers.push(n);
+        }
 
         let mut branch_targets = Vec::new();
         match &control_flow {
