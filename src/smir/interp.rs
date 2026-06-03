@@ -1986,6 +1986,31 @@ impl SmirInterpreter {
                 ctx.write_vreg(*dst, p as u64);
             }
 
+            OpKind::RvFp {
+                dst,
+                fcsr_dst,
+                src1,
+                src2,
+                src3,
+                fcsr_src,
+                op,
+                rm_field,
+            } => {
+                let a = ctx.read_vreg(*src1);
+                let b = ctx.read_vreg(*src2);
+                let c = ctx.read_vreg(*src3);
+                let fcsr = ctx.read_vreg(*fcsr_src) as u32;
+                // Bit-exact against the qemu-verified RISC-V interpreter. `None`
+                // means an illegal rounding-mode field — hardware traps with no
+                // architectural state change, so leave dst/fcsr untouched.
+                if let Some((res, new_fcsr)) =
+                    crate::riscv::float::eval_scalar_fp(*op, *rm_field, fcsr, a, b, c)
+                {
+                    ctx.write_vreg(*dst, res);
+                    ctx.write_vreg(*fcsr_dst, new_fcsr as u64);
+                }
+            }
+
             OpKind::IntToFp {
                 dst,
                 src,

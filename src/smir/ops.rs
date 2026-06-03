@@ -2384,6 +2384,37 @@ pub enum OpKind {
     },
 
     // ========================================================================
+    // RISC-V SCALAR FLOATING POINT (OP-FP / FMA)
+    // ========================================================================
+    /// RISC-V scalar OP-FP / FMA instruction, computed bit-exactly via the same
+    /// soft-float primitives as the qemu-verified `RiscVCpu` interpreter
+    /// (`crate::riscv::float::eval_scalar_fp`). Covers arithmetic, FMA, min/max,
+    /// compares, round, and every int/float/half conversion — i.e. all the FP ops
+    /// whose result depends on `fflags`, NaN canonicalisation, or the dynamic
+    /// rounding mode (`frm`), which the generic native-`f64` `FAdd`/`FMul`/… ops
+    /// cannot reproduce.
+    ///
+    /// `src1`/`src2`/`src3` carry raw operand register values (f-register bits, or
+    /// the x-register value in `src1` for int->fp / `fmv.*.x`; `src2`/`src3`
+    /// unused for unary ops). `fcsr_src` is the current `fcsr`. `dst` receives the
+    /// raw result (NaN-boxed for an f-register destination, or the integer result
+    /// for compares / fp->int / `fcvtmod`); `fcsr_dst` receives `fcsr` with this
+    /// op's exception flags accrued. `op` is the RISC-V opcode and `rm_field` the
+    /// instruction's 3-bit rounding-mode field (resolved against `frm` for `Dyn`).
+    /// Self-contained, like [`OpKind::HexFp`]; NOT JIT-whitelisted (falls back to
+    /// the interpreter).
+    RvFp {
+        dst: VReg,
+        fcsr_dst: VReg,
+        src1: VReg,
+        src2: VReg,
+        src3: VReg,
+        fcsr_src: VReg,
+        op: crate::riscv::Op,
+        rm_field: u8,
+    },
+
+    // ========================================================================
     // META / DEBUG
     // ========================================================================
     /// No-op
@@ -2745,6 +2776,8 @@ impl OpKind {
 
             // CABAC decode writes the Rdd pair (dst) AND the P0 predicate.
             OpKind::HexCabacDecBin { dst, pred, .. } => vec![*dst, *pred],
+
+            OpKind::RvFp { dst, fcsr_dst, .. } => vec![*dst, *fcsr_dst],
 
             OpKind::MulU { dst_lo, dst_hi, .. } | OpKind::MulS { dst_lo, dst_hi, .. } => {
                 let mut v = vec![*dst_lo];

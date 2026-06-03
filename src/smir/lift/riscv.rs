@@ -256,6 +256,10 @@ impl RiscVLifter {
             0x07 if self.extensions.f => self.lift_fp_ldst(insn, addr, ctx),
             0x27 if self.extensions.f => self.lift_fp_ldst(insn, addr, ctx),
             0x53 if self.extensions.f => self.lift_op_fp(insn, addr, ctx),
+            // Fused multiply-add family (FMADD/FMSUB/FNMSUB/FNMADD .S/.D/.H).
+            0x43 | 0x47 | 0x4b | 0x4f if self.extensions.f => {
+                self.lift_fp_fma(insn, addr, ctx)
+            }
             _ => Err(LiftError::InvalidEncoding {
                 addr,
                 bytes: insn.to_le_bytes().to_vec(),
@@ -1726,11 +1730,102 @@ impl RiscVLifter {
                     self.emit_fclass(ctx, &mut ops, addr, u, 10, 5, dst);
                 }
             }
+            // Zfa load-immediate: `rs1` is a 32-entry table index (NOT a
+            // register), so materialise the constant directly and NaN-box it.
+            RvOp::FliS | RvOp::FliD | RvOp::FliH => {
+                use crate::riscv::float as ff;
+                let (bits, boxmask) = match d.op {
+                    RvOp::FliS => (ff::fli(ff::F32, d.rs1) as u32 as i64, BOX_S),
+                    RvOp::FliH => (ff::fli(ff::F16, d.rs1) as u16 as i64, BOX_H),
+                    _ => (ff::fli(ff::F64, d.rs1) as i64, 0),
+                };
+                let fd = ctx.define_arch_reg(ArchReg::RiscV(RiscVReg::F(d.rd)));
+                ops.push(mk(ctx, OpKind::Mov { dst: fd, src: SrcOperand::Imm(bits | boxmask), width: w }));
+            }
+            // All remaining OP-FP arithmetic / convert / compare / min-max /
+            // round ops are computed bit-exactly via the RvFp op (fflags + NaN
+            // canonicalisation + dynamic rounding).
             _ => {
-                return Err(LiftError::Unsupported { addr, mnemonic: format!("{:?}", d.op) });
+                if d.is_illegal() {
+                    return Err(LiftError::InvalidEncoding {
+                        addr,
+                        bytes: insn.to_le_bytes().to_vec(),
+                    });
+                }
+                self.emit_rvfp(&d, addr, ctx, &mut ops);
             }
         }
         Ok((ops, ControlFlow::NextInsn))
+    }
+
+    /// Lift the FMA family (opcodes 0x43/0x47/0x4b/0x4f) via the bit-exact RvFp
+    /// op. The decoder maps each to the concrete `Fmadd/Fmsub/Fnmsub/Fnmadd`
+    /// `.S/.D/.H` opcode; the operand sign flips live in `eval_scalar_fp`.
+    fn lift_fp_fma(
+        &mut self,
+        insn: u32,
+        addr: GuestAddr,
+        ctx: &mut LiftContext,
+    ) -> Result<(Vec<SmirOp>, ControlFlow), LiftError> {
+        let xl = if self.xlen == 64 { RvXlen::Rv64 } else { RvXlen::Rv32 };
+        let d = rv_decode(insn, xl, &RvIsa::rv64gc());
+        if d.is_illegal() {
+            return Err(LiftError::InvalidEncoding {
+                addr,
+                bytes: insn.to_le_bytes().to_vec(),
+            });
+        }
+        let mut ops = Vec::new();
+        self.emit_rvfp(&d, addr, ctx, &mut ops);
+        Ok((ops, ControlFlow::NextInsn))
+    }
+
+    /// Emit a bit-exact [`OpKind::RvFp`] for a scalar OP-FP / FMA instruction
+    /// whose result depends on `fflags` / NaN-canonicalisation / dynamic
+    /// rounding. Routes the source/destination register *files* per
+    /// [`crate::riscv::float::fp_uses_int_src1`] /
+    /// [`crate::riscv::float::fp_writes_int_dst`], threads `fcsr` in and out, and
+    /// updates `fcsr` even when an integer destination is `x0` (exceptions still
+    /// accrue). Read all source vregs (incl. `fcsr_src`) BEFORE defining any
+    /// destination so a `rd == rs1` aliasing case reads the old value.
+    fn emit_rvfp(
+        &mut self,
+        d: &crate::riscv::Insn,
+        addr: GuestAddr,
+        ctx: &mut LiftContext,
+        ops: &mut Vec<SmirOp>,
+    ) {
+        use crate::riscv::float::{fp_uses_int_src1, fp_writes_int_dst};
+        let op = d.op;
+        let src1 = if fp_uses_int_src1(op) {
+            self.get_x_reg(d.rs1, ctx)
+        } else {
+            ctx.get_arch_reg(ArchReg::RiscV(RiscVReg::F(d.rs1)))
+        };
+        let src2 = ctx.get_arch_reg(ArchReg::RiscV(RiscVReg::F(d.rs2)));
+        let src3 = ctx.get_arch_reg(ArchReg::RiscV(RiscVReg::F(d.rs3)));
+        let fcsr_src = ctx.get_arch_reg(ArchReg::RiscV(RiscVReg::Csr(0x003)));
+        let fcsr_dst = ctx.define_arch_reg(ArchReg::RiscV(RiscVReg::Csr(0x003)));
+        let dst = if fp_writes_int_dst(op) {
+            // rd == x0 discards the result but `fcsr` must still update.
+            self.def_x_reg(d.rd, ctx).unwrap_or_else(|| ctx.alloc_vreg())
+        } else {
+            ctx.define_arch_reg(ArchReg::RiscV(RiscVReg::F(d.rd)))
+        };
+        ops.push(SmirOp::new(
+            ctx.next_op_id(),
+            addr,
+            OpKind::RvFp {
+                dst,
+                fcsr_dst,
+                src1,
+                src2,
+                src3,
+                fcsr_src,
+                op,
+                rm_field: d.rm(),
+            },
+        ));
     }
 
     /// Emit the RISC-V FCLASS 10-bit classification of FP value `f` (the value
