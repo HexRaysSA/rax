@@ -6296,12 +6296,14 @@ fn lift_a5_acs() {
 // FINAL GAP RE-SCAN (audit). Probe EVERY non-V6 (scalar) opcode through the
 // lifter using its canonical encoding word (all variable fields = 0) and confirm
 // each one that still lifts to Unsupported falls into a KNOWN, classified bucket.
-// The probe feeds a SINGLE instruction with no packet context, so two buckets
+// The probe feeds a SINGLE instruction with no packet context, so three buckets
 // here are PROBE-ONLY artifacts (the ops lift correctly inside a real packet and
 // are verified by other passing families) — they are recognized by their
 // `*_unresolved` rejection mnemonic:
 //   - store_new_unresolved              : a `.new` store with no in-packet
 //     producer (verified lifted by lift_mem_store_new* families).
+//   - pred_store_new_unresolved         : a PREDICATED `.new` store with no
+//     in-packet producer (verified lifted by lift_mem_pstorenew_* families).
 //   - compound_cmpjump_nv_unresolved    : a J4 `.new` compare-jump with no
 //     in-packet producer (verified lifted by cf_cmpjump_* families).
 // The remaining buckets are GENUINE boundaries, keyed by the rejection mnemonic
@@ -6309,15 +6311,16 @@ fn lift_a5_acs() {
 //   (a) F2_* scalar FP                  : needs SMIR FP OpKinds + softfloat/fflags
 //   (b) Y2_/Y4_/Y5_ + A4_tlbmatch       : system / TLB / cache / privileged state
 //   (c) S2_cabacdecbin                  : stateful CABAC tables + multi-output
-//   (d) pred_load / pred_or_newvalue_store / pred_store_new / pred_store_imm
-//       : PREDICATED loads/stores that CANCEL on a false predicate — there is no
-//         SMIR conditional-commit memory primitive (an unconditional Load/Store
-//         would wrongly commit + post-increment when the predicate is false).
-//   (e) load_locked / store_cond        : LL/SC reservation + predicate side
+//   (d) load_locked / store_cond        : LL/SC reservation + predicate side
 //         effect not modeled by the plain Load/Store.
-//   (f) sploop                          : software-pipelined loop sets USR.LPCFG
+//   (e) sploop                          : software-pipelined loop sets USR.LPCFG
 //         (packet/loop-config state); pause: system pause; vspliceb: register-
 //         pair splice deferred to the interpreter.
+// NOTE: the PREDICATED loads/stores that CANCEL on a false predicate are now
+// LIFTED via the conditional-commit OpKinds PredLoad / PredStore (with gated
+// post-increment), so `pred_load` / `pred_or_newvalue_store` / `pred_store_imm`
+// no longer appear here; the predicated new-value stores are verified inside a
+// packet (the probe-only `pred_store_new_unresolved` artifact above).
 // The test FAILS if any opcode lifts to Unsupported for a reason NOT in this set
 // — i.e. if a new tractable scalar register/memory op silently regresses.
 #[test]
@@ -6341,16 +6344,12 @@ fn audit_final_scalar_gap_rescan() {
     const KNOWN_MNEMONICS: &[&str] = &[
         // probe-only artifacts (lift fine in a real packet)
         "store_new_unresolved",
+        "pred_store_new_unresolved",
         "compound_cmpjump_nv_unresolved",
-        // conditional-commit (boundary d)
-        "pred_load",
-        "pred_or_newvalue_store",
-        "pred_store_new",
-        "pred_store_imm",
-        // atomic LL/SC (boundary e)
+        // atomic LL/SC (boundary d)
         "load_locked",
         "store_cond",
-        // loop-config / system (boundary f)
+        // loop-config / system (boundary e)
         "sploop",
         "pause",
         "vspliceb",
@@ -6460,5 +6459,333 @@ fn lift_r6_release() {
         ],
         40,
         0xE00C,
+    );
+}
+
+// ============================================================================
+// PREDICATED loads / stores (the ~236-op bucket). Each CANCELS on a false
+// predicate: no register write, no memory write, no base post-increment, and
+// no fault. The lifter emits the new conditional-commit OpKinds PredLoad /
+// PredStore (gated post-increment via a pure Add + Select). The mem-family
+// harness seeds the FULL predicate byte (biased to 0x00/0xff) so ~every
+// iteration hits BOTH cond-true and cond-false, verifying the cancel against
+// the qemu-checked HexagonVcpu interpreter (regs + memory + predicate byte).
+// All asm confirmed with `llvm-mc -triple=hexagon -mcpu=hexagonv69 -mhvx
+// -mattr=+audio -show-encoding`.
+// ============================================================================
+
+// Predicated base+#imm loads (L2_ploadr*_io): if (Pu)/if (!Pu) Rd = memX(Rs+#u).
+// Byte/half/word/dword, signed + unsigned, t/f sense. memd writes a reg PAIR.
+#[test]
+fn lift_mem_pload_io() {
+    lift_mem_family(
+        "mem_pload_io",
+        &[
+            ("ploadrbt", "{ if (p0) r1 = memb(r0+#3) }"),
+            ("ploadrbf", "{ if (!p0) r1 = memb(r0+#3) }"),
+            ("ploadrubt", "{ if (p0) r1 = memub(r0+#5) }"),
+            ("ploadrubf", "{ if (!p0) r1 = memub(r0+#5) }"),
+            ("ploadrht", "{ if (p0) r1 = memh(r0+#2) }"),
+            ("ploadrhf", "{ if (!p0) r1 = memh(r0+#2) }"),
+            ("ploadruht", "{ if (p0) r1 = memuh(r0+#6) }"),
+            ("ploadrit", "{ if (p0) r1 = memw(r0+#0) }"),
+            ("ploadrif", "{ if (!p0) r1 = memw(r0+#4) }"),
+            ("ploadrdt", "{ if (p0) r3:2 = memd(r0+#0) }"),
+            ("ploadrdf", "{ if (!p0) r3:2 = memd(r0+#8) }"),
+        ],
+        0,
+        40,
+        0xf001,
+    );
+}
+
+// Predicated DOT-NEW base+#imm loads (L2_ploadr*tnew/fnew_io): the predicate is
+// the just-written P0 from a same-packet producer compare (p0.new). Tests both
+// the producer-true and producer-false outcomes across random states.
+#[test]
+fn lift_mem_pload_io_new() {
+    lift_mem_family(
+        "mem_pload_io_new",
+        &[
+            ("ploadritnew", "{ p0 = cmp.eq(r4,r5) ; if (p0.new) r1 = memw(r0+#0) }"),
+            ("ploadrifnew", "{ p0 = cmp.eq(r4,r5) ; if (!p0.new) r1 = memw(r0+#4) }"),
+            ("ploadrbtnew", "{ p0 = cmp.gt(r4,r5) ; if (p0.new) r1 = memb(r0+#3) }"),
+            ("ploadrubfnew", "{ p0 = cmp.eq(r4,r5) ; if (!p0.new) r1 = memub(r0+#5) }"),
+            ("ploadrhtnew", "{ p0 = cmp.eq(r4,r5) ; if (p0.new) r1 = memh(r0+#2) }"),
+            ("ploadrdtnew", "{ p0 = cmp.eq(r4,r5) ; if (p0.new) r3:2 = memd(r0+#0) }"),
+        ],
+        0,
+        40,
+        0xf002,
+    );
+}
+
+// Predicated post-increment-immediate loads (L2_ploadr*_pi): base r0 advances
+// ONLY when the predicate holds (gated post-inc). Increments are small positive
+// multiples of the access size; the access uses the OLD base = DATA_ADDR.
+#[test]
+fn lift_mem_pload_pi() {
+    lift_mem_family(
+        "mem_pload_pi",
+        &[
+            ("ploadrbt_pi", "{ if (p0) r1 = memb(r0++#1) }"),
+            ("ploadrbf_pi", "{ if (!p0) r1 = memb(r0++#1) }"),
+            ("ploadrubt_pi", "{ if (p0) r1 = memub(r0++#1) }"),
+            ("ploadrht_pi", "{ if (p0) r1 = memh(r0++#2) }"),
+            ("ploadrhf_pi", "{ if (!p0) r1 = memh(r0++#2) }"),
+            ("ploadrit_pi", "{ if (p0) r1 = memw(r0++#4) }"),
+            ("ploadrif_pi", "{ if (!p0) r1 = memw(r0++#4) }"),
+            ("ploadrdt_pi", "{ if (p0) r3:2 = memd(r0++#8) }"),
+        ],
+        0,
+        40,
+        0xf003,
+    );
+}
+
+// Predicated register-offset loads (L4_ploadr*_rr): if (Pu) Rd = memX(Rs+Ru<<#u2).
+// The index register r2 is forced to 0 so EA == base == DATA_ADDR (in-region).
+#[test]
+fn lift_mem_pload_rr() {
+    lift_mem_family_idx(
+        "mem_pload_rr",
+        &[
+            ("ploadrbt_rr", "{ if (p0) r1 = memb(r0+r2<<#0) }"),
+            ("ploadrbf_rr", "{ if (!p0) r1 = memb(r0+r2<<#0) }"),
+            ("ploadrubt_rr", "{ if (p0) r1 = memub(r0+r2<<#1) }"),
+            ("ploadrht_rr", "{ if (p0) r1 = memh(r0+r2<<#0) }"),
+            ("ploadruht_rr", "{ if (p0) r1 = memuh(r0+r2<<#1) }"),
+            ("ploadrit_rr", "{ if (p0) r1 = memw(r0+r2<<#2) }"),
+            ("ploadrif_rr", "{ if (!p0) r1 = memw(r0+r2<<#0) }"),
+            ("ploadrdt_rr", "{ if (p0) r3:2 = memd(r0+r2<<#0) }"),
+        ],
+        0,
+        &[2],
+        40,
+        0xf004,
+    );
+}
+
+// Predicated absolute loads (L4_ploadr*_abs): if (Pu) Rd = memX(##addr). The
+// absolute address is the in-region constant 0x8000 (== DATA_ADDR).
+#[test]
+fn lift_mem_pload_abs() {
+    lift_mem_family(
+        "mem_pload_abs",
+        &[
+            ("ploadrbt_abs", "{ if (p0) r1 = memb(##0x8000) }"),
+            ("ploadrbf_abs", "{ if (!p0) r1 = memb(##0x8000) }"),
+            ("ploadrubt_abs", "{ if (p0) r1 = memub(##0x8000) }"),
+            ("ploadrht_abs", "{ if (p0) r1 = memh(##0x8000) }"),
+            ("ploadrit_abs", "{ if (p0) r1 = memw(##0x8000) }"),
+            ("ploadrif_abs", "{ if (!p0) r1 = memw(##0x8000) }"),
+            ("ploadrdt_abs", "{ if (p0) r3:2 = memd(##0x8000) }"),
+        ],
+        0,
+        40,
+        0xf005,
+    );
+}
+
+// Predicated base+#imm stores (S2_pstorer*_io + storerf high-half): if (Pu)/
+// if (!Pu) memX(Rs+#u) = Rt. CANCELS the memory write on a false predicate.
+#[test]
+fn lift_mem_pstore_io() {
+    lift_mem_family(
+        "mem_pstore_io",
+        &[
+            ("pstorerbt", "{ if (p0) memb(r0+#3) = r1 }"),
+            ("pstorerbf", "{ if (!p0) memb(r0+#3) = r1 }"),
+            ("pstorerht", "{ if (p0) memh(r0+#2) = r1 }"),
+            ("pstorerhf", "{ if (!p0) memh(r0+#2) = r1 }"),
+            ("pstorerft", "{ if (p0) memh(r0+#4) = r1.h }"),
+            ("pstorerff", "{ if (!p0) memh(r0+#4) = r1.h }"),
+            ("pstorerit", "{ if (p0) memw(r0+#0) = r1 }"),
+            ("pstorerif", "{ if (!p0) memw(r0+#8) = r1 }"),
+            ("pstorerdt", "{ if (p0) memd(r0+#0) = r3:2 }"),
+            ("pstorerdf", "{ if (!p0) memd(r0+#16) = r3:2 }"),
+        ],
+        0,
+        40,
+        0xf006,
+    );
+}
+
+// Predicated DOT-NEW-predicate base+#imm stores (S4_pstorer*tnew/fnew_io): the
+// predicate is the same-packet producer's freshly-written P0 (p0.new).
+#[test]
+fn lift_mem_pstore_io_new() {
+    lift_mem_family(
+        "mem_pstore_io_new",
+        &[
+            ("pstoreritnew", "{ p0 = cmp.eq(r4,r5) ; if (p0.new) memw(r0+#0) = r1 }"),
+            ("pstorerifnew", "{ p0 = cmp.eq(r4,r5) ; if (!p0.new) memw(r0+#8) = r1 }"),
+            ("pstorerbtnew", "{ p0 = cmp.gt(r4,r5) ; if (p0.new) memb(r0+#3) = r1 }"),
+            ("pstorerhtnew", "{ p0 = cmp.eq(r4,r5) ; if (p0.new) memh(r0+#2) = r1 }"),
+            ("pstorerftnew", "{ p0 = cmp.eq(r4,r5) ; if (p0.new) memh(r0+#4) = r1.h }"),
+            ("pstorerdtnew", "{ p0 = cmp.eq(r4,r5) ; if (p0.new) memd(r0+#0) = r3:2 }"),
+        ],
+        0,
+        40,
+        0xf007,
+    );
+}
+
+// Predicated post-increment-immediate stores (S2_pstorer*_pi): base r0 advances
+// ONLY when the predicate holds (gated post-inc).
+#[test]
+fn lift_mem_pstore_pi() {
+    lift_mem_family(
+        "mem_pstore_pi",
+        &[
+            ("pstorerbt_pi", "{ if (p0) memb(r0++#1) = r1 }"),
+            ("pstorerbf_pi", "{ if (!p0) memb(r0++#1) = r1 }"),
+            ("pstorerht_pi", "{ if (p0) memh(r0++#2) = r1 }"),
+            ("pstorerft_pi", "{ if (p0) memh(r0++#2) = r1.h }"),
+            ("pstorerit_pi", "{ if (p0) memw(r0++#4) = r1 }"),
+            ("pstorerif_pi", "{ if (!p0) memw(r0++#4) = r1 }"),
+            ("pstorerdt_pi", "{ if (p0) memd(r0++#8) = r3:2 }"),
+        ],
+        0,
+        40,
+        0xf008,
+    );
+}
+
+// Predicated register-offset stores (S4_pstorer*_rr): index r2 forced to 0.
+#[test]
+fn lift_mem_pstore_rr() {
+    lift_mem_family_idx(
+        "mem_pstore_rr",
+        &[
+            ("pstorerbt_rr", "{ if (p0) memb(r0+r2<<#0) = r1 }"),
+            ("pstorerbf_rr", "{ if (!p0) memb(r0+r2<<#0) = r1 }"),
+            ("pstorerht_rr", "{ if (p0) memh(r0+r2<<#1) = r1 }"),
+            ("pstorerft_rr", "{ if (p0) memh(r0+r2<<#1) = r1.h }"),
+            ("pstorerit_rr", "{ if (p0) memw(r0+r2<<#2) = r1 }"),
+            ("pstorerif_rr", "{ if (!p0) memw(r0+r2<<#0) = r1 }"),
+            ("pstorerdt_rr", "{ if (p0) memd(r0+r2<<#0) = r3:2 }"),
+        ],
+        0,
+        &[2],
+        40,
+        0xf009,
+    );
+}
+
+// Predicated absolute stores (S4_pstorer*_abs): memX(##0x8000) = Rt.
+#[test]
+fn lift_mem_pstore_abs() {
+    lift_mem_family(
+        "mem_pstore_abs",
+        &[
+            ("pstorerbt_abs", "{ if (p0) memb(##0x8000) = r1 }"),
+            ("pstorerbf_abs", "{ if (!p0) memb(##0x8000) = r1 }"),
+            ("pstorerht_abs", "{ if (p0) memh(##0x8000) = r1 }"),
+            ("pstorerft_abs", "{ if (p0) memh(##0x8000) = r1.h }"),
+            ("pstorerit_abs", "{ if (p0) memw(##0x8000) = r1 }"),
+            ("pstorerif_abs", "{ if (!p0) memw(##0x8000) = r1 }"),
+            ("pstorerdt_abs", "{ if (p0) memd(##0x8000) = r3:2 }"),
+        ],
+        0,
+        40,
+        0xf00a,
+    );
+}
+
+// Predicated store-immediate (S4_storeir*t/f_io): if (Pu) memX(Rs+#u) = #s6.
+// CANCELS the memory write on a false predicate.
+#[test]
+fn lift_mem_pstore_imm() {
+    lift_mem_family(
+        "mem_pstore_imm",
+        &[
+            ("storeirbt", "{ if (p0) memb(r0+#3) = #15 }"),
+            ("storeirbf", "{ if (!p0) memb(r0+#5) = #-8 }"),
+            ("storeirht", "{ if (p0) memh(r0+#2) = #-7 }"),
+            ("storeirhf", "{ if (!p0) memh(r0+#2) = #11 }"),
+            ("storeirit", "{ if (p0) memw(r0+#0) = #20 }"),
+            ("storeirif", "{ if (!p0) memw(r0+#4) = #-1 }"),
+        ],
+        0,
+        40,
+        0xf00b,
+    );
+}
+
+// Predicated DOT-NEW-predicate store-immediate (S4_storeir*tnew/fnew_io).
+#[test]
+fn lift_mem_pstore_imm_new() {
+    lift_mem_family(
+        "mem_pstore_imm_new",
+        &[
+            ("storeiritnew", "{ p0 = cmp.eq(r4,r5) ; if (p0.new) memw(r0+#0) = #20 }"),
+            ("storeirifnew", "{ p0 = cmp.eq(r4,r5) ; if (!p0.new) memw(r0+#4) = #-1 }"),
+            ("storeirbtnew", "{ p0 = cmp.gt(r4,r5) ; if (p0.new) memb(r0+#3) = #15 }"),
+            ("storeirhtnew", "{ p0 = cmp.eq(r4,r5) ; if (p0.new) memh(r0+#2) = #-7 }"),
+        ],
+        0,
+        40,
+        0xf00c,
+    );
+}
+
+// Predicated NEW-VALUE stores: if (Pu) memX(...) = Rt.new — the stored data is
+// the same-packet .new producer (resolved via packet_producers), then gated by
+// the predicate. Covers _io / _pi / _rr / _abs and a plain-pred (t/f) form.
+#[test]
+fn lift_mem_pstorenew_io() {
+    lift_mem_family(
+        "mem_pstorenew_io",
+        &[
+            ("pstorerbnewt", "{ r1 = r6 ; if (p0) memb(r0+#0) = r1.new }"),
+            ("pstorerbnewf", "{ r1 = r6 ; if (!p0) memb(r0+#0) = r1.new }"),
+            ("pstorerhnewt", "{ r1 = r6 ; if (p0) memh(r0+#2) = r1.new }"),
+            ("pstorerinewt", "{ r1 = r6 ; if (p0) memw(r0+#0) = r1.new }"),
+            ("pstorerinewf", "{ r1 = r6 ; if (!p0) memw(r0+#4) = r1.new }"),
+        ],
+        0,
+        40,
+        0xf00d,
+    );
+}
+
+// Predicated DOT-NEW-predicate NEW-VALUE stores (S4_pstorer*newtnew/fnew_io):
+// BOTH the data (.new producer) and the predicate (p0.new) come from the same
+// packet. The producer compare (p0) is lifted first, then the data producer
+// (r1), then the gated PredStore.
+#[test]
+fn lift_mem_pstorenew_io_new() {
+    lift_mem_family(
+        "mem_pstorenew_io_new",
+        &[
+            ("pstorerinewtnew", "{ p0 = cmp.eq(r4,r5) ; r1 = r6 ; if (p0.new) memw(r0+#0) = r1.new }"),
+            ("pstorerinewfnew", "{ p0 = cmp.eq(r4,r5) ; r1 = r6 ; if (!p0.new) memw(r0+#4) = r1.new }"),
+            ("pstorerbnewtnew", "{ p0 = cmp.gt(r4,r5) ; r1 = r6 ; if (p0.new) memb(r0+#3) = r1.new }"),
+            ("pstorerhnewtnew", "{ p0 = cmp.eq(r4,r5) ; r1 = r6 ; if (p0.new) memh(r0+#2) = r1.new }"),
+        ],
+        0,
+        40,
+        0xf00e,
+    );
+}
+
+// Predicated new-value post-increment / register-offset / absolute stores.
+#[test]
+fn lift_mem_pstorenew_modes() {
+    lift_mem_family_idx(
+        "mem_pstorenew_modes",
+        &[
+            ("pstorerinewt_pi", "{ r1 = r6 ; if (p0) memw(r0++#4) = r1.new }"),
+            ("pstorerinewf_pi", "{ r1 = r6 ; if (!p0) memw(r0++#4) = r1.new }"),
+            ("pstorerbnewt_rr", "{ r1 = r6 ; if (p0) memb(r0+r2<<#0) = r1.new }"),
+            ("pstorerinewt_rr", "{ r1 = r6 ; if (p0) memw(r0+r2<<#2) = r1.new }"),
+            ("pstorerinewt_abs", "{ r1 = r6 ; if (p0) memw(##0x8000) = r1.new }"),
+            ("pstorerbnewf_abs", "{ r1 = r6 ; if (!p0) memb(##0x8000) = r1.new }"),
+        ],
+        0,
+        &[2],
+        40,
+        0xf00f,
     );
 }

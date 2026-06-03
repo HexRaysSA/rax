@@ -677,6 +677,31 @@ pub enum OpKind {
         width: MemWidth,
     },
 
+    /// Conditional (predicated) load — Hexagon `if (Pu) Rd = memX(...)`.
+    /// COMMITS only when `cond`'s bit 0 is set: then `dst = load(EA, width,
+    /// signed)`. When `cond` is clear the load CANCELS — `dst` is left
+    /// UNCHANGED and NO memory access is performed (no fault on a false
+    /// predicate). The lifter passes an already-inverted `cond` for the
+    /// `if (!Pu)` forms (see `PredStore`).
+    PredLoad {
+        dst: VReg,
+        cond: VReg,
+        addr: Address,
+        width: MemWidth,
+        signed: SignExtend,
+    },
+
+    /// Conditional (predicated) store — Hexagon `if (Pu) memX(...) = Rt`.
+    /// COMMITS only when `cond`'s bit 0 is set: then `store(EA, src, width)`.
+    /// When `cond` is clear the store CANCELS — NO memory access is performed.
+    /// The lifter passes an already-inverted `cond` for the `if (!Pu)` forms.
+    PredStore {
+        src: SrcOperand,
+        cond: VReg,
+        addr: Address,
+        width: MemWidth,
+    },
+
     /// Repeat store (x86 REP STOS)
     RepStos {
         dst: VReg,
@@ -2357,6 +2382,7 @@ impl OpKind {
             | OpKind::Truncate { dst, .. }
             | OpKind::Lea { dst, .. }
             | OpKind::Load { dst, .. }
+            | OpKind::PredLoad { dst, .. }
             | OpKind::AtomicLoad { dst, .. }
             | OpKind::AtomicRmw { dst, .. }
             | OpKind::LoadExclusive { dst, .. }
@@ -2545,6 +2571,7 @@ impl OpKind {
             | OpKind::Test { .. }
             | OpKind::Bt { .. }
             | OpKind::Store { .. }
+            | OpKind::PredStore { .. }
             | OpKind::StorePair { .. }
             | OpKind::AtomicStore { .. }
             | OpKind::ClearExclusive
@@ -2573,6 +2600,7 @@ impl OpKind {
         matches!(
             self,
             OpKind::Store { .. }
+                | OpKind::PredStore { .. }
                 | OpKind::RepStos { .. }
                 | OpKind::RepMovs { .. }
                 | OpKind::StorePair { .. }
@@ -2603,6 +2631,7 @@ impl OpKind {
         matches!(
             self,
             OpKind::Load { .. }
+                | OpKind::PredLoad { .. }
                 | OpKind::LoadPair { .. }
                 | OpKind::AtomicLoad { .. }
                 | OpKind::AtomicRmw { .. }
@@ -2620,6 +2649,7 @@ impl OpKind {
         matches!(
             self,
             OpKind::Store { .. }
+                | OpKind::PredStore { .. }
                 | OpKind::RepStos { .. }
                 | OpKind::RepMovs { .. }
                 | OpKind::StorePair { .. }

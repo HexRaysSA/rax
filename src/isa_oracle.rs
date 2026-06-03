@@ -1489,6 +1489,19 @@ fn smir_op_kind_json(kind: &OpKind) -> Value {
             sign,
         } => op_json!("load", dst, addr, width, sign),
         OpKind::Store { src, addr, width } => op_json!("store", src, addr, width),
+        OpKind::PredLoad {
+            dst,
+            cond,
+            addr,
+            width,
+            signed,
+        } => op_json!("pred_load", dst, cond, addr, width, signed),
+        OpKind::PredStore {
+            src,
+            cond,
+            addr,
+            width,
+        } => op_json!("pred_store", src, cond, addr, width),
         OpKind::RepStos {
             dst,
             src,

@@ -1512,6 +1512,47 @@ impl SmirInterpreter {
                 self.store_memory(memory, effective_addr, val, *width)?;
             }
 
+            // Predicated load (Hexagon `if (Pu) Rd = memX(...)`). COMMITS only
+            // when `cond`'s bit 0 is set: then `dst = load(EA)`. When the
+            // predicate is FALSE the load CANCELS — `dst` is left UNCHANGED and
+            // NO memory access is performed (so a false predicate never faults,
+            // matching the sem's `return Ok(None)`).
+            OpKind::PredLoad {
+                dst,
+                cond,
+                addr,
+                width,
+                signed,
+            } => {
+                if (ctx.read_vreg(*cond) & 1) != 0 {
+                    let effective_addr = self.compute_address(ctx, addr);
+                    let val = self.load_memory(memory, effective_addr, *width, *signed)?;
+                    let op_width = width.to_op_width().unwrap_or(OpWidth::W64);
+                    if *signed == SignExtend::Zero {
+                        Self::write_x86_partial(ctx, *dst, val, op_width);
+                    } else {
+                        ctx.write_vreg(*dst, val);
+                    }
+                }
+            }
+
+            // Predicated store (Hexagon `if (Pu) memX(...) = Rt`). COMMITS only
+            // when `cond`'s bit 0 is set: then `store(EA, src)`. When the
+            // predicate is FALSE the store CANCELS — NO memory access is
+            // performed.
+            OpKind::PredStore {
+                src,
+                cond,
+                addr,
+                width,
+            } => {
+                if (ctx.read_vreg(*cond) & 1) != 0 {
+                    let effective_addr = self.compute_address(ctx, addr);
+                    let val = self.read_src_operand(ctx, src);
+                    self.store_memory(memory, effective_addr, val, *width)?;
+                }
+            }
+
             OpKind::RepStos {
                 dst,
                 src,
@@ -8130,5 +8171,107 @@ mod tests {
         // to 0 in 32 bits but i64 keeps -2^32 (negative) -> stays negative, sat to
         // INT_MIN + OVF.
         assert_eq!(run_sat_orig_shl(0x8000_0000, 1, false), (0x8000_0000, true));
+    }
+
+    // ------------------------------------------------------------------------
+    // PredLoad / PredStore: conditional-commit memory ops (Hexagon predicated
+    // loads/stores). BOTH branches are exercised: cond bit0 set -> commit;
+    // cond bit0 clear -> dst / memory UNCHANGED (and no fault).
+    // ------------------------------------------------------------------------
+
+    /// Run a single PredLoad reading word at addr `ea` into R1, with P0 = `p0`.
+    /// R1 is pre-seeded with `seed`; returns the resulting R1.
+    fn run_pred_load(ea: u64, mem_word: u32, p0: u8, seed: u32) -> u32 {
+        let mut ctx = SmirContext::new_hexagon();
+        let mut memory = FlatMemory::new(0x10000);
+        let interp = SmirInterpreter::new();
+        memory.write(ea, &mem_word.to_le_bytes()).unwrap();
+        let r2 = VReg::Arch(ArchReg::Hexagon(HexagonReg::R(2)));
+        let r1 = VReg::Arch(ArchReg::Hexagon(HexagonReg::R(1)));
+        let p0v = VReg::Arch(ArchReg::Hexagon(HexagonReg::P(0)));
+        ctx.write_arch_reg(ArchReg::Hexagon(HexagonReg::R(2)), ea);
+        ctx.write_arch_reg(ArchReg::Hexagon(HexagonReg::R(1)), seed as u64);
+        ctx.write_arch_reg(ArchReg::Hexagon(HexagonReg::P(0)), p0 as u64);
+        let block = SmirBlock {
+            id: BlockId(0),
+            guest_pc: 0x1000,
+            phis: vec![],
+            ops: vec![SmirOp {
+                id: OpId(0),
+                guest_pc: 0x1000,
+                kind: OpKind::PredLoad {
+                    dst: r1,
+                    cond: p0v,
+                    addr: Address::Direct(r2),
+                    width: MemWidth::B4,
+                    signed: SignExtend::Zero,
+                },
+                x86_hint: None,
+            }],
+            terminator: Terminator::Trap { kind: TrapKind::Halt },
+            exec_count: 0,
+        };
+        interp.execute_block(&mut ctx, &mut memory, &block);
+        ctx.read_vreg(r1) as u32
+    }
+
+    /// Run a single PredStore writing R1=`val` to word at addr `ea`, with
+    /// P0 = `p0`. Memory at `ea` is pre-seeded with `seed`; returns the word
+    /// in memory afterwards.
+    fn run_pred_store(ea: u64, val: u32, p0: u8, seed: u32) -> u32 {
+        let mut ctx = SmirContext::new_hexagon();
+        let mut memory = FlatMemory::new(0x10000);
+        let interp = SmirInterpreter::new();
+        memory.write(ea, &seed.to_le_bytes()).unwrap();
+        let r2 = VReg::Arch(ArchReg::Hexagon(HexagonReg::R(2)));
+        let r1 = VReg::Arch(ArchReg::Hexagon(HexagonReg::R(1)));
+        let p0v = VReg::Arch(ArchReg::Hexagon(HexagonReg::P(0)));
+        ctx.write_arch_reg(ArchReg::Hexagon(HexagonReg::R(2)), ea);
+        ctx.write_arch_reg(ArchReg::Hexagon(HexagonReg::R(1)), val as u64);
+        ctx.write_arch_reg(ArchReg::Hexagon(HexagonReg::P(0)), p0 as u64);
+        let block = SmirBlock {
+            id: BlockId(0),
+            guest_pc: 0x1000,
+            phis: vec![],
+            ops: vec![SmirOp {
+                id: OpId(0),
+                guest_pc: 0x1000,
+                kind: OpKind::PredStore {
+                    src: SrcOperand::Reg(r1),
+                    cond: p0v,
+                    addr: Address::Direct(r2),
+                    width: MemWidth::B4,
+                },
+                x86_hint: None,
+            }],
+            terminator: Terminator::Trap { kind: TrapKind::Halt },
+            exec_count: 0,
+        };
+        interp.execute_block(&mut ctx, &mut memory, &block);
+        let mut buf = [0u8; 4];
+        memory.read(ea, &mut buf).unwrap();
+        u32::from_le_bytes(buf)
+    }
+
+    #[test]
+    fn test_pred_load_commit_and_cancel() {
+        // cond bit0 set -> loads memory value (commits).
+        assert_eq!(run_pred_load(0x8000, 0xDEAD_BEEF, 0x01, 0x1111_1111), 0xDEAD_BEEF);
+        // full predicate byte (0xff) also commits (only bit0 matters).
+        assert_eq!(run_pred_load(0x8000, 0xDEAD_BEEF, 0xff, 0x1111_1111), 0xDEAD_BEEF);
+        // cond bit0 clear -> dst UNCHANGED (cancel, no memory read).
+        assert_eq!(run_pred_load(0x8000, 0xDEAD_BEEF, 0x00, 0x1111_1111), 0x1111_1111);
+        // even byte 0xfe (bit0 clear) -> cancel.
+        assert_eq!(run_pred_load(0x8000, 0xDEAD_BEEF, 0xfe, 0x1111_1111), 0x1111_1111);
+    }
+
+    #[test]
+    fn test_pred_store_commit_and_cancel() {
+        // cond bit0 set -> stores R1 (commits).
+        assert_eq!(run_pred_store(0x8000, 0xCAFE_F00D, 0x01, 0x2222_2222), 0xCAFE_F00D);
+        assert_eq!(run_pred_store(0x8000, 0xCAFE_F00D, 0xff, 0x2222_2222), 0xCAFE_F00D);
+        // cond bit0 clear -> memory UNCHANGED (cancel).
+        assert_eq!(run_pred_store(0x8000, 0xCAFE_F00D, 0x00, 0x2222_2222), 0x2222_2222);
+        assert_eq!(run_pred_store(0x8000, 0xCAFE_F00D, 0xfe, 0x2222_2222), 0x2222_2222);
     }
 }

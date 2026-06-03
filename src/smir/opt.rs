@@ -1438,6 +1438,25 @@ impl OpKind {
                 result.extend(addr.regs());
             }
 
+            // Predicated load: reads the predicate `cond` and the address base
+            // register(s). The `dst` is conditionally written (in dests()).
+            OpKind::PredLoad { cond, addr, .. } => {
+                result.push(*cond);
+                result.extend(addr.regs());
+            }
+
+            // Predicated store: reads the predicate `cond`, the source operand
+            // (when a register), and the address base register(s).
+            OpKind::PredStore {
+                src, cond, addr, ..
+            } => {
+                result.push(*cond);
+                if let SrcOperand::Reg(r) = src {
+                    result.push(*r);
+                }
+                result.extend(addr.regs());
+            }
+
             OpKind::RepStos {
                 dst, src, count, ..
             } => {

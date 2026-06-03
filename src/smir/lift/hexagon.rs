@@ -757,6 +757,96 @@ impl HexagonLifter {
         *op_id += 1;
     }
 
+    /// Return `addr` shifted by `delta` bytes (for the high half of a `memd`
+    /// predicated load/store, EA+4). Only the address modes that the predicated
+    /// memory forms produce need handling: `Offset` / `RegScaled` (base+#imm,
+    /// base+Rt<<sh) and `Abs` (absolute). For the others we fall back to a value
+    /// that the high-half access still computes correctly relative to the base.
+    fn offset_addr(&self, addr: &Address, delta: i64) -> Address {
+        match addr {
+            Address::BaseOffset {
+                base,
+                offset,
+                disp_size,
+            } => Address::BaseOffset {
+                base: *base,
+                offset: offset + delta,
+                disp_size: *disp_size,
+            },
+            Address::Direct(r) => Address::BaseOffset {
+                base: *r,
+                offset: delta,
+                disp_size: DispSize::Auto,
+            },
+            Address::BaseIndexScale {
+                base,
+                index,
+                scale,
+                disp,
+                disp_size,
+            } => Address::BaseIndexScale {
+                base: *base,
+                index: *index,
+                scale: *scale,
+                disp: disp + delta as i32,
+                disp_size: *disp_size,
+            },
+            Address::GpRel { offset } => Address::GpRel {
+                offset: offset + delta as i32,
+            },
+            Address::Absolute(a) => Address::Absolute((*a as i64 + delta) as u64),
+            Address::PcRel {
+                offset,
+                disp_size,
+                base,
+            } => Address::PcRel {
+                offset: offset + delta,
+                disp_size: *disp_size,
+                base: *base,
+            },
+        }
+    }
+
+    /// Emit a PREDICATE-GATED post-increment-immediate base update: the base
+    /// register `base` advances by `inc` ONLY when `cond` (a 0/1 truth vreg)
+    /// holds, else it is left unchanged. Mirrors the predicated-load/store
+    /// CANCEL (no base advance on a false predicate). Implemented as a pure
+    /// unconditional Add into a fresh `new_base` (no fault) followed by a
+    /// `Select(base, cond, new_base, base_old)`.
+    #[allow(clippy::too_many_arguments)]
+    fn emit_gated_postinc_imm(
+        &self,
+        ops: &mut Vec<SmirOp>,
+        op_id: &mut u16,
+        addr: GuestAddr,
+        ctx: &mut LiftContext,
+        base: u8,
+        inc: i64,
+        cond: VReg,
+    ) {
+        let base_reg = self.hex_reg(base);
+        let new_base = ctx.alloc_vreg();
+        let mut push = |kind: OpKind| {
+            ops.push(SmirOp::new(OpId(*op_id), addr, kind));
+            *op_id += 1;
+        };
+        push(OpKind::Add {
+            dst: new_base,
+            src1: base_reg,
+            src2: SrcOperand::Imm(inc),
+            width: OpWidth::W32,
+            flags: FlagUpdate::None,
+        });
+        // base = cond ? new_base : base (unchanged).
+        push(OpKind::Select {
+            dst: base_reg,
+            cond,
+            src_true: new_base,
+            src_false: base_reg,
+            width: OpWidth::W32,
+        });
+    }
+
     /// Emit a fresh vreg holding `src & !0x3` (the hardware target alignment of
     /// indirect branches/calls).
     fn emit_align4(
@@ -1233,11 +1323,86 @@ impl HexagonLifter {
             // Predicated loads CANCEL when the predicate is false (no register
             // write, no post-increment). The simple Load op below always commits,
             // so reject predicated forms and let the interpreter handle them.
-            DecodedInsn::Load { pred: Some(_), .. } => {
-                return Err(LiftError::Unsupported {
-                    addr,
-                    mnemonic: "pred_load".to_string(),
-                });
+            // Predicated load (`if (Pu) Rd = memX(...)` / `if (!Pu) ...`, incl.
+            // the `.new` predicate forms). CANCEL on a false predicate: no Rd
+            // write, no base post-increment, no fault. We emit `PredLoad`
+            // (conditional-commit) so the interp loads + writes Rd only when the
+            // predicate's bit 0 holds. For `if (!Pu)` the lifter passes an
+            // inverted cond (handled by `emit_pred_truth`). The `.new` predicate
+            // reads `P{pred}` directly (its producer compare was lifted earlier
+            // in the same SmirBlock; sequential SMIR holds the new value).
+            //
+            // Decoder-confirmed predicated load addr modes: `_io` (Offset),
+            // `_pi` (PostIncImm), `_rr` (RegScaled), `_abs` (Abs). No predicated
+            // circular/brev/post-inc-reg/GP/abs-set loads exist.
+            DecodedInsn::Load {
+                dst,
+                addr: load_addr,
+                width,
+                sign,
+                pred: Some(pcond),
+            } => {
+                let cond =
+                    self.emit_pred_truth(&mut ops, &mut op_id, addr, ctx, pcond.pred, pcond.sense);
+                let smir_addr = self.hex_addr(load_addr, ctx);
+                let mem_width = self.hex_mem_width(*width);
+                let sign_ext = self.hex_sign(*sign);
+
+                if matches!(width, HexMemWidth::Double) {
+                    // `memd` predicated load writes a register PAIR conditionally
+                    // (two PredLoad: lo at EA, hi at EA+4, sharing `cond`).
+                    // MATERIALISE the EA into a temp first (a pure `Lea`, no
+                    // memory access / no fault) so the high-half access does NOT
+                    // recompute through the base/index registers — for the `_rr`
+                    // form the EVEN dst can BE the index register (`r3:2` with
+                    // index r2), and the committed low-half load would otherwise
+                    // clobber it before the high-half EA is computed. The interp
+                    // reads the doubleword atomically off one EA, so we must too.
+                    let even = *dst & !1;
+                    let ea_tmp = ctx.alloc_vreg();
+                    push_op!(OpKind::Lea {
+                        dst: ea_tmp,
+                        addr: smir_addr,
+                    });
+                    push_op!(OpKind::PredLoad {
+                        dst: self.hex_reg(even),
+                        cond,
+                        addr: Address::Direct(ea_tmp),
+                        width: MemWidth::B4,
+                        signed: SignExtend::Zero,
+                    });
+                    push_op!(OpKind::PredLoad {
+                        dst: self.hex_reg(even + 1),
+                        cond,
+                        addr: Address::BaseOffset {
+                            base: ea_tmp,
+                            offset: 4,
+                            disp_size: DispSize::Auto,
+                        },
+                        width: MemWidth::B4,
+                        signed: SignExtend::Zero,
+                    });
+                } else {
+                    push_op!(OpKind::PredLoad {
+                        dst: self.hex_reg(*dst),
+                        cond,
+                        addr: smir_addr,
+                        width: mem_width,
+                        signed: sign_ext,
+                    });
+                }
+
+                // Predicated post-increment-immediate: the base advances ONLY
+                // when the predicate holds. Compute new_base = base + inc
+                // unconditionally (pure Add, no fault) then Select(base, cond,
+                // new_base, old_base) so a cancelled load leaves base unchanged.
+                if let AddrMode::PostIncImm { base, offset } = load_addr {
+                    let offset = ctx.extend_imm(*offset);
+                    self.emit_gated_postinc_imm(
+                        &mut ops, &mut op_id, addr, ctx, *base, offset as i64, cond,
+                    );
+                }
+                ControlFlow::Fallthrough
             }
 
             // Post-increment by the modifier register, circular and bit-reverse
@@ -1714,12 +1879,99 @@ impl HexagonLifter {
             // stores read a same-packet producer's value (no static src register).
             // The simple Store op below models neither, so reject and let the
             // interpreter handle them.
-            DecodedInsn::Store { pred: Some(_), .. }
-            | DecodedInsn::Store { src_new: true, .. } => {
-                return Err(LiftError::Unsupported {
-                    addr,
-                    mnemonic: "pred_or_newvalue_store".to_string(),
-                });
+            // Predicated store (`if (Pu) memX(...) = Rt` / `if (!Pu) ...`, incl.
+            // the `.new` predicate forms and the `storerf` high-half store).
+            // CANCEL on a false predicate: no memory write, no base post-
+            // increment, no fault. Emit `PredStore` (conditional-commit). For
+            // `if (!Pu)` the lifter passes an inverted cond. `.new` predicate
+            // reads `P{pred}` directly (its producer compare was lifted earlier
+            // in the same block).
+            //
+            // Decoder-confirmed predicated store addr modes: `_io` (Offset),
+            // `_pi` (PostIncImm), `_rr` (RegScaled), `_abs` (Abs). No predicated
+            // circular/brev/post-inc-reg/GP/abs-set Store forms exist (the
+            // predicated new-value circular/brev forms decode to `StoreNew`).
+            DecodedInsn::Store {
+                src,
+                addr: store_addr,
+                width,
+                pred: Some(pcond),
+                src_new,
+                high_half,
+            } => {
+                let cond =
+                    self.emit_pred_truth(&mut ops, &mut op_id, addr, ctx, pcond.pred, pcond.sense);
+                let smir_addr = self.hex_addr(store_addr, ctx);
+                let mem_width = self.hex_mem_width(*width);
+
+                // `src_new` is not produced by the decoder for the Store variant
+                // today (predicated new-value stores decode to StoreNew), but
+                // honour it for forward-compatibility: resolve the in-packet
+                // producer for the .new source register.
+                let src_reg = if *src_new {
+                    match self.resolve_new_value_src(*src) {
+                        Some(r) => r,
+                        None => {
+                            return Err(LiftError::Unsupported {
+                                addr,
+                                mnemonic: "pred_store_new_unresolved".to_string(),
+                            });
+                        }
+                    }
+                } else {
+                    *src
+                };
+
+                if matches!(width, HexMemWidth::Double) {
+                    // `memd` predicated store writes a register PAIR
+                    // conditionally: two PredStore (even at EA, odd at EA+4).
+                    let even = src_reg & !1;
+                    let ea_hi = self.offset_addr(&smir_addr, 4);
+                    push_op!(OpKind::PredStore {
+                        src: SrcOperand::Reg(self.hex_reg(even)),
+                        cond,
+                        addr: smir_addr,
+                        width: MemWidth::B4,
+                    });
+                    push_op!(OpKind::PredStore {
+                        src: SrcOperand::Reg(self.hex_reg(even + 1)),
+                        cond,
+                        addr: ea_hi,
+                        width: MemWidth::B4,
+                    });
+                } else {
+                    // `storerf` high-half store: store Rt[31:16]. Shift right by
+                    // 16 into a temp first (the shift is pure; gating is on the
+                    // PredStore commit).
+                    let store_src = if *high_half {
+                        let tmp = ctx.alloc_vreg();
+                        push_op!(OpKind::Shr {
+                            dst: tmp,
+                            src: self.hex_reg(src_reg),
+                            amount: SrcOperand::Imm(16),
+                            width: OpWidth::W32,
+                            flags: FlagUpdate::None,
+                        });
+                        tmp
+                    } else {
+                        self.hex_reg(src_reg)
+                    };
+                    push_op!(OpKind::PredStore {
+                        src: SrcOperand::Reg(store_src),
+                        cond,
+                        addr: smir_addr,
+                        width: mem_width,
+                    });
+                }
+
+                // Predicated post-increment-immediate: gate the base advance.
+                if let AddrMode::PostIncImm { base, offset } = store_addr {
+                    let offset = ctx.extend_imm(*offset);
+                    self.emit_gated_postinc_imm(
+                        &mut ops, &mut op_id, addr, ctx, *base, offset as i64, cond,
+                    );
+                }
+                ControlFlow::Fallthrough
             }
 
             // Modifier-register / circular / bit-reverse post-increment stores.
@@ -1858,13 +2110,30 @@ impl HexagonLifter {
                 ControlFlow::Fallthrough
             }
 
-            // Predicated store-immediate (`if (Pv) memX(Rs+#u)=#s6`) needs the
-            // conditional commit the interpreter provides; reject here.
-            DecodedInsn::StoreImm { pred: Some(_), .. } => {
-                return Err(LiftError::Unsupported {
-                    addr,
-                    mnemonic: "pred_store_imm".to_string(),
+            // Predicated store-immediate (`if (Pv) memX(Rs+#u)=#s6` /
+            // `if (!Pv) ...`). CANCEL on a false predicate. Emit `PredStore`
+            // with an IMMEDIATE source operand (no temp register needed). Only
+            // the `_io` (Offset) addressing mode exists for the predicated
+            // store-imm; the extender (if any) is consumed but dropped to match
+            // the oracle (see the unconditional StoreImm arm's note).
+            DecodedInsn::StoreImm {
+                value,
+                addr: store_addr,
+                width,
+                pred: Some(pcond),
+            } => {
+                let _ext = ctx.take_extended_imm();
+                let cond =
+                    self.emit_pred_truth(&mut ops, &mut op_id, addr, ctx, pcond.pred, pcond.sense);
+                let smir_addr = self.hex_addr(store_addr, ctx);
+                let mem_width = self.hex_mem_width(*width);
+                push_op!(OpKind::PredStore {
+                    src: SrcOperand::Imm(*value as i64),
+                    cond,
+                    addr: smir_addr,
+                    width: mem_width,
                 });
+                ControlFlow::Fallthrough
             }
 
             DecodedInsn::StoreImm {
@@ -2534,14 +2803,39 @@ impl HexagonLifter {
             // already holds the `.new` value). Once resolved we delegate to the
             // ordinary `Store` lift (the SMIR Store just reads that GPR).
             //
-            // PREDICATED new-value stores (`if (Pv[.new]) ...`) CANCEL on a false
-            // predicate — the plain Store has no conditional commit, so reject
-            // (matching the unpredicated-store rule above).
-            DecodedInsn::StoreNew { pred: Some(_), .. } => {
-                return Err(LiftError::Unsupported {
-                    addr,
-                    mnemonic: "pred_store_new".to_string(),
-                });
+            // PREDICATED new-value stores (`if (Pv[.new]) ...`): resolve the
+            // .new producer to its source register (via `resolve_new_value_src`,
+            // exactly like the unpredicated StoreNew below) and re-decode as a
+            // predicated `Store` carrying that register — this routes into the
+            // predicated-Store arm above (PredStore, conditional commit, with
+            // gated post-increment), covering all the predicated new-value
+            // addr modes (`_io`/`_pi`/`_rr`/`_abs`). The `if (p0.new)` predicate
+            // reads `P{pred}` directly there (its compare was lifted earlier in
+            // the same block).
+            DecodedInsn::StoreNew {
+                nt,
+                addr: am,
+                width,
+                pred: Some(pcond),
+            } => {
+                let src = match self.resolve_new_value_src(*nt) {
+                    Some(r) => r,
+                    None => {
+                        return Err(LiftError::Unsupported {
+                            addr,
+                            mnemonic: "pred_store_new_unresolved".to_string(),
+                        });
+                    }
+                };
+                let store = DecodedInsn::Store {
+                    src,
+                    addr: am.clone(),
+                    width: *width,
+                    pred: Some(*pcond),
+                    src_new: false,
+                    high_half: false,
+                };
+                return self.lift_insn_inner(&store, addr, ctx);
             }
             DecodedInsn::StoreNew {
                 nt,
