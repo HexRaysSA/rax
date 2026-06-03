@@ -61,6 +61,12 @@ pub struct OptStats {
 
     /// Vector alignment hints inferred
     pub vector_alignments_inferred: usize,
+
+    /// Copy-propagation operand rewrites
+    pub copies_propagated: usize,
+
+    /// Branch foldings / unreachable blocks removed
+    pub branches_folded: usize,
 }
 
 impl OptStats {
@@ -79,6 +85,8 @@ impl OptStats {
         self.blocks_merged += other.blocks_merged;
         self.redundant_loads_eliminated += other.redundant_loads_eliminated;
         self.vector_alignments_inferred += other.vector_alignments_inferred;
+        self.copies_propagated += other.copies_propagated;
+        self.branches_folded += other.branches_folded;
     }
 
     /// Total optimizations applied
@@ -91,6 +99,8 @@ impl OptStats {
             + self.blocks_merged
             + self.redundant_loads_eliminated
             + self.vector_alignments_inferred
+            + self.copies_propagated
+            + self.branches_folded
     }
 }
 
@@ -411,6 +421,10 @@ pub fn optimize_function_with_stats(func: &mut SmirFunction, level: OptLevel) ->
             stats.constants_propagated += n;
             round_changes += n;
 
+            let n = copy_propagation(block);
+            stats.copies_propagated += n;
+            round_changes += n;
+
             if o2 {
                 let n = constant_folding(block);
                 stats.expressions_folded += n;
@@ -427,6 +441,10 @@ pub fn optimize_function_with_stats(func: &mut SmirFunction, level: OptLevel) ->
         }
 
         if o2 {
+            let n = branch_folding(func);
+            stats.branches_folded += n;
+            round_changes += n;
+
             let n = block_merging(func);
             stats.blocks_merged += n;
             round_changes += n;
@@ -831,6 +849,83 @@ pub fn constant_folding(block: &mut SmirBlock) -> usize {
                 width: *width,
             }),
 
+            // Sub of same register -> 0
+            OpKind::Sub {
+                dst,
+                src1,
+                src2: SrcOperand::Reg(src2),
+                width,
+                flags,
+            } if src1 == src2 && matches!(flags, FlagUpdate::None) => Some(OpKind::Mov {
+                dst: *dst,
+                src: SrcOperand::Imm(0),
+                width: *width,
+            }),
+
+            // And/Or of a register with itself -> mov src1 (idempotent).
+            OpKind::And {
+                dst,
+                src1,
+                src2: SrcOperand::Reg(src2),
+                width,
+                flags,
+            }
+            | OpKind::Or {
+                dst,
+                src1,
+                src2: SrcOperand::Reg(src2),
+                width,
+                flags,
+            } if src1 == src2 && matches!(flags, FlagUpdate::None) => Some(OpKind::Mov {
+                dst: *dst,
+                src: SrcOperand::Reg(*src1),
+                width: *width,
+            }),
+
+            // Multiply by 1 -> mov src1 (no high half, flags dead).
+            OpKind::MulU {
+                dst_lo,
+                dst_hi: None,
+                src1,
+                src2: SrcOperand::Imm(1),
+                width,
+                flags: FlagUpdate::None,
+            }
+            | OpKind::MulS {
+                dst_lo,
+                dst_hi: None,
+                src1,
+                src2: SrcOperand::Imm(1),
+                width,
+                flags: FlagUpdate::None,
+            } => Some(OpKind::Mov {
+                dst: *dst_lo,
+                src: SrcOperand::Reg(*src1),
+                width: *width,
+            }),
+
+            // Multiply by 0 -> mov 0 (no high half, flags dead).
+            OpKind::MulU {
+                dst_lo,
+                dst_hi: None,
+                src2: SrcOperand::Imm(0),
+                width,
+                flags: FlagUpdate::None,
+                ..
+            }
+            | OpKind::MulS {
+                dst_lo,
+                dst_hi: None,
+                src2: SrcOperand::Imm(0),
+                width,
+                flags: FlagUpdate::None,
+                ..
+            } => Some(OpKind::Mov {
+                dst: *dst_lo,
+                src: SrcOperand::Imm(0),
+                width: *width,
+            }),
+
             // Shift by zero -> mov src (flags untouched on x86 zero count).
             OpKind::Shl {
                 dst,
@@ -1035,6 +1130,207 @@ pub fn strength_reduction(block: &mut SmirBlock) -> usize {
     }
 
     reductions
+}
+
+// ============================================================================
+// Copy Propagation
+// ============================================================================
+
+/// Apply `f` to every PURE-SOURCE register operand of `kind` (operands that are
+/// read but never also written — so never a destination or read-modify-write
+/// field). Returns how many operands changed. Address operands and RMW fields
+/// (Shld/Shrd dst, Xchg, CMove dst, accumulators) are intentionally left
+/// untouched: a missed rewrite only forgoes an optimization, never changes
+/// semantics.
+fn rewrite_pure_src_vregs(kind: &mut OpKind, f: &dyn Fn(VReg) -> VReg) -> usize {
+    let mut n = 0usize;
+    let mut do_v = |v: &mut VReg, n: &mut usize| {
+        let nv = f(*v);
+        if nv != *v {
+            *v = nv;
+            *n += 1;
+        }
+    };
+    let mut do_s = |s: &mut SrcOperand, n: &mut usize| {
+        if let SrcOperand::Reg(r) = s {
+            let nv = f(*r);
+            if nv != *r {
+                *s = SrcOperand::Reg(nv);
+                *n += 1;
+            }
+        }
+    };
+    match kind {
+        OpKind::Add { src1, src2, .. }
+        | OpKind::Sub { src1, src2, .. }
+        | OpKind::Adc { src1, src2, .. }
+        | OpKind::Sbb { src1, src2, .. }
+        | OpKind::And { src1, src2, .. }
+        | OpKind::Or { src1, src2, .. }
+        | OpKind::Xor { src1, src2, .. }
+        | OpKind::AndNot { src1, src2, .. }
+        | OpKind::Cmp { src1, src2, .. }
+        | OpKind::Test { src1, src2, .. }
+        | OpKind::MulU { src1, src2, .. }
+        | OpKind::MulS { src1, src2, .. }
+        | OpKind::DivU { src1, src2, .. }
+        | OpKind::DivS { src1, src2, .. } => {
+            do_v(src1, &mut n);
+            do_s(src2, &mut n);
+        }
+        OpKind::Mov { src, .. } => do_s(src, &mut n),
+        OpKind::Neg { src, .. }
+        | OpKind::Inc { src, .. }
+        | OpKind::Dec { src, .. }
+        | OpKind::Not { src, .. }
+        | OpKind::Cwd { src, .. }
+        | OpKind::Bsf { src, .. }
+        | OpKind::Bsr { src, .. }
+        | OpKind::Clz { src, .. }
+        | OpKind::Ctz { src, .. }
+        | OpKind::Popcnt { src, .. }
+        | OpKind::Bswap { src, .. }
+        | OpKind::Rbit { src, .. }
+        | OpKind::ZeroExtend { src, .. }
+        | OpKind::SignExtend { src, .. }
+        | OpKind::Truncate { src, .. } => do_v(src, &mut n),
+        OpKind::Shl { src, amount, .. }
+        | OpKind::Shr { src, amount, .. }
+        | OpKind::Sar { src, amount, .. }
+        | OpKind::Rol { src, amount, .. }
+        | OpKind::Ror { src, amount, .. } => {
+            do_v(src, &mut n);
+            do_s(amount, &mut n);
+        }
+        // Shld/Shrd: `dst` is read-modify-write (skip); `src` and `amount` are
+        // pure sources.
+        OpKind::Shld { src, amount, .. } | OpKind::Shrd { src, amount, .. } => {
+            do_v(src, &mut n);
+            do_s(amount, &mut n);
+        }
+        OpKind::CMove { src, .. } => do_v(src, &mut n),
+        OpKind::Bt { src, index, .. }
+        | OpKind::Bts { src, index, .. }
+        | OpKind::Btr { src, index, .. }
+        | OpKind::Btc { src, index, .. } => {
+            do_v(src, &mut n);
+            do_s(index, &mut n);
+        }
+        OpKind::Select {
+            cond,
+            src_true,
+            src_false,
+            ..
+        } => {
+            do_v(cond, &mut n);
+            do_v(src_true, &mut n);
+            do_v(src_false, &mut n);
+        }
+        _ => {}
+    }
+    n
+}
+
+/// Copy propagation within a block.
+///
+/// For `mov dst, reg(src)` (a full-width register copy), later pure-source uses
+/// of `dst` are rewritten to `src` until `dst` or `src` is redefined. This
+/// turns the very common lifted pattern `mov vtmp, r; OP _, vtmp` into
+/// `OP _, r`, letting dead-code elimination drop the now-unused copy.
+///
+/// Returns the number of operand rewrites performed.
+pub fn copy_propagation(block: &mut SmirBlock) -> usize {
+    // `copies[d] = s` means "register d currently holds the same value as s".
+    let mut copies: HashMap<VReg, VReg> = HashMap::new();
+    let mut count = 0;
+
+    for op in &mut block.ops {
+        // 1) Rewrite pure-source uses through the copy map.
+        if !copies.is_empty() {
+            let map = &copies;
+            count += rewrite_pure_src_vregs(&mut op.kind, &|v| map.get(&v).copied().unwrap_or(v));
+        }
+
+        // 2) Invalidate copies killed by this op's destinations.
+        let dests = op.kind.dests();
+        if !dests.is_empty() {
+            for d in &dests {
+                copies.remove(d);
+            }
+            copies.retain(|_, val| !dests.contains(val));
+        }
+
+        // 3) Record a new register copy. ONLY W64 moves give full-register
+        //    equality (`rcx == rax`); a W32 `mov ecx, eax` yields
+        //    `ecx == zero_extend(low32(eax))`, which is not equal to `eax` when
+        //    its upper bits are set, so substituting it into a 64-bit use would
+        //    be wrong. Restrict to W64 to stay correct regardless of use width.
+        if let OpKind::Mov {
+            dst,
+            src: SrcOperand::Reg(s),
+            width: OpWidth::W64,
+        } = &op.kind
+        {
+            if dst != s {
+                copies.insert(*dst, *s);
+            }
+        }
+    }
+
+    count
+}
+
+// ============================================================================
+// Branch Folding
+// ============================================================================
+
+/// Fold degenerate conditional branches and drop unreachable blocks.
+///
+/// - A `CondBranch` whose two targets are identical becomes an unconditional
+///   `Branch` (the condition no longer matters).
+/// - Blocks not reachable from the entry are removed (they can arise after
+///   constant folding / block merging).
+///
+/// Returns the number of transformations applied.
+pub fn branch_folding(func: &mut SmirFunction) -> usize {
+    let mut changes = 0;
+
+    // Same-target conditional branches -> unconditional.
+    for block in &mut func.blocks {
+        if let Terminator::CondBranch {
+            true_target,
+            false_target,
+            ..
+        } = &block.terminator
+        {
+            if true_target == false_target {
+                let target = *true_target;
+                block.set_terminator(Terminator::Branch { target });
+                changes += 1;
+            }
+        }
+    }
+
+    // Reachability from the entry.
+    let mut reachable: HashSet<BlockId> = HashSet::new();
+    let mut stack = vec![func.entry];
+    while let Some(id) = stack.pop() {
+        if !reachable.insert(id) {
+            continue;
+        }
+        if let Some(b) = func.blocks.iter().find(|b| b.id == id) {
+            for s in b.terminator.successors() {
+                if !reachable.contains(&s) {
+                    stack.push(s);
+                }
+            }
+        }
+    }
+    let before = func.blocks.len();
+    func.blocks.retain(|b| reachable.contains(&b.id));
+    changes += before - func.blocks.len();
+
+    changes
 }
 
 // ============================================================================
@@ -2816,5 +3112,108 @@ mod tests {
         assert_eq!(stats1.dead_ops_eliminated, 2);
         assert_eq!(stats1.expressions_folded, 1);
         assert_eq!(stats1.total(), 11);
+    }
+
+    #[test]
+    fn test_copy_propagation() {
+        let mut block = SmirBlock::new(BlockId(0), 0x1000);
+        let v0 = VReg::virt(0);
+        let v1 = VReg::virt(1);
+        let rax = VReg::Arch(ArchReg::X86(X86Reg::Rax));
+        let rbx = VReg::Arch(ArchReg::X86(X86Reg::Rbx));
+
+        // mov v0, rbx     (W64 copy)
+        block.push_op(make_op(
+            0,
+            OpKind::Mov {
+                dst: v0,
+                src: SrcOperand::Reg(rbx),
+                width: OpWidth::W64,
+            },
+        ));
+        // add v1, rax, v0  -> v0 rewritten to rbx
+        block.push_op(make_op(
+            1,
+            OpKind::Add {
+                dst: v1,
+                src1: rax,
+                src2: SrcOperand::Reg(v0),
+                width: OpWidth::W64,
+                flags: FlagUpdate::None,
+            },
+        ));
+        block.set_terminator(Terminator::Return { values: vec![v1] });
+
+        let n = copy_propagation(&mut block);
+        assert_eq!(n, 1);
+        if let OpKind::Add { src2, .. } = &block.ops[1].kind {
+            assert!(matches!(src2, SrcOperand::Reg(r) if *r == rbx));
+        } else {
+            panic!("expected Add");
+        }
+    }
+
+    #[test]
+    fn test_copy_propagation_w32_not_recorded() {
+        // A 32-bit copy must NOT be propagated into a 64-bit-equality use.
+        let mut block = SmirBlock::new(BlockId(0), 0x1000);
+        let v0 = VReg::virt(0);
+        let v1 = VReg::virt(1);
+        let rax = VReg::Arch(ArchReg::X86(X86Reg::Rax));
+        let rbx = VReg::Arch(ArchReg::X86(X86Reg::Rbx));
+        block.push_op(make_op(
+            0,
+            OpKind::Mov {
+                dst: v0,
+                src: SrcOperand::Reg(rbx),
+                width: OpWidth::W32, // zero-extends; v0 != rbx in 64 bits
+            },
+        ));
+        block.push_op(make_op(
+            1,
+            OpKind::Add {
+                dst: v1,
+                src1: rax,
+                src2: SrcOperand::Reg(v0),
+                width: OpWidth::W64,
+                flags: FlagUpdate::None,
+            },
+        ));
+        block.set_terminator(Terminator::Return { values: vec![v1] });
+        let n = copy_propagation(&mut block);
+        assert_eq!(n, 0); // not propagated
+    }
+
+    #[test]
+    fn test_branch_folding_same_target_and_unreachable() {
+        use crate::smir::types::FunctionId;
+        let b0 = BlockId(0);
+        let b1 = BlockId(1);
+        let b2 = BlockId(2);
+        let mut func = SmirFunction::new(FunctionId(0), b0, 0x1000);
+
+        // b0: cond-branch to b1 either way (same target) -> folds to Branch b1.
+        let mut blk0 = SmirBlock::new(b0, 0x1000);
+        blk0.set_terminator(Terminator::CondBranch {
+            cond: VReg::virt(0),
+            true_target: b1,
+            false_target: b1,
+        });
+        func.add_block(blk0);
+
+        // b1: reachable, returns.
+        let mut blk1 = SmirBlock::new(b1, 0x1010);
+        blk1.set_terminator(Terminator::Return { values: vec![] });
+        func.add_block(blk1);
+
+        // b2: unreachable -> removed.
+        let mut blk2 = SmirBlock::new(b2, 0x1020);
+        blk2.set_terminator(Terminator::Return { values: vec![] });
+        func.add_block(blk2);
+
+        let n = branch_folding(&mut func);
+        assert!(n >= 2); // 1 fold + 1 unreachable removed
+        assert!(matches!(func.blocks[0].terminator, Terminator::Branch { target } if target == b1));
+        assert!(func.blocks.iter().all(|b| b.id != b2));
     }
 }
