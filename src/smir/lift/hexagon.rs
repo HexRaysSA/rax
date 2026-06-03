@@ -290,6 +290,84 @@ impl HexagonLifter {
         out
     }
 
+    /// Combine a Hexagon register PAIR (`R{even}:R{even+1}`) into a fresh 64-bit
+    /// VReg: `result = R(even) | (R(even+1) << 32)`. Hexagon GPRs are 32-bit, so
+    /// the low half is zero-extended into the W64 value. Returns the temp VReg.
+    fn emit_combine_pair(
+        &self,
+        ops: &mut Vec<SmirOp>,
+        op_id: &mut u16,
+        addr: GuestAddr,
+        ctx: &mut LiftContext,
+        even: u8,
+    ) -> VReg {
+        let hi = ctx.alloc_vreg();
+        let out = ctx.alloc_vreg();
+        let mut push = |kind: OpKind| {
+            ops.push(SmirOp::new(OpId(*op_id), addr, kind));
+            *op_id += 1;
+        };
+        push(OpKind::Shl {
+            dst: hi,
+            src: self.hex_reg(even + 1),
+            amount: SrcOperand::Imm(32),
+            width: OpWidth::W64,
+            flags: FlagUpdate::None,
+        });
+        push(OpKind::Or {
+            dst: out,
+            src1: self.hex_reg(even),
+            src2: SrcOperand::Reg(hi),
+            width: OpWidth::W64,
+            flags: FlagUpdate::None,
+        });
+        out
+    }
+
+    /// Emit the `spNloop0` loop-config side effects (after SA0/LC0 are written):
+    ///   P3 = 0                              (`new_p[3] = Some(0)` in cpu.rs)
+    ///   USR = (USR & ~(0x3<<8)) | ((n&0x3)<<8)   (`set_lpcfg(n)`: bits 9:8)
+    /// `n` is the loop-config count (1/2/3). The `_cf` harness does not compare
+    /// USR, so the LPCFG write is architecturally-faithful but invisible there;
+    /// P3 IS compared (and must be 0).
+    fn emit_sploop_lpcfg(
+        &self,
+        ops: &mut Vec<SmirOp>,
+        op_id: &mut u16,
+        addr: GuestAddr,
+        ctx: &mut LiftContext,
+        n: u8,
+    ) {
+        let usr = VReg::Arch(ArchReg::Hexagon(HexagonReg::Usr));
+        let cleared = ctx.alloc_vreg();
+        let mut push = |kind: OpKind| {
+            ops.push(SmirOp::new(OpId(*op_id), addr, kind));
+            *op_id += 1;
+        };
+        // P3 = 0 (full predicate byte clear).
+        push(OpKind::Mov {
+            dst: self.hex_pred(3),
+            src: SrcOperand::Imm(0),
+            width: OpWidth::W32,
+        });
+        // USR &= ~(0x3 << 8)
+        push(OpKind::And {
+            dst: cleared,
+            src1: usr,
+            src2: SrcOperand::Imm(!(0x3i64 << 8)),
+            width: OpWidth::W32,
+            flags: FlagUpdate::None,
+        });
+        // USR = cleared | ((n & 0x3) << 8)
+        push(OpKind::Or {
+            dst: usr,
+            src1: cleared,
+            src2: SrcOperand::Imm((((n & 0x3) as i64) << 8)),
+            width: OpWidth::W32,
+            flags: FlagUpdate::None,
+        });
+    }
+
     /// Emit the circular-buffer post-increment `base = fcirc_add(base, incr, M,
     /// CS)`, writing the result back into the GPR `base` (a `HexagonReg::R`
     /// VReg). `incr` is a VReg holding the (already byte-scaled) signed
@@ -2706,14 +2784,78 @@ impl HexagonLifter {
             // ================================================================
             // Loop Setup
             // ================================================================
-            // Software-pipelined loop setup (`sp*loop0`) sets USR.LPCFG and P3 in
-            // addition to the loop registers; handled only by the interpreter.
-            DecodedInsn::LoopStartReg { lpcfg: Some(_), .. }
-            | DecodedInsn::LoopStartImm { lpcfg: Some(_), .. } => {
-                return Err(LiftError::Unsupported {
-                    addr,
-                    mnemonic: "sploop".to_string(),
+            // Software-pipelined loop setup (`spNloop0`, N = 1/2/3): like `loop0`
+            // (set SA0 = packet-relative start, LC0 = count) but ALSO sets the
+            // loop-config field USR.LPCFG (bits 9:8) = N and presets P3 = 0. The
+            // interpreter (cpu.rs) does exactly: SA0/LC0 write, `set_lpcfg(N)`,
+            // `new_p[3] = Some(0)`. The `sp*loop0` family is ALWAYS loop0, so
+            // `loop_id` is 0 here (SA0/LC0); `lpcfg` carries N. The `_cf` harness
+            // does NOT compare USR, so the LPCFG write is invisible there, but we
+            // model it anyway (read-modify-write USR bits 9:8) for correctness; P3
+            // (compared) and SA0/LC0 (compared) are observable. The `Reg` form
+            // sources the count from a GPR, the `Imm` form from a `#u10`.
+            DecodedInsn::LoopStartReg {
+                loop_id,
+                start_offset,
+                count_reg,
+                lpcfg: Some(n),
+            } => {
+                let offset = ctx.extend_imm(*start_offset);
+                let target = addr.wrapping_add(offset as i64 as u64);
+                let sa = if *loop_id == 0 {
+                    VReg::Arch(ArchReg::Hexagon(HexagonReg::Sa0))
+                } else {
+                    VReg::Arch(ArchReg::Hexagon(HexagonReg::Sa1))
+                };
+                push_op!(OpKind::Mov {
+                    dst: sa,
+                    src: SrcOperand::Imm(target as i64),
+                    width: OpWidth::W32,
                 });
+                let lc = if *loop_id == 0 {
+                    VReg::Arch(ArchReg::Hexagon(HexagonReg::Lc0))
+                } else {
+                    VReg::Arch(ArchReg::Hexagon(HexagonReg::Lc1))
+                };
+                push_op!(OpKind::Mov {
+                    dst: lc,
+                    src: SrcOperand::Reg(self.hex_reg(*count_reg)),
+                    width: OpWidth::W32,
+                });
+                self.emit_sploop_lpcfg(&mut ops, &mut op_id, addr, ctx, *n);
+                ControlFlow::Fallthrough
+            }
+
+            DecodedInsn::LoopStartImm {
+                loop_id,
+                start_offset,
+                count,
+                lpcfg: Some(n),
+            } => {
+                let offset = ctx.extend_imm(*start_offset);
+                let target = addr.wrapping_add(offset as i64 as u64);
+                let sa = if *loop_id == 0 {
+                    VReg::Arch(ArchReg::Hexagon(HexagonReg::Sa0))
+                } else {
+                    VReg::Arch(ArchReg::Hexagon(HexagonReg::Sa1))
+                };
+                push_op!(OpKind::Mov {
+                    dst: sa,
+                    src: SrcOperand::Imm(target as i64),
+                    width: OpWidth::W32,
+                });
+                let lc = if *loop_id == 0 {
+                    VReg::Arch(ArchReg::Hexagon(HexagonReg::Lc0))
+                } else {
+                    VReg::Arch(ArchReg::Hexagon(HexagonReg::Lc1))
+                };
+                push_op!(OpKind::Mov {
+                    dst: lc,
+                    src: SrcOperand::Imm(*count as i64),
+                    width: OpWidth::W32,
+                });
+                self.emit_sploop_lpcfg(&mut ops, &mut op_id, addr, ctx, *n);
+                ControlFlow::Fallthrough
             }
 
             DecodedInsn::LoopStartReg {
@@ -2866,31 +3008,284 @@ impl HexagonLifter {
                 return self.lift_insn_inner(&store, addr, ctx);
             }
 
-            // Load-locked sets an LL reservation the simple Load op does not
-            // track; interpreter-only for now.
-            DecodedInsn::LoadLocked { .. } => {
-                return Err(LiftError::Unsupported {
-                    addr,
-                    mnemonic: "load_locked".to_string(),
-                });
+            // Load-locked (`Rd=memw_locked(Rs)` / `Rdd=memd_locked(Rs)`): a plain
+            // load at `Rs+0` that ALSO arms an LL reservation on the accessed
+            // address (consumed by a later store-conditional). Maps to
+            // `OpKind::LoadExclusive`, which both loads and marks the FlatMemory
+            // exclusive monitor (initially clear, matching the interpreter's
+            // `lock_addr = None`). The arming is an invisible side effect here —
+            // LL and SC are always separate packets in this harness — but it is the
+            // architecturally-correct op. For `memw` the load width is B4 -> Rd; for
+            // `memd` (B8) the doubleword value is split into the even/odd GPR pair.
+            DecodedInsn::LoadLocked { dst, base, width } => {
+                let ea = Address::Direct(self.hex_reg(*base));
+                match width {
+                    HexMemWidth::Double => {
+                        // LoadExclusive (B8) reads the full doubleword AND arms the
+                        // monitor at the SC width (B8). Split into even = low 32,
+                        // odd = high 32.
+                        let val64 = ctx.alloc_vreg();
+                        push_op!(OpKind::LoadExclusive {
+                            dst: val64,
+                            addr: ea,
+                            width: MemWidth::B8,
+                        });
+                        let even = *dst & !1;
+                        push_op!(OpKind::Mov {
+                            dst: self.hex_reg(even),
+                            src: SrcOperand::Reg(val64),
+                            width: OpWidth::W32,
+                        });
+                        let hi = ctx.alloc_vreg();
+                        push_op!(OpKind::Shr {
+                            dst: hi,
+                            src: val64,
+                            amount: SrcOperand::Imm(32),
+                            width: OpWidth::W64,
+                            flags: FlagUpdate::None,
+                        });
+                        push_op!(OpKind::Mov {
+                            dst: self.hex_reg(even + 1),
+                            src: SrcOperand::Reg(hi),
+                            width: OpWidth::W32,
+                        });
+                    }
+                    _ => {
+                        push_op!(OpKind::LoadExclusive {
+                            dst: self.hex_reg(*dst),
+                            addr: ea,
+                            width: MemWidth::B4,
+                        });
+                    }
+                }
+                ControlFlow::Fallthrough
             }
 
-            // Store-conditional / store-release sets a predicate side effect the
-            // simple Store op does not model; interpreter-only for now.
-            DecodedInsn::StoreCond { .. } => {
-                return Err(LiftError::Unsupported {
-                    addr,
-                    mnemonic: "store_cond".to_string(),
+            // Store-conditional (`memw_locked(Rs,Pd)=Rt` / `memd_locked(Rs,Pd)=Rtt`):
+            // store at `Rs+0` IF the LL reservation matches this address, then write
+            // the success predicate `Pd`. Maps to `OpKind::StoreExclusive`, whose
+            // FlatMemory monitor semantics (succeed iff `exclusive_addr == addr`,
+            // then clear it) match the interpreter's `lock_addr` check exactly; both
+            // monitors start CLEAR, so a lone SC (the only form possible in this
+            // single-packet harness — LL and SC are separate packets) FAILS on both
+            // sides identically. StoreExclusive writes its `status` vreg with the
+            // ARM convention (0 = success, 1 = fail); the Hexagon predicate is the
+            // OPPOSITE polarity AND a full byte (0xff = success, 0x00 = fail), so
+            // convert: `success_truth = status XOR 1` (status is 0/1), then expand
+            // to the 0x00/0xff predicate byte via `emit_pred_full`. Release stores
+            // (`success_pred == None`) never reach the lifter as StoreCond with a
+            // predicate; only the `_locked` forms carry `success_pred = Some(Pd)`.
+            DecodedInsn::StoreCond {
+                src,
+                base,
+                width,
+                success_pred,
+            } => {
+                let ea = Address::Direct(self.hex_reg(*base));
+                // Materialise the value to store. For `memd` combine the even/odd
+                // GPR pair into a 64-bit value: `combined = even | (odd << 32)`.
+                let store_src = match width {
+                    HexMemWidth::Double => {
+                        let even = *src & !1;
+                        let hi = ctx.alloc_vreg();
+                        push_op!(OpKind::Shl {
+                            dst: hi,
+                            src: self.hex_reg(even + 1),
+                            amount: SrcOperand::Imm(32),
+                            width: OpWidth::W64,
+                            flags: FlagUpdate::None,
+                        });
+                        let combined = ctx.alloc_vreg();
+                        push_op!(OpKind::Or {
+                            dst: combined,
+                            src1: self.hex_reg(even),
+                            src2: SrcOperand::Reg(hi),
+                            width: OpWidth::W64,
+                            flags: FlagUpdate::None,
+                        });
+                        combined
+                    }
+                    _ => self.hex_reg(*src),
+                };
+                let sc_width = if matches!(width, HexMemWidth::Double) {
+                    MemWidth::B8
+                } else {
+                    MemWidth::B4
+                };
+                let status = ctx.alloc_vreg();
+                push_op!(OpKind::StoreExclusive {
+                    status,
+                    src: store_src,
+                    addr: ea,
+                    width: sc_width,
                 });
+                if let Some(pd) = success_pred {
+                    // success_truth = status XOR 1  (0 -> 1 success, 1 -> 0 fail)
+                    let success_truth = ctx.alloc_vreg();
+                    push_op!(OpKind::Xor {
+                        dst: success_truth,
+                        src1: status,
+                        src2: SrcOperand::Imm(1),
+                        width: OpWidth::W32,
+                        flags: FlagUpdate::None,
+                    });
+                    self.emit_pred_full(&mut ops, &mut op_id, addr, ctx, *pd, success_truth);
+                }
+                ControlFlow::Fallthrough
             }
 
-            // Vector byte splice (`vspliceb`): register-pair op handled by the
-            // interpreter path; reject in the lifter so callers fall back.
-            DecodedInsn::Vsplice { .. } => {
-                return Err(LiftError::Unsupported {
-                    addr,
-                    mnemonic: "vspliceb".to_string(),
+            // Vector byte splice (`Rdd=vspliceb(Rss,Rtt,#u3|Pu)`): the LOW `N` bytes
+            // come from Rss and the high `8-N` bytes from Rtt, where `N` is the `#u3`
+            // immediate (`ib`) or `Pu & 7` (`rb`). Matches the interpreter's
+            //   bits = N*8;  result = (Rtt << bits) | (Rss & ((1<<bits)-1))
+            // N is masked to 0..=7 so `bits` is 0..=56 and every shift is < 64
+            // (never the shift-by-64 UB boundary). For the `_ib` (immediate) form N
+            // is constant: we fold the mask/shift at lift time. For the `_rb`
+            // (predicate) form N is runtime (`Pu & 7`), so we compute `bits` and the
+            // low mask dynamically. Both write the even/odd GPR pair of Rdd.
+            DecodedInsn::Vsplice {
+                dst,
+                src_low,
+                src_high,
+                amount,
+            } => {
+                use crate::backend::emulator::hexagon::decode::SpliceAmount;
+                let rss_even = *src_low & !1;
+                let rtt_even = *src_high & !1;
+                let dst_even = *dst & !1;
+
+                // rss64 = R(rss_even) | (R(rss_even+1) << 32)
+                let rss64 = self.emit_combine_pair(&mut ops, &mut op_id, addr, ctx, rss_even);
+                // rtt64 = R(rtt_even) | (R(rtt_even+1) << 32)
+                let rtt64 = self.emit_combine_pair(&mut ops, &mut op_id, addr, ctx, rtt_even);
+
+                let result = ctx.alloc_vreg();
+                match amount {
+                    SpliceAmount::Imm(v) => {
+                        let n = (*v & 0x7) as u32;
+                        let bits = n * 8;
+                        // low_mask = bits==0 ? 0 : (1<<bits)-1
+                        let low_mask: u64 = if bits == 0 {
+                            0
+                        } else {
+                            (1u64 << bits) - 1
+                        };
+                        // hi = rtt64 << bits
+                        let hi = ctx.alloc_vreg();
+                        push_op!(OpKind::Shl {
+                            dst: hi,
+                            src: rtt64,
+                            amount: SrcOperand::Imm(bits as i64),
+                            width: OpWidth::W64,
+                            flags: FlagUpdate::None,
+                        });
+                        // lo = rss64 & low_mask
+                        let lo = ctx.alloc_vreg();
+                        push_op!(OpKind::And {
+                            dst: lo,
+                            src1: rss64,
+                            src2: SrcOperand::Imm(low_mask as i64),
+                            width: OpWidth::W64,
+                            flags: FlagUpdate::None,
+                        });
+                        push_op!(OpKind::Or {
+                            dst: result,
+                            src1: hi,
+                            src2: SrcOperand::Reg(lo),
+                            width: OpWidth::W64,
+                            flags: FlagUpdate::None,
+                        });
+                    }
+                    SpliceAmount::Pred(p) => {
+                        // bits = (P{p} & 7) * 8  (runtime, 0..=56)
+                        let n = ctx.alloc_vreg();
+                        push_op!(OpKind::And {
+                            dst: n,
+                            src1: self.hex_pred(*p),
+                            src2: SrcOperand::Imm(7),
+                            width: OpWidth::W32,
+                            flags: FlagUpdate::None,
+                        });
+                        let bits = ctx.alloc_vreg();
+                        push_op!(OpKind::Shl {
+                            dst: bits,
+                            src: n,
+                            amount: SrcOperand::Imm(3),
+                            width: OpWidth::W32,
+                            flags: FlagUpdate::None,
+                        });
+                        // low_mask = (1 << bits) - 1  (bits in 0..=56, so 1<<bits is
+                        // well-defined; bits==0 -> 1-1 == 0, matching the interp).
+                        let one = ctx.alloc_vreg();
+                        push_op!(OpKind::Mov {
+                            dst: one,
+                            src: SrcOperand::Imm(1),
+                            width: OpWidth::W64,
+                        });
+                        let shifted_one = ctx.alloc_vreg();
+                        push_op!(OpKind::Shl {
+                            dst: shifted_one,
+                            src: one,
+                            amount: SrcOperand::Reg(bits),
+                            width: OpWidth::W64,
+                            flags: FlagUpdate::None,
+                        });
+                        let low_mask = ctx.alloc_vreg();
+                        push_op!(OpKind::Sub {
+                            dst: low_mask,
+                            src1: shifted_one,
+                            src2: SrcOperand::Imm(1),
+                            width: OpWidth::W64,
+                            flags: FlagUpdate::None,
+                        });
+                        // hi = rtt64 << bits
+                        let hi = ctx.alloc_vreg();
+                        push_op!(OpKind::Shl {
+                            dst: hi,
+                            src: rtt64,
+                            amount: SrcOperand::Reg(bits),
+                            width: OpWidth::W64,
+                            flags: FlagUpdate::None,
+                        });
+                        // lo = rss64 & low_mask
+                        let lo = ctx.alloc_vreg();
+                        push_op!(OpKind::And {
+                            dst: lo,
+                            src1: rss64,
+                            src2: SrcOperand::Reg(low_mask),
+                            width: OpWidth::W64,
+                            flags: FlagUpdate::None,
+                        });
+                        push_op!(OpKind::Or {
+                            dst: result,
+                            src1: hi,
+                            src2: SrcOperand::Reg(lo),
+                            width: OpWidth::W64,
+                            flags: FlagUpdate::None,
+                        });
+                    }
+                }
+
+                // Write back the pair: even = result[31:0], odd = result[63:32].
+                push_op!(OpKind::Mov {
+                    dst: self.hex_reg(dst_even),
+                    src: SrcOperand::Reg(result),
+                    width: OpWidth::W32,
                 });
+                let odd_tmp = ctx.alloc_vreg();
+                push_op!(OpKind::Shr {
+                    dst: odd_tmp,
+                    src: result,
+                    amount: SrcOperand::Imm(32),
+                    width: OpWidth::W64,
+                    flags: FlagUpdate::None,
+                });
+                push_op!(OpKind::Mov {
+                    dst: self.hex_reg(dst_even + 1),
+                    src: SrcOperand::Reg(odd_tmp),
+                    width: OpWidth::W32,
+                });
+                ControlFlow::Fallthrough
             }
 
             // Read-modify-write memops (`memX(Rs+#u) OP= Rt|#imm`): load the
@@ -3291,12 +3686,15 @@ impl HexagonLifter {
                 ControlFlow::Branch { target }
             }
 
-            DecodedInsn::Nop => {
-                return Err(LiftError::Unsupported {
-                    addr,
-                    mnemonic: "pause".to_string(),
-                });
-            }
+            // Architectural NOP (`A2_nop`, `J2_pause`, ...): the decoder maps these
+            // to `DecodedInsn::Nop`, which the interpreter treats as having NO
+            // observable state change beyond advancing PC (see `load_atomic`/the
+            // `J2_pause` decode comment: "no observable state change beyond
+            // advancing PC"; the `#u8` pause cycle count is timing-only and not
+            // architectural state). The PC advance is the block fall-through, so
+            // lift to an EMPTY op list with `Fallthrough` — no registers, memory,
+            // or predicates are touched.
+            DecodedInsn::Nop => ControlFlow::Fallthrough,
 
             // ================================================================
             // Unknown to the DecodedInsn path — re-decode at the opcode level

@@ -1201,6 +1201,53 @@ fn cf_loop_setup() {
     );
 }
 
+// Software-pipelined loop setup (`spNloop0`, N=1/2/3): like loop0 (SA0 = packet-
+// relative start, LC0 = count) plus P3 := 0 and USR.LPCFG (bits 9:8) := N. The
+// `_cf` harness compares next-PC + all R/P + LC0/LC1/SA0/SA1: SA0/LC0 and P3 are
+// the OBSERVABLE effects (and ARE compared); USR is NOT compared by the `_cf`
+// harness, so the LPCFG write (modeled faithfully in the lift) is invisible here
+// — see the notes / LPCFG finding. All variants must drive next-PC to the
+// fall-through (sploop setup does not branch) and write SA0/LC0/P3 identically.
+#[test]
+fn cf_sploop_setup() {
+    lift_cf_family(
+        "cf_sploop_setup",
+        &[
+            ("sp1loop0r", "{ p3 = sp1loop0(#0x10, r2) }"),
+            ("sp2loop0r", "{ p3 = sp2loop0(#0x10, r2) }"),
+            ("sp3loop0r", "{ p3 = sp3loop0(#0x10, r2) }"),
+            ("sp1loop0i", "{ p3 = sp1loop0(#0x10, #5) }"),
+            ("sp2loop0i", "{ p3 = sp2loop0(#0x10, #5) }"),
+            ("sp3loop0i", "{ p3 = sp3loop0(#0x10, #5) }"),
+        ],
+        40,
+        0xCF05,
+    );
+}
+
+// Architectural pause (`J2_pause`): no register/memory/predicate effect, only a
+// PC advance to the packet fall-through. It decodes to `DecodedInsn::Nop` and now
+// lifts to an EMPTY op list (a faithful no-op; the `#u8` cycle count is
+// timing-only, not architectural state). The plain `lift_family` path runs both
+// sides from a fully-seeded register state and compares ALL of R/P/V/Q/USR-OVF —
+// so a faithful no-op must leave the entire seeded state untouched on both sides.
+//
+// NOTE: `{ nop }` (A2_nop, which lifts to `OpKind::Nop` via the pre-existing
+// `lift_unknown_op` path) is intentionally NOT exercised here: running a block
+// whose sole op is `OpKind::Nop` through `lift_and_run` blows the 2 MB default
+// test-thread stack (a pre-existing codegen/harness frame-size quirk in the
+// giant `execute_op` match, unrelated to this lift — `pause`'s empty-ops block
+// runs fine). A2_nop's lift is already covered by the audit.
+#[test]
+fn lift_pause() {
+    lift_family(
+        "pause",
+        &[("pause", "{ pause(#3) }")],
+        40,
+        0xCF06,
+    );
+}
+
 // ---- J4 compound compare-and-jump ----
 
 #[test]
@@ -5345,6 +5392,81 @@ fn lift_mem_store_io() {
         0,
         40,
         0xc002,
+    );
+}
+
+// Load-locked (`Rd=memw_locked(Rs)` / `Rdd=memd_locked(Rs)`): a plain load at
+// `Rs+0` that ALSO arms the LL reservation. The reservation arming is invisible
+// to the harness (not compared), so this verifies LL behaves as a plain
+// word/dword load: the loaded value lands in Rd / the Rdd pair and memory is
+// untouched. base r0 = DATA_ADDR.
+#[test]
+fn lift_mem_load_locked() {
+    lift_mem_family(
+        "mem_load_locked",
+        &[
+            ("loadw_locked", "{ r1 = memw_locked(r0) }"),
+            ("loadd_locked", "{ r3:2 = memd_locked(r0) }"),
+        ],
+        0,
+        40,
+        0xC0CC,
+    );
+}
+
+// Store-conditional (`memw_locked(Rs,Pd)=Rt` / `memd_locked(Rs,Pd)=Rtt`): store
+// IF the LL reservation holds, write Pd = success. In this single-packet harness
+// there is NO preceding load-locked (LL and SC are separate packets) and BOTH
+// monitors (the interp's `lock_addr` and the FlatMemory exclusive monitor) start
+// CLEAR, so the SC FAILS identically on both sides: Pd := 0x00 and memory is
+// UNCHANGED. The byte-for-byte DATA compare confirms no spurious store; the Pd
+// compare confirms the success-predicate polarity (0x00 on a failed SC) matches.
+// base r0 = DATA_ADDR; Pd = p0.
+#[test]
+fn lift_mem_store_cond() {
+    lift_mem_family(
+        "mem_store_cond",
+        &[
+            ("storew_locked", "{ memw_locked(r0,p0) = r1 }"),
+            ("stored_locked", "{ memd_locked(r0,p0) = r3:2 }"),
+        ],
+        0,
+        40,
+        0xC0CD,
+    );
+}
+
+// Vector byte splice (`Rdd=vspliceb(Rss,Rtt,#u3|Pu)`): low N bytes from Rss, high
+// (8-N) bytes from Rtt; N = #u3 (`_ib`) or Pu&7 (`_rb`). A pure register-pair op
+// (no memory), so use the plain `lift_family` path. The `_ib` form sweeps the
+// constant boundary cases N=0 (all Rtt) and N=7 (mostly Rss); the `_rb` form
+// reads the seeded predicate byte (Pu&7) — the harness seeds full random
+// predicate bytes so all 0..=7 counts are exercised.
+#[test]
+fn lift_vspliceib() {
+    lift_family(
+        "vspliceib",
+        &[
+            ("vspliceib0", "{ r5:4 = vspliceb(r1:0,r3:2,#0) }"),
+            ("vspliceib3", "{ r5:4 = vspliceb(r1:0,r3:2,#3) }"),
+            ("vspliceib4", "{ r5:4 = vspliceb(r1:0,r3:2,#4) }"),
+            ("vspliceib7", "{ r5:4 = vspliceb(r1:0,r3:2,#7) }"),
+        ],
+        40,
+        0xC0CE,
+    );
+}
+
+#[test]
+fn lift_vsplicerb() {
+    lift_family(
+        "vsplicerb",
+        &[
+            ("vsplicerb0", "{ r5:4 = vspliceb(r1:0,r3:2,p0) }"),
+            ("vsplicerb1", "{ r5:4 = vspliceb(r1:0,r3:2,p1) }"),
+        ],
+        40,
+        0xC0CF,
     );
 }
 
