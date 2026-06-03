@@ -841,3 +841,58 @@ fn jit_mem_memset_loop_matches_interpreter() {
     let past: u64 = jmem.read_obj(GuestAddress(SCRATCH + (N as u64) * 16)).unwrap();
     assert_eq!(past, 0, "no overrun past the memset region");
 }
+
+/// SIB addressing: a copy loop that loads `[rbx + rsi*8]` and stores
+/// `[rdi + rsi*8]` exercises the JIT memory path's BaseIndexScale address
+/// computation (the most complex addressing mode). Must match the interpreter.
+#[test]
+fn jit_mem_indexed_copy_loop_matches_interpreter() {
+    const SRC: u64 = 0x20_0000;
+    const DST: u64 = 0x21_0000;
+    const N: u32 = 6;
+
+    // mov rbx,SRC ; mov rdi,DST ; mov ecx,N ; xor esi,esi
+    // loop: mov rax,[rbx+rsi*8] ; mov [rdi+rsi*8],rax ; inc rsi ; dec ecx ; jnz loop ; hlt
+    let mut code: Vec<u8> = Vec::new();
+    code.extend_from_slice(&[0x48, 0xBB]);
+    code.extend_from_slice(&SRC.to_le_bytes()); // mov rbx, SRC
+    code.extend_from_slice(&[0x48, 0xBF]);
+    code.extend_from_slice(&DST.to_le_bytes()); // mov rdi, DST
+    code.push(0xB9);
+    code.extend_from_slice(&N.to_le_bytes()); // mov ecx, N
+    code.extend_from_slice(&[0x31, 0xF6]); // xor esi, esi
+    // loop body (13 bytes):
+    code.extend_from_slice(&[0x48, 0x8B, 0x04, 0xF3]); // mov rax, [rbx+rsi*8]
+    code.extend_from_slice(&[0x48, 0x89, 0x04, 0xF7]); // mov [rdi+rsi*8], rax
+    code.extend_from_slice(&[0x48, 0xFF, 0xC6]); // inc rsi
+    code.extend_from_slice(&[0xFF, 0xC9]); // dec ecx
+    code.extend_from_slice(&[0x75, 0xF1]); // jnz loop (rel8 = -15)
+    code.push(0xF4); // hlt
+
+    let seed: [u64; 6] = [10, 20, 30, 40, 50, 60];
+    let setup = |mem: &Arc<GuestMemoryMmap>| {
+        for (i, &v) in seed.iter().enumerate() {
+            mem.write_obj(v, GuestAddress(SRC + (i as u64) * 8)).unwrap();
+            mem.write_obj(0u64, GuestAddress(DST + (i as u64) * 8)).unwrap();
+        }
+    };
+
+    let (mut interp, imem) = make_vcpu_mem(&code);
+    setup(&imem);
+    run_interp(&mut interp);
+    let ir = interp.get_regs().unwrap();
+
+    let (mut jit, jmem) = make_vcpu_mem(&code);
+    jit.set_jit_mem(true);
+    setup(&jmem);
+    assert!(jit.jit_try_block().expect("jit_try_block"), "indexed copy should JIT");
+    run_interp(&mut jit);
+    let jr = jit.get_regs().unwrap();
+
+    assert_eq!(jr.rcx, ir.rcx, "rcx");
+    assert_eq!(jr.rsi, ir.rsi, "rsi (index)");
+    for i in 0..6u64 {
+        let got: u64 = jmem.read_obj(GuestAddress(DST + i * 8)).unwrap();
+        assert_eq!(got, seed[i as usize], "DST[{i}] via SIB copy");
+    }
+}
