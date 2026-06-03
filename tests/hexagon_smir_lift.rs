@@ -122,11 +122,30 @@ struct State {
     v: [[u32; 32]; 32],
     /// HVX vector predicate registers Q0-3 (128-bit each, 4 u32 words).
     q: [[u32; 4]; 4],
+    /// Modifier registers M0/M1 (interp control regs C6/C7) — circular/brev/
+    /// post-increment-by-register addressing. Seeded + compared only by the
+    /// `_mem` harness path (the plain path leaves them 0).
+    m: [u32; 2],
+    /// Circular-buffer start registers CS0/CS1 (interp control regs C12/C13).
+    cs: [u32; 2],
+    /// Global pointer GP (interp control reg C11). The interp masks `GP & !0x3f`
+    /// on read; the harness seeds an already-64-byte-aligned value so both sides
+    /// agree without the SMIR `GpRel` reader needing the mask.
+    gp: u32,
 }
 
 impl State {
     fn zeroed() -> Self {
-        State { r: [0; NREG], p: [0; 4], usr: 0, v: [[0; 32]; 32], q: [[0; 4]; 4] }
+        State {
+            r: [0; NREG],
+            p: [0; 4],
+            usr: 0,
+            v: [[0; 32]; 32],
+            q: [[0; 4]; 4],
+            m: [0; 2],
+            cs: [0; 2],
+            gp: 0,
+        }
     }
 }
 
@@ -164,7 +183,16 @@ fn run_interp(words: &[u32], init: &State) -> Option<State> {
         CpuState::Hexagon(s) => s.regs,
         _ => return None,
     };
-    Some(State { r: regs.r, p: regs.p, usr: regs.c[8], v: regs.v, q: regs.q })
+    Some(State {
+        r: regs.r,
+        p: regs.p,
+        usr: regs.c[8],
+        v: regs.v,
+        q: regs.q,
+        m: [regs.c[6], regs.c[7]],
+        cs: [regs.c[12], regs.c[13]],
+        gp: regs.c[11],
+    })
 }
 
 /// Lift the words to SMIR and execute on the SmirInterpreter from `init`.
@@ -421,6 +449,14 @@ fn run_interp_mem(words: &[u32], init: &State, data: &[u8]) -> Option<(State, Ve
     regs.c[8] = init.usr;
     regs.v = init.v;
     regs.q = init.q;
+    // Modifier / circular-start / global-pointer registers, mapped to the
+    // interp's control registers (see HexagonVcpu::{modifier,circ_start} and the
+    // GP read in resolve_addr): M0=C6, M1=C7, CS0=C12, CS1=C13, GP=C11.
+    regs.c[6] = init.m[0];
+    regs.c[7] = init.m[1];
+    regs.c[12] = init.cs[0];
+    regs.c[13] = init.cs[1];
+    regs.c[11] = init.gp;
     regs.set_pc(CODE_ADDR);
     let mut vcpu = HexagonVcpu::new(0, mem.clone(), HexagonIsa::V68, Endianness::Little);
     vcpu.set_state(&CpuState::hexagon(regs)).ok()?;
@@ -443,7 +479,16 @@ fn run_interp_mem(words: &[u32], init: &State, data: &[u8]) -> Option<(State, Ve
     let mut out_data = vec![0u8; DATA_LEN];
     mem.read_slice(&mut out_data, GuestAddress(DATA_ADDR as u64)).ok()?;
     Some((
-        State { r: regs.r, p: regs.p, usr: regs.c[8], v: regs.v, q: regs.q },
+        State {
+            r: regs.r,
+            p: regs.p,
+            usr: regs.c[8],
+            v: regs.v,
+            q: regs.q,
+            m: [regs.c[6], regs.c[7]],
+            cs: [regs.c[12], regs.c[13]],
+            gp: regs.c[11],
+        },
         out_data,
     ))
 }
@@ -489,6 +534,12 @@ fn lift_and_run_mem(
         ctx.write_arch_reg(ArchReg::Hexagon(HexagonReg::P(n as u8)), (init.p[n] & 1) as u64);
     }
     ctx.write_arch_reg(ArchReg::Hexagon(HexagonReg::Usr), init.usr as u64);
+    // Seed M0/M1, CS0/CS1, GP (HexagonRegState m[2]/cs[2]/gp via write_arch_reg).
+    for n in 0..2 {
+        ctx.write_arch_reg(ArchReg::Hexagon(HexagonReg::M(n as u8)), init.m[n] as u64);
+        ctx.write_arch_reg(ArchReg::Hexagon(HexagonReg::Cs(n as u8)), init.cs[n] as u64);
+    }
+    ctx.write_arch_reg(ArchReg::Hexagon(HexagonReg::Gp), init.gp as u64);
     ctx.pc = CODE_ADDR as u64;
 
     let interp = SmirInterpreter::new();
@@ -506,6 +557,11 @@ fn lift_and_run_mem(
         out.p[n] = if v & 1 != 0 { 0xff } else { 0 };
     }
     out.usr = ctx.read_arch_reg(ArchReg::Hexagon(HexagonReg::Usr)) as u32;
+    for n in 0..2 {
+        out.m[n] = ctx.read_arch_reg(ArchReg::Hexagon(HexagonReg::M(n as u8))) as u32;
+        out.cs[n] = ctx.read_arch_reg(ArchReg::Hexagon(HexagonReg::Cs(n as u8))) as u32;
+    }
+    out.gp = ctx.read_arch_reg(ArchReg::Hexagon(HexagonReg::Gp)) as u32;
     // Read the DATA region back out of the FlatMemory.
     let out_data = match rax::smir::MemoryReader::read(&mem, DATA_ADDR as u64, DATA_LEN) {
         Ok(d) => d,
@@ -574,6 +630,28 @@ fn lift_mem_family_idx(
             for &ir in index_regs {
                 st.r[ir] = 0;
             }
+            // Seed the modifier / circular-start / global-pointer registers so
+            // every modifier/circular/bit-reverse/GP-relative access (and its
+            // base UPDATE) stays inside [DATA_ADDR, DATA_ADDR+DATA_LEN). See the
+            // M-register layout in HexagonVcpu::{hex_circ_add,hex_read_ireg}:
+            //   M = 0x0002_0040 ->
+            //     length (bits 0..16)  = 0x40   (64-byte circular buffer, a
+            //                                     divisor of DATA_LEN=0x400)
+            //     K      (bits 24..27) = 0      (so circular start == CS exactly)
+            //     I field              = 1      (bit 17 set; the `_pcr` increment
+            //                                     is `I << access_shift`)
+            // CS0/CS1 = DATA_ADDR: the circular buffer starts at DATA_ADDR so a
+            // wrap lands at DATA_ADDR + (length-ish), still in-region. GP =
+            // DATA_ADDR (64-byte aligned, low 6 bits zero) so `gp+#u` is in-region
+            // and matches the interp's `GP & !0x3f` read with no mask needed.
+            //
+            // For post-inc-by-register (memX(Rx++Mu)) the base update is `Rx +=
+            // raw_M`, so the new base (DATA_ADDR + 0x20040) lands OUTSIDE the
+            // region — that is harmless: it is only compared as a register value,
+            // never dereferenced (the access uses the OLD base = DATA_ADDR).
+            st.m = [0x0002_0040, 0x0002_0040];
+            st.cs = [DATA_ADDR, DATA_ADDR];
+            st.gp = DATA_ADDR;
             // Seed identical random DATA bytes on both sides.
             let mut data = vec![0u8; DATA_LEN];
             for b in data.iter_mut() {
@@ -602,6 +680,22 @@ fn lift_mem_family_idx(
                     }
                     if (interp.usr & 1) != (lift.usr & 1) {
                         diffs.push(format!("usr_ovf:i={},l={}", interp.usr & 1, lift.usr & 1));
+                    }
+                    // Modifier / circular-start / global-pointer registers. The
+                    // post-inc-by-register / circular / bit-reverse base updates
+                    // are written to a GPR (caught above); M/CS/GP themselves are
+                    // never written by these forms, but compare them so a lift
+                    // that clobbers them is caught.
+                    for k in 0..2 {
+                        if interp.m[k] != lift.m[k] {
+                            diffs.push(format!("m{k}:i={:#x},l={:#x}", interp.m[k], lift.m[k]));
+                        }
+                        if interp.cs[k] != lift.cs[k] {
+                            diffs.push(format!("cs{k}:i={:#x},l={:#x}", interp.cs[k], lift.cs[k]));
+                        }
+                    }
+                    if interp.gp != lift.gp {
+                        diffs.push(format!("gp:i={:#x},l={:#x}", interp.gp, lift.gp));
                     }
                     // Byte-for-byte memory compare over the DATA region.
                     if idata != ldata {
@@ -2795,7 +2889,16 @@ fn run_interp_hist(words: &[u32], init: &State, input: &[u8; 128]) -> Option<Sta
         CpuState::Hexagon(s) => s.regs,
         _ => return None,
     };
-    Some(State { r: regs.r, p: regs.p, usr: regs.c[8], v: regs.v, q: regs.q })
+    Some(State {
+        r: regs.r,
+        p: regs.p,
+        usr: regs.c[8],
+        v: regs.v,
+        q: regs.q,
+        m: [regs.c[6], regs.c[7]],
+        cs: [regs.c[12], regs.c[13]],
+        gp: regs.c[11],
+    })
 }
 
 /// Lift the histogram packet to SMIR and execute it, with `input` written at
@@ -4781,41 +4884,248 @@ fn lift_mem_store_ap() {
     );
 }
 
-// Modifier-register / circular / bit-reverse post-increment loads & stores need
-// the M0/M1 (CS0/CS1) modifier+circular-start registers for their base update,
-// which the harness does NOT seed. The lifter must REJECT these (return
-// Unsupported) rather than silently leaving the base register stale. This probe
-// asserts they all come back as a clean lift gap (Ok(None)), so they can never
-// be a silent wrong lift.
+// Post-increment-by-modifier-register loads (`memX(Rx++Mu)`): the base register
+// r0 is also written (Rx += raw M[modsel]). The `_mem` harness seeds M0/M1 (see
+// lift_mem_family_idx) so the base update is now modelled + compared.
 #[test]
-fn lift_mem_postinc_mod_circ_rejected() {
-    let cases = [
-        "{ r1 = memw(r0++m0) }",
-        "{ r1 = memw(r0++m0:brev) }",
-        "{ r1 = memw(r0++#4:circ(m0)) }",
-        "{ r1 = memw(r0++I:circ(m0)) }",
-        "{ memw(r0++m0) = r1 }",
-        "{ memw(r0++#4:circ(m0)) = r1 }",
-    ];
-    let asms: Vec<String> = cases.iter().map(|s| s.to_string()).collect();
-    let words_per = match assemble(&asms) {
-        Some(w) => w,
-        None => {
-            eprintln!("[lift_mem_postinc_mod_circ_rejected] llvm-mc unavailable -> skipping");
-            return;
-        }
-    };
-    let st = State::zeroed();
-    for (asm, words) in cases.iter().zip(words_per.iter()) {
-        match lift_and_run(words, &st) {
-            Ok(None) => {} // expected: clean lift gap
-            Ok(Some(_)) => panic!(
-                "[{asm}] was LIFTED but needs M/CS seeding for its base update \
-                 — this is a silent wrong lift; it must return Unsupported"
-            ),
-            Err(e) => panic!("[{asm}] lift error: {e}"),
-        }
-    }
+fn lift_mem_load_pr() {
+    lift_mem_family(
+        "mem_load_pr",
+        &[
+            ("loadrb_pr", "{ r1 = memb(r0++m0) }"),
+            ("loadrub_pr", "{ r1 = memub(r0++m0) }"),
+            ("loadrh_pr", "{ r1 = memh(r0++m0) }"),
+            ("loadruh_pr", "{ r1 = memuh(r0++m1) }"),
+            ("loadri_pr", "{ r1 = memw(r0++m0) }"),
+            ("loadrd_pr", "{ r3:2 = memd(r0++m0) }"),
+        ],
+        0,
+        40,
+        0xc101,
+    );
+}
+
+#[test]
+fn lift_mem_store_pr() {
+    lift_mem_family(
+        "mem_store_pr",
+        &[
+            ("storerb_pr", "{ memb(r0++m0) = r1 }"),
+            ("storerh_pr", "{ memh(r0++m0) = r1 }"),
+            ("storerf_pr", "{ memh(r0++m0) = r1.h }"),
+            ("storeri_pr", "{ memw(r0++m1) = r1 }"),
+            ("storerd_pr", "{ memd(r0++m0) = r3:2 }"),
+        ],
+        0,
+        40,
+        0xc102,
+    );
+}
+
+// Bit-reverse post-increment (`memX(Rx++Mu:brev)`): EA = brev(Rx) (reverse the
+// low 16 bits, keep the high 16), then Rx += raw M. With base = DATA_ADDR
+// (0x8000) the brev EA is 0x8001 (in-region, possibly unaligned — fine here).
+#[test]
+fn lift_mem_load_pbr() {
+    lift_mem_family(
+        "mem_load_pbr",
+        &[
+            ("loadrb_pbr", "{ r1 = memb(r0++m0:brev) }"),
+            ("loadrub_pbr", "{ r1 = memub(r0++m0:brev) }"),
+            ("loadrh_pbr", "{ r1 = memh(r0++m0:brev) }"),
+            ("loadri_pbr", "{ r1 = memw(r0++m0:brev) }"),
+            ("loadrd_pbr", "{ r3:2 = memd(r0++m0:brev) }"),
+        ],
+        0,
+        40,
+        0xc103,
+    );
+}
+
+#[test]
+fn lift_mem_store_pbr() {
+    lift_mem_family(
+        "mem_store_pbr",
+        &[
+            ("storerb_pbr", "{ memb(r0++m0:brev) = r1 }"),
+            ("storerh_pbr", "{ memh(r0++m0:brev) = r1 }"),
+            ("storeri_pbr", "{ memw(r0++m0:brev) = r1 }"),
+            ("storerd_pbr", "{ memd(r0++m0:brev) = r3:2 }"),
+        ],
+        0,
+        40,
+        0xc104,
+    );
+}
+
+// Circular post-increment by immediate (`memX(Rx++#s4:N:circ(Mu))`): EA = Rx;
+// Rx = circ_add(Rx, incr, M, CS). The harness seeds M length=0x40 / K=0 and CS =
+// DATA_ADDR, so the buffer is [0x8000, 0x8040). Negative increments exercise the
+// underflow wrap (new_ptr < start -> +length); positive ones the no-wrap path.
+#[test]
+fn lift_mem_load_pci() {
+    lift_mem_family(
+        "mem_load_pci",
+        &[
+            ("loadrb_pci", "{ r1 = memb(r0++#1:circ(m0)) }"),
+            ("loadri_pci", "{ r1 = memw(r0++#4:circ(m0)) }"),
+            ("loadri_pci_neg", "{ r1 = memw(r0++#-4:circ(m0)) }"),
+            ("loadrh_pci_neg", "{ r1 = memh(r0++#-2:circ(m0)) }"),
+            ("loadrd_pci", "{ r3:2 = memd(r0++#8:circ(m0)) }"),
+        ],
+        0,
+        40,
+        0xc105,
+    );
+}
+
+#[test]
+fn lift_mem_store_pci() {
+    lift_mem_family(
+        "mem_store_pci",
+        &[
+            ("storerb_pci", "{ memb(r0++#1:circ(m0)) = r1 }"),
+            ("storeri_pci", "{ memw(r0++#4:circ(m0)) = r1 }"),
+            ("storeri_pci_neg", "{ memw(r0++#-4:circ(m0)) = r1 }"),
+            ("storerd_pci", "{ memd(r0++#8:circ(m0)) = r3:2 }"),
+        ],
+        0,
+        40,
+        0xc106,
+    );
+}
+
+// Circular post-increment by the M register's I field (`memX(Rx++I:circ(Mu))`):
+// EA = Rx; Rx = circ_add(Rx, read_ireg(M)<<access_shift, M, CS). The seeded M has
+// I-field = 1, so the increment is 1<<access_shift.
+#[test]
+fn lift_mem_load_pcr() {
+    lift_mem_family(
+        "mem_load_pcr",
+        &[
+            ("loadrb_pcr", "{ r1 = memb(r0++I:circ(m0)) }"),
+            ("loadrh_pcr", "{ r1 = memh(r0++I:circ(m0)) }"),
+            ("loadri_pcr", "{ r1 = memw(r0++I:circ(m1)) }"),
+            ("loadrd_pcr", "{ r3:2 = memd(r0++I:circ(m0)) }"),
+        ],
+        0,
+        40,
+        0xc107,
+    );
+}
+
+#[test]
+fn lift_mem_store_pcr() {
+    lift_mem_family(
+        "mem_store_pcr",
+        &[
+            ("storerb_pcr", "{ memb(r0++I:circ(m0)) = r1 }"),
+            ("storeri_pcr", "{ memw(r0++I:circ(m0)) = r1 }"),
+            ("storerd_pcr", "{ memd(r0++I:circ(m1)) = r3:2 }"),
+        ],
+        0,
+        40,
+        0xc108,
+    );
+}
+
+// GP-relative loads/stores (`memX(gp+#u)`): EA = (GP & !0x3f) + offset. The
+// harness seeds GP = DATA_ADDR (already 64-byte aligned, low 6 bits zero) so the
+// interp's `GP & !0x3f` mask is a no-op and the SMIR `GpRel` reader (which does
+// NOT mask) agrees. Offsets keep the access inside the DATA region.
+#[test]
+fn lift_mem_load_gp() {
+    lift_mem_family(
+        "mem_load_gp",
+        &[
+            ("loadrb_gp", "{ r1 = memb(gp+#3) }"),
+            ("loadrub_gp", "{ r1 = memub(gp+#5) }"),
+            ("loadrh_gp", "{ r1 = memh(gp+#2) }"),
+            ("loadruh_gp", "{ r1 = memuh(gp+#6) }"),
+            ("loadri_gp", "{ r1 = memw(gp+#0) }"),
+            ("loadri_gp8", "{ r1 = memw(gp+#8) }"),
+            ("loadrd_gp", "{ r3:2 = memd(gp+#0) }"),
+        ],
+        1, // base_reg unused by GP forms; pick a reg not read/written
+        40,
+        0xc109,
+    );
+}
+
+#[test]
+fn lift_mem_store_gp() {
+    lift_mem_family(
+        "mem_store_gp",
+        &[
+            ("storerb_gp", "{ memb(gp+#3) = r1 }"),
+            ("storerh_gp", "{ memh(gp+#2) = r1 }"),
+            ("storeri_gp", "{ memw(gp+#0) = r1 }"),
+            ("storeri_gp8", "{ memw(gp+#8) = r1 }"),
+            ("storerd_gp", "{ memd(gp+#0) = r3:2 }"),
+        ],
+        1,
+        40,
+        0xc10a,
+    );
+}
+
+// FIFO shift-and-insert loads (`Ryy = memX_fifo(...)`, loadalign): a read-modify
+// of the register pair r3:2 — Ryy = (Ryy >> w) | (loaded << (64-w)), w=8/16.
+// Covers base+#imm, post-inc-imm, modifier post-inc, abs-set, and scaled-abs.
+#[test]
+fn lift_mem_loadalign() {
+    lift_mem_family(
+        "mem_loadalign",
+        &[
+            ("loadalignb_io", "{ r3:2 = memb_fifo(r0+#1) }"),
+            ("loadalignh_io", "{ r3:2 = memh_fifo(r0+#2) }"),
+            ("loadalignb_pi", "{ r3:2 = memb_fifo(r0++#1) }"),
+            ("loadalignh_pi", "{ r3:2 = memh_fifo(r0++#2) }"),
+            ("loadalignb_pr", "{ r3:2 = memb_fifo(r0++m0) }"),
+            ("loadalignb_pci", "{ r3:2 = memb_fifo(r0++#1:circ(m0)) }"),
+            ("loadalignb_ap", "{ r3:2 = memb_fifo(r0=##0x8000) }"),
+        ],
+        0,
+        40,
+        0xc10b,
+    );
+}
+
+#[test]
+fn lift_mem_loadalign_ur() {
+    lift_mem_family_idx(
+        "mem_loadalign_ur",
+        &[
+            ("loadalignb_ur", "{ r3:2 = memb_fifo(r2<<#0+##0x8000) }"),
+            ("loadalignh_ur", "{ r3:2 = memh_fifo(r2<<#1+##0x8000) }"),
+        ],
+        1,
+        &[2],
+        40,
+        0xc10c,
+    );
+}
+
+// Constant-extended store-immediate (`memX(Rs+#u) = ##big`). The constant
+// extender must NOT leak into the address offset (the bug the routing fix
+// prevents). NOTE: the rax HexagonVcpu interpreter (the verification oracle)
+// DROPS the store-imm extender (its decoder passes immext=None), so it stores
+// only the sign-extended #s6. The lift matches that (extender consumed but not
+// folded into the value) and is therefore 0-divergence; see the structured
+// notes for the interp-side extender bug.
+#[test]
+fn lift_mem_store_imm_ext() {
+    lift_mem_family(
+        "mem_store_imm_ext",
+        &[
+            ("storeiri_ext", "{ memw(r0+#0) = ##100000 }"),
+            ("storeirb_ext", "{ memb(r0+#1) = ##0x77 }"),
+            ("storeirh_ext", "{ memh(r0+#2) = ##0x1234 }"),
+        ],
+        0,
+        40,
+        0xc10d,
+    );
 }
 
 // Read-modify-write memops: mem(Rs+#u) OP= Rt / #imm. Width byte/half/word.
@@ -4853,4 +5163,3 @@ fn lift_mem_memop() {
         0xc006,
     );
 }
-

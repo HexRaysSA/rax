@@ -150,6 +150,443 @@ impl HexagonLifter {
         }
     }
 
+    /// Modifier (`M0`/`M1`) register for `modsel` as a VReg.
+    fn hex_mod(&self, modsel: u8) -> VReg {
+        VReg::Arch(ArchReg::Hexagon(HexagonReg::M(modsel & 1)))
+    }
+
+    /// Circular-start (`CS0`/`CS1`) register for `modsel` as a VReg.
+    fn hex_cs(&self, modsel: u8) -> VReg {
+        VReg::Arch(ArchReg::Hexagon(HexagonReg::Cs(modsel & 1)))
+    }
+
+    /// Emit `out = brev(src)` (`fbrev`/`fEA_BREVR`): reverse the LOW 16 bits of
+    /// `src`, keeping the upper 16 bits intact. Matches `hex_brev` in cpu.rs.
+    ///   lo16  = src & 0xffff
+    ///   rev32 = reverse_bits32(lo16)   ; the 16 input bits land in bits 16..31
+    ///   rev16 = rev32 >> 16            ; reversed value back in the low 16 bits
+    ///   out   = (src & 0xffff0000) | rev16
+    fn emit_brev(
+        &self,
+        ops: &mut Vec<SmirOp>,
+        op_id: &mut u16,
+        addr: GuestAddr,
+        ctx: &mut LiftContext,
+        src: VReg,
+    ) -> VReg {
+        let lo16 = ctx.alloc_vreg();
+        let rev32 = ctx.alloc_vreg();
+        let rev16 = ctx.alloc_vreg();
+        let hi = ctx.alloc_vreg();
+        let out = ctx.alloc_vreg();
+        let mut push = |kind: OpKind| {
+            ops.push(SmirOp::new(OpId(*op_id), addr, kind));
+            *op_id += 1;
+        };
+        push(OpKind::And {
+            dst: lo16,
+            src1: src,
+            src2: SrcOperand::Imm(0xffff),
+            width: OpWidth::W32,
+            flags: FlagUpdate::None,
+        });
+        push(OpKind::Rbit { dst: rev32, src: lo16, width: OpWidth::W32 });
+        push(OpKind::Shr {
+            dst: rev16,
+            src: rev32,
+            amount: SrcOperand::Imm(16),
+            width: OpWidth::W32,
+            flags: FlagUpdate::None,
+        });
+        push(OpKind::And {
+            dst: hi,
+            src1: src,
+            src2: SrcOperand::Imm(0xffff_0000u32 as i32 as i64),
+            width: OpWidth::W32,
+            flags: FlagUpdate::None,
+        });
+        push(OpKind::Or {
+            dst: out,
+            src1: hi,
+            src2: SrcOperand::Reg(rev16),
+            width: OpWidth::W32,
+            flags: FlagUpdate::None,
+        });
+        out
+    }
+
+    /// Emit the circular-buffer post-increment `base = fcirc_add(base, incr, M,
+    /// CS)`, writing the result back into the GPR `base` (a `HexagonReg::R`
+    /// VReg). `incr` is a VReg holding the (already byte-scaled) signed
+    /// increment; `base_old` is a VReg snapshot of the base BEFORE this update
+    /// (the EA already used it). Ports `hex_circ_add` in cpu.rs EXACTLY — both
+    /// the common K==0/length>=4 branch and the legacy K!=0 branch:
+    ///   length  = M & 0x1ffff
+    ///   k       = (M >> 24) & 0xf
+    ///   new_ptr = base_old + incr
+    ///   k0      = (k == 0) && (length >= 4)
+    ///   mask    = (1 << (k+2)) - 1
+    ///   start   = k0 ? CS : (base_old & !mask)
+    ///   end     = k0 ? CS + length : (start | (length & mask))
+    ///   result  = new_ptr >= end ? new_ptr - length
+    ///             : new_ptr < start ? new_ptr + length
+    ///             : new_ptr
+    #[allow(clippy::too_many_arguments)]
+    fn emit_circ_add(
+        &self,
+        ops: &mut Vec<SmirOp>,
+        op_id: &mut u16,
+        addr: GuestAddr,
+        ctx: &mut LiftContext,
+        base: VReg,
+        base_old: VReg,
+        modsel: u8,
+        incr: VReg,
+    ) {
+        let m = self.hex_mod(modsel);
+        let cs = self.hex_cs(modsel);
+        let length = ctx.alloc_vreg();
+        let k = ctx.alloc_vreg();
+        let new_ptr = ctx.alloc_vreg();
+        let k_is_zero = ctx.alloc_vreg();
+        let len_ge_4 = ctx.alloc_vreg();
+        let k0 = ctx.alloc_vreg();
+        let shamt = ctx.alloc_vreg();
+        let one_shl = ctx.alloc_vreg();
+        let mask = ctx.alloc_vreg();
+        let not_mask = ctx.alloc_vreg();
+        let start_aligned = ctx.alloc_vreg();
+        let len_masked = ctx.alloc_vreg();
+        let end_aligned = ctx.alloc_vreg();
+        let cs_plus_len = ctx.alloc_vreg();
+        let start = ctx.alloc_vreg();
+        let end = ctx.alloc_vreg();
+        let ge_end = ctx.alloc_vreg();
+        let lt_start = ctx.alloc_vreg();
+        let minus_len = ctx.alloc_vreg();
+        let plus_len = ctx.alloc_vreg();
+        let wrapped_lo = ctx.alloc_vreg();
+        let result = ctx.alloc_vreg();
+        let mut push = |kind: OpKind| {
+            ops.push(SmirOp::new(OpId(*op_id), addr, kind));
+            *op_id += 1;
+        };
+        let w = OpWidth::W32;
+        // length = M & 0x1ffff
+        push(OpKind::And {
+            dst: length,
+            src1: m,
+            src2: SrcOperand::Imm(0x1_ffff),
+            width: w,
+            flags: FlagUpdate::None,
+        });
+        // k = (M >> 24) & 0xf
+        push(OpKind::Shr {
+            dst: k,
+            src: m,
+            amount: SrcOperand::Imm(24),
+            width: w,
+            flags: FlagUpdate::None,
+        });
+        push(OpKind::And {
+            dst: k,
+            src1: k,
+            src2: SrcOperand::Imm(0xf),
+            width: w,
+            flags: FlagUpdate::None,
+        });
+        // new_ptr = base_old + incr
+        push(OpKind::Add {
+            dst: new_ptr,
+            src1: base_old,
+            src2: SrcOperand::Reg(incr),
+            width: w,
+            flags: FlagUpdate::None,
+        });
+        // k0 = (k == 0) & (length >= 4)
+        push(OpKind::Cmp { src1: k, src2: SrcOperand::Imm(0), width: w });
+        push(OpKind::SetCC { dst: k_is_zero, cond: Condition::Eq, width: w });
+        push(OpKind::Cmp { src1: length, src2: SrcOperand::Imm(4), width: w });
+        push(OpKind::SetCC { dst: len_ge_4, cond: Condition::Uge, width: w });
+        push(OpKind::And {
+            dst: k0,
+            src1: k_is_zero,
+            src2: SrcOperand::Reg(len_ge_4),
+            width: w,
+            flags: FlagUpdate::None,
+        });
+        // mask = (1 << (k+2)) - 1
+        push(OpKind::Add {
+            dst: shamt,
+            src1: k,
+            src2: SrcOperand::Imm(2),
+            width: w,
+            flags: FlagUpdate::None,
+        });
+        push(OpKind::Mov { dst: one_shl, src: SrcOperand::Imm(1), width: w });
+        push(OpKind::Shl {
+            dst: one_shl,
+            src: one_shl,
+            amount: SrcOperand::Reg(shamt),
+            width: w,
+            flags: FlagUpdate::None,
+        });
+        push(OpKind::Sub {
+            dst: mask,
+            src1: one_shl,
+            src2: SrcOperand::Imm(1),
+            width: w,
+            flags: FlagUpdate::None,
+        });
+        // not_mask = !mask
+        push(OpKind::Xor {
+            dst: not_mask,
+            src1: mask,
+            src2: SrcOperand::Imm(-1),
+            width: w,
+            flags: FlagUpdate::None,
+        });
+        // start_aligned = base_old & !mask
+        push(OpKind::And {
+            dst: start_aligned,
+            src1: base_old,
+            src2: SrcOperand::Reg(not_mask),
+            width: w,
+            flags: FlagUpdate::None,
+        });
+        // len_masked = length & mask ; end_aligned = start_aligned | len_masked
+        push(OpKind::And {
+            dst: len_masked,
+            src1: length,
+            src2: SrcOperand::Reg(mask),
+            width: w,
+            flags: FlagUpdate::None,
+        });
+        push(OpKind::Or {
+            dst: end_aligned,
+            src1: start_aligned,
+            src2: SrcOperand::Reg(len_masked),
+            width: w,
+            flags: FlagUpdate::None,
+        });
+        // cs_plus_len = CS + length
+        push(OpKind::Add {
+            dst: cs_plus_len,
+            src1: cs,
+            src2: SrcOperand::Reg(length),
+            width: w,
+            flags: FlagUpdate::None,
+        });
+        // start = k0 ? CS : start_aligned ; end = k0 ? cs_plus_len : end_aligned
+        // (Select reads CS via a temp copy so the arch reg isn't a Select operand
+        //  width-clobber risk — CS is already W32.)
+        push(OpKind::Select {
+            dst: start,
+            cond: k0,
+            src_true: cs,
+            src_false: start_aligned,
+            width: w,
+        });
+        push(OpKind::Select {
+            dst: end,
+            cond: k0,
+            src_true: cs_plus_len,
+            src_false: end_aligned,
+            width: w,
+        });
+        // ge_end = new_ptr >= end (unsigned)
+        push(OpKind::Cmp { src1: new_ptr, src2: SrcOperand::Reg(end), width: w });
+        push(OpKind::SetCC { dst: ge_end, cond: Condition::Uge, width: w });
+        // lt_start = new_ptr < start (unsigned)
+        push(OpKind::Cmp { src1: new_ptr, src2: SrcOperand::Reg(start), width: w });
+        push(OpKind::SetCC { dst: lt_start, cond: Condition::Ult, width: w });
+        // minus_len = new_ptr - length ; plus_len = new_ptr + length
+        push(OpKind::Sub {
+            dst: minus_len,
+            src1: new_ptr,
+            src2: SrcOperand::Reg(length),
+            width: w,
+            flags: FlagUpdate::None,
+        });
+        push(OpKind::Add {
+            dst: plus_len,
+            src1: new_ptr,
+            src2: SrcOperand::Reg(length),
+            width: w,
+            flags: FlagUpdate::None,
+        });
+        // wrapped_lo = lt_start ? plus_len : new_ptr
+        push(OpKind::Select {
+            dst: wrapped_lo,
+            cond: lt_start,
+            src_true: plus_len,
+            src_false: new_ptr,
+            width: w,
+        });
+        // result = ge_end ? minus_len : wrapped_lo   (ge_end checked first)
+        push(OpKind::Select {
+            dst: result,
+            cond: ge_end,
+            src_true: minus_len,
+            src_false: wrapped_lo,
+            width: w,
+        });
+        // base = result
+        push(OpKind::Mov { dst: base, src: SrcOperand::Reg(result), width: w });
+    }
+
+    /// Emit `out = read_ireg(M[modsel]) << access_shift` (the `_pcr` increment).
+    /// `read_ireg` (`fREAD_IREG`) packs an 11-bit signed value:
+    ///   packed = ((M & 0xf0000000) >> 21) | ((M >> 17) & 0x7f)
+    ///   ireg   = sign_extend_11(packed)
+    ///   out    = ireg << access_shift
+    /// Matches `hex_read_ireg` in cpu.rs.
+    fn emit_read_ireg_shifted(
+        &self,
+        ops: &mut Vec<SmirOp>,
+        op_id: &mut u16,
+        addr: GuestAddr,
+        ctx: &mut LiftContext,
+        modsel: u8,
+        access_shift: u8,
+    ) -> VReg {
+        let m = self.hex_mod(modsel);
+        let hi = ctx.alloc_vreg();
+        let lo = ctx.alloc_vreg();
+        let packed = ctx.alloc_vreg();
+        let ireg = ctx.alloc_vreg();
+        let out = ctx.alloc_vreg();
+        let mut push = |kind: OpKind| {
+            ops.push(SmirOp::new(OpId(*op_id), addr, kind));
+            *op_id += 1;
+        };
+        let w = OpWidth::W32;
+        // hi = (M & 0xf0000000) >> 21
+        push(OpKind::And {
+            dst: hi,
+            src1: m,
+            src2: SrcOperand::Imm(0xf000_0000u32 as i32 as i64),
+            width: w,
+            flags: FlagUpdate::None,
+        });
+        push(OpKind::Shr {
+            dst: hi,
+            src: hi,
+            amount: SrcOperand::Imm(21),
+            width: w,
+            flags: FlagUpdate::None,
+        });
+        // lo = (M >> 17) & 0x7f
+        push(OpKind::Shr {
+            dst: lo,
+            src: m,
+            amount: SrcOperand::Imm(17),
+            width: w,
+            flags: FlagUpdate::None,
+        });
+        push(OpKind::And {
+            dst: lo,
+            src1: lo,
+            src2: SrcOperand::Imm(0x7f),
+            width: w,
+            flags: FlagUpdate::None,
+        });
+        // packed = hi | lo
+        push(OpKind::Or {
+            dst: packed,
+            src1: hi,
+            src2: SrcOperand::Reg(lo),
+            width: w,
+            flags: FlagUpdate::None,
+        });
+        // ireg = sign_extend_11(packed) = (packed << 21) >>(arith) 21
+        push(OpKind::Shl {
+            dst: ireg,
+            src: packed,
+            amount: SrcOperand::Imm(21),
+            width: w,
+            flags: FlagUpdate::None,
+        });
+        push(OpKind::Sar {
+            dst: ireg,
+            src: ireg,
+            amount: SrcOperand::Imm(21),
+            width: w,
+            flags: FlagUpdate::None,
+        });
+        // out = ireg << access_shift
+        if access_shift == 0 {
+            push(OpKind::Mov { dst: out, src: SrcOperand::Reg(ireg), width: w });
+        } else {
+            push(OpKind::Shl {
+                dst: out,
+                src: ireg,
+                amount: SrcOperand::Imm(access_shift as i64),
+                width: w,
+                flags: FlagUpdate::None,
+            });
+        }
+        out
+    }
+
+    /// Emit the base-register UPDATE for a modifier / circular / bit-reverse
+    /// post-increment load or store. `base` is the GPR index; `am` is the
+    /// addressing mode (must be one of the PostInc{Reg,Brev,CircImm,CircReg}
+    /// variants). The EA + memory access have already been emitted by the caller
+    /// (and did not modify the base), so the base still holds its OLD value here.
+    fn emit_mod_postinc(
+        &self,
+        ops: &mut Vec<SmirOp>,
+        op_id: &mut u16,
+        addr: GuestAddr,
+        ctx: &mut LiftContext,
+        base: u8,
+        am: &AddrMode,
+    ) {
+        let base_reg = self.hex_reg(base);
+        match am {
+            // memX(Rx++Mu) / memX(Rx++Mu:brev): Rx += raw M[modsel].
+            AddrMode::PostIncReg { modsel, .. } | AddrMode::PostIncBrev { modsel, .. } => {
+                let m = self.hex_mod(*modsel);
+                ops.push(SmirOp::new(
+                    OpId(*op_id),
+                    addr,
+                    OpKind::Add {
+                        dst: base_reg,
+                        src1: base_reg,
+                        src2: SrcOperand::Reg(m),
+                        width: OpWidth::W32,
+                        flags: FlagUpdate::None,
+                    },
+                ));
+                *op_id += 1;
+            }
+            // memX(Rx++#imm:circ(Mu)): Rx = circ_add(Rx, imm, M, CS). The (already
+            // byte-scaled) immediate increment is materialised into a temp.
+            AddrMode::PostIncCircImm { modsel, incr, .. } => {
+                let incr_reg = ctx.alloc_vreg();
+                ops.push(SmirOp::new(
+                    OpId(*op_id),
+                    addr,
+                    OpKind::Mov {
+                        dst: incr_reg,
+                        src: SrcOperand::Imm(*incr as i64),
+                        width: OpWidth::W32,
+                    },
+                ));
+                *op_id += 1;
+                self.emit_circ_add(ops, op_id, addr, ctx, base_reg, base_reg, *modsel, incr_reg);
+            }
+            // memX(Rx++I:circ(Mu)): Rx = circ_add(Rx, ireg(M)<<sh, M, CS).
+            AddrMode::PostIncCircReg { modsel, shift, .. } => {
+                let incr_reg =
+                    self.emit_read_ireg_shifted(ops, op_id, addr, ctx, *modsel, *shift);
+                self.emit_circ_add(ops, op_id, addr, ctx, base_reg, base_reg, *modsel, incr_reg);
+            }
+            _ => unreachable!("emit_mod_postinc called on non-postinc-mod addr"),
+        }
+    }
+
     /// Convert Hexagon shift kind to SMIR shift op
     fn hex_shift(&self, kind: ShiftKind) -> ShiftOp {
         match kind {
@@ -616,23 +1053,61 @@ impl HexagonLifter {
                 });
             }
 
-            // Post-increment-by-modifier-register, circular and bit-reverse loads
-            // depend on the M0/M1 (and CS0/CS1) modifier/circular-start registers
-            // for their base UPDATE. Without modelling that side effect the base
-            // register would be left stale (a silent wrong lift), so reject these
-            // and let the interpreter handle them.
+            // Post-increment by the modifier register, circular and bit-reverse
+            // loads. The EA uses the OLD base (bit-reversed for `:brev`); the base
+            // register is then updated:
+            //   memX(Rx++Mu)            Rx += M[modsel]           (raw M)
+            //   memX(Rx++Mu:brev)       EA = brev(Rx); Rx += M    (raw M)
+            //   memX(Rx++#imm:circ(Mu)) Rx = circ_add(Rx, imm, M, CS)
+            //   memX(Rx++I:circ(Mu))    Rx = circ_add(Rx, ireg(M)<<sh, M, CS)
             DecodedInsn::Load {
-                addr:
-                    AddrMode::PostIncReg { .. }
-                    | AddrMode::PostIncBrev { .. }
-                    | AddrMode::PostIncCircImm { .. }
-                    | AddrMode::PostIncCircReg { .. },
-                ..
+                dst,
+                addr: am @ (AddrMode::PostIncReg { .. }
+                | AddrMode::PostIncBrev { .. }
+                | AddrMode::PostIncCircImm { .. }
+                | AddrMode::PostIncCircReg { .. }),
+                width,
+                sign,
+                pred: _,
             } => {
-                return Err(LiftError::Unsupported {
-                    addr,
-                    mnemonic: "load_postinc_mod_circ".to_string(),
-                });
+                let base = match am {
+                    AddrMode::PostIncReg { base, .. }
+                    | AddrMode::PostIncBrev { base, .. }
+                    | AddrMode::PostIncCircImm { base, .. }
+                    | AddrMode::PostIncCircReg { base, .. } => *base,
+                    _ => unreachable!(),
+                };
+                let base_reg = self.hex_reg(base);
+                // EA: bit-reversed base for `:brev`, otherwise the base itself.
+                let ea_reg = if matches!(am, AddrMode::PostIncBrev { .. }) {
+                    self.emit_brev(&mut ops, &mut op_id, addr, ctx, base_reg)
+                } else {
+                    base_reg
+                };
+                let ea = Address::Direct(ea_reg);
+                let mem_width = self.hex_mem_width(*width);
+                let sign_ext = self.hex_sign(*sign);
+                if matches!(width, HexMemWidth::Double) {
+                    let even = *dst & !1;
+                    push_op!(OpKind::LoadPair {
+                        dst1: self.hex_reg(even),
+                        dst2: self.hex_reg(even + 1),
+                        addr: ea,
+                        width: MemWidth::B4,
+                    });
+                } else {
+                    push_op!(OpKind::Load {
+                        dst: self.hex_reg(*dst),
+                        addr: ea,
+                        width: mem_width,
+                        sign: sign_ext,
+                    });
+                }
+                // Base update (uses the OLD base, which the load above did not
+                // modify). For `:brev` the bit-reversed value was only the EA; the
+                // base advances by the RAW M value.
+                self.emit_mod_postinc(&mut ops, &mut op_id, addr, ctx, base, am);
+                ControlFlow::Fallthrough
             }
 
             DecodedInsn::Load {
@@ -694,15 +1169,156 @@ impl HexagonLifter {
                 ControlFlow::Fallthrough
             }
 
-            // Shift-and-insert FIFO loads (`memX_fifo`, loadalign) read-modify a
-            // register pair and the byte/half-unpack loads (membh/memubh) build
-            // a halfword vector; both need bespoke commit semantics handled by
-            // the interpreter path. Reject in the lifter so callers fall back.
-            DecodedInsn::LoadAlign { .. } => {
+            // Predicated FIFO load: CANCEL on a false predicate (no Ryy write, no
+            // base update). The unconditional path below always commits, so reject.
+            DecodedInsn::LoadAlign { pred: Some(_), .. } => {
                 return Err(LiftError::Unsupported {
                     addr,
-                    mnemonic: "loadalign".to_string(),
+                    mnemonic: "pred_loadalign".to_string(),
                 });
+            }
+
+            // Shift-and-insert FIFO load (`Ryy = memX_fifo(...)`, loadalign): a
+            // read-modify of the register PAIR Ryy. The freshly-loaded (zero-
+            // extended) byte/halfword is shifted into the TOP of Ryy while the
+            // rest shifts right:
+            //   Ryy = (Ryy u>> w) | (zxt(load) << (64-w)),  w = 8 (b) / 16 (h)
+            // Composed from a LoadPair-style read of the current Ryy + 64-bit
+            // shift/or + write-back. The EA / base-update mirror the regular Load
+            // arms (incl. the modifier/circular/bit-reverse + abs-set forms).
+            DecodedInsn::LoadAlign {
+                dst_pair,
+                addr: am,
+                width,
+                pred: _,
+            } => {
+                let even = *dst_pair & !1;
+                let odd = even + 1;
+                let w_bits: u32 = match width {
+                    HexMemWidth::Byte => 8,
+                    HexMemWidth::Half => 16,
+                    _ => {
+                        return Err(LiftError::Unsupported {
+                            addr,
+                            mnemonic: "loadalign_width".to_string(),
+                        });
+                    }
+                };
+
+                // --- effective address (bit-reversed base for `:brev`) ---
+                let ea = if let AddrMode::PostIncBrev { base, .. } = am {
+                    let bv = self.emit_brev(&mut ops, &mut op_id, addr, ctx, self.hex_reg(*base));
+                    Address::Direct(bv)
+                } else {
+                    self.hex_addr(am, ctx)
+                };
+
+                // `memX_fifo(Re=##addr)`: write Re BEFORE the access (matches the
+                // interp applying the base update, then loading).
+                if let AddrMode::AbsSet { areg, addr: abs } = am {
+                    push_op!(OpKind::Mov {
+                        dst: self.hex_reg(*areg),
+                        src: SrcOperand::Imm(*abs as i32 as i64),
+                        width: OpWidth::W32,
+                    });
+                }
+
+                // --- load (zero-extended) into a temp ---
+                let loaded = ctx.alloc_vreg();
+                push_op!(OpKind::Load {
+                    dst: loaded,
+                    addr: ea,
+                    width: if w_bits == 8 { MemWidth::B1 } else { MemWidth::B2 },
+                    sign: SignExtend::Zero,
+                });
+
+                // --- old64 = even | (odd << 32) ---
+                let hi = ctx.alloc_vreg();
+                let old64 = ctx.alloc_vreg();
+                push_op!(OpKind::Shl {
+                    dst: hi,
+                    src: self.hex_reg(odd),
+                    amount: SrcOperand::Imm(32),
+                    width: OpWidth::W64,
+                    flags: FlagUpdate::None,
+                });
+                push_op!(OpKind::Or {
+                    dst: old64,
+                    src1: self.hex_reg(even),
+                    src2: SrcOperand::Reg(hi),
+                    width: OpWidth::W64,
+                    flags: FlagUpdate::None,
+                });
+
+                // --- result = (old64 >> w) | (loaded << (64-w)) ---
+                let shifted = ctx.alloc_vreg();
+                let ins = ctx.alloc_vreg();
+                let result = ctx.alloc_vreg();
+                push_op!(OpKind::Shr {
+                    dst: shifted,
+                    src: old64,
+                    amount: SrcOperand::Imm(w_bits as i64),
+                    width: OpWidth::W64,
+                    flags: FlagUpdate::None,
+                });
+                push_op!(OpKind::Shl {
+                    dst: ins,
+                    src: loaded,
+                    amount: SrcOperand::Imm((64 - w_bits) as i64),
+                    width: OpWidth::W64,
+                    flags: FlagUpdate::None,
+                });
+                push_op!(OpKind::Or {
+                    dst: result,
+                    src1: shifted,
+                    src2: SrcOperand::Reg(ins),
+                    width: OpWidth::W64,
+                    flags: FlagUpdate::None,
+                });
+
+                // --- write back the pair: even = result[31:0], odd = result[63:32] ---
+                push_op!(OpKind::Mov {
+                    dst: self.hex_reg(even),
+                    src: SrcOperand::Reg(result),
+                    width: OpWidth::W32,
+                });
+                let odd_tmp = ctx.alloc_vreg();
+                push_op!(OpKind::Shr {
+                    dst: odd_tmp,
+                    src: result,
+                    amount: SrcOperand::Imm(32),
+                    width: OpWidth::W64,
+                    flags: FlagUpdate::None,
+                });
+                push_op!(OpKind::Mov {
+                    dst: self.hex_reg(odd),
+                    src: SrcOperand::Reg(odd_tmp),
+                    width: OpWidth::W32,
+                });
+
+                // --- base update ---
+                match am {
+                    AddrMode::PostIncImm { base, offset } => {
+                        let offset = ctx.extend_imm(*offset);
+                        push_op!(OpKind::Add {
+                            dst: self.hex_reg(*base),
+                            src1: self.hex_reg(*base),
+                            src2: SrcOperand::Imm(offset as i64),
+                            width: OpWidth::W32,
+                            flags: FlagUpdate::None,
+                        });
+                    }
+                    AddrMode::PostIncReg { base, .. }
+                    | AddrMode::PostIncBrev { base, .. }
+                    | AddrMode::PostIncCircImm { base, .. }
+                    | AddrMode::PostIncCircReg { base, .. } => {
+                        self.emit_mod_postinc(&mut ops, &mut op_id, addr, ctx, *base, am);
+                    }
+                    // Offset / GpOffset / Abs / RegScaled / IndexAbs: no base update.
+                    // AbsSet handled above (written before the access).
+                    _ => {}
+                }
+                ControlFlow::Fallthrough
             }
             DecodedInsn::LoadUnpack { .. } => {
                 return Err(LiftError::Unsupported {
@@ -723,21 +1339,67 @@ impl HexagonLifter {
                 });
             }
 
-            // Modifier-register / circular / bit-reverse post-increment stores
-            // need the M0/M1 (CS0/CS1) registers for their base update; reject so
-            // the base register is never left stale by a silent wrong lift.
+            // Modifier-register / circular / bit-reverse post-increment stores.
+            // The store reads the OLD src value and uses the OLD base (bit-
+            // reversed for `:brev`) for the EA; the base register is then updated
+            // by the M / circular rule (same as the load forms above).
             DecodedInsn::Store {
-                addr:
-                    AddrMode::PostIncReg { .. }
-                    | AddrMode::PostIncBrev { .. }
-                    | AddrMode::PostIncCircImm { .. }
-                    | AddrMode::PostIncCircReg { .. },
-                ..
+                src,
+                addr: am @ (AddrMode::PostIncReg { .. }
+                | AddrMode::PostIncBrev { .. }
+                | AddrMode::PostIncCircImm { .. }
+                | AddrMode::PostIncCircReg { .. }),
+                width,
+                pred: _,
+                src_new: _,
+                high_half,
             } => {
-                return Err(LiftError::Unsupported {
-                    addr,
-                    mnemonic: "store_postinc_mod_circ".to_string(),
-                });
+                let base = match am {
+                    AddrMode::PostIncReg { base, .. }
+                    | AddrMode::PostIncBrev { base, .. }
+                    | AddrMode::PostIncCircImm { base, .. }
+                    | AddrMode::PostIncCircReg { base, .. } => *base,
+                    _ => unreachable!(),
+                };
+                let base_reg = self.hex_reg(base);
+                let ea_reg = if matches!(am, AddrMode::PostIncBrev { .. }) {
+                    self.emit_brev(&mut ops, &mut op_id, addr, ctx, base_reg)
+                } else {
+                    base_reg
+                };
+                let ea = Address::Direct(ea_reg);
+                let mem_width = self.hex_mem_width(*width);
+                // storerf high-half store: store Rt[31:16].
+                let store_src = if *high_half {
+                    let tmp = ctx.alloc_vreg();
+                    push_op!(OpKind::Shr {
+                        dst: tmp,
+                        src: self.hex_reg(*src),
+                        amount: SrcOperand::Imm(16),
+                        width: OpWidth::W32,
+                        flags: FlagUpdate::None,
+                    });
+                    tmp
+                } else {
+                    self.hex_reg(*src)
+                };
+                if matches!(width, HexMemWidth::Double) {
+                    let even = *src & !1;
+                    push_op!(OpKind::StorePair {
+                        src1: self.hex_reg(even),
+                        src2: self.hex_reg(even + 1),
+                        addr: ea,
+                        width: MemWidth::B4,
+                    });
+                } else {
+                    push_op!(OpKind::Store {
+                        src: store_src,
+                        addr: ea,
+                        width: mem_width,
+                    });
+                }
+                self.emit_mod_postinc(&mut ops, &mut op_id, addr, ctx, base, am);
+                ControlFlow::Fallthrough
             }
 
             DecodedInsn::Store {
@@ -828,6 +1490,24 @@ impl HexagonLifter {
                 width,
                 pred: _,
             } => {
+                // EXTENDER ROUTING: for `S4_storeir{b,h,i}_io` a constant extender
+                // (`##big`) applies to the stored VALUE, not the address offset.
+                // The default `hex_addr(Offset{..})` path calls `extend_imm` on the
+                // OFFSET, which would WRONGLY consume the pending extender into the
+                // address. Take the extender here FIRST so the offset stays raw,
+                // then route it to the value.
+                //
+                // NOTE: the rax HexagonVcpu interpreter (the verification oracle)
+                // DROPS the store-immediate extender — its decoder calls
+                // `store_imm_io` with `immext = None`, so it stores only the
+                // sign-extended #s6 (`value`). To stay 0-divergence against the
+                // oracle we must match that, so we store `value` unchanged here and
+                // do NOT fold the extender into the value. We still consume the
+                // pending extender so it cannot leak into the address offset (which
+                // is the bug this routing fix prevents). See the structured-output
+                // note for the interp-side extender bug (a context/decode fix that
+                // is out of scope for the lifter).
+                let _ext = ctx.take_extended_imm();
                 let smir_addr = self.hex_addr(addr, ctx);
                 let mem_width = self.hex_mem_width(*width);
                 let tmp = ctx.alloc_vreg();
