@@ -69,7 +69,11 @@ fn stos_common(
     // Slow path: element-by-element, bit-for-bit identical to the original loop.
     // Also serves as the tail/fallback for the fast path (RCX is already 0 when
     // the fast path fully completed, so this loop is a no-op in that case).
-    let count = if is_rep { rep_count(vcpu.regs.rcx, addr32) } else { 1 };
+    let count = if is_rep {
+        rep_count(vcpu.regs.rcx, addr32)
+    } else {
+        1
+    };
     for _ in 0..count {
         if is_rep && rep_count(vcpu.regs.rcx, addr32) == 0 {
             break;

@@ -16,35 +16,19 @@ use super::super::super::insn;
 // follows the SDM, so we must too.
 #[inline(always)]
 fn x86_min_f32(dst: f32, src: f32) -> f32 {
-    if dst < src {
-        dst
-    } else {
-        src
-    }
+    if dst < src { dst } else { src }
 }
 #[inline(always)]
 fn x86_max_f32(dst: f32, src: f32) -> f32 {
-    if dst > src {
-        dst
-    } else {
-        src
-    }
+    if dst > src { dst } else { src }
 }
 #[inline(always)]
 fn x86_min_f64(dst: f64, src: f64) -> f64 {
-    if dst < src {
-        dst
-    } else {
-        src
-    }
+    if dst < src { dst } else { src }
 }
 #[inline(always)]
 fn x86_max_f64(dst: f64, src: f64) -> f64 {
-    if dst > src {
-        dst
-    } else {
-        src
-    }
+    if dst > src { dst } else { src }
 }
 
 impl X86_64Vcpu {
@@ -439,12 +423,16 @@ impl X86_64Vcpu {
             } else {
                 (self.regs.xmm[rm as usize][0], self.regs.xmm[rm as usize][1])
             };
-            self.regs.xmm[xmm_dst][0] =
-                x86_min_f64(f64::from_bits(self.regs.xmm[xmm_dst][0]), f64::from_bits(src_lo))
-                    .to_bits();
-            self.regs.xmm[xmm_dst][1] =
-                x86_min_f64(f64::from_bits(self.regs.xmm[xmm_dst][1]), f64::from_bits(src_hi))
-                    .to_bits();
+            self.regs.xmm[xmm_dst][0] = x86_min_f64(
+                f64::from_bits(self.regs.xmm[xmm_dst][0]),
+                f64::from_bits(src_lo),
+            )
+            .to_bits();
+            self.regs.xmm[xmm_dst][1] = x86_min_f64(
+                f64::from_bits(self.regs.xmm[xmm_dst][1]),
+                f64::from_bits(src_hi),
+            )
+            .to_bits();
         } else {
             let (src_lo, src_hi) = if is_memory {
                 (self.read_mem(addr, 8)?, self.read_mem(addr + 8, 8)?)
@@ -500,12 +488,16 @@ impl X86_64Vcpu {
             } else {
                 (self.regs.xmm[rm as usize][0], self.regs.xmm[rm as usize][1])
             };
-            self.regs.xmm[xmm_dst][0] =
-                x86_max_f64(f64::from_bits(self.regs.xmm[xmm_dst][0]), f64::from_bits(src_lo))
-                    .to_bits();
-            self.regs.xmm[xmm_dst][1] =
-                x86_max_f64(f64::from_bits(self.regs.xmm[xmm_dst][1]), f64::from_bits(src_hi))
-                    .to_bits();
+            self.regs.xmm[xmm_dst][0] = x86_max_f64(
+                f64::from_bits(self.regs.xmm[xmm_dst][0]),
+                f64::from_bits(src_lo),
+            )
+            .to_bits();
+            self.regs.xmm[xmm_dst][1] = x86_max_f64(
+                f64::from_bits(self.regs.xmm[xmm_dst][1]),
+                f64::from_bits(src_hi),
+            )
+            .to_bits();
         } else {
             let (src_lo, src_hi) = if is_memory {
                 (self.read_mem(addr, 8)?, self.read_mem(addr + 8, 8)?)

@@ -8622,7 +8622,9 @@ impl X86_64Lowerer {
             self.code.emit_u8(0xB9); // mov ecx, size
             self.code.emit_u32(size as u32);
         }
-        // RSP is already 16-aligned at the call (push rax + pushfq = 16 bytes).
+        // RSP is 16-aligned at the call: the block prologue's `push rbp` lands
+        // the region's RSP ≡ 0 (mod 16), and `push rax` + `pushfq` add 16 more,
+        // so RSP is ≡ 0 (mod 16) here — exactly what SysV requires at a `call`.
         // call [rax + load_fn/store_fn]   (FF 90 id)
         self.code.emit_u8(0xFF);
         self.code.emit_u8(0x90);

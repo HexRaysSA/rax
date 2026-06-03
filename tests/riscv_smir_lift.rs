@@ -16,7 +16,10 @@
 
 use std::collections::BTreeMap;
 
-use rax::riscv::{decode, decode_at, FlatMemory as RvMem, Isa, Memory as RvMemory, Op, RiscVConfig, RiscVCpu, RiscVExit, Xlen};
+use rax::riscv::{
+    FlatMemory as RvMem, Isa, Memory as RvMemory, Op, RiscVConfig, RiscVCpu, RiscVExit, Xlen,
+    decode, decode_at,
+};
 use rax::smir::types::{ArchReg, BlockId, OpId, RiscVReg, SourceArch};
 use rax::smir::{
     ArchRegState, FlatMemory as SmirMem, LiftContext, LiftError, RiscVLifter, SmirBlock,
@@ -146,7 +149,7 @@ fn run_smir(insn: &[u8], init: &State) -> Result<Option<State>, String> {
     let res = match lifter.lift_insn(CODE_ADDR, insn, &mut lctx) {
         Ok(r) => r,
         Err(LiftError::Unsupported { .. }) | Err(LiftError::InvalidEncoding { .. }) => {
-            return Ok(None)
+            return Ok(None);
         }
         Err(e) => return Err(format!("lift error: {e:?}")),
     };
@@ -180,7 +183,8 @@ fn run_smir(insn: &[u8], init: &State) -> Result<Option<State>, String> {
         sb.extend_from_slice(&w.to_le_bytes());
     }
     use rax::smir::SmirMemory;
-    mem.write(SCRATCH, &sb).map_err(|e| format!("mem seed: {e:?}"))?;
+    mem.write(SCRATCH, &sb)
+        .map_err(|e| format!("mem seed: {e:?}"))?;
 
     let interp = SmirInterpreter::new();
     interp.execute_block(&mut ctx, &mut mem, &block);
@@ -195,10 +199,8 @@ fn run_smir(insn: &[u8], init: &State) -> Result<Option<State>, String> {
     // final value through the lifter's arch->vreg mapping (an undefined reg maps
     // back to VReg::Arch, which reads the seeded arch_regs unchanged).
     for n in 0..32u8 {
-        out.x[n as usize] =
-            ctx.read_vreg(lctx.get_arch_reg(ArchReg::RiscV(RiscVReg::X(n))));
-        out.f[n as usize] =
-            ctx.read_vreg(lctx.get_arch_reg(ArchReg::RiscV(RiscVReg::F(n))));
+        out.x[n as usize] = ctx.read_vreg(lctx.get_arch_reg(ArchReg::RiscV(RiscVReg::X(n))));
+        out.f[n as usize] = ctx.read_vreg(lctx.get_arch_reg(ArchReg::RiscV(RiscVReg::F(n))));
     }
     out.x[0] = 0;
     // fcsr: resolve via the CSR mapping if the lift wrote it, else seeded value.
@@ -240,8 +242,21 @@ fn sweep(seed: u64, opcodes: &[u32], count: usize) {
         // Skip control-flow / system / fence — not single-step register compares.
         if matches!(
             insn.op,
-            Op::Jal | Op::Jalr | Op::Beq | Op::Bne | Op::Blt | Op::Bge | Op::Bltu | Op::Bgeu
-                | Op::Ecall | Op::Ebreak | Op::Fence | Op::FenceI | Op::Mret | Op::Sret | Op::Wfi
+            Op::Jal
+                | Op::Jalr
+                | Op::Beq
+                | Op::Bne
+                | Op::Blt
+                | Op::Bge
+                | Op::Bltu
+                | Op::Bgeu
+                | Op::Ecall
+                | Op::Ebreak
+                | Op::Fence
+                | Op::FenceI
+                | Op::Mret
+                | Op::Sret
+                | Op::Wfi
         ) {
             continue;
         }
@@ -417,5 +432,9 @@ fn lift_c() {
 #[test]
 fn lift_fp() {
     // FP load/store/op/fma (0x07, 0x27, 0x53, 0x43, 0x47, 0x4b, 0x4f)
-    sweep(0x5117_0004, &[0x07, 0x27, 0x53, 0x43, 0x47, 0x4b, 0x4f], 60_000);
+    sweep(
+        0x5117_0004,
+        &[0x07, 0x27, 0x53, 0x43, 0x47, 0x4b, 0x4f],
+        60_000,
+    );
 }

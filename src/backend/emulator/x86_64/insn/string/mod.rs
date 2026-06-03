@@ -13,6 +13,7 @@ pub use movs::*;
 pub use scas::*;
 pub use stos::*;
 
+
 // ---------------------------------------------------------------------------
 // 0x67 address-size override helpers, shared by all string instructions.
 //
@@ -28,11 +29,7 @@ pub use stos::*;
 /// the low 32 bits when address-size override is active, else the full value.
 #[inline(always)]
 pub(super) fn index(reg: u64, addr32: bool) -> u64 {
-    if addr32 {
-        reg & 0xFFFF_FFFF
-    } else {
-        reg
-    }
+    if addr32 { reg & 0xFFFF_FFFF } else { reg }
 }
 
 /// Advance an index register by `delta`, honoring DF (forward => add) and the
@@ -57,11 +54,7 @@ pub(super) fn advance_index(reg: u64, delta: u64, forward: bool, addr32: bool) -
 /// REP iteration count from RCX, masked to 32 bits under address-size override.
 #[inline(always)]
 pub(super) fn rep_count(rcx: u64, addr32: bool) -> u64 {
-    if addr32 {
-        rcx & 0xFFFF_FFFF
-    } else {
-        rcx
-    }
+    if addr32 { rcx & 0xFFFF_FFFF } else { rcx }
 }
 
 /// Decrement the REP counter, clearing the upper 32 bits under the override.
