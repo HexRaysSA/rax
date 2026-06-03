@@ -3650,12 +3650,15 @@ struct GuestRegs {
 // store the host regs back into GuestRegs. RSP (gpr[4]) is NOT loaded — the
 // block runs on the host stack (M0 has no guest stack use). Alignment: 6 callee
 // pushes (48) + `sub rsp,24` (72 total) leaves rsp 16-aligned at the `call`.
+// Renamed from `rax_smir_enter_native` to avoid a DUPLICATE-SYMBOL link error:
+// the lib now exports its own `rax_smir_enter_native` (the `smir-jit` runtime is
+// a default feature). This in-crate copy uses a private name.
 std::arch::global_asm!(
     ".text",
     ".p2align 4",
-    ".globl rax_smir_enter_native",
-    ".type rax_smir_enter_native,@function",
-    "rax_smir_enter_native:",
+    ".globl df_smir_enter_native",
+    ".type df_smir_enter_native,@function",
+    "df_smir_enter_native:",
     "push rbp",
     "push rbx",
     "push r12",
@@ -3717,7 +3720,7 @@ std::arch::global_asm!(
 );
 
 unsafe extern "C" {
-    fn rax_smir_enter_native(entry: *const u8, state: *mut GuestRegs);
+    fn df_smir_enter_native(entry: *const u8, state: *mut GuestRegs);
 }
 
 /// W^X executable memory holding a finalized lowered block.
@@ -3757,7 +3760,7 @@ impl ExecMem {
 
     fn run(&self, entry_offset: usize, regs: &mut GuestRegs) {
         let entry = unsafe { self.ptr.add(entry_offset) } as *const u8;
-        unsafe { rax_smir_enter_native(entry, regs as *mut GuestRegs) };
+        unsafe { df_smir_enter_native(entry, regs as *mut GuestRegs) };
     }
 }
 
