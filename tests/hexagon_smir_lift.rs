@@ -6032,3 +6032,192 @@ fn lift_mem_memop() {
         0xc006,
     );
 }
+
+// ============================================================================
+// Deferred-wave scalar gap-fill verification (newly lifted families).
+// ============================================================================
+
+// Saturating vector pack to byte/half (packed Rd). These call sat_n/satu_n in
+// the sem, so USR:OVF (bit 0) is exercised and compared by the harness.
+#[test]
+fn lift_s2_vsat_pack() {
+    lift_family(
+        "s2_vsat_pack",
+        &[
+            ("vsathb", "{ r0 = vsathb(r3:2) }"),
+            ("vsathub", "{ r0 = vsathub(r3:2) }"),
+            ("vsatwh", "{ r0 = vsatwh(r3:2) }"),
+            ("vsatwuh", "{ r0 = vsatwuh(r3:2) }"),
+        ],
+        40,
+        0xE001,
+    );
+}
+
+// Saturating vector saturate, no pack (pair Rdd, lanes stay full width).
+#[test]
+fn lift_s2_vsat_nopack() {
+    lift_family(
+        "s2_vsat_nopack",
+        &[
+            ("vsathb_np", "{ r1:0 = vsathb(r3:2) }"),
+            ("vsathub_np", "{ r1:0 = vsathub(r3:2) }"),
+            ("vsatwh_np", "{ r1:0 = vsatwh(r3:2) }"),
+            ("vsatwuh_np", "{ r1:0 = vsatwuh(r3:2) }"),
+        ],
+        40,
+        0xE002,
+    );
+}
+
+// Scalar (single-register) saturate + pack of 2 halves.
+#[test]
+fn lift_s2_svsat() {
+    lift_family(
+        "s2_svsat",
+        &[
+            ("svsathb", "{ r0 = vsathb(r2) }"),
+            ("svsathub", "{ r0 = vsathub(r2) }"),
+        ],
+        40,
+        0xE003,
+    );
+}
+
+// asr-halves + saturate to ubyte (+rnd), and round+pack words to halves.
+#[test]
+fn lift_s5_asrhub_and_rndpack() {
+    lift_family(
+        "s5_asrhub_and_rndpack",
+        &[
+            ("asrhub_sat", "{ r0 = vasrhub(r3:2,#3):raw }"),
+            ("asrhub_rnd_sat", "{ r0 = vasrhub(r3:2,#3):rnd:sat }"),
+            ("asrhub_sat0", "{ r0 = vasrhub(r3:2,#0):raw }"),
+            ("asrhub_rnd_sat0", "{ r0 = vasrhub(r3:2,#0):rnd:sat }"),
+            ("vrndpackwh", "{ r0 = vrndwh(r3:2) }"),
+            ("vrndpackwhs", "{ r0 = vrndwh(r3:2):sat }"),
+        ],
+        40,
+        0xE004,
+    );
+}
+
+// Non-saturating asr-halves with round (pair out).
+#[test]
+fn lift_s5_vasrhrnd() {
+    lift_family(
+        "s5_vasrhrnd",
+        &[
+            ("vasrhrnd3", "{ r1:0 = vasrh(r3:2,#3):raw }"),
+            ("vasrhrnd0", "{ r1:0 = vasrh(r3:2,#0):raw }"),
+            ("vasrhrnd7", "{ r1:0 = vasrh(r3:2,#7):raw }"),
+        ],
+        40,
+        0xE005,
+    );
+}
+
+// Bit split (immediate + runtime).
+#[test]
+fn lift_a4_bitsplit() {
+    lift_family(
+        "a4_bitsplit",
+        &[
+            ("bitspliti5", "{ r1:0 = bitsplit(r2,#5) }"),
+            ("bitspliti0", "{ r1:0 = bitsplit(r2,#0) }"),
+            ("bitspliti31", "{ r1:0 = bitsplit(r2,#31) }"),
+            ("bitsplit_r", "{ r1:0 = bitsplit(r2,r3) }"),
+        ],
+        40,
+        0xE006,
+    );
+}
+
+// Bit interleave / deinterleave of a 64-bit pair.
+#[test]
+fn lift_s2_interleave() {
+    lift_family(
+        "s2_interleave",
+        &[
+            ("interleave", "{ r1:0 = interleave(r3:2) }"),
+            ("deinterleave", "{ r1:0 = deinterleave(r3:2) }"),
+        ],
+        40,
+        0xE007,
+    );
+}
+
+// pair->pair even/odd byte truncate-pack and pair byte splat.
+#[test]
+fn lift_s6_trunehb_ppp_and_splat() {
+    lift_family(
+        "s6_trunehb_ppp_and_splat",
+        &[
+            ("vtrunehb_ppp", "{ r1:0 = vtrunehb(r3:2,r5:4) }"),
+            ("vtrunohb_ppp", "{ r1:0 = vtrunohb(r3:2,r5:4) }"),
+            ("vsplatrbp", "{ r1:0 = vsplatb(r2) }"),
+        ],
+        40,
+        0xE008,
+    );
+}
+
+// S2_lfsp linear-feedback shift (pair).
+#[test]
+fn lift_s2_lfsp() {
+    lift_family(
+        "s2_lfsp",
+        &[("lfsp", "{ r1:0 = lfs(r3:2,r5:4) }")],
+        40,
+        0xE009,
+    );
+}
+
+// tableidx{b,h,w,d}: Rx read-modify bitfield insert.
+#[test]
+fn lift_s2_tableidx() {
+    lift_family(
+        "s2_tableidx",
+        &[
+            ("tableidxb", "{ r0 = tableidxb(r1,#4,#5):raw }"),
+            ("tableidxh", "{ r0 = tableidxh(r1,#4,#5):raw }"),
+            ("tableidxw", "{ r0 = tableidxw(r1,#4,#5):raw }"),
+            ("tableidxd", "{ r0 = tableidxd(r1,#4,#5):raw }"),
+            ("tableidxb_w0", "{ r0 = tableidxb(r1,#0,#5):raw }"),
+            ("tableidxh_negoff", "{ r0 = tableidxh(r1,#8,#-7):raw }"),
+            ("tableidxw_widmax", "{ r0 = tableidxw(r1,#15,#3):raw }"),
+            ("tableidxb_negoff", "{ r0 = tableidxb(r1,#6,#-30):raw }"),
+        ],
+        40,
+        0xE00A,
+    );
+}
+
+// A5_ACS (vacsh): writes a GPR pair, USR:OVF, and a 4-bit predicate. Only Pe
+// bit 0 (== lane-0 (xv>sv)) is tracked/compared by the harness; the pair value
+// and USR:OVF are fully compared.
+#[test]
+fn lift_a5_acs() {
+    lift_family(
+        "a5_acs",
+        &[("vacsh", "{ r1:0,p0 = vacsh(r3:2,r5:4) }")],
+        40,
+        0xE00B,
+    );
+}
+
+// R6 release stores: in the single-threaded harness these have no observable
+// effect (the sem treats them as register-only no-ops). Lifted as an empty op
+// list; verified to leave all GPR/predicate/USR state unchanged.
+#[test]
+fn lift_r6_release() {
+    lift_family(
+        "r6_release",
+        &[
+            ("release_at", "{ release(r2):at }"),
+            ("release_st", "{ release(r2):st }"),
+        ],
+        40,
+        0xE00C,
+    );
+}

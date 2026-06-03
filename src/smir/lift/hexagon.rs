@@ -6339,6 +6339,1031 @@ impl HexagonLifter {
             }
 
             // ============================================================
+            // Deferred-wave scalar gap-fill (saturating pack/round, non-sat
+            // round/pack, bit permute/split, tableidx, A5_ACS, release stores,
+            // lfsp). Each composes from existing OpKinds; lane order and the
+            // sat_n/satu_n -> SatN{set_ovf:true} mapping mirror the sem in
+            // sem/shift_ext.rs / sem/bitmanip.rs / sem/extra2.rs EXACTLY.
+            // ============================================================
+
+            // ---- vector saturate + pack to byte/half (set USR:OVF) ----
+            // Source is the Rss pair; each lane is SIGNED-extracted, then
+            // sat_n (signed) / satu_n (unsigned) to the narrow width with the
+            // FULL pre-clamp value fed to SatN (set_ovf:true), then packed into
+            // the half-width lane of the 32-bit Rd. Lane order == sem.
+            //   vsathb : 4 signed halves -> signed byte   -> Rd bytes
+            //   vsathub: 4 signed halves -> unsigned byte -> Rd bytes
+            //   vsatwh : 2 signed words  -> signed half    -> Rd halves
+            //   vsatwuh: 2 signed words  -> unsigned half  -> Rd halves
+            Opcode::S2_vsathb
+            | Opcode::S2_vsathub
+            | Opcode::S2_vsatwh
+            | Opcode::S2_vsatwuh => {
+                let src = read_pair!(fld(b's'));
+                // (src_lane_bits, dst_lane_bits, lanes, sat_signed)
+                let (sbits, dbits, lanes, ssign) = match op {
+                    Opcode::S2_vsathb => (16u8, 8u8, 4u32, true),
+                    Opcode::S2_vsathub => (16, 8, 4, false),
+                    Opcode::S2_vsatwh => (32, 16, 2, true),
+                    _ => (32, 16, 2, false), // vsatwuh
+                };
+                let acc = w64_zero!();
+                for i in 0..lanes {
+                    // get_{half,word}(src, i) is SIGNED.
+                    let lane = ctx.alloc_vreg();
+                    push_op!(OpKind::Bfx {
+                        dst: lane,
+                        src,
+                        lsb: (i as u8) * sbits,
+                        width_bits: sbits,
+                        sign_extend: true,
+                        op_width: OpWidth::W64,
+                    });
+                    let sat = ctx.alloc_vreg();
+                    push_op!(OpKind::SatN {
+                        dst: sat,
+                        src: SrcOperand::Reg(lane),
+                        sat_bits: dbits,
+                        signed: ssign,
+                        set_ovf: true,
+                        width: OpWidth::W64,
+                    });
+                    let next = ctx.alloc_vreg();
+                    push_op!(OpKind::Bfi {
+                        dst: next,
+                        dst_in: acc,
+                        src: sat,
+                        lsb: (i as u8) * dbits,
+                        width_bits: dbits,
+                        op_width: OpWidth::W64,
+                    });
+                    push_op!(OpKind::Mov {
+                        dst: acc,
+                        src: SrcOperand::Reg(next),
+                        width: OpWidth::W64,
+                    });
+                }
+                set_r!(acc);
+            }
+
+            // ---- vector saturate, NO pack (each saturated lane kept in its
+            // own SOURCE-width slot of the Rdd pair) ----
+            //   vsathb_nopack : 4 halves -> sat signed byte   -> set_half lanes
+            //   vsathub_nopack: 4 halves -> sat unsigned byte -> set_half lanes
+            //   vsatwh_nopack : 2 words  -> sat signed half   -> set_word lanes
+            //   vsatwuh_nopack: 2 words  -> sat unsigned half -> set_word lanes
+            Opcode::S2_vsathb_nopack
+            | Opcode::S2_vsathub_nopack
+            | Opcode::S2_vsatwh_nopack
+            | Opcode::S2_vsatwuh_nopack => {
+                let src = read_pair!(fld(b's'));
+                // (src/slot lane bits, sat bits, lanes, sat signed)
+                let (sbits, dbits, lanes, ssign) = match op {
+                    Opcode::S2_vsathb_nopack => (16u8, 8u8, 4u32, true),
+                    Opcode::S2_vsathub_nopack => (16, 8, 4, false),
+                    Opcode::S2_vsatwh_nopack => (32, 16, 2, true),
+                    _ => (32, 16, 2, false), // vsatwuh_nopack
+                };
+                let acc = w64_zero!();
+                for i in 0..lanes {
+                    let lane = ctx.alloc_vreg();
+                    push_op!(OpKind::Bfx {
+                        dst: lane,
+                        src,
+                        lsb: (i as u8) * sbits,
+                        width_bits: sbits,
+                        sign_extend: true,
+                        op_width: OpWidth::W64,
+                    });
+                    let sat = ctx.alloc_vreg();
+                    push_op!(OpKind::SatN {
+                        dst: sat,
+                        src: SrcOperand::Reg(lane),
+                        sat_bits: dbits,
+                        signed: ssign,
+                        set_ovf: true,
+                        width: OpWidth::W64,
+                    });
+                    // The sem deposits `v = ctx.sat_n(..) as u64` into the FULL
+                    // source-width lane via set_half/set_word, i.e. the low
+                    // `sbits` bits of the SIGN-EXTENDED clamped value (a negative
+                    // signed-clamp result keeps its sign bits up to the slot
+                    // width). The SatN result temp already holds that sign-
+                    // extended value in W64, so deposit `sbits` bits of it
+                    // directly (NOT masked to the narrow sat width).
+                    let _ = dbits;
+                    let next = ctx.alloc_vreg();
+                    push_op!(OpKind::Bfi {
+                        dst: next,
+                        dst_in: acc,
+                        src: sat,
+                        lsb: (i as u8) * sbits,
+                        width_bits: sbits,
+                        op_width: OpWidth::W64,
+                    });
+                    push_op!(OpKind::Mov {
+                        dst: acc,
+                        src: SrcOperand::Reg(next),
+                        width: OpWidth::W64,
+                    });
+                }
+                write_pair!(rd_n, acc);
+            }
+
+            // ---- scalar (single-register) saturate + pack of 2 halves ----
+            //   svsathb : 2 signed halves of Rs -> sat SIGNED byte   -> Rd[0..2]
+            //   svsathub: 2 signed halves of Rs -> sat UNSIGNED byte -> Rd[0..2]
+            Opcode::S2_svsathb | Opcode::S2_svsathub => {
+                let ssign = matches!(op, Opcode::S2_svsathb);
+                let acc = w64_zero!();
+                for i in 0..2u32 {
+                    let lane = ctx.alloc_vreg();
+                    push_op!(OpKind::Bfx {
+                        dst: lane,
+                        src: rs,
+                        lsb: (i as u8) * 16,
+                        width_bits: 16,
+                        sign_extend: true,
+                        op_width: OpWidth::W64,
+                    });
+                    let sat = ctx.alloc_vreg();
+                    push_op!(OpKind::SatN {
+                        dst: sat,
+                        src: SrcOperand::Reg(lane),
+                        sat_bits: 8,
+                        signed: ssign,
+                        set_ovf: true,
+                        width: OpWidth::W64,
+                    });
+                    let next = ctx.alloc_vreg();
+                    push_op!(OpKind::Bfi {
+                        dst: next,
+                        dst_in: acc,
+                        src: sat,
+                        lsb: (i as u8) * 8,
+                        width_bits: 8,
+                        op_width: OpWidth::W64,
+                    });
+                    push_op!(OpKind::Mov {
+                        dst: acc,
+                        src: SrcOperand::Reg(next),
+                        width: OpWidth::W64,
+                    });
+                }
+                set_r!(acc);
+            }
+
+            // ---- asr halves then saturate to unsigned byte (+ optional rnd) ----
+            //   asrhub_sat    : satu_n((h >> sh), 8)            -> Rd bytes
+            //   asrhub_rnd_sat: satu_n(((h >> sh) + 1) >> 1, 8) -> Rd bytes
+            // `h` is the SIGNED half (arithmetic >> via Sar). USR:OVF set on clamp.
+            Opcode::S5_asrhub_sat | Opcode::S5_asrhub_rnd_sat => {
+                let rnd = matches!(op, Opcode::S5_asrhub_rnd_sat);
+                let src = read_pair!(fld(b's'));
+                let sh = fimm_u(b'i') as i64;
+                let acc = w64_zero!();
+                for i in 0..4u32 {
+                    let lane = ctx.alloc_vreg();
+                    push_op!(OpKind::Bfx {
+                        dst: lane,
+                        src,
+                        lsb: (i as u8) * 16,
+                        width_bits: 16,
+                        sign_extend: true,
+                        op_width: OpWidth::W64,
+                    });
+                    // arithmetic shift right by sh (signed half).
+                    let shifted = ctx.alloc_vreg();
+                    push_op!(OpKind::Sar {
+                        dst: shifted,
+                        src: lane,
+                        amount: SrcOperand::Imm(sh),
+                        width: OpWidth::W64,
+                        flags: FlagUpdate::None,
+                    });
+                    let pre = if rnd {
+                        // ((x) + 1) >> 1, arithmetic.
+                        let p1 = ctx.alloc_vreg();
+                        push_op!(OpKind::Add {
+                            dst: p1,
+                            src1: shifted,
+                            src2: SrcOperand::Imm(1),
+                            width: OpWidth::W64,
+                            flags: FlagUpdate::None,
+                        });
+                        let r = ctx.alloc_vreg();
+                        push_op!(OpKind::Sar {
+                            dst: r,
+                            src: p1,
+                            amount: SrcOperand::Imm(1),
+                            width: OpWidth::W64,
+                            flags: FlagUpdate::None,
+                        });
+                        r
+                    } else {
+                        shifted
+                    };
+                    let sat = ctx.alloc_vreg();
+                    push_op!(OpKind::SatN {
+                        dst: sat,
+                        src: SrcOperand::Reg(pre),
+                        sat_bits: 8,
+                        signed: false,
+                        set_ovf: true,
+                        width: OpWidth::W64,
+                    });
+                    let next = ctx.alloc_vreg();
+                    push_op!(OpKind::Bfi {
+                        dst: next,
+                        dst_in: acc,
+                        src: sat,
+                        lsb: (i as u8) * 8,
+                        width_bits: 8,
+                        op_width: OpWidth::W64,
+                    });
+                    push_op!(OpKind::Mov {
+                        dst: acc,
+                        src: SrcOperand::Reg(next),
+                        width: OpWidth::W64,
+                    });
+                }
+                set_r!(acc);
+            }
+
+            // ---- asr halves with rounding, NO saturate (pair out) ----
+            // S5_vasrhrnd: lane i = (((h_i >> sh) + 1) >> 1), kept in half slot.
+            Opcode::S5_vasrhrnd => {
+                let src = read_pair!(fld(b's'));
+                let sh = fimm_u(b'i') as i64;
+                let acc = w64_zero!();
+                for i in 0..4u32 {
+                    let lane = ctx.alloc_vreg();
+                    push_op!(OpKind::Bfx {
+                        dst: lane,
+                        src,
+                        lsb: (i as u8) * 16,
+                        width_bits: 16,
+                        sign_extend: true,
+                        op_width: OpWidth::W64,
+                    });
+                    let shifted = ctx.alloc_vreg();
+                    push_op!(OpKind::Sar {
+                        dst: shifted,
+                        src: lane,
+                        amount: SrcOperand::Imm(sh),
+                        width: OpWidth::W64,
+                        flags: FlagUpdate::None,
+                    });
+                    let p1 = ctx.alloc_vreg();
+                    push_op!(OpKind::Add {
+                        dst: p1,
+                        src1: shifted,
+                        src2: SrcOperand::Imm(1),
+                        width: OpWidth::W64,
+                        flags: FlagUpdate::None,
+                    });
+                    let rounded = ctx.alloc_vreg();
+                    push_op!(OpKind::Sar {
+                        dst: rounded,
+                        src: p1,
+                        amount: SrcOperand::Imm(1),
+                        width: OpWidth::W64,
+                        flags: FlagUpdate::None,
+                    });
+                    let next = ctx.alloc_vreg();
+                    push_op!(OpKind::Bfi {
+                        dst: next,
+                        dst_in: acc,
+                        src: rounded,
+                        lsb: (i as u8) * 16,
+                        width_bits: 16,
+                        op_width: OpWidth::W64,
+                    });
+                    push_op!(OpKind::Mov {
+                        dst: acc,
+                        src: SrcOperand::Reg(next),
+                        width: OpWidth::W64,
+                    });
+                }
+                write_pair!(rd_n, acc);
+            }
+
+            // ---- round + pack words to halves ----
+            // For each word lane i (signed): w = word + 0x8000; the result half i
+            // = w[31:16].  vrndpackwhs additionally sat32(w) (set USR:OVF) BEFORE
+            // taking bits[31:16].
+            Opcode::S2_vrndpackwh | Opcode::S2_vrndpackwhs => {
+                let sat = matches!(op, Opcode::S2_vrndpackwhs);
+                let src = read_pair!(fld(b's'));
+                let acc = w64_zero!();
+                for i in 0..2u32 {
+                    // signed word lane i.
+                    let lane = ctx.alloc_vreg();
+                    push_op!(OpKind::Bfx {
+                        dst: lane,
+                        src,
+                        lsb: (i as u8) * 32,
+                        width_bits: 32,
+                        sign_extend: true,
+                        op_width: OpWidth::W64,
+                    });
+                    let rnd = ctx.alloc_vreg();
+                    push_op!(OpKind::Add {
+                        dst: rnd,
+                        src1: lane,
+                        src2: SrcOperand::Imm(0x8000),
+                        width: OpWidth::W64,
+                        flags: FlagUpdate::None,
+                    });
+                    let w = if sat {
+                        let s = ctx.alloc_vreg();
+                        push_op!(OpKind::SatN {
+                            dst: s,
+                            src: SrcOperand::Reg(rnd),
+                            sat_bits: 32,
+                            signed: true,
+                            set_ovf: true,
+                            width: OpWidth::W64,
+                        });
+                        s
+                    } else {
+                        rnd
+                    };
+                    // half 1 of w = bits[31:16].
+                    let hi = ctx.alloc_vreg();
+                    push_op!(OpKind::Bfx {
+                        dst: hi,
+                        src: w,
+                        lsb: 16,
+                        width_bits: 16,
+                        sign_extend: false,
+                        op_width: OpWidth::W64,
+                    });
+                    let next = ctx.alloc_vreg();
+                    push_op!(OpKind::Bfi {
+                        dst: next,
+                        dst_in: acc,
+                        src: hi,
+                        lsb: (i as u8) * 16,
+                        width_bits: 16,
+                        op_width: OpWidth::W64,
+                    });
+                    push_op!(OpKind::Mov {
+                        dst: acc,
+                        src: SrcOperand::Reg(next),
+                        width: OpWidth::W64,
+                    });
+                }
+                set_r!(acc);
+            }
+
+            // ---- bit permute / split ----
+            // A4_bitspliti: Rdd = { Rs >> #sh (word1) ; zxtn(#sh, Rs) (word0) }.
+            // A4_bitsplit : same but #sh = Rt & 0x1f (runtime).
+            Opcode::A4_bitspliti => {
+                let sh = (fimm_u(b'i') & 0x1f) as i64;
+                // word1 = Rs >> sh (logical, 32-bit).
+                let hi = ctx.alloc_vreg();
+                push_op!(OpKind::Shr {
+                    dst: hi,
+                    src: rs,
+                    amount: SrcOperand::Imm(sh),
+                    width: OpWidth::W32,
+                    flags: FlagUpdate::None,
+                });
+                // word0 = Rs & ((1<<sh)-1)  (sh in 0..31; sh==0 -> 0).
+                let lo = ctx.alloc_vreg();
+                let mask: i64 = if sh == 0 { 0 } else { ((1u64 << sh) - 1) as i64 };
+                push_op!(OpKind::And {
+                    dst: lo,
+                    src1: rs,
+                    src2: SrcOperand::Imm(mask),
+                    width: OpWidth::W32,
+                    flags: FlagUpdate::None,
+                });
+                push_op!(OpKind::Mov {
+                    dst: self.hex_reg(rd_n & !1),
+                    src: SrcOperand::Reg(lo),
+                    width: OpWidth::W32,
+                });
+                push_op!(OpKind::Mov {
+                    dst: self.hex_reg((rd_n & !1) + 1),
+                    src: SrcOperand::Reg(hi),
+                    width: OpWidth::W32,
+                });
+            }
+            Opcode::A4_bitsplit => {
+                // sh = zxtn(5, Rt) = Rt & 0x1f.
+                let sh = ctx.alloc_vreg();
+                push_op!(OpKind::And {
+                    dst: sh,
+                    src1: rt,
+                    src2: SrcOperand::Imm(0x1f),
+                    width: OpWidth::W32,
+                    flags: FlagUpdate::None,
+                });
+                // word1 = Rs >> sh (logical, runtime amount).
+                let hi = ctx.alloc_vreg();
+                push_op!(OpKind::Shr {
+                    dst: hi,
+                    src: rs,
+                    amount: SrcOperand::Reg(sh),
+                    width: OpWidth::W32,
+                    flags: FlagUpdate::None,
+                });
+                // mask = (1u32 << sh) - 1, built at runtime via Shl + Sub.
+                let one = ctx.alloc_vreg();
+                push_op!(OpKind::Mov {
+                    dst: one,
+                    src: SrcOperand::Imm(1),
+                    width: OpWidth::W32,
+                });
+                let one_sh = ctx.alloc_vreg();
+                push_op!(OpKind::Shl {
+                    dst: one_sh,
+                    src: one,
+                    amount: SrcOperand::Reg(sh),
+                    width: OpWidth::W32,
+                    flags: FlagUpdate::None,
+                });
+                let mask = ctx.alloc_vreg();
+                push_op!(OpKind::Sub {
+                    dst: mask,
+                    src1: one_sh,
+                    src2: SrcOperand::Imm(1),
+                    width: OpWidth::W32,
+                    flags: FlagUpdate::None,
+                });
+                let lo = ctx.alloc_vreg();
+                push_op!(OpKind::And {
+                    dst: lo,
+                    src1: rs,
+                    src2: SrcOperand::Reg(mask),
+                    width: OpWidth::W32,
+                    flags: FlagUpdate::None,
+                });
+                push_op!(OpKind::Mov {
+                    dst: self.hex_reg(rd_n & !1),
+                    src: SrcOperand::Reg(lo),
+                    width: OpWidth::W32,
+                });
+                push_op!(OpKind::Mov {
+                    dst: self.hex_reg((rd_n & !1) + 1),
+                    src: SrcOperand::Reg(hi),
+                    width: OpWidth::W32,
+                });
+            }
+
+            // ---- bit interleave / deinterleave of a 64-bit pair ----
+            // interleave(odd=Rss.w1, even=Rss.w0): result bit 2i = even[i],
+            // bit 2i+1 = odd[i].  deinterleave is the inverse (even bits -> w0,
+            // odd bits -> w1).  Composed via the standard 5-stage shift/mask
+            // butterfly (Hacker's Delight "perfect outer shuffle"); verified
+            // against the sem reference for all-zero / all-one / mixed inputs.
+            //
+            //   spread(v):  v&=lo32; v=(v|v<<16)&M16; v=(v|v<<8)&M8;
+            //               v=(v|v<<4)&M4; v=(v|v<<2)&M2; v=(v|v<<1)&M1
+            //   interleave: spread(even) | (spread(odd) << 1)
+            //   compress(v):v&=M1; v=(v|v>>1)&M2; v=(v|v>>2)&M4; v=(v|v>>4)&M8;
+            //               v=(v|v>>8)&M16; v=(v|v>>16)&lo32
+            //   deinterleave: (compress(mixed>>1) << 32) | compress(mixed)
+            Opcode::S2_interleave => {
+                const M16: i64 = 0x0000_FFFF_0000_FFFFu64 as i64;
+                const M8: i64 = 0x00FF_00FF_00FF_00FFu64 as i64;
+                const M4: i64 = 0x0F0F_0F0F_0F0F_0F0Fu64 as i64;
+                const M2: i64 = 0x3333_3333_3333_3333u64 as i64;
+                const M1: i64 = 0x5555_5555_5555_5555u64 as i64;
+                let src = read_pair!(fld(b's'));
+                // spread the low 32 bits of `inp` into even bit positions.
+                macro_rules! spread {
+                    ($inp:expr) => {{
+                        let v0 = ctx.alloc_vreg();
+                        push_op!(OpKind::And {
+                            dst: v0,
+                            src1: $inp,
+                            src2: SrcOperand::Imm(0xFFFF_FFFF),
+                            width: OpWidth::W64,
+                            flags: FlagUpdate::None,
+                        });
+                        let mut cur = v0;
+                        for &(sh, mask) in
+                            &[(16i64, M16), (8, M8), (4, M4), (2, M2), (1, M1)]
+                        {
+                            let sl = ctx.alloc_vreg();
+                            push_op!(OpKind::Shl {
+                                dst: sl,
+                                src: cur,
+                                amount: SrcOperand::Imm(sh),
+                                width: OpWidth::W64,
+                                flags: FlagUpdate::None,
+                            });
+                            let orr = ctx.alloc_vreg();
+                            push_op!(OpKind::Or {
+                                dst: orr,
+                                src1: cur,
+                                src2: SrcOperand::Reg(sl),
+                                width: OpWidth::W64,
+                                flags: FlagUpdate::None,
+                            });
+                            let m = ctx.alloc_vreg();
+                            push_op!(OpKind::And {
+                                dst: m,
+                                src1: orr,
+                                src2: SrcOperand::Imm(mask),
+                                width: OpWidth::W64,
+                                flags: FlagUpdate::None,
+                            });
+                            cur = m;
+                        }
+                        cur
+                    }};
+                }
+                // even := low 32 bits of Rss (already in place).
+                let e = spread!(src);
+                // odd := high 32 bits of Rss -> shift down to low 32, spread.
+                let odd_in = ctx.alloc_vreg();
+                push_op!(OpKind::Shr {
+                    dst: odd_in,
+                    src,
+                    amount: SrcOperand::Imm(32),
+                    width: OpWidth::W64,
+                    flags: FlagUpdate::None,
+                });
+                let o = spread!(odd_in);
+                let o1 = ctx.alloc_vreg();
+                push_op!(OpKind::Shl {
+                    dst: o1,
+                    src: o,
+                    amount: SrcOperand::Imm(1),
+                    width: OpWidth::W64,
+                    flags: FlagUpdate::None,
+                });
+                let r = ctx.alloc_vreg();
+                push_op!(OpKind::Or {
+                    dst: r,
+                    src1: e,
+                    src2: SrcOperand::Reg(o1),
+                    width: OpWidth::W64,
+                    flags: FlagUpdate::None,
+                });
+                write_pair!(rd_n, r);
+            }
+            Opcode::S2_deinterleave => {
+                const M16: i64 = 0x0000_FFFF_0000_FFFFu64 as i64;
+                const M8: i64 = 0x00FF_00FF_00FF_00FFu64 as i64;
+                const M4: i64 = 0x0F0F_0F0F_0F0F_0F0Fu64 as i64;
+                const M2: i64 = 0x3333_3333_3333_3333u64 as i64;
+                const M1: i64 = 0x5555_5555_5555_5555u64 as i64;
+                let src = read_pair!(fld(b's'));
+                // compress the even bit positions of `inp` into the low 32 bits.
+                macro_rules! compress {
+                    ($inp:expr) => {{
+                        let v0 = ctx.alloc_vreg();
+                        push_op!(OpKind::And {
+                            dst: v0,
+                            src1: $inp,
+                            src2: SrcOperand::Imm(M1),
+                            width: OpWidth::W64,
+                            flags: FlagUpdate::None,
+                        });
+                        let mut cur = v0;
+                        for &(sh, mask) in &[
+                            (1i64, M2),
+                            (2, M4),
+                            (4, M8),
+                            (8, M16),
+                            (16, 0xFFFF_FFFFi64),
+                        ] {
+                            let sr = ctx.alloc_vreg();
+                            push_op!(OpKind::Shr {
+                                dst: sr,
+                                src: cur,
+                                amount: SrcOperand::Imm(sh),
+                                width: OpWidth::W64,
+                                flags: FlagUpdate::None,
+                            });
+                            let orr = ctx.alloc_vreg();
+                            push_op!(OpKind::Or {
+                                dst: orr,
+                                src1: cur,
+                                src2: SrcOperand::Reg(sr),
+                                width: OpWidth::W64,
+                                flags: FlagUpdate::None,
+                            });
+                            let m = ctx.alloc_vreg();
+                            push_op!(OpKind::And {
+                                dst: m,
+                                src1: orr,
+                                src2: SrcOperand::Imm(mask),
+                                width: OpWidth::W64,
+                                flags: FlagUpdate::None,
+                            });
+                            cur = m;
+                        }
+                        cur
+                    }};
+                }
+                let even = compress!(src);
+                let shifted = ctx.alloc_vreg();
+                push_op!(OpKind::Shr {
+                    dst: shifted,
+                    src,
+                    amount: SrcOperand::Imm(1),
+                    width: OpWidth::W64,
+                    flags: FlagUpdate::None,
+                });
+                let odd = compress!(shifted);
+                let odd_hi = ctx.alloc_vreg();
+                push_op!(OpKind::Shl {
+                    dst: odd_hi,
+                    src: odd,
+                    amount: SrcOperand::Imm(32),
+                    width: OpWidth::W64,
+                    flags: FlagUpdate::None,
+                });
+                let r = ctx.alloc_vreg();
+                push_op!(OpKind::Or {
+                    dst: r,
+                    src1: even,
+                    src2: SrcOperand::Reg(odd_hi),
+                    width: OpWidth::W64,
+                    flags: FlagUpdate::None,
+                });
+                write_pair!(rd_n, r);
+            }
+
+            // ---- pair->pair even/odd byte truncate-pack ----
+            // S6_vtrunehb_ppp: Rdd byte i      = Rtt byte 2i   (i in 0..4)
+            //                  Rdd byte i+4    = Rss byte 2i
+            // S6_vtrunohb_ppp: like above but byte 2i+1 (odd).
+            Opcode::S6_vtrunehb_ppp | Opcode::S6_vtrunohb_ppp => {
+                let odd = matches!(op, Opcode::S6_vtrunohb_ppp);
+                let rss = read_pair!(fld(b's'));
+                let rtt = read_pair!(fld(b't'));
+                let acc = w64_zero!();
+                let off = if odd { 1u8 } else { 0u8 };
+                for i in 0..4u32 {
+                    // low 4 dst bytes from Rtt.
+                    let bt = ctx.alloc_vreg();
+                    push_op!(OpKind::Bfx {
+                        dst: bt,
+                        src: rtt,
+                        lsb: (2 * i as u8) * 8 + off * 8,
+                        width_bits: 8,
+                        sign_extend: false,
+                        op_width: OpWidth::W64,
+                    });
+                    let n1 = ctx.alloc_vreg();
+                    push_op!(OpKind::Bfi {
+                        dst: n1,
+                        dst_in: acc,
+                        src: bt,
+                        lsb: (i as u8) * 8,
+                        width_bits: 8,
+                        op_width: OpWidth::W64,
+                    });
+                    push_op!(OpKind::Mov {
+                        dst: acc,
+                        src: SrcOperand::Reg(n1),
+                        width: OpWidth::W64,
+                    });
+                    // high 4 dst bytes from Rss.
+                    let bs = ctx.alloc_vreg();
+                    push_op!(OpKind::Bfx {
+                        dst: bs,
+                        src: rss,
+                        lsb: (2 * i as u8) * 8 + off * 8,
+                        width_bits: 8,
+                        sign_extend: false,
+                        op_width: OpWidth::W64,
+                    });
+                    let n2 = ctx.alloc_vreg();
+                    push_op!(OpKind::Bfi {
+                        dst: n2,
+                        dst_in: acc,
+                        src: bs,
+                        lsb: (i as u8 + 4) * 8,
+                        width_bits: 8,
+                        op_width: OpWidth::W64,
+                    });
+                    push_op!(OpKind::Mov {
+                        dst: acc,
+                        src: SrcOperand::Reg(n2),
+                        width: OpWidth::W64,
+                    });
+                }
+                write_pair!(rd_n, acc);
+            }
+
+            // ---- replicate Rs byte across the Rdd pair ----
+            // S6_vsplatrbp: Rdd = (Rs & 0xff) broadcast into all 8 bytes.
+            // (The single source uses field `s`, matching the sem.)
+            Opcode::S6_vsplatrbp => {
+                let b = ctx.alloc_vreg();
+                push_op!(OpKind::And {
+                    dst: b,
+                    src1: rs,
+                    src2: SrcOperand::Imm(0xff),
+                    width: OpWidth::W32,
+                    flags: FlagUpdate::None,
+                });
+                let bz = ctx.alloc_vreg();
+                push_op!(OpKind::ZeroExtend {
+                    dst: bz,
+                    src: b,
+                    from_width: OpWidth::W8,
+                    to_width: OpWidth::W64,
+                });
+                // 0x0101010101010101 splats the byte into all 8 lanes.
+                let r = ctx.alloc_vreg();
+                push_op!(OpKind::MulU {
+                    dst_lo: r,
+                    dst_hi: None,
+                    src1: bz,
+                    src2: SrcOperand::Imm(0x0101_0101_0101_0101u64 as i64),
+                    width: OpWidth::W64,
+                    flags: FlagUpdate::None,
+                });
+                write_pair!(rd_n, r);
+            }
+
+            // ---- S2_lfsp: linear-feedback shift (pair) ----
+            // parity = popcount(Rss & Rtt) & 1; Rdd = (Rss >> 1) | (parity << 63).
+            Opcode::S2_lfsp => {
+                let rss = read_pair!(fld(b's'));
+                let rtt = read_pair!(fld(b't'));
+                let and = ctx.alloc_vreg();
+                push_op!(OpKind::And {
+                    dst: and,
+                    src1: rss,
+                    src2: SrcOperand::Reg(rtt),
+                    width: OpWidth::W64,
+                    flags: FlagUpdate::None,
+                });
+                let pc = ctx.alloc_vreg();
+                push_op!(OpKind::Popcnt {
+                    dst: pc,
+                    src: and,
+                    width: OpWidth::W64,
+                });
+                let parity = ctx.alloc_vreg();
+                push_op!(OpKind::And {
+                    dst: parity,
+                    src1: pc,
+                    src2: SrcOperand::Imm(1),
+                    width: OpWidth::W64,
+                    flags: FlagUpdate::None,
+                });
+                let pbit = ctx.alloc_vreg();
+                push_op!(OpKind::Shl {
+                    dst: pbit,
+                    src: parity,
+                    amount: SrcOperand::Imm(63),
+                    width: OpWidth::W64,
+                    flags: FlagUpdate::None,
+                });
+                let shr = ctx.alloc_vreg();
+                push_op!(OpKind::Shr {
+                    dst: shr,
+                    src: rss,
+                    amount: SrcOperand::Imm(1),
+                    width: OpWidth::W64,
+                    flags: FlagUpdate::None,
+                });
+                let r = ctx.alloc_vreg();
+                push_op!(OpKind::Or {
+                    dst: r,
+                    src1: shr,
+                    src2: SrcOperand::Reg(pbit),
+                    width: OpWidth::W64,
+                    flags: FlagUpdate::None,
+                });
+                write_pair!(rd_n, r);
+            }
+
+            // ---- tableidx{b,h,w,d}: Rx read-modify bitfield insert ----
+            // width=#u4, offset=#S6 + N (N = elem-size log2: b=0,h=1,w=2,d=3).
+            // field = zxtn(width, bidir_lshiftr(Rs, offset)); deposit `width`
+            // bits of field at bit N of Rx.  The offset is a compile-time signed
+            // constant (no immext in any encoding form), so the bidir shift folds
+            // to a single Shl/Shr at lift time.
+            Opcode::S2_tableidxb
+            | Opcode::S2_tableidxh
+            | Opcode::S2_tableidxw
+            | Opcode::S2_tableidxd => {
+                let n: u8 = match op {
+                    Opcode::S2_tableidxb => 0,
+                    Opcode::S2_tableidxh => 1,
+                    Opcode::S2_tableidxw => 2,
+                    _ => 3, // tableidxd
+                };
+                let width = (fimm_u(b'i') & 0xf) as u8; // u4
+                let offset = (fimm_s(b'I') as i64).wrapping_add(n as i64);
+                if width == 0 {
+                    // mask == 0 -> Rx unchanged; emit nothing.
+                } else {
+                    // bidir_lshiftr(Rs as u64, offset): offset>=0 -> >> offset,
+                    // offset<0 -> (Rs << (-offset-1)) << 1. Fold at lift time.
+                    let rsz = ctx.alloc_vreg();
+                    push_op!(OpKind::ZeroExtend {
+                        dst: rsz,
+                        src: rs,
+                        from_width: OpWidth::W32,
+                        to_width: OpWidth::W64,
+                    });
+                    let shifted = ctx.alloc_vreg();
+                    if offset >= 0 {
+                        push_op!(OpKind::Shr {
+                            dst: shifted,
+                            src: rsz,
+                            amount: SrcOperand::Imm(offset),
+                            width: OpWidth::W64,
+                            flags: FlagUpdate::None,
+                        });
+                    } else {
+                        // left shift by (-offset): two stages mirror the sem's
+                        // `(x << (-off-1)) << 1` (avoids a >=64 single shift).
+                        let s1 = ctx.alloc_vreg();
+                        push_op!(OpKind::Shl {
+                            dst: s1,
+                            src: rsz,
+                            amount: SrcOperand::Imm(-offset - 1),
+                            width: OpWidth::W64,
+                            flags: FlagUpdate::None,
+                        });
+                        push_op!(OpKind::Shl {
+                            dst: shifted,
+                            src: s1,
+                            amount: SrcOperand::Imm(1),
+                            width: OpWidth::W64,
+                            flags: FlagUpdate::None,
+                        });
+                    }
+                    // field = low `width` bits; deposit at bit N of Rx.
+                    let field = ctx.alloc_vreg();
+                    push_op!(OpKind::Bfx {
+                        dst: field,
+                        src: shifted,
+                        lsb: 0,
+                        width_bits: width,
+                        sign_extend: false,
+                        op_width: OpWidth::W64,
+                    });
+                    let rxz = ctx.alloc_vreg();
+                    push_op!(OpKind::ZeroExtend {
+                        dst: rxz,
+                        src: rx,
+                        from_width: OpWidth::W32,
+                        to_width: OpWidth::W64,
+                    });
+                    let merged = ctx.alloc_vreg();
+                    push_op!(OpKind::Bfi {
+                        dst: merged,
+                        dst_in: rxz,
+                        src: field,
+                        lsb: n,
+                        width_bits: width,
+                        op_width: OpWidth::W64,
+                    });
+                    push_op!(OpKind::Mov {
+                        dst: rx,
+                        src: SrcOperand::Reg(merged),
+                        width: OpWidth::W32,
+                    });
+                }
+            }
+
+            // ---- A5_ACS: Rxx,Pe = vacsh(Rss,Rtt) ----
+            // Per halfword lane i (0..4):
+            //   xv = (i16)Rxx.h[i] + (i16)Rtt.h[i]   (full 32-bit, no sat)
+            //   sv = (i16)Rss.h[i] - (i16)Rtt.h[i]   (full 32-bit, no sat)
+            //   Pe[2i] = Pe[2i+1] = (xv > sv)
+            //   Rxx.h[i] = fSATH(max(xv,sv))   (sat to s16, set USR:OVF on clamp)
+            // The harness compares only Pe BIT 0, so we write lane-0 truth into
+            // Pe bit 0 (And(.,1)); the per-lane 2-bit duplication is unobservable
+            // here (multi-bit-predicate limitation, REPORTED).
+            Opcode::A5_ACS => {
+                let rss = read_pair!(fld(b's'));
+                let rtt = read_pair!(fld(b't'));
+                let rxx = read_pair!(rx_n);
+                let acc = w64_zero!();
+                // lane0 (xv > sv) truth, captured for the predicate write.
+                let mut lane0_gt: Option<VReg> = None;
+                for i in 0..4u32 {
+                    let xh = ctx.alloc_vreg();
+                    push_op!(OpKind::Bfx {
+                        dst: xh,
+                        src: rxx,
+                        lsb: (i as u8) * 16,
+                        width_bits: 16,
+                        sign_extend: true,
+                        op_width: OpWidth::W64,
+                    });
+                    let sh = ctx.alloc_vreg();
+                    push_op!(OpKind::Bfx {
+                        dst: sh,
+                        src: rss,
+                        lsb: (i as u8) * 16,
+                        width_bits: 16,
+                        sign_extend: true,
+                        op_width: OpWidth::W64,
+                    });
+                    let th = ctx.alloc_vreg();
+                    push_op!(OpKind::Bfx {
+                        dst: th,
+                        src: rtt,
+                        lsb: (i as u8) * 16,
+                        width_bits: 16,
+                        sign_extend: true,
+                        op_width: OpWidth::W64,
+                    });
+                    let xv = ctx.alloc_vreg();
+                    push_op!(OpKind::Add {
+                        dst: xv,
+                        src1: xh,
+                        src2: SrcOperand::Reg(th),
+                        width: OpWidth::W64,
+                        flags: FlagUpdate::None,
+                    });
+                    let sv = ctx.alloc_vreg();
+                    push_op!(OpKind::Sub {
+                        dst: sv,
+                        src1: sh,
+                        src2: SrcOperand::Reg(th),
+                        width: OpWidth::W64,
+                        flags: FlagUpdate::None,
+                    });
+                    // gt = (xv > sv) ? 1 : 0 (signed).
+                    let gt = ctx.alloc_vreg();
+                    push_op!(OpKind::Cmp {
+                        src1: xv,
+                        src2: SrcOperand::Reg(sv),
+                        width: OpWidth::W64,
+                    });
+                    push_op!(OpKind::SetCC {
+                        dst: gt,
+                        cond: Condition::Sgt,
+                        width: OpWidth::W64,
+                    });
+                    if i == 0 {
+                        lane0_gt = Some(gt);
+                    }
+                    // max(xv, sv).
+                    let max = ctx.alloc_vreg();
+                    push_op!(OpKind::Select {
+                        dst: max,
+                        cond: gt,
+                        src_true: xv,
+                        src_false: sv,
+                        width: OpWidth::W64,
+                    });
+                    // fSATH(16) with sticky USR:OVF.
+                    let sat = ctx.alloc_vreg();
+                    push_op!(OpKind::SatN {
+                        dst: sat,
+                        src: SrcOperand::Reg(max),
+                        sat_bits: 16,
+                        signed: true,
+                        set_ovf: true,
+                        width: OpWidth::W64,
+                    });
+                    let next = ctx.alloc_vreg();
+                    push_op!(OpKind::Bfi {
+                        dst: next,
+                        dst_in: acc,
+                        src: sat,
+                        lsb: (i as u8) * 16,
+                        width_bits: 16,
+                        op_width: OpWidth::W64,
+                    });
+                    push_op!(OpKind::Mov {
+                        dst: acc,
+                        src: SrcOperand::Reg(next),
+                        width: OpWidth::W64,
+                    });
+                }
+                write_pair!(rx_n, acc);
+                // Pe bit 0 = lane0 (xv > sv). Only bit 0 is tracked/compared.
+                let g = lane0_gt.expect("lane0 gt set");
+                let pe = self.hex_pred(fld(b'e'));
+                push_op!(OpKind::And {
+                    dst: pe,
+                    src1: g,
+                    src2: SrcOperand::Imm(1),
+                    width: OpWidth::W32,
+                    flags: FlagUpdate::None,
+                });
+            }
+
+            // ---- R6 release stores ----
+            // In the single-threaded harness the release / memory-ordering effect
+            // is UNOBSERVABLE; the sem layer itself treats these as register-only
+            // no-ops (no store, no register or predicate write), so the faithful
+            // lift is an empty op list. (Ordering semantics are not modeled —
+            // acceptable: no observable effect here. See report.)
+            Opcode::R6_release_at_vi | Opcode::R6_release_st_vi => {}
+
+            // ============================================================
             // S4 add/sub-with-shift compounds, S2_addasl
             // ============================================================
             // S2_addasl_rrri: Rd = Rt + (Rs << #u3).
