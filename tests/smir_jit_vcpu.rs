@@ -960,3 +960,50 @@ fn jit_mem_partial_and_imm_stores_match_interpreter() {
     assert_eq!(jmem.read_obj::<u8>(GuestAddress(DST + 16)).unwrap(), 0x55, "imm8");
     assert_eq!(jmem.read_obj::<u32>(GuestAddress(DST + 20)).unwrap(), 0x1234_5678, "imm32");
 }
+
+/// RIP-relative memory access — the addressing mode kernel code uses for static
+/// globals (e.g. the text_poke batch array). The JIT must resolve the absolute
+/// guest target at lift time. Must match the interpreter.
+#[test]
+fn jit_mem_riprel_store_loop_matches_interpreter() {
+    const SCRATCH: u64 = 0x20_0000;
+    let val = 0x1000u64;
+
+    // mov rax,val ; mov ecx,3
+    // loop: mov [rip+disp], rax ; add rax,1 ; dec ecx ; jnz loop ; hlt
+    // The mov [rip+disp],rax is `48 89 05 <disp32>`; disp = SCRATCH - next_insn.
+    // Layout: mov rax(10) + mov ecx(5) = 15 = loop start; the RIP-rel mov is 7
+    // bytes (15..22), so next_insn (guest) = LOAD_ADDR + 22.
+    let next_insn = LOAD_ADDR + 22;
+    let disp = (SCRATCH as i64 - next_insn as i64) as i32;
+
+    let mut code: Vec<u8> = Vec::new();
+    code.extend_from_slice(&[0x48, 0xB8]);
+    code.extend_from_slice(&val.to_le_bytes()); // mov rax, val
+    code.push(0xB9);
+    code.extend_from_slice(&3u32.to_le_bytes()); // mov ecx, 3
+    code.extend_from_slice(&[0x48, 0x89, 0x05]); // mov [rip+disp], rax
+    code.extend_from_slice(&disp.to_le_bytes());
+    code.extend_from_slice(&[0x48, 0x83, 0xC0, 0x01]); // add rax, 1
+    code.extend_from_slice(&[0xFF, 0xC9]); // dec ecx
+    code.extend_from_slice(&[0x75, 0xF1]); // jnz loop (rel8 = -15)
+    code.push(0xF4); // hlt
+
+    let (mut interp, imem) = make_vcpu_mem(&code);
+    imem.write_obj(0u64, GuestAddress(SCRATCH)).unwrap();
+    run_interp(&mut interp);
+    let ir = interp.get_regs().unwrap();
+    let iv: u64 = imem.read_obj(GuestAddress(SCRATCH)).unwrap();
+
+    let (mut jit, jmem) = make_vcpu_mem(&code);
+    jit.set_jit_mem(true);
+    jmem.write_obj(0u64, GuestAddress(SCRATCH)).unwrap();
+    assert!(jit.jit_try_block().expect("jit_try_block"), "rip-rel loop should JIT");
+    run_interp(&mut jit);
+    let jr = jit.get_regs().unwrap();
+    let jv: u64 = jmem.read_obj(GuestAddress(SCRATCH)).unwrap();
+
+    assert_eq!(jr.rax, ir.rax, "rax");
+    assert_eq!(jv, iv, "RIP-relative store target (jit vs interp)");
+    assert_eq!(jv, val + 2, "last stored value (val, val+1, val+2)");
+}
