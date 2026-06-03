@@ -15,7 +15,7 @@
 //! and reads it back, the value is masked according to the BAR's registered
 //! size and type bits, which is how firmware discovers the size of each region.
 
-use super::bus::IoDevice;
+use super::bus::{IoDevice, MmioDevice};
 use std::collections::HashMap;
 
 /// PCI configuration space ports.
@@ -263,6 +263,32 @@ pub struct PciStub {
     address: u32,
     /// Registered functions keyed by (bus, device, function).
     functions: HashMap<FunctionKey, ConfigSpace>,
+    /// Endpoints whose BAR-mapped register block routes to a device handler.
+    endpoints: Vec<PciEndpoint>,
+}
+
+/// A BAR-mapped device handler living behind the host bridge.
+enum PciHandler {
+    Mmio(Box<dyn MmioDevice>),
+    Pio(Box<dyn IoDevice>),
+}
+
+/// A PCI endpoint whose register block is reachable through one of its BARs.
+/// The handler is fed BAR-*relative* offsets, so device models are constructed
+/// with a zero base and the dynamic BAR address is applied here — letting the
+/// guest reprogram the BAR freely.
+struct PciEndpoint {
+    key: FunctionKey,
+    handler: PciHandler,
+    /// BAR index (0..=5) whose window maps the handler.
+    bar_index: usize,
+    /// BAR window size in bytes (power of two).
+    bar_size: u64,
+    /// Whether the mapping BAR is I/O space (else memory space).
+    io: bool,
+    /// Currently decoded + enabled base address of the BAR, or 0 when the BAR is
+    /// unprogrammed, mid-size-probe, or its decode is disabled in COMMAND.
+    current_base: u64,
 }
 
 impl PciStub {
@@ -271,6 +297,7 @@ impl PciStub {
         let mut pci = PciStub {
             address: 0,
             functions: HashMap::new(),
+            endpoints: Vec::new(),
         };
         // Host bridge (Intel 440FX PMC) at bus 0, device 0, function 0.
         // Vendor 0x8086 (Intel), device 0x1237 (440FX), class 0x060000
@@ -283,6 +310,170 @@ impl PciStub {
     /// Attach a PCI function's configuration space at (bus, device, function).
     pub fn add_function(&mut self, bus: u8, device: u8, function: u8, cs: ConfigSpace) {
         self.functions.insert((bus, device, function), cs);
+    }
+
+    /// Attach an endpoint with a memory-BAR-mapped MMIO register block. The
+    /// handler receives BAR-relative offsets; build the device model with a zero
+    /// base. `bar_index` must match a memory BAR registered on `cs`.
+    pub fn attach_mmio(
+        &mut self,
+        bus: u8,
+        device: u8,
+        function: u8,
+        cs: ConfigSpace,
+        bar_index: usize,
+        handler: Box<dyn MmioDevice>,
+    ) {
+        let bar_size = cs.bars[bar_index].map(|b| b.size as u64).unwrap_or(0);
+        let key = (bus, device, function);
+        self.functions.insert(key, cs);
+        self.endpoints.push(PciEndpoint {
+            key,
+            handler: PciHandler::Mmio(handler),
+            bar_index,
+            bar_size,
+            io: false,
+            current_base: 0,
+        });
+        self.recompute_bases();
+    }
+
+    /// Attach an endpoint with an I/O-BAR-mapped register block. The handler
+    /// receives BAR-relative ports; build the device model with a zero base.
+    pub fn attach_pio(
+        &mut self,
+        bus: u8,
+        device: u8,
+        function: u8,
+        cs: ConfigSpace,
+        bar_index: usize,
+        handler: Box<dyn IoDevice>,
+    ) {
+        let bar_size = cs.bars[bar_index].map(|b| b.size as u64).unwrap_or(0);
+        let key = (bus, device, function);
+        self.functions.insert(key, cs);
+        self.endpoints.push(PciEndpoint {
+            key,
+            handler: PciHandler::Pio(handler),
+            bar_index,
+            bar_size,
+            io: true,
+            current_base: 0,
+        });
+        self.recompute_bases();
+    }
+
+    /// Recompute every endpoint's live BAR base from its config space. Called
+    /// after any config write (cheap — there are only a handful of endpoints).
+    fn recompute_bases(&mut self) {
+        for idx in 0..self.endpoints.len() {
+            let ep = &self.endpoints[idx];
+            let (cmd, raw) = match self.functions.get(&ep.key) {
+                Some(cs) => (
+                    (cs.get_u32(0x04) & 0xffff) as u16,
+                    cs.get_u32(BAR0_OFFSET + ep.bar_index * 4),
+                ),
+                None => (0, 0),
+            };
+            // COMMAND bit 0 = I/O decode enable, bit 1 = memory decode enable.
+            let decode = if ep.io { cmd & 0x1 != 0 } else { cmd & 0x2 != 0 };
+            let low = low_bits_mask(ep.io);
+            let size = ep.bar_size.max(1) as u32;
+            let addr_mask = !(size.wrapping_sub(1));
+            let base = (raw & addr_mask & !low) as u64;
+            // Treat an all-ones size probe (or zero/disabled) as "not routable".
+            let probing = (raw & !low) == (0xffff_ffffu32 & !low);
+            self.endpoints[idx].current_base = if decode && base != 0 && !probing {
+                base
+            } else {
+                0
+            };
+        }
+    }
+
+    /// The smallest..largest span covered by any currently-active *memory* BAR,
+    /// or `None` when no memory endpoint is decoding. Used by the emulator MMU
+    /// to know which physical range to divert from RAM to PCI.
+    pub fn mmio_aperture(&self) -> Option<(u64, u64)> {
+        let mut lo = u64::MAX;
+        let mut hi = 0u64;
+        for ep in &self.endpoints {
+            if ep.io || ep.current_base == 0 {
+                continue;
+            }
+            lo = lo.min(ep.current_base);
+            hi = hi.max(ep.current_base + ep.bar_size);
+        }
+        if hi > lo { Some((lo, hi)) } else { None }
+    }
+
+    /// Route an MMIO read to the endpoint whose memory BAR covers `addr`.
+    /// Returns true (and fills `data`) when handled.
+    pub fn mmio_read(&mut self, addr: u64, data: &mut [u8]) -> bool {
+        for ep in self.endpoints.iter_mut() {
+            if ep.io || ep.current_base == 0 {
+                continue;
+            }
+            let end = ep.current_base + ep.bar_size;
+            if addr >= ep.current_base && addr < end {
+                if let PciHandler::Mmio(h) = &mut ep.handler {
+                    h.read(addr - ep.current_base, data);
+                    return true;
+                }
+            }
+        }
+        false
+    }
+
+    /// Route an MMIO write to the endpoint whose memory BAR covers `addr`.
+    pub fn mmio_write(&mut self, addr: u64, data: &[u8]) -> bool {
+        for ep in self.endpoints.iter_mut() {
+            if ep.io || ep.current_base == 0 {
+                continue;
+            }
+            let end = ep.current_base + ep.bar_size;
+            if addr >= ep.current_base && addr < end {
+                if let PciHandler::Mmio(h) = &mut ep.handler {
+                    h.write(addr - ep.current_base, data);
+                    return true;
+                }
+            }
+        }
+        false
+    }
+
+    /// Route an I/O-port read to the endpoint whose I/O BAR covers `port`.
+    pub fn io_read(&mut self, port: u16) -> Option<u8> {
+        for ep in self.endpoints.iter_mut() {
+            if !ep.io || ep.current_base == 0 {
+                continue;
+            }
+            let end = ep.current_base + ep.bar_size;
+            if (port as u64) >= ep.current_base && (port as u64) < end {
+                if let PciHandler::Pio(h) = &mut ep.handler {
+                    return Some(h.read(port - ep.current_base as u16));
+                }
+            }
+        }
+        None
+    }
+
+    /// Route an I/O-port write to the endpoint whose I/O BAR covers `port`.
+    /// Returns true when handled.
+    pub fn io_write(&mut self, port: u16, value: u8) -> bool {
+        for ep in self.endpoints.iter_mut() {
+            if !ep.io || ep.current_base == 0 {
+                continue;
+            }
+            let end = ep.current_base + ep.bar_size;
+            if (port as u64) >= ep.current_base && (port as u64) < end {
+                if let PciHandler::Pio(h) = &mut ep.handler {
+                    h.write(port - ep.current_base as u16, value);
+                    return true;
+                }
+            }
+        }
+        false
     }
 
     /// Decode the currently latched CONFIG_ADDRESS into its components.
@@ -340,6 +531,11 @@ impl PciStub {
             None => return,
         };
         cs.set_u32(decoded.register, value);
+        // A BAR or COMMAND write may change which physical/IO addresses an
+        // endpoint decodes; keep the live bases in sync.
+        if !self.endpoints.is_empty() {
+            self.recompute_bases();
+        }
     }
 }
 

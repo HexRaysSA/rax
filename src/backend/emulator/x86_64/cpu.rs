@@ -2414,6 +2414,15 @@ impl VCpu for X86_64Vcpu {
         Ok(())
     }
 
+    fn set_pci_bridge(
+        &mut self,
+        bridge: std::sync::Arc<std::sync::Mutex<crate::devices::pci::PciStub>>,
+        ap_base: u64,
+        ap_end: u64,
+    ) {
+        self.mmu.set_pci_bridge(bridge, ap_base, ap_end);
+    }
+
     fn complete_io_in(&mut self, data: &[u8]) {
         if let Some(pending) = self.io_pending.take() {
             let value = match pending.size {

@@ -57,13 +57,22 @@ impl IoRange {
 
 pub struct IoBus {
     devices: Vec<(IoRange, Box<dyn IoDevice>)>,
+    /// Optional PCI host bridge consulted for ports not claimed by a fixed
+    /// device — this is how dynamically-assigned PCI I/O BARs are reached.
+    pci: Option<std::sync::Arc<std::sync::Mutex<crate::devices::pci::PciStub>>>,
 }
 
 impl IoBus {
     pub fn new() -> Self {
         IoBus {
             devices: Vec::new(),
+            pci: None,
         }
+    }
+
+    /// Attach the PCI host bridge as the fallback for unclaimed I/O ports.
+    pub fn set_pci(&mut self, bridge: std::sync::Arc<std::sync::Mutex<crate::devices::pci::PciStub>>) {
+        self.pci = Some(bridge);
     }
 
     pub fn register(&mut self, range: IoRange, dev: Box<dyn IoDevice>) -> Result<()> {
@@ -89,6 +98,13 @@ impl IoBus {
             {
                 let device = &mut self.devices[dev_index].1;
                 *byte = device.read(current_port);
+            } else if let Some(ref pci) = self.pci {
+                // Fall back to a PCI I/O BAR, else open bus (0xff).
+                *byte = pci
+                    .lock()
+                    .ok()
+                    .and_then(|mut b| b.io_read(current_port))
+                    .unwrap_or(0xff);
             } else {
                 // Return 0xff for unhandled ports (no device present)
                 *byte = 0xff;
@@ -107,6 +123,11 @@ impl IoBus {
             {
                 let device = &mut self.devices[dev_index].1;
                 device.write(current_port, *byte);
+            } else if let Some(ref pci) = self.pci {
+                // Fall back to a PCI I/O BAR if one decodes this port.
+                if let Ok(mut b) = pci.lock() {
+                    b.io_write(current_port, *byte);
+                }
             }
             // Silently ignore writes to unhandled ports
         }

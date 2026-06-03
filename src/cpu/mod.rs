@@ -91,6 +91,18 @@ pub trait VCpu: Send {
         Ok(false)
     }
 
+    /// Attach the PCI host bridge so the emulator MMU can divert a physical
+    /// MMIO aperture from RAM to PCI device BAR handlers. `ap_base..ap_end`
+    /// bounds that aperture. Default no-op — only the x86_64 emulator backend
+    /// implements MMIO-BAR routing.
+    fn set_pci_bridge(
+        &mut self,
+        _bridge: std::sync::Arc<std::sync::Mutex<crate::devices::pci::PciStub>>,
+        _ap_base: u64,
+        _ap_end: u64,
+    ) {
+    }
+
     /// Enable or disable single-step mode for debugging.
     #[cfg(feature = "debug")]
     fn set_single_step(&mut self, enabled: bool) {

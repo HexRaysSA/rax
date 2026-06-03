@@ -71,6 +71,10 @@ struct Cli {
     /// SIGUSR1 (default: ./checkpoint.rxc relative to the working directory).
     #[arg(long)]
     snapshot_out: Option<PathBuf>,
+    /// Attach the optional PCI device models (e1000 NIC, NVMe, AHCI, AC'97,
+    /// UHCI) behind the PCI host bridge. Off by default.
+    #[arg(long)]
+    pci_devices: bool,
     /// Enable instruction profiling (requires --features profiling)
     #[arg(long)]
     profile: bool,
@@ -134,6 +138,7 @@ fn main() -> Result<()> {
         profile: cli.profile,
         profile_output: cli.profile_output,
         profile_interval: cli.profile_interval,
+        pci_devices: cli.pci_devices,
     };
 
     // Resolve the final config and any checkpoint to restore. With --checkpoint

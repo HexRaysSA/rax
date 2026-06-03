@@ -707,6 +707,8 @@ pub struct FileConfig {
     pub arm_entry: Option<Address>,
     pub arm_load_addr: Option<Address>,
     pub arm_dtb: Option<PathBuf>,
+    /// Attach the optional PCI device models (e1000/nvme/ahci/ac97/uhci).
+    pub pci_devices: Option<bool>,
 }
 
 impl FileConfig {
@@ -765,6 +767,8 @@ pub struct CliConfig {
     pub profile_output: Option<PathBuf>,
     /// Live profiling stats interval (instructions)
     pub profile_interval: Option<u64>,
+    /// Attach the optional PCI device models behind the host bridge.
+    pub pci_devices: bool,
 }
 
 #[derive(Clone, Debug)]
@@ -813,6 +817,9 @@ pub struct VmConfig {
     pub profile_output: Option<PathBuf>,
     /// Live profiling stats interval (instructions)
     pub profile_interval: Option<u64>,
+    /// Attach the optional PCI device models behind the host bridge. Off by
+    /// default so the default machine (and its verified boot) is unchanged.
+    pub pci_devices: bool,
 }
 
 impl VmConfig {
@@ -879,6 +886,7 @@ impl VmConfig {
             profile: cli.profile,
             profile_output: cli.profile_output,
             profile_interval: cli.profile_interval,
+            pci_devices: cli.pci_devices || file.pci_devices.unwrap_or(false),
         };
 
         config.validate()?;
@@ -925,6 +933,7 @@ impl VmConfig {
             profile: cli.profile,
             profile_output: cli.profile_output,
             profile_interval: cli.profile_interval,
+            pci_devices: cli.pci_devices,
         };
         config.validate_resume()?;
         Ok(config)

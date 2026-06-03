@@ -1,7 +1,9 @@
 //! Memory Management Unit - page table translation with TLB caching.
 
 use std::cell::RefCell;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
+
+use crate::devices::pci::PciStub;
 
 use vm_memory::{Bytes, GuestAddress, GuestMemoryMmap};
 
@@ -441,6 +443,14 @@ pub struct Mmu {
     /// capped at `LAPIC_BASE`. Used by `ram_ptr` to elide the per-access MMIO
     /// overlap test on the hot path.
     ram_fast_len: u64,
+    /// Optional PCI host bridge for routing BAR-mapped MMIO. `None` (the
+    /// default) keeps the memory path byte-identical to a PCI-less machine.
+    pci: Option<Arc<Mutex<PciStub>>>,
+    /// Physical aperture [pci_ap_lo, pci_ap_hi) diverted from RAM to PCI BAR
+    /// dispatch. Empty (lo=u64::MAX, hi=0) when no PCI devices are attached, so
+    /// every aperture test is trivially false and the hot path is unaffected.
+    pci_ap_lo: u64,
+    pci_ap_hi: u64,
 }
 
 impl Mmu {
@@ -474,7 +484,31 @@ impl Mmu {
             ram_host_base,
             ram_len,
             ram_fast_len,
+            pci: None,
+            pci_ap_lo: u64::MAX,
+            pci_ap_hi: 0,
         }
+    }
+
+    /// Attach the PCI host bridge and divert the physical aperture
+    /// `[ap_base, ap_end)` from RAM to PCI BAR dispatch. Lowering `ram_fast_len`
+    /// to `ap_base` pushes aperture accesses onto the cold path (`ram_ptr_high`
+    /// / `read_phys`) where they are routed to the bridge; all RAM below the
+    /// aperture (including the per-CPU overflow window) stays on the fast path.
+    pub fn set_pci_bridge(&mut self, bridge: Arc<Mutex<PciStub>>, ap_base: u64, ap_end: u64) {
+        self.pci = Some(bridge);
+        self.pci_ap_lo = ap_base;
+        self.pci_ap_hi = ap_end;
+        if ap_base < self.ram_fast_len {
+            self.ram_fast_len = ap_base;
+        }
+    }
+
+    /// True when `paddr` falls in the PCI MMIO aperture. Trivially false (one
+    /// compare against `u64::MAX`) when no PCI devices are attached.
+    #[inline(always)]
+    fn in_pci_aperture(&self, paddr: u64) -> bool {
+        paddr >= self.pci_ap_lo && paddr < self.pci_ap_hi
     }
 
     /// True when `[paddr, paddr+len)` lies entirely within the cached RAM region.
@@ -512,6 +546,11 @@ impl Mmu {
     #[cold]
     #[inline(never)]
     fn ram_ptr_high<const LEN: u64>(&self, paddr: u64) -> Option<usize> {
+        // Aperture addresses are not RAM: returning None routes the typed
+        // accessor through read_phys/write_phys, which dispatch to the bridge.
+        if self.in_pci_aperture(paddr) {
+            return None;
+        }
         match self.ram_len.checked_sub(LEN) {
             Some(bound)
                 if paddr <= bound
@@ -1010,6 +1049,20 @@ impl Mmu {
             return Ok(());
         }
 
+        // PCI MMIO aperture: route to the device whose BAR covers paddr, else
+        // open-bus (0xFF). Trivially skipped when no PCI devices are attached.
+        if self.in_pci_aperture(paddr) {
+            if let Some(ref pci) = self.pci {
+                if let Ok(mut bridge) = pci.lock() {
+                    if bridge.mmio_read(paddr, buf) {
+                        return Ok(());
+                    }
+                }
+            }
+            buf.fill(0xFF);
+            return Ok(());
+        }
+
         // Fast path: direct host-pointer copy for in-RAM physical addresses
         // (LAPIC MMIO was already handled above).
         if self.in_ram(paddr, buf.len()) {
@@ -1064,6 +1117,17 @@ impl Mmu {
                 _ => return Ok(()),
             };
             self.lapic.borrow_mut().write(aligned_offset, value);
+            return Ok(());
+        }
+
+        // PCI MMIO aperture: route to the device whose BAR covers paddr, else
+        // drop the write (open bus). Trivially skipped with no PCI devices.
+        if self.in_pci_aperture(paddr) {
+            if let Some(ref pci) = self.pci {
+                if let Ok(mut bridge) = pci.lock() {
+                    bridge.mmio_write(paddr, buf);
+                }
+            }
             return Ok(());
         }
 
