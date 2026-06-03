@@ -10,6 +10,12 @@ use std::time::Instant;
 /// Start time of the emulator - all timing is relative to this
 static START_TIME: std::sync::OnceLock<Instant> = std::sync::OnceLock::new();
 
+/// Nanoseconds added to `elapsed_nanos()` so a machine resumed from a checkpoint
+/// continues its clock from where the checkpoint was taken, rather than jumping
+/// back to ~0 (which would move the real-time TSC backwards and confuse guest
+/// timer math). Set once, early, by [`set_resume_base`].
+static RESUME_BASE_NANOS: AtomicU64 = AtomicU64::new(0);
+
 /// Instruction counter - still useful for debugging/profiling
 static INSTRUCTION_COUNT: AtomicU64 = AtomicU64::new(0);
 
@@ -30,11 +36,27 @@ pub fn init() {
     START_TIME.get_or_init(Instant::now);
 }
 
-/// Get elapsed time since emulator start in nanoseconds
+/// Get elapsed time since emulator start in nanoseconds (plus any resume base,
+/// so a restored machine's clock is continuous with the checkpoint).
 #[inline(always)]
 pub fn elapsed_nanos() -> u64 {
     let start = START_TIME.get_or_init(Instant::now);
-    start.elapsed().as_nanos() as u64
+    RESUME_BASE_NANOS
+        .load(Ordering::Relaxed)
+        .wrapping_add(start.elapsed().as_nanos() as u64)
+}
+
+/// Anchor the clock for a checkpoint resume: subsequent `elapsed_nanos()` will
+/// read `base + (wall-clock since now)`. Call this once, early in the resume
+/// path (before the run loop), with the `elapsed_nanos` captured in the
+/// checkpoint. This keeps the real-time TSC and restored device timestamps
+/// monotonic across save/restore.
+pub fn set_resume_base(base_nanos: u64) {
+    // START_TIME is (re-)anchored to "now" if it has not been pinned yet; in the
+    // resume path it is first touched here, so `start.elapsed()` begins near 0
+    // and `base + elapsed` ~= base at the resume point.
+    START_TIME.get_or_init(Instant::now);
+    RESUME_BASE_NANOS.store(base_nanos, Ordering::Relaxed);
 }
 
 /// Get the current TSC value based on instruction count.

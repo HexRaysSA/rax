@@ -2,9 +2,11 @@ pub mod arch;
 pub mod arm;
 pub mod backend;
 pub mod config;
+pub mod console;
 pub mod cpu;
 pub mod devices;
 pub mod error;
+pub mod terminal;
 #[cfg(feature = "debug")]
 pub mod gdb;
 pub mod isa_oracle;

@@ -4,11 +4,10 @@
 //! Reference: OpenCores UART 16550 IP Datasheet and Verilog implementation.
 
 use std::collections::VecDeque;
-use std::io::{self, Read, Write};
-use std::sync::mpsc::{self, Receiver, TryRecvError};
-use std::thread;
+use std::io::{self, Write};
 
 use crate::devices::bus::{IoDevice, MmioDevice};
+use serde::{Deserialize, Serialize};
 use std::sync::{Arc, Mutex};
 
 // Register offsets
@@ -94,7 +93,7 @@ const TRIGGER_8: usize = 8;
 const TRIGGER_14: usize = 14;
 
 /// Entry in the RX FIFO with associated error flags
-#[derive(Clone, Copy, Default)]
+#[derive(Clone, Copy, Default, Serialize, Deserialize)]
 struct FifoEntry {
     data: u8,
     parity_error: bool,
@@ -103,7 +102,7 @@ struct FifoEntry {
 }
 
 // State for filtering cursor position responses (ESC[n;nR) on input
-#[derive(Clone, Copy, PartialEq)]
+#[derive(Clone, Copy, PartialEq, Serialize, Deserialize)]
 enum CprFilterState {
     Normal,
     GotEsc,
@@ -112,7 +111,7 @@ enum CprFilterState {
 }
 
 // State for filtering cursor position queries (ESC[6n) on output
-#[derive(Clone, PartialEq)]
+#[derive(Clone, PartialEq, Serialize, Deserialize)]
 enum CpqFilterState {
     Normal,
     Buffering(Vec<u8>),
@@ -126,6 +125,7 @@ enum CpqFilterState {
 /// - Loopback mode
 /// - Modem control/status with delta tracking
 /// - Line status with all error flags
+#[derive(Clone, Serialize, Deserialize)]
 pub struct Serial16550 {
     base_port: Option<u16>,
     base_mmio: Option<u64>,
@@ -159,9 +159,11 @@ pub struct Serial16550 {
     timeout_counter: u32, // Character timeout counter
     timeout_active: bool, // Timeout condition active
 
-    // Input handling
+    // Input handling. Host bytes are staged in `input_buffer` (unbounded) and
+    // metered into the 16-byte hardware RX FIFO by `pump_input`. The stdin
+    // reader thread and host escape mux live in `crate::console`, which feeds
+    // bytes in via `queue_input`.
     input_buffer: VecDeque<u8>,
-    input_rx: Option<Receiver<u8>>,
     cpr_state: CprFilterState,
     cpq_state: CpqFilterState,
 }
@@ -189,7 +191,6 @@ impl Serial16550 {
             timeout_counter: 0,
             timeout_active: false,
             input_buffer: VecDeque::new(),
-            input_rx: None,
             cpr_state: CprFilterState::Normal,
             cpq_state: CpqFilterState::Normal,
         }
@@ -217,7 +218,6 @@ impl Serial16550 {
             timeout_counter: 0,
             timeout_active: false,
             input_buffer: VecDeque::new(),
-            input_rx: None,
             cpr_state: CprFilterState::Normal,
             cpq_state: CpqFilterState::Normal,
         }
@@ -253,45 +253,15 @@ impl Serial16550 {
         }
     }
 
-    /// Enable stdin input handling
-    pub fn enable_input(&mut self) {
-        let (tx, rx) = mpsc::channel();
-        self.input_rx = Some(rx);
-
-        thread::spawn(move || {
-            let stdin = io::stdin();
-            let mut handle = stdin.lock();
-            let mut buf = [0u8; 1];
-            loop {
-                match handle.read(&mut buf) {
-                    Ok(0) => break,
-                    Ok(_) => {
-                        if tx.send(buf[0]).is_err() {
-                            break;
-                        }
-                    }
-                    Err(_) => break,
-                }
-            }
-        });
-    }
-
-    /// Poll for new input from stdin
-    pub fn poll_input(&mut self) {
-        // Collect bytes from the receiver first to avoid borrow conflicts
-        let mut received_bytes = Vec::new();
-        if let Some(ref rx) = self.input_rx {
-            loop {
-                match rx.try_recv() {
-                    Ok(byte) => received_bytes.push(byte),
-                    Err(TryRecvError::Empty) => break,
-                    Err(TryRecvError::Disconnected) => break,
-                }
-            }
-        }
-
-        // Process collected bytes
-        for byte in received_bytes {
+    /// Queue host input bytes for delivery to the guest.
+    ///
+    /// Bytes arrive from `crate::console` (which owns the stdin reader thread
+    /// and the host escape mux). They are filtered for terminal cursor-position
+    /// responses, staged in the unbounded `input_buffer`, then metered into the
+    /// 16-byte RX FIFO by `pump_input` — so a burst/paste larger than the FIFO
+    /// is delivered without loss as the guest drains it.
+    pub fn queue_input(&mut self, bytes: &[u8]) {
+        for &byte in bytes {
             // Filter cursor position responses
             let (filtered, extra_bytes) = match (self.cpr_state, byte) {
                 (CprFilterState::Normal, 0x1b) => {

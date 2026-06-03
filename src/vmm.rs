@@ -7,7 +7,9 @@ use std::thread::JoinHandle;
 use tracing::{debug, info};
 use vm_memory::Bytes;
 
-use crate::arch::{self, Arch, BootInfo};
+use crate::arch::{
+    self, Arch, ArmBootInfo, BootInfo, HexagonBootInfo, RiscVBootInfo, X86_64BootInfo,
+};
 use crate::backend::emulator::x86_64::get_total_instruction_count;
 #[cfg(all(feature = "hvf", target_os = "macos", target_arch = "x86_64"))]
 use crate::backend::hvf::HvfVm;
@@ -19,7 +21,8 @@ use crate::backend::{self, Vm};
     all(feature = "hvf", target_os = "macos", target_arch = "x86_64")
 ))]
 use crate::config::BackendKind;
-use crate::config::VmConfig;
+use crate::config::{ArchKind, CheckpointConfig, VmConfig};
+use crate::console::{Console, ConsoleAction, ESCAPE_HELP};
 use crate::cpu::{CpuState, VCpu, VcpuExit};
 use crate::devices::bus::{IoBus, IoDevice, IoRange, MmioBus, MmioRange};
 use crate::devices::lapic::{
@@ -32,9 +35,54 @@ use crate::error::{Error, Result};
 #[cfg(feature = "debug")]
 use crate::gdb::{self, GdbCommand, GdbResponse, VmmGdbChannels};
 use crate::memory::GuestMemoryWrapper;
-use crate::snapshot::{EmulatorState, Snapshot, SnapshotConfig};
+use crate::snapshot::{
+    DeviceState, EmulatorState, Snapshot, SnapshotConfig, DEFAULT_CHECKPOINT_FILE,
+};
+use crate::terminal::RawTty;
 
 const SERIAL_BASE: u16 = 0x3f8;
+
+/// Set by the SIGUSR1 handler to request a checkpoint from the run loop. This is
+/// the non-keyboard "event" trigger: `kill -USR1 <pid>` dumps a checkpoint to
+/// the configured `--snapshot-out` path, the same as the `Ctrl-A s` hotkey.
+static CHECKPOINT_SIGNAL: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+
+#[cfg(unix)]
+extern "C" fn sigusr1_handler(_sig: libc::c_int) {
+    CHECKPOINT_SIGNAL.store(true, std::sync::atomic::Ordering::SeqCst);
+}
+
+/// A zeroed [`BootInfo`] for the given arch, used when resuming from a
+/// checkpoint (where no kernel is loaded, so there is no real boot info — the
+/// machine state comes entirely from the checkpoint).
+fn null_boot_info(arch: ArchKind) -> BootInfo {
+    match arch {
+        ArchKind::Hexagon => BootInfo::Hexagon(HexagonBootInfo {
+            entry_point: 0,
+            load_addr: 0,
+            image_size: 0,
+        }),
+        ArchKind::Riscv64 => BootInfo::RiscV(RiscVBootInfo {
+            entry_point: 0,
+            load_addr: 0,
+            image_size: 0,
+        }),
+        ArchKind::Aarch64 | ArchKind::Armv7a | ArchKind::Armv8a32 | ArchKind::CortexM
+        | ArchKind::CortexR => BootInfo::Arm(ArmBootInfo {
+            entry_point: 0,
+            load_addr: 0,
+            image_size: 0,
+            dtb_addr: None,
+            initial_sp: None,
+        }),
+        ArchKind::X86_64 => BootInfo::X86_64(X86_64BootInfo {
+            entry_point: 0,
+            boot_params_addr: vm_memory::GuestAddress(0),
+            tss_addr: 0,
+            identity_map_addr: 0,
+        }),
+    }
+}
 
 /// Wrapper to make Pit implement IoDevice via shared reference
 struct PitDevice {
@@ -99,13 +147,32 @@ pub struct Vmm {
     snapshot_config: Option<SnapshotConfig>,
     /// Last instruction count when snapshot was taken
     last_snapshot_insn: u64,
+    /// Machine-defining config embedded into every checkpoint this VM writes,
+    /// so the resulting `.rxc` resumes self-contained.
+    checkpoint_config: CheckpointConfig,
+    /// Where hotkey/signal-triggered checkpoints are written.
+    snapshot_out: std::path::PathBuf,
 }
 
 impl Vmm {
+    /// Build a fresh machine: load the kernel and set boot-time CPU state.
     pub fn new(config: VmConfig) -> Result<Self> {
+        Self::build(config, false)
+    }
+
+    /// Build a machine to resume from a checkpoint. Skips kernel loading,
+    /// backend VM init, and boot-time CPU state — the entire machine image
+    /// (RAM, registers, devices) is restored from the checkpoint afterwards via
+    /// [`restore_snapshot`](Self::restore_snapshot).
+    pub fn new_resume(config: VmConfig) -> Result<Self> {
+        Self::build(config, true)
+    }
+
+    fn build(config: VmConfig, resume: bool) -> Result<Self> {
         info!(
             vcpus = config.vcpus,
             mem_bytes = config.memory.bytes(),
+            resume = resume,
             "initializing VMM"
         );
 
@@ -171,7 +238,6 @@ impl Vmm {
             if let Some(base) = serial_mmio_base {
                 serial_guard.set_mmio_base(base);
             }
-            serial_guard.enable_input();
         }
         if let Some(base) = serial_mmio_base {
             mmio_bus.register(
@@ -214,12 +280,19 @@ impl Vmm {
             Box::new(LapicDevice::new(lapic.clone())),
         )?;
 
-        // Load kernel
-        let boot_info = arch.load_kernel(guest_mem.memory(), &config)?;
+        // Load kernel — skipped when resuming (the kernel is already present in
+        // the RAM image restored from the checkpoint).
+        let boot_info = if resume {
+            null_boot_info(config.arch)
+        } else {
+            arch.load_kernel(guest_mem.memory(), &config)?
+        };
 
-        // Initialize VM (backend-specific)
+        // Initialize VM (backend-specific). Skipped on resume: the emulator
+        // backend needs none, and a resumed machine takes its full CPU/segment
+        // state from the checkpoint rather than the boot-time init.
         #[cfg(all(feature = "kvm", target_os = "linux"))]
-        if matches!(config.backend, BackendKind::Kvm) {
+        if !resume && matches!(config.backend, BackendKind::Kvm) {
             let kvm_vm = vm
                 .as_any()
                 .downcast_ref::<KvmVm>()
@@ -237,8 +310,9 @@ impl Vmm {
             let mut vcpu = vm.create_vcpu(cpu_id as u32, mem_arc.clone())?;
             debug!(cpu_id, "created vCPU, setting initial state");
 
-            // Setup initial CPU state for BSP (cpu 0)
-            if cpu_id == 0 {
+            // Setup initial CPU state for BSP (cpu 0). Skipped on resume — the
+            // checkpoint restore sets the full register file afterwards.
+            if cpu_id == 0 && !resume {
                 let initial_state = arch.initial_cpu_state(guest_mem.memory(), &boot_info)?;
                 vcpu.set_state(&initial_state)?;
             }
@@ -264,6 +338,14 @@ impl Vmm {
                 "--gdb requires building with --features debug".to_string(),
             ));
         }
+
+        // Capture the machine-defining config for embedding in checkpoints, and
+        // resolve where hotkey/signal checkpoints will be written.
+        let checkpoint_config = config.to_checkpoint();
+        let snapshot_out = config
+            .snapshot_out
+            .clone()
+            .unwrap_or_else(|| std::path::PathBuf::from(DEFAULT_CHECKPOINT_FILE));
 
         Ok(Vmm {
             vm,
@@ -306,6 +388,8 @@ impl Vmm {
                 None
             },
             last_snapshot_insn: 0,
+            checkpoint_config,
+            snapshot_out,
         })
     }
 
@@ -336,16 +420,51 @@ impl Vmm {
             }
         }
 
+        // Put the host terminal into raw mode for a faithful interactive serial
+        // console (restored on drop, panic, or fatal signal) and start the
+        // console mux that reads stdin and forwards bytes to the guest UART,
+        // intercepting the Ctrl-A escape prefix for host commands.
+        let _raw_tty = RawTty::enable();
+        let mut console = Console::spawn();
+
+        // SIGUSR1 requests a checkpoint (the non-keyboard trigger).
+        #[cfg(unix)]
+        unsafe {
+            libc::signal(libc::SIGUSR1, sigusr1_handler as libc::sighandler_t);
+        }
+
         loop {
-            // Poll host input and drive the serial RX/TX interrupt line through
-            // the inline PIC — the SAME path the PIT uses. The backend's
-            // set_irq_line() only pushes to an `irq_pending` vec that nothing
-            // drains, so serial IRQs never reached the guest and no console input
-            // (or interrupt-driven TX) ever worked. Release the serial lock before
-            // taking the PIC lock to keep a consistent lock order.
+            // Drain host stdin through the console mux: forward guest bytes to the
+            // UART and act on host escape commands. Then drive the serial RX/TX
+            // interrupt line through the inline PIC — the SAME path the PIT uses.
+            // (The backend's set_irq_line() only pushes to an `irq_pending` vec
+            // that nothing drains, so serial IRQs reach the guest only via the
+            // inline PIC.) Release the serial lock before taking the PIC lock to
+            // keep a consistent lock order.
             {
+                let (guest_bytes, actions) = console.poll();
+                let mut quit = false;
+                for action in actions {
+                    match action {
+                        ConsoleAction::Help => eprint!("{}", ESCAPE_HELP),
+                        ConsoleAction::Quit => {
+                            info!("console quit requested (Ctrl-A x)");
+                            quit = true;
+                        }
+                        ConsoleAction::Snapshot => self.console_checkpoint(),
+                    }
+                }
+                if quit {
+                    break;
+                }
+                // SIGUSR1-triggered checkpoint (same effect as Ctrl-A s).
+                if CHECKPOINT_SIGNAL.swap(false, std::sync::atomic::Ordering::SeqCst) {
+                    self.console_checkpoint();
+                }
                 let pending = if let Ok(mut serial) = self.serial.lock() {
-                    serial.poll_input();
+                    if !guest_bytes.is_empty() {
+                        serial.queue_input(&guest_bytes);
+                    }
                     serial.has_pending_interrupt()
                 } else {
                     false
@@ -781,7 +900,23 @@ impl Vmm {
         self.arch.as_ref()
     }
 
-    /// Take a snapshot of the current VM state
+    /// Capture all stateful device models into a serializable [`DeviceState`].
+    fn capture_devices(&self) -> Result<DeviceState> {
+        let lock_err =
+            |what: &str| Error::Emulator(format!("device {what} lock poisoned during snapshot"));
+        let pic = self.pic.lock().map_err(|_| lock_err("pic"))?.clone();
+        let pit = self.pit.lock().map_err(|_| lock_err("pit"))?.clone();
+        let serial = self.serial.lock().map_err(|_| lock_err("serial"))?.clone();
+        let lapic = self.lapic.lock().map_err(|_| lock_err("lapic"))?.clone();
+        Ok(DeviceState {
+            pic,
+            pit,
+            serial,
+            lapic,
+        })
+    }
+
+    /// Take a full, self-contained checkpoint of the current VM state.
     pub fn take_snapshot(&self, insn_count: u64) -> Result<Snapshot> {
         let vcpu = self
             .vcpus
@@ -790,9 +925,40 @@ impl Vmm {
 
         let cpu_state = vcpu.get_state()?;
         let emulator_state = vcpu.get_emulator_state().unwrap_or_default();
+        let devices = self.capture_devices()?;
         let memory = self.guest_mem.read_all();
 
-        Snapshot::new(insn_count, cpu_state, emulator_state, &memory)
+        Snapshot::new(
+            self.checkpoint_config.clone(),
+            insn_count,
+            crate::timing::elapsed_nanos(),
+            cpu_state,
+            emulator_state,
+            devices,
+            &memory,
+        )
+    }
+
+    /// Write a checkpoint to the configured `--snapshot-out` path (default
+    /// `./checkpoint.rxc`). Invoked from the `Ctrl-A s` console hotkey and the
+    /// SIGUSR1 signal. The machine is effectively paused while this runs because
+    /// the run loop is single-threaded — the vCPU is not executing during the
+    /// poll phase where this is called.
+    pub fn console_checkpoint(&self) {
+        let insn = get_total_instruction_count();
+        let path = self.snapshot_out.clone();
+        info!(path = %path.display(), insn = insn, "checkpoint requested");
+        match self.take_snapshot(insn) {
+            Ok(snapshot) => match snapshot.save(&path) {
+                Ok(()) => {
+                    // \r\n so the message renders cleanly in raw terminal mode.
+                    eprint!("\r\n[rax] checkpoint written: {}\r\n", path.display());
+                    info!(summary = %snapshot.summary(), "checkpoint written");
+                }
+                Err(e) => eprint!("\r\n[rax] checkpoint save failed: {}\r\n", e),
+            },
+            Err(e) => eprint!("\r\n[rax] checkpoint capture failed: {}\r\n", e),
+        }
     }
 
     /// Check if we should take a snapshot and do so if needed
@@ -841,7 +1007,8 @@ impl Vmm {
         Ok(())
     }
 
-    /// Restore VM state from a snapshot
+    /// Restore VM state from a checkpoint: registers + emulator state, all
+    /// writable guest RAM, and every device model.
     pub fn restore_snapshot(&mut self, snapshot: &Snapshot) -> Result<()> {
         // Restore CPU state
         let vcpu = self
@@ -851,14 +1018,30 @@ impl Vmm {
         vcpu.set_state(&snapshot.cpu_state)?;
         vcpu.set_emulator_state(&snapshot.emulator_state)?;
 
-        // Decompress and restore memory
+        // Re-anchor the clock so the real-time TSC and restored device timers
+        // continue from the checkpoint instead of jumping backward to ~0.
+        crate::timing::set_resume_base(snapshot.elapsed_nanos);
+
+        // Decompress and restore guest RAM (this also restores the kernel/initrd
+        // images that were loaded into it — read-only regions need not be
+        // re-loaded from disk).
         let memory = snapshot.decompress_memory()?;
         self.guest_mem.write_all(&memory)?;
+
+        // Restore device models. The Vmm and the I/O/MMIO buses share the same
+        // Arc<Mutex<_>> for each device, so assigning through the lock updates
+        // both views.
+        let lock_err =
+            |what: &str| Error::Emulator(format!("device {what} lock poisoned during restore"));
+        *self.pic.lock().map_err(|_| lock_err("pic"))? = snapshot.devices.pic.clone();
+        *self.pit.lock().map_err(|_| lock_err("pit"))? = snapshot.devices.pit.clone();
+        *self.serial.lock().map_err(|_| lock_err("serial"))? = snapshot.devices.serial.clone();
+        *self.lapic.lock().map_err(|_| lock_err("lapic"))? = snapshot.devices.lapic.clone();
 
         info!(
             insn_count = snapshot.instruction_count,
             summary = %snapshot.summary(),
-            "restored snapshot"
+            "restored checkpoint"
         );
 
         Ok(())

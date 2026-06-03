@@ -24,8 +24,9 @@
 //!   spurious vector is returned WITHOUT setting an ISR bit.
 
 use super::bus::IoDevice;
+use serde::{Deserialize, Serialize};
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 enum InitState {
     Ready,
     WaitingICW2,
@@ -33,7 +34,7 @@ enum InitState {
     WaitingICW4,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Serialize, Deserialize)]
 struct Pic8259 {
     /// Interrupt Request Register - pending interrupt requests.
     irr: u8,
@@ -405,6 +406,7 @@ impl Pic8259 {
     }
 }
 
+#[derive(Clone, Serialize, Deserialize)]
 pub struct DualPic {
     master: Pic8259,
     slave: Pic8259,

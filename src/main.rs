@@ -62,6 +62,15 @@ struct Cli {
     /// Resume from snapshot file
     #[arg(long)]
     resume: Option<PathBuf>,
+    /// Resume the whole machine from a checkpoint (.rxc). The checkpoint's
+    /// embedded config is used, so no other flags are required; any flag you do
+    /// pass overrides the embedded value (even nonsensical ones).
+    #[arg(long)]
+    checkpoint: Option<PathBuf>,
+    /// Output path for checkpoints triggered by the Ctrl-A s console hotkey or
+    /// SIGUSR1 (default: ./checkpoint.rxc relative to the working directory).
+    #[arg(long)]
+    snapshot_out: Option<PathBuf>,
     /// Enable instruction profiling (requires --features profiling)
     #[arg(long)]
     profile: bool,
@@ -120,13 +129,37 @@ fn main() -> Result<()> {
         snapshot_at: cli.snapshot_at,
         snapshot_dir: cli.snapshot_dir,
         resume: cli.resume,
+        checkpoint: cli.checkpoint.clone(),
+        snapshot_out: cli.snapshot_out,
         profile: cli.profile,
         profile_output: cli.profile_output,
         profile_interval: cli.profile_interval,
     };
 
-    let config = VmConfig::from_sources(cli_config, file_config)?;
-    let resume_path = config.resume.clone();
+    // Resolve the final config and any checkpoint to restore. With --checkpoint
+    // the machine is rebuilt from the checkpoint's embedded config (no --kernel
+    // required) and CLI flags override the embedded values; otherwise we build
+    // from CLI + file config and optionally restore a legacy --resume file.
+    let (config, restore, resume_bare): (VmConfig, Option<Snapshot>, bool) =
+        if let Some(ckpt_path) = cli.checkpoint.clone() {
+            let snapshot = Snapshot::load(&ckpt_path)?;
+            tracing::info!("resuming from checkpoint {:?}", ckpt_path);
+            tracing::info!("{}", snapshot.summary());
+            let config = VmConfig::from_checkpoint(snapshot.config.clone(), cli_config)?;
+            (config, Some(snapshot), true)
+        } else {
+            let config = VmConfig::from_sources(cli_config, file_config)?;
+            let restore = match config.resume.clone() {
+                Some(path) => {
+                    tracing::info!("Loading snapshot from {:?}", path);
+                    let snapshot = Snapshot::load(&path)?;
+                    tracing::info!("{}", snapshot.summary());
+                    Some(snapshot)
+                }
+                None => None,
+            };
+            (config, restore, false)
+        };
 
     // Initialize profiling if requested
     #[cfg(feature = "profiling")]
@@ -157,13 +190,14 @@ fn main() -> Result<()> {
         .expect("Error setting Ctrl+C handler");
     }
 
-    let mut vmm = Vmm::new(config)?;
+    let mut vmm = if resume_bare {
+        Vmm::new_resume(config)?
+    } else {
+        Vmm::new(config)?
+    };
 
-    // Restore from snapshot if specified
-    if let Some(ref path) = resume_path {
-        tracing::info!("Loading snapshot from {:?}", path);
-        let snapshot = Snapshot::load(path)?;
-        tracing::info!("{}", snapshot.summary());
+    // Restore the checkpoint (full machine image) if we loaded one.
+    if let Some(snapshot) = restore {
         vmm.restore_snapshot(&snapshot)?;
     }
 

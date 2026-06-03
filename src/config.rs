@@ -1,7 +1,7 @@
 use crate::error::{Error, Result};
 use clap::ValueEnum;
 use serde::de::{self, Visitor};
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use std::fmt;
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
@@ -17,7 +17,7 @@ const DEFAULT_VCPUS: u8 = 1;
 const DEFAULT_CMDLINE: &str =
     "console=ttyS0 earlyprintk=serial,ttyS0,115200 nokaslr tsc=reliable nohz=off clocksource=tsc";
 
-#[derive(Clone, Copy, Debug, Deserialize, ValueEnum, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Deserialize, Serialize, ValueEnum, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 pub enum ArchKind {
     X86_64,
@@ -42,7 +42,7 @@ impl Default for ArchKind {
     }
 }
 
-#[derive(Clone, Copy, Debug, Deserialize, ValueEnum, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Deserialize, Serialize, ValueEnum, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 pub enum BackendKind {
     Kvm,
@@ -74,7 +74,7 @@ impl Default for BackendKind {
     }
 }
 
-#[derive(Clone, Copy, Debug, Deserialize, ValueEnum, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Deserialize, Serialize, ValueEnum, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 pub enum Endianness {
     Little,
@@ -87,7 +87,7 @@ impl Default for Endianness {
     }
 }
 
-#[derive(Clone, Copy, Debug, Deserialize, ValueEnum, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Deserialize, Serialize, ValueEnum, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 pub enum HexagonIsa {
     V4,
@@ -114,7 +114,7 @@ impl Default for HexagonIsa {
 
 /// ARM 64-bit (AArch64) architecture version.
 /// Based on ARMv8-A and later with various extensions.
-#[derive(Clone, Copy, Debug, Deserialize, ValueEnum, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Deserialize, Serialize, ValueEnum, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 pub enum Aarch64Isa {
     /// ARMv8.0-A: Base 64-bit ARM (Cortex-A53, A57, A72, A73)
@@ -221,7 +221,7 @@ impl Aarch64Isa {
 
 /// ARM 32-bit (AArch32) architecture version.
 /// Covers ARMv6 through ARMv8-A in AArch32 mode.
-#[derive(Clone, Copy, Debug, Deserialize, ValueEnum, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Deserialize, Serialize, ValueEnum, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 pub enum Aarch32Isa {
     /// ARMv6: ARM1136, ARM1176, ARM11MPCore
@@ -283,7 +283,7 @@ impl Aarch32Isa {
 
 /// ARM Cortex-M architecture version.
 /// Microcontroller profile with different exception model.
-#[derive(Clone, Copy, Debug, Deserialize, ValueEnum, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Deserialize, Serialize, ValueEnum, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 pub enum CortexMIsa {
     /// ARMv6-M: Cortex-M0, M0+, M1
@@ -347,7 +347,7 @@ impl CortexMIsa {
 
 /// ARM Cortex-R architecture version.
 /// Real-time profile with deterministic interrupt latency.
-#[derive(Clone, Copy, Debug, Deserialize, ValueEnum, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Deserialize, Serialize, ValueEnum, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 pub enum CortexRIsa {
     /// ARMv7-R: Cortex-R4, R5, R7, R8
@@ -754,6 +754,11 @@ pub struct CliConfig {
     pub snapshot_dir: Option<PathBuf>,
     /// Snapshot file to resume from
     pub resume: Option<PathBuf>,
+    /// Checkpoint (.rxc) file to resume the whole machine from.
+    pub checkpoint: Option<PathBuf>,
+    /// Output path for checkpoints triggered by hotkey/signal (default
+    /// `./checkpoint.rxc` relative to the working directory).
+    pub snapshot_out: Option<PathBuf>,
     /// Enable instruction profiling
     pub profile: bool,
     /// JSON output path for profiling results
@@ -798,6 +803,10 @@ pub struct VmConfig {
     pub snapshot_dir: Option<PathBuf>,
     /// Snapshot file to resume from
     pub resume: Option<PathBuf>,
+    /// Checkpoint (.rxc) file to resume the whole machine from.
+    pub checkpoint: Option<PathBuf>,
+    /// Output path for checkpoints triggered by hotkey/signal.
+    pub snapshot_out: Option<PathBuf>,
     /// Enable instruction profiling
     pub profile: bool,
     /// JSON output path for profiling results
@@ -865,6 +874,8 @@ impl VmConfig {
             snapshot_at: cli.snapshot_at,
             snapshot_dir: cli.snapshot_dir,
             resume: cli.resume,
+            checkpoint: cli.checkpoint,
+            snapshot_out: cli.snapshot_out,
             profile: cli.profile,
             profile_output: cli.profile_output,
             profile_interval: cli.profile_interval,
@@ -874,7 +885,89 @@ impl VmConfig {
         Ok(config)
     }
 
+    /// Build a config to resume a machine from a checkpoint's embedded config,
+    /// applying CLI overrides (CLI takes precedence over the embedded values).
+    ///
+    /// Unlike [`from_sources`](Self::from_sources) this does NOT require the
+    /// kernel/initrd to exist on disk: the entire machine image is restored from
+    /// the checkpoint, so the embedded kernel path is informational only. The
+    /// user may still override any field (memory size, cmdline, even the arch)
+    /// — including in ways that will not work — which is intentional.
+    pub fn from_checkpoint(cp: CheckpointConfig, cli: CliConfig) -> Result<Self> {
+        let config = VmConfig {
+            arch: cli.arch.unwrap_or(cp.arch),
+            backend: cli.backend.unwrap_or(cp.backend),
+            memory: cli.memory.unwrap_or(MemorySize(cp.memory_bytes)),
+            vcpus: cli.vcpus.unwrap_or(cp.vcpus),
+            kernel: cli.kernel.unwrap_or(cp.kernel),
+            initrd: cli.initrd.or(cp.initrd),
+            cmdline: cli.cmdline.unwrap_or(cp.cmdline),
+            hexagon_isa: cli.hexagon_isa.unwrap_or(cp.hexagon_isa),
+            hexagon_endian: cli.hexagon_endian.unwrap_or(cp.hexagon_endian),
+            hexagon_entry: cli.hexagon_entry.or(cp.hexagon_entry.map(Address)),
+            hexagon_load_addr: cli.hexagon_load_addr.or(cp.hexagon_load_addr.map(Address)),
+            aarch64_isa: cli.aarch64_isa.unwrap_or(cp.aarch64_isa),
+            aarch32_isa: cli.aarch32_isa.unwrap_or(cp.aarch32_isa),
+            cortexm_isa: cli.cortexm_isa.unwrap_or(cp.cortexm_isa),
+            cortexr_isa: cli.cortexr_isa.unwrap_or(cp.cortexr_isa),
+            arm_entry: cli.arm_entry.or(cp.arm_entry.map(Address)),
+            arm_load_addr: cli.arm_load_addr.or(cp.arm_load_addr.map(Address)),
+            arm_dtb: cli.arm_dtb.or(cp.arm_dtb),
+            trace: cli.trace,
+            gdb_port: cli.gdb_port,
+            wait_gdb: cli.wait_gdb,
+            snapshot_interval: cli.snapshot_interval,
+            snapshot_at: cli.snapshot_at,
+            snapshot_dir: cli.snapshot_dir,
+            resume: cli.resume,
+            checkpoint: cli.checkpoint,
+            snapshot_out: cli.snapshot_out,
+            profile: cli.profile,
+            profile_output: cli.profile_output,
+            profile_interval: cli.profile_interval,
+        };
+        config.validate_resume()?;
+        Ok(config)
+    }
+
+    /// Capture the machine-defining portion of this config for embedding in a
+    /// checkpoint.
+    pub fn to_checkpoint(&self) -> CheckpointConfig {
+        CheckpointConfig {
+            arch: self.arch,
+            backend: self.backend,
+            memory_bytes: self.memory.bytes(),
+            vcpus: self.vcpus,
+            kernel: self.kernel.clone(),
+            initrd: self.initrd.clone(),
+            cmdline: self.cmdline.clone(),
+            hexagon_isa: self.hexagon_isa,
+            hexagon_endian: self.hexagon_endian,
+            hexagon_entry: self.hexagon_entry.map(|a| a.raw()),
+            hexagon_load_addr: self.hexagon_load_addr.map(|a| a.raw()),
+            aarch64_isa: self.aarch64_isa,
+            aarch32_isa: self.aarch32_isa,
+            cortexm_isa: self.cortexm_isa,
+            cortexr_isa: self.cortexr_isa,
+            arm_entry: self.arm_entry.map(|a| a.raw()),
+            arm_load_addr: self.arm_load_addr.map(|a| a.raw()),
+            arm_dtb: self.arm_dtb.clone(),
+        }
+    }
+
     pub fn validate(&self) -> Result<()> {
+        self.validate_inner(true)
+    }
+
+    /// Validate a config used to resume from a checkpoint. Identical to
+    /// [`validate`](Self::validate) except it does NOT require the kernel/initrd
+    /// files to exist on disk — when resuming, the machine image (including the
+    /// kernel that was loaded into RAM) comes from the checkpoint itself.
+    pub fn validate_resume(&self) -> Result<()> {
+        self.validate_inner(false)
+    }
+
+    fn validate_inner(&self, check_files: bool) -> Result<()> {
         if self.vcpus == 0 {
             return Err(Error::InvalidConfig("vcpus must be at least 1".to_string()));
         }
@@ -884,18 +977,20 @@ impl VmConfig {
                 "memory must be at least {MIN_MEM_MIB} MiB"
             )));
         }
-        if !self.kernel.exists() {
+        if check_files && !self.kernel.exists() {
             return Err(Error::InvalidConfig(format!(
                 "kernel not found: {}",
                 self.kernel.display()
             )));
         }
-        if let Some(initrd) = &self.initrd {
-            if !initrd.exists() {
-                return Err(Error::InvalidConfig(format!(
-                    "initrd not found: {}",
-                    initrd.display()
-                )));
+        if check_files {
+            if let Some(initrd) = &self.initrd {
+                if !initrd.exists() {
+                    return Err(Error::InvalidConfig(format!(
+                        "initrd not found: {}",
+                        initrd.display()
+                    )));
+                }
             }
         }
         if self.arch == ArchKind::Hexagon && self.backend == BackendKind::Kvm {
@@ -983,6 +1078,33 @@ impl VmConfig {
         }
         Ok(())
     }
+}
+
+/// The machine-defining configuration embedded in a checkpoint so it can be
+/// resumed self-contained (`rax --checkpoint file.rxc`). Uses primitive field
+/// types (plain `u64` rather than [`MemorySize`]/[`Address`]) so it serializes
+/// cleanly through bincode, which cannot handle the `deserialize_any`-based
+/// human-friendly parsers those types use for TOML/CLI input.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct CheckpointConfig {
+    pub arch: ArchKind,
+    pub backend: BackendKind,
+    pub memory_bytes: u64,
+    pub vcpus: u8,
+    pub kernel: PathBuf,
+    pub initrd: Option<PathBuf>,
+    pub cmdline: String,
+    pub hexagon_isa: HexagonIsa,
+    pub hexagon_endian: Endianness,
+    pub hexagon_entry: Option<u64>,
+    pub hexagon_load_addr: Option<u64>,
+    pub aarch64_isa: Aarch64Isa,
+    pub aarch32_isa: Aarch32Isa,
+    pub cortexm_isa: CortexMIsa,
+    pub cortexr_isa: CortexRIsa,
+    pub arm_entry: Option<u64>,
+    pub arm_load_addr: Option<u64>,
+    pub arm_dtb: Option<PathBuf>,
 }
 
 #[cfg(test)]

@@ -9,6 +9,7 @@
 //! MMIO region: 0xFEE00000 - 0xFEE00FFF (4KB)
 
 use super::bus::MmioDevice;
+use serde::{Deserialize, Serialize};
 use std::time::Instant;
 
 /// LAPIC base address (fixed for x86-64)
@@ -87,7 +88,7 @@ const DEST_SHORTHAND_ALL_EXCLUDING_SELF: u64 = 3;
 const LAPIC_TIMER_FREQ_HZ: u64 = 1_000_000_000; // 1 GHz base frequency
 
 /// Represents an IPI request that needs to be delivered
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum IpiRequest {
     /// Fixed interrupt delivery - deliver vector to target CPU(s)
     Fixed { vector: u8, target: IpiTarget },
@@ -104,7 +105,7 @@ pub enum IpiRequest {
 }
 
 /// Target specification for an IPI
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum IpiTarget {
     /// Send to self only
     ToSelf,
@@ -118,6 +119,7 @@ pub enum IpiTarget {
     Logical { destination: u8 },
 }
 
+#[derive(Clone, Serialize, Deserialize)]
 pub struct LocalApic {
     /// LAPIC ID (usually matches CPU ID)
     id: u32,
@@ -159,7 +161,9 @@ pub struct LocalApic {
     timer_current_count: u32,
     /// Timer Divide Configuration Register
     timer_divide_config: u32,
-    /// Timestamp when timer was started
+    /// Timestamp when timer was started. Transient host wall-clock state — not
+    /// part of the persisted device state; re-armed lazily after restore.
+    #[serde(skip)]
     timer_start: Option<Instant>,
     /// Pending timer interrupt
     timer_pending: bool,

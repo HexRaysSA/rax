@@ -28,6 +28,7 @@
 //! - Mode 5 (hardware-triggered strobe): gate-triggered strobe; partial, see Mode 1.
 
 use crate::timing;
+use serde::{Deserialize, Serialize};
 
 use super::bus::IoDevice;
 
@@ -43,7 +44,7 @@ const DEFAULT_RELOAD: u16 = 11932;
 /// Counter access mode (control-word bits 5:4). The latch command (RW field 0)
 /// is handled as a transient action and never becomes a persistent access mode,
 /// so it is not represented here.
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
 enum AccessMode {
     LowByteOnly,
     HighByteOnly,
@@ -62,7 +63,7 @@ impl AccessMode {
     }
 }
 
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
 enum OperatingMode {
     InterruptOnTerminalCount,     // Mode 0
     HardwareRetriggerableOneShot, // Mode 1
@@ -88,13 +89,13 @@ impl OperatingMode {
 }
 
 /// Tracks which byte of a lo/hi access the read or write flip-flop expects next.
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
 enum BytePhase {
     Low,
     High,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Serialize, Deserialize)]
 struct Channel {
     reload_value: u16,
     count: u16,
@@ -149,6 +150,7 @@ impl Channel {
     }
 }
 
+#[derive(Clone, Serialize, Deserialize)]
 pub struct Pit {
     channels: [Channel; 3],
     /// Wall-clock nanoseconds at last tick

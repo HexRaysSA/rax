@@ -13,8 +13,9 @@ profiling = []
 x86_64-suite = []
 x86-suite = ["x86_64-suite"]
 # SMIR native hot-block JIT tier (x86-64 host only). Off by default; brings in
-# the W^X exec-mmap runtime (needs libc) + the X86_64Vcpu integration.
-smir-jit = ["dep:libc"]
+# the W^X exec-mmap runtime (uses libc, always available on unix) + the
+# X86_64Vcpu integration.
+smir-jit = []
 
 [dependencies]
 clap = { version = "4.5.53", features = ["derive"] }
@@ -36,16 +37,15 @@ serde_json = "1.0"
 # Ctrl+C handling for graceful shutdown
 ctrlc = "3.4"
 
+# libc is used unconditionally on unix for terminal raw mode (termios), signal
+# handlers that restore the TTY on crash, and the smir-jit W^X exec runtime.
+[target.'cfg(unix)'.dependencies]
+libc = "0.2"
+
 # KVM support (Linux only)
 [target.'cfg(target_os = "linux")'.dependencies]
 kvm-bindings = { version = "0.14.0", optional = true }
 kvm-ioctls = { version = "0.24.0", optional = true }
-# Enabled by the `smir-jit` feature for the native exec runtime (mmap/mprotect).
-libc = { version = "0.2", optional = true }
-
-# HVF support (macOS only) - uses Hypervisor.framework via libc FFI
-[target.'cfg(target_os = "macos")'.dependencies]
-libc = "0.2"
 
 [profile.release]
 lto = "fat"
