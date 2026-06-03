@@ -7116,3 +7116,171 @@ fn lift_f2_sffma() {
         0xf2_000c,
     );
 }
+
+/// Pool of special single-precision FP bit patterns used to exercise the
+/// reciprocal / inverse-sqrt seed-table + scalbn extreme-exponent branches. The
+/// plain `lift_family` seeds fully-random GPRs which only rarely land on NaN /
+/// inf / zero / denormal / extreme-exponent values; these families seed Rs/Rt
+/// from this pool so every special-case branch of `arch_sf_recip_common` /
+/// `arch_sf_invsqrt_common` (and the Pe predicate bits 0x80/0x40/0xe0) is hit.
+const FP_SPECIAL: &[u32] = &[
+    0x0000_0000, // +0
+    0x8000_0000, // -0
+    0x3f80_0000, // +1.0
+    0xbf80_0000, // -1.0
+    0x4000_0000, // +2.0
+    0x4080_0000, // +4.0
+    0x7f80_0000, // +inf
+    0xff80_0000, // -inf
+    0x7fc0_0000, // qNaN
+    0x7f80_0001, // sNaN
+    0xffc0_0001, // negative NaN
+    0x0000_0001, // smallest +denormal
+    0x807f_ffff, // largest -denormal
+    0x0080_0000, // smallest +normal (exp 1)
+    0x0088_0000, // tiny normal (2^-110-ish, exercises invsqrt r_exp<=24)
+    0x7f7f_ffff, // largest +normal (exp 254)
+    0x7e80_0000, // huge normal (exp 253, exercises recip d_exp>252)
+    0x0100_0000, // small normal (exp 2, exercises recip d_exp<=1 region)
+    0x4b00_0000, // 2^23, mid normal
+    0xcb00_0000, // -2^23
+    0x3f00_0000, // +0.5 (with a smallest-denormal multiplicand -> subnormal tie)
+    0x0000_0002, // 2^-148 (subnormal, feeds ties-away rounding paths)
+];
+
+/// Lift-verify an F2 FP family whose register operands are seeded from
+/// `FP_SPECIAL` (plus some fully-random words) so the special-case / seed-table /
+/// scalbn branches are densely exercised. Compares ALL GPRs, ALL predicate bytes
+/// (the seed ops write the full Pe byte) and USR:OVF, like `lift_family`.
+fn lift_fp_special_family(name: &str, cases: &[(&str, &str)], n: usize, seed: u64) {
+    let asms: Vec<String> = cases.iter().map(|(_, a)| a.to_string()).collect();
+    let words_per = match assemble(&asms) {
+        Some(w) => w,
+        None => {
+            eprintln!("[hexagon_smir_lift] {name}: llvm-mc unavailable -> skipping");
+            return;
+        }
+    };
+    let mut rng = Rng::new(seed);
+    let mut mismatches = Vec::new();
+    let mut unlifted = Vec::new();
+    for ((label, _asm), words) in cases.iter().zip(words_per.iter()) {
+        for _ in 0..n {
+            let mut st = State::zeroed();
+            // Seed every GPR from the special pool (mostly) with occasional
+            // fully-random words, so Rs/Rt (and pair halves) land on special
+            // values regardless of which fields the opcode reads.
+            for r in st.r.iter_mut() {
+                *r = if rng.next() & 7 == 0 {
+                    rng.next() as u32
+                } else {
+                    FP_SPECIAL[(rng.next() as usize) % FP_SPECIAL.len()]
+                };
+            }
+            for k in 0..4 {
+                st.p[k] = match rng.next() & 3 {
+                    0 => 0x00,
+                    1 => 0xff,
+                    _ => rng.next() as u8,
+                };
+            }
+            let interp = match run_interp(words, &st) {
+                Some(s) => s,
+                None => continue,
+            };
+            match lift_and_run(words, &st) {
+                Ok(None) => {
+                    unlifted.push(*label);
+                    break;
+                }
+                Ok(Some(lift)) => {
+                    let mut diffs = Vec::new();
+                    for r in 0..NREG {
+                        if interp.r[r] != lift.r[r] {
+                            diffs.push(format!("r{r}:i={:#x},l={:#x}", interp.r[r], lift.r[r]));
+                        }
+                    }
+                    for k in 0..4 {
+                        if interp.p[k] != lift.p[k] {
+                            diffs.push(format!("p{k}:i={:#x},l={:#x}", interp.p[k], lift.p[k]));
+                        }
+                    }
+                    if (interp.usr & 1) != (lift.usr & 1) {
+                        diffs.push(format!("usr_ovf:i={},l={}", interp.usr & 1, lift.usr & 1));
+                    }
+                    if !diffs.is_empty() {
+                        mismatches.push(format!("[{label}] {}", diffs.join(" ")));
+                    }
+                }
+                Err(e) => mismatches.push(format!("[{label}] {e}")),
+            }
+        }
+    }
+    if !unlifted.is_empty() {
+        eprintln!("[hexagon_smir_lift] {name}: UNLIFTED (gap): {:?}", unlifted);
+    }
+    if !mismatches.is_empty() {
+        eprintln!("\n==== {name}: {} lift mismatches ====", mismatches.len());
+        for m in mismatches.iter().take(20) {
+            eprintln!("  {m}");
+        }
+        panic!("{name}: {} SMIR-lift divergences vs interpreter", mismatches.len());
+    }
+}
+
+// ---- Reciprocal / inverse-sqrt seed + fixup (F2_sfrecipa / F2_sfinvsqrta /
+// F2_sffixupn / F2_sffixupd / F2_sffixupr). Byte-for-byte port of QEMU's
+// arch_sf_recip_common / arch_sf_invsqrt_common (the 128-entry seed tables, the
+// extreme-exponent scalbn adjusts, and the multi-bit Pe predicate) in the
+// OpKind::HexFpRecip interp arm. sfrecipa/sfinvsqrta produce Rd AND the FULL Pe
+// predicate byte (both compared); the fixup ops produce only Rd. Seeded from the
+// FP_SPECIAL pool so the seed-table indices, the special cases, and the
+// Pe=0x80/0x40/0xe0 scalbn branches are all exercised. ----
+#[test]
+fn lift_f2_sfrecip_seed() {
+    lift_fp_special_family(
+        "f2_sfrecip_seed",
+        &[
+            ("sfrecipa", "{ r4,p0 = sfrecipa(r1,r2) }"),
+            ("sfinvsqrta", "{ r4,p0 = sfinvsqrta(r1) }"),
+        ],
+        80,
+        0xf2_000d,
+    );
+}
+
+#[test]
+fn lift_f2_sffixup() {
+    lift_fp_special_family(
+        "f2_sffixup",
+        &[
+            ("sffixupn", "{ r4 = sffixupn(r1,r2) }"),
+            ("sffixupd", "{ r4 = sffixupd(r1,r2) }"),
+            ("sffixupr", "{ r4 = sffixupr(r1) }"),
+        ],
+        80,
+        0xf2_000e,
+    );
+}
+
+// ---- library fused multiply-add (`:lib`): F2_sffma_lib / F2_sffms_lib. The sem
+// computes the EXACT single-rounding fma with ties-AWAY rounding of subnormal
+// results (which native f32::mul_add — ties-to-even — cannot reproduce), then
+// applies the Hexagon post-fixups: a spurious-overflow infinity (no infinite
+// input) is backed off to max-finite (bit decrement), inf-minus-inf is flushed
+// to +0, and a true-zero accumulator keeps its sign. Lifted via the exact
+// integer fma core in the OpKind::HexFp3 `lib` path. Seeded from FP_SPECIAL
+// (incl. denormals + huge normals) so the subnormal-tie + overflow-backoff +
+// inf-minus-inf branches are exercised; Rx (r4) also draws from the pool. ----
+#[test]
+fn lift_f2_sffma_lib() {
+    lift_fp_special_family(
+        "f2_sffma_lib",
+        &[
+            ("sffma_lib", "{ r4 += sfmpy(r1,r2):lib }"),
+            ("sffms_lib", "{ r4 -= sfmpy(r1,r2):lib }"),
+        ],
+        120,
+        0xf2_000f,
+    );
+}

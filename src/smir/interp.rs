@@ -8,7 +8,7 @@ use crate::smir::context::{ArchRegState, ExitReason, SmirContext, VecValue};
 use crate::smir::flags::{FlagUpdate, LazyFlagOp, LazyFlags};
 use crate::smir::ir::{CallTarget, SmirBlock, SmirFunction, Terminator, TrapKind};
 use crate::smir::memory::{MemoryError, SmirMemory};
-use crate::smir::ops::{HexFpOp, OpKind, SmirOp};
+use crate::smir::ops::{HexFpOp, HexFpRecipKind, OpKind, SmirOp};
 use crate::smir::types::*;
 
 // ============================================================================
@@ -1900,12 +1900,36 @@ impl SmirInterpreter {
                 src2,
                 src3,
                 negate_product,
+                lib,
             } => {
                 let a = ctx.read_vreg(*src1) as u32;
                 let b = ctx.read_vreg(*src2) as u32;
                 let c = ctx.read_vreg(*src3) as u32;
-                let r = hex_sf_fma(a, b, c, *negate_product);
+                let r = if *lib {
+                    // `:lib` form: exact-core fma + Hexagon post-fixups.
+                    hex_sf_fma_lib(a, b, c, *negate_product)
+                } else {
+                    hex_sf_fma(a, b, c, *negate_product)
+                };
                 ctx.write_vreg(*dst, r as u64);
+            }
+
+            OpKind::HexFpRecip {
+                dst,
+                pred,
+                src1,
+                src2,
+                kind,
+            } => {
+                let rs = ctx.read_vreg(*src1) as u32;
+                let rt = ctx.read_vreg(*src2) as u32;
+                let (rd, pe) = hex_fp_recip_eval(*kind, rs, rt);
+                ctx.write_vreg(*dst, rd as u64);
+                if let Some(p) = pred {
+                    // The seed ops (sfrecipa/sfinvsqrta) write the FULL Hexagon
+                    // predicate byte Pe; the harness compares the whole byte.
+                    ctx.write_vreg(*p, pe as u64);
+                }
             }
 
             OpKind::IntToFp {
@@ -5648,6 +5672,483 @@ fn hex_sf_fma(araw: u32, braw: u32, craw: u32, negate_product: bool) -> u32 {
     }
 }
 
+// ============================================================================
+// Reciprocal / inverse-sqrt seed + fixup (OpKind::HexFpRecip)
+// ============================================================================
+//
+// Byte-for-byte port of QEMU `target/hexagon/arch.c`:
+//   * `arch_sf_recip_common(Rs,Rt,Rd,adjust)` and
+//   * `arch_sf_invsqrt_common(Rs,Rd,adjust)`
+// plus the idef seed-table lookup, copied verbatim from the rax reference sem
+// (src/backend/emulator/hexagon/sem/float_ext.rs). The 128-entry seed tables
+// are reproduced EXACTLY (they were recovered byte-for-byte from the qemu
+// oracle). The Pe `adjust` value lands in the FULL predicate byte (the harness
+// compares the whole byte). USR FP sticky flags are NOT modeled here (the
+// harness compares only the result + USR:OVF, and these ops never set OVF), so
+// the flag-setting side of `float32_scalbn`/`round_exact` is dropped — it does
+// not affect the returned bit pattern.
+
+const HR_RECIP_LOOKUP: [u8; 128] = [
+    0xfe, 0xfa, 0xf6, 0xf2, 0xef, 0xeb, 0xe7, 0xe4, 0xe0, 0xdd, 0xd9, 0xd6, 0xd2, 0xcf, 0xcc, 0xc9,
+    0xc6, 0xc2, 0xbf, 0xbc, 0xb9, 0xb6, 0xb3, 0xb1, 0xae, 0xab, 0xa8, 0xa5, 0xa3, 0xa0, 0x9d, 0x9b,
+    0x98, 0x96, 0x93, 0x91, 0x8e, 0x8c, 0x8a, 0x87, 0x85, 0x83, 0x80, 0x7e, 0x7c, 0x7a, 0x78, 0x75,
+    0x73, 0x71, 0x6f, 0x6d, 0x6b, 0x69, 0x67, 0x65, 0x63, 0x61, 0x5f, 0x5e, 0x5c, 0x5a, 0x58, 0x56,
+    0x54, 0x53, 0x51, 0x4f, 0x4e, 0x4c, 0x4a, 0x49, 0x47, 0x45, 0x44, 0x42, 0x40, 0x3f, 0x3d, 0x3c,
+    0x3a, 0x39, 0x37, 0x36, 0x34, 0x33, 0x32, 0x30, 0x2f, 0x2d, 0x2c, 0x2b, 0x29, 0x28, 0x27, 0x25,
+    0x24, 0x23, 0x21, 0x20, 0x1f, 0x1e, 0x1c, 0x1b, 0x1a, 0x19, 0x17, 0x16, 0x15, 0x14, 0x13, 0x12,
+    0x11, 0x0f, 0x0e, 0x0d, 0x0c, 0x0b, 0x0a, 0x09, 0x08, 0x07, 0x06, 0x05, 0x04, 0x03, 0x02, 0x00,
+];
+
+const HR_INVSQRT_LOOKUP: [u8; 128] = [
+    0x69, 0x66, 0x63, 0x61, 0x5e, 0x5b, 0x59, 0x57, 0x54, 0x52, 0x50, 0x4d, 0x4b, 0x49, 0x47, 0x45,
+    0x43, 0x41, 0x3f, 0x3d, 0x3b, 0x39, 0x37, 0x36, 0x34, 0x32, 0x30, 0x2f, 0x2d, 0x2c, 0x2a, 0x28,
+    0x27, 0x25, 0x24, 0x22, 0x21, 0x1f, 0x1e, 0x1d, 0x1b, 0x1a, 0x19, 0x17, 0x16, 0x15, 0x14, 0x12,
+    0x11, 0x10, 0x0f, 0x0d, 0x0c, 0x0b, 0x0a, 0x09, 0x08, 0x07, 0x06, 0x05, 0x04, 0x03, 0x02, 0x01,
+    0xfe, 0xfa, 0xf6, 0xf3, 0xef, 0xeb, 0xe8, 0xe4, 0xe1, 0xde, 0xdb, 0xd7, 0xd4, 0xd1, 0xce, 0xcb,
+    0xc9, 0xc6, 0xc3, 0xc0, 0xbe, 0xbb, 0xb8, 0xb6, 0xb3, 0xb1, 0xaf, 0xac, 0xaa, 0xa8, 0xa5, 0xa3,
+    0xa1, 0x9f, 0x9d, 0x9b, 0x99, 0x97, 0x95, 0x93, 0x91, 0x8f, 0x8d, 0x8b, 0x89, 0x87, 0x86, 0x84,
+    0x82, 0x80, 0x7f, 0x7d, 0x7b, 0x7a, 0x78, 0x77, 0x75, 0x74, 0x72, 0x71, 0x6f, 0x6e, 0x6c, 0x6b,
+];
+
+const HR_SF_BIAS: i32 = 127;
+const HR_SF_MANTBITS: i32 = 23;
+const HR_SF_MAXEXP: i32 = 254;
+const HR_F32_ONE: u32 = 0x3f80_0000;
+const HR_F32_NAN: u32 = 0xffff_ffff; // Hexagon default NaN (all ones)
+
+#[inline]
+fn hr_is_inf(b: u32) -> bool {
+    (b & 0x7fff_ffff) == 0x7f80_0000
+}
+#[inline]
+fn hr_is_zero(b: u32) -> bool {
+    (b & 0x7fff_ffff) == 0
+}
+#[inline]
+fn hr_is_neg(b: u32) -> bool {
+    (b >> 31) & 1 == 1
+}
+#[inline]
+fn hr_is_normal(b: u32) -> bool {
+    let e = (b >> 23) & 0xff;
+    e != 0 && e != 0xff
+}
+#[inline]
+fn hr_is_denormal(b: u32) -> bool {
+    (b >> 23) & 0xff == 0 && (b & 0x007f_ffff) != 0
+}
+#[inline]
+fn hr_getexp_raw(b: u32) -> i32 {
+    ((b >> 23) & 0xff) as i32
+}
+/// QEMU `float32_getexp`: raw exp for normals; raw+1 for denormals; -1 else.
+#[inline]
+fn hr_getexp(b: u32) -> i32 {
+    let raw = hr_getexp_raw(b);
+    if hr_is_normal(b) {
+        raw
+    } else if hr_is_denormal(b) {
+        raw + 1
+    } else {
+        -1
+    }
+}
+#[inline]
+fn hr_infinite(neg: bool) -> u32 {
+    if neg {
+        0xff80_0000
+    } else {
+        0x7f80_0000
+    }
+}
+
+/// Exact (sign, m, e) decomposition of a finite f32 (caller excludes NaN/inf).
+#[derive(Clone, Copy)]
+struct HrSf {
+    neg: bool,
+    m: u128,
+    e: i32,
+}
+fn hr_decode(b: u32) -> HrSf {
+    let neg = (b >> 31) & 1 == 1;
+    let exp = ((b >> 23) & 0xff) as i32;
+    let frac = (b & 0x007f_ffff) as u128;
+    if exp == 0 {
+        HrSf { neg, m: frac, e: -149 }
+    } else {
+        HrSf { neg, m: frac | 0x0080_0000, e: exp - 150 }
+    }
+}
+
+/// Round an exact magnitude `m * 2^e` to nearest f32 (no flag side-effects). The
+/// default tie-break is to even; `ties_away` (the `:lib` fma forms) rounds an
+/// exact half AWAY from zero on a tiny/subnormal result instead — this is the
+/// behaviour that native `f32::mul_add` (always ties-to-even) cannot reproduce.
+/// Port of `round_exact_to_f32` (result bits only).
+fn hr_round_exact_to_f32(neg: bool, mut m: u128, mut e: i32, sticky: bool, ties_away: bool) -> u32 {
+    let sign = if neg { 0x8000_0000u32 } else { 0 };
+    if m == 0 {
+        return sign;
+    }
+    let msb = 127 - m.leading_zeros() as i32;
+    let mut unbiased = msb + e;
+    let tiny = unbiased < -126;
+    let lowest_exp = if tiny { -149 } else { unbiased - 23 };
+    let drop = lowest_exp - e;
+    if drop > 0 {
+        let drop = drop as u32;
+        let dropped_mask = if drop >= 128 { u128::MAX } else { (1u128 << drop) - 1 };
+        let dropped = m & dropped_mask;
+        let half = if (1..=128).contains(&drop) { 1u128 << (drop - 1) } else { 0 };
+        m = if drop >= 128 { 0 } else { m >> drop };
+        e += drop as i32;
+        let round_bit = dropped & half != 0;
+        let rest = (dropped & half.wrapping_sub(1)) != 0 || sticky;
+        if round_bit && ((ties_away && tiny) || rest || (m & 1) == 1) {
+            m += 1;
+        }
+    }
+    if m == 0 {
+        return sign;
+    }
+    let new_msb = 127 - m.leading_zeros() as i32;
+    unbiased = new_msb + e;
+    if unbiased > 127 {
+        return sign | 0x7f80_0000;
+    }
+    if unbiased < -126 {
+        let frac = if e == -149 {
+            m
+        } else if e > -149 {
+            m << (e + 149)
+        } else {
+            m >> (-149 - e)
+        };
+        return sign | (frac as u32 & 0x007f_ffff);
+    }
+    let extra = new_msb - 23;
+    let frac = if extra >= 0 {
+        (m >> extra) & 0x007f_ffff
+    } else {
+        (m << (-extra)) & 0x007f_ffff
+    };
+    let biased = (unbiased + 127) as u32;
+    sign | (biased << 23) | (frac as u32)
+}
+
+/// softfloat `float32_scalbn(f, n)` for finite `f` (the only kind reached on the
+/// recip/invsqrt normal path). Port of the sem's `f32_scalbn`.
+fn hr_scalbn(b: u32, n: i32) -> u32 {
+    if hr_is_zero(b) {
+        return b;
+    }
+    let neg = hr_is_neg(b);
+    let dec = hr_decode(b); // exact (sign, m, e); m != 0 here
+    hr_round_exact_to_f32(neg, dec.m, dec.e + n, false, false)
+}
+
+/// Guard width for the exact f32 fma core (48-bit product mantissa + 78 = 126
+/// bits, fits i128). Port of the sem's `SF_GUARD`.
+const HR_SF_GUARD: i32 = 78;
+
+/// Exactly add two finite scaled magnitudes. Port of the sem's `add_scaled`
+/// (result-shaping only; no flag side-effects). Returns `(neg, mag, e, sticky)`
+/// where `mag*2^e` is the magnitude truncated toward zero and `sticky` is true
+/// iff the true magnitude is strictly larger than `mag*2^e`.
+fn hr_add_scaled(
+    neg_a: bool,
+    ma: u128,
+    ea: i32,
+    neg_b: bool,
+    mb: u128,
+    eb: i32,
+    guard: i32,
+) -> (bool, u128, i32, bool) {
+    if ma == 0 {
+        return (neg_b, mb, eb, false);
+    }
+    if mb == 0 {
+        return (neg_a, ma, ea, false);
+    }
+    let ehi = ea.max(eb);
+    let ce = ehi - guard;
+    let split = |m: u128, e: i32| -> (i128, bool) {
+        let shift = e - ce;
+        if shift >= 0 {
+            ((m << shift) as i128, false)
+        } else {
+            let s = (-shift) as u32;
+            if s >= 128 {
+                (0, m != 0)
+            } else {
+                let kept = (m >> s) as i128;
+                let residual = (m & ((1u128 << s) - 1)) != 0;
+                (kept, residual)
+            }
+        }
+    };
+    let (ka, ra) = split(ma, ea);
+    let (kb, rb) = split(mb, eb);
+    let sa = if neg_a { -ka } else { ka };
+    let sb = if neg_b { -kb } else { kb };
+    let res_a = if ra { if neg_a { -1i32 } else { 1 } } else { 0 };
+    let res_b = if rb { if neg_b { -1i32 } else { 1 } } else { 0 };
+    let res_sign = res_a + res_b;
+    let mut sum = sa + sb;
+    if sum == 0 {
+        if res_sign == 0 {
+            return (false, 0, ce, false);
+        }
+        let neg = res_sign < 0;
+        return (neg, 0, ce, true);
+    }
+    let neg = sum < 0;
+    if neg {
+        sum = -sum;
+    }
+    let mag = sum as u128;
+    let sticky;
+    let final_mag;
+    if res_sign == 0 {
+        sticky = false;
+        final_mag = mag;
+    } else {
+        let res_neg = res_sign < 0;
+        if res_neg == neg {
+            sticky = true;
+            final_mag = mag;
+        } else {
+            sticky = true;
+            final_mag = mag - 1;
+        }
+    }
+    (neg, final_mag, ce, sticky)
+}
+
+/// Exact fused multiply-add `a*b + c` with a single rounding (flag-free port of
+/// the sem's `sf_fma`). `ties_away` selects the `:lib` ties-away rounding of a
+/// subnormal result; the recip path never uses it.
+fn hr_sf_fma(araw: u32, braw: u32, craw: u32, negate_prod: bool, ties_away: bool) -> u32 {
+    let a = if negate_prod { araw ^ 0x8000_0000 } else { araw };
+    let b = braw;
+    let c = craw;
+    let any_nan = hf32_is_nan(araw) || hf32_is_nan(braw) || hf32_is_nan(craw);
+    let a_inf = (a & 0x7fff_ffff) == 0x7f80_0000;
+    let b_inf = (b & 0x7fff_ffff) == 0x7f80_0000;
+    let c_inf = (c & 0x7fff_ffff) == 0x7f80_0000;
+    let a_zero = (a & 0x7fff_ffff) == 0;
+    let b_zero = (b & 0x7fff_ffff) == 0;
+    let prod_invalid = (a_inf && b_zero) || (b_inf && a_zero);
+    if any_nan || prod_invalid {
+        return 0xFFFF_FFFF;
+    }
+    if a_inf || b_inf {
+        let prod_neg = ((a >> 31) ^ (b >> 31)) & 1 == 1;
+        if c_inf {
+            let c_neg = (c >> 31) & 1 == 1;
+            if prod_neg != c_neg {
+                return 0xFFFF_FFFF; // inf - inf
+            }
+            return if prod_neg { 0xff80_0000 } else { 0x7f80_0000 };
+        }
+        return if prod_neg { 0xff80_0000 } else { 0x7f80_0000 };
+    }
+    if c_inf {
+        return c;
+    }
+    let da = hr_decode(a);
+    let db = hr_decode(b);
+    let dc = hr_decode(c);
+    let prod_neg = da.neg ^ db.neg;
+    let prod_m = da.m * db.m; // up to 48 bits
+    let prod_e = da.e + db.e;
+    if prod_m == 0 {
+        if dc.m == 0 {
+            let neg = prod_neg && dc.neg;
+            return if neg { 0x8000_0000 } else { 0 };
+        }
+        return hr_round_exact_to_f32(dc.neg, dc.m, dc.e, false, ties_away);
+    }
+    if dc.m == 0 {
+        return hr_round_exact_to_f32(prod_neg, prod_m, prod_e, false, ties_away);
+    }
+    let (neg, mag, e, sticky) =
+        hr_add_scaled(prod_neg, prod_m, prod_e, dc.neg, dc.m, dc.e, HR_SF_GUARD);
+    if mag == 0 && !sticky {
+        return 0;
+    }
+    hr_round_exact_to_f32(neg, mag, e, sticky, ties_away)
+}
+
+#[inline]
+fn hr_sf_true_zero_product(rs: u32, rt: u32) -> bool {
+    let (frs, frt) = (f32::from_bits(rs), f32::from_bits(rt));
+    (frs == 0.0 && frt.is_finite()) || (frt == 0.0 && frs.is_finite())
+}
+
+/// `Rx {+,-}= sfmpy(Rs,Rt):lib`. Byte-for-byte port of the sem's `sf_fma_lib`:
+/// the exact single-rounding fma (with ties-away subnormal rounding), then the
+/// `:lib` post-fixups — preserve a true-zero accumulator's sign, back a
+/// spurious-overflow infinity (no infinite input) off to max-finite (bit
+/// decrement), and flush inf-minus-inf to +0. Flags are not modeled (the harness
+/// compares only the result + USR:OVF, which `:lib` never sets).
+pub(crate) fn hex_sf_fma_lib(rs: u32, rt: u32, rx: u32, sub: bool) -> u32 {
+    let tmp = hr_sf_fma(rs, rt, rx, sub, true);
+    if hf32_is_nan(rs) || hf32_is_nan(rt) || hf32_is_nan(rx) {
+        return tmp;
+    }
+    let frx = f32::from_bits(rx);
+    let prod = f32::from_bits(rs) * f32::from_bits(rt); // inf-ness only
+    let infinp = frx.is_infinite()
+        || f32::from_bits(rt).is_infinite()
+        || f32::from_bits(rs).is_infinite();
+    let xor_sign = ((rs >> 31) ^ (rx >> 31) ^ (rt >> 31)) & 1;
+    let inf_minus_inf = frx.is_infinite()
+        && prod.is_infinite()
+        && (if sub { xor_sign == 0 } else { xor_sign != 0 });
+    let mut res = if frx == 0.0 && hr_sf_true_zero_product(rs, rt) { rx } else { tmp };
+    if f32::from_bits(res).is_infinite() && !infinp {
+        res = res.wrapping_sub(1);
+    }
+    if inf_minus_inf {
+        res = 0; // +0.0
+    }
+    res
+}
+
+/// Port of `arch_sf_recip_common`. Returns `(ret, RsV, RtV, RdV, PeV)`.
+fn hr_recip_common(rsv: u32, rtv: u32) -> (bool, u32, u32, u32, u8) {
+    let rs_nan = hf32_is_nan(rsv);
+    let rt_nan = hf32_is_nan(rtv);
+    if rs_nan && rt_nan {
+        return (false, HR_F32_NAN, HR_F32_NAN, HR_F32_NAN, 0);
+    }
+    if rs_nan {
+        return (false, HR_F32_NAN, HR_F32_NAN, HR_F32_NAN, 0);
+    }
+    if rt_nan {
+        return (false, HR_F32_NAN, HR_F32_NAN, HR_F32_NAN, 0);
+    }
+    if hr_is_inf(rsv) && hr_is_inf(rtv) {
+        return (false, HR_F32_NAN, HR_F32_NAN, HR_F32_NAN, 0);
+    }
+    if hr_is_zero(rsv) && hr_is_zero(rtv) {
+        return (false, HR_F32_NAN, HR_F32_NAN, HR_F32_NAN, 0);
+    }
+    if hr_is_zero(rtv) {
+        let sign = hr_is_neg(rsv) ^ hr_is_neg(rtv);
+        return (false, hr_infinite(sign), HR_F32_ONE, HR_F32_ONE, 0);
+    }
+    if hr_is_inf(rtv) {
+        let rs = 0x8000_0000 & (rsv ^ rtv);
+        return (false, rs, HR_F32_ONE, HR_F32_ONE, 0);
+    }
+    if hr_is_zero(rsv) {
+        let rs = 0x8000_0000 & (rsv ^ rtv);
+        return (false, rs, HR_F32_ONE, HR_F32_ONE, 0);
+    }
+    if hr_is_inf(rsv) {
+        let sign = hr_is_neg(rsv) ^ hr_is_neg(rtv);
+        return (false, hr_infinite(sign), HR_F32_ONE, HR_F32_ONE, 0);
+    }
+    // Normal path: adjust extreme exponents, set PeV. Branch order is QEMU's.
+    let mut pe: u8 = 0x00;
+    let n_exp = hr_getexp_raw(rsv);
+    let d_exp = hr_getexp_raw(rtv);
+    let (mut rs, mut rt) = (rsv, rtv);
+    if (n_exp - d_exp + HR_SF_BIAS) <= HR_SF_MANTBITS {
+        pe = 0x80;
+        rt = hr_scalbn(rt, -64);
+        rs = hr_scalbn(rs, 64);
+    } else if (n_exp - d_exp + HR_SF_BIAS) > (HR_SF_MAXEXP - 24) {
+        pe = 0x40;
+        rt = hr_scalbn(rt, 32);
+        rs = hr_scalbn(rs, -32);
+    } else if n_exp <= HR_SF_MANTBITS + 2 {
+        rt = hr_scalbn(rt, 64);
+        rs = hr_scalbn(rs, 64);
+    } else if d_exp <= 1 {
+        rt = hr_scalbn(rt, 32);
+        rs = hr_scalbn(rs, 32);
+    } else if d_exp > 252 {
+        rt = hr_scalbn(rt, -32);
+        rs = hr_scalbn(rs, -32);
+    }
+    (true, rs, rt, 0, pe)
+}
+
+/// Port of `arch_sf_invsqrt_common`. Returns `(ret, RsV, RdV, PeV)`.
+fn hr_invsqrt_common(rsv: u32) -> (bool, u32, u32, u8) {
+    if hf32_is_nan(rsv) {
+        return (false, HR_F32_NAN, HR_F32_NAN, 0);
+    }
+    if hr_is_neg(rsv) && !hr_is_zero(rsv) {
+        return (false, HR_F32_NAN, HR_F32_NAN, 0);
+    }
+    if hr_is_inf(rsv) {
+        return (false, hr_infinite(true), hr_infinite(true), 0);
+    }
+    if hr_is_zero(rsv) {
+        return (false, rsv, HR_F32_ONE, 0);
+    }
+    let mut pe: u8 = 0x00;
+    let mut rs = rsv;
+    let r_exp = hr_getexp(rsv);
+    if r_exp <= 24 {
+        rs = hr_scalbn(rs, 64);
+        pe = 0xe0;
+    }
+    (true, rs, 0, pe)
+}
+
+#[inline]
+fn hr_make_sf(sign: u32, exp: i32, mant: u32) -> u32 {
+    ((sign & 1) << 31) | (((exp as u32) & 0xff) << 23) | (mant & 0x007f_ffff)
+}
+
+/// Dispatch a HexFpRecip kind. Returns `(Rd, Pe)`. For the fixup kinds Pe is 0
+/// (unused — the lift never wires a predicate output for them).
+fn hex_fp_recip_eval(kind: HexFpRecipKind, rsv: u32, rtv: u32) -> (u32, u8) {
+    use HexFpRecipKind::*;
+    match kind {
+        SfRecipa => {
+            let (ret, _rs, rt, rd, pe) = hr_recip_common(rsv, rtv);
+            if !ret {
+                return (rd, pe);
+            }
+            let idx = ((rt >> 16) & 0x7f) as usize;
+            let mant = ((HR_RECIP_LOOKUP[idx] as u32) << 15) | 1;
+            let exp = HR_SF_BIAS - (hr_getexp_raw(rt) - HR_SF_BIAS) - 1;
+            (hr_make_sf(rt >> 31, exp, mant), pe)
+        }
+        SfInvSqrtA => {
+            let (ret, rs, rd, pe) = hr_invsqrt_common(rsv);
+            if !ret {
+                return (rd, pe);
+            }
+            let idx = ((rs >> 17) & 0x7f) as usize;
+            let mant = (HR_INVSQRT_LOOKUP[idx] as u32) << 15;
+            let exp = HR_SF_BIAS - ((hr_getexp_raw(rs) - HR_SF_BIAS) >> 1) - 1;
+            (hr_make_sf(rs >> 31, exp, mant), pe)
+        }
+        SfFixupN => {
+            // Rd = recip_common's adjusted Rs (numerator).
+            let (_ret, rs, _rt, _rd, _pe) = hr_recip_common(rsv, rtv);
+            (rs, 0)
+        }
+        SfFixupD => {
+            // Rd = recip_common's adjusted Rt (denominator).
+            let (_ret, _rs, rt, _rd, _pe) = hr_recip_common(rsv, rtv);
+            (rt, 0)
+        }
+        SfFixupR => {
+            // Rd = invsqrt_common's adjusted Rs (radicand).
+            let (_ret, rs, _rd, _pe) = hr_invsqrt_common(rsv);
+            (rs, 0)
+        }
+    }
+}
+
 /// Evaluate a Hexagon scalar FP sub-op; `a`/`b` are raw operand bits.
 fn hex_fp_eval(op: HexFpOp, a: u64, b: u64) -> u64 {
     use HexFpOp::*;
@@ -5777,6 +6278,110 @@ mod tests {
     use crate::smir::flags::FlagUpdate;
     use crate::smir::ir::FunctionBuilder;
     use crate::smir::memory::FlatMemory;
+
+    /// Pins a few known (input -> Rd, Pe) pairs for the reciprocal / inverse-sqrt
+    /// seed + fixup family. The expected values were derived directly from the
+    /// reference sem (src/backend/emulator/hexagon/sem/float_ext.rs:
+    /// `sf_recipa`/`sf_invsqrta`/`sf_recip_common`/`sf_invsqrt_common`), which is
+    /// what the full diff harness (`tests/hexagon_smir_lift.rs`) compares against.
+    #[test]
+    fn smir_hex_fp_recip_eval_matches_sem() {
+        use HexFpRecipKind::*;
+
+        // ---- sfrecipa normal seed path (no scalbn adjust, Pe = 0) ----
+        // recipa(_, 2.0): idx=0, mant=(0xfe<<15)|1, exp=125 -> 0x3eff0001.
+        assert_eq!(
+            hex_fp_recip_eval(SfRecipa, 0x3f80_0000, 0x4000_0000),
+            (0x3eff_0001, 0x00)
+        );
+        // recipa(_, 4.0): idx=0, exp=124 -> 0x3e7f0001.
+        assert_eq!(
+            hex_fp_recip_eval(SfRecipa, 0x3f80_0000, 0x4080_0000),
+            (0x3e7f_0001, 0x00)
+        );
+        // ---- sfrecipa special cases (Pe = 0) ----
+        // Rt == 0 (divide-by-zero) -> the common sets RdV = float32_one (the seed
+        // result for the special cases; the actual inf/zero lands in RsV/RtV for
+        // the fixup ops). So sfrecipa's Rd = 1.0, Pe = 0.
+        assert_eq!(
+            hex_fp_recip_eval(SfRecipa, 0x4040_0000 /*3.0*/, 0x0000_0000),
+            (0x3f80_0000, 0x00)
+        );
+        // Either NaN -> default all-ones NaN.
+        assert_eq!(
+            hex_fp_recip_eval(SfRecipa, 0x7fc0_0000, 0x3f80_0000),
+            (0xffff_ffff, 0x00)
+        );
+
+        // ---- sfinvsqrta normal seed path (Rt ignored, Pe = 0) ----
+        // invsqrta(4.0): idx=64, mant=0xfe<<15, exp=125 -> 0x3eff0000.
+        assert_eq!(
+            hex_fp_recip_eval(SfInvSqrtA, 0x4080_0000, 0),
+            (0x3eff_0000, 0x00)
+        );
+        // invsqrta(1.0): idx=64, exp=126 -> 0x3f7f0000.
+        assert_eq!(
+            hex_fp_recip_eval(SfInvSqrtA, 0x3f80_0000, 0),
+            (0x3f7f_0000, 0x00)
+        );
+        // ---- sfinvsqrta extreme-exponent path: Rs=2^-110 (raw exp 17 <= 24) ----
+        // scalbn(+64) -> 0x28800000; idx=64, exp=149 -> 0x4aff0000, Pe = 0xe0.
+        assert_eq!(
+            hex_fp_recip_eval(SfInvSqrtA, 0x0880_0000, 0),
+            (0x4aff_0000, 0xe0)
+        );
+        // invsqrta(-1.0): negative non-zero -> default NaN, Pe = 0.
+        assert_eq!(
+            hex_fp_recip_eval(SfInvSqrtA, 0xbf80_0000, 0),
+            (0xffff_ffff, 0x00)
+        );
+
+        // ---- fixup ops return the (possibly adjusted) operand, no Pe ----
+        // sffixupn/d on a no-adjust normal pair returns the operands unchanged.
+        assert_eq!(
+            hex_fp_recip_eval(SfFixupN, 0x3f80_0000, 0x4000_0000),
+            (0x3f80_0000, 0x00)
+        );
+        assert_eq!(
+            hex_fp_recip_eval(SfFixupD, 0x3f80_0000, 0x4000_0000),
+            (0x4000_0000, 0x00)
+        );
+        // sffixupr on Rs=2^-110 returns the scalbn(+64)-adjusted radicand.
+        assert_eq!(
+            hex_fp_recip_eval(SfFixupR, 0x0880_0000, 0),
+            (0x2880_0000, 0x00)
+        );
+    }
+
+    /// Pins the load-bearing `:lib` fma behaviour: ties-AWAY rounding of a
+    /// subnormal result (native `f32::mul_add` rounds ties-to-even and DIVERGES
+    /// here), the spurious-overflow back-off to max-finite, and the inf-minus-inf
+    /// flush to +0. Values derived from the reference sem (`sf_fma_lib`).
+    #[test]
+    fn smir_hex_sf_fma_lib_matches_sem() {
+        // 2^-149 * 0.5 + 0 = 2^-150, exactly halfway between 0 and the smallest
+        // subnormal 2^-149. ties-to-even -> 0x0; ties-away (`:lib`) -> 0x1.
+        assert_eq!(hex_sf_fma_lib(0x0000_0001, 0x3f00_0000, 0x0000_0000, false), 0x0000_0001);
+        // Sanity: the native ties-to-even path would give 0 here.
+        assert_eq!(f32::from_bits(0x0000_0001).mul_add(0.5, 0.0).to_bits(), 0x0000_0000);
+
+        // Spurious overflow (no infinite input): FLT_MAX * 4 + 0 -> +inf, which
+        // is backed off to max-finite by a bit decrement (0x7f800000 - 1).
+        let big = 0x7f7f_ffff; // FLT_MAX
+        let four = 0x4080_0000; // 4.0
+        assert_eq!(hex_sf_fma_lib(big, four, 0, false), 0x7f7f_ffff);
+
+        // inf - inf -> flushed to +0 for the fms form: prod=+inf, c=+inf.
+        // sffms computes c - prod; with prod=+inf and c=+inf this is the
+        // inf-minus-inf case -> +0.0.
+        assert_eq!(hex_sf_fma_lib(0x7f80_0000, 0x3f80_0000, 0x7f80_0000, true), 0);
+
+        // Plain finite case matches a single-rounded fma (no fixup fires).
+        assert_eq!(
+            hex_sf_fma_lib(0x4000_0000 /*2*/, 0x4040_0000 /*3*/, 0x3f80_0000 /*1*/, false),
+            (7.0f32).to_bits()
+        );
+    }
 
     #[test]
     fn smir_hex_fp_eval_matches_sem() {

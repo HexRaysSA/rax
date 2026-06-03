@@ -1532,7 +1532,8 @@ impl OpKind {
             | OpKind::FMin { src1, src2, .. }
             | OpKind::FMax { src1, src2, .. }
             | OpKind::FCmp { src1, src2, .. }
-            | OpKind::HexFp { src1, src2, .. } => {
+            | OpKind::HexFp { src1, src2, .. }
+            | OpKind::HexFpRecip { src1, src2, .. } => {
                 result.push(*src1);
                 result.push(*src2);
             }

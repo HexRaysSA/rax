@@ -11,6 +11,7 @@ use crate::riscv::decode as rv_decode;
 use crate::riscv::{Isa as RvIsa, Op as RvOp, Xlen};
 use crate::smir::lift::riscv::RiscVExtensions;
 use crate::smir::ops::HexFpOp;
+use crate::smir::ops::HexFpRecipKind;
 use crate::smir::types::DispSize;
 use crate::smir::{
     Aarch64Lifter, Address, ArchReg, ArmReg, AtomicOp, Avx10FP16Op, BlockId, CallTarget, Condition,
@@ -1051,6 +1052,7 @@ debug_name_json!(
     Avx10FP16Op,
     Condition,
     HexFpOp,
+    HexFpRecipKind,
 );
 
 impl OracleJson for FlagSet {
@@ -1643,7 +1645,15 @@ fn smir_op_kind_json(kind: &OpKind) -> Value {
             src2,
             src3,
             negate_product,
-        } => op_json!("hexfp3", dst, src1, src2, src3, negate_product),
+            lib,
+        } => op_json!("hexfp3", dst, src1, src2, src3, negate_product, lib),
+        OpKind::HexFpRecip {
+            dst,
+            pred,
+            src1,
+            src2,
+            kind,
+        } => op_json!("hexfp_recip", dst, pred, src1, src2, kind),
         OpKind::IntToFp {
             dst,
             src,

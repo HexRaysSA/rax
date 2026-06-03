@@ -12,7 +12,7 @@ use crate::smir::ir::{
 use crate::smir::lift::{
     ControlFlow, LiftContext, LiftError, LiftResult, MemoryReader, SmirLifter,
 };
-use crate::smir::ops::{HexFpOp, OpKind, SmirOp};
+use crate::smir::ops::{HexFpOp, HexFpRecipKind, OpKind, SmirOp};
 use crate::smir::types::*;
 
 // Re-use the existing Hexagon decoder types
@@ -18206,14 +18206,21 @@ impl HexagonLifter {
 
             // ---- single-precision fused multiply-add (Rx {+,-}= Rs*Rt) ----
             // Single IEEE rounding (native fma); result bits match the sem.
-            Opcode::F2_sffma | Opcode::F2_sffms => {
+            // The `:lib` forms (sffma_lib/sffms_lib) use the EXACT integer fma
+            // core (ties-away subnormal rounding) + the Hexagon post-fixups in
+            // the OpKind::HexFp3 `lib` path — native f32::mul_add would diverge.
+            Opcode::F2_sffma
+            | Opcode::F2_sffms
+            | Opcode::F2_sffma_lib
+            | Opcode::F2_sffms_lib => {
                 let r = ctx.alloc_vreg();
                 push_op!(OpKind::HexFp3 {
                     dst: r,
                     src1: rs,
                     src2: rt,
                     src3: rx, // accumulator Rx (field `x`)
-                    negate_product: matches!(op, Opcode::F2_sffms),
+                    negate_product: matches!(op, Opcode::F2_sffms | Opcode::F2_sffms_lib),
+                    lib: matches!(op, Opcode::F2_sffma_lib | Opcode::F2_sffms_lib),
                 });
                 // Write back to Rx (field `x`).
                 push_op!(OpKind::Mov {
@@ -18221,6 +18228,60 @@ impl HexagonLifter {
                     src: SrcOperand::Reg(r),
                     width: OpWidth::W32,
                 });
+            }
+
+            // ---- reciprocal / inverse-sqrt seed + fixup ----
+            // Byte-for-byte port of arch_sf_recip_common / arch_sf_invsqrt_common
+            // (seed tables + Pe predicate) in the OpKind::HexFpRecip interp arm.
+            // sfrecipa/sfinvsqrta write Rd AND the FULL predicate byte Pe (field
+            // `e`); the fixup ops (sffixupn/d/r) write only Rd.
+            Opcode::F2_sfrecipa => {
+                let r = ctx.alloc_vreg();
+                push_op!(OpKind::HexFpRecip {
+                    dst: r,
+                    pred: Some(self.hex_pred(fld(b'e'))),
+                    src1: rs,
+                    src2: rt,
+                    kind: HexFpRecipKind::SfRecipa,
+                });
+                set_r!(r);
+            }
+            Opcode::F2_sfinvsqrta => {
+                let r = ctx.alloc_vreg();
+                push_op!(OpKind::HexFpRecip {
+                    dst: r,
+                    pred: Some(self.hex_pred(fld(b'e'))),
+                    src1: rs,
+                    src2: rs, // Rt unused by the invsqrt kind
+                    kind: HexFpRecipKind::SfInvSqrtA,
+                });
+                set_r!(r);
+            }
+            Opcode::F2_sffixupn | Opcode::F2_sffixupd => {
+                let r = ctx.alloc_vreg();
+                push_op!(OpKind::HexFpRecip {
+                    dst: r,
+                    pred: None,
+                    src1: rs,
+                    src2: rt,
+                    kind: if matches!(op, Opcode::F2_sffixupn) {
+                        HexFpRecipKind::SfFixupN
+                    } else {
+                        HexFpRecipKind::SfFixupD
+                    },
+                });
+                set_r!(r);
+            }
+            Opcode::F2_sffixupr => {
+                let r = ctx.alloc_vreg();
+                push_op!(OpKind::HexFpRecip {
+                    dst: r,
+                    pred: None,
+                    src1: rs,
+                    src2: rs, // Rt unused by the invsqrt kind
+                    kind: HexFpRecipKind::SfFixupR,
+                });
+                set_r!(r);
             }
 
             // ---- double-precision integer multiplies (pure integer, no FP) ----

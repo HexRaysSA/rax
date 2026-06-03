@@ -2304,6 +2304,31 @@ pub enum OpKind {
         src3: VReg,
         /// true => negate the product (sffms: `Rx - Rs*Rt`).
         negate_product: bool,
+        /// true => the `:lib` form (F2_sffma_lib / F2_sffms_lib): an EXACT
+        /// single-rounding fma with ties-AWAY rounding of subnormal results plus
+        /// the Hexagon post-fixups (spurious-overflow inf backed off to
+        /// max-finite, inf-minus-inf flushed to +0, true-zero accumulator sign
+        /// preserved). Computed via the exact integer fma core, NOT native
+        /// `f32::mul_add` — native ties-to-even would diverge on subnormal ties.
+        lib: bool,
+    },
+
+    /// Hexagon reciprocal / inverse-sqrt seed + fixup family (F2_sfrecipa,
+    /// F2_sfinvsqrta, F2_sffixupn/d/r). A byte-for-byte port of QEMU's
+    /// `arch_sf_recip_common` / `arch_sf_invsqrt_common` (the extreme-exponent
+    /// `scalbn` adjusts, special-case canonicalisation, the 128-entry seed
+    /// tables, and the multi-bit `Pe` predicate). `src1`=Rs, `src2`=Rt (Rt is
+    /// ignored by the invsqrt/`sffixupr` kinds). `dst` receives the raw f32
+    /// result bits; `pred`, when `Some`, receives the FULL Hexagon predicate
+    /// byte `Pe` (the seed ops produce both Rd and Pe; the fixup ops produce
+    /// only Rd). Self-contained, like [`OpKind::HexFp`]; NOT JIT-whitelisted.
+    HexFpRecip {
+        dst: VReg,
+        /// Predicate `Pe` output (sfrecipa/sfinvsqrta); `None` for the fixups.
+        pred: Option<VReg>,
+        src1: VReg,
+        src2: VReg,
+        kind: HexFpRecipKind,
     },
 
     // ========================================================================
@@ -2379,6 +2404,24 @@ pub enum HexFpOp {
     ConvDf2DChop,
     ConvDf2Ud,
     ConvDf2UdChop,
+}
+
+/// Reciprocal / inverse-sqrt seed + fixup sub-operation for
+/// [`OpKind::HexFpRecip`]. Each variant maps to one `F2_*` opcode and selects
+/// which value the byte-for-byte port of `arch_sf_recip_common` /
+/// `arch_sf_invsqrt_common` returns.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum HexFpRecipKind {
+    /// `Rd,Pe = sfrecipa(Rs,Rt)`: reciprocal seed of Rt (writes Rd + Pe).
+    SfRecipa,
+    /// `Rd,Pe = sfinvsqrta(Rs)`: inverse-sqrt seed of Rs (writes Rd + Pe).
+    SfInvSqrtA,
+    /// `Rd = sffixupn(Rs,Rt)`: recip_common's adjusted numerator (Rs).
+    SfFixupN,
+    /// `Rd = sffixupd(Rs,Rt)`: recip_common's adjusted denominator (Rt).
+    SfFixupD,
+    /// `Rd = sffixupr(Rs)`: invsqrt_common's adjusted radicand (Rs).
+    SfFixupR,
 }
 
 impl OpKind {
@@ -2620,6 +2663,16 @@ impl OpKind {
                 let mut v = vec![*dst_lo];
                 if let Some(hi) = dst_hi {
                     v.push(*hi);
+                }
+                v
+            }
+
+            // Reciprocal/invsqrt seed (sfrecipa/sfinvsqrta) writes Rd AND the
+            // predicate Pe; the fixup ops write only Rd.
+            OpKind::HexFpRecip { dst, pred, .. } => {
+                let mut v = vec![*dst];
+                if let Some(p) = pred {
+                    v.push(*p);
                 }
                 v
             }
