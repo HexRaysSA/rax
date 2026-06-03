@@ -2494,6 +2494,27 @@ fn smir_op_kind_json(kind: &OpKind) -> Value {
         OpKind::ClMul { .. } => op_json!("clmul"),
         OpKind::CmpyW128Sat { .. } => op_json!("cmpy_w128_sat"),
         OpKind::SatOrigShl { .. } => op_json!("sat_orig_shl"),
+        OpKind::HexFpDf {
+            dst,
+            src1,
+            src2,
+            src3,
+            ..
+        } => op_json!("hexfp_df", dst, src1, src2, src3),
+        OpKind::HexFpScFma {
+            dst,
+            src1,
+            src2,
+            src3,
+            scale,
+        } => op_json!("hexfp_sc_fma", dst, src1, src2, src3, scale),
+        OpKind::HexCabacDecBin {
+            dst,
+            pred,
+            src1,
+            src2,
+        } => op_json!("hex_cabac_decbin", dst, pred, src1, src2),
+        OpKind::HexTlbMatch { dst, src1, src2 } => op_json!("hex_tlbmatch", dst, src1, src2),
     }
 }
 

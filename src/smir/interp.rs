@@ -1932,6 +1932,60 @@ impl SmirInterpreter {
                 }
             }
 
+            OpKind::HexFpDf {
+                dst,
+                src1,
+                src2,
+                src3,
+                op,
+            } => {
+                let a = ctx.read_vreg(*src1);
+                let b = ctx.read_vreg(*src2);
+                let r = match op {
+                    crate::smir::ops::HexDfOp::DfMpyHh => {
+                        let acc = ctx.read_vreg(*src3);
+                        hr_df_mpyhh(a, b, acc)
+                    }
+                    crate::smir::ops::HexDfOp::DfMpyFix => hr_df_mpyfix(a, b),
+                };
+                ctx.write_vreg(*dst, r);
+            }
+
+            OpKind::HexFpScFma {
+                dst,
+                src1,
+                src2,
+                src3,
+                scale,
+            } => {
+                let rs = ctx.read_vreg(*src1) as u32;
+                let rt = ctx.read_vreg(*src2) as u32;
+                let rx = ctx.read_vreg(*src3) as u32;
+                let pu = ctx.read_vreg(*scale) as u8;
+                let r = hex_sf_fma_scale(rs, rt, rx, pu);
+                ctx.write_vreg(*dst, r as u64);
+            }
+
+            OpKind::HexCabacDecBin {
+                dst,
+                pred,
+                src1,
+                src2,
+            } => {
+                let rss = ctx.read_vreg(*src1);
+                let rtt = ctx.read_vreg(*src2);
+                let (rdd, p0) = hex_cabac_decbin(rss, rtt);
+                ctx.write_vreg(*dst, rdd);
+                ctx.write_vreg(*pred, p0 as u64);
+            }
+
+            OpKind::HexTlbMatch { dst, src1, src2 } => {
+                let rss = ctx.read_vreg(*src1);
+                let rt = ctx.read_vreg(*src2) as u32;
+                let p = hex_tlbmatch(rss, rt);
+                ctx.write_vreg(*dst, p as u64);
+            }
+
             OpKind::IntToFp {
                 dst,
                 src,
@@ -6014,6 +6068,355 @@ pub(crate) fn hex_sf_fma_lib(rs: u32, rt: u32, rx: u32, sub: bool) -> u32 {
         res = 0; // +0.0
     }
     res
+}
+
+// ============================================================================
+// Scaled single-precision fused multiply-add (F2_sffma_sc): `Rx += Rs*Rt` then
+// `* 2^Pu`. Pu is a two's-complement signed-8 scale folded into the EXACT
+// product BEFORE the single rounding (a hardware scalb), so it routes through
+// the exact integer fma core with the scale threaded into the result exponent —
+// native `f32::mul_add` followed by a separate scale would double-round.
+// Byte-for-byte port of the sem's `sf_fma_scale` (result bits only).
+// ============================================================================
+
+/// Exact fused multiply-add `a*b + c`, then `* 2^scale` applied to the exact
+/// magnitude before the single rounding. Mirror of `hr_sf_fma` with the sem's
+/// `scale` arg threaded into every `hr_round_exact_to_f32` call site.
+fn hr_sf_fma_scaled(araw: u32, braw: u32, craw: u32, scale: i32) -> u32 {
+    let a = araw;
+    let b = braw;
+    let c = craw;
+    let any_nan = hf32_is_nan(araw) || hf32_is_nan(braw) || hf32_is_nan(craw);
+    let a_inf = (a & 0x7fff_ffff) == 0x7f80_0000;
+    let b_inf = (b & 0x7fff_ffff) == 0x7f80_0000;
+    let c_inf = (c & 0x7fff_ffff) == 0x7f80_0000;
+    let a_zero = (a & 0x7fff_ffff) == 0;
+    let b_zero = (b & 0x7fff_ffff) == 0;
+    let prod_invalid = (a_inf && b_zero) || (b_inf && a_zero);
+    if any_nan || prod_invalid {
+        return 0xFFFF_FFFF;
+    }
+    if a_inf || b_inf {
+        let prod_neg = ((a >> 31) ^ (b >> 31)) & 1 == 1;
+        if c_inf {
+            let c_neg = (c >> 31) & 1 == 1;
+            if prod_neg != c_neg {
+                return 0xFFFF_FFFF; // inf - inf
+            }
+            return if prod_neg { 0xff80_0000 } else { 0x7f80_0000 };
+        }
+        return if prod_neg { 0xff80_0000 } else { 0x7f80_0000 };
+    }
+    if c_inf {
+        return c;
+    }
+    let da = hr_decode(a);
+    let db = hr_decode(b);
+    let dc = hr_decode(c);
+    let prod_neg = da.neg ^ db.neg;
+    let prod_m = da.m * db.m;
+    let prod_e = da.e + db.e;
+    if prod_m == 0 {
+        if dc.m == 0 {
+            let neg = prod_neg && dc.neg;
+            return if neg { 0x8000_0000 } else { 0 };
+        }
+        return hr_round_exact_to_f32(dc.neg, dc.m, dc.e + scale, false, false);
+    }
+    if dc.m == 0 {
+        return hr_round_exact_to_f32(prod_neg, prod_m, prod_e + scale, false, false);
+    }
+    let (neg, mag, e, sticky) =
+        hr_add_scaled(prod_neg, prod_m, prod_e, dc.neg, dc.m, dc.e, HR_SF_GUARD);
+    if mag == 0 && !sticky {
+        return 0;
+    }
+    hr_round_exact_to_f32(neg, mag, e + scale, sticky, false)
+}
+
+/// `Rx += sfmpy(Rs,Rt,Pu):scale`. Fused multiply-add then scale by `2^Pu`
+/// (Pu read as a two's-complement signed-8 exponent). Byte-for-byte port of the
+/// sem's `sf_fma_scale` (result bits only): a true-zero accumulator plus a
+/// true-zero product keeps Rx (sign preserved) with no scaling.
+fn hex_sf_fma_scale(rs: u32, rt: u32, rx: u32, pu: u8) -> u32 {
+    if !hf32_is_nan(rs)
+        && !hf32_is_nan(rt)
+        && !hf32_is_nan(rx)
+        && f32::from_bits(rx) == 0.0
+        && hr_sf_true_zero_product(rs, rt)
+    {
+        return rx;
+    }
+    let scale = pu as i8 as i32;
+    hr_sf_fma_scaled(rs, rt, rx, scale)
+}
+
+// ============================================================================
+// Double-precision high-half multiply / fixup (F2_dfmpyhh / F2_dfmpyfix).
+// ============================================================================
+//
+// Byte-for-byte port of the reference sem (sem/float_ext.rs::df_mpyhh /
+// dfmpyfix). dfmpyhh needs an EXACT 64-bit-mantissa rounding core
+// (`hr_round_exact_to_f64`, the f64 analog of `hr_round_exact_to_f32`) because
+// native f64 double-rounds; dfmpyfix only ever scales by an exact power of two.
+// Result bits only (the harness compares result + USR:OVF; these ops never set
+// OVF, so the FP sticky flags are not modeled).
+
+#[inline]
+fn hr_df_getexp(b: u64) -> u64 {
+    (b >> 52) & 0x7ff
+}
+#[inline]
+fn hr_df_is_normal(b: u64) -> bool {
+    let e = hr_df_getexp(b);
+    e != 0 && e != 0x7ff
+}
+#[inline]
+fn hr_df_is_denorm(b: u64) -> bool {
+    hr_df_getexp(b) == 0 && (b & 0x000f_ffff_ffff_ffff) != 0
+}
+#[inline]
+fn hr_df_is_big(b: u64) -> bool {
+    hr_df_getexp(b) >= 512
+}
+#[inline]
+fn hf64_is_snan(b: u64) -> bool {
+    hf64_is_nan(b) && (b & 0x0008_0000_0000_0000) == 0
+}
+
+/// Exact (sign, m, e) decomposition of a finite f64 (caller excludes NaN/inf).
+#[derive(Clone, Copy)]
+struct HrDf {
+    neg: bool,
+    m: u128,
+    e: i32,
+}
+fn hr_df_decode(b: u64) -> HrDf {
+    let neg = (b >> 63) & 1 == 1;
+    let exp = ((b >> 52) & 0x7ff) as i32;
+    let frac = (b & 0x000f_ffff_ffff_ffff) as u128;
+    if exp == 0 {
+        HrDf { neg, m: frac, e: -1074 }
+    } else {
+        HrDf { neg, m: frac | 0x0010_0000_0000_0000, e: exp - 1075 }
+    }
+}
+
+/// Round an exact magnitude `m * 2^e` to nearest-even f64 (no flag side-effects).
+/// Direct f64 analog of `hr_round_exact_to_f32` (bias 1023, 52 mantissa bits,
+/// smallest normal exponent -1022, subnormal floor 2^-1074). Port of the sem's
+/// `round_exact_to_f64` (result bits only). dfmpyhh never uses `ties_away`.
+fn hr_round_exact_to_f64(neg: bool, mut m: u128, mut e: i32, sticky: bool) -> u64 {
+    let sign = if neg { 0x8000_0000_0000_0000u64 } else { 0 };
+    if m == 0 {
+        return sign;
+    }
+    let msb = 127 - m.leading_zeros() as i32;
+    let mut unbiased = msb + e;
+    let tiny = unbiased < -1022;
+    let lowest_exp = if tiny { -1074 } else { unbiased - 52 };
+    let drop = lowest_exp - e;
+    if drop > 0 {
+        let drop = drop as u32;
+        let dropped_mask = if drop >= 128 { u128::MAX } else { (1u128 << drop) - 1 };
+        let dropped = m & dropped_mask;
+        let half = if (1..=128).contains(&drop) { 1u128 << (drop - 1) } else { 0 };
+        m = if drop >= 128 { 0 } else { m >> drop };
+        e += drop as i32;
+        let round_bit = dropped & half != 0;
+        let rest = (dropped & half.wrapping_sub(1)) != 0 || sticky;
+        if round_bit && (rest || (m & 1) == 1) {
+            m += 1;
+        }
+    }
+    if m == 0 {
+        return sign;
+    }
+    let new_msb = 127 - m.leading_zeros() as i32;
+    unbiased = new_msb + e;
+    if unbiased > 1023 {
+        return sign | 0x7ff0_0000_0000_0000;
+    }
+    if unbiased < -1022 {
+        let frac = if e == -1074 {
+            m
+        } else if e > -1074 {
+            m << (e + 1074)
+        } else {
+            m >> (-1074 - e)
+        };
+        return sign | (frac as u64 & 0x000f_ffff_ffff_ffff);
+    }
+    let extra = new_msb - 52;
+    let frac = if extra >= 0 {
+        (m >> extra) & 0x000f_ffff_ffff_ffff
+    } else {
+        (m << (-extra)) & 0x000f_ffff_ffff_ffff
+    };
+    let biased = (unbiased + 1023) as u64;
+    sign | (biased << 52) | (frac as u64)
+}
+
+/// `Rxx = dfmpyhh(Rss, Rtt, Rxx)`: high-half multiply + fixed-weight accumulate.
+/// Byte-for-byte port of the sem's `df_mpyhh` (result bits only):
+///   * each operand's mantissa is masked to its HIGH 32 bits before multiplying;
+///   * subnormal inputs are flushed to signed zero;
+///   * inf/NaN follow the usual product rules;
+///   * the 64-bit accumulator is added at a FIXED weight `acc_e = prod_e + 31`,
+///     then rounded once to nearest-even.
+fn hr_df_mpyhh(araw: u64, braw: u64, acc: u64) -> u64 {
+    if hf64_is_nan(araw) || hf64_is_nan(braw) {
+        return 0xFFFF_FFFF_FFFF_FFFF;
+    }
+    let a_inf = (araw & 0x7fff_ffff_ffff_ffff) == 0x7ff0_0000_0000_0000;
+    let b_inf = (braw & 0x7fff_ffff_ffff_ffff) == 0x7ff0_0000_0000_0000;
+    let a_zero = (araw & 0x7fff_ffff_ffff_ffff) == 0;
+    let b_zero = (braw & 0x7fff_ffff_ffff_ffff) == 0;
+    if a_inf || b_inf {
+        let neg = ((araw >> 63) ^ (braw >> 63)) & 1 == 1;
+        if a_zero || b_zero {
+            return 0xFFFF_FFFF_FFFF_FFFF; // inf * 0 -> invalid, default NaN
+        }
+        return if neg { 0xfff0_0000_0000_0000 } else { 0x7ff0_0000_0000_0000 };
+    }
+    let a_sub = (araw >> 52) & 0x7ff == 0 && (araw & 0x000f_ffff_ffff_ffff) != 0;
+    let b_sub = (braw >> 52) & 0x7ff == 0 && (braw & 0x000f_ffff_ffff_ffff) != 0;
+    let a = if a_sub { araw & 0x8000_0000_0000_0000 } else { araw };
+    let b = if b_sub { braw & 0x8000_0000_0000_0000 } else { braw };
+    let da = hr_df_decode(a & 0xffff_ffff_0000_0000);
+    let db = hr_df_decode(b & 0xffff_ffff_0000_0000);
+    let neg = da.neg ^ db.neg;
+    if da.m == 0 || db.m == 0 {
+        return if neg { 0x8000_0000_0000_0000 } else { 0 };
+    }
+    let prod_m = da.m * db.m;
+    let prod_e = da.e + db.e;
+    let acc_e = prod_e + 31;
+    let lo = prod_e.min(acc_e);
+    let total = (prod_m << (prod_e - lo)) + ((acc as u128) << (acc_e - lo));
+    hr_round_exact_to_f64(neg, total, lo, false)
+}
+
+/// `Rdd = dfmpyfix(Rss, Rtt)`: conditional exact `2^±52` denormal fixup. Port of
+/// the sem's `dfmpyfix` arm (the scale is always an exact power of two).
+fn hr_df_mpyfix(ss: u64, tt: u64) -> u64 {
+    if hr_df_is_denorm(ss) && hr_df_is_big(tt) && hr_df_is_normal(tt) {
+        (f64::from_bits(ss) * (2.0f64).powi(52)).to_bits()
+    } else if hr_df_is_denorm(tt) && hr_df_is_big(ss) && hr_df_is_normal(ss) {
+        (f64::from_bits(ss) * (2.0f64).powi(-52)).to_bits()
+    } else {
+        ss
+    }
+}
+
+// ============================================================================
+// CABAC binary arithmetic decode (S2_cabacdecbin) + TLB match (A4_tlbmatch).
+// ============================================================================
+//
+// Both are PURE FUNCTIONS of their register inputs (plus, for CABAC, the
+// constant H.264 transition tables) — neither reads hidden global state, so both
+// are oracle-backed and portable. Tables copied VERBATIM from the reference sem
+// (sem/extra2.rs), recovered cell-for-cell against qemu-hexagon.
+
+#[rustfmt::skip]
+const HEX_R_LPS_TABLE_64X4: [[u8; 4]; 64] = [
+    [128, 176, 208, 240], [128, 167, 197, 227], [128, 158, 187, 216], [123, 150, 178, 205],
+    [116, 142, 169, 195], [111, 135, 160, 185], [105, 128, 152, 175], [100, 122, 144, 166],
+    [ 95, 116, 137, 158], [ 90, 110, 130, 150], [ 85, 104, 123, 142], [ 81,  99, 117, 135],
+    [ 77,  94, 111, 128], [ 73,  89, 105, 122], [ 69,  85, 100, 116], [ 66,  80,  95, 110],
+    [ 62,  76,  90, 104], [ 59,  72,  86,  99], [ 56,  69,  81,  94], [ 53,  65,  77,  89],
+    [ 51,  62,  73,  85], [ 48,  59,  69,  80], [ 46,  56,  66,  76], [ 43,  53,  63,  72],
+    [ 41,  50,  59,  69], [ 39,  48,  56,  65], [ 37,  45,  54,  62], [ 35,  43,  51,  59],
+    [ 33,  41,  48,  56], [ 32,  39,  46,  53], [ 30,  37,  43,  50], [ 29,  35,  41,  48],
+    [ 27,  33,  39,  45], [ 26,  31,  37,  43], [ 24,  30,  35,  41], [ 23,  28,  33,  39],
+    [ 22,  27,  32,  37], [ 21,  26,  30,  35], [ 20,  24,  29,  33], [ 19,  23,  27,  31],
+    [ 18,  22,  26,  30], [ 17,  21,  25,  28], [ 16,  20,  23,  27], [ 15,  19,  22,  25],
+    [ 14,  18,  21,  24], [ 14,  17,  20,  23], [ 13,  16,  19,  22], [ 12,  15,  18,  21],
+    [ 12,  14,  17,  20], [ 11,  14,  16,  19], [ 11,  13,  15,  18], [ 10,  12,  15,  17],
+    [ 10,  12,  14,  16], [  9,  11,  13,  15], [  9,  11,  12,  14], [  8,  10,  12,  14],
+    [  8,   9,  11,  13], [  7,   9,  11,  12], [  7,   9,  10,  12], [  7,   8,  10,  11],
+    [  6,   8,   9,  11], [  6,   7,   9,  10], [  6,   7,   8,   9], [  2,   2,   2,   2],
+];
+
+#[rustfmt::skip]
+const HEX_AC_NEXT_STATE_MPS_64: [u8; 64] = [
+     1,  2,  3,  4,  5,  6,  7,  8,  9, 10, 11, 12, 13, 14, 15, 16,
+    17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32,
+    33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48,
+    49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 62, 63,
+];
+
+#[rustfmt::skip]
+const HEX_AC_NEXT_STATE_LPS_64: [u8; 64] = [
+     0,  0,  1,  2,  2,  4,  4,  5,  6,  7,  8,  9,  9, 11, 11, 12,
+    13, 13, 15, 15, 16, 16, 18, 18, 19, 19, 21, 21, 22, 22, 23, 24,
+    24, 25, 26, 26, 27, 27, 28, 29, 29, 30, 30, 30, 31, 32, 32, 33,
+    33, 33, 34, 34, 35, 35, 35, 36, 36, 36, 37, 37, 37, 38, 38, 63,
+];
+
+/// `fINSERT_RANGE(reg, hibit, lobit, val)`: replace bits `[hibit:lobit]`.
+#[inline]
+fn hex_insert_range(reg: u32, hibit: u32, lobit: u32, val: u32) -> u32 {
+    let width = hibit - lobit + 1;
+    let field_mask = if width >= 32 { u32::MAX } else { (1u32 << width) - 1 };
+    (reg & !(field_mask << lobit)) | ((val & field_mask) << lobit)
+}
+
+/// `Rdd = decbin(Rss,Rtt)` (+P0). Byte-for-byte port of the sem's
+/// `S2_cabacdecbin`. Returns `(Rdd, P0)`.
+fn hex_cabac_decbin(rss: u64, rtt: u64) -> (u64, u8) {
+    let rtt_w1 = (rtt >> 32) as u32;
+    let rtt_w0 = rtt as u32;
+    let state = (rtt_w1 & 0x3f) as usize;
+    let val_mps = (rtt_w1 >> 8) & 1;
+    let bitpos = rtt_w0 & 0x1f;
+
+    let mut range = rss as u32; // Rss.w0
+    let mut offset = (rss >> 32) as u32; // Rss.w1
+    range <<= bitpos;
+    offset <<= bitpos;
+
+    let r_lps = (HEX_R_LPS_TABLE_64X4[state][((range >> 29) & 3) as usize] as u32) << 23;
+    let r_mps = (range & 0xff80_0000).wrapping_sub(r_lps);
+
+    let mut rdd_w0: u32;
+    let rdd_w1: u32;
+    let p0: u8;
+    if offset < r_mps {
+        rdd_w0 = HEX_AC_NEXT_STATE_MPS_64[state] as u32;
+        rdd_w0 = hex_insert_range(rdd_w0, 8, 8, val_mps);
+        rdd_w0 = hex_insert_range(rdd_w0, 31, 23, r_mps >> 23);
+        rdd_w1 = offset;
+        p0 = val_mps as u8;
+    } else {
+        rdd_w0 = HEX_AC_NEXT_STATE_LPS_64[state] as u32;
+        let mps_bit = if state == 0 { 1 - val_mps } else { val_mps };
+        rdd_w0 = hex_insert_range(rdd_w0, 8, 8, mps_bit);
+        rdd_w0 = hex_insert_range(rdd_w0, 31, 23, r_lps >> 23);
+        rdd_w1 = offset.wrapping_sub(r_mps);
+        p0 = (val_mps ^ 1) as u8;
+    }
+    let rdd = (rdd_w0 as u64) | ((rdd_w1 as u64) << 32);
+    (rdd, p0)
+}
+
+/// `Pd = tlbmatch(Rss,Rt)`. Byte-for-byte port of the sem's `A4_tlbmatch`. The
+/// matched "TLB entry" is the seeded register pair `Rss` itself (no hidden TLB
+/// state), so it is a pure function. Returns the 0x00/0xff predicate byte.
+fn hex_tlbmatch(rss: u64, rt: u32) -> u8 {
+    let tlblo = rss as u32; // Rss.w0
+    let tlbhi = (rss >> 32) as u32; // Rss.w1
+    let mut mask: u32 = 0x07ff_ffff;
+    let v = (!tlblo).reverse_bits();
+    let size = v.leading_ones().min(6);
+    mask &= 0xffff_ffffu32.wrapping_shl(2 * size);
+    let valid = (tlbhi >> 31) & 1 != 0;
+    let matched = valid && ((tlbhi & mask) == (rt & mask));
+    if matched {
+        0xff
+    } else {
+        0x00
+    }
 }
 
 /// Port of `arch_sf_recip_common`. Returns `(ret, RsV, RtV, RdV, PeV)`.

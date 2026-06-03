@@ -2331,6 +2331,58 @@ pub enum OpKind {
         kind: HexFpRecipKind,
     },
 
+    /// Hexagon double-precision high-half multiply / fixup family
+    /// (F2_dfmpyhh / F2_dfmpyfix). An EXACT 64-bit-mantissa rounding core
+    /// (`hr_round_exact_to_f64`, the f64 analog of `hr_round_exact_to_f32`) is
+    /// required because native `f64` arithmetic double-rounds. `src1`/`src2`
+    /// carry the raw f64 bit patterns (64-bit register pairs); `src3` is the
+    /// read-modify accumulator `Rxx` for dfmpyhh (ignored by dfmpyfix). `dst`
+    /// receives the raw 64-bit result. Self-contained, like [`OpKind::HexFp`].
+    HexFpDf {
+        dst: VReg,
+        src1: VReg,
+        src2: VReg,
+        src3: VReg,
+        op: HexDfOp,
+    },
+
+    /// Hexagon single-precision scaled fused multiply-add `Rx += Rs*Rt` then
+    /// `* 2^Pu` (F2_sffma_sc). `Pu` is a two's-complement (signed-8) scale folded
+    /// into the EXACT product before the single rounding, so the exact integer
+    /// fma core (`hr_sf_fma`) carries it — native `f32::mul_add` then scale would
+    /// double-round. `src1`=Rs, `src2`=Rt, `src3`=Rx accumulator, `scale` holds
+    /// the raw `Pu` predicate byte (interpreted as i8). Self-contained.
+    HexFpScFma {
+        dst: VReg,
+        src1: VReg,
+        src2: VReg,
+        src3: VReg,
+        /// VReg holding the raw `Pu` predicate byte (read as a signed-8 scale).
+        scale: VReg,
+    },
+
+    /// Hexagon CABAC binary arithmetic decode (S2_cabacdecbin):
+    /// `Rdd = decbin(Rss,Rtt)` plus `P0`. A PURE FUNCTION of the register inputs
+    /// (`src1`=Rss={range,offset}, `src2`=Rtt={state,...}) and the constant
+    /// H.264 transition tables (no hidden global state). `dst` receives the raw
+    /// 64-bit `Rdd` pair; `pred` receives the `P0` predicate byte. Self-contained.
+    HexCabacDecBin {
+        dst: VReg,
+        pred: VReg,
+        src1: VReg,
+        src2: VReg,
+    },
+
+    /// Hexagon TLB-entry match (A4_tlbmatch): `Pd = tlbmatch(Rss,Rt)`. A PURE
+    /// FUNCTION of the register inputs — the "TLB entry" being matched IS the
+    /// seeded register pair `Rss` (`src1`), NOT hidden TLB state — so it is fully
+    /// reproducible. `src2`=Rt; `dst` receives the 0x00/0xff predicate byte.
+    HexTlbMatch {
+        dst: VReg,
+        src1: VReg,
+        src2: VReg,
+    },
+
     // ========================================================================
     // META / DEBUG
     // ========================================================================
@@ -2422,6 +2474,17 @@ pub enum HexFpRecipKind {
     SfFixupD,
     /// `Rd = sffixupr(Rs)`: invsqrt_common's adjusted radicand (Rs).
     SfFixupR,
+}
+
+/// Double-precision high-half multiply / fixup sub-operation for
+/// [`OpKind::HexFpDf`]. Each variant maps to one `F2_*` opcode.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum HexDfOp {
+    /// `Rxx += dfmpyhh(Rss,Rtt)`: high-32-bit-mantissa multiply + fixed-weight
+    /// accumulate of `Rxx`, rounded once to nearest-even.
+    DfMpyHh,
+    /// `Rdd = dfmpyfix(Rss,Rtt)`: conditional exact `2^±52` denormal fixup.
+    DfMpyFix,
 }
 
 impl OpKind {
@@ -2540,6 +2603,9 @@ impl OpKind {
             | OpKind::FConvert { dst, .. }
             | OpKind::HexFp { dst, .. }
             | OpKind::HexFp3 { dst, .. }
+            | OpKind::HexFpDf { dst, .. }
+            | OpKind::HexFpScFma { dst, .. }
+            | OpKind::HexTlbMatch { dst, .. }
             | OpKind::IntToFp { dst, .. }
             | OpKind::FpToInt { dst, .. }
             | OpKind::FRound { dst, .. }
@@ -2676,6 +2742,9 @@ impl OpKind {
                 }
                 v
             }
+
+            // CABAC decode writes the Rdd pair (dst) AND the P0 predicate.
+            OpKind::HexCabacDecBin { dst, pred, .. } => vec![*dst, *pred],
 
             OpKind::MulU { dst_lo, dst_hi, .. } | OpKind::MulS { dst_lo, dst_hi, .. } => {
                 let mut v = vec![*dst_lo];
