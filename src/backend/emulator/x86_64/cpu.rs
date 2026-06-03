@@ -2683,6 +2683,7 @@ impl X86_64Vcpu {
         use crate::smir::lower::runtime::{ExecMem, is_native_clobber_safe_excluding};
         use crate::smir::lower::x86_64::X86_64Lowerer;
         use crate::smir::memory::MemoryError;
+        use crate::smir::opt::{OptLevel, optimize_function};
         use crate::smir::types::SourceArch;
         use std::collections::HashMap;
 
@@ -2715,10 +2716,18 @@ impl X86_64Vcpu {
 
         let mut lifter = X86_64Lifter::strict();
         let mut lctx = LiftContext::new(SourceArch::X86_64);
-        let func = match lifter.lift_function(entry, &reader, &mut lctx) {
+        let mut func = match lifter.lift_function(entry, &reader, &mut lctx) {
             Ok(f) => f,
             Err(_) => return Ok(None),
         };
+
+        // Optimize before computing exits / lowering. The optimizer is
+        // frontier-aware (all architectural state is live at region exits) and
+        // CFG-preserving enough that exits are recomputed from the optimized
+        // function below. Register-only JIT regions never contain memory loads,
+        // so redundant-load elimination is inert here; the wins are dead-flag
+        // elimination, constant propagation/folding, and strength reduction.
+        optimize_function(&mut func, OptLevel::O2);
 
         // Mark every frontier terminal (the JIT cannot continue through it) as a
         // native-exit stub recording the block's guest PC. Internal Branch /

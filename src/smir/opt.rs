@@ -95,6 +95,272 @@ impl OptStats {
 }
 
 // ============================================================================
+// Liveness analysis (registers + flags), frontier-aware
+// ============================================================================
+//
+// The SMIR optimizer runs on *regions* that the JIT (or the differential
+// harness) hands back to the interpreter at their exits. At such an exit EVERY
+// architectural register and flag is live-out: the interpreter resumes and may
+// read any of them. Only an *internal* `Branch`/`CondBranch`/`Switch` edge
+// (whose targets are blocks present in this function) propagates a precise
+// live set from the successor. Treating block boundaries as "nothing live"
+// (the classic compiler default) would let DCE / dead-flag-elim delete the
+// final architectural writes — which is why this analysis exists and why every
+// flag-effect-dropping transform is gated on the op's flags already being dead.
+//
+// x86 partial-register semantics: a write of width >= 32 bits zero-extends and
+// thus *fully* overwrites the 64-bit GPR; an 8/16-bit write preserves the upper
+// bits and is therefore read-modify-write (it keeps the prior definition live).
+
+/// Destination width of an integer op, when it has architecturally-meaningful
+/// width (used for x86 partial-register liveness). `None` for ops without a
+/// single integer result width (vectors, memory, etc.).
+fn op_out_width(kind: &OpKind) -> Option<OpWidth> {
+    match kind {
+        OpKind::Add { width, .. }
+        | OpKind::Sub { width, .. }
+        | OpKind::Adc { width, .. }
+        | OpKind::Sbb { width, .. }
+        | OpKind::Neg { width, .. }
+        | OpKind::Inc { width, .. }
+        | OpKind::Dec { width, .. }
+        | OpKind::And { width, .. }
+        | OpKind::Or { width, .. }
+        | OpKind::Xor { width, .. }
+        | OpKind::AndNot { width, .. }
+        | OpKind::Not { width, .. }
+        | OpKind::Shl { width, .. }
+        | OpKind::Shr { width, .. }
+        | OpKind::Sar { width, .. }
+        | OpKind::Shld { width, .. }
+        | OpKind::Shrd { width, .. }
+        | OpKind::Rol { width, .. }
+        | OpKind::Ror { width, .. }
+        | OpKind::MulU { width, .. }
+        | OpKind::MulS { width, .. }
+        | OpKind::DivU { width, .. }
+        | OpKind::DivS { width, .. }
+        | OpKind::Mov { width, .. }
+        | OpKind::CMove { width, .. }
+        | OpKind::Cwd { width, .. }
+        | OpKind::Bsf { width, .. }
+        | OpKind::Bsr { width, .. }
+        | OpKind::Clz { width, .. }
+        | OpKind::Ctz { width, .. }
+        | OpKind::Popcnt { width, .. }
+        | OpKind::Bswap { width, .. }
+        | OpKind::Bt { width, .. }
+        | OpKind::Bts { width, .. }
+        | OpKind::Btr { width, .. }
+        | OpKind::Btc { width, .. } => Some(*width),
+        // ZeroExtend / SignExtend write the *destination* (to) width.
+        OpKind::ZeroExtend { to_width, .. } | OpKind::SignExtend { to_width, .. } => {
+            Some(*to_width)
+        }
+        // LEA computes a full pointer; SETcc writes a single byte.
+        OpKind::Lea { .. } => Some(OpWidth::W64),
+        OpKind::SetCC { .. } => Some(OpWidth::W8),
+        _ => None,
+    }
+}
+
+/// True if executing `op` fully overwrites every architectural register it
+/// defines, so an earlier definition of the same register becomes dead.
+/// Conservative: returns false when unsure (the register stays live — this is
+/// the safe direction; it can only cost a missed optimization, never delete a
+/// live definition).
+fn op_fully_defines(kind: &OpKind) -> bool {
+    let dests = kind.dests();
+    if dests.is_empty() {
+        return true;
+    }
+    // SSA virtual temporaries are defined in full by their (single) writer.
+    if dests.iter().all(|d| matches!(d, VReg::Virtual(_))) {
+        return true;
+    }
+    matches!(
+        op_out_width(kind),
+        Some(OpWidth::W32) | Some(OpWidth::W64) | Some(OpWidth::W128)
+    )
+}
+
+/// Registers read by a terminator (used at the block's exit point).
+fn terminator_reg_uses(term: &Terminator) -> Vec<VReg> {
+    let mut v = Vec::new();
+    match term {
+        Terminator::CondBranch { cond, .. } => v.push(*cond),
+        Terminator::Switch { index, .. } => v.push(*index),
+        Terminator::IndirectBranch { target, .. } => v.push(*target),
+        Terminator::IndirectBranchMem { addr, .. } => v.extend(addr.regs()),
+        Terminator::Return { values } => v.extend(values.iter().copied()),
+        Terminator::Call { target, args, .. } | Terminator::TailCall { target, args } => {
+            if let CallTarget::Indirect(reg) = target {
+                v.push(*reg);
+            }
+            if let CallTarget::IndirectMem(addr) = target {
+                v.extend(addr.regs());
+            }
+            v.extend(args.iter().copied());
+        }
+        _ => {}
+    }
+    v
+}
+
+/// Does this terminator hand control out of the region (back to the
+/// interpreter, a callee, or an unknown target)? Anything that is not an
+/// internal branch whose every target is a block present in `func`.
+fn terminator_is_exit(func: &SmirFunction, term: &Terminator) -> bool {
+    let in_func = |id: BlockId| func.blocks.iter().any(|b| b.id == id);
+    match term {
+        Terminator::Branch { target } => !in_func(*target),
+        Terminator::CondBranch {
+            true_target,
+            false_target,
+            ..
+        } => !in_func(*true_target) || !in_func(*false_target),
+        Terminator::Switch {
+            targets, default, ..
+        } => !in_func(*default) || targets.iter().any(|t| !in_func(*t)),
+        // Indirect branches (incomplete target lists), calls (escape to a
+        // callee), tail calls, traps, returns, unreachable: all exits.
+        _ => true,
+    }
+}
+
+/// Per-block live-out sets after a frontier-aware backward dataflow fixpoint.
+struct FuncLiveness {
+    reg_out: HashMap<BlockId, HashSet<VReg>>,
+    flag_out: HashMap<BlockId, FlagSet>,
+}
+
+/// Backward transfer through one block: given the live-out reg/flag sets,
+/// returns the live-in sets. Handles x86 partial-register RMW.
+fn block_transfer(
+    block: &SmirBlock,
+    mut rlive: HashSet<VReg>,
+    mut flive: FlagSet,
+) -> (HashSet<VReg>, FlagSet) {
+    for op in block.ops.iter().rev() {
+        let full = op_fully_defines(&op.kind);
+        let dests = op.kind.dests();
+        if full {
+            for d in &dests {
+                rlive.remove(d);
+            }
+        }
+        for s in op.kind.source_vregs() {
+            rlive.insert(s);
+        }
+        if !full {
+            // Partial-width write reads the destination it merges into.
+            for d in &dests {
+                rlive.insert(*d);
+            }
+        }
+        flive = flive
+            .difference(op.kind.flags_must_write())
+            .union(op.kind.flags_read());
+    }
+    (rlive, flive)
+}
+
+/// Compute per-block register + flag live-out for a function, with all
+/// architectural state live at frontier exits.
+fn compute_liveness(func: &SmirFunction) -> FuncLiveness {
+    // Universe of architectural registers touched anywhere in the function —
+    // the set that is live-out at any region exit.
+    let mut universe: HashSet<VReg> = HashSet::new();
+    let mut note = |v: VReg, set: &mut HashSet<VReg>| {
+        if matches!(v, VReg::Arch(_)) {
+            set.insert(v);
+        }
+    };
+    for block in &func.blocks {
+        for op in &block.ops {
+            for d in op.kind.dests() {
+                note(d, &mut universe);
+            }
+            for s in op.kind.source_vregs() {
+                note(s, &mut universe);
+            }
+        }
+        for u in terminator_reg_uses(&block.terminator) {
+            note(u, &mut universe);
+        }
+    }
+
+    let mut reg_in: HashMap<BlockId, HashSet<VReg>> =
+        func.blocks.iter().map(|b| (b.id, HashSet::new())).collect();
+    let mut flag_in: HashMap<BlockId, FlagSet> =
+        func.blocks.iter().map(|b| (b.id, FlagSet::EMPTY)).collect();
+
+    // Iterate to fixpoint (live sets grow monotonically).
+    let max_iters = func.blocks.len() + 2;
+    for _ in 0..max_iters {
+        let mut changed = false;
+        for block in &func.blocks {
+            let mut rout: HashSet<VReg> = HashSet::new();
+            let mut fout = FlagSet::EMPTY;
+            if terminator_is_exit(func, &block.terminator) {
+                rout.extend(universe.iter().copied());
+                fout = FlagSet::ALL_X86;
+            }
+            for s in block.terminator.successors() {
+                if let Some(ri) = reg_in.get(&s) {
+                    rout.extend(ri.iter().copied());
+                }
+                if let Some(fi) = flag_in.get(&s) {
+                    fout = fout.union(*fi);
+                }
+            }
+            for u in terminator_reg_uses(&block.terminator) {
+                rout.insert(u);
+            }
+            let (rin, fin) = block_transfer(block, rout, fout);
+            if reg_in[&block.id] != rin {
+                reg_in.insert(block.id, rin);
+                changed = true;
+            }
+            if flag_in[&block.id] != fin {
+                flag_in.insert(block.id, fin);
+                changed = true;
+            }
+        }
+        if !changed {
+            break;
+        }
+    }
+
+    // Materialize live-out per block from the converged live-in sets.
+    let mut reg_out = HashMap::new();
+    let mut flag_out = HashMap::new();
+    for block in &func.blocks {
+        let mut rout: HashSet<VReg> = HashSet::new();
+        let mut fout = FlagSet::EMPTY;
+        if terminator_is_exit(func, &block.terminator) {
+            rout.extend(universe.iter().copied());
+            fout = FlagSet::ALL_X86;
+        }
+        for s in block.terminator.successors() {
+            if let Some(ri) = reg_in.get(&s) {
+                rout.extend(ri.iter().copied());
+            }
+            if let Some(fi) = flag_in.get(&s) {
+                fout = fout.union(*fi);
+            }
+        }
+        for u in terminator_reg_uses(&block.terminator) {
+            rout.insert(u);
+        }
+        reg_out.insert(block.id, rout);
+        flag_out.insert(block.id, fout);
+    }
+
+    FuncLiveness { reg_out, flag_out }
+}
+
+// ============================================================================
 // Main Optimization Entry Point
 // ============================================================================
 
@@ -103,31 +369,81 @@ pub fn optimize_function(func: &mut SmirFunction, level: OptLevel) -> OptStats {
     optimize_function_with_stats(func, level)
 }
 
-/// Run optimization pipeline on a function, returning statistics
+/// Run optimization pipeline on a function, returning statistics.
+///
+/// Block-level passes are run to a fixpoint (they enable one another and change
+/// liveness); liveness is recomputed each round so dead-flag and dead-code
+/// elimination always see correct, frontier-aware live-out sets. This is the
+/// only entry point that is safe to use on JIT regions / against KVM — the bare
+/// per-block passes assume a caller-supplied live-out and must not be used
+/// directly on architectural regions.
 pub fn optimize_function_with_stats(func: &mut SmirFunction, level: OptLevel) -> OptStats {
     let mut stats = OptStats::new();
+    if level == OptLevel::O0 {
+        return stats;
+    }
+    let o2 = level == OptLevel::O2;
 
-    match level {
-        OptLevel::O0 => {}
-        OptLevel::O1 => {
-            for block in &mut func.blocks {
-                stats.dead_flags_eliminated += dead_flag_elimination(block);
-                stats.constants_propagated += constant_propagation(block);
-                stats.dead_ops_eliminated += dead_code_elimination(block);
+    let max_rounds = 8;
+    for _ in 0..max_rounds {
+        let live = compute_liveness(func);
+        let mut round_changes = 0usize;
+        for block in &mut func.blocks {
+            let flag_out = live
+                .flag_out
+                .get(&block.id)
+                .copied()
+                .unwrap_or(FlagSet::ALL_X86);
+            let empty_regs;
+            let reg_out = match live.reg_out.get(&block.id) {
+                Some(r) => r,
+                None => {
+                    empty_regs = HashSet::new();
+                    &empty_regs
+                }
+            };
+
+            let n = dead_flag_elimination_with(block, flag_out);
+            stats.dead_flags_eliminated += n;
+            round_changes += n;
+
+            let n = constant_propagation(block);
+            stats.constants_propagated += n;
+            round_changes += n;
+
+            if o2 {
+                let n = constant_folding(block);
+                stats.expressions_folded += n;
+                round_changes += n;
+
+                let n = strength_reduction(block);
+                stats.strength_reductions += n;
+                round_changes += n;
             }
+
+            let n = dead_code_elimination_with(block, reg_out);
+            stats.dead_ops_eliminated += n;
+            round_changes += n;
         }
-        OptLevel::O2 => {
-            for block in &mut func.blocks {
-                stats.dead_flags_eliminated += dead_flag_elimination(block);
-                stats.constants_propagated += constant_propagation(block);
-                stats.expressions_folded += constant_folding(block);
-                stats.strength_reductions += strength_reduction(block);
-                stats.dead_ops_eliminated += dead_code_elimination(block);
-            }
-            stats.blocks_merged += block_merging(func);
-            stats.redundant_loads_eliminated += redundant_load_elimination(func);
-            stats.vector_alignments_inferred += vector_alignment_inference(func);
+
+        if o2 {
+            let n = block_merging(func);
+            stats.blocks_merged += n;
+            round_changes += n;
+
+            let n = redundant_load_elimination(func);
+            stats.redundant_loads_eliminated += n;
+            round_changes += n;
         }
+
+        if round_changes == 0 {
+            break;
+        }
+    }
+
+    if o2 {
+        // Hint-only pass (no IR mutation) — run once at the end.
+        stats.vector_alignments_inferred += vector_alignment_inference(func);
     }
 
     stats
@@ -144,49 +460,47 @@ pub fn optimize_function_with_stats(func: &mut SmirFunction, level: OptLevel) ->
 ///
 /// Returns the number of flag updates eliminated.
 pub fn dead_flag_elimination(block: &mut SmirBlock) -> usize {
+    // Bare per-block use: approximate live-out from the terminator only (a
+    // CondBranch needs the status flags; any other terminator is assumed to
+    // leave no flag live). This is the legacy block-local contract; JIT regions
+    // must go through `optimize_function`, which supplies a frontier-aware
+    // live-out via `dead_flag_elimination_with`.
+    let live_out = if matches!(block.terminator, Terminator::CondBranch { .. }) {
+        FlagSet::NZCV
+    } else {
+        FlagSet::EMPTY
+    };
+    dead_flag_elimination_with(block, live_out)
+}
+
+/// Eliminate dead flag updates given the flags live on block exit.
+///
+/// A flag-writing op has its `FlagUpdate` cleared to `None` when none of the
+/// flags it writes are live after it — either because a later op in this block
+/// overwrites them before any read, or because they are not in `live_out`.
+/// Returns the number of flag updates eliminated.
+pub fn dead_flag_elimination_with(block: &mut SmirBlock, live_out: FlagSet) -> usize {
     if block.ops.is_empty() {
         return 0;
     }
 
-    // Backward analysis to find live flags
-    let mut live_out = FlagSet::EMPTY;
-
-    // Check terminator for flag usage
-    if let Terminator::CondBranch { cond, .. } = &block.terminator {
-        // The cond VReg should have been set by a SetCC or TestCondition op
-        // We need to look at what flags those require
-        // For now, assume all flags could be needed if there's a conditional branch
-        // A more sophisticated analysis would track which condition was used
-        live_out = FlagSet::NZCV;
-    }
-
-    // Also check if any op reads flags
-    for op in block.ops.iter().rev() {
-        let reads = op.kind.flags_read();
-        live_out = live_out.union(reads);
-    }
-
-    // Map from op index to live flags after that op
+    // Backward pass: liveness[i] = flags live immediately AFTER op i.
     let mut liveness = vec![FlagSet::EMPTY; block.ops.len()];
-
-    // Backward pass
     let mut current_live = live_out;
     for i in (0..block.ops.len()).rev() {
         liveness[i] = current_live;
-
         let op = &block.ops[i];
         let reads = op.kind.flags_read();
-        let writes = op.kind.flags_written();
-
-        // live_in = (live_out - writes) | reads
-        current_live = current_live.difference(writes).union(reads);
+        // Only flags DEFINITELY written kill upstream liveness.
+        let kills = op.kind.flags_must_write();
+        // live_in = (live_out - must_write) | reads
+        current_live = current_live.difference(kills).union(reads);
     }
 
-    // Forward pass: eliminate dead flag updates
+    // Forward pass: eliminate dead flag updates.
     let mut eliminated = 0;
     for i in 0..block.ops.len() {
         let live = liveness[i];
-
         if let Some(flags) = block.ops[i].kind.flags_written_mut() {
             let written = flags.as_set();
             if !written.is_empty() && live.intersection(written).is_empty() {
@@ -210,19 +524,43 @@ pub fn dead_flag_elimination(block: &mut SmirBlock) -> usize {
 ///
 /// Returns the number of constants propagated.
 pub fn constant_propagation(block: &mut SmirBlock) -> usize {
+    // Tracked values are the FULL architectural register value (for x86, a W32
+    // definition zero-extends, so we mask to 32 bits and store the
+    // zero-extended 64-bit value). Partial-width (8/16-bit) definitions leave
+    // the upper bits unknown, so they are NOT tracked.
     let mut constants: HashMap<VReg, i64> = HashMap::new();
     let mut propagated = 0;
 
+    // Mask a value to a width (the register value the op produces / sees).
+    fn m(v: i64, w: OpWidth) -> i64 {
+        ((v as u64) & w.mask()) as i64
+    }
+    // Only W32/W64 definitions fully overwrite the destination register.
+    fn trackable(w: OpWidth) -> bool {
+        matches!(w, OpWidth::W32 | OpWidth::W64)
+    }
+
     for op in &mut block.ops {
+        // Discriminants read before the mutable borrow of `op.kind` below.
+        let alu = alu_tag(&op.kind);
+        let is_shl = matches!(op.kind, OpKind::Shl { .. });
         match &mut op.kind {
-            OpKind::Mov { dst, src, .. } => {
+            OpKind::Mov { dst, src, width } => {
                 if let SrcOperand::Imm(imm) = src {
-                    constants.insert(*dst, *imm);
+                    if trackable(*width) {
+                        constants.insert(*dst, m(*imm, *width));
+                    } else {
+                        constants.remove(dst);
+                    }
                 } else if let SrcOperand::Reg(r) = src {
                     if let Some(&val) = constants.get(r) {
-                        *src = SrcOperand::Imm(val);
-                        constants.insert(*dst, val);
+                        *src = SrcOperand::Imm(m(val, *width));
                         propagated += 1;
+                        if trackable(*width) {
+                            constants.insert(*dst, m(val, *width));
+                        } else {
+                            constants.remove(dst);
+                        }
                     } else {
                         constants.remove(dst);
                     }
@@ -232,135 +570,79 @@ pub fn constant_propagation(block: &mut SmirBlock) -> usize {
             }
 
             OpKind::Add {
-                dst, src1, src2, ..
-            } => {
-                // Try to replace src2 with constant if known
-                if let SrcOperand::Reg(r) = src2 {
-                    if let Some(&val) = constants.get(r) {
-                        *src2 = SrcOperand::Imm(val);
-                        propagated += 1;
-                    }
-                }
-
-                // Check if result is constant
-                if let Some(&v1) = constants.get(src1) {
-                    if let SrcOperand::Imm(v2) = src2 {
-                        constants.insert(*dst, v1.wrapping_add(*v2));
-                    } else {
-                        constants.remove(dst);
-                    }
-                } else {
-                    constants.remove(dst);
-                }
+                dst,
+                src1,
+                src2,
+                width,
+                ..
             }
-
-            OpKind::Sub {
-                dst, src1, src2, ..
-            } => {
-                if let SrcOperand::Reg(r) = src2 {
-                    if let Some(&val) = constants.get(r) {
-                        *src2 = SrcOperand::Imm(val);
-                        propagated += 1;
-                    }
-                }
-
-                if let Some(&v1) = constants.get(src1) {
-                    if let SrcOperand::Imm(v2) = src2 {
-                        constants.insert(*dst, v1.wrapping_sub(*v2));
-                    } else {
-                        constants.remove(dst);
-                    }
-                } else {
-                    constants.remove(dst);
-                }
+            | OpKind::Sub {
+                dst,
+                src1,
+                src2,
+                width,
+                ..
             }
-
-            OpKind::And {
-                dst, src1, src2, ..
-            } => {
-                if let SrcOperand::Reg(r) = src2 {
-                    if let Some(&val) = constants.get(r) {
-                        *src2 = SrcOperand::Imm(val);
-                        propagated += 1;
-                    }
-                }
-
-                if let Some(&v1) = constants.get(src1) {
-                    if let SrcOperand::Imm(v2) = src2 {
-                        constants.insert(*dst, v1 & *v2);
-                    } else {
-                        constants.remove(dst);
-                    }
-                } else {
-                    constants.remove(dst);
-                }
+            | OpKind::And {
+                dst,
+                src1,
+                src2,
+                width,
+                ..
             }
-
-            OpKind::Or {
-                dst, src1, src2, ..
-            } => {
-                if let SrcOperand::Reg(r) = src2 {
-                    if let Some(&val) = constants.get(r) {
-                        *src2 = SrcOperand::Imm(val);
-                        propagated += 1;
-                    }
-                }
-
-                if let Some(&v1) = constants.get(src1) {
-                    if let SrcOperand::Imm(v2) = src2 {
-                        constants.insert(*dst, v1 | *v2);
-                    } else {
-                        constants.remove(dst);
-                    }
-                } else {
-                    constants.remove(dst);
-                }
+            | OpKind::Or {
+                dst,
+                src1,
+                src2,
+                width,
+                ..
             }
-
-            OpKind::Xor {
-                dst, src1, src2, ..
+            | OpKind::Xor {
+                dst,
+                src1,
+                src2,
+                width,
+                ..
             } => {
+                // Substitute a known constant for the register second operand.
                 if let SrcOperand::Reg(r) = src2 {
                     if let Some(&val) = constants.get(r) {
-                        *src2 = SrcOperand::Imm(val);
+                        *src2 = SrcOperand::Imm(m(val, *width));
                         propagated += 1;
                     }
                 }
-
-                if let Some(&v1) = constants.get(src1) {
-                    if let SrcOperand::Imm(v2) = src2 {
-                        constants.insert(*dst, v1 ^ *v2);
-                    } else {
+                // Fold the result if both operands are now known constants.
+                let folded = if let (Some(&v1), SrcOperand::Imm(v2)) =
+                    (constants.get(src1), &*src2)
+                {
+                    let a = (v1 as u64) & width.mask();
+                    let b = (*v2 as u64) & width.mask();
+                    let r = match alu {
+                        AluTag::Add => a.wrapping_add(b),
+                        AluTag::Sub => a.wrapping_sub(b),
+                        AluTag::And => a & b,
+                        AluTag::Or => a | b,
+                        AluTag::Xor => a ^ b,
+                    } & width.mask();
+                    Some(r as i64)
+                } else {
+                    None
+                };
+                match (folded, trackable(*width)) {
+                    (Some(r), true) => {
+                        constants.insert(*dst, r);
+                    }
+                    _ => {
                         constants.remove(dst);
                     }
-                } else {
-                    constants.remove(dst);
                 }
             }
 
             OpKind::Shl {
-                dst, src, amount, ..
-            } => {
-                if let SrcOperand::Reg(r) = amount {
-                    if let Some(&val) = constants.get(r) {
-                        *amount = SrcOperand::Imm(val);
-                        propagated += 1;
-                    }
-                }
-
-                if let Some(&v) = constants.get(src) {
-                    if let SrcOperand::Imm(a) = amount {
-                        constants.insert(*dst, v << (*a as u32));
-                    } else {
-                        constants.remove(dst);
-                    }
-                } else {
-                    constants.remove(dst);
-                }
+                dst, src, amount, width, ..
             }
-
-            OpKind::Shr {
-                dst, src, amount, ..
+            | OpKind::Shr {
+                dst, src, amount, width, ..
             } => {
                 if let SrcOperand::Reg(r) = amount {
                     if let Some(&val) = constants.get(r) {
@@ -368,25 +650,32 @@ pub fn constant_propagation(block: &mut SmirBlock) -> usize {
                         propagated += 1;
                     }
                 }
-
-                if let Some(&v) = constants.get(src) {
-                    if let SrcOperand::Imm(a) = amount {
-                        constants.insert(*dst, ((v as u64) >> (*a as u32)) as i64);
-                    } else {
+                let folded = if let (Some(&v), SrcOperand::Imm(a)) = (constants.get(src), &*amount) {
+                    let count_mask = (width.bits() - 1) as u64;
+                    let cnt = (*a as u64) & count_mask;
+                    let base = (v as u64) & width.mask();
+                    let r = if is_shl { base << cnt } else { base >> cnt } & width.mask();
+                    Some(r as i64)
+                } else {
+                    None
+                };
+                match (folded, trackable(*width)) {
+                    (Some(r), true) => {
+                        constants.insert(*dst, r);
+                    }
+                    _ => {
                         constants.remove(dst);
                     }
-                } else {
-                    constants.remove(dst);
                 }
             }
 
             OpKind::Load { dst, .. } | OpKind::AtomicLoad { dst, .. } => {
-                // Loads produce unknown values
+                // Loads produce unknown values.
                 constants.remove(dst);
             }
 
             _ => {
-                // For other ops, invalidate destinations
+                // For other ops, invalidate destinations.
                 for dst in op.kind.dests() {
                     constants.remove(&dst);
                 }
@@ -395,6 +684,27 @@ pub fn constant_propagation(block: &mut SmirBlock) -> usize {
     }
 
     propagated
+}
+
+/// Small discriminant for the ALU constant-fold in `constant_propagation`.
+#[derive(Clone, Copy)]
+enum AluTag {
+    Add,
+    Sub,
+    And,
+    Or,
+    Xor,
+}
+
+fn alu_tag(kind: &OpKind) -> AluTag {
+    match kind {
+        OpKind::Sub { .. } => AluTag::Sub,
+        OpKind::And { .. } => AluTag::And,
+        OpKind::Or { .. } => AluTag::Or,
+        OpKind::Xor { .. } => AluTag::Xor,
+        // Add and anything else (the tag is only consulted in the ALU arm).
+        _ => AluTag::Add,
+    }
 }
 
 // ============================================================================
@@ -411,6 +721,10 @@ pub fn constant_folding(block: &mut SmirBlock) -> usize {
     let mut folded = 0;
 
     for i in 0..block.ops.len() {
+        // Rewrites that turn a flag-setting op into a flag-less `Mov` are only
+        // legal when the op's flags are dead (`FlagUpdate::None`, established by
+        // `dead_flag_elimination`). Shift-by-0 is exempt: x86 leaves flags
+        // untouched on a zero count, so the `Mov` is flag-equivalent regardless.
         let new_kind = match &block.ops[i].kind {
             // Add with two immediates
             OpKind::Add {
@@ -418,8 +732,8 @@ pub fn constant_folding(block: &mut SmirBlock) -> usize {
                 src1,
                 src2: SrcOperand::Imm(v2),
                 width,
-                ..
-            } if matches!(src1, VReg::Imm(..)) => {
+                flags,
+            } if matches!(src1, VReg::Imm(..)) && matches!(flags, FlagUpdate::None) => {
                 if let VReg::Imm(v1) = src1 {
                     let result = ((*v1 as u64).wrapping_add(*v2 as u64)) & width.mask();
                     Some(OpKind::Mov {
@@ -438,8 +752,8 @@ pub fn constant_folding(block: &mut SmirBlock) -> usize {
                 src1,
                 src2: SrcOperand::Imm(v2),
                 width,
-                ..
-            } if matches!(src1, VReg::Imm(..)) => {
+                flags,
+            } if matches!(src1, VReg::Imm(..)) && matches!(flags, FlagUpdate::None) => {
                 if let VReg::Imm(v1) = src1 {
                     let result = ((*v1 as u64).wrapping_sub(*v2 as u64)) & width.mask();
                     Some(OpKind::Mov {
@@ -457,8 +771,9 @@ pub fn constant_folding(block: &mut SmirBlock) -> usize {
                 dst,
                 src2: SrcOperand::Imm(0),
                 width,
+                flags,
                 ..
-            } => Some(OpKind::Mov {
+            } if matches!(flags, FlagUpdate::None) => Some(OpKind::Mov {
                 dst: *dst,
                 src: SrcOperand::Imm(0),
                 width: *width,
@@ -470,8 +785,8 @@ pub fn constant_folding(block: &mut SmirBlock) -> usize {
                 src1,
                 src2: SrcOperand::Imm(-1),
                 width,
-                ..
-            } => Some(OpKind::Mov {
+                flags,
+            } if matches!(flags, FlagUpdate::None) => Some(OpKind::Mov {
                 dst: *dst,
                 src: SrcOperand::Reg(*src1),
                 width: *width,
@@ -483,8 +798,8 @@ pub fn constant_folding(block: &mut SmirBlock) -> usize {
                 src1,
                 src2: SrcOperand::Imm(0),
                 width,
-                ..
-            } => Some(OpKind::Mov {
+                flags,
+            } if matches!(flags, FlagUpdate::None) => Some(OpKind::Mov {
                 dst: *dst,
                 src: SrcOperand::Reg(*src1),
                 width: *width,
@@ -496,8 +811,8 @@ pub fn constant_folding(block: &mut SmirBlock) -> usize {
                 src1,
                 src2: SrcOperand::Imm(0),
                 width,
-                ..
-            } => Some(OpKind::Mov {
+                flags,
+            } if matches!(flags, FlagUpdate::None) => Some(OpKind::Mov {
                 dst: *dst,
                 src: SrcOperand::Reg(*src1),
                 width: *width,
@@ -509,14 +824,14 @@ pub fn constant_folding(block: &mut SmirBlock) -> usize {
                 src1,
                 src2: SrcOperand::Reg(src2),
                 width,
-                ..
-            } if src1 == src2 => Some(OpKind::Mov {
+                flags,
+            } if src1 == src2 && matches!(flags, FlagUpdate::None) => Some(OpKind::Mov {
                 dst: *dst,
                 src: SrcOperand::Imm(0),
                 width: *width,
             }),
 
-            // Shift by zero -> mov src
+            // Shift by zero -> mov src (flags untouched on x86 zero count).
             OpKind::Shl {
                 dst,
                 src,
@@ -549,8 +864,8 @@ pub fn constant_folding(block: &mut SmirBlock) -> usize {
                 src1,
                 src2: SrcOperand::Imm(0),
                 width,
-                ..
-            } => Some(OpKind::Mov {
+                flags,
+            } if matches!(flags, FlagUpdate::None) => Some(OpKind::Mov {
                 dst: *dst,
                 src: SrcOperand::Reg(*src1),
                 width: *width,
@@ -562,8 +877,8 @@ pub fn constant_folding(block: &mut SmirBlock) -> usize {
                 src1,
                 src2: SrcOperand::Imm(0),
                 width,
-                ..
-            } => Some(OpKind::Mov {
+                flags,
+            } if matches!(flags, FlagUpdate::None) => Some(OpKind::Mov {
                 dst: *dst,
                 src: SrcOperand::Reg(*src1),
                 width: *width,
@@ -591,72 +906,54 @@ pub fn constant_folding(block: &mut SmirBlock) -> usize {
 ///
 /// Returns the number of operations eliminated.
 pub fn dead_code_elimination(block: &mut SmirBlock) -> usize {
-    // Build use set starting from terminator
-    let mut used: HashSet<VReg> = HashSet::new();
+    // Bare per-block use: seed only from the terminator (legacy contract). JIT
+    // regions must go through `optimize_function`, which supplies a
+    // frontier-aware register live-out via `dead_code_elimination_with`.
+    dead_code_elimination_with(block, &HashSet::new())
+}
 
-    // Terminator uses
-    match &block.terminator {
-        Terminator::CondBranch { cond, .. } => {
-            used.insert(*cond);
-        }
-        Terminator::IndirectBranch { target, .. } => {
-            used.insert(*target);
-        }
-        Terminator::IndirectBranchMem { addr, .. } => {
-            used.extend(addr.regs());
-        }
-        Terminator::Return { values } => {
-            for v in values {
-                used.insert(*v);
-            }
-        }
-        Terminator::Switch { index, .. } => {
-            used.insert(*index);
-        }
-        Terminator::Call { target, args, .. } => {
-            if let CallTarget::Indirect(reg) = target {
-                used.insert(*reg);
-            }
-            if let CallTarget::IndirectMem(addr) = target {
-                used.extend(addr.regs());
-            }
-            for arg in args {
-                used.insert(*arg);
-            }
-        }
-        Terminator::TailCall { target, args, .. } => {
-            if let CallTarget::Indirect(reg) = target {
-                used.insert(*reg);
-            }
-            if let CallTarget::IndirectMem(addr) = target {
-                used.extend(addr.regs());
-            }
-            for arg in args {
-                used.insert(*arg);
-            }
-        }
-        _ => {}
+/// Eliminate dead operations given the registers live on block exit.
+///
+/// An op is kept when any of its destinations is still used downstream (live),
+/// or it has memory/side-effects, or it still writes a live flag (after
+/// `dead_flag_elimination` has cleared the dead ones). x86 partial-register
+/// writes are treated as read-modify-write so they keep the prior definition
+/// live. Returns the number of operations removed.
+pub fn dead_code_elimination_with(block: &mut SmirBlock, live_out: &HashSet<VReg>) -> usize {
+    // Values used by something we must keep, seeded with the live-out set and
+    // the terminator's own register uses.
+    let mut used: HashSet<VReg> = live_out.clone();
+    for u in terminator_reg_uses(&block.terminator) {
+        used.insert(u);
     }
 
-    // Backward pass to find all used values
+    // Backward pass to find all used values.
     for op in block.ops.iter().rev() {
         let dests = op.kind.dests();
-        let is_used = dests.is_empty() || dests.iter().any(|d| used.contains(d));
+        let dest_live = dests.is_empty() || dests.iter().any(|d| used.contains(d));
+        let keep = dest_live || op.kind.has_side_effects() || !op.kind.flags_written().is_empty();
 
-        if is_used || op.kind.has_side_effects() {
+        if keep {
             for src in op.kind.source_vregs() {
                 used.insert(src);
             }
+            // A partial-width write merges into (reads) its destination.
+            if !op_fully_defines(&op.kind) {
+                for d in &dests {
+                    used.insert(*d);
+                }
+            }
         }
     }
 
-    // Count ops before removal
+    // Remove ops that are neither live, side-effecting, nor flag-producing.
     let before = block.ops.len();
-
-    // Remove unused ops
     block.ops.retain(|op| {
         let dests = op.kind.dests();
-        dests.is_empty() || dests.iter().any(|d| used.contains(d)) || op.kind.has_side_effects()
+        dests.is_empty()
+            || dests.iter().any(|d| used.contains(d))
+            || op.kind.has_side_effects()
+            || !op.kind.flags_written().is_empty()
     });
 
     before - block.ops.len()
@@ -678,20 +975,25 @@ pub fn strength_reduction(block: &mut SmirBlock) -> usize {
 
     for op in &mut block.ops {
         let new_kind = match &op.kind {
-            // Multiply by power of 2 -> shift
+            // Multiply by power of 2 -> shift. Only legal when there is no
+            // high-half result to produce (`dst_hi == None`) and the multiply's
+            // flags are dead (a shift's CF/OF differ from MUL/IMUL's), which
+            // `dead_flag_elimination` establishes as `FlagUpdate::None`.
             OpKind::MulU {
                 dst_lo,
+                dst_hi: None,
                 src1,
                 src2: SrcOperand::Imm(imm),
                 width,
-                ..
+                flags: FlagUpdate::None,
             }
             | OpKind::MulS {
                 dst_lo,
+                dst_hi: None,
                 src1,
                 src2: SrcOperand::Imm(imm),
                 width,
-                ..
+                flags: FlagUpdate::None,
             } if *imm > 0 && (*imm as u64).is_power_of_two() => {
                 let shift = (*imm as u64).trailing_zeros() as i64;
                 Some(OpKind::Shl {
@@ -703,13 +1005,15 @@ pub fn strength_reduction(block: &mut SmirBlock) -> usize {
                 })
             }
 
-            // Unsigned divide by power of 2 -> shift right
+            // Unsigned divide by power of 2 -> shift right. Only legal when the
+            // remainder is not needed (`rem == None`); the quotient of an
+            // unsigned divide by 2^k is exactly `src >> k`.
             OpKind::DivU {
                 quot,
+                rem: None,
                 src1,
                 src2: SrcOperand::Imm(imm),
                 width,
-                ..
             } if *imm > 0 && (*imm as u64).is_power_of_two() => {
                 let shift = (*imm as u64).trailing_zeros() as i64;
                 Some(OpKind::Shr {
@@ -1202,7 +1506,7 @@ impl OpKind {
         }
     }
 
-    /// Get the flags written by this operation
+    /// Get the flags written by this operation (the flags it may define).
     pub fn flags_written(&self) -> FlagSet {
         match self {
             OpKind::Add { flags, .. }
@@ -1210,8 +1514,6 @@ impl OpKind {
             | OpKind::Adc { flags, .. }
             | OpKind::Sbb { flags, .. }
             | OpKind::Neg { flags, .. }
-            | OpKind::Inc { flags, .. }
-            | OpKind::Dec { flags, .. }
             | OpKind::And { flags, .. }
             | OpKind::Or { flags, .. }
             | OpKind::Xor { flags, .. }
@@ -1228,6 +1530,12 @@ impl OpKind {
             | OpKind::MulU { flags, .. }
             | OpKind::MulS { flags, .. } => flags.as_set(),
 
+            // INC/DEC update OF/SF/ZF/AF/PF but PRESERVE CF (their defining
+            // difference from ADD/SUB by 1). Never report CF as written.
+            OpKind::Inc { flags, .. } | OpKind::Dec { flags, .. } => {
+                flags.as_set().difference(FlagSet::CF)
+            }
+
             // Cmp and Test always update flags
             OpKind::Cmp { .. } | OpKind::Test { .. } => FlagSet::NZCV,
 
@@ -1237,6 +1545,30 @@ impl OpKind {
             OpKind::SetCF { .. } | OpKind::CmcCF => FlagSet::CF,
 
             _ => FlagSet::EMPTY,
+        }
+    }
+
+    /// Flags this op DEFINITELY writes a defined value to, regardless of its
+    /// operands — the set safe to treat as "killed" (overwritten) in backward
+    /// flag-liveness. Conservatively smaller than `flags_written` for ops whose
+    /// flag effect is operand-conditional or partly undefined: a shift/rotate
+    /// by a variable count writes nothing when the count is 0, and MUL/IMUL and
+    /// BSF/BSR leave most flags undefined. Using a smaller must-write set can
+    /// only keep more upstream flags live (safe), never delete a needed one.
+    pub fn flags_must_write(&self) -> FlagSet {
+        match self {
+            OpKind::Shl { .. }
+            | OpKind::Shr { .. }
+            | OpKind::Sar { .. }
+            | OpKind::Shld { .. }
+            | OpKind::Shrd { .. }
+            | OpKind::Rol { .. }
+            | OpKind::Ror { .. }
+            | OpKind::MulU { .. }
+            | OpKind::MulS { .. }
+            | OpKind::Bsf { .. }
+            | OpKind::Bsr { .. } => FlagSet::EMPTY,
+            _ => self.flags_written(),
         }
     }
 
