@@ -143,8 +143,8 @@ behind its oracle. All four also have SMIR lifters.
 |------|-----:|-----------|----------|--------|
 | **x86-64** | ~50k LOC | **boots Linux** (KVM/HVF/emulator) + JIT | Legacy → SSE/AVX/AVX2 → AVX-512 → AVX10.1/10.2 → APX; x87; AES/SHA/GFNI; XSAVE | KVM (real hardware) |
 | **Hexagon** | ~37k LOC | bare-metal (`--arch hexagon`) | V73 scalar + VLIW packets + HVX, **every opcode verified** | qemu-hexagon |
-| **RISC-V** | ~7k LOC | bare-metal (`--arch riscv64`) | full RVA23 *scalar* set (RV64GC + Zfh/Zicond/Zfa/Zbk\*/Zcb + scalar crypto + vector-config) | qemu-riscv64 |
-| **AArch64 / ARM** | ~45k LOC | validated only (no backend yet) | A64 base, **complete SVE** + SVE2, NEON/VFP, FP16; AArch32/Thumb; Cortex-M (M0-M85) | qemu-aarch64 + ASL |
+| **RISC-V** | ~10k LOC | bare-metal (`--arch riscv64`) | full RVA23 *scalar* set (RV64GC + Zfh/Zicond/Zfa/Zbk\*/Zcb + scalar crypto + vector-config) | qemu-riscv64 |
+| **AArch64 / ARM** | ~48k LOC | validated only (no backend yet) | A64 base, **complete SVE** + SVE2, NEON/VFP, FP16; AArch32/Thumb; Cortex-M (M0-M85) | qemu-aarch64 + ASL |
 
 ### x86-64: the complete machine
 
@@ -220,7 +220,7 @@ fields and driven with many pseudo-random states, so a single `#[test]` function
 | `tests/riscv_diff.rs` | RV64GC | `qemu-riscv64` | 29 | x1-x31, f0-f31, fcsr, scratch |
 | `tests/diff_fuzz.rs` | SMIR (lift → interp / native) | KVM | 35 | guest state after lift+run |
 | `tests/riscv_smir_lift.rs` | RISC-V → SMIR lift | rax RISC-V interp | 5 | x/f/fcsr (~150k insns, 0 divergence) |
-| `tests/hexagon_smir_lift.rs` | Hexagon → SMIR lift | rax Hexagon interp | 88 | R/P/USR/V/Q (scalar + ~260 HVX ops) |
+| `tests/hexagon_smir_lift.rs` | Hexagon → SMIR lift | rax Hexagon interp | 305 | R/P/USR/V/Q (entire ISA: scalar + 100% HVX) |
 | `tests/smir_jit_vcpu.rs` | SMIR JIT in the real vcpu | interpreter | 7 | register-for-register + throughput |
 
 > **Good to know** Those `#[test]` counts understate the work by orders of magnitude. Each function
@@ -236,8 +236,8 @@ On top of the oracles, there are exhaustive unit suites:
 |-------|------:|-----|
 | **ARM (ASL-generated)** | 92,131 | generated from ARM's official machine-readable **ASL** spec via `tools/asl-parser/` |
 | **x86-64 instruction suite** | 28,554 | `tests/x86_64/` (850 files), behind `--features x86_64-suite` |
-| **Everything else** | ~1,200 | oracle + SMIR-lift harnesses, Hexagon bare-metal, RISC-V boot, crypto known-answer (FIPS/SDM) |
-| **Total** | **121,927** | `#[test]` functions across `tests/` |
+| **Everything else** | ~1,500 | oracle + SMIR-lift harnesses, Hexagon bare-metal, RISC-V boot, crypto known-answer (FIPS/SDM) |
+| **Total** | **122,151** | `#[test]` functions across `tests/` |
 
 The ARM tests are not written by hand: the `asl-parser` downloads and parses ARM's ASL release and emits
 exhaustive instruction tests from it, which is how 92,000+ ARM cases exist at all.
@@ -246,7 +246,7 @@ exhaustive instruction tests from it, which is how 92,000+ ARM cases exist at al
 
 ## SMIR and the hot-block JIT
 
-**SMIR** (Sigma Machine IR, `src/smir/`, ~36k LOC; spec in
+**SMIR** (Sigma Machine IR, `src/smir/`, ~64k LOC; spec in
 [`docs/specifications/smir/`](docs/specifications/smir/)) is the layer that makes "four CPUs" one
 project. Each guest architecture has a *lifter* that translates its instructions into a common set of
 100+ typed operations; the IR is interpreted directly, optimized, and, for x86-64, lowered to native
@@ -273,7 +273,7 @@ On the bench loop the lowered body is one native instruction per guest instructi
 interpreter (~11,000 MIPS)**, bit-identical to interpreting it.
 
 What makes that safe to ship is a **fail-safe whitelist**: only register-only operations that have been
-proven equal to KVM (ALU, shifts, multiply, mov/extend, setcc/cmov, branches) are JIT-eligible. Anything
+proven equal to KVM (ALU, shifts, multiply, mov/extend, LEA, BSF/BSR, setcc/cmov, branches) are JIT-eligible. Anything
 touching memory, division (the RDX:RAX double-width model isn't lowered yet), FP/SIMD, or an unknown op
 makes the region **bail back to the interpreter**: it never executes natively unless it is known
 correct. Self-modifying code invalidates compiled blocks via the MMU's dirty-page journal, and a
@@ -281,7 +281,7 @@ frontier-less spin loop is refused so native code can't trap the vcpu.
 
 | Piece | Where | State |
 |-------|-------|-------|
-| **Lifters** | `lift/` | x86-64 (most mature), AArch64, Hexagon, RISC-V, AVX10 |
+| **Lifters** | `lift/` | x86-64, AArch64, RISC-V, AVX10, and a lift-complete Hexagon (every opcode, scalar + 100% HVX, verified) |
 | **Interpreter** | `interp.rs` | direct execution; lazy flags, block caching |
 | **Optimizer** | `opt.rs` | dead-flag elimination, constant propagation, strength reduction |
 | **JIT lowering** | `lower/x86_64.rs`, `lower/regalloc.rs`, `lower/runtime.rs` | x86-64 emitter, 1:1 register map, W^X exec runtime + trampoline |
@@ -295,7 +295,7 @@ frontier-less spin loop is refused so native code can't trap the vcpu.
 > **Good to know** The lifters are checked too, not just the JIT's native output. `tests/riscv_smir_lift.rs`
 > and `tests/hexagon_smir_lift.rs` lift each instruction to SMIR, interpret it, and diff against that
 > architecture's own qemu-verified interpreter: RISC-V lifts the integer RV64GC set at zero divergence over
-> ~150k instructions, and Hexagon lifts its scalar core plus ~260 HVX opcodes.
+> ~150k instructions, and Hexagon lifts its entire ISA, every composable scalar op and all of HVX, across 305 verified families.
 
 ---
 
@@ -343,22 +343,24 @@ hot regions.
 
 ## Devices
 
-The running machine wires up a classic PC platform: a 16550 serial console, 8254 PIT, 8259 PIC, LAPIC +
-IOAPIC, RTC/CMOS, a PCI host bridge, QEMU `fw_cfg`, and the Bochs-style debug port.
+The machine boots a full legacy PC platform, always on: a 16550 serial console (interrupt-driven, so
+guest console input works), 8254 PIT, 8259 PIC, LAPIC + IOAPIC, RTC/CMOS, the 8237 DMA controller,
+i8042 PS/2 keyboard, primary and secondary IDE, a floppy controller, system-control ports, QEMU
+`fw_cfg`, and the Bochs-style debug port.
 
-Alongside those, `src/devices/` carries a growing library of full **register-level controller models**,
-1,000-1,500 lines each, built and tested ahead of being attached to the default machine:
+On top of that sits a functional **PCI host bridge** with BAR-mapped routing and an MMU MMIO aperture.
+Pass `--pci-devices` and rax attaches real controllers that Linux enumerates and drives:
 
-| Class | Models |
-|-------|--------|
-| **Storage** | AHCI, NVMe, IDE, virtio-blk, floppy (FDC) |
-| **Network** | Intel e1000 |
-| **Display / audio / USB** | VGA, AC97, UHCI |
-| **Platform** | HPET, i8042 (PS/2), DMA, IOAPIC, system-control ports |
+| Class | Device | Status |
+|-------|--------|--------|
+| **Network** | Intel e1000 (82540EM) | `eth0` comes up; Microwire EEPROM bit-banged via EECD |
+| **Storage** | AHCI, NVMe, IDE | enumerate and bind; AHCI reports SATA link state correctly |
+| **Audio / USB** | AC97, UHCI | enumerate as PCI endpoints |
 
-> **Good to know** The classic boot set is live in the VM today; the larger controllers (AHCI/NVMe/e1000/
-> VGA/…) are implemented as standalone device models and not yet bound to the guest's I/O bus, so a guest
-> won't see an NVMe disk until that wiring lands. The code is real; the cabling is in progress.
+> **Good to know** `--pci-devices` is opt-in, so the default boot stays byte-identical and the
+> interpreter hot path is untouched (the MMIO aperture collapses to a no-op when no bridge is set). VGA
+> is the one model still on the shelf: its legacy `0xA0000` window shadows guest RAM in the flat-memory
+> model, and it is display-only, so it is pointless on a serial VM.
 
 ---
 
@@ -368,9 +370,10 @@ Because the interpreter owns the step loop, the introspection tools see the real
 
 | Tool | Flag / feature | What you get |
 |------|----------------|--------------|
+| **Interactive console** | on by default on a TTY | raw-mode serial console with a qemu-style `Ctrl-A` mux (`Ctrl-A s` checkpoints, `x` quits, `h` helps); termios restored even on panic or signal |
+| **Machine checkpoints** | `Ctrl-A s` / `SIGUSR1` / `--snapshot-interval N`; resume with `--checkpoint <f.rxc>` | a self-contained `.rxc` image: embedded config + CPU + zstd RAM + every device's serialized state + a timing anchor. `rax --checkpoint m.rxc` brings a live machine back with no `--kernel` or `--config` |
 | **Instruction trace** | `--trace <file>` (`--features trace`) | SDE-compatible per-instruction trace, diffable against Intel SDE |
 | **GDB stub** | `--gdb <port> --wait-gdb` (`--features debug`) | Remote Serial Protocol server: registers, memory, stepping |
-| **Snapshots** | `--snapshot-interval N` / `--snapshot-at a,b,c` / `--resume <file>` | full VM state (registers + zstd-compressed memory, bincode-serialized); save at instruction counts, resume later |
 | **Profiler** | `--profile` (`--features profiling`) | per-mnemonic execution counts and a hot-instruction report, optional JSON export |
 
 ---
@@ -387,8 +390,10 @@ Because the interpreter owns the step loop, the introspection tools see the real
 --config <file>            Load a TOML config
 --trace <file>             Write an SDE-compatible instruction trace   (--features trace)
 --gdb <port> [--wait-gdb]  Start a GDB stub, optionally wait for attach (--features debug)
---snapshot-interval <N>    Snapshot every N instructions (0 = off)
---resume <file>            Resume from a snapshot
+--pci-devices              Attach the optional PCI devices (e1000, AHCI, NVMe, UHCI, AC97)
+--snapshot-interval <N>    Checkpoint every N instructions (0 = off)
+--snapshot-out <file>      Where Ctrl-A s / SIGUSR1 checkpoints land (default checkpoint.rxc)
+--checkpoint <file.rxc>    Resume a whole machine from a checkpoint (no --kernel/--config needed)
 --profile [--profile-output <json>]   Instruction profiling             (--features profiling)
 ```
 
@@ -463,9 +468,9 @@ src/
 │       ├── x86_64/ # ~50k LOC: decoder, mmu, flags, dispatch/{legacy,twobyte,vex,evex}, insn/ (88 files), JIT integration
 │       ├── hexagon/# ~37k LOC: scalar core, VLIW packets, full HVX, every opcode verified
 │       └── riscv/  # RiscVVcpu bridges the rax::riscv interpreter into the VMM
-├── arm/            # ~45k LOC: aarch64 (complete SVE) · cortex_m · decoder · vfp · sysreg · cp15
-├── riscv/          # ~7k LOC: RV64GC + RVA23 scalar · cpu · decode · rvc · float · csr · crypto · disasm
-├── smir/           # ~36k LOC: ir · ops · types · interp · opt · lift/ · lower/ (x86_64 · regalloc · runtime)
+├── arm/            # ~48k LOC: aarch64 (complete SVE) · cortex_m · decoder · vfp · sysreg · cp15
+├── riscv/          # ~10k LOC: RV64GC + RVA23 scalar · cpu · decode · rvc · float · csr · crypto · disasm
+├── smir/           # ~64k LOC: ir · ops · types · interp · opt · lift/ · lower/ (x86_64 · regalloc · runtime)
 ├── devices/        # serial·pit·pic·lapic·ioapic·rtc·hpet·pci·fw_cfg  +  ahci·nvme·ide·virtio·e1000·vga·ac97·uhci·fdc·dma
 ├── gdb/            # Remote Serial Protocol server      (--features debug)
 └── profiling/      # per-mnemonic profiler              (--features profiling)
@@ -488,17 +493,19 @@ docs/specifications/# smir/ (the IR spec) · riscv/ (vendored RISC-V specs) · a
 | **Hexagon** | **Every opcode** (scalar + HVX) verified vs. qemu-hexagon; bootable bare-metal backend |
 | **RISC-V** | Full RVA23 scalar set + crypto; bootable `--arch riscv64` backend; verified vs. qemu-riscv64 |
 | **AArch64 / ARM** | Complete SVE + broad SVE2 + NEON + Cortex-M; ~92k ASL tests; not yet a runnable backend |
-| **SMIR** | JIT integrated, auto-triggered, fail-safe (register-only hot loops native, bit-exact vs. KVM); lifters verified for x86-64 / RISC-V / Hexagon |
+| **SMIR** | JIT integrated, auto-triggered, fail-safe (register-only hot loops native, bit-exact vs. KVM); lifters verified for x86-64 / RISC-V; Hexagon lift-complete |
+| **Platform** | Legacy PC devices wired; PCI host bridge + `--pci-devices` (e1000 `eth0`, AHCI/NVMe/UHCI/AC97); interactive console + full `.rxc` machine checkpoint/resume |
 
 ### What's missing
 
-A production hypervisor this is not, by design. Only x86-64 boots a general-purpose OS; the ARM core is
-validated but not yet wired as a backend, and the larger device controllers aren't attached to the
-default machine. There is no SMP (one vCPU executes). The JIT covers register-only hot loops; memory
-blocks, double-width DIV, and block chaining are future work. RISC-V lacks the RVV vector data path and a
-privileged/Sv39 MMU. The **software** Linux boot now reaches a BusyBox shell on a mitigations-off ELF kernel; wider
-configurations (CFI/FineIBT, bzImage real-mode entry, fuller device probing) are still being worked
-through, and the KVM path boots cleanly throughout.
+A production hypervisor this is not, by design. Only x86-64 boots a general-purpose OS, and the ARM
+core, though the most thoroughly tested, is validated only through its oracle and isn't a runnable
+backend yet. There is no SMP (one vCPU executes), VGA isn't wired (serial console only), and PCI
+interrupts run in polled mode. The JIT covers register-only hot loops; memory-operand blocks,
+double-width DIV, and native block chaining are future work. RISC-V lacks the RVV vector data path and
+a privileged/Sv39 MMU. The **software** Linux boot reaches a BusyBox shell on a mitigations-off ELF
+kernel; wider configurations (CFI/FineIBT, bzImage real-mode entry) are still being worked through, and
+the KVM path boots cleanly throughout.
 
 ---
 
