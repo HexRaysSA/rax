@@ -173,6 +173,25 @@ pub const EERD_ADDR_MASK: u32 = 0xFF;
 /// Shift for the read-out EEPROM data in `EERD`.
 pub const EERD_DATA_SHIFT: u32 = 16;
 
+// EECD bits for the 93C46-style Microwire serial EEPROM that the Linux e1000
+// driver bit-bangs on the 82540EM (it does NOT use EERD on this MAC type).
+/// Serial clock.
+pub const EECD_SK: u32 = 1 << 0;
+/// Chip select.
+pub const EECD_CS: u32 = 1 << 1;
+/// Data in (host -> EEPROM).
+pub const EECD_DI: u32 = 1 << 2;
+/// Data out (EEPROM -> host).
+pub const EECD_DO: u32 = 1 << 3;
+/// Request EEPROM access (software semaphore).
+pub const EECD_REQ: u32 = 1 << 6;
+/// Grant EEPROM access.
+pub const EECD_GNT: u32 = 1 << 7;
+/// Microwire READ opcode (110b), shifted MSB-first as 3 opcode bits.
+const MICROWIRE_READ_OPCODE: u16 = 0b110;
+/// 93C46 address width for a 64-word EEPROM.
+const MICROWIRE_ADDR_BITS: u8 = 6;
+
 /// `RCTL.EN`: receiver enable.
 pub const RCTL_EN: u32 = 1 << 1;
 /// `TCTL.EN`: transmitter enable.
@@ -248,6 +267,20 @@ pub struct E1000 {
     eeprom: [u16; EEPROM_WORDS],
     eecd: u32,
     eerd: u32,
+    /// Microwire bit-bang state: shift register of DI bits received this frame.
+    ee_shift: u16,
+    /// Number of command bits clocked in since chip-select went high.
+    ee_count: u8,
+    /// True once a READ command has been decoded and data is shifting out.
+    ee_reading: bool,
+    /// Latched EEPROM word being shifted out on DO (MSB first).
+    ee_dataout: u16,
+    /// Count of data bits already shifted out (0..16).
+    ee_dataout_count: u8,
+    /// Previous serial-clock level, for rising-edge detection.
+    ee_prev_sk: bool,
+    /// Current DO (data-out) level presented to the host.
+    ee_do: bool,
     /// Programmed MAC address (also shadowed into RAL0/RAH0 on reset).
     mac: [u8; 6],
 
@@ -323,6 +356,13 @@ impl E1000 {
             eeprom,
             eecd: 0,
             eerd: 0,
+            ee_shift: 0,
+            ee_count: 0,
+            ee_reading: false,
+            ee_dataout: 0,
+            ee_dataout_count: 0,
+            ee_prev_sk: false,
+            ee_do: false,
             mac,
             icr: 0,
             ims: 0,
@@ -416,6 +456,73 @@ impl E1000 {
 
     /// Begin (and immediately complete) an EEPROM read when `EERD.START` is
     /// written. The data word is latched into the data field and `DONE` set.
+    /// Drive the Microwire (93C46) EEPROM state machine from a write to EECD.
+    /// Implements the READ protocol the Linux e1000 driver bit-bangs on the
+    /// 82540EM (which does not use EERD): a 3-bit opcode (110b = READ) and a
+    /// 6-bit address are clocked in on DI, then 16 data bits are clocked out on
+    /// DO, MSB first, one bit per serial-clock rising edge while CS is asserted.
+    fn eecd_write(&mut self, value: u32) {
+        // Software EEPROM access semaphore: grant whenever requested.
+        let mut stored = value;
+        if value & EECD_REQ != 0 {
+            stored |= EECD_GNT;
+        } else {
+            stored &= !EECD_GNT;
+        }
+
+        let cs = value & EECD_CS != 0;
+        let sk = value & EECD_SK != 0;
+        let di = value & EECD_DI != 0;
+
+        if !cs {
+            // Deselect resets the frame.
+            self.ee_shift = 0;
+            self.ee_count = 0;
+            self.ee_reading = false;
+            self.ee_dataout_count = 0;
+            self.ee_do = false;
+        } else if sk && !self.ee_prev_sk {
+            // Rising clock edge with the chip selected.
+            if self.ee_reading {
+                // Shift out the next data bit, MSB first.
+                self.ee_do = (self.ee_dataout >> (15 - self.ee_dataout_count)) & 1 != 0;
+                self.ee_dataout_count += 1;
+                if self.ee_dataout_count >= 16 {
+                    self.ee_reading = false;
+                    self.ee_count = 0;
+                    self.ee_shift = 0;
+                }
+            } else {
+                // Shift in a command bit.
+                self.ee_shift = (self.ee_shift << 1) | (di as u16);
+                self.ee_count += 1;
+                self.ee_do = false;
+                let cmd_bits = 3 + MICROWIRE_ADDR_BITS; // 3 opcode + 6 address bits
+                if self.ee_count >= cmd_bits {
+                    let opcode = (self.ee_shift >> MICROWIRE_ADDR_BITS) & 0b111;
+                    let addr = (self.ee_shift & ((1 << MICROWIRE_ADDR_BITS) - 1)) as usize;
+                    if opcode == MICROWIRE_READ_OPCODE {
+                        self.ee_dataout = if addr < EEPROM_WORDS {
+                            self.eeprom[addr]
+                        } else {
+                            0
+                        };
+                        self.ee_dataout_count = 0;
+                        self.ee_reading = true;
+                    } else {
+                        // Writes/erases are not modeled; wait for deselect.
+                        self.ee_count = 0;
+                        self.ee_shift = 0;
+                    }
+                }
+            }
+        }
+
+        self.ee_prev_sk = sk;
+        // DO is reflected back to the guest at read time from `ee_do`.
+        self.eecd = stored & !EECD_DO;
+    }
+
     fn start_eeprom_read(&mut self, value: u32) {
         if value & EERD_START == 0 {
             // No read requested; just store the address bits, clear DONE.
@@ -449,7 +556,8 @@ impl E1000 {
         match offset {
             CTRL => self.ctrl,
             STATUS => self.status,
-            EECD => self.eecd,
+            // Reflect the live Microwire data-out bit back to the guest.
+            EECD => (self.eecd & !EECD_DO) | if self.ee_do { EECD_DO } else { 0 },
             EERD => self.eerd,
             ICR => {
                 // Reading ICR returns the current causes and clears them.
@@ -492,7 +600,7 @@ impl E1000 {
         match offset {
             CTRL => self.ctrl = value,
             STATUS => { /* status is read-only */ }
-            EECD => self.eecd = value,
+            EECD => self.eecd_write(value),
             EERD => self.start_eeprom_read(value),
             ICR => {
                 // Writing 1s to ICR clears those cause bits.
@@ -769,7 +877,7 @@ impl E1000 {
         match offset {
             CTRL => self.ctrl,
             STATUS => self.status,
-            EECD => self.eecd,
+            EECD => (self.eecd & !EECD_DO) | if self.ee_do { EECD_DO } else { 0 },
             EERD => self.eerd,
             ICR => self.icr,
             IMS | ICS | IMC => self.ims,
