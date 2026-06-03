@@ -3119,7 +3119,7 @@ impl X86_64Vcpu {
 
         // 2) Re-run the interpreter from the same entry up to the exit PC,
         //    restoring the LAZY flag state (the interpreter's source of truth).
-        self.regs = snap;
+        self.regs = snap.clone();
         self.lazy_flags = snap_lf;
         let cap = 50_000_000u64;
         let mut steps = 0u64;
@@ -3191,6 +3191,10 @@ impl X86_64Vcpu {
                 let code = self.read_bytes(entry_pc, 64).unwrap_or_default();
                 eprintln!(
                     "\n[JIT-VERIFY] DIVERGENCE entry={entry_pc:#x} exit={exit_pc:#x} steps={steps}"
+                );
+                eprintln!(
+                    "[JIT-VERIFY] entry regs: rax={:#x} rcx={:#x} rdx={:#x} rbx={:#x} rsi={:#x} rdi={:#x} r8={:#x} r9={:#x}",
+                    snap.rax, snap.rcx, snap.rdx, snap.rbx, snap.rsi, snap.rdi, snap.r8, snap.r9
                 );
                 eprintln!("[JIT-VERIFY] code@entry = {code:02x?}");
                 eprintln!("[JIT-VERIFY] lifted+optimized region:\n{}", self.jit_dump_region(entry_pc));
