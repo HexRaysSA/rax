@@ -1289,6 +1289,56 @@ fn jit_mem_boot_memmove_overlap24_matches_interpreter() {
     }
 }
 
+/// A long byte-copy loop (`mov al,[rsi]; mov [rdi],al; inc rdi; inc rsi; dec rcx;
+/// jne`) — the kernel `memcpy` byte tail at region 0x8214929f. Each iteration is
+/// TWO mem-helper calls; checks the host stack stays balanced over many
+/// iterations (RSP drift would corrupt the host stack → crash) and that RSP +
+/// the copied bytes match the interpreter.
+#[test]
+fn jit_mem_byte_copy_loop_long() {
+    const SRC: u64 = 0x20_0000;
+    const DST: u64 = 0x40_0000;
+    const N: u64 = 0x1000;
+    let code: &[u8] = &[
+        0x8a, 0x06, // mov al, [rsi]
+        0x88, 0x07, // mov [rdi], al
+        0x48, 0xff, 0xc7, // inc rdi
+        0x48, 0xff, 0xc6, // inc rsi
+        0x48, 0xff, 0xc9, // dec rcx
+        0x75, 0xf3, // jne loop (-13)
+        0xf4, // hlt
+    ];
+    let setup = |v: &mut X86_64Vcpu, mem: &Arc<GuestMemoryMmap>| {
+        for i in 0..N {
+            mem.write_obj((i as u8).wrapping_mul(7).wrapping_add(3), GuestAddress(SRC + i))
+                .unwrap();
+        }
+        let mut r = v.get_regs().unwrap();
+        r.rsi = SRC;
+        r.rdi = DST;
+        r.rcx = N;
+        v.set_regs(&r).unwrap();
+    };
+
+    let (mut interp, im) = make_vcpu_mem(code);
+    setup(&mut interp, &im);
+    run_interp(&mut interp);
+
+    let (mut jit, jm) = make_vcpu_mem(code);
+    setup(&mut jit, &jm);
+    jit.set_jit_mem(true);
+    assert!(jit.jit_try_block().expect("jit_try_block"), "region should JIT");
+    run_interp(&mut jit);
+
+    assert_eq!(jit.get_regs().unwrap().rsp, interp.get_regs().unwrap().rsp, "RSP drift");
+    assert_eq!(jit.get_regs().unwrap().rcx, 0, "rcx");
+    for i in 0..N {
+        let ib: u8 = im.read_obj(GuestAddress(DST + i)).unwrap();
+        let jb: u8 = jm.read_obj(GuestAddress(DST + i)).unwrap();
+        assert_eq!(jb, ib, "DST[{i}]");
+    }
+}
+
 /// A GS-segment-relative memory access (`65` prefix) must NOT be JIT-compiled:
 /// the helper cannot add the per-CPU/TLS segment base, so the region must bail
 /// to the interpreter (which models segments). Without the bail the JIT would
