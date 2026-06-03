@@ -1289,6 +1289,48 @@ fn jit_mem_boot_memmove_overlap24_matches_interpreter() {
     }
 }
 
+/// `movzx ecx, dil` (REX-prefixed `40 0f b6 cf`) wedged BETWEEN two loads, as in
+/// kernel region 0x82149bd0. The lifter must not drop the movzx — if it does,
+/// rcx keeps a stale value and the dependent indexed load reads a wrong address.
+#[test]
+fn jit_mem_movzx_dil_between_loads() {
+    const PTR: u64 = 0x20_0000;
+    const DATA: u64 = 0x21_0000;
+    let mut code: Vec<u8> = Vec::new();
+    code.extend_from_slice(&[0x48, 0x8b, 0x02]); // mov rax, [rdx]
+    code.extend_from_slice(&[0x40, 0x0f, 0xb6, 0xcf]); // movzx ecx, dil
+    code.extend_from_slice(&[0x8b, 0x04, 0x88]); // mov eax, [rax+rcx*4]
+    code.extend_from_slice(&[0x48, 0xff, 0xce]); // dec rsi
+    code.extend_from_slice(&[0x75, 0xf1]); // jne loop (-15)
+    code.push(0xf4); // hlt
+
+    let setup = |v: &mut X86_64Vcpu, mem: &Arc<GuestMemoryMmap>| {
+        mem.write_obj(DATA, GuestAddress(PTR)).unwrap();
+        mem.write_obj(0x8580u32, GuestAddress(DATA + 4)).unwrap(); // [DATA + dil*4], dil=1
+        let mut r = v.get_regs().unwrap();
+        r.rdx = PTR;
+        r.rdi = 1; // dil = 1 → rcx should become 1
+        r.rcx = 0x3c; // stale value that must be overwritten by the movzx
+        r.rsi = 1;
+        v.set_regs(&r).unwrap();
+    };
+
+    let (mut interp, im) = make_vcpu_mem(&code);
+    setup(&mut interp, &im);
+    run_interp(&mut interp);
+
+    let (mut jit, jm) = make_vcpu_mem(&code);
+    setup(&mut jit, &jm);
+    jit.set_jit_mem(true);
+    assert!(jit.jit_try_block().expect("jit_try_block"), "region should JIT");
+    run_interp(&mut jit);
+
+    assert_eq!(interp.get_regs().unwrap().rcx, 1, "interp rcx (movzx dil)");
+    assert_eq!(jit.get_regs().unwrap().rcx, 1, "jit rcx (movzx must not be dropped)");
+    assert_eq!(interp.get_regs().unwrap().rax, 0x8580, "interp rax");
+    assert_eq!(jit.get_regs().unwrap().rax, 0x8580, "jit rax (depends on rcx=1)");
+}
+
 /// BaseIndexScale loads with scale=4 and 32-bit (B4) width — the shape in the
 /// kernel region 0x82149bd0 that my scale=1/scale=8 tests didn't cover. Also a
 /// dependent pair (load a pointer, then index off it), which 0x82149bd0 uses.

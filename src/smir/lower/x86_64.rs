@@ -223,6 +223,33 @@ impl<'a> X86Emitter<'a> {
         }
     }
 
+    /// REX/operand-size prefix for a width-EXTENDING reg-reg op (movzx/movsx),
+    /// where the destination and source widths differ. The destination width
+    /// drives REX.W and the 0x66 prefix, but a W8 *source* in SPL/BPL/SIL/DIL
+    /// still requires a REX prefix to be PRESENT — otherwise ModRM rm 4-7 selects
+    /// the legacy high bytes AH/CH/DH/BH. `emit_rex_for_width` keys that rule on
+    /// the single operand width, so it misses it here (it sees the wider dst).
+    fn emit_rex_ext(
+        &mut self,
+        dst_width: OpWidth,
+        src_width: OpWidth,
+        dst: PhysReg,
+        src: PhysReg,
+    ) {
+        if matches!(dst_width, OpWidth::W16) {
+            self.code.emit_u8(0x66);
+        }
+        let w = matches!(dst_width, OpWidth::W64);
+        let byte_src_needs_rex = matches!(src_width, OpWidth::W8)
+            && matches!(
+                src,
+                PhysReg::Rsp | PhysReg::Rbp | PhysReg::Rsi | PhysReg::Rdi
+            );
+        if w || dst.is_extended() || src.is_extended() || byte_src_needs_rex {
+            self.emit_rex_force(w, dst, None, src);
+        }
+    }
+
     fn emit_rex_for_width_mem(&mut self, width: OpWidth, base: PhysReg, index: Option<PhysReg>) {
         let needs_rex = base.is_extended() || index.map_or(false, |reg| reg.is_extended());
         match width {
@@ -889,7 +916,7 @@ impl<'a> X86Emitter<'a> {
         src_width: OpWidth,
         dst_width: OpWidth,
     ) {
-        self.emit_rex_for_width(dst_width, dst, src);
+        self.emit_rex_ext(dst_width, src_width, dst, src);
 
         match src_width {
             OpWidth::W8 => {
@@ -913,7 +940,7 @@ impl<'a> X86Emitter<'a> {
         src_width: OpWidth,
         dst_width: OpWidth,
     ) {
-        self.emit_rex_for_width(dst_width, dst, src);
+        self.emit_rex_ext(dst_width, src_width, dst, src);
 
         match src_width {
             OpWidth::W8 => {
