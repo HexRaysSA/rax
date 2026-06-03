@@ -13851,6 +13851,82 @@ impl HexagonLifter {
                 }
             }
 
+            // ---- carry-less (GF(2)) polynomial multiply ----
+            // pmpyw: Rdd = pmpyw(Rs, Rt) — one 32x32 -> 64-bit carry-less product.
+            // pmpyw_acc: Rxx ^= pmpyw(Rs, Rt) — XOR into the existing pair.
+            // vpmpyh: Rdd = vpmpyh(Rs, Rt) — two 16x16 -> 32-bit carry-less,
+            //         interleaved into the dst pair. vpmpyh_acc XORs into Rxx.
+            Opcode::M4_pmpyw
+            | Opcode::M4_pmpyw_acc
+            | Opcode::M4_vpmpyh
+            | Opcode::M4_vpmpyh_acc => {
+                let acc = matches!(op, Opcode::M4_pmpyw_acc | Opcode::M4_vpmpyh_acc);
+                let (elem_bits, lanes) = match op {
+                    Opcode::M4_pmpyw | Opcode::M4_pmpyw_acc => (32u8, 1u8),
+                    _ => (16u8, 2u8),
+                };
+                // Destination pair is Rxx for the _acc forms, Rdd otherwise.
+                let dst_base = if acc { rx_n } else { rd_n } & !1;
+                push_op!(OpKind::ClMul {
+                    dst: self.hex_reg(dst_base),
+                    dst_hi: Some(self.hex_reg(dst_base + 1)),
+                    src1: SrcOperand::Reg(rs),
+                    src2: SrcOperand::Reg(rt),
+                    elem_bits,
+                    lanes,
+                    acc,
+                });
+            }
+
+            // ---- M7 wide complex multiply (32x32, i128 acc, :<<1, :sat[,:rnd]) ----
+            // Per the sem call sites: m7_wcmpy(ctx, d, add, w0, w1, w2, w3, rnd).
+            Opcode::M7_wcmpyrw
+            | Opcode::M7_wcmpyrwc
+            | Opcode::M7_wcmpyiw
+            | Opcode::M7_wcmpyiwc
+            | Opcode::M7_wcmpyrw_rnd
+            | Opcode::M7_wcmpyrwc_rnd
+            | Opcode::M7_wcmpyiw_rnd
+            | Opcode::M7_wcmpyiwc_rnd => {
+                let (add, w0, w1, w2, w3, rnd) = match op {
+                    Opcode::M7_wcmpyrw => (false, 0, 0, 1, 1, false),
+                    Opcode::M7_wcmpyrwc => (true, 0, 0, 1, 1, false),
+                    Opcode::M7_wcmpyiw => (true, 0, 1, 1, 0, false),
+                    Opcode::M7_wcmpyiwc => (false, 1, 0, 0, 1, false),
+                    Opcode::M7_wcmpyrw_rnd => (false, 0, 0, 1, 1, true),
+                    Opcode::M7_wcmpyrwc_rnd => (true, 0, 0, 1, 1, true),
+                    Opcode::M7_wcmpyiw_rnd => (true, 0, 1, 1, 0, true),
+                    Opcode::M7_wcmpyiwc_rnd => (false, 1, 0, 0, 1, true),
+                    _ => unreachable!(),
+                };
+                let ss = fld(b's') & !1;
+                let tt = fld(b't') & !1;
+                push_op!(OpKind::CmpyW128Sat {
+                    dst: rd,
+                    rss_lo: self.hex_reg(ss),
+                    rss_hi: self.hex_reg(ss + 1),
+                    rtt_lo: self.hex_reg(tt),
+                    rtt_hi: self.hex_reg(tt + 1),
+                    w0,
+                    w1,
+                    w2,
+                    w3,
+                    add,
+                    rnd,
+                });
+            }
+
+            // ---- register-amount saturating shift (fSAT_ORIG_SHL) ----
+            Opcode::S2_asl_r_r_sat | Opcode::S2_asr_r_r_sat => {
+                push_op!(OpKind::SatOrigShl {
+                    dst: rd,
+                    src: SrcOperand::Reg(rs),
+                    amount: SrcOperand::Reg(rt),
+                    right: matches!(op, Opcode::S2_asr_r_r_sat),
+                    width: OpWidth::W32,
+                });
+            }
+
             // Everything else: not implemented here.
             _ => return Err(unsupported()),
         }

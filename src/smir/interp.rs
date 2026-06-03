@@ -1016,6 +1016,175 @@ impl SmirInterpreter {
                 Self::write_gpr(ctx, *dst, (clamped as u64) & width.mask(), *width);
             }
 
+            // Carry-less (GF(2)) polynomial multiply — `pmpyw`/`vpmpyh` (+ `_acc`).
+            OpKind::ClMul {
+                dst,
+                dst_hi,
+                src1,
+                src2,
+                elem_bits,
+                lanes,
+                acc,
+            } => {
+                // Carry-less product of two `bits`-wide operands: XOR-accumulate
+                // of the shifted partial products (no carries; sign irrelevant).
+                #[inline]
+                fn clmul(a: u64, b: u64, bits: u32) -> u64 {
+                    let mut prod: u64 = 0;
+                    for k in 0..bits {
+                        if (b >> k) & 1 == 1 {
+                            prod ^= a << k;
+                        }
+                    }
+                    prod
+                }
+                let a = self.read_src_operand(ctx, src1);
+                let b = self.read_src_operand(ctx, src2);
+                let bits = *elem_bits as u32;
+                let (mut lo, mut hi): (u64, u64) = if *lanes == 1 {
+                    // pmpyw: one 32x32 -> 64-bit product; lo/hi = its words.
+                    let p = clmul(a & 0xffff_ffff, b & 0xffff_ffff, bits);
+                    (p & 0xffff_ffff, (p >> 32) & 0xffff_ffff)
+                } else {
+                    // vpmpyh: two 16x16 -> 32-bit products, interleaved:
+                    //   lo.h0=p0.lo, lo.h1=p1.lo, hi.h0=p0.hi, hi.h1=p1.hi.
+                    let x0 = a & 0xffff;
+                    let x1 = (a >> 16) & 0xffff;
+                    let y0 = b & 0xffff;
+                    let y1 = (b >> 16) & 0xffff;
+                    let p0 = clmul(x0, y0, bits) & 0xffff_ffff;
+                    let p1 = clmul(x1, y1, bits) & 0xffff_ffff;
+                    let lo = (p0 & 0xffff) | ((p1 & 0xffff) << 16);
+                    let hi = ((p0 >> 16) & 0xffff) | (((p1 >> 16) & 0xffff) << 16);
+                    (lo, hi)
+                };
+                if *acc {
+                    lo ^= ctx.read_vreg(*dst) & 0xffff_ffff;
+                    if let Some(h) = dst_hi {
+                        hi ^= ctx.read_vreg(*h) & 0xffff_ffff;
+                    }
+                }
+                Self::write_gpr(ctx, *dst, lo & 0xffff_ffff, OpWidth::W32);
+                if let Some(h) = dst_hi {
+                    Self::write_gpr(ctx, *h, hi & 0xffff_ffff, OpWidth::W32);
+                }
+            }
+
+            // `M7_wcmpy*` — 32x32 wide complex multiply with an i128 accumulator,
+            // `:<<1` scale (>>31), optional `:rnd`, and signed-32 saturation.
+            OpKind::CmpyW128Sat {
+                dst,
+                rss_lo,
+                rss_hi,
+                rtt_lo,
+                rtt_hi,
+                w0,
+                w1,
+                w2,
+                w3,
+                add,
+                rnd,
+            } => {
+                // Reconstruct the two register pairs (even = low word, odd = high
+                // word) and select a signed 32-bit word from each.
+                let rss = (ctx.read_vreg(*rss_lo) & 0xffff_ffff)
+                    | ((ctx.read_vreg(*rss_hi) & 0xffff_ffff) << 32);
+                let rtt = (ctx.read_vreg(*rtt_lo) & 0xffff_ffff)
+                    | ((ctx.read_vreg(*rtt_hi) & 0xffff_ffff) << 32);
+                #[inline]
+                fn word(src: u64, n: u8) -> i128 {
+                    ((src >> (n as u32 * 32)) as u32 as i32) as i128
+                }
+                let term0 = word(rss, *w0) * word(rtt, *w1);
+                let term1 = word(rss, *w2) * word(rtt, *w3);
+                let mut accv: i128 = if *add { term0 + term1 } else { term0 - term1 };
+                if *rnd {
+                    accv += 0x4000_0000i128;
+                }
+                let shifted = accv >> 31; // arithmetic shift of the signed accumulator
+                // Saturate to signed 32 bits with the sticky USR:OVF bit.
+                let lo = i32::MIN as i128;
+                let hi = i32::MAX as i128;
+                let (clamped, ovf) = if shifted < lo {
+                    (lo, true)
+                } else if shifted > hi {
+                    (hi, true)
+                } else {
+                    (shifted, false)
+                };
+                if ovf {
+                    Self::set_hex_ovf(ctx);
+                }
+                Self::write_gpr(ctx, *dst, (clamped as i64 as u64) & 0xffff_ffff, OpWidth::W32);
+            }
+
+            // `S2_asl_r_r_sat` / `S2_asr_r_r_sat` — register-amount saturating
+            // shift implementing `fSAT_ORIG_SHL` (port of sem/shift.rs).
+            OpKind::SatOrigShl {
+                dst,
+                src,
+                amount,
+                right,
+                width,
+            } => {
+                let src_v = self.read_src_operand(ctx, src) as u32;
+                // shamt = fSXTN(7,32, amount): sign-extend the low 7 bits to i32.
+                let raw = self.read_src_operand(ctx, amount) as u32;
+                let sh = ((raw as i32) << 25) >> 25;
+                let orig_i = src_v as i32 as i64;
+
+                // fSAT_ORIG_SHL(a, orig): saturate `a` to s32 honoring orig's
+                // sign. NOTE: the sem's `ctx.sat_n(a, 32)` ALSO sets USR:OVF
+                // whenever it clamps (a < INT_MIN or a > INT_MAX), independent of
+                // the sign-flip / special cases below — so OVF is set on any
+                // clamp, then again (idempotently) on a sign flip / orig>0&&a==0.
+                #[inline]
+                fn sat_orig_shl(ctx: &mut SmirContext, a: i64, orig: u32) -> u32 {
+                    let orig_s = orig as i32;
+                    // sat_n(a, 32): clamp to [INT_MIN, INT_MAX], setting OVF on clamp.
+                    let sat = if a < i32::MIN as i64 {
+                        SmirInterpreter::set_hex_ovf(ctx);
+                        i32::MIN
+                    } else if a > i32::MAX as i64 {
+                        SmirInterpreter::set_hex_ovf(ctx);
+                        i32::MAX
+                    } else {
+                        a as i32
+                    };
+                    if (sat ^ orig_s) < 0 {
+                        // sign flipped -> saturate toward ORIG's extreme
+                        let v = if orig_s < 0 { i32::MIN } else { i32::MAX };
+                        SmirInterpreter::set_hex_ovf(ctx);
+                        v as u32
+                    } else if orig_s > 0 && a == 0 {
+                        SmirInterpreter::set_hex_ovf(ctx);
+                        i32::MAX as u32
+                    } else {
+                        sat as u32
+                    }
+                }
+
+                let result: u32 = if !*right {
+                    // asl_r_r_sat: positive count = left (saturating).
+                    if sh < 0 {
+                        // fBIDIR_ASHIFTL with negative amount -> arithmetic right.
+                        (((orig_i >> ((-sh) - 1)) >> 1) as i64) as u32
+                    } else {
+                        let a = orig_i << sh;
+                        sat_orig_shl(ctx, a, src_v)
+                    }
+                } else {
+                    // asr_r_r_sat: negative count = left (saturating).
+                    if sh < 0 {
+                        let a = (orig_i << ((-sh) - 1)) << 1;
+                        sat_orig_shl(ctx, a, src_v)
+                    } else {
+                        ((orig_i >> sh) as i64) as u32
+                    }
+                };
+                Self::write_gpr(ctx, *dst, (result as u64) & width.mask(), *width);
+            }
+
             // ==================================================================
             // BIT MANIPULATION
             // ==================================================================
@@ -7685,5 +7854,281 @@ mod tests {
         // ---- set_ovf = false: value still clamps, but USR:OVF is NOT set ----
         assert_eq!(run_sat_n(0x8000_0000, 32, true, false), (0x7FFF_FFFF, false));
         assert_eq!(run_sat_n(-1, 8, false, false), (0, false));
+    }
+
+    /// Execute one `OpKind::ClMul` and return (dst_lo, dst_hi). The `acc`
+    /// forms read the existing dst pair, so seed it via `init`.
+    fn run_clmul(
+        a: u32,
+        b: u32,
+        elem_bits: u8,
+        lanes: u8,
+        acc: bool,
+        init: (u32, u32),
+    ) -> (u32, u32) {
+        let mut ctx = SmirContext::new_hexagon();
+        let mut memory = FlatMemory::new(0x1000);
+        let interp = SmirInterpreter::new();
+        let r0 = VReg::Arch(ArchReg::Hexagon(HexagonReg::R(0)));
+        let r1 = VReg::Arch(ArchReg::Hexagon(HexagonReg::R(1)));
+        let r2 = VReg::Arch(ArchReg::Hexagon(HexagonReg::R(2)));
+        let r3 = VReg::Arch(ArchReg::Hexagon(HexagonReg::R(3)));
+        ctx.write_vreg(r2, a as u64);
+        ctx.write_vreg(r3, b as u64);
+        ctx.write_vreg(r0, init.0 as u64);
+        ctx.write_vreg(r1, init.1 as u64);
+        let block = SmirBlock {
+            id: BlockId(0),
+            guest_pc: 0x1000,
+            phis: vec![],
+            ops: vec![SmirOp {
+                id: OpId(0),
+                guest_pc: 0x1000,
+                kind: OpKind::ClMul {
+                    dst: r0,
+                    dst_hi: Some(r1),
+                    src1: SrcOperand::Reg(r2),
+                    src2: SrcOperand::Reg(r3),
+                    elem_bits,
+                    lanes,
+                    acc,
+                },
+                x86_hint: None,
+            }],
+            terminator: Terminator::Trap { kind: TrapKind::Halt },
+            exec_count: 0,
+        };
+        interp.execute_block(&mut ctx, &mut memory, &block);
+        (
+            ctx.read_arch_reg(ArchReg::Hexagon(HexagonReg::R(0))) as u32,
+            ctx.read_arch_reg(ArchReg::Hexagon(HexagonReg::R(1))) as u32,
+        )
+    }
+
+    #[test]
+    fn test_clmul_pmpyw_and_vpmpyh() {
+        // pmpyw: carry-less 32x32 -> 64; 1 * x = x (identity), no high bits.
+        assert_eq!(run_clmul(1, 0x1234_5678, 32, 1, false, (0, 0)), (0x1234_5678, 0));
+        // x<<1 via b=2: shift, still carry-less.
+        assert_eq!(run_clmul(0x1234_5678, 2, 32, 1, false, (0, 0)), (0x2468_ACF0, 0));
+        // High word appears when products exceed 32 bits.
+        // 0x80000000 * 0x80000000 carry-less = bit62 set -> hi = 0x40000000.
+        assert_eq!(
+            run_clmul(0x8000_0000, 0x8000_0000, 32, 1, false, (0, 0)),
+            (0, 0x4000_0000)
+        );
+        // _acc XORs into the existing pair.
+        let base = run_clmul(0x1234_5678, 2, 32, 1, false, (0, 0));
+        assert_eq!(
+            run_clmul(0x1234_5678, 2, 32, 1, true, (0xAAAA_AAAA, 0x5555_5555)),
+            (base.0 ^ 0xAAAA_AAAA, base.1 ^ 0x5555_5555)
+        );
+
+        // vpmpyh: two independent 16x16 carry-less products, interleaved.
+        // lane0: 0xffff * 0x0002 ; lane1: 0x0001 * 0x0003.
+        // Build inputs: a.h0=0xffff,a.h1=0x0001 ; b.h0=0x0002,b.h1=0x0003.
+        let a = 0x0001_ffffu32;
+        let b = 0x0003_0002u32;
+        // lane0 = clmul(0xffff,2,16) = 0x1_fffe (carry-less: x<<1).
+        // lane1 = clmul(1,3,16) = 0x0003.
+        // dst.h0 = lane0.lo = 0xfffe, dst.h1 = lane1.lo = 0x0003.
+        // hi.h0  = lane0.hi = 0x0001, hi.h1  = lane1.hi = 0x0000.
+        assert_eq!(run_clmul(a, b, 16, 2, false, (0, 0)), (0x0003_fffe, 0x0000_0001));
+    }
+
+    /// Execute one `OpKind::CmpyW128Sat`, returning (dst, usr_ovf_set).
+    #[allow(clippy::too_many_arguments)]
+    fn run_wcmpy(
+        rss: u64,
+        rtt: u64,
+        w: (u8, u8, u8, u8),
+        add: bool,
+        rnd: bool,
+    ) -> (u32, bool) {
+        let mut ctx = SmirContext::new_hexagon();
+        let mut memory = FlatMemory::new(0x1000);
+        let interp = SmirInterpreter::new();
+        ctx.write_arch_reg(ArchReg::Hexagon(HexagonReg::Usr), 0);
+        // Rss = r3:2, Rtt = r5:4, Rd = r0.
+        let r2 = VReg::Arch(ArchReg::Hexagon(HexagonReg::R(2)));
+        let r3 = VReg::Arch(ArchReg::Hexagon(HexagonReg::R(3)));
+        let r4 = VReg::Arch(ArchReg::Hexagon(HexagonReg::R(4)));
+        let r5 = VReg::Arch(ArchReg::Hexagon(HexagonReg::R(5)));
+        ctx.write_vreg(r2, rss & 0xffff_ffff);
+        ctx.write_vreg(r3, (rss >> 32) & 0xffff_ffff);
+        ctx.write_vreg(r4, rtt & 0xffff_ffff);
+        ctx.write_vreg(r5, (rtt >> 32) & 0xffff_ffff);
+        let rd = VReg::Arch(ArchReg::Hexagon(HexagonReg::R(0)));
+        let block = SmirBlock {
+            id: BlockId(0),
+            guest_pc: 0x1000,
+            phis: vec![],
+            ops: vec![SmirOp {
+                id: OpId(0),
+                guest_pc: 0x1000,
+                kind: OpKind::CmpyW128Sat {
+                    dst: rd,
+                    rss_lo: r2,
+                    rss_hi: r3,
+                    rtt_lo: r4,
+                    rtt_hi: r5,
+                    w0: w.0,
+                    w1: w.1,
+                    w2: w.2,
+                    w3: w.3,
+                    add,
+                    rnd,
+                },
+                x86_hint: None,
+            }],
+            terminator: Terminator::Trap { kind: TrapKind::Halt },
+            exec_count: 0,
+        };
+        interp.execute_block(&mut ctx, &mut memory, &block);
+        (
+            ctx.read_arch_reg(ArchReg::Hexagon(HexagonReg::R(0))) as u32,
+            (ctx.read_arch_reg(ArchReg::Hexagon(HexagonReg::Usr)) & 1) != 0,
+        )
+    }
+
+    #[test]
+    fn test_cmpy_w128_sat_worst_case() {
+        // Worst case: all words = 0x80000000 (= i32::MIN). cmpyrw is SUB (add=false,
+        // w=0,0,1,1): term0 = w0*w1, term1 = w2*w3, acc = term0 - term1 = 0.
+        // For the saturation extreme use the ADD form (cmpyrwc, add=true):
+        //   acc = (MIN*MIN) + (MIN*MIN) = 2 * 2^62 = 2^63; >>31 = 2^32 = 0x1_0000_0000
+        //   -> sat to i32::MAX with OVF.
+        let min = 0x8000_0000u32 as i32; // -2^31
+        assert_eq!(min as i64 * min as i64, 1i64 << 62);
+        let rss = 0x8000_0000_8000_0000u64; // both words = i32::MIN
+        let rtt = 0x8000_0000_8000_0000u64;
+        assert_eq!(run_wcmpy(rss, rtt, (0, 0, 1, 1), true, false), (0x7FFF_FFFF, true));
+
+        // Real part (cmpyrw): SUB of identical terms -> 0, no saturation.
+        assert_eq!(run_wcmpy(rss, rtt, (0, 0, 1, 1), false, false), (0, false));
+
+        // Small in-range value: Rss.w = (3, 0), Rtt.w = (5, 0); cmpyiw = ADD,
+        // w=0,1,1,0: term0 = w0*w1 = 3*0 = 0; term1 = w2*w3 = 0*5 = 0 -> 0.
+        let rss2 = 0x0000_0000_0000_0003u64; // w0=3, w1(=w of rss[1])=0
+        let rtt2 = 0x0000_0000_0000_0005u64;
+        assert_eq!(run_wcmpy(rss2, rtt2, (0, 1, 1, 0), true, false), (0, false));
+
+        // :rnd adds 0x40000000 before the >>31. Pick acc=0 so result = 0x40000000>>31 = 0.
+        assert_eq!(run_wcmpy(0, 0, (0, 0, 1, 1), true, true), (0, false));
+    }
+
+    /// Execute one `OpKind::SatOrigShl`, returning (dst, usr_ovf_set).
+    fn run_sat_orig_shl(src: u32, amount: i32, right: bool) -> (u32, bool) {
+        let mut ctx = SmirContext::new_hexagon();
+        let mut memory = FlatMemory::new(0x1000);
+        let interp = SmirInterpreter::new();
+        ctx.write_arch_reg(ArchReg::Hexagon(HexagonReg::Usr), 0);
+        let rd = VReg::Arch(ArchReg::Hexagon(HexagonReg::R(0)));
+        let rsrc = VReg::Arch(ArchReg::Hexagon(HexagonReg::R(1)));
+        let ramt = VReg::Arch(ArchReg::Hexagon(HexagonReg::R(2)));
+        ctx.write_vreg(rsrc, src as u64);
+        // Encode the shift into the low 7 bits; upper bits must be ignored.
+        ctx.write_vreg(ramt, ((amount as u32) & 0x7f) as u64 | 0x1234_5600);
+        let block = SmirBlock {
+            id: BlockId(0),
+            guest_pc: 0x1000,
+            phis: vec![],
+            ops: vec![SmirOp {
+                id: OpId(0),
+                guest_pc: 0x1000,
+                kind: OpKind::SatOrigShl {
+                    dst: rd,
+                    src: SrcOperand::Reg(rsrc),
+                    amount: SrcOperand::Reg(ramt),
+                    right,
+                    width: OpWidth::W32,
+                },
+                x86_hint: None,
+            }],
+            terminator: Terminator::Trap { kind: TrapKind::Halt },
+            exec_count: 0,
+        };
+        interp.execute_block(&mut ctx, &mut memory, &block);
+        (
+            ctx.read_arch_reg(ArchReg::Hexagon(HexagonReg::R(0))) as u32,
+            (ctx.read_arch_reg(ArchReg::Hexagon(HexagonReg::Usr)) & 1) != 0,
+        )
+    }
+
+    /// Verbatim reference port of sem/shift.rs sat_orig_shl + the asl/asr_r_r_sat
+    /// dispatch, used as the oracle for the SatOrigShl sweep.
+    fn ref_sat_orig_shl(src: u32, sh: i32, right: bool) -> (u32, bool) {
+        fn sat(a: i64, orig: u32) -> (u32, bool) {
+            let orig_s = orig as i32;
+            // sat_n(a, 32) sets OVF on clamp.
+            let (s, mut ovf) = if a < i32::MIN as i64 {
+                (i32::MIN, true)
+            } else if a > i32::MAX as i64 {
+                (i32::MAX, true)
+            } else {
+                (a as i32, false)
+            };
+            if (s ^ orig_s) < 0 {
+                ovf = true;
+                ((if orig_s < 0 { i32::MIN } else { i32::MAX }) as u32, ovf)
+            } else if orig_s > 0 && a == 0 {
+                (i32::MAX as u32, true)
+            } else {
+                (s as u32, ovf)
+            }
+        }
+        let orig = src as i32 as i64;
+        if !right {
+            if sh < 0 {
+                ((((orig >> ((-sh) - 1)) >> 1) as i64) as u32, false)
+            } else {
+                sat(orig << sh, src)
+            }
+        } else if sh < 0 {
+            sat((orig << ((-sh) - 1)) << 1, src)
+        } else {
+            ((orig >> sh) as u32, false)
+        }
+    }
+
+    #[test]
+    fn test_sat_orig_shl_sweep_and_special() {
+        let srcs: [u32; 7] = [
+            0x0000_0001,
+            0x7fff_ffff,
+            0x8000_0000,
+            0xffff_ffff,
+            0x4000_0000,
+            0x0000_0000,
+            0x1234_5678,
+        ];
+        for &src in &srcs {
+            for sh in -40i32..=40 {
+                for &right in &[false, true] {
+                    let got = run_sat_orig_shl(src, sh, right);
+                    // sh in [-40,40] round-trips through sxtn7 unchanged.
+                    let want = ref_sat_orig_shl(src, sh, right);
+                    assert_eq!(
+                        got, want,
+                        "src={src:#x} sh={sh} right={right}: got {got:?} want {want:?}"
+                    );
+                }
+            }
+        }
+        // Special case: orig>0 && shifted==0 -> INT_MAX + OVF.
+        // asl with a positive small value shifted left by 32 (sh masked to 0..63):
+        // sh=32 -> orig<<32 truncated... but a is i64 so orig<<32 != 0; instead use
+        // the documented case: positive orig, shift result 0 only via amount that
+        // produces a==0 — i.e. a left shift of a positive value can't be 0 unless
+        // orig is 0. The INT_MAX-from-0 path triggers for asr with negative count
+        // where (orig << k) overflows i64 to exactly 0 is impossible; the realistic
+        // trigger is the sign-flip path, swept above. Confirm a sign-flip directly:
+        // 0x4000_0000 (positive) << 1 = 0x8000_0000 -> sign flips negative -> sat to
+        // INT_MAX + OVF.
+        assert_eq!(run_sat_orig_shl(0x4000_0000, 1, false), (0x7FFF_FFFF, true));
+        // Negative value left-shifted past sign: 0x8000_0000 (INT_MIN) << 1 overflows
+        // to 0 in 32 bits but i64 keeps -2^32 (negative) -> stays negative, sat to
+        // INT_MIN + OVF.
+        assert_eq!(run_sat_orig_shl(0x8000_0000, 1, false), (0x8000_0000, true));
     }
 }

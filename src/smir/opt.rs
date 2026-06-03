@@ -2010,6 +2010,45 @@ impl OpKind {
                 result.push(*src1);
                 result.push(*src2);
             }
+
+            // Carry-less multiply: src1/src2 are SrcOperands; the `_acc` forms
+            // also read the existing dst/dst_hi (XOR target).
+            OpKind::ClMul {
+                src1, src2, dst, dst_hi, acc, ..
+            } => {
+                if let SrcOperand::Reg(r) = src1 {
+                    result.push(*r);
+                }
+                if let SrcOperand::Reg(r) = src2 {
+                    result.push(*r);
+                }
+                if *acc {
+                    result.push(*dst);
+                    if let Some(hi) = dst_hi {
+                        result.push(*hi);
+                    }
+                }
+            }
+
+            // Wide complex multiply: reads both halves of the Rss and Rtt pairs.
+            OpKind::CmpyW128Sat {
+                rss_lo, rss_hi, rtt_lo, rtt_hi, ..
+            } => {
+                result.push(*rss_lo);
+                result.push(*rss_hi);
+                result.push(*rtt_lo);
+                result.push(*rtt_hi);
+            }
+
+            // Register-amount saturating shift: src and amount are SrcOperands.
+            OpKind::SatOrigShl { src, amount, .. } => {
+                if let SrcOperand::Reg(r) = src {
+                    result.push(*r);
+                }
+                if let SrcOperand::Reg(r) = amount {
+                    result.push(*r);
+                }
+            }
         }
 
         result

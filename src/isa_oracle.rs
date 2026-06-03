@@ -2453,6 +2453,9 @@ fn smir_op_kind_json(kind: &OpKind) -> Value {
         OpKind::Breakpoint => op_json!("breakpoint"),
         OpKind::BidirShift { .. } => op_json!("bidir_shift"),
         OpKind::SatN { .. } => op_json!("sat_n"),
+        OpKind::ClMul { .. } => op_json!("clmul"),
+        OpKind::CmpyW128Sat { .. } => op_json!("cmpy_w128_sat"),
+        OpKind::SatOrigShl { .. } => op_json!("sat_orig_shl"),
     }
 }
 

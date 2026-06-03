@@ -415,6 +415,77 @@ pub enum OpKind {
         width: OpWidth,
     },
 
+    /// Carry-less (GF(2) polynomial) multiply — Hexagon `pmpyw`/`vpmpyh` (and
+    /// their `_acc` XOR-accumulate forms). The product is the XOR of shifted
+    /// partial products, i.e. NO carries (mirrors x86 PCLMULQDQ / ARM PMULL).
+    /// Sign-ness is irrelevant because the operation is purely bitwise.
+    ///
+    /// `pmpyw`: a single 32x32 -> 64-bit carry-less product; `elem_bits = 32`,
+    /// `lanes = 1`; the low 32 bits go to `dst`, the high 32 to `dst_hi`.
+    /// `vpmpyh`: two independent 16x16 -> 32-bit carry-less products; the
+    /// 16-bit halves of `dst`/`dst_hi` are filled per the Hexagon interleave
+    /// (`dst.h0=p0.lo, dst.h1=p1.lo, dst_hi.h0=p0.hi, dst_hi.h1=p1.hi`).
+    /// When `acc` is set the products are XOR-ed into the existing `dst`/
+    /// `dst_hi` register pair.
+    ClMul {
+        dst: VReg,
+        dst_hi: Option<VReg>,
+        src1: SrcOperand,
+        src2: SrcOperand,
+        /// Per-lane element width in bits (32 for pmpyw, 16 for vpmpyh).
+        elem_bits: u8,
+        /// Number of independent lanes (1 for pmpyw, 2 for vpmpyh).
+        lanes: u8,
+        /// true = XOR the product into the existing dst/dst_hi (`_acc` forms).
+        acc: bool,
+    },
+
+    /// Hexagon `M7_wcmpy*` — 32x32 wide complex multiply with an i128
+    /// intermediate, `:<<1` scale and signed-32 saturation (optional `:rnd`).
+    ///
+    /// `acc(i128) = (Rss.w[w0] * Rtt.w[w1]) {add ? +,-} (Rss.w[w2] * Rtt.w[w3])`
+    /// with each `Rss/Rtt.w[..]` a signed 32-bit word of the source register
+    /// pair. If `rnd`, `acc += 0x40000000` before the arithmetic `>> 31`; the
+    /// shifted value is then saturated to a signed 32-bit word (USR:OVF set
+    /// sticky on clamp) and stored to the single 32-bit `dst`.
+    CmpyW128Sat {
+        dst: VReg,
+        /// The two R registers of the `Rss` pair (lo = even, hi = odd).
+        rss_lo: VReg,
+        rss_hi: VReg,
+        /// The two R registers of the `Rtt` pair (lo = even, hi = odd).
+        rtt_lo: VReg,
+        rtt_hi: VReg,
+        /// Word selectors: term0 = Rss.w[w0]*Rtt.w[w1], term1 = Rss.w[w2]*Rtt.w[w3].
+        w0: u8,
+        w1: u8,
+        w2: u8,
+        w3: u8,
+        /// true = add the two terms, false = subtract (term0 - term1).
+        add: bool,
+        /// true = round (add 0x40000000 before the >>31).
+        rnd: bool,
+    },
+
+    /// Hexagon `S2_asl_r_r_sat` / `S2_asr_r_r_sat` — register-amount saturating
+    /// shift implementing `fSAT_ORIG_SHL`. The shift is bidirectional by
+    /// `sxtn7(amount)`; the result is saturated to a signed 32-bit word, but the
+    /// saturation predicate depends on the ORIGINAL pre-shift value's sign
+    /// (saturate toward the original's extreme on a sign flip), PLUS the special
+    /// case `orig > 0 && shifted == 0 -> INT_MAX` (both set USR:OVF, sticky).
+    /// Only the saturating direction (left for asl, the negative-count "left"
+    /// for asr) runs `sat_orig_shl`; the other direction is a plain bidirectional
+    /// arithmetic shift with no saturation.
+    SatOrigShl {
+        dst: VReg,
+        src: SrcOperand,
+        amount: SrcOperand,
+        /// false = asl_r_r_sat (positive count = left, saturating),
+        /// true = asr_r_r_sat (negative count = left, saturating).
+        right: bool,
+        width: OpWidth,
+    },
+
     // ========================================================================
     // BIT MANIPULATION
     // ========================================================================
@@ -2434,6 +2505,16 @@ impl OpKind {
                 }
                 v
             }
+
+            OpKind::ClMul { dst, dst_hi, .. } => {
+                let mut v = vec![*dst];
+                if let Some(hi) = dst_hi {
+                    v.push(*hi);
+                }
+                v
+            }
+
+            OpKind::CmpyW128Sat { dst, .. } | OpKind::SatOrigShl { dst, .. } => vec![*dst],
 
             OpKind::DivU { quot, rem, .. } | OpKind::DivS { quot, rem, .. } => {
                 let mut v = vec![*quot];

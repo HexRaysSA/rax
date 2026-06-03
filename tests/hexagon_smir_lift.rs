@@ -434,6 +434,59 @@ fn lift_shift_imm() {
 // ---- newly-lifted scalar register opcodes (re-decoded from Unknown) ----
 
 #[test]
+fn lift_clmul_poly() {
+    // Carry-less (GF(2)) polynomial multiply: pmpyw (32x32->64) and vpmpyh
+    // (2x 16x16->32, interleaved), with their _acc XOR-accumulate forms.
+    lift_family(
+        "clmul_poly",
+        &[
+            ("pmpyw", "{ r1:0 = pmpyw(r2,r3) }"),
+            ("pmpyw_acc", "{ r1:0 ^= pmpyw(r2,r3) }"),
+            ("vpmpyh", "{ r1:0 = vpmpyh(r2,r3) }"),
+            ("vpmpyh_acc", "{ r1:0 ^= vpmpyh(r2,r3) }"),
+        ],
+        40,
+        0x7301,
+    );
+}
+
+#[test]
+fn lift_cmpy_w128_sat() {
+    // M7 wide complex multiply: 32x32 with i128 accumulator, :<<1 scale, signed-
+    // 32 saturation (USR:OVF sticky), real/imag and conjugate (*) plus :rnd.
+    lift_family(
+        "cmpy_w128_sat",
+        &[
+            ("cmpyrw", "{ r0 = cmpyrw(r3:2,r5:4):<<1:sat }"),
+            ("cmpyrwc", "{ r0 = cmpyrw(r3:2,r5:4*):<<1:sat }"),
+            ("cmpyiw", "{ r0 = cmpyiw(r3:2,r5:4):<<1:sat }"),
+            ("cmpyiwc", "{ r0 = cmpyiw(r3:2,r5:4*):<<1:sat }"),
+            ("cmpyrw_rnd", "{ r0 = cmpyrw(r3:2,r5:4):<<1:rnd:sat }"),
+            ("cmpyrwc_rnd", "{ r0 = cmpyrw(r3:2,r5:4*):<<1:rnd:sat }"),
+            ("cmpyiw_rnd", "{ r0 = cmpyiw(r3:2,r5:4):<<1:rnd:sat }"),
+            ("cmpyiwc_rnd", "{ r0 = cmpyiw(r3:2,r5:4*):<<1:rnd:sat }"),
+        ],
+        40,
+        0x7302,
+    );
+}
+
+#[test]
+fn lift_sat_orig_shl() {
+    // Register-amount saturating shift (fSAT_ORIG_SHL): bidirectional, saturates
+    // toward the ORIGINAL value's extreme on sign flip; USR:OVF sticky on clamp.
+    lift_family(
+        "sat_orig_shl",
+        &[
+            ("asl_r_r_sat", "{ r0 = asl(r1,r2):sat }"),
+            ("asr_r_r_sat", "{ r0 = asr(r1,r2):sat }"),
+        ],
+        40,
+        0x7303,
+    );
+}
+
+#[test]
 fn lift_a2_pair_logical() {
     lift_family(
         "a2_pair_logical",
