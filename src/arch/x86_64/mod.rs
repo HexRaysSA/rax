@@ -100,13 +100,19 @@ use crate::arch::{Arch, BootInfo, X86_64BootInfo};
 use crate::backend::kvm::KvmVm;
 use crate::config::VmConfig;
 use crate::cpu::{CpuState, DescriptorTable, Registers, Segment, SystemRegisters, X86_64CpuState};
-use crate::devices::bus::{IoBus, IoRange, MmioBus, MmioRange};
+use crate::devices::bus::{IoBus, IoRange, MmioBus, MmioRange, SharedIoDevice};
 use crate::devices::debug::DebugPort;
+use crate::devices::dma::Dma;
+use crate::devices::fdc::Fdc;
+use crate::devices::i8042::I8042;
+use crate::devices::ide::IdeController;
 use crate::devices::map::{X86_DEBUG_PORT_BASE, X86_DEBUG_PORT_LEN};
 use crate::devices::pci::{PciStub, PCI_CONFIG_ADDRESS};
 use crate::devices::fw_cfg::FwCfg;
 use crate::devices::ioapic::IoApic;
 use crate::devices::rtc::{RtcStub, RTC_ADDRESS};
+use crate::devices::sysctl::SystemControl;
+use std::sync::{Arc, Mutex};
 use crate::error::{Error, Result};
 use crate::memory::{align_down, PAGE_SIZE};
 
@@ -629,6 +635,83 @@ impl Arch for X86_64Arch {
                 len: 0x20,
             },
             Box::new(IoApic::new()),
+        )?;
+
+        // ---------------------------------------------------------------------
+        // Legacy ISA devices. These are wired so the guest's drivers can probe
+        // and attach to them. Devices that span several non-contiguous port
+        // windows share one instance via SharedIoDevice.
+        // ---------------------------------------------------------------------
+
+        // 8237A DMA controller pair. Reachable at 0x00-0x0F (controller 1),
+        // 0xC0-0xDF (controller 2), and the page-register file 0x80-0x8F (which
+        // also covers the 0x80 POST diagnostic port).
+        let dma = Arc::new(Mutex::new(Dma::new()));
+        for range in [
+            IoRange { base: 0x00, len: 0x10 },
+            IoRange { base: 0x80, len: 0x10 },
+            IoRange { base: 0xC0, len: 0x20 },
+        ] {
+            io_bus.register(range, Box::new(SharedIoDevice::new(dma.clone())))?;
+        }
+
+        // Legacy system-control ports: 0x61 (NMI status / PC speaker / refresh)
+        // and 0x92 (Port A: A20 gate + fast reset). 0xCF9 (reset control) is not
+        // wired separately because it falls inside the PCI CONFIG_ADDRESS window
+        // (0xCF8-0xCFF) owned by the PCI host bridge.
+        let sysctl = Arc::new(Mutex::new(SystemControl::new()));
+        for base in [0x61u16, 0x92] {
+            io_bus.register(
+                IoRange { base, len: 1 },
+                Box::new(SharedIoDevice::new(sysctl.clone())),
+            )?;
+        }
+
+        // i8042 PS/2 keyboard/mouse controller: data 0x60, status/command 0x64.
+        // 0x61 in between belongs to the system-control block above.
+        let i8042 = Arc::new(Mutex::new(I8042::new()));
+        io_bus.register(
+            IoRange { base: 0x60, len: 1 },
+            Box::new(SharedIoDevice::new(i8042.clone())),
+        )?;
+        io_bus.register(
+            IoRange { base: 0x64, len: 1 },
+            Box::new(SharedIoDevice::new(i8042.clone())),
+        )?;
+
+        // Legacy IDE/ATA controllers, present with no media attached (the guest
+        // detects the channel and finds no drive). Primary: 0x1F0-0x1F7 cmd +
+        // 0x3F6 control; secondary: 0x170-0x177 cmd + 0x376 control.
+        let ide_primary = Arc::new(Mutex::new(IdeController::new(0x1F0, 0x3F6, Vec::new())));
+        io_bus.register(
+            IoRange { base: 0x1F0, len: 8 },
+            Box::new(SharedIoDevice::new(ide_primary.clone())),
+        )?;
+        io_bus.register(
+            IoRange { base: 0x3F6, len: 1 },
+            Box::new(SharedIoDevice::new(ide_primary.clone())),
+        )?;
+        let ide_secondary = Arc::new(Mutex::new(IdeController::new(0x170, 0x376, Vec::new())));
+        io_bus.register(
+            IoRange { base: 0x170, len: 8 },
+            Box::new(SharedIoDevice::new(ide_secondary.clone())),
+        )?;
+        io_bus.register(
+            IoRange { base: 0x376, len: 1 },
+            Box::new(SharedIoDevice::new(ide_secondary.clone())),
+        )?;
+
+        // 82077AA floppy disk controller, no floppy inserted. The 0x3F0-0x3F7
+        // window minus 0x3F6 (which is the IDE primary control port above):
+        // 0x3F0-0x3F5 plus 0x3F7.
+        let fdc = Arc::new(Mutex::new(Fdc::new()));
+        io_bus.register(
+            IoRange { base: 0x3F0, len: 6 },
+            Box::new(SharedIoDevice::new(fdc.clone())),
+        )?;
+        io_bus.register(
+            IoRange { base: 0x3F7, len: 1 },
+            Box::new(SharedIoDevice::new(fdc.clone())),
         )?;
 
         Ok(())

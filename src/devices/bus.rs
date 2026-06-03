@@ -5,6 +5,33 @@ pub trait IoDevice: Send {
     fn write(&mut self, port: u16, value: u8);
 }
 
+/// Adapter that registers a single shared device (held behind `Arc<Mutex<_>>`)
+/// at one or more, possibly non-contiguous, I/O port ranges. Clone the `Arc`
+/// and register one adapter per range; all of them dispatch to the same
+/// underlying device state (e.g. the 8237 DMA controller is reachable at
+/// 0x00-0x0F, 0x80-0x8F and 0xC0-0xDF but is one device).
+pub struct SharedIoDevice<D: IoDevice> {
+    inner: std::sync::Arc<std::sync::Mutex<D>>,
+}
+
+impl<D: IoDevice> SharedIoDevice<D> {
+    pub fn new(inner: std::sync::Arc<std::sync::Mutex<D>>) -> Self {
+        SharedIoDevice { inner }
+    }
+}
+
+impl<D: IoDevice> IoDevice for SharedIoDevice<D> {
+    fn read(&mut self, port: u16) -> u8 {
+        self.inner.lock().map(|mut d| d.read(port)).unwrap_or(0xFF)
+    }
+
+    fn write(&mut self, port: u16, value: u8) {
+        if let Ok(mut d) = self.inner.lock() {
+            d.write(port, value);
+        }
+    }
+}
+
 pub trait MmioDevice: Send {
     fn read(&mut self, addr: u64, data: &mut [u8]);
     fn write(&mut self, addr: u64, data: &[u8]);
