@@ -865,4 +865,10 @@ pub static SVE2_SWEEP: &[(&str, u32)] = &[
     ("sqcvtn z0.h, { z2.s, z3.s }", 0x45314040),
     ("uqcvtn z0.h, { z2.s, z3.s }", 0x45314840),
     ("sqcvtun z0.h, { z2.s, z3.s }", 0x45315040),
+    ("sqdmlalbt z0.h, z1.b, z2.b", 0x44420820),
+    ("sqdmlslbt z0.h, z1.b, z2.b", 0x44420c20),
+    ("sqdmlalbt z0.s, z1.h, z2.h", 0x44820820),
+    ("sqdmlslbt z0.d, z1.s, z2.s", 0x44c20c20),
+    ("psel p0, p1, p2.b[w12, 0]", 0x25244440),
+    ("psel p0, p1, p2.h[w13, 1]", 0x25394440),
 ];
