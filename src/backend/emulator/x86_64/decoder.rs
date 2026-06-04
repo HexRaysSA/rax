@@ -657,6 +657,23 @@ impl X86_64Vcpu {
         Ok((final_addr, extra))
     }
 
+    /// Compute the effective address (segment OFFSET) for a ModR/M memory
+    /// operand as required by LEA. Identical to `decode_modrm_addr` except it
+    /// does NOT fold in the FS/GS segment base: per Intel SDM, LEA computes the
+    /// offset part of the address and ignores any segment override. The subtract
+    /// is exactly the inverse of the `wrapping_add(seg_base)` in
+    /// `decode_modrm_addr` (including the 0x67 32-bit truncation, which happens
+    /// before the base is applied), and is a no-op in the common no-override case.
+    pub(super) fn decode_lea_addr(
+        &self,
+        ctx: &InsnContext,
+        modrm_offset: usize,
+    ) -> Result<(u64, usize)> {
+        let (addr, extra) = self.decode_modrm_addr(ctx, modrm_offset)?;
+        let offset = addr.wrapping_sub(self.get_segment_base(ctx.segment_override));
+        Ok((offset, extra))
+    }
+
     /// Decode ModR/M and return (reg, rm, is_memory, address_if_memory, extra_bytes).
     /// This is a convenience function that handles both register and memory operands.
     #[inline]

@@ -12,7 +12,8 @@ pub fn lea(vcpu: &mut X86_64Vcpu, ctx: &mut InsnContext) -> Result<Option<VcpuEx
     let modrm = ctx.consume_u8()?;
     let reg = ((modrm >> 3) & 0x07) | ctx.rex_r();
 
-    let (addr, extra) = vcpu.decode_modrm_addr(ctx, modrm_start)?;
+    // LEA yields the segment OFFSET and must ignore any FS/GS override.
+    let (addr, extra) = vcpu.decode_lea_addr(ctx, modrm_start)?;
 
     ctx.cursor = modrm_start + 1 + extra;
     vcpu.set_reg(reg, addr, op_size);

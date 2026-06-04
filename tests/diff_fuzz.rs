@@ -41,6 +41,15 @@ const DATA_ADDR: u64 = 0x3_0000;
 const PML4_ADDR: u64 = 0x9000;
 const PDPTE_ADDR: u64 = 0xA000;
 
+// Non-zero FS/GS hidden bases. In 64-bit mode only FS and GS carry a base; the
+// segment fuzzers exercise the 0x64/0x65 override prefixes against these. Both
+// are page-aligned and < DATA_ADDR so a memory operand's base register
+// (offset = ea - seg_base) stays a clean positive value landing inside scratch.
+// They are invisible to every other generator (none emit a segment prefix, so
+// the default DS — base 0 in long mode — is used throughout).
+const FS_TEST_BASE: u64 = 0x1_5000;
+const GS_TEST_BASE: u64 = 0x2_5000;
+
 const CR0_PE: u64 = 1 << 0;
 const CR0_MP: u64 = 1 << 1;
 const CR0_ET: u64 = 1 << 4;
@@ -112,6 +121,11 @@ fn base_sregs() -> SystemRegisters {
     ] {
         *seg = data.clone();
     }
+
+    // Non-zero FS/GS bases so the segment-override fuzzers actually exercise the
+    // base addition (and prove LEA ignores it). Harmless to all other tests.
+    sregs.fs.base = FS_TEST_BASE;
+    sregs.gs.base = GS_TEST_BASE;
 
     sregs
 }
@@ -2335,6 +2349,295 @@ fn fuzz_lea() {
         }
     }
     h.finish("lea");
+}
+
+// ===========================================================================
+// GENERATOR: LEA with an FS/GS segment-override prefix
+// ===========================================================================
+//
+// Identical to `fuzz_lea` but prepends a 0x64 (FS) / 0x65 (GS) prefix while the
+// corresponding base (FS_TEST_BASE / GS_TEST_BASE) is NON-ZERO. LEA computes the
+// segment OFFSET and must IGNORE the base entirely (Intel SDM): the result is
+// base+index*scale+disp with NO segment base folded in. A buggy decoder that
+// added the base would diverge from KVM here on every case. This is the
+// hardware-oracle regression guard for the LEA-adds-segment-base bug.
+#[test]
+fn fuzz_lea_segment() {
+    const CASES: usize = 700;
+    let mut h = Harness::new(0x5E60_1EA5_0FF5_E700);
+    let opsizes = [Size::B16, Size::B32, Size::B64];
+    let forms = [
+        AddrForm::Base,
+        AddrForm::BaseDisp8,
+        AddrForm::BaseDisp32,
+        AddrForm::Sib,
+        AddrForm::SibDisp8,
+        AddrForm::SibDisp32,
+        AddrForm::SibNoIndex,
+        AddrForm::SibNoBase,
+        AddrForm::RipRel,
+    ];
+
+    const REG: u8 = 0; // rax (dest)
+    const BASE: u8 = 3; // rbx
+    const INDEX: u8 = 6; // rsi
+
+    for _ in 0..CASES {
+        let fs = h.rng.below(2) == 0;
+        let seg_prefix: u8 = if fs { 0x64 } else { 0x65 };
+        let seg_name = if fs { "fs" } else { "gs" };
+        let size = *h.rng.pick(&opsizes);
+        let form = *h.rng.pick(&forms);
+        let addr32 = h.rng.below(4) == 0; // 0x67 address-size override
+        let scale_bits = h.rng.below(4) as u8;
+
+        let mut r = Registers::default();
+        set_reg(&mut r, BASE, h.rng.operand());
+        set_reg(&mut r, INDEX, h.rng.operand());
+        set_reg(&mut r, REG, h.rng.operand()); // prior dest value (partial-write test)
+
+        let mut code = Vec::new();
+        code.push(seg_prefix); // segment override (group 2) before the rest
+        if addr32 {
+            code.push(0x67);
+        }
+        if size == Size::B16 {
+            code.push(0x66);
+        }
+        if size == Size::B64 {
+            code.push(0x48); // REX.W
+        }
+        code.push(0x8D); // LEA r, m
+
+        let d8 = h.rng.next_u32() as u8;
+        let d32 = h.rng.next_u32();
+        match form {
+            AddrForm::Base => {
+                code.push(modrm(0b00, REG, BASE));
+            }
+            AddrForm::BaseDisp8 => {
+                code.push(modrm(0b01, REG, BASE));
+                code.push(d8);
+            }
+            AddrForm::BaseDisp32 => {
+                code.push(modrm(0b10, REG, BASE));
+                code.extend_from_slice(&d32.to_le_bytes());
+            }
+            AddrForm::Sib => {
+                code.push(modrm(0b00, REG, 4));
+                code.push((scale_bits << 6) | (INDEX << 3) | BASE);
+            }
+            AddrForm::SibDisp8 => {
+                code.push(modrm(0b01, REG, 4));
+                code.push((scale_bits << 6) | (INDEX << 3) | BASE);
+                code.push(d8);
+            }
+            AddrForm::SibDisp32 => {
+                code.push(modrm(0b10, REG, 4));
+                code.push((scale_bits << 6) | (INDEX << 3) | BASE);
+                code.extend_from_slice(&d32.to_le_bytes());
+            }
+            AddrForm::SibNoIndex => {
+                code.push(modrm(0b00, REG, 4));
+                code.push((scale_bits << 6) | (4 << 3) | BASE);
+            }
+            AddrForm::SibNoBase => {
+                code.push(modrm(0b00, REG, 4));
+                code.push((scale_bits << 6) | (INDEX << 3) | 5);
+                code.extend_from_slice(&d32.to_le_bytes());
+            }
+            AddrForm::RipRel => {
+                code.push(modrm(0b00, REG, 5));
+                code.extend_from_slice(&d32.to_le_bytes());
+            }
+        }
+        code.push(HLT);
+
+        let inputs = format!(
+            "lea.{} {}:[...] addr32={} form#{} scale={} rbx={:#x} rsi={:#x}",
+            size.name(),
+            seg_name,
+            addr32,
+            form as u8,
+            1u64 << scale_bits,
+            r.rbx,
+            r.rsi
+        );
+        let opts = CompareOpts {
+            flag_mask: 0,
+            scratch: false,
+            ..CompareOpts::default()
+        };
+        if !h.run_case("lea_segment", &code, r, [0u8; 64], opts, inputs, &[]) {
+            break;
+        }
+    }
+    h.finish("lea_segment");
+}
+
+// ===========================================================================
+// GENERATOR: MOV load/store through an FS/GS segment-override prefix
+// ===========================================================================
+//
+// Mirrors `fuzz_mem_addressing` but prepends a 0x64/0x65 prefix with a NON-ZERO
+// segment base. The base register is computed against `want_off = ea - seg_base`
+// so the *linear* effective address (seg.base + offset) lands inside the scratch
+// window. Validates that real memory operands DO add the segment base (the dual
+// of the LEA case) across every address form and width, with KVM as the oracle —
+// including B8/B16 partial writes and B32 zero-extension on loads.
+#[test]
+fn fuzz_mem_addressing_segment() {
+    const CASES: usize = 800;
+    let mut h = Harness::new(0x5E60_ADD4_0FF5_E700);
+    let sizes = [Size::B8, Size::B16, Size::B32, Size::B64];
+    let forms = [
+        AddrForm::Base,
+        AddrForm::BaseDisp8,
+        AddrForm::BaseDisp32,
+        AddrForm::Sib,
+        AddrForm::SibDisp8,
+        AddrForm::SibDisp32,
+        AddrForm::SibNoIndex,
+        AddrForm::SibNoBase,
+        AddrForm::RipRel,
+    ];
+
+    const REG: u8 = 0; // rax, the moved register (reg field)
+    const BASE: u8 = 3; // rbx
+    const INDEX: u8 = 6; // rsi
+
+    for _ in 0..CASES {
+        let fs = h.rng.below(2) == 0;
+        let seg_prefix: u8 = if fs { 0x64 } else { 0x65 };
+        let seg_base = if fs { FS_TEST_BASE } else { GS_TEST_BASE };
+        let seg_name = if fs { "fs" } else { "gs" };
+
+        let size = *h.rng.pick(&sizes);
+        let bytes = (size.bits() / 8) as u64;
+        let form = *h.rng.pick(&forms);
+        let is_store = h.rng.below(2) == 0;
+
+        // Linear EA must stay inside the 64-byte scratch; the encoded OFFSET is
+        // ea - seg_base (hardware adds seg_base back on top).
+        let target_off = h.rng.below(64 - bytes + 1);
+        let ea = DATA_ADDR + target_off;
+        let want_off = ea.wrapping_sub(seg_base);
+
+        let scale_bits = h.rng.below(4) as u8; // 0..3 -> *1,*2,*4,*8
+        let scale = 1u64 << scale_bits;
+        let idxv = h.rng.below(8); // small index value
+
+        let mut r = Registers::default();
+        let sval = h.rng.operand(); // source value for stores / prior dest for loads
+        set_reg(&mut r, REG, sval);
+
+        let mut code = vec![seg_prefix]; // segment override (group 2) first
+        code.extend_from_slice(&size_prefix(size));
+        if let Some(rex) = rex_byte(size, true) {
+            code.push(rex);
+        }
+        let opcode = match (is_store, size == Size::B8) {
+            (true, true) => 0x88,
+            (true, false) => 0x89,
+            (false, true) => 0x8A,
+            (false, false) => 0x8B,
+        };
+        code.push(opcode);
+
+        match form {
+            AddrForm::Base => {
+                code.push(modrm(0b00, REG, BASE));
+                set_reg(&mut r, BASE, want_off);
+            }
+            AddrForm::BaseDisp8 => {
+                let d8 = (h.rng.next_u32() as i8) as i64;
+                code.push(modrm(0b01, REG, BASE));
+                set_reg(&mut r, BASE, want_off.wrapping_sub(d8 as u64));
+                code.push(d8 as u8);
+            }
+            AddrForm::BaseDisp32 => {
+                let d32 = h.rng.next_u32() as i32 as i64;
+                code.push(modrm(0b10, REG, BASE));
+                set_reg(&mut r, BASE, want_off.wrapping_sub(d32 as u64));
+                code.extend_from_slice(&(d32 as i32).to_le_bytes());
+            }
+            AddrForm::Sib => {
+                code.push(modrm(0b00, REG, 4));
+                code.push((scale_bits << 6) | (INDEX << 3) | BASE);
+                set_reg(&mut r, INDEX, idxv);
+                set_reg(&mut r, BASE, want_off.wrapping_sub(idxv.wrapping_mul(scale)));
+            }
+            AddrForm::SibDisp8 => {
+                let d8 = (h.rng.next_u32() as i8) as i64;
+                code.push(modrm(0b01, REG, 4));
+                code.push((scale_bits << 6) | (INDEX << 3) | BASE);
+                set_reg(&mut r, INDEX, idxv);
+                set_reg(
+                    &mut r,
+                    BASE,
+                    want_off.wrapping_sub(idxv.wrapping_mul(scale)).wrapping_sub(d8 as u64),
+                );
+                code.push(d8 as u8);
+            }
+            AddrForm::SibDisp32 => {
+                let d32 = h.rng.next_u32() as i32 as i64;
+                code.push(modrm(0b10, REG, 4));
+                code.push((scale_bits << 6) | (INDEX << 3) | BASE);
+                set_reg(&mut r, INDEX, idxv);
+                set_reg(
+                    &mut r,
+                    BASE,
+                    want_off.wrapping_sub(idxv.wrapping_mul(scale)).wrapping_sub(d32 as u64),
+                );
+                code.extend_from_slice(&(d32 as i32).to_le_bytes());
+            }
+            AddrForm::SibNoIndex => {
+                code.push(modrm(0b00, REG, 4));
+                code.push((scale_bits << 6) | (4 << 3) | BASE);
+                set_reg(&mut r, BASE, want_off);
+            }
+            AddrForm::SibNoBase => {
+                code.push(modrm(0b00, REG, 4));
+                code.push((scale_bits << 6) | (INDEX << 3) | 5);
+                set_reg(&mut r, INDEX, idxv);
+                let disp = want_off.wrapping_sub(idxv.wrapping_mul(scale)) as i64 as i32;
+                code.extend_from_slice(&disp.to_le_bytes());
+            }
+            AddrForm::RipRel => {
+                code.push(modrm(0b00, REG, 5));
+                let rip_after = CODE_ADDR + code.len() as u64 + 4;
+                let disp = want_off.wrapping_sub(rip_after) as i64 as i32;
+                code.extend_from_slice(&disp.to_le_bytes());
+            }
+        }
+        code.push(HLT);
+
+        let mut scratch = [0u8; 64];
+        for b in scratch.iter_mut() {
+            *b = h.rng.next_u32() as u8;
+        }
+
+        let dir = if is_store { "store" } else { "load" };
+        let inputs = format!(
+            "mov.{} {} {}:[...] ea={:#x} off={} scale={} idxv={}",
+            size.name(),
+            dir,
+            seg_name,
+            ea,
+            target_off,
+            scale,
+            idxv
+        );
+        let opts = CompareOpts {
+            flag_mask: 0,
+            scratch: true,
+            ..CompareOpts::default()
+        };
+        if !h.run_case("mem_addressing_segment", &code, r, scratch, opts, inputs, &[]) {
+            break;
+        }
+    }
+    h.finish("mem_addressing_segment");
 }
 
 // ===========================================================================

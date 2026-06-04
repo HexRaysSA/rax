@@ -447,6 +447,18 @@ fn decode_modrm(bytes: &[u8], prefix: &X86Prefix, addr: u64) -> Result<ModRm, Li
         });
     }
 
+    // 32-bit address-size override (0x67) in 64-bit mode uses the 32-bit halves
+    // of base/index and ZERO-extends the effective address — semantics the
+    // lifter does not model (it would treat `[eax]` as `[rax]`, wrong whenever
+    // the upper 32 bits are non-zero). Refuse to lift such operands so the
+    // region falls back to the interpreter. (Rare in 64-bit kernel code.)
+    if prefix.address_size_override {
+        return Err(LiftError::Unsupported {
+            addr,
+            mnemonic: "32-bit address-size (0x67) memory operand".to_string(),
+        });
+    }
+
     // FS (0x64) / GS (0x65) overrides carry a non-zero segment base in long mode
     // (TLS / per-CPU data); the lifted memory operand becomes an
     // `Address::SegmentRel` that adds the FsBase/GsBase register. CS/DS/ES/SS
@@ -3452,8 +3464,14 @@ impl X86_64Lifter {
 
         let next_pc = pc + prefix.cursor as u64 + modrm.bytes_consumed as u64;
 
-        let x86_addr = modrm.addr.as_ref().unwrap();
-        let (addr, mut ops) = self.x86_addr_to_smir(x86_addr, next_pc, ctx);
+        // LEA computes the effective ADDRESS — the segment OFFSET — and IGNORES
+        // any segment override: `lea rax, fs:[rbx]` yields rbx, NOT fs_base+rbx
+        // (LEA performs no memory access, so the segment base never applies).
+        // Strip the override before lowering, else x86_addr_to_smir would emit a
+        // SegmentRel that wrongly adds the FS/GS base.
+        let mut lea_addr = modrm.addr.as_ref().unwrap().clone();
+        lea_addr.segment = None;
+        let (addr, mut ops) = self.x86_addr_to_smir(&lea_addr, next_pc, ctx);
 
         ops.push(SmirOp::new(
             OpId(ops.len() as u16),
@@ -5225,6 +5243,64 @@ mod tests {
         assert_eq!(prefix.cursor, 1);
         assert!(prefix.operand_size_override);
         assert_eq!(prefix.op_size(), 2);
+    }
+
+    /// Lift one instruction (a trailing HLT terminates the block) and return its ops.
+    fn lift_one(code: &[u8]) -> Result<Vec<SmirOp>, LiftError> {
+        use crate::smir::lift::SmirLifter;
+        let mut bytes = code.to_vec();
+        bytes.push(0xF4); // hlt → block terminator
+        let mem = TestMemory::new(0x1000, bytes);
+        let mut lifter = X86_64Lifter::strict();
+        let mut lctx = LiftContext::new(SourceArch::X86_64);
+        lifter.lift_block(0x1000, &mem, &mut lctx).map(|b| b.ops)
+    }
+
+    /// LEA computes the segment OFFSET and must IGNORE a segment override —
+    /// `lea rax, fs:[rbx]` yields rbx, so it must NOT lift to a SegmentRel that
+    /// would add fs_base. (Regression for the segment-base-in-LEA bug.)
+    #[test]
+    fn lea_ignores_segment_override() {
+        let ops = lift_one(&[0x64, 0x48, 0x8d, 0x03]).expect("lift lea fs:[rbx]"); // lea rax, fs:[rbx]
+        let addr = ops
+            .iter()
+            .find_map(|o| match &o.kind {
+                OpKind::Lea { addr, .. } => Some(addr),
+                _ => None,
+            })
+            .expect("a Lea op");
+        assert!(
+            !matches!(addr, Address::SegmentRel { .. }),
+            "LEA must NOT add the segment base (got {addr:?})"
+        );
+    }
+
+    /// A genuine FS/GS LOAD, by contrast, DOES carry the segment base.
+    #[test]
+    fn mov_gs_load_produces_segmentrel() {
+        let ops = lift_one(&[0x65, 0x48, 0x8b, 0x03]).expect("lift mov rax, gs:[rbx]"); // mov rax, gs:[rbx]
+        let addr = ops
+            .iter()
+            .find_map(|o| match &o.kind {
+                OpKind::Load { addr, .. } => Some(addr),
+                _ => None,
+            })
+            .expect("a Load op");
+        assert!(
+            matches!(
+                addr,
+                Address::SegmentRel { segment: VReg::Arch(ArchReg::X86(X86Reg::GsBase)), .. }
+            ),
+            "mov gs:[rbx] must lift to SegmentRel{{GsBase}} (got {addr:?})"
+        );
+    }
+
+    /// A 0x67 (32-bit address-size) memory operand is not modeled and must bail
+    /// rather than silently mis-lift `[ebx]` as `[rbx]`.
+    #[test]
+    fn addr_size_override_memory_bails() {
+        let r = lift_one(&[0x67, 0x48, 0x8b, 0x03]); // mov rax, [ebx]  (32-bit addr)
+        assert!(r.is_err(), "0x67 address-size memory operand must bail");
     }
 
     #[test]
