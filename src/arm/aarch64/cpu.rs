@@ -5913,6 +5913,45 @@ impl AArch64Cpu {
             // Unpredicated arithmetic
             0b000 if op1 == 0b01 => self.exec_sve_int_unpred(insn, zd, zn, zm, esize),
 
+            // SVE2.1 PSEL (predicate select): 0x25, bit21==1, bits[15:14]==01,
+            // bit9==0, bit4==0. Pd = Pn if the Pm element at (Wv+imm) mod
+            // elements is active, else Pd is all-false. The element size and imm
+            // are tsz-encoded in bits[23:18]; Wv = W(bits[17:16]+12).
+            0b001
+                if (insn >> 24) & 0xFF == 0b00100101
+                    && (insn >> 21) & 1 == 1
+                    && (insn >> 14) & 0x3 == 0b01
+                    && (insn >> 9) & 1 == 0
+                    && (insn >> 4) & 1 == 0 =>
+            {
+                let b2322 = (insn >> 22) & 0x3;
+                let b20 = (insn >> 20) & 1;
+                let b19 = (insn >> 19) & 1;
+                let b18 = (insn >> 18) & 1;
+                let (esz, imm): (usize, u64) = if b18 == 1 {
+                    (0, ((b2322 << 2) | ((insn >> 19) & 0x3)) as u64)
+                } else if b19 == 1 {
+                    (1, ((b2322 << 1) | b20) as u64)
+                } else if b20 == 1 {
+                    (2, b2322 as u64)
+                } else if (insn >> 22) & 1 == 1 {
+                    (3, ((insn >> 23) & 1) as u64)
+                } else {
+                    return Ok(CpuExit::Undefined(insn));
+                };
+                let esize = 1usize << esz;
+                let elements = (16 / esize) as u64;
+                let rv = 12 + ((insn >> 16) & 0x3) as u8;
+                let wv = self.get_x(rv) & 0xFFFF_FFFF;
+                let idx = (wv.wrapping_add(imm)) % elements;
+                let pm = ((insn >> 5) & 0xF) as usize;
+                let pn = ((insn >> 10) & 0xF) as usize;
+                let pd = (insn & 0xF) as usize;
+                let active = (self.sve_p[pm] >> (idx as usize * esize)) & 1 == 1;
+                self.sve_p[pd] = if active { self.sve_p[pn] } else { 0 };
+                Ok(CpuExit::Continue)
+            }
+
             // Predicate operations (WHILE, PTRUE, etc.)
             0b001 => self.exec_sve_pred_ops(insn),
 
@@ -6802,6 +6841,48 @@ impl AArch64Cpu {
                         d_esize,
                         (r.clamp(lo, hi) as u64) & mask,
                     );
+                }
+                self.v[zd] = u128::from_le_bytes(dst);
+                Ok(CpuExit::Continue)
+            }
+
+            // SVE2 saturating doubling multiply-add long (interleaved):
+            // SQDMLALBT/SQDMLSLBT. 0x44, bit21==0, bits[15:11]==00001, bit10=S
+            // (0=add, 1=sub). The two narrow sources come from DIFFERENT halves
+            // (Zn bottom * Zm top, sel=2), unlike the B/T forms above; the doubled
+            // product saturates, then the accumulate saturates. size=00 reserved.
+            0b010
+                if (insn >> 24) & 0xFF == 0b01000100
+                    && (insn >> 21) & 1 == 0
+                    && (insn >> 11) & 0x1F == 0b00001 =>
+            {
+                let size = (insn >> 22) & 0x3;
+                if size == 0 {
+                    return Ok(CpuExit::Undefined(insn));
+                }
+                let d_esize = 1usize << size;
+                let s_esize = d_esize / 2;
+                let s_bits = (s_esize * 8) as u32;
+                let d_bits = (d_esize * 8) as u32;
+                let mask = elem_mask(d_bits);
+                let sub = (insn >> 10) & 1 == 1;
+                let elements = 16 / d_esize;
+                let hi = (1i128 << (d_bits - 1)) - 1;
+                let lo = -(1i128 << (d_bits - 1));
+                let acc = self.v[zd].to_le_bytes();
+                let a = self.v[zn].to_le_bytes();
+                let b = self.v[zm].to_le_bytes();
+                let mut dst = acc;
+                for d in 0..elements {
+                    let n_off = (2 * d) * s_esize; // Zn bottom
+                    let m_off = (2 * d + 1) * s_esize; // Zm top
+                    let prod = 2i128
+                        * sext_elem(read_elem(&a, n_off, s_esize), s_bits)
+                        * sext_elem(read_elem(&b, m_off, s_esize), s_bits);
+                    let sat = prod.clamp(lo, hi);
+                    let cur = sext_elem(read_elem(&acc, d * d_esize, d_esize), d_bits);
+                    let r = if sub { cur - sat } else { cur + sat };
+                    write_elem(&mut dst, d * d_esize, d_esize, (r.clamp(lo, hi) as u64) & mask);
                 }
                 self.v[zd] = u128::from_le_bytes(dst);
                 Ok(CpuExit::Continue)
