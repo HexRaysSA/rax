@@ -1007,8 +1007,14 @@ impl X86_64Vcpu {
         let output_sel = (imm8 >> 6) & 0x01;
 
         let num_elements = if is_word { 8 } else { 16 };
-        let valid1 = len1.clamp(0, num_elements);
-        let valid2 = len2.clamp(0, num_elements);
+        // PCMPESTRx takes the operand lengths from EAX/EDX as a SIGNED value
+        // whose ABSOLUTE value is the length, saturated to the element count
+        // (Intel SDM): e.g. EAX = -3 means length 3, not 0. PCMPISTRx passes a
+        // find_null_terminator() result already in [0, num_elements], for which
+        // unsigned_abs() is a no-op. The previous `.clamp(0, num_elements)`
+        // wrongly mapped a negative explicit length to 0.
+        let valid1 = len1.unsigned_abs().min(num_elements as u32) as i32;
+        let valid2 = len2.unsigned_abs().min(num_elements as u32) as i32;
 
         // Get elements from operands
         let get_elem = |lo: u64, hi: u64, idx: usize| -> i32 {

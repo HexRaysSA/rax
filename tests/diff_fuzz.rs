@@ -2141,6 +2141,83 @@ fn fuzz_pcmpistrm() {
 }
 
 // ===========================================================================
+// GENERATOR: PCMPESTRI (SSE4.2 EXPLICIT-length string compare, index -> ECX)
+// ===========================================================================
+//
+// PCMPESTRI takes operand lengths from EAX (operand1) and EDX (operand2) instead
+// of an implicit NUL scan. Per the Intel SDM the length used is the ABSOLUTE
+// value of EAX/EDX saturated to the element count, so a NEGATIVE EAX/EDX yields
+// a small positive length — NOT zero. This validates ECX + CF/ZF/SF/OF against
+// KVM with lengths spanning negatives, exact, and oversize values.
+#[test]
+fn fuzz_pcmpestri() {
+    const CASES: usize = 800;
+    let mut h = Harness::new(0x35E2_1571_0FF5_E700);
+
+    let imm_pool: &[u8] = &[
+        0x02, 0x0a, 0x12, 0x1a, // EQUAL_ANY
+        0x06, 0x0e, 0x16, 0x1e, // RANGES
+        0x08, 0x18, 0x38, 0x3a, // EQUAL_EACH
+        0x0c, 0x1c, 0x3c, 0x5c, // EQUAL_ORDERED
+        0x42, 0x4a, 0x48, // index-MSB
+        0x01, 0x05, 0x39, 0x1b, // word-size
+    ];
+    // Lengths probing |EAX| saturation: negatives, exact, oversize, extremes.
+    let len_pool: &[i32] = &[
+        0, 1, 2, 5, 7, 8, 15, 16, 17, 32, 1000, -1, -3, -8, -16, -17, -100, i32::MIN,
+    ];
+
+    for _ in 0..CASES {
+        let mut a = [0u8; 16];
+        let mut b = [0u8; 16];
+        for i in 0..16 {
+            a[i] = (h.rng.next_u32() % 5) as u8;
+            b[i] = (h.rng.next_u32() % 5) as u8;
+        }
+        let eax = *h.rng.pick(len_pool); // operand1 (xmm1) length
+        let edx = *h.rng.pick(len_pool); // operand2 (xmm0) length
+        let imm = if h.rng.below(4) == 0 {
+            (h.rng.next_u32() & 0x7F) as u8
+        } else {
+            *h.rng.pick(imm_pool)
+        };
+
+        // mov rdi, DATA_ADDR; movdqu xmm0,[rdi]; movdqu xmm1,[rdi+0x10];
+        // pcmpestri xmm1, xmm0, imm8 (reg=xmm1, rm=xmm0 -> modrm 0xC8); hlt.
+        // EAX/EDX (set via init) carry the operand lengths.
+        let mut code = Vec::new();
+        code.extend_from_slice(&[0x48, 0xC7, 0xC7]);
+        code.extend_from_slice(&(DATA_ADDR as u32).to_le_bytes());
+        code.extend_from_slice(&[0xF3, 0x0F, 0x6F, 0x07]);
+        code.extend_from_slice(&[0xF3, 0x0F, 0x6F, 0x4F, 0x10]);
+        code.extend_from_slice(&[0x66, 0x0F, 0x3A, 0x61, 0xC8, imm]);
+        code.push(HLT);
+
+        let mut scratch = [0u8; 64];
+        scratch[0..16].copy_from_slice(&b); // xmm0 = operand2
+        scratch[16..32].copy_from_slice(&a); // xmm1 = operand1
+
+        let mut init = Registers::default();
+        init.rax = eax as u32 as u64; // EAX = operand1 length (low 32 bits)
+        init.rdx = edx as u32 as u64; // EDX = operand2 length
+        init.rcx = 0xFFFF_FFFF_FFFF_FFFF;
+
+        let inputs = format!(
+            "pcmpestri imm={imm:#04x} eax={eax} edx={edx} ; xmm1={a:02x?} xmm0={b:02x?}"
+        );
+        let opts = CompareOpts {
+            flag_mask: FLAG_MASK,
+            scratch: false,
+            ..CompareOpts::default()
+        };
+        if !h.run_case("pcmpestri", &code, init, scratch, opts, inputs, &[]) {
+            break;
+        }
+    }
+    h.finish("pcmpestri");
+}
+
+// ===========================================================================
 // GENERATOR: SSE2 shifts by immediate (PSLLW/PSRLW/PSRAW/PSLLD.../PSLLQ/PSRLQ)
 // ===========================================================================
 //
