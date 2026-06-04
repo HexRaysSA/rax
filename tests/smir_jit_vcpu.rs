@@ -1528,6 +1528,106 @@ fn jit_mem_gs_relative_word_partial_write() {
     );
 }
 
+/// `mov eax, gs:[rbx]` (B4) — a 32-bit write ZERO-EXTENDS to 64 bits (clears the
+/// upper 32 of RAX), unlike B1/B2. Confirms the deliver path's width semantics.
+#[test]
+fn jit_mem_gs_relative_dword_zero_extend() {
+    // loop: mov eax, gs:[rbx]; dec rcx; jne loop; hlt
+    let code: &[u8] = &[0x65, 0x8b, 0x03, 0x48, 0xff, 0xc9, 0x75, 0xf8, 0xf4];
+    let setup = |v: &mut X86_64Vcpu, m: &Arc<GuestMemoryMmap>| {
+        m.write_obj(0x1234_5678u32, GuestAddress(GSB + 0x680)).unwrap();
+        let mut r = v.get_regs().unwrap();
+        r.rbx = 0x680;
+        r.rcx = 1;
+        r.rax = 0xFFFF_FFFF_FFFF_FFFF;
+        v.set_regs(&r).unwrap();
+    };
+    let (interp, _im, jit, _jm) = seg_jit_vs_interp(code, 0, GSB, setup);
+    assert_eq!(jit.get_regs().unwrap().rax, interp.get_regs().unwrap().rax, "rax jit vs interp");
+    assert_eq!(
+        jit.get_regs().unwrap().rax,
+        0x0000_0000_1234_5678,
+        "mov eax must zero-extend (clear upper 32 of RAX)"
+    );
+}
+
+/// `mov rax, gs:[rbx-8]` — negative displacement, GS base added.
+#[test]
+fn jit_mem_gs_relative_negative_disp() {
+    // loop: mov rax, gs:[rbx-8]; dec rcx; jne loop; hlt
+    let code: &[u8] = &[0x65, 0x48, 0x8b, 0x43, 0xf8, 0x48, 0xff, 0xc9, 0x75, 0xf6, 0xf4];
+    let setup = |v: &mut X86_64Vcpu, m: &Arc<GuestMemoryMmap>| {
+        m.write_obj(0xC0DEu64, GuestAddress(GSB + 0x1000 - 8)).unwrap(); // gs.base + rbx - 8
+        let mut r = v.get_regs().unwrap();
+        r.rbx = 0x1000;
+        r.rcx = 1;
+        v.set_regs(&r).unwrap();
+    };
+    let (interp, _im, jit, _jm) = seg_jit_vs_interp(code, 0, GSB, setup);
+    assert_eq!(jit.get_regs().unwrap().rax, interp.get_regs().unwrap().rax, "rax jit vs interp");
+    assert_eq!(jit.get_regs().unwrap().rax, 0xC0DE, "must read [gs.base+rbx-8]");
+}
+
+/// `mov fs:[rbx+rcx*4+0x10], rax` — FS store with base + index*scale + disp.
+#[test]
+fn jit_mem_fs_relative_store_index_disp() {
+    // loop: mov fs:[rbx+rcx*4+0x10], rax; dec rdx; jne loop; hlt
+    let code: &[u8] = &[
+        0x64, 0x48, 0x89, 0x44, 0x8b, 0x10, 0x48, 0xff, 0xca, 0x75, 0xf5, 0xf4,
+    ];
+    let setup = |v: &mut X86_64Vcpu, m: &Arc<GuestMemoryMmap>| {
+        // rbx=0x100, rcx=2 → fs.base + 0x100 + 2*4 + 0x10 = fs.base + 0x118
+        m.write_obj(0u64, GuestAddress(FSB + 0x118)).unwrap();
+        let mut r = v.get_regs().unwrap();
+        r.rbx = 0x100;
+        r.rcx = 2;
+        r.rdx = 1;
+        r.rax = 0xABCD_1234_5678_9ABC;
+        v.set_regs(&r).unwrap();
+    };
+    let (_interp, _im, _jit, jm) = seg_jit_vs_interp(code, FSB, 0, setup);
+    let stored: u64 = jm.read_obj(GuestAddress(FSB + 0x118)).unwrap();
+    assert_eq!(stored, 0xABCD_1234_5678_9ABC, "store must hit [fs.base+rbx+rcx*4+0x10]");
+}
+
+/// `lea rax, fs:[rbx]` — LEA computes the OFFSET and must IGNORE the segment
+/// override: it yields rbx, NOT fs.base+rbx, even with a non-zero fs.base.
+/// (End-to-end guard for the LEA-adds-segment-base bug the audit found.)
+#[test]
+fn jit_mem_lea_ignores_segment() {
+    // loop: lea rax, fs:[rbx]; dec rcx; jne loop; hlt
+    let code: &[u8] = &[0x64, 0x48, 0x8d, 0x03, 0x48, 0xff, 0xc9, 0x75, 0xf7, 0xf4];
+    let setup = |v: &mut X86_64Vcpu, m: &Arc<GuestMemoryMmap>| {
+        let _ = m;
+        let mut r = v.get_regs().unwrap();
+        r.rbx = 0x1234;
+        r.rcx = 1;
+        v.set_regs(&r).unwrap();
+    };
+    let (interp, _im, jit, _jm) = seg_jit_vs_interp(code, FSB, 0, setup);
+    assert_eq!(jit.get_regs().unwrap().rax, interp.get_regs().unwrap().rax, "rax jit vs interp");
+    assert_eq!(jit.get_regs().unwrap().rax, 0x1234, "LEA must ignore fs.base (yield the offset rbx)");
+}
+
+/// `mov gs:[rbx+rcx*4], rax` — GS STORE with base + index*scale.
+#[test]
+fn jit_mem_gs_relative_store_index_scale() {
+    // loop: mov gs:[rbx+rcx*4], rax; dec rdx; jne loop; hlt  (rdx counter; rcx is index)
+    let code: &[u8] = &[0x65, 0x48, 0x89, 0x04, 0x8b, 0x48, 0xff, 0xca, 0x75, 0xf6, 0xf4];
+    let setup = |v: &mut X86_64Vcpu, m: &Arc<GuestMemoryMmap>| {
+        m.write_obj(0u64, GuestAddress(GSB + 0x1008)).unwrap(); // gs.base + 0x1000 + 2*4
+        let mut r = v.get_regs().unwrap();
+        r.rbx = 0x1000;
+        r.rcx = 2;
+        r.rdx = 1;
+        r.rax = 0xCAFE_BABE_DEAD_BEEF;
+        v.set_regs(&r).unwrap();
+    };
+    let (_interp, _im, _jit, jm) = seg_jit_vs_interp(code, 0, GSB, setup);
+    let stored: u64 = jm.read_obj(GuestAddress(GSB + 0x1008)).unwrap();
+    assert_eq!(stored, 0xCAFE_BABE_DEAD_BEEF, "store must hit [gs.base+rbx+rcx*4]");
+}
+
 /// `movzx ecx, dil` (REX-prefixed `40 0f b6 cf`) wedged BETWEEN two loads, as in
 /// kernel region 0x82149bd0. The lifter must not drop the movzx — if it does,
 /// rcx keeps a stale value and the dependent indexed load reads a wrong address.

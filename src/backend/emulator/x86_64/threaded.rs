@@ -390,13 +390,19 @@ impl X86_64Vcpu {
     /// LEA r, m (0x8D)
     #[inline(always)]
     fn threaded_lea(&mut self, ctx: &mut InsnContext) -> Result<Option<VcpuExit>> {
-        let (reg, _, is_memory, addr, _) = self.decode_modrm(ctx)?;
-        if !is_memory {
+        let op_size = ctx.op_size;
+        let modrm_start = ctx.cursor;
+        let modrm = ctx.consume_u8()?;
+        let reg = ((modrm >> 3) & 0x07) | ctx.rex_r();
+        if modrm >> 6 == 3 {
             // LEA with register operand is undefined, but we handle it
             self.regs.rip += ctx.cursor as u64;
             return Ok(None);
         }
-        self.set_reg(reg, addr, ctx.op_size);
+        // LEA yields the segment OFFSET and must ignore any FS/GS override.
+        let (addr, extra) = self.decode_lea_addr(ctx, modrm_start)?;
+        ctx.cursor = modrm_start + 1 + extra;
+        self.set_reg(reg, addr, op_size);
         self.regs.rip += ctx.cursor as u64;
         Ok(None)
     }

@@ -2929,8 +2929,9 @@ impl X86_64Vcpu {
             return Err(Error::Emulator("LEA requires memory operand".to_string()));
         }
 
-        // Recalculate address without actually reading memory
-        let (addr, _) = self.decode_modrm_addr(ctx, modrm_start)?;
+        // Recalculate address without actually reading memory. LEA yields the
+        // segment OFFSET and must ignore any FS/GS override.
+        let (addr, _) = self.decode_lea_addr(ctx, modrm_start)?;
         let reg = reg | ctx.evex_dest_reg();
 
         self.set_reg(reg, addr, op_size);
