@@ -4889,6 +4889,81 @@ impl AArch64Cpu {
                 Ok(CpuExit::Continue)
             }
 
+            // SVE2.1 DUPQ (broadcast indexed element within each 128-bit
+            // segment): 0x05, bits[23:22]==00, bit21==1, bits[15:10]==001001. The
+            // element size and segment index are packed into the tsz field
+            // bits[20:16] (lowest set bit selects esize; the index is above it).
+            // At VL=128 there is one segment, so Zn[index] fills every lane.
+            0b000
+                if (insn >> 24) & 0xFF == 0b00000101
+                    && (insn >> 22) & 0x3 == 0b00
+                    && (insn >> 21) & 1 == 1
+                    && (insn >> 10) & 0x3F == 0b001001 =>
+            {
+                let tsz = (insn >> 16) & 0x1F;
+                if tsz == 0 {
+                    return Ok(CpuExit::Undefined(insn));
+                }
+                let size = tsz.trailing_zeros() as usize;
+                let esz = 1usize << size;
+                let index = (tsz >> (size + 1)) as usize;
+                let nsegelt = 16 / esz;
+                let src = self.v[zn].to_le_bytes();
+                let val = if index < nsegelt {
+                    read_elem(&src, index * esz, esz)
+                } else {
+                    0
+                };
+                let mut dst = [0u8; 16];
+                for e in 0..nsegelt {
+                    write_elem(&mut dst, e * esz, esz, val);
+                }
+                self.v[zd] = u128::from_le_bytes(dst);
+                Ok(CpuExit::Continue)
+            }
+
+            // SVE2.1 EXTQ (extract within each 128-bit segment): 0x05,
+            // bits[23:20]==0110, bits[15:10]==001001. imm4=bits[19:16] is a byte
+            // offset (0..15). Destructive: the concatenation (Zm:Zdn) of the
+            // 128-bit segment is shifted right imm bytes; at VL=128 this matches
+            // EXT with a 4-bit immediate (Zdn=Zd field, Zm=Zn field).
+            0b000
+                if (insn >> 24) & 0xFF == 0b00000101
+                    && (insn >> 20) & 0xF == 0b0110
+                    && (insn >> 10) & 0x3F == 0b001001 =>
+            {
+                let imm = ((insn >> 16) & 0xF) as usize; // bytes
+                let low = self.v[zd]; // Zdn
+                let high = self.v[zn]; // Zm
+                let s = imm * 8;
+                self.v[zd] = if s == 0 {
+                    low
+                } else {
+                    (low >> s) | (high << (128 - s))
+                };
+                Ok(CpuExit::Continue)
+            }
+
+            // SVE2.1 REVD (reverse 64-bit doublewords within each 128-bit
+            // segment, predicated/merging): 0x05, bits[23:16]==0b00101110,
+            // bits[15:13]==100. Pg=bits[12:10]; the swap of a 128-bit segment is
+            // governed by the predicate bit of its low doubleword. At VL=128 the
+            // single segment swaps its two 64-bit halves iff predicate bit 0 set.
+            0b000
+                if (insn >> 24) & 0xFF == 0b00000101
+                    && (insn >> 16) & 0xFF == 0b00101110
+                    && (insn >> 13) & 0x7 == 0b100 =>
+            {
+                let pg = ((insn >> 10) & 0x7) as usize;
+                let pred = self.sve_p[pg];
+                if pred & 1 == 1 {
+                    let v = self.v[zn];
+                    self.v[zd] = (v >> 64) | (v << 64);
+                }
+                // inactive low-doubleword -> merge (Zd unchanged)
+                Ok(CpuExit::Continue)
+            }
+
             // Unpredicated integer add/subtract (ADD/SUB/SQADD/UQADD/SQSUB/
             // UQSUB): bit21==1, bits[15:13]==000. Size is the full bits[23:22],
             // so this must NOT be gated on op1 (which folds size's high bit).
@@ -4914,6 +4989,17 @@ impl AArch64Cpu {
                 if (insn >> 24) & 0xFF == 0b00000101
                     && (insn >> 21) & 1 == 1
                     && (insn >> 10) & 0x3F == 0b001011 =>
+            {
+                self.exec_sve_tbx(zd, zn, zm, esize)
+            }
+
+            // SVE2.1 TBXQ (per-128-bit-segment table lookup, keep destination):
+            // 0x05, bit21==1, bits[15:10]==001101. At VL=128 (one segment) this
+            // is identical to TBX over the whole register.
+            0b000
+                if (insn >> 24) & 0xFF == 0b00000101
+                    && (insn >> 21) & 1 == 1
+                    && (insn >> 10) & 0x3F == 0b001101 =>
             {
                 self.exec_sve_tbx(zd, zn, zm, esize)
             }
@@ -5642,6 +5728,21 @@ impl AArch64Cpu {
                 Ok(CpuExit::Continue)
             }
 
+            // SVE2.1 integer quadword reductions (ADDQV/SMAXQV/UMAXQV/SMINQV/
+            // UMINQV/ANDQV/ORQV/EORQV): 0x04, bit21==0, bits[15:13]==001, and
+            // bit18==1 (the QV opcodes set the high bit of bits[18:16], unlike the
+            // scalar reductions below). Reduces each element position across the
+            // 128-bit segments into a single quadword in Vd. Must precede the
+            // scalar-reduction arm, which shares bit21==0 && bits[15:13]==001.
+            0b000
+                if (insn >> 24) & 0xFF == 0b00000100
+                    && (insn >> 21) & 1 == 0
+                    && (insn >> 13) & 0x7 == 0b001
+                    && (insn >> 18) & 1 == 1 =>
+            {
+                self.exec_sve_qv_reduce_int(insn, esize)
+            }
+
             // Integer reductions to a scalar (SADDV/UADDV/SMAXV/.../ANDV/ORV/
             // EORV): bit21==0, bits[15:13]==001.
             0b000 if (insn >> 21) & 1 == 0 && (insn >> 13) & 0x7 == 0b001 => {
@@ -5857,6 +5958,97 @@ impl AArch64Cpu {
                     let vm = sext_elem(read_elem(&b, m_off, s_esize), s_bits);
                     let r = if sub { vn - vm } else { vn + vm };
                     write_elem(&mut dst, d * d_esize, d_esize, (r as u64) & mask);
+                }
+                self.v[zd] = u128::from_le_bytes(dst);
+                Ok(CpuExit::Continue)
+            }
+
+            // SVE2.1 SCLAMP/UCLAMP (signed/unsigned clamp): 0x44, bit21==0,
+            // bits[15:11]==11000. bit10=U. Zd = min(max(Zd, Zn), Zm) per element
+            // (Zd is both the clamped value and the destination).
+            0b010
+                if (insn >> 24) & 0xFF == 0b01000100
+                    && (insn >> 21) & 1 == 0
+                    && (insn >> 11) & 0x1F == 0b11000 =>
+            {
+                let unsigned = (insn >> 10) & 1 == 1;
+                let bits = (esize * 8) as u32;
+                let mask = elem_mask(bits);
+                let n = self.v[zn].to_le_bytes();
+                let m = self.v[zm].to_le_bytes();
+                let d = self.v[zd].to_le_bytes();
+                let mut dst = [0u8; 16];
+                for e in 0..(16 / esize) {
+                    let off = e * esize;
+                    let (dv, nv, mv) = (
+                        read_elem(&d, off, esize),
+                        read_elem(&n, off, esize),
+                        read_elem(&m, off, esize),
+                    );
+                    let r = if unsigned {
+                        uext_elem(dv, bits)
+                            .max(uext_elem(nv, bits))
+                            .min(uext_elem(mv, bits)) as u64
+                    } else {
+                        sext_elem(dv, bits)
+                            .max(sext_elem(nv, bits))
+                            .min(sext_elem(mv, bits)) as u64
+                    };
+                    write_elem(&mut dst, off, esize, r & mask);
+                }
+                self.v[zd] = u128::from_le_bytes(dst);
+                Ok(CpuExit::Continue)
+            }
+
+            // SVE2.1 quadword permutes ZIPQ1/ZIPQ2/UZPQ1/UZPQ2/TBLQ: 0x44,
+            // bit21==0, bits[15:13]==111. opc=bits[12:10] (000/001 ZIP, 010/011
+            // UZP, 110 TBLQ). These permute within each 128-bit segment; at VL=128
+            // (a single segment) they coincide with the non-quadword ZIP/UZP/TBL
+            // over the whole register. (TBXQ lives in the 0x05 space, handled
+            // separately.)
+            0b010
+                if (insn >> 24) & 0xFF == 0b01000100
+                    && (insn >> 21) & 1 == 0
+                    && (insn >> 13) & 0x7 == 0b111 =>
+            {
+                let opc = (insn >> 10) & 0x7;
+                let n = self.v[zn].to_le_bytes();
+                let m = self.v[zm].to_le_bytes();
+                let nelt = 16 / esize;
+                let half = nelt / 2;
+                let mut dst = [0u8; 16];
+                match opc {
+                    0b000 | 0b001 => {
+                        // ZIPQ1 (low half) / ZIPQ2 (high half): interleave Zn,Zm.
+                        let base = if opc == 0b001 { half } else { 0 };
+                        for i in 0..half {
+                            write_elem(&mut dst, (2 * i) * esize, esize, read_elem(&n, (base + i) * esize, esize));
+                            write_elem(&mut dst, (2 * i + 1) * esize, esize, read_elem(&m, (base + i) * esize, esize));
+                        }
+                    }
+                    0b010 | 0b011 => {
+                        // UZPQ1 (even) / UZPQ2 (odd): deinterleave Zn:Zm.
+                        let start = (opc & 1) as usize; // 0 even, 1 odd
+                        for i in 0..nelt {
+                            let src_idx = 2 * i + start;
+                            let v = if src_idx < nelt {
+                                read_elem(&n, src_idx * esize, esize)
+                            } else {
+                                read_elem(&m, (src_idx - nelt) * esize, esize)
+                            };
+                            write_elem(&mut dst, i * esize, esize, v);
+                        }
+                    }
+                    0b110 => {
+                        // TBLQ: per-segment table lookup of Zn indexed by Zm,
+                        // zero-filling out-of-range indices.
+                        for i in 0..nelt {
+                            let idx = read_elem(&m, i * esize, esize) as usize;
+                            let v = if idx < nelt { read_elem(&n, idx * esize, esize) } else { 0 };
+                            write_elem(&mut dst, i * esize, esize, v);
+                        }
+                    }
+                    _ => return Ok(CpuExit::Undefined(insn)),
                 }
                 self.v[zd] = u128::from_le_bytes(dst);
                 Ok(CpuExit::Continue)
@@ -7958,6 +8150,46 @@ impl AArch64Cpu {
         Ok(CpuExit::Continue)
     }
 
+    /// Execute an SVE2.1 integer quadword reduction (ADDQV/SMAXQV/UMAXQV/SMINQV/
+    /// UMINQV/ANDQV/ORQV/EORQV) to Vd. opc6=bits[21:16]. Each element position is
+    /// reduced across the 128-bit segments of Zn (seeded with the op identity);
+    /// at VL=128 (one segment) an active lane keeps Zn's value while an inactive
+    /// lane takes the identity. Pg is byte-granular. Mirrors qemu DO_VPQ /
+    /// DO_LOGIC_QV (the identity is the reduction of the empty active set).
+    fn exec_sve_qv_reduce_int(&mut self, insn: u32, esize: usize) -> Result<CpuExit, ArmError> {
+        let opc6 = (insn >> 16) & 0x3F;
+        let pg = ((insn >> 10) & 0x7) as usize;
+        let zn = ((insn >> 5) & 0x1F) as usize;
+        let vd = (insn & 0x1F) as usize;
+        let bits = (esize * 8) as u32;
+        let mask = elem_mask(bits);
+        let ident: u64 = match opc6 {
+            0b000101 => 0,                                // ADDQV
+            0b001100 => 1u64 << (bits - 1),               // SMAXQV  -> INT_MIN
+            0b001101 => 0,                                // UMAXQV
+            0b001110 => (1u64 << (bits - 1)).wrapping_sub(1), // SMINQV -> INT_MAX
+            0b001111 => mask,                             // UMINQV  -> UINT_MAX
+            0b011100 => 0,                                // ORQV
+            0b011101 => 0,                                // EORQV
+            0b011110 => mask,                             // ANDQV   -> all-ones
+            _ => return Ok(CpuExit::Undefined(insn)),
+        };
+        let pred = self.sve_p[pg];
+        let src = self.v[zn].to_le_bytes();
+        let mut dst = [0u8; 16];
+        for e in 0..(16 / esize) {
+            let off = e * esize;
+            let v = if (pred >> off) & 1 == 1 {
+                read_elem(&src, off, esize)
+            } else {
+                ident
+            };
+            write_elem(&mut dst, off, esize, v & mask);
+        }
+        self.v[vd] = u128::from_le_bytes(dst);
+        Ok(CpuExit::Continue)
+    }
+
     /// Execute SVE integer unpredicated operations.
     fn exec_sve_int_unpred(
         &mut self,
@@ -9965,6 +10197,72 @@ impl AArch64Cpu {
                 let off = e * esz;
                 let r = sve_ftmad(esz, read_elem(&dn, off, esz), read_elem(&m, off, esz), imm);
                 write_elem(&mut dst, off, esz, r);
+            }
+            self.v[zd] = u128::from_le_bytes(dst);
+            return Ok(CpuExit::Continue);
+        }
+
+        // SVE2.1 FCLAMP (FP clamp): 0x64, bit21==1, bits[15:10]==001001.
+        // Zd = fminnum(fmaxnum(Zn, Zd), Zm) per element (Zd is the clamped
+        // value). Must precede the reduce/unary dispatch (which keys on
+        // bits[15:13], that FCLAMP's 001001 would otherwise hit as 001).
+        if (insn >> 24) & 0xFF == 0b01100100
+            && (insn >> 21) & 1 == 1
+            && (insn >> 10) & 0x3F == 0b001001
+        {
+            let n = self.v[zn].to_le_bytes();
+            let m = self.v[zm].to_le_bytes();
+            let d = self.v[zd].to_le_bytes();
+            let mut dst = [0u8; 16];
+            for e in 0..(16 / esize) {
+                let off = e * esize;
+                let lo = sve_fp_combine(
+                    FpKind::MaxNm,
+                    esize,
+                    read_elem(&n, off, esize),
+                    read_elem(&d, off, esize),
+                );
+                let r = sve_fp_combine(FpKind::MinNm, esize, lo, read_elem(&m, off, esize));
+                write_elem(&mut dst, off, esize, r);
+            }
+            self.v[zd] = u128::from_le_bytes(dst);
+            return Ok(CpuExit::Continue);
+        }
+
+        // SVE2.1 FP quadword reductions (FADDQV/FMAXNMQV/FMINNMQV/FMAXQV/
+        // FMINQV): 0x64, bits[21:19]==010, bits[15:13]==101. opc=bits[18:16].
+        // Each element position is reduced across the 128-bit segments seeded
+        // with the op identity; at VL=128 an active lane is combined with the
+        // identity (so FADD normalises -0.0/quiets NaN) and an inactive lane is
+        // the raw identity. Must precede the unary dispatch (bits[15:13]==101).
+        if (insn >> 24) & 0xFF == 0b01100100
+            && (insn >> 19) & 0x7 == 0b010
+            && (insn >> 13) & 0x7 == 0b101
+        {
+            let kind = match (insn >> 16) & 0x7 {
+                0b000 => FpKind::Add,
+                0b100 => FpKind::MaxNm,
+                0b101 => FpKind::MinNm,
+                0b110 => FpKind::Max,
+                0b111 => FpKind::Min,
+                _ => return Ok(CpuExit::Undefined(insn)),
+            };
+            // At VL=128 each element position reduces a single-element column,
+            // so an active lane is the raw Zn element (no combine with the
+            // identity -> -0.0 and NaN payloads are preserved, matching hw); an
+            // inactive lane is the op identity (the empty reduction).
+            let ident = sve_fp_identity(kind, esize);
+            let pred = self.sve_p[pg];
+            let src = self.v[zn].to_le_bytes();
+            let mut dst = [0u8; 16];
+            for e in 0..(16 / esize) {
+                let off = e * esize;
+                let v = if (pred >> off) & 1 == 1 {
+                    read_elem(&src, off, esize)
+                } else {
+                    ident
+                };
+                write_elem(&mut dst, off, esize, v);
             }
             self.v[zd] = u128::from_le_bytes(dst);
             return Ok(CpuExit::Continue);
