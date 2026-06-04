@@ -457,6 +457,22 @@ pub enum Address {
 
     /// Absolute address (for MMIO, fixed addresses)
     Absolute(u64),
+
+    /// x86 segment-relative: [segment_base + base + index*scale + disp].
+    ///
+    /// `segment` is the `FsBase`/`GsBase` architectural register holding the
+    /// segment base (from the FS/GS descriptor or the IA32_FS_BASE/IA32_GS_BASE
+    /// MSR). In 64-bit mode only FS and GS carry a non-zero base — CS/DS/ES/SS
+    /// are flat — so this variant is emitted ONLY for FS/GS-overridden operands.
+    /// A RIP-relative FS/GS operand is folded into `disp` at lift time (the
+    /// next-RIP is a constant), so `base`/`index` here are true GPRs.
+    SegmentRel {
+        segment: VReg,
+        base: Option<VReg>,
+        index: Option<VReg>,
+        scale: u8,
+        disp: i64,
+    },
 }
 
 impl Address {
@@ -498,6 +514,21 @@ impl Address {
                 v
             }
             Address::PcRel { .. } | Address::GpRel { .. } | Address::Absolute(_) => vec![],
+            Address::SegmentRel {
+                segment,
+                base,
+                index,
+                ..
+            } => {
+                let mut v = vec![*segment];
+                if let Some(b) = base {
+                    v.push(*b);
+                }
+                if let Some(i) = index {
+                    v.push(*i);
+                }
+                v
+            }
         }
     }
 }

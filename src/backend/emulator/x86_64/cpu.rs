@@ -3155,6 +3155,9 @@ impl X86_64Vcpu {
         gr.ctx = self as *mut X86_64Vcpu as u64;
         gr.load_fn = rax_jit_mem_load as usize as u64;
         gr.store_fn = rax_jit_mem_store as usize as u64;
+        // Segment bases for `fs:`/`gs:`-overridden operands (Address::SegmentRel).
+        gr.fs_base = self.sregs.fs.base;
+        gr.gs_base = self.sregs.gs.base;
         gr.gpr[0] = self.regs.rax;
         gr.gpr[1] = self.regs.rcx;
         gr.gpr[2] = self.regs.rdx;

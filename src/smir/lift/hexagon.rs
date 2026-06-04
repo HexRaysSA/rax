@@ -882,6 +882,8 @@ impl HexagonLifter {
                 disp_size: *disp_size,
                 base: *base,
             },
+            // Hexagon never produces x86 segment-relative addresses.
+            Address::SegmentRel { .. } => addr.clone(),
         }
     }
 

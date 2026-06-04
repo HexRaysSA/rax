@@ -8594,6 +8594,52 @@ impl X86_64Lowerer {
                 })?;
                 self.emit_movabs(6, b.wrapping_add(*offset as u64));
             }
+            Address::SegmentRel {
+                segment,
+                base,
+                index,
+                scale,
+                disp,
+            } => {
+                // [segment_base + base + index*scale + disp]. The segment base is
+                // not a GPR, so it is read from a dedicated GuestRegs slot
+                // (fs_base@168 / gs_base@176) rather than a gpr[] slot.
+                let seg_off: i32 = match segment {
+                    VReg::Arch(ArchReg::X86(X86Reg::FsBase)) => 168,
+                    VReg::Arch(ArchReg::X86(X86Reg::GsBase)) => 176,
+                    _ => {
+                        return Err(LowerError::UnsupportedOp {
+                            op: "jit-mem: SegmentRel with non-FS/GS segment".to_string(),
+                        });
+                    }
+                };
+                self.emit_struct_mov(PhysReg::Rax, 6, seg_off, false); // rsi = seg base
+                if let Some(b) = base {
+                    let b = self.jit_arch_enc(*b)?;
+                    self.emit_struct_mov(PhysReg::Rax, 7, (b as i32) * 8, false); // rdi = base
+                    // add rsi, rdi  (48 01 FE)
+                    self.code.emit_u8(0x48);
+                    self.code.emit_u8(0x01);
+                    self.code.emit_u8(0xFE);
+                }
+                if let Some(idx) = index {
+                    let i = self.jit_arch_enc(*idx)?;
+                    self.emit_struct_mov(PhysReg::Rax, 7, (i as i32) * 8, false); // rdi = index
+                    let sh = (*scale as u32).trailing_zeros() as u8;
+                    if sh > 0 {
+                        // shl rdi, sh  (48 C1 E7 ib)
+                        self.code.emit_u8(0x48);
+                        self.code.emit_u8(0xC1);
+                        self.code.emit_u8(0xE7);
+                        self.code.emit_u8(sh);
+                    }
+                    // add rsi, rdi  (48 01 FE)
+                    self.code.emit_u8(0x48);
+                    self.code.emit_u8(0x01);
+                    self.code.emit_u8(0xFE);
+                }
+                self.emit_add_rsi_imm(*disp)?;
+            }
             _ => {
                 return Err(LowerError::UnsupportedOp {
                     op: "jit-mem: unsupported address form".to_string(),
@@ -8646,9 +8692,35 @@ impl X86_64Lowerer {
 
         // --- OK path ---
         if is_load {
-            let denc = load_dst_enc.unwrap();
-            // [rcx + denc*8] = rax (deliver loaded value)
-            self.emit_struct_mov(PhysReg::Rcx, 0, (denc as i32) * 8, true);
+            let denc = load_dst_enc.unwrap() as i32;
+            let off = (denc * 8) as u32;
+            // Deliver the loaded value (in RAX) into the destination's GuestRegs
+            // slot, RESPECTING x86 partial-register write semantics — `mov
+            // al/ax,[mem]` (B1/B2) writes only the low 1/2 bytes and PRESERVES
+            // the upper register bits, whereas `mov eax,[mem]` (B4) zero-extends
+            // to 64 (the helper already returned a zero-extended value, so a full
+            // 8-byte store is correct) and B8 is a full store. Writing the full
+            // RAX for B1/B2 would wrongly clobber the upper bits — exactly the
+            // divergence a `mov al, gs:[...]` per-CPU read exposes.
+            match mem_width {
+                MemWidth::B1 => {
+                    // mov byte [rcx + off], al  (88 81 <disp32>)
+                    self.code.emit_u8(0x88);
+                    self.code.emit_u8(0x81);
+                    self.code.emit_u32(off);
+                }
+                MemWidth::B2 => {
+                    // mov word [rcx + off], ax  (66 89 81 <disp32>)
+                    self.code.emit_u8(0x66);
+                    self.code.emit_u8(0x89);
+                    self.code.emit_u8(0x81);
+                    self.code.emit_u32(off);
+                }
+                _ => {
+                    // B4 (zero-extended by the helper) / B8: full 8-byte store.
+                    self.emit_struct_mov(PhysReg::Rcx, 0, denc * 8, true);
+                }
+            }
         }
         self.emit_reload_all(PhysReg::Rcx);
         // popfq: restore the guest STATUS flags saved on entry (pops [rsp]).

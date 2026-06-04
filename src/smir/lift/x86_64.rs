@@ -411,6 +411,9 @@ pub struct X86Address {
     pub rip_relative: bool,
     /// Displacement size hint
     pub disp_size: DispSize,
+    /// FS/GS segment override, if any (`X86Reg::FsBase` / `X86Reg::GsBase`). In
+    /// 64-bit mode CS/DS/ES/SS are flat (base 0) and recorded as `None`.
+    pub segment: Option<X86Reg>,
 }
 
 /// Decode ModR/M byte and any following SIB/displacement
@@ -444,17 +447,16 @@ fn decode_modrm(bytes: &[u8], prefix: &X86Prefix, addr: u64) -> Result<ModRm, Li
         });
     }
 
-    // FS (0x64) / GS (0x65) overrides carry a non-zero segment base in long
-    // mode (TLS / per-CPU data). The JIT's memory helper computes only
-    // base+index+disp and cannot add that base, so refuse to lift such accesses
-    // — the region falls back to the interpreter, which models segments. (CS/DS/
-    // ES/SS overrides are flat/zero-based in long mode and need no special care.)
-    if matches!(prefix.segment_override, Some(0x64) | Some(0x65)) {
-        return Err(LiftError::Unsupported {
-            addr,
-            mnemonic: "fs/gs-relative memory operand".to_string(),
-        });
-    }
+    // FS (0x64) / GS (0x65) overrides carry a non-zero segment base in long mode
+    // (TLS / per-CPU data); the lifted memory operand becomes an
+    // `Address::SegmentRel` that adds the FsBase/GsBase register. CS/DS/ES/SS
+    // overrides are flat/zero-based in long mode and carry no base, so they are
+    // left as ordinary addresses (segment = None).
+    let segment = match prefix.segment_override {
+        Some(0x64) => Some(X86Reg::FsBase),
+        Some(0x65) => Some(X86Reg::GsBase),
+        _ => None,
+    };
 
     // Memory operand - decode SIB and displacement
     let mut consumed = 1;
@@ -465,6 +467,7 @@ fn decode_modrm(bytes: &[u8], prefix: &X86Prefix, addr: u64) -> Result<ModRm, Li
         disp: 0,
         rip_relative: false,
         disp_size: DispSize::Auto,
+        segment,
     };
 
     if rm_field == 4 {
@@ -658,6 +661,31 @@ impl X86_64Lifter {
                 None
             }
         };
+
+        // FS/GS segment override → segment-relative address. The effective
+        // address is segment_base + base + index*scale + disp. A RIP-relative
+        // segment operand folds the (constant) next-RIP into the displacement so
+        // `base`/`index` stay true GPRs.
+        if let Some(seg) = x86_addr.segment {
+            let segment = VReg::Arch(ArchReg::X86(seg));
+            let base = x86_addr.base.map(|b| self.gpr(b));
+            let index = x86_addr.index.map(|i| self.gpr(i));
+            let disp = if x86_addr.rip_relative {
+                next_rip as i64 + x86_addr.disp
+            } else {
+                x86_addr.disp
+            };
+            return (
+                Address::SegmentRel {
+                    segment,
+                    base,
+                    index,
+                    scale: x86_addr.scale,
+                    disp,
+                },
+                pre_ops,
+            );
+        }
 
         if x86_addr.rip_relative {
             return (

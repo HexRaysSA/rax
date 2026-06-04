@@ -1339,30 +1339,192 @@ fn jit_mem_byte_copy_loop_long() {
     }
 }
 
-/// A GS-segment-relative memory access (`65` prefix) must NOT be JIT-compiled:
-/// the helper cannot add the per-CPU/TLS segment base, so the region must bail
-/// to the interpreter (which models segments). Without the bail the JIT would
-/// read the wrong address (base+index+disp, missing the GS base).
-#[test]
-fn jit_mem_gs_relative_bails() {
-    // loop: mov al, gs:[rdi]; inc rdi; dec rcx; jne loop; hlt
-    let code: &[u8] = &[
-        0x65, 0x8a, 0x07, // mov al, gs:[rdi]
-        0x48, 0xff, 0xc7, // inc rdi
-        0x48, 0xff, 0xc9, // dec rcx
-        0x75, 0xf5, // jne loop
-        0xf4, // hlt
-    ];
-    let (mut jit, _m) = make_vcpu_mem(code);
+// FS/GS segment-relative memory operands (the `64`/`65` prefixes) must JIT
+// CORRECTLY: the effective address is `segment_base + base + index*scale + disp`,
+// where the base comes from the FS/GS descriptor / IA32_FS_BASE/GS_BASE MSR
+// (`sregs.fs.base`/`sregs.gs.base`), lifted as `Address::SegmentRel`. These are
+// the kernel's per-CPU (`gs:`) and TLS (`fs:`) accesses. Each test uses a
+// NON-ZERO segment base, places the correct value at `seg_base+addr` AND a
+// distinct SENTINEL at the un-segmented `addr`, so a JIT that dropped the
+// segment base would read the sentinel and diverge from the interpreter.
+fn seg_jit_vs_interp(
+    code: &[u8],
+    fs_base: u64,
+    gs_base: u64,
+    setup: impl Fn(&mut X86_64Vcpu, &Arc<GuestMemoryMmap>),
+) -> (X86_64Vcpu, Arc<GuestMemoryMmap>, X86_64Vcpu, Arc<GuestMemoryMmap>) {
+    let prep = |v: &mut X86_64Vcpu, m: &Arc<GuestMemoryMmap>| {
+        let mut s = v.get_sregs().unwrap();
+        s.fs.base = fs_base;
+        s.gs.base = gs_base;
+        v.set_sregs(&s).unwrap();
+        setup(v, m);
+    };
+    let (mut interp, im) = make_vcpu_mem(code);
+    prep(&mut interp, &im);
+    run_interp(&mut interp);
+
+    let (mut jit, jm) = make_vcpu_mem(code);
+    prep(&mut jit, &jm);
     jit.set_jit_mem(true);
-    let mut r = jit.get_regs().unwrap();
-    r.rdi = 0x20_0000;
-    r.rcx = 4;
-    jit.set_regs(&r).unwrap();
-    // Must refuse to JIT (lift bails on the FS/GS-relative operand).
     assert!(
-        !jit.jit_try_block().expect("jit_try_block"),
-        "GS-relative region must not JIT (no segment-base modeling)"
+        jit.jit_try_block().expect("jit_try_block"),
+        "FS/GS-relative region MUST now JIT (Address::SegmentRel)"
+    );
+    run_interp(&mut jit);
+    (interp, im, jit, jm)
+}
+
+const GSB: u64 = 0x50_0000;
+const FSB: u64 = 0x60_0000;
+
+// Each test wraps the segment op in a 1-iteration loop (`dec <ctr>; jne head`)
+// so the region's entry block ends in a back-edge (not a frontier) and the JIT
+// actually compiles + runs the op. The counter is a register the op doesn't use.
+
+/// `mov rax, gs:[rbx+8]` — base + disp, GS base added.
+#[test]
+fn jit_mem_gs_relative_base_disp() {
+    // loop: mov rax, gs:[rbx+8]; dec rcx; jne loop; hlt
+    let code: &[u8] = &[
+        0x65, 0x48, 0x8b, 0x43, 0x08, 0x48, 0xff, 0xc9, 0x75, 0xf6, 0xf4,
+    ];
+    let setup = |v: &mut X86_64Vcpu, m: &Arc<GuestMemoryMmap>| {
+        m.write_obj(0xCAFEu64, GuestAddress(GSB + 0x1008)).unwrap(); // gs.base+rbx+8
+        m.write_obj(0xBADu64, GuestAddress(0x1008)).unwrap(); // sentinel (no gs base)
+        let mut r = v.get_regs().unwrap();
+        r.rbx = 0x1000;
+        r.rcx = 1;
+        v.set_regs(&r).unwrap();
+    };
+    let (interp, _im, jit, _jm) = seg_jit_vs_interp(code, 0, GSB, setup);
+    assert_eq!(jit.get_regs().unwrap().rax, interp.get_regs().unwrap().rax, "rax jit vs interp");
+    assert_eq!(jit.get_regs().unwrap().rax, 0xCAFE, "must read [gs.base+rbx+8], not sentinel");
+}
+
+/// `mov rax, gs:[0x1234]` — disp-only (the kernel `this_cpu` per-CPU pattern).
+#[test]
+fn jit_mem_gs_relative_disp_only() {
+    // loop: mov rax, gs:[0x1234]; dec rcx; jne loop; hlt
+    let code: &[u8] = &[
+        0x65, 0x48, 0x8b, 0x04, 0x25, 0x34, 0x12, 0x00, 0x00, 0x48, 0xff, 0xc9, 0x75, 0xf2, 0xf4,
+    ];
+    let setup = |v: &mut X86_64Vcpu, m: &Arc<GuestMemoryMmap>| {
+        m.write_obj(0xDEADu64, GuestAddress(GSB + 0x1234)).unwrap();
+        m.write_obj(0xBADu64, GuestAddress(0x1234)).unwrap();
+        let mut r = v.get_regs().unwrap();
+        r.rcx = 1;
+        v.set_regs(&r).unwrap();
+    };
+    let (interp, _im, jit, _jm) = seg_jit_vs_interp(code, 0, GSB, setup);
+    assert_eq!(jit.get_regs().unwrap().rax, interp.get_regs().unwrap().rax, "rax jit vs interp");
+    assert_eq!(jit.get_regs().unwrap().rax, 0xDEAD, "must read [gs.base+0x1234]");
+}
+
+/// `mov rax, fs:[rbx]` — FS base added (TLS).
+#[test]
+fn jit_mem_fs_relative() {
+    // loop: mov rax, fs:[rbx]; dec rcx; jne loop; hlt
+    let code: &[u8] = &[0x64, 0x48, 0x8b, 0x03, 0x48, 0xff, 0xc9, 0x75, 0xf7, 0xf4];
+    let setup = |v: &mut X86_64Vcpu, m: &Arc<GuestMemoryMmap>| {
+        m.write_obj(0xF00Du64, GuestAddress(FSB + 0x800)).unwrap();
+        m.write_obj(0xBADu64, GuestAddress(0x800)).unwrap();
+        let mut r = v.get_regs().unwrap();
+        r.rbx = 0x800;
+        r.rcx = 1;
+        v.set_regs(&r).unwrap();
+    };
+    let (interp, _im, jit, _jm) = seg_jit_vs_interp(code, FSB, 0, setup);
+    assert_eq!(jit.get_regs().unwrap().rax, interp.get_regs().unwrap().rax, "rax jit vs interp");
+    assert_eq!(jit.get_regs().unwrap().rax, 0xF00D, "must read [fs.base+rbx]");
+}
+
+/// `mov gs:[rbx], rax` — STORE to a GS-relative address.
+#[test]
+fn jit_mem_gs_relative_store() {
+    // loop: mov gs:[rbx], rax; dec rcx; jne loop; hlt
+    let code: &[u8] = &[0x65, 0x48, 0x89, 0x03, 0x48, 0xff, 0xc9, 0x75, 0xf7, 0xf4];
+    let setup = |v: &mut X86_64Vcpu, m: &Arc<GuestMemoryMmap>| {
+        m.write_obj(0u64, GuestAddress(GSB + 0x900)).unwrap();
+        m.write_obj(0u64, GuestAddress(0x900)).unwrap();
+        let mut r = v.get_regs().unwrap();
+        r.rbx = 0x900;
+        r.rcx = 1;
+        r.rax = 0x1234_5678_9ABC_DEF0;
+        v.set_regs(&r).unwrap();
+    };
+    let (_interp, _im, _jit, jm) = seg_jit_vs_interp(code, 0, GSB, setup);
+    let stored: u64 = jm.read_obj(GuestAddress(GSB + 0x900)).unwrap();
+    assert_eq!(stored, 0x1234_5678_9ABC_DEF0, "store must hit [gs.base+rbx]");
+    let sentinel: u64 = jm.read_obj(GuestAddress(0x900)).unwrap();
+    assert_eq!(sentinel, 0, "store must NOT hit the un-segmented address");
+}
+
+/// `mov rax, gs:[rbx+rcx*8]` — base + index*scale + GS base (full SIB form).
+/// Uses RDX as the loop counter (RCX is the index).
+#[test]
+fn jit_mem_gs_relative_index_scale() {
+    // loop: mov rax, gs:[rbx+rcx*8]; dec rdx; jne loop; hlt
+    let code: &[u8] = &[0x65, 0x48, 0x8b, 0x04, 0xcb, 0x48, 0xff, 0xca, 0x75, 0xf6, 0xf4];
+    let setup = |v: &mut X86_64Vcpu, m: &Arc<GuestMemoryMmap>| {
+        // rbx=0x1000, rcx=3 → gs.base + 0x1000 + 3*8 = gs.base + 0x1018
+        m.write_obj(0xBEEFu64, GuestAddress(GSB + 0x1018)).unwrap();
+        m.write_obj(0xBADu64, GuestAddress(0x1018)).unwrap();
+        let mut r = v.get_regs().unwrap();
+        r.rbx = 0x1000;
+        r.rcx = 3;
+        r.rdx = 1;
+        v.set_regs(&r).unwrap();
+    };
+    let (interp, _im, jit, _jm) = seg_jit_vs_interp(code, 0, GSB, setup);
+    assert_eq!(jit.get_regs().unwrap().rax, interp.get_regs().unwrap().rax, "rax jit vs interp");
+    assert_eq!(jit.get_regs().unwrap().rax, 0xBEEF, "must read [gs.base+rbx+rcx*8]");
+}
+
+/// `mov al, gs:[rbx]` (B1) — a partial-register write: x86 `mov r8, r/m8`
+/// preserves the upper 56 bits of RAX, it does NOT zero-extend. The kernel's
+/// per-CPU byte reads rely on this; a JIT that zero-extended would corrupt the
+/// upper bits (the exact boot divergence `rax: interp=0x80010000 jit=0x0`).
+#[test]
+fn jit_mem_gs_relative_byte_partial_write() {
+    // loop: mov al, gs:[rbx]; dec rcx; jne loop; hlt
+    let code: &[u8] = &[0x65, 0x8a, 0x03, 0x48, 0xff, 0xc9, 0x75, 0xf8, 0xf4];
+    let setup = |v: &mut X86_64Vcpu, m: &Arc<GuestMemoryMmap>| {
+        m.write_obj(0x42u8, GuestAddress(GSB + 0x700)).unwrap();
+        let mut r = v.get_regs().unwrap();
+        r.rbx = 0x700;
+        r.rcx = 1;
+        r.rax = 0xDEAD_BEEF_0000_0000;
+        v.set_regs(&r).unwrap();
+    };
+    let (interp, _im, jit, _jm) = seg_jit_vs_interp(code, 0, GSB, setup);
+    assert_eq!(jit.get_regs().unwrap().rax, interp.get_regs().unwrap().rax, "rax jit vs interp");
+    assert_eq!(
+        jit.get_regs().unwrap().rax,
+        0xDEAD_BEEF_0000_0042,
+        "mov al must preserve the upper 56 bits of RAX (partial write)"
+    );
+}
+
+/// `mov ax, gs:[rbx]` (B2) — partial-register write preserving the upper 48 bits.
+#[test]
+fn jit_mem_gs_relative_word_partial_write() {
+    // loop: mov ax, gs:[rbx]; dec rcx; jne loop; hlt  (65=GS, 66=opsize)
+    let code: &[u8] = &[0x65, 0x66, 0x8b, 0x03, 0x48, 0xff, 0xc9, 0x75, 0xf7, 0xf4];
+    let setup = |v: &mut X86_64Vcpu, m: &Arc<GuestMemoryMmap>| {
+        m.write_obj(0x1234u16, GuestAddress(GSB + 0x780)).unwrap();
+        let mut r = v.get_regs().unwrap();
+        r.rbx = 0x780;
+        r.rcx = 1;
+        r.rax = 0xFFFF_FFFF_FFFF_FFFF;
+        v.set_regs(&r).unwrap();
+    };
+    let (interp, _im, jit, _jm) = seg_jit_vs_interp(code, 0, GSB, setup);
+    assert_eq!(jit.get_regs().unwrap().rax, interp.get_regs().unwrap().rax, "rax jit vs interp");
+    assert_eq!(
+        jit.get_regs().unwrap().rax,
+        0xFFFF_FFFF_FFFF_1234,
+        "mov ax must preserve the upper 48 bits of RAX (partial write)"
     );
 }
 

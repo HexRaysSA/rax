@@ -43,6 +43,13 @@ pub struct GuestRegs {
     pub load_fn: u64,
     /// Address of the store helper `fn(ctx, addr, value, size) -> ok`. Offset 160.
     pub store_fn: u64,
+    /// IA32_FS_BASE — the FS segment base (offset 168). The lowered code adds
+    /// this to the effective address of an `fs:`-overridden memory operand
+    /// ([`Address::SegmentRel`]). Set from `sregs.fs.base` before each run.
+    pub fs_base: u64,
+    /// IA32_GS_BASE — the GS segment base (offset 176). As `fs_base` but for
+    /// `gs:`-overridden operands (per-CPU data in the Linux kernel).
+    pub gs_base: u64,
 }
 
 // enter_native(rdi = entry ptr, rsi = *mut GuestRegs):
@@ -150,6 +157,10 @@ pub const CTX_OFFSET: i32 = 144;
 pub const LOAD_FN_OFFSET: i32 = 152;
 /// Byte offset of `GuestRegs.store_fn` (the memory-store helper address).
 pub const STORE_FN_OFFSET: i32 = 160;
+/// Byte offset of `GuestRegs.fs_base` (the FS segment base for `fs:` operands).
+pub const FS_BASE_OFFSET: i32 = 168;
+/// Byte offset of `GuestRegs.gs_base` (the GS segment base for `gs:` operands).
+pub const GS_BASE_OFFSET: i32 = 176;
 
 /// W^X executable memory holding a finalized lowered block. Maps RW, copies the
 /// code in, then flips to RX; unmaps on drop.

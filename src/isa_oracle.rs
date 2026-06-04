@@ -1190,6 +1190,20 @@ impl OracleJson for Address {
                 "kind": "absolute",
                 "addr": hex_u64(*addr),
             }),
+            Address::SegmentRel {
+                segment,
+                base,
+                index,
+                scale,
+                disp,
+            } => json!({
+                "kind": "segment_rel",
+                "segment": segment.oracle_json(),
+                "base": base.map(|b| b.oracle_json()),
+                "index": index.map(|i| i.oracle_json()),
+                "scale": scale,
+                "disp": disp,
+            }),
         }
     }
 }

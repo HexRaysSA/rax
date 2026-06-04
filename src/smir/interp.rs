@@ -5089,6 +5089,20 @@ impl SmirInterpreter {
                 (gp as i64 + *offset as i64) as u64
             }
             Address::Absolute(a) => *a,
+            Address::SegmentRel {
+                segment,
+                base,
+                index,
+                scale,
+                disp,
+            } => {
+                // [segment_base + base + index*scale + disp]. The segment base
+                // lives in the FsBase/GsBase architectural register.
+                let seg = ctx.read_vreg(*segment) as i64;
+                let base_val = base.map(|b| ctx.read_vreg(b)).unwrap_or(0) as i64;
+                let index_val = index.map(|i| ctx.read_vreg(i)).unwrap_or(0) as i64;
+                (seg + base_val + index_val * *scale as i64 + *disp) as u64
+            }
         }
     }
 
