@@ -4964,6 +4964,58 @@ impl AArch64Cpu {
                 Ok(CpuExit::Continue)
             }
 
+            // SVE2.1 PMOV (move a bit-plane between a vector and a predicate):
+            // 0x05, bits[21:19]==101, bits[15:10]==001110. bit16 selects the
+            // direction (0: Zn -> Pd, 1: Pn -> Zd). The element size and bit-plane
+            // index are tsz-encoded in bits[23:22]:bits[18:17]. Per qemu pmov_pv/
+            // pmov_vp, predicate bit e*esize maps to vector bit elements*idx+e
+            // (elements = 16/esize). The vp form zeroes Zd only when idx==0 (else
+            // it merges the selected plane).
+            0b000
+                if (insn >> 24) & 0xFF == 0b00000101
+                    && (insn >> 19) & 0x7 == 0b101
+                    && (insn >> 10) & 0x3F == 0b001110 =>
+            {
+                let sh = (insn >> 22) & 0x3;
+                let sl = (insn >> 17) & 0x3;
+                let (esz, idx): (usize, usize) = if sh == 0b00 && sl == 0b01 {
+                    (0, 0)
+                } else if sh == 0b00 && sl & 0b10 == 0b10 {
+                    (1, (sl & 1) as usize)
+                } else if sh == 0b01 {
+                    (2, sl as usize)
+                } else if sh & 0b10 == 0b10 {
+                    (3, ((((sh & 1) << 2) | sl) as usize))
+                } else {
+                    return Ok(CpuExit::Undefined(insn));
+                };
+                let esize = 1usize << esz;
+                let elements = 16 / esize;
+                if (insn >> 16) & 1 == 0 {
+                    // PMOV Pd.T, Zn[idx]: Zn -> Pd.
+                    let pd = (insn & 0xF) as usize;
+                    let z = self.v[((insn >> 5) & 0x1F) as usize];
+                    let mut p = 0u32;
+                    for e in 0..elements {
+                        let bit = (z >> (elements * idx + e)) & 1;
+                        p |= (bit as u32) << (e * esize);
+                    }
+                    self.sve_p[pd] = p;
+                } else {
+                    // PMOV Zd[idx], Pn.T: Pn -> Zd.
+                    let zd = (insn & 0x1F) as usize;
+                    let p = self.sve_p[((insn >> 5) & 0xF) as usize];
+                    let mut z = if idx == 0 { 0u128 } else { self.v[zd] };
+                    for e in 0..elements {
+                        let pos = elements * idx + e;
+                        let bit = ((p >> (e * esize)) & 1) as u128;
+                        z = (z & !(1u128 << pos)) | (bit << pos);
+                    }
+                    self.v[zd] = z;
+                }
+                Ok(CpuExit::Continue)
+            }
+
             // Unpredicated integer add/subtract (ADD/SUB/SQADD/UQADD/SQSUB/
             // UQSUB): bit21==1, bits[15:13]==000. Size is the full bits[23:22],
             // so this must NOT be gated on op1 (which folds size's high bit).
@@ -6513,6 +6565,50 @@ impl AArch64Cpu {
                         dst_esize,
                         narrow,
                     );
+                }
+                self.v[zd] = u128::from_le_bytes(dst);
+                Ok(CpuExit::Continue)
+            }
+
+            // SVE2.1 multi-vector saturating extract narrow SQCVTN/UQCVTN/
+            // SQCVTUN (.s pair -> .h): 0x45, bits[23:22]==00, bit21==1,
+            // bits[20:16]==10001, bits[15:13]==010. op=bits[12:10] (000 SQCVTN
+            // signed->signed, 010 UQCVTN unsigned->unsigned, 100 SQCVTUN
+            // signed->unsigned). Reads the register pair {Zn, Zn+1} and
+            // interleaves: Zd.h[2i]=sat(Zn.s[i]), Zd.h[2i+1]=sat(Zn+1.s[i]).
+            0b010
+                if (insn >> 24) & 0xFF == 0b01000101
+                    && (insn >> 22) & 0x3 == 0b00
+                    && (insn >> 21) & 1 == 1
+                    && (insn >> 16) & 0x1F == 0b10001
+                    && (insn >> 13) & 0x7 == 0b010 =>
+            {
+                let (signed_in, signed_out) = match (insn >> 10) & 0x7 {
+                    0b000 => (true, true),   // SQCVTN
+                    0b010 => (false, false), // UQCVTN
+                    0b100 => (true, false),  // SQCVTUN
+                    _ => return Ok(CpuExit::Undefined(insn)),
+                };
+                let zn = ((insn >> 5) & 0x1F) as usize;
+                let s0 = self.v[zn].to_le_bytes();
+                let s1 = self.v[(zn + 1) % 32].to_le_bytes();
+                let mut dst = [0u8; 16];
+                let narrow = |bytes: &[u8; 16], i: usize| -> u64 {
+                    let v = read_elem(bytes, i * 4, 4);
+                    let w = if signed_in {
+                        sext_elem(v, 32)
+                    } else {
+                        uext_elem(v, 32) as i128
+                    };
+                    if signed_out {
+                        sat_signed(w, 16)
+                    } else {
+                        sat_unsigned(w, 16)
+                    }
+                };
+                for i in 0..4 {
+                    write_elem(&mut dst, (2 * i) * 2, 2, narrow(&s0, i));
+                    write_elem(&mut dst, (2 * i + 1) * 2, 2, narrow(&s1, i));
                 }
                 self.v[zd] = u128::from_le_bytes(dst);
                 Ok(CpuExit::Continue)
