@@ -5952,6 +5952,81 @@ impl AArch64Cpu {
                 Ok(CpuExit::Continue)
             }
 
+            // SVE2.1 PEXT (extract a predicate from a predicate-as-counter):
+            // 0x25, bit21==1, bits[20:16]==00000, bits[15:12]==0111, bit4==1.
+            // PEXT_1 (bits[11:10]==00, imm=bits[9:8]) writes one predicate;
+            // PEXT_2 (bits[11:9]==010, imm=bit8) writes the pair {Pd, Pd+1}. The
+            // counter source is PN(8+bits[7:5]). Decodes the counter (qemu
+            // decode_counter/CounterToPredicate) into the `part`-th VL-sized chunk.
+            0b001
+                if (insn >> 24) & 0xFF == 0b00100101
+                    && (insn >> 21) & 1 == 1
+                    && (insn >> 16) & 0x1F == 0b00000
+                    && (insn >> 12) & 0xF == 0b0111
+                    && (insn >> 4) & 1 == 1 =>
+            {
+                let v_esz = ((insn >> 22) & 0x3) as usize;
+                let (n, imm) = if (insn >> 10) & 0x3 == 0b00 {
+                    (1usize, ((insn >> 8) & 0x3) as usize) // PEXT_1
+                } else if (insn >> 9) & 0x7 == 0b010 {
+                    (2usize, ((insn >> 8) & 1) as usize) // PEXT_2
+                } else {
+                    return Ok(CpuExit::Undefined(insn));
+                };
+                let png = self.sve_p[(8 + ((insn >> 5) & 0x7)) as usize] & 0xFFFF;
+                let rd_base = (insn & 0xF) as usize;
+                const VL_BYTES: usize = 16; // VL=128 -> 16-byte vector, 16-bit predicate
+                const PRED_MASKS: [u32; 5] = [0xFFFF, 0x5555, 0x1111, 0x0101, 0x0001];
+                // decode_counter (predicate-as-counter -> element count/invert/stride)
+                let (count, lg2_stride, invert) = if png & 0xF != 0 {
+                    let p_esz = png.trailing_zeros() as usize;
+                    let mut count = (png & ((VL_BYTES as u32) * 8 - 1)) as usize; // pow2ceil(16)<<3 -1 = 127
+                    count >>= p_esz + 1;
+                    let invert = (png >> 15) & 1 == 1;
+                    let mut stride = 0usize;
+                    if p_esz != v_esz {
+                        if p_esz < v_esz {
+                            let shift = v_esz - p_esz;
+                            let trunc = count >> shift;
+                            count = trunc + (count != (trunc << shift)) as usize;
+                        } else {
+                            let shift = p_esz - v_esz;
+                            count <<= shift;
+                            stride = shift;
+                        }
+                    }
+                    (count, stride, invert)
+                } else {
+                    (0, 0, false)
+                };
+                let esz_mask = PRED_MASKS[v_esz + lg2_stride];
+                let oprbits = VL_BYTES; // 16 predicate bit-positions at VL=128
+                for i in 0..n {
+                    let rd = (rd_base + i) % 16;
+                    let part = imm * n + i;
+                    let b_count = ((count << v_esz) as i64) - (VL_BYTES * part) as i64;
+                    let pd = if invert {
+                        if b_count <= 0 {
+                            esz_mask // whilel(all)
+                        } else if (b_count as usize) < oprbits {
+                            // whileg: last (oprbits - b_count) positions active
+                            let inv = b_count as usize;
+                            esz_mask & !((1u32 << inv) - 1) & ((1u32 << oprbits) - 1)
+                        } else {
+                            0
+                        }
+                    } else if b_count > 0 {
+                        // whilel: first min(b_count, oprbits) positions active
+                        let c = (b_count as usize).min(oprbits);
+                        esz_mask & ((1u32 << c) - 1)
+                    } else {
+                        0
+                    };
+                    self.sve_p[rd] = pd;
+                }
+                Ok(CpuExit::Continue)
+            }
+
             // Predicate operations (WHILE, PTRUE, etc.)
             0b001 => self.exec_sve_pred_ops(insn),
 
