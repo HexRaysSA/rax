@@ -6964,6 +6964,49 @@ impl AArch64Cpu {
                 self.exec_sve_dot(insn)
             }
 
+            // SVE2.1 two-way integer dot product SDOT/UDOT (.s <- .h): 0x44,
+            // bit21==0, bits[15:11]==11001 (bit10=U). Each .s lane accumulates two
+            // 16-bit products. bits[23:22]==00 is the vector form; ==10 is the
+            // indexed form (index=bits[20:19], Zm=bits[18:16]) broadcasting the
+            // index-th .h pair within the 128-bit segment.
+            0b010
+                if (insn >> 24) & 0xFF == 0b01000100
+                    && (insn >> 21) & 1 == 0
+                    && (insn >> 11) & 0x1F == 0b11001 =>
+            {
+                let signed = (insn >> 10) & 1 == 0;
+                let indexed = (insn >> 22) & 0x3 == 0b10;
+                let zd = (insn & 0x1F) as usize;
+                let zn = ((insn >> 5) & 0x1F) as usize;
+                let (zm, index) = if indexed {
+                    (((insn >> 16) & 0x7) as usize, ((insn >> 19) & 0x3) as usize)
+                } else {
+                    (((insn >> 16) & 0x1F) as usize, 0)
+                };
+                let n = self.v[zn].to_le_bytes();
+                let m = self.v[zm].to_le_bytes();
+                let a = self.v[zd].to_le_bytes();
+                let ext = |b: &[u8; 16], off: usize| -> i64 {
+                    if signed {
+                        sext_elem(read_elem(b, off, 2), 16) as i64
+                    } else {
+                        uext_elem(read_elem(b, off, 2), 16) as i64
+                    }
+                };
+                let mut dst = [0u8; 16];
+                for i in 0..4 {
+                    let mut acc = read_elem(&a, i * 4, 4) as u32 as i64;
+                    for k in 0..2 {
+                        let n_off = i * 4 + k * 2;
+                        let m_off = if indexed { (index * 2 + k) * 2 } else { n_off };
+                        acc = acc.wrapping_add(ext(&n, n_off) * ext(&m, m_off));
+                    }
+                    write_elem(&mut dst, i * 4, 4, acc as u32 as u64);
+                }
+                self.v[zd] = u128::from_le_bytes(dst);
+                Ok(CpuExit::Continue)
+            }
+
             // SVE2 predicated integer ALU (saturating/rounding shifts, halving
             // add/sub, saturating add/sub, SQABS/SQNEG): 0x44, bit21==0,
             // bits[15:13]==100, or bits[15:13]==101 with bits[21:19]==001. The
@@ -9605,6 +9648,137 @@ impl AArch64Cpu {
     }
 
     /// Execute SVE FP predicated operations.
+    /// FEAT_SVE_B16B16 bf16 data-processing. Returns `Some(result)` if `insn` is
+    /// a recognised bf16 op, else `None` (so the caller continues its normal
+    /// f16/f32/f64 dispatch). All forms are 8-bit-exponent bf16 with FPCR-default
+    /// (round-to-nearest, no flush, propagate-NaN) handling via `bf16_binop` /
+    /// `bf16_fma`. The bf16 ops occupy the size==00 encoding slots (and, for the
+    /// indexed forms, use bit22 as the high index bit).
+    fn try_exec_sve_bf16(&mut self, insn: u32) -> Option<Result<CpuExit, ArmError>> {
+        let top = (insn >> 24) & 0xFF;
+        let zd = (insn & 0x1F) as usize;
+        // ---- 0x65: unpredicated 3-same, predicated binary, predicated FMA ----
+        if top == 0b01100101 && (insn >> 22) & 0x3 == 0b00 {
+            let bit21 = (insn >> 21) & 1;
+            // Unpredicated BFADD/BFSUB/BFMUL: bit21==0, bits[15:12]==0000,
+            // opc=bits[11:10]. Zm=bits[20:16], Zn=bits[9:5].
+            if bit21 == 0 && (insn >> 12) & 0xF == 0b0000 {
+                let kind = match (insn >> 10) & 0x3 {
+                    0b00 => FpKind::Add,
+                    0b01 => FpKind::Sub,
+                    0b10 => FpKind::Mul,
+                    _ => return Some(Ok(CpuExit::Undefined(insn))),
+                };
+                let n = self.v[((insn >> 5) & 0x1F) as usize].to_le_bytes();
+                let m = self.v[((insn >> 16) & 0x1F) as usize].to_le_bytes();
+                let mut dst = [0u8; 16];
+                for e in 0..8 {
+                    let r = bf16_binop(kind, read_elem(&n, e * 2, 2) as u16, read_elem(&m, e * 2, 2) as u16);
+                    write_elem(&mut dst, e * 2, 2, r as u64);
+                }
+                self.v[zd] = u128::from_le_bytes(dst);
+                return Some(Ok(CpuExit::Continue));
+            }
+            // Predicated BFADD/.../BFMIN (merging): bit21==0, bits[15:13]==100,
+            // opc=bits[20:16]. Zdn=Zd, Zm=bits[9:5], Pg=bits[12:10].
+            if bit21 == 0 && (insn >> 13) & 0x7 == 0b100 {
+                let kind = match (insn >> 16) & 0x1F {
+                    0b00000 => FpKind::Add,
+                    0b00001 => FpKind::Sub,
+                    0b00010 => FpKind::Mul,
+                    0b00100 => FpKind::MaxNm,
+                    0b00101 => FpKind::MinNm,
+                    0b00110 => FpKind::Max,
+                    0b00111 => FpKind::Min,
+                    _ => return Some(Ok(CpuExit::Undefined(insn))),
+                };
+                let pred = self.sve_p[((insn >> 10) & 0x7) as usize];
+                let dn = self.v[zd].to_le_bytes();
+                let m = self.v[((insn >> 5) & 0x1F) as usize].to_le_bytes();
+                let mut dst = dn;
+                for e in 0..8 {
+                    if (pred >> (e * 2)) & 1 == 0 {
+                        continue;
+                    }
+                    let r = bf16_binop(kind, read_elem(&dn, e * 2, 2) as u16, read_elem(&m, e * 2, 2) as u16);
+                    write_elem(&mut dst, e * 2, 2, r as u64);
+                }
+                self.v[zd] = u128::from_le_bytes(dst);
+                return Some(Ok(CpuExit::Continue));
+            }
+            // Predicated BFMLA (bit13==0) / BFMLS (bit13==1) (merging): bit21==1,
+            // bits[15:14]==00. Zda=Zd, Zn=bits[9:5], Zm=bits[20:16], Pg=bits[12:10].
+            if bit21 == 1 && (insn >> 14) & 0x3 == 0b00 {
+                let sub = (insn >> 13) & 1 == 1;
+                let pred = self.sve_p[((insn >> 10) & 0x7) as usize];
+                let a = self.v[zd].to_le_bytes();
+                let n = self.v[((insn >> 5) & 0x1F) as usize].to_le_bytes();
+                let m = self.v[((insn >> 16) & 0x1F) as usize].to_le_bytes();
+                let mut dst = a;
+                for e in 0..8 {
+                    if (pred >> (e * 2)) & 1 == 0 {
+                        continue;
+                    }
+                    let r = bf16_fma(
+                        read_elem(&a, e * 2, 2) as u16,
+                        read_elem(&n, e * 2, 2) as u16,
+                        read_elem(&m, e * 2, 2) as u16,
+                        sub,
+                    );
+                    write_elem(&mut dst, e * 2, 2, r as u64);
+                }
+                self.v[zd] = u128::from_le_bytes(dst);
+                return Some(Ok(CpuExit::Continue));
+            }
+            return None;
+        }
+        // ---- 0x64: BFCLAMP and indexed BFMUL/BFMLA/BFMLS ----
+        if top == 0b01100100 && (insn >> 23) & 1 == 0 && (insn >> 21) & 1 == 1 {
+            let op6 = (insn >> 10) & 0x3F;
+            // BFCLAMP (size==00): Zd = bf16 minnum(maxnum(Zn, Zd), Zm).
+            if op6 == 0b001001 && (insn >> 22) & 0x3 == 0b00 {
+                let n = self.v[((insn >> 5) & 0x1F) as usize].to_le_bytes();
+                let m = self.v[((insn >> 16) & 0x1F) as usize].to_le_bytes();
+                let d = self.v[zd].to_le_bytes();
+                let mut dst = [0u8; 16];
+                for e in 0..8 {
+                    let lo = bf16_binop(FpKind::MaxNm, read_elem(&n, e * 2, 2) as u16, read_elem(&d, e * 2, 2) as u16);
+                    let r = bf16_binop(FpKind::MinNm, lo, read_elem(&m, e * 2, 2) as u16);
+                    write_elem(&mut dst, e * 2, 2, r as u64);
+                }
+                self.v[zd] = u128::from_le_bytes(dst);
+                return Some(Ok(CpuExit::Continue));
+            }
+            // Indexed BFMUL/BFMLA/BFMLS (.h): index=(bit22<<2)|bits[20:19],
+            // Zm=bits[18:16], Zn=bits[9:5]. The index-th bf16 of each 128-bit
+            // segment is the broadcast second factor (Zm.h[index] at VL=128).
+            let (mul, sub) = match op6 {
+                0b001010 => (true, false),  // BFMUL
+                0b000010 => (false, false), // BFMLA
+                0b000011 => (false, true),  // BFMLS
+                _ => return None,
+            };
+            let index = ((((insn >> 22) & 1) << 2) | ((insn >> 19) & 0x3)) as usize;
+            let n = self.v[((insn >> 5) & 0x1F) as usize].to_le_bytes();
+            let m = self.v[((insn >> 16) & 0x7) as usize].to_le_bytes();
+            let a = self.v[zd].to_le_bytes();
+            let mb = read_elem(&m, index * 2, 2) as u16; // Zm.h[index]
+            let mut dst = [0u8; 16];
+            for e in 0..8 {
+                let ne = read_elem(&n, e * 2, 2) as u16;
+                let r = if mul {
+                    bf16_binop(FpKind::Mul, ne, mb)
+                } else {
+                    bf16_fma(read_elem(&a, e * 2, 2) as u16, ne, mb, sub)
+                };
+                write_elem(&mut dst, e * 2, 2, r as u64);
+            }
+            self.v[zd] = u128::from_le_bytes(dst);
+            return Some(Ok(CpuExit::Continue));
+        }
+        None
+    }
+
     fn exec_sve_fp_pred(
         &mut self,
         insn: u32,
@@ -9614,6 +9788,14 @@ impl AArch64Cpu {
         pg: usize,
         esize: usize,
     ) -> Result<CpuExit, ArmError> {
+        // FEAT_SVE_B16B16 bf16 arithmetic (BFADD/BFSUB/BFMUL/BFMAX/BFMIN/
+        // BFMAXNM/BFMINNM, BFMLA/BFMLS, indexed BFMUL/BFMLA/BFMLS, BFCLAMP).
+        // These use the size==00 encoding slots, distinct from the f16/f32/f64
+        // ops handled below, so intercept them first.
+        if let Some(r) = self.try_exec_sve_bf16(insn) {
+            return r;
+        }
+
         // SVE BFDOT (bf16 dot product, round-to-odd): 0x64, bits[23:22]==01,
         // bit21==1, bits[15:10]==100000 (zzzz) or 010000 (zzxw indexed). Each
         // f32 lane sums two bf16 products; the indexed form broadcasts Zm's
@@ -9646,6 +9828,38 @@ impl AArch64Cpu {
                     (m >> (e * 32)) as u32
                 };
                 let res = sve_bfdot_lane((a >> (e * 32)) as u32, (n >> (e * 32)) as u32, m_pair);
+                r |= (res as u128) << (e * 32);
+            }
+            self.v[zd] = r;
+            return Ok(CpuExit::Continue);
+        }
+
+        // SVE2.1 FDOT (FP 2-way dot product, f16 -> f32): 0x64, bits[23:22]==00,
+        // bit21==1, bits[15:10]==100000 (zzzz) or 010000 (zzxz indexed). Each f32
+        // lane sums two f16 products (single-rounded) into the accumulator; the
+        // indexed form broadcasts Zm's 32-bit group at index=bits[20:19]
+        // (Zm=bits[18:16]).
+        if (insn >> 24) & 0xFF == 0b01100100
+            && (insn >> 22) & 0x3 == 0b00
+            && (insn >> 21) & 1 == 1
+            && matches!((insn >> 10) & 0x3F, 0b100000 | 0b010000)
+        {
+            let indexed = (insn >> 10) & 0x3F == 0b010000;
+            let n = self.v[zn];
+            let (m, a) = if indexed {
+                (self.v[((insn >> 16) & 0x7) as usize], self.v[zd])
+            } else {
+                (self.v[zm], self.v[zd])
+            };
+            let m_idx = if indexed {
+                (m >> (((insn >> 19) & 0x3) * 32)) as u32
+            } else {
+                0
+            };
+            let mut r = 0u128;
+            for e in 0..4 {
+                let m_pair = if indexed { m_idx } else { (m >> (e * 32)) as u32 };
+                let res = f16_dotadd((a >> (e * 32)) as u32, (n >> (e * 32)) as u32, m_pair);
                 r |= (res as u128) << (e * 32);
             }
             self.v[zd] = r;
@@ -16046,6 +16260,82 @@ fn f32_to_bf16(x: u32) -> u16 {
     let lsb = (x >> 16) & 1;
     let rounded = x.wrapping_add(0x7FFF + lsb);
     (rounded >> 16) as u16
+}
+
+/// FEAT_SVE_B16B16 bf16 binary op (BFADD/BFSUB/BFMUL/BFMAX/BFMIN/BFMAXNM/
+/// BFMINNM), ARM-correct at FPCR defaults. bf16 widens to f32 exactly (16-bit
+/// left shift). NaN/Inf operands and the MUL/MAX/MIN family resolve through the
+/// verified ARM f32 op then narrow round-to-nearest-even (a bf16 product is
+/// exact in f32, and MAX/MIN return an operand, so a single narrow is exact).
+/// Finite ADD/SUB accumulate the exact sum in f64 and narrow once (round-to-odd
+/// to f32 then RNE to bf16) to avoid the f32-then-bf16 double rounding.
+fn bf16_binop(kind: FpKind, a: u16, b: u16) -> u16 {
+    let af = (a as u32) << 16;
+    let bf = (b as u32) << 16;
+    let non_finite = |x: u32| x & 0x7F80_0000 == 0x7F80_0000;
+    if !matches!(kind, FpKind::Add | FpKind::Sub) || non_finite(af) || non_finite(bf) {
+        return f32_to_bf16(fp_three_same_f32(kind, af, bf, 0));
+    }
+    let x = f32::from_bits(af) as f64;
+    let y = f32::from_bits(bf) as f64;
+    let s = if matches!(kind, FpKind::Sub) { x - y } else { x + y };
+    f32_to_bf16(round_odd_f64_to_f32(s))
+}
+
+/// FEAT_SVE_B16B16 bf16 fused multiply-add (BFMLA: Zda+Zn*Zm, BFMLS: negate Zn
+/// first). Finite operands accumulate the exact product in f64 then narrow once
+/// (the bf16*bf16 product is exact in f64); NaN/Inf use the verified f32 fused
+/// multiply-add. The negate-input form matches the FPCR.AH=0 oracle behaviour.
+fn bf16_fma(a: u16, n: u16, m: u16, sub: bool) -> u16 {
+    let af = (a as u32) << 16;
+    let nf = ((n ^ if sub { 0x8000 } else { 0 }) as u32) << 16;
+    let mf = (m as u32) << 16;
+    let non_finite = |x: u32| x & 0x7F80_0000 == 0x7F80_0000;
+    if non_finite(af) || non_finite(nf) || non_finite(mf) {
+        return f32_to_bf16(fp_muladd_bits(af as u64, nf as u64, mf as u64, 32) as u32);
+    }
+    let p = (f32::from_bits(nf) as f64) * (f32::from_bits(mf) as f64);
+    let s = (f32::from_bits(af) as f64) + p;
+    f32_to_bf16(round_odd_f64_to_f32(s))
+}
+
+/// One lane of the FEAT_SVE2p1 FP 2-way dot product FDOT (f16 -> f32): the f32
+/// accumulator `sum` plus the two f16 products of the 32-bit groups e1, e2,
+/// computed with a single rounding (ARM FPDot) then a separate (non-fused) f32
+/// accumulate. Faithful port of qemu f16_dotadd: NaN inputs follow
+/// FPProcessNaNs4 (first signalling, else first quiet, widened+quieted); finite
+/// products are exact in f64, summed via a Knuth 2Sum and rounded once to f32
+/// (round-to-odd of the exact sum -> RNE-to-f32 is double-rounding-safe).
+fn f16_dotadd(sum: u32, e1: u32, e2: u32) -> u32 {
+    let lanes = [e1 as u16, (e1 >> 16) as u16, e2 as u16, (e2 >> 16) as u16];
+    let is_nan = |h: u16| (h & 0x7C00) == 0x7C00 && (h & 0x3FF) != 0;
+    let is_snan = |h: u16| is_nan(h) && (h & 0x0200) == 0; // f16 quiet bit = bit 9
+    let t32: u32 = if lanes.iter().any(|&h| is_nan(h)) {
+        let pick = lanes
+            .iter()
+            .copied()
+            .find(|&h| is_snan(h))
+            .or_else(|| lanes.iter().copied().find(|&h| is_nan(h)))
+            .unwrap();
+        AArch64Cpu::fp16_to_f32(pick).to_bits() | 0x0040_0000 // quieted
+    } else {
+        let f = |h: u16| fp16_to_f64(h);
+        let p1 = f(lanes[0]) * f(lanes[2]); // h1r*h2r (exact in f64)
+        let p2 = f(lanes[1]) * f(lanes[3]); // h1c*h2c (exact in f64)
+        // Knuth 2Sum: hi + lo == p1 + p2 exactly.
+        let hi = p1 + p2;
+        let v = hi - p1;
+        let lo = (p1 - (hi - v)) + (p2 - v);
+        // Round the exact sum once to f32: round-to-odd in f64 (force the
+        // mantissa odd when inexact) then RNE narrow is double-rounding-safe.
+        let s_odd = if lo != 0.0 {
+            f64::from_bits(hi.to_bits() | 1)
+        } else {
+            hi
+        };
+        (s_odd as f32).to_bits()
+    };
+    fp_three_same_f32(FpKind::Add, sum, t32, 0)
 }
 
 /// One round-to-odd f32 add step (`a + b` rounded once to f32, returned widened
