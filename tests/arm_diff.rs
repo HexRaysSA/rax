@@ -8989,3 +8989,143 @@ fn diff_fp_csel() {
     }
     run_family("fp_csel", cases, 8, 0x3002);
 }
+
+// ===========================================================================
+// Comprehensive SVE2 differential sweep. Runs an llvm-mc-generated encoding
+// table (tests/sve2_gen.rs, covering every SVE2/SVE2.1 data-processing mnemonic
+// across all element sizes and key variants) through the qemu-aarch64 oracle
+// with random + interesting (special-FP-laden) inputs, classifying each
+// mnemonic as decode-gap (hw runs, rax rejects), value-mismatch (rax computes a
+// wrong answer), fault-disagree, or OK. Asserts zero divergences.
+// ===========================================================================
+include!("sve2_gen.rs");
+
+#[test]
+fn diff_sve2_comprehensive_sweep() {
+    let oracle = match oracle_path() {
+        Some(p) => p,
+        None => {
+            eprintln!("[arm_diff] sve2_sweep_probe: toolchain unavailable -> skip");
+            return;
+        }
+    };
+    let mut rng = Rng::new(0x5e2_5eed_1234);
+    let n_inputs = 6usize;
+    let mut batch: Vec<(String, u32, ArmState)> = Vec::new();
+    for (label, insn) in SVE2_SWEEP {
+        for _ in 0..n_inputs {
+            let mut st = gen_input(&mut rng);
+            for r in 0..16 {
+                st.set_preg(r, rng.next() as u16);
+            }
+            for i in 0..32 {
+                st.scratch[i] = rng.next();
+            }
+            batch.push(((*label).to_string(), *insn, st));
+        }
+    }
+    let cases: Vec<(u32, u32, ArmState)> =
+        batch.iter().map(|(_, i, s)| (*i, NOP, *s)).collect();
+    let outs = run_oracle(&oracle, &cases).expect("oracle run failed");
+    assert_eq!(outs.len(), cases.len());
+
+    use std::collections::BTreeMap;
+    // per-label: (decode_gap, value_mismatch, fault_disagree, total)
+    let mut stats: BTreeMap<String, [usize; 4]> = BTreeMap::new();
+    let mut sample: BTreeMap<String, String> = BTreeMap::new();
+    for (i, (label, insn, st)) in batch.iter().enumerate() {
+        let out = &outs[i];
+        let e = stats.entry(label.clone()).or_insert([0; 4]);
+        e[3] += 1;
+        let rax = run_rax(*insn, st);
+        if out.trapped != 0 {
+            if rax.is_some() {
+                e[2] += 1;
+                sample.entry(label.clone()).or_insert_with(|| {
+                    format!("hw faulted sig{} but rax executed", out.trapped)
+                });
+            }
+            continue;
+        }
+        let rax = match rax {
+            Some(s) => s,
+            None => {
+                e[0] += 1;
+                sample
+                    .entry(label.clone())
+                    .or_insert_with(|| "rax rejected (undefined)".into());
+                continue;
+            }
+        };
+        // value compare (regs, nzcv, v, preds, scratch)
+        let mut diffs = Vec::new();
+        for r in 0..31 {
+            if rax.x[r] != out.st.x[r] {
+                diffs.push(format!("x{r}:rax={:#x} hw={:#x}", rax.x[r], out.st.x[r]));
+            }
+        }
+        if (rax.pstate >> 28) & 0xF != (out.st.pstate >> 28) & 0xF {
+            diffs.push(format!(
+                "nzcv:rax={:#x} hw={:#x}",
+                (rax.pstate >> 28) & 0xF,
+                (out.st.pstate >> 28) & 0xF
+            ));
+        }
+        for r in 0..32 {
+            if rax.vreg(r) != out.st.vreg(r) {
+                let (rl, rh) = rax.vreg(r);
+                let (hl, hh) = out.st.vreg(r);
+                diffs.push(format!("v{r}:rax={:#x}{:016x} hw={:#x}{:016x}", rh, rl, hh, hl));
+            }
+        }
+        for r in 0..16 {
+            if rax.preg(r) != out.st.preg(r) {
+                diffs.push(format!("p{r}:rax={:#x} hw={:#x}", rax.preg(r), out.st.preg(r)));
+            }
+        }
+        if !diffs.is_empty() {
+            e[1] += 1;
+            sample
+                .entry(label.clone())
+                .or_insert_with(|| diffs.join(" | "));
+        }
+    }
+
+    let mut gaps = Vec::new();
+    let mut vals = Vec::new();
+    let mut faults = Vec::new();
+    for (label, e) in &stats {
+        if e[0] > 0 {
+            gaps.push((label.clone(), e[0], e[3]));
+        }
+        if e[1] > 0 {
+            vals.push((label.clone(), e[1], e[3]));
+        }
+        if e[2] > 0 {
+            faults.push((label.clone(), e[2], e[3]));
+        }
+    }
+    eprintln!("\n==== SVE2 SWEEP PROBE: {} mnemonics, {} cases ====", stats.len(), batch.len());
+    eprintln!("\n-- DECODE GAPS (hw runs, rax rejects): {} --", gaps.len());
+    for (l, c, t) in &gaps {
+        eprintln!("  {c:3}/{t:<3} {l}    [{}]", sample.get(l).cloned().unwrap_or_default());
+    }
+    eprintln!("\n-- VALUE MISMATCHES (wrong answer): {} --", vals.len());
+    for (l, c, t) in &vals {
+        eprintln!("  {c:3}/{t:<3} {l}    [{}]", sample.get(l).cloned().unwrap_or_default());
+    }
+    eprintln!("\n-- FAULT DISAGREE (hw faults, rax runs): {} --", faults.len());
+    for (l, c, t) in &faults {
+        eprintln!("  {c:3}/{t:<3} {l}    [{}]", sample.get(l).cloned().unwrap_or_default());
+    }
+    eprintln!("\n==== END PROBE: {} gaps, {} value-mismatch, {} fault-disagree ====",
+        gaps.len(), vals.len(), faults.len());
+
+    let total = gaps.len() + vals.len() + faults.len();
+    assert_eq!(
+        total, 0,
+        "sve2 comprehensive sweep: {} mnemonics diverged from the oracle \
+         ({} decode-gaps, {} value-mismatches, {} fault-disagrees)",
+        total, gaps.len(), vals.len(), faults.len()
+    );
+}

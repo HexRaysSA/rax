@@ -5823,6 +5823,45 @@ impl AArch64Cpu {
                 Ok(CpuExit::Continue)
             }
 
+            // SVE2 integer add/subtract interleaved long (SADDLBT/SSUBLBT/
+            // SSUBLTB): 0x45, bit21==0, bits[15:12]==1000. Signed widening where
+            // the two narrow source halves come from DIFFERENT positions:
+            // bits[11:10]==00 SADDLBT (Zn bottom + Zm top), 10 SSUBLBT (Zn bottom
+            // - Zm top), 11 SSUBLTB (Zn top - Zm bottom); 01 unallocated. size=00
+            // reserved. Mirrors qemu's saddl/ssubl helper with sel={2,2,1}.
+            0b010
+                if (insn >> 24) & 0xFF == 0b01000101
+                    && (insn >> 21) & 1 == 0
+                    && (insn >> 12) & 0xF == 0b1000 =>
+            {
+                let size = (insn >> 22) & 0x3;
+                let op = (insn >> 10) & 0x3;
+                if size == 0 || op == 0b01 {
+                    return Ok(CpuExit::Undefined(insn));
+                }
+                let sub = op != 0b00;
+                // (seln, selm): which narrow half of Zn/Zm (0=bottom, 1=top).
+                let (seln, selm) = if op == 0b11 { (1usize, 0usize) } else { (0usize, 1usize) };
+                let d_esize = 1usize << size;
+                let s_esize = d_esize / 2;
+                let s_bits = (s_esize * 8) as u32;
+                let elements = 16 / d_esize;
+                let a = self.v[zn].to_le_bytes();
+                let b = self.v[zm].to_le_bytes();
+                let mut dst = [0u8; 16];
+                let mask = elem_mask((d_esize * 8) as u32);
+                for d in 0..elements {
+                    let n_off = (2 * d + seln) * s_esize;
+                    let m_off = (2 * d + selm) * s_esize;
+                    let vn = sext_elem(read_elem(&a, n_off, s_esize), s_bits);
+                    let vm = sext_elem(read_elem(&b, m_off, s_esize), s_bits);
+                    let r = if sub { vn - vm } else { vn + vm };
+                    write_elem(&mut dst, d * d_esize, d_esize, (r as u64) & mask);
+                }
+                self.v[zd] = u128::from_le_bytes(dst);
+                Ok(CpuExit::Continue)
+            }
+
             // SVE2 shift right and accumulate: 0x45, bit21==0, bits[15:12]==1110.
             // SSRA/USRA (R=bit11=0) and SRSRA/URSRA (R=1); U=bit10 signedness.
             // Same-size (tsz=tszh:tszl 4 bits); shift = 2*esize - tsz:imm3.
@@ -6850,22 +6889,29 @@ impl AArch64Cpu {
                 self.exec_sve2_mull_indexed(insn, zn, zd)
             }
 
-            // SVE2 CMLA by indexed element: 0x44, bit21==1, bits[15:12]==0110.
-            // rot=bits[11:10]; the indexed Zm complex pair (at 2*index) is
-            // broadcast. .h: index=bits[20:19], Zm=bits[18:16]; .s: index=bit20,
-            // Zm=bits[19:16]. Integer, non-saturating.
+            // SVE2 CMLA / SQRDCMLAH by indexed element: 0x44, bit21==1,
+            // bits[15:13]==011. bit12 picks SQRDCMLAH (saturating-rounding-
+            // doubling) over plain CMLA. rot=bits[11:10]; the indexed Zm complex
+            // pair (at 2*index) is broadcast. .h: index=bits[20:19],
+            // Zm=bits[18:16]; .s: index=bit20, Zm=bits[19:16]. For SQRDCMLAH the
+            // doubled-rounded high product is accumulated then saturated, exactly
+            // as the non-indexed SQRDCMLAH (qemu sve2_sqrdcmlah_idx).
             0b010
                 if (insn >> 24) & 0xFF == 0b01000100
                     && (insn >> 21) & 1 == 1
-                    && (insn >> 12) & 0xF == 0b0110 =>
+                    && (insn >> 13) & 0x7 == 0b011 =>
             {
                 let size = (insn >> 22) & 0x3;
                 if size < 2 {
                     return Ok(CpuExit::Undefined(insn));
                 }
+                let sat = (insn >> 12) & 1 == 1;
                 let esize = 1usize << (size - 1); // .h=2, .s=4
                 let bits = (esize * 8) as u32;
                 let mask = elem_mask(bits);
+                let hi = (1i128 << (bits - 1)) - 1;
+                let lo = -(1i128 << (bits - 1));
+                let sdrh = |prod: i128| (prod + (1i128 << (bits - 2))) >> (bits - 1);
                 let rot = (insn >> 10) & 0x3;
                 let sel_a = (rot & 1) as usize;
                 let sel_b = sel_a ^ 1;
@@ -6888,18 +6934,16 @@ impl AArch64Cpu {
                     let e1 = sext_elem(read_elem(&n, (re + sel_a) * esize, esize), bits);
                     let ar = sext_elem(read_elem(&a, re * esize, esize), bits);
                     let ai = sext_elem(read_elem(&a, im * esize, esize), bits);
-                    write_elem(
-                        &mut dst,
-                        re * esize,
-                        esize,
-                        (ar + e1 * e2a * sub_r) as u64 & mask,
-                    );
-                    write_elem(
-                        &mut dst,
-                        im * esize,
-                        esize,
-                        (ai + e1 * e2b * sub_i) as u64 & mask,
-                    );
+                    let (r_re, r_im) = if sat {
+                        (
+                            (ar + sdrh(e1 * e2a * sub_r)).clamp(lo, hi),
+                            (ai + sdrh(e1 * e2b * sub_i)).clamp(lo, hi),
+                        )
+                    } else {
+                        (ar + e1 * e2a * sub_r, ai + e1 * e2b * sub_i)
+                    };
+                    write_elem(&mut dst, re * esize, esize, r_re as u64 & mask);
+                    write_elem(&mut dst, im * esize, esize, r_im as u64 & mask);
                 }
                 self.v[zd] = u128::from_le_bytes(dst);
                 Ok(CpuExit::Continue)
@@ -9376,12 +9420,15 @@ impl AArch64Cpu {
             return Ok(CpuExit::Continue);
         }
 
-        // SVE2 FMLAL/FMLSL (f16) and BFMLALB/T (bf16) widening fused
+        // SVE2 FMLAL/FMLSL (f16) and BFMLALB/T, BFMLSLB/T (bf16) widening fused
         // multiply-add into f32: 0x64, bit21==1, bits[15:11]==10000 (add) or
         // 10100 (sub); bit10 picks the odd(T)/even(B) lane. bits[23:22] selects
-        // the source format: 10=f16, 11=bf16 (the bf16 subtract form BFMLSL
-        // needs SVE2p1 and is unallocated here). The widening is exact and the
-        // accumulate is a single fused muladd; the sub form negates Zn.
+        // the source format: 10=f16, 11=bf16 (the bf16 subtract form BFMLSL is
+        // FEAT_SVE2p1). The narrow inputs are widened to f32 (bf16 by a 16-bit
+        // left shift, f16 by the standard widening) and accumulated with a
+        // single ARM-correct fused multiply-add (`fp_muladd_bits` = float32_
+        // muladd, processing the addend NaN first); FMLSL/BFMLSL negate the Zn
+        // input (the FPCR.AH=0 form, matching the oracle).
         if (insn >> 24) & 0xFF == 0b01100100
             && (insn >> 21) & 1 == 1
             && matches!((insn >> 22) & 0x3, 0b10 | 0b11)
@@ -9389,18 +9436,15 @@ impl AArch64Cpu {
         {
             let bf = (insn >> 22) & 0x3 == 0b11;
             let sub = (insn >> 13) & 1 == 1;
-            if bf && sub {
-                return Ok(CpuExit::Undefined(insn)); // BFMLSL: needs SVE2p1
-            }
             let top = (insn >> 10) & 1 == 1;
             let n = self.v[zn].to_le_bytes();
             let m = self.v[zm].to_le_bytes();
             let acc = self.v[zd].to_le_bytes();
-            let widen = |b: u16| {
+            let widen = |b: u16| -> u32 {
                 if bf {
-                    f32::from_bits((b as u32) << 16)
+                    (b as u32) << 16
                 } else {
-                    Self::fp16_to_f32(b)
+                    Self::fp16_to_f32(b).to_bits()
                 }
             };
             let mut dst = acc;
@@ -9409,17 +9453,20 @@ impl AArch64Cpu {
                 let nbits = read_elem(&n, h_off, 2) as u16 ^ if sub { 0x8000 } else { 0 };
                 let nn = widen(nbits);
                 let mm = widen(read_elem(&m, h_off, 2) as u16);
-                let aa = f32::from_bits(read_elem(&acc, j * 4, 4) as u32);
-                write_elem(&mut dst, j * 4, 4, nn.mul_add(mm, aa).to_bits() as u64);
+                let aa = read_elem(&acc, j * 4, 4) as u32;
+                let r = fp_muladd_bits(aa as u64, nn as u64, mm as u64, 32) as u32;
+                write_elem(&mut dst, j * 4, 4, r as u64);
             }
             self.v[zd] = u128::from_le_bytes(dst);
             return Ok(CpuExit::Continue);
         }
 
-        // SVE2 FMLAL/FMLSL (f16) and BFMLALB/T (bf16) by indexed element: 0x64,
-        // bit21==1, bits[23:22]==10(f16)/11(bf16), bits[15:14]==01, bit12==0.
-        // sub=bit13, T=bit10, Zm=bits[18:16], index=(bits[20:19]<<1)|bit11. Like
-        // the non-indexed form but Zm.h[index] is the broadcast second factor.
+        // SVE2 FMLAL/FMLSL (f16) and BFMLALB/T, BFMLSLB/T (bf16) by indexed
+        // element: 0x64, bit21==1, bits[23:22]==10(f16)/11(bf16),
+        // bits[15:14]==01, bit12==0. sub=bit13, T=bit10, Zm=bits[18:16],
+        // index=(bits[20:19]<<1)|bit11. Like the non-indexed form but Zm.h[index]
+        // is the broadcast second factor; the FMA uses the ARM-correct
+        // float32_muladd (addend NaN processed first).
         if (insn >> 24) & 0xFF == 0b01100100
             && (insn >> 21) & 1 == 1
             && matches!((insn >> 22) & 0x3, 0b10 | 0b11)
@@ -9427,21 +9474,18 @@ impl AArch64Cpu {
             && (insn >> 12) & 1 == 0
         {
             let bf = (insn >> 22) & 0x3 == 0b11;
-            let sub = (insn >> 13) & 1 == 1; // FMLSL
-            if bf && sub {
-                return Ok(CpuExit::Undefined(insn)); // BFMLSL: needs SVE2p1
-            }
+            let sub = (insn >> 13) & 1 == 1; // FMLSL / BFMLSL
             let top = (insn >> 10) & 1 == 1; // odd half of Zn
             let index = ((((insn >> 19) & 0x3) << 1) | ((insn >> 11) & 1)) as usize;
             let zmr = ((insn >> 16) & 0x7) as usize;
             let n = self.v[zn].to_le_bytes();
             let m = self.v[zmr].to_le_bytes();
             let acc = self.v[zd].to_le_bytes();
-            let widen = |b: u16| {
+            let widen = |b: u16| -> u32 {
                 if bf {
-                    f32::from_bits((b as u32) << 16)
+                    (b as u32) << 16
                 } else {
-                    Self::fp16_to_f32(b)
+                    Self::fp16_to_f32(b).to_bits()
                 }
             };
             let mm = widen(read_elem(&m, index * 2, 2) as u16); // Zm.h[index]
@@ -9450,8 +9494,9 @@ impl AArch64Cpu {
                 let h_off = (2 * j + top as usize) * 2;
                 let nbits = read_elem(&n, h_off, 2) as u16 ^ if sub { 0x8000 } else { 0 };
                 let nn = widen(nbits);
-                let aa = f32::from_bits(read_elem(&acc, j * 4, 4) as u32);
-                write_elem(&mut dst, j * 4, 4, nn.mul_add(mm, aa).to_bits() as u64);
+                let aa = read_elem(&acc, j * 4, 4) as u32;
+                let r = fp_muladd_bits(aa as u64, nn as u64, mm as u64, 32) as u32;
+                write_elem(&mut dst, j * 4, 4, r as u64);
             }
             self.v[zd] = u128::from_le_bytes(dst);
             return Ok(CpuExit::Continue);
@@ -10153,15 +10198,18 @@ impl AArch64Cpu {
         if (insn >> 24) & 0xFF == 0b01100100 && (insn >> 18) & 0xF == 0b0010 {
             let opc = (insn >> 22) & 0x3;
             let opc2 = (insn >> 16) & 0x3;
-            let (src_sz, dst_sz, round_odd, narrow): (usize, usize, bool, bool) = match (opc, opc2)
-            {
-                (0b00, 0b10) => (8, 4, true, true),   // FCVTXNT d->s
-                (0b10, 0b00) => (4, 2, false, true),  // FCVTNT  s->h
-                (0b11, 0b10) => (8, 4, false, true),  // FCVTNT  d->s
-                (0b10, 0b01) => (2, 4, false, false), // FCVTLT h->s
-                (0b11, 0b11) => (4, 8, false, false), // FCVTLT s->d
-                _ => return Ok(CpuExit::Undefined(insn)),
-            };
+            // (src,dst,round_odd,narrow,bf): bf marks the bf16 destination
+            // (BFCVTNT), distinguished from FCVTNT s->h only by opc2 (10 vs 00).
+            let (src_sz, dst_sz, round_odd, narrow, bf): (usize, usize, bool, bool, bool) =
+                match (opc, opc2) {
+                    (0b00, 0b10) => (8, 4, true, true, false),   // FCVTXNT d->s
+                    (0b10, 0b00) => (4, 2, false, true, false),  // FCVTNT  s->h
+                    (0b10, 0b10) => (4, 2, false, true, true),   // BFCVTNT s->bf16
+                    (0b11, 0b10) => (8, 4, false, true, false),  // FCVTNT  d->s
+                    (0b10, 0b01) => (2, 4, false, false, false), // FCVTLT h->s
+                    (0b11, 0b11) => (4, 8, false, false, false), // FCVTLT s->d
+                    _ => return Ok(CpuExit::Undefined(insn)),
+                };
             let cont = src_sz.max(dst_sz);
             let elements = 16 / cont;
             let pred = self.sve_p[pg];
@@ -10174,6 +10222,7 @@ impl AArch64Cpu {
                 }
                 let convert = |x: u64| -> u64 {
                     match (src_sz, dst_sz, round_odd) {
+                        (4, 2, _) if bf => f32_to_bf16(x as u32) as u64,
                         (4, 2, _) => Self::f32_to_fp16(f32::from_bits(x as u32)) as u64,
                         (8, 4, false) => (f64::from_bits(x) as f32).to_bits() as u64,
                         (8, 4, true) => round_odd_f64_to_f32(f64::from_bits(x)) as u64,
@@ -15717,8 +15766,13 @@ fn bf_odd_add(a: f64, b: f64) -> f64 {
 /// that the f64 sum is exact).
 fn round_odd_f64_to_f32(x: f64) -> u32 {
     if x.is_nan() {
-        let s = ((x.to_bits() >> 63) as u32) << 31;
-        return s | 0x7FC0_0000;
+        // FPConvertNaN (FPCR.DN=0): preserve sign and the top 23 fraction bits,
+        // forcing the quiet bit (an sNaN is quieted, signalling InvalidOp which
+        // the oracle does not compare). FCVTX/FCVTXNT are NOT default-NaN ops.
+        let b = x.to_bits();
+        let sign = ((b >> 63) as u32) << 31;
+        let frac = ((b >> 29) as u32 & 0x7F_FFFF) | 0x40_0000;
+        return sign | 0x7F80_0000 | frac;
     }
     let sign = ((x.is_sign_negative()) as u32) << 31;
     let a = x.abs();
