@@ -40,8 +40,9 @@ cargo build --release
 # 3. ...and trace every instruction the kernel executes, SDE-compatible.
 ./target/release/rax --backend emulator --kernel vmlinux --trace boot.trace
 
-# 4. ...turn on the native JIT for hot loops (~80× on register-heavy code).
-cargo run --release --features smir-jit -- --backend emulator --kernel vmlinux
+# 4. The native JIT is on by default (it accelerates hot loops ~80×, bailing to the interpreter
+#    for anything it can't prove correct). Audit it live with RAX_JIT_VERIFY=1, or disable: RAX_NO_JIT=1.
+RAX_JIT_VERIFY=1 ./target/release/rax --backend emulator --kernel vmlinux --initrd initrd.cpio
 ```
 
 RISC-V and Hexagon are bootable emulator backends too (bare-metal programs, UART + halt):
@@ -108,9 +109,10 @@ $ RUSTFLAGS="-C target-cpu=native" cargo run --release --example bench_loop
 [bench] final eax=0x20000000 ecx=0x0
 ```
 
-Turn on `--features smir-jit` and that same loop is detected as hot, lifted to SMIR, lowered to native
+The native JIT is on by default: that same loop is detected as hot, lifted to SMIR, lowered to native
 x86-64, and run directly: **~11,000 MIPS, roughly 80×**, bit-identical to the interpreter (the JIT-tier
-vcpu test asserts register-for-register equality).
+vcpu test asserts register-for-register equality, and `RAX_JIT_VERIFY=1` re-checks every region against
+the interpreter at runtime).
 
 Boot a kernel under the emulator with `--trace`, and every retired instruction lands in an
 SDE-compatible trace file: instruction, register changes, and (when they happen) memory reads/writes
@@ -237,7 +239,7 @@ On top of the oracles, there are exhaustive unit suites:
 | **ARM (ASL-generated)** | 92,131 | generated from ARM's official machine-readable **ASL** spec via `tools/asl-parser/` |
 | **x86-64 instruction suite** | 28,554 | `tests/x86_64/` (850 files), behind `--features x86_64-suite` |
 | **Everything else** | ~1,500 | oracle + SMIR-lift harnesses, Hexagon bare-metal, RISC-V boot, crypto known-answer (FIPS/SDM) |
-| **Total** | **122,151** | `#[test]` functions across `tests/` |
+| **Total** | **122,168** | `#[test]` functions across `tests/` |
 
 The ARM tests are not written by hand: the `asl-parser` downloads and parses ARM's ASL release and emits
 exhaustive instruction tests from it, which is how 92,000+ ARM cases exist at all.
@@ -266,36 +268,40 @@ host machine code.
      (lazy flags)      (O0/O1/O2)       (emit · regalloc · W^X)
 ```
 
-The native JIT is real and integrated. Behind the `smir-jit` feature, the `X86_64Vcpu` run loop
-auto-detects hot loops (a back-edge counter promotes a region at a threshold of 64), lifts the region to
-SMIR, lowers it to native x86-64, caches the compiled block, and runs it through a W^X `mmap` trampoline.
-On the bench loop the lowered body is one native instruction per guest instruction: **~80× the
-interpreter (~11,000 MIPS)**, bit-identical to interpreting it.
+The native JIT is real, integrated, and **on by default**. The `X86_64Vcpu` run loop auto-detects hot
+loops (a back-edge counter promotes a region at a threshold of 64), lifts the region to SMIR, runs the
+O2 optimizer over it, lowers it to native x86-64, caches the compiled block, and runs it through a W^X
+`mmap` trampoline. On the bench loop the lowered body is one native instruction per guest instruction:
+**~80× the interpreter (~11,000 MIPS)**, bit-identical to interpreting it. It boots Linux to userspace,
+and `RAX_JIT_VERIFY=1` proves it by re-running every region on the interpreter and diffing.
 
-What makes that safe to ship is a **fail-safe whitelist**: only register-only operations that have been
-proven equal to KVM (ALU, shifts, multiply, mov/extend, LEA, BSF/BSR, setcc/cmov, branches) are JIT-eligible. Anything
-touching memory, division (the RDX:RAX double-width model isn't lowered yet), FP/SIMD, or an unknown op
-makes the region **bail back to the interpreter**: it never executes natively unless it is known
-correct. Self-modifying code invalidates compiled blocks via the MMU's dirty-page journal, and a
-frontier-less spin loop is refused so native code can't trap the vcpu.
+What makes that safe to ship is a **fail-safe gate**: a region compiles only from operations proven
+equal to KVM, and anything else makes it **bail back to the interpreter**, so native code never runs
+unless it is known correct. The gate now covers the integer core (ALU, shifts, multiply, mov/extend,
+LEA, BSF/BSR, setcc/cmov, branches) *and* memory: loads and stores lower to MMU helper calls that bail
+cleanly on a page fault or a write to a code page. What still bails is RSP/RBP-relative frames,
+locked/RMW and FP/SIMD ops, segment-relative accesses, and the double-width DIV the IR can't yet model.
+Self-modifying code evicts compiled blocks via the MMU's dirty-page journal, and a frontier-less spin
+loop is refused so native code can't trap the vcpu.
 
 | Piece | Where | State |
 |-------|-------|-------|
 | **Lifters** | `lift/` | x86-64, AArch64, RISC-V, AVX10, and a lift-complete Hexagon (every opcode, scalar + 100% HVX, verified) |
 | **Interpreter** | `interp.rs` | direct execution; lazy flags, block caching |
-| **Optimizer** | `opt.rs` | dead-flag elimination, constant propagation, strength reduction |
+| **Optimizer** | `opt.rs` | frontier-aware liveness; dead-flag and dead-code elimination, copy propagation, constant + branch folding (O2) |
 | **JIT lowering** | `lower/x86_64.rs`, `lower/regalloc.rs`, `lower/runtime.rs` | x86-64 emitter, 1:1 register map, W^X exec runtime + trampoline |
-| **JIT integration** | `backend/.../x86_64/cpu.rs` (`smir-jit`) | hot-loop detection, region cache, safety gate, SMC invalidation |
+| **JIT integration** | `backend/.../x86_64/cpu.rs` (on by default) | hot-loop detection, region cache, memory via MMU helpers, safety gate, SMC eviction |
 
 > **Good to know** The JIT accelerates without changing behaviour: a kernel boots identically with it on
-> or off, because every region it can't prove correct degrades gracefully to the interpreter. What
-> remains for a *general* JIT is memory-operand blocks (guest RAM mapped at host addresses), the
-> double-width DIV model, and native block-to-block chaining.
+> or off, because every region it can't prove correct degrades gracefully to the interpreter, and
+> `RAX_JIT_VERIFY=1` audits that equivalence live. What remains is the double-width DIV model and native
+> block-to-block chaining.
 
 > **Good to know** The lifters are checked too, not just the JIT's native output. `tests/riscv_smir_lift.rs`
 > and `tests/hexagon_smir_lift.rs` lift each instruction to SMIR, interpret it, and diff against that
-> architecture's own qemu-verified interpreter: RISC-V lifts the integer RV64GC set at zero divergence over
-> ~150k instructions, and Hexagon lifts its entire ISA, every composable scalar op and all of HVX, across 305 verified families.
+> architecture's own qemu-verified interpreter: RISC-V lifts its entire scalar RV64GC set (FP and the Zb*/Zk*
+> bit-manip and crypto extensions included) at zero divergence over ~150k instructions, and Hexagon lifts its
+> entire ISA, every composable scalar op and all of HVX, across 305 verified families.
 
 ---
 
@@ -333,7 +339,7 @@ loop {
 | **Decode cache** | 4096 entries indexed by RIP, keyed on a mode tag (`CR3 \| CS.L \| CS.D`). A hit reuses the cached bytes and **skips the guest-memory fetch entirely**. Kept coherent by SMC detection on guest writes. |
 | **Lazy flags** | Arithmetic records its operands and defers RFLAGS materialization until a consumer (a `Jcc`, a `PUSHF`) reads them. Most computed flags are never needed. |
 | **Fast paths** | A direct host-pointer path for physical RAM, a fast path for common ModR/M memory operands, and page-at-a-time `REP MOVS`/`STOS`. |
-| **Hot-block JIT** | With `--features smir-jit`, hot loops promote to native code (see above). |
+| **Hot-block JIT** | On by default: hot loops (and their memory ops) promote to native code (see above); `RAX_NO_JIT=1` disables it. |
 | **TLB** | 256-entry direct-mapped cache over the 4-level page walk (4 KiB / 2 MiB / 1 GiB pages). |
 
 The interpreter sustains around **145 MIPS** on the register loop; the JIT tier lifts that to ~11,000 on
@@ -417,8 +423,8 @@ cargo build --release
 # Cross-platform: software emulator only, no KVM.
 cargo build --release --no-default-features
 
-# With the native hot-block JIT (x86-64 host).
-cargo build --release --features smir-jit
+# The native JIT ships on by default (disable at runtime with RAX_NO_JIT=1).
+# Build without it: cargo build --release --no-default-features --features kvm
 
 # Fastest local interpreter (uses your host's full ISA).
 RUSTFLAGS="-C target-cpu=native" cargo build --release
@@ -431,7 +437,7 @@ RUSTFLAGS="-C target-cpu=native" cargo build --release
 | Feature | Default | Enables |
 |---------|---------|---------|
 | `kvm` | ✓ (Linux) | KVM backend (`kvm-bindings` / `kvm-ioctls`) |
-| `smir-jit` | | SMIR native hot-block JIT tier (x86-64 host; brings in the W^X exec runtime) |
+| `smir-jit` | ✓ | SMIR native hot-block JIT (x86-64 host; on by default, `RAX_NO_JIT=1` disables at runtime) |
 | `trace` | | SDE-compatible instruction tracing |
 | `debug` | | GDB Remote Serial Protocol server |
 | `profiling` | | per-mnemonic profiler + JSON export |
@@ -493,7 +499,7 @@ docs/specifications/# smir/ (the IR spec) · riscv/ (vendored RISC-V specs) · a
 | **Hexagon** | **Every opcode** (scalar + HVX) verified vs. qemu-hexagon; bootable bare-metal backend |
 | **RISC-V** | Full RVA23 scalar set + crypto; bootable `--arch riscv64` backend; verified vs. qemu-riscv64 |
 | **AArch64 / ARM** | Complete SVE + broad SVE2 + NEON + Cortex-M; ~92k ASL tests; not yet a runnable backend |
-| **SMIR** | JIT integrated, auto-triggered, fail-safe (register-only hot loops native, bit-exact vs. KVM); lifters verified for x86-64 / RISC-V; Hexagon lift-complete |
+| **SMIR** | JIT on by default, auto-triggered, fail-safe (integer + memory hot regions native, bit-exact vs. KVM); RISC-V and Hexagon lifts complete |
 | **Platform** | Legacy PC devices wired; PCI host bridge + `--pci-devices` (e1000 `eth0`, AHCI/NVMe/UHCI/AC97); interactive console + full `.rxc` machine checkpoint/resume |
 
 ### What's missing
@@ -501,8 +507,8 @@ docs/specifications/# smir/ (the IR spec) · riscv/ (vendored RISC-V specs) · a
 A production hypervisor this is not, by design. Only x86-64 boots a general-purpose OS, and the ARM
 core, though the most thoroughly tested, is validated only through its oracle and isn't a runnable
 backend yet. There is no SMP (one vCPU executes), VGA isn't wired (serial console only), and PCI
-interrupts run in polled mode. The JIT covers register-only hot loops; memory-operand blocks,
-double-width DIV, and native block chaining are future work. RISC-V lacks the RVV vector data path and
+interrupts run in polled mode. The JIT now compiles integer and memory hot regions; the double-width DIV and native block
+chaining are still future work. RISC-V lacks the RVV vector data path and
 a privileged/Sv39 MMU. The **software** Linux boot reaches a BusyBox shell on a mitigations-off ELF
 kernel; wider configurations (CFI/FineIBT, bzImage real-mode entry) are still being worked through, and
 the KVM path boots cleanly throughout.
