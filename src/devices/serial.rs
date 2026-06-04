@@ -392,11 +392,8 @@ impl Serial16550 {
             }
         }
 
-        // Check RDA (Received Data Available) or Timeout
+        // Check RDA (Received Data Available) or Character Timeout.
         if (self.ier & IER_RDA) != 0 {
-            if self.timeout_active && !self.rx_fifo.is_empty() {
-                return Some(IIR_CTI);
-            }
             let trigger_met = if self.fifo_enabled {
                 self.rx_fifo.len() >= self.rx_trigger
             } else {
@@ -404,6 +401,21 @@ impl Serial16550 {
             };
             if trigger_met {
                 return Some(IIR_RDA);
+            }
+            // Receiver character-timeout (IIR_CTI). A real 16550 raises this when
+            // the RX FIFO holds data BELOW the programmed trigger level and the
+            // line then goes idle (~4 character-times with no new byte). We have
+            // no per-character bit clock, and host input arrives in discrete
+            // poll() bursts after which the line is immediately idle — so any
+            // non-empty, sub-trigger FIFO is treated as timed-out. WITHOUT this,
+            // a single typed keystroke (1 byte, vs the Linux 8250 driver's
+            // 14-byte trigger from FCR=0xC7) never raises IRQ 4: the byte sits in
+            // the FIFO (LSR.DR set) but the HLT-idle, interrupt-driven guest is
+            // never woken to read it, so the interactive console silently
+            // swallows all typed input. (This replaces the never-set
+            // `timeout_active` stub that left IIR_CTI permanently dead.)
+            if self.fifo_enabled && !self.rx_fifo.is_empty() {
+                return Some(IIR_CTI);
             }
         }
 
@@ -1151,6 +1163,43 @@ mod tests {
         assert_eq!(serial.divisor(), 0x0001);
         assert!(serial.fifo_enabled);
         assert_eq!(serial.rx_trigger, 14);
+    }
+
+    /// A single sub-trigger RX byte must still raise an interrupt (via the
+    /// receiver character-timeout, IIR_CTI). The Linux 8250 driver programs a
+    /// 14-byte RX trigger (FCR=0xC7); a lone keystroke is 1 byte (< 14), so
+    /// without the timeout fallback it never raises IRQ 4 and the HLT-idle,
+    /// interrupt-driven guest never reads it — the interactive console silently
+    /// swallows all typed input. This guards the fix.
+    #[test]
+    fn serial_single_byte_below_trigger_interrupts() {
+        let mut serial = Serial16550::new(BASE);
+        // Kernel-typical init: 14-byte trigger, OUT2 set, interrupts enabled.
+        IoDevice::write(&mut serial, IER, 0x00);
+        IoDevice::write(&mut serial, LCR, LCR_DLAB);
+        IoDevice::write(&mut serial, DLL, 0x01);
+        IoDevice::write(&mut serial, DLM, 0x00);
+        IoDevice::write(&mut serial, LCR, 0x03);
+        IoDevice::write(&mut serial, FCR, 0xC7);
+        IoDevice::write(&mut serial, MCR, 0x0B);
+        IoDevice::write(&mut serial, IER, 0x03);
+        assert_eq!(serial.rx_trigger, 14);
+
+        // Idle shell waiting on a keystroke: RX interrupt armed, TX idle.
+        IoDevice::write(&mut serial, IER, IER_RDA);
+        serial.thre_interrupt = false;
+        assert!(!serial.has_pending_interrupt(), "no data yet → no interrupt");
+
+        // One typed byte (1 < 14-byte trigger) MUST still interrupt.
+        serial.queue_input(b"x");
+        assert!(
+            serial.has_pending_interrupt(),
+            "a sub-trigger RX byte must raise IRQ via the character-timeout (IIR_CTI)"
+        );
+
+        // And it is delivered as IIR_CTI (character timeout), not IIR_RDA.
+        let iir = IoDevice::read(&mut serial, IIR);
+        assert_eq!(iir & 0x0F, IIR_CTI, "sub-trigger RX → IIR_CTI");
     }
 
     // ============================================================================
