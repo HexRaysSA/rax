@@ -1077,38 +1077,67 @@ impl X86_64Vcpu {
                 }
             }
             2 => {
-                // Equal each - compare corresponding chars
+                // Equal each - compare corresponding elements, applying the
+                // Intel SDM "valid/invalid override" (Vol. 2B, PCMPxSTRx):
+                //   both elements valid    -> a[i] == b[i]
+                //   exactly one invalid    -> 0 (force false)
+                //   both invalid           -> 1 (force true)
+                // The both-invalid -> 1 rule is essential: it is exactly what
+                // makes the strlen/terminator idiom `pcmpistri $0x3a,xmm,xmm`
+                // (self-compare, EQUAL_EACH + masked-negative polarity) report
+                // the NUL position as the result index. The previous code broke
+                // out of the loop at min(valid1,valid2) and left the post-NUL
+                // bits 0, so that idiom returned `num_elements` (no terminator)
+                // and callers like glibc __strcspn_sse42 walked off the string.
                 for i in 0..num_elements as usize {
-                    if i >= valid1 as usize || i >= valid2 as usize {
-                        break;
-                    }
-                    let s1 = get_elem(dst_lo, dst_hi, i);
-                    let s2 = get_elem(src_lo, src_hi, i);
-                    if s1 == s2 {
-                        int_res1 |= 1 << i;
-                    }
+                    let v1 = i < valid1 as usize;
+                    let v2 = i < valid2 as usize;
+                    let bit = if v1 && v2 {
+                        let s1 = get_elem(dst_lo, dst_hi, i);
+                        let s2 = get_elem(src_lo, src_hi, i);
+                        (s1 == s2) as u16
+                    } else if !v1 && !v2 {
+                        1
+                    } else {
+                        0
+                    };
+                    int_res1 |= bit << i;
                 }
             }
             3 => {
-                // Equal ordered - substring search
-                for j in 0..num_elements as usize {
-                    if j >= valid2 as usize {
-                        break;
-                    }
-                    let mut match_all = true;
-                    for i in 0..valid1 as usize {
-                        if j + i >= valid2 as usize {
-                            match_all = false;
+                // Equal ordered - substring search: is operand1 (the needle)
+                // found in operand2 (the haystack) starting at position j? Per
+                // the Intel SDM, IntRes1[j] is computed for ALL j in 0..n (so an
+                // empty needle matches at every position) as the AND over needle
+                // indices i of an overridden per-element boolean:
+                //   i+j beyond the vector (>= n)   -> 1 (no constraint: a partial
+                //                                    match running off the end of
+                //                                    the window still counts — the
+                //                                    caller, e.g. strstr, rechecks)
+                //   needle exhausted (i >= valid1) -> 1
+                //   haystack past its NUL          -> 0  (i+j >= valid2, in-vector)
+                //   both valid                     -> needle[i] == haystack[i+j]
+                // The previous code broke at j>=valid2 (dropping the empty-needle
+                // case and the high bits that matter once polarity negates them)
+                // and conflated "beyond the vector" with "past the NUL", so it
+                // returned no-match where hardware reports a tail-partial match.
+                let nn = num_elements as usize;
+                let v1 = valid1 as usize;
+                let v2 = valid2 as usize;
+                for j in 0..nn {
+                    let mut matched = true;
+                    for i in 0..nn {
+                        if i + j >= nn || i >= v1 {
+                            break; // remaining terms are forced to 1 (match)
+                        }
+                        if i + j >= v2
+                            || get_elem(dst_lo, dst_hi, i) != get_elem(src_lo, src_hi, i + j)
+                        {
+                            matched = false;
                             break;
                         }
-                        let s1 = get_elem(dst_lo, dst_hi, i);
-                        let s2 = get_elem(src_lo, src_hi, j + i);
-                        if s1 != s2 {
-                            match_all = false;
-                            break;
-                        }
                     }
-                    if match_all {
+                    if matched {
                         int_res1 |= 1 << j;
                     }
                 }

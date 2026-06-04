@@ -1983,6 +1983,164 @@ fn fuzz_sse2() {
 }
 
 // ===========================================================================
+// GENERATOR: PCMPISTRI (SSE4.2 implicit-length string compare, index -> ECX)
+// ===========================================================================
+//
+// PCMPISTRI underlies glibc's __strcspn_sse42 / strlen / strchr. Its subtle
+// part is the Intel-SDM "valid/invalid element override" for elements past each
+// operand's NUL terminator — in particular EQUAL_EACH's both-invalid -> 1 rule,
+// which the strlen idiom `pcmpistri $0x3a,xmm,xmm` (self-compare + masked-
+// negative polarity) relies on to return the terminator index. A missing
+// override there made `__strcspn_sse42` report no terminator, so busybox walked
+// off the end of a PATH component ("/sbin\0") and read an unmapped page —
+// segfaulting PID 1 and panicking the guest kernel. This validates ECX plus
+// CF/ZF/SF/OF against KVM across every aggregation/polarity/size/index combo,
+// with operands biased to carry NUL terminators at varied offsets.
+#[test]
+fn fuzz_pcmpistri() {
+    const CASES: usize = 900;
+    let mut h = Harness::new(0x9C3F_1571_0FF5_E700);
+
+    // imm8 layout: [0]=word, [1]=signed, [3:2]=aggregation, [5:4]=polarity,
+    // [6]=index MSB. Curated to the meaningful combos; bit 7 is reserved (0).
+    let imm_pool: &[u8] = &[
+        0x02, 0x0a, 0x12, 0x1a, // EQUAL_ANY    × {pos, neg, mask-pos, mask-neg}
+        0x06, 0x0e, 0x16, 0x1e, // RANGES       × {…}
+        0x08, 0x18, 0x38, 0x3a, // EQUAL_EACH   (0x3a = the strlen idiom)
+        0x0c, 0x1c, 0x3c, 0x5c, // EQUAL_ORDERED (+ MSB index 0x5c)
+        0x42, 0x4a, 0x48,       // index-MSB variants
+        0x01, 0x05, 0x39, 0x1b, // word-size variants
+    ];
+
+    for _ in 0..CASES {
+        // Small alphabet so matches/repeats are common; then plant NUL
+        // terminators at varied offsets (17 => effectively unterminated).
+        let mut a = [0u8; 16];
+        let mut b = [0u8; 16];
+        for i in 0..16 {
+            a[i] = (h.rng.next_u32() % 5) as u8;
+            b[i] = (h.rng.next_u32() % 5) as u8;
+        }
+        let ta = h.rng.below(18) as usize;
+        let tb = h.rng.below(18) as usize;
+        for i in ta.min(16)..16 {
+            a[i] = 0;
+        }
+        for i in tb.min(16)..16 {
+            b[i] = 0;
+        }
+        let imm = if h.rng.below(4) == 0 {
+            (h.rng.next_u32() & 0x7F) as u8
+        } else {
+            *h.rng.pick(imm_pool)
+        };
+
+        // mov rdi, DATA_ADDR; movdqu xmm0,[rdi]; movdqu xmm1,[rdi+0x10];
+        // pcmpistri xmm1, xmm0, imm8 (reg=xmm1, rm=xmm0 -> modrm 0xC8); hlt
+        let mut code = Vec::new();
+        code.extend_from_slice(&[0x48, 0xC7, 0xC7]);
+        code.extend_from_slice(&(DATA_ADDR as u32).to_le_bytes());
+        code.extend_from_slice(&[0xF3, 0x0F, 0x6F, 0x07]);
+        code.extend_from_slice(&[0xF3, 0x0F, 0x6F, 0x4F, 0x10]);
+        code.extend_from_slice(&[0x66, 0x0F, 0x3A, 0x63, 0xC8, imm]);
+        code.push(HLT);
+
+        let mut scratch = [0u8; 64];
+        scratch[0..16].copy_from_slice(&a);
+        scratch[16..32].copy_from_slice(&b);
+
+        // RCX seeded with a sentinel so a "never-wrote-ECX" bug diverges; ECX is
+        // zero-extended to RCX by the instruction.
+        let mut init = Registers::default();
+        init.rcx = 0xFFFF_FFFF_FFFF_FFFF;
+
+        let inputs = format!("pcmpistri imm={imm:#04x} ; xmm0={a:02x?} xmm1={b:02x?}");
+        // Compare RCX (the index result) + the status flags PCMPISTRI defines.
+        let opts = CompareOpts {
+            flag_mask: FLAG_MASK,
+            scratch: false,
+            ..CompareOpts::default()
+        };
+        if !h.run_case("pcmpistri", &code, init, scratch, opts, inputs, &[]) {
+            break;
+        }
+    }
+    h.finish("pcmpistri");
+}
+
+// ===========================================================================
+// GENERATOR: PCMPISTRM (SSE4.2 implicit-length string compare, mask -> XMM0)
+// ===========================================================================
+//
+// The mask-returning sibling of PCMPISTRI: it shares the IntRes1/IntRes2 core
+// (same aggregation + invalid-element overrides + polarity) but writes a mask to
+// XMM0 instead of an index to ECX — either a bit mask (imm8[6]=0) or an expanded
+// byte/word mask (imm8[6]=1). Validates the mask + expand output path against KVM.
+#[test]
+fn fuzz_pcmpistrm() {
+    const CASES: usize = 700;
+    let mut h = Harness::new(0x5A5B_1571_0FF5_E700);
+
+    let imm_pool: &[u8] = &[
+        0x02, 0x0a, 0x12, 0x1a, 0x42, 0x4a, // EQUAL_ANY (bit + expanded masks)
+        0x06, 0x0e, 0x46, 0x4e, // RANGES
+        0x08, 0x18, 0x38, 0x48, // EQUAL_EACH
+        0x0c, 0x1c, 0x3c, 0x4c, 0x5c, // EQUAL_ORDERED
+        0x01, 0x05, 0x43, 0x19, // word-size variants
+    ];
+
+    for _ in 0..CASES {
+        let mut a = [0u8; 16];
+        let mut b = [0u8; 16];
+        for i in 0..16 {
+            a[i] = (h.rng.next_u32() % 5) as u8;
+            b[i] = (h.rng.next_u32() % 5) as u8;
+        }
+        let ta = h.rng.below(18) as usize;
+        let tb = h.rng.below(18) as usize;
+        for i in ta.min(16)..16 {
+            a[i] = 0;
+        }
+        for i in tb.min(16)..16 {
+            b[i] = 0;
+        }
+        let imm = if h.rng.below(4) == 0 {
+            (h.rng.next_u32() & 0x7F) as u8
+        } else {
+            *h.rng.pick(imm_pool)
+        };
+
+        // mov rdi, DATA_ADDR; movdqu xmm1,[rdi]; movdqu xmm2,[rdi+0x10];
+        // pcmpistrm xmm1, xmm2, imm8 (reg=xmm1, rm=xmm2 -> modrm 0xCA); hlt.
+        // Result mask -> XMM0.
+        let mut code = Vec::new();
+        code.extend_from_slice(&[0x48, 0xC7, 0xC7]);
+        code.extend_from_slice(&(DATA_ADDR as u32).to_le_bytes());
+        code.extend_from_slice(&[0xF3, 0x0F, 0x6F, 0x0F]); // movdqu xmm1,[rdi]
+        code.extend_from_slice(&[0xF3, 0x0F, 0x6F, 0x57, 0x10]); // movdqu xmm2,[rdi+0x10]
+        code.extend_from_slice(&[0x66, 0x0F, 0x3A, 0x62, 0xCA, imm]);
+        code.push(HLT);
+
+        let mut scratch = [0u8; 64];
+        scratch[0..16].copy_from_slice(&a);
+        scratch[16..32].copy_from_slice(&b);
+
+        let inputs = format!("pcmpistrm imm={imm:#04x} ; xmm1={a:02x?} xmm2={b:02x?}");
+        // Compare XMM0 (the mask result) + the status flags.
+        let opts = CompareOpts {
+            flag_mask: FLAG_MASK,
+            xmm_count: 1,
+            scratch: false,
+            ..CompareOpts::default()
+        };
+        if !h.run_case("pcmpistrm", &code, Registers::default(), scratch, opts, inputs, &[]) {
+            break;
+        }
+    }
+    h.finish("pcmpistrm");
+}
+
+// ===========================================================================
 // GENERATOR: SSE2 shifts by immediate (PSLLW/PSRLW/PSRAW/PSLLD.../PSLLQ/PSRLQ)
 // ===========================================================================
 //
