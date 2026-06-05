@@ -3870,7 +3870,9 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
     }
 
     fn exec_vmul(&mut self, insn: &DecodedInsn) -> ExecResult {
-        if Self::is_neon_fp_multiply_shape(insn.raw) {
+        if Self::is_neon_fp_multiply_shape(insn.raw)
+            || Self::is_neon_fp_multiply_scalar_shape(insn.raw)
+        {
             return self.exec_neon_fp_multiply(insn);
         }
         if Self::is_neon_polynomial_multiply_shape(insn.raw) {
@@ -3886,7 +3888,10 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
     }
 
     fn exec_vmla_vmls(&mut self, insn: &DecodedInsn) -> ExecResult {
-        if Self::is_neon_fp_multiply_shape(insn.raw) || Self::is_neon_fp_fma_shape(insn.raw) {
+        if Self::is_neon_fp_multiply_shape(insn.raw)
+            || Self::is_neon_fp_multiply_scalar_shape(insn.raw)
+            || Self::is_neon_fp_fma_shape(insn.raw)
+        {
             return self.exec_neon_fp_multiply(insn);
         }
         if Self::is_neon_integer_multiply_shape(insn.raw)
@@ -3925,6 +3930,15 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
             (((raw >> 24) & 1) != 0, ((raw >> 21) & 1) != 0),
             (true, false) | (false, false) | (false, true)
         )
+    }
+
+    fn is_neon_fp_multiply_scalar_shape(raw: u32) -> bool {
+        (raw >> 25) == 0b1111001
+            && ((raw >> 23) & 1) == 1
+            && ((raw >> 20) & 0x3) == 0b10
+            && ((raw >> 6) & 1) == 1
+            && ((raw >> 4) & 1) == 0
+            && matches!((raw >> 8) & 0xF, 0b0001 | 0b0101 | 0b1001)
     }
 
     fn is_neon_fp_fma_shape(raw: u32) -> bool {
@@ -3996,7 +4010,11 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
         if !self.cpu.vfp.is_enabled() {
             return ExecResult::Exception(ExceptionType::UndefinedInstruction);
         }
-        if !Self::is_neon_fp_multiply_shape(insn.raw) && !Self::is_neon_fp_fma_shape(insn.raw) {
+        let scalar = Self::is_neon_fp_multiply_scalar_shape(insn.raw);
+        if !Self::is_neon_fp_multiply_shape(insn.raw)
+            && !scalar
+            && !Self::is_neon_fp_fma_shape(insn.raw)
+        {
             return ExecResult::Undefined;
         }
 
@@ -4006,22 +4024,38 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
         let vn = ((insn.raw >> 16) & 0xF) as u8;
         let m_bit = ((insn.raw >> 5) & 1) as u8;
         let vm = (insn.raw & 0xF) as u8;
-        let q = ((insn.raw >> 6) & 1) != 0;
+        let q = if scalar {
+            ((insn.raw >> 24) & 1) != 0
+        } else {
+            ((insn.raw >> 6) & 1) != 0
+        };
         let regs = if q { 2 } else { 1 };
 
         let d = (d_bit << 4) | vd;
         let n = (n_bit << 4) | vn;
         let m = (m_bit << 4) | vm;
-        if q && ((d | n | m) & 1) != 0 {
+        if q && ((d | n | if scalar { 0 } else { m }) & 1) != 0 {
             return ExecResult::Undefined;
         }
-        if d + regs > 32 || n + regs > 32 || m + regs > 32 {
+        if d + regs > 32 || n + regs > 32 || (!scalar && m + regs > 32) {
             return ExecResult::Undefined;
         }
+        let scalar_elem = if scalar {
+            if vm >= 32 || m_bit >= 2 {
+                return ExecResult::Undefined;
+            }
+            Some(self.neon_read_d_elem_u64(vm, m_bit, 4))
+        } else {
+            None
+        };
 
         for reg in 0..regs {
             let n_elements = self.neon_read_vector_elements_u64(n + reg, 1, 4);
-            let m_elements = self.neon_read_vector_elements_u64(m + reg, 1, 4);
+            let m_elements = if let Some(elem) = scalar_elem {
+                vec![elem; n_elements.len()]
+            } else {
+                self.neon_read_vector_elements_u64(m + reg, 1, 4)
+            };
             let d_elements = if matches!(
                 insn.mnemonic,
                 Mnemonic::VMLA | Mnemonic::VMLS | Mnemonic::VFMA | Mnemonic::VFMS

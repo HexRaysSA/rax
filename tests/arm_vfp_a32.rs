@@ -5609,11 +5609,23 @@ fn neon_fp_multiply_accumulate_and_subtract_handle_f32_lanes() {
         Mnemonic::VMUL
     );
     assert_eq!(
+        Aarch32Decoder::decode(0xF2A1_0942).unwrap().mnemonic,
+        Mnemonic::VMUL
+    );
+    assert_eq!(
         Aarch32Decoder::decode(0xF205_4D16).unwrap().mnemonic,
         Mnemonic::VMLA
     );
     assert_eq!(
+        Aarch32Decoder::decode(0xF3A2_0164).unwrap().mnemonic,
+        Mnemonic::VMLA
+    );
+    assert_eq!(
         Aarch32Decoder::decode(0xF262_0DF4).unwrap().mnemonic,
+        Mnemonic::VMLS
+    );
+    assert_eq!(
+        Aarch32Decoder::decode(0xF2A1_0542).unwrap().mnemonic,
         Mnemonic::VMLS
     );
     assert_eq!(
@@ -5676,6 +5688,19 @@ fn neon_fp_multiply_accumulate_and_subtract_handle_f32_lanes() {
     );
 
     cpu.vfp
+        .write_d_bits(1, u64::from(3.0f32.to_bits()) << 32 | u64::from(2.0f32.to_bits()));
+    cpu.vfp
+        .write_d_bits(2, u64::from(5.0f32.to_bits()) << 32 | u64::from(4.0f32.to_bits()));
+    assert!(matches!(
+        exec_one(&mut cpu, &mut mem, 0xF2A1_0942),
+        ExecResult::Continue
+    ));
+    assert_eq!(
+        cpu.vfp.read_d_bits(0),
+        u64::from(12.0f32.to_bits()) << 32 | u64::from(8.0f32.to_bits())
+    );
+
+    cpu.vfp
         .write_d_bits(4, u64::from(20.0f32.to_bits()) << 32 | u64::from(10.0f32.to_bits()));
     cpu.vfp
         .write_d_bits(5, u64::from(4.0f32.to_bits()) << 32 | u64::from(3.0f32.to_bits()));
@@ -5688,6 +5713,29 @@ fn neon_fp_multiply_accumulate_and_subtract_handle_f32_lanes() {
     assert_eq!(
         cpu.vfp.read_d_bits(4),
         u64::from(28.0f32.to_bits()) << 32 | u64::from(25.0f32.to_bits())
+    );
+
+    cpu.vfp
+        .write_d_bits(0, u64::from(20.0f32.to_bits()) << 32 | u64::from(10.0f32.to_bits()));
+    cpu.vfp
+        .write_d_bits(1, u64::from(40.0f32.to_bits()) << 32 | u64::from(30.0f32.to_bits()));
+    cpu.vfp
+        .write_d_bits(2, u64::from(2.0f32.to_bits()) << 32 | u64::from(1.0f32.to_bits()));
+    cpu.vfp
+        .write_d_bits(3, u64::from(4.0f32.to_bits()) << 32 | u64::from(3.0f32.to_bits()));
+    cpu.vfp
+        .write_d_bits(4, u64::from(5.0f32.to_bits()) << 32 | u64::from(6.0f32.to_bits()));
+    assert!(matches!(
+        exec_one(&mut cpu, &mut mem, 0xF3A2_0164),
+        ExecResult::Continue
+    ));
+    assert_eq!(
+        cpu.vfp.read_d_bits(0),
+        u64::from(30.0f32.to_bits()) << 32 | u64::from(15.0f32.to_bits())
+    );
+    assert_eq!(
+        cpu.vfp.read_d_bits(1),
+        u64::from(60.0f32.to_bits()) << 32 | u64::from(45.0f32.to_bits())
     );
 
     cpu.vfp
@@ -5713,6 +5761,21 @@ fn neon_fp_multiply_accumulate_and_subtract_handle_f32_lanes() {
     assert_eq!(
         cpu.vfp.read_d_bits(17),
         u64::from(352.0f32.to_bits()) << 32 | u64::from(255.0f32.to_bits())
+    );
+
+    cpu.vfp
+        .write_d_bits(0, u64::from(30.0f32.to_bits()) << 32 | u64::from(20.0f32.to_bits()));
+    cpu.vfp
+        .write_d_bits(1, u64::from(3.0f32.to_bits()) << 32 | u64::from(2.0f32.to_bits()));
+    cpu.vfp
+        .write_d_bits(2, u64::from(5.0f32.to_bits()) << 32 | u64::from(4.0f32.to_bits()));
+    assert!(matches!(
+        exec_one(&mut cpu, &mut mem, 0xF2A1_0542),
+        ExecResult::Continue
+    ));
+    assert_eq!(
+        cpu.vfp.read_d_bits(0),
+        u64::from(18.0f32.to_bits()) << 32 | u64::from(12.0f32.to_bits())
     );
 
     cpu.vfp
