@@ -18,6 +18,40 @@
 
 use crate::common::*;
 
+#[test]
+fn test_setzuo_true_zeroes_upper_match_llvm() {
+    // LLVM 23 assembles "setzuo al" as 62 f4 7f 18 40 c0.
+    const OF: u64 = 1 << 11;
+    let code = [
+        0x62, 0xF4, 0x7F, 0x18, 0x40, 0xC0,
+        0xF4,
+    ];
+    let mut regs = Registers::default();
+    regs.rax = 0xFFFF_FFFF_FFFF_FF00;
+    regs.rflags = OF | 0x2;
+
+    let (mut vcpu, _) = setup_vm(&code, Some(regs));
+    let regs = run_until_hlt(&mut vcpu).unwrap();
+    assert_eq!(regs.rax, 1);
+}
+
+#[test]
+fn test_setzune_false_zeroes_upper_match_llvm() {
+    // LLVM 23 assembles "setzune bl" as 62 f4 7f 18 45 c3.
+    const ZF: u64 = 1 << 6;
+    let code = [
+        0x62, 0xF4, 0x7F, 0x18, 0x45, 0xC3,
+        0xF4,
+    ];
+    let mut regs = Registers::default();
+    regs.rbx = 0xFFFF_FFFF_FFFF_FFFF;
+    regs.rflags = ZF | 0x2;
+
+    let (mut vcpu, _) = setup_vm(&code, Some(regs));
+    let regs = run_until_hlt(&mut vcpu).unwrap();
+    assert_eq!(regs.rbx, 0);
+}
+
 // ============================================================================
 // Basic Zero-Upper Tests
 // ============================================================================

@@ -2720,6 +2720,9 @@ impl X86_64Vcpu {
             // CCMP variants (0x38-0x3B)
             0x38 | 0x39 | 0x3A | 0x3B => self.execute_apx_ccmp(ctx, opcode),
 
+            // SETZUcc variants (0x40-0x4F)
+            0x40..=0x4F => self.execute_apx_setzucc(ctx, opcode & 0x0F),
+
             // CTEST variants (0x84-0x85)
             0x84 | 0x85 => self.execute_apx_ctest(ctx, opcode),
 
@@ -2914,6 +2917,22 @@ impl X86_64Vcpu {
             self.update_flags_alu(result, src1, src2, op_size, ApxAluOp::And);
         } else {
             self.apply_apx_ccmp_default_flags(dfv);
+        }
+
+        self.regs.rip += ctx.cursor as u64;
+        Ok(None)
+    }
+
+    /// APX SETZUcc operation.
+    fn execute_apx_setzucc(&mut self, ctx: &mut InsnContext, cc: u8) -> Result<Option<VcpuExit>> {
+        let (_, rm, is_memory, addr, _) = self.decode_modrm(ctx)?;
+        let value = if self.check_condition(cc) { 1 } else { 0 };
+
+        if is_memory {
+            self.write_mem(addr, value, 1)?;
+        } else {
+            let rm = rm | ctx.evex_rm_reg();
+            self.set_reg(rm, value, 8);
         }
 
         self.regs.rip += ctx.cursor as u64;
