@@ -196,3 +196,54 @@ fn rm_far_jmp_sets_cs_base() {
     assert_eq!(v.get_sregs().unwrap().cs.base, 0x9000, "far jmp sets CS.base = sel<<4");
     assert_eq!(v.get_regs().unwrap().rax & 0xFFFF, 0xF00D, "fetch+exec at CS.base+IP");
 }
+
+// ── Increment 4: the actual TempleOS boot prologue end-to-end (relocate + far jmp).
+
+#[test]
+fn rm_templeos_prologue_relocates_and_far_jumps() {
+    // The verbatim TempleOS El-Torito boot prologue at 0x7C00: it sets ES=SS=0x9660,
+    // copies its own 2KB to 0x96600, then far-jumps to 0x9660:0x00B0. We plant a
+    // marker (mov ax,0xD00D ; hlt) at image offset 0xB0 so that, once relocated and
+    // jumped to, it runs at linear 0x966B0.
+    #[rustfmt::skip]
+    let prologue: [u8; 0x35] = [
+        0xFC,                   // cld
+        0xB8, 0x60, 0x96,       // mov ax, 0x9660
+        0x66, 0x8E, 0xC0,       // mov es, eax
+        0xFA,                   // cli
+        0x66, 0x8E, 0xD0,       // mov ss, eax
+        0xBC, 0x00, 0x0A,       // mov sp, 0x0A00
+        0xFB,                   // sti
+        0xE8, 0x00, 0x00,       // call .next  (push IP=0x7C12)
+        0x5B,                   // pop bx
+        0x83, 0xEB, 0x12,       // sub bx, 0x12
+        0xC1, 0xEB, 0x04,       // shr bx, 4
+        0x66, 0x8C, 0xC8,       // mov eax, cs
+        0x03, 0xC3,             // add ax, bx
+        0x66, 0x8E, 0xD8,       // mov ds, eax
+        0xB9, 0x00, 0x08,       // mov cx, 0x0800  (2048 bytes)
+        0x33, 0xF6,             // xor si, si
+        0x33, 0xFF,             // xor di, di
+        0xF3, 0xA4,             // rep movsb       (relocate to ES:0 = 0x96600)
+        0xB8, 0x60, 0x96,       // mov ax, 0x9660
+        0x66, 0x8E, 0xD8,       // mov ds, eax
+        0xEA, 0xB0, 0x00, 0x60, 0x96, // jmp 0x9660:0x00B0
+    ];
+
+    let mut image = vec![0u8; 2048];
+    image[..prologue.len()].copy_from_slice(&prologue);
+    // Marker at offset 0xB0: mov ax,0xD00D ; hlt
+    image[0xB0..0xB4].copy_from_slice(&[0xB8, 0x0D, 0xD0, 0xF4]);
+
+    let (mut v, m) = rm_vcpu(&image, 0x7C00, 0);
+    run(&mut v, 5000);
+
+    // Far-jumped into the relocated copy at 0x9660:0x00B0.
+    let s = v.get_sregs().unwrap();
+    assert_eq!(s.cs.base, 0x9_6600, "running in the relocated segment 0x9660");
+    assert_eq!(v.get_regs().unwrap().rax & 0xFFFF, 0xD00D, "executed the relocated marker");
+    // The boot image was copied verbatim to 0x96600.
+    let mut head = [0u8; 4];
+    m.read_slice(&mut head, GuestAddress(0x9_6600)).unwrap();
+    assert_eq!(&head, &prologue[..4], "2KB relocate landed at 0x96600");
+}
