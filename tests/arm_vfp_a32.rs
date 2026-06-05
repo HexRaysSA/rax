@@ -1385,6 +1385,22 @@ fn neon_vrintx_vrintz_round_f32_and_f16_lanes() {
         Mnemonic::VRINTX_F16
     );
     assert_eq!(
+        Aarch32Decoder::decode(0xF3BA_0402).unwrap().mnemonic,
+        Mnemonic::VRINTP_F32
+    );
+    assert_eq!(
+        Aarch32Decoder::decode(0xF3BA_0502).unwrap().mnemonic,
+        Mnemonic::VRINTN_F32
+    );
+    assert_eq!(
+        Aarch32Decoder::decode(0xF3BA_0682).unwrap().mnemonic,
+        Mnemonic::VRINTZ_F32
+    );
+    assert_eq!(
+        Aarch32Decoder::decode(0xF3BA_0782).unwrap().mnemonic,
+        Mnemonic::VRINTM_F32
+    );
+    assert_eq!(
         Aarch32Decoder::decode(0xF3B2_0482).unwrap().mnemonic,
         Mnemonic::UNDEFINED
     );
@@ -1399,6 +1415,34 @@ fn neon_vrintx_vrintz_round_f32_and_f16_lanes() {
         ExecResult::Continue
     ));
     assert_eq!(cpu.vfp.read_d_bits(0), pack_f32x2(2.0, -2.0));
+
+    cpu.vfp.write_d_bits(2, pack_f32x2(1.25, -1.25));
+    assert!(matches!(
+        exec_one(&mut cpu, &mut mem, 0xF3BA_0402),
+        ExecResult::Continue
+    ));
+    assert_eq!(cpu.vfp.read_d_bits(0), pack_f32x2(2.0, -1.0));
+
+    cpu.vfp.write_d_bits(2, pack_f32x2(1.5, 2.5));
+    assert!(matches!(
+        exec_one(&mut cpu, &mut mem, 0xF3BA_0502),
+        ExecResult::Continue
+    ));
+    assert_eq!(cpu.vfp.read_d_bits(0), pack_f32x2(2.0, 2.0));
+
+    cpu.vfp.write_d_bits(2, pack_f32x2(1.75, -1.75));
+    assert!(matches!(
+        exec_one(&mut cpu, &mut mem, 0xF3BA_0682),
+        ExecResult::Continue
+    ));
+    assert_eq!(cpu.vfp.read_d_bits(0), pack_f32x2(1.0, -1.0));
+
+    cpu.vfp.write_d_bits(2, pack_f32x2(1.25, -1.25));
+    assert!(matches!(
+        exec_one(&mut cpu, &mut mem, 0xF3BA_0782),
+        ExecResult::Continue
+    ));
+    assert_eq!(cpu.vfp.read_d_bits(0), pack_f32x2(1.0, -2.0));
 
     cpu.vfp.write_d_bits(2, pack_f32x2(1.75, -1.75));
     assert!(matches!(
