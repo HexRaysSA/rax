@@ -480,7 +480,12 @@ impl X86_64Vcpu {
         let modrm = bytes[0];
         let mod_bits = modrm >> 6;
         let rm_field = modrm & 0x07; // Raw r/m field without REX.B
-        let rm = rm_field | ctx.any_rex_b(); // r/m with REX/REX2.B applied
+        let rm_ext = if ctx.is_apx() {
+            ctx.evex_rm_reg()
+        } else {
+            ctx.any_rex_b()
+        };
+        let rm = rm_field | rm_ext; // r/m with REX/REX2 or APX EVEX.B/B4 applied
         let mut extra = 0;
 
         // mod == 3 means register direct, shouldn't call this function
@@ -550,13 +555,15 @@ impl X86_64Vcpu {
             let sib = bytes[1];
             extra += 1;
             let scale = 1u64 << (sib >> 6);
-            let index = ((sib >> 3) & 0x07)
-                | if ctx.rex2.is_some() {
-                    ctx.rex2_x()
-                } else {
-                    ctx.rex.map_or(0, |r| (r & 0x02) << 2)
-                };
-            let base_reg = (sib & 0x07) | ctx.any_rex_b();
+            let index_ext = if ctx.is_apx() {
+                ctx.evex_index_reg()
+            } else if ctx.rex2.is_some() {
+                ctx.rex2_x()
+            } else {
+                ctx.rex.map_or(0, |r| (r & 0x02) << 2)
+            };
+            let index = ((sib >> 3) & 0x07) | index_ext;
+            let base_reg = (sib & 0x07) | rm_ext;
 
             // Calculate base
             addr = if base_reg == 5 && mod_bits == 0 {

@@ -62,6 +62,50 @@ fn test_ndd_add_b4_uses_r16_rm_source_match_llvm() {
 }
 
 #[test]
+fn test_ndd_add_memory_uses_apx_x4_sib_index_match_llvm() {
+    // LLVM 23 assembles:
+    // add eax, ebx, dword ptr [rax + 2*r16] -> 62 f4 78 18 03 1c 40.
+    // APX MAP4 reuses EVEX P1 bit 2 as inverted X4; when it is clear, the
+    // SIB index is R16, not RAX or R24.
+    let mut regs = Registers::default();
+    regs.rax = 0x3000;
+    regs.rbx = 5;
+    regs.r16 = 0x10;
+    regs.r24 = 0x20;
+    let code = [
+        0x62, 0xF4, 0x78, 0x18, 0x03, 0x1C, 0x40,
+        0xF4,
+    ];
+
+    let (mut vcpu, mem) = setup_vm(&code, Some(regs));
+    write_mem_at_u32(&mem, 0x3000 + 0x10 * 2, 7);
+    write_mem_at_u32(&mem, 0x3000 + 0x20 * 2, 100);
+    let regs = run_until_hlt(&mut vcpu).unwrap();
+    assert_eq!(regs.rax, 12);
+}
+
+#[test]
+fn test_ndd_add_memory_uses_apx_b4_sib_base_match_llvm() {
+    // LLVM 23 assembles:
+    // add eax, ebx, dword ptr [r16 + 2*rax] -> 62 fc 7c 18 03 1c 40.
+    // APX MAP4 P0 bit 3 extends the SIB base by +16.
+    let mut regs = Registers::default();
+    regs.rax = 0x10;
+    regs.rbx = 5;
+    regs.r16 = 0x3000;
+    let code = [
+        0x62, 0xFC, 0x7C, 0x18, 0x03, 0x1C, 0x40,
+        0xF4,
+    ];
+
+    let (mut vcpu, mem) = setup_vm(&code, Some(regs));
+    write_mem_at_u32(&mem, 0x3000 + 0x10 * 2, 7);
+    write_mem_at_u32(&mem, 0x10 * 3, 100);
+    let regs = run_until_hlt(&mut vcpu).unwrap();
+    assert_eq!(regs.rax, 12);
+}
+
+#[test]
 fn test_ndd_add_reg_reg_reg() {
     // ADD R8, RAX, RBX (R8 = RAX + RBX)
     // EVEX.NDD.128.0F38.W1 encoding
