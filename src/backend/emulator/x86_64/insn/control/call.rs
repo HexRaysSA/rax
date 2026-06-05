@@ -6,6 +6,11 @@ use crate::error::{Error, Result};
 use super::super::super::cpu::{InsnContext, X86_64Vcpu};
 
 pub(super) fn validate_far_selector(vcpu: &X86_64Vcpu, selector: u16) -> Result<()> {
+    // Real mode (CR0.PE=0): a far selector is a raw segment value (CS.base =
+    // selector<<4); there is no descriptor table to validate against.
+    if vcpu.sregs.cr0 & 1 == 0 {
+        return Ok(());
+    }
     if selector == 0 {
         return Err(Error::Emulator("CALL FAR: null selector".to_string()));
     }

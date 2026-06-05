@@ -1821,7 +1821,7 @@ impl X86_64Vcpu {
     // handling will corrupt the stack (RSP gets decremented twice on retry).
     pub(super) fn push64(&mut self, value: u64) -> Result<()> {
         let new_rsp = self.regs.rsp.wrapping_sub(8);
-        self.mmu.write_u64(new_rsp, value, &self.sregs)?;
+        self.mmu.write_u64(self.sregs.ss.base.wrapping_add(new_rsp), value, &self.sregs)?;
         self.regs.rsp = new_rsp;
         Ok(())
     }
@@ -1837,33 +1837,33 @@ impl X86_64Vcpu {
     }
 
     pub(super) fn pop64(&mut self) -> Result<u64> {
-        let value = self.mmu.read_u64(self.regs.rsp, &self.sregs)?;
+        let value = self.mmu.read_u64(self.sregs.ss.base.wrapping_add(self.regs.rsp), &self.sregs)?;
         self.regs.rsp = self.regs.rsp.wrapping_add(8);
         Ok(value)
     }
 
     pub(super) fn push32(&mut self, value: u32) -> Result<()> {
         let new_rsp = self.regs.rsp.wrapping_sub(4);
-        self.mmu.write_u32(new_rsp, value, &self.sregs)?;
+        self.mmu.write_u32(self.sregs.ss.base.wrapping_add(new_rsp), value, &self.sregs)?;
         self.regs.rsp = new_rsp;
         Ok(())
     }
 
     pub(super) fn pop32(&mut self) -> Result<u32> {
-        let value = self.mmu.read_u32(self.regs.rsp, &self.sregs)?;
+        let value = self.mmu.read_u32(self.sregs.ss.base.wrapping_add(self.regs.rsp), &self.sregs)?;
         self.regs.rsp = self.regs.rsp.wrapping_add(4);
         Ok(value)
     }
 
     pub(super) fn push16(&mut self, value: u16) -> Result<()> {
         let new_rsp = self.regs.rsp.wrapping_sub(2);
-        self.mmu.write_u16(new_rsp, value, &self.sregs)?;
+        self.mmu.write_u16(self.sregs.ss.base.wrapping_add(new_rsp), value, &self.sregs)?;
         self.regs.rsp = new_rsp;
         Ok(())
     }
 
     pub(super) fn pop16(&mut self) -> Result<u16> {
-        let value = self.mmu.read_u16(self.regs.rsp, &self.sregs)?;
+        let value = self.mmu.read_u16(self.sregs.ss.base.wrapping_add(self.regs.rsp), &self.sregs)?;
         self.regs.rsp = self.regs.rsp.wrapping_add(2);
         Ok(value)
     }
@@ -2093,6 +2093,12 @@ impl X86_64Vcpu {
     /// Callers that need true descriptor-driven mode switching use
     /// [`Self::load_code_segment`].
     pub(super) fn load_code_segment_lenient(&mut self, selector: u16) {
+        // Real mode (CR0.PE=0): CS.base = selector<<4 directly, no descriptor
+        // lookup (the GDT is not consulted in real mode).
+        if self.sregs.cr0 & 1 == 0 {
+            self.set_sreg(1, selector);
+            return;
+        }
         let prev_l = self.sregs.cs.l;
         let prev_db = self.sregs.cs.db;
         match self.read_descriptor(selector) {

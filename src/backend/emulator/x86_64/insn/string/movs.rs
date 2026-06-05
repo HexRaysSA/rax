@@ -61,8 +61,12 @@ fn movs_common(
     // Fast path: REP-prefixed, forward (DF==0), count > 1. Only usable when there
     // is no source segment base and no 32-bit address-size override, since the
     // bulk path translates RSI/RDI directly as full 64-bit linear addresses.
+    // Destination is always ES:[RDI] (not overridable). ES.base is 0 in long
+    // mode (flat) and selector<<4 in real mode.
+    let dst_base = vcpu.sregs.es.base;
     if is_rep
         && src_base == 0
+        && dst_base == 0
         && !addr32
         && (vcpu.regs.rflags & flags::bits::DF) == 0
         && vcpu.regs.rcx > 1
@@ -87,7 +91,7 @@ fn movs_common(
             break;
         }
         let src = src_base.wrapping_add(index(vcpu.regs.rsi, addr32));
-        let dst = index(vcpu.regs.rdi, addr32);
+        let dst = dst_base.wrapping_add(index(vcpu.regs.rdi, addr32));
         let val = vcpu.read_mem(src, op_size)?;
         vcpu.write_mem(dst, val, op_size)?;
         let forward = vcpu.regs.rflags & flags::bits::DF == 0;

@@ -142,3 +142,57 @@ fn rm_moffs_uses_ds_base() {
     m.read_slice(&mut b, GuestAddress(0x3040)).unwrap();
     assert_eq!(u16::from_le_bytes(b), 0xCAFE, "moffs write must use DS.base + 0x40");
 }
+
+// ── Increment 3: stack uses SS.base; string ops use DS/ES base; far jmp sets CS.base.
+
+#[test]
+fn rm_stack_uses_ss_base() {
+    // mov ax,0x500 ; mov ss,ax (SS.base=0x5000) ; mov sp,0x100
+    // mov bx,0x1234 ; push bx ; pop cx ; hlt
+    let code = [
+        0xB8, 0x00, 0x05, // mov ax, 0x500
+        0x8E, 0xD0, // mov ss, ax
+        0xBC, 0x00, 0x01, // mov sp, 0x100
+        0xBB, 0x34, 0x12, // mov bx, 0x1234
+        0x53, // push bx
+        0x59, // pop cx
+        0xF4,
+    ];
+    let (mut v, m) = rm_vcpu(&code, 0x7C00, 0);
+    run(&mut v, 20);
+    assert_eq!(v.get_regs().unwrap().rcx & 0xFFFF, 0x1234, "pop must use SS.base");
+    let mut b = [0u8; 2];
+    m.read_slice(&mut b, GuestAddress(0x50FE)).unwrap(); // ss.base + (sp-2)
+    assert_eq!(u16::from_le_bytes(b), 0x1234, "push must write to SS.base+SP");
+}
+
+#[test]
+fn rm_movs_uses_segment_bases() {
+    // mov ds=0x600 (0x6000), es=0x700 (0x7000) ; si=di=0 ; cx=4 ; rep movsb
+    let code = [
+        0xB8, 0x00, 0x06, 0x8E, 0xD8, // mov ax,0x600 ; mov ds,ax
+        0xB8, 0x00, 0x07, 0x8E, 0xC0, // mov ax,0x700 ; mov es,ax
+        0x31, 0xF6, // xor si,si
+        0x31, 0xFF, // xor di,di
+        0xB9, 0x04, 0x00, // mov cx,4
+        0xF3, 0xA4, // rep movsb
+        0xF4,
+    ];
+    let (mut v, m) = rm_vcpu(&code, 0x7C00, 0);
+    m.write_slice(&[0xDE, 0xAD, 0xBE, 0xEF], GuestAddress(0x6000)).unwrap();
+    run(&mut v, 40);
+    let mut b = [0u8; 4];
+    m.read_slice(&mut b, GuestAddress(0x7000)).unwrap();
+    assert_eq!(b, [0xDE, 0xAD, 0xBE, 0xEF], "rep movsb: DS.base+SI -> ES.base+DI");
+}
+
+#[test]
+fn rm_far_jmp_sets_cs_base() {
+    // at 0x7C00: jmp 0x0900:0x0010 ; target at linear 0x9010: mov ax,0xF00D ; hlt
+    let code = [0xEA, 0x10, 0x00, 0x00, 0x09]; // jmp ptr16:16 = 0x0900:0x0010
+    let (mut v, m) = rm_vcpu(&code, 0x7C00, 0);
+    m.write_slice(&[0xB8, 0x0D, 0xF0, 0xF4], GuestAddress(0x9010)).unwrap();
+    run(&mut v, 10);
+    assert_eq!(v.get_sregs().unwrap().cs.base, 0x9000, "far jmp sets CS.base = sel<<4");
+    assert_eq!(v.get_regs().unwrap().rax & 0xFFFF, 0xF00D, "fetch+exec at CS.base+IP");
+}
