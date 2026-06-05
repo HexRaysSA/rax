@@ -9129,3 +9129,127 @@ fn diff_sve2_comprehensive_sweep() {
         total, gaps.len(), vals.len(), faults.len()
     );
 }
+
+// ===========================================================================
+// Comprehensive NEON / VFP / FP16 differential sweep. Same machinery as
+// diff_sve2_comprehensive_sweep but over the AdvSIMD + scalar-FP + FP16
+// encoding space (tests/neon_gen.rs). Asserts zero divergence vs the oracle.
+// ===========================================================================
+include!("neon_gen.rs");
+
+#[test]
+fn diff_neon_comprehensive_sweep() {
+    let oracle = match oracle_path() {
+        Some(p) => p,
+        None => {
+            eprintln!("[arm_diff] neon_comprehensive_sweep: toolchain unavailable -> skip");
+            return;
+        }
+    };
+    let mut rng = Rng::new(0x4e_e0_1234);
+    let n_inputs = 6usize;
+    let mut batch: Vec<(String, u32, ArmState)> = Vec::new();
+    for (label, insn) in NEON_SWEEP {
+        for _ in 0..n_inputs {
+            let mut st = gen_input(&mut rng);
+            for i in 0..32 {
+                st.scratch[i] = rng.next();
+            }
+            batch.push(((*label).to_string(), *insn, st));
+        }
+    }
+    let cases: Vec<(u32, u32, ArmState)> =
+        batch.iter().map(|(_, i, s)| (*i, NOP, *s)).collect();
+    let outs = run_oracle(&oracle, &cases).expect("oracle run failed");
+    assert_eq!(outs.len(), cases.len());
+
+    use std::collections::BTreeMap;
+    let mut stats: BTreeMap<String, [usize; 4]> = BTreeMap::new();
+    let mut sample: BTreeMap<String, String> = BTreeMap::new();
+    for (i, (label, insn, st)) in batch.iter().enumerate() {
+        let out = &outs[i];
+        let e = stats.entry(label.clone()).or_insert([0; 4]);
+        e[3] += 1;
+        let rax = run_rax(*insn, st);
+        if out.trapped != 0 {
+            if rax.is_some() {
+                e[2] += 1;
+                sample.entry(label.clone()).or_insert_with(|| {
+                    format!("hw faulted sig{} but rax executed", out.trapped)
+                });
+            }
+            continue;
+        }
+        let rax = match rax {
+            Some(s) => s,
+            None => {
+                e[0] += 1;
+                sample
+                    .entry(label.clone())
+                    .or_insert_with(|| "rax rejected (undefined)".into());
+                continue;
+            }
+        };
+        let mut diffs = Vec::new();
+        for r in 0..31 {
+            if rax.x[r] != out.st.x[r] {
+                diffs.push(format!("x{r}:rax={:#x} hw={:#x}", rax.x[r], out.st.x[r]));
+            }
+        }
+        if (rax.pstate >> 28) & 0xF != (out.st.pstate >> 28) & 0xF {
+            diffs.push(format!(
+                "nzcv:rax={:#x} hw={:#x}",
+                (rax.pstate >> 28) & 0xF,
+                (out.st.pstate >> 28) & 0xF
+            ));
+        }
+        for r in 0..32 {
+            if rax.vreg(r) != out.st.vreg(r) {
+                let (rl, rh) = rax.vreg(r);
+                let (hl, hh) = out.st.vreg(r);
+                diffs.push(format!("v{r}:rax={:#x}{:016x} hw={:#x}{:016x}", rh, rl, hh, hl));
+            }
+        }
+        if !diffs.is_empty() {
+            e[1] += 1;
+            sample.entry(label.clone()).or_insert_with(|| diffs.join(" | "));
+        }
+    }
+
+    let mut gaps = Vec::new();
+    let mut vals = Vec::new();
+    let mut faults = Vec::new();
+    for (label, e) in &stats {
+        if e[0] > 0 {
+            gaps.push((label.clone(), e[0], e[3]));
+        }
+        if e[1] > 0 {
+            vals.push((label.clone(), e[1], e[3]));
+        }
+        if e[2] > 0 {
+            faults.push((label.clone(), e[2], e[3]));
+        }
+    }
+    eprintln!("\n==== NEON SWEEP PROBE: {} mnemonics, {} cases ====", stats.len(), batch.len());
+    eprintln!("\n-- DECODE GAPS (hw runs, rax rejects): {} --", gaps.len());
+    for (l, c, t) in &gaps {
+        eprintln!("  {c:3}/{t:<3} {l}    [{}]", sample.get(l).cloned().unwrap_or_default());
+    }
+    eprintln!("\n-- VALUE MISMATCHES (wrong answer): {} --", vals.len());
+    for (l, c, t) in &vals {
+        eprintln!("  {c:3}/{t:<3} {l}    [{}]", sample.get(l).cloned().unwrap_or_default());
+    }
+    eprintln!("\n-- FAULT DISAGREE (hw faults, rax runs): {} --", faults.len());
+    for (l, c, t) in &faults {
+        eprintln!("  {c:3}/{t:<3} {l}    [{}]", sample.get(l).cloned().unwrap_or_default());
+    }
+    eprintln!("\n==== END NEON PROBE: {} gaps, {} value-mismatch, {} fault-disagree ====",
+        gaps.len(), vals.len(), faults.len());
+
+    let total = gaps.len() + vals.len() + faults.len();
+    assert_eq!(
+        total, 0,
+        "neon comprehensive sweep: {} mnemonics diverged ({} gaps, {} value, {} fault)",
+        total, gaps.len(), vals.len(), faults.len()
+    );
+}
