@@ -2750,6 +2750,9 @@ impl X86_64Vcpu {
             0xC0 | 0xC1 => self.execute_apx_shift_imm(ctx, opcode, ndd, nf),
             0xD0 | 0xD1 | 0xD2 | 0xD3 => self.execute_apx_shift_cl(ctx, opcode, ndd, nf),
 
+            // Group 3 NOT/NEG (0xF6, 0xF7 /2,/3)
+            0xF6 | 0xF7 => self.execute_apx_group3(ctx, opcode, ndd, nf),
+
             // INC/DEC (0xFE, 0xFF /0,/1) and PUSH2 (0xFF /6)
             0xFE | 0xFF => self.execute_apx_group_ff(ctx, opcode, ndd, nf),
 
@@ -3204,6 +3207,61 @@ impl X86_64Vcpu {
 
         if !nf && count != 0 {
             self.update_flags_shift(result, src, count, shift_type, op_size);
+        }
+
+        self.regs.rip += ctx.cursor as u64;
+        Ok(None)
+    }
+
+    /// APX group 3 NOT/NEG.
+    fn execute_apx_group3(
+        &mut self,
+        ctx: &mut InsnContext,
+        opcode: u8,
+        ndd: bool,
+        nf: bool,
+    ) -> Result<Option<VcpuExit>> {
+        let op_size = if opcode == 0xF6 { 1 } else if ctx.evex_w() { 8 } else { 4 };
+        let (reg, rm, is_memory, addr, _) = self.decode_modrm(ctx)?;
+        let op_type = reg & 0x07;
+
+        if !matches!(op_type, 2 | 3) {
+            return Err(Error::Emulator(format!(
+                "Unimplemented APX group3 opcode {:#x} /{} at RIP={:#x}",
+                opcode, op_type, self.regs.rip
+            )));
+        }
+
+        let src_reg = rm | ctx.evex_rm_reg();
+        let src = if is_memory {
+            self.read_mem(addr, op_size)?
+        } else {
+            self.get_reg(src_reg, op_size)
+        };
+
+        let result = if op_type == 2 {
+            !src
+        } else {
+            match op_size {
+                1 => (src as i8).wrapping_neg() as u8 as u64,
+                2 => (src as i16).wrapping_neg() as u16 as u64,
+                4 => (src as i32).wrapping_neg() as u32 as u64,
+                8 => (src as i64).wrapping_neg() as u64,
+                _ => src,
+            }
+        };
+
+        if ndd {
+            self.set_reg(ctx.evex_vvvv(), result, op_size);
+        } else if is_memory {
+            self.write_mem(addr, result, op_size)?;
+        } else {
+            self.set_reg(src_reg, result, op_size);
+        }
+
+        if op_type == 3 && !nf {
+            flags::update_flags_sub(&mut self.regs.rflags, 0, src, result, op_size);
+            self.clear_lazy_flags();
         }
 
         self.regs.rip += ctx.cursor as u64;

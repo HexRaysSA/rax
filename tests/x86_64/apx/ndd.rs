@@ -492,6 +492,25 @@ fn test_ndd_not_reg_reg() {
 }
 
 #[test]
+fn test_ndd_not_reg_reg_match_llvm() {
+    // LLVM 23 assembles "not r8, rax" as 62 f4 bc 18 f7 d0.
+    let code = [
+        0x62, 0xF4, 0xBC, 0x18, 0xF7, 0xD0,
+        0xF4,
+    ];
+    let mut regs = Registers::default();
+    regs.rax = 0x0123_4567_89AB_CDEF;
+    regs.r8 = 0xDEAD_BEEF;
+    regs.rflags = 0x8D7;
+
+    let (mut vcpu, _) = setup_vm(&code, Some(regs));
+    let regs = run_until_hlt(&mut vcpu).unwrap();
+    assert_eq!(regs.r8, !0x0123_4567_89AB_CDEFu64);
+    assert_eq!(regs.rax, 0x0123_4567_89AB_CDEF);
+    assert_eq!(regs.rflags & 0x8D5, 0x8D5);
+}
+
+#[test]
 fn test_ndd_neg_reg_reg() {
     // NEG R8, RAX (R8 = -RAX)
     let code = [
@@ -501,6 +520,28 @@ fn test_ndd_neg_reg_reg() {
     ];
     let (mut vcpu, _) = setup_vm(&code, None);
     let _ = run_until_hlt(&mut vcpu);
+}
+
+#[test]
+fn test_ndd_neg_reg_reg_match_llvm() {
+    // LLVM 23 assembles "neg r8, rax" as 62 f4 bc 18 f7 d8.
+    const CF: u64 = 1;
+    const SF: u64 = 0x80;
+    let code = [
+        0x62, 0xF4, 0xBC, 0x18, 0xF7, 0xD8,
+        0xF4,
+    ];
+    let mut regs = Registers::default();
+    regs.rax = 5;
+    regs.r8 = 0xDEAD_BEEF;
+    regs.rflags = 0x2;
+
+    let (mut vcpu, _) = setup_vm(&code, Some(regs));
+    let regs = run_until_hlt(&mut vcpu).unwrap();
+    assert_eq!(regs.r8, 5u64.wrapping_neg());
+    assert_eq!(regs.rax, 5);
+    assert_ne!(regs.rflags & CF, 0);
+    assert_ne!(regs.rflags & SF, 0);
 }
 
 // ============================================================================
