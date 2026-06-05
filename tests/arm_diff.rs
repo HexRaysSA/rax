@@ -9147,7 +9147,7 @@ fn diff_neon_comprehensive_sweep() {
         }
     };
     let mut rng = Rng::new(0x4e_e0_1234);
-    let n_inputs = 6usize;
+    let n_inputs = 16usize;
     let mut batch: Vec<(String, u32, ArmState)> = Vec::new();
     for (label, insn) in NEON_SWEEP {
         for _ in 0..n_inputs {

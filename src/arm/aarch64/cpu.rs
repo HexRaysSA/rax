@@ -3460,25 +3460,22 @@ impl AArch64Cpu {
                 (true, true) => FpKind::MinNm,
             };
             let vn = self.v[rn];
-            if u == 1 {
-                // f32 reduction (4S only).
+            // ARM Reduce() is a recursive split-in-half tree (sve_fp_tree_reduce),
+            // NOT a sequential fold — the order is observable when a NaN is
+            // present (sNaN propagation / which numeric lane survives).
+            let (esize, nlanes) = if u == 1 {
                 if size & 1 != 0 || q == 0 {
                     return Err(ArmError::UndefinedInstruction(insn));
                 }
-                let mut acc = vn as u32;
-                for e in 1..4 {
-                    acc = sve_fp_combine(kind, 4, acc as u64, (vn >> (32 * e)) as u32 as u64) as u32;
-                }
-                self.v[rd] = acc as u128;
+                (4usize, 4usize) // f32, 4S
             } else {
-                // FP16 reduction (.4h Q=0 / .8h Q=1).
-                let n = if q == 1 { 8 } else { 4 };
-                let mut acc = vn as u16;
-                for e in 1..n {
-                    acc = sve_fp_combine(kind, 2, acc as u64, (vn >> (16 * e)) as u16 as u64) as u16;
-                }
-                self.v[rd] = acc as u128;
-            }
+                (2usize, if q == 1 { 8 } else { 4 }) // FP16, .8h/.4h
+            };
+            let buf: Vec<u64> = (0..nlanes)
+                .map(|e| (vn >> (e * esize * 8)) as u64 & elem_mask((esize * 8) as u32))
+                .collect();
+            let r = sve_fp_tree_reduce(&buf, kind, esize);
+            self.v[rd] = (r & elem_mask((esize * 8) as u32)) as u128;
             return Ok(CpuExit::Continue);
         }
 
@@ -18172,20 +18169,28 @@ fn fp16_min(a: u16, b: u16) -> u16 {
 }
 
 fn fp16_maxnum_minnum(a: u16, b: u16, is_min: bool) -> u16 {
-    // Per the ASL FPMaxNum/FPMinNum: a *quiet* NaN operand is replaced by the
-    // identity (-inf for max, +inf for min) so the numeric operand wins; a
-    // signaling NaN is left in place and propagates (quieted) via FPMax/FPMin.
-    let a_qnan = fp16_is_nan(a) && (a & 0x0200) != 0;
-    let b_qnan = fp16_is_nan(b) && (b & 0x0200) != 0;
-    let ident = if is_min { 0x7C00 } else { 0xFC00 };
-    let mut x = a;
-    let mut y = b;
-    if a_qnan && !b_qnan {
-        x = ident;
-    } else if !a_qnan && b_qnan {
-        y = ident;
+    // ARM FPMaxNum/FPMinNum (mirrors the verified fp_three_same_f32 path): a
+    // signalling NaN propagates quieted; otherwise a lone quiet NaN loses to the
+    // numeric operand, and two quiet NaNs return the first.
+    let snan = |v: u16| (v & 0x7C00) == 0x7C00 && (v & 0x3FF) != 0 && (v & 0x0200) == 0;
+    if snan(a) {
+        return a | 0x0200;
     }
-    fp16_max_min(x, y, is_min)
+    if snan(b) {
+        return b | 0x0200;
+    }
+    let aq = fp16_is_nan(a);
+    let bq = fp16_is_nan(b);
+    if aq && bq {
+        return a;
+    }
+    if aq {
+        return b;
+    }
+    if bq {
+        return a;
+    }
+    fp16_max_min(a, b, is_min)
 }
 
 /// Dispatch an `FpKind` binary op to the verified binary16 helpers (for SVE
