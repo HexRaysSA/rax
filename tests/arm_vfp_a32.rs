@@ -3807,6 +3807,68 @@ fn neon_shift_register_handles_signed_counts_rounding_and_q_forms() {
 }
 
 #[test]
+fn neon_saturating_shift_register_saturates_left_shifts_and_sets_qc() {
+    let mut cpu = Armv7Cpu::new();
+    let mut mem = FlatMemory::new(0x1000, 0);
+
+    assert_eq!(
+        Aarch32Decoder::decode(0xF202_0411).unwrap().mnemonic,
+        Mnemonic::VQSHL
+    );
+    assert_eq!(
+        Aarch32Decoder::decode(0xF20A_6518).unwrap().mnemonic,
+        Mnemonic::VQRSHL
+    );
+    assert_eq!(
+        Aarch32Decoder::decode(0xF31C_4558).unwrap().mnemonic,
+        Mnemonic::VQRSHL
+    );
+
+    cpu.vfp.fpscr.set_qc(false);
+    cpu.vfp.write_d_bits(1, 0x7f80_7f80_0102_4040);
+    cpu.vfp.write_d_bits(2, 0x0080_feff_0807_0201);
+    assert!(matches!(
+        exec_one(&mut cpu, &mut mem, 0xF202_0411),
+        ExecResult::Continue
+    ));
+    assert_eq!(cpu.vfp.read_d_bits(0), 0x7fff_1fc0_7f7f_7f7f);
+    assert!(cpu.vfp.fpscr.qc());
+
+    cpu.vfp.fpscr.set_qc(false);
+    cpu.vfp.write_d_bits(4, 0x0001_0002_1000_8000);
+    cpu.vfp.write_d_bits(5, 0x0010_000f_0004_0001);
+    assert!(matches!(
+        exec_one(&mut cpu, &mut mem, 0xF315_3414),
+        ExecResult::Continue
+    ));
+    assert_eq!(cpu.vfp.read_d_bits(3), 0xffff_ffff_ffff_ffff);
+    assert!(cpu.vfp.fpscr.qc());
+
+    cpu.vfp.fpscr.set_qc(false);
+    cpu.vfp.write_d_bits(8, 0x7f80_8001_0240_0707);
+    cpu.vfp.write_d_bits(10, 0x00fd_8008_0701_feff);
+    assert!(matches!(
+        exec_one(&mut cpu, &mut mem, 0xF20A_6518),
+        ExecResult::Continue
+    ));
+    assert_eq!(cpu.vfp.read_d_bits(6), 0x7ff0_ff7f_7f7f_0204);
+    assert!(cpu.vfp.fpscr.qc());
+
+    cpu.vfp.fpscr.set_qc(false);
+    cpu.vfp.write_d_bits(8, 0x0001_8000_0007_0007);
+    cpu.vfp.write_d_bits(9, 0x8000_1234_4000_ffff);
+    cpu.vfp.write_d_bits(12, 0x0010_0001_fffe_ffff);
+    cpu.vfp.write_d_bits(13, 0xfffd_0000_0002_fff0);
+    assert!(matches!(
+        exec_one(&mut cpu, &mut mem, 0xF31C_4558),
+        ExecResult::Continue
+    ));
+    assert_eq!(cpu.vfp.read_d_bits(4), 0xffff_ffff_0002_0004);
+    assert_eq!(cpu.vfp.read_d_bits(5), 0x1000_1234_ffff_0001);
+    assert!(cpu.vfp.fpscr.qc());
+}
+
+#[test]
 fn neon_integer_add_sub_register_ops_cover_element_sizes_and_q_forms() {
     let mut cpu = Armv7Cpu::new();
     let mut mem = FlatMemory::new(0x1000, 0);
