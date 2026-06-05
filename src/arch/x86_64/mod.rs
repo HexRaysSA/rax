@@ -719,6 +719,34 @@ impl Arch for X86_64Arch {
     }
 
     fn load_kernel(&self, mem: &GuestMemoryMmap, config: &VmConfig) -> Result<BootInfo> {
+        // Legacy/El-Torito boot: if the image is an ISO-9660 CD (cheap probe for
+        // "CD001" at offset 0x8001), set it up for a 16-bit real-mode BIOS boot
+        // (load the boot image at 0x7C00, install the CD for INT 13h) instead of
+        // loading a Linux kernel into long mode.
+        {
+            use std::io::{Read, Seek, SeekFrom};
+            let mut magic = [0u8; 5];
+            let looks_iso = File::open(&config.kernel)
+                .and_then(|mut f| {
+                    f.seek(SeekFrom::Start(0x8001))?;
+                    f.read_exact(&mut magic)
+                })
+                .map(|_| bios_boot::is_iso_image_header(&magic))
+                .unwrap_or(false);
+            if looks_iso {
+                info!(path = %config.kernel.display(), "ISO image detected — El-Torito real-mode boot");
+                let data = std::fs::read(&config.kernel)?;
+                bios_boot::arm_real_mode_boot(mem, data)
+                    .map_err(|e| Error::KernelLoad(format!("El-Torito boot setup: {e}")))?;
+                return Ok(BootInfo::X86_64(X86_64BootInfo {
+                    entry_point: 0x7C00,
+                    boot_params_addr: GuestAddress(0),
+                    tss_addr: 0,
+                    identity_map_addr: 0,
+                }));
+            }
+        }
+
         // Use the configured memory size (what we report to the kernel via e820),
         // NOT the actual allocated size (which includes padding for per-CPU overflow).
         let mem_size = config.memory.bytes();
@@ -953,6 +981,13 @@ impl Arch for X86_64Arch {
     }
 
     fn initial_cpu_state(&self, mem: &GuestMemoryMmap, boot: &BootInfo) -> Result<CpuState> {
+        // El-Torito real-mode boot: use the armed 16-bit CPU state (CR0.PE=0,
+        // CS:IP=0:0x7C00, boot image already loaded) — skip the long-mode page
+        // tables / GDT entirely.
+        if let Some((sregs, regs)) = bios_boot::armed_real_mode_state() {
+            return Ok(CpuState::X86_64(X86_64CpuState { regs, sregs }));
+        }
+
         let boot = boot
             .as_x86_64()
             .ok_or_else(|| Error::InvalidConfig("expected x86_64 boot info".to_string()))?;

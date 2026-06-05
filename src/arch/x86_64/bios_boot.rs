@@ -7,8 +7,36 @@
 //! image + real-mode entry parameters; the VM then runs it in real mode with a
 //! minimal BIOS (INT 10h/13h) servicing the bootloader's requests.
 
+use std::sync::Mutex;
+
 use crate::cpu::{DescriptorTable, Registers, Segment, SystemRegisters};
 use vm_memory::{Bytes, GuestAddress, GuestMemoryMmap};
+
+/// Armed real-mode CPU state for an El-Torito ISO boot, consumed once by the
+/// arch's `initial_cpu_state`. Set by [`arm_real_mode_boot`]. A static keeps the
+/// legacy-boot plumbing out of the (single-vCPU) boot path's data structures.
+static REAL_MODE_STATE: Mutex<Option<(SystemRegisters, Registers)>> = Mutex::new(None);
+
+/// Cheap probe: does this look like an ISO-9660 image? (The primary volume
+/// descriptor's "CD001" identifier lives at offset 0x8001.)
+pub fn is_iso_image_header(magic_at_0x8001: &[u8]) -> bool {
+    magic_at_0x8001.len() >= 5 && &magic_at_0x8001[..5] == b"CD001"
+}
+
+/// Parse + load an El-Torito ISO's boot image into `mem`, install its CD image
+/// for the mini-BIOS (INT 13h), and arm the 16-bit real-mode CPU state to be
+/// returned by [`armed_real_mode_state`].
+pub fn arm_real_mode_boot(mem: &GuestMemoryMmap, iso: Vec<u8>) -> Result<(), String> {
+    let boot = setup_real_mode_boot(mem, iso)?;
+    crate::backend::emulator::x86_64::bios::install_cd(std::sync::Arc::new(boot.iso));
+    *REAL_MODE_STATE.lock().unwrap() = Some((boot.sregs, boot.regs));
+    Ok(())
+}
+
+/// The armed real-mode CPU state (sregs, regs), if an ISO boot was set up.
+pub fn armed_real_mode_state() -> Option<(SystemRegisters, Registers)> {
+    REAL_MODE_STATE.lock().unwrap().clone()
+}
 
 /// CD-ROM logical sector size (ISO-9660 / El-Torito LBAs are in these units).
 pub const CD_SECTOR: usize = 2048;
