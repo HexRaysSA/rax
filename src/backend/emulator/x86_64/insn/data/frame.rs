@@ -87,15 +87,15 @@ pub fn bound_or_evex(vcpu: &mut X86_64Vcpu, ctx: &mut InsnContext) -> Result<Opt
         let aaa = p2 & 0x07; // aaa field (opmask)
 
         // For APX mode, decode additional bits differently:
-        // - P1[4] (where r_prime normally is) becomes NF (No Flags)
+        // - P2[2] becomes NF (No Flags)
         // - P2[4] (broadcast bit) becomes ND (New Data Destination)
         // - P0[3] becomes B4, the high r/m extension bit for EGPR
         let (nf, nd, b4, x4) = if apx_mode {
             // In APX mode:
-            // NF is in P1 bit 4 (inverted r_prime position)
+            // NF is encoded in P2 bit 2 and is non-inverted.
             // ND is in P2 bit 4 (broadcast position)
             // B4 is encoded in P0 bit 3 and is non-inverted.
-            let nf_bit = !r_prime; // NF uses r_prime position when mm=4
+            let nf_bit = (p2 & 0x04) != 0;
             let nd_bit = broadcast; // ND uses broadcast position when mm=4
             let b4_bit = (p0 & 0x08) != 0;
             (nf_bit, nd_bit, b4_bit, false) // X4 not yet decoded
