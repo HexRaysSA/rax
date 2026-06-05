@@ -314,6 +314,9 @@ fn scalar_vadd_f32_executes_against_vfp_register_file() {
 #[test]
 fn scalar_multiply_accumulate_forms_execute() {
     let cases = [
+        (0xEE10_0AC1, Mnemonic::VNMLA),
+        (0xEE10_0A81, Mnemonic::VNMLS),
+        (0xEE20_0AC1, Mnemonic::VNMUL),
         (0xEEA0_0A81, Mnemonic::VFMA),
         (0xEEA0_0AC1, Mnemonic::VFMS),
         (0xEE90_0AC1, Mnemonic::VFNMA),
@@ -401,6 +404,15 @@ fn scalar_multiply_accumulate_forms_execute_f64() {
     let mut cpu = Armv7Cpu::new();
     let mut mem = FlatMemory::new(0x1000, 0);
 
+    let cases = [
+        (0xEE11_0B42, Mnemonic::VNMLA),
+        (0xEE11_0B02, Mnemonic::VNMLS),
+        (0xEE21_0B42, Mnemonic::VNMUL),
+    ];
+    for (raw, mnemonic) in cases {
+        assert_eq!(Aarch32Decoder::decode(raw).unwrap().mnemonic, mnemonic);
+    }
+
     cpu.vfp.write_d(1, 1.5);
     cpu.vfp.write_d(2, 4.0);
 
@@ -462,6 +474,9 @@ fn scalar_fp16_arithmetic_unary_and_accumulate_execute() {
         (0xEE30_0981, Mnemonic::VADD),
         (0xEE30_09C1, Mnemonic::VSUB),
         (0xEE20_0981, Mnemonic::VMUL),
+        (0xEE10_09C1, Mnemonic::VNMLA),
+        (0xEE10_0981, Mnemonic::VNMLS),
+        (0xEE20_09C1, Mnemonic::VNMUL),
         (0xEE80_0981, Mnemonic::VDIV),
         (0xEEB0_09E0, Mnemonic::VABS),
         (0xEEB1_0960, Mnemonic::VNEG),
@@ -487,6 +502,26 @@ fn scalar_fp16_arithmetic_unary_and_accumulate_execute() {
         ExecResult::Continue
     ));
     assert_eq!(cpu.vfp.read_s_bits(0), 0xbbbb_b800); // -0.5
+
+    cpu.vfp.write_s_bits(0, 0xcccc_4900); // 10.0
+    assert!(matches!(
+        exec_one(&mut cpu, &mut mem, 0xEE10_09C1),
+        ExecResult::Continue
+    ));
+    assert_eq!(cpu.vfp.read_s_bits(0), 0xcccc_ca80); // -13.0
+
+    cpu.vfp.write_s_bits(0, 0xdddd_4900); // 10.0
+    assert!(matches!(
+        exec_one(&mut cpu, &mut mem, 0xEE10_0981),
+        ExecResult::Continue
+    ));
+    assert_eq!(cpu.vfp.read_s_bits(0), 0xdddd_c700); // -7.0
+
+    assert!(matches!(
+        exec_one(&mut cpu, &mut mem, 0xEE20_09C1),
+        ExecResult::Continue
+    ));
+    assert_eq!(cpu.vfp.read_s_bits(0), 0xdddd_c200); // -3.0
 
     assert!(matches!(
         exec_one(&mut cpu, &mut mem, 0xEE20_0981),
