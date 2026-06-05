@@ -6416,6 +6416,10 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
     }
 
     fn exec_vcvt(&mut self, insn: &DecodedInsn) -> ExecResult {
+        if Self::is_neon_fp_convert_shape(insn.raw) {
+            return self.exec_neon_fp_convert(insn);
+        }
+
         if !self.cpu.vfp.is_enabled() {
             return ExecResult::Exception(ExceptionType::UndefinedInstruction);
         }
@@ -6676,6 +6680,69 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
                 self.cpu.vfp.write_d_bits(d, old | value as u64);
             }
             _ => return ExecResult::Undefined,
+        }
+
+        ExecResult::Continue
+    }
+
+    fn is_neon_fp_convert_shape(raw: u32) -> bool {
+        (raw >> 25) == 0b1111001
+            && ((raw >> 24) & 1) == 1
+            && ((raw >> 23) & 1) == 1
+            && ((raw >> 21) & 0x7) == 0b101
+            && ((raw >> 16) & 0xF) == 0b1011
+            && ((raw >> 8) & 0xE) == 0b0110
+            && ((raw >> 5) & 1) == 0
+            && ((raw >> 4) & 1) == 0
+    }
+
+    fn exec_neon_fp_convert(&mut self, insn: &DecodedInsn) -> ExecResult {
+        if !self.cpu.vfp.is_enabled() {
+            return ExecResult::Exception(ExceptionType::UndefinedInstruction);
+        }
+        if !Self::is_neon_fp_convert_shape(insn.raw) {
+            return ExecResult::Undefined;
+        }
+
+        let d_bit = ((insn.raw >> 22) & 1) as u8;
+        let vd = ((insn.raw >> 12) & 0xF) as u8;
+        let m_bit = ((insn.raw >> 5) & 1) as u8;
+        let vm = (insn.raw & 0xF) as u8;
+        let q = ((insn.raw >> 6) & 1) != 0;
+        let regs = if q { 2 } else { 1 };
+        let d = (d_bit << 4) | vd;
+        let m = (m_bit << 4) | vm;
+        if q && ((d | m) & 1) != 0 {
+            return ExecResult::Undefined;
+        }
+        if d + regs > 32 || m + regs > 32 {
+            return ExecResult::Undefined;
+        }
+
+        for reg in 0..regs {
+            let elements = self.neon_read_vector_elements_u64(m + reg, 1, 4);
+            let mut out = Vec::with_capacity(elements.len());
+            for elem in elements {
+                let result = match insn.mnemonic {
+                    Mnemonic::VCVT_F32_S32 => {
+                        u64::from(vcvt_f32_s32(elem as u32 as i32).to_bits())
+                    }
+                    Mnemonic::VCVT_F32_U32 => u64::from(vcvt_f32_u32(elem as u32).to_bits()),
+                    Mnemonic::VCVT_S32_F32 => {
+                        let value =
+                            vcvt_s32_f32(f32::from_bits(elem as u32), &mut self.cpu.vfp.fpscr);
+                        u64::from(value as u32)
+                    }
+                    Mnemonic::VCVT_U32_F32 => {
+                        let value =
+                            vcvt_u32_f32(f32::from_bits(elem as u32), &mut self.cpu.vfp.fpscr);
+                        u64::from(value)
+                    }
+                    _ => return ExecResult::Undefined,
+                };
+                out.push(result);
+            }
+            self.neon_write_vector_elements_u64(d + reg, 1, 4, &out);
         }
 
         ExecResult::Continue
