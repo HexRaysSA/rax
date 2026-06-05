@@ -360,6 +360,28 @@ fn test_ndd_adc_reg_reg_reg() {
 }
 
 #[test]
+fn test_ndd_adc_reg_reg_reg_match_llvm() {
+    // LLVM 23 assembles "adc r8, rax, rbx" as 62 f4 bc 18 11 d8.
+    const CF: u64 = 1;
+    let code = [
+        0x62, 0xF4, 0xBC, 0x18, 0x11, 0xD8,
+        0xF4,
+    ];
+    let mut regs = Registers::default();
+    regs.rax = u64::MAX;
+    regs.rbx = 0;
+    regs.r8 = 0xDEAD_BEEF;
+    regs.rflags = 0x2 | CF;
+
+    let (mut vcpu, _) = setup_vm(&code, Some(regs));
+    let regs = run_until_hlt(&mut vcpu).unwrap();
+    assert_eq!(regs.r8, 0);
+    assert_eq!(regs.rax, u64::MAX);
+    assert_eq!(regs.rbx, 0);
+    assert_ne!(regs.rflags & CF, 0);
+}
+
+#[test]
 fn test_ndd_sbb_reg_reg_reg() {
     // SBB R8, RAX, RBX (R8 = RAX - RBX - CF)
     let code = [
@@ -369,6 +391,28 @@ fn test_ndd_sbb_reg_reg_reg() {
     ];
     let (mut vcpu, _) = setup_vm(&code, None);
     let _ = run_until_hlt(&mut vcpu);
+}
+
+#[test]
+fn test_ndd_sbb_reg_reg_reg_match_llvm() {
+    // LLVM 23 assembles "sbb r8, rax, rbx" as 62 f4 bc 18 19 d8.
+    const CF: u64 = 1;
+    let code = [
+        0x62, 0xF4, 0xBC, 0x18, 0x19, 0xD8,
+        0xF4,
+    ];
+    let mut regs = Registers::default();
+    regs.rax = 0;
+    regs.rbx = 0;
+    regs.r8 = 0xDEAD_BEEF;
+    regs.rflags = 0x2 | CF;
+
+    let (mut vcpu, _) = setup_vm(&code, Some(regs));
+    let regs = run_until_hlt(&mut vcpu).unwrap();
+    assert_eq!(regs.r8, u64::MAX);
+    assert_eq!(regs.rax, 0);
+    assert_eq!(regs.rbx, 0);
+    assert_ne!(regs.rflags & CF, 0);
 }
 
 // ============================================================================
