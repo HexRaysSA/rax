@@ -2639,6 +2639,10 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
     }
 
     fn exec_neon_pairwise_integer(&mut self, insn: &DecodedInsn) -> ExecResult {
+        if Self::is_neon_fp_pairwise_add_shape(insn.raw) {
+            return self.exec_neon_fp_pairwise_add(insn);
+        }
+
         if !self.cpu.vfp.is_enabled() {
             return ExecResult::Exception(ExceptionType::UndefinedInstruction);
         }
@@ -2713,6 +2717,66 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
         }
 
         self.neon_write_vector_elements_u64(d, 1, ebytes, &out);
+        ExecResult::Continue
+    }
+
+    fn is_neon_fp_pairwise_add_shape(raw: u32) -> bool {
+        (raw >> 25) == 0b1111001
+            && ((raw >> 24) & 1) == 1
+            && ((raw >> 23) & 1) == 0
+            && ((raw >> 21) & 1) == 0
+            && ((raw >> 20) & 1) == 0
+            && ((raw >> 8) & 0xF) == 0b1101
+            && ((raw >> 4) & 1) == 0
+    }
+
+    fn exec_neon_fp_pairwise_add(&mut self, insn: &DecodedInsn) -> ExecResult {
+        if !self.cpu.vfp.is_enabled() {
+            return ExecResult::Exception(ExceptionType::UndefinedInstruction);
+        }
+        if insn.mnemonic != Mnemonic::VPADD || !Self::is_neon_fp_pairwise_add_shape(insn.raw) {
+            return ExecResult::Undefined;
+        }
+        if ((insn.raw >> 6) & 1) != 0 {
+            return ExecResult::Undefined;
+        }
+
+        let d_bit = ((insn.raw >> 22) & 1) as u8;
+        let vd = ((insn.raw >> 12) & 0xF) as u8;
+        let n_bit = ((insn.raw >> 7) & 1) as u8;
+        let vn = ((insn.raw >> 16) & 0xF) as u8;
+        let m_bit = ((insn.raw >> 5) & 1) as u8;
+        let vm = (insn.raw & 0xF) as u8;
+        let d = (d_bit << 4) | vd;
+        let n = (n_bit << 4) | vn;
+        let m = (m_bit << 4) | vm;
+        if d >= 32 || n >= 32 || m >= 32 {
+            return ExecResult::Undefined;
+        }
+
+        let n_elements = self.neon_read_vector_elements_u64(n, 1, 4);
+        let m_elements = self.neon_read_vector_elements_u64(m, 1, 4);
+        let fpscr = &mut self.cpu.vfp.fpscr;
+        let out = [
+            u64::from(
+                vadd_f32(
+                    f32::from_bits(n_elements[0] as u32),
+                    f32::from_bits(n_elements[1] as u32),
+                    fpscr,
+                )
+                .to_bits(),
+            ),
+            u64::from(
+                vadd_f32(
+                    f32::from_bits(m_elements[0] as u32),
+                    f32::from_bits(m_elements[1] as u32),
+                    fpscr,
+                )
+                .to_bits(),
+            ),
+        ];
+
+        self.neon_write_vector_elements_u64(d, 1, 4, &out);
         ExecResult::Continue
     }
 

@@ -193,6 +193,10 @@ impl Aarch32Decoder {
             return Ok(insn);
         }
 
+        if let Some(insn) = Self::decode_neon_fp_pairwise_add(raw) {
+            return Ok(insn);
+        }
+
         if let Some(insn) = Self::decode_neon_fp_add_sub(raw) {
             return Ok(insn);
         }
@@ -833,6 +837,35 @@ impl Aarch32Decoder {
             } else {
                 Mnemonic::VMIN
             },
+            ExecutionState::Aarch32,
+            raw,
+            4,
+        ))
+    }
+
+    fn decode_neon_fp_pairwise_add(raw: u32) -> Option<DecodedInsn> {
+        if (raw >> 25) != 0b1111001
+            || ((raw >> 24) & 1) != 1
+            || ((raw >> 23) & 1) != 0
+            || ((raw >> 21) & 1) != 0
+            || ((raw >> 20) & 1) != 0
+            || ((raw >> 8) & 0xF) != 0b1101
+            || ((raw >> 4) & 1) != 0
+        {
+            return None;
+        }
+
+        if ((raw >> 6) & 1) != 0 {
+            return Some(DecodedInsn::new(
+                Mnemonic::UNDEFINED,
+                ExecutionState::Aarch32,
+                raw,
+                4,
+            ));
+        }
+
+        Some(DecodedInsn::new(
+            Mnemonic::VPADD,
             ExecutionState::Aarch32,
             raw,
             4,

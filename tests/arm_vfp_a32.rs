@@ -3249,6 +3249,51 @@ fn neon_pairwise_integer_ops_cover_add_min_max_and_invalid_shapes() {
 }
 
 #[test]
+fn neon_fp_pairwise_add_handles_f32_lanes() {
+    let mut cpu = Armv7Cpu::new();
+    let mut mem = FlatMemory::new(0x1000, 0);
+
+    assert_eq!(
+        Aarch32Decoder::decode(0xF301_0D02).unwrap().mnemonic,
+        Mnemonic::VPADD
+    );
+    assert_eq!(
+        Aarch32Decoder::decode(0xF305_4D06).unwrap().mnemonic,
+        Mnemonic::VPADD
+    );
+    assert_eq!(
+        Aarch32Decoder::decode(0xF301_0D42).unwrap().mnemonic,
+        Mnemonic::UNDEFINED
+    );
+
+    cpu.vfp
+        .write_d_bits(1, u64::from(2.5f32.to_bits()) << 32 | u64::from(1.25f32.to_bits()));
+    cpu.vfp
+        .write_d_bits(2, u64::from(20.0f32.to_bits()) << 32 | u64::from(10.0f32.to_bits()));
+    assert!(matches!(
+        exec_one(&mut cpu, &mut mem, 0xF301_0D02),
+        ExecResult::Continue
+    ));
+    assert_eq!(
+        cpu.vfp.read_d_bits(0),
+        u64::from(30.0f32.to_bits()) << 32 | u64::from(3.75f32.to_bits())
+    );
+
+    cpu.vfp
+        .write_d_bits(5, u64::from(8.0f32.to_bits()) << 32 | u64::from(4.0f32.to_bits()));
+    cpu.vfp
+        .write_d_bits(6, u64::from(64.0f32.to_bits()) << 32 | u64::from(32.0f32.to_bits()));
+    assert!(matches!(
+        exec_one(&mut cpu, &mut mem, 0xF305_4D06),
+        ExecResult::Continue
+    ));
+    assert_eq!(
+        cpu.vfp.read_d_bits(4),
+        u64::from(96.0f32.to_bits()) << 32 | u64::from(12.0f32.to_bits())
+    );
+}
+
+#[test]
 fn neon_pairwise_add_long_widens_pairs_and_accumulates() {
     let mut cpu = Armv7Cpu::new();
     let mut mem = FlatMemory::new(0x1000, 0);
