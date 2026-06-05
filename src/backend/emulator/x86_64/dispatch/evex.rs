@@ -16,7 +16,7 @@ use crate::cpu::VcpuExit;
 use crate::error::{Error, Result};
 
 use super::super::cpu::{InsnContext, X86_64Vcpu};
-use super::super::insn;
+use super::super::{flags, insn};
 
 impl X86_64Vcpu {
     /// Execute EVEX-encoded instruction.
@@ -2708,6 +2708,12 @@ impl X86_64Vcpu {
             // OR variants (0x08-0x0B)
             0x08 | 0x09 | 0x0A | 0x0B => self.execute_apx_alu(ctx, opcode, ndd, nf, ApxAluOp::Or),
 
+            // ADC variants (0x10-0x13)
+            0x10 | 0x11 | 0x12 | 0x13 => self.execute_apx_alu(ctx, opcode, ndd, nf, ApxAluOp::Adc),
+
+            // SBB variants (0x18-0x1B)
+            0x18 | 0x19 | 0x1A | 0x1B => self.execute_apx_alu(ctx, opcode, ndd, nf, ApxAluOp::Sbb),
+
             // AND variants (0x20-0x23)
             0x20 | 0x21 | 0x22 | 0x23 => self.execute_apx_alu(ctx, opcode, ndd, nf, ApxAluOp::And),
 
@@ -2796,11 +2802,15 @@ impl X86_64Vcpu {
         };
 
         // Perform ALU operation
+        let cf_in = (self.regs.rflags & 0x001) != 0;
+        let cf_val = u64::from(cf_in);
         let result = match alu_op {
             ApxAluOp::Add => src1.wrapping_add(src2),
+            ApxAluOp::Adc => src1.wrapping_add(src2).wrapping_add(cf_val),
             ApxAluOp::Or => src1 | src2,
             ApxAluOp::And => src1 & src2,
             ApxAluOp::Sub => src1.wrapping_sub(src2),
+            ApxAluOp::Sbb => src1.wrapping_sub(src2).wrapping_sub(cf_val),
             ApxAluOp::Xor => src1 ^ src2,
         };
 
@@ -2823,7 +2833,15 @@ impl X86_64Vcpu {
 
         // Update flags unless NF is set
         if !nf {
-            self.update_flags_alu(result, src1, src2, op_size, alu_op);
+            match alu_op {
+                ApxAluOp::Adc => {
+                    flags::update_flags_adc(&mut self.regs.rflags, src1, src2, cf_in, result, op_size);
+                }
+                ApxAluOp::Sbb => {
+                    flags::update_flags_sbb(&mut self.regs.rflags, src1, src2, cf_in, result, op_size);
+                }
+                _ => self.update_flags_alu(result, src1, src2, op_size, alu_op),
+            }
         }
 
         self.regs.rip += ctx.cursor as u64;
@@ -3325,12 +3343,12 @@ impl X86_64Vcpu {
 
         // CF and OF depend on operation
         let (cf, of) = match alu_op {
-            ApxAluOp::Add => {
+            ApxAluOp::Add | ApxAluOp::Adc => {
                 let cf = result > max_val || result < src1;
                 let of = ((!(src1 ^ src2)) & (src1 ^ result) & sign_bit) != 0;
                 (cf, of)
             }
-            ApxAluOp::Sub => {
+            ApxAluOp::Sub | ApxAluOp::Sbb => {
                 let cf = src1 < src2;
                 let of = ((src1 ^ src2) & (src1 ^ result) & sign_bit) != 0;
                 (cf, of)
@@ -3410,9 +3428,11 @@ impl X86_64Vcpu {
 #[derive(Clone, Copy)]
 enum ApxAluOp {
     Add,
+    Adc,
     Or,
     And,
     Sub,
+    Sbb,
     Xor,
 }
 
