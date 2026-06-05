@@ -413,6 +413,9 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
             Mnemonic::VHADD | Mnemonic::VRHADD | Mnemonic::VHSUB => {
                 self.exec_neon_halving_add_sub(insn)
             }
+            Mnemonic::VCEQ | Mnemonic::VCGT | Mnemonic::VCGE => {
+                self.exec_neon_integer_compare(insn)
+            }
             Mnemonic::VQADD | Mnemonic::VQSUB => self.exec_neon_saturating_add_sub(insn),
             Mnemonic::VQDMULH | Mnemonic::VQRDMULH => self.exec_neon_saturating_doubling_mulh(insn),
             Mnemonic::VQABS | Mnemonic::VQNEG => self.exec_neon_saturating_abs_neg(insn),
@@ -3930,6 +3933,86 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
                     Self::neon_pack_signed_elem_i128(value, size.bits())
                 };
                 out.push(result);
+            }
+            self.neon_write_vector_elements_u64(d + reg, 1, ebytes, &out);
+        }
+
+        ExecResult::Continue
+    }
+
+    fn exec_neon_integer_compare(&mut self, insn: &DecodedInsn) -> ExecResult {
+        if !self.cpu.vfp.is_enabled() {
+            return ExecResult::Exception(ExceptionType::UndefinedInstruction);
+        }
+        if (insn.raw >> 25) != 0b1111001 || ((insn.raw >> 23) & 1) != 0 {
+            return ExecResult::Undefined;
+        }
+
+        let op8 = (insn.raw >> 8) & 0xF;
+        let bit4 = (insn.raw >> 4) & 1;
+        let bit24 = (insn.raw >> 24) & 1;
+        match (insn.mnemonic, op8, bit4, bit24) {
+            (Mnemonic::VCEQ, 0b1000, 1, 1)
+            | (Mnemonic::VCGT, 0b0011, 0, _)
+            | (Mnemonic::VCGE, 0b0011, 1, _) => {}
+            _ => return ExecResult::Undefined,
+        }
+
+        let size = match (insn.raw >> 20) & 0x3 {
+            0b00 => NeonSize::B8,
+            0b01 => NeonSize::H16,
+            0b10 => NeonSize::S32,
+            _ => return ExecResult::Undefined,
+        };
+        let ebytes = (size.bits() / 8) as u8;
+        let unsigned = bit24 != 0;
+
+        let d_bit = ((insn.raw >> 22) & 1) as u8;
+        let vd = ((insn.raw >> 12) & 0xF) as u8;
+        let n_bit = ((insn.raw >> 7) & 1) as u8;
+        let vn = ((insn.raw >> 16) & 0xF) as u8;
+        let m_bit = ((insn.raw >> 5) & 1) as u8;
+        let vm = (insn.raw & 0xF) as u8;
+        let q = ((insn.raw >> 6) & 1) != 0;
+        let regs = if q { 2 } else { 1 };
+
+        let d = (d_bit << 4) | vd;
+        let n = (n_bit << 4) | vn;
+        let m = (m_bit << 4) | vm;
+        if q && ((d | n | m) & 1) != 0 {
+            return ExecResult::Undefined;
+        }
+        if d + regs > 32 || n + regs > 32 || m + regs > 32 {
+            return ExecResult::Undefined;
+        }
+
+        let true_mask = if size.bits() == 32 {
+            u64::from(u32::MAX)
+        } else {
+            (1u64 << size.bits()) - 1
+        };
+        for reg in 0..regs {
+            let n_elements = self.neon_read_vector_elements_u64(n + reg, 1, ebytes);
+            let m_elements = self.neon_read_vector_elements_u64(m + reg, 1, ebytes);
+            let mut out = Vec::with_capacity(n_elements.len());
+            for (n_elem, m_elem) in n_elements.into_iter().zip(m_elements.into_iter()) {
+                let condition = match insn.mnemonic {
+                    Mnemonic::VCEQ => n_elem == m_elem,
+                    Mnemonic::VCGT if unsigned => n_elem > m_elem,
+                    Mnemonic::VCGE if unsigned => n_elem >= m_elem,
+                    Mnemonic::VCGT => {
+                        let lhs = Self::neon_sign_extend_elem_u64(n_elem, size.bits());
+                        let rhs = Self::neon_sign_extend_elem_u64(m_elem, size.bits());
+                        lhs > rhs
+                    }
+                    Mnemonic::VCGE => {
+                        let lhs = Self::neon_sign_extend_elem_u64(n_elem, size.bits());
+                        let rhs = Self::neon_sign_extend_elem_u64(m_elem, size.bits());
+                        lhs >= rhs
+                    }
+                    _ => return ExecResult::Undefined,
+                };
+                out.push(if condition { true_mask } else { 0 });
             }
             self.neon_write_vector_elements_u64(d + reg, 1, ebytes, &out);
         }

@@ -177,6 +177,10 @@ impl Aarch32Decoder {
             return Ok(insn);
         }
 
+        if let Some(insn) = Self::decode_neon_integer_compare(raw) {
+            return Ok(insn);
+        }
+
         if let Some(insn) = Self::decode_neon_shift_register(raw) {
             return Ok(insn);
         }
@@ -709,6 +713,38 @@ impl Aarch32Decoder {
             Mnemonic::VMAX
         } else {
             Mnemonic::VMIN
+        };
+
+        let size = (raw >> 20) & 0x3;
+        let q = ((raw >> 6) & 1) != 0;
+        let vd = (raw >> 12) & 0xF;
+        let vn = (raw >> 16) & 0xF;
+        let vm = raw & 0xF;
+        if size == 0b11 || (q && ((vd | vn | vm) & 1) != 0) {
+            return Some(DecodedInsn::new(
+                Mnemonic::UNDEFINED,
+                ExecutionState::Aarch32,
+                raw,
+                4,
+            ));
+        }
+
+        Some(DecodedInsn::new(mnemonic, ExecutionState::Aarch32, raw, 4))
+    }
+
+    fn decode_neon_integer_compare(raw: u32) -> Option<DecodedInsn> {
+        if (raw >> 25) != 0b1111001 || ((raw >> 23) & 1) != 0 {
+            return None;
+        }
+
+        let op8 = (raw >> 8) & 0xF;
+        let bit4 = (raw >> 4) & 1;
+        let bit24 = (raw >> 24) & 1;
+        let mnemonic = match (op8, bit4, bit24) {
+            (0b1000, 1, 1) => Mnemonic::VCEQ,
+            (0b0011, 0, _) => Mnemonic::VCGT,
+            (0b0011, 1, _) => Mnemonic::VCGE,
+            _ => return None,
         };
 
         let size = (raw >> 20) & 0x3;
