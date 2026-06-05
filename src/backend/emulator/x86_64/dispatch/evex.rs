@@ -3418,29 +3418,54 @@ impl X86_64Vcpu {
             return src;
         }
 
+        let width = op_size as u32 * 8;
+        let mask = if width == 64 {
+            u64::MAX
+        } else {
+            (1u64 << width) - 1
+        };
+        let src = src & mask;
+
         match shift_type {
-            0 => src.rotate_left(count as u32),  // ROL
-            1 => src.rotate_right(count as u32), // ROR
+            0 => {
+                let count = (count as u32) % width;
+                ((src << count) | (src >> (width - count))) & mask
+            }
+            1 => {
+                let count = (count as u32) % width;
+                ((src >> count) | (src << (width - count))) & mask
+            }
             2 => {
                 // RCL
-                let cf = (self.regs.rflags & 1) as u64;
-                let bits = op_size as u64 * 8 + 1;
-                let combined = (cf << (op_size as u64 * 8)) | src;
-                let rotated = combined.rotate_left((count % bits) as u32);
-                rotated & ((1u64 << (op_size as u64 * 8)) - 1)
+                let cf = (self.regs.rflags & 1) as u128;
+                let bits = width + 1;
+                let combined = (cf << width) | src as u128;
+                let rotate_mask = (1u128 << bits) - 1;
+                let count = (count as u32) % bits;
+                let rotated = ((combined << count) | (combined >> (bits - count))) & rotate_mask;
+                (rotated as u64) & mask
             }
             3 => {
                 // RCR
-                let cf = (self.regs.rflags & 1) as u64;
-                let bits = op_size as u64 * 8 + 1;
-                let combined = (cf << (op_size as u64 * 8)) | src;
-                let rotated = combined.rotate_right((count % bits) as u32);
-                rotated & ((1u64 << (op_size as u64 * 8)) - 1)
+                let cf = (self.regs.rflags & 1) as u128;
+                let bits = width + 1;
+                let combined = (cf << width) | src as u128;
+                let rotate_mask = (1u128 << bits) - 1;
+                let count = (count as u32) % bits;
+                let rotated = ((combined >> count) | (combined << (bits - count))) & rotate_mask;
+                (rotated as u64) & mask
             }
-            4 | 6 => src << count, // SHL/SAL
-            5 => src >> count,      // SHR
+            4 | 6 => (src << count) & mask, // SHL/SAL
+            5 => src >> count,              // SHR
             7 => {
                 // SAR - arithmetic shift right
+                if count as u32 >= width {
+                    return if (src & (1u64 << (width - 1))) != 0 {
+                        mask
+                    } else {
+                        0
+                    };
+                }
                 match op_size {
                     1 => ((src as i8) >> count) as u8 as u64,
                     2 => ((src as i16) >> count) as u16 as u64,

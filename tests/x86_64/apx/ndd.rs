@@ -385,6 +385,23 @@ fn test_ndd_rol_reg_reg_imm() {
 }
 
 #[test]
+fn test_ndd_rol_32bit_match_llvm() {
+    // LLVM 23 assembles "rol r8d, eax, 8" as 62 f4 3c 18 c1 c0 08.
+    let code = [
+        0x62, 0xF4, 0x3C, 0x18, 0xC1, 0xC0, 0x08,
+        0xF4,
+    ];
+    let mut regs = Registers::default();
+    regs.rax = 0x1234_5678;
+    regs.r8 = u64::MAX;
+
+    let (mut vcpu, _) = setup_vm(&code, Some(regs));
+    let regs = run_until_hlt(&mut vcpu).unwrap();
+    assert_eq!(regs.r8, 0x3456_7812);
+    assert_eq!(regs.rax, 0x1234_5678);
+}
+
+#[test]
 fn test_ndd_ror_reg_reg_cl() {
     // ROR R8, RAX, CL (R8 = rotate_right(RAX, CL))
     let code = [
@@ -394,6 +411,40 @@ fn test_ndd_ror_reg_reg_cl() {
     ];
     let (mut vcpu, _) = setup_vm(&code, None);
     let _ = run_until_hlt(&mut vcpu);
+}
+
+#[test]
+fn test_ndd_ror_32bit_match_llvm() {
+    // LLVM 23 assembles "ror r8d, eax, 8" as 62 f4 3c 18 c1 c8 08.
+    let code = [
+        0x62, 0xF4, 0x3C, 0x18, 0xC1, 0xC8, 0x08,
+        0xF4,
+    ];
+    let mut regs = Registers::default();
+    regs.rax = 0x1234_5678;
+    regs.r8 = u64::MAX;
+
+    let (mut vcpu, _) = setup_vm(&code, Some(regs));
+    let regs = run_until_hlt(&mut vcpu).unwrap();
+    assert_eq!(regs.r8, 0x7812_3456);
+    assert_eq!(regs.rax, 0x1234_5678);
+}
+
+#[test]
+fn test_ndd_rol_8bit_match_llvm() {
+    // LLVM 23 assembles "rol r8b, al" as 62 f4 3c 18 d0 c0.
+    let code = [
+        0x62, 0xF4, 0x3C, 0x18, 0xD0, 0xC0,
+        0xF4,
+    ];
+    let mut regs = Registers::default();
+    regs.rax = 0x81;
+    regs.r8 = 0x1122_3344_5566_7788;
+
+    let (mut vcpu, _) = setup_vm(&code, Some(regs));
+    let regs = run_until_hlt(&mut vcpu).unwrap();
+    assert_eq!(regs.r8, 0x1122_3344_5566_7703);
+    assert_eq!(regs.rax, 0x81);
 }
 
 // ============================================================================
