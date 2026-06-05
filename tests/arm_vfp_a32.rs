@@ -5244,12 +5244,16 @@ fn neon_integer_compare_writes_lane_masks_for_signed_unsigned_and_q_forms() {
 }
 
 #[test]
-fn neon_fp_compare_writes_f32_lane_masks_and_handles_absolute_forms() {
+fn neon_fp_compare_writes_f32_and_f16_lane_masks_and_handles_absolute_forms() {
     let mut cpu = Armv7Cpu::new();
     let mut mem = FlatMemory::new(0x1000, 0);
 
     assert_eq!(
         Aarch32Decoder::decode(0xF201_0E02).unwrap().mnemonic,
+        Mnemonic::VCEQ
+    );
+    assert_eq!(
+        Aarch32Decoder::decode(0xF211_0E02).unwrap().mnemonic,
         Mnemonic::VCEQ
     );
     assert_eq!(
@@ -5261,11 +5265,19 @@ fn neon_fp_compare_writes_f32_lane_masks_and_handles_absolute_forms() {
         Mnemonic::VCGE
     );
     assert_eq!(
+        Aarch32Decoder::decode(0xF311_0E02).unwrap().mnemonic,
+        Mnemonic::VCGE
+    );
+    assert_eq!(
         Aarch32Decoder::decode(0xF308_4E4C).unwrap().mnemonic,
         Mnemonic::VCGE
     );
     assert_eq!(
         Aarch32Decoder::decode(0xF328_6E0A).unwrap().mnemonic,
+        Mnemonic::VCGT
+    );
+    assert_eq!(
+        Aarch32Decoder::decode(0xF331_0E02).unwrap().mnemonic,
         Mnemonic::VCGT
     );
     assert_eq!(
@@ -5277,11 +5289,19 @@ fn neon_fp_compare_writes_f32_lane_masks_and_handles_absolute_forms() {
         Mnemonic::VACGE
     );
     assert_eq!(
+        Aarch32Decoder::decode(0xF311_0E12).unwrap().mnemonic,
+        Mnemonic::VACGE
+    );
+    assert_eq!(
         Aarch32Decoder::decode(0xF302_0E54).unwrap().mnemonic,
         Mnemonic::VACGE
     );
     assert_eq!(
         Aarch32Decoder::decode(0xF324_3E15).unwrap().mnemonic,
+        Mnemonic::VACGT
+    );
+    assert_eq!(
+        Aarch32Decoder::decode(0xF331_0E12).unwrap().mnemonic,
         Mnemonic::VACGT
     );
     assert_eq!(
@@ -5349,11 +5369,51 @@ fn neon_fp_compare_writes_f32_lane_masks_and_handles_absolute_forms() {
     assert_eq!(cpu.vfp.read_d_bits(4), 0x0000_0000_ffff_ffff);
     assert_eq!(cpu.vfp.read_d_bits(5), 0);
 
+    cpu.vfp.write_d_bits(1, 0x7e00_4200_bc00_3c00);
+    cpu.vfp.write_d_bits(2, 0x3c00_4200_3c00_3c00);
+    assert!(matches!(
+        exec_one(&mut cpu, &mut mem, 0xF211_0E02),
+        ExecResult::Continue
+    ));
+    assert_eq!(cpu.vfp.read_d_bits(0), 0x0000_ffff_0000_ffff);
+
+    cpu.vfp.write_d_bits(1, 0x4000_4200_bc00_3c00);
+    cpu.vfp.write_d_bits(2, 0x4200_4200_3c00_4000);
+    assert!(matches!(
+        exec_one(&mut cpu, &mut mem, 0xF311_0E02),
+        ExecResult::Continue
+    ));
+    assert_eq!(cpu.vfp.read_d_bits(0), 0x0000_ffff_0000_0000);
+
+    cpu.vfp.write_d_bits(1, 0x4400_4200_4000_3c00);
+    cpu.vfp.write_d_bits(2, 0x4200_4200_3c00_4000);
+    assert!(matches!(
+        exec_one(&mut cpu, &mut mem, 0xF331_0E02),
+        ExecResult::Continue
+    ));
+    assert_eq!(cpu.vfp.read_d_bits(0), 0xffff_0000_ffff_0000);
+
+    cpu.vfp.write_d_bits(1, 0x4400_c200_bc00_3c00);
+    cpu.vfp.write_d_bits(2, 0x4200_c000_4000_4000);
+    assert!(matches!(
+        exec_one(&mut cpu, &mut mem, 0xF311_0E12),
+        ExecResult::Continue
+    ));
+    assert_eq!(cpu.vfp.read_d_bits(0), 0xffff_ffff_0000_0000);
+
+    cpu.vfp.write_d_bits(1, 0x4400_c200_bc00_3c00);
+    cpu.vfp.write_d_bits(2, 0x4200_c200_4000_4000);
+    assert!(matches!(
+        exec_one(&mut cpu, &mut mem, 0xF331_0E12),
+        ExecResult::Continue
+    ));
+    assert_eq!(cpu.vfp.read_d_bits(0), 0xffff_0000_0000_0000);
+
     assert_eq!(
         Aarch32Decoder::decode(0xF302_1E54).unwrap().mnemonic,
         Mnemonic::UNDEFINED
     );
-    let invalid_shape = DecodedInsn::new(Mnemonic::VCEQ, ExecutionState::Aarch32, 0xF211_0E02, 4);
+    let invalid_shape = DecodedInsn::new(Mnemonic::VCEQ, ExecutionState::Aarch32, 0xF211_0E12, 4);
     assert!(matches!(
         Executor::new(&mut cpu, &mut mem).execute(&invalid_shape),
         ExecResult::Undefined

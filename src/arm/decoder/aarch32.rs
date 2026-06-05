@@ -1296,11 +1296,11 @@ impl Aarch32Decoder {
         let bit20 = (raw >> 20) & 1;
         let absolute = ((raw >> 4) & 1) != 0;
         let mnemonic = match (absolute, bit24, bit21, bit20) {
-            (false, 0, 0, 0) => Mnemonic::VCEQ,
-            (false, 1, 0, 0) => Mnemonic::VCGE,
-            (false, 1, 1, 0) => Mnemonic::VCGT,
-            (true, 1, 0, 0) => Mnemonic::VACGE,
-            (true, 1, 1, 0) => Mnemonic::VACGT,
+            (false, 0, 0, 0 | 1) => Mnemonic::VCEQ,
+            (false, 1, 0, 0 | 1) => Mnemonic::VCGE,
+            (false, 1, 1, 0 | 1) => Mnemonic::VCGT,
+            (true, 1, 0, 0 | 1) => Mnemonic::VACGE,
+            (true, 1, 1, 0 | 1) => Mnemonic::VACGT,
             _ => return None,
         };
 

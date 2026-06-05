@@ -5293,11 +5293,11 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
         let bit20 = (insn.raw >> 20) & 1;
         let absolute = ((insn.raw >> 4) & 1) != 0;
         match (insn.mnemonic, absolute, bit24, bit21, bit20) {
-            (Mnemonic::VCEQ, false, 0, 0, 0)
-            | (Mnemonic::VCGE, false, 1, 0, 0)
-            | (Mnemonic::VCGT, false, 1, 1, 0)
-            | (Mnemonic::VACGE, true, 1, 0, 0)
-            | (Mnemonic::VACGT, true, 1, 1, 0) => {}
+            (Mnemonic::VCEQ, false, 0, 0, 0 | 1)
+            | (Mnemonic::VCGE, false, 1, 0, 0 | 1)
+            | (Mnemonic::VCGT, false, 1, 1, 0 | 1)
+            | (Mnemonic::VACGE, true, 1, 0, 0 | 1)
+            | (Mnemonic::VACGT, true, 1, 1, 0 | 1) => {}
             _ => return ExecResult::Undefined,
         }
 
@@ -5320,13 +5320,33 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
             return ExecResult::Undefined;
         }
 
+        let size = if bit20 == 0 {
+            NeonSize::S32
+        } else {
+            NeonSize::H16
+        };
+        let ebytes = (size.bits() / 8) as u8;
+        let true_mask = if size == NeonSize::S32 {
+            u64::from(u32::MAX)
+        } else {
+            u64::from(u16::MAX)
+        };
+
         for reg in 0..regs {
-            let n_elements = self.neon_read_vector_elements_u64(n + reg, 1, 4);
-            let m_elements = self.neon_read_vector_elements_u64(m + reg, 1, 4);
+            let n_elements = self.neon_read_vector_elements_u64(n + reg, 1, ebytes);
+            let m_elements = self.neon_read_vector_elements_u64(m + reg, 1, ebytes);
             let mut out = Vec::with_capacity(n_elements.len());
             for (n_elem, m_elem) in n_elements.into_iter().zip(m_elements.into_iter()) {
-                let mut lhs = f32::from_bits(n_elem as u32);
-                let mut rhs = f32::from_bits(m_elem as u32);
+                let mut lhs = match size {
+                    NeonSize::S32 => f32::from_bits(n_elem as u32),
+                    NeonSize::H16 => vcvt_f32_f16_bits(n_elem as u16),
+                    _ => return ExecResult::Undefined,
+                };
+                let mut rhs = match size {
+                    NeonSize::S32 => f32::from_bits(m_elem as u32),
+                    NeonSize::H16 => vcvt_f32_f16_bits(m_elem as u16),
+                    _ => return ExecResult::Undefined,
+                };
                 if absolute {
                     lhs = lhs.abs();
                     rhs = rhs.abs();
@@ -5337,9 +5357,9 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
                     Mnemonic::VCGE | Mnemonic::VACGE => lhs >= rhs,
                     _ => return ExecResult::Undefined,
                 };
-                out.push(if condition { u64::from(u32::MAX) } else { 0 });
+                out.push(if condition { true_mask } else { 0 });
             }
-            self.neon_write_vector_elements_u64(d + reg, 1, 4, &out);
+            self.neon_write_vector_elements_u64(d + reg, 1, ebytes, &out);
         }
 
         ExecResult::Continue
