@@ -344,6 +344,8 @@ pub(super) struct DecodeCacheEntry {
     pub(super) cursor: usize,
     /// REX prefix if present
     pub(super) rex: Option<u8>,
+    /// REX2 prefix if present
+    pub(super) rex2: Option<Rex2Prefix>,
     /// 0x66 prefix
     pub(super) operand_size_override: bool,
     /// 0x67 prefix
@@ -388,6 +390,7 @@ impl Default for DecodeCacheEntry {
             op_size: 4,
             cursor: 0,
             rex: None,
+            rex2: None,
             operand_size_override: false,
             address_size_override: false,
             rep_prefix: None,
@@ -428,24 +431,26 @@ pub(super) struct InsnContext {
 }
 
 /// REX2 prefix decoded fields (2-byte prefix for APX EGPR access)
-/// Format: 0xD5 [M:R3:X3:B3:W:R4:X4:B4]
+/// Format: 0xD5 [M:R4:X4:B4:W:R:X:B]. Field names below preserve older
+/// internal naming: r3/x3/b3 are the high (+16) extension bits, and r4/x4/b4
+/// are the low (+8) extension bits.
 #[derive(Clone, Copy, Debug)]
 pub(super) struct Rex2Prefix {
     /// M bit: opcode map select (0=legacy map, 1=0F map)
     pub m: bool,
     /// W bit: operand size (0=default, 1=64-bit)
     pub w: bool,
-    /// R3 bit (inverted): ModR/M reg extension bit 3
+    /// High ModR/M reg extension bit (+16)
     pub r3: bool,
-    /// X3 bit (inverted): SIB index extension bit 3
+    /// High SIB index extension bit (+16)
     pub x3: bool,
-    /// B3 bit (inverted): ModR/M r/m or SIB base extension bit 3
+    /// High ModR/M r/m or SIB base extension bit (+16)
     pub b3: bool,
-    /// R4 bit (inverted): ModR/M reg extension bit 4 (for EGPR R16-R31)
+    /// Low ModR/M reg extension bit (+8)
     pub r4: bool,
-    /// X4 bit (inverted): SIB index extension bit 4 (for EGPR R16-R31)
+    /// Low SIB index extension bit (+8)
     pub x4: bool,
-    /// B4 bit (inverted): ModR/M r/m extension bit 4 (for EGPR R16-R31)
+    /// Low ModR/M r/m extension bit (+8)
     pub b4: bool,
 }
 
@@ -544,32 +549,32 @@ impl InsnContext {
         self.rex2.map_or(false, |r| r.m)
     }
 
-    /// Get full 5-bit reg extension from REX2 (R3 + R4)
+    /// Get full 5-bit reg extension from REX2.
     #[inline(always)]
     pub fn rex2_r(&self) -> u8 {
         self.rex2.map_or(0, |r| {
-            let r3 = if r.r3 { 0 } else { 8 };
-            let r4 = if r.r4 { 0 } else { 16 };
+            let r3 = if r.r3 { 16 } else { 0 };
+            let r4 = if r.r4 { 8 } else { 0 };
             r3 | r4
         })
     }
 
-    /// Get full 5-bit r/m extension from REX2 (B3 + B4)
+    /// Get full 5-bit r/m extension from REX2.
     #[inline(always)]
     pub fn rex2_b(&self) -> u8 {
         self.rex2.map_or(0, |r| {
-            let b3 = if r.b3 { 0 } else { 8 };
-            let b4 = if r.b4 { 0 } else { 16 };
+            let b3 = if r.b3 { 16 } else { 0 };
+            let b4 = if r.b4 { 8 } else { 0 };
             b3 | b4
         })
     }
 
-    /// Get full 5-bit index extension from REX2 (X3 + X4)
+    /// Get full 5-bit index extension from REX2.
     #[inline(always)]
     pub fn rex2_x(&self) -> u8 {
         self.rex2.map_or(0, |r| {
-            let x3 = if r.x3 { 0 } else { 8 };
-            let x4 = if r.x4 { 0 } else { 16 };
+            let x3 = if r.x3 { 16 } else { 0 };
+            let x4 = if r.x4 { 8 } else { 0 };
             x3 | x4
         })
     }
@@ -1254,9 +1259,13 @@ impl X86_64Vcpu {
             let mut ctx = InsnContext {
                 bytes: cached.bytes,
                 bytes_len: cached.bytes_len,
-                cursor: cached.cursor + 1, // Skip past opcode byte
+                cursor: if cached.rex2.map_or(false, |r| r.m) {
+                    cached.cursor
+                } else {
+                    cached.cursor + 1 // Skip past opcode byte
+                },
                 rex: cached.rex,
-                rex2: None,
+                rex2: cached.rex2,
                 operand_size_override: cached.operand_size_override,
                 address_size_override: cached.address_size_override,
                 rep_prefix: cached.rep_prefix,
@@ -1307,7 +1316,7 @@ impl X86_64Vcpu {
 
         // Determine operand size (64-bit mode defaults to 32-bit; compat depends on CS.D).
         ctx.op_size = if self.sregs.cs.l {
-            if ctx.rex_w() {
+            if ctx.any_rex_w() {
                 8
             } else if ctx.operand_size_override {
                 2
@@ -1323,8 +1332,10 @@ impl X86_64Vcpu {
         // Save cursor before consuming opcode (for cache)
         let opcode_cursor = ctx.cursor;
 
-        // Get opcode
-        let opcode = ctx.consume_u8()?;
+        // Get opcode. REX2.M selects the 0F opcode map without encoding an
+        // actual 0x0F byte, so leave the cursor on the map opcode and dispatch
+        // through the normal two-byte handler.
+        let opcode = if ctx.rex2_m() { 0x0F } else { ctx.consume_u8()? };
         ctx.opcode = opcode;
 
         // Resolve the handler once, here on the (cold) miss path, so subsequent
@@ -1345,6 +1356,7 @@ impl X86_64Vcpu {
             op_size: ctx.op_size,
             cursor: opcode_cursor,
             rex: ctx.rex,
+            rex2: ctx.rex2,
             operand_size_override: ctx.operand_size_override,
             address_size_override: ctx.address_size_override,
             rep_prefix: ctx.rep_prefix,
@@ -2170,7 +2182,6 @@ impl X86_64Vcpu {
     /// Inject a page fault exception (#PF, vector 14) into the guest.
     /// This allows the kernel's page fault handler to run and set up page tables on demand.
     pub(super) fn inject_page_fault(&mut self, vaddr: u64, error_code: u64) -> Result<()> {
-        use std::sync::atomic::{AtomicUsize, Ordering as AtomicOrdering};
         // Page fault logging disabled for performance
 
         // Set CR2 to the faulting virtual address

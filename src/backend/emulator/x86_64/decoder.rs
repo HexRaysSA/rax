@@ -118,24 +118,24 @@ impl Decoder {
                     if !is_long_mode {
                         break;
                     }
-                    // REX2 prefix: 0xD5 [M:R3:X3:B3:W:R4:X4:B4]
+                    // REX2 prefix: 0xD5 [M:R4:X4:B4:W:R:X:B]
                     // REX2 must be the last prefix before the opcode
                     ctx.cursor += 1;
                     if ctx.cursor >= ctx.bytes_len {
                         return Err(Error::Emulator("REX2: missing payload byte".to_string()));
                     }
                     let payload = ctx.bytes[ctx.cursor];
-                    // Decode REX2 payload: [M:R3:X3:B3:W:R4:X4:B4]
-                    // Bits are inverted for R3/X3/B3/R4/X4/B4
+                    // Decode REX2 payload: [M:R4:X4:B4:W:R:X:B].
+                    // Extension bits are non-inverted; see LLVM's APX decoder.
                     ctx.rex2 = Some(Rex2Prefix {
                         m: (payload & 0x80) != 0,      // bit 7: map select
-                        r3: (payload & 0x40) != 0,    // bit 6: R3 (inverted)
-                        x3: (payload & 0x20) != 0,    // bit 5: X3 (inverted)
-                        b3: (payload & 0x10) != 0,    // bit 4: B3 (inverted)
+                        r3: (payload & 0x40) != 0,    // bit 6: R4 (+16)
+                        x3: (payload & 0x20) != 0,    // bit 5: X4 (+16)
+                        b3: (payload & 0x10) != 0,    // bit 4: B4 (+16)
                         w: (payload & 0x08) != 0,     // bit 3: W (operand size)
-                        r4: (payload & 0x04) != 0,    // bit 2: R4 (inverted)
-                        x4: (payload & 0x02) != 0,    // bit 1: X4 (inverted)
-                        b4: (payload & 0x01) != 0,    // bit 0: B4 (inverted)
+                        r4: (payload & 0x04) != 0,    // bit 2: R (+8)
+                        x4: (payload & 0x02) != 0,    // bit 1: X (+8)
+                        b4: (payload & 0x01) != 0,    // bit 0: B (+8)
                     });
                     ctx.cursor += 1;
                     // REX2 is always the last prefix
@@ -197,13 +197,10 @@ mod tests {
     fn test_rex2_decode() {
         use super::super::cpu::MAX_INSN_LEN;
 
-        // REX2 with M=0, W=1, R4=1 (inverted=0), all others cleared
-        // 0xD5 0x08 = REX2 with W=1 (64-bit operand)
+        // REX2 with M=0, W=1, and all extension bits set.
         let mut bytes = [0u8; MAX_INSN_LEN];
         bytes[0] = 0xD5;
-        // W=1 (bit3) + all R3/X3/B3/R4/X4/B4 extension bits set, M=0 (legacy map).
-        // 0x7F = 0b0111_1111. (Previously 0x08 set only W, contradicting the
-        // r3/r4 asserts below — payload now matches the test's stated intent.)
+        // 0x7F = 0b0111_1111.
         bytes[1] = 0x7F;
         bytes[2] = 0x90; // NOP opcode
         let ctx = Decoder::decode_prefixes(bytes, 3, true).unwrap();
@@ -211,19 +208,19 @@ mod tests {
         let rex2 = ctx.rex2.unwrap();
         assert!(!rex2.m);    // M=0 (legacy map)
         assert!(rex2.w);     // W=1 (64-bit)
-        assert!(rex2.r3);    // R3 inverted bit set (meaning R3=0)
-        assert!(rex2.r4);    // R4 inverted bit set (meaning R4=0)
+        assert!(rex2.r3);    // High R extension bit (+16)
+        assert!(rex2.r4);    // Low R extension bit (+8)
         assert_eq!(ctx.cursor, 2); // Cursor should be after REX2
 
-        // REX2 with M=1 (0F map), W=0, all extension bits cleared (meaning extended)
+        // REX2 with M=1 (0F map), W=0, all extension bits cleared.
         // 0xD5 0x80 = REX2 with M=1
         bytes[1] = 0x80;
         let ctx = Decoder::decode_prefixes(bytes, 3, true).unwrap();
         let rex2 = ctx.rex2.unwrap();
         assert!(rex2.m);      // M=1 (0F map)
         assert!(!rex2.w);     // W=0
-        assert!(!rex2.r3);    // R3 cleared = register extension enabled
-        assert!(!rex2.r4);    // R4 cleared = EGPR extension enabled
+        assert!(!rex2.r3);
+        assert!(!rex2.r4);
     }
 
     // ---- 0x67 address-size override (ModR/M EA computation) ----
@@ -483,7 +480,7 @@ impl X86_64Vcpu {
         let modrm = bytes[0];
         let mod_bits = modrm >> 6;
         let rm_field = modrm & 0x07; // Raw r/m field without REX.B
-        let rm = rm_field | ctx.rex_b(); // r/m with REX.B applied (for register selection)
+        let rm = rm_field | ctx.any_rex_b(); // r/m with REX/REX2.B applied
         let mut extra = 0;
 
         // mod == 3 means register direct, shouldn't call this function
@@ -553,8 +550,13 @@ impl X86_64Vcpu {
             let sib = bytes[1];
             extra += 1;
             let scale = 1u64 << (sib >> 6);
-            let index = ((sib >> 3) & 0x07) | (ctx.rex.map_or(0, |r| (r & 0x02) << 2));
-            let base_reg = (sib & 0x07) | ctx.rex_b();
+            let index = ((sib >> 3) & 0x07)
+                | if ctx.rex2.is_some() {
+                    ctx.rex2_x()
+                } else {
+                    ctx.rex.map_or(0, |r| (r & 0x02) << 2)
+                };
+            let base_reg = (sib & 0x07) | ctx.any_rex_b();
 
             // Calculate base
             addr = if base_reg == 5 && mod_bits == 0 {
@@ -680,8 +682,8 @@ impl X86_64Vcpu {
     pub(super) fn decode_modrm(&self, ctx: &mut InsnContext) -> Result<(u8, u8, bool, u64, usize)> {
         let modrm_start = ctx.cursor;
         let modrm = ctx.consume_u8()?;
-        let reg = ((modrm >> 3) & 0x07) | ctx.rex_r();
-        let rm = (modrm & 0x07) | ctx.rex_b();
+        let reg = ((modrm >> 3) & 0x07) | ctx.any_rex_r();
+        let rm = (modrm & 0x07) | ctx.any_rex_b();
         let mod_bits = modrm >> 6;
 
         if mod_bits == 3 {
@@ -700,7 +702,7 @@ impl X86_64Vcpu {
     pub(super) fn read_rm(&mut self, ctx: &mut InsnContext, size: u8) -> Result<(u64, bool, u64)> {
         let modrm_start = ctx.cursor;
         let modrm = ctx.consume_u8()?;
-        let rm = (modrm & 0x07) | ctx.rex_b();
+        let rm = (modrm & 0x07) | ctx.any_rex_b();
         let mod_bits = modrm >> 6;
 
         if mod_bits == 3 {
@@ -739,7 +741,7 @@ impl X86_64Vcpu {
     pub(super) fn decode_fpu_modrm_addr(&self, ctx: &mut InsnContext, modrm: u8) -> Result<u64> {
         let mod_bits = modrm >> 6;
         let rm_field = modrm & 0x07;
-        let rm = rm_field | ctx.rex_b();
+        let rm = rm_field | ctx.any_rex_b();
 
         if mod_bits == 3 {
             return Err(Error::Emulator(
@@ -753,8 +755,13 @@ impl X86_64Vcpu {
             // SIB byte follows
             let sib = ctx.consume_u8()?;
             let scale = 1u64 << (sib >> 6);
-            let index = ((sib >> 3) & 0x07) | (ctx.rex.map_or(0, |r| (r & 0x02) << 2));
-            let base_reg = (sib & 0x07) | ctx.rex_b();
+            let index = ((sib >> 3) & 0x07)
+                | if ctx.rex2.is_some() {
+                    ctx.rex2_x()
+                } else {
+                    ctx.rex.map_or(0, |r| (r & 0x02) << 2)
+                };
+            let base_reg = (sib & 0x07) | ctx.any_rex_b();
 
             // Calculate base
             addr = if base_reg == 5 && mod_bits == 0 {

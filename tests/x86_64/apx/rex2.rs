@@ -23,6 +23,55 @@ use crate::common::*;
 // ============================================================================
 
 #[test]
+fn test_rex2_m0_b4_semantics_match_llvm() {
+    // LLVM 23 decodes d5 18 89 c0 as: mov r16, rax.
+    let mut regs = Registers::default();
+    regs.rax = 0x1122_3344_5566_7788;
+    let code = [
+        0xD5, 0x18, 0x89, 0xC0, // MOV r16, rax
+        0xF4,
+    ];
+
+    let (mut vcpu, _) = setup_vm(&code, Some(regs));
+    let regs = run_until_hlt(&mut vcpu).unwrap();
+    assert_eq!(regs.r16, 0x1122_3344_5566_7788);
+}
+
+#[test]
+fn test_rex2_prefix_survives_decode_cache_hit() {
+    // Execute the same REX2 instruction twice at the same RIP. The second
+    // execution uses the decode cache and must still target r16, not rax.
+    let mut regs = Registers::default();
+    regs.rax = 0xfeed_face_cafe_babe;
+    regs.rcx = 2;
+    let code = [
+        0xD5, 0x18, 0x89, 0xC0, // MOV r16, rax
+        0xE2, 0xFA,             // LOOP back to the MOV once
+        0xF4,
+    ];
+
+    let (mut vcpu, _) = setup_vm(&code, Some(regs));
+    let regs = run_until_hlt(&mut vcpu).unwrap();
+    assert_eq!(regs.r16, 0xfeed_face_cafe_babe);
+    assert_eq!(regs.rcx, 0);
+}
+
+#[test]
+fn test_rex2_m1_dispatches_0f_map() {
+    // LLVM 23 decodes d5 88 b6 c3 as: movzx rax, bl.
+    let mut regs = Registers::default();
+    regs.rbx = 0x1234_abcd;
+    let code = [
+        0xD5, 0x88, 0xB6, 0xC3, // MOVZX rax, bl via REX2.M 0F map
+        0xF4,
+    ];
+
+    let (mut vcpu, _) = setup_vm(&code, Some(regs));
+    let regs = run_until_hlt(&mut vcpu).unwrap();
+    assert_eq!(regs.rax, 0xcd);
+}
+
+#[test]
 fn test_rex2_m0_basic() {
     // REX2 with M=0, all extension bits clear
     // MOV RAX, RBX (basic 64-bit move, W=1)

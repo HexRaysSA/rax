@@ -78,9 +78,13 @@ impl X86_64Vcpu {
             let mut ctx = InsnContext {
                 bytes: cached.bytes,
                 bytes_len: cached.bytes_len,
-                cursor: cached.cursor + 1,
+                cursor: if cached.rex2.map_or(false, |r| r.m) {
+                    cached.cursor
+                } else {
+                    cached.cursor + 1
+                },
                 rex: cached.rex,
-                rex2: None,
+                rex2: cached.rex2,
                 operand_size_override: cached.operand_size_override,
                 address_size_override: cached.address_size_override,
                 rep_prefix: cached.rep_prefix,
@@ -99,7 +103,7 @@ impl X86_64Vcpu {
 
         // Determine operand size
         ctx.op_size = if self.sregs.cs.l {
-            if ctx.rex_w() {
+            if ctx.any_rex_w() {
                 8
             } else if ctx.operand_size_override {
                 2
@@ -117,7 +121,7 @@ impl X86_64Vcpu {
         };
 
         let opcode_cursor = ctx.cursor;
-        let opcode = ctx.consume_u8()?;
+        let opcode = if ctx.rex2_m() { 0x0F } else { ctx.consume_u8()? };
         ctx.opcode = opcode;
 
         // Resolve the fn-pointer handler so a later hit (via the main `step()`
@@ -136,6 +140,7 @@ impl X86_64Vcpu {
             op_size: ctx.op_size,
             cursor: opcode_cursor,
             rex: ctx.rex,
+            rex2: ctx.rex2,
             operand_size_override: ctx.operand_size_override,
             address_size_override: ctx.address_size_override,
             rep_prefix: ctx.rep_prefix,
