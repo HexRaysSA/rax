@@ -62,28 +62,58 @@ fn push_by_size(vcpu: &mut X86_64Vcpu, size: u8, value: u64) -> Result<()> {
 
 /// CALL rel32 (0xE8)
 pub fn call_rel32(vcpu: &mut X86_64Vcpu, ctx: &mut InsnContext) -> Result<Option<VcpuExit>> {
-    let disp = ctx.consume_u32()? as i32 as i64;
+    // Displacement is rel16 for a 16-bit operand size, else rel32 (sign-extended
+    // — also in 64-bit mode). The pushed return address and the IP truncation
+    // follow the operand size: 16-bit pushes 2 bytes and wraps IP to 16 bits,
+    // 32-bit pushes 4, 64-bit pushes 8 (the 64-bit path is unchanged).
+    let op_size = ctx.op_size;
+    let disp = if op_size == 2 {
+        ctx.consume_u16()? as i16 as i64
+    } else {
+        ctx.consume_u32()? as i32 as i64
+    };
     let ret_addr = vcpu.regs.rip + ctx.cursor as u64;
     let target = (vcpu.regs.rip as i64 + ctx.cursor as i64 + disp) as u64;
-    vcpu.push64(ret_addr)?;
-    vcpu.regs.rip = target;
+    vcpu.regs.rip = match op_size {
+        2 => {
+            vcpu.push16(ret_addr as u16)?;
+            target & 0xFFFF
+        }
+        4 => {
+            vcpu.push32(ret_addr as u32)?;
+            target & 0xFFFF_FFFF
+        }
+        _ => {
+            vcpu.push64(ret_addr)?;
+            target
+        }
+    };
     Ok(None)
 }
 
 /// RET (0xC3)
-pub fn ret(vcpu: &mut X86_64Vcpu, _ctx: &mut InsnContext) -> Result<Option<VcpuExit>> {
-    let ret_addr = vcpu.pop64()?;
-    vcpu.regs.rip = ret_addr;
+pub fn ret(vcpu: &mut X86_64Vcpu, ctx: &mut InsnContext) -> Result<Option<VcpuExit>> {
+    let ret_addr = pop_by_size(vcpu, ctx.op_size)?;
+    vcpu.regs.rip = mask_ip(ret_addr, ctx.op_size);
     Ok(None)
 }
 
 /// RET imm16 (0xC2)
 pub fn ret_imm16(vcpu: &mut X86_64Vcpu, ctx: &mut InsnContext) -> Result<Option<VcpuExit>> {
     let imm = ctx.consume_u16()?;
-    let ret_addr = vcpu.pop64()?;
+    let ret_addr = pop_by_size(vcpu, ctx.op_size)?;
     vcpu.regs.rsp = vcpu.regs.rsp.wrapping_add(imm as u64);
-    vcpu.regs.rip = ret_addr;
+    vcpu.regs.rip = mask_ip(ret_addr, ctx.op_size);
     Ok(None)
+}
+
+/// Truncate an instruction pointer to the operand-size width (16-bit IP wraps).
+fn mask_ip(ip: u64, op_size: u8) -> u64 {
+    match op_size {
+        2 => ip & 0xFFFF,
+        4 => ip & 0xFFFF_FFFF,
+        _ => ip,
+    }
 }
 
 /// RETF - far return (0xCB)
