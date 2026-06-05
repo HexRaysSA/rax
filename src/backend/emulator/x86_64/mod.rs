@@ -1,6 +1,7 @@
 //! x86_64 CPU emulator implementation.
 
 mod aes;
+pub mod bios;
 mod cpu;
 mod decoder;
 mod dispatch;

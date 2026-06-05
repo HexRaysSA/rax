@@ -247,3 +247,45 @@ fn rm_templeos_prologue_relocates_and_far_jumps() {
     m.read_slice(&mut head, GuestAddress(0x9_6600)).unwrap();
     assert_eq!(&head, &prologue[..4], "2KB relocate landed at 0x96600");
 }
+
+// ── Increment 5: real-mode mini-BIOS — INT 13h AH=42h extended CD read.
+
+#[test]
+fn rm_bios_int13_extended_read() {
+    use rax::backend::emulator::x86_64::bios;
+
+    // Boot CD image: LBA 2 holds a recognizable ramp pattern.
+    let mut cd = vec![0u8; 4 * 2048];
+    for (i, b) in cd[2 * 2048..3 * 2048].iter_mut().enumerate() {
+        *b = (i & 0xFF) as u8;
+    }
+    bios::install_cd(std::sync::Arc::new(cd));
+
+    // mov ah,0x42 ; mov si,0x600 ; mov dl,0xE0 ; int 0x13 ; hlt
+    let code = [
+        0xB4, 0x42, // mov ah, 0x42
+        0xBE, 0x00, 0x06, // mov si, 0x600  (DAP at DS:0x600 = linear 0x600)
+        0xB2, 0xE0, // mov dl, 0xE0
+        0xCD, 0x13, // int 0x13
+        0xF4, // hlt
+    ];
+    let (mut v, m) = rm_vcpu(&code, 0x7C00, 0);
+    // Disk Address Packet: size=0x10, count=1, buffer=0000:2000, LBA=2.
+    let dap = [
+        0x10, 0x00, // size
+        0x01, 0x00, // sector count = 1
+        0x00, 0x20, // buffer offset = 0x2000
+        0x00, 0x00, // buffer segment = 0
+        0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // LBA = 2
+    ];
+    m.write_slice(&dap, GuestAddress(0x600)).unwrap();
+    run(&mut v, 30);
+
+    // CF clear (success), and the CD sector landed at the buffer 0x2000.
+    assert_eq!(v.get_regs().unwrap().rflags & 1, 0, "INT 13h AH=42h must clear CF");
+    let mut buf = [0u8; 2048];
+    m.read_slice(&mut buf, GuestAddress(0x2000)).unwrap();
+    for (i, b) in buf.iter().enumerate() {
+        assert_eq!(*b, (i & 0xFF) as u8, "byte {i} of the read CD sector");
+    }
+}

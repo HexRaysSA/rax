@@ -62,6 +62,15 @@ pub fn int3(vcpu: &mut X86_64Vcpu, ctx: &mut InsnContext) -> Result<Option<VcpuE
 pub fn int_imm8(vcpu: &mut X86_64Vcpu, ctx: &mut InsnContext) -> Result<Option<VcpuExit>> {
     let vector = ctx.consume_u8()?;
     vcpu.regs.rip += ctx.cursor as u64;
+    // Real-mode BIOS interception: during a legacy boot (CR0.PE=0 with a boot CD
+    // installed) the guest IDT is absent — service the well-known BIOS vectors
+    // (INT 10h/13h/15h/16h) natively. Unhandled vectors fall through.
+    if vcpu.sregs.cr0 & 1 == 0
+        && super::super::super::bios::active()
+        && super::super::super::bios::service(vcpu, vector)?
+    {
+        return Ok(None);
+    }
     // Inject the software interrupt via IDT
     vcpu.inject_exception(vector, None)?;
     Ok(None)
