@@ -210,6 +210,30 @@ impl Aarch32Decoder {
             );
         }
 
+        // Miscellaneous / halfword-multiply space: S=0 with a TST/TEQ/CMP/CMN
+        // opcode (op == 10xx0). These are NOT data-processing comparisons.
+        if (op & 0b11001) == 0b10000 {
+            let rd = ((raw >> 12) & 0xF) as u8;
+            let rn = ((raw >> 16) & 0xF) as u8;
+            let rm = (raw & 0xF) as u8;
+            if op2 == 0b0101 {
+                // Saturating add/sub: QADD/QSUB/QDADD/QDSUB (Rd = sat(Rm op Rn))
+                return Ok(
+                    DecodedInsn::new(Mnemonic::A32_SAT_ADDSUB, ExecutionState::Aarch32, raw, 4)
+                        .with_operand(Operand::Reg(Register::raw(rd, false, false)))
+                        .with_operand(Operand::Reg(Register::raw(rm, false, false)))
+                        .with_operand(Operand::Reg(Register::raw(rn, false, false))),
+                );
+            }
+            if (op2 & 0b1001) == 0b1000 {
+                // Halfword/word multiplies: SMLA/SMUL/SMLAW/SMULW/SMLAL<x><y>
+                return Ok(
+                    DecodedInsn::new(Mnemonic::A32_HMUL, ExecutionState::Aarch32, raw, 4)
+                        .with_operand(Operand::Reg(Register::raw(rd, false, false))),
+                );
+            }
+        }
+
         if op2 == 0b1001 {
             // Multiply instructions
             return Self::decode_multiply(raw);
@@ -294,6 +318,20 @@ impl Aarch32Decoder {
                 _ => Mnemonic::HINT,
             };
             return Ok(DecodedInsn::new(mnemonic, ExecutionState::Aarch32, raw, 4));
+        }
+
+        // 16-bit immediate moves occupy the S=0 slots of the TST/CMP opcodes:
+        //   opcode 1000 (0011 0000) = MOVW (move wide), imm16 = imm4:imm12
+        //   opcode 1010 (0011 0100) = MOVT (move top)
+        // (MOVZ/MOVK mnemonics are reused; exec reads the imm fields from raw.)
+        if s == 0 && (opcode == 0b1000 || opcode == 0b1010) {
+            let m = if opcode == 0b1000 {
+                Mnemonic::MOVZ
+            } else {
+                Mnemonic::MOVK
+            };
+            return Ok(DecodedInsn::new(m, ExecutionState::Aarch32, raw, 4)
+                .with_operand(Operand::Reg(Register::raw(rd, false, false))));
         }
 
         // Decode immediate: rotate_right(imm8, rotate * 2)
@@ -415,6 +453,10 @@ impl Aarch32Decoder {
                 (Mnemonic::SMLAL, vec![rn, rd, rm, rs])
             }
             0b0010 => {
+                // UMAAL (RdHi, RdLo, Rm, Rs) -- no S variant
+                (Mnemonic::UMAAL, vec![rn, rd, rm, rs])
+            }
+            0b0011 => {
                 // MLS
                 (Mnemonic::MLS, vec![rd, rm, rs, rn])
             }
@@ -674,37 +716,88 @@ impl Aarch32Decoder {
         let op1 = (raw >> 20) & 0x1F;
         let op2 = (raw >> 5) & 0x7;
         let rd = ((raw >> 12) & 0xF) as u8;
+        let rn = ((raw >> 16) & 0xF) as u8;
         let rm = (raw & 0xF) as u8;
+        let ra = ((raw >> 8) & 0xF) as u8; // Rs / Ra (bits 11:8)
 
-        // CLZ
-        if op1 == 0b10110 && op2 == 0b001 {
-            return Ok(
-                DecodedInsn::new(Mnemonic::CLZ, ExecutionState::Aarch32, raw, 4)
-                    .with_operand(Operand::Reg(Register::raw(rd, false, false)))
-                    .with_operand(Operand::Reg(Register::raw(rm, false, false))),
-            );
+        let mk = |m: Mnemonic, ops: &[u8]| {
+            let mut insn = DecodedInsn::new(m, ExecutionState::Aarch32, raw, 4);
+            for &o in ops {
+                insn = insn.with_operand(Operand::Reg(Register::raw(o, false, false)));
+            }
+            Ok(insn)
+        };
+
+        // Parallel add/sub (signed & unsigned): bits[27:23] == 0b01100.
+        if (raw >> 23) & 0x1F == 0b01100 {
+            return mk(Mnemonic::A32_PARALLEL, &[rd, rn, rm]);
         }
 
-        // REV, REV16, REVSH
-        if op1 == 0b01011 {
-            let mnemonic = match op2 {
-                0b001 => Mnemonic::REV,
-                0b101 => Mnemonic::REV16,
-                _ => Mnemonic::UNKNOWN,
-            };
-
-            return Ok(DecodedInsn::new(mnemonic, ExecutionState::Aarch32, raw, 4)
-                .with_operand(Operand::Reg(Register::raw(rd, false, false)))
-                .with_operand(Operand::Reg(Register::raw(rm, false, false))));
+        // Saturate (the sat_imm field spans bit 20, so match the fixed bits).
+        let bits_27_21 = (raw >> 21) & 0x7F;
+        let bits_5_4 = (raw >> 4) & 0x3;
+        if bits_27_21 == 0b0110101 && bits_5_4 == 0b01 {
+            return mk(Mnemonic::SSAT, &[rd]);
+        }
+        if bits_27_21 == 0b0110111 && bits_5_4 == 0b01 {
+            return mk(Mnemonic::USAT, &[rd]);
+        }
+        let bits_7_4 = (raw >> 4) & 0xF;
+        if (raw >> 20) & 0xFF == 0b01101010 && bits_7_4 == 0b0011 {
+            return mk(Mnemonic::A32_SAT16, &[rd]); // SSAT16
+        }
+        if (raw >> 20) & 0xFF == 0b01101110 && bits_7_4 == 0b0011 {
+            return mk(Mnemonic::A32_SAT16, &[rd]); // USAT16
         }
 
-        // RBIT
-        if op1 == 0b01111 && op2 == 0b001 {
-            return Ok(
-                DecodedInsn::new(Mnemonic::RBIT, ExecutionState::Aarch32, raw, 4)
-                    .with_operand(Operand::Reg(Register::raw(rd, false, false)))
-                    .with_operand(Operand::Reg(Register::raw(rm, false, false))),
-            );
+        match op1 {
+            // PKH / SEL / SXTB16 / SXTAB16
+            0b01000 => match op2 {
+                0b000 | 0b010 => return mk(Mnemonic::A32_PKH, &[rd, rn, rm]),
+                0b011 => return mk(Mnemonic::A32_EXTEND, &[rd, rn, rm]),
+                0b101 => return mk(Mnemonic::A32_SEL, &[rd, rn, rm]),
+                _ => {}
+            },
+            // SXTB / SXTAB (signed extend byte)
+            0b01010 if op2 == 0b011 => return mk(Mnemonic::A32_EXTEND, &[rd, rn, rm]),
+            // REV / REV16 / SXTH / SXTAH
+            0b01011 => match op2 {
+                0b001 => return mk(Mnemonic::REV, &[rd, rm]),
+                0b101 => return mk(Mnemonic::REV16, &[rd, rm]),
+                0b011 => return mk(Mnemonic::A32_EXTEND, &[rd, rn, rm]),
+                _ => {}
+            },
+            // UXTB16 / UXTAB16
+            0b01100 if op2 == 0b011 => return mk(Mnemonic::A32_EXTEND, &[rd, rn, rm]),
+            // UXTB / UXTAB
+            0b01110 if op2 == 0b011 => return mk(Mnemonic::A32_EXTEND, &[rd, rn, rm]),
+            // RBIT / REVSH / UXTH / UXTAH
+            0b01111 => match op2 {
+                0b001 => return mk(Mnemonic::RBIT, &[rd, rm]),
+                0b101 => return mk(Mnemonic::REVSH, &[rd, rm]),
+                0b011 => return mk(Mnemonic::A32_EXTEND, &[rd, rn, rm]),
+                _ => {}
+            },
+            // Signed multiply (dual / most-significant) + USAD8
+            0b10000 => return mk(Mnemonic::A32_DUAL, &[rd, rn, rm, ra]),
+            0b10100 => return mk(Mnemonic::A32_SMLALD, &[rd, rn, rm, ra]),
+            0b10101 => return mk(Mnemonic::A32_SMMUL, &[rd, rn, rm, ra]),
+            0b11000 if op2 == 0b000 => return mk(Mnemonic::A32_USAD, &[rd, rn, rm, ra]),
+            _ => {}
+        }
+
+        // Bit-field: SBFX (1101x), BFI/BFC (1110x), UBFX (1111x).
+        match op1 >> 1 {
+            0b1101 => return mk(Mnemonic::SBFX, &[rd]),
+            0b1110 => {
+                if (raw & 0xF) == 0xF {
+                    return mk(Mnemonic::BFC, &[rd]);
+                } else {
+                    return mk(Mnemonic::BFI, &[rd]);
+                }
+            }
+            0b1111 => return mk(Mnemonic::UBFX, &[rd]),
+            _ => {}
         }
 
         Ok(DecodedInsn::new(

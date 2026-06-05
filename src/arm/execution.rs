@@ -356,6 +356,8 @@ pub struct Psr {
     pub c: bool,
     pub v: bool,
     pub q: bool,
+    /// GE[3:0] flags (bits 19:16), set by SIMD parallel add/sub, read by SEL.
+    pub ge: u8,
     pub e: bool,
     pub a: bool,
     pub i: bool,
@@ -381,6 +383,7 @@ impl Psr {
             c: ((value >> 29) & 1) != 0,
             v: ((value >> 28) & 1) != 0,
             q: ((value >> 27) & 1) != 0,
+            ge: ((value >> 16) & 0xF) as u8,
             e: ((value >> 9) & 1) != 0,
             a: ((value >> 8) & 1) != 0,
             i: ((value >> 7) & 1) != 0,
@@ -416,6 +419,7 @@ impl Psr {
         if self.q {
             value |= 1 << 27;
         }
+        value |= ((self.ge & 0xF) as u32) << 16;
         if self.v {
             value |= 1 << 28;
         }
