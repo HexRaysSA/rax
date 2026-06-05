@@ -1141,7 +1141,7 @@ impl Aarch32Decoder {
     fn decode_neon_fp_multiply_scalar(raw: u32) -> Option<DecodedInsn> {
         if (raw >> 25) != 0b1111001
             || ((raw >> 23) & 1) != 1
-            || ((raw >> 20) & 0x3) != 0b10
+            || !matches!((raw >> 20) & 0x3, 0b01 | 0b10)
             || ((raw >> 6) & 1) != 1
             || ((raw >> 4) & 1) != 0
         {

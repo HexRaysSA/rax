@@ -3995,7 +3995,7 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
     fn is_neon_fp_multiply_scalar_shape(raw: u32) -> bool {
         (raw >> 25) == 0b1111001
             && ((raw >> 23) & 1) == 1
-            && ((raw >> 20) & 0x3) == 0b10
+            && matches!((raw >> 20) & 0x3, 0b01 | 0b10)
             && ((raw >> 6) & 1) == 1
             && ((raw >> 4) & 1) == 0
             && matches!((raw >> 8) & 0xF, 0b0001 | 0b0101 | 0b1001)
@@ -4100,23 +4100,31 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
         if d + regs > 32 || n + regs > 32 || (!scalar && m + regs > 32) {
             return ExecResult::Undefined;
         }
-        let scalar_elem = if scalar {
-            if vm >= 32 || m_bit >= 2 {
-                return ExecResult::Undefined;
+        let size = if scalar {
+            match (insn.raw >> 20) & 0x3 {
+                0b01 => NeonSize::H16,
+                0b10 => NeonSize::S32,
+                _ => return ExecResult::Undefined,
             }
-            Some(self.neon_read_d_elem_u64(vm, m_bit, 4))
-        } else {
-            None
-        };
-        let size = if !scalar
-            && !Self::is_neon_fp_fma_shape(insn.raw)
-            && ((insn.raw >> 20) & 1) != 0
-        {
+        } else if !Self::is_neon_fp_fma_shape(insn.raw) && ((insn.raw >> 20) & 1) != 0 {
             NeonSize::H16
         } else {
             NeonSize::S32
         };
         let ebytes = (size.bits() / 8) as u8;
+        let scalar_elem = if scalar {
+            let (scalar_reg, scalar_index) = match size {
+                NeonSize::H16 => (vm & 0x7, (m_bit << 1) | (vm >> 3)),
+                NeonSize::S32 => (vm, m_bit),
+                _ => return ExecResult::Undefined,
+            };
+            if scalar_reg >= 32 || scalar_index as usize >= size.elements_per_d() {
+                return ExecResult::Undefined;
+            }
+            Some(self.neon_read_d_elem_u64(scalar_reg, scalar_index, ebytes))
+        } else {
+            None
+        };
 
         for reg in 0..regs {
             let n_elements = self.neon_read_vector_elements_u64(n + reg, 1, ebytes);
