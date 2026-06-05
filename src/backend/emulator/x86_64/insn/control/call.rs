@@ -201,9 +201,8 @@ pub fn retf_imm16(vcpu: &mut X86_64Vcpu, ctx: &mut InsnContext) -> Result<Option
 /// Note: This opcode is invalid in 64-bit mode.
 pub fn call_far_ptr(vcpu: &mut X86_64Vcpu, ctx: &mut InsnContext) -> Result<Option<VcpuExit>> {
     if vcpu.sregs.cs.l {
-        return Err(Error::Emulator(
-            "CALL FAR ptr16:16/ptr16:32 is invalid in 64-bit mode".to_string(),
-        ));
+        vcpu.inject_exception(6, None)?;
+        return Ok(None);
     }
 
     let offset = match ctx.op_size {
