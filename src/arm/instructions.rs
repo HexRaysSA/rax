@@ -6416,6 +6416,10 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
     }
 
     fn exec_vcvt(&mut self, insn: &DecodedInsn) -> ExecResult {
+        if Self::is_neon_fp_fixed_convert_shape(insn.raw) {
+            return self.exec_neon_fp_fixed_convert(insn);
+        }
+
         if Self::is_neon_fp_convert_shape(insn.raw) {
             return self.exec_neon_fp_convert(insn);
         }
@@ -6696,6 +6700,15 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
             && ((raw >> 4) & 1) == 0
     }
 
+    fn is_neon_fp_fixed_convert_shape(raw: u32) -> bool {
+        (raw >> 25) == 0b1111001
+            && ((raw >> 23) & 1) == 1
+            && ((raw >> 8) & 0xE) == 0b1110
+            && ((raw >> 7) & 1) == 0
+            && ((raw >> 4) & 1) == 1
+            && ((raw >> 16) & 0x3F) >= 32
+    }
+
     fn exec_neon_fp_convert(&mut self, insn: &DecodedInsn) -> ExecResult {
         if !self.cpu.vfp.is_enabled() {
             return ExecResult::Exception(ExceptionType::UndefinedInstruction);
@@ -6736,6 +6749,67 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
                     Mnemonic::VCVT_U32_F32 => {
                         let value =
                             vcvt_u32_f32(f32::from_bits(elem as u32), &mut self.cpu.vfp.fpscr);
+                        u64::from(value)
+                    }
+                    _ => return ExecResult::Undefined,
+                };
+                out.push(result);
+            }
+            self.neon_write_vector_elements_u64(d + reg, 1, 4, &out);
+        }
+
+        ExecResult::Continue
+    }
+
+    fn exec_neon_fp_fixed_convert(&mut self, insn: &DecodedInsn) -> ExecResult {
+        if !self.cpu.vfp.is_enabled() {
+            return ExecResult::Exception(ExceptionType::UndefinedInstruction);
+        }
+        if !Self::is_neon_fp_fixed_convert_shape(insn.raw) {
+            return ExecResult::Undefined;
+        }
+
+        let d_bit = ((insn.raw >> 22) & 1) as u8;
+        let vd = ((insn.raw >> 12) & 0xF) as u8;
+        let m_bit = ((insn.raw >> 5) & 1) as u8;
+        let vm = (insn.raw & 0xF) as u8;
+        let q = ((insn.raw >> 6) & 1) != 0;
+        let regs = if q { 2 } else { 1 };
+        let d = (d_bit << 4) | vd;
+        let m = (m_bit << 4) | vm;
+        if q && ((d | m) & 1) != 0 {
+            return ExecResult::Undefined;
+        }
+        if d + regs > 32 || m + regs > 32 {
+            return ExecResult::Undefined;
+        }
+
+        let fbits = 64 - ((insn.raw >> 16) & 0x3F);
+        for reg in 0..regs {
+            let elements = self.neon_read_vector_elements_u64(m + reg, 1, 4);
+            let mut out = Vec::with_capacity(elements.len());
+            for elem in elements {
+                let result = match insn.mnemonic {
+                    Mnemonic::VCVT_F32_S32_FIXED => u64::from(
+                        vcvt_f32_s32_fixed(elem as u32 as i32, fbits).to_bits(),
+                    ),
+                    Mnemonic::VCVT_F32_U32_FIXED => {
+                        u64::from(vcvt_f32_u32_fixed(elem as u32, fbits).to_bits())
+                    }
+                    Mnemonic::VCVT_S32_F32_FIXED => {
+                        let value = vcvt_s32_f32_fixed(
+                            f32::from_bits(elem as u32),
+                            fbits,
+                            &mut self.cpu.vfp.fpscr,
+                        );
+                        u64::from(value as u32)
+                    }
+                    Mnemonic::VCVT_U32_F32_FIXED => {
+                        let value = vcvt_u32_f32_fixed(
+                            f32::from_bits(elem as u32),
+                            fbits,
+                            &mut self.cpu.vfp.fpscr,
+                        );
                         u64::from(value)
                     }
                     _ => return ExecResult::Undefined,

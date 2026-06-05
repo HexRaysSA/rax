@@ -117,6 +117,10 @@ impl Aarch32Decoder {
             return Ok(insn);
         }
 
+        if let Some(insn) = Self::decode_neon_fp_fixed_convert(raw) {
+            return Ok(insn);
+        }
+
         if let Some(insn) = Self::decode_neon_fp_convert(raw) {
             return Ok(insn);
         }
@@ -578,6 +582,44 @@ impl Aarch32Decoder {
             (false, true) => Mnemonic::VCVT_F32_U32,
             (true, false) => Mnemonic::VCVT_S32_F32,
             (true, true) => Mnemonic::VCVT_U32_F32,
+        };
+
+        let q = ((raw >> 6) & 1) != 0;
+        let vd = (raw >> 12) & 0xF;
+        let vm = raw & 0xF;
+        if q && ((vd | vm) & 1) != 0 {
+            return Some(DecodedInsn::new(
+                Mnemonic::UNDEFINED,
+                ExecutionState::Aarch32,
+                raw,
+                4,
+            ));
+        }
+
+        Some(DecodedInsn::new(mnemonic, ExecutionState::Aarch32, raw, 4))
+    }
+
+    fn decode_neon_fp_fixed_convert(raw: u32) -> Option<DecodedInsn> {
+        if (raw >> 25) != 0b1111001
+            || ((raw >> 23) & 1) != 1
+            || ((raw >> 8) & 0xE) != 0b1110
+            || ((raw >> 7) & 1) != 0
+            || ((raw >> 4) & 1) != 1
+        {
+            return None;
+        }
+
+        let imm6 = (raw >> 16) & 0x3F;
+        if imm6 < 32 {
+            return None;
+        }
+
+        let unsigned = ((raw >> 24) & 1) != 0;
+        let mnemonic = match (((raw >> 8) & 1) != 0, unsigned) {
+            (false, false) => Mnemonic::VCVT_F32_S32_FIXED,
+            (false, true) => Mnemonic::VCVT_F32_U32_FIXED,
+            (true, false) => Mnemonic::VCVT_S32_F32_FIXED,
+            (true, true) => Mnemonic::VCVT_U32_F32_FIXED,
         };
 
         let q = ((raw >> 6) & 1) != 0;
