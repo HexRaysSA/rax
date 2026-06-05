@@ -25,10 +25,10 @@ use crate::config::{ArchKind, CheckpointConfig, VmConfig};
 use crate::console::{Console, ConsoleAction, ESCAPE_HELP};
 use crate::cpu::{CpuState, VCpu, VcpuExit};
 use crate::devices::bus::{IoBus, IoDevice, IoRange, MmioBus, MmioRange, SharedIoDevice};
-use crate::devices::pci::{PciStub, PCI_CONFIG_ADDRESS};
 use crate::devices::lapic::{
     IpiRequest, IpiTarget, LAPIC_BASE, LAPIC_SIZE, LapicDevice, LocalApic,
 };
+use crate::devices::pci::{PCI_CONFIG_ADDRESS, PciStub};
 use crate::devices::pic::{DualPic, MasterPicDevice, SlavePicDevice};
 use crate::devices::pit::Pit;
 use crate::devices::serial::{Serial16550, SerialMmioDevice};
@@ -37,7 +37,7 @@ use crate::error::{Error, Result};
 use crate::gdb::{self, GdbCommand, GdbResponse, VmmGdbChannels};
 use crate::memory::GuestMemoryWrapper;
 use crate::snapshot::{
-    DeviceState, EmulatorState, Snapshot, SnapshotConfig, DEFAULT_CHECKPOINT_FILE,
+    DEFAULT_CHECKPOINT_FILE, DeviceState, EmulatorState, Snapshot, SnapshotConfig,
 };
 use crate::terminal::RawTty;
 
@@ -75,7 +75,10 @@ fn null_boot_info(arch: ArchKind) -> BootInfo {
             load_addr: 0,
             image_size: 0,
         }),
-        ArchKind::Aarch64 | ArchKind::Armv7a | ArchKind::Armv8a32 | ArchKind::CortexM
+        ArchKind::Aarch64
+        | ArchKind::Armv7a
+        | ArchKind::Armv8a32
+        | ArchKind::CortexM
         | ArchKind::CortexR => BootInfo::Arm(ArmBootInfo {
             entry_point: 0,
             load_addr: 0,
@@ -103,7 +106,9 @@ impl crate::devices::virtio::Mem for GuestDmaMem {
         self.0.read_slice(buf, vm_memory::GuestAddress(gpa)).is_ok()
     }
     fn write(&mut self, gpa: u64, buf: &[u8]) -> bool {
-        self.0.write_slice(buf, vm_memory::GuestAddress(gpa)).is_ok()
+        self.0
+            .write_slice(buf, vm_memory::GuestAddress(gpa))
+            .is_ok()
     }
 }
 
@@ -252,7 +257,14 @@ fn attach_pci_devices(
     ac97_cfg.set_u32(0x10, 0x0000_D001); // NAM  @ I/O 0xD000
     ac97_cfg.set_u32(0x14, 0x0000_D101); // NABM @ I/O 0xD100
     ac97_cfg.set_u16(0x04, 0x0001); // I/O-space enable
-    bridge.attach_pio(0, 5, 0, ac97_cfg.clone(), 0, Box::new(Ac97NamWindow(ac97.clone())));
+    bridge.attach_pio(
+        0,
+        5,
+        0,
+        ac97_cfg.clone(),
+        0,
+        Box::new(Ac97NamWindow(ac97.clone())),
+    );
     bridge.attach_pio(0, 5, 0, ac97_cfg, 1, Box::new(Ac97NabmWindow(ac97)));
 
     Ok(())
@@ -407,26 +419,26 @@ impl Vmm {
         // emulator MMU for BAR-mapped MMIO routing. The bridge (config ports
         // 0xCF8-0xCFF) is always present on x86; the optional device models are
         // attached only with --pci-devices.
-        let pci_bridge: Option<Arc<std::sync::Mutex<PciStub>>> =
-            if config.arch == ArchKind::X86_64 {
-                let pci = Arc::new(std::sync::Mutex::new(PciStub::new()));
-                if config.pci_devices {
-                    attach_pci_devices(&pci, Arc::new(guest_mem.memory().clone()))?;
-                    info!("attached optional PCI devices (e1000, uhci, nvme, ahci, ac97)");
-                }
-                io_bus.register(
-                    IoRange {
-                        base: PCI_CONFIG_ADDRESS,
-                        len: 8,
-                    },
-                    Box::new(SharedIoDevice::new(pci.clone())),
-                )?;
-                // Dynamically-assigned PCI I/O BARs are reached via this fallback.
-                io_bus.set_pci(pci.clone());
-                Some(pci)
-            } else {
-                None
-            };
+        let pci_bridge: Option<Arc<std::sync::Mutex<PciStub>>> = if config.arch == ArchKind::X86_64
+        {
+            let pci = Arc::new(std::sync::Mutex::new(PciStub::new()));
+            if config.pci_devices {
+                attach_pci_devices(&pci, Arc::new(guest_mem.memory().clone()))?;
+                info!("attached optional PCI devices (e1000, uhci, nvme, ahci, ac97)");
+            }
+            io_bus.register(
+                IoRange {
+                    base: PCI_CONFIG_ADDRESS,
+                    len: 8,
+                },
+                Box::new(SharedIoDevice::new(pci.clone())),
+            )?;
+            // Dynamically-assigned PCI I/O BARs are reached via this fallback.
+            io_bus.set_pci(pci.clone());
+            Some(pci)
+        } else {
+            None
+        };
 
         let serial_mmio_base = arch.serial_mmio_base();
         let serial_irq = arch.serial_irq();
@@ -946,6 +958,15 @@ impl Vmm {
                                 *byte = IoDevice::read(&mut *serial, port + i as u16);
                             }
                         }
+                    } else if port == 0x1F0 || port == 0x170 {
+                        // IDE/ATAPI data register: a single fixed port carries the
+                        // whole PIO word/dword (insw/insd). Read every byte from the
+                        // SAME port — unlike the byte-lane model the bus uses for
+                        // multi-byte ports — so consecutive reads drain the device's
+                        // PIO buffer in order.
+                        for i in 0..data.len() {
+                            self.io_bus.read(port, &mut data[i..i + 1])?;
+                        }
                     } else {
                         self.io_bus.read(port, &mut data)?;
                     }
@@ -984,6 +1005,12 @@ impl Vmm {
                         // Bochs debug port - output directly
                         for byte in &data {
                             eprint!("{}", *byte as char);
+                        }
+                    } else if port == 0x1F0 || port == 0x170 {
+                        // IDE/ATAPI data register: write every byte of the PIO
+                        // word/dword to the SAME fixed port (see the IoIn path).
+                        for i in 0..data.len() {
+                            self.io_bus.write(port, &data[i..i + 1])?;
                         }
                     } else {
                         self.io_bus.write(port, &data)?;

@@ -44,9 +44,9 @@ pub fn install_mem(bytes: u64) {
 /// is (base, length, type) where type 1 = usable, 2 = reserved.
 fn e820_map(total: u64) -> Vec<(u64, u64, u32)> {
     let mut v = vec![
-        (0x0000_0000, 0x0009_FC00, 1),            // 639 KiB conventional, usable
-        (0x0009_FC00, 0x0000_0400, 2),            // EBDA, reserved
-        (0x000E_0000, 0x0002_0000, 2),            // BIOS ROM area, reserved
+        (0x0000_0000, 0x0009_FC00, 1), // 639 KiB conventional, usable
+        (0x0009_FC00, 0x0000_0400, 2), // EBDA, reserved
+        (0x000E_0000, 0x0002_0000, 2), // BIOS ROM area, reserved
     ];
     if total > 0x10_0000 {
         v.push((0x10_0000, total - 0x10_0000, 1)); // extended memory, usable
@@ -60,6 +60,12 @@ pub fn active() -> bool {
 }
 
 fn cd() -> Option<Arc<Vec<u8>>> {
+    BIOS_CD.lock().unwrap().clone()
+}
+
+/// The installed boot CD image, if any (shared with the IDE/ATAPI controller so
+/// the same ISO that INT 13h serves is also the CD-ROM medium).
+pub fn installed_cd() -> Option<Arc<Vec<u8>>> {
     BIOS_CD.lock().unwrap().clone()
 }
 
@@ -257,8 +263,12 @@ fn int15(vcpu: &mut X86_64Vcpu) {
     if std::env::var_os("RAX_RM_TRACE").is_some() {
         eprintln!(
             "[INT15] eax={:#x} ebx={:#x} ecx={:#x} edx={:#x} es:di={:#x}:{:#x}",
-            vcpu.regs.rax as u32, vcpu.regs.rbx as u32, vcpu.regs.rcx as u32,
-            vcpu.regs.rdx as u32, vcpu.sregs.es.selector, vcpu.regs.rdi as u16
+            vcpu.regs.rax as u32,
+            vcpu.regs.rbx as u32,
+            vcpu.regs.rcx as u32,
+            vcpu.regs.rdx as u32,
+            vcpu.sregs.es.selector,
+            vcpu.regs.rdi as u16
         );
     }
     let total = BIOS_MEM_BYTES.load(Ordering::Relaxed);
@@ -289,7 +299,11 @@ fn int15(vcpu: &mut X86_64Vcpu) {
             // EAX = 'SMAP', ECX = bytes written, EBX = next index (0 if last).
             vcpu.regs.rax = (vcpu.regs.rax & !0xFFFF_FFFF) | 0x534D_4150;
             vcpu.regs.rcx = (vcpu.regs.rcx & !0xFFFF_FFFF) | 20;
-            let next = if idx + 1 < map.len() { (idx + 1) as u64 } else { 0 };
+            let next = if idx + 1 < map.len() {
+                (idx + 1) as u64
+            } else {
+                0
+            };
             vcpu.regs.rbx = (vcpu.regs.rbx & !0xFFFF_FFFF) | next;
             set_cf(vcpu, false);
         }
