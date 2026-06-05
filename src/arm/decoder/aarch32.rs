@@ -129,6 +129,10 @@ impl Aarch32Decoder {
             return Ok(insn);
         }
 
+        if let Some(insn) = Self::decode_neon_abs_neg(raw) {
+            return Ok(insn);
+        }
+
         if let Some(insn) = Self::decode_neon_saturating_abs_neg(raw) {
             return Ok(insn);
         }
@@ -603,6 +607,43 @@ impl Aarch32Decoder {
         let vd = (raw >> 12) & 0xF;
         let vm = raw & 0xF;
         if size == 0b11 || (q && ((vd | vm) & 1) != 0) {
+            return Some(DecodedInsn::new(
+                Mnemonic::UNDEFINED,
+                ExecutionState::Aarch32,
+                raw,
+                4,
+            ));
+        }
+
+        Some(DecodedInsn::new(mnemonic, ExecutionState::Aarch32, raw, 4))
+    }
+
+    fn decode_neon_abs_neg(raw: u32) -> Option<DecodedInsn> {
+        if (raw >> 23) != 0b111100111
+            || ((raw >> 20) & 0x3) != 0b11
+            || ((raw >> 16) & 0x3) != 0b01
+            || ((raw >> 11) & 1) != 0
+            || ((raw >> 4) & 1) != 0
+        {
+            return None;
+        }
+
+        let size = (raw >> 18) & 0x3;
+        let op = (raw >> 7) & 0xF;
+        let fp = match op {
+            0b0110 | 0b0111 => false,
+            0b1110 | 0b1111 if size == 0b10 => true,
+            _ => return None,
+        };
+        let mnemonic = match op & 1 {
+            0 => Mnemonic::VABS,
+            _ => Mnemonic::VNEG,
+        };
+
+        let q = ((raw >> 6) & 1) != 0;
+        let vd = (raw >> 12) & 0xF;
+        let vm = raw & 0xF;
+        if (!fp && size == 0b11) || (q && ((vd | vm) & 1) != 0) {
             return Some(DecodedInsn::new(
                 Mnemonic::UNDEFINED,
                 ExecutionState::Aarch32,
