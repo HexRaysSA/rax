@@ -6120,7 +6120,7 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
             && ((raw >> 23) & 1) == 1
             && ((raw >> 7) & 1) == 0
             && ((raw >> 4) & 1) == 1
-            && ((raw >> 8) & 0xF) != 0b1111
+            && (((raw >> 8) & 0xF) != 0b1111 || ((raw >> 5) & 1) == 0)
     }
 
     fn neon_expand_modified_immediate(raw: u32) -> Option<u64> {
@@ -6156,6 +6156,7 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
                 }
                 return Some(imm64);
             }
+            0b1111 if ((raw >> 5) & 1) == 0 => vfp_expand_imm_f32(imm8 as u8),
             _ => return None,
         };
 

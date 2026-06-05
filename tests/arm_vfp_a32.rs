@@ -1718,6 +1718,14 @@ fn neon_modified_immediate_ops_materialize_and_merge_constants() {
         Mnemonic::VMOV
     );
     assert_eq!(
+        Aarch32Decoder::decode(0xF287_0F10).unwrap().mnemonic,
+        Mnemonic::VMOV
+    );
+    assert_eq!(
+        Aarch32Decoder::decode(0xF380_2F50).unwrap().mnemonic,
+        Mnemonic::VMOV
+    );
+    assert_eq!(
         Aarch32Decoder::decode(0xF387_365F).unwrap().mnemonic,
         Mnemonic::UNDEFINED
     );
@@ -1778,6 +1786,19 @@ fn neon_modified_immediate_ops_materialize_and_merge_constants() {
         ExecResult::Continue
     ));
     assert_eq!(cpu.vfp.read_d_bits(0), 0x0000_0000_0000_00ff);
+
+    assert!(matches!(
+        exec_one(&mut cpu, &mut mem, 0xF287_0F10),
+        ExecResult::Continue
+    ));
+    assert_eq!(cpu.vfp.read_d_bits(0), 0x3f80_0000_3f80_0000);
+
+    assert!(matches!(
+        exec_one(&mut cpu, &mut mem, 0xF380_2F50),
+        ExecResult::Continue
+    ));
+    assert_eq!(cpu.vfp.read_d_bits(2), 0xc000_0000_c000_0000);
+    assert_eq!(cpu.vfp.read_d_bits(3), 0xc000_0000_c000_0000);
 
     assert!(matches!(
         exec_one(&mut cpu, &mut mem, 0xF387_365F),
