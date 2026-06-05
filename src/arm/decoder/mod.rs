@@ -304,6 +304,20 @@ pub enum Mnemonic {
     SMULLS,
     UMLAL,
     SMLAL,
+    UMAAL,
+    // AArch32 media / DSP umbrella mnemonics. The concrete operation is derived
+    // from the raw instruction word at execution time (A32 / T32 layout).
+    A32_PARALLEL,   // signed/unsigned parallel add/sub (SADD8/QADD16/UHASX/...)
+    A32_PKH,        // PKHBT / PKHTB
+    A32_EXTEND,     // (U|S)XT(A)(B|H|B16)
+    A32_SAT16,      // SSAT16 / USAT16
+    A32_SAT_ADDSUB, // QADD / QSUB / QDADD / QDSUB
+    A32_HMUL,       // SMUL/SMLA/SMULW/SMLAW/SMLAL <x><y>
+    A32_DUAL,       // SMUAD / SMUSD / SMLAD / SMLSD
+    A32_SMLALD,     // SMLALD / SMLSLD
+    A32_SMMUL,      // SMMUL / SMMLA / SMMLS
+    A32_USAD,       // USAD8 / USADA8
+    A32_SEL,        // SEL
     UMADDL,
     SMADDL,
     UMSUBL,
@@ -935,6 +949,18 @@ impl Mnemonic {
             Mnemonic::SMULLS => "smulls",
             Mnemonic::UMLAL => "umlal",
             Mnemonic::SMLAL => "smlal",
+            Mnemonic::UMAAL => "umaal",
+            Mnemonic::A32_PARALLEL => "a32_parallel",
+            Mnemonic::A32_PKH => "pkh",
+            Mnemonic::A32_EXTEND => "a32_extend",
+            Mnemonic::A32_SAT16 => "a32_sat16",
+            Mnemonic::A32_SAT_ADDSUB => "qadd",
+            Mnemonic::A32_HMUL => "a32_hmul",
+            Mnemonic::A32_DUAL => "a32_dual",
+            Mnemonic::A32_SMLALD => "smlald",
+            Mnemonic::A32_SMMUL => "smmul",
+            Mnemonic::A32_USAD => "usad8",
+            Mnemonic::A32_SEL => "sel",
             Mnemonic::UMADDL => "umaddl",
             Mnemonic::SMADDL => "smaddl",
             Mnemonic::UMSUBL => "umsubl",

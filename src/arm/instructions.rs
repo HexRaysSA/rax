@@ -239,6 +239,7 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
             Mnemonic::SMULL | Mnemonic::SMULLS => self.exec_smull(insn),
             Mnemonic::UMLAL => self.exec_umlal(insn),
             Mnemonic::SMLAL => self.exec_smlal(insn),
+            Mnemonic::UMAAL => self.exec_umaal(insn),
             Mnemonic::SDIV => self.exec_sdiv(insn),
             Mnemonic::UDIV => self.exec_udiv(insn),
 
@@ -324,6 +325,19 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
             // Saturating arithmetic
             Mnemonic::USAT => self.exec_usat(insn),
             Mnemonic::SSAT => self.exec_ssat(insn),
+
+            // AArch32 media / DSP
+            Mnemonic::A32_PARALLEL => self.exec_a32_parallel(insn),
+            Mnemonic::A32_PKH => self.exec_a32_pkh(insn),
+            Mnemonic::A32_EXTEND => self.exec_a32_extend(insn),
+            Mnemonic::A32_SAT16 => self.exec_a32_sat16(insn),
+            Mnemonic::A32_SAT_ADDSUB => self.exec_a32_sat_addsub(insn),
+            Mnemonic::A32_HMUL => self.exec_a32_hmul(insn),
+            Mnemonic::A32_DUAL => self.exec_a32_dual(insn),
+            Mnemonic::A32_SMLALD => self.exec_a32_smlald(insn),
+            Mnemonic::A32_SMMUL => self.exec_a32_smmul(insn),
+            Mnemonic::A32_USAD => self.exec_a32_usad(insn),
+            Mnemonic::A32_SEL => self.exec_a32_sel(insn),
 
             // Undefined/Unknown
             Mnemonic::UNDEFINED | Mnemonic::UNKNOWN => ExecResult::Undefined,
@@ -740,6 +754,10 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
             .reg(n)
             .wrapping_mul(self.reg(m))
             .wrapping_add(self.reg(a));
+        if insn.sets_flags {
+            self.cpu.cpsr.n = compute_n_flag(result);
+            self.cpu.cpsr.z = compute_z_flag(result);
+        }
         self.set_reg(d, result)
     }
 
@@ -788,6 +806,10 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
 
         self.cpu.regs[dlo] = result as u32;
         self.cpu.regs[dhi] = (result >> 32) as u32;
+        if insn.sets_flags {
+            self.cpu.cpsr.n = (result >> 63) != 0;
+            self.cpu.cpsr.z = result == 0;
+        }
         ExecResult::Continue
     }
 
@@ -797,6 +819,22 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
         let result = ((self.reg(n) as i32 as i64).wrapping_mul(self.reg(m) as i32 as i64) as u64)
             .wrapping_add(addend);
 
+        self.cpu.regs[dlo] = result as u32;
+        self.cpu.regs[dhi] = (result >> 32) as u32;
+        if insn.sets_flags {
+            self.cpu.cpsr.n = (result >> 63) != 0;
+            self.cpu.cpsr.z = result == 0;
+        }
+        ExecResult::Continue
+    }
+
+    /// UMAAL: RdHi:RdLo = Rn*Rm + RdHi + RdLo (all unsigned). No flags.
+    fn exec_umaal(&mut self, insn: &DecodedInsn) -> ExecResult {
+        let (dlo, dhi, n, m) = self.decode_mull_operands(insn);
+        let result = (self.reg(n) as u64)
+            .wrapping_mul(self.reg(m) as u64)
+            .wrapping_add(self.cpu.regs[dhi] as u64)
+            .wrapping_add(self.cpu.regs[dlo] as u64);
         self.cpu.regs[dlo] = result as u32;
         self.cpu.regs[dhi] = (result >> 32) as u32;
         ExecResult::Continue
@@ -1807,6 +1845,463 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
     }
 
     // =========================================================================
+    // AArch32 media / DSP (A32 encodings; operation derived from the raw word)
+    // =========================================================================
+
+    /// Signed-saturate a value to 32 bits, setting the Q flag on saturation.
+    fn ssat32(&mut self, x: i64) -> u32 {
+        if x > i32::MAX as i64 {
+            self.cpu.cpsr.q = true;
+            i32::MAX as u32
+        } else if x < i32::MIN as i64 {
+            self.cpu.cpsr.q = true;
+            i32::MIN as u32
+        } else {
+            x as u32
+        }
+    }
+
+    /// QADD / QSUB / QDADD / QDSUB.
+    fn exec_a32_sat_addsub(&mut self, insn: &DecodedInsn) -> ExecResult {
+        let raw = insn.raw;
+        let rd = ((raw >> 12) & 0xF) as usize;
+        let rn = ((raw >> 16) & 0xF) as usize;
+        let rm = (raw & 0xF) as usize;
+        let n = self.reg(rn) as i32 as i64;
+        let m = self.reg(rm) as i32 as i64;
+        let result = match (raw >> 21) & 0x3 {
+            0b00 => self.ssat32(m + n),
+            0b01 => self.ssat32(m - n),
+            0b10 => {
+                let dbl = self.ssat32(2 * n) as i32 as i64;
+                self.ssat32(m + dbl)
+            }
+            _ => {
+                let dbl = self.ssat32(2 * n) as i32 as i64;
+                self.ssat32(m - dbl)
+            }
+        };
+        self.set_reg(rd, result)
+    }
+
+    /// SMUL/SMLA/SMULW/SMLAW/SMLAL <x><y> (halfword and word multiplies).
+    fn exec_a32_hmul(&mut self, insn: &DecodedInsn) -> ExecResult {
+        let raw = insn.raw;
+        let rd = ((raw >> 16) & 0xF) as usize;
+        let ra = ((raw >> 12) & 0xF) as usize;
+        let rm = ((raw >> 8) & 0xF) as usize;
+        let rn = (raw & 0xF) as usize;
+        let n_top = (raw >> 5) & 1 != 0;
+        let m_top = (raw >> 6) & 1 != 0;
+        let rn_v = self.reg(rn);
+        let rm_v = self.reg(rm);
+        let half = |v: u32, top: bool| -> i64 {
+            if top {
+                (v >> 16) as u16 as i16 as i64
+            } else {
+                v as u16 as i16 as i64
+            }
+        };
+        match (raw >> 21) & 0x3 {
+            0b00 => {
+                // SMLA<x><y>: Rd = Rn.x * Rm.y + Ra (Q on signed overflow)
+                let result = half(rn_v, n_top) * half(rm_v, m_top) + self.reg(ra) as i32 as i64;
+                let r32 = result as i32;
+                if result != r32 as i64 {
+                    self.cpu.cpsr.q = true;
+                }
+                self.set_reg(rd, r32 as u32)
+            }
+            0b01 => {
+                // SMLAW<y> (bit5==0) / SMULW<y> (bit5==1)
+                let prod = (rn_v as i32 as i64) * half(rm_v, m_top);
+                let shifted = prod >> 16;
+                if (raw >> 5) & 1 == 0 {
+                    let result = shifted + self.reg(ra) as i32 as i64;
+                    let r32 = result as i32;
+                    if result != r32 as i64 {
+                        self.cpu.cpsr.q = true;
+                    }
+                    self.set_reg(rd, r32 as u32)
+                } else {
+                    self.set_reg(rd, shifted as i32 as u32)
+                }
+            }
+            0b10 => {
+                // SMLAL<x><y>: RdHi:RdLo += Rn.x * Rm.y
+                let dhi = ((raw >> 16) & 0xF) as usize;
+                let dlo = ((raw >> 12) & 0xF) as usize;
+                let acc =
+                    (((self.cpu.regs[dhi] as u64) << 32) | self.cpu.regs[dlo] as u64) as i64;
+                let result = acc.wrapping_add(half(rn_v, n_top) * half(rm_v, m_top)) as u64;
+                self.cpu.regs[dlo] = result as u32;
+                self.cpu.regs[dhi] = (result >> 32) as u32;
+                ExecResult::Continue
+            }
+            _ => {
+                // SMUL<x><y>: Rd = Rn.x * Rm.y
+                self.set_reg(rd, (half(rn_v, n_top) * half(rm_v, m_top)) as i32 as u32)
+            }
+        }
+    }
+
+    /// SMUAD / SMUSD / SMLAD / SMLSD.
+    fn exec_a32_dual(&mut self, insn: &DecodedInsn) -> ExecResult {
+        let raw = insn.raw;
+        let rd = ((raw >> 16) & 0xF) as usize;
+        let ra = ((raw >> 12) & 0xF) as usize;
+        let rm = ((raw >> 8) & 0xF) as usize;
+        let rn = (raw & 0xF) as usize;
+        let rn_v = self.reg(rn);
+        let mut rm_v = self.reg(rm);
+        if (raw >> 5) & 1 != 0 {
+            rm_v = rm_v.rotate_right(16); // X: swap Rm halves
+        }
+        let p1 = (rn_v as u16 as i16 as i64) * (rm_v as u16 as i16 as i64);
+        let p2 = ((rn_v >> 16) as u16 as i16 as i64) * ((rm_v >> 16) as u16 as i16 as i64);
+        let mut result = if (raw >> 6) & 1 != 0 { p1 - p2 } else { p1 + p2 };
+        if ra != 15 {
+            result += self.reg(ra) as i32 as i64;
+        }
+        let r32 = result as i32;
+        if result != r32 as i64 {
+            self.cpu.cpsr.q = true;
+        }
+        self.set_reg(rd, r32 as u32)
+    }
+
+    /// SMLALD / SMLSLD.
+    fn exec_a32_smlald(&mut self, insn: &DecodedInsn) -> ExecResult {
+        let raw = insn.raw;
+        let dhi = ((raw >> 16) & 0xF) as usize;
+        let dlo = ((raw >> 12) & 0xF) as usize;
+        let rm = ((raw >> 8) & 0xF) as usize;
+        let rn = (raw & 0xF) as usize;
+        let rn_v = self.reg(rn);
+        let mut rm_v = self.reg(rm);
+        if (raw >> 5) & 1 != 0 {
+            rm_v = rm_v.rotate_right(16);
+        }
+        let p1 = (rn_v as u16 as i16 as i64) * (rm_v as u16 as i16 as i64);
+        let p2 = ((rn_v >> 16) as u16 as i16 as i64) * ((rm_v >> 16) as u16 as i16 as i64);
+        let prod = if (raw >> 6) & 1 != 0 { p1 - p2 } else { p1 + p2 };
+        let acc = (((self.cpu.regs[dhi] as u64) << 32) | self.cpu.regs[dlo] as u64) as i64;
+        let result = acc.wrapping_add(prod) as u64;
+        self.cpu.regs[dlo] = result as u32;
+        self.cpu.regs[dhi] = (result >> 32) as u32;
+        ExecResult::Continue
+    }
+
+    /// SMMUL / SMMLA / SMMLS (signed most-significant-word multiply).
+    fn exec_a32_smmul(&mut self, insn: &DecodedInsn) -> ExecResult {
+        let raw = insn.raw;
+        let rd = ((raw >> 16) & 0xF) as usize;
+        let ra = ((raw >> 12) & 0xF) as usize;
+        let rm = ((raw >> 8) & 0xF) as usize;
+        let rn = (raw & 0xF) as usize;
+        let prod = (self.reg(rn) as i32 as i64) * (self.reg(rm) as i32 as i64);
+        let acc = if ra == 15 {
+            0i64
+        } else {
+            (self.reg(ra) as i32 as i64) << 32
+        };
+        let mut result = if (raw >> 6) & 1 != 0 { acc - prod } else { acc + prod };
+        if (raw >> 5) & 1 != 0 {
+            result += 0x8000_0000; // rounding
+        }
+        self.set_reg(rd, (result >> 32) as u32)
+    }
+
+    /// USAD8 / USADA8 (sum of absolute differences).
+    fn exec_a32_usad(&mut self, insn: &DecodedInsn) -> ExecResult {
+        let raw = insn.raw;
+        let rd = ((raw >> 16) & 0xF) as usize;
+        let ra = ((raw >> 12) & 0xF) as usize;
+        let rm = ((raw >> 8) & 0xF) as usize;
+        let rn = (raw & 0xF) as usize;
+        let n = self.reg(rn);
+        let m = self.reg(rm);
+        let mut sum: u32 = 0;
+        for i in 0..4 {
+            let a = ((n >> (i * 8)) & 0xFF) as i32;
+            let b = ((m >> (i * 8)) & 0xFF) as i32;
+            sum = sum.wrapping_add((a - b).unsigned_abs());
+        }
+        if ra != 15 {
+            sum = sum.wrapping_add(self.reg(ra));
+        }
+        self.set_reg(rd, sum)
+    }
+
+    /// PKHBT / PKHTB (pack halfword).
+    fn exec_a32_pkh(&mut self, insn: &DecodedInsn) -> ExecResult {
+        let raw = insn.raw;
+        let rd = ((raw >> 12) & 0xF) as usize;
+        let rn = ((raw >> 16) & 0xF) as usize;
+        let rm = (raw & 0xF) as usize;
+        let imm5 = (raw >> 7) & 0x1F;
+        let n = self.reg(rn);
+        let m = self.reg(rm);
+        let result = if (raw >> 6) & 1 != 0 {
+            // PKHTB: top from Rn, bottom from (Rm ASR imm5; imm5==0 => 32)
+            let op2 = if imm5 == 0 {
+                ((m as i32) >> 31) as u32
+            } else {
+                ((m as i32) >> imm5) as u32
+            };
+            (n & 0xFFFF_0000) | (op2 & 0xFFFF)
+        } else {
+            // PKHBT: bottom from Rn, top from (Rm LSL imm5)
+            let op2 = m.wrapping_shl(imm5);
+            (op2 & 0xFFFF_0000) | (n & 0xFFFF)
+        };
+        self.set_reg(rd, result)
+    }
+
+    /// (U|S)XT(A)(B|H|B16) sign/zero extend, with optional add and rotate.
+    fn exec_a32_extend(&mut self, insn: &DecodedInsn) -> ExecResult {
+        let raw = insn.raw;
+        let rd = ((raw >> 12) & 0xF) as usize;
+        let rn = ((raw >> 16) & 0xF) as usize;
+        let rm = (raw & 0xF) as usize;
+        let unsigned = (raw >> 22) & 1 != 0;
+        let size = (raw >> 20) & 0x3; // 00=B16, 10=B, 11=H
+        let rotation = ((raw >> 10) & 0x3) * 8;
+        let rotated = self.reg(rm).rotate_right(rotation);
+        let add = rn != 15;
+        let n = self.reg(rn);
+        let extb = |b: u32, u: bool| -> u32 {
+            if u {
+                b & 0xFF
+            } else {
+                (b & 0xFF) as u8 as i8 as i32 as u32
+            }
+        };
+        let result = match size {
+            0b10 => {
+                let ext = extb(rotated, unsigned);
+                if add {
+                    n.wrapping_add(ext)
+                } else {
+                    ext
+                }
+            }
+            0b11 => {
+                let h = rotated & 0xFFFF;
+                let ext = if unsigned {
+                    h
+                } else {
+                    h as u16 as i16 as i32 as u32
+                };
+                if add {
+                    n.wrapping_add(ext)
+                } else {
+                    ext
+                }
+            }
+            _ => {
+                let lo = extb(rotated, unsigned) & 0xFFFF;
+                let hi = extb(rotated >> 16, unsigned) & 0xFFFF;
+                if add {
+                    let l = (n & 0xFFFF).wrapping_add(lo) & 0xFFFF;
+                    let h = ((n >> 16) & 0xFFFF).wrapping_add(hi) & 0xFFFF;
+                    l | (h << 16)
+                } else {
+                    lo | (hi << 16)
+                }
+            }
+        };
+        self.set_reg(rd, result)
+    }
+
+    /// SSAT16 / USAT16 (parallel halfword saturate).
+    fn exec_a32_sat16(&mut self, insn: &DecodedInsn) -> ExecResult {
+        let raw = insn.raw;
+        let rd = ((raw >> 12) & 0xF) as usize;
+        let rn = (raw & 0xF) as usize;
+        let sat = (raw >> 16) & 0xF;
+        let unsigned = (raw >> 22) & 1 != 0;
+        let n = self.reg(rn);
+        let mut out: u32 = 0;
+        for i in 0..2u32 {
+            let h = ((n >> (i * 16)) & 0xFFFF) as u16 as i16 as i32;
+            let clamped = if unsigned {
+                let max = ((1u32 << sat) - 1) as i32;
+                if h < 0 {
+                    self.cpu.cpsr.q = true;
+                    0
+                } else if h > max {
+                    self.cpu.cpsr.q = true;
+                    max
+                } else {
+                    h
+                }
+            } else {
+                let bits = sat + 1;
+                let max = (1i32 << (bits - 1)) - 1;
+                let min = -(1i32 << (bits - 1));
+                if h > max {
+                    self.cpu.cpsr.q = true;
+                    max
+                } else if h < min {
+                    self.cpu.cpsr.q = true;
+                    min
+                } else {
+                    h
+                }
+            };
+            out |= ((clamped as u32) & 0xFFFF) << (i * 16);
+        }
+        self.set_reg(rd, out)
+    }
+
+    /// SEL (select bytes by GE flags).
+    fn exec_a32_sel(&mut self, insn: &DecodedInsn) -> ExecResult {
+        let raw = insn.raw;
+        let rd = ((raw >> 12) & 0xF) as usize;
+        let rn = ((raw >> 16) & 0xF) as usize;
+        let rm = (raw & 0xF) as usize;
+        let n = self.reg(rn);
+        let m = self.reg(rm);
+        let ge = self.cpu.cpsr.ge;
+        let mut result: u32 = 0;
+        for i in 0..4u32 {
+            let byte = if (ge >> i) & 1 != 0 {
+                (n >> (i * 8)) & 0xFF
+            } else {
+                (m >> (i * 8)) & 0xFF
+            };
+            result |= byte << (i * 8);
+        }
+        self.set_reg(rd, result)
+    }
+
+    /// Signed/unsigned parallel add/sub (SADD8/QADD16/UHASX/...). Sets GE for
+    /// the plain signed (S) and unsigned (U) prefixes.
+    fn exec_a32_parallel(&mut self, insn: &DecodedInsn) -> ExecResult {
+        let raw = insn.raw;
+        let rd = ((raw >> 12) & 0xF) as usize;
+        let rn = ((raw >> 16) & 0xF) as usize;
+        let rm = (raw & 0xF) as usize;
+        let prefix = (raw >> 20) & 0x7; // 001=S 010=Q 011=SH 101=U 110=UQ 111=UH
+        let op2 = (raw >> 5) & 0x7; // 000=add16 001=asx 010=sax 011=sub16 100=add8 111=sub8
+        let n = self.reg(rn);
+        let m = self.reg(rm);
+
+        let eight = op2 == 0b100 || op2 == 0b111;
+        let width: u32 = if eight { 8 } else { 16 };
+        let lane = |v: u32, idx: u32, w: u32| (v >> (idx * w)) & ((1u32 << w) - 1);
+
+        // (a, b, sub) per lane.
+        let mut lanes: [(u32, u32, bool); 4] = [(0, 0, false); 4];
+        let nlanes: usize = match op2 {
+            0b000 => {
+                for i in 0..2 {
+                    lanes[i] = (lane(n, i as u32, 16), lane(m, i as u32, 16), false);
+                }
+                2
+            }
+            0b011 => {
+                for i in 0..2 {
+                    lanes[i] = (lane(n, i as u32, 16), lane(m, i as u32, 16), true);
+                }
+                2
+            }
+            0b001 => {
+                // ASX: lane0 = n.lo - m.hi ; lane1 = n.hi + m.lo
+                lanes[0] = (lane(n, 0, 16), lane(m, 1, 16), true);
+                lanes[1] = (lane(n, 1, 16), lane(m, 0, 16), false);
+                2
+            }
+            0b010 => {
+                // SAX: lane0 = n.lo + m.hi ; lane1 = n.hi - m.lo
+                lanes[0] = (lane(n, 0, 16), lane(m, 1, 16), false);
+                lanes[1] = (lane(n, 1, 16), lane(m, 0, 16), true);
+                2
+            }
+            0b100 => {
+                for i in 0..4 {
+                    lanes[i] = (lane(n, i as u32, 8), lane(m, i as u32, 8), false);
+                }
+                4
+            }
+            0b111 => {
+                for i in 0..4 {
+                    lanes[i] = (lane(n, i as u32, 8), lane(m, i as u32, 8), true);
+                }
+                4
+            }
+            _ => return ExecResult::Undefined,
+        };
+
+        let sign_ext = |v: u32, w: u32| -> i64 {
+            let sh = 64 - w;
+            ((v as i64) << sh) >> sh
+        };
+        let maskw: u32 = if width == 32 { u32::MAX } else { (1u32 << width) - 1 };
+        let smax = (1i64 << (width - 1)) - 1;
+        let smin = -(1i64 << (width - 1));
+        let umax = (1i64 << width) - 1;
+
+        let mut result: u32 = 0;
+        let mut ge: u8 = 0;
+        let mut set_ge = false;
+        for (idx, &(a, b, sub)) in lanes.iter().take(nlanes).enumerate() {
+            let avs = sign_ext(a, width);
+            let bvs = sign_ext(b, width);
+            let avu = a as i64;
+            let bvu = b as i64;
+            let (val, ge_opt): (u32, Option<bool>) = match prefix {
+                0b001 => {
+                    let r = if sub { avs - bvs } else { avs + bvs };
+                    (r as u32, Some(r >= 0))
+                }
+                0b101 => {
+                    if sub {
+                        ((avu - bvu) as u32, Some(avu >= bvu))
+                    } else {
+                        let r = avu + bvu;
+                        (r as u32, Some(r >= (1i64 << width)))
+                    }
+                }
+                0b010 => {
+                    let r = if sub { avs - bvs } else { avs + bvs };
+                    (r.clamp(smin, smax) as u32, None)
+                }
+                0b110 => {
+                    let r = if sub { avu - bvu } else { avu + bvu };
+                    (r.clamp(0, umax) as u32, None)
+                }
+                0b011 => {
+                    let r = if sub { avs - bvs } else { avs + bvs };
+                    ((r >> 1) as u32, None)
+                }
+                0b111 => {
+                    let r = if sub { avu - bvu } else { avu + bvu };
+                    ((r >> 1) as u32, None)
+                }
+                _ => return ExecResult::Undefined,
+            };
+            result |= (val & maskw) << (idx as u32 * width);
+            if let Some(g) = ge_opt {
+                set_ge = true;
+                if g {
+                    if eight {
+                        ge |= 1 << idx;
+                    } else {
+                        ge |= 0b11 << (idx * 2);
+                    }
+                }
+            }
+        }
+
+        if set_ge {
+            self.cpu.cpsr.ge = ge;
+        }
+        self.set_reg(rd, result)
+    }
+
+    // =========================================================================
     // Operand Decoding Helpers
     // =========================================================================
 
@@ -1822,16 +2317,23 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
             value
         } else {
             let m = (insn.raw & 0xF) as usize;
-            let shift_type = ShiftType::from_bits(((insn.raw >> 5) & 3) as u8);
+            let mut shift_type = ShiftType::from_bits(((insn.raw >> 5) & 3) as u8);
 
             let shift_amount = if (insn.raw >> 4) & 1 != 0 {
+                // Register-controlled shift: amount is Rs[7:0]; RRX is not
+                // encodable in this form.
                 let s = ((insn.raw >> 8) & 0xF) as usize;
                 self.reg(s) & 0xFF
             } else {
                 let imm5 = ((insn.raw >> 7) & 0x1F) as u32;
                 match shift_type {
                     ShiftType::LSR | ShiftType::ASR if imm5 == 0 => 32,
-                    ShiftType::ROR if imm5 == 0 => 1,
+                    // type==ROR with imm5==0 encodes RRX (rotate right with
+                    // extend through carry), not ROR #1.
+                    ShiftType::ROR if imm5 == 0 => {
+                        shift_type = ShiftType::RRX;
+                        1
+                    }
                     _ => imm5,
                 }
             };
