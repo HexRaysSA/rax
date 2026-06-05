@@ -392,9 +392,11 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
             Mnemonic::VSWP => self.exec_neon_vswp(insn),
             Mnemonic::VDUP => self.exec_neon_vdup(insn),
             Mnemonic::VSHL => self.exec_vshl(insn),
-            Mnemonic::VRSHL | Mnemonic::VQSHL | Mnemonic::VQRSHL => {
+            Mnemonic::VQSHL => self.exec_vqshl(insn),
+            Mnemonic::VRSHL | Mnemonic::VQRSHL => {
                 self.exec_neon_shift_register(insn)
             }
+            Mnemonic::VQSHLU => self.exec_neon_saturating_shift_left_immediate(insn),
             Mnemonic::VSHR
             | Mnemonic::VRSHR
             | Mnemonic::VSRA
@@ -2778,6 +2780,94 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
         }
 
         self.exec_neon_shift_immediate(insn)
+    }
+
+    fn exec_vqshl(&mut self, insn: &DecodedInsn) -> ExecResult {
+        if (insn.raw >> 25) == 0b1111001
+            && ((insn.raw >> 23) & 1) == 0
+            && ((insn.raw >> 8) & 0xF) == 0b0100
+            && ((insn.raw >> 4) & 1) == 1
+        {
+            return self.exec_neon_shift_register(insn);
+        }
+
+        self.exec_neon_saturating_shift_left_immediate(insn)
+    }
+
+    fn exec_neon_saturating_shift_left_immediate(&mut self, insn: &DecodedInsn) -> ExecResult {
+        if !self.cpu.vfp.is_enabled() {
+            return ExecResult::Exception(ExceptionType::UndefinedInstruction);
+        }
+        if (insn.raw >> 25) != 0b1111001
+            || ((insn.raw >> 23) & 1) != 1
+            || ((insn.raw >> 4) & 1) != 1
+        {
+            return ExecResult::Undefined;
+        }
+
+        let op8 = (insn.raw >> 8) & 0xF;
+        let unsigned_bit = ((insn.raw >> 24) & 1) != 0;
+        let signed_to_unsigned = match (insn.mnemonic, op8, unsigned_bit) {
+            (Mnemonic::VQSHL, 0b0111, _) => false,
+            (Mnemonic::VQSHLU, 0b0110, true) => true,
+            _ => return ExecResult::Undefined,
+        };
+
+        let imm = (insn.raw >> 16) & 0x3F;
+        let size = match imm {
+            8..=15 => NeonSize::B8,
+            16..=31 => NeonSize::H16,
+            32..=63 => NeonSize::S32,
+            _ => return ExecResult::Undefined,
+        };
+        let shift = imm - size.bits();
+        if shift == 0 || shift > size.bits() {
+            return ExecResult::Undefined;
+        }
+        let ebytes = (size.bits() / 8) as u8;
+
+        let d_bit = ((insn.raw >> 22) & 1) as u8;
+        let vd = ((insn.raw >> 12) & 0xF) as u8;
+        let m_bit = ((insn.raw >> 5) & 1) as u8;
+        let vm = (insn.raw & 0xF) as u8;
+        let q = ((insn.raw >> 6) & 1) != 0;
+        let regs = if q { 2 } else { 1 };
+
+        let d = (d_bit << 4) | vd;
+        let m = (m_bit << 4) | vm;
+        if q && ((d | m) & 1) != 0 {
+            return ExecResult::Undefined;
+        }
+        if d + regs > 32 || m + regs > 32 {
+            return ExecResult::Undefined;
+        }
+
+        for reg in 0..regs {
+            let elements = self.neon_read_vector_elements_u64(m + reg, 1, ebytes);
+            let mut out = Vec::with_capacity(elements.len());
+            for elem in elements {
+                let (result, saturated) = if signed_to_unsigned {
+                    let value = Self::neon_sign_extend_elem_u64(elem, size.bits()) << shift;
+                    Self::neon_unsigned_saturate(value, size.bits())
+                } else if unsigned_bit {
+                    Self::neon_unsigned_saturate((elem as i128) << shift, size.bits())
+                } else {
+                    let value = Self::neon_sign_extend_elem_u64(elem, size.bits()) << shift;
+                    let (value, saturated) = Self::neon_signed_saturate_i128(value, size.bits());
+                    (
+                        Self::neon_pack_signed_elem_i128(value, size.bits()),
+                        saturated,
+                    )
+                };
+                if saturated {
+                    self.cpu.vfp.fpscr.set_qc(true);
+                }
+                out.push(result);
+            }
+            self.neon_write_vector_elements_u64(d + reg, 1, ebytes, &out);
+        }
+
+        ExecResult::Continue
     }
 
     fn exec_neon_shift_register(&mut self, insn: &DecodedInsn) -> ExecResult {
