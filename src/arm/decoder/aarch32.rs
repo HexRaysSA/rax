@@ -1004,13 +1004,16 @@ impl Aarch32Decoder {
     }
 
     fn decode_neon_shift_register(raw: u32) -> Option<DecodedInsn> {
-        if (raw >> 25) != 0b1111001 || ((raw >> 23) & 1) != 0 || ((raw >> 4) & 1) != 0 {
+        if (raw >> 25) != 0b1111001 || ((raw >> 23) & 1) != 0 {
             return None;
         }
 
-        let mnemonic = match (raw >> 8) & 0xF {
-            0b0100 => Mnemonic::VSHL,
-            0b0101 => Mnemonic::VRSHL,
+        let saturating = ((raw >> 4) & 1) != 0;
+        let mnemonic = match ((raw >> 8) & 0xF, saturating) {
+            (0b0100, false) => Mnemonic::VSHL,
+            (0b0101, false) => Mnemonic::VRSHL,
+            (0b0100, true) => Mnemonic::VQSHL,
+            (0b0101, true) => Mnemonic::VQRSHL,
             _ => return None,
         };
 

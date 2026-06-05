@@ -392,7 +392,9 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
             Mnemonic::VSWP => self.exec_neon_vswp(insn),
             Mnemonic::VDUP => self.exec_neon_vdup(insn),
             Mnemonic::VSHL => self.exec_vshl(insn),
-            Mnemonic::VRSHL => self.exec_neon_shift_register(insn),
+            Mnemonic::VRSHL | Mnemonic::VQSHL | Mnemonic::VQRSHL => {
+                self.exec_neon_shift_register(insn)
+            }
             Mnemonic::VSHR | Mnemonic::VRSHR | Mnemonic::VSLI | Mnemonic::VSRI => {
                 self.exec_neon_shift_immediate(insn)
             }
@@ -2756,16 +2758,16 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
         if !self.cpu.vfp.is_enabled() {
             return ExecResult::Exception(ExceptionType::UndefinedInstruction);
         }
-        if (insn.raw >> 25) != 0b1111001
-            || ((insn.raw >> 23) & 1) != 0
-            || ((insn.raw >> 4) & 1) != 0
-        {
+        if (insn.raw >> 25) != 0b1111001 || ((insn.raw >> 23) & 1) != 0 {
             return ExecResult::Undefined;
         }
 
-        let rounding = match insn.mnemonic {
-            Mnemonic::VSHL if ((insn.raw >> 8) & 0xF) == 0b0100 => false,
-            Mnemonic::VRSHL if ((insn.raw >> 8) & 0xF) == 0b0101 => true,
+        let saturating = ((insn.raw >> 4) & 1) != 0;
+        let rounding = match (insn.mnemonic, (insn.raw >> 8) & 0xF, saturating) {
+            (Mnemonic::VSHL, 0b0100, false) => false,
+            (Mnemonic::VRSHL, 0b0101, false) => true,
+            (Mnemonic::VQSHL, 0b0100, true) => false,
+            (Mnemonic::VQRSHL, 0b0101, true) => true,
             _ => return ExecResult::Undefined,
         };
         let size = match (insn.raw >> 20) & 0x3 {
@@ -2810,9 +2812,47 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
             {
                 let shift = Self::neon_sign_extend_elem_u64(shift_elem, size.bits());
                 let result = if shift >= size.bits() as i128 {
-                    0
+                    if saturating {
+                        self.cpu.vfp.fpscr.set_qc(true);
+                        if unsigned {
+                            mask
+                        } else if Self::neon_sign_extend_elem_u64(value_elem, size.bits()) < 0 {
+                            Self::neon_pack_signed_elem_i128(
+                                -(1i128 << (size.bits() - 1)),
+                                size.bits(),
+                            )
+                        } else {
+                            Self::neon_pack_signed_elem_i128(
+                                (1i128 << (size.bits() - 1)) - 1,
+                                size.bits(),
+                            )
+                        }
+                    } else {
+                        0
+                    }
                 } else if shift >= 0 {
-                    (value_elem << (shift as u32)) & mask
+                    if saturating {
+                        if unsigned {
+                            let value = (value_elem as i128) << (shift as u32);
+                            let (result, saturated) =
+                                Self::neon_unsigned_saturate(value, size.bits());
+                            if saturated {
+                                self.cpu.vfp.fpscr.set_qc(true);
+                            }
+                            result
+                        } else {
+                            let value = Self::neon_sign_extend_elem_u64(value_elem, size.bits())
+                                << (shift as u32);
+                            let (result, saturated) =
+                                Self::neon_signed_saturate_i128(value, size.bits());
+                            if saturated {
+                                self.cpu.vfp.fpscr.set_qc(true);
+                            }
+                            Self::neon_pack_signed_elem_i128(result, size.bits())
+                        }
+                    } else {
+                        (value_elem << (shift as u32)) & mask
+                    }
                 } else {
                     let rshift = (-shift) as u32;
                     if rshift > size.bits() {
