@@ -3764,6 +3764,9 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
         if Self::is_neon_long_multiply_shape(insn.raw) {
             return self.exec_neon_long_multiply(insn);
         }
+        if Self::is_neon_long_multiply_scalar_shape(insn.raw) {
+            return self.exec_neon_long_multiply(insn);
+        }
 
         self.exec_vfp_accop(insn)
     }
@@ -3796,6 +3799,21 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
                 (raw >> 8) & 0xF,
                 0b1000 | 0b1001 | 0b1010 | 0b1011 | 0b1100 | 0b1101
             )
+    }
+
+    fn is_neon_long_multiply_scalar_shape(raw: u32) -> bool {
+        if (raw >> 25) != 0b1111001
+            || ((raw >> 23) & 1) != 1
+            || ((raw >> 6) & 1) != 1
+            || ((raw >> 4) & 1) != 0
+        {
+            return false;
+        }
+
+        matches!(
+            (raw >> 8) & 0xF,
+            0b0010 | 0b0011 | 0b0110 | 0b0111 | 0b1010 | 0b1011
+        )
     }
 
     fn exec_neon_integer_multiply(&mut self, insn: &DecodedInsn) -> ExecResult {
@@ -3920,7 +3938,8 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
         if !self.cpu.vfp.is_enabled() {
             return ExecResult::Exception(ExceptionType::UndefinedInstruction);
         }
-        if !Self::is_neon_long_multiply_shape(insn.raw) {
+        let scalar = Self::is_neon_long_multiply_scalar_shape(insn.raw);
+        if !Self::is_neon_long_multiply_shape(insn.raw) && !scalar {
             return ExecResult::Undefined;
         }
 
@@ -3937,16 +3956,28 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
             insn.mnemonic,
             Mnemonic::VQDMULL | Mnemonic::VQDMLAL | Mnemonic::VQDMLSL
         );
+        if scalar && narrow_size == NeonSize::B8 {
+            return ExecResult::Undefined;
+        }
         if saturating_doubling && narrow_size == NeonSize::B8 {
             return ExecResult::Undefined;
         }
         let unsigned = ((insn.raw >> 24) & 1) != 0 && !saturating_doubling;
-        let accumulate = match insn.mnemonic {
-            Mnemonic::VMULL | Mnemonic::VQDMULL => false,
-            Mnemonic::VMLAL | Mnemonic::VMLSL | Mnemonic::VQDMLAL | Mnemonic::VQDMLSL => true,
+        if scalar && saturating_doubling && ((insn.raw >> 24) & 1) != 0 {
+            return ExecResult::Undefined;
+        }
+        let (accumulate, subtract) = match (insn.mnemonic, scalar, (insn.raw >> 8) & 0xF) {
+            (Mnemonic::VMLAL, true, 0b0010) => (true, false),
+            (Mnemonic::VQDMLAL, true, 0b0011) => (true, false),
+            (Mnemonic::VMLSL, true, 0b0110) => (true, true),
+            (Mnemonic::VQDMLSL, true, 0b0111) => (true, true),
+            (Mnemonic::VMULL, true, 0b1010) => (false, false),
+            (Mnemonic::VQDMULL, true, 0b1011) => (false, false),
+            (Mnemonic::VMULL | Mnemonic::VQDMULL, false, _) => (false, false),
+            (Mnemonic::VMLAL | Mnemonic::VQDMLAL, false, _) => (true, false),
+            (Mnemonic::VMLSL | Mnemonic::VQDMLSL, false, _) => (true, true),
             _ => return ExecResult::Undefined,
         };
-        let subtract = matches!(insn.mnemonic, Mnemonic::VMLSL | Mnemonic::VQDMLSL);
 
         let d_bit = ((insn.raw >> 22) & 1) as u8;
         let vd = ((insn.raw >> 12) & 0xF) as u8;
@@ -3962,8 +3993,30 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
             return ExecResult::Undefined;
         }
 
+        let scalar_elem = if scalar {
+            let (scalar_reg, scalar_index) = match narrow_size {
+                NeonSize::H16 => (vm & 0x7, (m_bit << 1) | (vm >> 3)),
+                NeonSize::S32 => (vm, m_bit),
+                _ => return ExecResult::Undefined,
+            };
+            if scalar_reg >= 32 || scalar_index as usize >= narrow_size.elements_per_d() {
+                return ExecResult::Undefined;
+            }
+            Some(self.neon_read_d_elem_u64(
+                scalar_reg,
+                scalar_index,
+                narrow_ebytes,
+            ))
+        } else {
+            None
+        };
+
         let n_elements = self.neon_read_vector_elements_u64(n, 1, narrow_ebytes);
-        let m_elements = self.neon_read_vector_elements_u64(m, 1, narrow_ebytes);
+        let m_elements = if let Some(elem) = scalar_elem {
+            vec![elem; n_elements.len()]
+        } else {
+            self.neon_read_vector_elements_u64(m, 1, narrow_ebytes)
+        };
         let d_elements = if accumulate {
             self.neon_read_vector_elements_u64(d, 2, wide_ebytes)
         } else {

@@ -3632,6 +3632,18 @@ fn neon_long_multiply_accumulate_subtract_widens_products() {
         Aarch32Decoder::decode(0xF3D4_0AA6).unwrap().mnemonic,
         Mnemonic::VMLSL
     );
+    assert_eq!(
+        Aarch32Decoder::decode(0xF292_0A43).unwrap().mnemonic,
+        Mnemonic::VMULL
+    );
+    assert_eq!(
+        Aarch32Decoder::decode(0xF3AA_8265).unwrap().mnemonic,
+        Mnemonic::VMLAL
+    );
+    assert_eq!(
+        Aarch32Decoder::decode(0xF29E_C66F).unwrap().mnemonic,
+        Mnemonic::VMLSL
+    );
 
     cpu.vfp.write_d_bits(2, 0x0605_0403_7f80_ff02);
     cpu.vfp.write_d_bits(4, 0x2233_40ff_0202_0203);
@@ -3681,6 +3693,37 @@ fn neon_long_multiply_accumulate_subtract_widens_products() {
     assert_eq!(cpu.vfp.read_d_bits(16), 0xfffe_0001_fffe_0066);
     assert_eq!(cpu.vfp.read_d_bits(17), 0xffff_0000_7fff_0000);
 
+    cpu.vfp.write_d_bits(2, 0xfffc_0003_fffe_0001);
+    cpu.vfp.write_d_bits(3, 0x0000_0000_0000_0005);
+    assert!(matches!(
+        exec_one(&mut cpu, &mut mem, 0xF292_0A43),
+        ExecResult::Continue
+    ));
+    assert_eq!(cpu.vfp.read_d_bits(0), 0xffff_fff6_0000_0005);
+    assert_eq!(cpu.vfp.read_d_bits(1), 0xffff_ffec_0000_000f);
+
+    cpu.vfp.write_d_bits(5, 0x0000_0005_0000_0001);
+    cpu.vfp.write_d_bits(8, 0x0000_0000_0000_000a);
+    cpu.vfp.write_d_bits(9, 0x0000_0000_0000_0014);
+    cpu.vfp.write_d_bits(10, 0x0000_0004_0000_0003);
+    assert!(matches!(
+        exec_one(&mut cpu, &mut mem, 0xF3AA_8265),
+        ExecResult::Continue
+    ));
+    assert_eq!(cpu.vfp.read_d_bits(8), 25);
+    assert_eq!(cpu.vfp.read_d_bits(9), 40);
+
+    cpu.vfp.write_d_bits(7, 0x0003_0000_0000_0000);
+    cpu.vfp.write_d_bits(12, 0x0000_0064_0000_0064);
+    cpu.vfp.write_d_bits(13, 0x0000_0064_0000_0064);
+    cpu.vfp.write_d_bits(14, 0x0004_fffd_0002_0001);
+    assert!(matches!(
+        exec_one(&mut cpu, &mut mem, 0xF29E_C66F),
+        ExecResult::Continue
+    ));
+    assert_eq!(cpu.vfp.read_d_bits(12), 0x0000_005e_0000_0061);
+    assert_eq!(cpu.vfp.read_d_bits(13), 0x0000_0058_0000_006d);
+
     let invalid_odd_dest =
         DecodedInsn::new(Mnemonic::VMULL, ExecutionState::Aarch32, 0xF282_1C04, 4);
     assert!(matches!(
@@ -3709,6 +3752,18 @@ fn neon_saturating_doubling_long_multiply_sets_qc_on_saturation() {
     );
     assert_eq!(
         Aarch32Decoder::decode(0xF2D4_0BA6).unwrap().mnemonic,
+        Mnemonic::VQDMLSL
+    );
+    assert_eq!(
+        Aarch32Decoder::decode(0xF2D2_0BCB).unwrap().mnemonic,
+        Mnemonic::VQDMULL
+    );
+    assert_eq!(
+        Aarch32Decoder::decode(0xF2D6_43C5).unwrap().mnemonic,
+        Mnemonic::VQDMLAL
+    );
+    assert_eq!(
+        Aarch32Decoder::decode(0xF2EA_87C7).unwrap().mnemonic,
         Mnemonic::VQDMLSL
     );
 
@@ -3759,6 +3814,43 @@ fn neon_saturating_doubling_long_multiply_sets_qc_on_saturation() {
     assert_eq!(cpu.vfp.read_d_bits(16), 0x0000_0004_0000_0058);
     assert_eq!(cpu.vfp.read_d_bits(17), 0xffff_ffff_8000_0000);
     assert!(cpu.vfp.fpscr.qc());
+
+    cpu.vfp.fpscr.set_qc(false);
+    cpu.vfp.write_d_bits(3, 0x0000_0000_8000_0000);
+    cpu.vfp.write_d_bits(18, 0x4000_ffff_8000_0002);
+    assert!(matches!(
+        exec_one(&mut cpu, &mut mem, 0xF2D2_0BCB),
+        ExecResult::Continue
+    ));
+    assert_eq!(cpu.vfp.read_d_bits(16), 0x7fff_ffff_fffe_0000);
+    assert_eq!(cpu.vfp.read_d_bits(17), 0xc000_0000_0001_0000);
+    assert!(cpu.vfp.fpscr.qc());
+
+    cpu.vfp.fpscr.set_qc(false);
+    cpu.vfp.write_d_bits(5, 0x0000_0000_0000_0003);
+    cpu.vfp.write_d_bits(20, 0x0000_0014_0000_000a);
+    cpu.vfp.write_d_bits(21, 0x0000_0028_0000_001e);
+    cpu.vfp.write_d_bits(22, 0x4000_ffff_0002_0001);
+    assert!(matches!(
+        exec_one(&mut cpu, &mut mem, 0xF2D6_43C5),
+        ExecResult::Continue
+    ));
+    assert_eq!(cpu.vfp.read_d_bits(20), 0x0000_0020_0000_0010);
+    assert_eq!(cpu.vfp.read_d_bits(21), 0x0001_8028_0000_0018);
+    assert!(!cpu.vfp.fpscr.qc());
+
+    cpu.vfp.fpscr.set_qc(false);
+    cpu.vfp.write_d_bits(7, 5);
+    cpu.vfp.write_d_bits(24, 100);
+    cpu.vfp.write_d_bits(25, 200);
+    cpu.vfp.write_d_bits(26, 0x0000_0004_0000_0003);
+    assert!(matches!(
+        exec_one(&mut cpu, &mut mem, 0xF2EA_87C7),
+        ExecResult::Continue
+    ));
+    assert_eq!(cpu.vfp.read_d_bits(24), 70);
+    assert_eq!(cpu.vfp.read_d_bits(25), 160);
+    assert!(!cpu.vfp.fpscr.qc());
 
     let invalid_size = DecodedInsn::new(Mnemonic::VQDMULL, ExecutionState::Aarch32, 0xF282_0D04, 4);
     assert!(matches!(

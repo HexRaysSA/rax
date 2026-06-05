@@ -173,6 +173,10 @@ impl Aarch32Decoder {
             return Ok(insn);
         }
 
+        if let Some(insn) = Self::decode_neon_long_multiply_scalar(raw) {
+            return Ok(insn);
+        }
+
         if let Some(insn) = Self::decode_neon_long_wide_add_sub(raw) {
             return Ok(insn);
         }
@@ -1221,6 +1225,48 @@ impl Aarch32Decoder {
         let vd = (raw >> 12) & 0xF;
         let vn = (raw >> 16) & 0xF;
         if size == 0b00 || size == 0b11 || (q && ((vd | vn) & 1) != 0) {
+            return Some(DecodedInsn::new(
+                Mnemonic::UNDEFINED,
+                ExecutionState::Aarch32,
+                raw,
+                4,
+            ));
+        }
+
+        Some(DecodedInsn::new(mnemonic, ExecutionState::Aarch32, raw, 4))
+    }
+
+    fn decode_neon_long_multiply_scalar(raw: u32) -> Option<DecodedInsn> {
+        if (raw >> 25) != 0b1111001
+            || ((raw >> 23) & 1) != 1
+            || ((raw >> 6) & 1) != 1
+            || ((raw >> 4) & 1) != 0
+        {
+            return None;
+        }
+
+        let mnemonic = match (raw >> 8) & 0xF {
+            0b0010 => Mnemonic::VMLAL,
+            0b0011 => Mnemonic::VQDMLAL,
+            0b0110 => Mnemonic::VMLSL,
+            0b0111 => Mnemonic::VQDMLSL,
+            0b1010 => Mnemonic::VMULL,
+            0b1011 => Mnemonic::VQDMULL,
+            _ => return None,
+        };
+
+        let size = (raw >> 20) & 0x3;
+        let d = (((raw >> 22) & 1) << 4) | ((raw >> 12) & 0xF);
+        let saturating_doubling = matches!(
+            mnemonic,
+            Mnemonic::VQDMULL | Mnemonic::VQDMLAL | Mnemonic::VQDMLSL
+        );
+        if size == 0b00
+            || size == 0b11
+            || (saturating_doubling && ((raw >> 24) & 1) != 0)
+            || (d & 1) != 0
+            || d + 1 >= 32
+        {
             return Some(DecodedInsn::new(
                 Mnemonic::UNDEFINED,
                 ExecutionState::Aarch32,
