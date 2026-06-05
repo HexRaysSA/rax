@@ -69,6 +69,11 @@ pub fn syscall(vcpu: &mut X86_64Vcpu, ctx: &mut InsnContext) -> Result<Option<Vc
         }
     }
 
+    // Materialize any pending lazy flags BEFORE snapshotting RFLAGS into R11, or
+    // the saved (and later SYSRET-restored) flags would be stale. This also
+    // clears the lazy-op so the kernel entry starts from authoritative RFLAGS.
+    // (Same lazy-flags-staleness class as the IRET fix.)
+    vcpu.materialize_flags();
     let next_rip = vcpu.regs.rip + ctx.cursor as u64;
     vcpu.regs.rcx = next_rip;
     vcpu.regs.r11 = vcpu.regs.rflags;
@@ -86,9 +91,6 @@ pub fn syscall(vcpu: &mut X86_64Vcpu, ctx: &mut InsnContext) -> Result<Option<Vc
 
 /// SYSRET (0x0F 0x07)
 pub fn sysret(vcpu: &mut X86_64Vcpu, ctx: &mut InsnContext) -> Result<Option<VcpuExit>> {
-    use std::sync::atomic::{AtomicUsize, Ordering};
-    static SYSRET_COUNT: AtomicUsize = AtomicUsize::new(0);
-
     let in_long_mode = (vcpu.sregs.efer & EFER_LMA) != 0 && vcpu.sregs.cs.l;
     if !in_long_mode || (vcpu.sregs.efer & EFER_SCE) == 0 {
         return Err(Error::Emulator(
@@ -109,10 +111,11 @@ pub fn sysret(vcpu: &mut X86_64Vcpu, ctx: &mut InsnContext) -> Result<Option<Vcp
         (vcpu.regs.rcx as u32) as u64
     };
 
-    let _count = SYSRET_COUNT.fetch_add(1, Ordering::Relaxed);
-
     vcpu.regs.rip = new_rip;
     vcpu.regs.rflags = (vcpu.regs.r11 & SYSRET_RFLAGS_MASK) | 0x2;
+    // RFLAGS is restored wholesale from R11; discard any pending lazy-flags op so
+    // the kernel's last ALU result does not leak into user-mode flag evaluation.
+    vcpu.clear_lazy_flags();
 
     let star = vcpu.sregs.star;
     let base_selector = (star >> 48) as u16;
