@@ -3896,6 +3896,114 @@ fn neon_saturating_shift_narrow_immediate_saturates_and_sets_qc() {
 }
 
 #[test]
+fn neon_widen_and_narrow_moves_convert_between_d_and_q_registers() {
+    let mut cpu = Armv7Cpu::new();
+    let mut mem = FlatMemory::new(0x1000, 0);
+
+    assert_eq!(
+        Aarch32Decoder::decode(0xF288_0A11).unwrap().mnemonic,
+        Mnemonic::VMOVL
+    );
+    assert_eq!(
+        Aarch32Decoder::decode(0xF390_4A16).unwrap().mnemonic,
+        Mnemonic::VMOVL
+    );
+    assert_eq!(
+        Aarch32Decoder::decode(0xF3B2_0202).unwrap().mnemonic,
+        Mnemonic::VMOVN
+    );
+    assert_eq!(
+        Aarch32Decoder::decode(0xF3B6_4208).unwrap().mnemonic,
+        Mnemonic::VMOVN
+    );
+    assert_eq!(
+        Aarch32Decoder::decode(0xF3B2_628A).unwrap().mnemonic,
+        Mnemonic::VQMOVN
+    );
+    assert_eq!(
+        Aarch32Decoder::decode(0xF3B6_82CC).unwrap().mnemonic,
+        Mnemonic::VQMOVN
+    );
+    assert_eq!(
+        Aarch32Decoder::decode(0xF3B2_A24E).unwrap().mnemonic,
+        Mnemonic::VQMOVUN
+    );
+
+    cpu.vfp.write_d_bits(1, 0x02c0_4000_7f80_ff01);
+    assert!(matches!(
+        exec_one(&mut cpu, &mut mem, 0xF288_0A11),
+        ExecResult::Continue
+    ));
+    assert_eq!(cpu.vfp.read_d_bits(0), 0x007f_ff80_ffff_0001);
+    assert_eq!(cpu.vfp.read_d_bits(1), 0x0002_ffc0_0040_0000);
+
+    cpu.vfp.write_d_bits(6, 0x1234_8000_ffff_0001);
+    assert!(matches!(
+        exec_one(&mut cpu, &mut mem, 0xF390_4A16),
+        ExecResult::Continue
+    ));
+    assert_eq!(cpu.vfp.read_d_bits(4), 0x0000_ffff_0000_0001);
+    assert_eq!(cpu.vfp.read_d_bits(5), 0x0000_1234_0000_8000);
+
+    cpu.vfp.write_d_bits(2, 0x1234_ff00_00ff_0001);
+    cpu.vfp.write_d_bits(3, 0xabcd_ffff_7fff_8001);
+    assert!(matches!(
+        exec_one(&mut cpu, &mut mem, 0xF3B2_0202),
+        ExecResult::Continue
+    ));
+    assert_eq!(cpu.vfp.read_d_bits(0), 0xcdff_ff01_3400_ff01);
+
+    cpu.vfp.write_d_bits(8, 0xffff_0003_0001_0002);
+    cpu.vfp.write_d_bits(9, 0x8000_ffff_1234_5678);
+    assert!(matches!(
+        exec_one(&mut cpu, &mut mem, 0xF3B6_4208),
+        ExecResult::Continue
+    ));
+    assert_eq!(cpu.vfp.read_d_bits(4), 0xffff_5678_0003_0002);
+
+    cpu.vfp.fpscr.set_qc(false);
+    cpu.vfp.write_d_bits(10, 0xff80_0080_007f_0001);
+    cpu.vfp.write_d_bits(11, 0x0000_8000_ffff_ff7f);
+    assert!(matches!(
+        exec_one(&mut cpu, &mut mem, 0xF3B2_628A),
+        ExecResult::Continue
+    ));
+    assert_eq!(cpu.vfp.read_d_bits(6), 0x0080_ff80_807f_7f01);
+    assert!(cpu.vfp.fpscr.qc());
+
+    cpu.vfp.fpscr.set_qc(false);
+    cpu.vfp.write_d_bits(12, 0x0000_ffff_0000_0001);
+    cpu.vfp.write_d_bits(13, 0xffff_ffff_0001_0000);
+    assert!(matches!(
+        exec_one(&mut cpu, &mut mem, 0xF3B6_82CC),
+        ExecResult::Continue
+    ));
+    assert_eq!(cpu.vfp.read_d_bits(8), 0xffff_ffff_ffff_0001);
+    assert!(cpu.vfp.fpscr.qc());
+
+    cpu.vfp.fpscr.set_qc(false);
+    cpu.vfp.write_d_bits(14, 0xffff_0100_00ff_0001);
+    cpu.vfp.write_d_bits(15, 0x0000_0080_007f_ff80);
+    assert!(matches!(
+        exec_one(&mut cpu, &mut mem, 0xF3B2_A24E),
+        ExecResult::Continue
+    ));
+    assert_eq!(cpu.vfp.read_d_bits(10), 0x0080_7f00_00ff_ff01);
+    assert!(cpu.vfp.fpscr.qc());
+
+    assert_eq!(
+        Aarch32Decoder::decode(0xF288_1A11).unwrap().mnemonic,
+        Mnemonic::UNDEFINED
+    );
+    let invalid_source =
+        DecodedInsn::new(Mnemonic::VMOVN, ExecutionState::Aarch32, 0xF3B2_0203, 4);
+    assert!(matches!(
+        Executor::new(&mut cpu, &mut mem).execute(&invalid_source),
+        ExecResult::Undefined
+    ));
+}
+
+#[test]
 fn neon_shift_register_handles_signed_counts_rounding_and_q_forms() {
     let mut cpu = Armv7Cpu::new();
     let mut mem = FlatMemory::new(0x1000, 0);

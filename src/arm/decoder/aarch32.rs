@@ -149,6 +149,14 @@ impl Aarch32Decoder {
             return Ok(insn);
         }
 
+        if let Some(insn) = Self::decode_neon_widen_move(raw) {
+            return Ok(insn);
+        }
+
+        if let Some(insn) = Self::decode_neon_narrow_move(raw) {
+            return Ok(insn);
+        }
+
         if let Some(insn) = Self::decode_neon_shift_narrow_immediate(raw) {
             return Ok(insn);
         }
@@ -1151,6 +1159,70 @@ impl Aarch32Decoder {
         let vd = (raw >> 12) & 0xF;
         let vm = raw & 0xF;
         if !valid_imm || (q && ((vd | vm) & 1) != 0) {
+            return Some(DecodedInsn::new(
+                Mnemonic::UNDEFINED,
+                ExecutionState::Aarch32,
+                raw,
+                4,
+            ));
+        }
+
+        Some(DecodedInsn::new(mnemonic, ExecutionState::Aarch32, raw, 4))
+    }
+
+    fn decode_neon_widen_move(raw: u32) -> Option<DecodedInsn> {
+        if (raw >> 25) != 0b1111001
+            || ((raw >> 23) & 1) != 1
+            || ((raw >> 8) & 0xF) != 0b1010
+            || ((raw >> 4) & 1) != 1
+        {
+            return None;
+        }
+
+        let imm = (raw >> 16) & 0x3F;
+        let valid_imm = matches!(imm, 8 | 16 | 32);
+        let d = (((raw >> 22) & 1) << 4) | ((raw >> 12) & 0xF);
+        let m = (((raw >> 5) & 1) << 4) | (raw & 0xF);
+        if !valid_imm || (d & 1) != 0 || d + 1 >= 32 || m >= 32 {
+            return Some(DecodedInsn::new(
+                Mnemonic::UNDEFINED,
+                ExecutionState::Aarch32,
+                raw,
+                4,
+            ));
+        }
+
+        Some(DecodedInsn::new(
+            Mnemonic::VMOVL,
+            ExecutionState::Aarch32,
+            raw,
+            4,
+        ))
+    }
+
+    fn decode_neon_narrow_move(raw: u32) -> Option<DecodedInsn> {
+        if (raw >> 23) != 0b111100111
+            || ((raw >> 20) & 0x3) != 0b11
+            || ((raw >> 16) & 0x3) != 0b10
+            || ((raw >> 10) & 0x3) != 0
+            || ((raw >> 4) & 1) != 0
+        {
+            return None;
+        }
+
+        let op = (raw >> 7) & 0xF;
+        let unsigned = ((raw >> 6) & 1) != 0;
+        let mnemonic = match (op, unsigned) {
+            (0b0100, false) => Mnemonic::VMOVN,
+            (0b0100, true) => Mnemonic::VQMOVUN,
+            (0b0101, _) => Mnemonic::VQMOVN,
+            _ => return None,
+        };
+
+        let size = (raw >> 18) & 0x3;
+        let d = (((raw >> 22) & 1) << 4) | ((raw >> 12) & 0xF);
+        let m = (((raw >> 5) & 1) << 4) | (raw & 0xF);
+        if size == 0b11 || d >= 32 || (m & 1) != 0 || m + 1 >= 32 {
             return Some(DecodedInsn::new(
                 Mnemonic::UNDEFINED,
                 ExecutionState::Aarch32,
