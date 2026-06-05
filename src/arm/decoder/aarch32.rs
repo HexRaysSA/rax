@@ -1580,8 +1580,7 @@ impl Aarch32Decoder {
         let op = ((raw >> 5) & 1) != 0;
         let mnemonic = match (cmode, op) {
             (0b1111, _) => return None,
-            (0b1110, false) => Mnemonic::VMOV,
-            (0b1110, true) => Mnemonic::VMVN,
+            (0b1110, _) => Mnemonic::VMOV,
             (cmode, false) if (cmode & 1) == 0 => Mnemonic::VMOV,
             (cmode, false) if (cmode & 1) != 0 => Mnemonic::VORR,
             (cmode, true) if (cmode & 1) == 0 => Mnemonic::VMVN,

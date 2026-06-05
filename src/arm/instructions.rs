@@ -6141,9 +6141,18 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
                 let imm16 = (imm8 << 8) as u32;
                 imm16 | (imm16 << 16)
             }
-            0b1110 => {
+            0b1110 if ((raw >> 5) & 1) == 0 => {
                 let byte = imm8 as u32;
                 byte | (byte << 8) | (byte << 16) | (byte << 24)
+            }
+            0b1110 => {
+                let mut imm64 = 0u64;
+                for byte in 0..8 {
+                    if ((imm8 >> byte) & 1) != 0 {
+                        imm64 |= 0xFFu64 << (byte * 8);
+                    }
+                }
+                return Some(imm64);
             }
             _ => return None,
         };
