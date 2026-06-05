@@ -2746,6 +2746,9 @@ impl X86_64Vcpu {
             0x6B => self.execute_apx_imul_imm(ctx, ndd, nf, false),
             0xAF => self.execute_apx_imul(ctx, ndd, nf),
 
+            // Group 1 immediate ALU operations (0x80, 0x81, 0x82, 0x83 /0..7)
+            0x80 | 0x81 | 0x82 | 0x83 => self.execute_apx_group1_imm(ctx, opcode, ndd, nf),
+
             // Shift variants (0xC0, 0xC1, 0xD0-0xD3)
             0xC0 | 0xC1 => self.execute_apx_shift_imm(ctx, opcode, ndd, nf),
             0xD0 | 0xD1 | 0xD2 | 0xD3 => self.execute_apx_shift_cl(ctx, opcode, ndd, nf),
@@ -3131,6 +3134,83 @@ impl X86_64Vcpu {
         if !nf {
             let flags = self.regs.rflags & !0x801; // Clear OF, CF
             self.regs.rflags = if overflow { flags | 0x801 } else { flags };
+        }
+
+        self.regs.rip += ctx.cursor as u64;
+        Ok(None)
+    }
+
+    /// APX group 1 immediate ALU operations.
+    fn execute_apx_group1_imm(
+        &mut self,
+        ctx: &mut InsnContext,
+        opcode: u8,
+        ndd: bool,
+        nf: bool,
+    ) -> Result<Option<VcpuExit>> {
+        let op_size = if matches!(opcode, 0x80 | 0x82) {
+            1
+        } else if ctx.evex_w() {
+            8
+        } else {
+            4
+        };
+
+        let (op, rm, is_memory, addr, _) = self.decode_modrm(ctx)?;
+        let op = op & 0x07;
+        let src_reg = rm | ctx.evex_rm_reg();
+        let src = if is_memory {
+            self.read_mem(addr, op_size)?
+        } else {
+            self.get_reg(src_reg, op_size)
+        };
+
+        let imm = match opcode {
+            0x80 | 0x82 => ctx.consume_u8()? as u64,
+            0x81 if op_size == 8 => ctx.consume_u32()? as i32 as i64 as u64,
+            0x81 => ctx.consume_u32()? as u64,
+            0x83 => ctx.consume_u8()? as i8 as i64 as u64,
+            _ => unreachable!(),
+        };
+
+        let cf_in = (self.regs.rflags & 0x001) != 0;
+        let result = match op {
+            0 => src.wrapping_add(imm),
+            1 => src | imm,
+            2 => src.wrapping_add(imm).wrapping_add(u64::from(cf_in)),
+            3 => src.wrapping_sub(imm).wrapping_sub(u64::from(cf_in)),
+            4 => src & imm,
+            5 | 7 => src.wrapping_sub(imm),
+            6 => src ^ imm,
+            _ => unreachable!(),
+        };
+
+        if op != 7 {
+            if ndd {
+                self.set_reg(ctx.evex_vvvv(), result, op_size);
+            } else if is_memory {
+                self.write_mem(addr, result, op_size)?;
+            } else {
+                self.set_reg(src_reg, result, op_size);
+            }
+        }
+
+        if !nf {
+            match op {
+                0 => self.update_flags_alu(result, src, imm, op_size, ApxAluOp::Add),
+                1 => self.update_flags_alu(result, src, imm, op_size, ApxAluOp::Or),
+                2 => {
+                    flags::update_flags_adc(&mut self.regs.rflags, src, imm, cf_in, result, op_size)
+                }
+                3 => {
+                    flags::update_flags_sbb(&mut self.regs.rflags, src, imm, cf_in, result, op_size)
+                }
+                4 => self.update_flags_alu(result, src, imm, op_size, ApxAluOp::And),
+                5 | 7 => self.update_flags_alu(result, src, imm, op_size, ApxAluOp::Sub),
+                6 => self.update_flags_alu(result, src, imm, op_size, ApxAluOp::Xor),
+                _ => unreachable!(),
+            }
+            self.clear_lazy_flags();
         }
 
         self.regs.rip += ctx.cursor as u64;

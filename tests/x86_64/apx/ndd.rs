@@ -169,6 +169,59 @@ fn test_ndd_add_reg_reg_imm8() {
     let _ = run_until_hlt(&mut vcpu);
 }
 
+#[test]
+fn test_ndd_add_reg_imm8_match_llvm() {
+    // LLVM 23 assembles "add r8, rax, 16" as 62 f4 bc 18 83 c0 10.
+    let code = [
+        0x62, 0xF4, 0xBC, 0x18, 0x83, 0xC0, 0x10,
+        0xF4,
+    ];
+    let mut regs = Registers::default();
+    regs.rax = 5;
+    regs.r8 = 0xDEAD_BEEF;
+
+    let (mut vcpu, _) = setup_vm(&code, Some(regs));
+    let regs = run_until_hlt(&mut vcpu).unwrap();
+    assert_eq!(regs.r8, 21);
+    assert_eq!(regs.rax, 5);
+}
+
+#[test]
+fn test_ndd_add_reg_imm32_match_llvm() {
+    // LLVM 23 assembles "add r8, rax, 0x12345678" as 62 f4 bc 18 81 c0 78 56 34 12.
+    let code = [
+        0x62, 0xF4, 0xBC, 0x18, 0x81, 0xC0, 0x78, 0x56, 0x34, 0x12,
+        0xF4,
+    ];
+    let mut regs = Registers::default();
+    regs.rax = 5;
+    regs.r8 = 0xDEAD_BEEF;
+
+    let (mut vcpu, _) = setup_vm(&code, Some(regs));
+    let regs = run_until_hlt(&mut vcpu).unwrap();
+    assert_eq!(regs.r8, 0x1234_567D);
+    assert_eq!(regs.rax, 5);
+}
+
+#[test]
+fn test_nf_ndd_add_reg_imm8_match_llvm() {
+    // LLVM 23 assembles "{nf} add r8, rax, 1" as 62 f4 bc 1c 83 c0 01.
+    let code = [
+        0x62, 0xF4, 0xBC, 0x1C, 0x83, 0xC0, 0x01,
+        0xF4,
+    ];
+    let mut regs = Registers::default();
+    regs.rax = u64::MAX;
+    regs.r8 = 0xDEAD_BEEF;
+    regs.rflags = 0x8D5;
+
+    let (mut vcpu, _) = setup_vm(&code, Some(regs));
+    let regs = run_until_hlt(&mut vcpu).unwrap();
+    assert_eq!(regs.r8, 0);
+    assert_eq!(regs.rax, u64::MAX);
+    assert_eq!(regs.rflags & 0x8D5, 0x8D5);
+}
+
 // ============================================================================
 // NDD SUB (3-operand subtraction)
 // ============================================================================
