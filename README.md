@@ -146,7 +146,7 @@ behind its oracle. All four also have SMIR lifters.
 | **x86-64** | ~50k LOC | **boots Linux** (KVM/HVF/emulator) + JIT | Legacy → SSE/AVX/AVX2 → AVX-512 → AVX10.1/10.2 → APX; x87; AES/SHA/GFNI; XSAVE | KVM (real hardware) |
 | **Hexagon** | ~37k LOC | bare-metal (`--arch hexagon`) | V73 scalar + VLIW packets + HVX, **every opcode verified** | qemu-hexagon |
 | **RISC-V** | ~10k LOC | bare-metal (`--arch riscv64`) | full RVA23 *scalar* set (RV64GC + Zfh/Zicond/Zfa/Zbk\*/Zcb + scalar crypto + vector-config) | qemu-riscv64 |
-| **AArch64 / ARM** | ~48k LOC | validated only (no backend yet) | A64 base, **complete SVE** + SVE2, NEON/VFP, FP16; AArch32/Thumb; Cortex-M (M0-M85) | qemu-aarch64 + ASL |
+| **AArch64 / ARM** | ~48k LOC | validated only (no backend yet) | A64 base, **complete SVE + SVE2 + SVE2.1**, NEON/VFP, FP16; AArch32/Thumb; Cortex-M (M0-M85) | qemu-aarch64 + ASL |
 
 ### x86-64: the complete machine
 
@@ -199,8 +199,11 @@ The largest and most thoroughly tested ISA, even though it isn't a runnable back
 - **SVE** is **complete**: no valid SVE encoding is unhandled. The full data-processing set (predicate
   generation/logical, predicated integer & FP ALU, reductions, permutes, CPY/SEL/CMP, shifts), the
   entire memory subsystem (contiguous, gather/scatter, LD2-4/ST2-4, first-fault + FFR), all at VL=128.
-- **SVE2** is broad and growing: long/wide/narrow integer ops, complex arithmetic, bit-permute,
-  saturating multiplies, pairwise, FP conversions, indexed multiplies.
+- **SVE2 and SVE2.1** are complete on the register surface, every encoding bit-exact against the
+  qemu-aarch64 oracle: long/wide/narrow and saturating integer ops, complex arithmetic, bit-permute,
+  pairwise, BF16 (B16B16, dot product), quadword reductions, and PMOV/PSEL/PEXT. A committed
+  879-instruction `llvm-mc` sweep (`tests/sve2_gen.rs`) guards it; only multi-vector memory, SME, and
+  FEAT_LUT remain (the register-only oracle can't reach them).
 - **NEON / VFP**: full Advanced SIMD and scalar FP including FP16; full crypto (AES, SHA1/256, SM3, SM4).
 - **AArch32 / Thumb-2 / Cortex-M (M0-M85)**: A32 + Thumb decoders, NVIC/SysTick/SCB/MPU, ARMv6-M → v8.1-M.
 
@@ -217,7 +220,7 @@ fields and driven with many pseudo-random states, so a single `#[test]` function
 | Harness | rax core | Oracle | `#[test]` fns | Compares |
 |---------|----------|--------|-------------:|----------|
 | `tests/differential.rs` | x86-64 | **KVM** (hardware) | 463 | GPRs, RIP, RFLAGS, XMM, memory |
-| `tests/arm_diff.rs` | AArch64 + SVE/SVE2 | `qemu-aarch64` | 134 | X0-X30, SP, NZCV, V0-V31, P0-P15 |
+| `tests/arm_diff.rs` | AArch64 + SVE/SVE2/SVE2.1 | `qemu-aarch64` | 197 | X0-X30, SP, NZCV, V0-V31, P0-P15 |
 | `tests/hexagon_*_diff.rs` | Hexagon (scalar / cf / float / mem / HVX / HVX-mem) | `qemu-hexagon` | 134 | GPRs, P3:0, USR, loop regs, V0-V31, Q0-Q3 |
 | `tests/riscv_diff.rs` | RV64GC | `qemu-riscv64` | 29 | x1-x31, f0-f31, fcsr, scratch |
 | `tests/diff_fuzz.rs` | SMIR (lift → interp / native) | KVM | 35 | guest state after lift+run |
@@ -239,7 +242,7 @@ On top of the oracles, there are exhaustive unit suites:
 | **ARM (ASL-generated)** | 92,131 | generated from ARM's official machine-readable **ASL** spec via `tools/asl-parser/` |
 | **x86-64 instruction suite** | 28,554 | `tests/x86_64/` (850 files), behind `--features x86_64-suite` |
 | **Everything else** | ~1,500 | oracle + SMIR-lift harnesses, Hexagon bare-metal, RISC-V boot, crypto known-answer (FIPS/SDM) |
-| **Total** | **122,168** | `#[test]` functions across `tests/` |
+| **Total** | **122,185** | `#[test]` functions across `tests/` |
 
 The ARM tests are not written by hand: the `asl-parser` downloads and parses ARM's ASL release and emits
 exhaustive instruction tests from it, which is how 92,000+ ARM cases exist at all.
@@ -279,8 +282,9 @@ What makes that safe to ship is a **fail-safe gate**: a region compiles only fro
 equal to KVM, and anything else makes it **bail back to the interpreter**, so native code never runs
 unless it is known correct. The gate now covers the integer core (ALU, shifts, multiply, mov/extend,
 LEA, BSF/BSR, setcc/cmov, branches) *and* memory: loads and stores lower to MMU helper calls that bail
-cleanly on a page fault or a write to a code page. What still bails is RSP/RBP-relative frames,
-locked/RMW and FP/SIMD ops, segment-relative accesses, and the double-width DIV the IR can't yet model.
+cleanly on a page fault or a write to a code page (FS/GS segment-relative accesses are handled, via the
+segment base threaded into the JIT runtime). What still bails is RSP/RBP-relative frames, locked/RMW and
+FP/SIMD ops, and the double-width DIV the IR can't yet model.
 Self-modifying code evicts compiled blocks via the MMU's dirty-page journal, and a frontier-less spin
 loop is refused so native code can't trap the vcpu.
 
@@ -498,7 +502,7 @@ docs/specifications/# smir/ (the IR spec) · riscv/ (vendored RISC-V specs) · a
 | **x86-64 (software)** | Boots Linux to a BusyBox shell; full modern ISA; 463 differential cases vs. KVM; native JIT (`smir-jit`) at ~80× on hot loops |
 | **Hexagon** | **Every opcode** (scalar + HVX) verified vs. qemu-hexagon; bootable bare-metal backend |
 | **RISC-V** | Full RVA23 scalar set + crypto; bootable `--arch riscv64` backend; verified vs. qemu-riscv64 |
-| **AArch64 / ARM** | Complete SVE + broad SVE2 + NEON + Cortex-M; ~92k ASL tests; not yet a runnable backend |
+| **AArch64 / ARM** | Complete SVE + SVE2 + SVE2.1 (bit-exact vs qemu) + NEON + Cortex-M; ~92k ASL tests; not yet a runnable backend |
 | **SMIR** | JIT on by default, auto-triggered, fail-safe (integer + memory hot regions native, bit-exact vs. KVM); RISC-V and Hexagon lifts complete |
 | **Platform** | Legacy PC devices wired; PCI host bridge + `--pci-devices` (e1000 `eth0`, AHCI/NVMe/UHCI/AC97); interactive console + full `.rxc` machine checkpoint/resume |
 
