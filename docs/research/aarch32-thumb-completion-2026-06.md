@@ -77,10 +77,29 @@ because the A32 exec re-reads `insn.raw` with A32 field positions.
 `diff_a32_integer_sweep`, `diff_t16_integer_sweep`, `diff_t32_integer_sweep` —
 all green at 24 inputs/insn, zero divergence vs `qemu-arm`.
 
+## Memory load/store (commit 8dec9c5)
+
+A second sweep (`A32_MEM_SWEEP`, 396 entries; tests `diff_{a32,t16,t32}_
+memory_sweep`) drives single/dual/multiple loads and stores through the MAP_FIXED
+scratch window (base register pointed at `SCRATCH_BASE`, offset register held
+small so every access stays in the exchanged region). All green. Fixes:
+
+- A32 **LDRD/STRD** were undecoded (extra-load/store `L=0` op1=10/11 slots) and
+  **LDM/STM IB/DA** modes had no exec — added a unified `exec_ldm_stm` covering
+  all four IA/IB/DA/DB modes (lowest register ⇒ lowest address; LDM-base-in-list
+  suppresses writeback).
+- The Thumb load/store exec was made operand-based (`decode_mem_thumb`):
+  `decode_ldst_operands`/`decode_ldst_halfword_operands`/`decode_ldstm_operands`
+  read the decoded `MemOperand`/`RegList` when `insn.state.is_thumb()`.
+- **T32 single load/store** decoders only handled the T3 positive-imm12 form;
+  added `t32_mem_operand` covering T3, T4 (±imm8 offset/pre/post-index +
+  writeback), and the register-offset (LSL imm2) form.
+- **T32 LDM/STM** decoder ignored the IA/DB mode bit (always LDMIA/STMDB); fixed
+  to read bits[24:23]. Implemented the stubbed **T32 LDRD/STRD** dual decoder
+  (the `Rn` field was also read from the wrong halfword).
+
 ## Remaining frontier (not in this pass)
 
-- **AArch32 memory** (LDR/STR/LDM/STM/LDRD/STRD/exclusive/PUSH/POP) — the oracle
-  has the scratch window; the register-only sweep does not exercise them yet.
 - **AArch32 VFP/NEON** — `Armv7Cpu` has no integrated `VfpState`; the A32/T32
   decoders don't decode VFP. The oracle already captures D0–D31/FPSCR, so this is
   a wiring + decode + exec effort, not an oracle gap.
@@ -91,7 +110,8 @@ all green at 24 inputs/insn, zero divergence vs `qemu-arm`.
 ## How to run
 
 ```
-cargo test --release --test arm_diff32                       # all 3 sweeps
+cargo test --release --test arm_diff32                       # all 6 sweeps
 cargo test --release --test arm_diff32 diff_t32_integer_sweep -- --nocapture
+cargo test --release --test arm_diff32 diff_a32_memory_sweep  -- --nocapture
 A32DIFF_FILTER=qadd cargo test --release --test arm_diff32 diff_a32_integer_sweep -- --nocapture
 ```
