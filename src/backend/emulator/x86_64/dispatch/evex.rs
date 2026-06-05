@@ -2740,11 +2740,8 @@ impl X86_64Vcpu {
             0xC0 | 0xC1 => self.execute_apx_shift_imm(ctx, opcode, ndd, nf),
             0xD0 | 0xD1 | 0xD2 | 0xD3 => self.execute_apx_shift_cl(ctx, opcode, ndd, nf),
 
-            // INC/DEC (0xFE, 0xFF with ModR/M)
-            0xFE | 0xFF => self.execute_apx_inc_dec(ctx, opcode, ndd, nf),
-
-            // PUSH2 (encoded with 0xFF opcode, specific ModR/M)
-            // This is distinguished from INC/DEC by ModR/M reg field
+            // INC/DEC (0xFE, 0xFF /0,/1) and PUSH2 (0xFF /6)
+            0xFE | 0xFF => self.execute_apx_group_ff(ctx, opcode, ndd, nf),
 
             _ => Err(Error::Emulator(format!(
                 "Unimplemented APX MAP4 opcode {:#x} at RIP={:#x}",
@@ -2995,6 +2992,26 @@ impl X86_64Vcpu {
         Ok(None)
     }
 
+    /// APX PUSH2 - Push two registers atomically.
+    fn execute_apx_push2(&mut self, ctx: &mut InsnContext) -> Result<Option<VcpuExit>> {
+        let modrm = ctx.consume_u8()?;
+        if (modrm >> 6) != 3 {
+            return Err(Error::Emulator("PUSH2 requires register operands".to_string()));
+        }
+
+        let reg1 = (modrm & 0x07) | ctx.evex_rm_reg();
+        let reg2 = ctx.evex_vvvv();
+        let val1 = self.get_reg(reg1, 8);
+        let val2 = self.get_reg(reg2, 8);
+        let new_rsp = self.regs.rsp.wrapping_sub(16);
+
+        self.write_mem(new_rsp, val1, 8)?;
+        self.write_mem(new_rsp + 8, val2, 8)?;
+        self.regs.rsp = new_rsp;
+        self.regs.rip += ctx.cursor as u64;
+        Ok(None)
+    }
+
     /// APX IMUL with immediate
     fn execute_apx_imul_imm(&mut self, ctx: &mut InsnContext, ndd: bool, nf: bool, imm32: bool) -> Result<Option<VcpuExit>> {
         let op_size = if ctx.evex_w() { 8 } else { 4 };
@@ -3115,6 +3132,27 @@ impl X86_64Vcpu {
     }
 
     /// APX INC/DEC
+    fn execute_apx_group_ff(
+        &mut self,
+        ctx: &mut InsnContext,
+        opcode: u8,
+        ndd: bool,
+        nf: bool,
+    ) -> Result<Option<VcpuExit>> {
+        let modrm = ctx.peek_u8()?;
+        let op_type = (modrm >> 3) & 0x07;
+        if opcode == 0xFF && op_type == 6 {
+            return self.execute_apx_push2(ctx);
+        }
+        if op_type > 1 {
+            return Err(Error::Emulator(format!(
+                "Unimplemented APX group opcode {:#x} /{} at RIP={:#x}",
+                opcode, op_type, self.regs.rip
+            )));
+        }
+        self.execute_apx_inc_dec(ctx, opcode, ndd, nf)
+    }
+
     fn execute_apx_inc_dec(&mut self, ctx: &mut InsnContext, opcode: u8, ndd: bool, nf: bool) -> Result<Option<VcpuExit>> {
         let is_byte = opcode == 0xFE;
         let op_size = if is_byte { 1 } else if ctx.evex_w() { 8 } else { 4 };
