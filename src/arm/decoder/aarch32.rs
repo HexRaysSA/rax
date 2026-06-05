@@ -193,6 +193,10 @@ impl Aarch32Decoder {
             return Ok(insn);
         }
 
+        if let Some(insn) = Self::decode_neon_fp_add_sub(raw) {
+            return Ok(insn);
+        }
+
         if let Some(insn) = Self::decode_neon_fp_minmax(raw) {
             return Ok(insn);
         }
@@ -833,6 +837,39 @@ impl Aarch32Decoder {
             raw,
             4,
         ))
+    }
+
+    fn decode_neon_fp_add_sub(raw: u32) -> Option<DecodedInsn> {
+        if (raw >> 25) != 0b1111001
+            || ((raw >> 24) & 1) != 0
+            || ((raw >> 23) & 1) != 0
+            || ((raw >> 20) & 1) != 0
+            || ((raw >> 8) & 0xF) != 0b1101
+            || ((raw >> 4) & 1) != 0
+        {
+            return None;
+        }
+
+        let mnemonic = if ((raw >> 21) & 1) == 0 {
+            Mnemonic::VADD
+        } else {
+            Mnemonic::VSUB
+        };
+
+        let q = ((raw >> 6) & 1) != 0;
+        let vd = (raw >> 12) & 0xF;
+        let vn = (raw >> 16) & 0xF;
+        let vm = raw & 0xF;
+        if q && ((vd | vn | vm) & 1) != 0 {
+            return Some(DecodedInsn::new(
+                Mnemonic::UNDEFINED,
+                ExecutionState::Aarch32,
+                raw,
+                4,
+            ));
+        }
+
+        Some(DecodedInsn::new(mnemonic, ExecutionState::Aarch32, raw, 4))
     }
 
     fn decode_neon_fp_absdiff(raw: u32) -> Option<DecodedInsn> {

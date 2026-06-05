@@ -2201,11 +2201,70 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
     }
 
     fn exec_vadd_vsub(&mut self, insn: &DecodedInsn) -> ExecResult {
-        if Self::neon_integer_add_sub_size(insn).is_some() {
+        if Self::is_neon_fp_add_sub_shape(insn.raw) {
+            self.exec_neon_fp_add_sub(insn)
+        } else if Self::neon_integer_add_sub_size(insn).is_some() {
             self.exec_neon_integer_add_sub(insn)
         } else {
             self.exec_vfp_binop(insn)
         }
+    }
+
+    fn is_neon_fp_add_sub_shape(raw: u32) -> bool {
+        (raw >> 25) == 0b1111001
+            && ((raw >> 24) & 1) == 0
+            && ((raw >> 23) & 1) == 0
+            && ((raw >> 20) & 1) == 0
+            && ((raw >> 8) & 0xF) == 0b1101
+            && ((raw >> 4) & 1) == 0
+    }
+
+    fn exec_neon_fp_add_sub(&mut self, insn: &DecodedInsn) -> ExecResult {
+        if !self.cpu.vfp.is_enabled() {
+            return ExecResult::Exception(ExceptionType::UndefinedInstruction);
+        }
+        if !Self::is_neon_fp_add_sub_shape(insn.raw) {
+            return ExecResult::Undefined;
+        }
+
+        let d_bit = ((insn.raw >> 22) & 1) as u8;
+        let vd = ((insn.raw >> 12) & 0xF) as u8;
+        let n_bit = ((insn.raw >> 7) & 1) as u8;
+        let vn = ((insn.raw >> 16) & 0xF) as u8;
+        let m_bit = ((insn.raw >> 5) & 1) as u8;
+        let vm = (insn.raw & 0xF) as u8;
+        let q = ((insn.raw >> 6) & 1) != 0;
+        let regs = if q { 2 } else { 1 };
+
+        let d = (d_bit << 4) | vd;
+        let n = (n_bit << 4) | vn;
+        let m = (m_bit << 4) | vm;
+        if q && ((d | n | m) & 1) != 0 {
+            return ExecResult::Undefined;
+        }
+        if d + regs > 32 || n + regs > 32 || m + regs > 32 {
+            return ExecResult::Undefined;
+        }
+
+        for reg in 0..regs {
+            let n_elements = self.neon_read_vector_elements_u64(n + reg, 1, 4);
+            let m_elements = self.neon_read_vector_elements_u64(m + reg, 1, 4);
+            let mut out = Vec::with_capacity(n_elements.len());
+            for (n_elem, m_elem) in n_elements.into_iter().zip(m_elements.into_iter()) {
+                let n_val = f32::from_bits(n_elem as u32);
+                let m_val = f32::from_bits(m_elem as u32);
+                let fpscr = &mut self.cpu.vfp.fpscr;
+                let result = match insn.mnemonic {
+                    Mnemonic::VADD => vadd_f32(n_val, m_val, fpscr),
+                    Mnemonic::VSUB => vsub_f32(n_val, m_val, fpscr),
+                    _ => return ExecResult::Undefined,
+                };
+                out.push(u64::from(result.to_bits()));
+            }
+            self.neon_write_vector_elements_u64(d + reg, 1, 4, &out);
+        }
+
+        ExecResult::Continue
     }
 
     fn neon_integer_add_sub_size(insn: &DecodedInsn) -> Option<NeonSize> {
