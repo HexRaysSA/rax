@@ -563,19 +563,30 @@ impl Aarch32Decoder {
             || ((raw >> 21) & 1) != 1
             || ((raw >> 20) & 1) != 1
             || ((raw >> 16) & 0x3) != 0b10
-            || ((raw >> 7) & 1) != 1
+            || ((raw >> 10) & 0x3) != 0b01
             || ((raw >> 4) & 1) != 0
         {
             return None;
         }
 
         let size = (raw >> 18) & 0x3;
-        let mnemonic = match ((raw >> 8) & 0xF, size) {
-            (0b0100, 0b01) => Mnemonic::VRINTX_F16,
-            (0b0100, 0b10) => Mnemonic::VRINTX_F32,
-            (0b0101, 0b01) => Mnemonic::VRINTZ_F16,
-            (0b0101, 0b10) => Mnemonic::VRINTZ_F32,
-            (0b0100 | 0b0101, 0b00 | 0b11) => Mnemonic::UNDEFINED,
+        let op = (raw >> 7) & 0x7;
+        let mnemonic = match (op, size) {
+            (0b000, 0b01) => Mnemonic::VRINTP_F16,
+            (0b000, 0b10) => Mnemonic::VRINTP_F32,
+            (0b010, 0b01) => Mnemonic::VRINTN_F16,
+            (0b010, 0b10) => Mnemonic::VRINTN_F32,
+            (0b101, 0b01) => Mnemonic::VRINTZ_F16,
+            (0b101, 0b10) => Mnemonic::VRINTZ_F32,
+            (0b111, 0b01) => Mnemonic::VRINTM_F16,
+            (0b111, 0b10) => Mnemonic::VRINTM_F32,
+            (0b001, 0b01) => Mnemonic::VRINTX_F16,
+            (0b001, 0b10) => Mnemonic::VRINTX_F32,
+            (0b011, 0b01) => Mnemonic::VRINTZ_F16,
+            (0b011, 0b10) => Mnemonic::VRINTZ_F32,
+            (0b000 | 0b001 | 0b010 | 0b011 | 0b101 | 0b111, 0b00 | 0b11) => {
+                Mnemonic::UNDEFINED
+            }
             _ => return None,
         };
 

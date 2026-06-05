@@ -480,7 +480,13 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
             }
             Mnemonic::VABS | Mnemonic::VNEG => self.exec_vfp_unop(insn),
             Mnemonic::VSQRT => self.exec_vfp_unop(insn),
-            Mnemonic::VRINTX_F16
+            Mnemonic::VRINTM_F16
+            | Mnemonic::VRINTM_F32
+            | Mnemonic::VRINTN_F16
+            | Mnemonic::VRINTN_F32
+            | Mnemonic::VRINTP_F16
+            | Mnemonic::VRINTP_F32
+            | Mnemonic::VRINTX_F16
             | Mnemonic::VRINTX_F32
             | Mnemonic::VRINTZ_F16
             | Mnemonic::VRINTZ_F32 if Self::is_neon_vrint_shape(insn.raw) => {
@@ -3637,8 +3643,8 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
             && ((raw >> 21) & 1) == 1
             && ((raw >> 20) & 1) == 1
             && ((raw >> 16) & 0x3) == 0b10
-            && matches!((raw >> 8) & 0xF, 0b0100 | 0b0101)
-            && ((raw >> 7) & 1) == 1
+            && ((raw >> 10) & 0x3) == 0b01
+            && matches!((raw >> 7) & 0x7, 0b000 | 0b001 | 0b010 | 0b011 | 0b101 | 0b111)
             && ((raw >> 4) & 1) == 0
     }
 
