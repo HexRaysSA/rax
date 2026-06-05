@@ -2738,6 +2738,7 @@ impl X86_64Vcpu {
             // IMUL (0x69, 0x6B)
             0x69 => self.execute_apx_imul_imm(ctx, ndd, nf, true),
             0x6B => self.execute_apx_imul_imm(ctx, ndd, nf, false),
+            0xAF => self.execute_apx_imul(ctx, ndd, nf),
 
             // Shift variants (0xC0, 0xC1, 0xD0-0xD3)
             0xC0 | 0xC1 => self.execute_apx_shift_imm(ctx, opcode, ndd, nf),
@@ -3068,6 +3069,47 @@ impl X86_64Vcpu {
             };
             let flags = self.regs.rflags & !(0x801); // Clear OF, CF
             self.regs.rflags = if sign_extended { flags } else { flags | 0x801 };
+        }
+
+        self.regs.rip += ctx.cursor as u64;
+        Ok(None)
+    }
+
+    /// APX IMUL with register/memory source.
+    fn execute_apx_imul(
+        &mut self,
+        ctx: &mut InsnContext,
+        ndd: bool,
+        nf: bool,
+    ) -> Result<Option<VcpuExit>> {
+        let op_size = if ctx.evex_w() { 8 } else { 4 };
+        let (reg, rm, is_memory, addr, _) = self.decode_modrm(ctx)?;
+        let reg = reg | ctx.evex_dest_reg();
+
+        let src1 = self.get_reg(reg, op_size);
+        let src2 = if is_memory {
+            self.read_mem(addr, op_size)?
+        } else {
+            let rm = rm | ctx.evex_rm_reg();
+            self.get_reg(rm, op_size)
+        };
+
+        let (result, overflow) = if op_size == 8 {
+            let product = (src1 as i64 as i128) * (src2 as i64 as i128);
+            let result = product as i64 as u64;
+            (result, product != result as i64 as i128)
+        } else {
+            let product = (src1 as i32 as i64) * (src2 as i32 as i64);
+            let result = product as i32 as u64;
+            (result, product != result as i32 as i64)
+        };
+
+        let dest_reg = if ndd { ctx.evex_vvvv() } else { reg };
+        self.set_reg(dest_reg, result, op_size);
+
+        if !nf {
+            let flags = self.regs.rflags & !0x801; // Clear OF, CF
+            self.regs.rflags = if overflow { flags | 0x801 } else { flags };
         }
 
         self.regs.rip += ctx.cursor as u64;
