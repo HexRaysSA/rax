@@ -1134,7 +1134,9 @@ impl Aarch32Decoder {
 
         let mnemonic = match (raw >> 8) & 0xF {
             0b0000 => Mnemonic::VSHR,
+            0b0001 => Mnemonic::VSRA,
             0b0010 => Mnemonic::VRSHR,
+            0b0011 => Mnemonic::VRSRA,
             0b0100 => Mnemonic::VSRI,
             0b0101 if ((raw >> 24) & 1) == 0 => Mnemonic::VSHL,
             0b0101 => Mnemonic::VSLI,
