@@ -14,6 +14,28 @@ impl X86_64Vcpu {
         ctx: &mut InsnContext,
     ) -> Result<Option<VcpuExit>> {
         match opcode {
+            // INC r16/r32 (0x40-0x47) / DEC r16/r32 (0x48-0x4F). These encodings
+            // exist only in 16/32-bit mode; in 64-bit mode the same bytes are REX
+            // prefixes (consumed by the decoder). INC/DEC preserve CF.
+            0x40..=0x4F => {
+                let reg = (opcode & 0x07) | ctx.rex_b();
+                let is_dec = opcode >= 0x48;
+                let op_size = ctx.op_size;
+                let a = self.get_reg(reg, op_size);
+                let result = if is_dec {
+                    a.wrapping_sub(1)
+                } else {
+                    a.wrapping_add(1)
+                };
+                self.set_reg(reg, result, op_size);
+                if is_dec {
+                    self.set_lazy_dec(a, result, op_size);
+                } else {
+                    self.set_lazy_inc(a, result, op_size);
+                }
+                self.regs.rip += ctx.cursor as u64;
+                Ok(None)
+            }
             // NOP / PAUSE (F3 90)
             0x90 => {
                 if ctx.rep_prefix == Some(0xF3) {

@@ -110,7 +110,10 @@ impl Decoder {
             match b {
                 0x66 => ctx.operand_size_override = true,
                 0x67 => ctx.address_size_override = true,
-                0x40..=0x4F => ctx.rex = Some(b),
+                // REX prefixes exist ONLY in 64-bit mode. In 16/32-bit (real or
+                // protected) mode, 0x40-0x4F are INC/DEC r16/r32 opcodes — stop
+                // prefix scanning and let the opcode decoder handle them.
+                0x40..=0x4F if is_long_mode => ctx.rex = Some(b),
                 0xD5 => {
                     // REX2 (APX) only exists in 64-bit mode. Outside long mode,
                     // 0xD5 is the AAD opcode, so stop prefix scanning here and let
