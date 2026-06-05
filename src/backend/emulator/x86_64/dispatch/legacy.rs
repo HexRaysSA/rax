@@ -1,7 +1,7 @@
 //! Single-byte opcode dispatch for the x86_64 CPU emulator.
 
 use crate::cpu::VcpuExit;
-use crate::error::{Error, Result};
+use crate::error::Result;
 
 use super::super::cpu::{InsnContext, X86_64Vcpu};
 use super::super::insn;
@@ -270,10 +270,7 @@ impl X86_64Vcpu {
             0xDE => insn::fpu::escape_de(self, ctx),
             0xDF => insn::fpu::escape_df(self, ctx),
 
-            _ => Err(Error::Emulator(format!(
-                "unimplemented opcode: {:#04x} at RIP={:#x}",
-                opcode, self.regs.rip
-            ))),
+            _ => self.inject_undefined_instruction(),
         }
     }
 }

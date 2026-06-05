@@ -1560,6 +1560,14 @@ impl X86_64Vcpu {
         self.execute(opcode, ctx)
     }
 
+    #[inline(always)]
+    pub(in crate::backend::emulator::x86_64) fn inject_undefined_instruction(
+        &mut self,
+    ) -> Result<Option<VcpuExit>> {
+        self.inject_exception(6, None)?;
+        Ok(None)
+    }
+
     /// Dispatch a decode-cache HIT through the pre-resolved handler fn-pointer.
     ///
     /// In the default (non-`trace`) build this is the whole point of the

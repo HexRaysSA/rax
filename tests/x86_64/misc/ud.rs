@@ -12,6 +12,15 @@ use rax::cpu::{VCpu, VcpuExit};
 // Note: These tests verify that UD instructions cause exceptions
 // We check for exceptions by seeing that the VM doesn't reach HLT
 
+fn assert_missing_idt_ud(code: &[u8]) {
+    let (mut vcpu, _) = setup_vm_no_idt(code, None);
+    let err = vcpu.run().expect_err("instruction should inject #UD");
+    assert!(
+        err.to_string().contains("IDT entry 6 not present"),
+        "expected #UD delivery failure, got {err}"
+    );
+}
+
 // Test UD2 basic (no ModR/M)
 #[test]
 fn test_ud2_basic() {
@@ -29,6 +38,30 @@ fn test_ud2_basic() {
         Err(_) => {}, // Exception occurred
         _ => {}, // Other exit is acceptable (implementation specific)
     }
+}
+
+#[test]
+fn test_unimplemented_primary_opcode_injects_ud() {
+    assert_missing_idt_ud(&[
+        0xd6, // Undefined/invalid primary opcode
+        0xf4, // HLT (should not be reached)
+    ]);
+}
+
+#[test]
+fn test_unimplemented_two_byte_opcode_injects_ud() {
+    assert_missing_idt_ud(&[
+        0x0f, 0x04, // Unimplemented 0F opcode
+        0xf4, // HLT (should not be reached)
+    ]);
+}
+
+#[test]
+fn test_unimplemented_vex_opcode_injects_ud() {
+    assert_missing_idt_ud(&[
+        0xc5, 0xf8, 0xff, // Unimplemented VEX.128.0F opcode
+        0xf4, // HLT (should not be reached)
+    ]);
 }
 
 // Test UD1 with register operands (ModR/M = 11 000 000, RAX, RAX)

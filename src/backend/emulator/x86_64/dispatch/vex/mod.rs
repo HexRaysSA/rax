@@ -902,10 +902,7 @@ impl X86_64Vcpu {
             }
         }
 
-        Err(Error::Emulator(format!(
-            "unimplemented VEX instruction m={:#x} pp={} l={} opcode={:#x}",
-            m_mmmm, vex_pp, vex_l, opcode
-        )))
+        self.inject_undefined_instruction()
     }
 }
 

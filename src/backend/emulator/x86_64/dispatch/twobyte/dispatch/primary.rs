@@ -490,10 +490,7 @@ impl X86_64Vcpu {
             // 0F C7 - Group 9: CMPXCHG8B/16B, RDRAND, RDSEED, etc.
             0xC7 => self.execute_group9(ctx),
 
-            _ => Err(Error::Emulator(format!(
-                "unimplemented 0x0F opcode: {:#04x} at RIP={:#x}",
-                opcode2, self.regs.rip
-            ))),
+            _ => self.inject_undefined_instruction(),
         }
     }
 }
