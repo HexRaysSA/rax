@@ -85,6 +85,10 @@ against something authoritative. So that comparison is the project's spine, not 
 - **AArch64, Hexagon, and RISC-V** are each checked against **QEMU** in user mode, the same way: a tiny
   reference harness loads a state, runs one instruction, and reports back; rax runs it from the identical
   state; any divergence is a bug, reported precisely.
+- **Intel APX** is the exception that has no chip to ask: no shipping CPU implements it and QEMU doesn't
+  emulate it either, so KVM can't be the oracle. Its encodings instead come from **LLVM**, the only
+  assembler that speaks APX: each test pins an instruction to LLVM's exact bytes and asserts rax's
+  architectural effect against the documented semantics.
 
 That methodology is what lets rax be both *legible* (you can open `insn/arith/add.rs` and read exactly
 what `ADD` does to the flags) and *trusted*: it tracks four instruction sets out to their modern vector
@@ -163,7 +167,7 @@ including APX Map 4, RIP-relative), feeding 88 instruction-implementation files.
 | **FMA / BMI1 / BMI2** | VFMADD/SUB/NMADD/NSUB {132,213,231}; ANDN, BZHI, PEXT, PDEP, MULX, … |
 | **AVX-512** | F / VL / BW / DQ / CD; masked ops, opmask k0-k7 |
 | **AVX10.1 / 10.2** | VNNI, IFMA, VPOPCNTDQ, VBMI, BF16; VMPSADBW, VMINMAX, saturating converts |
-| **APX** | REX2, EGPRs R16-R31, NDD (3-operand), NF (no-flags), CCMP/CTEST, SETZUcc, PUSH2, EVEX Map 4 |
+| **APX** | REX2, EGPRs R16-R31, NDD (3-operand), NF (no-flags), CCMP/CTEST, SETZUcc, PUSH2, EVEX Map 4 (LLVM-verified, not KVM) |
 | **Crypto / state / system** | AES, SHA1/256, GFNI (FIPS/SDM known-answer tested); XSAVE/XRSTOR/XCR0; CPUID, MSRs, CR/DR, descriptor-table loads, CPL-checked, faults injected (`#UD`/`#GP`) |
 
 ### Hexagon: complete, every opcode
