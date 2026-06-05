@@ -423,7 +423,7 @@ fn decode_hexagon_packet(bytes: &[u8], opts: &OracleOptions) -> Result<Value, St
             match hex_decode::decode_duplex(word, opts.hexagon_isa) {
                 Some((slot1, slot0)) => {
                     for (slot, sub) in [(1u8, slot1), (0u8, slot0)] {
-                        let cf = hex_control_flow(&sub.insn, word_pc);
+                        let cf = hex_control_flow(&sub.insn, word_pc, opts.pc, false);
                         if !is_fallthrough(&cf) {
                             control_effects.push(cf.clone());
                         }
@@ -458,7 +458,7 @@ fn decode_hexagon_packet(bytes: &[u8], opts: &OracleOptions) -> Result<Value, St
 
         let decoded = hex_decode::decode(word, immext, opts.hexagon_isa);
         let fields = hex_fields(word);
-        let cf = hex_control_flow(&decoded.insn, word_pc);
+        let cf = hex_control_flow(&decoded.insn, word_pc, opts.pc, decoded.used_ext);
         if !is_fallthrough(&cf) {
             control_effects.push(cf.clone());
         }
@@ -2541,6 +2541,7 @@ fn smir_op_kind_json(kind: &OpKind) -> Value {
         OpKind::RvIntCrypto {
             dst, src1, src2, ..
         } => op_json!("rv_int_crypto", dst, src1, src2),
+        OpKind::RvVector { rs1, rs2, .. } => op_json!("rv_vector", rs1, rs2),
     }
 }
 
@@ -2783,11 +2784,12 @@ fn riscv_control_flow(insn: &crate::riscv::Insn, pc: u64) -> Value {
     }
 }
 
-fn hex_control_flow(insn: &HexInsn, pc: u64) -> Value {
+fn hex_control_flow(insn: &HexInsn, pc: u64, packet_pc: u64, used_ext: bool) -> Value {
+    let pcrel_base = if used_ext { packet_pc } else { pc };
     match insn {
         HexInsn::Jump { offset } => json!({
             "kind": "branch",
-            "target": hex_u64((pc as i64).wrapping_add(*offset as i64) as u64),
+            "target": hex_u64((pcrel_base as i64).wrapping_add(*offset as i64) as u64),
         }),
         HexInsn::JumpCond {
             offset,
@@ -2796,7 +2798,7 @@ fn hex_control_flow(insn: &HexInsn, pc: u64) -> Value {
             pred_new,
         } => json!({
             "kind": "cond_branch",
-            "target": hex_u64((pc as i64).wrapping_add(*offset as i64) as u64),
+            "target": hex_u64((pcrel_base as i64).wrapping_add(*offset as i64) as u64),
             "fallthrough": hex_u64(pc + 4),
             "predicate": pred,
             "sense": sense,
@@ -2820,17 +2822,17 @@ fn hex_control_flow(insn: &HexInsn, pc: u64) -> Value {
             "kind": "cond_branch",
             "condition": format!("{kind:?}"),
             "src": format!("r{src}"),
-            "target": hex_u64((pc as i64).wrapping_add(*offset as i64) as u64),
+            "target": hex_u64((pcrel_base as i64).wrapping_add(*offset as i64) as u64),
             "fallthrough": hex_u64(pc + 4),
         }),
         HexInsn::JumpSet { dst, value, offset } => json!({
             "kind": "branch",
-            "target": hex_u64((pc as i64).wrapping_add(*offset as i64) as u64),
+            "target": hex_u64((pcrel_base as i64).wrapping_add(*offset as i64) as u64),
             "writes": format!("r{dst} = {value:?}"),
         }),
         HexInsn::Call { offset, pred } => json!({
             "kind": if pred.is_some() { "cond_call" } else { "call" },
-            "target": hex_u64((pc as i64).wrapping_add(*offset as i64) as u64),
+            "target": hex_u64((pcrel_base as i64).wrapping_add(*offset as i64) as u64),
             "fallthrough": hex_u64(pc + 4),
             "predicate": pred.map(|p| format!("{p:?}")),
         }),
@@ -2860,7 +2862,7 @@ fn hex_control_flow(insn: &HexInsn, pc: u64) -> Value {
             "sense": sense,
             "new_value": new_value,
             "write_pred": write_pred,
-            "target": hex_u64((pc as i64).wrapping_add(*offset as i64) as u64),
+            "target": hex_u64((pcrel_base as i64).wrapping_add(*offset as i64) as u64),
             "fallthrough": hex_u64(pc + 4),
         }),
         HexInsn::Trap0 => json!({"kind": "syscall", "trap": "trap0"}),
@@ -2872,7 +2874,7 @@ fn hex_control_flow(insn: &HexInsn, pc: u64) -> Value {
         } => json!({
             "kind": "loop_setup",
             "loop_id": loop_id,
-            "start": hex_u64((pc as i64).wrapping_add(*start_offset as i64) as u64),
+            "start": hex_u64((pcrel_base as i64).wrapping_add(*start_offset as i64) as u64),
             "count_reg": count_reg,
             "lpcfg": lpcfg,
         }),
@@ -2884,7 +2886,7 @@ fn hex_control_flow(insn: &HexInsn, pc: u64) -> Value {
         } => json!({
             "kind": "loop_setup",
             "loop_id": loop_id,
-            "start": hex_u64((pc as i64).wrapping_add(*start_offset as i64) as u64),
+            "start": hex_u64((pcrel_base as i64).wrapping_add(*start_offset as i64) as u64),
             "count": count,
             "lpcfg": lpcfg,
         }),

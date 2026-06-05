@@ -2025,6 +2025,10 @@ impl SmirInterpreter {
                 }
             }
 
+            OpKind::RvVector { insn, .. } => {
+                exec_rv_vector(ctx, memory, *insn);
+            }
+
             OpKind::IntToFp {
                 dst,
                 src,
@@ -9833,5 +9837,103 @@ mod tests {
         // cond bit0 clear -> memory UNCHANGED (cancel).
         assert_eq!(run_pred_store(0x8000, 0xCAFE_F00D, 0x00, 0x2222_2222), 0x2222_2222);
         assert_eq!(run_pred_store(0x8000, 0xCAFE_F00D, 0xfe, 0x2222_2222), 0x2222_2222);
+    }
+}
+
+// ===========================================================================
+// RISC-V Vector (RVV 1.0) opaque execution (OpKind::RvVector).
+// ===========================================================================
+
+/// Bridges the RISC-V `Memory` trait to the SMIR memory for the lifetime of one
+/// transient-CPU vector instruction. A raw pointer is used because riscv
+/// `Memory::read` is `&self` whereas `SmirMemory::read` is `&mut self`, and the
+/// SMIR memory is exclusively borrowed by the interp for the whole RvVector
+/// handler — so the aliasing is sound and single-threaded.
+struct RvVecMemBridge {
+    mem: *mut dyn SmirMemory,
+}
+impl std::fmt::Debug for RvVecMemBridge {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str("RvVecMemBridge")
+    }
+}
+// SAFETY: only dereferenced single-threaded within one `exec_rv_vector` call,
+// where the underlying `&mut dyn SmirMemory` is alive and exclusively held.
+unsafe impl Send for RvVecMemBridge {}
+impl crate::riscv::Memory for RvVecMemBridge {
+    fn read(&self, addr: u64, buf: &mut [u8]) -> crate::riscv::MemResult<()> {
+        unsafe {
+            (*self.mem)
+                .read(addr, buf)
+                .map_err(|_| crate::riscv::MemError::OutOfBounds { addr, size: buf.len() })
+        }
+    }
+    fn write(&mut self, addr: u64, data: &[u8]) -> crate::riscv::MemResult<()> {
+        unsafe {
+            (*self.mem)
+                .write(addr, data)
+                .map_err(|_| crate::riscv::MemError::OutOfBounds { addr, size: data.len() })
+        }
+    }
+}
+
+/// Execute one RVV instruction bit-exactly by loading the SMIR machine state
+/// into a transient `RiscVCpu` (over a bridge to the SMIR memory), running the
+/// qemu-verified vector engine, and reading the full result state back. RVV
+/// element width/count are runtime `vtype`/`vl` state, so this opaque delegation
+/// is the only faithful lift. On a trap (illegal vtype / access fault) the
+/// machine state is left unchanged — matching the reference, which traps and
+/// makes no architectural change.
+fn exec_rv_vector(ctx: &mut SmirContext, memory: &mut dyn SmirMemory, insn: u32) {
+    let pc = ctx.pc;
+    let (x, f, fcsr, v, vl, vtype, vstart, vcsr) = match &ctx.arch_regs {
+        ArchRegState::RiscV(rv) => (
+            rv.x, rv.f, rv.fcsr, rv.v, rv.vl, rv.vtype, rv.vstart, rv.vcsr,
+        ),
+        _ => return,
+    };
+
+    // Lifetime-erase the SMIR memory pointer into the 'static bridge; the bridge
+    // (and the CPU owning it) is dropped before this function returns, so it
+    // never outlives the borrow.
+    let memptr: *mut dyn SmirMemory =
+        unsafe { std::mem::transmute::<*mut dyn SmirMemory, *mut dyn SmirMemory>(memory) };
+    let bridge = RvVecMemBridge { mem: memptr };
+    let mut cpu =
+        crate::riscv::RiscVCpu::new(crate::riscv::RiscVConfig::rv64gc(), Box::new(bridge));
+    for i in 1..32u8 {
+        cpu.set_x(i, x[i as usize]);
+    }
+    for i in 0..32u8 {
+        cpu.set_f(i, f[i as usize]);
+    }
+    cpu.set_fcsr(fcsr);
+    for i in 0..32u8 {
+        cpu.set_vreg(i, &v[i as usize]);
+    }
+    cpu.set_vl_vtype(vl, vtype);
+    cpu.set_vstart(vstart);
+    cpu.set_vcsr(vcsr);
+
+    let isa = crate::riscv::Isa::rv64gc();
+    let d = crate::riscv::decode(insn, crate::riscv::Xlen::Rv64, &isa);
+    if d.is_illegal() || cpu.execute_insn(&d, pc).is_err() {
+        return;
+    }
+    if let ArchRegState::RiscV(rv) = &mut ctx.arch_regs {
+        for i in 1..32u8 {
+            rv.x[i as usize] = cpu.x(i);
+        }
+        for i in 0..32u8 {
+            rv.f[i as usize] = cpu.f(i);
+        }
+        rv.fcsr = cpu.fcsr();
+        for i in 0..32u8 {
+            rv.v[i as usize] = cpu.vreg(i);
+        }
+        rv.vl = cpu.vl();
+        rv.vtype = cpu.vtype();
+        rv.vstart = cpu.vstart();
+        rv.vcsr = cpu.vcsr();
     }
 }

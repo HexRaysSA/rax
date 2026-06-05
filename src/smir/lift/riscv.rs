@@ -260,6 +260,9 @@ impl RiscVLifter {
             0x43 | 0x47 | 0x4b | 0x4f if self.extensions.f => {
                 self.lift_fp_fma(insn, addr, ctx)
             }
+            // OP-V (0x57): vector arithmetic + vset{i}vl{i} configuration. All
+            // RVV ops route to the opaque RvVector engine.
+            0x57 => self.lift_vector(insn, addr, ctx),
             _ => Err(LiftError::InvalidEncoding {
                 addr,
                 bytes: insn.to_le_bytes().to_vec(),
@@ -1582,7 +1585,15 @@ impl RiscVLifter {
             RvOp::Fsd => (false, MemWidth::B8, 0),
             RvOp::Fsh => (false, MemWidth::B2, 0),
             _ => {
-                return Err(LiftError::Unsupported { addr, mnemonic: format!("{:?}", d.op) });
+                // Vector load/store share the 0x07/0x27 major opcodes (the
+                // mop/lumop fields distinguish them) — opaque RvVector.
+                if !d.is_illegal() {
+                    return self.emit_rv_vector(insn, &d, addr, ctx);
+                }
+                return Err(LiftError::InvalidEncoding {
+                    addr,
+                    bytes: insn.to_le_bytes().to_vec(),
+                });
             }
         };
         if is_load {
@@ -1598,6 +1609,47 @@ impl RiscVLifter {
             let fs = ctx.get_arch_reg(ArchReg::RiscV(RiscVReg::F(d.rs2)));
             ops.push(mk(ctx, OpKind::Store { src: fs, addr: address, width }));
         }
+        Ok((ops, ControlFlow::NextInsn))
+    }
+
+    /// OP-V (0x57): RVV arithmetic and `vset{i}vl{i}` configuration. RVV element
+    /// width and length are runtime `vtype`/`vl` state unknown at lift time, so
+    /// the whole vector ISA is lifted to the opaque [`OpKind::RvVector`] engine.
+    fn lift_vector(
+        &mut self,
+        insn: u32,
+        addr: GuestAddr,
+        ctx: &mut LiftContext,
+    ) -> Result<(Vec<SmirOp>, ControlFlow), LiftError> {
+        let xl = if self.xlen == 64 { RvXlen::Rv64 } else { RvXlen::Rv32 };
+        let d = rv_decode(insn, xl, &RvIsa::rv64gc());
+        if d.is_illegal() {
+            return Err(LiftError::InvalidEncoding {
+                addr,
+                bytes: insn.to_le_bytes().to_vec(),
+            });
+        }
+        self.emit_rv_vector(insn, &d, addr, ctx)
+    }
+
+    /// Emit an opaque [`OpKind::RvVector`] for one RVV instruction. `rs1`/`rs2`
+    /// (x-register address/AVL/stride/index sources) are kept live for the
+    /// optimizer; the interp writes all results (vector file, CSRs, x/f) directly
+    /// into `ctx.arch_regs` by running the verified vector engine.
+    fn emit_rv_vector(
+        &mut self,
+        insn: u32,
+        d: &crate::riscv::Insn,
+        addr: GuestAddr,
+        ctx: &mut LiftContext,
+    ) -> Result<(Vec<SmirOp>, ControlFlow), LiftError> {
+        let rs1 = self.get_x_reg(d.rs1, ctx);
+        let rs2 = self.get_x_reg(d.rs2, ctx);
+        let ops = vec![SmirOp::new(
+            ctx.next_op_id(),
+            addr,
+            OpKind::RvVector { insn, rs1, rs2 },
+        )];
         Ok((ops, ControlFlow::NextInsn))
     }
 

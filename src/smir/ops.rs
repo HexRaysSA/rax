@@ -2433,6 +2433,22 @@ pub enum OpKind {
         imm: u8,
     },
 
+    /// RISC-V Vector (RVV 1.0) instruction, executed bit-exactly by the verified
+    /// vector engine of `RiscVCpu`. The element width and element count are
+    /// runtime state (`vtype`/`vl`) unknown at lift time, so RVV cannot be lifted
+    /// to static SMIR primitives; instead the interp loads the SMIR machine state
+    /// (x/f/fcsr + the `RiscVRegState` vector file + vl/vtype/vstart/vcsr) into a
+    /// transient `RiscVCpu` over a memory bridge to the SMIR memory, runs this one
+    /// decoded instruction, and reads the full result state back. `insn` is the
+    /// raw 32-bit encoding; `rs1`/`rs2` are the x-register address sources kept
+    /// live for the optimizer. Vector/CSR/x/f results are written directly into
+    /// `ctx.arch_regs` (not SSA vregs). Self-contained; NOT JIT-whitelisted.
+    RvVector {
+        insn: u32,
+        rs1: VReg,
+        rs2: VReg,
+    },
+
     // ========================================================================
     // META / DEBUG
     // ========================================================================
@@ -2800,6 +2816,10 @@ impl OpKind {
 
             OpKind::RvIntCrypto { dst, .. } => vec![*dst],
 
+            // RvVector writes its results directly into ctx.arch_regs (vector
+            // file / CSRs / x / f), not SSA vregs.
+            OpKind::RvVector { .. } => vec![],
+
             OpKind::MulU { dst_lo, dst_hi, .. } | OpKind::MulS { dst_lo, dst_hi, .. } => {
                 let mut v = vec![*dst_lo];
                 if let Some(hi) = dst_hi {
@@ -2884,6 +2904,7 @@ impl OpKind {
                 | OpKind::AtomicRmw { .. }
                 | OpKind::Cas { .. }
                 | OpKind::StoreExclusive { .. }
+                | OpKind::RvVector { .. }
                 | OpKind::IoIn { .. }
                 | OpKind::IoOut { .. }
                 | OpKind::Leave
@@ -2916,6 +2937,7 @@ impl OpKind {
                 | OpKind::RepMovs { .. }
                 | OpKind::VLoad { .. }
                 | OpKind::VHist { .. }
+                | OpKind::RvVector { .. }
                 | OpKind::Leave
         )
     }
@@ -2934,6 +2956,7 @@ impl OpKind {
                 | OpKind::Cas { .. }
                 | OpKind::StoreExclusive { .. }
                 | OpKind::VStore { .. }
+                | OpKind::RvVector { .. }
         )
     }
 }

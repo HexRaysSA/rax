@@ -36,6 +36,12 @@ struct State {
     f: [u64; 32],
     fcsr: u32,
     scratch: [u64; 64], // 512-byte shared data window at SCRATCH
+    // Vector state (RVV): 32 × 128-bit registers + the vector CSRs.
+    v: [[u8; 16]; 32],
+    vl: u64,
+    vtype: u64,
+    vstart: u64,
+    vcsr: u64,
 }
 
 impl State {
@@ -61,6 +67,26 @@ impl State {
                 ));
             }
         }
+        for i in 0..32 {
+            if self.v[i] != o.v[i] {
+                return Some(format!(
+                    "v{i}: ref={:02x?} smir={:02x?}",
+                    self.v[i], o.v[i]
+                ));
+            }
+        }
+        if self.vl != o.vl {
+            return Some(format!("vl: ref={:#x} smir={:#x}", self.vl, o.vl));
+        }
+        if self.vtype != o.vtype {
+            return Some(format!("vtype: ref={:#x} smir={:#x}", self.vtype, o.vtype));
+        }
+        if self.vstart != o.vstart {
+            return Some(format!("vstart: ref={:#x} smir={:#x}", self.vstart, o.vstart));
+        }
+        if self.vcsr != o.vcsr {
+            return Some(format!("vcsr: ref={:#x} smir={:#x}", self.vcsr, o.vcsr));
+        }
         None
     }
 }
@@ -85,6 +111,11 @@ fn rand_state(rng: &mut Rng) -> State {
         f: [0; 32],
         fcsr: 0,
         scratch: [0; 64],
+        v: [[0; 16]; 32],
+        vl: 0,
+        vtype: 0,
+        vstart: 0,
+        vcsr: 0,
     };
     for i in 1..32 {
         s.x[i] = rng.next();
@@ -96,6 +127,14 @@ fn rand_state(rng: &mut Rng) -> State {
     s.fcsr = (rng.next() & 0xff) as u32; // frm[7:5] + fflags[4:0]
     for i in 0..64 {
         s.scratch[i] = rng.next();
+    }
+    // Vector registers seeded random; vl/vtype left at 0 (the vector test sets
+    // them explicitly per instruction). Scalar ops never touch vector state, so
+    // it round-trips unchanged through both the oracle and the SMIR interp.
+    for i in 0..32 {
+        for b in 0..16 {
+            s.v[i][b] = rng.next() as u8;
+        }
     }
     s
 }
@@ -111,6 +150,13 @@ fn run_ref(insn: &[u8], init: &State) -> Option<State> {
         cpu.set_f(i, init.f[i as usize]);
     }
     cpu.set_fcsr(init.fcsr);
+    // Vector state.
+    for i in 0..32u8 {
+        cpu.set_vreg(i, &init.v[i as usize]);
+    }
+    cpu.set_vl_vtype(init.vl, init.vtype);
+    cpu.set_vstart(init.vstart);
+    cpu.set_vcsr(init.vcsr);
     // scratch
     let mut sb = Vec::with_capacity(512);
     for w in init.scratch.iter() {
@@ -128,6 +174,11 @@ fn run_ref(insn: &[u8], init: &State) -> Option<State> {
         f: [0; 32],
         fcsr: 0,
         scratch: [0; 64],
+        v: [[0; 16]; 32],
+        vl: 0,
+        vtype: 0,
+        vstart: 0,
+        vcsr: 0,
     };
     for i in 1..32u8 {
         out.x[i as usize] = cpu.x(i);
@@ -139,6 +190,13 @@ fn run_ref(insn: &[u8], init: &State) -> Option<State> {
     for (i, w) in out.scratch.iter_mut().enumerate() {
         *w = cpu.mem_read_u64(SCRATCH + (i as u64) * 8).ok()?;
     }
+    for i in 0..32u8 {
+        out.v[i as usize] = cpu.vreg(i);
+    }
+    out.vl = cpu.vl();
+    out.vtype = cpu.vtype();
+    out.vstart = cpu.vstart();
+    out.vcsr = cpu.vcsr();
     Some(out)
 }
 
@@ -173,6 +231,11 @@ fn run_smir(insn: &[u8], init: &State) -> Result<Option<State>, String> {
         rv.f.copy_from_slice(&init.f);
         rv.fcsr = init.fcsr;
         rv.pc = CODE_ADDR;
+        rv.v = init.v;
+        rv.vl = init.vl;
+        rv.vtype = init.vtype;
+        rv.vstart = init.vstart;
+        rv.vcsr = init.vcsr;
     }
     let _ = ArchReg::RiscV(RiscVReg::X(0)); // keep import used
     ctx.pc = CODE_ADDR;
@@ -194,6 +257,11 @@ fn run_smir(insn: &[u8], init: &State) -> Result<Option<State>, String> {
         f: [0; 32],
         fcsr: 0,
         scratch: [0; 64],
+        v: [[0; 16]; 32],
+        vl: 0,
+        vtype: 0,
+        vstart: 0,
+        vcsr: 0,
     };
     // The lifter writes results to SSA virtual regs; resolve each arch reg's
     // final value through the lifter's arch->vreg mapping (an undefined reg maps
@@ -220,6 +288,14 @@ fn run_smir(insn: &[u8], init: &State) -> Result<Option<State>, String> {
         mem.read(SCRATCH + i * 8, &mut b)
             .map_err(|e| format!("mem read: {e:?}"))?;
         out.scratch[i as usize] = u64::from_le_bytes(b);
+    }
+    // Vector state: the RvVector op writes it directly into ctx.arch_regs.
+    if let ArchRegState::RiscV(rv) = &ctx.arch_regs {
+        out.v = rv.v;
+        out.vl = rv.vl;
+        out.vtype = rv.vtype;
+        out.vstart = rv.vstart;
+        out.vcsr = rv.vcsr;
     }
     Ok(Some(out))
 }
@@ -437,4 +513,142 @@ fn lift_fp() {
         &[0x07, 0x27, 0x53, 0x43, 0x47, 0x4b, 0x4f],
         60_000,
     );
+}
+
+// --- RVV (vector) lift verification ----------------------------------------
+
+/// Encode an OP-V (0x57) instruction. funct3 selects the operand form:
+/// 0=OPIVV, 1=OPFVV, 2=OPMVV, 3=OPIVI, 4=OPIVX, 5=OPFVF, 6=OPMVX.
+fn vop(funct6: u32, vm: u32, vs2: u32, src: u32, funct3: u32, vd: u32) -> u32 {
+    (funct6 << 26) | (vm << 25) | (vs2 << 20) | (src << 15) | (funct3 << 12) | (vd << 7) | 0x57
+}
+
+/// RVV lift verification. RVV element width/count are runtime `vtype`/`vl` state
+/// unknown at lift time, so the whole vector ISA lifts to the opaque `RvVector`
+/// op that runs the qemu-verified vector engine over the SMIR machine state.
+/// This test confirms that lift PLUMBING — decode of the carried word, the full
+/// state round-trip (x/f/fcsr + the 128-bit vector file + vl/vtype/vstart/vcsr),
+/// and the memory bridge — is bit-exact against the `RiscVCpu` oracle for a
+/// representative valid instruction from every architectural-effect class. A
+/// dedicated test (not the random sweeps) because rax assumes well-formed vector
+/// encodings (no group-overlap / out-of-range validation), so it constrains to
+/// LMUL=1, disjoint low registers, and unmasked forms. The vector arithmetic
+/// itself is proven separately by the qemu oracle (tests/riscv_vector.rs).
+#[test]
+fn lift_v() {
+    const E32_M1: u64 = 0x10; // vsew=2 (SEW=32), vlmul=0 (LMUL=1)
+    const VLMAX32: u64 = 4; // VLEN(128)/SEW(32)
+
+    // (name, encoded instruction). width=6 ⇒ 32-bit element loads/stores.
+    // Base reg a0=x10, stride a3=x13, AVL a2=x12, dest x-reg a1=x11.
+    let prog: &[(&str, u32)] = &[
+        // -- configuration (writes x[rd], vl, vtype) --
+        ("vsetvli a1,a2,e32m1", (E32_M1 as u32) << 20 | (12 << 15) | (7 << 12) | (11 << 7) | 0x57),
+        // -- unit-stride load / store (vd / memory) --
+        ("vle32.v v1,(a0)", (1 << 25) | (10 << 15) | (6 << 12) | (1 << 7) | 0x07),
+        ("vse32.v v1,(a0)", (1 << 25) | (10 << 15) | (6 << 12) | (1 << 7) | 0x27),
+        // -- strided load / store --
+        ("vlse32.v v1,(a0),a3", (0b10 << 26) | (1 << 25) | (13 << 20) | (10 << 15) | (6 << 12) | (1 << 7) | 0x07),
+        ("vsse32.v v1,(a0),a3", (0b10 << 26) | (1 << 25) | (13 << 20) | (10 << 15) | (6 << 12) | (1 << 7) | 0x27),
+        // -- integer arithmetic vv / vx / vi --
+        ("vadd.vv v1,v2,v3", vop(0b000000, 1, 2, 3, 0, 1)),
+        ("vadd.vx v1,v2,x13", vop(0b000000, 1, 2, 13, 4, 1)),
+        ("vadd.vi v1,v2,5", vop(0b000000, 1, 2, 5, 3, 1)),
+        ("vsub.vv v1,v2,v3", vop(0b000010, 1, 2, 3, 0, 1)),
+        ("vand.vv v1,v2,v3", vop(0b001001, 1, 2, 3, 0, 1)),
+        ("vor.vv v1,v2,v3", vop(0b001010, 1, 2, 3, 0, 1)),
+        ("vxor.vv v1,v2,v3", vop(0b001011, 1, 2, 3, 0, 1)),
+        ("vsll.vv v1,v2,v3", vop(0b100101, 1, 2, 3, 0, 1)),
+        ("vsrl.vv v1,v2,v3", vop(0b101000, 1, 2, 3, 0, 1)),
+        ("vmin.vv v1,v2,v3", vop(0b000101, 1, 2, 3, 0, 1)),
+        ("vmax.vv v1,v2,v3", vop(0b000111, 1, 2, 3, 0, 1)),
+        ("vmul.vv v1,v2,v3", vop(0b100101, 1, 2, 3, 2, 1)), // OPMVV
+        ("vmacc.vv v1,v2,v3", vop(0b101101, 1, 2, 3, 2, 1)),
+        // -- compare to mask register --
+        ("vmseq.vv v1,v2,v3", vop(0b011000, 1, 2, 3, 0, 1)),
+        ("vmslt.vv v1,v2,v3", vop(0b011011, 1, 2, 3, 0, 1)),
+        // -- reduction (writes vd[0]) --
+        ("vredsum.vs v1,v2,v3", vop(0b000000, 1, 2, 3, 2, 1)),
+        ("vredmax.vs v1,v2,v3", vop(0b000111, 1, 2, 3, 2, 1)),
+        // -- scalar moves out (writes x / f) --
+        ("vmv.x.s a1,v2", vop(0b010000, 1, 2, 0, 2, 11)),
+        ("vfmv.f.s fa1,v2", vop(0b010000, 1, 2, 0, 1, 11)),
+        // -- scalar move in (writes vd[0]) --
+        ("vmv.s.x v1,a3", vop(0b010000, 1, 0, 13, 6, 1)),
+        ("vfmv.s.f v1,fa3", vop(0b010000, 1, 0, 13, 5, 1)),
+        // -- FP arithmetic (writes vd + fcsr) --
+        ("vfadd.vv v1,v2,v3", vop(0b000000, 1, 2, 3, 1, 1)),
+        ("vfmul.vv v1,v2,v3", vop(0b100100, 1, 2, 3, 1, 1)),
+        ("vfmacc.vv v1,v2,v3", vop(0b101100, 1, 2, 3, 1, 1)),
+        ("vfmin.vv v1,v2,v3", vop(0b000100, 1, 2, 3, 1, 1)),
+        // -- permute: slide / gather / splat --
+        ("vslideup.vx v1,v2,x13", vop(0b001110, 1, 2, 13, 4, 1)),
+        ("vslidedown.vx v1,v2,x13", vop(0b001111, 1, 2, 13, 4, 1)),
+        ("vrgather.vi v1,v2,0", vop(0b001100, 1, 2, 0, 3, 1)),
+        ("vmv.v.i v1,5", vop(0b010111, 1, 0, 5, 3, 1)),
+        ("vmv.v.v v1,v3", vop(0b010111, 1, 0, 3, 0, 1)),
+        ("vmerge.vvm v1,v2,v3", vop(0b010111, 0, 2, 3, 0, 1)),
+        // -- whole-register move --
+        ("vmv1r.v v1,v2", vop(0b100111, 1, 2, 0, 3, 1)),
+    ];
+
+    let mut rng = Rng::new(0x5117_0006);
+    let mut matched = 0usize;
+    let mut gaps: Vec<&str> = Vec::new();
+    let mut diverged: Vec<(String, String)> = Vec::new();
+
+    for &(name, insn) in prog {
+        for _ in 0..64 {
+            let mut st = rand_state(&mut rng);
+            // Valid e32/m1 config; full vl. (vsetvli overwrites these itself.)
+            st.vtype = E32_M1;
+            st.vl = VLMAX32;
+            st.vstart = 0;
+            st.vcsr = rng.next() & 0x7; // vxrm[2:1] | vxsat[0]
+            // Address / scalar operand registers.
+            st.x[10] = SCRATCH + 0x40; // a0 = aligned base
+            st.x[12] = (rng.next() % (VLMAX32 + 1)).max(0); // a2 = AVL for vsetvli
+            st.x[13] = 8; // a3 = stride / scalar
+            let bytes = insn.to_le_bytes();
+            let r = match run_ref(&bytes, &st) {
+                Some(r) => r,
+                None => continue, // ref trapped (unexpected for these) → skip
+            };
+            match run_smir(&bytes, &st) {
+                Ok(Some(s)) => {
+                    if let Some(d) = r.eq_regs(&s) {
+                        if diverged.len() < 40 {
+                            diverged.push((name.to_string(), d));
+                        }
+                    } else {
+                        matched += 1;
+                    }
+                }
+                Ok(None) => gaps.push(name),
+                Err(e) => diverged.push((name.to_string(), e)),
+            }
+        }
+    }
+
+    eprintln!(
+        "lift_v: matched={matched}, gaps={}, diverged={}",
+        gaps.len(),
+        diverged.len()
+    );
+    if !gaps.is_empty() {
+        let mut g: Vec<&&str> = gaps.iter().collect();
+        g.sort();
+        g.dedup();
+        for n in g {
+            eprintln!("  GAP {n}");
+        }
+        panic!("{} vector ops did not lift (RvVector gap)", gaps.len());
+    }
+    if !diverged.is_empty() {
+        let mut msg = format!("\n{} vector lift divergence(s):\n", diverged.len());
+        for (n, d) in diverged.iter().take(40) {
+            msg += &format!("  {n}: {d}\n");
+        }
+        panic!("{msg}");
+    }
 }

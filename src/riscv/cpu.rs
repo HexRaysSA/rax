@@ -311,6 +311,26 @@ impl RiscVCpu {
         self.fcsr = v & 0xff;
     }
 
+    /// Read the `vstart` CSR.
+    #[inline]
+    pub fn vstart(&self) -> u64 {
+        self.vstart
+    }
+
+    /// Write the `vstart` CSR.
+    #[inline]
+    pub fn set_vstart(&mut self, v: u64) {
+        self.vstart = v;
+    }
+
+    /// Execute a single already-decoded instruction at `pc` (no fetch). Used by
+    /// the SMIR `RvVector` op to drive the verified vector engine over a
+    /// transient CPU loaded with the SMIR machine state. Returns the trap on an
+    /// illegal/faulting instruction (caller leaves state unchanged).
+    pub fn execute_insn(&mut self, insn: &Insn, pc: u64) -> Result<RiscVExit, Trap> {
+        self.execute(insn, pc)
+    }
+
     /// Current privilege level.
     pub fn privilege(&self) -> Priv {
         self.priv_

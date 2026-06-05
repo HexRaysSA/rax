@@ -2203,6 +2203,11 @@ impl OpKind {
                 result.push(*src2);
             }
 
+            OpKind::RvVector { rs1, rs2, .. } => {
+                result.push(*rs1);
+                result.push(*rs2);
+            }
+
             OpKind::FAbs { src, .. }
             | OpKind::FNeg { src, .. }
             | OpKind::FSqrt { src, .. }
