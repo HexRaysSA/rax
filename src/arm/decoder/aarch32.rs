@@ -177,6 +177,10 @@ impl Aarch32Decoder {
             return Ok(insn);
         }
 
+        if let Some(insn) = Self::decode_neon_polynomial_multiply_long(raw) {
+            return Ok(insn);
+        }
+
         if let Some(insn) = Self::decode_neon_long_wide_add_sub(raw) {
             return Ok(insn);
         }
@@ -230,6 +234,10 @@ impl Aarch32Decoder {
         }
 
         if let Some(insn) = Self::decode_neon_integer_multiply(raw) {
+            return Ok(insn);
+        }
+
+        if let Some(insn) = Self::decode_neon_polynomial_multiply(raw) {
             return Ok(insn);
         }
 
@@ -1204,6 +1212,33 @@ impl Aarch32Decoder {
         Some(DecodedInsn::new(mnemonic, ExecutionState::Aarch32, raw, 4))
     }
 
+    fn decode_neon_polynomial_multiply(raw: u32) -> Option<DecodedInsn> {
+        if (raw >> 25) != 0b1111001
+            || ((raw >> 24) & 1) != 1
+            || ((raw >> 23) & 1) != 0
+            || ((raw >> 20) & 0x3) != 0
+            || ((raw >> 8) & 0xF) != 0b1001
+            || ((raw >> 4) & 1) != 1
+        {
+            return None;
+        }
+
+        let q = ((raw >> 6) & 1) != 0;
+        let vd = (raw >> 12) & 0xF;
+        let vn = (raw >> 16) & 0xF;
+        let vm = raw & 0xF;
+        if q && ((vd | vn | vm) & 1) != 0 {
+            return Some(DecodedInsn::new(
+                Mnemonic::UNDEFINED,
+                ExecutionState::Aarch32,
+                raw,
+                4,
+            ));
+        }
+
+        Some(DecodedInsn::new(Mnemonic::VMUL, ExecutionState::Aarch32, raw, 4))
+    }
+
     fn decode_neon_integer_multiply_scalar(raw: u32) -> Option<DecodedInsn> {
         if (raw >> 25) != 0b1111001
             || ((raw >> 23) & 1) != 1
@@ -1276,6 +1311,30 @@ impl Aarch32Decoder {
         }
 
         Some(DecodedInsn::new(mnemonic, ExecutionState::Aarch32, raw, 4))
+    }
+
+    fn decode_neon_polynomial_multiply_long(raw: u32) -> Option<DecodedInsn> {
+        if (raw >> 25) != 0b1111001
+            || ((raw >> 23) & 1) != 1
+            || ((raw >> 20) & 0x3) != 0
+            || ((raw >> 8) & 0xF) != 0b1110
+            || ((raw >> 6) & 1) != 0
+            || ((raw >> 4) & 1) != 0
+        {
+            return None;
+        }
+
+        let d = (((raw >> 22) & 1) << 4) | ((raw >> 12) & 0xF);
+        if (d & 1) != 0 || d + 1 >= 32 {
+            return Some(DecodedInsn::new(
+                Mnemonic::UNDEFINED,
+                ExecutionState::Aarch32,
+                raw,
+                4,
+            ));
+        }
+
+        Some(DecodedInsn::new(Mnemonic::VMULL, ExecutionState::Aarch32, raw, 4))
     }
 
     fn decode_neon_long_multiply(raw: u32) -> Option<DecodedInsn> {

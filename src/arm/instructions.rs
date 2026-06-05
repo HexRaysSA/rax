@@ -3746,6 +3746,9 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
     }
 
     fn exec_vmul(&mut self, insn: &DecodedInsn) -> ExecResult {
+        if Self::is_neon_polynomial_multiply_shape(insn.raw) {
+            return self.exec_neon_polynomial_multiply(insn);
+        }
         if Self::is_neon_integer_multiply_shape(insn.raw)
             || Self::is_neon_integer_multiply_scalar_shape(insn.raw)
         {
@@ -3776,6 +3779,15 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
             && ((raw >> 23) & 1) == 0
             && ((raw >> 8) & 0xF) == 0b1001
             && (((raw >> 4) & 1) == 0 || ((raw >> 24) & 1) == 0)
+    }
+
+    fn is_neon_polynomial_multiply_shape(raw: u32) -> bool {
+        (raw >> 25) == 0b1111001
+            && ((raw >> 24) & 1) == 1
+            && ((raw >> 23) & 1) == 0
+            && ((raw >> 20) & 0x3) == 0
+            && ((raw >> 8) & 0xF) == 0b1001
+            && ((raw >> 4) & 1) == 1
     }
 
     fn is_neon_integer_multiply_scalar_shape(raw: u32) -> bool {
@@ -3814,6 +3826,58 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
             (raw >> 8) & 0xF,
             0b0010 | 0b0011 | 0b0110 | 0b0111 | 0b1010 | 0b1011
         )
+    }
+
+    fn is_neon_polynomial_multiply_long_shape(raw: u32) -> bool {
+        (raw >> 25) == 0b1111001
+            && ((raw >> 23) & 1) == 1
+            && ((raw >> 20) & 0x3) == 0
+            && ((raw >> 8) & 0xF) == 0b1110
+            && ((raw >> 6) & 1) == 0
+            && ((raw >> 4) & 1) == 0
+    }
+
+    fn exec_neon_polynomial_multiply(&mut self, insn: &DecodedInsn) -> ExecResult {
+        if !self.cpu.vfp.is_enabled() {
+            return ExecResult::Exception(ExceptionType::UndefinedInstruction);
+        }
+        if !Self::is_neon_polynomial_multiply_shape(insn.raw) {
+            return ExecResult::Undefined;
+        }
+
+        let d_bit = ((insn.raw >> 22) & 1) as u8;
+        let vd = ((insn.raw >> 12) & 0xF) as u8;
+        let n_bit = ((insn.raw >> 7) & 1) as u8;
+        let vn = ((insn.raw >> 16) & 0xF) as u8;
+        let m_bit = ((insn.raw >> 5) & 1) as u8;
+        let vm = (insn.raw & 0xF) as u8;
+        let q = ((insn.raw >> 6) & 1) != 0;
+        let regs = if q { 2 } else { 1 };
+
+        let d = (d_bit << 4) | vd;
+        let n = (n_bit << 4) | vn;
+        let m = (m_bit << 4) | vm;
+        if q && ((d | n | m) & 1) != 0 {
+            return ExecResult::Undefined;
+        }
+        if d + regs > 32 || n + regs > 32 || m + regs > 32 {
+            return ExecResult::Undefined;
+        }
+
+        for reg in 0..regs {
+            let n_elements = self.neon_read_vector_elements_u64(n + reg, 1, 1);
+            let m_elements = self.neon_read_vector_elements_u64(m + reg, 1, 1);
+            let mut out = Vec::with_capacity(n_elements.len());
+            for (n_elem, m_elem) in n_elements.into_iter().zip(m_elements.into_iter()) {
+                out.push(u64::from(Self::neon_polynomial_mul_u8(
+                    n_elem as u8,
+                    m_elem as u8,
+                ) as u8));
+            }
+            self.neon_write_vector_elements_u64(d + reg, 1, 1, &out);
+        }
+
+        ExecResult::Continue
     }
 
     fn exec_neon_integer_multiply(&mut self, insn: &DecodedInsn) -> ExecResult {
@@ -3937,6 +4001,9 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
     fn exec_neon_long_multiply(&mut self, insn: &DecodedInsn) -> ExecResult {
         if !self.cpu.vfp.is_enabled() {
             return ExecResult::Exception(ExceptionType::UndefinedInstruction);
+        }
+        if Self::is_neon_polynomial_multiply_long_shape(insn.raw) {
+            return self.exec_neon_polynomial_multiply_long(insn);
         }
         let scalar = Self::is_neon_long_multiply_scalar_shape(insn.raw);
         if !Self::is_neon_long_multiply_shape(insn.raw) && !scalar {
@@ -4069,6 +4136,48 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
 
         self.neon_write_vector_elements_u64(d, 2, wide_ebytes, &out);
         ExecResult::Continue
+    }
+
+    fn exec_neon_polynomial_multiply_long(&mut self, insn: &DecodedInsn) -> ExecResult {
+        if !Self::is_neon_polynomial_multiply_long_shape(insn.raw) {
+            return ExecResult::Undefined;
+        }
+
+        let d_bit = ((insn.raw >> 22) & 1) as u8;
+        let vd = ((insn.raw >> 12) & 0xF) as u8;
+        let n_bit = ((insn.raw >> 7) & 1) as u8;
+        let vn = ((insn.raw >> 16) & 0xF) as u8;
+        let m_bit = ((insn.raw >> 5) & 1) as u8;
+        let vm = (insn.raw & 0xF) as u8;
+
+        let d = (d_bit << 4) | vd;
+        let n = (n_bit << 4) | vn;
+        let m = (m_bit << 4) | vm;
+        if (d & 1) != 0 || d + 2 > 32 || n >= 32 || m >= 32 {
+            return ExecResult::Undefined;
+        }
+
+        let n_elements = self.neon_read_vector_elements_u64(n, 1, 1);
+        let m_elements = self.neon_read_vector_elements_u64(m, 1, 1);
+        let mut out = Vec::with_capacity(n_elements.len());
+        for (n_elem, m_elem) in n_elements.into_iter().zip(m_elements.into_iter()) {
+            out.push(u64::from(Self::neon_polynomial_mul_u8(
+                n_elem as u8,
+                m_elem as u8,
+            )));
+        }
+        self.neon_write_vector_elements_u64(d, 2, 2, &out);
+        ExecResult::Continue
+    }
+
+    fn neon_polynomial_mul_u8(lhs: u8, rhs: u8) -> u16 {
+        let mut product = 0u16;
+        for bit in 0..8 {
+            if ((rhs >> bit) & 1) != 0 {
+                product ^= (lhs as u16) << bit;
+            }
+        }
+        product
     }
 
     fn exec_neon_saturating_doubling_mulh(&mut self, insn: &DecodedInsn) -> ExecResult {
