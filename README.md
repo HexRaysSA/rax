@@ -163,7 +163,7 @@ including APX Map 4, RIP-relative), feeding 88 instruction-implementation files.
 | **FMA / BMI1 / BMI2** | VFMADD/SUB/NMADD/NSUB {132,213,231}; ANDN, BZHI, PEXT, PDEP, MULX, … |
 | **AVX-512** | F / VL / BW / DQ / CD; masked ops, opmask k0-k7 |
 | **AVX10.1 / 10.2** | VNNI, IFMA, VPOPCNTDQ, VBMI, BF16; VMPSADBW, VMINMAX, saturating converts |
-| **APX** | REX2, EGPRs R16-R31, NDD (3-operand), NF (no-flags), EVEX Map 4 |
+| **APX** | REX2, EGPRs R16-R31, NDD (3-operand), NF (no-flags), CCMP/CTEST, SETZUcc, PUSH2, EVEX Map 4 |
 | **Crypto / state / system** | AES, SHA1/256, GFNI (FIPS/SDM known-answer tested); XSAVE/XRSTOR/XCR0; CPUID, MSRs, CR/DR, descriptor-table loads, CPL-checked, faults injected (`#UD`/`#GP`) |
 
 ### Hexagon: complete, every opcode
@@ -204,7 +204,8 @@ The largest and most thoroughly tested ISA, even though it isn't a runnable back
   pairwise, BF16 (B16B16, dot product), quadword reductions, and PMOV/PSEL/PEXT. A committed
   879-instruction `llvm-mc` sweep (`tests/sve2_gen.rs`) guards it; only multi-vector memory, SME, and
   FEAT_LUT remain (the register-only oracle can't reach them).
-- **NEON / VFP**: full Advanced SIMD and scalar FP including FP16; full crypto (AES, SHA1/256, SM3, SM4).
+- **NEON / VFP**: full Advanced SIMD and scalar FP including FP16, bit-exact against the oracle on a
+  3939-instruction sweep (`tests/neon_gen.rs`); full crypto (AES, SHA1/256/512, SHA3, SM3, SM4).
 - **AArch32 / Thumb-2 / Cortex-M (M0-M85)**: A32 + Thumb decoders, NVIC/SysTick/SCB/MPU, ARMv6-M → v8.1-M.
 
 ---
@@ -220,11 +221,11 @@ fields and driven with many pseudo-random states, so a single `#[test]` function
 | Harness | rax core | Oracle | `#[test]` fns | Compares |
 |---------|----------|--------|-------------:|----------|
 | `tests/differential.rs` | x86-64 | **KVM** (hardware) | 463 | GPRs, RIP, RFLAGS, XMM, memory |
-| `tests/arm_diff.rs` | AArch64 + SVE/SVE2/SVE2.1 | `qemu-aarch64` | 197 | X0-X30, SP, NZCV, V0-V31, P0-P15 |
+| `tests/arm_diff.rs` | AArch64: NEON + SVE/SVE2/SVE2.1 | `qemu-aarch64` | 198 | X0-X30, SP, NZCV, V0-V31, P0-P15 |
 | `tests/hexagon_*_diff.rs` | Hexagon (scalar / cf / float / mem / HVX / HVX-mem) | `qemu-hexagon` | 134 | GPRs, P3:0, USR, loop regs, V0-V31, Q0-Q3 |
 | `tests/riscv_diff.rs` | RV64GC | `qemu-riscv64` | 29 | x1-x31, f0-f31, fcsr, scratch |
 | `tests/diff_fuzz.rs` | SMIR (lift → interp / native) | KVM | 35 | guest state after lift+run |
-| `tests/riscv_smir_lift.rs` | RISC-V → SMIR lift | rax RISC-V interp | 5 | x/f/fcsr (~150k insns, 0 divergence) |
+| `tests/riscv_smir_lift.rs` | RISC-V → SMIR lift | rax RISC-V interp | 9 | x/f/v/fcsr (~180k insns incl. RVV, 0 divergence) |
 | `tests/hexagon_smir_lift.rs` | Hexagon → SMIR lift | rax Hexagon interp | 305 | R/P/USR/V/Q (entire ISA: scalar + 100% HVX) |
 | `tests/smir_jit_vcpu.rs` | SMIR JIT in the real vcpu | interpreter | 7 | register-for-register + throughput |
 
@@ -242,7 +243,7 @@ On top of the oracles, there are exhaustive unit suites:
 | **ARM (ASL-generated)** | 92,131 | generated from ARM's official machine-readable **ASL** spec via `tools/asl-parser/` |
 | **x86-64 instruction suite** | 28,554 | `tests/x86_64/` (850 files), behind `--features x86_64-suite` |
 | **Everything else** | ~1,500 | oracle + SMIR-lift harnesses, Hexagon bare-metal, RISC-V boot, crypto known-answer (FIPS/SDM) |
-| **Total** | **122,185** | `#[test]` functions across `tests/` |
+| **Total** | **122,214** | `#[test]` functions across `tests/` |
 
 The ARM tests are not written by hand: the `asl-parser` downloads and parses ARM's ASL release and emits
 exhaustive instruction tests from it, which is how 92,000+ ARM cases exist at all.
@@ -303,8 +304,8 @@ loop is refused so native code can't trap the vcpu.
 
 > **Good to know** The lifters are checked too, not just the JIT's native output. `tests/riscv_smir_lift.rs`
 > and `tests/hexagon_smir_lift.rs` lift each instruction to SMIR, interpret it, and diff against that
-> architecture's own qemu-verified interpreter: RISC-V lifts its entire scalar RV64GC set (FP and the Zb*/Zk*
-> bit-manip and crypto extensions included) at zero divergence over ~150k instructions, and Hexagon lifts its
+> architecture's own qemu-verified interpreter: RISC-V lifts its entire user-mode RV64GCV, scalar plus the full RVV vector ISA (FP, the Zb*/Zk*
+> bit-manip and crypto extensions, and CSRs included), at zero divergence over ~180k instructions, and Hexagon lifts its
 > entire ISA, every composable scalar op and all of HVX, across 305 verified families.
 
 ---
@@ -503,7 +504,7 @@ docs/specifications/# smir/ (the IR spec) · riscv/ (vendored RISC-V specs) · a
 | **Hexagon** | **Every opcode** (scalar + HVX) verified vs. qemu-hexagon; bootable bare-metal backend |
 | **RISC-V** | Full RVA23 scalar set + crypto; bootable `--arch riscv64` backend; verified vs. qemu-riscv64 |
 | **AArch64 / ARM** | Complete SVE + SVE2 + SVE2.1 (bit-exact vs qemu) + NEON + Cortex-M; ~92k ASL tests; not yet a runnable backend |
-| **SMIR** | JIT on by default, auto-triggered, fail-safe (integer + memory hot regions native, bit-exact vs. KVM); RISC-V and Hexagon lifts complete |
+| **SMIR** | JIT on by default, auto-triggered, fail-safe (integer + memory hot regions native, bit-exact vs. KVM); RISC-V (incl. RVV) and Hexagon lifts complete |
 | **Platform** | Legacy PC devices wired; PCI host bridge + `--pci-devices` (e1000 `eth0`, AHCI/NVMe/UHCI/AC97); interactive console + full `.rxc` machine checkpoint/resume |
 
 ### What's missing
