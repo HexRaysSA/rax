@@ -45,9 +45,6 @@ fn build_ss(selector: u16, dpl: u8) -> Segment {
 
 /// SYSCALL (0x0F 0x05)
 pub fn syscall(vcpu: &mut X86_64Vcpu, ctx: &mut InsnContext) -> Result<Option<VcpuExit>> {
-    use std::sync::atomic::{AtomicUsize, Ordering};
-    static SYSCALL_COUNT: AtomicUsize = AtomicUsize::new(0);
-
     let in_long_mode = (vcpu.sregs.efer & EFER_LMA) != 0 && vcpu.sregs.cs.l;
     if !in_long_mode || (vcpu.sregs.efer & EFER_SCE) == 0 {
         return Err(Error::Emulator(
@@ -55,16 +52,21 @@ pub fn syscall(vcpu: &mut X86_64Vcpu, ctx: &mut InsnContext) -> Result<Option<Vc
         ));
     }
 
-    let _count = SYSCALL_COUNT.fetch_add(1, Ordering::Relaxed);
-
-    // Log fork/clone/vfork syscalls for debugging
-    let syscall_nr = vcpu.regs.rax;
-    if syscall_nr == 56 || syscall_nr == 57 || syscall_nr == 58 || syscall_nr == 435 {
-        // 56=clone, 57=fork, 58=vfork, 435=clone3
-        eprintln!(
-            "[FORK/CLONE] syscall={} (clone=56,fork=57,vfork=58,clone3=435) RIP={:#x}",
-            syscall_nr, vcpu.regs.rip
-        );
+    // Optional fork/clone/vfork tracing — opt-in via RAX_TRACE_FORK so it does
+    // not spam the guest console (the env read is cached after first use).
+    {
+        use std::sync::OnceLock;
+        static TRACE_FORK: OnceLock<bool> = OnceLock::new();
+        if *TRACE_FORK.get_or_init(|| std::env::var_os("RAX_TRACE_FORK").is_some()) {
+            let syscall_nr = vcpu.regs.rax;
+            if syscall_nr == 56 || syscall_nr == 57 || syscall_nr == 58 || syscall_nr == 435 {
+                // 56=clone, 57=fork, 58=vfork, 435=clone3
+                eprintln!(
+                    "[FORK/CLONE] syscall={} (clone=56,fork=57,vfork=58,clone3=435) RIP={:#x}",
+                    syscall_nr, vcpu.regs.rip
+                );
+            }
+        }
     }
 
     let next_rip = vcpu.regs.rip + ctx.cursor as u64;
