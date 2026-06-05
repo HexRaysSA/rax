@@ -1469,6 +1469,109 @@ fn neon_vrintx_vrintz_round_f32_and_f16_lanes() {
 }
 
 #[test]
+fn neon_directed_float_to_integer_conversions_round_f32_and_f16_lanes() {
+    let mut cpu = Armv7Cpu::new();
+    let mut mem = FlatMemory::new(0x1000, 0);
+    let pack_f32x2 =
+        |low: f32, high: f32| u64::from(high.to_bits()) << 32 | u64::from(low.to_bits());
+
+    assert_eq!(
+        Aarch32Decoder::decode(0xF3BB_0002).unwrap().mnemonic,
+        Mnemonic::VCVTN_S32_F32
+    );
+    assert_eq!(
+        Aarch32Decoder::decode(0xF3BB_0102).unwrap().mnemonic,
+        Mnemonic::VCVTP_S32_F32
+    );
+    assert_eq!(
+        Aarch32Decoder::decode(0xF3BB_0202).unwrap().mnemonic,
+        Mnemonic::VCVTM_S32_F32
+    );
+    assert_eq!(
+        Aarch32Decoder::decode(0xF3BB_0302).unwrap().mnemonic,
+        Mnemonic::VCVT_S32_F32
+    );
+    assert_eq!(
+        Aarch32Decoder::decode(0xF3BB_0082).unwrap().mnemonic,
+        Mnemonic::VCVTN_U32_F32
+    );
+    assert_eq!(
+        Aarch32Decoder::decode(0xF3B7_0002).unwrap().mnemonic,
+        Mnemonic::VCVTN_S32_F16
+    );
+    assert_eq!(
+        Aarch32Decoder::decode(0xF3B3_0002).unwrap().mnemonic,
+        Mnemonic::UNDEFINED
+    );
+    assert_eq!(
+        Aarch32Decoder::decode(0xF3BB_10C2).unwrap().mnemonic,
+        Mnemonic::UNDEFINED
+    );
+
+    cpu.vfp.write_d_bits(2, pack_f32x2(1.5, -2.5));
+    assert!(matches!(
+        exec_one(&mut cpu, &mut mem, 0xF3BB_0002),
+        ExecResult::Continue
+    ));
+    assert_eq!(cpu.vfp.read_d_bits(0), 0xffff_fffe_0000_0002);
+
+    cpu.vfp.write_d_bits(2, pack_f32x2(1.25, -2.25));
+    assert!(matches!(
+        exec_one(&mut cpu, &mut mem, 0xF3BB_0102),
+        ExecResult::Continue
+    ));
+    assert_eq!(cpu.vfp.read_d_bits(0), 0xffff_fffe_0000_0002);
+
+    cpu.vfp.write_d_bits(2, pack_f32x2(1.25, -2.25));
+    assert!(matches!(
+        exec_one(&mut cpu, &mut mem, 0xF3BB_0202),
+        ExecResult::Continue
+    ));
+    assert_eq!(cpu.vfp.read_d_bits(0), 0xffff_fffd_0000_0001);
+
+    cpu.vfp.write_d_bits(2, pack_f32x2(1.75, -2.75));
+    assert!(matches!(
+        exec_one(&mut cpu, &mut mem, 0xF3BB_0302),
+        ExecResult::Continue
+    ));
+    assert_eq!(cpu.vfp.read_d_bits(0), 0xffff_fffe_0000_0001);
+
+    cpu.vfp.fpscr.set_ioc(false);
+    cpu.vfp.write_d_bits(2, pack_f32x2(1.5, -2.5));
+    assert!(matches!(
+        exec_one(&mut cpu, &mut mem, 0xF3BB_0082),
+        ExecResult::Continue
+    ));
+    assert_eq!(cpu.vfp.read_d_bits(0), 0x0000_0000_0000_0002);
+    assert!(cpu.vfp.fpscr.ioc());
+
+    cpu.vfp.write_d_bits(2, 0xbe00_4100_c100_3e00);
+    assert!(matches!(
+        exec_one(&mut cpu, &mut mem, 0xF3B7_0002),
+        ExecResult::Continue
+    ));
+    assert_eq!(cpu.vfp.read_d_bits(0), 0xfffe_0002_fffe_0002);
+
+    cpu.vfp.fpscr.set_ioc(false);
+    cpu.vfp.write_d_bits(2, 0x4300_4100_c100_3e00);
+    assert!(matches!(
+        exec_one(&mut cpu, &mut mem, 0xF3B7_0082),
+        ExecResult::Continue
+    ));
+    assert_eq!(cpu.vfp.read_d_bits(0), 0x0004_0002_0000_0002);
+    assert!(cpu.vfp.fpscr.ioc());
+
+    cpu.vfp.write_d_bits(2, pack_f32x2(1.5, -2.5));
+    cpu.vfp.write_d_bits(3, pack_f32x2(3.5, -4.5));
+    assert!(matches!(
+        exec_one(&mut cpu, &mut mem, 0xF3BB_0042),
+        ExecResult::Continue
+    ));
+    assert_eq!(cpu.vfp.read_d_bits(0), 0xffff_fffe_0000_0002);
+    assert_eq!(cpu.vfp.read_d_bits(1), 0xffff_fffc_0000_0004);
+}
+
+#[test]
 fn scalar_half_precision_conversions_decode_and_preserve_halves() {
     let cases = [
         (0xEEB2_0A60, Mnemonic::VCVTB_F32_F16),

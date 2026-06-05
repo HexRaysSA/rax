@@ -117,6 +117,10 @@ impl Aarch32Decoder {
             return Ok(insn);
         }
 
+        if let Some(insn) = Self::decode_neon_directed_convert(raw) {
+            return Ok(insn);
+        }
+
         if let Some(insn) = Self::decode_neon_vdup_scalar(raw) {
             return Ok(insn);
         }
@@ -587,6 +591,56 @@ impl Aarch32Decoder {
             (0b000 | 0b001 | 0b010 | 0b011 | 0b101 | 0b111, 0b00 | 0b11) => {
                 Mnemonic::UNDEFINED
             }
+            _ => return None,
+        };
+
+        let q = ((raw >> 6) & 1) != 0;
+        let vd = (raw >> 12) & 0xF;
+        let vm = raw & 0xF;
+        if q && ((vd | vm) & 1) != 0 {
+            return Some(DecodedInsn::new(
+                Mnemonic::UNDEFINED,
+                ExecutionState::Aarch32,
+                raw,
+                4,
+            ));
+        }
+
+        Some(DecodedInsn::new(mnemonic, ExecutionState::Aarch32, raw, 4))
+    }
+
+    fn decode_neon_directed_convert(raw: u32) -> Option<DecodedInsn> {
+        if (raw >> 24) != 0xF3
+            || ((raw >> 23) & 1) != 1
+            || ((raw >> 21) & 1) != 1
+            || ((raw >> 20) & 1) != 1
+            || ((raw >> 16) & 0x3) != 0b11
+            || ((raw >> 10) & 0x3) != 0
+            || ((raw >> 4) & 1) != 0
+        {
+            return None;
+        }
+
+        let size = (raw >> 18) & 0x3;
+        let unsigned = ((raw >> 7) & 1) != 0;
+        let mnemonic = match ((raw >> 8) & 0x3, size, unsigned) {
+            (0b00, 0b01, false) => Mnemonic::VCVTN_S32_F16,
+            (0b00, 0b01, true) => Mnemonic::VCVTN_U32_F16,
+            (0b00, 0b10, false) => Mnemonic::VCVTN_S32_F32,
+            (0b00, 0b10, true) => Mnemonic::VCVTN_U32_F32,
+            (0b01, 0b01, false) => Mnemonic::VCVTP_S32_F16,
+            (0b01, 0b01, true) => Mnemonic::VCVTP_U32_F16,
+            (0b01, 0b10, false) => Mnemonic::VCVTP_S32_F32,
+            (0b01, 0b10, true) => Mnemonic::VCVTP_U32_F32,
+            (0b10, 0b01, false) => Mnemonic::VCVTM_S32_F16,
+            (0b10, 0b01, true) => Mnemonic::VCVTM_U32_F16,
+            (0b10, 0b10, false) => Mnemonic::VCVTM_S32_F32,
+            (0b10, 0b10, true) => Mnemonic::VCVTM_U32_F32,
+            (0b11, 0b01, false) => Mnemonic::VCVT_S32_F16,
+            (0b11, 0b01, true) => Mnemonic::VCVT_U32_F16,
+            (0b11, 0b10, false) => Mnemonic::VCVT_S32_F32,
+            (0b11, 0b10, true) => Mnemonic::VCVT_U32_F32,
+            (_, 0b00 | 0b11, _) => Mnemonic::UNDEFINED,
             _ => return None,
         };
 
