@@ -413,9 +413,8 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
             Mnemonic::VHADD | Mnemonic::VRHADD | Mnemonic::VHSUB => {
                 self.exec_neon_halving_add_sub(insn)
             }
-            Mnemonic::VCEQ | Mnemonic::VCGT | Mnemonic::VCGE => {
-                self.exec_neon_integer_compare(insn)
-            }
+            Mnemonic::VCEQ | Mnemonic::VCGT | Mnemonic::VCGE => self.exec_neon_compare(insn),
+            Mnemonic::VACGT | Mnemonic::VACGE => self.exec_neon_fp_compare(insn),
             Mnemonic::VQADD | Mnemonic::VQSUB => self.exec_neon_saturating_add_sub(insn),
             Mnemonic::VQDMULH | Mnemonic::VQRDMULH => self.exec_neon_saturating_doubling_mulh(insn),
             Mnemonic::VQABS | Mnemonic::VQNEG => self.exec_neon_saturating_abs_neg(insn),
@@ -4015,6 +4014,85 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
                 out.push(if condition { true_mask } else { 0 });
             }
             self.neon_write_vector_elements_u64(d + reg, 1, ebytes, &out);
+        }
+
+        ExecResult::Continue
+    }
+
+    fn exec_neon_compare(&mut self, insn: &DecodedInsn) -> ExecResult {
+        if (insn.raw >> 25) == 0b1111001
+            && ((insn.raw >> 23) & 1) == 0
+            && ((insn.raw >> 8) & 0xF) == 0b1110
+        {
+            return self.exec_neon_fp_compare(insn);
+        }
+
+        self.exec_neon_integer_compare(insn)
+    }
+
+    fn exec_neon_fp_compare(&mut self, insn: &DecodedInsn) -> ExecResult {
+        if !self.cpu.vfp.is_enabled() {
+            return ExecResult::Exception(ExceptionType::UndefinedInstruction);
+        }
+        if (insn.raw >> 25) != 0b1111001
+            || ((insn.raw >> 23) & 1) != 0
+            || ((insn.raw >> 8) & 0xF) != 0b1110
+        {
+            return ExecResult::Undefined;
+        }
+
+        let bit24 = (insn.raw >> 24) & 1;
+        let bit21 = (insn.raw >> 21) & 1;
+        let bit20 = (insn.raw >> 20) & 1;
+        let absolute = ((insn.raw >> 4) & 1) != 0;
+        match (insn.mnemonic, absolute, bit24, bit21, bit20) {
+            (Mnemonic::VCEQ, false, 0, 0, 0)
+            | (Mnemonic::VCGE, false, 1, 0, 0)
+            | (Mnemonic::VCGT, false, 1, 1, 0)
+            | (Mnemonic::VACGE, true, 1, 0, 0)
+            | (Mnemonic::VACGT, true, 1, 1, 0) => {}
+            _ => return ExecResult::Undefined,
+        }
+
+        let d_bit = ((insn.raw >> 22) & 1) as u8;
+        let vd = ((insn.raw >> 12) & 0xF) as u8;
+        let n_bit = ((insn.raw >> 7) & 1) as u8;
+        let vn = ((insn.raw >> 16) & 0xF) as u8;
+        let m_bit = ((insn.raw >> 5) & 1) as u8;
+        let vm = (insn.raw & 0xF) as u8;
+        let q = ((insn.raw >> 6) & 1) != 0;
+        let regs = if q { 2 } else { 1 };
+
+        let d = (d_bit << 4) | vd;
+        let n = (n_bit << 4) | vn;
+        let m = (m_bit << 4) | vm;
+        if q && ((d | n | m) & 1) != 0 {
+            return ExecResult::Undefined;
+        }
+        if d + regs > 32 || n + regs > 32 || m + regs > 32 {
+            return ExecResult::Undefined;
+        }
+
+        for reg in 0..regs {
+            let n_elements = self.neon_read_vector_elements_u64(n + reg, 1, 4);
+            let m_elements = self.neon_read_vector_elements_u64(m + reg, 1, 4);
+            let mut out = Vec::with_capacity(n_elements.len());
+            for (n_elem, m_elem) in n_elements.into_iter().zip(m_elements.into_iter()) {
+                let mut lhs = f32::from_bits(n_elem as u32);
+                let mut rhs = f32::from_bits(m_elem as u32);
+                if absolute {
+                    lhs = lhs.abs();
+                    rhs = rhs.abs();
+                }
+                let condition = match insn.mnemonic {
+                    Mnemonic::VCEQ => lhs == rhs,
+                    Mnemonic::VCGT | Mnemonic::VACGT => lhs > rhs,
+                    Mnemonic::VCGE | Mnemonic::VACGE => lhs >= rhs,
+                    _ => return ExecResult::Undefined,
+                };
+                out.push(if condition { u64::from(u32::MAX) } else { 0 });
+            }
+            self.neon_write_vector_elements_u64(d + reg, 1, 4, &out);
         }
 
         ExecResult::Continue
