@@ -4672,17 +4672,20 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
         if (insn.raw >> 23) != 0b111100111
             || ((insn.raw >> 20) & 0x3) != 0b11
             || ((insn.raw >> 16) & 0x3) != 0b11
-            || ((insn.raw >> 18) & 0x3) != 0b10
             || ((insn.raw >> 4) & 1) != 0
         {
             return ExecResult::Undefined;
         }
 
+        let size = (insn.raw >> 18) & 0x3;
         let fp = match ((insn.raw >> 7) & 0x1F, insn.mnemonic) {
             (0b01000, Mnemonic::VRECPE) | (0b01001, Mnemonic::VRSQRTE) => false,
             (0b01010, Mnemonic::VRECPE) | (0b01011, Mnemonic::VRSQRTE) => true,
             _ => return ExecResult::Undefined,
         };
+        if (!fp && size != 0b10) || (fp && !matches!(size, 0b01 | 0b10)) {
+            return ExecResult::Undefined;
+        }
 
         let d_bit = ((insn.raw >> 22) & 1) as u8;
         let vd = ((insn.raw >> 12) & 0xF) as u8;
@@ -4700,21 +4703,39 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
             return ExecResult::Undefined;
         }
 
+        let ebytes = if fp && size == 0b01 { 2 } else { 4 };
         for reg in 0..regs {
-            let elements = self.neon_read_vector_elements_u64(m + reg, 1, 4);
+            let elements = self.neon_read_vector_elements_u64(m + reg, 1, ebytes);
             let mut out = Vec::with_capacity(elements.len());
             for elem in elements {
-                let elem = elem as u32;
                 let result = match (insn.mnemonic, fp) {
-                    (Mnemonic::VRECPE, false) => Self::neon_unsigned_recip_estimate(elem),
-                    (Mnemonic::VRSQRTE, false) => Self::neon_unsigned_rsqrt_estimate(elem),
-                    (Mnemonic::VRECPE, true) => Self::neon_fp_recip_estimate_f32(elem),
-                    (Mnemonic::VRSQRTE, true) => Self::neon_fp_rsqrt_estimate_f32(elem),
+                    (Mnemonic::VRECPE, false) => {
+                        u64::from(Self::neon_unsigned_recip_estimate(elem as u32))
+                    }
+                    (Mnemonic::VRSQRTE, false) => {
+                        u64::from(Self::neon_unsigned_rsqrt_estimate(elem as u32))
+                    }
+                    (Mnemonic::VRECPE, true) if size == 0b01 => {
+                        let input = vcvt_f32_f16_bits(elem as u16).to_bits();
+                        let result = f32::from_bits(Self::neon_fp_recip_estimate_f32(input));
+                        u64::from(vcvt_f16_bits_f32(result, &mut self.cpu.vfp.fpscr))
+                    }
+                    (Mnemonic::VRSQRTE, true) if size == 0b01 => {
+                        let input = vcvt_f32_f16_bits(elem as u16).to_bits();
+                        let result = f32::from_bits(Self::neon_fp_rsqrt_estimate_f32(input));
+                        u64::from(vcvt_f16_bits_f32(result, &mut self.cpu.vfp.fpscr))
+                    }
+                    (Mnemonic::VRECPE, true) => {
+                        u64::from(Self::neon_fp_recip_estimate_f32(elem as u32))
+                    }
+                    (Mnemonic::VRSQRTE, true) => {
+                        u64::from(Self::neon_fp_rsqrt_estimate_f32(elem as u32))
+                    }
                     _ => return ExecResult::Undefined,
                 };
-                out.push(u64::from(result));
+                out.push(result);
             }
-            self.neon_write_vector_elements_u64(d + reg, 1, 4, &out);
+            self.neon_write_vector_elements_u64(d + reg, 1, ebytes, &out);
         }
 
         ExecResult::Continue

@@ -529,10 +529,14 @@ impl Aarch32Decoder {
         };
 
         let size = (raw >> 18) & 0x3;
+        let fp = matches!((raw >> 7) & 0x1F, 0b01010 | 0b01011);
         let q = ((raw >> 6) & 1) != 0;
         let vd = (raw >> 12) & 0xF;
         let vm = raw & 0xF;
-        if size != 0b10 || (q && ((vd | vm) & 1) != 0) {
+        if (!fp && size != 0b10)
+            || (fp && !matches!(size, 0b01 | 0b10))
+            || (q && ((vd | vm) & 1) != 0)
+        {
             return Some(DecodedInsn::new(
                 Mnemonic::UNDEFINED,
                 ExecutionState::Aarch32,
