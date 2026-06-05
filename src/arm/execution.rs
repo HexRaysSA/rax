@@ -28,6 +28,7 @@
 //! - Shift type 3 with imm5=0 means RRX, otherwise ROR
 
 use crate::arm::decoder::ShiftType;
+use crate::arm::vfp::VfpState;
 
 // =============================================================================
 // Flag Computation
@@ -630,6 +631,9 @@ pub struct Armv7Cpu {
     // Shifter output (set by shift operations)
     pub carry_out: bool,
     pub overflow: bool,
+
+    /// VFP/NEON register file and FP system registers.
+    pub vfp: VfpState,
 }
 
 impl Default for Armv7Cpu {
@@ -661,6 +665,7 @@ impl Armv7Cpu {
             is_halted: false,
             carry_out: false,
             overflow: false,
+            vfp: VfpState::new(),
         };
         // Start in Supervisor mode with IRQ/FIQ disabled
         cpu.cpsr.mode = ProcessorMode::Supervisor as u8;

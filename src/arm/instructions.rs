@@ -27,6 +27,26 @@ use crate::arm::execution::{
     add_with_carry, compute_n_flag, compute_z_flag, condition_passed, expand_imm_c, shift_c,
     sign_extend, ArmMemory, Armv7Cpu, MemoryError, ProcessorMode, Psr,
 };
+use crate::arm::vfp::{
+    vabs_f16_bits, vabs_f32, vabs_f64, vadd_f16_bits, vadd_f32, vadd_f64,
+    vcmp_f16_bits_with_exception, vcmp_f32_with_exception, vcmp_f64_with_exception,
+    vdiv_f16_bits, vdiv_f32, vdiv_f64, vcvt_f16_bits_f32, vcvt_f32_f16_bits,
+    vcvt_f32_f64, vcvt_f32_s32,
+    vcvt_f32_s32_fixed, vcvt_f32_u32, vcvt_f32_u32_fixed, vcvt_f64_f32, vcvt_f64_s32,
+    vcvt_f64_s32_fixed, vcvt_f64_u32, vcvt_f64_u32_fixed, vcvt_s32_f32,
+    vcvt_s32_f32_fixed, vcvt_s32_f64, vcvt_s32_f64_fixed, vcvt_u32_f32,
+    vcvt_u32_f32_fixed, vcvt_u32_f64, vcvt_u32_f64_fixed, vcvtr_s32_f32,
+    vcvtr_s32_f64, vcvtr_u32_f32, vcvtr_u32_f64, vfma_f16_bits, vfma_f32, vfma_f64,
+    vfms_f16_bits, vfms_f32, vfms_f64, vfnma_f16_bits, vfnma_f32, vfnma_f64,
+    vfnms_f16_bits, vfnms_f32, vfnms_f64, vmla_f16_bits, vmla_f32, vmla_f64,
+    vmls_f16_bits, vmls_f32, vmls_f64, vmaxnm_f32, vmaxnm_f64, vminnm_f32, vminnm_f64,
+    vmul_f16_bits, vmul_f32, vmul_f64, vneg_f16_bits, vneg_f32, vneg_f64,
+    vnmla_f16_bits, vnmla_f32, vnmla_f64, vnmls_f16_bits, vnmls_f32, vnmls_f64,
+    vnmul_f16_bits, vnmul_f32, vnmul_f64, vrint_f32, vrint_f64, vsqrt_f16_bits,
+    vsqrt_f32, vsqrt_f64, vsub_f16_bits, vsub_f32, vsub_f64,
+    vfp_expand_imm_f32, vfp_expand_imm_f64, Fpscr, RoundingMode, vcvt_s32_f32_round,
+    vcvt_s32_f64_round, vcvt_u32_f32_round, vcvt_u32_f64_round,
+};
 
 /// Result of instruction execution.
 #[derive(Clone, Debug)]
@@ -306,6 +326,93 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
             // Coprocessor
             Mnemonic::MCR => self.exec_mcr(insn),
             Mnemonic::MRC => self.exec_mrc(insn),
+            Mnemonic::VMSR => self.exec_mcr(insn),
+            Mnemonic::VMRS => self.exec_mrc(insn),
+            Mnemonic::VLDR => self.exec_vldr(insn),
+            Mnemonic::VSTR => self.exec_vstr(insn),
+            Mnemonic::VLDM | Mnemonic::VPOP => self.exec_vldm(insn),
+            Mnemonic::VSTM | Mnemonic::VPUSH => self.exec_vstm(insn),
+            Mnemonic::VMOV => self.exec_vmov(insn),
+            Mnemonic::VADD => self.exec_vfp_binop(insn),
+            Mnemonic::VSUB => self.exec_vfp_binop(insn),
+            Mnemonic::VMUL => self.exec_vfp_binop(insn),
+            Mnemonic::VDIV => self.exec_vfp_binop(insn),
+            Mnemonic::VNMUL => self.exec_vfp_binop(insn),
+            Mnemonic::VMAXNM_F32
+            | Mnemonic::VMAXNM_F64
+            | Mnemonic::VMINNM_F32
+            | Mnemonic::VMINNM_F64 => self.exec_vfp_binop(insn),
+            Mnemonic::VSELEQ | Mnemonic::VSELGE | Mnemonic::VSELGT | Mnemonic::VSELVS => {
+                self.exec_vsel(insn)
+            }
+            Mnemonic::VMLA
+            | Mnemonic::VMLS
+            | Mnemonic::VFMA
+            | Mnemonic::VFMS
+            | Mnemonic::VNMLA
+            | Mnemonic::VNMLS
+            | Mnemonic::VFNMA
+            | Mnemonic::VFNMS => self.exec_vfp_accop(insn),
+            Mnemonic::VABS => self.exec_vfp_unop(insn),
+            Mnemonic::VNEG => self.exec_vfp_unop(insn),
+            Mnemonic::VSQRT => self.exec_vfp_unop(insn),
+            Mnemonic::VRINTA_F32
+            | Mnemonic::VRINTA_F64
+            | Mnemonic::VRINTM_F32
+            | Mnemonic::VRINTM_F64
+            | Mnemonic::VRINTN_F32
+            | Mnemonic::VRINTN_F64
+            | Mnemonic::VRINTP_F32
+            | Mnemonic::VRINTP_F64
+            | Mnemonic::VRINTR_F32
+            | Mnemonic::VRINTR_F64
+            | Mnemonic::VRINTX_F32
+            | Mnemonic::VRINTX_F64
+            | Mnemonic::VRINTZ_F32
+            | Mnemonic::VRINTZ_F64 => self.exec_vrint(insn),
+            Mnemonic::VCMP | Mnemonic::VCMPE => self.exec_vcmp(insn),
+            Mnemonic::VCVT_F32_S32
+            | Mnemonic::VCVT_F32_U32
+            | Mnemonic::VCVT_S32_F32
+            | Mnemonic::VCVT_U32_F32
+            | Mnemonic::VCVT_F64_S32
+            | Mnemonic::VCVT_F64_U32
+            | Mnemonic::VCVT_S32_F64
+            | Mnemonic::VCVT_U32_F64
+            | Mnemonic::VCVT_F64_F32
+            | Mnemonic::VCVT_F32_F64
+            | Mnemonic::VCVTB_F32_F16
+            | Mnemonic::VCVTT_F32_F16
+            | Mnemonic::VCVTB_F16_F32
+            | Mnemonic::VCVTT_F16_F32
+            | Mnemonic::VCVT_F32_S32_FIXED
+            | Mnemonic::VCVT_F32_U32_FIXED
+            | Mnemonic::VCVT_S32_F32_FIXED
+            | Mnemonic::VCVT_U32_F32_FIXED
+            | Mnemonic::VCVT_F64_S32_FIXED
+            | Mnemonic::VCVT_F64_U32_FIXED
+            | Mnemonic::VCVT_S32_F64_FIXED
+            | Mnemonic::VCVT_U32_F64_FIXED
+            | Mnemonic::VCVTA_S32_F32
+            | Mnemonic::VCVTA_U32_F32
+            | Mnemonic::VCVTA_S32_F64
+            | Mnemonic::VCVTA_U32_F64
+            | Mnemonic::VCVTM_S32_F32
+            | Mnemonic::VCVTM_U32_F32
+            | Mnemonic::VCVTM_S32_F64
+            | Mnemonic::VCVTM_U32_F64
+            | Mnemonic::VCVTN_S32_F32
+            | Mnemonic::VCVTN_U32_F32
+            | Mnemonic::VCVTN_S32_F64
+            | Mnemonic::VCVTN_U32_F64
+            | Mnemonic::VCVTP_S32_F32
+            | Mnemonic::VCVTP_U32_F32
+            | Mnemonic::VCVTP_S32_F64
+            | Mnemonic::VCVTP_U32_F64
+            | Mnemonic::VCVTR_S32_F32
+            | Mnemonic::VCVTR_U32_F32
+            | Mnemonic::VCVTR_S32_F64
+            | Mnemonic::VCVTR_U32_F64 => self.exec_vcvt(insn),
 
             // Bit manipulation
             Mnemonic::CLZ => self.exec_clz(insn),
@@ -1704,11 +1811,29 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
 
     fn exec_mcr(&mut self, insn: &DecodedInsn) -> ExecResult {
         let t = ((insn.raw >> 12) & 0xF) as usize;
-        let _cp = ((insn.raw >> 8) & 0xF) as u8;
-        let _opc1 = ((insn.raw >> 21) & 7) as u8;
-        let _crn = ((insn.raw >> 16) & 0xF) as u8;
-        let _crm = (insn.raw & 0xF) as u8;
-        let _opc2 = ((insn.raw >> 5) & 7) as u8;
+        let cp = ((insn.raw >> 8) & 0xF) as u8;
+        let opc1 = ((insn.raw >> 21) & 7) as u8;
+        let reg = ((insn.raw >> 16) & 0xF) as u8;
+
+        if cp == 10 && opc1 == 0b111 {
+            let value = self.reg(t);
+            return match reg {
+                0 => ExecResult::Continue,
+                1 => {
+                    if !self.cpu.vfp.is_enabled() {
+                        ExecResult::Exception(ExceptionType::UndefinedInstruction)
+                    } else {
+                        self.cpu.vfp.fpscr = Fpscr::from_bits(value);
+                        ExecResult::Continue
+                    }
+                }
+                8 => {
+                    self.cpu.vfp.fpexc = value;
+                    ExecResult::Continue
+                }
+                _ => ExecResult::Undefined,
+            };
+        }
 
         // For now, just consume the value (would write to coprocessor)
         let _value = self.reg(t);
@@ -1718,11 +1843,35 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
 
     fn exec_mrc(&mut self, insn: &DecodedInsn) -> ExecResult {
         let t = ((insn.raw >> 12) & 0xF) as usize;
-        let _cp = ((insn.raw >> 8) & 0xF) as u8;
-        let _opc1 = ((insn.raw >> 21) & 7) as u8;
-        let _crn = ((insn.raw >> 16) & 0xF) as u8;
-        let _crm = (insn.raw & 0xF) as u8;
-        let _opc2 = ((insn.raw >> 5) & 7) as u8;
+        let cp = ((insn.raw >> 8) & 0xF) as u8;
+        let opc1 = ((insn.raw >> 21) & 7) as u8;
+        let reg = ((insn.raw >> 16) & 0xF) as u8;
+
+        if cp == 10 && opc1 == 0b111 {
+            let value = match reg {
+                0 => 0,
+                1 => {
+                    if !self.cpu.vfp.is_enabled() {
+                        return ExecResult::Exception(ExceptionType::UndefinedInstruction);
+                    }
+                    self.cpu.vfp.fpscr.bits()
+                }
+                5 => self.cpu.vfp.mvfr2,
+                6 => self.cpu.vfp.mvfr1,
+                7 => self.cpu.vfp.mvfr0,
+                8 => self.cpu.vfp.fpexc,
+                _ => return ExecResult::Undefined,
+            };
+            if t == 15 && reg == 1 {
+                self.cpu.cpsr.n = (value & (1 << 31)) != 0;
+                self.cpu.cpsr.z = (value & (1 << 30)) != 0;
+                self.cpu.cpsr.c = (value & (1 << 29)) != 0;
+                self.cpu.cpsr.v = (value & (1 << 28)) != 0;
+            } else if t != 15 {
+                self.cpu.regs[t] = value;
+            }
+            return ExecResult::Continue;
+        }
 
         // For now, return 0 (would read from coprocessor)
         if t != 15 {
@@ -1730,6 +1879,971 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
         }
 
         ExecResult::Continue
+    }
+
+    fn exec_vldr(&mut self, insn: &DecodedInsn) -> ExecResult {
+        if !self.cpu.vfp.is_enabled() {
+            return ExecResult::Exception(ExceptionType::UndefinedInstruction);
+        }
+        let Some((addr, size, d)) = self.decode_vfp_mem(insn) else {
+            return ExecResult::Undefined;
+        };
+        match size {
+            32 => match self.mem.read_word(addr) {
+                Ok(bits) => {
+                    self.cpu.vfp.write_s_bits(d, bits);
+                    ExecResult::Continue
+                }
+                Err(e) => ExecResult::MemoryFault(e),
+            },
+            64 => {
+                let lo = match self.mem.read_word(addr) {
+                    Ok(v) => v,
+                    Err(e) => return ExecResult::MemoryFault(e),
+                };
+                let hi = match self.mem.read_word(addr.wrapping_add(4)) {
+                    Ok(v) => v,
+                    Err(e) => return ExecResult::MemoryFault(e),
+                };
+                self.cpu.vfp.write_d_bits(d, ((hi as u64) << 32) | lo as u64);
+                ExecResult::Continue
+            }
+            _ => ExecResult::Undefined,
+        }
+    }
+
+    fn exec_vstr(&mut self, insn: &DecodedInsn) -> ExecResult {
+        if !self.cpu.vfp.is_enabled() {
+            return ExecResult::Exception(ExceptionType::UndefinedInstruction);
+        }
+        let Some((addr, size, d)) = self.decode_vfp_mem(insn) else {
+            return ExecResult::Undefined;
+        };
+        match size {
+            32 => match self.mem.write_word(addr, self.cpu.vfp.read_s_bits(d)) {
+                Ok(()) => ExecResult::Continue,
+                Err(e) => ExecResult::MemoryFault(e),
+            },
+            64 => {
+                let bits = self.cpu.vfp.read_d_bits(d);
+                if let Err(e) = self.mem.write_word(addr, bits as u32) {
+                    return ExecResult::MemoryFault(e);
+                }
+                if let Err(e) = self.mem.write_word(addr.wrapping_add(4), (bits >> 32) as u32) {
+                    return ExecResult::MemoryFault(e);
+                }
+                ExecResult::Continue
+            }
+            _ => ExecResult::Undefined,
+        }
+    }
+
+    fn exec_vldm(&mut self, insn: &DecodedInsn) -> ExecResult {
+        if !self.cpu.vfp.is_enabled() {
+            return ExecResult::Exception(ExceptionType::UndefinedInstruction);
+        }
+        let Some((addr, final_addr, size, first, count, writeback, rn)) =
+            self.decode_vfp_block_mem(insn)
+        else {
+            return ExecResult::Undefined;
+        };
+
+        let mut current = addr;
+        for index in 0..count {
+            let reg = first.wrapping_add(index);
+            match size {
+                32 => {
+                    let bits = match self.mem.read_word(current) {
+                        Ok(v) => v,
+                        Err(e) => return ExecResult::MemoryFault(e),
+                    };
+                    self.cpu.vfp.write_s_bits(reg, bits);
+                    current = current.wrapping_add(4);
+                }
+                64 => {
+                    let lo = match self.mem.read_word(current) {
+                        Ok(v) => v,
+                        Err(e) => return ExecResult::MemoryFault(e),
+                    };
+                    let hi = match self.mem.read_word(current.wrapping_add(4)) {
+                        Ok(v) => v,
+                        Err(e) => return ExecResult::MemoryFault(e),
+                    };
+                    self.cpu.vfp.write_d_bits(reg, ((hi as u64) << 32) | lo as u64);
+                    current = current.wrapping_add(8);
+                }
+                _ => return ExecResult::Undefined,
+            }
+        }
+
+        if writeback {
+            self.cpu.regs[rn] = final_addr;
+        }
+        ExecResult::Continue
+    }
+
+    fn exec_vstm(&mut self, insn: &DecodedInsn) -> ExecResult {
+        if !self.cpu.vfp.is_enabled() {
+            return ExecResult::Exception(ExceptionType::UndefinedInstruction);
+        }
+        let Some((addr, final_addr, size, first, count, writeback, rn)) =
+            self.decode_vfp_block_mem(insn)
+        else {
+            return ExecResult::Undefined;
+        };
+
+        let mut current = addr;
+        for index in 0..count {
+            let reg = first.wrapping_add(index);
+            match size {
+                32 => {
+                    if let Err(e) = self.mem.write_word(current, self.cpu.vfp.read_s_bits(reg)) {
+                        return ExecResult::MemoryFault(e);
+                    }
+                    current = current.wrapping_add(4);
+                }
+                64 => {
+                    let bits = self.cpu.vfp.read_d_bits(reg);
+                    if let Err(e) = self.mem.write_word(current, bits as u32) {
+                        return ExecResult::MemoryFault(e);
+                    }
+                    if let Err(e) =
+                        self.mem.write_word(current.wrapping_add(4), (bits >> 32) as u32)
+                    {
+                        return ExecResult::MemoryFault(e);
+                    }
+                    current = current.wrapping_add(8);
+                }
+                _ => return ExecResult::Undefined,
+            }
+        }
+
+        if writeback {
+            self.cpu.regs[rn] = final_addr;
+        }
+        ExecResult::Continue
+    }
+
+    fn exec_vmov(&mut self, insn: &DecodedInsn) -> ExecResult {
+        if !self.cpu.vfp.is_enabled() {
+            return ExecResult::Exception(ExceptionType::UndefinedInstruction);
+        }
+        if ((insn.raw >> 4) & 1) == 1
+            && matches!((insn.raw >> 8) & 0xF, 0b1010 | 0b1011)
+            && ((insn.raw >> 21) & 0x7) == 0b010
+            && (insn.raw & 0xC0) == 0
+        {
+            let rt = ((insn.raw >> 12) & 0xF) as usize;
+            let rt2 = ((insn.raw >> 16) & 0xF) as usize;
+            if rt == 15 || rt2 == 15 {
+                return ExecResult::Undefined;
+            }
+            let coproc = (insn.raw >> 8) & 0xF;
+            let to_core = ((insn.raw >> 20) & 1) == 1;
+            if coproc == 0b1010 {
+                let sreg = ((insn.raw & 0xF) as u8) << 1;
+                if to_core {
+                    self.cpu.regs[rt] = self.cpu.vfp.read_s_bits(sreg);
+                    self.cpu.regs[rt2] = self.cpu.vfp.read_s_bits(sreg + 1);
+                } else {
+                    let lo = self.reg(rt);
+                    let hi = self.reg(rt2);
+                    self.cpu.vfp.write_s_bits(sreg, lo);
+                    self.cpu.vfp.write_s_bits(sreg + 1, hi);
+                }
+            } else {
+                let dreg = (((insn.raw >> 5) & 1) << 4) as u8 | (insn.raw & 0xF) as u8;
+                if to_core {
+                    let bits = self.cpu.vfp.read_d_bits(dreg);
+                    self.cpu.regs[rt] = bits as u32;
+                    self.cpu.regs[rt2] = (bits >> 32) as u32;
+                } else {
+                    let bits = (self.reg(rt) as u64) | ((self.reg(rt2) as u64) << 32);
+                    self.cpu.vfp.write_d_bits(dreg, bits);
+                }
+            }
+            return ExecResult::Continue;
+        }
+        if ((insn.raw >> 4) & 1) == 1 && matches!((insn.raw >> 8) & 0xF, 0b1010 | 0b1011) {
+            let rt = ((insn.raw >> 12) & 0xF) as usize;
+            if rt == 15 {
+                return ExecResult::Undefined;
+            }
+            let to_core = ((insn.raw >> 20) & 1) == 1;
+            let coproc = (insn.raw >> 8) & 0xF;
+            let opc1 = ((insn.raw >> 21) & 0x3) as u8;
+            let opc2 = ((insn.raw >> 5) & 0x3) as u8;
+            if opc2 != 0 || (opc1 & 0b10) != 0 {
+                return ExecResult::Undefined;
+            }
+            let v = ((insn.raw >> 16) & 0xF) as u8;
+            if coproc == 0b1010 {
+                if opc1 != 0 || (insn.raw & 0xF) != 0 {
+                    return ExecResult::Undefined;
+                }
+                let sreg = (v << 1) | (((insn.raw >> 7) & 1) as u8);
+                if to_core {
+                    self.cpu.regs[rt] = self.cpu.vfp.read_s_bits(sreg);
+                } else {
+                    let value = self.reg(rt);
+                    self.cpu.vfp.write_s_bits(sreg, value);
+                }
+            } else {
+                let dreg = ((((insn.raw >> 7) & 1) << 4) as u8) | v;
+                let lane_shift = ((opc1 & 1) as u64) * 32;
+                if to_core {
+                    self.cpu.regs[rt] = (self.cpu.vfp.read_d_bits(dreg) >> lane_shift) as u32;
+                } else {
+                    let lane_mask = 0xFFFF_FFFFu64 << lane_shift;
+                    let old = self.cpu.vfp.read_d_bits(dreg);
+                    let value = (self.reg(rt) as u64) << lane_shift;
+                    self.cpu.vfp.write_d_bits(dreg, (old & !lane_mask) | value);
+                }
+            }
+            return ExecResult::Continue;
+        }
+
+        if ((insn.raw >> 4) & 1) == 0
+            && ((insn.raw >> 23) & 1) == 1
+            && ((insn.raw >> 21) & 1) == 1
+            && ((insn.raw >> 20) & 1) == 1
+            && ((insn.raw >> 7) & 1) == 0
+            && ((insn.raw >> 6) & 1) == 0
+        {
+            let size = (insn.raw >> 8) & 0x3;
+            let vd = ((insn.raw >> 12) & 0xF) as u8;
+            let d_bit = ((insn.raw >> 22) & 1) as u8;
+            let imm8 = ((((insn.raw >> 16) & 0xF) << 4) | (insn.raw & 0xF)) as u8;
+            return match size {
+                2 => {
+                    self.cpu
+                        .vfp
+                        .write_s_bits((vd << 1) | d_bit, vfp_expand_imm_f32(imm8));
+                    ExecResult::Continue
+                }
+                3 => {
+                    self.cpu
+                        .vfp
+                        .write_d_bits((d_bit << 4) | vd, vfp_expand_imm_f64(imm8));
+                    ExecResult::Continue
+                }
+                _ => ExecResult::Undefined,
+            };
+        }
+
+        let Some((d, m, size)) = self.decode_vfp_unary_regs(insn) else {
+            return ExecResult::Undefined;
+        };
+        match size {
+            32 => {
+                let bits = self.cpu.vfp.read_s_bits(m);
+                self.cpu.vfp.write_s_bits(d, bits);
+            }
+            64 => {
+                let bits = self.cpu.vfp.read_d_bits(m);
+                self.cpu.vfp.write_d_bits(d, bits);
+            }
+            _ => return ExecResult::Undefined,
+        }
+        ExecResult::Continue
+    }
+
+    fn exec_vfp_binop(&mut self, insn: &DecodedInsn) -> ExecResult {
+        if !self.cpu.vfp.is_enabled() {
+            return ExecResult::Exception(ExceptionType::UndefinedInstruction);
+        }
+        let Some((d, n, m, size)) = self.decode_vfp_ternary_regs(insn) else {
+            return ExecResult::Undefined;
+        };
+        match size {
+            16 => {
+                let n_val = self.cpu.vfp.read_h_bits(n);
+                let m_val = self.cpu.vfp.read_h_bits(m);
+                let fpscr = &mut self.cpu.vfp.fpscr;
+                let result = match insn.mnemonic {
+                    Mnemonic::VADD => vadd_f16_bits(n_val, m_val, fpscr),
+                    Mnemonic::VSUB => vsub_f16_bits(n_val, m_val, fpscr),
+                    Mnemonic::VMUL => vmul_f16_bits(n_val, m_val, fpscr),
+                    Mnemonic::VDIV => vdiv_f16_bits(n_val, m_val, fpscr),
+                    Mnemonic::VNMUL => vnmul_f16_bits(n_val, m_val, fpscr),
+                    _ => return ExecResult::Undefined,
+                };
+                self.cpu.vfp.write_h_bits(d, result);
+            }
+            32 => {
+                let n_val = self.cpu.vfp.read_s(n);
+                let m_val = self.cpu.vfp.read_s(m);
+                let fpscr = &mut self.cpu.vfp.fpscr;
+                let result = match insn.mnemonic {
+                    Mnemonic::VADD => vadd_f32(n_val, m_val, fpscr),
+                    Mnemonic::VSUB => vsub_f32(n_val, m_val, fpscr),
+                    Mnemonic::VMUL => vmul_f32(n_val, m_val, fpscr),
+                    Mnemonic::VDIV => vdiv_f32(n_val, m_val, fpscr),
+                    Mnemonic::VNMUL => vnmul_f32(n_val, m_val, fpscr),
+                    Mnemonic::VMAXNM_F32 => vmaxnm_f32(n_val, m_val, fpscr),
+                    Mnemonic::VMINNM_F32 => vminnm_f32(n_val, m_val, fpscr),
+                    _ => return ExecResult::Undefined,
+                };
+                self.cpu.vfp.write_s(d, result);
+            }
+            64 => {
+                let n_val = self.cpu.vfp.read_d(n);
+                let m_val = self.cpu.vfp.read_d(m);
+                let fpscr = &mut self.cpu.vfp.fpscr;
+                let result = match insn.mnemonic {
+                    Mnemonic::VADD => vadd_f64(n_val, m_val, fpscr),
+                    Mnemonic::VSUB => vsub_f64(n_val, m_val, fpscr),
+                    Mnemonic::VMUL => vmul_f64(n_val, m_val, fpscr),
+                    Mnemonic::VDIV => vdiv_f64(n_val, m_val, fpscr),
+                    Mnemonic::VNMUL => vnmul_f64(n_val, m_val, fpscr),
+                    Mnemonic::VMAXNM_F64 => vmaxnm_f64(n_val, m_val, fpscr),
+                    Mnemonic::VMINNM_F64 => vminnm_f64(n_val, m_val, fpscr),
+                    _ => return ExecResult::Undefined,
+                };
+                self.cpu.vfp.write_d(d, result);
+            }
+            _ => return ExecResult::Undefined,
+        }
+        ExecResult::Continue
+    }
+
+    fn exec_vsel(&mut self, insn: &DecodedInsn) -> ExecResult {
+        if !self.cpu.vfp.is_enabled() {
+            return ExecResult::Exception(ExceptionType::UndefinedInstruction);
+        }
+        let Some((d, n, m, size)) = self.decode_vfp_cond_select_regs(insn) else {
+            return ExecResult::Undefined;
+        };
+        let fpscr = &self.cpu.vfp.fpscr;
+        let take_n = match insn.mnemonic {
+            Mnemonic::VSELEQ => fpscr.z(),
+            Mnemonic::VSELVS => fpscr.v(),
+            Mnemonic::VSELGE => fpscr.n() == fpscr.v(),
+            Mnemonic::VSELGT => !fpscr.z() && fpscr.n() == fpscr.v(),
+            _ => return ExecResult::Undefined,
+        };
+
+        match size {
+            16 => {
+                let value = if take_n {
+                    self.cpu.vfp.read_h_bits(n)
+                } else {
+                    self.cpu.vfp.read_h_bits(m)
+                };
+                self.cpu.vfp.write_h_bits(d, value);
+            }
+            32 => {
+                let value = if take_n {
+                    self.cpu.vfp.read_s_bits(n)
+                } else {
+                    self.cpu.vfp.read_s_bits(m)
+                };
+                self.cpu.vfp.write_s_bits(d, value);
+            }
+            64 => {
+                let value = if take_n {
+                    self.cpu.vfp.read_d_bits(n)
+                } else {
+                    self.cpu.vfp.read_d_bits(m)
+                };
+                self.cpu.vfp.write_d_bits(d, value);
+            }
+            _ => return ExecResult::Undefined,
+        }
+
+        ExecResult::Continue
+    }
+
+    fn exec_vfp_accop(&mut self, insn: &DecodedInsn) -> ExecResult {
+        if !self.cpu.vfp.is_enabled() {
+            return ExecResult::Exception(ExceptionType::UndefinedInstruction);
+        }
+        let Some((d, n, m, size)) = self.decode_vfp_ternary_regs(insn) else {
+            return ExecResult::Undefined;
+        };
+        match size {
+            16 => {
+                let acc = self.cpu.vfp.read_h_bits(d);
+                let n_val = self.cpu.vfp.read_h_bits(n);
+                let m_val = self.cpu.vfp.read_h_bits(m);
+                let fpscr = &mut self.cpu.vfp.fpscr;
+                let result = match insn.mnemonic {
+                    Mnemonic::VMLA => vmla_f16_bits(acc, n_val, m_val, fpscr),
+                    Mnemonic::VMLS => vmls_f16_bits(acc, n_val, m_val, fpscr),
+                    Mnemonic::VFMA => vfma_f16_bits(acc, n_val, m_val, fpscr),
+                    Mnemonic::VFMS => vfms_f16_bits(acc, n_val, m_val, fpscr),
+                    Mnemonic::VNMLA => vnmla_f16_bits(acc, n_val, m_val, fpscr),
+                    Mnemonic::VNMLS => vnmls_f16_bits(acc, n_val, m_val, fpscr),
+                    Mnemonic::VFNMA => vfnma_f16_bits(acc, n_val, m_val, fpscr),
+                    Mnemonic::VFNMS => vfnms_f16_bits(acc, n_val, m_val, fpscr),
+                    _ => return ExecResult::Undefined,
+                };
+                self.cpu.vfp.write_h_bits(d, result);
+            }
+            32 => {
+                let acc = self.cpu.vfp.read_s(d);
+                let n_val = self.cpu.vfp.read_s(n);
+                let m_val = self.cpu.vfp.read_s(m);
+                let fpscr = &mut self.cpu.vfp.fpscr;
+                let result = match insn.mnemonic {
+                    Mnemonic::VMLA => vmla_f32(acc, n_val, m_val, fpscr),
+                    Mnemonic::VMLS => vmls_f32(acc, n_val, m_val, fpscr),
+                    Mnemonic::VFMA => vfma_f32(acc, n_val, m_val, fpscr),
+                    Mnemonic::VFMS => vfms_f32(acc, n_val, m_val, fpscr),
+                    Mnemonic::VNMLA => vnmla_f32(acc, n_val, m_val, fpscr),
+                    Mnemonic::VNMLS => vnmls_f32(acc, n_val, m_val, fpscr),
+                    Mnemonic::VFNMA => vfnma_f32(acc, n_val, m_val, fpscr),
+                    Mnemonic::VFNMS => vfnms_f32(acc, n_val, m_val, fpscr),
+                    _ => return ExecResult::Undefined,
+                };
+                self.cpu.vfp.write_s(d, result);
+            }
+            64 => {
+                let acc = self.cpu.vfp.read_d(d);
+                let n_val = self.cpu.vfp.read_d(n);
+                let m_val = self.cpu.vfp.read_d(m);
+                let fpscr = &mut self.cpu.vfp.fpscr;
+                let result = match insn.mnemonic {
+                    Mnemonic::VMLA => vmla_f64(acc, n_val, m_val, fpscr),
+                    Mnemonic::VMLS => vmls_f64(acc, n_val, m_val, fpscr),
+                    Mnemonic::VFMA => vfma_f64(acc, n_val, m_val, fpscr),
+                    Mnemonic::VFMS => vfms_f64(acc, n_val, m_val, fpscr),
+                    Mnemonic::VNMLA => vnmla_f64(acc, n_val, m_val, fpscr),
+                    Mnemonic::VNMLS => vnmls_f64(acc, n_val, m_val, fpscr),
+                    Mnemonic::VFNMA => vfnma_f64(acc, n_val, m_val, fpscr),
+                    Mnemonic::VFNMS => vfnms_f64(acc, n_val, m_val, fpscr),
+                    _ => return ExecResult::Undefined,
+                };
+                self.cpu.vfp.write_d(d, result);
+            }
+            _ => return ExecResult::Undefined,
+        }
+        ExecResult::Continue
+    }
+
+    fn exec_vfp_unop(&mut self, insn: &DecodedInsn) -> ExecResult {
+        if !self.cpu.vfp.is_enabled() {
+            return ExecResult::Exception(ExceptionType::UndefinedInstruction);
+        }
+        let Some((d, m, size)) = self.decode_vfp_unary_regs(insn) else {
+            return ExecResult::Undefined;
+        };
+        match size {
+            16 => {
+                let m_val = self.cpu.vfp.read_h_bits(m);
+                let result = match insn.mnemonic {
+                    Mnemonic::VABS => vabs_f16_bits(m_val),
+                    Mnemonic::VNEG => vneg_f16_bits(m_val),
+                    Mnemonic::VSQRT => vsqrt_f16_bits(m_val, &mut self.cpu.vfp.fpscr),
+                    _ => return ExecResult::Undefined,
+                };
+                self.cpu.vfp.write_h_bits(d, result);
+            }
+            32 => {
+                let m_val = self.cpu.vfp.read_s(m);
+                let result = match insn.mnemonic {
+                    Mnemonic::VABS => vabs_f32(m_val),
+                    Mnemonic::VNEG => vneg_f32(m_val),
+                    Mnemonic::VSQRT => vsqrt_f32(m_val, &mut self.cpu.vfp.fpscr),
+                    _ => return ExecResult::Undefined,
+                };
+                self.cpu.vfp.write_s(d, result);
+            }
+            64 => {
+                let m_val = self.cpu.vfp.read_d(m);
+                let result = match insn.mnemonic {
+                    Mnemonic::VABS => vabs_f64(m_val),
+                    Mnemonic::VNEG => vneg_f64(m_val),
+                    Mnemonic::VSQRT => vsqrt_f64(m_val, &mut self.cpu.vfp.fpscr),
+                    _ => return ExecResult::Undefined,
+                };
+                self.cpu.vfp.write_d(d, result);
+            }
+            _ => return ExecResult::Undefined,
+        }
+        ExecResult::Continue
+    }
+
+    fn exec_vrint(&mut self, insn: &DecodedInsn) -> ExecResult {
+        if !self.cpu.vfp.is_enabled() {
+            return ExecResult::Exception(ExceptionType::UndefinedInstruction);
+        }
+        let Some((d, m, size)) = self.decode_vfp_unary_regs(insn) else {
+            return ExecResult::Undefined;
+        };
+        let Some((mode, exact)) = self.vrint_rounding(insn.mnemonic) else {
+            return ExecResult::Undefined;
+        };
+
+        match size {
+            32 => {
+                let value = self.cpu.vfp.read_s(m);
+                let result = vrint_f32(value, mode, exact, &mut self.cpu.vfp.fpscr);
+                self.cpu.vfp.write_s(d, result);
+            }
+            64 => {
+                let value = self.cpu.vfp.read_d(m);
+                let result = vrint_f64(value, mode, exact, &mut self.cpu.vfp.fpscr);
+                self.cpu.vfp.write_d(d, result);
+            }
+            _ => return ExecResult::Undefined,
+        }
+
+        ExecResult::Continue
+    }
+
+    fn exec_vcmp(&mut self, insn: &DecodedInsn) -> ExecResult {
+        if !self.cpu.vfp.is_enabled() {
+            return ExecResult::Exception(ExceptionType::UndefinedInstruction);
+        }
+        let Some((d, m, size)) = self.decode_vfp_unary_regs(insn) else {
+            return ExecResult::Undefined;
+        };
+        let with_zero = ((insn.raw >> 16) & 0xF) == 5;
+        let signal_all_nans = insn.mnemonic == Mnemonic::VCMPE;
+        match size {
+            16 => {
+                let rhs = if with_zero { 0 } else { self.cpu.vfp.read_h_bits(m) };
+                vcmp_f16_bits_with_exception(
+                    self.cpu.vfp.read_h_bits(d),
+                    rhs,
+                    signal_all_nans,
+                    &mut self.cpu.vfp.fpscr,
+                );
+            }
+            32 => {
+                let rhs = if with_zero { 0.0 } else { self.cpu.vfp.read_s(m) };
+                vcmp_f32_with_exception(
+                    self.cpu.vfp.read_s(d),
+                    rhs,
+                    signal_all_nans,
+                    &mut self.cpu.vfp.fpscr,
+                );
+            }
+            64 => {
+                let rhs = if with_zero { 0.0 } else { self.cpu.vfp.read_d(m) };
+                vcmp_f64_with_exception(
+                    self.cpu.vfp.read_d(d),
+                    rhs,
+                    signal_all_nans,
+                    &mut self.cpu.vfp.fpscr,
+                );
+            }
+            _ => return ExecResult::Undefined,
+        }
+        ExecResult::Continue
+    }
+
+    fn exec_vcvt(&mut self, insn: &DecodedInsn) -> ExecResult {
+        if !self.cpu.vfp.is_enabled() {
+            return ExecResult::Exception(ExceptionType::UndefinedInstruction);
+        }
+        let Some((d, m)) = self.decode_vcvt_regs(insn) else {
+            return ExecResult::Undefined;
+        };
+
+        match insn.mnemonic {
+            Mnemonic::VCVT_F32_S32 => {
+                let value = self.cpu.vfp.read_s_bits(m) as i32;
+                self.cpu.vfp.write_s(d, vcvt_f32_s32(value));
+            }
+            Mnemonic::VCVT_F32_U32 => {
+                let value = self.cpu.vfp.read_s_bits(m);
+                self.cpu.vfp.write_s(d, vcvt_f32_u32(value));
+            }
+            Mnemonic::VCVT_S32_F32 => {
+                let value = vcvt_s32_f32(self.cpu.vfp.read_s(m), &mut self.cpu.vfp.fpscr);
+                self.cpu.vfp.write_s_bits(d, value as u32);
+            }
+            Mnemonic::VCVT_U32_F32 => {
+                let value = vcvt_u32_f32(self.cpu.vfp.read_s(m), &mut self.cpu.vfp.fpscr);
+                self.cpu.vfp.write_s_bits(d, value);
+            }
+            Mnemonic::VCVTR_S32_F32 => {
+                let value = vcvtr_s32_f32(self.cpu.vfp.read_s(m), &mut self.cpu.vfp.fpscr);
+                self.cpu.vfp.write_s_bits(d, value as u32);
+            }
+            Mnemonic::VCVTR_U32_F32 => {
+                let value = vcvtr_u32_f32(self.cpu.vfp.read_s(m), &mut self.cpu.vfp.fpscr);
+                self.cpu.vfp.write_s_bits(d, value);
+            }
+            Mnemonic::VCVT_F64_S32 => {
+                let value = self.cpu.vfp.read_s_bits(m) as i32;
+                self.cpu.vfp.write_d(d, vcvt_f64_s32(value));
+            }
+            Mnemonic::VCVT_F64_U32 => {
+                let value = self.cpu.vfp.read_s_bits(m);
+                self.cpu.vfp.write_d(d, vcvt_f64_u32(value));
+            }
+            Mnemonic::VCVT_S32_F64 => {
+                let value = vcvt_s32_f64(self.cpu.vfp.read_d(m), &mut self.cpu.vfp.fpscr);
+                self.cpu.vfp.write_s_bits(d, value as u32);
+            }
+            Mnemonic::VCVT_U32_F64 => {
+                let value = vcvt_u32_f64(self.cpu.vfp.read_d(m), &mut self.cpu.vfp.fpscr);
+                self.cpu.vfp.write_s_bits(d, value);
+            }
+            Mnemonic::VCVTR_S32_F64 => {
+                let value = vcvtr_s32_f64(self.cpu.vfp.read_d(m), &mut self.cpu.vfp.fpscr);
+                self.cpu.vfp.write_s_bits(d, value as u32);
+            }
+            Mnemonic::VCVTR_U32_F64 => {
+                let value = vcvtr_u32_f64(self.cpu.vfp.read_d(m), &mut self.cpu.vfp.fpscr);
+                self.cpu.vfp.write_s_bits(d, value);
+            }
+            Mnemonic::VCVTA_S32_F32
+            | Mnemonic::VCVTM_S32_F32
+            | Mnemonic::VCVTN_S32_F32
+            | Mnemonic::VCVTP_S32_F32 => {
+                let Some(mode) = Self::directed_vcvt_rounding(insn.mnemonic) else {
+                    return ExecResult::Undefined;
+                };
+                let value = vcvt_s32_f32_round(self.cpu.vfp.read_s(m), mode, &mut self.cpu.vfp.fpscr);
+                self.cpu.vfp.write_s_bits(d, value as u32);
+            }
+            Mnemonic::VCVTA_U32_F32
+            | Mnemonic::VCVTM_U32_F32
+            | Mnemonic::VCVTN_U32_F32
+            | Mnemonic::VCVTP_U32_F32 => {
+                let Some(mode) = Self::directed_vcvt_rounding(insn.mnemonic) else {
+                    return ExecResult::Undefined;
+                };
+                let value = vcvt_u32_f32_round(self.cpu.vfp.read_s(m), mode, &mut self.cpu.vfp.fpscr);
+                self.cpu.vfp.write_s_bits(d, value);
+            }
+            Mnemonic::VCVTA_S32_F64
+            | Mnemonic::VCVTM_S32_F64
+            | Mnemonic::VCVTN_S32_F64
+            | Mnemonic::VCVTP_S32_F64 => {
+                let Some(mode) = Self::directed_vcvt_rounding(insn.mnemonic) else {
+                    return ExecResult::Undefined;
+                };
+                let value = vcvt_s32_f64_round(self.cpu.vfp.read_d(m), mode, &mut self.cpu.vfp.fpscr);
+                self.cpu.vfp.write_s_bits(d, value as u32);
+            }
+            Mnemonic::VCVTA_U32_F64
+            | Mnemonic::VCVTM_U32_F64
+            | Mnemonic::VCVTN_U32_F64
+            | Mnemonic::VCVTP_U32_F64 => {
+                let Some(mode) = Self::directed_vcvt_rounding(insn.mnemonic) else {
+                    return ExecResult::Undefined;
+                };
+                let value = vcvt_u32_f64_round(self.cpu.vfp.read_d(m), mode, &mut self.cpu.vfp.fpscr);
+                self.cpu.vfp.write_s_bits(d, value);
+            }
+            Mnemonic::VCVT_F64_F32 => {
+                self.cpu.vfp.write_d(d, vcvt_f64_f32(self.cpu.vfp.read_s(m)));
+            }
+            Mnemonic::VCVT_F32_F64 => {
+                let value = vcvt_f32_f64(self.cpu.vfp.read_d(m), &mut self.cpu.vfp.fpscr);
+                self.cpu.vfp.write_s(d, value);
+            }
+            Mnemonic::VCVTB_F32_F16 | Mnemonic::VCVTT_F32_F16 => {
+                let shift = if insn.mnemonic == Mnemonic::VCVTT_F32_F16 {
+                    16
+                } else {
+                    0
+                };
+                let bits = (self.cpu.vfp.read_s_bits(m) >> shift) as u16;
+                self.cpu.vfp.write_s(d, vcvt_f32_f16_bits(bits));
+            }
+            Mnemonic::VCVTB_F16_F32 | Mnemonic::VCVTT_F16_F32 => {
+                let shift = if insn.mnemonic == Mnemonic::VCVTT_F16_F32 {
+                    16
+                } else {
+                    0
+                };
+                let value = vcvt_f16_bits_f32(self.cpu.vfp.read_s(m), &mut self.cpu.vfp.fpscr);
+                let old = self.cpu.vfp.read_s_bits(d);
+                let mask = 0xFFFFu32 << shift;
+                self.cpu
+                    .vfp
+                    .write_s_bits(d, (old & !mask) | ((value as u32) << shift));
+            }
+            Mnemonic::VCVT_F32_S32_FIXED => {
+                let Some(fbits) = Self::decode_vcvt_fixed_fbits(insn) else {
+                    return ExecResult::Undefined;
+                };
+                let value = self.cpu.vfp.read_s_bits(d) as i32;
+                self.cpu.vfp.write_s(d, vcvt_f32_s32_fixed(value, fbits));
+            }
+            Mnemonic::VCVT_F32_U32_FIXED => {
+                let Some(fbits) = Self::decode_vcvt_fixed_fbits(insn) else {
+                    return ExecResult::Undefined;
+                };
+                let value = self.cpu.vfp.read_s_bits(d);
+                self.cpu.vfp.write_s(d, vcvt_f32_u32_fixed(value, fbits));
+            }
+            Mnemonic::VCVT_S32_F32_FIXED => {
+                let Some(fbits) = Self::decode_vcvt_fixed_fbits(insn) else {
+                    return ExecResult::Undefined;
+                };
+                let value = vcvt_s32_f32_fixed(self.cpu.vfp.read_s(d), fbits, &mut self.cpu.vfp.fpscr);
+                self.cpu.vfp.write_s_bits(d, value as u32);
+            }
+            Mnemonic::VCVT_U32_F32_FIXED => {
+                let Some(fbits) = Self::decode_vcvt_fixed_fbits(insn) else {
+                    return ExecResult::Undefined;
+                };
+                let value = vcvt_u32_f32_fixed(self.cpu.vfp.read_s(d), fbits, &mut self.cpu.vfp.fpscr);
+                self.cpu.vfp.write_s_bits(d, value);
+            }
+            Mnemonic::VCVT_F64_S32_FIXED => {
+                let Some(fbits) = Self::decode_vcvt_fixed_fbits(insn) else {
+                    return ExecResult::Undefined;
+                };
+                let value = self.cpu.vfp.read_d_bits(d) as u32 as i32;
+                self.cpu.vfp.write_d(d, vcvt_f64_s32_fixed(value, fbits));
+            }
+            Mnemonic::VCVT_F64_U32_FIXED => {
+                let Some(fbits) = Self::decode_vcvt_fixed_fbits(insn) else {
+                    return ExecResult::Undefined;
+                };
+                let value = self.cpu.vfp.read_d_bits(d) as u32;
+                self.cpu.vfp.write_d(d, vcvt_f64_u32_fixed(value, fbits));
+            }
+            Mnemonic::VCVT_S32_F64_FIXED => {
+                let Some(fbits) = Self::decode_vcvt_fixed_fbits(insn) else {
+                    return ExecResult::Undefined;
+                };
+                let value = vcvt_s32_f64_fixed(self.cpu.vfp.read_d(d), fbits, &mut self.cpu.vfp.fpscr);
+                let old = self.cpu.vfp.read_d_bits(d) & 0xFFFF_FFFF_0000_0000;
+                self.cpu.vfp.write_d_bits(d, old | (value as u32 as u64));
+            }
+            Mnemonic::VCVT_U32_F64_FIXED => {
+                let Some(fbits) = Self::decode_vcvt_fixed_fbits(insn) else {
+                    return ExecResult::Undefined;
+                };
+                let value = vcvt_u32_f64_fixed(self.cpu.vfp.read_d(d), fbits, &mut self.cpu.vfp.fpscr);
+                let old = self.cpu.vfp.read_d_bits(d) & 0xFFFF_FFFF_0000_0000;
+                self.cpu.vfp.write_d_bits(d, old | value as u64);
+            }
+            _ => return ExecResult::Undefined,
+        }
+
+        ExecResult::Continue
+    }
+
+    fn directed_vcvt_rounding(mnemonic: Mnemonic) -> Option<RoundingMode> {
+        match mnemonic {
+            Mnemonic::VCVTA_S32_F32
+            | Mnemonic::VCVTA_U32_F32
+            | Mnemonic::VCVTA_S32_F64
+            | Mnemonic::VCVTA_U32_F64 => Some(RoundingMode::RoundTiesAway),
+            Mnemonic::VCVTN_S32_F32
+            | Mnemonic::VCVTN_U32_F32
+            | Mnemonic::VCVTN_S32_F64
+            | Mnemonic::VCVTN_U32_F64 => Some(RoundingMode::RoundNearest),
+            Mnemonic::VCVTP_S32_F32
+            | Mnemonic::VCVTP_U32_F32
+            | Mnemonic::VCVTP_S32_F64
+            | Mnemonic::VCVTP_U32_F64 => Some(RoundingMode::RoundPlusInf),
+            Mnemonic::VCVTM_S32_F32
+            | Mnemonic::VCVTM_U32_F32
+            | Mnemonic::VCVTM_S32_F64
+            | Mnemonic::VCVTM_U32_F64 => Some(RoundingMode::RoundMinusInf),
+            _ => None,
+        }
+    }
+
+    fn vrint_rounding(&self, mnemonic: Mnemonic) -> Option<(RoundingMode, bool)> {
+        match mnemonic {
+            Mnemonic::VRINTA_F32 | Mnemonic::VRINTA_F64 => {
+                Some((RoundingMode::RoundTiesAway, false))
+            }
+            Mnemonic::VRINTN_F32 | Mnemonic::VRINTN_F64 => {
+                Some((RoundingMode::RoundNearest, false))
+            }
+            Mnemonic::VRINTP_F32 | Mnemonic::VRINTP_F64 => {
+                Some((RoundingMode::RoundPlusInf, false))
+            }
+            Mnemonic::VRINTM_F32 | Mnemonic::VRINTM_F64 => {
+                Some((RoundingMode::RoundMinusInf, false))
+            }
+            Mnemonic::VRINTZ_F32 | Mnemonic::VRINTZ_F64 => {
+                Some((RoundingMode::RoundZero, false))
+            }
+            Mnemonic::VRINTR_F32 | Mnemonic::VRINTR_F64 => Some((self.cpu.vfp.fpscr.rmode(), false)),
+            Mnemonic::VRINTX_F32 | Mnemonic::VRINTX_F64 => Some((self.cpu.vfp.fpscr.rmode(), true)),
+            _ => None,
+        }
+    }
+
+    fn decode_vfp_mem(&mut self, insn: &DecodedInsn) -> Option<(u32, u32, u8)> {
+        let u = (insn.raw >> 23) & 1;
+        let d_bit = ((insn.raw >> 22) & 1) as u8;
+        let rn = ((insn.raw >> 16) & 0xF) as usize;
+        let vd = ((insn.raw >> 12) & 0xF) as u8;
+        let size = (insn.raw >> 8) & 0x3;
+        let imm = (insn.raw & 0xFF).wrapping_mul(4);
+        let base = if rn == 15 {
+            self.cpu.get_pc() & !3
+        } else {
+            self.reg(rn)
+        };
+        let addr = if u == 1 {
+            base.wrapping_add(imm)
+        } else {
+            base.wrapping_sub(imm)
+        };
+        match size {
+            2 => Some((addr, 32, (vd << 1) | d_bit)),
+            3 => Some((addr, 64, (d_bit << 4) | vd)),
+            _ => None,
+        }
+    }
+
+    fn decode_vfp_block_mem(
+        &mut self,
+        insn: &DecodedInsn,
+    ) -> Option<(u32, u32, u32, u8, u8, bool, usize)> {
+        let p = (insn.raw >> 24) & 1;
+        let u = (insn.raw >> 23) & 1;
+        let d_bit = ((insn.raw >> 22) & 1) as u8;
+        let w = ((insn.raw >> 21) & 1) != 0;
+        let rn = ((insn.raw >> 16) & 0xF) as usize;
+        let vd = ((insn.raw >> 12) & 0xF) as u8;
+        let size = (insn.raw >> 8) & 0x3;
+        let words = (insn.raw & 0xFF) as u8;
+        if words == 0 || !matches!((p, u, w), (0, 1, _) | (1, 0, true)) {
+            return None;
+        }
+
+        let (elem_size, first, count) = match size {
+            2 => (32, (vd << 1) | d_bit, words),
+            3 if (words & 1) == 0 => (64, (d_bit << 4) | vd, words / 2),
+            _ => return None,
+        };
+        if count == 0 || first.checked_add(count - 1)? >= 32 {
+            return None;
+        }
+
+        let byte_count = (words as u32).wrapping_mul(4);
+        let base = if rn == 15 {
+            self.cpu.get_pc() & !3
+        } else {
+            self.reg(rn)
+        };
+        let start = match (p, u) {
+            (0, 1) => base,
+            (1, 0) => base.wrapping_sub(byte_count),
+            _ => return None,
+        };
+        let final_addr = if u == 1 {
+            base.wrapping_add(byte_count)
+        } else {
+            base.wrapping_sub(byte_count)
+        };
+
+        Some((start, final_addr, elem_size, first, count, w, rn))
+    }
+
+    fn decode_vcvt_regs(&self, insn: &DecodedInsn) -> Option<(u8, u8)> {
+        let d_bit = ((insn.raw >> 22) & 1) as u8;
+        let vd = ((insn.raw >> 12) & 0xF) as u8;
+        let m_bit = ((insn.raw >> 5) & 1) as u8;
+        let vm = (insn.raw & 0xF) as u8;
+        let d_s = (vd << 1) | d_bit;
+        let d_d = (d_bit << 4) | vd;
+        let m_s = (vm << 1) | m_bit;
+        let m_d = (m_bit << 4) | vm;
+
+        match insn.mnemonic {
+            Mnemonic::VCVT_F32_S32
+            | Mnemonic::VCVT_F32_U32
+            | Mnemonic::VCVT_S32_F32
+            | Mnemonic::VCVT_U32_F32
+            | Mnemonic::VCVTR_S32_F32
+            | Mnemonic::VCVTR_U32_F32
+            | Mnemonic::VCVTA_S32_F32
+            | Mnemonic::VCVTA_U32_F32
+            | Mnemonic::VCVTM_S32_F32
+            | Mnemonic::VCVTM_U32_F32
+            | Mnemonic::VCVTN_S32_F32
+            | Mnemonic::VCVTN_U32_F32
+            | Mnemonic::VCVTP_S32_F32
+            | Mnemonic::VCVTP_U32_F32
+            | Mnemonic::VCVTB_F32_F16
+            | Mnemonic::VCVTT_F32_F16
+            | Mnemonic::VCVTB_F16_F32
+            | Mnemonic::VCVTT_F16_F32 => Some((d_s, m_s)),
+            Mnemonic::VCVT_F32_S32_FIXED
+            | Mnemonic::VCVT_F32_U32_FIXED
+            | Mnemonic::VCVT_S32_F32_FIXED
+            | Mnemonic::VCVT_U32_F32_FIXED => Some((d_s, d_s)),
+            Mnemonic::VCVT_F64_S32 | Mnemonic::VCVT_F64_U32 | Mnemonic::VCVT_F64_F32 => {
+                Some((d_d, m_s))
+            }
+            Mnemonic::VCVT_F64_S32_FIXED
+            | Mnemonic::VCVT_F64_U32_FIXED
+            | Mnemonic::VCVT_S32_F64_FIXED
+            | Mnemonic::VCVT_U32_F64_FIXED => Some((d_d, d_d)),
+            Mnemonic::VCVT_S32_F64
+            | Mnemonic::VCVT_U32_F64
+            | Mnemonic::VCVT_F32_F64
+            | Mnemonic::VCVTR_S32_F64
+            | Mnemonic::VCVTR_U32_F64
+            | Mnemonic::VCVTA_S32_F64
+            | Mnemonic::VCVTA_U32_F64
+            | Mnemonic::VCVTM_S32_F64
+            | Mnemonic::VCVTM_U32_F64
+            | Mnemonic::VCVTN_S32_F64
+            | Mnemonic::VCVTN_U32_F64
+            | Mnemonic::VCVTP_S32_F64
+            | Mnemonic::VCVTP_U32_F64 => Some((d_s, m_d)),
+            _ => None,
+        }
+    }
+
+    fn decode_vcvt_fixed_fbits(insn: &DecodedInsn) -> Option<u32> {
+        if ((insn.raw >> 7) & 1) == 0 {
+            return None;
+        }
+        let imm5 = ((insn.raw & 0xF) << 1) | ((insn.raw >> 5) & 1);
+        Some(32 - imm5)
+    }
+
+    fn decode_vfp_cond_select_regs(&self, insn: &DecodedInsn) -> Option<(u8, u8, u8, u32)> {
+        let d_bit = ((insn.raw >> 22) & 1) as u8;
+        let vd = ((insn.raw >> 12) & 0xF) as u8;
+        let n_bit = ((insn.raw >> 7) & 1) as u8;
+        let vn = ((insn.raw >> 16) & 0xF) as u8;
+        let m_bit = ((insn.raw >> 5) & 1) as u8;
+        let vm = (insn.raw & 0xF) as u8;
+        match (insn.raw >> 8) & 0x3 {
+            1 => Some(((vd << 1) | d_bit, (vn << 1) | n_bit, (vm << 1) | m_bit, 16)),
+            2 => Some(((vd << 1) | d_bit, (vn << 1) | n_bit, (vm << 1) | m_bit, 32)),
+            3 => Some(((d_bit << 4) | vd, (n_bit << 4) | vn, (m_bit << 4) | vm, 64)),
+            _ => None,
+        }
+    }
+
+    fn decode_vfp_ternary_regs(&self, insn: &DecodedInsn) -> Option<(u8, u8, u8, u32)> {
+        let d_bit = ((insn.raw >> 22) & 1) as u8;
+        let vd = ((insn.raw >> 12) & 0xF) as u8;
+        let n_bit = ((insn.raw >> 7) & 1) as u8;
+        let vn = ((insn.raw >> 16) & 0xF) as u8;
+        let m_bit = ((insn.raw >> 5) & 1) as u8;
+        let vm = (insn.raw & 0xF) as u8;
+        match (insn.raw >> 8) & 0x3 {
+            1 => Some(((vd << 1) | d_bit, (vn << 1) | n_bit, (vm << 1) | m_bit, 16)),
+            2 => Some(((vd << 1) | d_bit, (vn << 1) | n_bit, (vm << 1) | m_bit, 32)),
+            3 => Some(((d_bit << 4) | vd, (n_bit << 4) | vn, (m_bit << 4) | vm, 64)),
+            _ => None,
+        }
+    }
+
+    fn decode_vfp_unary_regs(&self, insn: &DecodedInsn) -> Option<(u8, u8, u32)> {
+        let d_bit = ((insn.raw >> 22) & 1) as u8;
+        let vd = ((insn.raw >> 12) & 0xF) as u8;
+        let m_bit = ((insn.raw >> 5) & 1) as u8;
+        let vm = (insn.raw & 0xF) as u8;
+        match (insn.raw >> 8) & 0x3 {
+            1 => Some(((vd << 1) | d_bit, (vm << 1) | m_bit, 16)),
+            2 => Some(((vd << 1) | d_bit, (vm << 1) | m_bit, 32)),
+            3 => Some(((d_bit << 4) | vd, (m_bit << 4) | vm, 64)),
+            _ => None,
+        }
     }
 
     // =========================================================================

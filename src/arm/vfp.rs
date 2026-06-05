@@ -115,6 +115,17 @@ impl VfpState {
         }
     }
 
+    /// Read a scalar half-precision value from the low half of an S register.
+    pub fn read_h_bits(&self, reg: u8) -> u16 {
+        (self.read_s_bits(reg) & 0xFFFF) as u16
+    }
+
+    /// Write a scalar half-precision value to the low half of an S register.
+    pub fn write_h_bits(&mut self, reg: u8, bits: u16) {
+        let old = self.read_s_bits(reg);
+        self.write_s_bits(reg, (old & 0xFFFF_0000) | bits as u32);
+    }
+
     /// Read a double-precision register (D0-D31).
     pub fn read_d(&self, reg: u8) -> f64 {
         f64::from_bits(self.dregs[reg as usize])
@@ -361,6 +372,8 @@ pub enum RoundingMode {
     RoundMinusInf = 2,
     /// Round toward zero (truncate).
     RoundZero = 3,
+    /// Round to nearest, ties away from zero.
+    RoundTiesAway = 4,
 }
 
 /// VFP data type for operations.
@@ -390,6 +403,11 @@ pub fn vadd_f64(a: f64, b: f64, fpscr: &mut Fpscr) -> f64 {
     result
 }
 
+/// Execute half-precision addition.
+pub fn vadd_f16_bits(a: u16, b: u16, fpscr: &mut Fpscr) -> u16 {
+    vcvt_f16_bits_f32(vadd_f32(vcvt_f32_f16_bits(a), vcvt_f32_f16_bits(b), fpscr), fpscr)
+}
+
 /// Execute single-precision subtraction.
 pub fn vsub_f32(a: f32, b: f32, fpscr: &mut Fpscr) -> f32 {
     let result = a - b;
@@ -404,6 +422,11 @@ pub fn vsub_f64(a: f64, b: f64, fpscr: &mut Fpscr) -> f64 {
     result
 }
 
+/// Execute half-precision subtraction.
+pub fn vsub_f16_bits(a: u16, b: u16, fpscr: &mut Fpscr) -> u16 {
+    vcvt_f16_bits_f32(vsub_f32(vcvt_f32_f16_bits(a), vcvt_f32_f16_bits(b), fpscr), fpscr)
+}
+
 /// Execute single-precision multiplication.
 pub fn vmul_f32(a: f32, b: f32, fpscr: &mut Fpscr) -> f32 {
     let result = a * b;
@@ -416,6 +439,11 @@ pub fn vmul_f64(a: f64, b: f64, fpscr: &mut Fpscr) -> f64 {
     let result = a * b;
     update_fpscr_after_op_f64(result, fpscr);
     result
+}
+
+/// Execute half-precision multiplication.
+pub fn vmul_f16_bits(a: u16, b: u16, fpscr: &mut Fpscr) -> u16 {
+    vcvt_f16_bits_f32(vmul_f32(vcvt_f32_f16_bits(a), vcvt_f32_f16_bits(b), fpscr), fpscr)
 }
 
 /// Execute single-precision division.
@@ -438,6 +466,11 @@ pub fn vdiv_f64(a: f64, b: f64, fpscr: &mut Fpscr) -> f64 {
     result
 }
 
+/// Execute half-precision division.
+pub fn vdiv_f16_bits(a: u16, b: u16, fpscr: &mut Fpscr) -> u16 {
+    vcvt_f16_bits_f32(vdiv_f32(vcvt_f32_f16_bits(a), vcvt_f32_f16_bits(b), fpscr), fpscr)
+}
+
 /// Execute single-precision negation.
 pub fn vneg_f32(a: f32) -> f32 {
     -a
@@ -448,6 +481,11 @@ pub fn vneg_f64(a: f64) -> f64 {
     -a
 }
 
+/// Execute half-precision negation.
+pub fn vneg_f16_bits(a: u16) -> u16 {
+    a ^ 0x8000
+}
+
 /// Execute single-precision absolute value.
 pub fn vabs_f32(a: f32) -> f32 {
     a.abs()
@@ -456,6 +494,11 @@ pub fn vabs_f32(a: f32) -> f32 {
 /// Execute double-precision absolute value.
 pub fn vabs_f64(a: f64) -> f64 {
     a.abs()
+}
+
+/// Execute half-precision absolute value.
+pub fn vabs_f16_bits(a: u16) -> u16 {
+    a & 0x7FFF
 }
 
 /// Execute single-precision square root.
@@ -478,6 +521,11 @@ pub fn vsqrt_f64(a: f64, fpscr: &mut Fpscr) -> f64 {
     result
 }
 
+/// Execute half-precision square root.
+pub fn vsqrt_f16_bits(a: u16, fpscr: &mut Fpscr) -> u16 {
+    vcvt_f16_bits_f32(vsqrt_f32(vcvt_f32_f16_bits(a), fpscr), fpscr)
+}
+
 /// Execute single-precision multiply-accumulate.
 pub fn vmla_f32(acc: f32, a: f32, b: f32, fpscr: &mut Fpscr) -> f32 {
     let result = acc + (a * b);
@@ -490,6 +538,19 @@ pub fn vmla_f64(acc: f64, a: f64, b: f64, fpscr: &mut Fpscr) -> f64 {
     let result = acc + (a * b);
     update_fpscr_after_op_f64(result, fpscr);
     result
+}
+
+/// Execute half-precision multiply-accumulate.
+pub fn vmla_f16_bits(acc: u16, a: u16, b: u16, fpscr: &mut Fpscr) -> u16 {
+    vcvt_f16_bits_f32(
+        vmla_f32(
+            vcvt_f32_f16_bits(acc),
+            vcvt_f32_f16_bits(a),
+            vcvt_f32_f16_bits(b),
+            fpscr,
+        ),
+        fpscr,
+    )
 }
 
 /// Execute single-precision multiply-subtract.
@@ -506,6 +567,73 @@ pub fn vmls_f64(acc: f64, a: f64, b: f64, fpscr: &mut Fpscr) -> f64 {
     result
 }
 
+/// Execute half-precision multiply-subtract.
+pub fn vmls_f16_bits(acc: u16, a: u16, b: u16, fpscr: &mut Fpscr) -> u16 {
+    vcvt_f16_bits_f32(
+        vmls_f32(
+            vcvt_f32_f16_bits(acc),
+            vcvt_f32_f16_bits(a),
+            vcvt_f32_f16_bits(b),
+            fpscr,
+        ),
+        fpscr,
+    )
+}
+
+/// Execute single-precision fused multiply-accumulate.
+pub fn vfma_f32(acc: f32, a: f32, b: f32, fpscr: &mut Fpscr) -> f32 {
+    let result = a.mul_add(b, acc);
+    update_fpscr_after_op(result, fpscr);
+    result
+}
+
+/// Execute double-precision fused multiply-accumulate.
+pub fn vfma_f64(acc: f64, a: f64, b: f64, fpscr: &mut Fpscr) -> f64 {
+    let result = a.mul_add(b, acc);
+    update_fpscr_after_op_f64(result, fpscr);
+    result
+}
+
+/// Execute half-precision fused multiply-accumulate.
+pub fn vfma_f16_bits(acc: u16, a: u16, b: u16, fpscr: &mut Fpscr) -> u16 {
+    vcvt_f16_bits_f32(
+        vfma_f32(
+            vcvt_f32_f16_bits(acc),
+            vcvt_f32_f16_bits(a),
+            vcvt_f32_f16_bits(b),
+            fpscr,
+        ),
+        fpscr,
+    )
+}
+
+/// Execute single-precision fused multiply-subtract.
+pub fn vfms_f32(acc: f32, a: f32, b: f32, fpscr: &mut Fpscr) -> f32 {
+    let result = (-a).mul_add(b, acc);
+    update_fpscr_after_op(result, fpscr);
+    result
+}
+
+/// Execute double-precision fused multiply-subtract.
+pub fn vfms_f64(acc: f64, a: f64, b: f64, fpscr: &mut Fpscr) -> f64 {
+    let result = (-a).mul_add(b, acc);
+    update_fpscr_after_op_f64(result, fpscr);
+    result
+}
+
+/// Execute half-precision fused multiply-subtract.
+pub fn vfms_f16_bits(acc: u16, a: u16, b: u16, fpscr: &mut Fpscr) -> u16 {
+    vcvt_f16_bits_f32(
+        vfms_f32(
+            vcvt_f32_f16_bits(acc),
+            vcvt_f32_f16_bits(a),
+            vcvt_f32_f16_bits(b),
+            fpscr,
+        ),
+        fpscr,
+    )
+}
+
 /// Execute single-precision negated multiply-accumulate.
 pub fn vnmla_f32(acc: f32, a: f32, b: f32, fpscr: &mut Fpscr) -> f32 {
     let result = -(acc + (a * b));
@@ -518,6 +646,19 @@ pub fn vnmla_f64(acc: f64, a: f64, b: f64, fpscr: &mut Fpscr) -> f64 {
     let result = -(acc + (a * b));
     update_fpscr_after_op_f64(result, fpscr);
     result
+}
+
+/// Execute half-precision negated multiply-accumulate.
+pub fn vnmla_f16_bits(acc: u16, a: u16, b: u16, fpscr: &mut Fpscr) -> u16 {
+    vcvt_f16_bits_f32(
+        vnmla_f32(
+            vcvt_f32_f16_bits(acc),
+            vcvt_f32_f16_bits(a),
+            vcvt_f32_f16_bits(b),
+            fpscr,
+        ),
+        fpscr,
+    )
 }
 
 /// Execute single-precision negated multiply-subtract.
@@ -534,6 +675,73 @@ pub fn vnmls_f64(acc: f64, a: f64, b: f64, fpscr: &mut Fpscr) -> f64 {
     result
 }
 
+/// Execute half-precision negated multiply-subtract.
+pub fn vnmls_f16_bits(acc: u16, a: u16, b: u16, fpscr: &mut Fpscr) -> u16 {
+    vcvt_f16_bits_f32(
+        vnmls_f32(
+            vcvt_f32_f16_bits(acc),
+            vcvt_f32_f16_bits(a),
+            vcvt_f32_f16_bits(b),
+            fpscr,
+        ),
+        fpscr,
+    )
+}
+
+/// Execute single-precision fused negated multiply-accumulate.
+pub fn vfnma_f32(acc: f32, a: f32, b: f32, fpscr: &mut Fpscr) -> f32 {
+    let result = (-a).mul_add(b, -acc);
+    update_fpscr_after_op(result, fpscr);
+    result
+}
+
+/// Execute double-precision fused negated multiply-accumulate.
+pub fn vfnma_f64(acc: f64, a: f64, b: f64, fpscr: &mut Fpscr) -> f64 {
+    let result = (-a).mul_add(b, -acc);
+    update_fpscr_after_op_f64(result, fpscr);
+    result
+}
+
+/// Execute half-precision fused negated multiply-accumulate.
+pub fn vfnma_f16_bits(acc: u16, a: u16, b: u16, fpscr: &mut Fpscr) -> u16 {
+    vcvt_f16_bits_f32(
+        vfnma_f32(
+            vcvt_f32_f16_bits(acc),
+            vcvt_f32_f16_bits(a),
+            vcvt_f32_f16_bits(b),
+            fpscr,
+        ),
+        fpscr,
+    )
+}
+
+/// Execute single-precision fused negated multiply-subtract.
+pub fn vfnms_f32(acc: f32, a: f32, b: f32, fpscr: &mut Fpscr) -> f32 {
+    let result = a.mul_add(b, -acc);
+    update_fpscr_after_op(result, fpscr);
+    result
+}
+
+/// Execute double-precision fused negated multiply-subtract.
+pub fn vfnms_f64(acc: f64, a: f64, b: f64, fpscr: &mut Fpscr) -> f64 {
+    let result = a.mul_add(b, -acc);
+    update_fpscr_after_op_f64(result, fpscr);
+    result
+}
+
+/// Execute half-precision fused negated multiply-subtract.
+pub fn vfnms_f16_bits(acc: u16, a: u16, b: u16, fpscr: &mut Fpscr) -> u16 {
+    vcvt_f16_bits_f32(
+        vfnms_f32(
+            vcvt_f32_f16_bits(acc),
+            vcvt_f32_f16_bits(a),
+            vcvt_f32_f16_bits(b),
+            fpscr,
+        ),
+        fpscr,
+    )
+}
+
 /// Execute single-precision negated multiply.
 pub fn vnmul_f32(a: f32, b: f32, fpscr: &mut Fpscr) -> f32 {
     let result = -(a * b);
@@ -548,9 +756,114 @@ pub fn vnmul_f64(a: f64, b: f64, fpscr: &mut Fpscr) -> f64 {
     result
 }
 
+/// Execute half-precision negated multiply.
+pub fn vnmul_f16_bits(a: u16, b: u16, fpscr: &mut Fpscr) -> u16 {
+    vcvt_f16_bits_f32(vnmul_f32(vcvt_f32_f16_bits(a), vcvt_f32_f16_bits(b), fpscr), fpscr)
+}
+
+/// Execute single-precision maxNum.
+pub fn vmaxnm_f32(a: f32, b: f32, fpscr: &mut Fpscr) -> f32 {
+    if a.is_nan() || b.is_nan() {
+        fpscr.set_ioc(true);
+        return if a.is_nan() && b.is_nan() {
+            f32::NAN
+        } else if a.is_nan() {
+            b
+        } else {
+            a
+        };
+    }
+    if a == b {
+        if a.is_sign_positive() || b.is_sign_positive() {
+            0.0
+        } else {
+            a
+        }
+    } else {
+        a.max(b)
+    }
+}
+
+/// Execute double-precision maxNum.
+pub fn vmaxnm_f64(a: f64, b: f64, fpscr: &mut Fpscr) -> f64 {
+    if a.is_nan() || b.is_nan() {
+        fpscr.set_ioc(true);
+        return if a.is_nan() && b.is_nan() {
+            f64::NAN
+        } else if a.is_nan() {
+            b
+        } else {
+            a
+        };
+    }
+    if a == b {
+        if a.is_sign_positive() || b.is_sign_positive() {
+            0.0
+        } else {
+            a
+        }
+    } else {
+        a.max(b)
+    }
+}
+
+/// Execute single-precision minNum.
+pub fn vminnm_f32(a: f32, b: f32, fpscr: &mut Fpscr) -> f32 {
+    if a.is_nan() || b.is_nan() {
+        fpscr.set_ioc(true);
+        return if a.is_nan() && b.is_nan() {
+            f32::NAN
+        } else if a.is_nan() {
+            b
+        } else {
+            a
+        };
+    }
+    if a == b {
+        if a.is_sign_negative() || b.is_sign_negative() {
+            -0.0
+        } else {
+            a
+        }
+    } else {
+        a.min(b)
+    }
+}
+
+/// Execute double-precision minNum.
+pub fn vminnm_f64(a: f64, b: f64, fpscr: &mut Fpscr) -> f64 {
+    if a.is_nan() || b.is_nan() {
+        fpscr.set_ioc(true);
+        return if a.is_nan() && b.is_nan() {
+            f64::NAN
+        } else if a.is_nan() {
+            b
+        } else {
+            a
+        };
+    }
+    if a == b {
+        if a.is_sign_negative() || b.is_sign_negative() {
+            -0.0
+        } else {
+            a
+        }
+    } else {
+        a.min(b)
+    }
+}
+
 /// Compare single-precision values, updating FPSCR flags.
 pub fn vcmp_f32(a: f32, b: f32, fpscr: &mut Fpscr) {
+    vcmp_f32_with_exception(a, b, false, fpscr);
+}
+
+/// Compare single-precision values, optionally signaling invalid operation for any NaN.
+pub fn vcmp_f32_with_exception(a: f32, b: f32, signal_all_nans: bool, fpscr: &mut Fpscr) {
     let (n, z, c, v) = if a.is_nan() || b.is_nan() {
+        if signal_all_nans || is_snan_f32(a) || is_snan_f32(b) {
+            fpscr.set_ioc(true);
+        }
         (false, false, true, true)
     } else if a == b {
         (false, true, true, false)
@@ -564,7 +877,15 @@ pub fn vcmp_f32(a: f32, b: f32, fpscr: &mut Fpscr) {
 
 /// Compare double-precision values, updating FPSCR flags.
 pub fn vcmp_f64(a: f64, b: f64, fpscr: &mut Fpscr) {
+    vcmp_f64_with_exception(a, b, false, fpscr);
+}
+
+/// Compare double-precision values, optionally signaling invalid operation for any NaN.
+pub fn vcmp_f64_with_exception(a: f64, b: f64, signal_all_nans: bool, fpscr: &mut Fpscr) {
     let (n, z, c, v) = if a.is_nan() || b.is_nan() {
+        if signal_all_nans || is_snan_f64(a) || is_snan_f64(b) {
+            fpscr.set_ioc(true);
+        }
         (false, false, true, true)
     } else if a == b {
         (false, true, true, false)
@@ -574,6 +895,26 @@ pub fn vcmp_f64(a: f64, b: f64, fpscr: &mut Fpscr) {
         (false, false, true, false)
     };
     fpscr.set_nzcv(n, z, c, v);
+}
+
+/// Compare half-precision values, updating FPSCR flags.
+pub fn vcmp_f16_bits(a: u16, b: u16, fpscr: &mut Fpscr) {
+    vcmp_f16_bits_with_exception(a, b, false, fpscr);
+}
+
+/// Compare half-precision values, optionally signaling invalid operation for any NaN.
+pub fn vcmp_f16_bits_with_exception(a: u16, b: u16, signal_all_nans: bool, fpscr: &mut Fpscr) {
+    let a_nan = is_nan_f16_bits(a);
+    let b_nan = is_nan_f16_bits(b);
+    if a_nan || b_nan {
+        if signal_all_nans || is_snan_f16_bits(a) || is_snan_f16_bits(b) {
+            fpscr.set_ioc(true);
+        }
+        fpscr.set_nzcv(false, false, true, true);
+        return;
+    }
+
+    vcmp_f32(vcvt_f32_f16_bits(a), vcvt_f32_f16_bits(b), fpscr);
 }
 
 /// Compare single-precision value with zero.
@@ -586,6 +927,26 @@ pub fn vcmpz_f64(a: f64, fpscr: &mut Fpscr) {
     vcmp_f64(a, 0.0, fpscr);
 }
 
+fn is_nan_f16_bits(bits: u16) -> bool {
+    (bits & 0x7C00) == 0x7C00 && (bits & 0x03FF) != 0
+}
+
+fn is_snan_f16_bits(bits: u16) -> bool {
+    is_nan_f16_bits(bits) && (bits & 0x0200) == 0
+}
+
+fn is_snan_f32(value: f32) -> bool {
+    let bits = value.to_bits();
+    (bits & 0x7F80_0000) == 0x7F80_0000 && (bits & 0x007F_FFFF) != 0 && (bits & 0x0040_0000) == 0
+}
+
+fn is_snan_f64(value: f64) -> bool {
+    let bits = value.to_bits();
+    (bits & 0x7FF0_0000_0000_0000) == 0x7FF0_0000_0000_0000
+        && (bits & 0x000F_FFFF_FFFF_FFFF) != 0
+        && (bits & 0x0008_0000_0000_0000) == 0
+}
+
 /// Convert signed 32-bit integer to single-precision float.
 pub fn vcvt_f32_s32(val: i32) -> f32 {
     val as f32
@@ -596,8 +957,302 @@ pub fn vcvt_f32_u32(val: u32) -> f32 {
     val as f32
 }
 
+/// Convert signed 32-bit fixed-point value to single-precision float.
+pub fn vcvt_f32_s32_fixed(val: i32, fbits: u32) -> f32 {
+    (val as f32) * 2.0f32.powi(-(fbits as i32))
+}
+
+/// Convert unsigned 32-bit fixed-point value to single-precision float.
+pub fn vcvt_f32_u32_fixed(val: u32, fbits: u32) -> f32 {
+    (val as f32) * 2.0f32.powi(-(fbits as i32))
+}
+
 /// Convert single-precision float to signed 32-bit integer (round toward zero).
 pub fn vcvt_s32_f32(val: f32, fpscr: &mut Fpscr) -> i32 {
+    saturate_f32_to_i32(val.trunc(), fpscr)
+}
+
+/// Convert single-precision float to unsigned 32-bit integer (round toward zero).
+pub fn vcvt_u32_f32(val: f32, fpscr: &mut Fpscr) -> u32 {
+    saturate_f32_to_u32(val.trunc(), fpscr)
+}
+
+/// Convert single-precision float to signed 32-bit fixed-point (round toward zero).
+pub fn vcvt_s32_f32_fixed(val: f32, fbits: u32, fpscr: &mut Fpscr) -> i32 {
+    let scaled = val * 2.0f32.powi(fbits as i32);
+    saturate_f32_to_i32(scaled.trunc(), fpscr)
+}
+
+/// Convert single-precision float to unsigned 32-bit fixed-point (round toward zero).
+pub fn vcvt_u32_f32_fixed(val: f32, fbits: u32, fpscr: &mut Fpscr) -> u32 {
+    let scaled = val * 2.0f32.powi(fbits as i32);
+    saturate_f32_to_u32(scaled.trunc(), fpscr)
+}
+
+/// Convert signed 32-bit integer to double-precision float.
+pub fn vcvt_f64_s32(val: i32) -> f64 {
+    val as f64
+}
+
+/// Convert unsigned 32-bit integer to double-precision float.
+pub fn vcvt_f64_u32(val: u32) -> f64 {
+    val as f64
+}
+
+/// Convert signed 32-bit fixed-point value to double-precision float.
+pub fn vcvt_f64_s32_fixed(val: i32, fbits: u32) -> f64 {
+    (val as f64) * 2.0f64.powi(-(fbits as i32))
+}
+
+/// Convert unsigned 32-bit fixed-point value to double-precision float.
+pub fn vcvt_f64_u32_fixed(val: u32, fbits: u32) -> f64 {
+    (val as f64) * 2.0f64.powi(-(fbits as i32))
+}
+
+/// Convert double-precision float to signed 32-bit integer (round toward zero).
+pub fn vcvt_s32_f64(val: f64, fpscr: &mut Fpscr) -> i32 {
+    saturate_f64_to_i32(val.trunc(), fpscr)
+}
+
+/// Convert double-precision float to unsigned 32-bit integer (round toward zero).
+pub fn vcvt_u32_f64(val: f64, fpscr: &mut Fpscr) -> u32 {
+    saturate_f64_to_u32(val.trunc(), fpscr)
+}
+
+/// Convert double-precision float to signed 32-bit fixed-point (round toward zero).
+pub fn vcvt_s32_f64_fixed(val: f64, fbits: u32, fpscr: &mut Fpscr) -> i32 {
+    let scaled = val * 2.0f64.powi(fbits as i32);
+    saturate_f64_to_i32(scaled.trunc(), fpscr)
+}
+
+/// Convert double-precision float to unsigned 32-bit fixed-point (round toward zero).
+pub fn vcvt_u32_f64_fixed(val: f64, fbits: u32, fpscr: &mut Fpscr) -> u32 {
+    let scaled = val * 2.0f64.powi(fbits as i32);
+    saturate_f64_to_u32(scaled.trunc(), fpscr)
+}
+
+/// Convert single-precision float to signed 32-bit integer using FPSCR rounding mode.
+pub fn vcvtr_s32_f32(val: f32, fpscr: &mut Fpscr) -> i32 {
+    let rounded = round_f32_for_int(val, fpscr.rmode());
+    saturate_f32_to_i32(rounded, fpscr)
+}
+
+/// Convert single-precision float to signed 32-bit integer using an explicit rounding mode.
+pub fn vcvt_s32_f32_round(val: f32, mode: RoundingMode, fpscr: &mut Fpscr) -> i32 {
+    let rounded = round_f32_for_int(val, mode);
+    saturate_f32_to_i32(rounded, fpscr)
+}
+
+/// Convert single-precision float to unsigned 32-bit integer using FPSCR rounding mode.
+pub fn vcvtr_u32_f32(val: f32, fpscr: &mut Fpscr) -> u32 {
+    let rounded = round_f32_for_int(val, fpscr.rmode());
+    saturate_f32_to_u32(rounded, fpscr)
+}
+
+/// Convert single-precision float to unsigned 32-bit integer using an explicit rounding mode.
+pub fn vcvt_u32_f32_round(val: f32, mode: RoundingMode, fpscr: &mut Fpscr) -> u32 {
+    let rounded = round_f32_for_int(val, mode);
+    saturate_f32_to_u32(rounded, fpscr)
+}
+
+/// Convert double-precision float to signed 32-bit integer using FPSCR rounding mode.
+pub fn vcvtr_s32_f64(val: f64, fpscr: &mut Fpscr) -> i32 {
+    let rounded = round_f64_for_int(val, fpscr.rmode());
+    saturate_f64_to_i32(rounded, fpscr)
+}
+
+/// Convert double-precision float to signed 32-bit integer using an explicit rounding mode.
+pub fn vcvt_s32_f64_round(val: f64, mode: RoundingMode, fpscr: &mut Fpscr) -> i32 {
+    let rounded = round_f64_for_int(val, mode);
+    saturate_f64_to_i32(rounded, fpscr)
+}
+
+/// Convert double-precision float to unsigned 32-bit integer using FPSCR rounding mode.
+pub fn vcvtr_u32_f64(val: f64, fpscr: &mut Fpscr) -> u32 {
+    let rounded = round_f64_for_int(val, fpscr.rmode());
+    saturate_f64_to_u32(rounded, fpscr)
+}
+
+/// Convert double-precision float to unsigned 32-bit integer using an explicit rounding mode.
+pub fn vcvt_u32_f64_round(val: f64, mode: RoundingMode, fpscr: &mut Fpscr) -> u32 {
+    let rounded = round_f64_for_int(val, mode);
+    saturate_f64_to_u32(rounded, fpscr)
+}
+
+/// Round single-precision to an integral floating-point value.
+pub fn vrint_f32(val: f32, mode: RoundingMode, exact: bool, fpscr: &mut Fpscr) -> f32 {
+    if val.is_nan() {
+        fpscr.set_ioc(true);
+        return val;
+    }
+    if val.is_infinite() || val == 0.0 {
+        return val;
+    }
+    let rounded = round_f32_for_int(val, mode);
+    if exact && rounded != val {
+        fpscr.set_ixc(true);
+    }
+    rounded
+}
+
+/// Round double-precision to an integral floating-point value.
+pub fn vrint_f64(val: f64, mode: RoundingMode, exact: bool, fpscr: &mut Fpscr) -> f64 {
+    if val.is_nan() {
+        fpscr.set_ioc(true);
+        return val;
+    }
+    if val.is_infinite() || val == 0.0 {
+        return val;
+    }
+    let rounded = round_f64_for_int(val, mode);
+    if exact && rounded != val {
+        fpscr.set_ixc(true);
+    }
+    rounded
+}
+
+/// Convert single-precision to double-precision.
+pub fn vcvt_f64_f32(val: f32) -> f64 {
+    val as f64
+}
+
+/// Convert double-precision to single-precision.
+pub fn vcvt_f32_f64(val: f64, fpscr: &mut Fpscr) -> f32 {
+    let result = val as f32;
+    update_fpscr_after_op(result, fpscr);
+    result
+}
+
+/// Convert IEEE-754 binary16 bits to single-precision.
+pub fn vcvt_f32_f16_bits(bits: u16) -> f32 {
+    let sign = ((bits as u32) & 0x8000) << 16;
+    let exp = (bits >> 10) & 0x1F;
+    let frac = (bits & 0x03FF) as u32;
+
+    let out = match exp {
+        0 if frac == 0 => sign,
+        0 => {
+            let value = (frac as f32) * 2.0f32.powi(-24);
+            return if sign != 0 { -value } else { value };
+        }
+        0x1F => sign | 0x7F80_0000 | (frac << 13),
+        _ => {
+            let exp32 = ((exp as u32) + (127 - 15)) << 23;
+            sign | exp32 | (frac << 13)
+        }
+    };
+    f32::from_bits(out)
+}
+
+/// Convert single-precision to IEEE-754 binary16 bits.
+pub fn vcvt_f16_bits_f32(val: f32, fpscr: &mut Fpscr) -> u16 {
+    let bits = val.to_bits();
+    let sign = ((bits >> 16) & 0x8000) as u16;
+    let exp = ((bits >> 23) & 0xFF) as i32;
+    let frac = bits & 0x7F_FFFF;
+
+    if exp == 0xFF {
+        if frac == 0 {
+            return sign | 0x7C00;
+        }
+        fpscr.set_ioc(true);
+        return sign | 0x7E00 | ((frac >> 13) as u16);
+    }
+
+    let exp16 = exp - 127 + 15;
+    if exp16 >= 0x1F {
+        fpscr.set_ofc(true);
+        fpscr.set_ixc(true);
+        return sign | 0x7C00;
+    }
+
+    if exp16 <= 0 {
+        if exp16 < -10 {
+            if frac != 0 || exp != 0 {
+                fpscr.set_ufc(true);
+                fpscr.set_ixc(true);
+            }
+            return sign;
+        }
+        let mant = frac | 0x80_0000;
+        let rounded = round_shift_right_ties_even(mant, (14 - exp16) as u32);
+        if rounded != 0 {
+            fpscr.set_ufc(true);
+        }
+        return sign | rounded as u16;
+    }
+
+    let mut rounded_frac = round_shift_right_ties_even(frac, 13);
+    let mut final_exp = exp16;
+    if rounded_frac == 0x400 {
+        rounded_frac = 0;
+        final_exp += 1;
+        if final_exp >= 0x1F {
+            fpscr.set_ofc(true);
+            fpscr.set_ixc(true);
+            return sign | 0x7C00;
+        }
+    }
+    sign | ((final_exp as u16) << 10) | (rounded_frac as u16)
+}
+
+/// Expand an 8-bit VFP immediate to a single-precision bit pattern.
+pub fn vfp_expand_imm_f32(imm8: u8) -> u32 {
+    let imm8 = imm8 as u32;
+    let sign = (imm8 >> 7) & 1;
+    let b6 = (imm8 >> 6) & 1;
+    let exp =
+        ((!b6 & 1) << 7) | ((if b6 != 0 { 0b11111 } else { 0 }) << 2) | ((imm8 >> 4) & 0x3);
+    let mant = (imm8 & 0xF) << 19;
+    (sign << 31) | (exp << 23) | mant
+}
+
+/// Expand an 8-bit VFP immediate to a double-precision bit pattern.
+pub fn vfp_expand_imm_f64(imm8: u8) -> u64 {
+    let imm8 = imm8 as u64;
+    let sign = (imm8 >> 7) & 1;
+    let b6 = (imm8 >> 6) & 1;
+    let exp =
+        ((!b6 & 1) << 10) | ((if b6 != 0 { 0xFF } else { 0 }) << 2) | ((imm8 >> 4) & 0x3);
+    let mant = (imm8 & 0xF) << 48;
+    (sign << 63) | (exp << 52) | mant
+}
+
+fn round_f32_for_int(val: f32, mode: RoundingMode) -> f32 {
+    match mode {
+        RoundingMode::RoundNearest => val.round_ties_even(),
+        RoundingMode::RoundPlusInf => val.ceil(),
+        RoundingMode::RoundMinusInf => val.floor(),
+        RoundingMode::RoundZero => val.trunc(),
+        RoundingMode::RoundTiesAway => val.round(),
+    }
+}
+
+fn round_f64_for_int(val: f64, mode: RoundingMode) -> f64 {
+    match mode {
+        RoundingMode::RoundNearest => val.round_ties_even(),
+        RoundingMode::RoundPlusInf => val.ceil(),
+        RoundingMode::RoundMinusInf => val.floor(),
+        RoundingMode::RoundZero => val.trunc(),
+        RoundingMode::RoundTiesAway => val.round(),
+    }
+}
+
+fn round_shift_right_ties_even(value: u32, shift: u32) -> u32 {
+    if shift == 0 {
+        return value;
+    }
+    let quotient = value >> shift;
+    let remainder = value & ((1u32 << shift) - 1);
+    let halfway = 1u32 << (shift - 1);
+    if remainder > halfway || (remainder == halfway && (quotient & 1) != 0) {
+        quotient + 1
+    } else {
+        quotient
+    }
+}
+
+fn saturate_f32_to_i32(val: f32, fpscr: &mut Fpscr) -> i32 {
     if val.is_nan() {
         fpscr.set_ioc(true);
         0
@@ -612,8 +1267,7 @@ pub fn vcvt_s32_f32(val: f32, fpscr: &mut Fpscr) -> i32 {
     }
 }
 
-/// Convert single-precision float to unsigned 32-bit integer (round toward zero).
-pub fn vcvt_u32_f32(val: f32, fpscr: &mut Fpscr) -> u32 {
+fn saturate_f32_to_u32(val: f32, fpscr: &mut Fpscr) -> u32 {
     if val.is_nan() || val < 0.0 {
         fpscr.set_ioc(true);
         0
@@ -625,18 +1279,7 @@ pub fn vcvt_u32_f32(val: f32, fpscr: &mut Fpscr) -> u32 {
     }
 }
 
-/// Convert signed 32-bit integer to double-precision float.
-pub fn vcvt_f64_s32(val: i32) -> f64 {
-    val as f64
-}
-
-/// Convert unsigned 32-bit integer to double-precision float.
-pub fn vcvt_f64_u32(val: u32) -> f64 {
-    val as f64
-}
-
-/// Convert double-precision float to signed 32-bit integer (round toward zero).
-pub fn vcvt_s32_f64(val: f64, fpscr: &mut Fpscr) -> i32 {
+fn saturate_f64_to_i32(val: f64, fpscr: &mut Fpscr) -> i32 {
     if val.is_nan() {
         fpscr.set_ioc(true);
         0
@@ -651,8 +1294,7 @@ pub fn vcvt_s32_f64(val: f64, fpscr: &mut Fpscr) -> i32 {
     }
 }
 
-/// Convert double-precision float to unsigned 32-bit integer (round toward zero).
-pub fn vcvt_u32_f64(val: f64, fpscr: &mut Fpscr) -> u32 {
+fn saturate_f64_to_u32(val: f64, fpscr: &mut Fpscr) -> u32 {
     if val.is_nan() || val < 0.0 {
         fpscr.set_ioc(true);
         0
@@ -662,18 +1304,6 @@ pub fn vcvt_u32_f64(val: f64, fpscr: &mut Fpscr) -> u32 {
     } else {
         val as u32
     }
-}
-
-/// Convert single-precision to double-precision.
-pub fn vcvt_f64_f32(val: f32) -> f64 {
-    val as f64
-}
-
-/// Convert double-precision to single-precision.
-pub fn vcvt_f32_f64(val: f64, fpscr: &mut Fpscr) -> f32 {
-    let result = val as f32;
-    update_fpscr_after_op(result, fpscr);
-    result
 }
 
 /// Update FPSCR exception flags after a single-precision operation.

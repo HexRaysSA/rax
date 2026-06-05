@@ -157,6 +157,12 @@ impl ArmVcpu {
         self.cp15.ifar = state.sregs.ifar;
         self.cp15.contextidr = state.sregs.contextidr;
     }
+
+    fn take_exception(&mut self, exception: ExceptionType) {
+        let mut mem_wrapper = GuestMemoryWrapper { mem: &self.mem };
+        let mut exec = Executor::new(&mut self.cpu, &mut mem_wrapper);
+        exec.take_exception(exception);
+    }
     
     /// Execute a single instruction.
     fn step(&mut self) -> Result<VcpuExit> {
@@ -167,15 +173,23 @@ impl ArmVcpu {
         let insn_bytes = if is_thumb {
             // Fetch 2 bytes first, may need 4 for Thumb-2
             let mut bytes = [0u8; 4];
-            self.mem.read(&mut bytes[0..2], GuestAddress(pc as u64))
-                .map_err(|_| Error::Emulator("Failed to fetch instruction".to_string()))?;
+            if self.mem.read(&mut bytes[0..2], GuestAddress(pc as u64)).is_err() {
+                self.take_exception(ExceptionType::PrefetchAbort(pc));
+                return Ok(VcpuExit::Hlt);
+            }
             
             let hw1 = u16::from_le_bytes([bytes[0], bytes[1]]);
             
             // Check if this is a 32-bit Thumb-2 instruction
             if (hw1 >> 11) >= 0x1D {
-                self.mem.read(&mut bytes[2..4], GuestAddress((pc + 2) as u64))
-                    .map_err(|_| Error::Emulator("Failed to fetch instruction".to_string()))?;
+                if self
+                    .mem
+                    .read(&mut bytes[2..4], GuestAddress((pc + 2) as u64))
+                    .is_err()
+                {
+                    self.take_exception(ExceptionType::PrefetchAbort(pc + 2));
+                    return Ok(VcpuExit::Hlt);
+                }
                 4
             } else {
                 2
@@ -186,8 +200,10 @@ impl ArmVcpu {
         
         // Fetch the instruction bytes
         let mut bytes = [0u8; 4];
-        self.mem.read(&mut bytes[0..insn_bytes], GuestAddress(pc as u64))
-            .map_err(|_| Error::Emulator("Failed to fetch instruction".to_string()))?;
+        if self.mem.read(&mut bytes[0..insn_bytes], GuestAddress(pc as u64)).is_err() {
+            self.take_exception(ExceptionType::PrefetchAbort(pc));
+            return Ok(VcpuExit::Hlt);
+        }
         
         // Decode
         let state = if is_thumb {
@@ -196,8 +212,13 @@ impl ArmVcpu {
             ExecutionState::Aarch32
         };
         
-        let insn = self.decoder.decode_with_state(&bytes[0..insn_bytes], state)
-            .map_err(|e| Error::Emulator(format!("Decode error: {:?}", e)))?;
+        let insn = match self.decoder.decode_with_state(&bytes[0..insn_bytes], state) {
+            Ok(insn) => insn,
+            Err(_) => {
+                self.take_exception(ExceptionType::UndefinedInstruction);
+                return Ok(VcpuExit::Hlt);
+            }
+        };
         
         // Execute using a memory wrapper
         let mut mem_wrapper = GuestMemoryWrapper { mem: &self.mem };
@@ -231,20 +252,30 @@ impl ArmVcpu {
                 Ok(VcpuExit::Hlt)
             }
             ExecResult::Exception(exception) => {
-                let mut exec = Executor::new(&mut self.cpu, &mut mem_wrapper);
-                exec.take_exception(exception);
+                self.take_exception(exception);
                 Ok(VcpuExit::Hlt)
             }
             ExecResult::Halt => {
                 Ok(VcpuExit::Hlt)
             }
             ExecResult::Undefined => {
-                Ok(VcpuExit::Exception(0)) // Signal undefined instruction
+                self.take_exception(ExceptionType::UndefinedInstruction);
+                Ok(VcpuExit::Hlt)
             }
             ExecResult::MemoryFault(e) => {
-                Err(Error::Emulator(format!("Memory fault: {:?}", e)))
+                self.take_exception(ExceptionType::DataAbort(memory_error_addr(&e)));
+                Ok(VcpuExit::Hlt)
             }
         }
+    }
+}
+
+fn memory_error_addr(error: &MemoryError) -> u32 {
+    match error {
+        MemoryError::Unaligned(addr)
+        | MemoryError::OutOfBounds(addr)
+        | MemoryError::PermissionDenied(addr)
+        | MemoryError::BusError(addr) => *addr,
     }
 }
 
@@ -303,39 +334,39 @@ impl<'a> ArmMemory for GuestMemoryWrapper<'a> {
     fn read_byte(&self, addr: u32) -> std::result::Result<u8, MemoryError> {
         let mut buf = [0u8; 1];
         self.mem.read(&mut buf, GuestAddress(addr as u64))
-            .map_err(|_| MemoryError::ReadFault(addr))?;
+            .map_err(|_| MemoryError::OutOfBounds(addr))?;
         Ok(buf[0])
     }
     
     fn write_byte(&mut self, addr: u32, value: u8) -> std::result::Result<(), MemoryError> {
         self.mem.write(&[value], GuestAddress(addr as u64))
-            .map_err(|_| MemoryError::WriteFault(addr))?;
+            .map_err(|_| MemoryError::OutOfBounds(addr))?;
         Ok(())
     }
     
     fn read_halfword(&self, addr: u32) -> std::result::Result<u16, MemoryError> {
         let mut buf = [0u8; 2];
         self.mem.read(&mut buf, GuestAddress(addr as u64))
-            .map_err(|_| MemoryError::ReadFault(addr))?;
+            .map_err(|_| MemoryError::OutOfBounds(addr))?;
         Ok(u16::from_le_bytes(buf))
     }
     
     fn write_halfword(&mut self, addr: u32, value: u16) -> std::result::Result<(), MemoryError> {
         self.mem.write(&value.to_le_bytes(), GuestAddress(addr as u64))
-            .map_err(|_| MemoryError::WriteFault(addr))?;
+            .map_err(|_| MemoryError::OutOfBounds(addr))?;
         Ok(())
     }
     
     fn read_word(&self, addr: u32) -> std::result::Result<u32, MemoryError> {
         let mut buf = [0u8; 4];
         self.mem.read(&mut buf, GuestAddress(addr as u64))
-            .map_err(|_| MemoryError::ReadFault(addr))?;
+            .map_err(|_| MemoryError::OutOfBounds(addr))?;
         Ok(u32::from_le_bytes(buf))
     }
     
     fn write_word(&mut self, addr: u32, value: u32) -> std::result::Result<(), MemoryError> {
         self.mem.write(&value.to_le_bytes(), GuestAddress(addr as u64))
-            .map_err(|_| MemoryError::WriteFault(addr))?;
+            .map_err(|_| MemoryError::OutOfBounds(addr))?;
         Ok(())
     }
 }
@@ -389,5 +420,35 @@ mod tests {
         assert_eq!(vcpu.cpu.regs[13], 0x2000);
         assert_eq!(vcpu.cpu.regs[15], 0x1000);
         assert!(vcpu.cpu.cpsr.n);
+    }
+
+    #[test]
+    fn test_fetch_fault_takes_prefetch_abort() {
+        let mem = create_test_memory();
+        let mut vcpu = ArmVcpu::new(0, mem);
+        vcpu.cpu.regs[15] = 0x10000;
+
+        let exit = vcpu.run().unwrap();
+
+        assert!(matches!(exit, VcpuExit::Hlt));
+        assert_eq!(vcpu.cpu.cpsr.mode, ProcessorMode::Abort as u8);
+        assert_eq!(vcpu.cpu.regs[15], 0x0c);
+        assert_eq!(vcpu.cpu.regs[14], 0x10004);
+    }
+
+    #[test]
+    fn test_data_fault_takes_data_abort() {
+        let mem = create_test_memory();
+        mem.write(&0xe590_0000u32.to_le_bytes(), GuestAddress(0))
+            .unwrap(); // LDR r0, [r0]
+        let mut vcpu = ArmVcpu::new(0, mem);
+        vcpu.cpu.regs[0] = 0x10000;
+
+        let exit = vcpu.run().unwrap();
+
+        assert!(matches!(exit, VcpuExit::Hlt));
+        assert_eq!(vcpu.cpu.cpsr.mode, ProcessorMode::Abort as u8);
+        assert_eq!(vcpu.cpu.regs[15], 0x10);
+        assert_eq!(vcpu.cpu.regs[14], 0x08);
     }
 }
