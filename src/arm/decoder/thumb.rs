@@ -83,8 +83,12 @@ impl ThumbDecoder {
             }
             0b10 => {
                 if op == 0 {
-                    // Data processing (modified immediate) or plain binary immediate
-                    Self::decode_32bit_dp_modified_imm(raw)
+                    // bit25 (hw1 bit9) selects modified-immediate vs plain-binary.
+                    if (hw1 >> 9) & 1 == 0 {
+                        Self::decode_32bit_dp_modified_imm(raw)
+                    } else {
+                        Self::decode_32bit_dp_plain_imm(raw)
+                    }
                 } else {
                     // Branches and miscellaneous control
                     Self::decode_32bit_branch_misc(raw)
@@ -889,13 +893,113 @@ impl ThumbDecoder {
         ))
     }
 
+    /// T32 data-processing (shifted register): AND/BIC/ORR/ORN/EOR/PKH/ADD/ADC/
+    /// SBC/SUB/RSB with a shifted Rm, plus the MOV/MVN-with-shift and the
+    /// TST/TEQ/CMP/CMN comparison forms.
     fn decode_32bit_data_processing(raw: u32) -> Result<DecodedInsn, DecodeError> {
-        Ok(DecodedInsn::new(
-            Mnemonic::UNKNOWN,
-            ExecutionState::Thumb2,
-            raw,
-            4,
-        ))
+        let hw1 = (raw >> 16) as u16;
+        let hw2 = raw as u16;
+
+        let op = (hw1 >> 5) & 0xF;
+        let s = (hw1 >> 4) & 1;
+        let rn = (hw1 & 0xF) as u8;
+        let rd = ((hw2 >> 8) & 0xF) as u8;
+        let rm = (hw2 & 0xF) as u8;
+        let imm3 = (hw2 >> 12) & 0x7;
+        let imm2 = (hw2 >> 6) & 0x3;
+        let type_bits = (hw2 >> 4) & 0x3;
+        let shift_imm = ((imm3 << 2) | imm2) as u8;
+
+        // Decode the shift type/amount (RRX when type==11 && shift==0).
+        let (shift_type, amount) = match type_bits {
+            0b00 => (ShiftType::LSL, shift_imm),
+            0b01 => (ShiftType::LSR, if shift_imm == 0 { 32 } else { shift_imm }),
+            0b10 => (ShiftType::ASR, if shift_imm == 0 { 32 } else { shift_imm }),
+            _ => {
+                if shift_imm == 0 {
+                    (ShiftType::RRX, 1)
+                } else {
+                    (ShiftType::ROR, shift_imm)
+                }
+            }
+        };
+
+        // PKHBT / PKHTB (op==0110): route to the A32 umbrella (T32-aware exec).
+        if op == 0b0110 {
+            return Ok(DecodedInsn::new(Mnemonic::A32_PKH, ExecutionState::Thumb2, raw, 4)
+                .with_operand(Operand::Reg(Self::any_reg(rd))));
+        }
+
+        let (mnemonic, uses_rn, writes_rd) = match op {
+            0b0000 => {
+                if rd == 15 && s == 1 {
+                    (Mnemonic::TST, true, false)
+                } else {
+                    (if s == 1 { Mnemonic::ANDS } else { Mnemonic::AND }, true, true)
+                }
+            }
+            0b0001 => (if s == 1 { Mnemonic::BICS } else { Mnemonic::BIC }, true, true),
+            0b0010 => {
+                if rn == 15 {
+                    (if s == 1 { Mnemonic::MOVS } else { Mnemonic::MOV }, false, true)
+                } else {
+                    (if s == 1 { Mnemonic::ORRS } else { Mnemonic::ORR }, true, true)
+                }
+            }
+            0b0011 => {
+                if rn == 15 {
+                    (if s == 1 { Mnemonic::MVNS } else { Mnemonic::MVN }, false, true)
+                } else {
+                    (if s == 1 { Mnemonic::ORNS } else { Mnemonic::ORN }, true, true)
+                }
+            }
+            0b0100 => {
+                if rd == 15 && s == 1 {
+                    (Mnemonic::TEQ, true, false)
+                } else {
+                    (if s == 1 { Mnemonic::EORS } else { Mnemonic::EOR }, true, true)
+                }
+            }
+            0b1000 => {
+                if rd == 15 && s == 1 {
+                    (Mnemonic::CMN, true, false)
+                } else {
+                    (if s == 1 { Mnemonic::ADDS } else { Mnemonic::ADD }, true, true)
+                }
+            }
+            0b1010 => (if s == 1 { Mnemonic::ADCS } else { Mnemonic::ADC }, true, true),
+            0b1011 => (if s == 1 { Mnemonic::SBCS } else { Mnemonic::SBC }, true, true),
+            0b1101 => {
+                if rd == 15 && s == 1 {
+                    (Mnemonic::CMP, true, false)
+                } else {
+                    (if s == 1 { Mnemonic::SUBS } else { Mnemonic::SUB }, true, true)
+                }
+            }
+            0b1110 => (if s == 1 { Mnemonic::RSBS } else { Mnemonic::RSB }, true, true),
+            _ => (Mnemonic::UNKNOWN, false, false),
+        };
+
+        if mnemonic == Mnemonic::UNKNOWN {
+            return Ok(DecodedInsn::new(Mnemonic::UNKNOWN, ExecutionState::Thumb2, raw, 4));
+        }
+
+        let mut insn = DecodedInsn::new(mnemonic, ExecutionState::Thumb2, raw, 4);
+        if s == 1 && writes_rd {
+            insn.sets_flags = true;
+        }
+        if writes_rd {
+            insn = insn.with_operand(Operand::Reg(Self::any_reg(rd)));
+        }
+        if uses_rn {
+            insn = insn.with_operand(Operand::Reg(Self::any_reg(rn)));
+        }
+        insn = insn.with_operand(Operand::ShiftedReg(ShiftedRegister::new(
+            Self::any_reg(rm),
+            shift_type,
+            amount,
+        )));
+        Ok(insn)
     }
 
     fn decode_32bit_dp_modified_imm(raw: u32) -> Result<DecodedInsn, DecodeError> {
@@ -1079,23 +1183,92 @@ impl ThumbDecoder {
         Ok(insn)
     }
 
+    /// T32 data-processing (plain binary immediate): ADDW/SUBW/MOVW/MOVT and the
+    /// bitfield/saturate group. Exec for the bitfield/sat ops reads the T32 raw
+    /// layout (state == Thumb2); ADDW/SUBW/MOVW/MOVT are lowered to ADD/SUB/MOV/
+    /// MOVK with an immediate operand.
+    fn decode_32bit_dp_plain_imm(raw: u32) -> Result<DecodedInsn, DecodeError> {
+        let hw1 = (raw >> 16) as u16;
+        let hw2 = raw as u16;
+        let op = (hw1 >> 4) & 0x1F;
+        let rn = (hw1 & 0xF) as u8;
+        let rd = ((hw2 >> 8) & 0xF) as u8;
+        let i = ((hw1 >> 10) & 1) as u32;
+        let imm3 = ((hw2 >> 12) & 0x7) as u32;
+        let imm8 = (hw2 & 0xFF) as u32;
+        let shift_imm = (imm3 << 2) | (((hw2 >> 6) & 0x3) as u32);
+        let imm12 = (i << 11) | (imm3 << 8) | imm8;
+        let imm16 = ((rn as u32) << 12) | imm12;
+
+        let reg = |n: u8| Operand::Reg(Self::any_reg(n));
+        let mk = |m: Mnemonic, ops: Vec<Operand>| {
+            let mut insn = DecodedInsn::new(m, ExecutionState::Thumb2, raw, 4);
+            for o in ops {
+                insn = insn.with_operand(o);
+            }
+            Ok(insn)
+        };
+
+        match op {
+            0b00000 => mk(
+                Mnemonic::ADD,
+                vec![reg(rd), reg(rn), Operand::Imm(Immediate::new(imm12 as i64))],
+            ),
+            0b01010 => mk(
+                Mnemonic::SUB,
+                vec![reg(rd), reg(rn), Operand::Imm(Immediate::new(imm12 as i64))],
+            ),
+            0b00100 => mk(
+                Mnemonic::MOV,
+                vec![reg(rd), Operand::Imm(Immediate::new(imm16 as i64))],
+            ),
+            0b01100 => mk(
+                Mnemonic::MOVK,
+                vec![reg(rd), Operand::Imm(Immediate::new(imm16 as i64))],
+            ),
+            0b10000 => mk(Mnemonic::SSAT, vec![reg(rd)]),
+            0b10010 => {
+                if shift_imm == 0 {
+                    mk(Mnemonic::A32_SAT16, vec![reg(rd)])
+                } else {
+                    mk(Mnemonic::SSAT, vec![reg(rd)])
+                }
+            }
+            0b10100 => mk(Mnemonic::SBFX, vec![reg(rd)]),
+            0b10110 => {
+                if rn == 15 {
+                    mk(Mnemonic::BFC, vec![reg(rd)])
+                } else {
+                    mk(Mnemonic::BFI, vec![reg(rd)])
+                }
+            }
+            0b11000 => mk(Mnemonic::USAT, vec![reg(rd)]),
+            0b11010 => {
+                if shift_imm == 0 {
+                    mk(Mnemonic::A32_SAT16, vec![reg(rd)])
+                } else {
+                    mk(Mnemonic::USAT, vec![reg(rd)])
+                }
+            }
+            0b11100 => mk(Mnemonic::UBFX, vec![reg(rd)]),
+            _ => Ok(DecodedInsn::new(Mnemonic::UNKNOWN, ExecutionState::Thumb2, raw, 4)),
+        }
+    }
+
     fn decode_thumb_modified_imm(imm12: u32) -> u32 {
         let imm8 = imm12 & 0xFF;
-        let ctrl = imm12 >> 8;
-
-        if ctrl < 4 {
-            // Replicated patterns
-            match ctrl {
-                0b0000 => imm8,
-                0b0001 => (imm8 << 16) | imm8,
-                0b0010 => (imm8 << 24) | (imm8 << 8),
-                0b0011 => (imm8 << 24) | (imm8 << 16) | (imm8 << 8) | imm8,
-                _ => unreachable!(),
+        if (imm12 >> 10) & 0x3 == 0 {
+            // Replicated patterns, selected by imm12[9:8].
+            match (imm12 >> 8) & 0x3 {
+                0b00 => imm8,
+                0b01 => (imm8 << 16) | imm8,
+                0b10 => (imm8 << 24) | (imm8 << 8),
+                _ => (imm8 << 24) | (imm8 << 16) | (imm8 << 8) | imm8,
             }
         } else {
-            // Rotated 8-bit value
-            let val = 0x80 | (imm8 & 0x7F);
-            val.rotate_right(ctrl)
+            // Rotated: value = 0x80:imm12[6:0], rotated right by imm12[11:7].
+            let val = 0x80 | (imm12 & 0x7F);
+            val.rotate_right((imm12 >> 7) & 0x1F)
         }
     }
 
@@ -1202,13 +1375,68 @@ impl ThumbDecoder {
         ))
     }
 
+    /// T32 data-processing (register): register-controlled shifts (LSL/LSR/ASR/
+    /// ROR), register extends, parallel add/sub, and the miscellaneous ops
+    /// (QADD/QSUB/QDADD/QDSUB, REV/REV16/RBIT/REVSH, SEL, CLZ).
     fn decode_32bit_dp_register(raw: u32) -> Result<DecodedInsn, DecodeError> {
-        Ok(DecodedInsn::new(
-            Mnemonic::UNKNOWN,
-            ExecutionState::Thumb2,
-            raw,
-            4,
-        ))
+        let hw1 = (raw >> 16) as u16;
+        let hw2 = raw as u16;
+        let op1 = (hw1 >> 4) & 0xF; // bits[23:20]
+        let op2 = (hw2 >> 4) & 0xF; // bits[7:4]
+        let rn = (hw1 & 0xF) as u8;
+        let rd = ((hw2 >> 8) & 0xF) as u8;
+        let rm = (hw2 & 0xF) as u8;
+        let any = Self::any_reg;
+
+        let mk = |m: Mnemonic, ops: &[u8], flags: bool| {
+            let mut insn = DecodedInsn::new(m, ExecutionState::Thumb2, raw, 4);
+            insn.sets_flags = flags;
+            for &o in ops {
+                insn = insn.with_operand(Operand::Reg(any(o)));
+            }
+            insn
+        };
+
+        if op2 & 0b1000 == 0 {
+            if op1 & 0b1000 == 0 {
+                // Register-controlled shift: type = op1[2:1], S = op1[0].
+                let s = op1 & 1 == 1;
+                let (base, sbase) = match (op1 >> 1) & 0x3 {
+                    0 => (Mnemonic::LSL, Mnemonic::LSLS),
+                    1 => (Mnemonic::LSR, Mnemonic::LSRS),
+                    2 => (Mnemonic::ASR, Mnemonic::ASRS),
+                    _ => (Mnemonic::ROR, Mnemonic::RORS),
+                };
+                let m = if s { sbase } else { base };
+                // operands: [Rd, Rn(value), Rm(shift amount)]
+                return Ok(mk(m, &[rd, rn, rm], s));
+            } else {
+                // Parallel add/sub.
+                return Ok(mk(Mnemonic::A32_PARALLEL, &[rd, rn, rm], false));
+            }
+        } else if op1 & 0b1000 == 0 {
+            // Register extends (op1 in 0..5).
+            return Ok(mk(Mnemonic::A32_EXTEND, &[rd, rn, rm], false));
+        } else {
+            // Miscellaneous operations, keyed by op1[2:0] and op2[1:0].
+            match op1 & 0x7 {
+                0b000 => return Ok(mk(Mnemonic::A32_SAT_ADDSUB, &[rd, rn, rm], false)),
+                0b001 => {
+                    let m = match op2 & 0x3 {
+                        0b00 => Mnemonic::REV,
+                        0b01 => Mnemonic::REV16,
+                        0b10 => Mnemonic::RBIT,
+                        _ => Mnemonic::REVSH,
+                    };
+                    return Ok(mk(m, &[rd, rm], false));
+                }
+                0b010 => return Ok(mk(Mnemonic::A32_SEL, &[rd, rn, rm], false)),
+                0b011 => return Ok(mk(Mnemonic::CLZ, &[rd, rm], false)),
+                _ => {}
+            }
+        }
+
+        Ok(DecodedInsn::new(Mnemonic::UNKNOWN, ExecutionState::Thumb2, raw, 4))
     }
 
     fn decode_32bit_multiply(raw: u32) -> Result<DecodedInsn, DecodeError> {
@@ -1221,6 +1449,20 @@ impl ThumbDecoder {
         let ra = ((hw2 >> 12) & 0xF) as u8;
         let rd = ((hw2 >> 8) & 0xF) as u8;
         let rm = (hw2 & 0xF) as u8;
+
+        // DSP signed multiplies use the A32 umbrella mnemonics; their exec reads
+        // the T32 raw layout (state == Thumb2).
+        let dsp = match op1 {
+            0b001 | 0b011 => Some(Mnemonic::A32_HMUL), // SMUL/SMLA + SMULW/SMLAW
+            0b010 | 0b100 => Some(Mnemonic::A32_DUAL), // SMUAD/SMLAD + SMUSD/SMLSD
+            0b101 | 0b110 => Some(Mnemonic::A32_SMMUL), // SMMUL/SMMLA + SMMLS
+            0b111 => Some(Mnemonic::A32_USAD),         // USAD8/USADA8
+            _ => None,
+        };
+        if let Some(m) = dsp {
+            return Ok(DecodedInsn::new(m, ExecutionState::Thumb2, raw, 4)
+                .with_operand(Operand::Reg(Self::any_reg(rd))));
+        }
 
         let mnemonic = match (op1, op2) {
             (0b000, 0b00) if ra != 15 => Mnemonic::MLA,
@@ -1251,6 +1493,20 @@ impl ThumbDecoder {
         let rd_lo = ((hw2 >> 12) & 0xF) as u8;
         let rd_hi = ((hw2 >> 8) & 0xF) as u8;
         let rm = (hw2 & 0xF) as u8;
+
+        // UMAAL / SMLALD / SMLSLD use the umbrella mnemonics (exec reads T32 raw).
+        // SMLALD/SMLSLD: op1=100/101 with op2=110x. UMAAL: op1=110, op2=0110.
+        if (op1 == 0b100 || op1 == 0b101) && (op2 & 0xE) == 0xC {
+            return Ok(DecodedInsn::new(Mnemonic::A32_SMLALD, ExecutionState::Thumb2, raw, 4)
+                .with_operand(Operand::Reg(Self::any_reg(rd_lo))));
+        }
+        if op1 == 0b110 && op2 == 0b0110 {
+            return Ok(DecodedInsn::new(Mnemonic::UMAAL, ExecutionState::Thumb2, raw, 4)
+                .with_operand(Operand::Reg(Self::any_reg(rd_lo)))
+                .with_operand(Operand::Reg(Self::any_reg(rd_hi)))
+                .with_operand(Operand::Reg(Self::any_reg(rn)))
+                .with_operand(Operand::Reg(Self::any_reg(rm))));
+        }
 
         let mnemonic = match (op1, op2) {
             (0b000, 0b0000) => Mnemonic::SMULL,

@@ -516,11 +516,11 @@ fn diff_a32_integer_sweep() {
 /// T32 (Thumb-2 32-bit) integer register-data-processing sweep.
 #[test]
 fn diff_t32_integer_sweep() {
-    integer_sweep("t32_integer_sweep", &[2], 8, 0xA32_0002);
+    integer_sweep("t32_integer_sweep", &[2], 24, 0xA32_0002);
 }
 
 /// T16 (Thumb 16-bit) integer register-data-processing sweep.
 #[test]
 fn diff_t16_integer_sweep() {
-    integer_sweep("t16_integer_sweep", &[1], 8, 0xA32_0003);
+    integer_sweep("t16_integer_sweep", &[1], 24, 0xA32_0003);
 }

@@ -540,8 +540,12 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
 
     fn exec_neg(&mut self, insn: &DecodedInsn) -> ExecResult {
         // NEG Rd, Rm is RSB Rd, Rm, #0
-        let d = ((insn.raw >> 12) & 0xF) as usize;
-        let m = (insn.raw & 0xF) as usize;
+        let (d, m) = if insn.state.is_thumb() {
+            let (r, _) = Self::thumb_reg_ops(insn, 2);
+            (r[0], r[1])
+        } else {
+            (((insn.raw >> 12) & 0xF) as usize, (insn.raw & 0xF) as usize)
+        };
         let result = self.cpu.add_with_carry(!self.reg(m), 0, true);
 
         if insn.sets_flags && d != 15 {
@@ -638,10 +642,19 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
     }
 
     fn exec_movt(&mut self, insn: &DecodedInsn) -> ExecResult {
-        let d = ((insn.raw >> 12) & 0xF) as usize;
-        let imm4 = (insn.raw >> 16) & 0xF;
-        let imm12 = insn.raw & 0xFFF;
-        let imm16 = (imm4 << 12) | imm12;
+        use crate::arm::decoder::Operand;
+        let (d, imm16) = if insn.state.is_thumb() {
+            let (r, _) = Self::thumb_reg_ops(insn, 1);
+            let imm = match insn.operands.last() {
+                Some(Operand::Imm(i)) => i.value as u32 & 0xFFFF,
+                _ => 0,
+            };
+            (r[0], imm)
+        } else {
+            let imm4 = (insn.raw >> 16) & 0xF;
+            let imm12 = insn.raw & 0xFFF;
+            (((insn.raw >> 12) & 0xF) as usize, (imm4 << 12) | imm12)
+        };
         self.cpu.regs[d] = (self.cpu.regs[d] & 0xFFFF) | (imm16 << 16);
         ExecResult::Continue
     }
@@ -841,9 +854,7 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
     }
 
     fn exec_sdiv(&mut self, insn: &DecodedInsn) -> ExecResult {
-        let d = ((insn.raw >> 16) & 0xF) as usize;
-        let n = (insn.raw & 0xF) as usize;
-        let m = ((insn.raw >> 8) & 0xF) as usize;
+        let (d, n, m) = self.decode_mul_operands(insn);
 
         let dividend = self.reg(n) as i32;
         let divisor = self.reg(m) as i32;
@@ -860,9 +871,7 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
     }
 
     fn exec_udiv(&mut self, insn: &DecodedInsn) -> ExecResult {
-        let d = ((insn.raw >> 16) & 0xF) as usize;
-        let n = (insn.raw & 0xF) as usize;
-        let m = ((insn.raw >> 8) & 0xF) as usize;
+        let (d, n, m) = self.decode_mul_operands(insn);
 
         let dividend = self.reg(n);
         let divisor = self.reg(m);
@@ -1659,30 +1668,26 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
     // =========================================================================
 
     fn exec_clz(&mut self, insn: &DecodedInsn) -> ExecResult {
-        let d = ((insn.raw >> 12) & 0xF) as usize;
-        let m = (insn.raw & 0xF) as usize;
+        let (d, m) = self.dm_ops(insn);
         let result = self.reg(m).leading_zeros();
         self.set_reg(d, result)
     }
 
     fn exec_rev(&mut self, insn: &DecodedInsn) -> ExecResult {
-        let d = ((insn.raw >> 12) & 0xF) as usize;
-        let m = (insn.raw & 0xF) as usize;
+        let (d, m) = self.dm_ops(insn);
         let result = self.reg(m).swap_bytes();
         self.set_reg(d, result)
     }
 
     fn exec_rev16(&mut self, insn: &DecodedInsn) -> ExecResult {
-        let d = ((insn.raw >> 12) & 0xF) as usize;
-        let m = (insn.raw & 0xF) as usize;
+        let (d, m) = self.dm_ops(insn);
         let val = self.reg(m);
         let result = ((val >> 8) & 0x00FF00FF) | ((val << 8) & 0xFF00FF00);
         self.set_reg(d, result)
     }
 
     fn exec_revsh(&mut self, insn: &DecodedInsn) -> ExecResult {
-        let d = ((insn.raw >> 12) & 0xF) as usize;
-        let m = (insn.raw & 0xF) as usize;
+        let (d, m) = self.dm_ops(insn);
         let val = self.reg(m);
         // Byte-reverse the low halfword and sign-extend
         let lo = ((val & 0xFF) << 8) | ((val >> 8) & 0xFF);
@@ -1691,8 +1696,7 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
     }
 
     fn exec_rbit(&mut self, insn: &DecodedInsn) -> ExecResult {
-        let d = ((insn.raw >> 12) & 0xF) as usize;
-        let m = (insn.raw & 0xF) as usize;
+        let (d, m) = self.dm_ops(insn);
         let result = self.reg(m).reverse_bits();
         self.set_reg(d, result)
     }
@@ -1701,46 +1705,57 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
     // Bit Field Operations
     // =========================================================================
 
+    /// Bitfield instruction fields (Rd, Rn, lsb, five) where `five` is the
+    /// width-minus-1 (SBFX/UBFX) or msb (BFI/BFC) field. Handles A32 and T32.
+    fn bitfield_fields(&self, insn: &DecodedInsn) -> (usize, usize, u32, u32) {
+        let raw = insn.raw;
+        if insn.state.is_thumb() {
+            let d = ((raw >> 8) & 0xF) as usize;
+            let n = ((raw >> 16) & 0xF) as usize;
+            let lsb = (((raw >> 12) & 0x7) << 2) | ((raw >> 6) & 0x3);
+            (d, n, lsb, raw & 0x1F)
+        } else {
+            let d = ((raw >> 12) & 0xF) as usize;
+            let n = (raw & 0xF) as usize;
+            (d, n, (raw >> 7) & 0x1F, (raw >> 16) & 0x1F)
+        }
+    }
+
     fn exec_bfc(&mut self, insn: &DecodedInsn) -> ExecResult {
-        let d = ((insn.raw >> 12) & 0xF) as usize;
-        let msb = ((insn.raw >> 16) & 0x1F) as u32;
-        let lsb = ((insn.raw >> 7) & 0x1F) as u32;
+        let (d, _, lsb, msb) = self.bitfield_fields(insn);
+        if msb < lsb {
+            return ExecResult::Continue;
+        }
         let width = msb - lsb + 1;
-        let mask = ((1u32 << width) - 1) << lsb;
-        let result = self.cpu.regs[d] & !mask;
-        self.cpu.regs[d] = result;
+        let mask = (((1u64 << width) - 1) as u32) << lsb;
+        self.cpu.regs[d] &= !mask;
         ExecResult::Continue
     }
 
     fn exec_bfi(&mut self, insn: &DecodedInsn) -> ExecResult {
-        let d = ((insn.raw >> 12) & 0xF) as usize;
-        let n = (insn.raw & 0xF) as usize;
-        let msb = ((insn.raw >> 16) & 0x1F) as u32;
-        let lsb = ((insn.raw >> 7) & 0x1F) as u32;
+        let (d, n, lsb, msb) = self.bitfield_fields(insn);
+        if msb < lsb {
+            return ExecResult::Continue;
+        }
         let width = msb - lsb + 1;
-        let mask = ((1u32 << width) - 1) << lsb;
+        let mask = (((1u64 << width) - 1) as u32) << lsb;
         let src = (self.reg(n) << lsb) & mask;
-        let result = (self.cpu.regs[d] & !mask) | src;
-        self.cpu.regs[d] = result;
+        self.cpu.regs[d] = (self.cpu.regs[d] & !mask) | src;
         ExecResult::Continue
     }
 
     fn exec_ubfx(&mut self, insn: &DecodedInsn) -> ExecResult {
-        let d = ((insn.raw >> 12) & 0xF) as usize;
-        let n = (insn.raw & 0xF) as usize;
-        let lsb = ((insn.raw >> 7) & 0x1F) as u32;
-        let width = (((insn.raw >> 16) & 0x1F) + 1) as u32;
-        let mask = (1u32 << width) - 1;
+        let (d, n, lsb, w) = self.bitfield_fields(insn);
+        let width = w + 1;
+        let mask = ((1u64 << width) - 1) as u32;
         let result = (self.reg(n) >> lsb) & mask;
         self.set_reg(d, result)
     }
 
     fn exec_sbfx(&mut self, insn: &DecodedInsn) -> ExecResult {
-        let d = ((insn.raw >> 12) & 0xF) as usize;
-        let n = (insn.raw & 0xF) as usize;
-        let lsb = ((insn.raw >> 7) & 0x1F) as u32;
-        let width = (((insn.raw >> 16) & 0x1F) + 1) as u32;
-        let mask = (1u32 << width) - 1;
+        let (d, n, lsb, w) = self.bitfield_fields(insn);
+        let width = w + 1;
+        let mask = ((1u64 << width) - 1) as u32;
         let extracted = (self.reg(n) >> lsb) & mask;
         let result = sign_extend(extracted, width);
         self.set_reg(d, result)
@@ -1751,36 +1766,32 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
     // =========================================================================
 
     fn exec_sxtb(&mut self, insn: &DecodedInsn) -> ExecResult {
-        let d = ((insn.raw >> 12) & 0xF) as usize;
-        let m = (insn.raw & 0xF) as usize;
-        let rotation = ((insn.raw >> 10) & 3) * 8;
+        let (d, m) = self.dm_ops(insn);
+        let rotation = if insn.state.is_thumb() { 0 } else { ((insn.raw >> 10) & 3) * 8 };
         let rotated = self.reg(m).rotate_right(rotation);
         let result = sign_extend(rotated & 0xFF, 8);
         self.set_reg(d, result)
     }
 
     fn exec_sxth(&mut self, insn: &DecodedInsn) -> ExecResult {
-        let d = ((insn.raw >> 12) & 0xF) as usize;
-        let m = (insn.raw & 0xF) as usize;
-        let rotation = ((insn.raw >> 10) & 3) * 8;
+        let (d, m) = self.dm_ops(insn);
+        let rotation = if insn.state.is_thumb() { 0 } else { ((insn.raw >> 10) & 3) * 8 };
         let rotated = self.reg(m).rotate_right(rotation);
         let result = sign_extend(rotated & 0xFFFF, 16);
         self.set_reg(d, result)
     }
 
     fn exec_uxtb(&mut self, insn: &DecodedInsn) -> ExecResult {
-        let d = ((insn.raw >> 12) & 0xF) as usize;
-        let m = (insn.raw & 0xF) as usize;
-        let rotation = ((insn.raw >> 10) & 3) * 8;
+        let (d, m) = self.dm_ops(insn);
+        let rotation = if insn.state.is_thumb() { 0 } else { ((insn.raw >> 10) & 3) * 8 };
         let rotated = self.reg(m).rotate_right(rotation);
         let result = rotated & 0xFF;
         self.set_reg(d, result)
     }
 
     fn exec_uxth(&mut self, insn: &DecodedInsn) -> ExecResult {
-        let d = ((insn.raw >> 12) & 0xF) as usize;
-        let m = (insn.raw & 0xF) as usize;
-        let rotation = ((insn.raw >> 10) & 3) * 8;
+        let (d, m) = self.dm_ops(insn);
+        let rotation = if insn.state.is_thumb() { 0 } else { ((insn.raw >> 10) & 3) * 8 };
         let rotated = self.reg(m).rotate_right(rotation);
         let result = rotated & 0xFFFF;
         self.set_reg(d, result)
@@ -1790,12 +1801,23 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
     // Saturating Arithmetic
     // =========================================================================
 
+    /// Saturate instruction fields: (Rd, Rn, sat_imm5, sh, imm5). A32/T32.
+    fn sat_fields(&self, insn: &DecodedInsn) -> (usize, usize, u32, bool, u32) {
+        let raw = insn.raw;
+        if insn.state.is_thumb() {
+            let d = ((raw >> 8) & 0xF) as usize;
+            let n = ((raw >> 16) & 0xF) as usize;
+            let imm5 = (((raw >> 12) & 0x7) << 2) | ((raw >> 6) & 0x3);
+            (d, n, raw & 0x1F, (raw >> 21) & 1 != 0, imm5)
+        } else {
+            let d = ((raw >> 12) & 0xF) as usize;
+            let n = (raw & 0xF) as usize;
+            (d, n, (raw >> 16) & 0x1F, (raw >> 6) & 1 != 0, (raw >> 7) & 0x1F)
+        }
+    }
+
     fn exec_usat(&mut self, insn: &DecodedInsn) -> ExecResult {
-        let d = ((insn.raw >> 12) & 0xF) as usize;
-        let sat_imm = ((insn.raw >> 16) & 0x1F) as u32;
-        let n = (insn.raw & 0xF) as usize;
-        let sh = ((insn.raw >> 6) & 1) != 0;
-        let imm5 = ((insn.raw >> 7) & 0x1F) as u32;
+        let (d, n, sat_imm, sh, imm5) = self.sat_fields(insn);
 
         let shift_amount = if imm5 == 0 && sh { 32 } else { imm5 };
         let shift_type = if sh { ShiftType::ASR } else { ShiftType::LSL };
@@ -1818,11 +1840,8 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
     }
 
     fn exec_ssat(&mut self, insn: &DecodedInsn) -> ExecResult {
-        let d = ((insn.raw >> 12) & 0xF) as usize;
-        let sat_imm = ((insn.raw >> 16) & 0x1F) as u32 + 1;
-        let n = (insn.raw & 0xF) as usize;
-        let sh = ((insn.raw >> 6) & 1) != 0;
-        let imm5 = ((insn.raw >> 7) & 0x1F) as u32;
+        let (d, n, sat_imm0, sh, imm5) = self.sat_fields(insn);
+        let sat_imm = sat_imm0 + 1;
 
         let shift_amount = if imm5 == 0 && sh { 32 } else { imm5 };
         let shift_type = if sh { ShiftType::ASR } else { ShiftType::LSL };
@@ -1848,6 +1867,44 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
     // AArch32 media / DSP (A32 encodings; operation derived from the raw word)
     // =========================================================================
 
+    /// (Rd, Rn, Rm) for 3-register media ops (A32 / T32 layouts).
+    fn media_regs(&self, insn: &DecodedInsn) -> (usize, usize, usize) {
+        let raw = insn.raw;
+        if insn.state.is_thumb() {
+            (
+                ((raw >> 8) & 0xF) as usize,
+                ((raw >> 16) & 0xF) as usize,
+                (raw & 0xF) as usize,
+            )
+        } else {
+            (
+                ((raw >> 12) & 0xF) as usize,
+                ((raw >> 16) & 0xF) as usize,
+                (raw & 0xF) as usize,
+            )
+        }
+    }
+
+    /// (Rd, Ra, Rm, Rn) for 4-register DSP multiplies (A32 / T32 layouts).
+    fn dsp4_regs(&self, insn: &DecodedInsn) -> (usize, usize, usize, usize) {
+        let raw = insn.raw;
+        if insn.state.is_thumb() {
+            (
+                ((raw >> 8) & 0xF) as usize,  // Rd = hw2[11:8]
+                ((raw >> 12) & 0xF) as usize, // Ra = hw2[15:12]
+                (raw & 0xF) as usize,         // Rm = hw2[3:0]
+                ((raw >> 16) & 0xF) as usize, // Rn = hw1[3:0]
+            )
+        } else {
+            (
+                ((raw >> 16) & 0xF) as usize, // Rd = bits[19:16]
+                ((raw >> 12) & 0xF) as usize, // Ra = bits[15:12]
+                ((raw >> 8) & 0xF) as usize,  // Rm = bits[11:8]
+                (raw & 0xF) as usize,         // Rn = bits[3:0]
+            )
+        }
+    }
+
     /// Signed-saturate a value to 32 bits, setting the Q flag on saturation.
     fn ssat32(&mut self, x: i64) -> u32 {
         if x > i32::MAX as i64 {
@@ -1864,12 +1921,21 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
     /// QADD / QSUB / QDADD / QDSUB.
     fn exec_a32_sat_addsub(&mut self, insn: &DecodedInsn) -> ExecResult {
         let raw = insn.raw;
-        let rd = ((raw >> 12) & 0xF) as usize;
-        let rn = ((raw >> 16) & 0xF) as usize;
-        let rm = (raw & 0xF) as usize;
+        let (rd, rn, rm) = self.media_regs(insn);
         let n = self.reg(rn) as i32 as i64;
         let m = self.reg(rm) as i32 as i64;
-        let result = match (raw >> 21) & 0x3 {
+        // Canonical kind: 0=QADD 1=QSUB 2=QDADD 3=QDSUB.
+        let kind = if insn.state.is_thumb() {
+            match (raw >> 4) & 0x3 {
+                0 => 0,
+                1 => 2,
+                2 => 1,
+                _ => 3,
+            }
+        } else {
+            (raw >> 21) & 0x3
+        };
+        let result = match kind {
             0b00 => self.ssat32(m + n),
             0b01 => self.ssat32(m - n),
             0b10 => {
@@ -1887,12 +1953,7 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
     /// SMUL/SMLA/SMULW/SMLAW/SMLAL <x><y> (halfword and word multiplies).
     fn exec_a32_hmul(&mut self, insn: &DecodedInsn) -> ExecResult {
         let raw = insn.raw;
-        let rd = ((raw >> 16) & 0xF) as usize;
-        let ra = ((raw >> 12) & 0xF) as usize;
-        let rm = ((raw >> 8) & 0xF) as usize;
-        let rn = (raw & 0xF) as usize;
-        let n_top = (raw >> 5) & 1 != 0;
-        let m_top = (raw >> 6) & 1 != 0;
+        let (rd, ra, rm, rn) = self.dsp4_regs(insn);
         let rn_v = self.reg(rn);
         let rm_v = self.reg(rm);
         let half = |v: u32, top: bool| -> i64 {
@@ -1902,8 +1963,28 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
                 v as u16 as i16 as i64
             }
         };
-        match (raw >> 21) & 0x3 {
-            0b00 => {
+        // Normalized kind: 0=SMLA 1=SMLAW 2=SMULW 3=SMLAL 4=SMUL.
+        let (kind, n_top, m_top) = if insn.state.is_thumb() {
+            let op1 = (raw >> 20) & 0x7; // hw1[6:4]
+            let nt = (raw >> 5) & 1 != 0;
+            let mt = (raw >> 4) & 1 != 0;
+            if op1 == 0b001 {
+                (if ra == 15 { 4 } else { 0 }, nt, mt) // SMUL / SMLA
+            } else {
+                (if ra == 15 { 2 } else { 1 }, false, mt) // SMULW / SMLAW
+            }
+        } else {
+            let nt = (raw >> 5) & 1 != 0;
+            let mt = (raw >> 6) & 1 != 0;
+            match (raw >> 21) & 0x3 {
+                0b00 => (0, nt, mt),
+                0b01 => (if (raw >> 5) & 1 != 0 { 2 } else { 1 }, false, mt),
+                0b10 => (3, nt, mt),
+                _ => (4, nt, mt),
+            }
+        };
+        match kind {
+            0 => {
                 // SMLA<x><y>: Rd = Rn.x * Rm.y + Ra (Q on signed overflow)
                 let result = half(rn_v, n_top) * half(rm_v, m_top) + self.reg(ra) as i32 as i64;
                 let r32 = result as i32;
@@ -1912,30 +1993,27 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
                 }
                 self.set_reg(rd, r32 as u32)
             }
-            0b01 => {
-                // SMLAW<y> (bit5==0) / SMULW<y> (bit5==1)
+            1 => {
+                // SMLAW<y>: Rd = (Rn * Rm.y)[47:16] + Ra (Q on overflow)
                 let prod = (rn_v as i32 as i64) * half(rm_v, m_top);
-                let shifted = prod >> 16;
-                if (raw >> 5) & 1 == 0 {
-                    let result = shifted + self.reg(ra) as i32 as i64;
-                    let r32 = result as i32;
-                    if result != r32 as i64 {
-                        self.cpu.cpsr.q = true;
-                    }
-                    self.set_reg(rd, r32 as u32)
-                } else {
-                    self.set_reg(rd, shifted as i32 as u32)
+                let result = (prod >> 16) + self.reg(ra) as i32 as i64;
+                let r32 = result as i32;
+                if result != r32 as i64 {
+                    self.cpu.cpsr.q = true;
                 }
+                self.set_reg(rd, r32 as u32)
             }
-            0b10 => {
-                // SMLAL<x><y>: RdHi:RdLo += Rn.x * Rm.y
-                let dhi = ((raw >> 16) & 0xF) as usize;
-                let dlo = ((raw >> 12) & 0xF) as usize;
-                let acc =
-                    (((self.cpu.regs[dhi] as u64) << 32) | self.cpu.regs[dlo] as u64) as i64;
+            2 => {
+                // SMULW<y>: Rd = (Rn * Rm.y)[47:16]
+                let prod = (rn_v as i32 as i64) * half(rm_v, m_top);
+                self.set_reg(rd, (prod >> 16) as i32 as u32)
+            }
+            3 => {
+                // SMLAL<x><y>: RdHi:RdLo += Rn.x * Rm.y (RdHi=rd, RdLo=ra)
+                let acc = (((self.cpu.regs[rd] as u64) << 32) | self.cpu.regs[ra] as u64) as i64;
                 let result = acc.wrapping_add(half(rn_v, n_top) * half(rm_v, m_top)) as u64;
-                self.cpu.regs[dlo] = result as u32;
-                self.cpu.regs[dhi] = (result >> 32) as u32;
+                self.cpu.regs[ra] = result as u32;
+                self.cpu.regs[rd] = (result >> 32) as u32;
                 ExecResult::Continue
             }
             _ => {
@@ -1948,18 +2026,21 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
     /// SMUAD / SMUSD / SMLAD / SMLSD.
     fn exec_a32_dual(&mut self, insn: &DecodedInsn) -> ExecResult {
         let raw = insn.raw;
-        let rd = ((raw >> 16) & 0xF) as usize;
-        let ra = ((raw >> 12) & 0xF) as usize;
-        let rm = ((raw >> 8) & 0xF) as usize;
-        let rn = (raw & 0xF) as usize;
+        let (rd, ra, rm, rn) = self.dsp4_regs(insn);
+        // X (swap Rm halves) and sub flags differ by encoding.
+        let (swap, sub) = if insn.state.is_thumb() {
+            ((raw >> 4) & 1 != 0, (raw >> 20) & 0x7 == 0b100)
+        } else {
+            ((raw >> 5) & 1 != 0, (raw >> 6) & 1 != 0)
+        };
         let rn_v = self.reg(rn);
         let mut rm_v = self.reg(rm);
-        if (raw >> 5) & 1 != 0 {
-            rm_v = rm_v.rotate_right(16); // X: swap Rm halves
+        if swap {
+            rm_v = rm_v.rotate_right(16);
         }
         let p1 = (rn_v as u16 as i16 as i64) * (rm_v as u16 as i16 as i64);
         let p2 = ((rn_v >> 16) as u16 as i16 as i64) * ((rm_v >> 16) as u16 as i16 as i64);
-        let mut result = if (raw >> 6) & 1 != 0 { p1 - p2 } else { p1 + p2 };
+        let mut result = if sub { p1 - p2 } else { p1 + p2 };
         if ra != 15 {
             result += self.reg(ra) as i32 as i64;
         }
@@ -1973,18 +2054,33 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
     /// SMLALD / SMLSLD.
     fn exec_a32_smlald(&mut self, insn: &DecodedInsn) -> ExecResult {
         let raw = insn.raw;
-        let dhi = ((raw >> 16) & 0xF) as usize;
-        let dlo = ((raw >> 12) & 0xF) as usize;
-        let rm = ((raw >> 8) & 0xF) as usize;
-        let rn = (raw & 0xF) as usize;
+        let (dhi, dlo, rm, rn, swap, sub) = if insn.state.is_thumb() {
+            (
+                ((raw >> 8) & 0xF) as usize,  // RdHi = hw2[11:8]
+                ((raw >> 12) & 0xF) as usize, // RdLo = hw2[15:12]
+                (raw & 0xF) as usize,         // Rm = hw2[3:0]
+                ((raw >> 16) & 0xF) as usize, // Rn = hw1[3:0]
+                (raw >> 4) & 1 != 0,
+                (raw >> 20) & 0x7 == 0b101, // op1==101 -> SMLSLD
+            )
+        } else {
+            (
+                ((raw >> 16) & 0xF) as usize,
+                ((raw >> 12) & 0xF) as usize,
+                ((raw >> 8) & 0xF) as usize,
+                (raw & 0xF) as usize,
+                (raw >> 5) & 1 != 0,
+                (raw >> 6) & 1 != 0,
+            )
+        };
         let rn_v = self.reg(rn);
         let mut rm_v = self.reg(rm);
-        if (raw >> 5) & 1 != 0 {
+        if swap {
             rm_v = rm_v.rotate_right(16);
         }
         let p1 = (rn_v as u16 as i16 as i64) * (rm_v as u16 as i16 as i64);
         let p2 = ((rn_v >> 16) as u16 as i16 as i64) * ((rm_v >> 16) as u16 as i16 as i64);
-        let prod = if (raw >> 6) & 1 != 0 { p1 - p2 } else { p1 + p2 };
+        let prod = if sub { p1 - p2 } else { p1 + p2 };
         let acc = (((self.cpu.regs[dhi] as u64) << 32) | self.cpu.regs[dlo] as u64) as i64;
         let result = acc.wrapping_add(prod) as u64;
         self.cpu.regs[dlo] = result as u32;
@@ -1995,18 +2091,20 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
     /// SMMUL / SMMLA / SMMLS (signed most-significant-word multiply).
     fn exec_a32_smmul(&mut self, insn: &DecodedInsn) -> ExecResult {
         let raw = insn.raw;
-        let rd = ((raw >> 16) & 0xF) as usize;
-        let ra = ((raw >> 12) & 0xF) as usize;
-        let rm = ((raw >> 8) & 0xF) as usize;
-        let rn = (raw & 0xF) as usize;
+        let (rd, ra, rm, rn) = self.dsp4_regs(insn);
+        let (round, sub) = if insn.state.is_thumb() {
+            ((raw >> 4) & 1 != 0, (raw >> 20) & 0x7 == 0b110)
+        } else {
+            ((raw >> 5) & 1 != 0, (raw >> 6) & 1 != 0)
+        };
         let prod = (self.reg(rn) as i32 as i64) * (self.reg(rm) as i32 as i64);
         let acc = if ra == 15 {
             0i64
         } else {
             (self.reg(ra) as i32 as i64) << 32
         };
-        let mut result = if (raw >> 6) & 1 != 0 { acc - prod } else { acc + prod };
-        if (raw >> 5) & 1 != 0 {
+        let mut result = if sub { acc - prod } else { acc + prod };
+        if round {
             result += 0x8000_0000; // rounding
         }
         self.set_reg(rd, (result >> 32) as u32)
@@ -2014,11 +2112,7 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
 
     /// USAD8 / USADA8 (sum of absolute differences).
     fn exec_a32_usad(&mut self, insn: &DecodedInsn) -> ExecResult {
-        let raw = insn.raw;
-        let rd = ((raw >> 16) & 0xF) as usize;
-        let ra = ((raw >> 12) & 0xF) as usize;
-        let rm = ((raw >> 8) & 0xF) as usize;
-        let rn = (raw & 0xF) as usize;
+        let (rd, ra, rm, rn) = self.dsp4_regs(insn);
         let n = self.reg(rn);
         let m = self.reg(rm);
         let mut sum: u32 = 0;
@@ -2036,13 +2130,15 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
     /// PKHBT / PKHTB (pack halfword).
     fn exec_a32_pkh(&mut self, insn: &DecodedInsn) -> ExecResult {
         let raw = insn.raw;
-        let rd = ((raw >> 12) & 0xF) as usize;
-        let rn = ((raw >> 16) & 0xF) as usize;
-        let rm = (raw & 0xF) as usize;
-        let imm5 = (raw >> 7) & 0x1F;
+        let (rd, rn, rm) = self.media_regs(insn);
+        let (tbform, imm5) = if insn.state.is_thumb() {
+            ((raw >> 5) & 1 != 0, (((raw >> 12) & 0x7) << 2) | ((raw >> 6) & 0x3))
+        } else {
+            ((raw >> 6) & 1 != 0, (raw >> 7) & 0x1F)
+        };
         let n = self.reg(rn);
         let m = self.reg(rm);
-        let result = if (raw >> 6) & 1 != 0 {
+        let result = if tbform {
             // PKHTB: top from Rn, bottom from (Rm ASR imm5; imm5==0 => 32)
             let op2 = if imm5 == 0 {
                 ((m as i32) >> 31) as u32
@@ -2061,12 +2157,19 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
     /// (U|S)XT(A)(B|H|B16) sign/zero extend, with optional add and rotate.
     fn exec_a32_extend(&mut self, insn: &DecodedInsn) -> ExecResult {
         let raw = insn.raw;
-        let rd = ((raw >> 12) & 0xF) as usize;
-        let rn = ((raw >> 16) & 0xF) as usize;
-        let rm = (raw & 0xF) as usize;
-        let unsigned = (raw >> 22) & 1 != 0;
-        let size = (raw >> 20) & 0x3; // 00=B16, 10=B, 11=H
-        let rotation = ((raw >> 10) & 0x3) * 8;
+        let (rd, rn, rm) = self.media_regs(insn);
+        // size: 00=B16, 10=B, 11=H ; unsigned ; rotation.
+        let (unsigned, size, rotation) = if insn.state.is_thumb() {
+            let ty = (raw >> 20) & 0x7; // hw1[6:4]: 0SXTH 1UXTH 2SXTB16 3UXTB16 4SXTB 5UXTB
+            let size = match ty >> 1 {
+                0 => 0b11, // H
+                1 => 0b00, // B16
+                _ => 0b10, // B
+            };
+            (ty & 1 != 0, size, ((raw >> 4) & 0x3) * 8)
+        } else {
+            ((raw >> 22) & 1 != 0, (raw >> 20) & 0x3, ((raw >> 10) & 0x3) * 8)
+        };
         let rotated = self.reg(rm).rotate_right(rotation);
         let add = rn != 15;
         let n = self.reg(rn);
@@ -2117,10 +2220,21 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
     /// SSAT16 / USAT16 (parallel halfword saturate).
     fn exec_a32_sat16(&mut self, insn: &DecodedInsn) -> ExecResult {
         let raw = insn.raw;
-        let rd = ((raw >> 12) & 0xF) as usize;
-        let rn = (raw & 0xF) as usize;
-        let sat = (raw >> 16) & 0xF;
-        let unsigned = (raw >> 22) & 1 != 0;
+        let (rd, rn, sat, unsigned) = if insn.state.is_thumb() {
+            (
+                ((raw >> 8) & 0xF) as usize,
+                ((raw >> 16) & 0xF) as usize,
+                raw & 0xF,
+                (raw >> 23) & 1 != 0,
+            )
+        } else {
+            (
+                ((raw >> 12) & 0xF) as usize,
+                (raw & 0xF) as usize,
+                (raw >> 16) & 0xF,
+                (raw >> 22) & 1 != 0,
+            )
+        };
         let n = self.reg(rn);
         let mut out: u32 = 0;
         for i in 0..2u32 {
@@ -2157,10 +2271,7 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
 
     /// SEL (select bytes by GE flags).
     fn exec_a32_sel(&mut self, insn: &DecodedInsn) -> ExecResult {
-        let raw = insn.raw;
-        let rd = ((raw >> 12) & 0xF) as usize;
-        let rn = ((raw >> 16) & 0xF) as usize;
-        let rm = (raw & 0xF) as usize;
+        let (rd, rn, rm) = self.media_regs(insn);
         let n = self.reg(rn);
         let m = self.reg(rm);
         let ge = self.cpu.cpsr.ge;
@@ -2180,11 +2291,32 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
     /// the plain signed (S) and unsigned (U) prefixes.
     fn exec_a32_parallel(&mut self, insn: &DecodedInsn) -> ExecResult {
         let raw = insn.raw;
-        let rd = ((raw >> 12) & 0xF) as usize;
-        let rn = ((raw >> 16) & 0xF) as usize;
-        let rm = (raw & 0xF) as usize;
-        let prefix = (raw >> 20) & 0x7; // 001=S 010=Q 011=SH 101=U 110=UQ 111=UH
-        let op2 = (raw >> 5) & 0x7; // 000=add16 001=asx 010=sax 011=sub16 100=add8 111=sub8
+        let (rd, rn, rm) = self.media_regs(insn);
+        // Normalize to the A32 codes: prefix 001=S 010=Q 011=SH 101=U 110=UQ
+        // 111=UH ; op2 000=add16 001=asx 010=sax 011=sub16 100=add8 111=sub8.
+        let (prefix, op2) = if insn.state.is_thumb() {
+            let prefix = match (raw >> 4) & 0x7 {
+                // hw2[6:4]: 0=S 1=Q 2=SH 4=U 5=UQ 6=UH
+                0 => 0b001,
+                1 => 0b010,
+                2 => 0b011,
+                4 => 0b101,
+                5 => 0b110,
+                _ => 0b111,
+            };
+            let op2 = match (raw >> 20) & 0x7 {
+                // hw1[6:4]: 0=add8 1=add16 2=asx 4=sub8 5=sub16 6=sax
+                0 => 0b100,
+                1 => 0b000,
+                2 => 0b001,
+                4 => 0b111,
+                5 => 0b011,
+                _ => 0b010,
+            };
+            (prefix, op2)
+        } else {
+            ((raw >> 20) & 0x7, (raw >> 5) & 0x7)
+        };
         let n = self.reg(rn);
         let m = self.reg(rm);
 
@@ -2305,8 +2437,102 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
     // Operand Decoding Helpers
     // =========================================================================
 
+    /// Collect up to `max` GPR numbers from the decoded operand list, in order.
+    fn thumb_reg_ops(insn: &DecodedInsn, max: usize) -> ([usize; 4], usize) {
+        use crate::arm::decoder::Operand;
+        let mut regs = [0usize; 4];
+        let mut cnt = 0;
+        for o in &insn.operands {
+            if let Operand::Reg(r) = o {
+                if cnt < max && cnt < 4 {
+                    regs[cnt] = r.num as usize;
+                    cnt += 1;
+                }
+            }
+        }
+        (regs, cnt)
+    }
+
+    /// (Rd, Rm) for two-register ops: from operands in Thumb, from raw in A32.
+    fn dm_ops(&self, insn: &DecodedInsn) -> (usize, usize) {
+        if insn.state.is_thumb() {
+            let (r, _) = Self::thumb_reg_ops(insn, 2);
+            (r[0], r[1])
+        } else {
+            (
+                ((insn.raw >> 12) & 0xF) as usize,
+                (insn.raw & 0xF) as usize,
+            )
+        }
+    }
+
+    /// Carry-out of a Thumb data-processing immediate (ThumbExpandImm_C). The
+    /// rotated forms produce carry = result[31]; plain forms leave C unchanged.
+    fn thumb_imm_carry(&self, insn: &DecodedInsn, value: u32) -> bool {
+        if insn.state == crate::arm::ExecutionState::Thumb2 {
+            let raw = insn.raw;
+            let imm12 = (((raw >> 26) & 1) << 11) | (((raw >> 12) & 0x7) << 8) | (raw & 0xFF);
+            if (imm12 >> 8) >= 4 {
+                return (value >> 31) & 1 != 0;
+            }
+        }
+        self.cpu.cpsr.c
+    }
+
+    /// Thumb (T16/T32) data-processing operand decode using the decoded operands.
+    fn decode_dp_operands_thumb(&mut self, insn: &DecodedInsn) -> (usize, usize, u32) {
+        use crate::arm::decoder::Operand;
+        let (operand2, carry) = match insn.operands.last() {
+            Some(Operand::Imm(imm)) => {
+                let v = imm.value as u32;
+                (v, self.thumb_imm_carry(insn, v))
+            }
+            Some(Operand::Reg(r)) => (self.reg(r.num as usize), self.cpu.cpsr.c),
+            Some(Operand::ShiftedReg(sr)) => shift_c(
+                self.reg(sr.reg.num as usize),
+                sr.shift_type,
+                sr.amount as u32,
+                self.cpu.cpsr.c,
+            ),
+            _ => (0, self.cpu.cpsr.c),
+        };
+        self.cpu.carry_out = carry;
+
+        // Leading register operands (those before operand2).
+        let nlead = insn.operands.len().saturating_sub(1);
+        let mut lead = [0usize; 2];
+        let mut cnt = 0;
+        for o in &insn.operands[..nlead] {
+            if let Operand::Reg(r) = o {
+                if cnt < 2 {
+                    lead[cnt] = r.num as usize;
+                    cnt += 1;
+                }
+            }
+        }
+        let is_test = matches!(
+            insn.mnemonic,
+            Mnemonic::CMP | Mnemonic::CMN | Mnemonic::TST | Mnemonic::TEQ
+        );
+        let (d, n) = match cnt {
+            2 => (lead[0], lead[1]),
+            1 => {
+                if is_test {
+                    (15, lead[0])
+                } else {
+                    (lead[0], 0)
+                }
+            }
+            _ => (0, 0),
+        };
+        (d, n, operand2)
+    }
+
     /// Decode data processing operands: (Rd, Rn, operand2)
     fn decode_dp_operands(&mut self, insn: &DecodedInsn) -> (usize, usize, u32) {
+        if insn.state.is_thumb() {
+            return self.decode_dp_operands_thumb(insn);
+        }
         let d = ((insn.raw >> 12) & 0xF) as usize;
         let n = ((insn.raw >> 16) & 0xF) as usize;
 
@@ -2348,6 +2574,19 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
 
     /// Decode shift instruction operands: (Rd, Rm, shift_amount)
     fn decode_shift_operands(&self, insn: &DecodedInsn) -> (usize, usize, u32) {
+        if insn.state.is_thumb() {
+            use crate::arm::decoder::Operand;
+            let (regs, _) = Self::thumb_reg_ops(insn, 2);
+            let d = regs[0];
+            let m = regs[1];
+            let amount = match insn.operands.last() {
+                Some(Operand::Imm(imm)) => imm.value as u32,
+                // Register-controlled shift (e.g. T16 LSLS Rdn, Rm).
+                Some(Operand::Reg(r)) => self.reg(r.num as usize) & 0xFF,
+                _ => 0,
+            };
+            return (d, m, amount);
+        }
         let d = ((insn.raw >> 12) & 0xF) as usize;
         let m = (insn.raw & 0xF) as usize;
 
@@ -2368,6 +2607,10 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
 
     /// Decode multiply operands: (Rd, Rn, Rm)
     fn decode_mul_operands(&self, insn: &DecodedInsn) -> (usize, usize, usize) {
+        if insn.state.is_thumb() {
+            let (r, _) = Self::thumb_reg_ops(insn, 3);
+            return (r[0], r[1], r[2]);
+        }
         let d = ((insn.raw >> 16) & 0xF) as usize;
         let n = (insn.raw & 0xF) as usize;
         let m = ((insn.raw >> 8) & 0xF) as usize;
@@ -2376,6 +2619,10 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
 
     /// Decode MLA operands: (Rd, Rn, Rm, Ra)
     fn decode_mla_operands(&self, insn: &DecodedInsn) -> (usize, usize, usize, usize) {
+        if insn.state.is_thumb() {
+            let (r, _) = Self::thumb_reg_ops(insn, 4);
+            return (r[0], r[1], r[2], r[3]);
+        }
         let d = ((insn.raw >> 16) & 0xF) as usize;
         let a = ((insn.raw >> 12) & 0xF) as usize;
         let m = ((insn.raw >> 8) & 0xF) as usize;
@@ -2385,6 +2632,10 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
 
     /// Decode long multiply operands: (RdLo, RdHi, Rn, Rm)
     fn decode_mull_operands(&self, insn: &DecodedInsn) -> (usize, usize, usize, usize) {
+        if insn.state.is_thumb() {
+            let (r, _) = Self::thumb_reg_ops(insn, 4);
+            return (r[0], r[1], r[2], r[3]);
+        }
         let dhi = ((insn.raw >> 16) & 0xF) as usize;
         let dlo = ((insn.raw >> 12) & 0xF) as usize;
         let m = ((insn.raw >> 8) & 0xF) as usize;
