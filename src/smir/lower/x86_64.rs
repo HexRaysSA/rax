@@ -3166,6 +3166,12 @@ pub struct X86_64Lowerer {
     /// the direct-host-pointer accesses (which assume a flat host-mapped guest
     /// address space). Enables JIT of memory-touching hot regions under paging.
     mem_helpers: bool,
+
+    /// When set, a `Terminator::Call` lowers to a runtime call-out (the
+    /// `GuestRegs.call_fn` helper) that runs the callee in the interpreter and
+    /// resumes native execution at the call's continuation block, instead of
+    /// being treated as a region-ending native exit. The lift-through-calls path.
+    call_helpers: bool,
 }
 
 impl X86_64Lowerer {
@@ -3184,12 +3190,18 @@ impl X86_64Lowerer {
             pending_cond: None,
             native_exits: std::collections::HashMap::new(),
             mem_helpers: false,
+            call_helpers: false,
         }
     }
 
     /// Enable lowering `Load`/`Store` as MMU helper calls (see `mem_helpers`).
     pub fn set_mem_helpers(&mut self, on: bool) {
         self.mem_helpers = on;
+    }
+
+    /// Enable lowering `Terminator::Call` as a runtime call-out (see `call_helpers`).
+    pub fn set_call_helpers(&mut self, on: bool) {
+        self.call_helpers = on;
     }
 
     /// Mark blocks as JIT native-exit stubs (block-id ⇒ resume guest PC). Call
@@ -5706,6 +5718,16 @@ impl X86_64Lowerer {
             Terminator::Return { .. } => {
                 let ret_imm = self.pending_ret_imm.take();
                 self.emit_epilogue_with_ret(ret_imm);
+            }
+
+            Terminator::Call {
+                target,
+                continuation,
+                ..
+            } if self.call_helpers => {
+                // Lift-through-calls: run the callee in the interpreter, resume
+                // native at `continuation`.
+                self.emit_jit_call_op(target, *continuation)?;
             }
 
             Terminator::Call {
@@ -8772,6 +8794,142 @@ impl X86_64Lowerer {
         let done = self.code.position();
         self.code
             .patch_i32(jmp_pos, (done as i64 - (jmp_pos as i64 + 4)) as i32);
+        Ok(())
+    }
+
+    /// Lower a guest `CALL` as a runtime call-out (lift-through-calls). Spills all
+    /// guest registers + RFLAGS to the GuestRegs struct, then calls the helper at
+    /// `GuestRegs.call_fn` with `(gr_ptr, target_pc, return_pc)`. The helper runs
+    /// the callee in the interpreter until it returns to `return_pc`. On success
+    /// (`ok != 0`) we reload registers + flags and jump to the `continuation`
+    /// block (native execution resumes after the call); on a bail (`ok == 0`,
+    /// e.g. the callee did I/O / errored) the helper has set `exit_pc`, so we
+    /// reload state and return to the trampoline.
+    ///
+    /// Only reached when `call_helpers` is set, the target is direct/reg-indirect,
+    /// and the continuation block was lifted (validated by `jit_compile_region`).
+    fn emit_jit_call_op(
+        &mut self,
+        target: &CallTarget,
+        continuation: BlockId,
+    ) -> Result<(), LowerError> {
+        // Return address pushed by the call = the continuation block's guest PC.
+        let return_pc = *self.block_guest_pcs.get(&continuation).ok_or_else(|| {
+            LowerError::UnsupportedOp {
+                op: "jit-call: continuation guest_pc unknown".to_string(),
+            }
+        })?;
+        // Resolve the target form up front (Direct imm vs register-indirect enc).
+        enum Tgt {
+            Direct(u64),
+            Reg(u8),
+        }
+        let tgt = match target {
+            CallTarget::GuestAddr(a) => Tgt::Direct(*a),
+            CallTarget::Indirect(r) => Tgt::Reg(self.jit_arch_enc(*r)?),
+            _ => {
+                return Err(LowerError::UnsupportedOp {
+                    op: format!("jit-call target {target:?}"),
+                });
+            }
+        };
+
+        // --- spill: push rax; rax=state ptr; pushfq; spill 13 GPRs + RAX; set rflags ---
+        self.code.emit_u8(0x50); // push rax  ([rsp]=guest RAX)
+        // mov rax, [rbp+24]  (state ptr)
+        self.code.emit_u8(0x48);
+        self.code.emit_u8(0x8B);
+        self.code.emit_u8(0x45);
+        self.code.emit_u8(0x18);
+        // pushfq  ([rsp]=guest flags, [rsp+8]=guest RAX) — 16-aligns RSP for the call.
+        self.code.emit_u8(0x9C);
+        for enc in [1u8, 2, 3, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15] {
+            self.emit_struct_mov(PhysReg::Rax, enc, (enc as i32) * 8, true);
+        }
+        // mov rcx, [rsp+8]  (guest RAX); store to gpr[0].
+        self.code.emit_u8(0x48);
+        self.code.emit_u8(0x8B);
+        self.code.emit_u8(0x4C);
+        self.code.emit_u8(0x24);
+        self.code.emit_u8(0x08);
+        self.emit_struct_mov(PhysReg::Rax, 1, 0, true);
+        // mov rcx, [rsp]  (guest flags); store to gr.rflags (offset 128) — the
+        // interpreter callee needs the full materialized flags.
+        self.code.emit_u8(0x48);
+        self.code.emit_u8(0x8B);
+        self.code.emit_u8(0x0C);
+        self.code.emit_u8(0x24);
+        self.emit_struct_mov(PhysReg::Rax, 1, 128, true);
+
+        // --- args: rdi = gr (rax), rsi = target_pc, rdx = return_pc ---
+        // mov rdi, rax  (48 89 C7)
+        self.code.emit_u8(0x48);
+        self.code.emit_u8(0x89);
+        self.code.emit_u8(0xC7);
+        match tgt {
+            Tgt::Direct(a) => self.emit_movabs(6, a), // movabs rsi, target
+            Tgt::Reg(enc) => self.emit_struct_mov(PhysReg::Rax, 6, (enc as i32) * 8, false), // rsi = gpr[enc]
+        }
+        self.emit_movabs(2, return_pc); // movabs rdx, return_pc
+
+        // --- call [rax + CALL_FN_OFFSET(184)]  (FF 90 id) ---
+        self.code.emit_u8(0xFF);
+        self.code.emit_u8(0x90);
+        self.code.emit_u32(184);
+        // mov rcx, [rbp+24]  (state ptr; RAX now = ok)
+        self.code.emit_u8(0x48);
+        self.code.emit_u8(0x8B);
+        self.code.emit_u8(0x4D);
+        self.code.emit_u8(0x18);
+        // test rax, rax  (ok)  (48 85 C0)
+        self.code.emit_u8(0x48);
+        self.code.emit_u8(0x85);
+        self.code.emit_u8(0xC0);
+        // jz .bail  (0F 84 rel32)
+        self.code.emit_u8(0x0F);
+        self.code.emit_u8(0x84);
+        let jz_pos = self.code.position();
+        self.code.emit_u32(0);
+
+        // --- OK path: restore full post-callee flags, reload GPRs, jmp continuation ---
+        // push qword [rcx+128]; popfq  (the helper synced gr.rflags with the
+        // post-callee flags). FF /6 [rcx+disp32] = FF B1 <disp32>.
+        self.code.emit_u8(0xFF);
+        self.code.emit_u8(0xB1);
+        self.code.emit_u32(128);
+        self.code.emit_u8(0x9D); // popfq
+        self.emit_reload_all(PhysReg::Rcx);
+        // lea rsp,[rsp+16]: pop the flags+RAX slots (flag-preserving).
+        self.code.emit_u8(0x48);
+        self.code.emit_u8(0x8D);
+        self.code.emit_u8(0x64);
+        self.code.emit_u8(0x24);
+        self.code.emit_u8(0x10);
+        // jmp continuation  (E9 rel32, fixed up later)
+        self.code.emit_u8(0xE9);
+        let jmp_off = self.code.position();
+        self.code.emit_u32(0);
+        self.pending_jumps
+            .push((jmp_off, continuation, RelocKind::PcRel32));
+
+        // --- BAIL path (ok==0): helper set exit_pc; reload state, return to trampoline ---
+        let bail = self.code.position();
+        self.code
+            .patch_i32(jz_pos, (bail as i64 - (jz_pos as i64 + 4)) as i32);
+        // push qword [rcx+128]; popfq
+        self.code.emit_u8(0xFF);
+        self.code.emit_u8(0xB1);
+        self.code.emit_u32(128);
+        self.code.emit_u8(0x9D);
+        self.emit_reload_all(PhysReg::Rcx);
+        // lea rsp,[rsp+16]
+        self.code.emit_u8(0x48);
+        self.code.emit_u8(0x8D);
+        self.code.emit_u8(0x64);
+        self.code.emit_u8(0x24);
+        self.code.emit_u8(0x10);
+        // Epilogue (exit_pc was set by the helper, not here).
+        self.emit_epilogue_with_ret(None);
         Ok(())
     }
 

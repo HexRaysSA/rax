@@ -284,11 +284,28 @@ pub struct X86_64Vcpu {
     /// promoted (compiled) once it crosses the hotness threshold.
     #[cfg(all(feature = "smir-jit", target_arch = "x86_64"))]
     jit_hot: std::collections::HashMap<u64, u32>,
+    /// SMIR hot-block JIT: known-ineligible heads memoized as `(head, mode_tag)
+    /// -> code fingerprint`. UNLIKE `jit_cache`, this is NOT wiped by SMC: when a
+    /// guest writes a page that merely shares a 4 KiB frame with code (common in
+    /// TempleOS, whose compiler keeps data beside code), the cache+hotness wipe
+    /// would otherwise re-promote the same ineligible head thousands of times,
+    /// re-running the (futile) lift/optimize each time. The fingerprint (16 code
+    /// bytes at the head) self-corrects the memo: a genuine code change shifts it
+    /// and re-triggers compilation; an unchanged head is skipped cheaply. Only
+    /// ineligible verdicts are memoized here — compiled regions stay in
+    /// `jit_cache` and are still SMC-invalidated for correctness.
+    #[cfg(all(feature = "smir-jit", target_arch = "x86_64"))]
+    jit_ineligible: std::collections::HashMap<(u64, u64), u64>,
     /// JIT of memory-touching regions (Load/Store via MMU helper calls). Seeded
     /// from `RAX_JIT_MEM` at construction; settable for tests. Off ⇒ memory ops
     /// bail to the interpreter (the validated default).
     #[cfg(all(feature = "smir-jit", target_arch = "x86_64"))]
     jit_mem: bool,
+    /// Set by [`rax_jit_call`] (the lift-through-calls helper) when a callee
+    /// yields a VMM-bound exit (I/O, HLT, …): `jit_run_region_native` recovers it
+    /// and propagates it so the run loop returns it to the VMM. `None` otherwise.
+    #[cfg(all(feature = "smir-jit", target_arch = "x86_64"))]
+    jit_callout_exit: Option<VcpuExit>,
     /// When `Some`, the memory-JIT store helper logs each store's `(addr, size,
     /// old_value)` here so verify mode can UNDO the region's writes and re-run
     /// the interpreter for a store-sound differential. `None` in normal use.
@@ -838,7 +855,11 @@ impl X86_64Vcpu {
             #[cfg(all(feature = "smir-jit", target_arch = "x86_64"))]
             jit_hot: std::collections::HashMap::new(),
             #[cfg(all(feature = "smir-jit", target_arch = "x86_64"))]
-            jit_mem: jit_mem_enabled(),
+            jit_ineligible: std::collections::HashMap::new(),
+            #[cfg(all(feature = "smir-jit", target_arch = "x86_64"))]
+            jit_mem: jit_mem_enabled() || jit_call_enabled(),
+            #[cfg(all(feature = "smir-jit", target_arch = "x86_64"))]
+            jit_callout_exit: None,
             #[cfg(all(feature = "smir-jit", target_arch = "x86_64"))]
             jit_mem_log: None,
             #[cfg(all(feature = "smir-jit", target_arch = "x86_64"))]
@@ -2424,8 +2445,41 @@ impl X86_64Vcpu {
     }
 }
 
+/// Spawn a one-shot background thread (when `RAX_MIPS` is set) that prints the
+/// retired-instruction rate once a second. Reads the global counter published at
+/// run-exit boundaries, so it reports interpreted throughput (native JIT regions
+/// do not tick it). Used to A/B emulator-speed changes against a live boot.
+#[cfg(all(feature = "smir-jit", target_arch = "x86_64"))]
+fn maybe_spawn_mips_reporter() {
+    use std::sync::OnceLock;
+    static STARTED: OnceLock<()> = OnceLock::new();
+    if std::env::var_os("RAX_MIPS").is_none() {
+        return;
+    }
+    STARTED.get_or_init(|| {
+        std::thread::spawn(|| {
+            let mut last = 0u64;
+            let mut secs = 0u64;
+            loop {
+                std::thread::sleep(std::time::Duration::from_secs(1));
+                let now = get_total_instruction_count();
+                secs += 1;
+                let delta = now.saturating_sub(last);
+                last = now;
+                eprintln!(
+                    "[MIPS] t={secs}s  +{:.2} MIPS  (total {} insns)",
+                    delta as f64 / 1.0e6,
+                    now
+                );
+            }
+        });
+    });
+}
+
 impl VCpu for X86_64Vcpu {
     fn run(&mut self) -> Result<VcpuExit> {
+        #[cfg(all(feature = "smir-jit", target_arch = "x86_64"))]
+        maybe_spawn_mips_reporter();
         let start_time = std::time::Instant::now();
         let mut batch: u64 = 0;
         loop {
@@ -2485,6 +2539,12 @@ impl VCpu for X86_64Vcpu {
                     if let Some(slot) = self.jit_cache.get(&key).cloned() {
                         if let Some(region) = slot {
                             self.jit_run_region(&region);
+                            // A lift-through-calls call-out may have bailed with a
+                            // VMM-bound exit (I/O, HLT, …) from a callee — propagate it.
+                            if let Some(exit) = self.jit_callout_exit.take() {
+                                publish_instruction_count(self.insn_count);
+                                return Ok(exit);
+                            }
                             continue;
                         }
                         // None ⇒ known-ineligible: fall through to the interpreter.
@@ -2500,7 +2560,14 @@ impl VCpu for X86_64Vcpu {
                 }
                 Ok(None) => {
                     #[cfg(all(feature = "smir-jit", target_arch = "x86_64"))]
-                    self.jit_sample_backedge(_jit_rip_before);
+                    {
+                        self.jit_sample_backedge(_jit_rip_before);
+                        // A region run on promotion may have bailed a call-out exit.
+                        if let Some(exit) = self.jit_callout_exit.take() {
+                            publish_instruction_count(self.insn_count);
+                            return Ok(exit);
+                        }
+                    }
                     // Check for single-step mode (GDB debugging)
                     #[cfg(feature = "debug")]
                     if self.single_step {
@@ -2988,6 +3055,125 @@ unsafe extern "C" fn rax_jit_mem_store(
     }
 }
 
+/// Lift-through-calls helper: run the interpreter for a guest CALL's callee.
+///
+/// Called from a lowered JIT region at a guest `CALL` site (the `RAX_JIT_CALL`
+/// path). The native region holds the live guest state in `gr` (the marshalled
+/// GuestRegs); this helper syncs it into the vcpu, simulates the CALL (push the
+/// return address, jump to `target_pc`), then steps the INTERPRETER until the
+/// callee returns to `return_pc` — i.e. runs the entire called subtree (incl.
+/// nested calls, which the interpreter handles) — then syncs the post-call state
+/// back into `gr` so native execution resumes at the continuation.
+///
+/// Returns `1` on a clean return to `return_pc`. Returns `0` (and sets
+/// `gr.exit_pc`) when the callee yields an exit that must reach the VMM (I/O,
+/// HLT, …) or errors: the stashed exit is recovered by `jit_run_region_native`
+/// and propagated, and the region returns to the interpreter at `exit_pc`.
+///
+/// Safety: `gr` is the region's marshalled state; `gr.ctx` is the owning vcpu.
+#[cfg(all(feature = "smir-jit", target_arch = "x86_64"))]
+unsafe extern "C" fn rax_jit_call(
+    gr: *mut crate::smir::lower::runtime::GuestRegs,
+    target_pc: u64,
+    return_pc: u64,
+) -> u64 {
+    let gr = unsafe { &mut *gr };
+    let vcpu = unsafe { &mut *(gr.ctx as *mut X86_64Vcpu) };
+
+    // Sync marshalled native state -> vcpu interpreter state. The JIT works with
+    // materialized flags, so clear any pending lazy op.
+    vcpu.regs.rax = gr.gpr[0];
+    vcpu.regs.rcx = gr.gpr[1];
+    vcpu.regs.rdx = gr.gpr[2];
+    vcpu.regs.rbx = gr.gpr[3];
+    vcpu.regs.rsp = gr.gpr[4];
+    vcpu.regs.rbp = gr.gpr[5];
+    vcpu.regs.rsi = gr.gpr[6];
+    vcpu.regs.rdi = gr.gpr[7];
+    vcpu.regs.r8 = gr.gpr[8];
+    vcpu.regs.r9 = gr.gpr[9];
+    vcpu.regs.r10 = gr.gpr[10];
+    vcpu.regs.r11 = gr.gpr[11];
+    vcpu.regs.r12 = gr.gpr[12];
+    vcpu.regs.r13 = gr.gpr[13];
+    vcpu.regs.r14 = gr.gpr[14];
+    vcpu.regs.r15 = gr.gpr[15];
+    vcpu.regs.rflags = gr.rflags;
+    vcpu.lazy_flags = LazyFlags {
+        op: LazyFlagOp::None,
+        ..Default::default()
+    };
+
+    // Simulate the CALL's stack effect (the block's own ops already ran
+    // natively; only the call's push+transfer remain), then enter the callee.
+    let _ = vcpu.push64(return_pc);
+    vcpu.regs.rip = target_pc;
+
+    // Run the callee to completion. The callee is bounded (a normal function);
+    // the step cap is a runaway backstop only.
+    let mut ok: u64 = 1;
+    let mut steps: u64 = 0;
+    loop {
+        if vcpu.regs.rip == return_pc {
+            break;
+        }
+        steps += 1;
+        if steps > 500_000_000 {
+            ok = 0;
+            break;
+        }
+        match vcpu.step() {
+            Ok(None) => {}
+            Ok(Some(exit)) => {
+                // An exit that needs the VMM (I/O, HLT, …): stash it and bail.
+                vcpu.jit_callout_exit = Some(exit);
+                ok = 0;
+                break;
+            }
+            Err(_) => {
+                ok = 0;
+                break;
+            }
+        }
+    }
+
+    // Sync vcpu state back into the marshalled file. Materialize flags first so
+    // gr.rflags is current (the native reload / trampoline reads it).
+    vcpu.materialize_flags();
+    gr.gpr[0] = vcpu.regs.rax;
+    gr.gpr[1] = vcpu.regs.rcx;
+    gr.gpr[2] = vcpu.regs.rdx;
+    gr.gpr[3] = vcpu.regs.rbx;
+    gr.gpr[4] = vcpu.regs.rsp;
+    gr.gpr[5] = vcpu.regs.rbp;
+    gr.gpr[6] = vcpu.regs.rsi;
+    gr.gpr[7] = vcpu.regs.rdi;
+    gr.gpr[8] = vcpu.regs.r8;
+    gr.gpr[9] = vcpu.regs.r9;
+    gr.gpr[10] = vcpu.regs.r10;
+    gr.gpr[11] = vcpu.regs.r11;
+    gr.gpr[12] = vcpu.regs.r12;
+    gr.gpr[13] = vcpu.regs.r13;
+    gr.gpr[14] = vcpu.regs.r14;
+    gr.gpr[15] = vcpu.regs.r15;
+    gr.rflags = vcpu.regs.rflags;
+    if ok == 0 {
+        gr.exit_pc = vcpu.regs.rip;
+    }
+    ok
+}
+
+/// RAX_JIT_CALL=1 enables lift-through-calls: a guest CALL inside a hot region
+/// lowers to a call-out into [`rax_jit_call`] (instead of being a region-ending
+/// frontier), so call-heavy loops compile and run natively between calls. Opt-in
+/// while it soaks; requires (and implies) the mem-helper path.
+#[cfg(all(feature = "smir-jit", target_arch = "x86_64"))]
+fn jit_call_enabled() -> bool {
+    use std::sync::OnceLock;
+    static ON: OnceLock<bool> = OnceLock::new();
+    *ON.get_or_init(|| std::env::var_os("RAX_JIT_CALL").is_some())
+}
+
 /// Classify the first reason an executed block of `func` fails the clobber gate:
 /// the offending op's variant name, or `rsp/rbp` / `virtual-dst`.
 #[cfg(all(feature = "smir-jit", target_arch = "x86_64"))]
@@ -3125,108 +3311,166 @@ impl X86_64Vcpu {
         }
         let reader = Win { base: entry, bytes };
 
-        let mut lifter = X86_64Lifter::strict();
-        let mut lctx = LiftContext::new(SourceArch::X86_64);
-        let mut func = match lifter.lift_function(entry, &reader, &mut lctx) {
-            Ok(f) => f,
-            Err(_) => return Ok(None),
-        };
+        // Try lift-through-calls first (a call-heavy loop body lifts into one
+        // native region with runtime call-outs). If that bigger region is
+        // ineligible, retry WITHOUT call-mode (the smaller call-as-frontier
+        // region). This makes lift-through-calls STRICTLY ADDITIVE — never worse
+        // than the baseline mem/register JIT coverage.
+        let want_call = jit_call_enabled();
+        let modes: &[bool] = if want_call { &[true, false] } else { &[false] };
+        'modes: for &cm in modes {
+            let mut lifter = X86_64Lifter::strict();
+            if cm {
+                lifter.set_lift_through_calls(512);
+            }
+            let mut lctx = LiftContext::new(SourceArch::X86_64);
+            let mut func = match lifter.lift_function(entry, &reader, &mut lctx) {
+                Ok(f) => f,
+                Err(e) => {
+                    if jit_bail_log() {
+                        eprintln!("[JIT-BAIL] lift-err:{e:?} @ {entry:#x} (call={cm})");
+                    }
+                    continue 'modes;
+                }
+            };
 
-        // Optimize before computing exits / lowering. The optimizer is
-        // frontier-aware (all architectural state is live at region exits) and
-        // CFG-preserving enough that exits are recomputed from the optimized
-        // function below. Register-only JIT regions never contain memory loads,
-        // so redundant-load elimination is inert here; the wins are dead-flag
-        // elimination, constant propagation/folding, and strength reduction.
-        if std::env::var_os("RAX_JIT_NO_OPT").is_none() {
-            optimize_function(&mut func, OptLevel::O2);
-        }
+            // Optimize before computing exits / lowering (frontier-aware, see note).
+            if std::env::var_os("RAX_JIT_NO_OPT").is_none() {
+                optimize_function(&mut func, OptLevel::O2);
+            }
 
-        if self.jit_mem && jit_bail_log() {
-            eprintln!(
-                "[JIT-MEM] region @ {:#x}:\n{}",
-                entry,
-                self.jit_dump_region(entry)
-            );
-        }
-
-        // Mark every frontier terminal (the JIT cannot continue through it) as a
-        // native-exit stub recording the block's guest PC. Internal Branch /
-        // CondBranch edges stay native (loops, if/else).
-        let mut exits: HashMap<_, u64> = HashMap::new();
-        for b in &func.blocks {
-            let frontier = matches!(
-                b.terminator,
-                Terminator::Trap { .. }
+            // Mark every frontier terminal as a native-exit stub (records guest
+            // PC); internal Branch/CondBranch edges stay native (loops, if/else).
+            let mut exits: HashMap<_, u64> = HashMap::new();
+            // Block ids present in the lifted function — to validate a CALL's
+            // continuation was lifted before lowering it as a call-out.
+            let lifted: std::collections::HashSet<_> =
+                func.blocks.iter().map(|b| b.id).collect();
+            for b in &func.blocks {
+                let frontier = match &b.terminator {
+                    Terminator::Trap { .. }
                     | Terminator::Return { .. }
-                    | Terminator::Call { .. }
                     | Terminator::TailCall { .. }
                     | Terminator::IndirectBranch { .. }
                     | Terminator::IndirectBranchMem { .. }
-                    | Terminator::Switch { .. }
-            );
-            if frontier {
-                exits.insert(b.id, b.guest_pc);
+                    | Terminator::Switch { .. } => true,
+                    // Lift-through-calls: a CALL is NOT a frontier when call-mode
+                    // is on, the continuation was lifted, and the target form is
+                    // supported (direct or register-indirect) — it lowers to a
+                    // runtime call-out and continues natively at `continuation`.
+                    Terminator::Call {
+                        target,
+                        continuation,
+                        ..
+                    } => {
+                        let target_ok = matches!(
+                            target,
+                            crate::smir::ir::CallTarget::GuestAddr(_)
+                                | crate::smir::ir::CallTarget::Indirect(_)
+                        );
+                        !(cm && target_ok && lifted.contains(continuation))
+                    }
+                    _ => false,
+                };
+                if frontier {
+                    exits.insert(b.id, b.guest_pc);
+                }
             }
-        }
-        // No frontier reachable ⇒ the region never returns (e.g. `jmp $`, a spin
-        // loop); executing it natively would loop uninterruptibly with no way
-        // back to the interpreter. Bail.
-        if exits.is_empty() {
-            return Ok(None);
-        }
-        // If the entry block is itself a frontier, there is no native work to do.
-        if exits.contains_key(&func.entry) {
-            return Ok(None);
-        }
-        // Fail-safe gate over the EXECUTED blocks (exit blocks are skipped at
-        // lowering, so their ops never run): all ops must be on the register-only
-        // JIT whitelist and write no virtual temp. With memory JIT enabled,
-        // register-destination Load/Store are also allowed (MMU helper-call path).
-        let allow_mem = self.jit_mem;
-        if !is_native_clobber_safe_excluding(&func, &exits, allow_mem) {
-            if jit_bail_log() {
-                eprintln!(
-                    "[JIT-BAIL] gate:{} @ {:#x}",
-                    jit_classify_bail(&func, &exits),
-                    entry
-                );
+            // No frontier reachable ⇒ the region never returns (spin loop). Bail.
+            if exits.is_empty() {
+                if jit_bail_log() {
+                    eprintln!("[JIT-BAIL] no-frontier @ {entry:#x} (call={cm})");
+                }
+                continue 'modes;
             }
-            return Ok(None);
-        }
+            // Entry block is itself a frontier ⇒ no native work.
+            if exits.contains_key(&func.entry) {
+                if jit_bail_log() {
+                    // Diagnostic: WHY is the entry a frontier? Print the entry
+                    // terminator's shape (and, for a Call, why it stayed a
+                    // frontier) so we can see what lift-through-calls must crack.
+                    let why = func
+                        .blocks
+                        .iter()
+                        .find(|b| b.id == func.entry)
+                        .map(|b| match &b.terminator {
+                            Terminator::Trap { .. } => "Trap".to_string(),
+                            Terminator::Return { .. } => "Return".to_string(),
+                            Terminator::TailCall { .. } => "TailCall".to_string(),
+                            Terminator::IndirectBranch { .. } => "IndirectBranch".to_string(),
+                            Terminator::IndirectBranchMem { .. } => "IndirectBranchMem".to_string(),
+                            Terminator::Switch { .. } => "Switch".to_string(),
+                            Terminator::Call { target, continuation, .. } => {
+                                let tk = match target {
+                                    crate::smir::ir::CallTarget::Direct(_) => "DirectFn",
+                                    crate::smir::ir::CallTarget::GuestAddr(_) => "GuestAddr",
+                                    crate::smir::ir::CallTarget::Indirect(_) => "IndirectReg",
+                                    crate::smir::ir::CallTarget::IndirectMem(_) => "IndirectMem",
+                                    crate::smir::ir::CallTarget::Runtime(_) => "Runtime",
+                                };
+                                format!(
+                                    "Call/{tk}(lifted-cont={})",
+                                    lifted.contains(continuation)
+                                )
+                            }
+                            _ => "other".to_string(),
+                        })
+                        .unwrap_or_else(|| "?".to_string());
+                    eprintln!("[JIT-BAIL] entry-frontier:{why} @ {entry:#x} (call={cm})");
+                }
+                continue 'modes;
+            }
+            // Fail-safe gate over the EXECUTED (non-exit) blocks.
+            let allow_mem = self.jit_mem;
+            if !is_native_clobber_safe_excluding(&func, &exits, allow_mem) {
+                if jit_bail_log() {
+                    eprintln!(
+                        "[JIT-BAIL] gate:{} @ {:#x} (call={cm})",
+                        jit_classify_bail(&func, &exits),
+                        entry
+                    );
+                }
+                continue 'modes;
+            }
 
-        let mut lowerer = X86_64Lowerer::new();
-        lowerer.set_native_exits(exits);
-        if allow_mem {
-            lowerer.set_mem_helpers(true);
+            let mut lowerer = X86_64Lowerer::new();
+            lowerer.set_native_exits(exits);
+            if allow_mem {
+                lowerer.set_mem_helpers(true);
+            }
+            if cm {
+                // Lower CALL terminators as runtime call-outs (rax_jit_call).
+                lowerer.set_call_helpers(true);
+            }
+            let res = match lowerer.lower_function(&func) {
+                Ok(r) if r.relocations.is_empty() => r,
+                Ok(r) => {
+                    if jit_bail_log() {
+                        eprintln!("[JIT-BAIL] relocs:{} @ {:#x} (call={cm})", r.relocations.len(), entry);
+                    }
+                    continue 'modes;
+                }
+                Err(e) => {
+                    if jit_bail_log() {
+                        eprintln!("[JIT-BAIL] lower-err:{e:?} @ {entry:#x} (call={cm})");
+                    }
+                    continue 'modes;
+                }
+            };
+            let code = match lowerer.finalize() {
+                Ok(c) => c,
+                Err(_) => continue 'modes,
+            };
+            let exec = match ExecMem::new(&code) {
+                Ok(m) => m,
+                Err(_) => continue 'modes,
+            };
+            return Ok(Some(JitRegion {
+                exec,
+                entry_offset: res.entry_offset,
+            }));
         }
-        let res = match lowerer.lower_function(&func) {
-            Ok(r) if r.relocations.is_empty() => r,
-            Ok(r) => {
-                if jit_bail_log() {
-                    eprintln!("[JIT-BAIL] relocs:{} @ {:#x}", r.relocations.len(), entry);
-                }
-                return Ok(None);
-            }
-            Err(e) => {
-                if jit_bail_log() {
-                    eprintln!("[JIT-BAIL] lower-err:{e:?} @ {entry:#x}");
-                }
-                return Ok(None);
-            }
-        };
-        let code = match lowerer.finalize() {
-            Ok(c) => c,
-            Err(_) => return Ok(None),
-        };
-        let exec = match ExecMem::new(&code) {
-            Ok(m) => m,
-            Err(_) => return Ok(None),
-        };
-        Ok(Some(JitRegion {
-            exec,
-            entry_offset: res.entry_offset,
-        }))
+        Ok(None)
     }
 
     /// Execute a (possibly cached) compiled region with the current guest state,
@@ -3304,6 +3548,9 @@ impl X86_64Vcpu {
         gr.ctx = self as *mut X86_64Vcpu as u64;
         gr.load_fn = rax_jit_mem_load as usize as u64;
         gr.store_fn = rax_jit_mem_store as usize as u64;
+        // Lift-through-calls channel (RAX_JIT_CALL): a guest CALL in the region
+        // calls out here to run its callee in the interpreter, then resumes.
+        gr.call_fn = rax_jit_call as usize as u64;
         // Segment bases for `fs:`/`gs:`-overridden operands (Address::SegmentRel).
         gr.fs_base = self.sregs.fs.base;
         gr.gs_base = self.sregs.gs.base;
@@ -3327,6 +3574,21 @@ impl X86_64Vcpu {
         gr.exit_pc = self.regs.rip; // fallback (an exit stub overwrites this)
 
         region.exec.run(region.entry_offset, &mut gr);
+
+        // Lift-through-calls: if a call-out bailed (a callee yielded a VMM-bound
+        // exit or errored), the helper already synced the vcpu's full
+        // architectural state — RIP = exit_pc, complete RFLAGS, all GPRs. Do NOT
+        // re-marshal `gr` here: the status-only flag merge below would drop the
+        // callee's IF/DF changes. Leave the vcpu exactly as the helper left it
+        // (the run loop reads `jit_callout_exit` and returns the stashed exit).
+        #[cfg(all(feature = "smir-jit", target_arch = "x86_64"))]
+        if self.jit_callout_exit.is_some() {
+            self.lazy_flags = LazyFlags {
+                op: LazyFlagOp::None,
+                ..Default::default()
+            };
+            return;
+        }
 
         self.regs.rax = gr.gpr[0];
         self.regs.rcx = gr.gpr[1];
@@ -3651,7 +3913,23 @@ impl X86_64Vcpu {
         }
         let mt = self.jit_mode_tag();
         if self.jit_cache.contains_key(&(head, mt)) {
-            return; // already promoted or known-ineligible
+            return; // already promoted (runnable) this session
+        }
+        // Known-ineligible memo (survives SMC). Skip the futile re-lift unless the
+        // head's actual code bytes changed — a self-modifying-code write to a
+        // page that merely shares a frame with this head must not re-promote it.
+        let memo_on = {
+            use std::sync::OnceLock;
+            static ON: OnceLock<bool> = OnceLock::new();
+            *ON.get_or_init(|| std::env::var_os("RAX_JIT_NOMEMO").is_none())
+        };
+        if memo_on {
+            if let Some(&fp) = self.jit_ineligible.get(&(head, mt)) {
+                if fp == self.jit_head_fingerprint(head) {
+                    return; // identical code, still ineligible — no work
+                }
+                self.jit_ineligible.remove(&(head, mt)); // code changed → re-evaluate
+            }
         }
         let hot = {
             let c = self.jit_hot.entry(head).or_insert(0);
@@ -3673,10 +3951,40 @@ impl X86_64Vcpu {
                 if region.is_some() { "compiled" } else { "ineligible" }
             );
         }
-        self.jit_cache.insert((head, mt), region.clone());
-        if let Some(region) = region {
-            self.jit_run_region(&region);
+        match &region {
+            Some(r) => {
+                let r = r.clone();
+                self.jit_cache.insert((head, mt), region);
+                self.jit_run_region(&r);
+            }
+            None => {
+                // Memoize the ineligible verdict keyed on the current code bytes.
+                // Soft-cap the table so a long-running guest can't grow it without
+                // bound (cleared wholesale — the fingerprints rebuild on demand).
+                if self.jit_ineligible.len() >= 8192 {
+                    self.jit_ineligible.clear();
+                }
+                let fp = self.jit_head_fingerprint(head);
+                self.jit_ineligible.insert((head, mt), fp);
+            }
         }
+    }
+
+    /// Cheap fault-free fingerprint of the guest code bytes at `head`: 16 bytes
+    /// folded into a u64. Used to memoize an ineligible JIT verdict (see
+    /// [`Self::jit_ineligible`]) so a self-modifying-code page write doesn't force
+    /// a redundant re-lift when the head's instructions are actually unchanged. A
+    /// genuine code edit shifts the fingerprint and re-triggers compilation. Reads
+    /// are pure RAM fetches (no SMC marking); an unmapped head folds to a stable
+    /// sentinel so its deterministic-fault verdict is still memoized.
+    #[cfg(all(feature = "smir-jit", target_arch = "x86_64"))]
+    fn jit_head_fingerprint(&mut self, head: u64) -> u64 {
+        let lo = self.mmu.read_u64(head, &self.sregs).unwrap_or(head);
+        let hi = self
+            .mmu
+            .read_u64(head.wrapping_add(8), &self.sregs)
+            .unwrap_or(0);
+        lo ^ hi.rotate_left(17)
     }
 
     /// Number of distinct regions the JIT has compiled (cache entries that

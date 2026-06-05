@@ -26,6 +26,15 @@ use crate::smir::types::*;
 pub struct X86_64Lifter {
     /// Whether to use strict mode (fail on unsupported instructions)
     strict: bool,
+    /// Lift-through-calls: when set, `lift_function` follows a `CALL`'s
+    /// continuation (return address) and keeps lifting the caller's CFG past the
+    /// call, instead of ending the function at the call. Used by the JIT's
+    /// lift-through-calls path (the call itself lowers to a runtime call-out).
+    /// `max_blocks` bounds the lifted CFG so a large/looping function can't lift
+    /// unboundedly.
+    lift_through_calls: bool,
+    /// Cap on lifted blocks (only enforced under `lift_through_calls`).
+    max_blocks: usize,
 }
 
 impl Default for X86_64Lifter {
@@ -37,12 +46,26 @@ impl Default for X86_64Lifter {
 impl X86_64Lifter {
     /// Create a new x86_64 lifter
     pub fn new() -> Self {
-        X86_64Lifter { strict: false }
+        X86_64Lifter {
+            strict: false,
+            lift_through_calls: false,
+            max_blocks: 0,
+        }
     }
 
     /// Create a lifter in strict mode
     pub fn strict() -> Self {
-        X86_64Lifter { strict: true }
+        X86_64Lifter {
+            strict: true,
+            lift_through_calls: false,
+            max_blocks: 0,
+        }
+    }
+
+    /// Enable lift-through-calls with a block cap (see the field docs).
+    pub fn set_lift_through_calls(&mut self, max_blocks: usize) {
+        self.lift_through_calls = true;
+        self.max_blocks = max_blocks;
     }
 }
 
@@ -5142,6 +5165,14 @@ impl SmirLifter for X86_64Lifter {
             if visited.contains(&block_addr) {
                 continue;
             }
+            // Lift-through-calls: bound the lifted CFG so a large or call-chained
+            // function can't lift unboundedly (the cap counts lifted blocks).
+            if self.lift_through_calls
+                && self.max_blocks != 0
+                && visited.len() >= self.max_blocks
+            {
+                break;
+            }
             visited.insert(block_addr);
 
             let block = self.lift_block(block_addr, mem, ctx)?;
@@ -5178,6 +5209,21 @@ impl SmirLifter for X86_64Lifter {
                         }) {
                             worklist.push(addr);
                         }
+                    }
+                }
+                // Lift-through-calls: follow the CALL's continuation (the return
+                // address) so the caller's CFG past the call is lifted. The call
+                // target itself is NOT lifted — it runs in the interpreter via the
+                // runtime call-out. TailCall has no continuation (it doesn't return).
+                Terminator::Call { continuation, .. } if self.lift_through_calls => {
+                    if let Some(&addr) = ctx.block_cache.iter().find_map(|(a, id)| {
+                        if id == continuation {
+                            Some(a)
+                        } else {
+                            None
+                        }
+                    }) {
+                        worklist.push(addr);
                     }
                 }
                 _ => {}

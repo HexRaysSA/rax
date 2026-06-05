@@ -50,6 +50,16 @@ pub struct GuestRegs {
     /// IA32_GS_BASE — the GS segment base (offset 176). As `fs_base` but for
     /// `gs:`-overridden operands (per-CPU data in the Linux kernel).
     pub gs_base: u64,
+    /// Address of the call helper `fn(gr, target_pc, return_pc) -> ok` (offset
+    /// 184). Used by the lift-through-calls path (RAX_JIT_CALL): a guest CALL in
+    /// a JIT region lowers to a call-out into this helper, which runs the
+    /// interpreter for the callee until it returns to `return_pc`, then resumes
+    /// native execution. `ok == 0` means the callee bailed to the interpreter
+    /// (an exit/exception) and the region must return; the helper has set
+    /// `exit_pc`. NOTE: arg0 is the `*mut GuestRegs` itself (not `ctx`), because
+    /// the helper needs the full marshalled guest state, and `gr.ctx` carries
+    /// the vcpu pointer.
+    pub call_fn: u64,
 }
 
 // enter_native(rdi = entry ptr, rsi = *mut GuestRegs):
@@ -161,6 +171,8 @@ pub const STORE_FN_OFFSET: i32 = 160;
 pub const FS_BASE_OFFSET: i32 = 168;
 /// Byte offset of `GuestRegs.gs_base` (the GS segment base for `gs:` operands).
 pub const GS_BASE_OFFSET: i32 = 176;
+/// Byte offset of `GuestRegs.call_fn` (the lift-through-calls helper address).
+pub const CALL_FN_OFFSET: i32 = 184;
 
 /// W^X executable memory holding a finalized lowered block. Maps RW, copies the
 /// code in, then flips to RX; unmaps on drop.
@@ -340,10 +352,18 @@ fn block_is_clobber_safe(block: &crate::smir::ir::SmirBlock, allow_mem: bool) ->
         if op.kind.dests().iter().any(|d| matches!(d, VReg::Virtual(_))) {
             return false;
         }
-        // (3) no guest RSP/RBP reads or writes (see note above).
-        if op.kind.dests().iter().any(touches_sp_bp)
-            || op.kind.source_vregs().iter().any(touches_sp_bp)
-        {
+        // (3) guest RSP/RBP. A WRITE is never modeled (the trampoline freezes
+        // both — see note above) → bail. A READ is fine ONLY as an operand of a
+        // mem-JIT Load/Store (an address base/index, or a stored value): the MMU
+        // helper reads the value from the GuestRegs struct — the correct frozen
+        // guest RSP/RBP — not the host RSP/RBP. Any OTHER op reading RSP/RBP
+        // would use the host frame pointer / host stack (wrong) → bail. (When
+        // `allow_mem` is off, `mem_ok` is always false, so this is identical to
+        // the prior "no RSP/RBP reads or writes" rule — the validated default.)
+        if op.kind.dests().iter().any(touches_sp_bp) {
+            return false;
+        }
+        if !mem_ok && op.kind.source_vregs().iter().any(touches_sp_bp) {
             return false;
         }
     }
