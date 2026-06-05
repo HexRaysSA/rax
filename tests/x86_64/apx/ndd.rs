@@ -26,6 +26,42 @@ use crate::common::*;
 // ============================================================================
 
 #[test]
+fn test_ndd_add_no_b4_uses_legacy_rm_source_match_llvm() {
+    // LLVM 23 decodes 62 f4 7c 18 01 c0 as: add eax, eax, eax.
+    // The APX B4 bit is clear, so the r/m source is EAX, not R16D.
+    let mut regs = Registers::default();
+    regs.rax = 5;
+    regs.r16 = 100;
+    let code = [
+        0x62, 0xF4, 0x7C, 0x18, 0x01, 0xC0,
+        0xF4,
+    ];
+
+    let (mut vcpu, _) = setup_vm(&code, Some(regs));
+    let regs = run_until_hlt(&mut vcpu).unwrap();
+    assert_eq!(regs.rax, 10);
+    assert_eq!(regs.r16, 100);
+}
+
+#[test]
+fn test_ndd_add_b4_uses_r16_rm_source_match_llvm() {
+    // LLVM 23 assembles "add eax, r16d, eax" as 62 fc 7c 18 01 c0.
+    // APX MAP4 uses EVEX P0 bit 3 as B4, extending the r/m source by +16.
+    let mut regs = Registers::default();
+    regs.rax = 5;
+    regs.r16 = 7;
+    let code = [
+        0x62, 0xFC, 0x7C, 0x18, 0x01, 0xC0,
+        0xF4,
+    ];
+
+    let (mut vcpu, _) = setup_vm(&code, Some(regs));
+    let regs = run_until_hlt(&mut vcpu).unwrap();
+    assert_eq!(regs.rax, 12);
+    assert_eq!(regs.r16, 7);
+}
+
+#[test]
 fn test_ndd_add_reg_reg_reg() {
     // ADD R8, RAX, RBX (R8 = RAX + RBX)
     // EVEX.NDD.128.0F38.W1 encoding

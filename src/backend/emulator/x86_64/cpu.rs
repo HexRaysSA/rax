@@ -484,7 +484,7 @@ pub(super) struct EvexPrefix {
     /// aaa field (opmask register k0-k7)
     pub aaa: u8,
     // APX-specific fields
-    /// B4 bit (inverted, extends r/m to 5 bits for EGPR R16-R31)
+    /// B4 bit (APX MAP4 P0[3], extends r/m to EGPR R16-R31)
     pub b4: bool,
     /// X4 bit (inverted, extends SIB index to 5 bits for EGPR R16-R31)
     pub x4: bool,
@@ -631,9 +631,10 @@ impl InsnContext {
     pub fn evex_rm_reg(&self) -> u8 {
         if let Some(evex) = &self.evex {
             let b_ext = if evex.b { 0 } else { 8 };
-            // For APX, use B4 for 5th bit; for vector, use X
+            // For APX, P0[3] is the non-inverted B4 bit; for vector EVEX,
+            // X is the inverted high extension bit used by some encodings.
             let high_ext = if evex.apx_mode {
-                if evex.b4 { 0 } else { 16 }
+                if evex.b4 { 16 } else { 0 }
             } else {
                 if evex.x { 0 } else { 16 }
             };

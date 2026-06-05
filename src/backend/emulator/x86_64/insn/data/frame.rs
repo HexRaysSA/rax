@@ -55,10 +55,13 @@ pub fn bound_or_evex(vcpu: &mut X86_64Vcpu, ctx: &mut InsnContext) -> Result<Opt
         let p1 = ctx.consume_u8()?;
         let p2 = ctx.consume_u8()?;
 
+        let mm = p0 & 0x07; // mm field (opcode map)
+        let apx_mode = mm == 4;
+
         // Validate EVEX format:
-        // P0: bit 3 must be 0 (distinguishes from BOUND)
-        // P1: bit 2 must be 1
-        if (p0 & 0x08) != 0 || (p1 & 0x04) == 0 {
+        // P0 bit 3 is fixed zero for standard EVEX, but APX MAP4 reuses it as B4.
+        // P1 bit 2 must be 1.
+        if ((p0 & 0x08) != 0 && !apx_mode) || (p1 & 0x04) == 0 {
             return Err(Error::Emulator(format!(
                 "Invalid EVEX prefix at RIP={:#x}: P0={:#x} P1={:#x}",
                 vcpu.regs.rip, p0, p1
@@ -70,7 +73,6 @@ pub fn bound_or_evex(vcpu: &mut X86_64Vcpu, ctx: &mut InsnContext) -> Result<Opt
         let x = (p0 & 0x40) != 0; // X bit (inverted)
         let b = (p0 & 0x20) != 0; // B bit (inverted)
         let r_prime = (p0 & 0x10) != 0; // R' bit (inverted)
-        let mm = p0 & 0x07; // mm field (opcode map)
 
         // Decode P1: W v v v v 1 p p
         let w = (p1 & 0x80) != 0; // W bit
@@ -84,22 +86,19 @@ pub fn bound_or_evex(vcpu: &mut X86_64Vcpu, ctx: &mut InsnContext) -> Result<Opt
         let v_prime = (p2 & 0x08) != 0; // V' bit (inverted)
         let aaa = p2 & 0x07; // aaa field (opmask)
 
-        // Detect APX mode: mm=4 indicates EVEX-MAP4 (APX GPR instructions)
-        let apx_mode = mm == 4;
-
         // For APX mode, decode additional bits differently:
         // - P1[4] (where r_prime normally is) becomes NF (No Flags)
         // - P2[4] (broadcast bit) becomes ND (New Data Destination)
-        // - B4 and X4 come from different positions for EGPR
+        // - P0[3] becomes B4, the high r/m extension bit for EGPR
         let (nf, nd, b4, x4) = if apx_mode {
             // In APX mode:
             // NF is in P1 bit 4 (inverted r_prime position)
             // ND is in P2 bit 4 (broadcast position)
-            // B4 is encoded in P1 bit 3 for some encodings
-            // X4 is encoded in P2 bit 3 for some encodings
+            // B4 is encoded in P0 bit 3 and is non-inverted.
             let nf_bit = !r_prime; // NF uses r_prime position when mm=4
             let nd_bit = broadcast; // ND uses broadcast position when mm=4
-            (nf_bit, nd_bit, false, false) // B4/X4 not yet decoded
+            let b4_bit = (p0 & 0x08) != 0;
+            (nf_bit, nd_bit, b4_bit, false) // X4 not yet decoded
         } else {
             (false, false, false, false)
         };
