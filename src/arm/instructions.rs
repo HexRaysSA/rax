@@ -6141,6 +6141,8 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
                 let imm16 = (imm8 << 8) as u32;
                 imm16 | (imm16 << 16)
             }
+            0b1100 => ((imm8 << 8) | 0xFF) as u32,
+            0b1101 => ((imm8 << 16) | 0xFFFF) as u32,
             0b1110 if ((raw >> 5) & 1) == 0 => {
                 let byte = imm8 as u32;
                 byte | (byte << 8) | (byte << 16) | (byte << 24)

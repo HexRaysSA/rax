@@ -1581,6 +1581,8 @@ impl Aarch32Decoder {
         let mnemonic = match (cmode, op) {
             (0b1111, _) => return None,
             (0b1110, _) => Mnemonic::VMOV,
+            (0b1100 | 0b1101, false) => Mnemonic::VMOV,
+            (0b1100 | 0b1101, true) => Mnemonic::VMVN,
             (cmode, false) if (cmode & 1) == 0 => Mnemonic::VMOV,
             (cmode, false) if (cmode & 1) != 0 => Mnemonic::VORR,
             (cmode, true) if (cmode & 1) == 0 => Mnemonic::VMVN,
