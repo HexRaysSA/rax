@@ -6212,6 +6212,97 @@ fn neon_fp_multiply_accumulate_and_subtract_handle_f32_and_f16_lanes() {
 }
 
 #[test]
+fn neon_fp16_fused_multiply_long_widens_half_products_to_f32_accumulators() {
+    let mut cpu = Armv7Cpu::new();
+    let mut mem = FlatMemory::new(0x1000, 0);
+    let pack_f32x2 =
+        |low: f32, high: f32| u64::from(high.to_bits()) << 32 | u64::from(low.to_bits());
+
+    assert_eq!(
+        Aarch32Decoder::decode(0xFC22_0813).unwrap().mnemonic,
+        Mnemonic::VFMAL
+    );
+    assert_eq!(
+        Aarch32Decoder::decode(0xFCA2_0813).unwrap().mnemonic,
+        Mnemonic::VFMLS
+    );
+    assert_eq!(
+        Aarch32Decoder::decode(0xFE02_0813).unwrap().mnemonic,
+        Mnemonic::VFMAL
+    );
+    assert_eq!(
+        Aarch32Decoder::decode(0xFE12_0813).unwrap().mnemonic,
+        Mnemonic::VFMLS
+    );
+    assert_eq!(
+        Aarch32Decoder::decode(0xFC20_1850).unwrap().mnemonic,
+        Mnemonic::UNDEFINED
+    );
+    assert_eq!(
+        Aarch32Decoder::decode(0xFE00_1850).unwrap().mnemonic,
+        Mnemonic::UNDEFINED
+    );
+
+    cpu.vfp.write_d_bits(0, pack_f32x2(10.0, 20.0));
+    cpu.vfp.write_s_bits(4, 0x4000_3c00);
+    cpu.vfp.write_s_bits(6, 0x4400_4200);
+    assert!(matches!(
+        exec_one(&mut cpu, &mut mem, 0xFC22_0813),
+        ExecResult::Continue
+    ));
+    assert_eq!(cpu.vfp.read_d_bits(0), pack_f32x2(13.0, 28.0));
+
+    cpu.vfp.write_d_bits(0, pack_f32x2(10.0, 20.0));
+    cpu.vfp.write_s_bits(4, 0x4000_3c00);
+    cpu.vfp.write_s_bits(6, 0x4400_4200);
+    assert!(matches!(
+        exec_one(&mut cpu, &mut mem, 0xFCA2_0813),
+        ExecResult::Continue
+    ));
+    assert_eq!(cpu.vfp.read_d_bits(0), pack_f32x2(7.0, 12.0));
+
+    cpu.vfp.write_d_bits(2, pack_f32x2(10.0, 20.0));
+    cpu.vfp.write_d_bits(3, pack_f32x2(30.0, 40.0));
+    cpu.vfp.write_d_bits(4, 0x4400_4200_4000_3c00);
+    cpu.vfp.write_d_bits(6, 0x4800_4600_4400_4200);
+    assert!(matches!(
+        exec_one(&mut cpu, &mut mem, 0xFC24_2856),
+        ExecResult::Continue
+    ));
+    assert_eq!(cpu.vfp.read_d_bits(2), pack_f32x2(13.0, 28.0));
+    assert_eq!(cpu.vfp.read_d_bits(3), pack_f32x2(48.0, 72.0));
+
+    cpu.vfp.write_d_bits(0, pack_f32x2(10.0, 20.0));
+    cpu.vfp.write_s_bits(4, 0x4000_3c00);
+    cpu.vfp.write_s_bits(6, 0x4400_4200);
+    assert!(matches!(
+        exec_one(&mut cpu, &mut mem, 0xFE02_0813),
+        ExecResult::Continue
+    ));
+    assert_eq!(cpu.vfp.read_d_bits(0), pack_f32x2(13.0, 26.0));
+
+    cpu.vfp.write_d_bits(0, pack_f32x2(10.0, 20.0));
+    cpu.vfp.write_s_bits(4, 0x4000_3c00);
+    cpu.vfp.write_s_bits(6, 0x4400_4200);
+    assert!(matches!(
+        exec_one(&mut cpu, &mut mem, 0xFE12_0813),
+        ExecResult::Continue
+    ));
+    assert_eq!(cpu.vfp.read_d_bits(0), pack_f32x2(7.0, 14.0));
+
+    cpu.vfp.write_d_bits(2, pack_f32x2(10.0, 20.0));
+    cpu.vfp.write_d_bits(3, pack_f32x2(30.0, 40.0));
+    cpu.vfp.write_d_bits(4, 0x4400_4200_4000_3c00);
+    cpu.vfp.write_d_bits(6, 0x4800_4600_4400_4200);
+    assert!(matches!(
+        exec_one(&mut cpu, &mut mem, 0xFE04_2876),
+        ExecResult::Continue
+    ));
+    assert_eq!(cpu.vfp.read_d_bits(2), pack_f32x2(16.0, 32.0));
+    assert_eq!(cpu.vfp.read_d_bits(3), pack_f32x2(48.0, 64.0));
+}
+
+#[test]
 fn neon_fp_add_sub_handle_f32_and_f16_lanes() {
     let mut cpu = Armv7Cpu::new();
     let mut mem = FlatMemory::new(0x1000, 0);

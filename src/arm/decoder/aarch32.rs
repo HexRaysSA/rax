@@ -169,6 +169,10 @@ impl Aarch32Decoder {
             return Ok(insn);
         }
 
+        if let Some(insn) = Self::decode_neon_fp16_fused_multiply_long(raw) {
+            return Ok(insn);
+        }
+
         if let Some(insn) = Self::decode_neon_shift_right_immediate(raw) {
             return Ok(insn);
         }
@@ -1159,6 +1163,46 @@ impl Aarch32Decoder {
         let vd = (raw >> 12) & 0xF;
         let vn = (raw >> 16) & 0xF;
         if q && ((vd | vn) & 1) != 0 {
+            return Some(DecodedInsn::new(
+                Mnemonic::UNDEFINED,
+                ExecutionState::Aarch32,
+                raw,
+                4,
+            ));
+        }
+
+        Some(DecodedInsn::new(mnemonic, ExecutionState::Aarch32, raw, 4))
+    }
+
+    fn decode_neon_fp16_fused_multiply_long(raw: u32) -> Option<DecodedInsn> {
+        let vector = (raw >> 24) == 0xFC
+            && ((raw >> 21) & 1) == 1
+            && ((raw >> 20) & 1) == 0
+            && ((raw >> 8) & 0xF) == 0b1000
+            && ((raw >> 4) & 1) == 1;
+        let indexed = (raw >> 24) == 0xFE
+            && ((raw >> 23) & 1) == 0
+            && ((raw >> 21) & 1) == 0
+            && ((raw >> 8) & 0xF) == 0b1000
+            && ((raw >> 4) & 1) == 1;
+        if !vector && !indexed {
+            return None;
+        }
+
+        let subtract = if vector {
+            ((raw >> 23) & 1) != 0
+        } else {
+            ((raw >> 20) & 1) != 0
+        };
+        let mnemonic = if subtract {
+            Mnemonic::VFMLS
+        } else {
+            Mnemonic::VFMAL
+        };
+
+        let q = ((raw >> 6) & 1) != 0;
+        let vd = (raw >> 12) & 0xF;
+        if q && (vd & 1) != 0 {
             return Some(DecodedInsn::new(
                 Mnemonic::UNDEFINED,
                 ExecutionState::Aarch32,
