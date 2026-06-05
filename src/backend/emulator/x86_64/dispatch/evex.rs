@@ -2717,11 +2717,11 @@ impl X86_64Vcpu {
             // XOR variants (0x30-0x33)
             0x30 | 0x31 | 0x32 | 0x33 => self.execute_apx_alu(ctx, opcode, ndd, nf, ApxAluOp::Xor),
 
-            // CMP variants (0x38-0x3B) - always updates flags, no NDD
-            0x38 | 0x39 | 0x3A | 0x3B => self.execute_apx_cmp(ctx, opcode),
+            // CCMP variants (0x38-0x3B)
+            0x38 | 0x39 | 0x3A | 0x3B => self.execute_apx_ccmp(ctx, opcode),
 
-            // TEST variants (0x84-0x85)
-            0x84 | 0x85 => self.execute_apx_test(ctx, opcode),
+            // CTEST variants (0x84-0x85)
+            0x84 | 0x85 => self.execute_apx_ctest(ctx, opcode),
 
             // MOV variants (0x88-0x8B)
             0x88 | 0x89 | 0x8A | 0x8B => self.execute_apx_mov(ctx, opcode),
@@ -2829,59 +2829,95 @@ impl X86_64Vcpu {
         Ok(None)
     }
 
-    /// APX CMP operation (always updates flags)
-    fn execute_apx_cmp(&mut self, ctx: &mut InsnContext, opcode: u8) -> Result<Option<VcpuExit>> {
+    fn apx_ccmp_condition_and_default_flags(ctx: &InsnContext) -> Result<(u8, u8)> {
+        let evex = ctx
+            .evex
+            .ok_or_else(|| Error::Emulator("EVEX context missing".to_string()))?;
+        let cc = ((evex.v_prime as u8) << 3) | evex.aaa;
+        let dfv = evex.vvvv;
+        Ok((cc, dfv))
+    }
+
+    fn apply_apx_ccmp_default_flags(&mut self, dfv: u8) {
+        let mut flags = self.regs.rflags & !0x8D5; // CF, PF, AF, ZF, SF, OF
+        if dfv & 0x1 != 0 {
+            flags |= 0x001; // CF
+        }
+        if dfv & 0x2 != 0 {
+            flags |= 0x040; // ZF
+        }
+        if dfv & 0x4 != 0 {
+            flags |= 0x080; // SF
+        }
+        if dfv & 0x8 != 0 {
+            flags |= 0x800; // OF
+        }
+        self.regs.rflags = flags;
+    }
+
+    /// APX CCMP operation.
+    fn execute_apx_ccmp(&mut self, ctx: &mut InsnContext, opcode: u8) -> Result<Option<VcpuExit>> {
         let is_byte = (opcode & 0x01) == 0;
         let op_size = if is_byte { 1 } else if ctx.evex_w() { 8 } else { 4 };
         let reg_is_src = (opcode & 0x02) == 0;
+        let (cc, dfv) = Self::apx_ccmp_condition_and_default_flags(ctx)?;
 
         let (reg, rm, is_memory, addr, _) = self.decode_modrm(ctx)?;
         let reg = reg | ctx.evex_dest_reg();
         let rm = if is_memory { rm } else { rm | ctx.evex_rm_reg() };
 
-        let (src1, src2) = if reg_is_src {
-            let r_val = self.get_reg(reg, op_size);
-            let rm_val = if is_memory {
-                self.read_mem(addr, op_size)?
+        if self.check_condition(cc) {
+            let (src1, src2) = if reg_is_src {
+                let r_val = self.get_reg(reg, op_size);
+                let rm_val = if is_memory {
+                    self.read_mem(addr, op_size)?
+                } else {
+                    self.get_reg(rm, op_size)
+                };
+                (rm_val, r_val)
             } else {
-                self.get_reg(rm, op_size)
+                let r_val = self.get_reg(reg, op_size);
+                let rm_val = if is_memory {
+                    self.read_mem(addr, op_size)?
+                } else {
+                    self.get_reg(rm, op_size)
+                };
+                (r_val, rm_val)
             };
-            (rm_val, r_val)
-        } else {
-            let r_val = self.get_reg(reg, op_size);
-            let rm_val = if is_memory {
-                self.read_mem(addr, op_size)?
-            } else {
-                self.get_reg(rm, op_size)
-            };
-            (r_val, rm_val)
-        };
 
-        let result = src1.wrapping_sub(src2);
-        self.update_flags_alu(result, src1, src2, op_size, ApxAluOp::Sub);
+            let result = src1.wrapping_sub(src2);
+            self.update_flags_alu(result, src1, src2, op_size, ApxAluOp::Sub);
+        } else {
+            self.apply_apx_ccmp_default_flags(dfv);
+        }
 
         self.regs.rip += ctx.cursor as u64;
         Ok(None)
     }
 
-    /// APX TEST operation
-    fn execute_apx_test(&mut self, ctx: &mut InsnContext, opcode: u8) -> Result<Option<VcpuExit>> {
+    /// APX CTEST operation.
+    fn execute_apx_ctest(&mut self, ctx: &mut InsnContext, opcode: u8) -> Result<Option<VcpuExit>> {
         let is_byte = opcode == 0x84;
         let op_size = if is_byte { 1 } else if ctx.evex_w() { 8 } else { 4 };
+        let (cc, dfv) = Self::apx_ccmp_condition_and_default_flags(ctx)?;
 
         let (reg, rm, is_memory, addr, _) = self.decode_modrm(ctx)?;
         let reg = reg | ctx.evex_dest_reg();
         let rm = if is_memory { rm } else { rm | ctx.evex_rm_reg() };
 
-        let src1 = self.get_reg(reg, op_size);
-        let src2 = if is_memory {
-            self.read_mem(addr, op_size)?
-        } else {
-            self.get_reg(rm, op_size)
-        };
+        if self.check_condition(cc) {
+            let src1 = self.get_reg(reg, op_size);
+            let src2 = if is_memory {
+                self.read_mem(addr, op_size)?
+            } else {
+                self.get_reg(rm, op_size)
+            };
 
-        let result = src1 & src2;
-        self.update_flags_alu(result, src1, src2, op_size, ApxAluOp::And);
+            let result = src1 & src2;
+            self.update_flags_alu(result, src1, src2, op_size, ApxAluOp::And);
+        } else {
+            self.apply_apx_ccmp_default_flags(dfv);
+        }
 
         self.regs.rip += ctx.cursor as u64;
         Ok(None)
