@@ -117,6 +117,10 @@ impl Aarch32Decoder {
             return Ok(insn);
         }
 
+        if let Some(insn) = Self::decode_neon_pairwise_add_long(raw) {
+            return Ok(insn);
+        }
+
         if let Some(insn) = Self::decode_neon_pairwise_integer(raw) {
             return Ok(insn);
         }
@@ -509,6 +513,37 @@ impl Aarch32Decoder {
             raw,
             4,
         ))
+    }
+
+    fn decode_neon_pairwise_add_long(raw: u32) -> Option<DecodedInsn> {
+        if (raw >> 23) != 0b111100111
+            || ((raw >> 20) & 0x3) != 0b11
+            || ((raw >> 16) & 0x3) != 0
+            || ((raw >> 4) & 1) != 0
+        {
+            return None;
+        }
+
+        let mnemonic = match (raw >> 7) & 0x1E {
+            0b00100 => Mnemonic::VPADDL,
+            0b01100 => Mnemonic::VPADAL,
+            _ => return None,
+        };
+
+        let size = (raw >> 18) & 0x3;
+        let q = ((raw >> 6) & 1) != 0;
+        let vd = (raw >> 12) & 0xF;
+        let vm = raw & 0xF;
+        if size == 0b11 || (q && ((vd | vm) & 1) != 0) {
+            return Some(DecodedInsn::new(
+                Mnemonic::UNDEFINED,
+                ExecutionState::Aarch32,
+                raw,
+                4,
+            ));
+        }
+
+        Some(DecodedInsn::new(mnemonic, ExecutionState::Aarch32, raw, 4))
     }
 
     fn decode_neon_pairwise_permute(raw: u32) -> Option<DecodedInsn> {
