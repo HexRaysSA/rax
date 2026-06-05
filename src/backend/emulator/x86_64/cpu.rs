@@ -1254,9 +1254,13 @@ impl X86_64Vcpu {
         let mode_tag =
             (self.sregs.cr3 & !0xFFF) | (self.sregs.cs.l as u64) | ((self.sregs.cs.db as u64) << 1);
 
-        // Check decode cache for a hit (copy to avoid borrow issues)
+        // Check decode cache for a hit (copy to avoid borrow issues). A filled
+        // entry always has bytes_len >= 1; default/invalidated entries have
+        // bytes_len == 0. This guard matters in real mode, where the empty
+        // sentinel (rip==0, mode_tag==0) would otherwise collide with a guest
+        // legitimately executing at offset 0 of a segment.
         let cached = self.decode_cache[cache_idx];
-        if cached.rip == rip && cached.mode_tag == mode_tag {
+        if cached.bytes_len != 0 && cached.rip == rip && cached.mode_tag == mode_tag {
             // Cache hit! Record for profiling
             #[cfg(feature = "profiling")]
             profiling::record_cache_hit();
@@ -1701,6 +1705,7 @@ impl X86_64Vcpu {
             let entry = &mut self.decode_cache[idx];
             if entry.rip != 0 && (entry.rip & !0xFFF) == page_base {
                 entry.rip = 0; // Invalidate
+                entry.bytes_len = 0; // mark empty so a real rip==0 can't false-hit
             }
         }
 
@@ -2493,7 +2498,10 @@ impl VCpu for X86_64Vcpu {
         // Injecting CPU state is a serializing event: drop the decode cache so we
         // re-decode from (possibly externally rewritten) code memory. Not hot -
         // set_state is only called at init / snapshot restore / GDB, never in run().
-        self.decode_cache.iter_mut().for_each(|e| e.rip = 0);
+        self.decode_cache.iter_mut().for_each(|e| {
+            e.rip = 0;
+            e.bytes_len = 0;
+        });
         Ok(())
     }
 
@@ -2585,6 +2593,7 @@ impl VCpu for X86_64Vcpu {
             let entry = &mut self.decode_cache[idx];
             if entry.rip != 0 && (entry.rip & !0xFFF) == page_base {
                 entry.rip = 0; // Invalidate
+                entry.bytes_len = 0; // mark empty so a real rip==0 can't false-hit
             }
         }
     }
