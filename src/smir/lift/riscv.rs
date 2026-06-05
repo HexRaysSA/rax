@@ -3649,8 +3649,21 @@ impl RiscVLifter {
                         bytes: insn.to_le_bytes().to_vec(),
                     });
                 }
+                // C.JR == JALR x0, rd, 0: the target clears bit 0.
                 let rs1 = self.get_x_reg(rd, ctx);
-                return Ok((vec![], ControlFlow::IndirectBranch { target: rs1 }));
+                let aligned = ctx.alloc_vreg();
+                ops.push(SmirOp::new(
+                    ctx.next_op_id(),
+                    addr,
+                    OpKind::And {
+                        dst: aligned,
+                        src1: rs1,
+                        src2: SrcOperand::Imm(!1i64),
+                        width: self.op_width(),
+                        flags: FlagUpdate::None,
+                    },
+                ));
+                return Ok((ops, ControlFlow::IndirectBranch { target: aligned }));
             } else {
                 // C.MV
                 let rs2_val = self.get_x_reg(rs2, ctx);
@@ -3671,8 +3684,20 @@ impl RiscVLifter {
                 // C.EBREAK
                 ops.push(SmirOp::new(ctx.next_op_id(), addr, OpKind::Breakpoint));
             } else if rs2 == 0 {
-                // C.JALR
+                // C.JALR == JALR x1, rd, 0: link to x1, target clears bit 0.
                 let rs1 = self.get_x_reg(rd, ctx);
+                let aligned = ctx.alloc_vreg();
+                ops.push(SmirOp::new(
+                    ctx.next_op_id(),
+                    addr,
+                    OpKind::And {
+                        dst: aligned,
+                        src1: rs1,
+                        src2: SrcOperand::Imm(!1i64),
+                        width: self.op_width(),
+                        flags: FlagUpdate::None,
+                    },
+                ));
                 let return_addr = addr + 2;
 
                 if let Some(ra) = self.def_x_reg(1, ctx) {
@@ -3687,7 +3712,7 @@ impl RiscVLifter {
                     ));
                 }
 
-                return Ok((ops, ControlFlow::IndirectBranch { target: rs1 }));
+                return Ok((ops, ControlFlow::IndirectBranch { target: aligned }));
             } else {
                 // C.ADD
                 let rs1 = self.get_x_reg(rd, ctx);

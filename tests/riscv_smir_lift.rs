@@ -300,6 +300,92 @@ fn run_smir(insn: &[u8], init: &State) -> Result<Option<State>, String> {
     Ok(Some(out))
 }
 
+/// Like `run_ref` but also returns the resulting program counter — used to
+/// verify control-flow lift (the next-PC of branches/jumps).
+fn run_ref_cf(insn: &[u8], init: &State) -> Option<(State, u64)> {
+    let out = run_ref(insn, init)?;
+    // Re-run capturing the post-step PC (run_ref discards it).
+    let mem = RvMem::new(0, MEM_SIZE as usize);
+    let mut cpu = RiscVCpu::new(RiscVConfig::rv64gc(), Box::new(mem));
+    for i in 1..32u8 {
+        cpu.set_x(i, init.x[i as usize]);
+    }
+    cpu.write_memory(CODE_ADDR, insn).ok()?;
+    cpu.set_pc(CODE_ADDR);
+    match cpu.step() {
+        RiscVExit::Continue => {}
+        _ => return None,
+    }
+    Some((out, cpu.pc()))
+}
+
+/// Lift a control-flow instruction, execute its ops, and resolve the next PC
+/// from the lifted `ControlFlow`. `Ok(None)` => lift gap.
+fn run_smir_cf(insn: &[u8], init: &State) -> Result<Option<(State, u64)>, String> {
+    use rax::smir::lift::ControlFlow;
+    let mut lifter = RiscVLifter::rv64gc();
+    let mut lctx = LiftContext::new(SourceArch::RiscV64);
+    let res = match lifter.lift_insn(CODE_ADDR, insn, &mut lctx) {
+        Ok(r) => r,
+        Err(LiftError::Unsupported { .. }) | Err(LiftError::InvalidEncoding { .. }) => {
+            return Ok(None);
+        }
+        Err(e) => return Err(format!("lift error: {e:?}")),
+    };
+    let cf = res.control_flow;
+    let bytes = res.bytes_consumed as u64;
+    let mut ops = res.ops;
+    for (i, op) in ops.iter_mut().enumerate() {
+        op.id = OpId(i as u16);
+    }
+    let block = SmirBlock {
+        id: BlockId(0),
+        guest_pc: CODE_ADDR,
+        phis: vec![],
+        ops,
+        terminator: Terminator::Trap {
+            kind: TrapKind::Breakpoint,
+        },
+        exec_count: 0,
+    };
+    let mut ctx = SmirContext::new_riscv();
+    if let ArchRegState::RiscV(rv) = &mut ctx.arch_regs {
+        rv.x[1..32].copy_from_slice(&init.x[1..32]);
+        rv.pc = CODE_ADDR;
+    }
+    ctx.pc = CODE_ADDR;
+    let mut mem = SmirMem::with_base(0, MEM_SIZE as usize);
+    let interp = SmirInterpreter::new();
+    interp.execute_block(&mut ctx, &mut mem, &block);
+
+    // Control-flow ops change only x[rd] (link register) and the PC; every other
+    // field equals the seed (the oracle reads them back unchanged), so start from
+    // the seed and overwrite the integer registers.
+    let mut out = *init;
+    for n in 0..32u8 {
+        out.x[n as usize] = ctx.read_vreg(lctx.get_arch_reg(ArchReg::RiscV(RiscVReg::X(n))));
+    }
+    out.x[0] = 0;
+    let next_pc = match cf {
+        ControlFlow::Fallthrough | ControlFlow::NextInsn => CODE_ADDR + bytes,
+        ControlFlow::Branch { target } | ControlFlow::DirectBranch(target) => target,
+        ControlFlow::CondBranchReg {
+            cond,
+            taken,
+            not_taken,
+        } => {
+            if ctx.read_vreg(cond) != 0 {
+                taken
+            } else {
+                not_taken
+            }
+        }
+        ControlFlow::IndirectBranch { target } => ctx.read_vreg(target),
+        _ => return Ok(None), // CC-based / call / return forms not exercised here
+    };
+    Ok(Some((out, next_pc)))
+}
+
 /// Tally outcomes over a stream of random words for the given opcodes.
 fn sweep(seed: u64, opcodes: &[u32], count: usize) {
     let mut rng = Rng::new(seed);
@@ -513,6 +599,120 @@ fn lift_fp() {
         &[0x07, 0x27, 0x53, 0x43, 0x47, 0x4b, 0x4f],
         60_000,
     );
+}
+
+/// Control-flow lift verification: jal / jalr / branches (32-bit and
+/// compressed). The single-step register sweeps skip these because the result
+/// is the next PC, not a register; here we resolve the next PC from the lifted
+/// `ControlFlow` (DirectBranch target / IndirectBranch VReg / CondBranchReg
+/// VReg) and compare it — plus the link-register write — against the `RiscVCpu`
+/// oracle's post-step PC and registers.
+#[test]
+fn lift_cf() {
+    let isa = Isa::rv64gc();
+    let mut rng = Rng::new(0x5117_0007);
+    let mut matched = 0usize;
+    let mut gaps: BTreeMap<String, usize> = BTreeMap::new();
+    let mut diverged: Vec<(u32, String)> = Vec::new();
+
+    // ---- 32-bit control flow: jal (0x6f), jalr (0x67), branches (0x63). ----
+    let mut tried = 0usize;
+    while tried < 40_000 {
+        let opc = [0x6f, 0x67, 0x63][(rng.next() as usize) % 3];
+        let w = (rng.next() as u32 & !0x7f) | opc;
+        let insn = decode(w, Xlen::Rv64, &isa);
+        if insn.is_illegal() {
+            continue;
+        }
+        tried += 1;
+        let st = rand_state(&mut rng);
+        let bytes = w.to_le_bytes();
+        let (rr, rpc) = match run_ref_cf(&bytes, &st) {
+            Some(x) => x,
+            None => continue,
+        };
+        match run_smir_cf(&bytes, &st) {
+            Ok(Some((s, spc))) => {
+                let mut d = rr.eq_regs(&s);
+                if d.is_none() && rpc != spc {
+                    d = Some(format!("pc: ref={rpc:#x} smir={spc:#x}"));
+                }
+                if let Some(d) = d {
+                    if diverged.len() < 40 {
+                        diverged.push((w, format!("{:?}: {d}", insn.op)));
+                    }
+                } else {
+                    matched += 1;
+                }
+            }
+            Ok(None) => *gaps.entry(format!("{:?}", insn.op)).or_default() += 1,
+            Err(e) => diverged.push((w, format!("{:?}: {e}", insn.op))),
+        }
+    }
+
+    // ---- Compressed control flow: c.j / c.jr / c.jalr / c.beqz / c.bnez. ----
+    let mut tried_c = 0usize;
+    let mut iters = 0usize;
+    while tried_c < 20_000 && iters < 4_000_000 {
+        iters += 1;
+        let w16 = (rng.next() as u16) & 0xFFFF;
+        if w16 & 3 == 3 {
+            continue;
+        }
+        let mut dmem = RvMem::new(0, 8);
+        if RvMemory::write(&mut dmem, 0, &w16.to_le_bytes()).is_err() {
+            continue;
+        }
+        let insn = match decode_at(&dmem, 0, Xlen::Rv64, &isa) {
+            Ok(i) if !i.is_illegal() && i.len == 2 => i,
+            _ => continue,
+        };
+        if !matches!(insn.op, Op::Jal | Op::Jalr | Op::Beq | Op::Bne) {
+            continue; // only compressed control-flow forms
+        }
+        tried_c += 1;
+        let st = rand_state(&mut rng);
+        let bytes = w16.to_le_bytes();
+        let (rr, rpc) = match run_ref_cf(&bytes, &st) {
+            Some(x) => x,
+            None => continue,
+        };
+        match run_smir_cf(&bytes, &st) {
+            Ok(Some((s, spc))) => {
+                let mut d = rr.eq_regs(&s);
+                if d.is_none() && rpc != spc {
+                    d = Some(format!("pc: ref={rpc:#x} smir={spc:#x}"));
+                }
+                if let Some(d) = d {
+                    if diverged.len() < 40 {
+                        diverged.push((w16 as u32, format!("c.{:?}: {d}", insn.op)));
+                    }
+                } else {
+                    matched += 1;
+                }
+            }
+            Ok(None) => *gaps.entry(format!("c.{:?}", insn.op)).or_default() += 1,
+            Err(e) => diverged.push((w16 as u32, format!("c.{:?}: {e}", insn.op))),
+        }
+    }
+
+    eprintln!(
+        "lift_cf: matched={matched}, gap-ops={}, diverged={}",
+        gaps.len(),
+        diverged.len()
+    );
+    let mut gv: Vec<_> = gaps.iter().collect();
+    gv.sort_by(|a, b| b.1.cmp(a.1));
+    for (op, n) in gv.iter().take(40) {
+        eprintln!("  GAP {op}: {n}");
+    }
+    if !diverged.is_empty() {
+        let mut msg = format!("\n{} control-flow lift divergence(s):\n", diverged.len());
+        for (w, d) in diverged.iter().take(40) {
+            msg += &format!("  insn={w:#010x}: {d}\n");
+        }
+        panic!("{msg}");
+    }
 }
 
 // --- RVV (vector) lift verification ----------------------------------------
