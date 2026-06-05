@@ -2732,6 +2732,12 @@ impl X86_64Vcpu {
             // CTEST variants (0x84-0x85)
             0x84 | 0x85 => self.execute_apx_ctest(ctx, opcode),
 
+            // MOVBE reg, reg (0x61)
+            0x61 => self.execute_apx_movbe(ctx, ndd, nf),
+
+            // POPCNT with NF shares MAP4 opcode 0x88 with MOV r/m8,r8.
+            0x88 if nf => self.execute_apx_count(ctx, opcode, ndd, nf),
+
             // MOV variants (0x88-0x8B)
             0x88 | 0x89 | 0x8A | 0x8B => self.execute_apx_mov(ctx, opcode),
 
@@ -2755,6 +2761,9 @@ impl X86_64Vcpu {
             // Shift variants (0xC0, 0xC1, 0xD0-0xD3)
             0xC0 | 0xC1 => self.execute_apx_shift_imm(ctx, opcode, ndd, nf),
             0xD0 | 0xD1 | 0xD2 | 0xD3 => self.execute_apx_shift_cl(ctx, opcode, ndd, nf),
+
+            // TZCNT/LZCNT with NF
+            0xF4 | 0xF5 => self.execute_apx_count(ctx, opcode, ndd, nf),
 
             // Group 3 NOT/NEG (0xF6, 0xF7 /2,/3)
             0xF6 | 0xF7 => self.execute_apx_group3(ctx, opcode, ndd, nf),
@@ -2995,6 +3004,108 @@ impl X86_64Vcpu {
             self.set_reg(reg, value, op_size);
         }
 
+        self.regs.rip += ctx.cursor as u64;
+        Ok(None)
+    }
+
+    fn apx_scalar_op_size(ctx: &InsnContext) -> u8 {
+        if ctx.evex_w() {
+            8
+        } else if ctx.operand_size_override {
+            2
+        } else {
+            4
+        }
+    }
+
+    /// APX MOVBE reg, reg.
+    fn execute_apx_movbe(
+        &mut self,
+        ctx: &mut InsnContext,
+        ndd: bool,
+        nf: bool,
+    ) -> Result<Option<VcpuExit>> {
+        if ndd || nf {
+            return Err(Error::Emulator("MOVBE does not support APX NDD/NF".to_string()));
+        }
+
+        let op_size = Self::apx_scalar_op_size(ctx);
+        let (reg, rm, is_memory, _, _) = self.decode_modrm(ctx)?;
+        if is_memory {
+            return Err(Error::Emulator("APX MOVBE requires register operands".to_string()));
+        }
+
+        let dest = rm | ctx.evex_rm_reg();
+        let src = reg | ctx.evex_dest_reg();
+        let value = self.get_reg(src, op_size);
+        let result = match op_size {
+            2 => (value as u16).swap_bytes() as u64,
+            4 => (value as u32).swap_bytes() as u64,
+            8 => value.swap_bytes(),
+            _ => unreachable!(),
+        };
+
+        self.set_reg(dest, result, op_size);
+        self.regs.rip += ctx.cursor as u64;
+        Ok(None)
+    }
+
+    /// APX NF POPCNT/LZCNT/TZCNT.
+    fn execute_apx_count(
+        &mut self,
+        ctx: &mut InsnContext,
+        opcode: u8,
+        ndd: bool,
+        nf: bool,
+    ) -> Result<Option<VcpuExit>> {
+        if ndd || !nf {
+            return Err(Error::Emulator(format!(
+                "APX count opcode {:#x} requires NF and no NDD",
+                opcode
+            )));
+        }
+
+        let op_size = Self::apx_scalar_op_size(ctx);
+        let (reg, rm, is_memory, addr, _) = self.decode_modrm(ctx)?;
+        let dest = reg | ctx.evex_dest_reg();
+        let src = if is_memory {
+            self.read_mem(addr, op_size)?
+        } else {
+            let src_reg = rm | ctx.evex_rm_reg();
+            self.get_reg(src_reg, op_size)
+        };
+
+        let bit_count = (op_size * 8) as u64;
+        let result = match opcode {
+            0x88 => match op_size {
+                2 => (src as u16).count_ones() as u64,
+                4 => (src as u32).count_ones() as u64,
+                8 => src.count_ones() as u64,
+                _ => unreachable!(),
+            },
+            0xF4 => {
+                if src == 0 {
+                    bit_count
+                } else {
+                    src.trailing_zeros() as u64
+                }
+            }
+            0xF5 => {
+                if src == 0 {
+                    bit_count
+                } else {
+                    match op_size {
+                        2 => (src as u16).leading_zeros() as u64,
+                        4 => (src as u32).leading_zeros() as u64,
+                        8 => src.leading_zeros() as u64,
+                        _ => unreachable!(),
+                    }
+                }
+            }
+            _ => unreachable!(),
+        };
+
+        self.set_reg(dest, result, op_size);
         self.regs.rip += ctx.cursor as u64;
         Ok(None)
     }

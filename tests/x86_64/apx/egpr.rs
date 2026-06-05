@@ -555,3 +555,50 @@ fn test_egpr_all_registers_mov() {
     let (mut vcpu, _) = setup_vm(&code, None);
     let _ = run_until_hlt(&mut vcpu);
 }
+
+// ============================================================================
+// EVEX MAP4 scalar data movement
+// ============================================================================
+
+#[test]
+fn test_apx_movbe_reg_reg_64_match_llvm() {
+    // LLVM 23 assembles "movbe r8, rax" as 62 d4 fc 08 61 c0.
+    const FLAG_MASK: u64 = 0x8D5;
+    let mut regs = Registers::default();
+    regs.rax = 0x1122_3344_5566_7788;
+    regs.r8 = 0;
+    regs.rflags = 0x2 | FLAG_MASK;
+    let code = [0x62, 0xD4, 0xFC, 0x08, 0x61, 0xC0, 0xF4];
+
+    let (mut vcpu, _) = setup_vm(&code, Some(regs));
+    let regs = run_until_hlt(&mut vcpu).unwrap();
+    assert_eq!(regs.r8, 0x8877_6655_4433_2211);
+    assert_eq!(regs.rax, 0x1122_3344_5566_7788);
+    assert_eq!(regs.rflags & FLAG_MASK, FLAG_MASK);
+}
+
+#[test]
+fn test_apx_movbe_reg_reg_32_zero_extends_match_llvm() {
+    // LLVM 23 assembles "movbe r8d, eax" as 62 d4 7c 08 61 c0.
+    let mut regs = Registers::default();
+    regs.rax = 0xFFFF_FFFF_1122_3344;
+    regs.r8 = u64::MAX;
+    let code = [0x62, 0xD4, 0x7C, 0x08, 0x61, 0xC0, 0xF4];
+
+    let (mut vcpu, _) = setup_vm(&code, Some(regs));
+    let regs = run_until_hlt(&mut vcpu).unwrap();
+    assert_eq!(regs.r8, 0x4433_2211);
+}
+
+#[test]
+fn test_apx_movbe_reg_reg_16_preserves_upper_match_llvm() {
+    // LLVM 23 assembles "movbe r8w, ax" as 62 d4 7d 08 61 c0.
+    let mut regs = Registers::default();
+    regs.rax = 0x1122;
+    regs.r8 = 0xAABB_CCDD_EEFF_7788;
+    let code = [0x62, 0xD4, 0x7D, 0x08, 0x61, 0xC0, 0xF4];
+
+    let (mut vcpu, _) = setup_vm(&code, Some(regs));
+    let regs = run_until_hlt(&mut vcpu).unwrap();
+    assert_eq!(regs.r8, 0xAABB_CCDD_EEFF_2211);
+}

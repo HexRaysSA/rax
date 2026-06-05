@@ -18,6 +18,7 @@
 //! - NEG, NOT
 //! - IMUL
 //! - SHLD, SHRD
+//! - POPCNT, LZCNT, TZCNT
 
 use crate::common::*;
 
@@ -661,4 +662,90 @@ fn test_nf_sub_reg_mem() {
     ];
     let (mut vcpu, _) = setup_vm(&code, None);
     let _ = run_until_hlt(&mut vcpu);
+}
+
+// ============================================================================
+// NF count instructions
+// ============================================================================
+
+#[test]
+fn test_nf_popcnt_reg_reg_preserves_flags_match_llvm() {
+    // LLVM 23 assembles "{nf} popcnt r8, rax" as 62 74 fc 0c 88 c0.
+    const FLAG_MASK: u64 = 0x8D5;
+    let mut regs = Registers::default();
+    regs.rax = 0xF0F0_F0F0_0F0F_0F0F;
+    regs.r8 = 0xDEAD_BEEF;
+    regs.rflags = 0x2 | FLAG_MASK;
+    let code = [0x62, 0x74, 0xFC, 0x0C, 0x88, 0xC0, 0xF4];
+
+    let (mut vcpu, _) = setup_vm(&code, Some(regs));
+    let regs = run_until_hlt(&mut vcpu).unwrap();
+    assert_eq!(regs.r8, 32);
+    assert_eq!(regs.rax, 0xF0F0_F0F0_0F0F_0F0F);
+    assert_eq!(regs.rflags & FLAG_MASK, FLAG_MASK);
+}
+
+#[test]
+fn test_nf_lzcnt_reg_reg_preserves_flags_match_llvm() {
+    // LLVM 23 assembles "{nf} lzcnt r8, rax" as 62 74 fc 0c f5 c0.
+    const FLAG_MASK: u64 = 0x8D5;
+    let mut regs = Registers::default();
+    regs.rax = 0x00F0_0000_0000_0000;
+    regs.r8 = 0xDEAD_BEEF;
+    regs.rflags = 0x2 | FLAG_MASK;
+    let code = [0x62, 0x74, 0xFC, 0x0C, 0xF5, 0xC0, 0xF4];
+
+    let (mut vcpu, _) = setup_vm(&code, Some(regs));
+    let regs = run_until_hlt(&mut vcpu).unwrap();
+    assert_eq!(regs.r8, 8);
+    assert_eq!(regs.rflags & FLAG_MASK, FLAG_MASK);
+}
+
+#[test]
+fn test_nf_tzcnt_reg_reg_preserves_flags_match_llvm() {
+    // LLVM 23 assembles "{nf} tzcnt r8, rax" as 62 74 fc 0c f4 c0.
+    const FLAG_MASK: u64 = 0x8D5;
+    let mut regs = Registers::default();
+    regs.rax = 0x1000;
+    regs.r8 = 0xDEAD_BEEF;
+    regs.rflags = 0x2 | FLAG_MASK;
+    let code = [0x62, 0x74, 0xFC, 0x0C, 0xF4, 0xC0, 0xF4];
+
+    let (mut vcpu, _) = setup_vm(&code, Some(regs));
+    let regs = run_until_hlt(&mut vcpu).unwrap();
+    assert_eq!(regs.r8, 12);
+    assert_eq!(regs.rflags & FLAG_MASK, FLAG_MASK);
+}
+
+#[test]
+fn test_nf_popcnt_word_preserves_upper_match_llvm() {
+    // LLVM 23 assembles "{nf} popcnt r8w, ax" as 62 74 7d 0c 88 c0.
+    const FLAG_MASK: u64 = 0x8D5;
+    let mut regs = Registers::default();
+    regs.rax = 0xF0F0;
+    regs.r8 = 0x1122_3344_5566_7788;
+    regs.rflags = 0x2 | FLAG_MASK;
+    let code = [0x62, 0x74, 0x7D, 0x0C, 0x88, 0xC0, 0xF4];
+
+    let (mut vcpu, _) = setup_vm(&code, Some(regs));
+    let regs = run_until_hlt(&mut vcpu).unwrap();
+    assert_eq!(regs.r8, 0x1122_3344_5566_0008);
+    assert_eq!(regs.rflags & FLAG_MASK, FLAG_MASK);
+}
+
+#[test]
+fn test_nf_lzcnt_memory_match_llvm() {
+    // LLVM 23 assembles "{nf} lzcnt r8, [rbx]" as 62 74 fc 0c f5 03.
+    const FLAG_MASK: u64 = 0x8D5;
+    let mut regs = Registers::default();
+    regs.rbx = DATA_ADDR;
+    regs.r8 = 0xDEAD_BEEF;
+    regs.rflags = 0x2 | FLAG_MASK;
+    let code = [0x62, 0x74, 0xFC, 0x0C, 0xF5, 0x03, 0xF4];
+
+    let (mut vcpu, mem) = setup_vm(&code, Some(regs));
+    write_mem_at_u64(&mem, DATA_ADDR, 0x0000_0000_0000_1000);
+    let regs = run_until_hlt(&mut vcpu).unwrap();
+    assert_eq!(regs.r8, 51);
+    assert_eq!(regs.rflags & FLAG_MASK, FLAG_MASK);
 }
