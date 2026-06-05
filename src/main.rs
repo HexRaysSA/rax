@@ -12,7 +12,18 @@ use rax::vmm::Vmm;
 use tracing_subscriber::EnvFilter;
 
 #[derive(Parser, Debug)]
-#[command(name = "rax", about = "Minimal KVM-based hypervisor for x86_64")]
+#[command(
+    name = "rax",
+    version,
+    about = "Multi-architecture CPU emulator and hypervisor (x86-64, AArch64, Hexagon, RISC-V)",
+    long_about = "rax is a multi-architecture CPU emulator and hypervisor. It boots Linux two \
+ways: on hardware virtualization (KVM on Linux, Hypervisor.framework on macOS), or on a \
+from-scratch software interpreter that covers the x86-64 ISA out to AVX-512, AVX10.2, and Intel \
+APX, with a native hot-block JIT (SMIR) on by default. Three more software CPUs ride alongside \
+(AArch64 with SVE2, Hexagon with HVX, RISC-V RV64GCV), each validated instruction-by-instruction \
+against a reference oracle: real silicon via KVM for x86-64, QEMU for the rest. The x86-64 \
+emulator also boots TempleOS from a bootable ISO through a real-mode mini-BIOS."
+)]
 struct Cli {
     #[arg(long)]
     config: Option<PathBuf>,
