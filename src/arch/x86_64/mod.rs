@@ -10,7 +10,7 @@ mod native_imports {
     pub use linux_loader::configurator::{BootConfigurator, BootParams};
     pub use linux_loader::loader::bootparam::{boot_e820_entry, boot_params};
     pub use linux_loader::loader::elf::PvhBootCapability;
-    pub use linux_loader::loader::{load_cmdline, BzImage, KernelLoader, KernelLoaderResult};
+    pub use linux_loader::loader::{BzImage, KernelLoader, KernelLoaderResult, load_cmdline};
 }
 
 // On non-x86 hosts, use our local bootparam module
@@ -107,16 +107,21 @@ use crate::devices::bus::{IoBus, IoRange, MmioBus, MmioRange, SharedIoDevice};
 use crate::devices::debug::DebugPort;
 use crate::devices::dma::Dma;
 use crate::devices::fdc::Fdc;
+use crate::devices::fw_cfg::FwCfg;
 use crate::devices::i8042::I8042;
 use crate::devices::ide::IdeController;
-use crate::devices::map::{X86_DEBUG_PORT_BASE, X86_DEBUG_PORT_LEN};
-use crate::devices::fw_cfg::FwCfg;
 use crate::devices::ioapic::IoApic;
-use crate::devices::rtc::{RtcStub, RTC_ADDRESS};
+use crate::devices::map::{X86_DEBUG_PORT_BASE, X86_DEBUG_PORT_LEN};
+use crate::devices::rtc::{RTC_ADDRESS, RtcStub};
 use crate::devices::sysctl::SystemControl;
-use std::sync::{Arc, Mutex};
 use crate::error::{Error, Result};
-use crate::memory::{align_down, PAGE_SIZE};
+use crate::memory::{PAGE_SIZE, align_down};
+use std::sync::{Arc, Mutex};
+
+/// The primary IDE controller, stashed during device setup so the ISO boot path
+/// (which runs later, in `load_kernel`) can attach the CD image as an ATAPI
+/// CD-ROM on the primary master. Single-vCPU legacy boot, so a static suffices.
+static BOOT_IDE_PRIMARY: Mutex<Option<Arc<Mutex<IdeController>>>> = Mutex::new(None);
 
 /// Kernel load address - must match ELF PhysAddr (typically 16MB for x86_64 Linux)
 const KERNEL_LOAD_ADDR: u64 = 0x1000000;
@@ -130,7 +135,7 @@ const BOOT_STACK_ADDR: u64 = 0x8ff0;
 const PML4_ADDR: u64 = 0x9000;
 const PDPTE_ADDR: u64 = 0xa000; // PDPTE for PML4[0] - identity map first 1GB
 const PDE_ADDR: u64 = 0xb000; // PDE for PDPTE[0] - 512 x 2MB pages = 1GB
-                              // Additional page tables for kernel virtual address space
+// Additional page tables for kernel virtual address space
 const PDPTE_KERNEL_ADDR: u64 = 0xc000; // PDPTE for PML4[511] - kernel text
 const PDE_KERNEL_ADDR: u64 = 0xd000; // PDE for PDPTE_KERNEL[510/511]
 const PDPTE_DIRECT_ADDR: u64 = 0xe000; // PDPTE for PML4[273] - direct map
@@ -621,7 +626,10 @@ impl Arch for X86_64Arch {
 
         // QEMU fw_cfg (selector 0x510, data 0x511) - reachable via PIO exits.
         io_bus.register(
-            IoRange { base: 0x510, len: 2 },
+            IoRange {
+                base: 0x510,
+                len: 2,
+            },
             Box::new(FwCfg::new()),
         )?;
 
@@ -645,9 +653,18 @@ impl Arch for X86_64Arch {
         // also covers the 0x80 POST diagnostic port).
         let dma = Arc::new(Mutex::new(Dma::new()));
         for range in [
-            IoRange { base: 0x00, len: 0x10 },
-            IoRange { base: 0x80, len: 0x10 },
-            IoRange { base: 0xC0, len: 0x20 },
+            IoRange {
+                base: 0x00,
+                len: 0x10,
+            },
+            IoRange {
+                base: 0x80,
+                len: 0x10,
+            },
+            IoRange {
+                base: 0xC0,
+                len: 0x20,
+            },
         ] {
             io_bus.register(range, Box::new(SharedIoDevice::new(dma.clone())))?;
         }
@@ -680,21 +697,35 @@ impl Arch for X86_64Arch {
         // detects the channel and finds no drive). Primary: 0x1F0-0x1F7 cmd +
         // 0x3F6 control; secondary: 0x170-0x177 cmd + 0x376 control.
         let ide_primary = Arc::new(Mutex::new(IdeController::new(0x1F0, 0x3F6, Vec::new())));
+        // Stash for the ISO boot path to attach the CD as an ATAPI CD-ROM later.
+        *BOOT_IDE_PRIMARY.lock().unwrap() = Some(ide_primary.clone());
         io_bus.register(
-            IoRange { base: 0x1F0, len: 8 },
+            IoRange {
+                base: 0x1F0,
+                len: 8,
+            },
             Box::new(SharedIoDevice::new(ide_primary.clone())),
         )?;
         io_bus.register(
-            IoRange { base: 0x3F6, len: 1 },
+            IoRange {
+                base: 0x3F6,
+                len: 1,
+            },
             Box::new(SharedIoDevice::new(ide_primary.clone())),
         )?;
         let ide_secondary = Arc::new(Mutex::new(IdeController::new(0x170, 0x376, Vec::new())));
         io_bus.register(
-            IoRange { base: 0x170, len: 8 },
+            IoRange {
+                base: 0x170,
+                len: 8,
+            },
             Box::new(SharedIoDevice::new(ide_secondary.clone())),
         )?;
         io_bus.register(
-            IoRange { base: 0x376, len: 1 },
+            IoRange {
+                base: 0x376,
+                len: 1,
+            },
             Box::new(SharedIoDevice::new(ide_secondary.clone())),
         )?;
 
@@ -703,11 +734,17 @@ impl Arch for X86_64Arch {
         // 0x3F0-0x3F5 plus 0x3F7.
         let fdc = Arc::new(Mutex::new(Fdc::new()));
         io_bus.register(
-            IoRange { base: 0x3F0, len: 6 },
+            IoRange {
+                base: 0x3F0,
+                len: 6,
+            },
             Box::new(SharedIoDevice::new(fdc.clone())),
         )?;
         io_bus.register(
-            IoRange { base: 0x3F7, len: 1 },
+            IoRange {
+                base: 0x3F7,
+                len: 1,
+            },
             Box::new(SharedIoDevice::new(fdc.clone())),
         )?;
 
@@ -738,6 +775,15 @@ impl Arch for X86_64Arch {
                 let data = std::fs::read(&config.kernel)?;
                 bios_boot::arm_real_mode_boot(mem, data, config.memory.bytes())
                     .map_err(|e| Error::KernelLoad(format!("El-Torito boot setup: {e}")))?;
+                // Also expose the ISO as an ATAPI CD-ROM on the primary IDE
+                // master, so a guest that probes ATA for its CD/DVD (e.g.
+                // TempleOS) finds and mounts it instead of stalling.
+                if let (Some(ide), Some(iso)) = (
+                    BOOT_IDE_PRIMARY.lock().unwrap().clone(),
+                    crate::backend::emulator::x86_64::bios::installed_cd(),
+                ) {
+                    ide.lock().unwrap().attach_cdrom(iso);
+                }
                 return Ok(BootInfo::X86_64(X86_64BootInfo {
                     entry_point: 0x7C00,
                     boot_params_addr: GuestAddress(0),

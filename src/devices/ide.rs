@@ -47,12 +47,16 @@
 //! that an orchestrator drains to inject IRQ14 (primary) / IRQ15 (secondary).
 //! The `nIEN` bit in the Device Control register masks interrupt generation.
 
+use std::sync::Arc;
+
 use super::bus::IoDevice;
 
 /// Logical sector size in bytes.
 pub const SECTOR_SIZE: usize = 512;
 /// Words per sector (PIO data port is 16-bit).
 const SECTOR_WORDS: usize = SECTOR_SIZE / 2;
+/// CD/DVD logical block size in bytes (ATAPI medium).
+const CD_BLOCK: usize = 2048;
 
 // ---- Status register bits (0x1F7 read / 0x3F6 alt-status) ----
 const ST_ERR: u8 = 0x01; // Error
@@ -91,6 +95,26 @@ const CMD_FLUSH_CACHE: u8 = 0xE7;
 const CMD_FLUSH_CACHE_EXT: u8 = 0xEA;
 const CMD_INIT_PARAMS: u8 = 0x91;
 const CMD_NOP: u8 = 0x00;
+// ---- ATAPI (packet) commands ----
+const CMD_PACKET: u8 = 0xA0; // send a SCSI command packet
+const CMD_IDENTIFY_PACKET: u8 = 0xA1; // IDENTIFY PACKET DEVICE
+const CMD_DEVICE_RESET: u8 = 0x08; // ATAPI DEVICE RESET
+
+// ---- SCSI / MMC packet opcodes (byte 0 of the 12-byte command packet) ----
+const SCSI_TEST_UNIT_READY: u8 = 0x00;
+const SCSI_REQUEST_SENSE: u8 = 0x03;
+const SCSI_INQUIRY: u8 = 0x12;
+const SCSI_START_STOP_UNIT: u8 = 0x1B;
+const SCSI_PREVENT_ALLOW: u8 = 0x1E;
+const SCSI_READ_CAPACITY: u8 = 0x25;
+const SCSI_READ_10: u8 = 0x28;
+const SCSI_READ_12: u8 = 0xA8;
+const SCSI_READ_TOC: u8 = 0x43;
+const SCSI_MODE_SENSE_6: u8 = 0x1A;
+const SCSI_MODE_SENSE_10: u8 = 0x5A;
+const SCSI_GET_CONFIGURATION: u8 = 0x46;
+const SCSI_GET_EVENT_STATUS: u8 = 0x4A;
+const SCSI_READ_DISC_INFO: u8 = 0x51;
 
 /// What the PIO buffer is being used for, which determines the transfer
 /// direction and what to do once the buffer is drained/filled.
@@ -157,6 +181,25 @@ pub struct IdeController {
 
     // ---- Interrupt latch (poll convention) ----
     irq_pending: bool,
+
+    // ---- ATAPI CD-ROM (master device) ----
+    /// When `Some`, the master device is an ATAPI CD-ROM whose medium is this
+    /// ISO image (read-only, 2048-byte logical blocks). When `None`, the master
+    /// is an ATA disk backed by `disk` (existing behavior).
+    cdrom: Option<Arc<Vec<u8>>>,
+    /// True while a PACKET command is waiting for the 12-byte command packet to
+    /// be written by the host (PIO-out into `packet`).
+    awaiting_packet: bool,
+    /// The 12-byte SCSI command packet being assembled / last received.
+    packet: [u8; 12],
+    /// Full PIO-in result of the current ATAPI command; transferred to the host
+    /// in DRQ blocks bounded by the byte-count limit.
+    atapi_data: Vec<u8>,
+    /// Read cursor into `atapi_data`.
+    atapi_pos: usize,
+    /// True while an ATAPI data-in transfer is in progress (selects the ATAPI
+    /// chunk-advance path on a PIO-in block boundary).
+    atapi_in: bool,
 }
 
 impl IdeController {
@@ -203,7 +246,31 @@ impl IdeController {
             lba48: false,
             multiple_sectors: 0,
             irq_pending: false,
+            cdrom: None,
+            awaiting_packet: false,
+            packet: [0u8; 12],
+            atapi_data: Vec::new(),
+            atapi_pos: 0,
+            atapi_in: false,
         }
+    }
+
+    /// Attach an ATAPI CD-ROM medium (an ISO image) to the master device. The
+    /// channel then presents an ATAPI CD-ROM (signature 0x14EB, IDENTIFY PACKET,
+    /// the SCSI packet command set) instead of an ATA disk. The image uses
+    /// 2048-byte logical blocks and is read-only.
+    pub fn attach_cdrom(&mut self, iso: Arc<Vec<u8>>) {
+        self.cdrom = Some(iso);
+        // Present the ATAPI signature immediately (as after a power-on reset).
+        self.lba_mid = 0x14;
+        self.lba_high = 0xEB;
+        self.sector_count = 0x01;
+        self.status = ST_DRDY | ST_DSC;
+    }
+
+    /// True if the master device is an ATAPI CD-ROM.
+    fn is_atapi(&self) -> bool {
+        self.cdrom.is_some()
     }
 
     /// Capacity of the backing disk in whole [`SECTOR_SIZE`]-byte sectors.
@@ -411,7 +478,10 @@ impl IdeController {
         // Words 23-26: firmware revision (8 chars).
         put_ata_string(&mut words[23..27], "1.0     ");
         // Words 27-46: model number (40 chars).
-        put_ata_string(&mut words[27..47], "RAX Virtual ATA Disk                    ");
+        put_ata_string(
+            &mut words[27..47],
+            "RAX Virtual ATA Disk                    ",
+        );
 
         // Word 47: max sectors per READ/WRITE MULTIPLE (low byte), 0x80 marker.
         words[47] = 0x8000 | 16;
@@ -496,12 +566,298 @@ impl IdeController {
         self.error = 0x01; // diagnostic code: device 0 passed
         self.sector_count = 0x01;
         self.lba_low = 0x01;
-        self.lba_mid = 0x00; // ATA signature (0x0000 in mid/high)
-        self.lba_high = 0x00;
+        if self.is_atapi() {
+            // ATAPI (PACKET) device signature: 0x14 in LBA mid, 0xEB in LBA high.
+            self.lba_mid = 0x14;
+            self.lba_high = 0xEB;
+        } else {
+            self.lba_mid = 0x00; // ATA signature (0x0000 in mid/high)
+            self.lba_high = 0x00;
+        }
         self.drive_head = 0;
         self.hob = false;
+        self.awaiting_packet = false;
+        self.atapi_in = false;
+        self.atapi_data.clear();
+        self.atapi_pos = 0;
         self.status = ST_DRDY | ST_DSC;
         // SRST does not generate an interrupt.
+    }
+
+    // ---- ATAPI (CD-ROM packet) -------------------------------------------
+
+    /// Build the 256-word IDENTIFY PACKET DEVICE block for the ATAPI CD-ROM.
+    fn start_atapi_identify(&mut self) {
+        let mut words = [0u16; SECTOR_WORDS];
+        // Word 0: general config. 10b<<14 = ATAPI; bits 12-8 = 0x05 (CD-ROM);
+        // bits 6-5 = DRQ type (1 = IRQ within 3ms); bits 1-0 = 00 (12-byte cmd).
+        words[0] = 0x8580;
+        put_ata_string(&mut words[10..20], "RAX-CDROM-00000001  ");
+        put_ata_string(&mut words[23..27], "1.0     ");
+        put_ata_string(
+            &mut words[27..47],
+            "RAX Virtual CD-ROM                      ",
+        );
+        // Word 49: capabilities — bit 9 LBA, bit 8 DMA.
+        words[49] = (1 << 9) | (1 << 8);
+        words[50] = 0x4000;
+        words[53] = 0x0006;
+        words[63] = 0x0007; // multiword DMA modes 0-2
+        words[64] = 0x0003; // PIO modes 3,4
+        words[80] = 0x001E; // ATA versions
+        words[82] = 1 << 4; // PACKET feature set
+        words[83] = 1 << 14;
+        words[84] = 1 << 14;
+        words[85] = 1 << 4;
+        words[86] = 0;
+        words[87] = 1 << 14;
+        words[88] = 0x0007;
+
+        if self.buffer.len() < SECTOR_SIZE {
+            self.buffer.resize(SECTOR_SIZE, 0);
+        }
+        for (i, w) in words.iter().enumerate() {
+            let b = w.to_le_bytes();
+            self.buffer[i * 2] = b[0];
+            self.buffer[i * 2 + 1] = b[1];
+        }
+        self.buf_pos = 0;
+        self.buf_len = SECTOR_SIZE;
+        self.sectors_left = 0;
+        self.atapi_in = false;
+        self.transfer = Transfer::PioIn;
+        self.error = 0;
+        self.sector_count = 0x02; // data to host
+        self.status = (self.status & !(ST_BSY | ST_ERR)) | ST_DRDY | ST_DRQ | ST_DSC;
+        self.raise_irq();
+    }
+
+    /// Begin a PACKET (0xA0) command: request the 12-byte command packet from
+    /// the host via PIO-out (no interrupt; the host polls DRQ and writes it).
+    fn begin_packet(&mut self) {
+        self.error = 0;
+        self.packet = [0u8; 12];
+        self.buf_pos = 0;
+        self.buf_len = 12;
+        self.awaiting_packet = true;
+        self.transfer = Transfer::PioOut;
+        // Interrupt reason: C/D=1 (command), IO=0 (from host).
+        self.sector_count = 0x01;
+        self.status = (self.status & !(ST_BSY | ST_ERR)) | ST_DRDY | ST_DRQ;
+        // Per ATAPI, no interrupt is raised for the command-packet request.
+    }
+
+    /// Execute the SCSI command packet now in `self.packet` and stage its result.
+    fn execute_packet(&mut self) {
+        self.awaiting_packet = false;
+        self.transfer = Transfer::None;
+        self.buf_pos = 0;
+        self.buf_len = 0;
+        let pkt = self.packet;
+        let total_blocks = self
+            .cdrom
+            .as_ref()
+            .map_or(0, |c| (c.len() / CD_BLOCK) as u64);
+
+        match pkt[0] {
+            SCSI_TEST_UNIT_READY | SCSI_START_STOP_UNIT | SCSI_PREVENT_ALLOW => {
+                self.atapi_complete_ok();
+            }
+            SCSI_REQUEST_SENSE => {
+                let alloc = pkt[4] as usize;
+                let mut sense = vec![0u8; 18];
+                sense[0] = 0x70; // current error, valid
+                sense[7] = 10; // additional sense length
+                sense.truncate(alloc.min(18).max(0));
+                self.atapi_start_data(sense);
+            }
+            SCSI_INQUIRY => {
+                let alloc = pkt[4] as usize;
+                let mut inq = vec![0u8; 36];
+                inq[0] = 0x05; // peripheral device type: CD-ROM
+                inq[1] = 0x80; // RMB: removable medium
+                inq[2] = 0x00; // version
+                inq[3] = 0x21; // response data format (2) + HiSup
+                inq[4] = 31; // additional length
+                inq[8..16].copy_from_slice(b"RAX     ");
+                inq[16..32].copy_from_slice(b"Virtual CD-ROM  ");
+                inq[32..36].copy_from_slice(b"1.0 ");
+                let n = if alloc == 0 { 36 } else { alloc.min(36) };
+                inq.truncate(n);
+                self.atapi_start_data(inq);
+            }
+            SCSI_READ_CAPACITY => {
+                let last = total_blocks.saturating_sub(1) as u32;
+                let mut cap = vec![0u8; 8];
+                cap[0..4].copy_from_slice(&last.to_be_bytes());
+                cap[4..8].copy_from_slice(&(CD_BLOCK as u32).to_be_bytes());
+                self.atapi_start_data(cap);
+            }
+            SCSI_READ_10 => {
+                let lba = u32::from_be_bytes([pkt[2], pkt[3], pkt[4], pkt[5]]) as u64;
+                let len = u16::from_be_bytes([pkt[7], pkt[8]]) as u64;
+                self.atapi_read(lba, len, total_blocks);
+            }
+            SCSI_READ_12 => {
+                let lba = u32::from_be_bytes([pkt[2], pkt[3], pkt[4], pkt[5]]) as u64;
+                let len = u32::from_be_bytes([pkt[6], pkt[7], pkt[8], pkt[9]]) as u64;
+                self.atapi_read(lba, len, total_blocks);
+            }
+            SCSI_READ_TOC => {
+                // Minimal TOC: header + track 1 + lead-out. (MSF or LBA per pkt[1].)
+                let alloc = u16::from_be_bytes([pkt[7], pkt[8]]) as usize;
+                let mut toc = vec![
+                    0x00, 0x12, // TOC data length (18)
+                    0x01, 0x01, // first track, last track
+                    // Track 1 descriptor
+                    0x00, 0x14, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00,
+                    // Lead-out descriptor (track 0xAA)
+                    0x00, 0x14, 0xAA, 0x00, 0x00, 0x00, 0x00, 0x00,
+                ];
+                let last = (total_blocks.saturating_sub(1)) as u32;
+                toc[16..20].copy_from_slice(&last.to_be_bytes());
+                let n = if alloc == 0 {
+                    toc.len()
+                } else {
+                    alloc.min(toc.len())
+                };
+                toc.truncate(n);
+                self.atapi_start_data(toc);
+            }
+            SCSI_MODE_SENSE_6 => {
+                let alloc = pkt[4] as usize;
+                // Mode parameter header (6): data length, medium type, dev params,
+                // block descriptor length.
+                let mut data = vec![0u8; 4];
+                data[0] = (data.len() - 1) as u8;
+                let n = if alloc == 0 {
+                    data.len()
+                } else {
+                    alloc.min(data.len())
+                };
+                data.truncate(n);
+                self.atapi_start_data(data);
+            }
+            SCSI_MODE_SENSE_10 => {
+                let alloc = u16::from_be_bytes([pkt[7], pkt[8]]) as usize;
+                let mut data = vec![0u8; 8];
+                let l = (data.len() - 2) as u16;
+                data[0..2].copy_from_slice(&l.to_be_bytes());
+                let n = if alloc == 0 {
+                    data.len()
+                } else {
+                    alloc.min(data.len())
+                };
+                data.truncate(n);
+                self.atapi_start_data(data);
+            }
+            SCSI_GET_CONFIGURATION | SCSI_GET_EVENT_STATUS | SCSI_READ_DISC_INFO => {
+                // Return an empty (but successful) response: just the length field.
+                let alloc = u16::from_be_bytes([pkt[7], pkt[8]]) as usize;
+                let data = vec![0u8; alloc.min(8)];
+                if data.is_empty() {
+                    self.atapi_complete_ok();
+                } else {
+                    self.atapi_start_data(data);
+                }
+            }
+            _ => {
+                // Unsupported command: complete with no data (best effort).
+                self.atapi_complete_ok();
+            }
+        }
+    }
+
+    /// READ(10)/READ(12): stage `len` 2048-byte blocks from `lba` of the medium.
+    fn atapi_read(&mut self, lba: u64, len: u64, total_blocks: u64) {
+        if len == 0 {
+            self.atapi_complete_ok();
+            return;
+        }
+        if lba.saturating_add(len) > total_blocks {
+            // Out of range → CHECK CONDITION (ILLEGAL REQUEST / LBA out of range).
+            self.error = 0x50; // sense key 5 (illegal request) in bits 7-4
+            self.status = (self.status & !(ST_BSY | ST_DRQ)) | ST_DRDY | ST_ERR | ST_DSC;
+            self.sector_count = 0x03;
+            self.raise_irq();
+            return;
+        }
+        let start = (lba as usize) * CD_BLOCK;
+        let end = ((lba + len) as usize) * CD_BLOCK;
+        let data = self
+            .cdrom
+            .as_ref()
+            .map(|c| c[start..end.min(c.len())].to_vec())
+            .unwrap_or_default();
+        self.atapi_start_data(data);
+    }
+
+    /// Complete an ATAPI command that returns no data (status only).
+    fn atapi_complete_ok(&mut self) {
+        self.transfer = Transfer::None;
+        self.atapi_in = false;
+        self.error = 0;
+        self.sector_count = 0x03; // C/D=1, IO=1 (command complete)
+        self.status = (self.status & !(ST_BSY | ST_DRQ | ST_ERR)) | ST_DRDY | ST_DSC;
+        self.raise_irq();
+    }
+
+    /// Begin a PIO-in data phase returning `data` to the host, chunked by the
+    /// host's byte-count limit (the LBA mid/high registers set before PACKET).
+    fn atapi_start_data(&mut self, data: Vec<u8>) {
+        if data.is_empty() {
+            self.atapi_complete_ok();
+            return;
+        }
+        self.atapi_data = data;
+        self.atapi_pos = 0;
+        self.atapi_in = true;
+        self.error = 0;
+        self.stage_atapi_chunk();
+    }
+
+    /// Stage the next DRQ block of `atapi_data` into the transfer buffer.
+    fn stage_atapi_chunk(&mut self) {
+        let remaining = self.atapi_data.len() - self.atapi_pos;
+        // Byte-count limit the host requested (LBA mid/high before PACKET).
+        let mut limit = ((self.lba_high & 0xFF) as usize) << 8 | (self.lba_mid & 0xFF) as usize;
+        if limit == 0 {
+            limit = 0xFFFE;
+        }
+        let mut chunk = remaining.min(limit);
+        if chunk % 2 != 0 && chunk < remaining {
+            chunk -= 1; // keep DRQ blocks word-aligned
+        }
+        if chunk == 0 {
+            chunk = remaining;
+        }
+        if self.buffer.len() < chunk {
+            self.buffer.resize(chunk, 0);
+        }
+        self.buffer[..chunk]
+            .copy_from_slice(&self.atapi_data[self.atapi_pos..self.atapi_pos + chunk]);
+        self.buf_pos = 0;
+        self.buf_len = chunk;
+        // Report the actual byte count for this DRQ block in LBA mid/high.
+        self.lba_mid = (chunk & 0xFF) as u16;
+        self.lba_high = ((chunk >> 8) & 0xFF) as u16;
+        self.sector_count = 0x02; // C/D=0, IO=1 (data to host)
+        self.transfer = Transfer::PioIn;
+        self.status = (self.status & !(ST_BSY | ST_ERR)) | ST_DRDY | ST_DRQ | ST_DSC;
+        self.raise_irq();
+    }
+
+    /// Advance to the next ATAPI DRQ block (or complete the transfer).
+    fn atapi_in_block_complete(&mut self) {
+        self.atapi_pos += self.buf_len;
+        if self.atapi_pos >= self.atapi_data.len() {
+            // All data transferred → command complete.
+            self.atapi_data.clear();
+            self.atapi_pos = 0;
+            self.atapi_complete_ok();
+        } else {
+            self.stage_atapi_chunk();
+        }
     }
 
     /// Dispatch a command written to the command register (0x1F7).
@@ -511,10 +867,48 @@ impl IdeController {
         self.status &= !ST_ERR;
         self.hob = false;
 
+        // ATAPI (CD-ROM master) command handling. Only the master is a device;
+        // the slave is absent.
+        if self.is_atapi() && self.master_selected() {
+            match cmd {
+                CMD_IDENTIFY => {
+                    // IDENTIFY DEVICE on a packet device aborts and leaves the
+                    // ATAPI signature in the LBA mid/high registers — this is how
+                    // hosts distinguish ATAPI from ATA.
+                    self.lba_mid = 0x14;
+                    self.lba_high = 0xEB;
+                    self.abort(0);
+                    return;
+                }
+                CMD_IDENTIFY_PACKET => {
+                    self.start_atapi_identify();
+                    return;
+                }
+                CMD_PACKET => {
+                    self.begin_packet();
+                    return;
+                }
+                CMD_DEVICE_RESET => {
+                    self.software_reset();
+                    return;
+                }
+                CMD_NOP => {
+                    self.abort(0);
+                    return;
+                }
+                _ => {
+                    self.abort(0);
+                    return;
+                }
+            }
+        }
+
         match cmd {
             CMD_READ_SECTORS | CMD_READ_SECTORS_NR | CMD_READ_MULTIPLE => self.start_read(false),
             CMD_READ_SECTORS_EXT => self.start_read(true),
-            CMD_WRITE_SECTORS | CMD_WRITE_SECTORS_NR | CMD_WRITE_MULTIPLE => self.start_write(false),
+            CMD_WRITE_SECTORS | CMD_WRITE_SECTORS_NR | CMD_WRITE_MULTIPLE => {
+                self.start_write(false)
+            }
             CMD_WRITE_SECTORS_EXT => self.start_write(true),
             CMD_IDENTIFY => self.start_identify(),
             CMD_SET_MULTIPLE => {
@@ -523,7 +917,8 @@ impl IdeController {
                 self.status = (self.status & !(ST_BSY | ST_DRQ)) | ST_DRDY | ST_DSC;
                 self.raise_irq();
             }
-            CMD_SET_FEATURES | CMD_FLUSH_CACHE | CMD_FLUSH_CACHE_EXT | CMD_INIT_PARAMS | CMD_NOP => {
+            CMD_SET_FEATURES | CMD_FLUSH_CACHE | CMD_FLUSH_CACHE_EXT | CMD_INIT_PARAMS
+            | CMD_NOP => {
                 if !self.master_selected() {
                     self.abort(0);
                     return;
@@ -559,8 +954,40 @@ impl IdeController {
         word
     }
 
+    /// Read one byte from the PIO data buffer. The IDE data register is a single
+    /// fixed port whose successive byte reads return consecutive buffer bytes;
+    /// the host (or the I/O bus) repeats the read at the same port for word/dword
+    /// PIO. On a block boundary the next block is staged or the transfer ends.
+    fn read_data_byte(&mut self) -> u8 {
+        if self.transfer != Transfer::PioIn || self.buf_pos >= self.buf_len {
+            return 0xFF;
+        }
+        let b = self.buffer[self.buf_pos];
+        self.buf_pos += 1;
+        if self.buf_pos >= self.buf_len {
+            self.on_pio_in_sector_complete();
+        }
+        b
+    }
+
+    /// Write one byte into the PIO data buffer (counterpart of [`read_data_byte`]).
+    fn write_data_byte(&mut self, b: u8) {
+        if self.transfer != Transfer::PioOut || self.buf_pos >= self.buf_len {
+            return;
+        }
+        self.buffer[self.buf_pos] = b;
+        self.buf_pos += 1;
+        if self.buf_pos >= self.buf_len {
+            self.on_pio_out_sector_complete();
+        }
+    }
+
     /// Called when the host has drained a full sector during a PIO-in transfer.
     fn on_pio_in_sector_complete(&mut self) {
+        if self.atapi_in {
+            self.atapi_in_block_complete();
+            return;
+        }
         if self.sectors_left > 0 {
             self.sectors_left -= 1;
         }
@@ -596,6 +1023,12 @@ impl IdeController {
 
     /// Called when the host has filled a full sector during a PIO-out transfer.
     fn on_pio_out_sector_complete(&mut self) {
+        // ATAPI: the host just delivered the 12-byte command packet.
+        if self.awaiting_packet {
+            self.packet.copy_from_slice(&self.buffer[..12]);
+            self.execute_packet();
+            return;
+        }
         // Flush the staged sector to the backing disk.
         if !self.flush_buffer_to_sector() {
             return; // abort() already handled status/irq
@@ -710,17 +1143,12 @@ impl IdeController {
 
 impl IoDevice for IdeController {
     fn read(&mut self, port: u16) -> u8 {
-        // The data port is 16-bit; byte reads return successive halves.
         if port == self.cmd_base {
-            // 8-bit access to the data port: low byte, then high byte.
-            // The bus delivers byte-at-a-time, so synthesize both halves by
-            // consuming a word the first time and caching the high byte.
-            let word = self.read_data_word();
-            // Stash the high byte for a subsequent +1 read is not possible here
-            // because the bus addresses the same port; instead we return the
-            // low byte and let `read16` handle word access. For pure 8-bit
-            // callers we return the low byte (high byte fetched on next read).
-            (word & 0xFF) as u8
+            // Data register: return the next buffer byte. Word/dword PIO is the
+            // I/O layer repeating this read at the same port (the VMM does not
+            // increment the port for the IDE data register), so consecutive
+            // reads yield consecutive buffer bytes — the correct PIO semantics.
+            self.read_data_byte()
         } else {
             self.read_register(port)
         }
@@ -728,10 +1156,8 @@ impl IoDevice for IdeController {
 
     fn write(&mut self, port: u16, value: u8) {
         if port == self.cmd_base {
-            // 8-bit write to the data port: treat as the low byte of a word
-            // with the high byte zero. Word-aligned callers should use
-            // `write16`.
-            self.write_data_word(value as u16);
+            // Data register: store the next buffer byte (see `read`).
+            self.write_data_byte(value);
         } else {
             self.write_register(port, value);
         }
@@ -844,7 +1270,10 @@ mod tests {
         // Model string (words 27-46) contains "RAX".
         let model = ata_string_bytes(&words[27..47]);
         let model_str = String::from_utf8_lossy(&model);
-        assert!(model_str.contains("RAX"), "model string present: {model_str:?}");
+        assert!(
+            model_str.contains("RAX"),
+            "model string present: {model_str:?}"
+        );
 
         // Serial (words 10-19) is non-empty / non-space.
         let serial = ata_string_bytes(&words[10..20]);
@@ -906,7 +1335,9 @@ mod tests {
     fn lba28_write_sector_round_trip() {
         let mut ide = make_ide();
         let lba = 7u32;
-        let pattern: Vec<u8> = (0..SECTOR_SIZE).map(|i| (i as u8).wrapping_mul(3)).collect();
+        let pattern: Vec<u8> = (0..SECTOR_SIZE)
+            .map(|i| (i as u8).wrapping_mul(3))
+            .collect();
 
         // Program LBA28 write of 1 sector at LBA 7.
         ide.write(0x1F6, DH_LBA | (((lba >> 24) & 0x0F) as u8));
@@ -941,7 +1372,9 @@ mod tests {
         // Seed sectors 2 and 3.
         let mut expected = Vec::new();
         for s in 2u32..4 {
-            let pat: Vec<u8> = (0..SECTOR_SIZE).map(|i| (i as u8).wrapping_add(s as u8)).collect();
+            let pat: Vec<u8> = (0..SECTOR_SIZE)
+                .map(|i| (i as u8).wrapping_add(s as u8))
+                .collect();
             let off = s as usize * SECTOR_SIZE;
             ide.disk_mut()[off..off + SECTOR_SIZE].copy_from_slice(&pat);
             expected.extend_from_slice(&pat);
@@ -994,7 +1427,11 @@ mod tests {
         ide.write(0x1F5, 0);
         ide.write(0x1F7, CMD_READ_SECTORS);
         assert_ne!(ide.status() & ST_DRQ, 0, "DRQ during transfer");
-        assert_eq!(ide.status() & ST_BSY, 0, "BSY not asserted in PIO-ready state");
+        assert_eq!(
+            ide.status() & ST_BSY,
+            0,
+            "BSY not asserted in PIO-ready state"
+        );
 
         // Drain partially: DRQ stays set until the sector is fully read.
         let _ = ide.read16(0x1F0);
@@ -1100,7 +1537,9 @@ mod tests {
     fn write_then_read_back_via_ports() {
         let mut ide = make_ide();
         let lba = 9u32;
-        let pattern: Vec<u8> = (0..SECTOR_SIZE).map(|i| (i as u8).wrapping_add(0x11)).collect();
+        let pattern: Vec<u8> = (0..SECTOR_SIZE)
+            .map(|i| (i as u8).wrapping_add(0x11))
+            .collect();
 
         // WRITE SECTORS at LBA 9.
         ide.write(0x1F6, DH_LBA);
