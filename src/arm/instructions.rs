@@ -419,6 +419,7 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
             Mnemonic::VQADD | Mnemonic::VQSUB => self.exec_neon_saturating_add_sub(insn),
             Mnemonic::VQDMULH | Mnemonic::VQRDMULH => self.exec_neon_saturating_doubling_mulh(insn),
             Mnemonic::VQABS | Mnemonic::VQNEG => self.exec_neon_saturating_abs_neg(insn),
+            Mnemonic::VRECPE | Mnemonic::VRSQRTE => self.exec_neon_recip_estimate(insn),
             Mnemonic::VADDL | Mnemonic::VADDW | Mnemonic::VSUBL | Mnemonic::VSUBW => {
                 self.exec_neon_long_wide_add_sub(insn)
             }
@@ -3690,6 +3691,175 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
         }
 
         ExecResult::Continue
+    }
+
+    fn exec_neon_recip_estimate(&mut self, insn: &DecodedInsn) -> ExecResult {
+        if !self.cpu.vfp.is_enabled() {
+            return ExecResult::Exception(ExceptionType::UndefinedInstruction);
+        }
+        if (insn.raw >> 23) != 0b111100111
+            || ((insn.raw >> 20) & 0x3) != 0b11
+            || ((insn.raw >> 16) & 0x3) != 0b11
+            || ((insn.raw >> 18) & 0x3) != 0b10
+            || ((insn.raw >> 4) & 1) != 0
+        {
+            return ExecResult::Undefined;
+        }
+
+        let fp = match ((insn.raw >> 7) & 0x1F, insn.mnemonic) {
+            (0b01000, Mnemonic::VRECPE) | (0b01001, Mnemonic::VRSQRTE) => false,
+            (0b01010, Mnemonic::VRECPE) | (0b01011, Mnemonic::VRSQRTE) => true,
+            _ => return ExecResult::Undefined,
+        };
+
+        let d_bit = ((insn.raw >> 22) & 1) as u8;
+        let vd = ((insn.raw >> 12) & 0xF) as u8;
+        let m_bit = ((insn.raw >> 5) & 1) as u8;
+        let vm = (insn.raw & 0xF) as u8;
+        let q = ((insn.raw >> 6) & 1) != 0;
+        let regs = if q { 2 } else { 1 };
+
+        let d = (d_bit << 4) | vd;
+        let m = (m_bit << 4) | vm;
+        if q && ((d | m) & 1) != 0 {
+            return ExecResult::Undefined;
+        }
+        if d + regs > 32 || m + regs > 32 {
+            return ExecResult::Undefined;
+        }
+
+        for reg in 0..regs {
+            let elements = self.neon_read_vector_elements_u64(m + reg, 1, 4);
+            let mut out = Vec::with_capacity(elements.len());
+            for elem in elements {
+                let elem = elem as u32;
+                let result = match (insn.mnemonic, fp) {
+                    (Mnemonic::VRECPE, false) => Self::neon_unsigned_recip_estimate(elem),
+                    (Mnemonic::VRSQRTE, false) => Self::neon_unsigned_rsqrt_estimate(elem),
+                    (Mnemonic::VRECPE, true) => Self::neon_fp_recip_estimate_f32(elem),
+                    (Mnemonic::VRSQRTE, true) => Self::neon_fp_rsqrt_estimate_f32(elem),
+                    _ => return ExecResult::Undefined,
+                };
+                out.push(u64::from(result));
+            }
+            self.neon_write_vector_elements_u64(d + reg, 1, 4, &out);
+        }
+
+        ExecResult::Continue
+    }
+
+    fn neon_recip_estimate(a: u32) -> u32 {
+        let a = a * 2 + 1;
+        let b = (1u32 << 19) / a;
+        (b + 1) >> 1
+    }
+
+    fn neon_recip_sqrt_estimate(mut a: u32) -> u32 {
+        if a < 256 {
+            a = a * 2 + 1;
+        } else {
+            a = (a >> 1) << 1;
+            a = (a + 1) * 2;
+        }
+        let a = a as u64;
+        let mut b: u64 = 512;
+        while a * (b + 1) * (b + 1) < (1u64 << 28) {
+            b += 1;
+        }
+        ((b + 1) >> 1) as u32
+    }
+
+    fn neon_unsigned_recip_estimate(op: u32) -> u32 {
+        if op & 0x8000_0000 == 0 {
+            return u32::MAX;
+        }
+        let estimate = Self::neon_recip_estimate((op >> 23) & 0x1FF);
+        (estimate & 0x1FF) << 23
+    }
+
+    fn neon_unsigned_rsqrt_estimate(op: u32) -> u32 {
+        if op & 0xC000_0000 == 0 {
+            return u32::MAX;
+        }
+        let estimate = Self::neon_recip_sqrt_estimate((op >> 23) & 0x1FF);
+        (estimate & 0x1FF) << 23
+    }
+
+    fn neon_fp_recip_estimate_f32(bits: u32) -> u32 {
+        let sign = bits >> 31;
+        let exp = (bits >> 23) & 0xFF;
+        let frac = bits & 0x7F_FFFF;
+        if exp == 0xFF {
+            return if frac != 0 {
+                bits | 0x40_0000
+            } else {
+                sign << 31
+            };
+        }
+        if exp == 0 && frac == 0 {
+            return (sign << 31) | (0xFF << 23);
+        }
+        if exp == 0 && frac < 0x20_0000 {
+            return (sign << 31) | (0xFF << 23);
+        }
+
+        let mut fraction: u64 = (frac as u64) << 29;
+        let mut e = exp as i32;
+        if e == 0 {
+            if (fraction >> 51) & 1 == 0 {
+                e = -1;
+                fraction = (fraction << 2) & ((1u64 << 52) - 1);
+            } else {
+                fraction = (fraction << 1) & ((1u64 << 52) - 1);
+            }
+        }
+        let scaled = 0x100 | ((fraction >> 44) & 0xFF) as u32;
+        let estimate = Self::neon_recip_estimate(scaled);
+        let mut result_exp = 253i32 - e;
+        let mut out_frac: u64 = ((estimate & 0xFF) as u64) << 44;
+        if result_exp == 0 {
+            out_frac = (1u64 << 51) | (out_frac >> 1);
+        } else if result_exp == -1 {
+            out_frac = (1u64 << 50) | (out_frac >> 2);
+            result_exp = 0;
+        }
+        (sign << 31) | (((result_exp as u32) & 0xFF) << 23) | ((out_frac >> 29) as u32 & 0x7F_FFFF)
+    }
+
+    fn neon_fp_rsqrt_estimate_f32(bits: u32) -> u32 {
+        let sign = bits >> 31;
+        let exp = (bits >> 23) & 0xFF;
+        let frac = bits & 0x7F_FFFF;
+        if exp == 0xFF && frac != 0 {
+            return bits | 0x40_0000;
+        }
+        if exp == 0 && frac == 0 {
+            return (sign << 31) | (0xFF << 23);
+        }
+        if sign == 1 {
+            return 0x7FC0_0000;
+        }
+        if exp == 0xFF {
+            return 0;
+        }
+
+        let mut fraction: u64 = (frac as u64) << 29;
+        let mut e = exp as i32;
+        if e == 0 {
+            while (fraction >> 51) & 1 == 0 {
+                fraction = (fraction << 1) & 0xF_FFFF_FFFF_FFFF;
+                e -= 1;
+            }
+            fraction = (fraction << 1) & 0xF_FFFF_FFFF_FFFF;
+        }
+        let scaled = if e & 1 == 0 {
+            0x100 | ((fraction >> 44) & 0xFF) as u32
+        } else {
+            0x80 | ((fraction >> 45) & 0x7F) as u32
+        };
+        let result_exp = (((380 - e) / 2) as u32) & 0xFF;
+        let estimate = Self::neon_recip_sqrt_estimate(scaled);
+        (sign << 31) | (result_exp << 23) | ((estimate & 0xFF) << 15)
     }
 
     fn exec_neon_vext(&mut self, insn: &DecodedInsn) -> ExecResult {
