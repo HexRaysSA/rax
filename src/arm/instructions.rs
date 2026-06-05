@@ -395,7 +395,12 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
             Mnemonic::VRSHL | Mnemonic::VQSHL | Mnemonic::VQRSHL => {
                 self.exec_neon_shift_register(insn)
             }
-            Mnemonic::VSHR | Mnemonic::VRSHR | Mnemonic::VSLI | Mnemonic::VSRI => {
+            Mnemonic::VSHR
+            | Mnemonic::VRSHR
+            | Mnemonic::VSRA
+            | Mnemonic::VRSRA
+            | Mnemonic::VSLI
+            | Mnemonic::VSRI => {
                 self.exec_neon_shift_immediate(insn)
             }
             Mnemonic::VSHRN
@@ -2663,9 +2668,11 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
         let op = match insn.mnemonic {
             Mnemonic::VSHR => 0,
             Mnemonic::VRSHR => 1,
-            Mnemonic::VSHL => 2,
-            Mnemonic::VSLI => 3,
-            Mnemonic::VSRI => 4,
+            Mnemonic::VSRA => 2,
+            Mnemonic::VRSRA => 3,
+            Mnemonic::VSHL => 4,
+            Mnemonic::VSLI => 5,
+            Mnemonic::VSRI => 6,
             _ => return ExecResult::Undefined,
         };
 
@@ -2694,7 +2701,7 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
         let left_shift = imm - size.bits();
         if matches!(
             insn.mnemonic,
-            Mnemonic::VSHR | Mnemonic::VRSHR | Mnemonic::VSRI
+            Mnemonic::VSHR | Mnemonic::VRSHR | Mnemonic::VSRA | Mnemonic::VRSRA | Mnemonic::VSRI
         ) && (right_shift == 0 || right_shift > size.bits())
         {
             return ExecResult::Undefined;
@@ -2704,14 +2711,17 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
         {
             return ExecResult::Undefined;
         }
-        let round_const = if insn.mnemonic == Mnemonic::VRSHR {
+        let round_const = if matches!(insn.mnemonic, Mnemonic::VRSHR | Mnemonic::VRSRA) {
             1i128 << (right_shift - 1)
         } else {
             0
         };
         for reg in 0..regs {
             let elements = self.neon_read_vector_elements_u64(m + reg, 1, ebytes);
-            let old_elements = if matches!(insn.mnemonic, Mnemonic::VSLI | Mnemonic::VSRI) {
+            let old_elements = if matches!(
+                insn.mnemonic,
+                Mnemonic::VSRA | Mnemonic::VRSRA | Mnemonic::VSLI | Mnemonic::VSRI
+            ) {
                 self.neon_read_vector_elements_u64(d + reg, 1, ebytes)
             } else {
                 vec![0; elements.len()]
@@ -2719,21 +2729,32 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
             let mut out = Vec::with_capacity(elements.len());
             for (elem, old_elem) in elements.into_iter().zip(old_elements.into_iter()) {
                 let result = match op {
-                    0 | 1 => {
+                    0..=3 => {
                         if unsigned {
-                            ((elem as i128 + round_const) >> right_shift) as u64
+                            let shifted = ((elem as i128 + round_const) >> right_shift) as u64;
+                            if matches!(op, 2 | 3) {
+                                old_elem.wrapping_add(shifted) & mask
+                            } else {
+                                shifted
+                            }
                         } else {
                             let value =
                                 Self::neon_sign_extend_elem_u64(elem, size.bits()) + round_const;
-                            Self::neon_pack_signed_elem_i128(value >> right_shift, size.bits())
+                            let shifted =
+                                Self::neon_pack_signed_elem_i128(value >> right_shift, size.bits());
+                            if matches!(op, 2 | 3) {
+                                old_elem.wrapping_add(shifted) & mask
+                            } else {
+                                shifted
+                            }
                         }
                     }
-                    2 => (elem << left_shift) & mask,
-                    3 => {
+                    4 => (elem << left_shift) & mask,
+                    5 => {
                         let insert_mask = (mask << left_shift) & mask;
                         (old_elem & !insert_mask) | ((elem << left_shift) & insert_mask)
                     }
-                    4 => {
+                    6 => {
                         let insert_mask = mask >> right_shift;
                         (old_elem & !insert_mask) | ((elem >> right_shift) & insert_mask)
                     }
