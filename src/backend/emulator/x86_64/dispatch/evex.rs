@@ -3376,6 +3376,25 @@ impl X86_64Vcpu {
         let op_size = if opcode == 0xF6 { 1 } else if ctx.evex_w() { 8 } else { 4 };
         let (reg, rm, is_memory, addr, _) = self.decode_modrm(ctx)?;
         let op_type = reg & 0x07;
+        let src_reg = rm | ctx.evex_rm_reg();
+        let src = if is_memory {
+            self.read_mem(addr, op_size)?
+        } else {
+            self.get_reg(src_reg, op_size)
+        };
+
+        if matches!(op_type, 4..=7) {
+            if !nf || ndd {
+                return Err(Error::Emulator(format!(
+                    "Invalid APX group3 opcode {:#x} /{} at RIP={:#x}",
+                    opcode, op_type, self.regs.rip
+                )));
+            }
+            if self.execute_apx_group3_implicit(op_type, src, op_size)? {
+                self.regs.rip += ctx.cursor as u64;
+            }
+            return Ok(None);
+        }
 
         if !matches!(op_type, 2 | 3) {
             return Err(Error::Emulator(format!(
@@ -3383,13 +3402,6 @@ impl X86_64Vcpu {
                 opcode, op_type, self.regs.rip
             )));
         }
-
-        let src_reg = rm | ctx.evex_rm_reg();
-        let src = if is_memory {
-            self.read_mem(addr, op_size)?
-        } else {
-            self.get_reg(src_reg, op_size)
-        };
 
         let result = if op_type == 2 {
             !src
@@ -3418,6 +3430,157 @@ impl X86_64Vcpu {
 
         self.regs.rip += ctx.cursor as u64;
         Ok(None)
+    }
+
+    fn execute_apx_group3_implicit(&mut self, op_type: u8, src: u64, op_size: u8) -> Result<bool> {
+        match (op_type, op_size) {
+            (4, 1) => {
+                let result = (self.regs.rax as u8 as u16) * (src as u8 as u16);
+                self.set_reg(0, result as u64, 2);
+            }
+            (4, 4) => {
+                let result = (self.regs.rax as u32 as u64) * (src as u32 as u64);
+                self.set_reg(0, result as u32 as u64, 4);
+                self.set_reg(2, (result >> 32) as u32 as u64, 4);
+            }
+            (4, 8) => {
+                let result = (self.regs.rax as u128) * (src as u128);
+                self.set_reg(0, result as u64, 8);
+                self.set_reg(2, (result >> 64) as u64, 8);
+            }
+            (5, 1) => {
+                let result = (self.regs.rax as u8 as i8 as i16) * (src as u8 as i8 as i16);
+                self.set_reg(0, result as u16 as u64, 2);
+            }
+            (5, 4) => {
+                let result = (self.regs.rax as u32 as i32 as i64) * (src as u32 as i32 as i64);
+                self.set_reg(0, result as u32 as u64, 4);
+                self.set_reg(2, (result >> 32) as u32 as u64, 4);
+            }
+            (5, 8) => {
+                let result = (self.regs.rax as i64 as i128) * (src as i64 as i128);
+                self.set_reg(0, result as u64, 8);
+                self.set_reg(2, (result >> 64) as u64, 8);
+            }
+            (6, 1) => {
+                let divisor = src as u8 as u16;
+                if divisor == 0 {
+                    self.inject_exception(0, None)?;
+                    return Ok(false);
+                }
+                let dividend = self.regs.rax as u16;
+                let quotient = dividend / divisor;
+                let remainder = dividend % divisor;
+                if quotient > u8::MAX as u16 {
+                    self.inject_exception(0, None)?;
+                    return Ok(false);
+                }
+                self.set_reg(0, ((remainder << 8) | quotient) as u64, 2);
+            }
+            (6, 4) => {
+                let divisor = src as u32 as u64;
+                if divisor == 0 {
+                    self.inject_exception(0, None)?;
+                    return Ok(false);
+                }
+                let dividend = ((self.regs.rdx as u32 as u64) << 32) | (self.regs.rax as u32 as u64);
+                let quotient = dividend / divisor;
+                let remainder = dividend % divisor;
+                if quotient > u32::MAX as u64 {
+                    self.inject_exception(0, None)?;
+                    return Ok(false);
+                }
+                self.set_reg(0, quotient as u32 as u64, 4);
+                self.set_reg(2, remainder as u32 as u64, 4);
+            }
+            (6, 8) => {
+                let divisor = src as u128;
+                if divisor == 0 {
+                    self.inject_exception(0, None)?;
+                    return Ok(false);
+                }
+                let dividend = ((self.regs.rdx as u128) << 64) | (self.regs.rax as u128);
+                let quotient = dividend / divisor;
+                let remainder = dividend % divisor;
+                if quotient > u64::MAX as u128 {
+                    self.inject_exception(0, None)?;
+                    return Ok(false);
+                }
+                self.set_reg(0, quotient as u64, 8);
+                self.set_reg(2, remainder as u64, 8);
+            }
+            (7, 1) => {
+                let divisor = src as u8 as i8 as i16;
+                if divisor == 0 {
+                    self.inject_exception(0, None)?;
+                    return Ok(false);
+                }
+                let dividend = self.regs.rax as u16 as i16;
+                let (quotient, remainder) = match (dividend.checked_div(divisor), dividend.checked_rem(divisor)) {
+                    (Some(q), Some(r)) => (q, r),
+                    _ => {
+                        self.inject_exception(0, None)?;
+                        return Ok(false);
+                    }
+                };
+                if quotient < i8::MIN as i16 || quotient > i8::MAX as i16 {
+                    self.inject_exception(0, None)?;
+                    return Ok(false);
+                }
+                let ax = ((remainder as i8 as u8 as u16) << 8) | (quotient as i8 as u8 as u16);
+                self.set_reg(0, ax as u64, 2);
+            }
+            (7, 4) => {
+                let divisor = src as u32 as i32 as i64;
+                if divisor == 0 {
+                    self.inject_exception(0, None)?;
+                    return Ok(false);
+                }
+                let dividend =
+                    (((self.regs.rdx as u32 as u64) << 32) | (self.regs.rax as u32 as u64)) as i64;
+                let (quotient, remainder) = match (dividend.checked_div(divisor), dividend.checked_rem(divisor)) {
+                    (Some(q), Some(r)) => (q, r),
+                    _ => {
+                        self.inject_exception(0, None)?;
+                        return Ok(false);
+                    }
+                };
+                if quotient < i32::MIN as i64 || quotient > i32::MAX as i64 {
+                    self.inject_exception(0, None)?;
+                    return Ok(false);
+                }
+                self.set_reg(0, quotient as u32 as u64, 4);
+                self.set_reg(2, remainder as u32 as u64, 4);
+            }
+            (7, 8) => {
+                let divisor = src as i64 as i128;
+                if divisor == 0 {
+                    self.inject_exception(0, None)?;
+                    return Ok(false);
+                }
+                let dividend = (((self.regs.rdx as u128) << 64) | (self.regs.rax as u128)) as i128;
+                let (quotient, remainder) = match (dividend.checked_div(divisor), dividend.checked_rem(divisor)) {
+                    (Some(q), Some(r)) => (q, r),
+                    _ => {
+                        self.inject_exception(0, None)?;
+                        return Ok(false);
+                    }
+                };
+                if quotient < i64::MIN as i128 || quotient > i64::MAX as i128 {
+                    self.inject_exception(0, None)?;
+                    return Ok(false);
+                }
+                self.set_reg(0, quotient as u64, 8);
+                self.set_reg(2, remainder as u64, 8);
+            }
+            _ => {
+                return Err(Error::Emulator(format!(
+                    "Unsupported APX group3 implicit /{} size {}",
+                    op_type, op_size
+                )));
+            }
+        }
+        Ok(true)
     }
 
     /// APX INC/DEC

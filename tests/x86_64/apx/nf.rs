@@ -348,6 +348,93 @@ fn test_nf_not_reg() {
 }
 
 // ============================================================================
+// NF MUL/DIV (implicit RDX:RAX forms)
+// ============================================================================
+
+#[test]
+fn test_nf_mul_implicit_match_llvm() {
+    // LLVM 23 assembles "{nf} mul rbx" as 62 f4 fc 0c f7 e3.
+    const CF: u64 = 1 << 0;
+    const ZF: u64 = 1 << 6;
+    let code = [
+        0x62, 0xF4, 0xFC, 0x0C, 0xF7, 0xE3,
+        0xF4,
+    ];
+    let mut regs = Registers::default();
+    regs.rax = 3;
+    regs.rbx = 4;
+    regs.rflags = CF | ZF | 0x2;
+
+    let (mut vcpu, _) = setup_vm(&code, Some(regs));
+    let regs = run_until_hlt(&mut vcpu).unwrap();
+    assert_eq!(regs.rax, 12);
+    assert_eq!(regs.rdx, 0);
+    assert_eq!(regs.rflags & (CF | ZF), CF | ZF);
+}
+
+#[test]
+fn test_nf_imul_implicit_match_llvm() {
+    // LLVM 23 assembles "{nf} imul rbx" as 62 f4 fc 0c f7 eb.
+    const OF: u64 = 1 << 11;
+    let code = [
+        0x62, 0xF4, 0xFC, 0x0C, 0xF7, 0xEB,
+        0xF4,
+    ];
+    let mut regs = Registers::default();
+    regs.rax = (-3i64) as u64;
+    regs.rbx = 4;
+    regs.rflags = OF | 0x2;
+
+    let (mut vcpu, _) = setup_vm(&code, Some(regs));
+    let regs = run_until_hlt(&mut vcpu).unwrap();
+    assert_eq!(regs.rax, (-12i64) as u64);
+    assert_eq!(regs.rdx, u64::MAX);
+    assert_eq!(regs.rflags & OF, OF);
+}
+
+#[test]
+fn test_nf_div_implicit_match_llvm() {
+    // LLVM 23 assembles "{nf} div rbx" as 62 f4 fc 0c f7 f3.
+    const CF: u64 = 1 << 0;
+    let code = [
+        0x62, 0xF4, 0xFC, 0x0C, 0xF7, 0xF3,
+        0xF4,
+    ];
+    let mut regs = Registers::default();
+    regs.rax = 100;
+    regs.rdx = 0;
+    regs.rbx = 7;
+    regs.rflags = CF | 0x2;
+
+    let (mut vcpu, _) = setup_vm(&code, Some(regs));
+    let regs = run_until_hlt(&mut vcpu).unwrap();
+    assert_eq!(regs.rax, 14);
+    assert_eq!(regs.rdx, 2);
+    assert_eq!(regs.rflags & CF, CF);
+}
+
+#[test]
+fn test_nf_idiv_implicit_match_llvm() {
+    // LLVM 23 assembles "{nf} idiv rbx" as 62 f4 fc 0c f7 fb.
+    const SF: u64 = 1 << 7;
+    let code = [
+        0x62, 0xF4, 0xFC, 0x0C, 0xF7, 0xFB,
+        0xF4,
+    ];
+    let mut regs = Registers::default();
+    regs.rax = (-100i64) as u64;
+    regs.rdx = u64::MAX;
+    regs.rbx = 7;
+    regs.rflags = SF | 0x2;
+
+    let (mut vcpu, _) = setup_vm(&code, Some(regs));
+    let regs = run_until_hlt(&mut vcpu).unwrap();
+    assert_eq!(regs.rax, (-14i64) as u64);
+    assert_eq!(regs.rdx, (-2i64) as u64);
+    assert_eq!(regs.rflags & SF, SF);
+}
+
+// ============================================================================
 // NF ADC/SBB (uses CF as input but doesn't update flags)
 // ============================================================================
 
