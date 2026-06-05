@@ -1167,7 +1167,9 @@ impl X86_64Vcpu {
     /// Returns (buffer, actual_length).
     #[inline]
     pub(super) fn fetch(&mut self) -> Result<([u8; MAX_INSN_LEN], usize)> {
-        let rip = self.regs.rip;
+        // The fetch linear address is CS.base + RIP. CS.base is 0 in long mode
+        // (flat) — so this is unchanged there — and selector<<4 in real mode.
+        let rip = self.sregs.cs.base.wrapping_add(self.regs.rip);
         // Mark this page as containing code for self-modifying code detection
         self.mmu.mark_code_page(rip);
 
@@ -1895,6 +1897,9 @@ impl X86_64Vcpu {
     }
 
     pub(super) fn set_sreg(&mut self, sreg: u8, value: u16) {
+        // Real mode (CR0.PE=0) loads a segment base of selector<<4 directly,
+        // with a 64 KiB limit and 16-bit addressing — no descriptor lookup.
+        let real_mode = self.sregs.cr0 & 1 == 0;
         let seg = match sreg {
             0 => &mut self.sregs.es,
             1 => &mut self.sregs.cs,
@@ -1908,17 +1913,31 @@ impl X86_64Vcpu {
         let prev_db = seg.db;
         let prev_l = seg.l;
         seg.selector = value;
-        // In protected/long mode, we should load the descriptor from GDT
-        // For now, set a basic flat segment
-        seg.base = 0;
-        seg.limit = 0xFFFF_FFFF;
-        seg.type_ = 0x03; // Data segment, read/write, accessed
-        seg.present = true;
-        seg.dpl = 0;
-        seg.db = if preserve_mode { prev_db } else { true };
-        seg.s = true;
-        seg.l = if preserve_mode { prev_l } else { false };
-        seg.g = true;
+        if real_mode {
+            // Real mode: the segment base is selector<<4, the limit is 64 KiB,
+            // and addressing is 16-bit. (No descriptor table is consulted.)
+            seg.base = (value as u64) << 4;
+            seg.limit = 0xFFFF;
+            seg.type_ = 0x03;
+            seg.present = true;
+            seg.dpl = 0;
+            seg.db = false;
+            seg.s = true;
+            seg.l = false;
+            seg.g = false;
+        } else {
+            // In protected/long mode, we should load the descriptor from GDT
+            // For now, set a basic flat segment
+            seg.base = 0;
+            seg.limit = 0xFFFF_FFFF;
+            seg.type_ = 0x03; // Data segment, read/write, accessed
+            seg.present = true;
+            seg.dpl = 0;
+            seg.db = if preserve_mode { prev_db } else { true };
+            seg.s = true;
+            seg.l = if preserve_mode { prev_l } else { false };
+            seg.g = true;
+        }
     }
 
     /// Read the raw 8-byte segment descriptor selected by `selector` from the
