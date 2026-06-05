@@ -46,6 +46,23 @@ fn test_far_call_immediate_16_32_basic() {
 }
 
 #[test]
+fn test_far_call_immediate_invalid_in_64bit_raises_ud() {
+    let code = [
+        0x9a, 0x00, 0x20, 0x08, 0x00, // CALL 0x0008:0x2000
+        0xf4,
+    ];
+    let (mut vcpu, mem) = setup_vm(&code, None);
+    let ud_handler = [
+        0x48, 0xc7, 0xc0, 0x06, 0x00, 0x00, 0x00, // MOV RAX, 6
+        0xf4, // HLT
+    ];
+    mem.write_slice(&ud_handler, GuestAddress(INT_HANDLER_ADDR)).unwrap();
+
+    let regs = run_until_hlt(&mut vcpu).unwrap();
+    assert_eq!(regs.rax, 6);
+}
+
+#[test]
 fn test_far_call_saves_return_address() {
     // Verify that FAR CALL pushes CS and IP/EIP/RIP onto stack
     let code = [
