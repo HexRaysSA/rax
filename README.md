@@ -151,10 +151,10 @@ behind its oracle. All four also have SMIR lifters.
 
 | Core | Size | Runnable? | Coverage | Oracle |
 |------|-----:|-----------|----------|--------|
-| **x86-64** | ~50k LOC | **boots Linux** (KVM/HVF/emulator) + JIT | Legacy → SSE/AVX/AVX2 → AVX-512 → AVX10.1/10.2 → APX; x87; AES/SHA/GFNI; XSAVE | KVM (real hardware) |
+| **x86-64** | ~53k LOC | **boots Linux** (KVM/HVF/emulator) + JIT | Legacy → SSE/AVX/AVX2 → AVX-512 → AVX10.1/10.2 → APX; x87; AES/SHA/GFNI; XSAVE | KVM (real hardware) |
 | **Hexagon** | ~37k LOC | bare-metal (`--arch hexagon`) | V73 scalar + VLIW packets + HVX, **every opcode verified** | qemu-hexagon |
 | **RISC-V** | ~10k LOC | bare-metal (`--arch riscv64`) | full RVA23 *scalar* set (RV64GC + Zfh/Zicond/Zfa/Zbk\*/Zcb + scalar crypto + vector-config) | qemu-riscv64 |
-| **AArch64 / ARM** | ~48k LOC | validated only (no backend yet) | A64 base, **complete SVE + SVE2 + SVE2.1**, NEON/VFP, FP16; AArch32/Thumb; Cortex-M (M0-M85) | qemu-aarch64 + ASL |
+| **AArch64 / ARM** | ~58k LOC | validated only (no backend yet) | A64 base, **complete SVE + SVE2 + SVE2.1**, NEON/VFP, FP16; AArch32/Thumb; Cortex-M (M0-M85) | qemu-aarch64 + ASL |
 
 ### x86-64: the complete machine
 
@@ -215,8 +215,8 @@ The largest and most thoroughly tested ISA, even though it isn't a runnable back
 - **NEON / VFP**: full Advanced SIMD and scalar FP including FP16, bit-exact against the oracle on a
   3939-instruction sweep (`tests/neon_gen.rs`); full crypto (AES, SHA1/256/512, SHA3, SM3, SM4).
 - **AArch32 / Thumb / Cortex-M (M0-M85)**: the A32 + Thumb (T16/T32) integer ISA is bit-exact against a
-  new qemu-arm oracle (`tests/arm_diff32.rs`, a 1666-encoding sweep); Cortex-M adds NVIC/SysTick/SCB/MPU,
-  ARMv6-M to v8.1-M.
+  new qemu-arm oracle (`tests/arm_diff32.rs`, a 1666-encoding sweep), now with VFP and NEON (Advanced
+  SIMD) execution and hardware exception routing; Cortex-M adds NVIC/SysTick/SCB/MPU, ARMv6-M to v8.1-M.
 
 ---
 
@@ -254,7 +254,7 @@ On top of the oracles, there are exhaustive unit suites:
 | **ARM (ASL-generated)** | 92,131 | generated from ARM's official machine-readable **ASL** spec via `tools/asl-parser/` |
 | **x86-64 instruction suite** | 28,554 | `tests/x86_64/` (850 files), behind `--features x86_64-suite` |
 | **Everything else** | ~1,600 | oracle + SMIR-lift harnesses, real-mode/ISO boot, Hexagon bare-metal, RISC-V boot, crypto known-answer (FIPS/SDM) |
-| **Total** | **122,285** | `#[test]` functions across `tests/` |
+| **Total** | **122,323** | `#[test]` functions across `tests/` |
 
 The ARM tests are not written by hand: the `asl-parser` downloads and parses ARM's ASL release and emits
 exhaustive instruction tests from it, which is how 92,000+ ARM cases exist at all.
@@ -263,7 +263,7 @@ exhaustive instruction tests from it, which is how 92,000+ ARM cases exist at al
 
 ## SMIR and the hot-block JIT
 
-**SMIR** (Sigma Machine IR, `src/smir/`, ~64k LOC; spec in
+**SMIR** (Sigma Machine IR, `src/smir/`, ~66k LOC; spec in
 [`docs/specifications/smir/`](docs/specifications/smir/)) is the layer that makes "four CPUs" one
 project. Each guest architecture has a *lifter* that translates its instructions into a common set of
 100+ typed operations; the IR is interpreted directly, optimized, and, for x86-64, lowered to native
@@ -298,7 +298,9 @@ cleanly on a page fault or a write to a code page (FS/GS segment-relative access
 segment base threaded into the JIT runtime). What still bails is RSP/RBP-relative frames, locked/RMW and
 FP/SIMD ops, and the double-width DIV the IR can't yet model.
 Self-modifying code evicts compiled blocks via the MMU's dirty-page journal, and a frontier-less spin
-loop is refused so native code can't trap the vcpu.
+loop is refused so native code can't trap the vcpu. Heads that keep coming back ineligible are memoized,
+so the JIT stops re-attempting them and self-modifying-heavy guests like TempleOS don't thrash the
+compiler (a ~31% boot speedup).
 
 | Piece | Where | State |
 |-------|-------|-------|
@@ -490,12 +492,12 @@ src/
 ├── backend/
 │   ├── kvm/        # Linux hardware virtualization (HVF for macOS)
 │   └── emulator/
-│       ├── x86_64/ # ~50k LOC: decoder, mmu, flags, dispatch/{legacy,twobyte,vex,evex}, insn/ (88 files), JIT integration
+│       ├── x86_64/ # ~53k LOC: decoder, mmu, flags, dispatch/{legacy,twobyte,vex,evex}, insn/ (88 files), JIT integration
 │       ├── hexagon/# ~37k LOC: scalar core, VLIW packets, full HVX, every opcode verified
 │       └── riscv/  # RiscVVcpu bridges the rax::riscv interpreter into the VMM
-├── arm/            # ~48k LOC: aarch64 (complete SVE) · cortex_m · decoder · vfp · sysreg · cp15
+├── arm/            # ~58k LOC: aarch64 (complete SVE) · cortex_m · decoder · vfp · sysreg · cp15
 ├── riscv/          # ~10k LOC: RV64GC + RVA23 scalar · cpu · decode · rvc · float · csr · crypto · disasm
-├── smir/           # ~64k LOC: ir · ops · types · interp · opt · lift/ · lower/ (x86_64 · regalloc · runtime)
+├── smir/           # ~66k LOC: ir · ops · types · interp · opt · lift/ · lower/ (x86_64 · regalloc · runtime)
 ├── devices/        # serial·pit·pic·lapic·ioapic·rtc·hpet·pci·fw_cfg  +  ahci·nvme·ide·virtio·e1000·vga·ac97·uhci·fdc·dma
 ├── gdb/            # Remote Serial Protocol server      (--features debug)
 └── profiling/      # per-mnemonic profiler              (--features profiling)
