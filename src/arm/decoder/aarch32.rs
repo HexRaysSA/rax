@@ -1010,7 +1010,6 @@ impl Aarch32Decoder {
         if (raw >> 25) != 0b1111001
             || ((raw >> 24) & 1) != 0
             || ((raw >> 23) & 1) != 0
-            || ((raw >> 20) & 1) != 0
             || ((raw >> 8) & 0xF) != 0b1101
             || ((raw >> 4) & 1) != 0
         {
@@ -1106,7 +1105,6 @@ impl Aarch32Decoder {
     fn decode_neon_fp_multiply(raw: u32) -> Option<DecodedInsn> {
         if (raw >> 25) != 0b1111001
             || ((raw >> 23) & 1) != 0
-            || ((raw >> 20) & 1) != 0
             || ((raw >> 8) & 0xF) != 0b1101
             || ((raw >> 4) & 1) != 1
         {
