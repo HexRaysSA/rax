@@ -346,12 +346,26 @@ fn test_pop2_same_register() {
 #[test]
 fn test_pop2_memory_form_rejected_match_llvm() {
     // LLVM 23 rejects "pop2 [rax], rax"; POP2 only accepts register operands.
+    // With no IDT, the injected #UD surfaces as an error instead of being handled.
     let code = [
         0x62, 0xF4, 0x7C, 0x18,
         0x8F, 0x00,
         0xF4,
     ];
-    let (mut vcpu, _) = setup_vm(&code, None);
+    let (mut vcpu, _) = setup_vm_no_idt(&code, None);
+    assert!(run_until_hlt(&mut vcpu).is_err());
+}
+
+#[test]
+fn test_push2_memory_form_rejected_match_llvm() {
+    // LLVM 23 rejects "push2 [rax], rax"; PUSH2 only accepts register operands.
+    // With no IDT, the injected #UD surfaces as an error instead of being handled.
+    let code = [
+        0x62, 0xF4, 0x6C, 0x18,
+        0xFF, 0x30,
+        0xF4,
+    ];
+    let (mut vcpu, _) = setup_vm_no_idt(&code, None);
     assert!(run_until_hlt(&mut vcpu).is_err());
 }
 

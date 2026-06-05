@@ -3018,6 +3018,11 @@ impl X86_64Vcpu {
         }
     }
 
+    fn inject_invalid_opcode(&mut self) -> Result<Option<VcpuExit>> {
+        self.inject_exception(6, None)?;
+        Ok(None)
+    }
+
     /// APX MOVBE reg, reg.
     fn execute_apx_movbe(
         &mut self,
@@ -3026,13 +3031,13 @@ impl X86_64Vcpu {
         nf: bool,
     ) -> Result<Option<VcpuExit>> {
         if ndd || nf {
-            return Err(Error::Emulator("MOVBE does not support APX NDD/NF".to_string()));
+            return self.inject_invalid_opcode();
         }
 
         let op_size = Self::apx_scalar_op_size(ctx);
         let (reg, rm, is_memory, _, _) = self.decode_modrm(ctx)?;
         if is_memory {
-            return Err(Error::Emulator("APX MOVBE requires register operands".to_string()));
+            return self.inject_invalid_opcode();
         }
 
         let dest = rm | ctx.evex_rm_reg();
@@ -3059,10 +3064,7 @@ impl X86_64Vcpu {
         nf: bool,
     ) -> Result<Option<VcpuExit>> {
         if ndd || !nf {
-            return Err(Error::Emulator(format!(
-                "APX count opcode {:#x} requires NF and no NDD",
-                opcode
-            )));
+            return self.inject_invalid_opcode();
         }
 
         let op_size = Self::apx_scalar_op_size(ctx);
@@ -3117,7 +3119,7 @@ impl X86_64Vcpu {
         let (reg, _, is_memory, _, _) = self.decode_modrm(ctx)?;
 
         if !is_memory {
-            return Err(Error::Emulator("LEA requires memory operand".to_string()));
+            return self.inject_invalid_opcode();
         }
 
         // Recalculate address without actually reading memory. LEA yields the
@@ -3134,7 +3136,7 @@ impl X86_64Vcpu {
     fn execute_apx_pop2(&mut self, ctx: &mut InsnContext) -> Result<Option<VcpuExit>> {
         let modrm = ctx.consume_u8()?;
         if (modrm >> 6) != 3 {
-            return Err(Error::Emulator("POP2 requires register operands".to_string()));
+            return self.inject_invalid_opcode();
         }
 
         // Extract register operands
@@ -3157,7 +3159,7 @@ impl X86_64Vcpu {
     fn execute_apx_push2(&mut self, ctx: &mut InsnContext) -> Result<Option<VcpuExit>> {
         let modrm = ctx.consume_u8()?;
         if (modrm >> 6) != 3 {
-            return Err(Error::Emulator("PUSH2 requires register operands".to_string()));
+            return self.inject_invalid_opcode();
         }
 
         let reg1 = (modrm & 0x07) | ctx.evex_rm_reg();
@@ -3496,10 +3498,7 @@ impl X86_64Vcpu {
 
         if matches!(op_type, 4..=7) {
             if !nf || ndd {
-                return Err(Error::Emulator(format!(
-                    "Invalid APX group3 opcode {:#x} /{} at RIP={:#x}",
-                    opcode, op_type, self.regs.rip
-                )));
+                return self.inject_invalid_opcode();
             }
             if self.execute_apx_group3_implicit(op_type, src, op_size)? {
                 self.regs.rip += ctx.cursor as u64;
