@@ -1702,17 +1702,6 @@ impl X86_64Vcpu {
         Ok(val)
     }
 
-    /// Check if a memory write is to a code page and invalidate caches if so.
-    /// This is the IMMEDIATE path for the vcpu write wrappers. The complete SMC
-    /// coverage comes from the MMU journal drained in `step` (see
-    /// `drain_smc`) — this just shortcuts the common case.
-    #[inline(always)]
-    fn check_smc(&mut self, addr: u64) {
-        if self.mmu.is_code_page(addr) {
-            self.invalidate_code_page(addr & !0xFFF);
-        }
-    }
-
     /// Drain the MMU's self-modifying-code journal (code pages written by ANY
     /// store, including the ~39 handlers that call `mmu.write_u*` directly) and
     /// invalidate the decode + JIT caches for each. Called at every instruction
@@ -1758,9 +1747,12 @@ impl X86_64Vcpu {
 
     #[inline(always)]
     pub(super) fn write_mem(&mut self, addr: u64, value: u64, size: u8) -> Result<()> {
-        // Check for self-modifying code
-        self.check_smc(addr);
-
+        // Self-modifying-code is handled by the MMU's write journal (`note_smc`
+        // in every `write_u*`) drained once per instruction in `run()` BEFORE the
+        // next fetch — so no per-store invalidation is needed here. (An immediate
+        // `check_smc` used to run a full decode-cache scan PER store; for code
+        // pages that meant N redundant scans per multi-store instruction on top
+        // of the drain's single deduplicated one. Removed — see `drain_smc`.)
         let r = match size {
             1 => self.mmu.write_u8(addr, value as u8, &self.sregs),
             2 => self.mmu.write_u16(addr, value as u16, &self.sregs),
@@ -1794,7 +1786,6 @@ impl X86_64Vcpu {
 
     #[inline(always)]
     pub(super) fn write_mem16(&mut self, addr: u64, value: u16) -> Result<()> {
-        self.check_smc(addr);
         self.mmu.write_u16(addr, value, &self.sregs)
     }
 
@@ -1805,7 +1796,6 @@ impl X86_64Vcpu {
 
     #[inline(always)]
     pub(super) fn write_mem32(&mut self, addr: u64, value: u32) -> Result<()> {
-        self.check_smc(addr);
         self.mmu.write_u32(addr, value, &self.sregs)
     }
 
@@ -1828,7 +1818,6 @@ impl X86_64Vcpu {
 
     #[inline(always)]
     pub(super) fn write_f32(&mut self, addr: u64, value: f32) -> Result<()> {
-        self.check_smc(addr);
         self.mmu.write_u32(addr, value.to_bits(), &self.sregs)
     }
 
@@ -1840,7 +1829,6 @@ impl X86_64Vcpu {
 
     #[inline(always)]
     pub(super) fn write_f64(&mut self, addr: u64, value: f64) -> Result<()> {
-        self.check_smc(addr);
         self.mmu.write_u64(addr, value.to_bits(), &self.sregs)
     }
 
@@ -2522,8 +2510,10 @@ impl VCpu for X86_64Vcpu {
             // zero work when no code page has been written. Sits on the
             // run-loop path (where real guest execution and the JIT live); for
             // a JIT'd hot loop it costs one guarded check per whole-loop run,
-            // not per iteration. (`check_smc` still handles the immediate path
-            // for the vcpu write wrappers.)
+            // not per iteration. This is now the SOLE SMC invalidation point on
+            // the run path: `note_smc` (in every MMU `write_u*`) journals the
+            // page and this drain invalidates it once — deduplicated — before
+            // the next fetch, so no per-store immediate scan is needed.
             self.drain_smc();
 
             // SMIR hot-block JIT fast path: if the region at RIP has been
@@ -3122,6 +3112,9 @@ unsafe extern "C" fn rax_jit_call(
             ok = 0;
             break;
         }
+        // SMC: invalidate any code page the callee wrote before its next fetch
+        // (this direct-step loop bypasses the run-loop drain). Guarded → cheap.
+        vcpu.drain_smc();
         match vcpu.step() {
             Ok(None) => {}
             Ok(Some(exit)) => {
@@ -3677,6 +3670,8 @@ impl X86_64Vcpu {
                 reached = false;
                 break;
             }
+            // SMC: mirror the run-loop drain (this verify re-step bypasses it).
+            self.drain_smc();
             match self.step() {
                 Ok(None) => {}
                 _ => {
