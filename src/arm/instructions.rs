@@ -2755,7 +2755,6 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
         (raw >> 25) == 0b1111001
             && ((raw >> 24) & 1) == 1
             && ((raw >> 23) & 1) == 0
-            && ((raw >> 20) & 1) == 0
             && matches!(((raw >> 8) & 0xF, (raw >> 21) & 1), (0b1101, 0) | (0b1111, 0 | 1))
             && ((raw >> 4) & 1) == 0
     }
@@ -2786,23 +2785,60 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
             return ExecResult::Undefined;
         }
 
-        let n_elements = self.neon_read_vector_elements_u64(n, 1, 4);
-        let m_elements = self.neon_read_vector_elements_u64(m, 1, 4);
+        let size = if ((insn.raw >> 20) & 1) == 0 {
+            NeonSize::S32
+        } else {
+            NeonSize::H16
+        };
+        let ebytes = (size.bits() / 8) as u8;
+        let n_elements = self.neon_read_vector_elements_u64(n, 1, ebytes);
+        let m_elements = self.neon_read_vector_elements_u64(m, 1, ebytes);
         let fpscr = &mut self.cpu.vfp.fpscr;
-        let mut out = [0u64; 2];
-        for (idx, elements) in [&n_elements, &m_elements].into_iter().enumerate() {
-            let lhs = f32::from_bits(elements[0] as u32);
-            let rhs = f32::from_bits(elements[1] as u32);
-            let result = match insn.mnemonic {
-                Mnemonic::VPADD => vadd_f32(lhs, rhs, fpscr).to_bits(),
-                Mnemonic::VPMAX => Self::neon_fpmax_f32_bits(lhs, rhs),
-                Mnemonic::VPMIN => Self::neon_fpmin_f32_bits(lhs, rhs),
-                _ => return ExecResult::Undefined,
-            };
-            out[idx] = u64::from(result);
+        let mut out = Vec::with_capacity(n_elements.len());
+        for elements in [&n_elements, &m_elements] {
+            for pair in elements.chunks_exact(2) {
+                let result = match size {
+                    NeonSize::S32 => {
+                        let lhs = f32::from_bits(pair[0] as u32);
+                        let rhs = f32::from_bits(pair[1] as u32);
+                        u64::from(match insn.mnemonic {
+                            Mnemonic::VPADD => vadd_f32(lhs, rhs, fpscr).to_bits(),
+                            Mnemonic::VPMAX => Self::neon_fpmax_f32_bits(lhs, rhs),
+                            Mnemonic::VPMIN => Self::neon_fpmin_f32_bits(lhs, rhs),
+                            _ => return ExecResult::Undefined,
+                        })
+                    }
+                    NeonSize::H16 => {
+                        let lhs = pair[0] as u16;
+                        let rhs = pair[1] as u16;
+                        u64::from(match insn.mnemonic {
+                            Mnemonic::VPADD => vadd_f16_bits(lhs, rhs, fpscr),
+                            Mnemonic::VPMAX => {
+                                let lhs_f = vcvt_f32_f16_bits(lhs);
+                                let rhs_f = vcvt_f32_f16_bits(rhs);
+                                vcvt_f16_bits_f32(
+                                    f32::from_bits(Self::neon_fpmax_f32_bits(lhs_f, rhs_f)),
+                                    fpscr,
+                                )
+                            }
+                            Mnemonic::VPMIN => {
+                                let lhs_f = vcvt_f32_f16_bits(lhs);
+                                let rhs_f = vcvt_f32_f16_bits(rhs);
+                                vcvt_f16_bits_f32(
+                                    f32::from_bits(Self::neon_fpmin_f32_bits(lhs_f, rhs_f)),
+                                    fpscr,
+                                )
+                            }
+                            _ => return ExecResult::Undefined,
+                        })
+                    }
+                    _ => return ExecResult::Undefined,
+                };
+                out.push(result);
+            }
         }
 
-        self.neon_write_vector_elements_u64(d, 1, 4, &out);
+        self.neon_write_vector_elements_u64(d, 1, ebytes, &out);
         ExecResult::Continue
     }
 

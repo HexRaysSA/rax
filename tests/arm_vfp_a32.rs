@@ -3414,12 +3414,16 @@ fn neon_pairwise_integer_ops_cover_add_min_max_and_invalid_shapes() {
 }
 
 #[test]
-fn neon_fp_pairwise_add_handles_f32_lanes() {
+fn neon_fp_pairwise_add_handles_f32_and_f16_lanes() {
     let mut cpu = Armv7Cpu::new();
     let mut mem = FlatMemory::new(0x1000, 0);
 
     assert_eq!(
         Aarch32Decoder::decode(0xF301_0D02).unwrap().mnemonic,
+        Mnemonic::VPADD
+    );
+    assert_eq!(
+        Aarch32Decoder::decode(0xF311_0D02).unwrap().mnemonic,
         Mnemonic::VPADD
     );
     assert_eq!(
@@ -3456,10 +3460,18 @@ fn neon_fp_pairwise_add_handles_f32_lanes() {
         cpu.vfp.read_d_bits(4),
         u64::from(96.0f32.to_bits()) << 32 | u64::from(12.0f32.to_bits())
     );
+
+    cpu.vfp.write_d_bits(1, 0x4400_4200_4000_3c00);
+    cpu.vfp.write_d_bits(2, 0x4800_4700_4600_4500);
+    assert!(matches!(
+        exec_one(&mut cpu, &mut mem, 0xF311_0D02),
+        ExecResult::Continue
+    ));
+    assert_eq!(cpu.vfp.read_d_bits(0), 0x4b80_4980_4700_4200);
 }
 
 #[test]
-fn neon_fp_pairwise_minmax_handle_f32_lanes() {
+fn neon_fp_pairwise_minmax_handle_f32_and_f16_lanes() {
     let mut cpu = Armv7Cpu::new();
     let mut mem = FlatMemory::new(0x1000, 0);
 
@@ -3468,7 +3480,15 @@ fn neon_fp_pairwise_minmax_handle_f32_lanes() {
         Mnemonic::VPMAX
     );
     assert_eq!(
+        Aarch32Decoder::decode(0xF311_0F02).unwrap().mnemonic,
+        Mnemonic::VPMAX
+    );
+    assert_eq!(
         Aarch32Decoder::decode(0xF325_4F06).unwrap().mnemonic,
+        Mnemonic::VPMIN
+    );
+    assert_eq!(
+        Aarch32Decoder::decode(0xF331_0F02).unwrap().mnemonic,
         Mnemonic::VPMIN
     );
     assert_eq!(
@@ -3501,6 +3521,22 @@ fn neon_fp_pairwise_minmax_handle_f32_lanes() {
         cpu.vfp.read_d_bits(4),
         u64::from(32.0f32.to_bits()) << 32 | u64::from((-4.0f32).to_bits())
     );
+
+    cpu.vfp.write_d_bits(1, 0x4400_4200_4000_bc00);
+    cpu.vfp.write_d_bits(2, 0x4800_4700_c600_4500);
+    assert!(matches!(
+        exec_one(&mut cpu, &mut mem, 0xF311_0F02),
+        ExecResult::Continue
+    ));
+    assert_eq!(cpu.vfp.read_d_bits(0), 0x4800_4500_4400_4000);
+
+    cpu.vfp.write_d_bits(1, 0x4400_4200_4000_bc00);
+    cpu.vfp.write_d_bits(2, 0x4800_4700_c600_4500);
+    assert!(matches!(
+        exec_one(&mut cpu, &mut mem, 0xF331_0F02),
+        ExecResult::Continue
+    ));
+    assert_eq!(cpu.vfp.read_d_bits(0), 0x4700_c600_4200_bc00);
 }
 
 #[test]
