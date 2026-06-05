@@ -457,9 +457,17 @@ impl X86_64Vcpu {
     #[inline]
     pub(super) fn get_segment_base(&self, segment_override: Option<u8>) -> u64 {
         match segment_override {
-            Some(0x64) => self.sregs.fs.base, // FS segment
-            Some(0x65) => self.sregs.gs.base, // GS segment
-            // In 64-bit mode, ES/CS/SS/DS bases are treated as 0
+            Some(0x26) => self.sregs.es.base, // ES
+            Some(0x2E) => self.sregs.cs.base, // CS
+            Some(0x36) => self.sregs.ss.base, // SS
+            Some(0x3E) => self.sregs.ds.base, // DS
+            Some(0x64) => self.sregs.fs.base, // FS
+            Some(0x65) => self.sregs.gs.base, // GS
+            // No override: in real mode the default data segment is DS (base
+            // selector<<4); in protected/long mode DS is flat (base 0). Note the
+            // ES/CS/SS/DS overrides above are also 0 in long mode, so this is
+            // behaviorally identical to the old fs/gs-only mapping there.
+            None if self.sregs.cr0 & 1 == 0 => self.sregs.ds.base,
             _ => 0,
         }
     }
@@ -507,6 +515,9 @@ impl X86_64Vcpu {
             && !(rm_field == 5 && mod_bits == 0)
             && !ctx.address_size_override
             && ctx.segment_override.is_none()
+            && (self.sregs.cr0 & 0x1) != 0
+        // protected/long mode only: real mode (PE=0) needs the segment base
+        // (selector<<4) folded in, which only the general path below does.
         {
             let base = self.get_reg(rm, 8);
             return match mod_bits {
