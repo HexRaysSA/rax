@@ -24,11 +24,14 @@ pub fn is_iso_image_header(magic_at_0x8001: &[u8]) -> bool {
 }
 
 /// Parse + load an El-Torito ISO's boot image into `mem`, install its CD image
-/// for the mini-BIOS (INT 13h), and arm the 16-bit real-mode CPU state to be
-/// returned by [`armed_real_mode_state`].
-pub fn arm_real_mode_boot(mem: &GuestMemoryMmap, iso: Vec<u8>) -> Result<(), String> {
+/// for the mini-BIOS (INT 13h), record the guest RAM size for INT 15h memory
+/// detection, and arm the 16-bit real-mode CPU state to be returned by
+/// [`armed_real_mode_state`]. `mem_bytes` is the *reported* RAM size (what the
+/// guest should see), not the padded allocation.
+pub fn arm_real_mode_boot(mem: &GuestMemoryMmap, iso: Vec<u8>, mem_bytes: u64) -> Result<(), String> {
     let boot = setup_real_mode_boot(mem, iso)?;
     crate::backend::emulator::x86_64::bios::install_cd(std::sync::Arc::new(boot.iso));
+    crate::backend::emulator::x86_64::bios::install_mem(mem_bytes);
     *REAL_MODE_STATE.lock().unwrap() = Some((boot.sregs, boot.regs));
     Ok(())
 }

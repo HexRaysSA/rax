@@ -736,7 +736,7 @@ impl Arch for X86_64Arch {
             if looks_iso {
                 info!(path = %config.kernel.display(), "ISO image detected — El-Torito real-mode boot");
                 let data = std::fs::read(&config.kernel)?;
-                bios_boot::arm_real_mode_boot(mem, data)
+                bios_boot::arm_real_mode_boot(mem, data, config.memory.bytes())
                     .map_err(|e| Error::KernelLoad(format!("El-Torito boot setup: {e}")))?;
                 return Ok(BootInfo::X86_64(X86_64BootInfo {
                     entry_point: 0x7C00,

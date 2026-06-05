@@ -12,6 +12,7 @@
 //! inherently single-vCPU (the bootloader runs before any SMP bring-up).
 
 use std::io::Write;
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 
 use crate::error::Result;
@@ -23,10 +24,34 @@ const CD_SECTOR: usize = 2048;
 
 static BIOS_CD: Mutex<Option<Arc<Vec<u8>>>> = Mutex::new(None);
 
+/// Total guest RAM in bytes, reported via the INT 15h memory-detection calls
+/// (E820/E801/88h). Set by [`install_mem`] at boot. 0 means "unknown".
+static BIOS_MEM_BYTES: AtomicU64 = AtomicU64::new(0);
+
 /// Install the boot CD image (the El-Torito ISO) so INT 13h reads can serve it.
 /// Passing this enables the real-mode mini-BIOS.
 pub fn install_cd(iso: Arc<Vec<u8>>) {
     *BIOS_CD.lock().unwrap() = Some(iso);
+}
+
+/// Record the total guest RAM size so INT 15h memory detection can report it.
+pub fn install_mem(bytes: u64) {
+    BIOS_MEM_BYTES.store(bytes, Ordering::Relaxed);
+}
+
+/// The E820 memory map for `total` bytes of RAM: standard low-memory layout
+/// (conventional + EBDA/ROM holes) plus one usable extended region. Each entry
+/// is (base, length, type) where type 1 = usable, 2 = reserved.
+fn e820_map(total: u64) -> Vec<(u64, u64, u32)> {
+    let mut v = vec![
+        (0x0000_0000, 0x0009_FC00, 1),            // 639 KiB conventional, usable
+        (0x0009_FC00, 0x0000_0400, 2),            // EBDA, reserved
+        (0x000E_0000, 0x0002_0000, 2),            // BIOS ROM area, reserved
+    ];
+    if total > 0x10_0000 {
+        v.push((0x10_0000, total - 0x10_0000, 1)); // extended memory, usable
+    }
+    v
 }
 
 /// Whether a boot CD (and thus the mini-BIOS) is installed.
@@ -229,8 +254,69 @@ fn int13(vcpu: &mut X86_64Vcpu) -> Result<()> {
 /// INT 15h — miscellaneous system services. Reported unsupported for now
 /// (callers fall back to defaults); a real E820 map can be added when needed.
 fn int15(vcpu: &mut X86_64Vcpu) {
-    set_ah(vcpu, 0x86); // unsupported function
-    set_cf(vcpu, true);
+    if std::env::var_os("RAX_RM_TRACE").is_some() {
+        eprintln!(
+            "[INT15] eax={:#x} ebx={:#x} ecx={:#x} edx={:#x} es:di={:#x}:{:#x}",
+            vcpu.regs.rax as u32, vcpu.regs.rbx as u32, vcpu.regs.rcx as u32,
+            vcpu.regs.rdx as u32, vcpu.sregs.es.selector, vcpu.regs.rdi as u16
+        );
+    }
+    let total = BIOS_MEM_BYTES.load(Ordering::Relaxed);
+    let eax = vcpu.regs.rax as u32;
+    match eax {
+        // EAX=0xE820: query system address map (one E820 entry per call). EBX is
+        // the continuation/index (0 to start); the call returning the final entry
+        // sets EBX=0. EDX must be the 'SMAP' signature; ES:DI points at a >=20-byte
+        // buffer that receives (base u64, length u64, type u32).
+        0xE820 if total != 0 && (vcpu.regs.rdx as u32) == 0x534D_4150 => {
+            let map = e820_map(total);
+            let idx = (vcpu.regs.rbx as u32) as usize;
+            if idx >= map.len() {
+                // Past the last entry → error/done.
+                set_cf(vcpu, true);
+                return;
+            }
+            let (base, len, typ) = map[idx];
+            let dst = vcpu.sregs.es.base.wrapping_add(vcpu.regs.rdi & 0xFFFF);
+            let mut buf = [0u8; 20];
+            buf[0..8].copy_from_slice(&base.to_le_bytes());
+            buf[8..16].copy_from_slice(&len.to_le_bytes());
+            buf[16..20].copy_from_slice(&typ.to_le_bytes());
+            if vcpu.write_bytes(dst, &buf).is_err() {
+                set_cf(vcpu, true);
+                return;
+            }
+            // EAX = 'SMAP', ECX = bytes written, EBX = next index (0 if last).
+            vcpu.regs.rax = (vcpu.regs.rax & !0xFFFF_FFFF) | 0x534D_4150;
+            vcpu.regs.rcx = (vcpu.regs.rcx & !0xFFFF_FFFF) | 20;
+            let next = if idx + 1 < map.len() { (idx + 1) as u64 } else { 0 };
+            vcpu.regs.rbx = (vcpu.regs.rbx & !0xFFFF_FFFF) | next;
+            set_cf(vcpu, false);
+        }
+        // AX=0xE801: extended memory size. AX=CX = KiB in the 1–16 MiB window
+        // (capped at 0x3C00 = 15 MiB), BX=DX = number of 64 KiB blocks above
+        // 16 MiB. Both register pairs carry the same values per the ABI.
+        0xE801 if total != 0 => {
+            let kib_1_16 = ((total.min(0x100_0000).saturating_sub(0x10_0000)) / 1024) as u16;
+            let blocks_above_16 = (total.saturating_sub(0x100_0000) / 0x1_0000) as u16;
+            vcpu.regs.rax = (vcpu.regs.rax & !0xFFFF) | kib_1_16 as u64;
+            vcpu.regs.rcx = (vcpu.regs.rcx & !0xFFFF) | kib_1_16 as u64;
+            vcpu.regs.rbx = (vcpu.regs.rbx & !0xFFFF) | blocks_above_16 as u64;
+            vcpu.regs.rdx = (vcpu.regs.rdx & !0xFFFF) | blocks_above_16 as u64;
+            set_cf(vcpu, false);
+        }
+        // AH=0x88: extended memory size in KiB above 1 MiB (legacy; capped at
+        // 0xFFFF = 64 MiB - 1 KiB).
+        _ if (eax >> 8) as u8 == 0x88 && total != 0 => {
+            let kib = (total.saturating_sub(0x10_0000) / 1024).min(0xFFFF) as u16;
+            vcpu.regs.rax = (vcpu.regs.rax & !0xFFFF) | kib as u64;
+            set_cf(vcpu, false);
+        }
+        _ => {
+            set_ah(vcpu, 0x86); // unsupported function
+            set_cf(vcpu, true);
+        }
+    }
 }
 
 /// INT 16h — keyboard services. Report "no key available".
