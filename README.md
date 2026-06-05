@@ -43,6 +43,10 @@ cargo build --release
 # 4. The native JIT is on by default (it accelerates hot loops ~80×, bailing to the interpreter
 #    for anything it can't prove correct). Audit it live with RAX_JIT_VERIFY=1, or disable: RAX_NO_JIT=1.
 RAX_JIT_VERIFY=1 ./target/release/rax --backend emulator --kernel vmlinux --initrd initrd.cpio
+
+# 5. Boot something that isn't Linux: a bootable ISO, through the real-mode mini-BIOS. rax takes
+#    TempleOS V5.03 from real mode to its 64-bit HolyC shell (El-Torito boot + ATAPI CD-ROM).
+./target/release/rax --backend emulator --kernel TempleOS.ISO --memory 512M
 ```
 
 RISC-V and Hexagon are bootable emulator backends too (bare-metal programs, UART + halt):
@@ -167,7 +171,7 @@ including APX Map 4, RIP-relative), feeding 88 instruction-implementation files.
 | **FMA / BMI1 / BMI2** | VFMADD/SUB/NMADD/NSUB {132,213,231}; ANDN, BZHI, PEXT, PDEP, MULX, … |
 | **AVX-512** | F / VL / BW / DQ / CD; masked ops, opmask k0-k7 |
 | **AVX10.1 / 10.2** | VNNI, IFMA, VPOPCNTDQ, VBMI, BF16; VMPSADBW, VMINMAX, saturating converts |
-| **APX** | REX2, EGPRs R16-R31, NDD (3-operand), NF (no-flags), CCMP/CTEST, SETZUcc, PUSH2, EVEX Map 4 (LLVM-verified, not KVM) |
+| **APX** | REX2, EGPRs R16-R31, NDD (3-operand), NF (no-flags), CCMP/CTEST, SETZUcc, PUSH2, JMPABS, MOVBE, MUL/DIV, EVEX Map 4 (LLVM-verified, not KVM) |
 | **Crypto / state / system** | AES, SHA1/256, GFNI (FIPS/SDM known-answer tested); XSAVE/XRSTOR/XCR0; CPUID, MSRs, CR/DR, descriptor-table loads, CPL-checked, faults injected (`#UD`/`#GP`) |
 
 ### Hexagon: complete, every opcode
@@ -210,7 +214,9 @@ The largest and most thoroughly tested ISA, even though it isn't a runnable back
   FEAT_LUT remain (the register-only oracle can't reach them).
 - **NEON / VFP**: full Advanced SIMD and scalar FP including FP16, bit-exact against the oracle on a
   3939-instruction sweep (`tests/neon_gen.rs`); full crypto (AES, SHA1/256/512, SHA3, SM3, SM4).
-- **AArch32 / Thumb-2 / Cortex-M (M0-M85)**: A32 + Thumb decoders, NVIC/SysTick/SCB/MPU, ARMv6-M → v8.1-M.
+- **AArch32 / Thumb / Cortex-M (M0-M85)**: the A32 + Thumb (T16/T32) integer ISA is bit-exact against a
+  new qemu-arm oracle (`tests/arm_diff32.rs`, a 1666-encoding sweep); Cortex-M adds NVIC/SysTick/SCB/MPU,
+  ARMv6-M to v8.1-M.
 
 ---
 
@@ -226,6 +232,7 @@ fields and driven with many pseudo-random states, so a single `#[test]` function
 |---------|----------|--------|-------------:|----------|
 | `tests/differential.rs` | x86-64 | **KVM** (hardware) | 463 | GPRs, RIP, RFLAGS, XMM, memory |
 | `tests/arm_diff.rs` | AArch64: NEON + SVE/SVE2/SVE2.1 | `qemu-aarch64` | 198 | X0-X30, SP, NZCV, V0-V31, P0-P15 |
+| `tests/arm_diff32.rs` | AArch32: A32 + Thumb T16/T32 | `qemu-arm` | 6 | R0-R14, CPSR, FPSCR, D0-D31, scratch |
 | `tests/hexagon_*_diff.rs` | Hexagon (scalar / cf / float / mem / HVX / HVX-mem) | `qemu-hexagon` | 134 | GPRs, P3:0, USR, loop regs, V0-V31, Q0-Q3 |
 | `tests/riscv_diff.rs` | RV64GC | `qemu-riscv64` | 29 | x1-x31, f0-f31, fcsr, scratch |
 | `tests/diff_fuzz.rs` | SMIR (lift → interp / native) | KVM | 35 | guest state after lift+run |
@@ -246,8 +253,8 @@ On top of the oracles, there are exhaustive unit suites:
 |-------|------:|-----|
 | **ARM (ASL-generated)** | 92,131 | generated from ARM's official machine-readable **ASL** spec via `tools/asl-parser/` |
 | **x86-64 instruction suite** | 28,554 | `tests/x86_64/` (850 files), behind `--features x86_64-suite` |
-| **Everything else** | ~1,500 | oracle + SMIR-lift harnesses, Hexagon bare-metal, RISC-V boot, crypto known-answer (FIPS/SDM) |
-| **Total** | **122,214** | `#[test]` functions across `tests/` |
+| **Everything else** | ~1,600 | oracle + SMIR-lift harnesses, real-mode/ISO boot, Hexagon bare-metal, RISC-V boot, crypto known-answer (FIPS/SDM) |
+| **Total** | **122,285** | `#[test]` functions across `tests/` |
 
 The ARM tests are not written by hand: the `asl-parser` downloads and parses ARM's ASL release and emits
 exhaustive instruction tests from it, which is how 92,000+ ARM cases exist at all.
@@ -316,15 +323,18 @@ loop is refused so native code can't trap the vcpu.
 
 ## How the x86-64 machine works
 
-### The Linux boot protocol
+### Booting
 
-Both x86-64 backends bring a kernel to its 64-bit entry point the same way:
+The fast path loads a Linux kernel (ELF or bzImage) straight into 64-bit mode: kernel at physical
+`0x1000000` (16 MiB), initrd at `0x4000000`, initial page tables (identity-mapped first 8 GiB via 1 GiB
+huge pages, kernel space at `0xFFFFFFFF80000000`, direct map at `0xFFFF888000000000`), a minimal 64-bit
+GDT, then `CR0.PG=1` / `CR4.PAE=1` / `EFER.LME=1` and a jump to the entry point.
 
-1. Load the kernel (ELF or bzImage) at physical `0x1000000` (16 MiB) and the initrd at `0x4000000`.
-2. Build initial page tables: identity-map the first 8 GiB with 1 GiB huge pages, kernel space at
-   `0xFFFFFFFF80000000`, direct physical map at `0xFFFF888000000000`.
-3. Install a minimal GDT with 64-bit code/data segments.
-4. Enter long mode (`CR0.PG=1`, `CR4.PAE=1`, `EFER.LME=1`) and jump to the kernel's entry.
+rax also boots the *old* way, from a bootable CD. A real-mode mini-BIOS (INT 10h/13h/15h/16h/1Ah, an
+El-Torito catalog parser, and an ATAPI CD-ROM model) drops a boot image at `0x7C00` in 16-bit real mode
+and lets the guest walk itself up through protected mode into long mode. That path boots **TempleOS
+V5.03** from its ISO: real to protected to long to 64-bit kernel init, mounting its RedSea CD as drive
+`T:` and running its own HolyC JIT compiler.
 
 ### The interpreter loop
 
@@ -396,7 +406,7 @@ Because the interpreter owns the step loop, the introspection tools see the real
 ## Usage
 
 ```
---kernel <path>            Kernel image: ELF or bzImage (required)
+--kernel <path>            Kernel image: ELF, bzImage, or bootable ISO (required)
 --initrd <path>            Initial ramdisk
 --arch <x86_64|riscv64|hexagon|…>   Target architecture (default x86_64)
 --backend <kvm|emulator>   Virtualization backend (hvf on macOS)
@@ -507,9 +517,10 @@ docs/specifications/# smir/ (the IR spec) · riscv/ (vendored RISC-V specs) · a
 | **x86-64 (software)** | Boots Linux to a BusyBox shell; full modern ISA; 463 differential cases vs. KVM; native JIT (`smir-jit`) at ~80× on hot loops |
 | **Hexagon** | **Every opcode** (scalar + HVX) verified vs. qemu-hexagon; bootable bare-metal backend |
 | **RISC-V** | Full RVA23 scalar set + crypto; bootable `--arch riscv64` backend; verified vs. qemu-riscv64 |
-| **AArch64 / ARM** | Complete SVE + SVE2 + SVE2.1 (bit-exact vs qemu) + NEON + Cortex-M; ~92k ASL tests; not yet a runnable backend |
+| **AArch64 / ARM** | AArch64 (NEON + SVE/SVE2/SVE2.1) and AArch32 (A32/Thumb) both bit-exact vs qemu; ~92k ASL tests; not yet a runnable backend |
 | **SMIR** | JIT on by default, auto-triggered, fail-safe (integer + memory hot regions native, bit-exact vs. KVM); RISC-V (incl. RVV) and Hexagon lifts complete |
 | **Platform** | Legacy PC devices wired; PCI host bridge + `--pci-devices` (e1000 `eth0`, AHCI/NVMe/UHCI/AC97); interactive console + full `.rxc` machine checkpoint/resume |
+| **Legacy boot** | Real-mode mini-BIOS + El-Torito CD boot; **TempleOS V5.03** boots real to long mode, mounts its CD, runs its HolyC compiler |
 
 ### What's missing
 
