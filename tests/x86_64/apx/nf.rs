@@ -26,6 +26,46 @@ use crate::common::*;
 // ============================================================================
 
 #[test]
+fn test_nf_add_real_encoding_preserves_flags_match_llvm() {
+    // LLVM 23 assembles "{nf} add rax, rbx" as 62 f4 fc 0c 01 d8.
+    // The result is zero, but NF must preserve the initial clear ZF.
+    const ZF: u64 = 1 << 6;
+    let mut regs = Registers::default();
+    regs.rax = 1;
+    regs.rbx = u64::MAX;
+    regs.rflags = 0x2;
+    let code = [
+        0x62, 0xF4, 0xFC, 0x0C, 0x01, 0xD8,
+        0xF4,
+    ];
+
+    let (mut vcpu, _) = setup_vm(&code, Some(regs));
+    let regs = run_until_hlt(&mut vcpu).unwrap();
+    assert_eq!(regs.rax, 0);
+    assert_eq!(regs.rflags & ZF, 0);
+}
+
+#[test]
+fn test_nf_add_without_p2_bit2_updates_flags_match_llvm() {
+    // LLVM 23 decodes 62 f4 fc 08 01 d8 as EVEX ADD without {nf}.
+    // Because the result is zero, ZF must be updated.
+    const ZF: u64 = 1 << 6;
+    let mut regs = Registers::default();
+    regs.rax = 1;
+    regs.rbx = u64::MAX;
+    regs.rflags = 0x2;
+    let code = [
+        0x62, 0xF4, 0xFC, 0x08, 0x01, 0xD8,
+        0xF4,
+    ];
+
+    let (mut vcpu, _) = setup_vm(&code, Some(regs));
+    let regs = run_until_hlt(&mut vcpu).unwrap();
+    assert_eq!(regs.rax, 0);
+    assert_ne!(regs.rflags & ZF, 0);
+}
+
+#[test]
 fn test_nf_add_reg_reg() {
     // ADD{NF} RAX, RBX (RAX = RAX + RBX, flags unchanged)
     let code = [
