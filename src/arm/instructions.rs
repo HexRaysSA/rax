@@ -425,7 +425,9 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
             Mnemonic::VHADD | Mnemonic::VRHADD | Mnemonic::VHSUB => {
                 self.exec_neon_halving_add_sub(insn)
             }
-            Mnemonic::VCEQ | Mnemonic::VCGT | Mnemonic::VCGE => self.exec_neon_compare(insn),
+            Mnemonic::VCEQ | Mnemonic::VCGT | Mnemonic::VCGE | Mnemonic::VTST => {
+                self.exec_neon_compare(insn)
+            }
             Mnemonic::VCLE | Mnemonic::VCLT => self.exec_neon_compare_zero(insn),
             Mnemonic::VACGT | Mnemonic::VACGE => self.exec_neon_fp_compare(insn),
             Mnemonic::VQADD | Mnemonic::VQSUB => self.exec_neon_saturating_add_sub(insn),
@@ -4516,7 +4518,8 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
         let bit4 = (insn.raw >> 4) & 1;
         let bit24 = (insn.raw >> 24) & 1;
         match (insn.mnemonic, op8, bit4, bit24) {
-            (Mnemonic::VCEQ, 0b1000, 1, 1)
+            (Mnemonic::VTST, 0b1000, 1, 0)
+            | (Mnemonic::VCEQ, 0b1000, 1, 1)
             | (Mnemonic::VCGT, 0b0011, 0, _)
             | (Mnemonic::VCGE, 0b0011, 1, _) => {}
             _ => return ExecResult::Undefined,
@@ -4561,6 +4564,7 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
             let mut out = Vec::with_capacity(n_elements.len());
             for (n_elem, m_elem) in n_elements.into_iter().zip(m_elements.into_iter()) {
                 let condition = match insn.mnemonic {
+                    Mnemonic::VTST => (n_elem & m_elem) != 0,
                     Mnemonic::VCEQ => n_elem == m_elem,
                     Mnemonic::VCGT if unsigned => n_elem > m_elem,
                     Mnemonic::VCGE if unsigned => n_elem >= m_elem,

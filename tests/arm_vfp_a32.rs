@@ -4345,6 +4345,14 @@ fn neon_integer_compare_writes_lane_masks_for_signed_unsigned_and_q_forms() {
         Aarch32Decoder::decode(0xF30C_8370).unwrap().mnemonic,
         Mnemonic::VCGE
     );
+    assert_eq!(
+        Aarch32Decoder::decode(0xF201_0812).unwrap().mnemonic,
+        Mnemonic::VTST
+    );
+    assert_eq!(
+        Aarch32Decoder::decode(0xF212_0854).unwrap().mnemonic,
+        Mnemonic::VTST
+    );
 
     cpu.vfp.write_d_bits(1, 0x0700_80ff_0403_0201);
     cpu.vfp.write_d_bits(2, 0x0701_7fff_0503_0001);
@@ -4402,6 +4410,25 @@ fn neon_integer_compare_writes_lane_masks_for_signed_unsigned_and_q_forms() {
     ));
     assert_eq!(cpu.vfp.read_d_bits(8), 0xff00_ff00_ffff_00ff);
     assert_eq!(cpu.vfp.read_d_bits(9), 0xff00_ffff_00ff_ff00);
+
+    cpu.vfp.write_d_bits(1, 0x0100_0f01_8001_00f0);
+    cpu.vfp.write_d_bits(2, 0x0001_f001_80ff_000f);
+    assert!(matches!(
+        exec_one(&mut cpu, &mut mem, 0xF201_0812),
+        ExecResult::Continue
+    ));
+    assert_eq!(cpu.vfp.read_d_bits(0), 0x0000_00ff_ffff_0000);
+
+    cpu.vfp.write_d_bits(2, 0x0001_0001_8000_00f0);
+    cpu.vfp.write_d_bits(3, 0x00ff_0101_0000_0000);
+    cpu.vfp.write_d_bits(4, 0x0002_0001_8001_000f);
+    cpu.vfp.write_d_bits(5, 0xff00_0100_ffff_0000);
+    assert!(matches!(
+        exec_one(&mut cpu, &mut mem, 0xF212_0854),
+        ExecResult::Continue
+    ));
+    assert_eq!(cpu.vfp.read_d_bits(0), 0x0000_ffff_ffff_0000);
+    assert_eq!(cpu.vfp.read_d_bits(1), 0x0000_ffff_0000_0000);
 
     assert_eq!(
         Aarch32Decoder::decode(0xF312_1854).unwrap().mnemonic,

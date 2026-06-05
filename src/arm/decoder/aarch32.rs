@@ -907,6 +907,7 @@ impl Aarch32Decoder {
         let bit4 = (raw >> 4) & 1;
         let bit24 = (raw >> 24) & 1;
         let mnemonic = match (op8, bit4, bit24) {
+            (0b1000, 1, 0) => Mnemonic::VTST,
             (0b1000, 1, 1) => Mnemonic::VCEQ,
             (0b0011, 0, _) => Mnemonic::VCGT,
             (0b0011, 1, _) => Mnemonic::VCGE,
