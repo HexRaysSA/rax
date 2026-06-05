@@ -169,6 +169,10 @@ impl Aarch32Decoder {
             return Ok(insn);
         }
 
+        if let Some(insn) = Self::decode_neon_integer_multiply_scalar(raw) {
+            return Ok(insn);
+        }
+
         if let Some(insn) = Self::decode_neon_long_wide_add_sub(raw) {
             return Ok(insn);
         }
@@ -1185,6 +1189,38 @@ impl Aarch32Decoder {
         let vn = (raw >> 16) & 0xF;
         let vm = raw & 0xF;
         if size == 0b11 || (q && ((vd | vn | vm) & 1) != 0) {
+            return Some(DecodedInsn::new(
+                Mnemonic::UNDEFINED,
+                ExecutionState::Aarch32,
+                raw,
+                4,
+            ));
+        }
+
+        Some(DecodedInsn::new(mnemonic, ExecutionState::Aarch32, raw, 4))
+    }
+
+    fn decode_neon_integer_multiply_scalar(raw: u32) -> Option<DecodedInsn> {
+        if (raw >> 25) != 0b1111001
+            || ((raw >> 23) & 1) != 1
+            || ((raw >> 6) & 1) != 1
+            || ((raw >> 4) & 1) != 0
+        {
+            return None;
+        }
+
+        let mnemonic = match (raw >> 8) & 0xF {
+            0b0000 => Mnemonic::VMLA,
+            0b0100 => Mnemonic::VMLS,
+            0b1000 => Mnemonic::VMUL,
+            _ => return None,
+        };
+
+        let size = (raw >> 20) & 0x3;
+        let q = ((raw >> 24) & 1) != 0;
+        let vd = (raw >> 12) & 0xF;
+        let vn = (raw >> 16) & 0xF;
+        if size == 0b00 || size == 0b11 || (q && ((vd | vn) & 1) != 0) {
             return Some(DecodedInsn::new(
                 Mnemonic::UNDEFINED,
                 ExecutionState::Aarch32,
