@@ -105,6 +105,10 @@ impl Aarch32Decoder {
             return Ok(insn);
         }
 
+        if let Some(insn) = Self::decode_neon_compare_zero(raw) {
+            return Ok(insn);
+        }
+
         if let Some(insn) = Self::decode_neon_vdup_scalar(raw) {
             return Ok(insn);
         }
@@ -392,6 +396,41 @@ impl Aarch32Decoder {
             raw,
             4,
         ))
+    }
+
+    fn decode_neon_compare_zero(raw: u32) -> Option<DecodedInsn> {
+        if (raw >> 23) != 0b111100111
+            || ((raw >> 20) & 0x3) != 0b11
+            || ((raw >> 16) & 0x3) != 0b01
+            || ((raw >> 10) & 0x3) != 0
+            || ((raw >> 4) & 1) != 0
+        {
+            return None;
+        }
+
+        let mnemonic = match (raw >> 7) & 0x7 {
+            0b000 => Mnemonic::VCGT,
+            0b001 => Mnemonic::VCGE,
+            0b010 => Mnemonic::VCEQ,
+            0b011 => Mnemonic::VCLE,
+            0b100 => Mnemonic::VCLT,
+            _ => return None,
+        };
+
+        let size = (raw >> 18) & 0x3;
+        let q = ((raw >> 6) & 1) != 0;
+        let vd = (raw >> 12) & 0xF;
+        let vm = raw & 0xF;
+        if size == 0b11 || (q && ((vd | vm) & 1) != 0) {
+            return Some(DecodedInsn::new(
+                Mnemonic::UNDEFINED,
+                ExecutionState::Aarch32,
+                raw,
+                4,
+            ));
+        }
+
+        Some(DecodedInsn::new(mnemonic, ExecutionState::Aarch32, raw, 4))
     }
 
     fn decode_neon_vdup_scalar(raw: u32) -> Option<DecodedInsn> {

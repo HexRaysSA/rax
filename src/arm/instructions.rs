@@ -414,6 +414,7 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
                 self.exec_neon_halving_add_sub(insn)
             }
             Mnemonic::VCEQ | Mnemonic::VCGT | Mnemonic::VCGE => self.exec_neon_compare(insn),
+            Mnemonic::VCLE | Mnemonic::VCLT => self.exec_neon_compare_zero(insn),
             Mnemonic::VACGT | Mnemonic::VACGE => self.exec_neon_fp_compare(insn),
             Mnemonic::VQADD | Mnemonic::VQSUB => self.exec_neon_saturating_add_sub(insn),
             Mnemonic::VQDMULH | Mnemonic::VQRDMULH => self.exec_neon_saturating_doubling_mulh(insn),
@@ -4020,6 +4021,15 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
     }
 
     fn exec_neon_compare(&mut self, insn: &DecodedInsn) -> ExecResult {
+        if (insn.raw >> 23) == 0b111100111
+            && ((insn.raw >> 20) & 0x3) == 0b11
+            && ((insn.raw >> 16) & 0x3) == 0b01
+            && ((insn.raw >> 10) & 0x3) == 0
+            && ((insn.raw >> 4) & 1) == 0
+        {
+            return self.exec_neon_compare_zero(insn);
+        }
+
         if (insn.raw >> 25) == 0b1111001
             && ((insn.raw >> 23) & 1) == 0
             && ((insn.raw >> 8) & 0xF) == 0b1110
@@ -4028,6 +4038,78 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
         }
 
         self.exec_neon_integer_compare(insn)
+    }
+
+    fn exec_neon_compare_zero(&mut self, insn: &DecodedInsn) -> ExecResult {
+        if !self.cpu.vfp.is_enabled() {
+            return ExecResult::Exception(ExceptionType::UndefinedInstruction);
+        }
+        if (insn.raw >> 23) != 0b111100111
+            || ((insn.raw >> 20) & 0x3) != 0b11
+            || ((insn.raw >> 16) & 0x3) != 0b01
+            || ((insn.raw >> 10) & 0x3) != 0
+            || ((insn.raw >> 4) & 1) != 0
+        {
+            return ExecResult::Undefined;
+        }
+
+        let op = (insn.raw >> 7) & 0x7;
+        match (insn.mnemonic, op) {
+            (Mnemonic::VCGT, 0b000)
+            | (Mnemonic::VCGE, 0b001)
+            | (Mnemonic::VCEQ, 0b010)
+            | (Mnemonic::VCLE, 0b011)
+            | (Mnemonic::VCLT, 0b100) => {}
+            _ => return ExecResult::Undefined,
+        }
+
+        let size = match (insn.raw >> 18) & 0x3 {
+            0b00 => NeonSize::B8,
+            0b01 => NeonSize::H16,
+            0b10 => NeonSize::S32,
+            _ => return ExecResult::Undefined,
+        };
+        let ebytes = (size.bits() / 8) as u8;
+        let d_bit = ((insn.raw >> 22) & 1) as u8;
+        let vd = ((insn.raw >> 12) & 0xF) as u8;
+        let m_bit = ((insn.raw >> 5) & 1) as u8;
+        let vm = (insn.raw & 0xF) as u8;
+        let q = ((insn.raw >> 6) & 1) != 0;
+        let regs = if q { 2 } else { 1 };
+
+        let d = (d_bit << 4) | vd;
+        let m = (m_bit << 4) | vm;
+        if q && ((d | m) & 1) != 0 {
+            return ExecResult::Undefined;
+        }
+        if d + regs > 32 || m + regs > 32 {
+            return ExecResult::Undefined;
+        }
+
+        let true_mask = if size.bits() == 32 {
+            u64::from(u32::MAX)
+        } else {
+            (1u64 << size.bits()) - 1
+        };
+        for reg in 0..regs {
+            let elements = self.neon_read_vector_elements_u64(m + reg, 1, ebytes);
+            let mut out = Vec::with_capacity(elements.len());
+            for elem in elements {
+                let value = Self::neon_sign_extend_elem_u64(elem, size.bits());
+                let condition = match insn.mnemonic {
+                    Mnemonic::VCGT => value > 0,
+                    Mnemonic::VCGE => value >= 0,
+                    Mnemonic::VCEQ => value == 0,
+                    Mnemonic::VCLE => value <= 0,
+                    Mnemonic::VCLT => value < 0,
+                    _ => return ExecResult::Undefined,
+                };
+                out.push(if condition { true_mask } else { 0 });
+            }
+            self.neon_write_vector_elements_u64(d + reg, 1, ebytes, &out);
+        }
+
+        ExecResult::Continue
     }
 
     fn exec_neon_fp_compare(&mut self, insn: &DecodedInsn) -> ExecResult {

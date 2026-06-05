@@ -4084,6 +4084,95 @@ fn neon_fp_compare_writes_f32_lane_masks_and_handles_absolute_forms() {
 }
 
 #[test]
+fn neon_compare_zero_writes_signed_integer_lane_masks() {
+    let mut cpu = Armv7Cpu::new();
+    let mut mem = FlatMemory::new(0x1000, 0);
+
+    assert_eq!(
+        Aarch32Decoder::decode(0xF3B1_0101).unwrap().mnemonic,
+        Mnemonic::VCEQ
+    );
+    assert_eq!(
+        Aarch32Decoder::decode(0xF3B5_0142).unwrap().mnemonic,
+        Mnemonic::VCEQ
+    );
+    assert_eq!(
+        Aarch32Decoder::decode(0xF3B1_2083).unwrap().mnemonic,
+        Mnemonic::VCGE
+    );
+    assert_eq!(
+        Aarch32Decoder::decode(0xF3B5_4048).unwrap().mnemonic,
+        Mnemonic::VCGT
+    );
+    assert_eq!(
+        Aarch32Decoder::decode(0xF3B9_6187).unwrap().mnemonic,
+        Mnemonic::VCLE
+    );
+    assert_eq!(
+        Aarch32Decoder::decode(0xF3B1_824A).unwrap().mnemonic,
+        Mnemonic::VCLT
+    );
+
+    cpu.vfp.write_d_bits(1, 0x0300_0280_00ff_0100);
+    assert!(matches!(
+        exec_one(&mut cpu, &mut mem, 0xF3B1_0101),
+        ExecResult::Continue
+    ));
+    assert_eq!(cpu.vfp.read_d_bits(0), 0x00ff_0000_ff00_00ff);
+
+    cpu.vfp.write_d_bits(2, 0x0000_ffff_0001_0000);
+    cpu.vfp.write_d_bits(3, 0xfffe_0002_0000_8000);
+    assert!(matches!(
+        exec_one(&mut cpu, &mut mem, 0xF3B5_0142),
+        ExecResult::Continue
+    ));
+    assert_eq!(cpu.vfp.read_d_bits(0), 0xffff_0000_0000_ffff);
+    assert_eq!(cpu.vfp.read_d_bits(1), 0x0000_0000_ffff_0000);
+
+    cpu.vfp.write_d_bits(3, 0x03fe_027f_80ff_0100);
+    assert!(matches!(
+        exec_one(&mut cpu, &mut mem, 0xF3B1_2083),
+        ExecResult::Continue
+    ));
+    assert_eq!(cpu.vfp.read_d_bits(2), 0xff00_ffff_0000_ffff);
+
+    cpu.vfp.write_d_bits(8, 0x0002_ffff_0001_0000);
+    cpu.vfp.write_d_bits(9, 0x0003_8000_7fff_fffe);
+    assert!(matches!(
+        exec_one(&mut cpu, &mut mem, 0xF3B5_4048),
+        ExecResult::Continue
+    ));
+    assert_eq!(cpu.vfp.read_d_bits(4), 0xffff_0000_ffff_0000);
+    assert_eq!(cpu.vfp.read_d_bits(5), 0xffff_0000_ffff_0000);
+
+    cpu.vfp.write_d_bits(7, 0xffff_ffff_0000_0000);
+    assert!(matches!(
+        exec_one(&mut cpu, &mut mem, 0xF3B9_6187),
+        ExecResult::Continue
+    ));
+    assert_eq!(cpu.vfp.read_d_bits(6), 0xffff_ffff_ffff_ffff);
+
+    cpu.vfp.write_d_bits(10, 0x0002_fe7f_8001_00ff);
+    cpu.vfp.write_d_bits(11, 0x0005_fb04_fc00_fd03);
+    assert!(matches!(
+        exec_one(&mut cpu, &mut mem, 0xF3B1_824A),
+        ExecResult::Continue
+    ));
+    assert_eq!(cpu.vfp.read_d_bits(8), 0x0000_ff00_ff00_00ff);
+    assert_eq!(cpu.vfp.read_d_bits(9), 0x0000_ff00_ff00_ff00);
+
+    assert_eq!(
+        Aarch32Decoder::decode(0xF3B5_1142).unwrap().mnemonic,
+        Mnemonic::UNDEFINED
+    );
+    let invalid_size = DecodedInsn::new(Mnemonic::VCEQ, ExecutionState::Aarch32, 0xF3BD_0101, 4);
+    assert!(matches!(
+        Executor::new(&mut cpu, &mut mem).execute(&invalid_size),
+        ExecResult::Undefined
+    ));
+}
+
+#[test]
 fn neon_integer_add_sub_register_ops_cover_element_sizes_and_q_forms() {
     let mut cpu = Armv7Cpu::new();
     let mut mem = FlatMemory::new(0x1000, 0);
