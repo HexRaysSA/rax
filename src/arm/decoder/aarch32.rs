@@ -803,7 +803,7 @@ impl Aarch32Decoder {
         let op = (raw >> 7) & 0xF;
         let fp = match op {
             0b0110 | 0b0111 => false,
-            0b1110 | 0b1111 if size == 0b10 => true,
+            0b1110 | 0b1111 if matches!(size, 0b01 | 0b10) => true,
             _ => return None,
         };
         let mnemonic = match op & 1 {

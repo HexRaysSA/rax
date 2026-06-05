@@ -3553,7 +3553,7 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
         let ebytes = (size_bits / 8) as u8;
         let op = (insn.raw >> 7) & 0xF;
         let fp = op >= 0b1110;
-        if fp && size_bits != 32 {
+        if fp && !matches!(size_bits, 16 | 32) {
             return ExecResult::Undefined;
         }
 
@@ -3578,9 +3578,15 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
             let mut out = Vec::with_capacity(elements.len());
             for elem in elements {
                 let result = if fp {
+                    let sign_mask = 1u64 << (size_bits - 1);
+                    let value_mask = if size_bits == 32 {
+                        u64::from(u32::MAX)
+                    } else {
+                        u64::from(u16::MAX)
+                    };
                     match insn.mnemonic {
-                        Mnemonic::VABS => elem & 0x7fff_ffff,
-                        Mnemonic::VNEG => elem ^ 0x8000_0000,
+                        Mnemonic::VABS => elem & !sign_mask & value_mask,
+                        Mnemonic::VNEG => (elem ^ sign_mask) & value_mask,
                         _ => return ExecResult::Undefined,
                     }
                 } else {
@@ -3613,7 +3619,7 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
         let size = (raw >> 18) & 0x3;
         match (raw >> 7) & 0xF {
             0b0110 | 0b0111 => size != 0b11,
-            0b1110 | 0b1111 => size == 0b10,
+            0b1110 | 0b1111 => matches!(size, 0b01 | 0b10),
             _ => false,
         }
     }

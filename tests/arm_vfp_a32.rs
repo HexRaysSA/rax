@@ -2279,7 +2279,15 @@ fn neon_vabs_vneg_abs_and_negate_integer_and_float_lanes() {
         Mnemonic::VABS
     );
     assert_eq!(
+        Aarch32Decoder::decode(0xF3B5_0701).unwrap().mnemonic,
+        Mnemonic::VABS
+    );
+    assert_eq!(
         Aarch32Decoder::decode(0xF3F9_07E2).unwrap().mnemonic,
+        Mnemonic::VNEG
+    );
+    assert_eq!(
+        Aarch32Decoder::decode(0xF3B5_0781).unwrap().mnemonic,
         Mnemonic::VNEG
     );
     assert_eq!(
@@ -2348,6 +2356,20 @@ fn neon_vabs_vneg_abs_and_negate_integer_and_float_lanes() {
         cpu.vfp.read_d_bits(17),
         ((0xffc0_1111u64) << 32) | u64::from((-0.0f32).to_bits())
     );
+
+    cpu.vfp.write_d_bits(1, 0xfe00_bc00_8000_3c00);
+    assert!(matches!(
+        exec_one(&mut cpu, &mut mem, 0xF3B5_0701),
+        ExecResult::Continue
+    ));
+    assert_eq!(cpu.vfp.read_d_bits(0), 0x7e00_3c00_0000_3c00);
+
+    cpu.vfp.write_d_bits(1, 0x7e00_3c00_0000_8000);
+    assert!(matches!(
+        exec_one(&mut cpu, &mut mem, 0xF3B5_0781),
+        ExecResult::Continue
+    ));
+    assert_eq!(cpu.vfp.read_d_bits(0), 0xfe00_bc00_8000_0000);
 
     cpu.vfp.write_h_bits(1, 0xbc00);
     assert!(matches!(
