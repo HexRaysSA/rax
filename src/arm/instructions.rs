@@ -3880,7 +3880,7 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
     }
 
     fn exec_vmla_vmls(&mut self, insn: &DecodedInsn) -> ExecResult {
-        if Self::is_neon_fp_multiply_shape(insn.raw) {
+        if Self::is_neon_fp_multiply_shape(insn.raw) || Self::is_neon_fp_fma_shape(insn.raw) {
             return self.exec_neon_fp_multiply(insn);
         }
         if Self::is_neon_integer_multiply_shape(insn.raw)
@@ -3919,6 +3919,15 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
             (((raw >> 24) & 1) != 0, ((raw >> 21) & 1) != 0),
             (true, false) | (false, false) | (false, true)
         )
+    }
+
+    fn is_neon_fp_fma_shape(raw: u32) -> bool {
+        (raw >> 25) == 0b1111001
+            && ((raw >> 24) & 1) == 0
+            && ((raw >> 23) & 1) == 0
+            && ((raw >> 20) & 1) == 0
+            && ((raw >> 8) & 0xF) == 0b1100
+            && ((raw >> 4) & 1) == 1
     }
 
     fn is_neon_polynomial_multiply_shape(raw: u32) -> bool {
@@ -3981,7 +3990,7 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
         if !self.cpu.vfp.is_enabled() {
             return ExecResult::Exception(ExceptionType::UndefinedInstruction);
         }
-        if !Self::is_neon_fp_multiply_shape(insn.raw) {
+        if !Self::is_neon_fp_multiply_shape(insn.raw) && !Self::is_neon_fp_fma_shape(insn.raw) {
             return ExecResult::Undefined;
         }
 
@@ -4007,7 +4016,10 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
         for reg in 0..regs {
             let n_elements = self.neon_read_vector_elements_u64(n + reg, 1, 4);
             let m_elements = self.neon_read_vector_elements_u64(m + reg, 1, 4);
-            let d_elements = if matches!(insn.mnemonic, Mnemonic::VMLA | Mnemonic::VMLS) {
+            let d_elements = if matches!(
+                insn.mnemonic,
+                Mnemonic::VMLA | Mnemonic::VMLS | Mnemonic::VFMA | Mnemonic::VFMS
+            ) {
                 self.neon_read_vector_elements_u64(d + reg, 1, 4)
             } else {
                 vec![0; n_elements.len()]
@@ -4028,6 +4040,12 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
                     }
                     Mnemonic::VMLS => {
                         vmls_f32(f32::from_bits(d_elem as u32), n_val, m_val, &mut fpscr)
+                    }
+                    Mnemonic::VFMA => {
+                        vfma_f32(f32::from_bits(d_elem as u32), n_val, m_val, &mut fpscr)
+                    }
+                    Mnemonic::VFMS => {
+                        vfms_f32(f32::from_bits(d_elem as u32), n_val, m_val, &mut fpscr)
                     }
                     _ => return ExecResult::Undefined,
                 };
@@ -6197,6 +6215,10 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
     }
 
     fn exec_vfp_accop(&mut self, insn: &DecodedInsn) -> ExecResult {
+        if Self::is_neon_fp_fma_shape(insn.raw) {
+            return self.exec_neon_fp_multiply(insn);
+        }
+
         if !self.cpu.vfp.is_enabled() {
             return ExecResult::Exception(ExceptionType::UndefinedInstruction);
         }

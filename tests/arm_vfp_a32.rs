@@ -5249,7 +5249,27 @@ fn neon_fp_multiply_accumulate_and_subtract_handle_f32_lanes() {
         Mnemonic::VMLS
     );
     assert_eq!(
+        Aarch32Decoder::decode(0xF201_0C12).unwrap().mnemonic,
+        Mnemonic::VFMA
+    );
+    assert_eq!(
+        Aarch32Decoder::decode(0xF225_4C16).unwrap().mnemonic,
+        Mnemonic::VFMS
+    );
+    assert_eq!(
+        Aarch32Decoder::decode(0xF202_0C54).unwrap().mnemonic,
+        Mnemonic::VFMA
+    );
+    assert_eq!(
+        Aarch32Decoder::decode(0xF22A_8C5C).unwrap().mnemonic,
+        Mnemonic::VFMS
+    );
+    assert_eq!(
         Aarch32Decoder::decode(0xF302_1D54).unwrap().mnemonic,
+        Mnemonic::UNDEFINED
+    );
+    assert_eq!(
+        Aarch32Decoder::decode(0xF202_1C54).unwrap().mnemonic,
         Mnemonic::UNDEFINED
     );
 
@@ -5325,6 +5345,86 @@ fn neon_fp_multiply_accumulate_and_subtract_handle_f32_lanes() {
     assert_eq!(
         cpu.vfp.read_d_bits(17),
         u64::from(352.0f32.to_bits()) << 32 | u64::from(255.0f32.to_bits())
+    );
+
+    cpu.vfp
+        .write_d_bits(0, u64::from(50.0f32.to_bits()) << 32 | u64::from(10.0f32.to_bits()));
+    cpu.vfp
+        .write_d_bits(1, u64::from(3.0f32.to_bits()) << 32 | u64::from(2.0f32.to_bits()));
+    cpu.vfp
+        .write_d_bits(2, u64::from(5.0f32.to_bits()) << 32 | u64::from(4.0f32.to_bits()));
+    assert!(matches!(
+        exec_one(&mut cpu, &mut mem, 0xF201_0C12),
+        ExecResult::Continue
+    ));
+    assert_eq!(
+        cpu.vfp.read_d_bits(0),
+        u64::from(65.0f32.to_bits()) << 32 | u64::from(18.0f32.to_bits())
+    );
+
+    cpu.vfp
+        .write_d_bits(4, u64::from(80.0f32.to_bits()) << 32 | u64::from(50.0f32.to_bits()));
+    cpu.vfp
+        .write_d_bits(5, u64::from(4.0f32.to_bits()) << 32 | u64::from(3.0f32.to_bits()));
+    cpu.vfp
+        .write_d_bits(6, u64::from(2.0f32.to_bits()) << 32 | u64::from(5.0f32.to_bits()));
+    assert!(matches!(
+        exec_one(&mut cpu, &mut mem, 0xF225_4C16),
+        ExecResult::Continue
+    ));
+    assert_eq!(
+        cpu.vfp.read_d_bits(4),
+        u64::from(72.0f32.to_bits()) << 32 | u64::from(35.0f32.to_bits())
+    );
+
+    cpu.vfp
+        .write_d_bits(0, u64::from(20.0f32.to_bits()) << 32 | u64::from(10.0f32.to_bits()));
+    cpu.vfp
+        .write_d_bits(1, u64::from(40.0f32.to_bits()) << 32 | u64::from(30.0f32.to_bits()));
+    cpu.vfp
+        .write_d_bits(2, u64::from(2.0f32.to_bits()) << 32 | u64::from(1.0f32.to_bits()));
+    cpu.vfp
+        .write_d_bits(3, u64::from(4.0f32.to_bits()) << 32 | u64::from(3.0f32.to_bits()));
+    cpu.vfp
+        .write_d_bits(4, u64::from(6.0f32.to_bits()) << 32 | u64::from(5.0f32.to_bits()));
+    cpu.vfp
+        .write_d_bits(5, u64::from(8.0f32.to_bits()) << 32 | u64::from(7.0f32.to_bits()));
+    assert!(matches!(
+        exec_one(&mut cpu, &mut mem, 0xF202_0C54),
+        ExecResult::Continue
+    ));
+    assert_eq!(
+        cpu.vfp.read_d_bits(0),
+        u64::from(32.0f32.to_bits()) << 32 | u64::from(15.0f32.to_bits())
+    );
+    assert_eq!(
+        cpu.vfp.read_d_bits(1),
+        u64::from(72.0f32.to_bits()) << 32 | u64::from(51.0f32.to_bits())
+    );
+
+    cpu.vfp
+        .write_d_bits(8, u64::from(120.0f32.to_bits()) << 32 | u64::from(100.0f32.to_bits()));
+    cpu.vfp
+        .write_d_bits(9, u64::from(180.0f32.to_bits()) << 32 | u64::from(160.0f32.to_bits()));
+    cpu.vfp
+        .write_d_bits(10, u64::from(2.0f32.to_bits()) << 32 | u64::from(1.0f32.to_bits()));
+    cpu.vfp
+        .write_d_bits(11, u64::from(4.0f32.to_bits()) << 32 | u64::from(3.0f32.to_bits()));
+    cpu.vfp
+        .write_d_bits(12, u64::from(6.0f32.to_bits()) << 32 | u64::from(5.0f32.to_bits()));
+    cpu.vfp
+        .write_d_bits(13, u64::from(8.0f32.to_bits()) << 32 | u64::from(7.0f32.to_bits()));
+    assert!(matches!(
+        exec_one(&mut cpu, &mut mem, 0xF22A_8C5C),
+        ExecResult::Continue
+    ));
+    assert_eq!(
+        cpu.vfp.read_d_bits(8),
+        u64::from(108.0f32.to_bits()) << 32 | u64::from(95.0f32.to_bits())
+    );
+    assert_eq!(
+        cpu.vfp.read_d_bits(9),
+        u64::from(148.0f32.to_bits()) << 32 | u64::from(139.0f32.to_bits())
     );
 }
 
