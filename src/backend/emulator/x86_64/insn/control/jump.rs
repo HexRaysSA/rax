@@ -97,13 +97,10 @@ pub fn jmp_far_ptr(vcpu: &mut X86_64Vcpu, ctx: &mut InsnContext) -> Result<Optio
     };
     let selector = ctx.consume_u16()?;
     validate_far_selector(vcpu, selector)?;
-    let old_cpl = vcpu.sregs.cs.selector & 0x3;
-    let new_cpl = selector & 0x3;
-    if new_cpl != old_cpl {
-        return Err(Error::Emulator(
-            "JMP FAR privilege change not supported".to_string(),
-        ));
-    }
+    // A far JMP reloads CS from the target descriptor; the CPL is unchanged
+    // (it does not switch privilege the way a far CALL/interrupt through a gate
+    // can). The mode-establishing flush jump after `mov cr0` (real→protected,
+    // or the protected→long handoff) lands here — just load the descriptor.
 
     // Load CS:IP from the real descriptor (lenient: flat fallback for a sparse
     // descriptor table so legacy flat-segment code keeps working).
@@ -129,13 +126,10 @@ pub fn jmp_far_mem(vcpu: &mut X86_64Vcpu, ctx: &mut InsnContext) -> Result<Optio
     let offset = vcpu.read_mem(addr, offset_size)?;
     let selector = vcpu.mmu.read_u16(addr + offset_size as u64, &vcpu.sregs)?;
     validate_far_selector(vcpu, selector)?;
-    let old_cpl = vcpu.sregs.cs.selector & 0x3;
-    let new_cpl = selector & 0x3;
-    if new_cpl != old_cpl {
-        return Err(Error::Emulator(
-            "JMP FAR privilege change not supported".to_string(),
-        ));
-    }
+    // A far JMP reloads CS from the target descriptor; the CPL is unchanged
+    // (it does not switch privilege the way a far CALL/interrupt through a gate
+    // can). The mode-establishing flush jump after `mov cr0` (real→protected,
+    // or the protected→long handoff) lands here — just load the descriptor.
 
     // Load CS:IP from the real descriptor (lenient: flat fallback).
     vcpu.load_code_segment_lenient(selector);

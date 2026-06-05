@@ -77,7 +77,60 @@ pub fn service(vcpu: &mut X86_64Vcpu, vector: u8) -> Result<bool> {
             int16(vcpu);
             Ok(true)
         }
-        _ => Ok(false),
+        0x1A => {
+            int1a(vcpu);
+            Ok(true)
+        }
+        // Equipment list / base memory size — harmless stubs.
+        0x11 => {
+            vcpu.regs.rax = (vcpu.regs.rax & !0xFFFF) | 0x0021; // basic equipment
+            Ok(true)
+        }
+        0x12 => {
+            vcpu.regs.rax = (vcpu.regs.rax & !0xFFFF) | 640; // 640 KiB base memory
+            Ok(true)
+        }
+        _ => {
+            if std::env::var_os("RAX_RM_TRACE").is_some() {
+                eprintln!("[INT-UNH] vec={vector:#x} ax={:#06x}", vcpu.regs.rax as u16);
+            }
+            Ok(false)
+        }
+    }
+}
+
+/// INT 1Ah — time / RTC / PCI-BIOS.
+fn int1a(vcpu: &mut X86_64Vcpu) {
+    if std::env::var_os("RAX_RM_TRACE").is_some() {
+        eprintln!("[INT1A] ax={:#06x}", vcpu.regs.rax as u16);
+    }
+    match ah(vcpu) {
+        // AH=00h: read system-timer tick count → CX:DX = ticks, AL = midnight flag.
+        0x00 => {
+            vcpu.regs.rcx &= !0xFFFF;
+            vcpu.regs.rdx &= !0xFFFF;
+            vcpu.regs.rax &= !0xFF;
+            set_cf(vcpu, false);
+        }
+        // AH=02h: read RTC time (BCD CH=hr CL=min DH=sec) → midnight.
+        0x02 => {
+            vcpu.regs.rcx &= !0xFFFF;
+            vcpu.regs.rdx &= !0xFF00;
+            set_cf(vcpu, false);
+        }
+        // AH=04h: read RTC date (BCD CH=century CL=year DH=month DL=day).
+        0x04 => {
+            vcpu.regs.rcx = (vcpu.regs.rcx & !0xFFFF) | 0x2026;
+            vcpu.regs.rdx = (vcpu.regs.rdx & !0xFFFF) | 0x0101;
+            set_cf(vcpu, false);
+        }
+        // AH=B1h: PCI BIOS — report not installed; the OS falls back to direct
+        // PCI config I/O (ports 0xCF8/0xCFC).
+        0xB1 => {
+            set_ah(vcpu, 0xFF);
+            set_cf(vcpu, true);
+        }
+        _ => set_cf(vcpu, true),
     }
 }
 
@@ -149,6 +202,11 @@ fn int13(vcpu: &mut X86_64Vcpu) -> Result<()> {
                 set_ah(vcpu, 0x04);
                 set_cf(vcpu, true);
                 return Ok(());
+            }
+            if std::env::var_os("RAX_RM_TRACE").is_some() {
+                eprintln!(
+                    "[INT13] read lba={lba} count={count} buf={buf_seg:#x}:{buf_off:#x}={buf_lin:#x} ({len}B)"
+                );
             }
             vcpu.write_bytes(buf_lin, &cd[start..start + len])?;
             set_ah(vcpu, 0);
