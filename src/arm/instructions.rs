@@ -3746,6 +3746,9 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
     }
 
     fn exec_vmul(&mut self, insn: &DecodedInsn) -> ExecResult {
+        if Self::is_neon_fp_multiply_shape(insn.raw) {
+            return self.exec_neon_fp_multiply(insn);
+        }
         if Self::is_neon_polynomial_multiply_shape(insn.raw) {
             return self.exec_neon_polynomial_multiply(insn);
         }
@@ -3759,6 +3762,9 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
     }
 
     fn exec_vmla_vmls(&mut self, insn: &DecodedInsn) -> ExecResult {
+        if Self::is_neon_fp_multiply_shape(insn.raw) {
+            return self.exec_neon_fp_multiply(insn);
+        }
         if Self::is_neon_integer_multiply_shape(insn.raw)
             || Self::is_neon_integer_multiply_scalar_shape(insn.raw)
         {
@@ -3779,6 +3785,22 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
             && ((raw >> 23) & 1) == 0
             && ((raw >> 8) & 0xF) == 0b1001
             && (((raw >> 4) & 1) == 0 || ((raw >> 24) & 1) == 0)
+    }
+
+    fn is_neon_fp_multiply_shape(raw: u32) -> bool {
+        if (raw >> 25) != 0b1111001
+            || ((raw >> 23) & 1) != 0
+            || ((raw >> 20) & 1) != 0
+            || ((raw >> 8) & 0xF) != 0b1101
+            || ((raw >> 4) & 1) != 1
+        {
+            return false;
+        }
+
+        matches!(
+            (((raw >> 24) & 1) != 0, ((raw >> 21) & 1) != 0),
+            (true, false) | (false, false) | (false, true)
+        )
     }
 
     fn is_neon_polynomial_multiply_shape(raw: u32) -> bool {
@@ -3835,6 +3857,69 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
             && ((raw >> 8) & 0xF) == 0b1110
             && ((raw >> 6) & 1) == 0
             && ((raw >> 4) & 1) == 0
+    }
+
+    fn exec_neon_fp_multiply(&mut self, insn: &DecodedInsn) -> ExecResult {
+        if !self.cpu.vfp.is_enabled() {
+            return ExecResult::Exception(ExceptionType::UndefinedInstruction);
+        }
+        if !Self::is_neon_fp_multiply_shape(insn.raw) {
+            return ExecResult::Undefined;
+        }
+
+        let d_bit = ((insn.raw >> 22) & 1) as u8;
+        let vd = ((insn.raw >> 12) & 0xF) as u8;
+        let n_bit = ((insn.raw >> 7) & 1) as u8;
+        let vn = ((insn.raw >> 16) & 0xF) as u8;
+        let m_bit = ((insn.raw >> 5) & 1) as u8;
+        let vm = (insn.raw & 0xF) as u8;
+        let q = ((insn.raw >> 6) & 1) != 0;
+        let regs = if q { 2 } else { 1 };
+
+        let d = (d_bit << 4) | vd;
+        let n = (n_bit << 4) | vn;
+        let m = (m_bit << 4) | vm;
+        if q && ((d | n | m) & 1) != 0 {
+            return ExecResult::Undefined;
+        }
+        if d + regs > 32 || n + regs > 32 || m + regs > 32 {
+            return ExecResult::Undefined;
+        }
+
+        for reg in 0..regs {
+            let n_elements = self.neon_read_vector_elements_u64(n + reg, 1, 4);
+            let m_elements = self.neon_read_vector_elements_u64(m + reg, 1, 4);
+            let d_elements = if matches!(insn.mnemonic, Mnemonic::VMLA | Mnemonic::VMLS) {
+                self.neon_read_vector_elements_u64(d + reg, 1, 4)
+            } else {
+                vec![0; n_elements.len()]
+            };
+            let mut out = Vec::with_capacity(n_elements.len());
+            for ((n_elem, m_elem), d_elem) in n_elements
+                .into_iter()
+                .zip(m_elements.into_iter())
+                .zip(d_elements.into_iter())
+            {
+                let n_val = f32::from_bits(n_elem as u32);
+                let m_val = f32::from_bits(m_elem as u32);
+                let mut fpscr = self.cpu.vfp.fpscr;
+                let result = match insn.mnemonic {
+                    Mnemonic::VMUL => vmul_f32(n_val, m_val, &mut fpscr),
+                    Mnemonic::VMLA => {
+                        vmla_f32(f32::from_bits(d_elem as u32), n_val, m_val, &mut fpscr)
+                    }
+                    Mnemonic::VMLS => {
+                        vmls_f32(f32::from_bits(d_elem as u32), n_val, m_val, &mut fpscr)
+                    }
+                    _ => return ExecResult::Undefined,
+                };
+                self.cpu.vfp.fpscr = fpscr;
+                out.push(u64::from(result.to_bits()));
+            }
+            self.neon_write_vector_elements_u64(d + reg, 1, 4, &out);
+        }
+
+        ExecResult::Continue
     }
 
     fn exec_neon_polynomial_multiply(&mut self, insn: &DecodedInsn) -> ExecResult {
