@@ -343,6 +343,18 @@ fn test_pop2_same_register() {
     let _ = run_until_hlt(&mut vcpu);
 }
 
+#[test]
+fn test_pop2_memory_form_rejected_match_llvm() {
+    // LLVM 23 rejects "pop2 [rax], rax"; POP2 only accepts register operands.
+    let code = [
+        0x62, 0xF4, 0x7C, 0x18,
+        0x8F, 0x00,
+        0xF4,
+    ];
+    let (mut vcpu, _) = setup_vm(&code, None);
+    assert!(run_until_hlt(&mut vcpu).is_err());
+}
+
 /// PUSH2 with zero values
 #[test]
 fn test_push2_zero_values() {

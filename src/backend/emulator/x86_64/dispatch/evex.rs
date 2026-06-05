@@ -3022,6 +3022,9 @@ impl X86_64Vcpu {
     /// APX POP2 - Pop two registers atomically
     fn execute_apx_pop2(&mut self, ctx: &mut InsnContext) -> Result<Option<VcpuExit>> {
         let modrm = ctx.consume_u8()?;
+        if (modrm >> 6) != 3 {
+            return Err(Error::Emulator("POP2 requires register operands".to_string()));
+        }
 
         // Extract register operands
         let reg1 = (modrm & 0x07) | ctx.evex_rm_reg();
