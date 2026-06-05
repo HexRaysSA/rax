@@ -972,6 +972,17 @@ impl Vmm {
                     }
                     vcpu.complete_io_in(&data);
                 }
+                VcpuExit::IoInString { port, size, count } => {
+                    // Batched `rep ins`: read count*size bytes, all from the same
+                    // fixed port (the `rep` reads DX repeatedly), in one exit. The
+                    // vCPU writes the whole destination block via complete_io_in.
+                    let total = (count as usize).saturating_mul(size as usize);
+                    let mut data = vec![0u8; total];
+                    for i in 0..total {
+                        self.io_bus.read(port, &mut data[i..i + 1])?;
+                    }
+                    vcpu.complete_io_in(&data);
+                }
                 VcpuExit::IoOut { port, data } => {
                     debug!(port = port, size = data.len(), "PIO write");
 

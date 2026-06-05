@@ -311,6 +311,10 @@ enum IoInTarget {
 struct IoPending {
     size: u8,
     target: IoInTarget,
+    /// Element count: 1 for a normal IN, N for a batched `rep ins` block (the
+    /// destination is then `count` consecutive `size`-byte elements starting at
+    /// the `Mem` address).
+    count: u32,
 }
 
 /// Maximum instruction length in bytes.
@@ -1888,6 +1892,7 @@ impl X86_64Vcpu {
         self.io_pending = Some(IoPending {
             size,
             target: IoInTarget::Reg,
+            count: 1,
         });
     }
 
@@ -1895,6 +1900,18 @@ impl X86_64Vcpu {
         self.io_pending = Some(IoPending {
             size,
             target: IoInTarget::Mem { addr },
+            count: 1,
+        });
+    }
+
+    /// Stage a batched `rep ins` block: `count` consecutive `size`-byte elements
+    /// written to memory starting at `addr` (forward). Completed in one shot by
+    /// [`Self::complete_io_in`] from the data the backend reads off the port.
+    pub(super) fn set_io_pending_block(&mut self, size: u8, addr: u64, count: u32) {
+        self.io_pending = Some(IoPending {
+            size,
+            target: IoInTarget::Mem { addr },
+            count,
         });
     }
 
@@ -2572,6 +2589,32 @@ impl VCpu for X86_64Vcpu {
 
     fn complete_io_in(&mut self, data: &[u8]) {
         if let Some(pending) = self.io_pending.take() {
+            let sz = pending.size as usize;
+            // Batched `rep ins` block: write `count` consecutive elements from
+            // `data` to memory starting at the staged address (forward).
+            if pending.count > 1 {
+                if let IoInTarget::Mem { addr } = pending.target {
+                    for i in 0..pending.count as usize {
+                        let off = i * sz;
+                        if off + sz > data.len() {
+                            break;
+                        }
+                        let value = match pending.size {
+                            1 => data[off] as u64,
+                            2 => u16::from_le_bytes([data[off], data[off + 1]]) as u64,
+                            _ => u32::from_le_bytes([
+                                data[off],
+                                data[off + 1],
+                                data[off + 2],
+                                data[off + 3],
+                            ]) as u64,
+                        };
+                        let _ = self.write_mem(addr + off as u64, value, pending.size);
+                    }
+                }
+                return;
+            }
+
             let value = match pending.size {
                 1 => data.first().copied().unwrap_or(0) as u64,
                 2 if data.len() >= 2 => u16::from_le_bytes([data[0], data[1]]) as u64,

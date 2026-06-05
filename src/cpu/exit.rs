@@ -14,6 +14,20 @@ pub enum VcpuExit {
         size: u8,
     },
 
+    /// Block string-input (`rep insb/insw/insd`): read `count` elements of
+    /// `size` bytes each from a single fixed `port` in one exit. The backend
+    /// reads `count * size` bytes from `port` and hands them to the vCPU's
+    /// `complete_io_in` (which writes the staged destination block), avoiding a
+    /// per-element VM exit. Used by the emulator for fast PIO disk transfers.
+    IoInString {
+        /// Port number (read repeatedly — not incremented).
+        port: u16,
+        /// Element size in bytes (1/2/4).
+        size: u8,
+        /// Number of elements to transfer.
+        count: u32,
+    },
+
     /// I/O port write.
     IoOut {
         /// Port number.
