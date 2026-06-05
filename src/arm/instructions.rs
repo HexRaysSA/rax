@@ -5189,7 +5189,7 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
         if (insn.raw >> 23) == 0b111100111
             && ((insn.raw >> 20) & 0x3) == 0b11
             && ((insn.raw >> 16) & 0x3) == 0b01
-            && ((insn.raw >> 10) & 0x3) == 0
+            && matches!((insn.raw >> 10) & 0x3, 0 | 1)
             && ((insn.raw >> 4) & 1) == 0
         {
             return self.exec_neon_compare_zero(insn);
@@ -5212,13 +5212,14 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
         if (insn.raw >> 23) != 0b111100111
             || ((insn.raw >> 20) & 0x3) != 0b11
             || ((insn.raw >> 16) & 0x3) != 0b01
-            || ((insn.raw >> 10) & 0x3) != 0
+            || !matches!((insn.raw >> 10) & 0x3, 0 | 1)
             || ((insn.raw >> 4) & 1) != 0
         {
             return ExecResult::Undefined;
         }
 
         let op = (insn.raw >> 7) & 0x7;
+        let fp = ((insn.raw >> 8) & 0x7) >= 0b100;
         match (insn.mnemonic, op) {
             (Mnemonic::VCGT, 0b000)
             | (Mnemonic::VCGE, 0b001)
@@ -5234,6 +5235,9 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
             0b10 => NeonSize::S32,
             _ => return ExecResult::Undefined,
         };
+        if fp && !matches!(size, NeonSize::H16 | NeonSize::S32) {
+            return ExecResult::Undefined;
+        }
         let ebytes = (size.bits() / 8) as u8;
         let d_bit = ((insn.raw >> 22) & 1) as u8;
         let vd = ((insn.raw >> 12) & 0xF) as u8;
@@ -5260,14 +5264,30 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
             let elements = self.neon_read_vector_elements_u64(m + reg, 1, ebytes);
             let mut out = Vec::with_capacity(elements.len());
             for elem in elements {
-                let value = Self::neon_sign_extend_elem_u64(elem, size.bits());
-                let condition = match insn.mnemonic {
-                    Mnemonic::VCGT => value > 0,
-                    Mnemonic::VCGE => value >= 0,
-                    Mnemonic::VCEQ => value == 0,
-                    Mnemonic::VCLE => value <= 0,
-                    Mnemonic::VCLT => value < 0,
-                    _ => return ExecResult::Undefined,
+                let condition = if fp {
+                    let value = match size {
+                        NeonSize::H16 => vcvt_f32_f16_bits(elem as u16),
+                        NeonSize::S32 => f32::from_bits(elem as u32),
+                        _ => return ExecResult::Undefined,
+                    };
+                    match insn.mnemonic {
+                        Mnemonic::VCGT => value > 0.0,
+                        Mnemonic::VCGE => value >= 0.0,
+                        Mnemonic::VCEQ => value == 0.0,
+                        Mnemonic::VCLE => value <= 0.0,
+                        Mnemonic::VCLT => value < 0.0,
+                        _ => return ExecResult::Undefined,
+                    }
+                } else {
+                    let value = Self::neon_sign_extend_elem_u64(elem, size.bits());
+                    match insn.mnemonic {
+                        Mnemonic::VCGT => value > 0,
+                        Mnemonic::VCGE => value >= 0,
+                        Mnemonic::VCEQ => value == 0,
+                        Mnemonic::VCLE => value <= 0,
+                        Mnemonic::VCLT => value < 0,
+                        _ => return ExecResult::Undefined,
+                    }
                 };
                 out.push(if condition { true_mask } else { 0 });
             }

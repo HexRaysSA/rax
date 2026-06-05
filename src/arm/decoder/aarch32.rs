@@ -482,7 +482,7 @@ impl Aarch32Decoder {
         if (raw >> 23) != 0b111100111
             || ((raw >> 20) & 0x3) != 0b11
             || ((raw >> 16) & 0x3) != 0b01
-            || ((raw >> 10) & 0x3) != 0
+            || !matches!((raw >> 10) & 0x3, 0 | 1)
             || ((raw >> 4) & 1) != 0
         {
             return None;
@@ -498,10 +498,11 @@ impl Aarch32Decoder {
         };
 
         let size = (raw >> 18) & 0x3;
+        let fp = ((raw >> 10) & 0x3) == 1;
         let q = ((raw >> 6) & 1) != 0;
         let vd = (raw >> 12) & 0xF;
         let vm = raw & 0xF;
-        if size == 0b11 || (q && ((vd | vm) & 1) != 0) {
+        if size == 0b11 || (fp && size == 0b00) || (q && ((vd | vm) & 1) != 0) {
             return Some(DecodedInsn::new(
                 Mnemonic::UNDEFINED,
                 ExecutionState::Aarch32,
