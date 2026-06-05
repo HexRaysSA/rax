@@ -648,8 +648,12 @@ impl InsnContext {
     pub fn evex_index_reg(&self) -> u8 {
         if let Some(evex) = &self.evex {
             let x_ext = if evex.x { 0 } else { 8 };
-            let x4_ext = if evex.x4 { 0 } else { 16 };
-            x_ext | x4_ext
+            if evex.apx_mode {
+                let x4_ext = if evex.x4 { 0 } else { 16 };
+                x_ext | x4_ext
+            } else {
+                x_ext
+            }
         } else {
             // Fall back to REX.X
             self.rex.map_or(0, |r| (r & 0x02) << 2)

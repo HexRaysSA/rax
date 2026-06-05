@@ -60,8 +60,8 @@ pub fn bound_or_evex(vcpu: &mut X86_64Vcpu, ctx: &mut InsnContext) -> Result<Opt
 
         // Validate EVEX format:
         // P0 bit 3 is fixed zero for standard EVEX, but APX MAP4 reuses it as B4.
-        // P1 bit 2 must be 1.
-        if ((p0 & 0x08) != 0 && !apx_mode) || (p1 & 0x04) == 0 {
+        // P1 bit 2 is fixed one for standard EVEX, but APX MAP4 reuses it as X4.
+        if ((p0 & 0x08) != 0 && !apx_mode) || ((p1 & 0x04) == 0 && !apx_mode) {
             return Err(Error::Emulator(format!(
                 "Invalid EVEX prefix at RIP={:#x}: P0={:#x} P1={:#x}",
                 vcpu.regs.rip, p0, p1
@@ -89,16 +89,19 @@ pub fn bound_or_evex(vcpu: &mut X86_64Vcpu, ctx: &mut InsnContext) -> Result<Opt
         // For APX mode, decode additional bits differently:
         // - P2[2] becomes NF (No Flags)
         // - P2[4] (broadcast bit) becomes ND (New Data Destination)
-        // - P0[3] becomes B4, the high r/m extension bit for EGPR
+        // - P0[3] becomes B4, the high r/m/base extension bit for EGPR
+        // - P1[2] becomes X4, the inverted high SIB index extension bit
         let (nf, nd, b4, x4) = if apx_mode {
             // In APX mode:
             // NF is encoded in P2 bit 2 and is non-inverted.
             // ND is in P2 bit 4 (broadcast position)
             // B4 is encoded in P0 bit 3 and is non-inverted.
+            // X4 is encoded in P1 bit 2 and is inverted like EVEX.X.
             let nf_bit = (p2 & 0x04) != 0;
             let nd_bit = broadcast; // ND uses broadcast position when mm=4
             let b4_bit = (p0 & 0x08) != 0;
-            (nf_bit, nd_bit, b4_bit, false) // X4 not yet decoded
+            let x4_bit = (p1 & 0x04) != 0;
+            (nf_bit, nd_bit, b4_bit, x4_bit)
         } else {
             (false, false, false, false)
         };
