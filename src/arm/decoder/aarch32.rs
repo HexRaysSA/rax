@@ -1140,6 +1140,8 @@ impl Aarch32Decoder {
             0b0100 => Mnemonic::VSRI,
             0b0101 if ((raw >> 24) & 1) == 0 => Mnemonic::VSHL,
             0b0101 => Mnemonic::VSLI,
+            0b0110 if ((raw >> 24) & 1) != 0 => Mnemonic::VQSHLU,
+            0b0111 => Mnemonic::VQSHL,
             _ => return None,
         };
 
