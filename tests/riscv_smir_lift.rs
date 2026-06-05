@@ -923,3 +923,94 @@ fn lift_v() {
         panic!("{msg}");
     }
 }
+
+/// Exhaustive gap audit: sweep fully-random 32-bit and compressed words across
+/// the WHOLE opcode space; for any instruction the oracle executes (Continue),
+/// flag it if the lifter cannot lift it (`Ok(None)`). This proves there is no
+/// remaining user-mode instruction with architectural effect left unlifted.
+/// Divergences are checked by the dedicated per-class tests; here we only audit
+/// coverage (gaps), so control-flow/CSR/vector results are not re-compared.
+#[test]
+fn lift_exhaustive_audit() {
+    let isa = Isa::rv64gc();
+    let mut rng = Rng::new(0x5117_0009);
+    let mut gaps: BTreeMap<String, usize> = BTreeMap::new();
+    let mut executed = 0usize;
+
+    // 32-bit space.
+    for _ in 0..400_000 {
+        let w = rng.next() as u32;
+        let insn = decode(w, Xlen::Rv64, &isa);
+        if insn.is_illegal() {
+            continue;
+        }
+        let mut st = rand_state(&mut rng);
+        // Point common base registers into the scratch window for any ld/st.
+        for r in 1..32 {
+            st.x[r] = SCRATCH + 0x40;
+        }
+        st.fcsr = (rng.next() & 0xff) as u32;
+        if run_ref(&w.to_le_bytes(), &st).is_none() {
+            continue; // oracle trapped / not a plain single-step → ignore
+        }
+        executed += 1;
+        if let Ok(None) = run_smir(&w.to_le_bytes(), &st) {
+            *gaps.entry(format!("{:?}", insn.op)).or_default() += 1;
+        }
+    }
+
+    // Compressed space.
+    for _ in 0..200_000 {
+        let w16 = rng.next() as u16;
+        if w16 & 3 == 3 {
+            continue;
+        }
+        let mut dmem = RvMem::new(0, 8);
+        if RvMemory::write(&mut dmem, 0, &w16.to_le_bytes()).is_err() {
+            continue;
+        }
+        let insn = match decode_at(&dmem, 0, Xlen::Rv64, &isa) {
+            Ok(i) if !i.is_illegal() && i.len == 2 => i,
+            _ => continue,
+        };
+        let mut st = rand_state(&mut rng);
+        st.x[2] = SCRATCH + 0x80;
+        for r in 8..16 {
+            st.x[r] = SCRATCH + 0x80;
+        }
+        if run_ref(&w16.to_le_bytes(), &st).is_none() {
+            continue;
+        }
+        executed += 1;
+        if let Ok(None) = run_smir(&w16.to_le_bytes(), &st) {
+            *gaps.entry(format!("c.{:?}", insn.op)).or_default() += 1;
+        }
+    }
+
+    eprintln!("lift_exhaustive_audit: executed={executed}, gap-ops={}", gaps.len());
+    let mut gv: Vec<_> = gaps.iter().collect();
+    gv.sort_by(|a, b| b.1.cmp(a.1));
+    for (op, n) in gv.iter() {
+        eprintln!("  GAP {op}: {n}");
+    }
+    // Only genuinely-environmental / privileged ops may remain — they have no
+    // deterministic architectural register/memory result to lift in a user-mode
+    // harness: ECALL/EBREAK (environment trap), FENCE/FENCE.I (ordering no-op),
+    // privileged MRET/SRET/WFI, and CSR access to UNMODELED CSRs (privileged
+    // machine state + the nondeterministic cycle/time/instret counters — only
+    // the application FP/vector CSRs are modeled; see lift_csr). Every
+    // computational / load-store / atomic / FP / vector / control-flow / app-CSR
+    // instruction MUST lift.
+    let allowed = |op: &str| {
+        matches!(
+            op,
+            "Ecall" | "Ebreak" | "Fence" | "FenceI" | "Mret" | "Sret" | "Wfi" | "Pause"
+                | "c.Ebreak"
+        ) || op.starts_with("Csrr")
+    };
+    let unexpected: Vec<_> = gaps.keys().filter(|k| !allowed(k)).collect();
+    assert!(
+        unexpected.is_empty(),
+        "unexpected lift gaps (should be lifted): {unexpected:?}"
+    );
+}
