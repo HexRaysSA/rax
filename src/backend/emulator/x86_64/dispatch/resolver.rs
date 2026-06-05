@@ -108,6 +108,16 @@ fn sh_vex3(v: &mut X86_64Vcpu, c: &mut InsnContext) -> Result<Option<VcpuExit>> 
 fn sh_vex2(v: &mut X86_64Vcpu, c: &mut InsnContext) -> Result<Option<VcpuExit>> {
     v.execute_vex2(c)
 }
+fn sh_mov_rax_moffs_or_jmp_abs(
+    v: &mut X86_64Vcpu,
+    c: &mut InsnContext,
+) -> Result<Option<VcpuExit>> {
+    if c.has_rex2() {
+        insn::control::jmp_abs(v, c)
+    } else {
+        insn::data::mov_rax_moffs(v, c)
+    }
+}
 
 impl X86_64Vcpu {
     /// Resolve a single-byte opcode to its uniform-signature handler.
@@ -175,7 +185,7 @@ impl X86_64Vcpu {
             0x17 => sh_pop_ss,
             0x1F => sh_pop_ds,
             0xA0 => insn::data::mov_al_moffs,
-            0xA1 => insn::data::mov_rax_moffs,
+            0xA1 => sh_mov_rax_moffs_or_jmp_abs,
             0xA2 => insn::data::mov_moffs_al,
             0xA3 => insn::data::mov_moffs_rax,
             0xC6 => insn::data::mov_rm8_imm8,

@@ -422,6 +422,46 @@ fn test_rex2_jmp_indirect() {
 }
 
 #[test]
+fn test_rex2_jmpabs_match_llvm() {
+    // LLVM 23 assembles "jmpabs 0x1122334455667788" as d5 00 a1 imm64.
+    let target = CODE_ADDR + 17;
+    let mut code = vec![
+        0xD5, 0x00, 0xA1,       // JMPABS imm64
+    ];
+    code.extend_from_slice(&target.to_le_bytes());
+    code.extend_from_slice(&[
+        0xB8, 0x11, 0x11, 0x11, 0x11, // MOV eax, 0x11111111 (skipped)
+        0xF4,
+        0xB8, 0x55, 0x66, 0x77, 0x88, // MOV eax, 0x88776655
+        0xF4,
+    ]);
+
+    let (mut vcpu, _) = setup_vm(&code, None);
+    let regs = run_until_hlt(&mut vcpu).unwrap();
+    assert_eq!(regs.rax, 0x8877_6655);
+}
+
+#[test]
+fn test_rex2_jmpabs_ignores_w_bit() {
+    // LLVM 23 disassembles d5 08 a1 imm64 as JMPABS too.
+    let target = CODE_ADDR + 17;
+    let mut code = vec![
+        0xD5, 0x08, 0xA1,       // JMPABS imm64 with REX2.W set
+    ];
+    code.extend_from_slice(&target.to_le_bytes());
+    code.extend_from_slice(&[
+        0xB8, 0x11, 0x11, 0x11, 0x11, // MOV eax, 0x11111111 (skipped)
+        0xF4,
+        0xB8, 0x66, 0x77, 0x88, 0x99, // MOV eax, 0x99887766
+        0xF4,
+    ]);
+
+    let (mut vcpu, _) = setup_vm(&code, None);
+    let regs = run_until_hlt(&mut vcpu).unwrap();
+    assert_eq!(regs.rax, 0x9988_7766);
+}
+
+#[test]
 fn test_rex2_pushp_r16_match_llvm() {
     // LLVM 23 assembles "pushp r16" as d5 18 50.
     let code = [

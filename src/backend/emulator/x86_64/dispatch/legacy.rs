@@ -89,6 +89,7 @@ impl X86_64Vcpu {
             0x1F => insn::data::pop_sreg(self, ctx, 3),  // POP DS
             // MOV moffs instructions
             0xA0 => insn::data::mov_al_moffs(self, ctx),
+            0xA1 if ctx.has_rex2() => insn::control::jmp_abs(self, ctx),
             0xA1 => insn::data::mov_rax_moffs(self, ctx),
             0xA2 => insn::data::mov_moffs_al(self, ctx),
             0xA3 => insn::data::mov_moffs_rax(self, ctx),

@@ -21,6 +21,12 @@ pub fn jmp_rel32(vcpu: &mut X86_64Vcpu, ctx: &mut InsnContext) -> Result<Option<
     Ok(None)
 }
 
+/// JMPABS imm64 (APX REX2 + 0xA1)
+pub fn jmp_abs(vcpu: &mut X86_64Vcpu, ctx: &mut InsnContext) -> Result<Option<VcpuExit>> {
+    vcpu.regs.rip = ctx.consume_u64()?;
+    Ok(None)
+}
+
 /// Jcc rel8 (0x70-0x7F)
 pub fn jcc_rel8(vcpu: &mut X86_64Vcpu, ctx: &mut InsnContext, cc: u8) -> Result<Option<VcpuExit>> {
     let disp = ctx.consume_u8()? as i8 as i64;
