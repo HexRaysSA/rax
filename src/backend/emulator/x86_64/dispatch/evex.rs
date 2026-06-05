@@ -3300,6 +3300,9 @@ impl X86_64Vcpu {
         let shift_mask = if op_size == 8 { 0x3F } else { 0x1F };
         let count = (imm as u64) & shift_mask;
 
+        if shift_type <= 3 {
+            self.materialize_flags();
+        }
         let result = self.perform_shift(src, count, shift_type, op_size);
 
         let dest = if ndd { ctx.evex_vvvv() } else { rm };
@@ -3338,6 +3341,9 @@ impl X86_64Vcpu {
         let shift_mask = if op_size == 8 { 0x3F } else { 0x1F };
         let count = if by_one { 1 } else { self.regs.rcx & shift_mask };
 
+        if shift_type <= 3 {
+            self.materialize_flags();
+        }
         let result = self.perform_shift(src, count, shift_type, op_size);
 
         let dest = if ndd { ctx.evex_vvvv() } else { rm };
@@ -3492,31 +3498,49 @@ impl X86_64Vcpu {
         match shift_type {
             0 => {
                 let count = (count as u32) % width;
+                if count == 0 {
+                    return src;
+                }
                 ((src << count) | (src >> (width - count))) & mask
             }
             1 => {
                 let count = (count as u32) % width;
+                if count == 0 {
+                    return src;
+                }
                 ((src >> count) | (src << (width - count))) & mask
             }
             2 => {
                 // RCL
-                let cf = (self.regs.rflags & 1) as u128;
-                let bits = width + 1;
-                let combined = (cf << width) | src as u128;
-                let rotate_mask = (1u128 << bits) - 1;
-                let count = (count as u32) % bits;
-                let rotated = ((combined << count) | (combined >> (bits - count))) & rotate_mask;
-                (rotated as u64) & mask
+                let count = (count as u32) % (width + 1);
+                if count == 0 {
+                    return src;
+                }
+
+                let mut result = src;
+                let mut carry = (self.regs.rflags & flags::bits::CF) != 0;
+                for _ in 0..count {
+                    let msb = (result >> (width - 1)) & 1 != 0;
+                    result = ((result << 1) | carry as u64) & mask;
+                    carry = msb;
+                }
+                result
             }
             3 => {
                 // RCR
-                let cf = (self.regs.rflags & 1) as u128;
-                let bits = width + 1;
-                let combined = (cf << width) | src as u128;
-                let rotate_mask = (1u128 << bits) - 1;
-                let count = (count as u32) % bits;
-                let rotated = ((combined >> count) | (combined << (bits - count))) & rotate_mask;
-                (rotated as u64) & mask
+                let count = (count as u32) % (width + 1);
+                if count == 0 {
+                    return src;
+                }
+
+                let mut result = src;
+                let mut carry = (self.regs.rflags & flags::bits::CF) != 0;
+                for _ in 0..count {
+                    let lsb = result & 1 != 0;
+                    result = (result >> 1) | ((carry as u64) << (width - 1));
+                    carry = lsb;
+                }
+                result & mask
             }
             4 | 6 => (src << count) & mask, // SHL/SAL
             5 => src >> count,              // SHR
@@ -3614,17 +3638,68 @@ impl X86_64Vcpu {
 
         let masked_result = result & max_val;
 
+        let bits = op_size as u64 * 8;
+        if shift_type <= 3 {
+            let rotate_count = if shift_type <= 1 {
+                count % bits
+            } else {
+                count % (bits + 1)
+            };
+            if rotate_count == 0 {
+                return;
+            }
+
+            let cf = match shift_type {
+                0 => (masked_result & 1) != 0,                  // ROL
+                1 => (masked_result & sign_bit) != 0,           // ROR
+                2 => (src >> (bits - rotate_count)) & 1 != 0,   // RCL
+                3 => (src >> (rotate_count - 1)) & 1 != 0,      // RCR
+                _ => unreachable!(),
+            };
+            let of = if rotate_count == 1 {
+                match shift_type {
+                    0 => ((masked_result >> (bits - 1)) ^ masked_result) & 1 != 0,
+                    1 | 3 => {
+                        ((masked_result >> (bits - 1)) ^ (masked_result >> (bits - 2))) & 1 != 0
+                    }
+                    2 => ((masked_result & sign_bit) != 0) ^ cf,
+                    _ => unreachable!(),
+                }
+            } else {
+                (self.regs.rflags & flags::bits::OF) != 0
+            };
+
+            if cf {
+                self.regs.rflags |= flags::bits::CF;
+            } else {
+                self.regs.rflags &= !flags::bits::CF;
+            }
+            if of {
+                self.regs.rflags |= flags::bits::OF;
+            } else {
+                self.regs.rflags &= !flags::bits::OF;
+            }
+            self.clear_lazy_flags();
+            return;
+        }
+
         // ZF, SF, PF from result
         let zf = masked_result == 0;
         let sf = (masked_result & sign_bit) != 0;
         let pf = (result as u8).count_ones() % 2 == 0;
 
         // CF depends on shift type and direction
-        let bits = op_size as u64 * 8;
         let cf = match shift_type {
-            4 | 6 => (src >> (bits - count)) & 1 != 0, // SHL/SAL: last bit shifted out
-            5 | 7 => (src >> (count - 1)) & 1 != 0,    // SHR/SAR: last bit shifted out
-            _ => (self.regs.rflags & 1) != 0,          // Rotates: varies
+            4 | 6 => count <= bits && (src >> (bits - count)) & 1 != 0,
+            5 => count <= bits && (src >> (count - 1)) & 1 != 0,
+            7 => {
+                if count <= bits {
+                    (src >> (count - 1)) & 1 != 0
+                } else {
+                    (src >> (bits - 1)) & 1 != 0
+                }
+            }
+            _ => unreachable!(),
         };
 
         // OF is only defined for count=1
@@ -3633,7 +3708,7 @@ impl X86_64Vcpu {
                 4 | 6 => (masked_result & sign_bit) != (src & sign_bit), // SHL: sign change
                 5 => (src & sign_bit) != 0,                              // SHR: old sign
                 7 => false,                                              // SAR: always 0
-                _ => (self.regs.rflags & 0x800) != 0,
+                _ => unreachable!(),
             }
         } else {
             false // Undefined for count > 1, we clear it

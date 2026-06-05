@@ -505,6 +505,87 @@ fn test_ndd_rol_8bit_match_llvm() {
     assert_eq!(regs.rax, 0x81);
 }
 
+#[test]
+fn test_ndd_rcl_reg_reg_one_match_llvm() {
+    // LLVM 23 assembles "rcl r8, rax, 1" as 62 f4 bc 18 d1 d0.
+    const CF: u64 = 1 << 0;
+    const OF: u64 = 1 << 11;
+    let code = [
+        0x62, 0xF4, 0xBC, 0x18, 0xD1, 0xD0,
+        0xF4,
+    ];
+    let mut regs = Registers::default();
+    regs.rax = 0x8000_0000_0000_0001;
+    regs.r8 = 0xDEAD_BEEF;
+    regs.rflags = CF | 0x2;
+
+    let (mut vcpu, _) = setup_vm(&code, Some(regs));
+    let regs = run_until_hlt(&mut vcpu).unwrap();
+    assert_eq!(regs.r8, 0x3);
+    assert_eq!(regs.rax, 0x8000_0000_0000_0001);
+    assert_ne!(regs.rflags & CF, 0);
+    assert_ne!(regs.rflags & OF, 0);
+}
+
+#[test]
+fn test_ndd_rcr_reg_reg_one_match_llvm() {
+    // LLVM 23 assembles "rcr r8, rax, 1" as 62 f4 bc 18 d1 d8.
+    const CF: u64 = 1 << 0;
+    const OF: u64 = 1 << 11;
+    let code = [
+        0x62, 0xF4, 0xBC, 0x18, 0xD1, 0xD8,
+        0xF4,
+    ];
+    let mut regs = Registers::default();
+    regs.rax = 0x8000_0000_0000_0001;
+    regs.r8 = 0xDEAD_BEEF;
+    regs.rflags = CF | OF | 0x2;
+
+    let (mut vcpu, _) = setup_vm(&code, Some(regs));
+    let regs = run_until_hlt(&mut vcpu).unwrap();
+    assert_eq!(regs.r8, 0xC000_0000_0000_0000);
+    assert_eq!(regs.rax, 0x8000_0000_0000_0001);
+    assert_ne!(regs.rflags & CF, 0);
+    assert_eq!(regs.rflags & OF, 0);
+}
+
+#[test]
+fn test_ndd_rcl_32bit_imm_match_llvm() {
+    // LLVM 23 assembles "rcl r8d, eax, 4" as 62 f4 3c 18 c1 d0 04.
+    let code = [
+        0x62, 0xF4, 0x3C, 0x18, 0xC1, 0xD0, 0x04,
+        0xF4,
+    ];
+    let mut regs = Registers::default();
+    regs.rax = 0x8000_0001;
+    regs.r8 = 0xFFFF_FFFF_DEAD_BEEF;
+    regs.rflags = 0x2;
+
+    let (mut vcpu, _) = setup_vm(&code, Some(regs));
+    let regs = run_until_hlt(&mut vcpu).unwrap();
+    assert_eq!(regs.r8, 0x14);
+    assert_eq!(regs.rax, 0x8000_0001);
+}
+
+#[test]
+fn test_ndd_rcr_32bit_cl_match_llvm() {
+    // LLVM 23 assembles "rcr r8d, eax, cl" as 62 f4 3c 18 d3 d8.
+    let code = [
+        0x62, 0xF4, 0x3C, 0x18, 0xD3, 0xD8,
+        0xF4,
+    ];
+    let mut regs = Registers::default();
+    regs.rax = 0x10;
+    regs.rcx = 4;
+    regs.r8 = 0xFFFF_FFFF_DEAD_BEEF;
+    regs.rflags = 0x3;
+
+    let (mut vcpu, _) = setup_vm(&code, Some(regs));
+    let regs = run_until_hlt(&mut vcpu).unwrap();
+    assert_eq!(regs.r8, 0x1000_0001);
+    assert_eq!(regs.rax, 0x10);
+}
+
 // ============================================================================
 // NDD ADC/SBB (3-operand with carry)
 // ============================================================================
