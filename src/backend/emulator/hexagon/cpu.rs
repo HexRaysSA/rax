@@ -3,9 +3,8 @@ use std::sync::Arc;
 use vm_memory::{Bytes, GuestAddress, GuestMemoryMmap};
 
 use super::decode::{
-    decode, decode_duplex, isa_supports_insn, AddrMode, CmpKind, CombineOperand, DecodedInsn,
-    DecodedSub, ExtendKind, MemOpKind, MemOpSrc, MemSign, MemWidth, PredCond, ShiftKind,
-    SpliceAmount,
+    AddrMode, CmpKind, CombineOperand, DecodedInsn, DecodedSub, ExtendKind, MemOpKind, MemOpSrc,
+    MemSign, MemWidth, PredCond, ShiftKind, SpliceAmount, decode, decode_duplex, isa_supports_insn,
 };
 use super::opcode::Opcode;
 use crate::config::{Endianness, HexagonIsa};
@@ -662,11 +661,7 @@ impl HexagonVcpu {
         };
         // Conditional execution tests only the least-significant bit.
         let lsb = val & 1 != 0;
-        if cond.sense {
-            lsb
-        } else {
-            !lsb
-        }
+        if cond.sense { lsb } else { !lsb }
     }
 
     fn read_reg_with_new(&self, reg: u8, new_r: &[Option<u32>; 32]) -> u32 {
@@ -712,14 +707,14 @@ impl HexagonVcpu {
                 let new_base = base_val.wrapping_add(self.modifier(modsel));
                 (ea, Some((base, new_base)))
             }
-            AddrMode::PostIncCircImm {
-                base,
-                modsel,
-                incr,
-            } => {
+            AddrMode::PostIncCircImm { base, modsel, incr } => {
                 let base_val = self.regs.r[base as usize];
-                let new_base =
-                    hex_circ_add(base_val, incr, self.modifier(modsel), self.circ_start(modsel));
+                let new_base = hex_circ_add(
+                    base_val,
+                    incr,
+                    self.modifier(modsel),
+                    self.circ_start(modsel),
+                );
                 (base_val, Some((base, new_base)))
             }
             AddrMode::PostIncCircReg {
@@ -766,11 +761,13 @@ impl HexagonVcpu {
         &mut self,
         insn: DecodedInsn,
         packet_pc: u32,
+        insn_pc: u32,
         immext: Option<u32>,
         new_r: &mut [Option<u32>; 32],
         new_p: &mut [Option<u8>; 4],
         branch: &mut Option<BranchTarget>,
     ) -> Result<Option<VcpuExit>> {
+        let pcrel_base = if immext.is_some() { packet_pc } else { insn_pc };
         match insn {
             DecodedInsn::ImmExt { .. } => {
                 return Err(Error::Emulator("unexpected immext in execute".to_string()));
@@ -873,7 +870,7 @@ impl HexagonVcpu {
                         MemWidth::Double => {
                             return Err(Error::Emulator(
                                 "doubleword mmio load not supported".to_string(),
-                            ))
+                            ));
                         }
                     };
                     let signed = matches!(sign, MemSign::Signed) && size < 4;
@@ -936,7 +933,7 @@ impl HexagonVcpu {
                     _ => {
                         return Err(Error::Emulator(
                             "loadalign supports only byte/half".to_string(),
-                        ))
+                        ));
                     }
                 };
                 let result = (old >> w) | (loaded << (64 - w));
@@ -1057,7 +1054,7 @@ impl HexagonVcpu {
                             MemWidth::Double => {
                                 return Err(Error::Emulator(
                                     "doubleword mmio store not supported".to_string(),
-                                ))
+                                ));
                             }
                         };
                         return Ok(Some(VcpuExit::MmioWrite {
@@ -1103,7 +1100,7 @@ impl HexagonVcpu {
                     | AddrMode::IndexAbs { .. } => {
                         return Err(Error::Emulator(
                             "post-increment store immediate not supported".to_string(),
-                        ))
+                        ));
                     }
                 };
 
@@ -1121,7 +1118,7 @@ impl HexagonVcpu {
                         MemWidth::Double => {
                             return Err(Error::Emulator(
                                 "doubleword mmio store immediate not supported".to_string(),
-                            ))
+                            ));
                         }
                     };
                     return Ok(Some(VcpuExit::MmioWrite {
@@ -1198,7 +1195,7 @@ impl HexagonVcpu {
                 self.set_branch(branch, lr & !0x3, false)?;
             }
             DecodedInsn::Jump { offset } => {
-                let target = packet_pc.wrapping_add(offset as u32) & !0x3;
+                let target = pcrel_base.wrapping_add(offset as u32) & !0x3;
                 self.set_branch(branch, target, false)?;
             }
             DecodedInsn::JumpCond {
@@ -1213,7 +1210,7 @@ impl HexagonVcpu {
                     pred_new,
                 };
                 if self.eval_pred(cond, new_p) {
-                    let target = packet_pc.wrapping_add(offset as u32) & !0x3;
+                    let target = pcrel_base.wrapping_add(offset as u32) & !0x3;
                     self.set_branch(branch, target, false)?;
                 }
             }
@@ -1239,8 +1236,7 @@ impl HexagonVcpu {
             }
             DecodedInsn::JumpRegZero { src, kind, offset } => {
                 // `if (cmp.<kind>(Rs,#0)) jump #r13:2`: a DIRECT PC-relative jump
-                // (target = packet_pc + offset) conditioned on a register
-                // compare-to-zero.
+                // conditioned on a register compare-to-zero.
                 let a = self.regs.r[src as usize] as i32;
                 let take = match kind {
                     CmpKind::Eq => a == 0,
@@ -1250,7 +1246,7 @@ impl HexagonVcpu {
                     _ => false,
                 };
                 if take {
-                    let target = packet_pc.wrapping_add(offset as u32) & !0x3;
+                    let target = pcrel_base.wrapping_add(offset as u32) & !0x3;
                     self.set_branch(branch, target, false)?;
                 }
             }
@@ -1262,7 +1258,7 @@ impl HexagonVcpu {
                     crate::backend::emulator::hexagon::decode::JumpSetSrc::Imm(imm) => imm,
                 };
                 new_r[dst as usize] = Some(val);
-                let target = packet_pc.wrapping_add(offset as u32) & !0x3;
+                let target = pcrel_base.wrapping_add(offset as u32) & !0x3;
                 self.set_branch(branch, target, false)?;
             }
             DecodedInsn::Nop => {}
@@ -1300,14 +1296,14 @@ impl HexagonVcpu {
                 }
                 // Branch when (compare result == taken sense).
                 if result == sense {
-                    let target = packet_pc.wrapping_add(offset as u32) & !0x3;
+                    let target = pcrel_base.wrapping_add(offset as u32) & !0x3;
                     self.set_branch(branch, target, false)?;
                 }
             }
             DecodedInsn::Call { offset, pred } => {
                 let take = pred.map_or(true, |cond| self.eval_pred(cond, new_p));
                 if take {
-                    let target = packet_pc.wrapping_add(offset as u32) & !0x3;
+                    let target = pcrel_base.wrapping_add(offset as u32) & !0x3;
                     self.set_branch(branch, target, true)?;
                 }
             }
@@ -1432,7 +1428,7 @@ impl HexagonVcpu {
                 lpcfg,
             } => {
                 let count = self.regs.r[count_reg as usize];
-                let sa = packet_pc.wrapping_add(start_offset as u32) & !0x3;
+                let sa = pcrel_base.wrapping_add(start_offset as u32) & !0x3;
                 if loop_id == 0 {
                     self.regs.c[0] = sa;
                     self.regs.c[1] = count;
@@ -1451,7 +1447,7 @@ impl HexagonVcpu {
                 count,
                 lpcfg,
             } => {
-                let sa = packet_pc.wrapping_add(start_offset as u32) & !0x3;
+                let sa = pcrel_base.wrapping_add(start_offset as u32) & !0x3;
                 if loop_id == 0 {
                     self.regs.c[0] = sa;
                     self.regs.c[1] = count;
@@ -1527,10 +1523,11 @@ impl HexagonVcpu {
                     }
                     // Post-increment: `pi` by the (vector-unit) immediate, `ppu` by
                     // the modifier register Mu (full byte value).
-                    let inc = post_inc.map(|i| i as u32).or_else(|| post_inc_mod.map(|m| self.modifier(m)));
+                    let inc = post_inc
+                        .map(|i| i as u32)
+                        .or_else(|| post_inc_mod.map(|m| self.modifier(m)));
                     if let Some(inc) = inc {
-                        new_r[base as usize] =
-                            Some(self.regs.r[base as usize].wrapping_add(inc));
+                        new_r[base as usize] = Some(self.regs.r[base as usize].wrapping_add(inc));
                     }
                 }
             }
@@ -1613,11 +1610,12 @@ impl HexagonVcpu {
                     let inc = if srls {
                         None
                     } else {
-                        post_inc.map(|i| i as u32).or_else(|| post_inc_mod.map(|m| self.modifier(m)))
+                        post_inc
+                            .map(|i| i as u32)
+                            .or_else(|| post_inc_mod.map(|m| self.modifier(m)))
                     };
                     if let Some(inc) = inc {
-                        new_r[base as usize] =
-                            Some(self.regs.r[base as usize].wrapping_add(inc));
+                        new_r[base as usize] = Some(self.regs.r[base as usize].wrapping_add(inc));
                     }
                 }
             }
@@ -1712,9 +1710,7 @@ impl HexagonVcpu {
             DecodedInsn::StoreNew { .. } => {
                 // New-value stores are resolved to a regular Store by the packet
                 // driver before reaching here; seeing one is a logic error.
-                return Err(Error::Emulator(
-                    "unresolved new-value store".to_string(),
-                ));
+                return Err(Error::Emulator("unresolved new-value store".to_string()));
             }
             DecodedInsn::LoadLocked { dst, base, width } => {
                 // Plain word/dword load at `Rs+0` that also sets the LL
@@ -2049,9 +2045,15 @@ impl HexagonVcpu {
 
         loop {
             if let Some(sub) = pending_subinsn.take() {
-                if let Some(exit) =
-                    self.execute_insn(sub.insn, packet_pc, None, &mut new_r, &mut new_p, &mut branch)?
-                {
+                if let Some(exit) = self.execute_insn(
+                    sub.insn,
+                    packet_pc,
+                    packet_pc,
+                    None,
+                    &mut new_r,
+                    &mut new_p,
+                    &mut branch,
+                )? {
                     if matches!(exit, VcpuExit::Shutdown) {
                         self.finish_packet(
                             pc,
@@ -2116,9 +2118,15 @@ impl HexagonVcpu {
                 self.ensure_isa_supports(word, &slot1.insn, slot1.opcode)?;
                 self.ensure_isa_supports(word, &slot0.insn, slot0.opcode)?;
 
-                if let Some(exit) =
-                    self.execute_insn(slot1.insn, packet_pc, None, &mut new_r, &mut new_p, &mut branch)?
-                {
+                if let Some(exit) = self.execute_insn(
+                    slot1.insn,
+                    packet_pc,
+                    pc,
+                    None,
+                    &mut new_r,
+                    &mut new_p,
+                    &mut branch,
+                )? {
                     if matches!(exit, VcpuExit::Shutdown) {
                         self.finish_packet(
                             pc.wrapping_add(4),
@@ -2151,9 +2159,15 @@ impl HexagonVcpu {
                     return Ok(Some(exit));
                 }
 
-                if let Some(exit) =
-                    self.execute_insn(slot0.insn, packet_pc, None, &mut new_r, &mut new_p, &mut branch)?
-                {
+                if let Some(exit) = self.execute_insn(
+                    slot0.insn,
+                    packet_pc,
+                    pc,
+                    None,
+                    &mut new_r,
+                    &mut new_p,
+                    &mut branch,
+                )? {
                     if matches!(exit, VcpuExit::Shutdown) {
                         self.finish_packet(
                             pc.wrapping_add(4),
@@ -2221,6 +2235,7 @@ impl HexagonVcpu {
                     if let Some(exit) = self.execute_insn(
                         insn,
                         packet_pc,
+                        pc,
                         cur_immext,
                         &mut new_r,
                         &mut new_p,
@@ -2311,7 +2326,7 @@ impl VCpu for HexagonVcpu {
             _ => {
                 return Err(Error::Emulator(
                     "expected hexagon state for hexagon vCPU".to_string(),
-                ))
+                ));
             }
         };
         self.regs = state.regs.clone();
