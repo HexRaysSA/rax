@@ -27,6 +27,78 @@ use crate::common::*;
 // CCMP Instruction Tests
 // ============================================================================
 
+#[test]
+fn test_ccmp_false_condition_uses_encoded_default_flags_match_llvm() {
+    // LLVM 23 assembles "ccmpo {dfv=cf,zf} rax, rbx" without a trailing dfv byte:
+    // 62 f4 9c 00 39 d8. OF is initially clear, so CCMPO is false and the
+    // encoded default flags must be applied.
+    const CF: u64 = 1;
+    const ZF: u64 = 1 << 6;
+    const SF: u64 = 1 << 7;
+    const OF: u64 = 1 << 11;
+    let mut regs = Registers::default();
+    regs.rax = 1;
+    regs.rbx = 1;
+    regs.rflags = 0x2;
+    let code = [
+        0x62, 0xF4, 0x9C, 0x00, 0x39, 0xD8,
+        0xF4,
+    ];
+
+    let (mut vcpu, _) = setup_vm(&code, Some(regs));
+    let regs = run_until_hlt(&mut vcpu).unwrap();
+    assert_ne!(regs.rflags & CF, 0);
+    assert_ne!(regs.rflags & ZF, 0);
+    assert_eq!(regs.rflags & SF, 0);
+    assert_eq!(regs.rflags & OF, 0);
+}
+
+#[test]
+fn test_ccmp_true_condition_performs_compare_match_llvm() {
+    // LLVM 23 assembles "ccmpno {dfv=cf,zf} rax, rbx" as 62 f4 9c 01 39 d8.
+    // OF is initially clear, so CCMPNO is true and the CMP result wins over dfv.
+    const CF: u64 = 1;
+    const ZF: u64 = 1 << 6;
+    let mut regs = Registers::default();
+    regs.rax = 1;
+    regs.rbx = 1;
+    regs.rflags = 0x2;
+    let code = [
+        0x62, 0xF4, 0x9C, 0x01, 0x39, 0xD8,
+        0xF4,
+    ];
+
+    let (mut vcpu, _) = setup_vm(&code, Some(regs));
+    let regs = run_until_hlt(&mut vcpu).unwrap();
+    assert_eq!(regs.rflags & CF, 0);
+    assert_ne!(regs.rflags & ZF, 0);
+}
+
+#[test]
+fn test_ctest_false_condition_uses_encoded_default_flags_match_llvm() {
+    // LLVM 23 assembles "ctesto {dfv=sf,of} rax, rbx" as 62 f4 e4 00 85 d8.
+    // OF is initially clear, so CTESTO is false and default SF/OF are applied.
+    const CF: u64 = 1;
+    const ZF: u64 = 1 << 6;
+    const SF: u64 = 1 << 7;
+    const OF: u64 = 1 << 11;
+    let mut regs = Registers::default();
+    regs.rax = 0;
+    regs.rbx = 0;
+    regs.rflags = 0x2;
+    let code = [
+        0x62, 0xF4, 0xE4, 0x00, 0x85, 0xD8,
+        0xF4,
+    ];
+
+    let (mut vcpu, _) = setup_vm(&code, Some(regs));
+    let regs = run_until_hlt(&mut vcpu).unwrap();
+    assert_eq!(regs.rflags & CF, 0);
+    assert_eq!(regs.rflags & ZF, 0);
+    assert_ne!(regs.rflags & SF, 0);
+    assert_ne!(regs.rflags & OF, 0);
+}
+
 /// CCMPO (overflow) - Compare if OF=1
 #[test]
 fn test_ccmpo_r64_r64() {
