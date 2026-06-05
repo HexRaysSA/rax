@@ -113,6 +113,10 @@ impl Aarch32Decoder {
             return Ok(insn);
         }
 
+        if let Some(insn) = Self::decode_neon_vrint(raw) {
+            return Ok(insn);
+        }
+
         if let Some(insn) = Self::decode_neon_vdup_scalar(raw) {
             return Ok(insn);
         }
@@ -542,6 +546,43 @@ impl Aarch32Decoder {
             || (fp && !matches!(size, 0b01 | 0b10))
             || (q && ((vd | vm) & 1) != 0)
         {
+            return Some(DecodedInsn::new(
+                Mnemonic::UNDEFINED,
+                ExecutionState::Aarch32,
+                raw,
+                4,
+            ));
+        }
+
+        Some(DecodedInsn::new(mnemonic, ExecutionState::Aarch32, raw, 4))
+    }
+
+    fn decode_neon_vrint(raw: u32) -> Option<DecodedInsn> {
+        if (raw >> 24) != 0xF3
+            || ((raw >> 23) & 1) != 1
+            || ((raw >> 21) & 1) != 1
+            || ((raw >> 20) & 1) != 1
+            || ((raw >> 16) & 0x3) != 0b10
+            || ((raw >> 7) & 1) != 1
+            || ((raw >> 4) & 1) != 0
+        {
+            return None;
+        }
+
+        let size = (raw >> 18) & 0x3;
+        let mnemonic = match ((raw >> 8) & 0xF, size) {
+            (0b0100, 0b01) => Mnemonic::VRINTX_F16,
+            (0b0100, 0b10) => Mnemonic::VRINTX_F32,
+            (0b0101, 0b01) => Mnemonic::VRINTZ_F16,
+            (0b0101, 0b10) => Mnemonic::VRINTZ_F32,
+            (0b0100 | 0b0101, 0b00 | 0b11) => Mnemonic::UNDEFINED,
+            _ => return None,
+        };
+
+        let q = ((raw >> 6) & 1) != 0;
+        let vd = (raw >> 12) & 0xF;
+        let vm = raw & 0xF;
+        if q && ((vd | vm) & 1) != 0 {
             return Some(DecodedInsn::new(
                 Mnemonic::UNDEFINED,
                 ExecutionState::Aarch32,

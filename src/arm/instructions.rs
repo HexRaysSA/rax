@@ -480,6 +480,12 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
             }
             Mnemonic::VABS | Mnemonic::VNEG => self.exec_vfp_unop(insn),
             Mnemonic::VSQRT => self.exec_vfp_unop(insn),
+            Mnemonic::VRINTX_F16
+            | Mnemonic::VRINTX_F32
+            | Mnemonic::VRINTZ_F16
+            | Mnemonic::VRINTZ_F32 if Self::is_neon_vrint_shape(insn.raw) => {
+                self.exec_neon_vrint(insn)
+            }
             Mnemonic::VRINTA_F32
             | Mnemonic::VRINTA_F64
             | Mnemonic::VRINTM_F32
@@ -3623,6 +3629,80 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
             0b1110 | 0b1111 => matches!(size, 0b01 | 0b10),
             _ => false,
         }
+    }
+
+    fn is_neon_vrint_shape(raw: u32) -> bool {
+        (raw >> 24) == 0xF3
+            && ((raw >> 23) & 1) == 1
+            && ((raw >> 21) & 1) == 1
+            && ((raw >> 20) & 1) == 1
+            && ((raw >> 16) & 0x3) == 0b10
+            && matches!((raw >> 8) & 0xF, 0b0100 | 0b0101)
+            && ((raw >> 7) & 1) == 1
+            && ((raw >> 4) & 1) == 0
+    }
+
+    fn exec_neon_vrint(&mut self, insn: &DecodedInsn) -> ExecResult {
+        if !self.cpu.vfp.is_enabled() {
+            return ExecResult::Exception(ExceptionType::UndefinedInstruction);
+        }
+        if !Self::is_neon_vrint_shape(insn.raw) {
+            return ExecResult::Undefined;
+        }
+
+        let size = match (insn.raw >> 18) & 0x3 {
+            0b01 => NeonSize::H16,
+            0b10 => NeonSize::S32,
+            _ => return ExecResult::Undefined,
+        };
+        let Some((mode, exact)) = self.vrint_rounding(insn.mnemonic) else {
+            return ExecResult::Undefined;
+        };
+
+        let d_bit = ((insn.raw >> 22) & 1) as u8;
+        let vd = ((insn.raw >> 12) & 0xF) as u8;
+        let m_bit = ((insn.raw >> 5) & 1) as u8;
+        let vm = (insn.raw & 0xF) as u8;
+        let q = ((insn.raw >> 6) & 1) != 0;
+        let regs = if q { 2 } else { 1 };
+        let d = (d_bit << 4) | vd;
+        let m = (m_bit << 4) | vm;
+        if q && ((d | m) & 1) != 0 {
+            return ExecResult::Undefined;
+        }
+        if d + regs > 32 || m + regs > 32 {
+            return ExecResult::Undefined;
+        }
+
+        let ebytes = (size.bits() / 8) as u8;
+        for reg in 0..regs {
+            let elements = self.neon_read_vector_elements_u64(m + reg, 1, ebytes);
+            let mut out = Vec::with_capacity(elements.len());
+            for elem in elements {
+                let result = match size {
+                    NeonSize::H16 => u64::from(vrint_f16_bits(
+                        elem as u16,
+                        mode,
+                        exact,
+                        &mut self.cpu.vfp.fpscr,
+                    )),
+                    NeonSize::S32 => u64::from(
+                        vrint_f32(
+                            f32::from_bits(elem as u32),
+                            mode,
+                            exact,
+                            &mut self.cpu.vfp.fpscr,
+                        )
+                        .to_bits(),
+                    ),
+                    _ => return ExecResult::Undefined,
+                };
+                out.push(result);
+            }
+            self.neon_write_vector_elements_u64(d + reg, 1, ebytes, &out);
+        }
+
+        ExecResult::Continue
     }
 
     fn exec_neon_halving_add_sub(&mut self, insn: &DecodedInsn) -> ExecResult {

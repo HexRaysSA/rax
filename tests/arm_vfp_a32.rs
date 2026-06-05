@@ -1366,6 +1366,65 @@ fn scalar_vrint_decode_and_round_to_integral_float() {
 }
 
 #[test]
+fn neon_vrintx_vrintz_round_f32_and_f16_lanes() {
+    let mut cpu = Armv7Cpu::new();
+    let mut mem = FlatMemory::new(0x1000, 0);
+    let pack_f32x2 =
+        |low: f32, high: f32| u64::from(high.to_bits()) << 32 | u64::from(low.to_bits());
+
+    assert_eq!(
+        Aarch32Decoder::decode(0xF3BA_0482).unwrap().mnemonic,
+        Mnemonic::VRINTX_F32
+    );
+    assert_eq!(
+        Aarch32Decoder::decode(0xF3BA_0582).unwrap().mnemonic,
+        Mnemonic::VRINTZ_F32
+    );
+    assert_eq!(
+        Aarch32Decoder::decode(0xF3B6_0482).unwrap().mnemonic,
+        Mnemonic::VRINTX_F16
+    );
+    assert_eq!(
+        Aarch32Decoder::decode(0xF3B2_0482).unwrap().mnemonic,
+        Mnemonic::UNDEFINED
+    );
+    assert_eq!(
+        Aarch32Decoder::decode(0xF3BA_15C2).unwrap().mnemonic,
+        Mnemonic::UNDEFINED
+    );
+
+    cpu.vfp.write_d_bits(2, pack_f32x2(1.75, -1.75));
+    assert!(matches!(
+        exec_one(&mut cpu, &mut mem, 0xF3BA_0482),
+        ExecResult::Continue
+    ));
+    assert_eq!(cpu.vfp.read_d_bits(0), pack_f32x2(2.0, -2.0));
+
+    cpu.vfp.write_d_bits(2, pack_f32x2(1.75, -1.75));
+    assert!(matches!(
+        exec_one(&mut cpu, &mut mem, 0xF3BA_0582),
+        ExecResult::Continue
+    ));
+    assert_eq!(cpu.vfp.read_d_bits(0), pack_f32x2(1.0, -1.0));
+
+    cpu.vfp.write_d_bits(2, 0xc060_4060_bf00_3f00);
+    assert!(matches!(
+        exec_one(&mut cpu, &mut mem, 0xF3B6_0482),
+        ExecResult::Continue
+    ));
+    assert_eq!(cpu.vfp.read_d_bits(0), 0xc000_4000_c000_4000);
+
+    cpu.vfp.write_d_bits(2, pack_f32x2(1.25, -1.25));
+    cpu.vfp.write_d_bits(3, pack_f32x2(2.5, -2.5));
+    assert!(matches!(
+        exec_one(&mut cpu, &mut mem, 0xF3BA_05C2),
+        ExecResult::Continue
+    ));
+    assert_eq!(cpu.vfp.read_d_bits(0), pack_f32x2(1.0, -1.0));
+    assert_eq!(cpu.vfp.read_d_bits(1), pack_f32x2(2.0, -2.0));
+}
+
+#[test]
 fn scalar_half_precision_conversions_decode_and_preserve_halves() {
     let cases = [
         (0xEEB2_0A60, Mnemonic::VCVTB_F32_F16),
