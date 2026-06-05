@@ -38,6 +38,9 @@ pub struct VfpState {
     /// Floating-Point Exception Register (VFPv3+).
     pub fpexc: u32,
 
+    /// Floating-Point System ID Register.
+    pub fpsid: u32,
+
     /// Media and VFP Feature Registers.
     pub mvfr0: u32,
     pub mvfr1: u32,
@@ -50,6 +53,7 @@ impl Default for VfpState {
             dregs: [0; 32],
             fpscr: Fpscr::default(),
             fpexc: 0x4000_0000, // EN bit set by default
+            fpsid: 0x4103_3070, // Implementation ID for a VFPv3-style unit.
             // MVFR values indicating VFPv3 + NEON support
             mvfr0: 0x10110222, // VFPv3 with single and double precision
             mvfr1: 0x11111111, // NEON support
@@ -165,6 +169,7 @@ impl fmt::Debug for VfpState {
         writeln!(f, "VfpState {{")?;
         writeln!(f, "  FPSCR: {:08x}", self.fpscr.bits())?;
         writeln!(f, "  FPEXC: {:08x}", self.fpexc)?;
+        writeln!(f, "  FPSID: {:08x}", self.fpsid)?;
         for i in 0..32 {
             if self.dregs[i] != 0 {
                 writeln!(f, "  D{}: {:016x}", i, self.dregs[i])?;
@@ -219,6 +224,20 @@ impl Fpscr {
             | ((z as u32) << 30)
             | ((c as u32) << 29)
             | ((v as u32) << 28);
+    }
+
+    /// Cumulative saturation flag.
+    pub fn qc(&self) -> bool {
+        (self.bits & (1 << 27)) != 0
+    }
+
+    /// Set cumulative saturation flag.
+    pub fn set_qc(&mut self, qc: bool) {
+        if qc {
+            self.bits |= 1 << 27;
+        } else {
+            self.bits &= !(1 << 27);
+        }
     }
 
     /// Flush-to-zero mode.
@@ -405,7 +424,10 @@ pub fn vadd_f64(a: f64, b: f64, fpscr: &mut Fpscr) -> f64 {
 
 /// Execute half-precision addition.
 pub fn vadd_f16_bits(a: u16, b: u16, fpscr: &mut Fpscr) -> u16 {
-    vcvt_f16_bits_f32(vadd_f32(vcvt_f32_f16_bits(a), vcvt_f32_f16_bits(b), fpscr), fpscr)
+    vcvt_f16_bits_f32(
+        vadd_f32(vcvt_f32_f16_bits(a), vcvt_f32_f16_bits(b), fpscr),
+        fpscr,
+    )
 }
 
 /// Execute single-precision subtraction.
@@ -424,7 +446,10 @@ pub fn vsub_f64(a: f64, b: f64, fpscr: &mut Fpscr) -> f64 {
 
 /// Execute half-precision subtraction.
 pub fn vsub_f16_bits(a: u16, b: u16, fpscr: &mut Fpscr) -> u16 {
-    vcvt_f16_bits_f32(vsub_f32(vcvt_f32_f16_bits(a), vcvt_f32_f16_bits(b), fpscr), fpscr)
+    vcvt_f16_bits_f32(
+        vsub_f32(vcvt_f32_f16_bits(a), vcvt_f32_f16_bits(b), fpscr),
+        fpscr,
+    )
 }
 
 /// Execute single-precision multiplication.
@@ -443,7 +468,10 @@ pub fn vmul_f64(a: f64, b: f64, fpscr: &mut Fpscr) -> f64 {
 
 /// Execute half-precision multiplication.
 pub fn vmul_f16_bits(a: u16, b: u16, fpscr: &mut Fpscr) -> u16 {
-    vcvt_f16_bits_f32(vmul_f32(vcvt_f32_f16_bits(a), vcvt_f32_f16_bits(b), fpscr), fpscr)
+    vcvt_f16_bits_f32(
+        vmul_f32(vcvt_f32_f16_bits(a), vcvt_f32_f16_bits(b), fpscr),
+        fpscr,
+    )
 }
 
 /// Execute single-precision division.
@@ -468,7 +496,10 @@ pub fn vdiv_f64(a: f64, b: f64, fpscr: &mut Fpscr) -> f64 {
 
 /// Execute half-precision division.
 pub fn vdiv_f16_bits(a: u16, b: u16, fpscr: &mut Fpscr) -> u16 {
-    vcvt_f16_bits_f32(vdiv_f32(vcvt_f32_f16_bits(a), vcvt_f32_f16_bits(b), fpscr), fpscr)
+    vcvt_f16_bits_f32(
+        vdiv_f32(vcvt_f32_f16_bits(a), vcvt_f32_f16_bits(b), fpscr),
+        fpscr,
+    )
 }
 
 /// Execute single-precision negation.
@@ -758,7 +789,10 @@ pub fn vnmul_f64(a: f64, b: f64, fpscr: &mut Fpscr) -> f64 {
 
 /// Execute half-precision negated multiply.
 pub fn vnmul_f16_bits(a: u16, b: u16, fpscr: &mut Fpscr) -> u16 {
-    vcvt_f16_bits_f32(vnmul_f32(vcvt_f32_f16_bits(a), vcvt_f32_f16_bits(b), fpscr), fpscr)
+    vcvt_f16_bits_f32(
+        vnmul_f32(vcvt_f32_f16_bits(a), vcvt_f32_f16_bits(b), fpscr),
+        fpscr,
+    )
 }
 
 /// Execute single-precision maxNum.
@@ -807,6 +841,14 @@ pub fn vmaxnm_f64(a: f64, b: f64, fpscr: &mut Fpscr) -> f64 {
     }
 }
 
+/// Execute half-precision maxNum.
+pub fn vmaxnm_f16_bits(a: u16, b: u16, fpscr: &mut Fpscr) -> u16 {
+    vcvt_f16_bits_f32(
+        vmaxnm_f32(vcvt_f32_f16_bits(a), vcvt_f32_f16_bits(b), fpscr),
+        fpscr,
+    )
+}
+
 /// Execute single-precision minNum.
 pub fn vminnm_f32(a: f32, b: f32, fpscr: &mut Fpscr) -> f32 {
     if a.is_nan() || b.is_nan() {
@@ -851,6 +893,14 @@ pub fn vminnm_f64(a: f64, b: f64, fpscr: &mut Fpscr) -> f64 {
     } else {
         a.min(b)
     }
+}
+
+/// Execute half-precision minNum.
+pub fn vminnm_f16_bits(a: u16, b: u16, fpscr: &mut Fpscr) -> u16 {
+    vcvt_f16_bits_f32(
+        vminnm_f32(vcvt_f32_f16_bits(a), vcvt_f32_f16_bits(b), fpscr),
+        fpscr,
+    )
 }
 
 /// Compare single-precision values, updating FPSCR flags.
@@ -1095,6 +1145,13 @@ pub fn vrint_f32(val: f32, mode: RoundingMode, exact: bool, fpscr: &mut Fpscr) -
     rounded
 }
 
+/// Round half-precision bits to an integral half-precision floating-point value.
+pub fn vrint_f16_bits(bits: u16, mode: RoundingMode, exact: bool, fpscr: &mut Fpscr) -> u16 {
+    let value = vcvt_f32_f16_bits(bits);
+    let rounded = vrint_f32(value, mode, exact, fpscr);
+    vcvt_f16_bits_f32(rounded, fpscr)
+}
+
 /// Round double-precision to an integral floating-point value.
 pub fn vrint_f64(val: f64, mode: RoundingMode, exact: bool, fpscr: &mut Fpscr) -> f64 {
     if val.is_nan() {
@@ -1201,10 +1258,19 @@ pub fn vfp_expand_imm_f32(imm8: u8) -> u32 {
     let imm8 = imm8 as u32;
     let sign = (imm8 >> 7) & 1;
     let b6 = (imm8 >> 6) & 1;
-    let exp =
-        ((!b6 & 1) << 7) | ((if b6 != 0 { 0b11111 } else { 0 }) << 2) | ((imm8 >> 4) & 0x3);
+    let exp = ((!b6 & 1) << 7) | ((if b6 != 0 { 0b11111 } else { 0 }) << 2) | ((imm8 >> 4) & 0x3);
     let mant = (imm8 & 0xF) << 19;
     (sign << 31) | (exp << 23) | mant
+}
+
+/// Expand an 8-bit VFP immediate to a half-precision bit pattern.
+pub fn vfp_expand_imm_f16(imm8: u8) -> u16 {
+    let imm8 = imm8 as u16;
+    let sign = (imm8 >> 7) & 1;
+    let b6 = (imm8 >> 6) & 1;
+    let exp = ((!b6 & 1) << 4) | ((if b6 != 0 { 0b11 } else { 0 }) << 2) | ((imm8 >> 4) & 0x3);
+    let mant = (imm8 & 0xF) << 6;
+    (sign << 15) | (exp << 10) | mant
 }
 
 /// Expand an 8-bit VFP immediate to a double-precision bit pattern.
@@ -1212,8 +1278,7 @@ pub fn vfp_expand_imm_f64(imm8: u8) -> u64 {
     let imm8 = imm8 as u64;
     let sign = (imm8 >> 7) & 1;
     let b6 = (imm8 >> 6) & 1;
-    let exp =
-        ((!b6 & 1) << 10) | ((if b6 != 0 { 0xFF } else { 0 }) << 2) | ((imm8 >> 4) & 0x3);
+    let exp = ((!b6 & 1) << 10) | ((if b6 != 0 { 0xFF } else { 0 }) << 2) | ((imm8 >> 4) & 0x3);
     let mant = (imm8 & 0xF) << 48;
     (sign << 63) | (exp << 52) | mant
 }
@@ -1463,6 +1528,130 @@ pub fn vorn(a: u64, b: u64) -> u64 {
 /// NEON bitwise NOT (MVN).
 pub fn vmvn(a: u64) -> u64 {
     !a
+}
+
+fn count_leading_sign_bits(value: u64, bits: u32) -> u64 {
+    let sign_bit = 1u64 << (bits - 1);
+    let mask = if bits == 64 {
+        u64::MAX
+    } else {
+        (1u64 << bits) - 1
+    };
+    let value = value & mask;
+    let inverted = if (value & sign_bit) == 0 {
+        value
+    } else {
+        (!value) & mask
+    };
+    if inverted == 0 {
+        return (bits - 1) as u64;
+    }
+    let leading = if bits == 64 {
+        inverted.leading_zeros()
+    } else {
+        (inverted << (64 - bits)).leading_zeros()
+    };
+    leading.saturating_sub(1) as u64
+}
+
+/// NEON count leading sign bits (element-wise).
+pub fn vcls_i(a: u64, size: NeonSize) -> u64 {
+    match size {
+        NeonSize::B8 => {
+            let mut result = 0u64;
+            for i in 0..8 {
+                let value = (a >> (i * 8)) & 0xFF;
+                result |= count_leading_sign_bits(value, 8) << (i * 8);
+            }
+            result
+        }
+        NeonSize::H16 => {
+            let mut result = 0u64;
+            for i in 0..4 {
+                let value = (a >> (i * 16)) & 0xFFFF;
+                result |= count_leading_sign_bits(value, 16) << (i * 16);
+            }
+            result
+        }
+        NeonSize::S32 => {
+            let mut result = 0u64;
+            for i in 0..2 {
+                let value = (a >> (i * 32)) & 0xFFFF_FFFF;
+                result |= count_leading_sign_bits(value, 32) << (i * 32);
+            }
+            result
+        }
+        NeonSize::D64 => count_leading_sign_bits(a, 64),
+    }
+}
+
+/// NEON count leading zeros (element-wise).
+pub fn vclz_i(a: u64, size: NeonSize) -> u64 {
+    match size {
+        NeonSize::B8 => {
+            let mut result = 0u64;
+            for i in 0..8 {
+                let value = ((a >> (i * 8)) & 0xFF) as u8;
+                result |= (value.leading_zeros() as u64) << (i * 8);
+            }
+            result
+        }
+        NeonSize::H16 => {
+            let mut result = 0u64;
+            for i in 0..4 {
+                let value = ((a >> (i * 16)) & 0xFFFF) as u16;
+                result |= (value.leading_zeros() as u64) << (i * 16);
+            }
+            result
+        }
+        NeonSize::S32 => {
+            let mut result = 0u64;
+            for i in 0..2 {
+                let value = ((a >> (i * 32)) & 0xFFFF_FFFF) as u32;
+                result |= (value.leading_zeros() as u64) << (i * 32);
+            }
+            result
+        }
+        NeonSize::D64 => a.leading_zeros() as u64,
+    }
+}
+
+/// NEON population count (8-bit element-wise).
+pub fn vcnt_i8(a: u64) -> u64 {
+    let mut result = 0u64;
+    for i in 0..8 {
+        let value = ((a >> (i * 8)) & 0xFF) as u8;
+        result |= (value.count_ones() as u64) << (i * 8);
+    }
+    result
+}
+
+/// NEON reverse elements within 16/32/64-bit containers.
+pub fn vrev(a: u64, size: NeonSize, container_bits: u32) -> u64 {
+    let esize = size.bits();
+    debug_assert!(container_bits == 16 || container_bits == 32 || container_bits == 64);
+    debug_assert!(container_bits % esize == 0);
+
+    let elements_per_container = container_bits / esize;
+    let containers = 64 / container_bits;
+    let element_mask = if esize == 64 {
+        u64::MAX
+    } else {
+        (1u64 << esize) - 1
+    };
+    let mut result = 0u64;
+
+    for container in 0..containers {
+        let base = container * elements_per_container;
+        for element in 0..elements_per_container {
+            let src_index = base + element;
+            let dst_index = base + (elements_per_container - 1 - element);
+            let value = (a >> (src_index * esize)) & element_mask;
+            result |= value << (dst_index * esize);
+        }
+    }
+
+    result
 }
 
 /// NEON duplicate scalar to all elements.

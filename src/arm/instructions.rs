@@ -28,24 +28,22 @@ use crate::arm::execution::{
     sign_extend, ArmMemory, Armv7Cpu, MemoryError, ProcessorMode, Psr,
 };
 use crate::arm::vfp::{
-    vabs_f16_bits, vabs_f32, vabs_f64, vadd_f16_bits, vadd_f32, vadd_f64,
-    vcmp_f16_bits_with_exception, vcmp_f32_with_exception, vcmp_f64_with_exception,
-    vdiv_f16_bits, vdiv_f32, vdiv_f64, vcvt_f16_bits_f32, vcvt_f32_f16_bits,
-    vcvt_f32_f64, vcvt_f32_s32,
-    vcvt_f32_s32_fixed, vcvt_f32_u32, vcvt_f32_u32_fixed, vcvt_f64_f32, vcvt_f64_s32,
-    vcvt_f64_s32_fixed, vcvt_f64_u32, vcvt_f64_u32_fixed, vcvt_s32_f32,
-    vcvt_s32_f32_fixed, vcvt_s32_f64, vcvt_s32_f64_fixed, vcvt_u32_f32,
-    vcvt_u32_f32_fixed, vcvt_u32_f64, vcvt_u32_f64_fixed, vcvtr_s32_f32,
-    vcvtr_s32_f64, vcvtr_u32_f32, vcvtr_u32_f64, vfma_f16_bits, vfma_f32, vfma_f64,
-    vfms_f16_bits, vfms_f32, vfms_f64, vfnma_f16_bits, vfnma_f32, vfnma_f64,
-    vfnms_f16_bits, vfnms_f32, vfnms_f64, vmla_f16_bits, vmla_f32, vmla_f64,
-    vmls_f16_bits, vmls_f32, vmls_f64, vmaxnm_f32, vmaxnm_f64, vminnm_f32, vminnm_f64,
-    vmul_f16_bits, vmul_f32, vmul_f64, vneg_f16_bits, vneg_f32, vneg_f64,
-    vnmla_f16_bits, vnmla_f32, vnmla_f64, vnmls_f16_bits, vnmls_f32, vnmls_f64,
-    vnmul_f16_bits, vnmul_f32, vnmul_f64, vrint_f32, vrint_f64, vsqrt_f16_bits,
-    vsqrt_f32, vsqrt_f64, vsub_f16_bits, vsub_f32, vsub_f64,
-    vfp_expand_imm_f32, vfp_expand_imm_f64, Fpscr, RoundingMode, vcvt_s32_f32_round,
-    vcvt_s32_f64_round, vcvt_u32_f32_round, vcvt_u32_f64_round,
+    vabs_f16_bits, vabs_f32, vabs_f64, vadd_f16_bits, vadd_f32, vadd_f64, vadd_i, vand, vbic,
+    vcls_i, vclz_i, vcmp_f16_bits_with_exception, vcmp_f32_with_exception, vcmp_f64_with_exception,
+    vcnt_i8, vcvt_f16_bits_f32, vcvt_f32_f16_bits, vcvt_f32_f64, vcvt_f32_s32, vcvt_f32_s32_fixed,
+    vcvt_f32_u32, vcvt_f32_u32_fixed, vcvt_f64_f32, vcvt_f64_s32, vcvt_f64_s32_fixed, vcvt_f64_u32,
+    vcvt_f64_u32_fixed, vcvt_s32_f32, vcvt_s32_f32_fixed, vcvt_s32_f32_round, vcvt_s32_f64,
+    vcvt_s32_f64_fixed, vcvt_s32_f64_round, vcvt_u32_f32, vcvt_u32_f32_fixed, vcvt_u32_f32_round,
+    vcvt_u32_f64, vcvt_u32_f64_fixed, vcvt_u32_f64_round, vcvtr_s32_f32, vcvtr_s32_f64,
+    vcvtr_u32_f32, vcvtr_u32_f64, vdiv_f16_bits, vdiv_f32, vdiv_f64, veor, vfma_f16_bits, vfma_f32,
+    vfma_f64, vfms_f16_bits, vfms_f32, vfms_f64, vfnma_f16_bits, vfnma_f32, vfnma_f64,
+    vfnms_f16_bits, vfnms_f32, vfnms_f64, vfp_expand_imm_f16, vfp_expand_imm_f32,
+    vfp_expand_imm_f64, vmaxnm_f16_bits, vmaxnm_f32, vmaxnm_f64, vminnm_f16_bits, vminnm_f32,
+    vminnm_f64, vmla_f16_bits, vmla_f32, vmla_f64, vmls_f16_bits, vmls_f32, vmls_f64,
+    vmul_f16_bits, vmul_f32, vmul_f64, vmvn, vneg_f16_bits, vneg_f32, vneg_f64, vnmla_f16_bits,
+    vnmla_f32, vnmla_f64, vnmls_f16_bits, vnmls_f32, vnmls_f64, vnmul_f16_bits, vnmul_f32,
+    vnmul_f64, vorn, vorr, vrev, vrint_f16_bits, vrint_f32, vrint_f64, vsqrt_f16_bits, vsqrt_f32,
+    vsqrt_f64, vsub_f16_bits, vsub_f32, vsub_f64, vsub_i, Fpscr, NeonSize, RoundingMode,
 };
 
 /// Result of instruction execution.
@@ -63,6 +61,44 @@ pub enum ExecResult {
     Undefined,
     /// Memory error during execution.
     MemoryFault(MemoryError),
+}
+
+#[derive(Clone, Copy, Debug)]
+struct NeonStructMem {
+    addr: u32,
+    regs: u8,
+    first: u8,
+    inc: u8,
+    ebytes: u8,
+    writeback: bool,
+    rn: usize,
+    rm: usize,
+}
+
+#[derive(Clone, Copy, Debug)]
+struct NeonAllLanesMem {
+    addr: u32,
+    streams: u8,
+    regs: u8,
+    first: u8,
+    inc: u8,
+    ebytes: u8,
+    writeback: bool,
+    rn: usize,
+    rm: usize,
+}
+
+#[derive(Clone, Copy, Debug)]
+struct NeonSingleLaneMem {
+    addr: u32,
+    streams: u8,
+    first: u8,
+    inc: u8,
+    ebytes: u8,
+    index: u8,
+    writeback: bool,
+    rn: usize,
+    rm: usize,
 }
 
 /// Exception types that can be raised during execution.
@@ -332,16 +368,63 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
             Mnemonic::VSTR => self.exec_vstr(insn),
             Mnemonic::VLDM | Mnemonic::VPOP => self.exec_vldm(insn),
             Mnemonic::VSTM | Mnemonic::VPUSH => self.exec_vstm(insn),
+            Mnemonic::VLD1 => self.exec_vld1_multiple(insn),
+            Mnemonic::VST1 => self.exec_vst1_multiple(insn),
+            Mnemonic::VLD2 => self.exec_vld2_multiple(insn),
+            Mnemonic::VST2 => self.exec_vst2_multiple(insn),
+            Mnemonic::VLD3 => self.exec_vld3_multiple(insn),
+            Mnemonic::VST3 => self.exec_vst3_multiple(insn),
+            Mnemonic::VLD4 => self.exec_vld4_multiple(insn),
+            Mnemonic::VST4 => self.exec_vst4_multiple(insn),
             Mnemonic::VMOV => self.exec_vmov(insn),
-            Mnemonic::VADD => self.exec_vfp_binop(insn),
-            Mnemonic::VSUB => self.exec_vfp_binop(insn),
+            Mnemonic::VAND
+            | Mnemonic::VBIC
+            | Mnemonic::VORR
+            | Mnemonic::VORN
+            | Mnemonic::VEOR
+            | Mnemonic::VBSL
+            | Mnemonic::VBIT
+            | Mnemonic::VBIF => self.exec_neon_logical_register(insn),
+            Mnemonic::VMVN => self.exec_neon_vmvn_register(insn),
+            Mnemonic::VREV16 | Mnemonic::VREV32 | Mnemonic::VREV64 => {
+                self.exec_neon_vrev_register(insn)
+            }
+            Mnemonic::VSWP => self.exec_neon_vswp(insn),
+            Mnemonic::VDUP => self.exec_neon_vdup(insn),
+            Mnemonic::VTRN | Mnemonic::VUZP | Mnemonic::VZIP => {
+                self.exec_neon_pairwise_permute(insn)
+            }
+            Mnemonic::VPADD | Mnemonic::VPMAX | Mnemonic::VPMIN => {
+                self.exec_neon_pairwise_integer(insn)
+            }
+            Mnemonic::VHADD | Mnemonic::VRHADD | Mnemonic::VHSUB => {
+                self.exec_neon_halving_add_sub(insn)
+            }
+            Mnemonic::VQADD | Mnemonic::VQSUB => self.exec_neon_saturating_add_sub(insn),
+            Mnemonic::VQDMULH | Mnemonic::VQRDMULH => self.exec_neon_saturating_doubling_mulh(insn),
+            Mnemonic::VQABS | Mnemonic::VQNEG => self.exec_neon_saturating_abs_neg(insn),
+            Mnemonic::VADDL | Mnemonic::VADDW | Mnemonic::VSUBL | Mnemonic::VSUBW => {
+                self.exec_neon_long_wide_add_sub(insn)
+            }
+            Mnemonic::VADDHN | Mnemonic::VRADDHN | Mnemonic::VSUBHN | Mnemonic::VRSUBHN => {
+                self.exec_neon_narrow_add_sub(insn)
+            }
+            Mnemonic::VCLS | Mnemonic::VCLZ | Mnemonic::VCNT => self.exec_neon_count_register(insn),
+            Mnemonic::VEXT => self.exec_neon_vext(insn),
+            Mnemonic::VTBL | Mnemonic::VTBX => self.exec_neon_table_lookup(insn),
+            Mnemonic::VMAX | Mnemonic::VMIN => self.exec_neon_minmax(insn),
+            Mnemonic::VABD => self.exec_neon_absdiff(insn),
+            Mnemonic::VABA => self.exec_neon_integer_absdiff_accum(insn),
+            Mnemonic::VADD | Mnemonic::VSUB => self.exec_vadd_vsub(insn),
             Mnemonic::VMUL => self.exec_vfp_binop(insn),
             Mnemonic::VDIV => self.exec_vfp_binop(insn),
             Mnemonic::VNMUL => self.exec_vfp_binop(insn),
             Mnemonic::VMAXNM_F32
             | Mnemonic::VMAXNM_F64
+            | Mnemonic::VMAXNM_F16
             | Mnemonic::VMINNM_F32
-            | Mnemonic::VMINNM_F64 => self.exec_vfp_binop(insn),
+            | Mnemonic::VMINNM_F64
+            | Mnemonic::VMINNM_F16 => self.exec_vfp_binop(insn),
             Mnemonic::VSELEQ | Mnemonic::VSELGE | Mnemonic::VSELGT | Mnemonic::VSELVS => {
                 self.exec_vsel(insn)
             }
@@ -364,17 +447,28 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
             | Mnemonic::VRINTN_F64
             | Mnemonic::VRINTP_F32
             | Mnemonic::VRINTP_F64
+            | Mnemonic::VRINTP_F16
             | Mnemonic::VRINTR_F32
             | Mnemonic::VRINTR_F64
+            | Mnemonic::VRINTR_F16
             | Mnemonic::VRINTX_F32
             | Mnemonic::VRINTX_F64
+            | Mnemonic::VRINTX_F16
             | Mnemonic::VRINTZ_F32
-            | Mnemonic::VRINTZ_F64 => self.exec_vrint(insn),
+            | Mnemonic::VRINTZ_F64
+            | Mnemonic::VRINTZ_F16
+            | Mnemonic::VRINTA_F16
+            | Mnemonic::VRINTM_F16
+            | Mnemonic::VRINTN_F16 => self.exec_vrint(insn),
             Mnemonic::VCMP | Mnemonic::VCMPE => self.exec_vcmp(insn),
             Mnemonic::VCVT_F32_S32
             | Mnemonic::VCVT_F32_U32
+            | Mnemonic::VCVT_F16_S32
+            | Mnemonic::VCVT_F16_U32
             | Mnemonic::VCVT_S32_F32
             | Mnemonic::VCVT_U32_F32
+            | Mnemonic::VCVT_S32_F16
+            | Mnemonic::VCVT_U32_F16
             | Mnemonic::VCVT_F64_S32
             | Mnemonic::VCVT_F64_U32
             | Mnemonic::VCVT_S32_F64
@@ -395,20 +489,30 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
             | Mnemonic::VCVT_U32_F64_FIXED
             | Mnemonic::VCVTA_S32_F32
             | Mnemonic::VCVTA_U32_F32
+            | Mnemonic::VCVTA_S32_F16
+            | Mnemonic::VCVTA_U32_F16
             | Mnemonic::VCVTA_S32_F64
             | Mnemonic::VCVTA_U32_F64
             | Mnemonic::VCVTM_S32_F32
             | Mnemonic::VCVTM_U32_F32
+            | Mnemonic::VCVTM_S32_F16
+            | Mnemonic::VCVTM_U32_F16
             | Mnemonic::VCVTM_S32_F64
             | Mnemonic::VCVTM_U32_F64
             | Mnemonic::VCVTN_S32_F32
             | Mnemonic::VCVTN_U32_F32
+            | Mnemonic::VCVTN_S32_F16
+            | Mnemonic::VCVTN_U32_F16
             | Mnemonic::VCVTN_S32_F64
             | Mnemonic::VCVTN_U32_F64
+            | Mnemonic::VCVTP_S32_F16
+            | Mnemonic::VCVTP_U32_F16
             | Mnemonic::VCVTP_S32_F32
             | Mnemonic::VCVTP_U32_F32
             | Mnemonic::VCVTP_S32_F64
             | Mnemonic::VCVTP_U32_F64
+            | Mnemonic::VCVTR_S32_F16
+            | Mnemonic::VCVTR_U32_F16
             | Mnemonic::VCVTR_S32_F32
             | Mnemonic::VCVTR_U32_F32
             | Mnemonic::VCVTR_S32_F64
@@ -1470,7 +1574,11 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
                     Err(e) => return ExecResult::MemoryFault(e),
                 }
             } else {
-                let val = if i == 15 { self.cpu.get_pc() } else { self.reg(i) };
+                let val = if i == 15 {
+                    self.cpu.get_pc()
+                } else {
+                    self.reg(i)
+                };
                 if let Err(e) = self.mem.write_word(addr, val) {
                     return ExecResult::MemoryFault(e);
                 }
@@ -1816,6 +1924,9 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
         let reg = ((insn.raw >> 16) & 0xF) as u8;
 
         if cp == 10 && opc1 == 0b111 {
+            if t == 15 {
+                return ExecResult::Undefined;
+            }
             let value = self.reg(t);
             return match reg {
                 0 => ExecResult::Continue,
@@ -1848,8 +1959,11 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
         let reg = ((insn.raw >> 16) & 0xF) as u8;
 
         if cp == 10 && opc1 == 0b111 {
+            if t == 15 && reg != 1 {
+                return ExecResult::Undefined;
+            }
             let value = match reg {
-                0 => 0,
+                0 => self.cpu.vfp.fpsid,
                 1 => {
                     if !self.cpu.vfp.is_enabled() {
                         return ExecResult::Exception(ExceptionType::UndefinedInstruction);
@@ -1889,6 +2003,13 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
             return ExecResult::Undefined;
         };
         match size {
+            16 => match self.mem.read_halfword(addr) {
+                Ok(bits) => {
+                    self.cpu.vfp.write_s_bits(d, bits as u32);
+                    ExecResult::Continue
+                }
+                Err(e) => ExecResult::MemoryFault(e),
+            },
             32 => match self.mem.read_word(addr) {
                 Ok(bits) => {
                     self.cpu.vfp.write_s_bits(d, bits);
@@ -1905,7 +2026,9 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
                     Ok(v) => v,
                     Err(e) => return ExecResult::MemoryFault(e),
                 };
-                self.cpu.vfp.write_d_bits(d, ((hi as u64) << 32) | lo as u64);
+                self.cpu
+                    .vfp
+                    .write_d_bits(d, ((hi as u64) << 32) | lo as u64);
                 ExecResult::Continue
             }
             _ => ExecResult::Undefined,
@@ -1920,6 +2043,13 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
             return ExecResult::Undefined;
         };
         match size {
+            16 => match self
+                .mem
+                .write_halfword(addr, self.cpu.vfp.read_s_bits(d) as u16)
+            {
+                Ok(()) => ExecResult::Continue,
+                Err(e) => ExecResult::MemoryFault(e),
+            },
             32 => match self.mem.write_word(addr, self.cpu.vfp.read_s_bits(d)) {
                 Ok(()) => ExecResult::Continue,
                 Err(e) => ExecResult::MemoryFault(e),
@@ -1929,7 +2059,10 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
                 if let Err(e) = self.mem.write_word(addr, bits as u32) {
                     return ExecResult::MemoryFault(e);
                 }
-                if let Err(e) = self.mem.write_word(addr.wrapping_add(4), (bits >> 32) as u32) {
+                if let Err(e) = self
+                    .mem
+                    .write_word(addr.wrapping_add(4), (bits >> 32) as u32)
+                {
                     return ExecResult::MemoryFault(e);
                 }
                 ExecResult::Continue
@@ -1969,7 +2102,9 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
                         Ok(v) => v,
                         Err(e) => return ExecResult::MemoryFault(e),
                     };
-                    self.cpu.vfp.write_d_bits(reg, ((hi as u64) << 32) | lo as u64);
+                    self.cpu
+                        .vfp
+                        .write_d_bits(reg, ((hi as u64) << 32) | lo as u64);
                     current = current.wrapping_add(8);
                 }
                 _ => return ExecResult::Undefined,
@@ -2007,8 +2142,9 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
                     if let Err(e) = self.mem.write_word(current, bits as u32) {
                         return ExecResult::MemoryFault(e);
                     }
-                    if let Err(e) =
-                        self.mem.write_word(current.wrapping_add(4), (bits >> 32) as u32)
+                    if let Err(e) = self
+                        .mem
+                        .write_word(current.wrapping_add(4), (bits >> 32) as u32)
                     {
                         return ExecResult::MemoryFault(e);
                     }
@@ -2020,6 +2156,1812 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
 
         if writeback {
             self.cpu.regs[rn] = final_addr;
+        }
+        ExecResult::Continue
+    }
+
+    fn exec_vadd_vsub(&mut self, insn: &DecodedInsn) -> ExecResult {
+        if Self::neon_integer_add_sub_size(insn).is_some() {
+            self.exec_neon_integer_add_sub(insn)
+        } else {
+            self.exec_vfp_binop(insn)
+        }
+    }
+
+    fn neon_integer_add_sub_size(insn: &DecodedInsn) -> Option<NeonSize> {
+        if !matches!(insn.mnemonic, Mnemonic::VADD | Mnemonic::VSUB)
+            || ((insn.raw >> 28) & 0xF) != 0xF
+            || !matches!((insn.raw >> 24) & 0xFF, 0xF2 | 0xF3)
+            || ((insn.raw >> 23) & 1) != 0
+            || ((insn.raw >> 8) & 0xF) != 0b1000
+            || ((insn.raw >> 4) & 1) != 0
+        {
+            return None;
+        }
+
+        match (insn.raw >> 20) & 0x3 {
+            0 => Some(NeonSize::B8),
+            1 => Some(NeonSize::H16),
+            2 => Some(NeonSize::S32),
+            3 => Some(NeonSize::D64),
+            _ => None,
+        }
+    }
+
+    fn exec_neon_integer_add_sub(&mut self, insn: &DecodedInsn) -> ExecResult {
+        if !self.cpu.vfp.is_enabled() {
+            return ExecResult::Exception(ExceptionType::UndefinedInstruction);
+        }
+        let Some(size) = Self::neon_integer_add_sub_size(insn) else {
+            return ExecResult::Undefined;
+        };
+
+        let d_bit = ((insn.raw >> 22) & 1) as u8;
+        let vd = ((insn.raw >> 12) & 0xF) as u8;
+        let n_bit = ((insn.raw >> 7) & 1) as u8;
+        let vn = ((insn.raw >> 16) & 0xF) as u8;
+        let m_bit = ((insn.raw >> 5) & 1) as u8;
+        let vm = (insn.raw & 0xF) as u8;
+        let q = ((insn.raw >> 6) & 1) != 0;
+        let regs = if q { 2 } else { 1 };
+
+        let d = (d_bit << 4) | vd;
+        let n = (n_bit << 4) | vn;
+        let m = (m_bit << 4) | vm;
+        if q && ((d | n | m) & 1) != 0 {
+            return ExecResult::Undefined;
+        }
+        if d + regs > 32 || n + regs > 32 || m + regs > 32 {
+            return ExecResult::Undefined;
+        }
+
+        for index in 0..regs {
+            let n_bits = self.cpu.vfp.read_d_bits(n + index);
+            let m_bits = self.cpu.vfp.read_d_bits(m + index);
+            let result = match insn.mnemonic {
+                Mnemonic::VADD => vadd_i(n_bits, m_bits, size),
+                Mnemonic::VSUB => vsub_i(n_bits, m_bits, size),
+                _ => return ExecResult::Undefined,
+            };
+            self.cpu.vfp.write_d_bits(d + index, result);
+        }
+
+        ExecResult::Continue
+    }
+
+    fn exec_neon_logical_register(&mut self, insn: &DecodedInsn) -> ExecResult {
+        if !self.cpu.vfp.is_enabled() {
+            return ExecResult::Exception(ExceptionType::UndefinedInstruction);
+        }
+
+        let d_bit = ((insn.raw >> 22) & 1) as u8;
+        let vd = ((insn.raw >> 12) & 0xF) as u8;
+        let n_bit = ((insn.raw >> 7) & 1) as u8;
+        let vn = ((insn.raw >> 16) & 0xF) as u8;
+        let m_bit = ((insn.raw >> 5) & 1) as u8;
+        let vm = (insn.raw & 0xF) as u8;
+        let q = ((insn.raw >> 6) & 1) != 0;
+        let regs = if q { 2 } else { 1 };
+
+        let d = (d_bit << 4) | vd;
+        let n = (n_bit << 4) | vn;
+        let m = (m_bit << 4) | vm;
+        if q && ((d | n | m) & 1) != 0 {
+            return ExecResult::Undefined;
+        }
+        if d + regs > 32 || n + regs > 32 || m + regs > 32 {
+            return ExecResult::Undefined;
+        }
+
+        for index in 0..regs {
+            let d_bits = self.cpu.vfp.read_d_bits(d + index);
+            let n_bits = self.cpu.vfp.read_d_bits(n + index);
+            let m_bits = self.cpu.vfp.read_d_bits(m + index);
+            let result = match insn.mnemonic {
+                Mnemonic::VAND => vand(n_bits, m_bits),
+                Mnemonic::VBIC => vbic(n_bits, m_bits),
+                Mnemonic::VORR => vorr(n_bits, m_bits),
+                Mnemonic::VORN => vorn(n_bits, m_bits),
+                Mnemonic::VEOR => veor(n_bits, m_bits),
+                Mnemonic::VBSL => (n_bits & d_bits) | (m_bits & !d_bits),
+                Mnemonic::VBIT => (n_bits & m_bits) | (d_bits & !m_bits),
+                Mnemonic::VBIF => (d_bits & m_bits) | (n_bits & !m_bits),
+                _ => return ExecResult::Undefined,
+            };
+            self.cpu.vfp.write_d_bits(d + index, result);
+        }
+
+        ExecResult::Continue
+    }
+
+    fn exec_neon_vmvn_register(&mut self, insn: &DecodedInsn) -> ExecResult {
+        if !self.cpu.vfp.is_enabled() {
+            return ExecResult::Exception(ExceptionType::UndefinedInstruction);
+        }
+
+        let d_bit = ((insn.raw >> 22) & 1) as u8;
+        let vd = ((insn.raw >> 12) & 0xF) as u8;
+        let m_bit = ((insn.raw >> 5) & 1) as u8;
+        let vm = (insn.raw & 0xF) as u8;
+        let q = ((insn.raw >> 6) & 1) != 0;
+        let regs = if q { 2 } else { 1 };
+
+        let d = (d_bit << 4) | vd;
+        let m = (m_bit << 4) | vm;
+        if q && ((d | m) & 1) != 0 {
+            return ExecResult::Undefined;
+        }
+        if d + regs > 32 || m + regs > 32 {
+            return ExecResult::Undefined;
+        }
+
+        for index in 0..regs {
+            let bits = self.cpu.vfp.read_d_bits(m + index);
+            self.cpu.vfp.write_d_bits(d + index, vmvn(bits));
+        }
+
+        ExecResult::Continue
+    }
+
+    fn exec_neon_vrev_register(&mut self, insn: &DecodedInsn) -> ExecResult {
+        if !self.cpu.vfp.is_enabled() {
+            return ExecResult::Exception(ExceptionType::UndefinedInstruction);
+        }
+
+        let size = match (insn.raw >> 18) & 0x3 {
+            0b00 => NeonSize::B8,
+            0b01 => NeonSize::H16,
+            0b10 => NeonSize::S32,
+            _ => return ExecResult::Undefined,
+        };
+        let op = (insn.raw >> 7) & 0x3;
+        let container_bits = match insn.mnemonic {
+            Mnemonic::VREV64 if op == 0b00 => 64,
+            Mnemonic::VREV32 if op == 0b01 => 32,
+            Mnemonic::VREV16 if op == 0b10 => 16,
+            _ => return ExecResult::Undefined,
+        };
+        if op + ((insn.raw >> 18) & 0x3) >= 3 {
+            return ExecResult::Undefined;
+        }
+
+        let d_bit = ((insn.raw >> 22) & 1) as u8;
+        let vd = ((insn.raw >> 12) & 0xF) as u8;
+        let m_bit = ((insn.raw >> 5) & 1) as u8;
+        let vm = (insn.raw & 0xF) as u8;
+        let q = ((insn.raw >> 6) & 1) != 0;
+        let regs = if q { 2 } else { 1 };
+
+        let d = (d_bit << 4) | vd;
+        let m = (m_bit << 4) | vm;
+        if q && ((d | m) & 1) != 0 {
+            return ExecResult::Undefined;
+        }
+        if d + regs > 32 || m + regs > 32 {
+            return ExecResult::Undefined;
+        }
+
+        for index in 0..regs {
+            let bits = self.cpu.vfp.read_d_bits(m + index);
+            self.cpu
+                .vfp
+                .write_d_bits(d + index, vrev(bits, size, container_bits));
+        }
+
+        ExecResult::Continue
+    }
+
+    fn exec_neon_vswp(&mut self, insn: &DecodedInsn) -> ExecResult {
+        if !self.cpu.vfp.is_enabled() {
+            return ExecResult::Exception(ExceptionType::UndefinedInstruction);
+        }
+
+        if ((insn.raw >> 18) & 0x3) != 0 {
+            return ExecResult::Undefined;
+        }
+
+        let d_bit = ((insn.raw >> 22) & 1) as u8;
+        let vd = ((insn.raw >> 12) & 0xF) as u8;
+        let m_bit = ((insn.raw >> 5) & 1) as u8;
+        let vm = (insn.raw & 0xF) as u8;
+        let q = ((insn.raw >> 6) & 1) != 0;
+        let regs = if q { 2 } else { 1 };
+
+        let d = (d_bit << 4) | vd;
+        let m = (m_bit << 4) | vm;
+        if q && ((d | m) & 1) != 0 {
+            return ExecResult::Undefined;
+        }
+        if d + regs > 32 || m + regs > 32 {
+            return ExecResult::Undefined;
+        }
+        if d == m {
+            return ExecResult::Continue;
+        }
+
+        for index in 0..regs {
+            let d_bits = self.cpu.vfp.read_d_bits(d + index);
+            let m_bits = self.cpu.vfp.read_d_bits(m + index);
+            self.cpu.vfp.write_d_bits(d + index, m_bits);
+            self.cpu.vfp.write_d_bits(m + index, d_bits);
+        }
+
+        ExecResult::Continue
+    }
+
+    fn exec_neon_vdup(&mut self, insn: &DecodedInsn) -> ExecResult {
+        if !self.cpu.vfp.is_enabled() {
+            return ExecResult::Exception(ExceptionType::UndefinedInstruction);
+        }
+
+        let scalar_form = (insn.raw >> 28) == 0xF;
+        let (d, regs, ebytes, scalar) = if scalar_form {
+            let imm4 = ((insn.raw >> 16) & 0xF) as u8;
+            let q = ((insn.raw >> 6) & 1) != 0;
+            let d_bit = ((insn.raw >> 22) & 1) as u8;
+            let vd = ((insn.raw >> 12) & 0xF) as u8;
+            let m_bit = ((insn.raw >> 5) & 1) as u8;
+            let vm = (insn.raw & 0xF) as u8;
+            let (ebytes, lane) = match imm4 {
+                imm if (imm & 0b0001) != 0 => (1, imm >> 1),
+                imm if (imm & 0b0011) == 0b0010 => (2, imm >> 2),
+                imm if (imm & 0b0111) == 0b0100 => (4, imm >> 3),
+                _ => return ExecResult::Undefined,
+            };
+
+            let d = (d_bit << 4) | vd;
+            let m = (m_bit << 4) | vm;
+            let regs = if q { 2 } else { 1 };
+            if (q && (d & 1) != 0) || d + regs > 32 || lane as usize >= 8 / ebytes as usize {
+                return ExecResult::Undefined;
+            }
+            (d, regs, ebytes, self.neon_read_d_elem_u64(m, lane, ebytes))
+        } else {
+            let b = (insn.raw >> 22) & 1;
+            let e = (insn.raw >> 5) & 1;
+            let q = ((insn.raw >> 21) & 1) != 0;
+            let d_bit = ((insn.raw >> 7) & 1) as u8;
+            let vd = ((insn.raw >> 16) & 0xF) as u8;
+            let rt = ((insn.raw >> 12) & 0xF) as u8;
+            let ebytes = match (b, e) {
+                (0, 0) => 4,
+                (0, 1) => 2,
+                (1, 0) => 1,
+                _ => return ExecResult::Undefined,
+            };
+
+            let d = (d_bit << 4) | vd;
+            let regs = if q { 2 } else { 1 };
+            if rt == 15 || (q && (d & 1) != 0) || d + regs > 32 {
+                return ExecResult::Undefined;
+            }
+            (d, regs, ebytes, self.cpu.regs[rt as usize] as u64)
+        };
+
+        let lane_count = 8 / ebytes;
+        for reg in 0..regs {
+            for lane in 0..lane_count {
+                self.neon_write_d_elem_u64(d + reg, lane as u8, ebytes, scalar);
+            }
+        }
+
+        ExecResult::Continue
+    }
+
+    fn exec_neon_pairwise_permute(&mut self, insn: &DecodedInsn) -> ExecResult {
+        if !self.cpu.vfp.is_enabled() {
+            return ExecResult::Exception(ExceptionType::UndefinedInstruction);
+        }
+
+        let size = match (insn.raw >> 18) & 0x3 {
+            0b00 => NeonSize::B8,
+            0b01 => NeonSize::H16,
+            0b10 => NeonSize::S32,
+            _ => return ExecResult::Undefined,
+        };
+        let ebytes = (size.bits() / 8) as u8;
+
+        let d_bit = ((insn.raw >> 22) & 1) as u8;
+        let vd = ((insn.raw >> 12) & 0xF) as u8;
+        let m_bit = ((insn.raw >> 5) & 1) as u8;
+        let vm = (insn.raw & 0xF) as u8;
+        let q = ((insn.raw >> 6) & 1) != 0;
+        let regs = if q { 2 } else { 1 };
+
+        let d = (d_bit << 4) | vd;
+        let m = (m_bit << 4) | vm;
+        if q && ((d | m) & 1) != 0 {
+            return ExecResult::Undefined;
+        }
+        if d + regs > 32 || m + regs > 32 {
+            return ExecResult::Undefined;
+        }
+        if d == m {
+            return ExecResult::Continue;
+        }
+
+        match insn.mnemonic {
+            Mnemonic::VTRN => {
+                let elements = size.elements_per_d();
+                let half = elements / 2;
+                for index in 0..regs {
+                    let d_elems = self.neon_read_vector_elements(d + index, 1, ebytes);
+                    let m_elems = self.neon_read_vector_elements(m + index, 1, ebytes);
+                    let mut out_d = d_elems.clone();
+                    let mut out_m = m_elems.clone();
+                    for elem in 0..half {
+                        out_d[(2 * elem) + 1] = m_elems[2 * elem];
+                        out_m[2 * elem] = d_elems[(2 * elem) + 1];
+                    }
+                    self.neon_write_vector_elements(d + index, 1, ebytes, &out_d);
+                    self.neon_write_vector_elements(m + index, 1, ebytes, &out_m);
+                }
+            }
+            Mnemonic::VUZP => {
+                if !q && size == NeonSize::S32 {
+                    return ExecResult::Undefined;
+                }
+                let d_elems = self.neon_read_vector_elements(d, regs, ebytes);
+                let m_elems = self.neon_read_vector_elements(m, regs, ebytes);
+                let mut zipped = Vec::with_capacity(d_elems.len() + m_elems.len());
+                zipped.extend_from_slice(&d_elems);
+                zipped.extend_from_slice(&m_elems);
+
+                let elements = d_elems.len();
+                let mut out_d = Vec::with_capacity(elements);
+                let mut out_m = Vec::with_capacity(elements);
+                for elem in 0..elements {
+                    out_d.push(zipped[2 * elem]);
+                    out_m.push(zipped[(2 * elem) + 1]);
+                }
+                self.neon_write_vector_elements(d, regs, ebytes, &out_d);
+                self.neon_write_vector_elements(m, regs, ebytes, &out_m);
+            }
+            Mnemonic::VZIP => {
+                if !q && size == NeonSize::S32 {
+                    return ExecResult::Undefined;
+                }
+                let d_elems = self.neon_read_vector_elements(d, regs, ebytes);
+                let m_elems = self.neon_read_vector_elements(m, regs, ebytes);
+                let elements = d_elems.len();
+                let mut zipped = Vec::with_capacity(elements * 2);
+                for elem in 0..elements {
+                    zipped.push(d_elems[elem]);
+                    zipped.push(m_elems[elem]);
+                }
+
+                self.neon_write_vector_elements(d, regs, ebytes, &zipped[..elements]);
+                self.neon_write_vector_elements(m, regs, ebytes, &zipped[elements..]);
+            }
+            _ => return ExecResult::Undefined,
+        }
+
+        ExecResult::Continue
+    }
+
+    fn exec_neon_pairwise_integer(&mut self, insn: &DecodedInsn) -> ExecResult {
+        if !self.cpu.vfp.is_enabled() {
+            return ExecResult::Exception(ExceptionType::UndefinedInstruction);
+        }
+        if (insn.raw >> 25) != 0b1111001 || ((insn.raw >> 23) & 1) != 0 {
+            return ExecResult::Undefined;
+        }
+
+        let valid_shape = matches!(
+            (
+                ((insn.raw >> 8) & 0xF),
+                ((insn.raw >> 4) & 1),
+                insn.mnemonic
+            ),
+            (0b1010, 0, Mnemonic::VPMAX)
+                | (0b1010, 1, Mnemonic::VPMIN)
+                | (0b1011, 1, Mnemonic::VPADD)
+        );
+        if !valid_shape || ((insn.raw >> 6) & 1) != 0 {
+            return ExecResult::Undefined;
+        }
+
+        let size = match (insn.raw >> 20) & 0x3 {
+            0b00 => NeonSize::B8,
+            0b01 => NeonSize::H16,
+            0b10 => NeonSize::S32,
+            _ => return ExecResult::Undefined,
+        };
+        let ebytes = (size.bits() / 8) as u8;
+        let unsigned = ((insn.raw >> 24) & 1) != 0;
+
+        let d_bit = ((insn.raw >> 22) & 1) as u8;
+        let vd = ((insn.raw >> 12) & 0xF) as u8;
+        let n_bit = ((insn.raw >> 7) & 1) as u8;
+        let vn = ((insn.raw >> 16) & 0xF) as u8;
+        let m_bit = ((insn.raw >> 5) & 1) as u8;
+        let vm = (insn.raw & 0xF) as u8;
+
+        let d = (d_bit << 4) | vd;
+        let n = (n_bit << 4) | vn;
+        let m = (m_bit << 4) | vm;
+        if d >= 32 || n >= 32 || m >= 32 {
+            return ExecResult::Undefined;
+        }
+
+        let n_elements = self.neon_read_vector_elements_u64(n, 1, ebytes);
+        let m_elements = self.neon_read_vector_elements_u64(m, 1, ebytes);
+        let half = n_elements.len() / 2;
+        let mut out = Vec::with_capacity(n_elements.len());
+
+        for elements in [&n_elements, &m_elements] {
+            for pair in 0..half {
+                let lhs = elements[2 * pair];
+                let rhs = elements[(2 * pair) + 1];
+                let result = match insn.mnemonic {
+                    Mnemonic::VPADD => lhs.wrapping_add(rhs),
+                    Mnemonic::VPMAX if unsigned => lhs.max(rhs),
+                    Mnemonic::VPMIN if unsigned => lhs.min(rhs),
+                    Mnemonic::VPMAX => {
+                        let lhs = Self::neon_sign_extend_elem_u64(lhs, size.bits());
+                        let rhs = Self::neon_sign_extend_elem_u64(rhs, size.bits());
+                        Self::neon_pack_signed_elem_i128(lhs.max(rhs), size.bits())
+                    }
+                    Mnemonic::VPMIN => {
+                        let lhs = Self::neon_sign_extend_elem_u64(lhs, size.bits());
+                        let rhs = Self::neon_sign_extend_elem_u64(rhs, size.bits());
+                        Self::neon_pack_signed_elem_i128(lhs.min(rhs), size.bits())
+                    }
+                    _ => return ExecResult::Undefined,
+                };
+                out.push(result);
+            }
+        }
+
+        self.neon_write_vector_elements_u64(d, 1, ebytes, &out);
+        ExecResult::Continue
+    }
+
+    fn exec_neon_saturating_abs_neg(&mut self, insn: &DecodedInsn) -> ExecResult {
+        if !self.cpu.vfp.is_enabled() {
+            return ExecResult::Exception(ExceptionType::UndefinedInstruction);
+        }
+
+        let size = match (insn.raw >> 18) & 0x3 {
+            0b00 => NeonSize::B8,
+            0b01 => NeonSize::H16,
+            0b10 => NeonSize::S32,
+            _ => return ExecResult::Undefined,
+        };
+        let ebytes = (size.bits() / 8) as u8;
+
+        let d_bit = ((insn.raw >> 22) & 1) as u8;
+        let vd = ((insn.raw >> 12) & 0xF) as u8;
+        let m_bit = ((insn.raw >> 5) & 1) as u8;
+        let vm = (insn.raw & 0xF) as u8;
+        let q = ((insn.raw >> 6) & 1) != 0;
+        let regs = if q { 2 } else { 1 };
+
+        let d = (d_bit << 4) | vd;
+        let m = (m_bit << 4) | vm;
+        if q && ((d | m) & 1) != 0 {
+            return ExecResult::Undefined;
+        }
+        if d + regs > 32 || m + regs > 32 {
+            return ExecResult::Undefined;
+        }
+
+        for index in 0..regs {
+            let elements = self.neon_read_vector_elements(m + index, 1, ebytes);
+            let mut out = Vec::with_capacity(elements.len());
+            for elem in elements {
+                let value = Self::neon_sign_extend_elem(elem, size.bits());
+                let (result, saturated) = match insn.mnemonic {
+                    Mnemonic::VQABS => Self::neon_signed_saturate(value.abs(), size.bits()),
+                    Mnemonic::VQNEG => Self::neon_signed_saturate(-value, size.bits()),
+                    _ => return ExecResult::Undefined,
+                };
+                if saturated {
+                    self.cpu.vfp.fpscr.set_qc(true);
+                }
+                out.push(Self::neon_pack_signed_elem(result, size.bits()));
+            }
+            self.neon_write_vector_elements(d + index, 1, ebytes, &out);
+        }
+
+        ExecResult::Continue
+    }
+
+    fn exec_neon_halving_add_sub(&mut self, insn: &DecodedInsn) -> ExecResult {
+        if !self.cpu.vfp.is_enabled() {
+            return ExecResult::Exception(ExceptionType::UndefinedInstruction);
+        }
+        if (insn.raw >> 25) != 0b1111001
+            || ((insn.raw >> 23) & 1) != 0
+            || ((insn.raw >> 4) & 1) != 0
+        {
+            return ExecResult::Undefined;
+        }
+
+        let size = match (insn.raw >> 20) & 0x3 {
+            0b00 => NeonSize::B8,
+            0b01 => NeonSize::H16,
+            0b10 => NeonSize::S32,
+            _ => return ExecResult::Undefined,
+        };
+        let ebytes = (size.bits() / 8) as u8;
+        let unsigned = ((insn.raw >> 24) & 1) != 0;
+
+        let d_bit = ((insn.raw >> 22) & 1) as u8;
+        let vd = ((insn.raw >> 12) & 0xF) as u8;
+        let n_bit = ((insn.raw >> 7) & 1) as u8;
+        let vn = ((insn.raw >> 16) & 0xF) as u8;
+        let m_bit = ((insn.raw >> 5) & 1) as u8;
+        let vm = (insn.raw & 0xF) as u8;
+        let q = ((insn.raw >> 6) & 1) != 0;
+        let regs = if q { 2 } else { 1 };
+
+        let d = (d_bit << 4) | vd;
+        let n = (n_bit << 4) | vn;
+        let m = (m_bit << 4) | vm;
+        if q && ((d | n | m) & 1) != 0 {
+            return ExecResult::Undefined;
+        }
+        if d + regs > 32 || n + regs > 32 || m + regs > 32 {
+            return ExecResult::Undefined;
+        }
+
+        let mask = if size.bits() == 32 {
+            u64::from(u32::MAX)
+        } else {
+            (1u64 << size.bits()) - 1
+        };
+
+        for reg in 0..regs {
+            let n_elements = self.neon_read_vector_elements_u64(n + reg, 1, ebytes);
+            let m_elements = self.neon_read_vector_elements_u64(m + reg, 1, ebytes);
+            let mut out = Vec::with_capacity(n_elements.len());
+            for (n_elem, m_elem) in n_elements.into_iter().zip(m_elements.into_iter()) {
+                let result = if unsigned {
+                    let lhs = n_elem;
+                    let rhs = m_elem;
+                    let value = match insn.mnemonic {
+                        Mnemonic::VHADD => (lhs + rhs) >> 1,
+                        Mnemonic::VRHADD => (lhs + rhs + 1) >> 1,
+                        Mnemonic::VHSUB => ((lhs.wrapping_sub(rhs)) & mask) >> 1,
+                        _ => return ExecResult::Undefined,
+                    };
+                    value
+                } else {
+                    let lhs = Self::neon_sign_extend_elem_u64(n_elem, size.bits());
+                    let rhs = Self::neon_sign_extend_elem_u64(m_elem, size.bits());
+                    let value = match insn.mnemonic {
+                        Mnemonic::VHADD => (lhs + rhs) >> 1,
+                        Mnemonic::VRHADD => (lhs + rhs + 1) >> 1,
+                        Mnemonic::VHSUB => (lhs - rhs) >> 1,
+                        _ => return ExecResult::Undefined,
+                    };
+                    Self::neon_pack_signed_elem_i128(value, size.bits())
+                };
+                out.push(result);
+            }
+            self.neon_write_vector_elements_u64(d + reg, 1, ebytes, &out);
+        }
+
+        ExecResult::Continue
+    }
+
+    fn exec_neon_saturating_add_sub(&mut self, insn: &DecodedInsn) -> ExecResult {
+        if !self.cpu.vfp.is_enabled() {
+            return ExecResult::Exception(ExceptionType::UndefinedInstruction);
+        }
+
+        let size = match (insn.raw >> 20) & 0x3 {
+            0b00 => NeonSize::B8,
+            0b01 => NeonSize::H16,
+            0b10 => NeonSize::S32,
+            0b11 => NeonSize::D64,
+            _ => return ExecResult::Undefined,
+        };
+        let ebytes = (size.bits() / 8) as u8;
+        let unsigned = ((insn.raw >> 24) & 1) != 0;
+
+        let d_bit = ((insn.raw >> 22) & 1) as u8;
+        let vd = ((insn.raw >> 12) & 0xF) as u8;
+        let n_bit = ((insn.raw >> 7) & 1) as u8;
+        let vn = ((insn.raw >> 16) & 0xF) as u8;
+        let m_bit = ((insn.raw >> 5) & 1) as u8;
+        let vm = (insn.raw & 0xF) as u8;
+        let q = ((insn.raw >> 6) & 1) != 0;
+        let regs = if q { 2 } else { 1 };
+
+        let d = (d_bit << 4) | vd;
+        let n = (n_bit << 4) | vn;
+        let m = (m_bit << 4) | vm;
+        if q && ((d | n | m) & 1) != 0 {
+            return ExecResult::Undefined;
+        }
+        if d + regs > 32 || n + regs > 32 || m + regs > 32 {
+            return ExecResult::Undefined;
+        }
+
+        for index in 0..regs {
+            let n_elements = self.neon_read_vector_elements_u64(n + index, 1, ebytes);
+            let m_elements = self.neon_read_vector_elements_u64(m + index, 1, ebytes);
+            let mut out = Vec::with_capacity(n_elements.len());
+            for (n_elem, m_elem) in n_elements.into_iter().zip(m_elements.into_iter()) {
+                let (packed, saturated) = if unsigned {
+                    let lhs = n_elem as i128;
+                    let rhs = m_elem as i128;
+                    let value = match insn.mnemonic {
+                        Mnemonic::VQADD => lhs + rhs,
+                        Mnemonic::VQSUB => lhs - rhs,
+                        _ => return ExecResult::Undefined,
+                    };
+                    Self::neon_unsigned_saturate(value, size.bits())
+                } else {
+                    let lhs = Self::neon_sign_extend_elem_u64(n_elem, size.bits());
+                    let rhs = Self::neon_sign_extend_elem_u64(m_elem, size.bits());
+                    let value = match insn.mnemonic {
+                        Mnemonic::VQADD => lhs + rhs,
+                        Mnemonic::VQSUB => lhs - rhs,
+                        _ => return ExecResult::Undefined,
+                    };
+                    let (result, saturated) = Self::neon_signed_saturate_i128(value, size.bits());
+                    (
+                        Self::neon_pack_signed_elem_i128(result, size.bits()),
+                        saturated,
+                    )
+                };
+                if saturated {
+                    self.cpu.vfp.fpscr.set_qc(true);
+                }
+                out.push(packed);
+            }
+            self.neon_write_vector_elements_u64(d + index, 1, ebytes, &out);
+        }
+
+        ExecResult::Continue
+    }
+
+    fn exec_neon_long_wide_add_sub(&mut self, insn: &DecodedInsn) -> ExecResult {
+        if !self.cpu.vfp.is_enabled() {
+            return ExecResult::Exception(ExceptionType::UndefinedInstruction);
+        }
+        if (insn.raw >> 25) != 0b1111001
+            || ((insn.raw >> 23) & 1) != 1
+            || ((insn.raw >> 4) & 1) != 0
+        {
+            return ExecResult::Undefined;
+        }
+
+        let narrow_size = match (insn.raw >> 20) & 0x3 {
+            0b00 => NeonSize::B8,
+            0b01 => NeonSize::H16,
+            0b10 => NeonSize::S32,
+            _ => return ExecResult::Undefined,
+        };
+        let narrow_ebytes = (narrow_size.bits() / 8) as u8;
+        let wide_ebytes = narrow_ebytes * 2;
+        let wide_bits = narrow_size.bits() * 2;
+        let unsigned = ((insn.raw >> 24) & 1) != 0;
+        let add = match insn.mnemonic {
+            Mnemonic::VADDL | Mnemonic::VADDW => true,
+            Mnemonic::VSUBL | Mnemonic::VSUBW => false,
+            _ => return ExecResult::Undefined,
+        };
+        let wide_n = matches!(insn.mnemonic, Mnemonic::VADDW | Mnemonic::VSUBW);
+
+        let d_bit = ((insn.raw >> 22) & 1) as u8;
+        let vd = ((insn.raw >> 12) & 0xF) as u8;
+        let n_bit = ((insn.raw >> 7) & 1) as u8;
+        let vn = ((insn.raw >> 16) & 0xF) as u8;
+        let m_bit = ((insn.raw >> 5) & 1) as u8;
+        let vm = (insn.raw & 0xF) as u8;
+
+        let d = (d_bit << 4) | vd;
+        let n = (n_bit << 4) | vn;
+        let m = (m_bit << 4) | vm;
+        if (d & 1) != 0 || (wide_n && (n & 1) != 0) {
+            return ExecResult::Undefined;
+        }
+        if d + 2 > 32 || m >= 32 || (!wide_n && n >= 32) || (wide_n && n + 2 > 32) {
+            return ExecResult::Undefined;
+        }
+
+        let n_elements = if wide_n {
+            self.neon_read_vector_elements_u64(n, 2, wide_ebytes)
+        } else {
+            self.neon_read_vector_elements_u64(n, 1, narrow_ebytes)
+        };
+        let m_elements = self.neon_read_vector_elements_u64(m, 1, narrow_ebytes);
+        if n_elements.len() != m_elements.len() {
+            return ExecResult::Undefined;
+        }
+
+        let mut out = Vec::with_capacity(n_elements.len());
+        for (n_elem, m_elem) in n_elements.into_iter().zip(m_elements.into_iter()) {
+            let lhs = if unsigned {
+                n_elem as i128
+            } else {
+                let bits = if wide_n {
+                    wide_bits
+                } else {
+                    narrow_size.bits()
+                };
+                Self::neon_sign_extend_elem_u64(n_elem, bits) as i128
+            };
+            let rhs = if unsigned {
+                m_elem as i128
+            } else {
+                Self::neon_sign_extend_elem_u64(m_elem, narrow_size.bits()) as i128
+            };
+            let value = if add { lhs + rhs } else { lhs - rhs };
+            out.push(Self::neon_pack_signed_elem_i128(value, wide_bits));
+        }
+
+        self.neon_write_vector_elements_u64(d, 2, wide_ebytes, &out);
+        ExecResult::Continue
+    }
+
+    fn exec_neon_narrow_add_sub(&mut self, insn: &DecodedInsn) -> ExecResult {
+        if !self.cpu.vfp.is_enabled() {
+            return ExecResult::Exception(ExceptionType::UndefinedInstruction);
+        }
+        if (insn.raw >> 25) != 0b1111001
+            || ((insn.raw >> 23) & 1) != 1
+            || ((insn.raw >> 6) & 1) != 0
+            || ((insn.raw >> 4) & 1) != 0
+        {
+            return ExecResult::Undefined;
+        }
+
+        let dest_size = match (insn.raw >> 20) & 0x3 {
+            0b00 => NeonSize::B8,
+            0b01 => NeonSize::H16,
+            0b10 => NeonSize::S32,
+            _ => return ExecResult::Undefined,
+        };
+        let dest_ebytes = (dest_size.bits() / 8) as u8;
+        let source_ebytes = dest_ebytes * 2;
+        let source_bits = dest_size.bits() * 2;
+        let round = ((insn.raw >> 24) & 1) != 0;
+        let add = match insn.mnemonic {
+            Mnemonic::VADDHN | Mnemonic::VRADDHN => true,
+            Mnemonic::VSUBHN | Mnemonic::VRSUBHN => false,
+            _ => return ExecResult::Undefined,
+        };
+
+        let d_bit = ((insn.raw >> 22) & 1) as u8;
+        let vd = ((insn.raw >> 12) & 0xF) as u8;
+        let n_bit = ((insn.raw >> 7) & 1) as u8;
+        let vn = ((insn.raw >> 16) & 0xF) as u8;
+        let m_bit = ((insn.raw >> 5) & 1) as u8;
+        let vm = (insn.raw & 0xF) as u8;
+
+        let d = (d_bit << 4) | vd;
+        let n = (n_bit << 4) | vn;
+        let m = (m_bit << 4) | vm;
+        if (n & 1) != 0 || (m & 1) != 0 {
+            return ExecResult::Undefined;
+        }
+        if d >= 32 || n + 2 > 32 || m + 2 > 32 {
+            return ExecResult::Undefined;
+        }
+
+        let mask = if source_bits == 64 {
+            u64::MAX as u128
+        } else {
+            (1u128 << source_bits) - 1
+        };
+        let round_const = if round {
+            1u128 << (dest_size.bits() - 1)
+        } else {
+            0
+        };
+
+        let n_elements = self.neon_read_vector_elements_u64(n, 2, source_ebytes);
+        let m_elements = self.neon_read_vector_elements_u64(m, 2, source_ebytes);
+        if n_elements.len() != m_elements.len() {
+            return ExecResult::Undefined;
+        }
+
+        let mut out = Vec::with_capacity(n_elements.len());
+        for (n_elem, m_elem) in n_elements.into_iter().zip(m_elements.into_iter()) {
+            let value = if add {
+                (n_elem as u128)
+                    .wrapping_add(m_elem as u128)
+                    .wrapping_add(round_const)
+            } else {
+                (n_elem as u128)
+                    .wrapping_sub(m_elem as u128)
+                    .wrapping_add(round_const)
+            } & mask;
+            out.push((value >> dest_size.bits()) as u64);
+        }
+
+        self.neon_write_vector_elements_u64(d, 1, dest_ebytes, &out);
+        ExecResult::Continue
+    }
+
+    fn exec_neon_saturating_doubling_mulh(&mut self, insn: &DecodedInsn) -> ExecResult {
+        if !self.cpu.vfp.is_enabled() {
+            return ExecResult::Exception(ExceptionType::UndefinedInstruction);
+        }
+
+        let scalar = ((insn.raw >> 23) & 1) != 0;
+        let size = match (insn.raw >> 20) & 0x3 {
+            0b01 => NeonSize::H16,
+            0b10 => NeonSize::S32,
+            _ => return ExecResult::Undefined,
+        };
+        let ebytes = (size.bits() / 8) as u8;
+
+        let d_bit = ((insn.raw >> 22) & 1) as u8;
+        let vd = ((insn.raw >> 12) & 0xF) as u8;
+        let n_bit = ((insn.raw >> 7) & 1) as u8;
+        let vn = ((insn.raw >> 16) & 0xF) as u8;
+        let m_bit = ((insn.raw >> 5) & 1) as u8;
+        let vm = (insn.raw & 0xF) as u8;
+        let q = if scalar {
+            ((insn.raw >> 24) & 1) != 0
+        } else {
+            ((insn.raw >> 6) & 1) != 0
+        };
+        let regs = if q { 2 } else { 1 };
+
+        let d = (d_bit << 4) | vd;
+        let n = (n_bit << 4) | vn;
+        let m = (m_bit << 4) | vm;
+        if q && ((d | n | if scalar { 0 } else { m }) & 1) != 0 {
+            return ExecResult::Undefined;
+        }
+        if d + regs > 32 || n + regs > 32 || (!scalar && m + regs > 32) {
+            return ExecResult::Undefined;
+        }
+
+        let scalar_elem = if scalar {
+            let (scalar_reg, scalar_index) = match size {
+                NeonSize::H16 => (vm & 0x7, (m_bit << 1) | (vm >> 3)),
+                NeonSize::S32 => (vm, m_bit),
+                _ => return ExecResult::Undefined,
+            };
+            if scalar_reg >= 32 || scalar_index as usize >= size.elements_per_d() {
+                return ExecResult::Undefined;
+            }
+            Some(self.neon_read_d_elem_u64(scalar_reg, scalar_index, ebytes))
+        } else {
+            None
+        };
+
+        for index in 0..regs {
+            let n_elements = self.neon_read_vector_elements_u64(n + index, 1, ebytes);
+            let m_elements = if let Some(elem) = scalar_elem {
+                vec![elem; n_elements.len()]
+            } else {
+                self.neon_read_vector_elements_u64(m + index, 1, ebytes)
+            };
+            let mut out = Vec::with_capacity(n_elements.len());
+            for (n_elem, m_elem) in n_elements.into_iter().zip(m_elements.into_iter()) {
+                let (packed, saturated) = Self::neon_doubling_mulh_elem(
+                    n_elem,
+                    m_elem,
+                    size.bits(),
+                    insn.mnemonic == Mnemonic::VQRDMULH,
+                );
+                if saturated {
+                    self.cpu.vfp.fpscr.set_qc(true);
+                }
+                out.push(packed);
+            }
+            self.neon_write_vector_elements_u64(d + index, 1, ebytes, &out);
+        }
+
+        ExecResult::Continue
+    }
+
+    fn exec_neon_count_register(&mut self, insn: &DecodedInsn) -> ExecResult {
+        if !self.cpu.vfp.is_enabled() {
+            return ExecResult::Exception(ExceptionType::UndefinedInstruction);
+        }
+
+        let size = match (insn.raw >> 18) & 0x3 {
+            0b00 => NeonSize::B8,
+            0b01 => NeonSize::H16,
+            0b10 => NeonSize::S32,
+            _ => return ExecResult::Undefined,
+        };
+        if insn.mnemonic == Mnemonic::VCNT && size != NeonSize::B8 {
+            return ExecResult::Undefined;
+        }
+
+        let d_bit = ((insn.raw >> 22) & 1) as u8;
+        let vd = ((insn.raw >> 12) & 0xF) as u8;
+        let m_bit = ((insn.raw >> 5) & 1) as u8;
+        let vm = (insn.raw & 0xF) as u8;
+        let q = ((insn.raw >> 6) & 1) != 0;
+        let regs = if q { 2 } else { 1 };
+
+        let d = (d_bit << 4) | vd;
+        let m = (m_bit << 4) | vm;
+        if q && ((d | m) & 1) != 0 {
+            return ExecResult::Undefined;
+        }
+        if d + regs > 32 || m + regs > 32 {
+            return ExecResult::Undefined;
+        }
+
+        for index in 0..regs {
+            let bits = self.cpu.vfp.read_d_bits(m + index);
+            let result = match insn.mnemonic {
+                Mnemonic::VCLS => vcls_i(bits, size),
+                Mnemonic::VCLZ => vclz_i(bits, size),
+                Mnemonic::VCNT => vcnt_i8(bits),
+                _ => return ExecResult::Undefined,
+            };
+            self.cpu.vfp.write_d_bits(d + index, result);
+        }
+
+        ExecResult::Continue
+    }
+
+    fn exec_neon_vext(&mut self, insn: &DecodedInsn) -> ExecResult {
+        if !self.cpu.vfp.is_enabled() {
+            return ExecResult::Exception(ExceptionType::UndefinedInstruction);
+        }
+
+        let d_bit = ((insn.raw >> 22) & 1) as u8;
+        let vd = ((insn.raw >> 12) & 0xF) as u8;
+        let n_bit = ((insn.raw >> 7) & 1) as u8;
+        let vn = ((insn.raw >> 16) & 0xF) as u8;
+        let m_bit = ((insn.raw >> 5) & 1) as u8;
+        let vm = (insn.raw & 0xF) as u8;
+        let q = ((insn.raw >> 6) & 1) != 0;
+        let imm = ((insn.raw >> 8) & 0xF) as usize;
+        let regs = if q { 2 } else { 1 };
+
+        let d = (d_bit << 4) | vd;
+        let n = (n_bit << 4) | vn;
+        let m = (m_bit << 4) | vm;
+        if (!q && imm > 7) || (q && ((d | n | m) & 1) != 0) {
+            return ExecResult::Undefined;
+        }
+        if d + regs > 32 || n + regs > 32 || m + regs > 32 {
+            return ExecResult::Undefined;
+        }
+
+        let bytes = regs as usize * 8;
+        let mut source = [0u8; 32];
+        for index in 0..regs {
+            let offset = index as usize * 8;
+            source[offset..offset + 8]
+                .copy_from_slice(&self.cpu.vfp.read_d_bits(n + index).to_le_bytes());
+            source[bytes + offset..bytes + offset + 8]
+                .copy_from_slice(&self.cpu.vfp.read_d_bits(m + index).to_le_bytes());
+        }
+
+        for index in 0..regs {
+            let offset = index as usize * 8;
+            let mut out = [0u8; 8];
+            out.copy_from_slice(&source[imm + offset..imm + offset + 8]);
+            self.cpu
+                .vfp
+                .write_d_bits(d + index, u64::from_le_bytes(out));
+        }
+
+        ExecResult::Continue
+    }
+
+    fn exec_neon_table_lookup(&mut self, insn: &DecodedInsn) -> ExecResult {
+        if !self.cpu.vfp.is_enabled() {
+            return ExecResult::Exception(ExceptionType::UndefinedInstruction);
+        }
+
+        let d_bit = ((insn.raw >> 22) & 1) as u8;
+        let vd = ((insn.raw >> 12) & 0xF) as u8;
+        let n_bit = ((insn.raw >> 7) & 1) as u8;
+        let vn = ((insn.raw >> 16) & 0xF) as u8;
+        let m_bit = ((insn.raw >> 5) & 1) as u8;
+        let vm = (insn.raw & 0xF) as u8;
+        let length = (((insn.raw >> 8) & 0x3) as u8) + 1;
+
+        let d = (d_bit << 4) | vd;
+        let n = (n_bit << 4) | vn;
+        let m = (m_bit << 4) | vm;
+        if d >= 32 || m >= 32 || n + length > 32 {
+            return ExecResult::Undefined;
+        }
+
+        let mut table = [0u8; 32];
+        for reg in 0..length {
+            let offset = reg as usize * 8;
+            table[offset..offset + 8]
+                .copy_from_slice(&self.cpu.vfp.read_d_bits(n + reg).to_le_bytes());
+        }
+
+        let indexes = self.cpu.vfp.read_d_bits(m).to_le_bytes();
+        let mut out = self.cpu.vfp.read_d_bits(d).to_le_bytes();
+        let table_len = length as usize * 8;
+        for lane in 0..8 {
+            let index = indexes[lane] as usize;
+            if index < table_len {
+                out[lane] = table[index];
+            } else if insn.mnemonic == Mnemonic::VTBL {
+                out[lane] = 0;
+            }
+        }
+        self.cpu.vfp.write_d_bits(d, u64::from_le_bytes(out));
+
+        ExecResult::Continue
+    }
+
+    fn exec_neon_minmax(&mut self, insn: &DecodedInsn) -> ExecResult {
+        if (insn.raw >> 25) == 0b1111001
+            && ((insn.raw >> 23) & 1) == 0
+            && ((insn.raw >> 8) & 0xF) == 0b0110
+        {
+            return self.exec_neon_integer_minmax(insn);
+        }
+
+        self.exec_neon_fp_minmax(insn)
+    }
+
+    fn exec_neon_fp_minmax(&mut self, insn: &DecodedInsn) -> ExecResult {
+        if !self.cpu.vfp.is_enabled() {
+            return ExecResult::Exception(ExceptionType::UndefinedInstruction);
+        }
+        if (insn.raw >> 24) != 0xF2
+            || ((insn.raw >> 23) & 1) != 0
+            || ((insn.raw >> 8) & 0xF) != 0b1111
+            || ((insn.raw >> 4) & 1) != 0
+        {
+            return ExecResult::Undefined;
+        }
+
+        let d_bit = ((insn.raw >> 22) & 1) as u8;
+        let vd = ((insn.raw >> 12) & 0xF) as u8;
+        let n_bit = ((insn.raw >> 7) & 1) as u8;
+        let vn = ((insn.raw >> 16) & 0xF) as u8;
+        let m_bit = ((insn.raw >> 5) & 1) as u8;
+        let vm = (insn.raw & 0xF) as u8;
+        let q = ((insn.raw >> 6) & 1) != 0;
+        let regs = if q { 2 } else { 1 };
+
+        let d = (d_bit << 4) | vd;
+        let n = (n_bit << 4) | vn;
+        let m = (m_bit << 4) | vm;
+        if q && ((d | n | m) & 1) != 0 {
+            return ExecResult::Undefined;
+        }
+        if d + regs > 32 || n + regs > 32 || m + regs > 32 {
+            return ExecResult::Undefined;
+        }
+
+        let size = if ((insn.raw >> 20) & 1) == 0 {
+            NeonSize::S32
+        } else {
+            NeonSize::H16
+        };
+        let ebytes = (size.bits() / 8) as u8;
+
+        for reg in 0..regs {
+            let n_elements = self.neon_read_vector_elements_u64(n + reg, 1, ebytes);
+            let m_elements = self.neon_read_vector_elements_u64(m + reg, 1, ebytes);
+            let mut out = Vec::with_capacity(n_elements.len());
+            for (n_elem, m_elem) in n_elements.into_iter().zip(m_elements.into_iter()) {
+                let result = match size {
+                    NeonSize::S32 => {
+                        let n_val = f32::from_bits(n_elem as u32);
+                        let m_val = f32::from_bits(m_elem as u32);
+                        (match insn.mnemonic {
+                            Mnemonic::VMAX => Self::neon_fpmax_f32_bits(n_val, m_val),
+                            Mnemonic::VMIN => Self::neon_fpmin_f32_bits(n_val, m_val),
+                            _ => return ExecResult::Undefined,
+                        }) as u64
+                    }
+                    NeonSize::H16 => {
+                        let n_val = vcvt_f32_f16_bits(n_elem as u16);
+                        let m_val = vcvt_f32_f16_bits(m_elem as u16);
+                        let mut fpscr = self.cpu.vfp.fpscr;
+                        match insn.mnemonic {
+                            Mnemonic::VMAX => vcvt_f16_bits_f32(
+                                f32::from_bits(Self::neon_fpmax_f32_bits(n_val, m_val)),
+                                &mut fpscr,
+                            ) as u64,
+                            Mnemonic::VMIN => vcvt_f16_bits_f32(
+                                f32::from_bits(Self::neon_fpmin_f32_bits(n_val, m_val)),
+                                &mut fpscr,
+                            ) as u64,
+                            _ => return ExecResult::Undefined,
+                        }
+                    }
+                    _ => return ExecResult::Undefined,
+                };
+                out.push(result);
+            }
+            self.neon_write_vector_elements_u64(d + reg, 1, ebytes, &out);
+        }
+
+        ExecResult::Continue
+    }
+
+    fn exec_neon_integer_minmax(&mut self, insn: &DecodedInsn) -> ExecResult {
+        if !self.cpu.vfp.is_enabled() {
+            return ExecResult::Exception(ExceptionType::UndefinedInstruction);
+        }
+        if (insn.raw >> 25) != 0b1111001
+            || ((insn.raw >> 23) & 1) != 0
+            || ((insn.raw >> 8) & 0xF) != 0b0110
+        {
+            return ExecResult::Undefined;
+        }
+
+        let size = match (insn.raw >> 20) & 0x3 {
+            0b00 => NeonSize::B8,
+            0b01 => NeonSize::H16,
+            0b10 => NeonSize::S32,
+            _ => return ExecResult::Undefined,
+        };
+        let ebytes = (size.bits() / 8) as u8;
+        let unsigned = ((insn.raw >> 24) & 1) != 0;
+
+        let d_bit = ((insn.raw >> 22) & 1) as u8;
+        let vd = ((insn.raw >> 12) & 0xF) as u8;
+        let n_bit = ((insn.raw >> 7) & 1) as u8;
+        let vn = ((insn.raw >> 16) & 0xF) as u8;
+        let m_bit = ((insn.raw >> 5) & 1) as u8;
+        let vm = (insn.raw & 0xF) as u8;
+        let q = ((insn.raw >> 6) & 1) != 0;
+        let regs = if q { 2 } else { 1 };
+
+        let d = (d_bit << 4) | vd;
+        let n = (n_bit << 4) | vn;
+        let m = (m_bit << 4) | vm;
+        if q && ((d | n | m) & 1) != 0 {
+            return ExecResult::Undefined;
+        }
+        if d + regs > 32 || n + regs > 32 || m + regs > 32 {
+            return ExecResult::Undefined;
+        }
+
+        for reg in 0..regs {
+            let n_elements = self.neon_read_vector_elements_u64(n + reg, 1, ebytes);
+            let m_elements = self.neon_read_vector_elements_u64(m + reg, 1, ebytes);
+            let mut out = Vec::with_capacity(n_elements.len());
+            for (n_elem, m_elem) in n_elements.into_iter().zip(m_elements.into_iter()) {
+                let result = if unsigned {
+                    match insn.mnemonic {
+                        Mnemonic::VMAX => n_elem.max(m_elem),
+                        Mnemonic::VMIN => n_elem.min(m_elem),
+                        _ => return ExecResult::Undefined,
+                    }
+                } else {
+                    let lhs = Self::neon_sign_extend_elem_u64(n_elem, size.bits());
+                    let rhs = Self::neon_sign_extend_elem_u64(m_elem, size.bits());
+                    let value = match insn.mnemonic {
+                        Mnemonic::VMAX => lhs.max(rhs),
+                        Mnemonic::VMIN => lhs.min(rhs),
+                        _ => return ExecResult::Undefined,
+                    };
+                    Self::neon_pack_signed_elem_i128(value, size.bits())
+                };
+                out.push(result);
+            }
+            self.neon_write_vector_elements_u64(d + reg, 1, ebytes, &out);
+        }
+
+        ExecResult::Continue
+    }
+
+    fn neon_fpmax_f32_bits(a: f32, b: f32) -> u32 {
+        if a.is_nan() || b.is_nan() {
+            return f32::NAN.to_bits();
+        }
+        if a == b {
+            if a.is_sign_positive() || b.is_sign_positive() {
+                0.0f32.to_bits()
+            } else {
+                a.to_bits()
+            }
+        } else {
+            a.max(b).to_bits()
+        }
+    }
+
+    fn neon_fpmin_f32_bits(a: f32, b: f32) -> u32 {
+        if a.is_nan() || b.is_nan() {
+            return f32::NAN.to_bits();
+        }
+        if a == b {
+            if a.is_sign_negative() || b.is_sign_negative() {
+                (-0.0f32).to_bits()
+            } else {
+                a.to_bits()
+            }
+        } else {
+            a.min(b).to_bits()
+        }
+    }
+
+    fn exec_neon_absdiff(&mut self, insn: &DecodedInsn) -> ExecResult {
+        if (insn.raw >> 25) == 0b1111001
+            && ((insn.raw >> 23) & 1) == 0
+            && ((insn.raw >> 8) & 0xF) == 0b0111
+        {
+            return self.exec_neon_integer_absdiff_accum(insn);
+        }
+
+        self.exec_neon_fp_absdiff(insn)
+    }
+
+    fn exec_neon_fp_absdiff(&mut self, insn: &DecodedInsn) -> ExecResult {
+        if !self.cpu.vfp.is_enabled() {
+            return ExecResult::Exception(ExceptionType::UndefinedInstruction);
+        }
+        if (insn.raw >> 24) != 0xF3
+            || ((insn.raw >> 23) & 1) != 0
+            || ((insn.raw >> 21) & 1) != 1
+            || ((insn.raw >> 8) & 0xF) != 0b1101
+            || ((insn.raw >> 4) & 1) != 0
+        {
+            return ExecResult::Undefined;
+        }
+
+        let d_bit = ((insn.raw >> 22) & 1) as u8;
+        let vd = ((insn.raw >> 12) & 0xF) as u8;
+        let n_bit = ((insn.raw >> 7) & 1) as u8;
+        let vn = ((insn.raw >> 16) & 0xF) as u8;
+        let m_bit = ((insn.raw >> 5) & 1) as u8;
+        let vm = (insn.raw & 0xF) as u8;
+        let q = ((insn.raw >> 6) & 1) != 0;
+        let regs = if q { 2 } else { 1 };
+
+        let d = (d_bit << 4) | vd;
+        let n = (n_bit << 4) | vn;
+        let m = (m_bit << 4) | vm;
+        if q && ((d | n | m) & 1) != 0 {
+            return ExecResult::Undefined;
+        }
+        if d + regs > 32 || n + regs > 32 || m + regs > 32 {
+            return ExecResult::Undefined;
+        }
+
+        let size = if ((insn.raw >> 20) & 1) == 0 {
+            NeonSize::S32
+        } else {
+            NeonSize::H16
+        };
+        let ebytes = (size.bits() / 8) as u8;
+
+        for reg in 0..regs {
+            let n_elements = self.neon_read_vector_elements_u64(n + reg, 1, ebytes);
+            let m_elements = self.neon_read_vector_elements_u64(m + reg, 1, ebytes);
+            let mut out = Vec::with_capacity(n_elements.len());
+            for (n_elem, m_elem) in n_elements.into_iter().zip(m_elements.into_iter()) {
+                let result = match size {
+                    NeonSize::S32 => {
+                        let n_val = f32::from_bits(n_elem as u32);
+                        let m_val = f32::from_bits(m_elem as u32);
+                        (n_val - m_val).abs().to_bits() as u64
+                    }
+                    NeonSize::H16 => {
+                        let n_val = vcvt_f32_f16_bits(n_elem as u16);
+                        let m_val = vcvt_f32_f16_bits(m_elem as u16);
+                        let mut fpscr = self.cpu.vfp.fpscr;
+                        vcvt_f16_bits_f32((n_val - m_val).abs(), &mut fpscr) as u64
+                    }
+                    _ => return ExecResult::Undefined,
+                };
+                out.push(result);
+            }
+            self.neon_write_vector_elements_u64(d + reg, 1, ebytes, &out);
+        }
+
+        ExecResult::Continue
+    }
+
+    fn exec_neon_integer_absdiff_accum(&mut self, insn: &DecodedInsn) -> ExecResult {
+        if !self.cpu.vfp.is_enabled() {
+            return ExecResult::Exception(ExceptionType::UndefinedInstruction);
+        }
+        if (insn.raw >> 25) != 0b1111001
+            || ((insn.raw >> 23) & 1) != 0
+            || ((insn.raw >> 8) & 0xF) != 0b0111
+        {
+            return ExecResult::Undefined;
+        }
+
+        let size = match (insn.raw >> 20) & 0x3 {
+            0b00 => NeonSize::B8,
+            0b01 => NeonSize::H16,
+            0b10 => NeonSize::S32,
+            _ => return ExecResult::Undefined,
+        };
+        let ebytes = (size.bits() / 8) as u8;
+        let unsigned = ((insn.raw >> 24) & 1) != 0;
+        let accumulate = match insn.mnemonic {
+            Mnemonic::VABD => false,
+            Mnemonic::VABA => true,
+            _ => return ExecResult::Undefined,
+        };
+
+        let d_bit = ((insn.raw >> 22) & 1) as u8;
+        let vd = ((insn.raw >> 12) & 0xF) as u8;
+        let n_bit = ((insn.raw >> 7) & 1) as u8;
+        let vn = ((insn.raw >> 16) & 0xF) as u8;
+        let m_bit = ((insn.raw >> 5) & 1) as u8;
+        let vm = (insn.raw & 0xF) as u8;
+        let q = ((insn.raw >> 6) & 1) != 0;
+        let regs = if q { 2 } else { 1 };
+
+        let d = (d_bit << 4) | vd;
+        let n = (n_bit << 4) | vn;
+        let m = (m_bit << 4) | vm;
+        if q && ((d | n | m) & 1) != 0 {
+            return ExecResult::Undefined;
+        }
+        if d + regs > 32 || n + regs > 32 || m + regs > 32 {
+            return ExecResult::Undefined;
+        }
+
+        let mask = if size.bits() == 32 {
+            u64::from(u32::MAX)
+        } else {
+            (1u64 << size.bits()) - 1
+        };
+
+        for reg in 0..regs {
+            let n_elements = self.neon_read_vector_elements_u64(n + reg, 1, ebytes);
+            let m_elements = self.neon_read_vector_elements_u64(m + reg, 1, ebytes);
+            let d_elements = if accumulate {
+                self.neon_read_vector_elements_u64(d + reg, 1, ebytes)
+            } else {
+                vec![0; n_elements.len()]
+            };
+            let mut out = Vec::with_capacity(n_elements.len());
+            for ((n_elem, m_elem), d_elem) in n_elements
+                .into_iter()
+                .zip(m_elements.into_iter())
+                .zip(d_elements.into_iter())
+            {
+                let diff = if unsigned {
+                    n_elem.abs_diff(m_elem)
+                } else {
+                    let lhs = Self::neon_sign_extend_elem_u64(n_elem, size.bits());
+                    let rhs = Self::neon_sign_extend_elem_u64(m_elem, size.bits());
+                    lhs.abs_diff(rhs) as u64
+                };
+                let result = if accumulate {
+                    d_elem.wrapping_add(diff) & mask
+                } else {
+                    diff & mask
+                };
+                out.push(result);
+            }
+            self.neon_write_vector_elements_u64(d + reg, 1, ebytes, &out);
+        }
+
+        ExecResult::Continue
+    }
+
+    fn exec_vld1_multiple(&mut self, insn: &DecodedInsn) -> ExecResult {
+        if !self.cpu.vfp.is_enabled() {
+            return ExecResult::Exception(ExceptionType::UndefinedInstruction);
+        }
+        if let Some(info) = self.decode_neon_vld_all_lanes(insn) {
+            return self.exec_vld_all_lanes(info);
+        }
+        if let Some(info) = self.decode_neon_vld_vst_single_lane(insn) {
+            return self.exec_vld_single_lane(info);
+        }
+        let Some(info) = self.decode_neon_vld_vst_multiple(insn) else {
+            return ExecResult::Undefined;
+        };
+        let NeonStructMem {
+            addr,
+            regs,
+            first,
+            writeback,
+            rn,
+            rm,
+            ..
+        } = info;
+
+        let mut current = addr;
+        for index in 0..regs {
+            let mut bits = 0u64;
+            for byte in 0..8 {
+                let value = match self.mem.read_byte(current) {
+                    Ok(v) => v,
+                    Err(e) => return ExecResult::MemoryFault(e),
+                };
+                bits |= (value as u64) << (byte * 8);
+                current = current.wrapping_add(1);
+            }
+            self.cpu.vfp.write_d_bits(first + index, bits);
+        }
+
+        if writeback {
+            self.cpu.regs[rn] = self.neon_struct_writeback(addr, regs, 1, rm);
+        }
+        ExecResult::Continue
+    }
+
+    fn exec_vst1_multiple(&mut self, insn: &DecodedInsn) -> ExecResult {
+        if !self.cpu.vfp.is_enabled() {
+            return ExecResult::Exception(ExceptionType::UndefinedInstruction);
+        }
+        if let Some(info) = self.decode_neon_vld_vst_single_lane(insn) {
+            return self.exec_vst_single_lane(info);
+        }
+        let Some(info) = self.decode_neon_vld_vst_multiple(insn) else {
+            return ExecResult::Undefined;
+        };
+        let NeonStructMem {
+            addr,
+            regs,
+            first,
+            writeback,
+            rn,
+            rm,
+            ..
+        } = info;
+
+        let mut current = addr;
+        for index in 0..regs {
+            let bits = self.cpu.vfp.read_d_bits(first + index);
+            for byte in 0..8 {
+                if let Err(e) = self.mem.write_byte(current, (bits >> (byte * 8)) as u8) {
+                    return ExecResult::MemoryFault(e);
+                }
+                current = current.wrapping_add(1);
+            }
+        }
+
+        if writeback {
+            self.cpu.regs[rn] = self.neon_struct_writeback(addr, regs, 1, rm);
+        }
+        ExecResult::Continue
+    }
+
+    fn exec_vld2_multiple(&mut self, insn: &DecodedInsn) -> ExecResult {
+        if !self.cpu.vfp.is_enabled() {
+            return ExecResult::Exception(ExceptionType::UndefinedInstruction);
+        }
+        if let Some(info) = self.decode_neon_vld_all_lanes(insn) {
+            return self.exec_vld_all_lanes(info);
+        }
+        if let Some(info) = self.decode_neon_vld_vst_single_lane(insn) {
+            return self.exec_vld_single_lane(info);
+        }
+        let Some(info) = self.decode_neon_vld_vst_multiple(insn) else {
+            return ExecResult::Undefined;
+        };
+        let second = info.first + info.inc;
+        let elements = 8 / info.ebytes;
+        let mut current = info.addr;
+
+        for r in 0..info.regs {
+            for element in 0..elements {
+                let first = match self.neon_read_mem_elem(current, info.ebytes) {
+                    Ok(v) => v,
+                    Err(e) => return ExecResult::MemoryFault(e),
+                };
+                let second_value = match self
+                    .neon_read_mem_elem(current.wrapping_add(info.ebytes as u32), info.ebytes)
+                {
+                    Ok(v) => v,
+                    Err(e) => return ExecResult::MemoryFault(e),
+                };
+                self.neon_write_d_elem(info.first + r, element, info.ebytes, first);
+                self.neon_write_d_elem(second + r, element, info.ebytes, second_value);
+                current = current.wrapping_add((info.ebytes * 2) as u32);
+            }
+        }
+
+        if info.writeback {
+            self.cpu.regs[info.rn] = self.neon_struct_writeback(info.addr, info.regs, 2, info.rm);
+        }
+        ExecResult::Continue
+    }
+
+    fn exec_vst2_multiple(&mut self, insn: &DecodedInsn) -> ExecResult {
+        if !self.cpu.vfp.is_enabled() {
+            return ExecResult::Exception(ExceptionType::UndefinedInstruction);
+        }
+        if let Some(info) = self.decode_neon_vld_vst_single_lane(insn) {
+            return self.exec_vst_single_lane(info);
+        }
+        let Some(info) = self.decode_neon_vld_vst_multiple(insn) else {
+            return ExecResult::Undefined;
+        };
+        let second = info.first + info.inc;
+        let elements = 8 / info.ebytes;
+        let mut current = info.addr;
+
+        for r in 0..info.regs {
+            for element in 0..elements {
+                let first = self.neon_read_d_elem(info.first + r, element, info.ebytes);
+                let second_value = self.neon_read_d_elem(second + r, element, info.ebytes);
+                if let Err(e) = self.neon_write_mem_elem(current, info.ebytes, first) {
+                    return ExecResult::MemoryFault(e);
+                }
+                if let Err(e) = self.neon_write_mem_elem(
+                    current.wrapping_add(info.ebytes as u32),
+                    info.ebytes,
+                    second_value,
+                ) {
+                    return ExecResult::MemoryFault(e);
+                }
+                current = current.wrapping_add((info.ebytes * 2) as u32);
+            }
+        }
+
+        if info.writeback {
+            self.cpu.regs[info.rn] = self.neon_struct_writeback(info.addr, info.regs, 2, info.rm);
+        }
+        ExecResult::Continue
+    }
+
+    fn exec_vld3_multiple(&mut self, insn: &DecodedInsn) -> ExecResult {
+        if !self.cpu.vfp.is_enabled() {
+            return ExecResult::Exception(ExceptionType::UndefinedInstruction);
+        }
+        if let Some(info) = self.decode_neon_vld_all_lanes(insn) {
+            return self.exec_vld_all_lanes(info);
+        }
+        if let Some(info) = self.decode_neon_vld_vst_single_lane(insn) {
+            return self.exec_vld_single_lane(info);
+        }
+        let Some(info) = self.decode_neon_vld_vst_multiple(insn) else {
+            return ExecResult::Undefined;
+        };
+        let second = info.first + info.inc;
+        let third = second + info.inc;
+        let elements = 8 / info.ebytes;
+        let mut current = info.addr;
+
+        for element in 0..elements {
+            let first = match self.neon_read_mem_elem(current, info.ebytes) {
+                Ok(v) => v,
+                Err(e) => return ExecResult::MemoryFault(e),
+            };
+            let second_value = match self
+                .neon_read_mem_elem(current.wrapping_add(info.ebytes as u32), info.ebytes)
+            {
+                Ok(v) => v,
+                Err(e) => return ExecResult::MemoryFault(e),
+            };
+            let third_value = match self
+                .neon_read_mem_elem(current.wrapping_add((info.ebytes * 2) as u32), info.ebytes)
+            {
+                Ok(v) => v,
+                Err(e) => return ExecResult::MemoryFault(e),
+            };
+            self.neon_write_d_elem(info.first, element, info.ebytes, first);
+            self.neon_write_d_elem(second, element, info.ebytes, second_value);
+            self.neon_write_d_elem(third, element, info.ebytes, third_value);
+            current = current.wrapping_add((info.ebytes * 3) as u32);
+        }
+
+        if info.writeback {
+            self.cpu.regs[info.rn] = self.neon_struct_writeback(info.addr, info.regs, 3, info.rm);
+        }
+        ExecResult::Continue
+    }
+
+    fn exec_vst3_multiple(&mut self, insn: &DecodedInsn) -> ExecResult {
+        if !self.cpu.vfp.is_enabled() {
+            return ExecResult::Exception(ExceptionType::UndefinedInstruction);
+        }
+        if let Some(info) = self.decode_neon_vld_vst_single_lane(insn) {
+            return self.exec_vst_single_lane(info);
+        }
+        let Some(info) = self.decode_neon_vld_vst_multiple(insn) else {
+            return ExecResult::Undefined;
+        };
+        let second = info.first + info.inc;
+        let third = second + info.inc;
+        let elements = 8 / info.ebytes;
+        let mut current = info.addr;
+
+        for element in 0..elements {
+            let first = self.neon_read_d_elem(info.first, element, info.ebytes);
+            let second_value = self.neon_read_d_elem(second, element, info.ebytes);
+            let third_value = self.neon_read_d_elem(third, element, info.ebytes);
+            if let Err(e) = self.neon_write_mem_elem(current, info.ebytes, first) {
+                return ExecResult::MemoryFault(e);
+            }
+            if let Err(e) = self.neon_write_mem_elem(
+                current.wrapping_add(info.ebytes as u32),
+                info.ebytes,
+                second_value,
+            ) {
+                return ExecResult::MemoryFault(e);
+            }
+            if let Err(e) = self.neon_write_mem_elem(
+                current.wrapping_add((info.ebytes * 2) as u32),
+                info.ebytes,
+                third_value,
+            ) {
+                return ExecResult::MemoryFault(e);
+            }
+            current = current.wrapping_add((info.ebytes * 3) as u32);
+        }
+
+        if info.writeback {
+            self.cpu.regs[info.rn] = self.neon_struct_writeback(info.addr, info.regs, 3, info.rm);
+        }
+        ExecResult::Continue
+    }
+
+    fn exec_vld4_multiple(&mut self, insn: &DecodedInsn) -> ExecResult {
+        if !self.cpu.vfp.is_enabled() {
+            return ExecResult::Exception(ExceptionType::UndefinedInstruction);
+        }
+        if let Some(info) = self.decode_neon_vld_all_lanes(insn) {
+            return self.exec_vld_all_lanes(info);
+        }
+        if let Some(info) = self.decode_neon_vld_vst_single_lane(insn) {
+            return self.exec_vld_single_lane(info);
+        }
+        let Some(info) = self.decode_neon_vld_vst_multiple(insn) else {
+            return ExecResult::Undefined;
+        };
+        let second = info.first + info.inc;
+        let third = second + info.inc;
+        let fourth = third + info.inc;
+        let elements = 8 / info.ebytes;
+        let mut current = info.addr;
+
+        for element in 0..elements {
+            let first = match self.neon_read_mem_elem(current, info.ebytes) {
+                Ok(v) => v,
+                Err(e) => return ExecResult::MemoryFault(e),
+            };
+            let second_value = match self
+                .neon_read_mem_elem(current.wrapping_add(info.ebytes as u32), info.ebytes)
+            {
+                Ok(v) => v,
+                Err(e) => return ExecResult::MemoryFault(e),
+            };
+            let third_value = match self
+                .neon_read_mem_elem(current.wrapping_add((info.ebytes * 2) as u32), info.ebytes)
+            {
+                Ok(v) => v,
+                Err(e) => return ExecResult::MemoryFault(e),
+            };
+            let fourth_value = match self
+                .neon_read_mem_elem(current.wrapping_add((info.ebytes * 3) as u32), info.ebytes)
+            {
+                Ok(v) => v,
+                Err(e) => return ExecResult::MemoryFault(e),
+            };
+            self.neon_write_d_elem(info.first, element, info.ebytes, first);
+            self.neon_write_d_elem(second, element, info.ebytes, second_value);
+            self.neon_write_d_elem(third, element, info.ebytes, third_value);
+            self.neon_write_d_elem(fourth, element, info.ebytes, fourth_value);
+            current = current.wrapping_add((info.ebytes * 4) as u32);
+        }
+
+        if info.writeback {
+            self.cpu.regs[info.rn] = self.neon_struct_writeback(info.addr, info.regs, 4, info.rm);
+        }
+        ExecResult::Continue
+    }
+
+    fn exec_vld_single_lane(&mut self, info: NeonSingleLaneMem) -> ExecResult {
+        let mut current = info.addr;
+        for stream in 0..info.streams {
+            let value = match self.neon_read_mem_elem(current, info.ebytes) {
+                Ok(v) => v,
+                Err(e) => return ExecResult::MemoryFault(e),
+            };
+            self.neon_write_d_elem(
+                info.first + stream * info.inc,
+                info.index,
+                info.ebytes,
+                value,
+            );
+            current = current.wrapping_add(info.ebytes as u32);
+        }
+
+        if info.writeback {
+            self.cpu.regs[info.rn] =
+                self.neon_lane_writeback(info.addr, info.streams, info.ebytes, info.rm);
+        }
+        ExecResult::Continue
+    }
+
+    fn exec_vld_all_lanes(&mut self, info: NeonAllLanesMem) -> ExecResult {
+        let mut current = info.addr;
+        for stream in 0..info.streams {
+            let value = match self.neon_read_mem_elem(current, info.ebytes) {
+                Ok(v) => v,
+                Err(e) => return ExecResult::MemoryFault(e),
+            };
+            let bits = Self::neon_replicate_elem(value, info.ebytes);
+            let first = info.first + stream * info.inc;
+            for reg in 0..info.regs {
+                self.cpu.vfp.write_d_bits(first + reg, bits);
+            }
+            current = current.wrapping_add(info.ebytes as u32);
+        }
+
+        if info.writeback {
+            self.cpu.regs[info.rn] = if info.rm == 13 {
+                info.addr
+                    .wrapping_add((info.streams as u32) * (info.ebytes as u32))
+            } else {
+                info.addr.wrapping_add(self.reg(info.rm))
+            };
+        }
+        ExecResult::Continue
+    }
+
+    fn exec_vst4_multiple(&mut self, insn: &DecodedInsn) -> ExecResult {
+        if !self.cpu.vfp.is_enabled() {
+            return ExecResult::Exception(ExceptionType::UndefinedInstruction);
+        }
+        if let Some(info) = self.decode_neon_vld_vst_single_lane(insn) {
+            return self.exec_vst_single_lane(info);
+        }
+        let Some(info) = self.decode_neon_vld_vst_multiple(insn) else {
+            return ExecResult::Undefined;
+        };
+        let second = info.first + info.inc;
+        let third = second + info.inc;
+        let fourth = third + info.inc;
+        let elements = 8 / info.ebytes;
+        let mut current = info.addr;
+
+        for element in 0..elements {
+            let first = self.neon_read_d_elem(info.first, element, info.ebytes);
+            let second_value = self.neon_read_d_elem(second, element, info.ebytes);
+            let third_value = self.neon_read_d_elem(third, element, info.ebytes);
+            let fourth_value = self.neon_read_d_elem(fourth, element, info.ebytes);
+            if let Err(e) = self.neon_write_mem_elem(current, info.ebytes, first) {
+                return ExecResult::MemoryFault(e);
+            }
+            if let Err(e) = self.neon_write_mem_elem(
+                current.wrapping_add(info.ebytes as u32),
+                info.ebytes,
+                second_value,
+            ) {
+                return ExecResult::MemoryFault(e);
+            }
+            if let Err(e) = self.neon_write_mem_elem(
+                current.wrapping_add((info.ebytes * 2) as u32),
+                info.ebytes,
+                third_value,
+            ) {
+                return ExecResult::MemoryFault(e);
+            }
+            if let Err(e) = self.neon_write_mem_elem(
+                current.wrapping_add((info.ebytes * 3) as u32),
+                info.ebytes,
+                fourth_value,
+            ) {
+                return ExecResult::MemoryFault(e);
+            }
+            current = current.wrapping_add((info.ebytes * 4) as u32);
+        }
+
+        if info.writeback {
+            self.cpu.regs[info.rn] = self.neon_struct_writeback(info.addr, info.regs, 4, info.rm);
+        }
+        ExecResult::Continue
+    }
+
+    fn exec_vst_single_lane(&mut self, info: NeonSingleLaneMem) -> ExecResult {
+        let mut current = info.addr;
+        for stream in 0..info.streams {
+            let value =
+                self.neon_read_d_elem(info.first + stream * info.inc, info.index, info.ebytes);
+            if let Err(e) = self.neon_write_mem_elem(current, info.ebytes, value) {
+                return ExecResult::MemoryFault(e);
+            }
+            current = current.wrapping_add(info.ebytes as u32);
+        }
+
+        if info.writeback {
+            self.cpu.regs[info.rn] =
+                self.neon_lane_writeback(info.addr, info.streams, info.ebytes, info.rm);
         }
         ExecResult::Continue
     }
@@ -2073,11 +4015,42 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
             let coproc = (insn.raw >> 8) & 0xF;
             let opc1 = ((insn.raw >> 21) & 0x3) as u8;
             let opc2 = ((insn.raw >> 5) & 0x3) as u8;
-            if opc2 != 0 || (opc1 & 0b10) != 0 {
-                return ExecResult::Undefined;
-            }
             let v = ((insn.raw >> 16) & 0xF) as u8;
-            if coproc == 0b1010 {
+            if coproc == 0b1011 {
+                let u = ((insn.raw >> 23) & 1) != 0;
+                let dreg = ((((insn.raw >> 7) & 1) << 4) as u8) | v;
+                let shape = if (opc1 & 0b10) != 0 {
+                    Some((1, ((opc1 & 1) << 2) | opc2))
+                } else if (opc2 & 1) != 0 {
+                    Some((2, ((opc1 & 1) << 1) | (opc2 >> 1)))
+                } else if !u && opc2 == 0 {
+                    Some((4, opc1 & 1))
+                } else {
+                    None
+                };
+                let Some((ebytes, lane)) = shape else {
+                    return ExecResult::Undefined;
+                };
+
+                if to_core {
+                    let elem = self.neon_read_d_elem_u64(dreg, lane, ebytes);
+                    self.cpu.regs[rt] = if u {
+                        elem as u32
+                    } else if ebytes < 4 {
+                        Self::neon_sign_extend_elem_u64(elem, ebytes as u32 * 8) as u32
+                    } else {
+                        elem as u32
+                    };
+                } else {
+                    if u {
+                        return ExecResult::Undefined;
+                    }
+                    self.neon_write_d_elem_u64(dreg, lane, ebytes, self.reg(rt) as u64);
+                }
+            } else if coproc == 0b1010 {
+                if opc2 != 0 || (opc1 & 0b10) != 0 {
+                    return ExecResult::Undefined;
+                }
                 if opc1 != 0 || (insn.raw & 0xF) != 0 {
                     return ExecResult::Undefined;
                 }
@@ -2089,16 +4062,7 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
                     self.cpu.vfp.write_s_bits(sreg, value);
                 }
             } else {
-                let dreg = ((((insn.raw >> 7) & 1) << 4) as u8) | v;
-                let lane_shift = ((opc1 & 1) as u64) * 32;
-                if to_core {
-                    self.cpu.regs[rt] = (self.cpu.vfp.read_d_bits(dreg) >> lane_shift) as u32;
-                } else {
-                    let lane_mask = 0xFFFF_FFFFu64 << lane_shift;
-                    let old = self.cpu.vfp.read_d_bits(dreg);
-                    let value = (self.reg(rt) as u64) << lane_shift;
-                    self.cpu.vfp.write_d_bits(dreg, (old & !lane_mask) | value);
-                }
+                return ExecResult::Undefined;
             }
             return ExecResult::Continue;
         }
@@ -2115,6 +4079,12 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
             let d_bit = ((insn.raw >> 22) & 1) as u8;
             let imm8 = ((((insn.raw >> 16) & 0xF) << 4) | (insn.raw & 0xF)) as u8;
             return match size {
+                1 => {
+                    self.cpu
+                        .vfp
+                        .write_h_bits((vd << 1) | d_bit, vfp_expand_imm_f16(imm8));
+                    ExecResult::Continue
+                }
                 2 => {
                     self.cpu
                         .vfp
@@ -2135,6 +4105,10 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
             return ExecResult::Undefined;
         };
         match size {
+            16 => {
+                let bits = self.cpu.vfp.read_h_bits(m);
+                self.cpu.vfp.write_h_bits(d, bits);
+            }
             32 => {
                 let bits = self.cpu.vfp.read_s_bits(m);
                 self.cpu.vfp.write_s_bits(d, bits);
@@ -2166,6 +4140,8 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
                     Mnemonic::VMUL => vmul_f16_bits(n_val, m_val, fpscr),
                     Mnemonic::VDIV => vdiv_f16_bits(n_val, m_val, fpscr),
                     Mnemonic::VNMUL => vnmul_f16_bits(n_val, m_val, fpscr),
+                    Mnemonic::VMAXNM_F16 => vmaxnm_f16_bits(n_val, m_val, fpscr),
+                    Mnemonic::VMINNM_F16 => vminnm_f16_bits(n_val, m_val, fpscr),
                     _ => return ExecResult::Undefined,
                 };
                 self.cpu.vfp.write_h_bits(d, result);
@@ -2376,6 +4352,11 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
         };
 
         match size {
+            16 => {
+                let value = self.cpu.vfp.read_h_bits(m);
+                let result = vrint_f16_bits(value, mode, exact, &mut self.cpu.vfp.fpscr);
+                self.cpu.vfp.write_h_bits(d, result);
+            }
             32 => {
                 let value = self.cpu.vfp.read_s(m);
                 let result = vrint_f32(value, mode, exact, &mut self.cpu.vfp.fpscr);
@@ -2403,7 +4384,11 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
         let signal_all_nans = insn.mnemonic == Mnemonic::VCMPE;
         match size {
             16 => {
-                let rhs = if with_zero { 0 } else { self.cpu.vfp.read_h_bits(m) };
+                let rhs = if with_zero {
+                    0
+                } else {
+                    self.cpu.vfp.read_h_bits(m)
+                };
                 vcmp_f16_bits_with_exception(
                     self.cpu.vfp.read_h_bits(d),
                     rhs,
@@ -2412,7 +4397,11 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
                 );
             }
             32 => {
-                let rhs = if with_zero { 0.0 } else { self.cpu.vfp.read_s(m) };
+                let rhs = if with_zero {
+                    0.0
+                } else {
+                    self.cpu.vfp.read_s(m)
+                };
                 vcmp_f32_with_exception(
                     self.cpu.vfp.read_s(d),
                     rhs,
@@ -2421,7 +4410,11 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
                 );
             }
             64 => {
-                let rhs = if with_zero { 0.0 } else { self.cpu.vfp.read_d(m) };
+                let rhs = if with_zero {
+                    0.0
+                } else {
+                    self.cpu.vfp.read_d(m)
+                };
                 vcmp_f64_with_exception(
                     self.cpu.vfp.read_d(d),
                     rhs,
@@ -2451,6 +4444,16 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
                 let value = self.cpu.vfp.read_s_bits(m);
                 self.cpu.vfp.write_s(d, vcvt_f32_u32(value));
             }
+            Mnemonic::VCVT_F16_S32 => {
+                let value = self.cpu.vfp.read_s_bits(m) as i32;
+                let bits = vcvt_f16_bits_f32(vcvt_f32_s32(value), &mut self.cpu.vfp.fpscr);
+                self.cpu.vfp.write_h_bits(d, bits);
+            }
+            Mnemonic::VCVT_F16_U32 => {
+                let value = self.cpu.vfp.read_s_bits(m);
+                let bits = vcvt_f16_bits_f32(vcvt_f32_u32(value), &mut self.cpu.vfp.fpscr);
+                self.cpu.vfp.write_h_bits(d, bits);
+            }
             Mnemonic::VCVT_S32_F32 => {
                 let value = vcvt_s32_f32(self.cpu.vfp.read_s(m), &mut self.cpu.vfp.fpscr);
                 self.cpu.vfp.write_s_bits(d, value as u32);
@@ -2459,12 +4462,40 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
                 let value = vcvt_u32_f32(self.cpu.vfp.read_s(m), &mut self.cpu.vfp.fpscr);
                 self.cpu.vfp.write_s_bits(d, value);
             }
+            Mnemonic::VCVT_S32_F16 => {
+                let value = vcvt_s32_f32(
+                    vcvt_f32_f16_bits(self.cpu.vfp.read_h_bits(m)),
+                    &mut self.cpu.vfp.fpscr,
+                );
+                self.cpu.vfp.write_s_bits(d, value as u32);
+            }
+            Mnemonic::VCVT_U32_F16 => {
+                let value = vcvt_u32_f32(
+                    vcvt_f32_f16_bits(self.cpu.vfp.read_h_bits(m)),
+                    &mut self.cpu.vfp.fpscr,
+                );
+                self.cpu.vfp.write_s_bits(d, value);
+            }
             Mnemonic::VCVTR_S32_F32 => {
                 let value = vcvtr_s32_f32(self.cpu.vfp.read_s(m), &mut self.cpu.vfp.fpscr);
                 self.cpu.vfp.write_s_bits(d, value as u32);
             }
             Mnemonic::VCVTR_U32_F32 => {
                 let value = vcvtr_u32_f32(self.cpu.vfp.read_s(m), &mut self.cpu.vfp.fpscr);
+                self.cpu.vfp.write_s_bits(d, value);
+            }
+            Mnemonic::VCVTR_S32_F16 => {
+                let value = vcvtr_s32_f32(
+                    vcvt_f32_f16_bits(self.cpu.vfp.read_h_bits(m)),
+                    &mut self.cpu.vfp.fpscr,
+                );
+                self.cpu.vfp.write_s_bits(d, value as u32);
+            }
+            Mnemonic::VCVTR_U32_F16 => {
+                let value = vcvtr_u32_f32(
+                    vcvt_f32_f16_bits(self.cpu.vfp.read_h_bits(m)),
+                    &mut self.cpu.vfp.fpscr,
+                );
                 self.cpu.vfp.write_s_bits(d, value);
             }
             Mnemonic::VCVT_F64_S32 => {
@@ -2498,7 +4529,22 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
                 let Some(mode) = Self::directed_vcvt_rounding(insn.mnemonic) else {
                     return ExecResult::Undefined;
                 };
-                let value = vcvt_s32_f32_round(self.cpu.vfp.read_s(m), mode, &mut self.cpu.vfp.fpscr);
+                let value =
+                    vcvt_s32_f32_round(self.cpu.vfp.read_s(m), mode, &mut self.cpu.vfp.fpscr);
+                self.cpu.vfp.write_s_bits(d, value as u32);
+            }
+            Mnemonic::VCVTA_S32_F16
+            | Mnemonic::VCVTM_S32_F16
+            | Mnemonic::VCVTN_S32_F16
+            | Mnemonic::VCVTP_S32_F16 => {
+                let Some(mode) = Self::directed_vcvt_rounding(insn.mnemonic) else {
+                    return ExecResult::Undefined;
+                };
+                let value = vcvt_s32_f32_round(
+                    vcvt_f32_f16_bits(self.cpu.vfp.read_h_bits(m)),
+                    mode,
+                    &mut self.cpu.vfp.fpscr,
+                );
                 self.cpu.vfp.write_s_bits(d, value as u32);
             }
             Mnemonic::VCVTA_U32_F32
@@ -2508,7 +4554,22 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
                 let Some(mode) = Self::directed_vcvt_rounding(insn.mnemonic) else {
                     return ExecResult::Undefined;
                 };
-                let value = vcvt_u32_f32_round(self.cpu.vfp.read_s(m), mode, &mut self.cpu.vfp.fpscr);
+                let value =
+                    vcvt_u32_f32_round(self.cpu.vfp.read_s(m), mode, &mut self.cpu.vfp.fpscr);
+                self.cpu.vfp.write_s_bits(d, value);
+            }
+            Mnemonic::VCVTA_U32_F16
+            | Mnemonic::VCVTM_U32_F16
+            | Mnemonic::VCVTN_U32_F16
+            | Mnemonic::VCVTP_U32_F16 => {
+                let Some(mode) = Self::directed_vcvt_rounding(insn.mnemonic) else {
+                    return ExecResult::Undefined;
+                };
+                let value = vcvt_u32_f32_round(
+                    vcvt_f32_f16_bits(self.cpu.vfp.read_h_bits(m)),
+                    mode,
+                    &mut self.cpu.vfp.fpscr,
+                );
                 self.cpu.vfp.write_s_bits(d, value);
             }
             Mnemonic::VCVTA_S32_F64
@@ -2518,7 +4579,8 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
                 let Some(mode) = Self::directed_vcvt_rounding(insn.mnemonic) else {
                     return ExecResult::Undefined;
                 };
-                let value = vcvt_s32_f64_round(self.cpu.vfp.read_d(m), mode, &mut self.cpu.vfp.fpscr);
+                let value =
+                    vcvt_s32_f64_round(self.cpu.vfp.read_d(m), mode, &mut self.cpu.vfp.fpscr);
                 self.cpu.vfp.write_s_bits(d, value as u32);
             }
             Mnemonic::VCVTA_U32_F64
@@ -2528,11 +4590,14 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
                 let Some(mode) = Self::directed_vcvt_rounding(insn.mnemonic) else {
                     return ExecResult::Undefined;
                 };
-                let value = vcvt_u32_f64_round(self.cpu.vfp.read_d(m), mode, &mut self.cpu.vfp.fpscr);
+                let value =
+                    vcvt_u32_f64_round(self.cpu.vfp.read_d(m), mode, &mut self.cpu.vfp.fpscr);
                 self.cpu.vfp.write_s_bits(d, value);
             }
             Mnemonic::VCVT_F64_F32 => {
-                self.cpu.vfp.write_d(d, vcvt_f64_f32(self.cpu.vfp.read_s(m)));
+                self.cpu
+                    .vfp
+                    .write_d(d, vcvt_f64_f32(self.cpu.vfp.read_s(m)));
             }
             Mnemonic::VCVT_F32_F64 => {
                 let value = vcvt_f32_f64(self.cpu.vfp.read_d(m), &mut self.cpu.vfp.fpscr);
@@ -2578,14 +4643,16 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
                 let Some(fbits) = Self::decode_vcvt_fixed_fbits(insn) else {
                     return ExecResult::Undefined;
                 };
-                let value = vcvt_s32_f32_fixed(self.cpu.vfp.read_s(d), fbits, &mut self.cpu.vfp.fpscr);
+                let value =
+                    vcvt_s32_f32_fixed(self.cpu.vfp.read_s(d), fbits, &mut self.cpu.vfp.fpscr);
                 self.cpu.vfp.write_s_bits(d, value as u32);
             }
             Mnemonic::VCVT_U32_F32_FIXED => {
                 let Some(fbits) = Self::decode_vcvt_fixed_fbits(insn) else {
                     return ExecResult::Undefined;
                 };
-                let value = vcvt_u32_f32_fixed(self.cpu.vfp.read_s(d), fbits, &mut self.cpu.vfp.fpscr);
+                let value =
+                    vcvt_u32_f32_fixed(self.cpu.vfp.read_s(d), fbits, &mut self.cpu.vfp.fpscr);
                 self.cpu.vfp.write_s_bits(d, value);
             }
             Mnemonic::VCVT_F64_S32_FIXED => {
@@ -2606,7 +4673,8 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
                 let Some(fbits) = Self::decode_vcvt_fixed_fbits(insn) else {
                     return ExecResult::Undefined;
                 };
-                let value = vcvt_s32_f64_fixed(self.cpu.vfp.read_d(d), fbits, &mut self.cpu.vfp.fpscr);
+                let value =
+                    vcvt_s32_f64_fixed(self.cpu.vfp.read_d(d), fbits, &mut self.cpu.vfp.fpscr);
                 let old = self.cpu.vfp.read_d_bits(d) & 0xFFFF_FFFF_0000_0000;
                 self.cpu.vfp.write_d_bits(d, old | (value as u32 as u64));
             }
@@ -2614,7 +4682,8 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
                 let Some(fbits) = Self::decode_vcvt_fixed_fbits(insn) else {
                     return ExecResult::Undefined;
                 };
-                let value = vcvt_u32_f64_fixed(self.cpu.vfp.read_d(d), fbits, &mut self.cpu.vfp.fpscr);
+                let value =
+                    vcvt_u32_f64_fixed(self.cpu.vfp.read_d(d), fbits, &mut self.cpu.vfp.fpscr);
                 let old = self.cpu.vfp.read_d_bits(d) & 0xFFFF_FFFF_0000_0000;
                 self.cpu.vfp.write_d_bits(d, old | value as u64);
             }
@@ -2627,19 +4696,27 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
     fn directed_vcvt_rounding(mnemonic: Mnemonic) -> Option<RoundingMode> {
         match mnemonic {
             Mnemonic::VCVTA_S32_F32
+            | Mnemonic::VCVTA_S32_F16
             | Mnemonic::VCVTA_U32_F32
+            | Mnemonic::VCVTA_U32_F16
             | Mnemonic::VCVTA_S32_F64
             | Mnemonic::VCVTA_U32_F64 => Some(RoundingMode::RoundTiesAway),
             Mnemonic::VCVTN_S32_F32
+            | Mnemonic::VCVTN_S32_F16
             | Mnemonic::VCVTN_U32_F32
+            | Mnemonic::VCVTN_U32_F16
             | Mnemonic::VCVTN_S32_F64
             | Mnemonic::VCVTN_U32_F64 => Some(RoundingMode::RoundNearest),
             Mnemonic::VCVTP_S32_F32
+            | Mnemonic::VCVTP_S32_F16
             | Mnemonic::VCVTP_U32_F32
+            | Mnemonic::VCVTP_U32_F16
             | Mnemonic::VCVTP_S32_F64
             | Mnemonic::VCVTP_U32_F64 => Some(RoundingMode::RoundPlusInf),
             Mnemonic::VCVTM_S32_F32
+            | Mnemonic::VCVTM_S32_F16
             | Mnemonic::VCVTM_U32_F32
+            | Mnemonic::VCVTM_U32_F16
             | Mnemonic::VCVTM_S32_F64
             | Mnemonic::VCVTM_U32_F64 => Some(RoundingMode::RoundMinusInf),
             _ => None,
@@ -2648,23 +4725,27 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
 
     fn vrint_rounding(&self, mnemonic: Mnemonic) -> Option<(RoundingMode, bool)> {
         match mnemonic {
-            Mnemonic::VRINTA_F32 | Mnemonic::VRINTA_F64 => {
+            Mnemonic::VRINTA_F16 | Mnemonic::VRINTA_F32 | Mnemonic::VRINTA_F64 => {
                 Some((RoundingMode::RoundTiesAway, false))
             }
-            Mnemonic::VRINTN_F32 | Mnemonic::VRINTN_F64 => {
+            Mnemonic::VRINTN_F16 | Mnemonic::VRINTN_F32 | Mnemonic::VRINTN_F64 => {
                 Some((RoundingMode::RoundNearest, false))
             }
-            Mnemonic::VRINTP_F32 | Mnemonic::VRINTP_F64 => {
+            Mnemonic::VRINTP_F16 | Mnemonic::VRINTP_F32 | Mnemonic::VRINTP_F64 => {
                 Some((RoundingMode::RoundPlusInf, false))
             }
-            Mnemonic::VRINTM_F32 | Mnemonic::VRINTM_F64 => {
+            Mnemonic::VRINTM_F16 | Mnemonic::VRINTM_F32 | Mnemonic::VRINTM_F64 => {
                 Some((RoundingMode::RoundMinusInf, false))
             }
-            Mnemonic::VRINTZ_F32 | Mnemonic::VRINTZ_F64 => {
+            Mnemonic::VRINTZ_F16 | Mnemonic::VRINTZ_F32 | Mnemonic::VRINTZ_F64 => {
                 Some((RoundingMode::RoundZero, false))
             }
-            Mnemonic::VRINTR_F32 | Mnemonic::VRINTR_F64 => Some((self.cpu.vfp.fpscr.rmode(), false)),
-            Mnemonic::VRINTX_F32 | Mnemonic::VRINTX_F64 => Some((self.cpu.vfp.fpscr.rmode(), true)),
+            Mnemonic::VRINTR_F16 | Mnemonic::VRINTR_F32 | Mnemonic::VRINTR_F64 => {
+                Some((self.cpu.vfp.fpscr.rmode(), false))
+            }
+            Mnemonic::VRINTX_F16 | Mnemonic::VRINTX_F32 | Mnemonic::VRINTX_F64 => {
+                Some((self.cpu.vfp.fpscr.rmode(), true))
+            }
             _ => None,
         }
     }
@@ -2675,7 +4756,9 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
         let rn = ((insn.raw >> 16) & 0xF) as usize;
         let vd = ((insn.raw >> 12) & 0xF) as u8;
         let size = (insn.raw >> 8) & 0x3;
-        let imm = (insn.raw & 0xFF).wrapping_mul(4);
+        let size = (insn.raw >> 8) & 0x3;
+        let scale = if size == 1 { 2 } else { 4 };
+        let imm = (insn.raw & 0xFF).wrapping_mul(scale);
         let base = if rn == 15 {
             self.cpu.get_pc() & !3
         } else {
@@ -2687,6 +4770,7 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
             base.wrapping_sub(imm)
         };
         match size {
+            1 => Some((addr, 16, (vd << 1) | d_bit)),
             2 => Some((addr, 32, (vd << 1) | d_bit)),
             3 => Some((addr, 64, (d_bit << 4) | vd)),
             _ => None,
@@ -2738,6 +4822,496 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
         Some((start, final_addr, elem_size, first, count, w, rn))
     }
 
+    fn decode_neon_vld_vst_multiple(&self, insn: &DecodedInsn) -> Option<NeonStructMem> {
+        let ty = (insn.raw >> 8) & 0xF;
+        let size = ((insn.raw >> 6) & 0x3) as u8;
+        let (regs, inc, streams) = match insn.mnemonic {
+            Mnemonic::VLD1 | Mnemonic::VST1 => match ty {
+                0b0111 => (1, 1, 1),
+                0b1010 => (2, 1, 1),
+                0b0110 => (3, 1, 1),
+                0b0010 => (4, 1, 1),
+                _ => return None,
+            },
+            Mnemonic::VLD2 | Mnemonic::VST2 => match ty {
+                0b1000 => (1, 1, 2),
+                0b1001 => (1, 2, 2),
+                0b0011 => (2, 2, 2),
+                _ => return None,
+            },
+            Mnemonic::VLD3 | Mnemonic::VST3 => match ty {
+                0b0100 => (1, 1, 3),
+                0b0101 => (1, 2, 3),
+                _ => return None,
+            },
+            Mnemonic::VLD4 | Mnemonic::VST4 => match ty {
+                0b0000 => (1, 1, 4),
+                0b0001 => (1, 2, 4),
+                _ => return None,
+            },
+            _ => return None,
+        };
+
+        let align = (insn.raw >> 4) & 0x3;
+        match insn.mnemonic {
+            Mnemonic::VLD1 | Mnemonic::VST1 => {
+                if (regs == 1 || regs == 3) && (align & 0b10) != 0 {
+                    return None;
+                }
+                if regs == 2 && align == 0b11 {
+                    return None;
+                }
+            }
+            Mnemonic::VLD2 | Mnemonic::VST2 => {
+                if size == 0b11 || (regs == 1 && align == 0b11) {
+                    return None;
+                }
+            }
+            Mnemonic::VLD3 | Mnemonic::VST3 => {
+                if size == 0b11 || (align & 0b10) != 0 {
+                    return None;
+                }
+            }
+            Mnemonic::VLD4 | Mnemonic::VST4 => {
+                if size == 0b11 {
+                    return None;
+                }
+            }
+            _ => return None,
+        }
+
+        let d_bit = ((insn.raw >> 22) & 1) as u8;
+        let vd = ((insn.raw >> 12) & 0xF) as u8;
+        let first = (d_bit << 4) | vd;
+        let last = first
+            .checked_add((streams - 1) * inc)?
+            .checked_add(regs - 1)?;
+        if last >= 32 {
+            return None;
+        }
+
+        let rn = ((insn.raw >> 16) & 0xF) as usize;
+        if rn == 15 {
+            return None;
+        }
+        let rm = (insn.raw & 0xF) as usize;
+        let writeback = rm != 15;
+        Some(NeonStructMem {
+            addr: self.reg(rn),
+            regs,
+            first,
+            inc,
+            ebytes: 1 << size,
+            writeback,
+            rn,
+            rm,
+        })
+    }
+
+    fn decode_neon_vld_all_lanes(&self, insn: &DecodedInsn) -> Option<NeonAllLanesMem> {
+        if ((insn.raw >> 23) & 1) != 1 || ((insn.raw >> 21) & 1) != 1 {
+            return None;
+        }
+
+        let ty = (insn.raw >> 8) & 0xF;
+        let size = ((insn.raw >> 6) & 0x3) as u8;
+        let t = ((insn.raw >> 5) & 1) as u8;
+        let a = ((insn.raw >> 4) & 1) as u8;
+        let (streams, regs, inc, ebytes) = match insn.mnemonic {
+            Mnemonic::VLD1 if ty == 0b1100 => {
+                if size == 0b11 || (size == 0 && a == 1) {
+                    return None;
+                }
+                (1, if t == 0 { 1 } else { 2 }, 1, 1 << size)
+            }
+            Mnemonic::VLD2 if ty == 0b1101 => {
+                if size == 0b11 {
+                    return None;
+                }
+                (2, 1, if t == 0 { 1 } else { 2 }, 1 << size)
+            }
+            Mnemonic::VLD3 if ty == 0b1110 => {
+                if size == 0b11 || a == 1 {
+                    return None;
+                }
+                (3, 1, if t == 0 { 1 } else { 2 }, 1 << size)
+            }
+            Mnemonic::VLD4 if ty == 0b1111 => {
+                if size == 0b11 && a == 0 {
+                    return None;
+                }
+                (
+                    4,
+                    1,
+                    if t == 0 { 1 } else { 2 },
+                    if size == 0b11 { 4 } else { 1 << size },
+                )
+            }
+            _ => return None,
+        };
+
+        let d_bit = ((insn.raw >> 22) & 1) as u8;
+        let vd = ((insn.raw >> 12) & 0xF) as u8;
+        let first = (d_bit << 4) | vd;
+        let last = first
+            .checked_add((streams - 1) * inc)?
+            .checked_add(regs - 1)?;
+        if last >= 32 {
+            return None;
+        }
+
+        let rn = ((insn.raw >> 16) & 0xF) as usize;
+        if rn == 15 {
+            return None;
+        }
+        let rm = (insn.raw & 0xF) as usize;
+        Some(NeonAllLanesMem {
+            addr: self.reg(rn),
+            streams,
+            regs,
+            first,
+            inc,
+            ebytes,
+            writeback: rm != 15,
+            rn,
+            rm,
+        })
+    }
+
+    fn decode_neon_vld_vst_single_lane(&self, insn: &DecodedInsn) -> Option<NeonSingleLaneMem> {
+        if ((insn.raw >> 23) & 1) != 1 {
+            return None;
+        }
+        let l = (insn.raw >> 21) & 1;
+        if (l == 1)
+            != matches!(
+                insn.mnemonic,
+                Mnemonic::VLD1 | Mnemonic::VLD2 | Mnemonic::VLD3 | Mnemonic::VLD4
+            )
+        {
+            return None;
+        }
+
+        let size = ((insn.raw >> 10) & 0x3) as u8;
+        let streams = (((insn.raw >> 8) & 0x3) + 1) as u8;
+        let index_align = ((insn.raw >> 4) & 0xF) as u8;
+        let (ebytes, index, inc) = Self::decode_neon_single_lane_shape(streams, size, index_align)?;
+
+        let expected = match insn.mnemonic {
+            Mnemonic::VLD1 | Mnemonic::VST1 => 1,
+            Mnemonic::VLD2 | Mnemonic::VST2 => 2,
+            Mnemonic::VLD3 | Mnemonic::VST3 => 3,
+            Mnemonic::VLD4 | Mnemonic::VST4 => 4,
+            _ => return None,
+        };
+        if streams != expected {
+            return None;
+        }
+
+        let d_bit = ((insn.raw >> 22) & 1) as u8;
+        let vd = ((insn.raw >> 12) & 0xF) as u8;
+        let first = (d_bit << 4) | vd;
+        let last = first.checked_add((streams - 1) * inc)?;
+        if last >= 32 {
+            return None;
+        }
+
+        let rn = ((insn.raw >> 16) & 0xF) as usize;
+        if rn == 15 {
+            return None;
+        }
+        let rm = (insn.raw & 0xF) as usize;
+        Some(NeonSingleLaneMem {
+            addr: self.reg(rn),
+            streams,
+            first,
+            inc,
+            ebytes,
+            index,
+            writeback: rm != 15,
+            rn,
+            rm,
+        })
+    }
+
+    fn decode_neon_single_lane_shape(
+        streams: u8,
+        size: u8,
+        index_align: u8,
+    ) -> Option<(u8, u8, u8)> {
+        match (streams, size) {
+            (1, 0) if (index_align & 0b0001) == 0 => Some((1, index_align >> 1, 1)),
+            (1, 1) if (index_align & 0b0010) == 0 => Some((2, index_align >> 2, 1)),
+            (1, 2)
+                if (index_align & 0b0100) == 0 && matches!(index_align & 0b0011, 0b00 | 0b11) =>
+            {
+                Some((4, index_align >> 3, 1))
+            }
+            (2, 0) => Some((1, index_align >> 1, 1)),
+            (2, 1) => Some((
+                2,
+                index_align >> 2,
+                if (index_align & 0b0010) == 0 { 1 } else { 2 },
+            )),
+            (2, 2) if (index_align & 0b0010) == 0 => Some((
+                4,
+                index_align >> 3,
+                if (index_align & 0b0100) == 0 { 1 } else { 2 },
+            )),
+            (3, 0) if (index_align & 0b0001) == 0 => Some((1, index_align >> 1, 1)),
+            (3, 1) if (index_align & 0b0001) == 0 => Some((
+                2,
+                index_align >> 2,
+                if (index_align & 0b0010) == 0 { 1 } else { 2 },
+            )),
+            (3, 2) if (index_align & 0b0011) == 0 => Some((
+                4,
+                index_align >> 3,
+                if (index_align & 0b0100) == 0 { 1 } else { 2 },
+            )),
+            (4, 0) => Some((1, index_align >> 1, 1)),
+            (4, 1) => Some((
+                2,
+                index_align >> 2,
+                if (index_align & 0b0010) == 0 { 1 } else { 2 },
+            )),
+            (4, 2) if (index_align & 0b0011) != 0b0011 => Some((
+                4,
+                index_align >> 3,
+                if (index_align & 0b0100) == 0 { 1 } else { 2 },
+            )),
+            _ => None,
+        }
+    }
+
+    fn neon_struct_writeback(&self, base: u32, regs: u8, streams: u8, rm: usize) -> u32 {
+        if rm == 13 {
+            base.wrapping_add((regs as u32) * (streams as u32) * 8)
+        } else {
+            base.wrapping_add(self.reg(rm))
+        }
+    }
+
+    fn neon_lane_writeback(&self, base: u32, streams: u8, ebytes: u8, rm: usize) -> u32 {
+        if rm == 13 {
+            base.wrapping_add((streams as u32) * (ebytes as u32))
+        } else {
+            base.wrapping_add(self.reg(rm))
+        }
+    }
+
+    fn neon_replicate_elem(value: u32, ebytes: u8) -> u64 {
+        let bits = (ebytes * 8) as u32;
+        let mask = if ebytes == 4 {
+            u32::MAX as u64
+        } else {
+            (1u64 << bits) - 1
+        };
+        let elem = (value as u64) & mask;
+        let mut out = 0u64;
+        let lanes = 8 / ebytes;
+        for lane in 0..lanes {
+            out |= elem << ((lane * ebytes * 8) as u32);
+        }
+        out
+    }
+
+    fn neon_read_d_elem(&self, dreg: u8, element: u8, ebytes: u8) -> u32 {
+        let shift = (element * ebytes * 8) as u32;
+        let mask = if ebytes == 4 {
+            u32::MAX as u64
+        } else {
+            (1u64 << (ebytes * 8)) - 1
+        };
+        ((self.cpu.vfp.read_d_bits(dreg) >> shift) & mask) as u32
+    }
+
+    fn neon_read_d_elem_u64(&self, dreg: u8, element: u8, ebytes: u8) -> u64 {
+        let shift = (element * ebytes * 8) as u32;
+        let mask = if ebytes == 8 {
+            u64::MAX
+        } else {
+            (1u64 << (ebytes * 8)) - 1
+        };
+        (self.cpu.vfp.read_d_bits(dreg) >> shift) & mask
+    }
+
+    fn neon_sign_extend_elem(value: u32, bits: u32) -> i64 {
+        let shift = 64 - bits;
+        (((value as u64) << shift) as i64) >> shift
+    }
+
+    fn neon_sign_extend_elem_u64(value: u64, bits: u32) -> i128 {
+        let shift = 128 - bits;
+        ((value as i128) << shift) >> shift
+    }
+
+    fn neon_signed_saturate(value: i64, bits: u32) -> (i64, bool) {
+        let min = -(1i64 << (bits - 1));
+        let max = (1i64 << (bits - 1)) - 1;
+        if value < min {
+            (min, true)
+        } else if value > max {
+            (max, true)
+        } else {
+            (value, false)
+        }
+    }
+
+    fn neon_signed_saturate_i128(value: i128, bits: u32) -> (i128, bool) {
+        let min = -(1i128 << (bits - 1));
+        let max = (1i128 << (bits - 1)) - 1;
+        if value < min {
+            (min, true)
+        } else if value > max {
+            (max, true)
+        } else {
+            (value, false)
+        }
+    }
+
+    fn neon_unsigned_saturate(value: i128, bits: u32) -> (u64, bool) {
+        let max = if bits == 64 {
+            u64::MAX as i128
+        } else {
+            (1i128 << bits) - 1
+        };
+        if value < 0 {
+            (0, true)
+        } else if value > max {
+            (max as u64, true)
+        } else {
+            (value as u64, false)
+        }
+    }
+
+    fn neon_pack_signed_elem(value: i64, bits: u32) -> u32 {
+        let mask = if bits == 32 {
+            u32::MAX as u64
+        } else {
+            (1u64 << bits) - 1
+        };
+        (value as u64 & mask) as u32
+    }
+
+    fn neon_pack_signed_elem_i128(value: i128, bits: u32) -> u64 {
+        let mask = if bits == 64 {
+            u64::MAX as u128
+        } else {
+            (1u128 << bits) - 1
+        };
+        (value as u128 & mask) as u64
+    }
+
+    fn neon_doubling_mulh_elem(lhs: u64, rhs: u64, bits: u32, rounding: bool) -> (u64, bool) {
+        let lhs = Self::neon_sign_extend_elem_u64(lhs, bits);
+        let rhs = Self::neon_sign_extend_elem_u64(rhs, bits);
+        let round_const = if rounding { 1i128 << (bits - 1) } else { 0 };
+        let product = (2 * lhs * rhs) + round_const;
+        let shifted = product >> bits;
+        let (result, saturated) = Self::neon_signed_saturate_i128(shifted, bits);
+        (Self::neon_pack_signed_elem_i128(result, bits), saturated)
+    }
+
+    fn neon_read_vector_elements(&self, first: u8, regs: u8, ebytes: u8) -> Vec<u32> {
+        let elements_per_d = 8 / ebytes;
+        let mut elements = Vec::with_capacity(regs as usize * elements_per_d as usize);
+        for reg in 0..regs {
+            for element in 0..elements_per_d {
+                elements.push(self.neon_read_d_elem(first + reg, element, ebytes));
+            }
+        }
+        elements
+    }
+
+    fn neon_read_vector_elements_u64(&self, first: u8, regs: u8, ebytes: u8) -> Vec<u64> {
+        let elements_per_d = 8 / ebytes;
+        let mut elements = Vec::with_capacity(regs as usize * elements_per_d as usize);
+        for reg in 0..regs {
+            for element in 0..elements_per_d {
+                elements.push(self.neon_read_d_elem_u64(first + reg, element, ebytes));
+            }
+        }
+        elements
+    }
+
+    fn neon_write_vector_elements(&mut self, first: u8, regs: u8, ebytes: u8, elements: &[u32]) {
+        let elements_per_d = 8 / ebytes;
+        debug_assert_eq!(elements.len(), regs as usize * elements_per_d as usize);
+        let mut next = 0;
+        for reg in 0..regs {
+            for element in 0..elements_per_d {
+                self.neon_write_d_elem(first + reg, element, ebytes, elements[next]);
+                next += 1;
+            }
+        }
+    }
+
+    fn neon_write_vector_elements_u64(
+        &mut self,
+        first: u8,
+        regs: u8,
+        ebytes: u8,
+        elements: &[u64],
+    ) {
+        let elements_per_d = 8 / ebytes;
+        debug_assert_eq!(elements.len(), regs as usize * elements_per_d as usize);
+        let mut next = 0;
+        for reg in 0..regs {
+            for element in 0..elements_per_d {
+                self.neon_write_d_elem_u64(first + reg, element, ebytes, elements[next]);
+                next += 1;
+            }
+        }
+    }
+
+    fn neon_write_d_elem(&mut self, dreg: u8, element: u8, ebytes: u8, value: u32) {
+        let shift = (element * ebytes * 8) as u32;
+        let mask = if ebytes == 4 {
+            u32::MAX as u64
+        } else {
+            (1u64 << (ebytes * 8)) - 1
+        };
+        let old = self.cpu.vfp.read_d_bits(dreg);
+        let bits = (old & !(mask << shift)) | (((value as u64) & mask) << shift);
+        self.cpu.vfp.write_d_bits(dreg, bits);
+    }
+
+    fn neon_write_d_elem_u64(&mut self, dreg: u8, element: u8, ebytes: u8, value: u64) {
+        let shift = (element * ebytes * 8) as u32;
+        let mask = if ebytes == 8 {
+            u64::MAX
+        } else {
+            (1u64 << (ebytes * 8)) - 1
+        };
+        let old = self.cpu.vfp.read_d_bits(dreg);
+        let bits = (old & !(mask << shift)) | ((value & mask) << shift);
+        self.cpu.vfp.write_d_bits(dreg, bits);
+    }
+
+    fn neon_read_mem_elem(&self, addr: u32, ebytes: u8) -> Result<u32, MemoryError> {
+        match ebytes {
+            1 => self.mem.read_byte(addr).map(|v| v as u32),
+            2 => self.mem.read_halfword(addr).map(|v| v as u32),
+            4 => self.mem.read_word(addr),
+            _ => Err(MemoryError::OutOfBounds(addr)),
+        }
+    }
+
+    fn neon_write_mem_elem(
+        &mut self,
+        addr: u32,
+        ebytes: u8,
+        value: u32,
+    ) -> Result<(), MemoryError> {
+        match ebytes {
+            1 => self.mem.write_byte(addr, value as u8),
+            2 => self.mem.write_halfword(addr, value as u16),
+            4 => self.mem.write_word(addr, value),
+            _ => Err(MemoryError::OutOfBounds(addr)),
+        }
+    }
+
     fn decode_vcvt_regs(&self, insn: &DecodedInsn) -> Option<(u8, u8)> {
         let d_bit = ((insn.raw >> 22) & 1) as u8;
         let vd = ((insn.raw >> 12) & 0xF) as u8;
@@ -2751,18 +5325,32 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
         match insn.mnemonic {
             Mnemonic::VCVT_F32_S32
             | Mnemonic::VCVT_F32_U32
+            | Mnemonic::VCVT_F16_S32
+            | Mnemonic::VCVT_F16_U32
             | Mnemonic::VCVT_S32_F32
             | Mnemonic::VCVT_U32_F32
+            | Mnemonic::VCVT_S32_F16
+            | Mnemonic::VCVT_U32_F16
             | Mnemonic::VCVTR_S32_F32
             | Mnemonic::VCVTR_U32_F32
+            | Mnemonic::VCVTR_S32_F16
+            | Mnemonic::VCVTR_U32_F16
             | Mnemonic::VCVTA_S32_F32
             | Mnemonic::VCVTA_U32_F32
+            | Mnemonic::VCVTA_S32_F16
+            | Mnemonic::VCVTA_U32_F16
             | Mnemonic::VCVTM_S32_F32
             | Mnemonic::VCVTM_U32_F32
+            | Mnemonic::VCVTM_S32_F16
+            | Mnemonic::VCVTM_U32_F16
             | Mnemonic::VCVTN_S32_F32
             | Mnemonic::VCVTN_U32_F32
+            | Mnemonic::VCVTN_S32_F16
+            | Mnemonic::VCVTN_U32_F16
             | Mnemonic::VCVTP_S32_F32
             | Mnemonic::VCVTP_U32_F32
+            | Mnemonic::VCVTP_S32_F16
+            | Mnemonic::VCVTP_U32_F16
             | Mnemonic::VCVTB_F32_F16
             | Mnemonic::VCVTT_F32_F16
             | Mnemonic::VCVTB_F16_F32
@@ -2950,7 +5538,11 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
 
     fn exec_sxtb(&mut self, insn: &DecodedInsn) -> ExecResult {
         let (d, m) = self.dm_ops(insn);
-        let rotation = if insn.state.is_thumb() { 0 } else { ((insn.raw >> 10) & 3) * 8 };
+        let rotation = if insn.state.is_thumb() {
+            0
+        } else {
+            ((insn.raw >> 10) & 3) * 8
+        };
         let rotated = self.reg(m).rotate_right(rotation);
         let result = sign_extend(rotated & 0xFF, 8);
         self.set_reg(d, result)
@@ -2958,7 +5550,11 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
 
     fn exec_sxth(&mut self, insn: &DecodedInsn) -> ExecResult {
         let (d, m) = self.dm_ops(insn);
-        let rotation = if insn.state.is_thumb() { 0 } else { ((insn.raw >> 10) & 3) * 8 };
+        let rotation = if insn.state.is_thumb() {
+            0
+        } else {
+            ((insn.raw >> 10) & 3) * 8
+        };
         let rotated = self.reg(m).rotate_right(rotation);
         let result = sign_extend(rotated & 0xFFFF, 16);
         self.set_reg(d, result)
@@ -2966,7 +5562,11 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
 
     fn exec_uxtb(&mut self, insn: &DecodedInsn) -> ExecResult {
         let (d, m) = self.dm_ops(insn);
-        let rotation = if insn.state.is_thumb() { 0 } else { ((insn.raw >> 10) & 3) * 8 };
+        let rotation = if insn.state.is_thumb() {
+            0
+        } else {
+            ((insn.raw >> 10) & 3) * 8
+        };
         let rotated = self.reg(m).rotate_right(rotation);
         let result = rotated & 0xFF;
         self.set_reg(d, result)
@@ -2974,7 +5574,11 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
 
     fn exec_uxth(&mut self, insn: &DecodedInsn) -> ExecResult {
         let (d, m) = self.dm_ops(insn);
-        let rotation = if insn.state.is_thumb() { 0 } else { ((insn.raw >> 10) & 3) * 8 };
+        let rotation = if insn.state.is_thumb() {
+            0
+        } else {
+            ((insn.raw >> 10) & 3) * 8
+        };
         let rotated = self.reg(m).rotate_right(rotation);
         let result = rotated & 0xFFFF;
         self.set_reg(d, result)
@@ -2995,7 +5599,13 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
         } else {
             let d = ((raw >> 12) & 0xF) as usize;
             let n = (raw & 0xF) as usize;
-            (d, n, (raw >> 16) & 0x1F, (raw >> 6) & 1 != 0, (raw >> 7) & 0x1F)
+            (
+                d,
+                n,
+                (raw >> 16) & 0x1F,
+                (raw >> 6) & 1 != 0,
+                (raw >> 7) & 0x1F,
+            )
         }
     }
 
@@ -3315,7 +5925,10 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
         let raw = insn.raw;
         let (rd, rn, rm) = self.media_regs(insn);
         let (tbform, imm5) = if insn.state.is_thumb() {
-            ((raw >> 5) & 1 != 0, (((raw >> 12) & 0x7) << 2) | ((raw >> 6) & 0x3))
+            (
+                (raw >> 5) & 1 != 0,
+                (((raw >> 12) & 0x7) << 2) | ((raw >> 6) & 0x3),
+            )
         } else {
             ((raw >> 6) & 1 != 0, (raw >> 7) & 0x1F)
         };
@@ -3351,7 +5964,11 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
             };
             (ty & 1 != 0, size, ((raw >> 4) & 0x3) * 8)
         } else {
-            ((raw >> 22) & 1 != 0, (raw >> 20) & 0x3, ((raw >> 10) & 0x3) * 8)
+            (
+                (raw >> 22) & 1 != 0,
+                (raw >> 20) & 0x3,
+                ((raw >> 10) & 0x3) * 8,
+            )
         };
         let rotated = self.reg(rm).rotate_right(rotation);
         let add = rn != 15;
@@ -3553,7 +6170,11 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
             let sh = 64 - w;
             ((v as i64) << sh) >> sh
         };
-        let maskw: u32 = if width == 32 { u32::MAX } else { (1u32 << width) - 1 };
+        let maskw: u32 = if width == 32 {
+            u32::MAX
+        } else {
+            (1u32 << width) - 1
+        };
         let smax = (1i64 << (width - 1)) - 1;
         let smin = -(1i64 << (width - 1));
         let umax = (1i64 << width) - 1;
@@ -3642,10 +6263,7 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
             let (r, _) = Self::thumb_reg_ops(insn, 2);
             (r[0], r[1])
         } else {
-            (
-                ((insn.raw >> 12) & 0xF) as usize,
-                (insn.raw & 0xF) as usize,
-            )
+            (((insn.raw >> 12) & 0xF) as usize, (insn.raw & 0xF) as usize)
         }
     }
 
@@ -3870,8 +6488,13 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
             MemOffset::Imm(i) => *i,
             MemOffset::Reg(r) => self.reg(r.num as usize) as i64,
             MemOffset::ShiftedReg(sr) => {
-                shift_c(self.reg(sr.reg.num as usize), sr.shift_type, sr.amount as u32, false).0
-                    as i64
+                shift_c(
+                    self.reg(sr.reg.num as usize),
+                    sr.shift_type,
+                    sr.amount as u32,
+                    false,
+                )
+                .0 as i64
             }
             MemOffset::ExtendedReg(_) => return None,
         };

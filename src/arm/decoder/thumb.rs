@@ -897,7 +897,12 @@ impl ThumbDecoder {
         let l = (raw >> 20) & 1;
         if p == 0 && w == 0 {
             // LDREX/STREX/TBB/TBH — not yet implemented.
-            return Ok(DecodedInsn::new(Mnemonic::UNKNOWN, ExecutionState::Thumb2, raw, 4));
+            return Ok(DecodedInsn::new(
+                Mnemonic::UNKNOWN,
+                ExecutionState::Thumb2,
+                raw,
+                4,
+            ));
         }
         let rn = ((raw >> 16) & 0xF) as u8; // hw1[3:0]
         let rt = ((raw >> 12) & 0xF) as u8; // hw2[15:12]
@@ -963,8 +968,10 @@ impl ThumbDecoder {
 
         // PKHBT / PKHTB (op==0110): route to the A32 umbrella (T32-aware exec).
         if op == 0b0110 {
-            return Ok(DecodedInsn::new(Mnemonic::A32_PKH, ExecutionState::Thumb2, raw, 4)
-                .with_operand(Operand::Reg(Self::any_reg(rd))));
+            return Ok(
+                DecodedInsn::new(Mnemonic::A32_PKH, ExecutionState::Thumb2, raw, 4)
+                    .with_operand(Operand::Reg(Self::any_reg(rd))),
+            );
         }
 
         let (mnemonic, uses_rn, writes_rd) = match op {
@@ -972,53 +979,154 @@ impl ThumbDecoder {
                 if rd == 15 && s == 1 {
                     (Mnemonic::TST, true, false)
                 } else {
-                    (if s == 1 { Mnemonic::ANDS } else { Mnemonic::AND }, true, true)
+                    (
+                        if s == 1 {
+                            Mnemonic::ANDS
+                        } else {
+                            Mnemonic::AND
+                        },
+                        true,
+                        true,
+                    )
                 }
             }
-            0b0001 => (if s == 1 { Mnemonic::BICS } else { Mnemonic::BIC }, true, true),
+            0b0001 => (
+                if s == 1 {
+                    Mnemonic::BICS
+                } else {
+                    Mnemonic::BIC
+                },
+                true,
+                true,
+            ),
             0b0010 => {
                 if rn == 15 {
-                    (if s == 1 { Mnemonic::MOVS } else { Mnemonic::MOV }, false, true)
+                    (
+                        if s == 1 {
+                            Mnemonic::MOVS
+                        } else {
+                            Mnemonic::MOV
+                        },
+                        false,
+                        true,
+                    )
                 } else {
-                    (if s == 1 { Mnemonic::ORRS } else { Mnemonic::ORR }, true, true)
+                    (
+                        if s == 1 {
+                            Mnemonic::ORRS
+                        } else {
+                            Mnemonic::ORR
+                        },
+                        true,
+                        true,
+                    )
                 }
             }
             0b0011 => {
                 if rn == 15 {
-                    (if s == 1 { Mnemonic::MVNS } else { Mnemonic::MVN }, false, true)
+                    (
+                        if s == 1 {
+                            Mnemonic::MVNS
+                        } else {
+                            Mnemonic::MVN
+                        },
+                        false,
+                        true,
+                    )
                 } else {
-                    (if s == 1 { Mnemonic::ORNS } else { Mnemonic::ORN }, true, true)
+                    (
+                        if s == 1 {
+                            Mnemonic::ORNS
+                        } else {
+                            Mnemonic::ORN
+                        },
+                        true,
+                        true,
+                    )
                 }
             }
             0b0100 => {
                 if rd == 15 && s == 1 {
                     (Mnemonic::TEQ, true, false)
                 } else {
-                    (if s == 1 { Mnemonic::EORS } else { Mnemonic::EOR }, true, true)
+                    (
+                        if s == 1 {
+                            Mnemonic::EORS
+                        } else {
+                            Mnemonic::EOR
+                        },
+                        true,
+                        true,
+                    )
                 }
             }
             0b1000 => {
                 if rd == 15 && s == 1 {
                     (Mnemonic::CMN, true, false)
                 } else {
-                    (if s == 1 { Mnemonic::ADDS } else { Mnemonic::ADD }, true, true)
+                    (
+                        if s == 1 {
+                            Mnemonic::ADDS
+                        } else {
+                            Mnemonic::ADD
+                        },
+                        true,
+                        true,
+                    )
                 }
             }
-            0b1010 => (if s == 1 { Mnemonic::ADCS } else { Mnemonic::ADC }, true, true),
-            0b1011 => (if s == 1 { Mnemonic::SBCS } else { Mnemonic::SBC }, true, true),
+            0b1010 => (
+                if s == 1 {
+                    Mnemonic::ADCS
+                } else {
+                    Mnemonic::ADC
+                },
+                true,
+                true,
+            ),
+            0b1011 => (
+                if s == 1 {
+                    Mnemonic::SBCS
+                } else {
+                    Mnemonic::SBC
+                },
+                true,
+                true,
+            ),
             0b1101 => {
                 if rd == 15 && s == 1 {
                     (Mnemonic::CMP, true, false)
                 } else {
-                    (if s == 1 { Mnemonic::SUBS } else { Mnemonic::SUB }, true, true)
+                    (
+                        if s == 1 {
+                            Mnemonic::SUBS
+                        } else {
+                            Mnemonic::SUB
+                        },
+                        true,
+                        true,
+                    )
                 }
             }
-            0b1110 => (if s == 1 { Mnemonic::RSBS } else { Mnemonic::RSB }, true, true),
+            0b1110 => (
+                if s == 1 {
+                    Mnemonic::RSBS
+                } else {
+                    Mnemonic::RSB
+                },
+                true,
+                true,
+            ),
             _ => (Mnemonic::UNKNOWN, false, false),
         };
 
         if mnemonic == Mnemonic::UNKNOWN {
-            return Ok(DecodedInsn::new(Mnemonic::UNKNOWN, ExecutionState::Thumb2, raw, 4));
+            return Ok(DecodedInsn::new(
+                Mnemonic::UNKNOWN,
+                ExecutionState::Thumb2,
+                raw,
+                4,
+            ));
         }
 
         let mut insn = DecodedInsn::new(mnemonic, ExecutionState::Thumb2, raw, 4);
@@ -1288,7 +1396,12 @@ impl ThumbDecoder {
                 }
             }
             0b11100 => mk(Mnemonic::UBFX, vec![reg(rd)]),
-            _ => Ok(DecodedInsn::new(Mnemonic::UNKNOWN, ExecutionState::Thumb2, raw, 4)),
+            _ => Ok(DecodedInsn::new(
+                Mnemonic::UNKNOWN,
+                ExecutionState::Thumb2,
+                raw,
+                4,
+            )),
         }
     }
 
@@ -1473,7 +1586,12 @@ impl ThumbDecoder {
             }
         }
 
-        Ok(DecodedInsn::new(Mnemonic::UNKNOWN, ExecutionState::Thumb2, raw, 4))
+        Ok(DecodedInsn::new(
+            Mnemonic::UNKNOWN,
+            ExecutionState::Thumb2,
+            raw,
+            4,
+        ))
     }
 
     fn decode_32bit_multiply(raw: u32) -> Result<DecodedInsn, DecodeError> {
@@ -1534,15 +1652,19 @@ impl ThumbDecoder {
         // UMAAL / SMLALD / SMLSLD use the umbrella mnemonics (exec reads T32 raw).
         // SMLALD/SMLSLD: op1=100/101 with op2=110x. UMAAL: op1=110, op2=0110.
         if (op1 == 0b100 || op1 == 0b101) && (op2 & 0xE) == 0xC {
-            return Ok(DecodedInsn::new(Mnemonic::A32_SMLALD, ExecutionState::Thumb2, raw, 4)
-                .with_operand(Operand::Reg(Self::any_reg(rd_lo))));
+            return Ok(
+                DecodedInsn::new(Mnemonic::A32_SMLALD, ExecutionState::Thumb2, raw, 4)
+                    .with_operand(Operand::Reg(Self::any_reg(rd_lo))),
+            );
         }
         if op1 == 0b110 && op2 == 0b0110 {
-            return Ok(DecodedInsn::new(Mnemonic::UMAAL, ExecutionState::Thumb2, raw, 4)
-                .with_operand(Operand::Reg(Self::any_reg(rd_lo)))
-                .with_operand(Operand::Reg(Self::any_reg(rd_hi)))
-                .with_operand(Operand::Reg(Self::any_reg(rn)))
-                .with_operand(Operand::Reg(Self::any_reg(rm))));
+            return Ok(
+                DecodedInsn::new(Mnemonic::UMAAL, ExecutionState::Thumb2, raw, 4)
+                    .with_operand(Operand::Reg(Self::any_reg(rd_lo)))
+                    .with_operand(Operand::Reg(Self::any_reg(rd_hi)))
+                    .with_operand(Operand::Reg(Self::any_reg(rn)))
+                    .with_operand(Operand::Reg(Self::any_reg(rm))),
+            );
         }
 
         let mnemonic = match (op1, op2) {
@@ -1651,9 +1773,11 @@ impl ThumbDecoder {
 
     fn decode_32bit_load_word(raw: u32) -> Result<DecodedInsn, DecodeError> {
         let rt = ((raw >> 12) & 0xF) as u8;
-        Ok(DecodedInsn::new(Mnemonic::LDR, ExecutionState::Thumb2, raw, 4)
-            .with_operand(Operand::Reg(Self::any_reg(rt)))
-            .with_operand(Operand::Mem(Self::t32_mem_operand(raw))))
+        Ok(
+            DecodedInsn::new(Mnemonic::LDR, ExecutionState::Thumb2, raw, 4)
+                .with_operand(Operand::Reg(Self::any_reg(rt)))
+                .with_operand(Operand::Mem(Self::t32_mem_operand(raw))),
+        )
     }
 
     fn decode_32bit_store(raw: u32) -> Result<DecodedInsn, DecodeError> {
