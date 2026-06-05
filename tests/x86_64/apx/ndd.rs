@@ -376,6 +376,25 @@ fn test_ndd_sbb_reg_reg_reg() {
 // ============================================================================
 
 #[test]
+fn test_ndd_imul_reg_reg_reg_match_llvm() {
+    // LLVM 23 assembles "imul r8, rax, rbx" as 62 f4 bc 18 af c3.
+    let code = [
+        0x62, 0xF4, 0xBC, 0x18, 0xAF, 0xC3,
+        0xF4,
+    ];
+    let mut regs = Registers::default();
+    regs.rax = 7;
+    regs.rbx = 6;
+    regs.r8 = 0xDEAD_BEEF;
+
+    let (mut vcpu, _) = setup_vm(&code, Some(regs));
+    let regs = run_until_hlt(&mut vcpu).unwrap();
+    assert_eq!(regs.r8, 42);
+    assert_eq!(regs.rax, 7);
+    assert_eq!(regs.rbx, 6);
+}
+
+#[test]
 fn test_ndd_imul_reg_reg_reg() {
     // IMUL R8, RAX, RBX (R8 = RAX * RBX)
     let code = [
