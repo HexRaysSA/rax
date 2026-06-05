@@ -3746,7 +3746,9 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
     }
 
     fn exec_vmul(&mut self, insn: &DecodedInsn) -> ExecResult {
-        if Self::is_neon_integer_multiply_shape(insn.raw) {
+        if Self::is_neon_integer_multiply_shape(insn.raw)
+            || Self::is_neon_integer_multiply_scalar_shape(insn.raw)
+        {
             return self.exec_neon_integer_multiply(insn);
         }
 
@@ -3754,7 +3756,9 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
     }
 
     fn exec_vmla_vmls(&mut self, insn: &DecodedInsn) -> ExecResult {
-        if Self::is_neon_integer_multiply_shape(insn.raw) {
+        if Self::is_neon_integer_multiply_shape(insn.raw)
+            || Self::is_neon_integer_multiply_scalar_shape(insn.raw)
+        {
             return self.exec_neon_integer_multiply(insn);
         }
         if Self::is_neon_long_multiply_shape(insn.raw) {
@@ -3769,6 +3773,18 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
             && ((raw >> 23) & 1) == 0
             && ((raw >> 8) & 0xF) == 0b1001
             && (((raw >> 4) & 1) == 0 || ((raw >> 24) & 1) == 0)
+    }
+
+    fn is_neon_integer_multiply_scalar_shape(raw: u32) -> bool {
+        if (raw >> 25) != 0b1111001
+            || ((raw >> 23) & 1) != 1
+            || ((raw >> 6) & 1) != 1
+            || ((raw >> 4) & 1) != 0
+        {
+            return false;
+        }
+
+        matches!((raw >> 8) & 0xF, 0b0000 | 0b0100 | 0b1000)
     }
 
     fn is_neon_long_multiply_shape(raw: u32) -> bool {
@@ -3786,7 +3802,8 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
         if !self.cpu.vfp.is_enabled() {
             return ExecResult::Exception(ExceptionType::UndefinedInstruction);
         }
-        if !Self::is_neon_integer_multiply_shape(insn.raw) {
+        let scalar = Self::is_neon_integer_multiply_scalar_shape(insn.raw);
+        if !Self::is_neon_integer_multiply_shape(insn.raw) && !scalar {
             return ExecResult::Undefined;
         }
 
@@ -3797,11 +3814,21 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
             _ => return ExecResult::Undefined,
         };
         let ebytes = (size.bits() / 8) as u8;
-        let accumulate = ((insn.raw >> 4) & 1) == 0;
-        let subtract = ((insn.raw >> 24) & 1) != 0;
-        if !accumulate && subtract {
-            return ExecResult::Undefined;
-        }
+        let (accumulate, subtract) = if scalar {
+            match (insn.raw >> 8) & 0xF {
+                0b0000 => (true, false),
+                0b0100 => (true, true),
+                0b1000 => (false, false),
+                _ => return ExecResult::Undefined,
+            }
+        } else {
+            let accumulate = ((insn.raw >> 4) & 1) == 0;
+            let subtract = ((insn.raw >> 24) & 1) != 0;
+            if !accumulate && subtract {
+                return ExecResult::Undefined;
+            }
+            (accumulate, subtract)
+        };
 
         match (insn.mnemonic, accumulate, subtract) {
             (Mnemonic::VMUL, false, false)
@@ -3816,18 +3843,36 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
         let vn = ((insn.raw >> 16) & 0xF) as u8;
         let m_bit = ((insn.raw >> 5) & 1) as u8;
         let vm = (insn.raw & 0xF) as u8;
-        let q = ((insn.raw >> 6) & 1) != 0;
+        let q = if scalar {
+            ((insn.raw >> 24) & 1) != 0
+        } else {
+            ((insn.raw >> 6) & 1) != 0
+        };
         let regs = if q { 2 } else { 1 };
 
         let d = (d_bit << 4) | vd;
         let n = (n_bit << 4) | vn;
         let m = (m_bit << 4) | vm;
-        if q && ((d | n | m) & 1) != 0 {
+        if q && ((d | n | if scalar { 0 } else { m }) & 1) != 0 {
             return ExecResult::Undefined;
         }
-        if d + regs > 32 || n + regs > 32 || m + regs > 32 {
+        if d + regs > 32 || n + regs > 32 || (!scalar && m + regs > 32) {
             return ExecResult::Undefined;
         }
+
+        let scalar_elem = if scalar {
+            let (scalar_reg, scalar_index) = match size {
+                NeonSize::H16 => (vm & 0x7, (m_bit << 1) | (vm >> 3)),
+                NeonSize::S32 => (vm, m_bit),
+                _ => return ExecResult::Undefined,
+            };
+            if scalar_reg >= 32 || scalar_index as usize >= size.elements_per_d() {
+                return ExecResult::Undefined;
+            }
+            Some(self.neon_read_d_elem_u64(scalar_reg, scalar_index, ebytes))
+        } else {
+            None
+        };
 
         let mask = if size.bits() == 32 {
             u64::from(u32::MAX)
@@ -3837,7 +3882,11 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
 
         for reg in 0..regs {
             let n_elements = self.neon_read_vector_elements_u64(n + reg, 1, ebytes);
-            let m_elements = self.neon_read_vector_elements_u64(m + reg, 1, ebytes);
+            let m_elements = if let Some(elem) = scalar_elem {
+                vec![elem; n_elements.len()]
+            } else {
+                self.neon_read_vector_elements_u64(m + reg, 1, ebytes)
+            };
             let d_elements = if accumulate {
                 self.neon_read_vector_elements_u64(d + reg, 1, ebytes)
             } else {
