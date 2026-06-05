@@ -515,6 +515,8 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
             | Mnemonic::VCVT_U32_F64
             | Mnemonic::VCVT_F64_F32
             | Mnemonic::VCVT_F32_F64
+            | Mnemonic::VCVT_F16_F32
+            | Mnemonic::VCVT_F32_F16
             | Mnemonic::VCVTB_F32_F16
             | Mnemonic::VCVTT_F32_F16
             | Mnemonic::VCVTB_F16_F32
@@ -6540,6 +6542,10 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
     }
 
     fn exec_vcvt(&mut self, insn: &DecodedInsn) -> ExecResult {
+        if Self::is_neon_fp16_convert_shape(insn.raw) {
+            return self.exec_neon_fp16_convert(insn);
+        }
+
         if Self::is_neon_fp_fixed_convert_shape(insn.raw) {
             return self.exec_neon_fp_fixed_convert(insn);
         }
@@ -6824,6 +6830,19 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
             && ((raw >> 4) & 1) == 0
     }
 
+    fn is_neon_fp16_convert_shape(raw: u32) -> bool {
+        (raw >> 25) == 0b1111001
+            && ((raw >> 24) & 1) == 1
+            && ((raw >> 23) & 1) == 1
+            && ((raw >> 20) & 0x7) == 0b011
+            && ((raw >> 16) & 0xF) == 0b0110
+            && matches!((raw >> 8) & 0xF, 0b0110 | 0b0111)
+            && ((raw >> 7) & 1) == 0
+            && ((raw >> 6) & 1) == 0
+            && ((raw >> 5) & 1) == 0
+            && ((raw >> 4) & 1) == 0
+    }
+
     fn is_neon_fp_fixed_convert_shape(raw: u32) -> bool {
         (raw >> 25) == 0b1111001
             && ((raw >> 23) & 1) == 1
@@ -6880,6 +6899,47 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
                 out.push(result);
             }
             self.neon_write_vector_elements_u64(d + reg, 1, 4, &out);
+        }
+
+        ExecResult::Continue
+    }
+
+    fn exec_neon_fp16_convert(&mut self, insn: &DecodedInsn) -> ExecResult {
+        if !self.cpu.vfp.is_enabled() {
+            return ExecResult::Exception(ExceptionType::UndefinedInstruction);
+        }
+        if !Self::is_neon_fp16_convert_shape(insn.raw) {
+            return ExecResult::Undefined;
+        }
+
+        let d = ((((insn.raw >> 22) & 1) << 4) | ((insn.raw >> 12) & 0xF)) as u8;
+        let m = (insn.raw & 0xF) as u8;
+        match insn.mnemonic {
+            Mnemonic::VCVT_F16_F32 => {
+                if (m & 1) != 0 || m + 1 >= 32 {
+                    return ExecResult::Undefined;
+                }
+                let values = self.neon_read_vector_elements_u64(m, 2, 4);
+                let mut out = Vec::with_capacity(values.len());
+                for elem in values {
+                    let value =
+                        vcvt_f16_bits_f32(f32::from_bits(elem as u32), &mut self.cpu.vfp.fpscr);
+                    out.push(u64::from(value));
+                }
+                self.neon_write_vector_elements_u64(d, 1, 2, &out);
+            }
+            Mnemonic::VCVT_F32_F16 => {
+                if (d & 1) != 0 || d + 1 >= 32 {
+                    return ExecResult::Undefined;
+                }
+                let values = self.neon_read_vector_elements_u64(m, 1, 2);
+                let mut out = Vec::with_capacity(values.len());
+                for elem in values {
+                    out.push(u64::from(vcvt_f32_f16_bits(elem as u16).to_bits()));
+                }
+                self.neon_write_vector_elements_u64(d, 2, 4, &out);
+            }
+            _ => return ExecResult::Undefined,
         }
 
         ExecResult::Continue
