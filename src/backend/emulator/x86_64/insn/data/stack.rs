@@ -11,7 +11,7 @@ pub fn push_r64(
     ctx: &mut InsnContext,
     opcode: u8,
 ) -> Result<Option<VcpuExit>> {
-    let reg = (opcode - 0x50) | ctx.rex_b();
+    let reg = (opcode - 0x50) | ctx.any_rex_b();
     let op_size = stack_op_size(vcpu, ctx);
     let value = vcpu.get_reg(reg, op_size);
     match op_size {
@@ -201,7 +201,7 @@ pub fn pop_r64(
     ctx: &mut InsnContext,
     opcode: u8,
 ) -> Result<Option<VcpuExit>> {
-    let reg = (opcode - 0x58) | ctx.rex_b();
+    let reg = (opcode - 0x58) | ctx.any_rex_b();
     let op_size = stack_op_size(vcpu, ctx);
 
     // Special handling for POP RSP (reg 4)
@@ -209,7 +209,7 @@ pub fn pop_r64(
     // before data at the old top of stack is written into the destination."
     // But since DEST is RSP itself, the increment to old RSP is effectively discarded.
     // Final RSP = value read from [old_RSP]
-    if (reg & 0x07) == 4 && ctx.rex_b() == 0 {
+    if reg == 4 {
         // POP RSP - special case: just read value and set RSP to it
         let value = match op_size {
             2 => vcpu.mmu.read_u16(vcpu.regs.rsp, &vcpu.sregs)? as u64,

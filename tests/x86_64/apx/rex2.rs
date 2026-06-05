@@ -421,6 +421,43 @@ fn test_rex2_jmp_indirect() {
     let _ = run_until_hlt(&mut vcpu);
 }
 
+#[test]
+fn test_rex2_pushp_r16_match_llvm() {
+    // LLVM 23 assembles "pushp r16" as d5 18 50.
+    let code = [
+        0xD5, 0x18, 0x50,
+        0xF4,
+    ];
+    let mut regs = Registers::default();
+    regs.r16 = 0x1122_3344_5566_7788;
+
+    let (mut vcpu, mem) = setup_vm(&code, Some(regs));
+    let regs = run_until_hlt(&mut vcpu).unwrap();
+    assert_eq!(regs.rsp, STACK_ADDR - 8);
+    assert_eq!(
+        read_mem_at_u64(&mem, STACK_ADDR - 8),
+        0x1122_3344_5566_7788
+    );
+}
+
+#[test]
+fn test_rex2_popp_r16_match_llvm() {
+    // LLVM 23 assembles "popp r16" as d5 18 58.
+    let code = [
+        0xD5, 0x18, 0x58,
+        0xF4,
+    ];
+    let mut regs = Registers::default();
+    regs.rsp = STACK_ADDR - 8;
+    regs.r16 = 0xDEAD_BEEF;
+
+    let (mut vcpu, mem) = setup_vm(&code, Some(regs));
+    write_mem_at_u64(&mem, STACK_ADDR - 8, 0x8877_6655_4433_2211);
+    let regs = run_until_hlt(&mut vcpu).unwrap();
+    assert_eq!(regs.rsp, STACK_ADDR);
+    assert_eq!(regs.r16, 0x8877_6655_4433_2211);
+}
+
 // ============================================================================
 // REX2 cannot combine with REX/VEX/EVEX
 // ============================================================================
