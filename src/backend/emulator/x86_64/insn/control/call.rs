@@ -123,16 +123,22 @@ pub fn retf(vcpu: &mut X86_64Vcpu, ctx: &mut InsnContext) -> Result<Option<VcpuE
     let cs = pop_by_size(vcpu, op_size)? as u16;
     validate_far_selector(vcpu, cs)?;
 
-    let old_cpl = vcpu.sregs.cs.selector & 0x3;
-    let new_cpl = cs & 0x3;
-    if new_cpl > old_cpl {
-        let new_rsp = pop_by_size(vcpu, op_size)?;
-        let new_ss = pop_by_size(vcpu, op_size)? as u16;
-        vcpu.set_sreg(2, new_ss); // SS is segment register 2
-        vcpu.regs.rsp = new_rsp;
+    // Real mode (CR0.PE=0) has no privilege levels: a far return just pops
+    // IP:CS (CS.base = selector<<4). The CPL/SS-switch logic below applies only
+    // in protected mode — there a selector's low 2 bits are an RPL, but in real
+    // mode they are part of the raw segment value and must not be misread.
+    if vcpu.sregs.cr0 & 1 != 0 {
+        let old_cpl = vcpu.sregs.cs.selector & 0x3;
+        let new_cpl = cs & 0x3;
+        if new_cpl > old_cpl {
+            let new_rsp = pop_by_size(vcpu, op_size)?;
+            let new_ss = pop_by_size(vcpu, op_size)? as u16;
+            vcpu.set_sreg(2, new_ss); // SS is segment register 2
+            vcpu.regs.rsp = new_rsp;
+        }
     }
 
-    vcpu.regs.rip = ret_addr;
+    vcpu.regs.rip = mask_ip(ret_addr, op_size);
     // Load CS from the real descriptor (falls back to flat segmentation when the
     // descriptor table slot is not a usable present code segment).
     vcpu.load_code_segment_lenient(cs);
@@ -147,17 +153,20 @@ pub fn retf_imm16(vcpu: &mut X86_64Vcpu, ctx: &mut InsnContext) -> Result<Option
     let cs = pop_by_size(vcpu, op_size)? as u16;
     validate_far_selector(vcpu, cs)?;
 
-    let old_cpl = vcpu.sregs.cs.selector & 0x3;
-    let new_cpl = cs & 0x3;
-    if new_cpl > old_cpl {
-        let new_rsp = pop_by_size(vcpu, op_size)?;
-        let new_ss = pop_by_size(vcpu, op_size)? as u16;
-        vcpu.set_sreg(2, new_ss); // SS is segment register 2
-        vcpu.regs.rsp = new_rsp;
+    // Protected-mode-only privilege handling (see `retf`).
+    if vcpu.sregs.cr0 & 1 != 0 {
+        let old_cpl = vcpu.sregs.cs.selector & 0x3;
+        let new_cpl = cs & 0x3;
+        if new_cpl > old_cpl {
+            let new_rsp = pop_by_size(vcpu, op_size)?;
+            let new_ss = pop_by_size(vcpu, op_size)? as u16;
+            vcpu.set_sreg(2, new_ss); // SS is segment register 2
+            vcpu.regs.rsp = new_rsp;
+        }
     }
 
     vcpu.regs.rsp = vcpu.regs.rsp.wrapping_add(imm as u64);
-    vcpu.regs.rip = ret_addr;
+    vcpu.regs.rip = mask_ip(ret_addr, op_size);
     // Load CS from the real descriptor (lenient: flat fallback for sparse GDT).
     vcpu.load_code_segment_lenient(cs);
     Ok(None)
