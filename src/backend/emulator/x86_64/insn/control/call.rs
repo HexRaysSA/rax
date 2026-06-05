@@ -5,6 +5,25 @@ use crate::error::{Error, Result};
 
 use super::super::super::cpu::{InsnContext, X86_64Vcpu};
 
+/// Operand size for near branches (CALL/RET near, JMP/Jcc near) and the stack
+/// push/pop of the return address. These instructions default to 64-bit
+/// operand size in long mode (a 64-bit code segment): REX.W is ignored and only
+/// a 0x66 prefix narrows them to 16-bit. In every other mode the general
+/// operand size (`ctx.op_size`) applies. Using `ctx.op_size` directly is wrong
+/// in 64-bit mode, where it is 32-bit without REX.W — a near CALL would then
+/// push a 4-byte return address and misalign the callee's stack frame.
+pub(super) fn near_branch_op_size(vcpu: &X86_64Vcpu, ctx: &InsnContext) -> u8 {
+    if vcpu.sregs.cs.l {
+        if ctx.operand_size_override {
+            2
+        } else {
+            8
+        }
+    } else {
+        ctx.op_size
+    }
+}
+
 pub(super) fn validate_far_selector(vcpu: &X86_64Vcpu, selector: u16) -> Result<()> {
     // Real mode (CR0.PE=0): a far selector is a raw segment value (CS.base =
     // selector<<4); there is no descriptor table to validate against.
@@ -65,8 +84,9 @@ pub fn call_rel32(vcpu: &mut X86_64Vcpu, ctx: &mut InsnContext) -> Result<Option
     // Displacement is rel16 for a 16-bit operand size, else rel32 (sign-extended
     // — also in 64-bit mode). The pushed return address and the IP truncation
     // follow the operand size: 16-bit pushes 2 bytes and wraps IP to 16 bits,
-    // 32-bit pushes 4, 64-bit pushes 8 (the 64-bit path is unchanged).
-    let op_size = ctx.op_size;
+    // 32-bit pushes 4, 64-bit pushes 8. A near CALL defaults to 64-bit operand
+    // size in long mode (NOT ctx.op_size, which is 32-bit without REX.W).
+    let op_size = near_branch_op_size(vcpu, ctx);
     let disp = if op_size == 2 {
         ctx.consume_u16()? as i16 as i64
     } else {
@@ -93,17 +113,21 @@ pub fn call_rel32(vcpu: &mut X86_64Vcpu, ctx: &mut InsnContext) -> Result<Option
 
 /// RET (0xC3)
 pub fn ret(vcpu: &mut X86_64Vcpu, ctx: &mut InsnContext) -> Result<Option<VcpuExit>> {
-    let ret_addr = pop_by_size(vcpu, ctx.op_size)?;
-    vcpu.regs.rip = mask_ip(ret_addr, ctx.op_size);
+    // Near RET defaults to 64-bit operand size in long mode — it must pop the
+    // same width the matching CALL pushed (see `near_branch_op_size`).
+    let op_size = near_branch_op_size(vcpu, ctx);
+    let ret_addr = pop_by_size(vcpu, op_size)?;
+    vcpu.regs.rip = mask_ip(ret_addr, op_size);
     Ok(None)
 }
 
 /// RET imm16 (0xC2)
 pub fn ret_imm16(vcpu: &mut X86_64Vcpu, ctx: &mut InsnContext) -> Result<Option<VcpuExit>> {
+    let op_size = near_branch_op_size(vcpu, ctx);
     let imm = ctx.consume_u16()?;
-    let ret_addr = pop_by_size(vcpu, ctx.op_size)?;
+    let ret_addr = pop_by_size(vcpu, op_size)?;
     vcpu.regs.rsp = vcpu.regs.rsp.wrapping_add(imm as u64);
-    vcpu.regs.rip = mask_ip(ret_addr, ctx.op_size);
+    vcpu.regs.rip = mask_ip(ret_addr, op_size);
     Ok(None)
 }
 

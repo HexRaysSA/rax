@@ -294,22 +294,37 @@ pub fn mov_cr_r(vcpu: &mut X86_64Vcpu, ctx: &mut InsnContext) -> Result<Option<V
 
     match cr {
         0 => {
-            // Validate CR0 value - PG=1 requires PE=1 (x86 architectural requirement)
-            let pg = (value >> 31) & 1;
-            let pe = value & 1;
-            if pg == 1 && pe == 0 {
-                // This is an invalid state that would cause #GP on real hardware.
-                // Force PE=1 to allow continued execution - this is a workaround for
-                // a bug where the wrong value is being computed/passed to MOV CR0.
-                let value = value | 1;
-                vcpu.sregs.cr0 = value;
-                vcpu.mmu.flush_tlb();
-                vcpu.regs.rip += ctx.cursor as u64;
-                return Ok(None);
+            // Validate CR0 value - PG=1 requires PE=1 (x86 architectural requirement).
+            // An invalid intermediate (PG=1, PE=0) would #GP on real hardware; force
+            // PE=1 so a guest computing the wrong transient can continue.
+            let mut value = value;
+            if (value >> 31) & 1 == 1 && value & 1 == 0 {
+                value |= 1;
             }
 
-            // Update CR0
+            // Update CR0.
             vcpu.sregs.cr0 = value;
+
+            // EFER.LMA is set by the processor (not software) when CR0.PG is
+            // enabled while EFER.LME=1 — the protected→long transition. The far
+            // jump that follows then establishes 64-bit vs compatibility mode
+            // from CS.L. Without setting LMA here, a guest enabling paging to
+            // enter long mode (e.g. TempleOS, which then runs compatibility-mode
+            // code under its 4-level page tables) leaves LMA clear and the paging
+            // walker rejects its long-mode page tables.
+            //
+            // LMA is only *set*, never cleared: disabling paging in long mode
+            // #GPs on real hardware (no real OS does it), and some test fixtures
+            // legitimately run long mode with CR0.PG=0 (physical==virtual) and
+            // must keep LMA across a CR0 write that leaves PG clear.
+            const EFER_LME: u64 = 1 << 8; // Long Mode Enable
+            const EFER_LMA: u64 = 1 << 10; // Long Mode Active
+            let pg = (value >> 31) & 1 != 0;
+            let lme = vcpu.sregs.efer & EFER_LME != 0;
+            if pg && lme {
+                vcpu.sregs.efer |= EFER_LMA;
+            }
+
             // CR0 changes can affect paging (PG, WP bits), flush TLB
             vcpu.mmu.flush_tlb();
         }

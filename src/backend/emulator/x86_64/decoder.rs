@@ -466,11 +466,16 @@ impl X86_64Vcpu {
             Some(0x3E) => self.sregs.ds.base, // DS
             Some(0x64) => self.sregs.fs.base, // FS
             Some(0x65) => self.sregs.gs.base, // GS
-            // No override: in real mode the default data segment is DS (base
-            // selector<<4); in protected/long mode DS is flat (base 0). Note the
-            // ES/CS/SS/DS overrides above are also 0 in long mode, so this is
-            // behaviorally identical to the old fs/gs-only mapping there.
-            None if self.sregs.cr0 & 1 == 0 => self.sregs.ds.base,
+            // No override: the default data segment is DS. Its base is
+            // selector<<4 in real mode and the descriptor base in protected /
+            // compatibility mode — 0 for the usual flat model, but non-zero for
+            // an OS that runs on based data segments (e.g. TempleOS relocating
+            // through ds.base before going flat). Only true 64-bit mode
+            // (CS.L=1) ignores data-segment bases, so it stays flat. (The
+            // architectural SS default for BP/SP-based addressing is not modeled
+            // here; callers needing it pass an explicit override.)
+            None if self.sregs.cs.l => 0,
+            None => self.sregs.ds.base,
             _ => 0,
         }
     }
@@ -519,8 +524,12 @@ impl X86_64Vcpu {
             && !ctx.address_size_override
             && ctx.segment_override.is_none()
             && (self.sregs.cr0 & 0x1) != 0
+            && self.sregs.ds.base == 0
+            && self.sregs.ss.base == 0
         // protected/long mode only: real mode (PE=0) needs the segment base
-        // (selector<<4) folded in, which only the general path below does.
+        // (selector<<4) folded in, which only the general path below does. Also
+        // requires flat DS/SS: a based data segment (e.g. TempleOS in protected
+        // mode) must fold ds.base/ss.base in, which only the general path does.
         {
             let base = self.get_reg(rm, 8);
             return match mod_bits {

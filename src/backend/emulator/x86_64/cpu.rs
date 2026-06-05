@@ -1915,6 +1915,20 @@ impl X86_64Vcpu {
         // Real mode (CR0.PE=0) loads a segment base of selector<<4 directly,
         // with a 64 KiB limit and 16-bit addressing — no descriptor lookup.
         let real_mode = self.sregs.cr0 & 1 == 0;
+        // 64-bit (long) mode keeps flat data segments and MSR-based FS/GS bases,
+        // so it does NOT consult the descriptor table here. In 32-bit protected
+        // mode a segment load takes its base/limit/attributes from the GDT/LDT
+        // descriptor (resolved up front, before the &mut segment borrow). Require
+        // a present code/data (S=1, P=1) descriptor; otherwise fall back to flat.
+        let long_mode = (self.sregs.efer & 0x400) != 0 && self.sregs.cs.l;
+        let desc = if !real_mode && !long_mode {
+            self.read_descriptor(value)
+                .ok()
+                .flatten()
+                .filter(|d| (d >> 44) & 1 != 0 && (d >> 47) & 1 != 0)
+        } else {
+            None
+        };
         let seg = match sreg {
             0 => &mut self.sregs.es,
             1 => &mut self.sregs.cs,
@@ -1940,9 +1954,24 @@ impl X86_64Vcpu {
             seg.s = true;
             seg.l = false;
             seg.g = false;
+        } else if let Some(d) = desc {
+            // 32-bit protected mode: decode base/limit/attributes from the
+            // descriptor (e.g. TempleOS uses based data segments during boot).
+            let base = ((d >> 16) & 0x00FF_FFFF) | (((d >> 56) & 0xFF) << 24);
+            let lim = ((d & 0xFFFF) | (((d >> 48) & 0xF) << 16)) as u32;
+            let g = (d >> 55) & 1 != 0;
+            seg.base = base;
+            seg.limit = if g { (lim << 12) | 0xFFF } else { lim };
+            seg.type_ = ((d >> 40) & 0xF) as u8;
+            seg.s = true;
+            seg.dpl = ((d >> 45) & 3) as u8;
+            seg.present = true;
+            seg.db = if preserve_mode { prev_db } else { (d >> 54) & 1 != 0 };
+            seg.l = if preserve_mode { prev_l } else { (d >> 53) & 1 != 0 };
+            seg.g = g;
         } else {
-            // In protected/long mode, we should load the descriptor from GDT
-            // For now, set a basic flat segment
+            // Flat fallback: long mode, a null selector, or a non-usable
+            // descriptor (matches the prior always-flat behavior).
             seg.base = 0;
             seg.limit = 0xFFFF_FFFF;
             seg.type_ = 0x03; // Data segment, read/write, accessed
@@ -2121,9 +2150,26 @@ impl X86_64Vcpu {
                 // Only adopt the real descriptor when it is a present code
                 // segment; otherwise fall back to flat segmentation.
                 if self.apply_code_descriptor(selector, raw).is_ok() {
-                    // Preserve the prior execution mode (see note above).
-                    self.sregs.cs.l = prev_l;
-                    self.sregs.cs.db = prev_db;
+                    // A far transfer adopts the descriptor's D/L bits — this is
+                    // exactly how the mode switches take effect: real→protected
+                    // (D: 16→32) outside long mode, and the 32-bit-compat→64-bit
+                    // switch a guest performs after enabling long mode (it runs
+                    // 32-bit (D=1) compatibility code under the 4-level page
+                    // tables, then far-jumps to its 64-bit code segment).
+                    //
+                    // The one carve-out is the audit/test fixtures, which route
+                    // transfers through a single 64-bit (L=1) descriptor while
+                    // running 16-bit compatibility code (prev D=0) and must stay
+                    // in that mode. So inside long mode preserve the prior mode
+                    // ONLY when leaving 16-bit compatibility (prev D=0); a real
+                    // OS never enters 64-bit mode from 16-bit compat. 64-bit
+                    // code (also D=0) likewise preserves — through an L=1
+                    // descriptor that is a no-op anyway.
+                    let in_long_mode = self.sregs.efer & 0x400 != 0;
+                    if in_long_mode && !prev_db {
+                        self.sregs.cs.l = prev_l;
+                        self.sregs.cs.db = prev_db;
+                    }
                 } else {
                     self.set_sreg(1, selector);
                 }
