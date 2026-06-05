@@ -420,6 +420,7 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
             Mnemonic::VQDMULH | Mnemonic::VQRDMULH => self.exec_neon_saturating_doubling_mulh(insn),
             Mnemonic::VQABS | Mnemonic::VQNEG => self.exec_neon_saturating_abs_neg(insn),
             Mnemonic::VRECPE | Mnemonic::VRSQRTE => self.exec_neon_recip_estimate(insn),
+            Mnemonic::VRECPS | Mnemonic::VRSQRTS => self.exec_neon_recip_step(insn),
             Mnemonic::VADDL | Mnemonic::VADDW | Mnemonic::VSUBL | Mnemonic::VSUBW => {
                 self.exec_neon_long_wide_add_sub(insn)
             }
@@ -4343,6 +4344,74 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
                     _ => return ExecResult::Undefined,
                 };
                 out.push(if condition { u64::from(u32::MAX) } else { 0 });
+            }
+            self.neon_write_vector_elements_u64(d + reg, 1, 4, &out);
+        }
+
+        ExecResult::Continue
+    }
+
+    fn exec_neon_recip_step(&mut self, insn: &DecodedInsn) -> ExecResult {
+        if !self.cpu.vfp.is_enabled() {
+            return ExecResult::Exception(ExceptionType::UndefinedInstruction);
+        }
+        if (insn.raw >> 25) != 0b1111001
+            || ((insn.raw >> 24) & 1) != 0
+            || ((insn.raw >> 23) & 1) != 0
+            || ((insn.raw >> 20) & 1) != 0
+            || ((insn.raw >> 8) & 0xF) != 0b1111
+            || ((insn.raw >> 4) & 1) != 1
+        {
+            return ExecResult::Undefined;
+        }
+
+        match (insn.mnemonic, (insn.raw >> 21) & 1) {
+            (Mnemonic::VRECPS, 0) | (Mnemonic::VRSQRTS, 1) => {}
+            _ => return ExecResult::Undefined,
+        }
+
+        let d_bit = ((insn.raw >> 22) & 1) as u8;
+        let vd = ((insn.raw >> 12) & 0xF) as u8;
+        let n_bit = ((insn.raw >> 7) & 1) as u8;
+        let vn = ((insn.raw >> 16) & 0xF) as u8;
+        let m_bit = ((insn.raw >> 5) & 1) as u8;
+        let vm = (insn.raw & 0xF) as u8;
+        let q = ((insn.raw >> 6) & 1) != 0;
+        let regs = if q { 2 } else { 1 };
+
+        let d = (d_bit << 4) | vd;
+        let n = (n_bit << 4) | vn;
+        let m = (m_bit << 4) | vm;
+        if q && ((d | n | m) & 1) != 0 {
+            return ExecResult::Undefined;
+        }
+        if d + regs > 32 || n + regs > 32 || m + regs > 32 {
+            return ExecResult::Undefined;
+        }
+
+        for reg in 0..regs {
+            let n_elements = self.neon_read_vector_elements_u64(n + reg, 1, 4);
+            let m_elements = self.neon_read_vector_elements_u64(m + reg, 1, 4);
+            let mut out = Vec::with_capacity(n_elements.len());
+            for (n_elem, m_elem) in n_elements.into_iter().zip(m_elements.into_iter()) {
+                let lhs = f32::from_bits(n_elem as u32);
+                let rhs = f32::from_bits(m_elem as u32);
+                let result = if lhs.is_nan() || rhs.is_nan() {
+                    f32::NAN.to_bits()
+                } else if insn.mnemonic == Mnemonic::VRECPS {
+                    if (lhs.is_infinite() && rhs == 0.0) || (rhs.is_infinite() && lhs == 0.0) {
+                        2.0f32.to_bits()
+                    } else {
+                        (-lhs).mul_add(rhs, 2.0).to_bits()
+                    }
+                } else if (lhs.is_infinite() && rhs == 0.0)
+                    || (rhs.is_infinite() && lhs == 0.0)
+                {
+                    1.5f32.to_bits()
+                } else {
+                    ((-lhs).mul_add(rhs, 3.0) * 0.5).to_bits()
+                };
+                out.push(u64::from(result));
             }
             self.neon_write_vector_elements_u64(d + reg, 1, 4, &out);
         }
