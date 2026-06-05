@@ -20,6 +20,51 @@
 
 use crate::common::*;
 
+#[test]
+fn test_push2_stack_layout_match_llvm() {
+    // LLVM 23 assembles "push2 %rax, %rbx" as 62 f4 64 18 ff f0.
+    // PUSH2 stores the first operand at the new RSP and the second at RSP+8.
+    let code = [
+        0x62, 0xF4, 0x64, 0x18, 0xFF, 0xF0,
+        0xF4,
+    ];
+    let mut regs = Registers::default();
+    regs.rax = 0x1111_2222_3333_4444;
+    regs.rbx = 0xAAAA_BBBB_CCCC_DDDD;
+
+    let (mut vcpu, mem) = setup_vm(&code, Some(regs));
+    let regs = run_until_hlt(&mut vcpu).unwrap();
+    assert_eq!(regs.rsp, STACK_ADDR - 16);
+
+    let mut first = [0u8; 8];
+    let mut second = [0u8; 8];
+    mem.read_slice(&mut first, GuestAddress(STACK_ADDR - 16)).unwrap();
+    mem.read_slice(&mut second, GuestAddress(STACK_ADDR - 8)).unwrap();
+    assert_eq!(u64::from_le_bytes(first), 0x1111_2222_3333_4444);
+    assert_eq!(u64::from_le_bytes(second), 0xAAAA_BBBB_CCCC_DDDD);
+}
+
+#[test]
+fn test_push2_pop2_roundtrip_match_llvm() {
+    // LLVM 23 encodes push2/pop2 %rax, %rbx with P1=64 and ModR/M r/m=0.
+    let code = [
+        0x62, 0xF4, 0x64, 0x18, 0xFF, 0xF0,
+        0x31, 0xC0,             // XOR eax, eax
+        0x31, 0xDB,             // XOR ebx, ebx
+        0x62, 0xF4, 0x64, 0x18, 0x8F, 0xC0,
+        0xF4,
+    ];
+    let mut regs = Registers::default();
+    regs.rax = 0x0102_0304_0506_0708;
+    regs.rbx = 0x8877_6655_4433_2211;
+
+    let (mut vcpu, _) = setup_vm(&code, Some(regs));
+    let regs = run_until_hlt(&mut vcpu).unwrap();
+    assert_eq!(regs.rsp, STACK_ADDR);
+    assert_eq!(regs.rax, 0x0102_0304_0506_0708);
+    assert_eq!(regs.rbx, 0x8877_6655_4433_2211);
+}
+
 // ============================================================================
 // Basic PUSH2 Tests
 // ============================================================================
