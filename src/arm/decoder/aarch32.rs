@@ -177,6 +177,10 @@ impl Aarch32Decoder {
             return Ok(insn);
         }
 
+        if let Some(insn) = Self::decode_neon_modified_immediate(raw) {
+            return Ok(insn);
+        }
+
         if let Some(insn) = Self::decode_neon_integer_multiply_scalar(raw) {
             return Ok(insn);
         }
@@ -1563,6 +1567,42 @@ impl Aarch32Decoder {
         Some(DecodedInsn::new(Mnemonic::VMULL, ExecutionState::Aarch32, raw, 4))
     }
 
+    fn decode_neon_modified_immediate(raw: u32) -> Option<DecodedInsn> {
+        if (raw >> 25) != 0b1111001
+            || ((raw >> 23) & 1) != 1
+            || ((raw >> 7) & 1) != 0
+            || ((raw >> 4) & 1) != 1
+        {
+            return None;
+        }
+
+        let cmode = (raw >> 8) & 0xF;
+        let op = ((raw >> 5) & 1) != 0;
+        let mnemonic = match (cmode, op) {
+            (0b1111, _) => return None,
+            (0b1110, false) => Mnemonic::VMOV,
+            (0b1110, true) => Mnemonic::VMVN,
+            (cmode, false) if (cmode & 1) == 0 => Mnemonic::VMOV,
+            (cmode, false) if (cmode & 1) != 0 => Mnemonic::VORR,
+            (cmode, true) if (cmode & 1) == 0 => Mnemonic::VMVN,
+            (cmode, true) if (cmode & 1) != 0 => Mnemonic::VBIC,
+            _ => return None,
+        };
+
+        let q = ((raw >> 6) & 1) != 0;
+        let vd = ((raw >> 22) & 1) << 4 | ((raw >> 12) & 0xF);
+        if q && (vd & 1) != 0 {
+            return Some(DecodedInsn::new(
+                Mnemonic::UNDEFINED,
+                ExecutionState::Aarch32,
+                raw,
+                4,
+            ));
+        }
+
+        Some(DecodedInsn::new(mnemonic, ExecutionState::Aarch32, raw, 4))
+    }
+
     fn decode_neon_long_multiply(raw: u32) -> Option<DecodedInsn> {
         if (raw >> 25) != 0b1111001
             || ((raw >> 23) & 1) != 1
@@ -1631,7 +1671,10 @@ impl Aarch32Decoder {
         let q = ((raw >> 6) & 1) != 0;
         let vd = (raw >> 12) & 0xF;
         let vm = raw & 0xF;
-        if !valid_imm || (q && ((vd | vm) & 1) != 0) {
+        if !valid_imm {
+            return None;
+        }
+        if q && ((vd | vm) & 1) != 0 {
             return Some(DecodedInsn::new(
                 Mnemonic::UNDEFINED,
                 ExecutionState::Aarch32,
@@ -1728,7 +1771,10 @@ impl Aarch32Decoder {
         let imm = (raw >> 16) & 0x3F;
         let valid_imm = (8..64).contains(&imm);
         let m = (((raw >> 5) & 1) << 4) | (raw & 0xF);
-        if !valid_imm || (m & 1) != 0 || m + 1 >= 32 {
+        if !valid_imm {
+            return None;
+        }
+        if (m & 1) != 0 || m + 1 >= 32 {
             return Some(DecodedInsn::new(
                 Mnemonic::UNDEFINED,
                 ExecutionState::Aarch32,

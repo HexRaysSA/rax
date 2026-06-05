@@ -2332,6 +2332,9 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
         if !self.cpu.vfp.is_enabled() {
             return ExecResult::Exception(ExceptionType::UndefinedInstruction);
         }
+        if Self::is_neon_modified_immediate_shape(insn.raw) {
+            return self.exec_neon_modified_immediate(insn);
+        }
 
         let d_bit = ((insn.raw >> 22) & 1) as u8;
         let vd = ((insn.raw >> 12) & 0xF) as u8;
@@ -2376,6 +2379,9 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
     fn exec_neon_vmvn_register(&mut self, insn: &DecodedInsn) -> ExecResult {
         if !self.cpu.vfp.is_enabled() {
             return ExecResult::Exception(ExceptionType::UndefinedInstruction);
+        }
+        if Self::is_neon_modified_immediate_shape(insn.raw) {
+            return self.exec_neon_modified_immediate(insn);
         }
 
         let d_bit = ((insn.raw >> 22) & 1) as u8;
@@ -5954,6 +5960,9 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
         if !self.cpu.vfp.is_enabled() {
             return ExecResult::Exception(ExceptionType::UndefinedInstruction);
         }
+        if Self::is_neon_modified_immediate_shape(insn.raw) {
+            return self.exec_neon_modified_immediate(insn);
+        }
         if ((insn.raw >> 4) & 1) == 1
             && matches!((insn.raw >> 8) & 0xF, 0b1010 | 0b1011)
             && ((insn.raw >> 21) & 0x7) == 0b010
@@ -6103,6 +6112,75 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
             }
             _ => return ExecResult::Undefined,
         }
+        ExecResult::Continue
+    }
+
+    fn is_neon_modified_immediate_shape(raw: u32) -> bool {
+        (raw >> 25) == 0b1111001
+            && ((raw >> 23) & 1) == 1
+            && ((raw >> 7) & 1) == 0
+            && ((raw >> 4) & 1) == 1
+            && ((raw >> 8) & 0xF) != 0b1111
+    }
+
+    fn neon_expand_modified_immediate(raw: u32) -> Option<u64> {
+        let cmode = (raw >> 8) & 0xF;
+        let imm8 =
+            ((((raw >> 24) & 1) << 7) | (((raw >> 16) & 0x7) << 4) | (raw & 0xF)) as u64;
+
+        let imm32 = match cmode {
+            0b0000 | 0b0001 => imm8 as u32,
+            0b0010 | 0b0011 => (imm8 << 8) as u32,
+            0b0100 | 0b0101 => (imm8 << 16) as u32,
+            0b0110 | 0b0111 => (imm8 << 24) as u32,
+            0b1000 | 0b1001 => {
+                let imm16 = imm8 as u32;
+                imm16 | (imm16 << 16)
+            }
+            0b1010 | 0b1011 => {
+                let imm16 = (imm8 << 8) as u32;
+                imm16 | (imm16 << 16)
+            }
+            0b1110 => {
+                let byte = imm8 as u32;
+                byte | (byte << 8) | (byte << 16) | (byte << 24)
+            }
+            _ => return None,
+        };
+
+        Some(u64::from(imm32) | (u64::from(imm32) << 32))
+    }
+
+    fn exec_neon_modified_immediate(&mut self, insn: &DecodedInsn) -> ExecResult {
+        if !self.cpu.vfp.is_enabled() {
+            return ExecResult::Exception(ExceptionType::UndefinedInstruction);
+        }
+
+        let Some(imm) = Self::neon_expand_modified_immediate(insn.raw) else {
+            return ExecResult::Undefined;
+        };
+        let d = (((insn.raw >> 22) & 1) << 4 | ((insn.raw >> 12) & 0xF)) as u8;
+        let q = ((insn.raw >> 6) & 1) != 0;
+        let regs = if q { 2 } else { 1 };
+        if q && (d & 1) != 0 {
+            return ExecResult::Undefined;
+        }
+        if d + regs > 32 {
+            return ExecResult::Undefined;
+        }
+
+        for index in 0..regs {
+            let old = self.cpu.vfp.read_d_bits(d + index);
+            let result = match insn.mnemonic {
+                Mnemonic::VMOV => imm,
+                Mnemonic::VMVN => !imm,
+                Mnemonic::VORR => old | imm,
+                Mnemonic::VBIC => old & !imm,
+                _ => return ExecResult::Undefined,
+            };
+            self.cpu.vfp.write_d_bits(d + index, result);
+        }
+
         ExecResult::Continue
     }
 

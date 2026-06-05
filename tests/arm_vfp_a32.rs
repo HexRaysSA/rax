@@ -1677,6 +1677,75 @@ fn neon_logical_register_extra_ops_use_destination_bits_correctly() {
 }
 
 #[test]
+fn neon_modified_immediate_ops_materialize_and_merge_constants() {
+    let mut cpu = Armv7Cpu::new();
+    let mut mem = FlatMemory::new(0x1000, 0);
+
+    assert_eq!(
+        Aarch32Decoder::decode(0xF387_001F).unwrap().mnemonic,
+        Mnemonic::VMOV
+    );
+    assert_eq!(
+        Aarch32Decoder::decode(0xF387_265F).unwrap().mnemonic,
+        Mnemonic::VMOV
+    );
+    assert_eq!(
+        Aarch32Decoder::decode(0xF387_291F).unwrap().mnemonic,
+        Mnemonic::VORR
+    );
+    assert_eq!(
+        Aarch32Decoder::decode(0xF387_373F).unwrap().mnemonic,
+        Mnemonic::VBIC
+    );
+    assert_eq!(
+        Aarch32Decoder::decode(0xF387_503F).unwrap().mnemonic,
+        Mnemonic::VMVN
+    );
+    assert_eq!(
+        Aarch32Decoder::decode(0xF387_365F).unwrap().mnemonic,
+        Mnemonic::UNDEFINED
+    );
+
+    assert!(matches!(
+        exec_one(&mut cpu, &mut mem, 0xF387_001F),
+        ExecResult::Continue
+    ));
+    assert_eq!(cpu.vfp.read_d_bits(0), 0x0000_00ff_0000_00ff);
+
+    assert!(matches!(
+        exec_one(&mut cpu, &mut mem, 0xF387_265F),
+        ExecResult::Continue
+    ));
+    assert_eq!(cpu.vfp.read_d_bits(2), 0xff00_0000_ff00_0000);
+    assert_eq!(cpu.vfp.read_d_bits(3), 0xff00_0000_ff00_0000);
+
+    cpu.vfp.write_d_bits(2, 0x1234_0000_abcd_0000);
+    assert!(matches!(
+        exec_one(&mut cpu, &mut mem, 0xF387_291F),
+        ExecResult::Continue
+    ));
+    assert_eq!(cpu.vfp.read_d_bits(2), 0x12ff_00ff_abff_00ff);
+
+    cpu.vfp.write_d_bits(3, 0xffff_ffff_ffff_ffff);
+    assert!(matches!(
+        exec_one(&mut cpu, &mut mem, 0xF387_373F),
+        ExecResult::Continue
+    ));
+    assert_eq!(cpu.vfp.read_d_bits(3), 0x00ff_ffff_00ff_ffff);
+
+    assert!(matches!(
+        exec_one(&mut cpu, &mut mem, 0xF387_503F),
+        ExecResult::Continue
+    ));
+    assert_eq!(cpu.vfp.read_d_bits(5), 0xffff_ff00_ffff_ff00);
+
+    assert!(matches!(
+        exec_one(&mut cpu, &mut mem, 0xF387_365F),
+        ExecResult::Undefined
+    ));
+}
+
+#[test]
 fn neon_vmvn_register_inverts_d_and_q_registers() {
     let mut cpu = Armv7Cpu::new();
     let mut mem = FlatMemory::new(0x1000, 0);
