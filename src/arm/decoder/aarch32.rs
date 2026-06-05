@@ -189,6 +189,10 @@ impl Aarch32Decoder {
             return Ok(insn);
         }
 
+        if let Some(insn) = Self::decode_neon_integer_absdiff_long(raw) {
+            return Ok(insn);
+        }
+
         if let Some(insn) = Self::decode_neon_integer_absdiff_accum(raw) {
             return Ok(insn);
         }
@@ -859,6 +863,31 @@ impl Aarch32Decoder {
         let vn = (raw >> 16) & 0xF;
         let vm = raw & 0xF;
         if size == 0b11 || (q && ((vd | vn | vm) & 1) != 0) {
+            return Some(DecodedInsn::new(
+                Mnemonic::UNDEFINED,
+                ExecutionState::Aarch32,
+                raw,
+                4,
+            ));
+        }
+
+        Some(DecodedInsn::new(mnemonic, ExecutionState::Aarch32, raw, 4))
+    }
+
+    fn decode_neon_integer_absdiff_long(raw: u32) -> Option<DecodedInsn> {
+        if (raw >> 25) != 0b1111001 || ((raw >> 23) & 1) != 1 || ((raw >> 4) & 1) != 0 {
+            return None;
+        }
+
+        let mnemonic = match (raw >> 8) & 0xF {
+            0b0111 => Mnemonic::VABDL,
+            0b0101 => Mnemonic::VABAL,
+            _ => return None,
+        };
+
+        let size = (raw >> 20) & 0x3;
+        let vd = (raw >> 12) & 0xF;
+        if size == 0b11 || (vd & 1) != 0 || ((raw >> 6) & 1) != 0 {
             return Some(DecodedInsn::new(
                 Mnemonic::UNDEFINED,
                 ExecutionState::Aarch32,

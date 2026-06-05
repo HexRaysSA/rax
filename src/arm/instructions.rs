@@ -453,6 +453,7 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
             Mnemonic::VMAX | Mnemonic::VMIN => self.exec_neon_minmax(insn),
             Mnemonic::VABD => self.exec_neon_absdiff(insn),
             Mnemonic::VABA => self.exec_neon_integer_absdiff_accum(insn),
+            Mnemonic::VABDL | Mnemonic::VABAL => self.exec_neon_integer_absdiff_long(insn),
             Mnemonic::VADD | Mnemonic::VSUB => self.exec_vadd_vsub(insn),
             Mnemonic::VMUL => self.exec_vmul(insn),
             Mnemonic::VDIV => self.exec_vfp_binop(insn),
@@ -5003,6 +5004,89 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
             }
             self.neon_write_vector_elements_u64(d + reg, 1, ebytes, &out);
         }
+
+        ExecResult::Continue
+    }
+
+    fn exec_neon_integer_absdiff_long(&mut self, insn: &DecodedInsn) -> ExecResult {
+        if !self.cpu.vfp.is_enabled() {
+            return ExecResult::Exception(ExceptionType::UndefinedInstruction);
+        }
+        if (insn.raw >> 25) != 0b1111001
+            || ((insn.raw >> 23) & 1) != 1
+            || ((insn.raw >> 4) & 1) != 0
+        {
+            return ExecResult::Undefined;
+        }
+
+        let accumulate = match ((insn.raw >> 8) & 0xF, insn.mnemonic) {
+            (0b0111, Mnemonic::VABDL) => false,
+            (0b0101, Mnemonic::VABAL) => true,
+            _ => return ExecResult::Undefined,
+        };
+
+        let size = match (insn.raw >> 20) & 0x3 {
+            0b00 => NeonSize::B8,
+            0b01 => NeonSize::H16,
+            0b10 => NeonSize::S32,
+            _ => return ExecResult::Undefined,
+        };
+        let src_ebytes = (size.bits() / 8) as u8;
+        let dest_ebytes = src_ebytes * 2;
+        let dest_bits = size.bits() * 2;
+        let unsigned = ((insn.raw >> 24) & 1) != 0;
+
+        let d_bit = ((insn.raw >> 22) & 1) as u8;
+        let vd = ((insn.raw >> 12) & 0xF) as u8;
+        let n_bit = ((insn.raw >> 7) & 1) as u8;
+        let vn = ((insn.raw >> 16) & 0xF) as u8;
+        let m_bit = ((insn.raw >> 5) & 1) as u8;
+        let vm = (insn.raw & 0xF) as u8;
+
+        let d = (d_bit << 4) | vd;
+        let n = (n_bit << 4) | vn;
+        let m = (m_bit << 4) | vm;
+        if (d & 1) != 0 || ((insn.raw >> 6) & 1) != 0 {
+            return ExecResult::Undefined;
+        }
+        if d + 2 > 32 || n >= 32 || m >= 32 {
+            return ExecResult::Undefined;
+        }
+
+        let n_elements = self.neon_read_vector_elements_u64(n, 1, src_ebytes);
+        let m_elements = self.neon_read_vector_elements_u64(m, 1, src_ebytes);
+        let d_elements = if accumulate {
+            self.neon_read_vector_elements_u64(d, 2, dest_ebytes)
+        } else {
+            vec![0; n_elements.len()]
+        };
+        let mask = if dest_bits == 64 {
+            u64::MAX
+        } else {
+            (1u64 << dest_bits) - 1
+        };
+
+        let mut out = Vec::with_capacity(n_elements.len());
+        for ((n_elem, m_elem), d_elem) in n_elements
+            .into_iter()
+            .zip(m_elements.into_iter())
+            .zip(d_elements.into_iter())
+        {
+            let diff = if unsigned {
+                n_elem.abs_diff(m_elem)
+            } else {
+                let lhs = Self::neon_sign_extend_elem_u64(n_elem, size.bits());
+                let rhs = Self::neon_sign_extend_elem_u64(m_elem, size.bits());
+                lhs.abs_diff(rhs) as u64
+            };
+            let result = if accumulate {
+                d_elem.wrapping_add(diff)
+            } else {
+                diff
+            };
+            out.push(result & mask);
+        }
+        self.neon_write_vector_elements_u64(d, 2, dest_ebytes, &out);
 
         ExecResult::Continue
     }
