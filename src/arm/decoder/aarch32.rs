@@ -554,6 +554,10 @@ impl Aarch32Decoder {
             (1, 0b10) => Mnemonic::LDRSB,
             (1, 0b11) => Mnemonic::LDRSH,
             (0, 0b01) => Mnemonic::STRH,
+            // L=0 with op1 10/11 are the dual load/store (bits[7:4]=1101/1111).
+            // LDP/STP are the shared exec entry points for LDRD/STRD.
+            (0, 0b10) => Mnemonic::LDP,
+            (0, 0b11) => Mnemonic::STP,
             _ => Mnemonic::UNKNOWN,
         };
 

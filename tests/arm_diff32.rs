@@ -507,6 +507,49 @@ fn integer_sweep(name: &str, modes: &[u8], n_inputs: usize, seed: u64) {
     run_batch(name, batch, false);
 }
 
+/// Run the memory sweep: r1 points at the scratch window, r2 holds a small
+/// offset, so every access stays inside the exchanged scratch region.
+fn memory_sweep(name: &str, modes: &[u8], n_inputs: usize, seed: u64) {
+    let filter = std::env::var("A32DIFF_FILTER").ok();
+    let mut rng = Rng::new(seed);
+    let mut batch = Vec::new();
+    for (label, insn, mode) in A32_MEM_SWEEP.iter() {
+        if !modes.contains(mode) {
+            continue;
+        }
+        if let Some(f) = &filter {
+            if !label.contains(f.as_str()) {
+                continue;
+            }
+        }
+        for _ in 0..n_inputs {
+            let mut st = gen_input(&mut rng, None);
+            st.r[1] = SCRATCH_BASE; // base register
+            st.r[2] = 8; // small offset register
+            batch.push((label.to_string(), *insn, *mode as u32, st));
+        }
+    }
+    run_batch(name, batch, false);
+}
+
+/// A32 (ARM) load/store sweep (single/dual/multiple, all addressing modes).
+#[test]
+fn diff_a32_memory_sweep() {
+    memory_sweep("a32_memory_sweep", &[0], 16, 0xA32_1001);
+}
+
+/// T16 (Thumb 16-bit) load/store sweep.
+#[test]
+fn diff_t16_memory_sweep() {
+    memory_sweep("t16_memory_sweep", &[1], 16, 0xA32_1002);
+}
+
+/// T32 (Thumb-2 32-bit) load/store sweep.
+#[test]
+fn diff_t32_memory_sweep() {
+    memory_sweep("t32_memory_sweep", &[2], 16, 0xA32_1003);
+}
+
 /// A32 (ARM) integer register-data-processing sweep.
 #[test]
 fn diff_a32_integer_sweep() {

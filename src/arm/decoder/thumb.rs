@@ -854,10 +854,13 @@ impl ThumbDecoder {
         let rn = ((raw >> 16) & 0xF) as u8;
         let reg_list = (raw & 0xFFFF) as u16;
 
-        let mnemonic = if l == 1 {
-            Mnemonic::LDMIA
-        } else {
-            Mnemonic::STMDB
+        // op = bits[24:23]: 01 = increment-after, 10 = decrement-before.
+        let mnemonic = match ((raw >> 23) & 3, l) {
+            (0b01, 1) => Mnemonic::LDMIA,
+            (0b01, 0) => Mnemonic::STMIA,
+            (0b10, 1) => Mnemonic::LDMDB,
+            (0b10, 0) => Mnemonic::STMDB,
+            _ => Mnemonic::UNKNOWN,
         };
 
         // Check for PUSH/POP aliases
@@ -885,6 +888,40 @@ impl ThumbDecoder {
     }
 
     fn decode_32bit_load_store_dual(raw: u32) -> Result<DecodedInsn, DecodeError> {
+        // LDRD/STRD (immediate): op1 = P:U:1:W (bit24..21), L = bit20. The
+        // exclusive/table-branch members of this group (op1[1]=0 => P=0,W=0) are
+        // not handled here.
+        let p = (raw >> 24) & 1;
+        let u = (raw >> 23) & 1;
+        let w = (raw >> 21) & 1;
+        let l = (raw >> 20) & 1;
+        if p == 0 && w == 0 {
+            // LDREX/STREX/TBB/TBH — not yet implemented.
+            return Ok(DecodedInsn::new(Mnemonic::UNKNOWN, ExecutionState::Thumb2, raw, 4));
+        }
+        let rn = ((raw >> 16) & 0xF) as u8; // hw1[3:0]
+        let rt = ((raw >> 12) & 0xF) as u8; // hw2[15:12]
+        let rt2 = ((raw >> 8) & 0xF) as u8; // hw2[11:8]
+        let imm8 = (raw & 0xFF) as i64; // hw2[7:0]
+        let off = if u == 1 { imm8 << 2 } else { -(imm8 << 2) };
+        let mode = if p == 0 {
+            AddressingMode::PostIndex
+        } else if w == 1 {
+            AddressingMode::PreIndex
+        } else {
+            AddressingMode::Offset
+        };
+        let mnemonic = if l == 1 { Mnemonic::LDP } else { Mnemonic::STP };
+        return Ok(DecodedInsn::new(mnemonic, ExecutionState::Thumb2, raw, 4)
+            .with_operand(Operand::Reg(Self::any_reg(rt)))
+            .with_operand(Operand::Reg(Self::any_reg(rt2)))
+            .with_operand(Operand::Mem(MemOperand {
+                base: Self::any_reg(rn),
+                offset: MemOffset::Imm(off),
+                mode,
+            })));
+
+        #[allow(unreachable_code)]
         Ok(DecodedInsn::new(
             Mnemonic::UNKNOWN,
             ExecutionState::Thumb2,
@@ -1540,95 +1577,97 @@ impl ThumbDecoder {
         Ok(insn)
     }
 
-    fn decode_32bit_load_byte(raw: u32) -> Result<DecodedInsn, DecodeError> {
+    /// Build the T32 single load/store memory operand, covering T3 (positive
+    /// imm12), T4 (±imm8 with offset/pre/post-index + writeback), and the
+    /// register-offset (LSL imm2) form.
+    fn t32_mem_operand(raw: u32) -> MemOperand {
         let hw1 = (raw >> 16) as u16;
         let hw2 = raw as u16;
+        let base = Self::any_reg((hw1 & 0xF) as u8);
+        if (hw1 >> 7) & 1 == 1 {
+            // T3: positive 12-bit immediate offset.
+            MemOperand::imm_offset(base, (hw2 & 0xFFF) as i64)
+        } else if (hw2 >> 11) & 1 == 1 {
+            // T4: ±imm8 with P/U/W.
+            let p = (hw2 >> 10) & 1;
+            let u = (hw2 >> 9) & 1;
+            let w = (hw2 >> 8) & 1;
+            let imm8 = (hw2 & 0xFF) as i64;
+            let off = if u == 1 { imm8 } else { -imm8 };
+            let mode = if p == 0 {
+                AddressingMode::PostIndex
+            } else if w == 1 {
+                AddressingMode::PreIndex
+            } else {
+                AddressingMode::Offset
+            };
+            MemOperand {
+                base,
+                offset: MemOffset::Imm(off),
+                mode,
+            }
+        } else {
+            // Register offset, optional LSL by imm2.
+            let imm2 = ((hw2 >> 4) & 0x3) as u8;
+            let rm = Self::any_reg((hw2 & 0xF) as u8);
+            let offset = if imm2 == 0 {
+                MemOffset::Reg(rm)
+            } else {
+                MemOffset::ShiftedReg(ShiftedRegister::new(rm, ShiftType::LSL, imm2))
+            };
+            MemOperand {
+                base,
+                offset,
+                mode: AddressingMode::Offset,
+            }
+        }
+    }
 
-        let rn = (hw1 & 0xF) as u8;
-        let rt = ((hw2 >> 12) & 0xF) as u8;
-        let imm12 = (hw2 & 0xFFF) as i64;
-
-        let op1 = (hw1 >> 7) & 0x3;
-        let sign = (hw1 >> 8) & 1;
-
-        let mnemonic = match sign {
-            0 => Mnemonic::LDRB,
-            _ => Mnemonic::LDRSB,
+    fn decode_32bit_load_byte(raw: u32) -> Result<DecodedInsn, DecodeError> {
+        let hw1 = (raw >> 16) as u16;
+        let rt = ((raw >> 12) & 0xF) as u8;
+        let mnemonic = if (hw1 >> 8) & 1 == 0 {
+            Mnemonic::LDRB
+        } else {
+            Mnemonic::LDRSB
         };
-
         Ok(DecodedInsn::new(mnemonic, ExecutionState::Thumb2, raw, 4)
             .with_operand(Operand::Reg(Self::any_reg(rt)))
-            .with_operand(Operand::Mem(MemOperand::imm_offset(
-                Self::any_reg(rn),
-                imm12,
-            ))))
+            .with_operand(Operand::Mem(Self::t32_mem_operand(raw))))
     }
 
     fn decode_32bit_load_halfword(raw: u32) -> Result<DecodedInsn, DecodeError> {
         let hw1 = (raw >> 16) as u16;
-        let hw2 = raw as u16;
-
-        let rn = (hw1 & 0xF) as u8;
-        let rt = ((hw2 >> 12) & 0xF) as u8;
-        let imm12 = (hw2 & 0xFFF) as i64;
-
-        let sign = (hw1 >> 8) & 1;
-
-        let mnemonic = if sign == 1 {
+        let rt = ((raw >> 12) & 0xF) as u8;
+        let mnemonic = if (hw1 >> 8) & 1 == 1 {
             Mnemonic::LDRSH
         } else {
             Mnemonic::LDRH
         };
-
         Ok(DecodedInsn::new(mnemonic, ExecutionState::Thumb2, raw, 4)
             .with_operand(Operand::Reg(Self::any_reg(rt)))
-            .with_operand(Operand::Mem(MemOperand::imm_offset(
-                Self::any_reg(rn),
-                imm12,
-            ))))
+            .with_operand(Operand::Mem(Self::t32_mem_operand(raw))))
     }
 
     fn decode_32bit_load_word(raw: u32) -> Result<DecodedInsn, DecodeError> {
-        let hw1 = (raw >> 16) as u16;
-        let hw2 = raw as u16;
-
-        let rn = (hw1 & 0xF) as u8;
-        let rt = ((hw2 >> 12) & 0xF) as u8;
-        let imm12 = (hw2 & 0xFFF) as i64;
-
-        Ok(
-            DecodedInsn::new(Mnemonic::LDR, ExecutionState::Thumb2, raw, 4)
-                .with_operand(Operand::Reg(Self::any_reg(rt)))
-                .with_operand(Operand::Mem(MemOperand::imm_offset(
-                    Self::any_reg(rn),
-                    imm12,
-                ))),
-        )
+        let rt = ((raw >> 12) & 0xF) as u8;
+        Ok(DecodedInsn::new(Mnemonic::LDR, ExecutionState::Thumb2, raw, 4)
+            .with_operand(Operand::Reg(Self::any_reg(rt)))
+            .with_operand(Operand::Mem(Self::t32_mem_operand(raw))))
     }
 
     fn decode_32bit_store(raw: u32) -> Result<DecodedInsn, DecodeError> {
         let hw1 = (raw >> 16) as u16;
-        let hw2 = raw as u16;
-
-        let rn = (hw1 & 0xF) as u8;
-        let rt = ((hw2 >> 12) & 0xF) as u8;
-        let imm12 = (hw2 & 0xFFF) as i64;
-
-        let size = (hw1 >> 5) & 0x3;
-
-        let mnemonic = match size {
+        let rt = ((raw >> 12) & 0xF) as u8;
+        let mnemonic = match (hw1 >> 5) & 0x3 {
             0b00 => Mnemonic::STRB,
             0b01 => Mnemonic::STRH,
             0b10 => Mnemonic::STR,
             _ => Mnemonic::UNKNOWN,
         };
-
         Ok(DecodedInsn::new(mnemonic, ExecutionState::Thumb2, raw, 4)
             .with_operand(Operand::Reg(Self::any_reg(rt)))
-            .with_operand(Operand::Mem(MemOperand::imm_offset(
-                Self::any_reg(rn),
-                imm12,
-            ))))
+            .with_operand(Operand::Mem(Self::t32_mem_operand(raw))))
     }
 
     // =========================================================================

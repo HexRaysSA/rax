@@ -265,8 +265,8 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
             Mnemonic::LDRSB => self.exec_ldrsb(insn),
             Mnemonic::STRH => self.exec_strh(insn),
 
-            // Load/Store Double
-            Mnemonic::LDP => self.exec_ldrd(insn), // LDP is the AArch64 name, LDRD for AArch32
+            // Load/Store Double (LDP/STP are the AArch64 names; A32/T32 LDRD/STRD)
+            Mnemonic::LDP => self.exec_ldrd(insn),
             Mnemonic::STP => self.exec_strd(insn),
 
             // Load/Store Exclusive
@@ -279,10 +279,14 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
             Mnemonic::CLREX => self.exec_clrex(insn),
 
             // Load/Store Multiple
-            Mnemonic::LDM | Mnemonic::LDMIA => self.exec_ldm(insn),
-            Mnemonic::LDMDB => self.exec_ldmdb(insn),
-            Mnemonic::STM | Mnemonic::STMIA => self.exec_stm(insn),
-            Mnemonic::STMDB => self.exec_stmdb(insn),
+            Mnemonic::LDM | Mnemonic::LDMIA => self.exec_ldm_stm(insn, true, false, true),
+            Mnemonic::LDMIB => self.exec_ldm_stm(insn, true, true, true),
+            Mnemonic::LDMDA => self.exec_ldm_stm(insn, true, false, false),
+            Mnemonic::LDMDB => self.exec_ldm_stm(insn, true, true, false),
+            Mnemonic::STM | Mnemonic::STMIA => self.exec_ldm_stm(insn, false, false, true),
+            Mnemonic::STMIB => self.exec_ldm_stm(insn, false, true, true),
+            Mnemonic::STMDA => self.exec_ldm_stm(insn, false, false, false),
+            Mnemonic::STMDB => self.exec_ldm_stm(insn, false, true, false),
             Mnemonic::PUSH => self.exec_push(insn),
             Mnemonic::POP => self.exec_pop(insn),
 
@@ -1315,6 +1319,71 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
     // Load/Store Multiple
     // =========================================================================
 
+    /// Unified LDM/STM for all four addressing modes (IA/IB/DA/DB), A32 and T32.
+    /// The lowest-numbered register always maps to the lowest address.
+    fn exec_ldm_stm(&mut self, insn: &DecodedInsn, is_load: bool, p: bool, u: bool) -> ExecResult {
+        let (n, reglist, wback) = match self.decode_ldstm_operands(insn) {
+            Some(v) => v,
+            None => return ExecResult::Undefined,
+        };
+        let count = reglist.count_ones();
+        let base = self.reg(n);
+        let low = if u {
+            if p {
+                base.wrapping_add(4)
+            } else {
+                base
+            }
+        } else if p {
+            base.wrapping_sub(count * 4)
+        } else {
+            base.wrapping_sub(count * 4).wrapping_add(4)
+        };
+        let wb_val = if u {
+            base.wrapping_add(count * 4)
+        } else {
+            base.wrapping_sub(count * 4)
+        };
+
+        let mut addr = low;
+        let mut branch_target = None;
+        for i in 0..16 {
+            if reglist & (1 << i) == 0 {
+                continue;
+            }
+            if is_load {
+                match self.mem.read_word(addr) {
+                    Ok(d) => {
+                        if i == 15 {
+                            branch_target = Some(d);
+                        } else {
+                            self.cpu.regs[i] = d;
+                        }
+                    }
+                    Err(e) => return ExecResult::MemoryFault(e),
+                }
+            } else {
+                let val = if i == 15 { self.cpu.get_pc() } else { self.reg(i) };
+                if let Err(e) = self.mem.write_word(addr, val) {
+                    return ExecResult::MemoryFault(e);
+                }
+            }
+            addr = addr.wrapping_add(4);
+        }
+
+        // Writeback (suppressed for LDM when the base is in the loaded list).
+        if wback && !(is_load && reglist & (1 << n) != 0) {
+            self.cpu.regs[n] = wb_val;
+        }
+
+        if let Some(target) = branch_target {
+            ExecResult::Branch(target)
+        } else {
+            ExecResult::Continue
+        }
+    }
+
+    #[allow(dead_code)]
     fn exec_ldm(&mut self, insn: &DecodedInsn) -> ExecResult {
         let (n, reglist, wback) = match self.decode_ldstm_operands(insn) {
             Some(v) => v,
@@ -2668,10 +2737,46 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
     }
 
     /// Decode load/store operands for word/byte: (Rt, address, writeback)
+    /// Compute (Rt, address, writeback) from the decoded operands (Thumb path):
+    /// the first Reg operand is Rt and the Mem operand gives base/offset/mode.
+    fn decode_mem_thumb(&self, insn: &DecodedInsn) -> Option<(usize, u32, Option<(usize, u32)>)> {
+        use crate::arm::decoder::{AddressingMode, MemOffset, Operand};
+        let t = insn.operands.iter().find_map(|o| match o {
+            Operand::Reg(r) => Some(r.num as usize),
+            _ => None,
+        })?;
+        let mem = insn.operands.iter().find_map(|o| match o {
+            Operand::Mem(m) => Some(m),
+            _ => None,
+        })?;
+        let n = mem.base.num as usize;
+        let base = self.reg(n);
+        let offset: i64 = match &mem.offset {
+            MemOffset::None => 0,
+            MemOffset::Imm(i) => *i,
+            MemOffset::Reg(r) => self.reg(r.num as usize) as i64,
+            MemOffset::ShiftedReg(sr) => {
+                shift_c(self.reg(sr.reg.num as usize), sr.shift_type, sr.amount as u32, false).0
+                    as i64
+            }
+            MemOffset::ExtendedReg(_) => return None,
+        };
+        let offset_addr = (base as i64).wrapping_add(offset) as u32;
+        let (address, wb_addr) = match mem.mode {
+            AddressingMode::Offset => (offset_addr, None),
+            AddressingMode::PreIndex => (offset_addr, Some(offset_addr)),
+            AddressingMode::PostIndex => (base, Some(offset_addr)),
+        };
+        Some((t, address, wb_addr.filter(|_| n != 15).map(|a| (n, a))))
+    }
+
     fn decode_ldst_operands(
         &self,
         insn: &DecodedInsn,
     ) -> Option<(usize, u32, Option<(usize, u32)>)> {
+        if insn.state.is_thumb() {
+            return self.decode_mem_thumb(insn);
+        }
         let p = (insn.raw >> 24) & 1;
         let u = (insn.raw >> 23) & 1;
         let w = (insn.raw >> 21) & 1;
@@ -2719,6 +2824,9 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
         &self,
         insn: &DecodedInsn,
     ) -> Option<(usize, u32, Option<(usize, u32)>)> {
+        if insn.state.is_thumb() {
+            return self.decode_mem_thumb(insn);
+        }
         let p = (insn.raw >> 24) & 1;
         let u = (insn.raw >> 23) & 1;
         let i = (insn.raw >> 22) & 1; // Immediate vs register
@@ -2761,6 +2869,24 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
 
     /// Decode load/store multiple operands: (Rn, reglist, wback)
     fn decode_ldstm_operands(&self, insn: &DecodedInsn) -> Option<(usize, u16, bool)> {
+        if insn.state.is_thumb() {
+            use crate::arm::decoder::Operand;
+            let n = insn.operands.iter().find_map(|o| match o {
+                Operand::Reg(r) => Some(r.num as usize),
+                _ => None,
+            })?;
+            let reglist = insn.operands.iter().find_map(|o| match o {
+                Operand::RegList(rl) => Some(rl.mask),
+                _ => None,
+            })?;
+            // T16 LDM/STM always write back; T32 has an explicit W bit (bit21).
+            let wback = if insn.state == crate::arm::ExecutionState::Thumb2 {
+                (insn.raw >> 21) & 1 != 0
+            } else {
+                true
+            };
+            return Some((n, reglist, wback));
+        }
         let w = (insn.raw >> 21) & 1;
         let n = ((insn.raw >> 16) & 0xF) as usize;
         let reglist = (insn.raw & 0xFFFF) as u16;
