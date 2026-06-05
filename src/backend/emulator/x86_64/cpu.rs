@@ -1250,9 +1250,19 @@ impl X86_64Vcpu {
 
         let cache_idx = Self::decode_cache_index(rip);
         // Key on address space (CR3) + CPU mode so a hit can never dispatch stale
-        // bytes/decode across a context or mode switch.
-        let mode_tag =
-            (self.sregs.cr3 & !0xFFF) | (self.sregs.cs.l as u64) | ((self.sregs.cs.db as u64) << 1);
+        // bytes/decode across a context or mode switch. In real mode there is no
+        // paging (cr3 unused) and the fetch linear address is CS.base + RIP, so
+        // CS.base must be part of the key — otherwise the same offset under
+        // different segments (common in real-mode relocators) would alias to one
+        // cached decode. CS.base is 0 in long mode, so this is a no-op there.
+        let mode_tag = (self.sregs.cr3 & !0xFFF)
+            | (self.sregs.cs.l as u64)
+            | ((self.sregs.cs.db as u64) << 1)
+            | if self.sregs.cr0 & 1 == 0 {
+                self.sregs.cs.base
+            } else {
+                0
+            };
 
         // Check decode cache for a hit (copy to avoid borrow issues). A filled
         // entry always has bytes_len >= 1; default/invalidated entries have
