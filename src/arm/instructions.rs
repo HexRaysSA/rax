@@ -5331,7 +5331,6 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
         if (insn.raw >> 25) != 0b1111001
             || ((insn.raw >> 24) & 1) != 0
             || ((insn.raw >> 23) & 1) != 0
-            || ((insn.raw >> 20) & 1) != 0
             || ((insn.raw >> 8) & 0xF) != 0b1111
             || ((insn.raw >> 4) & 1) != 1
         {
@@ -5362,31 +5361,53 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
             return ExecResult::Undefined;
         }
 
+        let size = if ((insn.raw >> 20) & 1) == 0 {
+            NeonSize::S32
+        } else {
+            NeonSize::H16
+        };
+        let ebytes = (size.bits() / 8) as u8;
+
         for reg in 0..regs {
-            let n_elements = self.neon_read_vector_elements_u64(n + reg, 1, 4);
-            let m_elements = self.neon_read_vector_elements_u64(m + reg, 1, 4);
+            let n_elements = self.neon_read_vector_elements_u64(n + reg, 1, ebytes);
+            let m_elements = self.neon_read_vector_elements_u64(m + reg, 1, ebytes);
             let mut out = Vec::with_capacity(n_elements.len());
             for (n_elem, m_elem) in n_elements.into_iter().zip(m_elements.into_iter()) {
-                let lhs = f32::from_bits(n_elem as u32);
-                let rhs = f32::from_bits(m_elem as u32);
+                let lhs = match size {
+                    NeonSize::S32 => f32::from_bits(n_elem as u32),
+                    NeonSize::H16 => vcvt_f32_f16_bits(n_elem as u16),
+                    _ => return ExecResult::Undefined,
+                };
+                let rhs = match size {
+                    NeonSize::S32 => f32::from_bits(m_elem as u32),
+                    NeonSize::H16 => vcvt_f32_f16_bits(m_elem as u16),
+                    _ => return ExecResult::Undefined,
+                };
                 let result = if lhs.is_nan() || rhs.is_nan() {
-                    f32::NAN.to_bits()
+                    f32::NAN
                 } else if insn.mnemonic == Mnemonic::VRECPS {
                     if (lhs.is_infinite() && rhs == 0.0) || (rhs.is_infinite() && lhs == 0.0) {
-                        2.0f32.to_bits()
+                        2.0
                     } else {
-                        (-lhs).mul_add(rhs, 2.0).to_bits()
+                        (-lhs).mul_add(rhs, 2.0)
                     }
                 } else if (lhs.is_infinite() && rhs == 0.0)
                     || (rhs.is_infinite() && lhs == 0.0)
                 {
-                    1.5f32.to_bits()
+                    1.5
                 } else {
-                    ((-lhs).mul_add(rhs, 3.0) * 0.5).to_bits()
+                    (-lhs).mul_add(rhs, 3.0) * 0.5
                 };
-                out.push(u64::from(result));
+                let result = match size {
+                    NeonSize::S32 => u64::from(result.to_bits()),
+                    NeonSize::H16 => {
+                        u64::from(vcvt_f16_bits_f32(result, &mut self.cpu.vfp.fpscr))
+                    }
+                    _ => return ExecResult::Undefined,
+                };
+                out.push(result);
             }
-            self.neon_write_vector_elements_u64(d + reg, 1, 4, &out);
+            self.neon_write_vector_elements_u64(d + reg, 1, ebytes, &out);
         }
 
         ExecResult::Continue
