@@ -4639,6 +4639,14 @@ fn neon_fp_convert_between_f32_and_i32_lanes() {
         Mnemonic::VCVT_S32_F32
     );
     assert_eq!(
+        Aarch32Decoder::decode(0xF3B6_0602).unwrap().mnemonic,
+        Mnemonic::VCVT_F16_F32
+    );
+    assert_eq!(
+        Aarch32Decoder::decode(0xF3B6_4703).unwrap().mnemonic,
+        Mnemonic::VCVT_F32_F16
+    );
+    assert_eq!(
         Aarch32Decoder::decode(0xF3BB_1642).unwrap().mnemonic,
         Mnemonic::UNDEFINED
     );
@@ -4707,6 +4715,30 @@ fn neon_fp_convert_between_f32_and_i32_lanes() {
     ));
     assert_eq!(cpu.vfp.read_d_bits(4), (4u64 << 32) | u64::from((-1i32) as u32));
     assert_eq!(cpu.vfp.read_d_bits(5), (8u64 << 32) | u64::from((-6i32) as u32));
+
+    cpu.vfp
+        .write_d_bits(2, u64::from(2.0f32.to_bits()) << 32 | u64::from(1.0f32.to_bits()));
+    cpu.vfp
+        .write_d_bits(3, u64::from((-4.0f32).to_bits()) << 32 | u64::from(0.5f32.to_bits()));
+    assert!(matches!(
+        exec_one(&mut cpu, &mut mem, 0xF3B6_0602),
+        ExecResult::Continue
+    ));
+    assert_eq!(cpu.vfp.read_d_bits(0), 0xc400_3800_4000_3c00);
+
+    cpu.vfp.write_d_bits(3, 0xc400_3800_4000_3c00);
+    assert!(matches!(
+        exec_one(&mut cpu, &mut mem, 0xF3B6_4703),
+        ExecResult::Continue
+    ));
+    assert_eq!(
+        cpu.vfp.read_d_bits(4),
+        u64::from(2.0f32.to_bits()) << 32 | u64::from(1.0f32.to_bits())
+    );
+    assert_eq!(
+        cpu.vfp.read_d_bits(5),
+        u64::from((-4.0f32).to_bits()) << 32 | u64::from(0.5f32.to_bits())
+    );
 }
 
 #[test]
