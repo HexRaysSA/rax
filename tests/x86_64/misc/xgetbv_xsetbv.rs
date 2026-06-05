@@ -277,6 +277,23 @@ fn test_xsetbv_xcr0_valid_combination() {
 }
 
 #[test]
+fn test_xsetbv_accepts_apx_f_bit() {
+    let code = [
+        0xb8, 0x07, 0x00, 0x08, 0x00, // MOV EAX, x87|SSE|AVX|APX_F
+        0x31, 0xd2,                   // XOR EDX, EDX
+        0x31, 0xc9,                   // XOR ECX, ECX
+        0x0f, 0x01, 0xd1,             // XSETBV
+        0x0f, 0x01, 0xd0,             // XGETBV
+        0xf4,                         // HLT
+    ];
+    let (mut vcpu, _) = setup_vm(&code, None);
+    let regs = run_until_hlt(&mut vcpu).unwrap();
+
+    assert_eq!(regs.rax as u32, 0x80007, "XCR0 should retain APX_F");
+    assert_eq!(regs.rdx as u32, 0, "APX_F is in the low XCR0 dword");
+}
+
+#[test]
 fn test_xsetbv_ecx_parameter_selects_xcrn() {
     // Different ECX values select different XCRs
     let code = [

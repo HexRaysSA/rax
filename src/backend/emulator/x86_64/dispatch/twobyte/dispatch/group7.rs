@@ -68,8 +68,9 @@ impl X86_64Vcpu {
                     let ecx = self.regs.rcx as u32;
                     let value = (self.regs.rax & 0xFFFF_FFFF) | (self.regs.rdx << 32);
                     // Only XCR0 exists; x87 (bit0) must stay set; AVX (bit2) requires
-                    // SSE (bit1); bits outside x87|SSE|AVX (0x7) are reserved -> #GP(0).
-                    const SUPPORTED: u64 = 0x7;
+                    // SSE (bit1); APX_F (bit19) enables APX EGPR state.
+                    const XCR0_APX_F: u64 = 1 << 19;
+                    const SUPPORTED: u64 = 0x7 | XCR0_APX_F;
                     let invalid = ecx != 0
                         || (value & 1) == 0
                         || (value & !SUPPORTED) != 0
@@ -409,6 +410,13 @@ impl X86_64Vcpu {
                         }
                         xstate_bv |= 0x4;
                     }
+                    // Component 19 (APX_F): R16-R31 at offset 960.
+                    if rfbm & (1 << 19) != 0 {
+                        for i in 0..16 {
+                            self.write_mem64(addr + 960 + (i as u64) * 8, self.get_reg(16 + i as u8, 8))?;
+                        }
+                        xstate_bv |= 1 << 19;
+                    }
                     // XSAVE header (standard, non-compacted): XSTATE_BV + XCOMP_BV.
                     self.write_mem64(addr + 512, xstate_bv)?;
                     self.write_mem64(addr + 520, 0)?;
@@ -466,6 +474,18 @@ impl X86_64Vcpu {
                         } else {
                             for i in 0..16 {
                                 self.regs.ymm_high[i] = [0, 0];
+                            }
+                        }
+                    }
+                    if rfbm & (1 << 19) != 0 {
+                        if xstate_bv & (1 << 19) != 0 {
+                            for i in 0..16 {
+                                let value = self.read_mem64(addr + 960 + (i as u64) * 8)?;
+                                self.set_reg(16 + i as u8, value, 8);
+                            }
+                        } else {
+                            for i in 0..16 {
+                                self.set_reg(16 + i as u8, 0, 8);
                             }
                         }
                     }

@@ -32,9 +32,9 @@ fn test_cpuid_function_0_vendor_id() {
     let (mut vcpu, _) = setup_vm(&code, Some(regs));
     let regs = run_until_hlt(&mut vcpu).unwrap();
 
-    // Exact "GenuineIntel" vendor string and max basic leaf 0x16.
+    // Exact "GenuineIntel" vendor string and max basic leaf 0x29.
     // EBX="Genu"=0x756e6547, EDX="ineI"=0x49656e69, ECX="ntel"=0x6c65746e.
-    assert_eq!(regs.rax as u32, 0x16, "max basic leaf");
+    assert_eq!(regs.rax as u32, 0x29, "max basic leaf");
     assert_eq!(regs.rbx as u32, 0x756e6547, "EBX = 'Genu'");
     assert_eq!(regs.rdx as u32, 0x49656e69, "EDX = 'ineI'");
     assert_eq!(regs.rcx as u32, 0x6c65746e, "ECX = 'ntel'");
@@ -212,14 +212,14 @@ fn test_cpuid_function_7_extended_features() {
     let (mut vcpu, _) = setup_vm(&code, Some(regs));
     let regs = run_until_hlt(&mut vcpu).unwrap();
 
-    // Leaf 7 subleaf 0: EAX=0 (max subleaf), EBX has SMAP(20) + AVX2(5),
-    // ECX has GFNI(8), EDX has SERIALIZE(14).
-    assert_eq!(regs.rax as u32, 0, "leaf 7 max subleaf");
+    // Leaf 7 subleaf 0: EAX=1 (max subleaf), EBX has SMAP(20) + AVX2(5),
+    // ECX has GFNI(8), EDX has SERIALIZE(14) + IBT(20).
+    assert_eq!(regs.rax as u32, 1, "leaf 7 max subleaf");
     assert_eq!(regs.rbx as u32, 0x00100020, "leaf 7 EBX (SMAP|AVX2)");
     assert!(regs.rbx as u32 & (1 << 5) != 0, "AVX2 advertised");
     assert!(regs.rbx as u32 & (1 << 20) != 0, "SMAP advertised");
     assert_eq!(regs.rcx as u32, 0x00000100, "leaf 7 ECX (GFNI)");
-    assert_eq!(regs.rdx as u32, 0x00004000, "leaf 7 EDX (SERIALIZE)");
+    assert_eq!(regs.rdx as u32, 0x00104000, "leaf 7 EDX (SERIALIZE|IBT)");
 }
 
 // CPUID extended function 0x80000000 - Get Max Extended Function
@@ -651,11 +651,11 @@ fn test_cpuid_function_7_subleaves() {
     let (mut vcpu, _) = setup_vm(&code, Some(regs));
     let regs = run_until_hlt(&mut vcpu).unwrap();
 
-    // After the sequence, RAX holds leaf 7 subleaf 1 EAX which is 0 (unsupported).
+    // After the sequence, RAX holds leaf 7 subleaf 1, which advertises APX_F.
     assert_eq!(regs.rax as u32, 0, "leaf 7 subleaf 1 EAX = 0");
     assert_eq!(regs.rbx as u32, 0, "leaf 7 subleaf 1 EBX = 0");
     assert_eq!(regs.rcx as u32, 0, "leaf 7 subleaf 1 ECX = 0");
-    assert_eq!(regs.rdx as u32, 0, "leaf 7 subleaf 1 EDX = 0");
+    assert_eq!(regs.rdx as u32, 1 << 21, "leaf 7 subleaf 1 EDX APX_F");
 }
 
 // ============================================================================
@@ -677,12 +677,12 @@ fn test_cpuid_leaf_d_subleaf0_xsave_area() {
     let (mut vcpu, _) = setup_vm(&code, Some(regs));
     let regs = run_until_hlt(&mut vcpu).unwrap();
 
-    // EAX = supported XCR0 low bits = x87|SSE|AVX = 0x7.
+    // EAX = supported XCR0 low bits = x87|SSE|AVX|APX_F = 0x80007.
     // EBX = current enabled area size (XCR0 default has AVX disabled => 576).
-    // ECX = max area size for all supported (832). EDX = high XCR0 bits = 0.
-    assert_eq!(regs.rax as u32, 0x7, "XCR0 valid low bits x87|SSE|AVX");
+    // ECX = max area size for all supported (1088). EDX = high XCR0 bits = 0.
+    assert_eq!(regs.rax as u32, 0x80007, "XCR0 valid low bits x87|SSE|AVX|APX_F");
     assert_eq!(regs.rbx as u32, 576, "current XSAVE area (AVX disabled)");
-    assert_eq!(regs.rcx as u32, 832, "max XSAVE area");
+    assert_eq!(regs.rcx as u32, 1088, "max XSAVE area");
     assert_eq!(regs.rdx as u32, 0, "XCR0 high bits");
 }
 
@@ -703,6 +703,45 @@ fn test_cpuid_leaf_d_subleaf2_avx_component() {
     // YMM_Hi128 component: size = 256 bytes, offset = 576.
     assert_eq!(regs.rax as u32, 256, "AVX component size");
     assert_eq!(regs.rbx as u32, 576, "AVX component offset");
+}
+
+// CPUID leaf 0xD subleaf 19 - APX_F EGPR component.
+#[test]
+fn test_cpuid_leaf_d_subleaf19_apx_component() {
+    let code = [
+        0xb8, 0x0d, 0x00, 0x00, 0x00, // MOV EAX, 0xD
+        0xb9, 0x13, 0x00, 0x00, 0x00, // MOV ECX, 19
+        0x0f, 0xa2,                   // CPUID
+        0xf4,                         // HLT
+    ];
+    let mut regs = Registers::default();
+    regs.rsp = 0x1000;
+    let (mut vcpu, _) = setup_vm(&code, Some(regs));
+    let regs = run_until_hlt(&mut vcpu).unwrap();
+
+    assert_eq!(regs.rax as u32, 128, "APX_F component size");
+    assert_eq!(regs.rbx as u32, 0x3C0, "APX_F component offset");
+    assert_eq!(regs.rcx as u32, 0, "APX_F component controls");
+}
+
+// CPUID leaf 0x29 - APX feature leaf.
+#[test]
+fn test_cpuid_leaf_29_apx_features() {
+    let code = [
+        0xb8, 0x29, 0x00, 0x00, 0x00, // MOV EAX, 0x29
+        0x31, 0xc9,                   // XOR ECX, ECX
+        0x0f, 0xa2,                   // CPUID
+        0xf4,                         // HLT
+    ];
+    let mut regs = Registers::default();
+    regs.rsp = 0x1000;
+    let (mut vcpu, _) = setup_vm(&code, Some(regs));
+    let regs = run_until_hlt(&mut vcpu).unwrap();
+
+    assert_eq!(regs.rax as u32, 0, "APX max subleaf");
+    assert_eq!(regs.rbx as u32, 1, "APX_NCI_NDD_NF");
+    assert_eq!(regs.rcx as u32, 0, "APX leaf ECX reserved");
+    assert_eq!(regs.rdx as u32, 0, "APX leaf EDX reserved");
 }
 
 // CPUID leaf 0x80000007 - Invariant TSC (EDX bit 8).

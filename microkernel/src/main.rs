@@ -672,6 +672,143 @@ unsafe fn test_avx512() -> u64 {
     sum_f32_bits(&result.0)
 }
 
+#[derive(Clone, Copy)]
+struct CpuidRegs {
+    eax: u32,
+    ebx: u32,
+    ecx: u32,
+    edx: u32,
+}
+
+fn cpuid(leaf: u32, subleaf: u32) -> CpuidRegs {
+    let mut eax = leaf;
+    let mut ecx = subleaf;
+    let ebx: u32;
+    let edx: u32;
+    unsafe {
+        asm!(
+            "push rbx",
+            "cpuid",
+            "mov {ebx_out:e}, ebx",
+            "pop rbx",
+            inout("eax") eax,
+            inout("ecx") ecx,
+            lateout("edx") edx,
+            ebx_out = lateout(reg) ebx,
+        );
+    }
+    CpuidRegs { eax, ebx, ecx, edx }
+}
+
+fn apx_cpuid_supported() -> bool {
+    let max = cpuid(0, 0).eax;
+    if max < 0x29 {
+        return false;
+    }
+
+    let leaf1 = cpuid(1, 0);
+    if leaf1.ecx & (1 << 26) == 0 {
+        return false;
+    }
+
+    let leaf7_0 = cpuid(7, 0);
+    if leaf7_0.eax < 1 {
+        return false;
+    }
+    let leaf7_1 = cpuid(7, 1);
+    if leaf7_1.edx & (1 << 21) == 0 {
+        return false;
+    }
+
+    let xsave = cpuid(0xD, 0);
+    if xsave.eax & (1 << 19) == 0 {
+        return false;
+    }
+
+    let apx = cpuid(0x29, 0);
+    apx.eax == 0 && apx.ebx & 1 != 0
+}
+
+#[cfg(not(feature = "usermode"))]
+unsafe fn enable_apx_xcr0() -> bool {
+    unsafe {
+        asm!(
+            "mov rax, cr4",
+            "or rax, 0x40000",
+            "mov cr4, rax",
+            "xor ecx, ecx",
+            "xgetbv",
+            "or eax, 0x80007",
+            "xor edx, edx",
+            "xsetbv",
+            out("rax") _,
+            out("rcx") _,
+            out("rdx") _,
+            options(nostack)
+        );
+    }
+
+    let leaf1 = cpuid(1, 0);
+    leaf1.ecx & (1 << 27) != 0
+}
+
+#[cfg(feature = "usermode")]
+unsafe fn enable_apx_xcr0() -> bool {
+    false
+}
+
+unsafe fn test_apx_surface() -> u64 {
+    let checksum: u64;
+    unsafe {
+        asm!(
+            "push rbx",
+            "mov rax, 0xf0f0f0f00f0f0f0f",
+            "mov rbx, 0x0102030405060708",
+            "mov rcx, 4",
+            "mov rdx, 0",
+            "mov r8, 0x1111222233334444",
+            "mov r9, 0x5555666677778888",
+            "mov r10, 0x9999aaaabbbbcccc",
+            "mov r11, 0",
+            ".byte 0xd5, 0x00, 0xa1",
+            ".quad 2f",
+            "mov r11, 0xbad",
+            "2:",
+            ".byte 0x62, 0xec, 0x74, 0x18, 0xff, 0xf0",
+            ".byte 0x62, 0xec, 0x74, 0x18, 0x8f, 0xc0",
+            ".byte 0x62, 0xec, 0xe4, 0x18, 0x01, 0xc8",
+            ".byte 0x62, 0xec, 0xcc, 0x18, 0x31, 0xd0",
+            ".byte 0x62, 0xec, 0xe4, 0x0c, 0xc1, 0xe8, 0x04",
+            ".byte 0x62, 0xf4, 0x64, 0x1a, 0x01, 0xd9",
+            ".byte 0x62, 0xf4, 0xbc, 0x1c, 0x24, 0xd8, 0x04",
+            ".byte 0x62, 0x74, 0xfc, 0x0c, 0x88, 0xc0",
+            ".byte 0x62, 0x74, 0xfc, 0x0c, 0xf5, 0xc0",
+            ".byte 0x62, 0x74, 0xfc, 0x0c, 0xf4, 0xc0",
+            ".byte 0x62, 0xd4, 0xfc, 0x08, 0x61, 0xc0",
+            ".byte 0x62, 0xf4, 0xbc, 0x18, 0xaf, 0xc3",
+            ".byte 0x62, 0xf4, 0xfc, 0x0c, 0xf7, 0xe3",
+            ".byte 0x62, 0xf4, 0xe4, 0x0f, 0x83, 0xfb, 0x14",
+            "stc",
+            ".byte 0x62, 0xf4, 0xe4, 0x42, 0x85, 0xd8",
+            ".byte 0x62, 0xf4, 0xe4, 0x44, 0x40, 0xc0",
+            "xor rax, rax",
+            "add rax, r8",
+            "xor rax, r9",
+            "add rax, r10",
+            "xor rax, r11",
+            "pop rbx",
+            out("rax") checksum,
+            out("rcx") _,
+            out("rdx") _,
+            out("r8") _,
+            out("r9") _,
+            out("r10") _,
+            out("r11") _,
+        );
+    }
+    checksum
+}
+
 // =============================================================================
 // Kernel Main
 // =============================================================================
@@ -827,6 +964,18 @@ fn kernel_main() {
 
     let avx512_sum = unsafe { test_avx512() };
     println!("[TEST] AVX-512 sum: {}", avx512_sum);
+
+    if apx_cpuid_supported() {
+        let enabled = unsafe { enable_apx_xcr0() };
+        if enabled {
+            let apx_sum = unsafe { test_apx_surface() };
+            println!("[TEST] APX surface checksum: {}", apx_sum);
+        } else {
+            println!("[TEST] APX surface skipped: XCR0 enable unavailable");
+        }
+    } else {
+        println!("[TEST] APX surface skipped: CPUID gate closed");
+    }
 
     // Final stats
     for c in b"\n=== Final Statistics ===\n" {

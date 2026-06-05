@@ -48,7 +48,7 @@ test-sde: usermode
 
 # Run under rax emulator
 test-rax: baremetal
-	cd .. && cargo run --release -- --backend emulator --vcpus 1 --memory 256M --kernel microkernel/microkernel.bin
+	cd .. && cargo run --release --bin rax -- --backend emulator --vcpus 1 --memory 256M --kernel microkernel/microkernel.bin
 
 clean:
 	cargo clean

@@ -5,6 +5,19 @@ use crate::error::Result;
 
 use super::super::super::cpu::{InsnContext, X86_64Vcpu};
 
+const XCR0_X87: u64 = 1 << 0;
+const XCR0_SSE: u64 = 1 << 1;
+const XCR0_AVX: u64 = 1 << 2;
+const XCR0_APX_F: u64 = 1 << 19;
+
+const XSAVE_LEGACY_SIZE: u32 = 512;
+const XSAVE_HEADER_SIZE: u32 = 64;
+const XSAVE_AVX_OFFSET: u32 = XSAVE_LEGACY_SIZE + XSAVE_HEADER_SIZE;
+const XSAVE_AVX_SIZE: u32 = 256;
+const XSAVE_APX_OFFSET: u32 = 0x3C0;
+const XSAVE_APX_SIZE: u32 = 128;
+const XSAVE_MAX_SIZE: u32 = XSAVE_APX_OFFSET + XSAVE_APX_SIZE;
+
 /// CPUID (0x0F 0xA2)
 pub fn cpuid(vcpu: &mut X86_64Vcpu, ctx: &mut InsnContext) -> Result<Option<VcpuExit>> {
     let leaf = vcpu.regs.rax as u32;
@@ -19,7 +32,7 @@ pub fn cpuid(vcpu: &mut X86_64Vcpu, ctx: &mut InsnContext) -> Result<Option<Vcpu
             // EDX = "ineI" = 0x49656e69 (little-endian: i=0x69, n=0x6e, e=0x65, I=0x49)
             // ECX = "ntel" = 0x6c65746e (little-endian: n=0x6e, t=0x74, e=0x65, l=0x6c)
             // Note: Our tuple is (eax, ebx, ecx, edx) so we must swap ecx and edx values!
-            (0x16, 0x756e6547, 0x6c65746e, 0x49656e69)
+            (0x29, 0x756e6547, 0x6c65746e, 0x49656e69)
         }
         1 => {
             // Processor signature and features
@@ -78,7 +91,7 @@ pub fn cpuid(vcpu: &mut X86_64Vcpu, ctx: &mut InsnContext) -> Result<Option<Vcpu
             (0x01, 0, 0, 0) // AL=1 = single iteration required
         }
         7 => {
-            // Extended feature flags (subleaf 0)
+            // Structured extended feature flags.
             if subleaf == 0 {
                 // AVX2 IS advertised now that XSAVE/XCR0 are implemented.
                 let ebx = (1u32 << 20) // SMAP
@@ -92,7 +105,10 @@ pub fn cpuid(vcpu: &mut X86_64Vcpu, ctx: &mut InsnContext) -> Result<Option<Vcpu
                 // MSRs (which the emulator accepts).
                 let edx = (1u32 << 14) // SERIALIZE
                         | (1u32 << 20); // IBT (CET indirect branch tracking)
-                (0, ebx, ecx, edx)
+                (1, ebx, ecx, edx)
+            } else if subleaf == 1 {
+                let edx = 1u32 << 21; // APX_F
+                (0, 0, 0, edx)
             } else {
                 (0, 0, 0, 0)
             }
@@ -140,16 +156,31 @@ pub fn cpuid(vcpu: &mut X86_64Vcpu, ctx: &mut InsnContext) -> Result<Option<Vcpu
                 // Subleaf 0: EAX/EDX = supported XCR0 bits; EBX = area size for the
                 // currently-enabled features; ECX = max area size for all supported.
                 0 => {
-                    let xcr0_valid_lo = 0x7u32; // x87 | SSE | AVX
-                    let max_size = 832u32; // legacy 512 + header 64 + YMM_Hi128 256
-                    let cur_size = if vcpu.xcr0 & 0x4 != 0 { 832 } else { 576 };
-                    (xcr0_valid_lo, cur_size, max_size, 0)
+                    let xcr0_valid = XCR0_X87 | XCR0_SSE | XCR0_AVX | XCR0_APX_F;
+                    let mut cur_size = XSAVE_LEGACY_SIZE + XSAVE_HEADER_SIZE;
+                    if vcpu.xcr0 & XCR0_AVX != 0 {
+                        cur_size = XSAVE_AVX_OFFSET + XSAVE_AVX_SIZE;
+                    }
+                    if vcpu.xcr0 & XCR0_APX_F != 0 {
+                        cur_size = cur_size.max(XSAVE_APX_OFFSET + XSAVE_APX_SIZE);
+                    }
+                    (xcr0_valid as u32, cur_size, XSAVE_MAX_SIZE, (xcr0_valid >> 32) as u32)
                 }
                 // Subleaf 1: XSAVEOPT/XSAVEC/XSAVES not supported.
                 1 => (0, 0, 0, 0),
                 // Subleaf 2: AVX (YMM_Hi128) component size + offset.
-                2 => (256, 576, 0, 0),
+                2 => (XSAVE_AVX_SIZE, XSAVE_AVX_OFFSET, 0, 0),
+                // Subleaf 19: APX_F EGPR component (R16-R31).
+                19 => (XSAVE_APX_SIZE, XSAVE_APX_OFFSET, 0, 0),
                 _ => (0, 0, 0, 0),
+            }
+        }
+        0x29 => {
+            // Intel APX leaf. APX_F guarantees subleaf 0 with APX_NCI_NDD_NF.
+            if subleaf == 0 {
+                (0, 1, 0, 0)
+            } else {
+                (0, 0, 0, 0)
             }
         }
 

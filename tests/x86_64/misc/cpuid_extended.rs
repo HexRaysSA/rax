@@ -8,7 +8,7 @@ use rax::cpu::Registers;
 // CPUID returns CPU identification and feature information in EAX, EBX, ECX, EDX
 // based on the input in EAX (and ECX for some leaves)
 //
-// Standard leaves: 0x00000000 through 0x0000001F
+// Standard leaves: 0x00000000 through 0x00000029
 // Extended leaves: 0x80000000 through 0x80000008
 //
 // Opcodes:
@@ -49,8 +49,8 @@ fn test_cpuid_leaf_0_max_leaf_valid() {
     let regs = run_until_hlt(&mut vcpu).unwrap();
 
     let max_leaf = regs.rax & 0xFFFFFFFF;
-    // Most real CPUs have max standard leaf between 1 and 0x20
-    assert!(max_leaf <= 0x20, "Max standard leaf should be <= 0x20");
+    // APX extends the standard leaf range through 0x29.
+    assert!(max_leaf <= 0x29, "Max standard leaf should be <= 0x29");
 }
 
 #[test]
