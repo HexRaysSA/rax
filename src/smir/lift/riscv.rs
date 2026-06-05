@@ -2654,26 +2654,102 @@ impl RiscVLifter {
                     }
                 }
             }
-            // CSR instructions
+            // CSR instructions (Zicsr). Lifted+verified for the application-
+            // visible CSRs that SMIR models: fcsr (0x003, read+write) and the
+            // read-only fflags/frm/vl/vtype/vlenb. Other CSRs (privileged state,
+            // counters, and the fflags/frm/vector-fixedpoint *writes* that alias
+            // fcsr/vcsr) are honest gaps. Read-old → rd, then conditionally write
+            // the new value; the mask is applied in-IR because the vreg writeback
+            // bypasses write_arch_reg's masking.
             0b001 | 0b010 | 0b011 | 0b101 | 0b110 | 0b111 => {
-                let rs1 = self.get_x_reg(rs1_reg, ctx);
-
-                if let Some(dst) = self.def_x_reg(rd, ctx) {
-                    // Read current CSR value
-                    ops.push(SmirOp::new(
-                        ctx.next_op_id(),
-                        addr,
-                        OpKind::ReadSysReg { dst, reg: csr },
-                    ));
-
-                    // For write operations, we'd need to emit WriteSysReg
-                    // For now, just handle read-only case
-                    if funct3 & 0b011 != 0 {
-                        // Would need to write new value
-                        // ops.push(SmirOp::new(..., OpKind::WriteSysReg { reg: csr, src: ... }));
+                let is_imm = funct3 & 0b100 != 0;
+                let op = funct3 & 0b011; // 1=rw, 2=rs, 3=rc
+                let zimm = rs1_reg as i64; // 5-bit immediate (csrr*i forms)
+                let writes = match op {
+                    1 => true, // csrrw / csrrwi always write
+                    _ => {
+                        if is_imm {
+                            zimm != 0
+                        } else {
+                            rs1_reg != 0
+                        }
                     }
-                }
+                };
+                // fcsr-family CSRs are a (shift, field-mask) view of fcsr (0x003);
+                // the read-only CSRs are read straight from their arch reg.
+                let fcsr_field: Option<(i64, i64)> = match csr {
+                    0x003 => Some((0, 0xff)), // fcsr
+                    0x001 => Some((0, 0x1f)), // fflags
+                    0x002 => Some((5, 0x7)),  // frm
+                    _ => None,
+                };
+                let modeled_ro = matches!(csr, 0xc20 | 0xc21 | 0xc22);
+                let w = self.op_width();
+                let mk = |ctx: &mut LiftContext, k: OpKind| SmirOp::new(ctx.next_op_id(), addr, k);
+                let src_operand = |slf: &Self, ctx: &mut LiftContext| -> SrcOperand {
+                    if is_imm {
+                        SrcOperand::Imm(zimm)
+                    } else {
+                        SrcOperand::Reg(slf.get_x_reg(rs1_reg, ctx))
+                    }
+                };
 
+                if let Some((shift, mask)) = fcsr_field {
+                    // Read the whole fcsr, extract the addressed field → rd.
+                    let fcsr_cur = ctx.get_arch_reg(ArchReg::RiscV(RiscVReg::Csr(0x003)));
+                    let old_full = ctx.alloc_vreg();
+                    ops.push(mk(ctx, OpKind::Mov { dst: old_full, src: SrcOperand::Reg(fcsr_cur), width: w }));
+                    let shifted = if shift != 0 {
+                        let s = ctx.alloc_vreg();
+                        ops.push(mk(ctx, OpKind::Shr { dst: s, src: old_full, amount: SrcOperand::Imm(shift), width: w, flags: FlagUpdate::None }));
+                        s
+                    } else {
+                        old_full
+                    };
+                    let old_field = ctx.alloc_vreg();
+                    ops.push(mk(ctx, OpKind::And { dst: old_field, src1: shifted, src2: SrcOperand::Imm(mask), width: w, flags: FlagUpdate::None }));
+                    // Read rs1 BEFORE writing rd (CSR reads the source first; rd may alias rs1).
+                    let src = if writes { Some(src_operand(self, ctx)) } else { None };
+                    if let Some(dst) = self.def_x_reg(rd, ctx) {
+                        ops.push(mk(ctx, OpKind::Mov { dst, src: SrcOperand::Reg(old_field), width: w }));
+                    }
+                    if let Some(src) = src {
+                        // new_field (pre-mask) = src | (old|src) | (old&~src).
+                        let nf = ctx.alloc_vreg();
+                        match op {
+                            1 => ops.push(mk(ctx, OpKind::Mov { dst: nf, src, width: w })),
+                            2 => ops.push(mk(ctx, OpKind::Or { dst: nf, src1: old_field, src2: src, width: w, flags: FlagUpdate::None })),
+                            _ => ops.push(mk(ctx, OpKind::AndNot { dst: nf, src1: old_field, src2: src, width: w, flags: FlagUpdate::None })),
+                        }
+                        let nfm = ctx.alloc_vreg();
+                        ops.push(mk(ctx, OpKind::And { dst: nfm, src1: nf, src2: SrcOperand::Imm(mask), width: w, flags: FlagUpdate::None }));
+                        // new_fcsr = (old_full & ~(mask<<shift)) | (nfm << shift).
+                        let cleared = ctx.alloc_vreg();
+                        ops.push(mk(ctx, OpKind::AndNot { dst: cleared, src1: old_full, src2: SrcOperand::Imm(mask << shift), width: w, flags: FlagUpdate::None }));
+                        let placed = if shift != 0 {
+                            let p = ctx.alloc_vreg();
+                            ops.push(mk(ctx, OpKind::Shl { dst: p, src: nfm, amount: SrcOperand::Imm(shift), width: w, flags: FlagUpdate::None }));
+                            p
+                        } else {
+                            nfm
+                        };
+                        let new_full = ctx.alloc_vreg();
+                        ops.push(mk(ctx, OpKind::Or { dst: new_full, src1: cleared, src2: SrcOperand::Reg(placed), width: w, flags: FlagUpdate::None }));
+                        let csr_dst = ctx.define_arch_reg(ArchReg::RiscV(RiscVReg::Csr(0x003)));
+                        ops.push(mk(ctx, OpKind::Mov { dst: csr_dst, src: SrcOperand::Reg(new_full), width: w }));
+                    }
+                } else if modeled_ro && !writes {
+                    // Read-only CSR: rd = csr value (a write would trap on hardware).
+                    let cur = ctx.get_arch_reg(ArchReg::RiscV(RiscVReg::Csr(csr as u16)));
+                    if let Some(dst) = self.def_x_reg(rd, ctx) {
+                        ops.push(mk(ctx, OpKind::Mov { dst, src: SrcOperand::Reg(cur), width: w }));
+                    }
+                } else {
+                    return Err(LiftError::Unsupported {
+                        addr,
+                        mnemonic: format!("csr {csr:#x}"),
+                    });
+                }
                 return Ok((ops, ControlFlow::NextInsn));
             }
             _ => {

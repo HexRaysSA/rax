@@ -601,6 +601,77 @@ fn lift_fp() {
     );
 }
 
+/// CSR (Zicsr) lift verification for the application-visible CSRs SMIR models:
+/// fcsr (read+write) and read-only fflags/frm/vl/vtype/vlenb. Sweeps
+/// csrrw/csrrs/csrrc + immediate forms; the oracle traps on writes to the
+/// read-only CSRs (run_ref → None → skipped), so only legal reads / fcsr writes
+/// are compared. Unmodeled CSRs are honest lift gaps (not exercised here).
+#[test]
+fn lift_csr() {
+    let isa = Isa::rv64gc();
+    let mut rng = Rng::new(0x5117_0008);
+    let csrs: [u32; 6] = [0x003, 0x001, 0x002, 0xc20, 0xc21, 0xc22];
+    let funct3s: [u32; 6] = [1, 2, 3, 5, 6, 7]; // csrrw/s/c + immediate forms
+    let mut matched = 0usize;
+    let mut gaps: BTreeMap<String, usize> = BTreeMap::new();
+    let mut diverged: Vec<(u32, String)> = Vec::new();
+
+    for _ in 0..40_000 {
+        let csr = csrs[(rng.next() as usize) % csrs.len()];
+        let f3 = funct3s[(rng.next() as usize) % funct3s.len()];
+        let rd = (rng.next() % 32) as u32;
+        let rs1 = (rng.next() % 32) as u32; // rs1 reg or 5-bit zimm
+        let w = (csr << 20) | (rs1 << 15) | (f3 << 12) | (rd << 7) | 0x73;
+        let insn = decode(w, Xlen::Rv64, &isa);
+        if insn.is_illegal() {
+            continue;
+        }
+        // Seed fcsr + vector CSRs to non-trivial values so reads are meaningful.
+        let mut st = rand_state(&mut rng);
+        st.fcsr = (rng.next() & 0xff) as u32;
+        st.vl = rng.next() % 5;
+        st.vtype = rng.next() & 0xff;
+        st.vstart = 0;
+        st.vcsr = rng.next() & 0x7;
+        let bytes = w.to_le_bytes();
+        let r = match run_ref(&bytes, &st) {
+            Some(r) => r,
+            None => continue, // RO-CSR write etc. → oracle traps → skip
+        };
+        match run_smir(&bytes, &st) {
+            Ok(Some(s)) => {
+                if let Some(d) = r.eq_regs(&s) {
+                    if diverged.len() < 40 {
+                        diverged.push((w, format!("{:?} csr={csr:#x}: {d}", insn.op)));
+                    }
+                } else {
+                    matched += 1;
+                }
+            }
+            Ok(None) => *gaps.entry(format!("{:?} csr={csr:#x}", insn.op)).or_default() += 1,
+            Err(e) => diverged.push((w, format!("{:?}: {e}", insn.op))),
+        }
+    }
+
+    eprintln!(
+        "lift_csr: matched={matched}, gap-ops={}, diverged={}",
+        gaps.len(),
+        diverged.len()
+    );
+    let mut gv: Vec<_> = gaps.iter().collect();
+    gv.sort_by(|a, b| b.1.cmp(a.1));
+    for (op, n) in gv.iter().take(20) {
+        eprintln!("  GAP {op}: {n}");
+    }
+    if !diverged.is_empty() {
+        let mut msg = format!("\n{} CSR lift divergence(s):\n", diverged.len());
+        for (w, d) in diverged.iter().take(40) {
+            msg += &format!("  insn={w:#010x}: {d}\n");
+        }
+        panic!("{msg}");
+    }
+}
+
 /// Control-flow lift verification: jal / jalr / branches (32-bit and
 /// compressed). The single-step register sweeps skip these because the result
 /// is the next PC, not a register; here we resolve the next PC from the lifted

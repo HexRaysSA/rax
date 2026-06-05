@@ -587,9 +587,12 @@ impl SmirContext {
                 RiscVReg::Csr(0x003) => rv.fcsr as u64, // fcsr
                 // Vector CSRs.
                 RiscVReg::Csr(0x008) => rv.vstart, // vstart
+                RiscVReg::Csr(0x009) => rv.vcsr & 1, // vxsat
+                RiscVReg::Csr(0x00a) => (rv.vcsr >> 1) & 3, // vxrm
                 RiscVReg::Csr(0x00f) => rv.vcsr,   // vcsr
                 RiscVReg::Csr(0xc20) => rv.vl,     // vl
                 RiscVReg::Csr(0xc21) => rv.vtype,  // vtype
+                RiscVReg::Csr(0xc22) => 16,        // vlenb = VLEN/8 (VLEN=128)
                 _ => 0,
             },
             _ => 0, // Architecture mismatch
