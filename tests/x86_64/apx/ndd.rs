@@ -368,6 +368,64 @@ fn test_ndd_shl_r16_r17_imm() {
     let _ = run_until_hlt(&mut vcpu);
 }
 
+#[test]
+fn test_ndd_shld_reg_reg_imm_match_llvm() {
+    // LLVM 23 assembles "shld r8, rax, rbx, 4" as 62 f4 bc 18 24 d8 04.
+    let code = [
+        0x62, 0xF4, 0xBC, 0x18, 0x24, 0xD8, 0x04,
+        0xF4,
+    ];
+    let mut regs = Registers::default();
+    regs.rax = 0x1111_2222_3333_4444;
+    regs.rbx = 0xA000_0000_0000_0000;
+    regs.r8 = 0xDEAD_BEEF;
+
+    let (mut vcpu, _) = setup_vm(&code, Some(regs));
+    let regs = run_until_hlt(&mut vcpu).unwrap();
+    assert_eq!(regs.r8, 0x1112_2223_3334_444A);
+    assert_eq!(regs.rax, 0x1111_2222_3333_4444);
+    assert_eq!(regs.rbx, 0xA000_0000_0000_0000);
+}
+
+#[test]
+fn test_ndd_shrd_reg_reg_cl_match_llvm() {
+    // LLVM 23 assembles "shrd r8, rax, rbx, cl" as 62 f4 bc 18 ad d8.
+    let code = [
+        0x62, 0xF4, 0xBC, 0x18, 0xAD, 0xD8,
+        0xF4,
+    ];
+    let mut regs = Registers::default();
+    regs.rax = 0x1111_2222_3333_4444;
+    regs.rbx = 0xB;
+    regs.rcx = 4;
+    regs.r8 = 0xDEAD_BEEF;
+
+    let (mut vcpu, _) = setup_vm(&code, Some(regs));
+    let regs = run_until_hlt(&mut vcpu).unwrap();
+    assert_eq!(regs.r8, 0xB111_1222_2333_3444);
+    assert_eq!(regs.rax, 0x1111_2222_3333_4444);
+    assert_eq!(regs.rbx, 0xB);
+}
+
+#[test]
+fn test_nf_ndd_shld_reg_reg_imm_match_llvm() {
+    // LLVM 23 assembles "{nf} shld r8, rax, rbx, 4" as 62 f4 bc 1c 24 d8 04.
+    let code = [
+        0x62, 0xF4, 0xBC, 0x1C, 0x24, 0xD8, 0x04,
+        0xF4,
+    ];
+    let mut regs = Registers::default();
+    regs.rax = 0x1111_2222_3333_4444;
+    regs.rbx = 0xA000_0000_0000_0000;
+    regs.r8 = 0xDEAD_BEEF;
+    regs.rflags = 0x8D5;
+
+    let (mut vcpu, _) = setup_vm(&code, Some(regs));
+    let regs = run_until_hlt(&mut vcpu).unwrap();
+    assert_eq!(regs.r8, 0x1112_2223_3334_444A);
+    assert_eq!(regs.rflags & 0x8D5, 0x8D5);
+}
+
 // ============================================================================
 // NDD ROL/ROR (3-operand rotates)
 // ============================================================================

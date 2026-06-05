@@ -2746,6 +2746,9 @@ impl X86_64Vcpu {
             0x6B => self.execute_apx_imul_imm(ctx, ndd, nf, false),
             0xAF => self.execute_apx_imul(ctx, ndd, nf),
 
+            // SHLD/SHRD double shifts (0x24, 0x2C imm8; 0xA5, 0xAD CL)
+            0x24 | 0x2C | 0xA5 | 0xAD => self.execute_apx_double_shift(ctx, opcode, ndd, nf),
+
             // Group 1 immediate ALU operations (0x80, 0x81, 0x82, 0x83 /0..7)
             0x80 | 0x81 | 0x82 | 0x83 => self.execute_apx_group1_imm(ctx, opcode, ndd, nf),
 
@@ -3134,6 +3137,66 @@ impl X86_64Vcpu {
         if !nf {
             let flags = self.regs.rflags & !0x801; // Clear OF, CF
             self.regs.rflags = if overflow { flags | 0x801 } else { flags };
+        }
+
+        self.regs.rip += ctx.cursor as u64;
+        Ok(None)
+    }
+
+    /// APX SHLD/SHRD double shifts.
+    fn execute_apx_double_shift(
+        &mut self,
+        ctx: &mut InsnContext,
+        opcode: u8,
+        ndd: bool,
+        nf: bool,
+    ) -> Result<Option<VcpuExit>> {
+        let op_size = if ctx.evex_w() { 8 } else { 4 };
+        let width = op_size as u32 * 8;
+        let mask = if op_size == 8 {
+            u64::MAX
+        } else {
+            (1u64 << width) - 1
+        };
+        let is_shrd = matches!(opcode, 0x2C | 0xAD);
+        let count_mask = if op_size == 8 { 0x3F } else { 0x1F };
+
+        let (reg, rm, is_memory, addr, _) = self.decode_modrm(ctx)?;
+        let src1_reg = rm | ctx.evex_rm_reg();
+        let src2_reg = reg | ctx.evex_dest_reg();
+        let src1 = if is_memory {
+            self.read_mem(addr, op_size)?
+        } else {
+            self.get_reg(src1_reg, op_size)
+        } & mask;
+        let src2 = self.get_reg(src2_reg, op_size) & mask;
+        let count = if matches!(opcode, 0x24 | 0x2C) {
+            ctx.consume_u8()? & count_mask
+        } else {
+            (self.regs.rcx as u8) & count_mask
+        };
+
+        let result = if count == 0 {
+            src1
+        } else {
+            let count = count as u32;
+            if is_shrd {
+                ((src1 >> count) | (src2 << (width - count))) & mask
+            } else {
+                ((src1 << count) | (src2 >> (width - count))) & mask
+            }
+        };
+
+        if ndd {
+            self.set_reg(ctx.evex_vvvv(), result, op_size);
+        } else if is_memory {
+            self.write_mem(addr, result, op_size)?;
+        } else {
+            self.set_reg(src1_reg, result, op_size);
+        }
+
+        if !nf && count != 0 {
+            self.update_apx_double_shift_flags(result, src1, count, op_size, is_shrd);
         }
 
         self.regs.rip += ctx.cursor as u64;
@@ -3584,6 +3647,37 @@ impl X86_64Vcpu {
         if sf { flags |= 0x080; }
         if of { flags |= 0x800; }
         self.regs.rflags = flags;
+    }
+
+    fn update_apx_double_shift_flags(
+        &mut self,
+        result: u64,
+        src1: u64,
+        count: u8,
+        op_size: u8,
+        is_shrd: bool,
+    ) {
+        let width = op_size as u32 * 8;
+        let sign_bit = 1u64 << (width - 1);
+        let cf = if is_shrd {
+            ((src1 >> (count - 1)) & 1) != 0
+        } else {
+            ((src1 >> (width - count as u32)) & 1) != 0
+        };
+        let of = count == 1 && (((result ^ src1) & sign_bit) != 0);
+
+        flags::update_flags_logic(&mut self.regs.rflags, result, op_size);
+        if cf {
+            self.regs.rflags |= flags::bits::CF;
+        } else {
+            self.regs.rflags &= !flags::bits::CF;
+        }
+        if of {
+            self.regs.rflags |= flags::bits::OF;
+        } else {
+            self.regs.rflags &= !flags::bits::OF;
+        }
+        self.clear_lazy_flags();
     }
 }
 
