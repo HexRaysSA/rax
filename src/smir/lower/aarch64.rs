@@ -2766,11 +2766,13 @@ impl Aarch64Lowerer {
         let dst = Self::dst_gpr(dst)?;
         let src = Self::gpr(src)?;
         let index = Self::gpr(index)?;
-        if dst == src || dst == index {
-            return Err(LowerError::UnsupportedOp {
-                op: "AArch64 native Bzhi needs dst distinct from source and index".into(),
-            });
-        }
+        let scratches = if dst == src || dst == index {
+            Self::scratch_regs(&[dst, src, index], 1)?
+        } else {
+            Vec::new()
+        };
+        let mask_reg = scratches.first().copied().unwrap_or(dst);
+        self.emit_scratch_save(&scratches);
 
         let mut guards = Vec::with_capacity(guard_bits.len());
         for &bit in guard_bits {
@@ -2779,9 +2781,9 @@ impl Aarch64Lowerer {
             guards.push((offset, bit));
         }
 
-        self.emit_movn_zero(dst, width)?;
-        self.emit_dp2(dst, dst, index, 0b1000, width)?;
-        self.emit_logic_reg_n(dst, src, dst, 0b00, true, width)?;
+        self.emit_movn_zero(mask_reg, width)?;
+        self.emit_dp2(mask_reg, mask_reg, index, 0b1000, width)?;
+        self.emit_logic_reg_n(dst, src, mask_reg, 0b00, true, width)?;
         if set_flags {
             self.lower_bmi_result_flags(dst, width, false)?;
         }
@@ -2794,7 +2796,9 @@ impl Aarch64Lowerer {
         if set_flags {
             self.lower_bmi_result_flags(dst, width, true)?;
         }
-        self.patch_branch_to_current(end_branch)
+        self.patch_branch_to_current(end_branch)?;
+        self.emit_scratch_restore(&scratches);
+        Ok(())
     }
 
     fn lower_bextr(
@@ -7050,6 +7054,93 @@ mod tests {
         }
     }
 
+    fn ref_bzhi(src: u64, index: u64, width: OpWidth) -> (u64, bool) {
+        let index = (index & 0xff) as u32;
+        let mask = width_mask(width);
+        if index >= width.bits() {
+            (src & mask, true)
+        } else if index == 0 {
+            (0, false)
+        } else {
+            (src & ((1_u64 << index) - 1) & mask, false)
+        }
+    }
+
+    fn expected_bzhi_nzcv(
+        old_nzcv: u8,
+        result: u64,
+        carry: bool,
+        width: OpWidth,
+        flags: FlagUpdate,
+    ) -> u8 {
+        if !flags.updates_any() {
+            return old_nzcv;
+        }
+
+        let result = result & width_mask(width);
+        let negative = ((result >> (width.bits() - 1)) & 1) != 0;
+        let zero = result == 0;
+        ((negative as u8) << 3) | ((zero as u8) << 2) | ((carry as u8) << 1)
+    }
+
+    fn assert_bzhi_runtime_index_lowering(
+        label: &str,
+        src_reg: u8,
+        src_value: u64,
+        index_reg: u8,
+        index_value: u64,
+        width: OpWidth,
+        dst_reg: u8,
+        flags: FlagUpdate,
+        old_nzcv: u8,
+    ) {
+        let code = lower_single_op(OpKind::Bzhi {
+            dst: x(dst_reg),
+            src: x(src_reg),
+            index: x(index_reg),
+            width,
+            flags,
+        });
+        if dst_reg == src_reg || dst_reg == index_reg {
+            assert!(
+                code.len() > 32,
+                "{label}: aliasing runtime BZHI should save and restore a scratch register"
+            );
+        }
+
+        let (expected, carry) = ref_bzhi(src_value, index_value, width);
+        let expected_nzcv = expected_bzhi_nzcv(old_nzcv, expected, carry, width, flags);
+        let sentinels = [
+            (16, 0x1616_1616_1616_1616),
+            (17, 0x1717_1717_1717_1717),
+            (15, 0x1515_1515_1515_1515),
+            (14, 0x1414_1414_1414_1414),
+        ];
+        let mut regs = sentinels.to_vec();
+        regs.push((src_reg, src_value));
+        regs.push((index_reg, index_value));
+
+        let (out, out_nzcv, sp) = run_aarch64_code(&code, &regs, old_nzcv);
+        assert_eq!(out[dst_reg as usize], expected, "{label}: result");
+        assert_eq!(out_nzcv, expected_nzcv, "{label}: NZCV");
+        assert_eq!(sp, 0x8000, "{label}: stack restored");
+        if src_reg != dst_reg {
+            assert_eq!(out[src_reg as usize], src_value, "{label}: src preserved");
+        }
+        if index_reg != dst_reg {
+            assert_eq!(
+                out[index_reg as usize],
+                index_value,
+                "{label}: index preserved"
+            );
+        }
+        for (reg, value) in sentinels {
+            if reg != src_reg && reg != index_reg && reg != dst_reg {
+                assert_eq!(out[reg as usize], value, "{label}: x{reg} restored");
+            }
+        }
+    }
+
     fn ref_rotate_carry(
         value: u64,
         count: u64,
@@ -11302,26 +11393,51 @@ mod tests {
     }
 
     #[test]
-    fn rejects_bzhi_when_dst_aliases_source_or_index() {
-        for (src, index) in [(x(0), x(2)), (x(1), x(0))] {
-            let mut builder = FunctionBuilder::new(FunctionId(0), 0);
-            builder.push_op(
-                0,
-                OpKind::Bzhi {
-                    dst: x(0),
-                    src,
-                    index,
-                    width: OpWidth::W64,
-                    flags: FlagUpdate::None,
-                },
-            );
-            builder.set_terminator(Terminator::Return { values: vec![] });
-            let func = builder.finish();
-
-            let mut lowerer = Aarch64Lowerer::new();
-            let err = lowerer.lower_function(&func).unwrap_err();
-            assert!(matches!(err, LowerError::UnsupportedOp { .. }));
-        }
+    fn lowers_bzhi_runtime_index_aliases_with_scratch() {
+        assert_bzhi_runtime_index_lowering(
+            "bzhi_w_dst_aliases_src_zero_extends",
+            1,
+            0xffff_ffff_8000_00f5,
+            2,
+            9,
+            OpWidth::W32,
+            1,
+            FlagUpdate::None,
+            0b1011,
+        );
+        assert_bzhi_runtime_index_lowering(
+            "bzhi_x_dst_aliases_index_passes_through",
+            1,
+            0x8000_0000_0000_0001,
+            2,
+            64,
+            OpWidth::W64,
+            2,
+            FlagUpdate::None,
+            0b0101,
+        );
+        assert_bzhi_runtime_index_lowering(
+            "bzhi_x_dst_aliases_index_sets_zero_flag",
+            1,
+            0x20,
+            2,
+            5,
+            OpWidth::W64,
+            2,
+            bzhi_flags(),
+            0b0101,
+        );
+        assert_bzhi_runtime_index_lowering(
+            "bzhi_x_dst_aliases_src_and_index",
+            1,
+            0x1234_5678_9abc_0012,
+            1,
+            0x1234_5678_9abc_0012,
+            OpWidth::W64,
+            1,
+            FlagUpdate::None,
+            0b0110,
+        );
     }
 
     #[test]
