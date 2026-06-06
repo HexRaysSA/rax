@@ -880,6 +880,11 @@ fn enc_csel(sf: u32, cond: u32) -> u32 {
 }
 
 #[cfg(all(feature = "smir-jit", target_arch = "x86_64"))]
+fn enc_barrier(op2: u32) -> u32 {
+    0xd500_0000 | (3 << 16) | (3 << 12) | (0xf << 8) | (op2 << 5) | 31
+}
+
+#[cfg(all(feature = "smir-jit", target_arch = "x86_64"))]
 fn compare_smir_scalar_case(
     label: &str,
     insn: u32,
@@ -1012,6 +1017,9 @@ fn smir_aarch64_x86_scalar_lowering_matches_qemu_oracle() {
         ("udiv_w_zero_ext", enc_dp2(0, 0b0010)),
         ("sdiv_x", enc_dp2(1, 0b0011)),
         ("sdiv_w_zero_ext", enc_dp2(0, 0b0011)),
+        ("dsb_sy", enc_barrier(0b100)),
+        ("dmb_sy", enc_barrier(0b101)),
+        ("isb", enc_barrier(0b110)),
     ];
 
     let mut rng = Rng::new(0x5a11_64c0_de);

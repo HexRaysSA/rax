@@ -2898,6 +2898,13 @@ impl<'a> X86Emitter<'a> {
         self.code.emit_u8(0x90);
     }
 
+    /// MFENCE
+    pub fn emit_mfence(&mut self) {
+        self.code.emit_u8(0x0F);
+        self.code.emit_u8(0xAE);
+        self.code.emit_u8(0xF0);
+    }
+
     /// CLC
     pub fn emit_clc(&mut self) {
         self.code.emit_u8(0xF8);

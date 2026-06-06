@@ -1123,6 +1123,10 @@ impl Aarch64X86_64Lowerer {
                 sign,
             } => self.lower_load(*dst, addr, *width, *sign)?,
             OpKind::Store { src, addr, width } => self.lower_store(*src, addr, *width)?,
+            OpKind::Fence { .. } => {
+                let mut e = X86Emitter::new(&mut self.code);
+                e.emit_mfence();
+            }
             OpKind::TestCondition { dst, cond } | OpKind::SetCC { dst, cond, .. } => {
                 self.emit_condition_to_reg(*cond, ACC)?;
                 self.store_reg_to(*dst, ACC, OpWidth::W64)?;
@@ -1299,7 +1303,7 @@ mod tests {
     use crate::smir::flags::FlagUpdate;
     use crate::smir::ir::{FunctionBuilder, Terminator};
     use crate::smir::lower::runtime::{Aarch64GuestRegs, ExecMem};
-    use crate::smir::types::FunctionId;
+    use crate::smir::types::{FenceKind, FunctionId};
 
     fn x(n: u8) -> VReg {
         VReg::Arch(ArchReg::Arm(ArmReg::X(n)))
@@ -1572,6 +1576,29 @@ mod tests {
         assert_eq!(&mem.bytes[16..20], &[0x88, 0x77, 0x66, 0x55]);
         assert_eq!(regs.x[0], 0x1122_3344_5566_7788);
         assert_eq!(regs.pc, 0x2f84);
+    }
+
+    #[test]
+    fn fence_full_lowers_without_clobbering_state() {
+        let mut b = FunctionBuilder::new(FunctionId(0), 0x2fc0);
+        b.push_op(
+            0x2fc0,
+            OpKind::Fence {
+                kind: FenceKind::Full,
+            },
+        );
+        b.set_terminator(Terminator::Return { values: vec![] });
+
+        let mut regs = Aarch64GuestRegs::default();
+        regs.x[0] = 0x1122_3344_5566_7788;
+        regs.x[1] = 0x99aa_bbcc_ddee_ff00;
+        regs.nzcv = 0x9000_0000;
+        run_func(&b.finish(), &mut regs);
+
+        assert_eq!(regs.x[0], 0x1122_3344_5566_7788);
+        assert_eq!(regs.x[1], 0x99aa_bbcc_ddee_ff00);
+        assert_eq!(regs.nzcv & 0xF000_0000, 0x9000_0000);
+        assert_eq!(regs.pc, 0x2fc4);
     }
 
     #[test]
