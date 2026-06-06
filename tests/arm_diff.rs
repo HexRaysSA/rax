@@ -4719,6 +4719,22 @@ fn smir_aarch64_native_lowering_matches_qemu_oracle() {
     );
 
     let mut st = native_state();
+    st.x[0] = 0xaaaa_bbbb_cccc_dddd;
+    st.x[1] = 0xffff_ffff_ffff_12ab;
+    st.pstate = 0xc000_0000;
+    push_case(
+        "zero_extend_w8_to_w16_as_uxtb_preserves_flags",
+        enc_bitfield(0, 0b10, 0, 7),
+        vec![OpKind::ZeroExtend {
+            dst: arm_x(0),
+            src: arm_x(1),
+            from_width: OpWidth::W8,
+            to_width: OpWidth::W16,
+        }],
+        st,
+    );
+
+    let mut st = native_state();
     st.x[0] = 0x7777_8888_9999_aaaa;
     st.x[1] = 0xffff_ffff_8000_0001;
     st.pstate = 0x1000_0000;
@@ -7611,6 +7627,26 @@ fn smir_aarch64_native_lowering_matches_qemu_oracle() {
             .unwrap_or_else(|e| panic!("{label}: native lowering failed: {e}"));
         cases.push((label.into(), source, lowered, st));
     };
+
+    let mut st = native_state();
+    st.x[0] = 0xaaaa_bbbb_cccc_dddd;
+    st.x[1] = 0xffff_ffff_ffff_0080;
+    st.pstate = 0x7000_0000;
+    push_case3(
+        "sign_extend_w8_to_w16_as_sxtb_uxth_preserves_flags",
+        [
+            enc_bitfield_rn(0, 0b00, 0, 7, RN),
+            enc_bitfield_rn(0, 0b10, 0, 15, RD),
+            NOP,
+        ],
+        vec![OpKind::SignExtend {
+            dst: arm_x(0),
+            src: arm_x(1),
+            from_width: OpWidth::W8,
+            to_width: OpWidth::W16,
+        }],
+        st,
+    );
 
     let mut st = native_state();
     st.x[0] = 0xaaaa_bbbb_cccc_dddd;

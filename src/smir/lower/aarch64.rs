@@ -2568,7 +2568,12 @@ impl Aarch64Lowerer {
     ) -> Result<(), LowerError> {
         let from_bits = from_width.bits();
         let to_bits = to_width.bits();
-        if from_bits > to_bits || !matches!(to_width, OpWidth::W32 | OpWidth::W64) {
+        if from_bits > to_bits
+            || !matches!(
+                to_width,
+                OpWidth::W8 | OpWidth::W16 | OpWidth::W32 | OpWidth::W64
+            )
+        {
             return Err(LowerError::UnsupportedOp {
                 op: format!(
                     "AArch64 native extend from {from_width:?} to {to_width:?}"
@@ -2579,16 +2584,28 @@ impl Aarch64Lowerer {
         let dst = Self::dst_gpr(dst)?;
         let src = Self::gpr(src)?;
         if from_bits == to_bits {
+            if matches!(to_width, OpWidth::W8 | OpWidth::W16) {
+                return self.emit_bitfield(dst, src, 0b10, 0, from_bits - 1, OpWidth::W32);
+            }
             return self.emit_mov_reg(dst, src, to_width);
         }
+        let emit_width = if to_width == OpWidth::W64 {
+            OpWidth::W64
+        } else {
+            OpWidth::W32
+        };
         self.emit_bitfield(
             dst,
             src,
             if sign_extend { 0b00 } else { 0b10 },
             0,
             from_bits - 1,
-            to_width,
-        )
+            emit_width,
+        )?;
+        if sign_extend && matches!(to_width, OpWidth::W8 | OpWidth::W16) {
+            self.emit_bitfield(dst, dst, 0b10, 0, to_bits - 1, OpWidth::W32)?;
+        }
+        Ok(())
     }
 
     fn lower_truncate(
@@ -8217,6 +8234,57 @@ mod tests {
 
         let mut expected = Vec::new();
         expected.extend_from_slice(&enc_mov_reg(0, 0, 1).to_le_bytes());
+        expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
+        assert_eq!(code, expected);
+    }
+
+    #[test]
+    fn lowers_zero_extend_w8_to_w16_as_uxtb() {
+        let mut builder = FunctionBuilder::new(FunctionId(0), 0);
+        builder.push_op(
+            0,
+            OpKind::ZeroExtend {
+                dst: x(0),
+                src: x(1),
+                from_width: OpWidth::W8,
+                to_width: OpWidth::W16,
+            },
+        );
+        builder.set_terminator(Terminator::Return { values: vec![] });
+        let func = builder.finish();
+
+        let mut lowerer = Aarch64Lowerer::new();
+        lowerer.lower_function(&func).unwrap();
+        let code = lowerer.finalize().unwrap();
+
+        let mut expected = Vec::new();
+        expected.extend_from_slice(&enc_bitfield(0, 0b10, 0, 7).to_le_bytes());
+        expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
+        assert_eq!(code, expected);
+    }
+
+    #[test]
+    fn lowers_sign_extend_w8_to_w16_as_sxtb_uxth() {
+        let mut builder = FunctionBuilder::new(FunctionId(0), 0);
+        builder.push_op(
+            0,
+            OpKind::SignExtend {
+                dst: x(0),
+                src: x(1),
+                from_width: OpWidth::W8,
+                to_width: OpWidth::W16,
+            },
+        );
+        builder.set_terminator(Terminator::Return { values: vec![] });
+        let func = builder.finish();
+
+        let mut lowerer = Aarch64Lowerer::new();
+        lowerer.lower_function(&func).unwrap();
+        let code = lowerer.finalize().unwrap();
+
+        let mut expected = Vec::new();
+        expected.extend_from_slice(&enc_bitfield(0, 0b00, 0, 7).to_le_bytes());
+        expected.extend_from_slice(&enc_bitfield_regs(0, 0b10, 0, 15, 0, 0).to_le_bytes());
         expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
         assert_eq!(code, expected);
     }
