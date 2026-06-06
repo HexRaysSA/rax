@@ -5308,6 +5308,7 @@ mod tests {
                 src1: x(1),
                 src2: SrcOperand::Reg(x(2)),
                 width: OpWidth::W32,
+                flags: FlagUpdate::None,
             },
         );
         builder.set_terminator(Terminator::Return { values: vec![] });
@@ -5336,6 +5337,7 @@ mod tests {
                 src1: x(1),
                 src2: SrcOperand::Reg(x(2)),
                 width: OpWidth::W64,
+                flags: FlagUpdate::None,
             },
         );
         builder.set_terminator(Terminator::Return { values: vec![] });

@@ -7607,6 +7607,7 @@ fn smir_aarch64_native_lowering_matches_qemu_oracle() {
             src1: arm_x(1),
             src2: SrcOperand::Reg(arm_x(2)),
             width: OpWidth::W64,
+            flags: FlagUpdate::None,
         }],
         st,
     );
@@ -7630,6 +7631,7 @@ fn smir_aarch64_native_lowering_matches_qemu_oracle() {
             src1: arm_x(1),
             src2: SrcOperand::Reg(arm_x(2)),
             width: OpWidth::W32,
+            flags: FlagUpdate::None,
         }],
         st,
     );
@@ -7652,6 +7654,7 @@ fn smir_aarch64_native_lowering_matches_qemu_oracle() {
             src1: arm_x(1),
             src2: SrcOperand::Reg(arm_x(2)),
             width: OpWidth::W64,
+            flags: FlagUpdate::None,
         }],
         st,
     );
@@ -7674,6 +7677,7 @@ fn smir_aarch64_native_lowering_matches_qemu_oracle() {
             src1: arm_x(1),
             src2: SrcOperand::Reg(arm_x(2)),
             width: OpWidth::W32,
+            flags: FlagUpdate::None,
         }],
         st,
     );
