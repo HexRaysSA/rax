@@ -1798,6 +1798,17 @@ impl Aarch64Lowerer {
     fn lower_xchg(&mut self, reg1: VReg, reg2: VReg, width: OpWidth) -> Result<(), LowerError> {
         let reg1 = Self::dst_gpr(reg1)?;
         let reg2 = Self::dst_gpr(reg2)?;
+        if width == OpWidth::W16 {
+            if reg1 == reg2 {
+                return self.emit_bitfield(reg1, reg1, 0b10, 0, 15, OpWidth::W32);
+            }
+
+            self.emit_logic_reg_n(reg1, reg1, reg2, 0b10, false, OpWidth::W32)?;
+            self.emit_logic_reg_n(reg2, reg1, reg2, 0b10, false, OpWidth::W32)?;
+            self.emit_logic_reg_n(reg1, reg1, reg2, 0b10, false, OpWidth::W32)?;
+            self.emit_bitfield(reg1, reg1, 0b10, 0, 15, OpWidth::W32)?;
+            return self.emit_bitfield(reg2, reg2, 0b10, 0, 15, OpWidth::W32);
+        }
         if reg1 == reg2 {
             return self.emit_mov_reg(reg1, reg1, width);
         }
@@ -5184,6 +5195,58 @@ mod tests {
     }
 
     #[test]
+    fn lowers_xchg_w16_as_eor_swap_uxth() {
+        let mut builder = FunctionBuilder::new(FunctionId(0), 0);
+        builder.push_op(
+            0,
+            OpKind::Xchg {
+                reg1: x(0),
+                reg2: x(1),
+                width: OpWidth::W16,
+            },
+        );
+        builder.set_terminator(Terminator::Return { values: vec![] });
+        let func = builder.finish();
+
+        let mut lowerer = Aarch64Lowerer::new();
+        lowerer.lower_function(&func).unwrap();
+        let code = lowerer.finalize().unwrap();
+
+        let mut expected = Vec::new();
+        expected.extend_from_slice(&enc_logical_reg(0, 0b10, 0, 0, 1).to_le_bytes());
+        expected.extend_from_slice(&enc_logical_reg(0, 0b10, 1, 0, 1).to_le_bytes());
+        expected.extend_from_slice(&enc_logical_reg(0, 0b10, 0, 0, 1).to_le_bytes());
+        expected.extend_from_slice(&enc_bitfield_regs(0, 0b10, 0, 15, 0, 0).to_le_bytes());
+        expected.extend_from_slice(&enc_bitfield_regs(0, 0b10, 0, 15, 1, 1).to_le_bytes());
+        expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
+        assert_eq!(code, expected);
+    }
+
+    #[test]
+    fn lowers_xchg_same_w16_as_uxth() {
+        let mut builder = FunctionBuilder::new(FunctionId(0), 0);
+        builder.push_op(
+            0,
+            OpKind::Xchg {
+                reg1: x(0),
+                reg2: x(0),
+                width: OpWidth::W16,
+            },
+        );
+        builder.set_terminator(Terminator::Return { values: vec![] });
+        let func = builder.finish();
+
+        let mut lowerer = Aarch64Lowerer::new();
+        lowerer.lower_function(&func).unwrap();
+        let code = lowerer.finalize().unwrap();
+
+        let mut expected = Vec::new();
+        expected.extend_from_slice(&enc_bitfield_regs(0, 0b10, 0, 15, 0, 0).to_le_bytes());
+        expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
+        assert_eq!(code, expected);
+    }
+
+    #[test]
     fn lowers_lea_direct_as_add_zero() {
         let mut builder = FunctionBuilder::new(FunctionId(0), 0);
         builder.push_op(
@@ -8532,25 +8595,6 @@ mod tests {
             let err = lowerer.lower_function(&func).unwrap_err();
             assert!(matches!(err, LowerError::UnsupportedOp { .. }));
         }
-    }
-
-    #[test]
-    fn rejects_xchg_w16_partial_width_lowering() {
-        let mut builder = FunctionBuilder::new(FunctionId(0), 0);
-        builder.push_op(
-            0,
-            OpKind::Xchg {
-                reg1: x(0),
-                reg2: x(1),
-                width: OpWidth::W16,
-            },
-        );
-        builder.set_terminator(Terminator::Return { values: vec![] });
-        let func = builder.finish();
-
-        let mut lowerer = Aarch64Lowerer::new();
-        let err = lowerer.lower_function(&func).unwrap_err();
-        assert!(matches!(err, LowerError::UnsupportedOp { .. }));
     }
 
     #[test]
