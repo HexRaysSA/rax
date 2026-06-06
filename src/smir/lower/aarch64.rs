@@ -476,6 +476,29 @@ impl Aarch64Lowerer {
         );
     }
 
+    fn emit_load_exclusive(&mut self, rt: u8, rn: u8, size: u32) {
+        self.emit(
+            (size << 30)
+                | (0b001000 << 24)
+                | (1 << 22)
+                | (0b11111 << 16)
+                | (0b11111 << 10)
+                | ((rn as u32) << 5)
+                | (rt as u32),
+        );
+    }
+
+    fn emit_store_exclusive(&mut self, rs: u8, rt: u8, rn: u8, size: u32) {
+        self.emit(
+            (size << 30)
+                | (0b001000 << 24)
+                | ((rs as u32) << 16)
+                | (0b11111 << 10)
+                | ((rn as u32) << 5)
+                | (rt as u32),
+        );
+    }
+
     fn emit_cond_select(
         &mut self,
         dst: u8,
@@ -928,6 +951,48 @@ impl Aarch64Lowerer {
         let rt = Self::gpr(src)?;
         let size = Self::mem_size(width)?;
         self.lower_mem_access(rt, addr, size, 0b00)
+    }
+
+    fn exclusive_base_gpr(addr: &Address) -> Result<u8, LowerError> {
+        match addr {
+            Address::Direct(base) => Self::base_gpr(*base),
+            Address::BaseOffset { base, offset, .. } if *offset == 0 => Self::base_gpr(*base),
+            Address::BaseOffset { offset, .. } => Err(LowerError::InvalidOperand {
+                op: "AArch64 native exclusive memory offset".into(),
+                operand: format!("{offset:#x}"),
+            }),
+            other => Err(LowerError::UnsupportedOp {
+                op: format!("AArch64 native exclusive memory address {other:?}"),
+            }),
+        }
+    }
+
+    fn lower_load_exclusive(
+        &mut self,
+        dst: VReg,
+        addr: &Address,
+        width: MemWidth,
+    ) -> Result<(), LowerError> {
+        let rt = Self::dst_gpr(dst)?;
+        let rn = Self::exclusive_base_gpr(addr)?;
+        let size = Self::mem_size(width)?;
+        self.emit_load_exclusive(rt, rn, size);
+        Ok(())
+    }
+
+    fn lower_store_exclusive(
+        &mut self,
+        status: VReg,
+        src: VReg,
+        addr: &Address,
+        width: MemWidth,
+    ) -> Result<(), LowerError> {
+        let rs = Self::dst_gpr(status)?;
+        let rt = Self::gpr(src)?;
+        let rn = Self::exclusive_base_gpr(addr)?;
+        let size = Self::mem_size(width)?;
+        self.emit_store_exclusive(rs, rt, rn, size);
+        Ok(())
     }
 
     fn lower_pair_mem_access(
@@ -3367,6 +3432,15 @@ impl Aarch64Lowerer {
                 sign,
             } => self.lower_load(*dst, addr, *width, *sign),
             OpKind::Store { src, addr, width } => self.lower_store(*src, addr, *width),
+            OpKind::LoadExclusive { dst, addr, width } => {
+                self.lower_load_exclusive(*dst, addr, *width)
+            }
+            OpKind::StoreExclusive {
+                status,
+                src,
+                addr,
+                width,
+            } => self.lower_store_exclusive(*status, *src, addr, *width),
             OpKind::LoadPair {
                 dst1,
                 dst2,
@@ -3671,6 +3745,19 @@ mod tests {
             | (((imm7 as u32) & 0x7f) << 15)
             | (2 << 10)
             | (1 << 5)
+    }
+
+    fn enc_ldxr(size: u32) -> u32 {
+        (size << 30)
+            | (0b001000 << 24)
+            | (1 << 22)
+            | (0b11111 << 16)
+            | (0b11111 << 10)
+            | (1 << 5)
+    }
+
+    fn enc_stxr(size: u32) -> u32 {
+        (size << 30) | (0b001000 << 24) | (2 << 16) | (0b11111 << 10) | (1 << 5) | 3
     }
 
     fn enc_extract(sf: u32, rn: u32, rm: u32, lsb: u32) -> u32 {
@@ -3982,6 +4069,55 @@ mod tests {
 
         let mut expected = Vec::new();
         expected.extend_from_slice(&enc_ldst_reg(1, 0b11, 2, 0b010, 1).to_le_bytes());
+        expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
+        assert_eq!(code, expected);
+    }
+
+    #[test]
+    fn lowers_load_exclusive_direct() {
+        let mut builder = FunctionBuilder::new(FunctionId(0), 0);
+        builder.push_op(
+            0,
+            OpKind::LoadExclusive {
+                dst: x(0),
+                addr: Address::Direct(x(1)),
+                width: MemWidth::B8,
+            },
+        );
+        builder.set_terminator(Terminator::Return { values: vec![] });
+        let func = builder.finish();
+
+        let mut lowerer = Aarch64Lowerer::new();
+        lowerer.lower_function(&func).unwrap();
+        let code = lowerer.finalize().unwrap();
+
+        let mut expected = Vec::new();
+        expected.extend_from_slice(&enc_ldxr(3).to_le_bytes());
+        expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
+        assert_eq!(code, expected);
+    }
+
+    #[test]
+    fn lowers_store_exclusive_direct() {
+        let mut builder = FunctionBuilder::new(FunctionId(0), 0);
+        builder.push_op(
+            0,
+            OpKind::StoreExclusive {
+                status: x(2),
+                src: x(3),
+                addr: Address::Direct(x(1)),
+                width: MemWidth::B4,
+            },
+        );
+        builder.set_terminator(Terminator::Return { values: vec![] });
+        let func = builder.finish();
+
+        let mut lowerer = Aarch64Lowerer::new();
+        lowerer.lower_function(&func).unwrap();
+        let code = lowerer.finalize().unwrap();
+
+        let mut expected = Vec::new();
+        expected.extend_from_slice(&enc_stxr(2).to_le_bytes());
         expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
         assert_eq!(code, expected);
     }

@@ -4347,6 +4347,40 @@ fn smir_aarch64_native_lowering_matches_qemu_oracle() {
     );
 
     let mut st = native_state();
+    st.x[0] = 0xaaaa_bbbb_cccc_dddd;
+    st.x[1] = SCRATCH_BASE;
+    st.scratch[8] = 0x0123_4567_89ab_cdef;
+    st.pstate = 0x2000_0000;
+    push_case(
+        "ldxr_x_direct_opkind_preserves_flags",
+        enc_ldxr(3, 0),
+        vec![OpKind::LoadExclusive {
+            dst: arm_x(0),
+            addr: native_direct_addr.clone(),
+            width: MemWidth::B8,
+        }],
+        st,
+    );
+
+    let mut st = native_state();
+    st.x[1] = SCRATCH_BASE;
+    st.x[2] = 0xffff_ffff_ffff_ffff;
+    st.x[3] = 0x0102_0304_0506_0708;
+    st.scratch[8] = 0x8877_6655_4433_2211;
+    st.pstate = 0x8000_0000;
+    push_case(
+        "stxr_x_direct_opkind_fails_without_monitor_preserves_flags_and_memory",
+        enc_stxr(3, 0),
+        vec![OpKind::StoreExclusive {
+            status: arm_x(2),
+            src: arm_x(3),
+            addr: native_direct_addr.clone(),
+            width: MemWidth::B8,
+        }],
+        st,
+    );
+
+    let mut st = native_state();
     st.x[0] = 0x2222_3333_4444_5555;
     st.x[1] = SCRATCH_BASE;
     st.x[2] = 0x3333_4444_5555_6666;
@@ -4900,6 +4934,38 @@ fn smir_aarch64_native_lowering_matches_qemu_oracle() {
         ],
         st,
     );
+
+    drop(push_case);
+
+    let mut st = native_state();
+    st.x[0] = 0xdead_beef_dead_beef;
+    st.x[1] = SCRATCH_BASE;
+    st.x[2] = 0xffff_ffff_ffff_ffff;
+    st.x[3] = 0xaabb_ccdd_eeff_0011;
+    st.scratch[8] = 0x1122_3344_5566_7788;
+    st.pstate = 0x6000_0000;
+    let lowered = lower_aarch64_native_ops(vec![
+        OpKind::LoadExclusive {
+            dst: arm_x(0),
+            addr: native_direct_addr.clone(),
+            width: MemWidth::B8,
+        },
+        OpKind::StoreExclusive {
+            status: arm_x(2),
+            src: arm_x(3),
+            addr: native_direct_addr.clone(),
+            width: MemWidth::B8,
+        },
+    ])
+    .unwrap_or_else(|e| {
+        panic!("ldxr_stxr_x_direct_opkind_stores_with_monitor: native lowering failed: {e}")
+    });
+    cases.push((
+        "ldxr_stxr_x_direct_opkind_stores_with_monitor".into(),
+        [enc_ldxr(3, 0), enc_stxr(3, 0), NOP],
+        lowered,
+        st,
+    ));
 
     let mut push_lifted_case = |label: &str, source: u32, st: ArmState| {
         let lowered = lower_aarch64_native_insn(source)
@@ -5733,6 +5799,25 @@ fn smir_aarch64_native_lowering_matches_qemu_oracle() {
     push_lifted_case(
         "ldrsw_direct_lifted_sign_ext_preserves_flags",
         enc_ldst_uimm(2, 0, 2, 0),
+        st,
+    );
+
+    let mut st = native_state();
+    st.x[0] = 0xaaaa_bbbb_cccc_dddd;
+    st.x[1] = SCRATCH_BASE;
+    st.scratch[8] = 0x0123_4567_89ab_cdef;
+    st.pstate = 0x2000_0000;
+    push_lifted_case("ldxr_x_direct_lifted_preserves_flags", enc_ldxr(3, 0), st);
+
+    let mut st = native_state();
+    st.x[1] = SCRATCH_BASE;
+    st.x[2] = 0xffff_ffff_ffff_ffff;
+    st.x[3] = 0x0102_0304_0506_0708;
+    st.scratch[8] = 0x8877_6655_4433_2211;
+    st.pstate = 0x8000_0000;
+    push_lifted_case(
+        "stxr_x_direct_lifted_fails_without_monitor_preserves_flags_and_memory",
+        enc_stxr(3, 0),
         st,
     );
 
