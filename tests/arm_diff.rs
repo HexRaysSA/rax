@@ -4885,6 +4885,17 @@ fn smir_aarch64_native_lowering_matches_qemu_oracle() {
     );
 
     let mut st = native_state();
+    st.x[0] = 0x4444_5555_6666_7777;
+    st.x[1] = 0x8888_9999_aaaa_bbbb;
+    st.pstate = 0xf000_0000;
+    push_case(
+        "materialize_flags_opkind_preserves_arch_state",
+        NOP,
+        vec![OpKind::MaterializeFlags],
+        st,
+    );
+
+    let mut st = native_state();
     st.x[0] = 0x1111_2222_3333_4444;
     st.pstate = 0x9000_0000;
     push_case(
