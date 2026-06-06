@@ -8,7 +8,7 @@
 use std::collections::HashMap;
 
 use crate::smir::flags::FlagUpdate;
-use crate::smir::ir::{SmirBlock, SmirFunction, Terminator};
+use crate::smir::ir::{SmirBlock, SmirFunction, Terminator, TrapKind};
 use crate::smir::ops::{OpKind, SmirOp};
 use crate::smir::types::{
     Address, ArchReg, ArmReg, AtomicOp, BlockId, Condition, ExtendOp, FenceKind, MemWidth,
@@ -714,6 +714,14 @@ impl Aarch64Lowerer {
 
     fn emit_flagm(&mut self, op2: u32) {
         self.emit(0xd500_401f | (op2 << 5));
+    }
+
+    fn emit_brk(&mut self, imm16: u16) {
+        self.emit(0xd420_0000 | (u32::from(imm16) << 5));
+    }
+
+    fn emit_udf(&mut self, imm16: u16) {
+        self.emit(u32::from(imm16) << 5);
     }
 
     fn bitfield_args(
@@ -4286,6 +4294,14 @@ impl Aarch64Lowerer {
                 self.emit(0xd503_201f);
                 Ok(())
             }
+            OpKind::Breakpoint => {
+                self.emit_brk(0);
+                Ok(())
+            }
+            OpKind::Undefined { .. } => {
+                self.emit_udf(0);
+                Ok(())
+            }
             OpKind::MaterializeFlags => Ok(()),
             OpKind::ClearExclusive => {
                 self.emit(0xd503_3f5f);
@@ -4684,6 +4700,19 @@ impl Aarch64Lowerer {
                 self.emit(0xd65f_03c0);
                 Ok(())
             }
+            Terminator::Trap {
+                kind: TrapKind::Breakpoint,
+            } => {
+                self.emit_brk(0);
+                Ok(())
+            }
+            Terminator::Trap {
+                kind: TrapKind::Undefined | TrapKind::InvalidOpcode,
+            }
+            | Terminator::Unreachable => {
+                self.emit_udf(0);
+                Ok(())
+            }
             other => Err(LowerError::UnsupportedOp {
                 op: format!("AArch64 native terminator {other:?}"),
             }),
@@ -4830,7 +4859,7 @@ impl SmirLowerer for Aarch64Lowerer {
 mod tests {
     use super::*;
     use crate::smir::flags::FlagUpdate;
-    use crate::smir::ir::{FunctionBuilder, Terminator};
+    use crate::smir::ir::{FunctionBuilder, Terminator, TrapKind};
     use crate::smir::types::{DispSize, FunctionId, SrcOperand};
 
     fn x(n: u8) -> VReg {
@@ -5046,6 +5075,14 @@ mod tests {
 
     fn enc_flagm(op2: u32) -> u32 {
         0xd500_401f | (op2 << 5)
+    }
+
+    fn enc_brk(imm16: u32) -> u32 {
+        0xd420_0000 | ((imm16 & 0xffff) << 5)
+    }
+
+    fn enc_udf(imm16: u32) -> u32 {
+        (imm16 & 0xffff) << 5
     }
 
     fn enc_mrs_sysreg(rt: u32, op1: u32, crn: u32, crm: u32, op2: u32) -> u32 {
@@ -7707,6 +7744,94 @@ mod tests {
         let mut expected = Vec::new();
         expected.extend_from_slice(&enc_flagm(0b000).to_le_bytes());
         expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
+        assert_eq!(code, expected);
+    }
+
+    #[test]
+    fn lowers_breakpoint_op_as_brk() {
+        let mut builder = FunctionBuilder::new(FunctionId(0), 0);
+        builder.push_op(0, OpKind::Breakpoint);
+        builder.set_terminator(Terminator::Return { values: vec![] });
+        let func = builder.finish();
+
+        let mut lowerer = Aarch64Lowerer::new();
+        lowerer.lower_function(&func).unwrap();
+        let code = lowerer.finalize().unwrap();
+
+        let mut expected = Vec::new();
+        expected.extend_from_slice(&enc_brk(0).to_le_bytes());
+        expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
+        assert_eq!(code, expected);
+    }
+
+    #[test]
+    fn lowers_undefined_op_as_udf() {
+        let mut builder = FunctionBuilder::new(FunctionId(0), 0);
+        builder.push_op(
+            0,
+            OpKind::Undefined {
+                opcode: 0xffff_ffff,
+            },
+        );
+        builder.set_terminator(Terminator::Return { values: vec![] });
+        let func = builder.finish();
+
+        let mut lowerer = Aarch64Lowerer::new();
+        lowerer.lower_function(&func).unwrap();
+        let code = lowerer.finalize().unwrap();
+
+        let mut expected = Vec::new();
+        expected.extend_from_slice(&enc_udf(0).to_le_bytes());
+        expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
+        assert_eq!(code, expected);
+    }
+
+    #[test]
+    fn lowers_breakpoint_trap_terminator_as_brk() {
+        let mut builder = FunctionBuilder::new(FunctionId(0), 0);
+        builder.set_terminator(Terminator::Trap {
+            kind: TrapKind::Breakpoint,
+        });
+        let func = builder.finish();
+
+        let mut lowerer = Aarch64Lowerer::new();
+        lowerer.lower_function(&func).unwrap();
+        let code = lowerer.finalize().unwrap();
+
+        let mut expected = Vec::new();
+        expected.extend_from_slice(&enc_brk(0).to_le_bytes());
+        assert_eq!(code, expected);
+    }
+
+    #[test]
+    fn lowers_undefined_trap_terminator_as_udf() {
+        let mut builder = FunctionBuilder::new(FunctionId(0), 0);
+        builder.set_terminator(Terminator::Trap {
+            kind: TrapKind::Undefined,
+        });
+        let func = builder.finish();
+
+        let mut lowerer = Aarch64Lowerer::new();
+        lowerer.lower_function(&func).unwrap();
+        let code = lowerer.finalize().unwrap();
+
+        let mut expected = Vec::new();
+        expected.extend_from_slice(&enc_udf(0).to_le_bytes());
+        assert_eq!(code, expected);
+    }
+
+    #[test]
+    fn lowers_unreachable_terminator_as_udf() {
+        let mut builder = FunctionBuilder::new(FunctionId(0), 0);
+        builder.set_terminator(Terminator::Unreachable);
+        let func = builder.finish();
+
+        let mut lowerer = Aarch64Lowerer::new();
+        lowerer.lower_function(&func).unwrap();
+        let code = lowerer.finalize().unwrap();
+
+        let mut expected = Vec::new();
+        expected.extend_from_slice(&enc_udf(0).to_le_bytes());
         assert_eq!(code, expected);
     }
 
