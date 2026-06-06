@@ -2380,6 +2380,50 @@ impl Aarch64Lowerer {
         self.emit_logic_imm(dst, dst, 0b10, n, 0, mask_imms, width)
     }
 
+    fn lower_bzhi(
+        &mut self,
+        dst: VReg,
+        src: VReg,
+        index: VReg,
+        width: OpWidth,
+    ) -> Result<(), LowerError> {
+        let guard_bits: &[u32] = match width {
+            OpWidth::W32 => &[5, 6, 7],
+            OpWidth::W64 => &[6, 7],
+            other => {
+                return Err(LowerError::UnsupportedOp {
+                    op: format!("AArch64 native Bzhi width {other:?}"),
+                });
+            }
+        };
+        let dst = Self::dst_gpr(dst)?;
+        let src = Self::gpr(src)?;
+        let index = Self::gpr(index)?;
+        if dst == src || dst == index {
+            return Err(LowerError::UnsupportedOp {
+                op: "AArch64 native Bzhi needs dst distinct from source and index".into(),
+            });
+        }
+
+        let mut guards = Vec::with_capacity(guard_bits.len());
+        for &bit in guard_bits {
+            let offset = self.code.position();
+            self.emit_test_branch(index, bit, true, 0)?;
+            guards.push((offset, bit));
+        }
+
+        self.emit_movn_zero(dst, width)?;
+        self.emit_dp2(dst, dst, index, 0b1000, width)?;
+        self.emit_logic_reg_n(dst, src, dst, 0b00, true, width)?;
+        let end_branch = self.code.position();
+        self.emit(0x1400_0000);
+        for (offset, bit) in guards {
+            self.patch_test_branch_to_current(offset, index, bit, true)?;
+        }
+        self.emit_mov_reg(dst, src, width)?;
+        self.patch_branch_to_current(end_branch)
+    }
+
     fn lower_cls(&mut self, dst: VReg, src: VReg, width: OpWidth) -> Result<(), LowerError> {
         self.emit_dp1(Self::dst_gpr(dst)?, Self::gpr(src)?, 0b000101, width)
     }
@@ -5191,6 +5235,12 @@ impl Aarch64Lowerer {
                 width,
                 flags,
             } => self.lower_bsr(*dst, *src, *width, *flags),
+            OpKind::Bzhi {
+                dst,
+                src,
+                index,
+                width,
+            } => self.lower_bzhi(*dst, *src, *index, *width),
             OpKind::Bswap { dst, src, width } => self.lower_bswap(*dst, *src, *width),
             OpKind::Rbit { dst, src, width } => self.lower_rbit(*dst, *src, *width),
             OpKind::Bfx {
@@ -8192,6 +8242,91 @@ mod tests {
         expected.extend_from_slice(&enc_logical_imm(0, 0b10, 0, 0, 4, 0, 0).to_le_bytes());
         expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
         assert_eq!(code, expected);
+    }
+
+    #[test]
+    fn lowers_bzhi_w_with_low_byte_index_guards() {
+        let mut builder = FunctionBuilder::new(FunctionId(0), 0);
+        builder.push_op(
+            0,
+            OpKind::Bzhi {
+                dst: x(0),
+                src: x(1),
+                index: x(2),
+                width: OpWidth::W32,
+            },
+        );
+        builder.set_terminator(Terminator::Return { values: vec![] });
+        let func = builder.finish();
+
+        let mut lowerer = Aarch64Lowerer::new();
+        lowerer.lower_function(&func).unwrap();
+        let code = lowerer.finalize().unwrap();
+
+        let mut expected = Vec::new();
+        expected.extend_from_slice(&enc_test_branch(2, 5, true, 28).to_le_bytes());
+        expected.extend_from_slice(&enc_test_branch(2, 6, true, 24).to_le_bytes());
+        expected.extend_from_slice(&enc_test_branch(2, 7, true, 20).to_le_bytes());
+        expected.extend_from_slice(&enc_mov_wide(0, 0b00, 0, 0, 0).to_le_bytes());
+        expected.extend_from_slice(&enc_dp2_regs(0, 0b1000, 0, 2, 0).to_le_bytes());
+        expected.extend_from_slice(&enc_logical_reg_n(0, 0b00, 1, 0, 1, 0).to_le_bytes());
+        expected.extend_from_slice(&enc_b(2).to_le_bytes());
+        expected.extend_from_slice(&enc_mov_reg(0, 0, 1).to_le_bytes());
+        expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
+        assert_eq!(code, expected);
+    }
+
+    #[test]
+    fn lowers_bzhi_x_with_low_byte_index_guards() {
+        let mut builder = FunctionBuilder::new(FunctionId(0), 0);
+        builder.push_op(
+            0,
+            OpKind::Bzhi {
+                dst: x(0),
+                src: x(1),
+                index: x(2),
+                width: OpWidth::W64,
+            },
+        );
+        builder.set_terminator(Terminator::Return { values: vec![] });
+        let func = builder.finish();
+
+        let mut lowerer = Aarch64Lowerer::new();
+        lowerer.lower_function(&func).unwrap();
+        let code = lowerer.finalize().unwrap();
+
+        let mut expected = Vec::new();
+        expected.extend_from_slice(&enc_test_branch(2, 6, true, 24).to_le_bytes());
+        expected.extend_from_slice(&enc_test_branch(2, 7, true, 20).to_le_bytes());
+        expected.extend_from_slice(&enc_mov_wide(1, 0b00, 0, 0, 0).to_le_bytes());
+        expected.extend_from_slice(&enc_dp2_regs(1, 0b1000, 0, 2, 0).to_le_bytes());
+        expected.extend_from_slice(&enc_logical_reg_n(1, 0b00, 1, 0, 1, 0).to_le_bytes());
+        expected.extend_from_slice(&enc_b(2).to_le_bytes());
+        expected.extend_from_slice(&enc_mov_reg(1, 0, 1).to_le_bytes());
+        expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
+        assert_eq!(code, expected);
+    }
+
+    #[test]
+    fn rejects_bzhi_when_dst_aliases_source_or_index() {
+        for (src, index) in [(x(0), x(2)), (x(1), x(0))] {
+            let mut builder = FunctionBuilder::new(FunctionId(0), 0);
+            builder.push_op(
+                0,
+                OpKind::Bzhi {
+                    dst: x(0),
+                    src,
+                    index,
+                    width: OpWidth::W64,
+                },
+            );
+            builder.set_terminator(Terminator::Return { values: vec![] });
+            let func = builder.finish();
+
+            let mut lowerer = Aarch64Lowerer::new();
+            let err = lowerer.lower_function(&func).unwrap_err();
+            assert!(matches!(err, LowerError::UnsupportedOp { .. }));
+        }
     }
 
     #[test]
