@@ -5814,6 +5814,18 @@ fn smir_aarch64_native_lowering_matches_qemu_oracle() {
     );
 
     let mut st = native_state();
+    st.x[0] = 0x7777_8888_9999_aaaa;
+    st.x[1] = SCRATCH_BASE;
+    st.x[2] = (-8i64) as u64;
+    st.scratch[7] = 0x0000_0000_0000_0080;
+    st.pstate = 0x2000_0000;
+    push_lifted_case(
+        "ldrsb_w_reg_sxtw_lifted_zero_ext_preserves_flags",
+        enc_ldst_reg(0, 3, RM, 0b110, 0),
+        st,
+    );
+
+    let mut st = native_state();
     st.x[0] = 0x5555_6666_7777_8888;
     st.x[1] = SCRATCH_BASE;
     st.x[2] = 4;
@@ -5822,6 +5834,18 @@ fn smir_aarch64_native_lowering_matches_qemu_oracle() {
     push_lifted_case(
         "ldrsh_x_reg_uxtw_lsl1_lifted_sign_ext_preserves_flags",
         enc_ldst_reg(1, 2, RM, 0b010, 1),
+        st,
+    );
+
+    let mut st = native_state();
+    st.x[0] = 0x8888_9999_aaaa_bbbb;
+    st.x[1] = SCRATCH_BASE;
+    st.x[2] = 4;
+    st.scratch[9] = 0x0000_0000_0000_8001;
+    st.pstate = 0x1000_0000;
+    push_lifted_case(
+        "ldrsh_w_reg_uxtw_lsl1_lifted_zero_ext_preserves_flags",
+        enc_ldst_reg(1, 3, RM, 0b010, 1),
         st,
     );
 
