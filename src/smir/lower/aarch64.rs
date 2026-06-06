@@ -4151,27 +4151,6 @@ impl Aarch64Lowerer {
         width: OpWidth,
     ) -> Result<(), LowerError> {
         match shift {
-            ShiftOp::Lsr if dst == amount => {
-                return Err(LowerError::UnsupportedOp {
-                    op: format!(
-                        "AArch64 native {width:?} variable Lsr needs a scratch when dst == count"
-                    ),
-                });
-            }
-            ShiftOp::Asr if dst == amount => {
-                return Err(LowerError::UnsupportedOp {
-                    op: format!(
-                        "AArch64 native {width:?} variable Asr needs a scratch when dst == count"
-                    ),
-                });
-            }
-            ShiftOp::Ror if dst == amount && !(width == OpWidth::W16 && dst == src) => {
-                return Err(LowerError::UnsupportedOp {
-                    op: format!(
-                        "AArch64 native {width:?} variable Ror needs a scratch when dst == count"
-                    ),
-                });
-            }
             ShiftOp::Rrx => {
                 return Err(LowerError::UnsupportedOp {
                     op: format!("AArch64 native {width:?} variable {shift:?}"),
@@ -4179,6 +4158,19 @@ impl Aarch64Lowerer {
             }
             _ => {}
         }
+
+        let needs_temp = match shift {
+            ShiftOp::Lsr | ShiftOp::Asr => dst == amount,
+            ShiftOp::Ror => dst == amount,
+            ShiftOp::Lsl | ShiftOp::Rrx => false,
+        };
+        let scratches = if needs_temp {
+            Self::scratch_regs(&[dst, src, amount], 1)?
+        } else {
+            Vec::new()
+        };
+        let temp = scratches.first().copied().unwrap_or(dst);
+        self.emit_scratch_save(&scratches);
 
         let top_bit = width.bits() - 1;
         let guards = if shift == ShiftOp::Ror {
@@ -4195,28 +4187,32 @@ impl Aarch64Lowerer {
                 self.emit(0x1400_0000);
                 self.patch_subword_shift_oob_guards(amount, &guards)?;
                 self.emit_mov_imm(dst, 0, OpWidth::W32)?;
-                self.patch_branch_to_current(end_branch)
+                self.patch_branch_to_current(end_branch)?;
+                self.emit_scratch_restore(&scratches);
+                Ok(())
             }
             ShiftOp::Lsr => {
-                self.emit_bitfield(dst, src, 0b10, 0, top_bit, OpWidth::W32)?;
-                self.emit_dp2(dst, dst, amount, 0b1001, OpWidth::W32)?;
+                self.emit_bitfield(temp, src, 0b10, 0, top_bit, OpWidth::W32)?;
+                self.emit_dp2(dst, temp, amount, 0b1001, OpWidth::W32)?;
                 let end_branch = self.code.position();
                 self.emit(0x1400_0000);
                 self.patch_subword_shift_oob_guards(amount, &guards)?;
                 self.emit_mov_imm(dst, 0, OpWidth::W32)?;
-                self.patch_branch_to_current(end_branch)
+                self.patch_branch_to_current(end_branch)?;
+                self.emit_scratch_restore(&scratches);
+                Ok(())
             }
             ShiftOp::Asr => {
                 let align_sign_shift = OpWidth::W32.bits() - width.bits();
                 self.emit_bitfield(
-                    dst,
+                    temp,
                     src,
                     0b10,
                     OpWidth::W32.bits() - align_sign_shift,
                     top_bit,
                     OpWidth::W32,
                 )?;
-                self.emit_dp2(dst, dst, amount, 0b1010, OpWidth::W32)?;
+                self.emit_dp2(dst, temp, amount, 0b1010, OpWidth::W32)?;
                 self.emit_bitfield(
                     dst,
                     dst,
@@ -4230,27 +4226,77 @@ impl Aarch64Lowerer {
                 self.patch_subword_shift_oob_guards(amount, &guards)?;
                 self.emit_bitfield(dst, src, 0b00, top_bit, top_bit, OpWidth::W32)?;
                 self.emit_bitfield(dst, dst, 0b10, 0, top_bit, OpWidth::W32)?;
-                self.patch_branch_to_current(end_branch)
+                self.patch_branch_to_current(end_branch)?;
+                self.emit_scratch_restore(&scratches);
+                Ok(())
             }
             ShiftOp::Ror => {
-                if width == OpWidth::W16 && dst == src {
-                    self.emit_bitfield(dst, dst, 0b01, 16, top_bit, OpWidth::W32)?;
+                if needs_temp {
+                    self.emit_bitfield(temp, src, 0b10, 0, top_bit, OpWidth::W32)?;
+                    match width {
+                        OpWidth::W8 => {
+                            self.emit_logic_shifted(
+                                temp,
+                                temp,
+                                temp,
+                                0b01,
+                                false,
+                                0,
+                                8,
+                                OpWidth::W32,
+                            )?;
+                            self.emit_logic_shifted(
+                                temp,
+                                temp,
+                                temp,
+                                0b01,
+                                false,
+                                0,
+                                16,
+                                OpWidth::W32,
+                            )?;
+                        }
+                        OpWidth::W16 => {
+                            self.emit_logic_shifted(
+                                temp,
+                                temp,
+                                temp,
+                                0b01,
+                                false,
+                                0,
+                                16,
+                                OpWidth::W32,
+                            )?;
+                        }
+                        _ => unreachable!(),
+                    }
+                } else if width == OpWidth::W16 && temp == src {
+                    self.emit_bitfield(temp, temp, 0b01, 16, top_bit, OpWidth::W32)?;
                 } else {
-                    self.emit_bitfield(dst, src, 0b10, 0, top_bit, OpWidth::W32)?;
+                    self.emit_bitfield(temp, src, 0b10, 0, top_bit, OpWidth::W32)?;
                     match width {
                         OpWidth::W8 => {
                             for immr in [24, 16, 8] {
-                                self.emit_bitfield(dst, dst, 0b01, immr, top_bit, OpWidth::W32)?;
+                                self.emit_bitfield(
+                                    temp,
+                                    temp,
+                                    0b01,
+                                    immr,
+                                    top_bit,
+                                    OpWidth::W32,
+                                )?;
                             }
                         }
                         OpWidth::W16 => {
-                            self.emit_bitfield(dst, dst, 0b01, 16, top_bit, OpWidth::W32)?;
+                            self.emit_bitfield(temp, temp, 0b01, 16, top_bit, OpWidth::W32)?;
                         }
                         _ => unreachable!(),
                     }
                 }
-                self.emit_dp2(dst, dst, amount, 0b1011, OpWidth::W32)?;
-                self.emit_bitfield(dst, dst, 0b10, 0, top_bit, OpWidth::W32)
+                self.emit_dp2(dst, temp, amount, 0b1011, OpWidth::W32)?;
+                self.emit_bitfield(dst, dst, 0b10, 0, top_bit, OpWidth::W32)?;
+                self.emit_scratch_restore(&scratches);
+                Ok(())
             }
             ShiftOp::Rrx => unreachable!(),
         }
@@ -4333,28 +4379,35 @@ impl Aarch64Lowerer {
         if width == OpWidth::W32 {
             match shift {
                 ShiftOp::Lsl | ShiftOp::Lsr => {
-                    if dst == amount {
-                        return Err(LowerError::UnsupportedOp {
-                            op: format!(
-                                "AArch64 native W32 variable {shift:?} needs a scratch when dst == count"
-                            ),
-                        });
-                    }
                     let opcode2 = match shift {
                         ShiftOp::Lsl => 0b1000,
                         ShiftOp::Lsr => 0b1001,
                         _ => unreachable!(),
                     };
+                    if dst == amount {
+                        let oob_branch = self.code.position();
+                        self.emit_test_branch(amount, 5, true, 0)?;
+                        self.emit_dp2(dst, src, amount, opcode2, width)?;
+                        let end_branch = self.code.position();
+                        self.emit(0x1400_0000);
+                        self.patch_test_branch_to_current(oob_branch, amount, 5, true)?;
+                        self.emit_mov_reg(dst, 31, width)?;
+                        return self.patch_branch_to_current(end_branch);
+                    }
                     self.emit_dp2(dst, src, amount, opcode2, width)?;
                     self.emit_test_branch(amount, 5, false, 8)?;
                     return self.emit_mov_reg(dst, 31, width);
                 }
                 ShiftOp::Asr => {
                     if dst == amount {
-                        return Err(LowerError::UnsupportedOp {
-                            op: "AArch64 native W32 variable Asr needs a scratch when dst == count"
-                                .into(),
-                        });
+                        let oob_branch = self.code.position();
+                        self.emit_test_branch(amount, 5, true, 0)?;
+                        self.emit_dp2(dst, src, amount, 0b1010, width)?;
+                        let end_branch = self.code.position();
+                        self.emit(0x1400_0000);
+                        self.patch_test_branch_to_current(oob_branch, amount, 5, true)?;
+                        self.emit_bitfield(dst, src, 0b00, 31, 31, width)?;
+                        return self.patch_branch_to_current(end_branch);
                     }
                     self.emit_dp2(dst, src, amount, 0b1010, width)?;
                     self.emit_test_branch(amount, 5, false, 8)?;
@@ -7054,6 +7107,133 @@ mod tests {
         }
     }
 
+    fn ref_shift_reg(src: u64, amount: u64, shift: ShiftOp, width: OpWidth) -> u64 {
+        let bits = width.bits();
+        let mask = width_mask(width);
+        let src = src & mask;
+        match shift {
+            ShiftOp::Lsl => {
+                let count = (amount & 0x3f) as u32;
+                if count >= bits {
+                    0
+                } else {
+                    (src << count) & mask
+                }
+            }
+            ShiftOp::Lsr => {
+                let count = (amount & 0x3f) as u32;
+                if count >= bits {
+                    0
+                } else {
+                    src >> count
+                }
+            }
+            ShiftOp::Asr => {
+                let count = (amount & 0x3f) as u32;
+                let sign = 1_u64 << (bits - 1);
+                if count == 0 {
+                    src
+                } else if count >= bits {
+                    if (src & sign) != 0 { mask } else { 0 }
+                } else if (src & sign) != 0 {
+                    ((src | !mask) as i64 >> count) as u64 & mask
+                } else {
+                    src >> count
+                }
+            }
+            ShiftOp::Ror => {
+                let cmask = if width == OpWidth::W64 { 0x3f } else { 0x1f };
+                let count = ((amount & cmask) as u32) % bits;
+                if count == 0 {
+                    src
+                } else {
+                    ((src >> count) | (src << (bits - count))) & mask
+                }
+            }
+            ShiftOp::Rrx => unreachable!(),
+        }
+    }
+
+    fn assert_shift_reg_count_alias_lowering(
+        label: &str,
+        shift: ShiftOp,
+        src_reg: u8,
+        src_value: u64,
+        amount_reg: u8,
+        amount_value: u64,
+        width: OpWidth,
+        dst_reg: u8,
+    ) {
+        let amount = SrcOperand::Reg(x(amount_reg));
+        let op = match shift {
+            ShiftOp::Lsl => OpKind::Shl {
+                dst: x(dst_reg),
+                src: x(src_reg),
+                amount,
+                width,
+                flags: FlagUpdate::None,
+            },
+            ShiftOp::Lsr => OpKind::Shr {
+                dst: x(dst_reg),
+                src: x(src_reg),
+                amount,
+                width,
+                flags: FlagUpdate::None,
+            },
+            ShiftOp::Asr => OpKind::Sar {
+                dst: x(dst_reg),
+                src: x(src_reg),
+                amount,
+                width,
+                flags: FlagUpdate::None,
+            },
+            ShiftOp::Ror => OpKind::Ror {
+                dst: x(dst_reg),
+                src: x(src_reg),
+                amount,
+                width,
+                flags: FlagUpdate::None,
+            },
+            ShiftOp::Rrx => unreachable!(),
+        };
+        let code = lower_single_op(op);
+        let expected = ref_shift_reg(src_value, amount_value, shift, width);
+        let sentinels = [
+            (16, 0x1616_1616_1616_1616),
+            (17, 0x1717_1717_1717_1717),
+            (15, 0x1515_1515_1515_1515),
+            (14, 0x1414_1414_1414_1414),
+        ];
+        let mut regs = sentinels.to_vec();
+        regs.push((src_reg, src_value));
+        regs.push((amount_reg, amount_value));
+
+        let old_nzcv = 0b1011;
+        let (out, out_nzcv, sp) = run_aarch64_code(&code, &regs, old_nzcv);
+        assert_eq!(
+            out[dst_reg as usize] & width_mask(width),
+            expected,
+            "{label}: result"
+        );
+        assert_eq!(out_nzcv, old_nzcv, "{label}: NZCV preserved");
+        assert_eq!(sp, 0x8000, "{label}: stack restored");
+        if src_reg != dst_reg {
+            assert_eq!(out[src_reg as usize], src_value, "{label}: src preserved");
+        }
+        if amount_reg != dst_reg {
+            assert_eq!(
+                out[amount_reg as usize],
+                amount_value,
+                "{label}: count preserved"
+            );
+        }
+        for (reg, value) in sentinels {
+            if reg != src_reg && reg != amount_reg && reg != dst_reg {
+                assert_eq!(out[reg as usize], value, "{label}: x{reg} restored");
+            }
+        }
+    }
+
     fn ref_bzhi(src: u64, index: u64, width: OpWidth) -> (u64, bool) {
         let index = (index & 0xff) as u32;
         let mask = width_mask(width);
@@ -9220,30 +9400,16 @@ mod tests {
 
     #[test]
     fn lowers_ror_w16_reg_self_count_in_place() {
-        let mut builder = FunctionBuilder::new(FunctionId(0), 0);
-        builder.push_op(
-            0,
-            OpKind::Ror {
-                dst: x(1),
-                src: x(1),
-                amount: SrcOperand::Reg(x(1)),
-                width: OpWidth::W16,
-                flags: FlagUpdate::None,
-            },
+        assert_shift_reg_count_alias_lowering(
+            "ror_w16_dst_aliases_src_and_count",
+            ShiftOp::Ror,
+            1,
+            0x8001,
+            1,
+            0x8001,
+            OpWidth::W16,
+            1,
         );
-        builder.set_terminator(Terminator::Return { values: vec![] });
-        let func = builder.finish();
-
-        let mut lowerer = Aarch64Lowerer::new();
-        lowerer.lower_function(&func).unwrap();
-        let code = lowerer.finalize().unwrap();
-
-        let mut expected = Vec::new();
-        expected.extend_from_slice(&enc_bitfield_regs(0, 0b01, 16, 15, 1, 1).to_le_bytes());
-        expected.extend_from_slice(&enc_dp2_regs(0, 0b1011, 1, 1, 1).to_le_bytes());
-        expected.extend_from_slice(&enc_bitfield_regs(0, 0b10, 0, 15, 1, 1).to_le_bytes());
-        expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
-        assert_eq!(code, expected);
     }
 
     #[test]
@@ -9278,45 +9444,67 @@ mod tests {
     }
 
     #[test]
-    fn rejects_subword_shr_reg_count_when_dst_is_count() {
-        let mut builder = FunctionBuilder::new(FunctionId(0), 0);
-        builder.push_op(
-            0,
-            OpKind::Shr {
-                dst: x(2),
-                src: x(1),
-                amount: SrcOperand::Reg(x(2)),
-                width: OpWidth::W8,
-                flags: FlagUpdate::None,
-            },
+    fn lowers_subword_shift_reg_when_dst_is_count() {
+        assert_shift_reg_count_alias_lowering(
+            "shr_w16_dst_aliases_count",
+            ShiftOp::Lsr,
+            1,
+            0xf0f0,
+            2,
+            4,
+            OpWidth::W16,
+            2,
         );
-        builder.set_terminator(Terminator::Return { values: vec![] });
-        let func = builder.finish();
-
-        let mut lowerer = Aarch64Lowerer::new();
-        let err = lowerer.lower_function(&func).unwrap_err();
-        assert!(matches!(err, LowerError::UnsupportedOp { .. }));
-    }
-
-    #[test]
-    fn rejects_subword_ror_reg_count_when_dst_is_count() {
-        let mut builder = FunctionBuilder::new(FunctionId(0), 0);
-        builder.push_op(
-            0,
-            OpKind::Ror {
-                dst: x(2),
-                src: x(1),
-                amount: SrcOperand::Reg(x(2)),
-                width: OpWidth::W8,
-                flags: FlagUpdate::None,
-            },
+        assert_shift_reg_count_alias_lowering(
+            "shr_w8_dst_aliases_count_oob_zero",
+            ShiftOp::Lsr,
+            1,
+            0xff,
+            2,
+            8,
+            OpWidth::W8,
+            2,
         );
-        builder.set_terminator(Terminator::Return { values: vec![] });
-        let func = builder.finish();
-
-        let mut lowerer = Aarch64Lowerer::new();
-        let err = lowerer.lower_function(&func).unwrap_err();
-        assert!(matches!(err, LowerError::UnsupportedOp { .. }));
+        assert_shift_reg_count_alias_lowering(
+            "sar_w8_dst_aliases_count_sign_fill",
+            ShiftOp::Asr,
+            1,
+            0xf0,
+            2,
+            3,
+            OpWidth::W8,
+            2,
+        );
+        assert_shift_reg_count_alias_lowering(
+            "sar_w16_dst_aliases_count_oob_sign",
+            ShiftOp::Asr,
+            1,
+            0x8001,
+            2,
+            16,
+            OpWidth::W16,
+            2,
+        );
+        assert_shift_reg_count_alias_lowering(
+            "ror_w8_dst_aliases_count",
+            ShiftOp::Ror,
+            1,
+            0x81,
+            2,
+            9,
+            OpWidth::W8,
+            2,
+        );
+        assert_shift_reg_count_alias_lowering(
+            "ror_w8_dst_aliases_src_and_count",
+            ShiftOp::Ror,
+            1,
+            0x81,
+            1,
+            0x81,
+            OpWidth::W8,
+            1,
+        );
     }
 
     #[test]
@@ -14162,45 +14350,57 @@ mod tests {
     }
 
     #[test]
-    fn rejects_sar_w_reg_count_when_dst_is_count() {
-        let mut builder = FunctionBuilder::new(FunctionId(0), 0);
-        builder.push_op(
-            0,
-            OpKind::Sar {
-                dst: x(2),
-                src: x(1),
-                amount: SrcOperand::Reg(x(2)),
-                width: OpWidth::W32,
-                flags: FlagUpdate::None,
-            },
+    fn lowers_w32_shift_reg_when_dst_is_count() {
+        assert_shift_reg_count_alias_lowering(
+            "shl_w_dst_aliases_count",
+            ShiftOp::Lsl,
+            1,
+            0x0000_0003,
+            2,
+            4,
+            OpWidth::W32,
+            2,
         );
-        builder.set_terminator(Terminator::Return { values: vec![] });
-        let func = builder.finish();
-
-        let mut lowerer = Aarch64Lowerer::new();
-        let err = lowerer.lower_function(&func).unwrap_err();
-        assert!(matches!(err, LowerError::UnsupportedOp { .. }));
-    }
-
-    #[test]
-    fn rejects_shl_w_reg_count_when_dst_is_count() {
-        let mut builder = FunctionBuilder::new(FunctionId(0), 0);
-        builder.push_op(
-            0,
-            OpKind::Shl {
-                dst: x(2),
-                src: x(1),
-                amount: SrcOperand::Reg(x(2)),
-                width: OpWidth::W32,
-                flags: FlagUpdate::None,
-            },
+        assert_shift_reg_count_alias_lowering(
+            "shl_w_dst_aliases_src_and_count",
+            ShiftOp::Lsl,
+            1,
+            3,
+            1,
+            3,
+            OpWidth::W32,
+            1,
         );
-        builder.set_terminator(Terminator::Return { values: vec![] });
-        let func = builder.finish();
-
-        let mut lowerer = Aarch64Lowerer::new();
-        let err = lowerer.lower_function(&func).unwrap_err();
-        assert!(matches!(err, LowerError::UnsupportedOp { .. }));
+        assert_shift_reg_count_alias_lowering(
+            "shr_w_dst_aliases_count_oob_zero",
+            ShiftOp::Lsr,
+            1,
+            0x8000_0000,
+            2,
+            32,
+            OpWidth::W32,
+            2,
+        );
+        assert_shift_reg_count_alias_lowering(
+            "sar_w_dst_aliases_count",
+            ShiftOp::Asr,
+            1,
+            0xffff_fff0,
+            2,
+            4,
+            OpWidth::W32,
+            2,
+        );
+        assert_shift_reg_count_alias_lowering(
+            "sar_w_dst_aliases_count_oob_sign",
+            ShiftOp::Asr,
+            1,
+            0x8000_0000,
+            2,
+            32,
+            OpWidth::W32,
+            2,
+        );
     }
 
     #[test]
