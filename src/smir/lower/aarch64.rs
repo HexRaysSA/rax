@@ -92,6 +92,10 @@ impl Aarch64Lowerer {
         });
     }
 
+    fn emit_br_reg(&mut self, rn: u8) {
+        self.emit(0xd61f_0000 | ((rn as u32) << 5));
+    }
+
     fn branch_scaled_imm(
         offset: usize,
         target_offset: usize,
@@ -171,6 +175,15 @@ impl Aarch64Lowerer {
             VReg::Arch(ArchReg::Arm(ArmReg::X(n))) if n < 31 => Ok(n),
             other => Err(LowerError::InvalidRegister(format!(
                 "AArch64 native lowerer expected writable X register, got {other:?}"
+            ))),
+        }
+    }
+
+    fn branch_gpr(vreg: VReg) -> Result<u8, LowerError> {
+        match vreg {
+            VReg::Arch(ArchReg::Arm(ArmReg::X(n))) if n < 31 => Ok(n),
+            other => Err(LowerError::InvalidRegister(format!(
+                "AArch64 native lowerer expected branch target X register, got {other:?}"
             ))),
         }
     }
@@ -4946,6 +4959,10 @@ impl Aarch64Lowerer {
                 true_target,
                 false_target,
             } => self.lower_cond_branch(*cond, *true_target, *false_target, folded_cond),
+            Terminator::IndirectBranch { target, .. } => {
+                self.emit_br_reg(Self::branch_gpr(*target)?);
+                Ok(())
+            }
             Terminator::Return { .. } => {
                 self.emit(0xd65f_03c0);
                 Ok(())
@@ -5255,6 +5272,10 @@ mod tests {
 
     fn enc_cbnz(rt: u32, imm19: i32) -> u32 {
         0xb500_0000 | (((imm19 as u32) & 0x7ffff) << 5) | (rt & 0x1f)
+    }
+
+    fn enc_br(rn: u32) -> u32 {
+        0xd61f_0000 | ((rn & 0x1f) << 5)
     }
 
     fn enc_dp1_regs(sf: u32, opcode: u32, rn: u32, rd: u32) -> u32 {
@@ -8361,6 +8382,38 @@ mod tests {
         expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
         expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
         assert_eq!(code, expected);
+    }
+
+    #[test]
+    fn lowers_indirect_branch_terminator_as_br() {
+        let mut builder = FunctionBuilder::new(FunctionId(0), 0);
+        builder.set_terminator(Terminator::IndirectBranch {
+            target: x(3),
+            possible_targets: vec![],
+        });
+        let func = builder.finish();
+
+        let mut lowerer = Aarch64Lowerer::new();
+        lowerer.lower_function(&func).unwrap();
+        let code = lowerer.finalize().unwrap();
+
+        let mut expected = Vec::new();
+        expected.extend_from_slice(&enc_br(3).to_le_bytes());
+        assert_eq!(code, expected);
+    }
+
+    #[test]
+    fn rejects_indirect_branch_immediate_target() {
+        let mut builder = FunctionBuilder::new(FunctionId(0), 0);
+        builder.set_terminator(Terminator::IndirectBranch {
+            target: VReg::Imm(0),
+            possible_targets: vec![],
+        });
+        let func = builder.finish();
+
+        let mut lowerer = Aarch64Lowerer::new();
+        let err = lowerer.lower_function(&func).unwrap_err();
+        assert!(matches!(err, LowerError::InvalidRegister(_)));
     }
 
     #[test]
