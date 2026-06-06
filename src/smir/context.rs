@@ -552,6 +552,8 @@ impl SmirContext {
                 ArmReg::Sp => arm.sp,
                 ArmReg::Pc => arm.pc,
                 ArmReg::Nzcv => arm.nzcv as u64,
+                ArmReg::Fpcr => arm.fpcr as u64,
+                ArmReg::Fpsr => arm.fpsr as u64,
                 ArmReg::V(n) => arm.v[n as usize][0],
                 _ => 0,
             },
@@ -608,6 +610,8 @@ impl SmirContext {
                 ArmReg::Sp => arm.sp = value,
                 ArmReg::Pc => arm.pc = value,
                 ArmReg::Nzcv => arm.nzcv = value as u32,
+                ArmReg::Fpcr => arm.fpcr = value as u32,
+                ArmReg::Fpsr => arm.fpsr = value as u32,
                 ArmReg::V(n) => arm.v[n as usize][0] = value,
                 _ => {}
             },

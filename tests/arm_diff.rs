@@ -796,8 +796,8 @@ fn arm_to_smir_regs(st: &ArmState) -> Aarch64GuestRegs {
     regs.sp = st.sp;
     regs.pc = st.pc;
     regs.nzcv = st.pstate & 0xF000_0000;
-    regs.fpcr = st.fpcr;
-    regs.fpsr = st.fpsr;
+    regs.fpcr = st.fpcr & 0xffff_ffff;
+    regs.fpsr = st.fpsr & 0xffff_ffff;
     regs.v = st.v;
     regs
 }
@@ -1109,22 +1109,54 @@ fn enc_hint(crm: u32, op2: u32) -> u32 {
 
 #[cfg(all(feature = "smir-jit", target_arch = "x86_64"))]
 fn enc_mrs_nzcv(rt: u32) -> u32 {
+    enc_mrs_sysreg(rt, 3, 4, 2, 0)
+}
+
+#[cfg(all(feature = "smir-jit", target_arch = "x86_64"))]
+fn enc_mrs_fpcr(rt: u32) -> u32 {
+    enc_mrs_sysreg(rt, 3, 4, 4, 0)
+}
+
+#[cfg(all(feature = "smir-jit", target_arch = "x86_64"))]
+fn enc_mrs_fpsr(rt: u32) -> u32 {
+    enc_mrs_sysreg(rt, 3, 4, 4, 1)
+}
+
+#[cfg(all(feature = "smir-jit", target_arch = "x86_64"))]
+fn enc_mrs_sysreg(rt: u32, op1: u32, crn: u32, crm: u32, op2: u32) -> u32 {
     0xd500_0000
         | (1 << 21)
         | (3 << 19)
-        | (3 << 16)
-        | (4 << 12)
-        | (2 << 8)
+        | (op1 << 16)
+        | (crn << 12)
+        | (crm << 8)
+        | (op2 << 5)
         | (rt & 0x1f)
 }
 
 #[cfg(all(feature = "smir-jit", target_arch = "x86_64"))]
 fn enc_msr_nzcv(rt: u32) -> u32 {
+    enc_msr_sysreg(rt, 3, 4, 2, 0)
+}
+
+#[cfg(all(feature = "smir-jit", target_arch = "x86_64"))]
+fn enc_msr_fpcr(rt: u32) -> u32 {
+    enc_msr_sysreg(rt, 3, 4, 4, 0)
+}
+
+#[cfg(all(feature = "smir-jit", target_arch = "x86_64"))]
+fn enc_msr_fpsr(rt: u32) -> u32 {
+    enc_msr_sysreg(rt, 3, 4, 4, 1)
+}
+
+#[cfg(all(feature = "smir-jit", target_arch = "x86_64"))]
+fn enc_msr_sysreg(rt: u32, op1: u32, crn: u32, crm: u32, op2: u32) -> u32 {
     0xd500_0000
         | (3 << 19)
-        | (3 << 16)
-        | (4 << 12)
-        | (2 << 8)
+        | (op1 << 16)
+        | (crn << 12)
+        | (crm << 8)
+        | (op2 << 5)
         | (rt & 0x1f)
 }
 
@@ -1182,6 +1214,18 @@ fn compare_smir_scalar_case(
     let hw_nzcv = (hw.pstate >> 28) & 0xF;
     if got_nzcv != hw_nzcv {
         diffs.push(format!("nzcv: smir={:#x} hw={:#x}", got_nzcv, hw_nzcv));
+    }
+    if got.fpcr != hw.fpcr {
+        diffs.push(format!(
+            "fpcr: smir={:#018x} hw={:#018x}",
+            got.fpcr, hw.fpcr
+        ));
+    }
+    if got.fpsr != hw.fpsr {
+        diffs.push(format!(
+            "fpsr: smir={:#018x} hw={:#018x}",
+            got.fpsr, hw.fpsr
+        ));
     }
 
     if !diffs.is_empty() {
@@ -1899,6 +1943,34 @@ fn smir_aarch64_x86_scalar_lowering_matches_qemu_oracle() {
     st.pstate = 0xf000_0000;
     batch.push(("msr_nzcv_xzr_clears".into(), enc_msr_nzcv(31), st));
 
+    let mut st = ArmState::zeroed();
+    st.x[0] = 0xaaaa_bbbb_cccc_dddd;
+    st.fpcr = 0x00c0_0000;
+    batch.push(("mrs_fpcr_reads_control".into(), enc_mrs_fpcr(RD), st));
+
+    let mut st = ArmState::zeroed();
+    st.x[0] = 0xaaaa_bbbb_cccc_dddd;
+    st.fpsr = 0x0800_009f;
+    batch.push(("mrs_fpsr_reads_status".into(), enc_mrs_fpsr(RD), st));
+
+    let mut st = ArmState::zeroed();
+    st.x[1] = 0xffff_ffff_00c0_0000;
+    st.fpcr = 0;
+    batch.push(("msr_fpcr_masks_x1".into(), enc_msr_fpcr(RN), st));
+
+    let mut st = ArmState::zeroed();
+    st.x[1] = 0xffff_ffff_0800_009f;
+    st.fpsr = 0;
+    batch.push(("msr_fpsr_masks_x1".into(), enc_msr_fpsr(RN), st));
+
+    let mut st = ArmState::zeroed();
+    st.fpcr = 0x00c0_0000;
+    batch.push(("msr_fpcr_xzr_clears".into(), enc_msr_fpcr(31), st));
+
+    let mut st = ArmState::zeroed();
+    st.fpsr = 0x0800_009f;
+    batch.push(("msr_fpsr_xzr_clears".into(), enc_msr_fpsr(31), st));
+
     for nzcv in 0..16 {
         let mut st = ArmState::zeroed();
         st.x[0] = 0xaaaa_bbbb_cccc_dddd;
@@ -2039,6 +2111,104 @@ fn smir_aarch64_x86_nzcv_sysreg_roundtrip_matches_qemu_oracle() {
         }
         panic!(
             "smir_aarch64_x86_nzcv_sysreg_roundtrip: {} divergences vs hardware oracle",
+            mismatches.len()
+        );
+    }
+}
+
+#[cfg(all(feature = "smir-jit", target_arch = "x86_64"))]
+#[test]
+fn smir_aarch64_x86_fp_sysreg_roundtrip_matches_qemu_oracle() {
+    let oracle = match oracle_path() {
+        Some(p) => p,
+        None => {
+            eprintln!(
+                "[arm_diff] smir_aarch64_x86_fp_sysreg_roundtrip: qemu/cross-toolchain unavailable -> skipping"
+            );
+            return;
+        }
+    };
+
+    let mut batch: Vec<(String, u32, u32, ArmState)> = Vec::new();
+    for &(label, value, initial_fpcr) in &[
+        ("fpcr_zero", 0, 0x00c0_0000),
+        ("fpcr_rmode_high_bits", 0xffff_ffff_00c0_0000, 0),
+        ("fpcr_dn_fz_high_bits", 0xffff_ffff_0300_0000, 0x0040_0000),
+    ] {
+        let mut st = ArmState::zeroed();
+        st.x[0] = 0xaaaa_bbbb_cccc_dddd;
+        st.x[1] = value;
+        st.fpcr = initial_fpcr;
+        batch.push((
+            format!("msr_mrs_{label}"),
+            enc_msr_fpcr(RN),
+            enc_mrs_fpcr(RD),
+            st,
+        ));
+    }
+    for &(label, value, initial_fpsr) in &[
+        ("fpsr_zero", 0, 0x0800_009f),
+        ("fpsr_status_high_bits", 0xffff_ffff_0800_009f, 0),
+        ("fpsr_low_exc_high_bits", 0xffff_ffff_0000_009f, 0x0800_0000),
+    ] {
+        let mut st = ArmState::zeroed();
+        st.x[0] = 0xaaaa_bbbb_cccc_dddd;
+        st.x[1] = value;
+        st.fpsr = initial_fpsr;
+        batch.push((
+            format!("msr_mrs_{label}"),
+            enc_msr_fpsr(RN),
+            enc_mrs_fpsr(RD),
+            st,
+        ));
+    }
+
+    let cases: Vec<(u32, u32, ArmState)> =
+        batch.iter().map(|(_, insn, insn2, st)| (*insn, *insn2, *st)).collect();
+    let outs = match run_oracle(&oracle, &cases) {
+        Some(o) => o,
+        None => {
+            eprintln!(
+                "[arm_diff] smir_aarch64_x86_fp_sysreg_roundtrip: oracle run failed -> skipping"
+            );
+            return;
+        }
+    };
+    assert_eq!(outs.len(), cases.len());
+
+    let mut mismatches = Vec::new();
+    for (i, (label, insn, insn2, st)) in batch.iter().enumerate() {
+        let out = &outs[i];
+        if out.trapped != 0 {
+            mismatches.push(Mismatch {
+                label: label.clone(),
+                insn: *insn,
+                detail: format!("hardware faulted with signal {}", out.trapped),
+            });
+            continue;
+        }
+
+        match run_smir_aarch64_x86_pair(*insn, *insn2, st) {
+            Ok(got) => compare_smir_scalar_case(label, *insn, &got, &out.st, &mut mismatches),
+            Err(detail) => mismatches.push(Mismatch {
+                label: label.clone(),
+                insn: *insn,
+                detail,
+            }),
+        }
+    }
+
+    if !mismatches.is_empty() {
+        eprintln!(
+            "\n==== smir_aarch64_x86_fp_sysreg_roundtrip: {} mismatches across {} cases ====",
+            mismatches.len(),
+            batch.len()
+        );
+        for m in mismatches.iter().take(25) {
+            eprintln!("  [{}] {:#010x}: {}", m.label, m.insn, m.detail);
+        }
+        panic!(
+            "smir_aarch64_x86_fp_sysreg_roundtrip: {} divergences vs hardware oracle",
             mismatches.len()
         );
     }
