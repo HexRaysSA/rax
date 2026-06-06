@@ -3438,6 +3438,80 @@ impl X86_64Lifter {
         ))
     }
 
+    fn lift_vex_andn_0f38(
+        &self,
+        prefix: VecPrefix,
+        bytes: &[u8],
+        pc: u64,
+        ctx: &mut LiftContext,
+    ) -> Result<LiftResult, LiftError> {
+        if prefix.encoding != VecEncodingKind::Vex
+            || prefix.width != VecWidth::V128
+            || prefix.pp != X86SsePrefix::None
+        {
+            return Err(LiftError::InvalidEncoding {
+                addr: pc,
+                bytes: bytes.to_vec(),
+            });
+        }
+
+        let width = if prefix.w {
+            OpWidth::W64
+        } else {
+            OpWidth::W32
+        };
+        let mem_width = if prefix.w {
+            MemWidth::B8
+        } else {
+            MemWidth::B4
+        };
+        let modrm_prefix = X86Prefix {
+            rex: prefix.rex,
+            cursor: prefix.bytes + 1,
+            ..X86Prefix::default()
+        };
+        let modrm = decode_modrm(&bytes[prefix.bytes + 1..], &modrm_prefix, pc)?;
+        let next_pc = pc + prefix.bytes as u64 + 1 + modrm.bytes_consumed as u64;
+        let mut ops = Vec::new();
+        let src2 = if modrm.is_memory {
+            let x86_addr = modrm.addr.as_ref().unwrap();
+            let (addr, pre_ops) = self.x86_addr_to_smir(x86_addr, next_pc, ctx);
+            ops.extend(pre_ops);
+
+            let tmp = ctx.alloc_vreg();
+            ops.push(SmirOp::new(
+                OpId(ops.len() as u16),
+                pc,
+                OpKind::Load {
+                    dst: tmp,
+                    addr,
+                    width: mem_width,
+                    sign: SignExtend::Zero,
+                },
+            ));
+            tmp
+        } else {
+            self.gpr(modrm.rm)
+        };
+
+        ops.push(SmirOp::new(
+            OpId(ops.len() as u16),
+            pc,
+            OpKind::AndNot {
+                dst: self.gpr(modrm.reg),
+                src1: src2,
+                src2: SrcOperand::Reg(self.gpr(prefix.vvvv)),
+                width,
+                flags: FlagUpdate::All,
+            },
+        ));
+
+        Ok(LiftResult::fallthrough(
+            ops,
+            prefix.bytes + 1 + modrm.bytes_consumed,
+        ))
+    }
+
     fn validate_apx_bmi_payload(
         &self,
         prefix: ApxEvexPrefix,
@@ -4357,6 +4431,12 @@ impl X86_64Lifter {
             },
             X86VecMap::Map0F38 => match opcode {
                 0xE0..=0xEF => self.lift_cmpccxadd(prefix, opcode, bytes, pc, ctx),
+                0xF2
+                    if prefix.encoding == VecEncodingKind::Vex
+                        && prefix.pp == X86SsePrefix::None =>
+                {
+                    self.lift_vex_andn_0f38(prefix, bytes, pc, ctx)
+                }
                 0xF5
                     if prefix.encoding == VecEncodingKind::Vex
                         && matches!(prefix.pp, X86SsePrefix::Rep | X86SsePrefix::Repne) =>
@@ -10152,6 +10232,103 @@ mod tests {
                 "{name}: {err:?}"
             );
         }
+    }
+
+    fn assert_vex_andn_op(
+        ops: &[SmirOp],
+        index: usize,
+        dst: VReg,
+        src: VReg,
+        inverted: VReg,
+        width: OpWidth,
+    ) {
+        match &ops[index].kind {
+            OpKind::AndNot {
+                dst: got_dst,
+                src1,
+                src2: SrcOperand::Reg(got_inverted),
+                width: got_width,
+                flags: FlagUpdate::All,
+            } => {
+                assert_eq!(*got_dst, dst);
+                assert_eq!(*src1, src);
+                assert_eq!(*got_inverted, inverted);
+                assert_eq!(*got_width, width);
+            }
+            other => panic!("expected VEX ANDN, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn lift_vex_andn_registers_like_llvm() {
+        for (bytes, width) in [
+            (&[0xC4, 0xE2, 0x70, 0xF2, 0xC2][..], OpWidth::W32),
+            (&[0xC4, 0xE2, 0xF0, 0xF2, 0xC2][..], OpWidth::W64),
+        ] {
+            // LLVM 23 examples:
+            //   `andn eax, ecx, edx` => c4 e2 70 f2 c2
+            //   `andn rax, rcx, rdx` => c4 e2 f0 f2 c2
+            let result = lift_single(bytes).unwrap();
+            assert_eq!(result.bytes_consumed, bytes.len());
+            assert_eq!(result.ops.len(), 1);
+            assert_vex_andn_op(&result.ops, 0, x86_gpr(0), x86_gpr(2), x86_gpr(1), width);
+        }
+    }
+
+    #[test]
+    fn lift_vex_andn_memory_source_like_llvm() {
+        // LLVM 23:
+        //   `andn eax, r9d, dword ptr [r10 + 4*r11 + 32]`
+        //       => c4 82 30 f2 44 9a 20
+        let result = lift_single(&[0xC4, 0x82, 0x30, 0xF2, 0x44, 0x9A, 0x20]).unwrap();
+        assert_eq!(result.bytes_consumed, 7);
+        assert_eq!(result.ops.len(), 2);
+        let src = match &result.ops[0].kind {
+            OpKind::Load {
+                dst,
+                addr:
+                    Address::BaseIndexScale {
+                        base: Some(base),
+                        index,
+                        scale: 4,
+                        disp: 0x20,
+                        disp_size: DispSize::Disp8,
+                    },
+                width: MemWidth::B4,
+                sign: SignExtend::Zero,
+            } => {
+                assert_eq!(*base, x86_gpr(10));
+                assert_eq!(*index, x86_gpr(11));
+                *dst
+            }
+            other => panic!("expected VEX ANDN memory source load, got {other:?}"),
+        };
+        assert_vex_andn_op(&result.ops, 1, x86_gpr(0), src, x86_gpr(9), OpWidth::W32);
+    }
+
+    #[test]
+    fn lift_vex_andn_allows_destination_source_alias_like_llvm() {
+        // LLVM 23: `andn ecx, ecx, edx` => c4 e2 70 f2 ca.
+        let result = lift_single(&[0xC4, 0xE2, 0x70, 0xF2, 0xCA]).unwrap();
+        assert_eq!(result.bytes_consumed, 5);
+        assert_eq!(result.ops.len(), 1);
+        assert_vex_andn_op(
+            &result.ops,
+            0,
+            x86_gpr(1),
+            x86_gpr(2),
+            x86_gpr(1),
+            OpWidth::W32,
+        );
+    }
+
+    #[test]
+    fn lift_vex_andn_rejects_invalid_forms_like_spec() {
+        let err = lift_single(&[0xC4, 0xE2, 0x74, 0xF2, 0xC2]).expect_err("ANDN VEX.L=1");
+        assert!(matches!(err, LiftError::InvalidEncoding { .. }), "{err:?}");
+
+        let err = lift_single(&[0xC4, 0xE2, 0x73, 0xF2, 0xC2]).unwrap_err();
+        assert!(matches!(err, LiftError::Unsupported { .. }), "{err:?}");
     }
 
     fn assert_vex_pdep_pext_op(
