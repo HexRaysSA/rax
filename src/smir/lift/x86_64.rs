@@ -187,6 +187,7 @@ struct ApxEvexPrefix {
     r_prime: bool,
     v_prime: bool,
     w: bool,
+    operand_size_override: bool,
     nd: bool,
     nf: bool,
     b: bool,
@@ -223,6 +224,8 @@ impl ApxEvexPrefix {
             1
         } else if self.w {
             8
+        } else if self.operand_size_override {
+            2
         } else {
             4
         }
@@ -249,6 +252,7 @@ impl ApxEvexPrefix {
                 b_lo: (self.rm_ext() & 8) != 0,
             }),
             cursor,
+            operand_size_override: self.operand_size_override,
             ..X86Prefix::default()
         }
     }
@@ -581,6 +585,7 @@ fn decode_apx_evex_prefix(bytes: &[u8], addr: u64) -> Result<ApxEvexPrefix, Lift
         r_prime: (p0 & 0x10) != 0,
         v_prime: (p2 & 0x08) != 0,
         w: (p1 & 0x80) != 0,
+        operand_size_override: (p1 & 0x03) == 0x01,
         nd: (p2 & 0x10) != 0,
         nf: (p2 & 0x04) != 0,
         b: (p0 & 0x20) != 0,
@@ -3141,6 +3146,42 @@ impl X86_64Lifter {
         ))
     }
 
+    fn lift_apx_movbe(
+        &self,
+        prefix: ApxEvexPrefix,
+        bytes: &[u8],
+        pc: u64,
+    ) -> Result<LiftResult, LiftError> {
+        if prefix.nd || prefix.nf {
+            return Err(LiftError::Unsupported {
+                addr: pc,
+                mnemonic: "APX MOVBE with NDD/NF".to_string(),
+            });
+        }
+
+        let op_size = prefix.op_size(false);
+        let width = self.size_to_width(op_size);
+        let modrm_prefix = prefix.as_modrm_prefix(prefix.bytes + 1);
+        let modrm = decode_modrm(bytes, &modrm_prefix, pc)?;
+        if modrm.is_memory {
+            return Err(LiftError::InvalidEncoding {
+                addr: pc,
+                bytes: bytes.to_vec(),
+            });
+        }
+
+        let dst = self.gpr(modrm.rm);
+        let src = self.gpr(modrm.reg);
+        Ok(LiftResult::fallthrough(
+            vec![SmirOp::new(
+                OpId(0),
+                pc,
+                OpKind::Bswap { dst, src, width },
+            )],
+            prefix.bytes + 1 + modrm.bytes_consumed,
+        ))
+    }
+
     fn lift_apx_imul_reg(
         &self,
         prefix: ApxEvexPrefix,
@@ -3679,6 +3720,7 @@ impl X86_64Lifter {
             0x24 | 0x2C | 0xA5 | 0xAD => {
                 self.lift_apx_double_shift(prefix, opcode, &bytes[prefix.bytes + 1..], pc, ctx)
             }
+            0x61 => self.lift_apx_movbe(prefix, &bytes[prefix.bytes + 1..], pc),
             0x69 | 0x6B => {
                 self.lift_apx_imul_imm(prefix, opcode, &bytes[prefix.bytes + 1..], pc, ctx)
             }
@@ -7711,6 +7753,68 @@ mod tests {
             }
             other => panic!("expected APX NDD IMUL with captured source, got {other:?}"),
         }
+    }
+
+    #[test]
+    fn lift_apx_movbe_reg_reg_uses_bswap_like_llvm() {
+        let mut lifter = X86_64Lifter::strict();
+        let mut ctx = LiftContext::new(SourceArch::X86_64);
+
+        for (bytes, name, width) in [
+            (
+                [0x62, 0xD4, 0xFC, 0x08, 0x61, 0xC0],
+                "movbe64",
+                OpWidth::W64,
+            ),
+            (
+                [0x62, 0xD4, 0x7C, 0x08, 0x61, 0xC0],
+                "movbe32",
+                OpWidth::W32,
+            ),
+            (
+                [0x62, 0xD4, 0x7D, 0x08, 0x61, 0xC0],
+                "movbe16",
+                OpWidth::W16,
+            ),
+        ] {
+            let result = lifter.lift_insn(0x1000, &bytes, &mut ctx).unwrap();
+            assert_eq!(result.bytes_consumed, 6, "{name}");
+            assert_eq!(result.ops.len(), 1, "{name}");
+            match &result.ops[0].kind {
+                OpKind::Bswap {
+                    dst,
+                    src,
+                    width: got_width,
+                } => {
+                    assert_eq!(*dst, x86_gpr(8), "{name}");
+                    assert_eq!(*src, x86_gpr(0), "{name}");
+                    assert_eq!(*got_width, width, "{name}");
+                }
+                other => panic!("expected APX {name} as Bswap, got {other:?}"),
+            }
+        }
+    }
+
+    #[test]
+    fn lift_apx_movbe_rejects_invalid_forms_like_llvm() {
+        let mut lifter = X86_64Lifter::strict();
+        let mut ctx = LiftContext::new(SourceArch::X86_64);
+
+        for (bytes, name) in [
+            ([0x62, 0xD4, 0xFC, 0x0C, 0x61, 0xC0], "nf"),
+            ([0x62, 0xD4, 0xFC, 0x18, 0x61, 0xC0], "ndd"),
+        ] {
+            let err = lifter.lift_insn(0x1000, &bytes, &mut ctx).unwrap_err();
+            assert!(
+                matches!(err, LiftError::Unsupported { .. }),
+                "{name}: {err:?}"
+            );
+        }
+
+        let err = lifter
+            .lift_insn(0x1000, &[0x62, 0xD4, 0xFC, 0x08, 0x61, 0x00], &mut ctx)
+            .unwrap_err();
+        assert!(matches!(err, LiftError::InvalidEncoding { .. }), "{err:?}");
     }
 
     #[test]

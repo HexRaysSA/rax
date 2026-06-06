@@ -4315,6 +4315,30 @@ impl X86_64Lowerer {
                 emitter.emit_not(dst_reg, *width);
             }
 
+            OpKind::Bswap { dst, src, width } => {
+                let dst_reg = self.get_dst_reg(*dst)?;
+                let src_reg = self.get_reg(*src)?;
+
+                if dst_reg != src_reg {
+                    let mut emitter = X86Emitter::new(&mut self.code);
+                    emitter.emit_mov_rr(dst_reg, src_reg, *width);
+                }
+
+                match width {
+                    OpWidth::W16 => {
+                        self.code.emit_u8(0x9C); // pushfq
+                        let mut emitter = X86Emitter::new(&mut self.code);
+                        emitter.emit_rol_ri(dst_reg, 8, *width);
+                        self.code.emit_u8(0x9D); // popfq
+                    }
+                    OpWidth::W32 | OpWidth::W64 => {
+                        let mut emitter = X86Emitter::new(&mut self.code);
+                        emitter.emit_bswap(dst_reg, *width);
+                    }
+                    _ => {}
+                }
+            }
+
             OpKind::Bsf {
                 dst, src, width, ..
             } => {
@@ -9731,6 +9755,20 @@ mod tests {
             0x62, 0xF4, 0xBC, 0x18, 0xAF, 0xC3, 0x62, 0xF4, 0xBC, 0x1C, 0xAF, 0xC3,
             0x62, 0xF4, 0xE4, 0x18, 0xAF, 0xC3, 0x62, 0x74, 0xFC, 0x0C, 0x6B, 0xC0,
             0x07, 0x62, 0x74, 0xFC, 0x0C, 0x69, 0xC0, 0x78, 0x56, 0x34, 0x12, 0xF4,
+        ]);
+        assert!(entry < lowered.len());
+        assert!(!lowered.is_empty());
+    }
+
+    #[test]
+    fn lower_apx_movbe_slice_lowers_without_relocs() {
+        // LLVM 20 APX MAP4 forms:
+        //   movbeq %rax, %r8  => 62 d4 fc 08 61 c0
+        //   movbel %eax, %r8d => 62 d4 7c 08 61 c0
+        //   movbew %ax, %r8w  => 62 d4 7d 08 61 c0
+        let (lowered, entry) = lower_rex2_block(&[
+            0x62, 0xD4, 0xFC, 0x08, 0x61, 0xC0, 0x62, 0xD4, 0x7C, 0x08, 0x61, 0xC0,
+            0x62, 0xD4, 0x7D, 0x08, 0x61, 0xC0, 0xF4,
         ]);
         assert!(entry < lowered.len());
         assert!(!lowered.is_empty());
