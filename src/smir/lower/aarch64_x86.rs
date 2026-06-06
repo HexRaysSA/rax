@@ -343,6 +343,143 @@ impl Aarch64X86_64Lowerer {
         }
     }
 
+    fn emit_jcc_placeholder(&mut self, cond: X86Cond) -> usize {
+        let off = self.code.position();
+        let mut e = X86Emitter::new(&mut self.code);
+        e.emit_jcc_rel32(cond, 0);
+        off + 2
+    }
+
+    fn emit_jmp_placeholder(&mut self) -> usize {
+        let off = self.code.position();
+        let mut e = X86Emitter::new(&mut self.code);
+        e.emit_jmp_rel32(0);
+        off + 1
+    }
+
+    fn patch_rel32_to_current(&mut self, offset: usize) -> Result<(), LowerError> {
+        let target = self.code.position();
+        let rel = target as i64 - offset as i64 - 4;
+        if rel < i32::MIN as i64 || rel > i32::MAX as i64 {
+            return Err(LowerError::RelocationOutOfRange { offset, target });
+        }
+        self.code.patch_i32(offset, rel as i32);
+        Ok(())
+    }
+
+    fn ensure_div_width(width: OpWidth, op: &'static str) -> Result<(), LowerError> {
+        match width {
+            OpWidth::W32 | OpWidth::W64 => Ok(()),
+            _ => Err(LowerError::UnsupportedOp {
+                op: format!("AArch64 {op} width {width:?}"),
+            }),
+        }
+    }
+
+    fn lower_divu(
+        &mut self,
+        quot: VReg,
+        rem: Option<VReg>,
+        src1: VReg,
+        src2: &SrcOperand,
+        width: OpWidth,
+    ) -> Result<(), LowerError> {
+        Self::ensure_div_width(width, "DivU")?;
+        self.load_src_to(src2, RHS, width)?;
+        {
+            let mut e = X86Emitter::new(&mut self.code);
+            e.emit_test_rr(RHS, RHS, width);
+        }
+        let div_path = self.emit_jcc_placeholder(X86Cond::Ne);
+        self.emit_mov_imm(ACC, 0, width);
+        self.store_reg_to(quot, ACC, width)?;
+        if let Some(rem) = rem {
+            self.store_reg_to(rem, ACC, width)?;
+        }
+        let done = self.emit_jmp_placeholder();
+
+        self.patch_rel32_to_current(div_path)?;
+        self.load_vreg_to(src1, ACC, width)?;
+        {
+            let mut e = X86Emitter::new(&mut self.code);
+            e.emit_zero_rdx();
+            e.emit_div(RHS, width);
+        }
+        self.store_reg_to(quot, ACC, width)?;
+        if let Some(rem) = rem {
+            self.store_reg_to(rem, HI, width)?;
+        }
+
+        self.patch_rel32_to_current(done)
+    }
+
+    fn lower_divs(
+        &mut self,
+        quot: VReg,
+        rem: Option<VReg>,
+        src1: VReg,
+        src2: &SrcOperand,
+        width: OpWidth,
+    ) -> Result<(), LowerError> {
+        Self::ensure_div_width(width, "DivS")?;
+        self.load_src_to(src2, RHS, width)?;
+        {
+            let mut e = X86Emitter::new(&mut self.code);
+            e.emit_test_rr(RHS, RHS, width);
+        }
+        let nonzero_path = self.emit_jcc_placeholder(X86Cond::Ne);
+        self.emit_mov_imm(ACC, 0, width);
+        self.store_reg_to(quot, ACC, width)?;
+        if let Some(rem) = rem {
+            self.store_reg_to(rem, ACC, width)?;
+        }
+        let zero_done = self.emit_jmp_placeholder();
+
+        self.patch_rel32_to_current(nonzero_path)?;
+        self.load_vreg_to(src1, ACC, width)?;
+        let signed_min = match width {
+            OpWidth::W32 => i32::MIN as i64,
+            OpWidth::W64 => i64::MIN,
+            _ => unreachable!(),
+        };
+        self.emit_mov_imm(B1, signed_min, width);
+        {
+            let mut e = X86Emitter::new(&mut self.code);
+            e.emit_cmp_rr(ACC, B1, width);
+        }
+        let not_min = self.emit_jcc_placeholder(X86Cond::Ne);
+        {
+            let mut e = X86Emitter::new(&mut self.code);
+            e.emit_cmp_ri(RHS, -1, width);
+        }
+        let not_overflow = self.emit_jcc_placeholder(X86Cond::Ne);
+        self.store_reg_to(quot, ACC, width)?;
+        if let Some(rem) = rem {
+            self.emit_mov_imm(B1, 0, width);
+            self.store_reg_to(rem, B1, width)?;
+        }
+        let overflow_done = self.emit_jmp_placeholder();
+
+        self.patch_rel32_to_current(not_min)?;
+        self.patch_rel32_to_current(not_overflow)?;
+        {
+            let mut e = X86Emitter::new(&mut self.code);
+            match width {
+                OpWidth::W32 => e.emit_cdq(),
+                OpWidth::W64 => e.emit_cqo(),
+                _ => unreachable!(),
+            }
+            e.emit_idiv(RHS, width);
+        }
+        self.store_reg_to(quot, ACC, width)?;
+        if let Some(rem) = rem {
+            self.store_reg_to(rem, HI, width)?;
+        }
+
+        self.patch_rel32_to_current(zero_done)?;
+        self.patch_rel32_to_current(overflow_done)
+    }
+
     fn emit_nzcv_from_flags(&mut self, form: FlagForm) {
         {
             let mut e = X86Emitter::new(&mut self.code);
@@ -563,6 +700,20 @@ impl Aarch64X86_64Lowerer {
                     self.store_reg_to(*dst_hi, HI, *width)?;
                 }
             }
+            OpKind::DivU {
+                quot,
+                rem,
+                src1,
+                src2,
+                width,
+            } => self.lower_divu(*quot, *rem, *src1, src2, *width)?,
+            OpKind::DivS {
+                quot,
+                rem,
+                src1,
+                src2,
+                width,
+            } => self.lower_divs(*quot, *rem, *src1, src2, *width)?,
             OpKind::And {
                 dst,
                 src1,
@@ -1044,6 +1195,56 @@ mod tests {
         run_func(&b.finish(), &mut regs);
 
         assert_eq!(regs.x[0], 0xffff_fffa);
+    }
+
+    #[test]
+    fn divu_zero_divisor_writes_zero_without_trap() {
+        let mut b = FunctionBuilder::new(FunctionId(0), 0x2c00);
+        b.push_op(
+            0x2c00,
+            OpKind::DivU {
+                quot: x(0),
+                rem: None,
+                src1: x(1),
+                src2: SrcOperand::Reg(x(2)),
+                width: OpWidth::W64,
+            },
+        );
+        b.set_terminator(Terminator::Return { values: vec![] });
+
+        let mut regs = Aarch64GuestRegs::default();
+        regs.x[0] = 0xaaaa_bbbb_cccc_dddd;
+        regs.x[1] = 0x1234_5678_9abc_def0;
+        regs.x[2] = 0;
+        run_func(&b.finish(), &mut regs);
+
+        assert_eq!(regs.x[0], 0);
+        assert_eq!(regs.pc, 0x2c04);
+    }
+
+    #[test]
+    fn divs_w32_min_overflow_wraps_and_zero_extends() {
+        let mut b = FunctionBuilder::new(FunctionId(0), 0x2e00);
+        b.push_op(
+            0x2e00,
+            OpKind::DivS {
+                quot: x(0),
+                rem: None,
+                src1: x(1),
+                src2: SrcOperand::Reg(x(2)),
+                width: OpWidth::W32,
+            },
+        );
+        b.set_terminator(Terminator::Return { values: vec![] });
+
+        let mut regs = Aarch64GuestRegs::default();
+        regs.x[0] = 0xaaaa_bbbb_cccc_dddd;
+        regs.x[1] = 0xffff_ffff_8000_0000;
+        regs.x[2] = 0xffff_ffff_ffff_ffff;
+        run_func(&b.finish(), &mut regs);
+
+        assert_eq!(regs.x[0], 0x8000_0000);
+        assert_eq!(regs.pc, 0x2e04);
     }
 
     #[test]
