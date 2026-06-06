@@ -2045,6 +2045,19 @@ impl Aarch64Lowerer {
         set_flags: bool,
         width: OpWidth,
     ) -> Result<(), LowerError> {
+        if matches!(width, OpWidth::W8 | OpWidth::W16) {
+            if set_flags {
+                return Err(LowerError::UnsupportedOp {
+                    op: "AArch64 native flag-setting subword Neg".into(),
+                });
+            }
+
+            let dst = Self::dst_gpr(dst)?;
+            self.emit_addsub_reg(dst, 31, Self::gpr(src)?, true, false, OpWidth::W32)?;
+            let imms = if width == OpWidth::W8 { 7 } else { 15 };
+            return self.emit_bitfield(dst, dst, 0b10, 0, imms, OpWidth::W32);
+        }
+
         self.emit_addsub_reg(
             Self::dst_gpr(dst)?,
             31,
@@ -6119,6 +6132,62 @@ mod tests {
 
         let mut expected = Vec::new();
         expected.extend_from_slice(&enc_addsub_imm(0, 1, 0, 1).to_le_bytes());
+        expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
+        assert_eq!(code, expected);
+    }
+
+    #[test]
+    fn lowers_neg_w8_as_sub_uxtb() {
+        let mut builder = FunctionBuilder::new(FunctionId(0), 0);
+        builder.push_op(
+            0,
+            OpKind::Neg {
+                dst: x(0),
+                src: x(1),
+                width: OpWidth::W8,
+                flags: FlagUpdate::None,
+            },
+        );
+        builder.set_terminator(Terminator::Return { values: vec![] });
+        let func = builder.finish();
+
+        let mut lowerer = Aarch64Lowerer::new();
+        lowerer.lower_function(&func).unwrap();
+        let code = lowerer.finalize().unwrap();
+
+        let mut expected = Vec::new();
+        expected.extend_from_slice(
+            &enc_addsub_shift_regs(0, 1, 0, 0, 0, 0, 31, 1).to_le_bytes(),
+        );
+        expected.extend_from_slice(&enc_bitfield_regs(0, 0b10, 0, 7, 0, 0).to_le_bytes());
+        expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
+        assert_eq!(code, expected);
+    }
+
+    #[test]
+    fn lowers_neg_w16_as_sub_uxth() {
+        let mut builder = FunctionBuilder::new(FunctionId(0), 0);
+        builder.push_op(
+            0,
+            OpKind::Neg {
+                dst: x(0),
+                src: x(1),
+                width: OpWidth::W16,
+                flags: FlagUpdate::None,
+            },
+        );
+        builder.set_terminator(Terminator::Return { values: vec![] });
+        let func = builder.finish();
+
+        let mut lowerer = Aarch64Lowerer::new();
+        lowerer.lower_function(&func).unwrap();
+        let code = lowerer.finalize().unwrap();
+
+        let mut expected = Vec::new();
+        expected.extend_from_slice(
+            &enc_addsub_shift_regs(0, 1, 0, 0, 0, 0, 31, 1).to_le_bytes(),
+        );
+        expected.extend_from_slice(&enc_bitfield_regs(0, 0b10, 0, 15, 0, 0).to_le_bytes());
         expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
         assert_eq!(code, expected);
     }
@@ -11863,6 +11932,26 @@ mod tests {
             let err = lowerer.lower_function(&func).unwrap_err();
             assert!(matches!(err, LowerError::UnsupportedOp { .. }));
         }
+    }
+
+    #[test]
+    fn rejects_flag_setting_subword_neg_lowering() {
+        let mut builder = FunctionBuilder::new(FunctionId(0), 0);
+        builder.push_op(
+            0,
+            OpKind::Neg {
+                dst: x(0),
+                src: x(1),
+                width: OpWidth::W8,
+                flags: FlagUpdate::All,
+            },
+        );
+        builder.set_terminator(Terminator::Return { values: vec![] });
+        let func = builder.finish();
+
+        let mut lowerer = Aarch64Lowerer::new();
+        let err = lowerer.lower_function(&func).unwrap_err();
+        assert!(matches!(err, LowerError::UnsupportedOp { .. }));
     }
 
     #[test]
