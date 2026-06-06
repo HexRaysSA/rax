@@ -1598,6 +1598,22 @@ impl Aarch64Lifter {
                 self.lift_load_exclusive(insn, MemWidth::B2, pc, &mut ops, ctx)?;
             }
 
+            Mnemonic::STXR | Mnemonic::STLXR => {
+                let width = match insn.operands.get(1) {
+                    Some(Operand::Reg(r)) if !r.is_64bit => MemWidth::B4,
+                    _ => MemWidth::B8,
+                };
+                self.lift_store_exclusive(insn, width, pc, &mut ops, ctx)?;
+            }
+
+            Mnemonic::STXRB | Mnemonic::STLXRB => {
+                self.lift_store_exclusive(insn, MemWidth::B1, pc, &mut ops, ctx)?;
+            }
+
+            Mnemonic::STXRH | Mnemonic::STLXRH => {
+                self.lift_store_exclusive(insn, MemWidth::B2, pc, &mut ops, ctx)?;
+            }
+
             Mnemonic::LDAR => {
                 let width = match insn.operands.first() {
                     Some(Operand::Reg(r)) if !r.is_64bit => MemWidth::B4,
@@ -3336,6 +3352,51 @@ impl Aarch64Lifter {
             OpKind::LoadExclusive {
                 dst,
                 addr: load_addr,
+                width,
+            },
+        ));
+
+        Ok(())
+    }
+
+    fn lift_store_exclusive(
+        &self,
+        insn: &DecodedInsn,
+        width: MemWidth,
+        pc: u64,
+        ops: &mut Vec<SmirOp>,
+        ctx: &mut LiftContext,
+    ) -> Result<(), LiftError> {
+        let (status, src, mem) = match (
+            insn.operands.get(0),
+            insn.operands.get(1),
+            insn.operands.get(2),
+        ) {
+            (Some(Operand::Reg(status)), Some(Operand::Reg(src)), Some(Operand::Mem(mem))) => {
+                (status, src, mem)
+            }
+            _ => {
+                return Err(LiftError::Internal(
+                    "invalid store-exclusive operands".to_string(),
+                ));
+            }
+        };
+
+        let (addr, pre_ops) = self.mem_to_addr(mem, ctx);
+        for mut op in pre_ops {
+            op.id = OpId(ops.len() as u16);
+            ops.push(op);
+        }
+
+        let store_addr = self.indexed_access_addr(mem, addr);
+
+        ops.push(SmirOp::new(
+            OpId(ops.len() as u16),
+            pc,
+            OpKind::StoreExclusive {
+                status: self.dst_reg(status, ctx),
+                src: self.arm_reg(src),
+                addr: store_addr,
                 width,
             },
         ));

@@ -949,8 +949,8 @@ impl Aarch64Decoder {
 
         let is_64bit = size == 0b11;
         let is_pair = o1 == 1;
-        let is_acquire = o2 == 1;
-        let is_release = o0 == 1;
+        let is_ordered_non_exclusive = o2 == 1;
+        let is_ordered_exclusive = o0 == 1;
 
         if o2 == 1 && o1 == 1 {
             let mnemonic = match (l, o0) {
@@ -968,22 +968,28 @@ impl Aarch64Decoder {
                 )))));
         }
 
-        let mnemonic = match (l, is_pair, is_acquire, is_release, size) {
+        let mnemonic = match (
+            l,
+            is_pair,
+            is_ordered_non_exclusive,
+            is_ordered_exclusive,
+            size,
+        ) {
             // Load exclusive
             (1, false, false, false, 0b00) => Mnemonic::LDXRB,
             (1, false, false, false, 0b01) => Mnemonic::LDXRH,
             (1, false, false, false, _) => Mnemonic::LDXR,
             // Load-acquire exclusive
-            (1, false, true, false, 0b00) => Mnemonic::LDAXRB,
-            (1, false, true, false, 0b01) => Mnemonic::LDAXRH,
-            (1, false, true, false, _) => Mnemonic::LDAXR,
+            (1, false, false, true, 0b00) => Mnemonic::LDAXRB,
+            (1, false, false, true, 0b01) => Mnemonic::LDAXRH,
+            (1, false, false, true, _) => Mnemonic::LDAXR,
             // Load-acquire
             (1, false, true, true, 0b00) => Mnemonic::LDARB,
             (1, false, true, true, 0b01) => Mnemonic::LDARH,
             (1, false, true, true, _) => Mnemonic::LDAR,
             // Load exclusive pair
             (1, true, false, false, _) => Mnemonic::LDXP,
-            (1, true, true, false, _) => Mnemonic::LDAXP,
+            (1, true, false, true, _) => Mnemonic::LDAXP,
             // Store exclusive
             (0, false, false, false, 0b00) => Mnemonic::STXRB,
             (0, false, false, false, 0b01) => Mnemonic::STXRH,
@@ -1004,8 +1010,9 @@ impl Aarch64Decoder {
 
         let mut insn = DecodedInsn::new(mnemonic, ExecutionState::Aarch64, raw, 4);
 
-        // For store exclusive, Rs comes first
-        if l == 0 && !is_release {
+        // For store-exclusive, Rs comes first. STLR uses o2=1 and has no
+        // status register, while STLXR/STLXP still have Rs.
+        if l == 0 && !is_ordered_non_exclusive {
             insn = insn.with_operand(Operand::Reg(Register::w(rs)));
         }
 
@@ -2836,6 +2843,52 @@ mod tests {
         .unwrap();
         assert_eq!(insn.mnemonic, Mnemonic::CASAL);
         assert_eq!(insn.operands.len(), 3);
+    }
+
+    #[test]
+    fn test_store_exclusive_release_decode_operands() {
+        // LDAXR X0, [X1].
+        let insn = Aarch64Decoder::decode(
+            (0b11 << 30)
+                | (0b001000 << 24)
+                | (1 << 22)
+                | (0b11111 << 16)
+                | (1 << 15)
+                | (0b11111 << 10)
+                | (1 << 5),
+        )
+        .unwrap();
+        assert_eq!(insn.mnemonic, Mnemonic::LDAXR);
+        assert_eq!(insn.operands.len(), 2);
+
+        // STLXR W2, X3, [X1].
+        let insn = Aarch64Decoder::decode(
+            (0b11 << 30)
+                | (0b001000 << 24)
+                | (2 << 16)
+                | (1 << 15)
+                | (0b11111 << 10)
+                | (1 << 5)
+                | 3,
+        )
+        .unwrap();
+        assert_eq!(insn.mnemonic, Mnemonic::STLXR);
+        assert_eq!(insn.operands.len(), 3);
+
+        // STLR X3, [X1] has no status operand.
+        let insn = Aarch64Decoder::decode(
+            (0b11 << 30)
+                | (0b001000 << 24)
+                | (1 << 23)
+                | (0b11111 << 16)
+                | (1 << 15)
+                | (0b11111 << 10)
+                | (1 << 5)
+                | 3,
+        )
+        .unwrap();
+        assert_eq!(insn.mnemonic, Mnemonic::STLR);
+        assert_eq!(insn.operands.len(), 2);
     }
 
     #[test]

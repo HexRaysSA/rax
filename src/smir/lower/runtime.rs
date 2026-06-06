@@ -92,6 +92,12 @@ pub struct Aarch64GuestRegs {
     pub load_fn: u64,
     /// Address of `fn(ctx, addr, value, size) -> ok`.
     pub store_fn: u64,
+    /// Address armed by the last load-exclusive.
+    pub exclusive_addr: u64,
+    /// Byte size armed by the last load-exclusive.
+    pub exclusive_size: u64,
+    /// Non-zero when the exclusive monitor is armed.
+    pub exclusive_valid: u64,
 }
 
 impl Default for Aarch64GuestRegs {
@@ -107,6 +113,9 @@ impl Default for Aarch64GuestRegs {
             ctx: 0,
             load_fn: 0,
             store_fn: 0,
+            exclusive_addr: 0,
+            exclusive_size: 0,
+            exclusive_valid: 0,
         }
     }
 }
@@ -122,6 +131,9 @@ impl Aarch64GuestRegs {
     pub const CTX_OFFSET: i32 = Self::V_OFFSET + 64 * 8;
     pub const LOAD_FN_OFFSET: i32 = Self::CTX_OFFSET + 8;
     pub const STORE_FN_OFFSET: i32 = Self::LOAD_FN_OFFSET + 8;
+    pub const EXCLUSIVE_ADDR_OFFSET: i32 = Self::STORE_FN_OFFSET + 8;
+    pub const EXCLUSIVE_SIZE_OFFSET: i32 = Self::EXCLUSIVE_ADDR_OFFSET + 8;
+    pub const EXCLUSIVE_VALID_OFFSET: i32 = Self::EXCLUSIVE_SIZE_OFFSET + 8;
 }
 
 // enter_native(rdi = entry ptr, rsi = *mut GuestRegs):

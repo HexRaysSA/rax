@@ -44,6 +44,9 @@ const A64_V_OFFSET: i32 = 36 * 8;
 const A64_CTX_OFFSET: i32 = A64_V_OFFSET + 64 * 8;
 const A64_LOAD_FN_OFFSET: i32 = A64_CTX_OFFSET + 8;
 const A64_STORE_FN_OFFSET: i32 = A64_LOAD_FN_OFFSET + 8;
+const A64_EXCLUSIVE_ADDR_OFFSET: i32 = A64_STORE_FN_OFFSET + 8;
+const A64_EXCLUSIVE_SIZE_OFFSET: i32 = A64_EXCLUSIVE_ADDR_OFFSET + 8;
+const A64_EXCLUSIVE_VALID_OFFSET: i32 = A64_EXCLUSIVE_SIZE_OFFSET + 8;
 
 #[derive(Clone, Copy, Debug)]
 enum FlagForm {
@@ -460,6 +463,29 @@ impl Aarch64X86_64Lowerer {
         self.store_reg_to(dst, ACC, OpWidth::W64)
     }
 
+    fn lower_load_exclusive(
+        &mut self,
+        dst: VReg,
+        addr: &Address,
+        width: MemWidth,
+    ) -> Result<(), LowerError> {
+        let (_op_width, size) = Self::scalar_mem_width(width)?;
+        self.load_addr_to(addr, ADDR)?;
+        {
+            let mut e = X86Emitter::new(&mut self.code);
+            e.emit_mov_mr(STATE, A64_EXCLUSIVE_ADDR_OFFSET, ADDR, OpWidth::W64);
+            e.emit_mov_ri(B0, size, OpWidth::W64);
+            e.emit_mov_mr(STATE, A64_EXCLUSIVE_SIZE_OFFSET, B0, OpWidth::W64);
+            e.emit_mov_ri(B0, 1, OpWidth::W64);
+            e.emit_mov_mr(STATE, A64_EXCLUSIVE_VALID_OFFSET, B0, OpWidth::W64);
+            e.emit_mov_rm(B3, STATE, A64_LOAD_FN_OFFSET, OpWidth::W64);
+            e.emit_mov_ri(HI, size, OpWidth::W64);
+            e.emit_mov_ri(RHS, 0, OpWidth::W64);
+        }
+        self.emit_mem_helper_call(B3);
+        self.store_reg_to(dst, ACC, OpWidth::W64)
+    }
+
     fn lower_store(
         &mut self,
         src: VReg,
@@ -476,6 +502,64 @@ impl Aarch64X86_64Lowerer {
         }
         self.emit_mem_helper_call(B3);
         Ok(())
+    }
+
+    fn lower_store_exclusive(
+        &mut self,
+        status: VReg,
+        src: VReg,
+        addr: &Address,
+        width: MemWidth,
+    ) -> Result<(), LowerError> {
+        let (op_width, size) = Self::scalar_mem_width(width)?;
+        self.load_addr_to(addr, ADDR)?;
+        self.load_vreg_to(src, HI, op_width)?;
+        {
+            let mut e = X86Emitter::new(&mut self.code);
+            e.emit_mov_rm(B0, STATE, A64_EXCLUSIVE_VALID_OFFSET, OpWidth::W64);
+            e.emit_cmp_ri(B0, 1, OpWidth::W64);
+        }
+        let fail_valid = self.emit_jcc_placeholder(X86Cond::Ne);
+        {
+            let mut e = X86Emitter::new(&mut self.code);
+            e.emit_mov_rm(B0, STATE, A64_EXCLUSIVE_ADDR_OFFSET, OpWidth::W64);
+            e.emit_cmp_rr(B0, ADDR, OpWidth::W64);
+        }
+        let fail_addr = self.emit_jcc_placeholder(X86Cond::Ne);
+        {
+            let mut e = X86Emitter::new(&mut self.code);
+            e.emit_mov_rm(B0, STATE, A64_EXCLUSIVE_SIZE_OFFSET, OpWidth::W64);
+            e.emit_cmp_ri(B0, size, OpWidth::W64);
+        }
+        let fail_size = self.emit_jcc_placeholder(X86Cond::Ne);
+
+        {
+            let mut e = X86Emitter::new(&mut self.code);
+            e.emit_mov_rm(B3, STATE, A64_STORE_FN_OFFSET, OpWidth::W64);
+            e.emit_mov_ri(RHS, size, OpWidth::W64);
+        }
+        self.emit_mem_helper_call(B3);
+        {
+            let mut e = X86Emitter::new(&mut self.code);
+            e.emit_xor_rr(ACC, ACC, OpWidth::W64);
+        }
+        let done = self.emit_jmp_placeholder();
+
+        self.patch_rel32_to_current(fail_valid)?;
+        self.patch_rel32_to_current(fail_addr)?;
+        self.patch_rel32_to_current(fail_size)?;
+        {
+            let mut e = X86Emitter::new(&mut self.code);
+            e.emit_mov_ri(ACC, 1, OpWidth::W64);
+        }
+
+        self.patch_rel32_to_current(done)?;
+        {
+            let mut e = X86Emitter::new(&mut self.code);
+            e.emit_xor_rr(B0, B0, OpWidth::W64);
+            e.emit_mov_mr(STATE, A64_EXCLUSIVE_VALID_OFFSET, B0, OpWidth::W64);
+        }
+        self.store_reg_to(status, ACC, OpWidth::W32)
     }
 
     fn lower_atomic_rmw(
@@ -1497,9 +1581,20 @@ impl Aarch64X86_64Lowerer {
                 sign,
             } => self.lower_load(*dst, addr, *width, *sign)?,
             OpKind::LoadExclusive { dst, addr, width } => {
-                self.lower_load(*dst, addr, *width, SignExtend::Zero)?
+                self.lower_load_exclusive(*dst, addr, *width)?
             }
             OpKind::Store { src, addr, width } => self.lower_store(*src, addr, *width)?,
+            OpKind::StoreExclusive {
+                status,
+                src,
+                addr,
+                width,
+            } => self.lower_store_exclusive(*status, *src, addr, *width)?,
+            OpKind::ClearExclusive => {
+                let mut e = X86Emitter::new(&mut self.code);
+                e.emit_xor_rr(ACC, ACC, OpWidth::W64);
+                e.emit_mov_mr(STATE, A64_EXCLUSIVE_VALID_OFFSET, ACC, OpWidth::W64);
+            }
             OpKind::AtomicRmw {
                 dst,
                 addr,
