@@ -9556,6 +9556,18 @@ mod tests {
         );
     }
 
+    #[test]
+    fn lower_apx_push2_pop2_legacy_pair_lowers_without_relocs() {
+        // LLVM 20:
+        //   push2 %rax, %rbx => 62 f4 64 18 ff f0
+        //   pop2  %rax, %rbx => 62 f4 64 18 8f c0
+        let (lowered, entry) = lower_rex2_block(&[
+            0x62, 0xF4, 0x64, 0x18, 0xFF, 0xF0, 0x62, 0xF4, 0x64, 0x18, 0x8F, 0xC0, 0xF4,
+        ]);
+        assert!(entry < lowered.len());
+        assert!(!lowered.is_empty());
+    }
+
     #[cfg(all(feature = "smir-jit", target_arch = "x86_64"))]
     #[test]
     fn exec_rex2_mov_egpr_roundtrips_through_jit_state() {

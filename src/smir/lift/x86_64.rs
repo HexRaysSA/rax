@@ -174,6 +174,28 @@ struct VecPrefix {
     bytes: usize,
 }
 
+#[derive(Clone, Copy, Debug)]
+struct ApxEvexPrefix {
+    bytes: usize,
+    vvvv: u8,
+    v_prime: bool,
+    b: bool,
+    b4: bool,
+}
+
+impl ApxEvexPrefix {
+    fn rm_ext(self) -> u8 {
+        let b_ext = if self.b { 0 } else { 8 };
+        let b4_ext = if self.b4 { 16 } else { 0 };
+        b_ext | b4_ext
+    }
+
+    fn vvvv_reg(self) -> u8 {
+        let v_prime_ext = if self.v_prime { 0 } else { 16 };
+        (self.vvvv ^ 0x0F) | v_prime_ext
+    }
+}
+
 impl X86Prefix {
     /// Get REX.W flag
     #[inline]
@@ -470,6 +492,35 @@ fn decode_evex_prefix(bytes: &[u8], addr: u64) -> Result<VecPrefix, LiftError> {
         vvvv,
         rex: build_rex(r, x, b, w),
         bytes: 4,
+    })
+}
+
+fn decode_apx_evex_prefix(bytes: &[u8], addr: u64) -> Result<ApxEvexPrefix, LiftError> {
+    if bytes.len() < 4 {
+        return Err(LiftError::Incomplete {
+            addr,
+            have: bytes.len(),
+            need: 4,
+        });
+    }
+
+    let p0 = bytes[1];
+    let p1 = bytes[2];
+    let p2 = bytes[3];
+    let mm = p0 & 0x07;
+    if mm != 4 {
+        return Err(LiftError::Unsupported {
+            addr,
+            mnemonic: format!("EVEX map 0x{mm:02X}"),
+        });
+    }
+
+    Ok(ApxEvexPrefix {
+        bytes: 4,
+        vvvv: (p1 >> 3) & 0x0F,
+        v_prime: (p2 & 0x08) != 0,
+        b: (p0 & 0x20) != 0,
+        b4: (p0 & 0x08) != 0,
     })
 }
 
@@ -2509,6 +2560,200 @@ impl X86_64Lifter {
         self.lift_vec_opcode(prefix, bytes, pc, ctx)
     }
 
+    fn lift_apx_push2(
+        &self,
+        prefix: ApxEvexPrefix,
+        modrm: u8,
+        pc: u64,
+        ctx: &mut LiftContext,
+    ) -> Result<LiftResult, LiftError> {
+        if (modrm >> 6) != 3 {
+            return Err(LiftError::Unsupported {
+                addr: pc,
+                mnemonic: "APX PUSH2 memory form".to_string(),
+            });
+        }
+        let group = (modrm >> 3) & 0x07;
+        if group != 6 {
+            return Err(LiftError::Unsupported {
+                addr: pc,
+                mnemonic: format!("APX FF /{group}"),
+            });
+        }
+
+        let reg1 = (modrm & 0x07) | prefix.rm_ext();
+        let reg2 = prefix.vvvv_reg();
+        let tmp1 = ctx.alloc_vreg();
+        let tmp2 = ctx.alloc_vreg();
+        let rsp = self.rsp();
+        let ops = vec![
+            SmirOp::new(
+                OpId(0),
+                pc,
+                OpKind::Mov {
+                    dst: tmp1,
+                    src: SrcOperand::Reg(self.gpr(reg1)),
+                    width: OpWidth::W64,
+                },
+            ),
+            SmirOp::new(
+                OpId(1),
+                pc,
+                OpKind::Mov {
+                    dst: tmp2,
+                    src: SrcOperand::Reg(self.gpr(reg2)),
+                    width: OpWidth::W64,
+                },
+            ),
+            SmirOp::new(
+                OpId(2),
+                pc,
+                OpKind::Sub {
+                    dst: rsp,
+                    src1: rsp,
+                    src2: SrcOperand::Imm(16),
+                    width: OpWidth::W64,
+                    flags: FlagUpdate::None,
+                },
+            ),
+            SmirOp::new(
+                OpId(3),
+                pc,
+                OpKind::Store {
+                    src: tmp1,
+                    addr: Address::Direct(rsp),
+                    width: MemWidth::B8,
+                },
+            ),
+            SmirOp::new(
+                OpId(4),
+                pc,
+                OpKind::Store {
+                    src: tmp2,
+                    addr: Address::base_off(rsp, 8),
+                    width: MemWidth::B8,
+                },
+            ),
+        ];
+
+        Ok(LiftResult::fallthrough(ops, prefix.bytes + 2))
+    }
+
+    fn lift_apx_pop2(
+        &self,
+        prefix: ApxEvexPrefix,
+        modrm: u8,
+        pc: u64,
+        ctx: &mut LiftContext,
+    ) -> Result<LiftResult, LiftError> {
+        if (modrm >> 6) != 3 {
+            return Err(LiftError::Unsupported {
+                addr: pc,
+                mnemonic: "APX POP2 memory form".to_string(),
+            });
+        }
+        let group = (modrm >> 3) & 0x07;
+        if group != 0 {
+            return Err(LiftError::Unsupported {
+                addr: pc,
+                mnemonic: format!("APX 8F /{group}"),
+            });
+        }
+
+        let reg1 = (modrm & 0x07) | prefix.rm_ext();
+        let reg2 = prefix.vvvv_reg();
+        let tmp1 = ctx.alloc_vreg();
+        let tmp2 = ctx.alloc_vreg();
+        let rsp = self.rsp();
+        let ops = vec![
+            SmirOp::new(
+                OpId(0),
+                pc,
+                OpKind::Load {
+                    dst: tmp1,
+                    addr: Address::Direct(rsp),
+                    width: MemWidth::B8,
+                    sign: SignExtend::Zero,
+                },
+            ),
+            SmirOp::new(
+                OpId(1),
+                pc,
+                OpKind::Load {
+                    dst: tmp2,
+                    addr: Address::base_off(rsp, 8),
+                    width: MemWidth::B8,
+                    sign: SignExtend::Zero,
+                },
+            ),
+            SmirOp::new(
+                OpId(2),
+                pc,
+                OpKind::Add {
+                    dst: rsp,
+                    src1: rsp,
+                    src2: SrcOperand::Imm(16),
+                    width: OpWidth::W64,
+                    flags: FlagUpdate::None,
+                },
+            ),
+            SmirOp::new(
+                OpId(3),
+                pc,
+                OpKind::Mov {
+                    dst: self.gpr(reg1),
+                    src: SrcOperand::Reg(tmp1),
+                    width: OpWidth::W64,
+                },
+            ),
+            SmirOp::new(
+                OpId(4),
+                pc,
+                OpKind::Mov {
+                    dst: self.gpr(reg2),
+                    src: SrcOperand::Reg(tmp2),
+                    width: OpWidth::W64,
+                },
+            ),
+        ];
+
+        Ok(LiftResult::fallthrough(ops, prefix.bytes + 2))
+    }
+
+    fn lift_apx_evex_map4(
+        &self,
+        pc: u64,
+        bytes: &[u8],
+        ctx: &mut LiftContext,
+    ) -> Result<LiftResult, LiftError> {
+        let prefix = decode_apx_evex_prefix(bytes, pc)?;
+        if bytes.len() < prefix.bytes + 1 {
+            return Err(LiftError::Incomplete {
+                addr: pc,
+                have: bytes.len(),
+                need: prefix.bytes + 1,
+            });
+        }
+
+        let opcode = bytes[prefix.bytes];
+        if bytes.len() < prefix.bytes + 2 {
+            return Err(LiftError::Incomplete {
+                addr: pc,
+                have: bytes.len(),
+                need: prefix.bytes + 2,
+            });
+        }
+        let modrm = bytes[prefix.bytes + 1];
+        match opcode {
+            0x8F => self.lift_apx_pop2(prefix, modrm, pc, ctx),
+            0xFF => self.lift_apx_push2(prefix, modrm, pc, ctx),
+            _ => Err(LiftError::Unsupported {
+                addr: pc,
+                mnemonic: format!("APX MAP4 opcode 0x{opcode:02X}"),
+            }),
+        }
+    }
+
     /// Lift group 5 instructions (FF)
     fn lift_group5(
         &self,
@@ -4212,6 +4457,18 @@ impl X86_64Lifter {
             });
         }
 
+        if bytes[0] == 0x62 {
+            let is_apx_map4 = bytes.get(1).map_or(false, |p0| (p0 & 0x07) == 4);
+            if is_apx_map4 || bytes.len() < 2 {
+                return self.lift_apx_evex_map4(pc, bytes, ctx);
+            }
+            return self.lift_vex_evex(pc, bytes, ctx);
+        }
+
+        if matches!(bytes[0], 0xC4 | 0xC5) {
+            return self.lift_vex_evex(pc, bytes, ctx);
+        }
+
         // Decode prefixes
         let prefix = decode_prefixes(bytes)?;
         let opcode_bytes = &bytes[prefix.cursor..];
@@ -5718,6 +5975,240 @@ mod tests {
                 need: 8
             }
         ));
+    }
+
+    #[test]
+    fn lift_apx_push2_uses_llvm_encoding_and_preserves_source_order() {
+        let mut lifter = X86_64Lifter::strict();
+        let mut ctx = LiftContext::new(SourceArch::X86_64);
+
+        // LLVM 20: `push2 %rax, %rsp` as EVEX MAP4 FF /6.
+        let result = lifter
+            .lift_insn(
+                0x1000,
+                &[0x62, 0xF4, 0x5C, 0x18, 0xFF, 0xF0],
+                &mut ctx,
+            )
+            .unwrap();
+        assert_eq!(result.bytes_consumed, 6);
+        assert!(matches!(result.control_flow, ControlFlow::Fallthrough));
+        assert_eq!(result.ops.len(), 5);
+
+        let tmp1 = match result.ops[0].kind {
+            OpKind::Mov {
+                dst,
+                src: SrcOperand::Reg(src),
+                width: OpWidth::W64,
+            } => {
+                assert!(dst.is_virtual());
+                assert_eq!(src, x86_gpr(0));
+                dst
+            }
+            ref other => panic!("expected source capture for PUSH2 operand 1, got {other:?}"),
+        };
+        let tmp2 = match result.ops[1].kind {
+            OpKind::Mov {
+                dst,
+                src: SrcOperand::Reg(src),
+                width: OpWidth::W64,
+            } => {
+                assert!(dst.is_virtual());
+                assert_eq!(src, x86_gpr(4));
+                dst
+            }
+            ref other => panic!("expected source capture for PUSH2 operand 2, got {other:?}"),
+        };
+        match result.ops[2].kind {
+            OpKind::Sub {
+                dst,
+                src1,
+                src2: SrcOperand::Imm(16),
+                width: OpWidth::W64,
+                flags: FlagUpdate::None,
+            } => {
+                assert_eq!(dst, x86_gpr(4));
+                assert_eq!(src1, x86_gpr(4));
+            }
+            ref other => panic!("expected PUSH2 stack decrement, got {other:?}"),
+        }
+        match &result.ops[3].kind {
+            OpKind::Store {
+                src,
+                addr: Address::Direct(base),
+                width: MemWidth::B8,
+            } => {
+                assert_eq!(*src, tmp1);
+                assert_eq!(*base, x86_gpr(4));
+            }
+            other => panic!("expected first PUSH2 store, got {other:?}"),
+        }
+        match &result.ops[4].kind {
+            OpKind::Store {
+                src,
+                addr,
+                width: MemWidth::B8,
+            } => {
+                assert_eq!(*src, tmp2);
+                assert_eq!(*addr, Address::base_off(x86_gpr(4), 8));
+            }
+            other => panic!("expected second PUSH2 store, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn lift_apx_pop2_uses_llvm_encoding_and_writes_after_rsp_increment() {
+        let mut lifter = X86_64Lifter::strict();
+        let mut ctx = LiftContext::new(SourceArch::X86_64);
+
+        // LLVM 20: `pop2 %rsp, %rax` as EVEX MAP4 8F.
+        let result = lifter
+            .lift_insn(
+                0x1000,
+                &[0x62, 0xF4, 0x7C, 0x18, 0x8F, 0xC4],
+                &mut ctx,
+            )
+            .unwrap();
+        assert_eq!(result.bytes_consumed, 6);
+        assert_eq!(result.ops.len(), 5);
+
+        let tmp1 = match &result.ops[0].kind {
+            OpKind::Load {
+                dst,
+                addr: Address::Direct(base),
+                width: MemWidth::B8,
+                sign: SignExtend::Zero,
+            } => {
+                assert_eq!(*base, x86_gpr(4));
+                *dst
+            }
+            other => panic!("expected first POP2 load, got {other:?}"),
+        };
+        let tmp2 = match &result.ops[1].kind {
+            OpKind::Load {
+                dst,
+                addr,
+                width: MemWidth::B8,
+                sign: SignExtend::Zero,
+            } => {
+                assert_eq!(*addr, Address::base_off(x86_gpr(4), 8));
+                *dst
+            }
+            other => panic!("expected second POP2 load, got {other:?}"),
+        };
+        match result.ops[2].kind {
+            OpKind::Add {
+                dst,
+                src1,
+                src2: SrcOperand::Imm(16),
+                width: OpWidth::W64,
+                flags: FlagUpdate::None,
+            } => {
+                assert_eq!(dst, x86_gpr(4));
+                assert_eq!(src1, x86_gpr(4));
+            }
+            ref other => panic!("expected POP2 stack increment, got {other:?}"),
+        }
+        match result.ops[3].kind {
+            OpKind::Mov {
+                dst,
+                src: SrcOperand::Reg(src),
+                width: OpWidth::W64,
+            } => {
+                assert_eq!(dst, x86_gpr(4));
+                assert_eq!(src, tmp1);
+            }
+            ref other => panic!("expected POP2 first destination write, got {other:?}"),
+        }
+        match result.ops[4].kind {
+            OpKind::Mov {
+                dst,
+                src: SrcOperand::Reg(src),
+                width: OpWidth::W64,
+            } => {
+                assert_eq!(dst, x86_gpr(0));
+                assert_eq!(src, tmp2);
+            }
+            ref other => panic!("expected POP2 second destination write, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn lift_apx_push2_pop2_decode_egprs_like_llvm() {
+        let mut lifter = X86_64Lifter::strict();
+        let mut ctx = LiftContext::new(SourceArch::X86_64);
+
+        // LLVM 20: `push2 %r16, %rcx`.
+        let push = lifter
+            .lift_insn(
+                0x1000,
+                &[0x62, 0xEC, 0x74, 0x18, 0xFF, 0xF0],
+                &mut ctx,
+            )
+            .unwrap();
+        match push.ops[0].kind {
+            OpKind::Mov {
+                src: SrcOperand::Reg(src),
+                ..
+            } => assert_eq!(src, x86_gpr(16)),
+            ref other => panic!("expected PUSH2 first EGPR operand, got {other:?}"),
+        }
+        match push.ops[1].kind {
+            OpKind::Mov {
+                src: SrcOperand::Reg(src),
+                ..
+            } => assert_eq!(src, x86_gpr(1)),
+            ref other => panic!("expected PUSH2 second operand, got {other:?}"),
+        }
+
+        // LLVM 20: `pop2 %r20, %rbp`.
+        let pop = lifter
+            .lift_insn(
+                0x2000,
+                &[0x62, 0xEC, 0x54, 0x18, 0x8F, 0xC4],
+                &mut ctx,
+            )
+            .unwrap();
+        match pop.ops[3].kind {
+            OpKind::Mov { dst, .. } => assert_eq!(dst, x86_gpr(20)),
+            ref other => panic!("expected POP2 first EGPR destination, got {other:?}"),
+        }
+        match pop.ops[4].kind {
+            OpKind::Mov { dst, .. } => assert_eq!(dst, x86_gpr(5)),
+            ref other => panic!("expected POP2 second destination, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn lift_apx_push2_pop2_reject_invalid_forms_like_llvm() {
+        let mut lifter = X86_64Lifter::strict();
+        let mut ctx = LiftContext::new(SourceArch::X86_64);
+
+        let push_err = lifter
+            .lift_insn(
+                0x1000,
+                &[0x62, 0xF4, 0x6C, 0x18, 0xFF, 0x30],
+                &mut ctx,
+            )
+            .unwrap_err();
+        assert!(matches!(push_err, LiftError::Unsupported { .. }));
+
+        let pop_err = lifter
+            .lift_insn(
+                0x1000,
+                &[0x62, 0xF4, 0x7C, 0x18, 0x8F, 0x00],
+                &mut ctx,
+            )
+            .unwrap_err();
+        assert!(matches!(pop_err, LiftError::Unsupported { .. }));
+
+        let pop_group_err = lifter
+            .lift_insn(
+                0x1000,
+                &[0x62, 0xF4, 0x7C, 0x18, 0x8F, 0xC8],
+                &mut ctx,
+            )
+            .unwrap_err();
+        assert!(matches!(pop_group_err, LiftError::Unsupported { .. }));
     }
 
     #[test]
