@@ -4953,6 +4953,53 @@ fn smir_aarch64_native_lowering_matches_qemu_oracle() {
     );
 
     let mut st = native_state();
+    st.x[0] = 0x9999_aaaa_bbbb_cccc;
+    st.x[1] = SCRATCH_BASE;
+    st.x[2] = 1;
+    st.scratch[9] = 0x0123_4567_89ab_cdef;
+    st.pstate = 0xe000_0000;
+    push_case(
+        "ldr_x_base_index_scale_opkind_preserves_flags",
+        enc_ldst_reg(3, 1, RM, 0b011, 1),
+        vec![OpKind::Load {
+            dst: arm_x(0),
+            addr: Address::BaseIndexScale {
+                base: Some(arm_x(1)),
+                index: arm_x(2),
+                scale: 8,
+                disp: 0,
+                disp_size: DispSize::Auto,
+            },
+            width: MemWidth::B8,
+            sign: SignExtend::Zero,
+        }],
+        st,
+    );
+
+    let mut st = native_state();
+    st.x[0] = 0xffff_ffff_aabb_ccdd;
+    st.x[1] = SCRATCH_BASE;
+    st.x[2] = 8;
+    st.scratch[9] = 0x1122_3344_5566_7788;
+    st.pstate = 0x1000_0000;
+    push_case(
+        "str_w_base_index_scale_opkind_preserves_flags_and_memory",
+        enc_ldst_reg(2, 0, RM, 0b011, 0),
+        vec![OpKind::Store {
+            src: arm_x(0),
+            addr: Address::BaseIndexScale {
+                base: Some(arm_x(1)),
+                index: arm_x(2),
+                scale: 1,
+                disp: 0,
+                disp_size: DispSize::Auto,
+            },
+            width: MemWidth::B4,
+        }],
+        st,
+    );
+
+    let mut st = native_state();
     st.x[0] = 0xeeee_ffff_0000_1111;
     st.x[1] = SCRATCH_BASE;
     st.scratch[8] = 0x8877_6655_4433_2211;

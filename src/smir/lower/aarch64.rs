@@ -1201,6 +1201,19 @@ impl Aarch64Lowerer {
         }
     }
 
+    fn mem_index_scale_bit(scale: u8, size: u32) -> Result<u32, LowerError> {
+        if scale == 1 {
+            return Ok(0);
+        }
+        if size != 0 && u32::from(scale) == (1_u32 << size) {
+            return Ok(1);
+        }
+
+        Err(LowerError::UnsupportedOp {
+            op: format!("AArch64 native memory index scale {scale} for access size {size}"),
+        })
+    }
+
     fn lower_mem_access(
         &mut self,
         rt: u8,
@@ -1208,6 +1221,19 @@ impl Aarch64Lowerer {
         size: u32,
         opc: u32,
     ) -> Result<(), LowerError> {
+        if let Address::BaseIndexScale {
+            base,
+            index,
+            scale,
+            disp,
+            ..
+        } = addr
+        {
+            return self.lower_mem_base_index_scale_access(
+                rt, *base, *index, *scale, *disp, size, opc,
+            );
+        }
+
         let (base, offset) = match addr {
             Address::Direct(base) => (Self::base_gpr(*base)?, 0),
             Address::BaseOffset { base, offset, .. } => (Self::base_gpr(*base)?, *offset),
@@ -1609,6 +1635,31 @@ impl Aarch64Lowerer {
         width: MemWidth,
     ) -> Result<(), LowerError> {
         self.lower_pair_mem_access(Self::gpr(src1)?, Self::gpr(src2)?, addr, width, false)
+    }
+
+    fn lower_mem_base_index_scale_access(
+        &mut self,
+        rt: u8,
+        base: Option<VReg>,
+        index: VReg,
+        scale: u8,
+        disp: i32,
+        size: u32,
+        opc: u32,
+    ) -> Result<(), LowerError> {
+        let Some(base) = base else {
+            return Err(LowerError::UnsupportedOp {
+                op: "AArch64 native memory index without base".into(),
+            });
+        };
+        if disp != 0 {
+            return Err(LowerError::UnsupportedOp {
+                op: format!("AArch64 native memory index displacement {disp:#x}"),
+            });
+        }
+
+        let s = Self::mem_index_scale_bit(scale, size)?;
+        self.lower_mem_reg_offset_access(rt, base, index, size, opc, 0b011, s)
     }
 
     fn lower_mem_reg_offset_access(
@@ -6671,6 +6722,67 @@ mod tests {
 
         let mut expected = Vec::new();
         expected.extend_from_slice(&enc_ldst_reg(1, 0b11, 2, 0b010, 1).to_le_bytes());
+        expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
+        assert_eq!(code, expected);
+    }
+
+    #[test]
+    fn lowers_load_base_index_scale_as_scaled_reg_offset() {
+        let mut builder = FunctionBuilder::new(FunctionId(0), 0);
+        builder.push_op(
+            0,
+            OpKind::Load {
+                dst: x(0),
+                addr: Address::BaseIndexScale {
+                    base: Some(x(1)),
+                    index: x(2),
+                    scale: 8,
+                    disp: 0,
+                    disp_size: DispSize::Auto,
+                },
+                width: MemWidth::B8,
+                sign: SignExtend::Zero,
+            },
+        );
+        builder.set_terminator(Terminator::Return { values: vec![] });
+        let func = builder.finish();
+
+        let mut lowerer = Aarch64Lowerer::new();
+        lowerer.lower_function(&func).unwrap();
+        let code = lowerer.finalize().unwrap();
+
+        let mut expected = Vec::new();
+        expected.extend_from_slice(&enc_ldst_reg(3, 0b01, 2, 0b011, 1).to_le_bytes());
+        expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
+        assert_eq!(code, expected);
+    }
+
+    #[test]
+    fn lowers_store_base_index_scale_as_unscaled_reg_offset() {
+        let mut builder = FunctionBuilder::new(FunctionId(0), 0);
+        builder.push_op(
+            0,
+            OpKind::Store {
+                src: x(0),
+                addr: Address::BaseIndexScale {
+                    base: Some(x(1)),
+                    index: x(2),
+                    scale: 1,
+                    disp: 0,
+                    disp_size: DispSize::Auto,
+                },
+                width: MemWidth::B4,
+            },
+        );
+        builder.set_terminator(Terminator::Return { values: vec![] });
+        let func = builder.finish();
+
+        let mut lowerer = Aarch64Lowerer::new();
+        lowerer.lower_function(&func).unwrap();
+        let code = lowerer.finalize().unwrap();
+
+        let mut expected = Vec::new();
+        expected.extend_from_slice(&enc_ldst_reg(2, 0b00, 2, 0b011, 0).to_le_bytes());
         expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
         assert_eq!(code, expected);
     }
