@@ -807,6 +807,22 @@ pub enum OpKind {
         order: MemoryOrder,
     },
 
+    /// Atomic compare-and-conditional-add.
+    ///
+    /// Models x86 CMPccXADD: compare the old memory value with `cmp`, update
+    /// flags from that comparison, store old+add when `cond` is true (else store
+    /// old back through the locked transaction), and always write old to
+    /// `dst_old`.
+    AtomicCmpXadd {
+        dst_old: VReg,
+        addr: Address,
+        cmp: VReg,
+        add: VReg,
+        cond: Condition,
+        width: MemWidth,
+        order: MemoryOrder,
+    },
+
     /// Load-exclusive (ARM LDXR)
     LoadExclusive {
         dst: VReg,
@@ -2664,6 +2680,7 @@ impl OpKind {
             | OpKind::PredLoad { dst, .. }
             | OpKind::AtomicLoad { dst, .. }
             | OpKind::AtomicRmw { dst, .. }
+            | OpKind::AtomicCmpXadd { dst_old: dst, .. }
             | OpKind::LoadExclusive { dst, .. }
             | OpKind::FAdd { dst, .. }
             | OpKind::FSub { dst, .. }
@@ -2917,6 +2934,7 @@ impl OpKind {
                 | OpKind::AtomicStore { .. }
                 | OpKind::AtomicRmw { .. }
                 | OpKind::Cas { .. }
+                | OpKind::AtomicCmpXadd { .. }
                 | OpKind::StoreExclusive { .. }
                 | OpKind::RvVector { .. }
                 | OpKind::IoIn { .. }
@@ -2947,6 +2965,7 @@ impl OpKind {
                 | OpKind::AtomicLoad { .. }
                 | OpKind::AtomicRmw { .. }
                 | OpKind::Cas { .. }
+                | OpKind::AtomicCmpXadd { .. }
                 | OpKind::LoadExclusive { .. }
                 | OpKind::RepMovs { .. }
                 | OpKind::VLoad { .. }
@@ -2968,6 +2987,7 @@ impl OpKind {
                 | OpKind::AtomicStore { .. }
                 | OpKind::AtomicRmw { .. }
                 | OpKind::Cas { .. }
+                | OpKind::AtomicCmpXadd { .. }
                 | OpKind::StoreExclusive { .. }
                 | OpKind::VStore { .. }
                 | OpKind::RvVector { .. }

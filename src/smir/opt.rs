@@ -1736,6 +1736,7 @@ fn redundant_load_elimination_block(block: &mut SmirBlock) -> usize {
             | OpKind::AtomicStore { .. }
             | OpKind::AtomicRmw { .. }
             | OpKind::Cas { .. }
+            | OpKind::AtomicCmpXadd { .. }
             | OpKind::StoreExclusive { .. }
             | OpKind::Fence { .. }
             | OpKind::IoIn { .. }
@@ -1850,8 +1851,10 @@ impl OpKind {
                 flags.as_set().difference(FlagSet::CF)
             }
 
-            // Cmp and Test always update flags
-            OpKind::Cmp { .. } | OpKind::Test { .. } => FlagSet::NZCV,
+            // Cmp, Test, and CMPccXADD update all x86 arithmetic flags.
+            OpKind::Cmp { .. } | OpKind::Test { .. } | OpKind::AtomicCmpXadd { .. } => {
+                FlagSet::ALL_X86
+            }
 
             // Bit test updates CF
             OpKind::Bt { .. } => FlagSet::CF,
@@ -2161,6 +2164,12 @@ impl OpKind {
                 result.extend(addr.regs());
                 result.push(*expected);
                 result.push(*new_val);
+            }
+
+            OpKind::AtomicCmpXadd { addr, cmp, add, .. } => {
+                result.extend(addr.regs());
+                result.push(*cmp);
+                result.push(*add);
             }
 
             OpKind::StoreExclusive { src, addr, .. } => {

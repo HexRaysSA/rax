@@ -1846,6 +1846,49 @@ impl SmirInterpreter {
                 ctx.write_vreg(*success, if succ { 1 } else { 0 });
             }
 
+            OpKind::AtomicCmpXadd {
+                dst_old,
+                addr,
+                cmp,
+                add,
+                cond,
+                width,
+                order,
+            } => {
+                let effective_addr = self.compute_address(ctx, addr);
+                let op_width = width.to_op_width().unwrap_or(OpWidth::W64);
+                let mask = op_width.mask();
+                let cmp_val = ctx.read_vreg(*cmp) & mask;
+                let add_val = ctx.read_vreg(*add) & mask;
+                let mut old = memory.atomic_load(effective_addr, *width, MemoryOrder::Acquire)?;
+
+                loop {
+                    let old_m = old & mask;
+                    let cmp_result = old_m.wrapping_sub(cmp_val) & mask;
+                    ctx.flags.set_lazy_sub(old_m, cmp_val, cmp_result, op_width);
+                    let should_add = ctx.flags.eval_condition(*cond);
+                    let new_val = if should_add {
+                        old_m.wrapping_add(add_val) & mask
+                    } else {
+                        old_m
+                    };
+
+                    let (seen, succ) = memory.compare_and_swap(
+                        effective_addr,
+                        old_m,
+                        new_val,
+                        *width,
+                        *order,
+                        MemoryOrder::Relaxed,
+                    )?;
+                    if succ {
+                        Self::write_gpr(ctx, *dst_old, old_m, op_width);
+                        break;
+                    }
+                    old = seen;
+                }
+            }
+
             OpKind::LoadExclusive { dst, addr, width } => {
                 let effective_addr = self.compute_address(ctx, addr);
                 let val = memory.load_exclusive(effective_addr, *width)?;
@@ -7095,7 +7138,7 @@ mod tests {
     use super::*;
     use crate::smir::flags::{FlagUpdate, MaterializedFlags};
     use crate::smir::ir::FunctionBuilder;
-    use crate::smir::memory::FlatMemory;
+    use crate::smir::memory::{FlatMemory, SmirMemory};
 
     fn exec_x86_rax_op(op: OpKind, rax_value: u64, rcx_value: u64, rflags: u64) -> (u64, u64) {
         let rax = VReg::Arch(ArchReg::X86(X86Reg::Rax));
@@ -7120,6 +7163,103 @@ mod tests {
         assert!(matches!(exit, BlockResult::Exit(ExitReason::Halt)));
         ctx.flags.materialize_all();
         (ctx.read_vreg(rax), ctx.flags.materialized.to_rflags())
+    }
+
+    #[test]
+    fn atomic_cmpxadd_updates_memory_dst_and_flags() {
+        let rax = VReg::Arch(ArchReg::X86(X86Reg::Rax));
+        let rbx = VReg::Arch(ArchReg::X86(X86Reg::Rbx));
+        let rcx = VReg::Arch(ArchReg::X86(X86Reg::Rcx));
+        let mut ctx = SmirContext::new_x86_64();
+        ctx.write_vreg(rax, 0x20);
+        ctx.write_vreg(rbx, 7);
+        ctx.write_vreg(rcx, 3);
+        let mut memory = FlatMemory::new(0x1000);
+        memory
+            .atomic_store(0x20, 5, MemWidth::B4, MemoryOrder::SeqCst)
+            .unwrap();
+        let interp = SmirInterpreter::new();
+
+        interp
+            .execute_op(
+                &mut ctx,
+                &mut memory,
+                &SmirOp::new(
+                    OpId(0),
+                    0x1000,
+                    OpKind::AtomicCmpXadd {
+                        dst_old: rbx,
+                        addr: Address::Direct(rax),
+                        cmp: rbx,
+                        add: rcx,
+                        cond: Condition::Ule,
+                        width: MemWidth::B4,
+                        order: MemoryOrder::SeqCst,
+                    },
+                ),
+            )
+            .unwrap();
+
+        assert_eq!(
+            memory
+                .atomic_load(0x20, MemWidth::B4, MemoryOrder::SeqCst)
+                .unwrap(),
+            8
+        );
+        assert_eq!(ctx.read_vreg(rbx), 5);
+        ctx.flags.materialize_all();
+        assert!(ctx.flags.materialized.cf);
+        assert!(ctx.flags.materialized.sf);
+        assert!(ctx.flags.materialized.af);
+        assert!(!ctx.flags.materialized.zf);
+        assert!(!ctx.flags.materialized.of);
+        assert!(!ctx.flags.materialized.pf);
+    }
+
+    #[test]
+    fn atomic_cmpxadd_false_condition_stores_old_and_preserves_add_alias() {
+        let rax = VReg::Arch(ArchReg::X86(X86Reg::Rax));
+        let rbx = VReg::Arch(ArchReg::X86(X86Reg::Rbx));
+        let mut ctx = SmirContext::new_x86_64();
+        ctx.write_vreg(rax, 0x20);
+        ctx.write_vreg(rbx, 2);
+        let mut memory = FlatMemory::new(0x1000);
+        memory
+            .atomic_store(0x20, 1, MemWidth::B4, MemoryOrder::SeqCst)
+            .unwrap();
+        let interp = SmirInterpreter::new();
+
+        interp
+            .execute_op(
+                &mut ctx,
+                &mut memory,
+                &SmirOp::new(
+                    OpId(0),
+                    0x1000,
+                    OpKind::AtomicCmpXadd {
+                        dst_old: rbx,
+                        addr: Address::Direct(rax),
+                        cmp: rbx,
+                        add: rbx,
+                        cond: Condition::Ugt,
+                        width: MemWidth::B4,
+                        order: MemoryOrder::SeqCst,
+                    },
+                ),
+            )
+            .unwrap();
+
+        assert_eq!(
+            memory
+                .atomic_load(0x20, MemWidth::B4, MemoryOrder::SeqCst)
+                .unwrap(),
+            1
+        );
+        assert_eq!(ctx.read_vreg(rbx), 1);
+        ctx.flags.materialize_all();
+        assert!(ctx.flags.materialized.cf);
+        assert!(ctx.flags.materialized.sf);
+        assert!(!ctx.flags.materialized.zf);
     }
 
     #[test]

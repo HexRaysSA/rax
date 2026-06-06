@@ -2619,6 +2619,86 @@ impl X86_64Lifter {
         ))
     }
 
+    fn lift_cmpccxadd(
+        &self,
+        prefix: VecPrefix,
+        opcode: u8,
+        bytes: &[u8],
+        pc: u64,
+        ctx: &mut LiftContext,
+    ) -> Result<LiftResult, LiftError> {
+        if prefix.pp != X86SsePrefix::OpSize || prefix.width != VecWidth::V128 {
+            return Err(LiftError::Unsupported {
+                addr: pc,
+                mnemonic: "CMPccXADD reserved vector prefix".to_string(),
+            });
+        }
+
+        let (modrm_prefix, add, width, prefix_bytes) = match prefix.encoding {
+            VecEncodingKind::Vex => {
+                let width = if prefix.w { MemWidth::B8 } else { MemWidth::B4 };
+                (
+                    X86Prefix {
+                        rex: prefix.rex,
+                        operand_size_override: true,
+                        cursor: prefix.bytes + 1,
+                        ..X86Prefix::default()
+                    },
+                    self.gpr(prefix.vvvv),
+                    width,
+                    prefix.bytes,
+                )
+            }
+            VecEncodingKind::Evex => {
+                let apx = decode_apx_evex_prefix_for_map(bytes, pc, 2)?;
+                if apx.pp != 1 || apx.aaa != 0 || apx.nf || apx.nd || (bytes[3] & 0xE0) != 0 {
+                    return Err(LiftError::Unsupported {
+                        addr: pc,
+                        mnemonic: "EVEX CMPccXADD reserved field".to_string(),
+                    });
+                }
+                let width = if apx.w { MemWidth::B8 } else { MemWidth::B4 };
+                (
+                    apx.as_modrm_prefix(apx.bytes + 1),
+                    self.gpr(apx.vvvv_reg()),
+                    width,
+                    apx.bytes,
+                )
+            }
+        };
+
+        let modrm = decode_modrm(&bytes[prefix_bytes + 1..], &modrm_prefix, pc)?;
+        if !modrm.is_memory {
+            return Err(LiftError::InvalidEncoding {
+                addr: pc,
+                bytes: bytes.to_vec(),
+            });
+        }
+
+        let next_pc = pc + prefix_bytes as u64 + 1 + modrm.bytes_consumed as u64;
+        let x86_addr = modrm.addr.as_ref().unwrap();
+        let (addr, mut ops) = self.x86_addr_to_smir(x86_addr, next_pc, ctx);
+        let cmp = self.gpr(modrm.reg);
+        ops.push(SmirOp::new(
+            OpId(ops.len() as u16),
+            pc,
+            OpKind::AtomicCmpXadd {
+                dst_old: cmp,
+                addr,
+                cmp,
+                add,
+                cond: self.x86_cond(opcode & 0x0F),
+                width,
+                order: MemoryOrder::SeqCst,
+            },
+        ));
+
+        Ok(LiftResult::fallthrough(
+            ops,
+            prefix_bytes + 1 + modrm.bytes_consumed,
+        ))
+    }
+
     fn lift_vec_opcode(
         &self,
         prefix: VecPrefix,
@@ -2874,6 +2954,7 @@ impl X86_64Lifter {
                 }),
             },
             X86VecMap::Map0F38 => match opcode {
+                0xE0..=0xEF => self.lift_cmpccxadd(prefix, opcode, bytes, pc, ctx),
                 0xF2 | 0xF3 | 0xF5 | 0xF7
                     if prefix.encoding == VecEncodingKind::Evex
                         && prefix.pp == X86SsePrefix::None =>
@@ -8133,6 +8214,172 @@ mod tests {
 
     fn x86_gpr(idx: u8) -> VReg {
         VReg::Arch(ArchReg::X86(X86Reg::gpr(idx)))
+    }
+
+    fn lift_single(bytes: &[u8]) -> Result<LiftResult, LiftError> {
+        let mut lifter = X86_64Lifter::strict();
+        let mut ctx = LiftContext::new(SourceArch::X86_64);
+        lifter.lift_insn(0x1000, bytes, &mut ctx)
+    }
+
+    #[test]
+    fn lift_cmpccxadd_vex_conditions_like_llvm() {
+        for (opcode, cond) in [
+            (0xE0, Condition::Overflow),
+            (0xE1, Condition::NoOverflow),
+            (0xE2, Condition::Ult),
+            (0xE3, Condition::Uge),
+            (0xE4, Condition::Eq),
+            (0xE5, Condition::Ne),
+            (0xE6, Condition::Ule),
+            (0xE7, Condition::Ugt),
+            (0xE8, Condition::Negative),
+            (0xE9, Condition::Positive),
+            (0xEA, Condition::Parity),
+            (0xEB, Condition::NoParity),
+            (0xEC, Condition::Slt),
+            (0xED, Condition::Sge),
+            (0xEE, Condition::Sle),
+            (0xEF, Condition::Sgt),
+        ] {
+            let bytes = [0xC4, 0xE2, 0x71, opcode, 0x18];
+            let result = lift_single(&bytes).unwrap();
+            assert_eq!(result.bytes_consumed, 5, "opcode {opcode:02x}");
+            assert_eq!(result.ops.len(), 1, "opcode {opcode:02x}");
+            match &result.ops[0].kind {
+                OpKind::AtomicCmpXadd {
+                    dst_old,
+                    addr: Address::Direct(base),
+                    cmp,
+                    add,
+                    cond: got_cond,
+                    width,
+                    order: MemoryOrder::SeqCst,
+                } => {
+                    assert_eq!(*dst_old, x86_gpr(3), "opcode {opcode:02x}");
+                    assert_eq!(*cmp, x86_gpr(3), "opcode {opcode:02x}");
+                    assert_eq!(*add, x86_gpr(1), "opcode {opcode:02x}");
+                    assert_eq!(*base, x86_gpr(0), "opcode {opcode:02x}");
+                    assert_eq!(*got_cond, cond, "opcode {opcode:02x}");
+                    assert_eq!(*width, MemWidth::B4, "opcode {opcode:02x}");
+                }
+                other => panic!("expected CMPccXADD op for {opcode:02x}, got {other:?}"),
+            }
+        }
+    }
+
+    #[test]
+    fn lift_cmpccxadd_vex_width_and_high_regs_like_llvm() {
+        for (bytes, name, width, dst, base, add) in [
+            (
+                &[0xC4, 0xE2, 0xF1, 0xE2, 0x18][..],
+                "cmpbxadd64",
+                MemWidth::B8,
+                x86_gpr(3),
+                x86_gpr(0),
+                x86_gpr(1),
+            ),
+            (
+                &[0xC4, 0x42, 0x29, 0xE2, 0x08][..],
+                "cmpbxadd32_r8_r9_r10",
+                MemWidth::B4,
+                x86_gpr(9),
+                x86_gpr(8),
+                x86_gpr(10),
+            ),
+        ] {
+            let result = lift_single(bytes).unwrap();
+            assert_eq!(result.bytes_consumed, 5, "{name}");
+            match &result.ops[0].kind {
+                OpKind::AtomicCmpXadd {
+                    dst_old,
+                    addr: Address::Direct(got_base),
+                    cmp,
+                    add: got_add,
+                    cond: Condition::Ult,
+                    width: got_width,
+                    order: MemoryOrder::SeqCst,
+                } => {
+                    assert_eq!(*dst_old, dst, "{name}");
+                    assert_eq!(*cmp, dst, "{name}");
+                    assert_eq!(*got_base, base, "{name}");
+                    assert_eq!(*got_add, add, "{name}");
+                    assert_eq!(*got_width, width, "{name}");
+                }
+                other => panic!("expected VEX {name} AtomicCmpXadd, got {other:?}"),
+            }
+        }
+    }
+
+    #[test]
+    fn lift_cmpccxadd_evex_egpr_memory_like_llvm() {
+        let result = lift_single(&[0x62, 0xEA, 0x61, 0x00, 0xE2, 0x44, 0x91, 0x20]).unwrap();
+        assert_eq!(result.bytes_consumed, 8);
+        assert_eq!(result.ops.len(), 1);
+        match &result.ops[0].kind {
+            OpKind::AtomicCmpXadd {
+                dst_old,
+                addr:
+                    Address::BaseIndexScale {
+                        base: Some(base),
+                        index,
+                        scale: 4,
+                        disp: 0x20,
+                        ..
+                    },
+                cmp,
+                add,
+                cond: Condition::Ult,
+                width: MemWidth::B4,
+                order: MemoryOrder::SeqCst,
+            } => {
+                assert_eq!(*dst_old, x86_gpr(16));
+                assert_eq!(*cmp, x86_gpr(16));
+                assert_eq!(*add, x86_gpr(19));
+                assert_eq!(*base, x86_gpr(17));
+                assert_eq!(*index, x86_gpr(18));
+            }
+            other => panic!("expected EVEX CMPccXADD AtomicCmpXadd, got {other:?}"),
+        }
+
+        let result = lift_single(&[0x62, 0xEA, 0x65, 0x08, 0xE2, 0x08]).unwrap();
+        match &result.ops[0].kind {
+            OpKind::AtomicCmpXadd {
+                dst_old,
+                addr: Address::Direct(base),
+                cmp,
+                add,
+                width: MemWidth::B4,
+                ..
+            } => {
+                assert_eq!(*dst_old, x86_gpr(17));
+                assert_eq!(*cmp, x86_gpr(17));
+                assert_eq!(*base, x86_gpr(16));
+                assert_eq!(*add, x86_gpr(3));
+            }
+            other => panic!("expected EVEX CMPccXADD with legacy addend, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn lift_cmpccxadd_rejects_invalid_forms_like_llvm() {
+        for (bytes, name) in [
+            (&[0xC4, 0xE2, 0x75, 0xE2, 0x18][..], "vex_l"),
+            (&[0xC4, 0xE2, 0x72, 0xE2, 0x18][..], "vex_pp2"),
+            (&[0xC4, 0xE2, 0x71, 0xE2, 0xD8][..], "vex_register_source"),
+            (&[0x62, 0xEA, 0xE5, 0x01, 0xE2, 0x08][..], "evex_mask"),
+            (&[0x62, 0xEA, 0xE5, 0x04, 0xE2, 0x08][..], "evex_nf"),
+            (&[0x62, 0xEA, 0xE5, 0x20, 0xE2, 0x08][..], "evex_l"),
+            (
+                &[0x62, 0xEA, 0xE5, 0x00, 0xE2, 0xC0][..],
+                "evex_register_source",
+            ),
+        ] {
+            assert!(
+                lift_single(bytes).is_err(),
+                "{name} should be rejected like LLVM"
+            );
+        }
     }
 
     fn assert_apx_conditional_flag_shape(

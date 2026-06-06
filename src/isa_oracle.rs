@@ -1601,6 +1601,24 @@ fn smir_op_kind_json(kind: &OpKind) -> Value {
             width,
             order,
         } => op_json!("cas", dst, success, addr, expected, new_val, width, order),
+        OpKind::AtomicCmpXadd {
+            dst_old,
+            addr,
+            cmp,
+            add,
+            cond,
+            width,
+            order,
+        } => op_json!(
+            "atomic_cmpxadd",
+            dst_old,
+            addr,
+            cmp,
+            add,
+            cond,
+            width,
+            order
+        ),
         OpKind::LoadExclusive { dst, addr, width } => op_json!("load_exclusive", dst, addr, width),
         OpKind::StoreExclusive {
             status,
