@@ -6317,6 +6317,56 @@ fn smir_aarch64_native_lowering_matches_qemu_oracle() {
     ));
 
     let mut st = native_state();
+    st.x[0] = 0x8888_9999_aaaa_bbbb;
+    st.x[1] = 0xffff_ffff_1234_56fe;
+    st.x[2] = 0x1111_2222_3333_4405;
+    st.pstate = 0xa000_0000;
+    let lowered = lower_aarch64_native_ops(vec![OpKind::MulU {
+        dst_lo: arm_x(0),
+        dst_hi: None,
+        src1: arm_x(1),
+        src2: SrcOperand::Reg(arm_x(2)),
+        width: OpWidth::W8,
+        flags: FlagUpdate::None,
+    }])
+    .unwrap_or_else(|e| panic!("mulu_w8_as_mul_uxtb_preserves_flags: native lowering failed: {e}"));
+    cases.push((
+        "mulu_w8_as_mul_uxtb_preserves_flags".into(),
+        [
+            enc_dp3_ra(0, 0b000, 0, 31),
+            enc_bitfield_regs(0, 0b10, 0, 7, RD, RD),
+            NOP,
+        ],
+        lowered,
+        st,
+    ));
+
+    let mut st = native_state();
+    st.x[0] = 0x9999_aaaa_bbbb_cccc;
+    st.x[1] = 0x7777_8888_1234_fffe;
+    st.x[2] = 0x1111_2222_abcd_0003;
+    st.pstate = 0x4000_0000;
+    let lowered = lower_aarch64_native_ops(vec![OpKind::MulS {
+        dst_lo: arm_x(0),
+        dst_hi: None,
+        src1: arm_x(1),
+        src2: SrcOperand::Reg(arm_x(2)),
+        width: OpWidth::W16,
+        flags: FlagUpdate::None,
+    }])
+    .unwrap_or_else(|e| panic!("muls_w16_as_mul_uxth_preserves_flags: native lowering failed: {e}"));
+    cases.push((
+        "muls_w16_as_mul_uxth_preserves_flags".into(),
+        [
+            enc_dp3_ra(0, 0b000, 0, 31),
+            enc_bitfield_regs(0, 0b10, 0, 15, RD, RD),
+            NOP,
+        ],
+        lowered,
+        st,
+    ));
+
+    let mut st = native_state();
     st.x[0] = 0x3333_4444_5555_6666;
     st.x[1] = 0xffff_ffff_ffff_12f0;
     st.x[2] = 0xaaaa_bbbb_cccc_003f;

@@ -2947,6 +2947,17 @@ impl Aarch64Lowerer {
         let rn = Self::gpr(src1)?;
         let rm = Self::gpr(*src2)?;
 
+        if matches!(width, OpWidth::W8 | OpWidth::W16) {
+            if dst_hi.is_some() {
+                return Err(LowerError::UnsupportedOp {
+                    op: format!("AArch64 native high-half multiply width {width:?}"),
+                });
+            }
+            let dst_lo = Self::dst_gpr(dst_lo)?;
+            self.emit_dp3(dst_lo, rn, rm, 31, 0b000, 0, OpWidth::W32)?;
+            return self.emit_bitfield(dst_lo, dst_lo, 0b10, 0, width.bits() - 1, OpWidth::W32);
+        }
+
         if let Some(dst_hi) = dst_hi {
             if width != OpWidth::W64 {
                 return Err(LowerError::UnsupportedOp {
@@ -6536,6 +6547,62 @@ mod tests {
         expected.extend_from_slice(
             &enc_addsub_shift_regs(0, 1, 0, 0, 0, 0, 31, 1).to_le_bytes(),
         );
+        expected.extend_from_slice(&enc_bitfield_regs(0, 0b10, 0, 15, 0, 0).to_le_bytes());
+        expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
+        assert_eq!(code, expected);
+    }
+
+    #[test]
+    fn lowers_mulu_w8_as_mul_uxtb() {
+        let mut builder = FunctionBuilder::new(FunctionId(0), 0);
+        builder.push_op(
+            0,
+            OpKind::MulU {
+                dst_lo: x(0),
+                dst_hi: None,
+                src1: x(1),
+                src2: SrcOperand::Reg(x(2)),
+                width: OpWidth::W8,
+                flags: FlagUpdate::None,
+            },
+        );
+        builder.set_terminator(Terminator::Return { values: vec![] });
+        let func = builder.finish();
+
+        let mut lowerer = Aarch64Lowerer::new();
+        lowerer.lower_function(&func).unwrap();
+        let code = lowerer.finalize().unwrap();
+
+        let mut expected = Vec::new();
+        expected.extend_from_slice(&enc_dp3_regs(0, 0b000, 0, 0, 1, 2, 31).to_le_bytes());
+        expected.extend_from_slice(&enc_bitfield_regs(0, 0b10, 0, 7, 0, 0).to_le_bytes());
+        expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
+        assert_eq!(code, expected);
+    }
+
+    #[test]
+    fn lowers_muls_w16_as_mul_uxth() {
+        let mut builder = FunctionBuilder::new(FunctionId(0), 0);
+        builder.push_op(
+            0,
+            OpKind::MulS {
+                dst_lo: x(0),
+                dst_hi: None,
+                src1: x(1),
+                src2: SrcOperand::Reg(x(2)),
+                width: OpWidth::W16,
+                flags: FlagUpdate::None,
+            },
+        );
+        builder.set_terminator(Terminator::Return { values: vec![] });
+        let func = builder.finish();
+
+        let mut lowerer = Aarch64Lowerer::new();
+        lowerer.lower_function(&func).unwrap();
+        let code = lowerer.finalize().unwrap();
+
+        let mut expected = Vec::new();
+        expected.extend_from_slice(&enc_dp3_regs(0, 0b000, 0, 0, 1, 2, 31).to_le_bytes());
         expected.extend_from_slice(&enc_bitfield_regs(0, 0b10, 0, 15, 0, 0).to_le_bytes());
         expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
         assert_eq!(code, expected);
@@ -12405,6 +12472,37 @@ mod tests {
             },
             OpKind::Sbb {
                 dst: x(0),
+                src1: x(1),
+                src2: SrcOperand::Reg(x(2)),
+                width: OpWidth::W16,
+                flags: FlagUpdate::All,
+            },
+        ] {
+            let mut builder = FunctionBuilder::new(FunctionId(0), 0);
+            builder.push_op(0, kind);
+            builder.set_terminator(Terminator::Return { values: vec![] });
+            let func = builder.finish();
+
+            let mut lowerer = Aarch64Lowerer::new();
+            let err = lowerer.lower_function(&func).unwrap_err();
+            assert!(matches!(err, LowerError::UnsupportedOp { .. }));
+        }
+    }
+
+    #[test]
+    fn rejects_flag_setting_subword_multiply_lowering() {
+        for kind in [
+            OpKind::MulU {
+                dst_lo: x(0),
+                dst_hi: None,
+                src1: x(1),
+                src2: SrcOperand::Reg(x(2)),
+                width: OpWidth::W8,
+                flags: FlagUpdate::All,
+            },
+            OpKind::MulS {
+                dst_lo: x(0),
+                dst_hi: None,
                 src1: x(1),
                 src2: SrcOperand::Reg(x(2)),
                 width: OpWidth::W16,
