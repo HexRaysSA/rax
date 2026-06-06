@@ -1783,19 +1783,23 @@ impl Aarch64Lifter {
                     let target = (pc as i64).wrapping_add(*offset) as u64;
                     let fallthrough = pc + 4;
                     let width = self.reg_width(rn);
-                    let cmp = ctx.alloc_vreg();
+                    let cond = if width == OpWidth::W32 {
+                        let tmp = ctx.alloc_vreg();
+                        push_op!(OpKind::ZeroExtend {
+                            dst: tmp,
+                            src: self.arm_reg(rn),
+                            from_width: OpWidth::W32,
+                            to_width: OpWidth::W64,
+                        });
+                        tmp
+                    } else {
+                        self.arm_reg(rn)
+                    };
 
-                    // Compare with zero - sets flags
-                    push_op!(OpKind::Cmp {
-                        src1: self.arm_reg(rn),
-                        src2: SrcOperand::Imm(0),
-                        width,
-                    });
-
-                    control = ControlFlow::CondBranch {
-                        cond: Condition::Eq,
-                        target,
-                        fallthrough,
+                    control = ControlFlow::CondBranchReg {
+                        cond,
+                        taken: fallthrough,
+                        not_taken: target,
                     };
                 }
             }
@@ -1807,18 +1811,23 @@ impl Aarch64Lifter {
                     let target = (pc as i64).wrapping_add(*offset) as u64;
                     let fallthrough = pc + 4;
                     let width = self.reg_width(rn);
+                    let cond = if width == OpWidth::W32 {
+                        let tmp = ctx.alloc_vreg();
+                        push_op!(OpKind::ZeroExtend {
+                            dst: tmp,
+                            src: self.arm_reg(rn),
+                            from_width: OpWidth::W32,
+                            to_width: OpWidth::W64,
+                        });
+                        tmp
+                    } else {
+                        self.arm_reg(rn)
+                    };
 
-                    // Compare with zero - sets flags
-                    push_op!(OpKind::Cmp {
-                        src1: self.arm_reg(rn),
-                        src2: SrcOperand::Imm(0),
-                        width,
-                    });
-
-                    control = ControlFlow::CondBranch {
-                        cond: Condition::Ne,
-                        target,
-                        fallthrough,
+                    control = ControlFlow::CondBranchReg {
+                        cond,
+                        taken: target,
+                        not_taken: fallthrough,
                     };
                 }
             }
@@ -3823,11 +3832,19 @@ impl crate::smir::lift::SmirLifter for Aarch64Lifter {
                         }
                     }
                     ControlFlow::CondBranch {
-                        cond: _,
+                        cond,
                         target,
                         fallthrough,
                     } => {
                         let cond_vreg = ctx.alloc_vreg();
+                        all_ops.push(SmirOp::new(
+                            OpId(all_ops.len() as u16),
+                            current_addr - result.bytes_consumed as u64,
+                            OpKind::TestCondition {
+                                dst: cond_vreg,
+                                cond,
+                            },
+                        ));
                         Terminator::CondBranch {
                             cond: cond_vreg,
                             true_target: ctx.get_or_create_block(target),
@@ -4003,6 +4020,35 @@ mod tests {
             }
             _ => panic!("Expected Branch control flow"),
         }
+    }
+
+    #[test]
+    fn test_lift_block_cond_branch_defines_condition() {
+        let mut lifter = Aarch64Lifter::new();
+        let mut ctx = LiftContext::new(SourceArch::Aarch64);
+
+        // B.EQ #8 => 0x54000040
+        let mem = MockMemory {
+            data: vec![0x40, 0x00, 0x00, 0x54],
+            base: 0x1000,
+        };
+        let block = lifter.lift_block(0x1000, &mem, &mut ctx).unwrap();
+
+        let cond_def = block
+            .ops
+            .last()
+            .expect("conditional branch should define a condition vreg");
+        let OpKind::TestCondition {
+            dst,
+            cond: Condition::Eq,
+        } = &cond_def.kind
+        else {
+            panic!("expected TestCondition Eq, got {:?}", cond_def.kind);
+        };
+        let Terminator::CondBranch { cond, .. } = block.terminator else {
+            panic!("expected conditional branch terminator");
+        };
+        assert_eq!(cond, *dst);
     }
 
     #[test]
