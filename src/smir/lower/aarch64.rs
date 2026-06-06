@@ -2943,6 +2943,24 @@ impl Aarch64Lowerer {
         };
 
         let bits = width.bits();
+        if width == OpWidth::W16 && left {
+            let amount = (amount as u64 & 0x1f) as u32;
+            let dst_reg = Self::dst_gpr(dst)?;
+            let rn = Self::gpr(dst)?;
+            if amount == 0 {
+                return self.emit_bitfield(dst_reg, rn, 0b10, 0, 15, OpWidth::W32);
+            }
+            if amount > bits {
+                return Err(LowerError::UnsupportedOp {
+                    op: "AArch64 native W16 Shld count greater than width".into(),
+                });
+            }
+            let src = Self::gpr(src)?;
+            self.lower_shift_imm(dst_reg, rn, i64::from(amount), ShiftOp::Lsl, OpWidth::W32)?;
+            self.emit_bitfield(dst_reg, src, 0b01, bits - amount, 15, OpWidth::W32)?;
+            return self.emit_bitfield(dst_reg, dst_reg, 0b10, 0, 15, OpWidth::W32);
+        }
+
         let mask = match width {
             OpWidth::W32 => 0x1f,
             OpWidth::W64 => 0x3f,
@@ -8371,14 +8389,68 @@ mod tests {
     }
 
     #[test]
-    fn rejects_shld_w16_partial_width_lowering() {
+    fn lowers_shld_w16_imm_as_shift_bfxil_uxth() {
         let mut builder = FunctionBuilder::new(FunctionId(0), 0);
         builder.push_op(
             0,
             OpKind::Shld {
                 dst: x(0),
                 src: x(1),
-                amount: SrcOperand::Imm(1),
+                amount: SrcOperand::Imm(5),
+                width: OpWidth::W16,
+                flags: FlagUpdate::None,
+            },
+        );
+        builder.set_terminator(Terminator::Return { values: vec![] });
+        let func = builder.finish();
+
+        let mut lowerer = Aarch64Lowerer::new();
+        lowerer.lower_function(&func).unwrap();
+        let code = lowerer.finalize().unwrap();
+
+        let mut expected = Vec::new();
+        expected.extend_from_slice(&enc_bitfield_regs(0, 0b10, 27, 26, 0, 0).to_le_bytes());
+        expected.extend_from_slice(&enc_bitfield_regs(0, 0b01, 11, 15, 1, 0).to_le_bytes());
+        expected.extend_from_slice(&enc_bitfield_regs(0, 0b10, 0, 15, 0, 0).to_le_bytes());
+        expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
+        assert_eq!(code, expected);
+    }
+
+    #[test]
+    fn lowers_shld_w16_masked_zero_count_as_uxth() {
+        let mut builder = FunctionBuilder::new(FunctionId(0), 0);
+        builder.push_op(
+            0,
+            OpKind::Shld {
+                dst: x(0),
+                src: x(1),
+                amount: SrcOperand::Imm(32),
+                width: OpWidth::W16,
+                flags: FlagUpdate::None,
+            },
+        );
+        builder.set_terminator(Terminator::Return { values: vec![] });
+        let func = builder.finish();
+
+        let mut lowerer = Aarch64Lowerer::new();
+        lowerer.lower_function(&func).unwrap();
+        let code = lowerer.finalize().unwrap();
+
+        let mut expected = Vec::new();
+        expected.extend_from_slice(&enc_bitfield_regs(0, 0b10, 0, 15, 0, 0).to_le_bytes());
+        expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
+        assert_eq!(code, expected);
+    }
+
+    #[test]
+    fn rejects_shld_w16_count_greater_than_width() {
+        let mut builder = FunctionBuilder::new(FunctionId(0), 0);
+        builder.push_op(
+            0,
+            OpKind::Shld {
+                dst: x(0),
+                src: x(1),
+                amount: SrcOperand::Imm(17),
                 width: OpWidth::W16,
                 flags: FlagUpdate::None,
             },
