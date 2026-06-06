@@ -6269,6 +6269,76 @@ fn smir_aarch64_native_lowering_matches_qemu_oracle() {
     ));
 
     let mut st = native_state();
+    st.x[0] = 0x3333_4444_5555_6666;
+    st.x[1] = 0xffff_ffff_ffff_12f0;
+    st.x[2] = 0xaaaa_bbbb_cccc_003f;
+    st.pstate = 0xb000_0000;
+    let lowered = lower_aarch64_native_ops(vec![OpKind::And {
+        dst: arm_x(0),
+        src1: arm_x(1),
+        src2: SrcOperand::Reg(arm_x(2)),
+        width: OpWidth::W8,
+        flags: FlagUpdate::None,
+    }])
+    .unwrap_or_else(|e| panic!("and_w8_reg_as_and_uxtb_preserves_flags: native lowering failed: {e}"));
+    cases.push((
+        "and_w8_reg_as_and_uxtb_preserves_flags".into(),
+        [
+            enc_logical_shift_regs(0, 0b00, 0, 0, 0, RD, RN, RM),
+            enc_bitfield_regs(0, 0b10, 0, 7, RD, RD),
+            NOP,
+        ],
+        lowered,
+        st,
+    ));
+
+    let mut st = native_state();
+    st.x[0] = 0x4444_5555_6666_7777;
+    st.x[1] = 0xffff_ffff_1234_56f0;
+    st.pstate = 0x8000_0000;
+    let lowered = lower_aarch64_native_ops(vec![OpKind::Xor {
+        dst: arm_x(0),
+        src1: arm_x(1),
+        src2: SrcOperand::Imm(0x00ff),
+        width: OpWidth::W16,
+        flags: FlagUpdate::None,
+    }])
+    .unwrap_or_else(|e| panic!("xor_w16_imm_as_eor_uxth_preserves_flags: native lowering failed: {e}"));
+    cases.push((
+        "xor_w16_imm_as_eor_uxth_preserves_flags".into(),
+        [
+            enc_logical_imm(0, 0b10, 0, 0, 7, RN),
+            enc_bitfield_regs(0, 0b10, 0, 15, RD, RD),
+            NOP,
+        ],
+        lowered,
+        st,
+    ));
+
+    let mut st = native_state();
+    st.x[0] = 0x5555_6666_7777_8888;
+    st.x[1] = 0x9999_aaaa_bbbb_ccf5;
+    st.pstate = 0x2000_0000;
+    let lowered = lower_aarch64_native_ops(vec![OpKind::AndNot {
+        dst: arm_x(0),
+        src1: arm_x(1),
+        src2: SrcOperand::Imm(0xf0),
+        width: OpWidth::W8,
+        flags: FlagUpdate::None,
+    }])
+    .unwrap_or_else(|e| panic!("andnot_w8_imm_as_and_inverse_uxtb_preserves_flags: native lowering failed: {e}"));
+    cases.push((
+        "andnot_w8_imm_as_and_inverse_uxtb_preserves_flags".into(),
+        [
+            enc_logical_imm(0, 0b00, 0, 0, 3, RN),
+            enc_bitfield_regs(0, 0b10, 0, 7, RD, RD),
+            NOP,
+        ],
+        lowered,
+        st,
+    ));
+
+    let mut st = native_state();
     st.x[0] = 0xdead_beef_dead_beef;
     st.x[1] = SCRATCH_BASE;
     st.x[2] = 0xffff_ffff_ffff_ffff;

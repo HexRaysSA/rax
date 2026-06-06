@@ -1955,6 +1955,15 @@ impl Aarch64Lowerer {
         set_flags: bool,
         width: OpWidth,
     ) -> Result<(), LowerError> {
+        if matches!(width, OpWidth::W8 | OpWidth::W16) {
+            if set_flags {
+                return Err(LowerError::UnsupportedOp {
+                    op: "AArch64 native flag-setting subword logical op".into(),
+                });
+            }
+            return self.lower_subword_logic(dst, src1, src2, opc, n, width);
+        }
+
         if set_flags && opc != 0b11 {
             return Err(LowerError::UnsupportedOp {
                 op: "AArch64 native logical flags are only supported for ANDS/BICS".into(),
@@ -1995,6 +2004,64 @@ impl Aarch64Lowerer {
                 )
             }
         }
+    }
+
+    fn lower_subword_logic(
+        &mut self,
+        dst: VReg,
+        src1: VReg,
+        src2: &SrcOperand,
+        opc: u32,
+        n: bool,
+        width: OpWidth,
+    ) -> Result<(), LowerError> {
+        let dst = Self::dst_gpr(dst)?;
+        let rn = Self::gpr(src1)?;
+        let top_bit = width.bits() - 1;
+
+        match src2 {
+            SrcOperand::Reg(reg) => {
+                self.emit_logic_reg_n(dst, rn, Self::gpr(*reg)?, opc, n, OpWidth::W32)?;
+            }
+            SrcOperand::Imm(imm) | SrcOperand::Imm64(imm) => {
+                if n && opc != 0b00 {
+                    return Err(LowerError::UnsupportedOp {
+                        op: "AArch64 native inverted subword logical immediate".into(),
+                    });
+                }
+
+                let mut imm = (*imm as u64) & width.mask();
+                let opc = if n {
+                    imm = (!imm) & width.mask();
+                    0b00
+                } else {
+                    opc
+                };
+
+                if imm == 0 {
+                    match opc {
+                        0b00 => self.emit_mov_imm(dst, 0, OpWidth::W32)?,
+                        0b01 | 0b10 => self.emit_mov_reg(dst, rn, OpWidth::W32)?,
+                        _ => {
+                            return Err(LowerError::UnsupportedOp {
+                                op: "AArch64 native zero subword logical immediate".into(),
+                            });
+                        }
+                    }
+                } else {
+                    let (imm_n, immr, imms) =
+                        Self::logical_bitmask_imm(imm as i64, OpWidth::W32)?;
+                    self.emit_logic_imm(dst, rn, opc, imm_n, immr, imms, OpWidth::W32)?;
+                }
+            }
+            other => {
+                return Err(LowerError::UnsupportedOp {
+                    op: format!("AArch64 native subword logical source {other:?}"),
+                });
+            }
+        }
+
+        self.emit_bitfield(dst, dst, 0b10, 0, top_bit, OpWidth::W32)
     }
 
     fn lower_logic_special_imm(
@@ -9137,6 +9204,87 @@ mod tests {
     }
 
     #[test]
+    fn lowers_and_w8_reg_as_and_uxtb() {
+        let mut builder = FunctionBuilder::new(FunctionId(0), 0);
+        builder.push_op(
+            0,
+            OpKind::And {
+                dst: x(0),
+                src1: x(1),
+                src2: SrcOperand::Reg(x(2)),
+                width: OpWidth::W8,
+                flags: FlagUpdate::None,
+            },
+        );
+        builder.set_terminator(Terminator::Return { values: vec![] });
+        let func = builder.finish();
+
+        let mut lowerer = Aarch64Lowerer::new();
+        lowerer.lower_function(&func).unwrap();
+        let code = lowerer.finalize().unwrap();
+
+        let mut expected = Vec::new();
+        expected.extend_from_slice(&enc_logical_reg(0, 0b00, 0, 1, 2).to_le_bytes());
+        expected.extend_from_slice(&enc_bitfield_regs(0, 0b10, 0, 7, 0, 0).to_le_bytes());
+        expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
+        assert_eq!(code, expected);
+    }
+
+    #[test]
+    fn lowers_xor_w16_imm_as_eor_uxth() {
+        let mut builder = FunctionBuilder::new(FunctionId(0), 0);
+        builder.push_op(
+            0,
+            OpKind::Xor {
+                dst: x(0),
+                src1: x(1),
+                src2: SrcOperand::Imm(0x00ff),
+                width: OpWidth::W16,
+                flags: FlagUpdate::None,
+            },
+        );
+        builder.set_terminator(Terminator::Return { values: vec![] });
+        let func = builder.finish();
+
+        let mut lowerer = Aarch64Lowerer::new();
+        lowerer.lower_function(&func).unwrap();
+        let code = lowerer.finalize().unwrap();
+
+        let mut expected = Vec::new();
+        expected.extend_from_slice(&enc_logical_imm(0, 0b10, 0, 0, 7, 0, 1).to_le_bytes());
+        expected.extend_from_slice(&enc_bitfield_regs(0, 0b10, 0, 15, 0, 0).to_le_bytes());
+        expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
+        assert_eq!(code, expected);
+    }
+
+    #[test]
+    fn lowers_andnot_w8_imm_as_and_inverse_uxtb() {
+        let mut builder = FunctionBuilder::new(FunctionId(0), 0);
+        builder.push_op(
+            0,
+            OpKind::AndNot {
+                dst: x(0),
+                src1: x(1),
+                src2: SrcOperand::Imm(0xf0),
+                width: OpWidth::W8,
+                flags: FlagUpdate::None,
+            },
+        );
+        builder.set_terminator(Terminator::Return { values: vec![] });
+        let func = builder.finish();
+
+        let mut lowerer = Aarch64Lowerer::new();
+        lowerer.lower_function(&func).unwrap();
+        let code = lowerer.finalize().unwrap();
+
+        let mut expected = Vec::new();
+        expected.extend_from_slice(&enc_logical_imm(0, 0b00, 0, 0, 3, 0, 1).to_le_bytes());
+        expected.extend_from_slice(&enc_bitfield_regs(0, 0b10, 0, 7, 0, 0).to_le_bytes());
+        expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
+        assert_eq!(code, expected);
+    }
+
+    #[test]
     fn lowers_not_w8_as_mvn_uxtb() {
         let mut builder = FunctionBuilder::new(FunctionId(0), 0);
         builder.push_op(
@@ -12133,6 +12281,49 @@ mod tests {
                 dst: x(0),
                 src1: x(1),
                 src2: SrcOperand::Imm(1),
+                width: OpWidth::W16,
+                flags: FlagUpdate::All,
+            },
+        ] {
+            let mut builder = FunctionBuilder::new(FunctionId(0), 0);
+            builder.push_op(0, kind);
+            builder.set_terminator(Terminator::Return { values: vec![] });
+            let func = builder.finish();
+
+            let mut lowerer = Aarch64Lowerer::new();
+            let err = lowerer.lower_function(&func).unwrap_err();
+            assert!(matches!(err, LowerError::UnsupportedOp { .. }));
+        }
+    }
+
+    #[test]
+    fn rejects_flag_setting_subword_logical_lowering() {
+        for kind in [
+            OpKind::And {
+                dst: x(0),
+                src1: x(1),
+                src2: SrcOperand::Reg(x(2)),
+                width: OpWidth::W8,
+                flags: FlagUpdate::All,
+            },
+            OpKind::AndNot {
+                dst: x(0),
+                src1: x(1),
+                src2: SrcOperand::Imm(0xff),
+                width: OpWidth::W16,
+                flags: FlagUpdate::All,
+            },
+            OpKind::Or {
+                dst: x(0),
+                src1: x(1),
+                src2: SrcOperand::Reg(x(2)),
+                width: OpWidth::W8,
+                flags: FlagUpdate::All,
+            },
+            OpKind::Xor {
+                dst: x(0),
+                src1: x(1),
+                src2: SrcOperand::Imm(0xff),
                 width: OpWidth::W16,
                 flags: FlagUpdate::All,
             },
