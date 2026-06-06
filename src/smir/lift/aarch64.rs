@@ -22,7 +22,10 @@ const NZCV_Z: i64 = 1_i64 << 30;
 const NZCV_C: i64 = 1_i64 << 29;
 const NZCV_V: i64 = 1_i64 << 28;
 const NZCV_MASK: i64 = NZCV_N | NZCV_Z | NZCV_C | NZCV_V;
+const FP_SYSREG_MASK: i64 = 0xffff_ffff;
 const SYSREG_NZCV: u16 = (3 << 14) | (3 << 11) | (4 << 7) | (2 << 3);
+const SYSREG_FPCR: u16 = (3 << 14) | (3 << 11) | (4 << 7) | (4 << 3);
+const SYSREG_FPSR: u16 = (3 << 14) | (3 << 11) | (4 << 7) | (4 << 3) | 1;
 
 // ============================================================================
 // AArch64 Lifter
@@ -41,6 +44,14 @@ enum RevKind {
     Full,
     Halfwords,
     Words,
+}
+
+#[derive(Clone, Copy)]
+struct SysRegAccess {
+    reg: ArmReg,
+    mask: i64,
+    read_width: OpWidth,
+    write_width: OpWidth,
 }
 
 #[derive(Clone, Copy)]
@@ -81,6 +92,30 @@ impl Aarch64Lifter {
             VReg::Imm(0)
         } else {
             VReg::Arch(ArchReg::Arm(ArmReg::X(reg.num)))
+        }
+    }
+
+    fn supported_sysreg(sysreg: u16) -> Option<SysRegAccess> {
+        match sysreg {
+            SYSREG_NZCV => Some(SysRegAccess {
+                reg: ArmReg::Nzcv,
+                mask: NZCV_MASK,
+                read_width: OpWidth::W32,
+                write_width: OpWidth::W32,
+            }),
+            SYSREG_FPCR => Some(SysRegAccess {
+                reg: ArmReg::Fpcr,
+                mask: FP_SYSREG_MASK,
+                read_width: OpWidth::W64,
+                write_width: OpWidth::W64,
+            }),
+            SYSREG_FPSR => Some(SysRegAccess {
+                reg: ArmReg::Fpsr,
+                mask: FP_SYSREG_MASK,
+                read_width: OpWidth::W64,
+                write_width: OpWidth::W64,
+            }),
+            _ => None,
         }
     }
 
@@ -2524,12 +2559,12 @@ impl Aarch64Lifter {
             (Some(Operand::Reg(rd)), Some(Operand::SysReg(sysreg))) => (rd, sysreg),
             _ => return Err(LiftError::Internal("invalid MRS operands".to_string())),
         };
-        if *sysreg != SYSREG_NZCV {
+        let Some(access) = Self::supported_sysreg(*sysreg) else {
             return Err(LiftError::Unsupported {
                 addr: pc,
                 mnemonic: format!("MRS sysreg {sysreg:#06x}"),
             });
-        }
+        };
 
         let masked = ctx.alloc_vreg();
         Self::push_lifted_op(
@@ -2537,9 +2572,9 @@ impl Aarch64Lifter {
             pc,
             OpKind::And {
                 dst: masked,
-                src1: VReg::Arch(ArchReg::Arm(ArmReg::Nzcv)),
-                src2: SrcOperand::Imm(NZCV_MASK),
-                width: OpWidth::W32,
+                src1: VReg::Arch(ArchReg::Arm(access.reg)),
+                src2: SrcOperand::Imm(access.mask),
+                width: access.read_width,
                 flags: FlagUpdate::None,
             },
         );
@@ -2566,12 +2601,12 @@ impl Aarch64Lifter {
             (Some(Operand::SysReg(sysreg)), Some(Operand::Reg(rt))) => (sysreg, rt),
             _ => return Err(LiftError::Internal("invalid MSR operands".to_string())),
         };
-        if *sysreg != SYSREG_NZCV {
+        let Some(access) = Self::supported_sysreg(*sysreg) else {
             return Err(LiftError::Unsupported {
                 addr: pc,
                 mnemonic: format!("MSR sysreg {sysreg:#06x}"),
             });
-        }
+        };
 
         let masked = ctx.alloc_vreg();
         Self::push_lifted_op(
@@ -2580,7 +2615,7 @@ impl Aarch64Lifter {
             OpKind::And {
                 dst: masked,
                 src1: self.arm_reg(rt),
-                src2: SrcOperand::Imm(NZCV_MASK),
+                src2: SrcOperand::Imm(access.mask),
                 width: OpWidth::W64,
                 flags: FlagUpdate::None,
             },
@@ -2589,9 +2624,9 @@ impl Aarch64Lifter {
             ops,
             pc,
             OpKind::Mov {
-                dst: VReg::Arch(ArchReg::Arm(ArmReg::Nzcv)),
+                dst: VReg::Arch(ArchReg::Arm(access.reg)),
                 src: SrcOperand::Reg(masked),
-                width: OpWidth::W32,
+                width: access.write_width,
             },
         );
         Ok(())
