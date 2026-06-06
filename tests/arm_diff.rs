@@ -30,7 +30,7 @@ use rax::arm::{AArch64Config, AArch64Cpu, ArmCpu, CpuExit, FlatMemory};
 #[cfg(all(feature = "smir-jit", target_arch = "x86_64"))]
 use rax::smir::flags::FlagUpdate;
 #[cfg(all(feature = "smir-jit", target_arch = "x86_64"))]
-use rax::smir::ir::{FunctionBuilder, Terminator};
+use rax::smir::ir::{FunctionBuilder, SmirFunction, Terminator};
 #[cfg(all(feature = "smir-jit", target_arch = "x86_64"))]
 use rax::smir::lift::aarch64::Aarch64Lifter;
 #[cfg(all(feature = "smir-jit", target_arch = "x86_64"))]
@@ -1400,17 +1400,10 @@ fn arm_x(n: u8) -> VReg {
 }
 
 #[cfg(all(feature = "smir-jit", target_arch = "x86_64"))]
-fn lower_aarch64_native_ops(ops: Vec<OpKind>) -> Result<[u32; 3], String> {
-    let mut builder = FunctionBuilder::new(FunctionId(0), 0);
-    for (idx, kind) in ops.into_iter().enumerate() {
-        builder.push_op((idx as u64) * 4, kind);
-    }
-    builder.set_terminator(Terminator::Return { values: vec![] });
-    let func = builder.finish();
-
+fn lower_aarch64_native_function(func: &SmirFunction) -> Result<[u32; 3], String> {
     let mut lowerer = Aarch64Lowerer::new();
     lowerer
-        .lower_function(&func)
+        .lower_function(func)
         .map_err(|e| format!("lower failed: {e:?}"))?;
     let code = lowerer
         .finalize()
@@ -1424,6 +1417,41 @@ fn lower_aarch64_native_ops(ops: Vec<OpKind>) -> Result<[u32; 3], String> {
         insns[idx] = u32::from_le_bytes([chunk[0], chunk[1], chunk[2], chunk[3]]);
     }
     Ok(insns)
+}
+
+#[cfg(all(feature = "smir-jit", target_arch = "x86_64"))]
+fn lower_aarch64_native_ops(ops: Vec<OpKind>) -> Result<[u32; 3], String> {
+    let mut builder = FunctionBuilder::new(FunctionId(0), 0);
+    for (idx, kind) in ops.into_iter().enumerate() {
+        builder.push_op((idx as u64) * 4, kind);
+    }
+    builder.set_terminator(Terminator::Return { values: vec![] });
+    let func = builder.finish();
+
+    lower_aarch64_native_function(&func)
+}
+
+#[cfg(all(feature = "smir-jit", target_arch = "x86_64"))]
+fn lower_aarch64_native_insn(insn: u32) -> Result<[u32; 3], String> {
+    let mut lifter = Aarch64Lifter::new();
+    let mut ctx = LiftContext::new(SourceArch::Aarch64);
+    let lifted = lifter
+        .lift_insn(0, &insn.to_le_bytes(), &mut ctx)
+        .map_err(|e| format!("lift failed: {e:?}"))?;
+
+    let mut builder = FunctionBuilder::new(FunctionId(0), 0);
+    for op in lifted.ops {
+        builder.push_op(op.guest_pc, op.kind);
+    }
+    match lifted.control_flow {
+        ControlFlow::Fallthrough | ControlFlow::NextInsn => {
+            builder.set_terminator(Terminator::Return { values: vec![] });
+        }
+        other => return Err(format!("unexpected control flow: {other:?}")),
+    }
+    let func = builder.finish();
+
+    lower_aarch64_native_function(&func)
 }
 
 #[cfg(all(feature = "smir-jit", target_arch = "x86_64"))]
@@ -3190,6 +3218,122 @@ fn smir_aarch64_native_lowering_matches_qemu_oracle() {
             width: OpWidth::W64,
             flags: FlagUpdate::All,
         }],
+        st,
+    );
+
+    let mut st = native_state();
+    st.x[0] = 0x6666_7777_8888_9999;
+    st.x[1] = 0x10;
+    st.x[2] = 0x20;
+    st.pstate = 0x4000_0000;
+    push_case(
+        "cmp_x_opkind_sets_flags",
+        enc_addsub_shift_regs(1, 1, 1, 0, 0, 31, RN, RM),
+        vec![OpKind::Cmp {
+            src1: arm_x(1),
+            src2: SrcOperand::Reg(arm_x(2)),
+            width: OpWidth::W64,
+        }],
+        st,
+    );
+
+    let mut st = native_state();
+    st.x[0] = 0x7777_8888_9999_aaaa;
+    st.x[1] = 0x123;
+    st.pstate = 0x9000_0000;
+    push_case(
+        "cmp_x_imm_opkind_sets_flags",
+        enc_addsub_imm_regs(1, 1, 1, 0, 0x123, 31, RN),
+        vec![OpKind::Cmp {
+            src1: arm_x(1),
+            src2: SrcOperand::Imm(0x123),
+            width: OpWidth::W64,
+        }],
+        st,
+    );
+
+    let mut st = native_state();
+    st.x[0] = 0x8888_9999_aaaa_bbbb;
+    st.x[1] = 0x8000_0000_0000_0000;
+    st.x[2] = 0xffff_ffff_ffff_ffff;
+    st.pstate = 0x3000_0000;
+    push_case(
+        "test_x_opkind_sets_flags",
+        enc_logical_shift_regs(1, 0b11, 0, 0, 0, 31, RN, RM),
+        vec![OpKind::Test {
+            src1: arm_x(1),
+            src2: SrcOperand::Reg(arm_x(2)),
+            width: OpWidth::W64,
+        }],
+        st,
+    );
+
+    let mut push_lifted_case = |label: &str, source: u32, st: ArmState| {
+        let lowered = lower_aarch64_native_insn(source)
+            .unwrap_or_else(|e| panic!("{label}: native lifted lowering failed: {e}"));
+        cases.push((label.into(), [source, NOP, NOP], lowered, st));
+    };
+
+    let mut st = native_state();
+    st.x[0] = 0xaaaa_bbbb_cccc_dddd;
+    st.x[1] = 5;
+    st.x[2] = 7;
+    st.pstate = 0x6000_0000;
+    push_lifted_case(
+        "cmp_x_lifted_discards_result_sets_flags",
+        enc_addsub_shift_regs(1, 1, 1, 0, 0, 31, RN, RM),
+        st,
+    );
+
+    let mut st = native_state();
+    st.x[0] = 0x1111_2222_3333_4444;
+    st.x[1] = u64::MAX;
+    st.x[2] = 1;
+    st.pstate = 0;
+    push_lifted_case(
+        "cmn_x_lifted_discards_result_sets_flags",
+        enc_addsub_shift_regs(1, 0, 1, 0, 0, 31, RN, RM),
+        st,
+    );
+
+    let mut st = native_state();
+    st.x[0] = 0x2222_3333_4444_5555;
+    st.x[1] = 0xffff_ffff_8000_0000;
+    st.x[2] = 0xffff_ffff_0000_0001;
+    st.pstate = 0x3000_0000;
+    push_lifted_case(
+        "tst_w_lifted_discards_result_sets_flags",
+        enc_logical_shift_regs(0, 0b11, 0, 0, 0, 31, RN, RM),
+        st,
+    );
+
+    let mut st = native_state();
+    st.x[0] = 0x3333_4444_5555_6666;
+    st.x[2] = 0xffff_ffff_0000_0003;
+    st.pstate = 0x9000_0000;
+    push_lifted_case(
+        "neg_x_lifted_preserves_flags",
+        enc_addsub_shift_regs(1, 1, 0, 0, 0, RD, 31, RM),
+        st,
+    );
+
+    let mut st = native_state();
+    st.x[0] = 0x4444_5555_6666_7777;
+    st.x[2] = 0xffff_ffff_8000_0000;
+    st.pstate = 0;
+    push_lifted_case(
+        "negs_w_lifted_sets_flags_zero_ext",
+        enc_addsub_shift_regs(0, 1, 1, 0, 0, RD, 31, RM),
+        st,
+    );
+
+    let mut st = native_state();
+    st.x[0] = 0x5555_6666_7777_8888;
+    st.x[2] = 0x00ff_0000_ffff_0000;
+    st.pstate = 0xf000_0000;
+    push_lifted_case(
+        "mvn_x_lifted_preserves_flags",
+        enc_logical_shift_regs(1, 0b01, 0, 1, 0, RD, 31, RM),
         st,
     );
 

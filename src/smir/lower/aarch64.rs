@@ -62,6 +62,16 @@ impl Aarch64Lowerer {
         }
     }
 
+    fn dst_or_zero_for_flags(vreg: VReg, set_flags: bool) -> Result<u8, LowerError> {
+        match vreg {
+            VReg::Arch(ArchReg::Arm(ArmReg::X(n))) if n < 31 => Ok(n),
+            VReg::Virtual(_) if set_flags => Ok(31),
+            other => Err(LowerError::InvalidRegister(format!(
+                "AArch64 native lowerer expected writable X register, got {other:?}"
+            ))),
+        }
+    }
+
     fn emit_mov_reg(&mut self, dst: u8, src: u8, width: OpWidth) -> Result<(), LowerError> {
         let sf = Self::sf(width)?;
         self.emit(
@@ -164,12 +174,13 @@ impl Aarch64Lowerer {
         Ok(())
     }
 
-    fn emit_logic_reg(
+    fn emit_logic_reg_n(
         &mut self,
         dst: u8,
         rn: u8,
         rm: u8,
         opc: u32,
+        n: bool,
         width: OpWidth,
     ) -> Result<(), LowerError> {
         let sf = Self::sf(width)?;
@@ -177,6 +188,7 @@ impl Aarch64Lowerer {
             (sf << 31)
                 | (opc << 29)
                 | (0b01010 << 24)
+                | ((n as u32) << 21)
                 | ((rm as u32) << 16)
                 | ((rn as u32) << 5)
                 | (dst as u32),
@@ -204,7 +216,7 @@ impl Aarch64Lowerer {
         set_flags: bool,
         width: OpWidth,
     ) -> Result<(), LowerError> {
-        let dst = Self::dst_gpr(dst)?;
+        let dst = Self::dst_or_zero_for_flags(dst, set_flags)?;
         let rn = Self::gpr(src1)?;
         match src2 {
             SrcOperand::Reg(reg) => {
@@ -238,11 +250,81 @@ impl Aarch64Lowerer {
                 op: format!("AArch64 native logical source {src2:?}"),
             });
         };
-        self.emit_logic_reg(
-            Self::dst_gpr(dst)?,
+        self.emit_logic_reg_n(
+            Self::dst_or_zero_for_flags(dst, set_flags)?,
             Self::gpr(src1)?,
             Self::gpr(*src2)?,
             opc,
+            false,
+            width,
+        )
+    }
+
+    fn lower_neg(
+        &mut self,
+        dst: VReg,
+        src: VReg,
+        set_flags: bool,
+        width: OpWidth,
+    ) -> Result<(), LowerError> {
+        self.emit_addsub_reg(
+            Self::dst_gpr(dst)?,
+            31,
+            Self::gpr(src)?,
+            true,
+            set_flags,
+            width,
+        )
+    }
+
+    fn lower_not(&mut self, dst: VReg, src: VReg, width: OpWidth) -> Result<(), LowerError> {
+        self.emit_logic_reg_n(
+            Self::dst_gpr(dst)?,
+            31,
+            Self::gpr(src)?,
+            0b01,
+            true,
+            width,
+        )
+    }
+
+    fn lower_cmp(
+        &mut self,
+        src1: VReg,
+        src2: &SrcOperand,
+        width: OpWidth,
+    ) -> Result<(), LowerError> {
+        let rn = Self::gpr(src1)?;
+        match src2 {
+            SrcOperand::Reg(reg) => {
+                self.emit_addsub_reg(31, rn, Self::gpr(*reg)?, true, true, width)
+            }
+            SrcOperand::Imm(imm) | SrcOperand::Imm64(imm) => {
+                self.emit_addsub_imm(31, rn, *imm, true, true, width)
+            }
+            other => Err(LowerError::UnsupportedOp {
+                op: format!("AArch64 native CMP source {other:?}"),
+            }),
+        }
+    }
+
+    fn lower_test(
+        &mut self,
+        src1: VReg,
+        src2: &SrcOperand,
+        width: OpWidth,
+    ) -> Result<(), LowerError> {
+        let SrcOperand::Reg(src2) = src2 else {
+            return Err(LowerError::UnsupportedOp {
+                op: format!("AArch64 native TST source {src2:?}"),
+            });
+        };
+        self.emit_logic_reg_n(
+            31,
+            Self::gpr(src1)?,
+            Self::gpr(*src2)?,
+            0b11,
+            false,
             width,
         )
     }
@@ -292,6 +374,15 @@ impl Aarch64Lowerer {
                 width,
                 flags,
             } => self.lower_logic(*dst, *src1, src2, 0b10, flags.updates_any(), *width),
+            OpKind::Neg {
+                dst,
+                src,
+                width,
+                flags,
+            } => self.lower_neg(*dst, *src, flags.updates_any(), *width),
+            OpKind::Not { dst, src, width } => self.lower_not(*dst, *src, *width),
+            OpKind::Cmp { src1, src2, width } => self.lower_cmp(*src1, src2, *width),
+            OpKind::Test { src1, src2, width } => self.lower_test(*src1, src2, *width),
             other => Err(LowerError::UnsupportedOp {
                 op: format!("AArch64 native lowering for {other:?}"),
             }),
