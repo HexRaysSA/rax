@@ -1772,10 +1772,18 @@ impl Aarch64Lowerer {
     }
 
     fn lower_cwd(&mut self, dst: VReg, src: VReg, width: OpWidth) -> Result<(), LowerError> {
-        if width == OpWidth::W16 {
+        if matches!(width, OpWidth::W8 | OpWidth::W16) {
+            let sign_bit = width.bits() - 1;
             let dst = Self::dst_gpr(dst)?;
-            self.emit_bitfield(dst, Self::gpr(src)?, 0b00, 15, 15, OpWidth::W32)?;
-            return self.emit_bitfield(dst, dst, 0b10, 0, 15, OpWidth::W32);
+            self.emit_bitfield(
+                dst,
+                Self::gpr(src)?,
+                0b00,
+                sign_bit,
+                sign_bit,
+                OpWidth::W32,
+            )?;
+            return self.emit_bitfield(dst, dst, 0b10, 0, sign_bit, OpWidth::W32);
         }
         let bits = width.bits();
         self.lower_shift_imm(
@@ -5000,6 +5008,31 @@ mod tests {
 
         let mut expected = Vec::new();
         expected.extend_from_slice(&enc_bitfield(0, 0b00, 31, 31).to_le_bytes());
+        expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
+        assert_eq!(code, expected);
+    }
+
+    #[test]
+    fn lowers_cwd_w8_as_sbfm_uxtb() {
+        let mut builder = FunctionBuilder::new(FunctionId(0), 0);
+        builder.push_op(
+            0,
+            OpKind::Cwd {
+                dst: x(0),
+                src: x(1),
+                width: OpWidth::W8,
+            },
+        );
+        builder.set_terminator(Terminator::Return { values: vec![] });
+        let func = builder.finish();
+
+        let mut lowerer = Aarch64Lowerer::new();
+        lowerer.lower_function(&func).unwrap();
+        let code = lowerer.finalize().unwrap();
+
+        let mut expected = Vec::new();
+        expected.extend_from_slice(&enc_bitfield(0, 0b00, 7, 7).to_le_bytes());
+        expected.extend_from_slice(&enc_bitfield_regs(0, 0b10, 0, 7, 0, 0).to_le_bytes());
         expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
         assert_eq!(code, expected);
     }

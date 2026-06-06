@@ -7584,6 +7584,42 @@ fn smir_aarch64_native_lowering_matches_qemu_oracle() {
         st,
     );
 
+    let cwd_w8 = [
+        enc_bitfield_rn(0, 0b00, 7, 7, RN),
+        enc_bitfield_rn(0, 0b10, 0, 7, RD),
+        NOP,
+    ];
+
+    let mut st = native_state();
+    st.x[0] = 0xaaaa_bbbb_cccc_dddd;
+    st.x[1] = 0xffff_ffff_0000_007f;
+    st.pstate = 0x3000_0000;
+    push_case3(
+        "cwd_w8_sign_clear_as_sbfm_uxtb_preserves_flags",
+        cwd_w8,
+        vec![OpKind::Cwd {
+            dst: arm_x(0),
+            src: arm_x(1),
+            width: OpWidth::W8,
+        }],
+        st,
+    );
+
+    let mut st = native_state();
+    st.x[0] = 0xbbbb_cccc_dddd_eeee;
+    st.x[1] = 0x1111_2222_0000_0080;
+    st.pstate = 0xc000_0000;
+    push_case3(
+        "cwd_w8_sign_set_as_sbfm_uxtb_preserves_flags",
+        cwd_w8,
+        vec![OpKind::Cwd {
+            dst: arm_x(0),
+            src: arm_x(1),
+            width: OpWidth::W8,
+        }],
+        st,
+    );
+
     let cwd_w16 = [
         enc_bitfield_rn(0, 0b00, 15, 15, RN),
         enc_bitfield_rn(0, 0b10, 0, 15, RD),
