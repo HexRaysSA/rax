@@ -1774,17 +1774,25 @@ impl Aarch64Lowerer {
         src2: &SrcOperand,
         width: OpWidth,
     ) -> Result<(), LowerError> {
-        let (src2, shift, amount) = Self::logical_src2(src2, width)?;
-        self.emit_logic_shifted(
-            31,
-            Self::gpr(src1)?,
-            src2,
-            0b11,
-            false,
-            shift,
-            amount,
-            width,
-        )
+        match src2 {
+            SrcOperand::Imm(imm) | SrcOperand::Imm64(imm) => {
+                let (n, immr, imms) = Self::logical_contiguous_mask_imm(*imm, width)?;
+                self.emit_logic_imm(31, Self::gpr(src1)?, 0b11, n, immr, imms, width)
+            }
+            _ => {
+                let (src2, shift, amount) = Self::logical_src2(src2, width)?;
+                self.emit_logic_shifted(
+                    31,
+                    Self::gpr(src1)?,
+                    src2,
+                    0b11,
+                    false,
+                    shift,
+                    amount,
+                    width,
+                )
+            }
+        }
     }
 
     fn logical_src2(
@@ -6075,6 +6083,30 @@ mod tests {
 
         let mut expected = Vec::new();
         expected.extend_from_slice(&enc_logical_imm(0, 0b11, 0, 0, 4, 31, 1).to_le_bytes());
+        expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
+        assert_eq!(code, expected);
+    }
+
+    #[test]
+    fn lowers_test_x_high_bit_imm_to_zero_reg() {
+        let mut builder = FunctionBuilder::new(FunctionId(0), 0);
+        builder.push_op(
+            0,
+            OpKind::Test {
+                src1: x(1),
+                src2: SrcOperand::Imm64(0x8000_0000_0000_0000_u64 as i64),
+                width: OpWidth::W64,
+            },
+        );
+        builder.set_terminator(Terminator::Return { values: vec![] });
+        let func = builder.finish();
+
+        let mut lowerer = Aarch64Lowerer::new();
+        lowerer.lower_function(&func).unwrap();
+        let code = lowerer.finalize().unwrap();
+
+        let mut expected = Vec::new();
+        expected.extend_from_slice(&enc_logical_imm(1, 0b11, 1, 1, 0, 31, 1).to_le_bytes());
         expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
         assert_eq!(code, expected);
     }

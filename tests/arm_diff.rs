@@ -592,7 +592,15 @@ fn enc_bitfield_rn(sf: u32, opc: u32, immr: u32, imms: u32, rn: u32) -> u32 {
 
 /// Logical immediate: `sf opc 100100 N immr imms Rn Rd`
 #[cfg(all(feature = "smir-jit", target_arch = "x86_64"))]
-fn enc_logical_imm(sf: u32, opc: u32, n: u32, immr: u32, imms: u32, rn: u32) -> u32 {
+fn enc_logical_imm_regs(
+    sf: u32,
+    opc: u32,
+    n: u32,
+    immr: u32,
+    imms: u32,
+    rn: u32,
+    rd: u32,
+) -> u32 {
     (sf << 31)
         | (opc << 29)
         | (0b100100 << 23)
@@ -600,7 +608,12 @@ fn enc_logical_imm(sf: u32, opc: u32, n: u32, immr: u32, imms: u32, rn: u32) -> 
         | (immr << 16)
         | (imms << 10)
         | (rn << 5)
-        | RD
+        | rd
+}
+
+#[cfg(all(feature = "smir-jit", target_arch = "x86_64"))]
+fn enc_logical_imm(sf: u32, opc: u32, n: u32, immr: u32, imms: u32, rn: u32) -> u32 {
+    enc_logical_imm_regs(sf, opc, n, immr, imms, rn, RD)
 }
 
 /// Extract: `sf 00 100111 N 0 Rm imms Rn Rd`
@@ -3891,6 +3904,21 @@ fn smir_aarch64_native_lowering_matches_qemu_oracle() {
         vec![OpKind::Test {
             src1: arm_x(1),
             src2: SrcOperand::Reg(arm_x(2)),
+            width: OpWidth::W64,
+        }],
+        st,
+    );
+
+    let mut st = native_state();
+    st.x[0] = 0x7777_8888_9999_aaaa;
+    st.x[1] = 0x0000_0000_0000_ff00;
+    st.pstate = 0x9000_0000;
+    push_case(
+        "test_x_shifted_byte_mask_imm_opkind_sets_flags",
+        enc_logical_imm_regs(1, 0b11, 1, 56, 7, RN, 31),
+        vec![OpKind::Test {
+            src1: arm_x(1),
+            src2: SrcOperand::Imm(0xff00),
             width: OpWidth::W64,
         }],
         st,
