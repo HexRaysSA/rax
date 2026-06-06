@@ -3190,6 +3190,7 @@ impl Aarch64Lowerer {
                 let divisor = (imm as u64) & width.mask();
                 if divisor.is_power_of_two() && divisor > 1 {
                     let emit_width = match width {
+                        OpWidth::W8 | OpWidth::W16 => OpWidth::W32,
                         OpWidth::W32 | OpWidth::W64 => width,
                         other => {
                             return Err(LowerError::UnsupportedOp {
@@ -3202,7 +3203,7 @@ impl Aarch64Lowerer {
                         Self::gpr(src1)?,
                         0b10,
                         divisor.trailing_zeros(),
-                        emit_width.bits() - 1,
+                        width.bits() - 1,
                         emit_width,
                     );
                 }
@@ -7357,6 +7358,60 @@ mod tests {
 
         let mut expected = Vec::new();
         expected.extend_from_slice(&enc_bitfield(0, 0b10, 31, 31).to_le_bytes());
+        expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
+        assert_eq!(code, expected);
+    }
+
+    #[test]
+    fn lowers_divu_w8_imm_power_of_two_as_lsr_uxtb() {
+        let mut builder = FunctionBuilder::new(FunctionId(0), 0);
+        builder.push_op(
+            0,
+            OpKind::DivU {
+                quot: x(0),
+                rem: None,
+                src1: x(1),
+                src2: SrcOperand::Imm(4),
+                width: OpWidth::W8,
+                flags: FlagUpdate::None,
+            },
+        );
+        builder.set_terminator(Terminator::Return { values: vec![] });
+        let func = builder.finish();
+
+        let mut lowerer = Aarch64Lowerer::new();
+        lowerer.lower_function(&func).unwrap();
+        let code = lowerer.finalize().unwrap();
+
+        let mut expected = Vec::new();
+        expected.extend_from_slice(&enc_bitfield(0, 0b10, 2, 7).to_le_bytes());
+        expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
+        assert_eq!(code, expected);
+    }
+
+    #[test]
+    fn lowers_divu_w16_imm_masked_power_of_two_as_lsr_uxth() {
+        let mut builder = FunctionBuilder::new(FunctionId(0), 0);
+        builder.push_op(
+            0,
+            OpKind::DivU {
+                quot: x(3),
+                rem: None,
+                src1: x(1),
+                src2: SrcOperand::Imm64(0x1_0000_8000),
+                width: OpWidth::W16,
+                flags: FlagUpdate::None,
+            },
+        );
+        builder.set_terminator(Terminator::Return { values: vec![] });
+        let func = builder.finish();
+
+        let mut lowerer = Aarch64Lowerer::new();
+        lowerer.lower_function(&func).unwrap();
+        let code = lowerer.finalize().unwrap();
+
+        let mut expected = Vec::new();
+        expected.extend_from_slice(&enc_bitfield_regs(0, 0b10, 15, 15, 1, 3).to_le_bytes());
         expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
         assert_eq!(code, expected);
     }

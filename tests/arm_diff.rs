@@ -5146,6 +5146,42 @@ fn smir_aarch64_native_lowering_matches_qemu_oracle() {
     );
 
     let mut st = native_state();
+    st.x[0] = 0x4444_5555_6666_7777;
+    st.x[1] = 0xffff_ffff_ffff_00fc;
+    st.pstate = 0x2000_0000;
+    push_case(
+        "divu_w8_imm_power_of_two_as_lsr_uxtb_preserves_flags",
+        enc_bitfield(0, 0b10, 2, 7),
+        vec![OpKind::DivU {
+            quot: arm_x(0),
+            rem: None,
+            src1: arm_x(1),
+            src2: SrcOperand::Imm(4),
+            width: OpWidth::W8,
+            flags: FlagUpdate::None,
+        }],
+        st,
+    );
+
+    let mut st = native_state();
+    st.x[0] = 0x5555_6666_7777_8888;
+    st.x[1] = 0xffff_ffff_ffff_8001;
+    st.pstate = 0xc000_0000;
+    push_case(
+        "divu_w16_imm_masked_power_of_two_as_lsr_uxth_preserves_flags",
+        enc_bitfield(0, 0b10, 15, 15),
+        vec![OpKind::DivU {
+            quot: arm_x(0),
+            rem: None,
+            src1: arm_x(1),
+            src2: SrcOperand::Imm64(0x1_0000_8000),
+            width: OpWidth::W16,
+            flags: FlagUpdate::None,
+        }],
+        st,
+    );
+
+    let mut st = native_state();
     st.x[0] = 0xaaaa_bbbb_cccc_dddd;
     st.x[1] = SCRATCH_BASE;
     st.scratch[9] = 0x8877_6655_4433_2211;
