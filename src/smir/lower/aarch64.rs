@@ -443,6 +443,28 @@ impl Aarch64Lowerer {
         None
     }
 
+    fn canonical_subword_addsub_imm(
+        imm: i64,
+        subtract: bool,
+        width: OpWidth,
+    ) -> Option<(bool, u64)> {
+        if !matches!(width, OpWidth::W8 | OpWidth::W16) {
+            return None;
+        }
+
+        let value = (imm as u64) & width.mask();
+        if Self::addsub_imm_fits(value) {
+            return Some((subtract, value));
+        }
+
+        let negated = value.wrapping_neg() & width.mask();
+        if negated != 0 && Self::addsub_imm_fits(negated) {
+            return Some((!subtract, negated));
+        }
+
+        None
+    }
+
     fn emit_logic_reg_n(
         &mut self,
         dst: u8,
@@ -1978,7 +2000,9 @@ impl Aarch64Lowerer {
                 self.emit_addsub_reg(dst, rn, Self::gpr(*reg)?, subtract, false, OpWidth::W32)?;
             }
             SrcOperand::Imm(imm) | SrcOperand::Imm64(imm) => {
-                let imm = (*imm as u64) & width.mask();
+                let (subtract, imm) =
+                    Self::canonical_subword_addsub_imm(*imm, subtract, width)
+                        .unwrap_or((subtract, (*imm as u64) & width.mask()));
                 if imm == 0 {
                     return self.emit_bitfield(dst, rn, 0b10, 0, top_bit, OpWidth::W32);
                 }
@@ -6730,6 +6754,33 @@ mod tests {
 
         let mut expected = Vec::new();
         expected.extend_from_slice(&enc_addsub_imm_regs(0, 1, 1, 0, 1, 0, 1).to_le_bytes());
+        expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
+        assert_eq!(code, expected);
+    }
+
+    #[test]
+    fn lowers_add_w16_imm_masked_neg_one_as_sub_uxth() {
+        let mut builder = FunctionBuilder::new(FunctionId(0), 0);
+        builder.push_op(
+            0,
+            OpKind::Add {
+                dst: x(0),
+                src1: x(1),
+                src2: SrcOperand::Imm64(0xffff),
+                width: OpWidth::W16,
+                flags: FlagUpdate::None,
+            },
+        );
+        builder.set_terminator(Terminator::Return { values: vec![] });
+        let func = builder.finish();
+
+        let mut lowerer = Aarch64Lowerer::new();
+        lowerer.lower_function(&func).unwrap();
+        let code = lowerer.finalize().unwrap();
+
+        let mut expected = Vec::new();
+        expected.extend_from_slice(&enc_addsub_imm_regs(0, 1, 0, 0, 1, 0, 1).to_le_bytes());
+        expected.extend_from_slice(&enc_bitfield_regs(0, 0b10, 0, 15, 0, 0).to_le_bytes());
         expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
         assert_eq!(code, expected);
     }
