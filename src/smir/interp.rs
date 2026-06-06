@@ -1205,7 +1205,12 @@ impl SmirInterpreter {
                 if ovf {
                     Self::set_hex_ovf(ctx);
                 }
-                Self::write_gpr(ctx, *dst, (clamped as i64 as u64) & 0xffff_ffff, OpWidth::W32);
+                Self::write_gpr(
+                    ctx,
+                    *dst,
+                    (clamped as i64 as u64) & 0xffff_ffff,
+                    OpWidth::W32,
+                );
             }
 
             // `S2_asl_r_r_sat` / `S2_asr_r_r_sat` — register-amount saturating
@@ -1396,6 +1401,47 @@ impl SmirInterpreter {
                 if flags.updates_any() {
                     ctx.flags.set_lazy_logic(val, *width);
                 }
+            }
+
+            OpKind::Bextr {
+                dst,
+                src,
+                control,
+                width,
+            } => {
+                let src = ctx.read_vreg(*src) & width.mask();
+                let control = ctx.read_vreg(*control);
+                let start = (control & 0xff) as u32;
+                let len = ((control >> 8) & 0xff) as u32;
+                let bits = width.bits();
+                let result = if start >= bits || len == 0 {
+                    0
+                } else {
+                    let shifted = src >> start;
+                    if len >= bits {
+                        shifted
+                    } else {
+                        shifted & ((1u64 << len) - 1)
+                    }
+                };
+                Self::write_gpr(ctx, *dst, result & width.mask(), *width);
+            }
+
+            OpKind::Bzhi {
+                dst,
+                src,
+                index,
+                width,
+            } => {
+                let src = ctx.read_vreg(*src) & width.mask();
+                let index = (ctx.read_vreg(*index) & 0xff) as u32;
+                let bits = width.bits();
+                let result = if index >= bits {
+                    src
+                } else {
+                    src & ((1u64 << index) - 1)
+                };
+                Self::write_gpr(ctx, *dst, result & width.mask(), *width);
             }
 
             OpKind::Clz { dst, src, width } => {
@@ -2629,7 +2675,12 @@ impl SmirInterpreter {
                         _ => val & mask,
                     };
                     let prev = Self::get_lane(&result, lane, elem_bits);
-                    Self::set_lane(&mut result, lane, elem_bits, prev.wrapping_add(shifted) & mask);
+                    Self::set_lane(
+                        &mut result,
+                        lane,
+                        elem_bits,
+                        prev.wrapping_add(shifted) & mask,
+                    );
                 }
                 Self::write_vec(ctx, *dst, result);
             }
@@ -2652,8 +2703,16 @@ impl SmirInterpreter {
                 };
                 let matchval = (sel_v & 0xF) as u8;
                 let oh = ((sel_v >> 1) & 0x1) as u8;
-                let mut lo = if *oracc { Self::read_vec(ctx, *dst_lo) } else { [0u64; 16] };
-                let mut hi = if *oracc { Self::read_vec(ctx, *dst_hi) } else { [0u64; 16] };
+                let mut lo = if *oracc {
+                    Self::read_vec(ctx, *dst_lo)
+                } else {
+                    [0u64; 16]
+                };
+                let mut hi = if *oracc {
+                    Self::read_vec(ctx, *dst_hi)
+                } else {
+                    [0u64; 16]
+                };
                 let look = |idx: u8| -> u16 {
                     if *nomatch {
                         let k = ((idx & 0x0F) | (matchval << 4)) as usize;
@@ -2699,7 +2758,11 @@ impl SmirInterpreter {
                 };
                 let matchval = (sel_v & 0x7) as u8;
                 let oh = ((sel_v >> 1) & 0x1) as u8;
-                let mut out = if *oracc { Self::read_vec(ctx, *dst) } else { [0u64; 16] };
+                let mut out = if *oracc {
+                    Self::read_vec(ctx, *dst)
+                } else {
+                    [0u64; 16]
+                };
                 for i in 0..128u8 {
                     let idx = Self::get_lane(&vu, i, 8) as u8;
                     let val: u8 = if *nomatch {
@@ -2738,7 +2801,11 @@ impl SmirInterpreter {
                     let prev = cur;
                     for k in 0..128usize {
                         let cb = Self::get_lane(&ctrl, k as u8, 8);
-                        let src_k = if cb & (off as u64) != 0 { (k ^ off) as u8 } else { k as u8 };
+                        let src_k = if cb & (off as u64) != 0 {
+                            (k ^ off) as u8
+                        } else {
+                            k as u8
+                        };
                         Self::set_lane(&mut cur, k as u8, 8, Self::get_lane(&prev, src_k, 8));
                     }
                 }
@@ -3025,7 +3092,12 @@ impl SmirInterpreter {
                 Self::write_vec(ctx, *dst, q);
             }
 
-            OpKind::VQFromVAndR { dst, src1, src2, oracc } => {
+            OpKind::VQFromVAndR {
+                dst,
+                src1,
+                src2,
+                oracc,
+            } => {
                 let a = Self::read_vec(ctx, *src1);
                 let b = Self::read_vec(ctx, *src2);
                 // vandvrt_acc OR-accumulates into the existing dst Q; otherwise
@@ -3377,7 +3449,12 @@ impl SmirInterpreter {
             }
 
             // HVX vaddububb_sat/vsubububb_sat: Vd.ub = sat_u8(Vu.ub +/- Vv.b).
-            OpKind::VAddSubMixedSat { dst, src1, src2, sub } => {
+            OpKind::VAddSubMixedSat {
+                dst,
+                src1,
+                src2,
+                sub,
+            } => {
                 let u = Self::read_vec(ctx, *src1);
                 let v = Self::read_vec(ctx, *src2);
                 let mut out = [0u64; 16];
@@ -3422,7 +3499,12 @@ impl SmirInterpreter {
             }
 
             // HVX shuffeqh/shuffeqw: Q-predicate shrink/shuffle.
-            OpKind::VShuffEqQ { dst, src1, src2, stride } => {
+            OpKind::VShuffEqQ {
+                dst,
+                src1,
+                src2,
+                stride,
+            } => {
                 let qs = Self::read_vec(ctx, *src1);
                 let qt = Self::read_vec(ctx, *src2);
                 let qbit = |q: &VecValue, i: usize| (q[i >> 6] >> (i & 63)) & 1 != 0;
@@ -3491,7 +3573,12 @@ impl SmirInterpreter {
             }
 
             // HVX vmpyhsat_acc: Vxx.w[i] += sat32(Vu.h[2i/2i+1] * Rt.h[0/1]).
-            OpKind::VMpyHsatAcc { dst_lo, dst_hi, src, scalar } => {
+            OpKind::VMpyHsatAcc {
+                dst_lo,
+                dst_hi,
+                src,
+                scalar,
+            } => {
                 let vu = Self::read_vec(ctx, *src);
                 let rt = ctx.read_vreg(*scalar) as u32;
                 let rt0 = (rt & 0xffff) as u16 as i16 as i64;
@@ -3526,7 +3613,12 @@ impl SmirInterpreter {
             }
 
             // HVX vasr_into: shift Vu.w into the running accumulator pair Vxx.
-            OpKind::VAsrInto { dst_lo, dst_hi, src, amount } => {
+            OpKind::VAsrInto {
+                dst_lo,
+                dst_hi,
+                src,
+                amount,
+            } => {
                 let vu = Self::read_vec(ctx, *src);
                 let vv = Self::read_vec(ctx, *amount);
                 let mut x0 = Self::read_vec(ctx, *dst_lo); // Vxx.v[0]
@@ -3585,8 +3677,16 @@ impl SmirInterpreter {
                     ((v10 & 0x3ff) << 54) >> 54
                 };
                 let terms = Self::v6mpy_terms(*horizontal, *phase);
-                let mut o0 = if *acc { Self::read_vec(ctx, *dst_lo) } else { [0u64; 16] };
-                let mut o1 = if *acc { Self::read_vec(ctx, *dst_hi) } else { [0u64; 16] };
+                let mut o0 = if *acc {
+                    Self::read_vec(ctx, *dst_lo)
+                } else {
+                    [0u64; 16]
+                };
+                let mut o1 = if *acc {
+                    Self::read_vec(ctx, *dst_hi)
+                } else {
+                    [0u64; 16]
+                };
                 for i in 0..32u8 {
                     let c = [
                         coeff(&cv0, i, 0),
@@ -3702,9 +3802,7 @@ impl SmirInterpreter {
                     None
                 };
                 // Q layout in a VecValue: bit i lives in lane (i>>6), bit (i&63).
-                let qbit = |q: &VecValue, i: usize| -> bool {
-                    (q[i >> 6] >> (i & 63)) & 1 != 0
-                };
+                let qbit = |q: &VecValue, i: usize| -> bool { (q[i >> 6] >> (i & 63)) & 1 != 0 };
                 let get_uh = |f: &[[u8; 128]; 32], reg: usize, i: usize| -> u32 {
                     u16::from_le_bytes([f[reg][i * 2], f[reg][i * 2 + 1]]) as u32
                 };
@@ -3997,7 +4095,11 @@ impl SmirInterpreter {
                 }
             }
 
-            OpKind::VSatDW { dst, src_lo, src_hi } => {
+            OpKind::VSatDW {
+                dst,
+                src_lo,
+                src_hi,
+            } => {
                 let lo = Self::read_vec(ctx, *src_lo);
                 let hi = Self::read_vec(ctx, *src_hi);
                 let mut result = [0u64; 16];
@@ -4139,8 +4241,16 @@ impl SmirInterpreter {
                 let rbits = rt_elem.bytes() * 8;
                 let obits = out_elem.bytes() * 8;
                 let olanes = (1024 / obits) as u8;
-                let mut lo = if *acc { Self::read_vec(ctx, *dst_lo) } else { [0u64; 16] };
-                let mut hi = if *acc { Self::read_vec(ctx, *dst_hi) } else { [0u64; 16] };
+                let mut lo = if *acc {
+                    Self::read_vec(ctx, *dst_lo)
+                } else {
+                    [0u64; 16]
+                };
+                let mut hi = if *acc {
+                    Self::read_vec(ctx, *dst_hi)
+                } else {
+                    [0u64; 16]
+                };
                 let exg = |v: u64, bits: u32, signed: bool| -> i64 {
                     if signed {
                         let sh = 64 - bits;
@@ -4155,8 +4265,16 @@ impl SmirInterpreter {
                         + exg(Self::get_lane(&u1, i * 2, pbits), pbits, *signed1) * rt(1);
                     let phi = exg(Self::get_lane(&u0, i * 2 + 1, pbits), pbits, *signed1) * rt(2)
                         + exg(Self::get_lane(&u1, i * 2 + 1, pbits), pbits, *signed1) * rt(3);
-                    let alo = if *acc { Self::get_lane(&lo, i, obits) as i64 } else { 0 };
-                    let ahi = if *acc { Self::get_lane(&hi, i, obits) as i64 } else { 0 };
+                    let alo = if *acc {
+                        Self::get_lane(&lo, i, obits) as i64
+                    } else {
+                        0
+                    };
+                    let ahi = if *acc {
+                        Self::get_lane(&hi, i, obits) as i64
+                    } else {
+                        0
+                    };
                     Self::set_lane(&mut lo, i, obits, alo.wrapping_add(plo) as u64);
                     Self::set_lane(&mut hi, i, obits, ahi.wrapping_add(phi) as u64);
                 }
@@ -4196,10 +4314,16 @@ impl SmirInterpreter {
                     }
                 };
                 // narrow multiplicand lane reader
-                let m = |vec: &VecValue, lane: u8| ext(Self::get_lane(vec, lane, nbits), nbits, *signed1);
+                let m = |vec: &VecValue, lane: u8| {
+                    ext(Self::get_lane(vec, lane, nbits), nbits, *signed1)
+                };
                 // Rt sub-lane reader (from the I32-broadcast `src2`)
                 let rt = |lane: u8| ext(Self::get_lane(&r, lane, rbits), rbits, *signed2);
-                let mut lo = if *acc { Self::read_vec(ctx, *dst_lo) } else { [0u64; 16] };
+                let mut lo = if *acc {
+                    Self::read_vec(ctx, *dst_lo)
+                } else {
+                    [0u64; 16]
+                };
                 let mut hi = if *acc && *mode != 2 {
                     Self::read_vec(ctx, *dst_hi)
                 } else {
@@ -4225,12 +4349,20 @@ impl SmirInterpreter {
                     match *mode {
                         0 => {
                             // _dv 2-tap sliding (pair -> pair)
-                            let alo = if *acc { Self::get_lane(&lo, i, obits) as i64 } else { 0 };
+                            let alo = if *acc {
+                                Self::get_lane(&lo, i, obits) as i64
+                            } else {
+                                0
+                            };
                             let s0 = alo
                                 .wrapping_add(m(&v0, n0).wrapping_mul(rb0))
                                 .wrapping_add(m(&v0, n1).wrapping_mul(rb1));
                             Self::set_lane(&mut lo, i, obits, s0 as u64);
-                            let ahi = if *acc { Self::get_lane(&hi, i, obits) as i64 } else { 0 };
+                            let ahi = if *acc {
+                                Self::get_lane(&hi, i, obits) as i64
+                            } else {
+                                0
+                            };
                             let s1 = ahi
                                 .wrapping_add(m(&v0, n1).wrapping_mul(rb0))
                                 .wrapping_add(m(&v1, n0).wrapping_mul(rb1));
@@ -4238,13 +4370,21 @@ impl SmirInterpreter {
                         }
                         1 => {
                             // vtmpy 3-tap sliding with a free (un-multiplied) addend tap
-                            let alo = if *acc { Self::get_lane(&lo, i, obits) as i64 } else { 0 };
+                            let alo = if *acc {
+                                Self::get_lane(&lo, i, obits) as i64
+                            } else {
+                                0
+                            };
                             let s0 = alo
                                 .wrapping_add(m(&v0, n0).wrapping_mul(rb0))
                                 .wrapping_add(m(&v0, n1).wrapping_mul(rb1))
                                 .wrapping_add(m(&v1, n0));
                             Self::set_lane(&mut lo, i, obits, s0 as u64);
-                            let ahi = if *acc { Self::get_lane(&hi, i, obits) as i64 } else { 0 };
+                            let ahi = if *acc {
+                                Self::get_lane(&hi, i, obits) as i64
+                            } else {
+                                0
+                            };
                             let s1 = ahi
                                 .wrapping_add(m(&v0, n1).wrapping_mul(rb0))
                                 .wrapping_add(m(&v1, n0).wrapping_mul(rb1))
@@ -4310,11 +4450,21 @@ impl SmirInterpreter {
                     }
                 };
                 // narrow multiplicand lane reader
-                let m = |vec: &VecValue, lane: u8| ext(Self::get_lane(vec, lane, nbits), nbits, *signed1);
+                let m = |vec: &VecValue, lane: u8| {
+                    ext(Self::get_lane(vec, lane, nbits), nbits, *signed1)
+                };
                 // Rt sub-lane reader (from the I32-broadcast `src2`)
                 let rt = |lane: u8| ext(Self::get_lane(&r, lane, rbits), rbits, *signed2);
-                let mut lo = if *acc { Self::read_vec(ctx, *dst_lo) } else { [0u64; 16] };
-                let mut hi = if *acc { Self::read_vec(ctx, *dst_hi) } else { [0u64; 16] };
+                let mut lo = if *acc {
+                    Self::read_vec(ctx, *dst_lo)
+                } else {
+                    [0u64; 16]
+                };
+                let mut hi = if *acc {
+                    Self::read_vec(ctx, *dst_hi)
+                } else {
+                    [0u64; 16]
+                };
                 // per-tap kernel: mul (a*b) or sum-of-abs-diff (|a-b|).
                 let kern = |a: i64, b: i64| -> i64 {
                     if *abs_diff {
@@ -4333,14 +4483,22 @@ impl SmirInterpreter {
                             let sel: &VecValue = if im != 0 { &v1 } else { &v0 };
                             // rb(n) = Rt.byte[(n - imm) & 3]
                             let rb = |n: usize| rt(((n.wrapping_sub(im)) & 3) as u8);
-                            let alo = if *acc { ext(Self::get_lane(&lo, i, obits), obits, true) } else { 0 };
+                            let alo = if *acc {
+                                ext(Self::get_lane(&lo, i, obits), obits, true)
+                            } else {
+                                0
+                            };
                             let s0 = alo
                                 .wrapping_add(kern(m(sel, base), rb(0)))
                                 .wrapping_add(kern(m(&v0, base + 1), rb(1)))
                                 .wrapping_add(kern(m(&v0, base + 2), rb(2)))
                                 .wrapping_add(kern(m(&v0, base + 3), rb(3)));
                             Self::set_lane(&mut lo, i, obits, s0 as u64);
-                            let ahi = if *acc { ext(Self::get_lane(&hi, i, obits), obits, true) } else { 0 };
+                            let ahi = if *acc {
+                                ext(Self::get_lane(&hi, i, obits), obits, true)
+                            } else {
+                                0
+                            };
                             let s1 = ahi
                                 .wrapping_add(kern(m(&v1, base), rb(2)))
                                 .wrapping_add(kern(m(&v1, base + 1), rb(3)))
@@ -4355,12 +4513,20 @@ impl SmirInterpreter {
                             let r1 = rt(1);
                             let n0 = (i as u8) * 2; // halfword lane 2i
                             let n1 = (i as u8) * 2 + 1; // halfword lane 2i+1
-                            let alo = if *acc { ext(Self::get_lane(&lo, i, obits), obits, true) } else { 0 };
+                            let alo = if *acc {
+                                ext(Self::get_lane(&lo, i, obits), obits, true)
+                            } else {
+                                0
+                            };
                             let s0 = alo
                                 .wrapping_add(kern(m(&v0, n0), r0))
                                 .wrapping_add(kern(m(&v0, n1), r1));
                             Self::set_lane(&mut lo, i, obits, s0 as u64);
-                            let ahi = if *acc { ext(Self::get_lane(&hi, i, obits), obits, true) } else { 0 };
+                            let ahi = if *acc {
+                                ext(Self::get_lane(&hi, i, obits), obits, true)
+                            } else {
+                                0
+                            };
                             let s1 = ahi
                                 .wrapping_add(kern(m(&v0, n1), r0))
                                 .wrapping_add(kern(m(&v1, n0), r1));
@@ -4389,7 +4555,11 @@ impl SmirInterpreter {
                 let sbits = sub_elem.bytes() * 8;
                 let olanes = (1024 / obits) as u8;
                 let ratio = (obits / sbits) as u8;
-                let mut out = if *acc { Self::read_vec(ctx, *dst) } else { [0u64; 16] };
+                let mut out = if *acc {
+                    Self::read_vec(ctx, *dst)
+                } else {
+                    [0u64; 16]
+                };
                 let exts = |v: u64, bits: u32, signed: bool| -> i64 {
                     if signed {
                         let sh = 64 - bits;
@@ -4402,8 +4572,17 @@ impl SmirInterpreter {
                     let s1 = exts(Self::get_lane(&a, i, obits), obits, *signed1);
                     let sub_idx = i * ratio + if *odd { 1 } else { 0 };
                     let s2 = exts(Self::get_lane(&b, sub_idx, sbits), sbits, *signed2);
-                    let accv = if *acc { Self::get_lane(&out, i, obits) as i64 } else { 0 };
-                    Self::set_lane(&mut out, i, obits, accv.wrapping_add(s1.wrapping_mul(s2)) as u64);
+                    let accv = if *acc {
+                        Self::get_lane(&out, i, obits) as i64
+                    } else {
+                        0
+                    };
+                    Self::set_lane(
+                        &mut out,
+                        i,
+                        obits,
+                        accv.wrapping_add(s1.wrapping_mul(s2)) as u64,
+                    );
                 }
                 Self::write_vec(ctx, *dst, out);
             }
@@ -4426,7 +4605,11 @@ impl SmirInterpreter {
             } => {
                 let a = Self::read_vec(ctx, *src1);
                 let b = Self::read_vec(ctx, *src2);
-                let d = if *acc { Self::read_vec(ctx, *dst) } else { [0u64; 16] };
+                let d = if *acc {
+                    Self::read_vec(ctx, *dst)
+                } else {
+                    [0u64; 16]
+                };
                 let obits = out_elem.bytes() * 8;
                 let sbits = sub_elem.bytes() * 8;
                 let olanes = (1024 / obits) as u8;
@@ -4520,8 +4703,16 @@ impl SmirInterpreter {
                 // word i: 32-bit lane; src2 sub-halfwords at 2i (even/uh0) and 2i+1 (odd/h1).
                 let mut lo = [0u64; 16];
                 let mut hi = [0u64; 16];
-                let old_lo = if *mode == 1 { Self::read_vec(ctx, *dst_lo) } else { [0u64; 16] };
-                let old_hi = if *mode == 1 { Self::read_vec(ctx, *dst_hi) } else { [0u64; 16] };
+                let old_lo = if *mode == 1 {
+                    Self::read_vec(ctx, *dst_lo)
+                } else {
+                    [0u64; 16]
+                };
+                let old_hi = if *mode == 1 {
+                    Self::read_vec(ctx, *dst_hi)
+                } else {
+                    [0u64; 16]
+                };
                 for i in 0..32u8 {
                     let uw = Self::get_lane(&a, i, 32) as u32 as i32 as i64;
                     if *mode == 0 {
@@ -5286,46 +5477,98 @@ impl SmirInterpreter {
     fn v6mpy_terms(horizontal: bool, phase: u8) -> &'static [(u8, u8, u8, u8)] {
         const H_TERMS: [&[(u8, u8, u8, u8)]; 4] = [
             &[
-                (1, 3, 3, 1), (1, 1, 4, 1), (0, 3, 5, 1), (1, 2, 0, 1), (1, 0, 1, 1), (0, 2, 2, 1),
-                (1, 2, 3, 0), (1, 0, 4, 0), (0, 2, 5, 0),
+                (1, 3, 3, 1),
+                (1, 1, 4, 1),
+                (0, 3, 5, 1),
+                (1, 2, 0, 1),
+                (1, 0, 1, 1),
+                (0, 2, 2, 1),
+                (1, 2, 3, 0),
+                (1, 0, 4, 0),
+                (0, 2, 5, 0),
             ],
             &[
-                (1, 3, 0, 1), (1, 1, 1, 1), (0, 3, 2, 1),
-                (1, 3, 3, 0), (1, 1, 4, 0), (0, 3, 5, 0), (1, 2, 0, 0), (1, 0, 1, 0), (0, 2, 2, 0),
+                (1, 3, 0, 1),
+                (1, 1, 1, 1),
+                (0, 3, 2, 1),
+                (1, 3, 3, 0),
+                (1, 1, 4, 0),
+                (0, 3, 5, 0),
+                (1, 2, 0, 0),
+                (1, 0, 1, 0),
+                (0, 2, 2, 0),
             ],
             &[
-                (1, 1, 3, 1), (0, 3, 4, 1), (0, 1, 5, 1), (1, 0, 0, 1), (0, 2, 1, 1), (0, 0, 2, 1),
-                (1, 0, 3, 0), (0, 2, 4, 0), (0, 0, 5, 0),
+                (1, 1, 3, 1),
+                (0, 3, 4, 1),
+                (0, 1, 5, 1),
+                (1, 0, 0, 1),
+                (0, 2, 1, 1),
+                (0, 0, 2, 1),
+                (1, 0, 3, 0),
+                (0, 2, 4, 0),
+                (0, 0, 5, 0),
             ],
             &[
-                (1, 1, 0, 1), (0, 3, 1, 1), (0, 1, 2, 1),
-                (1, 1, 3, 0), (0, 3, 4, 0), (0, 1, 5, 0), (1, 0, 0, 0), (0, 2, 1, 0), (0, 0, 2, 0),
+                (1, 1, 0, 1),
+                (0, 3, 1, 1),
+                (0, 1, 2, 1),
+                (1, 1, 3, 0),
+                (0, 3, 4, 0),
+                (0, 1, 5, 0),
+                (1, 0, 0, 0),
+                (0, 2, 1, 0),
+                (0, 0, 2, 0),
             ],
         ];
         const V_TERMS: [&[(u8, u8, u8, u8)]; 4] = [
             &[
-                (0, 3, 3, 1), (1, 2, 4, 1), (1, 3, 5, 1), (0, 1, 0, 1), (1, 0, 1, 1), (1, 1, 2, 1),
-                (0, 1, 3, 0), (1, 0, 4, 0), (1, 1, 5, 0),
+                (0, 3, 3, 1),
+                (1, 2, 4, 1),
+                (1, 3, 5, 1),
+                (0, 1, 0, 1),
+                (1, 0, 1, 1),
+                (1, 1, 2, 1),
+                (0, 1, 3, 0),
+                (1, 0, 4, 0),
+                (1, 1, 5, 0),
             ],
             &[
-                (0, 3, 0, 1), (1, 2, 1, 1), (1, 3, 2, 1),
-                (0, 3, 3, 0), (1, 2, 4, 0), (1, 3, 5, 0), (0, 1, 0, 0), (1, 0, 1, 0), (1, 1, 2, 0),
+                (0, 3, 0, 1),
+                (1, 2, 1, 1),
+                (1, 3, 2, 1),
+                (0, 3, 3, 0),
+                (1, 2, 4, 0),
+                (1, 3, 5, 0),
+                (0, 1, 0, 0),
+                (1, 0, 1, 0),
+                (1, 1, 2, 0),
             ],
             &[
-                (0, 2, 3, 1), (0, 3, 4, 1), (1, 2, 5, 1), (0, 0, 0, 1), (0, 1, 1, 1), (1, 0, 2, 1),
-                (0, 0, 3, 0), (0, 1, 4, 0), (1, 0, 5, 0),
+                (0, 2, 3, 1),
+                (0, 3, 4, 1),
+                (1, 2, 5, 1),
+                (0, 0, 0, 1),
+                (0, 1, 1, 1),
+                (1, 0, 2, 1),
+                (0, 0, 3, 0),
+                (0, 1, 4, 0),
+                (1, 0, 5, 0),
             ],
             &[
-                (0, 2, 0, 1), (0, 3, 1, 1), (1, 2, 2, 1),
-                (0, 2, 3, 0), (0, 3, 4, 0), (1, 2, 5, 0), (0, 0, 0, 0), (0, 1, 1, 0), (1, 0, 2, 0),
+                (0, 2, 0, 1),
+                (0, 3, 1, 1),
+                (1, 2, 2, 1),
+                (0, 2, 3, 0),
+                (0, 3, 4, 0),
+                (1, 2, 5, 0),
+                (0, 0, 0, 0),
+                (0, 1, 1, 0),
+                (1, 0, 2, 0),
             ],
         ];
         let p = (phase & 3) as usize;
-        if horizontal {
-            H_TERMS[p]
-        } else {
-            V_TERMS[p]
-        }
+        if horizontal { H_TERMS[p] } else { V_TERMS[p] }
     }
 
     fn get_lane(value: &VecValue, lane: u8, elem_bits: u32) -> u64 {
@@ -5397,7 +5640,11 @@ impl SmirInterpreter {
                 ((v << shift) as i64) >> shift
             }
         };
-        let smin: i128 = if signed { -(1i128 << (elem_bits - 1)) } else { 0 };
+        let smin: i128 = if signed {
+            -(1i128 << (elem_bits - 1))
+        } else {
+            0
+        };
         let smax: i128 = if signed {
             (1i128 << (elem_bits - 1)) - 1
         } else {
@@ -5649,17 +5896,9 @@ fn hf64_class_bit(b: u64) -> u32 {
     let exp = (b >> 52) & 0x7ff;
     let mant = b & 0x000f_ffff_ffff_ffff;
     if exp == 0 {
-        if mant == 0 {
-            0
-        } else {
-            2
-        }
+        if mant == 0 { 0 } else { 2 }
     } else if exp == 0x7ff {
-        if mant == 0 {
-            3
-        } else {
-            4
-        }
+        if mant == 0 { 3 } else { 4 }
     } else {
         1
     }
@@ -5727,11 +5966,7 @@ fn hf_sf_minmax(a: u32, b: u32, is_min: bool) -> u32 {
     } else {
         fa > fb
     };
-    if pick_a {
-        a
-    } else {
-        b
-    }
+    if pick_a { a } else { b }
 }
 fn hf_df_minmax(a: u64, b: u64, is_min: bool) -> u64 {
     let an = hf64_is_nan(a);
@@ -5758,39 +5993,23 @@ fn hf_df_minmax(a: u64, b: u64, is_min: bool) -> u64 {
     } else {
         fa > fb
     };
-    if pick_a {
-        a
-    } else {
-        b
-    }
+    if pick_a { a } else { b }
 }
 
 #[inline]
 fn hf_round_f32(f: f32, chop: bool) -> f32 {
-    if chop {
-        f.trunc()
-    } else {
-        f.round_ties_even()
-    }
+    if chop { f.trunc() } else { f.round_ties_even() }
 }
 #[inline]
 fn hf_round_f64(f: f64, chop: bool) -> f64 {
-    if chop {
-        f.trunc()
-    } else {
-        f.round_ties_even()
-    }
+    if chop { f.trunc() } else { f.round_ties_even() }
 }
 
 /// `float_to_sint` clamp (mirrors sem/float.rs).
 fn hf_to_sint(ri: f64, min: i128, max: i128) -> i128 {
     let v = ri as i128;
     if v < min || v > max || !ri.is_finite() {
-        if ri.is_sign_negative() {
-            min
-        } else {
-            max
-        }
+        if ri.is_sign_negative() { min } else { max }
     } else {
         v
     }
@@ -5862,15 +6081,15 @@ fn hf_df_to_sf(b: u64) -> u32 {
 /// which also covers the invalid cases (sNaN input, 0*inf, inf-inf).
 fn hex_sf_fma(araw: u32, braw: u32, craw: u32, negate_product: bool) -> u32 {
     // sffms computes Rx - Rs*Rt = (-Rs)*Rt + Rx.
-    let fa = f32::from_bits(if negate_product { araw ^ 0x8000_0000 } else { araw });
+    let fa = f32::from_bits(if negate_product {
+        araw ^ 0x8000_0000
+    } else {
+        araw
+    });
     let fb = f32::from_bits(braw);
     let fc = f32::from_bits(craw);
     let r = fa.mul_add(fb, fc);
-    if r.is_nan() {
-        0xFFFF_FFFF
-    } else {
-        r.to_bits()
-    }
+    if r.is_nan() { 0xFFFF_FFFF } else { r.to_bits() }
 }
 
 // ============================================================================
@@ -5956,11 +6175,7 @@ fn hr_getexp(b: u32) -> i32 {
 }
 #[inline]
 fn hr_infinite(neg: bool) -> u32 {
-    if neg {
-        0xff80_0000
-    } else {
-        0x7f80_0000
-    }
+    if neg { 0xff80_0000 } else { 0x7f80_0000 }
 }
 
 /// Exact (sign, m, e) decomposition of a finite f32 (caller excludes NaN/inf).
@@ -5975,9 +6190,17 @@ fn hr_decode(b: u32) -> HrSf {
     let exp = ((b >> 23) & 0xff) as i32;
     let frac = (b & 0x007f_ffff) as u128;
     if exp == 0 {
-        HrSf { neg, m: frac, e: -149 }
+        HrSf {
+            neg,
+            m: frac,
+            e: -149,
+        }
     } else {
-        HrSf { neg, m: frac | 0x0080_0000, e: exp - 150 }
+        HrSf {
+            neg,
+            m: frac | 0x0080_0000,
+            e: exp - 150,
+        }
     }
 }
 
@@ -5998,9 +6221,17 @@ fn hr_round_exact_to_f32(neg: bool, mut m: u128, mut e: i32, sticky: bool, ties_
     let drop = lowest_exp - e;
     if drop > 0 {
         let drop = drop as u32;
-        let dropped_mask = if drop >= 128 { u128::MAX } else { (1u128 << drop) - 1 };
+        let dropped_mask = if drop >= 128 {
+            u128::MAX
+        } else {
+            (1u128 << drop) - 1
+        };
         let dropped = m & dropped_mask;
-        let half = if (1..=128).contains(&drop) { 1u128 << (drop - 1) } else { 0 };
+        let half = if (1..=128).contains(&drop) {
+            1u128 << (drop - 1)
+        } else {
+            0
+        };
         m = if drop >= 128 { 0 } else { m >> drop };
         e += drop as i32;
         let round_bit = dropped & half != 0;
@@ -6130,7 +6361,11 @@ fn hr_add_scaled(
 /// the sem's `sf_fma`). `ties_away` selects the `:lib` ties-away rounding of a
 /// subnormal result; the recip path never uses it.
 fn hr_sf_fma(araw: u32, braw: u32, craw: u32, negate_prod: bool, ties_away: bool) -> u32 {
-    let a = if negate_prod { araw ^ 0x8000_0000 } else { araw };
+    let a = if negate_prod {
+        araw ^ 0x8000_0000
+    } else {
+        araw
+    };
     let b = braw;
     let c = craw;
     let any_nan = hf32_is_nan(araw) || hf32_is_nan(braw) || hf32_is_nan(craw);
@@ -6200,14 +6435,17 @@ pub(crate) fn hex_sf_fma_lib(rs: u32, rt: u32, rx: u32, sub: bool) -> u32 {
     }
     let frx = f32::from_bits(rx);
     let prod = f32::from_bits(rs) * f32::from_bits(rt); // inf-ness only
-    let infinp = frx.is_infinite()
-        || f32::from_bits(rt).is_infinite()
-        || f32::from_bits(rs).is_infinite();
+    let infinp =
+        frx.is_infinite() || f32::from_bits(rt).is_infinite() || f32::from_bits(rs).is_infinite();
     let xor_sign = ((rs >> 31) ^ (rx >> 31) ^ (rt >> 31)) & 1;
     let inf_minus_inf = frx.is_infinite()
         && prod.is_infinite()
         && (if sub { xor_sign == 0 } else { xor_sign != 0 });
-    let mut res = if frx == 0.0 && hr_sf_true_zero_product(rs, rt) { rx } else { tmp };
+    let mut res = if frx == 0.0 && hr_sf_true_zero_product(rs, rt) {
+        rx
+    } else {
+        tmp
+    };
     if f32::from_bits(res).is_infinite() && !infinp {
         res = res.wrapping_sub(1);
     }
@@ -6343,9 +6581,17 @@ fn hr_df_decode(b: u64) -> HrDf {
     let exp = ((b >> 52) & 0x7ff) as i32;
     let frac = (b & 0x000f_ffff_ffff_ffff) as u128;
     if exp == 0 {
-        HrDf { neg, m: frac, e: -1074 }
+        HrDf {
+            neg,
+            m: frac,
+            e: -1074,
+        }
     } else {
-        HrDf { neg, m: frac | 0x0010_0000_0000_0000, e: exp - 1075 }
+        HrDf {
+            neg,
+            m: frac | 0x0010_0000_0000_0000,
+            e: exp - 1075,
+        }
     }
 }
 
@@ -6365,9 +6611,17 @@ fn hr_round_exact_to_f64(neg: bool, mut m: u128, mut e: i32, sticky: bool) -> u6
     let drop = lowest_exp - e;
     if drop > 0 {
         let drop = drop as u32;
-        let dropped_mask = if drop >= 128 { u128::MAX } else { (1u128 << drop) - 1 };
+        let dropped_mask = if drop >= 128 {
+            u128::MAX
+        } else {
+            (1u128 << drop) - 1
+        };
         let dropped = m & dropped_mask;
-        let half = if (1..=128).contains(&drop) { 1u128 << (drop - 1) } else { 0 };
+        let half = if (1..=128).contains(&drop) {
+            1u128 << (drop - 1)
+        } else {
+            0
+        };
         m = if drop >= 128 { 0 } else { m >> drop };
         e += drop as i32;
         let round_bit = dropped & half != 0;
@@ -6424,12 +6678,24 @@ fn hr_df_mpyhh(araw: u64, braw: u64, acc: u64) -> u64 {
         if a_zero || b_zero {
             return 0xFFFF_FFFF_FFFF_FFFF; // inf * 0 -> invalid, default NaN
         }
-        return if neg { 0xfff0_0000_0000_0000 } else { 0x7ff0_0000_0000_0000 };
+        return if neg {
+            0xfff0_0000_0000_0000
+        } else {
+            0x7ff0_0000_0000_0000
+        };
     }
     let a_sub = (araw >> 52) & 0x7ff == 0 && (araw & 0x000f_ffff_ffff_ffff) != 0;
     let b_sub = (braw >> 52) & 0x7ff == 0 && (braw & 0x000f_ffff_ffff_ffff) != 0;
-    let a = if a_sub { araw & 0x8000_0000_0000_0000 } else { araw };
-    let b = if b_sub { braw & 0x8000_0000_0000_0000 } else { braw };
+    let a = if a_sub {
+        araw & 0x8000_0000_0000_0000
+    } else {
+        araw
+    };
+    let b = if b_sub {
+        braw & 0x8000_0000_0000_0000
+    } else {
+        braw
+    };
     let da = hr_df_decode(a & 0xffff_ffff_0000_0000);
     let db = hr_df_decode(b & 0xffff_ffff_0000_0000);
     let neg = da.neg ^ db.neg;
@@ -6505,7 +6771,11 @@ const HEX_AC_NEXT_STATE_LPS_64: [u8; 64] = [
 #[inline]
 fn hex_insert_range(reg: u32, hibit: u32, lobit: u32, val: u32) -> u32 {
     let width = hibit - lobit + 1;
-    let field_mask = if width >= 32 { u32::MAX } else { (1u32 << width) - 1 };
+    let field_mask = if width >= 32 {
+        u32::MAX
+    } else {
+        (1u32 << width) - 1
+    };
     (reg & !(field_mask << lobit)) | ((val & field_mask) << lobit)
 }
 
@@ -6559,11 +6829,7 @@ fn hex_tlbmatch(rss: u64, rt: u32) -> u8 {
     mask &= 0xffff_ffffu32.wrapping_shl(2 * size);
     let valid = (tlbhi >> 31) & 1 != 0;
     let matched = valid && ((tlbhi & mask) == (rt & mask));
-    if matched {
-        0xff
-    } else {
-        0x00
-    }
+    if matched { 0xff } else { 0x00 }
 }
 
 /// Port of `arch_sf_recip_common`. Returns `(ret, RsV, RtV, RdV, PeV)`.
@@ -6705,13 +6971,7 @@ fn hex_fp_eval(op: HexFpOp, a: u64, b: u64) -> u64 {
     let a32 = a as u32;
     let b32 = b as u32;
     // Predicate helpers (Hexagon scalar predicate byte: 0x00 / 0xff).
-    let pred = |hit: bool| -> u64 {
-        if hit {
-            0xff
-        } else {
-            0x00
-        }
-    };
+    let pred = |hit: bool| -> u64 { if hit { 0xff } else { 0x00 } };
     match op {
         // ---- single compares ----
         SfCmpEq => pred(hf_cmp_sf(a32, b32) == HfRel::Equal),
@@ -6799,16 +7059,24 @@ fn hex_fp_eval(op: HexFpOp, a: u64, b: u64) -> u64 {
         ConvD2Df => (a as i64 as f64).to_bits(),
         ConvUd2Df => (a as f64).to_bits(),
         // float -> int
-        ConvSf2W => hf_sf_to_sint(a32, false, i32::MIN as i128, i32::MAX as i128) as i32 as u32 as u64,
-        ConvSf2WChop => hf_sf_to_sint(a32, true, i32::MIN as i128, i32::MAX as i128) as i32 as u32 as u64,
+        ConvSf2W => {
+            hf_sf_to_sint(a32, false, i32::MIN as i128, i32::MAX as i128) as i32 as u32 as u64
+        }
+        ConvSf2WChop => {
+            hf_sf_to_sint(a32, true, i32::MIN as i128, i32::MAX as i128) as i32 as u32 as u64
+        }
         ConvSf2Uw => hf_sf_to_uint(a32, false, u32::MAX as u128) as u32 as u64,
         ConvSf2UwChop => hf_sf_to_uint(a32, true, u32::MAX as u128) as u32 as u64,
         ConvSf2D => hf_sf_to_sint(a32, false, i64::MIN as i128, i64::MAX as i128) as i64 as u64,
         ConvSf2DChop => hf_sf_to_sint(a32, true, i64::MIN as i128, i64::MAX as i128) as i64 as u64,
         ConvSf2Ud => hf_sf_to_uint(a32, false, u64::MAX as u128) as u64,
         ConvSf2UdChop => hf_sf_to_uint(a32, true, u64::MAX as u128) as u64,
-        ConvDf2W => hf_df_to_sint(a, false, i32::MIN as i128, i32::MAX as i128) as i32 as u32 as u64,
-        ConvDf2WChop => hf_df_to_sint(a, true, i32::MIN as i128, i32::MAX as i128) as i32 as u32 as u64,
+        ConvDf2W => {
+            hf_df_to_sint(a, false, i32::MIN as i128, i32::MAX as i128) as i32 as u32 as u64
+        }
+        ConvDf2WChop => {
+            hf_df_to_sint(a, true, i32::MIN as i128, i32::MAX as i128) as i32 as u32 as u64
+        }
         ConvDf2Uw => hf_df_to_uint(a, false, u32::MAX as u128) as u32 as u64,
         ConvDf2UwChop => hf_df_to_uint(a, true, u32::MAX as u128) as u32 as u64,
         ConvDf2D => hf_df_to_sint(a, false, i64::MIN as i128, i64::MAX as i128) as i64 as u64,
@@ -6852,6 +7120,69 @@ mod tests {
         assert!(matches!(exit, BlockResult::Exit(ExitReason::Halt)));
         ctx.flags.materialize_all();
         (ctx.read_vreg(rax), ctx.flags.materialized.to_rflags())
+    }
+
+    #[test]
+    fn smir_bextr_bzhi_result_ops_preserve_x86_flags_and_edge_counts() {
+        let rax = VReg::Arch(ArchReg::X86(X86Reg::Rax));
+        let rcx = VReg::Arch(ArchReg::X86(X86Reg::Rcx));
+        let flags = 0x2 | 0x1 | 0x40 | 0x80 | 0x800;
+
+        let (value, got_flags) = exec_x86_rax_op(
+            OpKind::Bextr {
+                dst: rax,
+                src: rax,
+                control: rcx,
+                width: OpWidth::W64,
+            },
+            0xf0f0,
+            (8 << 8) | 4,
+            flags,
+        );
+        assert_eq!(value, 0x0f);
+        assert_eq!(got_flags, flags);
+
+        let (value, got_flags) = exec_x86_rax_op(
+            OpKind::Bextr {
+                dst: rax,
+                src: rax,
+                control: rcx,
+                width: OpWidth::W64,
+            },
+            0x1234_5678,
+            64,
+            flags,
+        );
+        assert_eq!(value, 0);
+        assert_eq!(got_flags, flags);
+
+        let (value, got_flags) = exec_x86_rax_op(
+            OpKind::Bzhi {
+                dst: rax,
+                src: rax,
+                index: rcx,
+                width: OpWidth::W64,
+            },
+            0xffff_1234_5678_9abc,
+            16,
+            flags,
+        );
+        assert_eq!(value, 0x9abc);
+        assert_eq!(got_flags, flags);
+
+        let (value, got_flags) = exec_x86_rax_op(
+            OpKind::Bzhi {
+                dst: rax,
+                src: rax,
+                index: rcx,
+                width: OpWidth::W64,
+            },
+            0xffff_1234_5678_9abc,
+            64,
+            flags,
+        );
+        assert_eq!(value, 0xffff_1234_5678_9abc);
+        assert_eq!(got_flags, flags);
     }
 
     #[test]
@@ -7023,9 +7354,15 @@ mod tests {
     fn smir_hex_sf_fma_lib_matches_sem() {
         // 2^-149 * 0.5 + 0 = 2^-150, exactly halfway between 0 and the smallest
         // subnormal 2^-149. ties-to-even -> 0x0; ties-away (`:lib`) -> 0x1.
-        assert_eq!(hex_sf_fma_lib(0x0000_0001, 0x3f00_0000, 0x0000_0000, false), 0x0000_0001);
+        assert_eq!(
+            hex_sf_fma_lib(0x0000_0001, 0x3f00_0000, 0x0000_0000, false),
+            0x0000_0001
+        );
         // Sanity: the native ties-to-even path would give 0 here.
-        assert_eq!(f32::from_bits(0x0000_0001).mul_add(0.5, 0.0).to_bits(), 0x0000_0000);
+        assert_eq!(
+            f32::from_bits(0x0000_0001).mul_add(0.5, 0.0).to_bits(),
+            0x0000_0000
+        );
 
         // Spurious overflow (no infinite input): FLT_MAX * 4 + 0 -> +inf, which
         // is backed off to max-finite by a bit decrement (0x7f800000 - 1).
@@ -7036,11 +7373,19 @@ mod tests {
         // inf - inf -> flushed to +0 for the fms form: prod=+inf, c=+inf.
         // sffms computes c - prod; with prod=+inf and c=+inf this is the
         // inf-minus-inf case -> +0.0.
-        assert_eq!(hex_sf_fma_lib(0x7f80_0000, 0x3f80_0000, 0x7f80_0000, true), 0);
+        assert_eq!(
+            hex_sf_fma_lib(0x7f80_0000, 0x3f80_0000, 0x7f80_0000, true),
+            0
+        );
 
         // Plain finite case matches a single-rounded fma (no fixup fires).
         assert_eq!(
-            hex_sf_fma_lib(0x4000_0000 /*2*/, 0x4040_0000 /*3*/, 0x3f80_0000 /*1*/, false),
+            hex_sf_fma_lib(
+                0x4000_0000, /*2*/
+                0x4040_0000, /*3*/
+                0x3f80_0000, /*1*/
+                false
+            ),
             (7.0f32).to_bits()
         );
     }
@@ -7066,7 +7411,10 @@ mod tests {
         // ---- classify: mask bit by category (0=zero,1=normal,2=sub,3=inf,4=nan) ----
         assert_eq!(hex_fp_eval(SfClass, f32b(0.0), 1 << 0), 0xff); // zero
         assert_eq!(hex_fp_eval(SfClass, f32b(1.5), 1 << 1), 0xff); // normal
-        assert_eq!(hex_fp_eval(SfClass, f32::INFINITY.to_bits() as u64, 1 << 3), 0xff);
+        assert_eq!(
+            hex_fp_eval(SfClass, f32::INFINITY.to_bits() as u64, 1 << 3),
+            0xff
+        );
         assert_eq!(hex_fp_eval(SfClass, snan32, 1 << 4), 0xff); // nan
         assert_eq!(hex_fp_eval(SfClass, f32b(1.5), 1 << 0), 0x00); // normal !zero
         assert_eq!(hex_fp_eval(DfClass, f64b(0.0), 1 << 0), 0xff);
@@ -7092,7 +7440,11 @@ mod tests {
         assert_eq!(hex_fp_eval(DfSub, f64b(5.0), f64b(2.0)), f64b(3.0));
         // inf - inf -> default NaN
         assert_eq!(
-            hex_fp_eval(SfSub, f32::INFINITY.to_bits() as u64, f32::INFINITY.to_bits() as u64),
+            hex_fp_eval(
+                SfSub,
+                f32::INFINITY.to_bits() as u64,
+                f32::INFINITY.to_bits() as u64
+            ),
             0xFFFF_FFFF
         );
 
@@ -7117,13 +7469,27 @@ mod tests {
 
         // ---- fused multiply-add (single rounding) ----
         // 2*3 + 4 = 10 ; 4 - 2*3 = -2
-        assert_eq!(hex_sf_fma(f32b(2.0) as u32, f32b(3.0) as u32, f32b(4.0) as u32, false), f32b(10.0) as u32);
-        assert_eq!(hex_sf_fma(f32b(2.0) as u32, f32b(3.0) as u32, f32b(4.0) as u32, true), f32b(-2.0) as u32);
+        assert_eq!(
+            hex_sf_fma(f32b(2.0) as u32, f32b(3.0) as u32, f32b(4.0) as u32, false),
+            f32b(10.0) as u32
+        );
+        assert_eq!(
+            hex_sf_fma(f32b(2.0) as u32, f32b(3.0) as u32, f32b(4.0) as u32, true),
+            f32b(-2.0) as u32
+        );
         // NaN accumulator -> canonical all-ones.
-        assert_eq!(hex_sf_fma(f32b(2.0) as u32, f32b(3.0) as u32, snan32 as u32, false), 0xFFFF_FFFF);
+        assert_eq!(
+            hex_sf_fma(f32b(2.0) as u32, f32b(3.0) as u32, snan32 as u32, false),
+            0xFFFF_FFFF
+        );
         // 0 * inf -> NaN -> canonical.
         assert_eq!(
-            hex_sf_fma(f32b(0.0) as u32, f32::INFINITY.to_bits(), f32b(1.0) as u32, false),
+            hex_sf_fma(
+                f32b(0.0) as u32,
+                f32::INFINITY.to_bits(),
+                f32b(1.0) as u32,
+                false
+            ),
             0xFFFF_FFFF
         );
     }
@@ -7518,7 +7884,9 @@ mod tests {
                 },
                 x86_hint: None,
             }],
-            terminator: Terminator::Trap { kind: TrapKind::Halt },
+            terminator: Terminator::Trap {
+                kind: TrapKind::Halt,
+            },
             exec_count: 0,
         };
         interp.execute_block(&mut ctx, &mut memory, &block);
@@ -7605,10 +7973,16 @@ mod tests {
             ops: vec![SmirOp {
                 id: OpId(0),
                 guest_pc: 0x1000,
-                kind: OpKind::VSatDW { dst: mkv(2), src_lo: mkv(0), src_hi: mkv(1) },
+                kind: OpKind::VSatDW {
+                    dst: mkv(2),
+                    src_lo: mkv(0),
+                    src_hi: mkv(1),
+                },
                 x86_hint: None,
             }],
-            terminator: Terminator::Trap { kind: TrapKind::Halt },
+            terminator: Terminator::Trap {
+                kind: TrapKind::Halt,
+            },
             exec_count: 0,
         };
         interp.execute_block(&mut ctx, &mut memory, &block);
@@ -7652,7 +8026,9 @@ mod tests {
                 },
                 x86_hint: None,
             }],
-            terminator: Terminator::Trap { kind: TrapKind::Halt },
+            terminator: Terminator::Trap {
+                kind: TrapKind::Halt,
+            },
             exec_count: 0,
         };
         interp.execute_block(&mut ctx, &mut memory, &block);
@@ -7700,7 +8076,9 @@ mod tests {
                     },
                     x86_hint: None,
                 }],
-                terminator: Terminator::Trap { kind: TrapKind::Halt },
+                terminator: Terminator::Trap {
+                    kind: TrapKind::Halt,
+                },
                 exec_count: 0,
             };
             interp.execute_block(&mut ctx, &mut memory, &block);
@@ -7744,7 +8122,9 @@ mod tests {
                     },
                     x86_hint: None,
                 }],
-                terminator: Terminator::Trap { kind: TrapKind::Halt },
+                terminator: Terminator::Trap {
+                    kind: TrapKind::Halt,
+                },
                 exec_count: 0,
             };
             interp.execute_block(&mut ctx, &mut memory, &block);
@@ -7754,15 +8134,30 @@ mod tests {
             }
         };
         // Not: ~0 = 0xFFFF... (op 0)
-        assert_eq!(run([0u64; 16], VecElementType::I32, 32, 0), [0xFFFF_FFFF_FFFF_FFFFu64; 16]);
+        assert_eq!(
+            run([0u64; 16], VecElementType::I32, 32, 0),
+            [0xFFFF_FFFF_FFFF_FFFFu64; 16]
+        );
         // Abs of 0xFFFE (=-2 as i16) per halfword -> 2 (op 1)
-        assert_eq!(run([0xFFFE_FFFE_FFFE_FFFEu64; 16], VecElementType::I16, 64, 1), [0x0002_0002_0002_0002u64; 16]);
+        assert_eq!(
+            run([0xFFFE_FFFE_FFFE_FFFEu64; 16], VecElementType::I16, 64, 1),
+            [0x0002_0002_0002_0002u64; 16]
+        );
         // Clz of 0x0001 halfword -> 15 (op 3)
-        assert_eq!(run([0x0001_0001_0001_0001u64; 16], VecElementType::I16, 64, 3), [0x000F_000F_000F_000Fu64; 16]);
+        assert_eq!(
+            run([0x0001_0001_0001_0001u64; 16], VecElementType::I16, 64, 3),
+            [0x000F_000F_000F_000Fu64; 16]
+        );
         // Popcount of 0x00FF halfword -> 8 (op 4)
-        assert_eq!(run([0x00FF_00FF_00FF_00FFu64; 16], VecElementType::I16, 64, 4), [0x0008_0008_0008_0008u64; 16]);
+        assert_eq!(
+            run([0x00FF_00FF_00FF_00FFu64; 16], VecElementType::I16, 64, 4),
+            [0x0008_0008_0008_0008u64; 16]
+        );
         // NormAmt of 0x0001 halfword: max(clz=15, clz(~)=0)-1 = 14 (op 5)
-        assert_eq!(run([0x0001_0001_0001_0001u64; 16], VecElementType::I16, 64, 5), [0x000E_000E_000E_000Eu64; 16]);
+        assert_eq!(
+            run([0x0001_0001_0001_0001u64; 16], VecElementType::I16, 64, 5),
+            [0x000E_000E_000E_000Eu64; 16]
+        );
     }
 
     #[test]
@@ -7794,7 +8189,9 @@ mod tests {
                 },
                 x86_hint: None,
             }],
-            terminator: Terminator::Trap { kind: TrapKind::Halt },
+            terminator: Terminator::Trap {
+                kind: TrapKind::Halt,
+            },
             exec_count: 0,
         };
         interp.execute_block(&mut ctx, &mut memory, &block);
@@ -7912,7 +8309,9 @@ mod tests {
                 },
                 x86_hint: None,
             }],
-            terminator: Terminator::Trap { kind: TrapKind::Halt },
+            terminator: Terminator::Trap {
+                kind: TrapKind::Halt,
+            },
             exec_count: 0,
         };
         interp.execute_block(&mut ctx, &mut memory, &block);
@@ -7958,7 +8357,9 @@ mod tests {
                 },
                 x86_hint: None,
             }],
-            terminator: Terminator::Trap { kind: TrapKind::Halt },
+            terminator: Terminator::Trap {
+                kind: TrapKind::Halt,
+            },
             exec_count: 0,
         };
         interp.execute_block(&mut ctx, &mut memory, &block);
@@ -7971,63 +8372,119 @@ mod tests {
     #[test]
     fn test_vslidereducemul() {
         let mkv = |n| VReg::Arch(ArchReg::Hexagon(HexagonReg::V(n)));
-        let run = |v0: [u64; 16], v1: [u64; 16], rt: [u64; 16], op: OpKind| -> ([u64; 16], [u64; 16]) {
-            let mut ctx = SmirContext::new_hexagon();
-            let mut memory = FlatMemory::new(0x1000);
-            let interp = SmirInterpreter::new();
-            if let ArchRegState::Hexagon(hex) = &mut ctx.arch_regs {
-                hex.set_v(0, v0);
-                hex.set_v(1, v1);
-                hex.set_v(2, rt); // I32-broadcast of Rt
-            }
-            let block = SmirBlock {
-                id: BlockId(0),
-                guest_pc: 0x1000,
-                phis: vec![],
-                ops: vec![SmirOp { id: OpId(0), guest_pc: 0x1000, kind: op, x86_hint: None }],
-                terminator: Terminator::Trap { kind: TrapKind::Halt },
-                exec_count: 0,
+        let run =
+            |v0: [u64; 16], v1: [u64; 16], rt: [u64; 16], op: OpKind| -> ([u64; 16], [u64; 16]) {
+                let mut ctx = SmirContext::new_hexagon();
+                let mut memory = FlatMemory::new(0x1000);
+                let interp = SmirInterpreter::new();
+                if let ArchRegState::Hexagon(hex) = &mut ctx.arch_regs {
+                    hex.set_v(0, v0);
+                    hex.set_v(1, v1);
+                    hex.set_v(2, rt); // I32-broadcast of Rt
+                }
+                let block = SmirBlock {
+                    id: BlockId(0),
+                    guest_pc: 0x1000,
+                    phis: vec![],
+                    ops: vec![SmirOp {
+                        id: OpId(0),
+                        guest_pc: 0x1000,
+                        kind: op,
+                        x86_hint: None,
+                    }],
+                    terminator: Terminator::Trap {
+                        kind: TrapKind::Halt,
+                    },
+                    exec_count: 0,
+                };
+                interp.execute_block(&mut ctx, &mut memory, &block);
+                if let ArchRegState::Hexagon(hex) = &ctx.arch_regs {
+                    (hex.get_v(3), hex.get_v(4))
+                } else {
+                    unreachable!()
+                }
             };
-            interp.execute_block(&mut ctx, &mut memory, &block);
-            if let ArchRegState::Hexagon(hex) = &ctx.arch_regs {
-                (hex.get_v(3), hex.get_v(4))
-            } else {
-                unreachable!()
-            }
-        };
         // mode 0 (vdmpyhb_dv): v0.h=2, v1.h=4, Rt bytes=1 (so all taps=1).
         //   o0 = v0.h[2i]*1 + v0.h[2i+1]*1 = 2+2 = 4
         //   o1 = v0.h[2i+1]*1 + v1.h[2i]*1 = 2+4 = 6
         let v0 = [0x0002_0002_0002_0002u64; 16];
         let v1 = [0x0004_0004_0004_0004u64; 16];
         let rt = [0x0101_0101_0101_0101u64; 16];
-        let (lo, hi) = run(v0, v1, rt, OpKind::VSlideReduceMul {
-            dst_lo: mkv(3), dst_hi: mkv(4), src_lo: mkv(0), src_hi: mkv(1), src2: mkv(2),
-            src_elem: VecElementType::I16, rt_elem: VecElementType::I8, out_elem: VecElementType::I32,
-            mode: 0, signed1: true, signed2: true, sat: false, set_ovf: false, acc: false,
-        });
+        let (lo, hi) = run(
+            v0,
+            v1,
+            rt,
+            OpKind::VSlideReduceMul {
+                dst_lo: mkv(3),
+                dst_hi: mkv(4),
+                src_lo: mkv(0),
+                src_hi: mkv(1),
+                src2: mkv(2),
+                src_elem: VecElementType::I16,
+                rt_elem: VecElementType::I8,
+                out_elem: VecElementType::I32,
+                mode: 0,
+                signed1: true,
+                signed2: true,
+                sat: false,
+                set_ovf: false,
+                acc: false,
+            },
+        );
         assert_eq!(lo, [0x0000_0004_0000_0004u64; 16]);
         assert_eq!(hi, [0x0000_0006_0000_0006u64; 16]);
 
         // mode 1 (vtmpyhb): adds a free addend tap.
         //   o0 = v0.h[2i]*1 + v0.h[2i+1]*1 + v1.h[2i]   = 2+2+4 = 8
         //   o1 = v0.h[2i+1]*1 + v1.h[2i]*1 + v1.h[2i+1] = 2+4+4 = 10
-        let (lo, hi) = run(v0, v1, rt, OpKind::VSlideReduceMul {
-            dst_lo: mkv(3), dst_hi: mkv(4), src_lo: mkv(0), src_hi: mkv(1), src2: mkv(2),
-            src_elem: VecElementType::I16, rt_elem: VecElementType::I8, out_elem: VecElementType::I32,
-            mode: 1, signed1: true, signed2: true, sat: false, set_ovf: false, acc: false,
-        });
+        let (lo, hi) = run(
+            v0,
+            v1,
+            rt,
+            OpKind::VSlideReduceMul {
+                dst_lo: mkv(3),
+                dst_hi: mkv(4),
+                src_lo: mkv(0),
+                src_hi: mkv(1),
+                src2: mkv(2),
+                src_elem: VecElementType::I16,
+                rt_elem: VecElementType::I8,
+                out_elem: VecElementType::I32,
+                mode: 1,
+                signed1: true,
+                signed2: true,
+                sat: false,
+                set_ovf: false,
+                acc: false,
+            },
+        );
         assert_eq!(lo, [0x0000_0008_0000_0008u64; 16]);
         assert_eq!(hi, [0x0000_000A_0000_000Au64; 16]);
 
         // mode 2 (vdmpyhisat): pair -> single, o[i] = v0.h[2i+1]*Rt.h0 + v1.h[2i]*Rt.h1.
         // Rt.h0 = Rt.h1 = 1 (rt bytes all 1 -> halfword = 0x0101 = 257). Use Rt=1 per half.
         let rt2 = [0x0001_0001_0001_0001u64; 16];
-        let (lo, _hi) = run(v0, v1, rt2, OpKind::VSlideReduceMul {
-            dst_lo: mkv(3), dst_hi: mkv(3), src_lo: mkv(0), src_hi: mkv(1), src2: mkv(2),
-            src_elem: VecElementType::I16, rt_elem: VecElementType::I16, out_elem: VecElementType::I32,
-            mode: 2, signed1: true, signed2: true, sat: true, set_ovf: true, acc: false,
-        });
+        let (lo, _hi) = run(
+            v0,
+            v1,
+            rt2,
+            OpKind::VSlideReduceMul {
+                dst_lo: mkv(3),
+                dst_hi: mkv(3),
+                src_lo: mkv(0),
+                src_hi: mkv(1),
+                src2: mkv(2),
+                src_elem: VecElementType::I16,
+                rt_elem: VecElementType::I16,
+                out_elem: VecElementType::I32,
+                mode: 2,
+                signed1: true,
+                signed2: true,
+                sat: true,
+                set_ovf: true,
+                acc: false,
+            },
+        );
         // o = v0.h[2i+1]*1 + v1.h[2i]*1 = 2 + 4 = 6.
         assert_eq!(lo, [0x0000_0006_0000_0006u64; 16]);
     }
@@ -8035,41 +8492,65 @@ mod tests {
     #[test]
     fn test_vrotreducemulpair() {
         let mkv = |n| VReg::Arch(ArchReg::Hexagon(HexagonReg::V(n)));
-        let run = |v0: [u64; 16], v1: [u64; 16], rt: [u64; 16], op: OpKind| -> ([u64; 16], [u64; 16]) {
-            let mut ctx = SmirContext::new_hexagon();
-            let mut memory = FlatMemory::new(0x1000);
-            let interp = SmirInterpreter::new();
-            if let ArchRegState::Hexagon(hex) = &mut ctx.arch_regs {
-                hex.set_v(0, v0); // src_lo
-                hex.set_v(1, v1); // src_hi
-                hex.set_v(2, rt); // I32-broadcast of Rt
-            }
-            let block = SmirBlock {
-                id: BlockId(0),
-                guest_pc: 0x1000,
-                phis: vec![],
-                ops: vec![SmirOp { id: OpId(0), guest_pc: 0x1000, kind: op, x86_hint: None }],
-                terminator: Terminator::Trap { kind: TrapKind::Halt },
-                exec_count: 0,
+        let run =
+            |v0: [u64; 16], v1: [u64; 16], rt: [u64; 16], op: OpKind| -> ([u64; 16], [u64; 16]) {
+                let mut ctx = SmirContext::new_hexagon();
+                let mut memory = FlatMemory::new(0x1000);
+                let interp = SmirInterpreter::new();
+                if let ArchRegState::Hexagon(hex) = &mut ctx.arch_regs {
+                    hex.set_v(0, v0); // src_lo
+                    hex.set_v(1, v1); // src_hi
+                    hex.set_v(2, rt); // I32-broadcast of Rt
+                }
+                let block = SmirBlock {
+                    id: BlockId(0),
+                    guest_pc: 0x1000,
+                    phis: vec![],
+                    ops: vec![SmirOp {
+                        id: OpId(0),
+                        guest_pc: 0x1000,
+                        kind: op,
+                        x86_hint: None,
+                    }],
+                    terminator: Terminator::Trap {
+                        kind: TrapKind::Halt,
+                    },
+                    exec_count: 0,
+                };
+                interp.execute_block(&mut ctx, &mut memory, &block);
+                if let ArchRegState::Hexagon(hex) = &ctx.arch_regs {
+                    (hex.get_v(3), hex.get_v(4))
+                } else {
+                    unreachable!()
+                }
             };
-            interp.execute_block(&mut ctx, &mut memory, &block);
-            if let ArchRegState::Hexagon(hex) = &ctx.arch_regs {
-                (hex.get_v(3), hex.get_v(4))
-            } else {
-                unreachable!()
-            }
-        };
         // ---- mode 0, imm=0, product (vrmpyubi): all Vuu bytes=2, Rt bytes=1.
         //   o0 = sel.b[0]*1 + v0.b[1]*1 + v0.b[2]*1 + v0.b[3]*1 = 4*2 = 8
         //   o1 = v1.b[0]*1 + v1.b[1]*1 + sel.b[2]*1 + v0.b[3]*1 = 4*2 = 8
         let v0 = [0x0202_0202_0202_0202u64; 16];
         let v1 = [0x0303_0303_0303_0303u64; 16];
         let rt = [0x0101_0101_0101_0101u64; 16];
-        let (lo, hi) = run(v0, v1, rt, OpKind::VRotReduceMulPair {
-            dst_lo: mkv(3), dst_hi: mkv(4), src_lo: mkv(0), src_hi: mkv(1), src2: mkv(2),
-            src_elem: VecElementType::I8, rt_elem: VecElementType::I8, out_elem: VecElementType::I32,
-            imm: 0, mode: 0, signed1: false, signed2: false, acc: false, abs_diff: false,
-        });
+        let (lo, hi) = run(
+            v0,
+            v1,
+            rt,
+            OpKind::VRotReduceMulPair {
+                dst_lo: mkv(3),
+                dst_hi: mkv(4),
+                src_lo: mkv(0),
+                src_hi: mkv(1),
+                src2: mkv(2),
+                src_elem: VecElementType::I8,
+                rt_elem: VecElementType::I8,
+                out_elem: VecElementType::I32,
+                imm: 0,
+                mode: 0,
+                signed1: false,
+                signed2: false,
+                acc: false,
+                abs_diff: false,
+            },
+        );
         // o0: all taps from v0 (sel=v0 since imm=0): 2*1*4 = 8.
         assert_eq!(lo, [0x0000_0008u64 | (0x0000_0008u64 << 32); 16]);
         // o1: v1 taps (3) at bytes 0,1; sel(v0)=2 at byte2; v0=2 at byte3:
@@ -8082,22 +8563,54 @@ mod tests {
         //   o0 = v1*1 + v0*1 + v0*1 + v0*1 = 3+2+2+2 = 9
         //   o1 = v1.b[0]*rb2 + v1.b[1]*rb3 + sel.b[2]*rb0 + v0.b[3]*rb1
         //      = 3 + 3 + 3 + 2 = 11
-        let (lo, hi) = run(v0, v1, rt, OpKind::VRotReduceMulPair {
-            dst_lo: mkv(3), dst_hi: mkv(4), src_lo: mkv(0), src_hi: mkv(1), src2: mkv(2),
-            src_elem: VecElementType::I8, rt_elem: VecElementType::I8, out_elem: VecElementType::I32,
-            imm: 1, mode: 0, signed1: false, signed2: false, acc: false, abs_diff: false,
-        });
+        let (lo, hi) = run(
+            v0,
+            v1,
+            rt,
+            OpKind::VRotReduceMulPair {
+                dst_lo: mkv(3),
+                dst_hi: mkv(4),
+                src_lo: mkv(0),
+                src_hi: mkv(1),
+                src2: mkv(2),
+                src_elem: VecElementType::I8,
+                rt_elem: VecElementType::I8,
+                out_elem: VecElementType::I32,
+                imm: 1,
+                mode: 0,
+                signed1: false,
+                signed2: false,
+                acc: false,
+                abs_diff: false,
+            },
+        );
         assert_eq!(lo, [0x0000_0009u64 | (0x0000_0009u64 << 32); 16]);
         assert_eq!(hi, [0x0000_000Bu64 | (0x0000_000Bu64 << 32); 16]);
 
         // ---- mode 0, imm=0, abs_diff (vrsadubi): |Vuu.ub - Rt.ub|.
         //   o0 = |sel-1| + |v0-1| + |v0-1| + |v0-1| = 4*|2-1| = 4
         //   o1 = |v1-1|*2 + |sel-1| + |v0-1| = 2*2 + 1 + 1 = 6
-        let (lo, hi) = run(v0, v1, rt, OpKind::VRotReduceMulPair {
-            dst_lo: mkv(3), dst_hi: mkv(4), src_lo: mkv(0), src_hi: mkv(1), src2: mkv(2),
-            src_elem: VecElementType::I8, rt_elem: VecElementType::I8, out_elem: VecElementType::I32,
-            imm: 0, mode: 0, signed1: false, signed2: false, acc: false, abs_diff: true,
-        });
+        let (lo, hi) = run(
+            v0,
+            v1,
+            rt,
+            OpKind::VRotReduceMulPair {
+                dst_lo: mkv(3),
+                dst_hi: mkv(4),
+                src_lo: mkv(0),
+                src_hi: mkv(1),
+                src2: mkv(2),
+                src_elem: VecElementType::I8,
+                rt_elem: VecElementType::I8,
+                out_elem: VecElementType::I32,
+                imm: 0,
+                mode: 0,
+                signed1: false,
+                signed2: false,
+                acc: false,
+                abs_diff: true,
+            },
+        );
         assert_eq!(lo, [0x0000_0004u64 | (0x0000_0004u64 << 32); 16]);
         assert_eq!(hi, [0x0000_0006u64 | (0x0000_0006u64 << 32); 16]);
 
@@ -8108,11 +8621,27 @@ mod tests {
         let v0h = [0x0004_0004_0004_0004u64; 16];
         let v1h = [0x0006_0006_0006_0006u64; 16];
         let rth = [0x0001_0001_0001_0001u64; 16];
-        let (lo, hi) = run(v0h, v1h, rth, OpKind::VRotReduceMulPair {
-            dst_lo: mkv(3), dst_hi: mkv(4), src_lo: mkv(0), src_hi: mkv(1), src2: mkv(2),
-            src_elem: VecElementType::I16, rt_elem: VecElementType::I16, out_elem: VecElementType::I32,
-            imm: 0, mode: 1, signed1: false, signed2: false, acc: false, abs_diff: true,
-        });
+        let (lo, hi) = run(
+            v0h,
+            v1h,
+            rth,
+            OpKind::VRotReduceMulPair {
+                dst_lo: mkv(3),
+                dst_hi: mkv(4),
+                src_lo: mkv(0),
+                src_hi: mkv(1),
+                src2: mkv(2),
+                src_elem: VecElementType::I16,
+                rt_elem: VecElementType::I16,
+                out_elem: VecElementType::I32,
+                imm: 0,
+                mode: 1,
+                signed1: false,
+                signed2: false,
+                acc: false,
+                abs_diff: true,
+            },
+        );
         assert_eq!(lo, [0x0000_0006u64 | (0x0000_0006u64 << 32); 16]);
         assert_eq!(hi, [0x0000_0008u64 | (0x0000_0008u64 << 32); 16]);
     }
@@ -8124,18 +8653,38 @@ mod tests {
         let v0 = [0x0000_0003_0000_0003u64; 16];
         let v1 = [0x0007_0005_0007_0005u64; 16];
         let mkv = |n| VReg::Arch(ArchReg::Hexagon(HexagonReg::V(n)));
-        let even = run_vec2(v0, v1, OpKind::VMulSubLane {
-            dst: mkv(2), src1: mkv(0), src2: mkv(1),
-            out_elem: VecElementType::I32, sub_elem: VecElementType::I16,
-            odd: false, signed1: true, signed2: false, acc: false,
-        });
+        let even = run_vec2(
+            v0,
+            v1,
+            OpKind::VMulSubLane {
+                dst: mkv(2),
+                src1: mkv(0),
+                src2: mkv(1),
+                out_elem: VecElementType::I32,
+                sub_elem: VecElementType::I16,
+                odd: false,
+                signed1: true,
+                signed2: false,
+                acc: false,
+            },
+        );
         assert_eq!(even, [0x0000_000F_0000_000Fu64; 16]); // 3*5 = 15
         // odd pick: 3 * 7 = 21 = 0x15.
-        let odd = run_vec2(v0, v1, OpKind::VMulSubLane {
-            dst: mkv(2), src1: mkv(0), src2: mkv(1),
-            out_elem: VecElementType::I32, sub_elem: VecElementType::I16,
-            odd: true, signed1: true, signed2: false, acc: false,
-        });
+        let odd = run_vec2(
+            v0,
+            v1,
+            OpKind::VMulSubLane {
+                dst: mkv(2),
+                src1: mkv(0),
+                src2: mkv(1),
+                out_elem: VecElementType::I32,
+                sub_elem: VecElementType::I16,
+                odd: true,
+                signed1: true,
+                signed2: false,
+                acc: false,
+            },
+        );
         assert_eq!(odd, [0x0000_0015_0000_0015u64; 16]); // 3*7 = 21
     }
 
@@ -8145,12 +8694,26 @@ mod tests {
         let v0 = [0x0010_0000_0010_0000u64; 16];
         let v1 = [0x0007_0004_0007_0004u64; 16]; // even hw = 0x0004, odd = 0x0007
         let mkv = |n| VReg::Arch(ArchReg::Hexagon(HexagonReg::V(n)));
-        let out = run_vec2(v0, v1, OpKind::VMulSubLaneFrac {
-            dst: mkv(2), src1: mkv(0), src2: mkv(1),
-            out_elem: VecElementType::I32, sub_elem: VecElementType::I16,
-            odd: false, signed1: true, signed2: false,
-            shl1: false, rnd: false, shift: 16, sat: false, acc: false, rnd2: false,
-        });
+        let out = run_vec2(
+            v0,
+            v1,
+            OpKind::VMulSubLaneFrac {
+                dst: mkv(2),
+                src1: mkv(0),
+                src2: mkv(1),
+                out_elem: VecElementType::I32,
+                sub_elem: VecElementType::I16,
+                odd: false,
+                signed1: true,
+                signed2: false,
+                shl1: false,
+                rnd: false,
+                shift: 16,
+                sat: false,
+                acc: false,
+                rnd2: false,
+            },
+        );
         assert_eq!(out, [0x0000_0040_0000_0040u64; 16]);
     }
 
@@ -8163,21 +8726,43 @@ mod tests {
         let v0 = [0x0007_0003_0007_0003u64; 16];
         let v1 = [0x0005_0009_0005_0009u64; 16];
         let mkv = |n| VReg::Arch(ArchReg::Hexagon(HexagonReg::V(n)));
-        let out = run_vec2(v0, v1, OpKind::VMulSubLaneSh {
-            dst: mkv(2), src1: mkv(0), src2: mkv(1),
-            out_elem: VecElementType::I32, sub_elem: VecElementType::I16,
-            odd1: false, odd2: true, signed1: true, signed2: true, shl: 16,
-        });
+        let out = run_vec2(
+            v0,
+            v1,
+            OpKind::VMulSubLaneSh {
+                dst: mkv(2),
+                src1: mkv(0),
+                src2: mkv(1),
+                out_elem: VecElementType::I32,
+                sub_elem: VecElementType::I16,
+                odd1: false,
+                odd2: true,
+                signed1: true,
+                signed2: true,
+                shl: 16,
+            },
+        );
         assert_eq!(out, [0x000F_0000_000F_0000u64; 16]);
 
         // Signed: Vu even half = -1 (0xFFFF), Vv odd half = 2 -> -2 << 16 = 0xFFFE_0000.
         let v0n = [0x0000_FFFF_0000_FFFFu64; 16];
         let v1n = [0x0002_0000_0002_0000u64; 16];
-        let out2 = run_vec2(v0n, v1n, OpKind::VMulSubLaneSh {
-            dst: mkv(2), src1: mkv(0), src2: mkv(1),
-            out_elem: VecElementType::I32, sub_elem: VecElementType::I16,
-            odd1: false, odd2: true, signed1: true, signed2: true, shl: 16,
-        });
+        let out2 = run_vec2(
+            v0n,
+            v1n,
+            OpKind::VMulSubLaneSh {
+                dst: mkv(2),
+                src1: mkv(0),
+                src2: mkv(1),
+                out_elem: VecElementType::I32,
+                sub_elem: VecElementType::I16,
+                odd1: false,
+                odd2: true,
+                signed1: true,
+                signed2: true,
+                shl: 16,
+            },
+        );
         assert_eq!(out2, [0xFFFE_0000_FFFE_0000u64; 16]);
     }
 
@@ -8185,8 +8770,12 @@ mod tests {
     fn test_vmulword64pair() {
         let mkv = |n| VReg::Arch(ArchReg::Hexagon(HexagonReg::V(n)));
         // Helper: write src1=V0, src2=V1, dst pair seed = V3/V4; run; return (V3,V4).
-        let run = |v0: [u64; 16], v1: [u64; 16], seed_lo: [u64; 16], seed_hi: [u64; 16], op: OpKind|
-            -> ([u64; 16], [u64; 16]) {
+        let run = |v0: [u64; 16],
+                   v1: [u64; 16],
+                   seed_lo: [u64; 16],
+                   seed_hi: [u64; 16],
+                   op: OpKind|
+         -> ([u64; 16], [u64; 16]) {
             let mut ctx = SmirContext::new_hexagon();
             let mut memory = FlatMemory::new(0x1000);
             let interp = SmirInterpreter::new();
@@ -8200,8 +8789,15 @@ mod tests {
                 id: BlockId(0),
                 guest_pc: 0x1000,
                 phis: vec![],
-                ops: vec![SmirOp { id: OpId(0), guest_pc: 0x1000, kind: op, x86_hint: None }],
-                terminator: Terminator::Trap { kind: TrapKind::Halt },
+                ops: vec![SmirOp {
+                    id: OpId(0),
+                    guest_pc: 0x1000,
+                    kind: op,
+                    x86_hint: None,
+                }],
+                terminator: Terminator::Trap {
+                    kind: TrapKind::Halt,
+                },
                 exec_count: 0,
             };
             interp.execute_block(&mut ctx, &mut memory, &block);
@@ -8215,9 +8811,19 @@ mod tests {
         let v0 = [0x0001_0000_0001_0000u64; 16];
         let v1 = [0x0000_0004_0000_0004u64; 16]; // uh0 (low half) = 4
         let z = [0u64; 16];
-        let (lo, hi) = run(v0, v1, z, z, OpKind::VMulWord64Pair {
-            dst_lo: mkv(3), dst_hi: mkv(4), src1: mkv(0), src2: mkv(1), mode: 0,
-        });
+        let (lo, hi) = run(
+            v0,
+            v1,
+            z,
+            z,
+            OpKind::VMulWord64Pair {
+                dst_lo: mkv(3),
+                dst_hi: mkv(4),
+                src1: mkv(0),
+                src2: mkv(1),
+                mode: 0,
+            },
+        );
         assert_eq!(hi, [0x0000_0004_0000_0004u64; 16]);
         assert_eq!(lo, [0x0000_0000_0000_0000u64; 16]);
 
@@ -8228,9 +8834,19 @@ mod tests {
         let v1b = [0x0003_0000_0003_0000u64; 16]; // h1 (high half) = 3
         let slo = [0xAAAA_BBBB_AAAA_BBBBu64; 16];
         let shi = [0x0000_0005_0000_0005u64; 16];
-        let (lo1, hi1) = run(v0b, v1b, slo, shi, OpKind::VMulWord64Pair {
-            dst_lo: mkv(3), dst_hi: mkv(4), src1: mkv(0), src2: mkv(1), mode: 1,
-        });
+        let (lo1, hi1) = run(
+            v0b,
+            v1b,
+            slo,
+            shi,
+            OpKind::VMulWord64Pair {
+                dst_lo: mkv(3),
+                dst_hi: mkv(4),
+                src1: mkv(0),
+                src2: mkv(1),
+                mode: 1,
+            },
+        );
         assert_eq!(hi1, [0x0000_0000_0000_0000u64; 16]);
         assert_eq!(lo1, [0x000B_AAAA_000B_AAAAu64; 16]);
     }
@@ -8542,7 +9158,9 @@ mod tests {
                 },
                 x86_hint: None,
             }],
-            terminator: Terminator::Trap { kind: TrapKind::Halt },
+            terminator: Terminator::Trap {
+                kind: TrapKind::Halt,
+            },
             exec_count: 0,
         };
         interp.execute_block(&mut ctx, &mut memory, &block);
@@ -8737,16 +9355,32 @@ mod tests {
         let mut v1 = [0u64; 16];
         v1[0] = 0x0000_0000_00AB_0000; // byte 2 = 0xAB
         let mkv = |n| VReg::Arch(ArchReg::Hexagon(HexagonReg::V(n)));
-        let out = run_vec2(v0, v1, OpKind::VLut {
-            dst: mkv(2), src_idx: mkv(0), table: mkv(1),
-            sel: SrcOperand::Imm(0), nomatch: false, oracc: false,
-        });
+        let out = run_vec2(
+            v0,
+            v1,
+            OpKind::VLut {
+                dst: mkv(2),
+                src_idx: mkv(0),
+                table: mkv(1),
+                sel: SrcOperand::Imm(0),
+                nomatch: false,
+                oracc: false,
+            },
+        );
         assert_eq!(out, [0xABAB_ABAB_ABAB_ABABu64; 16]);
         // out-of-group idx (>=32) with matchval 0 -> 0.
-        let out2 = run_vec2([0x4040_4040_4040_4040u64; 16], v1, OpKind::VLut {
-            dst: mkv(2), src_idx: mkv(0), table: mkv(1),
-            sel: SrcOperand::Imm(0), nomatch: false, oracc: false,
-        });
+        let out2 = run_vec2(
+            [0x4040_4040_4040_4040u64; 16],
+            v1,
+            OpKind::VLut {
+                dst: mkv(2),
+                src_idx: mkv(0),
+                table: mkv(1),
+                sel: SrcOperand::Imm(0),
+                nomatch: false,
+                oracc: false,
+            },
+        );
         assert_eq!(out2, [0u64; 16]); // idx=0x40 -> (0x40 & 0xe0)=0x40 != 0 -> no match -> 0
     }
 
@@ -8757,7 +9391,15 @@ mod tests {
         let v0 = [0x0403_0201_0403_0201u64; 16]; // Vu
         let v1 = [0x0807_0605_0807_0605u64; 16]; // Vv
         let mkv = |n| VReg::Arch(ArchReg::Hexagon(HexagonReg::V(n)));
-        let out = run_vec2(v0, v1, OpKind::VDealB4W { dst: mkv(2), src1: mkv(0), src2: mkv(1) });
+        let out = run_vec2(
+            v0,
+            v1,
+            OpKind::VDealB4W {
+                dst: mkv(2),
+                src1: mkv(0),
+                src2: mkv(1),
+            },
+        );
         assert_eq!(out[0], 0x0505_0505_0505_0505u64); // bytes 0-7 = Vv.b0
         assert_eq!(out[4], 0x0707_0707_0707_0707u64); // bytes 32-39 = Vv.b2
         assert_eq!(out[8], 0x0101_0101_0101_0101u64); // bytes 64-71 = Vu.b0
@@ -8924,8 +9566,15 @@ mod tests {
             id: BlockId(0),
             guest_pc: 0x1000,
             phis: vec![],
-            ops: vec![SmirOp { id: OpId(0), guest_pc: 0x1000, kind: op, x86_hint: None }],
-            terminator: Terminator::Trap { kind: TrapKind::Halt },
+            ops: vec![SmirOp {
+                id: OpId(0),
+                guest_pc: 0x1000,
+                kind: op,
+                x86_hint: None,
+            }],
+            terminator: Terminator::Trap {
+                kind: TrapKind::Halt,
+            },
             exec_count: 0,
         };
         interp.execute_block(&mut ctx, &mut memory, &block);
@@ -9015,7 +9664,9 @@ mod tests {
                 },
                 x86_hint: None,
             }],
-            terminator: Terminator::Trap { kind: TrapKind::Halt },
+            terminator: Terminator::Trap {
+                kind: TrapKind::Halt,
+            },
             exec_count: 0,
         };
         interp.execute_block(&mut ctx, &mut memory, &block);
@@ -9062,7 +9713,9 @@ mod tests {
                 },
                 x86_hint: None,
             }],
-            terminator: Terminator::Trap { kind: TrapKind::Halt },
+            terminator: Terminator::Trap {
+                kind: TrapKind::Halt,
+            },
             exec_count: 0,
         };
         interp.execute_block(&mut ctx, &mut memory, &block);
@@ -9106,7 +9759,9 @@ mod tests {
                     },
                     x86_hint: None,
                 }],
-                terminator: Terminator::Trap { kind: TrapKind::Halt },
+                terminator: Terminator::Trap {
+                    kind: TrapKind::Halt,
+                },
                 exec_count: 0,
             };
             interp.execute_block(&mut ctx, &mut memory, &block);
@@ -9149,7 +9804,9 @@ mod tests {
                 },
                 x86_hint: None,
             }],
-            terminator: Terminator::Trap { kind: TrapKind::Halt },
+            terminator: Terminator::Trap {
+                kind: TrapKind::Halt,
+            },
             exec_count: 0,
         };
         interp.execute_block(&mut ctx, &mut memory, &block);
@@ -9191,7 +9848,9 @@ mod tests {
                 },
                 x86_hint: None,
             }],
-            terminator: Terminator::Trap { kind: TrapKind::Halt },
+            terminator: Terminator::Trap {
+                kind: TrapKind::Halt,
+            },
             exec_count: 0,
         };
         interp.execute_block(&mut ctx, &mut memory, &block);
@@ -9210,7 +9869,11 @@ mod tests {
         let out = run_vec2(
             [0x0000_0001_0000_0001u64; 16],
             [0x0000_0004_0000_0004u64; 16],
-            OpKind::VRotr { dst: mkv(2), src: mkv(0), amount: mkv(1) },
+            OpKind::VRotr {
+                dst: mkv(2),
+                src: mkv(0),
+                amount: mkv(1),
+            },
         );
         assert_eq!(out, [0x1000_0000_1000_0000u64; 16]);
     }
@@ -9224,7 +9887,12 @@ mod tests {
         let out = run_vec2(
             [0x0000_0000_0000_01FFu64; 16],
             [0x0000_0000_0000_FE01u64; 16],
-            OpKind::VAddSubMixedSat { dst: mkv(2), src1: mkv(0), src2: mkv(1), sub: false },
+            OpKind::VAddSubMixedSat {
+                dst: mkv(2),
+                src1: mkv(0),
+                src2: mkv(1),
+                sub: false,
+            },
         );
         // byte0: 0xFF + 1 = 256 -> 255 (0xFF); byte1: 0x01 + (-2) = -1 -> 0.
         assert_eq!(out[0] & 0xffff, 0x00FF);
@@ -9253,7 +9921,9 @@ mod tests {
                 },
                 x86_hint: None,
             }],
-            terminator: Terminator::Trap { kind: TrapKind::Halt },
+            terminator: Terminator::Trap {
+                kind: TrapKind::Halt,
+            },
             exec_count: 0,
         };
         interp.execute_block(&mut ctx, &mut memory, &block);
@@ -9303,7 +9973,9 @@ mod tests {
                 },
                 x86_hint: None,
             }],
-            terminator: Terminator::Trap { kind: TrapKind::Halt },
+            terminator: Terminator::Trap {
+                kind: TrapKind::Halt,
+            },
             exec_count: 0,
         };
         interp.execute_block(&mut ctx, &mut memory, &block);
@@ -9372,7 +10044,9 @@ mod tests {
                 },
                 x86_hint: None,
             }],
-            terminator: Terminator::Trap { kind: TrapKind::Halt },
+            terminator: Terminator::Trap {
+                kind: TrapKind::Halt,
+            },
             exec_count: 0,
         };
         interp.execute_block(&mut ctx, &mut memory, &block);
@@ -9632,10 +10306,19 @@ mod tests {
         // clamp high -> i32::MAX, OVF set.
         assert_eq!(run_sat_n(0x8000_0000, 32, true, true), (0x7FFF_FFFF, true));
         // clamp low -> i32::MIN, OVF set.
-        assert_eq!(run_sat_n(-(1i64 << 31) - 1, 32, true, true), (0x8000_0000, true));
+        assert_eq!(
+            run_sat_n(-(1i64 << 31) - 1, 32, true, true),
+            (0x8000_0000, true)
+        );
         // boundary values exactly representable -> no clamp.
-        assert_eq!(run_sat_n(i32::MAX as i64, 32, true, true), (0x7FFF_FFFF, false));
-        assert_eq!(run_sat_n(i32::MIN as i64, 32, true, true), (0x8000_0000, false));
+        assert_eq!(
+            run_sat_n(i32::MAX as i64, 32, true, true),
+            (0x7FFF_FFFF, false)
+        );
+        assert_eq!(
+            run_sat_n(i32::MIN as i64, 32, true, true),
+            (0x8000_0000, false)
+        );
 
         // ---- signed 8-bit (A2_satb): clamp to [-128, 127] ----
         assert_eq!(run_sat_n(100, 8, true, true), (100, false));
@@ -9659,7 +10342,10 @@ mod tests {
         assert_eq!(run_sat_n(-5, 16, false, true), (0, true)); // negative -> 0, OVF
 
         // ---- set_ovf = false: value still clamps, but USR:OVF is NOT set ----
-        assert_eq!(run_sat_n(0x8000_0000, 32, true, false), (0x7FFF_FFFF, false));
+        assert_eq!(
+            run_sat_n(0x8000_0000, 32, true, false),
+            (0x7FFF_FFFF, false)
+        );
         assert_eq!(run_sat_n(-1, 8, false, false), (0, false));
     }
 
@@ -9702,7 +10388,9 @@ mod tests {
                 },
                 x86_hint: None,
             }],
-            terminator: Terminator::Trap { kind: TrapKind::Halt },
+            terminator: Terminator::Trap {
+                kind: TrapKind::Halt,
+            },
             exec_count: 0,
         };
         interp.execute_block(&mut ctx, &mut memory, &block);
@@ -9715,9 +10403,15 @@ mod tests {
     #[test]
     fn test_clmul_pmpyw_and_vpmpyh() {
         // pmpyw: carry-less 32x32 -> 64; 1 * x = x (identity), no high bits.
-        assert_eq!(run_clmul(1, 0x1234_5678, 32, 1, false, (0, 0)), (0x1234_5678, 0));
+        assert_eq!(
+            run_clmul(1, 0x1234_5678, 32, 1, false, (0, 0)),
+            (0x1234_5678, 0)
+        );
         // x<<1 via b=2: shift, still carry-less.
-        assert_eq!(run_clmul(0x1234_5678, 2, 32, 1, false, (0, 0)), (0x2468_ACF0, 0));
+        assert_eq!(
+            run_clmul(0x1234_5678, 2, 32, 1, false, (0, 0)),
+            (0x2468_ACF0, 0)
+        );
         // High word appears when products exceed 32 bits.
         // 0x80000000 * 0x80000000 carry-less = bit62 set -> hi = 0x40000000.
         assert_eq!(
@@ -9740,18 +10434,15 @@ mod tests {
         // lane1 = clmul(1,3,16) = 0x0003.
         // dst.h0 = lane0.lo = 0xfffe, dst.h1 = lane1.lo = 0x0003.
         // hi.h0  = lane0.hi = 0x0001, hi.h1  = lane1.hi = 0x0000.
-        assert_eq!(run_clmul(a, b, 16, 2, false, (0, 0)), (0x0003_fffe, 0x0000_0001));
+        assert_eq!(
+            run_clmul(a, b, 16, 2, false, (0, 0)),
+            (0x0003_fffe, 0x0000_0001)
+        );
     }
 
     /// Execute one `OpKind::CmpyW128Sat`, returning (dst, usr_ovf_set).
     #[allow(clippy::too_many_arguments)]
-    fn run_wcmpy(
-        rss: u64,
-        rtt: u64,
-        w: (u8, u8, u8, u8),
-        add: bool,
-        rnd: bool,
-    ) -> (u32, bool) {
+    fn run_wcmpy(rss: u64, rtt: u64, w: (u8, u8, u8, u8), add: bool, rnd: bool) -> (u32, bool) {
         let mut ctx = SmirContext::new_hexagon();
         let mut memory = FlatMemory::new(0x1000);
         let interp = SmirInterpreter::new();
@@ -9788,7 +10479,9 @@ mod tests {
                 },
                 x86_hint: None,
             }],
-            terminator: Terminator::Trap { kind: TrapKind::Halt },
+            terminator: Terminator::Trap {
+                kind: TrapKind::Halt,
+            },
             exec_count: 0,
         };
         interp.execute_block(&mut ctx, &mut memory, &block);
@@ -9809,7 +10502,10 @@ mod tests {
         assert_eq!(min as i64 * min as i64, 1i64 << 62);
         let rss = 0x8000_0000_8000_0000u64; // both words = i32::MIN
         let rtt = 0x8000_0000_8000_0000u64;
-        assert_eq!(run_wcmpy(rss, rtt, (0, 0, 1, 1), true, false), (0x7FFF_FFFF, true));
+        assert_eq!(
+            run_wcmpy(rss, rtt, (0, 0, 1, 1), true, false),
+            (0x7FFF_FFFF, true)
+        );
 
         // Real part (cmpyrw): SUB of identical terms -> 0, no saturation.
         assert_eq!(run_wcmpy(rss, rtt, (0, 0, 1, 1), false, false), (0, false));
@@ -9852,7 +10548,9 @@ mod tests {
                 },
                 x86_hint: None,
             }],
-            terminator: Terminator::Trap { kind: TrapKind::Halt },
+            terminator: Terminator::Trap {
+                kind: TrapKind::Halt,
+            },
             exec_count: 0,
         };
         interp.execute_block(&mut ctx, &mut memory, &block);
@@ -9974,7 +10672,9 @@ mod tests {
                 },
                 x86_hint: None,
             }],
-            terminator: Terminator::Trap { kind: TrapKind::Halt },
+            terminator: Terminator::Trap {
+                kind: TrapKind::Halt,
+            },
             exec_count: 0,
         };
         interp.execute_block(&mut ctx, &mut memory, &block);
@@ -10010,7 +10710,9 @@ mod tests {
                 },
                 x86_hint: None,
             }],
-            terminator: Terminator::Trap { kind: TrapKind::Halt },
+            terminator: Terminator::Trap {
+                kind: TrapKind::Halt,
+            },
             exec_count: 0,
         };
         interp.execute_block(&mut ctx, &mut memory, &block);
@@ -10022,23 +10724,47 @@ mod tests {
     #[test]
     fn test_pred_load_commit_and_cancel() {
         // cond bit0 set -> loads memory value (commits).
-        assert_eq!(run_pred_load(0x8000, 0xDEAD_BEEF, 0x01, 0x1111_1111), 0xDEAD_BEEF);
+        assert_eq!(
+            run_pred_load(0x8000, 0xDEAD_BEEF, 0x01, 0x1111_1111),
+            0xDEAD_BEEF
+        );
         // full predicate byte (0xff) also commits (only bit0 matters).
-        assert_eq!(run_pred_load(0x8000, 0xDEAD_BEEF, 0xff, 0x1111_1111), 0xDEAD_BEEF);
+        assert_eq!(
+            run_pred_load(0x8000, 0xDEAD_BEEF, 0xff, 0x1111_1111),
+            0xDEAD_BEEF
+        );
         // cond bit0 clear -> dst UNCHANGED (cancel, no memory read).
-        assert_eq!(run_pred_load(0x8000, 0xDEAD_BEEF, 0x00, 0x1111_1111), 0x1111_1111);
+        assert_eq!(
+            run_pred_load(0x8000, 0xDEAD_BEEF, 0x00, 0x1111_1111),
+            0x1111_1111
+        );
         // even byte 0xfe (bit0 clear) -> cancel.
-        assert_eq!(run_pred_load(0x8000, 0xDEAD_BEEF, 0xfe, 0x1111_1111), 0x1111_1111);
+        assert_eq!(
+            run_pred_load(0x8000, 0xDEAD_BEEF, 0xfe, 0x1111_1111),
+            0x1111_1111
+        );
     }
 
     #[test]
     fn test_pred_store_commit_and_cancel() {
         // cond bit0 set -> stores R1 (commits).
-        assert_eq!(run_pred_store(0x8000, 0xCAFE_F00D, 0x01, 0x2222_2222), 0xCAFE_F00D);
-        assert_eq!(run_pred_store(0x8000, 0xCAFE_F00D, 0xff, 0x2222_2222), 0xCAFE_F00D);
+        assert_eq!(
+            run_pred_store(0x8000, 0xCAFE_F00D, 0x01, 0x2222_2222),
+            0xCAFE_F00D
+        );
+        assert_eq!(
+            run_pred_store(0x8000, 0xCAFE_F00D, 0xff, 0x2222_2222),
+            0xCAFE_F00D
+        );
         // cond bit0 clear -> memory UNCHANGED (cancel).
-        assert_eq!(run_pred_store(0x8000, 0xCAFE_F00D, 0x00, 0x2222_2222), 0x2222_2222);
-        assert_eq!(run_pred_store(0x8000, 0xCAFE_F00D, 0xfe, 0x2222_2222), 0x2222_2222);
+        assert_eq!(
+            run_pred_store(0x8000, 0xCAFE_F00D, 0x00, 0x2222_2222),
+            0x2222_2222
+        );
+        assert_eq!(
+            run_pred_store(0x8000, 0xCAFE_F00D, 0xfe, 0x2222_2222),
+            0x2222_2222
+        );
     }
 }
 
@@ -10067,14 +10793,20 @@ impl crate::riscv::Memory for RvVecMemBridge {
         unsafe {
             (*self.mem)
                 .read(addr, buf)
-                .map_err(|_| crate::riscv::MemError::OutOfBounds { addr, size: buf.len() })
+                .map_err(|_| crate::riscv::MemError::OutOfBounds {
+                    addr,
+                    size: buf.len(),
+                })
         }
     }
     fn write(&mut self, addr: u64, data: &[u8]) -> crate::riscv::MemResult<()> {
         unsafe {
             (*self.mem)
                 .write(addr, data)
-                .map_err(|_| crate::riscv::MemError::OutOfBounds { addr, size: data.len() })
+                .map_err(|_| crate::riscv::MemError::OutOfBounds {
+                    addr,
+                    size: data.len(),
+                })
         }
     }
 }

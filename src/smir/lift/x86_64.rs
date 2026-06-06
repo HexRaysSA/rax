@@ -89,7 +89,7 @@ static PREFIX_LUT: [u8; 256] = {
     lut[0x3E] = 1; // DS
     lut[0x64] = 1; // FS
     lut[0x65] = 1; // GS
-                   // Operand/address size
+    // Operand/address size
     lut[0x66] = 1;
     lut[0x67] = 1;
     // LOCK, REP
@@ -282,27 +282,21 @@ impl X86Prefix {
     #[inline]
     pub fn rex_r(&self) -> u8 {
         self.rex2
-            .map_or_else(|| self.rex.map_or(0, |r| (r & 0x04) << 1), |r| {
-                r.r_ext()
-            })
+            .map_or_else(|| self.rex.map_or(0, |r| (r & 0x04) << 1), |r| r.r_ext())
     }
 
     /// Get REX.X flag (extends SIB index field)
     #[inline]
     pub fn rex_x(&self) -> u8 {
         self.rex2
-            .map_or_else(|| self.rex.map_or(0, |r| (r & 0x02) << 2), |r| {
-                r.x_ext()
-            })
+            .map_or_else(|| self.rex.map_or(0, |r| (r & 0x02) << 2), |r| r.x_ext())
     }
 
     /// Get REX.B flag (extends ModR/M r/m or opcode reg)
     #[inline]
     pub fn rex_b(&self) -> u8 {
         self.rex2
-            .map_or_else(|| self.rex.map_or(0, |r| (r & 0x01) << 3), |r| {
-                r.b_ext()
-            })
+            .map_or_else(|| self.rex.map_or(0, |r| (r & 0x01) << 3), |r| r.b_ext())
     }
 
     /// Check if any REX prefix is present
@@ -434,11 +428,7 @@ fn build_rex(r: u8, x: u8, b: u8, w: bool) -> Option<u8> {
     if b != 0 {
         rex |= 0x01;
     }
-    if rex == 0x40 {
-        None
-    } else {
-        Some(rex)
-    }
+    if rex == 0x40 { None } else { Some(rex) }
 }
 
 fn decode_vex_prefix(bytes: &[u8], addr: u64) -> Result<VecPrefix, LiftError> {
@@ -540,9 +530,10 @@ fn decode_evex_prefix(bytes: &[u8], addr: u64) -> Result<VecPrefix, LiftError> {
     let r = ((b1 >> 4) & 1) ^ 1;
     let x = ((b1 >> 6) & 1) ^ 1;
     let b = ((b1 >> 5) & 1) ^ 1;
-    let map = vec_map_from_bits(b1 & 0x0F).ok_or_else(|| LiftError::Unsupported {
+    let map_bits = b1 & 0x07;
+    let map = vec_map_from_bits(map_bits).ok_or_else(|| LiftError::Unsupported {
         addr,
-        mnemonic: format!("EVEX map 0x{:02X}", b1 & 0x0F),
+        mnemonic: format!("EVEX map 0x{map_bits:02X}"),
     })?;
 
     let w = (b2 >> 7) & 1 != 0;
@@ -570,6 +561,14 @@ fn decode_evex_prefix(bytes: &[u8], addr: u64) -> Result<VecPrefix, LiftError> {
 }
 
 fn decode_apx_evex_prefix(bytes: &[u8], addr: u64) -> Result<ApxEvexPrefix, LiftError> {
+    decode_apx_evex_prefix_for_map(bytes, addr, 4)
+}
+
+fn decode_apx_evex_prefix_for_map(
+    bytes: &[u8],
+    addr: u64,
+    expected_mm: u8,
+) -> Result<ApxEvexPrefix, LiftError> {
     if bytes.len() < 4 {
         return Err(LiftError::Incomplete {
             addr,
@@ -582,7 +581,7 @@ fn decode_apx_evex_prefix(bytes: &[u8], addr: u64) -> Result<ApxEvexPrefix, Lift
     let p1 = bytes[2];
     let p2 = bytes[3];
     let mm = p0 & 0x07;
-    if mm != 4 {
+    if mm != expected_mm {
         return Err(LiftError::Unsupported {
             addr,
             mnemonic: format!("EVEX map 0x{mm:02X}"),
@@ -1148,7 +1147,7 @@ impl X86_64Lifter {
                 return Err(LiftError::InvalidEncoding {
                     addr: pc,
                     bytes: bytes.to_vec(),
-                })
+                });
             }
         };
 
@@ -2364,6 +2363,221 @@ impl X86_64Lifter {
         }
     }
 
+    fn lift_apx_nf_bmi_0f38(
+        &self,
+        opcode: u8,
+        bytes: &[u8],
+        pc: u64,
+        ctx: &mut LiftContext,
+    ) -> Result<LiftResult, LiftError> {
+        let prefix = decode_apx_evex_prefix_for_map(bytes, pc, 2)?;
+        if prefix.pp != 0 || !prefix.nf || prefix.nd || prefix.aaa != 4 {
+            return Err(LiftError::Unsupported {
+                addr: pc,
+                mnemonic: "APX NF BMI 0F38 form".to_string(),
+            });
+        }
+
+        let width = if prefix.w { OpWidth::W64 } else { OpWidth::W32 };
+        let mem_width = if prefix.w { MemWidth::B8 } else { MemWidth::B4 };
+        let modrm_prefix = prefix.as_modrm_prefix(prefix.bytes + 1);
+        let modrm = decode_modrm(&bytes[prefix.bytes + 1..], &modrm_prefix, pc)?;
+        let next_pc = pc + prefix.bytes as u64 + 1 + modrm.bytes_consumed as u64;
+        let mut ops = Vec::new();
+
+        let rm_src = if modrm.is_memory {
+            let x86_addr = modrm.addr.as_ref().unwrap();
+            let (addr, pre_ops) = self.x86_addr_to_smir(x86_addr, next_pc, ctx);
+            ops.extend(pre_ops);
+
+            let tmp = ctx.alloc_vreg();
+            ops.push(SmirOp::new(
+                OpId(ops.len() as u16),
+                pc,
+                OpKind::Load {
+                    dst: tmp,
+                    addr,
+                    width: mem_width,
+                    sign: SignExtend::Zero,
+                },
+            ));
+            tmp
+        } else {
+            self.gpr(modrm.rm)
+        };
+
+        let copy_if_dst_aliases =
+            |ops: &mut Vec<SmirOp>, ctx: &mut LiftContext, dst: VReg, src: VReg| -> VReg {
+                if dst != src {
+                    return src;
+                }
+                let tmp = ctx.alloc_vreg();
+                ops.push(SmirOp::new(
+                    OpId(ops.len() as u16),
+                    pc,
+                    OpKind::Mov {
+                        dst: tmp,
+                        src: SrcOperand::Reg(src),
+                        width,
+                    },
+                ));
+                tmp
+            };
+
+        match opcode {
+            0xF2 => {
+                let dst = self.gpr(modrm.reg);
+                let src1 = self.gpr(prefix.vvvv_reg());
+                let src2 = copy_if_dst_aliases(&mut ops, ctx, dst, rm_src);
+                let inverted = ctx.alloc_vreg();
+                ops.push(SmirOp::new(
+                    OpId(ops.len() as u16),
+                    pc,
+                    OpKind::Not {
+                        dst: inverted,
+                        src: src1,
+                        width,
+                    },
+                ));
+                ops.push(SmirOp::new(
+                    OpId(ops.len() as u16),
+                    pc,
+                    OpKind::And {
+                        dst,
+                        src1: inverted,
+                        src2: SrcOperand::Reg(src2),
+                        width,
+                        flags: FlagUpdate::None,
+                    },
+                ));
+            }
+            0xF3 => {
+                let group = (modrm.byte >> 3) & 0x07;
+                if !matches!(group, 1..=3) {
+                    return Err(LiftError::Unsupported {
+                        addr: pc,
+                        mnemonic: format!("APX NF BMI F3 /{group}"),
+                    });
+                }
+
+                let dst = self.gpr(prefix.vvvv_reg());
+                let src = copy_if_dst_aliases(&mut ops, ctx, dst, rm_src);
+                match group {
+                    1 => {
+                        let minus_one = ctx.alloc_vreg();
+                        ops.push(SmirOp::new(
+                            OpId(ops.len() as u16),
+                            pc,
+                            OpKind::Sub {
+                                dst: minus_one,
+                                src1: src,
+                                src2: SrcOperand::Imm(1),
+                                width,
+                                flags: FlagUpdate::None,
+                            },
+                        ));
+                        ops.push(SmirOp::new(
+                            OpId(ops.len() as u16),
+                            pc,
+                            OpKind::And {
+                                dst,
+                                src1: src,
+                                src2: SrcOperand::Reg(minus_one),
+                                width,
+                                flags: FlagUpdate::None,
+                            },
+                        ));
+                    }
+                    2 => {
+                        let minus_one = ctx.alloc_vreg();
+                        ops.push(SmirOp::new(
+                            OpId(ops.len() as u16),
+                            pc,
+                            OpKind::Sub {
+                                dst: minus_one,
+                                src1: src,
+                                src2: SrcOperand::Imm(1),
+                                width,
+                                flags: FlagUpdate::None,
+                            },
+                        ));
+                        ops.push(SmirOp::new(
+                            OpId(ops.len() as u16),
+                            pc,
+                            OpKind::Xor {
+                                dst,
+                                src1: src,
+                                src2: SrcOperand::Reg(minus_one),
+                                width,
+                                flags: FlagUpdate::None,
+                            },
+                        ));
+                    }
+                    3 => {
+                        let negated = ctx.alloc_vreg();
+                        ops.push(SmirOp::new(
+                            OpId(ops.len() as u16),
+                            pc,
+                            OpKind::Neg {
+                                dst: negated,
+                                src,
+                                width,
+                                flags: FlagUpdate::None,
+                            },
+                        ));
+                        ops.push(SmirOp::new(
+                            OpId(ops.len() as u16),
+                            pc,
+                            OpKind::And {
+                                dst,
+                                src1: negated,
+                                src2: SrcOperand::Reg(src),
+                                width,
+                                flags: FlagUpdate::None,
+                            },
+                        ));
+                    }
+                    _ => unreachable!(),
+                }
+            }
+            0xF5 => {
+                ops.push(SmirOp::new(
+                    OpId(ops.len() as u16),
+                    pc,
+                    OpKind::Bzhi {
+                        dst: self.gpr(modrm.reg),
+                        src: rm_src,
+                        index: self.gpr(prefix.vvvv_reg()),
+                        width,
+                    },
+                ));
+            }
+            0xF7 => {
+                ops.push(SmirOp::new(
+                    OpId(ops.len() as u16),
+                    pc,
+                    OpKind::Bextr {
+                        dst: self.gpr(modrm.reg),
+                        src: rm_src,
+                        control: self.gpr(prefix.vvvv_reg()),
+                        width,
+                    },
+                ));
+            }
+            _ => {
+                return Err(LiftError::Unsupported {
+                    addr: pc,
+                    mnemonic: format!("APX NF BMI opcode 0x{opcode:02X}"),
+                });
+            }
+        }
+
+        Ok(LiftResult::fallthrough(
+            ops,
+            prefix.bytes + 1 + modrm.bytes_consumed,
+        ))
+    }
+
     fn lift_vec_opcode(
         &self,
         prefix: VecPrefix,
@@ -2541,7 +2755,7 @@ impl X86_64Lifter {
                             return Err(LiftError::Unsupported {
                                 addr: pc,
                                 mnemonic: format!("VEX opcode 0x{:02X}", opcode),
-                            })
+                            });
                         }
                     };
 
@@ -2619,6 +2833,12 @@ impl X86_64Lifter {
                 }),
             },
             X86VecMap::Map0F38 => match opcode {
+                0xF2 | 0xF3 | 0xF5 | 0xF7
+                    if prefix.encoding == VecEncodingKind::Evex
+                        && prefix.pp == X86SsePrefix::None =>
+                {
+                    self.lift_apx_nf_bmi_0f38(opcode, bytes, pc, ctx)
+                }
                 0x40 => {
                     let modrm = decode_modrm(after_opcode, &prefix_modrm, pc)?;
                     let next_pc = pc + cursor as u64 + modrm.bytes_consumed as u64;
@@ -2947,7 +3167,7 @@ impl X86_64Lifter {
                 return Err(LiftError::InvalidEncoding {
                     addr: pc,
                     bytes: bytes.to_vec(),
-                })
+                });
             }
         };
         let group = (opcode >> 3) & 0x07;
@@ -3248,11 +3468,7 @@ impl X86_64Lifter {
         let dst = self.gpr(modrm.rm);
         let src = self.gpr(modrm.reg);
         Ok(LiftResult::fallthrough(
-            vec![SmirOp::new(
-                OpId(0),
-                pc,
-                OpKind::Bswap { dst, src, width },
-            )],
+            vec![SmirOp::new(OpId(0), pc, OpKind::Bswap { dst, src, width })],
             prefix.bytes + 1 + modrm.bytes_consumed,
         ))
     }
@@ -4561,8 +4777,7 @@ impl X86_64Lifter {
             _ => unreachable!(),
         };
 
-        let next_pc =
-            pc + prefix.bytes as u64 + 1 + modrm.bytes_consumed as u64 + imm_size as u64;
+        let next_pc = pc + prefix.bytes as u64 + 1 + modrm.bytes_consumed as u64 + imm_size as u64;
         let mut ops = Vec::new();
         let (legacy_dst, legacy_dst_addr) = if modrm.is_memory {
             let x86_addr = modrm.addr.as_ref().unwrap();
@@ -4663,8 +4878,7 @@ impl X86_64Lifter {
         } else {
             SrcOperand::Imm(bytes[modrm.bytes_consumed] as i8 as i64)
         };
-        let next_pc =
-            pc + prefix.bytes as u64 + 1 + modrm.bytes_consumed as u64 + imm_size as u64;
+        let next_pc = pc + prefix.bytes as u64 + 1 + modrm.bytes_consumed as u64 + imm_size as u64;
         let mut ops = Vec::new();
         let (legacy_dst, legacy_dst_addr) = if modrm.is_memory {
             let x86_addr = modrm.addr.as_ref().unwrap();
@@ -4812,12 +5026,8 @@ impl X86_64Lifter {
             | 0x18..=0x1B
             | 0x20..=0x23
             | 0x28..=0x2B
-            | 0x30..=0x33 => {
-                self.lift_apx_alu(prefix, opcode, &bytes[prefix.bytes + 1..], pc, ctx)
-            }
-            0x38..=0x3B => {
-                self.lift_apx_ccmp(prefix, opcode, &bytes[prefix.bytes + 1..], pc, ctx)
-            }
+            | 0x30..=0x33 => self.lift_apx_alu(prefix, opcode, &bytes[prefix.bytes + 1..], pc, ctx),
+            0x38..=0x3B => self.lift_apx_ccmp(prefix, opcode, &bytes[prefix.bytes + 1..], pc, ctx),
             0x80 | 0x81 | 0x83 => {
                 self.lift_apx_group1_imm(prefix, opcode, &bytes[prefix.bytes + 1..], pc, ctx)
             }
@@ -4831,13 +5041,7 @@ impl X86_64Lifter {
                 self.lift_apx_double_shift(prefix, opcode, &bytes[prefix.bytes + 1..], pc, ctx)
             }
             0x40..=0x4F => {
-                self.lift_apx_conditional_map4(
-                    prefix,
-                    opcode,
-                    &bytes[prefix.bytes + 1..],
-                    pc,
-                    ctx,
-                )
+                self.lift_apx_conditional_map4(prefix, opcode, &bytes[prefix.bytes + 1..], pc, ctx)
             }
             0x61 => self.lift_apx_movbe(prefix, &bytes[prefix.bytes + 1..], pc),
             0x69 | 0x6B => {
@@ -4847,10 +5051,10 @@ impl X86_64Lifter {
             0x88 if prefix.nf => {
                 self.lift_apx_count(prefix, opcode, &bytes[prefix.bytes + 1..], pc, ctx)
             }
-            0xF4 | 0xF5 => {
-                self.lift_apx_count(prefix, opcode, &bytes[prefix.bytes + 1..], pc, ctx)
+            0xF4 | 0xF5 => self.lift_apx_count(prefix, opcode, &bytes[prefix.bytes + 1..], pc, ctx),
+            0xF6 | 0xF7 => {
+                self.lift_apx_group3(prefix, opcode, &bytes[prefix.bytes + 1..], pc, ctx)
             }
-            0xF6 | 0xF7 => self.lift_apx_group3(prefix, opcode, &bytes[prefix.bytes + 1..], pc, ctx),
             0xFE => self.lift_apx_inc_dec(prefix, opcode, &bytes[prefix.bytes + 1..], pc, ctx),
             0x8F => self.lift_apx_pop2(prefix, modrm, pc, ctx),
             0xFF if ((modrm >> 3) & 0x07) == 6 => self.lift_apx_push2(prefix, modrm, pc, ctx),
@@ -6079,7 +6283,7 @@ impl X86_64Lifter {
                 return Err(LiftError::InvalidEncoding {
                     addr: pc,
                     bytes: bytes.to_vec(),
-                })
+                });
             }
         };
 
@@ -6143,7 +6347,7 @@ impl X86_64Lifter {
                 return Err(LiftError::InvalidEncoding {
                     addr: pc,
                     bytes: bytes.to_vec(),
-                })
+                });
             }
         };
 
@@ -7645,10 +7849,7 @@ impl SmirLifter for X86_64Lifter {
             }
             // Lift-through-calls: bound the lifted CFG so a large or call-chained
             // function can't lift unboundedly (the cap counts lifted blocks).
-            if self.lift_through_calls
-                && self.max_blocks != 0
-                && visited.len() >= self.max_blocks
-            {
+            if self.lift_through_calls && self.max_blocks != 0 && visited.len() >= self.max_blocks {
                 break;
             }
             visited.insert(block_addr);
@@ -7658,16 +7859,10 @@ impl SmirLifter for X86_64Lifter {
             // Add branch targets to worklist
             match &block.terminator {
                 Terminator::Branch { target } => {
-                    if let Some(&addr) =
-                        ctx.block_cache.iter().find_map(
-                            |(a, id)| {
-                                if id == target {
-                                    Some(a)
-                                } else {
-                                    None
-                                }
-                            },
-                        )
+                    if let Some(&addr) = ctx
+                        .block_cache
+                        .iter()
+                        .find_map(|(a, id)| if id == target { Some(a) } else { None })
                     {
                         worklist.push(addr);
                     }
@@ -7678,13 +7873,11 @@ impl SmirLifter for X86_64Lifter {
                     ..
                 } => {
                     for target in [true_target, false_target] {
-                        if let Some(&addr) = ctx.block_cache.iter().find_map(|(a, id)| {
-                            if id == target {
-                                Some(a)
-                            } else {
-                                None
-                            }
-                        }) {
+                        if let Some(&addr) = ctx
+                            .block_cache
+                            .iter()
+                            .find_map(|(a, id)| if id == target { Some(a) } else { None })
+                        {
                             worklist.push(addr);
                         }
                     }
@@ -7694,13 +7887,11 @@ impl SmirLifter for X86_64Lifter {
                 // target itself is NOT lifted — it runs in the interpreter via the
                 // runtime call-out. TailCall has no continuation (it doesn't return).
                 Terminator::Call { continuation, .. } if self.lift_through_calls => {
-                    if let Some(&addr) = ctx.block_cache.iter().find_map(|(a, id)| {
-                        if id == continuation {
-                            Some(a)
-                        } else {
-                            None
-                        }
-                    }) {
+                    if let Some(&addr) = ctx
+                        .block_cache
+                        .iter()
+                        .find_map(|(a, id)| if id == continuation { Some(a) } else { None })
+                    {
                         worklist.push(addr);
                     }
                 }
@@ -7828,7 +8019,10 @@ mod tests {
         assert!(
             matches!(
                 addr,
-                Address::SegmentRel { segment: VReg::Arch(ArchReg::X86(X86Reg::GsBase)), .. }
+                Address::SegmentRel {
+                    segment: VReg::Arch(ArchReg::X86(X86Reg::GsBase)),
+                    ..
+                }
             ),
             "mov gs:[rbx] must lift to SegmentRel{{GsBase}} (got {addr:?})"
         );
@@ -8362,7 +8556,10 @@ mod tests {
             // `{nf} sbb r8, rax, rbx`; do not silently lift them as no-flag
             // carry/borrow operations.
             let err = lifter.lift_insn(0x1000, &bytes, &mut ctx).unwrap_err();
-            assert!(matches!(err, LiftError::Unsupported { .. }), "{name}: {err:?}");
+            assert!(
+                matches!(err, LiftError::Unsupported { .. }),
+                "{name}: {err:?}"
+            );
         }
 
         for (bytes, name) in [
@@ -8370,7 +8567,10 @@ mod tests {
             ([0x62, 0xF4, 0xBC, 0x1C, 0x83, 0xD8, 0x01], "sbb imm"),
         ] {
             let err = lifter.lift_insn(0x1000, &bytes, &mut ctx).unwrap_err();
-            assert!(matches!(err, LiftError::Unsupported { .. }), "{name}: {err:?}");
+            assert!(
+                matches!(err, LiftError::Unsupported { .. }),
+                "{name}: {err:?}"
+            );
         }
     }
 
@@ -8818,11 +9018,7 @@ mod tests {
         let mut ctx = LiftContext::new(SourceArch::X86_64);
 
         for (bytes, name, flags) in [
-            (
-                [0x62, 0xF4, 0xBC, 0x18, 0xAF, 0xC3],
-                "ndd",
-                FlagUpdate::All,
-            ),
+            ([0x62, 0xF4, 0xBC, 0x18, 0xAF, 0xC3], "ndd", FlagUpdate::All),
             (
                 [0x62, 0xF4, 0xBC, 0x1C, 0xAF, 0xC3],
                 "ndd_nf",
@@ -8907,9 +9103,7 @@ mod tests {
         let nf_imm32 = lifter
             .lift_insn(
                 0x1000,
-                &[
-                    0x62, 0x74, 0xFC, 0x0C, 0x69, 0xC0, 0x78, 0x56, 0x34, 0x12,
-                ],
+                &[0x62, 0x74, 0xFC, 0x0C, 0x69, 0xC0, 0x78, 0x56, 0x34, 0x12],
                 &mut ctx,
             )
             .unwrap();
@@ -9535,6 +9729,408 @@ mod tests {
     }
 
     #[test]
+    fn lift_apx_nf_bmi_0f38_register_forms_like_llvm() {
+        let mut lifter = X86_64Lifter::strict();
+        let mut ctx = LiftContext::new(SourceArch::X86_64);
+
+        // LLVM 20: `{nf} andn r8, rax, rbx` => 62 72 fc 0c f2 c3.
+        let result = lifter
+            .lift_insn(0x1000, &[0x62, 0x72, 0xFC, 0x0C, 0xF2, 0xC3], &mut ctx)
+            .unwrap();
+        assert_eq!(result.bytes_consumed, 6);
+        assert_eq!(result.ops.len(), 2);
+        let inverted = match &result.ops[0].kind {
+            OpKind::Not {
+                dst,
+                src,
+                width: OpWidth::W64,
+            } => {
+                assert_eq!(*src, x86_gpr(0));
+                *dst
+            }
+            other => panic!("expected APX ANDN Not temp, got {other:?}"),
+        };
+        match &result.ops[1].kind {
+            OpKind::And {
+                dst,
+                src1,
+                src2: SrcOperand::Reg(src2),
+                width: OpWidth::W64,
+                flags: FlagUpdate::None,
+            } => {
+                assert_eq!(*dst, x86_gpr(8));
+                assert_eq!(*src1, inverted);
+                assert_eq!(*src2, x86_gpr(3));
+            }
+            other => panic!("expected APX ANDN final And, got {other:?}"),
+        }
+
+        // LLVM 20: `{nf} bextr r16, r17, r18` => 62 ea ec 04 f7 c1.
+        let result = lifter
+            .lift_insn(0x2000, &[0x62, 0xEA, 0xEC, 0x04, 0xF7, 0xC1], &mut ctx)
+            .unwrap();
+        assert_eq!(result.ops.len(), 1);
+        match &result.ops[0].kind {
+            OpKind::Bextr {
+                dst,
+                src,
+                control,
+                width: OpWidth::W64,
+            } => {
+                assert_eq!(*dst, x86_gpr(16));
+                assert_eq!(*src, x86_gpr(17));
+                assert_eq!(*control, x86_gpr(18));
+            }
+            other => panic!("expected APX BEXTR op, got {other:?}"),
+        }
+
+        // LLVM 20: `{nf} bzhi r16, r17, r18` => 62 ea ec 04 f5 c1.
+        let result = lifter
+            .lift_insn(0x3000, &[0x62, 0xEA, 0xEC, 0x04, 0xF5, 0xC1], &mut ctx)
+            .unwrap();
+        assert_eq!(result.ops.len(), 1);
+        match &result.ops[0].kind {
+            OpKind::Bzhi {
+                dst,
+                src,
+                index,
+                width: OpWidth::W64,
+            } => {
+                assert_eq!(*dst, x86_gpr(16));
+                assert_eq!(*src, x86_gpr(17));
+                assert_eq!(*index, x86_gpr(18));
+            }
+            other => panic!("expected APX BZHI op, got {other:?}"),
+        }
+
+        for (bytes, name, expected_first) in [
+            ([0x62, 0xFA, 0xFC, 0x04, 0xF3, 0xD9], "blsi", "neg"),
+            ([0x62, 0xFA, 0xFC, 0x04, 0xF3, 0xD1], "blsmsk", "sub"),
+            ([0x62, 0xFA, 0xFC, 0x04, 0xF3, 0xC9], "blsr", "sub"),
+        ] {
+            // LLVM 20 encodes these as APX NF EVEX.0F38 F3 /3,/2,/1 forms.
+            let result = lifter.lift_insn(0x4000, &bytes, &mut ctx).unwrap();
+            assert_eq!(result.bytes_consumed, 6, "{name}");
+            assert_eq!(result.ops.len(), 2, "{name}");
+            let tmp = match (&result.ops[0].kind, expected_first) {
+                (
+                    OpKind::Neg {
+                        dst,
+                        src,
+                        width: OpWidth::W64,
+                        flags: FlagUpdate::None,
+                    },
+                    "neg",
+                ) => {
+                    assert_eq!(*src, x86_gpr(17), "{name}");
+                    *dst
+                }
+                (
+                    OpKind::Sub {
+                        dst,
+                        src1,
+                        src2: SrcOperand::Imm(1),
+                        width: OpWidth::W64,
+                        flags: FlagUpdate::None,
+                    },
+                    "sub",
+                ) => {
+                    assert_eq!(*src1, x86_gpr(17), "{name}");
+                    *dst
+                }
+                (other, _) => panic!("expected APX {name} temp op, got {other:?}"),
+            };
+            match (&result.ops[1].kind, name) {
+                (
+                    OpKind::And {
+                        dst,
+                        src1,
+                        src2: SrcOperand::Reg(src2),
+                        width: OpWidth::W64,
+                        flags: FlagUpdate::None,
+                    },
+                    "blsi",
+                ) => {
+                    assert_eq!(*dst, x86_gpr(16));
+                    assert_eq!(*src1, tmp);
+                    assert_eq!(*src2, x86_gpr(17));
+                }
+                (
+                    OpKind::Xor {
+                        dst,
+                        src1,
+                        src2: SrcOperand::Reg(src2),
+                        width: OpWidth::W64,
+                        flags: FlagUpdate::None,
+                    },
+                    "blsmsk",
+                ) => {
+                    assert_eq!(*dst, x86_gpr(16));
+                    assert_eq!(*src1, x86_gpr(17));
+                    assert_eq!(*src2, tmp);
+                }
+                (
+                    OpKind::And {
+                        dst,
+                        src1,
+                        src2: SrcOperand::Reg(src2),
+                        width: OpWidth::W64,
+                        flags: FlagUpdate::None,
+                    },
+                    "blsr",
+                ) => {
+                    assert_eq!(*dst, x86_gpr(16));
+                    assert_eq!(*src1, x86_gpr(17));
+                    assert_eq!(*src2, tmp);
+                }
+                (other, _) => panic!("expected APX {name} final op, got {other:?}"),
+            }
+        }
+    }
+
+    #[test]
+    fn lift_apx_nf_bmi_0f38_memory_width_and_alias_forms_like_llvm() {
+        let mut lifter = X86_64Lifter::strict();
+        let mut ctx = LiftContext::new(SourceArch::X86_64);
+
+        // LLVM 20: `{nf} andn r8d, eax, ebx` => 62 72 7c 0c f2 c3.
+        let result = lifter
+            .lift_insn(0x1000, &[0x62, 0x72, 0x7C, 0x0C, 0xF2, 0xC3], &mut ctx)
+            .unwrap();
+        assert_eq!(result.ops.len(), 2);
+        assert!(matches!(
+            &result.ops[0].kind,
+            OpKind::Not {
+                src,
+                width: OpWidth::W32,
+                ..
+            } if *src == x86_gpr(0)
+        ));
+        assert!(matches!(
+            &result.ops[1].kind,
+            OpKind::And {
+                dst,
+                src2: SrcOperand::Reg(src2),
+                width: OpWidth::W32,
+                flags: FlagUpdate::None,
+                ..
+            } if *dst == x86_gpr(8) && *src2 == x86_gpr(3)
+        ));
+
+        // LLVM 20: `{nf} bextr r8, qword ptr [rbx], rcx` => 62 72 f4 0c f7 03.
+        let result = lifter
+            .lift_insn(0x2000, &[0x62, 0x72, 0xF4, 0x0C, 0xF7, 0x03], &mut ctx)
+            .unwrap();
+        assert_eq!(result.ops.len(), 2);
+        let loaded = match &result.ops[0].kind {
+            OpKind::Load {
+                dst,
+                addr: Address::Direct(base),
+                width: MemWidth::B8,
+                sign: SignExtend::Zero,
+            } => {
+                assert_eq!(*base, x86_gpr(3));
+                *dst
+            }
+            other => panic!("expected APX BEXTR memory load, got {other:?}"),
+        };
+        match &result.ops[1].kind {
+            OpKind::Bextr {
+                dst,
+                src,
+                control,
+                width: OpWidth::W64,
+            } => {
+                assert_eq!(*dst, x86_gpr(8));
+                assert_eq!(*src, loaded);
+                assert_eq!(*control, x86_gpr(1));
+            }
+            other => panic!("expected APX BEXTR memory op, got {other:?}"),
+        }
+
+        // LLVM 20: `{nf} bzhi r8, qword ptr [rbx], rcx` => 62 72 f4 0c f5 03.
+        let result = lifter
+            .lift_insn(0x3000, &[0x62, 0x72, 0xF4, 0x0C, 0xF5, 0x03], &mut ctx)
+            .unwrap();
+        assert_eq!(result.ops.len(), 2);
+        let loaded = match &result.ops[0].kind {
+            OpKind::Load {
+                dst,
+                addr: Address::Direct(base),
+                width: MemWidth::B8,
+                sign: SignExtend::Zero,
+            } => {
+                assert_eq!(*base, x86_gpr(3));
+                *dst
+            }
+            other => panic!("expected APX BZHI memory load, got {other:?}"),
+        };
+        match &result.ops[1].kind {
+            OpKind::Bzhi {
+                dst,
+                src,
+                index,
+                width: OpWidth::W64,
+            } => {
+                assert_eq!(*dst, x86_gpr(8));
+                assert_eq!(*src, loaded);
+                assert_eq!(*index, x86_gpr(1));
+            }
+            other => panic!("expected APX BZHI memory op, got {other:?}"),
+        }
+
+        // LLVM 20: `{nf} blsr r8, qword ptr [rbx]` => 62 f2 bc 0c f3 0b.
+        let result = lifter
+            .lift_insn(0x4000, &[0x62, 0xF2, 0xBC, 0x0C, 0xF3, 0x0B], &mut ctx)
+            .unwrap();
+        assert_eq!(result.ops.len(), 3);
+        let loaded = match &result.ops[0].kind {
+            OpKind::Load {
+                dst,
+                addr: Address::Direct(base),
+                width: MemWidth::B8,
+                sign: SignExtend::Zero,
+            } => {
+                assert_eq!(*base, x86_gpr(3));
+                *dst
+            }
+            other => panic!("expected APX BLSR memory load, got {other:?}"),
+        };
+        let minus_one = match &result.ops[1].kind {
+            OpKind::Sub {
+                dst,
+                src1,
+                src2: SrcOperand::Imm(1),
+                width: OpWidth::W64,
+                flags: FlagUpdate::None,
+            } => {
+                assert_eq!(*src1, loaded);
+                *dst
+            }
+            other => panic!("expected APX BLSR subtract temp, got {other:?}"),
+        };
+        match &result.ops[2].kind {
+            OpKind::And {
+                dst,
+                src1,
+                src2: SrcOperand::Reg(src2),
+                width: OpWidth::W64,
+                flags: FlagUpdate::None,
+            } => {
+                assert_eq!(*dst, x86_gpr(8));
+                assert_eq!(*src1, loaded);
+                assert_eq!(*src2, minus_one);
+            }
+            other => panic!("expected APX BLSR final And, got {other:?}"),
+        }
+
+        // LLVM 20: `{nf} andn rax, rbx, rax` => 62 f2 e4 0c f2 c0.
+        let result = lifter
+            .lift_insn(0x5000, &[0x62, 0xF2, 0xE4, 0x0C, 0xF2, 0xC0], &mut ctx)
+            .unwrap();
+        assert_eq!(result.ops.len(), 3);
+        let saved_src2 = match &result.ops[0].kind {
+            OpKind::Mov {
+                dst,
+                src: SrcOperand::Reg(src),
+                width: OpWidth::W64,
+            } => {
+                assert_eq!(*src, x86_gpr(0));
+                *dst
+            }
+            other => panic!("expected APX ANDN alias-preserving Mov, got {other:?}"),
+        };
+        let inverted = match &result.ops[1].kind {
+            OpKind::Not {
+                dst,
+                src,
+                width: OpWidth::W64,
+            } => {
+                assert_eq!(*src, x86_gpr(3));
+                *dst
+            }
+            other => panic!("expected APX ANDN alias Not, got {other:?}"),
+        };
+        match &result.ops[2].kind {
+            OpKind::And {
+                dst,
+                src1,
+                src2: SrcOperand::Reg(src2),
+                width: OpWidth::W64,
+                flags: FlagUpdate::None,
+            } => {
+                assert_eq!(*dst, x86_gpr(0));
+                assert_eq!(*src1, inverted);
+                assert_eq!(*src2, saved_src2);
+            }
+            other => panic!("expected APX ANDN alias final And, got {other:?}"),
+        }
+
+        // LLVM 20: `{nf} blsr rax, rax` => 62 f2 fc 0c f3 c8.
+        let result = lifter
+            .lift_insn(0x6000, &[0x62, 0xF2, 0xFC, 0x0C, 0xF3, 0xC8], &mut ctx)
+            .unwrap();
+        assert_eq!(result.ops.len(), 3);
+        let saved_src = match &result.ops[0].kind {
+            OpKind::Mov {
+                dst,
+                src: SrcOperand::Reg(src),
+                width: OpWidth::W64,
+            } => {
+                assert_eq!(*src, x86_gpr(0));
+                *dst
+            }
+            other => panic!("expected APX BLSR alias-preserving Mov, got {other:?}"),
+        };
+        let minus_one = match &result.ops[1].kind {
+            OpKind::Sub {
+                dst,
+                src1,
+                src2: SrcOperand::Imm(1),
+                width: OpWidth::W64,
+                flags: FlagUpdate::None,
+            } => {
+                assert_eq!(*src1, saved_src);
+                *dst
+            }
+            other => panic!("expected APX BLSR alias Sub, got {other:?}"),
+        };
+        match &result.ops[2].kind {
+            OpKind::And {
+                dst,
+                src1,
+                src2: SrcOperand::Reg(src2),
+                width: OpWidth::W64,
+                flags: FlagUpdate::None,
+            } => {
+                assert_eq!(*dst, x86_gpr(0));
+                assert_eq!(*src1, saved_src);
+                assert_eq!(*src2, minus_one);
+            }
+            other => panic!("expected APX BLSR alias final And, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn lift_apx_nf_bmi_0f38_rejects_invalid_forms_like_llvm() {
+        let mut lifter = X86_64Lifter::strict();
+        let mut ctx = LiftContext::new(SourceArch::X86_64);
+
+        for (bytes, name) in [
+            ([0x62, 0x72, 0xFC, 0x08, 0xF2, 0xC3], "without nf"),
+            ([0x62, 0x72, 0xFC, 0x1C, 0xF2, 0xC3], "with nd"),
+            ([0x62, 0x72, 0xFC, 0x0D, 0xF2, 0xC3], "nonzero aaa low bits"),
+            ([0x62, 0x72, 0xFC, 0x0C, 0xF3, 0xC0], "F3 group /0"),
+        ] {
+            let err = lifter.lift_insn(0x1000, &bytes, &mut ctx).unwrap_err();
+            assert!(
+                matches!(err, LiftError::Unsupported { .. }),
+                "{name}: {err:?}"
+            );
+        }
+    }
+
+    #[test]
     fn lift_apx_ccmp_registers_use_conditional_flag_sequence_like_llvm() {
         let mut lifter = X86_64Lifter::strict();
         let mut ctx = LiftContext::new(SourceArch::X86_64);
@@ -9592,9 +10188,7 @@ mod tests {
         let ctest_imm = lifter
             .lift_insn(
                 0x1000,
-                &[
-                    0x62, 0xF4, 0xE4, 0x45, 0xF7, 0xC0, 0x0F, 0x00, 0x00, 0x00,
-                ],
+                &[0x62, 0xF4, 0xE4, 0x45, 0xF7, 0xC0, 0x0F, 0x00, 0x00, 0x00],
                 &mut ctx,
             )
             .unwrap();
@@ -9620,12 +10214,8 @@ mod tests {
             .lift_insn(0x1000, &[0x62, 0xF4, 0xE4, 0x05, 0x3B, 0x03], &mut ctx)
             .unwrap();
         assert_eq!(ccmp_mem.bytes_consumed, 6);
-        let cond = assert_apx_conditional_flag_shape_with_true_ops(
-            &ccmp_mem,
-            Condition::Ne,
-            0x882,
-            2,
-        );
+        let cond =
+            assert_apx_conditional_flag_shape_with_true_ops(&ccmp_mem, Condition::Ne, 0x882, 2);
         let loaded = assert_apx_conditional_predload(&ccmp_mem, cond, 4, MemWidth::B8);
         match &ccmp_mem.ops[5].kind {
             OpKind::Cmp {
@@ -9669,12 +10259,8 @@ mod tests {
             .lift_insn(0x1000, &[0x62, 0xF4, 0xE4, 0x02, 0x85, 0x0B], &mut ctx)
             .unwrap();
         assert_eq!(ctest_mem.bytes_consumed, 6);
-        let cond = assert_apx_conditional_flag_shape_with_true_ops(
-            &ctest_mem,
-            Condition::Ult,
-            0x882,
-            2,
-        );
+        let cond =
+            assert_apx_conditional_flag_shape_with_true_ops(&ctest_mem, Condition::Ult, 0x882, 2);
         let loaded = assert_apx_conditional_predload(&ctest_mem, cond, 4, MemWidth::B8);
         match &ctest_mem.ops[5].kind {
             OpKind::Test {
@@ -9692,9 +10278,7 @@ mod tests {
         let ctest_imm_mem = lifter
             .lift_insn(
                 0x1000,
-                &[
-                    0x62, 0xF4, 0xE4, 0x08, 0xF7, 0x03, 0xF0, 0x00, 0x00, 0x00,
-                ],
+                &[0x62, 0xF4, 0xE4, 0x08, 0xF7, 0x03, 0xF0, 0x00, 0x00, 0x00],
                 &mut ctx,
             )
             .unwrap();
@@ -9892,7 +10476,10 @@ mod tests {
             ([0x62, 0xF4, 0xFC, 0x1C, 0xF7, 0xE3], "ndd nf mul"),
         ] {
             let err = lifter.lift_insn(0x1000, &bytes, &mut ctx).unwrap_err();
-            assert!(matches!(err, LiftError::Unsupported { .. }), "{name}: {err:?}");
+            assert!(
+                matches!(err, LiftError::Unsupported { .. }),
+                "{name}: {err:?}"
+            );
         }
     }
 
@@ -10265,11 +10852,7 @@ mod tests {
 
         // LLVM 20: `push2 %rax, %rsp` as EVEX MAP4 FF /6.
         let result = lifter
-            .lift_insn(
-                0x1000,
-                &[0x62, 0xF4, 0x5C, 0x18, 0xFF, 0xF0],
-                &mut ctx,
-            )
+            .lift_insn(0x1000, &[0x62, 0xF4, 0x5C, 0x18, 0xFF, 0xF0], &mut ctx)
             .unwrap();
         assert_eq!(result.bytes_consumed, 6);
         assert!(matches!(result.control_flow, ControlFlow::Fallthrough));
@@ -10343,11 +10926,7 @@ mod tests {
 
         // LLVM 20: `pop2 %rsp, %rax` as EVEX MAP4 8F.
         let result = lifter
-            .lift_insn(
-                0x1000,
-                &[0x62, 0xF4, 0x7C, 0x18, 0x8F, 0xC4],
-                &mut ctx,
-            )
+            .lift_insn(0x1000, &[0x62, 0xF4, 0x7C, 0x18, 0x8F, 0xC4], &mut ctx)
             .unwrap();
         assert_eq!(result.bytes_consumed, 6);
         assert_eq!(result.ops.len(), 5);
@@ -10420,11 +10999,7 @@ mod tests {
 
         // LLVM 20: `push2 %r16, %rcx`.
         let push = lifter
-            .lift_insn(
-                0x1000,
-                &[0x62, 0xEC, 0x74, 0x18, 0xFF, 0xF0],
-                &mut ctx,
-            )
+            .lift_insn(0x1000, &[0x62, 0xEC, 0x74, 0x18, 0xFF, 0xF0], &mut ctx)
             .unwrap();
         match push.ops[0].kind {
             OpKind::Mov {
@@ -10443,11 +11018,7 @@ mod tests {
 
         // LLVM 20: `pop2 %r20, %rbp`.
         let pop = lifter
-            .lift_insn(
-                0x2000,
-                &[0x62, 0xEC, 0x54, 0x18, 0x8F, 0xC4],
-                &mut ctx,
-            )
+            .lift_insn(0x2000, &[0x62, 0xEC, 0x54, 0x18, 0x8F, 0xC4], &mut ctx)
             .unwrap();
         match pop.ops[3].kind {
             OpKind::Mov { dst, .. } => assert_eq!(dst, x86_gpr(20)),
@@ -10465,29 +11036,17 @@ mod tests {
         let mut ctx = LiftContext::new(SourceArch::X86_64);
 
         let push_err = lifter
-            .lift_insn(
-                0x1000,
-                &[0x62, 0xF4, 0x6C, 0x18, 0xFF, 0x30],
-                &mut ctx,
-            )
+            .lift_insn(0x1000, &[0x62, 0xF4, 0x6C, 0x18, 0xFF, 0x30], &mut ctx)
             .unwrap_err();
         assert!(matches!(push_err, LiftError::Unsupported { .. }));
 
         let pop_err = lifter
-            .lift_insn(
-                0x1000,
-                &[0x62, 0xF4, 0x7C, 0x18, 0x8F, 0x00],
-                &mut ctx,
-            )
+            .lift_insn(0x1000, &[0x62, 0xF4, 0x7C, 0x18, 0x8F, 0x00], &mut ctx)
             .unwrap_err();
         assert!(matches!(pop_err, LiftError::Unsupported { .. }));
 
         let pop_group_err = lifter
-            .lift_insn(
-                0x1000,
-                &[0x62, 0xF4, 0x7C, 0x18, 0x8F, 0xC8],
-                &mut ctx,
-            )
+            .lift_insn(0x1000, &[0x62, 0xF4, 0x7C, 0x18, 0x8F, 0xC8], &mut ctx)
             .unwrap_err();
         assert!(matches!(pop_group_err, LiftError::Unsupported { .. }));
     }

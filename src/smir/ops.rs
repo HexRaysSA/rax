@@ -556,6 +556,22 @@ pub enum OpKind {
         flags: FlagUpdate,
     },
 
+    /// Bit field extract: dst = (src >> start(control[7:0])) & ((1 << len(control[15:8])) - 1)
+    Bextr {
+        dst: VReg,
+        src: VReg,
+        control: VReg,
+        width: OpWidth,
+    },
+
+    /// Zero high bits starting at index(control[7:0]).
+    Bzhi {
+        dst: VReg,
+        src: VReg,
+        index: VReg,
+        width: OpWidth,
+    },
+
     /// Count leading zeros
     Clz {
         dst: VReg,
@@ -1224,11 +1240,7 @@ pub enum OpKind {
     /// HVX `vdealb4w` (`Vd.b = vdeale(Vu.b, Vv.b)`): deal bytes 0 and 2 of each
     /// word. For word lane i (0..32): `dst.b[i]=src2.b[4i]`, `dst.b[32+i]=src2.b[4i+2]`,
     /// `dst.b[64+i]=src1.b[4i]`, `dst.b[96+i]=src1.b[4i+2]` (src1=Vu, src2=Vv).
-    VDealB4W {
-        dst: VReg,
-        src1: VReg,
-        src2: VReg,
-    },
+    VDealB4W { dst: VReg, src1: VReg, src2: VReg },
 
     /// Byte-granular alignment/rotate of the 256-byte concatenation `src1:src2`.
     /// Models HVX `valignb/vlalignb` (+imm forms) and `vror`: with byte shift
@@ -1431,35 +1443,20 @@ pub enum OpKind {
 
     /// HVX `vinsertwr` (`Vx.w[0] = Rt`): insert scalar GPR `scalar` into word lane
     /// 0 of vector `dst`; all other words preserved. `dst` is read-modify-written.
-    VInsertWordR {
-        dst: VReg,
-        scalar: VReg,
-    },
+    VInsertWordR { dst: VReg, scalar: VReg },
 
     /// HVX `extractw` (`Rd = vextract(Vu, Rs)`): extract word lane `(Rs & 127) >> 2`
     /// of vector `src` into the GPR `dst` (a SCALAR result, moving V -> R).
-    VExtractWord {
-        dst: VReg,
-        src: VReg,
-        sel: VReg,
-    },
+    VExtractWord { dst: VReg, src: VReg, sel: VReg },
 
     /// HVX `vlut4` (`Vd.h = vlut4(Vu.uh, Rtt.h)`): each halfword lane `i` of `src`
     /// selects (via its top two bits, `(uh >> 14) & 3`) one of four halfwords
     /// packed in the 64-bit scalar pair `table`. `table` is a W64 temp holding Rtt.
-    VLut4 {
-        dst: VReg,
-        src: VReg,
-        table: VReg,
-    },
+    VLut4 { dst: VReg, src: VReg, table: VReg },
 
     /// HVX `vrotr` (`Vd.uw = vrotr(Vu.uw, Vv.uw)`): per-word bit rotate-right of
     /// `src` lane by `amount` lane masked to 5 bits.
-    VRotr {
-        dst: VReg,
-        src: VReg,
-        amount: VReg,
-    },
+    VRotr { dst: VReg, src: VReg, amount: VReg },
 
     /// HVX `vaddububb_sat`/`vsubububb_sat` (`Vd.ub = vadd/vsub(Vu.ub, Vv.b):sat`):
     /// per byte lane, unsigned src1 `+/-` SIGNED src2, saturated to the unsigned
@@ -1476,11 +1473,7 @@ pub enum OpKind {
     /// scalar length. `v2` selects the variant:
     ///   false (`pred_scalar2`/vsetq): set the low `Rt & 127` byte-bits (`bit[i]=i<n`).
     ///   true  (`pred_scalar2v2`/vsetq2): set bits `0..=((Rt-1) & 127)` (Rt==0 -> all 128).
-    VSetPredQ {
-        dst: VReg,
-        scalar: VReg,
-        v2: bool,
-    },
+    VSetPredQ { dst: VReg, scalar: VReg, v2: bool },
 
     /// HVX `shuffeqh`/`shuffeqw` (`Qd.<n> = vshuffe(Qs.<2n>, Qt.<2n>)`): predicate
     /// shrink/shuffle of two Q vectors. Per vector-byte bit `i` (0..128):
@@ -2397,11 +2390,7 @@ pub enum OpKind {
     /// FUNCTION of the register inputs — the "TLB entry" being matched IS the
     /// seeded register pair `Rss` (`src1`), NOT hidden TLB state — so it is fully
     /// reproducible. `src2`=Rt; `dst` receives the 0x00/0xff predicate byte.
-    HexTlbMatch {
-        dst: VReg,
-        src1: VReg,
-        src2: VReg,
-    },
+    HexTlbMatch { dst: VReg, src1: VReg, src2: VReg },
 
     // ========================================================================
     // RISC-V SCALAR FLOATING POINT (OP-FP / FMA)
@@ -2463,11 +2452,7 @@ pub enum OpKind {
     /// raw 32-bit encoding; `rs1`/`rs2` are the x-register address sources kept
     /// live for the optimizer. Vector/CSR/x/f results are written directly into
     /// `ctx.arch_regs` (not SSA vregs). Self-contained; NOT JIT-whitelisted.
-    RvVector {
-        insn: u32,
-        rs1: VReg,
-        rs2: VReg,
-    },
+    RvVector { insn: u32, rs1: VReg, rs2: VReg },
 
     // ========================================================================
     // META / DEBUG
@@ -2658,6 +2643,8 @@ impl OpKind {
             | OpKind::Btc { dst, .. }
             | OpKind::Bsf { dst, .. }
             | OpKind::Bsr { dst, .. }
+            | OpKind::Bextr { dst, .. }
+            | OpKind::Bzhi { dst, .. }
             | OpKind::Clz { dst, .. }
             | OpKind::Ctz { dst, .. }
             | OpKind::Popcnt { dst, .. }
@@ -2803,7 +2790,12 @@ impl OpKind {
                 .collect(),
 
             // Carry forms write the result vector and (carry/carryo) the Q.
-            OpKind::VCarry { dst, q_inout, has_cout, .. } => {
+            OpKind::VCarry {
+                dst,
+                q_inout,
+                has_cout,
+                ..
+            } => {
                 if *has_cout {
                     vec![*dst, *q_inout]
                 } else {
