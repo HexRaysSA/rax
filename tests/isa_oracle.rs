@@ -111,6 +111,40 @@ fn decodes_arm_aarch64_prfm_literal() {
 }
 
 #[test]
+fn decodes_arm_aarch64_prfm_memory_forms() {
+    let mut opts = OracleOptions::default();
+    opts.isa = OracleIsa::Arm;
+    opts.arm_state = ArmState::Aarch64;
+
+    let cases = [
+        (0xf980_0020u32, "Prfop(PLDL1KEEP)", "offset: Imm(0)"),
+        (0xf980_0c35u32, "Prfop(PSTL3STRM)", "offset: Imm(24)"),
+        (0xf89f_8022u32, "Prfop(PLDL2KEEP)", "offset: Imm(-8)"),
+        (0xf8a2_5824u32, "Prfop(PLDL3KEEP)", "extend_type: UXTW"),
+        (0xf8a2_e832u32, "Prfop(PSTL2KEEP)", "extend_type: SXTX"),
+    ];
+
+    for (raw, prfop, mem_fragment) in cases {
+        let value = decode_to_json(&raw.to_le_bytes(), &opts).unwrap();
+        let op = &value["decoded_ops"][0];
+        assert_eq!(op["mnemonic"], "prfm");
+        assert_eq!(op["operands"][0], prfop);
+        let mem = op["operands"][1].as_str().unwrap();
+        assert!(mem.contains(mem_fragment), "{mem}");
+    }
+
+    for raw in [
+        0xf880_8420u32, // post-index prefetch pattern is undefined
+        0xf880_8c20u32, // pre-index prefetch pattern is undefined
+        0xf8a2_0820u32, // register-offset sub-word extend is undefined
+        0xf9c0_0020u32, // size=11/opc=11 is undefined
+    ] {
+        let value = decode_to_json(&raw.to_le_bytes(), &opts).unwrap();
+        assert_eq!(value["decoded_ops"][0]["mnemonic"], "unknown");
+    }
+}
+
+#[test]
 fn decodes_x86_with_smir_lift() {
     let mut opts = OracleOptions::default();
     opts.isa = OracleIsa::X86_64;

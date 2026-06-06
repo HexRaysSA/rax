@@ -2048,6 +2048,19 @@ fn smir_aarch64_x86_memory_lowering_matches_qemu_oracle() {
             }
         }
     }
+    for &(label, insn) in &[
+        ("prfm_uimm_0", enc_ldst_uimm(3, 0, 2, 0)),
+        ("prfm_uimm_3", enc_ldst_uimm(3, 0, 2, 3)),
+        ("prfum_simm_neg8", enc_ldst_simm(3, 0, 2, 0b00, -8)),
+        ("prfm_reg_uxtw_lsl3", enc_prfm_reg(4, RM, 0b010, 1)),
+        ("prfm_reg_sxtx", enc_prfm_reg(0b10010, RM, 0b111, 0)),
+    ] {
+        for _ in 0..4 {
+            let mut st = mem_input(&mut rng);
+            st.x[2] = 8;
+            batch.push((label.to_string(), insn, st));
+        }
+    }
 
     let acquire_release_ops: &[(u32, &str, bool)] = &[
         (0, "ldarb", true),
@@ -9482,6 +9495,20 @@ fn enc_ldst_simm(size: u32, v: u32, opc: u32, mode: u32, imm9: i32) -> u32 {
         | RD
 }
 
+/// PRFM register offset: `11 111000 0 0 1 Rm opc=10 option S 10 Rn Rt`.
+fn enc_prfm_reg(rt: u32, rm: u32, option: u32, s: u32) -> u32 {
+    (0b11 << 30)
+        | (0b111 << 27)
+        | (0b10 << 22)
+        | (1 << 21)
+        | (rm << 16)
+        | (option << 13)
+        | (s << 12)
+        | (0b10 << 10)
+        | (RN << 5)
+        | (rt & 0x1f)
+}
+
 /// Build a memory-test input: base register x1 -> SCRATCH_BASE, random scratch
 /// and operand registers.
 fn mem_input(rng: &mut Rng) -> ArmState {
@@ -9536,6 +9563,31 @@ fn diff_mem_ldst_imm() {
         }
     }
     run_batch("mem_ldst_imm", batch);
+}
+
+#[test]
+fn diff_mem_prfm() {
+    let cases: Vec<(String, u32)> = vec![
+        ("prfm_uimm_0".into(), enc_ldst_uimm(3, 0, 2, 0)),
+        ("prfm_uimm_3".into(), enc_ldst_uimm(3, 0, 2, 3)),
+        ("prfum_simm_neg8".into(), enc_ldst_simm(3, 0, 2, 0b00, -8)),
+        ("prfm_reg_uxtw_lsl3".into(), enc_prfm_reg(4, RM, 0b010, 1)),
+        ("prfm_reg_sxtx".into(), enc_prfm_reg(0b10010, RM, 0b111, 0)),
+        ("prfm_post_undef".into(), enc_ldst_simm(3, 0, 2, 0b01, 8)),
+        ("prfm_pre_undef".into(), enc_ldst_simm(3, 0, 2, 0b11, 8)),
+        ("prfm_opc11_undef".into(), enc_ldst_uimm(3, 0, 3, 0)),
+        ("prfm_reg_bad_extend_undef".into(), enc_prfm_reg(0, RM, 0b000, 0)),
+    ];
+    let mut rng = Rng::new(0x1_0020);
+    let mut batch: Vec<(String, u32, ArmState)> = Vec::new();
+    for (label, insn) in &cases {
+        for _ in 0..6 {
+            let mut st = mem_input(&mut rng);
+            st.x[2] = 8;
+            batch.push((label.clone(), *insn, st));
+        }
+    }
+    run_batch("mem_prfm", batch);
 }
 
 /// Scalar FP 3-source: `0001_1111 type o1 Rm o0 Ra Rn Rd`.
