@@ -1973,6 +1973,25 @@ impl Aarch64Lowerer {
         )
     }
 
+    fn lower_truncate(
+        &mut self,
+        dst: VReg,
+        src: VReg,
+        to_width: OpWidth,
+    ) -> Result<(), LowerError> {
+        match to_width {
+            OpWidth::W8 | OpWidth::W16 => {
+                self.lower_bfx(dst, src, 0, to_width.bits() as u8, false, OpWidth::W64)
+            }
+            OpWidth::W32 | OpWidth::W64 => {
+                self.emit_mov_reg(Self::dst_gpr(dst)?, Self::gpr(src)?, to_width)
+            }
+            other => Err(LowerError::UnsupportedOp {
+                op: format!("AArch64 native Truncate width {other:?}"),
+            }),
+        }
+    }
+
     fn lower_mul(
         &mut self,
         dst_lo: VReg,
@@ -4062,6 +4081,9 @@ impl Aarch64Lowerer {
                 from_width,
                 to_width,
             } => self.lower_extend(*dst, *src, *from_width, *to_width, true),
+            OpKind::Truncate { dst, src, to_width, .. } => {
+                self.lower_truncate(*dst, *src, *to_width)
+            }
             OpKind::Cwd { dst, src, width } => self.lower_cwd(*dst, *src, *width),
             OpKind::Xchg { reg1, reg2, width } => self.lower_xchg(*reg1, *reg2, *width),
             OpKind::Shl {
@@ -5757,6 +5779,81 @@ mod tests {
     }
 
     #[test]
+    fn lowers_truncate_x_to_w8_as_ubfx() {
+        let mut builder = FunctionBuilder::new(FunctionId(0), 0);
+        builder.push_op(
+            0,
+            OpKind::Truncate {
+                dst: x(0),
+                src: x(1),
+                from_width: OpWidth::W64,
+                to_width: OpWidth::W8,
+            },
+        );
+        builder.set_terminator(Terminator::Return { values: vec![] });
+        let func = builder.finish();
+
+        let mut lowerer = Aarch64Lowerer::new();
+        lowerer.lower_function(&func).unwrap();
+        let code = lowerer.finalize().unwrap();
+
+        let mut expected = Vec::new();
+        expected.extend_from_slice(&enc_bitfield(1, 0b10, 0, 7).to_le_bytes());
+        expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
+        assert_eq!(code, expected);
+    }
+
+    #[test]
+    fn lowers_truncate_x_to_w16_as_ubfx() {
+        let mut builder = FunctionBuilder::new(FunctionId(0), 0);
+        builder.push_op(
+            0,
+            OpKind::Truncate {
+                dst: x(0),
+                src: x(1),
+                from_width: OpWidth::W64,
+                to_width: OpWidth::W16,
+            },
+        );
+        builder.set_terminator(Terminator::Return { values: vec![] });
+        let func = builder.finish();
+
+        let mut lowerer = Aarch64Lowerer::new();
+        lowerer.lower_function(&func).unwrap();
+        let code = lowerer.finalize().unwrap();
+
+        let mut expected = Vec::new();
+        expected.extend_from_slice(&enc_bitfield(1, 0b10, 0, 15).to_le_bytes());
+        expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
+        assert_eq!(code, expected);
+    }
+
+    #[test]
+    fn lowers_truncate_x_to_w32_as_w_mov_zero_ext() {
+        let mut builder = FunctionBuilder::new(FunctionId(0), 0);
+        builder.push_op(
+            0,
+            OpKind::Truncate {
+                dst: x(0),
+                src: x(1),
+                from_width: OpWidth::W64,
+                to_width: OpWidth::W32,
+            },
+        );
+        builder.set_terminator(Terminator::Return { values: vec![] });
+        let func = builder.finish();
+
+        let mut lowerer = Aarch64Lowerer::new();
+        lowerer.lower_function(&func).unwrap();
+        let code = lowerer.finalize().unwrap();
+
+        let mut expected = Vec::new();
+        expected.extend_from_slice(&enc_mov_reg(0, 0, 1).to_le_bytes());
+        expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
+        assert_eq!(code, expected);
+    }
+
+    #[test]
     fn lowers_ctz_in_place_as_rbit_clz() {
         let mut builder = FunctionBuilder::new(FunctionId(0), 0);
         builder.push_op(
@@ -6660,6 +6757,26 @@ mod tests {
                 src: x(1),
                 width: OpWidth::W16,
                 flags: FlagUpdate::None,
+            },
+        );
+        builder.set_terminator(Terminator::Return { values: vec![] });
+        let func = builder.finish();
+
+        let mut lowerer = Aarch64Lowerer::new();
+        let err = lowerer.lower_function(&func).unwrap_err();
+        assert!(matches!(err, LowerError::UnsupportedOp { .. }));
+    }
+
+    #[test]
+    fn rejects_truncate_w128_lowering() {
+        let mut builder = FunctionBuilder::new(FunctionId(0), 0);
+        builder.push_op(
+            0,
+            OpKind::Truncate {
+                dst: x(0),
+                src: x(1),
+                from_width: OpWidth::W128,
+                to_width: OpWidth::W128,
             },
         );
         builder.set_terminator(Terminator::Return { values: vec![] });
