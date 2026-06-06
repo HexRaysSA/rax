@@ -30,7 +30,22 @@ const SYSREG_FPSR: u32 = (3 << 14) | (3 << 11) | (4 << 7) | (4 << 3) | 1;
 pub struct Aarch64Lowerer {
     code: CodeBuffer,
     block_offsets: HashMap<BlockId, usize>,
+    branch_fixups: Vec<BranchFixup>,
     relocations: Vec<Relocation>,
+}
+
+#[derive(Clone, Copy)]
+struct BranchFixup {
+    offset: usize,
+    target: BlockId,
+    kind: BranchFixupKind,
+}
+
+#[derive(Clone, Copy)]
+enum BranchFixupKind {
+    Uncond,
+    Cond { cond: u32 },
+    CompareAndBranch { rt: u8, nonzero: bool },
 }
 
 impl Aarch64Lowerer {
@@ -38,12 +53,97 @@ impl Aarch64Lowerer {
         Self {
             code: CodeBuffer::with_capacity(1024),
             block_offsets: HashMap::new(),
+            branch_fixups: Vec::new(),
             relocations: Vec::new(),
         }
     }
 
     fn emit(&mut self, word: u32) {
         self.code.emit_u32(word);
+    }
+
+    fn emit_branch_placeholder(&mut self, target: BlockId) {
+        let offset = self.code.position();
+        self.emit(0x1400_0000);
+        self.branch_fixups.push(BranchFixup {
+            offset,
+            target,
+            kind: BranchFixupKind::Uncond,
+        });
+    }
+
+    fn emit_cond_branch_placeholder(&mut self, cond: u32, target: BlockId) {
+        let offset = self.code.position();
+        self.emit(0x5400_0000 | (cond & 0xf));
+        self.branch_fixups.push(BranchFixup {
+            offset,
+            target,
+            kind: BranchFixupKind::Cond { cond: cond & 0xf },
+        });
+    }
+
+    fn emit_compare_branch_placeholder(&mut self, rt: u8, nonzero: bool, target: BlockId) {
+        let offset = self.code.position();
+        self.emit(if nonzero { 0xb500_0000 } else { 0xb400_0000 } | (rt as u32));
+        self.branch_fixups.push(BranchFixup {
+            offset,
+            target,
+            kind: BranchFixupKind::CompareAndBranch { rt, nonzero },
+        });
+    }
+
+    fn branch_scaled_imm(
+        offset: usize,
+        target_offset: usize,
+        bits: u32,
+    ) -> Result<u32, LowerError> {
+        let delta = target_offset as i64 - offset as i64;
+        if delta % 4 != 0 {
+            return Err(LowerError::InvalidOperand {
+                op: "AArch64 block branch".into(),
+                operand: format!("unaligned target offset {target_offset}"),
+            });
+        }
+
+        let scaled = delta / 4;
+        let min = -(1_i64 << (bits - 1));
+        let max = (1_i64 << (bits - 1)) - 1;
+        if scaled < min || scaled > max {
+            return Err(LowerError::RelocationOutOfRange {
+                offset,
+                target: target_offset,
+            });
+        }
+
+        Ok((scaled as u32) & ((1_u32 << bits) - 1))
+    }
+
+    fn fixup_branches(&mut self) -> Result<(), LowerError> {
+        for fixup in self.branch_fixups.drain(..).collect::<Vec<_>>() {
+            let Some(&target_offset) = self.block_offsets.get(&fixup.target) else {
+                return Err(LowerError::UndefinedLabel {
+                    label: format!("block_{}", fixup.target.0),
+                });
+            };
+
+            let word = match fixup.kind {
+                BranchFixupKind::Uncond => {
+                    let imm26 = Self::branch_scaled_imm(fixup.offset, target_offset, 26)?;
+                    0x1400_0000 | imm26
+                }
+                BranchFixupKind::Cond { cond } => {
+                    let imm19 = Self::branch_scaled_imm(fixup.offset, target_offset, 19)?;
+                    0x5400_0000 | (imm19 << 5) | (cond & 0xf)
+                }
+                BranchFixupKind::CompareAndBranch { rt, nonzero } => {
+                    let imm19 = Self::branch_scaled_imm(fixup.offset, target_offset, 19)?;
+                    let base = if nonzero { 0xb500_0000 } else { 0xb400_0000 };
+                    base | (imm19 << 5) | (rt as u32)
+                }
+            };
+            self.code.patch_i32(fixup.offset, word as i32);
+        }
+        Ok(())
     }
 
     fn sf(width: OpWidth) -> Result<u32, LowerError> {
@@ -4795,8 +4895,57 @@ impl Aarch64Lowerer {
         }
     }
 
-    fn lower_terminator(&mut self, block: &SmirBlock) -> Result<(), LowerError> {
+    fn lower_cond_branch(
+        &mut self,
+        cond: VReg,
+        true_target: BlockId,
+        false_target: BlockId,
+        folded_cond: Option<Condition>,
+    ) -> Result<(), LowerError> {
+        if true_target == false_target {
+            self.emit_branch_placeholder(true_target);
+            return Ok(());
+        }
+
+        if let Some(cond) = folded_cond {
+            if cond == Condition::Always {
+                self.emit_branch_placeholder(true_target);
+                return Ok(());
+            }
+            self.emit_cond_branch_placeholder(Self::arm_cond_code(cond)?, true_target);
+            self.emit_branch_placeholder(false_target);
+            return Ok(());
+        }
+
+        if let VReg::Imm(value) = cond {
+            self.emit_branch_placeholder(if value == 0 {
+                false_target
+            } else {
+                true_target
+            });
+            return Ok(());
+        }
+
+        self.emit_compare_branch_placeholder(Self::gpr(cond)?, true, true_target);
+        self.emit_branch_placeholder(false_target);
+        Ok(())
+    }
+
+    fn lower_terminator(
+        &mut self,
+        block: &SmirBlock,
+        folded_cond: Option<Condition>,
+    ) -> Result<(), LowerError> {
         match &block.terminator {
+            Terminator::Branch { target } => {
+                self.emit_branch_placeholder(*target);
+                Ok(())
+            }
+            Terminator::CondBranch {
+                cond,
+                true_target,
+                false_target,
+            } => self.lower_cond_branch(*cond, *true_target, *false_target, folded_cond),
             Terminator::Return { .. } => {
                 self.emit(0xd65f_03c0);
                 Ok(())
@@ -4832,82 +4981,99 @@ impl Aarch64Lowerer {
         }
     }
 
+    fn folded_branch_condition(block: &SmirBlock) -> (usize, Option<Condition>) {
+        let op_end = block.ops.len();
+        let Terminator::CondBranch { cond: branch_cond, .. } = &block.terminator else {
+            return (op_end, None);
+        };
+        let Some(SmirOp {
+            kind: OpKind::TestCondition { dst, cond },
+            ..
+        }) = block.ops.last()
+        else {
+            return (op_end, None);
+        };
+        if dst == branch_cond {
+            (op_end - 1, Some(*cond))
+        } else {
+            (op_end, None)
+        }
+    }
+
     fn lower_block(&mut self, block: &SmirBlock) -> Result<(), LowerError> {
         self.block_offsets.insert(block.id, self.code.position());
+        let (op_end, folded_cond) = Self::folded_branch_condition(block);
         let mut idx = 0;
-        while idx < block.ops.len() {
-            if let Some(consumed) = self.try_lower_fused_signed_load_w(&block.ops[idx..])? {
+        while idx < op_end {
+            let ops = &block.ops[idx..op_end];
+            if let Some(consumed) = self.try_lower_fused_signed_load_w(ops)? {
                 idx += consumed;
                 continue;
             }
-            if let Some(consumed) = self.try_lower_fused_ldpsw_pair(&block.ops[idx..])? {
+            if let Some(consumed) = self.try_lower_fused_ldpsw_pair(ops)? {
                 idx += consumed;
                 continue;
             }
-            if let Some(consumed) = self.try_lower_fused_mem_indexed(&block.ops[idx..])? {
+            if let Some(consumed) = self.try_lower_fused_mem_indexed(ops)? {
                 idx += consumed;
                 continue;
             }
-            if let Some(consumed) = self.try_lower_fused_pair_indexed(&block.ops[idx..])? {
+            if let Some(consumed) = self.try_lower_fused_pair_indexed(ops)? {
                 idx += consumed;
                 continue;
             }
-            if let Some(consumed) = self.try_lower_fused_mem_reg_offset(&block.ops[idx..])? {
+            if let Some(consumed) = self.try_lower_fused_mem_reg_offset(ops)? {
                 idx += consumed;
                 continue;
             }
-            if let Some(consumed) = self.try_lower_fused_ldclr(&block.ops[idx..])? {
+            if let Some(consumed) = self.try_lower_fused_ldclr(ops)? {
                 idx += consumed;
                 continue;
             }
-            if let Some(consumed) = self.try_lower_fused_extract(&block.ops[idx..])? {
+            if let Some(consumed) = self.try_lower_fused_extract(ops)? {
                 idx += consumed;
                 continue;
             }
-            if let Some(consumed) = self.try_lower_fused_rev16(&block.ops[idx..])? {
+            if let Some(consumed) = self.try_lower_fused_rev16(ops)? {
                 idx += consumed;
                 continue;
             }
-            if let Some(consumed) = self.try_lower_fused_rev32(&block.ops[idx..])? {
+            if let Some(consumed) = self.try_lower_fused_rev32(ops)? {
                 idx += consumed;
                 continue;
             }
-            if let Some(consumed) =
-                self.try_lower_fused_bitfield_insert_zero(&block.ops[idx..])?
-            {
+            if let Some(consumed) = self.try_lower_fused_bitfield_insert_zero(ops)? {
                 idx += consumed;
                 continue;
             }
-            if let Some(consumed) =
-                self.try_lower_fused_bitfield_insert_low(&block.ops[idx..])?
-            {
+            if let Some(consumed) = self.try_lower_fused_bitfield_insert_low(ops)? {
                 idx += consumed;
                 continue;
             }
-            if let Some(consumed) = self.try_lower_fused_cls(&block.ops[idx..])? {
+            if let Some(consumed) = self.try_lower_fused_cls(ops)? {
                 idx += consumed;
                 continue;
             }
-            if let Some(consumed) = self.try_lower_fused_flagm(&block.ops[idx..])? {
+            if let Some(consumed) = self.try_lower_fused_flagm(ops)? {
                 idx += consumed;
                 continue;
             }
-            if let Some(consumed) = self.try_lower_fused_sysreg_access(&block.ops[idx..])? {
+            if let Some(consumed) = self.try_lower_fused_sysreg_access(ops)? {
                 idx += consumed;
                 continue;
             }
-            if let Some(consumed) = self.try_lower_fused_cond_compare(&block.ops[idx..])? {
+            if let Some(consumed) = self.try_lower_fused_cond_compare(ops)? {
                 idx += consumed;
                 continue;
             }
-            if let Some(consumed) = self.try_lower_fused_select(&block.ops[idx..])? {
+            if let Some(consumed) = self.try_lower_fused_select(ops)? {
                 idx += consumed;
                 continue;
             }
             self.lower_op(&block.ops[idx])?;
             idx += 1;
         }
-        self.lower_terminator(block)
+        self.lower_terminator(block, folded_cond)
     }
 }
 
@@ -4944,11 +5110,13 @@ impl SmirLowerer for Aarch64Lowerer {
     fn lower_function(&mut self, func: &SmirFunction) -> Result<LowerResult, LowerError> {
         self.code.clear();
         self.block_offsets.clear();
+        self.branch_fixups.clear();
         self.relocations.clear();
 
         for block in &func.blocks {
             self.lower_block(block)?;
         }
+        self.fixup_branches()?;
 
         Ok(LowerResult {
             code_size: self.code.len(),
@@ -5075,6 +5243,18 @@ mod tests {
 
     fn enc_extract(sf: u32, rn: u32, rm: u32, lsb: u32) -> u32 {
         (sf << 31) | (0b100111 << 23) | (sf << 22) | (rm << 16) | (lsb << 10) | (rn << 5)
+    }
+
+    fn enc_b(imm26: i32) -> u32 {
+        0x1400_0000 | ((imm26 as u32) & 0x03ff_ffff)
+    }
+
+    fn enc_b_cond(cond: u32, imm19: i32) -> u32 {
+        0x5400_0000 | (((imm19 as u32) & 0x7ffff) << 5) | (cond & 0xf)
+    }
+
+    fn enc_cbnz(rt: u32, imm19: i32) -> u32 {
+        0xb500_0000 | (((imm19 as u32) & 0x7ffff) << 5) | (rt & 0x1f)
     }
 
     fn enc_dp1_regs(sf: u32, opcode: u32, rn: u32, rd: u32) -> u32 {
@@ -8069,6 +8249,117 @@ mod tests {
 
         let mut expected = Vec::new();
         expected.extend_from_slice(&enc_udf(0).to_le_bytes());
+        assert_eq!(code, expected);
+    }
+
+    #[test]
+    fn lowers_branch_terminator_as_b() {
+        let mut builder = FunctionBuilder::new(FunctionId(0), 0);
+        let target = builder.create_block(4);
+        builder.set_terminator(Terminator::Branch { target });
+        builder.switch_to_block(target);
+        builder.set_terminator(Terminator::Return { values: vec![] });
+        let func = builder.finish();
+
+        let mut lowerer = Aarch64Lowerer::new();
+        let result = lowerer.lower_function(&func).unwrap();
+        let code = lowerer.finalize().unwrap();
+
+        let mut expected = Vec::new();
+        expected.extend_from_slice(&enc_b(1).to_le_bytes());
+        expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
+        assert_eq!(result.block_offsets.get(&target), Some(&4));
+        assert_eq!(code, expected);
+    }
+
+    #[test]
+    fn lowers_test_condition_cond_branch_as_b_cond() {
+        let mut builder = FunctionBuilder::new(FunctionId(0), 0);
+        let true_target = builder.create_block(4);
+        let false_target = builder.create_block(8);
+        let cond = VReg::virt(0);
+        builder.push_op(
+            0,
+            OpKind::TestCondition {
+                dst: cond,
+                cond: Condition::Eq,
+            },
+        );
+        builder.set_terminator(Terminator::CondBranch {
+            cond,
+            true_target,
+            false_target,
+        });
+        builder.switch_to_block(true_target);
+        builder.set_terminator(Terminator::Return { values: vec![] });
+        builder.switch_to_block(false_target);
+        builder.set_terminator(Terminator::Return { values: vec![] });
+        let func = builder.finish();
+
+        let mut lowerer = Aarch64Lowerer::new();
+        lowerer.lower_function(&func).unwrap();
+        let code = lowerer.finalize().unwrap();
+
+        let mut expected = Vec::new();
+        expected.extend_from_slice(&enc_b_cond(0, 2).to_le_bytes());
+        expected.extend_from_slice(&enc_b(2).to_le_bytes());
+        expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
+        expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
+        assert_eq!(code, expected);
+    }
+
+    #[test]
+    fn lowers_register_cond_branch_as_cbnz() {
+        let mut builder = FunctionBuilder::new(FunctionId(0), 0);
+        let true_target = builder.create_block(4);
+        let false_target = builder.create_block(8);
+        builder.set_terminator(Terminator::CondBranch {
+            cond: x(1),
+            true_target,
+            false_target,
+        });
+        builder.switch_to_block(true_target);
+        builder.set_terminator(Terminator::Return { values: vec![] });
+        builder.switch_to_block(false_target);
+        builder.set_terminator(Terminator::Return { values: vec![] });
+        let func = builder.finish();
+
+        let mut lowerer = Aarch64Lowerer::new();
+        lowerer.lower_function(&func).unwrap();
+        let code = lowerer.finalize().unwrap();
+
+        let mut expected = Vec::new();
+        expected.extend_from_slice(&enc_cbnz(1, 2).to_le_bytes());
+        expected.extend_from_slice(&enc_b(2).to_le_bytes());
+        expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
+        expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
+        assert_eq!(code, expected);
+    }
+
+    #[test]
+    fn lowers_immediate_cond_branch_as_single_b() {
+        let mut builder = FunctionBuilder::new(FunctionId(0), 0);
+        let true_target = builder.create_block(4);
+        let false_target = builder.create_block(8);
+        builder.set_terminator(Terminator::CondBranch {
+            cond: VReg::Imm(0),
+            true_target,
+            false_target,
+        });
+        builder.switch_to_block(true_target);
+        builder.set_terminator(Terminator::Return { values: vec![] });
+        builder.switch_to_block(false_target);
+        builder.set_terminator(Terminator::Return { values: vec![] });
+        let func = builder.finish();
+
+        let mut lowerer = Aarch64Lowerer::new();
+        lowerer.lower_function(&func).unwrap();
+        let code = lowerer.finalize().unwrap();
+
+        let mut expected = Vec::new();
+        expected.extend_from_slice(&enc_b(2).to_le_bytes());
+        expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
+        expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
         assert_eq!(code, expected);
     }
 
