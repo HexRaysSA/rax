@@ -8216,6 +8216,69 @@ fn smir_aarch64_native_lowering_matches_qemu_oracle() {
         st,
     );
 
+    let ror_w8 = [
+        enc_bitfield_rn(0, 0b10, 0, 7, RN),
+        enc_bitfield_rn(0, 0b01, 24, 7, RD),
+        enc_bitfield_rn(0, 0b10, 3, 10, RD),
+    ];
+
+    let mut st = native_state();
+    st.x[0] = 0xeeee_ffff_0000_1111;
+    st.x[1] = 0x1111_2222_3333_4481;
+    st.pstate = 0x3000_0000;
+    push_case3(
+        "ror_w8_imm_as_duplicate_extract_preserves_flags",
+        ror_w8,
+        vec![OpKind::Ror {
+            dst: arm_x(0),
+            src: arm_x(1),
+            amount: SrcOperand::Imm(3),
+            width: OpWidth::W8,
+            flags: FlagUpdate::None,
+        }],
+        st,
+    );
+
+    let rol_w16 = [
+        enc_bitfield_rn(0, 0b10, 0, 15, RN),
+        enc_bitfield_rn(0, 0b01, 16, 15, RD),
+        enc_bitfield_rn(0, 0b10, 11, 26, RD),
+    ];
+
+    let mut st = native_state();
+    st.x[0] = 0xffff_0000_1111_2222;
+    st.x[1] = 0x2222_3333_4444_a531;
+    st.pstate = 0xc000_0000;
+    push_case3(
+        "rol_w16_imm_as_subword_ror_preserves_flags",
+        rol_w16,
+        vec![OpKind::Rol {
+            dst: arm_x(0),
+            src: arm_x(1),
+            amount: SrcOperand::Imm(5),
+            width: OpWidth::W16,
+            flags: FlagUpdate::None,
+        }],
+        st,
+    );
+
+    let mut st = native_state();
+    st.x[0] = 0xaaaa_bbbb_cccc_dddd;
+    st.x[1] = 0xffff_ffff_ffff_ff81;
+    st.pstate = 0x6000_0000;
+    push_case3(
+        "ror_w8_imm_masked_zero_as_uxtb_preserves_flags",
+        [enc_bitfield_rn(0, 0b10, 0, 7, RN), NOP, NOP],
+        vec![OpKind::Ror {
+            dst: arm_x(0),
+            src: arm_x(1),
+            amount: SrcOperand::Imm(8),
+            width: OpWidth::W8,
+            flags: FlagUpdate::None,
+        }],
+        st,
+    );
+
     let mut st = native_state();
     st.x[0] = 0xaaaa_bbbb_cccc_dddd;
     st.x[1] = 0x1122_3344_5566_7788;
