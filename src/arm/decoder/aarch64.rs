@@ -1671,6 +1671,7 @@ impl Aarch64Decoder {
             0b000010 => Mnemonic::REV,
             0b000011 if is_64bit => Mnemonic::REV,
             0b000100 => Mnemonic::CLZ,
+            0b000101 => Mnemonic::CLS,
             _ => Mnemonic::UNKNOWN,
         };
 
