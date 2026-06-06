@@ -8551,6 +8551,70 @@ fn smir_aarch64_native_lowering_matches_qemu_oracle() {
     );
 
     let mut st = native_state();
+    st.x[0] = 0xffff_ffff_7654_abcd;
+    st.pstate = 0xb000_0000;
+    push_case3(
+        "shld_w16_full_count_alias_as_uxth_preserves_flags",
+        [enc_bitfield_rn(0, 0b10, 0, 15, RD), NOP, NOP],
+        vec![OpKind::Shld {
+            dst: arm_x(0),
+            src: arm_x(0),
+            amount: SrcOperand::Imm(16),
+            width: OpWidth::W16,
+            flags: FlagUpdate::None,
+        }],
+        st,
+    );
+
+    let mut st = native_state();
+    st.x[0] = 0xeeee_dddd_cccc_12a5;
+    st.pstate = 0xa000_0000;
+    push_case3(
+        "shld_w8_full_count_alias_as_uxtb_preserves_flags",
+        [enc_bitfield_rn(0, 0b10, 0, 7, RD), NOP, NOP],
+        vec![OpKind::Shld {
+            dst: arm_x(0),
+            src: arm_x(0),
+            amount: SrcOperand::Imm(8),
+            width: OpWidth::W8,
+            flags: FlagUpdate::None,
+        }],
+        st,
+    );
+
+    let mut st = native_state();
+    st.x[0] = 0xdddd_cccc_bbbb_dcba;
+    st.pstate = 0x5000_0000;
+    push_case3(
+        "shrd_w16_full_count_alias_as_uxth_preserves_flags",
+        [enc_bitfield_rn(0, 0b10, 0, 15, RD), NOP, NOP],
+        vec![OpKind::Shrd {
+            dst: arm_x(0),
+            src: arm_x(0),
+            amount: SrcOperand::Imm(16),
+            width: OpWidth::W16,
+            flags: FlagUpdate::None,
+        }],
+        st,
+    );
+
+    let mut st = native_state();
+    st.x[0] = 0xcccc_bbbb_aaaa_34c9;
+    st.pstate = 0xc000_0000;
+    push_case3(
+        "shrd_w8_full_count_alias_as_uxtb_preserves_flags",
+        [enc_bitfield_rn(0, 0b10, 0, 7, RD), NOP, NOP],
+        vec![OpKind::Shrd {
+            dst: arm_x(0),
+            src: arm_x(0),
+            amount: SrcOperand::Imm(8),
+            width: OpWidth::W8,
+            flags: FlagUpdate::None,
+        }],
+        st,
+    );
+
+    let mut st = native_state();
     st.x[0] = 0xffff_ffff_89ab_cdef;
     st.x[1] = 0xcccc_dddd_0123_4567;
     st.pstate = 0x9000_0000;
