@@ -1334,6 +1334,87 @@ impl Aarch64Lowerer {
         }
     }
 
+    fn emit_add_signed_imm(
+        &mut self,
+        dst: u8,
+        rn: u8,
+        offset: i64,
+        width: OpWidth,
+    ) -> Result<(), LowerError> {
+        let (subtract, imm) = if offset < 0 {
+            (
+                true,
+                offset.checked_neg().ok_or_else(|| LowerError::InvalidOperand {
+                    op: "AArch64 native signed immediate".into(),
+                    operand: format!("{offset:#x}"),
+                })?,
+            )
+        } else {
+            (false, offset)
+        };
+        self.emit_addsub_imm(dst, rn, imm, subtract, false, width)
+    }
+
+    fn lea_scale_shift(scale: u8) -> Result<u32, LowerError> {
+        match scale {
+            1 => Ok(0),
+            2 => Ok(1),
+            4 => Ok(2),
+            8 => Ok(3),
+            _ => Err(LowerError::UnsupportedOp {
+                op: format!("AArch64 native LEA scale {scale}"),
+            }),
+        }
+    }
+
+    fn lower_lea(&mut self, dst: VReg, addr: &Address) -> Result<(), LowerError> {
+        let dst = Self::dst_gpr(dst)?;
+        match addr {
+            Address::Direct(base) => {
+                self.emit_add_signed_imm(dst, Self::base_gpr(*base)?, 0, OpWidth::W64)
+            }
+            Address::BaseOffset { base, offset, .. } => {
+                self.emit_add_signed_imm(dst, Self::base_gpr(*base)?, *offset, OpWidth::W64)
+            }
+            Address::BaseIndexScale {
+                base,
+                index,
+                scale,
+                disp,
+                ..
+            } => {
+                let shift = Self::lea_scale_shift(*scale)?;
+                let rn = match base {
+                    Some(base) => Self::base_gpr(*base)?,
+                    None => 31,
+                };
+                self.emit_addsub_shifted(
+                    dst,
+                    rn,
+                    Self::gpr(*index)?,
+                    false,
+                    false,
+                    0,
+                    shift,
+                    OpWidth::W64,
+                )?;
+                if *disp == 0 {
+                    Ok(())
+                } else {
+                    self.emit_add_signed_imm(dst, dst, i64::from(*disp), OpWidth::W64)
+                }
+            }
+            Address::Absolute(addr) => self.emit_mov_imm(dst, *addr as i64, OpWidth::W64),
+            Address::PcRel { offset, base, .. } => {
+                let addr = base.unwrap_or(0).wrapping_add(*offset as u64);
+                self.emit_mov_imm(dst, addr as i64, OpWidth::W64)
+            }
+            Address::GpRel { .. } | Address::SegmentRel { .. } => Err(LowerError::UnsupportedOp {
+                op: format!("AArch64 native LEA address {addr:?}"),
+            }),
+        }
+    }
+
     fn lower_sysreg_read(
         &mut self,
         dst: VReg,
@@ -3842,6 +3923,7 @@ impl Aarch64Lowerer {
                 width_bits,
                 op_width,
             } => self.lower_bfi(*dst, *dst_in, *src, *lsb, *width_bits, *op_width),
+            OpKind::Lea { dst, addr } => self.lower_lea(*dst, addr),
             OpKind::ZeroExtend {
                 dst,
                 src,
@@ -4208,6 +4290,46 @@ mod tests {
         (sf << 31) | (op << 30) | (s << 29) | (0b10001 << 24) | (imm12 << 10) | (1 << 5)
     }
 
+    fn enc_addsub_imm_regs(
+        sf: u32,
+        op: u32,
+        s: u32,
+        shift: u32,
+        imm12: u32,
+        rd: u32,
+        rn: u32,
+    ) -> u32 {
+        (sf << 31)
+            | (op << 30)
+            | (s << 29)
+            | (0b10001 << 24)
+            | (shift << 22)
+            | (imm12 << 10)
+            | (rn << 5)
+            | rd
+    }
+
+    fn enc_addsub_shift_regs(
+        sf: u32,
+        op: u32,
+        s: u32,
+        shift: u32,
+        imm6: u32,
+        rd: u32,
+        rn: u32,
+        rm: u32,
+    ) -> u32 {
+        (sf << 31)
+            | (op << 30)
+            | (s << 29)
+            | (0b01011 << 24)
+            | (shift << 22)
+            | (rm << 16)
+            | (imm6 << 10)
+            | (rn << 5)
+            | rd
+    }
+
     fn enc_logical_reg(sf: u32, opc: u32, rd: u32, rn: u32, rm: u32) -> u32 {
         (sf << 31) | (opc << 29) | (0b01010 << 24) | (rm << 16) | (rn << 5) | rd
     }
@@ -4409,6 +4531,142 @@ mod tests {
 
         let mut expected = Vec::new();
         expected.extend_from_slice(&enc_mov_reg(0, 0, 0).to_le_bytes());
+        expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
+        assert_eq!(code, expected);
+    }
+
+    #[test]
+    fn lowers_lea_direct_as_add_zero() {
+        let mut builder = FunctionBuilder::new(FunctionId(0), 0);
+        builder.push_op(
+            0,
+            OpKind::Lea {
+                dst: x(0),
+                addr: Address::Direct(x(1)),
+            },
+        );
+        builder.set_terminator(Terminator::Return { values: vec![] });
+        let func = builder.finish();
+
+        let mut lowerer = Aarch64Lowerer::new();
+        lowerer.lower_function(&func).unwrap();
+        let code = lowerer.finalize().unwrap();
+
+        let mut expected = Vec::new();
+        expected.extend_from_slice(&enc_addsub_imm_regs(1, 0, 0, 0, 0, 0, 1).to_le_bytes());
+        expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
+        assert_eq!(code, expected);
+    }
+
+    #[test]
+    fn lowers_lea_base_positive_offset_as_add_imm() {
+        let mut builder = FunctionBuilder::new(FunctionId(0), 0);
+        builder.push_op(
+            0,
+            OpKind::Lea {
+                dst: x(0),
+                addr: Address::BaseOffset {
+                    base: x(1),
+                    offset: 0x123,
+                    disp_size: DispSize::Auto,
+                },
+            },
+        );
+        builder.set_terminator(Terminator::Return { values: vec![] });
+        let func = builder.finish();
+
+        let mut lowerer = Aarch64Lowerer::new();
+        lowerer.lower_function(&func).unwrap();
+        let code = lowerer.finalize().unwrap();
+
+        let mut expected = Vec::new();
+        expected.extend_from_slice(&enc_addsub_imm_regs(1, 0, 0, 0, 0x123, 0, 1).to_le_bytes());
+        expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
+        assert_eq!(code, expected);
+    }
+
+    #[test]
+    fn lowers_lea_base_negative_offset_as_sub_imm() {
+        let mut builder = FunctionBuilder::new(FunctionId(0), 0);
+        builder.push_op(
+            0,
+            OpKind::Lea {
+                dst: x(0),
+                addr: Address::BaseOffset {
+                    base: x(1),
+                    offset: -0x2000,
+                    disp_size: DispSize::Auto,
+                },
+            },
+        );
+        builder.set_terminator(Terminator::Return { values: vec![] });
+        let func = builder.finish();
+
+        let mut lowerer = Aarch64Lowerer::new();
+        lowerer.lower_function(&func).unwrap();
+        let code = lowerer.finalize().unwrap();
+
+        let mut expected = Vec::new();
+        expected.extend_from_slice(&enc_addsub_imm_regs(1, 1, 0, 1, 2, 0, 1).to_le_bytes());
+        expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
+        assert_eq!(code, expected);
+    }
+
+    #[test]
+    fn lowers_lea_base_index_scale_disp() {
+        let mut builder = FunctionBuilder::new(FunctionId(0), 0);
+        builder.push_op(
+            0,
+            OpKind::Lea {
+                dst: x(0),
+                addr: Address::BaseIndexScale {
+                    base: Some(x(1)),
+                    index: x(2),
+                    scale: 4,
+                    disp: -0x20,
+                    disp_size: DispSize::Auto,
+                },
+            },
+        );
+        builder.set_terminator(Terminator::Return { values: vec![] });
+        let func = builder.finish();
+
+        let mut lowerer = Aarch64Lowerer::new();
+        lowerer.lower_function(&func).unwrap();
+        let code = lowerer.finalize().unwrap();
+
+        let mut expected = Vec::new();
+        expected.extend_from_slice(&enc_addsub_shift_regs(1, 0, 0, 0, 2, 0, 1, 2).to_le_bytes());
+        expected.extend_from_slice(&enc_addsub_imm_regs(1, 1, 0, 0, 0x20, 0, 0).to_le_bytes());
+        expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
+        assert_eq!(code, expected);
+    }
+
+    #[test]
+    fn lowers_lea_index_scale_without_base() {
+        let mut builder = FunctionBuilder::new(FunctionId(0), 0);
+        builder.push_op(
+            0,
+            OpKind::Lea {
+                dst: x(0),
+                addr: Address::BaseIndexScale {
+                    base: None,
+                    index: x(2),
+                    scale: 8,
+                    disp: 0,
+                    disp_size: DispSize::Auto,
+                },
+            },
+        );
+        builder.set_terminator(Terminator::Return { values: vec![] });
+        let func = builder.finish();
+
+        let mut lowerer = Aarch64Lowerer::new();
+        lowerer.lower_function(&func).unwrap();
+        let code = lowerer.finalize().unwrap();
+
+        let mut expected = Vec::new();
+        expected.extend_from_slice(&enc_addsub_shift_regs(1, 0, 0, 0, 3, 0, 31, 2).to_le_bytes());
         expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
         assert_eq!(code, expected);
     }
@@ -5856,6 +6114,48 @@ mod tests {
                 reg1: x(0),
                 reg2: x(1),
                 width: OpWidth::W16,
+            },
+        );
+        builder.set_terminator(Terminator::Return { values: vec![] });
+        let func = builder.finish();
+
+        let mut lowerer = Aarch64Lowerer::new();
+        let err = lowerer.lower_function(&func).unwrap_err();
+        assert!(matches!(err, LowerError::UnsupportedOp { .. }));
+    }
+
+    #[test]
+    fn rejects_lea_unsupported_scale() {
+        let mut builder = FunctionBuilder::new(FunctionId(0), 0);
+        builder.push_op(
+            0,
+            OpKind::Lea {
+                dst: x(0),
+                addr: Address::BaseIndexScale {
+                    base: Some(x(1)),
+                    index: x(2),
+                    scale: 3,
+                    disp: 0,
+                    disp_size: DispSize::Auto,
+                },
+            },
+        );
+        builder.set_terminator(Terminator::Return { values: vec![] });
+        let func = builder.finish();
+
+        let mut lowerer = Aarch64Lowerer::new();
+        let err = lowerer.lower_function(&func).unwrap_err();
+        assert!(matches!(err, LowerError::UnsupportedOp { .. }));
+    }
+
+    #[test]
+    fn rejects_lea_gprel_address() {
+        let mut builder = FunctionBuilder::new(FunctionId(0), 0);
+        builder.push_op(
+            0,
+            OpKind::Lea {
+                dst: x(0),
+                addr: Address::GpRel { offset: 4 },
             },
         );
         builder.set_terminator(Terminator::Return { values: vec![] });
