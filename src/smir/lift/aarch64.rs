@@ -1186,6 +1186,49 @@ impl Aarch64Lifter {
                 }
             }
 
+            Mnemonic::CLS => {
+                if let (Some(Operand::Reg(rd)), Some(Operand::Reg(rn))) =
+                    (insn.operands.get(0), insn.operands.get(1))
+                {
+                    let dst = self.dst_reg(rd, ctx);
+                    let src = self.arm_reg(rn);
+                    let width = self.reg_width(rd);
+
+                    let sign_mask = ctx.alloc_vreg();
+                    push_op!(OpKind::Sar {
+                        dst: sign_mask,
+                        src,
+                        amount: SrcOperand::Imm(i64::from(width.bits() - 1)),
+                        width,
+                        flags: FlagUpdate::None,
+                    });
+
+                    let normalized = ctx.alloc_vreg();
+                    push_op!(OpKind::Xor {
+                        dst: normalized,
+                        src1: src,
+                        src2: SrcOperand::Reg(sign_mask),
+                        width,
+                        flags: FlagUpdate::None,
+                    });
+
+                    let leading = ctx.alloc_vreg();
+                    push_op!(OpKind::Clz {
+                        dst: leading,
+                        src: normalized,
+                        width,
+                    });
+
+                    push_op!(OpKind::Sub {
+                        dst,
+                        src1: leading,
+                        src2: SrcOperand::Imm(1),
+                        width,
+                        flags: FlagUpdate::None,
+                    });
+                }
+            }
+
             Mnemonic::RBIT => {
                 if let (Some(Operand::Reg(rd)), Some(Operand::Reg(rn))) =
                     (insn.operands.get(0), insn.operands.get(1))

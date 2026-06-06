@@ -1257,6 +1257,8 @@ fn smir_aarch64_x86_scalar_lowering_matches_qemu_oracle() {
         ("rev_w_zero_ext", enc_dp1(0, 0b000010)),
         ("clz_x", enc_dp1(1, 0b000100)),
         ("clz_w_zero_ext", enc_dp1(0, 0b000100)),
+        ("cls_x", enc_dp1(1, 0b000101)),
+        ("cls_w_zero_ext", enc_dp1(0, 0b000101)),
         ("dsb_sy", enc_barrier(0b100)),
         ("dmb_sy", enc_barrier(0b101)),
         ("isb", enc_barrier(0b110)),
@@ -1518,6 +1520,21 @@ fn smir_aarch64_x86_scalar_lowering_matches_qemu_oracle() {
     st.x[0] = 0xaaaa_bbbb_cccc_dddd;
     st.x[1] = 0xffff_ffff_0000_0000;
     batch.push(("clz_w_zero_ext".into(), enc_dp1(0, 0b000100), st));
+
+    let mut st = ArmState::zeroed();
+    st.x[0] = 0xaaaa_bbbb_cccc_dddd;
+    st.x[1] = 0;
+    batch.push(("cls_x_zero".into(), enc_dp1(1, 0b000101), st));
+
+    let mut st = ArmState::zeroed();
+    st.x[0] = 0xaaaa_bbbb_cccc_dddd;
+    st.x[1] = u64::MAX;
+    batch.push(("cls_x_all_ones".into(), enc_dp1(1, 0b000101), st));
+
+    let mut st = ArmState::zeroed();
+    st.x[0] = 0xaaaa_bbbb_cccc_dddd;
+    st.x[1] = 0xffff_ffff_8000_0000;
+    batch.push(("cls_w_sign_edge_zero_ext".into(), enc_dp1(0, 0b000101), st));
 
     let mut st = ArmState::zeroed();
     st.x[0] = 0xaaaa_bbbb_cccc_dddd;
