@@ -179,6 +179,28 @@ impl Aarch64Lowerer {
         Ok(())
     }
 
+    fn emit_addsub_carry(
+        &mut self,
+        dst: u8,
+        rn: u8,
+        rm: u8,
+        subtract: bool,
+        set_flags: bool,
+        width: OpWidth,
+    ) -> Result<(), LowerError> {
+        let sf = Self::sf(width)?;
+        self.emit(
+            (sf << 31)
+                | ((subtract as u32) << 30)
+                | ((set_flags as u32) << 29)
+                | (0b11010000 << 21)
+                | ((rm as u32) << 16)
+                | ((rn as u32) << 5)
+                | (dst as u32),
+        );
+        Ok(())
+    }
+
     fn emit_addsub_imm(
         &mut self,
         dst: u8,
@@ -422,6 +444,27 @@ impl Aarch64Lowerer {
             }
             other => Err(LowerError::UnsupportedOp {
                 op: format!("AArch64 native add/sub source {other:?}"),
+            }),
+        }
+    }
+
+    fn lower_addsub_carry(
+        &mut self,
+        dst: VReg,
+        src1: VReg,
+        src2: &SrcOperand,
+        subtract: bool,
+        set_flags: bool,
+        width: OpWidth,
+    ) -> Result<(), LowerError> {
+        let dst = Self::dst_or_zero_for_flags(dst, set_flags)?;
+        let rn = Self::gpr(src1)?;
+        match src2 {
+            SrcOperand::Reg(reg) => {
+                self.emit_addsub_carry(dst, rn, Self::gpr(*reg)?, subtract, set_flags, width)
+            }
+            other => Err(LowerError::UnsupportedOp {
+                op: format!("AArch64 native add/sub carry source {other:?}"),
             }),
         }
     }
@@ -970,6 +1013,20 @@ impl Aarch64Lowerer {
                 width,
                 flags,
             } => self.lower_addsub(*dst, *src1, src2, true, flags.updates_any(), *width),
+            OpKind::Adc {
+                dst,
+                src1,
+                src2,
+                width,
+                flags,
+            } => self.lower_addsub_carry(*dst, *src1, src2, false, flags.updates_any(), *width),
+            OpKind::Sbb {
+                dst,
+                src1,
+                src2,
+                width,
+                flags,
+            } => self.lower_addsub_carry(*dst, *src1, src2, true, flags.updates_any(), *width),
             OpKind::And {
                 dst,
                 src1,

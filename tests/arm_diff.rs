@@ -3248,6 +3248,110 @@ fn smir_aarch64_native_lowering_matches_qemu_oracle() {
     );
 
     let mut st = native_state();
+    st.x[1] = u64::MAX;
+    st.x[2] = 0;
+    st.pstate = 0x2000_0000;
+    push_case(
+        "adc_x_carry_in_set_opkind_preserves_flags",
+        enc_addsub_carry(1, 0, 0),
+        vec![OpKind::Adc {
+            dst: arm_x(0),
+            src1: arm_x(1),
+            src2: SrcOperand::Reg(arm_x(2)),
+            width: OpWidth::W64,
+            flags: FlagUpdate::None,
+        }],
+        st,
+    );
+
+    let mut st = native_state();
+    st.x[0] = 0xaaaa_bbbb_cccc_dddd;
+    st.x[1] = 0xffff_ffff;
+    st.x[2] = 0;
+    st.pstate = 0x2000_0000;
+    push_case(
+        "adcs_w_carry_in_set_opkind_sets_flags_zero_ext",
+        enc_addsub_carry(0, 0, 1),
+        vec![OpKind::Adc {
+            dst: arm_x(0),
+            src1: arm_x(1),
+            src2: SrcOperand::Reg(arm_x(2)),
+            width: OpWidth::W32,
+            flags: FlagUpdate::All,
+        }],
+        st,
+    );
+
+    let mut st = native_state();
+    st.x[1] = 5;
+    st.x[2] = 3;
+    st.pstate = 0;
+    push_case(
+        "sbc_x_carry_clear_borrow_in_opkind_preserves_flags",
+        enc_addsub_carry(1, 1, 0),
+        vec![OpKind::Sbb {
+            dst: arm_x(0),
+            src1: arm_x(1),
+            src2: SrcOperand::Reg(arm_x(2)),
+            width: OpWidth::W64,
+            flags: FlagUpdate::None,
+        }],
+        st,
+    );
+
+    let mut st = native_state();
+    st.x[0] = 0xaaaa_bbbb_cccc_dddd;
+    st.x[1] = 5;
+    st.x[2] = 3;
+    st.pstate = 0x2000_0000;
+    push_case(
+        "sbcs_w_carry_set_opkind_sets_flags_zero_ext",
+        enc_addsub_carry(0, 1, 1),
+        vec![OpKind::Sbb {
+            dst: arm_x(0),
+            src1: arm_x(1),
+            src2: SrcOperand::Reg(arm_x(2)),
+            width: OpWidth::W32,
+            flags: FlagUpdate::All,
+        }],
+        st,
+    );
+
+    let mut st = native_state();
+    st.x[0] = 0xaaaa_bbbb_cccc_dddd;
+    st.x[2] = 3;
+    st.pstate = 0x2000_0000;
+    push_case(
+        "ngc_x_carry_set_opkind_preserves_flags",
+        enc_addsub_carry_rn(1, 1, 0, 31),
+        vec![OpKind::Sbb {
+            dst: arm_x(0),
+            src1: VReg::Imm(0),
+            src2: SrcOperand::Reg(arm_x(2)),
+            width: OpWidth::W64,
+            flags: FlagUpdate::None,
+        }],
+        st,
+    );
+
+    let mut st = native_state();
+    st.x[0] = 0xaaaa_bbbb_cccc_dddd;
+    st.x[2] = 1;
+    st.pstate = 0;
+    push_case(
+        "ngcs_w_carry_clear_opkind_sets_flags_zero_ext",
+        enc_addsub_carry_rn(0, 1, 1, 31),
+        vec![OpKind::Sbb {
+            dst: arm_x(0),
+            src1: VReg::Imm(0),
+            src2: SrcOperand::Reg(arm_x(2)),
+            width: OpWidth::W32,
+            flags: FlagUpdate::All,
+        }],
+        st,
+    );
+
+    let mut st = native_state();
     st.x[1] = 0x1234_5678_9abc_def0;
     st.pstate = 0xf000_0000;
     push_case(
@@ -4119,6 +4223,68 @@ fn smir_aarch64_native_lowering_matches_qemu_oracle() {
     push_lifted_case(
         "subs_w_uxtb_lsl1_lifted_sets_flags_zero_ext",
         enc_addsub_ext(0, 1, 1, 0b000, 1),
+        st,
+    );
+
+    let mut st = native_state();
+    st.x[1] = u64::MAX;
+    st.x[2] = 0;
+    st.pstate = 0x2000_0000;
+    push_lifted_case(
+        "adc_x_carry_in_set_lifted_preserves_flags",
+        enc_addsub_carry(1, 0, 0),
+        st,
+    );
+
+    let mut st = native_state();
+    st.x[0] = 0xaaaa_bbbb_cccc_dddd;
+    st.x[1] = 0xffff_ffff;
+    st.x[2] = 0;
+    st.pstate = 0x2000_0000;
+    push_lifted_case(
+        "adcs_w_carry_in_set_lifted_sets_flags_zero_ext",
+        enc_addsub_carry(0, 0, 1),
+        st,
+    );
+
+    let mut st = native_state();
+    st.x[1] = 5;
+    st.x[2] = 3;
+    st.pstate = 0;
+    push_lifted_case(
+        "sbc_x_carry_clear_borrow_in_lifted_preserves_flags",
+        enc_addsub_carry(1, 1, 0),
+        st,
+    );
+
+    let mut st = native_state();
+    st.x[0] = 0xaaaa_bbbb_cccc_dddd;
+    st.x[1] = 5;
+    st.x[2] = 3;
+    st.pstate = 0x2000_0000;
+    push_lifted_case(
+        "sbcs_w_carry_set_lifted_sets_flags_zero_ext",
+        enc_addsub_carry(0, 1, 1),
+        st,
+    );
+
+    let mut st = native_state();
+    st.x[0] = 0xaaaa_bbbb_cccc_dddd;
+    st.x[2] = 3;
+    st.pstate = 0x2000_0000;
+    push_lifted_case(
+        "ngc_x_carry_set_lifted_preserves_flags",
+        enc_addsub_carry_rn(1, 1, 0, 31),
+        st,
+    );
+
+    let mut st = native_state();
+    st.x[0] = 0xaaaa_bbbb_cccc_dddd;
+    st.x[2] = 1;
+    st.pstate = 0;
+    push_lifted_case(
+        "ngcs_w_carry_clear_lifted_sets_flags_zero_ext",
+        enc_addsub_carry_rn(0, 1, 1, 31),
         st,
     );
 
