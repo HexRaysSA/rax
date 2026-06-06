@@ -2806,6 +2806,36 @@ impl X86_64Lifter {
                 width,
                 flags,
             }),
+            2 => {
+                if !flags.updates_any() {
+                    return Err(LiftError::Unsupported {
+                        addr: pc,
+                        mnemonic: "APX NF ADC".to_string(),
+                    });
+                }
+                Ok(OpKind::Adc {
+                    dst,
+                    src1,
+                    src2,
+                    width,
+                    flags,
+                })
+            }
+            3 => {
+                if !flags.updates_any() {
+                    return Err(LiftError::Unsupported {
+                        addr: pc,
+                        mnemonic: "APX NF SBB".to_string(),
+                    });
+                }
+                Ok(OpKind::Sbb {
+                    dst,
+                    src1,
+                    src2,
+                    width,
+                    flags,
+                })
+            }
             4 => Ok(OpKind::And {
                 dst,
                 src1,
@@ -3090,7 +3120,13 @@ impl X86_64Lifter {
         }
         let modrm = bytes[prefix.bytes + 1];
         match opcode {
-            0x00..=0x03 | 0x08..=0x0B | 0x20..=0x23 | 0x28..=0x2B | 0x30..=0x33 => {
+            0x00..=0x03
+            | 0x08..=0x0B
+            | 0x10..=0x13
+            | 0x18..=0x1B
+            | 0x20..=0x23
+            | 0x28..=0x2B
+            | 0x30..=0x33 => {
                 self.lift_apx_alu(prefix, opcode, &bytes[prefix.bytes + 1..], pc, ctx)
             }
             0x80 | 0x81 | 0x83 => {
@@ -6336,6 +6372,8 @@ mod tests {
         for (group, name) in [
             (0u8, "add"),
             (1u8, "or"),
+            (2u8, "adc"),
+            (3u8, "sbb"),
             (4u8, "and"),
             (5u8, "sub"),
             (6u8, "xor"),
@@ -6366,6 +6404,26 @@ mod tests {
                 | (
                     "or",
                     OpKind::Or {
+                        dst,
+                        src1,
+                        src2: SrcOperand::Imm(-16),
+                        width: OpWidth::W64,
+                        flags: FlagUpdate::All,
+                    },
+                )
+                | (
+                    "adc",
+                    OpKind::Adc {
+                        dst,
+                        src1,
+                        src2: SrcOperand::Imm(-16),
+                        width: OpWidth::W64,
+                        flags: FlagUpdate::All,
+                    },
+                )
+                | (
+                    "sbb",
+                    OpKind::Sbb {
                         dst,
                         src1,
                         src2: SrcOperand::Imm(-16),
@@ -6408,6 +6466,77 @@ mod tests {
                 }
                 other => panic!("expected APX NDD {name} imm8, got {other:?}"),
             }
+        }
+    }
+
+    #[test]
+    fn lift_apx_ndd_adc_sbb_use_carry_ops_like_llvm() {
+        let mut lifter = X86_64Lifter::strict();
+        let mut ctx = LiftContext::new(SourceArch::X86_64);
+
+        for (bytes, name) in [
+            ([0x62, 0xF4, 0xBC, 0x18, 0x11, 0xD8], "adc"),
+            ([0x62, 0xF4, 0xBC, 0x18, 0x19, 0xD8], "sbb"),
+        ] {
+            // LLVM 20:
+            //   adcq %rbx, %rax, %r8 => 62 f4 bc 18 11 d8
+            //   sbbq %rbx, %rax, %r8 => 62 f4 bc 18 19 d8
+            let result = lifter.lift_insn(0x1000, &bytes, &mut ctx).unwrap();
+            assert_eq!(result.bytes_consumed, 6, "{name}");
+            assert_eq!(result.ops.len(), 1, "{name}");
+
+            match (name, &result.ops[0].kind) {
+                (
+                    "adc",
+                    OpKind::Adc {
+                        dst,
+                        src1,
+                        src2: SrcOperand::Reg(src2),
+                        width: OpWidth::W64,
+                        flags: FlagUpdate::All,
+                    },
+                )
+                | (
+                    "sbb",
+                    OpKind::Sbb {
+                        dst,
+                        src1,
+                        src2: SrcOperand::Reg(src2),
+                        width: OpWidth::W64,
+                        flags: FlagUpdate::All,
+                    },
+                ) => {
+                    assert_eq!(*dst, x86_gpr(8), "{name}");
+                    assert_eq!(*src1, x86_gpr(0), "{name}");
+                    assert_eq!(*src2, x86_gpr(3), "{name}");
+                }
+                other => panic!("expected APX NDD {name}, got {other:?}"),
+            }
+        }
+    }
+
+    #[test]
+    fn lift_apx_nf_adc_sbb_rejected_like_llvm() {
+        let mut lifter = X86_64Lifter::strict();
+        let mut ctx = LiftContext::new(SourceArch::X86_64);
+
+        for (bytes, name) in [
+            ([0x62, 0xF4, 0xBC, 0x1C, 0x11, 0xD8], "adc"),
+            ([0x62, 0xF4, 0xBC, 0x1C, 0x19, 0xD8], "sbb"),
+        ] {
+            // LLVM 20 rejects `{nf} adc r8, rax, rbx` and
+            // `{nf} sbb r8, rax, rbx`; do not silently lift them as no-flag
+            // carry/borrow operations.
+            let err = lifter.lift_insn(0x1000, &bytes, &mut ctx).unwrap_err();
+            assert!(matches!(err, LiftError::Unsupported { .. }), "{name}: {err:?}");
+        }
+
+        for (bytes, name) in [
+            ([0x62, 0xF4, 0xBC, 0x1C, 0x83, 0xD0, 0x01], "adc imm"),
+            ([0x62, 0xF4, 0xBC, 0x1C, 0x83, 0xD8, 0x01], "sbb imm"),
+        ] {
+            let err = lifter.lift_insn(0x1000, &bytes, &mut ctx).unwrap_err();
+            assert!(matches!(err, LiftError::Unsupported { .. }), "{name}: {err:?}");
         }
     }
 

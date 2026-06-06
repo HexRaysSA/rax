@@ -9580,6 +9580,20 @@ mod tests {
         assert!(!lowered.is_empty());
     }
 
+    #[test]
+    fn lower_apx_ndd_adc_sbb_alias_slice_lowers_without_relocs() {
+        // LLVM 20 APX MAP4 forms:
+        //   adcq %r8, %rax, %r8 => 62 74 bc 18 11 c0
+        //   sbbq %r8, %rax, %r8 => 62 74 bc 18 19 c0
+        // The destination aliases the carry op's second source, so lifting must
+        // preserve that source before the x86 lowerer copies src1 into dst.
+        let (lowered, entry) = lower_rex2_block(&[
+            0x62, 0x74, 0xBC, 0x18, 0x11, 0xC0, 0x62, 0x74, 0xBC, 0x18, 0x19, 0xC0, 0xF4,
+        ]);
+        assert!(entry < lowered.len());
+        assert!(!lowered.is_empty());
+    }
+
     #[cfg(all(feature = "smir-jit", target_arch = "x86_64"))]
     #[test]
     fn exec_rex2_mov_egpr_roundtrips_through_jit_state() {
