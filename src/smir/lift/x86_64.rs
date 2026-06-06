@@ -4142,10 +4142,12 @@ impl X86_64Lifter {
     fn lift_apx_movbe(
         &self,
         prefix: ApxEvexPrefix,
+        opcode: u8,
         bytes: &[u8],
         pc: u64,
+        ctx: &mut LiftContext,
     ) -> Result<LiftResult, LiftError> {
-        if prefix.nd || prefix.nf {
+        if prefix.nd || prefix.nf || prefix.pp > 1 {
             return Err(LiftError::Unsupported {
                 addr: pc,
                 mnemonic: "APX MOVBE with NDD/NF".to_string(),
@@ -4154,19 +4156,85 @@ impl X86_64Lifter {
 
         let op_size = prefix.op_size(false);
         let width = self.size_to_width(op_size);
+        let mem_width = self.size_to_memwidth(op_size);
         let modrm_prefix = prefix.as_modrm_prefix(prefix.bytes + 1);
         let modrm = decode_modrm(bytes, &modrm_prefix, pc)?;
-        if modrm.is_memory {
-            return Err(LiftError::InvalidEncoding {
-                addr: pc,
-                bytes: bytes.to_vec(),
-            });
+        let next_pc = pc + prefix.bytes as u64 + 1 + modrm.bytes_consumed as u64;
+        let mut ops = Vec::new();
+
+        match opcode {
+            0x60 => {
+                let dst = self.gpr(modrm.reg);
+                let src = if modrm.is_memory {
+                    let x86_addr = modrm.addr.as_ref().unwrap();
+                    let (addr, pre_ops) = self.x86_addr_to_smir(x86_addr, next_pc, ctx);
+                    ops.extend(pre_ops);
+
+                    let tmp = ctx.alloc_vreg();
+                    ops.push(SmirOp::new(
+                        OpId(ops.len() as u16),
+                        pc,
+                        OpKind::Load {
+                            dst: tmp,
+                            addr,
+                            width: mem_width,
+                            sign: SignExtend::Zero,
+                        },
+                    ));
+                    tmp
+                } else {
+                    self.gpr(modrm.rm)
+                };
+
+                ops.push(SmirOp::new(
+                    OpId(ops.len() as u16),
+                    pc,
+                    OpKind::Bswap { dst, src, width },
+                ));
+            }
+            0x61 => {
+                let src = self.gpr(modrm.reg);
+                if modrm.is_memory {
+                    let x86_addr = modrm.addr.as_ref().unwrap();
+                    let (addr, pre_ops) = self.x86_addr_to_smir(x86_addr, next_pc, ctx);
+                    ops.extend(pre_ops);
+
+                    let tmp = ctx.alloc_vreg();
+                    ops.push(SmirOp::new(
+                        OpId(ops.len() as u16),
+                        pc,
+                        OpKind::Bswap {
+                            dst: tmp,
+                            src,
+                            width,
+                        },
+                    ));
+                    ops.push(SmirOp::new(
+                        OpId(ops.len() as u16),
+                        pc,
+                        OpKind::Store {
+                            src: tmp,
+                            addr,
+                            width: mem_width,
+                        },
+                    ));
+                } else {
+                    ops.push(SmirOp::new(
+                        OpId(ops.len() as u16),
+                        pc,
+                        OpKind::Bswap {
+                            dst: self.gpr(modrm.rm),
+                            src,
+                            width,
+                        },
+                    ));
+                }
+            }
+            _ => unreachable!("APX MOVBE is only dispatched for opcodes 0x60 and 0x61"),
         }
 
-        let dst = self.gpr(modrm.rm);
-        let src = self.gpr(modrm.reg);
         Ok(LiftResult::fallthrough(
-            vec![SmirOp::new(OpId(0), pc, OpKind::Bswap { dst, src, width })],
+            ops,
             prefix.bytes + 1 + modrm.bytes_consumed,
         ))
     }
@@ -5858,7 +5926,7 @@ impl X86_64Lifter {
             0x40..=0x4F => {
                 self.lift_apx_conditional_map4(prefix, opcode, &bytes[prefix.bytes + 1..], pc, ctx)
             }
-            0x61 => self.lift_apx_movbe(prefix, &bytes[prefix.bytes + 1..], pc),
+            0x60 | 0x61 => self.lift_apx_movbe(prefix, opcode, &bytes[prefix.bytes + 1..], pc, ctx),
             0x66 => self.lift_apx_adx(prefix, &bytes[prefix.bytes + 1..], bytes, pc, ctx),
             0x8A | 0x8B => self.lift_apx_movrs(prefix, opcode, &bytes[prefix.bytes + 1..], pc, ctx),
             0x69 | 0x6B => {
@@ -11037,21 +11105,34 @@ mod tests {
         let mut lifter = X86_64Lifter::strict();
         let mut ctx = LiftContext::new(SourceArch::X86_64);
 
-        for (bytes, name, width) in [
+        for (bytes, name, expected_dst, expected_src, width) in [
             (
                 [0x62, 0xD4, 0xFC, 0x08, 0x61, 0xC0],
                 "movbe64",
+                x86_gpr(8),
+                x86_gpr(0),
                 OpWidth::W64,
             ),
             (
                 [0x62, 0xD4, 0x7C, 0x08, 0x61, 0xC0],
                 "movbe32",
+                x86_gpr(8),
+                x86_gpr(0),
                 OpWidth::W32,
             ),
             (
                 [0x62, 0xD4, 0x7D, 0x08, 0x61, 0xC0],
                 "movbe16",
+                x86_gpr(8),
+                x86_gpr(0),
                 OpWidth::W16,
+            ),
+            (
+                [0x62, 0xF4, 0xFC, 0x08, 0x60, 0xD8],
+                "movbe60_reg_reg",
+                x86_gpr(3),
+                x86_gpr(0),
+                OpWidth::W64,
             ),
         ] {
             let result = lifter.lift_insn(0x1000, &bytes, &mut ctx).unwrap();
@@ -11059,16 +11140,107 @@ mod tests {
             assert_eq!(result.ops.len(), 1, "{name}");
             match &result.ops[0].kind {
                 OpKind::Bswap {
-                    dst,
-                    src,
+                    dst: got_dst,
+                    src: got_src,
                     width: got_width,
                 } => {
-                    assert_eq!(*dst, x86_gpr(8), "{name}");
-                    assert_eq!(*src, x86_gpr(0), "{name}");
+                    assert_eq!(*got_dst, expected_dst, "{name}");
+                    assert_eq!(*got_src, expected_src, "{name}");
                     assert_eq!(*got_width, width, "{name}");
                 }
                 other => panic!("expected APX {name} as Bswap, got {other:?}"),
             }
+        }
+    }
+
+    #[test]
+    fn lift_apx_movbe_memory_forms_like_llvm() {
+        let mut lifter = X86_64Lifter::strict();
+        let mut ctx = LiftContext::new(SourceArch::X86_64);
+
+        // LLVM 20: `movbeq (%r16,%r17,2), %r18` => 62 ec f8 08 60 14 48.
+        let load = lifter
+            .lift_insn(
+                0x1000,
+                &[0x62, 0xEC, 0xF8, 0x08, 0x60, 0x14, 0x48],
+                &mut ctx,
+            )
+            .unwrap();
+        assert_eq!(load.bytes_consumed, 7);
+        assert_eq!(load.ops.len(), 2);
+        let loaded = match &load.ops[0].kind {
+            OpKind::Load {
+                dst,
+                addr:
+                    Address::BaseIndexScale {
+                        base: Some(base),
+                        index,
+                        scale: 2,
+                        disp: 0,
+                        ..
+                    },
+                width: MemWidth::B8,
+                sign: SignExtend::Zero,
+            } => {
+                assert_eq!(*base, x86_gpr(16));
+                assert_eq!(*index, x86_gpr(17));
+                assert!(matches!(dst, VReg::Virtual(_)));
+                *dst
+            }
+            other => panic!("expected APX MOVBE memory load, got {other:?}"),
+        };
+        match &load.ops[1].kind {
+            OpKind::Bswap {
+                dst,
+                src,
+                width: OpWidth::W64,
+            } => {
+                assert_eq!(*dst, x86_gpr(18));
+                assert_eq!(*src, loaded);
+            }
+            other => panic!("expected APX MOVBE loaded Bswap, got {other:?}"),
+        }
+
+        // LLVM 20: `movbeq %r18, (%r16,%r17,2)` => 62 ec f8 08 61 14 48.
+        let store = lifter
+            .lift_insn(
+                0x2000,
+                &[0x62, 0xEC, 0xF8, 0x08, 0x61, 0x14, 0x48],
+                &mut ctx,
+            )
+            .unwrap();
+        assert_eq!(store.bytes_consumed, 7);
+        assert_eq!(store.ops.len(), 2);
+        let swapped = match &store.ops[0].kind {
+            OpKind::Bswap {
+                dst,
+                src,
+                width: OpWidth::W64,
+            } => {
+                assert!(matches!(dst, VReg::Virtual(_)));
+                assert_eq!(*src, x86_gpr(18));
+                *dst
+            }
+            other => panic!("expected APX MOVBE store Bswap, got {other:?}"),
+        };
+        match &store.ops[1].kind {
+            OpKind::Store {
+                src,
+                addr:
+                    Address::BaseIndexScale {
+                        base: Some(base),
+                        index,
+                        scale: 2,
+                        disp: 0,
+                        ..
+                    },
+                width: MemWidth::B8,
+            } => {
+                assert_eq!(*src, swapped);
+                assert_eq!(*base, x86_gpr(16));
+                assert_eq!(*index, x86_gpr(17));
+            }
+            other => panic!("expected APX MOVBE memory store, got {other:?}"),
         }
     }
 
@@ -11080,6 +11252,8 @@ mod tests {
         for (bytes, name) in [
             ([0x62, 0xD4, 0xFC, 0x0C, 0x61, 0xC0], "nf"),
             ([0x62, 0xD4, 0xFC, 0x18, 0x61, 0xC0], "ndd"),
+            ([0x62, 0xD4, 0xFE, 0x08, 0x61, 0xC0], "f3"),
+            ([0x62, 0xD4, 0xFF, 0x08, 0x61, 0xC0], "f2"),
         ] {
             let err = lifter.lift_insn(0x1000, &bytes, &mut ctx).unwrap_err();
             assert!(
@@ -11087,11 +11261,6 @@ mod tests {
                 "{name}: {err:?}"
             );
         }
-
-        let err = lifter
-            .lift_insn(0x1000, &[0x62, 0xD4, 0xFC, 0x08, 0x61, 0x00], &mut ctx)
-            .unwrap_err();
-        assert!(matches!(err, LiftError::InvalidEncoding { .. }), "{err:?}");
     }
 
     #[test]
