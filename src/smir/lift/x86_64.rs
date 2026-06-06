@@ -3678,6 +3678,82 @@ impl X86_64Lifter {
         ))
     }
 
+    fn lift_vex_mulx_0f38(
+        &self,
+        prefix: VecPrefix,
+        bytes: &[u8],
+        pc: u64,
+        ctx: &mut LiftContext,
+    ) -> Result<LiftResult, LiftError> {
+        if prefix.encoding != VecEncodingKind::Vex
+            || prefix.width != VecWidth::V128
+            || prefix.pp != X86SsePrefix::Repne
+        {
+            return Err(LiftError::InvalidEncoding {
+                addr: pc,
+                bytes: bytes.to_vec(),
+            });
+        }
+
+        let width = if prefix.w {
+            OpWidth::W64
+        } else {
+            OpWidth::W32
+        };
+        let mem_width = if prefix.w {
+            MemWidth::B8
+        } else {
+            MemWidth::B4
+        };
+        let modrm_prefix = X86Prefix {
+            rex: prefix.rex,
+            rep_prefix: Some(0xF2),
+            cursor: prefix.bytes + 1,
+            ..X86Prefix::default()
+        };
+        let modrm = decode_modrm(&bytes[prefix.bytes + 1..], &modrm_prefix, pc)?;
+        let next_pc = pc + prefix.bytes as u64 + 1 + modrm.bytes_consumed as u64;
+        let mut ops = Vec::new();
+        let src2 = if modrm.is_memory {
+            let x86_addr = modrm.addr.as_ref().unwrap();
+            let (addr, pre_ops) = self.x86_addr_to_smir(x86_addr, next_pc, ctx);
+            ops.extend(pre_ops);
+
+            let tmp = ctx.alloc_vreg();
+            ops.push(SmirOp::new(
+                OpId(ops.len() as u16),
+                pc,
+                OpKind::Load {
+                    dst: tmp,
+                    addr,
+                    width: mem_width,
+                    sign: SignExtend::Zero,
+                },
+            ));
+            tmp
+        } else {
+            self.gpr(modrm.rm)
+        };
+
+        ops.push(SmirOp::new(
+            OpId(ops.len() as u16),
+            pc,
+            OpKind::MulU {
+                dst_lo: self.gpr(prefix.vvvv),
+                dst_hi: Some(self.gpr(modrm.reg)),
+                src1: self.gpr(2),
+                src2: SrcOperand::Reg(src2),
+                width,
+                flags: FlagUpdate::None,
+            },
+        ));
+
+        Ok(LiftResult::fallthrough(
+            ops,
+            prefix.bytes + 1 + modrm.bytes_consumed,
+        ))
+    }
+
     fn lift_apx_bmi2_rorx(
         &self,
         bytes: &[u8],
@@ -4088,6 +4164,11 @@ impl X86_64Lifter {
                         && matches!(prefix.pp, X86SsePrefix::Rep | X86SsePrefix::Repne) =>
                 {
                     self.lift_vex_pdep_pext_0f38(prefix, bytes, pc, ctx)
+                }
+                0xF6 if prefix.encoding == VecEncodingKind::Vex
+                    && prefix.pp == X86SsePrefix::Repne =>
+                {
+                    self.lift_vex_mulx_0f38(prefix, bytes, pc, ctx)
                 }
                 0xF5 | 0xF6 | 0xF7
                     if prefix.encoding == VecEncodingKind::Evex
@@ -10007,6 +10088,112 @@ mod tests {
         }
 
         let err = lift_single(&[0xC4, 0xE2, 0x71, 0xF5, 0xC2]).unwrap_err();
+        assert!(matches!(err, LiftError::Unsupported { .. }), "{err:?}");
+    }
+
+    fn assert_vex_mulx_op(
+        ops: &[SmirOp],
+        index: usize,
+        dst_hi: VReg,
+        dst_lo: VReg,
+        src2: VReg,
+        width: OpWidth,
+    ) {
+        match &ops[index].kind {
+            OpKind::MulU {
+                dst_lo: got_dst_lo,
+                dst_hi: Some(got_dst_hi),
+                src1,
+                src2: SrcOperand::Reg(got_src2),
+                width: got_width,
+                flags: FlagUpdate::None,
+            } => {
+                assert_eq!(*got_dst_hi, dst_hi);
+                assert_eq!(*got_dst_lo, dst_lo);
+                assert_eq!(*src1, x86_gpr(2));
+                assert_eq!(*got_src2, src2);
+                assert_eq!(*got_width, width);
+            }
+            other => panic!("expected VEX MULX, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn lift_vex_mulx_registers_like_llvm() {
+        for (bytes, width) in [
+            (&[0xC4, 0xE2, 0x73, 0xF6, 0xC3][..], OpWidth::W32),
+            (&[0xC4, 0xE2, 0xF3, 0xF6, 0xC3][..], OpWidth::W64),
+        ] {
+            // LLVM 23 examples:
+            //   `mulx eax, ecx, ebx` => c4 e2 73 f6 c3
+            //   `mulx rax, rcx, rbx` => c4 e2 f3 f6 c3
+            let result = lift_single(bytes).unwrap();
+            assert_eq!(result.bytes_consumed, bytes.len());
+            assert_eq!(result.ops.len(), 1);
+            assert_vex_mulx_op(&result.ops, 0, x86_gpr(0), x86_gpr(1), x86_gpr(3), width);
+        }
+    }
+
+    #[test]
+    fn lift_vex_mulx_memory_source_like_llvm() {
+        // LLVM 23:
+        //   `mulx eax, r9d, dword ptr [r10 + 4*r11 + 32]`
+        //       => c4 82 33 f6 44 9a 20
+        let result = lift_single(&[0xC4, 0x82, 0x33, 0xF6, 0x44, 0x9A, 0x20]).unwrap();
+        assert_eq!(result.bytes_consumed, 7);
+        assert_eq!(result.ops.len(), 2);
+        let src2 = match &result.ops[0].kind {
+            OpKind::Load {
+                dst,
+                addr:
+                    Address::BaseIndexScale {
+                        base: Some(base),
+                        index,
+                        scale: 4,
+                        disp: 0x20,
+                        disp_size: DispSize::Disp8,
+                    },
+                width: MemWidth::B4,
+                sign: SignExtend::Zero,
+            } => {
+                assert_eq!(*base, x86_gpr(10));
+                assert_eq!(*index, x86_gpr(11));
+                *dst
+            }
+            other => panic!("expected VEX MULX memory source load, got {other:?}"),
+        };
+        assert_vex_mulx_op(
+            &result.ops,
+            1,
+            x86_gpr(0),
+            x86_gpr(9),
+            src2,
+            OpWidth::W32,
+        );
+    }
+
+    #[test]
+    fn lift_vex_mulx_alias_destination_keeps_high_half_like_spec() {
+        // LLVM 23: `mulx rcx, rcx, rdx` => c4 e2 f3 f6 ca.
+        let result = lift_single(&[0xC4, 0xE2, 0xF3, 0xF6, 0xCA]).unwrap();
+        assert_eq!(result.bytes_consumed, 5);
+        assert_eq!(result.ops.len(), 1);
+        assert_vex_mulx_op(
+            &result.ops,
+            0,
+            x86_gpr(1),
+            x86_gpr(1),
+            x86_gpr(2),
+            OpWidth::W64,
+        );
+    }
+
+    #[test]
+    fn lift_vex_mulx_rejects_invalid_forms_like_spec() {
+        let err = lift_single(&[0xC4, 0xE2, 0x77, 0xF6, 0xC3]).expect_err("MULX VEX.L=1");
+        assert!(matches!(err, LiftError::InvalidEncoding { .. }), "{err:?}");
+
+        let err = lift_single(&[0xC4, 0xE2, 0x72, 0xF6, 0xC3]).unwrap_err();
         assert!(matches!(err, LiftError::Unsupported { .. }), "{err:?}");
     }
 
