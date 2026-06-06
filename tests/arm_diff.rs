@@ -589,6 +589,11 @@ fn enc_bitfield(sf: u32, opc: u32, immr: u32, imms: u32) -> u32 {
 
 #[cfg(all(feature = "smir-jit", target_arch = "x86_64"))]
 fn enc_bitfield_rn(sf: u32, opc: u32, immr: u32, imms: u32, rn: u32) -> u32 {
+    enc_bitfield_regs(sf, opc, immr, imms, rn, RD)
+}
+
+#[cfg(all(feature = "smir-jit", target_arch = "x86_64"))]
+fn enc_bitfield_regs(sf: u32, opc: u32, immr: u32, imms: u32, rn: u32, rd: u32) -> u32 {
     (sf << 31)
         | (opc << 29)
         | (0b100110 << 23)
@@ -596,7 +601,7 @@ fn enc_bitfield_rn(sf: u32, opc: u32, immr: u32, imms: u32, rn: u32) -> u32 {
         | (immr << 16)
         | (imms << 10)
         | (rn << 5)
-        | RD
+        | rd
 }
 
 /// Logical immediate: `sf opc 100100 N immr imms Rn Rd`
@@ -8274,6 +8279,29 @@ fn smir_aarch64_native_lowering_matches_qemu_oracle() {
             src: arm_x(1),
             amount: SrcOperand::Imm(8),
             width: OpWidth::W8,
+            flags: FlagUpdate::None,
+        }],
+        st,
+    );
+
+    let ror_w16_reg_in_place = [
+        enc_bitfield_regs(0, 0b01, 16, 15, RN, RN),
+        enc_dp2_regs(0, 0b1011, RN, RM, RN),
+        enc_bitfield_regs(0, 0b10, 0, 15, RN, RN),
+    ];
+
+    let mut st = native_state();
+    st.x[1] = 0x2222_3333_4444_a531;
+    st.x[2] = 21;
+    st.pstate = 0x9000_0000;
+    push_case3(
+        "ror_w16_reg_in_place_as_duplicate_rorv_uxth_preserves_flags",
+        ror_w16_reg_in_place,
+        vec![OpKind::Ror {
+            dst: arm_x(1),
+            src: arm_x(1),
+            amount: SrcOperand::Reg(arm_x(2)),
+            width: OpWidth::W16,
             flags: FlagUpdate::None,
         }],
         st,

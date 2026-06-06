@@ -2874,7 +2874,14 @@ impl Aarch64Lowerer {
                     ),
                 });
             }
-            ShiftOp::Ror | ShiftOp::Rrx => {
+            ShiftOp::Ror if dst == amount => {
+                return Err(LowerError::UnsupportedOp {
+                    op: format!(
+                        "AArch64 native {width:?} variable Ror needs a scratch when dst == count"
+                    ),
+                });
+            }
+            ShiftOp::Rrx => {
                 return Err(LowerError::UnsupportedOp {
                     op: format!("AArch64 native {width:?} variable {shift:?}"),
                 });
@@ -2883,7 +2890,11 @@ impl Aarch64Lowerer {
         }
 
         let top_bit = width.bits() - 1;
-        let guards = self.emit_subword_shift_oob_guards(amount, width)?;
+        let guards = if shift == ShiftOp::Ror {
+            Vec::new()
+        } else {
+            self.emit_subword_shift_oob_guards(amount, width)?
+        };
 
         match shift {
             ShiftOp::Lsl => {
@@ -2930,7 +2941,27 @@ impl Aarch64Lowerer {
                 self.emit_bitfield(dst, dst, 0b10, 0, top_bit, OpWidth::W32)?;
                 self.patch_branch_to_current(end_branch)
             }
-            ShiftOp::Ror | ShiftOp::Rrx => unreachable!(),
+            ShiftOp::Ror => {
+                if width == OpWidth::W16 && dst == src {
+                    self.emit_bitfield(dst, dst, 0b01, 16, top_bit, OpWidth::W32)?;
+                } else {
+                    self.emit_bitfield(dst, src, 0b10, 0, top_bit, OpWidth::W32)?;
+                    match width {
+                        OpWidth::W8 => {
+                            for immr in [24, 16, 8] {
+                                self.emit_bitfield(dst, dst, 0b01, immr, top_bit, OpWidth::W32)?;
+                            }
+                        }
+                        OpWidth::W16 => {
+                            self.emit_bitfield(dst, dst, 0b01, 16, top_bit, OpWidth::W32)?;
+                        }
+                        _ => unreachable!(),
+                    }
+                }
+                self.emit_dp2(dst, dst, amount, 0b1011, OpWidth::W32)?;
+                self.emit_bitfield(dst, dst, 0b10, 0, top_bit, OpWidth::W32)
+            }
+            ShiftOp::Rrx => unreachable!(),
         }
     }
 
@@ -6619,11 +6650,91 @@ mod tests {
     }
 
     #[test]
+    fn lowers_ror_w16_reg_in_place_as_duplicate_rorv_uxth() {
+        let mut builder = FunctionBuilder::new(FunctionId(0), 0);
+        builder.push_op(
+            0,
+            OpKind::Ror {
+                dst: x(1),
+                src: x(1),
+                amount: SrcOperand::Reg(x(2)),
+                width: OpWidth::W16,
+                flags: FlagUpdate::None,
+            },
+        );
+        builder.set_terminator(Terminator::Return { values: vec![] });
+        let func = builder.finish();
+
+        let mut lowerer = Aarch64Lowerer::new();
+        lowerer.lower_function(&func).unwrap();
+        let code = lowerer.finalize().unwrap();
+
+        let mut expected = Vec::new();
+        expected.extend_from_slice(&enc_bitfield_regs(0, 0b01, 16, 15, 1, 1).to_le_bytes());
+        expected.extend_from_slice(&enc_dp2_regs(0, 0b1011, 1, 2, 1).to_le_bytes());
+        expected.extend_from_slice(&enc_bitfield_regs(0, 0b10, 0, 15, 1, 1).to_le_bytes());
+        expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
+        assert_eq!(code, expected);
+    }
+
+    #[test]
+    fn lowers_ror_w8_reg_as_repeated_byte_rorv_uxtb() {
+        let mut builder = FunctionBuilder::new(FunctionId(0), 0);
+        builder.push_op(
+            0,
+            OpKind::Ror {
+                dst: x(0),
+                src: x(1),
+                amount: SrcOperand::Reg(x(2)),
+                width: OpWidth::W8,
+                flags: FlagUpdate::None,
+            },
+        );
+        builder.set_terminator(Terminator::Return { values: vec![] });
+        let func = builder.finish();
+
+        let mut lowerer = Aarch64Lowerer::new();
+        lowerer.lower_function(&func).unwrap();
+        let code = lowerer.finalize().unwrap();
+
+        let mut expected = Vec::new();
+        expected.extend_from_slice(&enc_bitfield_regs(0, 0b10, 0, 7, 1, 0).to_le_bytes());
+        expected.extend_from_slice(&enc_bitfield_regs(0, 0b01, 24, 7, 0, 0).to_le_bytes());
+        expected.extend_from_slice(&enc_bitfield_regs(0, 0b01, 16, 7, 0, 0).to_le_bytes());
+        expected.extend_from_slice(&enc_bitfield_regs(0, 0b01, 8, 7, 0, 0).to_le_bytes());
+        expected.extend_from_slice(&enc_dp2_regs(0, 0b1011, 0, 2, 0).to_le_bytes());
+        expected.extend_from_slice(&enc_bitfield_regs(0, 0b10, 0, 7, 0, 0).to_le_bytes());
+        expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
+        assert_eq!(code, expected);
+    }
+
+    #[test]
     fn rejects_subword_shr_reg_count_when_dst_is_count() {
         let mut builder = FunctionBuilder::new(FunctionId(0), 0);
         builder.push_op(
             0,
             OpKind::Shr {
+                dst: x(2),
+                src: x(1),
+                amount: SrcOperand::Reg(x(2)),
+                width: OpWidth::W8,
+                flags: FlagUpdate::None,
+            },
+        );
+        builder.set_terminator(Terminator::Return { values: vec![] });
+        let func = builder.finish();
+
+        let mut lowerer = Aarch64Lowerer::new();
+        let err = lowerer.lower_function(&func).unwrap_err();
+        assert!(matches!(err, LowerError::UnsupportedOp { .. }));
+    }
+
+    #[test]
+    fn rejects_subword_ror_reg_count_when_dst_is_count() {
+        let mut builder = FunctionBuilder::new(FunctionId(0), 0);
+        builder.push_op(
+            0,
+            OpKind::Ror {
                 dst: x(2),
                 src: x(1),
                 amount: SrcOperand::Reg(x(2)),
