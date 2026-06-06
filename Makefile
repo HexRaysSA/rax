@@ -17,7 +17,7 @@
 LINUX_VERSION ?= v6.12
 LINUX_DIR     := linux/kernel/linux
 LINUX_VMLINUX := linux/vmlinux
-NPROC         := $(shell nproc 2>/dev/null || echo 4)
+NPROC         := $(shell nproc 2>/dev/null || sysctl -n hw.ncpu 2>/dev/null || echo 4)
 
 .PHONY: all build build-debug pgo bench test tests test-quick microkernel run-microkernel linux run-linux clean clean-linux help
 
@@ -94,9 +94,9 @@ $(LINUX_VMLINUX): $(LINUX_DIR)
 # Convenience target to fetch and build Linux
 linux: $(LINUX_VMLINUX)
 
-# Run a Linux kernel
-run-linux: build linux
-	cargo run --release -- --config linux/config.toml
+# Run the bundled/local Linux kernel through the software emulator.
+run-linux:
+	./run.sh
 
 # Clean all build artifacts (preserves Linux source)
 clean:
@@ -121,7 +121,7 @@ help:
 	@echo "  make microkernel     - Build the bare-metal microkernel binary"
 	@echo "  make run-microkernel - Build and run microkernel in emulator"
 	@echo "  make linux           - Fetch and build Linux kernel (uncompressed vmlinux)"
-	@echo "  make run-linux       - Build Linux and run it in emulator"
+	@echo "  make run-linux       - Run the bundled/local Linux kernel in emulator"
 	@echo "  make clean           - Clean build artifacts (preserves Linux source)"
 	@echo "  make clean-linux     - Remove fetched Linux source"
 	@echo "  make help            - Show this help message"

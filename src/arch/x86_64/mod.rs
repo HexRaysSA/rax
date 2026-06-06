@@ -4,6 +4,7 @@ pub mod acpi;
 
 /// El-Torito (BIOS CD) boot support for legacy/real-mode boot (e.g. TempleOS).
 pub mod bios_boot;
+#[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
 mod native_imports {
     pub use linux_loader::cmdline::Cmdline;
     pub use linux_loader::configurator::linux::LinuxBootConfigurator;
