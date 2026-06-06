@@ -3493,7 +3493,7 @@ impl Aarch64Lowerer {
                     VReg::Imm(value) => SrcOperand::Imm(value),
                     reg => SrcOperand::Reg(reg),
                 };
-                self.lower_mov(dst, &src, width)
+                self.lower_select_mov(dst, &src, width)
             }
             other => {
                 let cond = Self::gpr(other)?;
@@ -3502,15 +3502,48 @@ impl Aarch64Lowerer {
 
                 let false_branch = self.code.position();
                 self.emit(0xb400_0000 | (cond as u32));
-                self.lower_mov(dst, &true_src, width)?;
+                self.lower_select_mov(dst, &true_src, width)?;
 
                 let end_branch = self.code.position();
                 self.emit(0x1400_0000);
                 self.patch_compare_branch_to_current(false_branch, cond, false)?;
 
-                self.lower_mov(dst, &false_src, width)?;
+                self.lower_select_mov(dst, &false_src, width)?;
                 self.patch_branch_to_current(end_branch)
             }
+        }
+    }
+
+    fn lower_select_mov(
+        &mut self,
+        dst: VReg,
+        src: &SrcOperand,
+        width: OpWidth,
+    ) -> Result<(), LowerError> {
+        let mov_width = match width {
+            OpWidth::W8 | OpWidth::W16 | OpWidth::W32 => OpWidth::W32,
+            OpWidth::W64 => OpWidth::W64,
+            other => {
+                return Err(LowerError::UnsupportedOp {
+                    op: format!("AArch64 native Select width {other:?}"),
+                });
+            }
+        };
+        self.lower_mov(dst, src, mov_width)?;
+        self.finish_select_width(dst, width)
+    }
+
+    fn finish_select_width(&mut self, dst: VReg, width: OpWidth) -> Result<(), LowerError> {
+        match width {
+            OpWidth::W8 | OpWidth::W16 => {
+                let imms = if width == OpWidth::W8 { 7 } else { 15 };
+                let dst = Self::dst_gpr(dst)?;
+                self.emit_bitfield(dst, dst, 0b10, 0, imms, OpWidth::W32)
+            }
+            OpWidth::W32 | OpWidth::W64 => Ok(()),
+            other => Err(LowerError::UnsupportedOp {
+                op: format!("AArch64 native Select width {other:?}"),
+            }),
         }
     }
 
@@ -8215,6 +8248,33 @@ mod tests {
     }
 
     #[test]
+    fn lowers_constant_select_true_w8_imm_as_mov_imm_uxtb() {
+        let mut builder = FunctionBuilder::new(FunctionId(0), 0);
+        builder.push_op(
+            0,
+            OpKind::Select {
+                dst: x(0),
+                cond: VReg::Imm(1),
+                src_true: VReg::Imm(0x1234),
+                src_false: x(1),
+                width: OpWidth::W8,
+            },
+        );
+        builder.set_terminator(Terminator::Return { values: vec![] });
+        let func = builder.finish();
+
+        let mut lowerer = Aarch64Lowerer::new();
+        lowerer.lower_function(&func).unwrap();
+        let code = lowerer.finalize().unwrap();
+
+        let mut expected = Vec::new();
+        expected.extend_from_slice(&enc_mov_wide(0, 0b10, 0, 0x1234, 0).to_le_bytes());
+        expected.extend_from_slice(&enc_bitfield_regs(0, 0b10, 0, 7, 0, 0).to_le_bytes());
+        expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
+        assert_eq!(code, expected);
+    }
+
+    #[test]
     fn lowers_register_select_with_aliased_condition() {
         let mut builder = FunctionBuilder::new(FunctionId(0), 0);
         builder.push_op(
@@ -8239,6 +8299,37 @@ mod tests {
         expected.extend_from_slice(&enc_mov_reg(1, 0, 1).to_le_bytes());
         expected.extend_from_slice(&enc_b(2).to_le_bytes());
         expected.extend_from_slice(&enc_mov_reg(1, 0, 2).to_le_bytes());
+        expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
+        assert_eq!(code, expected);
+    }
+
+    #[test]
+    fn lowers_register_select_w16_with_aliased_condition() {
+        let mut builder = FunctionBuilder::new(FunctionId(0), 0);
+        builder.push_op(
+            0,
+            OpKind::Select {
+                dst: x(0),
+                cond: x(0),
+                src_true: x(1),
+                src_false: x(2),
+                width: OpWidth::W16,
+            },
+        );
+        builder.set_terminator(Terminator::Return { values: vec![] });
+        let func = builder.finish();
+
+        let mut lowerer = Aarch64Lowerer::new();
+        lowerer.lower_function(&func).unwrap();
+        let code = lowerer.finalize().unwrap();
+
+        let mut expected = Vec::new();
+        expected.extend_from_slice(&enc_cbz(0, 4).to_le_bytes());
+        expected.extend_from_slice(&enc_mov_reg(0, 0, 1).to_le_bytes());
+        expected.extend_from_slice(&enc_bitfield_regs(0, 0b10, 0, 15, 0, 0).to_le_bytes());
+        expected.extend_from_slice(&enc_b(3).to_le_bytes());
+        expected.extend_from_slice(&enc_mov_reg(0, 0, 2).to_le_bytes());
+        expected.extend_from_slice(&enc_bitfield_regs(0, 0b10, 0, 15, 0, 0).to_le_bytes());
         expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
         assert_eq!(code, expected);
     }
