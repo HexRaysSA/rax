@@ -2106,6 +2106,25 @@ fn smir_aarch64_x86_memory_lowering_matches_qemu_oracle() {
         }
     }
 
+    let non_temporal_pair_ops: &[(u32, u32, &str)] = &[
+        (0b10, 0, "stnp_x"),
+        (0b10, 1, "ldnp_x"),
+        (0b00, 0, "stnp_w"),
+        (0b00, 1, "ldnp_w"),
+    ];
+    for &(opc, l, name) in non_temporal_pair_ops {
+        let imm7s: &[i32] = if opc == 0b00 { &[0, 2, -2] } else { &[0, 1, -1] };
+        for &imm7 in imm7s {
+            for _ in 0..4 {
+                batch.push((
+                    format!("{name} #{imm7}"),
+                    enc_ldp(opc, 0, 0b00, l, (imm7 as u32) & 0x7F),
+                    mem_input(&mut rng),
+                ));
+            }
+        }
+    }
+
     let mut st = mem_input(&mut rng);
     st.x[0] = 0xaaaa_bbbb_cccc_dddd;
     st.scratch[8] = 0x0000_0000_0000_0080;
@@ -9394,6 +9413,26 @@ fn diff_mem_ldp_stp() {
                 }
             }
         }
+    }
+    let no_allocate_kinds: &[(u32, u32, &str)] = &[
+        (0b00, 0, "stnp_w"),
+        (0b10, 0, "stnp_x"),
+        (0b00, 1, "ldnp_w"),
+        (0b10, 1, "ldnp_x"),
+    ];
+    for &(opc, l, name) in no_allocate_kinds {
+        for imm7 in 0..3u32 {
+            cases.push((
+                format!("{name} #{imm7}"),
+                enc_ldp(opc, 0, 0b00, l, imm7),
+            ));
+        }
+    }
+    for imm7 in 0..3u32 {
+        cases.push((
+            format!("ldpsw_m0_undef #{imm7}"),
+            enc_ldp(0b01, 0, 0b00, 1, imm7),
+        ));
     }
     let mut rng = Rng::new(0x1_0002);
     let mut batch: Vec<(String, u32, ArmState)> = Vec::new();

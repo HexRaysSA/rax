@@ -13548,6 +13548,9 @@ impl AArch64Cpu {
             }
         };
         // LDPSW is a load-only encoding.
+        if v == 0 && mode == 0b00 && opc == 0b01 {
+            return Err(ArmError::UndefinedInstruction(insn));
+        }
         if ldpsw && l == 0 {
             return Err(ArmError::UndefinedInstruction(insn));
         }

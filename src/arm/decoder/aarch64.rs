@@ -1038,15 +1038,15 @@ impl Aarch64Decoder {
         let is_64bit = opc & 1 == 1 || (opc == 0b10);
 
         let mnemonic = match (l, v, mode, opc) {
+            // Integer no-allocate pair forms. The opc==01 form is not allocated.
+            (1, 0, 0b00, 0b00 | 0b10) => Mnemonic::LDNP,
+            (0, 0, 0b00, 0b00 | 0b10) => Mnemonic::STNP,
             // Integer load pair
             (1, 0, _, 0b00) => Mnemonic::LDP,
-            (1, 0, _, 0b01) => Mnemonic::LDPSW,
+            (1, 0, 0b01 | 0b10 | 0b11, 0b01) => Mnemonic::LDPSW,
             (1, 0, _, 0b10) => Mnemonic::LDP,
             // Integer store pair
-            (0, 0, _, _) => Mnemonic::STP,
-            // Non-temporal
-            (1, 0, 0b00, _) => Mnemonic::LDNP,
-            (0, 0, 0b00, _) => Mnemonic::STNP,
+            (0, 0, _, 0b00 | 0b10) => Mnemonic::STP,
             // SIMD load/store pair
             (1, 1, _, _) => Mnemonic::LDP,
             (0, 1, _, _) => Mnemonic::STP,

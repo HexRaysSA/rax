@@ -46,6 +46,27 @@ fn decodes_arm_aarch64_instruction() {
 }
 
 #[test]
+fn decodes_arm_aarch64_non_temporal_pairs() {
+    let mut opts = OracleOptions::default();
+    opts.isa = OracleIsa::Arm;
+    opts.arm_state = ArmState::Aarch64;
+
+    let cases = [
+        (0x2840_0820u32, "ldnp"),
+        (0xa840_0820u32, "ldnp"),
+        (0x2800_0820u32, "stnp"),
+        (0xa800_0820u32, "stnp"),
+        (0x6940_0820u32, "ldpsw"),
+        (0x6840_0820u32, "unknown"),
+    ];
+
+    for (raw, mnemonic) in cases {
+        let value = decode_to_json(&raw.to_le_bytes(), &opts).unwrap();
+        assert_eq!(value["decoded_ops"][0]["mnemonic"], mnemonic);
+    }
+}
+
+#[test]
 fn decodes_x86_with_smir_lift() {
     let mut opts = OracleOptions::default();
     opts.isa = OracleIsa::X86_64;

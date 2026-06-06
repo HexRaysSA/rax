@@ -1531,7 +1531,7 @@ impl Aarch64Lifter {
                 self.lift_store(insn, MemWidth::B2, pc, &mut ops, ctx)?;
             }
 
-            Mnemonic::LDP => {
+            Mnemonic::LDP | Mnemonic::LDNP => {
                 self.lift_load_pair(insn, SignExtend::Zero, pc, &mut ops, ctx)?;
             }
 
@@ -1539,7 +1539,7 @@ impl Aarch64Lifter {
                 self.lift_load_pair(insn, SignExtend::Sign, pc, &mut ops, ctx)?;
             }
 
-            Mnemonic::STP => {
+            Mnemonic::STP | Mnemonic::STNP => {
                 self.lift_store_pair(insn, pc, &mut ops, ctx)?;
             }
 
