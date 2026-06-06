@@ -1425,12 +1425,24 @@ fn lower_aarch64_native_function(func: &SmirFunction) -> Result<[u32; 3], String
     let code = lowerer
         .finalize()
         .map_err(|e| format!("finalize failed: {e:?}"))?;
-    if code.len() > 12 || code.len() % 4 != 0 {
+    if code.len() % 4 != 0 {
         return Err(format!("unexpected native AArch64 code size {}", code.len()));
+    }
+    let words = code.len() / 4;
+    if words > 3 {
+        if words != 4 {
+            return Err(format!("unexpected native AArch64 code size {}", code.len()));
+        }
+        let ret = u32::from_le_bytes([code[12], code[13], code[14], code[15]]);
+        if ret != 0xd65f_03c0 {
+            return Err(format!(
+                "unexpected fourth native AArch64 instruction {ret:#010x}"
+            ));
+        }
     }
 
     let mut insns = [NOP; 3];
-    for (idx, chunk) in code.chunks_exact(4).enumerate() {
+    for (idx, chunk) in code.chunks_exact(4).take(3).enumerate() {
         insns[idx] = u32::from_le_bytes([chunk[0], chunk[1], chunk[2], chunk[3]]);
     }
     Ok(insns)
@@ -6805,6 +6817,64 @@ fn smir_aarch64_native_lowering_matches_qemu_oracle() {
         let label = format!("xaflag_nzcv_{nzcv:x}_lifted");
         push_lifted_case(&label, enc_xaflag(), st);
     }
+
+    let mut push_case3 = |label: &str, source: [u32; 3], ops: Vec<OpKind>, st: ArmState| {
+        let lowered = lower_aarch64_native_ops(ops)
+            .unwrap_or_else(|e| panic!("{label}: native lowering failed: {e}"));
+        cases.push((label.into(), source, lowered, st));
+    };
+
+    let mut st = native_state();
+    st.x[0] = 0x0123_4567_89ab_cdef;
+    st.x[1] = 0xfedc_ba98_7654_3210;
+    st.pstate = 0xb000_0000;
+    push_case3(
+        "xchg_x_as_eor_swap_preserves_flags",
+        [
+            enc_logical_shift_regs(1, 0b10, 0, 0, 0, 0, 0, 1),
+            enc_logical_shift_regs(1, 0b10, 0, 0, 0, 1, 0, 1),
+            enc_logical_shift_regs(1, 0b10, 0, 0, 0, 0, 0, 1),
+        ],
+        vec![OpKind::Xchg {
+            reg1: arm_x(0),
+            reg2: arm_x(1),
+            width: OpWidth::W64,
+        }],
+        st,
+    );
+
+    let mut st = native_state();
+    st.x[0] = 0xaaaa_bbbb_0123_4567;
+    st.x[1] = 0xcccc_dddd_89ab_cdef;
+    st.pstate = 0x4000_0000;
+    push_case3(
+        "xchg_w_as_eor_swap_zero_ext_preserves_flags",
+        [
+            enc_logical_shift_regs(0, 0b10, 0, 0, 0, 0, 0, 1),
+            enc_logical_shift_regs(0, 0b10, 0, 0, 0, 1, 0, 1),
+            enc_logical_shift_regs(0, 0b10, 0, 0, 0, 0, 0, 1),
+        ],
+        vec![OpKind::Xchg {
+            reg1: arm_x(0),
+            reg2: arm_x(1),
+            width: OpWidth::W32,
+        }],
+        st,
+    );
+
+    let mut st = native_state();
+    st.x[0] = 0xffff_ffff_89ab_cdef;
+    st.pstate = 0x9000_0000;
+    push_case3(
+        "xchg_same_w_as_self_mov_zero_ext_preserves_flags",
+        [enc_logical_shift_regs(0, 0b01, 0, 0, 0, 0, 31, 0), NOP, NOP],
+        vec![OpKind::Xchg {
+            reg1: arm_x(0),
+            reg2: arm_x(0),
+            width: OpWidth::W32,
+        }],
+        st,
+    );
 
     let source_cases: Vec<(u32, u32, u32, ArmState)> = cases
         .iter()
