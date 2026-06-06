@@ -1408,6 +1408,7 @@ impl SmirInterpreter {
                 src,
                 control,
                 width,
+                flags,
             } => {
                 let src = ctx.read_vreg(*src) & width.mask();
                 let control = ctx.read_vreg(*control);
@@ -1424,7 +1425,12 @@ impl SmirInterpreter {
                         shifted & ((1u64 << len) - 1)
                     }
                 };
-                Self::write_gpr(ctx, *dst, result & width.mask(), *width);
+                let result = result & width.mask();
+                Self::write_gpr(ctx, *dst, result, *width);
+
+                if flags.updates_any() {
+                    ctx.flags.set_lazy_bextr(result, *width);
+                }
             }
 
             OpKind::Bzhi {
@@ -1432,6 +1438,7 @@ impl SmirInterpreter {
                 src,
                 index,
                 width,
+                flags,
             } => {
                 let src = ctx.read_vreg(*src) & width.mask();
                 let index = (ctx.read_vreg(*index) & 0xff) as u32;
@@ -1441,7 +1448,12 @@ impl SmirInterpreter {
                 } else {
                     src & ((1u64 << index) - 1)
                 };
-                Self::write_gpr(ctx, *dst, result & width.mask(), *width);
+                let result = result & width.mask();
+                Self::write_gpr(ctx, *dst, result, *width);
+
+                if flags.updates_any() {
+                    ctx.flags.set_lazy_bzhi(u64::from(index), result, *width);
+                }
             }
 
             OpKind::Pdep {
@@ -7178,7 +7190,7 @@ fn hex_fp_eval(op: HexFpOp, a: u64, b: u64) -> u64 {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::smir::flags::{FlagUpdate, MaterializedFlags};
+    use crate::smir::flags::{FlagSet, FlagUpdate, MaterializedFlags};
     use crate::smir::ir::FunctionBuilder;
     use crate::smir::memory::{FlatMemory, SmirMemory};
 
@@ -7316,6 +7328,7 @@ mod tests {
                 src: rax,
                 control: rcx,
                 width: OpWidth::W64,
+                flags: FlagUpdate::None,
             },
             0xf0f0,
             (8 << 8) | 4,
@@ -7330,6 +7343,7 @@ mod tests {
                 src: rax,
                 control: rcx,
                 width: OpWidth::W64,
+                flags: FlagUpdate::None,
             },
             0x1234_5678,
             64,
@@ -7344,6 +7358,7 @@ mod tests {
                 src: rax,
                 index: rcx,
                 width: OpWidth::W64,
+                flags: FlagUpdate::None,
             },
             0xffff_1234_5678_9abc,
             16,
@@ -7358,6 +7373,7 @@ mod tests {
                 src: rax,
                 index: rcx,
                 width: OpWidth::W64,
+                flags: FlagUpdate::None,
             },
             0xffff_1234_5678_9abc,
             64,
@@ -7365,6 +7381,108 @@ mod tests {
         );
         assert_eq!(value, 0xffff_1234_5678_9abc);
         assert_eq!(got_flags, flags);
+    }
+
+    #[test]
+    fn smir_bextr_bzhi_flagful_ops_update_defined_x86_flags() {
+        let rax = VReg::Arch(ArchReg::X86(X86Reg::Rax));
+        let rcx = VReg::Arch(ArchReg::X86(X86Reg::Rcx));
+        const CF: u64 = 1 << 0;
+        const PF: u64 = 1 << 2;
+        const AF: u64 = 1 << 4;
+        const ZF: u64 = 1 << 6;
+        const SF: u64 = 1 << 7;
+        const OF: u64 = 1 << 11;
+
+        let bextr_flags =
+            FlagUpdate::Specific(FlagSet::CF.union(FlagSet::ZF).union(FlagSet::OF));
+        let bzhi_flags = FlagUpdate::Specific(
+            FlagSet::CF
+                .union(FlagSet::ZF)
+                .union(FlagSet::SF)
+                .union(FlagSet::OF),
+        );
+        let stale_flags = 0x2 | CF | PF | AF | ZF | SF | OF;
+
+        let (value, got_flags) = exec_x86_rax_op(
+            OpKind::Bextr {
+                dst: rax,
+                src: rax,
+                control: rcx,
+                width: OpWidth::W64,
+                flags: bextr_flags,
+            },
+            0xf0f0,
+            (8 << 8) | 4,
+            stale_flags,
+        );
+        assert_eq!(value, 0x0f);
+        assert_eq!(got_flags & CF, 0, "BEXTR clears CF");
+        assert_eq!(got_flags & ZF, 0, "BEXTR clears ZF for non-zero");
+        assert_ne!(got_flags & SF, 0, "BEXTR preserves undefined SF");
+        assert_ne!(got_flags & PF, 0, "BEXTR preserves undefined PF");
+        assert_ne!(got_flags & AF, 0, "BEXTR preserves undefined AF");
+        assert_eq!(got_flags & OF, 0, "BEXTR clears OF");
+
+        let (value, got_flags) = exec_x86_rax_op(
+            OpKind::Bextr {
+                dst: rax,
+                src: rax,
+                control: rcx,
+                width: OpWidth::W64,
+                flags: bextr_flags,
+            },
+            0x1234,
+            64,
+            stale_flags,
+        );
+        assert_eq!(value, 0);
+        assert_ne!(got_flags & ZF, 0, "BEXTR sets ZF for zero");
+        assert_ne!(got_flags & SF, 0, "BEXTR preserves undefined SF");
+        assert_ne!(got_flags & PF, 0, "BEXTR preserves undefined PF");
+        assert_ne!(got_flags & AF, 0, "BEXTR preserves undefined AF");
+        assert_eq!(got_flags & CF, 0, "BEXTR keeps CF clear");
+        assert_eq!(got_flags & OF, 0, "BEXTR keeps OF clear");
+
+        let (value, got_flags) = exec_x86_rax_op(
+            OpKind::Bzhi {
+                dst: rax,
+                src: rax,
+                index: rcx,
+                width: OpWidth::W64,
+                flags: bzhi_flags,
+            },
+            0x8000_0000_0000_0001,
+            64,
+            stale_flags,
+        );
+        assert_eq!(value, 0x8000_0000_0000_0001);
+        assert_ne!(got_flags & CF, 0, "BZHI sets CF when index >= width");
+        assert_eq!(got_flags & ZF, 0, "BZHI clears ZF for non-zero");
+        assert_ne!(got_flags & SF, 0, "BZHI sets SF from result sign");
+        assert_ne!(got_flags & PF, 0, "BZHI preserves undefined PF");
+        assert_ne!(got_flags & AF, 0, "BZHI preserves undefined AF");
+        assert_eq!(got_flags & OF, 0, "BZHI clears OF");
+
+        let (value, got_flags) = exec_x86_rax_op(
+            OpKind::Bzhi {
+                dst: rax,
+                src: rax,
+                index: rcx,
+                width: OpWidth::W64,
+                flags: bzhi_flags,
+            },
+            0x1234_5678,
+            0,
+            stale_flags,
+        );
+        assert_eq!(value, 0);
+        assert_eq!(got_flags & CF, 0, "BZHI clears CF when index < width");
+        assert_ne!(got_flags & ZF, 0, "BZHI sets ZF for zero");
+        assert_eq!(got_flags & SF, 0, "BZHI clears SF for zero");
+        assert_ne!(got_flags & PF, 0, "BZHI preserves undefined PF");
+        assert_ne!(got_flags & AF, 0, "BZHI preserves undefined AF");
+        assert_eq!(got_flags & OF, 0, "BZHI clears OF");
     }
 
     #[test]

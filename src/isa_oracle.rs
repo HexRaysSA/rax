@@ -1465,13 +1465,15 @@ fn smir_op_kind_json(kind: &OpKind) -> Value {
             src,
             control,
             width,
-        } => op_json!("bextr", dst, src, control, width),
+            flags,
+        } => op_json!("bextr", dst, src, control, width, flags),
         OpKind::Bzhi {
             dst,
             src,
             index,
             width,
-        } => op_json!("bzhi", dst, src, index, width),
+            flags,
+        } => op_json!("bzhi", dst, src, index, width, flags),
         OpKind::Pdep {
             dst,
             src,

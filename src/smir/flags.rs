@@ -139,6 +139,10 @@ pub enum LazyFlagOp {
     Imul,
     /// Bit test: CF = (left >> right) & 1
     Bt,
+    /// Bit field extract: ZF = result == 0; CF=OF=0; SF/PF/AF undefined.
+    Bextr,
+    /// Zero high bits: CF = low8(index) >= width; ZF/SF from result; OF=0; PF/AF undefined.
+    Bzhi,
 }
 
 // ============================================================================
@@ -245,6 +249,31 @@ impl LazyFlags {
             result,
             left,
             right: 1,
+            width,
+            high: 0,
+        }
+    }
+
+    /// Create new lazy flags for BEXTR.
+    pub fn bextr(result: u64, width: OpWidth) -> Self {
+        LazyFlags {
+            op: LazyFlagOp::Bextr,
+            result,
+            left: 0,
+            right: 0,
+            width,
+            high: 0,
+        }
+    }
+
+    /// Create new lazy flags for BZHI. `index` must already be truncated to the
+    /// architectural low 8 bits used by the instruction.
+    pub fn bzhi(index: u64, result: u64, width: OpWidth) -> Self {
+        LazyFlags {
+            op: LazyFlagOp::Bzhi,
+            result,
+            left: 0,
+            right: index,
             width,
             high: 0,
         }
@@ -385,6 +414,16 @@ impl FlagState {
         self.lazy = Some(LazyFlags::logic(result, width));
     }
 
+    /// Set lazy flags from a BEXTR operation.
+    pub fn set_lazy_bextr(&mut self, result: u64, width: OpWidth) {
+        self.lazy = Some(LazyFlags::bextr(result, width));
+    }
+
+    /// Set lazy flags from a BZHI operation.
+    pub fn set_lazy_bzhi(&mut self, index: u64, result: u64, width: OpWidth) {
+        self.lazy = Some(LazyFlags::bzhi(index & 0xff, result, width));
+    }
+
     /// Get the carry flag, materializing if needed
     pub fn get_cf(&mut self) -> bool {
         if let Some(ref lazy) = self.lazy {
@@ -516,6 +555,8 @@ impl FlagState {
                 let bit_pos = lazy.right & (lazy.width.bits() as u64 - 1);
                 ((lazy.left >> bit_pos) & 1) != 0
             }
+            LazyFlagOp::Bextr => false,
+            LazyFlagOp::Bzhi => lazy.right >= u64::from(lazy.width.bits()),
             LazyFlagOp::None => self.materialized.cf,
         }
     }
@@ -533,7 +574,11 @@ impl FlagState {
     /// Materialize sign flag
     fn materialize_sf(&self, lazy: &LazyFlags) -> bool {
         match lazy.op {
-            LazyFlagOp::Rotate | LazyFlagOp::Ror | LazyFlagOp::Rcl | LazyFlagOp::Rcr => {
+            LazyFlagOp::Rotate
+            | LazyFlagOp::Ror
+            | LazyFlagOp::Rcl
+            | LazyFlagOp::Rcr
+            | LazyFlagOp::Bextr => {
                 self.materialized.sf
             }
             _ => (lazy.result & lazy.width.sign_bit()) != 0,
@@ -647,6 +692,7 @@ impl FlagState {
                 lazy.high != expected_hi
             }
             LazyFlagOp::Bt => false,
+            LazyFlagOp::Bextr | LazyFlagOp::Bzhi => false,
             LazyFlagOp::None => self.materialized.of,
         }
     }
@@ -654,7 +700,12 @@ impl FlagState {
     /// Materialize parity flag (x86 only)
     fn materialize_pf(&self, lazy: &LazyFlags) -> bool {
         match lazy.op {
-            LazyFlagOp::Rotate | LazyFlagOp::Ror | LazyFlagOp::Rcl | LazyFlagOp::Rcr => {
+            LazyFlagOp::Rotate
+            | LazyFlagOp::Ror
+            | LazyFlagOp::Rcl
+            | LazyFlagOp::Rcr
+            | LazyFlagOp::Bextr
+            | LazyFlagOp::Bzhi => {
                 self.materialized.pf
             }
             _ => {

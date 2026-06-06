@@ -2645,13 +2645,28 @@ impl Aarch64Lowerer {
         self.emit_logic_imm(dst, dst, 0b10, n, 0, mask_imms, width)
     }
 
+    fn lower_bmi_result_flags(
+        &mut self,
+        dst: u8,
+        width: OpWidth,
+        carry: bool,
+    ) -> Result<(), LowerError> {
+        self.emit_logic_reg_n(31, dst, dst, 0b11, false, width)?;
+        if carry {
+            self.emit_flagm(0b000);
+        }
+        Ok(())
+    }
+
     fn lower_bzhi(
         &mut self,
         dst: VReg,
         src: VReg,
         index: VReg,
         width: OpWidth,
+        flags: FlagUpdate,
     ) -> Result<(), LowerError> {
+        let set_flags = flags.updates_any();
         let bits = match width {
             OpWidth::W8 | OpWidth::W16 | OpWidth::W32 | OpWidth::W64 => width.bits(),
             other => {
@@ -2660,6 +2675,12 @@ impl Aarch64Lowerer {
                 });
             }
         };
+        if set_flags && matches!(width, OpWidth::W8 | OpWidth::W16) {
+            return Err(LowerError::UnsupportedOp {
+                op: "AArch64 native flag-setting subword Bzhi".into(),
+            });
+        }
+
         if let VReg::Imm(value) = index {
             let index = ((value as u64) & 0xff) as u32;
             let dst_reg = Self::dst_gpr(dst)?;
@@ -2669,10 +2690,14 @@ impl Aarch64Lowerer {
                 OpWidth::W32
             };
             if index == 0 {
-                return self.emit_mov_imm(dst_reg, 0, emit_width);
+                self.emit_mov_imm(dst_reg, 0, emit_width)?;
+                if set_flags {
+                    self.lower_bmi_result_flags(dst_reg, emit_width, false)?;
+                }
+                return Ok(());
             }
             if index >= bits {
-                return match width {
+                match width {
                     OpWidth::W8 | OpWidth::W16 => {
                         self.lower_bfx(dst, src, 0, bits as u8, false, OpWidth::W32)
                     }
@@ -2680,7 +2705,11 @@ impl Aarch64Lowerer {
                         self.emit_mov_reg(dst_reg, Self::gpr(src)?, emit_width)
                     }
                     _ => unreachable!(),
-                };
+                }?;
+                if set_flags {
+                    self.lower_bmi_result_flags(dst_reg, emit_width, true)?;
+                }
+                return Ok(());
             }
 
             let mask = (1_u64 << index) - 1;
@@ -2689,7 +2718,11 @@ impl Aarch64Lowerer {
                 OpWidth::W64 => SrcOperand::Imm64(mask as i64),
                 _ => unreachable!(),
             };
-            return self.lower_logic(dst, src, &mask, 0b00, false, false, width);
+            self.lower_logic(dst, src, &mask, 0b00, false, false, width)?;
+            if set_flags {
+                self.lower_bmi_result_flags(dst_reg, emit_width, false)?;
+            }
+            return Ok(());
         }
 
         let guard_bits: &[u32] = match width {
@@ -2721,12 +2754,18 @@ impl Aarch64Lowerer {
         self.emit_movn_zero(dst, width)?;
         self.emit_dp2(dst, dst, index, 0b1000, width)?;
         self.emit_logic_reg_n(dst, src, dst, 0b00, true, width)?;
+        if set_flags {
+            self.lower_bmi_result_flags(dst, width, false)?;
+        }
         let end_branch = self.code.position();
         self.emit(0x1400_0000);
         for (offset, bit) in guards {
             self.patch_test_branch_to_current(offset, index, bit, true)?;
         }
         self.emit_mov_reg(dst, src, width)?;
+        if set_flags {
+            self.lower_bmi_result_flags(dst, width, true)?;
+        }
         self.patch_branch_to_current(end_branch)
     }
 
@@ -2736,7 +2775,9 @@ impl Aarch64Lowerer {
         src: VReg,
         control: VReg,
         width: OpWidth,
+        flags: FlagUpdate,
     ) -> Result<(), LowerError> {
+        let set_flags = flags.updates_any();
         let emit_width = match width {
             OpWidth::W8 | OpWidth::W16 | OpWidth::W32 => OpWidth::W32,
             OpWidth::W64 => OpWidth::W64,
@@ -2762,7 +2803,11 @@ impl Aarch64Lowerer {
         let len = ((control >> 8) & 0xff) as u32;
         let dst = Self::dst_gpr(dst)?;
         if start >= bits || len == 0 {
-            return self.emit_mov_imm(dst, 0, emit_width);
+            self.emit_mov_imm(dst, 0, emit_width)?;
+            if set_flags {
+                self.lower_bmi_result_flags(dst, emit_width, false)?;
+            }
+            return Ok(());
         }
 
         let width_bits = len.min(bits - start) as u8;
@@ -2773,7 +2818,11 @@ impl Aarch64Lowerer {
             width_bits,
             false,
             emit_width,
-        )
+        )?;
+        if set_flags {
+            self.lower_bmi_result_flags(dst, emit_width, false)?;
+        }
+        Ok(())
     }
 
     fn lower_cls(&mut self, dst: VReg, src: VReg, width: OpWidth) -> Result<(), LowerError> {
@@ -5730,13 +5779,15 @@ impl Aarch64Lowerer {
                 src,
                 control,
                 width,
-            } => self.lower_bextr(*dst, *src, *control, *width),
+                flags,
+            } => self.lower_bextr(*dst, *src, *control, *width, *flags),
             OpKind::Bzhi {
                 dst,
                 src,
                 index,
                 width,
-            } => self.lower_bzhi(*dst, *src, *index, *width),
+                flags,
+            } => self.lower_bzhi(*dst, *src, *index, *width, *flags),
             OpKind::Pdep { .. } => Err(LowerError::UnsupportedOp {
                 op: "AArch64 native Pdep".into(),
             }),
@@ -6183,12 +6234,25 @@ impl SmirLowerer for Aarch64Lowerer {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::smir::flags::FlagUpdate;
+    use crate::smir::flags::{FlagSet, FlagUpdate};
     use crate::smir::ir::{FunctionBuilder, Terminator, TrapKind};
     use crate::smir::types::{DispSize, FunctionId, SrcOperand};
 
     fn x(n: u8) -> VReg {
         VReg::Arch(ArchReg::Arm(ArmReg::X(n)))
+    }
+
+    fn bextr_flags() -> FlagUpdate {
+        FlagUpdate::Specific(FlagSet::CF.union(FlagSet::ZF).union(FlagSet::OF))
+    }
+
+    fn bzhi_flags() -> FlagUpdate {
+        FlagUpdate::Specific(
+            FlagSet::CF
+                .union(FlagSet::ZF)
+                .union(FlagSet::SF)
+                .union(FlagSet::OF),
+        )
     }
 
     fn enc_ldst_simm(size: u32, opc: u32, mode: u32, imm9: i64) -> u32 {
@@ -9768,6 +9832,7 @@ mod tests {
                 src: x(1),
                 control: VReg::Imm((12 << 8) | 4),
                 width: OpWidth::W64,
+                flags: FlagUpdate::None,
             },
         );
         builder.set_terminator(Terminator::Return { values: vec![] });
@@ -9793,6 +9858,7 @@ mod tests {
                 src: x(1),
                 control: VReg::Imm((3 << 8) | 2),
                 width: OpWidth::W8,
+                flags: FlagUpdate::None,
             },
         );
         builder.set_terminator(Terminator::Return { values: vec![] });
@@ -9818,6 +9884,7 @@ mod tests {
                 src: x(1),
                 control: VReg::Imm((8 << 8) | 12),
                 width: OpWidth::W16,
+                flags: FlagUpdate::None,
             },
         );
         builder.set_terminator(Terminator::Return { values: vec![] });
@@ -9843,6 +9910,7 @@ mod tests {
                 src: x(1),
                 control: VReg::Imm((1 << 8) | 8),
                 width: OpWidth::W8,
+                flags: FlagUpdate::None,
             },
         );
         builder.set_terminator(Terminator::Return { values: vec![] });
@@ -9868,6 +9936,7 @@ mod tests {
                 src: x(1),
                 control: VReg::Imm((8 << 8) | 32),
                 width: OpWidth::W32,
+                flags: FlagUpdate::None,
             },
         );
         builder.set_terminator(Terminator::Return { values: vec![] });
@@ -9884,6 +9953,33 @@ mod tests {
     }
 
     #[test]
+    fn lowers_bextr_x_imm_control_with_flags_as_ubfx_ands() {
+        let mut builder = FunctionBuilder::new(FunctionId(0), 0);
+        builder.push_op(
+            0,
+            OpKind::Bextr {
+                dst: x(0),
+                src: x(1),
+                control: VReg::Imm((16 << 8) | 8),
+                width: OpWidth::W64,
+                flags: bextr_flags(),
+            },
+        );
+        builder.set_terminator(Terminator::Return { values: vec![] });
+        let func = builder.finish();
+
+        let mut lowerer = Aarch64Lowerer::new();
+        lowerer.lower_function(&func).unwrap();
+        let code = lowerer.finalize().unwrap();
+
+        let mut expected = Vec::new();
+        expected.extend_from_slice(&enc_bitfield_regs(1, 0b10, 8, 23, 1, 0).to_le_bytes());
+        expected.extend_from_slice(&enc_logical_reg_n(1, 0b11, 0, 31, 0, 0).to_le_bytes());
+        expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
+        assert_eq!(code, expected);
+    }
+
+    #[test]
     fn rejects_bextr_register_control_without_scratch() {
         let mut builder = FunctionBuilder::new(FunctionId(0), 0);
         builder.push_op(
@@ -9893,6 +9989,7 @@ mod tests {
                 src: x(1),
                 control: x(2),
                 width: OpWidth::W64,
+                flags: FlagUpdate::None,
             },
         );
         builder.set_terminator(Terminator::Return { values: vec![] });
@@ -9913,6 +10010,7 @@ mod tests {
                 src: x(1),
                 index: x(2),
                 width: OpWidth::W32,
+                flags: FlagUpdate::None,
             },
         );
         builder.set_terminator(Terminator::Return { values: vec![] });
@@ -9945,6 +10043,7 @@ mod tests {
                 src: x(1),
                 index: x(2),
                 width: OpWidth::W64,
+                flags: FlagUpdate::None,
             },
         );
         builder.set_terminator(Terminator::Return { values: vec![] });
@@ -9967,6 +10066,41 @@ mod tests {
     }
 
     #[test]
+    fn lowers_bzhi_x_with_flags_and_low_byte_index_guards() {
+        let mut builder = FunctionBuilder::new(FunctionId(0), 0);
+        builder.push_op(
+            0,
+            OpKind::Bzhi {
+                dst: x(0),
+                src: x(1),
+                index: x(2),
+                width: OpWidth::W64,
+                flags: bzhi_flags(),
+            },
+        );
+        builder.set_terminator(Terminator::Return { values: vec![] });
+        let func = builder.finish();
+
+        let mut lowerer = Aarch64Lowerer::new();
+        lowerer.lower_function(&func).unwrap();
+        let code = lowerer.finalize().unwrap();
+
+        let mut expected = Vec::new();
+        expected.extend_from_slice(&enc_test_branch(2, 6, true, 28).to_le_bytes());
+        expected.extend_from_slice(&enc_test_branch(2, 7, true, 24).to_le_bytes());
+        expected.extend_from_slice(&enc_mov_wide(1, 0b00, 0, 0, 0).to_le_bytes());
+        expected.extend_from_slice(&enc_dp2_regs(1, 0b1000, 0, 2, 0).to_le_bytes());
+        expected.extend_from_slice(&enc_logical_reg_n(1, 0b00, 1, 0, 1, 0).to_le_bytes());
+        expected.extend_from_slice(&enc_logical_reg_n(1, 0b11, 0, 31, 0, 0).to_le_bytes());
+        expected.extend_from_slice(&enc_b(4).to_le_bytes());
+        expected.extend_from_slice(&enc_mov_reg(1, 0, 1).to_le_bytes());
+        expected.extend_from_slice(&enc_logical_reg_n(1, 0b11, 0, 31, 0, 0).to_le_bytes());
+        expected.extend_from_slice(&enc_flagm(0b000).to_le_bytes());
+        expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
+        assert_eq!(code, expected);
+    }
+
+    #[test]
     fn lowers_bzhi_x_imm_index_as_and_mask_in_place() {
         let mut builder = FunctionBuilder::new(FunctionId(0), 0);
         builder.push_op(
@@ -9976,6 +10110,7 @@ mod tests {
                 src: x(0),
                 index: VReg::Imm(13),
                 width: OpWidth::W64,
+                flags: FlagUpdate::None,
             },
         );
         builder.set_terminator(Terminator::Return { values: vec![] });
@@ -9992,6 +10127,61 @@ mod tests {
     }
 
     #[test]
+    fn lowers_bzhi_x_imm_index_with_flags_as_and_ands() {
+        let mut builder = FunctionBuilder::new(FunctionId(0), 0);
+        builder.push_op(
+            0,
+            OpKind::Bzhi {
+                dst: x(0),
+                src: x(1),
+                index: VReg::Imm(13),
+                width: OpWidth::W64,
+                flags: bzhi_flags(),
+            },
+        );
+        builder.set_terminator(Terminator::Return { values: vec![] });
+        let func = builder.finish();
+
+        let mut lowerer = Aarch64Lowerer::new();
+        lowerer.lower_function(&func).unwrap();
+        let code = lowerer.finalize().unwrap();
+
+        let mut expected = Vec::new();
+        expected.extend_from_slice(&enc_logical_imm(1, 0b00, 1, 0, 12, 0, 1).to_le_bytes());
+        expected.extend_from_slice(&enc_logical_reg_n(1, 0b11, 0, 31, 0, 0).to_le_bytes());
+        expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
+        assert_eq!(code, expected);
+    }
+
+    #[test]
+    fn lowers_bzhi_x_imm_index_at_width_with_flags_sets_carry() {
+        let mut builder = FunctionBuilder::new(FunctionId(0), 0);
+        builder.push_op(
+            0,
+            OpKind::Bzhi {
+                dst: x(0),
+                src: x(1),
+                index: VReg::Imm(64),
+                width: OpWidth::W64,
+                flags: bzhi_flags(),
+            },
+        );
+        builder.set_terminator(Terminator::Return { values: vec![] });
+        let func = builder.finish();
+
+        let mut lowerer = Aarch64Lowerer::new();
+        lowerer.lower_function(&func).unwrap();
+        let code = lowerer.finalize().unwrap();
+
+        let mut expected = Vec::new();
+        expected.extend_from_slice(&enc_mov_reg(1, 0, 1).to_le_bytes());
+        expected.extend_from_slice(&enc_logical_reg_n(1, 0b11, 0, 31, 0, 0).to_le_bytes());
+        expected.extend_from_slice(&enc_flagm(0b000).to_le_bytes());
+        expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
+        assert_eq!(code, expected);
+    }
+
+    #[test]
     fn lowers_bzhi_x_imm_index_zero_as_zero() {
         let mut builder = FunctionBuilder::new(FunctionId(0), 0);
         builder.push_op(
@@ -10001,6 +10191,7 @@ mod tests {
                 src: x(0),
                 index: VReg::Imm(0),
                 width: OpWidth::W64,
+                flags: FlagUpdate::None,
             },
         );
         builder.set_terminator(Terminator::Return { values: vec![] });
@@ -10026,6 +10217,7 @@ mod tests {
                 src: x(1),
                 index: VReg::Imm(5),
                 width: OpWidth::W8,
+                flags: FlagUpdate::None,
             },
         );
         builder.set_terminator(Terminator::Return { values: vec![] });
@@ -10052,6 +10244,7 @@ mod tests {
                 src: x(1),
                 index: VReg::Imm(16),
                 width: OpWidth::W16,
+                flags: FlagUpdate::None,
             },
         );
         builder.set_terminator(Terminator::Return { values: vec![] });
@@ -10077,6 +10270,7 @@ mod tests {
                 src: x(1),
                 index: VReg::Imm(0),
                 width: OpWidth::W8,
+                flags: FlagUpdate::None,
             },
         );
         builder.set_terminator(Terminator::Return { values: vec![] });
@@ -10102,6 +10296,7 @@ mod tests {
                 src: x(1),
                 index: VReg::Imm(0x120),
                 width: OpWidth::W32,
+                flags: FlagUpdate::None,
             },
         );
         builder.set_terminator(Terminator::Return { values: vec![] });
@@ -10128,6 +10323,7 @@ mod tests {
                     src,
                     index,
                     width: OpWidth::W64,
+                    flags: FlagUpdate::None,
                 },
             );
             builder.set_terminator(Terminator::Return { values: vec![] });

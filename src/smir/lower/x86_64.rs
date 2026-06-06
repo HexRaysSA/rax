@@ -4703,6 +4703,7 @@ impl X86_64Lowerer {
                 src,
                 control,
                 width,
+                flags,
             } => {
                 if !matches!(width, OpWidth::W32 | OpWidth::W64) {
                     return Err(LowerError::UnsupportedOp {
@@ -4712,12 +4713,18 @@ impl X86_64Lowerer {
                 let dst_reg = self.get_dst_reg(*dst)?;
                 let src_reg = self.get_reg(*src)?;
                 let control_reg = self.get_reg(*control)?;
-                Self::ensure_flag_stack_operands_safe("Bextr", &[dst_reg, src_reg, control_reg])?;
-
-                self.code.emit_u8(0x9C); // pushfq
+                if !flags.updates_any() {
+                    Self::ensure_flag_stack_operands_safe(
+                        "Bextr",
+                        &[dst_reg, src_reg, control_reg],
+                    )?;
+                    self.code.emit_u8(0x9C); // pushfq
+                }
                 let mut emitter = X86Emitter::new(&mut self.code);
                 emitter.emit_vex_bmi_rr(0xF7, dst_reg, src_reg, control_reg, *width);
-                self.code.emit_u8(0x9D); // popfq
+                if !flags.updates_any() {
+                    self.code.emit_u8(0x9D); // popfq
+                }
             }
 
             OpKind::Bzhi {
@@ -4725,6 +4732,7 @@ impl X86_64Lowerer {
                 src,
                 index,
                 width,
+                flags,
             } => {
                 if !matches!(width, OpWidth::W32 | OpWidth::W64) {
                     return Err(LowerError::UnsupportedOp {
@@ -4734,12 +4742,15 @@ impl X86_64Lowerer {
                 let dst_reg = self.get_dst_reg(*dst)?;
                 let src_reg = self.get_reg(*src)?;
                 let index_reg = self.get_reg(*index)?;
-                Self::ensure_flag_stack_operands_safe("Bzhi", &[dst_reg, src_reg, index_reg])?;
-
-                self.code.emit_u8(0x9C); // pushfq
+                if !flags.updates_any() {
+                    Self::ensure_flag_stack_operands_safe("Bzhi", &[dst_reg, src_reg, index_reg])?;
+                    self.code.emit_u8(0x9C); // pushfq
+                }
                 let mut emitter = X86Emitter::new(&mut self.code);
                 emitter.emit_vex_bmi_rr(0xF5, dst_reg, src_reg, index_reg, *width);
-                self.code.emit_u8(0x9D); // popfq
+                if !flags.updates_any() {
+                    self.code.emit_u8(0x9D); // popfq
+                }
             }
 
             OpKind::Pdep {
@@ -10081,7 +10092,7 @@ impl SmirLowerer for X86_64Lowerer {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::smir::flags::FlagUpdate;
+    use crate::smir::flags::{FlagSet, FlagUpdate};
     use crate::smir::ir::{FunctionBuilder, SmirFunction, Terminator};
     use crate::smir::lift::x86_64::X86_64Lifter;
     use crate::smir::lift::{LiftContext, MemoryReader, SmirLifter};
@@ -10123,6 +10134,18 @@ mod tests {
         let res = lowerer.lower_function(&func).expect("lower REX2 block");
         assert!(res.relocations.is_empty(), "REX2 block should not relocate");
         (lowerer.finalize().expect("finalize"), res.entry_offset)
+    }
+
+    fn lower_single_op(kind: OpKind) -> Vec<u8> {
+        let mut builder = FunctionBuilder::new(FunctionId(0), 0x1000);
+        builder.push_op(0x1000, kind);
+        builder.set_terminator(Terminator::Return { values: vec![] });
+        let func = builder.finish();
+
+        let mut lowerer = X86_64Lowerer::new();
+        let res = lowerer.lower_function(&func).expect("lower single op");
+        assert!(res.relocations.is_empty(), "single op should not relocate");
+        lowerer.finalize().expect("finalize")
     }
 
     #[test]
@@ -10508,6 +10531,92 @@ mod tests {
         assert!(
             lowered.contains(&0x9D),
             "BEXTR/BZHI lowering must restore flags"
+        );
+    }
+
+    #[test]
+    fn lower_bextr_bzhi_honors_flag_update_mode() {
+        let rax = VReg::Arch(ArchReg::X86(X86Reg::Rax));
+        let rcx = VReg::Arch(ArchReg::X86(X86Reg::Rcx));
+        let rdx = VReg::Arch(ArchReg::X86(X86Reg::Rdx));
+
+        let flagful_bextr = lower_single_op(OpKind::Bextr {
+            dst: rax,
+            src: rdx,
+            control: rcx,
+            width: OpWidth::W64,
+            flags: FlagUpdate::Specific(
+                FlagSet::CF.union(FlagSet::ZF).union(FlagSet::OF),
+            ),
+        });
+        assert!(
+            flagful_bextr
+                .windows(5)
+                .any(|window| window == &[0xC4, 0xE2, 0xF0, 0xF7, 0xC2]),
+            "flagful BEXTR should lower to native VEX BMI"
+        );
+        assert!(
+            !flagful_bextr.contains(&0x9C) && !flagful_bextr.contains(&0x9D),
+            "flagful BEXTR must not preserve flags around the native instruction"
+        );
+
+        let flagful_bzhi = lower_single_op(OpKind::Bzhi {
+            dst: rax,
+            src: rdx,
+            index: rcx,
+            width: OpWidth::W64,
+            flags: FlagUpdate::Specific(
+                FlagSet::CF
+                    .union(FlagSet::ZF)
+                    .union(FlagSet::SF)
+                    .union(FlagSet::OF),
+            ),
+        });
+        assert!(
+            flagful_bzhi
+                .windows(5)
+                .any(|window| window == &[0xC4, 0xE2, 0xF0, 0xF5, 0xC2]),
+            "flagful BZHI should lower to native VEX BMI"
+        );
+        assert!(
+            !flagful_bzhi.contains(&0x9C) && !flagful_bzhi.contains(&0x9D),
+            "flagful BZHI must not preserve flags around the native instruction"
+        );
+
+        let flagless_bextr = lower_single_op(OpKind::Bextr {
+            dst: rax,
+            src: rdx,
+            control: rcx,
+            width: OpWidth::W64,
+            flags: FlagUpdate::None,
+        });
+        assert!(
+            flagless_bextr
+                .windows(5)
+                .any(|window| window == &[0xC4, 0xE2, 0xF0, 0xF7, 0xC2]),
+            "flagless BEXTR should still lower to native VEX BMI"
+        );
+        assert!(
+            flagless_bextr.contains(&0x9C) && flagless_bextr.contains(&0x9D),
+            "flagless BEXTR must preserve flags around the native instruction"
+        );
+
+        let flagless_bzhi = lower_single_op(OpKind::Bzhi {
+            dst: rax,
+            src: rdx,
+            index: rcx,
+            width: OpWidth::W64,
+            flags: FlagUpdate::None,
+        });
+        assert!(
+            flagless_bzhi
+                .windows(5)
+                .any(|window| window == &[0xC4, 0xE2, 0xF0, 0xF5, 0xC2]),
+            "flagless BZHI should still lower to native VEX BMI"
+        );
+        assert!(
+            flagless_bzhi.contains(&0x9C) && flagless_bzhi.contains(&0x9D),
+            "flagless BZHI must preserve flags around the native instruction"
         );
     }
 

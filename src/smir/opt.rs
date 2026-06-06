@@ -1810,6 +1810,8 @@ impl OpKind {
             | OpKind::Rcr { flags, .. }
             | OpKind::Bsf { flags, .. }
             | OpKind::Bsr { flags, .. }
+            | OpKind::Bextr { flags, .. }
+            | OpKind::Bzhi { flags, .. }
             | OpKind::MulU { flags, .. }
             | OpKind::MulS { flags, .. } => Some(flags),
             _ => None,
@@ -1835,6 +1837,8 @@ impl OpKind {
             | OpKind::Shrd { flags, .. }
             | OpKind::Bsf { flags, .. }
             | OpKind::Bsr { flags, .. }
+            | OpKind::Bextr { flags, .. }
+            | OpKind::Bzhi { flags, .. }
             | OpKind::MulU { flags, .. }
             | OpKind::MulS { flags, .. } => flags.as_set(),
 

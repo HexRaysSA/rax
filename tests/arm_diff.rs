@@ -28,7 +28,7 @@ use std::process::{Command, Stdio};
 
 use rax::arm::{AArch64Config, AArch64Cpu, ArmCpu, CpuExit, FlatMemory};
 #[cfg(all(feature = "smir-jit", target_arch = "x86_64"))]
-use rax::smir::flags::FlagUpdate;
+use rax::smir::flags::{FlagSet, FlagUpdate};
 #[cfg(all(feature = "smir-jit", target_arch = "x86_64"))]
 use rax::smir::ir::{FunctionBuilder, SmirFunction, Terminator};
 #[cfg(all(feature = "smir-jit", target_arch = "x86_64"))]
@@ -628,6 +628,17 @@ fn enc_logical_imm_regs(
 #[cfg(all(feature = "smir-jit", target_arch = "x86_64"))]
 fn enc_logical_imm(sf: u32, opc: u32, n: u32, immr: u32, imms: u32, rn: u32) -> u32 {
     enc_logical_imm_regs(sf, opc, n, immr, imms, rn, RD)
+}
+
+#[cfg(all(feature = "smir-jit", target_arch = "x86_64"))]
+fn enc_logical_reg_n(sf: u32, opc: u32, n: u32, rd: u32, rn: u32, rm: u32) -> u32 {
+    (sf << 31)
+        | (opc << 29)
+        | (0b01010 << 24)
+        | (n << 21)
+        | ((rm & 0x1f) << 16)
+        | ((rn & 0x1f) << 5)
+        | (rd & 0x1f)
 }
 
 /// Extract: `sf 00 100111 N 0 Rm imms Rn Rd`
@@ -1665,6 +1676,21 @@ fn enc_xaflag() -> u32 {
 #[cfg(all(feature = "smir-jit", target_arch = "x86_64"))]
 fn enc_flagm(op2: u32) -> u32 {
     0xd500_401f | (op2 << 5)
+}
+
+#[cfg(all(feature = "smir-jit", target_arch = "x86_64"))]
+fn bextr_flags() -> FlagUpdate {
+    FlagUpdate::Specific(FlagSet::CF.union(FlagSet::ZF).union(FlagSet::OF))
+}
+
+#[cfg(all(feature = "smir-jit", target_arch = "x86_64"))]
+fn bzhi_flags() -> FlagUpdate {
+    FlagUpdate::Specific(
+        FlagSet::CF
+            .union(FlagSet::ZF)
+            .union(FlagSet::SF)
+            .union(FlagSet::OF),
+    )
 }
 
 #[cfg(all(feature = "smir-jit", target_arch = "x86_64"))]
@@ -4683,9 +4709,35 @@ fn smir_aarch64_native_lowering_matches_qemu_oracle() {
             src: arm_x(1),
             control: VReg::Imm((16 << 8) | 8),
             width: OpWidth::W64,
+            flags: FlagUpdate::None,
         }],
         st,
     );
+
+    let mut st = native_state();
+    st.x[0] = 0x7777_8888_9999_aaaa;
+    st.x[1] = 0xfedc_ba98_7654_3210;
+    st.pstate = 0xa000_0000;
+    let lowered = lower_aarch64_native_ops(vec![OpKind::Bextr {
+        dst: arm_x(0),
+        src: arm_x(1),
+        control: VReg::Imm((16 << 8) | 8),
+        width: OpWidth::W64,
+        flags: bextr_flags(),
+    }])
+    .unwrap_or_else(|e| {
+        panic!("bextr_x_imm_control_with_flags_sets_nzcv: native lowering failed: {e}")
+    });
+    cases.push((
+        "bextr_x_imm_control_with_flags_sets_nzcv".into(),
+        [
+            enc_bitfield(1, 0b10, 8, 23),
+            enc_logical_reg_n(1, 0b11, 0, 31, RD, RD),
+            NOP,
+        ],
+        lowered,
+        st,
+    ));
 
     let mut st = native_state();
     st.x[0] = 0xaaaa_bbbb_cccc_dddd;
@@ -4699,6 +4751,7 @@ fn smir_aarch64_native_lowering_matches_qemu_oracle() {
             src: arm_x(1),
             control: VReg::Imm((3 << 8) | 2),
             width: OpWidth::W8,
+            flags: FlagUpdate::None,
         }],
         st,
     );
@@ -4715,6 +4768,7 @@ fn smir_aarch64_native_lowering_matches_qemu_oracle() {
             src: arm_x(1),
             control: VReg::Imm((8 << 8) | 12),
             width: OpWidth::W16,
+            flags: FlagUpdate::None,
         }],
         st,
     );
@@ -4731,6 +4785,7 @@ fn smir_aarch64_native_lowering_matches_qemu_oracle() {
             src: arm_x(1),
             control: VReg::Imm((1 << 8) | 8),
             width: OpWidth::W8,
+            flags: FlagUpdate::None,
         }],
         st,
     );
@@ -4747,9 +4802,60 @@ fn smir_aarch64_native_lowering_matches_qemu_oracle() {
             src: arm_x(1),
             index: VReg::Imm(13),
             width: OpWidth::W64,
+            flags: FlagUpdate::None,
         }],
         st,
     );
+
+    let mut st = native_state();
+    st.x[0] = 0x8888_9999_aaaa_bbbb;
+    st.x[1] = 0xfedc_ba98_7654_3210;
+    st.pstate = 0x1000_0000;
+    let lowered = lower_aarch64_native_ops(vec![OpKind::Bzhi {
+        dst: arm_x(0),
+        src: arm_x(1),
+        index: VReg::Imm(13),
+        width: OpWidth::W64,
+        flags: bzhi_flags(),
+    }])
+    .unwrap_or_else(|e| {
+        panic!("bzhi_x_imm_index_with_flags_clears_carry: native lowering failed: {e}")
+    });
+    cases.push((
+        "bzhi_x_imm_index_with_flags_clears_carry".into(),
+        [
+            enc_logical_imm(1, 0b00, 1, 0, 12, RN),
+            enc_logical_reg_n(1, 0b11, 0, 31, RD, RD),
+            NOP,
+        ],
+        lowered,
+        st,
+    ));
+
+    let mut st = native_state();
+    st.x[0] = 0x3333_4444_5555_6666;
+    st.x[1] = 0x8000_0000_0000_0001;
+    st.pstate = 0x6000_0000;
+    let lowered = lower_aarch64_native_ops(vec![OpKind::Bzhi {
+        dst: arm_x(0),
+        src: arm_x(1),
+        index: VReg::Imm(64),
+        width: OpWidth::W64,
+        flags: bzhi_flags(),
+    }])
+    .unwrap_or_else(|e| {
+        panic!("bzhi_x_imm_index_with_flags_sets_carry: native lowering failed: {e}")
+    });
+    cases.push((
+        "bzhi_x_imm_index_with_flags_sets_carry".into(),
+        [
+            enc_mov_reg(1, RD, RN),
+            enc_logical_reg_n(1, 0b11, 0, 31, RD, RD),
+            enc_cfinv(),
+        ],
+        lowered,
+        st,
+    ));
 
     let mut st = native_state();
     st.x[0] = 0x9999_aaaa_bbbb_cccc;
@@ -4763,6 +4869,7 @@ fn smir_aarch64_native_lowering_matches_qemu_oracle() {
             src: arm_x(1),
             index: VReg::Imm(16),
             width: OpWidth::W16,
+            flags: FlagUpdate::None,
         }],
         st,
     );
@@ -4779,6 +4886,7 @@ fn smir_aarch64_native_lowering_matches_qemu_oracle() {
             src: arm_x(1),
             index: VReg::Imm(0),
             width: OpWidth::W8,
+            flags: FlagUpdate::None,
         }],
         st,
     );
@@ -6902,6 +7010,7 @@ fn smir_aarch64_native_lowering_matches_qemu_oracle() {
         src: arm_x(1),
         index: VReg::Imm(5),
         width: OpWidth::W8,
+        flags: FlagUpdate::None,
     }])
     .unwrap_or_else(|e| panic!("bzhi_w8_imm_index_as_and_mask_preserves_flags: native lowering failed: {e}"));
     cases.push((

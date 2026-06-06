@@ -562,6 +562,7 @@ pub enum OpKind {
         src: VReg,
         control: VReg,
         width: OpWidth,
+        flags: FlagUpdate,
     },
 
     /// Zero high bits starting at index(control[7:0]).
@@ -570,6 +571,7 @@ pub enum OpKind {
         src: VReg,
         index: VReg,
         width: OpWidth,
+        flags: FlagUpdate,
     },
 
     /// Parallel bits deposit: scatter low bits from src into selected mask bits.
