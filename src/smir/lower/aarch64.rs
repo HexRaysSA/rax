@@ -10,7 +10,8 @@ use std::collections::HashMap;
 use crate::smir::ir::{SmirBlock, SmirFunction, Terminator};
 use crate::smir::ops::{OpKind, SmirOp};
 use crate::smir::types::{
-    ArchReg, ArmReg, BlockId, Condition, ExtendOp, FenceKind, OpWidth, ShiftOp, SrcOperand, VReg,
+    Address, ArchReg, ArmReg, BlockId, Condition, ExtendOp, FenceKind, MemWidth, OpWidth,
+    ShiftOp, SignExtend, SrcOperand, VReg,
 };
 
 use super::{CodeBuffer, LowerError, LowerResult, Relocation, SmirLowerer};
@@ -66,6 +67,16 @@ impl Aarch64Lowerer {
             VReg::Arch(ArchReg::Arm(ArmReg::X(n))) if n < 31 => Ok(n),
             other => Err(LowerError::InvalidRegister(format!(
                 "AArch64 native lowerer expected writable X register, got {other:?}"
+            ))),
+        }
+    }
+
+    fn base_gpr(vreg: VReg) -> Result<u8, LowerError> {
+        match vreg {
+            VReg::Arch(ArchReg::Arm(ArmReg::X(n))) if n < 31 => Ok(n),
+            VReg::Arch(ArchReg::Arm(ArmReg::Sp)) => Ok(31),
+            other => Err(LowerError::InvalidRegister(format!(
+                "AArch64 native lowerer expected memory base register, got {other:?}"
             ))),
         }
     }
@@ -391,6 +402,29 @@ impl Aarch64Lowerer {
         Ok(())
     }
 
+    fn emit_ldst_unsigned(&mut self, rt: u8, rn: u8, size: u32, opc: u32, imm12: u32) {
+        self.emit(
+            (size << 30)
+                | (0b111 << 27)
+                | (0b01 << 24)
+                | (opc << 22)
+                | (imm12 << 10)
+                | ((rn as u32) << 5)
+                | (rt as u32),
+        );
+    }
+
+    fn emit_ldst_unscaled(&mut self, rt: u8, rn: u8, size: u32, opc: u32, imm9: i64) {
+        self.emit(
+            (size << 30)
+                | (0b111 << 27)
+                | (opc << 22)
+                | (((imm9 as u32) & 0x1ff) << 12)
+                | ((rn as u32) << 5)
+                | (rt as u32),
+        );
+    }
+
     fn emit_cond_select(
         &mut self,
         dst: u8,
@@ -483,6 +517,82 @@ impl Aarch64Lowerer {
             });
         }
         Ok(op_bits)
+    }
+
+    fn mem_size(width: MemWidth) -> Result<u32, LowerError> {
+        match width {
+            MemWidth::B1 => Ok(0),
+            MemWidth::B2 => Ok(1),
+            MemWidth::B4 => Ok(2),
+            MemWidth::B8 => Ok(3),
+            other => Err(LowerError::UnsupportedOp {
+                op: format!("AArch64 native scalar memory width {other:?}"),
+            }),
+        }
+    }
+
+    fn lower_mem_access(
+        &mut self,
+        rt: u8,
+        addr: &Address,
+        size: u32,
+        opc: u32,
+    ) -> Result<(), LowerError> {
+        let (base, offset) = match addr {
+            Address::Direct(base) => (Self::base_gpr(*base)?, 0),
+            Address::BaseOffset { base, offset, .. } => (Self::base_gpr(*base)?, *offset),
+            other => {
+                return Err(LowerError::UnsupportedOp {
+                    op: format!("AArch64 native memory address {other:?}"),
+                });
+            }
+        };
+
+        let scale = 1_i64 << size;
+        if offset >= 0 && offset % scale == 0 {
+            let imm12 = offset / scale;
+            if imm12 <= 0xfff {
+                self.emit_ldst_unsigned(rt, base, size, opc, imm12 as u32);
+                return Ok(());
+            }
+        }
+
+        if (-256..=255).contains(&offset) {
+            self.emit_ldst_unscaled(rt, base, size, opc, offset);
+            return Ok(());
+        }
+
+        Err(LowerError::InvalidOperand {
+            op: "AArch64 native memory offset".into(),
+            operand: format!("{offset:#x} for size {size}"),
+        })
+    }
+
+    fn lower_load(
+        &mut self,
+        dst: VReg,
+        addr: &Address,
+        width: MemWidth,
+        sign: SignExtend,
+    ) -> Result<(), LowerError> {
+        let rt = Self::dst_gpr(dst)?;
+        let size = Self::mem_size(width)?;
+        let opc = match (sign, width) {
+            (SignExtend::Zero, _) | (SignExtend::Sign, MemWidth::B8) => 0b01,
+            (SignExtend::Sign, MemWidth::B1 | MemWidth::B2 | MemWidth::B4) => 0b10,
+            _ => {
+                return Err(LowerError::UnsupportedOp {
+                    op: format!("AArch64 native signed load width {width:?}"),
+                });
+            }
+        };
+        self.lower_mem_access(rt, addr, size, opc)
+    }
+
+    fn lower_store(&mut self, src: VReg, addr: &Address, width: MemWidth) -> Result<(), LowerError> {
+        let rt = Self::gpr(src)?;
+        let size = Self::mem_size(width)?;
+        self.lower_mem_access(rt, addr, size, 0b00)
     }
 
     fn lower_mov(&mut self, dst: VReg, src: &SrcOperand, width: OpWidth) -> Result<(), LowerError> {
@@ -2036,6 +2146,13 @@ impl Aarch64Lowerer {
                 src2,
                 width,
             } => self.lower_div(*quot, *rem, *src1, src2, *width, true),
+            OpKind::Load {
+                dst,
+                addr,
+                width,
+                sign,
+            } => self.lower_load(*dst, addr, *width, *sign),
+            OpKind::Store { src, addr, width } => self.lower_store(*src, addr, *width),
             OpKind::Not { dst, src, width } => self.lower_not(*dst, *src, *width),
             OpKind::Cmp { src1, src2, width } => self.lower_cmp(*src1, src2, *width),
             OpKind::Test { src1, src2, width } => self.lower_test(*src1, src2, *width),
