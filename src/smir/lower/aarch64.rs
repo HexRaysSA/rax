@@ -2031,6 +2031,14 @@ impl Aarch64Lowerer {
             });
         }
 
+        if width == OpWidth::W16 {
+            let dst = Self::dst_gpr(dst)?;
+            self.emit_bitfield(dst, Self::gpr(src)?, 0b10, 0, 15, OpWidth::W32)?;
+            self.emit_orr_imm_one(dst, dst, OpWidth::W32)?;
+            self.emit_dp1(dst, dst, 0b000100, OpWidth::W32)?;
+            return self.emit_logic_imm(dst, dst, 0b10, 0, 0, 4, OpWidth::W32);
+        }
+
         let mask_imms = match width {
             OpWidth::W32 => 4,
             OpWidth::W64 => 5,
@@ -8345,7 +8353,7 @@ mod tests {
     }
 
     #[test]
-    fn rejects_bsr_w16_partial_width_lowering() {
+    fn lowers_bsr_w16_as_ubfx_orr_clz_eor_mask() {
         let mut builder = FunctionBuilder::new(FunctionId(0), 0);
         builder.push_op(
             0,
@@ -8360,8 +8368,16 @@ mod tests {
         let func = builder.finish();
 
         let mut lowerer = Aarch64Lowerer::new();
-        let err = lowerer.lower_function(&func).unwrap_err();
-        assert!(matches!(err, LowerError::UnsupportedOp { .. }));
+        lowerer.lower_function(&func).unwrap();
+        let code = lowerer.finalize().unwrap();
+
+        let mut expected = Vec::new();
+        expected.extend_from_slice(&enc_bitfield_regs(0, 0b10, 0, 15, 1, 0).to_le_bytes());
+        expected.extend_from_slice(&enc_logical_imm(0, 0b01, 0, 0, 0, 0, 0).to_le_bytes());
+        expected.extend_from_slice(&enc_dp1_regs(0, 0b000100, 0, 0).to_le_bytes());
+        expected.extend_from_slice(&enc_logical_imm(0, 0b10, 0, 0, 4, 0, 0).to_le_bytes());
+        expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
+        assert_eq!(code, expected);
     }
 
     #[test]
