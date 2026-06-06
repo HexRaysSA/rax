@@ -4752,6 +4752,38 @@ fn smir_aarch64_native_lowering_matches_qemu_oracle() {
     );
 
     let mut st = native_state();
+    st.x[0] = 0x9999_aaaa_bbbb_cccc;
+    st.x[1] = 0xffff_ffff_0000_f234;
+    st.pstate = 0xb000_0000;
+    push_case(
+        "bzhi_w16_imm_index_at_width_as_uxth_preserves_flags",
+        enc_bitfield(0, 0b10, 0, 15),
+        vec![OpKind::Bzhi {
+            dst: arm_x(0),
+            src: arm_x(1),
+            index: VReg::Imm(16),
+            width: OpWidth::W16,
+        }],
+        st,
+    );
+
+    let mut st = native_state();
+    st.x[0] = 0xaaaa_bbbb_cccc_dddd;
+    st.x[1] = 0xffff_ffff_ffff_00ff;
+    st.pstate = 0x7000_0000;
+    push_case(
+        "bzhi_w8_imm_index_zero_as_zero_preserves_flags",
+        enc_mov_wide(0, 0b10, 0, 0),
+        vec![OpKind::Bzhi {
+            dst: arm_x(0),
+            src: arm_x(1),
+            index: VReg::Imm(0),
+            width: OpWidth::W8,
+        }],
+        st,
+    );
+
+    let mut st = native_state();
     st.x[0] = 0x5555_6666_7777_8888;
     st.x[1] = 0xffff_ffff_0000_08f0;
     st.pstate = 0x4000_0000;
@@ -6527,6 +6559,28 @@ fn smir_aarch64_native_lowering_matches_qemu_oracle() {
         "andnot_w8_imm_as_and_inverse_uxtb_preserves_flags".into(),
         [
             enc_logical_imm(0, 0b00, 0, 0, 3, RN),
+            enc_bitfield_regs(0, 0b10, 0, 7, RD, RD),
+            NOP,
+        ],
+        lowered,
+        st,
+    ));
+
+    let mut st = native_state();
+    st.x[0] = 0x6666_7777_8888_9999;
+    st.x[1] = 0xffff_ffff_ffff_00f7;
+    st.pstate = 0xd000_0000;
+    let lowered = lower_aarch64_native_ops(vec![OpKind::Bzhi {
+        dst: arm_x(0),
+        src: arm_x(1),
+        index: VReg::Imm(5),
+        width: OpWidth::W8,
+    }])
+    .unwrap_or_else(|e| panic!("bzhi_w8_imm_index_as_and_mask_preserves_flags: native lowering failed: {e}"));
+    cases.push((
+        "bzhi_w8_imm_index_as_and_mask_preserves_flags".into(),
+        [
+            enc_logical_imm(0, 0b00, 0, 0, 4, RN),
             enc_bitfield_regs(0, 0b10, 0, 7, RD, RD),
             NOP,
         ],

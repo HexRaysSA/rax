@@ -2593,9 +2593,8 @@ impl Aarch64Lowerer {
         index: VReg,
         width: OpWidth,
     ) -> Result<(), LowerError> {
-        let (bits, guard_bits): (u32, &[u32]) = match width {
-            OpWidth::W32 => (32, &[5, 6, 7]),
-            OpWidth::W64 => (64, &[6, 7]),
+        let bits = match width {
+            OpWidth::W8 | OpWidth::W16 | OpWidth::W32 | OpWidth::W64 => width.bits(),
             other => {
                 return Err(LowerError::UnsupportedOp {
                     op: format!("AArch64 native Bzhi width {other:?}"),
@@ -2605,21 +2604,44 @@ impl Aarch64Lowerer {
         if let VReg::Imm(value) = index {
             let index = ((value as u64) & 0xff) as u32;
             let dst_reg = Self::dst_gpr(dst)?;
+            let emit_width = if width == OpWidth::W64 {
+                OpWidth::W64
+            } else {
+                OpWidth::W32
+            };
             if index == 0 {
-                return self.emit_mov_imm(dst_reg, 0, width);
+                return self.emit_mov_imm(dst_reg, 0, emit_width);
             }
             if index >= bits {
-                return self.emit_mov_reg(dst_reg, Self::gpr(src)?, width);
+                return match width {
+                    OpWidth::W8 | OpWidth::W16 => {
+                        self.lower_bfx(dst, src, 0, bits as u8, false, OpWidth::W32)
+                    }
+                    OpWidth::W32 | OpWidth::W64 => {
+                        self.emit_mov_reg(dst_reg, Self::gpr(src)?, emit_width)
+                    }
+                    _ => unreachable!(),
+                };
             }
 
             let mask = (1_u64 << index) - 1;
             let mask = match width {
-                OpWidth::W32 => SrcOperand::Imm(mask as u32 as i64),
+                OpWidth::W8 | OpWidth::W16 | OpWidth::W32 => SrcOperand::Imm(mask as u32 as i64),
                 OpWidth::W64 => SrcOperand::Imm64(mask as i64),
                 _ => unreachable!(),
             };
             return self.lower_logic(dst, src, &mask, 0b00, false, false, width);
         }
+
+        let guard_bits: &[u32] = match width {
+            OpWidth::W32 => &[5, 6, 7],
+            OpWidth::W64 => &[6, 7],
+            other => {
+                return Err(LowerError::UnsupportedOp {
+                    op: format!("AArch64 native register-index Bzhi width {other:?}"),
+                });
+            }
+        };
 
         let dst = Self::dst_gpr(dst)?;
         let src = Self::gpr(src)?;
@@ -9185,6 +9207,82 @@ mod tests {
 
         let mut expected = Vec::new();
         expected.extend_from_slice(&enc_mov_wide(1, 0b10, 0, 0, 0).to_le_bytes());
+        expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
+        assert_eq!(code, expected);
+    }
+
+    #[test]
+    fn lowers_bzhi_w8_imm_index_as_and_mask() {
+        let mut builder = FunctionBuilder::new(FunctionId(0), 0);
+        builder.push_op(
+            0,
+            OpKind::Bzhi {
+                dst: x(0),
+                src: x(1),
+                index: VReg::Imm(5),
+                width: OpWidth::W8,
+            },
+        );
+        builder.set_terminator(Terminator::Return { values: vec![] });
+        let func = builder.finish();
+
+        let mut lowerer = Aarch64Lowerer::new();
+        lowerer.lower_function(&func).unwrap();
+        let code = lowerer.finalize().unwrap();
+
+        let mut expected = Vec::new();
+        expected.extend_from_slice(&enc_logical_imm(0, 0b00, 0, 0, 4, 0, 1).to_le_bytes());
+        expected.extend_from_slice(&enc_bitfield_regs(0, 0b10, 0, 7, 0, 0).to_le_bytes());
+        expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
+        assert_eq!(code, expected);
+    }
+
+    #[test]
+    fn lowers_bzhi_w16_imm_index_at_width_as_uxth() {
+        let mut builder = FunctionBuilder::new(FunctionId(0), 0);
+        builder.push_op(
+            0,
+            OpKind::Bzhi {
+                dst: x(0),
+                src: x(1),
+                index: VReg::Imm(16),
+                width: OpWidth::W16,
+            },
+        );
+        builder.set_terminator(Terminator::Return { values: vec![] });
+        let func = builder.finish();
+
+        let mut lowerer = Aarch64Lowerer::new();
+        lowerer.lower_function(&func).unwrap();
+        let code = lowerer.finalize().unwrap();
+
+        let mut expected = Vec::new();
+        expected.extend_from_slice(&enc_bitfield_regs(0, 0b10, 0, 15, 1, 0).to_le_bytes());
+        expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
+        assert_eq!(code, expected);
+    }
+
+    #[test]
+    fn lowers_bzhi_w8_imm_index_zero_as_zero() {
+        let mut builder = FunctionBuilder::new(FunctionId(0), 0);
+        builder.push_op(
+            0,
+            OpKind::Bzhi {
+                dst: x(0),
+                src: x(1),
+                index: VReg::Imm(0),
+                width: OpWidth::W8,
+            },
+        );
+        builder.set_terminator(Terminator::Return { values: vec![] });
+        let func = builder.finish();
+
+        let mut lowerer = Aarch64Lowerer::new();
+        lowerer.lower_function(&func).unwrap();
+        let code = lowerer.finalize().unwrap();
+
+        let mut expected = Vec::new();
+        expected.extend_from_slice(&enc_mov_wide(0, 0b10, 0, 0, 0).to_le_bytes());
         expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
         assert_eq!(code, expected);
     }
