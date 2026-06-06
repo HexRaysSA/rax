@@ -260,6 +260,47 @@ impl Aarch64Lowerer {
         Ok(())
     }
 
+    fn emit_dp1(
+        &mut self,
+        dst: u8,
+        rn: u8,
+        opcode: u32,
+        width: OpWidth,
+    ) -> Result<(), LowerError> {
+        let sf = Self::sf(width)?;
+        self.emit(
+            (sf << 31)
+                | (0b1011010110 << 21)
+                | (opcode << 10)
+                | ((rn as u32) << 5)
+                | (dst as u32),
+        );
+        Ok(())
+    }
+
+    fn bitfield_args(
+        op: &str,
+        lsb: u8,
+        width_bits: u8,
+        op_width: OpWidth,
+    ) -> Result<u32, LowerError> {
+        Self::sf(op_width)?;
+        let op_bits = op_width.bits();
+        if width_bits == 0
+            || u32::from(lsb) >= op_bits
+            || u32::from(width_bits) > op_bits
+            || u32::from(lsb) + u32::from(width_bits) > op_bits
+        {
+            return Err(LowerError::InvalidOperand {
+                op: op.into(),
+                operand: format!(
+                    "lsb={lsb}, width_bits={width_bits}, op_width={op_width:?}"
+                ),
+            });
+        }
+        Ok(op_bits)
+    }
+
     fn lower_mov(&mut self, dst: VReg, src: &SrcOperand, width: OpWidth) -> Result<(), LowerError> {
         let dst = Self::dst_gpr(dst)?;
         match src {
@@ -390,6 +431,123 @@ impl Aarch64Lowerer {
             0b11,
             false,
             width,
+        )
+    }
+
+    fn lower_clz(&mut self, dst: VReg, src: VReg, width: OpWidth) -> Result<(), LowerError> {
+        self.emit_dp1(Self::dst_gpr(dst)?, Self::gpr(src)?, 0b000100, width)
+    }
+
+    fn lower_rbit(&mut self, dst: VReg, src: VReg, width: OpWidth) -> Result<(), LowerError> {
+        self.emit_dp1(Self::dst_gpr(dst)?, Self::gpr(src)?, 0b000000, width)
+    }
+
+    fn lower_bswap(&mut self, dst: VReg, src: VReg, width: OpWidth) -> Result<(), LowerError> {
+        let opcode = match width {
+            OpWidth::W32 => 0b000010,
+            OpWidth::W64 => 0b000011,
+            other => {
+                return Err(LowerError::UnsupportedOp {
+                    op: format!("AArch64 native Bswap width {other:?}"),
+                });
+            }
+        };
+        self.emit_dp1(Self::dst_gpr(dst)?, Self::gpr(src)?, opcode, width)
+    }
+
+    fn lower_bfx(
+        &mut self,
+        dst: VReg,
+        src: VReg,
+        lsb: u8,
+        width_bits: u8,
+        sign_extend: bool,
+        op_width: OpWidth,
+    ) -> Result<(), LowerError> {
+        Self::bitfield_args("Bfx", lsb, width_bits, op_width)?;
+        let opc = if sign_extend { 0b00 } else { 0b10 };
+        self.emit_bitfield(
+            Self::dst_gpr(dst)?,
+            Self::gpr(src)?,
+            opc,
+            u32::from(lsb),
+            u32::from(lsb + width_bits - 1),
+            op_width,
+        )
+    }
+
+    fn lower_bfi(
+        &mut self,
+        dst: VReg,
+        dst_in: VReg,
+        src: VReg,
+        lsb: u8,
+        width_bits: u8,
+        op_width: OpWidth,
+    ) -> Result<(), LowerError> {
+        let op_bits = Self::bitfield_args("Bfi", lsb, width_bits, op_width)?;
+        let dst = Self::dst_gpr(dst)?;
+        let dst_in = Self::gpr(dst_in)?;
+        let src = Self::gpr(src)?;
+
+        if u32::from(width_bits) == op_bits && lsb == 0 {
+            return self.emit_mov_reg(dst, src, op_width);
+        }
+        if dst != dst_in {
+            if dst == src {
+                return Err(LowerError::UnsupportedOp {
+                    op: "AArch64 native Bfi needs a scratch when dst != dst_in and dst == src"
+                        .into(),
+                });
+            }
+            self.emit_mov_reg(dst, dst_in, op_width)?;
+        }
+
+        let immr = if lsb == 0 {
+            0
+        } else {
+            op_bits - u32::from(lsb)
+        };
+        self.emit_bitfield(
+            dst,
+            src,
+            0b01,
+            immr,
+            u32::from(width_bits - 1),
+            op_width,
+        )
+    }
+
+    fn lower_extend(
+        &mut self,
+        dst: VReg,
+        src: VReg,
+        from_width: OpWidth,
+        to_width: OpWidth,
+        sign_extend: bool,
+    ) -> Result<(), LowerError> {
+        let from_bits = from_width.bits();
+        let to_bits = to_width.bits();
+        if from_bits > to_bits || !matches!(to_width, OpWidth::W32 | OpWidth::W64) {
+            return Err(LowerError::UnsupportedOp {
+                op: format!(
+                    "AArch64 native extend from {from_width:?} to {to_width:?}"
+                ),
+            });
+        }
+
+        let dst = Self::dst_gpr(dst)?;
+        let src = Self::gpr(src)?;
+        if from_bits == to_bits {
+            return self.emit_mov_reg(dst, src, to_width);
+        }
+        self.emit_bitfield(
+            dst,
+            src,
+            if sign_extend { 0b00 } else { 0b10 },
+            0,
+            from_bits - 1,
+            to_width,
         )
     }
 
@@ -563,6 +721,37 @@ impl Aarch64Lowerer {
             OpKind::Not { dst, src, width } => self.lower_not(*dst, *src, *width),
             OpKind::Cmp { src1, src2, width } => self.lower_cmp(*src1, src2, *width),
             OpKind::Test { src1, src2, width } => self.lower_test(*src1, src2, *width),
+            OpKind::Clz { dst, src, width } => self.lower_clz(*dst, *src, *width),
+            OpKind::Bswap { dst, src, width } => self.lower_bswap(*dst, *src, *width),
+            OpKind::Rbit { dst, src, width } => self.lower_rbit(*dst, *src, *width),
+            OpKind::Bfx {
+                dst,
+                src,
+                lsb,
+                width_bits,
+                sign_extend,
+                op_width,
+            } => self.lower_bfx(*dst, *src, *lsb, *width_bits, *sign_extend, *op_width),
+            OpKind::Bfi {
+                dst,
+                dst_in,
+                src,
+                lsb,
+                width_bits,
+                op_width,
+            } => self.lower_bfi(*dst, *dst_in, *src, *lsb, *width_bits, *op_width),
+            OpKind::ZeroExtend {
+                dst,
+                src,
+                from_width,
+                to_width,
+            } => self.lower_extend(*dst, *src, *from_width, *to_width, false),
+            OpKind::SignExtend {
+                dst,
+                src,
+                from_width,
+                to_width,
+            } => self.lower_extend(*dst, *src, *from_width, *to_width, true),
             OpKind::Shl {
                 dst,
                 src,
