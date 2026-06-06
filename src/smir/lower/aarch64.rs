@@ -2880,49 +2880,202 @@ impl Aarch64Lowerer {
         };
         let op = if deposit { "Pdep" } else { "Pext" };
 
-        let mask = match mask {
-            VReg::Imm(value) => (value as u64) & width.mask(),
-            other => {
-                return Err(LowerError::UnsupportedOp {
-                    op: format!("AArch64 native {op} runtime mask {other:?} needs scratch regs"),
-                });
-            }
+        let mask_imm = match mask {
+            VReg::Imm(value) => Some((value as u64) & width.mask()),
+            _ => None,
         };
 
         if let VReg::Imm(value) = src {
-            let src = (value as u64) & width.mask();
-            let result = if deposit {
-                Self::eval_pdep(src, mask, bits)
-            } else {
-                Self::eval_pext(src, mask, bits)
-            };
-            return self.emit_mov_imm(Self::dst_gpr(dst)?, result as i64, emit_width);
-        }
-
-        if mask == 0 {
-            return self.emit_mov_imm(Self::dst_gpr(dst)?, 0, emit_width);
-        }
-
-        let Some((lsb, width_bits)) = Self::contiguous_bitfield(mask) else {
-            let dst_reg = Self::dst_gpr(dst)?;
-            let src_reg = Self::gpr(src)?;
-            if dst_reg == src_reg {
-                return Err(LowerError::UnsupportedOp {
-                    op: format!("AArch64 native {op} non-contiguous immediate mask needs dst != src"),
-                });
+            if let Some(mask) = mask_imm {
+                let src = (value as u64) & width.mask();
+                let result = if deposit {
+                    Self::eval_pdep(src, mask, bits)
+                } else {
+                    Self::eval_pext(src, mask, bits)
+                };
+                return self.emit_mov_imm(Self::dst_gpr(dst)?, result as i64, emit_width);
             }
-            return if deposit {
-                self.lower_pdep_const_mask(dst_reg, src_reg, mask, bits, emit_width)
-            } else {
-                self.lower_pext_const_mask(dst_reg, src_reg, mask, bits, emit_width)
+        }
+
+        if let Some(mask) = mask_imm {
+            if mask == 0 {
+                return self.emit_mov_imm(Self::dst_gpr(dst)?, 0, emit_width);
+            }
+
+            let Some((lsb, width_bits)) = Self::contiguous_bitfield(mask) else {
+                let dst_reg = Self::dst_gpr(dst)?;
+                let src_reg = Self::gpr(src)?;
+                if dst_reg == src_reg {
+                    return Err(LowerError::UnsupportedOp {
+                        op: format!(
+                            "AArch64 native {op} non-contiguous immediate mask needs dst != src"
+                        ),
+                    });
+                }
+                return if deposit {
+                    self.lower_pdep_const_mask(dst_reg, src_reg, mask, bits, emit_width)
+                } else {
+                    self.lower_pext_const_mask(dst_reg, src_reg, mask, bits, emit_width)
+                };
             };
-        };
+
+            return if deposit {
+                self.lower_bitfield_insert_zero(dst, src, lsb, width_bits, false, emit_width)
+            } else {
+                self.lower_bfx(dst, src, lsb, width_bits, false, emit_width)
+            };
+        }
 
         if deposit {
-            self.lower_bitfield_insert_zero(dst, src, lsb, width_bits, false, emit_width)
+            self.lower_pdep_runtime_mask(dst, src, mask, bits, width, emit_width)
         } else {
-            self.lower_bfx(dst, src, lsb, width_bits, false, emit_width)
+            self.lower_pext_runtime_mask(dst, src, mask, bits, width, emit_width)
         }
+    }
+
+    fn emit_pdep_pext_operand(
+        &mut self,
+        dst: u8,
+        value: VReg,
+        width: OpWidth,
+        emit_width: OpWidth,
+    ) -> Result<(), LowerError> {
+        match value {
+            VReg::Imm(value) => self.emit_mov_imm(
+                dst,
+                ((value as u64) & width.mask()) as i64,
+                emit_width,
+            ),
+            _ => {
+                let src = Self::gpr(value)?;
+                match width {
+                    OpWidth::W8 | OpWidth::W16 => {
+                        self.emit_bitfield(dst, src, 0b10, 0, width.bits() - 1, OpWidth::W32)
+                    }
+                    OpWidth::W32 | OpWidth::W64 => self.emit_mov_reg(dst, src, emit_width),
+                    other => Err(LowerError::UnsupportedOp {
+                        op: format!("AArch64 native PDEP/PEXT width {other:?}"),
+                    }),
+                }
+            }
+        }
+    }
+
+    fn emit_finish_pdep_pext_value(
+        &mut self,
+        dst: u8,
+        src: u8,
+        width: OpWidth,
+        emit_width: OpWidth,
+    ) -> Result<(), LowerError> {
+        match width {
+            OpWidth::W8 | OpWidth::W16 => {
+                self.emit_bitfield(dst, src, 0b10, 0, width.bits() - 1, OpWidth::W32)
+            }
+            OpWidth::W32 | OpWidth::W64 => self.emit_mov_reg(dst, src, emit_width),
+            other => Err(LowerError::UnsupportedOp {
+                op: format!("AArch64 native PDEP/PEXT width {other:?}"),
+            }),
+        }
+    }
+
+    fn lower_pdep_runtime_mask(
+        &mut self,
+        dst: VReg,
+        src: VReg,
+        mask: VReg,
+        bits: u32,
+        width: OpWidth,
+        emit_width: OpWidth,
+    ) -> Result<(), LowerError> {
+        let dst_reg = Self::dst_gpr(dst)?;
+        let src_reg = match src {
+            VReg::Imm(_) => None,
+            _ => Some(Self::gpr(src)?),
+        };
+        let mask_reg = Self::gpr(mask)?;
+        let mut avoid = vec![dst_reg, mask_reg];
+        if let Some(src_reg) = src_reg {
+            avoid.push(src_reg);
+        }
+        let scratches = Self::scratch_regs(&avoid, 3)?;
+        let result = scratches[0];
+        let src_work = scratches[1];
+        let mask_work = scratches[2];
+        self.emit_scratch_save(&scratches);
+
+        self.emit_pdep_pext_operand(src_work, src, width, emit_width)?;
+        self.emit_pdep_pext_operand(mask_work, mask, width, emit_width)?;
+        self.emit_mov_imm(result, 0, emit_width)?;
+
+        let result_v = Self::arm_x_reg(result);
+        for out_bit in 0..bits {
+            let skip_mask = self.code.position();
+            self.emit_test_branch(mask_work, out_bit, false, 0)?;
+            let skip_src = self.code.position();
+            self.emit_test_branch(src_work, 0, false, 0)?;
+            self.lower_logic(
+                result_v,
+                result_v,
+                &Self::single_bit_operand(out_bit, emit_width),
+                0b01,
+                false,
+                false,
+                emit_width,
+            )?;
+            self.patch_test_branch_to_current(skip_src, src_work, 0, false)?;
+            self.emit_extract(src_work, 31, src_work, 1, emit_width)?;
+            self.patch_test_branch_to_current(skip_mask, mask_work, out_bit, false)?;
+        }
+
+        self.emit_finish_pdep_pext_value(dst_reg, result, width, emit_width)?;
+        self.emit_scratch_restore(&scratches);
+        Ok(())
+    }
+
+    fn lower_pext_runtime_mask(
+        &mut self,
+        dst: VReg,
+        src: VReg,
+        mask: VReg,
+        bits: u32,
+        width: OpWidth,
+        emit_width: OpWidth,
+    ) -> Result<(), LowerError> {
+        let dst_reg = Self::dst_gpr(dst)?;
+        let src_reg = match src {
+            VReg::Imm(_) => None,
+            _ => Some(Self::gpr(src)?),
+        };
+        let mask_reg = Self::gpr(mask)?;
+        let mut avoid = vec![dst_reg, mask_reg];
+        if let Some(src_reg) = src_reg {
+            avoid.push(src_reg);
+        }
+        let scratches = Self::scratch_regs(&avoid, 3)?;
+        let result = scratches[0];
+        let src_work = scratches[1];
+        let mask_work = scratches[2];
+        self.emit_scratch_save(&scratches);
+
+        self.emit_pdep_pext_operand(src_work, src, width, emit_width)?;
+        self.emit_pdep_pext_operand(mask_work, mask, width, emit_width)?;
+        self.emit_mov_imm(result, 0, emit_width)?;
+
+        for src_bit in (0..bits).rev() {
+            let skip_mask = self.code.position();
+            self.emit_test_branch(mask_work, src_bit, false, 0)?;
+            self.emit_addsub_reg(result, result, result, false, false, emit_width)?;
+            let skip_src = self.code.position();
+            self.emit_test_branch(src_work, src_bit, false, 0)?;
+            self.emit_orr_imm_one(result, result, emit_width)?;
+            self.patch_test_branch_to_current(skip_src, src_work, src_bit, false)?;
+            self.patch_test_branch_to_current(skip_mask, mask_work, src_bit, false)?;
+        }
+
+        self.emit_finish_pdep_pext_value(dst_reg, result, width, emit_width)?;
+        self.emit_scratch_restore(&scratches);
+        Ok(())
     }
 
     fn eval_pdep(src: u64, mask: u64, bits: u32) -> u64 {
@@ -2996,7 +3149,7 @@ impl Aarch64Lowerer {
         }
 
         Err(LowerError::UnsupportedOp {
-            op: format!("AArch64 native carry rotate needs {count} scratch registers"),
+            op: format!("AArch64 native lowering needs {count} scratch registers"),
         })
     }
 
@@ -7010,6 +7163,74 @@ mod tests {
         assert_eq!(out[17], 0x1717_1717_1717_1717, "{label}: x17 restored");
         assert_eq!(out[15], 0x1515_1515_1515_1515, "{label}: x15 restored");
         assert_eq!(out[14], 0x1414_1414_1414_1414, "{label}: x14 restored");
+    }
+
+    fn assert_pdep_pext_runtime_mask_lowering(
+        label: &str,
+        deposit: bool,
+        src_reg: Option<u8>,
+        src_value: u64,
+        mask_reg: u8,
+        mask_value: u64,
+        width: OpWidth,
+        dst_reg: u8,
+    ) {
+        let src = src_reg
+            .map(x)
+            .unwrap_or_else(|| VReg::Imm(src_value as i64));
+        let op = if deposit {
+            OpKind::Pdep {
+                dst: x(dst_reg),
+                src,
+                mask: x(mask_reg),
+                width,
+            }
+        } else {
+            OpKind::Pext {
+                dst: x(dst_reg),
+                src,
+                mask: x(mask_reg),
+                width,
+            }
+        };
+        let code = lower_single_op(op);
+        let expected = if deposit {
+            Aarch64Lowerer::eval_pdep(src_value & width_mask(width), mask_value, width.bits())
+        } else {
+            Aarch64Lowerer::eval_pext(src_value & width_mask(width), mask_value, width.bits())
+        } & width_mask(width);
+
+        let sentinels = [
+            (16, 0x1616_1616_1616_1616),
+            (17, 0x1717_1717_1717_1717),
+            (15, 0x1515_1515_1515_1515),
+            (14, 0x1414_1414_1414_1414),
+        ];
+        let mut regs = sentinels.to_vec();
+        if let Some(src_reg) = src_reg {
+            regs.push((src_reg, src_value));
+        }
+        regs.push((mask_reg, mask_value));
+
+        let old_nzcv = 0b1011;
+        let (out, out_nzcv, sp) = run_aarch64_code(&code, &regs, old_nzcv);
+        assert_eq!(out[dst_reg as usize], expected, "{label}: result");
+        assert_eq!(out_nzcv, old_nzcv, "{label}: NZCV preserved");
+        assert_eq!(sp, 0x8000, "{label}: stack restored");
+
+        if let Some(src_reg) = src_reg {
+            if src_reg != dst_reg {
+                assert_eq!(out[src_reg as usize], src_value, "{label}: src preserved");
+            }
+        }
+        if mask_reg != dst_reg {
+            assert_eq!(out[mask_reg as usize], mask_value, "{label}: mask preserved");
+        }
+        for (reg, value) in sentinels {
+            if Some(reg) != src_reg && reg != mask_reg && reg != dst_reg {
+                assert_eq!(out[reg as usize], value, "{label}: x{reg} restored");
+            }
+        }
     }
 
     fn enc_ldst_simm(size: u32, opc: u32, mode: u32, imm9: i64) -> u32 {
@@ -11253,26 +11474,92 @@ mod tests {
     }
 
     #[test]
-    fn rejects_pdep_pext_runtime_masks_and_non_contiguous_source_aliases() {
+    fn lowers_pdep_pext_runtime_masks_with_exact_results() {
+        assert_pdep_pext_runtime_mask_lowering(
+            "pdep_x_sparse_runtime_mask",
+            true,
+            Some(1),
+            0b1011_0110,
+            2,
+            0x8040_0101_0000_1021,
+            OpWidth::W64,
+            0,
+        );
+        assert_pdep_pext_runtime_mask_lowering(
+            "pdep_x_full_runtime_mask_copies_high_bit",
+            true,
+            Some(1),
+            0x8000_0000_0000_0001,
+            2,
+            u64::MAX,
+            OpWidth::W64,
+            0,
+        );
+        assert_pdep_pext_runtime_mask_lowering(
+            "pext_x_sparse_runtime_mask_dst_aliases_src",
+            false,
+            Some(1),
+            0xf0f1_2233_4455_6677,
+            2,
+            0x0101_0101_8000_001f,
+            OpWidth::W64,
+            1,
+        );
+        assert_pdep_pext_runtime_mask_lowering(
+            "pext_x_full_runtime_mask_reconstructs_high_bit",
+            false,
+            Some(1),
+            0x8000_0000_0000_0001,
+            2,
+            u64::MAX,
+            OpWidth::W64,
+            0,
+        );
+        assert_pdep_pext_runtime_mask_lowering(
+            "pdep_w_runtime_mask_dst_aliases_mask",
+            true,
+            Some(1),
+            0xffff_0001,
+            2,
+            0x8080_00f1,
+            OpWidth::W32,
+            2,
+        );
+        assert_pdep_pext_runtime_mask_lowering(
+            "pext_x_zero_runtime_mask_dst_aliases_mask",
+            false,
+            Some(1),
+            0xffff_ffff_ffff_ffff,
+            2,
+            0,
+            OpWidth::W64,
+            2,
+        );
+        assert_pdep_pext_runtime_mask_lowering(
+            "pext_x_immediate_source_runtime_mask",
+            false,
+            None,
+            0xdead_beef_1234_5678,
+            2,
+            0x00ff_000f_f000_00ff,
+            OpWidth::W64,
+            0,
+        );
+        assert_pdep_pext_runtime_mask_lowering(
+            "pext_h_runtime_mask_masks_subword_inputs",
+            false,
+            Some(1),
+            0xffff_1234,
+            2,
+            0xa55a,
+            OpWidth::W16,
+            0,
+        );
+    }
+
+    #[test]
+    fn rejects_pdep_pext_non_contiguous_imm_mask_source_aliases() {
         for (name, kind) in [
-            (
-                "pdep runtime mask",
-                OpKind::Pdep {
-                    dst: x(0),
-                    src: x(1),
-                    mask: x(2),
-                    width: OpWidth::W64,
-                },
-            ),
-            (
-                "pext runtime mask",
-                OpKind::Pext {
-                    dst: x(0),
-                    src: x(1),
-                    mask: x(2),
-                    width: OpWidth::W64,
-                },
-            ),
             (
                 "pdep dst aliases source",
                 OpKind::Pdep {
