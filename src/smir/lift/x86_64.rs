@@ -2222,6 +2222,39 @@ impl X86_64Lifter {
         ))
     }
 
+    /// Lift XCHG r/m, r (86/87).
+    fn lift_xchg_rm_r(
+        &self,
+        opcode: u8,
+        bytes: &[u8],
+        prefix: &X86Prefix,
+        pc: u64,
+    ) -> Result<LiftResult, LiftError> {
+        let is_byte = opcode == 0x86;
+        let op_size = if is_byte { 1 } else { prefix.op_size() };
+        let width = self.size_to_width(op_size);
+        let modrm = decode_modrm(bytes, prefix, pc)?;
+        if modrm.is_memory {
+            return Err(LiftError::Unsupported {
+                addr: pc,
+                mnemonic: "XCHG memory requires atomic exchange".to_string(),
+            });
+        }
+
+        Ok(LiftResult::fallthrough(
+            vec![SmirOp::new(
+                OpId(0),
+                pc,
+                OpKind::Xchg {
+                    reg1: self.gpr(modrm.rm),
+                    reg2: self.gpr(modrm.reg),
+                    width,
+                },
+            )],
+            prefix.cursor + modrm.bytes_consumed,
+        ))
+    }
+
     /// Lift SSE MOVDQA/MOVDQU (0F 6F/7F with prefixes)
     fn lift_sse_mov(
         &self,
@@ -8017,6 +8050,15 @@ impl X86_64Lifter {
                 pc,
                 ctx,
             ),
+            0x86 | 0x87 => self.lift_xchg_rm_r(
+                opcode,
+                after_opcode,
+                &X86Prefix {
+                    cursor: prefix.cursor + 1,
+                    ..prefix
+                },
+                pc,
+            ),
             0xC6 | 0xC7 => self.lift_mov_rm_imm(
                 opcode,
                 after_opcode,
@@ -10680,6 +10722,61 @@ mod tests {
             }
             other => panic!("expected one final alias CMPXCHG write, got {other:?}"),
         }
+    }
+
+    #[test]
+    fn lift_rex2_xchg_registers_like_llvm() {
+        let mut lifter = X86_64Lifter::strict();
+        let mut ctx = LiftContext::new(SourceArch::X86_64);
+
+        for (bytes, name, reg1, reg2) in [
+            (
+                [0xD5, 0x58, 0x87, 0xC1],
+                "xchg_r16_r17",
+                x86_gpr(17),
+                x86_gpr(16),
+            ),
+            (
+                [0xD5, 0x5D, 0x87, 0xC7],
+                "xchg_r24_r31",
+                x86_gpr(31),
+                x86_gpr(24),
+            ),
+        ] {
+            let result = lifter.lift_insn(0x1000, &bytes, &mut ctx).unwrap();
+            assert_eq!(result.bytes_consumed, 4, "{name}");
+            assert_eq!(result.ops.len(), 1, "{name}");
+            match &result.ops[0].kind {
+                OpKind::Xchg {
+                    reg1: got_reg1,
+                    reg2: got_reg2,
+                    width: OpWidth::W64,
+                } => {
+                    assert_eq!(*got_reg1, reg1, "{name}");
+                    assert_eq!(*got_reg2, reg2, "{name}");
+                }
+                other => panic!("expected REX2 {name} Xchg, got {other:?}"),
+            }
+        }
+    }
+
+    #[test]
+    fn lift_rex2_xchg_memory_requires_atomic_exchange_ir() {
+        let mut lifter = X86_64Lifter::strict();
+        let mut ctx = LiftContext::new(SourceArch::X86_64);
+
+        // LLVM 23: `xchgq %r18, 32(%r16,%r17,4)` => d5 78 87 54 88 20.
+        let err = lifter
+            .lift_insn(
+                0x1000,
+                &[0xD5, 0x78, 0x87, 0x54, 0x88, 0x20],
+                &mut ctx,
+            )
+            .unwrap_err();
+        assert!(
+            matches!(err, LiftError::Unsupported { .. }),
+            "memory XCHG needs atomic exchange modeling: {err:?}"
+        );
     }
 
     #[test]
