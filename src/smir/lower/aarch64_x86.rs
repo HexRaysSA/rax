@@ -504,6 +504,93 @@ impl Aarch64X86_64Lowerer {
         Ok(())
     }
 
+    fn setup_mem_load(&mut self, size: i64, signed: bool) {
+        let mut e = X86Emitter::new(&mut self.code);
+        e.emit_mov_rm(B3, STATE, A64_LOAD_FN_OFFSET, OpWidth::W64);
+        e.emit_mov_ri(HI, size, OpWidth::W64);
+        e.emit_mov_ri(RHS, i64::from(signed), OpWidth::W64);
+    }
+
+    fn setup_mem_store(&mut self, size: i64) {
+        let mut e = X86Emitter::new(&mut self.code);
+        e.emit_mov_rm(B3, STATE, A64_STORE_FN_OFFSET, OpWidth::W64);
+        e.emit_mov_ri(RHS, size, OpWidth::W64);
+    }
+
+    fn lower_load_pair(
+        &mut self,
+        dst1: VReg,
+        dst2: VReg,
+        addr: &Address,
+        width: MemWidth,
+    ) -> Result<(), LowerError> {
+        let (_op_width, size) = Self::scalar_mem_width(width)?;
+        self.load_addr_to(addr, ADDR)?;
+        {
+            let mut e = X86Emitter::new(&mut self.code);
+            e.emit_sub_ri(PhysReg::Rsp, 16, OpWidth::W64);
+            e.emit_mov_mr(PhysReg::Rsp, 0, ADDR, OpWidth::W64);
+        }
+
+        {
+            let mut e = X86Emitter::new(&mut self.code);
+            e.emit_mov_rm(ADDR, PhysReg::Rsp, 0, OpWidth::W64);
+        }
+        self.setup_mem_load(size, false);
+        self.emit_mem_helper_call(B3);
+        self.store_reg_to(dst1, ACC, OpWidth::W64)?;
+
+        {
+            let mut e = X86Emitter::new(&mut self.code);
+            e.emit_mov_rm(ADDR, PhysReg::Rsp, 0, OpWidth::W64);
+            e.emit_add_ri(ADDR, size, OpWidth::W64);
+        }
+        self.setup_mem_load(size, false);
+        self.emit_mem_helper_call(B3);
+        self.store_reg_to(dst2, ACC, OpWidth::W64)?;
+
+        let mut e = X86Emitter::new(&mut self.code);
+        e.emit_add_ri(PhysReg::Rsp, 16, OpWidth::W64);
+        Ok(())
+    }
+
+    fn lower_store_pair(
+        &mut self,
+        src1: VReg,
+        src2: VReg,
+        addr: &Address,
+        width: MemWidth,
+    ) -> Result<(), LowerError> {
+        let (op_width, size) = Self::scalar_mem_width(width)?;
+        self.load_addr_to(addr, ADDR)?;
+        {
+            let mut e = X86Emitter::new(&mut self.code);
+            e.emit_sub_ri(PhysReg::Rsp, 16, OpWidth::W64);
+            e.emit_mov_mr(PhysReg::Rsp, 0, ADDR, OpWidth::W64);
+        }
+
+        {
+            let mut e = X86Emitter::new(&mut self.code);
+            e.emit_mov_rm(ADDR, PhysReg::Rsp, 0, OpWidth::W64);
+        }
+        self.load_vreg_to(src1, HI, op_width)?;
+        self.setup_mem_store(size);
+        self.emit_mem_helper_call(B3);
+
+        {
+            let mut e = X86Emitter::new(&mut self.code);
+            e.emit_mov_rm(ADDR, PhysReg::Rsp, 0, OpWidth::W64);
+            e.emit_add_ri(ADDR, size, OpWidth::W64);
+        }
+        self.load_vreg_to(src2, HI, op_width)?;
+        self.setup_mem_store(size);
+        self.emit_mem_helper_call(B3);
+
+        let mut e = X86Emitter::new(&mut self.code);
+        e.emit_add_ri(PhysReg::Rsp, 16, OpWidth::W64);
+        Ok(())
+    }
+
     fn lower_store_exclusive(
         &mut self,
         status: VReg,
@@ -1580,10 +1667,22 @@ impl Aarch64X86_64Lowerer {
                 width,
                 sign,
             } => self.lower_load(*dst, addr, *width, *sign)?,
+            OpKind::LoadPair {
+                dst1,
+                dst2,
+                addr,
+                width,
+            } => self.lower_load_pair(*dst1, *dst2, addr, *width)?,
             OpKind::LoadExclusive { dst, addr, width } => {
                 self.lower_load_exclusive(*dst, addr, *width)?
             }
             OpKind::Store { src, addr, width } => self.lower_store(*src, addr, *width)?,
+            OpKind::StorePair {
+                src1,
+                src2,
+                addr,
+                width,
+            } => self.lower_store_pair(*src1, *src2, addr, *width)?,
             OpKind::StoreExclusive {
                 status,
                 src,

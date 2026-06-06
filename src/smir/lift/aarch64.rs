@@ -3594,45 +3594,58 @@ impl Aarch64Lifter {
 
         let load_addr = self.indexed_access_addr(mem, addr);
 
-        ops.push(SmirOp::new(
-            OpId(ops.len() as u16),
-            pc,
-            OpKind::Load {
-                dst: dst1,
-                addr: load_addr.clone(),
-                width,
-                sign: extend,
-            },
-        ));
+        if extend == SignExtend::Zero {
+            ops.push(SmirOp::new(
+                OpId(ops.len() as u16),
+                pc,
+                OpKind::LoadPair {
+                    dst1,
+                    dst2,
+                    addr: load_addr,
+                    width,
+                },
+            ));
+        } else {
+            ops.push(SmirOp::new(
+                OpId(ops.len() as u16),
+                pc,
+                OpKind::Load {
+                    dst: dst1,
+                    addr: load_addr.clone(),
+                    width,
+                    sign: extend,
+                },
+            ));
 
-        let addr2 = match &load_addr {
-            Address::Direct(base) => Address::BaseOffset {
-                base: *base,
-                offset: offset2,
-                disp_size: DispSize::Auto,
-            },
-            Address::BaseOffset {
-                base,
-                offset,
-                disp_size,
-            } => Address::BaseOffset {
-                base: *base,
-                offset: *offset + offset2,
-                disp_size: *disp_size,
-            },
-            _ => load_addr,
-        };
+            let addr2 = match &load_addr {
+                Address::Direct(base) => Address::BaseOffset {
+                    base: *base,
+                    offset: offset2,
+                    disp_size: DispSize::Auto,
+                },
+                Address::BaseOffset {
+                    base,
+                    offset,
+                    disp_size,
+                } => Address::BaseOffset {
+                    base: *base,
+                    offset: *offset + offset2,
+                    disp_size: *disp_size,
+                },
+                _ => load_addr,
+            };
 
-        ops.push(SmirOp::new(
-            OpId(ops.len() as u16),
-            pc,
-            OpKind::Load {
-                dst: dst2,
-                addr: addr2,
-                width,
-                sign: extend,
-            },
-        ));
+            ops.push(SmirOp::new(
+                OpId(ops.len() as u16),
+                pc,
+                OpKind::Load {
+                    dst: dst2,
+                    addr: addr2,
+                    width,
+                    sign: extend,
+                },
+            ));
+        }
 
         if mem.mode == AddressingMode::PostIndex {
             self.handle_writeback(mem, pc, ops, ctx);
@@ -3664,7 +3677,6 @@ impl Aarch64Lifter {
         } else {
             MemWidth::B4
         };
-        let offset2 = if rt1.is_64bit { 8i64 } else { 4i64 };
 
         let (addr, pre_ops) = self.mem_to_addr(mem, ctx);
 
@@ -3682,37 +3694,10 @@ impl Aarch64Lifter {
         ops.push(SmirOp::new(
             OpId(ops.len() as u16),
             pc,
-            OpKind::Store {
-                src: src1,
-                addr: store_addr.clone(),
-                width,
-            },
-        ));
-
-        let addr2 = match &store_addr {
-            Address::Direct(base) => Address::BaseOffset {
-                base: *base,
-                offset: offset2,
-                disp_size: DispSize::Auto,
-            },
-            Address::BaseOffset {
-                base,
-                offset,
-                disp_size,
-            } => Address::BaseOffset {
-                base: *base,
-                offset: *offset + offset2,
-                disp_size: *disp_size,
-            },
-            _ => store_addr,
-        };
-
-        ops.push(SmirOp::new(
-            OpId(ops.len() as u16),
-            pc,
-            OpKind::Store {
-                src: src2,
-                addr: addr2,
+            OpKind::StorePair {
+                src1,
+                src2,
+                addr: store_addr,
                 width,
             },
         ));

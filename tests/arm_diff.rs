@@ -2919,6 +2919,31 @@ fn smir_aarch64_x86_memory_lowering_matches_qemu_oracle() {
     }
 
     let mut st = mem_input(&mut rng);
+    st.scratch[8] = 0x1122_3344_5566_7788;
+    st.scratch[9] = 0x99aa_bbcc_ddee_ff00;
+    batch.push((
+        "ldp_x_rt_base_overlap".into(),
+        enc_ldp_regs(0b10, 0, 0b10, 1, 0, RN, RM, RN),
+        st,
+    ));
+
+    let mut st = mem_input(&mut rng);
+    st.scratch[8] = 0x1122_3344_8000_0001;
+    batch.push((
+        "ldp_w_rt_base_overlap".into(),
+        enc_ldp_regs(0b00, 0, 0b10, 1, 0, RN, RM, RN),
+        st,
+    ));
+
+    let mut st = mem_input(&mut rng);
+    st.x[2] = 0x1122_3344_5566_7788;
+    batch.push((
+        "stp_x_src_base_overlap".into(),
+        enc_ldp_regs(0b10, 0, 0b10, 0, 0, RN, RM, RN),
+        st,
+    ));
+
+    let mut st = mem_input(&mut rng);
     st.x[0] = 0xaaaa_bbbb_cccc_dddd;
     st.scratch[8] = 0x0000_0000_0000_0080;
     batch.push(("ldrsb_w_negative".into(), enc_ldst_uimm(0, 0, 3, 0), st));
@@ -10320,17 +10345,31 @@ fn diff_mem_ldst_struct() {
     run_batch("mem_ldst_struct", batch);
 }
 
-/// Load/store pair: `opc 101 V 0 mode L imm7 Rt2 Rn Rt`. Rt=x0, Rt2=x2, Rn=x1.
-fn enc_ldp(opc: u32, v: u32, mode: u32, l: u32, imm7: u32) -> u32 {
+/// Load/store pair: `opc 101 V 0 mode L imm7 Rt2 Rn Rt`.
+fn enc_ldp_regs(
+    opc: u32,
+    v: u32,
+    mode: u32,
+    l: u32,
+    imm7: u32,
+    rt: u32,
+    rt2: u32,
+    rn: u32,
+) -> u32 {
     (opc << 30)
         | (0b101 << 27)
         | (v << 26)
         | (mode << 23)
         | (l << 22)
         | ((imm7 & 0x7F) << 15)
-        | (2 << 10)
-        | (RN << 5)
-        | RD
+        | ((rt2 & 0x1F) << 10)
+        | ((rn & 0x1F) << 5)
+        | (rt & 0x1F)
+}
+
+/// Load/store pair with the standard test registers: Rt=x0, Rt2=x2, Rn=x1.
+fn enc_ldp(opc: u32, v: u32, mode: u32, l: u32, imm7: u32) -> u32 {
+    enc_ldp_regs(opc, v, mode, l, imm7, RD, RM, RN)
 }
 
 #[test]
