@@ -5490,6 +5490,36 @@ fn smir_aarch64_native_lowering_matches_qemu_oracle() {
     );
 
     let mut st = native_state();
+    st.x[0] = 0x1234_5678_9abc_def0;
+    st.x[1] = 0x0011_2233_4455_6677;
+    st.pstate = 0x3000_0000;
+    push_lifted_case(
+        "rev16_x_lifted_preserves_flags",
+        enc_dp1(1, 0b000001),
+        st,
+    );
+
+    let mut st = native_state();
+    st.x[0] = 0x2345_6789_abcd_ef01;
+    st.x[1] = 0xffff_ffff_1122_3344;
+    st.pstate = 0x4000_0000;
+    push_lifted_case(
+        "rev16_w_lifted_zero_ext_preserves_flags",
+        enc_dp1(0, 0b000001),
+        st,
+    );
+
+    let mut st = native_state();
+    st.x[0] = 0x3456_789a_bcde_f012;
+    st.x[1] = 0x1122_3344_aabb_ccdd;
+    st.pstate = 0x5000_0000;
+    push_lifted_case(
+        "rev32_x_lifted_preserves_flags",
+        enc_dp1(1, 0b000010),
+        st,
+    );
+
+    let mut st = native_state();
     st.x[0] = 0x0000_1111_2222_3333;
     st.x[1] = 0x1234_5678_9abc_def0;
     st.pstate = 0x2000_0000;
