@@ -590,6 +590,19 @@ fn enc_bitfield_rn(sf: u32, opc: u32, immr: u32, imms: u32, rn: u32) -> u32 {
         | RD
 }
 
+/// Logical immediate: `sf opc 100100 N immr imms Rn Rd`
+#[cfg(all(feature = "smir-jit", target_arch = "x86_64"))]
+fn enc_logical_imm(sf: u32, opc: u32, n: u32, immr: u32, imms: u32, rn: u32) -> u32 {
+    (sf << 31)
+        | (opc << 29)
+        | (0b100100 << 23)
+        | (n << 22)
+        | (immr << 16)
+        | (imms << 10)
+        | (rn << 5)
+        | RD
+}
+
 /// Extract: `sf 00 100111 N 0 Rm imms Rn Rd`
 #[cfg(all(feature = "smir-jit", target_arch = "x86_64"))]
 fn enc_extract(sf: u32, rn: u32, rm: u32, imms: u32) -> u32 {
@@ -7189,6 +7202,66 @@ fn smir_aarch64_native_lowering_matches_qemu_oracle() {
             enc_bitfield_rn(1, 0b10, 0, 5, 0),
         ],
         vec![OpKind::Bsf {
+            dst: arm_x(0),
+            src: arm_x(1),
+            width: OpWidth::W64,
+            flags: FlagUpdate::None,
+        }],
+        st,
+    );
+
+    let mut st = native_state();
+    st.x[0] = 0x5555_6666_7777_8888;
+    st.x[1] = 0x8000_0000_0000_1000;
+    st.pstate = 0x6000_0000;
+    push_case3(
+        "bsr_x_as_orr_clz_eor_mask_preserves_flags",
+        [
+            enc_logical_imm(1, 0b01, 1, 0, 0, RN),
+            enc_dp1_regs(1, 0b000100, 0, 0),
+            enc_logical_imm(1, 0b10, 1, 0, 5, RD),
+        ],
+        vec![OpKind::Bsr {
+            dst: arm_x(0),
+            src: arm_x(1),
+            width: OpWidth::W64,
+            flags: FlagUpdate::None,
+        }],
+        st,
+    );
+
+    let mut st = native_state();
+    st.x[0] = 0xffff_ffff_6666_7777;
+    st.x[1] = 0xaaaa_bbbb_0000_0080;
+    st.pstate = 0x5000_0000;
+    push_case3(
+        "bsr_w_as_orr_clz_eor_mask_zero_ext_preserves_flags",
+        [
+            enc_logical_imm(0, 0b01, 0, 0, 0, RN),
+            enc_dp1_regs(0, 0b000100, 0, 0),
+            enc_logical_imm(0, 0b10, 0, 0, 4, RD),
+        ],
+        vec![OpKind::Bsr {
+            dst: arm_x(0),
+            src: arm_x(1),
+            width: OpWidth::W32,
+            flags: FlagUpdate::None,
+        }],
+        st,
+    );
+
+    let mut st = native_state();
+    st.x[0] = 0x7777_8888_9999_aaaa;
+    st.x[1] = 0;
+    st.pstate = 0xc000_0000;
+    push_case3(
+        "bsr_x_zero_as_zero_preserves_flags",
+        [
+            enc_logical_imm(1, 0b01, 1, 0, 0, RN),
+            enc_dp1_regs(1, 0b000100, 0, 0),
+            enc_logical_imm(1, 0b10, 1, 0, 5, RD),
+        ],
+        vec![OpKind::Bsr {
             dst: arm_x(0),
             src: arm_x(1),
             width: OpWidth::W64,
