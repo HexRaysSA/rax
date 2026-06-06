@@ -522,6 +522,7 @@ impl SmirInterpreter {
                 src1,
                 src2,
                 width,
+                ..
             } => {
                 let mask = width.mask();
                 let b = (self.read_src_operand(ctx, src2) & mask) as u128;
@@ -574,6 +575,7 @@ impl SmirInterpreter {
                 src1,
                 src2,
                 width,
+                ..
             } => {
                 let mask = width.mask();
                 let bits = width.bits();

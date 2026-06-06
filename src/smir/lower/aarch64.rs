@@ -4400,6 +4400,7 @@ impl Aarch64Lowerer {
                 src1,
                 src2,
                 width,
+                ..
             } => self.lower_div(*quot, *rem, *src1, src2, *width, false),
             OpKind::DivS {
                 quot,
@@ -4407,6 +4408,7 @@ impl Aarch64Lowerer {
                 src1,
                 src2,
                 width,
+                ..
             } => self.lower_div(*quot, *rem, *src1, src2, *width, true),
             OpKind::Load {
                 dst,

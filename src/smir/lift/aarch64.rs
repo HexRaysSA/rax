@@ -1008,6 +1008,7 @@ impl Aarch64Lifter {
                         src1: self.arm_reg(rn),
                         src2: SrcOperand::Reg(self.arm_reg(rm)),
                         width,
+                        flags: FlagUpdate::None,
                     });
                 }
             }
@@ -1026,6 +1027,7 @@ impl Aarch64Lifter {
                         src1: self.arm_reg(rn),
                         src2: SrcOperand::Reg(self.arm_reg(rm)),
                         width,
+                        flags: FlagUpdate::None,
                     });
                 }
             }

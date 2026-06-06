@@ -2249,6 +2249,7 @@ impl RiscVLifter {
                 src1: rs1,
                 src2: SrcOperand::Reg(safe),
                 width,
+                flags: FlagUpdate::None,
             }
         } else {
             OpKind::DivU {
@@ -2257,6 +2258,7 @@ impl RiscVLifter {
                 src1: rs1,
                 src2: SrcOperand::Reg(safe),
                 width,
+                flags: FlagUpdate::None,
             }
         };
         ops.push(mk(ctx, divkind));

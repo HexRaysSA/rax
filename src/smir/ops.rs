@@ -237,6 +237,7 @@ pub enum OpKind {
         src1: VReg,
         src2: SrcOperand,
         width: OpWidth,
+        flags: FlagUpdate,
     },
 
     /// Signed divide: (quotient, remainder) = src1 / src2
@@ -246,6 +247,7 @@ pub enum OpKind {
         src1: VReg,
         src2: SrcOperand,
         width: OpWidth,
+        flags: FlagUpdate,
     },
 
     // ========================================================================

@@ -1549,6 +1549,7 @@ impl Aarch64X86_64Lowerer {
                 src1,
                 src2,
                 width,
+                ..
             } => self.lower_divu(*quot, *rem, *src1, src2, *width)?,
             OpKind::DivS {
                 quot,
@@ -1556,6 +1557,7 @@ impl Aarch64X86_64Lowerer {
                 src1,
                 src2,
                 width,
+                ..
             } => self.lower_divs(*quot, *rem, *src1, src2, *width)?,
             OpKind::And {
                 dst,
@@ -2173,6 +2175,7 @@ mod tests {
                 src1: x(1),
                 src2: SrcOperand::Reg(x(2)),
                 width: OpWidth::W64,
+                flags: FlagUpdate::None,
             },
         );
         b.set_terminator(Terminator::Return { values: vec![] });
@@ -2198,6 +2201,7 @@ mod tests {
                 src1: x(1),
                 src2: SrcOperand::Reg(x(2)),
                 width: OpWidth::W32,
+                flags: FlagUpdate::None,
             },
         );
         b.set_terminator(Terminator::Return { values: vec![] });

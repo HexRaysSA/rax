@@ -4013,35 +4013,64 @@ impl X86_64Lowerer {
                 src1,
                 src2,
                 width,
-                ..
+                flags,
             } => {
+                let preserve_flags = !flags.updates_any();
                 // For two-operand IMUL (dst = src1 * src2), we use the efficient form
                 // For widening multiply (dst_hi:dst_lo = src1 * src2), we use IMUL with RAX
                 if dst_hi.is_some() {
                     // Widening multiply: IMUL r/m -> RDX:RAX = RAX * r/m
                     // Move src1 to RAX
                     let src1_reg = self.get_reg(*src1)?;
-                    {
-                        let mut emitter = X86Emitter::new(&mut self.code);
-                        emitter.emit_mov_rr(PhysReg::Rax, src1_reg, *width);
-                    }
 
                     // Get src2 and do IMUL
                     match src2 {
                         SrcOperand::Reg(r) => {
                             let src2_reg = self.get_reg(*r)?;
+                            if preserve_flags {
+                                Self::ensure_flag_stack_operands_safe(
+                                    "MulS",
+                                    &[src1_reg, src2_reg],
+                                )?;
+                            }
+                            {
+                                let mut emitter = X86Emitter::new(&mut self.code);
+                                emitter.emit_mov_rr(PhysReg::Rax, src1_reg, *width);
+                            }
+                            if preserve_flags {
+                                self.code.emit_u8(0x9C); // pushfq
+                            }
                             let mut emitter = X86Emitter::new(&mut self.code);
                             emitter.emit_imul(src2_reg, *width);
+                            if preserve_flags {
+                                self.code.emit_u8(0x9D); // popfq
+                            }
                         }
                         SrcOperand::Imm(val) => {
                             // Load immediate to a temp register
                             let temp = self.regalloc.get_scratch()?;
+                            if preserve_flags {
+                                Self::ensure_flag_stack_operands_safe(
+                                    "MulS",
+                                    &[src1_reg, temp],
+                                )?;
+                            }
+                            {
+                                let mut emitter = X86Emitter::new(&mut self.code);
+                                emitter.emit_mov_rr(PhysReg::Rax, src1_reg, *width);
+                            }
                             {
                                 let mut emitter = X86Emitter::new(&mut self.code);
                                 emitter.emit_mov_ri(temp, *val, *width);
                             }
+                            if preserve_flags {
+                                self.code.emit_u8(0x9C); // pushfq
+                            }
                             let mut emitter = X86Emitter::new(&mut self.code);
                             emitter.emit_imul(temp, *width);
+                            if preserve_flags {
+                                self.code.emit_u8(0x9D); // popfq
+                            }
                             self.regalloc.free_temp(temp);
                         }
                         _ => {
@@ -4073,22 +4102,43 @@ impl X86_64Lowerer {
                     match src2 {
                         SrcOperand::Reg(r) => {
                             let src2_reg = self.get_reg(*r)?;
+                            if preserve_flags {
+                                Self::ensure_flag_stack_operands_safe(
+                                    "MulS",
+                                    &[dst_reg, src1_reg, src2_reg],
+                                )?;
+                            }
                             // Move src1 to dst, then IMUL dst, src2
                             if dst_reg != src1_reg {
                                 let mut emitter = X86Emitter::new(&mut self.code);
                                 emitter.emit_mov_rr(dst_reg, src1_reg, *width);
                             }
+                            if preserve_flags {
+                                self.code.emit_u8(0x9C); // pushfq
+                            }
                             let mut emitter = X86Emitter::new(&mut self.code);
                             emitter.emit_imul_rr(dst_reg, src2_reg, *width);
+                            if preserve_flags {
+                                self.code.emit_u8(0x9D); // popfq
+                            }
                         }
                         SrcOperand::Imm(val) => {
                             // Three-operand form: IMUL dst, src1, imm
-                            let mut emitter = X86Emitter::new(&mut self.code);
+                            if preserve_flags {
+                                Self::ensure_flag_stack_operands_safe(
+                                    "MulS",
+                                    &[dst_reg, src1_reg],
+                                )?;
+                            }
                             let use_imm8 = match op.x86_hint {
                                 Some(X86OpHint::ImulImm8) => true,
                                 Some(X86OpHint::ImulImm32) => false,
                                 _ => *val >= -128 && *val <= 127,
                             };
+                            if preserve_flags {
+                                self.code.emit_u8(0x9C); // pushfq
+                            }
+                            let mut emitter = X86Emitter::new(&mut self.code);
                             emitter.emit_imul_rri_force(
                                 dst_reg,
                                 src1_reg,
@@ -4096,6 +4146,9 @@ impl X86_64Lowerer {
                                 *width,
                                 use_imm8,
                             );
+                            if preserve_flags {
+                                self.code.emit_u8(0x9D); // popfq
+                            }
                         }
                         _ => {
                             return Err(LowerError::UnsupportedOp {
@@ -4112,30 +4165,56 @@ impl X86_64Lowerer {
                 src1,
                 src2,
                 width,
-                ..
+                flags,
             } => {
+                let preserve_flags = !flags.updates_any();
                 // Unsigned multiply always uses RAX
                 // MUL r/m -> RDX:RAX = RAX * r/m
                 let src1_reg = self.get_reg(*src1)?;
-                {
-                    let mut emitter = X86Emitter::new(&mut self.code);
-                    emitter.emit_mov_rr(PhysReg::Rax, src1_reg, *width);
-                }
 
                 match src2 {
                     SrcOperand::Reg(r) => {
                         let src2_reg = self.get_reg(*r)?;
+                        if preserve_flags {
+                            Self::ensure_flag_stack_operands_safe(
+                                "MulU",
+                                &[src1_reg, src2_reg],
+                            )?;
+                        }
+                        {
+                            let mut emitter = X86Emitter::new(&mut self.code);
+                            emitter.emit_mov_rr(PhysReg::Rax, src1_reg, *width);
+                        }
+                        if preserve_flags {
+                            self.code.emit_u8(0x9C); // pushfq
+                        }
                         let mut emitter = X86Emitter::new(&mut self.code);
                         emitter.emit_mul(src2_reg, *width);
+                        if preserve_flags {
+                            self.code.emit_u8(0x9D); // popfq
+                        }
                     }
                     SrcOperand::Imm(val) => {
                         let temp = self.regalloc.get_scratch()?;
+                        if preserve_flags {
+                            Self::ensure_flag_stack_operands_safe("MulU", &[src1_reg, temp])?;
+                        }
+                        {
+                            let mut emitter = X86Emitter::new(&mut self.code);
+                            emitter.emit_mov_rr(PhysReg::Rax, src1_reg, *width);
+                        }
                         {
                             let mut emitter = X86Emitter::new(&mut self.code);
                             emitter.emit_mov_ri(temp, *val, *width);
                         }
+                        if preserve_flags {
+                            self.code.emit_u8(0x9C); // pushfq
+                        }
                         let mut emitter = X86Emitter::new(&mut self.code);
                         emitter.emit_mul(temp, *width);
+                        if preserve_flags {
+                            self.code.emit_u8(0x9D); // popfq
+                        }
                         self.regalloc.free_temp(temp);
                     }
                     _ => {
@@ -4167,33 +4246,74 @@ impl X86_64Lowerer {
                 src1,
                 src2,
                 width,
+                flags,
             } => {
+                let preserve_flags = !flags.updates_any();
+                let rax = VReg::Arch(ArchReg::X86(X86Reg::Rax));
+                let rdx = VReg::Arch(ArchReg::X86(X86Reg::Rdx));
+                let x86_implicit = *src1 == rax && *quot == rax && *rem == Some(rdx);
+
                 // Unsigned divide: RDX:RAX / src2 -> RAX (quot), RDX (rem)
-                // For unsigned, RDX must be zero
+                // Generic non-x86 lowering uses a zero high half. Lifted x86
+                // implicit DIV already carries the high half in RDX.
                 let src1_reg = self.get_reg(*src1)?;
-                {
-                    let mut emitter = X86Emitter::new(&mut self.code);
-                    // Move dividend to RAX
-                    emitter.emit_mov_rr(PhysReg::Rax, src1_reg, *width);
-                    // Zero RDX
-                    emitter.emit_zero_rdx();
-                }
 
                 match src2 {
                     SrcOperand::Reg(r) => {
                         let src2_reg = self.get_reg(*r)?;
+                        if preserve_flags {
+                            Self::ensure_flag_stack_operands_safe(
+                                "DivU",
+                                &[src1_reg, src2_reg],
+                            )?;
+                        }
+                        {
+                            let mut emitter = X86Emitter::new(&mut self.code);
+                            // Move dividend to RAX
+                            emitter.emit_mov_rr(PhysReg::Rax, src1_reg, *width);
+                        }
+                        if preserve_flags {
+                            self.code.emit_u8(0x9C); // pushfq
+                        }
+                        if !x86_implicit {
+                            let mut emitter = X86Emitter::new(&mut self.code);
+                            // Zero RDX
+                            emitter.emit_zero_rdx();
+                        }
                         let mut emitter = X86Emitter::new(&mut self.code);
                         emitter.emit_div(src2_reg, *width);
+                        if preserve_flags {
+                            self.code.emit_u8(0x9D); // popfq
+                        }
                     }
                     SrcOperand::Imm(val) => {
                         // DIV doesn't support immediate, need to load into temp
                         let temp = self.regalloc.get_scratch()?;
+                        if preserve_flags {
+                            Self::ensure_flag_stack_operands_safe("DivU", &[src1_reg, temp])?;
+                        }
+                        {
+                            let mut emitter = X86Emitter::new(&mut self.code);
+                            // Move dividend to RAX
+                            emitter.emit_mov_rr(PhysReg::Rax, src1_reg, *width);
+                        }
                         {
                             let mut emitter = X86Emitter::new(&mut self.code);
                             emitter.emit_mov_ri(temp, *val, *width);
                         }
+                        if preserve_flags {
+                            self.code.emit_u8(0x9C); // pushfq
+                        }
+                        if !x86_implicit {
+                            let mut emitter = X86Emitter::new(&mut self.code);
+                            // Zero RDX
+                            emitter.emit_zero_rdx();
+                        }
                         let mut emitter = X86Emitter::new(&mut self.code);
                         emitter.emit_div(temp, *width);
+                        if preserve_flags {
+                            self.code.emit_u8(0x9D); // popfq
+                        }
                         self.regalloc.free_temp(temp);
                     }
                     _ => {
@@ -4225,41 +4345,90 @@ impl X86_64Lowerer {
                 src1,
                 src2,
                 width,
+                flags,
             } => {
+                let preserve_flags = !flags.updates_any();
+                let rax = VReg::Arch(ArchReg::X86(X86Reg::Rax));
+                let rdx = VReg::Arch(ArchReg::X86(X86Reg::Rdx));
+                let x86_implicit = *src1 == rax && *quot == rax && *rem == Some(rdx);
+
                 // Signed divide: RDX:RAX / src2 -> RAX (quot), RDX (rem)
-                // For signed, RDX must be sign-extension of RAX (via CQO/CDQ)
+                // Generic non-x86 lowering sign-extends into RDX. Lifted x86
+                // implicit IDIV already carries the high half in RDX.
                 let src1_reg = self.get_reg(*src1)?;
-                {
-                    let mut emitter = X86Emitter::new(&mut self.code);
-                    // Move dividend to RAX
-                    emitter.emit_mov_rr(PhysReg::Rax, src1_reg, *width);
-                    // Sign-extend RAX into RDX:RAX
-                    match width {
-                        OpWidth::W64 => emitter.emit_cqo(),
-                        OpWidth::W32 => emitter.emit_cdq(),
-                        _ => {
-                            // For 16-bit: CWD, for 8-bit: CBW
-                            // We'll use the 32-bit form for smaller widths
-                            emitter.emit_cdq();
-                        }
-                    }
-                }
 
                 match src2 {
                     SrcOperand::Reg(r) => {
                         let src2_reg = self.get_reg(*r)?;
+                        if preserve_flags {
+                            Self::ensure_flag_stack_operands_safe(
+                                "DivS",
+                                &[src1_reg, src2_reg],
+                            )?;
+                        }
+                        {
+                            let mut emitter = X86Emitter::new(&mut self.code);
+                            // Move dividend to RAX
+                            emitter.emit_mov_rr(PhysReg::Rax, src1_reg, *width);
+                        }
+                        if preserve_flags {
+                            self.code.emit_u8(0x9C); // pushfq
+                        }
+                        if !x86_implicit {
+                            let mut emitter = X86Emitter::new(&mut self.code);
+                            // Sign-extend RAX into RDX:RAX
+                            match width {
+                                OpWidth::W64 => emitter.emit_cqo(),
+                                OpWidth::W32 => emitter.emit_cdq(),
+                                _ => {
+                                    // For 16-bit: CWD, for 8-bit: CBW
+                                    // We'll use the 32-bit form for smaller widths
+                                    emitter.emit_cdq();
+                                }
+                            }
+                        }
                         let mut emitter = X86Emitter::new(&mut self.code);
                         emitter.emit_idiv(src2_reg, *width);
+                        if preserve_flags {
+                            self.code.emit_u8(0x9D); // popfq
+                        }
                     }
                     SrcOperand::Imm(val) => {
                         // IDIV doesn't support immediate, need to load into temp
                         let temp = self.regalloc.get_scratch()?;
+                        if preserve_flags {
+                            Self::ensure_flag_stack_operands_safe("DivS", &[src1_reg, temp])?;
+                        }
+                        {
+                            let mut emitter = X86Emitter::new(&mut self.code);
+                            // Move dividend to RAX
+                            emitter.emit_mov_rr(PhysReg::Rax, src1_reg, *width);
+                        }
                         {
                             let mut emitter = X86Emitter::new(&mut self.code);
                             emitter.emit_mov_ri(temp, *val, *width);
                         }
+                        if preserve_flags {
+                            self.code.emit_u8(0x9C); // pushfq
+                        }
+                        if !x86_implicit {
+                            let mut emitter = X86Emitter::new(&mut self.code);
+                            // Sign-extend RAX into RDX:RAX
+                            match width {
+                                OpWidth::W64 => emitter.emit_cqo(),
+                                OpWidth::W32 => emitter.emit_cdq(),
+                                _ => {
+                                    // For 16-bit: CWD, for 8-bit: CBW
+                                    // We'll use the 32-bit form for smaller widths
+                                    emitter.emit_cdq();
+                                }
+                            }
+                        }
                         let mut emitter = X86Emitter::new(&mut self.code);
                         emitter.emit_idiv(temp, *width);
+                        if preserve_flags {
+                            self.code.emit_u8(0x9D); // popfq
+                        }
                         self.regalloc.free_temp(temp);
                     }
                     _ => {
@@ -8582,11 +8751,12 @@ impl X86_64Lowerer {
                 src1,
                 src2,
                 width,
-                ..
+                flags,
             } if *width == op_width
                 && *dst_lo == rax
                 && *dst_hi == Some(rdx)
                 && *src1 == rax
+                && flags.updates_any()
                 && matches!(src2, SrcOperand::Reg(r) if *r == tmp) =>
             {
                 self.emit_group3_mem(4, addr, op_width)?;
@@ -8598,11 +8768,12 @@ impl X86_64Lowerer {
                 src1,
                 src2,
                 width,
-                ..
+                flags,
             } if *width == op_width
                 && *dst_lo == rax
                 && *dst_hi == Some(rdx)
                 && *src1 == rax
+                && flags.updates_any()
                 && matches!(src2, SrcOperand::Reg(r) if *r == tmp) =>
             {
                 self.emit_group3_mem(5, addr, op_width)?;
@@ -8614,10 +8785,12 @@ impl X86_64Lowerer {
                 src1,
                 src2,
                 width,
+                flags,
             } if *width == op_width
                 && *quot == rax
                 && *rem == Some(rdx)
                 && *src1 == rax
+                && flags.updates_any()
                 && matches!(src2, SrcOperand::Reg(r) if *r == tmp) =>
             {
                 self.emit_group3_mem(6, addr, op_width)?;
@@ -8629,10 +8802,12 @@ impl X86_64Lowerer {
                 src1,
                 src2,
                 width,
+                flags,
             } if *width == op_width
                 && *quot == rax
                 && *rem == Some(rdx)
                 && *src1 == rax
+                && flags.updates_any()
                 && matches!(src2, SrcOperand::Reg(r) if *r == tmp) =>
             {
                 self.emit_group3_mem(7, addr, op_width)?;
@@ -9928,6 +10103,63 @@ mod tests {
     }
 
     #[test]
+    fn lower_apx_nf_implicit_group3_slice_lowers_without_relocs() {
+        // LLVM 23 APX MAP4 forms:
+        //   {nf} mulq  %rbx => 62 f4 fc 0c f7 e3
+        //   {nf} imulq %rbx => 62 f4 fc 0c f7 eb
+        //   {nf} divq  %rbx => 62 f4 fc 0c f7 f3
+        //   {nf} idivq %rbx => 62 f4 fc 0c f7 fb
+        let (lowered, entry) = lower_rex2_block(&[
+            0x62, 0xF4, 0xFC, 0x0C, 0xF7, 0xE3, 0x62, 0xF4, 0xFC, 0x0C, 0xF7, 0xEB,
+            0x62, 0xF4, 0xFC, 0x0C, 0xF7, 0xF3, 0x62, 0xF4, 0xFC, 0x0C, 0xF7, 0xFB,
+            0xF4,
+        ]);
+        assert!(entry < lowered.len());
+        assert!(!lowered.is_empty());
+        assert!(lowered.contains(&0x9C), "NF implicit lowering must preserve flags");
+        assert!(lowered.contains(&0x9D), "NF implicit lowering must restore flags");
+    }
+
+    #[test]
+    fn lower_nf_implicit_group3_rejects_native_stack_operands() {
+        let rsp = VReg::Arch(ArchReg::X86(X86Reg::Rsp));
+        let rax = VReg::Arch(ArchReg::X86(X86Reg::Rax));
+        let rdx = VReg::Arch(ArchReg::X86(X86Reg::Rdx));
+
+        for (name, kind) in [
+            (
+                "mul rsp",
+                OpKind::MulU {
+                    dst_lo: rax,
+                    dst_hi: Some(rdx),
+                    src1: rax,
+                    src2: SrcOperand::Reg(rsp),
+                    width: OpWidth::W64,
+                    flags: FlagUpdate::None,
+                },
+            ),
+            (
+                "div rsp",
+                OpKind::DivU {
+                    quot: rax,
+                    rem: Some(rdx),
+                    src1: rax,
+                    src2: SrcOperand::Reg(rsp),
+                    width: OpWidth::W64,
+                    flags: FlagUpdate::None,
+                },
+            ),
+        ] {
+            let mut builder = FunctionBuilder::new(FunctionId(0), 0x1000);
+            builder.push_op(0x1000, kind);
+            builder.set_terminator(Terminator::Return { values: vec![] });
+            let func = builder.finish();
+            let mut lowerer = X86_64Lowerer::new();
+            assert!(lowerer.lower_function(&func).is_err(), "{name}");
+        }
+    }
+
+    #[test]
     fn lower_apx_ndd_nf_imul_slice_lowers_without_relocs() {
         // LLVM 20 APX MAP4 forms:
         //   imulq %rbx, %rax, %r8       => 62 f4 bc 18 af c3
@@ -10302,6 +10534,7 @@ mod tests {
                 src1: dividend,
                 src2: SrcOperand::Reg(divisor),
                 width: OpWidth::W64,
+                flags: FlagUpdate::All,
             },
         );
 
@@ -10319,6 +10552,68 @@ mod tests {
         // Should contain DIV instruction (F7 /6)
         // Look for the pattern in the generated code
         assert!(!code.is_empty());
+    }
+
+    #[test]
+    fn lower_divu_flags_none_saves_flags_before_zeroing_high_half() {
+        let mut builder = FunctionBuilder::new(FunctionId(0), 0x1000);
+
+        let dividend = builder.alloc_vreg();
+        let divisor = builder.alloc_vreg();
+        let quotient = builder.alloc_vreg();
+        let remainder = builder.alloc_vreg();
+
+        builder.push_op(
+            0x1000,
+            OpKind::Mov {
+                dst: dividend,
+                src: SrcOperand::imm(100),
+                width: OpWidth::W64,
+            },
+        );
+        builder.push_op(
+            0x1004,
+            OpKind::Mov {
+                dst: divisor,
+                src: SrcOperand::imm(7),
+                width: OpWidth::W64,
+            },
+        );
+        builder.push_op(
+            0x1008,
+            OpKind::DivU {
+                quot: quotient,
+                rem: Some(remainder),
+                src1: dividend,
+                src2: SrcOperand::Reg(divisor),
+                width: OpWidth::W64,
+                flags: FlagUpdate::None,
+            },
+        );
+        builder.set_terminator(Terminator::Return {
+            values: vec![quotient],
+        });
+
+        let func = builder.finish();
+        let mut lowerer = X86_64Lowerer::new();
+        lowerer.lower_function(&func).unwrap();
+        let code = lowerer.finalize().unwrap();
+
+        let push = code
+            .iter()
+            .position(|byte| *byte == 0x9C)
+            .expect("pushfq");
+        let zero_rdx = code
+            .windows(3)
+            .position(|window| window == [0x48, 0x31, 0xD2])
+            .expect("xor rdx, rdx");
+        let pop = code
+            .iter()
+            .position(|byte| *byte == 0x9D)
+            .expect("popfq");
+
+        assert!(push < zero_rdx, "pushfq must precede flag-clobbering zero");
+        assert!(zero_rdx < pop, "popfq must restore flags after divide setup");
     }
 
     #[test]
@@ -10358,6 +10653,7 @@ mod tests {
                 src1: dividend,
                 src2: SrcOperand::Reg(divisor),
                 width: OpWidth::W64,
+                flags: FlagUpdate::All,
             },
         );
 

@@ -1326,14 +1326,16 @@ fn smir_op_kind_json(kind: &OpKind) -> Value {
             src1,
             src2,
             width,
-        } => op_json!("div_u", quot, rem, src1, src2, width),
+            flags,
+        } => op_json!("div_u", quot, rem, src1, src2, width, flags),
         OpKind::DivS {
             quot,
             rem,
             src1,
             src2,
             width,
-        } => op_json!("div_s", quot, rem, src1, src2, width),
+            flags,
+        } => op_json!("div_s", quot, rem, src1, src2, width, flags),
         OpKind::And {
             dst,
             src1,

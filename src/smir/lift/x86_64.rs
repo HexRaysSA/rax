@@ -3547,10 +3547,17 @@ impl X86_64Lifter {
             return self.lift_apx_ctest_imm(prefix, opcode, bytes, pc, ctx);
         }
 
-        if !matches!(group, 2 | 3) {
+        if !matches!(group, 2..=7) {
             return Err(LiftError::Unsupported {
                 addr: pc,
                 mnemonic: format!("APX F6/F7 /{group}"),
+            });
+        }
+
+        if matches!(group, 4..=7) && (!prefix.nf || prefix.nd) {
+            return Err(LiftError::Unsupported {
+                addr: pc,
+                mnemonic: format!("APX F6/F7 /{group} without implicit NF form"),
             });
         }
 
@@ -3599,10 +3606,58 @@ impl X86_64Lifter {
                     flags: prefix.flags(),
                 },
             )),
+            4 => ops.push(SmirOp::new(
+                OpId(ops.len() as u16),
+                pc,
+                OpKind::MulU {
+                    dst_lo: self.gpr(0),
+                    dst_hi: Some(self.gpr(2)),
+                    src1: self.gpr(0),
+                    src2: SrcOperand::Reg(src),
+                    width,
+                    flags: prefix.flags(),
+                },
+            )),
+            5 => ops.push(SmirOp::new(
+                OpId(ops.len() as u16),
+                pc,
+                OpKind::MulS {
+                    dst_lo: self.gpr(0),
+                    dst_hi: Some(self.gpr(2)),
+                    src1: self.gpr(0),
+                    src2: SrcOperand::Reg(src),
+                    width,
+                    flags: prefix.flags(),
+                },
+            )),
+            6 => ops.push(SmirOp::new(
+                OpId(ops.len() as u16),
+                pc,
+                OpKind::DivU {
+                    quot: self.gpr(0),
+                    rem: Some(self.gpr(2)),
+                    src1: self.gpr(0),
+                    src2: SrcOperand::Reg(src),
+                    width,
+                    flags: prefix.flags(),
+                },
+            )),
+            7 => ops.push(SmirOp::new(
+                OpId(ops.len() as u16),
+                pc,
+                OpKind::DivS {
+                    quot: self.gpr(0),
+                    rem: Some(self.gpr(2)),
+                    src1: self.gpr(0),
+                    src2: SrcOperand::Reg(src),
+                    width,
+                    flags: prefix.flags(),
+                },
+            )),
             _ => unreachable!(),
         }
 
-        if !prefix.nd {
+        if !prefix.nd && matches!(group, 2 | 3) {
             if let Some(addr) = store_addr {
                 ops.push(SmirOp::new(
                     OpId(ops.len() as u16),
@@ -4720,6 +4775,7 @@ impl X86_64Lifter {
                         src1: self.gpr(0),
                         src2: SrcOperand::Reg(operand),
                         width,
+                        flags: FlagUpdate::All,
                     },
                 ));
             }
@@ -4733,6 +4789,7 @@ impl X86_64Lifter {
                         src1: self.gpr(0),
                         src2: SrcOperand::Reg(operand),
                         width,
+                        flags: FlagUpdate::All,
                     },
                 ));
             }
@@ -8937,6 +8994,131 @@ mod tests {
                 assert_eq!(*src, loaded);
             }
             other => panic!("expected APX NDD NOT memory source, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn lift_apx_nf_group3_implicit_mul_div_like_llvm() {
+        let mut lifter = X86_64Lifter::strict();
+        let mut ctx = LiftContext::new(SourceArch::X86_64);
+
+        for (bytes, name, group) in [
+            ([0x62, 0xF4, 0xFC, 0x0C, 0xF7, 0xE3], "mul", 4),
+            ([0x62, 0xF4, 0xFC, 0x0C, 0xF7, 0xEB], "imul", 5),
+            ([0x62, 0xF4, 0xFC, 0x0C, 0xF7, 0xF3], "div", 6),
+            ([0x62, 0xF4, 0xFC, 0x0C, 0xF7, 0xFB], "idiv", 7),
+        ] {
+            let lifted = lifter.lift_insn(0x1000, &bytes, &mut ctx).unwrap();
+            assert_eq!(lifted.bytes_consumed, 6, "{name}");
+            assert_eq!(lifted.ops.len(), 1, "{name}");
+
+            match (&lifted.ops[0].kind, group) {
+                (
+                    OpKind::MulU {
+                        dst_lo,
+                        dst_hi: Some(dst_hi),
+                        src1,
+                        src2: SrcOperand::Reg(src2),
+                        width: OpWidth::W64,
+                        flags: FlagUpdate::None,
+                    },
+                    4,
+                )
+                | (
+                    OpKind::MulS {
+                        dst_lo,
+                        dst_hi: Some(dst_hi),
+                        src1,
+                        src2: SrcOperand::Reg(src2),
+                        width: OpWidth::W64,
+                        flags: FlagUpdate::None,
+                    },
+                    5,
+                ) => {
+                    assert_eq!(*dst_lo, x86_gpr(0), "{name} low destination");
+                    assert_eq!(*dst_hi, x86_gpr(2), "{name} high destination");
+                    assert_eq!(*src1, x86_gpr(0), "{name} accumulator source");
+                    assert_eq!(*src2, x86_gpr(3), "{name} r/m source");
+                }
+                (
+                    OpKind::DivU {
+                        quot,
+                        rem: Some(rem),
+                        src1,
+                        src2: SrcOperand::Reg(src2),
+                        width: OpWidth::W64,
+                        flags: FlagUpdate::None,
+                    },
+                    6,
+                )
+                | (
+                    OpKind::DivS {
+                        quot,
+                        rem: Some(rem),
+                        src1,
+                        src2: SrcOperand::Reg(src2),
+                        width: OpWidth::W64,
+                        flags: FlagUpdate::None,
+                    },
+                    7,
+                ) => {
+                    assert_eq!(*quot, x86_gpr(0), "{name} quotient");
+                    assert_eq!(*rem, x86_gpr(2), "{name} remainder");
+                    assert_eq!(*src1, x86_gpr(0), "{name} accumulator source");
+                    assert_eq!(*src2, x86_gpr(3), "{name} r/m source");
+                }
+                (other, _) => panic!("expected APX NF implicit {name}, got {other:?}"),
+            }
+        }
+    }
+
+    #[test]
+    fn lift_apx_group3_implicit_rejects_ndd_and_non_nf_forms() {
+        let mut lifter = X86_64Lifter::strict();
+        let mut ctx = LiftContext::new(SourceArch::X86_64);
+
+        for (bytes, name) in [
+            ([0x62, 0xF4, 0xFC, 0x08, 0xF7, 0xE3], "non-nf mul"),
+            ([0x62, 0xF4, 0xFC, 0x1C, 0xF7, 0xE3], "ndd nf mul"),
+        ] {
+            let err = lifter.lift_insn(0x1000, &bytes, &mut ctx).unwrap_err();
+            assert!(matches!(err, LiftError::Unsupported { .. }), "{name}: {err:?}");
+        }
+    }
+
+    #[test]
+    fn lift_apx_nf_group3_implicit_memory_source_does_not_store() {
+        let mut lifter = X86_64Lifter::strict();
+        let mut ctx = LiftContext::new(SourceArch::X86_64);
+
+        let mul_mem = lifter
+            .lift_insn(0x1000, &[0x62, 0xF4, 0xFC, 0x0C, 0xF7, 0x20], &mut ctx)
+            .unwrap();
+        assert_eq!(mul_mem.bytes_consumed, 6);
+        assert_eq!(mul_mem.ops.len(), 2);
+        let loaded = match &mul_mem.ops[0].kind {
+            OpKind::Load {
+                dst,
+                width: MemWidth::B8,
+                ..
+            } => *dst,
+            other => panic!("expected APX NF MUL memory load, got {other:?}"),
+        };
+        match &mul_mem.ops[1].kind {
+            OpKind::MulU {
+                dst_lo,
+                dst_hi: Some(dst_hi),
+                src1,
+                src2: SrcOperand::Reg(src2),
+                width: OpWidth::W64,
+                flags: FlagUpdate::None,
+            } => {
+                assert_eq!(*dst_lo, x86_gpr(0));
+                assert_eq!(*dst_hi, x86_gpr(2));
+                assert_eq!(*src1, x86_gpr(0));
+                assert_eq!(*src2, loaded);
+            }
+            other => panic!("expected APX NF MUL memory source, got {other:?}"),
         }
     }
 

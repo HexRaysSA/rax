@@ -1111,6 +1111,7 @@ pub fn strength_reduction(block: &mut SmirBlock) -> usize {
                 src1,
                 src2: SrcOperand::Imm(imm),
                 width,
+                flags: FlagUpdate::None,
             } if *imm > 0 && (*imm as u64).is_power_of_two() => {
                 let shift = (*imm as u64).trailing_zeros() as i64;
                 Some(OpKind::Shr {
@@ -3033,6 +3034,7 @@ mod tests {
                 src1: v1,
                 src2: SrcOperand::Imm(16),
                 width: OpWidth::W64,
+                flags: FlagUpdate::None,
             },
         ));
 
