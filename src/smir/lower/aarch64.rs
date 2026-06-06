@@ -2819,18 +2819,15 @@ impl Aarch64Lowerer {
                 });
             }
         };
+        let bits = width.bits();
         let control = match control {
             VReg::Imm(value) => value as u64,
             other => {
-                return Err(LowerError::UnsupportedOp {
-                    op: format!(
-                        "AArch64 native Bextr currently supports immediate control only, got {other:?}"
-                    ),
-                });
+                return self.lower_bextr_register_control(
+                    dst, src, other, width, emit_width, bits, set_flags,
+                );
             }
         };
-
-        let bits = width.bits();
         let start = (control & 0xff) as u32;
         let len = ((control >> 8) & 0xff) as u32;
         let dst = Self::dst_gpr(dst)?;
@@ -2854,6 +2851,78 @@ impl Aarch64Lowerer {
         if set_flags {
             self.lower_bmi_result_flags(dst, emit_width, false)?;
         }
+        Ok(())
+    }
+
+    fn lower_bextr_register_control(
+        &mut self,
+        dst: VReg,
+        src: VReg,
+        control: VReg,
+        width: OpWidth,
+        emit_width: OpWidth,
+        bits: u32,
+        set_flags: bool,
+    ) -> Result<(), LowerError> {
+        let dst = Self::dst_gpr(dst)?;
+        let src = Self::gpr(src)?;
+        let control = Self::gpr(control)?;
+        let scratches = Self::scratch_regs(&[dst, src, control], 3)?;
+        let start = scratches[0];
+        let len = scratches[1];
+        let mask = scratches[2];
+        self.emit_scratch_save(&scratches);
+
+        self.emit_bitfield(start, control, 0b10, 0, 7, OpWidth::W32)?;
+        self.emit_bitfield(len, control, 0b10, 8, 15, OpWidth::W32)?;
+
+        let zero_len = self.code.position();
+        self.emit(0xb400_0000 | u32::from(len));
+
+        let guard_start_bit = bits.trailing_zeros();
+        let mut zero_start = Vec::with_capacity((8 - guard_start_bit) as usize);
+        for bit in guard_start_bit..8 {
+            let offset = self.code.position();
+            self.emit_test_branch(start, bit, true, 0)?;
+            zero_start.push((offset, bit));
+        }
+
+        if matches!(width, OpWidth::W8 | OpWidth::W16) {
+            self.emit_bitfield(dst, src, 0b10, 0, bits - 1, OpWidth::W32)?;
+            self.emit_dp2(dst, dst, start, 0b1001, OpWidth::W32)?;
+        } else {
+            self.emit_dp2(dst, src, start, 0b1001, emit_width)?;
+        }
+
+        let mut skip_mask = Vec::with_capacity((8 - guard_start_bit) as usize);
+        for bit in guard_start_bit..8 {
+            let offset = self.code.position();
+            self.emit_test_branch(len, bit, true, 0)?;
+            skip_mask.push((offset, bit));
+        }
+
+        self.emit_movn_zero(mask, emit_width)?;
+        self.emit_dp2(mask, mask, len, 0b1000, emit_width)?;
+        self.emit_logic_reg_n(dst, dst, mask, 0b00, true, emit_width)?;
+        for (offset, bit) in skip_mask {
+            self.patch_test_branch_to_current(offset, len, bit, true)?;
+        }
+        if set_flags {
+            self.lower_bmi_result_flags(dst, emit_width, false)?;
+        }
+        let end_branch = self.code.position();
+        self.emit(0x1400_0000);
+
+        self.patch_compare_branch_to_current(zero_len, len, false)?;
+        for (offset, bit) in zero_start {
+            self.patch_test_branch_to_current(offset, start, bit, true)?;
+        }
+        self.emit_mov_imm(dst, 0, emit_width)?;
+        if set_flags {
+            self.lower_bmi_result_flags(dst, emit_width, false)?;
+        }
+        self.patch_branch_to_current(end_branch)?;
+        self.emit_scratch_restore(&scratches);
         Ok(())
     }
 
@@ -7320,6 +7389,24 @@ mod tests {
         ((dst_in & !mask) | ((src >> lsb) & mask)) & width_mask(width)
     }
 
+    fn ref_bextr(src: u64, control: u64, width: OpWidth) -> u64 {
+        let src = src & width_mask(width);
+        let start = (control & 0xff) as u32;
+        let len = ((control >> 8) & 0xff) as u32;
+        let bits = width.bits();
+        if start >= bits || len == 0 {
+            0
+        } else {
+            let shifted = src >> start;
+            let result = if len >= bits {
+                shifted
+            } else {
+                shifted & ((1_u64 << len) - 1)
+            };
+            result & width_mask(width)
+        }
+    }
+
     fn assert_shift_reg_count_alias_lowering(
         label: &str,
         shift: ShiftOp,
@@ -7661,6 +7748,76 @@ mod tests {
         let negative = ((result >> (width.bits() - 1)) & 1) != 0;
         let zero = result == 0;
         ((negative as u8) << 3) | ((zero as u8) << 2) | ((carry as u8) << 1)
+    }
+
+    fn expected_bextr_nzcv(
+        old_nzcv: u8,
+        result: u64,
+        width: OpWidth,
+        flags: FlagUpdate,
+    ) -> u8 {
+        let flag_width = if width == OpWidth::W64 {
+            OpWidth::W64
+        } else {
+            OpWidth::W32
+        };
+        expected_bzhi_nzcv(old_nzcv, result, false, flag_width, flags)
+    }
+
+    fn assert_bextr_runtime_control_lowering(
+        label: &str,
+        dst_reg: u8,
+        src_reg: u8,
+        src_value: u64,
+        control_reg: u8,
+        control_value: u64,
+        width: OpWidth,
+        flags: FlagUpdate,
+        old_nzcv: u8,
+    ) {
+        let code = lower_single_op(OpKind::Bextr {
+            dst: x(dst_reg),
+            src: x(src_reg),
+            control: x(control_reg),
+            width,
+            flags,
+        });
+        assert!(
+            code.len() > 32,
+            "{label}: runtime BEXTR should include scratch save/restore"
+        );
+
+        let expected = ref_bextr(src_value, control_value, width);
+        let expected_nzcv = expected_bextr_nzcv(old_nzcv, expected, width, flags);
+        let sentinels = [
+            (16, 0x1616_1616_1616_1616),
+            (17, 0x1717_1717_1717_1717),
+            (15, 0x1515_1515_1515_1515),
+            (14, 0x1414_1414_1414_1414),
+        ];
+        let mut regs = sentinels.to_vec();
+        regs.push((src_reg, src_value));
+        regs.push((control_reg, control_value));
+
+        let (out, out_nzcv, sp) = run_aarch64_code(&code, &regs, old_nzcv);
+        assert_eq!(out[dst_reg as usize], expected, "{label}: result");
+        assert_eq!(out_nzcv, expected_nzcv, "{label}: NZCV");
+        assert_eq!(sp, 0x8000, "{label}: stack restored");
+        if src_reg != dst_reg {
+            assert_eq!(out[src_reg as usize], src_value, "{label}: src preserved");
+        }
+        if control_reg != dst_reg {
+            assert_eq!(
+                out[control_reg as usize],
+                control_value,
+                "{label}: control preserved"
+            );
+        }
+        for (reg, value) in sentinels {
+            if reg != src_reg && reg != control_reg && reg != dst_reg {
+                assert_eq!(out[reg as usize], value, "{label}: x{reg} restored");
+            }
+        }
     }
 
     fn assert_bzhi_runtime_index_lowering(
@@ -11670,24 +11827,110 @@ mod tests {
     }
 
     #[test]
-    fn rejects_bextr_register_control_without_scratch() {
-        let mut builder = FunctionBuilder::new(FunctionId(0), 0);
-        builder.push_op(
+    fn lowers_bextr_register_control_runtime() {
+        assert_bextr_runtime_control_lowering(
+            "bextr_x_register_control_basic",
             0,
-            OpKind::Bextr {
-                dst: x(0),
-                src: x(1),
-                control: x(2),
-                width: OpWidth::W64,
-                flags: FlagUpdate::None,
-            },
+            1,
+            0xfedc_ba98_7654_3210,
+            2,
+            (12 << 8) | 4,
+            OpWidth::W64,
+            FlagUpdate::None,
+            0b1011,
         );
-        builder.set_terminator(Terminator::Return { values: vec![] });
-        let func = builder.finish();
+        assert_bextr_runtime_control_lowering(
+            "bextr_w_register_control_len_ge_bits",
+            0,
+            1,
+            0x7654_3210,
+            2,
+            (64 << 8) | 8,
+            OpWidth::W32,
+            FlagUpdate::None,
+            0b1011,
+        );
+        assert_bextr_runtime_control_lowering(
+            "bextr_x_register_control_zero_length",
+            0,
+            1,
+            0xfedc_ba98_7654_3210,
+            2,
+            5,
+            OpWidth::W64,
+            FlagUpdate::None,
+            0b1011,
+        );
+        assert_bextr_runtime_control_lowering(
+            "bextr_x_register_control_start_oob",
+            0,
+            1,
+            0xfedc_ba98_7654_3210,
+            2,
+            (8 << 8) | 64,
+            OpWidth::W64,
+            FlagUpdate::None,
+            0b1011,
+        );
+        assert_bextr_runtime_control_lowering(
+            "bextr_w8_register_control_masks_source",
+            0,
+            1,
+            0x1f5,
+            2,
+            (3 << 8) | 4,
+            OpWidth::W8,
+            FlagUpdate::None,
+            0b1011,
+        );
+        assert_bextr_runtime_control_lowering(
+            "bextr_w16_register_control_dst_aliases_src",
+            0,
+            0,
+            0xabcd,
+            2,
+            (10 << 8) | 3,
+            OpWidth::W16,
+            FlagUpdate::None,
+            0b1011,
+        );
+        assert_bextr_runtime_control_lowering(
+            "bextr_x_register_control_dst_aliases_control",
+            2,
+            1,
+            0xfedc_ba98_7654_3210,
+            2,
+            (8 << 8) | 4,
+            OpWidth::W64,
+            FlagUpdate::None,
+            0b1011,
+        );
+    }
 
-        let mut lowerer = Aarch64Lowerer::new();
-        let err = lowerer.lower_function(&func).unwrap_err();
-        assert!(matches!(err, LowerError::UnsupportedOp { .. }));
+    #[test]
+    fn lowers_bextr_register_control_with_flags_runtime() {
+        assert_bextr_runtime_control_lowering(
+            "bextr_x_register_control_flags_nonzero",
+            0,
+            1,
+            0xff00,
+            2,
+            (8 << 8) | 8,
+            OpWidth::W64,
+            bextr_flags(),
+            0b1111,
+        );
+        assert_bextr_runtime_control_lowering(
+            "bextr_x_register_control_flags_zero",
+            0,
+            1,
+            0xff00,
+            2,
+            8,
+            OpWidth::W64,
+            bextr_flags(),
+            0b1011,
+        );
     }
 
     #[test]
