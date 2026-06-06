@@ -9,7 +9,9 @@ use std::collections::HashMap;
 
 use crate::smir::ir::{SmirBlock, SmirFunction, Terminator};
 use crate::smir::ops::{OpKind, SmirOp};
-use crate::smir::types::{ArchReg, ArmReg, BlockId, OpWidth, ShiftOp, SrcOperand, VReg};
+use crate::smir::types::{
+    ArchReg, ArmReg, BlockId, ExtendOp, OpWidth, ShiftOp, SrcOperand, VReg,
+};
 
 use super::{CodeBuffer, LowerError, LowerResult, Relocation, SmirLowerer};
 
@@ -148,6 +150,33 @@ impl Aarch64Lowerer {
         width: OpWidth,
     ) -> Result<(), LowerError> {
         self.emit_addsub_shifted(dst, rn, rm, subtract, set_flags, 0, 0, width)
+    }
+
+    fn emit_addsub_extended(
+        &mut self,
+        dst: u8,
+        rn: u8,
+        rm: u8,
+        subtract: bool,
+        set_flags: bool,
+        option: u32,
+        amount: u32,
+        width: OpWidth,
+    ) -> Result<(), LowerError> {
+        let sf = Self::sf(width)?;
+        self.emit(
+            (sf << 31)
+                | ((subtract as u32) << 30)
+                | ((set_flags as u32) << 29)
+                | (0b01011 << 24)
+                | (1 << 21)
+                | ((rm as u32) << 16)
+                | (option << 13)
+                | (amount << 10)
+                | ((rn as u32) << 5)
+                | (dst as u32),
+        );
+        Ok(())
     }
 
     fn emit_addsub_imm(
@@ -384,6 +413,10 @@ impl Aarch64Lowerer {
                 let (rm, shift, amount) = Self::addsub_src2(src2, width)?;
                 self.emit_addsub_shifted(dst, rn, rm, subtract, set_flags, shift, amount, width)
             }
+            SrcOperand::Extended { .. } => {
+                let (rm, option, amount) = Self::addsub_ext_src2(src2)?;
+                self.emit_addsub_extended(dst, rn, rm, subtract, set_flags, option, amount, width)
+            }
             SrcOperand::Imm(imm) | SrcOperand::Imm64(imm) => {
                 self.emit_addsub_imm(dst, rn, *imm, subtract, set_flags, width)
             }
@@ -461,6 +494,10 @@ impl Aarch64Lowerer {
                 let (rm, shift, amount) = Self::addsub_src2(src2, width)?;
                 self.emit_addsub_shifted(31, rn, rm, true, true, shift, amount, width)
             }
+            SrcOperand::Extended { .. } => {
+                let (rm, option, amount) = Self::addsub_ext_src2(src2)?;
+                self.emit_addsub_extended(31, rn, rm, true, true, option, amount, width)
+            }
             SrcOperand::Imm(imm) | SrcOperand::Imm64(imm) => {
                 self.emit_addsub_imm(31, rn, *imm, true, true, width)
             }
@@ -498,6 +535,33 @@ impl Aarch64Lowerer {
             }
             other => Err(LowerError::UnsupportedOp {
                 op: format!("AArch64 native add/sub source {other:?}"),
+            }),
+        }
+    }
+
+    fn addsub_ext_src2(src2: &SrcOperand) -> Result<(u8, u32, u32), LowerError> {
+        match src2 {
+            SrcOperand::Extended { reg, extend, shift } => {
+                let option = match extend {
+                    ExtendOp::Uxtb => 0b000,
+                    ExtendOp::Uxth => 0b001,
+                    ExtendOp::Uxtw => 0b010,
+                    ExtendOp::Uxtx => 0b011,
+                    ExtendOp::Sxtb => 0b100,
+                    ExtendOp::Sxth => 0b101,
+                    ExtendOp::Sxtw => 0b110,
+                    ExtendOp::Sxtx => 0b111,
+                };
+                if *shift > 4 {
+                    return Err(LowerError::InvalidOperand {
+                        op: "AArch64 add/sub extended register".into(),
+                        operand: format!("shift={shift}"),
+                    });
+                }
+                Ok((Self::gpr(*reg)?, option, u32::from(*shift)))
+            }
+            other => Err(LowerError::UnsupportedOp {
+                op: format!("AArch64 native add/sub extended source {other:?}"),
             }),
         }
     }
