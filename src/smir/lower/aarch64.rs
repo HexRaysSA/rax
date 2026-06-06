@@ -4918,24 +4918,55 @@ impl Aarch64Lowerer {
             if amount == bits {
                 return self.emit_bitfield(dst_reg, src, 0b10, 0, top_bit, OpWidth::W32);
             }
+            let scratches = if dst_reg == src {
+                Self::scratch_regs(&[dst_reg, src], 1)?
+            } else {
+                Vec::new()
+            };
+            let insert_src = scratches.first().copied().unwrap_or(src);
+            self.emit_scratch_save(&scratches);
             if dst_reg == src {
-                return Err(LowerError::UnsupportedOp {
-                    op: format!(
-                        "AArch64 native {width:?} {} needs a scratch when dst == src",
-                        if left { "Shld" } else { "Shrd" }
-                    ),
-                });
+                self.emit_mov_reg(insert_src, src, OpWidth::W32)?;
             }
             if left {
                 self.lower_shift_imm(dst_reg, rn, i64::from(amount), ShiftOp::Lsl, OpWidth::W32)?;
-                self.emit_bitfield(dst_reg, src, 0b01, bits - amount, top_bit, OpWidth::W32)?;
+                self.emit_bitfield(
+                    dst_reg,
+                    insert_src,
+                    0b01,
+                    bits - amount,
+                    top_bit,
+                    OpWidth::W32,
+                )?;
             } else {
                 self.lower_shift_imm(dst_reg, rn, i64::from(amount), ShiftOp::Lsr, OpWidth::W32)?;
-                let lsb = bits - amount;
-                let immr = if lsb == 0 { 0 } else { OpWidth::W32.bits() - lsb };
-                self.emit_bitfield(dst_reg, src, 0b01, immr, amount - 1, OpWidth::W32)?;
+                if dst_reg == src {
+                    self.emit_logic_shifted(
+                        dst_reg,
+                        dst_reg,
+                        insert_src,
+                        0b01,
+                        false,
+                        0b00,
+                        bits - amount,
+                        OpWidth::W32,
+                    )?;
+                } else {
+                    let lsb = bits - amount;
+                    let immr = if lsb == 0 { 0 } else { OpWidth::W32.bits() - lsb };
+                    self.emit_bitfield(
+                        dst_reg,
+                        insert_src,
+                        0b01,
+                        immr,
+                        amount - 1,
+                        OpWidth::W32,
+                    )?;
+                }
             }
-            return self.emit_bitfield(dst_reg, dst_reg, 0b10, 0, top_bit, OpWidth::W32);
+            self.emit_bitfield(dst_reg, dst_reg, 0b10, 0, top_bit, OpWidth::W32)?;
+            self.emit_scratch_restore(&scratches);
+            return Ok(());
         }
 
         let mask = match width {
@@ -7183,6 +7214,23 @@ mod tests {
         }
     }
 
+    fn ref_double_shift_imm(dst: u64, src: u64, amount: i64, left: bool, width: OpWidth) -> u64 {
+        let bits = width.bits();
+        let mask = width_mask(width);
+        let dst = dst & mask;
+        let src = src & mask;
+        let count = (amount as u64 & 0x1f) as u32;
+        if count == 0 {
+            dst
+        } else if count >= bits {
+            src
+        } else if left {
+            ((dst << count) | (src >> (bits - count))) & mask
+        } else {
+            ((dst >> count) | (src << (bits - count))) & mask
+        }
+    }
+
     fn assert_shift_reg_count_alias_lowering(
         label: &str,
         shift: ShiftOp,
@@ -7311,6 +7359,64 @@ mod tests {
         }
         for (reg, value) in sentinels {
             if reg != src_reg && reg != amount_reg && reg != dst_reg {
+                assert_eq!(out[reg as usize], value, "{label}: x{reg} restored");
+            }
+        }
+    }
+
+    fn assert_double_shift_imm_lowering(
+        label: &str,
+        left: bool,
+        dst_reg: u8,
+        dst_value: u64,
+        src_reg: u8,
+        src_value: u64,
+        amount: i64,
+        width: OpWidth,
+    ) {
+        let op = if left {
+            OpKind::Shld {
+                dst: x(dst_reg),
+                src: x(src_reg),
+                amount: SrcOperand::Imm(amount),
+                width,
+                flags: FlagUpdate::None,
+            }
+        } else {
+            OpKind::Shrd {
+                dst: x(dst_reg),
+                src: x(src_reg),
+                amount: SrcOperand::Imm(amount),
+                width,
+                flags: FlagUpdate::None,
+            }
+        };
+        let code = lower_single_op(op);
+        let expected = ref_double_shift_imm(dst_value, src_value, amount, left, width);
+        let sentinels = [
+            (16, 0x1616_1616_1616_1616),
+            (17, 0x1717_1717_1717_1717),
+            (15, 0x1515_1515_1515_1515),
+            (14, 0x1414_1414_1414_1414),
+        ];
+        let mut regs = sentinels.to_vec();
+        regs.push((dst_reg, dst_value));
+        regs.push((src_reg, src_value));
+
+        let old_nzcv = 0b1001;
+        let (out, out_nzcv, sp) = run_aarch64_code(&code, &regs, old_nzcv);
+        assert_eq!(
+            out[dst_reg as usize] & width_mask(width),
+            expected,
+            "{label}: result"
+        );
+        assert_eq!(out_nzcv, old_nzcv, "{label}: NZCV preserved");
+        assert_eq!(sp, 0x8000, "{label}: stack restored");
+        if src_reg != dst_reg {
+            assert_eq!(out[src_reg as usize], src_value, "{label}: src preserved");
+        }
+        for (reg, value) in sentinels {
+            if reg != src_reg && reg != dst_reg {
                 assert_eq!(out[reg as usize], value, "{label}: x{reg} restored");
             }
         }
@@ -15119,87 +15225,47 @@ mod tests {
     }
 
     #[test]
-    fn rejects_shld_w16_aliased_nonzero_count() {
-        let mut builder = FunctionBuilder::new(FunctionId(0), 0);
-        builder.push_op(
+    fn lowers_subword_double_shift_aliased_nonzero_count() {
+        assert_double_shift_imm_lowering(
+            "shld_w16_aliased_nonzero_count",
+            true,
             0,
-            OpKind::Shld {
-                dst: x(0),
-                src: x(0),
-                amount: SrcOperand::Imm(1),
-                width: OpWidth::W16,
-                flags: FlagUpdate::None,
-            },
-        );
-        builder.set_terminator(Terminator::Return { values: vec![] });
-        let func = builder.finish();
-
-        let mut lowerer = Aarch64Lowerer::new();
-        let err = lowerer.lower_function(&func).unwrap_err();
-        assert!(matches!(err, LowerError::UnsupportedOp { .. }));
-    }
-
-    #[test]
-    fn rejects_shld_w8_aliased_nonzero_count() {
-        let mut builder = FunctionBuilder::new(FunctionId(0), 0);
-        builder.push_op(
+            0x1234,
             0,
-            OpKind::Shld {
-                dst: x(0),
-                src: x(0),
-                amount: SrcOperand::Imm(1),
-                width: OpWidth::W8,
-                flags: FlagUpdate::None,
-            },
+            0x1234,
+            1,
+            OpWidth::W16,
         );
-        builder.set_terminator(Terminator::Return { values: vec![] });
-        let func = builder.finish();
-
-        let mut lowerer = Aarch64Lowerer::new();
-        let err = lowerer.lower_function(&func).unwrap_err();
-        assert!(matches!(err, LowerError::UnsupportedOp { .. }));
-    }
-
-    #[test]
-    fn rejects_shrd_w8_aliased_nonzero_count() {
-        let mut builder = FunctionBuilder::new(FunctionId(0), 0);
-        builder.push_op(
+        assert_double_shift_imm_lowering(
+            "shld_w8_aliased_nonzero_count",
+            true,
             0,
-            OpKind::Shrd {
-                dst: x(0),
-                src: x(0),
-                amount: SrcOperand::Imm(1),
-                width: OpWidth::W8,
-                flags: FlagUpdate::None,
-            },
-        );
-        builder.set_terminator(Terminator::Return { values: vec![] });
-        let func = builder.finish();
-
-        let mut lowerer = Aarch64Lowerer::new();
-        let err = lowerer.lower_function(&func).unwrap_err();
-        assert!(matches!(err, LowerError::UnsupportedOp { .. }));
-    }
-
-    #[test]
-    fn rejects_shrd_w16_aliased_nonzero_count() {
-        let mut builder = FunctionBuilder::new(FunctionId(0), 0);
-        builder.push_op(
+            0x81,
             0,
-            OpKind::Shrd {
-                dst: x(0),
-                src: x(0),
-                amount: SrcOperand::Imm(1),
-                width: OpWidth::W16,
-                flags: FlagUpdate::None,
-            },
+            0x81,
+            1,
+            OpWidth::W8,
         );
-        builder.set_terminator(Terminator::Return { values: vec![] });
-        let func = builder.finish();
-
-        let mut lowerer = Aarch64Lowerer::new();
-        let err = lowerer.lower_function(&func).unwrap_err();
-        assert!(matches!(err, LowerError::UnsupportedOp { .. }));
+        assert_double_shift_imm_lowering(
+            "shrd_w8_aliased_nonzero_count",
+            false,
+            0,
+            0x81,
+            0,
+            0x81,
+            1,
+            OpWidth::W8,
+        );
+        assert_double_shift_imm_lowering(
+            "shrd_w16_aliased_nonzero_count",
+            false,
+            0,
+            0x8001,
+            0,
+            0x8001,
+            1,
+            OpWidth::W16,
+        );
     }
 
     #[test]
