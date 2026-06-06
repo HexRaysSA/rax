@@ -183,13 +183,29 @@ impl Aarch64Lowerer {
         n: bool,
         width: OpWidth,
     ) -> Result<(), LowerError> {
+        self.emit_logic_shifted(dst, rn, rm, opc, n, 0, 0, width)
+    }
+
+    fn emit_logic_shifted(
+        &mut self,
+        dst: u8,
+        rn: u8,
+        rm: u8,
+        opc: u32,
+        n: bool,
+        shift: u32,
+        amount: u32,
+        width: OpWidth,
+    ) -> Result<(), LowerError> {
         let sf = Self::sf(width)?;
         self.emit(
             (sf << 31)
                 | (opc << 29)
                 | (0b01010 << 24)
+                | (shift << 22)
                 | ((n as u32) << 21)
                 | ((rm as u32) << 16)
+                | (amount << 10)
                 | ((rn as u32) << 5)
                 | (dst as u32),
         );
@@ -375,17 +391,15 @@ impl Aarch64Lowerer {
                 op: "AArch64 native logical flags are only supported for ANDS/BICS".into(),
             });
         }
-        let SrcOperand::Reg(src2) = src2 else {
-            return Err(LowerError::UnsupportedOp {
-                op: format!("AArch64 native logical source {src2:?}"),
-            });
-        };
-        self.emit_logic_reg_n(
+        let (src2, shift, amount) = Self::logical_src2(src2, width)?;
+        self.emit_logic_shifted(
             Self::dst_or_zero_for_flags(dst, set_flags)?,
             Self::gpr(src1)?,
-            Self::gpr(*src2)?,
+            src2,
             opc,
             n,
+            shift,
+            amount,
             width,
         )
     }
@@ -444,19 +458,52 @@ impl Aarch64Lowerer {
         src2: &SrcOperand,
         width: OpWidth,
     ) -> Result<(), LowerError> {
-        let SrcOperand::Reg(src2) = src2 else {
-            return Err(LowerError::UnsupportedOp {
-                op: format!("AArch64 native TST source {src2:?}"),
-            });
-        };
-        self.emit_logic_reg_n(
+        let (src2, shift, amount) = Self::logical_src2(src2, width)?;
+        self.emit_logic_shifted(
             31,
             Self::gpr(src1)?,
-            Self::gpr(*src2)?,
+            src2,
             0b11,
             false,
+            shift,
+            amount,
             width,
         )
+    }
+
+    fn logical_src2(
+        src2: &SrcOperand,
+        width: OpWidth,
+    ) -> Result<(u8, u32, u32), LowerError> {
+        let bits = width.bits();
+        match src2 {
+            SrcOperand::Reg(reg) => Ok((Self::gpr(*reg)?, 0, 0)),
+            SrcOperand::Shifted { reg, shift, amount } => {
+                let shift = match shift {
+                    ShiftOp::Lsl => 0,
+                    ShiftOp::Lsr => 1,
+                    ShiftOp::Asr => 2,
+                    ShiftOp::Ror => 3,
+                    ShiftOp::Rrx => {
+                        return Err(LowerError::UnsupportedOp {
+                            op: "AArch64 native logical RRX source".into(),
+                        });
+                    }
+                };
+                if u32::from(*amount) >= bits {
+                    return Err(LowerError::InvalidOperand {
+                        op: "AArch64 logical shifted register".into(),
+                        operand: format!("amount={amount}, width={width:?}"),
+                    });
+                }
+                Ok((Self::gpr(*reg)?, shift, u32::from(*amount)))
+            }
+            other => {
+                return Err(LowerError::UnsupportedOp {
+                    op: format!("AArch64 native logical source {other:?}"),
+                });
+            }
+        }
     }
 
     fn lower_clz(&mut self, dst: VReg, src: VReg, width: OpWidth) -> Result<(), LowerError> {
