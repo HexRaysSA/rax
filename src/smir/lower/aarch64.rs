@@ -5331,6 +5331,12 @@ impl Aarch64Lowerer {
                 index,
                 width,
             } => self.lower_bzhi(*dst, *src, *index, *width),
+            OpKind::Pdep { .. } => Err(LowerError::UnsupportedOp {
+                op: "AArch64 native Pdep".into(),
+            }),
+            OpKind::Pext { .. } => Err(LowerError::UnsupportedOp {
+                op: "AArch64 native Pext".into(),
+            }),
             OpKind::Bswap { dst, src, width } => self.lower_bswap(*dst, *src, *width),
             OpKind::Rbit { dst, src, width } => self.lower_rbit(*dst, *src, *width),
             OpKind::Bfx {

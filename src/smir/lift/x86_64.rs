@@ -2961,6 +2961,229 @@ impl X86_64Lifter {
         ))
     }
 
+    fn validate_apx_bmi_payload(
+        &self,
+        prefix: ApxEvexPrefix,
+        bytes: &[u8],
+        pc: u64,
+        allow_nf: bool,
+    ) -> Result<(), LiftError> {
+        let allowed_p2 = 0x08 | if allow_nf { 0x04 } else { 0 };
+        if bytes[3] & !allowed_p2 != 0 || (!allow_nf && prefix.nf) {
+            return Err(LiftError::Unsupported {
+                addr: pc,
+                mnemonic: "APX BMI reserved EVEX field".to_string(),
+            });
+        }
+        Ok(())
+    }
+
+    fn lift_apx_bmi2_0f38(
+        &self,
+        opcode: u8,
+        bytes: &[u8],
+        pc: u64,
+        ctx: &mut LiftContext,
+    ) -> Result<LiftResult, LiftError> {
+        let prefix = decode_apx_evex_prefix_for_map(bytes, pc, 2)?;
+        self.validate_apx_bmi_payload(prefix, bytes, pc, false)?;
+
+        let kind = match (opcode, prefix.pp) {
+            (0xF5, 0x03) => "pdep",
+            (0xF5, 0x02) => "pext",
+            (0xF6, 0x03) => "mulx",
+            (0xF7, 0x02) => "sarx",
+            (0xF7, 0x03) => "shrx",
+            (0xF7, 0x01) => "shlx",
+            _ => {
+                return Err(LiftError::Unsupported {
+                    addr: pc,
+                    mnemonic: format!("APX BMI2 opcode 0x{opcode:02X} pp {}", prefix.pp),
+                });
+            }
+        };
+
+        let width = if prefix.w { OpWidth::W64 } else { OpWidth::W32 };
+        let mem_width = if prefix.w { MemWidth::B8 } else { MemWidth::B4 };
+        let modrm_prefix = prefix.as_modrm_prefix(prefix.bytes + 1);
+        let modrm = decode_modrm(&bytes[prefix.bytes + 1..], &modrm_prefix, pc)?;
+        let next_pc = pc + prefix.bytes as u64 + 1 + modrm.bytes_consumed as u64;
+        let mut ops = Vec::new();
+
+        let rm_src = if modrm.is_memory {
+            let x86_addr = modrm.addr.as_ref().unwrap();
+            let (addr, pre_ops) = self.x86_addr_to_smir(x86_addr, next_pc, ctx);
+            ops.extend(pre_ops);
+
+            let tmp = ctx.alloc_vreg();
+            ops.push(SmirOp::new(
+                OpId(ops.len() as u16),
+                pc,
+                OpKind::Load {
+                    dst: tmp,
+                    addr,
+                    width: mem_width,
+                    sign: SignExtend::Zero,
+                },
+            ));
+            tmp
+        } else {
+            self.gpr(modrm.rm)
+        };
+
+        match kind {
+            "pdep" => ops.push(SmirOp::new(
+                OpId(ops.len() as u16),
+                pc,
+                OpKind::Pdep {
+                    dst: self.gpr(modrm.reg),
+                    src: self.gpr(prefix.vvvv_reg()),
+                    mask: rm_src,
+                    width,
+                },
+            )),
+            "pext" => ops.push(SmirOp::new(
+                OpId(ops.len() as u16),
+                pc,
+                OpKind::Pext {
+                    dst: self.gpr(modrm.reg),
+                    src: self.gpr(prefix.vvvv_reg()),
+                    mask: rm_src,
+                    width,
+                },
+            )),
+            "mulx" => ops.push(SmirOp::new(
+                OpId(ops.len() as u16),
+                pc,
+                OpKind::MulU {
+                    dst_lo: self.gpr(prefix.vvvv_reg()),
+                    dst_hi: Some(self.gpr(modrm.reg)),
+                    src1: self.gpr(2),
+                    src2: SrcOperand::Reg(rm_src),
+                    width,
+                    flags: FlagUpdate::None,
+                },
+            )),
+            "sarx" | "shrx" | "shlx" => {
+                let count = self.gpr(prefix.vvvv_reg());
+                let masked_count = ctx.alloc_vreg();
+                ops.push(SmirOp::new(
+                    OpId(ops.len() as u16),
+                    pc,
+                    OpKind::And {
+                        dst: masked_count,
+                        src1: count,
+                        src2: SrcOperand::Imm((width.bits() - 1) as i64),
+                        width,
+                        flags: FlagUpdate::None,
+                    },
+                ));
+                let amount = SrcOperand::Reg(masked_count);
+                let dst = self.gpr(modrm.reg);
+                let op_kind = match kind {
+                    "sarx" => OpKind::Sar {
+                        dst,
+                        src: rm_src,
+                        amount,
+                        width,
+                        flags: FlagUpdate::None,
+                    },
+                    "shrx" => OpKind::Shr {
+                        dst,
+                        src: rm_src,
+                        amount,
+                        width,
+                        flags: FlagUpdate::None,
+                    },
+                    "shlx" => OpKind::Shl {
+                        dst,
+                        src: rm_src,
+                        amount,
+                        width,
+                        flags: FlagUpdate::None,
+                    },
+                    _ => unreachable!(),
+                };
+                ops.push(SmirOp::new(OpId(ops.len() as u16), pc, op_kind));
+            }
+            _ => unreachable!(),
+        }
+
+        Ok(LiftResult::fallthrough(
+            ops,
+            prefix.bytes + 1 + modrm.bytes_consumed,
+        ))
+    }
+
+    fn lift_apx_bmi2_rorx(
+        &self,
+        bytes: &[u8],
+        pc: u64,
+        ctx: &mut LiftContext,
+    ) -> Result<LiftResult, LiftError> {
+        let prefix = decode_apx_evex_prefix_for_map(bytes, pc, 3)?;
+        self.validate_apx_bmi_payload(prefix, bytes, pc, false)?;
+        if prefix.pp != 0x03 {
+            return Err(LiftError::Unsupported {
+                addr: pc,
+                mnemonic: format!("APX RORX pp {}", prefix.pp),
+            });
+        }
+
+        let width = if prefix.w { OpWidth::W64 } else { OpWidth::W32 };
+        let mem_width = if prefix.w { MemWidth::B8 } else { MemWidth::B4 };
+        let modrm_prefix = prefix.as_modrm_prefix(prefix.bytes + 1);
+        let modrm = decode_modrm(&bytes[prefix.bytes + 1..], &modrm_prefix, pc)?;
+        let imm_offset = prefix.bytes + 1 + modrm.bytes_consumed;
+        if bytes.len() <= imm_offset {
+            return Err(LiftError::Incomplete {
+                addr: pc,
+                have: bytes.len(),
+                need: imm_offset + 1,
+            });
+        }
+
+        let next_pc = pc + imm_offset as u64 + 1;
+        let mut ops = Vec::new();
+        let src = if modrm.is_memory {
+            let x86_addr = modrm.addr.as_ref().unwrap();
+            let (addr, pre_ops) = self.x86_addr_to_smir(x86_addr, next_pc, ctx);
+            ops.extend(pre_ops);
+
+            let tmp = ctx.alloc_vreg();
+            ops.push(SmirOp::new(
+                OpId(ops.len() as u16),
+                pc,
+                OpKind::Load {
+                    dst: tmp,
+                    addr,
+                    width: mem_width,
+                    sign: SignExtend::Zero,
+                },
+            ));
+            tmp
+        } else {
+            self.gpr(modrm.rm)
+        };
+
+        ops.push(SmirOp::new(
+            OpId(ops.len() as u16),
+            pc,
+            OpKind::Ror {
+                dst: self.gpr(modrm.reg),
+                src,
+                amount: SrcOperand::Imm(bytes[imm_offset] as i64),
+                width,
+                flags: FlagUpdate::None,
+            },
+        ));
+
+        Ok(LiftResult::fallthrough(
+            ops,
+            prefix.bytes + 1 + modrm.bytes_consumed + 1,
+        ))
+    }
+
     fn lift_cmpccxadd(
         &self,
         prefix: VecPrefix,
@@ -3297,6 +3520,12 @@ impl X86_64Lifter {
             },
             X86VecMap::Map0F38 => match opcode {
                 0xE0..=0xEF => self.lift_cmpccxadd(prefix, opcode, bytes, pc, ctx),
+                0xF5 | 0xF6 | 0xF7
+                    if prefix.encoding == VecEncodingKind::Evex
+                        && !matches!(prefix.pp, X86SsePrefix::None) =>
+                {
+                    self.lift_apx_bmi2_0f38(opcode, bytes, pc, ctx)
+                }
                 0xF2 | 0xF3 | 0xF5 | 0xF7
                     if prefix.encoding == VecEncodingKind::Evex
                         && prefix.pp == X86SsePrefix::None =>
@@ -3349,10 +3578,15 @@ impl X86_64Lifter {
                     mnemonic: format!("VEX 0F38 opcode 0x{:02X}", opcode),
                 }),
             },
-            X86VecMap::Map0F3A => Err(LiftError::Unsupported {
-                addr: pc,
-                mnemonic: "VEX 0F3A".to_string(),
-            }),
+            X86VecMap::Map0F3A => match opcode {
+                0xF0 if prefix.encoding == VecEncodingKind::Evex => {
+                    self.lift_apx_bmi2_rorx(bytes, pc, ctx)
+                }
+                _ => Err(LiftError::Unsupported {
+                    addr: pc,
+                    mnemonic: "VEX 0F3A".to_string(),
+                }),
+            },
         }
     }
 
@@ -8930,6 +9164,387 @@ mod tests {
                 matches!(err, LiftError::InvalidEncoding { .. }),
                 "{name}: {err:?}"
             );
+        }
+    }
+
+    fn assert_apx_bmi2_shift(
+        bytes: &[u8],
+        expected_op: &str,
+        dst: VReg,
+        src: VReg,
+        count: VReg,
+        width: OpWidth,
+    ) {
+        let result = lift_single(bytes).unwrap();
+        assert_eq!(result.bytes_consumed, bytes.len(), "{expected_op}");
+        assert_eq!(result.ops.len(), 2, "{expected_op}");
+        assert_apx_bmi2_shift_ops(&result.ops, 0, expected_op, dst, src, count, width);
+    }
+
+    fn assert_apx_bmi2_shift_ops(
+        ops: &[SmirOp],
+        start: usize,
+        expected_op: &str,
+        dst: VReg,
+        src: VReg,
+        count: VReg,
+        width: OpWidth,
+    ) {
+        let masked_count = match &ops[start].kind {
+            OpKind::And {
+                dst,
+                src1,
+                src2: SrcOperand::Imm(mask),
+                width: got_width,
+                flags: FlagUpdate::None,
+            } => {
+                assert_eq!(*src1, count, "{expected_op}");
+                assert_eq!(*mask, (width.bits() - 1) as i64, "{expected_op}");
+                assert_eq!(*got_width, width, "{expected_op}");
+                *dst
+            }
+            other => panic!("expected APX BMI2 {expected_op} count mask, got {other:?}"),
+        };
+        match (&ops[start + 1].kind, expected_op) {
+            (
+                OpKind::Sar {
+                    dst: got_dst,
+                    src: got_src,
+                    amount: SrcOperand::Reg(amount),
+                    width: got_width,
+                    flags: FlagUpdate::None,
+                },
+                "sarx",
+            )
+            | (
+                OpKind::Shr {
+                    dst: got_dst,
+                    src: got_src,
+                    amount: SrcOperand::Reg(amount),
+                    width: got_width,
+                    flags: FlagUpdate::None,
+                },
+                "shrx",
+            )
+            | (
+                OpKind::Shl {
+                    dst: got_dst,
+                    src: got_src,
+                    amount: SrcOperand::Reg(amount),
+                    width: got_width,
+                    flags: FlagUpdate::None,
+                },
+                "shlx",
+            ) => {
+                assert_eq!(*got_dst, dst, "{expected_op}");
+                assert_eq!(*got_src, src, "{expected_op}");
+                assert_eq!(*amount, masked_count, "{expected_op}");
+                assert_eq!(*got_width, width, "{expected_op}");
+            }
+            (other, _) => panic!("expected APX BMI2 {expected_op}, got {other:?}"),
+        }
+    }
+
+    fn assert_apx_bmi2_memory_load(op: &SmirOp, expected: &str) -> VReg {
+        match &op.kind {
+            OpKind::Load {
+                dst,
+                addr:
+                    Address::BaseIndexScale {
+                        base: Some(base),
+                        index,
+                        scale: 4,
+                        disp: 0x20,
+                        ..
+                    },
+                width: MemWidth::B8,
+                sign: SignExtend::Zero,
+            } => {
+                assert_eq!(*base, x86_gpr(17), "{expected}");
+                assert_eq!(*index, x86_gpr(18), "{expected}");
+                *dst
+            }
+            other => panic!("expected APX BMI2 {expected} memory load, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn lift_apx_bmi2_register_forms_like_llvm() {
+        // LLVM 20 APX EVEX encodings:
+        //   pdepq %rbx, %r19, %r20 => 62 e2 e7 00 f5 e3
+        //   pextq %rbx, %r19, %r20 => 62 e2 e6 00 f5 e3
+        //   mulxq %rbx, %r19, %r20 => 62 e2 e7 00 f6 e3
+        let pdep = lift_single(&[0x62, 0xE2, 0xE7, 0x00, 0xF5, 0xE3]).unwrap();
+        assert_eq!(pdep.bytes_consumed, 6);
+        match &pdep.ops[..] {
+            [
+                SmirOp {
+                    kind:
+                        OpKind::Pdep {
+                            dst,
+                            src,
+                            mask,
+                            width,
+                        },
+                    ..
+                },
+            ] => {
+                assert_eq!(*dst, x86_gpr(20));
+                assert_eq!(*src, x86_gpr(19));
+                assert_eq!(*mask, x86_gpr(3));
+                assert_eq!(*width, OpWidth::W64);
+            }
+            other => panic!("expected APX PDEP, got {other:?}"),
+        }
+
+        let pext = lift_single(&[0x62, 0xE2, 0xE6, 0x00, 0xF5, 0xE3]).unwrap();
+        assert_eq!(pext.bytes_consumed, 6);
+        match &pext.ops[..] {
+            [
+                SmirOp {
+                    kind:
+                        OpKind::Pext {
+                            dst,
+                            src,
+                            mask,
+                            width,
+                        },
+                    ..
+                },
+            ] => {
+                assert_eq!(*dst, x86_gpr(20));
+                assert_eq!(*src, x86_gpr(19));
+                assert_eq!(*mask, x86_gpr(3));
+                assert_eq!(*width, OpWidth::W64);
+            }
+            other => panic!("expected APX PEXT, got {other:?}"),
+        }
+
+        let mulx = lift_single(&[0x62, 0xE2, 0xE7, 0x00, 0xF6, 0xE3]).unwrap();
+        assert_eq!(mulx.bytes_consumed, 6);
+        match &mulx.ops[..] {
+            [
+                SmirOp {
+                    kind:
+                        OpKind::MulU {
+                            dst_lo,
+                            dst_hi: Some(dst_hi),
+                            src1,
+                            src2: SrcOperand::Reg(src2),
+                            width,
+                            flags: FlagUpdate::None,
+                        },
+                    ..
+                },
+            ] => {
+                assert_eq!(*dst_lo, x86_gpr(19));
+                assert_eq!(*dst_hi, x86_gpr(20));
+                assert_eq!(*src1, x86_gpr(2));
+                assert_eq!(*src2, x86_gpr(3));
+                assert_eq!(*width, OpWidth::W64);
+            }
+            other => panic!("expected APX MULX, got {other:?}"),
+        }
+
+        assert_apx_bmi2_shift(
+            &[0x62, 0xEA, 0xE6, 0x08, 0xF7, 0xE3],
+            "sarx",
+            x86_gpr(20),
+            x86_gpr(19),
+            x86_gpr(3),
+            OpWidth::W64,
+        );
+        assert_apx_bmi2_shift(
+            &[0x62, 0xEA, 0xE7, 0x08, 0xF7, 0xE3],
+            "shrx",
+            x86_gpr(20),
+            x86_gpr(19),
+            x86_gpr(3),
+            OpWidth::W64,
+        );
+        assert_apx_bmi2_shift(
+            &[0x62, 0xEA, 0x65, 0x08, 0xF7, 0xE3],
+            "shlx",
+            x86_gpr(20),
+            x86_gpr(19),
+            x86_gpr(3),
+            OpWidth::W32,
+        );
+
+        // LLVM 20: `rorxq $13, %rbx, %r20` => 62 e3 ff 08 f0 e3 0d.
+        let rorx = lift_single(&[0x62, 0xE3, 0xFF, 0x08, 0xF0, 0xE3, 0x0D]).unwrap();
+        assert_eq!(rorx.bytes_consumed, 7);
+        match &rorx.ops[..] {
+            [
+                SmirOp {
+                    kind:
+                        OpKind::Ror {
+                            dst,
+                            src,
+                            amount: SrcOperand::Imm(13),
+                            width,
+                            flags: FlagUpdate::None,
+                        },
+                    ..
+                },
+            ] => {
+                assert_eq!(*dst, x86_gpr(20));
+                assert_eq!(*src, x86_gpr(3));
+                assert_eq!(*width, OpWidth::W64);
+            }
+            other => panic!("expected APX RORX, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn lift_apx_bmi2_memory_forms_like_llvm() {
+        // LLVM 20: `pdepq 32(%r17,%r18,4), %r19, %r20`
+        // => 62 ea e3 00 f5 64 91 20.
+        let pdep = lift_single(&[0x62, 0xEA, 0xE3, 0x00, 0xF5, 0x64, 0x91, 0x20]).unwrap();
+        assert_eq!(pdep.bytes_consumed, 8);
+        assert_eq!(pdep.ops.len(), 2);
+        let mask = assert_apx_bmi2_memory_load(&pdep.ops[0], "PDEP");
+        match &pdep.ops[1].kind {
+            OpKind::Pdep {
+                dst,
+                src,
+                mask: got_mask,
+                width: OpWidth::W64,
+            } => {
+                assert_eq!(*dst, x86_gpr(20));
+                assert_eq!(*src, x86_gpr(19));
+                assert_eq!(*got_mask, mask);
+            }
+            other => panic!("expected APX PDEP memory op, got {other:?}"),
+        }
+
+        // LLVM 20: `pextq 32(%r17,%r18,4), %r19, %r20`
+        // => 62 ea e2 00 f5 64 91 20.
+        let pext = lift_single(&[0x62, 0xEA, 0xE2, 0x00, 0xF5, 0x64, 0x91, 0x20]).unwrap();
+        assert_eq!(pext.bytes_consumed, 8);
+        assert_eq!(pext.ops.len(), 2);
+        let mask = assert_apx_bmi2_memory_load(&pext.ops[0], "PEXT");
+        match &pext.ops[1].kind {
+            OpKind::Pext {
+                dst,
+                src,
+                mask: got_mask,
+                width: OpWidth::W64,
+            } => {
+                assert_eq!(*dst, x86_gpr(20));
+                assert_eq!(*src, x86_gpr(19));
+                assert_eq!(*got_mask, mask);
+            }
+            other => panic!("expected APX PEXT memory op, got {other:?}"),
+        }
+
+        // LLVM 20: `mulxq 32(%r17,%r18,4), %r19, %r20`
+        // => 62 ea e3 00 f6 64 91 20.
+        let mulx = lift_single(&[0x62, 0xEA, 0xE3, 0x00, 0xF6, 0x64, 0x91, 0x20]).unwrap();
+        assert_eq!(mulx.bytes_consumed, 8);
+        assert_eq!(mulx.ops.len(), 2);
+        let src2 = assert_apx_bmi2_memory_load(&mulx.ops[0], "MULX");
+        match &mulx.ops[1].kind {
+            OpKind::MulU {
+                dst_lo,
+                dst_hi: Some(dst_hi),
+                src1,
+                src2: SrcOperand::Reg(got_src2),
+                width: OpWidth::W64,
+                flags: FlagUpdate::None,
+            } => {
+                assert_eq!(*dst_lo, x86_gpr(19));
+                assert_eq!(*dst_hi, x86_gpr(20));
+                assert_eq!(*src1, x86_gpr(2));
+                assert_eq!(*got_src2, src2);
+            }
+            other => panic!("expected APX MULX memory op, got {other:?}"),
+        }
+
+        for (bytes, expected_op) in [
+            (
+                &[0x62, 0xEA, 0xE2, 0x00, 0xF7, 0x64, 0x91, 0x20][..],
+                "sarx",
+            ),
+            (
+                &[0x62, 0xEA, 0xE3, 0x00, 0xF7, 0x64, 0x91, 0x20][..],
+                "shrx",
+            ),
+            (
+                &[0x62, 0xEA, 0xE1, 0x00, 0xF7, 0x64, 0x91, 0x20][..],
+                "shlx",
+            ),
+        ] {
+            let shifted = lift_single(bytes).unwrap();
+            assert_eq!(shifted.bytes_consumed, bytes.len(), "{expected_op}");
+            assert_eq!(shifted.ops.len(), 3, "{expected_op}");
+            let src = assert_apx_bmi2_memory_load(&shifted.ops[0], expected_op);
+            assert_apx_bmi2_shift_ops(
+                &shifted.ops,
+                1,
+                expected_op,
+                x86_gpr(20),
+                src,
+                x86_gpr(19),
+                OpWidth::W64,
+            );
+        }
+
+        // LLVM 20: `rorxq $13, 32(%r17,%r18,4), %r20`
+        // => 62 eb fb 08 f0 64 91 20 0d.
+        let rorx = lift_single(&[0x62, 0xEB, 0xFB, 0x08, 0xF0, 0x64, 0x91, 0x20, 0x0D]).unwrap();
+        assert_eq!(rorx.bytes_consumed, 9);
+        assert_eq!(rorx.ops.len(), 2);
+        let src = assert_apx_bmi2_memory_load(&rorx.ops[0], "RORX");
+        match &rorx.ops[1].kind {
+            OpKind::Ror {
+                dst,
+                src: got_src,
+                amount: SrcOperand::Imm(13),
+                width: OpWidth::W64,
+                flags: FlagUpdate::None,
+            } => {
+                assert_eq!(*dst, x86_gpr(20));
+                assert_eq!(*got_src, src);
+            }
+            other => panic!("expected APX RORX memory op, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn lift_apx_bmi2_rejects_invalid_forms_like_llvm() {
+        for (bytes, name) in [
+            (
+                &[0x62, 0xE3, 0xFF, 0x0C, 0xF0, 0xE3, 0x0D][..],
+                "rorx NF reserved",
+            ),
+            (
+                &[0x62, 0xE3, 0xFF, 0x09, 0xF0, 0xE3, 0x0D][..],
+                "rorx aaa reserved",
+            ),
+            (
+                &[0x62, 0xE3, 0xFF, 0x18, 0xF0, 0xE3, 0x0D][..],
+                "rorx bit4 reserved",
+            ),
+            (
+                &[0x62, 0xE3, 0xFF, 0x28, 0xF0, 0xE3, 0x0D][..],
+                "rorx L reserved",
+            ),
+            (
+                &[0x62, 0xE3, 0xFF, 0x48, 0xF0, 0xE3, 0x0D][..],
+                "rorx L-prime reserved",
+            ),
+            (
+                &[0x62, 0xE3, 0xFF, 0x88, 0xF0, 0xE3, 0x0D][..],
+                "rorx z reserved",
+            ),
+            (
+                &[0x62, 0xE2, 0xE7, 0x04, 0xF5, 0xE3][..],
+                "pdep NF reserved",
+            ),
+            (&[0x62, 0xE2, 0xE6, 0x00, 0xF6, 0xE3][..], "mulx wrong pp"),
+        ] {
+            assert!(lift_single(bytes).is_err(), "{name}");
         }
     }
 

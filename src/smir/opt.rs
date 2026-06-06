@@ -1988,6 +1988,11 @@ impl OpKind {
                 result.push(*index);
             }
 
+            OpKind::Pdep { src, mask, .. } | OpKind::Pext { src, mask, .. } => {
+                result.push(*src);
+                result.push(*mask);
+            }
+
             OpKind::Neg { src, .. }
             | OpKind::Inc { src, .. }
             | OpKind::Dec { src, .. }

@@ -572,6 +572,22 @@ pub enum OpKind {
         width: OpWidth,
     },
 
+    /// Parallel bits deposit: scatter low bits from src into selected mask bits.
+    Pdep {
+        dst: VReg,
+        src: VReg,
+        mask: VReg,
+        width: OpWidth,
+    },
+
+    /// Parallel bits extract: gather selected src bits into contiguous low bits.
+    Pext {
+        dst: VReg,
+        src: VReg,
+        mask: VReg,
+        width: OpWidth,
+    },
+
     /// Count leading zeros
     Clz {
         dst: VReg,
@@ -2661,6 +2677,8 @@ impl OpKind {
             | OpKind::Bsr { dst, .. }
             | OpKind::Bextr { dst, .. }
             | OpKind::Bzhi { dst, .. }
+            | OpKind::Pdep { dst, .. }
+            | OpKind::Pext { dst, .. }
             | OpKind::Clz { dst, .. }
             | OpKind::Ctz { dst, .. }
             | OpKind::Popcnt { dst, .. }

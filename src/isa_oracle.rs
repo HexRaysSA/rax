@@ -1472,6 +1472,18 @@ fn smir_op_kind_json(kind: &OpKind) -> Value {
             index,
             width,
         } => op_json!("bzhi", dst, src, index, width),
+        OpKind::Pdep {
+            dst,
+            src,
+            mask,
+            width,
+        } => op_json!("pdep", dst, src, mask, width),
+        OpKind::Pext {
+            dst,
+            src,
+            mask,
+            width,
+        } => op_json!("pext", dst, src, mask, width),
         OpKind::Clz { dst, src, width } => op_json!("clz", dst, src, width),
         OpKind::Ctz { dst, src, width } => op_json!("ctz", dst, src, width),
         OpKind::Popcnt { dst, src, width } => op_json!("popcnt", dst, src, width),

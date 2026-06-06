@@ -3230,15 +3230,29 @@ impl<'a> X86Emitter<'a> {
         control: PhysReg,
         width: OpWidth,
     ) {
+        self.emit_vex_bmi_rr_pp(opcode, X86SsePrefix::None, dst, src, control, width);
+    }
+
+    pub fn emit_vex_bmi_rr_pp(
+        &mut self,
+        opcode: u8,
+        pp: X86SsePrefix,
+        dst: PhysReg,
+        src: PhysReg,
+        control: PhysReg,
+        width: OpWidth,
+    ) {
         let r = (dst.encoding() >> 3) & 0x1;
         let b = (src.encoding() >> 3) & 0x1;
         let vvvv = control.encoding() & 0x0f;
         let w = u8::from(width == OpWidth::W64);
+        let pp = Self::vex_pp_bits(pp);
 
         self.code.emit_u8(0xC4);
         self.code
             .emit_u8((((r ^ 1) & 1) << 7) | (1 << 6) | (((b ^ 1) & 1) << 5) | 0x02);
-        self.code.emit_u8((w << 7) | (((vvvv ^ 0x0f) & 0x0f) << 3));
+        self.code
+            .emit_u8((w << 7) | (((vvvv ^ 0x0f) & 0x0f) << 3) | pp);
         self.code.emit_u8(opcode);
         self.emit_modrm_rr(dst, src);
     }
@@ -4725,6 +4739,64 @@ impl X86_64Lowerer {
                 self.code.emit_u8(0x9C); // pushfq
                 let mut emitter = X86Emitter::new(&mut self.code);
                 emitter.emit_vex_bmi_rr(0xF5, dst_reg, src_reg, index_reg, *width);
+                self.code.emit_u8(0x9D); // popfq
+            }
+
+            OpKind::Pdep {
+                dst,
+                src,
+                mask,
+                width,
+            } => {
+                if !matches!(width, OpWidth::W32 | OpWidth::W64) {
+                    return Err(LowerError::UnsupportedOp {
+                        op: format!("Pdep width {width:?}"),
+                    });
+                }
+                let dst_reg = self.get_dst_reg(*dst)?;
+                let src_reg = self.get_reg(*src)?;
+                let mask_reg = self.get_reg(*mask)?;
+                Self::ensure_flag_stack_operands_safe("Pdep", &[dst_reg, src_reg, mask_reg])?;
+
+                self.code.emit_u8(0x9C); // pushfq
+                let mut emitter = X86Emitter::new(&mut self.code);
+                emitter.emit_vex_bmi_rr_pp(
+                    0xF5,
+                    X86SsePrefix::Repne,
+                    dst_reg,
+                    mask_reg,
+                    src_reg,
+                    *width,
+                );
+                self.code.emit_u8(0x9D); // popfq
+            }
+
+            OpKind::Pext {
+                dst,
+                src,
+                mask,
+                width,
+            } => {
+                if !matches!(width, OpWidth::W32 | OpWidth::W64) {
+                    return Err(LowerError::UnsupportedOp {
+                        op: format!("Pext width {width:?}"),
+                    });
+                }
+                let dst_reg = self.get_dst_reg(*dst)?;
+                let src_reg = self.get_reg(*src)?;
+                let mask_reg = self.get_reg(*mask)?;
+                Self::ensure_flag_stack_operands_safe("Pext", &[dst_reg, src_reg, mask_reg])?;
+
+                self.code.emit_u8(0x9C); // pushfq
+                let mut emitter = X86Emitter::new(&mut self.code);
+                emitter.emit_vex_bmi_rr_pp(
+                    0xF5,
+                    X86SsePrefix::Rep,
+                    dst_reg,
+                    mask_reg,
+                    src_reg,
+                    *width,
+                );
                 self.code.emit_u8(0x9D); // popfq
             }
 

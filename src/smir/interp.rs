@@ -1444,6 +1444,48 @@ impl SmirInterpreter {
                 Self::write_gpr(ctx, *dst, result & width.mask(), *width);
             }
 
+            OpKind::Pdep {
+                dst,
+                src,
+                mask,
+                width,
+            } => {
+                let src = ctx.read_vreg(*src) & width.mask();
+                let mask = ctx.read_vreg(*mask) & width.mask();
+                let mut result = 0u64;
+                let mut src_bit = 0u32;
+                for bit in 0..width.bits() {
+                    if ((mask >> bit) & 1) != 0 {
+                        if ((src >> src_bit) & 1) != 0 {
+                            result |= 1u64 << bit;
+                        }
+                        src_bit += 1;
+                    }
+                }
+                Self::write_gpr(ctx, *dst, result & width.mask(), *width);
+            }
+
+            OpKind::Pext {
+                dst,
+                src,
+                mask,
+                width,
+            } => {
+                let src = ctx.read_vreg(*src) & width.mask();
+                let mask = ctx.read_vreg(*mask) & width.mask();
+                let mut result = 0u64;
+                let mut dst_bit = 0u32;
+                for bit in 0..width.bits() {
+                    if ((mask >> bit) & 1) != 0 {
+                        if ((src >> bit) & 1) != 0 {
+                            result |= 1u64 << dst_bit;
+                        }
+                        dst_bit += 1;
+                    }
+                }
+                Self::write_gpr(ctx, *dst, result & width.mask(), *width);
+            }
+
             OpKind::Clz { dst, src, width } => {
                 let val = ctx.read_vreg(*src) & width.mask();
                 let extra_bits = 64 - width.bits();
@@ -7322,6 +7364,41 @@ mod tests {
             flags,
         );
         assert_eq!(value, 0xffff_1234_5678_9abc);
+        assert_eq!(got_flags, flags);
+    }
+
+    #[test]
+    fn smir_pdep_pext_result_ops_preserve_x86_flags() {
+        let rax = VReg::Arch(ArchReg::X86(X86Reg::Rax));
+        let rcx = VReg::Arch(ArchReg::X86(X86Reg::Rcx));
+        let flags = 0x2 | 0x1 | 0x40 | 0x80 | 0x800;
+
+        let (value, got_flags) = exec_x86_rax_op(
+            OpKind::Pdep {
+                dst: rax,
+                src: rax,
+                mask: rcx,
+                width: OpWidth::W64,
+            },
+            0b101,
+            0b0101_0100,
+            flags,
+        );
+        assert_eq!(value, 0b0100_0100);
+        assert_eq!(got_flags, flags);
+
+        let (value, got_flags) = exec_x86_rax_op(
+            OpKind::Pext {
+                dst: rax,
+                src: rax,
+                mask: rcx,
+                width: OpWidth::W64,
+            },
+            0b0100_0100,
+            0b0101_0100,
+            flags,
+        );
+        assert_eq!(value, 0b101);
         assert_eq!(got_flags, flags);
     }
 
