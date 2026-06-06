@@ -5602,6 +5602,45 @@ fn smir_aarch64_native_lowering_matches_qemu_oracle() {
     );
 
     let mut st = native_state();
+    st.x[0] = 0x7777_8888_9999_aaaa;
+    st.x[1] = SCRATCH_BASE;
+    st.pstate = 0x8000_0000;
+    push_case(
+        "prefetch_read_base_offset_opkind_preserves_arch_state",
+        enc_ldst_uimm(3, 0, 2, 3),
+        vec![OpKind::Prefetch {
+            addr: Address::BaseOffset {
+                base: arm_x(1),
+                offset: 24,
+                disp_size: DispSize::Auto,
+            },
+            write: false,
+        }],
+        st,
+    );
+
+    let mut st = native_state();
+    st.x[0] = 0x8888_9999_aaaa_bbbb;
+    st.x[1] = SCRATCH_BASE;
+    st.x[2] = 1;
+    st.pstate = 0x2000_0000;
+    push_case(
+        "prefetch_write_base_index_scale_opkind_preserves_arch_state",
+        enc_prfm_reg(0b10000, RM, 0b011, 1),
+        vec![OpKind::Prefetch {
+            addr: Address::BaseIndexScale {
+                base: Some(arm_x(1)),
+                index: arm_x(2),
+                scale: 8,
+                disp: 0,
+                disp_size: DispSize::Auto,
+            },
+            write: true,
+        }],
+        st,
+    );
+
+    let mut st = native_state();
     st.x[0] = 0x1111_2222_3333_4444;
     st.pstate = 0x9000_0000;
     push_case(

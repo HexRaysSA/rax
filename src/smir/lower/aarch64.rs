@@ -1326,6 +1326,11 @@ impl Aarch64Lowerer {
         self.lower_mem_access(rt, addr, size, 0b00)
     }
 
+    fn lower_prefetch(&mut self, addr: &Address, write: bool) -> Result<(), LowerError> {
+        let prfop = if write { 0b10000 } else { 0b00000 };
+        self.lower_mem_access(prfop, addr, 3, 0b10)
+    }
+
     fn pred_store_src_to_vreg(src: &SrcOperand) -> Result<VReg, LowerError> {
         match src {
             SrcOperand::Reg(reg) => Ok(*reg),
@@ -5302,7 +5307,7 @@ impl Aarch64Lowerer {
                 self.emit(0xd503_3f5f);
                 Ok(())
             }
-            OpKind::Prefetch { .. } => Ok(()),
+            OpKind::Prefetch { addr, write } => self.lower_prefetch(addr, *write),
             OpKind::Fence { kind } => {
                 let insn = match kind {
                     FenceKind::ISync => 0xd503_3fdf,
@@ -10906,7 +10911,7 @@ mod tests {
     }
 
     #[test]
-    fn lowers_prefetch_as_noop() {
+    fn lowers_prefetch_base_offset_as_prfm() {
         let mut builder = FunctionBuilder::new(FunctionId(0), 0);
         builder.push_op(
             0,
@@ -10927,6 +10932,36 @@ mod tests {
         let code = lowerer.finalize().unwrap();
 
         let mut expected = Vec::new();
+        expected.extend_from_slice(&enc_ldst_uimm(3, 0b10, 3).to_le_bytes());
+        expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
+        assert_eq!(code, expected);
+    }
+
+    #[test]
+    fn lowers_prefetch_write_base_index_scale_as_prfm_reg() {
+        let mut builder = FunctionBuilder::new(FunctionId(0), 0);
+        builder.push_op(
+            0,
+            OpKind::Prefetch {
+                addr: Address::BaseIndexScale {
+                    base: Some(x(1)),
+                    index: x(2),
+                    scale: 8,
+                    disp: 0,
+                    disp_size: DispSize::Auto,
+                },
+                write: true,
+            },
+        );
+        builder.set_terminator(Terminator::Return { values: vec![] });
+        let func = builder.finish();
+
+        let mut lowerer = Aarch64Lowerer::new();
+        lowerer.lower_function(&func).unwrap();
+        let code = lowerer.finalize().unwrap();
+
+        let mut expected = Vec::new();
+        expected.extend_from_slice(&(enc_ldst_reg(3, 0b10, 2, 0b011, 1) | 0b10000).to_le_bytes());
         expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
         assert_eq!(code, expected);
     }
