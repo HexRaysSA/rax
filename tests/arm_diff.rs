@@ -67,6 +67,16 @@ const NOP: u32 = 0xd503201f;
 const SCRATCH_ADDR: u64 = 0x20_0000;
 /// Base pointer tests aim a register at (matches oracle.c SCRATCH_BASE).
 const SCRATCH_BASE: u64 = SCRATCH_ADDR + 64;
+/// Enables oracle PC-relative register relocation for control-flow tests.
+#[cfg(all(feature = "smir-jit", target_arch = "x86_64"))]
+const PCREL_MAGIC: u64 = 0x5241_5850_4352_454c;
+#[cfg(all(feature = "smir-jit", target_arch = "x86_64"))]
+const PCREL_TOKEN: u64 = 0x5241_5800_0000_0000;
+
+#[cfg(all(feature = "smir-jit", target_arch = "x86_64"))]
+fn pcrel_marker(offset: i32) -> u64 {
+    PCREL_TOKEN | u64::from(offset as u32)
+}
 
 impl ArmState {
     fn zeroed() -> Self {
@@ -737,6 +747,30 @@ fn enc_cond_branch(cond: u32, offset: i32) -> u32 {
     0x5400_0000 | (imm19 << 5) | (cond & 0xF)
 }
 
+/// Branch with link: `100101 imm26`.
+#[cfg(all(feature = "smir-jit", target_arch = "x86_64"))]
+fn enc_bl(offset: i32) -> u32 {
+    0x9400_0000 | (((offset >> 2) as u32) & 0x03ff_ffff)
+}
+
+/// Branch to register: `1101011 0000 11111 000000 Rn 00000`.
+#[cfg(all(feature = "smir-jit", target_arch = "x86_64"))]
+fn enc_br(rn: u32) -> u32 {
+    0xd61f_0000 | ((rn & 0x1f) << 5)
+}
+
+/// Branch with link to register.
+#[cfg(all(feature = "smir-jit", target_arch = "x86_64"))]
+fn enc_blr(rn: u32) -> u32 {
+    0xd63f_0000 | ((rn & 0x1f) << 5)
+}
+
+/// Return from subroutine through `rn` (`rn == 30` is plain RET).
+#[cfg(all(feature = "smir-jit", target_arch = "x86_64"))]
+fn enc_ret(rn: u32) -> u32 {
+    0xd65f_0000 | ((rn & 0x1f) << 5)
+}
+
 /// Logical (shifted register): `sf opc 01010 shift N Rm imm6 Rn Rd`
 fn enc_logical_shift_regs(
     sf: u32,
@@ -1267,6 +1301,56 @@ fn run_smir_aarch64_x86_branch_pair(
 
     builder.switch_to_block(exit_block);
     builder.set_terminator(Terminator::Return { values: vec![] });
+    let func = builder.finish();
+
+    let mut lowerer = Aarch64X86_64Lowerer::new();
+    let result = lowerer
+        .lower_function(&func)
+        .map_err(|e| format!("lower failed: {e:?}"))?;
+    let code = lowerer
+        .finalize()
+        .map_err(|e| format!("finalize failed: {e:?}"))?;
+    let mem = ExecMem::new(&code).map_err(|e| format!("exec memory failed: {e:?}"))?;
+
+    let mut regs = arm_to_smir_regs(input);
+    mem.run_aarch64(result.entry_offset, &mut regs);
+    Ok(regs)
+}
+
+#[cfg(all(feature = "smir-jit", target_arch = "x86_64"))]
+fn run_smir_aarch64_x86_control_one(
+    insn: u32,
+    input: &ArmState,
+) -> Result<Aarch64GuestRegs, String> {
+    let mut lifter = Aarch64Lifter::new();
+    let mut ctx = LiftContext::new(SourceArch::Aarch64);
+    let lifted = lifter
+        .lift_insn(0, &insn.to_le_bytes(), &mut ctx)
+        .map_err(|e| format!("lift failed: {e:?}"))?;
+
+    let mut builder = FunctionBuilder::new(FunctionId(0), 0);
+    for op in lifted.ops {
+        builder.push_op(op.guest_pc, op.kind);
+    }
+    match lifted.control_flow {
+        ControlFlow::Call { target } => {
+            let continuation = builder.create_block(4);
+            builder.set_terminator(Terminator::Call {
+                target,
+                args: vec![],
+                continuation,
+            });
+            builder.switch_to_block(continuation);
+            builder.set_terminator(Terminator::Return { values: vec![] });
+        }
+        ControlFlow::IndirectBranch { target } => {
+            builder.set_terminator(Terminator::IndirectBranch {
+                target,
+                possible_targets: vec![],
+            });
+        }
+        other => return Err(format!("unexpected control flow: {other:?}")),
+    }
     let func = builder.finish();
 
     let mut lowerer = Aarch64X86_64Lowerer::new();
@@ -2714,11 +2798,114 @@ fn smir_aarch64_x86_test_branch_lowering_matches_qemu_oracle() {
         }
     }
 
+    let control_target = 12;
+    let mut control_batch: Vec<(String, u32, ArmState, ArmState)> = Vec::new();
+
+    let mut smir_st = ArmState::zeroed();
+    smir_st.x[0] = 0x1111_2222_3333_4444;
+    smir_st.x[30] = 0xaaaa_bbbb_cccc_dddd;
+    smir_st.pstate = 0xa000_0000;
+    let mut hw_st = smir_st;
+    hw_st.pc = PCREL_MAGIC;
+    control_batch.push((
+        "bl_direct_sets_lr_and_pc".into(),
+        enc_bl(control_target),
+        hw_st,
+        smir_st,
+    ));
+
+    let mut smir_st = ArmState::zeroed();
+    smir_st.x[1] = control_target as u64;
+    smir_st.x[30] = 0x1234_5678_9abc_def0;
+    smir_st.pstate = 0x5000_0000;
+    let mut hw_st = smir_st;
+    hw_st.pc = PCREL_MAGIC;
+    hw_st.x[1] = pcrel_marker(control_target);
+    control_batch.push(("br_x1_sets_pc".into(), enc_br(RN), hw_st, smir_st));
+
+    let mut smir_st = ArmState::zeroed();
+    smir_st.x[1] = control_target as u64;
+    smir_st.x[30] = 0xfedc_ba98_7654_3210;
+    smir_st.pstate = 0x6000_0000;
+    let mut hw_st = smir_st;
+    hw_st.pc = PCREL_MAGIC;
+    hw_st.x[1] = pcrel_marker(control_target);
+    control_batch.push((
+        "blr_x1_sets_lr_and_pc".into(),
+        enc_blr(RN),
+        hw_st,
+        smir_st,
+    ));
+
+    let mut smir_st = ArmState::zeroed();
+    smir_st.x[0] = 0x2222_3333_4444_5555;
+    smir_st.x[30] = control_target as u64;
+    smir_st.pstate = 0x9000_0000;
+    let mut hw_st = smir_st;
+    hw_st.pc = PCREL_MAGIC;
+    hw_st.x[30] = pcrel_marker(control_target);
+    control_batch.push(("ret_x30_sets_pc".into(), enc_ret(30), hw_st, smir_st));
+
+    let mut smir_st = ArmState::zeroed();
+    smir_st.x[2] = control_target as u64;
+    smir_st.x[30] = 0x3333_4444_5555_6666;
+    smir_st.pstate = 0xc000_0000;
+    let mut hw_st = smir_st;
+    hw_st.pc = PCREL_MAGIC;
+    hw_st.x[2] = pcrel_marker(control_target);
+    control_batch.push(("ret_x2_sets_pc".into(), enc_ret(RM), hw_st, smir_st));
+
+    let control_cases: Vec<(u32, u32, ArmState)> = control_batch
+        .iter()
+        .map(|(_, insn, hw_st, _)| (*insn, NOP, *hw_st))
+        .collect();
+    let control_outs = match run_oracle(&oracle, &control_cases) {
+        Some(o) => o,
+        None => {
+            eprintln!(
+                "[arm_diff] smir_aarch64_x86_test_branch: control-flow oracle run failed -> skipping"
+            );
+            return;
+        }
+    };
+    assert_eq!(control_outs.len(), control_cases.len());
+
+    for (i, (label, insn, _hw_st, smir_st)) in control_batch.iter().enumerate() {
+        let out = &control_outs[i];
+        if out.trapped != 0 {
+            mismatches.push(Mismatch {
+                label: label.clone(),
+                insn: *insn,
+                detail: format!("hardware faulted with signal {}", out.trapped),
+            });
+            continue;
+        }
+
+        match run_smir_aarch64_x86_control_one(*insn, smir_st) {
+            Ok(got) => {
+                compare_smir_scalar_case(label, *insn, &got, &out.st, &mut mismatches);
+                if got.pc != out.st.pc {
+                    mismatches.push(Mismatch {
+                        label: label.clone(),
+                        insn: *insn,
+                        detail: format!("pc: smir={:#018x} hw={:#018x}", got.pc, out.st.pc),
+                    });
+                }
+            }
+            Err(detail) => mismatches.push(Mismatch {
+                label: label.clone(),
+                insn: *insn,
+                detail,
+            }),
+        }
+    }
+
     if !mismatches.is_empty() {
+        let total_cases = batch.len() + control_batch.len();
         eprintln!(
             "\n==== smir_aarch64_x86_test_branch: {} mismatches across {} cases ====",
             mismatches.len(),
-            batch.len()
+            total_cases
         );
         for m in mismatches.iter().take(25) {
             eprintln!("  [{}] {:#010x}: {}", m.label, m.insn, m.detail);

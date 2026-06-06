@@ -70,6 +70,15 @@ typedef struct {
 #define SCRATCH_SIZE 4096
 #define SCRATCH_BASE (SCRATCH_ADDR + 64)
 
+/* Optional test-only relocation mode for control-flow instructions. If an
+ * input case sets ArmState.pc to PCREL_MAGIC, any X register whose high 24 bits
+ * match PCREL_TOKEN is rewritten to harness_testslot + signed_low32 before the
+ * test runs. Captured code-page addresses are then normalized back to offsets
+ * from harness_testslot. */
+#define PCREL_MAGIC 0x524158504352454cull /* "RAXPCREL" */
+#define PCREL_MASK  0xffffff0000000000ull
+#define PCREL_TOKEN 0x5241580000000000ull /* high 24 bits: "RAX" */
+
 typedef struct {
     uint32_t insn;    /* instruction word under test      */
     uint32_t flags;   /* optional second instruction      */
@@ -220,6 +229,41 @@ static uint64_t          g_code;         /* address of the test code page  */
 static mcontext_t        g_saved_mc;     /* harness mcontext (to resume)   */
 static uint8_t           g_saved_reserved[4096];
 
+static int is_pcrel_marker(uint64_t value) {
+    return (value & PCREL_MASK) == PCREL_TOKEN;
+}
+
+static uint64_t testslot_base(uint32_t *code, size_t slot) {
+    return (uint64_t)(uintptr_t)(code + slot);
+}
+
+static void apply_pcrel_input(ArmState *st, uint32_t *code, size_t slot) {
+    if (st->pc != PCREL_MAGIC) return;
+    uint64_t base = testslot_base(code, slot);
+    for (int i = 0; i < 31; i++) {
+        if (is_pcrel_marker(st->x[i])) {
+            int32_t off = (int32_t)(uint32_t)st->x[i];
+            st->x[i] = base + (int64_t)off;
+        }
+    }
+    st->pc = 0;
+}
+
+static void normalize_pcrel_output(const ArmState *in, ArmState *out,
+                                   uint32_t *code, size_t slot, size_t words) {
+    if (in->pc != PCREL_MAGIC) return;
+    uint64_t base = testslot_base(code, slot);
+    uint64_t end = (uint64_t)(uintptr_t)(code + words);
+    for (int i = 0; i < 31; i++) {
+        if (out->x[i] >= base && out->x[i] < end) {
+            out->x[i] -= base;
+        }
+    }
+    if (out->pc >= base && out->pc < end) {
+        out->pc -= base;
+    }
+}
+
 static void capture_fpsimd(const mcontext_t *mc, ArmState *st) {
     const uint8_t *p = (const uint8_t *)mc->__reserved;
     for (int i = 0; i < 64; i++) {
@@ -348,6 +392,7 @@ int main(void) {
         if (read_exact(0, &in, sizeof in)) return 6;
 
         g_block = in.st;
+        apply_pcrel_input(&g_block, code, slot);
         code[slot] = in.insn;
         code[slot + 1] = in.flags; /* second instruction (NOP for single tests) */
         code[slot + 2] = in.insn3; /* third instruction (NOP for one/two-slot tests) */
@@ -366,6 +411,7 @@ int main(void) {
 
         /* Capture any modifications the test made to the scratch window. */
         memcpy(out.scratch, (void *)SCRATCH_ADDR, sizeof out.scratch);
+        normalize_pcrel_output(&in.st, &out, code, slot, words);
 
         OutCase oc;
         oc.st = out;
