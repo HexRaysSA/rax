@@ -3512,6 +3512,27 @@ impl X86_64Lifter {
         Ok(LiftResult::branch(vec![], insn_len, target))
     }
 
+    /// Lift APX JMPABS imm64 (REX2 + A1).
+    fn lift_jmp_abs(
+        &self,
+        bytes: &[u8],
+        prefix: &X86Prefix,
+        pc: u64,
+    ) -> Result<LiftResult, LiftError> {
+        if bytes.len() < 8 {
+            return Err(LiftError::Incomplete {
+                addr: pc,
+                have: bytes.len(),
+                need: 8,
+            });
+        }
+
+        let target = u64::from_le_bytes([
+            bytes[0], bytes[1], bytes[2], bytes[3], bytes[4], bytes[5], bytes[6], bytes[7],
+        ]);
+        Ok(LiftResult::branch(vec![], prefix.cursor + 8, target))
+    }
+
     /// Lift Jcc rel8 (70-7F)
     fn lift_jcc_rel8(
         &self,
@@ -4335,6 +4356,14 @@ impl X86_64Lifter {
                 },
                 pc,
                 ctx,
+            ),
+            0xA1 if prefix.rex2.is_some() => self.lift_jmp_abs(
+                after_opcode,
+                &X86Prefix {
+                    cursor: prefix.cursor + 1,
+                    ..prefix
+                },
+                pc,
             ),
 
             // Data movement
@@ -5622,6 +5651,73 @@ mod tests {
             }
             other => panic!("expected imul r16, rax, got {other:?}"),
         }
+    }
+
+    #[test]
+    fn lift_rex2_jmpabs_uses_llvm_encoding() {
+        let mut lifter = X86_64Lifter::strict();
+        let mut ctx = LiftContext::new(SourceArch::X86_64);
+
+        // LLVM 20: `jmpabs 0x1122334455667788` as REX2 + A1 imm64.
+        let result = lifter
+            .lift_insn(
+                0x1000,
+                &[
+                    0xD5, 0x00, 0xA1, 0x88, 0x77, 0x66, 0x55, 0x44, 0x33, 0x22, 0x11,
+                ],
+                &mut ctx,
+            )
+            .unwrap();
+        assert_eq!(result.bytes_consumed, 11);
+        assert!(result.ops.is_empty());
+        match result.control_flow {
+            ControlFlow::Branch {
+                target: 0x1122_3344_5566_7788,
+            } => {}
+            other => panic!("expected JMPABS direct branch, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn lift_rex2_jmpabs_ignores_w_bit_like_llvm() {
+        let mut lifter = X86_64Lifter::strict();
+        let mut ctx = LiftContext::new(SourceArch::X86_64);
+
+        // LLVM 20 also decodes REX2.W + A1 as JMPABS, not MOV rAX,moffs.
+        let result = lifter
+            .lift_insn(
+                0x1000,
+                &[
+                    0xD5, 0x08, 0xA1, 0x21, 0x43, 0x65, 0x87, 0x78, 0x56, 0x34, 0x12,
+                ],
+                &mut ctx,
+            )
+            .unwrap();
+        assert_eq!(result.bytes_consumed, 11);
+        match result.control_flow {
+            ControlFlow::Branch {
+                target: 0x1234_5678_8765_4321,
+            } => {}
+            other => panic!("expected JMPABS direct branch, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn lift_rex2_jmpabs_requires_imm64() {
+        let mut lifter = X86_64Lifter::strict();
+        let mut ctx = LiftContext::new(SourceArch::X86_64);
+
+        let err = lifter
+            .lift_insn(0x1000, &[0xD5, 0x00, 0xA1, 0x88, 0x77], &mut ctx)
+            .unwrap_err();
+        assert!(matches!(
+            err,
+            LiftError::Incomplete {
+                addr: 0x1000,
+                have: 2,
+                need: 8
+            }
+        ));
     }
 
     #[test]
