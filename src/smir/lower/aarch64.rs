@@ -2519,6 +2519,52 @@ impl Aarch64Lowerer {
         }
     }
 
+    fn lower_double_shift(
+        &mut self,
+        dst: VReg,
+        src: VReg,
+        amount: &SrcOperand,
+        left: bool,
+        set_flags: bool,
+        width: OpWidth,
+    ) -> Result<(), LowerError> {
+        if set_flags {
+            return Err(LowerError::UnsupportedOp {
+                op: "AArch64 native flag-setting double shift".into(),
+            });
+        }
+        let Some(amount) = Self::src_imm(amount) else {
+            return Err(LowerError::UnsupportedOp {
+                op: "AArch64 native register-count double shift".into(),
+            });
+        };
+
+        let bits = width.bits();
+        let mask = match width {
+            OpWidth::W32 => 0x1f,
+            OpWidth::W64 => 0x3f,
+            other => {
+                return Err(LowerError::UnsupportedOp {
+                    op: format!("AArch64 native double shift width {other:?}"),
+                });
+            }
+        };
+        let amount = (amount as u64 & mask) as u32;
+        let dst_reg = Self::dst_gpr(dst)?;
+        let rn = Self::gpr(dst)?;
+        if amount == 0 {
+            return self.emit_mov_reg(dst_reg, rn, width);
+        }
+
+        let src = Self::gpr(src)?;
+        let (rn, rm, lsb) = if left {
+            (rn, src, bits - amount)
+        } else {
+            (src, rn, amount)
+        };
+        self.emit_extract(dst_reg, rn, rm, lsb, width)
+    }
+
     fn lower_test_condition(&mut self, dst: VReg, cond: Condition) -> Result<(), LowerError> {
         if cond == Condition::Always {
             return self.emit_mov_imm(Self::dst_gpr(dst)?, 1, OpWidth::W64);
@@ -3977,6 +4023,34 @@ impl Aarch64Lowerer {
                 *src,
                 amount,
                 ShiftOp::Asr,
+                flags.updates_any(),
+                *width,
+            ),
+            OpKind::Shld {
+                dst,
+                src,
+                amount,
+                width,
+                flags,
+            } => self.lower_double_shift(
+                *dst,
+                *src,
+                amount,
+                true,
+                flags.updates_any(),
+                *width,
+            ),
+            OpKind::Shrd {
+                dst,
+                src,
+                amount,
+                width,
+                flags,
+            } => self.lower_double_shift(
+                *dst,
+                *src,
+                amount,
+                false,
                 flags.updates_any(),
                 *width,
             ),
@@ -5472,6 +5546,136 @@ mod tests {
     }
 
     #[test]
+    fn lowers_shrd_x_imm_as_extract() {
+        let mut builder = FunctionBuilder::new(FunctionId(0), 0);
+        builder.push_op(
+            0,
+            OpKind::Shrd {
+                dst: x(0),
+                src: x(1),
+                amount: SrcOperand::Imm(13),
+                width: OpWidth::W64,
+                flags: FlagUpdate::None,
+            },
+        );
+        builder.set_terminator(Terminator::Return { values: vec![] });
+        let func = builder.finish();
+
+        let mut lowerer = Aarch64Lowerer::new();
+        lowerer.lower_function(&func).unwrap();
+        let code = lowerer.finalize().unwrap();
+
+        let mut expected = Vec::new();
+        expected.extend_from_slice(&enc_extract(1, 1, 0, 13).to_le_bytes());
+        expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
+        assert_eq!(code, expected);
+    }
+
+    #[test]
+    fn lowers_shld_x_imm_as_extract() {
+        let mut builder = FunctionBuilder::new(FunctionId(0), 0);
+        builder.push_op(
+            0,
+            OpKind::Shld {
+                dst: x(0),
+                src: x(1),
+                amount: SrcOperand::Imm(13),
+                width: OpWidth::W64,
+                flags: FlagUpdate::None,
+            },
+        );
+        builder.set_terminator(Terminator::Return { values: vec![] });
+        let func = builder.finish();
+
+        let mut lowerer = Aarch64Lowerer::new();
+        lowerer.lower_function(&func).unwrap();
+        let code = lowerer.finalize().unwrap();
+
+        let mut expected = Vec::new();
+        expected.extend_from_slice(&enc_extract(1, 0, 1, 51).to_le_bytes());
+        expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
+        assert_eq!(code, expected);
+    }
+
+    #[test]
+    fn lowers_shrd_w_imm_as_extract_zero_ext() {
+        let mut builder = FunctionBuilder::new(FunctionId(0), 0);
+        builder.push_op(
+            0,
+            OpKind::Shrd {
+                dst: x(0),
+                src: x(1),
+                amount: SrcOperand::Imm(7),
+                width: OpWidth::W32,
+                flags: FlagUpdate::None,
+            },
+        );
+        builder.set_terminator(Terminator::Return { values: vec![] });
+        let func = builder.finish();
+
+        let mut lowerer = Aarch64Lowerer::new();
+        lowerer.lower_function(&func).unwrap();
+        let code = lowerer.finalize().unwrap();
+
+        let mut expected = Vec::new();
+        expected.extend_from_slice(&enc_extract(0, 1, 0, 7).to_le_bytes());
+        expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
+        assert_eq!(code, expected);
+    }
+
+    #[test]
+    fn lowers_shld_w_imm_as_extract_zero_ext() {
+        let mut builder = FunctionBuilder::new(FunctionId(0), 0);
+        builder.push_op(
+            0,
+            OpKind::Shld {
+                dst: x(0),
+                src: x(1),
+                amount: SrcOperand::Imm(7),
+                width: OpWidth::W32,
+                flags: FlagUpdate::None,
+            },
+        );
+        builder.set_terminator(Terminator::Return { values: vec![] });
+        let func = builder.finish();
+
+        let mut lowerer = Aarch64Lowerer::new();
+        lowerer.lower_function(&func).unwrap();
+        let code = lowerer.finalize().unwrap();
+
+        let mut expected = Vec::new();
+        expected.extend_from_slice(&enc_extract(0, 0, 1, 25).to_le_bytes());
+        expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
+        assert_eq!(code, expected);
+    }
+
+    #[test]
+    fn lowers_shrd_w_masked_zero_count_as_self_mov() {
+        let mut builder = FunctionBuilder::new(FunctionId(0), 0);
+        builder.push_op(
+            0,
+            OpKind::Shrd {
+                dst: x(0),
+                src: x(1),
+                amount: SrcOperand::Imm(32),
+                width: OpWidth::W32,
+                flags: FlagUpdate::None,
+            },
+        );
+        builder.set_terminator(Terminator::Return { values: vec![] });
+        let func = builder.finish();
+
+        let mut lowerer = Aarch64Lowerer::new();
+        lowerer.lower_function(&func).unwrap();
+        let code = lowerer.finalize().unwrap();
+
+        let mut expected = Vec::new();
+        expected.extend_from_slice(&enc_mov_reg(0, 0, 0).to_le_bytes());
+        expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
+        assert_eq!(code, expected);
+    }
+
+    #[test]
     fn fuses_lifted_rev16_x_sequence() {
         let lo = VReg::virt(0);
         let hi = VReg::virt(1);
@@ -6048,6 +6252,69 @@ mod tests {
                 src: x(1),
                 amount: SrcOperand::Reg(x(2)),
                 width: OpWidth::W64,
+                flags: FlagUpdate::None,
+            },
+        );
+        builder.set_terminator(Terminator::Return { values: vec![] });
+        let func = builder.finish();
+
+        let mut lowerer = Aarch64Lowerer::new();
+        let err = lowerer.lower_function(&func).unwrap_err();
+        assert!(matches!(err, LowerError::UnsupportedOp { .. }));
+    }
+
+    #[test]
+    fn rejects_shld_register_amount_lowering() {
+        let mut builder = FunctionBuilder::new(FunctionId(0), 0);
+        builder.push_op(
+            0,
+            OpKind::Shld {
+                dst: x(0),
+                src: x(1),
+                amount: SrcOperand::Reg(x(2)),
+                width: OpWidth::W64,
+                flags: FlagUpdate::None,
+            },
+        );
+        builder.set_terminator(Terminator::Return { values: vec![] });
+        let func = builder.finish();
+
+        let mut lowerer = Aarch64Lowerer::new();
+        let err = lowerer.lower_function(&func).unwrap_err();
+        assert!(matches!(err, LowerError::UnsupportedOp { .. }));
+    }
+
+    #[test]
+    fn rejects_shrd_flag_setting_lowering() {
+        let mut builder = FunctionBuilder::new(FunctionId(0), 0);
+        builder.push_op(
+            0,
+            OpKind::Shrd {
+                dst: x(0),
+                src: x(1),
+                amount: SrcOperand::Imm(1),
+                width: OpWidth::W64,
+                flags: FlagUpdate::All,
+            },
+        );
+        builder.set_terminator(Terminator::Return { values: vec![] });
+        let func = builder.finish();
+
+        let mut lowerer = Aarch64Lowerer::new();
+        let err = lowerer.lower_function(&func).unwrap_err();
+        assert!(matches!(err, LowerError::UnsupportedOp { .. }));
+    }
+
+    #[test]
+    fn rejects_shld_w16_partial_width_lowering() {
+        let mut builder = FunctionBuilder::new(FunctionId(0), 0);
+        builder.push_op(
+            0,
+            OpKind::Shld {
+                dst: x(0),
+                src: x(1),
+                amount: SrcOperand::Imm(1),
+                width: OpWidth::W16,
                 flags: FlagUpdate::None,
             },
         );

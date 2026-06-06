@@ -6952,6 +6952,91 @@ fn smir_aarch64_native_lowering_matches_qemu_oracle() {
     let mut st = native_state();
     st.x[0] = 0x0123_4567_89ab_cdef;
     st.x[1] = 0xfedc_ba98_7654_3210;
+    st.pstate = 0xa000_0000;
+    push_case3(
+        "shrd_x_imm_as_extract_preserves_flags",
+        [enc_extract(1, 1, 0, 13), NOP, NOP],
+        vec![OpKind::Shrd {
+            dst: arm_x(0),
+            src: arm_x(1),
+            amount: SrcOperand::Imm(13),
+            width: OpWidth::W64,
+            flags: FlagUpdate::None,
+        }],
+        st,
+    );
+
+    let mut st = native_state();
+    st.x[0] = 0x0123_4567_89ab_cdef;
+    st.x[1] = 0xfedc_ba98_7654_3210;
+    st.pstate = 0x5000_0000;
+    push_case3(
+        "shld_x_imm_as_extract_preserves_flags",
+        [enc_extract(1, 0, 1, 51), NOP, NOP],
+        vec![OpKind::Shld {
+            dst: arm_x(0),
+            src: arm_x(1),
+            amount: SrcOperand::Imm(13),
+            width: OpWidth::W64,
+            flags: FlagUpdate::None,
+        }],
+        st,
+    );
+
+    let mut st = native_state();
+    st.x[0] = 0xaaaa_bbbb_0123_4567;
+    st.x[1] = 0xcccc_dddd_89ab_cdef;
+    st.pstate = 0xc000_0000;
+    push_case3(
+        "shrd_w_imm_as_extract_zero_ext_preserves_flags",
+        [enc_extract(0, 1, 0, 7), NOP, NOP],
+        vec![OpKind::Shrd {
+            dst: arm_x(0),
+            src: arm_x(1),
+            amount: SrcOperand::Imm(7),
+            width: OpWidth::W32,
+            flags: FlagUpdate::None,
+        }],
+        st,
+    );
+
+    let mut st = native_state();
+    st.x[0] = 0xaaaa_bbbb_0123_4567;
+    st.x[1] = 0xcccc_dddd_89ab_cdef;
+    st.pstate = 0x3000_0000;
+    push_case3(
+        "shld_w_imm_as_extract_zero_ext_preserves_flags",
+        [enc_extract(0, 0, 1, 25), NOP, NOP],
+        vec![OpKind::Shld {
+            dst: arm_x(0),
+            src: arm_x(1),
+            amount: SrcOperand::Imm(7),
+            width: OpWidth::W32,
+            flags: FlagUpdate::None,
+        }],
+        st,
+    );
+
+    let mut st = native_state();
+    st.x[0] = 0xffff_ffff_89ab_cdef;
+    st.x[1] = 0xcccc_dddd_0123_4567;
+    st.pstate = 0x9000_0000;
+    push_case3(
+        "shrd_w_masked_zero_as_self_mov_zero_ext_preserves_flags",
+        [enc_logical_shift_regs(0, 0b01, 0, 0, 0, 0, 31, 0), NOP, NOP],
+        vec![OpKind::Shrd {
+            dst: arm_x(0),
+            src: arm_x(1),
+            amount: SrcOperand::Imm(32),
+            width: OpWidth::W32,
+            flags: FlagUpdate::None,
+        }],
+        st,
+    );
+
+    let mut st = native_state();
+    st.x[0] = 0x0123_4567_89ab_cdef;
+    st.x[1] = 0xfedc_ba98_7654_3210;
     st.pstate = 0xb000_0000;
     push_case3(
         "xchg_x_as_eor_swap_preserves_flags",
