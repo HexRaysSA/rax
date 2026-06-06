@@ -614,16 +614,29 @@ fn dp3_cases() -> Vec<(String, u32)> {
 }
 
 /// Add/subtract (shifted register): `sf op S 01011 shift 0 Rm imm6 Rn Rd`
-fn enc_addsub_shift(sf: u32, op: u32, s: u32, shift: u32, imm6: u32) -> u32 {
+fn enc_addsub_shift_regs(
+    sf: u32,
+    op: u32,
+    s: u32,
+    shift: u32,
+    imm6: u32,
+    rd: u32,
+    rn: u32,
+    rm: u32,
+) -> u32 {
     (sf << 31)
         | (op << 30)
         | (s << 29)
         | (0b01011 << 24)
         | (shift << 22)
-        | (RM << 16)
+        | ((rm & 0x1F) << 16)
         | (imm6 << 10)
-        | (RN << 5)
-        | RD
+        | ((rn & 0x1F) << 5)
+        | (rd & 0x1F)
+}
+
+fn enc_addsub_shift(sf: u32, op: u32, s: u32, shift: u32, imm6: u32) -> u32 {
+    enc_addsub_shift_regs(sf, op, s, shift, imm6, RD, RN, RM)
 }
 
 /// Add/subtract (extended register): `sf op S 01011 00 1 Rm option imm3 Rn Rd`
@@ -725,16 +738,29 @@ fn enc_cond_branch(cond: u32, offset: i32) -> u32 {
 }
 
 /// Logical (shifted register): `sf opc 01010 shift N Rm imm6 Rn Rd`
-fn enc_logical_shift(sf: u32, opc: u32, shift: u32, n: u32, imm6: u32) -> u32 {
+fn enc_logical_shift_regs(
+    sf: u32,
+    opc: u32,
+    shift: u32,
+    n: u32,
+    imm6: u32,
+    rd: u32,
+    rn: u32,
+    rm: u32,
+) -> u32 {
     (sf << 31)
         | (opc << 29)
         | (0b01010 << 24)
         | (shift << 22)
         | (n << 21)
-        | (RM << 16)
+        | ((rm & 0x1F) << 16)
         | (imm6 << 10)
-        | (RN << 5)
-        | RD
+        | ((rn & 0x1F) << 5)
+        | (rd & 0x1F)
+}
+
+fn enc_logical_shift(sf: u32, opc: u32, shift: u32, n: u32, imm6: u32) -> u32 {
+    enc_logical_shift_regs(sf, opc, shift, n, imm6, RD, RN, RM)
 }
 
 fn logical_shift_cases() -> Vec<(String, u32)> {
@@ -1676,6 +1702,59 @@ fn smir_aarch64_x86_scalar_lowering_matches_qemu_oracle() {
     ));
 
     let mut st = ArmState::zeroed();
+    st.x[0] = 0xaaaa_bbbb_cccc_dddd;
+    st.x[1] = 5;
+    st.x[2] = 7;
+    st.pstate = 0x6000_0000;
+    batch.push((
+        "cmp_x_preserves_x0_sets_borrow_flags".into(),
+        enc_addsub_shift_regs(1, 1, 1, 0, 0, 31, RN, RM),
+        st,
+    ));
+
+    let mut st = ArmState::zeroed();
+    st.x[0] = 0x1111_2222_3333_4444;
+    st.x[1] = 0xffff_ffff_0000_0001;
+    st.x[2] = 0xffff_ffff_0000_0002;
+    st.pstate = 0xf000_0000;
+    batch.push((
+        "cmp_w_ignores_high32_preserves_x0".into(),
+        enc_addsub_shift_regs(0, 1, 1, 0, 0, 31, RN, RM),
+        st,
+    ));
+
+    let mut st = ArmState::zeroed();
+    st.x[0] = 0x2222_3333_4444_5555;
+    st.x[1] = u64::MAX;
+    st.x[2] = 1;
+    st.pstate = 0;
+    batch.push((
+        "cmn_x_preserves_x0_sets_zero_carry".into(),
+        enc_addsub_shift_regs(1, 0, 1, 0, 0, 31, RN, RM),
+        st,
+    ));
+
+    let mut st = ArmState::zeroed();
+    st.x[0] = 0x3333_4444_5555_6666;
+    st.x[2] = 0xffff_ffff_0000_0003;
+    st.pstate = 0x9000_0000;
+    batch.push((
+        "neg_x_preserves_flags".into(),
+        enc_addsub_shift_regs(1, 1, 0, 0, 0, RD, 31, RM),
+        st,
+    ));
+
+    let mut st = ArmState::zeroed();
+    st.x[0] = 0x4444_5555_6666_7777;
+    st.x[2] = 0xffff_ffff_8000_0000;
+    st.pstate = 0;
+    batch.push((
+        "negs_w_min_sets_overflow_zero_ext".into(),
+        enc_addsub_shift_regs(0, 1, 1, 0, 0, RD, 31, RM),
+        st,
+    ));
+
+    let mut st = ArmState::zeroed();
     st.x[1] = u64::MAX;
     st.x[2] = 1;
     batch.push((
@@ -1700,6 +1779,28 @@ fn smir_aarch64_x86_scalar_lowering_matches_qemu_oracle() {
     batch.push((
         "eon_w_ror4_zero_ext_crafted".into(),
         enc_logical_shift(0, 2, 3, 1, 4),
+        st,
+    ));
+
+    let mut st = ArmState::zeroed();
+    st.x[0] = 0x5555_6666_7777_8888;
+    st.x[1] = 0x00ff_0000_0000_0000;
+    st.x[2] = 0x0000_00ff_0000_0000;
+    st.pstate = 0xf000_0000;
+    batch.push((
+        "tst_x_lsr8_preserves_x0_sets_logic_flags".into(),
+        enc_logical_shift_regs(1, 0b11, 1, 0, 8, 31, RN, RM),
+        st,
+    ));
+
+    let mut st = ArmState::zeroed();
+    st.x[0] = 0x6666_7777_8888_9999;
+    st.x[1] = 0xffff_ffff_8000_0000;
+    st.x[2] = 0xffff_ffff_0000_0001;
+    st.pstate = 0x3000_0000;
+    batch.push((
+        "tst_w_preserves_x0_ignores_high32".into(),
+        enc_logical_shift_regs(0, 0b11, 0, 0, 0, 31, RN, RM),
         st,
     ));
 
