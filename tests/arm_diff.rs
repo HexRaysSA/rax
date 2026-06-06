@@ -8851,6 +8851,78 @@ fn smir_aarch64_native_lowering_matches_qemu_oracle() {
         st,
     );
 
+    let clz_w8 = [
+        enc_bitfield_regs(0, 0b10, 8, 7, RN, RD),
+        enc_logical_imm(0, 0b01, 0, 9, 0, RD),
+        enc_dp1_regs(0, 0b000100, RD, RD),
+    ];
+
+    let mut st = native_state();
+    st.x[0] = 0xaaaa_bbbb_cccc_dddd;
+    st.x[1] = 0xffff_ffff_ffff_ff08;
+    st.pstate = 0x6000_0000;
+    push_case3(
+        "clz_w8_as_aligned_sentinel_clz_preserves_flags",
+        clz_w8,
+        vec![OpKind::Clz {
+            dst: arm_x(0),
+            src: arm_x(1),
+            width: OpWidth::W8,
+        }],
+        st,
+    );
+
+    let mut st = native_state();
+    st.x[0] = 0xbbbb_cccc_dddd_eeee;
+    st.x[1] = 0xffff_ffff_ffff_ff00;
+    st.pstate = 0x1000_0000;
+    push_case3(
+        "clz_w8_zero_low8_as_width_preserves_flags",
+        clz_w8,
+        vec![OpKind::Clz {
+            dst: arm_x(0),
+            src: arm_x(1),
+            width: OpWidth::W8,
+        }],
+        st,
+    );
+
+    let clz_w16 = [
+        enc_bitfield_regs(0, 0b10, 16, 15, RN, RD),
+        enc_logical_imm(0, 0b01, 0, 17, 0, RD),
+        enc_dp1_regs(0, 0b000100, RD, RD),
+    ];
+
+    let mut st = native_state();
+    st.x[0] = 0xcccc_dddd_eeee_ffff;
+    st.x[1] = 0xffff_ffff_0000_0080;
+    st.pstate = 0x9000_0000;
+    push_case3(
+        "clz_w16_as_aligned_sentinel_clz_preserves_flags",
+        clz_w16,
+        vec![OpKind::Clz {
+            dst: arm_x(0),
+            src: arm_x(1),
+            width: OpWidth::W16,
+        }],
+        st,
+    );
+
+    let mut st = native_state();
+    st.x[0] = 0xdddd_eeee_ffff_0000;
+    st.x[1] = 0xffff_ffff_0000_0000;
+    st.pstate = 0xe000_0000;
+    push_case3(
+        "clz_w16_zero_low16_as_width_preserves_flags",
+        clz_w16,
+        vec![OpKind::Clz {
+            dst: arm_x(0),
+            src: arm_x(1),
+            width: OpWidth::W16,
+        }],
+        st,
+    );
+
     let ctz_w8 = [
         enc_logical_imm(0, 0b01, 0, 24, 0, RN),
         enc_dp1_regs(0, 0b000000, RD, RD),

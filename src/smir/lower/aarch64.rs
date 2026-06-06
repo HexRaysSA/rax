@@ -2493,7 +2493,17 @@ impl Aarch64Lowerer {
     }
 
     fn lower_clz(&mut self, dst: VReg, src: VReg, width: OpWidth) -> Result<(), LowerError> {
-        self.emit_dp1(Self::dst_gpr(dst)?, Self::gpr(src)?, 0b000100, width)
+        let dst = Self::dst_gpr(dst)?;
+        let src = Self::gpr(src)?;
+        if matches!(width, OpWidth::W8 | OpWidth::W16) {
+            let bits = width.bits();
+            self.emit_bitfield(dst, src, 0b10, bits, bits - 1, OpWidth::W32)?;
+            let sentinel = 1_i64 << (OpWidth::W32.bits() - bits - 1);
+            let (imm_n, immr, imms) = Self::logical_bitmask_imm(sentinel, OpWidth::W32)?;
+            self.emit_logic_imm(dst, dst, 0b01, imm_n, immr, imms, OpWidth::W32)?;
+            return self.emit_dp1(dst, dst, 0b000100, OpWidth::W32);
+        }
+        self.emit_dp1(dst, src, 0b000100, width)
     }
 
     fn lower_ctz(&mut self, dst: VReg, src: VReg, width: OpWidth) -> Result<(), LowerError> {
@@ -8699,6 +8709,58 @@ mod tests {
         expected.extend_from_slice(&enc_dp2_regs(0, 0b1001, 1, 2, 0).to_le_bytes());
         expected.extend_from_slice(&enc_test_branch(2, 5, false, 8).to_le_bytes());
         expected.extend_from_slice(&enc_mov_reg(0, 0, 31).to_le_bytes());
+        expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
+        assert_eq!(code, expected);
+    }
+
+    #[test]
+    fn lowers_clz_w8_as_aligned_sentinel_clz() {
+        let mut builder = FunctionBuilder::new(FunctionId(0), 0);
+        builder.push_op(
+            0,
+            OpKind::Clz {
+                dst: x(0),
+                src: x(1),
+                width: OpWidth::W8,
+            },
+        );
+        builder.set_terminator(Terminator::Return { values: vec![] });
+        let func = builder.finish();
+
+        let mut lowerer = Aarch64Lowerer::new();
+        lowerer.lower_function(&func).unwrap();
+        let code = lowerer.finalize().unwrap();
+
+        let mut expected = Vec::new();
+        expected.extend_from_slice(&enc_bitfield_regs(0, 0b10, 8, 7, 1, 0).to_le_bytes());
+        expected.extend_from_slice(&enc_logical_imm(0, 0b01, 0, 9, 0, 0, 0).to_le_bytes());
+        expected.extend_from_slice(&enc_dp1_regs(0, 0b000100, 0, 0).to_le_bytes());
+        expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
+        assert_eq!(code, expected);
+    }
+
+    #[test]
+    fn lowers_clz_w16_as_aligned_sentinel_clz() {
+        let mut builder = FunctionBuilder::new(FunctionId(0), 0);
+        builder.push_op(
+            0,
+            OpKind::Clz {
+                dst: x(0),
+                src: x(1),
+                width: OpWidth::W16,
+            },
+        );
+        builder.set_terminator(Terminator::Return { values: vec![] });
+        let func = builder.finish();
+
+        let mut lowerer = Aarch64Lowerer::new();
+        lowerer.lower_function(&func).unwrap();
+        let code = lowerer.finalize().unwrap();
+
+        let mut expected = Vec::new();
+        expected.extend_from_slice(&enc_bitfield_regs(0, 0b10, 16, 15, 1, 0).to_le_bytes());
+        expected.extend_from_slice(&enc_logical_imm(0, 0b01, 0, 17, 0, 0, 0).to_le_bytes());
+        expected.extend_from_slice(&enc_dp1_regs(0, 0b000100, 0, 0).to_le_bytes());
         expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
         assert_eq!(code, expected);
     }
