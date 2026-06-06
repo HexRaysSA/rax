@@ -2389,22 +2389,23 @@ impl Aarch64Lowerer {
         let quot = Self::dst_gpr(quot)?;
         let rn = Self::gpr(src1)?;
         let rm = Self::gpr(*src2)?;
+        let opcode2 = if signed { 0b0011 } else { 0b0010 };
         if let Some(rem) = rem {
+            let rem = Self::dst_gpr(rem)?;
             if quot == rn || quot == rm {
-                return Err(LowerError::UnsupportedOp {
-                    op: "AArch64 native divide remainder with quotient overlapping sources".into(),
-                });
+                if rem == rn || rem == rm {
+                    return Err(LowerError::UnsupportedOp {
+                        op: "AArch64 native divide remainder with overlapping sources".into(),
+                    });
+                }
+                self.emit_dp2(rem, rn, rm, opcode2, width)?;
+                self.emit_dp3(rem, rem, rm, rn, 0b000, 1, width)?;
+                return self.emit_dp2(quot, rn, rm, opcode2, width);
             }
-            self.emit_dp2(quot, rn, rm, if signed { 0b0011 } else { 0b0010 }, width)?;
-            return self.emit_dp3(Self::dst_gpr(rem)?, quot, rm, rn, 0b000, 1, width);
+            self.emit_dp2(quot, rn, rm, opcode2, width)?;
+            return self.emit_dp3(rem, quot, rm, rn, 0b000, 1, width);
         }
-        self.emit_dp2(
-            quot,
-            rn,
-            rm,
-            if signed { 0b0011 } else { 0b0010 },
-            width,
-        )
+        self.emit_dp2(quot, rn, rm, opcode2, width)
     }
 
     fn lower_shift_imm(
@@ -5268,7 +5269,7 @@ mod tests {
     }
 
     #[test]
-    fn rejects_div_remainder_when_quotient_aliases_dividend() {
+    fn lowers_divu_x_with_remainder_when_quotient_aliases_dividend() {
         let mut builder = FunctionBuilder::new(FunctionId(0), 0);
         builder.push_op(
             0,
@@ -5279,6 +5280,62 @@ mod tests {
                 src2: SrcOperand::Reg(x(2)),
                 width: OpWidth::W64,
                 flags: FlagUpdate::None,
+            },
+        );
+        builder.set_terminator(Terminator::Return { values: vec![] });
+        let func = builder.finish();
+
+        let mut lowerer = Aarch64Lowerer::new();
+        lowerer.lower_function(&func).unwrap();
+        let code = lowerer.finalize().unwrap();
+
+        let mut expected = Vec::new();
+        expected.extend_from_slice(&enc_dp2_regs(1, 0b0010, 1, 2, 3).to_le_bytes());
+        expected.extend_from_slice(&enc_dp3_regs(1, 0b000, 1, 3, 3, 2, 1).to_le_bytes());
+        expected.extend_from_slice(&enc_dp2_regs(1, 0b0010, 1, 2, 1).to_le_bytes());
+        expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
+        assert_eq!(code, expected);
+    }
+
+    #[test]
+    fn lowers_divs_w_with_remainder_when_quotient_aliases_divisor() {
+        let mut builder = FunctionBuilder::new(FunctionId(0), 0);
+        builder.push_op(
+            0,
+            OpKind::DivS {
+                quot: x(2),
+                rem: Some(x(3)),
+                src1: x(1),
+                src2: SrcOperand::Reg(x(2)),
+                width: OpWidth::W32,
+            },
+        );
+        builder.set_terminator(Terminator::Return { values: vec![] });
+        let func = builder.finish();
+
+        let mut lowerer = Aarch64Lowerer::new();
+        lowerer.lower_function(&func).unwrap();
+        let code = lowerer.finalize().unwrap();
+
+        let mut expected = Vec::new();
+        expected.extend_from_slice(&enc_dp2_regs(0, 0b0011, 1, 2, 3).to_le_bytes());
+        expected.extend_from_slice(&enc_dp3_regs(0, 0b000, 1, 3, 3, 2, 1).to_le_bytes());
+        expected.extend_from_slice(&enc_dp2_regs(0, 0b0011, 1, 2, 2).to_le_bytes());
+        expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
+        assert_eq!(code, expected);
+    }
+
+    #[test]
+    fn rejects_div_remainder_when_quotient_alias_has_no_temp() {
+        let mut builder = FunctionBuilder::new(FunctionId(0), 0);
+        builder.push_op(
+            0,
+            OpKind::DivU {
+                quot: x(1),
+                rem: Some(x(1)),
+                src1: x(1),
+                src2: SrcOperand::Reg(x(2)),
+                width: OpWidth::W64,
             },
         );
         builder.set_terminator(Terminator::Return { values: vec![] });
