@@ -2726,8 +2726,8 @@ impl X86_64Vcpu {
             // CCMP variants (0x38-0x3B)
             0x38 | 0x39 | 0x3A | 0x3B => self.execute_apx_ccmp(ctx, opcode),
 
-            // SETZUcc variants (0x40-0x4F)
-            0x40..=0x4F => self.execute_apx_setzucc(ctx, opcode & 0x0F),
+            // MAP4 conditionals: SETZUcc, EVEX SETcc, CMOV_ND, and CFCMOV.
+            0x40..=0x4F => self.execute_apx_conditional_map4(ctx, opcode & 0x0F),
 
             // CTEST variants (0x84-0x85)
             0x84 | 0x85 => self.execute_apx_ctest(ctx, opcode),
@@ -2970,6 +2970,115 @@ impl X86_64Vcpu {
         } else {
             let rm = rm | ctx.evex_rm_reg();
             self.set_reg(rm, value, 8);
+        }
+
+        self.regs.rip += ctx.cursor as u64;
+        Ok(None)
+    }
+
+    fn execute_apx_evex_setcc(
+        &mut self,
+        ctx: &mut InsnContext,
+        cc: u8,
+    ) -> Result<Option<VcpuExit>> {
+        let (_, rm, is_memory, addr, _) = self.decode_modrm(ctx)?;
+        let value = if self.check_condition(cc) { 1 } else { 0 };
+
+        if is_memory {
+            self.write_mem(addr, value, 1)?;
+        } else {
+            let rm = rm | ctx.evex_rm_reg();
+            self.set_reg(rm, value, 1);
+        }
+
+        self.regs.rip += ctx.cursor as u64;
+        Ok(None)
+    }
+
+    fn execute_apx_conditional_map4(
+        &mut self,
+        ctx: &mut InsnContext,
+        cc: u8,
+    ) -> Result<Option<VcpuExit>> {
+        let evex = ctx
+            .evex
+            .ok_or_else(|| Error::Emulator("EVEX context missing".to_string()))?;
+
+        if evex.pp == 0x02 {
+            return self.inject_invalid_opcode();
+        }
+
+        if evex.pp == 0x03 && !evex.nf {
+            if evex.nd {
+                self.execute_apx_setzucc(ctx, cc)
+            } else {
+                self.execute_apx_evex_setcc(ctx, cc)
+            }
+        } else {
+            self.execute_apx_cmovcc(ctx, cc, evex.nd, evex.nf)
+        }
+    }
+
+    fn execute_apx_cmovcc(
+        &mut self,
+        ctx: &mut InsnContext,
+        cc: u8,
+        ndd: bool,
+        nf: bool,
+    ) -> Result<Option<VcpuExit>> {
+        let op_size = Self::apx_scalar_op_size(ctx);
+        let (reg, rm, is_memory, addr, _) = self.decode_modrm(ctx)?;
+        let reg = reg | ctx.evex_dest_reg();
+        let rm = if is_memory { rm } else { rm | ctx.evex_rm_reg() };
+
+        if ndd {
+            let dst = ctx.evex_vvvv();
+            let src1 = self.get_reg(reg, op_size);
+
+            if nf {
+                if self.check_condition(cc) {
+                    let src2 = if is_memory {
+                        self.read_mem(addr, op_size)?
+                    } else {
+                        self.get_reg(rm, op_size)
+                    };
+                    self.set_reg(dst, src2, op_size);
+                } else {
+                    self.set_reg(dst, src1, op_size);
+                }
+            } else {
+                let src2 = if is_memory {
+                    self.read_mem(addr, op_size)?
+                } else {
+                    self.get_reg(rm, op_size)
+                };
+                let result = if self.check_condition(cc) { src2 } else { src1 };
+                self.set_reg(dst, result, op_size);
+            }
+        } else if nf {
+            let src = self.get_reg(reg, op_size);
+
+            if is_memory {
+                if self.check_condition(cc) {
+                    self.write_mem(addr, src, op_size)?;
+                }
+            } else {
+                let result = if self.check_condition(cc) { src } else { 0 };
+                self.set_reg(rm, result, op_size);
+            }
+        } else {
+            let dst = reg;
+
+            if self.check_condition(cc) {
+                let src = if is_memory {
+                    self.read_mem(addr, op_size)?
+                } else {
+                    self.get_reg(rm, op_size)
+                };
+                self.set_reg(dst, src, op_size);
+            } else {
+                self.set_reg(dst, 0, op_size);
+            }
         }
 
         self.regs.rip += ctx.cursor as u64;
@@ -4029,6 +4138,191 @@ impl X86_64Vcpu {
             self.regs.rflags &= !flags::bits::OF;
         }
         self.clear_lazy_flags();
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    use std::sync::Arc;
+
+    use vm_memory::{GuestAddress, GuestMemoryMmap};
+
+    use crate::backend::emulator::x86_64::flags;
+
+    const CODE: u64 = 0x1000;
+    const DATA: u64 = 0x2000;
+    const INVALID: u64 = 0x2_0000;
+
+    fn long_mode_vcpu(code: &[u8]) -> X86_64Vcpu {
+        let mem =
+            Arc::new(GuestMemoryMmap::<()>::from_ranges(&[(GuestAddress(0), 0x10000)]).unwrap());
+        let mut vcpu = X86_64Vcpu::new(0, mem);
+        vcpu.regs.rip = CODE;
+        vcpu.regs.rflags = 0x2;
+        vcpu.sregs.efer = 0x400;
+        vcpu.sregs.cs.l = true;
+        vcpu.sregs.cs.db = false;
+
+        let sregs = vcpu.sregs.clone();
+        vcpu.mmu.write(CODE, code, &sregs).unwrap();
+        vcpu
+    }
+
+    fn step_ok(vcpu: &mut X86_64Vcpu) {
+        assert!(vcpu.step().unwrap().is_none());
+    }
+
+    fn write_u64(vcpu: &mut X86_64Vcpu, addr: u64, value: u64) {
+        let sregs = vcpu.sregs.clone();
+        vcpu.mmu.write_u64(addr, value, &sregs).unwrap();
+    }
+
+    fn read_u64(vcpu: &mut X86_64Vcpu, addr: u64) -> u64 {
+        let sregs = vcpu.sregs.clone();
+        vcpu.mmu.read_u64(addr, &sregs).unwrap()
+    }
+
+    #[test]
+    fn apx_map4_setzu_and_evex_setcc_split_by_nd_like_llvm() {
+        // LLVM 20: `setzub %al` => 62 f4 7f 18 42 c0.
+        let mut vcpu = long_mode_vcpu(&[0x62, 0xF4, 0x7F, 0x18, 0x42, 0xC0]);
+        vcpu.regs.rax = 0xAAAA_BBBB_CCCC_DDDD;
+        vcpu.regs.rflags = 0x2 | flags::bits::CF;
+        step_ok(&mut vcpu);
+        assert_eq!(vcpu.regs.rax, 1);
+        assert_eq!(vcpu.regs.rip, CODE + 6);
+
+        // LLVM 20: `{evex} setb %al` => 62 f4 7f 08 42 c0.
+        let mut vcpu = long_mode_vcpu(&[0x62, 0xF4, 0x7F, 0x08, 0x42, 0xC0]);
+        vcpu.regs.rax = 0x1122_3344_5566_77FF;
+        vcpu.regs.rflags = 0x2;
+        step_ok(&mut vcpu);
+        assert_eq!(vcpu.regs.rax, 0x1122_3344_5566_7700);
+        assert_eq!(vcpu.regs.rip, CODE + 6);
+    }
+
+    #[test]
+    fn apx_cmov_nd_uses_vvvv_destination_like_llvm() {
+        // LLVM 20: `cmovbq %rbx, %rax, %r8` => 62 f4 bc 18 42 c3.
+        let mut vcpu = long_mode_vcpu(&[0x62, 0xF4, 0xBC, 0x18, 0x42, 0xC3]);
+        vcpu.regs.rax = 0x1111;
+        vcpu.regs.rbx = 0x2222;
+        vcpu.regs.r8 = 0x3333;
+        vcpu.regs.rflags = 0x2 | flags::bits::CF;
+        step_ok(&mut vcpu);
+        assert_eq!(vcpu.regs.r8, 0x2222);
+
+        let mut vcpu = long_mode_vcpu(&[0x62, 0xF4, 0xBC, 0x18, 0x42, 0xC3]);
+        vcpu.regs.rax = 0x1111;
+        vcpu.regs.rbx = 0x2222;
+        vcpu.regs.r8 = 0x3333;
+        vcpu.regs.rflags = 0x2;
+        step_ok(&mut vcpu);
+        assert_eq!(vcpu.regs.r8, 0x1111);
+    }
+
+    #[test]
+    fn apx_cfcmov_two_operand_directions_and_false_zero_like_llvm() {
+        // LLVM 20: clear NF decodes as `cfcmovbq %rax, %rbx`
+        // from 62 f4 fc 08 42 d8: dst=ModRM.reg, src=r/m.
+        let mut vcpu = long_mode_vcpu(&[0x62, 0xF4, 0xFC, 0x08, 0x42, 0xD8]);
+        vcpu.regs.rax = 0xAAAA;
+        vcpu.regs.rbx = 0xBBBB;
+        vcpu.regs.rflags = 0x2 | flags::bits::CF;
+        step_ok(&mut vcpu);
+        assert_eq!(vcpu.regs.rbx, 0xAAAA);
+
+        let mut vcpu = long_mode_vcpu(&[0x62, 0xF4, 0xFC, 0x08, 0x42, 0xD8]);
+        vcpu.regs.rax = 0xAAAA;
+        vcpu.regs.rbx = 0xBBBB;
+        vcpu.regs.rflags = 0x2;
+        step_ok(&mut vcpu);
+        assert_eq!(vcpu.regs.rbx, 0);
+
+        // LLVM 20: `cfcmovbq %rbx, %rax` => 62 f4 fc 0c 42 d8.
+        let mut vcpu = long_mode_vcpu(&[0x62, 0xF4, 0xFC, 0x0C, 0x42, 0xD8]);
+        vcpu.regs.rax = 0xAAAA;
+        vcpu.regs.rbx = 0xBBBB;
+        vcpu.regs.rflags = 0x2 | flags::bits::CF;
+        step_ok(&mut vcpu);
+        assert_eq!(vcpu.regs.rax, 0xBBBB);
+
+        let mut vcpu = long_mode_vcpu(&[0x62, 0xF4, 0xFC, 0x0C, 0x42, 0xD8]);
+        vcpu.regs.rax = 0xAAAA;
+        vcpu.regs.rbx = 0xBBBB;
+        vcpu.regs.rflags = 0x2;
+        step_ok(&mut vcpu);
+        assert_eq!(vcpu.regs.rax, 0);
+    }
+
+    #[test]
+    fn apx_cfcmov_memory_source_suppresses_false_fault_like_llvm() {
+        // LLVM 20: `cfcmovbq (%rbx), %rax` => 62 f4 fc 08 42 03.
+        let mut vcpu = long_mode_vcpu(&[0x62, 0xF4, 0xFC, 0x08, 0x42, 0x03]);
+        vcpu.regs.rax = 0xAAAA;
+        vcpu.regs.rbx = INVALID;
+        vcpu.regs.rflags = 0x2;
+        step_ok(&mut vcpu);
+        assert_eq!(vcpu.regs.rax, 0);
+
+        let mut vcpu = long_mode_vcpu(&[0x62, 0xF4, 0xFC, 0x08, 0x42, 0x03]);
+        write_u64(&mut vcpu, DATA, 0xDEAD_BEEF_CAFE_BABE);
+        vcpu.regs.rbx = DATA;
+        vcpu.regs.rflags = 0x2 | flags::bits::CF;
+        step_ok(&mut vcpu);
+        assert_eq!(vcpu.regs.rax, 0xDEAD_BEEF_CAFE_BABE);
+
+        // LLVM 20: `cfcmovbq (%rbx), %rax, %r8` => 62 f4 bc 1c 42 03.
+        let mut vcpu = long_mode_vcpu(&[0x62, 0xF4, 0xBC, 0x1C, 0x42, 0x03]);
+        vcpu.regs.rax = 0x1234_5678;
+        vcpu.regs.rbx = INVALID;
+        vcpu.regs.r8 = 0xFFFF;
+        vcpu.regs.rflags = 0x2;
+        step_ok(&mut vcpu);
+        assert_eq!(vcpu.regs.r8, 0x1234_5678);
+    }
+
+    #[test]
+    fn apx_cfcmov_memory_destination_suppresses_false_fault_like_llvm() {
+        // LLVM 20: `cfcmovbq %rbx, (%rax)` => 62 f4 fc 0c 42 18.
+        let mut vcpu = long_mode_vcpu(&[0x62, 0xF4, 0xFC, 0x0C, 0x42, 0x18]);
+        vcpu.regs.rax = INVALID;
+        vcpu.regs.rbx = 0xDEAD_BEEF_CAFE_BABE;
+        vcpu.regs.rflags = 0x2;
+        step_ok(&mut vcpu);
+
+        let mut vcpu = long_mode_vcpu(&[0x62, 0xF4, 0xFC, 0x0C, 0x42, 0x18]);
+        vcpu.regs.rax = DATA;
+        vcpu.regs.rbx = 0xDEAD_BEEF_CAFE_BABE;
+        vcpu.regs.rflags = 0x2 | flags::bits::CF;
+        step_ok(&mut vcpu);
+        assert_eq!(read_u64(&mut vcpu, DATA), 0xDEAD_BEEF_CAFE_BABE);
+    }
+
+    #[test]
+    fn apx_cmov_nd_memory_source_still_faults_when_false() {
+        // LLVM 20: `cmovbq (%rbx), %rax, %r8` => 62 f4 bc 18 42 03.
+        let mut vcpu = long_mode_vcpu(&[0x62, 0xF4, 0xBC, 0x18, 0x42, 0x03]);
+        vcpu.regs.rax = 0x1234;
+        vcpu.regs.rbx = INVALID;
+        vcpu.regs.r8 = 0xFFFF;
+        vcpu.regs.rflags = 0x2;
+
+        assert!(vcpu.step().is_err());
+        assert_eq!(vcpu.regs.r8, 0xFFFF);
+    }
+
+    #[test]
+    fn apx_conditional_map4_rejects_invalid_pp2_like_llvm() {
+        // LLVM rejects PP=2 for the MAP4 conditional range.
+        let mut vcpu = long_mode_vcpu(&[0x62, 0xF4, 0x7E, 0x18, 0x42, 0xC0]);
+        let err = vcpu.step().unwrap_err();
+        assert!(
+            format!("{err:?}").contains("IDT entry 6 not present"),
+            "{err:?}"
+        );
     }
 }
 
