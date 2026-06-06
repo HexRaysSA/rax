@@ -2801,6 +2801,124 @@ impl Aarch64Lowerer {
         }
     }
 
+    fn emit_subword_shift_oob_guards(
+        &mut self,
+        amount: u8,
+        width: OpWidth,
+    ) -> Result<Vec<(usize, u32)>, LowerError> {
+        let guard_bits: &[u32] = match width {
+            OpWidth::W8 => &[3, 4, 5],
+            OpWidth::W16 => &[4, 5],
+            _ => {
+                return Err(LowerError::UnsupportedOp {
+                    op: format!("AArch64 native subword shift guard width {width:?}"),
+                });
+            }
+        };
+
+        let mut guards = Vec::with_capacity(guard_bits.len());
+        for &bit in guard_bits {
+            let offset = self.code.position();
+            self.emit_test_branch(amount, bit, true, 0)?;
+            guards.push((offset, bit));
+        }
+        Ok(guards)
+    }
+
+    fn patch_subword_shift_oob_guards(
+        &mut self,
+        amount: u8,
+        guards: &[(usize, u32)],
+    ) -> Result<(), LowerError> {
+        for &(offset, bit) in guards {
+            self.patch_test_branch_to_current(offset, amount, bit, true)?;
+        }
+        Ok(())
+    }
+
+    fn lower_subword_shift_reg(
+        &mut self,
+        dst: u8,
+        src: u8,
+        amount: u8,
+        shift: ShiftOp,
+        width: OpWidth,
+    ) -> Result<(), LowerError> {
+        match shift {
+            ShiftOp::Lsr if dst == amount => {
+                return Err(LowerError::UnsupportedOp {
+                    op: format!(
+                        "AArch64 native {width:?} variable Lsr needs a scratch when dst == count"
+                    ),
+                });
+            }
+            ShiftOp::Asr if dst == amount => {
+                return Err(LowerError::UnsupportedOp {
+                    op: format!(
+                        "AArch64 native {width:?} variable Asr needs a scratch when dst == count"
+                    ),
+                });
+            }
+            ShiftOp::Ror | ShiftOp::Rrx => {
+                return Err(LowerError::UnsupportedOp {
+                    op: format!("AArch64 native {width:?} variable {shift:?}"),
+                });
+            }
+            _ => {}
+        }
+
+        let top_bit = width.bits() - 1;
+        let guards = self.emit_subword_shift_oob_guards(amount, width)?;
+
+        match shift {
+            ShiftOp::Lsl => {
+                self.emit_dp2(dst, src, amount, 0b1000, OpWidth::W32)?;
+                self.emit_bitfield(dst, dst, 0b10, 0, top_bit, OpWidth::W32)?;
+                let end_branch = self.code.position();
+                self.emit(0x1400_0000);
+                self.patch_subword_shift_oob_guards(amount, &guards)?;
+                self.emit_mov_imm(dst, 0, OpWidth::W32)?;
+                self.patch_branch_to_current(end_branch)
+            }
+            ShiftOp::Lsr => {
+                self.emit_bitfield(dst, src, 0b10, 0, top_bit, OpWidth::W32)?;
+                self.emit_dp2(dst, dst, amount, 0b1001, OpWidth::W32)?;
+                let end_branch = self.code.position();
+                self.emit(0x1400_0000);
+                self.patch_subword_shift_oob_guards(amount, &guards)?;
+                self.emit_mov_imm(dst, 0, OpWidth::W32)?;
+                self.patch_branch_to_current(end_branch)
+            }
+            ShiftOp::Asr => {
+                let align_sign_shift = OpWidth::W32.bits() - width.bits();
+                self.emit_bitfield(
+                    dst,
+                    src,
+                    0b10,
+                    OpWidth::W32.bits() - align_sign_shift,
+                    top_bit,
+                    OpWidth::W32,
+                )?;
+                self.emit_dp2(dst, dst, amount, 0b1010, OpWidth::W32)?;
+                self.emit_bitfield(
+                    dst,
+                    dst,
+                    0b10,
+                    align_sign_shift,
+                    OpWidth::W32.bits() - 1,
+                    OpWidth::W32,
+                )?;
+                let end_branch = self.code.position();
+                self.emit(0x1400_0000);
+                self.patch_subword_shift_oob_guards(amount, &guards)?;
+                self.emit_bitfield(dst, src, 0b00, top_bit, top_bit, OpWidth::W32)?;
+                self.emit_bitfield(dst, dst, 0b10, 0, top_bit, OpWidth::W32)?;
+                self.patch_branch_to_current(end_branch)
+            }
+            ShiftOp::Ror | ShiftOp::Rrx => unreachable!(),
+        }
+    }
+
     fn lower_shift_imm(
         &mut self,
         dst: u8,
@@ -2871,6 +2989,10 @@ impl Aarch64Lowerer {
         shift: ShiftOp,
         width: OpWidth,
     ) -> Result<(), LowerError> {
+        if matches!(width, OpWidth::W8 | OpWidth::W16) {
+            return self.lower_subword_shift_reg(dst, src, amount, shift, width);
+        }
+
         if width == OpWidth::W32 {
             match shift {
                 ShiftOp::Lsl | ShiftOp::Lsr => {
@@ -6300,6 +6422,124 @@ mod tests {
         expected.extend_from_slice(&enc_mov_wide(0, 0b10, 0, 0, 0).to_le_bytes());
         expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
         assert_eq!(code, expected);
+    }
+
+    #[test]
+    fn lowers_shl_w8_reg_with_count_guards() {
+        let mut builder = FunctionBuilder::new(FunctionId(0), 0);
+        builder.push_op(
+            0,
+            OpKind::Shl {
+                dst: x(0),
+                src: x(1),
+                amount: SrcOperand::Reg(x(2)),
+                width: OpWidth::W8,
+                flags: FlagUpdate::None,
+            },
+        );
+        builder.set_terminator(Terminator::Return { values: vec![] });
+        let func = builder.finish();
+
+        let mut lowerer = Aarch64Lowerer::new();
+        lowerer.lower_function(&func).unwrap();
+        let code = lowerer.finalize().unwrap();
+
+        let mut expected = Vec::new();
+        expected.extend_from_slice(&enc_test_branch(2, 3, true, 24).to_le_bytes());
+        expected.extend_from_slice(&enc_test_branch(2, 4, true, 20).to_le_bytes());
+        expected.extend_from_slice(&enc_test_branch(2, 5, true, 16).to_le_bytes());
+        expected.extend_from_slice(&enc_dp2_regs(0, 0b1000, 1, 2, 0).to_le_bytes());
+        expected.extend_from_slice(&enc_bitfield_regs(0, 0b10, 0, 7, 0, 0).to_le_bytes());
+        expected.extend_from_slice(&enc_b(2).to_le_bytes());
+        expected.extend_from_slice(&enc_mov_wide(0, 0b10, 0, 0, 0).to_le_bytes());
+        expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
+        assert_eq!(code, expected);
+    }
+
+    #[test]
+    fn lowers_shr_w16_reg_with_count_guards_and_source_mask() {
+        let mut builder = FunctionBuilder::new(FunctionId(0), 0);
+        builder.push_op(
+            0,
+            OpKind::Shr {
+                dst: x(0),
+                src: x(1),
+                amount: SrcOperand::Reg(x(2)),
+                width: OpWidth::W16,
+                flags: FlagUpdate::None,
+            },
+        );
+        builder.set_terminator(Terminator::Return { values: vec![] });
+        let func = builder.finish();
+
+        let mut lowerer = Aarch64Lowerer::new();
+        lowerer.lower_function(&func).unwrap();
+        let code = lowerer.finalize().unwrap();
+
+        let mut expected = Vec::new();
+        expected.extend_from_slice(&enc_test_branch(2, 4, true, 20).to_le_bytes());
+        expected.extend_from_slice(&enc_test_branch(2, 5, true, 16).to_le_bytes());
+        expected.extend_from_slice(&enc_bitfield_regs(0, 0b10, 0, 15, 1, 0).to_le_bytes());
+        expected.extend_from_slice(&enc_dp2_regs(0, 0b1001, 0, 2, 0).to_le_bytes());
+        expected.extend_from_slice(&enc_b(2).to_le_bytes());
+        expected.extend_from_slice(&enc_mov_wide(0, 0b10, 0, 0, 0).to_le_bytes());
+        expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
+        assert_eq!(code, expected);
+    }
+
+    #[test]
+    fn lowers_sar_w8_reg_with_count_guards_and_sign_fill() {
+        let mut builder = FunctionBuilder::new(FunctionId(0), 0);
+        builder.push_op(
+            0,
+            OpKind::Sar {
+                dst: x(0),
+                src: x(1),
+                amount: SrcOperand::Reg(x(2)),
+                width: OpWidth::W8,
+                flags: FlagUpdate::None,
+            },
+        );
+        builder.set_terminator(Terminator::Return { values: vec![] });
+        let func = builder.finish();
+
+        let mut lowerer = Aarch64Lowerer::new();
+        lowerer.lower_function(&func).unwrap();
+        let code = lowerer.finalize().unwrap();
+
+        let mut expected = Vec::new();
+        expected.extend_from_slice(&enc_test_branch(2, 3, true, 28).to_le_bytes());
+        expected.extend_from_slice(&enc_test_branch(2, 4, true, 24).to_le_bytes());
+        expected.extend_from_slice(&enc_test_branch(2, 5, true, 20).to_le_bytes());
+        expected.extend_from_slice(&enc_bitfield_regs(0, 0b10, 8, 7, 1, 0).to_le_bytes());
+        expected.extend_from_slice(&enc_dp2_regs(0, 0b1010, 0, 2, 0).to_le_bytes());
+        expected.extend_from_slice(&enc_bitfield_regs(0, 0b10, 24, 31, 0, 0).to_le_bytes());
+        expected.extend_from_slice(&enc_b(3).to_le_bytes());
+        expected.extend_from_slice(&enc_bitfield_regs(0, 0b00, 7, 7, 1, 0).to_le_bytes());
+        expected.extend_from_slice(&enc_bitfield_regs(0, 0b10, 0, 7, 0, 0).to_le_bytes());
+        expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
+        assert_eq!(code, expected);
+    }
+
+    #[test]
+    fn rejects_subword_shr_reg_count_when_dst_is_count() {
+        let mut builder = FunctionBuilder::new(FunctionId(0), 0);
+        builder.push_op(
+            0,
+            OpKind::Shr {
+                dst: x(2),
+                src: x(1),
+                amount: SrcOperand::Reg(x(2)),
+                width: OpWidth::W8,
+                flags: FlagUpdate::None,
+            },
+        );
+        builder.set_terminator(Terminator::Return { values: vec![] });
+        let func = builder.finish();
+
+        let mut lowerer = Aarch64Lowerer::new();
+        let err = lowerer.lower_function(&func).unwrap_err();
+        assert!(matches!(err, LowerError::UnsupportedOp { .. }));
     }
 
     #[test]
