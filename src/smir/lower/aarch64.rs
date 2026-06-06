@@ -1541,12 +1541,12 @@ impl Aarch64Lowerer {
         }
         match src2 {
             SrcOperand::Imm(imm) | SrcOperand::Imm64(imm) => {
-                if n {
-                    return Err(LowerError::UnsupportedOp {
-                        op: "AArch64 native inverted logical immediate".into(),
-                    });
-                }
-                let (imm_n, immr, imms) = Self::logical_bitmask_imm(*imm, width)?;
+                let imm = if n {
+                    Self::inverted_logical_imm(*imm, width)?
+                } else {
+                    *imm
+                };
+                let (imm_n, immr, imms) = Self::logical_bitmask_imm(imm, width)?;
                 self.emit_logic_imm(
                     Self::dst_or_zero_for_flags(dst, set_flags)?,
                     Self::gpr(src1)?,
@@ -1570,6 +1570,16 @@ impl Aarch64Lowerer {
                     width,
                 )
             }
+        }
+    }
+
+    fn inverted_logical_imm(imm: i64, width: OpWidth) -> Result<i64, LowerError> {
+        match width {
+            OpWidth::W32 => Ok((!(imm as u32)) as i64),
+            OpWidth::W64 => Ok((!(imm as u64)) as i64),
+            other => Err(LowerError::UnsupportedOp {
+                op: format!("AArch64 native inverted logical immediate width {other:?}"),
+            }),
         }
     }
 
@@ -6189,6 +6199,58 @@ mod tests {
     }
 
     #[test]
+    fn lowers_andnot_x_high_bit_imm_as_and_inverse_mask() {
+        let mut builder = FunctionBuilder::new(FunctionId(0), 0);
+        builder.push_op(
+            0,
+            OpKind::AndNot {
+                dst: x(0),
+                src1: x(1),
+                src2: SrcOperand::Imm64(0x8000_0000_0000_0000_u64 as i64),
+                width: OpWidth::W64,
+                flags: FlagUpdate::None,
+            },
+        );
+        builder.set_terminator(Terminator::Return { values: vec![] });
+        let func = builder.finish();
+
+        let mut lowerer = Aarch64Lowerer::new();
+        lowerer.lower_function(&func).unwrap();
+        let code = lowerer.finalize().unwrap();
+
+        let mut expected = Vec::new();
+        expected.extend_from_slice(&enc_logical_imm(1, 0b00, 1, 0, 62, 0, 1).to_le_bytes());
+        expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
+        assert_eq!(code, expected);
+    }
+
+    #[test]
+    fn lowers_bics_w_high_bits_imm_as_ands_inverse_mask() {
+        let mut builder = FunctionBuilder::new(FunctionId(0), 0);
+        builder.push_op(
+            0,
+            OpKind::AndNot {
+                dst: x(0),
+                src1: x(1),
+                src2: SrcOperand::Imm(0xffff_ff00),
+                width: OpWidth::W32,
+                flags: FlagUpdate::All,
+            },
+        );
+        builder.set_terminator(Terminator::Return { values: vec![] });
+        let func = builder.finish();
+
+        let mut lowerer = Aarch64Lowerer::new();
+        lowerer.lower_function(&func).unwrap();
+        let code = lowerer.finalize().unwrap();
+
+        let mut expected = Vec::new();
+        expected.extend_from_slice(&enc_logical_imm(0, 0b11, 0, 0, 7, 0, 1).to_le_bytes());
+        expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
+        assert_eq!(code, expected);
+    }
+
+    #[test]
     fn lowers_ands_w_low_mask_imm_to_zero_reg_for_virtual_dst() {
         let mut builder = FunctionBuilder::new(FunctionId(0), 0);
         builder.push_op(
@@ -6260,14 +6322,14 @@ mod tests {
     }
 
     #[test]
-    fn rejects_inverted_logical_immediate() {
+    fn rejects_inverted_logical_immediate_with_unencodable_inverse() {
         let mut builder = FunctionBuilder::new(FunctionId(0), 0);
         builder.push_op(
             0,
             OpKind::AndNot {
                 dst: x(0),
                 src1: x(1),
-                src2: SrcOperand::Imm(1),
+                src2: SrcOperand::Imm64(!0x55_i64),
                 width: OpWidth::W64,
                 flags: FlagUpdate::None,
             },
