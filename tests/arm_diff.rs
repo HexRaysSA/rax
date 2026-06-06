@@ -6825,6 +6825,131 @@ fn smir_aarch64_native_lowering_matches_qemu_oracle() {
     };
 
     let mut st = native_state();
+    st.x[0] = 0xaaaa_bbbb_cccc_dddd;
+    st.x[1] = 0x1111_2222_3333_4444;
+    st.pstate = 0xf000_0000;
+    push_case3(
+        "lea_direct_as_add_zero_preserves_flags",
+        [enc_addsub_imm_regs(1, 0, 0, 0, 0, 0, RN), NOP, NOP],
+        vec![OpKind::Lea {
+            dst: arm_x(0),
+            addr: Address::Direct(arm_x(1)),
+        }],
+        st,
+    );
+
+    let mut st = native_state();
+    st.x[0] = 0xbbbb_cccc_dddd_eeee;
+    st.x[1] = 0x2222_3333_4444_5000;
+    st.pstate = 0xa000_0000;
+    push_case3(
+        "lea_base_positive_offset_as_add_imm_preserves_flags",
+        [enc_addsub_imm_regs(1, 0, 0, 0, 0x123, 0, RN), NOP, NOP],
+        vec![OpKind::Lea {
+            dst: arm_x(0),
+            addr: Address::BaseOffset {
+                base: arm_x(1),
+                offset: 0x123,
+                disp_size: DispSize::Auto,
+            },
+        }],
+        st,
+    );
+
+    let mut st = native_state();
+    st.x[0] = 0xcccc_dddd_eeee_ffff;
+    st.x[1] = 0x3333_4444_5555_6000;
+    st.pstate = 0x5000_0000;
+    push_case3(
+        "lea_base_negative_offset_as_sub_imm_preserves_flags",
+        [enc_addsub_imm_regs(1, 1, 0, 1, 2, 0, RN), NOP, NOP],
+        vec![OpKind::Lea {
+            dst: arm_x(0),
+            addr: Address::BaseOffset {
+                base: arm_x(1),
+                offset: -0x2000,
+                disp_size: DispSize::Auto,
+            },
+        }],
+        st,
+    );
+
+    let mut st = native_state();
+    st.x[0] = 0xdddd_eeee_ffff_0000;
+    st.x[1] = 0x4444_5555_6666_7000;
+    st.x[2] = 0x1234;
+    st.pstate = 0xc000_0000;
+    push_case3(
+        "lea_base_index_scale_disp_preserves_flags",
+        [
+            enc_addsub_shift_regs(1, 0, 0, 0, 2, 0, RN, RM),
+            enc_addsub_imm_regs(1, 1, 0, 0, 0x20, 0, 0),
+            NOP,
+        ],
+        vec![OpKind::Lea {
+            dst: arm_x(0),
+            addr: Address::BaseIndexScale {
+                base: Some(arm_x(1)),
+                index: arm_x(2),
+                scale: 4,
+                disp: -0x20,
+                disp_size: DispSize::Auto,
+            },
+        }],
+        st,
+    );
+
+    let mut st = native_state();
+    st.x[0] = 0xeeee_ffff_0000_1111;
+    st.x[2] = 0x0123_4567_89ab_cdef;
+    st.pstate = 0x3000_0000;
+    push_case3(
+        "lea_index_scale_without_base_preserves_flags",
+        [enc_addsub_shift_regs(1, 0, 0, 0, 3, 0, 31, RM), NOP, NOP],
+        vec![OpKind::Lea {
+            dst: arm_x(0),
+            addr: Address::BaseIndexScale {
+                base: None,
+                index: arm_x(2),
+                scale: 8,
+                disp: 0,
+                disp_size: DispSize::Auto,
+            },
+        }],
+        st,
+    );
+
+    let mut st = native_state();
+    st.x[0] = 0xffff_0000_1111_2222;
+    st.pstate = 0x6000_0000;
+    push_case3(
+        "lea_absolute_small_as_movz_preserves_flags",
+        [enc_mov_wide(1, 0b10, 0, 0x1234), NOP, NOP],
+        vec![OpKind::Lea {
+            dst: arm_x(0),
+            addr: Address::Absolute(0x1234),
+        }],
+        st,
+    );
+
+    let mut st = native_state();
+    st.x[0] = 0x0000_1111_2222_3333;
+    st.pstate = 0x9000_0000;
+    push_case3(
+        "lea_pcrel_small_as_movz_preserves_flags",
+        [enc_mov_wide(1, 0b10, 0, 0x1234), NOP, NOP],
+        vec![OpKind::Lea {
+            dst: arm_x(0),
+            addr: Address::PcRel {
+                offset: 0x234,
+                disp_size: DispSize::Auto,
+                base: Some(0x1000),
+            },
+        }],
+        st,
+    );
+
+    let mut st = native_state();
     st.x[0] = 0x0123_4567_89ab_cdef;
     st.x[1] = 0xfedc_ba98_7654_3210;
     st.pstate = 0xb000_0000;
