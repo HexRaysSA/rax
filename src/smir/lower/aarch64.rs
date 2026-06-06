@@ -3888,6 +3888,7 @@ impl Aarch64Lowerer {
                 self.emit(0xd503_3f5f);
                 Ok(())
             }
+            OpKind::Prefetch { .. } => Ok(()),
             OpKind::Fence { kind } => {
                 let insn = match kind {
                     FenceKind::ISync => 0xd503_3fdf,
@@ -6086,6 +6087,32 @@ mod tests {
     fn lowers_materialize_flags_as_noop() {
         let mut builder = FunctionBuilder::new(FunctionId(0), 0);
         builder.push_op(0, OpKind::MaterializeFlags);
+        builder.set_terminator(Terminator::Return { values: vec![] });
+        let func = builder.finish();
+
+        let mut lowerer = Aarch64Lowerer::new();
+        lowerer.lower_function(&func).unwrap();
+        let code = lowerer.finalize().unwrap();
+
+        let mut expected = Vec::new();
+        expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
+        assert_eq!(code, expected);
+    }
+
+    #[test]
+    fn lowers_prefetch_as_noop() {
+        let mut builder = FunctionBuilder::new(FunctionId(0), 0);
+        builder.push_op(
+            0,
+            OpKind::Prefetch {
+                addr: Address::BaseOffset {
+                    base: x(1),
+                    offset: 24,
+                    disp_size: DispSize::Auto,
+                },
+                write: false,
+            },
+        );
         builder.set_terminator(Terminator::Return { values: vec![] });
         let func = builder.finish();
 
