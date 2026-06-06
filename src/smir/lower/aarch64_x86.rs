@@ -652,6 +652,34 @@ impl Aarch64X86_64Lowerer {
         e.emit_movzx(dst, dst, OpWidth::W8, OpWidth::W64);
     }
 
+    fn emit_cf_from_nzcv_c(&mut self, invert: bool) -> Result<(), LowerError> {
+        {
+            let mut e = X86Emitter::new(&mut self.code);
+            e.emit_mov_rm(B0, STATE, A64_NZCV_OFFSET, OpWidth::W32);
+            e.emit_test_ri(B0, NZCV_C, OpWidth::W32);
+        }
+        let c_set = self.emit_jcc_placeholder(X86Cond::Ne);
+        {
+            let mut e = X86Emitter::new(&mut self.code);
+            if invert {
+                e.emit_stc();
+            } else {
+                e.emit_clc();
+            }
+        }
+        let done = self.emit_jmp_placeholder();
+        self.patch_rel32_to_current(c_set)?;
+        {
+            let mut e = X86Emitter::new(&mut self.code);
+            if invert {
+                e.emit_clc();
+            } else {
+                e.emit_stc();
+            }
+        }
+        self.patch_rel32_to_current(done)
+    }
+
     fn emit_condition_to_reg(&mut self, cond: Condition, dst: PhysReg) -> Result<(), LowerError> {
         match cond {
             Condition::Always => {
@@ -737,6 +765,46 @@ impl Aarch64X86_64Lowerer {
         Ok(())
     }
 
+    fn lower_carry_binop(
+        &mut self,
+        dst: VReg,
+        src1: VReg,
+        src2: &SrcOperand,
+        width: OpWidth,
+        flags: FlagUpdate,
+        subtract: bool,
+    ) -> Result<(), LowerError> {
+        match width {
+            OpWidth::W32 | OpWidth::W64 => {}
+            _ => {
+                return Err(LowerError::UnsupportedOp {
+                    op: format!("AArch64 carry binop width {width:?}"),
+                });
+            }
+        }
+
+        self.load_vreg_to(src1, ACC, width)?;
+        self.load_src_to(src2, RHS, width)?;
+        self.emit_cf_from_nzcv_c(subtract)?;
+        {
+            let mut e = X86Emitter::new(&mut self.code);
+            if subtract {
+                e.emit_sbb_rr(ACC, RHS, width);
+            } else {
+                e.emit_adc_rr(ACC, RHS, width);
+            }
+        }
+        self.store_reg_to(dst, ACC, width)?;
+        if flags.updates_any() {
+            self.emit_nzcv_from_flags(if subtract {
+                FlagForm::Sub
+            } else {
+                FlagForm::Add
+            });
+        }
+        Ok(())
+    }
+
     fn lower_logic(
         &mut self,
         dst: VReg,
@@ -787,6 +855,20 @@ impl Aarch64X86_64Lowerer {
                 width,
                 flags,
             } => self.lower_binop(*dst, *src1, src2, *width, *flags, FlagForm::Sub)?,
+            OpKind::Adc {
+                dst,
+                src1,
+                src2,
+                width,
+                flags,
+            } => self.lower_carry_binop(*dst, *src1, src2, *width, *flags, false)?,
+            OpKind::Sbb {
+                dst,
+                src1,
+                src2,
+                width,
+                flags,
+            } => self.lower_carry_binop(*dst, *src1, src2, *width, *flags, true)?,
             OpKind::Neg {
                 dst,
                 src,
@@ -1514,6 +1596,56 @@ mod tests {
 
         assert_eq!(regs.x[0], 0x7fff_ffff_ffff_ffff);
         assert_eq!(regs.nzcv & 0xF000_0000, 0x3000_0000, "C and V set");
+    }
+
+    #[test]
+    fn adc_reads_aarch64_carry_and_sets_flags() {
+        let mut b = FunctionBuilder::new(FunctionId(0), 0x3400);
+        b.push_op(
+            0x3400,
+            OpKind::Adc {
+                dst: x(0),
+                src1: x(1),
+                src2: SrcOperand::Reg(x(2)),
+                width: OpWidth::W64,
+                flags: FlagUpdate::All,
+            },
+        );
+        b.set_terminator(Terminator::Return { values: vec![] });
+
+        let mut regs = Aarch64GuestRegs::default();
+        regs.x[1] = u64::MAX;
+        regs.x[2] = 0;
+        regs.nzcv = 0x2000_0000;
+        run_func(&b.finish(), &mut regs);
+
+        assert_eq!(regs.x[0], 0);
+        assert_eq!(regs.nzcv & 0xF000_0000, 0x6000_0000, "Z and C set");
+    }
+
+    #[test]
+    fn sbc_inverts_aarch64_carry_for_borrow_and_sets_flags() {
+        let mut b = FunctionBuilder::new(FunctionId(0), 0x3800);
+        b.push_op(
+            0x3800,
+            OpKind::Sbb {
+                dst: x(0),
+                src1: x(1),
+                src2: SrcOperand::Reg(x(2)),
+                width: OpWidth::W64,
+                flags: FlagUpdate::All,
+            },
+        );
+        b.set_terminator(Terminator::Return { values: vec![] });
+
+        let mut regs = Aarch64GuestRegs::default();
+        regs.x[1] = 0;
+        regs.x[2] = 1;
+        regs.nzcv = 0;
+        run_func(&b.finish(), &mut regs);
+
+        assert_eq!(regs.x[0], u64::MAX - 1);
+        assert_eq!(regs.nzcv & 0xF000_0000, 0x8000_0000, "N set and C clear");
     }
 
     #[test]

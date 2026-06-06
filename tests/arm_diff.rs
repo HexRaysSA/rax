@@ -593,6 +593,12 @@ fn addsub_shift_cases() -> Vec<(String, u32)> {
     v
 }
 
+/// Add/subtract with carry: `sf op S 11010000 Rm 000000 Rn Rd`
+#[cfg(all(feature = "smir-jit", target_arch = "x86_64"))]
+fn enc_addsub_carry(sf: u32, op: u32, s: u32) -> u32 {
+    (sf << 31) | (op << 30) | (s << 29) | (0b11010000 << 21) | (RM << 16) | (RN << 5) | RD
+}
+
 /// Logical (shifted register): `sf opc 01010 shift N Rm imm6 Rn Rd`
 fn enc_logical_shift(sf: u32, opc: u32, shift: u32, n: u32, imm6: u32) -> u32 {
     (sf << 31)
@@ -976,6 +982,14 @@ fn smir_aarch64_x86_scalar_lowering_matches_qemu_oracle() {
         ("subs_x", enc_addsub_shift(1, 1, 1, 0, 0)),
         ("add_w_zero_ext", enc_addsub_shift(0, 0, 0, 0, 0)),
         ("sub_w_zero_ext", enc_addsub_shift(0, 1, 0, 0, 0)),
+        ("adc_x", enc_addsub_carry(1, 0, 0)),
+        ("adcs_x", enc_addsub_carry(1, 0, 1)),
+        ("sbc_x", enc_addsub_carry(1, 1, 0)),
+        ("sbcs_x", enc_addsub_carry(1, 1, 1)),
+        ("adc_w_zero_ext", enc_addsub_carry(0, 0, 0)),
+        ("adcs_w_zero_ext", enc_addsub_carry(0, 0, 1)),
+        ("sbc_w_zero_ext", enc_addsub_carry(0, 1, 0)),
+        ("sbcs_w_zero_ext", enc_addsub_carry(0, 1, 1)),
         ("and_x", enc_logical_shift(1, 0, 0, 0, 0)),
         ("ands_x", enc_logical_shift(1, 3, 0, 0, 0)),
         ("orr_x", enc_logical_shift(1, 1, 0, 0, 0)),
@@ -1007,6 +1021,54 @@ fn smir_aarch64_x86_scalar_lowering_matches_qemu_oracle() {
             batch.push((label.to_string(), insn, gen_input(&mut rng)));
         }
     }
+
+    let mut st = ArmState::zeroed();
+    st.x[0] = 0xaaaa_bbbb_cccc_dddd;
+    st.x[1] = u64::MAX;
+    st.x[2] = 0;
+    st.pstate = 0x2000_0000;
+    batch.push(("adc_x_carry_in_set".into(), enc_addsub_carry(1, 0, 0), st));
+
+    let mut st = ArmState::zeroed();
+    st.x[0] = 0xaaaa_bbbb_cccc_dddd;
+    st.x[1] = 0xffff_ffff;
+    st.x[2] = 0;
+    st.pstate = 0x2000_0000;
+    batch.push((
+        "adc_w_carry_in_set_zero_ext".into(),
+        enc_addsub_carry(0, 0, 0),
+        st,
+    ));
+
+    let mut st = ArmState::zeroed();
+    st.x[1] = 5;
+    st.x[2] = 3;
+    st.pstate = 0;
+    batch.push(("sbc_x_carry_clear_borrow_in".into(), enc_addsub_carry(1, 1, 0), st));
+
+    let mut st = ArmState::zeroed();
+    st.x[0] = 0xaaaa_bbbb_cccc_dddd;
+    st.x[1] = 5;
+    st.x[2] = 3;
+    st.pstate = 0x2000_0000;
+    batch.push((
+        "sbc_w_carry_set_no_borrow_zero_ext".into(),
+        enc_addsub_carry(0, 1, 0),
+        st,
+    ));
+
+    let mut st = ArmState::zeroed();
+    st.x[1] = u64::MAX;
+    st.x[2] = 0;
+    st.pstate = 0x2000_0000;
+    batch.push(("adcs_x_sets_carry".into(), enc_addsub_carry(1, 0, 1), st));
+
+    let mut st = ArmState::zeroed();
+    st.x[1] = 0;
+    st.x[2] = 1;
+    st.pstate = 0;
+    batch.push(("sbcs_x_borrow_flags".into(), enc_addsub_carry(1, 1, 1), st));
+
     let mut st = ArmState::zeroed();
     st.x[0] = 0xaaaa_bbbb_cccc_dddd;
     st.x[1] = 0x1234_5678_9abc_def0;
