@@ -647,7 +647,12 @@ fn addsub_shift_cases() -> Vec<(String, u32)> {
 /// Add/subtract with carry: `sf op S 11010000 Rm 000000 Rn Rd`
 #[cfg(all(feature = "smir-jit", target_arch = "x86_64"))]
 fn enc_addsub_carry(sf: u32, op: u32, s: u32) -> u32 {
-    (sf << 31) | (op << 30) | (s << 29) | (0b11010000 << 21) | (RM << 16) | (RN << 5) | RD
+    enc_addsub_carry_rn(sf, op, s, RN)
+}
+
+#[cfg(all(feature = "smir-jit", target_arch = "x86_64"))]
+fn enc_addsub_carry_rn(sf: u32, op: u32, s: u32, rn: u32) -> u32 {
+    (sf << 31) | (op << 30) | (s << 29) | (0b11010000 << 21) | (RM << 16) | (rn << 5) | RD
 }
 
 /// Conditional compare: `sf op 111010010 Rm/imm5 cond imm 0 Rn 0 nzcv`.
@@ -1167,10 +1172,14 @@ fn smir_aarch64_x86_scalar_lowering_matches_qemu_oracle() {
         ("adcs_x", enc_addsub_carry(1, 0, 1)),
         ("sbc_x", enc_addsub_carry(1, 1, 0)),
         ("sbcs_x", enc_addsub_carry(1, 1, 1)),
+        ("ngc_x", enc_addsub_carry_rn(1, 1, 0, 31)),
+        ("ngcs_x", enc_addsub_carry_rn(1, 1, 1, 31)),
         ("adc_w_zero_ext", enc_addsub_carry(0, 0, 0)),
         ("adcs_w_zero_ext", enc_addsub_carry(0, 0, 1)),
         ("sbc_w_zero_ext", enc_addsub_carry(0, 1, 0)),
         ("sbcs_w_zero_ext", enc_addsub_carry(0, 1, 1)),
+        ("ngc_w_zero_ext", enc_addsub_carry_rn(0, 1, 0, 31)),
+        ("ngcs_w_zero_ext", enc_addsub_carry_rn(0, 1, 1, 31)),
         ("ccmp_x_eq", enc_condcmp(1, 1, false, RM, 0, 0)),
         ("ccmn_x_ne", enc_condcmp(1, 0, false, RM, 1, 0b1001)),
         ("ccmp_w_imm_hi", enc_condcmp(0, 1, true, 5, 8, 0b0010)),
@@ -1390,6 +1399,36 @@ fn smir_aarch64_x86_scalar_lowering_matches_qemu_oracle() {
     st.x[2] = 1;
     st.pstate = 0;
     batch.push(("sbcs_x_borrow_flags".into(), enc_addsub_carry(1, 1, 1), st));
+
+    let mut st = ArmState::zeroed();
+    st.x[0] = 0xaaaa_bbbb_cccc_dddd;
+    st.x[2] = 3;
+    st.pstate = 0x2000_0000;
+    batch.push((
+        "ngc_x_carry_set".into(),
+        enc_addsub_carry_rn(1, 1, 0, 31),
+        st,
+    ));
+
+    let mut st = ArmState::zeroed();
+    st.x[0] = 0xaaaa_bbbb_cccc_dddd;
+    st.x[2] = 0;
+    st.pstate = 0;
+    batch.push((
+        "ngc_x_carry_clear_borrow_in".into(),
+        enc_addsub_carry_rn(1, 1, 0, 31),
+        st,
+    ));
+
+    let mut st = ArmState::zeroed();
+    st.x[0] = 0xaaaa_bbbb_cccc_dddd;
+    st.x[2] = 1;
+    st.pstate = 0;
+    batch.push((
+        "ngcs_w_carry_clear_zero_ext_flags".into(),
+        enc_addsub_carry_rn(0, 1, 1, 31),
+        st,
+    ));
 
     let mut st = ArmState::zeroed();
     st.x[1] = 5;

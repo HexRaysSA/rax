@@ -503,7 +503,21 @@ impl Aarch64Lifter {
             }
 
             Mnemonic::SBC | Mnemonic::SBCS => {
-                let (dst, src1, src2, width) = self.parse_arith_operands(insn, ctx)?;
+                let (dst, src1, src2, width) =
+                    if let (Some(Operand::Reg(rd)), Some(Operand::Reg(rm)), None) = (
+                        insn.operands.get(0),
+                        insn.operands.get(1),
+                        insn.operands.get(2),
+                    ) {
+                        (
+                            self.dst_reg(rd, ctx),
+                            VReg::Imm(0),
+                            SrcOperand::Reg(self.arm_reg(rm)),
+                            self.reg_width(rd),
+                        )
+                    } else {
+                        self.parse_arith_operands(insn, ctx)?
+                    };
                 let flags = if insn.sets_flags {
                     FlagUpdate::All
                 } else {
