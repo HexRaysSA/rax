@@ -288,6 +288,17 @@ impl Aarch64Lifter {
         }
     }
 
+    fn indexed_access_addr(&self, mem: &MemOperand, addr: Address) -> Address {
+        if matches!(
+            mem.mode,
+            AddressingMode::PreIndex | AddressingMode::PostIndex
+        ) {
+            Address::Direct(self.arm_reg(&mem.base))
+        } else {
+            addr
+        }
+    }
+
     /// Get destination VReg from operand, handling XZR/WZR writes
     fn dst_reg(&self, reg: &Register, ctx: &mut LiftContext) -> VReg {
         if reg.num == 31 && !reg.is_sp {
@@ -1776,11 +1787,7 @@ impl Aarch64Lifter {
             self.handle_writeback(mem, pc, ops, ctx);
         }
 
-        let load_addr = if mem.mode == AddressingMode::PostIndex {
-            Address::Direct(self.arm_reg(&mem.base))
-        } else {
-            addr
-        };
+        let load_addr = self.indexed_access_addr(mem, addr);
 
         ops.push(SmirOp::new(
             OpId(ops.len() as u16),
@@ -1837,11 +1844,7 @@ impl Aarch64Lifter {
             self.handle_writeback(mem, pc, ops, ctx);
         }
 
-        let store_addr = if mem.mode == AddressingMode::PostIndex {
-            Address::Direct(self.arm_reg(&mem.base))
-        } else {
-            addr
-        };
+        let store_addr = self.indexed_access_addr(mem, addr);
 
         ops.push(SmirOp::new(
             OpId(ops.len() as u16),
@@ -1897,11 +1900,7 @@ impl Aarch64Lifter {
             self.handle_writeback(mem, pc, ops, ctx);
         }
 
-        let load_addr = if mem.mode == AddressingMode::PostIndex {
-            Address::Direct(self.arm_reg(&mem.base))
-        } else {
-            addr.clone()
-        };
+        let load_addr = self.indexed_access_addr(mem, addr);
 
         ops.push(SmirOp::new(
             OpId(ops.len() as u16),
@@ -1986,11 +1985,7 @@ impl Aarch64Lifter {
             self.handle_writeback(mem, pc, ops, ctx);
         }
 
-        let store_addr = if mem.mode == AddressingMode::PostIndex {
-            Address::Direct(self.arm_reg(&mem.base))
-        } else {
-            addr.clone()
-        };
+        let store_addr = self.indexed_access_addr(mem, addr);
 
         ops.push(SmirOp::new(
             OpId(ops.len() as u16),

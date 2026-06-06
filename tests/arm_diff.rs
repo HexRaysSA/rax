@@ -1425,6 +1425,54 @@ fn smir_aarch64_x86_memory_lowering_matches_qemu_oracle() {
         }
     }
 
+    let indexed_ops: &[(u32, u32, u32, &str)] = &[
+        (3, 0, 0, "str_x"),
+        (3, 0, 1, "ldr_x"),
+        (2, 0, 0, "str_w"),
+        (2, 0, 1, "ldr_w"),
+        (0, 0, 0, "str_b"),
+        (0, 0, 1, "ldr_b"),
+        (1, 0, 0, "str_h"),
+        (1, 0, 1, "ldr_h"),
+        (0, 0, 3, "ldrsb_w"),
+        (1, 0, 3, "ldrsh_w"),
+        (2, 0, 2, "ldrsw_x"),
+    ];
+    for &(size, v, opc, name) in indexed_ops {
+        for &(mode, mode_name) in &[(0b01u32, "post"), (0b11u32, "pre")] {
+            for imm9 in [8, -8] {
+                for _ in 0..4 {
+                    batch.push((
+                        format!("{name} {mode_name} #{imm9}"),
+                        enc_ldst_simm(size, v, opc, mode, imm9),
+                        mem_input(&mut rng),
+                    ));
+                }
+            }
+        }
+    }
+
+    let pair_ops: &[(u32, u32, u32, &str)] = &[
+        (0b10, 0, 0, "stp_x"),
+        (0b10, 0, 1, "ldp_x"),
+        (0b00, 0, 0, "stp_w"),
+        (0b00, 0, 1, "ldp_w"),
+    ];
+    for &(opc, v, l, name) in pair_ops {
+        let imm7s: &[i32] = if opc == 0b00 { &[2, -2] } else { &[1, -1] };
+        for &(mode, mode_name) in &[(0b01u32, "post"), (0b11u32, "pre")] {
+            for &imm7 in imm7s {
+                for _ in 0..4 {
+                    batch.push((
+                        format!("{name} {mode_name} #{imm7}"),
+                        enc_ldp(opc, v, mode, l, (imm7 as u32) & 0x7F),
+                        mem_input(&mut rng),
+                    ));
+                }
+            }
+        }
+    }
+
     let mut st = mem_input(&mut rng);
     st.x[0] = 0xaaaa_bbbb_cccc_dddd;
     st.scratch[8] = 0x0000_0000_0000_0080;
@@ -1434,6 +1482,33 @@ fn smir_aarch64_x86_memory_lowering_matches_qemu_oracle() {
     st.x[0] = 0xaaaa_bbbb_cccc_dddd;
     st.scratch[8] = 0x0000_0000_0000_8000;
     batch.push(("ldrsh_w_negative".into(), enc_ldst_uimm(1, 0, 3, 0), st));
+
+    let mut st = mem_input(&mut rng);
+    st.x[0] = 0xaaaa_bbbb_cccc_dddd;
+    st.scratch[9] = 0x0000_0000_0000_0080;
+    batch.push((
+        "ldrsb_w_pre_negative".into(),
+        enc_ldst_simm(0, 0, 3, 0b11, 8),
+        st,
+    ));
+
+    let mut st = mem_input(&mut rng);
+    st.x[0] = 0xaaaa_bbbb_cccc_dddd;
+    st.scratch[7] = 0x0000_0000_0000_8000;
+    batch.push((
+        "ldrsh_w_pre_negative_offset".into(),
+        enc_ldst_simm(1, 0, 3, 0b11, -8),
+        st,
+    ));
+
+    let mut st = mem_input(&mut rng);
+    st.x[0] = 0xaaaa_bbbb_cccc_dddd;
+    st.scratch[9] = 0x0000_0000_8000_0000;
+    batch.push((
+        "ldrsw_x_pre_negative".into(),
+        enc_ldst_simm(2, 0, 2, 0b11, 8),
+        st,
+    ));
 
     let labels: Vec<String> = batch.iter().map(|(label, _, _)| label.clone()).collect();
     let cases: Vec<(u32, u32, ArmState)> =
@@ -8681,6 +8756,19 @@ fn enc_ldst_uimm(size: u32, v: u32, opc: u32, imm12: u32) -> u32 {
         | (0b01 << 24)
         | (opc << 22)
         | (imm12 << 10)
+        | (RN << 5)
+        | RD
+}
+
+/// Load/store register, signed immediate offset:
+/// `size 111 V 00 opc 0 imm9 mode Rn Rt`. Rn=base (x1), Rt=Rd (x0/v0).
+fn enc_ldst_simm(size: u32, v: u32, opc: u32, mode: u32, imm9: i32) -> u32 {
+    (size << 30)
+        | (0b111 << 27)
+        | (v << 26)
+        | (opc << 22)
+        | (((imm9 as u32) & 0x1FF) << 12)
+        | (mode << 10)
         | (RN << 5)
         | RD
 }
