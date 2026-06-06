@@ -9568,6 +9568,18 @@ mod tests {
         assert!(!lowered.is_empty());
     }
 
+    #[test]
+    fn lower_apx_ndd_nf_alu_legacy_gpr_slice_lowers_without_relocs() {
+        // LLVM 23 APX MAP4 forms:
+        //   add eax, ebx, eax  => NDD destination aliases the second source
+        //   {nf} add rax, rbx  => no-flag-update SMIR shape
+        let (lowered, entry) = lower_rex2_block(&[
+            0x62, 0xF4, 0x7C, 0x18, 0x03, 0xD8, 0x62, 0xF4, 0xFC, 0x0C, 0x01, 0xD8, 0xF4,
+        ]);
+        assert!(entry < lowered.len());
+        assert!(!lowered.is_empty());
+    }
+
     #[cfg(all(feature = "smir-jit", target_arch = "x86_64"))]
     #[test]
     fn exec_rex2_mov_egpr_roundtrips_through_jit_state() {

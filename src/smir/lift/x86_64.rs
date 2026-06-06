@@ -177,10 +177,17 @@ struct VecPrefix {
 #[derive(Clone, Copy, Debug)]
 struct ApxEvexPrefix {
     bytes: usize,
+    r: bool,
+    x: bool,
     vvvv: u8,
+    r_prime: bool,
     v_prime: bool,
+    w: bool,
+    nd: bool,
+    nf: bool,
     b: bool,
     b4: bool,
+    x4: bool,
 }
 
 impl ApxEvexPrefix {
@@ -190,9 +197,56 @@ impl ApxEvexPrefix {
         b_ext | b4_ext
     }
 
+    fn reg_ext(self) -> u8 {
+        let r_ext = if self.r { 0 } else { 8 };
+        let r_prime_ext = if self.r_prime { 0 } else { 16 };
+        r_ext | r_prime_ext
+    }
+
+    fn index_ext(self) -> u8 {
+        let x_ext = if self.x { 0 } else { 8 };
+        let x4_ext = if self.x4 { 0 } else { 16 };
+        x_ext | x4_ext
+    }
+
     fn vvvv_reg(self) -> u8 {
         let v_prime_ext = if self.v_prime { 0 } else { 16 };
         (self.vvvv ^ 0x0F) | v_prime_ext
+    }
+
+    fn op_size(self, is_byte: bool) -> u8 {
+        if is_byte {
+            1
+        } else if self.w {
+            8
+        } else {
+            4
+        }
+    }
+
+    fn flags(self) -> FlagUpdate {
+        if self.nf {
+            FlagUpdate::None
+        } else {
+            FlagUpdate::All
+        }
+    }
+
+    fn as_modrm_prefix(self, cursor: usize) -> X86Prefix {
+        X86Prefix {
+            rex2: Some(Rex2Prefix {
+                m: false,
+                w: self.w,
+                r_hi: (self.reg_ext() & 16) != 0,
+                x_hi: (self.index_ext() & 16) != 0,
+                b_hi: (self.rm_ext() & 16) != 0,
+                r_lo: (self.reg_ext() & 8) != 0,
+                x_lo: (self.index_ext() & 8) != 0,
+                b_lo: (self.rm_ext() & 8) != 0,
+            }),
+            cursor,
+            ..X86Prefix::default()
+        }
     }
 }
 
@@ -517,10 +571,17 @@ fn decode_apx_evex_prefix(bytes: &[u8], addr: u64) -> Result<ApxEvexPrefix, Lift
 
     Ok(ApxEvexPrefix {
         bytes: 4,
+        r: (p0 & 0x80) != 0,
+        x: (p0 & 0x40) != 0,
         vvvv: (p1 >> 3) & 0x0F,
+        r_prime: (p0 & 0x10) != 0,
         v_prime: (p2 & 0x08) != 0,
+        w: (p1 & 0x80) != 0,
+        nd: (p2 & 0x10) != 0,
+        nf: (p2 & 0x04) != 0,
         b: (p0 & 0x20) != 0,
         b4: (p0 & 0x08) != 0,
+        x4: (p1 & 0x04) != 0,
     })
 }
 
@@ -2720,6 +2781,290 @@ impl X86_64Lifter {
         Ok(LiftResult::fallthrough(ops, prefix.bytes + 2))
     }
 
+    fn apx_alu_op(
+        &self,
+        group: u8,
+        dst: VReg,
+        src1: VReg,
+        src2: SrcOperand,
+        width: OpWidth,
+        flags: FlagUpdate,
+        pc: u64,
+    ) -> Result<OpKind, LiftError> {
+        match group {
+            0 => Ok(OpKind::Add {
+                dst,
+                src1,
+                src2,
+                width,
+                flags,
+            }),
+            1 => Ok(OpKind::Or {
+                dst,
+                src1,
+                src2,
+                width,
+                flags,
+            }),
+            4 => Ok(OpKind::And {
+                dst,
+                src1,
+                src2,
+                width,
+                flags,
+            }),
+            5 => Ok(OpKind::Sub {
+                dst,
+                src1,
+                src2,
+                width,
+                flags,
+            }),
+            6 => Ok(OpKind::Xor {
+                dst,
+                src1,
+                src2,
+                width,
+                flags,
+            }),
+            _ => Err(LiftError::Unsupported {
+                addr: pc,
+                mnemonic: format!("APX ALU group {group}"),
+            }),
+        }
+    }
+
+    fn lift_apx_alu(
+        &self,
+        prefix: ApxEvexPrefix,
+        opcode: u8,
+        bytes: &[u8],
+        pc: u64,
+        ctx: &mut LiftContext,
+    ) -> Result<LiftResult, LiftError> {
+        let low = opcode & 0x07;
+        let (is_byte, rm_is_legacy_dst) = match low {
+            0 => (true, true),
+            1 => (false, true),
+            2 => (true, false),
+            3 => (false, false),
+            _ => {
+                return Err(LiftError::InvalidEncoding {
+                    addr: pc,
+                    bytes: bytes.to_vec(),
+                })
+            }
+        };
+        let group = (opcode >> 3) & 0x07;
+        let op_size = prefix.op_size(is_byte);
+        let width = self.size_to_width(op_size);
+        let mem_width = self.size_to_memwidth(op_size);
+        let modrm_prefix = prefix.as_modrm_prefix(prefix.bytes + 1);
+        let modrm = decode_modrm(bytes, &modrm_prefix, pc)?;
+        let next_pc = pc + prefix.bytes as u64 + 1 + modrm.bytes_consumed as u64;
+        let mut ops = Vec::new();
+
+        let reg = self.gpr(modrm.reg);
+        let (rm, rm_addr) = if modrm.is_memory {
+            let x86_addr = modrm.addr.as_ref().unwrap();
+            let (addr, pre_ops) = self.x86_addr_to_smir(x86_addr, next_pc, ctx);
+            ops.extend(pre_ops);
+
+            let tmp = ctx.alloc_vreg();
+            ops.push(SmirOp::new(
+                OpId(ops.len() as u16),
+                pc,
+                OpKind::Load {
+                    dst: tmp,
+                    addr: addr.clone(),
+                    width: mem_width,
+                    sign: SignExtend::Zero,
+                },
+            ));
+            (tmp, Some(addr))
+        } else {
+            (self.gpr(modrm.rm), None)
+        };
+
+        let (legacy_dst, src2, legacy_dst_addr) = if rm_is_legacy_dst {
+            (rm, reg, rm_addr)
+        } else {
+            (reg, rm, None)
+        };
+        let dst = if prefix.nd {
+            self.gpr(prefix.vvvv_reg())
+        } else {
+            legacy_dst
+        };
+        let src2_operand = if prefix.nd && dst == src2 {
+            let tmp = ctx.alloc_vreg();
+            ops.push(SmirOp::new(
+                OpId(ops.len() as u16),
+                pc,
+                OpKind::Mov {
+                    dst: tmp,
+                    src: SrcOperand::Reg(src2),
+                    width,
+                },
+            ));
+            SrcOperand::Reg(tmp)
+        } else {
+            SrcOperand::Reg(src2)
+        };
+        let op_kind = self.apx_alu_op(
+            group,
+            dst,
+            legacy_dst,
+            src2_operand,
+            width,
+            prefix.flags(),
+            pc,
+        )?;
+        let hint = X86OpHint::AluEncoding(if rm_is_legacy_dst {
+            X86AluEncoding::RmReg
+        } else {
+            X86AluEncoding::RegRm
+        });
+        ops.push(SmirOp::with_hint(OpId(ops.len() as u16), pc, op_kind, hint));
+
+        if !prefix.nd {
+            if let Some(addr) = legacy_dst_addr {
+                ops.push(SmirOp::new(
+                    OpId(ops.len() as u16),
+                    pc,
+                    OpKind::Store {
+                        src: dst,
+                        addr,
+                        width: mem_width,
+                    },
+                ));
+            }
+        }
+
+        Ok(LiftResult::fallthrough(
+            ops,
+            prefix.bytes + 1 + modrm.bytes_consumed,
+        ))
+    }
+
+    fn lift_apx_group1_imm(
+        &self,
+        prefix: ApxEvexPrefix,
+        opcode: u8,
+        bytes: &[u8],
+        pc: u64,
+        ctx: &mut LiftContext,
+    ) -> Result<LiftResult, LiftError> {
+        let is_byte = opcode == 0x80;
+        let op_size = prefix.op_size(is_byte);
+        let width = self.size_to_width(op_size);
+        let mem_width = self.size_to_memwidth(op_size);
+        let modrm_prefix = prefix.as_modrm_prefix(prefix.bytes + 1);
+        let modrm = decode_modrm(bytes, &modrm_prefix, pc)?;
+        let imm_offset = modrm.bytes_consumed;
+
+        let (imm, imm_size) = match opcode {
+            0x80 => {
+                if bytes.len() < imm_offset + 1 {
+                    return Err(LiftError::Incomplete {
+                        addr: pc,
+                        have: bytes.len(),
+                        need: imm_offset + 1,
+                    });
+                }
+                (bytes[imm_offset] as i8 as i64, 1)
+            }
+            0x81 => {
+                if bytes.len() < imm_offset + 4 {
+                    return Err(LiftError::Incomplete {
+                        addr: pc,
+                        have: bytes.len(),
+                        need: imm_offset + 4,
+                    });
+                }
+                (
+                    i32::from_le_bytes([
+                        bytes[imm_offset],
+                        bytes[imm_offset + 1],
+                        bytes[imm_offset + 2],
+                        bytes[imm_offset + 3],
+                    ]) as i64,
+                    4,
+                )
+            }
+            0x83 => {
+                if bytes.len() < imm_offset + 1 {
+                    return Err(LiftError::Incomplete {
+                        addr: pc,
+                        have: bytes.len(),
+                        need: imm_offset + 1,
+                    });
+                }
+                (bytes[imm_offset] as i8 as i64, 1)
+            }
+            _ => unreachable!(),
+        };
+
+        let next_pc = pc + prefix.bytes as u64 + 1 + modrm.bytes_consumed as u64 + imm_size as u64;
+        let mut ops = Vec::new();
+        let (legacy_dst, legacy_dst_addr) = if modrm.is_memory {
+            let x86_addr = modrm.addr.as_ref().unwrap();
+            let (addr, pre_ops) = self.x86_addr_to_smir(x86_addr, next_pc, ctx);
+            ops.extend(pre_ops);
+
+            let tmp = ctx.alloc_vreg();
+            ops.push(SmirOp::new(
+                OpId(ops.len() as u16),
+                pc,
+                OpKind::Load {
+                    dst: tmp,
+                    addr: addr.clone(),
+                    width: mem_width,
+                    sign: SignExtend::Zero,
+                },
+            ));
+            (tmp, Some(addr))
+        } else {
+            (self.gpr(modrm.rm), None)
+        };
+
+        let dst = if prefix.nd {
+            self.gpr(prefix.vvvv_reg())
+        } else {
+            legacy_dst
+        };
+        let group = (modrm.byte >> 3) & 0x07;
+        let op_kind = self.apx_alu_op(
+            group,
+            dst,
+            legacy_dst,
+            SrcOperand::Imm(imm),
+            width,
+            prefix.flags(),
+            pc,
+        )?;
+        ops.push(SmirOp::new(OpId(ops.len() as u16), pc, op_kind));
+
+        if !prefix.nd {
+            if let Some(addr) = legacy_dst_addr {
+                ops.push(SmirOp::new(
+                    OpId(ops.len() as u16),
+                    pc,
+                    OpKind::Store {
+                        src: dst,
+                        addr,
+                        width: mem_width,
+                    },
+                ));
+            }
+        }
+
+        Ok(LiftResult::fallthrough(
+            ops,
+            prefix.bytes + 1 + modrm.bytes_consumed + imm_size,
+        ))
+    }
+
     fn lift_apx_evex_map4(
         &self,
         pc: u64,
@@ -2745,6 +3090,12 @@ impl X86_64Lifter {
         }
         let modrm = bytes[prefix.bytes + 1];
         match opcode {
+            0x00..=0x03 | 0x08..=0x0B | 0x20..=0x23 | 0x28..=0x2B | 0x30..=0x33 => {
+                self.lift_apx_alu(prefix, opcode, &bytes[prefix.bytes + 1..], pc, ctx)
+            }
+            0x80 | 0x81 | 0x83 => {
+                self.lift_apx_group1_imm(prefix, opcode, &bytes[prefix.bytes + 1..], pc, ctx)
+            }
             0x8F => self.lift_apx_pop2(prefix, modrm, pc, ctx),
             0xFF => self.lift_apx_push2(prefix, modrm, pc, ctx),
             _ => Err(LiftError::Unsupported {
@@ -5975,6 +6326,276 @@ mod tests {
                 need: 8
             }
         ));
+    }
+
+    #[test]
+    fn lift_apx_ndd_group1_immediates_use_vvvv_destination() {
+        let mut lifter = X86_64Lifter::strict();
+        let mut ctx = LiftContext::new(SourceArch::X86_64);
+
+        for (group, name) in [
+            (0u8, "add"),
+            (1u8, "or"),
+            (4u8, "and"),
+            (5u8, "sub"),
+            (6u8, "xor"),
+        ] {
+            // LLVM 23 APX NDD-style prefix: W64, ND, destination in vvvv = r8.
+            // ModR/M r/m is rax, so the lifted shape is `r8 = rax <op> -16`.
+            let result = lifter
+                .lift_insn(
+                    0x1000,
+                    &[0x62, 0xF4, 0xBC, 0x18, 0x83, 0xC0 | (group << 3), 0xF0],
+                    &mut ctx,
+                )
+                .unwrap();
+            assert_eq!(result.bytes_consumed, 7, "{name}");
+            assert_eq!(result.ops.len(), 1, "{name}");
+
+            match (name, &result.ops[0].kind) {
+                (
+                    "add",
+                    OpKind::Add {
+                        dst,
+                        src1,
+                        src2: SrcOperand::Imm(-16),
+                        width: OpWidth::W64,
+                        flags: FlagUpdate::All,
+                    },
+                )
+                | (
+                    "or",
+                    OpKind::Or {
+                        dst,
+                        src1,
+                        src2: SrcOperand::Imm(-16),
+                        width: OpWidth::W64,
+                        flags: FlagUpdate::All,
+                    },
+                )
+                | (
+                    "and",
+                    OpKind::And {
+                        dst,
+                        src1,
+                        src2: SrcOperand::Imm(-16),
+                        width: OpWidth::W64,
+                        flags: FlagUpdate::All,
+                    },
+                )
+                | (
+                    "sub",
+                    OpKind::Sub {
+                        dst,
+                        src1,
+                        src2: SrcOperand::Imm(-16),
+                        width: OpWidth::W64,
+                        flags: FlagUpdate::All,
+                    },
+                )
+                | (
+                    "xor",
+                    OpKind::Xor {
+                        dst,
+                        src1,
+                        src2: SrcOperand::Imm(-16),
+                        width: OpWidth::W64,
+                        flags: FlagUpdate::All,
+                    },
+                ) => {
+                    assert_eq!(*dst, x86_gpr(8), "{name}");
+                    assert_eq!(*src1, x86_gpr(0), "{name}");
+                }
+                other => panic!("expected APX NDD {name} imm8, got {other:?}"),
+            }
+        }
+    }
+
+    #[test]
+    fn lift_apx_ndd_nf_add_suppresses_flag_updates() {
+        let mut lifter = X86_64Lifter::strict();
+        let mut ctx = LiftContext::new(SourceArch::X86_64);
+
+        // LLVM 23: `{nf} add rax, rbx` as EVEX MAP4 01 /r.
+        let result = lifter
+            .lift_insn(0x1000, &[0x62, 0xF4, 0xFC, 0x0C, 0x01, 0xD8], &mut ctx)
+            .unwrap();
+        assert_eq!(result.bytes_consumed, 6);
+        assert_eq!(result.ops.len(), 1);
+        match &result.ops[0].kind {
+            OpKind::Add {
+                dst,
+                src1,
+                src2: SrcOperand::Reg(src2),
+                width: OpWidth::W64,
+                flags: FlagUpdate::None,
+            } => {
+                assert_eq!(*dst, x86_gpr(0));
+                assert_eq!(*src1, x86_gpr(0));
+                assert_eq!(*src2, x86_gpr(3));
+            }
+            other => panic!("expected APX NF add rax, rbx, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn lift_apx_ndd_memory_source_decodes_x4_sib_index_like_llvm() {
+        let mut lifter = X86_64Lifter::strict();
+        let mut ctx = LiftContext::new(SourceArch::X86_64);
+
+        // LLVM 23: `add eax, ebx, dword ptr [rax + 2*r16]`.
+        let result = lifter
+            .lift_insn(
+                0x1000,
+                &[0x62, 0xF4, 0x78, 0x18, 0x03, 0x1C, 0x40],
+                &mut ctx,
+            )
+            .unwrap();
+        assert_eq!(result.bytes_consumed, 7);
+        assert_eq!(result.ops.len(), 2);
+
+        let tmp = match &result.ops[0].kind {
+            OpKind::Load {
+                dst,
+                addr:
+                    Address::BaseIndexScale {
+                        base: Some(base),
+                        index,
+                        scale: 2,
+                        disp: 0,
+                        ..
+                    },
+                width: MemWidth::B4,
+                sign: SignExtend::Zero,
+            } => {
+                assert_eq!(*base, x86_gpr(0));
+                assert_eq!(*index, x86_gpr(16));
+                *dst
+            }
+            other => panic!("expected APX memory source load with r16 index, got {other:?}"),
+        };
+        match &result.ops[1].kind {
+            OpKind::Add {
+                dst,
+                src1,
+                src2: SrcOperand::Reg(src2),
+                width: OpWidth::W32,
+                flags: FlagUpdate::All,
+            } => {
+                assert_eq!(*dst, x86_gpr(0));
+                assert_eq!(*src1, x86_gpr(3));
+                assert_eq!(*src2, tmp);
+            }
+            other => panic!("expected APX NDD memory-source add, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn lift_apx_ndd_memory_source_decodes_b4_sib_base_like_llvm() {
+        let mut lifter = X86_64Lifter::strict();
+        let mut ctx = LiftContext::new(SourceArch::X86_64);
+
+        // Same operation shape, but B4 extends the SIB base to r16.
+        let result = lifter
+            .lift_insn(
+                0x1000,
+                &[0x62, 0xFC, 0x7C, 0x18, 0x03, 0x1C, 0x40],
+                &mut ctx,
+            )
+            .unwrap();
+        match &result.ops[0].kind {
+            OpKind::Load {
+                addr:
+                    Address::BaseIndexScale {
+                        base: Some(base),
+                        index,
+                        scale: 2,
+                        disp: 0,
+                        ..
+                    },
+                ..
+            } => {
+                assert_eq!(*base, x86_gpr(16));
+                assert_eq!(*index, x86_gpr(0));
+            }
+            other => panic!("expected APX memory source load with r16 base, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn lift_apx_ndd_memory_destination_becomes_register_result() {
+        let mut lifter = X86_64Lifter::strict();
+        let mut ctx = LiftContext::new(SourceArch::X86_64);
+
+        // Legacy 01 /r would write memory. APX ND redirects the result to vvvv.
+        let result = lifter
+            .lift_insn(0x1000, &[0x62, 0xF4, 0x7C, 0x18, 0x01, 0x18], &mut ctx)
+            .unwrap();
+        assert_eq!(result.ops.len(), 2);
+        assert!(
+            !result
+                .ops
+                .iter()
+                .any(|op| matches!(&op.kind, OpKind::Store { .. })),
+            "NDD memory-destination ALU must not write the legacy memory destination"
+        );
+        let tmp = match &result.ops[0].kind {
+            OpKind::Load { dst, .. } => *dst,
+            other => panic!("expected memory destination load, got {other:?}"),
+        };
+        match &result.ops[1].kind {
+            OpKind::Add {
+                dst,
+                src1,
+                src2: SrcOperand::Reg(src2),
+                width: OpWidth::W32,
+                flags: FlagUpdate::All,
+            } => {
+                assert_eq!(*dst, x86_gpr(0));
+                assert_eq!(*src1, tmp);
+                assert_eq!(*src2, x86_gpr(3));
+            }
+            other => panic!("expected APX NDD register result, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn lift_apx_ndd_captures_source_when_destination_aliases_src2_for_lowering() {
+        let mut lifter = X86_64Lifter::strict();
+        let mut ctx = LiftContext::new(SourceArch::X86_64);
+
+        // Legacy 03 /r has src1=ModR/M.reg and src2=r/m. Here vvvv selects rax,
+        // which aliases src2. The lifter captures rax before the result write.
+        let result = lifter
+            .lift_insn(0x1000, &[0x62, 0xF4, 0x7C, 0x18, 0x03, 0xD8], &mut ctx)
+            .unwrap();
+        assert_eq!(result.ops.len(), 2);
+        let tmp = match &result.ops[0].kind {
+            OpKind::Mov {
+                dst,
+                src: SrcOperand::Reg(src),
+                width: OpWidth::W32,
+            } => {
+                assert!(dst.is_virtual());
+                assert_eq!(*src, x86_gpr(0));
+                *dst
+            }
+            other => panic!("expected APX source alias capture, got {other:?}"),
+        };
+        match &result.ops[1].kind {
+            OpKind::Add {
+                dst,
+                src1,
+                src2: SrcOperand::Reg(src2),
+                width: OpWidth::W32,
+                flags: FlagUpdate::All,
+            } => {
+                assert_eq!(*dst, x86_gpr(0));
+                assert_eq!(*src1, x86_gpr(3));
+                assert_eq!(*src2, tmp);
+            }
+            other => panic!("expected APX alias-safe NDD add, got {other:?}"),
+        }
     }
 
     #[test]
