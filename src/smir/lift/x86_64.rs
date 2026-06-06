@@ -3182,6 +3182,62 @@ impl X86_64Lifter {
         ))
     }
 
+    fn lift_apx_setzucc(
+        &self,
+        prefix: ApxEvexPrefix,
+        opcode: u8,
+        bytes: &[u8],
+        pc: u64,
+        ctx: &mut LiftContext,
+    ) -> Result<LiftResult, LiftError> {
+        let cond = self.x86_cond(opcode & 0x0F);
+        let modrm_prefix = prefix.as_modrm_prefix(prefix.bytes + 1);
+        let modrm = decode_modrm(bytes, &modrm_prefix, pc)?;
+        let next_pc = pc + prefix.bytes as u64 + 1 + modrm.bytes_consumed as u64;
+        let mut ops = Vec::new();
+
+        if modrm.is_memory {
+            let x86_addr = modrm.addr.as_ref().unwrap();
+            let (addr, pre_ops) = self.x86_addr_to_smir(x86_addr, next_pc, ctx);
+            ops.extend(pre_ops);
+
+            let tmp = ctx.alloc_vreg();
+            ops.push(SmirOp::new(
+                OpId(ops.len() as u16),
+                pc,
+                OpKind::SetCC {
+                    dst: tmp,
+                    cond,
+                    width: OpWidth::W8,
+                },
+            ));
+            ops.push(SmirOp::new(
+                OpId(ops.len() as u16),
+                pc,
+                OpKind::Store {
+                    src: tmp,
+                    addr,
+                    width: MemWidth::B1,
+                },
+            ));
+        } else {
+            ops.push(SmirOp::new(
+                OpId(0),
+                pc,
+                OpKind::SetCC {
+                    dst: self.gpr(modrm.rm),
+                    cond,
+                    width: OpWidth::W64,
+                },
+            ));
+        }
+
+        Ok(LiftResult::fallthrough(
+            ops,
+            prefix.bytes + 1 + modrm.bytes_consumed,
+        ))
+    }
+
     fn lift_apx_imul_reg(
         &self,
         prefix: ApxEvexPrefix,
@@ -3719,6 +3775,9 @@ impl X86_64Lifter {
             }
             0x24 | 0x2C | 0xA5 | 0xAD => {
                 self.lift_apx_double_shift(prefix, opcode, &bytes[prefix.bytes + 1..], pc, ctx)
+            }
+            0x40..=0x4F => {
+                self.lift_apx_setzucc(prefix, opcode, &bytes[prefix.bytes + 1..], pc, ctx)
             }
             0x61 => self.lift_apx_movbe(prefix, &bytes[prefix.bytes + 1..], pc),
             0x69 | 0x6B => {
@@ -7815,6 +7874,83 @@ mod tests {
             .lift_insn(0x1000, &[0x62, 0xD4, 0xFC, 0x08, 0x61, 0x00], &mut ctx)
             .unwrap_err();
         assert!(matches!(err, LiftError::InvalidEncoding { .. }), "{err:?}");
+    }
+
+    #[test]
+    fn lift_apx_setzucc_registers_zero_full_gpr_like_llvm() {
+        let mut lifter = X86_64Lifter::strict();
+        let mut ctx = LiftContext::new(SourceArch::X86_64);
+
+        for (bytes, name, dst, cond) in [
+            (
+                [0x62, 0xF4, 0x7F, 0x18, 0x40, 0xC0],
+                "setzuo_al",
+                x86_gpr(0),
+                Condition::Overflow,
+            ),
+            (
+                [0x62, 0xF4, 0x7F, 0x18, 0x45, 0xC3],
+                "setzune_bl",
+                x86_gpr(3),
+                Condition::Ne,
+            ),
+            (
+                [0x62, 0xD4, 0x7F, 0x18, 0x40, 0xC0],
+                "setzuo_r8b",
+                x86_gpr(8),
+                Condition::Overflow,
+            ),
+        ] {
+            let result = lifter.lift_insn(0x1000, &bytes, &mut ctx).unwrap();
+            assert_eq!(result.bytes_consumed, 6, "{name}");
+            assert_eq!(result.ops.len(), 1, "{name}");
+            match &result.ops[0].kind {
+                OpKind::SetCC {
+                    dst: got_dst,
+                    cond: got_cond,
+                    width: OpWidth::W64,
+                } => {
+                    assert_eq!(*got_dst, dst, "{name}");
+                    assert_eq!(*got_cond, cond, "{name}");
+                }
+                other => panic!("expected APX {name} as full-width SetCC, got {other:?}"),
+            }
+        }
+    }
+
+    #[test]
+    fn lift_apx_setzucc_memory_stores_one_byte_like_llvm() {
+        let mut lifter = X86_64Lifter::strict();
+        let mut ctx = LiftContext::new(SourceArch::X86_64);
+
+        // LLVM 20: `setzuo (%rax)` => 62 f4 7f 18 40 00.
+        let result = lifter
+            .lift_insn(0x1000, &[0x62, 0xF4, 0x7F, 0x18, 0x40, 0x00], &mut ctx)
+            .unwrap();
+        assert_eq!(result.bytes_consumed, 6);
+        assert_eq!(result.ops.len(), 2);
+        let tmp = match &result.ops[0].kind {
+            OpKind::SetCC {
+                dst,
+                cond: Condition::Overflow,
+                width: OpWidth::W8,
+            } => {
+                assert!(matches!(dst, VReg::Virtual(_)));
+                *dst
+            }
+            other => panic!("expected APX SETZUcc temp byte SetCC, got {other:?}"),
+        };
+        match &result.ops[1].kind {
+            OpKind::Store {
+                src,
+                addr: Address::Direct(base),
+                width: MemWidth::B1,
+            } => {
+                assert_eq!(*src, tmp);
+                assert_eq!(*base, x86_gpr(0));
+            }
+            other => panic!("expected APX SETZUcc byte store, got {other:?}"),
+        }
     }
 
     #[test]

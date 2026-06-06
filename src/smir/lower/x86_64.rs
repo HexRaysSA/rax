@@ -9774,6 +9774,22 @@ mod tests {
         assert!(!lowered.is_empty());
     }
 
+    #[test]
+    fn lower_apx_setzucc_slice_lowers_without_relocs() {
+        // LLVM 20 APX MAP4 forms:
+        //   setzuo  %al    => 62 f4 7f 18 40 c0
+        //   setzune %bl    => 62 f4 7f 18 45 c3
+        //   setzuo  %r8b   => 62 d4 7f 18 40 c0
+        //   setzuo  (%rax) => 62 f4 7f 18 40 00
+        let (lowered, entry) = lower_rex2_block(&[
+            0x62, 0xF4, 0x7F, 0x18, 0x40, 0xC0, 0x62, 0xF4, 0x7F, 0x18, 0x45, 0xC3,
+            0x62, 0xD4, 0x7F, 0x18, 0x40, 0xC0, 0x62, 0xF4, 0x7F, 0x18, 0x40, 0x00,
+            0xF4,
+        ]);
+        assert!(entry < lowered.len());
+        assert!(!lowered.is_empty());
+    }
+
     #[cfg(all(feature = "smir-jit", target_arch = "x86_64"))]
     #[test]
     fn exec_rex2_mov_egpr_roundtrips_through_jit_state() {
