@@ -94,30 +94,23 @@ impl Aarch64Decoder {
             // PC-rel addressing
             0b000 | 0b001 => Self::decode_pc_rel(raw),
             // Add/sub immediate
-            0b010 | 0b011 => Self::decode_add_sub_imm(raw),
+            0b010 => Self::decode_add_sub_imm(raw),
             // Add/sub immediate with tags
-            0b100 => Self::decode_add_sub_imm_tags(raw),
+            0b011 => Self::decode_add_sub_imm_tags(raw),
             // Logical immediate
-            0b100 if (raw >> 23) & 1 == 0 => Self::decode_logical_imm(raw),
+            0b100 => Self::decode_logical_imm(raw),
             // Move wide immediate
             0b101 => Self::decode_move_wide_imm(raw),
             // Bitfield
             0b110 => Self::decode_bitfield(raw),
             // Extract
             0b111 => Self::decode_extract(raw),
-            _ => {
-                // Logical immediate (overlaps with 0b100)
-                if op0 == 0b100 {
-                    Self::decode_logical_imm(raw)
-                } else {
-                    Ok(DecodedInsn::new(
-                        Mnemonic::UNKNOWN,
-                        ExecutionState::Aarch64,
-                        raw,
-                        4,
-                    ))
-                }
-            }
+            _ => Ok(DecodedInsn::new(
+                Mnemonic::UNKNOWN,
+                ExecutionState::Aarch64,
+                raw,
+                4,
+            )),
         }
     }
 
@@ -2722,6 +2715,23 @@ mod tests {
         // SUB X0, X1, #0x10: d1004020
         let insn = decode_bytes(&[0x20, 0x40, 0x00, 0xd1]).unwrap();
         assert_eq!(insn.mnemonic, Mnemonic::SUB);
+    }
+
+    #[test]
+    fn test_add_sub_imm_tags() {
+        // ADDG X0, X1, #0x10, #0: 91810020
+        let insn = decode_bytes(&[0x20, 0x00, 0x81, 0x91]).unwrap();
+        assert_eq!(insn.mnemonic, Mnemonic::ADDG);
+        assert_eq!(insn.operands.len(), 4);
+        if let Some(Operand::Imm(offset)) = insn.operands.get(2) {
+            assert_eq!(offset.effective_value(), 0x10);
+        } else {
+            panic!("Expected ADDG offset immediate");
+        }
+
+        // SUBG X0, X1, #0x10, #0: d1810020
+        let insn = decode_bytes(&[0x20, 0x00, 0x81, 0xd1]).unwrap();
+        assert_eq!(insn.mnemonic, Mnemonic::SUBG);
     }
 
     #[test]

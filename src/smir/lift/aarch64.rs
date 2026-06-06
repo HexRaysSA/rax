@@ -23,6 +23,7 @@ const NZCV_C: i64 = 1_i64 << 29;
 const NZCV_V: i64 = 1_i64 << 28;
 const NZCV_MASK: i64 = NZCV_N | NZCV_Z | NZCV_C | NZCV_V;
 const FP_SYSREG_MASK: i64 = 0xffff_ffff;
+const MTE_TAG_CLEAR_MASK: i64 = (!0x0f00_0000_0000_0000u64) as i64;
 const SYSREG_NZCV: u16 = (3 << 14) | (3 << 11) | (4 << 7) | (2 << 3);
 const SYSREG_FPCR: u16 = (3 << 14) | (3 << 11) | (4 << 7) | (4 << 3);
 const SYSREG_FPSR: u16 = (3 << 14) | (3 << 11) | (4 << 7) | (4 << 3) | 1;
@@ -117,6 +118,63 @@ impl Aarch64Lifter {
             }),
             _ => None,
         }
+    }
+
+    fn lift_add_sub_tags(
+        &self,
+        insn: &DecodedInsn,
+        pc: u64,
+        ops: &mut Vec<SmirOp>,
+        ctx: &mut LiftContext,
+    ) -> Result<(), LiftError> {
+        let (rd, rn, offset) = match (
+            insn.operands.get(0),
+            insn.operands.get(1),
+            insn.operands.get(2),
+            insn.operands.get(3),
+        ) {
+            (
+                Some(Operand::Reg(rd)),
+                Some(Operand::Reg(rn)),
+                Some(Operand::Imm(offset)),
+                Some(Operand::Imm(_tag_offset)),
+            ) => (rd, rn, offset.effective_value()),
+            _ => return Err(LiftError::Internal("invalid ADDG/SUBG operands".to_string())),
+        };
+
+        let adjusted = ctx.alloc_vreg();
+        let src2 = SrcOperand::Imm(offset);
+        let kind = if insn.mnemonic == Mnemonic::ADDG {
+            OpKind::Add {
+                dst: adjusted,
+                src1: self.arm_reg(rn),
+                src2,
+                width: OpWidth::W64,
+                flags: FlagUpdate::None,
+            }
+        } else {
+            OpKind::Sub {
+                dst: adjusted,
+                src1: self.arm_reg(rn),
+                src2,
+                width: OpWidth::W64,
+                flags: FlagUpdate::None,
+            }
+        };
+        Self::push_lifted_op(ops, pc, kind);
+
+        Self::push_lifted_op(
+            ops,
+            pc,
+            OpKind::And {
+                dst: self.dst_reg(rd, ctx),
+                src1: adjusted,
+                src2: SrcOperand::Imm64(MTE_TAG_CLEAR_MASK),
+                width: OpWidth::W64,
+                flags: FlagUpdate::None,
+            },
+        );
+        Ok(())
     }
 
     /// Get the width for an ARM register operand
@@ -695,6 +753,10 @@ impl Aarch64Lifter {
                     width,
                     flags,
                 });
+            }
+
+            Mnemonic::ADDG | Mnemonic::SUBG => {
+                self.lift_add_sub_tags(insn, pc, &mut ops, ctx)?;
             }
 
             Mnemonic::ADC | Mnemonic::ADCS => {

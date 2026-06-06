@@ -659,6 +659,22 @@ fn enc_addsub_carry_rn(sf: u32, op: u32, s: u32, rn: u32) -> u32 {
     (sf << 31) | (op << 30) | (s << 29) | (0b11010000 << 21) | (RM << 16) | (rn << 5) | RD
 }
 
+#[cfg(all(feature = "smir-jit", target_arch = "x86_64"))]
+fn enc_addsub_tags(op: u32, uimm6: u32, uimm4: u32) -> u32 {
+    enc_addsub_tags_regs(op, uimm6, uimm4, RN, RD)
+}
+
+#[cfg(all(feature = "smir-jit", target_arch = "x86_64"))]
+fn enc_addsub_tags_regs(op: u32, uimm6: u32, uimm4: u32, rn: u32, rd: u32) -> u32 {
+    (1 << 31)
+        | (op << 30)
+        | (0b100011 << 23)
+        | ((uimm6 & 0x3f) << 16)
+        | ((uimm4 & 0xf) << 10)
+        | ((rn & 0x1f) << 5)
+        | (rd & 0x1f)
+}
+
 /// Conditional compare: `sf op 111010010 Rm/imm5 cond imm 0 Rn 0 nzcv`.
 #[cfg(all(feature = "smir-jit", target_arch = "x86_64"))]
 fn enc_condcmp(sf: u32, op: u32, imm: bool, rm_imm5: u32, cond: u32, nzcv: u32) -> u32 {
@@ -1311,6 +1327,8 @@ fn smir_aarch64_x86_scalar_lowering_matches_qemu_oracle() {
         ("sbcs_x", enc_addsub_carry(1, 1, 1)),
         ("ngc_x", enc_addsub_carry_rn(1, 1, 0, 31)),
         ("ngcs_x", enc_addsub_carry_rn(1, 1, 1, 31)),
+        ("addg_x", enc_addsub_tags(0, 1, 0)),
+        ("subg_x", enc_addsub_tags(1, 1, 0)),
         ("adc_w_zero_ext", enc_addsub_carry(0, 0, 0)),
         ("adcs_w_zero_ext", enc_addsub_carry(0, 0, 1)),
         ("sbc_w_zero_ext", enc_addsub_carry(0, 1, 0)),
@@ -1586,6 +1604,33 @@ fn smir_aarch64_x86_scalar_lowering_matches_qemu_oracle() {
     batch.push((
         "ngcs_w_carry_clear_zero_ext_flags".into(),
         enc_addsub_carry_rn(0, 1, 1, 31),
+        st,
+    ));
+
+    let mut st = ArmState::zeroed();
+    st.x[0] = 0xaaaa_bbbb_cccc_dddd;
+    st.x[1] = 0x0500_0000_0000_1000;
+    batch.push(("addg_clears_tag".into(), enc_addsub_tags(0, 2, 7), st));
+
+    let mut st = ArmState::zeroed();
+    st.x[0] = 0xaaaa_bbbb_cccc_dddd;
+    st.x[1] = 0x0a00_0000_0000_1040;
+    batch.push(("subg_clears_tag".into(), enc_addsub_tags(1, 3, 4), st));
+
+    let mut st = ArmState::zeroed();
+    st.x[0] = 0xaaaa_bbbb_cccc_dddd;
+    st.sp = 0x0700_0000_0000_2000;
+    batch.push((
+        "addg_sp_source_clears_tag".into(),
+        enc_addsub_tags_regs(0, 1, 9, 31, RD),
+        st,
+    ));
+
+    let mut st = ArmState::zeroed();
+    st.sp = 0x0900_0000_0000_2000;
+    batch.push((
+        "subg_sp_dest_clears_tag".into(),
+        enc_addsub_tags_regs(1, 1, 9, 31, 31),
         st,
     ));
 
