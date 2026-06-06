@@ -3496,6 +3496,23 @@ impl X86_64Lowerer {
         Ok(())
     }
 
+    fn ensure_flag_stack_operands_safe(
+        op: &'static str,
+        regs: &[PhysReg],
+    ) -> Result<(), LowerError> {
+        if regs
+            .iter()
+            .any(|reg| matches!(reg, PhysReg::Rsp | PhysReg::Rbp))
+        {
+            return Err(LowerError::InvalidOperand {
+                op: op.to_string(),
+                operand: "RSP/RBP operands are not safe with flag-stack lowering".to_string(),
+            });
+        }
+
+        Ok(())
+    }
+
     /// Emit function prologue
     fn emit_prologue(&mut self) {
         let mut emitter = X86Emitter::new(&mut self.code);
@@ -3708,6 +3725,38 @@ impl X86_64Lowerer {
 
                 let mut emitter = X86Emitter::new(&mut self.code);
                 emitter.emit_cmovcc(x86_cond, dst_reg, src_reg, *width);
+            }
+
+            OpKind::Select {
+                dst,
+                cond,
+                src_true,
+                src_false,
+                width,
+            } => {
+                let dst_reg = self.get_dst_reg(*dst)?;
+                let cond_reg = self.get_reg(*cond)?;
+                let true_reg = self.get_reg(*src_true)?;
+                let false_reg = self.get_reg(*src_false)?;
+                Self::ensure_flag_stack_operands_safe(
+                    "Select",
+                    &[dst_reg, cond_reg, true_reg, false_reg],
+                )?;
+
+                self.code.emit_u8(0x9C); // pushfq
+                {
+                    let mut emitter = X86Emitter::new(&mut self.code);
+                    emitter.emit_test_rr(cond_reg, cond_reg, OpWidth::W64);
+                    if dst_reg == true_reg {
+                        emitter.emit_cmovcc(X86Cond::E, dst_reg, false_reg, *width);
+                    } else if dst_reg == false_reg {
+                        emitter.emit_cmovcc(X86Cond::Ne, dst_reg, true_reg, *width);
+                    } else {
+                        emitter.emit_mov_rr(dst_reg, false_reg, *width);
+                        emitter.emit_cmovcc(X86Cond::Ne, dst_reg, true_reg, *width);
+                    }
+                }
+                self.code.emit_u8(0x9D); // popfq
             }
 
             // ================================================================
@@ -4596,6 +4645,26 @@ impl X86_64Lowerer {
                     emitter.emit_movzx(dst_reg, dst_reg, OpWidth::W8, *width);
                 }
             }
+
+            OpKind::ReadFlags { dst } => {
+                let dst_reg = self.get_dst_reg(*dst)?;
+                Self::ensure_flag_stack_operands_safe("ReadFlags", &[dst_reg])?;
+
+                self.code.emit_u8(0x9C); // pushfq
+                let mut emitter = X86Emitter::new(&mut self.code);
+                emitter.emit_pop(dst_reg);
+            }
+
+            OpKind::WriteFlags { src } => {
+                let src_reg = self.get_reg(*src)?;
+                Self::ensure_flag_stack_operands_safe("WriteFlags", &[src_reg])?;
+
+                let mut emitter = X86Emitter::new(&mut self.code);
+                emitter.emit_push(src_reg);
+                self.code.emit_u8(0x9D); // popfq
+            }
+
+            OpKind::MaterializeFlags => {}
 
             OpKind::SetCF { value } => {
                 let mut emitter = X86Emitter::new(&mut self.code);
@@ -9855,6 +9924,53 @@ mod tests {
         assert!(!lowered.is_empty());
         assert!(lowered.contains(&0x9C), "count lowering must preserve flags");
         assert!(lowered.contains(&0x9D), "count lowering must restore flags");
+    }
+
+    #[test]
+    fn lower_apx_ccmp_ctest_slice_lowers_without_relocs() {
+        // LLVM 23 APX MAP4 forms:
+        //   ccmpo  {dfv=cf,zf} rax, rbx => 62 f4 9c 00 39 d8
+        //   ccmpnb {dfv=cf,zf} rax, 100 => 62 f4 9c 03 83 f8 64
+        //   ctesto {dfv=sf,of} rax, rbx => 62 f4 e4 40 85 d8
+        //   ctestnz {dfv=sf,of} rax, 0xf => 62 f4 e4 45 f7 c0 0f 00 00 00
+        let (lowered, entry) = lower_rex2_block(&[
+            0x62, 0xF4, 0x9C, 0x00, 0x39, 0xD8, 0x62, 0xF4, 0x9C, 0x03, 0x83, 0xF8,
+            0x64, 0x62, 0xF4, 0xE4, 0x40, 0x85, 0xD8, 0x62, 0xF4, 0xE4, 0x45, 0xF7,
+            0xC0, 0x0F, 0x00, 0x00, 0x00, 0xF4,
+        ]);
+        assert!(entry < lowered.len());
+        assert!(!lowered.is_empty());
+        assert!(lowered.contains(&0x9C), "CCMP/CTEST lowering must read/save flags");
+        assert!(lowered.contains(&0x9D), "CCMP/CTEST lowering must write/restore flags");
+    }
+
+    #[test]
+    fn lower_flag_stack_ops_reject_native_stack_operands() {
+        let rsp = VReg::Arch(ArchReg::X86(X86Reg::Rsp));
+        let rbp = VReg::Arch(ArchReg::X86(X86Reg::Rbp));
+        let rax = VReg::Arch(ArchReg::X86(X86Reg::Rax));
+
+        for (name, kind) in [
+            ("readflags rsp", OpKind::ReadFlags { dst: rsp }),
+            ("writeflags rbp", OpKind::WriteFlags { src: rbp }),
+            (
+                "select rsp",
+                OpKind::Select {
+                    dst: rax,
+                    cond: rsp,
+                    src_true: rax,
+                    src_false: rbp,
+                    width: OpWidth::W64,
+                },
+            ),
+        ] {
+            let mut builder = FunctionBuilder::new(FunctionId(0), 0x1000);
+            builder.push_op(0x1000, kind);
+            builder.set_terminator(Terminator::Return { values: vec![] });
+            let func = builder.finish();
+            let mut lowerer = X86_64Lowerer::new();
+            assert!(lowerer.lower_function(&func).is_err(), "{name}");
+        }
     }
 
     #[test]

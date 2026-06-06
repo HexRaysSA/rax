@@ -22,6 +22,8 @@ fn x86_rotate_flags() -> FlagUpdate {
     FlagUpdate::Specific(FlagSet::CF.union(FlagSet::OF))
 }
 
+const APX_CCMP_FLAGS_MASK: i64 = 0x8D5; // CF, PF, AF, ZF, SF, OF
+
 // ============================================================================
 // x86_64 Lifter
 // ============================================================================
@@ -190,6 +192,7 @@ struct ApxEvexPrefix {
     operand_size_override: bool,
     nd: bool,
     nf: bool,
+    aaa: u8,
     b: bool,
     b4: bool,
     x4: bool,
@@ -237,6 +240,14 @@ impl ApxEvexPrefix {
         } else {
             FlagUpdate::All
         }
+    }
+
+    fn ccmp_cond(self) -> u8 {
+        ((self.v_prime as u8) << 3) | self.aaa
+    }
+
+    fn ccmp_default_flags(self) -> u8 {
+        self.vvvv
     }
 
     fn as_modrm_prefix(self, cursor: usize) -> X86Prefix {
@@ -588,6 +599,7 @@ fn decode_apx_evex_prefix(bytes: &[u8], addr: u64) -> Result<ApxEvexPrefix, Lift
         operand_size_override: (p1 & 0x03) == 0x01,
         nd: (p2 & 0x10) != 0,
         nf: (p2 & 0x04) != 0,
+        aaa: p2 & 0x07,
         b: (p0 & 0x20) != 0,
         b4: (p0 & 0x08) != 0,
         x4: (p1 & 0x04) != 0,
@@ -3088,6 +3100,41 @@ impl X86_64Lifter {
 
         let next_pc = pc + prefix.bytes as u64 + 1 + modrm.bytes_consumed as u64 + imm_size as u64;
         let mut ops = Vec::new();
+        let group = (modrm.byte >> 3) & 0x07;
+        if group == 7 {
+            if prefix.nd {
+                return Err(LiftError::Unsupported {
+                    addr: pc,
+                    mnemonic: "APX CCMP immediate with NDD".to_string(),
+                });
+            }
+            if modrm.is_memory {
+                return Err(LiftError::Unsupported {
+                    addr: pc,
+                    mnemonic: "APX CCMP immediate memory form".to_string(),
+                });
+            }
+
+            self.push_apx_conditional_flags(
+                &mut ops,
+                pc,
+                ctx,
+                self.x86_cond(prefix.ccmp_cond()),
+                prefix.ccmp_default_flags(),
+                OpKind::Cmp {
+                    src1: self.gpr(modrm.rm),
+                    src2: SrcOperand::Imm(imm),
+                    width,
+                },
+                None,
+            );
+
+            return Ok(LiftResult::fallthrough(
+                ops,
+                prefix.bytes + 1 + modrm.bytes_consumed + imm_size,
+            ));
+        }
+
         let (legacy_dst, legacy_dst_addr) = if modrm.is_memory {
             let x86_addr = modrm.addr.as_ref().unwrap();
             let (addr, pre_ops) = self.x86_addr_to_smir(x86_addr, next_pc, ctx);
@@ -3114,7 +3161,6 @@ impl X86_64Lifter {
         } else {
             legacy_dst
         };
-        let group = (modrm.byte >> 3) & 0x07;
         let op_kind = self.apx_alu_op(
             group,
             dst,
@@ -3179,6 +3225,305 @@ impl X86_64Lifter {
                 OpKind::Bswap { dst, src, width },
             )],
             prefix.bytes + 1 + modrm.bytes_consumed,
+        ))
+    }
+
+    fn apx_ccmp_default_rflags(dfv: u8) -> i64 {
+        let mut flags = 0x02;
+        if dfv & 0x1 != 0 {
+            flags |= 0x001;
+        }
+        if dfv & 0x2 != 0 {
+            flags |= 0x040;
+        }
+        if dfv & 0x4 != 0 {
+            flags |= 0x080;
+        }
+        if dfv & 0x8 != 0 {
+            flags |= 0x800;
+        }
+        flags
+    }
+
+    fn push_apx_conditional_flags(
+        &self,
+        ops: &mut Vec<SmirOp>,
+        pc: u64,
+        ctx: &mut LiftContext,
+        cond: Condition,
+        dfv: u8,
+        true_op: OpKind,
+        true_hint: Option<X86OpHint>,
+    ) {
+        let old_flags = ctx.alloc_vreg();
+        ops.push(SmirOp::new(
+            OpId(ops.len() as u16),
+            pc,
+            OpKind::ReadFlags { dst: old_flags },
+        ));
+
+        let cond_reg = ctx.alloc_vreg();
+        ops.push(SmirOp::new(
+            OpId(ops.len() as u16),
+            pc,
+            OpKind::SetCC {
+                dst: cond_reg,
+                cond,
+                width: OpWidth::W64,
+            },
+        ));
+
+        let false_flags = ctx.alloc_vreg();
+        ops.push(SmirOp::new(
+            OpId(ops.len() as u16),
+            pc,
+            OpKind::And {
+                dst: false_flags,
+                src1: old_flags,
+                src2: SrcOperand::Imm(!APX_CCMP_FLAGS_MASK),
+                width: OpWidth::W64,
+                flags: FlagUpdate::None,
+            },
+        ));
+        ops.push(SmirOp::new(
+            OpId(ops.len() as u16),
+            pc,
+            OpKind::Or {
+                dst: false_flags,
+                src1: false_flags,
+                src2: SrcOperand::Imm(Self::apx_ccmp_default_rflags(dfv)),
+                width: OpWidth::W64,
+                flags: FlagUpdate::None,
+            },
+        ));
+
+        let op = if let Some(hint) = true_hint {
+            SmirOp::with_hint(OpId(ops.len() as u16), pc, true_op, hint)
+        } else {
+            SmirOp::new(OpId(ops.len() as u16), pc, true_op)
+        };
+        ops.push(op);
+
+        let true_flags = ctx.alloc_vreg();
+        ops.push(SmirOp::new(
+            OpId(ops.len() as u16),
+            pc,
+            OpKind::ReadFlags { dst: true_flags },
+        ));
+
+        let selected_flags = ctx.alloc_vreg();
+        ops.push(SmirOp::new(
+            OpId(ops.len() as u16),
+            pc,
+            OpKind::Select {
+                dst: selected_flags,
+                cond: cond_reg,
+                src_true: true_flags,
+                src_false: false_flags,
+                width: OpWidth::W64,
+            },
+        ));
+        ops.push(SmirOp::new(
+            OpId(ops.len() as u16),
+            pc,
+            OpKind::WriteFlags {
+                src: selected_flags,
+            },
+        ));
+    }
+
+    fn lift_apx_ccmp(
+        &self,
+        prefix: ApxEvexPrefix,
+        opcode: u8,
+        bytes: &[u8],
+        pc: u64,
+        ctx: &mut LiftContext,
+    ) -> Result<LiftResult, LiftError> {
+        if prefix.nd {
+            return Err(LiftError::Unsupported {
+                addr: pc,
+                mnemonic: "APX CCMP with NDD".to_string(),
+            });
+        }
+
+        let is_byte = (opcode & 0x01) == 0;
+        let op_size = prefix.op_size(is_byte);
+        let width = self.size_to_width(op_size);
+        let modrm_prefix = prefix.as_modrm_prefix(prefix.bytes + 1);
+        let modrm = decode_modrm(bytes, &modrm_prefix, pc)?;
+
+        if modrm.is_memory {
+            return Err(LiftError::Unsupported {
+                addr: pc,
+                mnemonic: "APX CCMP memory form".to_string(),
+            });
+        }
+
+        let reg_is_src = (opcode & 0x02) == 0;
+        let (src1, src2, hint) = if reg_is_src {
+            (
+                self.gpr(modrm.rm),
+                self.gpr(modrm.reg),
+                X86AluEncoding::RmReg,
+            )
+        } else {
+            (
+                self.gpr(modrm.reg),
+                self.gpr(modrm.rm),
+                X86AluEncoding::RegRm,
+            )
+        };
+
+        let mut ops = Vec::new();
+        self.push_apx_conditional_flags(
+            &mut ops,
+            pc,
+            ctx,
+            self.x86_cond(prefix.ccmp_cond()),
+            prefix.ccmp_default_flags(),
+            OpKind::Cmp {
+                src1,
+                src2: SrcOperand::Reg(src2),
+                width,
+            },
+            Some(X86OpHint::AluEncoding(hint)),
+        );
+
+        Ok(LiftResult::fallthrough(
+            ops,
+            prefix.bytes + 1 + modrm.bytes_consumed,
+        ))
+    }
+
+    fn lift_apx_ctest_reg(
+        &self,
+        prefix: ApxEvexPrefix,
+        opcode: u8,
+        bytes: &[u8],
+        pc: u64,
+        ctx: &mut LiftContext,
+    ) -> Result<LiftResult, LiftError> {
+        if prefix.nd {
+            return Err(LiftError::Unsupported {
+                addr: pc,
+                mnemonic: "APX CTEST with NDD".to_string(),
+            });
+        }
+
+        let is_byte = opcode == 0x84;
+        let op_size = prefix.op_size(is_byte);
+        let width = self.size_to_width(op_size);
+        let modrm_prefix = prefix.as_modrm_prefix(prefix.bytes + 1);
+        let modrm = decode_modrm(bytes, &modrm_prefix, pc)?;
+
+        if modrm.is_memory {
+            return Err(LiftError::Unsupported {
+                addr: pc,
+                mnemonic: "APX CTEST memory form".to_string(),
+            });
+        }
+
+        let mut ops = Vec::new();
+        self.push_apx_conditional_flags(
+            &mut ops,
+            pc,
+            ctx,
+            self.x86_cond(prefix.ccmp_cond()),
+            prefix.ccmp_default_flags(),
+            OpKind::Test {
+                src1: self.gpr(modrm.rm),
+                src2: SrcOperand::Reg(self.gpr(modrm.reg)),
+                width,
+            },
+            None,
+        );
+
+        Ok(LiftResult::fallthrough(
+            ops,
+            prefix.bytes + 1 + modrm.bytes_consumed,
+        ))
+    }
+
+    fn lift_apx_ctest_imm(
+        &self,
+        prefix: ApxEvexPrefix,
+        opcode: u8,
+        bytes: &[u8],
+        pc: u64,
+        ctx: &mut LiftContext,
+    ) -> Result<LiftResult, LiftError> {
+        if prefix.nd {
+            return Err(LiftError::Unsupported {
+                addr: pc,
+                mnemonic: "APX CTEST immediate with NDD".to_string(),
+            });
+        }
+
+        let is_byte = opcode == 0xF6;
+        let op_size = prefix.op_size(is_byte);
+        let width = self.size_to_width(op_size);
+        let modrm_prefix = prefix.as_modrm_prefix(prefix.bytes + 1);
+        let modrm = decode_modrm(bytes, &modrm_prefix, pc)?;
+        let group = (modrm.byte >> 3) & 0x07;
+        if group != 0 {
+            return Err(LiftError::Unsupported {
+                addr: pc,
+                mnemonic: format!("APX F6/F7 /{group}"),
+            });
+        }
+        if modrm.is_memory {
+            return Err(LiftError::Unsupported {
+                addr: pc,
+                mnemonic: "APX CTEST immediate memory form".to_string(),
+            });
+        }
+
+        let imm_offset = modrm.bytes_consumed;
+        let imm_size = if is_byte {
+            1
+        } else if op_size == 2 {
+            2
+        } else {
+            4
+        };
+        if bytes.len() < imm_offset + imm_size {
+            return Err(LiftError::Incomplete {
+                addr: pc,
+                have: bytes.len(),
+                need: imm_offset + imm_size,
+            });
+        }
+
+        let imm = match imm_size {
+            1 => bytes[imm_offset] as i8 as i64,
+            2 => i16::from_le_bytes([bytes[imm_offset], bytes[imm_offset + 1]]) as i64,
+            _ => i32::from_le_bytes([
+                bytes[imm_offset],
+                bytes[imm_offset + 1],
+                bytes[imm_offset + 2],
+                bytes[imm_offset + 3],
+            ]) as i64,
+        };
+
+        let mut ops = Vec::new();
+        self.push_apx_conditional_flags(
+            &mut ops,
+            pc,
+            ctx,
+            self.x86_cond(prefix.ccmp_cond()),
+            prefix.ccmp_default_flags(),
+            OpKind::Test {
+                src1: self.gpr(modrm.rm),
+                src2: SrcOperand::Imm(imm),
+                width,
+            },
+            None,
+        );
+
+        Ok(LiftResult::fallthrough(
+            ops,
+            prefix.bytes + 1 + modrm.bytes_consumed + imm_size,
         ))
     }
 
@@ -3825,8 +4170,14 @@ impl X86_64Lifter {
             | 0x30..=0x33 => {
                 self.lift_apx_alu(prefix, opcode, &bytes[prefix.bytes + 1..], pc, ctx)
             }
+            0x38..=0x3B => {
+                self.lift_apx_ccmp(prefix, opcode, &bytes[prefix.bytes + 1..], pc, ctx)
+            }
             0x80 | 0x81 | 0x83 => {
                 self.lift_apx_group1_imm(prefix, opcode, &bytes[prefix.bytes + 1..], pc, ctx)
+            }
+            0x84 | 0x85 => {
+                self.lift_apx_ctest_reg(prefix, opcode, &bytes[prefix.bytes + 1..], pc, ctx)
             }
             0xC0 | 0xC1 | 0xD0 | 0xD1 | 0xD2 | 0xD3 => {
                 self.lift_apx_shift(prefix, opcode, &bytes[prefix.bytes + 1..], pc, ctx)
@@ -3847,6 +4198,9 @@ impl X86_64Lifter {
             }
             0xF4 | 0xF5 => {
                 self.lift_apx_count(prefix, opcode, &bytes[prefix.bytes + 1..], pc, ctx)
+            }
+            0xF6 | 0xF7 => {
+                self.lift_apx_ctest_imm(prefix, opcode, &bytes[prefix.bytes + 1..], pc, ctx)
             }
             0x8F => self.lift_apx_pop2(prefix, modrm, pc, ctx),
             0xFF => self.lift_apx_push2(prefix, modrm, pc, ctx),
@@ -6839,6 +7193,81 @@ mod tests {
         VReg::Arch(ArchReg::X86(X86Reg::gpr(idx)))
     }
 
+    fn assert_apx_conditional_flag_shape(
+        result: &LiftResult,
+        cond: Condition,
+        default_rflags: i64,
+    ) {
+        assert_eq!(result.ops.len(), 8);
+
+        let old_flags = match &result.ops[0].kind {
+            OpKind::ReadFlags { dst } => *dst,
+            other => panic!("expected APX conditional old ReadFlags, got {other:?}"),
+        };
+        let cond_reg = match &result.ops[1].kind {
+            OpKind::SetCC {
+                dst,
+                cond: got_cond,
+                width: OpWidth::W64,
+            } => {
+                assert_eq!(*got_cond, cond);
+                *dst
+            }
+            other => panic!("expected APX conditional SetCC, got {other:?}"),
+        };
+        let false_flags = match &result.ops[2].kind {
+            OpKind::And {
+                dst,
+                src1,
+                src2: SrcOperand::Imm(mask),
+                width: OpWidth::W64,
+                flags: FlagUpdate::None,
+            } => {
+                assert_eq!(*src1, old_flags);
+                assert_eq!(*mask, !APX_CCMP_FLAGS_MASK);
+                *dst
+            }
+            other => panic!("expected APX conditional false-flag mask, got {other:?}"),
+        };
+        match &result.ops[3].kind {
+            OpKind::Or {
+                dst,
+                src1,
+                src2: SrcOperand::Imm(flags),
+                width: OpWidth::W64,
+                flags: FlagUpdate::None,
+            } => {
+                assert_eq!(*dst, false_flags);
+                assert_eq!(*src1, false_flags);
+                assert_eq!(*flags, default_rflags);
+            }
+            other => panic!("expected APX conditional false-flag defaults, got {other:?}"),
+        }
+        let true_flags = match &result.ops[5].kind {
+            OpKind::ReadFlags { dst } => *dst,
+            other => panic!("expected APX conditional true ReadFlags, got {other:?}"),
+        };
+        let selected_flags = match &result.ops[6].kind {
+            OpKind::Select {
+                dst,
+                cond,
+                src_true,
+                src_false,
+                width: OpWidth::W64,
+            } => {
+                assert_eq!(*cond, cond_reg);
+                assert_eq!(*src_true, true_flags);
+                assert_eq!(*src_false, false_flags);
+                *dst
+            }
+            other => panic!("expected APX conditional flag Select, got {other:?}"),
+        };
+        match &result.ops[7].kind {
+            OpKind::WriteFlags { src } => assert_eq!(*src, selected_flags),
+            other => panic!("expected APX conditional WriteFlags, got {other:?}"),
+        }
+    }
+
     #[test]
     fn rex2_modrm_decode_extends_to_apx_gprs() {
         let prefix = decode_prefixes(&[0xD5, 0x5D, 0x89, 0xF8]).unwrap();
@@ -8133,6 +8562,100 @@ mod tests {
                 matches!(err, LiftError::Unsupported { .. }),
                 "{name}: {err:?}"
             );
+        }
+    }
+
+    #[test]
+    fn lift_apx_ccmp_registers_use_conditional_flag_sequence_like_llvm() {
+        let mut lifter = X86_64Lifter::strict();
+        let mut ctx = LiftContext::new(SourceArch::X86_64);
+
+        // LLVM 23: `ccmpo {dfv=cf,zf} rax, rbx` has no trailing DFV byte.
+        let ccmpo = lifter
+            .lift_insn(0x1000, &[0x62, 0xF4, 0x9C, 0x00, 0x39, 0xD8], &mut ctx)
+            .unwrap();
+        assert_eq!(ccmpo.bytes_consumed, 6);
+        assert_apx_conditional_flag_shape(&ccmpo, Condition::Overflow, 0x43);
+        match &ccmpo.ops[4].kind {
+            OpKind::Cmp {
+                src1,
+                src2: SrcOperand::Reg(src2),
+                width: OpWidth::W64,
+            } => {
+                assert_eq!(*src1, x86_gpr(0));
+                assert_eq!(*src2, x86_gpr(3));
+            }
+            other => panic!("expected APX CCMP register compare, got {other:?}"),
+        }
+
+        // LLVM 23: `ccmpno {dfv=cf,zf} rax, rbx`.
+        let ccmpno = lifter
+            .lift_insn(0x1000, &[0x62, 0xF4, 0x9C, 0x01, 0x39, 0xD8], &mut ctx)
+            .unwrap();
+        assert_eq!(ccmpno.bytes_consumed, 6);
+        assert_apx_conditional_flag_shape(&ccmpno, Condition::NoOverflow, 0x43);
+    }
+
+    #[test]
+    fn lift_apx_ctest_register_and_immediate_like_llvm() {
+        let mut lifter = X86_64Lifter::strict();
+        let mut ctx = LiftContext::new(SourceArch::X86_64);
+
+        // LLVM 23: `ctesto {dfv=sf,of} rax, rbx`.
+        let ctest = lifter
+            .lift_insn(0x1000, &[0x62, 0xF4, 0xE4, 0x40, 0x85, 0xD8], &mut ctx)
+            .unwrap();
+        assert_eq!(ctest.bytes_consumed, 6);
+        assert_apx_conditional_flag_shape(&ctest, Condition::Overflow, 0x882);
+        match &ctest.ops[4].kind {
+            OpKind::Test {
+                src1,
+                src2: SrcOperand::Reg(src2),
+                width: OpWidth::W64,
+            } => {
+                assert_eq!(*src1, x86_gpr(0));
+                assert_eq!(*src2, x86_gpr(3));
+            }
+            other => panic!("expected APX CTEST register test, got {other:?}"),
+        }
+
+        // CTESTNZ rax, 0x0f, with DFV embedded in EVEX.vvvv.
+        let ctest_imm = lifter
+            .lift_insn(
+                0x1000,
+                &[
+                    0x62, 0xF4, 0xE4, 0x45, 0xF7, 0xC0, 0x0F, 0x00, 0x00, 0x00,
+                ],
+                &mut ctx,
+            )
+            .unwrap();
+        assert_eq!(ctest_imm.bytes_consumed, 10);
+        assert_apx_conditional_flag_shape(&ctest_imm, Condition::Ne, 0x882);
+        match &ctest_imm.ops[4].kind {
+            OpKind::Test {
+                src1,
+                src2: SrcOperand::Imm(0x0F),
+                width: OpWidth::W64,
+            } => assert_eq!(*src1, x86_gpr(0)),
+            other => panic!("expected APX CTEST immediate test, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn lift_apx_ccmp_ctest_reject_memory_forms_without_predicated_lowering() {
+        let mut lifter = X86_64Lifter::strict();
+        let mut ctx = LiftContext::new(SourceArch::X86_64);
+
+        for (bytes, name) in [
+            ([0x62, 0xF4, 0xE4, 0x05, 0x3B, 0x03], "ccmp mem"),
+            ([0x62, 0xF4, 0xE4, 0x42, 0x85, 0x0B], "ctest mem"),
+            (
+                [0x62, 0xF4, 0xE4, 0x48, 0xF7, 0x03],
+                "ctest imm mem",
+            ),
+        ] {
+            let err = lifter.lift_insn(0x1000, &bytes, &mut ctx).unwrap_err();
+            assert!(matches!(err, LiftError::Unsupported { .. }), "{name}: {err:?}");
         }
     }
 
