@@ -3924,48 +3924,87 @@ impl X86_64Lowerer {
             }
 
             OpKind::Neg {
-                dst, src, width, ..
+                dst,
+                src,
+                width,
+                flags,
             } => {
                 let dst_reg = self.get_dst_reg(*dst)?;
                 let src_reg = self.get_reg(*src)?;
+                let preserve_flags = !flags.updates_any();
+                if preserve_flags {
+                    Self::ensure_flag_stack_operands_safe("Neg", &[dst_reg, src_reg])?;
+                }
 
                 if dst_reg != src_reg {
                     let mut emitter = X86Emitter::new(&mut self.code);
                     emitter.emit_mov_rr(dst_reg, src_reg, *width);
                 }
 
+                if preserve_flags {
+                    self.code.emit_u8(0x9C); // pushfq
+                }
                 let mut emitter = X86Emitter::new(&mut self.code);
                 emitter.emit_neg(dst_reg, *width);
+                if preserve_flags {
+                    self.code.emit_u8(0x9D); // popfq
+                }
             }
 
             OpKind::Inc {
-                dst, src, width, ..
+                dst,
+                src,
+                width,
+                flags,
             } => {
                 let dst_reg = self.get_dst_reg(*dst)?;
                 let src_reg = self.get_reg(*src)?;
+                let preserve_flags = !flags.updates_any();
+                if preserve_flags {
+                    Self::ensure_flag_stack_operands_safe("Inc", &[dst_reg, src_reg])?;
+                }
 
                 if dst_reg != src_reg {
                     let mut emitter = X86Emitter::new(&mut self.code);
                     emitter.emit_mov_rr(dst_reg, src_reg, *width);
                 }
 
+                if preserve_flags {
+                    self.code.emit_u8(0x9C); // pushfq
+                }
                 let mut emitter = X86Emitter::new(&mut self.code);
                 emitter.emit_inc(dst_reg, *width);
+                if preserve_flags {
+                    self.code.emit_u8(0x9D); // popfq
+                }
             }
 
             OpKind::Dec {
-                dst, src, width, ..
+                dst,
+                src,
+                width,
+                flags,
             } => {
                 let dst_reg = self.get_dst_reg(*dst)?;
                 let src_reg = self.get_reg(*src)?;
+                let preserve_flags = !flags.updates_any();
+                if preserve_flags {
+                    Self::ensure_flag_stack_operands_safe("Dec", &[dst_reg, src_reg])?;
+                }
 
                 if dst_reg != src_reg {
                     let mut emitter = X86Emitter::new(&mut self.code);
                     emitter.emit_mov_rr(dst_reg, src_reg, *width);
                 }
 
+                if preserve_flags {
+                    self.code.emit_u8(0x9C); // pushfq
+                }
                 let mut emitter = X86Emitter::new(&mut self.code);
                 emitter.emit_dec(dst_reg, *width);
+                if preserve_flags {
+                    self.code.emit_u8(0x9D); // popfq
+                }
             }
 
             OpKind::MulS {
@@ -8222,8 +8261,15 @@ impl X86_64Lowerer {
                             return Ok(Some(3));
                         }
                         OpKind::Neg {
-                            dst, src, width, ..
-                        } if *dst == tmp && *src == tmp && *width == op_width => {
+                            dst,
+                            src,
+                            width,
+                            flags,
+                        } if *dst == tmp
+                            && *src == tmp
+                            && *width == op_width
+                            && flags.updates_any() =>
+                        {
                             self.emit_group3_mem(3, addr, op_width)?;
                             return Ok(Some(3));
                         }
@@ -9860,6 +9906,28 @@ mod tests {
     }
 
     #[test]
+    fn lower_apx_ndd_nf_unary_slice_lowers_without_relocs() {
+        // LLVM 23 APX MAP4 forms:
+        //   notq %rax, %r8       => 62 f4 bc 18 f7 d0
+        //   negq %rax, %r8       => 62 f4 bc 18 f7 d8
+        //   incq %rax, %r8       => 62 f4 bc 18 ff c0
+        //   decq %rax, %r8       => 62 f4 bc 18 ff c8
+        //   {nf} negq %rax       => 62 f4 fc 0c f7 d8
+        //   {nf} incq %rax       => 62 f4 fc 0c ff c0
+        //   {nf} decq %rax       => 62 f4 fc 0c ff c8
+        let (lowered, entry) = lower_rex2_block(&[
+            0x62, 0xF4, 0xBC, 0x18, 0xF7, 0xD0, 0x62, 0xF4, 0xBC, 0x18, 0xF7, 0xD8,
+            0x62, 0xF4, 0xBC, 0x18, 0xFF, 0xC0, 0x62, 0xF4, 0xBC, 0x18, 0xFF, 0xC8,
+            0x62, 0xF4, 0xFC, 0x0C, 0xF7, 0xD8, 0x62, 0xF4, 0xFC, 0x0C, 0xFF, 0xC0,
+            0x62, 0xF4, 0xFC, 0x0C, 0xFF, 0xC8, 0xF4,
+        ]);
+        assert!(entry < lowered.len());
+        assert!(!lowered.is_empty());
+        assert!(lowered.contains(&0x9C), "NF unary lowering must preserve flags");
+        assert!(lowered.contains(&0x9D), "NF unary lowering must restore flags");
+    }
+
+    #[test]
     fn lower_apx_ndd_nf_imul_slice_lowers_without_relocs() {
         // LLVM 20 APX MAP4 forms:
         //   imulq %rbx, %rax, %r8       => 62 f4 bc 18 af c3
@@ -9961,6 +10029,50 @@ mod tests {
                     src_true: rax,
                     src_false: rbp,
                     width: OpWidth::W64,
+                },
+            ),
+        ] {
+            let mut builder = FunctionBuilder::new(FunctionId(0), 0x1000);
+            builder.push_op(0x1000, kind);
+            builder.set_terminator(Terminator::Return { values: vec![] });
+            let func = builder.finish();
+            let mut lowerer = X86_64Lowerer::new();
+            assert!(lowerer.lower_function(&func).is_err(), "{name}");
+        }
+    }
+
+    #[test]
+    fn lower_nf_unary_ops_reject_native_stack_operands() {
+        let rsp = VReg::Arch(ArchReg::X86(X86Reg::Rsp));
+        let rbp = VReg::Arch(ArchReg::X86(X86Reg::Rbp));
+        let rax = VReg::Arch(ArchReg::X86(X86Reg::Rax));
+
+        for (name, kind) in [
+            (
+                "neg rsp",
+                OpKind::Neg {
+                    dst: rsp,
+                    src: rsp,
+                    width: OpWidth::W64,
+                    flags: FlagUpdate::None,
+                },
+            ),
+            (
+                "inc rbp",
+                OpKind::Inc {
+                    dst: rbp,
+                    src: rbp,
+                    width: OpWidth::W64,
+                    flags: FlagUpdate::None,
+                },
+            ),
+            (
+                "dec rsp source",
+                OpKind::Dec {
+                    dst: rax,
+                    src: rsp,
+                    width: OpWidth::W64,
+                    flags: FlagUpdate::None,
                 },
             ),
         ] {
