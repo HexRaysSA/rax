@@ -2449,8 +2449,19 @@ impl Aarch64Lowerer {
                     self.emit_test_branch(amount, 5, false, 8)?;
                     return self.emit_mov_reg(dst, 31, width);
                 }
+                ShiftOp::Asr => {
+                    if dst == amount {
+                        return Err(LowerError::UnsupportedOp {
+                            op: "AArch64 native W32 variable Asr needs a scratch when dst == count"
+                                .into(),
+                        });
+                    }
+                    self.emit_dp2(dst, src, amount, 0b1010, width)?;
+                    self.emit_test_branch(amount, 5, false, 8)?;
+                    return self.emit_bitfield(dst, dst, 0b00, 31, 31, width);
+                }
                 ShiftOp::Ror => {}
-                _ => {
+                ShiftOp::Rrx => {
                     return Err(LowerError::UnsupportedOp {
                         op: format!(
                             "AArch64 native W32 variable {shift:?} count semantics differ from SMIR"
@@ -7918,12 +7929,40 @@ mod tests {
     }
 
     #[test]
-    fn rejects_sar_w_reg_count_lowering() {
+    fn lowers_sar_w_reg_with_sign_guard() {
         let mut builder = FunctionBuilder::new(FunctionId(0), 0);
         builder.push_op(
             0,
             OpKind::Sar {
                 dst: x(0),
+                src: x(1),
+                amount: SrcOperand::Reg(x(2)),
+                width: OpWidth::W32,
+                flags: FlagUpdate::None,
+            },
+        );
+        builder.set_terminator(Terminator::Return { values: vec![] });
+        let func = builder.finish();
+
+        let mut lowerer = Aarch64Lowerer::new();
+        lowerer.lower_function(&func).unwrap();
+        let code = lowerer.finalize().unwrap();
+
+        let mut expected = Vec::new();
+        expected.extend_from_slice(&enc_dp2_regs(0, 0b1010, 1, 2, 0).to_le_bytes());
+        expected.extend_from_slice(&enc_test_branch(2, 5, false, 8).to_le_bytes());
+        expected.extend_from_slice(&enc_bitfield_regs(0, 0b00, 31, 31, 0, 0).to_le_bytes());
+        expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
+        assert_eq!(code, expected);
+    }
+
+    #[test]
+    fn rejects_sar_w_reg_count_when_dst_is_count() {
+        let mut builder = FunctionBuilder::new(FunctionId(0), 0);
+        builder.push_op(
+            0,
+            OpKind::Sar {
+                dst: x(2),
                 src: x(1),
                 amount: SrcOperand::Reg(x(2)),
                 width: OpWidth::W32,

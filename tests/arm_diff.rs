@@ -7512,6 +7512,11 @@ fn smir_aarch64_native_lowering_matches_qemu_oracle() {
             enc_logical_shift_regs(0, 0b01, 0, 0, 0, RD, 31, 31),
         ]
     };
+    let w32_sar_guard = [
+        enc_dp2(0, 0b1010),
+        enc_test_branch_rt(0, 5, 8, RM),
+        enc_bitfield_rn(0, 0b00, 31, 31, RD),
+    ];
 
     let mut st = native_state();
     st.x[0] = 0xaaaa_bbbb_cccc_dddd;
@@ -7576,6 +7581,42 @@ fn smir_aarch64_native_lowering_matches_qemu_oracle() {
         "shr_w_reg_count_33_zero_ext_preserves_flags",
         w32_count_guard(0b1001),
         vec![OpKind::Shr {
+            dst: arm_x(0),
+            src: arm_x(1),
+            amount: SrcOperand::Reg(arm_x(2)),
+            width: OpWidth::W32,
+            flags: FlagUpdate::None,
+        }],
+        st,
+    );
+
+    let mut st = native_state();
+    st.x[0] = 0xeeee_ffff_0000_1111;
+    st.x[1] = 0xffff_ffff_8765_4321;
+    st.x[2] = 7;
+    st.pstate = 0x2000_0000;
+    push_case3(
+        "sar_w_reg_count_below32_zero_ext_preserves_flags",
+        [enc_dp2(0, 0b1010), NOP, NOP],
+        vec![OpKind::Sar {
+            dst: arm_x(0),
+            src: arm_x(1),
+            amount: SrcOperand::Reg(arm_x(2)),
+            width: OpWidth::W32,
+            flags: FlagUpdate::None,
+        }],
+        st,
+    );
+
+    let mut st = native_state();
+    st.x[0] = 0xffff_0000_1111_2222;
+    st.x[1] = 0xffff_ffff_8000_0000;
+    st.x[2] = 33;
+    st.pstate = 0x4000_0000;
+    push_case3(
+        "sar_w_reg_count_33_sign_fill_preserves_flags",
+        w32_sar_guard,
+        vec![OpKind::Sar {
             dst: arm_x(0),
             src: arm_x(1),
             amount: SrcOperand::Reg(arm_x(2)),
