@@ -829,6 +829,10 @@ fn smir_aarch64_x86_scalar_lowering_matches_qemu_oracle() {
         ("csel_x_ge", enc_csel(1, 10)),
         ("csel_w_lt_zero_ext", enc_csel(0, 11)),
         ("csel_w_le_zero_ext", enc_csel(0, 13)),
+        ("mul_x", enc_dp3_ra(1, 0b000, 0, 31)),
+        ("mul_w_zero_ext", enc_dp3_ra(0, 0b000, 0, 31)),
+        ("madd_x", enc_dp3(1, 0b000, 0)),
+        ("madd_w_zero_ext", enc_dp3(0, 0b000, 0)),
     ];
 
     let mut rng = Rng::new(0x5a11_64c0_de);

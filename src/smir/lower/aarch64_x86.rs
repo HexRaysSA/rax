@@ -20,6 +20,7 @@ use super::{CodeBuffer, LowerError, LowerResult, RelocKind, Relocation, SmirLowe
 
 const STATE: PhysReg = PhysReg::Rdi;
 const ACC: PhysReg = PhysReg::Rax;
+const HI: PhysReg = PhysReg::Rdx;
 const RHS: PhysReg = PhysReg::Rcx;
 const B0: PhysReg = PhysReg::R8;
 const B1: PhysReg = PhysReg::R9;
@@ -530,6 +531,38 @@ impl Aarch64X86_64Lowerer {
                     self.emit_nzcv_from_flags(FlagForm::Sub);
                 }
             }
+            OpKind::MulU {
+                dst_lo,
+                dst_hi,
+                src1,
+                src2,
+                width,
+                flags,
+            } => {
+                if flags.updates_any() {
+                    return Err(LowerError::UnsupportedOp {
+                        op: "AArch64 MulU with flags".into(),
+                    });
+                }
+                match width {
+                    OpWidth::W32 | OpWidth::W64 => {}
+                    _ => {
+                        return Err(LowerError::UnsupportedOp {
+                            op: format!("AArch64 MulU width {width:?}"),
+                        });
+                    }
+                }
+                self.load_vreg_to(*src1, ACC, *width)?;
+                self.load_src_to(src2, RHS, *width)?;
+                {
+                    let mut e = X86Emitter::new(&mut self.code);
+                    e.emit_mul(RHS, *width);
+                }
+                self.store_reg_to(*dst_lo, ACC, *width)?;
+                if let Some(dst_hi) = dst_hi {
+                    self.store_reg_to(*dst_hi, HI, *width)?;
+                }
+            }
             OpKind::And {
                 dst,
                 src1,
@@ -986,6 +1019,31 @@ mod tests {
         regs.nzcv = 0x4000_0000;
         run_func(&func, &mut regs);
         assert_eq!(regs.x[0], 0x1234_5678);
+    }
+
+    #[test]
+    fn mulu_w32_writes_low_product_and_zero_extends() {
+        let mut b = FunctionBuilder::new(FunctionId(0), 0x2800);
+        b.push_op(
+            0x2800,
+            OpKind::MulU {
+                dst_lo: x(0),
+                dst_hi: None,
+                src1: x(1),
+                src2: SrcOperand::Reg(x(2)),
+                width: OpWidth::W32,
+                flags: FlagUpdate::None,
+            },
+        );
+        b.set_terminator(Terminator::Return { values: vec![] });
+
+        let mut regs = Aarch64GuestRegs::default();
+        regs.x[0] = 0xaaaa_bbbb_cccc_dddd;
+        regs.x[1] = 0xffff_ffff_ffff_fffe;
+        regs.x[2] = 0xffff_ffff_0000_0003;
+        run_func(&b.finish(), &mut regs);
+
+        assert_eq!(regs.x[0], 0xffff_fffa);
     }
 
     #[test]
