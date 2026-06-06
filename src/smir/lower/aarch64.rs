@@ -4239,15 +4239,13 @@ impl Aarch64Lowerer {
                         };
                         let quot = Self::dst_gpr(quot)?;
                         let rem = Self::dst_gpr(rem)?;
-                        if quot == rem {
-                            return Err(LowerError::UnsupportedOp {
-                                op: "AArch64 native divide quotient/remainder overlap".into(),
-                            });
-                        }
                         let rn = Self::gpr(src1)?;
                         let shift = divisor.trailing_zeros();
                         let mask = (divisor - 1) as i64;
                         let (n, immr, imms) = Self::logical_bitmask_imm(mask, emit_width)?;
+                        if quot == rem {
+                            return self.emit_logic_imm(rem, rn, 0b00, n, immr, imms, emit_width);
+                        }
                         if quot == rn {
                             self.emit_logic_imm(rem, rn, 0b00, n, immr, imms, emit_width)?;
                             return self.emit_bitfield(
@@ -4302,9 +4300,18 @@ impl Aarch64Lowerer {
             let rem = Self::dst_gpr(rem)?;
             if quot == rn || quot == rm {
                 if rem == rn || rem == rm {
-                    return Err(LowerError::UnsupportedOp {
-                        op: "AArch64 native divide remainder with overlapping sources".into(),
-                    });
+                    let scratches = Self::scratch_regs(&[quot, rem, rn, rm], 1)?;
+                    let scratch = scratches[0];
+                    let saved_source = if quot == rn { rn } else { rm };
+                    let div_rn = if quot == rn { scratch } else { rn };
+                    let div_rm = if quot == rm { scratch } else { rm };
+
+                    self.emit_scratch_save(&scratches);
+                    self.emit_mov_reg(scratch, saved_source, width)?;
+                    self.emit_dp2(quot, div_rn, div_rm, opcode2, width)?;
+                    self.emit_dp3(rem, quot, div_rm, div_rn, 0b000, 1, width)?;
+                    self.emit_scratch_restore(&scratches);
+                    return Ok(());
                 }
                 self.emit_dp2(rem, rn, rm, opcode2, width)?;
                 self.emit_dp3(rem, rem, rm, rn, 0b000, 1, width)?;
@@ -7685,6 +7692,80 @@ mod tests {
         }
     }
 
+    fn assert_div_w64_lowering(
+        label: &str,
+        signed: bool,
+        quot: u8,
+        rem: Option<u8>,
+        src1_reg: u8,
+        src2: SrcOperand,
+        src2_reg: Option<u8>,
+        src1_value: u64,
+        src2_value: u64,
+    ) {
+        let op = if signed {
+            OpKind::DivS {
+                quot: x(quot),
+                rem: rem.map(x),
+                src1: x(src1_reg),
+                src2,
+                width: OpWidth::W64,
+                flags: FlagUpdate::None,
+            }
+        } else {
+            OpKind::DivU {
+                quot: x(quot),
+                rem: rem.map(x),
+                src1: x(src1_reg),
+                src2,
+                width: OpWidth::W64,
+                flags: FlagUpdate::None,
+            }
+        };
+        let code = lower_single_op(op);
+        let (expected_quot, expected_rem) = if signed {
+            let dividend = src1_value as i64 as i128;
+            let divisor = src2_value as i64 as i128;
+            (
+                (dividend / divisor) as i64 as u64,
+                (dividend % divisor) as i64 as u64,
+            )
+        } else {
+            (src1_value / src2_value, src1_value % src2_value)
+        };
+        let sentinels = [
+            (16, 0x1616_1616_1616_1616),
+            (17, 0x1717_1717_1717_1717),
+            (15, 0x1515_1515_1515_1515),
+            (14, 0x1414_1414_1414_1414),
+        ];
+        let mut regs = sentinels.to_vec();
+        regs.push((src1_reg, src1_value));
+        if let Some(src2_reg) = src2_reg {
+            regs.push((src2_reg, src2_value));
+        }
+
+        let old_nzcv = 0b0101;
+        let (out, out_nzcv, sp) = run_aarch64_code(&code, &regs, old_nzcv);
+        if rem != Some(quot) {
+            assert_eq!(out[quot as usize], expected_quot, "{label}: quotient");
+        }
+        if let Some(rem) = rem {
+            assert_eq!(out[rem as usize], expected_rem, "{label}: remainder");
+        }
+        assert_eq!(out_nzcv, old_nzcv, "{label}: NZCV preserved");
+        assert_eq!(sp, 0x8000, "{label}: stack restored");
+        for (reg, value) in sentinels {
+            if reg != quot
+                && rem != Some(reg)
+                && reg != src1_reg
+                && src2_reg != Some(reg)
+            {
+                assert_eq!(out[reg as usize], value, "{label}: x{reg} restored");
+            }
+        }
+    }
+
     fn assert_bit_scan_lowering(
         label: &str,
         reverse: bool,
@@ -9841,25 +9922,18 @@ mod tests {
     }
 
     #[test]
-    fn rejects_divu_imm_power_of_two_when_quotient_aliases_remainder() {
-        let mut builder = FunctionBuilder::new(FunctionId(0), 0);
-        builder.push_op(
+    fn lowers_divu_imm_power_of_two_when_quotient_aliases_remainder() {
+        assert_div_w64_lowering(
+            "divu_imm_power_of_two_quot_rem_alias",
+            false,
             0,
-            OpKind::DivU {
-                quot: x(0),
-                rem: Some(x(0)),
-                src1: x(1),
-                src2: SrcOperand::Imm(8),
-                width: OpWidth::W64,
-                flags: FlagUpdate::None,
-            },
+            Some(0),
+            1,
+            SrcOperand::Imm(8),
+            None,
+            0xfedc_ba98_7654_3217,
+            8,
         );
-        builder.set_terminator(Terminator::Return { values: vec![] });
-        let func = builder.finish();
-
-        let mut lowerer = Aarch64Lowerer::new();
-        let err = lowerer.lower_function(&func).unwrap_err();
-        assert!(matches!(err, LowerError::UnsupportedOp { .. }));
     }
 
     #[test]
@@ -9920,25 +9994,40 @@ mod tests {
     }
 
     #[test]
-    fn rejects_div_remainder_when_quotient_alias_has_no_temp() {
-        let mut builder = FunctionBuilder::new(FunctionId(0), 0);
-        builder.push_op(
-            0,
-            OpKind::DivU {
-                quot: x(1),
-                rem: Some(x(1)),
-                src1: x(1),
-                src2: SrcOperand::Reg(x(2)),
-                width: OpWidth::W64,
-                flags: FlagUpdate::None,
-            },
+    fn lowers_div_remainder_when_outputs_alias_sources() {
+        assert_div_w64_lowering(
+            "divu_quot_rem_aliases_dividend",
+            false,
+            1,
+            Some(1),
+            1,
+            SrcOperand::Reg(x(2)),
+            Some(2),
+            0x1234_5678_9abc_def0,
+            0x101,
         );
-        builder.set_terminator(Terminator::Return { values: vec![] });
-        let func = builder.finish();
-
-        let mut lowerer = Aarch64Lowerer::new();
-        let err = lowerer.lower_function(&func).unwrap_err();
-        assert!(matches!(err, LowerError::UnsupportedOp { .. }));
+        assert_div_w64_lowering(
+            "divu_outputs_alias_both_sources",
+            false,
+            1,
+            Some(2),
+            1,
+            SrcOperand::Reg(x(2)),
+            Some(2),
+            0x1234_5678_9abc_def0,
+            0x101,
+        );
+        assert_div_w64_lowering(
+            "divs_outputs_alias_both_sources",
+            true,
+            2,
+            Some(1),
+            1,
+            SrcOperand::Reg(x(2)),
+            Some(2),
+            0xffff_ffff_f8a4_32eb,
+            0x141,
+        );
     }
 
     #[test]
