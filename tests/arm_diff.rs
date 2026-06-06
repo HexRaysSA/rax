@@ -7586,6 +7586,52 @@ fn smir_aarch64_native_lowering_matches_qemu_oracle() {
         st,
     );
 
+    let mut st = native_state();
+    st.x[0] = 0xeeee_ffff_0000_1111;
+    st.x[1] = 0x1234_5678_9abc_def0;
+    st.x[2] = 0x12345;
+    st.x[3] = 0xaaaa_bbbb_cccc_dddd;
+    st.pstate = 0x5000_0000;
+    push_case3(
+        "divu_x_remainder_as_udiv_msub_preserves_flags",
+        [
+            enc_dp2_regs(1, 0b0010, RN, RM, RD),
+            enc_dp3_ra_regs(1, 0b000, 1, 3, RD, RM, RN),
+            NOP,
+        ],
+        vec![OpKind::DivU {
+            quot: arm_x(0),
+            rem: Some(arm_x(3)),
+            src1: arm_x(1),
+            src2: SrcOperand::Reg(arm_x(2)),
+            width: OpWidth::W64,
+        }],
+        st,
+    );
+
+    let mut st = native_state();
+    st.x[0] = 0xffff_0000_1111_2222;
+    st.x[1] = 0xffff_ffff_8000_0100;
+    st.x[2] = 0xffff_ffff_ffff_fffb;
+    st.x[3] = 0xbbbb_cccc_dddd_eeee;
+    st.pstate = 0x7000_0000;
+    push_case3(
+        "divs_w_remainder_as_sdiv_msub_zero_ext_preserves_flags",
+        [
+            enc_dp2_regs(0, 0b0011, RN, RM, RD),
+            enc_dp3_ra_regs(0, 0b000, 1, 3, RD, RM, RN),
+            NOP,
+        ],
+        vec![OpKind::DivS {
+            quot: arm_x(0),
+            rem: Some(arm_x(3)),
+            src1: arm_x(1),
+            src2: SrcOperand::Reg(arm_x(2)),
+            width: OpWidth::W32,
+        }],
+        st,
+    );
+
     let cmove_w16_source = [
         enc_csel_form(0, 0, 0, RN, RD, 0),
         enc_bitfield_rn(0, 0b10, 0, 15, RD),
