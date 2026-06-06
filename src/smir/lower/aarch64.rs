@@ -10,7 +10,7 @@ use std::collections::HashMap;
 use crate::smir::ir::{SmirBlock, SmirFunction, Terminator};
 use crate::smir::ops::{OpKind, SmirOp};
 use crate::smir::types::{
-    ArchReg, ArmReg, BlockId, ExtendOp, OpWidth, ShiftOp, SrcOperand, VReg,
+    ArchReg, ArmReg, BlockId, Condition, ExtendOp, OpWidth, ShiftOp, SrcOperand, VReg,
 };
 
 use super::{CodeBuffer, LowerError, LowerResult, Relocation, SmirLowerer};
@@ -379,6 +379,30 @@ impl Aarch64Lowerer {
             (sf << 31)
                 | (0b1011010110 << 21)
                 | (opcode << 10)
+                | ((rn as u32) << 5)
+                | (dst as u32),
+        );
+        Ok(())
+    }
+
+    fn emit_cond_select(
+        &mut self,
+        dst: u8,
+        rn: u8,
+        rm: u8,
+        cond: u32,
+        op: u32,
+        op2: u32,
+        width: OpWidth,
+    ) -> Result<(), LowerError> {
+        let sf = Self::sf(width)?;
+        self.emit(
+            (sf << 31)
+                | (op << 30)
+                | (0b11010100 << 21)
+                | ((rm as u32) << 16)
+                | (cond << 12)
+                | (op2 << 10)
                 | ((rn as u32) << 5)
                 | (dst as u32),
         );
@@ -964,6 +988,40 @@ impl Aarch64Lowerer {
         self.emit_dp2(dst, src, amount, opcode2, width)
     }
 
+    fn arm_cond_code(cond: Condition) -> Result<u32, LowerError> {
+        match cond {
+            Condition::Eq => Ok(0),
+            Condition::Ne => Ok(1),
+            Condition::Uge => Ok(2),
+            Condition::Ult => Ok(3),
+            Condition::Negative => Ok(4),
+            Condition::Positive => Ok(5),
+            Condition::Overflow => Ok(6),
+            Condition::NoOverflow => Ok(7),
+            Condition::Ugt => Ok(8),
+            Condition::Ule => Ok(9),
+            Condition::Sge => Ok(10),
+            Condition::Slt => Ok(11),
+            Condition::Sgt => Ok(12),
+            Condition::Sle => Ok(13),
+            Condition::Always => Ok(14),
+            Condition::Parity | Condition::NoParity => Err(LowerError::UnsupportedOp {
+                op: format!("AArch64 native condition {cond:?}"),
+            }),
+        }
+    }
+
+    fn inverted_arm_cond_code(cond: Condition) -> Result<u32, LowerError> {
+        let code = Self::arm_cond_code(cond)?;
+        if code < 14 {
+            Ok(code ^ 1)
+        } else {
+            Err(LowerError::UnsupportedOp {
+                op: "AArch64 native inverted AL condition".into(),
+            })
+        }
+    }
+
     fn lower_shift(
         &mut self,
         dst: VReg,
@@ -989,6 +1047,163 @@ impl Aarch64Lowerer {
             other => Err(LowerError::UnsupportedOp {
                 op: format!("AArch64 native shift amount {other:?}"),
             }),
+        }
+    }
+
+    fn lower_test_condition(&mut self, dst: VReg, cond: Condition) -> Result<(), LowerError> {
+        if cond == Condition::Always {
+            return self.emit_mov_imm(Self::dst_gpr(dst)?, 1, OpWidth::W64);
+        }
+        self.emit_cond_select(
+            Self::dst_gpr(dst)?,
+            31,
+            31,
+            Self::inverted_arm_cond_code(cond)?,
+            0,
+            1,
+            OpWidth::W64,
+        )
+    }
+
+    fn lower_select(
+        &mut self,
+        dst: VReg,
+        cond: VReg,
+        src_true: VReg,
+        src_false: VReg,
+        width: OpWidth,
+    ) -> Result<(), LowerError> {
+        match cond {
+            VReg::Imm(value) => {
+                let src = if value != 0 { src_true } else { src_false };
+                self.lower_mov(dst, &SrcOperand::Reg(src), width)
+            }
+            other => Err(LowerError::UnsupportedOp {
+                op: format!("AArch64 native Select condition {other:?}"),
+            }),
+        }
+    }
+
+    fn lower_fused_select(
+        &mut self,
+        dst: VReg,
+        cond: Condition,
+        src_true: VReg,
+        src_false_base: VReg,
+        false_op: CondSelectFalseOp,
+        width: OpWidth,
+    ) -> Result<(), LowerError> {
+        let (op, op2) = match false_op {
+            CondSelectFalseOp::Identity => (0, 0),
+            CondSelectFalseOp::Increment => (0, 1),
+            CondSelectFalseOp::Invert => (1, 0),
+            CondSelectFalseOp::Negate => (1, 1),
+        };
+        self.emit_cond_select(
+            Self::dst_gpr(dst)?,
+            Self::gpr(src_true)?,
+            Self::gpr(src_false_base)?,
+            Self::arm_cond_code(cond)?,
+            op,
+            op2,
+            width,
+        )
+    }
+
+    fn try_lower_fused_select(&mut self, ops: &[SmirOp]) -> Result<Option<usize>, LowerError> {
+        let Some(SmirOp {
+            kind: OpKind::TestCondition { dst: cond_vreg, cond },
+            ..
+        }) = ops.first()
+        else {
+            return Ok(None);
+        };
+        let Some(next) = ops.get(1) else {
+            return Ok(None);
+        };
+
+        if let OpKind::Select {
+            dst,
+            cond: select_cond,
+            src_true,
+            src_false,
+            width,
+        } = &next.kind
+        {
+            if select_cond == cond_vreg {
+                self.lower_fused_select(
+                    *dst,
+                    *cond,
+                    *src_true,
+                    *src_false,
+                    CondSelectFalseOp::Identity,
+                    *width,
+                )?;
+                return Ok(Some(2));
+            }
+        }
+
+        let Some(select) = ops.get(2) else {
+            return Ok(None);
+        };
+        let OpKind::Select {
+            dst,
+            cond: select_cond,
+            src_true,
+            src_false,
+            width,
+        } = &select.kind
+        else {
+            return Ok(None);
+        };
+        if select_cond != cond_vreg {
+            return Ok(None);
+        }
+
+        let Some((false_tmp, false_base, false_op, op_width)) =
+            Self::cond_select_false_transform(&next.kind)
+        else {
+            return Ok(None);
+        };
+        if src_false != &false_tmp || width != &op_width {
+            return Ok(None);
+        }
+
+        self.lower_fused_select(*dst, *cond, *src_true, false_base, false_op, *width)?;
+        Ok(Some(3))
+    }
+
+    fn cond_select_false_transform(
+        op: &OpKind,
+    ) -> Option<(VReg, VReg, CondSelectFalseOp, OpWidth)> {
+        match op {
+            OpKind::Add {
+                dst,
+                src1,
+                src2: SrcOperand::Imm(1) | SrcOperand::Imm64(1),
+                width,
+                flags,
+            } if !flags.updates_any() => Some((
+                *dst,
+                *src1,
+                CondSelectFalseOp::Increment,
+                *width,
+            )),
+            OpKind::Not { dst, src, width } => {
+                Some((*dst, *src, CondSelectFalseOp::Invert, *width))
+            }
+            OpKind::Neg {
+                dst,
+                src,
+                width,
+                flags,
+            } if !flags.updates_any() => Some((
+                *dst,
+                *src,
+                CondSelectFalseOp::Negate,
+                *width,
+            )),
+            _ => None,
         }
     }
 
@@ -1217,6 +1432,14 @@ impl Aarch64Lowerer {
                 flags.updates_any(),
                 *width,
             ),
+            OpKind::Select {
+                dst,
+                cond,
+                src_true,
+                src_false,
+                width,
+            } => self.lower_select(*dst, *cond, *src_true, *src_false, *width),
+            OpKind::TestCondition { dst, cond } => self.lower_test_condition(*dst, *cond),
             other => Err(LowerError::UnsupportedOp {
                 op: format!("AArch64 native lowering for {other:?}"),
             }),
@@ -1237,11 +1460,25 @@ impl Aarch64Lowerer {
 
     fn lower_block(&mut self, block: &SmirBlock) -> Result<(), LowerError> {
         self.block_offsets.insert(block.id, self.code.position());
-        for op in &block.ops {
-            self.lower_op(op)?;
+        let mut idx = 0;
+        while idx < block.ops.len() {
+            if let Some(consumed) = self.try_lower_fused_select(&block.ops[idx..])? {
+                idx += consumed;
+                continue;
+            }
+            self.lower_op(&block.ops[idx])?;
+            idx += 1;
         }
         self.lower_terminator(block)
     }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum CondSelectFalseOp {
+    Identity,
+    Increment,
+    Invert,
+    Negate,
 }
 
 impl Default for Aarch64Lowerer {
