@@ -2105,16 +2105,17 @@ impl Aarch64Lowerer {
                 if self.lower_logic_special_imm(dst, src1, opc, set_flags, width, imm)? {
                     return Ok(());
                 }
-                let (imm_n, immr, imms) = Self::logical_bitmask_imm(imm, width)?;
-                self.emit_logic_imm(
-                    Self::dst_or_zero_for_flags(dst, set_flags)?,
-                    Self::gpr(src1)?,
-                    opc,
-                    imm_n,
-                    immr,
-                    imms,
-                    width,
-                )
+                let dst = Self::dst_or_zero_for_flags(dst, set_flags)?;
+                let rn = Self::gpr(src1)?;
+                match Self::logical_bitmask_imm(imm, width) {
+                    Ok((imm_n, immr, imms)) => {
+                        self.emit_logic_imm(dst, rn, opc, imm_n, immr, imms, width)
+                    }
+                    Err(LowerError::UnsupportedOp { .. }) => {
+                        self.emit_logic_imm_scratch(dst, rn, opc, imm, width)
+                    }
+                    Err(err) => Err(err),
+                }
             }
             _ => {
                 let (src2, shift, amount) = Self::logical_src2(src2, width)?;
@@ -2175,9 +2176,21 @@ impl Aarch64Lowerer {
                         }
                     }
                 } else {
-                    let (imm_n, immr, imms) =
-                        Self::logical_bitmask_imm(imm as i64, OpWidth::W32)?;
-                    self.emit_logic_imm(dst, rn, opc, imm_n, immr, imms, OpWidth::W32)?;
+                    match Self::logical_bitmask_imm(imm as i64, OpWidth::W32) {
+                        Ok((imm_n, immr, imms)) => {
+                            self.emit_logic_imm(dst, rn, opc, imm_n, immr, imms, OpWidth::W32)?;
+                        }
+                        Err(LowerError::UnsupportedOp { .. }) => {
+                            self.emit_logic_imm_scratch(
+                                dst,
+                                rn,
+                                opc,
+                                imm as i64,
+                                OpWidth::W32,
+                            )?;
+                        }
+                        Err(err) => return Err(err),
+                    }
                 }
             }
             other => {
@@ -2217,6 +2230,23 @@ impl Aarch64Lowerer {
             _ => return Ok(false),
         }
         Ok(true)
+    }
+
+    fn emit_logic_imm_scratch(
+        &mut self,
+        dst: u8,
+        rn: u8,
+        opc: u32,
+        imm: i64,
+        width: OpWidth,
+    ) -> Result<(), LowerError> {
+        let scratches = Self::scratch_regs(&[dst, rn], 1)?;
+        let scratch = scratches[0];
+        self.emit_scratch_save(&scratches);
+        self.emit_mov_imm(scratch, imm, width)?;
+        self.emit_logic_shifted(dst, rn, scratch, opc, false, 0, 0, width)?;
+        self.emit_scratch_restore(&scratches);
+        Ok(())
     }
 
     fn inverted_logical_imm(imm: i64, width: OpWidth) -> Result<i64, LowerError> {
@@ -2525,8 +2555,14 @@ impl Aarch64Lowerer {
                     let rn = Self::gpr(src1)?;
                     return self.emit_logic_reg_n(31, rn, rn, 0b11, false, width);
                 }
-                let (n, immr, imms) = Self::logical_bitmask_imm(*imm, width)?;
-                self.emit_logic_imm(31, Self::gpr(src1)?, 0b11, n, immr, imms, width)
+                let rn = Self::gpr(src1)?;
+                match Self::logical_bitmask_imm(*imm, width) {
+                    Ok((n, immr, imms)) => self.emit_logic_imm(31, rn, 0b11, n, immr, imms, width),
+                    Err(LowerError::UnsupportedOp { .. }) => {
+                        self.emit_logic_imm_scratch(31, rn, 0b11, *imm, width)
+                    }
+                    Err(err) => Err(err),
+                }
             }
             _ => {
                 let (src2, shift, amount) = Self::logical_src2(src2, width)?;
@@ -7530,6 +7566,40 @@ mod tests {
         let negative = ((src >> (width.bits() - 1)) & 1) != 0;
         let zero = src == 0;
         ((negative as u8) << 3) | ((zero as u8) << 2)
+    }
+
+    fn assert_sparse_logic_imm_lowering(
+        label: &str,
+        op: OpKind,
+        src_reg: u8,
+        src_value: u64,
+        dst_reg: Option<u8>,
+        expected: u64,
+        expected_nzcv: u8,
+    ) {
+        let code = lower_single_op(op);
+        let sentinels = [
+            (16, 0x1616_1616_1616_1616),
+            (17, 0x1717_1717_1717_1717),
+            (15, 0x1515_1515_1515_1515),
+            (14, 0x1414_1414_1414_1414),
+        ];
+        let mut regs = sentinels.to_vec();
+        regs.push((src_reg, src_value));
+
+        let old_nzcv = 0b0011;
+        let (out, out_nzcv, sp) = run_aarch64_code(&code, &regs, old_nzcv);
+        if let Some(dst_reg) = dst_reg {
+            assert_eq!(out[dst_reg as usize], expected, "{label}: result");
+        }
+        assert_eq!(out[src_reg as usize], src_value, "{label}: src preserved");
+        assert_eq!(out_nzcv, expected_nzcv, "{label}: NZCV");
+        assert_eq!(sp, 0x8000, "{label}: stack restored");
+        for (reg, value) in sentinels {
+            if Some(reg) != dst_reg && reg != src_reg {
+                assert_eq!(out[reg as usize], value, "{label}: x{reg} restored");
+            }
+        }
     }
 
     fn assert_bit_scan_lowering(
@@ -13482,31 +13552,43 @@ mod tests {
     }
 
     #[test]
-    fn rejects_non_contiguous_logical_immediate() {
-        let mut builder = FunctionBuilder::new(FunctionId(0), 0);
-        builder.push_op(
-            0,
+    fn lowers_sparse_logical_immediate_via_scratch() {
+        assert_sparse_logic_imm_lowering(
+            "orr_x_sparse_imm",
             OpKind::Or {
                 dst: x(0),
                 src1: x(1),
-                src2: SrcOperand::Imm(0x55),
+                src2: SrcOperand::Imm64(0x55),
                 width: OpWidth::W64,
                 flags: FlagUpdate::None,
             },
+            1,
+            0x8000_0000_0000_1000,
+            Some(0),
+            0x8000_0000_0000_1055,
+            0b0011,
         );
-        builder.set_terminator(Terminator::Return { values: vec![] });
-        let func = builder.finish();
-
-        let mut lowerer = Aarch64Lowerer::new();
-        let err = lowerer.lower_function(&func).unwrap_err();
-        assert!(matches!(err, LowerError::UnsupportedOp { .. }));
+        assert_sparse_logic_imm_lowering(
+            "orr_w16_sparse_imm",
+            OpKind::Or {
+                dst: x(0),
+                src1: x(1),
+                src2: SrcOperand::Imm(0x1234),
+                width: OpWidth::W16,
+                flags: FlagUpdate::None,
+            },
+            1,
+            0xffff_0000_0000_00c0,
+            Some(0),
+            0x12f4,
+            0b0011,
+        );
     }
 
     #[test]
-    fn rejects_inverted_logical_immediate_with_unencodable_inverse() {
-        let mut builder = FunctionBuilder::new(FunctionId(0), 0);
-        builder.push_op(
-            0,
+    fn lowers_inverted_sparse_logical_immediate_via_scratch() {
+        assert_sparse_logic_imm_lowering(
+            "andnot_x_sparse_inverse_imm",
             OpKind::AndNot {
                 dst: x(0),
                 src1: x(1),
@@ -13514,13 +13596,34 @@ mod tests {
                 width: OpWidth::W64,
                 flags: FlagUpdate::None,
             },
+            1,
+            0x8000_0000_0000_10d5,
+            Some(0),
+            0x55,
+            0b0011,
         );
-        builder.set_terminator(Terminator::Return { values: vec![] });
-        let func = builder.finish();
+    }
 
-        let mut lowerer = Aarch64Lowerer::new();
-        let err = lowerer.lower_function(&func).unwrap_err();
-        assert!(matches!(err, LowerError::UnsupportedOp { .. }));
+    #[test]
+    fn lowers_sparse_test_immediate_via_scratch() {
+        let src = 0x8000_0000_0000_1055;
+        let imm = 0x8000_0000_0000_0055_u64;
+        let expected_result = src & imm;
+        let expected_nzcv =
+            expected_logic_source_nzcv(0b0011, expected_result, OpWidth::W64, FlagUpdate::All);
+        assert_sparse_logic_imm_lowering(
+            "test_x_sparse_imm",
+            OpKind::Test {
+                src1: x(1),
+                src2: SrcOperand::Imm64(imm as i64),
+                width: OpWidth::W64,
+            },
+            1,
+            src,
+            None,
+            0,
+            expected_nzcv,
+        );
     }
 
     #[test]
