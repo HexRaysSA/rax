@@ -1519,6 +1519,7 @@ impl Aarch64Lowerer {
             AtomicOp::Umin => Ok((0, 0b111)),
             AtomicOp::Swap => Ok((1, 0b000)),
             AtomicOp::And if src == VReg::Imm(0) => Ok((1, 0b000)),
+            AtomicOp::Sub if src == VReg::Imm(0) => Ok((0, 0b000)),
             AtomicOp::And | AtomicOp::Sub | AtomicOp::Nand => Err(LowerError::UnsupportedOp {
                 op: format!("AArch64 native atomic RMW op {op:?}"),
             }),
@@ -8472,6 +8473,35 @@ mod tests {
         let mut expected = Vec::new();
         expected.extend_from_slice(
             &enc_atomic_rmw_regs(3, 0, 0, 1, 0b000, 31, 1, 0).to_le_bytes(),
+        );
+        expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
+        assert_eq!(code, expected);
+    }
+
+    #[test]
+    fn lowers_atomic_rmw_sub_zero_as_ldadd_zero() {
+        let mut builder = FunctionBuilder::new(FunctionId(0), 0);
+        builder.push_op(
+            0,
+            OpKind::AtomicRmw {
+                dst: x(0),
+                addr: Address::Direct(x(1)),
+                src: VReg::Imm(0),
+                op: AtomicOp::Sub,
+                width: MemWidth::B8,
+                order: MemoryOrder::Relaxed,
+            },
+        );
+        builder.set_terminator(Terminator::Return { values: vec![] });
+        let func = builder.finish();
+
+        let mut lowerer = Aarch64Lowerer::new();
+        lowerer.lower_function(&func).unwrap();
+        let code = lowerer.finalize().unwrap();
+
+        let mut expected = Vec::new();
+        expected.extend_from_slice(
+            &enc_atomic_rmw_regs(3, 0, 0, 0, 0b000, 31, 1, 0).to_le_bytes(),
         );
         expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
         assert_eq!(code, expected);
