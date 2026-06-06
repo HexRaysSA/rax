@@ -567,6 +567,60 @@ impl Aarch64X86_64Lowerer {
         self.store_reg_to(dst, ACC, OpWidth::W64)
     }
 
+    fn lower_cas(
+        &mut self,
+        dst: VReg,
+        success: VReg,
+        addr: &Address,
+        expected: VReg,
+        new_val: VReg,
+        width: MemWidth,
+    ) -> Result<(), LowerError> {
+        let (op_width, size) = Self::scalar_mem_width(width)?;
+        self.load_addr_to(addr, ADDR)?;
+        {
+            let mut e = X86Emitter::new(&mut self.code);
+            e.emit_mov_rm(B3, STATE, A64_LOAD_FN_OFFSET, OpWidth::W64);
+            e.emit_mov_ri(HI, size, OpWidth::W64);
+            e.emit_mov_ri(RHS, 0, OpWidth::W64);
+        }
+        self.emit_mem_helper_call(B3);
+
+        {
+            let mut e = X86Emitter::new(&mut self.code);
+            e.emit_sub_ri(PhysReg::Rsp, 16, OpWidth::W64);
+            e.emit_mov_mr(PhysReg::Rsp, 0, ACC, OpWidth::W64);
+        }
+
+        self.load_vreg_to(expected, RHS, op_width)?;
+        {
+            let mut e = X86Emitter::new(&mut self.code);
+            e.emit_cmp_rr(ACC, RHS, op_width);
+            e.emit_setcc(X86Cond::E, B0);
+            e.emit_movzx(B0, B0, OpWidth::W8, OpWidth::W64);
+            e.emit_mov_mr(PhysReg::Rsp, 8, B0, OpWidth::W64);
+        }
+        let skip_store = self.emit_jcc_placeholder(X86Cond::Ne);
+        self.load_vreg_to(new_val, HI, op_width)?;
+        self.load_addr_to(addr, ADDR)?;
+        {
+            let mut e = X86Emitter::new(&mut self.code);
+            e.emit_mov_rm(B3, STATE, A64_STORE_FN_OFFSET, OpWidth::W64);
+            e.emit_mov_ri(RHS, size, OpWidth::W64);
+        }
+        self.emit_mem_helper_call(B3);
+        self.patch_rel32_to_current(skip_store)?;
+
+        {
+            let mut e = X86Emitter::new(&mut self.code);
+            e.emit_mov_rm(B0, PhysReg::Rsp, 8, OpWidth::W64);
+            e.emit_mov_rm(ACC, PhysReg::Rsp, 0, OpWidth::W64);
+            e.emit_add_ri(PhysReg::Rsp, 16, OpWidth::W64);
+        }
+        self.store_reg_to(success, B0, OpWidth::W64)?;
+        self.store_reg_to(dst, ACC, OpWidth::W64)
+    }
+
     fn emit_jcc_placeholder(&mut self, cond: X86Cond) -> usize {
         let off = self.code.position();
         let mut e = X86Emitter::new(&mut self.code);
@@ -1454,6 +1508,15 @@ impl Aarch64X86_64Lowerer {
                 width,
                 ..
             } => self.lower_atomic_rmw(*dst, addr, *src, *op, *width)?,
+            OpKind::Cas {
+                dst,
+                success,
+                addr,
+                expected,
+                new_val,
+                width,
+                ..
+            } => self.lower_cas(*dst, *success, addr, *expected, *new_val, *width)?,
             OpKind::Fence { .. } => {
                 let mut e = X86Emitter::new(&mut self.code);
                 e.emit_mfence();

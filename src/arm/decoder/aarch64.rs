@@ -952,6 +952,22 @@ impl Aarch64Decoder {
         let is_acquire = o2 == 1;
         let is_release = o0 == 1;
 
+        if o2 == 1 && o1 == 1 {
+            let mnemonic = match (l, o0) {
+                (0, 0) => Mnemonic::CAS,
+                (1, 0) => Mnemonic::CASA,
+                (0, 1) => Mnemonic::CASL,
+                (1, 1) => Mnemonic::CASAL,
+                _ => unreachable!(),
+            };
+            return Ok(DecodedInsn::new(mnemonic, ExecutionState::Aarch64, raw, 4)
+                .with_operand(Operand::Reg(Register::with_zr(rs, is_64bit)))
+                .with_operand(Operand::Reg(Register::with_zr(rt, is_64bit)))
+                .with_operand(Operand::Mem(MemOperand::base(Register::with_sp(
+                    rn, true,
+                )))));
+        }
+
         let mnemonic = match (l, is_pair, is_acquire, is_release, size) {
             // Load exclusive
             (1, false, false, false, 0b00) => Mnemonic::LDXRB,
@@ -2787,6 +2803,38 @@ mod tests {
         )
         .unwrap();
         assert_eq!(insn.mnemonic, Mnemonic::SWPAL);
+        assert_eq!(insn.operands.len(), 3);
+    }
+
+    #[test]
+    fn test_atomic_cas_decode() {
+        // CAS X2, X0, [X1].
+        let insn = Aarch64Decoder::decode(
+            (0b11 << 30)
+                | (0b001000 << 24)
+                | (1 << 23)
+                | (1 << 21)
+                | (2 << 16)
+                | (0b11111 << 10)
+                | (1 << 5),
+        )
+        .unwrap();
+        assert_eq!(insn.mnemonic, Mnemonic::CAS);
+        assert_eq!(insn.operands.len(), 3);
+
+        // CASAL W2, W0, [X1].
+        let insn = Aarch64Decoder::decode(
+            (0b001000 << 24)
+                | (1 << 23)
+                | (1 << 22)
+                | (1 << 21)
+                | (2 << 16)
+                | (1 << 15)
+                | (0b11111 << 10)
+                | (1 << 5),
+        )
+        .unwrap();
+        assert_eq!(insn.mnemonic, Mnemonic::CASAL);
         assert_eq!(insn.operands.len(), 3);
     }
 

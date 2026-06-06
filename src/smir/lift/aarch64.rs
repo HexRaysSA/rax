@@ -1650,6 +1650,10 @@ impl Aarch64Lifter {
             | Mnemonic::SWPA
             | Mnemonic::SWPAL
             | Mnemonic::SWPL
+            | Mnemonic::CAS
+            | Mnemonic::CASA
+            | Mnemonic::CASAL
+            | Mnemonic::CASL
             | Mnemonic::LDADD
             | Mnemonic::LDADDA
             | Mnemonic::LDADDAL
@@ -1661,7 +1665,14 @@ impl Aarch64Lifter {
             | Mnemonic::LDSMIN
             | Mnemonic::LDUMAX
             | Mnemonic::LDUMIN => {
-                self.lift_atomic_rmw(insn, pc, &mut ops, ctx)?;
+                if matches!(
+                    insn.mnemonic,
+                    Mnemonic::CAS | Mnemonic::CASA | Mnemonic::CASAL | Mnemonic::CASL
+                ) {
+                    self.lift_cas(insn, pc, &mut ops, ctx)?;
+                } else {
+                    self.lift_atomic_rmw(insn, pc, &mut ops, ctx)?;
+                }
             }
 
             Mnemonic::LDP | Mnemonic::LDNP => {
@@ -3408,6 +3419,60 @@ impl Aarch64Lifter {
                 addr: self.indexed_access_addr(mem, addr),
                 src,
                 op: atomic_op,
+                width,
+                order,
+            },
+        ));
+
+        Ok(())
+    }
+
+    fn lift_cas(
+        &self,
+        insn: &DecodedInsn,
+        pc: u64,
+        ops: &mut Vec<SmirOp>,
+        ctx: &mut LiftContext,
+    ) -> Result<(), LiftError> {
+        let (compare, new_val, mem) = match (
+            insn.operands.get(0),
+            insn.operands.get(1),
+            insn.operands.get(2),
+        ) {
+            (Some(Operand::Reg(compare)), Some(Operand::Reg(new_val)), Some(Operand::Mem(mem))) => {
+                (compare, new_val, mem)
+            }
+            _ => return Err(LiftError::Internal("invalid CAS operands".to_string())),
+        };
+
+        let width = match (insn.raw >> 30) & 0x3 {
+            0 => MemWidth::B1,
+            1 => MemWidth::B2,
+            2 => MemWidth::B4,
+            _ => MemWidth::B8,
+        };
+        let order = match (((insn.raw >> 22) & 1) != 0, ((insn.raw >> 15) & 1) != 0) {
+            (false, false) => MemoryOrder::Relaxed,
+            (true, false) => MemoryOrder::Acquire,
+            (false, true) => MemoryOrder::Release,
+            (true, true) => MemoryOrder::AcqRel,
+        };
+
+        let (addr, pre_ops) = self.mem_to_addr(mem, ctx);
+        for mut op in pre_ops {
+            op.id = OpId(ops.len() as u16);
+            ops.push(op);
+        }
+
+        ops.push(SmirOp::new(
+            OpId(ops.len() as u16),
+            pc,
+            OpKind::Cas {
+                dst: self.dst_reg(compare, ctx),
+                success: ctx.alloc_vreg(),
+                addr: self.indexed_access_addr(mem, addr),
+                expected: self.arm_reg(compare),
+                new_val: self.arm_reg(new_val),
                 width,
                 order,
             },

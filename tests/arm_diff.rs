@@ -2581,6 +2581,30 @@ fn smir_aarch64_x86_memory_lowering_matches_qemu_oracle() {
         }
     }
 
+    for size in 0..4 {
+        for &(acquire, release, suffix) in
+            &[(0, 0, ""), (1, 0, "a"), (0, 1, "l"), (1, 1, "al")]
+        {
+            for case_idx in 0..6 {
+                let mut st = mem_input(&mut rng);
+                if case_idx % 2 == 0 {
+                    let mask = match size {
+                        0 => 0xff,
+                        1 => 0xffff,
+                        2 => 0xffff_ffff,
+                        _ => u64::MAX,
+                    };
+                    st.x[2] = st.scratch[8] & mask;
+                }
+                batch.push((
+                    format!("cas{suffix} sz{size}"),
+                    enc_cas(size, acquire, release),
+                    st,
+                ));
+            }
+        }
+    }
+
     let indexed_ops: &[(u32, u32, u32, &str)] = &[
         (3, 0, 0, "str_x"),
         (3, 0, 1, "ldr_x"),
