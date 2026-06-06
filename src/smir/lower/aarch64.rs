@@ -1458,6 +1458,34 @@ impl Aarch64Lowerer {
         )
     }
 
+    fn lower_inc_dec(
+        &mut self,
+        dst: VReg,
+        src: VReg,
+        decrement: bool,
+        set_flags: bool,
+        width: OpWidth,
+    ) -> Result<(), LowerError> {
+        if set_flags {
+            return Err(LowerError::UnsupportedOp {
+                op: if decrement {
+                    "AArch64 native flag-setting Dec".into()
+                } else {
+                    "AArch64 native flag-setting Inc".into()
+                },
+            });
+        }
+
+        self.lower_addsub(
+            dst,
+            src,
+            &SrcOperand::Imm(1),
+            decrement,
+            false,
+            width,
+        )
+    }
+
     fn lower_not(&mut self, dst: VReg, src: VReg, width: OpWidth) -> Result<(), LowerError> {
         self.emit_logic_reg_n(
             Self::dst_gpr(dst)?,
@@ -3640,6 +3668,18 @@ impl Aarch64Lowerer {
                 width,
                 flags,
             } => self.lower_neg(*dst, *src, flags.updates_any(), *width),
+            OpKind::Inc {
+                dst,
+                src,
+                width,
+                flags,
+            } => self.lower_inc_dec(*dst, *src, false, flags.updates_any(), *width),
+            OpKind::Dec {
+                dst,
+                src,
+                width,
+                flags,
+            } => self.lower_inc_dec(*dst, *src, true, flags.updates_any(), *width),
             OpKind::MulU {
                 dst_lo,
                 dst_hi,
@@ -4139,6 +4179,10 @@ mod tests {
             | (1 << 5)
     }
 
+    fn enc_addsub_imm(sf: u32, op: u32, s: u32, imm12: u32) -> u32 {
+        (sf << 31) | (op << 30) | (s << 29) | (0b10001 << 24) | (imm12 << 10) | (1 << 5)
+    }
+
     #[test]
     fn lowers_add_register_and_ret() {
         let mut builder = FunctionBuilder::new(FunctionId(0), 0);
@@ -4160,6 +4204,56 @@ mod tests {
         let code = lowerer.finalize().unwrap();
 
         assert_eq!(code, [0x20, 0x00, 0x02, 0x8b, 0xc0, 0x03, 0x5f, 0xd6]);
+    }
+
+    #[test]
+    fn lowers_inc_x_as_add_imm() {
+        let mut builder = FunctionBuilder::new(FunctionId(0), 0);
+        builder.push_op(
+            0,
+            OpKind::Inc {
+                dst: x(0),
+                src: x(1),
+                width: OpWidth::W64,
+                flags: FlagUpdate::None,
+            },
+        );
+        builder.set_terminator(Terminator::Return { values: vec![] });
+        let func = builder.finish();
+
+        let mut lowerer = Aarch64Lowerer::new();
+        lowerer.lower_function(&func).unwrap();
+        let code = lowerer.finalize().unwrap();
+
+        let mut expected = Vec::new();
+        expected.extend_from_slice(&enc_addsub_imm(1, 0, 0, 1).to_le_bytes());
+        expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
+        assert_eq!(code, expected);
+    }
+
+    #[test]
+    fn lowers_dec_w_as_sub_imm_zero_ext() {
+        let mut builder = FunctionBuilder::new(FunctionId(0), 0);
+        builder.push_op(
+            0,
+            OpKind::Dec {
+                dst: x(0),
+                src: x(1),
+                width: OpWidth::W32,
+                flags: FlagUpdate::None,
+            },
+        );
+        builder.set_terminator(Terminator::Return { values: vec![] });
+        let func = builder.finish();
+
+        let mut lowerer = Aarch64Lowerer::new();
+        lowerer.lower_function(&func).unwrap();
+        let code = lowerer.finalize().unwrap();
+
+        let mut expected = Vec::new();
+        expected.extend_from_slice(&enc_addsub_imm(0, 1, 0, 1).to_le_bytes());
+        expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
+        assert_eq!(code, expected);
     }
 
     #[test]
@@ -5548,5 +5642,32 @@ mod tests {
         let mut lowerer = Aarch64Lowerer::new();
         let err = lowerer.lower_function(&func).unwrap_err();
         assert!(matches!(err, LowerError::UnsupportedOp { .. }));
+    }
+
+    #[test]
+    fn rejects_flag_setting_inc_dec_lowering() {
+        for kind in [
+            OpKind::Inc {
+                dst: x(0),
+                src: x(1),
+                width: OpWidth::W64,
+                flags: FlagUpdate::All,
+            },
+            OpKind::Dec {
+                dst: x(0),
+                src: x(1),
+                width: OpWidth::W64,
+                flags: FlagUpdate::All,
+            },
+        ] {
+            let mut builder = FunctionBuilder::new(FunctionId(0), 0);
+            builder.push_op(0, kind);
+            builder.set_terminator(Terminator::Return { values: vec![] });
+            let func = builder.finish();
+
+            let mut lowerer = Aarch64Lowerer::new();
+            let err = lowerer.lower_function(&func).unwrap_err();
+            assert!(matches!(err, LowerError::UnsupportedOp { .. }));
+        }
     }
 }
