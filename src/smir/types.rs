@@ -162,7 +162,7 @@ pub enum ArchReg {
 /// x86_64 register
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum X86Reg {
-    // General purpose (0-15)
+    // General purpose (0-31). APX adds R16-R31.
     Rax,
     Rcx,
     Rdx,
@@ -179,6 +179,22 @@ pub enum X86Reg {
     R13,
     R14,
     R15,
+    R16,
+    R17,
+    R18,
+    R19,
+    R20,
+    R21,
+    R22,
+    R23,
+    R24,
+    R25,
+    R26,
+    R27,
+    R28,
+    R29,
+    R30,
+    R31,
 
     // Instruction pointer
     Rip,
@@ -200,9 +216,9 @@ pub enum X86Reg {
 }
 
 impl X86Reg {
-    /// Get GPR by index (0=RAX, 1=RCX, etc.)
+    /// Get GPR by index (0=RAX, 1=RCX, ..., 31=R31).
     pub fn gpr(idx: u8) -> Self {
-        match idx {
+        match idx & 0x1f {
             0 => X86Reg::Rax,
             1 => X86Reg::Rcx,
             2 => X86Reg::Rdx,
@@ -219,7 +235,23 @@ impl X86Reg {
             13 => X86Reg::R13,
             14 => X86Reg::R14,
             15 => X86Reg::R15,
-            _ => panic!("Invalid GPR index: {}", idx),
+            16 => X86Reg::R16,
+            17 => X86Reg::R17,
+            18 => X86Reg::R18,
+            19 => X86Reg::R19,
+            20 => X86Reg::R20,
+            21 => X86Reg::R21,
+            22 => X86Reg::R22,
+            23 => X86Reg::R23,
+            24 => X86Reg::R24,
+            25 => X86Reg::R25,
+            26 => X86Reg::R26,
+            27 => X86Reg::R27,
+            28 => X86Reg::R28,
+            29 => X86Reg::R29,
+            30 => X86Reg::R30,
+            31 => X86Reg::R31,
+            _ => unreachable!(),
         }
     }
 }

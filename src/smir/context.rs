@@ -172,8 +172,8 @@ impl ArchRegState {
 /// x86_64 register state
 #[derive(Clone, Debug, Default)]
 pub struct X86RegState {
-    /// General purpose registers: RAX, RCX, RDX, RBX, RSP, RBP, RSI, RDI, R8-R15
-    pub gpr: [u64; 16],
+    /// General purpose registers: RAX, RCX, RDX, RBX, RSP, RBP, RSI, RDI, R8-R31
+    pub gpr: [u64; 32],
     /// Instruction pointer
     pub rip: u64,
     /// Flags register
@@ -200,12 +200,12 @@ impl X86RegState {
 
     /// Get GPR by index
     pub fn get_gpr(&self, idx: u8) -> u64 {
-        self.gpr[idx as usize & 0xF]
+        self.gpr[idx as usize & 0x1F]
     }
 
     /// Set GPR by index
     pub fn set_gpr(&mut self, idx: u8, val: u64) {
-        self.gpr[idx as usize & 0xF] = val;
+        self.gpr[idx as usize & 0x1F] = val;
     }
 
     /// Get GPR by name (RAX=0, RCX=1, etc.)
@@ -227,6 +227,22 @@ impl X86RegState {
             X86Reg::R13 => self.gpr[13],
             X86Reg::R14 => self.gpr[14],
             X86Reg::R15 => self.gpr[15],
+            X86Reg::R16 => self.gpr[16],
+            X86Reg::R17 => self.gpr[17],
+            X86Reg::R18 => self.gpr[18],
+            X86Reg::R19 => self.gpr[19],
+            X86Reg::R20 => self.gpr[20],
+            X86Reg::R21 => self.gpr[21],
+            X86Reg::R22 => self.gpr[22],
+            X86Reg::R23 => self.gpr[23],
+            X86Reg::R24 => self.gpr[24],
+            X86Reg::R25 => self.gpr[25],
+            X86Reg::R26 => self.gpr[26],
+            X86Reg::R27 => self.gpr[27],
+            X86Reg::R28 => self.gpr[28],
+            X86Reg::R29 => self.gpr[29],
+            X86Reg::R30 => self.gpr[30],
+            X86Reg::R31 => self.gpr[31],
             X86Reg::Rip => self.rip,
             X86Reg::Rflags => self.rflags,
             X86Reg::FsBase => self.fs_base,
@@ -255,6 +271,22 @@ impl X86RegState {
             X86Reg::R13 => self.gpr[13] = val,
             X86Reg::R14 => self.gpr[14] = val,
             X86Reg::R15 => self.gpr[15] = val,
+            X86Reg::R16 => self.gpr[16] = val,
+            X86Reg::R17 => self.gpr[17] = val,
+            X86Reg::R18 => self.gpr[18] = val,
+            X86Reg::R19 => self.gpr[19] = val,
+            X86Reg::R20 => self.gpr[20] = val,
+            X86Reg::R21 => self.gpr[21] = val,
+            X86Reg::R22 => self.gpr[22] = val,
+            X86Reg::R23 => self.gpr[23] = val,
+            X86Reg::R24 => self.gpr[24] = val,
+            X86Reg::R25 => self.gpr[25] = val,
+            X86Reg::R26 => self.gpr[26] = val,
+            X86Reg::R27 => self.gpr[27] = val,
+            X86Reg::R28 => self.gpr[28] = val,
+            X86Reg::R29 => self.gpr[29] = val,
+            X86Reg::R30 => self.gpr[30] = val,
+            X86Reg::R31 => self.gpr[31] = val,
             X86Reg::Rip => self.rip = val,
             X86Reg::Rflags => self.rflags = val,
             X86Reg::FsBase => self.fs_base = val,
