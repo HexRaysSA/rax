@@ -67,6 +67,29 @@ fn decodes_arm_aarch64_non_temporal_pairs() {
 }
 
 #[test]
+fn decodes_arm_aarch64_bti_hints() {
+    let mut opts = OracleOptions::default();
+    opts.isa = OracleIsa::Arm;
+    opts.arm_state = ArmState::Aarch64;
+
+    let bti = [
+        0xd503_241fu32,
+        0xd503_245fu32,
+        0xd503_249fu32,
+        0xd503_24dfu32,
+    ];
+    for raw in bti {
+        let value = decode_to_json(&raw.to_le_bytes(), &opts).unwrap();
+        assert_eq!(value["decoded_ops"][0]["mnemonic"], "bti");
+    }
+
+    for raw in [0xd503_231fu32, 0xd503_235fu32] {
+        let value = decode_to_json(&raw.to_le_bytes(), &opts).unwrap();
+        assert_eq!(value["decoded_ops"][0]["mnemonic"], "hint");
+    }
+}
+
+#[test]
 fn decodes_x86_with_smir_lift() {
     let mut opts = OracleOptions::default();
     opts.isa = OracleIsa::X86_64;
