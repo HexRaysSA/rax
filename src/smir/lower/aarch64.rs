@@ -9,7 +9,7 @@ use std::collections::HashMap;
 
 use crate::smir::ir::{SmirBlock, SmirFunction, Terminator};
 use crate::smir::ops::{OpKind, SmirOp};
-use crate::smir::types::{ArchReg, ArmReg, BlockId, OpWidth, SrcOperand, VReg};
+use crate::smir::types::{ArchReg, ArmReg, BlockId, OpWidth, ShiftOp, SrcOperand, VReg};
 
 use super::{CodeBuffer, LowerError, LowerResult, Relocation, SmirLowerer};
 
@@ -196,6 +196,70 @@ impl Aarch64Lowerer {
         Ok(())
     }
 
+    fn emit_bitfield(
+        &mut self,
+        dst: u8,
+        rn: u8,
+        opc: u32,
+        immr: u32,
+        imms: u32,
+        width: OpWidth,
+    ) -> Result<(), LowerError> {
+        let sf = Self::sf(width)?;
+        self.emit(
+            (sf << 31)
+                | (opc << 29)
+                | (0b100110 << 23)
+                | (sf << 22)
+                | (immr << 16)
+                | (imms << 10)
+                | ((rn as u32) << 5)
+                | (dst as u32),
+        );
+        Ok(())
+    }
+
+    fn emit_extract(
+        &mut self,
+        dst: u8,
+        rn: u8,
+        rm: u8,
+        lsb: u32,
+        width: OpWidth,
+    ) -> Result<(), LowerError> {
+        let sf = Self::sf(width)?;
+        self.emit(
+            (sf << 31)
+                | (0b100111 << 23)
+                | (sf << 22)
+                | ((rm as u32) << 16)
+                | (lsb << 10)
+                | ((rn as u32) << 5)
+                | (dst as u32),
+        );
+        Ok(())
+    }
+
+    fn emit_dp2(
+        &mut self,
+        dst: u8,
+        rn: u8,
+        rm: u8,
+        opcode2: u32,
+        width: OpWidth,
+    ) -> Result<(), LowerError> {
+        let sf = Self::sf(width)?;
+        self.emit(
+            (sf << 31)
+                | (0b0011010110 << 21)
+                | ((rm as u32) << 16)
+                | (opcode2 << 10)
+                | ((rn as u32) << 5)
+                | (dst as u32),
+        );
+        Ok(())
+    }
+
     fn lower_mov(&mut self, dst: VReg, src: &SrcOperand, width: OpWidth) -> Result<(), LowerError> {
         let dst = Self::dst_gpr(dst)?;
         match src {
@@ -329,6 +393,122 @@ impl Aarch64Lowerer {
         )
     }
 
+    fn lower_shift_imm(
+        &mut self,
+        dst: u8,
+        src: u8,
+        amount: i64,
+        shift: ShiftOp,
+        width: OpWidth,
+    ) -> Result<(), LowerError> {
+        let bits = width.bits();
+        let amount = match shift {
+            ShiftOp::Ror | ShiftOp::Rrx => (amount as u64 & u64::from(bits - 1)) as u32,
+            ShiftOp::Lsl | ShiftOp::Lsr | ShiftOp::Asr => (amount as u64 & 0x3f) as u32,
+        };
+
+        match shift {
+            ShiftOp::Lsl => {
+                if amount == 0 {
+                    self.emit_mov_reg(dst, src, width)
+                } else if amount >= bits {
+                    self.emit_mov_imm(dst, 0, width)
+                } else {
+                    self.emit_bitfield(
+                        dst,
+                        src,
+                        0b10,
+                        bits - amount,
+                        bits - 1 - amount,
+                        width,
+                    )
+                }
+            }
+            ShiftOp::Lsr => {
+                if amount == 0 {
+                    self.emit_mov_reg(dst, src, width)
+                } else if amount >= bits {
+                    self.emit_mov_imm(dst, 0, width)
+                } else {
+                    self.emit_bitfield(dst, src, 0b10, amount, bits - 1, width)
+                }
+            }
+            ShiftOp::Asr => {
+                if amount == 0 {
+                    self.emit_mov_reg(dst, src, width)
+                } else {
+                    let amount = amount.min(bits - 1);
+                    self.emit_bitfield(dst, src, 0b00, amount, bits - 1, width)
+                }
+            }
+            ShiftOp::Ror | ShiftOp::Rrx => {
+                if amount == 0 {
+                    self.emit_mov_reg(dst, src, width)
+                } else {
+                    self.emit_extract(dst, src, src, amount, width)
+                }
+            }
+        }
+    }
+
+    fn lower_shift_reg(
+        &mut self,
+        dst: u8,
+        src: u8,
+        amount: u8,
+        shift: ShiftOp,
+        width: OpWidth,
+    ) -> Result<(), LowerError> {
+        if width == OpWidth::W32 && !matches!(shift, ShiftOp::Ror) {
+            return Err(LowerError::UnsupportedOp {
+                op: format!(
+                    "AArch64 native W32 variable {shift:?} count semantics differ from SMIR"
+                ),
+            });
+        }
+
+        let opcode2 = match shift {
+            ShiftOp::Lsl => 0b1000,
+            ShiftOp::Lsr => 0b1001,
+            ShiftOp::Asr => 0b1010,
+            ShiftOp::Ror => 0b1011,
+            ShiftOp::Rrx => {
+                return Err(LowerError::UnsupportedOp {
+                    op: "AArch64 native RRX variable shift".into(),
+                });
+            }
+        };
+        self.emit_dp2(dst, src, amount, opcode2, width)
+    }
+
+    fn lower_shift(
+        &mut self,
+        dst: VReg,
+        src: VReg,
+        amount: &SrcOperand,
+        shift: ShiftOp,
+        set_flags: bool,
+        width: OpWidth,
+    ) -> Result<(), LowerError> {
+        if set_flags {
+            return Err(LowerError::UnsupportedOp {
+                op: format!("AArch64 native flag-setting {shift:?}"),
+            });
+        }
+
+        let dst = Self::dst_gpr(dst)?;
+        let src = Self::gpr(src)?;
+        match amount {
+            SrcOperand::Imm(imm) | SrcOperand::Imm64(imm) => {
+                self.lower_shift_imm(dst, src, *imm, shift, width)
+            }
+            SrcOperand::Reg(reg) => self.lower_shift_reg(dst, src, Self::gpr(*reg)?, shift, width),
+            other => Err(LowerError::UnsupportedOp {
+                op: format!("AArch64 native shift amount {other:?}"),
+            }),
+        }
+    }
+
     fn lower_op(&mut self, op: &SmirOp) -> Result<(), LowerError> {
         match &op.kind {
             OpKind::Nop => {
@@ -383,6 +563,62 @@ impl Aarch64Lowerer {
             OpKind::Not { dst, src, width } => self.lower_not(*dst, *src, *width),
             OpKind::Cmp { src1, src2, width } => self.lower_cmp(*src1, src2, *width),
             OpKind::Test { src1, src2, width } => self.lower_test(*src1, src2, *width),
+            OpKind::Shl {
+                dst,
+                src,
+                amount,
+                width,
+                flags,
+            } => self.lower_shift(
+                *dst,
+                *src,
+                amount,
+                ShiftOp::Lsl,
+                flags.updates_any(),
+                *width,
+            ),
+            OpKind::Shr {
+                dst,
+                src,
+                amount,
+                width,
+                flags,
+            } => self.lower_shift(
+                *dst,
+                *src,
+                amount,
+                ShiftOp::Lsr,
+                flags.updates_any(),
+                *width,
+            ),
+            OpKind::Sar {
+                dst,
+                src,
+                amount,
+                width,
+                flags,
+            } => self.lower_shift(
+                *dst,
+                *src,
+                amount,
+                ShiftOp::Asr,
+                flags.updates_any(),
+                *width,
+            ),
+            OpKind::Ror {
+                dst,
+                src,
+                amount,
+                width,
+                flags,
+            } => self.lower_shift(
+                *dst,
+                *src,
+                amount,
+                ShiftOp::Ror,
+                flags.updates_any(),
+                *width,
+            ),
             other => Err(LowerError::UnsupportedOp {
                 op: format!("AArch64 native lowering for {other:?}"),
             }),
@@ -480,5 +716,26 @@ mod tests {
         let code = lowerer.finalize().unwrap();
 
         assert_eq!(code, [0x20, 0x00, 0x02, 0x8b, 0xc0, 0x03, 0x5f, 0xd6]);
+    }
+
+    #[test]
+    fn rejects_flag_setting_shift_lowering() {
+        let mut builder = FunctionBuilder::new(FunctionId(0), 0);
+        builder.push_op(
+            0,
+            OpKind::Shl {
+                dst: x(0),
+                src: x(1),
+                amount: SrcOperand::Imm(1),
+                width: OpWidth::W64,
+                flags: FlagUpdate::All,
+            },
+        );
+        builder.set_terminator(Terminator::Return { values: vec![] });
+        let func = builder.finish();
+
+        let mut lowerer = Aarch64Lowerer::new();
+        let err = lowerer.lower_function(&func).unwrap_err();
+        assert!(matches!(err, LowerError::UnsupportedOp { .. }));
     }
 }

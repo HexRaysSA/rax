@@ -3268,6 +3268,146 @@ fn smir_aarch64_native_lowering_matches_qemu_oracle() {
         st,
     );
 
+    let mut st = native_state();
+    st.x[0] = 0x9999_aaaa_bbbb_cccc;
+    st.x[1] = 0x0000_0000_0000_0003;
+    st.pstate = 0x9000_0000;
+    push_case(
+        "shl_x_imm_preserves_flags",
+        enc_bitfield(1, 0b10, 51, 50),
+        vec![OpKind::Shl {
+            dst: arm_x(0),
+            src: arm_x(1),
+            amount: SrcOperand::Imm(13),
+            width: OpWidth::W64,
+            flags: FlagUpdate::None,
+        }],
+        st,
+    );
+
+    let mut st = native_state();
+    st.x[0] = 0xaaaa_bbbb_cccc_dddd;
+    st.x[1] = 0xffff_ffff_8000_0000;
+    st.pstate = 0x2000_0000;
+    push_case(
+        "shr_w_imm_zero_ext_preserves_flags",
+        enc_bitfield(0, 0b10, 9, 31),
+        vec![OpKind::Shr {
+            dst: arm_x(0),
+            src: arm_x(1),
+            amount: SrcOperand::Imm(9),
+            width: OpWidth::W32,
+            flags: FlagUpdate::None,
+        }],
+        st,
+    );
+
+    let mut st = native_state();
+    st.x[0] = 0xbbbb_cccc_dddd_eeee;
+    st.x[1] = 0x8000_0000_0000_0000;
+    st.pstate = 0x4000_0000;
+    push_case(
+        "sar_x_imm_preserves_flags",
+        enc_bitfield(1, 0b00, 9, 63),
+        vec![OpKind::Sar {
+            dst: arm_x(0),
+            src: arm_x(1),
+            amount: SrcOperand::Imm(9),
+            width: OpWidth::W64,
+            flags: FlagUpdate::None,
+        }],
+        st,
+    );
+
+    let mut st = native_state();
+    st.x[0] = 0xcccc_dddd_eeee_ffff;
+    st.x[1] = 0x0123_4567_89ab_cdef;
+    st.pstate = 0x6000_0000;
+    push_case(
+        "ror_x_imm_preserves_flags",
+        enc_extract(1, RN, RN, 17),
+        vec![OpKind::Ror {
+            dst: arm_x(0),
+            src: arm_x(1),
+            amount: SrcOperand::Imm(17),
+            width: OpWidth::W64,
+            flags: FlagUpdate::None,
+        }],
+        st,
+    );
+
+    let mut st = native_state();
+    st.x[0] = 0xdddd_eeee_ffff_0000;
+    st.x[1] = 1;
+    st.x[2] = 65;
+    st.pstate = 0x1000_0000;
+    push_case(
+        "shl_x_reg_masked_count_preserves_flags",
+        enc_dp2(1, 0b1000),
+        vec![OpKind::Shl {
+            dst: arm_x(0),
+            src: arm_x(1),
+            amount: SrcOperand::Reg(arm_x(2)),
+            width: OpWidth::W64,
+            flags: FlagUpdate::None,
+        }],
+        st,
+    );
+
+    let mut st = native_state();
+    st.x[0] = 0xeeee_ffff_0000_1111;
+    st.x[1] = 0x8000_0000_0000_0000;
+    st.x[2] = 4;
+    st.pstate = 0x8000_0000;
+    push_case(
+        "shr_x_reg_preserves_flags",
+        enc_dp2(1, 0b1001),
+        vec![OpKind::Shr {
+            dst: arm_x(0),
+            src: arm_x(1),
+            amount: SrcOperand::Reg(arm_x(2)),
+            width: OpWidth::W64,
+            flags: FlagUpdate::None,
+        }],
+        st,
+    );
+
+    let mut st = native_state();
+    st.x[0] = 0xffff_0000_1111_2222;
+    st.x[1] = 0x8000_0000_0000_0000;
+    st.x[2] = 4;
+    st.pstate = 0x3000_0000;
+    push_case(
+        "sar_x_reg_preserves_flags",
+        enc_dp2(1, 0b1010),
+        vec![OpKind::Sar {
+            dst: arm_x(0),
+            src: arm_x(1),
+            amount: SrcOperand::Reg(arm_x(2)),
+            width: OpWidth::W64,
+            flags: FlagUpdate::None,
+        }],
+        st,
+    );
+
+    let mut st = native_state();
+    st.x[0] = 0x0000_1111_2222_3333;
+    st.x[1] = 0xffff_ffff_8000_0001;
+    st.x[2] = 36;
+    st.pstate = 0x5000_0000;
+    push_case(
+        "ror_w_reg_zero_ext_masked_count_preserves_flags",
+        enc_dp2(0, 0b1011),
+        vec![OpKind::Ror {
+            dst: arm_x(0),
+            src: arm_x(1),
+            amount: SrcOperand::Reg(arm_x(2)),
+            width: OpWidth::W32,
+            flags: FlagUpdate::None,
+        }],
+        st,
+    );
+
     let mut push_lifted_case = |label: &str, source: u32, st: ArmState| {
         let lowered = lower_aarch64_native_insn(source)
             .unwrap_or_else(|e| panic!("{label}: native lifted lowering failed: {e}"));
@@ -3334,6 +3474,80 @@ fn smir_aarch64_native_lowering_matches_qemu_oracle() {
     push_lifted_case(
         "mvn_x_lifted_preserves_flags",
         enc_logical_shift_regs(1, 0b01, 0, 1, 0, RD, 31, RM),
+        st,
+    );
+
+    let mut st = native_state();
+    st.x[0] = 0x6666_7777_8888_9999;
+    st.x[1] = 0x0000_0000_0000_0003;
+    st.pstate = 0x9000_0000;
+    push_lifted_case(
+        "lsl_imm_x_lifted_preserves_flags",
+        enc_bitfield(1, 0b10, 51, 50),
+        st,
+    );
+
+    let mut st = native_state();
+    st.x[0] = 0x7777_8888_9999_aaaa;
+    st.x[1] = 0xffff_ffff_8000_0000;
+    st.pstate = 0x2000_0000;
+    push_lifted_case(
+        "lsr_imm_w_lifted_zero_ext_preserves_flags",
+        enc_bitfield(0, 0b10, 9, 31),
+        st,
+    );
+
+    let mut st = native_state();
+    st.x[0] = 0x8888_9999_aaaa_bbbb;
+    st.x[1] = 0x8000_0000_0000_0000;
+    st.pstate = 0x4000_0000;
+    push_lifted_case(
+        "asr_imm_x_lifted_preserves_flags",
+        enc_bitfield(1, 0b00, 9, 63),
+        st,
+    );
+
+    let mut st = native_state();
+    st.x[0] = 0x9999_aaaa_bbbb_cccc;
+    st.x[1] = 1;
+    st.x[2] = 65;
+    st.pstate = 0x1000_0000;
+    push_lifted_case(
+        "lslv_x_lifted_masked_count_preserves_flags",
+        enc_dp2(1, 0b1000),
+        st,
+    );
+
+    let mut st = native_state();
+    st.x[0] = 0xaaaa_bbbb_cccc_dddd;
+    st.x[1] = 0x8000_0000_0000_0000;
+    st.x[2] = 4;
+    st.pstate = 0x8000_0000;
+    push_lifted_case(
+        "lsrv_x_lifted_preserves_flags",
+        enc_dp2(1, 0b1001),
+        st,
+    );
+
+    let mut st = native_state();
+    st.x[0] = 0xbbbb_cccc_dddd_eeee;
+    st.x[1] = 0x8000_0000_0000_0000;
+    st.x[2] = 4;
+    st.pstate = 0x3000_0000;
+    push_lifted_case(
+        "asrv_x_lifted_preserves_flags",
+        enc_dp2(1, 0b1010),
+        st,
+    );
+
+    let mut st = native_state();
+    st.x[0] = 0xcccc_dddd_eeee_ffff;
+    st.x[1] = 0xffff_ffff_8000_0001;
+    st.x[2] = 36;
+    st.pstate = 0x5000_0000;
+    push_lifted_case(
+        "rorv_w_lifted_zero_ext_masked_count_preserves_flags",
+        enc_dp2(0, 0b1011),
         st,
     );
 
