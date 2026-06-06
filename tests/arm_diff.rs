@@ -3904,6 +3904,82 @@ fn smir_aarch64_native_lowering_matches_qemu_oracle() {
 
     let mut st = native_state();
     st.x[0] = 0x2222_3333_4444_5555;
+    st.x[1] = 0xffff_ffff_ffff_f000;
+    st.pstate = 0x6000_0000;
+    push_case(
+        "cls_x_lifted_pattern_preserves_flags",
+        enc_dp1(1, 0b000101),
+        vec![
+            OpKind::Sar {
+                dst: VReg::virt(300),
+                src: arm_x(1),
+                amount: SrcOperand::Imm(63),
+                width: OpWidth::W64,
+                flags: FlagUpdate::None,
+            },
+            OpKind::Xor {
+                dst: VReg::virt(301),
+                src1: arm_x(1),
+                src2: SrcOperand::Reg(VReg::virt(300)),
+                width: OpWidth::W64,
+                flags: FlagUpdate::None,
+            },
+            OpKind::Clz {
+                dst: VReg::virt(302),
+                src: VReg::virt(301),
+                width: OpWidth::W64,
+            },
+            OpKind::Sub {
+                dst: arm_x(0),
+                src1: VReg::virt(302),
+                src2: SrcOperand::Imm(1),
+                width: OpWidth::W64,
+                flags: FlagUpdate::None,
+            },
+        ],
+        st,
+    );
+
+    let mut st = native_state();
+    st.x[0] = 0x3333_4444_5555_6666;
+    st.x[1] = 0xffff_ffff_8000_0001;
+    st.pstate = 0xa000_0000;
+    push_case(
+        "cls_w_lifted_pattern_zero_ext_preserves_flags",
+        enc_dp1(0, 0b000101),
+        vec![
+            OpKind::Sar {
+                dst: VReg::virt(303),
+                src: arm_x(1),
+                amount: SrcOperand::Imm(31),
+                width: OpWidth::W32,
+                flags: FlagUpdate::None,
+            },
+            OpKind::Xor {
+                dst: VReg::virt(304),
+                src1: arm_x(1),
+                src2: SrcOperand::Reg(VReg::virt(303)),
+                width: OpWidth::W32,
+                flags: FlagUpdate::None,
+            },
+            OpKind::Clz {
+                dst: VReg::virt(305),
+                src: VReg::virt(304),
+                width: OpWidth::W32,
+            },
+            OpKind::Sub {
+                dst: arm_x(0),
+                src1: VReg::virt(305),
+                src2: SrcOperand::Imm(1),
+                width: OpWidth::W32,
+                flags: FlagUpdate::None,
+            },
+        ],
+        st,
+    );
+
+    let mut st = native_state();
+    st.x[0] = 0x2222_3333_4444_5555;
     st.x[1] = 0xffff_ffff_0000_0001;
     st.pstate = 0x5000_0000;
     push_case(
@@ -5128,6 +5204,26 @@ fn smir_aarch64_native_lowering_matches_qemu_oracle() {
     push_lifted_case(
         "clz_x_lifted_preserves_flags",
         enc_dp1(1, 0b000100),
+        st,
+    );
+
+    let mut st = native_state();
+    st.x[0] = 0xeded_0101_2323_4545;
+    st.x[1] = 0xffff_ffff_ffff_f000;
+    st.pstate = 0xa000_0000;
+    push_lifted_case(
+        "cls_x_lifted_preserves_flags",
+        enc_dp1(1, 0b000101),
+        st,
+    );
+
+    let mut st = native_state();
+    st.x[0] = 0xfefe_1010_3232_5454;
+    st.x[1] = 0xffff_ffff_8000_0001;
+    st.pstate = 0x6000_0000;
+    push_lifted_case(
+        "cls_w_lifted_zero_ext_preserves_flags",
+        enc_dp1(0, 0b000101),
         st,
     );
 
