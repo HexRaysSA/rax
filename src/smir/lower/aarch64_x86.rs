@@ -805,6 +805,94 @@ impl Aarch64X86_64Lowerer {
         Ok(())
     }
 
+    fn ensure_bitmanip_width(width: OpWidth, op: &'static str) -> Result<(), LowerError> {
+        match width {
+            OpWidth::W32 | OpWidth::W64 => Ok(()),
+            _ => Err(LowerError::UnsupportedOp {
+                op: format!("AArch64 {op} width {width:?}"),
+            }),
+        }
+    }
+
+    fn lower_bswap(&mut self, dst: VReg, src: VReg, width: OpWidth) -> Result<(), LowerError> {
+        Self::ensure_bitmanip_width(width, "Bswap")?;
+        self.load_vreg_to(src, ACC, width)?;
+        {
+            let mut e = X86Emitter::new(&mut self.code);
+            e.emit_bswap(ACC, width);
+        }
+        self.store_reg_to(dst, ACC, width)
+    }
+
+    fn lower_clz(&mut self, dst: VReg, src: VReg, width: OpWidth) -> Result<(), LowerError> {
+        Self::ensure_bitmanip_width(width, "Clz")?;
+        self.load_vreg_to(src, ACC, width)?;
+        {
+            let mut e = X86Emitter::new(&mut self.code);
+            e.emit_test_rr(ACC, ACC, width);
+        }
+        let nonzero_path = self.emit_jcc_placeholder(X86Cond::Ne);
+        self.emit_mov_imm(ACC, i64::from(width.bits()), width);
+        let done = self.emit_jmp_placeholder();
+
+        self.patch_rel32_to_current(nonzero_path)?;
+        {
+            let mut e = X86Emitter::new(&mut self.code);
+            e.emit_bsr(ACC, ACC, width);
+        }
+        self.emit_mov_imm(B0, i64::from(width.bits() - 1), width);
+        {
+            let mut e = X86Emitter::new(&mut self.code);
+            e.emit_sub_rr(B0, ACC, width);
+            e.emit_mov_rr(ACC, B0, width);
+        }
+
+        self.patch_rel32_to_current(done)?;
+        self.store_reg_to(dst, ACC, width)
+    }
+
+    fn emit_rbit_stage(&mut self, width: OpWidth, shift: u8, mask: u64) {
+        {
+            let mut e = X86Emitter::new(&mut self.code);
+            e.emit_mov_rr(B0, ACC, width);
+            e.emit_shr_ri(B0, shift, width);
+        }
+        self.emit_mov_imm(B1, mask as i64, width);
+        {
+            let mut e = X86Emitter::new(&mut self.code);
+            e.emit_and_rr(B0, B1, width);
+            e.emit_and_rr(ACC, B1, width);
+            e.emit_shl_ri(ACC, shift, width);
+            e.emit_or_rr(ACC, B0, width);
+        }
+    }
+
+    fn lower_rbit(&mut self, dst: VReg, src: VReg, width: OpWidth) -> Result<(), LowerError> {
+        Self::ensure_bitmanip_width(width, "Rbit")?;
+        self.load_vreg_to(src, ACC, width)?;
+        let masks = match width {
+            OpWidth::W32 => [
+                (1u8, 0x5555_5555_u64),
+                (2u8, 0x3333_3333_u64),
+                (4u8, 0x0f0f_0f0f_u64),
+            ],
+            OpWidth::W64 => [
+                (1u8, 0x5555_5555_5555_5555_u64),
+                (2u8, 0x3333_3333_3333_3333_u64),
+                (4u8, 0x0f0f_0f0f_0f0f_0f0f_u64),
+            ],
+            _ => unreachable!(),
+        };
+        for (shift, mask) in masks {
+            self.emit_rbit_stage(width, shift, mask);
+        }
+        {
+            let mut e = X86Emitter::new(&mut self.code);
+            e.emit_bswap(ACC, width);
+        }
+        self.store_reg_to(dst, ACC, width)
+    }
+
     fn lower_logic(
         &mut self,
         dst: VReg,
@@ -997,6 +1085,9 @@ impl Aarch64X86_64Lowerer {
                 }
                 self.emit_nzcv_from_flags(FlagForm::Logic);
             }
+            OpKind::Clz { dst, src, width } => self.lower_clz(*dst, *src, *width)?,
+            OpKind::Bswap { dst, src, width } => self.lower_bswap(*dst, *src, *width)?,
+            OpKind::Rbit { dst, src, width } => self.lower_rbit(*dst, *src, *width)?,
             OpKind::Shl {
                 dst,
                 src,
@@ -1599,6 +1690,73 @@ mod tests {
         assert_eq!(regs.x[1], 0x99aa_bbcc_ddee_ff00);
         assert_eq!(regs.nzcv & 0xF000_0000, 0x9000_0000);
         assert_eq!(regs.pc, 0x2fc4);
+    }
+
+    #[test]
+    fn clz_w32_counts_zero_and_ignores_high_bits() {
+        let mut b = FunctionBuilder::new(FunctionId(0), 0x2fd0);
+        b.push_op(
+            0x2fd0,
+            OpKind::Clz {
+                dst: x(0),
+                src: x(1),
+                width: OpWidth::W32,
+            },
+        );
+        b.set_terminator(Terminator::Return { values: vec![] });
+        let func = b.finish();
+
+        let mut regs = Aarch64GuestRegs::default();
+        regs.x[0] = 0xaaaa_bbbb_cccc_dddd;
+        regs.x[1] = 0xffff_ffff_0000_0000;
+        run_func(&func, &mut regs);
+        assert_eq!(regs.x[0], 32);
+
+        regs.x[0] = 0xaaaa_bbbb_cccc_dddd;
+        regs.x[1] = 0xffff_ffff_0000_0001;
+        run_func(&func, &mut regs);
+        assert_eq!(regs.x[0], 31);
+    }
+
+    #[test]
+    fn bswap_x64_reverses_bytes() {
+        let mut b = FunctionBuilder::new(FunctionId(0), 0x2fe0);
+        b.push_op(
+            0x2fe0,
+            OpKind::Bswap {
+                dst: x(0),
+                src: x(1),
+                width: OpWidth::W64,
+            },
+        );
+        b.set_terminator(Terminator::Return { values: vec![] });
+
+        let mut regs = Aarch64GuestRegs::default();
+        regs.x[1] = 0x1122_3344_5566_7788;
+        run_func(&b.finish(), &mut regs);
+
+        assert_eq!(regs.x[0], 0x8877_6655_4433_2211);
+    }
+
+    #[test]
+    fn rbit_w32_reverses_bits_and_zero_extends() {
+        let mut b = FunctionBuilder::new(FunctionId(0), 0x2ff0);
+        b.push_op(
+            0x2ff0,
+            OpKind::Rbit {
+                dst: x(0),
+                src: x(1),
+                width: OpWidth::W32,
+            },
+        );
+        b.set_terminator(Terminator::Return { values: vec![] });
+
+        let mut regs = Aarch64GuestRegs::default();
+        regs.x[0] = 0xaaaa_bbbb_cccc_dddd;
+        regs.x[1] = 0xffff_ffff_0000_0001;
+        run_func(&b.finish(), &mut regs);
+
+        assert_eq!(regs.x[0], 0x8000_0000);
     }
 
     #[test]

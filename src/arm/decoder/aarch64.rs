@@ -1156,7 +1156,11 @@ impl Aarch64Decoder {
         } else {
             // Data processing (3 source), data processing (2 source), etc.
             if op2 == 0b0110 {
-                Self::decode_dp_2_source(raw)
+                if op0 == 0 {
+                    Self::decode_dp_2_source(raw)
+                } else {
+                    Self::decode_dp_1_source(raw)
+                }
             } else if op2 == 0b0000 {
                 // Add/sub with carry
                 Self::decode_add_sub_carry(raw)
@@ -1623,6 +1627,38 @@ impl Aarch64Decoder {
             .with_operand(Operand::Reg(Register::with_zr(rd, is_64bit)))
             .with_operand(Operand::Reg(Register::with_zr(rn, is_64bit)))
             .with_operand(Operand::Reg(Register::with_zr(rm, is_64bit))))
+    }
+
+    fn decode_dp_1_source(raw: u32) -> Result<DecodedInsn, DecodeError> {
+        let sf = (raw >> 31) & 1;
+        let s = (raw >> 29) & 1;
+        let opcode = (raw >> 10) & 0x3F;
+        let rn = ((raw >> 5) & 0x1F) as u8;
+        let rd = (raw & 0x1F) as u8;
+
+        if s != 0 {
+            return Ok(DecodedInsn::new(
+                Mnemonic::UNDEFINED,
+                ExecutionState::Aarch64,
+                raw,
+                4,
+            ));
+        }
+
+        let is_64bit = sf == 1;
+        let mnemonic = match opcode {
+            0b000000 => Mnemonic::RBIT,
+            0b000001 => Mnemonic::REV16,
+            0b000010 if is_64bit => Mnemonic::REV32,
+            0b000010 => Mnemonic::REV,
+            0b000011 if is_64bit => Mnemonic::REV,
+            0b000100 => Mnemonic::CLZ,
+            _ => Mnemonic::UNKNOWN,
+        };
+
+        Ok(DecodedInsn::new(mnemonic, ExecutionState::Aarch64, raw, 4)
+            .with_operand(Operand::Reg(Register::with_zr(rd, is_64bit)))
+            .with_operand(Operand::Reg(Register::with_zr(rn, is_64bit))))
     }
 
     fn decode_dp_3_source(raw: u32) -> Result<DecodedInsn, DecodeError> {
@@ -2724,6 +2760,31 @@ mod tests {
         // ADC X0, X1, X2: 9a020020
         let insn = decode_bytes(&[0x20, 0x00, 0x02, 0x9a]).unwrap();
         assert_eq!(insn.mnemonic, Mnemonic::ADC);
+    }
+
+    #[test]
+    fn test_rbit() {
+        // RBIT X0, X1: dac00020
+        let insn = decode_bytes(&[0x20, 0x00, 0xc0, 0xda]).unwrap();
+        assert_eq!(insn.mnemonic, Mnemonic::RBIT);
+    }
+
+    #[test]
+    fn test_rev() {
+        // REV X0, X1: dac00c20
+        let insn = decode_bytes(&[0x20, 0x0c, 0xc0, 0xda]).unwrap();
+        assert_eq!(insn.mnemonic, Mnemonic::REV);
+
+        // REV W0, W1: 5ac00820
+        let insn = decode_bytes(&[0x20, 0x08, 0xc0, 0x5a]).unwrap();
+        assert_eq!(insn.mnemonic, Mnemonic::REV);
+    }
+
+    #[test]
+    fn test_clz() {
+        // CLZ X0, X1: dac01020
+        let insn = decode_bytes(&[0x20, 0x10, 0xc0, 0xda]).unwrap();
+        assert_eq!(insn.mnemonic, Mnemonic::CLZ);
     }
 
     #[test]

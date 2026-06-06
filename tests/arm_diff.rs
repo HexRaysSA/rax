@@ -525,6 +525,12 @@ fn dp2_cases() -> Vec<(String, u32)> {
     v
 }
 
+/// Data-processing (1 source): `sf 1 0 11010110 00000 opcode Rn Rd`
+#[cfg(all(feature = "smir-jit", target_arch = "x86_64"))]
+fn enc_dp1(sf: u32, opcode: u32) -> u32 {
+    (sf << 31) | (0b1011010110 << 21) | (opcode << 10) | (RN << 5) | RD
+}
+
 /// Data-processing (3 source): `sf 00 11011 op31 Rm o0 Ra Rn Rd`
 fn enc_dp3(sf: u32, op31: u32, o0: u32) -> u32 {
     enc_dp3_ra(sf, op31, o0, RA)
@@ -1017,6 +1023,12 @@ fn smir_aarch64_x86_scalar_lowering_matches_qemu_oracle() {
         ("udiv_w_zero_ext", enc_dp2(0, 0b0010)),
         ("sdiv_x", enc_dp2(1, 0b0011)),
         ("sdiv_w_zero_ext", enc_dp2(0, 0b0011)),
+        ("rbit_x", enc_dp1(1, 0b000000)),
+        ("rbit_w_zero_ext", enc_dp1(0, 0b000000)),
+        ("rev_x", enc_dp1(1, 0b000011)),
+        ("rev_w_zero_ext", enc_dp1(0, 0b000010)),
+        ("clz_x", enc_dp1(1, 0b000100)),
+        ("clz_w_zero_ext", enc_dp1(0, 0b000100)),
         ("dsb_sy", enc_barrier(0b100)),
         ("dmb_sy", enc_barrier(0b101)),
         ("isb", enc_barrier(0b110)),
@@ -1076,6 +1088,26 @@ fn smir_aarch64_x86_scalar_lowering_matches_qemu_oracle() {
     st.x[2] = 1;
     st.pstate = 0;
     batch.push(("sbcs_x_borrow_flags".into(), enc_addsub_carry(1, 1, 1), st));
+
+    let mut st = ArmState::zeroed();
+    st.x[0] = 0xaaaa_bbbb_cccc_dddd;
+    st.x[1] = 0;
+    batch.push(("clz_x_zero".into(), enc_dp1(1, 0b000100), st));
+
+    let mut st = ArmState::zeroed();
+    st.x[0] = 0xaaaa_bbbb_cccc_dddd;
+    st.x[1] = 0xffff_ffff_0000_0000;
+    batch.push(("clz_w_zero_ext".into(), enc_dp1(0, 0b000100), st));
+
+    let mut st = ArmState::zeroed();
+    st.x[0] = 0xaaaa_bbbb_cccc_dddd;
+    st.x[1] = 1;
+    batch.push(("rbit_x_low_bit".into(), enc_dp1(1, 0b000000), st));
+
+    let mut st = ArmState::zeroed();
+    st.x[0] = 0xaaaa_bbbb_cccc_dddd;
+    st.x[1] = 0xffff_ffff_1122_3344;
+    batch.push(("rev_w_zero_ext_crafted".into(), enc_dp1(0, 0b000010), st));
 
     let mut st = ArmState::zeroed();
     st.x[0] = 0xaaaa_bbbb_cccc_dddd;
