@@ -2424,6 +2424,44 @@ impl Aarch64Lowerer {
         self.patch_branch_to_current(end_branch)
     }
 
+    fn lower_bextr(
+        &mut self,
+        dst: VReg,
+        src: VReg,
+        control: VReg,
+        width: OpWidth,
+    ) -> Result<(), LowerError> {
+        Self::sf(width)?;
+        let control = match control {
+            VReg::Imm(value) => value as u64,
+            other => {
+                return Err(LowerError::UnsupportedOp {
+                    op: format!(
+                        "AArch64 native Bextr currently supports immediate control only, got {other:?}"
+                    ),
+                });
+            }
+        };
+
+        let bits = width.bits();
+        let start = (control & 0xff) as u32;
+        let len = ((control >> 8) & 0xff) as u32;
+        let dst = Self::dst_gpr(dst)?;
+        if start >= bits || len == 0 {
+            return self.emit_mov_imm(dst, 0, width);
+        }
+
+        let width_bits = len.min(bits - start) as u8;
+        self.lower_bfx(
+            VReg::Arch(ArchReg::Arm(ArmReg::X(dst))),
+            src,
+            start as u8,
+            width_bits,
+            false,
+            width,
+        )
+    }
+
     fn lower_cls(&mut self, dst: VReg, src: VReg, width: OpWidth) -> Result<(), LowerError> {
         self.emit_dp1(Self::dst_gpr(dst)?, Self::gpr(src)?, 0b000101, width)
     }
@@ -5235,6 +5273,12 @@ impl Aarch64Lowerer {
                 width,
                 flags,
             } => self.lower_bsr(*dst, *src, *width, *flags),
+            OpKind::Bextr {
+                dst,
+                src,
+                control,
+                width,
+            } => self.lower_bextr(*dst, *src, *control, *width),
             OpKind::Bzhi {
                 dst,
                 src,
@@ -8242,6 +8286,76 @@ mod tests {
         expected.extend_from_slice(&enc_logical_imm(0, 0b10, 0, 0, 4, 0, 0).to_le_bytes());
         expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
         assert_eq!(code, expected);
+    }
+
+    #[test]
+    fn lowers_bextr_x_imm_control_as_ubfx() {
+        let mut builder = FunctionBuilder::new(FunctionId(0), 0);
+        builder.push_op(
+            0,
+            OpKind::Bextr {
+                dst: x(0),
+                src: x(1),
+                control: VReg::Imm((12 << 8) | 4),
+                width: OpWidth::W64,
+            },
+        );
+        builder.set_terminator(Terminator::Return { values: vec![] });
+        let func = builder.finish();
+
+        let mut lowerer = Aarch64Lowerer::new();
+        lowerer.lower_function(&func).unwrap();
+        let code = lowerer.finalize().unwrap();
+
+        let mut expected = Vec::new();
+        expected.extend_from_slice(&enc_bitfield_regs(1, 0b10, 4, 15, 1, 0).to_le_bytes());
+        expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
+        assert_eq!(code, expected);
+    }
+
+    #[test]
+    fn lowers_bextr_w_imm_control_empty_extract_as_zero() {
+        let mut builder = FunctionBuilder::new(FunctionId(0), 0);
+        builder.push_op(
+            0,
+            OpKind::Bextr {
+                dst: x(0),
+                src: x(1),
+                control: VReg::Imm((8 << 8) | 32),
+                width: OpWidth::W32,
+            },
+        );
+        builder.set_terminator(Terminator::Return { values: vec![] });
+        let func = builder.finish();
+
+        let mut lowerer = Aarch64Lowerer::new();
+        lowerer.lower_function(&func).unwrap();
+        let code = lowerer.finalize().unwrap();
+
+        let mut expected = Vec::new();
+        expected.extend_from_slice(&enc_mov_wide(0, 0b10, 0, 0, 0).to_le_bytes());
+        expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
+        assert_eq!(code, expected);
+    }
+
+    #[test]
+    fn rejects_bextr_register_control_without_scratch() {
+        let mut builder = FunctionBuilder::new(FunctionId(0), 0);
+        builder.push_op(
+            0,
+            OpKind::Bextr {
+                dst: x(0),
+                src: x(1),
+                control: x(2),
+                width: OpWidth::W64,
+            },
+        );
+        builder.set_terminator(Terminator::Return { values: vec![] });
+        let func = builder.finish();
+
+        let mut lowerer = Aarch64Lowerer::new();
+        let err = lowerer.lower_function(&func).unwrap_err();
+        assert!(matches!(err, LowerError::UnsupportedOp { .. }));
     }
 
     #[test]
