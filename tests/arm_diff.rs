@@ -2048,6 +2048,31 @@ fn smir_aarch64_x86_memory_lowering_matches_qemu_oracle() {
             }
         }
     }
+    for &(label, insn, rm_value) in &[
+        ("ldr_x_reg_uxtw_lsl3", enc_ldst_reg(3, 1, RM, 0b010, 1), 8u64),
+        ("str_w_reg_sxtw", enc_ldst_reg(2, 0, RM, 0b110, 0), 8u64),
+        (
+            "ldrsb_x_reg_sxtx_neg8",
+            enc_ldst_reg(0, 2, RM, 0b111, 0),
+            (-8i64) as u64,
+        ),
+        (
+            "ldrsh_w_reg_uxtw_lsl1",
+            enc_ldst_reg(1, 3, RM, 0b010, 1),
+            4u64,
+        ),
+    ] {
+        for _ in 0..4 {
+            let mut st = mem_input(&mut rng);
+            st.x[0] = 0x1122_3344_5566_7788;
+            st.x[2] = rm_value;
+            st.scratch[7] = 0x0000_0000_0000_0080;
+            st.scratch[8] = 0x1111_2222_3333_4444;
+            st.scratch[9] = 0x5555_6666_7777_8888;
+            st.scratch[16] = 0x9999_aaaa_bbbb_cccc;
+            batch.push((label.to_string(), insn, st));
+        }
+    }
     for &(label, insn) in &[
         ("prfm_uimm_0", enc_ldst_uimm(3, 0, 2, 0)),
         ("prfm_uimm_3", enc_ldst_uimm(3, 0, 2, 3)),
@@ -9495,6 +9520,20 @@ fn enc_ldst_simm(size: u32, v: u32, opc: u32, mode: u32, imm9: i32) -> u32 {
         | RD
 }
 
+/// Load/store register offset: `size 111000 opc 1 Rm option S 10 Rn Rt`.
+fn enc_ldst_reg(size: u32, opc: u32, rm: u32, option: u32, s: u32) -> u32 {
+    (size << 30)
+        | (0b111 << 27)
+        | (opc << 22)
+        | (1 << 21)
+        | (rm << 16)
+        | (option << 13)
+        | (s << 12)
+        | (0b10 << 10)
+        | (RN << 5)
+        | RD
+}
+
 /// PRFM register offset: `11 111000 0 0 1 Rm opc=10 option S 10 Rn Rt`.
 fn enc_prfm_reg(rt: u32, rm: u32, option: u32, s: u32) -> u32 {
     (0b11 << 30)
@@ -9563,6 +9602,63 @@ fn diff_mem_ldst_imm() {
         }
     }
     run_batch("mem_ldst_imm", batch);
+}
+
+#[test]
+fn diff_mem_ldst_reg_offset() {
+    let cases: Vec<(String, u32, u64)> = vec![
+        (
+            "ldr_x_reg_uxtw_lsl3".into(),
+            enc_ldst_reg(3, 1, RM, 0b010, 1),
+            8,
+        ),
+        (
+            "str_x_reg_sxtx_neg8".into(),
+            enc_ldst_reg(3, 0, RM, 0b111, 0),
+            (-8i64) as u64,
+        ),
+        (
+            "ldr_w_reg_uxtw".into(),
+            enc_ldst_reg(2, 1, RM, 0b010, 0),
+            12,
+        ),
+        (
+            "ldrsb_w_reg_sxtw_neg8".into(),
+            enc_ldst_reg(0, 3, RM, 0b110, 0),
+            (-8i64) as u64,
+        ),
+        (
+            "ldrsh_x_reg_uxtw_lsl1".into(),
+            enc_ldst_reg(1, 2, RM, 0b010, 1),
+            4,
+        ),
+        (
+            "strb_reg_uxtw".into(),
+            enc_ldst_reg(0, 0, RM, 0b010, 0),
+            15,
+        ),
+        (
+            "ldr_x_reg_bad_extend_undef".into(),
+            enc_ldst_reg(3, 1, RM, 0b000, 0),
+            8,
+        ),
+    ];
+    let mut rng = Rng::new(0x1_0021);
+    let mut batch: Vec<(String, u32, ArmState)> = Vec::new();
+    for (label, insn, rm_value) in &cases {
+        for _ in 0..6 {
+            let mut st = mem_input(&mut rng);
+            st.x[0] = 0x1122_3344_5566_7788;
+            st.x[2] = *rm_value;
+            st.scratch[7] = 0x0000_0000_0000_0080;
+            st.scratch[8] = 0x1111_2222_3333_4444;
+            st.scratch[9] = 0x5555_6666_7777_8888;
+            st.scratch[10] = 0x9999_aaaa_bbbb_cccc;
+            st.scratch[16] = 0xdead_beef_cafe_f00d;
+            batch.push((label.clone(), *insn, st));
+        }
+    }
+    run_batch("mem_ldst_reg_offset", batch);
 }
 
 #[test]

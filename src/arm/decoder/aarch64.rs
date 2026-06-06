@@ -1167,6 +1167,32 @@ impl Aarch64Decoder {
             let scale = size as i64;
             let offset = imm12 << scale;
             MemOperand::imm_offset(Register::with_sp(rn, true), offset)
+        } else if is_register_offset {
+            let rm = ((raw >> 16) & 0x1F) as u8;
+            let option = ((raw >> 13) & 0x7) as u8;
+            if option & 0b010 == 0 {
+                return Ok(DecodedInsn::new(
+                    Mnemonic::UNKNOWN,
+                    ExecutionState::Aarch64,
+                    raw,
+                    4,
+                ));
+            }
+            let shift = if ((raw >> 12) & 1) != 0 {
+                size as u8
+            } else {
+                0
+            };
+            let rm_is_64bit = option & 0x3 == 0x3;
+            MemOperand {
+                base: Register::with_sp(rn, true),
+                offset: MemOffset::ExtendedReg(ExtendedRegister::new(
+                    Register::with_zr(rm, rm_is_64bit),
+                    ExtendType::from_bits(option),
+                    shift,
+                )),
+                mode: AddressingMode::Offset,
+            }
         } else {
             let imm9 = ((raw >> 12) & 0x1FF) as i64;
             let imm9 = if imm9 & (1 << 8) != 0 {
@@ -1176,10 +1202,10 @@ impl Aarch64Decoder {
             };
 
             match op2 {
-                0b00 => MemOperand::imm_offset(Register::with_sp(rn, true), imm9),
+                0b00 | 0b10 => MemOperand::imm_offset(Register::with_sp(rn, true), imm9),
                 0b01 => MemOperand::post_index(Register::with_sp(rn, true), imm9),
                 0b11 => MemOperand::pre_index(Register::with_sp(rn, true), imm9),
-                _ => MemOperand::base(Register::with_sp(rn, true)),
+                _ => unreachable!(),
             }
         };
 
