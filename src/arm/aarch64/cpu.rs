@@ -14041,6 +14041,7 @@ impl AArch64Cpu {
         }
 
         // Check addressing mode
+        let bit21 = (insn >> 21) & 1;
         let op4 = (insn >> 10) & 0x3;
 
         match op4 {
@@ -14055,6 +14056,12 @@ impl AArch64Cpu {
                 let imm9 = ((insn >> 12) & 0x1FF) as i32;
                 let offset = ((imm9 << 23) >> 23) as i64;
                 Ok((base, true, (base as i64).wrapping_add(offset) as u64))
+            }
+            0b10 if bit21 == 0 => {
+                // Unprivileged signed immediate offset
+                let imm9 = ((insn >> 12) & 0x1FF) as i32;
+                let offset = ((imm9 << 23) >> 23) as i64;
+                Ok(((base as i64).wrapping_add(offset) as u64, false, 0))
             }
             0b10 => {
                 // Register offset

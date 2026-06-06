@@ -2074,6 +2074,21 @@ fn smir_aarch64_x86_memory_lowering_matches_qemu_oracle() {
         }
     }
     for &(label, insn) in &[
+        ("ldtr_x_pos8", enc_ldst_simm(3, 0, 1, 0b10, 8)),
+        ("sttr_w_neg8", enc_ldst_simm(2, 0, 0, 0b10, -8)),
+        ("ldtrsb_w_neg8", enc_ldst_simm(0, 0, 3, 0b10, -8)),
+        ("ldtrsh_x_pos8", enc_ldst_simm(1, 0, 2, 0b10, 8)),
+    ] {
+        for _ in 0..4 {
+            let mut st = mem_input(&mut rng);
+            st.x[0] = 0x1122_3344_5566_7788;
+            st.scratch[7] = 0x0000_0000_0000_0080;
+            st.scratch[8] = 0x1111_2222_3333_4444;
+            st.scratch[9] = 0x5555_6666_7777_8888;
+            batch.push((label.to_string(), insn, st));
+        }
+    }
+    for &(label, insn) in &[
         ("prfm_uimm_0", enc_ldst_uimm(3, 0, 2, 0)),
         ("prfm_uimm_3", enc_ldst_uimm(3, 0, 2, 3)),
         ("prfum_simm_neg8", enc_ldst_simm(3, 0, 2, 0b00, -8)),
@@ -9659,6 +9674,44 @@ fn diff_mem_ldst_reg_offset() {
         }
     }
     run_batch("mem_ldst_reg_offset", batch);
+}
+
+#[test]
+fn diff_mem_ldst_unprivileged() {
+    let cases: Vec<(String, u32)> = vec![
+        ("ldtr_x_pos8".into(), enc_ldst_simm(3, 0, 1, 0b10, 8)),
+        ("sttr_x_neg8".into(), enc_ldst_simm(3, 0, 0, 0b10, -8)),
+        ("ldtr_w_pos8".into(), enc_ldst_simm(2, 0, 1, 0b10, 8)),
+        ("sttrb_pos7".into(), enc_ldst_simm(0, 0, 0, 0b10, 7)),
+        ("ldtrsb_w_neg8".into(), enc_ldst_simm(0, 0, 3, 0b10, -8)),
+        ("ldtrsh_x_pos8".into(), enc_ldst_simm(1, 0, 2, 0b10, 8)),
+        ("ldtrsw_x_pos8".into(), enc_ldst_simm(2, 0, 2, 0b10, 8)),
+        (
+            "ldtrsw_w_unpriv_undef".into(),
+            enc_ldst_simm(2, 0, 3, 0b10, 0),
+        ),
+        (
+            "prfm_unpriv_undef".into(),
+            enc_ldst_simm(3, 0, 2, 0b10, 0),
+        ),
+        (
+            "size11_opc11_unpriv_undef".into(),
+            enc_ldst_simm(3, 0, 3, 0b10, 0),
+        ),
+    ];
+    let mut rng = Rng::new(0x1_0022);
+    let mut batch: Vec<(String, u32, ArmState)> = Vec::new();
+    for (label, insn) in &cases {
+        for _ in 0..6 {
+            let mut st = mem_input(&mut rng);
+            st.x[0] = 0x1122_3344_5566_7788;
+            st.scratch[7] = 0x0000_0000_0000_0080;
+            st.scratch[8] = 0x1111_2222_3333_4444;
+            st.scratch[9] = 0x5555_6666_7777_8888;
+            batch.push((label.clone(), *insn, st));
+        }
+    }
+    run_batch("mem_ldst_unprivileged", batch);
 }
 
 #[test]
