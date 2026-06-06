@@ -186,6 +186,26 @@ impl Aarch64Lowerer {
         Ok(())
     }
 
+    fn emit_branch_to_offset(&mut self, target_offset: usize) -> Result<(), LowerError> {
+        let offset = self.code.position();
+        let imm26 = Self::branch_scaled_imm(offset, target_offset, 26)?;
+        self.emit(0x1400_0000 | imm26);
+        Ok(())
+    }
+
+    fn emit_compare_branch_to_offset(
+        &mut self,
+        rt: u8,
+        nonzero: bool,
+        target_offset: usize,
+    ) -> Result<(), LowerError> {
+        let offset = self.code.position();
+        let imm19 = Self::branch_scaled_imm(offset, target_offset, 19)?;
+        let base = if nonzero { 0xb500_0000 } else { 0xb400_0000 };
+        self.emit(base | (imm19 << 5) | (rt as u32));
+        Ok(())
+    }
+
     fn sf(width: OpWidth) -> Result<u32, LowerError> {
         match width {
             OpWidth::W32 => Ok(0),
@@ -685,6 +705,14 @@ impl Aarch64Lowerer {
 
     fn emit_ldst_unscaled(&mut self, rt: u8, rn: u8, size: u32, opc: u32, imm9: i64) {
         self.emit_ldst_simm(rt, rn, size, opc, imm9, 0b00);
+    }
+
+    fn emit_push_scratch(&mut self, rt: u8) {
+        self.emit_ldst_simm(rt, 31, 3, 0b00, -16, 0b11);
+    }
+
+    fn emit_pop_scratch(&mut self, rt: u8) {
+        self.emit_ldst_simm(rt, 31, 3, 0b01, 16, 0b01);
     }
 
     fn emit_ldst_reg_offset(
@@ -2948,6 +2976,345 @@ impl Aarch64Lowerer {
 
     fn arm_x_reg(reg: u8) -> VReg {
         VReg::Arch(ArchReg::Arm(ArmReg::X(reg)))
+    }
+
+    fn scratch_regs(avoid: &[u8], count: usize) -> Result<Vec<u8>, LowerError> {
+        const CANDIDATES: [u8; 31] = [
+            16, 17, 15, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0, 18, 19, 20, 21, 22, 23,
+            24, 25, 26, 27, 28, 29, 30,
+        ];
+
+        let mut regs = Vec::with_capacity(count);
+        for reg in CANDIDATES {
+            if avoid.contains(&reg) || regs.contains(&reg) {
+                continue;
+            }
+            regs.push(reg);
+            if regs.len() == count {
+                return Ok(regs);
+            }
+        }
+
+        Err(LowerError::UnsupportedOp {
+            op: format!("AArch64 native carry rotate needs {count} scratch registers"),
+        })
+    }
+
+    fn emit_scratch_save(&mut self, regs: &[u8]) {
+        for &reg in regs {
+            self.emit_push_scratch(reg);
+        }
+    }
+
+    fn emit_scratch_restore(&mut self, regs: &[u8]) {
+        for &reg in regs.iter().rev() {
+            self.emit_pop_scratch(reg);
+        }
+    }
+
+    fn emit_ubfx_bit_to_low(
+        &mut self,
+        dst: u8,
+        src: u8,
+        bit: u32,
+        width: OpWidth,
+    ) -> Result<(), LowerError> {
+        self.emit_bitfield(dst, src, 0b10, bit, bit, width)
+    }
+
+    fn emit_bfxil_bit_to_low(
+        &mut self,
+        dst: u8,
+        src: u8,
+        bit: u32,
+        width: OpWidth,
+    ) -> Result<(), LowerError> {
+        let (imm_n, immr, imms) = Self::logical_bitmask_imm(!1_i64, width)?;
+        self.emit_logic_imm(dst, dst, 0b00, imm_n, immr, imms, width)?;
+        self.emit_bitfield(dst, src, 0b01, bit, bit, width)
+    }
+
+    fn emit_keep_nz_flags(&mut self, dst: u8, src: u8) -> Result<(), LowerError> {
+        let (imm_n, immr, imms) = Self::logical_bitmask_imm(NZCV_N | NZCV_Z, OpWidth::W32)?;
+        self.emit_logic_imm(dst, src, 0b00, imm_n, immr, imms, OpWidth::W32)
+    }
+
+    fn emit_restore_c_from_low_bit(
+        &mut self,
+        flags_base: u8,
+        carry: u8,
+    ) -> Result<(), LowerError> {
+        self.emit_logic_shifted(carry, flags_base, carry, 0b01, false, 0, 29, OpWidth::W32)?;
+        self.emit_sysreg(carry, ArmReg::Nzcv, false)?;
+        self.emit_ubfx_bit_to_low(carry, carry, 29, OpWidth::W32)
+    }
+
+    fn emit_prepare_rotate_carry_value(
+        &mut self,
+        dst: u8,
+        src: u8,
+        width: OpWidth,
+    ) -> Result<OpWidth, LowerError> {
+        match width {
+            OpWidth::W8 | OpWidth::W16 => {
+                let top_bit = width.bits() - 1;
+                self.emit_bitfield(dst, src, 0b10, 0, top_bit, OpWidth::W32)?;
+                Ok(OpWidth::W32)
+            }
+            OpWidth::W32 => {
+                self.emit_mov_reg(dst, src, OpWidth::W32)?;
+                Ok(OpWidth::W32)
+            }
+            OpWidth::W64 => {
+                self.emit_mov_reg(dst, src, OpWidth::W64)?;
+                Ok(OpWidth::W64)
+            }
+            other => Err(LowerError::UnsupportedOp {
+                op: format!("AArch64 native RCL/RCR width {other:?}"),
+            }),
+        }
+    }
+
+    fn emit_finish_rotate_carry_value(
+        &mut self,
+        dst: u8,
+        width: OpWidth,
+    ) -> Result<(), LowerError> {
+        match width {
+            OpWidth::W8 | OpWidth::W16 => {
+                self.emit_bitfield(dst, dst, 0b10, 0, width.bits() - 1, OpWidth::W32)
+            }
+            OpWidth::W32 | OpWidth::W64 => Ok(()),
+            other => Err(LowerError::UnsupportedOp {
+                op: format!("AArch64 native RCL/RCR width {other:?}"),
+            }),
+        }
+    }
+
+    fn emit_rotate_carry_step(
+        &mut self,
+        dst: u8,
+        flags_base: u8,
+        carry: u8,
+        width: OpWidth,
+        emit_width: OpWidth,
+        right: bool,
+    ) -> Result<(), LowerError> {
+        let top_bit = width.bits() - 1;
+        if right {
+            self.emit_bfxil_bit_to_low(flags_base, dst, 0, emit_width)?;
+            self.emit_extract(dst, 31, dst, 1, emit_width)?;
+            self.emit_logic_shifted(dst, dst, carry, 0b01, false, 0, top_bit, emit_width)?;
+            self.emit_ubfx_bit_to_low(carry, flags_base, 0, OpWidth::W32)
+        } else {
+            self.emit_restore_c_from_low_bit(flags_base, carry)?;
+            self.emit_bfxil_bit_to_low(flags_base, dst, top_bit, emit_width)?;
+            self.emit_addsub_carry(dst, dst, dst, false, true, emit_width)?;
+            self.emit_finish_rotate_carry_value(dst, width)?;
+            self.emit_ubfx_bit_to_low(carry, flags_base, 0, OpWidth::W32)
+        }
+    }
+
+    fn emit_finalize_rotate_carry_flags(
+        &mut self,
+        dst: u8,
+        flags_base: u8,
+        carry: u8,
+        width: OpWidth,
+        emit_width: OpWidth,
+        effective_one: bool,
+        right: bool,
+    ) -> Result<(), LowerError> {
+        self.emit_logic_shifted(
+            flags_base,
+            flags_base,
+            flags_base,
+            0b01,
+            false,
+            0,
+            29,
+            OpWidth::W32,
+        )?;
+
+        if effective_one {
+            let top_bit = width.bits() - 1;
+            if right {
+                self.emit_logic_shifted(carry, dst, dst, 0b10, false, 0, 1, emit_width)?;
+                self.emit_ubfx_bit_to_low(carry, carry, top_bit, emit_width)?;
+            } else {
+                self.emit_logic_shifted(carry, carry, dst, 0b10, false, 1, top_bit, emit_width)?;
+                self.emit_ubfx_bit_to_low(carry, carry, 0, OpWidth::W32)?;
+            }
+            self.emit_logic_shifted(
+                flags_base,
+                flags_base,
+                carry,
+                0b01,
+                false,
+                0,
+                28,
+                OpWidth::W32,
+            )?;
+        }
+
+        self.emit_sysreg(flags_base, ArmReg::Nzcv, false)
+    }
+
+    fn emit_normalize_rcl_rcr_count(
+        &mut self,
+        count: u8,
+        amount: u8,
+        width: OpWidth,
+    ) -> Result<(), LowerError> {
+        self.emit_mov_reg(count, amount, OpWidth::W64)?;
+        let mask = if width == OpWidth::W64 { 0x3f } else { 0x1f };
+        let (imm_n, immr, imms) = Self::logical_bitmask_imm(mask, OpWidth::W64)?;
+        self.emit_logic_imm(count, count, 0b00, imm_n, immr, imms, OpWidth::W64)?;
+
+        let period = match width {
+            OpWidth::W8 => 9,
+            OpWidth::W16 => 17,
+            OpWidth::W32 | OpWidth::W64 => return Ok(()),
+            other => {
+                return Err(LowerError::UnsupportedOp {
+                    op: format!("AArch64 native RCL/RCR count width {other:?}"),
+                });
+            }
+        };
+
+        let loop_start = self.code.position();
+        self.emit_addsub_imm(31, count, period, true, true, OpWidth::W64)?;
+        let done = self.code.position();
+        self.emit(0x5400_0000 | Self::arm_cond_code(Condition::Ult)?);
+        self.emit_addsub_imm(count, count, period, true, false, OpWidth::W64)?;
+        self.emit_branch_to_offset(loop_start)?;
+        self.patch_cond_branch_to_current(done, Self::arm_cond_code(Condition::Ult)?)
+    }
+
+    fn lower_rotate_carry(
+        &mut self,
+        dst: VReg,
+        src: VReg,
+        amount: &SrcOperand,
+        width: OpWidth,
+        flags: FlagUpdate,
+        right: bool,
+    ) -> Result<(), LowerError> {
+        let dst_reg = Self::dst_gpr(dst)?;
+        let src_reg = Self::gpr(src)?;
+        let amount_reg = match amount {
+            SrcOperand::Reg(reg) => Some(Self::gpr(*reg)?),
+            SrcOperand::Imm(_) | SrcOperand::Imm64(_) => None,
+            other => {
+                return Err(LowerError::UnsupportedOp {
+                    op: format!("AArch64 native RCL/RCR amount {other:?}"),
+                });
+            }
+        };
+        let bits = match width {
+            OpWidth::W8 | OpWidth::W16 | OpWidth::W32 | OpWidth::W64 => width.bits(),
+            other => {
+                return Err(LowerError::UnsupportedOp {
+                    op: format!("AArch64 native RCL/RCR width {other:?}"),
+                });
+            }
+        };
+
+        let cmask = if width == OpWidth::W64 { 0x3f } else { 0x1f };
+        if let SrcOperand::Imm(imm) | SrcOperand::Imm64(imm) = amount {
+            let effective = ((*imm as u64) & cmask) % (u64::from(bits) + 1);
+            if effective == 0 {
+                self.emit_prepare_rotate_carry_value(dst_reg, src_reg, width)?;
+                return Ok(());
+            }
+
+            let scratches = Self::scratch_regs(&[dst_reg, src_reg], 3)?;
+            let saved_flags = scratches[0];
+            let flags_base = scratches[1];
+            let carry = scratches[2];
+            self.emit_scratch_save(&scratches);
+
+            self.emit_sysreg(saved_flags, ArmReg::Nzcv, true)?;
+            self.emit_keep_nz_flags(flags_base, saved_flags)?;
+            self.emit_ubfx_bit_to_low(carry, saved_flags, 29, OpWidth::W32)?;
+            let emit_width = self.emit_prepare_rotate_carry_value(dst_reg, src_reg, width)?;
+            for _ in 0..effective {
+                self.emit_rotate_carry_step(dst_reg, flags_base, carry, width, emit_width, right)?;
+            }
+
+            if flags.updates_any() {
+                self.emit_finalize_rotate_carry_flags(
+                    dst_reg,
+                    flags_base,
+                    carry,
+                    width,
+                    emit_width,
+                    effective == 1,
+                    right,
+                )?;
+            } else {
+                self.emit_sysreg(saved_flags, ArmReg::Nzcv, false)?;
+            }
+
+            self.emit_scratch_restore(&scratches);
+            return Ok(());
+        }
+
+        let amount_reg = amount_reg.unwrap();
+        let scratches = Self::scratch_regs(&[dst_reg, src_reg, amount_reg], 4)?;
+        let saved_flags = scratches[0];
+        let flags_base = scratches[1];
+        let carry = scratches[2];
+        let count = scratches[3];
+        self.emit_scratch_save(&scratches);
+
+        self.emit_sysreg(saved_flags, ArmReg::Nzcv, true)?;
+        self.emit_keep_nz_flags(flags_base, saved_flags)?;
+        self.emit_ubfx_bit_to_low(carry, saved_flags, 29, OpWidth::W32)?;
+        self.emit_normalize_rcl_rcr_count(count, amount_reg, width)?;
+        let emit_width = self.emit_prepare_rotate_carry_value(dst_reg, src_reg, width)?;
+
+        let zero_count = self.code.position();
+        self.emit(0xb400_0000 | (count as u32));
+
+        self.emit_addsub_imm(31, count, 1, true, true, OpWidth::W64)?;
+        let not_one_count = self.code.position();
+        self.emit(0x5400_0000 | Self::inverted_arm_cond_code(Condition::Eq)?);
+        self.emit_orr_imm_one(saved_flags, saved_flags, OpWidth::W32)?;
+        self.patch_cond_branch_to_current(
+            not_one_count,
+            Self::inverted_arm_cond_code(Condition::Eq)?,
+        )?;
+
+        let loop_start = self.code.position();
+        self.emit_rotate_carry_step(dst_reg, flags_base, carry, width, emit_width, right)?;
+        self.emit_addsub_imm(count, count, 1, true, false, OpWidth::W64)?;
+        self.emit_compare_branch_to_offset(count, true, loop_start)?;
+
+        if flags.updates_any() {
+            let not_one = self.code.position();
+            self.emit_test_branch(saved_flags, 0, false, 0)?;
+            self.emit_finalize_rotate_carry_flags(
+                dst_reg, flags_base, carry, width, emit_width, true, right,
+            )?;
+            let final_done = self.code.position();
+            self.emit(0x1400_0000);
+            self.patch_test_branch_to_current(not_one, saved_flags, 0, false)?;
+            self.emit_finalize_rotate_carry_flags(
+                dst_reg, flags_base, carry, width, emit_width, false, right,
+            )?;
+            self.patch_branch_to_current(final_done)?;
+        } else {
+            self.emit_sysreg(saved_flags, ArmReg::Nzcv, false)?;
+        }
+        let restore_done = self.code.position();
+        self.emit(0x1400_0000);
+
+        self.patch_compare_branch_to_current(zero_count, count, false)?;
+        self.emit_sysreg(saved_flags, ArmReg::Nzcv, false)?;
+        self.patch_branch_to_current(restore_done)?;
+        self.emit_scratch_restore(&scratches);
+        Ok(())
     }
 
     fn lower_pdep_const_mask(
@@ -6111,9 +6478,20 @@ impl Aarch64Lowerer {
                 width,
                 flags,
             } => self.lower_rol(*dst, *src, amount, flags.updates_any(), *width),
-            OpKind::Rcl { .. } | OpKind::Rcr { .. } => Err(LowerError::UnsupportedOp {
-                op: "AArch64 lower RCL/RCR".to_string(),
-            }),
+            OpKind::Rcl {
+                dst,
+                src,
+                amount,
+                width,
+                flags,
+            } => self.lower_rotate_carry(*dst, *src, amount, *width, *flags, false),
+            OpKind::Rcr {
+                dst,
+                src,
+                amount,
+                width,
+                flags,
+            } => self.lower_rotate_carry(*dst, *src, amount, *width, *flags, true),
             OpKind::Select {
                 dst,
                 cond,
@@ -6424,6 +6802,9 @@ impl SmirLowerer for Aarch64Lowerer {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::arm::aarch64::{AArch64Config, AArch64Cpu};
+    use crate::arm::cpu_trait::{ArmCpu, CpuExit};
+    use crate::arm::memory::FlatMemory;
     use crate::smir::flags::{FlagSet, FlagUpdate};
     use crate::smir::ir::{FunctionBuilder, Terminator, TrapKind};
     use crate::smir::types::{DispSize, FunctionId, SrcOperand};
@@ -6443,6 +6824,192 @@ mod tests {
                 .union(FlagSet::SF)
                 .union(FlagSet::OF),
         )
+    }
+
+    fn rotate_flags() -> FlagUpdate {
+        FlagUpdate::Specific(FlagSet::CF.union(FlagSet::OF))
+    }
+
+    fn lower_single_op(kind: OpKind) -> Vec<u8> {
+        let mut builder = FunctionBuilder::new(FunctionId(0), 0);
+        builder.push_op(0, kind);
+        builder.set_terminator(Terminator::Return { values: vec![] });
+        let func = builder.finish();
+
+        let mut lowerer = Aarch64Lowerer::new();
+        lowerer.lower_function(&func).unwrap();
+        lowerer.finalize().unwrap()
+    }
+
+    fn run_aarch64_code(
+        code: &[u8],
+        regs: &[(u8, u64)],
+        nzcv: u8,
+    ) -> ([u64; 31], u8, u64) {
+        let mut image = vec![0u8; 0x10000];
+        image[..code.len()].copy_from_slice(code);
+        image[code.len()..code.len() + 4].copy_from_slice(&0xd460_0000u32.to_le_bytes());
+
+        let memory = FlatMemory::with_data(0, image);
+        let mut cpu = AArch64Cpu::new(AArch64Config::default(), Box::new(memory));
+        cpu.set_pc(0);
+        cpu.set_current_sp(0x8000);
+        cpu.set_x(30, code.len() as u64);
+        cpu.set_nzcv(
+            (nzcv & 0b1000) != 0,
+            (nzcv & 0b0100) != 0,
+            (nzcv & 0b0010) != 0,
+            (nzcv & 0b0001) != 0,
+        );
+        for &(reg, value) in regs {
+            cpu.set_x(reg, value);
+        }
+
+        let max_steps = code.len() / 4 + 4096;
+        let mut saw_break = false;
+        for _ in 0..max_steps {
+            match cpu.step().unwrap() {
+                CpuExit::Continue => {}
+                CpuExit::Breakpoint(_) => {
+                    saw_break = true;
+                    break;
+                }
+                other => panic!("unexpected AArch64 CPU exit: {other:?}"),
+            }
+        }
+        assert!(saw_break, "lowered code did not return to BRK sentinel");
+
+        let mut out = [0u64; 31];
+        for reg in 0..31 {
+            out[reg] = cpu.get_x(reg as u8);
+        }
+        let out_nzcv = ((cpu.get_n() as u8) << 3)
+            | ((cpu.get_z() as u8) << 2)
+            | ((cpu.get_c() as u8) << 1)
+            | (cpu.get_v() as u8);
+        (out, out_nzcv, cpu.current_sp())
+    }
+
+    fn width_mask(width: OpWidth) -> u64 {
+        match width {
+            OpWidth::W64 => u64::MAX,
+            _ => (1_u64 << width.bits()) - 1,
+        }
+    }
+
+    fn ref_rotate_carry(
+        value: u64,
+        count: u64,
+        carry_in: bool,
+        width: OpWidth,
+        right: bool,
+    ) -> (u64, bool, u64) {
+        let bits = width.bits() as u64;
+        let cmask = if width == OpWidth::W64 { 0x3f } else { 0x1f };
+        let effective = (count & cmask) % (bits + 1);
+        let mask = width_mask(width);
+        let mut result = value & mask;
+        let mut carry = carry_in;
+
+        for _ in 0..effective {
+            if right {
+                let next = (result & 1) != 0;
+                result = (result >> 1) | (u64::from(carry) << (bits - 1));
+                carry = next;
+            } else {
+                let next = ((result >> (bits - 1)) & 1) != 0;
+                result = ((result << 1) | u64::from(carry)) & mask;
+                carry = next;
+            }
+        }
+
+        (result & mask, carry, effective)
+    }
+
+    fn expected_rotate_carry_nzcv(
+        old_nzcv: u8,
+        result: u64,
+        carry: bool,
+        effective: u64,
+        width: OpWidth,
+        flags: FlagUpdate,
+        right: bool,
+    ) -> u8 {
+        if effective == 0 || !flags.updates_any() {
+            return old_nzcv;
+        }
+
+        let sign = 1_u64 << (width.bits() - 1);
+        let overflow = if effective == 1 {
+            if right {
+                let msb = (result & sign) != 0;
+                let second = (result & (sign >> 1)) != 0;
+                msb != second
+            } else {
+                ((result & sign) != 0) != carry
+            }
+        } else {
+            false
+        };
+
+        (old_nzcv & 0b1100) | ((carry as u8) << 1) | (overflow as u8)
+    }
+
+    fn assert_rotate_carry_lowering(
+        label: &str,
+        op: OpKind,
+        src_value: u64,
+        count_value: u64,
+        old_nzcv: u8,
+        width: OpWidth,
+        flags: FlagUpdate,
+        right: bool,
+        dst_reg: u8,
+        amount_reg: Option<u8>,
+    ) {
+        let old_carry = (old_nzcv & 0b0010) != 0;
+        let (expected_value, expected_carry, effective) =
+            ref_rotate_carry(src_value, count_value, old_carry, width, right);
+        let expected_nzcv = expected_rotate_carry_nzcv(
+            old_nzcv,
+            expected_value,
+            expected_carry,
+            effective,
+            width,
+            flags,
+            right,
+        );
+        let code = lower_single_op(op);
+        if amount_reg.is_some() || effective != 0 {
+            assert!(
+                code.len() > 16,
+                "{label}: carry rotate lowering should include scratch save/restore"
+            );
+        }
+
+        let mut regs = vec![
+            (1, src_value),
+            (16, 0x1616_1616_1616_1616),
+            (17, 0x1717_1717_1717_1717),
+            (15, 0x1515_1515_1515_1515),
+            (14, 0x1414_1414_1414_1414),
+        ];
+        if let Some(amount_reg) = amount_reg {
+            regs.push((amount_reg, count_value));
+        }
+
+        let (out, out_nzcv, sp) = run_aarch64_code(&code, &regs, old_nzcv);
+        assert_eq!(
+            out[dst_reg as usize] & width_mask(width),
+            expected_value,
+            "{label}: result"
+        );
+        assert_eq!(out_nzcv, expected_nzcv, "{label}: NZCV");
+        assert_eq!(sp, 0x8000, "{label}: stack restored");
+        assert_eq!(out[16], 0x1616_1616_1616_1616, "{label}: x16 restored");
+        assert_eq!(out[17], 0x1717_1717_1717_1717, "{label}: x17 restored");
+        assert_eq!(out[15], 0x1515_1515_1515_1515, "{label}: x15 restored");
+        assert_eq!(out[14], 0x1414_1414_1414_1414, "{label}: x14 restored");
     }
 
     fn enc_ldst_simm(size: u32, opc: u32, mode: u32, imm9: i64) -> u32 {
@@ -13884,6 +14451,148 @@ mod tests {
         let mut lowerer = Aarch64Lowerer::new();
         let err = lowerer.lower_function(&func).unwrap_err();
         assert!(matches!(err, LowerError::UnsupportedOp { .. }));
+    }
+
+    #[test]
+    fn lowers_rcl_rcr_immediate_counts_with_exact_flags() {
+        assert_rotate_carry_lowering(
+            "rcl_w8_imm1",
+            OpKind::Rcl {
+                dst: x(0),
+                src: x(1),
+                amount: SrcOperand::Imm(1),
+                width: OpWidth::W8,
+                flags: rotate_flags(),
+            },
+            0x42,
+            1,
+            0b1010,
+            OpWidth::W8,
+            rotate_flags(),
+            false,
+            0,
+            None,
+        );
+
+        assert_rotate_carry_lowering(
+            "rcr_w8_full_period_preserves_flags",
+            OpKind::Rcr {
+                dst: x(0),
+                src: x(1),
+                amount: SrcOperand::Imm(9),
+                width: OpWidth::W8,
+                flags: rotate_flags(),
+            },
+            0xa5,
+            9,
+            0b0111,
+            OpWidth::W8,
+            rotate_flags(),
+            true,
+            0,
+            None,
+        );
+
+        assert_rotate_carry_lowering(
+            "rcl_x_imm32_deterministic_undefined_of",
+            OpKind::Rcl {
+                dst: x(0),
+                src: x(1),
+                amount: SrcOperand::Imm(32),
+                width: OpWidth::W64,
+                flags: rotate_flags(),
+            },
+            0x1234_5678_9abc_def0,
+            32,
+            0b0100,
+            OpWidth::W64,
+            rotate_flags(),
+            false,
+            0,
+            None,
+        );
+    }
+
+    #[test]
+    fn lowers_rcl_rcr_register_counts_and_preserves_scratch_state() {
+        assert_rotate_carry_lowering(
+            "rcr_x_reg16",
+            OpKind::Rcr {
+                dst: x(0),
+                src: x(1),
+                amount: SrcOperand::Reg(x(2)),
+                width: OpWidth::W64,
+                flags: rotate_flags(),
+            },
+            0x1234_5678_9abc_def0,
+            16,
+            0b0100,
+            OpWidth::W64,
+            rotate_flags(),
+            true,
+            0,
+            Some(2),
+        );
+
+        assert_rotate_carry_lowering(
+            "rcl_w16_reg18_mod_period_and_count_aliases_dst",
+            OpKind::Rcl {
+                dst: x(2),
+                src: x(1),
+                amount: SrcOperand::Reg(x(2)),
+                width: OpWidth::W16,
+                flags: rotate_flags(),
+            },
+            0x8001,
+            18,
+            0b1110,
+            OpWidth::W16,
+            rotate_flags(),
+            false,
+            2,
+            Some(2),
+        );
+
+        assert_rotate_carry_lowering(
+            "rcr_w8_reg18_zero_effect_restores_flags",
+            OpKind::Rcr {
+                dst: x(0),
+                src: x(1),
+                amount: SrcOperand::Reg(x(2)),
+                width: OpWidth::W8,
+                flags: rotate_flags(),
+            },
+            0x5a,
+            18,
+            0b1011,
+            OpWidth::W8,
+            rotate_flags(),
+            true,
+            0,
+            Some(2),
+        );
+    }
+
+    #[test]
+    fn lowers_rcl_flags_none_as_value_only_and_restores_nzcv() {
+        assert_rotate_carry_lowering(
+            "rcl_w32_flags_none",
+            OpKind::Rcl {
+                dst: x(0),
+                src: x(1),
+                amount: SrcOperand::Imm(1),
+                width: OpWidth::W32,
+                flags: FlagUpdate::None,
+            },
+            0x8000_0000,
+            1,
+            0b0011,
+            OpWidth::W32,
+            FlagUpdate::None,
+            false,
+            0,
+            None,
+        );
     }
 
     #[test]
