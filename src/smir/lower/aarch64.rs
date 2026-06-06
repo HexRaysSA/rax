@@ -3006,15 +3006,29 @@ impl Aarch64Lowerer {
         cond: Condition,
         width: OpWidth,
     ) -> Result<(), LowerError> {
-        if !matches!(width, OpWidth::W32 | OpWidth::W64) {
+        if !matches!(width, OpWidth::W16 | OpWidth::W32 | OpWidth::W64) {
             return Err(LowerError::UnsupportedOp {
                 op: format!("AArch64 native CMove width {width:?}"),
             });
         }
+        let dst = Self::dst_gpr(dst)?;
+        let src = Self::gpr(src)?;
+        if width == OpWidth::W16 {
+            self.emit_cond_select(
+                dst,
+                src,
+                dst,
+                Self::arm_cond_code(cond)?,
+                0,
+                0,
+                OpWidth::W32,
+            )?;
+            return self.emit_bitfield(dst, dst, 0b10, 0, 15, OpWidth::W32);
+        }
         self.emit_cond_select(
-            Self::dst_gpr(dst)?,
-            Self::gpr(src)?,
-            Self::gpr(dst)?,
+            dst,
+            src,
+            dst,
             Self::arm_cond_code(cond)?,
             0,
             0,
@@ -7234,6 +7248,32 @@ mod tests {
     }
 
     #[test]
+    fn lowers_cmove_w16_as_csel_uxth() {
+        let mut builder = FunctionBuilder::new(FunctionId(0), 0);
+        builder.push_op(
+            0,
+            OpKind::CMove {
+                dst: x(0),
+                src: x(1),
+                cond: Condition::Eq,
+                width: OpWidth::W16,
+            },
+        );
+        builder.set_terminator(Terminator::Return { values: vec![] });
+        let func = builder.finish();
+
+        let mut lowerer = Aarch64Lowerer::new();
+        lowerer.lower_function(&func).unwrap();
+        let code = lowerer.finalize().unwrap();
+
+        let mut expected = Vec::new();
+        expected.extend_from_slice(&enc_csel_regs(0, 0, 0, 1, 0, 0, 0).to_le_bytes());
+        expected.extend_from_slice(&enc_bitfield_regs(0, 0b10, 0, 15, 0, 0).to_le_bytes());
+        expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
+        assert_eq!(code, expected);
+    }
+
+    #[test]
     fn lowers_cmc_cf_as_cfinv() {
         let mut builder = FunctionBuilder::new(FunctionId(0), 0);
         builder.push_op(0, OpKind::CmcCF);
@@ -8573,26 +8613,6 @@ mod tests {
                 dst: x(0),
                 cond: Condition::Ne,
                 width: OpWidth::W128,
-            },
-        );
-        builder.set_terminator(Terminator::Return { values: vec![] });
-        let func = builder.finish();
-
-        let mut lowerer = Aarch64Lowerer::new();
-        let err = lowerer.lower_function(&func).unwrap_err();
-        assert!(matches!(err, LowerError::UnsupportedOp { .. }));
-    }
-
-    #[test]
-    fn rejects_cmove_w16_lowering() {
-        let mut builder = FunctionBuilder::new(FunctionId(0), 0);
-        builder.push_op(
-            0,
-            OpKind::CMove {
-                dst: x(0),
-                src: x(1),
-                cond: Condition::Eq,
-                width: OpWidth::W16,
             },
         );
         builder.set_terminator(Terminator::Return { values: vec![] });
