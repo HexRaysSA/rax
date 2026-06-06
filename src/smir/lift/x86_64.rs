@@ -3324,6 +3324,153 @@ impl X86_64Lifter {
         ))
     }
 
+    fn lift_apx_double_shift(
+        &self,
+        prefix: ApxEvexPrefix,
+        opcode: u8,
+        bytes: &[u8],
+        pc: u64,
+        ctx: &mut LiftContext,
+    ) -> Result<LiftResult, LiftError> {
+        let uses_cl = matches!(opcode, 0xA5 | 0xAD);
+        let is_shld = matches!(opcode, 0x24 | 0xA5);
+        let op_size = prefix.op_size(false);
+        let width = self.size_to_width(op_size);
+        let mem_width = self.size_to_memwidth(op_size);
+        let modrm_prefix = prefix.as_modrm_prefix(prefix.bytes + 1);
+        let modrm = decode_modrm(bytes, &modrm_prefix, pc)?;
+        let imm_size = if uses_cl { 0 } else { 1 };
+        if bytes.len() < modrm.bytes_consumed + imm_size {
+            return Err(LiftError::Incomplete {
+                addr: pc,
+                have: bytes.len(),
+                need: modrm.bytes_consumed + imm_size,
+            });
+        }
+
+        let amount = if uses_cl {
+            SrcOperand::Reg(self.gpr(1))
+        } else {
+            SrcOperand::Imm(bytes[modrm.bytes_consumed] as i8 as i64)
+        };
+        let next_pc =
+            pc + prefix.bytes as u64 + 1 + modrm.bytes_consumed as u64 + imm_size as u64;
+        let mut ops = Vec::new();
+        let (legacy_dst, legacy_dst_addr) = if modrm.is_memory {
+            let x86_addr = modrm.addr.as_ref().unwrap();
+            let (addr, pre_ops) = self.x86_addr_to_smir(x86_addr, next_pc, ctx);
+            ops.extend(pre_ops);
+
+            let tmp = ctx.alloc_vreg();
+            ops.push(SmirOp::new(
+                OpId(ops.len() as u16),
+                pc,
+                OpKind::Load {
+                    dst: tmp,
+                    addr: addr.clone(),
+                    width: mem_width,
+                    sign: SignExtend::Zero,
+                },
+            ));
+            (tmp, Some(addr))
+        } else {
+            (self.gpr(modrm.rm), None)
+        };
+
+        let architectural_dst = if prefix.nd {
+            self.gpr(prefix.vvvv_reg())
+        } else {
+            legacy_dst
+        };
+        let amount_uses_cl = matches!(amount, SrcOperand::Reg(reg) if reg == self.gpr(1));
+        let op_dst = if prefix.nd
+            && amount_uses_cl
+            && architectural_dst == self.gpr(1)
+            && architectural_dst != legacy_dst
+        {
+            ctx.alloc_vreg()
+        } else {
+            architectural_dst
+        };
+        let mut src = self.gpr(modrm.reg);
+
+        if prefix.nd && op_dst == src && op_dst != legacy_dst {
+            let tmp = ctx.alloc_vreg();
+            ops.push(SmirOp::new(
+                OpId(ops.len() as u16),
+                pc,
+                OpKind::Mov {
+                    dst: tmp,
+                    src: SrcOperand::Reg(src),
+                    width,
+                },
+            ));
+            src = tmp;
+        }
+
+        if op_dst != legacy_dst {
+            ops.push(SmirOp::new(
+                OpId(ops.len() as u16),
+                pc,
+                OpKind::Mov {
+                    dst: op_dst,
+                    src: SrcOperand::Reg(legacy_dst),
+                    width,
+                },
+            ));
+        }
+
+        let op_kind = if is_shld {
+            OpKind::Shld {
+                dst: op_dst,
+                src,
+                amount,
+                width,
+                flags: prefix.flags(),
+            }
+        } else {
+            OpKind::Shrd {
+                dst: op_dst,
+                src,
+                amount,
+                width,
+                flags: prefix.flags(),
+            }
+        };
+        ops.push(SmirOp::new(OpId(ops.len() as u16), pc, op_kind));
+
+        if op_dst != architectural_dst {
+            ops.push(SmirOp::new(
+                OpId(ops.len() as u16),
+                pc,
+                OpKind::Mov {
+                    dst: architectural_dst,
+                    src: SrcOperand::Reg(op_dst),
+                    width,
+                },
+            ));
+        }
+
+        if !prefix.nd {
+            if let Some(addr) = legacy_dst_addr {
+                ops.push(SmirOp::new(
+                    OpId(ops.len() as u16),
+                    pc,
+                    OpKind::Store {
+                        src: op_dst,
+                        addr,
+                        width: mem_width,
+                    },
+                ));
+            }
+        }
+
+        Ok(LiftResult::fallthrough(
+            ops,
+            prefix.bytes + 1 + modrm.bytes_consumed + imm_size,
+        ))
+    }
+
     fn lift_apx_evex_map4(
         &self,
         pc: u64,
@@ -3363,6 +3510,9 @@ impl X86_64Lifter {
             }
             0xC0 | 0xC1 | 0xD0 | 0xD1 | 0xD2 | 0xD3 => {
                 self.lift_apx_shift(prefix, opcode, &bytes[prefix.bytes + 1..], pc, ctx)
+            }
+            0x24 | 0x2C | 0xA5 | 0xAD => {
+                self.lift_apx_double_shift(prefix, opcode, &bytes[prefix.bytes + 1..], pc, ctx)
             }
             0x8F => self.lift_apx_pop2(prefix, modrm, pc, ctx),
             0xFF => self.lift_apx_push2(prefix, modrm, pc, ctx),
@@ -7013,6 +7163,200 @@ mod tests {
                 assert_eq!(*amount, tmp);
             }
             other => panic!("expected APX NDD shift with captured CL, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn lift_apx_ndd_double_shifts_use_shld_shrd_like_llvm() {
+        let mut lifter = X86_64Lifter::strict();
+        let mut ctx = LiftContext::new(SourceArch::X86_64);
+
+        // LLVM 20: `shldq $4, %rbx, %rax, %r8` => 62 f4 bc 18 24 d8 04.
+        let shld = lifter
+            .lift_insn(
+                0x1000,
+                &[0x62, 0xF4, 0xBC, 0x18, 0x24, 0xD8, 0x04],
+                &mut ctx,
+            )
+            .unwrap();
+        assert_eq!(shld.bytes_consumed, 7);
+        assert_eq!(shld.ops.len(), 2);
+        match &shld.ops[0].kind {
+            OpKind::Mov {
+                dst,
+                src: SrcOperand::Reg(src),
+                width: OpWidth::W64,
+            } => {
+                assert_eq!(*dst, x86_gpr(8));
+                assert_eq!(*src, x86_gpr(0));
+            }
+            other => panic!("expected APX SHLD source1 seed, got {other:?}"),
+        }
+        match &shld.ops[1].kind {
+            OpKind::Shld {
+                dst,
+                src,
+                amount: SrcOperand::Imm(4),
+                width: OpWidth::W64,
+                flags: FlagUpdate::All,
+            } => {
+                assert_eq!(*dst, x86_gpr(8));
+                assert_eq!(*src, x86_gpr(3));
+            }
+            other => panic!("expected APX NDD shld, got {other:?}"),
+        }
+
+        // LLVM 20: `shrdq %cl, %rbx, %rax, %r8` => 62 f4 bc 18 ad d8.
+        let shrd = lifter
+            .lift_insn(0x1000, &[0x62, 0xF4, 0xBC, 0x18, 0xAD, 0xD8], &mut ctx)
+            .unwrap();
+        assert_eq!(shrd.bytes_consumed, 6);
+        assert_eq!(shrd.ops.len(), 2);
+        match &shrd.ops[0].kind {
+            OpKind::Mov {
+                dst,
+                src: SrcOperand::Reg(src),
+                width: OpWidth::W64,
+            } => {
+                assert_eq!(*dst, x86_gpr(8));
+                assert_eq!(*src, x86_gpr(0));
+            }
+            other => panic!("expected APX SHRD source1 seed, got {other:?}"),
+        }
+        match &shrd.ops[1].kind {
+            OpKind::Shrd {
+                dst,
+                src,
+                amount: SrcOperand::Reg(amount),
+                width: OpWidth::W64,
+                flags: FlagUpdate::All,
+            } => {
+                assert_eq!(*dst, x86_gpr(8));
+                assert_eq!(*src, x86_gpr(3));
+                assert_eq!(*amount, x86_gpr(1));
+            }
+            other => panic!("expected APX NDD shrd, got {other:?}"),
+        }
+
+        // LLVM 20: `{nf} shldq $4, %rbx, %rax, %r8` => 62 f4 bc 1c 24 d8 04.
+        let nf = lifter
+            .lift_insn(
+                0x1000,
+                &[0x62, 0xF4, 0xBC, 0x1C, 0x24, 0xD8, 0x04],
+                &mut ctx,
+            )
+            .unwrap();
+        assert_eq!(nf.bytes_consumed, 7);
+        assert_eq!(nf.ops.len(), 2);
+        match &nf.ops[1].kind {
+            OpKind::Shld {
+                dst,
+                src,
+                amount: SrcOperand::Imm(4),
+                width: OpWidth::W64,
+                flags: FlagUpdate::None,
+            } => {
+                assert_eq!(*dst, x86_gpr(8));
+                assert_eq!(*src, x86_gpr(3));
+            }
+            other => panic!("expected APX NF NDD shld, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn lift_apx_ndd_double_shift_aliases_preserve_inputs_like_llvm() {
+        let mut lifter = X86_64Lifter::strict();
+        let mut ctx = LiftContext::new(SourceArch::X86_64);
+
+        // LLVM 20: `shldq $4, %rbx, %rax, %rbx` => 62 f4 e4 18 24 d8 04.
+        let src_alias = lifter
+            .lift_insn(
+                0x1000,
+                &[0x62, 0xF4, 0xE4, 0x18, 0x24, 0xD8, 0x04],
+                &mut ctx,
+            )
+            .unwrap();
+        assert_eq!(src_alias.bytes_consumed, 7);
+        assert_eq!(src_alias.ops.len(), 3);
+        let captured_src = match &src_alias.ops[0].kind {
+            OpKind::Mov {
+                dst,
+                src: SrcOperand::Reg(src),
+                width: OpWidth::W64,
+            } => {
+                assert!(matches!(dst, VReg::Virtual(_)));
+                assert_eq!(*src, x86_gpr(3));
+                *dst
+            }
+            other => panic!("expected APX SHLD source2 capture, got {other:?}"),
+        };
+        match &src_alias.ops[1].kind {
+            OpKind::Mov {
+                dst,
+                src: SrcOperand::Reg(src),
+                width: OpWidth::W64,
+            } => {
+                assert_eq!(*dst, x86_gpr(3));
+                assert_eq!(*src, x86_gpr(0));
+            }
+            other => panic!("expected APX SHLD source1 seed, got {other:?}"),
+        }
+        match &src_alias.ops[2].kind {
+            OpKind::Shld {
+                dst,
+                src,
+                amount: SrcOperand::Imm(4),
+                width: OpWidth::W64,
+                flags: FlagUpdate::All,
+            } => {
+                assert_eq!(*dst, x86_gpr(3));
+                assert_eq!(*src, captured_src);
+            }
+            other => panic!("expected APX NDD shld with captured source2, got {other:?}"),
+        }
+
+        // LLVM 20: `shrdq %cl, %rbx, %rax, %rcx` => 62 f4 f4 18 ad d8.
+        let cl_alias = lifter
+            .lift_insn(0x1000, &[0x62, 0xF4, 0xF4, 0x18, 0xAD, 0xD8], &mut ctx)
+            .unwrap();
+        assert_eq!(cl_alias.bytes_consumed, 6);
+        assert_eq!(cl_alias.ops.len(), 3);
+        let tmp_dst = match &cl_alias.ops[0].kind {
+            OpKind::Mov {
+                dst,
+                src: SrcOperand::Reg(src),
+                width: OpWidth::W64,
+            } => {
+                assert!(matches!(dst, VReg::Virtual(_)));
+                assert_eq!(*src, x86_gpr(0));
+                *dst
+            }
+            other => panic!("expected APX SHRD temp destination seed, got {other:?}"),
+        };
+        match &cl_alias.ops[1].kind {
+            OpKind::Shrd {
+                dst,
+                src,
+                amount: SrcOperand::Reg(amount),
+                width: OpWidth::W64,
+                flags: FlagUpdate::All,
+            } => {
+                assert_eq!(*dst, tmp_dst);
+                assert_eq!(*src, x86_gpr(3));
+                assert_eq!(*amount, x86_gpr(1));
+            }
+            other => panic!("expected APX NDD shrd on temp destination, got {other:?}"),
+        }
+        match &cl_alias.ops[2].kind {
+            OpKind::Mov {
+                dst,
+                src: SrcOperand::Reg(src),
+                width: OpWidth::W64,
+            } => {
+                assert_eq!(*dst, x86_gpr(1));
+                assert_eq!(*src, tmp_dst);
+            }
+            other => panic!("expected APX SHRD result move into RCX, got {other:?}"),
         }
     }
 
