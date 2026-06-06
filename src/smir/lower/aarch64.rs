@@ -2132,14 +2132,21 @@ impl Aarch64Lowerer {
     }
 
     fn lower_not(&mut self, dst: VReg, src: VReg, width: OpWidth) -> Result<(), LowerError> {
-        self.emit_logic_reg_n(
-            Self::dst_gpr(dst)?,
-            31,
-            Self::gpr(src)?,
-            0b01,
-            true,
-            width,
-        )
+        let dst = Self::dst_gpr(dst)?;
+        let src = Self::gpr(src)?;
+        match width {
+            OpWidth::W8 | OpWidth::W16 => {
+                self.emit_logic_reg_n(dst, 31, src, 0b01, true, OpWidth::W32)?;
+                let imms = if width == OpWidth::W8 { 7 } else { 15 };
+                self.emit_bitfield(dst, dst, 0b10, 0, imms, OpWidth::W32)
+            }
+            OpWidth::W32 | OpWidth::W64 => {
+                self.emit_logic_reg_n(dst, 31, src, 0b01, true, width)
+            }
+            other => Err(LowerError::UnsupportedOp {
+                op: format!("AArch64 native Not width {other:?}"),
+            }),
+        }
     }
 
     fn lower_cmp(
@@ -8871,6 +8878,56 @@ mod tests {
 
         let mut expected = Vec::new();
         expected.extend_from_slice(&enc_logical_reg_n(1, 0b01, 1, 0, 31, 1).to_le_bytes());
+        expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
+        assert_eq!(code, expected);
+    }
+
+    #[test]
+    fn lowers_not_w8_as_mvn_uxtb() {
+        let mut builder = FunctionBuilder::new(FunctionId(0), 0);
+        builder.push_op(
+            0,
+            OpKind::Not {
+                dst: x(0),
+                src: x(1),
+                width: OpWidth::W8,
+            },
+        );
+        builder.set_terminator(Terminator::Return { values: vec![] });
+        let func = builder.finish();
+
+        let mut lowerer = Aarch64Lowerer::new();
+        lowerer.lower_function(&func).unwrap();
+        let code = lowerer.finalize().unwrap();
+
+        let mut expected = Vec::new();
+        expected.extend_from_slice(&enc_logical_reg_n(0, 0b01, 1, 0, 31, 1).to_le_bytes());
+        expected.extend_from_slice(&enc_bitfield_regs(0, 0b10, 0, 7, 0, 0).to_le_bytes());
+        expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
+        assert_eq!(code, expected);
+    }
+
+    #[test]
+    fn lowers_not_w16_zero_as_mvn_uxth() {
+        let mut builder = FunctionBuilder::new(FunctionId(0), 0);
+        builder.push_op(
+            0,
+            OpKind::Not {
+                dst: x(0),
+                src: VReg::Imm(0),
+                width: OpWidth::W16,
+            },
+        );
+        builder.set_terminator(Terminator::Return { values: vec![] });
+        let func = builder.finish();
+
+        let mut lowerer = Aarch64Lowerer::new();
+        lowerer.lower_function(&func).unwrap();
+        let code = lowerer.finalize().unwrap();
+
+        let mut expected = Vec::new();
+        expected.extend_from_slice(&enc_logical_reg_n(0, 0b01, 1, 0, 31, 31).to_le_bytes());
+        expected.extend_from_slice(&enc_bitfield_regs(0, 0b10, 0, 15, 0, 0).to_le_bytes());
         expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
         assert_eq!(code, expected);
     }
