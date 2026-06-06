@@ -3592,6 +3592,92 @@ impl X86_64Lifter {
         ))
     }
 
+    fn lift_vex_pdep_pext_0f38(
+        &self,
+        prefix: VecPrefix,
+        bytes: &[u8],
+        pc: u64,
+        ctx: &mut LiftContext,
+    ) -> Result<LiftResult, LiftError> {
+        if prefix.encoding != VecEncodingKind::Vex
+            || prefix.width != VecWidth::V128
+            || !matches!(prefix.pp, X86SsePrefix::Rep | X86SsePrefix::Repne)
+        {
+            return Err(LiftError::InvalidEncoding {
+                addr: pc,
+                bytes: bytes.to_vec(),
+            });
+        }
+
+        let width = if prefix.w {
+            OpWidth::W64
+        } else {
+            OpWidth::W32
+        };
+        let mem_width = if prefix.w {
+            MemWidth::B8
+        } else {
+            MemWidth::B4
+        };
+        let modrm_prefix = X86Prefix {
+            rex: prefix.rex,
+            rep_prefix: match prefix.pp {
+                X86SsePrefix::Rep => Some(0xF3),
+                X86SsePrefix::Repne => Some(0xF2),
+                _ => None,
+            },
+            cursor: prefix.bytes + 1,
+            ..X86Prefix::default()
+        };
+        let modrm = decode_modrm(&bytes[prefix.bytes + 1..], &modrm_prefix, pc)?;
+        let next_pc = pc + prefix.bytes as u64 + 1 + modrm.bytes_consumed as u64;
+        let mut ops = Vec::new();
+        let mask = if modrm.is_memory {
+            let x86_addr = modrm.addr.as_ref().unwrap();
+            let (addr, pre_ops) = self.x86_addr_to_smir(x86_addr, next_pc, ctx);
+            ops.extend(pre_ops);
+
+            let tmp = ctx.alloc_vreg();
+            ops.push(SmirOp::new(
+                OpId(ops.len() as u16),
+                pc,
+                OpKind::Load {
+                    dst: tmp,
+                    addr,
+                    width: mem_width,
+                    sign: SignExtend::Zero,
+                },
+            ));
+            tmp
+        } else {
+            self.gpr(modrm.rm)
+        };
+
+        let dst = self.gpr(modrm.reg);
+        let src = self.gpr(prefix.vvvv);
+        let op = match prefix.pp {
+            X86SsePrefix::Rep => OpKind::Pext {
+                dst,
+                src,
+                mask,
+                width,
+            },
+            X86SsePrefix::Repne => OpKind::Pdep {
+                dst,
+                src,
+                mask,
+                width,
+            },
+            _ => unreachable!("PDEP/PEXT are only dispatched for F2/F3 VEX prefixes"),
+        };
+        ops.push(SmirOp::new(OpId(ops.len() as u16), pc, op));
+
+        Ok(LiftResult::fallthrough(
+            ops,
+            prefix.bytes + 1 + modrm.bytes_consumed,
+        ))
+    }
+
     fn lift_apx_bmi2_rorx(
         &self,
         bytes: &[u8],
@@ -3997,6 +4083,12 @@ impl X86_64Lifter {
             },
             X86VecMap::Map0F38 => match opcode {
                 0xE0..=0xEF => self.lift_cmpccxadd(prefix, opcode, bytes, pc, ctx),
+                0xF5
+                    if prefix.encoding == VecEncodingKind::Vex
+                        && matches!(prefix.pp, X86SsePrefix::Rep | X86SsePrefix::Repne) =>
+                {
+                    self.lift_vex_pdep_pext_0f38(prefix, bytes, pc, ctx)
+                }
                 0xF5 | 0xF6 | 0xF7
                     if prefix.encoding == VecEncodingKind::Evex
                         && !matches!(prefix.pp, X86SsePrefix::None) =>
@@ -9766,6 +9858,156 @@ mod tests {
                 "{name}: {err:?}"
             );
         }
+    }
+
+    fn assert_vex_pdep_pext_op(
+        ops: &[SmirOp],
+        index: usize,
+        name: &str,
+        dst: VReg,
+        src: VReg,
+        mask: VReg,
+        width: OpWidth,
+    ) {
+        match (&ops[index].kind, name) {
+            (
+                OpKind::Pdep {
+                    dst: got_dst,
+                    src: got_src,
+                    mask: got_mask,
+                    width: got_width,
+                },
+                "pdep",
+            )
+            | (
+                OpKind::Pext {
+                    dst: got_dst,
+                    src: got_src,
+                    mask: got_mask,
+                    width: got_width,
+                },
+                "pext",
+            ) => {
+                assert_eq!(*got_dst, dst, "{name}");
+                assert_eq!(*got_src, src, "{name}");
+                assert_eq!(*got_mask, mask, "{name}");
+                assert_eq!(*got_width, width, "{name}");
+            }
+            (other, _) => panic!("expected VEX {name}, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn lift_vex_pdep_pext_registers_like_llvm() {
+        for (bytes, name, width) in [
+            (
+                &[0xC4, 0xE2, 0x73, 0xF5, 0xC2][..],
+                "pdep",
+                OpWidth::W32,
+            ),
+            (
+                &[0xC4, 0xE2, 0x72, 0xF5, 0xC2][..],
+                "pext",
+                OpWidth::W32,
+            ),
+            (
+                &[0xC4, 0xE2, 0xF3, 0xF5, 0xC2][..],
+                "pdep",
+                OpWidth::W64,
+            ),
+            (
+                &[0xC4, 0xE2, 0xF2, 0xF5, 0xC2][..],
+                "pext",
+                OpWidth::W64,
+            ),
+        ] {
+            // LLVM 23 examples:
+            //   `pdep eax, ecx, edx` => c4 e2 73 f5 c2
+            //   `pext eax, ecx, edx` => c4 e2 72 f5 c2
+            //   `pdep rax, rcx, rdx` => c4 e2 f3 f5 c2
+            //   `pext rax, rcx, rdx` => c4 e2 f2 f5 c2
+            let result = lift_single(bytes).unwrap();
+            assert_eq!(result.bytes_consumed, bytes.len(), "{name}");
+            assert_eq!(result.ops.len(), 1, "{name}");
+            assert_vex_pdep_pext_op(
+                &result.ops,
+                0,
+                name,
+                x86_gpr(0),
+                x86_gpr(1),
+                x86_gpr(2),
+                width,
+            );
+        }
+    }
+
+    #[test]
+    fn lift_vex_pdep_pext_memory_mask_like_llvm() {
+        for (bytes, name) in [
+            (
+                &[0xC4, 0x82, 0x33, 0xF5, 0x44, 0x9A, 0x20][..],
+                "pdep",
+            ),
+            (
+                &[0xC4, 0x82, 0x32, 0xF5, 0x44, 0x9A, 0x20][..],
+                "pext",
+            ),
+        ] {
+            // LLVM 23:
+            //   `pdep eax, r9d, dword ptr [r10 + 4*r11 + 32]`
+            //       => c4 82 33 f5 44 9a 20
+            //   `pext eax, r9d, dword ptr [r10 + 4*r11 + 32]`
+            //       => c4 82 32 f5 44 9a 20
+            let result = lift_single(bytes).unwrap();
+            assert_eq!(result.bytes_consumed, bytes.len(), "{name}");
+            assert_eq!(result.ops.len(), 2, "{name}");
+            let mask = match &result.ops[0].kind {
+                OpKind::Load {
+                    dst,
+                    addr:
+                        Address::BaseIndexScale {
+                            base: Some(base),
+                            index,
+                            scale: 4,
+                            disp: 0x20,
+                            disp_size: DispSize::Disp8,
+                        },
+                    width: MemWidth::B4,
+                    sign: SignExtend::Zero,
+                } => {
+                    assert_eq!(*base, x86_gpr(10), "{name}");
+                    assert_eq!(*index, x86_gpr(11), "{name}");
+                    *dst
+                }
+                other => panic!("expected VEX {name} memory mask load, got {other:?}"),
+            };
+            assert_vex_pdep_pext_op(
+                &result.ops,
+                1,
+                name,
+                x86_gpr(0),
+                x86_gpr(9),
+                mask,
+                OpWidth::W32,
+            );
+        }
+    }
+
+    #[test]
+    fn lift_vex_pdep_pext_rejects_invalid_l_like_spec() {
+        for (bytes, name) in [
+            (&[0xC4, 0xE2, 0x77, 0xF5, 0xC2][..], "pdep VEX.L=1"),
+            (&[0xC4, 0xE2, 0x76, 0xF5, 0xC2][..], "pext VEX.L=1"),
+        ] {
+            let err = lift_single(bytes).expect_err(name);
+            assert!(
+                matches!(err, LiftError::InvalidEncoding { .. }),
+                "{name}: {err:?}"
+            );
+        }
+
+        let err = lift_single(&[0xC4, 0xE2, 0x71, 0xF5, 0xC2]).unwrap_err();
+        assert!(matches!(err, LiftError::Unsupported { .. }), "{err:?}");
     }
 
     fn assert_apx_bmi2_shift(
