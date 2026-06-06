@@ -1519,11 +1519,20 @@ impl Aarch64Lowerer {
             AtomicOp::Umin => Ok((0, 0b111)),
             AtomicOp::Swap => Ok((1, 0b000)),
             AtomicOp::And if src == VReg::Imm(0) => Ok((1, 0b000)),
+            AtomicOp::And if src == VReg::Imm(-1) => Ok((0, 0b001)),
             AtomicOp::Sub if src == VReg::Imm(0) => Ok((0, 0b000)),
             AtomicOp::And | AtomicOp::Sub | AtomicOp::Nand => Err(LowerError::UnsupportedOp {
                 op: format!("AArch64 native atomic RMW op {op:?}"),
             }),
         }
+    }
+
+    fn atomic_rmw_source_gpr(op: AtomicOp, src: VReg) -> Result<u8, LowerError> {
+        if op == AtomicOp::And && src == VReg::Imm(-1) {
+            return Ok(31);
+        }
+
+        Self::gpr(src)
     }
 
     fn lower_atomic_rmw(
@@ -1537,7 +1546,7 @@ impl Aarch64Lowerer {
     ) -> Result<(), LowerError> {
         let rt = Self::dst_gpr(dst)?;
         let rn = Self::exclusive_base_gpr(addr)?;
-        let rs = Self::gpr(src)?;
+        let rs = Self::atomic_rmw_source_gpr(op, src)?;
         let size = Self::mem_size(width)?;
         let (acquire, release) = Self::atomic_order_bits(order);
         let (o3, opc) = Self::atomic_rmw_op_encoding(op, src)?;
@@ -8502,6 +8511,35 @@ mod tests {
         let mut expected = Vec::new();
         expected.extend_from_slice(
             &enc_atomic_rmw_regs(3, 0, 0, 0, 0b000, 31, 1, 0).to_le_bytes(),
+        );
+        expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
+        assert_eq!(code, expected);
+    }
+
+    #[test]
+    fn lowers_atomic_rmw_and_all_ones_as_ldclr_zero() {
+        let mut builder = FunctionBuilder::new(FunctionId(0), 0);
+        builder.push_op(
+            0,
+            OpKind::AtomicRmw {
+                dst: x(0),
+                addr: Address::Direct(x(1)),
+                src: VReg::Imm(-1),
+                op: AtomicOp::And,
+                width: MemWidth::B8,
+                order: MemoryOrder::Relaxed,
+            },
+        );
+        builder.set_terminator(Terminator::Return { values: vec![] });
+        let func = builder.finish();
+
+        let mut lowerer = Aarch64Lowerer::new();
+        lowerer.lower_function(&func).unwrap();
+        let code = lowerer.finalize().unwrap();
+
+        let mut expected = Vec::new();
+        expected.extend_from_slice(
+            &enc_atomic_rmw_regs(3, 0, 0, 0, 0b001, 31, 1, 0).to_le_bytes(),
         );
         expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
         assert_eq!(code, expected);
