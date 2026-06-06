@@ -3532,6 +3532,23 @@ fn smir_aarch64_native_lowering_matches_qemu_oracle() {
     );
 
     let mut st = native_state();
+    st.x[0] = 0x1111_2222_3333_4444;
+    st.x[1] = 0x0123_4567_89ab_cdef;
+    st.pstate = 0xe000_0000;
+    push_case(
+        "eor_x_high_bit_imm_opkind_preserves_flags",
+        enc_logical_imm(1, 0b10, 1, 1, 0, RN),
+        vec![OpKind::Xor {
+            dst: arm_x(0),
+            src1: arm_x(1),
+            src2: SrcOperand::Imm64(0x8000_0000_0000_0000_u64 as i64),
+            width: OpWidth::W64,
+            flags: FlagUpdate::None,
+        }],
+        st,
+    );
+
+    let mut st = native_state();
     st.x[1] = 0x8000_0000_0000_0000;
     st.x[2] = 0xffff_ffff_ffff_ffff;
     st.pstate = 0x7000_0000;
@@ -3544,6 +3561,23 @@ fn smir_aarch64_native_lowering_matches_qemu_oracle() {
             src2: SrcOperand::Reg(arm_x(2)),
             width: OpWidth::W64,
             flags: FlagUpdate::All,
+        }],
+        st,
+    );
+
+    let mut st = native_state();
+    st.x[0] = 0x5656_7878_9a9a_bcbc;
+    st.x[1] = 0xffff_ffff_1234_abcd;
+    st.pstate = 0x3000_0000;
+    push_case(
+        "and_w_shifted_byte_mask_imm_opkind_zero_ext_preserves_flags",
+        enc_logical_imm(0, 0b00, 0, 24, 7, RN),
+        vec![OpKind::And {
+            dst: arm_x(0),
+            src1: arm_x(1),
+            src2: SrcOperand::Imm(0xff00),
+            width: OpWidth::W32,
+            flags: FlagUpdate::None,
         }],
         st,
     );
