@@ -13948,6 +13948,12 @@ impl AArch64Cpu {
         if size == 0b10 && opc == 0b11 {
             return Err(ArmError::UndefinedInstruction(insn));
         }
+        if bit24 == 0 && bit21 == 1 && op2 == 0b10 {
+            let option = ((insn >> 13) & 0x7) as u8;
+            if option & 0b010 == 0 {
+                return Err(ArmError::UndefinedInstruction(insn));
+            }
+        }
 
         // Determine addressing mode
         let (address, wback, wback_value) = self.decode_address(insn, rn, size)?;

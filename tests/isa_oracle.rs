@@ -145,6 +145,33 @@ fn decodes_arm_aarch64_prfm_memory_forms() {
 }
 
 #[test]
+fn decodes_arm_aarch64_ldst_register_offset_forms() {
+    let mut opts = OracleOptions::default();
+    opts.isa = OracleIsa::Arm;
+    opts.arm_state = ArmState::Aarch64;
+
+    let cases = [
+        (0xf862_5820u32, "ldr", "extend_type: UXTW", "shift: 3"),
+        (0xb822_c820u32, "str", "extend_type: SXTW", "shift: 0"),
+        (0x38a2_e820u32, "ldrsb", "extend_type: SXTX", "shift: 0"),
+        (0x78e2_5820u32, "ldrsh", "extend_type: UXTW", "shift: 1"),
+        (0xf840_8820u32, "ldr", "offset: Imm(8)", "mode: Offset"),
+    ];
+
+    for (raw, mnemonic, mem_fragment, shift_fragment) in cases {
+        let value = decode_to_json(&raw.to_le_bytes(), &opts).unwrap();
+        let op = &value["decoded_ops"][0];
+        assert_eq!(op["mnemonic"], mnemonic);
+        let mem = op["operands"][1].as_str().unwrap();
+        assert!(mem.contains(mem_fragment), "{mem}");
+        assert!(mem.contains(shift_fragment), "{mem}");
+    }
+
+    let value = decode_to_json(&0xf862_0820u32.to_le_bytes(), &opts).unwrap();
+    assert_eq!(value["decoded_ops"][0]["mnemonic"], "unknown");
+}
+
+#[test]
 fn decodes_x86_with_smir_lift() {
     let mut opts = OracleOptions::default();
     opts.isa = OracleIsa::X86_64;
