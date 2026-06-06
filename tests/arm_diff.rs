@@ -1220,6 +1220,9 @@ fn smir_aarch64_x86_scalar_lowering_matches_qemu_oracle() {
         ("sdiv_w_zero_ext", enc_dp2(0, 0b0011)),
         ("rbit_x", enc_dp1(1, 0b000000)),
         ("rbit_w_zero_ext", enc_dp1(0, 0b000000)),
+        ("rev16_x", enc_dp1(1, 0b000001)),
+        ("rev16_w_zero_ext", enc_dp1(0, 0b000001)),
+        ("rev32_x", enc_dp1(1, 0b000010)),
         ("rev_x", enc_dp1(1, 0b000011)),
         ("rev_w_zero_ext", enc_dp1(0, 0b000010)),
         ("clz_x", enc_dp1(1, 0b000100)),
@@ -1490,6 +1493,21 @@ fn smir_aarch64_x86_scalar_lowering_matches_qemu_oracle() {
     st.x[0] = 0xaaaa_bbbb_cccc_dddd;
     st.x[1] = 0xffff_ffff_1122_3344;
     batch.push(("rev_w_zero_ext_crafted".into(), enc_dp1(0, 0b000010), st));
+
+    let mut st = ArmState::zeroed();
+    st.x[0] = 0xaaaa_bbbb_cccc_dddd;
+    st.x[1] = 0x0011_2233_4455_6677;
+    batch.push(("rev16_x_crafted".into(), enc_dp1(1, 0b000001), st));
+
+    let mut st = ArmState::zeroed();
+    st.x[0] = 0xaaaa_bbbb_cccc_dddd;
+    st.x[1] = 0xffff_ffff_1122_3344;
+    batch.push(("rev16_w_zero_ext_crafted".into(), enc_dp1(0, 0b000001), st));
+
+    let mut st = ArmState::zeroed();
+    st.x[0] = 0xaaaa_bbbb_cccc_dddd;
+    st.x[1] = 0x1122_3344_aabb_ccdd;
+    batch.push(("rev32_x_crafted".into(), enc_dp1(1, 0b000010), st));
 
     let mut st = ArmState::zeroed();
     st.x[0] = 0xaaaa_bbbb_cccc_dddd;
