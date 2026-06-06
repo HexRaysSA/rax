@@ -4165,8 +4165,8 @@ fn smir_memaddr() {
 //
 // The SMIR lowerer (src/smir/lower/x86_64.rs) emits x86-64 machine code with a
 // FIXED IDENTITY register map (guest VReg::Arch(Rax) -> host RAX, ...R15). So
-// the state bridge is just "load 16 GPRs + RFLAGS into the same-named host
-// regs, jump, read them back" — no marshalling struct. Memory ops compile to
+// the state bridge loads legacy GPRs + RFLAGS into the same-named host regs,
+// jumps, and reads them back; APX EGPR slots stay state-backed. Memory ops compile to
 // direct host pointers (none here; M0 is register-only). This block stands up
 // the executable-memory runtime + the enter_native trampoline and proves one
 // lowered ALU block runs correctly end-to-end (M0). The native differential
@@ -4174,12 +4174,13 @@ fn smir_memaddr() {
 
 /// Guest register file marshalled in/out of a lowered native block. `gpr[i]`
 /// is indexed by x86 register encoding (0=RAX,1=RCX,2=RDX,3=RBX,4=RSP,5=RBP,
-/// 6=RSI,7=RDI,8..15=R8..R15); `rflags` holds materialized flags. repr(C) — the
-/// trampoline reads/writes by fixed byte offset (gpr[i] at i*8, rflags at 128).
+/// 6=RSI,7=RDI,8..15=R8..R15,16..31=R16..R31); `rflags` holds materialized
+/// flags. repr(C) — the trampoline reads/writes by fixed byte offset (gpr[i] at
+/// i*8, rflags at 256).
 #[repr(C)]
 #[derive(Clone, Copy, Debug, Default)]
 struct GuestRegs {
-    gpr: [u64; 16],
+    gpr: [u64; 32],
     rflags: u64,
 }
 
@@ -4206,7 +4207,7 @@ std::arch::global_asm!(
     "sub rsp, 24",        // [rsp]=entry [rsp+8]=state [rsp+16]=pad ; rsp 16-aligned
     "mov [rsp], rdi",
     "mov [rsp+8], rsi",
-    "mov rax, [rsi+128]", // RFLAGS
+    "mov rax, [rsi+256]", // RFLAGS
     "push rax",
     "popfq",
     "mov rax, [rsi+0]",
@@ -4243,7 +4244,7 @@ std::arch::global_asm!(
     "mov [rax+120], r15",
     "pushfq",
     "pop rcx",
-    "mov [rax+128], rcx",
+    "mov [rax+256], rcx",
     "mov rcx, [rsp]",     // saved guest RAX
     "mov [rax+0], rcx",
     "add rsp, 8",         // pop saved RAX

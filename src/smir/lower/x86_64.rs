@@ -13,7 +13,12 @@ use crate::smir::types::{
 };
 
 use super::regalloc::{PhysReg, RegAlloc, RegLocation};
-use super::{CodeBuffer, LowerError, LowerResult, RelocKind, RelocTarget, Relocation, SmirLowerer};
+use super::{
+    CodeBuffer, LowerError, LowerResult, RelocKind, RelocTarget, Relocation, SmirLowerer,
+    X86_GUEST_CALL_FN_OFFSET, X86_GUEST_CTX_OFFSET, X86_GUEST_EXIT_PC_OFFSET,
+    X86_GUEST_FS_BASE_OFFSET, X86_GUEST_GS_BASE_OFFSET, X86_GUEST_LOAD_FN_OFFSET,
+    X86_GUEST_RFLAGS_OFFSET, X86_GUEST_STORE_FN_OFFSET, X86_STATE_PTR_AT_RBP,
+};
 
 // ============================================================================
 // x86_64 Condition Codes
@@ -3148,7 +3153,7 @@ pub struct X86_64Lowerer {
 
     /// Native-exit blocks (JIT general-exit ABI): block-id ⇒ resume guest PC.
     /// A block in this map is lowered as an EXIT STUB that records `exit_pc`
-    /// (via the `[rbp+24]` state pointer) and returns to the trampoline, instead
+    /// (via the state pointer saved in the block frame) and returns to the trampoline, instead
     /// of lowering its ops/terminator. Lets the JIT run a hot loop natively and
     /// hand control back to the interpreter at the loop-exit address. Set via
     /// [`X86_64Lowerer::set_native_exits`] before `lower_function`.
@@ -3330,6 +3335,9 @@ impl X86_64Lowerer {
             // Data Movement
             // ================================================================
             OpKind::Mov { dst, src, width } => {
+                if Self::mov_touches_egpr(*dst, src) {
+                    return self.lower_egpr_mov(*dst, src, *width);
+                }
                 let dst_reg = self.get_dst_reg(*dst)?;
                 let use_modrm_imm = matches!(op.x86_hint, Some(X86OpHint::MovImmModRm));
                 match src {
@@ -8434,21 +8442,37 @@ impl X86_64Lowerer {
         Ok(Some(3))
     }
 
-    /// Lower a single basic block
-    /// x86 encoding (0..15) of an architectural GPR VReg (identity map), or Err
-    /// for a non-arch / non-GPR operand (so the region bails to the interpreter).
+    /// x86 encoding (0..31) of an architectural GPR VReg, or Err for a
+    /// non-arch / non-GPR operand (so the region bails to the interpreter).
     fn jit_arch_enc(&self, v: VReg) -> Result<u8, LowerError> {
         use crate::smir::types::ArchReg;
         match v {
-            VReg::Arch(ArchReg::X86(r)) => PhysReg::from_x86_reg(r)
-                .map(|p| p.encoding())
-                .ok_or_else(|| LowerError::UnsupportedOp {
-                    op: "jit-mem: non-GPR operand".to_string(),
-                }),
+            VReg::Arch(ArchReg::X86(r)) => r.gpr_index().ok_or_else(|| LowerError::UnsupportedOp {
+                op: "jit-mem: non-GPR operand".to_string(),
+            }),
             _ => Err(LowerError::UnsupportedOp {
                 op: "jit-mem: non-arch operand".to_string(),
             }),
         }
+    }
+
+    fn x86_gpr_index(v: VReg) -> Option<u8> {
+        match v {
+            VReg::Arch(ArchReg::X86(r)) => r.gpr_index(),
+            _ => None,
+        }
+    }
+
+    fn x86_egpr_index(v: VReg) -> Option<u8> {
+        match v {
+            VReg::Arch(ArchReg::X86(r)) if r.is_egpr() => r.gpr_index(),
+            _ => None,
+        }
+    }
+
+    fn mov_touches_egpr(dst: VReg, src: &SrcOperand) -> bool {
+        Self::x86_egpr_index(dst).is_some()
+            || matches!(src, SrcOperand::Reg(r) if Self::x86_egpr_index(*r).is_some())
     }
 
     /// `mov [base+off], r<reg_enc>` (store) or `mov r<reg_enc>, [base+off]` (load),
@@ -8465,6 +8489,138 @@ impl X86_64Lowerer {
         self.code.emit_u8(if store { 0x89 } else { 0x8B });
         self.code.emit_u8(0x80 | ((reg_enc & 7) << 3) | (base.encoding() & 7));
         self.code.emit_u32(off as u32);
+    }
+
+    fn emit_flag_preserving_stack_pop8(&mut self) {
+        // lea rsp,[rsp+8]  (48 8D 64 24 08)
+        self.code.emit_u8(0x48);
+        self.code.emit_u8(0x8D);
+        self.code.emit_u8(0x64);
+        self.code.emit_u8(0x24);
+        self.code.emit_u8(0x08);
+    }
+
+    fn emit_load_state_ptr_rax(&mut self) {
+        // mov rax, [rbp+state_ptr]
+        self.code.emit_u8(0x48);
+        self.code.emit_u8(0x8B);
+        self.code.emit_u8(0x45);
+        self.code.emit_u8(X86_STATE_PTR_AT_RBP as u8);
+    }
+
+    fn emit_spill_legacy_gprs_to_state_from_rax(&mut self, saved_rax_stack_off: u8) {
+        for enc in [1u8, 2, 3, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15] {
+            self.emit_struct_mov(PhysReg::Rax, enc, (enc as i32) * 8, true);
+        }
+        // mov rcx, [rsp+saved_rax_stack_off]
+        self.code.emit_u8(0x48);
+        self.code.emit_u8(0x8B);
+        self.code.emit_u8(0x4C);
+        self.code.emit_u8(0x24);
+        self.code.emit_u8(saved_rax_stack_off);
+        self.emit_struct_mov(PhysReg::Rax, 1, 0, true);
+    }
+
+    fn emit_store_gpr_slot_from_reg(
+        &mut self,
+        idx: u8,
+        src: PhysReg,
+        width: OpWidth,
+    ) -> Result<(), LowerError> {
+        let off = (idx as i32) * 8;
+        match width {
+            OpWidth::W8 | OpWidth::W16 => {
+                let mut emitter = X86Emitter::new(&mut self.code);
+                emitter.emit_mov_mr(PhysReg::Rax, off, src, width);
+            }
+            OpWidth::W32 | OpWidth::W64 => {
+                let mut emitter = X86Emitter::new(&mut self.code);
+                emitter.emit_mov_mr(PhysReg::Rax, off, src, OpWidth::W64);
+            }
+            OpWidth::W128 => {
+                return Err(LowerError::UnsupportedOp {
+                    op: "EGPR MOV with 128-bit width".to_string(),
+                });
+            }
+        }
+        Ok(())
+    }
+
+    fn lower_egpr_mov(
+        &mut self,
+        dst: VReg,
+        src: &SrcOperand,
+        width: OpWidth,
+    ) -> Result<(), LowerError> {
+        if width == OpWidth::W128 {
+            return Err(LowerError::UnsupportedOp {
+                op: "EGPR MOV with 128-bit width".to_string(),
+            });
+        }
+
+        let dst_idx = Self::x86_gpr_index(dst).ok_or_else(|| LowerError::UnsupportedOp {
+            op: "EGPR MOV destination is not an x86 GPR".to_string(),
+        })?;
+        if matches!(dst_idx, 4 | 5) {
+            return Err(LowerError::UnsupportedOp {
+                op: "EGPR MOV to RSP/RBP is not native-safe".to_string(),
+            });
+        }
+
+        let src_idx = match src {
+            SrcOperand::Reg(r) => {
+                Some(
+                    Self::x86_gpr_index(*r).ok_or_else(|| LowerError::UnsupportedOp {
+                        op: "EGPR MOV source is not an x86 GPR".to_string(),
+                    })?,
+                )
+            }
+            SrcOperand::Imm(_) | SrcOperand::Imm64(_) => None,
+            _ => {
+                return Err(LowerError::UnsupportedOp {
+                    op: "EGPR MOV with non-scalar source".to_string(),
+                });
+            }
+        };
+
+        self.code.emit_u8(0x50); // push rax: preserve guest RAX while it is spilled.
+        self.emit_load_state_ptr_rax();
+        self.emit_spill_legacy_gprs_to_state_from_rax(0);
+
+        {
+            let mut emitter = X86Emitter::new(&mut self.code);
+            match (src, src_idx) {
+                (SrcOperand::Reg(_), Some(idx)) => {
+                    let load_width = if width == OpWidth::W32 {
+                        OpWidth::W32
+                    } else {
+                        width
+                    };
+                    emitter.emit_mov_rm(PhysReg::Rdx, PhysReg::Rax, (idx as i32) * 8, load_width);
+                }
+                (SrcOperand::Imm(val), None) => {
+                    emitter.emit_mov_ri(PhysReg::Rdx, *val, width);
+                }
+                (SrcOperand::Imm64(val), None) => {
+                    if width == OpWidth::W64 {
+                        emitter.emit_mov_ri_imm64(PhysReg::Rdx, *val);
+                    } else {
+                        emitter.emit_mov_ri(PhysReg::Rdx, *val as i64, width);
+                    }
+                }
+                _ => unreachable!(),
+            }
+        }
+
+        self.emit_store_gpr_slot_from_reg(dst_idx, PhysReg::Rdx, width)?;
+
+        {
+            let mut emitter = X86Emitter::new(&mut self.code);
+            emitter.emit_mov_rr(PhysReg::Rcx, PhysReg::Rax, OpWidth::W64);
+        }
+        self.emit_reload_all(PhysReg::Rcx);
+        self.emit_flag_preserving_stack_pop8();
+        Ok(())
     }
 
     /// `add rsi, imm` (REX.W 81 /0 id) when `v` fits i32; else bail.
@@ -8507,9 +8663,8 @@ impl X86_64Lowerer {
     }
 
     /// Lower a guest `Load`/`Store` as a call into the MMU via the helper
-    /// function pointers in `GuestRegs` (offsets: ctx=144, load_fn=152,
-    /// store_fn=160). Spills all guest GPRs to the struct, computes the effective
-    /// guest address, calls the helper, and on a fault/MMIO return (`ok==0`)
+    /// function pointers in `GuestRegs`. Spills all guest GPRs to the struct,
+    /// computes the effective guest address, calls the helper, and on a fault/MMIO return (`ok==0`)
     /// records `exit_pc=guest_pc` and returns to the interpreter WITHOUT
     /// committing the op (precise restart). Only reached when `mem_helpers` is
     /// set and the address uses no RSP/RBP/virtual base.
@@ -8547,11 +8702,11 @@ impl X86_64Lowerer {
 
         // --- spill: push rax; rax=state ptr; SAVE FLAGS; spill 13 GPRs + RAX ---
         self.code.emit_u8(0x50); // push rax  ([rsp]=guest RAX)
-        // mov rax, [rbp+24]   (48 8B 45 18)
+        // mov rax, [rbp+state_ptr]
         self.code.emit_u8(0x48);
         self.code.emit_u8(0x8B);
         self.code.emit_u8(0x45);
-        self.code.emit_u8(0x18);
+        self.code.emit_u8(X86_STATE_PTR_AT_RBP as u8);
         // pushfq: preserve the guest STATUS flags across the helper call — x86
         // loads/stores do NOT affect flags, but `call`/`test`/`add rsp` here do,
         // and a folded `Jcc` later in the block reads the live flags. This also
@@ -8632,10 +8787,10 @@ impl X86_64Lowerer {
             } => {
                 // [segment_base + base + index*scale + disp]. The segment base is
                 // not a GPR, so it is read from a dedicated GuestRegs slot
-                // (fs_base@168 / gs_base@176) rather than a gpr[] slot.
+                // (fs_base / gs_base) rather than a gpr[] slot.
                 let seg_off: i32 = match segment {
-                    VReg::Arch(ArchReg::X86(X86Reg::FsBase)) => 168,
-                    VReg::Arch(ArchReg::X86(X86Reg::GsBase)) => 176,
+                    VReg::Arch(ArchReg::X86(X86Reg::FsBase)) => X86_GUEST_FS_BASE_OFFSET,
+                    VReg::Arch(ArchReg::X86(X86Reg::GsBase)) => X86_GUEST_GS_BASE_OFFSET,
                     _ => {
                         return Err(LowerError::UnsupportedOp {
                             op: "jit-mem: SegmentRel with non-FS/GS segment".to_string(),
@@ -8678,7 +8833,7 @@ impl X86_64Lowerer {
 
         // --- args + call ---
         if is_load {
-            self.emit_struct_mov(PhysReg::Rax, 7, 144, false); // mov rdi, [rax+144] (ctx)
+            self.emit_struct_mov(PhysReg::Rax, 7, X86_GUEST_CTX_OFFSET, false); // rdi = ctx
             self.code.emit_u8(0xBA); // mov edx, size
             self.code.emit_u32(size as u32);
             self.code.emit_u8(0xB9); // mov ecx, signed
@@ -8693,7 +8848,7 @@ impl X86_64Lowerer {
                     op: "jit-mem: store without source".to_string(),
                 });
             }
-            self.emit_struct_mov(PhysReg::Rax, 7, 144, false); // rdi = ctx
+            self.emit_struct_mov(PhysReg::Rax, 7, X86_GUEST_CTX_OFFSET, false); // rdi = ctx
             self.code.emit_u8(0xB9); // mov ecx, size
             self.code.emit_u32(size as u32);
         }
@@ -8703,12 +8858,16 @@ impl X86_64Lowerer {
         // call [rax + load_fn/store_fn]   (FF 90 id)
         self.code.emit_u8(0xFF);
         self.code.emit_u8(0x90);
-        self.code.emit_u32(if is_load { 152 } else { 160 });
-        // mov rcx, [rbp+24]   (state ptr; RAX now holds the return value)
+        self.code.emit_u32(if is_load {
+            X86_GUEST_LOAD_FN_OFFSET as u32
+        } else {
+            X86_GUEST_STORE_FN_OFFSET as u32
+        });
+        // mov rcx, [rbp+state_ptr]   (state ptr; RAX now holds the return value)
         self.code.emit_u8(0x48);
         self.code.emit_u8(0x8B);
         self.code.emit_u8(0x4D);
-        self.code.emit_u8(0x18);
+        self.code.emit_u8(X86_STATE_PTR_AT_RBP as u8);
         // test <ok>, <ok>  : load -> ok in RDX (48 85 D2), store -> ok in RAX (48 85 C0)
         self.code.emit_u8(0x48);
         self.code.emit_u8(0x85);
@@ -8785,14 +8944,14 @@ impl X86_64Lowerer {
         self.code.emit_u8(0x48);
         self.code.emit_u8(0x8B);
         self.code.emit_u8(0x45);
-        self.code.emit_u8(0x18); // mov rax,[rbp+24]
+        self.code.emit_u8(X86_STATE_PTR_AT_RBP as u8); // mov rax,[rbp+state_ptr]
         self.code.emit_u8(0xC7);
         self.code.emit_u8(0x80);
-        self.code.emit_u32(136);
+        self.code.emit_u32(X86_GUEST_EXIT_PC_OFFSET as u32);
         self.code.emit_u32(guest_pc as u32);
         self.code.emit_u8(0xC7);
         self.code.emit_u8(0x80);
-        self.code.emit_u32(140);
+        self.code.emit_u32((X86_GUEST_EXIT_PC_OFFSET + 4) as u32);
         self.code.emit_u32((guest_pc >> 32) as u32);
         self.code.emit_u8(0x58); // pop rax
         self.emit_epilogue_with_ret(None);
@@ -8843,11 +9002,11 @@ impl X86_64Lowerer {
 
         // --- spill: push rax; rax=state ptr; pushfq; spill 13 GPRs + RAX; set rflags ---
         self.code.emit_u8(0x50); // push rax  ([rsp]=guest RAX)
-        // mov rax, [rbp+24]  (state ptr)
+        // mov rax, [rbp+state_ptr]
         self.code.emit_u8(0x48);
         self.code.emit_u8(0x8B);
         self.code.emit_u8(0x45);
-        self.code.emit_u8(0x18);
+        self.code.emit_u8(X86_STATE_PTR_AT_RBP as u8);
         // pushfq  ([rsp]=guest flags, [rsp+8]=guest RAX) — 16-aligns RSP for the call.
         self.code.emit_u8(0x9C);
         for enc in [1u8, 2, 3, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15] {
@@ -8860,13 +9019,13 @@ impl X86_64Lowerer {
         self.code.emit_u8(0x24);
         self.code.emit_u8(0x08);
         self.emit_struct_mov(PhysReg::Rax, 1, 0, true);
-        // mov rcx, [rsp]  (guest flags); store to gr.rflags (offset 128) — the
+        // mov rcx, [rsp]  (guest flags); store to gr.rflags — the
         // interpreter callee needs the full materialized flags.
         self.code.emit_u8(0x48);
         self.code.emit_u8(0x8B);
         self.code.emit_u8(0x0C);
         self.code.emit_u8(0x24);
-        self.emit_struct_mov(PhysReg::Rax, 1, 128, true);
+        self.emit_struct_mov(PhysReg::Rax, 1, X86_GUEST_RFLAGS_OFFSET, true);
 
         // --- args: rdi = gr (rax), rsi = target_pc, rdx = return_pc ---
         // mov rdi, rax  (48 89 C7)
@@ -8879,15 +9038,15 @@ impl X86_64Lowerer {
         }
         self.emit_movabs(2, return_pc); // movabs rdx, return_pc
 
-        // --- call [rax + CALL_FN_OFFSET(184)]  (FF 90 id) ---
+        // --- call [rax + CALL_FN_OFFSET]  (FF 90 id) ---
         self.code.emit_u8(0xFF);
         self.code.emit_u8(0x90);
-        self.code.emit_u32(184);
-        // mov rcx, [rbp+24]  (state ptr; RAX now = ok)
+        self.code.emit_u32(X86_GUEST_CALL_FN_OFFSET as u32);
+        // mov rcx, [rbp+state_ptr]  (state ptr; RAX now = ok)
         self.code.emit_u8(0x48);
         self.code.emit_u8(0x8B);
         self.code.emit_u8(0x4D);
-        self.code.emit_u8(0x18);
+        self.code.emit_u8(X86_STATE_PTR_AT_RBP as u8);
         // test rax, rax  (ok)  (48 85 C0)
         self.code.emit_u8(0x48);
         self.code.emit_u8(0x85);
@@ -8899,11 +9058,11 @@ impl X86_64Lowerer {
         self.code.emit_u32(0);
 
         // --- OK path: restore full post-callee flags, reload GPRs, jmp continuation ---
-        // push qword [rcx+128]; popfq  (the helper synced gr.rflags with the
+        // push qword [rcx+rflags]; popfq  (the helper synced gr.rflags with the
         // post-callee flags). FF /6 [rcx+disp32] = FF B1 <disp32>.
         self.code.emit_u8(0xFF);
         self.code.emit_u8(0xB1);
-        self.code.emit_u32(128);
+        self.code.emit_u32(X86_GUEST_RFLAGS_OFFSET as u32);
         self.code.emit_u8(0x9D); // popfq
         self.emit_reload_all(PhysReg::Rcx);
         // lea rsp,[rsp+16]: pop the flags+RAX slots (flag-preserving).
@@ -8923,10 +9082,10 @@ impl X86_64Lowerer {
         let bail = self.code.position();
         self.code
             .patch_i32(jz_pos, (bail as i64 - (jz_pos as i64 + 4)) as i32);
-        // push qword [rcx+128]; popfq
+        // push qword [rcx+rflags]; popfq
         self.code.emit_u8(0xFF);
         self.code.emit_u8(0xB1);
-        self.code.emit_u32(128);
+        self.code.emit_u32(X86_GUEST_RFLAGS_OFFSET as u32);
         self.code.emit_u8(0x9D);
         self.emit_reload_all(PhysReg::Rcx);
         // lea rsp,[rsp+16]
@@ -8947,25 +9106,25 @@ impl X86_64Lowerer {
 
         // JIT native-exit stub: record the resume guest PC into `exit_pc` and
         // return to the trampoline, skipping this block's ops/terminator. The
-        // state pointer lives at [rbp+24] (the enter_native frame layout); we
+        // state pointer lives at [rbp+X86_STATE_PTR_AT_RBP] (the enter_native frame layout); we
         // borrow RAX as scratch (push/pop) so no guest register is disturbed.
-        // exit_pc is at GuestRegs offset 136 (gpr[16]*8 + rflags), 140 = +hi32.
+        // exit_pc is after gpr[32] + rflags.
         if let Some(&resume_pc) = self.native_exits.get(&block.id) {
             self.code.emit_u8(0x50); // push rax
-            // mov rax, [rbp+24]  (48 8B 45 18)
+            // mov rax, [rbp+state_ptr]
             self.code.emit_u8(0x48);
             self.code.emit_u8(0x8B);
             self.code.emit_u8(0x45);
-            self.code.emit_u8(0x18);
-            // mov dword [rax+136], resume_pc<low32>   (C7 80 <disp32> <imm32>)
+            self.code.emit_u8(X86_STATE_PTR_AT_RBP as u8);
+            // mov dword [rax+exit_pc], resume_pc<low32>   (C7 80 <disp32> <imm32>)
             self.code.emit_u8(0xC7);
             self.code.emit_u8(0x80);
-            self.code.emit_u32(136);
+            self.code.emit_u32(X86_GUEST_EXIT_PC_OFFSET as u32);
             self.code.emit_u32(resume_pc as u32);
-            // mov dword [rax+140], resume_pc<high32>
+            // mov dword [rax+exit_pc+4], resume_pc<high32>
             self.code.emit_u8(0xC7);
             self.code.emit_u8(0x80);
-            self.code.emit_u32(140);
+            self.code.emit_u32((X86_GUEST_EXIT_PC_OFFSET + 4) as u32);
             self.code.emit_u32((resume_pc >> 32) as u32);
             self.code.emit_u8(0x58); // pop rax
             // epilogue: mov rsp,rbp ; pop rbp ; ret (flag-preserving teardown)
@@ -9249,8 +9408,48 @@ impl SmirLowerer for X86_64Lowerer {
 mod tests {
     use super::*;
     use crate::smir::flags::FlagUpdate;
-    use crate::smir::ir::{FunctionBuilder, Terminator};
-    use crate::smir::types::{FunctionId, OpWidth, SrcOperand, VReg};
+    use crate::smir::ir::{FunctionBuilder, SmirFunction, Terminator};
+    use crate::smir::lift::x86_64::X86_64Lifter;
+    use crate::smir::lift::{LiftContext, MemoryReader, SmirLifter};
+    use crate::smir::memory::MemoryError;
+    use crate::smir::types::{ArchReg, FunctionId, OpWidth, SourceArch, SrcOperand, VReg, X86Reg};
+
+    struct TestReader {
+        base: u64,
+        bytes: Vec<u8>,
+    }
+
+    impl MemoryReader for TestReader {
+        fn read(&self, addr: u64, size: usize) -> Result<Vec<u8>, MemoryError> {
+            let off = addr
+                .checked_sub(self.base)
+                .filter(|&off| (off as usize) < self.bytes.len())
+                .ok_or(MemoryError::OutOfBounds { addr })? as usize;
+            let n = (self.bytes.len() - off).min(size);
+            Ok(self.bytes[off..off + n].to_vec())
+        }
+    }
+
+    fn lower_rex2_block(bytes: &[u8]) -> (Vec<u8>, usize) {
+        let reader = TestReader {
+            base: 0x1000,
+            bytes: bytes.to_vec(),
+        };
+        let mut lifter = X86_64Lifter::strict();
+        let mut lctx = LiftContext::new(SourceArch::X86_64);
+        let mut block = lifter
+            .lift_block(0x1000, &reader, &mut lctx)
+            .expect("lift REX2 block");
+        block.set_terminator(Terminator::Return { values: vec![] });
+        let block_id = block.id;
+        let mut func = SmirFunction::new(FunctionId(0), block_id, 0x1000);
+        func.add_block(block);
+
+        let mut lowerer = X86_64Lowerer::new();
+        let res = lowerer.lower_function(&func).expect("lower REX2 block");
+        assert!(res.relocations.is_empty(), "REX2 block should not relocate");
+        (lowerer.finalize().expect("finalize"), res.entry_offset)
+    }
 
     #[test]
     fn test_emit_mov_rr() {
@@ -9339,6 +9538,73 @@ mod tests {
         }
         // SETE AL = 0F 94 C0
         assert_eq!(buf.data(), &[0x0F, 0x94, 0xC0]);
+    }
+
+    #[test]
+    fn lower_rex2_mov_egpr_sequence_addresses_apx_slot() {
+        // LLVM 20 encodes:
+        //   mov r16, 0x1122334455667788  => d5 18 b8 imm64
+        //   mov rax, r16                 => d5 48 89 c0
+        let (lowered, _) = lower_rex2_block(&[
+            0xD5, 0x18, 0xB8, 0x88, 0x77, 0x66, 0x55, 0x44, 0x33, 0x22, 0x11, 0xD5, 0x48, 0x89,
+            0xC0, 0xF4,
+        ]);
+        let r16_slot = (16u32 * 8).to_le_bytes();
+        assert!(
+            lowered.windows(4).any(|window| window == r16_slot),
+            "state-backed REX2 MOV should address GuestRegs.gpr[16]"
+        );
+    }
+
+    #[cfg(all(feature = "smir-jit", target_arch = "x86_64"))]
+    #[test]
+    fn exec_rex2_mov_egpr_roundtrips_through_jit_state() {
+        use crate::smir::lower::runtime::{ExecMem, GuestRegs};
+
+        let imm = 0x1122_3344_5566_7788u64;
+        let (lowered, entry_offset) = lower_rex2_block(&[
+            0xD5, 0x18, 0xB8, 0x88, 0x77, 0x66, 0x55, 0x44, 0x33, 0x22, 0x11, 0xD5, 0x48, 0x89,
+            0xC0, 0xF4,
+        ]);
+        let mem = ExecMem::new(&lowered).expect("ExecMem");
+        let mut regs = GuestRegs::default();
+        let status = 0x8D5u64; // CF/PF/AF/ZF/SF/OF
+        regs.rflags = 0x2 | status;
+
+        mem.run(entry_offset, &mut regs);
+
+        assert_eq!(regs.gpr[16], imm, "r16 state slot");
+        assert_eq!(regs.gpr[0], imm, "rax copied from r16");
+        assert_eq!(
+            regs.rflags & status,
+            status,
+            "MOV must preserve status flags"
+        );
+    }
+
+    #[test]
+    fn lower_egpr_add_bails_instead_of_allocating_host_alias() {
+        let r16 = VReg::Arch(ArchReg::X86(X86Reg::R16));
+        let rax = VReg::Arch(ArchReg::X86(X86Reg::Rax));
+        let mut builder = FunctionBuilder::new(FunctionId(0), 0x1000);
+        builder.push_op(
+            0x1000,
+            OpKind::Add {
+                dst: r16,
+                src1: r16,
+                src2: SrcOperand::Reg(rax),
+                width: OpWidth::W64,
+                flags: FlagUpdate::None,
+            },
+        );
+        builder.set_terminator(Terminator::Return { values: vec![] });
+        let func = builder.finish();
+
+        let mut lowerer = X86_64Lowerer::new();
+        assert!(
+            lowerer.lower_function(&func).is_err(),
+            "unsupported EGPR ALU must bail rather than alias a legacy host GPR"
+        );
     }
 
     #[test]

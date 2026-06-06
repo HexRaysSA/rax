@@ -16,49 +16,56 @@
 
 #![cfg(all(feature = "smir-jit", target_arch = "x86_64"))]
 
+use super::{
+    X86_GUEST_CALL_FN_OFFSET, X86_GUEST_CTX_OFFSET, X86_GUEST_EXIT_PC_OFFSET,
+    X86_GUEST_FS_BASE_OFFSET, X86_GUEST_GPR_COUNT, X86_GUEST_GS_BASE_OFFSET,
+    X86_GUEST_LOAD_FN_OFFSET, X86_GUEST_RFLAGS_OFFSET, X86_GUEST_STORE_FN_OFFSET,
+    X86_STATE_PTR_AT_RBP,
+};
+
 /// Guest register file marshalled in/out of a lowered native block.
 ///
 /// `gpr[i]` is indexed by x86 register *encoding*
-/// (0=RAX, 1=RCX, 2=RDX, 3=RBX, 4=RSP, 5=RBP, 6=RSI, 7=RDI, 8..=15=R8..=R15);
-/// `rflags` holds the materialized flags. `repr(C)` with a fixed layout — the
-/// trampoline reads/writes by byte offset (`gpr[i]` at `i*8`, `rflags` at 128).
+/// (0=RAX, 1=RCX, 2=RDX, 3=RBX, 4=RSP, 5=RBP, 6=RSI, 7=RDI, 8..=15=R8..=R15,
+/// 16..=31=R16..=R31). `rflags` holds the materialized flags. `repr(C)` with a
+/// fixed layout — the trampoline reads/writes by byte offset (`gpr[i]` at
+/// `i*8`, `rflags` at [`X86_GUEST_RFLAGS_OFFSET`]).
 #[repr(C)]
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct GuestRegs {
     /// General-purpose registers, indexed by x86 encoding.
-    pub gpr: [u64; 16],
-    /// Materialized RFLAGS (offset 128).
+    pub gpr: [u64; X86_GUEST_GPR_COUNT],
+    /// Materialized RFLAGS.
     pub rflags: u64,
     /// Resume guest PC, written by an exit stub when a block lowered with the
-    /// general-exit ABI hands control back to the interpreter (offset 136). Only
-    /// meaningful for blocks run via [`ExecMem::run_with_exit`]. See
+    /// general-exit ABI hands control back to the interpreter. Only meaningful
+    /// for blocks run via [`ExecMem::run_with_exit`]. See
     /// [`enter_native`] (the R15-reserved trampoline) and the lowerer's
     /// `native_exit` mode.
     pub exit_pc: u64,
     /// Opaque context pointer passed as arg0 to the memory helpers (the
-    /// `*mut X86_64Vcpu`). Offset 144. Set by the JIT before each run.
+    /// `*mut X86_64Vcpu`). Set by the JIT before each run.
     pub ctx: u64,
     /// Address of the load helper `fn(ctx, addr, size, signed) -> (value, ok)`
-    /// (SysV: value in RAX, ok in RDX). Offset 152.
+    /// (SysV: value in RAX, ok in RDX).
     pub load_fn: u64,
-    /// Address of the store helper `fn(ctx, addr, value, size) -> ok`. Offset 160.
+    /// Address of the store helper `fn(ctx, addr, value, size) -> ok`.
     pub store_fn: u64,
-    /// IA32_FS_BASE — the FS segment base (offset 168). The lowered code adds
+    /// IA32_FS_BASE. The lowered code adds
     /// this to the effective address of an `fs:`-overridden memory operand
     /// ([`Address::SegmentRel`]). Set from `sregs.fs.base` before each run.
     pub fs_base: u64,
-    /// IA32_GS_BASE — the GS segment base (offset 176). As `fs_base` but for
+    /// IA32_GS_BASE. As `fs_base` but for
     /// `gs:`-overridden operands (per-CPU data in the Linux kernel).
     pub gs_base: u64,
-    /// Address of the call helper `fn(gr, target_pc, return_pc) -> ok` (offset
-    /// 184). Used by the lift-through-calls path (RAX_JIT_CALL): a guest CALL in
-    /// a JIT region lowers to a call-out into this helper, which runs the
-    /// interpreter for the callee until it returns to `return_pc`, then resumes
-    /// native execution. `ok == 0` means the callee bailed to the interpreter
-    /// (an exit/exception) and the region must return; the helper has set
-    /// `exit_pc`. NOTE: arg0 is the `*mut GuestRegs` itself (not `ctx`), because
-    /// the helper needs the full marshalled guest state, and `gr.ctx` carries
-    /// the vcpu pointer.
+    /// Address of the call helper `fn(gr, target_pc, return_pc) -> ok`. Used by
+    /// the lift-through-calls path (RAX_JIT_CALL): a guest CALL in a JIT region
+    /// lowers to a call-out into this helper, which runs the interpreter for the
+    /// callee until it returns to `return_pc`, then resumes native execution.
+    /// `ok == 0` means the callee bailed to the interpreter (an exit/exception)
+    /// and the region must return; the helper has set `exit_pc`. NOTE: arg0 is
+    /// the `*mut GuestRegs` itself (not `ctx`), because the helper needs the
+    /// full marshalled guest state, and `gr.ctx` carries the vcpu pointer.
     pub call_fn: u64,
 }
 
@@ -157,7 +164,7 @@ core::arch::global_asm!(
     "sub rsp, 24", // [rsp]=entry [rsp+8]=state [rsp+16]=pad ; rsp 16-aligned
     "mov [rsp], rdi",
     "mov [rsp+8], rsi",
-    "mov rax, [rsi+128]", // RFLAGS
+    "mov rax, [rsi+256]", // RFLAGS
     "push rax",
     "popfq",
     "mov rax, [rsi+0]",
@@ -194,7 +201,7 @@ core::arch::global_asm!(
     "mov [rax+120], r15",
     "pushfq",
     "pop rcx",
-    "mov [rax+128], rcx",
+    "mov [rax+256], rcx",
     // Sanitize the HOST EFLAGS before returning to Rust. The `popfq` above loaded
     // the GUEST RFLAGS into the host, and the region runs with them — but the
     // sticky control flags then LEAK into the host: AC (alignment check, set by
@@ -223,9 +230,9 @@ unsafe extern "C" {
     fn rax_smir_enter_native(entry: *const u8, state: *mut GuestRegs);
 }
 
-/// Byte offset of `GuestRegs.exit_pc` (after `gpr[16]` + `rflags`). An exit stub
+/// Byte offset of `GuestRegs.exit_pc` (after `gpr[32]` + `rflags`). An exit stub
 /// writes the resume guest PC here via the state pointer.
-pub const EXIT_PC_OFFSET: i32 = 136;
+pub const EXIT_PC_OFFSET: i32 = X86_GUEST_EXIT_PC_OFFSET;
 
 /// Offset of the `*mut GuestRegs` state pointer relative to a lowered block's
 /// frame pointer (RBP), under the `rax_smir_enter_native` trampoline's stack
@@ -233,20 +240,20 @@ pub const EXIT_PC_OFFSET: i32 = 136;
 /// the block's prologue `push rbp; mov rbp,rsp` lands RBP 24 bytes below that
 /// slot — so `[rbp+24]` holds the state pointer throughout the block. An exit
 /// stub loads it from here to record `exit_pc` (no reserved guest register).
-pub const STATE_PTR_AT_RBP: i32 = 24;
+pub const STATE_PTR_AT_RBP: i32 = X86_STATE_PTR_AT_RBP;
 
 /// Byte offset of `GuestRegs.ctx` (the memory-helper context pointer).
-pub const CTX_OFFSET: i32 = 144;
+pub const CTX_OFFSET: i32 = X86_GUEST_CTX_OFFSET;
 /// Byte offset of `GuestRegs.load_fn` (the memory-load helper address).
-pub const LOAD_FN_OFFSET: i32 = 152;
+pub const LOAD_FN_OFFSET: i32 = X86_GUEST_LOAD_FN_OFFSET;
 /// Byte offset of `GuestRegs.store_fn` (the memory-store helper address).
-pub const STORE_FN_OFFSET: i32 = 160;
+pub const STORE_FN_OFFSET: i32 = X86_GUEST_STORE_FN_OFFSET;
 /// Byte offset of `GuestRegs.fs_base` (the FS segment base for `fs:` operands).
-pub const FS_BASE_OFFSET: i32 = 168;
+pub const FS_BASE_OFFSET: i32 = X86_GUEST_FS_BASE_OFFSET;
 /// Byte offset of `GuestRegs.gs_base` (the GS segment base for `gs:` operands).
-pub const GS_BASE_OFFSET: i32 = 176;
+pub const GS_BASE_OFFSET: i32 = X86_GUEST_GS_BASE_OFFSET;
 /// Byte offset of `GuestRegs.call_fn` (the lift-through-calls helper address).
-pub const CALL_FN_OFFSET: i32 = 184;
+pub const CALL_FN_OFFSET: i32 = X86_GUEST_CALL_FN_OFFSET;
 
 /// W^X executable memory holding a finalized lowered block. Maps RW, copies the
 /// code in, then flips to RX; unmaps on drop.
@@ -493,28 +500,34 @@ mod tests {
 
     // General-exit stub: a block (with the lowerer's `push rbp; mov rbp,rsp`
     // prologue) records its resume PC into exit_pc by loading the state pointer
-    // from [rbp+24] (the trampoline's frame layout) into a push/pop-saved
+    // from the trampoline frame into a push/pop-saved
     // scratch — no reserved guest register, runs under the existing trampoline.
     #[test]
     fn exec_mem_exit_pc_via_stub() {
-        let code = [
+        let mut code = vec![
             0x55, // push rbp
             0x48, 0x89, 0xE5, // mov rbp, rsp
             0x50, // push rax (scratch)
-            0x48, 0x8B, 0x45, 0x18, // mov rax, [rbp+24]  (state ptr)
-            0xC7, 0x80, 0x88, 0x00, 0x00, 0x00, 0xCD, 0xAB, 0x34, 0x12, // mov [rax+136], 0x1234abcd
-            0xC7, 0x80, 0x8C, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // mov [rax+140], 0
+            0x48, 0x8B, 0x45, X86_STATE_PTR_AT_RBP as u8, // mov rax, [rbp+state_ptr]
+            0xC7, 0x80,
+        ];
+        code.extend_from_slice(&(X86_GUEST_EXIT_PC_OFFSET as u32).to_le_bytes());
+        code.extend_from_slice(&0x1234_abcdu32.to_le_bytes());
+        code.extend_from_slice(&[0xC7, 0x80]);
+        code.extend_from_slice(&((X86_GUEST_EXIT_PC_OFFSET + 4) as u32).to_le_bytes());
+        code.extend_from_slice(&0u32.to_le_bytes());
+        code.extend_from_slice(&[
             0x58, // pop rax
             0x48, 0x89, 0xEC, // mov rsp, rbp
             0x5D, // pop rbp
             0xC3, // ret
-        ];
+        ]);
         let mem = ExecMem::new(&code).expect("ExecMem map");
         let mut regs = GuestRegs::default();
         regs.gpr[0] = 0xCAFE; // guest RAX must pass through (scratch restored)
         regs.rflags = 0x2;
         mem.run(0, &mut regs);
-        assert_eq!(regs.exit_pc, 0x1234_abcd, "exit_pc recorded via [rbp+24] state ptr");
+        assert_eq!(regs.exit_pc, 0x1234_abcd, "exit_pc recorded via frame state ptr");
         assert_eq!(regs.gpr[0], 0xCAFE, "guest RAX restored after scratch use");
     }
 

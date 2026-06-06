@@ -254,6 +254,68 @@ impl X86Reg {
             _ => unreachable!(),
         }
     }
+
+    /// Return the x86 GPR encoding index for RAX..R31.
+    pub fn gpr_index(self) -> Option<u8> {
+        Some(match self {
+            X86Reg::Rax => 0,
+            X86Reg::Rcx => 1,
+            X86Reg::Rdx => 2,
+            X86Reg::Rbx => 3,
+            X86Reg::Rsp => 4,
+            X86Reg::Rbp => 5,
+            X86Reg::Rsi => 6,
+            X86Reg::Rdi => 7,
+            X86Reg::R8 => 8,
+            X86Reg::R9 => 9,
+            X86Reg::R10 => 10,
+            X86Reg::R11 => 11,
+            X86Reg::R12 => 12,
+            X86Reg::R13 => 13,
+            X86Reg::R14 => 14,
+            X86Reg::R15 => 15,
+            X86Reg::R16 => 16,
+            X86Reg::R17 => 17,
+            X86Reg::R18 => 18,
+            X86Reg::R19 => 19,
+            X86Reg::R20 => 20,
+            X86Reg::R21 => 21,
+            X86Reg::R22 => 22,
+            X86Reg::R23 => 23,
+            X86Reg::R24 => 24,
+            X86Reg::R25 => 25,
+            X86Reg::R26 => 26,
+            X86Reg::R27 => 27,
+            X86Reg::R28 => 28,
+            X86Reg::R29 => 29,
+            X86Reg::R30 => 30,
+            X86Reg::R31 => 31,
+            _ => return None,
+        })
+    }
+
+    /// True for APX EGPRs R16-R31.
+    pub fn is_egpr(self) -> bool {
+        matches!(
+            self,
+            X86Reg::R16
+                | X86Reg::R17
+                | X86Reg::R18
+                | X86Reg::R19
+                | X86Reg::R20
+                | X86Reg::R21
+                | X86Reg::R22
+                | X86Reg::R23
+                | X86Reg::R24
+                | X86Reg::R25
+                | X86Reg::R26
+                | X86Reg::R27
+                | X86Reg::R28
+                | X86Reg::R29
+                | X86Reg::R30
+                | X86Reg::R31
+        )
+    }
 }
 
 /// AArch64 register

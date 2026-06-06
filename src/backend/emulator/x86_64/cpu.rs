@@ -3096,6 +3096,22 @@ unsafe extern "C" fn rax_jit_call(
     vcpu.regs.r13 = gr.gpr[13];
     vcpu.regs.r14 = gr.gpr[14];
     vcpu.regs.r15 = gr.gpr[15];
+    vcpu.regs.r16 = gr.gpr[16];
+    vcpu.regs.r17 = gr.gpr[17];
+    vcpu.regs.r18 = gr.gpr[18];
+    vcpu.regs.r19 = gr.gpr[19];
+    vcpu.regs.r20 = gr.gpr[20];
+    vcpu.regs.r21 = gr.gpr[21];
+    vcpu.regs.r22 = gr.gpr[22];
+    vcpu.regs.r23 = gr.gpr[23];
+    vcpu.regs.r24 = gr.gpr[24];
+    vcpu.regs.r25 = gr.gpr[25];
+    vcpu.regs.r26 = gr.gpr[26];
+    vcpu.regs.r27 = gr.gpr[27];
+    vcpu.regs.r28 = gr.gpr[28];
+    vcpu.regs.r29 = gr.gpr[29];
+    vcpu.regs.r30 = gr.gpr[30];
+    vcpu.regs.r31 = gr.gpr[31];
     vcpu.regs.rflags = gr.rflags;
     vcpu.lazy_flags = LazyFlags {
         op: LazyFlagOp::None,
@@ -3157,6 +3173,22 @@ unsafe extern "C" fn rax_jit_call(
     gr.gpr[13] = vcpu.regs.r13;
     gr.gpr[14] = vcpu.regs.r14;
     gr.gpr[15] = vcpu.regs.r15;
+    gr.gpr[16] = vcpu.regs.r16;
+    gr.gpr[17] = vcpu.regs.r17;
+    gr.gpr[18] = vcpu.regs.r18;
+    gr.gpr[19] = vcpu.regs.r19;
+    gr.gpr[20] = vcpu.regs.r20;
+    gr.gpr[21] = vcpu.regs.r21;
+    gr.gpr[22] = vcpu.regs.r22;
+    gr.gpr[23] = vcpu.regs.r23;
+    gr.gpr[24] = vcpu.regs.r24;
+    gr.gpr[25] = vcpu.regs.r25;
+    gr.gpr[26] = vcpu.regs.r26;
+    gr.gpr[27] = vcpu.regs.r27;
+    gr.gpr[28] = vcpu.regs.r28;
+    gr.gpr[29] = vcpu.regs.r29;
+    gr.gpr[30] = vcpu.regs.r30;
+    gr.gpr[31] = vcpu.regs.r31;
     gr.rflags = vcpu.regs.rflags;
     if ok == 0 {
         gr.exit_pc = vcpu.regs.rip;
@@ -3571,6 +3603,22 @@ impl X86_64Vcpu {
         gr.gpr[13] = self.regs.r13;
         gr.gpr[14] = self.regs.r14;
         gr.gpr[15] = self.regs.r15;
+        gr.gpr[16] = self.regs.r16;
+        gr.gpr[17] = self.regs.r17;
+        gr.gpr[18] = self.regs.r18;
+        gr.gpr[19] = self.regs.r19;
+        gr.gpr[20] = self.regs.r20;
+        gr.gpr[21] = self.regs.r21;
+        gr.gpr[22] = self.regs.r22;
+        gr.gpr[23] = self.regs.r23;
+        gr.gpr[24] = self.regs.r24;
+        gr.gpr[25] = self.regs.r25;
+        gr.gpr[26] = self.regs.r26;
+        gr.gpr[27] = self.regs.r27;
+        gr.gpr[28] = self.regs.r28;
+        gr.gpr[29] = self.regs.r29;
+        gr.gpr[30] = self.regs.r30;
+        gr.gpr[31] = self.regs.r31;
         gr.rflags = self.regs.rflags;
         gr.exit_pc = self.regs.rip; // fallback (an exit stub overwrites this)
 
@@ -3606,6 +3654,22 @@ impl X86_64Vcpu {
         self.regs.r13 = gr.gpr[13];
         self.regs.r14 = gr.gpr[14];
         self.regs.r15 = gr.gpr[15];
+        self.regs.r16 = gr.gpr[16];
+        self.regs.r17 = gr.gpr[17];
+        self.regs.r18 = gr.gpr[18];
+        self.regs.r19 = gr.gpr[19];
+        self.regs.r20 = gr.gpr[20];
+        self.regs.r21 = gr.gpr[21];
+        self.regs.r22 = gr.gpr[22];
+        self.regs.r23 = gr.gpr[23];
+        self.regs.r24 = gr.gpr[24];
+        self.regs.r25 = gr.gpr[25];
+        self.regs.r26 = gr.gpr[26];
+        self.regs.r27 = gr.gpr[27];
+        self.regs.r28 = gr.gpr[28];
+        self.regs.r29 = gr.gpr[29];
+        self.regs.r30 = gr.gpr[30];
+        self.regs.r31 = gr.gpr[31];
         // Merge: status flags from the native result, all other bits (IF, DF,
         // IOPL, NT, reserved, …) preserved from the guest's pre-region value.
         const STATUS: u64 = flags::bits::CF
