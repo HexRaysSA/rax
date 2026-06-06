@@ -1508,7 +1508,7 @@ impl Aarch64Lowerer {
         }
     }
 
-    fn atomic_rmw_op_encoding(op: AtomicOp) -> Result<(u32, u32), LowerError> {
+    fn atomic_rmw_op_encoding(op: AtomicOp, src: VReg) -> Result<(u32, u32), LowerError> {
         match op {
             AtomicOp::Add => Ok((0, 0b000)),
             AtomicOp::Xor => Ok((0, 0b010)),
@@ -1518,6 +1518,7 @@ impl Aarch64Lowerer {
             AtomicOp::Umax => Ok((0, 0b110)),
             AtomicOp::Umin => Ok((0, 0b111)),
             AtomicOp::Swap => Ok((1, 0b000)),
+            AtomicOp::And if src == VReg::Imm(0) => Ok((1, 0b000)),
             AtomicOp::And | AtomicOp::Sub | AtomicOp::Nand => Err(LowerError::UnsupportedOp {
                 op: format!("AArch64 native atomic RMW op {op:?}"),
             }),
@@ -1538,7 +1539,7 @@ impl Aarch64Lowerer {
         let rs = Self::gpr(src)?;
         let size = Self::mem_size(width)?;
         let (acquire, release) = Self::atomic_order_bits(order);
-        let (o3, opc) = Self::atomic_rmw_op_encoding(op)?;
+        let (o3, opc) = Self::atomic_rmw_op_encoding(op, src)?;
         self.emit_atomic_rmw(rt, rn, rs, size, acquire, release, o3, opc);
         Ok(())
     }
@@ -6135,16 +6136,30 @@ mod tests {
             | 3
     }
 
-    fn enc_atomic_rmw(size: u32, acquire: u32, release: u32, o3: u32, opc: u32) -> u32 {
+    fn enc_atomic_rmw_regs(
+        size: u32,
+        acquire: u32,
+        release: u32,
+        o3: u32,
+        opc: u32,
+        rs: u32,
+        rn: u32,
+        rt: u32,
+    ) -> u32 {
         (size << 30)
             | (0b111 << 27)
             | (acquire << 23)
             | (release << 22)
             | (1 << 21)
-            | (2 << 16)
+            | (rs << 16)
             | (o3 << 15)
             | (opc << 12)
-            | (1 << 5)
+            | (rn << 5)
+            | rt
+    }
+
+    fn enc_atomic_rmw(size: u32, acquire: u32, release: u32, o3: u32, opc: u32) -> u32 {
+        enc_atomic_rmw_regs(size, acquire, release, o3, opc, 2, 1, 0)
     }
 
     fn enc_cas(size: u32, acquire: u32, release: u32) -> u32 {
@@ -8429,6 +8444,35 @@ mod tests {
 
         let mut expected = Vec::new();
         expected.extend_from_slice(&enc_atomic_rmw(3, 0, 0, 1, 0b000).to_le_bytes());
+        expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
+        assert_eq!(code, expected);
+    }
+
+    #[test]
+    fn lowers_atomic_rmw_and_zero_as_swap_zero() {
+        let mut builder = FunctionBuilder::new(FunctionId(0), 0);
+        builder.push_op(
+            0,
+            OpKind::AtomicRmw {
+                dst: x(0),
+                addr: Address::Direct(x(1)),
+                src: VReg::Imm(0),
+                op: AtomicOp::And,
+                width: MemWidth::B8,
+                order: MemoryOrder::Relaxed,
+            },
+        );
+        builder.set_terminator(Terminator::Return { values: vec![] });
+        let func = builder.finish();
+
+        let mut lowerer = Aarch64Lowerer::new();
+        lowerer.lower_function(&func).unwrap();
+        let code = lowerer.finalize().unwrap();
+
+        let mut expected = Vec::new();
+        expected.extend_from_slice(
+            &enc_atomic_rmw_regs(3, 0, 0, 1, 0b000, 31, 1, 0).to_le_bytes(),
+        );
         expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
         assert_eq!(code, expected);
     }

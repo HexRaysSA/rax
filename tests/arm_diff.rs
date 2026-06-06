@@ -5272,6 +5272,26 @@ fn smir_aarch64_native_lowering_matches_qemu_oracle() {
     );
 
     let mut st = native_state();
+    st.x[0] = 0x0123_4567_89ab_cdef;
+    st.x[1] = SCRATCH_BASE;
+    st.x[2] = 0x7777_8888_9999_aaaa;
+    st.scratch[8] = 0xfedc_ba98_7654_3210;
+    st.pstate = 0xe000_0000;
+    push_case(
+        "atomic_and_zero_x_direct_opkind_as_swp_zero_preserves_flags_and_memory",
+        enc_atomic_smir(3, 0, 0, 1, 0b000, 31, RN, RD),
+        vec![OpKind::AtomicRmw {
+            dst: arm_x(0),
+            addr: native_direct_addr.clone(),
+            src: VReg::Imm(0),
+            op: AtomicOp::And,
+            width: MemWidth::B8,
+            order: MemoryOrder::Relaxed,
+        }],
+        st,
+    );
+
+    let mut st = native_state();
     st.x[0] = 0xffff_ffff_aaaa_bbbb;
     st.x[1] = SCRATCH_BASE;
     st.x[2] = 0x0000_0000_0000_0007;
