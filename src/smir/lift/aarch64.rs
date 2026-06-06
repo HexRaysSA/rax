@@ -1582,6 +1582,22 @@ impl Aarch64Lifter {
                 self.lift_load(insn, MemWidth::B4, SignExtend::Sign, pc, &mut ops, ctx)?;
             }
 
+            Mnemonic::LDXR | Mnemonic::LDAXR => {
+                let width = match insn.operands.first() {
+                    Some(Operand::Reg(r)) if !r.is_64bit => MemWidth::B4,
+                    _ => MemWidth::B8,
+                };
+                self.lift_load_exclusive(insn, width, pc, &mut ops, ctx)?;
+            }
+
+            Mnemonic::LDXRB | Mnemonic::LDAXRB => {
+                self.lift_load_exclusive(insn, MemWidth::B1, pc, &mut ops, ctx)?;
+            }
+
+            Mnemonic::LDXRH | Mnemonic::LDAXRH => {
+                self.lift_load_exclusive(insn, MemWidth::B2, pc, &mut ops, ctx)?;
+            }
+
             Mnemonic::LDAR => {
                 let width = match insn.operands.first() {
                     Some(Operand::Reg(r)) if !r.is_64bit => MemWidth::B4,
@@ -3258,6 +3274,42 @@ impl Aarch64Lifter {
         if mem.mode == AddressingMode::PostIndex {
             self.handle_writeback(mem, pc, ops, ctx);
         }
+
+        Ok(())
+    }
+
+    fn lift_load_exclusive(
+        &self,
+        insn: &DecodedInsn,
+        width: MemWidth,
+        pc: u64,
+        ops: &mut Vec<SmirOp>,
+        ctx: &mut LiftContext,
+    ) -> Result<(), LiftError> {
+        let (rd, mem) = match (insn.operands.get(0), insn.operands.get(1)) {
+            (Some(Operand::Reg(r)), Some(Operand::Mem(m))) => (r, m),
+            _ => return Err(LiftError::Internal("invalid load-exclusive operands".to_string())),
+        };
+
+        let dst = self.dst_reg(rd, ctx);
+        let (addr, pre_ops) = self.mem_to_addr(mem, ctx);
+
+        for mut op in pre_ops {
+            op.id = OpId(ops.len() as u16);
+            ops.push(op);
+        }
+
+        let load_addr = self.indexed_access_addr(mem, addr);
+
+        ops.push(SmirOp::new(
+            OpId(ops.len() as u16),
+            pc,
+            OpKind::LoadExclusive {
+                dst,
+                addr: load_addr,
+                width,
+            },
+        ));
 
         Ok(())
     }

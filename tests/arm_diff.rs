@@ -2510,6 +2510,26 @@ fn smir_aarch64_x86_memory_lowering_matches_qemu_oracle() {
         }
     }
 
+    let exclusive_load_ops: &[(u32, u32, &str)] = &[
+        (0, 0, "ldxrb"),
+        (1, 0, "ldxrh"),
+        (2, 0, "ldxr_w"),
+        (3, 0, "ldxr_x"),
+        (0, 1, "ldaxrb"),
+        (1, 1, "ldaxrh"),
+        (2, 1, "ldaxr_w"),
+        (3, 1, "ldaxr_x"),
+    ];
+    for &(size, acquire, name) in exclusive_load_ops {
+        for _ in 0..6 {
+            batch.push((
+                name.to_string(),
+                enc_ldxr_smir(size, acquire),
+                mem_input(&mut rng),
+            ));
+        }
+    }
+
     let indexed_ops: &[(u32, u32, u32, &str)] = &[
         (3, 0, 0, "str_x"),
         (3, 0, 1, "ldr_x"),
@@ -3045,6 +3065,19 @@ fn enc_ldxr(size: u32, o0: u32) -> u32 {
         | (RN << 5)
         | RD
 }
+
+#[cfg(all(feature = "smir-jit", target_arch = "x86_64"))]
+fn enc_ldxr_smir(size: u32, acquire: u32) -> u32 {
+    (size << 30)
+        | (0b001000 << 24)
+        | ((acquire & 1) << 23)
+        | (1 << 22)
+        | (0b11111 << 16)
+        | (0b11111 << 10)
+        | (RN << 5)
+        | RD
+}
+
 /// STXR/STLXR <Ws>, <Rt>, [Rn]: `size 001000 0 0 0 Rs o0 11111 Rn Rt`. Ws=x2, Rt=x3, Rn=x1.
 fn enc_stxr(size: u32, o0: u32) -> u32 {
     (size << 30) | (0b001000 << 24) | (2 << 16) | (o0 << 15) | (0b11111 << 10) | (RN << 5) | 3

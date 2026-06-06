@@ -1353,6 +1353,9 @@ impl Aarch64X86_64Lowerer {
                 width,
                 sign,
             } => self.lower_load(*dst, addr, *width, *sign)?,
+            OpKind::LoadExclusive { dst, addr, width } => {
+                self.lower_load(*dst, addr, *width, SignExtend::Zero)?
+            }
             OpKind::Store { src, addr, width } => self.lower_store(*src, addr, *width)?,
             OpKind::Fence { .. } => {
                 let mut e = X86Emitter::new(&mut self.code);
