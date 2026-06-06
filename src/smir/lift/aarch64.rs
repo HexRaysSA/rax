@@ -987,6 +987,10 @@ impl Aarch64Lifter {
                 self.lift_shift(insn, ShiftOp::Ror, pc, &mut ops, ctx)?;
             }
 
+            Mnemonic::EXTR => {
+                self.lift_extract(insn, pc, &mut ops, ctx)?;
+            }
+
             // =================================================================
             // Extend
             // =================================================================
@@ -1436,7 +1440,16 @@ impl Aarch64Lifter {
             };
 
             let amount_src = match amount {
-                Operand::Imm(imm) => SrcOperand::Imm(imm.value),
+                Operand::Imm(imm) => {
+                    let value = if shift_op == ShiftOp::Lsl
+                        && matches!(insn.operands.get(3), Some(Operand::Imm(_)))
+                    {
+                        i64::from(width.bits()) - imm.value
+                    } else {
+                        imm.value
+                    };
+                    SrcOperand::Imm(value)
+                }
                 Operand::Reg(r) => SrcOperand::Reg(self.arm_reg(r)),
                 _ => return Err(LiftError::Internal("invalid shift amount".to_string())),
             };
@@ -1473,6 +1486,81 @@ impl Aarch64Lifter {
             };
 
             ops.push(SmirOp::new(OpId(ops.len() as u16), pc, kind));
+        }
+
+        Ok(())
+    }
+
+    fn lift_extract(
+        &self,
+        insn: &DecodedInsn,
+        pc: u64,
+        ops: &mut Vec<SmirOp>,
+        ctx: &mut LiftContext,
+    ) -> Result<(), LiftError> {
+        if let (
+            Some(Operand::Reg(rd)),
+            Some(Operand::Reg(rn)),
+            Some(Operand::Reg(rm)),
+            Some(Operand::Imm(lsb)),
+        ) = (
+            insn.operands.get(0),
+            insn.operands.get(1),
+            insn.operands.get(2),
+            insn.operands.get(3),
+        ) {
+            let dst = self.dst_reg(rd, ctx);
+            let width = self.reg_width(rd);
+            let amount = lsb.value;
+
+            if amount == 0 {
+                Self::push_lifted_op(
+                    ops,
+                    pc,
+                    OpKind::Mov {
+                        dst,
+                        src: SrcOperand::Reg(self.arm_reg(rm)),
+                        width,
+                    },
+                );
+                return Ok(());
+            }
+
+            let lo = ctx.alloc_vreg();
+            let hi = ctx.alloc_vreg();
+            Self::push_lifted_op(
+                ops,
+                pc,
+                OpKind::Shr {
+                    dst: lo,
+                    src: self.arm_reg(rm),
+                    amount: SrcOperand::Imm(amount),
+                    width,
+                    flags: FlagUpdate::None,
+                },
+            );
+            Self::push_lifted_op(
+                ops,
+                pc,
+                OpKind::Shl {
+                    dst: hi,
+                    src: self.arm_reg(rn),
+                    amount: SrcOperand::Imm(i64::from(width.bits()) - amount),
+                    width,
+                    flags: FlagUpdate::None,
+                },
+            );
+            Self::push_lifted_op(
+                ops,
+                pc,
+                OpKind::Or {
+                    dst,
+                    src1: lo,
+                    src2: SrcOperand::Reg(hi),
+                    width,
+                    flags: FlagUpdate::None,
+                },
+            );
         }
 
         Ok(())

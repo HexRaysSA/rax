@@ -531,6 +531,31 @@ fn enc_dp1(sf: u32, opcode: u32) -> u32 {
     (sf << 31) | (0b1011010110 << 21) | (opcode << 10) | (RN << 5) | RD
 }
 
+/// Bitfield: `sf opc 100110 N immr imms Rn Rd`
+#[cfg(all(feature = "smir-jit", target_arch = "x86_64"))]
+fn enc_bitfield(sf: u32, opc: u32, immr: u32, imms: u32) -> u32 {
+    (sf << 31)
+        | (opc << 29)
+        | (0b100110 << 23)
+        | (sf << 22)
+        | (immr << 16)
+        | (imms << 10)
+        | (RN << 5)
+        | RD
+}
+
+/// Extract: `sf 00 100111 N 0 Rm imms Rn Rd`
+#[cfg(all(feature = "smir-jit", target_arch = "x86_64"))]
+fn enc_extract(sf: u32, rn: u32, rm: u32, imms: u32) -> u32 {
+    (sf << 31)
+        | (0b100111 << 23)
+        | (sf << 22)
+        | (rm << 16)
+        | (imms << 10)
+        | (rn << 5)
+        | RD
+}
+
 /// Data-processing (3 source): `sf 00 11011 op31 Rm o0 Ra Rn Rd`
 fn enc_dp3(sf: u32, op31: u32, o0: u32) -> u32 {
     enc_dp3_ra(sf, op31, o0, RA)
@@ -1031,6 +1056,14 @@ fn smir_aarch64_x86_scalar_lowering_matches_qemu_oracle() {
         ("umull", enc_dp3_ra(1, 0b101, 0, 31)),
         ("smulh", enc_dp3_ra(1, 0b010, 0, 31)),
         ("umulh", enc_dp3_ra(1, 0b110, 0, 31)),
+        ("lsl_imm_x", enc_bitfield(1, 0b10, 51, 50)),
+        ("lsl_imm_w_zero_ext", enc_bitfield(0, 0b10, 25, 24)),
+        ("lsr_imm_x", enc_bitfield(1, 0b10, 9, 63)),
+        ("asr_imm_x", enc_bitfield(1, 0b00, 9, 63)),
+        ("sxtb_x", enc_bitfield(1, 0b00, 0, 7)),
+        ("extr_x", enc_extract(1, RN, RM, 13)),
+        ("extr_w_zero_ext", enc_extract(0, RN, RM, 7)),
+        ("ror_imm_x", enc_extract(1, RN, RN, 17)),
         ("udiv_x", enc_dp2(1, 0b0010)),
         ("udiv_w_zero_ext", enc_dp2(0, 0b0010)),
         ("sdiv_x", enc_dp2(1, 0b0011)),
@@ -1153,6 +1186,28 @@ fn smir_aarch64_x86_scalar_lowering_matches_qemu_oracle() {
     st.x[1] = u64::MAX;
     st.x[2] = 2;
     batch.push(("umulh_high".into(), enc_dp3_ra(1, 0b110, 0, 31), st));
+
+    let mut st = ArmState::zeroed();
+    st.x[0] = 0xaaaa_bbbb_cccc_dddd;
+    st.x[1] = 0xffff_ffff_8000_0001;
+    batch.push(("lsl_w_zero_ext_crafted".into(), enc_bitfield(0, 0b10, 25, 24), st));
+
+    let mut st = ArmState::zeroed();
+    st.x[0] = 0xaaaa_bbbb_cccc_dddd;
+    st.x[1] = 0x8000_0000_0000_0000;
+    batch.push(("asr_x_sign_crafted".into(), enc_bitfield(1, 0b00, 9, 63), st));
+
+    let mut st = ArmState::zeroed();
+    st.x[0] = 0xaaaa_bbbb_cccc_dddd;
+    st.x[1] = 0x1122_3344_5566_7788;
+    st.x[2] = 0x99aa_bbcc_ddee_ff00;
+    batch.push(("extr_x_crafted".into(), enc_extract(1, RN, RM, 13), st));
+
+    let mut st = ArmState::zeroed();
+    st.x[0] = 0xaaaa_bbbb_cccc_dddd;
+    st.x[1] = 0xffff_ffff_1122_3344;
+    st.x[2] = 0xffff_ffff_aabb_ccdd;
+    batch.push(("extr_w_zero_ext_crafted".into(), enc_extract(0, RN, RM, 7), st));
 
     let mut st = ArmState::zeroed();
     st.x[0] = 0xaaaa_bbbb_cccc_dddd;
