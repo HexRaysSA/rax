@@ -3596,6 +3596,157 @@ fn smir_aarch64_native_lowering_matches_qemu_oracle() {
     );
 
     let mut st = native_state();
+    st.x[0] = 0x1010_2020_3030_4040;
+    st.x[1] = 0xffff_ffff_ffff_ffff;
+    st.pstate = 0xa000_0000;
+    push_case(
+        "and_x_zero_imm_opkind_preserves_flags",
+        enc_mov_wide(1, 0b10, 0, 0),
+        vec![OpKind::And {
+            dst: arm_x(0),
+            src1: arm_x(1),
+            src2: SrcOperand::Imm(0),
+            width: OpWidth::W64,
+            flags: FlagUpdate::None,
+        }],
+        st,
+    );
+
+    let mut st = native_state();
+    st.x[0] = 0x2020_3030_4040_5050;
+    st.x[1] = 0x1234_5678_9abc_def0;
+    st.pstate = 0xb000_0000;
+    push_case(
+        "and_x_all_ones_imm_opkind_preserves_flags",
+        enc_logical_shift_regs(1, 0b01, 0, 0, 0, RD, 31, RN),
+        vec![OpKind::And {
+            dst: arm_x(0),
+            src1: arm_x(1),
+            src2: SrcOperand::Imm64(-1),
+            width: OpWidth::W64,
+            flags: FlagUpdate::None,
+        }],
+        st,
+    );
+
+    let mut st = native_state();
+    st.x[0] = 0x2525_3535_4545_5555;
+    st.x[1] = 0xfedc_ba98_7654_3210;
+    st.pstate = 0xe000_0000;
+    push_case(
+        "orr_x_zero_imm_opkind_preserves_flags",
+        enc_logical_shift_regs(1, 0b01, 0, 0, 0, RD, 31, RN),
+        vec![OpKind::Or {
+            dst: arm_x(0),
+            src1: arm_x(1),
+            src2: SrcOperand::Imm(0),
+            width: OpWidth::W64,
+            flags: FlagUpdate::None,
+        }],
+        st,
+    );
+
+    let mut st = native_state();
+    st.x[0] = 0x3030_4040_5050_6060;
+    st.x[1] = 0x00ff_0000_ffff_00ff;
+    st.pstate = 0x6000_0000;
+    push_case(
+        "eor_x_all_ones_imm_opkind_preserves_flags",
+        enc_logical_shift_regs(1, 0b01, 0, 1, 0, RD, 31, RN),
+        vec![OpKind::Xor {
+            dst: arm_x(0),
+            src1: arm_x(1),
+            src2: SrcOperand::Imm64(-1),
+            width: OpWidth::W64,
+            flags: FlagUpdate::None,
+        }],
+        st,
+    );
+
+    let mut st = native_state();
+    st.x[0] = 0x3535_4545_5555_6565;
+    st.x[1] = 0xffff_ffff_ffff_ffff;
+    st.pstate = 0x3000_0000;
+    push_case(
+        "ands_x_zero_imm_opkind_sets_z",
+        enc_logical_shift_regs(1, 0b11, 0, 0, 0, RD, 31, 31),
+        vec![OpKind::And {
+            dst: arm_x(0),
+            src1: arm_x(1),
+            src2: SrcOperand::Imm(0),
+            width: OpWidth::W64,
+            flags: FlagUpdate::All,
+        }],
+        st,
+    );
+
+    let mut st = native_state();
+    st.x[0] = 0x4040_5050_6060_7070;
+    st.x[1] = 0x8000_0000_0000_1234;
+    st.pstate = 0x1000_0000;
+    push_case(
+        "ands_x_all_ones_imm_opkind_sets_flags",
+        enc_logical_shift_regs(1, 0b11, 0, 0, 0, RD, RN, RN),
+        vec![OpKind::And {
+            dst: arm_x(0),
+            src1: arm_x(1),
+            src2: SrcOperand::Imm64(-1),
+            width: OpWidth::W64,
+            flags: FlagUpdate::All,
+        }],
+        st,
+    );
+
+    let mut st = native_state();
+    st.x[0] = 0x5050_6060_7070_8080;
+    st.x[1] = 0xffff_ffff_ffff_ffff;
+    st.pstate = 0x9000_0000;
+    push_case(
+        "test_x_zero_imm_opkind_sets_z",
+        enc_logical_shift_regs(1, 0b11, 0, 0, 0, 31, 31, 31),
+        vec![OpKind::Test {
+            src1: arm_x(1),
+            src2: SrcOperand::Imm(0),
+            width: OpWidth::W64,
+        }],
+        st,
+    );
+
+    let mut st = native_state();
+    st.x[0] = 0x6060_7070_8080_9090;
+    st.x[1] = 0x0f0f_f0f0_aaaa_5555;
+    st.pstate = 0xc000_0000;
+    push_case(
+        "bic_x_zero_imm_opkind_preserves_flags",
+        enc_logical_shift_regs(1, 0b01, 0, 0, 0, RD, 31, RN),
+        vec![OpKind::AndNot {
+            dst: arm_x(0),
+            src1: arm_x(1),
+            src2: SrcOperand::Imm(0),
+            width: OpWidth::W64,
+            flags: FlagUpdate::None,
+        }],
+        st,
+    );
+
+    let mut st = native_state();
+    st.x[0] = 0x7070_8080_9090_a0a0;
+    st.x[1] = 0xffff_ffff_ffff_ffff;
+    st.pstate = 0xd000_0000;
+    push_case(
+        "bic_x_all_ones_imm_opkind_preserves_flags",
+        enc_mov_wide(1, 0b10, 0, 0),
+        vec![OpKind::AndNot {
+            dst: arm_x(0),
+            src1: arm_x(1),
+            src2: SrcOperand::Imm64(-1),
+            width: OpWidth::W64,
+            flags: FlagUpdate::None,
+        }],
+        st,
+    );
+
+    let mut st = native_state();
     st.x[1] = 0x8000_0000_0000_0000;
     st.x[2] = 0xffff_ffff_ffff_ffff;
     st.pstate = 0x7000_0000;
