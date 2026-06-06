@@ -1483,6 +1483,22 @@ impl Aarch64Lifter {
                 self.lift_load(insn, MemWidth::B4, SignExtend::Sign, pc, &mut ops, ctx)?;
             }
 
+            Mnemonic::LDAR => {
+                let width = match insn.operands.first() {
+                    Some(Operand::Reg(r)) if !r.is_64bit => MemWidth::B4,
+                    _ => MemWidth::B8,
+                };
+                self.lift_load(insn, width, SignExtend::Zero, pc, &mut ops, ctx)?;
+            }
+
+            Mnemonic::LDARB => {
+                self.lift_load(insn, MemWidth::B1, SignExtend::Zero, pc, &mut ops, ctx)?;
+            }
+
+            Mnemonic::LDARH => {
+                self.lift_load(insn, MemWidth::B2, SignExtend::Zero, pc, &mut ops, ctx)?;
+            }
+
             Mnemonic::STR => {
                 let width = match insn.operands.first() {
                     Some(Operand::Reg(r)) if !r.is_64bit => MemWidth::B4,
@@ -1496,6 +1512,22 @@ impl Aarch64Lifter {
             }
 
             Mnemonic::STRH => {
+                self.lift_store(insn, MemWidth::B2, pc, &mut ops, ctx)?;
+            }
+
+            Mnemonic::STLR => {
+                let width = match insn.operands.first() {
+                    Some(Operand::Reg(r)) if !r.is_64bit => MemWidth::B4,
+                    _ => MemWidth::B8,
+                };
+                self.lift_store(insn, width, pc, &mut ops, ctx)?;
+            }
+
+            Mnemonic::STLRB => {
+                self.lift_store(insn, MemWidth::B1, pc, &mut ops, ctx)?;
+            }
+
+            Mnemonic::STLRH => {
                 self.lift_store(insn, MemWidth::B2, pc, &mut ops, ctx)?;
             }
 

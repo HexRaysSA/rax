@@ -930,8 +930,8 @@ impl Aarch64Decoder {
         }
 
         match op_cat {
-            // 0b000, 0b010: Exclusive, atomic, ordered
-            0b000 | 0b010 => Self::decode_load_store_exclusive(raw),
+            // 0b000, 0b001, 0b010: Exclusive, atomic, ordered
+            0b000 | 0b001 | 0b010 => Self::decode_load_store_exclusive(raw),
             // 0b011: Load register literal
             0b011 => Self::decode_ldr_literal(raw),
             // 0b100, 0b110: Load/store register variants
