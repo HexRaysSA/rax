@@ -1592,12 +1592,18 @@ impl Aarch64Lowerer {
             (1_u64 << bits) - 1
         };
         if value != 0 && value != all_ones {
-            let lsb = value.trailing_zeros();
-            let shifted = value >> lsb;
-            if (shifted & (shifted + 1)) == 0 {
-                let ones = shifted.count_ones();
-                let immr = if lsb == 0 { 0 } else { bits - lsb };
-                return Ok((Self::sf(width)?, immr, ones - 1));
+            for ones in 1..bits {
+                let low_mask = (1_u64 << ones) - 1;
+                for immr in 0..bits {
+                    let mask = if immr == 0 {
+                        low_mask
+                    } else {
+                        ((low_mask >> immr) | (low_mask << (bits - immr))) & all_ones
+                    };
+                    if mask == value {
+                        return Ok((Self::sf(width)?, immr, ones - 1));
+                    }
+                }
             }
         }
         Err(LowerError::UnsupportedOp {
@@ -6036,6 +6042,32 @@ mod tests {
     }
 
     #[test]
+    fn lowers_orr_x_wrapping_mask_imm() {
+        let mut builder = FunctionBuilder::new(FunctionId(0), 0);
+        builder.push_op(
+            0,
+            OpKind::Or {
+                dst: x(0),
+                src1: x(1),
+                src2: SrcOperand::Imm64(0x8000_0000_0000_0001_u64 as i64),
+                width: OpWidth::W64,
+                flags: FlagUpdate::None,
+            },
+        );
+        builder.set_terminator(Terminator::Return { values: vec![] });
+        let func = builder.finish();
+
+        let mut lowerer = Aarch64Lowerer::new();
+        lowerer.lower_function(&func).unwrap();
+        let code = lowerer.finalize().unwrap();
+
+        let mut expected = Vec::new();
+        expected.extend_from_slice(&enc_logical_imm(1, 0b01, 1, 1, 1, 0, 1).to_le_bytes());
+        expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
+        assert_eq!(code, expected);
+    }
+
+    #[test]
     fn lowers_and_w_shifted_byte_mask_imm() {
         let mut builder = FunctionBuilder::new(FunctionId(0), 0);
         builder.push_op(
@@ -6057,6 +6089,32 @@ mod tests {
 
         let mut expected = Vec::new();
         expected.extend_from_slice(&enc_logical_imm(0, 0b00, 0, 24, 7, 0, 1).to_le_bytes());
+        expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
+        assert_eq!(code, expected);
+    }
+
+    #[test]
+    fn lowers_and_w_wrapping_mask_imm() {
+        let mut builder = FunctionBuilder::new(FunctionId(0), 0);
+        builder.push_op(
+            0,
+            OpKind::And {
+                dst: x(0),
+                src1: x(1),
+                src2: SrcOperand::Imm(0xf000_000f),
+                width: OpWidth::W32,
+                flags: FlagUpdate::None,
+            },
+        );
+        builder.set_terminator(Terminator::Return { values: vec![] });
+        let func = builder.finish();
+
+        let mut lowerer = Aarch64Lowerer::new();
+        lowerer.lower_function(&func).unwrap();
+        let code = lowerer.finalize().unwrap();
+
+        let mut expected = Vec::new();
+        expected.extend_from_slice(&enc_logical_imm(0, 0b00, 0, 4, 7, 0, 1).to_le_bytes());
         expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
         assert_eq!(code, expected);
     }
