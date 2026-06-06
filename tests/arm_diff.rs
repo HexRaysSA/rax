@@ -1582,6 +1582,9 @@ fn enc_hint(crm: u32, op2: u32) -> u32 {
 }
 
 #[cfg(all(feature = "smir-jit", target_arch = "x86_64"))]
+const SYSREG_NZCV_RAW: u32 = (3 << 14) | (3 << 11) | (4 << 7) | (2 << 3);
+
+#[cfg(all(feature = "smir-jit", target_arch = "x86_64"))]
 fn enc_mrs_nzcv(rt: u32) -> u32 {
     enc_mrs_sysreg(rt, 3, 4, 2, 0)
 }
@@ -5416,6 +5419,19 @@ fn smir_aarch64_native_lowering_matches_qemu_oracle() {
     );
 
     let mut st = native_state();
+    st.x[0] = 0x1111_2222_3333_4444;
+    st.pstate = 0xa000_0000;
+    push_case(
+        "read_sysreg_nzcv_direct_opkind_matches_mrs",
+        enc_mrs_nzcv(RD),
+        vec![OpKind::ReadSysReg {
+            dst: arm_x(0),
+            reg: SYSREG_NZCV_RAW,
+        }],
+        st,
+    );
+
+    let mut st = native_state();
     st.x[1] = 0xffff_ffff_1234_5678;
     st.pstate = 0xf000_0000;
     push_case(
@@ -5425,6 +5441,19 @@ fn smir_aarch64_native_lowering_matches_qemu_oracle() {
             dst: VReg::Arch(ArchReg::Arm(ArmReg::Nzcv)),
             src: SrcOperand::Reg(arm_x(1)),
             width: OpWidth::W32,
+        }],
+        st,
+    );
+
+    let mut st = native_state();
+    st.x[1] = 0xb000_0000;
+    st.pstate = 0x4000_0000;
+    push_case(
+        "write_sysreg_nzcv_direct_opkind_matches_msr",
+        enc_msr_nzcv(RN),
+        vec![OpKind::WriteSysReg {
+            reg: SYSREG_NZCV_RAW,
+            src: arm_x(1),
         }],
         st,
     );

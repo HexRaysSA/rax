@@ -22,6 +22,9 @@ const NZCV_Z: i64 = 1_i64 << 30;
 const NZCV_C: i64 = 1_i64 << 29;
 const NZCV_V: i64 = 1_i64 << 28;
 const NZCV_MASK: i64 = NZCV_N | NZCV_Z | NZCV_C | NZCV_V;
+const SYSREG_NZCV: u32 = (3 << 14) | (3 << 11) | (4 << 7) | (2 << 3);
+const SYSREG_FPCR: u32 = (3 << 14) | (3 << 11) | (4 << 7) | (4 << 3);
+const SYSREG_FPSR: u32 = (3 << 14) | (3 << 11) | (4 << 7) | (4 << 3) | 1;
 
 /// Native AArch64 lowerer for identity-mapped AArch64 scalar SMIR.
 pub struct Aarch64Lowerer {
@@ -1520,6 +1523,24 @@ impl Aarch64Lowerer {
         self.emit_sysreg(rt, reg, false)
     }
 
+    fn lower_raw_sysreg_read(&mut self, dst: VReg, reg: u32) -> Result<(), LowerError> {
+        let Some(reg) = Self::raw_sysreg(reg) else {
+            return Err(LowerError::UnsupportedOp {
+                op: format!("AArch64 native MRS sysreg {reg:#06x}"),
+            });
+        };
+        self.emit_sysreg(Self::dst_gpr(dst)?, reg, true)
+    }
+
+    fn lower_raw_sysreg_write(&mut self, reg: u32, src: VReg) -> Result<(), LowerError> {
+        let Some(reg) = Self::raw_sysreg(reg) else {
+            return Err(LowerError::UnsupportedOp {
+                op: format!("AArch64 native MSR sysreg {reg:#06x}"),
+            });
+        };
+        self.emit_sysreg(Self::gpr(src)?, reg, false)
+    }
+
     fn lower_addsub(
         &mut self,
         dst: VReg,
@@ -2574,6 +2595,15 @@ impl Aarch64Lowerer {
             VReg::Arch(ArchReg::Arm(reg @ (ArmReg::Nzcv | ArmReg::Fpcr | ArmReg::Fpsr))) => {
                 Some(reg)
             }
+            _ => None,
+        }
+    }
+
+    fn raw_sysreg(reg: u32) -> Option<ArmReg> {
+        match reg {
+            SYSREG_NZCV => Some(ArmReg::Nzcv),
+            SYSREG_FPCR => Some(ArmReg::Fpcr),
+            SYSREG_FPSR => Some(ArmReg::Fpsr),
             _ => None,
         }
     }
@@ -4275,6 +4305,8 @@ impl Aarch64Lowerer {
                 Ok(())
             }
             OpKind::Mov { dst, src, width } => self.lower_mov(*dst, src, *width),
+            OpKind::ReadSysReg { dst, reg } => self.lower_raw_sysreg_read(*dst, *reg),
+            OpKind::WriteSysReg { reg, src } => self.lower_raw_sysreg_write(*reg, *src),
             OpKind::Add {
                 dst,
                 src1,
@@ -5014,6 +5046,27 @@ mod tests {
 
     fn enc_flagm(op2: u32) -> u32 {
         0xd500_401f | (op2 << 5)
+    }
+
+    fn enc_mrs_sysreg(rt: u32, op1: u32, crn: u32, crm: u32, op2: u32) -> u32 {
+        0xd500_0000
+            | (1 << 21)
+            | (3 << 19)
+            | (op1 << 16)
+            | (crn << 12)
+            | (crm << 8)
+            | (op2 << 5)
+            | (rt & 0x1f)
+    }
+
+    fn enc_msr_sysreg(rt: u32, op1: u32, crn: u32, crm: u32, op2: u32) -> u32 {
+        0xd500_0000
+            | (3 << 19)
+            | (op1 << 16)
+            | (crn << 12)
+            | (crm << 8)
+            | (op2 << 5)
+            | (rt & 0x1f)
     }
 
     fn enc_csel_regs(sf: u32, op: u32, op2: u32, rn: u32, rm: u32, cond: u32, rd: u32) -> u32 {
@@ -7669,6 +7722,52 @@ mod tests {
         let code = lowerer.finalize().unwrap();
 
         let mut expected = Vec::new();
+        expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
+        assert_eq!(code, expected);
+    }
+
+    #[test]
+    fn lowers_read_sysreg_nzcv_direct() {
+        let mut builder = FunctionBuilder::new(FunctionId(0), 0);
+        builder.push_op(
+            0,
+            OpKind::ReadSysReg {
+                dst: x(0),
+                reg: SYSREG_NZCV,
+            },
+        );
+        builder.set_terminator(Terminator::Return { values: vec![] });
+        let func = builder.finish();
+
+        let mut lowerer = Aarch64Lowerer::new();
+        lowerer.lower_function(&func).unwrap();
+        let code = lowerer.finalize().unwrap();
+
+        let mut expected = Vec::new();
+        expected.extend_from_slice(&enc_mrs_sysreg(0, 3, 4, 2, 0).to_le_bytes());
+        expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
+        assert_eq!(code, expected);
+    }
+
+    #[test]
+    fn lowers_write_sysreg_nzcv_direct() {
+        let mut builder = FunctionBuilder::new(FunctionId(0), 0);
+        builder.push_op(
+            0,
+            OpKind::WriteSysReg {
+                reg: SYSREG_NZCV,
+                src: x(1),
+            },
+        );
+        builder.set_terminator(Terminator::Return { values: vec![] });
+        let func = builder.finish();
+
+        let mut lowerer = Aarch64Lowerer::new();
+        lowerer.lower_function(&func).unwrap();
+        let code = lowerer.finalize().unwrap();
+
+        let mut expected = Vec::new();
+        expected.extend_from_slice(&enc_msr_sysreg(1, 3, 4, 2, 0).to_le_bytes());
         expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
         assert_eq!(code, expected);
     }
