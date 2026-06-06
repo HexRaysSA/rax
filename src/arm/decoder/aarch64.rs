@@ -840,17 +840,7 @@ impl Aarch64Decoder {
             (0b0010, 0b001) => Mnemonic::NOP, // PSB CSYNC
             (0b0010, 0b010) => Mnemonic::NOP, // TSB CSYNC
             (0b0010, 0b100) => Mnemonic::NOP, // CSDB
-            (0b0011, 0b000) => Mnemonic::NOP, // PACISP
-            (0b0011, 0b010) => Mnemonic::BTI,
-            (0b0100, _) => {
-                // BTI with targets
-                let op = op2 & 0x3;
-                if op == 0 {
-                    Mnemonic::BTI
-                } else {
-                    Mnemonic::BTI
-                }
-            }
+            (0b0100, 0b000 | 0b010 | 0b100 | 0b110) => Mnemonic::BTI,
             _ => Mnemonic::HINT,
         };
 

@@ -1700,6 +1700,7 @@ impl Aarch64Lifter {
             // System
             // =================================================================
             Mnemonic::NOP
+            | Mnemonic::BTI
             | Mnemonic::YIELD
             | Mnemonic::WFE
             | Mnemonic::WFI
