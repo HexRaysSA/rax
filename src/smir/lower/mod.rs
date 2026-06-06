@@ -43,6 +43,28 @@ use std::collections::HashMap;
 use crate::smir::ir::SmirFunction;
 use crate::smir::types::{BlockId, GuestAddr};
 
+/// Number of x86-64 guest GPR slots in the native JIT register file. APX adds
+/// R16-R31, which are state-backed because the host has no physical EGPRs.
+pub const X86_GUEST_GPR_COUNT: usize = 32;
+/// Byte offset of `GuestRegs.rflags`.
+pub const X86_GUEST_RFLAGS_OFFSET: i32 = (X86_GUEST_GPR_COUNT as i32) * 8;
+/// Byte offset of `GuestRegs.exit_pc`.
+pub const X86_GUEST_EXIT_PC_OFFSET: i32 = X86_GUEST_RFLAGS_OFFSET + 8;
+/// Byte offset of `GuestRegs.ctx`.
+pub const X86_GUEST_CTX_OFFSET: i32 = X86_GUEST_EXIT_PC_OFFSET + 8;
+/// Byte offset of `GuestRegs.load_fn`.
+pub const X86_GUEST_LOAD_FN_OFFSET: i32 = X86_GUEST_CTX_OFFSET + 8;
+/// Byte offset of `GuestRegs.store_fn`.
+pub const X86_GUEST_STORE_FN_OFFSET: i32 = X86_GUEST_LOAD_FN_OFFSET + 8;
+/// Byte offset of `GuestRegs.fs_base`.
+pub const X86_GUEST_FS_BASE_OFFSET: i32 = X86_GUEST_STORE_FN_OFFSET + 8;
+/// Byte offset of `GuestRegs.gs_base`.
+pub const X86_GUEST_GS_BASE_OFFSET: i32 = X86_GUEST_FS_BASE_OFFSET + 8;
+/// Byte offset of `GuestRegs.call_fn`.
+pub const X86_GUEST_CALL_FN_OFFSET: i32 = X86_GUEST_GS_BASE_OFFSET + 8;
+/// Offset of the `*mut GuestRegs` state pointer in the native block frame.
+pub const X86_STATE_PTR_AT_RBP: i32 = 24;
+
 // ============================================================================
 // Lowerer Trait
 // ============================================================================

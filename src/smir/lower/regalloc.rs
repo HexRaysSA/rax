@@ -454,6 +454,9 @@ impl RegAlloc {
                         self.arch_locations.insert(arch_reg, loc);
                         return Ok(loc);
                     }
+                    return Err(LowerError::UnsupportedOp {
+                        op: format!("state-backed x86 register {x86_reg:?}"),
+                    });
                 }
 
                 // Otherwise allocate normally
