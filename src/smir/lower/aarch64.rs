@@ -2825,6 +2825,190 @@ impl Aarch64Lowerer {
         Ok(())
     }
 
+    fn lower_pdep_pext(
+        &mut self,
+        dst: VReg,
+        src: VReg,
+        mask: VReg,
+        width: OpWidth,
+        deposit: bool,
+    ) -> Result<(), LowerError> {
+        let bits = match width {
+            OpWidth::W8 | OpWidth::W16 | OpWidth::W32 | OpWidth::W64 => width.bits(),
+            other => {
+                return Err(LowerError::UnsupportedOp {
+                    op: format!("AArch64 native {} width {other:?}", if deposit {
+                        "Pdep"
+                    } else {
+                        "Pext"
+                    }),
+                });
+            }
+        };
+        let emit_width = if width == OpWidth::W64 {
+            OpWidth::W64
+        } else {
+            OpWidth::W32
+        };
+        let op = if deposit { "Pdep" } else { "Pext" };
+
+        let mask = match mask {
+            VReg::Imm(value) => (value as u64) & width.mask(),
+            other => {
+                return Err(LowerError::UnsupportedOp {
+                    op: format!("AArch64 native {op} runtime mask {other:?} needs scratch regs"),
+                });
+            }
+        };
+
+        if let VReg::Imm(value) = src {
+            let src = (value as u64) & width.mask();
+            let result = if deposit {
+                Self::eval_pdep(src, mask, bits)
+            } else {
+                Self::eval_pext(src, mask, bits)
+            };
+            return self.emit_mov_imm(Self::dst_gpr(dst)?, result as i64, emit_width);
+        }
+
+        if mask == 0 {
+            return self.emit_mov_imm(Self::dst_gpr(dst)?, 0, emit_width);
+        }
+
+        let Some((lsb, width_bits)) = Self::contiguous_bitfield(mask) else {
+            let dst_reg = Self::dst_gpr(dst)?;
+            let src_reg = Self::gpr(src)?;
+            if dst_reg == src_reg {
+                return Err(LowerError::UnsupportedOp {
+                    op: format!("AArch64 native {op} non-contiguous immediate mask needs dst != src"),
+                });
+            }
+            return if deposit {
+                self.lower_pdep_const_mask(dst_reg, src_reg, mask, bits, emit_width)
+            } else {
+                self.lower_pext_const_mask(dst_reg, src_reg, mask, bits, emit_width)
+            };
+        };
+
+        if deposit {
+            self.lower_bitfield_insert_zero(dst, src, lsb, width_bits, false, emit_width)
+        } else {
+            self.lower_bfx(dst, src, lsb, width_bits, false, emit_width)
+        }
+    }
+
+    fn eval_pdep(src: u64, mask: u64, bits: u32) -> u64 {
+        let mut result = 0;
+        let mut src_bit = 0;
+        for bit in 0..bits {
+            if ((mask >> bit) & 1) != 0 {
+                if ((src >> src_bit) & 1) != 0 {
+                    result |= 1_u64 << bit;
+                }
+                src_bit += 1;
+            }
+        }
+        result
+    }
+
+    fn eval_pext(src: u64, mask: u64, bits: u32) -> u64 {
+        let mut result = 0;
+        let mut dst_bit = 0;
+        for bit in 0..bits {
+            if ((mask >> bit) & 1) != 0 {
+                if ((src >> bit) & 1) != 0 {
+                    result |= 1_u64 << dst_bit;
+                }
+                dst_bit += 1;
+            }
+        }
+        result
+    }
+
+    fn contiguous_bitfield(mask: u64) -> Option<(u8, u8)> {
+        if mask == 0 {
+            return None;
+        }
+        let lsb = mask.trailing_zeros();
+        let shifted = mask >> lsb;
+        if shifted != u64::MAX && shifted & (shifted + 1) != 0 {
+            return None;
+        }
+        Some((lsb as u8, shifted.count_ones() as u8))
+    }
+
+    fn single_bit_operand(bit: u32, width: OpWidth) -> SrcOperand {
+        let value = 1_u64 << bit;
+        if width == OpWidth::W64 {
+            SrcOperand::Imm64(value as i64)
+        } else {
+            SrcOperand::Imm(value as i64)
+        }
+    }
+
+    fn arm_x_reg(reg: u8) -> VReg {
+        VReg::Arch(ArchReg::Arm(ArmReg::X(reg)))
+    }
+
+    fn lower_pdep_const_mask(
+        &mut self,
+        dst: u8,
+        src: u8,
+        mask: u64,
+        bits: u32,
+        width: OpWidth,
+    ) -> Result<(), LowerError> {
+        self.emit_mov_imm(dst, 0, width)?;
+        let dst_v = Self::arm_x_reg(dst);
+        let mut src_bit = mask.count_ones();
+        for out_bit in (0..bits).rev() {
+            if ((mask >> out_bit) & 1) == 0 {
+                continue;
+            }
+            src_bit -= 1;
+            let skip = self.code.position();
+            self.emit_test_branch(src, src_bit, false, 0)?;
+            self.lower_logic(
+                dst_v,
+                dst_v,
+                &Self::single_bit_operand(out_bit, width),
+                0b01,
+                false,
+                false,
+                width,
+            )?;
+            self.patch_test_branch_to_current(skip, src, src_bit, false)?;
+        }
+        Ok(())
+    }
+
+    fn lower_pext_const_mask(
+        &mut self,
+        dst: u8,
+        src: u8,
+        mask: u64,
+        bits: u32,
+        width: OpWidth,
+    ) -> Result<(), LowerError> {
+        self.emit_mov_imm(dst, 0, width)?;
+        let mut emitted_bit = false;
+        for src_bit in (0..bits).rev() {
+            if ((mask >> src_bit) & 1) == 0 {
+                continue;
+            }
+            if emitted_bit {
+                self.lower_shift_imm(dst, dst, 1, ShiftOp::Lsl, width)?;
+            }
+            emitted_bit = true;
+
+            let skip = self.code.position();
+            self.emit_test_branch(src, src_bit, false, 0)?;
+            self.emit_orr_imm_one(dst, dst, width)?;
+            self.patch_test_branch_to_current(skip, src, src_bit, false)?;
+        }
+        Ok(())
+    }
+
     fn lower_cls(&mut self, dst: VReg, src: VReg, width: OpWidth) -> Result<(), LowerError> {
         self.emit_dp1(Self::dst_gpr(dst)?, Self::gpr(src)?, 0b000101, width)
     }
@@ -5788,12 +5972,18 @@ impl Aarch64Lowerer {
                 width,
                 flags,
             } => self.lower_bzhi(*dst, *src, *index, *width, *flags),
-            OpKind::Pdep { .. } => Err(LowerError::UnsupportedOp {
-                op: "AArch64 native Pdep".into(),
-            }),
-            OpKind::Pext { .. } => Err(LowerError::UnsupportedOp {
-                op: "AArch64 native Pext".into(),
-            }),
+            OpKind::Pdep {
+                dst,
+                src,
+                mask,
+                width,
+            } => self.lower_pdep_pext(*dst, *src, *mask, *width, true),
+            OpKind::Pext {
+                dst,
+                src,
+                mask,
+                width,
+            } => self.lower_pdep_pext(*dst, *src, *mask, *width, false),
             OpKind::Bswap { dst, src, width } => self.lower_bswap(*dst, *src, *width),
             OpKind::Rbit { dst, src, width } => self.lower_rbit(*dst, *src, *width),
             OpKind::Bfx {
@@ -6442,6 +6632,17 @@ mod tests {
             | (imms << 10)
             | (rn << 5)
             | rd
+    }
+
+    fn enc_orr_single_bit(sf: u32, rd: u32, rn: u32, bit: u32) -> u32 {
+        let width = if sf == 0 {
+            OpWidth::W32
+        } else {
+            OpWidth::W64
+        };
+        let (n, immr, imms) =
+            Aarch64Lowerer::logical_bitmask_imm((1_u64 << bit) as i64, width).unwrap();
+        enc_logical_imm(sf, 0b01, n, immr, imms, rd, rn)
     }
 
     fn enc_addsub_imm(sf: u32, op: u32, s: u32, imm12: u32) -> u32 {
@@ -10332,6 +10533,206 @@ mod tests {
             let mut lowerer = Aarch64Lowerer::new();
             let err = lowerer.lower_function(&func).unwrap_err();
             assert!(matches!(err, LowerError::UnsupportedOp { .. }));
+        }
+    }
+
+    #[test]
+    fn lowers_pdep_x_contiguous_imm_mask_as_ubfiz() {
+        let mut builder = FunctionBuilder::new(FunctionId(0), 0);
+        builder.push_op(
+            0,
+            OpKind::Pdep {
+                dst: x(0),
+                src: x(1),
+                mask: VReg::Imm(0x1f0),
+                width: OpWidth::W64,
+            },
+        );
+        builder.set_terminator(Terminator::Return { values: vec![] });
+        let func = builder.finish();
+
+        let mut lowerer = Aarch64Lowerer::new();
+        lowerer.lower_function(&func).unwrap();
+        let code = lowerer.finalize().unwrap();
+
+        let mut expected = Vec::new();
+        expected.extend_from_slice(&enc_bitfield_regs(1, 0b10, 60, 4, 1, 0).to_le_bytes());
+        expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
+        assert_eq!(code, expected);
+    }
+
+    #[test]
+    fn lowers_pext_x_contiguous_imm_mask_as_ubfx() {
+        let mut builder = FunctionBuilder::new(FunctionId(0), 0);
+        builder.push_op(
+            0,
+            OpKind::Pext {
+                dst: x(0),
+                src: x(1),
+                mask: VReg::Imm(0xff00),
+                width: OpWidth::W64,
+            },
+        );
+        builder.set_terminator(Terminator::Return { values: vec![] });
+        let func = builder.finish();
+
+        let mut lowerer = Aarch64Lowerer::new();
+        lowerer.lower_function(&func).unwrap();
+        let code = lowerer.finalize().unwrap();
+
+        let mut expected = Vec::new();
+        expected.extend_from_slice(&enc_bitfield_regs(1, 0b10, 8, 15, 1, 0).to_le_bytes());
+        expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
+        assert_eq!(code, expected);
+    }
+
+    #[test]
+    fn lowers_pdep_x_non_contiguous_imm_mask_with_test_branches() {
+        let mut builder = FunctionBuilder::new(FunctionId(0), 0);
+        builder.push_op(
+            0,
+            OpKind::Pdep {
+                dst: x(0),
+                src: x(1),
+                mask: VReg::Imm(0b10110),
+                width: OpWidth::W64,
+            },
+        );
+        builder.set_terminator(Terminator::Return { values: vec![] });
+        let func = builder.finish();
+
+        let mut lowerer = Aarch64Lowerer::new();
+        lowerer.lower_function(&func).unwrap();
+        let code = lowerer.finalize().unwrap();
+
+        let mut expected = Vec::new();
+        expected.extend_from_slice(&enc_mov_wide(1, 0b10, 0, 0, 0).to_le_bytes());
+        expected.extend_from_slice(&enc_test_branch(1, 2, false, 8).to_le_bytes());
+        expected.extend_from_slice(&enc_orr_single_bit(1, 0, 0, 4).to_le_bytes());
+        expected.extend_from_slice(&enc_test_branch(1, 1, false, 8).to_le_bytes());
+        expected.extend_from_slice(&enc_orr_single_bit(1, 0, 0, 2).to_le_bytes());
+        expected.extend_from_slice(&enc_test_branch(1, 0, false, 8).to_le_bytes());
+        expected.extend_from_slice(&enc_orr_single_bit(1, 0, 0, 1).to_le_bytes());
+        expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
+        assert_eq!(code, expected);
+    }
+
+    #[test]
+    fn lowers_pext_x_non_contiguous_imm_mask_with_shifted_result() {
+        let mut builder = FunctionBuilder::new(FunctionId(0), 0);
+        builder.push_op(
+            0,
+            OpKind::Pext {
+                dst: x(0),
+                src: x(1),
+                mask: VReg::Imm(0b10110),
+                width: OpWidth::W64,
+            },
+        );
+        builder.set_terminator(Terminator::Return { values: vec![] });
+        let func = builder.finish();
+
+        let mut lowerer = Aarch64Lowerer::new();
+        lowerer.lower_function(&func).unwrap();
+        let code = lowerer.finalize().unwrap();
+
+        let mut expected = Vec::new();
+        expected.extend_from_slice(&enc_mov_wide(1, 0b10, 0, 0, 0).to_le_bytes());
+        expected.extend_from_slice(&enc_test_branch(1, 4, false, 8).to_le_bytes());
+        expected.extend_from_slice(&enc_orr_single_bit(1, 0, 0, 0).to_le_bytes());
+        expected.extend_from_slice(&enc_bitfield_regs(1, 0b10, 63, 62, 0, 0).to_le_bytes());
+        expected.extend_from_slice(&enc_test_branch(1, 2, false, 8).to_le_bytes());
+        expected.extend_from_slice(&enc_orr_single_bit(1, 0, 0, 0).to_le_bytes());
+        expected.extend_from_slice(&enc_bitfield_regs(1, 0b10, 63, 62, 0, 0).to_le_bytes());
+        expected.extend_from_slice(&enc_test_branch(1, 1, false, 8).to_le_bytes());
+        expected.extend_from_slice(&enc_orr_single_bit(1, 0, 0, 0).to_le_bytes());
+        expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
+        assert_eq!(code, expected);
+    }
+
+    #[test]
+    fn lowers_pdep_pext_zero_mask_and_immediate_source() {
+        let mut builder = FunctionBuilder::new(FunctionId(0), 0);
+        builder.push_op(
+            0,
+            OpKind::Pdep {
+                dst: x(0),
+                src: x(1),
+                mask: VReg::Imm(0),
+                width: OpWidth::W64,
+            },
+        );
+        builder.push_op(
+            4,
+            OpKind::Pext {
+                dst: x(1),
+                src: VReg::Imm(0b10110),
+                mask: VReg::Imm(0b10110),
+                width: OpWidth::W64,
+            },
+        );
+        builder.set_terminator(Terminator::Return { values: vec![] });
+        let func = builder.finish();
+
+        let mut lowerer = Aarch64Lowerer::new();
+        lowerer.lower_function(&func).unwrap();
+        let code = lowerer.finalize().unwrap();
+
+        let mut expected = Vec::new();
+        expected.extend_from_slice(&enc_mov_wide(1, 0b10, 0, 0, 0).to_le_bytes());
+        expected.extend_from_slice(&enc_mov_wide(1, 0b10, 0, 7, 1).to_le_bytes());
+        expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
+        assert_eq!(code, expected);
+    }
+
+    #[test]
+    fn rejects_pdep_pext_runtime_masks_and_non_contiguous_source_aliases() {
+        for (name, kind) in [
+            (
+                "pdep runtime mask",
+                OpKind::Pdep {
+                    dst: x(0),
+                    src: x(1),
+                    mask: x(2),
+                    width: OpWidth::W64,
+                },
+            ),
+            (
+                "pext runtime mask",
+                OpKind::Pext {
+                    dst: x(0),
+                    src: x(1),
+                    mask: x(2),
+                    width: OpWidth::W64,
+                },
+            ),
+            (
+                "pdep dst aliases source",
+                OpKind::Pdep {
+                    dst: x(0),
+                    src: x(0),
+                    mask: VReg::Imm(0b10110),
+                    width: OpWidth::W64,
+                },
+            ),
+            (
+                "pext dst aliases source",
+                OpKind::Pext {
+                    dst: x(0),
+                    src: x(0),
+                    mask: VReg::Imm(0b10110),
+                    width: OpWidth::W64,
+                },
+            ),
+        ] {
+            let mut builder = FunctionBuilder::new(FunctionId(0), 0);
+            builder.push_op(0, kind);
+            builder.set_terminator(Terminator::Return { values: vec![] });
+            let func = builder.finish();
+
+            let mut lowerer = Aarch64Lowerer::new();
+            let err = lowerer.lower_function(&func).expect_err(name);
+            assert!(matches!(err, LowerError::UnsupportedOp { .. }), "{err:?}");
         }
     }
 

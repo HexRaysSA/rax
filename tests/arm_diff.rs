@@ -4715,6 +4715,70 @@ fn smir_aarch64_native_lowering_matches_qemu_oracle() {
     );
 
     let mut st = native_state();
+    st.x[0] = 0x1111_2222_3333_4444;
+    st.x[1] = 0xfedc_ba98_7654_3210;
+    st.pstate = 0xe000_0000;
+    push_case(
+        "pdep_x_contiguous_imm_mask_as_ubfiz_preserves_flags",
+        enc_bitfield(1, 0b10, 60, 4),
+        vec![OpKind::Pdep {
+            dst: arm_x(0),
+            src: arm_x(1),
+            mask: VReg::Imm(0x1f0),
+            width: OpWidth::W64,
+        }],
+        st,
+    );
+
+    let mut st = native_state();
+    st.x[0] = 0x5555_6666_7777_8888;
+    st.x[1] = 0x0123_4567_89ab_cdef;
+    st.pstate = 0x7000_0000;
+    push_case(
+        "pext_x_contiguous_imm_mask_as_ubfx_preserves_flags",
+        enc_bitfield(1, 0b10, 8, 15),
+        vec![OpKind::Pext {
+            dst: arm_x(0),
+            src: arm_x(1),
+            mask: VReg::Imm(0xff00),
+            width: OpWidth::W64,
+        }],
+        st,
+    );
+
+    let mut st = native_state();
+    st.x[0] = 0xaaaa_bbbb_cccc_dddd;
+    st.x[1] = 0xffff_ffff_0000_000b;
+    st.pstate = 0xb000_0000;
+    push_case(
+        "pdep_w16_contiguous_imm_mask_as_ubfiz_preserves_flags",
+        enc_bitfield(0, 0b10, 24, 3),
+        vec![OpKind::Pdep {
+            dst: arm_x(0),
+            src: arm_x(1),
+            mask: VReg::Imm(0x0f00),
+            width: OpWidth::W16,
+        }],
+        st,
+    );
+
+    let mut st = native_state();
+    st.x[0] = 0xbbbb_cccc_dddd_eeee;
+    st.x[1] = 0xffff_ffff_0000_00b4;
+    st.pstate = 0x5000_0000;
+    push_case(
+        "pext_w8_contiguous_imm_mask_as_ubfx_preserves_flags",
+        enc_bitfield(0, 0b10, 2, 4),
+        vec![OpKind::Pext {
+            dst: arm_x(0),
+            src: arm_x(1),
+            mask: VReg::Imm(0x1c),
+            width: OpWidth::W8,
+        }],
+        st,
+    );
+
+    let mut st = native_state();
     st.x[0] = 0x7777_8888_9999_aaaa;
     st.x[1] = 0xfedc_ba98_7654_3210;
     st.pstate = 0xa000_0000;
