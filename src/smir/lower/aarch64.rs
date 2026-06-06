@@ -433,6 +433,25 @@ impl Aarch64Lowerer {
         Ok(())
     }
 
+    fn emit_sysreg(&mut self, rt: u8, reg: ArmReg, read: bool) -> Result<(), LowerError> {
+        let Some(info) = Self::sysreg_info(reg) else {
+            return Err(LowerError::UnsupportedOp {
+                op: format!("AArch64 native system register {reg:?}"),
+            });
+        };
+        self.emit(
+            0xd500_0000
+                | ((read as u32) << 21)
+                | (3 << 19)
+                | (info.op1 << 16)
+                | (info.crn << 12)
+                | (info.crm << 8)
+                | (info.op2 << 5)
+                | u32::from(rt),
+        );
+        Ok(())
+    }
+
     fn bitfield_args(
         op: &str,
         lsb: u8,
@@ -457,6 +476,15 @@ impl Aarch64Lowerer {
     }
 
     fn lower_mov(&mut self, dst: VReg, src: &SrcOperand, width: OpWidth) -> Result<(), LowerError> {
+        if let Some(reg) = Self::sysreg_vreg(dst) {
+            return self.lower_sysreg_write(reg, src, width);
+        }
+        if let SrcOperand::Reg(src_reg) = src {
+            if let Some(reg) = Self::sysreg_vreg(*src_reg) {
+                return self.lower_sysreg_read(dst, reg, width);
+            }
+        }
+
         let dst = Self::dst_gpr(dst)?;
         match src {
             SrcOperand::Reg(reg) => self.emit_mov_reg(dst, Self::gpr(*reg)?, width),
@@ -465,6 +493,35 @@ impl Aarch64Lowerer {
                 op: format!("AArch64 native Mov source {other:?}"),
             }),
         }
+    }
+
+    fn lower_sysreg_read(
+        &mut self,
+        dst: VReg,
+        reg: ArmReg,
+        width: OpWidth,
+    ) -> Result<(), LowerError> {
+        Self::validate_sysreg_width("MRS", width)?;
+        self.emit_sysreg(Self::dst_gpr(dst)?, reg, true)
+    }
+
+    fn lower_sysreg_write(
+        &mut self,
+        reg: ArmReg,
+        src: &SrcOperand,
+        width: OpWidth,
+    ) -> Result<(), LowerError> {
+        Self::validate_sysreg_width("MSR", width)?;
+        let rt = match src {
+            SrcOperand::Reg(src) => Self::gpr(*src)?,
+            SrcOperand::Imm(0) | SrcOperand::Imm64(0) => 31,
+            other => {
+                return Err(LowerError::UnsupportedOp {
+                    op: format!("AArch64 native system register write source {other:?}"),
+                });
+            }
+        };
+        self.emit_sysreg(rt, reg, false)
     }
 
     fn lower_addsub(
@@ -1046,6 +1103,61 @@ impl Aarch64Lowerer {
         }
     }
 
+    fn sysreg_vreg(vreg: VReg) -> Option<ArmReg> {
+        match vreg {
+            VReg::Arch(ArchReg::Arm(reg @ (ArmReg::Nzcv | ArmReg::Fpcr | ArmReg::Fpsr))) => {
+                Some(reg)
+            }
+            _ => None,
+        }
+    }
+
+    fn sysreg_info(reg: ArmReg) -> Option<SysRegInfo> {
+        match reg {
+            ArmReg::Nzcv => Some(SysRegInfo {
+                op1: 3,
+                crn: 4,
+                crm: 2,
+                op2: 0,
+                mask: 0xf000_0000,
+                read_width: OpWidth::W32,
+                write_width: OpWidth::W32,
+            }),
+            ArmReg::Fpcr => Some(SysRegInfo {
+                op1: 3,
+                crn: 4,
+                crm: 4,
+                op2: 0,
+                mask: 0xffff_ffff,
+                read_width: OpWidth::W64,
+                write_width: OpWidth::W64,
+            }),
+            ArmReg::Fpsr => Some(SysRegInfo {
+                op1: 3,
+                crn: 4,
+                crm: 4,
+                op2: 1,
+                mask: 0xffff_ffff,
+                read_width: OpWidth::W64,
+                write_width: OpWidth::W64,
+            }),
+            _ => None,
+        }
+    }
+
+    fn validate_sysreg_width(op: &str, width: OpWidth) -> Result<(), LowerError> {
+        match width {
+            OpWidth::W32 | OpWidth::W64 => Ok(()),
+            other => Err(LowerError::UnsupportedOp {
+                op: format!("AArch64 native {op} width {other:?}"),
+            }),
+        }
+    }
+
+    fn src_imm_eq(src: &SrcOperand, value: i64) -> bool {
+        matches!(src, SrcOperand::Imm(imm) | SrcOperand::Imm64(imm) if *imm == value)
+    }
+
     fn lower_shift(
         &mut self,
         dst: VReg,
@@ -1132,6 +1244,71 @@ impl Aarch64Lowerer {
             op2,
             width,
         )
+    }
+
+    fn try_lower_fused_sysreg_access(
+        &mut self,
+        ops: &[SmirOp],
+    ) -> Result<Option<usize>, LowerError> {
+        let [
+            SmirOp {
+                kind:
+                    OpKind::And {
+                        dst: masked,
+                        src1,
+                        src2,
+                        width,
+                        flags,
+                    },
+                ..
+            },
+            SmirOp {
+                kind:
+                    OpKind::Mov {
+                        dst,
+                        src: SrcOperand::Reg(mov_src),
+                        width: mov_width,
+                    },
+                ..
+            },
+            ..
+        ] = ops
+        else {
+            return Ok(None);
+        };
+
+        if flags.updates_any() || mov_src != masked {
+            return Ok(None);
+        }
+
+        if let Some(reg) = Self::sysreg_vreg(*src1) {
+            let Some(info) = Self::sysreg_info(reg) else {
+                return Ok(None);
+            };
+            if *width != info.read_width
+                || *mov_width != OpWidth::W64
+                || !Self::src_imm_eq(src2, info.mask)
+            {
+                return Ok(None);
+            }
+            self.emit_sysreg(Self::dst_gpr(*dst)?, reg, true)?;
+            return Ok(Some(2));
+        }
+
+        let Some(reg) = Self::sysreg_vreg(*dst) else {
+            return Ok(None);
+        };
+        let Some(info) = Self::sysreg_info(reg) else {
+            return Ok(None);
+        };
+        if *width != OpWidth::W64
+            || *mov_width != info.write_width
+            || !Self::src_imm_eq(src2, info.mask)
+        {
+            return Ok(None);
+        }
+        self.emit_sysreg(Self::gpr(*src1)?, reg, false)?;
+        Ok(Some(2))
     }
 
     fn try_lower_fused_select(&mut self, ops: &[SmirOp]) -> Result<Option<usize>, LowerError> {
@@ -1604,6 +1781,10 @@ impl Aarch64Lowerer {
         self.block_offsets.insert(block.id, self.code.position());
         let mut idx = 0;
         while idx < block.ops.len() {
+            if let Some(consumed) = self.try_lower_fused_sysreg_access(&block.ops[idx..])? {
+                idx += consumed;
+                continue;
+            }
             if let Some(consumed) = self.try_lower_fused_cond_compare(&block.ops[idx..])? {
                 idx += consumed;
                 continue;
@@ -1625,6 +1806,17 @@ enum CondSelectFalseOp {
     Increment,
     Invert,
     Negate,
+}
+
+#[derive(Clone, Copy)]
+struct SysRegInfo {
+    op1: u32,
+    crn: u32,
+    crm: u32,
+    op2: u32,
+    mask: i64,
+    read_width: OpWidth,
+    write_width: OpWidth,
 }
 
 impl Default for Aarch64Lowerer {
