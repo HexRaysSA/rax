@@ -1743,6 +1743,13 @@ impl Aarch64Lowerer {
         self.emit_dp1(Self::dst_gpr(dst)?, Self::gpr(src)?, 0b000100, width)
     }
 
+    fn lower_ctz(&mut self, dst: VReg, src: VReg, width: OpWidth) -> Result<(), LowerError> {
+        let dst = Self::dst_gpr(dst)?;
+        let src = Self::gpr(src)?;
+        self.emit_dp1(dst, src, 0b000000, width)?;
+        self.emit_dp1(dst, dst, 0b000100, width)
+    }
+
     fn lower_cls(&mut self, dst: VReg, src: VReg, width: OpWidth) -> Result<(), LowerError> {
         self.emit_dp1(Self::dst_gpr(dst)?, Self::gpr(src)?, 0b000101, width)
     }
@@ -3951,6 +3958,7 @@ impl Aarch64Lowerer {
             OpKind::Cmp { src1, src2, width } => self.lower_cmp(*src1, src2, *width),
             OpKind::Test { src1, src2, width } => self.lower_test(*src1, src2, *width),
             OpKind::Clz { dst, src, width } => self.lower_clz(*dst, *src, *width),
+            OpKind::Ctz { dst, src, width } => self.lower_ctz(*dst, *src, *width),
             OpKind::Bswap { dst, src, width } => self.lower_bswap(*dst, *src, *width),
             OpKind::Rbit { dst, src, width } => self.lower_rbit(*dst, *src, *width),
             OpKind::Bfx {
@@ -4346,8 +4354,12 @@ mod tests {
         (sf << 31) | (0b100111 << 23) | (sf << 22) | (rm << 16) | (lsb << 10) | (rn << 5)
     }
 
+    fn enc_dp1_regs(sf: u32, opcode: u32, rn: u32, rd: u32) -> u32 {
+        (sf << 31) | (0b1011010110 << 21) | (opcode << 10) | (rn << 5) | rd
+    }
+
     fn enc_dp1(sf: u32, opcode: u32) -> u32 {
-        (sf << 31) | (0b1011010110 << 21) | (opcode << 10) | (1 << 5)
+        enc_dp1_regs(sf, opcode, 1, 0)
     }
 
     fn enc_bitfield(sf: u32, opc: u32, immr: u32, imms: u32) -> u32 {
@@ -5546,6 +5558,81 @@ mod tests {
     }
 
     #[test]
+    fn lowers_ctz_x_as_rbit_clz() {
+        let mut builder = FunctionBuilder::new(FunctionId(0), 0);
+        builder.push_op(
+            0,
+            OpKind::Ctz {
+                dst: x(0),
+                src: x(1),
+                width: OpWidth::W64,
+            },
+        );
+        builder.set_terminator(Terminator::Return { values: vec![] });
+        let func = builder.finish();
+
+        let mut lowerer = Aarch64Lowerer::new();
+        lowerer.lower_function(&func).unwrap();
+        let code = lowerer.finalize().unwrap();
+
+        let mut expected = Vec::new();
+        expected.extend_from_slice(&enc_dp1_regs(1, 0b000000, 1, 0).to_le_bytes());
+        expected.extend_from_slice(&enc_dp1_regs(1, 0b000100, 0, 0).to_le_bytes());
+        expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
+        assert_eq!(code, expected);
+    }
+
+    #[test]
+    fn lowers_ctz_w_as_rbit_clz_zero_ext() {
+        let mut builder = FunctionBuilder::new(FunctionId(0), 0);
+        builder.push_op(
+            0,
+            OpKind::Ctz {
+                dst: x(0),
+                src: x(1),
+                width: OpWidth::W32,
+            },
+        );
+        builder.set_terminator(Terminator::Return { values: vec![] });
+        let func = builder.finish();
+
+        let mut lowerer = Aarch64Lowerer::new();
+        lowerer.lower_function(&func).unwrap();
+        let code = lowerer.finalize().unwrap();
+
+        let mut expected = Vec::new();
+        expected.extend_from_slice(&enc_dp1_regs(0, 0b000000, 1, 0).to_le_bytes());
+        expected.extend_from_slice(&enc_dp1_regs(0, 0b000100, 0, 0).to_le_bytes());
+        expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
+        assert_eq!(code, expected);
+    }
+
+    #[test]
+    fn lowers_ctz_in_place_as_rbit_clz() {
+        let mut builder = FunctionBuilder::new(FunctionId(0), 0);
+        builder.push_op(
+            0,
+            OpKind::Ctz {
+                dst: x(0),
+                src: x(0),
+                width: OpWidth::W64,
+            },
+        );
+        builder.set_terminator(Terminator::Return { values: vec![] });
+        let func = builder.finish();
+
+        let mut lowerer = Aarch64Lowerer::new();
+        lowerer.lower_function(&func).unwrap();
+        let code = lowerer.finalize().unwrap();
+
+        let mut expected = Vec::new();
+        expected.extend_from_slice(&enc_dp1_regs(1, 0b000000, 0, 0).to_le_bytes());
+        expected.extend_from_slice(&enc_dp1_regs(1, 0b000100, 0, 0).to_le_bytes());
+        expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
+        assert_eq!(code, expected);
+    }
+
+    #[test]
     fn lowers_shrd_x_imm_as_extract() {
         let mut builder = FunctionBuilder::new(FunctionId(0), 0);
         builder.push_op(
@@ -6316,6 +6403,25 @@ mod tests {
                 amount: SrcOperand::Imm(1),
                 width: OpWidth::W16,
                 flags: FlagUpdate::None,
+            },
+        );
+        builder.set_terminator(Terminator::Return { values: vec![] });
+        let func = builder.finish();
+
+        let mut lowerer = Aarch64Lowerer::new();
+        let err = lowerer.lower_function(&func).unwrap_err();
+        assert!(matches!(err, LowerError::UnsupportedOp { .. }));
+    }
+
+    #[test]
+    fn rejects_ctz_w16_partial_width_lowering() {
+        let mut builder = FunctionBuilder::new(FunctionId(0), 0);
+        builder.push_op(
+            0,
+            OpKind::Ctz {
+                dst: x(0),
+                src: x(1),
+                width: OpWidth::W16,
             },
         );
         builder.set_terminator(Terminator::Return { values: vec![] });

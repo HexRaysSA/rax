@@ -563,8 +563,13 @@ fn dp2_cases() -> Vec<(String, u32)> {
 
 /// Data-processing (1 source): `sf 1 0 11010110 00000 opcode Rn Rd`
 #[cfg(all(feature = "smir-jit", target_arch = "x86_64"))]
+fn enc_dp1_regs(sf: u32, opcode: u32, rn: u32, rd: u32) -> u32 {
+    (sf << 31) | (0b1011010110 << 21) | (opcode << 10) | (rn << 5) | rd
+}
+
+#[cfg(all(feature = "smir-jit", target_arch = "x86_64"))]
 fn enc_dp1(sf: u32, opcode: u32) -> u32 {
-    (sf << 31) | (0b1011010110 << 21) | (opcode << 10) | (RN << 5) | RD
+    enc_dp1_regs(sf, opcode, RN, RD)
 }
 
 /// Bitfield: `sf opc 100110 N immr imms Rn Rd`
@@ -6945,6 +6950,81 @@ fn smir_aarch64_native_lowering_matches_qemu_oracle() {
                 disp_size: DispSize::Auto,
                 base: Some(0x1000),
             },
+        }],
+        st,
+    );
+
+    let mut st = native_state();
+    st.x[0] = 0x1111_2222_3333_4444;
+    st.x[1] = 0x8000_0000_0000_1000;
+    st.pstate = 0x7000_0000;
+    push_case3(
+        "ctz_x_as_rbit_clz_preserves_flags",
+        [
+            enc_dp1_regs(1, 0b000000, 1, 0),
+            enc_dp1_regs(1, 0b000100, 0, 0),
+            NOP,
+        ],
+        vec![OpKind::Ctz {
+            dst: arm_x(0),
+            src: arm_x(1),
+            width: OpWidth::W64,
+        }],
+        st,
+    );
+
+    let mut st = native_state();
+    st.x[0] = 0xffff_ffff_2222_3333;
+    st.x[1] = 0xaaaa_bbbb_0000_0080;
+    st.pstate = 0x6000_0000;
+    push_case3(
+        "ctz_w_as_rbit_clz_zero_ext_preserves_flags",
+        [
+            enc_dp1_regs(0, 0b000000, 1, 0),
+            enc_dp1_regs(0, 0b000100, 0, 0),
+            NOP,
+        ],
+        vec![OpKind::Ctz {
+            dst: arm_x(0),
+            src: arm_x(1),
+            width: OpWidth::W32,
+        }],
+        st,
+    );
+
+    let mut st = native_state();
+    st.x[0] = 0x9999_aaaa_bbbb_cccc;
+    st.x[1] = 0;
+    st.pstate = 0xa000_0000;
+    push_case3(
+        "ctz_x_zero_as_width_preserves_flags",
+        [
+            enc_dp1_regs(1, 0b000000, 1, 0),
+            enc_dp1_regs(1, 0b000100, 0, 0),
+            NOP,
+        ],
+        vec![OpKind::Ctz {
+            dst: arm_x(0),
+            src: arm_x(1),
+            width: OpWidth::W64,
+        }],
+        st,
+    );
+
+    let mut st = native_state();
+    st.x[0] = 0x0000_0000_0000_0040;
+    st.pstate = 0xd000_0000;
+    push_case3(
+        "ctz_in_place_as_rbit_clz_preserves_flags",
+        [
+            enc_dp1_regs(1, 0b000000, 0, 0),
+            enc_dp1_regs(1, 0b000100, 0, 0),
+            NOP,
+        ],
+        vec![OpKind::Ctz {
+            dst: arm_x(0),
+            src: arm_x(0),
+            width: OpWidth::W64,
         }],
         st,
     );
