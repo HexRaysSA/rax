@@ -3110,25 +3110,52 @@ impl X86_64Lifter {
                     mnemonic: "APX CCMP immediate with NDD".to_string(),
                 });
             }
-            if modrm.is_memory {
-                return Err(LiftError::Unsupported {
-                    addr: pc,
-                    mnemonic: "APX CCMP immediate memory form".to_string(),
-                });
-            }
 
-            self.push_apx_conditional_flags(
+            let memory_load = if modrm.is_memory {
+                let x86_addr = modrm.addr.as_ref().unwrap();
+                let (addr, pre_ops) = self.x86_addr_to_smir(x86_addr, next_pc, ctx);
+                ops.extend(pre_ops);
+
+                let tmp = ctx.alloc_vreg();
+                Some((tmp, addr))
+            } else {
+                None
+            };
+            let src1 = memory_load
+                .as_ref()
+                .map(|(tmp, _)| *tmp)
+                .unwrap_or_else(|| self.gpr(modrm.rm));
+
+            self.push_apx_conditional_flags_with(
                 &mut ops,
                 pc,
                 ctx,
                 self.x86_cond(prefix.ccmp_cond()),
                 prefix.ccmp_default_flags(),
-                OpKind::Cmp {
-                    src1: self.gpr(modrm.rm),
-                    src2: SrcOperand::Imm(imm),
-                    width,
+                |ops, cond_reg| {
+                    if let Some((dst, addr)) = memory_load {
+                        ops.push(SmirOp::new(
+                            OpId(ops.len() as u16),
+                            pc,
+                            OpKind::PredLoad {
+                                dst,
+                                cond: cond_reg,
+                                addr,
+                                width: mem_width,
+                                signed: SignExtend::Zero,
+                            },
+                        ));
+                    }
+                    ops.push(SmirOp::new(
+                        OpId(ops.len() as u16),
+                        pc,
+                        OpKind::Cmp {
+                            src1,
+                            src2: SrcOperand::Imm(imm),
+                            width,
+                        },
+                    ));
                 },
-                None,
             );
 
             return Ok(LiftResult::fallthrough(
@@ -3247,15 +3274,14 @@ impl X86_64Lifter {
         flags
     }
 
-    fn push_apx_conditional_flags(
+    fn push_apx_conditional_flags_with(
         &self,
         ops: &mut Vec<SmirOp>,
         pc: u64,
         ctx: &mut LiftContext,
         cond: Condition,
         dfv: u8,
-        true_op: OpKind,
-        true_hint: Option<X86OpHint>,
+        push_true_ops: impl FnOnce(&mut Vec<SmirOp>, VReg),
     ) {
         let old_flags = ctx.alloc_vreg();
         ops.push(SmirOp::new(
@@ -3299,12 +3325,7 @@ impl X86_64Lifter {
             },
         ));
 
-        let op = if let Some(hint) = true_hint {
-            SmirOp::with_hint(OpId(ops.len() as u16), pc, true_op, hint)
-        } else {
-            SmirOp::new(OpId(ops.len() as u16), pc, true_op)
-        };
-        ops.push(op);
+        push_true_ops(ops, cond_reg);
 
         let true_flags = ctx.alloc_vreg();
         ops.push(SmirOp::new(
@@ -3352,44 +3373,64 @@ impl X86_64Lifter {
         let is_byte = (opcode & 0x01) == 0;
         let op_size = prefix.op_size(is_byte);
         let width = self.size_to_width(op_size);
+        let mem_width = self.size_to_memwidth(op_size);
         let modrm_prefix = prefix.as_modrm_prefix(prefix.bytes + 1);
         let modrm = decode_modrm(bytes, &modrm_prefix, pc)?;
-
-        if modrm.is_memory {
-            return Err(LiftError::Unsupported {
-                addr: pc,
-                mnemonic: "APX CCMP memory form".to_string(),
-            });
-        }
+        let next_pc = pc + prefix.bytes as u64 + 1 + modrm.bytes_consumed as u64;
 
         let reg_is_src = (opcode & 0x02) == 0;
-        let (src1, src2, hint) = if reg_is_src {
-            (
-                self.gpr(modrm.rm),
-                self.gpr(modrm.reg),
-                X86AluEncoding::RmReg,
-            )
+        let mut ops = Vec::new();
+        let memory_load = if modrm.is_memory {
+            let x86_addr = modrm.addr.as_ref().unwrap();
+            let (addr, pre_ops) = self.x86_addr_to_smir(x86_addr, next_pc, ctx);
+            ops.extend(pre_ops);
+
+            let tmp = ctx.alloc_vreg();
+            Some((tmp, addr))
         } else {
-            (
-                self.gpr(modrm.reg),
-                self.gpr(modrm.rm),
-                X86AluEncoding::RegRm,
-            )
+            None
+        };
+        let rm_src = memory_load
+            .as_ref()
+            .map(|(tmp, _)| *tmp)
+            .unwrap_or_else(|| self.gpr(modrm.rm));
+        let (src1, src2, hint) = if reg_is_src {
+            (rm_src, self.gpr(modrm.reg), X86AluEncoding::RmReg)
+        } else {
+            (self.gpr(modrm.reg), rm_src, X86AluEncoding::RegRm)
         };
 
-        let mut ops = Vec::new();
-        self.push_apx_conditional_flags(
+        self.push_apx_conditional_flags_with(
             &mut ops,
             pc,
             ctx,
             self.x86_cond(prefix.ccmp_cond()),
             prefix.ccmp_default_flags(),
-            OpKind::Cmp {
-                src1,
-                src2: SrcOperand::Reg(src2),
-                width,
+            |ops, cond_reg| {
+                if let Some((dst, addr)) = memory_load {
+                    ops.push(SmirOp::new(
+                        OpId(ops.len() as u16),
+                        pc,
+                        OpKind::PredLoad {
+                            dst,
+                            cond: cond_reg,
+                            addr,
+                            width: mem_width,
+                            signed: SignExtend::Zero,
+                        },
+                    ));
+                }
+                ops.push(SmirOp::with_hint(
+                    OpId(ops.len() as u16),
+                    pc,
+                    OpKind::Cmp {
+                        src1,
+                        src2: SrcOperand::Reg(src2),
+                        width,
+                    },
+                    X86OpHint::AluEncoding(hint),
+                ));
             },
-            Some(X86OpHint::AluEncoding(hint)),
         );
 
         Ok(LiftResult::fallthrough(
@@ -3416,29 +3457,57 @@ impl X86_64Lifter {
         let is_byte = opcode == 0x84;
         let op_size = prefix.op_size(is_byte);
         let width = self.size_to_width(op_size);
+        let mem_width = self.size_to_memwidth(op_size);
         let modrm_prefix = prefix.as_modrm_prefix(prefix.bytes + 1);
         let modrm = decode_modrm(bytes, &modrm_prefix, pc)?;
-
-        if modrm.is_memory {
-            return Err(LiftError::Unsupported {
-                addr: pc,
-                mnemonic: "APX CTEST memory form".to_string(),
-            });
-        }
+        let next_pc = pc + prefix.bytes as u64 + 1 + modrm.bytes_consumed as u64;
 
         let mut ops = Vec::new();
-        self.push_apx_conditional_flags(
+        let memory_load = if modrm.is_memory {
+            let x86_addr = modrm.addr.as_ref().unwrap();
+            let (addr, pre_ops) = self.x86_addr_to_smir(x86_addr, next_pc, ctx);
+            ops.extend(pre_ops);
+
+            let tmp = ctx.alloc_vreg();
+            Some((tmp, addr))
+        } else {
+            None
+        };
+        let src1 = memory_load
+            .as_ref()
+            .map(|(tmp, _)| *tmp)
+            .unwrap_or_else(|| self.gpr(modrm.rm));
+
+        self.push_apx_conditional_flags_with(
             &mut ops,
             pc,
             ctx,
             self.x86_cond(prefix.ccmp_cond()),
             prefix.ccmp_default_flags(),
-            OpKind::Test {
-                src1: self.gpr(modrm.rm),
-                src2: SrcOperand::Reg(self.gpr(modrm.reg)),
-                width,
+            |ops, cond_reg| {
+                if let Some((dst, addr)) = memory_load {
+                    ops.push(SmirOp::new(
+                        OpId(ops.len() as u16),
+                        pc,
+                        OpKind::PredLoad {
+                            dst,
+                            cond: cond_reg,
+                            addr,
+                            width: mem_width,
+                            signed: SignExtend::Zero,
+                        },
+                    ));
+                }
+                ops.push(SmirOp::new(
+                    OpId(ops.len() as u16),
+                    pc,
+                    OpKind::Test {
+                        src1,
+                        src2: SrcOperand::Reg(self.gpr(modrm.reg)),
+                        width,
+                    },
+                ));
             },
-            None,
         );
 
         Ok(LiftResult::fallthrough(
@@ -3465,19 +3534,15 @@ impl X86_64Lifter {
         let is_byte = opcode == 0xF6;
         let op_size = prefix.op_size(is_byte);
         let width = self.size_to_width(op_size);
+        let mem_width = self.size_to_memwidth(op_size);
         let modrm_prefix = prefix.as_modrm_prefix(prefix.bytes + 1);
         let modrm = decode_modrm(bytes, &modrm_prefix, pc)?;
+        let next_pc = pc + prefix.bytes as u64 + 1 + modrm.bytes_consumed as u64;
         let group = (modrm.byte >> 3) & 0x07;
         if group != 0 {
             return Err(LiftError::Unsupported {
                 addr: pc,
                 mnemonic: format!("APX F6/F7 /{group}"),
-            });
-        }
-        if modrm.is_memory {
-            return Err(LiftError::Unsupported {
-                addr: pc,
-                mnemonic: "APX CTEST immediate memory form".to_string(),
             });
         }
 
@@ -3509,18 +3574,51 @@ impl X86_64Lifter {
         };
 
         let mut ops = Vec::new();
-        self.push_apx_conditional_flags(
+        let memory_load = if modrm.is_memory {
+            let x86_addr = modrm.addr.as_ref().unwrap();
+            let (addr, pre_ops) = self.x86_addr_to_smir(x86_addr, next_pc, ctx);
+            ops.extend(pre_ops);
+
+            let tmp = ctx.alloc_vreg();
+            Some((tmp, addr))
+        } else {
+            None
+        };
+        let src1 = memory_load
+            .as_ref()
+            .map(|(tmp, _)| *tmp)
+            .unwrap_or_else(|| self.gpr(modrm.rm));
+
+        self.push_apx_conditional_flags_with(
             &mut ops,
             pc,
             ctx,
             self.x86_cond(prefix.ccmp_cond()),
             prefix.ccmp_default_flags(),
-            OpKind::Test {
-                src1: self.gpr(modrm.rm),
-                src2: SrcOperand::Imm(imm),
-                width,
+            |ops, cond_reg| {
+                if let Some((dst, addr)) = memory_load {
+                    ops.push(SmirOp::new(
+                        OpId(ops.len() as u16),
+                        pc,
+                        OpKind::PredLoad {
+                            dst,
+                            cond: cond_reg,
+                            addr,
+                            width: mem_width,
+                            signed: SignExtend::Zero,
+                        },
+                    ));
+                }
+                ops.push(SmirOp::new(
+                    OpId(ops.len() as u16),
+                    pc,
+                    OpKind::Test {
+                        src1,
+                        src2: SrcOperand::Imm(imm),
+                        width,
+                    },
+                ));
             },
-            None,
         );
 
         Ok(LiftResult::fallthrough(
@@ -7753,7 +7851,19 @@ mod tests {
         cond: Condition,
         default_rflags: i64,
     ) {
-        assert_eq!(result.ops.len(), 8);
+        assert_apx_conditional_flag_shape_with_true_ops(result, cond, default_rflags, 1);
+    }
+
+    fn assert_apx_conditional_flag_shape_with_true_ops(
+        result: &LiftResult,
+        cond: Condition,
+        default_rflags: i64,
+        true_op_count: usize,
+    ) -> VReg {
+        let true_flags_idx = 4 + true_op_count;
+        let select_idx = true_flags_idx + 1;
+        let write_flags_idx = select_idx + 1;
+        assert_eq!(result.ops.len(), write_flags_idx + 1);
 
         let old_flags = match &result.ops[0].kind {
             OpKind::ReadFlags { dst } => *dst,
@@ -7798,11 +7908,11 @@ mod tests {
             }
             other => panic!("expected APX conditional false-flag defaults, got {other:?}"),
         }
-        let true_flags = match &result.ops[5].kind {
+        let true_flags = match &result.ops[true_flags_idx].kind {
             OpKind::ReadFlags { dst } => *dst,
             other => panic!("expected APX conditional true ReadFlags, got {other:?}"),
         };
-        let selected_flags = match &result.ops[6].kind {
+        let selected_flags = match &result.ops[select_idx].kind {
             OpKind::Select {
                 dst,
                 cond,
@@ -7817,9 +7927,33 @@ mod tests {
             }
             other => panic!("expected APX conditional flag Select, got {other:?}"),
         };
-        match &result.ops[7].kind {
+        match &result.ops[write_flags_idx].kind {
             OpKind::WriteFlags { src } => assert_eq!(*src, selected_flags),
             other => panic!("expected APX conditional WriteFlags, got {other:?}"),
+        }
+        cond_reg
+    }
+
+    fn assert_apx_conditional_predload(
+        result: &LiftResult,
+        cond_reg: VReg,
+        index: usize,
+        width: MemWidth,
+    ) -> VReg {
+        match &result.ops[index].kind {
+            OpKind::PredLoad {
+                dst,
+                cond,
+                addr: Address::Direct(base),
+                width: got_width,
+                signed: SignExtend::Zero,
+            } => {
+                assert_eq!(*cond, cond_reg);
+                assert_eq!(*base, x86_gpr(3));
+                assert_eq!(*got_width, width);
+                *dst
+            }
+            other => panic!("expected APX conditional PredLoad, got {other:?}"),
         }
     }
 
@@ -9477,20 +9611,108 @@ mod tests {
     }
 
     #[test]
-    fn lift_apx_ccmp_ctest_reject_memory_forms_without_predicated_lowering() {
+    fn lift_apx_ccmp_ctest_memory_forms_use_predload_like_llvm() {
         let mut lifter = X86_64Lifter::strict();
         let mut ctx = LiftContext::new(SourceArch::X86_64);
 
-        for (bytes, name) in [
-            ([0x62, 0xF4, 0xE4, 0x05, 0x3B, 0x03], "ccmp mem"),
-            ([0x62, 0xF4, 0xE4, 0x42, 0x85, 0x0B], "ctest mem"),
-            (
-                [0x62, 0xF4, 0xE4, 0x48, 0xF7, 0x03],
-                "ctest imm mem",
-            ),
-        ] {
-            let err = lifter.lift_insn(0x1000, &bytes, &mut ctx).unwrap_err();
-            assert!(matches!(err, LiftError::Unsupported { .. }), "{name}: {err:?}");
+        // LLVM 20: `ccmpnz {dfv=of,sf} rax, [rbx]`.
+        let ccmp_mem = lifter
+            .lift_insn(0x1000, &[0x62, 0xF4, 0xE4, 0x05, 0x3B, 0x03], &mut ctx)
+            .unwrap();
+        assert_eq!(ccmp_mem.bytes_consumed, 6);
+        let cond = assert_apx_conditional_flag_shape_with_true_ops(
+            &ccmp_mem,
+            Condition::Ne,
+            0x882,
+            2,
+        );
+        let loaded = assert_apx_conditional_predload(&ccmp_mem, cond, 4, MemWidth::B8);
+        match &ccmp_mem.ops[5].kind {
+            OpKind::Cmp {
+                src1,
+                src2: SrcOperand::Reg(src2),
+                width: OpWidth::W64,
+            } => {
+                assert_eq!(*src1, x86_gpr(0));
+                assert_eq!(*src2, loaded);
+            }
+            other => panic!("expected APX CCMP memory compare, got {other:?}"),
+        }
+
+        // LLVM 20: `ccmpae {dfv=of,sf} qword ptr [rbx], 100`.
+        let ccmp_imm_mem = lifter
+            .lift_insn(
+                0x1000,
+                &[0x62, 0xF4, 0xE4, 0x03, 0x83, 0x3B, 0x64],
+                &mut ctx,
+            )
+            .unwrap();
+        assert_eq!(ccmp_imm_mem.bytes_consumed, 7);
+        let cond = assert_apx_conditional_flag_shape_with_true_ops(
+            &ccmp_imm_mem,
+            Condition::Uge,
+            0x882,
+            2,
+        );
+        let loaded = assert_apx_conditional_predload(&ccmp_imm_mem, cond, 4, MemWidth::B8);
+        match &ccmp_imm_mem.ops[5].kind {
+            OpKind::Cmp {
+                src1,
+                src2: SrcOperand::Imm(100),
+                width: OpWidth::W64,
+            } => assert_eq!(*src1, loaded),
+            other => panic!("expected APX CCMP memory immediate compare, got {other:?}"),
+        }
+
+        // LLVM 20: `ctestb {dfv=of,sf} [rbx], rcx`.
+        let ctest_mem = lifter
+            .lift_insn(0x1000, &[0x62, 0xF4, 0xE4, 0x02, 0x85, 0x0B], &mut ctx)
+            .unwrap();
+        assert_eq!(ctest_mem.bytes_consumed, 6);
+        let cond = assert_apx_conditional_flag_shape_with_true_ops(
+            &ctest_mem,
+            Condition::Ult,
+            0x882,
+            2,
+        );
+        let loaded = assert_apx_conditional_predload(&ctest_mem, cond, 4, MemWidth::B8);
+        match &ctest_mem.ops[5].kind {
+            OpKind::Test {
+                src1,
+                src2: SrcOperand::Reg(src2),
+                width: OpWidth::W64,
+            } => {
+                assert_eq!(*src1, loaded);
+                assert_eq!(*src2, x86_gpr(1));
+            }
+            other => panic!("expected APX CTEST memory test, got {other:?}"),
+        }
+
+        // LLVM 20: `ctests {dfv=of,sf} qword ptr [rbx], 0xf0`.
+        let ctest_imm_mem = lifter
+            .lift_insn(
+                0x1000,
+                &[
+                    0x62, 0xF4, 0xE4, 0x08, 0xF7, 0x03, 0xF0, 0x00, 0x00, 0x00,
+                ],
+                &mut ctx,
+            )
+            .unwrap();
+        assert_eq!(ctest_imm_mem.bytes_consumed, 10);
+        let cond = assert_apx_conditional_flag_shape_with_true_ops(
+            &ctest_imm_mem,
+            Condition::Negative,
+            0x882,
+            2,
+        );
+        let loaded = assert_apx_conditional_predload(&ctest_imm_mem, cond, 4, MemWidth::B8);
+        match &ctest_imm_mem.ops[5].kind {
+            OpKind::Test {
+                src1,
+                src2: SrcOperand::Imm(0xF0),
+                width: OpWidth::W64,
+            } => assert_eq!(*src1, loaded),
+            other => panic!("expected APX CTEST memory immediate test, got {other:?}"),
         }
     }
 
