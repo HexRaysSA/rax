@@ -2530,6 +2530,33 @@ fn smir_aarch64_x86_memory_lowering_matches_qemu_oracle() {
         }
     }
 
+    let atomic_swap_ops: &[(u32, u32, &str)] = &[
+        (0, 0, "swp"),
+        (1, 0, "swpa"),
+        (0, 1, "swpl"),
+        (1, 1, "swpal"),
+    ];
+    for size in 0..4 {
+        for &(acquire, release, name) in atomic_swap_ops {
+            for _ in 0..4 {
+                batch.push((
+                    format!("{name} sz{size}"),
+                    enc_atomic_smir(size, acquire, release, 1, 0, 2, RN, RD),
+                    mem_input(&mut rng),
+                ));
+            }
+        }
+    }
+
+    let mut st = mem_input(&mut rng);
+    st.x[0] = 0xfeed_face_cafe_beef;
+    st.scratch[8] = 0x1122_3344_5566_7788;
+    batch.push((
+        "swp_x_same_src_dst".into(),
+        enc_atomic_smir(3, 0, 0, 1, 0, RD, RN, RD),
+        st,
+    ));
+
     let indexed_ops: &[(u32, u32, u32, &str)] = &[
         (3, 0, 0, "str_x"),
         (3, 0, 1, "ldr_x"),
@@ -3076,6 +3103,29 @@ fn enc_ldxr_smir(size: u32, acquire: u32) -> u32 {
         | (0b11111 << 10)
         | (RN << 5)
         | RD
+}
+
+#[cfg(all(feature = "smir-jit", target_arch = "x86_64"))]
+fn enc_atomic_smir(
+    size: u32,
+    acquire: u32,
+    release: u32,
+    o3: u32,
+    opc: u32,
+    rs: u32,
+    rn: u32,
+    rt: u32,
+) -> u32 {
+    (size << 30)
+        | (0b111 << 27)
+        | ((acquire & 1) << 23)
+        | ((release & 1) << 22)
+        | (1 << 21)
+        | (rs << 16)
+        | ((o3 & 1) << 15)
+        | (opc << 12)
+        | (rn << 5)
+        | rt
 }
 
 /// STXR/STLXR <Ws>, <Rt>, [Rn]: `size 001000 0 0 0 Rs o0 11111 Rn Rt`. Ws=x2, Rt=x3, Rn=x1.

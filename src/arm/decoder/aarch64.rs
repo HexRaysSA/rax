@@ -1077,6 +1077,11 @@ impl Aarch64Decoder {
         let is_signed_offset = !is_unsigned_imm && bit21 == 0 && op2 == 0b00;
         let is_register_offset = !is_unsigned_imm && bit21 == 1 && op2 == 0b10;
 
+        // Atomic memory operations (FEAT_LSE): size 111 0 00 A R 1 Rs o3 opc 00 Rn Rt.
+        if v == 0 && ((raw >> 24) & 1) == 0 && bit21 == 1 && op2 == 0b00 {
+            return Self::decode_atomic_memory(raw);
+        }
+
         if v == 0 && size == 0b11 && opc == 0b10 {
             let mem = if is_unsigned_imm {
                 let imm12 = ((raw >> 10) & 0xFFF) as i64;
@@ -1205,6 +1210,51 @@ impl Aarch64Decoder {
         Ok(DecodedInsn::new(mnemonic, ExecutionState::Aarch64, raw, 4)
             .with_operand(Operand::Reg(Register::with_zr(rt, is_64bit)))
             .with_operand(Operand::Mem(mem)))
+    }
+
+    fn decode_atomic_memory(raw: u32) -> Result<DecodedInsn, DecodeError> {
+        let size = (raw >> 30) & 0x3;
+        let acquire = ((raw >> 23) & 1) != 0;
+        let release = ((raw >> 22) & 1) != 0;
+        let rs = ((raw >> 16) & 0x1F) as u8;
+        let o3 = (raw >> 15) & 1;
+        let opc = (raw >> 12) & 0x7;
+        let rn = ((raw >> 5) & 0x1F) as u8;
+        let rt = (raw & 0x1F) as u8;
+        let is_64bit = size == 0b11;
+
+        let suffix = (acquire, release);
+        let mnemonic = if o3 == 1 {
+            match (opc, suffix) {
+                (0b000, (false, false)) => Mnemonic::SWP,
+                (0b000, (true, false)) => Mnemonic::SWPA,
+                (0b000, (false, true)) => Mnemonic::SWPL,
+                (0b000, (true, true)) => Mnemonic::SWPAL,
+                _ => Mnemonic::UNKNOWN,
+            }
+        } else {
+            match (opc, suffix) {
+                (0b000, (false, false)) => Mnemonic::LDADD,
+                (0b000, (true, false)) => Mnemonic::LDADDA,
+                (0b000, (false, true)) => Mnemonic::LDADDL,
+                (0b000, (true, true)) => Mnemonic::LDADDAL,
+                (0b001, _) => Mnemonic::LDCLR,
+                (0b010, _) => Mnemonic::LDEOR,
+                (0b011, _) => Mnemonic::LDSET,
+                (0b100, _) => Mnemonic::LDSMAX,
+                (0b101, _) => Mnemonic::LDSMIN,
+                (0b110, _) => Mnemonic::LDUMAX,
+                (0b111, _) => Mnemonic::LDUMIN,
+                _ => Mnemonic::UNKNOWN,
+            }
+        };
+
+        Ok(DecodedInsn::new(mnemonic, ExecutionState::Aarch64, raw, 4)
+            .with_operand(Operand::Reg(Register::with_zr(rs, is_64bit)))
+            .with_operand(Operand::Reg(Register::with_zr(rt, is_64bit)))
+            .with_operand(Operand::Mem(MemOperand::base(Register::with_sp(
+                rn, true,
+            )))))
     }
 
     // =========================================================================
@@ -2707,6 +2757,36 @@ mod tests {
         // ADD X0, X1, #0x10: 91004020
         let insn = decode_bytes(&[0x20, 0x40, 0x00, 0x91]).unwrap();
         assert_eq!(insn.mnemonic, Mnemonic::ADD);
+        assert_eq!(insn.operands.len(), 3);
+    }
+
+    #[test]
+    fn test_atomic_swp_decode() {
+        // SWP X2, X0, [X1].
+        let insn = Aarch64Decoder::decode(
+            (0b11 << 30)
+                | (0b111 << 27)
+                | (1 << 21)
+                | (2 << 16)
+                | (1 << 15)
+                | (1 << 5),
+        )
+        .unwrap();
+        assert_eq!(insn.mnemonic, Mnemonic::SWP);
+        assert_eq!(insn.operands.len(), 3);
+
+        // SWPAL W2, W0, [X1].
+        let insn = Aarch64Decoder::decode(
+            (0b111 << 27)
+                | (1 << 23)
+                | (1 << 22)
+                | (1 << 21)
+                | (2 << 16)
+                | (1 << 15)
+                | (1 << 5),
+        )
+        .unwrap();
+        assert_eq!(insn.mnemonic, Mnemonic::SWPAL);
         assert_eq!(insn.operands.len(), 3);
     }
 
