@@ -749,8 +749,23 @@ impl Aarch64Lowerer {
         self.emit(0xd420_0000 | (u32::from(imm16) << 5));
     }
 
+    fn emit_svc(&mut self, imm16: u16) {
+        self.emit(0xd400_0001 | (u32::from(imm16) << 5));
+    }
+
+    fn emit_hlt(&mut self, imm16: u16) {
+        self.emit(0xd440_0000 | (u32::from(imm16) << 5));
+    }
+
     fn emit_udf(&mut self, imm16: u16) {
         self.emit(u32::from(imm16) << 5);
+    }
+
+    fn exception_imm16(op: &str, imm: u32) -> Result<u16, LowerError> {
+        u16::try_from(imm).map_err(|_| LowerError::InvalidOperand {
+            op: format!("AArch64 native {op}"),
+            operand: format!("imm={imm:#x}"),
+        })
     }
 
     fn bitfield_args(
@@ -4370,6 +4385,11 @@ impl Aarch64Lowerer {
                 self.emit_udf(0);
                 Ok(())
             }
+            OpKind::Swi { imm } => {
+                let imm = Self::exception_imm16("SVC", *imm)?;
+                self.emit_svc(imm);
+                Ok(())
+            }
             OpKind::MaterializeFlags => Ok(()),
             OpKind::ClearExclusive => {
                 self.emit(0xd503_3f5f);
@@ -4788,6 +4808,18 @@ impl Aarch64Lowerer {
                 Ok(())
             }
             Terminator::Trap {
+                kind: TrapKind::SystemCall,
+            } => {
+                self.emit_svc(0);
+                Ok(())
+            }
+            Terminator::Trap {
+                kind: TrapKind::Halt,
+            } => {
+                self.emit_hlt(0);
+                Ok(())
+            }
+            Terminator::Trap {
                 kind: TrapKind::Undefined | TrapKind::InvalidOpcode,
             }
             | Terminator::Unreachable => {
@@ -5160,6 +5192,14 @@ mod tests {
 
     fn enc_brk(imm16: u32) -> u32 {
         0xd420_0000 | ((imm16 & 0xffff) << 5)
+    }
+
+    fn enc_svc(imm16: u32) -> u32 {
+        0xd400_0001 | ((imm16 & 0xffff) << 5)
+    }
+
+    fn enc_hlt(imm16: u32) -> u32 {
+        0xd440_0000 | ((imm16 & 0xffff) << 5)
     }
 
     fn enc_udf(imm16: u32) -> u32 {
@@ -7921,6 +7961,35 @@ mod tests {
     }
 
     #[test]
+    fn lowers_swi_op_as_svc() {
+        let mut builder = FunctionBuilder::new(FunctionId(0), 0);
+        builder.push_op(0, OpKind::Swi { imm: 0x1234 });
+        builder.set_terminator(Terminator::Return { values: vec![] });
+        let func = builder.finish();
+
+        let mut lowerer = Aarch64Lowerer::new();
+        lowerer.lower_function(&func).unwrap();
+        let code = lowerer.finalize().unwrap();
+
+        let mut expected = Vec::new();
+        expected.extend_from_slice(&enc_svc(0x1234).to_le_bytes());
+        expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
+        assert_eq!(code, expected);
+    }
+
+    #[test]
+    fn rejects_swi_imm_out_of_range() {
+        let mut builder = FunctionBuilder::new(FunctionId(0), 0);
+        builder.push_op(0, OpKind::Swi { imm: 0x1_0000 });
+        builder.set_terminator(Terminator::Return { values: vec![] });
+        let func = builder.finish();
+
+        let mut lowerer = Aarch64Lowerer::new();
+        let err = lowerer.lower_function(&func).unwrap_err();
+        assert!(matches!(err, LowerError::InvalidOperand { .. }));
+    }
+
+    #[test]
     fn lowers_breakpoint_trap_terminator_as_brk() {
         let mut builder = FunctionBuilder::new(FunctionId(0), 0);
         builder.set_terminator(Terminator::Trap {
@@ -7934,6 +8003,40 @@ mod tests {
 
         let mut expected = Vec::new();
         expected.extend_from_slice(&enc_brk(0).to_le_bytes());
+        assert_eq!(code, expected);
+    }
+
+    #[test]
+    fn lowers_system_call_trap_terminator_as_svc() {
+        let mut builder = FunctionBuilder::new(FunctionId(0), 0);
+        builder.set_terminator(Terminator::Trap {
+            kind: TrapKind::SystemCall,
+        });
+        let func = builder.finish();
+
+        let mut lowerer = Aarch64Lowerer::new();
+        lowerer.lower_function(&func).unwrap();
+        let code = lowerer.finalize().unwrap();
+
+        let mut expected = Vec::new();
+        expected.extend_from_slice(&enc_svc(0).to_le_bytes());
+        assert_eq!(code, expected);
+    }
+
+    #[test]
+    fn lowers_halt_trap_terminator_as_hlt() {
+        let mut builder = FunctionBuilder::new(FunctionId(0), 0);
+        builder.set_terminator(Terminator::Trap {
+            kind: TrapKind::Halt,
+        });
+        let func = builder.finish();
+
+        let mut lowerer = Aarch64Lowerer::new();
+        lowerer.lower_function(&func).unwrap();
+        let code = lowerer.finalize().unwrap();
+
+        let mut expected = Vec::new();
+        expected.extend_from_slice(&enc_hlt(0).to_le_bytes());
         assert_eq!(code, expected);
     }
 
