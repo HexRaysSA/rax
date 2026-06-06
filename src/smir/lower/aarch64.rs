@@ -132,6 +132,12 @@ impl Aarch64Lowerer {
         Ok(())
     }
 
+    fn emit_movn_zero(&mut self, dst: u8, width: OpWidth) -> Result<(), LowerError> {
+        let sf = Self::sf(width)?;
+        self.emit((sf << 31) | (0b100101 << 23) | (dst as u32));
+        Ok(())
+    }
+
     fn emit_addsub_shifted(
         &mut self,
         dst: u8,
@@ -1596,6 +1602,7 @@ impl Aarch64Lowerer {
             (0b00, false) => self.emit_mov_imm(dst, 0, width)?,
             (0b00, true) => self.emit_mov_reg(dst, rn, width)?,
             (0b01, false) | (0b10, false) => self.emit_mov_reg(dst, rn, width)?,
+            (0b01, true) => self.emit_movn_zero(dst, width)?,
             (0b10, true) => self.emit_logic_reg_n(dst, 31, rn, 0b01, true, width)?,
             (0b11, false) => self.emit_logic_reg_n(dst, 31, 31, 0b11, false, width)?,
             (0b11, true) => self.emit_logic_reg_n(dst, rn, rn, 0b11, false, width)?,
@@ -6329,6 +6336,58 @@ mod tests {
 
         let mut expected = Vec::new();
         expected.extend_from_slice(&enc_mov_reg(1, 0, 1).to_le_bytes());
+        expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
+        assert_eq!(code, expected);
+    }
+
+    #[test]
+    fn lowers_orr_x_all_ones_imm_as_movn_zero() {
+        let mut builder = FunctionBuilder::new(FunctionId(0), 0);
+        builder.push_op(
+            0,
+            OpKind::Or {
+                dst: x(0),
+                src1: x(1),
+                src2: SrcOperand::Imm64(-1),
+                width: OpWidth::W64,
+                flags: FlagUpdate::None,
+            },
+        );
+        builder.set_terminator(Terminator::Return { values: vec![] });
+        let func = builder.finish();
+
+        let mut lowerer = Aarch64Lowerer::new();
+        lowerer.lower_function(&func).unwrap();
+        let code = lowerer.finalize().unwrap();
+
+        let mut expected = Vec::new();
+        expected.extend_from_slice(&enc_mov_wide(1, 0b00, 0, 0, 0).to_le_bytes());
+        expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
+        assert_eq!(code, expected);
+    }
+
+    #[test]
+    fn lowers_orr_w_all_ones_imm_as_movn_zero() {
+        let mut builder = FunctionBuilder::new(FunctionId(0), 0);
+        builder.push_op(
+            0,
+            OpKind::Or {
+                dst: x(0),
+                src1: x(1),
+                src2: SrcOperand::Imm(-1),
+                width: OpWidth::W32,
+                flags: FlagUpdate::None,
+            },
+        );
+        builder.set_terminator(Terminator::Return { values: vec![] });
+        let func = builder.finish();
+
+        let mut lowerer = Aarch64Lowerer::new();
+        lowerer.lower_function(&func).unwrap();
+        let code = lowerer.finalize().unwrap();
+
+        let mut expected = Vec::new();
+        expected.extend_from_slice(&enc_mov_wide(0, 0b00, 0, 0, 0).to_le_bytes());
         expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
         assert_eq!(code, expected);
     }
