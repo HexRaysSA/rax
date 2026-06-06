@@ -3141,6 +3141,171 @@ impl X86_64Lifter {
         ))
     }
 
+    fn lift_apx_imul_reg(
+        &self,
+        prefix: ApxEvexPrefix,
+        bytes: &[u8],
+        pc: u64,
+        ctx: &mut LiftContext,
+    ) -> Result<LiftResult, LiftError> {
+        let op_size = prefix.op_size(false);
+        let width = self.size_to_width(op_size);
+        let mem_width = self.size_to_memwidth(op_size);
+        let modrm_prefix = prefix.as_modrm_prefix(prefix.bytes + 1);
+        let modrm = decode_modrm(bytes, &modrm_prefix, pc)?;
+        let next_pc = pc + prefix.bytes as u64 + 1 + modrm.bytes_consumed as u64;
+        let mut ops = Vec::new();
+
+        let src1 = self.gpr(modrm.reg);
+        let src2 = if modrm.is_memory {
+            let x86_addr = modrm.addr.as_ref().unwrap();
+            let (addr, pre_ops) = self.x86_addr_to_smir(x86_addr, next_pc, ctx);
+            ops.extend(pre_ops);
+
+            let tmp = ctx.alloc_vreg();
+            ops.push(SmirOp::new(
+                OpId(ops.len() as u16),
+                pc,
+                OpKind::Load {
+                    dst: tmp,
+                    addr,
+                    width: mem_width,
+                    sign: SignExtend::Zero,
+                },
+            ));
+            tmp
+        } else {
+            self.gpr(modrm.rm)
+        };
+
+        let dst = if prefix.nd {
+            self.gpr(prefix.vvvv_reg())
+        } else {
+            src1
+        };
+        let src2_operand = if prefix.nd && dst == src2 && dst != src1 {
+            let tmp = ctx.alloc_vreg();
+            ops.push(SmirOp::new(
+                OpId(ops.len() as u16),
+                pc,
+                OpKind::Mov {
+                    dst: tmp,
+                    src: SrcOperand::Reg(src2),
+                    width,
+                },
+            ));
+            SrcOperand::Reg(tmp)
+        } else {
+            SrcOperand::Reg(src2)
+        };
+
+        ops.push(SmirOp::new(
+            OpId(ops.len() as u16),
+            pc,
+            OpKind::MulS {
+                dst_lo: dst,
+                dst_hi: None,
+                src1,
+                src2: src2_operand,
+                width,
+                flags: prefix.flags(),
+            },
+        ));
+
+        Ok(LiftResult::fallthrough(
+            ops,
+            prefix.bytes + 1 + modrm.bytes_consumed,
+        ))
+    }
+
+    fn lift_apx_imul_imm(
+        &self,
+        prefix: ApxEvexPrefix,
+        opcode: u8,
+        bytes: &[u8],
+        pc: u64,
+        ctx: &mut LiftContext,
+    ) -> Result<LiftResult, LiftError> {
+        let op_size = prefix.op_size(false);
+        let width = self.size_to_width(op_size);
+        let mem_width = self.size_to_memwidth(op_size);
+        let modrm_prefix = prefix.as_modrm_prefix(prefix.bytes + 1);
+        let modrm = decode_modrm(bytes, &modrm_prefix, pc)?;
+        let imm_offset = modrm.bytes_consumed;
+        let imm_size = if opcode == 0x6B { 1 } else { 4 };
+
+        if bytes.len() < imm_offset + imm_size {
+            return Err(LiftError::Incomplete {
+                addr: pc,
+                have: bytes.len(),
+                need: imm_offset + imm_size,
+            });
+        }
+
+        let imm = if opcode == 0x6B {
+            bytes[imm_offset] as i8 as i64
+        } else {
+            i32::from_le_bytes([
+                bytes[imm_offset],
+                bytes[imm_offset + 1],
+                bytes[imm_offset + 2],
+                bytes[imm_offset + 3],
+            ]) as i64
+        };
+
+        let next_pc = pc + prefix.bytes as u64 + 1 + modrm.bytes_consumed as u64 + imm_size as u64;
+        let mut ops = Vec::new();
+        let src1 = if modrm.is_memory {
+            let x86_addr = modrm.addr.as_ref().unwrap();
+            let (addr, pre_ops) = self.x86_addr_to_smir(x86_addr, next_pc, ctx);
+            ops.extend(pre_ops);
+
+            let tmp = ctx.alloc_vreg();
+            ops.push(SmirOp::new(
+                OpId(ops.len() as u16),
+                pc,
+                OpKind::Load {
+                    dst: tmp,
+                    addr,
+                    width: mem_width,
+                    sign: SignExtend::Zero,
+                },
+            ));
+            tmp
+        } else {
+            self.gpr(modrm.rm)
+        };
+        let dst = if prefix.nd {
+            self.gpr(prefix.vvvv_reg())
+        } else {
+            self.gpr(modrm.reg)
+        };
+        let hint = if opcode == 0x6B {
+            X86OpHint::ImulImm8
+        } else {
+            X86OpHint::ImulImm32
+        };
+
+        ops.push(SmirOp::with_hint(
+            OpId(ops.len() as u16),
+            pc,
+            OpKind::MulS {
+                dst_lo: dst,
+                dst_hi: None,
+                src1,
+                src2: SrcOperand::Imm(imm),
+                width,
+                flags: prefix.flags(),
+            },
+            hint,
+        ));
+
+        Ok(LiftResult::fallthrough(
+            ops,
+            prefix.bytes + 1 + modrm.bytes_consumed + imm_size,
+        ))
+    }
+
     fn apx_shift_op(
         &self,
         group: u8,
@@ -3514,6 +3679,10 @@ impl X86_64Lifter {
             0x24 | 0x2C | 0xA5 | 0xAD => {
                 self.lift_apx_double_shift(prefix, opcode, &bytes[prefix.bytes + 1..], pc, ctx)
             }
+            0x69 | 0x6B => {
+                self.lift_apx_imul_imm(prefix, opcode, &bytes[prefix.bytes + 1..], pc, ctx)
+            }
+            0xAF => self.lift_apx_imul_reg(prefix, &bytes[prefix.bytes + 1..], pc, ctx),
             0x8F => self.lift_apx_pop2(prefix, modrm, pc, ctx),
             0xFF => self.lift_apx_push2(prefix, modrm, pc, ctx),
             _ => Err(LiftError::Unsupported {
@@ -7357,6 +7526,190 @@ mod tests {
                 assert_eq!(*src, tmp_dst);
             }
             other => panic!("expected APX SHRD result move into RCX, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn lift_apx_ndd_nf_imul_reg_uses_muls_like_llvm() {
+        let mut lifter = X86_64Lifter::strict();
+        let mut ctx = LiftContext::new(SourceArch::X86_64);
+
+        for (bytes, name, flags) in [
+            (
+                [0x62, 0xF4, 0xBC, 0x18, 0xAF, 0xC3],
+                "ndd",
+                FlagUpdate::All,
+            ),
+            (
+                [0x62, 0xF4, 0xBC, 0x1C, 0xAF, 0xC3],
+                "ndd_nf",
+                FlagUpdate::None,
+            ),
+        ] {
+            let result = lifter.lift_insn(0x1000, &bytes, &mut ctx).unwrap();
+            assert_eq!(result.bytes_consumed, 6, "{name}");
+            assert_eq!(result.ops.len(), 1, "{name}");
+            match &result.ops[0].kind {
+                OpKind::MulS {
+                    dst_lo,
+                    dst_hi: None,
+                    src1,
+                    src2: SrcOperand::Reg(src2),
+                    width: OpWidth::W64,
+                    flags: got_flags,
+                } => {
+                    assert_eq!(*dst_lo, x86_gpr(8), "{name}");
+                    assert_eq!(*src1, x86_gpr(0), "{name}");
+                    assert_eq!(*src2, x86_gpr(3), "{name}");
+                    assert_eq!(*got_flags, flags, "{name}");
+                }
+                other => panic!("expected APX {name} IMUL MulS, got {other:?}"),
+            }
+        }
+
+        // LLVM 20: `{nf} imulq %rbx, %rax` => 62 f4 fc 0c af c3.
+        let nf = lifter
+            .lift_insn(0x1000, &[0x62, 0xF4, 0xFC, 0x0C, 0xAF, 0xC3], &mut ctx)
+            .unwrap();
+        assert_eq!(nf.bytes_consumed, 6);
+        assert_eq!(nf.ops.len(), 1);
+        match &nf.ops[0].kind {
+            OpKind::MulS {
+                dst_lo,
+                dst_hi: None,
+                src1,
+                src2: SrcOperand::Reg(src2),
+                width: OpWidth::W64,
+                flags: FlagUpdate::None,
+            } => {
+                assert_eq!(*dst_lo, x86_gpr(0));
+                assert_eq!(*src1, x86_gpr(0));
+                assert_eq!(*src2, x86_gpr(3));
+            }
+            other => panic!("expected APX NF IMUL MulS, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn lift_apx_imul_immediates_use_evex_destination_and_flags() {
+        let mut lifter = X86_64Lifter::strict();
+        let mut ctx = LiftContext::new(SourceArch::X86_64);
+
+        // LLVM 20: `{nf} imulq $7, %rax, %r8` => 62 74 fc 0c 6b c0 07.
+        let nf_imm8 = lifter
+            .lift_insn(
+                0x1000,
+                &[0x62, 0x74, 0xFC, 0x0C, 0x6B, 0xC0, 0x07],
+                &mut ctx,
+            )
+            .unwrap();
+        assert_eq!(nf_imm8.bytes_consumed, 7);
+        assert_eq!(nf_imm8.ops.len(), 1);
+        match &nf_imm8.ops[0].kind {
+            OpKind::MulS {
+                dst_lo,
+                dst_hi: None,
+                src1,
+                src2: SrcOperand::Imm(7),
+                width: OpWidth::W64,
+                flags: FlagUpdate::None,
+            } => {
+                assert_eq!(*dst_lo, x86_gpr(8));
+                assert_eq!(*src1, x86_gpr(0));
+            }
+            other => panic!("expected APX NF IMUL imm8 MulS, got {other:?}"),
+        }
+
+        // LLVM 20: `{nf} imulq $0x12345678, %rax, %r8`.
+        let nf_imm32 = lifter
+            .lift_insn(
+                0x1000,
+                &[
+                    0x62, 0x74, 0xFC, 0x0C, 0x69, 0xC0, 0x78, 0x56, 0x34, 0x12,
+                ],
+                &mut ctx,
+            )
+            .unwrap();
+        assert_eq!(nf_imm32.bytes_consumed, 10);
+        match &nf_imm32.ops[0].kind {
+            OpKind::MulS {
+                dst_lo,
+                dst_hi: None,
+                src1,
+                src2: SrcOperand::Imm(0x1234_5678),
+                width: OpWidth::W64,
+                flags: FlagUpdate::None,
+            } => {
+                assert_eq!(*dst_lo, x86_gpr(8));
+                assert_eq!(*src1, x86_gpr(0));
+            }
+            other => panic!("expected APX NF IMUL imm32 MulS, got {other:?}"),
+        }
+
+        // APX NDD immediate form uses vvvv as the destination. LLVM prefers the
+        // non-NDD EVEX encoding for this syntax because legacy IMUL already has
+        // an independent immediate destination.
+        let ndd_imm8 = lifter
+            .lift_insn(
+                0x1000,
+                &[0x62, 0xF4, 0xBC, 0x18, 0x6B, 0xC0, 0xF9],
+                &mut ctx,
+            )
+            .unwrap();
+        assert_eq!(ndd_imm8.bytes_consumed, 7);
+        match &ndd_imm8.ops[0].kind {
+            OpKind::MulS {
+                dst_lo,
+                dst_hi: None,
+                src1,
+                src2: SrcOperand::Imm(-7),
+                width: OpWidth::W64,
+                flags: FlagUpdate::All,
+            } => {
+                assert_eq!(*dst_lo, x86_gpr(8));
+                assert_eq!(*src1, x86_gpr(0));
+            }
+            other => panic!("expected APX NDD IMUL imm8 MulS, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn lift_apx_ndd_imul_alias_preserves_r_m_source_like_llvm() {
+        let mut lifter = X86_64Lifter::strict();
+        let mut ctx = LiftContext::new(SourceArch::X86_64);
+
+        // LLVM 20: `imulq %rbx, %rax, %rbx` => 62 f4 e4 18 af c3.
+        let result = lifter
+            .lift_insn(0x1000, &[0x62, 0xF4, 0xE4, 0x18, 0xAF, 0xC3], &mut ctx)
+            .unwrap();
+        assert_eq!(result.bytes_consumed, 6);
+        assert_eq!(result.ops.len(), 2);
+        let captured_src = match &result.ops[0].kind {
+            OpKind::Mov {
+                dst,
+                src: SrcOperand::Reg(src),
+                width: OpWidth::W64,
+            } => {
+                assert!(matches!(dst, VReg::Virtual(_)));
+                assert_eq!(*src, x86_gpr(3));
+                *dst
+            }
+            other => panic!("expected APX IMUL r/m source capture, got {other:?}"),
+        };
+        match &result.ops[1].kind {
+            OpKind::MulS {
+                dst_lo,
+                dst_hi: None,
+                src1,
+                src2: SrcOperand::Reg(src2),
+                width: OpWidth::W64,
+                flags: FlagUpdate::All,
+            } => {
+                assert_eq!(*dst_lo, x86_gpr(3));
+                assert_eq!(*src1, x86_gpr(0));
+                assert_eq!(*src2, captured_src);
+            }
+            other => panic!("expected APX NDD IMUL with captured source, got {other:?}"),
         }
     }
 
