@@ -1486,6 +1486,17 @@ impl Aarch64Lowerer {
         )
     }
 
+    fn lower_cwd(&mut self, dst: VReg, src: VReg, width: OpWidth) -> Result<(), LowerError> {
+        let bits = width.bits();
+        self.lower_shift_imm(
+            Self::dst_gpr(dst)?,
+            Self::gpr(src)?,
+            i64::from(bits - 1),
+            ShiftOp::Asr,
+            width,
+        )
+    }
+
     fn lower_not(&mut self, dst: VReg, src: VReg, width: OpWidth) -> Result<(), LowerError> {
         self.emit_logic_reg_n(
             Self::dst_gpr(dst)?,
@@ -3831,6 +3842,7 @@ impl Aarch64Lowerer {
                 from_width,
                 to_width,
             } => self.lower_extend(*dst, *src, *from_width, *to_width, true),
+            OpKind::Cwd { dst, src, width } => self.lower_cwd(*dst, *src, *width),
             OpKind::Shl {
                 dst,
                 src,
@@ -4252,6 +4264,54 @@ mod tests {
 
         let mut expected = Vec::new();
         expected.extend_from_slice(&enc_addsub_imm(0, 1, 0, 1).to_le_bytes());
+        expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
+        assert_eq!(code, expected);
+    }
+
+    #[test]
+    fn lowers_cwd_x_as_asr63() {
+        let mut builder = FunctionBuilder::new(FunctionId(0), 0);
+        builder.push_op(
+            0,
+            OpKind::Cwd {
+                dst: x(0),
+                src: x(1),
+                width: OpWidth::W64,
+            },
+        );
+        builder.set_terminator(Terminator::Return { values: vec![] });
+        let func = builder.finish();
+
+        let mut lowerer = Aarch64Lowerer::new();
+        lowerer.lower_function(&func).unwrap();
+        let code = lowerer.finalize().unwrap();
+
+        let mut expected = Vec::new();
+        expected.extend_from_slice(&enc_bitfield(1, 0b00, 63, 63).to_le_bytes());
+        expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
+        assert_eq!(code, expected);
+    }
+
+    #[test]
+    fn lowers_cwd_w_as_asr31_zero_ext() {
+        let mut builder = FunctionBuilder::new(FunctionId(0), 0);
+        builder.push_op(
+            0,
+            OpKind::Cwd {
+                dst: x(0),
+                src: x(1),
+                width: OpWidth::W32,
+            },
+        );
+        builder.set_terminator(Terminator::Return { values: vec![] });
+        let func = builder.finish();
+
+        let mut lowerer = Aarch64Lowerer::new();
+        lowerer.lower_function(&func).unwrap();
+        let code = lowerer.finalize().unwrap();
+
+        let mut expected = Vec::new();
+        expected.extend_from_slice(&enc_bitfield(0, 0b00, 31, 31).to_le_bytes());
         expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
         assert_eq!(code, expected);
     }
@@ -5669,5 +5729,24 @@ mod tests {
             let err = lowerer.lower_function(&func).unwrap_err();
             assert!(matches!(err, LowerError::UnsupportedOp { .. }));
         }
+    }
+
+    #[test]
+    fn rejects_cwd_w16_partial_width_lowering() {
+        let mut builder = FunctionBuilder::new(FunctionId(0), 0);
+        builder.push_op(
+            0,
+            OpKind::Cwd {
+                dst: x(0),
+                src: x(1),
+                width: OpWidth::W16,
+            },
+        );
+        builder.set_terminator(Terminator::Return { values: vec![] });
+        let func = builder.finish();
+
+        let mut lowerer = Aarch64Lowerer::new();
+        let err = lowerer.lower_function(&func).unwrap_err();
+        assert!(matches!(err, LowerError::UnsupportedOp { .. }));
     }
 }
