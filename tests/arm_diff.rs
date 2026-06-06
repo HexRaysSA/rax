@@ -2557,6 +2557,30 @@ fn smir_aarch64_x86_memory_lowering_matches_qemu_oracle() {
         st,
     ));
 
+    let atomic_rmw_ops: &[(u32, &str)] = &[
+        (0b000, "ldadd"),
+        (0b001, "ldclr"),
+        (0b010, "ldeor"),
+        (0b011, "ldset"),
+        (0b100, "ldsmax"),
+        (0b101, "ldsmin"),
+        (0b110, "ldumax"),
+        (0b111, "ldumin"),
+    ];
+    for size in 0..4 {
+        for &(opc, name) in atomic_rmw_ops {
+            for &(acquire, release, suffix) in &[(0, 0, ""), (1, 1, "al")] {
+                for _ in 0..3 {
+                    batch.push((
+                        format!("{name}{suffix} sz{size}"),
+                        enc_atomic_smir(size, acquire, release, 0, opc, 2, RN, RD),
+                        mem_input(&mut rng),
+                    ));
+                }
+            }
+        }
+    }
+
     let indexed_ops: &[(u32, u32, u32, &str)] = &[
         (3, 0, 0, "str_x"),
         (3, 0, 1, "ldr_x"),

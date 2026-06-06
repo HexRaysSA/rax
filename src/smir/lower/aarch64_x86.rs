@@ -486,7 +486,7 @@ impl Aarch64X86_64Lowerer {
         op: AtomicOp,
         width: MemWidth,
     ) -> Result<(), LowerError> {
-        if op != AtomicOp::Swap {
+        if op == AtomicOp::Nand {
             return Err(LowerError::UnsupportedOp {
                 op: format!("AArch64 AtomicRmw op {op:?}"),
             });
@@ -509,6 +509,48 @@ impl Aarch64X86_64Lowerer {
         }
 
         self.load_vreg_to(src, HI, op_width)?;
+        {
+            let mut e = X86Emitter::new(&mut self.code);
+            e.emit_mov_rm(ACC, PhysReg::Rsp, 0, OpWidth::W64);
+            match op {
+                AtomicOp::Add => e.emit_add_rr(ACC, HI, op_width),
+                AtomicOp::Sub => e.emit_sub_rr(ACC, HI, op_width),
+                AtomicOp::And => e.emit_and_rr(ACC, HI, op_width),
+                AtomicOp::Or => e.emit_or_rr(ACC, HI, op_width),
+                AtomicOp::Xor => e.emit_xor_rr(ACC, HI, op_width),
+                AtomicOp::Swap => e.emit_mov_rr(ACC, HI, op_width),
+                AtomicOp::Max | AtomicOp::Min | AtomicOp::Umax | AtomicOp::Umin => {
+                    let signed = matches!(op, AtomicOp::Max | AtomicOp::Min);
+                    match (op_width, signed) {
+                        (OpWidth::W8 | OpWidth::W16 | OpWidth::W32, true) => {
+                            e.emit_movsx(ACC, ACC, op_width, OpWidth::W64);
+                            e.emit_movsx(HI, HI, op_width, OpWidth::W64);
+                        }
+                        (OpWidth::W8 | OpWidth::W16, false) => {
+                            e.emit_movzx(ACC, ACC, op_width, OpWidth::W64);
+                            e.emit_movzx(HI, HI, op_width, OpWidth::W64);
+                        }
+                        (OpWidth::W32, false) => {
+                            e.emit_mov_rr(ACC, ACC, OpWidth::W32);
+                            e.emit_mov_rr(HI, HI, OpWidth::W32);
+                        }
+                        (OpWidth::W64, _) => {}
+                        (OpWidth::W128, _) => unreachable!(),
+                    }
+                    e.emit_cmp_rr(ACC, HI, OpWidth::W64);
+                    let take_operand = match op {
+                        AtomicOp::Max => X86Cond::L,
+                        AtomicOp::Min => X86Cond::G,
+                        AtomicOp::Umax => X86Cond::B,
+                        AtomicOp::Umin => X86Cond::A,
+                        _ => unreachable!(),
+                    };
+                    e.emit_cmovcc(take_operand, ACC, HI, OpWidth::W64);
+                }
+                AtomicOp::Nand => unreachable!(),
+            }
+            e.emit_mov_rr(HI, ACC, OpWidth::W64);
+        }
         self.load_addr_to(addr, ADDR)?;
         {
             let mut e = X86Emitter::new(&mut self.code);

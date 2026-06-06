@@ -1646,8 +1646,22 @@ impl Aarch64Lifter {
                 self.lift_store(insn, MemWidth::B2, pc, &mut ops, ctx)?;
             }
 
-            Mnemonic::SWP | Mnemonic::SWPA | Mnemonic::SWPAL | Mnemonic::SWPL => {
-                self.lift_atomic_swap(insn, pc, &mut ops, ctx)?;
+            Mnemonic::SWP
+            | Mnemonic::SWPA
+            | Mnemonic::SWPAL
+            | Mnemonic::SWPL
+            | Mnemonic::LDADD
+            | Mnemonic::LDADDA
+            | Mnemonic::LDADDAL
+            | Mnemonic::LDADDL
+            | Mnemonic::LDCLR
+            | Mnemonic::LDEOR
+            | Mnemonic::LDSET
+            | Mnemonic::LDSMAX
+            | Mnemonic::LDSMIN
+            | Mnemonic::LDUMAX
+            | Mnemonic::LDUMIN => {
+                self.lift_atomic_rmw(insn, pc, &mut ops, ctx)?;
             }
 
             Mnemonic::LDP | Mnemonic::LDNP => {
@@ -3318,7 +3332,7 @@ impl Aarch64Lifter {
         Ok(())
     }
 
-    fn lift_atomic_swap(
+    fn lift_atomic_rmw(
         &self,
         insn: &DecodedInsn,
         pc: u64,
@@ -3333,7 +3347,7 @@ impl Aarch64Lifter {
             (Some(Operand::Reg(rs)), Some(Operand::Reg(rt)), Some(Operand::Mem(m))) => {
                 (rs, rt, m)
             }
-            _ => return Err(LiftError::Internal("invalid SWP operands".to_string())),
+            _ => return Err(LiftError::Internal("invalid atomic RMW operands".to_string())),
         };
 
         let width = match (insn.raw >> 30) & 0x3 {
@@ -3342,21 +3356,48 @@ impl Aarch64Lifter {
             2 => MemWidth::B4,
             _ => MemWidth::B8,
         };
-        let order = match insn.mnemonic {
-            Mnemonic::SWP => MemoryOrder::Relaxed,
-            Mnemonic::SWPA => MemoryOrder::Acquire,
-            Mnemonic::SWPL => MemoryOrder::Release,
-            Mnemonic::SWPAL => MemoryOrder::AcqRel,
+        let order = match (((insn.raw >> 23) & 1) != 0, ((insn.raw >> 22) & 1) != 0) {
+            (false, false) => MemoryOrder::Relaxed,
+            (true, false) => MemoryOrder::Acquire,
+            (false, true) => MemoryOrder::Release,
+            (true, true) => MemoryOrder::AcqRel,
+        };
+        let atomic_op = match insn.mnemonic {
+            Mnemonic::SWP | Mnemonic::SWPA | Mnemonic::SWPAL | Mnemonic::SWPL => AtomicOp::Swap,
+            Mnemonic::LDADD | Mnemonic::LDADDA | Mnemonic::LDADDAL | Mnemonic::LDADDL => {
+                AtomicOp::Add
+            }
+            Mnemonic::LDCLR => AtomicOp::And,
+            Mnemonic::LDEOR => AtomicOp::Xor,
+            Mnemonic::LDSET => AtomicOp::Or,
+            Mnemonic::LDSMAX => AtomicOp::Max,
+            Mnemonic::LDSMIN => AtomicOp::Min,
+            Mnemonic::LDUMAX => AtomicOp::Umax,
+            Mnemonic::LDUMIN => AtomicOp::Umin,
             _ => unreachable!(),
         };
 
         let dst = self.dst_reg(rt, ctx);
-        let src = self.arm_reg(rs);
+        let mut src = self.arm_reg(rs);
         let (addr, pre_ops) = self.mem_to_addr(mem, ctx);
 
         for mut op in pre_ops {
             op.id = OpId(ops.len() as u16);
             ops.push(op);
+        }
+
+        if insn.mnemonic == Mnemonic::LDCLR {
+            let inverted = ctx.alloc_vreg();
+            ops.push(SmirOp::new(
+                OpId(ops.len() as u16),
+                pc,
+                OpKind::Not {
+                    dst: inverted,
+                    src,
+                    width: OpWidth::W64,
+                },
+            ));
+            src = inverted;
         }
 
         ops.push(SmirOp::new(
@@ -3366,7 +3407,7 @@ impl Aarch64Lifter {
                 dst,
                 addr: self.indexed_access_addr(mem, addr),
                 src,
-                op: AtomicOp::Swap,
+                op: atomic_op,
                 width,
                 order,
             },
