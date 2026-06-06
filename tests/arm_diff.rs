@@ -47,8 +47,8 @@ use rax::smir::lower::SmirLowerer;
 use rax::smir::ops::OpKind;
 #[cfg(all(feature = "smir-jit", target_arch = "x86_64"))]
 use rax::smir::types::{
-    ArchReg, ArmReg, Condition, ExtendOp, FunctionId, OpWidth, ShiftOp, SourceArch, SrcOperand,
-    VReg,
+    ArchReg, ArmReg, Condition, ExtendOp, FenceKind, FunctionId, OpWidth, ShiftOp, SourceArch,
+    SrcOperand, VReg,
 };
 
 // ---------------------------------------------------------------------------
@@ -4246,6 +4246,40 @@ fn smir_aarch64_native_lowering_matches_qemu_oracle() {
 
     let mut st = native_state();
     st.x[0] = 0x1111_2222_3333_4444;
+    st.pstate = 0xa000_0000;
+    push_case(
+        "clrex_opkind_preserves_arch_state",
+        enc_clrex(),
+        vec![OpKind::ClearExclusive],
+        st,
+    );
+
+    let mut st = native_state();
+    st.x[0] = 0x2222_3333_4444_5555;
+    st.pstate = 0x5000_0000;
+    push_case(
+        "fence_full_opkind_preserves_arch_state",
+        enc_barrier(0b100),
+        vec![OpKind::Fence {
+            kind: FenceKind::Full,
+        }],
+        st,
+    );
+
+    let mut st = native_state();
+    st.x[0] = 0x3333_4444_5555_6666;
+    st.pstate = 0x9000_0000;
+    push_case(
+        "fence_isync_opkind_preserves_arch_state",
+        enc_barrier(0b110),
+        vec![OpKind::Fence {
+            kind: FenceKind::ISync,
+        }],
+        st,
+    );
+
+    let mut st = native_state();
+    st.x[0] = 0x1111_2222_3333_4444;
     st.pstate = 0x9000_0000;
     push_case(
         "mrs_nzcv_opkind_reads_flags",
@@ -5389,6 +5423,34 @@ fn smir_aarch64_native_lowering_matches_qemu_oracle() {
         enc_dp2(0, 0b0011),
         st,
     );
+
+    let mut st = native_state();
+    st.x[0] = 0x1111_2222_3333_4444;
+    st.pstate = 0xa000_0000;
+    push_lifted_case("clrex_lifted_preserves_arch_state", enc_clrex(), st);
+
+    let mut st = native_state();
+    st.x[0] = 0x2222_3333_4444_5555;
+    st.pstate = 0x5000_0000;
+    push_lifted_case(
+        "dsb_sy_lifted_preserves_arch_state",
+        enc_barrier(0b100),
+        st,
+    );
+
+    let mut st = native_state();
+    st.x[0] = 0x3333_4444_5555_6666;
+    st.pstate = 0x9000_0000;
+    push_lifted_case(
+        "dmb_sy_lifted_preserves_arch_state",
+        enc_barrier(0b101),
+        st,
+    );
+
+    let mut st = native_state();
+    st.x[0] = 0x4444_5555_6666_7777;
+    st.pstate = 0x3000_0000;
+    push_lifted_case("isb_lifted_preserves_arch_state", enc_barrier(0b110), st);
 
     let mut st = native_state();
     st.x[0] = 0x1111_2222_3333_4444;

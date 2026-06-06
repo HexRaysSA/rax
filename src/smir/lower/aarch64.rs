@@ -10,7 +10,7 @@ use std::collections::HashMap;
 use crate::smir::ir::{SmirBlock, SmirFunction, Terminator};
 use crate::smir::ops::{OpKind, SmirOp};
 use crate::smir::types::{
-    ArchReg, ArmReg, BlockId, Condition, ExtendOp, OpWidth, ShiftOp, SrcOperand, VReg,
+    ArchReg, ArmReg, BlockId, Condition, ExtendOp, FenceKind, OpWidth, ShiftOp, SrcOperand, VReg,
 };
 
 use super::{CodeBuffer, LowerError, LowerResult, Relocation, SmirLowerer};
@@ -1889,6 +1889,22 @@ impl Aarch64Lowerer {
         match &op.kind {
             OpKind::Nop => {
                 self.emit(0xd503_201f);
+                Ok(())
+            }
+            OpKind::ClearExclusive => {
+                self.emit(0xd503_3f5f);
+                Ok(())
+            }
+            OpKind::Fence { kind } => {
+                let insn = match kind {
+                    FenceKind::ISync => 0xd503_3fdf,
+                    FenceKind::DSync | FenceKind::Full => 0xd503_3f9f,
+                    FenceKind::LoadLoad
+                    | FenceKind::LoadStore
+                    | FenceKind::StoreLoad
+                    | FenceKind::StoreStore => 0xd503_3fbf,
+                };
+                self.emit(insn);
                 Ok(())
             }
             OpKind::Mov { dst, src, width } => self.lower_mov(*dst, src, *width),
