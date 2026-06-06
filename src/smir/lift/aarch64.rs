@@ -21,6 +21,8 @@ const NZCV_N: i64 = 1_i64 << 31;
 const NZCV_Z: i64 = 1_i64 << 30;
 const NZCV_C: i64 = 1_i64 << 29;
 const NZCV_V: i64 = 1_i64 << 28;
+const NZCV_MASK: i64 = NZCV_N | NZCV_Z | NZCV_C | NZCV_V;
+const SYSREG_NZCV: u16 = (3 << 14) | (3 << 11) | (4 << 7) | (2 << 3);
 
 // ============================================================================
 // AArch64 Lifter
@@ -1731,6 +1733,14 @@ impl Aarch64Lifter {
                 self.lift_xaflag(pc, &mut ops, ctx);
             }
 
+            Mnemonic::MRS => {
+                self.lift_mrs(insn, pc, &mut ops, ctx)?;
+            }
+
+            Mnemonic::MSR => {
+                self.lift_msr(insn, pc, &mut ops, ctx)?;
+            }
+
             Mnemonic::SVC => {
                 control = ControlFlow::Syscall;
             }
@@ -2501,6 +2511,90 @@ impl Aarch64Lifter {
                 width: OpWidth::W32,
             },
         );
+    }
+
+    fn lift_mrs(
+        &self,
+        insn: &DecodedInsn,
+        pc: u64,
+        ops: &mut Vec<SmirOp>,
+        ctx: &mut LiftContext,
+    ) -> Result<(), LiftError> {
+        let (rd, sysreg) = match (insn.operands.get(0), insn.operands.get(1)) {
+            (Some(Operand::Reg(rd)), Some(Operand::SysReg(sysreg))) => (rd, sysreg),
+            _ => return Err(LiftError::Internal("invalid MRS operands".to_string())),
+        };
+        if *sysreg != SYSREG_NZCV {
+            return Err(LiftError::Unsupported {
+                addr: pc,
+                mnemonic: format!("MRS sysreg {sysreg:#06x}"),
+            });
+        }
+
+        let masked = ctx.alloc_vreg();
+        Self::push_lifted_op(
+            ops,
+            pc,
+            OpKind::And {
+                dst: masked,
+                src1: VReg::Arch(ArchReg::Arm(ArmReg::Nzcv)),
+                src2: SrcOperand::Imm(NZCV_MASK),
+                width: OpWidth::W32,
+                flags: FlagUpdate::None,
+            },
+        );
+        Self::push_lifted_op(
+            ops,
+            pc,
+            OpKind::Mov {
+                dst: self.dst_reg(rd, ctx),
+                src: SrcOperand::Reg(masked),
+                width: OpWidth::W64,
+            },
+        );
+        Ok(())
+    }
+
+    fn lift_msr(
+        &self,
+        insn: &DecodedInsn,
+        pc: u64,
+        ops: &mut Vec<SmirOp>,
+        ctx: &mut LiftContext,
+    ) -> Result<(), LiftError> {
+        let (sysreg, rt) = match (insn.operands.get(0), insn.operands.get(1)) {
+            (Some(Operand::SysReg(sysreg)), Some(Operand::Reg(rt))) => (sysreg, rt),
+            _ => return Err(LiftError::Internal("invalid MSR operands".to_string())),
+        };
+        if *sysreg != SYSREG_NZCV {
+            return Err(LiftError::Unsupported {
+                addr: pc,
+                mnemonic: format!("MSR sysreg {sysreg:#06x}"),
+            });
+        }
+
+        let masked = ctx.alloc_vreg();
+        Self::push_lifted_op(
+            ops,
+            pc,
+            OpKind::And {
+                dst: masked,
+                src1: self.arm_reg(rt),
+                src2: SrcOperand::Imm(NZCV_MASK),
+                width: OpWidth::W64,
+                flags: FlagUpdate::None,
+            },
+        );
+        Self::push_lifted_op(
+            ops,
+            pc,
+            OpKind::Mov {
+                dst: VReg::Arch(ArchReg::Arm(ArmReg::Nzcv)),
+                src: SrcOperand::Reg(masked),
+                width: OpWidth::W32,
+            },
+        );
+        Ok(())
     }
 
     fn lift_xaflag(&self, pc: u64, ops: &mut Vec<SmirOp>, ctx: &mut LiftContext) {
