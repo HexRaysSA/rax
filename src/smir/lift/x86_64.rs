@@ -2738,6 +2738,7 @@ impl X86_64Lifter {
             0x40 => self.lift_sse_pmulld(opcode3, after_opcode, &prefix3, pc, ctx),
             0x8A | 0x8B => self.lift_movrs_0f38(opcode3, after_opcode, &prefix3, pc, ctx),
             0xF6 => self.lift_adx_0f38(after_opcode, &prefix3, pc, ctx),
+            0xF0 | 0xF1 => self.lift_movbe_0f38(opcode3, after_opcode, &prefix3, pc, ctx),
             0xFC => self.lift_rao_int_0f38(after_opcode, &prefix3, pc, ctx),
             _ => {
                 if self.strict {
@@ -2753,6 +2754,99 @@ impl X86_64Lifter {
                 }
             }
         }
+    }
+
+    fn lift_movbe_0f38(
+        &self,
+        opcode: u8,
+        bytes: &[u8],
+        prefix: &X86Prefix,
+        pc: u64,
+        ctx: &mut LiftContext,
+    ) -> Result<LiftResult, LiftError> {
+        if prefix.rep_prefix == Some(0xF2) {
+            return Err(LiftError::Unsupported {
+                addr: pc,
+                mnemonic: "CRC32".to_string(),
+            });
+        }
+        if prefix.lock || prefix.rep_prefix == Some(0xF3) {
+            let mut err_bytes = vec![opcode];
+            err_bytes.extend_from_slice(bytes);
+            return Err(LiftError::InvalidEncoding {
+                addr: pc,
+                bytes: err_bytes,
+            });
+        }
+
+        let op_size = prefix.op_size();
+        let width = self.size_to_width(op_size);
+        let mem_width = self.size_to_memwidth(op_size);
+        let modrm = decode_modrm(bytes, prefix, pc)?;
+        if !modrm.is_memory {
+            let mut err_bytes = vec![opcode];
+            err_bytes.extend_from_slice(bytes);
+            return Err(LiftError::InvalidEncoding {
+                addr: pc,
+                bytes: err_bytes,
+            });
+        }
+
+        let next_pc = pc + prefix.cursor as u64 + modrm.bytes_consumed as u64;
+        let x86_addr = modrm.addr.as_ref().unwrap();
+        let (addr, mut ops) = self.x86_addr_to_smir(x86_addr, next_pc, ctx);
+
+        match opcode {
+            0xF0 => {
+                let tmp = ctx.alloc_vreg();
+                ops.push(SmirOp::new(
+                    OpId(ops.len() as u16),
+                    pc,
+                    OpKind::Load {
+                        dst: tmp,
+                        addr,
+                        width: mem_width,
+                        sign: SignExtend::Zero,
+                    },
+                ));
+                ops.push(SmirOp::new(
+                    OpId(ops.len() as u16),
+                    pc,
+                    OpKind::Bswap {
+                        dst: self.gpr(modrm.reg),
+                        src: tmp,
+                        width,
+                    },
+                ));
+            }
+            0xF1 => {
+                let tmp = ctx.alloc_vreg();
+                ops.push(SmirOp::new(
+                    OpId(ops.len() as u16),
+                    pc,
+                    OpKind::Bswap {
+                        dst: tmp,
+                        src: self.gpr(modrm.reg),
+                        width,
+                    },
+                ));
+                ops.push(SmirOp::new(
+                    OpId(ops.len() as u16),
+                    pc,
+                    OpKind::Store {
+                        src: tmp,
+                        addr,
+                        width: mem_width,
+                    },
+                ));
+            }
+            _ => unreachable!("MOVBE is only dispatched for opcodes F0/F1"),
+        }
+
+        Ok(LiftResult::fallthrough(
+            ops,
+            prefix.cursor + modrm.bytes_consumed,
+        ))
     }
 
     fn lift_adx_0f38(
@@ -8730,6 +8824,10 @@ impl X86_64Lifter {
             0xFE => self.lift_sse_padd(opcode2, after_opcode, &prefix2, pc, ctx),
 
             // SSE4.1 opcodes (0F 38)
+            0x38 if prefix2.rex2_m() => Err(LiftError::InvalidEncoding {
+                addr: pc,
+                bytes: bytes.to_vec(),
+            }),
             0x38 => self.lift_0f38_opcode(after_opcode, &prefix2, pc, ctx),
 
             // SHLD/SHRD (0F A4/A5/AC/AD)
@@ -12410,6 +12508,261 @@ mod tests {
             }
             other => panic!("expected APX NDD IMUL with captured source, got {other:?}"),
         }
+    }
+
+    #[test]
+    fn lift_0f38_movbe_load_widths_like_llvm() {
+        let mut lifter = X86_64Lifter::strict();
+        let mut ctx = LiftContext::new(SourceArch::X86_64);
+
+        let cases: &[(&[u8], &str, usize, MemWidth, OpWidth, VReg, VReg)] = &[
+            (
+                &[0x66, 0x0F, 0x38, 0xF0, 0x00],
+                "movbe_load16",
+                5,
+                MemWidth::B2,
+                OpWidth::W16,
+                x86_gpr(0),
+                x86_gpr(0),
+            ),
+            (
+                &[0x0F, 0x38, 0xF0, 0x00],
+                "movbe_load32",
+                4,
+                MemWidth::B4,
+                OpWidth::W32,
+                x86_gpr(0),
+                x86_gpr(0),
+            ),
+            (
+                &[0x48, 0x0F, 0x38, 0xF0, 0x07],
+                "movbe_load64",
+                5,
+                MemWidth::B8,
+                OpWidth::W64,
+                x86_gpr(0),
+                x86_gpr(7),
+            ),
+        ];
+
+        for (bytes, name, bytes_consumed, mem_width, op_width, dst_reg, base_reg) in cases {
+            // LLVM 23 examples:
+            //   `movbe ax, word ptr [rax]`    => 66 0f 38 f0 00
+            //   `movbe eax, dword ptr [rax]` => 0f 38 f0 00
+            //   `movbe rax, qword ptr [rdi]` => 48 0f 38 f0 07
+            let result = lifter.lift_insn(0x1000, bytes, &mut ctx).unwrap();
+            assert_eq!(result.bytes_consumed, *bytes_consumed, "{name}");
+            assert_eq!(result.ops.len(), 2, "{name}");
+
+            let loaded = match &result.ops[0].kind {
+                OpKind::Load {
+                    dst,
+                    addr: Address::Direct(base),
+                    width,
+                    sign: SignExtend::Zero,
+                } => {
+                    assert_eq!(*base, *base_reg, "{name}");
+                    assert_eq!(*width, *mem_width, "{name}");
+                    *dst
+                }
+                other => panic!("expected {name} memory load, got {other:?}"),
+            };
+            match &result.ops[1].kind {
+                OpKind::Bswap { dst, src, width } => {
+                    assert_eq!(*dst, *dst_reg, "{name}");
+                    assert_eq!(*src, loaded, "{name}");
+                    assert_eq!(*width, *op_width, "{name}");
+                }
+                other => panic!("expected {name} loaded Bswap, got {other:?}"),
+            }
+        }
+    }
+
+    #[test]
+    fn lift_0f38_movbe_store_widths_like_llvm() {
+        let mut lifter = X86_64Lifter::strict();
+        let mut ctx = LiftContext::new(SourceArch::X86_64);
+
+        let cases: &[(&[u8], &str, usize, MemWidth, OpWidth, VReg, VReg)] = &[
+            (
+                &[0x66, 0x0F, 0x38, 0xF1, 0x08],
+                "movbe_store16",
+                5,
+                MemWidth::B2,
+                OpWidth::W16,
+                x86_gpr(1),
+                x86_gpr(0),
+            ),
+            (
+                &[0x0F, 0x38, 0xF1, 0x08],
+                "movbe_store32",
+                4,
+                MemWidth::B4,
+                OpWidth::W32,
+                x86_gpr(1),
+                x86_gpr(0),
+            ),
+            (
+                &[0x48, 0x0F, 0x38, 0xF1, 0x17],
+                "movbe_store64",
+                5,
+                MemWidth::B8,
+                OpWidth::W64,
+                x86_gpr(2),
+                x86_gpr(7),
+            ),
+        ];
+
+        for (bytes, name, bytes_consumed, mem_width, op_width, src_reg, base_reg) in cases {
+            // LLVM 23 examples:
+            //   `movbe word ptr [rax], cx`    => 66 0f 38 f1 08
+            //   `movbe dword ptr [rax], ecx` => 0f 38 f1 08
+            //   `movbe qword ptr [rdi], rdx` => 48 0f 38 f1 17
+            let result = lifter.lift_insn(0x1000, bytes, &mut ctx).unwrap();
+            assert_eq!(result.bytes_consumed, *bytes_consumed, "{name}");
+            assert_eq!(result.ops.len(), 2, "{name}");
+
+            let swapped = match &result.ops[0].kind {
+                OpKind::Bswap { dst, src, width } => {
+                    assert!(matches!(dst, VReg::Virtual(_)), "{name}");
+                    assert_eq!(*src, *src_reg, "{name}");
+                    assert_eq!(*width, *op_width, "{name}");
+                    *dst
+                }
+                other => panic!("expected {name} store Bswap, got {other:?}"),
+            };
+            match &result.ops[1].kind {
+                OpKind::Store { src, addr, width } => {
+                    assert_eq!(*src, swapped, "{name}");
+                    assert_eq!(*width, *mem_width, "{name}");
+                    match addr {
+                        Address::Direct(base) => assert_eq!(*base, *base_reg, "{name}"),
+                        other => panic!("expected {name} direct address, got {other:?}"),
+                    }
+                }
+                other => panic!("expected {name} memory store, got {other:?}"),
+            }
+        }
+    }
+
+    fn assert_0f38_movbe_rex_sib_addr(addr: &Address, name: &str) {
+        match addr {
+            Address::BaseIndexScale {
+                base: Some(base),
+                index,
+                scale: 4,
+                disp: 0x20,
+                disp_size: DispSize::Disp8,
+            } => {
+                assert_eq!(*base, x86_gpr(8), "{name}");
+                assert_eq!(*index, x86_gpr(9), "{name}");
+            }
+            other => panic!("expected {name} REX SIB address, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn lift_0f38_movbe_rex_extended_memory_like_llvm() {
+        let mut lifter = X86_64Lifter::strict();
+        let mut ctx = LiftContext::new(SourceArch::X86_64);
+
+        // LLVM 23: `movbe r10, qword ptr [r8 + 4*r9 + 32]`
+        //          => 4f 0f 38 f0 54 88 20.
+        let load = lifter
+            .lift_insn(
+                0x1000,
+                &[0x4F, 0x0F, 0x38, 0xF0, 0x54, 0x88, 0x20],
+                &mut ctx,
+            )
+            .unwrap();
+        assert_eq!(load.bytes_consumed, 7);
+        assert_eq!(load.ops.len(), 2);
+        let loaded = match &load.ops[0].kind {
+            OpKind::Load {
+                dst,
+                addr,
+                width: MemWidth::B8,
+                sign: SignExtend::Zero,
+            } => {
+                assert_0f38_movbe_rex_sib_addr(addr, "movbe_load_rex");
+                *dst
+            }
+            other => panic!("expected MOVBE REX memory load, got {other:?}"),
+        };
+        match &load.ops[1].kind {
+            OpKind::Bswap {
+                dst,
+                src,
+                width: OpWidth::W64,
+            } => {
+                assert_eq!(*dst, x86_gpr(10));
+                assert_eq!(*src, loaded);
+            }
+            other => panic!("expected MOVBE REX loaded Bswap, got {other:?}"),
+        }
+
+        // LLVM 23: `movbe qword ptr [r8 + 4*r9 + 32], r10`
+        //          => 4f 0f 38 f1 54 88 20.
+        let store = lifter
+            .lift_insn(
+                0x2000,
+                &[0x4F, 0x0F, 0x38, 0xF1, 0x54, 0x88, 0x20],
+                &mut ctx,
+            )
+            .unwrap();
+        assert_eq!(store.bytes_consumed, 7);
+        assert_eq!(store.ops.len(), 2);
+        let swapped = match &store.ops[0].kind {
+            OpKind::Bswap {
+                dst,
+                src,
+                width: OpWidth::W64,
+            } => {
+                assert!(matches!(dst, VReg::Virtual(_)));
+                assert_eq!(*src, x86_gpr(10));
+                *dst
+            }
+            other => panic!("expected MOVBE REX store Bswap, got {other:?}"),
+        };
+        match &store.ops[1].kind {
+            OpKind::Store {
+                src,
+                addr,
+                width: MemWidth::B8,
+            } => {
+                assert_eq!(*src, swapped);
+                assert_0f38_movbe_rex_sib_addr(addr, "movbe_store_rex");
+            }
+            other => panic!("expected MOVBE REX memory store, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn lift_0f38_movbe_rejects_invalid_forms_like_spec() {
+        let mut lifter = X86_64Lifter::strict();
+        let mut ctx = LiftContext::new(SourceArch::X86_64);
+
+        for (bytes, name) in [
+            (&[0x0F, 0x38, 0xF0, 0xC0][..], "load register operand"),
+            (&[0x0F, 0x38, 0xF1, 0xC0][..], "store register operand"),
+            (&[0xF0, 0x0F, 0x38, 0xF0, 0x00][..], "lock prefix"),
+            (&[0xF3, 0x0F, 0x38, 0xF0, 0x00][..], "rep prefix"),
+            (
+                &[0xD5, 0xF8, 0x38, 0xF0, 0x54, 0x88, 0x20][..],
+                "rex2 compressed 0f38",
+            ),
+        ] {
+            let err = lifter.lift_insn(0x1000, bytes, &mut ctx).unwrap_err();
+            assert!(
+                matches!(err, LiftError::InvalidEncoding { .. }),
+                "{name}: {err:?}"
+            );
+        }
+
+        let err = lifter
+            .lift_insn(0x1000, &[0xF2, 0x0F, 0x38, 0xF0, 0xC3], &mut ctx)
+            .unwrap_err();
+        assert!(matches!(err, LiftError::Unsupported { .. }), "{err:?}");
     }
 
     #[test]
