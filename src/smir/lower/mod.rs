@@ -26,6 +26,7 @@
 //! └─────────────────┘
 //! ```
 
+pub mod aarch64_x86;
 pub mod avx10;
 pub mod regalloc;
 /// Native execution runtime for lowered blocks (the JIT executor). Only present

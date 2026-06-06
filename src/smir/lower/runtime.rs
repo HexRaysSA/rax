@@ -62,6 +62,56 @@ pub struct GuestRegs {
     pub call_fn: u64,
 }
 
+/// AArch64 guest register file for state-backed x86-64 lowering.
+///
+/// Unlike [`GuestRegs`], this ABI does not rely on identity-mapping guest
+/// registers into host registers. Lowered code is entered as a normal SysV
+/// function with `RDI = *mut Aarch64GuestRegs` and reads/writes architectural
+/// state through this struct. NZCV is stored in architectural PSTATE position
+/// (bits 31:28); the remaining bits are preserved as zero for now.
+#[repr(C)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct Aarch64GuestRegs {
+    /// X0-X30.
+    pub x: [u64; 31],
+    /// Stack pointer.
+    pub sp: u64,
+    /// Program counter.
+    pub pc: u64,
+    /// PSTATE.NZCV in bits 31:28.
+    pub nzcv: u64,
+    /// Floating-point control register.
+    pub fpcr: u64,
+    /// Floating-point status register.
+    pub fpsr: u64,
+    /// V0-V31 as low/high u64 pairs.
+    pub v: [u64; 64],
+}
+
+impl Default for Aarch64GuestRegs {
+    fn default() -> Self {
+        Self {
+            x: [0; 31],
+            sp: 0,
+            pc: 0,
+            nzcv: 0,
+            fpcr: 0,
+            fpsr: 0,
+            v: [0; 64],
+        }
+    }
+}
+
+impl Aarch64GuestRegs {
+    pub const X0_OFFSET: i32 = 0;
+    pub const SP_OFFSET: i32 = 31 * 8;
+    pub const PC_OFFSET: i32 = 32 * 8;
+    pub const NZCV_OFFSET: i32 = 33 * 8;
+    pub const FPCR_OFFSET: i32 = 34 * 8;
+    pub const FPSR_OFFSET: i32 = 35 * 8;
+    pub const V_OFFSET: i32 = 36 * 8;
+}
+
 // enter_native(rdi = entry ptr, rsi = *mut GuestRegs):
 //   preserve host callee-saved -> load guest GPRs+RFLAGS into the identical host
 //   regs -> `call` the block -> store the host regs back into GuestRegs.
@@ -223,6 +273,19 @@ impl ExecMem {
     pub fn run(&self, entry_offset: usize, regs: &mut GuestRegs) {
         let entry = unsafe { self.ptr.add(entry_offset) } as *const u8;
         unsafe { rax_smir_enter_native(entry, regs as *mut GuestRegs) };
+    }
+
+    /// Execute a state-backed AArch64-on-x86 lowered block.
+    ///
+    /// # Safety
+    /// The mapped code must use the `extern "C" fn(*mut Aarch64GuestRegs)` ABI
+    /// and preserve the host ABI. The AArch64 state-backed lowerer emits leaf
+    /// functions using only caller-saved registers plus an RBP frame.
+    pub fn run_aarch64(&self, entry_offset: usize, regs: &mut Aarch64GuestRegs) {
+        type Entry = unsafe extern "C" fn(*mut Aarch64GuestRegs);
+        let entry = unsafe { self.ptr.add(entry_offset) } as *const u8;
+        let entry: Entry = unsafe { core::mem::transmute(entry) };
+        unsafe { entry(regs as *mut Aarch64GuestRegs) };
     }
 }
 
