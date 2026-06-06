@@ -1622,14 +1622,14 @@ impl Aarch64Decoder {
             0b001010 => Mnemonic::ASR,
             0b001011 => Mnemonic::ROR,
             // CRC32
-            0b010000 => Mnemonic::UNKNOWN,             // CRC32B
-            0b010001 => Mnemonic::UNKNOWN,             // CRC32H
-            0b010010 => Mnemonic::UNKNOWN,             // CRC32W
-            0b010011 if is_64bit => Mnemonic::UNKNOWN, // CRC32X
-            0b010100 => Mnemonic::UNKNOWN,             // CRC32CB
-            0b010101 => Mnemonic::UNKNOWN,             // CRC32CH
-            0b010110 => Mnemonic::UNKNOWN,             // CRC32CW
-            0b010111 if is_64bit => Mnemonic::UNKNOWN, // CRC32CX
+            0b010000 if !is_64bit => Mnemonic::CRC32B,
+            0b010001 if !is_64bit => Mnemonic::CRC32H,
+            0b010010 if !is_64bit => Mnemonic::CRC32W,
+            0b010011 if is_64bit => Mnemonic::CRC32X,
+            0b010100 if !is_64bit => Mnemonic::CRC32CB,
+            0b010101 if !is_64bit => Mnemonic::CRC32CH,
+            0b010110 if !is_64bit => Mnemonic::CRC32CW,
+            0b010111 if is_64bit => Mnemonic::CRC32CX,
             // Subp
             0b000000 if is_64bit => Mnemonic::UNKNOWN, // SUBP
             0b000001 if is_64bit => Mnemonic::UNKNOWN, // SUBPS
@@ -1640,6 +1640,24 @@ impl Aarch64Decoder {
             0b001100 if is_64bit => Mnemonic::PACGA,
             _ => Mnemonic::UNKNOWN,
         };
+
+        if matches!(
+            mnemonic,
+            Mnemonic::CRC32B
+                | Mnemonic::CRC32H
+                | Mnemonic::CRC32W
+                | Mnemonic::CRC32X
+                | Mnemonic::CRC32CB
+                | Mnemonic::CRC32CH
+                | Mnemonic::CRC32CW
+                | Mnemonic::CRC32CX
+        ) {
+            let source_is_64bit = matches!(mnemonic, Mnemonic::CRC32X | Mnemonic::CRC32CX);
+            return Ok(DecodedInsn::new(mnemonic, ExecutionState::Aarch64, raw, 4)
+                .with_operand(Operand::Reg(Register::with_zr(rd, false)))
+                .with_operand(Operand::Reg(Register::with_zr(rn, false)))
+                .with_operand(Operand::Reg(Register::with_zr(rm, source_is_64bit))));
+        }
 
         Ok(DecodedInsn::new(mnemonic, ExecutionState::Aarch64, raw, 4)
             .with_operand(Operand::Reg(Register::with_zr(rd, is_64bit)))

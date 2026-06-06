@@ -514,6 +514,10 @@ fn enc_dp2(sf: u32, opcode2: u32) -> u32 {
     (sf << 31) | (0b0011010110 << 21) | (RM << 16) | (opcode2 << 10) | (RN << 5) | RD
 }
 
+fn enc_crc32_x(castagnoli: bool) -> u32 {
+    enc_dp2(1, if castagnoli { 0b010111 } else { 0b010011 })
+}
+
 fn dp2_cases() -> Vec<(String, u32)> {
     let mut v = Vec::new();
     // opcode2: 0010=UDIV 0011=SDIV 1000=LSLV 1001=LSRV 1010=ASRV 1011=RORV
@@ -1249,6 +1253,14 @@ fn smir_aarch64_x86_scalar_lowering_matches_qemu_oracle() {
         ("udiv_w_zero_ext", enc_dp2(0, 0b0010)),
         ("sdiv_x", enc_dp2(1, 0b0011)),
         ("sdiv_w_zero_ext", enc_dp2(0, 0b0011)),
+        ("crc32b", enc_dp2(0, 0b010000)),
+        ("crc32h", enc_dp2(0, 0b010001)),
+        ("crc32w", enc_dp2(0, 0b010010)),
+        ("crc32x", enc_crc32_x(false)),
+        ("crc32cb", enc_dp2(0, 0b010100)),
+        ("crc32ch", enc_dp2(0, 0b010101)),
+        ("crc32cw", enc_dp2(0, 0b010110)),
+        ("crc32cx", enc_crc32_x(true)),
         ("lslv_x", enc_dp2(1, 0b1000)),
         ("lslv_w_zero_ext", enc_dp2(0, 0b1000)),
         ("lsrv_x", enc_dp2(1, 0b1001)),
@@ -1716,6 +1728,24 @@ fn smir_aarch64_x86_scalar_lowering_matches_qemu_oracle() {
     st.x[1] = 0xffff_ffff_8000_0000;
     st.x[2] = u64::MAX;
     batch.push(("sdiv_w_min_overflow".into(), enc_dp2(0, 0b0011), st));
+
+    let mut st = ArmState::zeroed();
+    st.x[0] = 0xaaaa_bbbb_cccc_dddd;
+    st.x[1] = 0xffff_ffff_89ab_cdef;
+    st.x[2] = 0xffff_ffff_1234_5678;
+    batch.push(("crc32w_zero_ext_crafted".into(), enc_dp2(0, 0b010010), st));
+
+    let mut st = ArmState::zeroed();
+    st.x[0] = 0xaaaa_bbbb_cccc_dddd;
+    st.x[1] = 0xffff_ffff_89ab_cdef;
+    st.x[2] = 0x0123_4567_89ab_cdef;
+    batch.push(("crc32x_uses_xm_crafted".into(), enc_crc32_x(false), st));
+
+    let mut st = ArmState::zeroed();
+    st.x[0] = 0xaaaa_bbbb_cccc_dddd;
+    st.x[1] = 0xffff_ffff_89ab_cdef;
+    st.x[2] = 0x0123_4567_89ab_cdef;
+    batch.push(("crc32cx_uses_xm_crafted".into(), enc_crc32_x(true), st));
 
     let mut st = ArmState::zeroed();
     st.x[0] = 0xaaaa_bbbb_cccc_dddd;

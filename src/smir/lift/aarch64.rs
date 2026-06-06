@@ -430,6 +430,175 @@ impl Aarch64Lifter {
         dst
     }
 
+    fn lift_crc32(
+        &self,
+        insn: &DecodedInsn,
+        ops: &mut Vec<SmirOp>,
+        pc: u64,
+        ctx: &mut LiftContext,
+    ) {
+        if let (Some(Operand::Reg(rd)), Some(Operand::Reg(rn)), Some(Operand::Reg(rm))) = (
+            insn.operands.get(0),
+            insn.operands.get(1),
+            insn.operands.get(2),
+        ) {
+            let dst = self.dst_reg(rd, ctx);
+            let crc = ctx.alloc_vreg();
+            Self::push_lifted_op(
+                ops,
+                pc,
+                OpKind::Mov {
+                    dst: crc,
+                    src: SrcOperand::Reg(self.arm_reg(rn)),
+                    width: OpWidth::W32,
+                },
+            );
+
+            let data_bits = match insn.mnemonic {
+                Mnemonic::CRC32B | Mnemonic::CRC32CB => 8,
+                Mnemonic::CRC32H | Mnemonic::CRC32CH => 16,
+                Mnemonic::CRC32W | Mnemonic::CRC32CW => 32,
+                Mnemonic::CRC32X | Mnemonic::CRC32CX => 64,
+                _ => return,
+            };
+            let poly = if matches!(
+                insn.mnemonic,
+                Mnemonic::CRC32CB | Mnemonic::CRC32CH | Mnemonic::CRC32CW | Mnemonic::CRC32CX
+            ) {
+                0x82f6_3b78
+            } else {
+                0xedb8_8320u32
+            };
+            let source_width = if data_bits == 64 {
+                OpWidth::W64
+            } else {
+                OpWidth::W32
+            };
+
+            for byte in 0..(data_bits / 8) {
+                let data_byte = ctx.alloc_vreg();
+                if byte == 0 {
+                    Self::push_lifted_op(
+                        ops,
+                        pc,
+                        OpKind::Mov {
+                            dst: data_byte,
+                            src: SrcOperand::Reg(self.arm_reg(rm)),
+                            width: source_width,
+                        },
+                    );
+                } else {
+                    Self::push_lifted_op(
+                        ops,
+                        pc,
+                        OpKind::Shr {
+                            dst: data_byte,
+                            src: self.arm_reg(rm),
+                            amount: SrcOperand::Imm((byte * 8) as i64),
+                            width: source_width,
+                            flags: FlagUpdate::None,
+                        },
+                    );
+                }
+                Self::push_lifted_op(
+                    ops,
+                    pc,
+                    OpKind::And {
+                        dst: data_byte,
+                        src1: data_byte,
+                        src2: SrcOperand::Imm(0xff),
+                        width: OpWidth::W32,
+                        flags: FlagUpdate::None,
+                    },
+                );
+                Self::push_lifted_op(
+                    ops,
+                    pc,
+                    OpKind::Xor {
+                        dst: crc,
+                        src1: crc,
+                        src2: SrcOperand::Reg(data_byte),
+                        width: OpWidth::W32,
+                        flags: FlagUpdate::None,
+                    },
+                );
+
+                for _ in 0..8 {
+                    let bit = ctx.alloc_vreg();
+                    let mask = ctx.alloc_vreg();
+                    let shifted = ctx.alloc_vreg();
+                    let poly_bits = ctx.alloc_vreg();
+
+                    Self::push_lifted_op(
+                        ops,
+                        pc,
+                        OpKind::And {
+                            dst: bit,
+                            src1: crc,
+                            src2: SrcOperand::Imm(1),
+                            width: OpWidth::W32,
+                            flags: FlagUpdate::None,
+                        },
+                    );
+                    Self::push_lifted_op(
+                        ops,
+                        pc,
+                        OpKind::Sub {
+                            dst: mask,
+                            src1: VReg::Imm(0),
+                            src2: SrcOperand::Reg(bit),
+                            width: OpWidth::W32,
+                            flags: FlagUpdate::None,
+                        },
+                    );
+                    Self::push_lifted_op(
+                        ops,
+                        pc,
+                        OpKind::Shr {
+                            dst: shifted,
+                            src: crc,
+                            amount: SrcOperand::Imm(1),
+                            width: OpWidth::W32,
+                            flags: FlagUpdate::None,
+                        },
+                    );
+                    Self::push_lifted_op(
+                        ops,
+                        pc,
+                        OpKind::And {
+                            dst: poly_bits,
+                            src1: mask,
+                            src2: SrcOperand::Imm(poly as i64),
+                            width: OpWidth::W32,
+                            flags: FlagUpdate::None,
+                        },
+                    );
+                    Self::push_lifted_op(
+                        ops,
+                        pc,
+                        OpKind::Xor {
+                            dst: crc,
+                            src1: shifted,
+                            src2: SrcOperand::Reg(poly_bits),
+                            width: OpWidth::W32,
+                            flags: FlagUpdate::None,
+                        },
+                    );
+                }
+            }
+
+            Self::push_lifted_op(
+                ops,
+                pc,
+                OpKind::Mov {
+                    dst,
+                    src: SrcOperand::Reg(crc),
+                    width: OpWidth::W32,
+                },
+            );
+        }
+    }
+
     // ========================================================================
     // Instruction Lifting
     // ========================================================================
@@ -771,6 +940,15 @@ impl Aarch64Lifter {
                     });
                 }
             }
+
+            Mnemonic::CRC32B
+            | Mnemonic::CRC32H
+            | Mnemonic::CRC32W
+            | Mnemonic::CRC32X
+            | Mnemonic::CRC32CB
+            | Mnemonic::CRC32CH
+            | Mnemonic::CRC32CW
+            | Mnemonic::CRC32CX => self.lift_crc32(insn, &mut ops, pc, ctx),
 
             // =================================================================
             // Logical

@@ -329,6 +329,14 @@ pub enum Mnemonic {
     MADD,
     MSUB,
     MNEG,
+    CRC32B,
+    CRC32H,
+    CRC32W,
+    CRC32X,
+    CRC32CB,
+    CRC32CH,
+    CRC32CW,
+    CRC32CX,
 
     // =========================================================================
     // Data Processing - Logical
@@ -1143,6 +1151,14 @@ impl Mnemonic {
             Mnemonic::MADD => "madd",
             Mnemonic::MSUB => "msub",
             Mnemonic::MNEG => "mneg",
+            Mnemonic::CRC32B => "crc32b",
+            Mnemonic::CRC32H => "crc32h",
+            Mnemonic::CRC32W => "crc32w",
+            Mnemonic::CRC32X => "crc32x",
+            Mnemonic::CRC32CB => "crc32cb",
+            Mnemonic::CRC32CH => "crc32ch",
+            Mnemonic::CRC32CW => "crc32cw",
+            Mnemonic::CRC32CX => "crc32cx",
 
             // Logical
             Mnemonic::AND => "and",
