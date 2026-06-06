@@ -1812,6 +1812,28 @@ impl Aarch64Lifter {
                 push_op!(OpKind::Nop);
             }
 
+            Mnemonic::HINT => {
+                let imm = match insn.operands.first() {
+                    Some(Operand::Imm(imm)) => imm.effective_value(),
+                    _ => return Err(LiftError::Internal("invalid HINT operands".to_string())),
+                };
+                match imm {
+                    // DGH is a data-gathering hint with no visible architectural state.
+                    6 => push_op!(OpKind::Nop),
+                    _ if self.strict => {
+                        return Err(LiftError::Unsupported {
+                            addr: pc,
+                            mnemonic: format!("HINT #{imm}"),
+                        });
+                    }
+                    _ => {
+                        control = ControlFlow::Trap {
+                            kind: TrapKind::Undefined,
+                        };
+                    }
+                }
+            }
+
             Mnemonic::CFINV => {
                 push_op!(OpKind::Xor {
                     dst: VReg::Arch(ArchReg::Arm(ArmReg::Nzcv)),

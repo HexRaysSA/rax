@@ -1439,6 +1439,7 @@ fn smir_aarch64_x86_scalar_lowering_matches_qemu_oracle() {
         ("wfi", enc_hint(0b0000, 0b011)),
         ("sev", enc_hint(0b0000, 0b100)),
         ("sevl", enc_hint(0b0000, 0b101)),
+        ("hint_dgh", enc_hint(0b0000, 0b110)),
         ("csdb", enc_hint(0b0010, 0b100)),
         ("bti", enc_hint(0b0100, 0b000)),
         ("bti_c", enc_hint(0b0100, 0b010)),
