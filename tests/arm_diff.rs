@@ -2037,6 +2037,27 @@ fn smir_aarch64_x86_memory_lowering_matches_qemu_oracle() {
         }
     }
 
+    let acquire_release_ops: &[(u32, &str, bool)] = &[
+        (0, "ldarb", true),
+        (1, "ldarh", true),
+        (2, "ldar_w", true),
+        (3, "ldar_x", true),
+        (0, "stlrb", false),
+        (1, "stlrh", false),
+        (2, "stlr_w", false),
+        (3, "stlr_x", false),
+    ];
+    for &(size, name, is_load) in acquire_release_ops {
+        for _ in 0..6 {
+            let insn = if is_load {
+                enc_ldar(size)
+            } else {
+                enc_stlr(size)
+            };
+            batch.push((name.to_string(), insn, mem_input(&mut rng)));
+        }
+    }
+
     let indexed_ops: &[(u32, u32, u32, &str)] = &[
         (3, 0, 0, "str_x"),
         (3, 0, 1, "ldr_x"),
@@ -2556,6 +2577,31 @@ fn enc_ldxr(size: u32, o0: u32) -> u32 {
 /// STXR/STLXR <Ws>, <Rt>, [Rn]: `size 001000 0 0 0 Rs o0 11111 Rn Rt`. Ws=x2, Rt=x3, Rn=x1.
 fn enc_stxr(size: u32, o0: u32) -> u32 {
     (size << 30) | (0b001000 << 24) | (2 << 16) | (o0 << 15) | (0b11111 << 10) | (RN << 5) | 3
+}
+
+/// LDAR/LDARB/LDARH <Rt>, [Rn]: `size 001000 1 1 0 11111 1 11111 Rn Rt`.
+fn enc_ldar(size: u32) -> u32 {
+    (size << 30)
+        | (0b001000 << 24)
+        | (1 << 23)
+        | (1 << 22)
+        | (0b11111 << 16)
+        | (1 << 15)
+        | (0b11111 << 10)
+        | (RN << 5)
+        | RD
+}
+
+/// STLR/STLRB/STLRH <Rt>, [Rn]: `size 001000 1 0 0 11111 1 11111 Rn Rt`. Rt=x3.
+fn enc_stlr(size: u32) -> u32 {
+    (size << 30)
+        | (0b001000 << 24)
+        | (1 << 23)
+        | (0b11111 << 16)
+        | (1 << 15)
+        | (0b11111 << 10)
+        | (RN << 5)
+        | 3
 }
 
 /// AES single-block op: `0100111000 10100 opcode 10 Rn Rd`. Rn=v1, Rd=v0.
