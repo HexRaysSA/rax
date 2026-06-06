@@ -8146,6 +8146,78 @@ fn smir_aarch64_native_lowering_matches_qemu_oracle() {
 
     let mut st = native_state();
     st.x[0] = 0xaaaa_bbbb_cccc_dddd;
+    st.x[1] = 0xffff_ffff_ffff_ff19;
+    st.pstate = 0x7000_0000;
+    push_case3(
+        "shl_w8_imm_as_ubfiz_preserves_flags",
+        [enc_bitfield_rn(0, 0b10, 29, 4, RN), NOP, NOP],
+        vec![OpKind::Shl {
+            dst: arm_x(0),
+            src: arm_x(1),
+            amount: SrcOperand::Imm(3),
+            width: OpWidth::W8,
+            flags: FlagUpdate::None,
+        }],
+        st,
+    );
+
+    let mut st = native_state();
+    st.x[0] = 0xbbbb_cccc_dddd_eeee;
+    st.x[1] = 0x1111_2222_3333_ace0;
+    st.pstate = 0x2000_0000;
+    push_case3(
+        "shr_w16_imm_as_ubfx_preserves_flags",
+        [enc_bitfield_rn(0, 0b10, 5, 15, RN), NOP, NOP],
+        vec![OpKind::Shr {
+            dst: arm_x(0),
+            src: arm_x(1),
+            amount: SrcOperand::Imm(5),
+            width: OpWidth::W16,
+            flags: FlagUpdate::None,
+        }],
+        st,
+    );
+
+    let mut st = native_state();
+    st.x[0] = 0xcccc_dddd_eeee_ffff;
+    st.x[1] = 0x1111_2222_3333_44f0;
+    st.pstate = 0x5000_0000;
+    push_case3(
+        "sar_w8_imm_as_sbfm_uxtb_preserves_flags",
+        [
+            enc_bitfield_rn(0, 0b00, 3, 7, RN),
+            enc_bitfield_rn(0, 0b10, 0, 7, RD),
+            NOP,
+        ],
+        vec![OpKind::Sar {
+            dst: arm_x(0),
+            src: arm_x(1),
+            amount: SrcOperand::Imm(3),
+            width: OpWidth::W8,
+            flags: FlagUpdate::None,
+        }],
+        st,
+    );
+
+    let mut st = native_state();
+    st.x[0] = 0xdddd_eeee_ffff_0000;
+    st.x[1] = 0x1111_2222_3333_ffff;
+    st.pstate = 0xa000_0000;
+    push_case3(
+        "shl_w16_imm_count_above_width_as_zero_preserves_flags",
+        [enc_mov_wide(0, 0b10, 0, 0), NOP, NOP],
+        vec![OpKind::Shl {
+            dst: arm_x(0),
+            src: arm_x(1),
+            amount: SrcOperand::Imm(17),
+            width: OpWidth::W16,
+            flags: FlagUpdate::None,
+        }],
+        st,
+    );
+
+    let mut st = native_state();
+    st.x[0] = 0xaaaa_bbbb_cccc_dddd;
     st.x[1] = 0x1122_3344_5566_7788;
     st.pstate = 0xb000_0000;
     push_case3(

@@ -2743,6 +2743,64 @@ impl Aarch64Lowerer {
         self.emit_dp2(quot, rn, rm, opcode2, width)
     }
 
+    fn lower_subword_shift_imm(
+        &mut self,
+        dst: u8,
+        src: u8,
+        amount: i64,
+        shift: ShiftOp,
+        width: OpWidth,
+    ) -> Result<(), LowerError> {
+        let bits = width.bits();
+        let top_bit = bits - 1;
+        let amount = match shift {
+            ShiftOp::Ror | ShiftOp::Rrx => (amount as u64 & u64::from(bits - 1)) as u32,
+            ShiftOp::Lsl | ShiftOp::Lsr | ShiftOp::Asr => (amount as u64 & 0x3f) as u32,
+        };
+
+        match shift {
+            ShiftOp::Lsl => {
+                if amount == 0 {
+                    self.emit_bitfield(dst, src, 0b10, 0, top_bit, OpWidth::W32)
+                } else if amount >= bits {
+                    self.emit_mov_imm(dst, 0, OpWidth::W32)
+                } else {
+                    self.emit_bitfield(
+                        dst,
+                        src,
+                        0b10,
+                        OpWidth::W32.bits() - amount,
+                        top_bit - amount,
+                        OpWidth::W32,
+                    )
+                }
+            }
+            ShiftOp::Lsr => {
+                if amount == 0 {
+                    self.emit_bitfield(dst, src, 0b10, 0, top_bit, OpWidth::W32)
+                } else if amount >= bits {
+                    self.emit_mov_imm(dst, 0, OpWidth::W32)
+                } else {
+                    self.emit_bitfield(dst, src, 0b10, amount, top_bit, OpWidth::W32)
+                }
+            }
+            ShiftOp::Asr => {
+                self.emit_bitfield(
+                    dst,
+                    src,
+                    0b00,
+                    amount.min(top_bit),
+                    top_bit,
+                    OpWidth::W32,
+                )?;
+                self.emit_bitfield(dst, dst, 0b10, 0, top_bit, OpWidth::W32)
+            }
+            ShiftOp::Ror | ShiftOp::Rrx => Err(LowerError::UnsupportedOp {
+                op: format!("AArch64 native {width:?} immediate {shift:?}"),
+            }),
+        }
+    }
+
     fn lower_shift_imm(
         &mut self,
         dst: u8,
@@ -2751,6 +2809,10 @@ impl Aarch64Lowerer {
         shift: ShiftOp,
         width: OpWidth,
     ) -> Result<(), LowerError> {
+        if matches!(width, OpWidth::W8 | OpWidth::W16) {
+            return self.lower_subword_shift_imm(dst, src, amount, shift, width);
+        }
+
         let bits = width.bits();
         let amount = match shift {
             ShiftOp::Ror | ShiftOp::Rrx => (amount as u64 & u64::from(bits - 1)) as u32,
@@ -6131,6 +6193,111 @@ mod tests {
         let mut expected = Vec::new();
         expected.extend_from_slice(&enc_bitfield(0, 0b00, 15, 15).to_le_bytes());
         expected.extend_from_slice(&enc_bitfield_regs(0, 0b10, 0, 15, 0, 0).to_le_bytes());
+        expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
+        assert_eq!(code, expected);
+    }
+
+    #[test]
+    fn lowers_shl_w8_imm_as_ubfiz() {
+        let mut builder = FunctionBuilder::new(FunctionId(0), 0);
+        builder.push_op(
+            0,
+            OpKind::Shl {
+                dst: x(0),
+                src: x(1),
+                amount: SrcOperand::Imm(3),
+                width: OpWidth::W8,
+                flags: FlagUpdate::None,
+            },
+        );
+        builder.set_terminator(Terminator::Return { values: vec![] });
+        let func = builder.finish();
+
+        let mut lowerer = Aarch64Lowerer::new();
+        lowerer.lower_function(&func).unwrap();
+        let code = lowerer.finalize().unwrap();
+
+        let mut expected = Vec::new();
+        expected.extend_from_slice(&enc_bitfield(0, 0b10, 29, 4).to_le_bytes());
+        expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
+        assert_eq!(code, expected);
+    }
+
+    #[test]
+    fn lowers_shr_w16_imm_as_ubfx() {
+        let mut builder = FunctionBuilder::new(FunctionId(0), 0);
+        builder.push_op(
+            0,
+            OpKind::Shr {
+                dst: x(0),
+                src: x(1),
+                amount: SrcOperand::Imm(5),
+                width: OpWidth::W16,
+                flags: FlagUpdate::None,
+            },
+        );
+        builder.set_terminator(Terminator::Return { values: vec![] });
+        let func = builder.finish();
+
+        let mut lowerer = Aarch64Lowerer::new();
+        lowerer.lower_function(&func).unwrap();
+        let code = lowerer.finalize().unwrap();
+
+        let mut expected = Vec::new();
+        expected.extend_from_slice(&enc_bitfield(0, 0b10, 5, 15).to_le_bytes());
+        expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
+        assert_eq!(code, expected);
+    }
+
+    #[test]
+    fn lowers_sar_w8_imm_as_sbfm_uxtb() {
+        let mut builder = FunctionBuilder::new(FunctionId(0), 0);
+        builder.push_op(
+            0,
+            OpKind::Sar {
+                dst: x(0),
+                src: x(1),
+                amount: SrcOperand::Imm(3),
+                width: OpWidth::W8,
+                flags: FlagUpdate::None,
+            },
+        );
+        builder.set_terminator(Terminator::Return { values: vec![] });
+        let func = builder.finish();
+
+        let mut lowerer = Aarch64Lowerer::new();
+        lowerer.lower_function(&func).unwrap();
+        let code = lowerer.finalize().unwrap();
+
+        let mut expected = Vec::new();
+        expected.extend_from_slice(&enc_bitfield(0, 0b00, 3, 7).to_le_bytes());
+        expected.extend_from_slice(&enc_bitfield_regs(0, 0b10, 0, 7, 0, 0).to_le_bytes());
+        expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
+        assert_eq!(code, expected);
+    }
+
+    #[test]
+    fn lowers_shl_w16_imm_count_above_width_as_zero() {
+        let mut builder = FunctionBuilder::new(FunctionId(0), 0);
+        builder.push_op(
+            0,
+            OpKind::Shl {
+                dst: x(0),
+                src: x(1),
+                amount: SrcOperand::Imm(17),
+                width: OpWidth::W16,
+                flags: FlagUpdate::None,
+            },
+        );
+        builder.set_terminator(Terminator::Return { values: vec![] });
+        let func = builder.finish();
+
+        let mut lowerer = Aarch64Lowerer::new();
+        lowerer.lower_function(&func).unwrap();
+        let code = lowerer.finalize().unwrap();
+
+        let mut expected = Vec::new();
+        expected.extend_from_slice(&enc_mov_wide(0, 0b10, 0, 0, 0).to_le_bytes());
         expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
         assert_eq!(code, expected);
     }
