@@ -710,6 +710,20 @@ fn enc_test_branch(op: u32, bit: u32, offset: i32) -> u32 {
     (b5 << 31) | (0b011011 << 25) | (op << 24) | (b40 << 19) | (imm14 << 5) | RN
 }
 
+/// Compare and branch: `sf 011010 op imm19 Rt`.
+#[cfg(all(feature = "smir-jit", target_arch = "x86_64"))]
+fn enc_compare_branch(sf: u32, op: u32, rt: u32, offset: i32) -> u32 {
+    let imm19 = ((offset >> 2) as u32) & 0x7FFFF;
+    (sf << 31) | (0b011010 << 25) | (op << 24) | (imm19 << 5) | (rt & 0x1F)
+}
+
+/// Conditional branch: `01010100 imm19 0 cond`.
+#[cfg(all(feature = "smir-jit", target_arch = "x86_64"))]
+fn enc_cond_branch(cond: u32, offset: i32) -> u32 {
+    let imm19 = ((offset >> 2) as u32) & 0x7FFFF;
+    0x5400_0000 | (imm19 << 5) | (cond & 0xF)
+}
+
 /// Logical (shifted register): `sf opc 01010 shift N Rm imm6 Rn Rd`
 fn enc_logical_shift(sf: u32, opc: u32, shift: u32, n: u32, imm6: u32) -> u32 {
     (sf << 31)
@@ -1168,6 +1182,30 @@ fn run_smir_aarch64_x86_branch_pair(
         builder.push_op(op.guest_pc, op.kind);
     }
     match lifted.control_flow {
+        ControlFlow::CondBranch {
+            cond,
+            target,
+            fallthrough,
+        } => {
+            let cond_vreg = ctx.alloc_vreg();
+            builder.push_op(
+                0,
+                rax::smir::ops::OpKind::TestCondition {
+                    dst: cond_vreg,
+                    cond,
+                },
+            );
+            let to_block = |addr| match addr {
+                4 => Ok(fallthrough_block),
+                8 => Ok(exit_block),
+                other => Err(format!("unexpected branch target {other:#x}")),
+            };
+            builder.set_terminator(Terminator::CondBranch {
+                cond: cond_vreg,
+                true_target: to_block(target)?,
+                false_target: to_block(fallthrough)?,
+            });
+        }
         ControlFlow::CondBranchReg {
             cond,
             taken,
@@ -2409,6 +2447,70 @@ fn smir_aarch64_x86_test_branch_lowering_matches_qemu_oracle() {
 
     let marker = enc_mov_wide(1, 0b10, 0, 0xcafe);
     let mut batch: Vec<(String, u32, u32, ArmState)> = Vec::new();
+
+    let mut st = ArmState::zeroed();
+    st.x[0] = 0x1010_2020_3030_4040;
+    st.pstate = 0x4000_0000;
+    batch.push(("b_eq_taken".into(), enc_cond_branch(0, 8), marker, st));
+
+    let mut st = ArmState::zeroed();
+    st.x[0] = 0x1010_2020_3030_4040;
+    st.pstate = 0;
+    batch.push(("b_eq_not_taken".into(), enc_cond_branch(0, 8), marker, st));
+
+    let mut st = ArmState::zeroed();
+    st.x[0] = 0x2020_3030_4040_5050;
+    st.pstate = 0;
+    batch.push(("b_ne_taken".into(), enc_cond_branch(1, 8), marker, st));
+
+    let mut st = ArmState::zeroed();
+    st.x[0] = 0x3030_4040_5050_6060;
+    st.pstate = 0x8000_0000;
+    batch.push(("b_lt_taken".into(), enc_cond_branch(11, 8), marker, st));
+
+    let mut st = ArmState::zeroed();
+    st.x[0] = 0x5555_6666_7777_8888;
+    st.x[1] = 0;
+    st.pstate = 0x9000_0000;
+    batch.push((
+        "cbz_x_taken_preserves_flags".into(),
+        enc_compare_branch(1, 0, RN, 8),
+        marker,
+        st,
+    ));
+
+    let mut st = ArmState::zeroed();
+    st.x[0] = 0x5555_6666_7777_8888;
+    st.x[1] = 0x1_0000_0000;
+    st.pstate = 0x2000_0000;
+    batch.push((
+        "cbz_x_not_taken_preserves_flags".into(),
+        enc_compare_branch(1, 0, RN, 8),
+        marker,
+        st,
+    ));
+
+    let mut st = ArmState::zeroed();
+    st.x[0] = 0x6666_7777_8888_9999;
+    st.x[1] = 0xffff_ffff_0000_0001;
+    st.pstate = 0x4000_0000;
+    batch.push((
+        "cbnz_w_taken_low32_preserves_flags".into(),
+        enc_compare_branch(0, 1, RN, 8),
+        marker,
+        st,
+    ));
+
+    let mut st = ArmState::zeroed();
+    st.x[0] = 0x6666_7777_8888_9999;
+    st.x[1] = 0xffff_ffff_0000_0000;
+    st.pstate = 0x8000_0000;
+    batch.push((
+        "cbnz_w_not_taken_ignores_high32".into(),
+        enc_compare_branch(0, 1, RN, 8),
+        marker,
+        st,
+    ));
 
     let mut st = ArmState::zeroed();
     st.x[0] = 0x1111_2222_3333_4444;
