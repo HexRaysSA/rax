@@ -524,6 +524,21 @@ impl Aarch64Lowerer {
         );
     }
 
+    fn emit_cas(&mut self, rs: u8, rt: u8, rn: u8, size: u32, acquire: u32, release: u32) {
+        self.emit(
+            (size << 30)
+                | (0b001000 << 24)
+                | (1 << 23)
+                | (acquire << 22)
+                | (1 << 21)
+                | ((rs as u32) << 16)
+                | (release << 15)
+                | (0b11111 << 10)
+                | ((rn as u32) << 5)
+                | (rt as u32),
+        );
+    }
+
     fn emit_cond_select(
         &mut self,
         dst: u8,
@@ -1078,6 +1093,37 @@ impl Aarch64Lowerer {
         let size = Self::mem_size(width)?;
         let (acquire, release) = Self::atomic_order_bits(order);
         self.emit_atomic_rmw(rt, rn, rs, size, acquire, release, 0, 0b001);
+        Ok(())
+    }
+
+    fn lower_cas(
+        &mut self,
+        dst: VReg,
+        success: VReg,
+        addr: &Address,
+        expected: VReg,
+        new_val: VReg,
+        width: MemWidth,
+        order: MemoryOrder,
+    ) -> Result<(), LowerError> {
+        if dst != expected {
+            return Err(LowerError::InvalidOperand {
+                op: "AArch64 native CAS compare/destination register".into(),
+                operand: format!("dst={dst:?}, expected={expected:?}"),
+            });
+        }
+        if !matches!(success, VReg::Virtual(_)) {
+            return Err(LowerError::UnsupportedOp {
+                op: format!("AArch64 native CAS observable success {success:?}"),
+            });
+        }
+
+        let rs = Self::dst_gpr(dst)?;
+        let rt = Self::gpr(new_val)?;
+        let rn = Self::exclusive_base_gpr(addr)?;
+        let size = Self::mem_size(width)?;
+        let (acquire, release) = Self::atomic_order_bits(order);
+        self.emit_cas(rs, rt, rn, size, acquire, release);
         Ok(())
     }
 
@@ -3578,6 +3624,15 @@ impl Aarch64Lowerer {
                 width,
                 order,
             } => self.lower_atomic_rmw(*dst, addr, *src, *op, *width, *order),
+            OpKind::Cas {
+                dst,
+                success,
+                addr,
+                expected,
+                new_val,
+                width,
+                order,
+            } => self.lower_cas(*dst, *success, addr, *expected, *new_val, *width, *order),
             OpKind::LoadPair {
                 dst1,
                 dst2,
@@ -3910,6 +3965,18 @@ mod tests {
             | (2 << 16)
             | (o3 << 15)
             | (opc << 12)
+            | (1 << 5)
+    }
+
+    fn enc_cas(size: u32, acquire: u32, release: u32) -> u32 {
+        (size << 30)
+            | (0b001000 << 24)
+            | (1 << 23)
+            | (acquire << 22)
+            | (1 << 21)
+            | (2 << 16)
+            | (release << 15)
+            | (0b11111 << 10)
             | (1 << 5)
     }
 
@@ -4375,6 +4442,80 @@ mod tests {
                 addr: Address::Direct(x(1)),
                 src: x(2),
                 op: AtomicOp::And,
+                width: MemWidth::B8,
+                order: MemoryOrder::Relaxed,
+            },
+        );
+        builder.set_terminator(Terminator::Return { values: vec![] });
+        let func = builder.finish();
+
+        let mut lowerer = Aarch64Lowerer::new();
+        assert!(lowerer.lower_function(&func).is_err());
+    }
+
+    #[test]
+    fn lowers_cas_lifted_shape_direct() {
+        let success = VReg::virt(0);
+        let mut builder = FunctionBuilder::new(FunctionId(0), 0);
+        builder.push_op(
+            0,
+            OpKind::Cas {
+                dst: x(2),
+                success,
+                addr: Address::Direct(x(1)),
+                expected: x(2),
+                new_val: x(0),
+                width: MemWidth::B8,
+                order: MemoryOrder::AcqRel,
+            },
+        );
+        builder.set_terminator(Terminator::Return { values: vec![] });
+        let func = builder.finish();
+
+        let mut lowerer = Aarch64Lowerer::new();
+        lowerer.lower_function(&func).unwrap();
+        let code = lowerer.finalize().unwrap();
+
+        let mut expected = Vec::new();
+        expected.extend_from_slice(&enc_cas(3, 1, 1).to_le_bytes());
+        expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
+        assert_eq!(code, expected);
+    }
+
+    #[test]
+    fn rejects_cas_with_observable_success() {
+        let mut builder = FunctionBuilder::new(FunctionId(0), 0);
+        builder.push_op(
+            0,
+            OpKind::Cas {
+                dst: x(2),
+                success: x(3),
+                addr: Address::Direct(x(1)),
+                expected: x(2),
+                new_val: x(0),
+                width: MemWidth::B8,
+                order: MemoryOrder::Relaxed,
+            },
+        );
+        builder.set_terminator(Terminator::Return { values: vec![] });
+        let func = builder.finish();
+
+        let mut lowerer = Aarch64Lowerer::new();
+        assert!(lowerer.lower_function(&func).is_err());
+    }
+
+    #[test]
+    fn rejects_cas_with_split_compare_and_destination() {
+        let success = VReg::virt(0);
+        let mut builder = FunctionBuilder::new(FunctionId(0), 0);
+        builder.push_op(
+            0,
+            OpKind::Cas {
+                dst: x(3),
+                success,
+                addr: Address::Direct(x(1)),
+                expected: x(2),
+                new_val: x(0),
                 width: MemWidth::B8,
                 order: MemoryOrder::Relaxed,
             },

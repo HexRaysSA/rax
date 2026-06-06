@@ -4541,6 +4541,48 @@ fn smir_aarch64_native_lowering_matches_qemu_oracle() {
     );
 
     let mut st = native_state();
+    st.x[0] = 0x0102_0304_0506_0708;
+    st.x[1] = SCRATCH_BASE;
+    st.x[2] = 0x8877_6655_4433_2211;
+    st.scratch[8] = 0x8877_6655_4433_2211;
+    st.pstate = 0x7000_0000;
+    push_case(
+        "cas_x_direct_opkind_success_preserves_flags_and_memory",
+        enc_cas(3, 0, 0),
+        vec![OpKind::Cas {
+            dst: arm_x(2),
+            success: VReg::virt(0),
+            addr: native_direct_addr.clone(),
+            expected: arm_x(2),
+            new_val: arm_x(0),
+            width: MemWidth::B8,
+            order: MemoryOrder::Relaxed,
+        }],
+        st,
+    );
+
+    let mut st = native_state();
+    st.x[0] = 0x0000_0000_aaaa_bbbb;
+    st.x[1] = SCRATCH_BASE;
+    st.x[2] = 0x0000_0000_1111_2222;
+    st.scratch[8] = 0xcccc_dddd_3333_4444;
+    st.pstate = 0xd000_0000;
+    push_case(
+        "cas_w_direct_opkind_failure_zero_ext_preserves_flags_and_memory",
+        enc_cas(2, 1, 1),
+        vec![OpKind::Cas {
+            dst: arm_x(2),
+            success: VReg::virt(0),
+            addr: native_direct_addr.clone(),
+            expected: arm_x(2),
+            new_val: arm_x(0),
+            width: MemWidth::B4,
+            order: MemoryOrder::AcqRel,
+        }],
+        st,
+    );
+
+    let mut st = native_state();
     st.x[0] = 0x2222_3333_4444_5555;
     st.x[1] = SCRATCH_BASE;
     st.x[2] = 0x3333_4444_5555_6666;
@@ -6086,6 +6128,30 @@ fn smir_aarch64_native_lowering_matches_qemu_oracle() {
     push_lifted_case(
         "ldumin_b_lifted_uses_unsigned_width_preserves_flags_and_memory",
         enc_atomic_smir(0, 0, 0, 0, 0b111, 2, RN, RD),
+        st,
+    );
+
+    let mut st = native_state();
+    st.x[0] = 0x0102_0304_0506_0708;
+    st.x[1] = SCRATCH_BASE;
+    st.x[2] = 0x8877_6655_4433_2211;
+    st.scratch[8] = 0x8877_6655_4433_2211;
+    st.pstate = 0x7000_0000;
+    push_lifted_case(
+        "cas_x_lifted_success_preserves_flags_and_memory",
+        enc_cas(3, 0, 0),
+        st,
+    );
+
+    let mut st = native_state();
+    st.x[0] = 0x0000_0000_aaaa_bbbb;
+    st.x[1] = SCRATCH_BASE;
+    st.x[2] = 0x0000_0000_1111_2222;
+    st.scratch[8] = 0xcccc_dddd_3333_4444;
+    st.pstate = 0xd000_0000;
+    push_lifted_case(
+        "cas_w_lifted_failure_zero_ext_preserves_flags_and_memory",
+        enc_cas(2, 1, 1),
         st,
     );
 
