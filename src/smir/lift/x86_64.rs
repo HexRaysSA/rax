@@ -96,14 +96,52 @@ static PREFIX_LUT: [u8; 256] = {
         lut[i as usize] = 1;
         i += 1;
     }
+    // REX2 (APX)
+    lut[0xD5] = 1;
     lut
 };
+
+/// Decoded APX REX2 prefix state.
+///
+/// Payload layout follows LLVM/Intel APX encoding: `M R4 X4 B4 W R3 X3 B3`.
+/// The `*_hi` bits add 16 and the `*_lo` bits add 8 to the corresponding
+/// ModR/M, SIB, or opcode-register field.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct Rex2Prefix {
+    pub m: bool,
+    pub w: bool,
+    pub r_hi: bool,
+    pub x_hi: bool,
+    pub b_hi: bool,
+    pub r_lo: bool,
+    pub x_lo: bool,
+    pub b_lo: bool,
+}
+
+impl Rex2Prefix {
+    #[inline]
+    fn r_ext(self) -> u8 {
+        (if self.r_hi { 16 } else { 0 }) | (if self.r_lo { 8 } else { 0 })
+    }
+
+    #[inline]
+    fn x_ext(self) -> u8 {
+        (if self.x_hi { 16 } else { 0 }) | (if self.x_lo { 8 } else { 0 })
+    }
+
+    #[inline]
+    fn b_ext(self) -> u8 {
+        (if self.b_hi { 16 } else { 0 }) | (if self.b_lo { 8 } else { 0 })
+    }
+}
 
 /// Decoded x86 instruction prefix state
 #[derive(Clone, Debug, Default)]
 pub struct X86Prefix {
     /// REX prefix if present
     pub rex: Option<u8>,
+    /// REX2 prefix if present (APX)
+    pub rex2: Option<Rex2Prefix>,
     /// Operand size override (0x66)
     pub operand_size_override: bool,
     /// Address size override (0x67)
@@ -140,31 +178,47 @@ impl X86Prefix {
     /// Get REX.W flag
     #[inline]
     pub fn rex_w(&self) -> bool {
-        self.rex.map_or(false, |r| r & 0x08 != 0)
+        self.rex2
+            .map_or_else(|| self.rex.map_or(false, |r| r & 0x08 != 0), |r| r.w)
     }
 
     /// Get REX.R flag (extends ModR/M reg field)
     #[inline]
     pub fn rex_r(&self) -> u8 {
-        self.rex.map_or(0, |r| (r & 0x04) << 1)
+        self.rex2
+            .map_or_else(|| self.rex.map_or(0, |r| (r & 0x04) << 1), |r| {
+                r.r_ext()
+            })
     }
 
     /// Get REX.X flag (extends SIB index field)
     #[inline]
     pub fn rex_x(&self) -> u8 {
-        self.rex.map_or(0, |r| (r & 0x02) << 2)
+        self.rex2
+            .map_or_else(|| self.rex.map_or(0, |r| (r & 0x02) << 2), |r| {
+                r.x_ext()
+            })
     }
 
     /// Get REX.B flag (extends ModR/M r/m or opcode reg)
     #[inline]
     pub fn rex_b(&self) -> u8 {
-        self.rex.map_or(0, |r| (r & 0x01) << 3)
+        self.rex2
+            .map_or_else(|| self.rex.map_or(0, |r| (r & 0x01) << 3), |r| {
+                r.b_ext()
+            })
     }
 
     /// Check if any REX prefix is present
     #[inline]
     pub fn has_rex(&self) -> bool {
-        self.rex.is_some()
+        self.rex.is_some() || self.rex2.is_some()
+    }
+
+    /// Check if REX2 selects the compressed 0F opcode map.
+    #[inline]
+    pub fn rex2_m(&self) -> bool {
+        self.rex2.map_or(false, |r| r.m)
     }
 
     /// Compute operand size for 64-bit mode
@@ -215,6 +269,29 @@ fn decode_prefixes(bytes: &[u8]) -> Result<X86Prefix, LiftError> {
             0x66 => prefix.operand_size_override = true,
             0x67 => prefix.address_size_override = true,
             0x40..=0x4F => prefix.rex = Some(b),
+            0xD5 => {
+                cursor += 1;
+                if cursor >= bytes.len() {
+                    return Err(LiftError::Incomplete {
+                        addr: 0,
+                        have: bytes.len(),
+                        need: cursor + 1,
+                    });
+                }
+                let payload = bytes[cursor];
+                prefix.rex2 = Some(Rex2Prefix {
+                    m: (payload & 0x80) != 0,
+                    r_hi: (payload & 0x40) != 0,
+                    x_hi: (payload & 0x20) != 0,
+                    b_hi: (payload & 0x10) != 0,
+                    w: (payload & 0x08) != 0,
+                    r_lo: (payload & 0x04) != 0,
+                    x_lo: (payload & 0x02) != 0,
+                    b_lo: (payload & 0x01) != 0,
+                });
+                cursor += 1;
+                break;
+            }
             0xF0 => prefix.lock = true,
             0xF2 | 0xF3 => prefix.rep_prefix = Some(b),
             0x26 | 0x2E | 0x36 | 0x3E | 0x64 | 0x65 => {
@@ -629,7 +706,7 @@ impl X86_64Lifter {
 
     /// Get x86 register by number
     fn gpr(&self, reg: u8) -> VReg {
-        self.x86_gpr(reg & 0x0F)
+        self.x86_gpr(reg & 0x1F)
     }
 
     fn xmm(&self, reg: u8) -> VReg {
@@ -4126,6 +4203,10 @@ impl X86_64Lifter {
             });
         }
 
+        if prefix.rex2_m() {
+            return self.lift_0f_opcode(opcode_bytes, &prefix, pc, ctx, 1);
+        }
+
         let opcode = opcode_bytes[0];
         let after_opcode = &opcode_bytes[1..];
 
@@ -4184,7 +4265,7 @@ impl X86_64Lifter {
             }),
 
             // Two-byte opcode prefix
-            0x0F => self.lift_0f_opcode(after_opcode, &prefix, pc, ctx),
+            0x0F => self.lift_0f_opcode(after_opcode, &prefix, pc, ctx, 2),
 
             // Control flow
             0xEB => self.lift_jmp_rel8(
@@ -4580,19 +4661,20 @@ impl X86_64Lifter {
         prefix: &X86Prefix,
         pc: u64,
         ctx: &mut LiftContext,
+        map_len: usize,
     ) -> Result<LiftResult, LiftError> {
         if bytes.is_empty() {
             return Err(LiftError::Incomplete {
                 addr: pc,
-                have: prefix.cursor + 1,
-                need: prefix.cursor + 2,
+                have: prefix.cursor + map_len.saturating_sub(1),
+                need: prefix.cursor + map_len,
             });
         }
 
         let opcode2 = bytes[0];
         let after_opcode = &bytes[1..];
         let prefix2 = X86Prefix {
-            cursor: prefix.cursor + 2,
+            cursor: prefix.cursor + map_len,
             ..prefix.clone()
         };
 
@@ -4602,8 +4684,8 @@ impl X86_64Lifter {
                 if after_opcode.len() < 4 {
                     return Err(LiftError::Incomplete {
                         addr: pc,
-                        have: prefix.cursor + 2 + after_opcode.len(),
-                        need: prefix.cursor + 6,
+                        have: prefix2.cursor + after_opcode.len(),
+                        need: prefix2.cursor + 4,
                     });
                 }
 
@@ -4616,7 +4698,7 @@ impl X86_64Lifter {
                     after_opcode[3],
                 ]) as i64;
 
-                let insn_len = prefix.cursor + 6;
+                let insn_len = prefix2.cursor + 4;
                 let next_pc = pc + insn_len as u64;
                 let target = (next_pc as i64 + rel) as u64;
 
@@ -4977,7 +5059,7 @@ impl X86_64Lifter {
             // SYSCALL (0F 05)
             0x05 => Ok(LiftResult {
                 ops: vec![],
-                bytes_consumed: prefix.cursor + 2,
+                bytes_consumed: prefix2.cursor,
                 control_flow: ControlFlow::Syscall,
                 branch_targets: vec![],
             }),
@@ -4985,7 +5067,7 @@ impl X86_64Lifter {
             // SYSRET (0F 07)
             0x07 => {
                 // Treat as return for lifting purposes
-                Ok(LiftResult::ret(vec![], prefix.cursor + 2))
+                Ok(LiftResult::ret(vec![], prefix2.cursor))
             }
 
             // NOP (0F 1F /0) - multi-byte NOP
@@ -5006,7 +5088,7 @@ impl X86_64Lifter {
                 } else {
                     Ok(LiftResult::fallthrough(
                         vec![SmirOp::new(OpId(0), pc, OpKind::Nop)],
-                        prefix.cursor + 2,
+                        prefix2.cursor,
                     ))
                 }
             }
@@ -5289,6 +5371,21 @@ mod tests {
         assert_eq!(prefix.cursor, 1);
         assert!(prefix.operand_size_override);
         assert_eq!(prefix.op_size(), 2);
+
+        // REX2.W with B high bit: LLVM encodes `mov r16, imm64` as d5 18 b8...
+        let prefix = decode_prefixes(&[0xD5, 0x18, 0xB8]).unwrap();
+        assert_eq!(prefix.cursor, 2);
+        assert!(prefix.has_rex());
+        assert!(prefix.rex_w());
+        assert_eq!(prefix.rex_b(), 16);
+        assert!(!prefix.rex2_m());
+
+        // REX2.M compressed 0F map: LLVM encodes `imul r16, rax` as d5 c8 af c0.
+        let prefix = decode_prefixes(&[0xD5, 0xC8, 0xAF]).unwrap();
+        assert_eq!(prefix.cursor, 2);
+        assert!(prefix.rex2_m());
+        assert!(prefix.rex_w());
+        assert_eq!(prefix.rex_r(), 16);
     }
 
     /// Lift one instruction (a trailing HLT terminates the block) and return its ops.
@@ -5347,6 +5444,184 @@ mod tests {
     fn addr_size_override_memory_bails() {
         let r = lift_one(&[0x67, 0x48, 0x8b, 0x03]); // mov rax, [ebx]  (32-bit addr)
         assert!(r.is_err(), "0x67 address-size memory operand must bail");
+    }
+
+    fn x86_gpr(idx: u8) -> VReg {
+        VReg::Arch(ArchReg::X86(X86Reg::gpr(idx)))
+    }
+
+    #[test]
+    fn rex2_modrm_decode_extends_to_apx_gprs() {
+        let prefix = decode_prefixes(&[0xD5, 0x5D, 0x89, 0xF8]).unwrap();
+        let modrm = decode_modrm(&[0xF8], &prefix, 0).unwrap();
+        assert!(!modrm.is_memory);
+        assert_eq!(modrm.reg, 31);
+        assert_eq!(modrm.rm, 24);
+    }
+
+    #[test]
+    fn lift_rex2_mov_egpr_imm64_uses_llvm_encoding() {
+        let mut lifter = X86_64Lifter::strict();
+        let mut ctx = LiftContext::new(SourceArch::X86_64);
+
+        // LLVM 20: `mov r16, 0x1122334455667788`
+        let result = lifter
+            .lift_insn(
+                0x1000,
+                &[
+                    0xD5, 0x18, 0xB8, 0x88, 0x77, 0x66, 0x55, 0x44, 0x33, 0x22, 0x11,
+                ],
+                &mut ctx,
+            )
+            .unwrap();
+        assert_eq!(result.bytes_consumed, 11);
+        assert_eq!(result.ops.len(), 1);
+        match &result.ops[0].kind {
+            OpKind::Mov {
+                dst,
+                src: SrcOperand::Imm64(0x1122_3344_5566_7788),
+                width: OpWidth::W64,
+            } => assert_eq!(*dst, x86_gpr(16)),
+            other => panic!("expected R16 imm64 mov, got {other:?}"),
+        }
+
+        // LLVM 20: `mov r24, 0x1122334455667788`
+        let result = lifter
+            .lift_insn(
+                0x1000,
+                &[
+                    0xD5, 0x19, 0xB8, 0x88, 0x77, 0x66, 0x55, 0x44, 0x33, 0x22, 0x11,
+                ],
+                &mut ctx,
+            )
+            .unwrap();
+        match &result.ops[0].kind {
+            OpKind::Mov {
+                dst,
+                src: SrcOperand::Imm64(0x1122_3344_5566_7788),
+                width: OpWidth::W64,
+            } => assert_eq!(*dst, x86_gpr(24)),
+            other => panic!("expected R24 imm64 mov, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn lift_rex2_mov_egpr_reg_uses_llvm_encoding() {
+        let mut lifter = X86_64Lifter::strict();
+        let mut ctx = LiftContext::new(SourceArch::X86_64);
+
+        // LLVM 20: `mov r16, rax`
+        let result = lifter
+            .lift_insn(0x1000, &[0xD5, 0x18, 0x89, 0xC0], &mut ctx)
+            .unwrap();
+        assert_eq!(result.bytes_consumed, 4);
+        match &result.ops[0].kind {
+            OpKind::Mov {
+                dst,
+                src: SrcOperand::Reg(src),
+                width: OpWidth::W64,
+            } => {
+                assert_eq!(*dst, x86_gpr(16));
+                assert_eq!(*src, x86_gpr(0));
+            }
+            other => panic!("expected mov r16, rax, got {other:?}"),
+        }
+
+        // LLVM 20: `mov r16, rax` has the APX register in r/m; `mov rax, r16`
+        // uses ModR/M.reg extension instead.
+        let result = lifter
+            .lift_insn(0x1000, &[0xD5, 0x48, 0x89, 0xC0], &mut ctx)
+            .unwrap();
+        match &result.ops[0].kind {
+            OpKind::Mov {
+                dst,
+                src: SrcOperand::Reg(src),
+                width: OpWidth::W64,
+            } => {
+                assert_eq!(*dst, x86_gpr(0));
+                assert_eq!(*src, x86_gpr(16));
+            }
+            other => panic!("expected mov rax, r16, got {other:?}"),
+        }
+
+        // LLVM 20: `mov r24, r31`
+        let result = lifter
+            .lift_insn(0x1000, &[0xD5, 0x5D, 0x89, 0xF8], &mut ctx)
+            .unwrap();
+        match &result.ops[0].kind {
+            OpKind::Mov {
+                dst,
+                src: SrcOperand::Reg(src),
+                width: OpWidth::W64,
+            } => {
+                assert_eq!(*dst, x86_gpr(24));
+                assert_eq!(*src, x86_gpr(31));
+            }
+            other => panic!("expected mov r24, r31, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn lift_rex2_push_pop_egpr_uses_llvm_encoding() {
+        let mut lifter = X86_64Lifter::strict();
+        let mut ctx = LiftContext::new(SourceArch::X86_64);
+
+        // LLVM 20: `push r16`
+        let result = lifter
+            .lift_insn(0x1000, &[0xD5, 0x10, 0x50], &mut ctx)
+            .unwrap();
+        assert_eq!(result.bytes_consumed, 3);
+        assert_eq!(result.ops.len(), 2);
+        match &result.ops[1].kind {
+            OpKind::Store {
+                src,
+                addr: Address::Direct(_),
+                width: MemWidth::B8,
+            } => assert_eq!(*src, x86_gpr(16)),
+            other => panic!("expected push r16 store, got {other:?}"),
+        }
+
+        // LLVM 20: `pop r31`
+        let result = lifter
+            .lift_insn(0x1000, &[0xD5, 0x11, 0x5F], &mut ctx)
+            .unwrap();
+        assert_eq!(result.bytes_consumed, 3);
+        match &result.ops[0].kind {
+            OpKind::Load {
+                dst,
+                addr: Address::Direct(_),
+                width: MemWidth::B8,
+                sign: SignExtend::Zero,
+            } => assert_eq!(*dst, x86_gpr(31)),
+            other => panic!("expected pop r31 load, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn lift_rex2_m_compressed_0f_map_uses_llvm_encoding() {
+        let mut lifter = X86_64Lifter::strict();
+        let mut ctx = LiftContext::new(SourceArch::X86_64);
+
+        // LLVM 20: `imul r16, rax` as REX2.M compressed 0F AF.
+        let result = lifter
+            .lift_insn(0x1000, &[0xD5, 0xC8, 0xAF, 0xC0], &mut ctx)
+            .unwrap();
+        assert_eq!(result.bytes_consumed, 4);
+        match &result.ops[0].kind {
+            OpKind::MulS {
+                dst_lo,
+                dst_hi: None,
+                src1,
+                src2: SrcOperand::Reg(src2),
+                width: OpWidth::W64,
+                flags: FlagUpdate::All,
+            } => {
+                assert_eq!(*dst_lo, x86_gpr(16));
+                assert_eq!(*src1, x86_gpr(16));
+                assert_eq!(*src2, x86_gpr(0));
+            }
+            other => panic!("expected imul r16, rax, got {other:?}"),
+        }
     }
 
     #[test]
