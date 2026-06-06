@@ -260,6 +260,30 @@ impl Aarch64Lowerer {
         Ok(())
     }
 
+    fn emit_dp3(
+        &mut self,
+        dst: u8,
+        rn: u8,
+        rm: u8,
+        ra: u8,
+        op31: u32,
+        o0: u32,
+        width: OpWidth,
+    ) -> Result<(), LowerError> {
+        let sf = Self::sf(width)?;
+        self.emit(
+            (sf << 31)
+                | (0b11011 << 24)
+                | (op31 << 21)
+                | ((rm as u32) << 16)
+                | (o0 << 15)
+                | ((ra as u32) << 10)
+                | ((rn as u32) << 5)
+                | (dst as u32),
+        );
+        Ok(())
+    }
+
     fn emit_dp1(
         &mut self,
         dst: u8,
@@ -551,6 +575,102 @@ impl Aarch64Lowerer {
         )
     }
 
+    fn lower_mul(
+        &mut self,
+        dst_lo: VReg,
+        dst_hi: Option<VReg>,
+        src1: VReg,
+        src2: &SrcOperand,
+        width: OpWidth,
+        set_flags: bool,
+        signed: bool,
+    ) -> Result<(), LowerError> {
+        if set_flags {
+            return Err(LowerError::UnsupportedOp {
+                op: "AArch64 native flag-setting multiply".into(),
+            });
+        }
+        let SrcOperand::Reg(src2) = src2 else {
+            return Err(LowerError::UnsupportedOp {
+                op: format!("AArch64 native multiply source {src2:?}"),
+            });
+        };
+        let rn = Self::gpr(src1)?;
+        let rm = Self::gpr(*src2)?;
+
+        if let Some(dst_hi) = dst_hi {
+            if width != OpWidth::W64 {
+                return Err(LowerError::UnsupportedOp {
+                    op: format!("AArch64 native high-half multiply width {width:?}"),
+                });
+            }
+            let dst_hi = Self::dst_gpr(dst_hi)?;
+            let op31 = if signed { 0b010 } else { 0b110 };
+            if matches!(dst_lo, VReg::Virtual(_)) {
+                return self.emit_dp3(dst_hi, rn, rm, 31, op31, 0, width);
+            }
+
+            let dst_lo = Self::dst_gpr(dst_lo)?;
+            if [dst_lo, dst_hi].contains(&rn) || [dst_lo, dst_hi].contains(&rm) {
+                return Err(LowerError::UnsupportedOp {
+                    op: "AArch64 native full-width multiply with overlapping sources".into(),
+                });
+            }
+            self.emit_dp3(dst_lo, rn, rm, 31, 0b000, 0, width)?;
+            return self.emit_dp3(dst_hi, rn, rm, 31, op31, 0, width);
+        }
+
+        self.emit_dp3(Self::dst_gpr(dst_lo)?, rn, rm, 31, 0b000, 0, width)
+    }
+
+    fn lower_mul_acc(
+        &mut self,
+        dst: VReg,
+        acc: VReg,
+        src1: VReg,
+        src2: VReg,
+        width: OpWidth,
+        subtract: bool,
+    ) -> Result<(), LowerError> {
+        self.emit_dp3(
+            Self::dst_gpr(dst)?,
+            Self::gpr(src1)?,
+            Self::gpr(src2)?,
+            Self::gpr(acc)?,
+            0b000,
+            subtract as u32,
+            width,
+        )
+    }
+
+    fn lower_div(
+        &mut self,
+        quot: VReg,
+        rem: Option<VReg>,
+        src1: VReg,
+        src2: &SrcOperand,
+        width: OpWidth,
+        signed: bool,
+    ) -> Result<(), LowerError> {
+        if rem.is_some() {
+            return Err(LowerError::UnsupportedOp {
+                op: "AArch64 native divide remainder output".into(),
+            });
+        }
+        let SrcOperand::Reg(src2) = src2 else {
+            return Err(LowerError::UnsupportedOp {
+                op: format!("AArch64 native divide source {src2:?}"),
+            });
+        };
+        self.emit_dp2(
+            Self::dst_gpr(quot)?,
+            Self::gpr(src1)?,
+            Self::gpr(*src2)?,
+            if signed { 0b0011 } else { 0b0010 },
+            width,
+        )
+    }
+
     fn lower_shift_imm(
         &mut self,
         dst: u8,
@@ -718,6 +838,66 @@ impl Aarch64Lowerer {
                 width,
                 flags,
             } => self.lower_neg(*dst, *src, flags.updates_any(), *width),
+            OpKind::MulU {
+                dst_lo,
+                dst_hi,
+                src1,
+                src2,
+                width,
+                flags,
+            } => self.lower_mul(
+                *dst_lo,
+                *dst_hi,
+                *src1,
+                src2,
+                *width,
+                flags.updates_any(),
+                false,
+            ),
+            OpKind::MulS {
+                dst_lo,
+                dst_hi,
+                src1,
+                src2,
+                width,
+                flags,
+            } => self.lower_mul(
+                *dst_lo,
+                *dst_hi,
+                *src1,
+                src2,
+                *width,
+                flags.updates_any(),
+                true,
+            ),
+            OpKind::MulAdd {
+                dst,
+                acc,
+                src1,
+                src2,
+                width,
+            } => self.lower_mul_acc(*dst, *acc, *src1, *src2, *width, false),
+            OpKind::MulSub {
+                dst,
+                acc,
+                src1,
+                src2,
+                width,
+            } => self.lower_mul_acc(*dst, *acc, *src1, *src2, *width, true),
+            OpKind::DivU {
+                quot,
+                rem,
+                src1,
+                src2,
+                width,
+            } => self.lower_div(*quot, *rem, *src1, src2, *width, false),
+            OpKind::DivS {
+                quot,
+                rem,
+                src1,
+                src2,
+                width,
+            } => self.lower_div(*quot, *rem, *src1, src2, *width, true),
             OpKind::Not { dst, src, width } => self.lower_not(*dst, *src, *width),
             OpKind::Cmp { src1, src2, width } => self.lower_cmp(*src1, src2, *width),
             OpKind::Test { src1, src2, width } => self.lower_test(*src1, src2, *width),
