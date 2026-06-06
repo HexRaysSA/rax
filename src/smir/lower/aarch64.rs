@@ -2998,11 +2998,19 @@ impl Aarch64Lowerer {
         width: OpWidth,
         subtract: bool,
     ) -> Result<(), LowerError> {
+        let dst = Self::dst_gpr(dst)?;
+        let rn = Self::gpr(src1)?;
+        let rm = Self::gpr(src2)?;
+        let ra = Self::gpr(acc)?;
+        if matches!(width, OpWidth::W8 | OpWidth::W16) {
+            self.emit_dp3(dst, rn, rm, ra, 0b000, subtract as u32, OpWidth::W32)?;
+            return self.emit_bitfield(dst, dst, 0b10, 0, width.bits() - 1, OpWidth::W32);
+        }
         self.emit_dp3(
-            Self::dst_gpr(dst)?,
-            Self::gpr(src1)?,
-            Self::gpr(src2)?,
-            Self::gpr(acc)?,
+            dst,
+            rn,
+            rm,
+            ra,
             0b000,
             subtract as u32,
             width,
@@ -6603,6 +6611,60 @@ mod tests {
 
         let mut expected = Vec::new();
         expected.extend_from_slice(&enc_dp3_regs(0, 0b000, 0, 0, 1, 2, 31).to_le_bytes());
+        expected.extend_from_slice(&enc_bitfield_regs(0, 0b10, 0, 15, 0, 0).to_le_bytes());
+        expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
+        assert_eq!(code, expected);
+    }
+
+    #[test]
+    fn lowers_muladd_w8_as_madd_uxtb() {
+        let mut builder = FunctionBuilder::new(FunctionId(0), 0);
+        builder.push_op(
+            0,
+            OpKind::MulAdd {
+                dst: x(0),
+                acc: x(3),
+                src1: x(1),
+                src2: x(2),
+                width: OpWidth::W8,
+            },
+        );
+        builder.set_terminator(Terminator::Return { values: vec![] });
+        let func = builder.finish();
+
+        let mut lowerer = Aarch64Lowerer::new();
+        lowerer.lower_function(&func).unwrap();
+        let code = lowerer.finalize().unwrap();
+
+        let mut expected = Vec::new();
+        expected.extend_from_slice(&enc_dp3_regs(0, 0b000, 0, 0, 1, 2, 3).to_le_bytes());
+        expected.extend_from_slice(&enc_bitfield_regs(0, 0b10, 0, 7, 0, 0).to_le_bytes());
+        expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
+        assert_eq!(code, expected);
+    }
+
+    #[test]
+    fn lowers_mulsub_w16_as_msub_uxth() {
+        let mut builder = FunctionBuilder::new(FunctionId(0), 0);
+        builder.push_op(
+            0,
+            OpKind::MulSub {
+                dst: x(0),
+                acc: x(3),
+                src1: x(1),
+                src2: x(2),
+                width: OpWidth::W16,
+            },
+        );
+        builder.set_terminator(Terminator::Return { values: vec![] });
+        let func = builder.finish();
+
+        let mut lowerer = Aarch64Lowerer::new();
+        lowerer.lower_function(&func).unwrap();
+        let code = lowerer.finalize().unwrap();
+
+        let mut expected = Vec::new();
+        expected.extend_from_slice(&enc_dp3_regs(0, 0b000, 1, 0, 1, 2, 3).to_le_bytes());
         expected.extend_from_slice(&enc_bitfield_regs(0, 0b10, 0, 15, 0, 0).to_le_bytes());
         expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
         assert_eq!(code, expected);
