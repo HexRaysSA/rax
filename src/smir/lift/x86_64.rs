@@ -2222,6 +2222,165 @@ impl X86_64Lifter {
         ))
     }
 
+    /// Lift XADD r/m, r (0F C0/0F C1).
+    fn lift_xadd(
+        &self,
+        opcode: u8,
+        bytes: &[u8],
+        prefix: &X86Prefix,
+        pc: u64,
+        ctx: &mut LiftContext,
+    ) -> Result<LiftResult, LiftError> {
+        let is_byte = opcode == 0xC0;
+        let op_size = if is_byte { 1 } else { prefix.op_size() };
+        let width = self.size_to_width(op_size);
+        let mem_width = self.size_to_memwidth(op_size);
+        let modrm = decode_modrm(bytes, prefix, pc)?;
+        let src_reg = self.gpr(modrm.reg);
+        let mut ops = Vec::new();
+
+        let saved_src = ctx.alloc_vreg();
+        ops.push(SmirOp::new(
+            OpId(ops.len() as u16),
+            pc,
+            OpKind::Mov {
+                dst: saved_src,
+                src: SrcOperand::Reg(src_reg),
+                width,
+            },
+        ));
+
+        if modrm.is_memory {
+            let next_pc = pc + prefix.cursor as u64 + modrm.bytes_consumed as u64;
+            let x86_addr = modrm.addr.as_ref().unwrap();
+            let (addr, pre_ops) = self.x86_addr_to_smir(x86_addr, next_pc, ctx);
+            ops.extend(pre_ops);
+
+            let old_dst = ctx.alloc_vreg();
+            if prefix.lock {
+                ops.push(SmirOp::new(
+                    OpId(ops.len() as u16),
+                    pc,
+                    OpKind::AtomicRmw {
+                        dst: old_dst,
+                        addr: addr.clone(),
+                        src: saved_src,
+                        op: AtomicOp::Add,
+                        width: mem_width,
+                        order: MemoryOrder::SeqCst,
+                    },
+                ));
+            } else {
+                ops.push(SmirOp::new(
+                    OpId(ops.len() as u16),
+                    pc,
+                    OpKind::Load {
+                        dst: old_dst,
+                        addr: addr.clone(),
+                        width: mem_width,
+                        sign: SignExtend::Zero,
+                    },
+                ));
+            }
+
+            let sum = ctx.alloc_vreg();
+            ops.push(SmirOp::new(
+                OpId(ops.len() as u16),
+                pc,
+                OpKind::Add {
+                    dst: sum,
+                    src1: old_dst,
+                    src2: SrcOperand::Reg(saved_src),
+                    width,
+                    flags: FlagUpdate::All,
+                },
+            ));
+
+            if !prefix.lock {
+                ops.push(SmirOp::new(
+                    OpId(ops.len() as u16),
+                    pc,
+                    OpKind::Store {
+                        src: sum,
+                        addr,
+                        width: mem_width,
+                    },
+                ));
+            }
+
+            ops.push(SmirOp::new(
+                OpId(ops.len() as u16),
+                pc,
+                OpKind::Mov {
+                    dst: src_reg,
+                    src: SrcOperand::Reg(old_dst),
+                    width,
+                },
+            ));
+
+            return Ok(LiftResult::fallthrough(
+                ops,
+                prefix.cursor + modrm.bytes_consumed,
+            ));
+        }
+
+        if prefix.lock {
+            return Err(LiftError::InvalidEncoding {
+                addr: pc,
+                bytes: bytes[..modrm.bytes_consumed].to_vec(),
+            });
+        }
+
+        let dst_reg = self.gpr(modrm.rm);
+        let old_dst = ctx.alloc_vreg();
+        ops.push(SmirOp::new(
+            OpId(ops.len() as u16),
+            pc,
+            OpKind::Mov {
+                dst: old_dst,
+                src: SrcOperand::Reg(dst_reg),
+                width,
+            },
+        ));
+
+        let sum = ctx.alloc_vreg();
+        ops.push(SmirOp::new(
+            OpId(ops.len() as u16),
+            pc,
+            OpKind::Add {
+                dst: sum,
+                src1: old_dst,
+                src2: SrcOperand::Reg(saved_src),
+                width,
+                flags: FlagUpdate::All,
+            },
+        ));
+
+        ops.push(SmirOp::new(
+            OpId(ops.len() as u16),
+            pc,
+            OpKind::Mov {
+                dst: src_reg,
+                src: SrcOperand::Reg(old_dst),
+                width,
+            },
+        ));
+        ops.push(SmirOp::new(
+            OpId(ops.len() as u16),
+            pc,
+            OpKind::Mov {
+                dst: dst_reg,
+                src: SrcOperand::Reg(sum),
+                width,
+            },
+        ));
+
+        Ok(LiftResult::fallthrough(
+            ops,
+            prefix.cursor + modrm.bytes_consumed,
+        ))
+    }
+
     /// Lift XCHG r/m, r (86/87).
     fn lift_xchg_rm_r(
         &self,
@@ -8548,6 +8707,9 @@ impl X86_64Lifter {
             // CMPXCHG r/m, r (0F B0/0F B1)
             0xB0 | 0xB1 => self.lift_cmpxchg(opcode2, after_opcode, &prefix2, pc, ctx),
 
+            // XADD r/m, r (0F C0/0F C1)
+            0xC0 | 0xC1 => self.lift_xadd(opcode2, after_opcode, &prefix2, pc, ctx),
+
             // MOVZX r, r/m8 (0F B6)
             0xB6 => {
                 let op_size = prefix.op_size();
@@ -10750,6 +10912,402 @@ mod tests {
                 assert_eq!(*src_false, old_dst);
             }
             other => panic!("expected one final alias CMPXCHG write, got {other:?}"),
+        }
+    }
+
+    fn assert_rex2_xadd_sib_addr(addr: &Address, name: &str) {
+        match addr {
+            Address::BaseIndexScale {
+                base: Some(base),
+                index,
+                scale: 4,
+                disp: 0x20,
+                disp_size: DispSize::Disp8,
+            } => {
+                assert_eq!(*base, x86_gpr(16), "{name}");
+                assert_eq!(*index, x86_gpr(17), "{name}");
+            }
+            other => panic!("expected REX2 {name} SIB address, got {other:?}"),
+        }
+    }
+
+    fn assert_xadd_register_ops(
+        result: &LiftResult,
+        name: &str,
+        dst_reg: VReg,
+        src_reg: VReg,
+        width: OpWidth,
+    ) {
+        assert_eq!(result.ops.len(), 5, "{name}");
+        let saved_src = match &result.ops[0].kind {
+            OpKind::Mov {
+                dst,
+                src: SrcOperand::Reg(src),
+                width: got_width,
+            } => {
+                assert_eq!(*src, src_reg, "{name}");
+                assert_eq!(*got_width, width, "{name}");
+                *dst
+            }
+            other => panic!("expected {name} source snapshot, got {other:?}"),
+        };
+        let old_dst = match &result.ops[1].kind {
+            OpKind::Mov {
+                dst,
+                src: SrcOperand::Reg(src),
+                width: got_width,
+            } => {
+                assert_eq!(*src, dst_reg, "{name}");
+                assert_eq!(*got_width, width, "{name}");
+                *dst
+            }
+            other => panic!("expected {name} destination snapshot, got {other:?}"),
+        };
+        let sum = match &result.ops[2].kind {
+            OpKind::Add {
+                dst,
+                src1,
+                src2: SrcOperand::Reg(src2),
+                width: got_width,
+                flags: FlagUpdate::All,
+            } => {
+                assert_eq!(*src1, old_dst, "{name}");
+                assert_eq!(*src2, saved_src, "{name}");
+                assert_eq!(*got_width, width, "{name}");
+                *dst
+            }
+            other => panic!("expected {name} flagged add, got {other:?}"),
+        };
+        match &result.ops[3].kind {
+            OpKind::Mov {
+                dst,
+                src: SrcOperand::Reg(src),
+                width: got_width,
+            } => {
+                assert_eq!(*dst, src_reg, "{name}");
+                assert_eq!(*src, old_dst, "{name}");
+                assert_eq!(*got_width, width, "{name}");
+            }
+            other => panic!("expected {name} source writeback, got {other:?}"),
+        }
+        match &result.ops[4].kind {
+            OpKind::Mov {
+                dst,
+                src: SrcOperand::Reg(src),
+                width: got_width,
+            } => {
+                assert_eq!(*dst, dst_reg, "{name}");
+                assert_eq!(*src, sum, "{name}");
+                assert_eq!(*got_width, width, "{name}");
+            }
+            other => panic!("expected {name} destination writeback, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn lift_rex2_xadd_registers_like_llvm() {
+        let mut lifter = X86_64Lifter::strict();
+        let mut ctx = LiftContext::new(SourceArch::X86_64);
+
+        let cases: &[(&[u8], &str, usize, VReg, VReg, OpWidth)] = &[
+            (
+                &[0xD5, 0xD8, 0xC1, 0xC8],
+                "xadd_r16_r17",
+                4,
+                x86_gpr(16),
+                x86_gpr(17),
+                OpWidth::W64,
+            ),
+            (
+                &[0xD5, 0xD0, 0xC1, 0xC8],
+                "xadd_r16d_r17d",
+                4,
+                x86_gpr(16),
+                x86_gpr(17),
+                OpWidth::W32,
+            ),
+            (
+                &[0x66, 0xD5, 0xD0, 0xC1, 0xC8],
+                "xadd_r16w_r17w",
+                5,
+                x86_gpr(16),
+                x86_gpr(17),
+                OpWidth::W16,
+            ),
+            (
+                &[0xD5, 0xD0, 0xC0, 0xC8],
+                "xadd_r16b_r17b",
+                4,
+                x86_gpr(16),
+                x86_gpr(17),
+                OpWidth::W8,
+            ),
+            (
+                &[0xD5, 0xDD, 0xC1, 0xF8],
+                "xadd_r24_r31",
+                4,
+                x86_gpr(24),
+                x86_gpr(31),
+                OpWidth::W64,
+            ),
+        ];
+
+        for (bytes, name, bytes_consumed, dst_reg, src_reg, width) in cases {
+            // LLVM 23 examples:
+            //   `xadd r16, r17`   => d5 d8 c1 c8
+            //   `xadd r16d, r17d` => d5 d0 c1 c8
+            //   `xadd r16w, r17w` => 66 d5 d0 c1 c8
+            //   `xadd r16b, r17b` => d5 d0 c0 c8
+            //   `xadd r24, r31`   => d5 dd c1 f8
+            let result = lifter.lift_insn(0x1000, bytes, &mut ctx).unwrap();
+            assert_eq!(result.bytes_consumed, *bytes_consumed, "{name}");
+            assert_xadd_register_ops(&result, name, *dst_reg, *src_reg, *width);
+        }
+    }
+
+    #[test]
+    fn lift_xadd_same_register_writes_sum_last_like_llvm() {
+        let mut lifter = X86_64Lifter::strict();
+        let mut ctx = LiftContext::new(SourceArch::X86_64);
+
+        // LLVM 23: `xadd rax, rax` => 48 0f c1 c0.
+        let result = lifter
+            .lift_insn(0x1000, &[0x48, 0x0F, 0xC1, 0xC0], &mut ctx)
+            .unwrap();
+        assert_eq!(result.bytes_consumed, 4);
+        assert_xadd_register_ops(
+            &result,
+            "xadd_rax_rax",
+            x86_gpr(0),
+            x86_gpr(0),
+            OpWidth::W64,
+        );
+    }
+
+    #[test]
+    fn lift_rex2_xadd_memory_egpr_sib_like_llvm() {
+        let mut lifter = X86_64Lifter::strict();
+        let mut ctx = LiftContext::new(SourceArch::X86_64);
+
+        let cases: &[(&[u8], &str, usize, MemWidth, OpWidth)] = &[
+            (
+                &[0xD5, 0xF8, 0xC1, 0x54, 0x88, 0x20],
+                "xaddq",
+                6,
+                MemWidth::B8,
+                OpWidth::W64,
+            ),
+            (
+                &[0xD5, 0xF0, 0xC1, 0x54, 0x88, 0x20],
+                "xaddl",
+                6,
+                MemWidth::B4,
+                OpWidth::W32,
+            ),
+            (
+                &[0x66, 0xD5, 0xF0, 0xC1, 0x54, 0x88, 0x20],
+                "xaddw",
+                7,
+                MemWidth::B2,
+                OpWidth::W16,
+            ),
+            (
+                &[0xD5, 0xF0, 0xC0, 0x54, 0x88, 0x20],
+                "xaddb",
+                6,
+                MemWidth::B1,
+                OpWidth::W8,
+            ),
+        ];
+
+        for (bytes, name, bytes_consumed, mem_width, op_width) in cases {
+            // LLVM 23 examples:
+            //   `xaddq %r18, 32(%r16,%r17,4)` => d5 f8 c1 54 88 20
+            //   `xaddl %r18d, 32(%r16,%r17,4)` => d5 f0 c1 54 88 20
+            //   `xaddw %r18w, 32(%r16,%r17,4)` => 66 d5 f0 c1 54 88 20
+            //   `xaddb %r18b, 32(%r16,%r17,4)` => d5 f0 c0 54 88 20
+            let result = lifter.lift_insn(0x1000, bytes, &mut ctx).unwrap();
+            assert_eq!(result.bytes_consumed, *bytes_consumed, "{name}");
+            assert_eq!(result.ops.len(), 5, "{name}");
+
+            let saved_src = match &result.ops[0].kind {
+                OpKind::Mov {
+                    dst,
+                    src: SrcOperand::Reg(src),
+                    width,
+                } => {
+                    assert_eq!(*src, x86_gpr(18), "{name}");
+                    assert_eq!(*width, *op_width, "{name}");
+                    *dst
+                }
+                other => panic!("expected REX2 {name} source snapshot, got {other:?}"),
+            };
+            let old_dst = match &result.ops[1].kind {
+                OpKind::Load {
+                    dst,
+                    addr,
+                    width,
+                    sign: SignExtend::Zero,
+                } => {
+                    assert_rex2_xadd_sib_addr(addr, name);
+                    assert_eq!(*width, *mem_width, "{name}");
+                    *dst
+                }
+                other => panic!("expected REX2 {name} memory load, got {other:?}"),
+            };
+            let sum = match &result.ops[2].kind {
+                OpKind::Add {
+                    dst,
+                    src1,
+                    src2: SrcOperand::Reg(src2),
+                    width,
+                    flags: FlagUpdate::All,
+                } => {
+                    assert_eq!(*src1, old_dst, "{name}");
+                    assert_eq!(*src2, saved_src, "{name}");
+                    assert_eq!(*width, *op_width, "{name}");
+                    *dst
+                }
+                other => panic!("expected REX2 {name} flagged add, got {other:?}"),
+            };
+            match &result.ops[3].kind {
+                OpKind::Store { src, addr, width } => {
+                    assert_eq!(*src, sum, "{name}");
+                    assert_rex2_xadd_sib_addr(addr, name);
+                    assert_eq!(*width, *mem_width, "{name}");
+                }
+                other => panic!("expected REX2 {name} memory store, got {other:?}"),
+            }
+            match &result.ops[4].kind {
+                OpKind::Mov {
+                    dst,
+                    src: SrcOperand::Reg(src),
+                    width,
+                } => {
+                    assert_eq!(*dst, x86_gpr(18), "{name}");
+                    assert_eq!(*src, old_dst, "{name}");
+                    assert_eq!(*width, *op_width, "{name}");
+                }
+                other => panic!("expected REX2 {name} source writeback, got {other:?}"),
+            }
+        }
+    }
+
+    #[test]
+    fn lift_rex2_lock_xadd_memory_uses_atomic_add_like_spec() {
+        let mut lifter = X86_64Lifter::strict();
+        let mut ctx = LiftContext::new(SourceArch::X86_64);
+
+        let cases: &[(&[u8], &str, usize, MemWidth, OpWidth)] = &[
+            (
+                &[0xF0, 0xD5, 0xF8, 0xC1, 0x54, 0x88, 0x20],
+                "lock_xaddq",
+                7,
+                MemWidth::B8,
+                OpWidth::W64,
+            ),
+            (
+                &[0xF0, 0xD5, 0xF0, 0xC1, 0x54, 0x88, 0x20],
+                "lock_xaddl",
+                7,
+                MemWidth::B4,
+                OpWidth::W32,
+            ),
+            (
+                &[0x66, 0xF0, 0xD5, 0xF0, 0xC1, 0x54, 0x88, 0x20],
+                "lock_xaddw",
+                8,
+                MemWidth::B2,
+                OpWidth::W16,
+            ),
+            (
+                &[0xF0, 0xD5, 0xF0, 0xC0, 0x54, 0x88, 0x20],
+                "lock_xaddb",
+                7,
+                MemWidth::B1,
+                OpWidth::W8,
+            ),
+        ];
+
+        for (bytes, name, bytes_consumed, mem_width, op_width) in cases {
+            // LLVM 23 examples:
+            //   `lock xaddq %r18, 32(%r16,%r17,4)` => f0 d5 f8 c1 54 88 20
+            //   `lock xaddl %r18d, 32(%r16,%r17,4)` => f0 d5 f0 c1 54 88 20
+            //   `lock xaddw %r18w, 32(%r16,%r17,4)` => 66 f0 d5 f0 c1 54 88 20
+            //   `lock xaddb %r18b, 32(%r16,%r17,4)` => f0 d5 f0 c0 54 88 20
+            let result = lifter.lift_insn(0x1000, bytes, &mut ctx).unwrap();
+            assert_eq!(result.bytes_consumed, *bytes_consumed, "{name}");
+            assert_eq!(result.ops.len(), 4, "{name}");
+
+            let saved_src = match &result.ops[0].kind {
+                OpKind::Mov {
+                    dst,
+                    src: SrcOperand::Reg(src),
+                    width,
+                } => {
+                    assert_eq!(*src, x86_gpr(18), "{name}");
+                    assert_eq!(*width, *op_width, "{name}");
+                    *dst
+                }
+                other => panic!("expected REX2 {name} source snapshot, got {other:?}"),
+            };
+            let old_dst = match &result.ops[1].kind {
+                OpKind::AtomicRmw {
+                    dst,
+                    addr,
+                    src,
+                    op: AtomicOp::Add,
+                    width,
+                    order: MemoryOrder::SeqCst,
+                } => {
+                    assert_rex2_xadd_sib_addr(addr, name);
+                    assert_eq!(*src, saved_src, "{name}");
+                    assert_eq!(*width, *mem_width, "{name}");
+                    *dst
+                }
+                other => panic!("expected REX2 {name} AtomicRmw Add, got {other:?}"),
+            };
+            match &result.ops[2].kind {
+                OpKind::Add {
+                    dst: _,
+                    src1,
+                    src2: SrcOperand::Reg(src2),
+                    width,
+                    flags: FlagUpdate::All,
+                } => {
+                    assert_eq!(*src1, old_dst, "{name}");
+                    assert_eq!(*src2, saved_src, "{name}");
+                    assert_eq!(*width, *op_width, "{name}");
+                }
+                other => panic!("expected REX2 {name} flag-producing add, got {other:?}"),
+            }
+            match &result.ops[3].kind {
+                OpKind::Mov {
+                    dst,
+                    src: SrcOperand::Reg(src),
+                    width,
+                } => {
+                    assert_eq!(*dst, x86_gpr(18), "{name}");
+                    assert_eq!(*src, old_dst, "{name}");
+                    assert_eq!(*width, *op_width, "{name}");
+                }
+                other => panic!("expected REX2 {name} source writeback, got {other:?}"),
+            }
+        }
+    }
+
+    #[test]
+    fn lift_lock_xadd_register_rejected_like_spec() {
+        let mut lifter = X86_64Lifter::strict();
+        let mut ctx = LiftContext::new(SourceArch::X86_64);
+
+        // Intel XADD specifies #UD when LOCK is used without a memory destination.
+        for bytes in [
+            &[0xF0, 0x48, 0x0F, 0xC1, 0xC0][..],
+            &[0xF0, 0xD5, 0xD8, 0xC1, 0xC8][..],
+        ] {
+            let err = lifter.lift_insn(0x1000, bytes, &mut ctx).unwrap_err();
+            assert!(matches!(err, LiftError::InvalidEncoding { .. }), "{err:?}");
         }
     }
 
