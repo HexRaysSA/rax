@@ -1646,6 +1646,10 @@ impl Aarch64Lifter {
                 self.lift_store(insn, MemWidth::B2, pc, &mut ops, ctx)?;
             }
 
+            Mnemonic::SWP | Mnemonic::SWPA | Mnemonic::SWPAL | Mnemonic::SWPL => {
+                self.lift_atomic_swap(insn, pc, &mut ops, ctx)?;
+            }
+
             Mnemonic::LDP | Mnemonic::LDNP => {
                 self.lift_load_pair(insn, SignExtend::Zero, pc, &mut ops, ctx)?;
             }
@@ -3308,6 +3312,63 @@ impl Aarch64Lifter {
                 dst,
                 addr: load_addr,
                 width,
+            },
+        ));
+
+        Ok(())
+    }
+
+    fn lift_atomic_swap(
+        &self,
+        insn: &DecodedInsn,
+        pc: u64,
+        ops: &mut Vec<SmirOp>,
+        ctx: &mut LiftContext,
+    ) -> Result<(), LiftError> {
+        let (rs, rt, mem) = match (
+            insn.operands.get(0),
+            insn.operands.get(1),
+            insn.operands.get(2),
+        ) {
+            (Some(Operand::Reg(rs)), Some(Operand::Reg(rt)), Some(Operand::Mem(m))) => {
+                (rs, rt, m)
+            }
+            _ => return Err(LiftError::Internal("invalid SWP operands".to_string())),
+        };
+
+        let width = match (insn.raw >> 30) & 0x3 {
+            0 => MemWidth::B1,
+            1 => MemWidth::B2,
+            2 => MemWidth::B4,
+            _ => MemWidth::B8,
+        };
+        let order = match insn.mnemonic {
+            Mnemonic::SWP => MemoryOrder::Relaxed,
+            Mnemonic::SWPA => MemoryOrder::Acquire,
+            Mnemonic::SWPL => MemoryOrder::Release,
+            Mnemonic::SWPAL => MemoryOrder::AcqRel,
+            _ => unreachable!(),
+        };
+
+        let dst = self.dst_reg(rt, ctx);
+        let src = self.arm_reg(rs);
+        let (addr, pre_ops) = self.mem_to_addr(mem, ctx);
+
+        for mut op in pre_ops {
+            op.id = OpId(ops.len() as u16);
+            ops.push(op);
+        }
+
+        ops.push(SmirOp::new(
+            OpId(ops.len() as u16),
+            pc,
+            OpKind::AtomicRmw {
+                dst,
+                addr: self.indexed_access_addr(mem, addr),
+                src,
+                op: AtomicOp::Swap,
+                width,
+                order,
             },
         ));
 
