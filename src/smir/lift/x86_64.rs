@@ -3867,6 +3867,91 @@ impl X86_64Lifter {
         ))
     }
 
+    fn lift_vex_bmi2_rorx_0f3a(
+        &self,
+        prefix: VecPrefix,
+        bytes: &[u8],
+        pc: u64,
+        ctx: &mut LiftContext,
+    ) -> Result<LiftResult, LiftError> {
+        if prefix.encoding != VecEncodingKind::Vex
+            || prefix.width != VecWidth::V128
+            || prefix.pp != X86SsePrefix::Repne
+            || prefix.vvvv != 0
+        {
+            return Err(LiftError::InvalidEncoding {
+                addr: pc,
+                bytes: bytes.to_vec(),
+            });
+        }
+
+        let width = if prefix.w {
+            OpWidth::W64
+        } else {
+            OpWidth::W32
+        };
+        let mem_width = if prefix.w {
+            MemWidth::B8
+        } else {
+            MemWidth::B4
+        };
+        let modrm_prefix = X86Prefix {
+            rex: prefix.rex,
+            rep_prefix: Some(0xF2),
+            cursor: prefix.bytes + 1,
+            ..X86Prefix::default()
+        };
+        let modrm = decode_modrm(&bytes[prefix.bytes + 1..], &modrm_prefix, pc)?;
+        let imm_offset = prefix.bytes + 1 + modrm.bytes_consumed;
+        if bytes.len() <= imm_offset {
+            return Err(LiftError::Incomplete {
+                addr: pc,
+                have: bytes.len(),
+                need: imm_offset + 1,
+            });
+        }
+
+        let next_pc = pc + imm_offset as u64 + 1;
+        let mut ops = Vec::new();
+        let src = if modrm.is_memory {
+            let x86_addr = modrm.addr.as_ref().unwrap();
+            let (addr, pre_ops) = self.x86_addr_to_smir(x86_addr, next_pc, ctx);
+            ops.extend(pre_ops);
+
+            let tmp = ctx.alloc_vreg();
+            ops.push(SmirOp::new(
+                OpId(ops.len() as u16),
+                pc,
+                OpKind::Load {
+                    dst: tmp,
+                    addr,
+                    width: mem_width,
+                    sign: SignExtend::Zero,
+                },
+            ));
+            tmp
+        } else {
+            self.gpr(modrm.rm)
+        };
+
+        ops.push(SmirOp::new(
+            OpId(ops.len() as u16),
+            pc,
+            OpKind::Ror {
+                dst: self.gpr(modrm.reg),
+                src,
+                amount: SrcOperand::Imm(bytes[imm_offset] as i64),
+                width,
+                flags: FlagUpdate::None,
+            },
+        ));
+
+        Ok(LiftResult::fallthrough(
+            ops,
+            prefix.bytes + 1 + modrm.bytes_consumed + 1,
+        ))
+    }
+
     fn lift_apx_bmi2_rorx(
         &self,
         bytes: &[u8],
@@ -4351,6 +4436,12 @@ impl X86_64Lifter {
                 }),
             },
             X86VecMap::Map0F3A => match opcode {
+                0xF0
+                    if prefix.encoding == VecEncodingKind::Vex
+                        && prefix.pp == X86SsePrefix::Repne =>
+                {
+                    self.lift_vex_bmi2_rorx_0f3a(prefix, bytes, pc, ctx)
+                }
                 0xF0 if prefix.encoding == VecEncodingKind::Evex => {
                     self.lift_apx_bmi2_rorx(bytes, pc, ctx)
                 }
@@ -10523,6 +10614,111 @@ mod tests {
 
         let err = lift_single(&[0xC4, 0xE2, 0x70, 0xF7, 0xC3]).unwrap_err();
         assert!(matches!(err, LiftError::Unsupported { .. }), "{err:?}");
+    }
+
+    fn assert_vex_rorx_op(
+        ops: &[SmirOp],
+        index: usize,
+        dst: VReg,
+        src: VReg,
+        amount: i64,
+        width: OpWidth,
+    ) {
+        match &ops[index].kind {
+            OpKind::Ror {
+                dst: got_dst,
+                src: got_src,
+                amount: SrcOperand::Imm(got_amount),
+                width: got_width,
+                flags: FlagUpdate::None,
+            } => {
+                assert_eq!(*got_dst, dst);
+                assert_eq!(*got_src, src);
+                assert_eq!(*got_amount, amount);
+                assert_eq!(*got_width, width);
+            }
+            other => panic!("expected VEX RORX, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn lift_vex_rorx_registers_like_llvm() {
+        for (bytes, width) in [
+            (
+                &[0xC4, 0xE3, 0x7B, 0xF0, 0xC3, 0x0D][..],
+                OpWidth::W32,
+            ),
+            (
+                &[0xC4, 0xE3, 0xFB, 0xF0, 0xC3, 0x0D][..],
+                OpWidth::W64,
+            ),
+        ] {
+            // LLVM 23 examples:
+            //   `rorx eax, ebx, 13` => c4 e3 7b f0 c3 0d
+            //   `rorx rax, rbx, 13` => c4 e3 fb f0 c3 0d
+            let result = lift_single(bytes).unwrap();
+            assert_eq!(result.bytes_consumed, bytes.len());
+            assert_eq!(result.ops.len(), 1);
+            assert_vex_rorx_op(&result.ops, 0, x86_gpr(0), x86_gpr(3), 13, width);
+        }
+    }
+
+    #[test]
+    fn lift_vex_rorx_memory_source_like_llvm() {
+        // LLVM 23:
+        //   `rorx eax, dword ptr [r10 + 4*r11 + 32], 13`
+        //       => c4 83 7b f0 44 9a 20 0d
+        let result =
+            lift_single(&[0xC4, 0x83, 0x7B, 0xF0, 0x44, 0x9A, 0x20, 0x0D]).unwrap();
+        assert_eq!(result.bytes_consumed, 8);
+        assert_eq!(result.ops.len(), 2);
+        let src = match &result.ops[0].kind {
+            OpKind::Load {
+                dst,
+                addr:
+                    Address::BaseIndexScale {
+                        base: Some(base),
+                        index,
+                        scale: 4,
+                        disp: 0x20,
+                        disp_size: DispSize::Disp8,
+                    },
+                width: MemWidth::B4,
+                sign: SignExtend::Zero,
+            } => {
+                assert_eq!(*base, x86_gpr(10));
+                assert_eq!(*index, x86_gpr(11));
+                *dst
+            }
+            other => panic!("expected VEX RORX memory source load, got {other:?}"),
+        };
+        assert_vex_rorx_op(&result.ops, 1, x86_gpr(0), src, 13, OpWidth::W32);
+    }
+
+    #[test]
+    fn lift_vex_rorx_rejects_invalid_forms_like_llvm() {
+        for (bytes, name) in [
+            (
+                &[0xC4, 0xE3, 0x7F, 0xF0, 0xC3, 0x0D][..],
+                "rorx VEX.L=1",
+            ),
+            (
+                &[0xC4, 0xE3, 0x73, 0xF0, 0xC3, 0x0D][..],
+                "rorx reserved vvvv",
+            ),
+        ] {
+            let err = lift_single(bytes).expect_err(name);
+            assert!(
+                matches!(err, LiftError::InvalidEncoding { .. }),
+                "{name}: {err:?}"
+            );
+        }
+
+        let err = lift_single(&[0xC4, 0xE3, 0x78, 0xF0, 0xC3, 0x0D]).unwrap_err();
+        assert!(matches!(err, LiftError::Unsupported { .. }), "{err:?}");
+
+        let err = lift_single(&[0xC4, 0xE3, 0x7B, 0xF0, 0xC3]).unwrap_err();
+        assert!(matches!(err, LiftError::Incomplete { .. }), "{err:?}");
     }
 
     fn assert_apx_bmi2_shift(
