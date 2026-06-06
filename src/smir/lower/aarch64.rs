@@ -3612,6 +3612,51 @@ impl Aarch64Lowerer {
         )
     }
 
+    fn emit_bitfield_merge_from_work(
+        &mut self,
+        dst: u8,
+        work: u8,
+        src_lsb: u8,
+        dst_lsb: u8,
+        width_bits: u8,
+        op_width: OpWidth,
+    ) -> Result<(), LowerError> {
+        Self::bitfield_args("Bfi merge dst", dst_lsb, width_bits, op_width)?;
+        Self::bitfield_args("Bfi merge src", src_lsb, width_bits, op_width)?;
+
+        let field_bits = if width_bits == 64 {
+            u64::MAX
+        } else {
+            (1_u64 << width_bits) - 1
+        };
+        let field_mask = (field_bits << dst_lsb) & op_width.mask();
+        let clear_mask = (!field_mask) & op_width.mask();
+        if clear_mask == 0 {
+            self.emit_mov_imm(dst, 0, op_width)?;
+        } else {
+            let (imm_n, immr, imms) = Self::logical_bitmask_imm(clear_mask as i64, op_width)?;
+            self.emit_logic_imm(dst, dst, 0b00, imm_n, immr, imms, op_width)?;
+        }
+        self.emit_bitfield(
+            work,
+            work,
+            0b10,
+            u32::from(src_lsb),
+            u32::from(src_lsb) + u32::from(width_bits) - 1,
+            op_width,
+        )?;
+        self.emit_logic_shifted(
+            dst,
+            dst,
+            work,
+            0b01,
+            false,
+            0b00,
+            u32::from(dst_lsb),
+            op_width,
+        )
+    }
+
     fn lower_bfi(
         &mut self,
         dst: VReg,
@@ -3631,10 +3676,14 @@ impl Aarch64Lowerer {
         }
         if dst != dst_in {
             if dst == src {
-                return Err(LowerError::UnsupportedOp {
-                    op: "AArch64 native Bfi needs a scratch when dst != dst_in and dst == src"
-                        .into(),
-                });
+                let scratches = Self::scratch_regs(&[dst, dst_in, src], 1)?;
+                let work = scratches[0];
+                self.emit_scratch_save(&scratches);
+                self.emit_mov_reg(work, src, op_width)?;
+                self.emit_mov_reg(dst, dst_in, op_width)?;
+                self.emit_bitfield_merge_from_work(dst, work, 0, lsb, width_bits, op_width)?;
+                self.emit_scratch_restore(&scratches);
+                return Ok(());
             }
             self.emit_mov_reg(dst, dst_in, op_width)?;
         }
@@ -3686,17 +3735,31 @@ impl Aarch64Lowerer {
         width_bits: u8,
         op_width: OpWidth,
     ) -> Result<(), LowerError> {
-        Self::bitfield_args("Bfxil", lsb, width_bits, op_width)?;
+        let op_bits = Self::bitfield_args("Bfxil", lsb, width_bits, op_width)?;
         let dst = Self::dst_gpr(dst)?;
         let dst_in = Self::gpr(dst_in)?;
         let src = Self::gpr(src)?;
 
+        if u32::from(width_bits) == op_bits && lsb == 0 {
+            return self.emit_mov_reg(dst, src, op_width);
+        }
         if dst != dst_in {
             if dst == src {
-                return Err(LowerError::UnsupportedOp {
-                    op: "AArch64 native Bfxil needs a scratch when dst != dst_in and dst == src"
-                        .into(),
-                });
+                let scratches = Self::scratch_regs(&[dst, dst_in, src], 1)?;
+                let work = scratches[0];
+                self.emit_scratch_save(&scratches);
+                self.emit_mov_reg(work, src, op_width)?;
+                self.emit_mov_reg(dst, dst_in, op_width)?;
+                self.emit_bitfield(
+                    dst,
+                    work,
+                    0b01,
+                    u32::from(lsb),
+                    u32::from(lsb) + u32::from(width_bits) - 1,
+                    op_width,
+                )?;
+                self.emit_scratch_restore(&scratches);
+                return Ok(());
             }
             self.emit_mov_reg(dst, dst_in, op_width)?;
         }
@@ -7088,8 +7151,14 @@ mod tests {
     }
 
     fn lower_single_op(kind: OpKind) -> Vec<u8> {
+        lower_ops(vec![kind])
+    }
+
+    fn lower_ops(kinds: Vec<OpKind>) -> Vec<u8> {
         let mut builder = FunctionBuilder::new(FunctionId(0), 0);
-        builder.push_op(0, kind);
+        for kind in kinds {
+            builder.push_op(0, kind);
+        }
         builder.set_terminator(Terminator::Return { values: vec![] });
         let func = builder.finish();
 
@@ -7229,6 +7298,26 @@ mod tests {
         } else {
             ((dst >> count) | (src << (bits - count))) & mask
         }
+    }
+
+    fn ref_bfi(dst_in: u64, src: u64, lsb: u8, width_bits: u8, width: OpWidth) -> u64 {
+        let field_bits = if width_bits == 64 {
+            u64::MAX
+        } else {
+            (1_u64 << width_bits) - 1
+        };
+        let mask = (field_bits << lsb) & width_mask(width);
+        ((dst_in & !mask) | ((src << lsb) & mask)) & width_mask(width)
+    }
+
+    fn ref_bfxil(dst_in: u64, src: u64, lsb: u8, width_bits: u8, width: OpWidth) -> u64 {
+        let field_bits = if width_bits == 64 {
+            u64::MAX
+        } else {
+            (1_u64 << width_bits) - 1
+        };
+        let mask = field_bits & width_mask(width);
+        ((dst_in & !mask) | ((src >> lsb) & mask)) & width_mask(width)
     }
 
     fn assert_shift_reg_count_alias_lowering(
@@ -7417,6 +7506,129 @@ mod tests {
         }
         for (reg, value) in sentinels {
             if reg != src_reg && reg != dst_reg {
+                assert_eq!(out[reg as usize], value, "{label}: x{reg} restored");
+            }
+        }
+    }
+
+    fn assert_bfi_lowering(
+        label: &str,
+        dst_reg: u8,
+        dst_in_reg: u8,
+        dst_in_value: u64,
+        src_reg: u8,
+        src_value: u64,
+        lsb: u8,
+        width_bits: u8,
+        width: OpWidth,
+    ) {
+        let code = lower_single_op(OpKind::Bfi {
+            dst: x(dst_reg),
+            dst_in: x(dst_in_reg),
+            src: x(src_reg),
+            lsb,
+            width_bits,
+            op_width: width,
+        });
+        let expected = ref_bfi(dst_in_value, src_value, lsb, width_bits, width);
+        let sentinels = [
+            (16, 0x1616_1616_1616_1616),
+            (17, 0x1717_1717_1717_1717),
+            (15, 0x1515_1515_1515_1515),
+            (14, 0x1414_1414_1414_1414),
+        ];
+        let mut regs = sentinels.to_vec();
+        regs.push((dst_in_reg, dst_in_value));
+        regs.push((src_reg, src_value));
+
+        let old_nzcv = 0b1101;
+        let (out, out_nzcv, sp) = run_aarch64_code(&code, &regs, old_nzcv);
+        assert_eq!(
+            out[dst_reg as usize] & width_mask(width),
+            expected,
+            "{label}: result"
+        );
+        assert_eq!(out_nzcv, old_nzcv, "{label}: NZCV preserved");
+        assert_eq!(sp, 0x8000, "{label}: stack restored");
+        if dst_in_reg != dst_reg {
+            assert_eq!(
+                out[dst_in_reg as usize],
+                dst_in_value,
+                "{label}: dst_in preserved"
+            );
+        }
+        if src_reg != dst_reg {
+            assert_eq!(out[src_reg as usize], src_value, "{label}: src preserved");
+        }
+        for (reg, value) in sentinels {
+            if reg != dst_reg && reg != dst_in_reg && reg != src_reg {
+                assert_eq!(out[reg as usize], value, "{label}: x{reg} restored");
+            }
+        }
+    }
+
+    fn assert_fused_bfxil_lowering(
+        label: &str,
+        dst_reg: u8,
+        dst_in_reg: u8,
+        dst_in_value: u64,
+        src_reg: u8,
+        src_value: u64,
+        lsb: u8,
+        width_bits: u8,
+        width: OpWidth,
+    ) {
+        let extracted = VReg::virt(0);
+        let code = lower_ops(vec![
+            OpKind::Bfx {
+                dst: extracted,
+                src: x(src_reg),
+                lsb,
+                width_bits,
+                sign_extend: false,
+                op_width: width,
+            },
+            OpKind::Bfi {
+                dst: x(dst_reg),
+                dst_in: x(dst_in_reg),
+                src: extracted,
+                lsb: 0,
+                width_bits,
+                op_width: width,
+            },
+        ]);
+        let expected = ref_bfxil(dst_in_value, src_value, lsb, width_bits, width);
+        let sentinels = [
+            (16, 0x1616_1616_1616_1616),
+            (17, 0x1717_1717_1717_1717),
+            (15, 0x1515_1515_1515_1515),
+            (14, 0x1414_1414_1414_1414),
+        ];
+        let mut regs = sentinels.to_vec();
+        regs.push((dst_in_reg, dst_in_value));
+        regs.push((src_reg, src_value));
+
+        let old_nzcv = 0b0011;
+        let (out, out_nzcv, sp) = run_aarch64_code(&code, &regs, old_nzcv);
+        assert_eq!(
+            out[dst_reg as usize] & width_mask(width),
+            expected,
+            "{label}: result"
+        );
+        assert_eq!(out_nzcv, old_nzcv, "{label}: NZCV preserved");
+        assert_eq!(sp, 0x8000, "{label}: stack restored");
+        if dst_in_reg != dst_reg {
+            assert_eq!(
+                out[dst_in_reg as usize],
+                dst_in_value,
+                "{label}: dst_in preserved"
+            );
+        }
+        if src_reg != dst_reg {
+            assert_eq!(out[src_reg as usize], src_value, "{label}: src preserved");
+        }
+        for (reg, value) in sentinels {
+            if reg != dst_reg && reg != dst_in_reg && reg != src_reg {
                 assert_eq!(out[reg as usize], value, "{label}: x{reg} restored");
             }
         }
@@ -14304,6 +14516,58 @@ mod tests {
         expected.extend_from_slice(&enc_bitfield(1, 0b01, 8, 15).to_le_bytes());
         expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
         assert_eq!(code, expected);
+    }
+
+    #[test]
+    fn lowers_bfi_when_dst_aliases_src() {
+        assert_bfi_lowering(
+            "bfi_x_dst_aliases_src",
+            0,
+            1,
+            0xaaaa_bbbb_ccdd_eeff,
+            0,
+            0x1234,
+            8,
+            8,
+            OpWidth::W64,
+        );
+        assert_bfi_lowering(
+            "bfi_w_dst_aliases_src",
+            0,
+            1,
+            0xfedc_ba98,
+            0,
+            0x7654_3210,
+            4,
+            12,
+            OpWidth::W32,
+        );
+    }
+
+    #[test]
+    fn fuses_bfxil_when_dst_aliases_src() {
+        assert_fused_bfxil_lowering(
+            "bfxil_x_dst_aliases_src",
+            0,
+            1,
+            0xaaaa_bbbb_ccdd_eeff,
+            0,
+            0x1234_5678_9abc_def0,
+            8,
+            8,
+            OpWidth::W64,
+        );
+        assert_fused_bfxil_lowering(
+            "bfxil_w_dst_aliases_src",
+            0,
+            1,
+            0xfedc_ba98,
+            0,
+            0x7654_3210,
+            12,
+            8,
+            OpWidth::W32,
+        );
     }
 
     #[test]
