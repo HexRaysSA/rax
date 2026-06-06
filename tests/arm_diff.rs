@@ -4170,6 +4170,104 @@ fn smir_aarch64_native_lowering_matches_qemu_oracle() {
 
     let mut st = native_state();
     st.x[0] = 0x1111_2222_3333_4444;
+    st.pstate = 0x9000_0000;
+    push_case(
+        "mrs_nzcv_opkind_reads_flags",
+        enc_mrs_nzcv(RD),
+        vec![OpKind::Mov {
+            dst: arm_x(0),
+            src: SrcOperand::Reg(VReg::Arch(ArchReg::Arm(ArmReg::Nzcv))),
+            width: OpWidth::W64,
+        }],
+        st,
+    );
+
+    let mut st = native_state();
+    st.x[1] = 0xffff_ffff_1234_5678;
+    st.pstate = 0xf000_0000;
+    push_case(
+        "msr_nzcv_opkind_masks_x1",
+        enc_msr_nzcv(RN),
+        vec![OpKind::Mov {
+            dst: VReg::Arch(ArchReg::Arm(ArmReg::Nzcv)),
+            src: SrcOperand::Reg(arm_x(1)),
+            width: OpWidth::W32,
+        }],
+        st,
+    );
+
+    let mut st = native_state();
+    st.x[0] = 0x2222_3333_4444_5555;
+    st.pstate = 0xf000_0000;
+    push_case(
+        "msr_nzcv_xzr_opkind_clears",
+        enc_msr_nzcv(31),
+        vec![OpKind::Mov {
+            dst: VReg::Arch(ArchReg::Arm(ArmReg::Nzcv)),
+            src: SrcOperand::Imm(0),
+            width: OpWidth::W32,
+        }],
+        st,
+    );
+
+    let mut st = native_state();
+    st.x[0] = 0x3333_4444_5555_6666;
+    st.fpcr = 0x00c0_0000;
+    push_case(
+        "mrs_fpcr_opkind_reads_control",
+        enc_mrs_fpcr(RD),
+        vec![OpKind::Mov {
+            dst: arm_x(0),
+            src: SrcOperand::Reg(VReg::Arch(ArchReg::Arm(ArmReg::Fpcr))),
+            width: OpWidth::W64,
+        }],
+        st,
+    );
+
+    let mut st = native_state();
+    st.x[1] = 0xffff_ffff_00c0_0000;
+    st.fpcr = 0;
+    push_case(
+        "msr_fpcr_opkind_masks_x1",
+        enc_msr_fpcr(RN),
+        vec![OpKind::Mov {
+            dst: VReg::Arch(ArchReg::Arm(ArmReg::Fpcr)),
+            src: SrcOperand::Reg(arm_x(1)),
+            width: OpWidth::W64,
+        }],
+        st,
+    );
+
+    let mut st = native_state();
+    st.x[0] = 0x4444_5555_6666_7777;
+    st.fpsr = 0x0800_009f;
+    push_case(
+        "mrs_fpsr_opkind_reads_status",
+        enc_mrs_fpsr(RD),
+        vec![OpKind::Mov {
+            dst: arm_x(0),
+            src: SrcOperand::Reg(VReg::Arch(ArchReg::Arm(ArmReg::Fpsr))),
+            width: OpWidth::W64,
+        }],
+        st,
+    );
+
+    let mut st = native_state();
+    st.x[1] = 0xffff_ffff_0800_009f;
+    st.fpsr = 0;
+    push_case(
+        "msr_fpsr_opkind_masks_x1",
+        enc_msr_fpsr(RN),
+        vec![OpKind::Mov {
+            dst: VReg::Arch(ArchReg::Arm(ArmReg::Fpsr)),
+            src: SrcOperand::Reg(arm_x(1)),
+            width: OpWidth::W64,
+        }],
+        st,
+    );
+
+    let mut st = native_state();
+    st.x[0] = 0x1111_2222_3333_4444;
     st.x[1] = 5;
     st.x[2] = 7;
     st.pstate = 0x4000_0000;
@@ -5163,6 +5261,41 @@ fn smir_aarch64_native_lowering_matches_qemu_oracle() {
         enc_dp2(0, 0b0011),
         st,
     );
+
+    let mut st = native_state();
+    st.x[0] = 0x1111_2222_3333_4444;
+    st.pstate = 0x9000_0000;
+    push_lifted_case("mrs_nzcv_lifted_reads_flags", enc_mrs_nzcv(RD), st);
+
+    let mut st = native_state();
+    st.x[1] = 0xffff_ffff_1234_5678;
+    st.pstate = 0xf000_0000;
+    push_lifted_case("msr_nzcv_lifted_masks_x1", enc_msr_nzcv(RN), st);
+
+    let mut st = native_state();
+    st.x[0] = 0x2222_3333_4444_5555;
+    st.pstate = 0xf000_0000;
+    push_lifted_case("msr_nzcv_xzr_lifted_clears", enc_msr_nzcv(31), st);
+
+    let mut st = native_state();
+    st.x[0] = 0x3333_4444_5555_6666;
+    st.fpcr = 0x00c0_0000;
+    push_lifted_case("mrs_fpcr_lifted_reads_control", enc_mrs_fpcr(RD), st);
+
+    let mut st = native_state();
+    st.x[1] = 0xffff_ffff_00c0_0000;
+    st.fpcr = 0;
+    push_lifted_case("msr_fpcr_lifted_masks_x1", enc_msr_fpcr(RN), st);
+
+    let mut st = native_state();
+    st.x[0] = 0x4444_5555_6666_7777;
+    st.fpsr = 0x0800_009f;
+    push_lifted_case("mrs_fpsr_lifted_reads_status", enc_mrs_fpsr(RD), st);
+
+    let mut st = native_state();
+    st.x[1] = 0xffff_ffff_0800_009f;
+    st.fpsr = 0;
+    push_lifted_case("msr_fpsr_lifted_masks_x1", enc_msr_fpsr(RN), st);
 
     let source_cases: Vec<(u32, u32, u32, ArmState)> = cases
         .iter()
