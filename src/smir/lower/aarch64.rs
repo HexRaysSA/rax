@@ -1841,6 +1841,19 @@ impl Aarch64Lowerer {
         set_flags: bool,
         width: OpWidth,
     ) -> Result<(), LowerError> {
+        if matches!(width, OpWidth::W8 | OpWidth::W16) {
+            if set_flags {
+                return Err(LowerError::UnsupportedOp {
+                    op: format!("AArch64 native flag-setting subword {}", if subtract {
+                        "Sub"
+                    } else {
+                        "Add"
+                    }),
+                });
+            }
+            return self.lower_subword_addsub(dst, src1, src2, subtract, width);
+        }
+
         let dst = Self::dst_or_zero_for_flags(dst, set_flags)?;
         let rn = Self::gpr(src1)?;
         match src2 {
@@ -1859,6 +1872,56 @@ impl Aarch64Lowerer {
                 op: format!("AArch64 native add/sub source {other:?}"),
             }),
         }
+    }
+
+    fn lower_subword_addsub(
+        &mut self,
+        dst: VReg,
+        src1: VReg,
+        src2: &SrcOperand,
+        subtract: bool,
+        width: OpWidth,
+    ) -> Result<(), LowerError> {
+        let dst = Self::dst_gpr(dst)?;
+        let rn = Self::gpr(src1)?;
+        let top_bit = width.bits() - 1;
+
+        match src2 {
+            SrcOperand::Reg(reg) => {
+                self.emit_addsub_reg(dst, rn, Self::gpr(*reg)?, subtract, false, OpWidth::W32)?;
+            }
+            SrcOperand::Imm(imm) | SrcOperand::Imm64(imm) => {
+                let imm = (*imm as u64) & width.mask();
+                if imm == 0 {
+                    return self.emit_bitfield(dst, rn, 0b10, 0, top_bit, OpWidth::W32);
+                }
+
+                let lo = imm & 0xfff;
+                let hi = imm & !0xfff;
+                let mut emitted = false;
+                if lo != 0 {
+                    self.emit_addsub_imm(dst, rn, lo as i64, subtract, false, OpWidth::W32)?;
+                    emitted = true;
+                }
+                if hi != 0 {
+                    self.emit_addsub_imm(
+                        dst,
+                        if emitted { dst } else { rn },
+                        hi as i64,
+                        subtract,
+                        false,
+                        OpWidth::W32,
+                    )?;
+                }
+            }
+            other => {
+                return Err(LowerError::UnsupportedOp {
+                    op: format!("AArch64 native subword add/sub source {other:?}"),
+                });
+            }
+        }
+
+        self.emit_bitfield(dst, dst, 0b10, 0, top_bit, OpWidth::W32)
     }
 
     fn lower_addsub_carry(
@@ -6097,6 +6160,63 @@ mod tests {
         let code = lowerer.finalize().unwrap();
 
         assert_eq!(code, [0x20, 0x00, 0x02, 0x8b, 0xc0, 0x03, 0x5f, 0xd6]);
+    }
+
+    #[test]
+    fn lowers_add_w8_reg_as_add_uxtb() {
+        let mut builder = FunctionBuilder::new(FunctionId(0), 0);
+        builder.push_op(
+            0,
+            OpKind::Add {
+                dst: x(0),
+                src1: x(1),
+                src2: SrcOperand::Reg(x(2)),
+                width: OpWidth::W8,
+                flags: FlagUpdate::None,
+            },
+        );
+        builder.set_terminator(Terminator::Return { values: vec![] });
+        let func = builder.finish();
+
+        let mut lowerer = Aarch64Lowerer::new();
+        lowerer.lower_function(&func).unwrap();
+        let code = lowerer.finalize().unwrap();
+
+        let mut expected = Vec::new();
+        expected.extend_from_slice(
+            &enc_addsub_shift_regs(0, 0, 0, 0, 0, 0, 1, 2).to_le_bytes(),
+        );
+        expected.extend_from_slice(&enc_bitfield_regs(0, 0b10, 0, 7, 0, 0).to_le_bytes());
+        expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
+        assert_eq!(code, expected);
+    }
+
+    #[test]
+    fn lowers_sub_w16_large_imm_as_split_sub_uxth() {
+        let mut builder = FunctionBuilder::new(FunctionId(0), 0);
+        builder.push_op(
+            0,
+            OpKind::Sub {
+                dst: x(0),
+                src1: x(1),
+                src2: SrcOperand::Imm(0x1234),
+                width: OpWidth::W16,
+                flags: FlagUpdate::None,
+            },
+        );
+        builder.set_terminator(Terminator::Return { values: vec![] });
+        let func = builder.finish();
+
+        let mut lowerer = Aarch64Lowerer::new();
+        lowerer.lower_function(&func).unwrap();
+        let code = lowerer.finalize().unwrap();
+
+        let mut expected = Vec::new();
+        expected.extend_from_slice(&enc_addsub_imm_regs(0, 1, 0, 0, 0x234, 0, 1).to_le_bytes());
+        expected.extend_from_slice(&enc_addsub_imm_regs(0, 1, 0, 1, 0x1, 0, 0).to_le_bytes());
+        expected.extend_from_slice(&enc_bitfield_regs(0, 0b10, 0, 15, 0, 0).to_le_bytes());
+        expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
+        assert_eq!(code, expected);
     }
 
     #[test]
@@ -11985,6 +12105,35 @@ mod tests {
                 dst: x(0),
                 src: x(1),
                 width: OpWidth::W64,
+                flags: FlagUpdate::All,
+            },
+        ] {
+            let mut builder = FunctionBuilder::new(FunctionId(0), 0);
+            builder.push_op(0, kind);
+            builder.set_terminator(Terminator::Return { values: vec![] });
+            let func = builder.finish();
+
+            let mut lowerer = Aarch64Lowerer::new();
+            let err = lowerer.lower_function(&func).unwrap_err();
+            assert!(matches!(err, LowerError::UnsupportedOp { .. }));
+        }
+    }
+
+    #[test]
+    fn rejects_flag_setting_subword_add_sub_lowering() {
+        for kind in [
+            OpKind::Add {
+                dst: x(0),
+                src1: x(1),
+                src2: SrcOperand::Reg(x(2)),
+                width: OpWidth::W8,
+                flags: FlagUpdate::All,
+            },
+            OpKind::Sub {
+                dst: x(0),
+                src1: x(1),
+                src2: SrcOperand::Imm(1),
+                width: OpWidth::W16,
                 flags: FlagUpdate::All,
             },
         ] {

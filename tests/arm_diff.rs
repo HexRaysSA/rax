@@ -6222,6 +6222,53 @@ fn smir_aarch64_native_lowering_matches_qemu_oracle() {
     ));
 
     let mut st = native_state();
+    st.x[0] = 0x1111_2222_3333_4444;
+    st.x[1] = 0xaaaa_bbbb_cccc_ddf0;
+    st.x[2] = 0x1234_5678_9abc_de31;
+    st.pstate = 0x9000_0000;
+    let lowered = lower_aarch64_native_ops(vec![OpKind::Add {
+        dst: arm_x(0),
+        src1: arm_x(1),
+        src2: SrcOperand::Reg(arm_x(2)),
+        width: OpWidth::W8,
+        flags: FlagUpdate::None,
+    }])
+    .unwrap_or_else(|e| panic!("add_w8_reg_as_add_uxtb_preserves_flags: native lowering failed: {e}"));
+    cases.push((
+        "add_w8_reg_as_add_uxtb_preserves_flags".into(),
+        [
+            enc_addsub_shift_regs(0, 0, 0, 0, 0, RD, RN, RM),
+            enc_bitfield_regs(0, 0b10, 0, 7, RD, RD),
+            NOP,
+        ],
+        lowered,
+        st,
+    ));
+
+    let mut st = native_state();
+    st.x[0] = 0x2222_3333_4444_5555;
+    st.x[1] = 0xaaaa_bbbb_cccc_0100;
+    st.pstate = 0x6000_0000;
+    let lowered = lower_aarch64_native_ops(vec![OpKind::Sub {
+        dst: arm_x(0),
+        src1: arm_x(1),
+        src2: SrcOperand::Imm(0x1234),
+        width: OpWidth::W16,
+        flags: FlagUpdate::None,
+    }])
+    .unwrap_or_else(|e| panic!("sub_w16_large_imm_as_split_sub_uxth_preserves_flags: native lowering failed: {e}"));
+    cases.push((
+        "sub_w16_large_imm_as_split_sub_uxth_preserves_flags".into(),
+        [
+            enc_addsub_imm_regs(0, 1, 0, 0, 0x234, RD, RN),
+            enc_addsub_imm_regs(0, 1, 0, 1, 0x1, RD, RD),
+            enc_bitfield_regs(0, 0b10, 0, 15, RD, RD),
+        ],
+        lowered,
+        st,
+    ));
+
+    let mut st = native_state();
     st.x[0] = 0xdead_beef_dead_beef;
     st.x[1] = SCRATCH_BASE;
     st.x[2] = 0xffff_ffff_ffff_ffff;
