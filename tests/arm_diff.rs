@@ -5833,6 +5833,56 @@ fn smir_aarch64_native_lowering_matches_qemu_oracle() {
     );
 
     let mut st = native_state();
+    st.x[0] = 0x2222_3333_4444_5555;
+    st.x[1] = SCRATCH_BASE;
+    st.x[2] = 0x3333_4444_5555_6666;
+    st.scratch[10] = 0x0123_4567_89ab_cdef;
+    st.scratch[11] = 0xfedc_ba98_7654_3210;
+    st.pstate = 0x7000_0000;
+    push_lifted_case(
+        "ldp_x_pre16_lifted_preserves_flags_and_writeback",
+        enc_ldp(0b10, 0, 0b11, 1, 2),
+        st,
+    );
+
+    let mut st = native_state();
+    st.x[0] = 0x0123_4567_89ab_cdef;
+    st.x[1] = SCRATCH_BASE;
+    st.x[2] = 0xfedc_ba98_7654_3210;
+    st.scratch[8] = 0;
+    st.scratch[9] = 0;
+    st.pstate = 0x5000_0000;
+    push_lifted_case(
+        "stp_x_post_neg16_lifted_preserves_flags_memory_and_writeback",
+        enc_ldp(0b10, 0, 0b01, 0, ((-2i32) as u32) & 0x7f),
+        st,
+    );
+
+    let mut st = native_state();
+    st.x[0] = 0xffff_ffff_ffff_ffff;
+    st.x[1] = SCRATCH_BASE;
+    st.x[2] = 0x5555_6666_7777_8888;
+    st.scratch[8] = 0xffff_ffff_8000_1234;
+    st.pstate = 0x3000_0000;
+    push_lifted_case(
+        "ldp_w_post8_lifted_zero_ext_preserves_flags_and_writeback",
+        enc_ldp(0b00, 0, 0b01, 1, 2),
+        st,
+    );
+
+    let mut st = native_state();
+    st.x[0] = 0xffff_ffff_89ab_cdef;
+    st.x[1] = SCRATCH_BASE;
+    st.x[2] = 0x0123_4567_7654_3210;
+    st.scratch[7] = 0;
+    st.pstate = 0xa000_0000;
+    push_lifted_case(
+        "stp_w_pre_neg8_lifted_preserves_flags_memory_and_writeback",
+        enc_ldp(0b00, 0, 0b11, 0, ((-2i32) as u32) & 0x7f),
+        st,
+    );
+
+    let mut st = native_state();
     st.x[0] = 0x6666_7777_8888_9999;
     st.x[1] = SCRATCH_BASE;
     st.x[2] = 0x7777_8888_9999_aaaa;
