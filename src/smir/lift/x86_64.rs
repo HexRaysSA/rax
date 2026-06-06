@@ -2331,6 +2331,7 @@ impl X86_64Lifter {
         match opcode3 {
             0x40 => self.lift_sse_pmulld(opcode3, after_opcode, &prefix3, pc, ctx),
             0x8A | 0x8B => self.lift_movrs_0f38(opcode3, after_opcode, &prefix3, pc, ctx),
+            0xFC => self.lift_rao_int_0f38(after_opcode, &prefix3, pc, ctx),
             _ => {
                 if self.strict {
                     Err(LiftError::Unsupported {
@@ -2345,6 +2346,74 @@ impl X86_64Lifter {
                 }
             }
         }
+    }
+
+    fn lift_rao_int_0f38(
+        &self,
+        bytes: &[u8],
+        prefix: &X86Prefix,
+        pc: u64,
+        ctx: &mut LiftContext,
+    ) -> Result<LiftResult, LiftError> {
+        let op = match prefix.rep_prefix {
+            Some(0xF2) => AtomicOp::Or,
+            Some(0xF3) => AtomicOp::Xor,
+            Some(_) => {
+                return Err(LiftError::InvalidEncoding {
+                    addr: pc,
+                    bytes: bytes.to_vec(),
+                });
+            }
+            None if prefix.operand_size_override => AtomicOp::And,
+            None => AtomicOp::Add,
+        };
+
+        let width = if prefix.rex_w() {
+            MemWidth::B8
+        } else {
+            MemWidth::B4
+        };
+        self.lift_rao_int_modrm(bytes, prefix, pc, ctx, op, width)
+    }
+
+    fn lift_rao_int_modrm(
+        &self,
+        bytes: &[u8],
+        prefix: &X86Prefix,
+        pc: u64,
+        ctx: &mut LiftContext,
+        op: AtomicOp,
+        width: MemWidth,
+    ) -> Result<LiftResult, LiftError> {
+        let modrm = decode_modrm(bytes, prefix, pc)?;
+        if !modrm.is_memory {
+            return Err(LiftError::InvalidEncoding {
+                addr: pc,
+                bytes: bytes.to_vec(),
+            });
+        }
+
+        let next_pc = pc + prefix.cursor as u64 + modrm.bytes_consumed as u64;
+        let x86_addr = modrm.addr.as_ref().unwrap();
+        let (addr, mut ops) = self.x86_addr_to_smir(x86_addr, next_pc, ctx);
+        let old = ctx.alloc_vreg();
+        ops.push(SmirOp::new(
+            OpId(ops.len() as u16),
+            pc,
+            OpKind::AtomicRmw {
+                dst: old,
+                addr,
+                src: self.gpr(modrm.reg),
+                op,
+                width,
+                order: MemoryOrder::SeqCst,
+            },
+        ));
+
+        Ok(LiftResult::fallthrough(
+            ops,
+            prefix.cursor + modrm.bytes_consumed,
+        ))
     }
 
     fn lift_movrs_0f38(
@@ -4321,6 +4390,39 @@ impl X86_64Lifter {
         ))
     }
 
+    fn lift_apx_rao_int(
+        &self,
+        prefix: ApxEvexPrefix,
+        bytes: &[u8],
+        full_bytes: &[u8],
+        pc: u64,
+        ctx: &mut LiftContext,
+    ) -> Result<LiftResult, LiftError> {
+        if prefix.nd
+            || prefix.nf
+            || prefix.aaa != 0
+            || prefix.vvvv != 0x0F
+            || !prefix.v_prime
+            || (full_bytes[3] & 0xE0) != 0
+        {
+            return Err(LiftError::InvalidEncoding {
+                addr: pc,
+                bytes: full_bytes.to_vec(),
+            });
+        }
+
+        let op = match prefix.pp {
+            0 => AtomicOp::Add,
+            1 => AtomicOp::And,
+            2 => AtomicOp::Or,
+            3 => AtomicOp::Xor,
+            _ => unreachable!(),
+        };
+        let width = if prefix.w { MemWidth::B8 } else { MemWidth::B4 };
+        let modrm_prefix = prefix.as_modrm_prefix(prefix.bytes + 1);
+        self.lift_rao_int_modrm(bytes, &modrm_prefix, pc, ctx, op, width)
+    }
+
     fn lift_apx_setzucc(
         &self,
         prefix: ApxEvexPrefix,
@@ -5228,6 +5330,7 @@ impl X86_64Lifter {
                 self.lift_apx_count(prefix, opcode, &bytes[prefix.bytes + 1..], pc, ctx)
             }
             0xF4 | 0xF5 => self.lift_apx_count(prefix, opcode, &bytes[prefix.bytes + 1..], pc, ctx),
+            0xFC => self.lift_apx_rao_int(prefix, &bytes[prefix.bytes + 1..], bytes, pc, ctx),
             0xF6 | 0xF7 => {
                 self.lift_apx_group3(prefix, opcode, &bytes[prefix.bytes + 1..], pc, ctx)
             }
@@ -8220,6 +8323,149 @@ mod tests {
         let mut lifter = X86_64Lifter::strict();
         let mut ctx = LiftContext::new(SourceArch::X86_64);
         lifter.lift_insn(0x1000, bytes, &mut ctx)
+    }
+
+    #[test]
+    fn lift_rao_int_legacy_prefixes_like_llvm() {
+        for (bytes, name, op, width) in [
+            (
+                &[0x0F, 0x38, 0xFC, 0x18][..],
+                "aaddl",
+                AtomicOp::Add,
+                MemWidth::B4,
+            ),
+            (
+                &[0x48, 0x0F, 0x38, 0xFC, 0x18][..],
+                "aaddq",
+                AtomicOp::Add,
+                MemWidth::B8,
+            ),
+            (
+                &[0x66, 0x0F, 0x38, 0xFC, 0x18][..],
+                "aandl",
+                AtomicOp::And,
+                MemWidth::B4,
+            ),
+            (
+                &[0xF2, 0x48, 0x0F, 0x38, 0xFC, 0x18][..],
+                "aorq",
+                AtomicOp::Or,
+                MemWidth::B8,
+            ),
+            (
+                &[0xF3, 0x0F, 0x38, 0xFC, 0x18][..],
+                "axorl",
+                AtomicOp::Xor,
+                MemWidth::B4,
+            ),
+            (
+                &[0xF3, 0x48, 0x0F, 0x38, 0xFC, 0x18][..],
+                "axorq",
+                AtomicOp::Xor,
+                MemWidth::B8,
+            ),
+        ] {
+            let result = lift_single(bytes).unwrap();
+            assert_eq!(result.bytes_consumed, bytes.len(), "{name}");
+            assert_eq!(result.ops.len(), 1, "{name}");
+            match &result.ops[0].kind {
+                OpKind::AtomicRmw {
+                    addr: Address::Direct(base),
+                    src,
+                    op: got_op,
+                    width: got_width,
+                    order: MemoryOrder::SeqCst,
+                    ..
+                } => {
+                    assert_eq!(*base, x86_gpr(0), "{name}");
+                    assert_eq!(*src, x86_gpr(3), "{name}");
+                    assert_eq!(*got_op, op, "{name}");
+                    assert_eq!(*got_width, width, "{name}");
+                }
+                other => panic!("expected {name} AtomicRmw, got {other:?}"),
+            }
+        }
+    }
+
+    #[test]
+    fn lift_rao_int_apx_egpr_memory_like_llvm() {
+        // LLVM 20: `aandq %r17, (%r16)` => 62 ec fd 08 fc 08.
+        let result = lift_single(&[0x62, 0xEC, 0xFD, 0x08, 0xFC, 0x08]).unwrap();
+        assert_eq!(result.bytes_consumed, 6);
+        match &result.ops[0].kind {
+            OpKind::AtomicRmw {
+                addr: Address::Direct(base),
+                src,
+                op: AtomicOp::And,
+                width: MemWidth::B8,
+                order: MemoryOrder::SeqCst,
+                ..
+            } => {
+                assert_eq!(*base, x86_gpr(16));
+                assert_eq!(*src, x86_gpr(17));
+            }
+            other => panic!("expected APX AAND AtomicRmw, got {other:?}"),
+        }
+
+        // LLVM 20: `aaddl %r19d, 32(%r17,%r18,4)`
+        // => 62 ec 78 08 fc 5c 91 20.
+        let result = lift_single(&[0x62, 0xEC, 0x78, 0x08, 0xFC, 0x5C, 0x91, 0x20]).unwrap();
+        assert_eq!(result.bytes_consumed, 8);
+        match &result.ops[0].kind {
+            OpKind::AtomicRmw {
+                addr:
+                    Address::BaseIndexScale {
+                        base: Some(base),
+                        index,
+                        scale: 4,
+                        disp: 0x20,
+                        ..
+                    },
+                src,
+                op: AtomicOp::Add,
+                width: MemWidth::B4,
+                order: MemoryOrder::SeqCst,
+                ..
+            } => {
+                assert_eq!(*base, x86_gpr(17));
+                assert_eq!(*index, x86_gpr(18));
+                assert_eq!(*src, x86_gpr(19));
+            }
+            other => panic!("expected APX AADD complex AtomicRmw, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn lift_rao_int_rejects_invalid_forms_like_llvm() {
+        for (bytes, name) in [
+            (&[0x0F, 0x38, 0xFC, 0xD8][..], "legacy register operand"),
+            (
+                &[0x62, 0xF4, 0xFC, 0x0C, 0xFC, 0x18][..],
+                "EVEX NF reserved",
+            ),
+            (
+                &[0x62, 0xF4, 0xFC, 0x18, 0xFC, 0x18][..],
+                "EVEX ND reserved",
+            ),
+            (
+                &[0x62, 0xF4, 0xBC, 0x08, 0xFC, 0x18][..],
+                "EVEX vvvv reserved",
+            ),
+            (
+                &[0x62, 0xF4, 0xFC, 0x09, 0xFC, 0x18][..],
+                "EVEX aaa reserved",
+            ),
+            (
+                &[0x62, 0xF4, 0xFC, 0x08, 0xFC, 0xD8][..],
+                "EVEX register operand",
+            ),
+        ] {
+            let err = lift_single(bytes).expect_err(name);
+            assert!(
+                matches!(err, LiftError::InvalidEncoding { .. }),
+                "{name}: {err:?}"
+            );
+        }
     }
 
     #[test]
