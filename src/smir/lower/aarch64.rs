@@ -3006,14 +3006,17 @@ impl Aarch64Lowerer {
         cond: Condition,
         width: OpWidth,
     ) -> Result<(), LowerError> {
-        if !matches!(width, OpWidth::W16 | OpWidth::W32 | OpWidth::W64) {
+        if !matches!(
+            width,
+            OpWidth::W8 | OpWidth::W16 | OpWidth::W32 | OpWidth::W64
+        ) {
             return Err(LowerError::UnsupportedOp {
                 op: format!("AArch64 native CMove width {width:?}"),
             });
         }
         let dst = Self::dst_gpr(dst)?;
         let src = Self::gpr(src)?;
-        if width == OpWidth::W16 {
+        if matches!(width, OpWidth::W8 | OpWidth::W16) {
             self.emit_cond_select(
                 dst,
                 src,
@@ -3023,7 +3026,8 @@ impl Aarch64Lowerer {
                 0,
                 OpWidth::W32,
             )?;
-            return self.emit_bitfield(dst, dst, 0b10, 0, 15, OpWidth::W32);
+            let imms = if width == OpWidth::W8 { 7 } else { 15 };
+            return self.emit_bitfield(dst, dst, 0b10, 0, imms, OpWidth::W32);
         }
         self.emit_cond_select(
             dst,
@@ -7269,6 +7273,32 @@ mod tests {
         let mut expected = Vec::new();
         expected.extend_from_slice(&enc_csel_regs(0, 0, 0, 1, 0, 0, 0).to_le_bytes());
         expected.extend_from_slice(&enc_bitfield_regs(0, 0b10, 0, 15, 0, 0).to_le_bytes());
+        expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
+        assert_eq!(code, expected);
+    }
+
+    #[test]
+    fn lowers_cmove_w8_as_csel_uxtb() {
+        let mut builder = FunctionBuilder::new(FunctionId(0), 0);
+        builder.push_op(
+            0,
+            OpKind::CMove {
+                dst: x(0),
+                src: x(1),
+                cond: Condition::Eq,
+                width: OpWidth::W8,
+            },
+        );
+        builder.set_terminator(Terminator::Return { values: vec![] });
+        let func = builder.finish();
+
+        let mut lowerer = Aarch64Lowerer::new();
+        lowerer.lower_function(&func).unwrap();
+        let code = lowerer.finalize().unwrap();
+
+        let mut expected = Vec::new();
+        expected.extend_from_slice(&enc_csel_regs(0, 0, 0, 1, 0, 0, 0).to_le_bytes());
+        expected.extend_from_slice(&enc_bitfield_regs(0, 0b10, 0, 7, 0, 0).to_le_bytes());
         expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
         assert_eq!(code, expected);
     }
