@@ -1993,6 +1993,12 @@ impl Aarch64Lowerer {
     ) -> Result<(), LowerError> {
         let dst = Self::dst_gpr(dst)?;
         let top_bit = width.bits() - 1;
+        if !subtract && src1 == VReg::Imm(0) {
+            if let SrcOperand::Reg(reg) = src2 {
+                return self.emit_bitfield(dst, Self::gpr(*reg)?, 0b10, 0, top_bit, OpWidth::W32);
+            }
+        }
+
         if let SrcOperand::Imm(imm) | SrcOperand::Imm64(imm) = src2 {
             if src1 == VReg::Imm(0) {
                 let value = (*imm as u64) & width.mask();
@@ -6759,6 +6765,32 @@ mod tests {
             &enc_addsub_shift_regs(0, 0, 0, 0, 0, 0, 1, 2).to_le_bytes(),
         );
         expected.extend_from_slice(&enc_bitfield_regs(0, 0b10, 0, 7, 0, 0).to_le_bytes());
+        expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
+        assert_eq!(code, expected);
+    }
+
+    #[test]
+    fn lowers_add_w8_zero_base_reg_as_uxtb() {
+        let mut builder = FunctionBuilder::new(FunctionId(0), 0);
+        builder.push_op(
+            0,
+            OpKind::Add {
+                dst: x(0),
+                src1: VReg::Imm(0),
+                src2: SrcOperand::Reg(x(1)),
+                width: OpWidth::W8,
+                flags: FlagUpdate::None,
+            },
+        );
+        builder.set_terminator(Terminator::Return { values: vec![] });
+        let func = builder.finish();
+
+        let mut lowerer = Aarch64Lowerer::new();
+        lowerer.lower_function(&func).unwrap();
+        let code = lowerer.finalize().unwrap();
+
+        let mut expected = Vec::new();
+        expected.extend_from_slice(&enc_bitfield_regs(0, 0b10, 0, 7, 1, 0).to_le_bytes());
         expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
         assert_eq!(code, expected);
     }
