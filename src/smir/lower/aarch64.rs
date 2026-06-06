@@ -4118,9 +4118,32 @@ impl Aarch64Lowerer {
             let lo_aliases_source = dst_lo == rn || dst_lo == rm;
             let hi_aliases_source = dst_hi == rn || dst_hi == rm;
             if lo_aliases_source && hi_aliases_source {
-                return Err(LowerError::UnsupportedOp {
-                    op: "AArch64 native full-width multiply with overlapping sources".into(),
-                });
+                if dst_lo == dst_hi {
+                    return Err(LowerError::UnsupportedOp {
+                        op: "AArch64 native full-width multiply with shared outputs".into(),
+                    });
+                }
+
+                let scratches = Self::scratch_regs(&[dst_lo, dst_hi, rn, rm], 1)?;
+                let scratch = scratches[0];
+                let copy_source = if dst_hi == rn {
+                    rn
+                } else if dst_hi == rm {
+                    rm
+                } else {
+                    return Err(LowerError::UnsupportedOp {
+                        op: "AArch64 native full-width multiply alias topology".into(),
+                    });
+                };
+                let rn = if copy_source == rn { scratch } else { rn };
+                let rm = if copy_source == rm { scratch } else { rm };
+
+                self.emit_scratch_save(&scratches);
+                self.emit_mov_reg(scratch, copy_source, width)?;
+                self.emit_dp3(dst_hi, rn, rm, 31, op31, 0, width)?;
+                self.emit_dp3(dst_lo, rn, rm, 31, 0b000, 0, width)?;
+                self.emit_scratch_restore(&scratches);
+                return Ok(());
             }
             if lo_aliases_source {
                 self.emit_dp3(dst_hi, rn, rm, 31, op31, 0, width)?;
@@ -7602,6 +7625,66 @@ mod tests {
         }
     }
 
+    fn assert_full_width_mul_lowering(
+        label: &str,
+        signed: bool,
+        dst_lo: u8,
+        dst_hi: u8,
+        src1_reg: u8,
+        src2_reg: u8,
+        src1_value: u64,
+        src2_value: u64,
+    ) {
+        let op = if signed {
+            OpKind::MulS {
+                dst_lo: x(dst_lo),
+                dst_hi: Some(x(dst_hi)),
+                src1: x(src1_reg),
+                src2: SrcOperand::Reg(x(src2_reg)),
+                width: OpWidth::W64,
+                flags: FlagUpdate::None,
+            }
+        } else {
+            OpKind::MulU {
+                dst_lo: x(dst_lo),
+                dst_hi: Some(x(dst_hi)),
+                src1: x(src1_reg),
+                src2: SrcOperand::Reg(x(src2_reg)),
+                width: OpWidth::W64,
+                flags: FlagUpdate::None,
+            }
+        };
+        let code = lower_single_op(op);
+        let product = if signed {
+            (src1_value as i64 as i128 * src2_value as i64 as i128) as u128
+        } else {
+            (src1_value as u128) * (src2_value as u128)
+        };
+        let expected_lo = product as u64;
+        let expected_hi = (product >> 64) as u64;
+        let sentinels = [
+            (16, 0x1616_1616_1616_1616),
+            (17, 0x1717_1717_1717_1717),
+            (15, 0x1515_1515_1515_1515),
+            (14, 0x1414_1414_1414_1414),
+        ];
+        let mut regs = sentinels.to_vec();
+        regs.push((src1_reg, src1_value));
+        regs.push((src2_reg, src2_value));
+
+        let old_nzcv = 0b1010;
+        let (out, out_nzcv, sp) = run_aarch64_code(&code, &regs, old_nzcv);
+        assert_eq!(out[dst_lo as usize], expected_lo, "{label}: low half");
+        assert_eq!(out[dst_hi as usize], expected_hi, "{label}: high half");
+        assert_eq!(out_nzcv, old_nzcv, "{label}: NZCV preserved");
+        assert_eq!(sp, 0x8000, "{label}: stack restored");
+        for (reg, value) in sentinels {
+            if reg != dst_lo && reg != dst_hi && reg != src1_reg && reg != src2_reg {
+                assert_eq!(out[reg as usize], value, "{label}: x{reg} restored");
+            }
+        }
+    }
+
     fn assert_bit_scan_lowering(
         label: &str,
         reverse: bool,
@@ -9373,25 +9456,27 @@ mod tests {
     }
 
     #[test]
-    fn rejects_full_width_multiply_when_both_outputs_alias_sources() {
-        let mut builder = FunctionBuilder::new(FunctionId(0), 0);
-        builder.push_op(
-            0,
-            OpKind::MulU {
-                dst_lo: x(1),
-                dst_hi: Some(x(2)),
-                src1: x(1),
-                src2: SrcOperand::Reg(x(2)),
-                width: OpWidth::W64,
-                flags: FlagUpdate::None,
-            },
+    fn lowers_full_width_multiply_when_both_outputs_alias_sources() {
+        assert_full_width_mul_lowering(
+            "mulu_full_width_outputs_alias_sources",
+            false,
+            1,
+            2,
+            1,
+            2,
+            0xffff_0000_0000_0101,
+            0x0002_0000_0000_0011,
         );
-        builder.set_terminator(Terminator::Return { values: vec![] });
-        let func = builder.finish();
-
-        let mut lowerer = Aarch64Lowerer::new();
-        let err = lowerer.lower_function(&func).unwrap_err();
-        assert!(matches!(err, LowerError::UnsupportedOp { .. }));
+        assert_full_width_mul_lowering(
+            "muls_full_width_outputs_alias_sources",
+            true,
+            2,
+            1,
+            1,
+            2,
+            0xffff_ffff_ffff_f123,
+            0x0000_0000_0000_1357,
+        );
     }
 
     #[test]
