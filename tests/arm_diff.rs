@@ -3408,6 +3408,137 @@ fn smir_aarch64_native_lowering_matches_qemu_oracle() {
         st,
     );
 
+    let mut st = native_state();
+    st.x[0] = 0x1111_2222_3333_4444;
+    st.x[1] = 0x0000_0000_0000_00f0;
+    st.pstate = 0x7000_0000;
+    push_case(
+        "clz_x_opkind_preserves_flags",
+        enc_dp1(1, 0b000100),
+        vec![OpKind::Clz {
+            dst: arm_x(0),
+            src: arm_x(1),
+            width: OpWidth::W64,
+        }],
+        st,
+    );
+
+    let mut st = native_state();
+    st.x[0] = 0x2222_3333_4444_5555;
+    st.x[1] = 0xffff_ffff_0000_0001;
+    st.pstate = 0x5000_0000;
+    push_case(
+        "rbit_w_opkind_zero_ext_preserves_flags",
+        enc_dp1(0, 0b000000),
+        vec![OpKind::Rbit {
+            dst: arm_x(0),
+            src: arm_x(1),
+            width: OpWidth::W32,
+        }],
+        st,
+    );
+
+    let mut st = native_state();
+    st.x[0] = 0x3333_4444_5555_6666;
+    st.x[1] = 0x1122_3344_5566_7788;
+    st.pstate = 0x9000_0000;
+    push_case(
+        "bswap_x_opkind_preserves_flags",
+        enc_dp1(1, 0b000011),
+        vec![OpKind::Bswap {
+            dst: arm_x(0),
+            src: arm_x(1),
+            width: OpWidth::W64,
+        }],
+        st,
+    );
+
+    let mut st = native_state();
+    st.x[0] = 0x4444_5555_6666_7777;
+    st.x[1] = 0x1234_5678_9abc_def0;
+    st.pstate = 0x2000_0000;
+    push_case(
+        "ubfx_x_opkind_preserves_flags",
+        enc_bitfield(1, 0b10, 8, 23),
+        vec![OpKind::Bfx {
+            dst: arm_x(0),
+            src: arm_x(1),
+            lsb: 8,
+            width_bits: 16,
+            sign_extend: false,
+            op_width: OpWidth::W64,
+        }],
+        st,
+    );
+
+    let mut st = native_state();
+    st.x[0] = 0x5555_6666_7777_8888;
+    st.x[1] = 0xffff_ffff_0000_08f0;
+    st.pstate = 0x4000_0000;
+    push_case(
+        "sbfx_w_opkind_sign_ext_zero_ext_preserves_flags",
+        enc_bitfield(0, 0b00, 4, 11),
+        vec![OpKind::Bfx {
+            dst: arm_x(0),
+            src: arm_x(1),
+            lsb: 4,
+            width_bits: 8,
+            sign_extend: true,
+            op_width: OpWidth::W32,
+        }],
+        st,
+    );
+
+    let mut st = native_state();
+    st.x[0] = 0xaaaa_bbbb_cccc_dddd;
+    st.x[1] = 0x1234_5678_9abc_de77;
+    st.pstate = 0x6000_0000;
+    push_case(
+        "bfi_x_opkind_preserves_flags",
+        enc_bitfield(1, 0b01, 56, 7),
+        vec![OpKind::Bfi {
+            dst: arm_x(0),
+            dst_in: arm_x(0),
+            src: arm_x(1),
+            lsb: 8,
+            width_bits: 8,
+            op_width: OpWidth::W64,
+        }],
+        st,
+    );
+
+    let mut st = native_state();
+    st.x[0] = 0x6666_7777_8888_9999;
+    st.x[1] = 0xffff_ffff_1234_56ab;
+    st.pstate = 0x3000_0000;
+    push_case(
+        "zero_extend_uxtb_w_opkind_preserves_flags",
+        enc_bitfield(0, 0b10, 0, 7),
+        vec![OpKind::ZeroExtend {
+            dst: arm_x(0),
+            src: arm_x(1),
+            from_width: OpWidth::W8,
+            to_width: OpWidth::W32,
+        }],
+        st,
+    );
+
+    let mut st = native_state();
+    st.x[0] = 0x7777_8888_9999_aaaa;
+    st.x[1] = 0xffff_ffff_8000_0001;
+    st.pstate = 0x1000_0000;
+    push_case(
+        "sign_extend_sxtw_x_opkind_preserves_flags",
+        enc_bitfield(1, 0b00, 0, 31),
+        vec![OpKind::SignExtend {
+            dst: arm_x(0),
+            src: arm_x(1),
+            from_width: OpWidth::W32,
+            to_width: OpWidth::W64,
+        }],
+        st,
+    );
+
     let mut push_lifted_case = |label: &str, source: u32, st: ArmState| {
         let lowered = lower_aarch64_native_insn(source)
             .unwrap_or_else(|e| panic!("{label}: native lifted lowering failed: {e}"));
@@ -3548,6 +3679,86 @@ fn smir_aarch64_native_lowering_matches_qemu_oracle() {
     push_lifted_case(
         "rorv_w_lifted_zero_ext_masked_count_preserves_flags",
         enc_dp2(0, 0b1011),
+        st,
+    );
+
+    let mut st = native_state();
+    st.x[0] = 0xdddd_eeee_ffff_0000;
+    st.x[1] = 0x0000_0000_0000_00f0;
+    st.pstate = 0x7000_0000;
+    push_lifted_case(
+        "clz_x_lifted_preserves_flags",
+        enc_dp1(1, 0b000100),
+        st,
+    );
+
+    let mut st = native_state();
+    st.x[0] = 0xeeee_ffff_0000_1111;
+    st.x[1] = 0xffff_ffff_0000_0001;
+    st.pstate = 0x5000_0000;
+    push_lifted_case(
+        "rbit_w_lifted_zero_ext_preserves_flags",
+        enc_dp1(0, 0b000000),
+        st,
+    );
+
+    let mut st = native_state();
+    st.x[0] = 0xffff_0000_1111_2222;
+    st.x[1] = 0x1122_3344_5566_7788;
+    st.pstate = 0x9000_0000;
+    push_lifted_case(
+        "rev_x_lifted_preserves_flags",
+        enc_dp1(1, 0b000011),
+        st,
+    );
+
+    let mut st = native_state();
+    st.x[0] = 0x0000_1111_2222_3333;
+    st.x[1] = 0x1234_5678_9abc_def0;
+    st.pstate = 0x2000_0000;
+    push_lifted_case(
+        "ubfx_x_lifted_preserves_flags",
+        enc_bitfield(1, 0b10, 8, 23),
+        st,
+    );
+
+    let mut st = native_state();
+    st.x[0] = 0x1111_2222_3333_4444;
+    st.x[1] = 0xffff_ffff_0000_08f0;
+    st.pstate = 0x4000_0000;
+    push_lifted_case(
+        "sbfx_w_lifted_sign_ext_zero_ext_preserves_flags",
+        enc_bitfield(0, 0b00, 4, 11),
+        st,
+    );
+
+    let mut st = native_state();
+    st.x[0] = 0xaaaa_bbbb_cccc_dddd;
+    st.x[1] = 0x1234_5678_9abc_de77;
+    st.pstate = 0x6000_0000;
+    push_lifted_case(
+        "bfi_x_lifted_preserves_flags",
+        enc_bitfield(1, 0b01, 56, 7),
+        st,
+    );
+
+    let mut st = native_state();
+    st.x[0] = 0x2222_3333_4444_5555;
+    st.x[1] = 0xffff_ffff_1234_56ab;
+    st.pstate = 0x3000_0000;
+    push_lifted_case(
+        "uxtb_w_lifted_zero_ext_preserves_flags",
+        enc_bitfield(0, 0b10, 0, 7),
+        st,
+    );
+
+    let mut st = native_state();
+    st.x[0] = 0x3333_4444_5555_6666;
+    st.x[1] = 0xffff_ffff_8000_0001;
+    st.pstate = 0x1000_0000;
+    push_lifted_case(
+        "sxtw_x_lifted_preserves_flags",
+        enc_bitfield(1, 0b00, 0, 31),
         st,
     );
 
