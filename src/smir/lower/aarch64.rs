@@ -15,6 +15,12 @@ use crate::smir::types::{
 
 use super::{CodeBuffer, LowerError, LowerResult, Relocation, SmirLowerer};
 
+const NZCV_N: i64 = 1_i64 << 31;
+const NZCV_Z: i64 = 1_i64 << 30;
+const NZCV_C: i64 = 1_i64 << 29;
+const NZCV_V: i64 = 1_i64 << 28;
+const NZCV_MASK: i64 = NZCV_N | NZCV_Z | NZCV_C | NZCV_V;
+
 /// Native AArch64 lowerer for identity-mapped AArch64 scalar SMIR.
 pub struct Aarch64Lowerer {
     code: CodeBuffer,
@@ -450,6 +456,10 @@ impl Aarch64Lowerer {
                 | u32::from(rt),
         );
         Ok(())
+    }
+
+    fn emit_flagm(&mut self, op2: u32) {
+        self.emit(0xd500_401f | (op2 << 5));
     }
 
     fn bitfield_args(
@@ -1119,7 +1129,7 @@ impl Aarch64Lowerer {
                 crn: 4,
                 crm: 2,
                 op2: 0,
-                mask: 0xf000_0000,
+                mask: NZCV_MASK,
                 read_width: OpWidth::W32,
                 write_width: OpWidth::W32,
             }),
@@ -1156,6 +1166,245 @@ impl Aarch64Lowerer {
 
     fn src_imm_eq(src: &SrcOperand, value: i64) -> bool {
         matches!(src, SrcOperand::Imm(imm) | SrcOperand::Imm64(imm) if *imm == value)
+    }
+
+    fn is_nzcv(vreg: VReg) -> bool {
+        matches!(vreg, VReg::Arch(ArchReg::Arm(ArmReg::Nzcv)))
+    }
+
+    fn op_dst(op: &OpKind) -> Option<VReg> {
+        match op {
+            OpKind::Shl { dst, .. }
+            | OpKind::Shr { dst, .. }
+            | OpKind::And { dst, .. }
+            | OpKind::AndNot { dst, .. }
+            | OpKind::Or { dst, .. }
+            | OpKind::Xor { dst, .. }
+            | OpKind::Mov { dst, .. } => Some(*dst),
+            _ => None,
+        }
+    }
+
+    fn src_reg_eq(src: &SrcOperand, reg: VReg) -> bool {
+        matches!(src, SrcOperand::Reg(src) if *src == reg)
+    }
+
+    fn flagm_shl(op: &OpKind, dst: VReg, src: VReg, amount: i64) -> bool {
+        matches!(
+            op,
+            OpKind::Shl {
+                dst: op_dst,
+                src: op_src,
+                amount: op_amount,
+                width: OpWidth::W32,
+                flags,
+            } if *op_dst == dst
+                && *op_src == src
+                && Self::src_imm_eq(op_amount, amount)
+                && !flags.updates_any()
+        )
+    }
+
+    fn flagm_shr(op: &OpKind, dst: VReg, src: VReg, amount: i64) -> bool {
+        matches!(
+            op,
+            OpKind::Shr {
+                dst: op_dst,
+                src: op_src,
+                amount: op_amount,
+                width: OpWidth::W32,
+                flags,
+            } if *op_dst == dst
+                && *op_src == src
+                && Self::src_imm_eq(op_amount, amount)
+                && !flags.updates_any()
+        )
+    }
+
+    fn flagm_or_reg(op: &OpKind, dst: VReg, src1: VReg, src2: VReg) -> bool {
+        matches!(
+            op,
+            OpKind::Or {
+                dst: op_dst,
+                src1: op_src1,
+                src2: op_src2,
+                width: OpWidth::W32,
+                flags,
+            } if *op_dst == dst
+                && *op_src1 == src1
+                && Self::src_reg_eq(op_src2, src2)
+                && !flags.updates_any()
+        )
+    }
+
+    fn flagm_and_imm(op: &OpKind, dst: VReg, src1: VReg, imm: i64) -> bool {
+        matches!(
+            op,
+            OpKind::And {
+                dst: op_dst,
+                src1: op_src1,
+                src2: op_src2,
+                width: OpWidth::W32,
+                flags,
+            } if *op_dst == dst
+                && *op_src1 == src1
+                && Self::src_imm_eq(op_src2, imm)
+                && !flags.updates_any()
+        )
+    }
+
+    fn flagm_and_reg(op: &OpKind, dst: VReg, src1: VReg, src2: VReg) -> bool {
+        matches!(
+            op,
+            OpKind::And {
+                dst: op_dst,
+                src1: op_src1,
+                src2: op_src2,
+                width: OpWidth::W32,
+                flags,
+            } if *op_dst == dst
+                && *op_src1 == src1
+                && Self::src_reg_eq(op_src2, src2)
+                && !flags.updates_any()
+        )
+    }
+
+    fn flagm_andnot_reg(op: &OpKind, dst: VReg, src1: VReg, src2: VReg) -> bool {
+        matches!(
+            op,
+            OpKind::AndNot {
+                dst: op_dst,
+                src1: op_src1,
+                src2: op_src2,
+                width: OpWidth::W32,
+                flags,
+            } if *op_dst == dst
+                && *op_src1 == src1
+                && Self::src_reg_eq(op_src2, src2)
+                && !flags.updates_any()
+        )
+    }
+
+    fn flagm_mov_to_nzcv(op: &OpKind, src: VReg) -> bool {
+        matches!(
+            op,
+            OpKind::Mov {
+                dst,
+                src: op_src,
+                width: OpWidth::W32,
+            } if Self::is_nzcv(*dst) && Self::src_reg_eq(op_src, src)
+        )
+    }
+
+    fn matches_axflag_ops(ops: &[SmirOp]) -> bool {
+        if ops.len() < 8 {
+            return false;
+        }
+        let nzcv = VReg::Arch(ArchReg::Arm(ArmReg::Nzcv));
+        let Some(v_to_z) = Self::op_dst(&ops[0].kind) else {
+            return false;
+        };
+        let Some(z_or_v) = Self::op_dst(&ops[1].kind) else {
+            return false;
+        };
+        let Some(z_bit) = Self::op_dst(&ops[2].kind) else {
+            return false;
+        };
+        let Some(v_to_c) = Self::op_dst(&ops[3].kind) else {
+            return false;
+        };
+        let Some(c_raw) = Self::op_dst(&ops[4].kind) else {
+            return false;
+        };
+        let Some(c_bit) = Self::op_dst(&ops[5].kind) else {
+            return false;
+        };
+        let Some(result) = Self::op_dst(&ops[6].kind) else {
+            return false;
+        };
+
+        Self::flagm_shl(&ops[0].kind, v_to_z, nzcv, 2)
+            && Self::flagm_or_reg(&ops[1].kind, z_or_v, nzcv, v_to_z)
+            && Self::flagm_and_imm(&ops[2].kind, z_bit, z_or_v, NZCV_Z)
+            && Self::flagm_shl(&ops[3].kind, v_to_c, nzcv, 1)
+            && Self::flagm_and_imm(&ops[4].kind, c_raw, nzcv, NZCV_C)
+            && Self::flagm_andnot_reg(&ops[5].kind, c_bit, c_raw, v_to_c)
+            && Self::flagm_or_reg(&ops[6].kind, result, z_bit, c_bit)
+            && Self::flagm_mov_to_nzcv(&ops[7].kind, result)
+    }
+
+    fn matches_xaflag_ops(ops: &[SmirOp]) -> bool {
+        if ops.len() < 16 {
+            return false;
+        }
+        let nzcv = VReg::Arch(ArchReg::Arm(ArmReg::Nzcv));
+        let Some(shl1) = Self::op_dst(&ops[0].kind) else {
+            return false;
+        };
+        let Some(shl2) = Self::op_dst(&ops[1].kind) else {
+            return false;
+        };
+        let Some(has_c_or_z_as_n) = Self::op_dst(&ops[2].kind) else {
+            return false;
+        };
+        let Some(n_bit) = Self::op_dst(&ops[3].kind) else {
+            return false;
+        };
+        let Some(z_raw) = Self::op_dst(&ops[4].kind) else {
+            return false;
+        };
+        let Some(z_bit) = Self::op_dst(&ops[5].kind) else {
+            return false;
+        };
+        let Some(shr1) = Self::op_dst(&ops[6].kind) else {
+            return false;
+        };
+        let Some(c_or_z) = Self::op_dst(&ops[7].kind) else {
+            return false;
+        };
+        let Some(c_bit) = Self::op_dst(&ops[8].kind) else {
+            return false;
+        };
+        let Some(shr2) = Self::op_dst(&ops[9].kind) else {
+            return false;
+        };
+        let Some(v_unmasked) = Self::op_dst(&ops[10].kind) else {
+            return false;
+        };
+        let Some(v_bit) = Self::op_dst(&ops[11].kind) else {
+            return false;
+        };
+        let Some(nz) = Self::op_dst(&ops[12].kind) else {
+            return false;
+        };
+        let Some(cv) = Self::op_dst(&ops[13].kind) else {
+            return false;
+        };
+        let Some(result) = Self::op_dst(&ops[14].kind) else {
+            return false;
+        };
+
+        Self::flagm_shl(&ops[0].kind, shl1, nzcv, 1)
+            && Self::flagm_shl(&ops[1].kind, shl2, nzcv, 2)
+            && Self::flagm_or_reg(&ops[2].kind, has_c_or_z_as_n, shl1, shl2)
+            && Self::flagm_andnot_reg(
+                &ops[3].kind,
+                n_bit,
+                VReg::Imm(NZCV_N),
+                has_c_or_z_as_n,
+            )
+            && Self::flagm_and_imm(&ops[4].kind, z_raw, nzcv, NZCV_Z)
+            && Self::flagm_and_reg(&ops[5].kind, z_bit, z_raw, shl1)
+            && Self::flagm_shr(&ops[6].kind, shr1, nzcv, 1)
+            && Self::flagm_or_reg(&ops[7].kind, c_or_z, nzcv, shr1)
+            && Self::flagm_and_imm(&ops[8].kind, c_bit, c_or_z, NZCV_C)
+            && Self::flagm_shr(&ops[9].kind, shr2, nzcv, 2)
+            && Self::flagm_andnot_reg(&ops[10].kind, v_unmasked, shr2, shr1)
+            && Self::flagm_and_imm(&ops[11].kind, v_bit, v_unmasked, NZCV_V)
+            && Self::flagm_or_reg(&ops[12].kind, nz, n_bit, z_bit)
+            && Self::flagm_or_reg(&ops[13].kind, cv, c_bit, v_bit)
+            && Self::flagm_or_reg(&ops[14].kind, result, nz, cv)
+            && Self::flagm_mov_to_nzcv(&ops[15].kind, result)
     }
 
     fn lower_shift(
@@ -1244,6 +1493,42 @@ impl Aarch64Lowerer {
             op2,
             width,
         )
+    }
+
+    fn try_lower_fused_flagm(&mut self, ops: &[SmirOp]) -> Result<Option<usize>, LowerError> {
+        if let Some(SmirOp {
+            kind:
+                OpKind::Xor {
+                    dst,
+                    src1,
+                    src2,
+                    width: OpWidth::W32,
+                    flags,
+                },
+            ..
+        }) = ops.first()
+        {
+            if Self::is_nzcv(*dst)
+                && Self::is_nzcv(*src1)
+                && Self::src_imm_eq(src2, NZCV_C)
+                && !flags.updates_any()
+            {
+                self.emit_flagm(0b000);
+                return Ok(Some(1));
+            }
+        }
+
+        if Self::matches_axflag_ops(ops) {
+            self.emit_flagm(0b010);
+            return Ok(Some(8));
+        }
+
+        if Self::matches_xaflag_ops(ops) {
+            self.emit_flagm(0b001);
+            return Ok(Some(16));
+        }
+
+        Ok(None)
     }
 
     fn try_lower_fused_sysreg_access(
@@ -1781,6 +2066,10 @@ impl Aarch64Lowerer {
         self.block_offsets.insert(block.id, self.code.position());
         let mut idx = 0;
         while idx < block.ops.len() {
+            if let Some(consumed) = self.try_lower_fused_flagm(&block.ops[idx..])? {
+                idx += consumed;
+                continue;
+            }
             if let Some(consumed) = self.try_lower_fused_sysreg_access(&block.ops[idx..])? {
                 idx += consumed;
                 continue;

@@ -4267,6 +4267,38 @@ fn smir_aarch64_native_lowering_matches_qemu_oracle() {
     );
 
     let mut st = native_state();
+    st.x[0] = 0x5555_6666_7777_8888;
+    st.pstate = 0;
+    push_case(
+        "cfinv_carry_clear_opkind_sets_c",
+        enc_cfinv(),
+        vec![OpKind::Xor {
+            dst: VReg::Arch(ArchReg::Arm(ArmReg::Nzcv)),
+            src1: VReg::Arch(ArchReg::Arm(ArmReg::Nzcv)),
+            src2: SrcOperand::Imm(0x2000_0000),
+            width: OpWidth::W32,
+            flags: FlagUpdate::None,
+        }],
+        st,
+    );
+
+    let mut st = native_state();
+    st.x[0] = 0x6666_7777_8888_9999;
+    st.pstate = 0x2000_0000;
+    push_case(
+        "cfinv_carry_set_opkind_clears_c",
+        enc_cfinv(),
+        vec![OpKind::Xor {
+            dst: VReg::Arch(ArchReg::Arm(ArmReg::Nzcv)),
+            src1: VReg::Arch(ArchReg::Arm(ArmReg::Nzcv)),
+            src2: SrcOperand::Imm(0x2000_0000),
+            width: OpWidth::W32,
+            flags: FlagUpdate::None,
+        }],
+        st,
+    );
+
+    let mut st = native_state();
     st.x[0] = 0x1111_2222_3333_4444;
     st.x[1] = 5;
     st.x[2] = 7;
@@ -5296,6 +5328,30 @@ fn smir_aarch64_native_lowering_matches_qemu_oracle() {
     st.x[1] = 0xffff_ffff_0800_009f;
     st.fpsr = 0;
     push_lifted_case("msr_fpsr_lifted_masks_x1", enc_msr_fpsr(RN), st);
+
+    let mut st = native_state();
+    st.x[0] = 0x5555_6666_7777_8888;
+    st.pstate = 0;
+    push_lifted_case("cfinv_carry_clear_lifted_sets_c", enc_cfinv(), st);
+
+    let mut st = native_state();
+    st.x[0] = 0x6666_7777_8888_9999;
+    st.pstate = 0x2000_0000;
+    push_lifted_case("cfinv_carry_set_lifted_clears_c", enc_cfinv(), st);
+
+    for nzcv in 0..16 {
+        let mut st = native_state();
+        st.x[0] = 0x7777_8888_9999_aaaa;
+        st.pstate = (nzcv as u64) << 28;
+        let label = format!("axflag_nzcv_{nzcv:x}_lifted");
+        push_lifted_case(&label, enc_axflag(), st);
+
+        let mut st = native_state();
+        st.x[0] = 0x8888_9999_aaaa_bbbb;
+        st.pstate = (nzcv as u64) << 28;
+        let label = format!("xaflag_nzcv_{nzcv:x}_lifted");
+        push_lifted_case(&label, enc_xaflag(), st);
+    }
 
     let source_cases: Vec<(u32, u32, u32, ArmState)> = cases
         .iter()
