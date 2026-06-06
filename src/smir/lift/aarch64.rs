@@ -291,6 +291,79 @@ impl Aarch64Lifter {
         }
     }
 
+    fn push_lifted_op(ops: &mut Vec<SmirOp>, pc: u64, kind: OpKind) {
+        ops.push(SmirOp::new(OpId(ops.len() as u16), pc, kind));
+    }
+
+    fn push_mul_op(
+        ops: &mut Vec<SmirOp>,
+        pc: u64,
+        dst_lo: VReg,
+        dst_hi: Option<VReg>,
+        src1: VReg,
+        src2: VReg,
+        width: OpWidth,
+        signed: bool,
+    ) {
+        let src2 = SrcOperand::Reg(src2);
+        let flags = FlagUpdate::None;
+        if signed {
+            Self::push_lifted_op(
+                ops,
+                pc,
+                OpKind::MulS {
+                    dst_lo,
+                    dst_hi,
+                    src1,
+                    src2,
+                    width,
+                    flags,
+                },
+            );
+        } else {
+            Self::push_lifted_op(
+                ops,
+                pc,
+                OpKind::MulU {
+                    dst_lo,
+                    dst_hi,
+                    src1,
+                    src2,
+                    width,
+                    flags,
+                },
+            );
+        }
+    }
+
+    fn widen_w_to_x(
+        &self,
+        ops: &mut Vec<SmirOp>,
+        pc: u64,
+        ctx: &mut LiftContext,
+        src: &Register,
+        signed: bool,
+    ) -> VReg {
+        let dst = ctx.alloc_vreg();
+        let kind = if signed {
+            OpKind::SignExtend {
+                dst,
+                src: self.arm_reg(src),
+                from_width: OpWidth::W32,
+                to_width: OpWidth::W64,
+            }
+        } else {
+            OpKind::ZeroExtend {
+                dst,
+                src: self.arm_reg(src),
+                from_width: OpWidth::W32,
+                to_width: OpWidth::W64,
+            }
+        };
+        Self::push_lifted_op(ops, pc, kind);
+        dst
+    }
+
     // ========================================================================
     // Instruction Lifting
     // ========================================================================
@@ -399,7 +472,7 @@ impl Aarch64Lifter {
                 }
             }
 
-            Mnemonic::MUL => {
+            Mnemonic::MUL | Mnemonic::MNEG => {
                 if let (Some(Operand::Reg(rd)), Some(Operand::Reg(rn)), Some(Operand::Reg(rm))) = (
                     insn.operands.get(0),
                     insn.operands.get(1),
@@ -407,18 +480,33 @@ impl Aarch64Lifter {
                 ) {
                     let dst = self.dst_reg(rd, ctx);
                     let width = self.reg_width(rd);
-                    push_op!(OpKind::MulU {
-                        dst_lo: dst,
-                        dst_hi: None,
-                        src1: self.arm_reg(rn),
-                        src2: SrcOperand::Reg(self.arm_reg(rm)),
+                    let product = if insn.mnemonic == Mnemonic::MUL {
+                        dst
+                    } else {
+                        ctx.alloc_vreg()
+                    };
+                    Self::push_mul_op(
+                        &mut ops,
+                        pc,
+                        product,
+                        None,
+                        self.arm_reg(rn),
+                        self.arm_reg(rm),
                         width,
-                        flags: FlagUpdate::None,
-                    });
+                        false,
+                    );
+                    if insn.mnemonic == Mnemonic::MNEG {
+                        push_op!(OpKind::Neg {
+                            dst,
+                            src: product,
+                            width,
+                            flags: FlagUpdate::None,
+                        });
+                    }
                 }
             }
 
-            Mnemonic::MADD => {
+            Mnemonic::MADD | Mnemonic::MSUB => {
                 if let (
                     Some(Operand::Reg(rd)),
                     Some(Operand::Reg(rn)),
@@ -434,22 +522,137 @@ impl Aarch64Lifter {
                     let tmp = ctx.alloc_vreg();
                     let width = self.reg_width(rd);
 
-                    push_op!(OpKind::MulU {
-                        dst_lo: tmp,
-                        dst_hi: None,
-                        src1: self.arm_reg(rn),
-                        src2: SrcOperand::Reg(self.arm_reg(rm)),
+                    Self::push_mul_op(
+                        &mut ops,
+                        pc,
+                        tmp,
+                        None,
+                        self.arm_reg(rn),
+                        self.arm_reg(rm),
                         width,
-                        flags: FlagUpdate::None,
-                    });
+                        false,
+                    );
 
-                    push_op!(OpKind::Add {
+                    if insn.mnemonic == Mnemonic::MADD {
+                        push_op!(OpKind::Add {
+                            dst,
+                            src1: self.arm_reg(ra),
+                            src2: SrcOperand::Reg(tmp),
+                            width,
+                            flags: FlagUpdate::None,
+                        });
+                    } else {
+                        push_op!(OpKind::Sub {
+                            dst,
+                            src1: self.arm_reg(ra),
+                            src2: SrcOperand::Reg(tmp),
+                            width,
+                            flags: FlagUpdate::None,
+                        });
+                    }
+                }
+            }
+
+            Mnemonic::SMADDL | Mnemonic::SMSUBL | Mnemonic::UMADDL | Mnemonic::UMSUBL => {
+                if let (
+                    Some(Operand::Reg(rd)),
+                    Some(Operand::Reg(rn)),
+                    Some(Operand::Reg(rm)),
+                    Some(Operand::Reg(ra)),
+                ) = (
+                    insn.operands.get(0),
+                    insn.operands.get(1),
+                    insn.operands.get(2),
+                    insn.operands.get(3),
+                ) {
+                    let dst = self.dst_reg(rd, ctx);
+                    let src1 = self.widen_w_to_x(
+                        &mut ops,
+                        pc,
+                        ctx,
+                        rn,
+                        matches!(insn.mnemonic, Mnemonic::SMADDL | Mnemonic::SMSUBL),
+                    );
+                    let src2 = self.widen_w_to_x(
+                        &mut ops,
+                        pc,
+                        ctx,
+                        rm,
+                        matches!(insn.mnemonic, Mnemonic::SMADDL | Mnemonic::SMSUBL),
+                    );
+                    let product = ctx.alloc_vreg();
+                    let signed = matches!(insn.mnemonic, Mnemonic::SMADDL | Mnemonic::SMSUBL);
+                    Self::push_mul_op(
+                        &mut ops,
+                        pc,
+                        product,
+                        None,
+                        src1,
+                        src2,
+                        OpWidth::W64,
+                        signed,
+                    );
+                    if matches!(insn.mnemonic, Mnemonic::SMADDL | Mnemonic::UMADDL) {
+                        push_op!(OpKind::Add {
+                            dst,
+                            src1: self.arm_reg(ra),
+                            src2: SrcOperand::Reg(product),
+                            width: OpWidth::W64,
+                            flags: FlagUpdate::None,
+                        });
+                    } else {
+                        push_op!(OpKind::Sub {
+                            dst,
+                            src1: self.arm_reg(ra),
+                            src2: SrcOperand::Reg(product),
+                            width: OpWidth::W64,
+                            flags: FlagUpdate::None,
+                        });
+                    }
+                }
+            }
+
+            Mnemonic::SMULL | Mnemonic::UMULL => {
+                if let (Some(Operand::Reg(rd)), Some(Operand::Reg(rn)), Some(Operand::Reg(rm))) = (
+                    insn.operands.get(0),
+                    insn.operands.get(1),
+                    insn.operands.get(2),
+                ) {
+                    let dst = self.dst_reg(rd, ctx);
+                    let signed = insn.mnemonic == Mnemonic::SMULL;
+                    let src1 = self.widen_w_to_x(&mut ops, pc, ctx, rn, signed);
+                    let src2 = self.widen_w_to_x(&mut ops, pc, ctx, rm, signed);
+                    Self::push_mul_op(
+                        &mut ops,
+                        pc,
                         dst,
-                        src1: self.arm_reg(ra),
-                        src2: SrcOperand::Reg(tmp),
-                        width,
-                        flags: FlagUpdate::None,
-                    });
+                        None,
+                        src1,
+                        src2,
+                        OpWidth::W64,
+                        signed,
+                    );
+                }
+            }
+
+            Mnemonic::SMULH | Mnemonic::UMULH => {
+                if let (Some(Operand::Reg(rd)), Some(Operand::Reg(rn)), Some(Operand::Reg(rm))) = (
+                    insn.operands.get(0),
+                    insn.operands.get(1),
+                    insn.operands.get(2),
+                ) {
+                    let dst = self.dst_reg(rd, ctx);
+                    let lo = ctx.alloc_vreg();
+                    Self::push_mul_op(
+                        &mut ops,
+                        pc,
+                        lo,
+                        Some(dst),
+                        self.arm_reg(rn),
+                        self.arm_reg(rm),
+                        OpWidth::W64,
+                        insn.mnemonic == Mnemonic::SMULH,
+                    );
                 }
             }
 

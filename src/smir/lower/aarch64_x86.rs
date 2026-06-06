@@ -893,6 +893,47 @@ impl Aarch64X86_64Lowerer {
         self.store_reg_to(dst, ACC, width)
     }
 
+    fn lower_mul(
+        &mut self,
+        dst_lo: VReg,
+        dst_hi: Option<VReg>,
+        src1: VReg,
+        src2: &SrcOperand,
+        width: OpWidth,
+        flags: FlagUpdate,
+        signed: bool,
+    ) -> Result<(), LowerError> {
+        let op_name = if signed { "MulS" } else { "MulU" };
+        if flags.updates_any() {
+            return Err(LowerError::UnsupportedOp {
+                op: format!("AArch64 {op_name} with flags"),
+            });
+        }
+        match width {
+            OpWidth::W32 | OpWidth::W64 => {}
+            _ => {
+                return Err(LowerError::UnsupportedOp {
+                    op: format!("AArch64 {op_name} width {width:?}"),
+                });
+            }
+        }
+        self.load_vreg_to(src1, ACC, width)?;
+        self.load_src_to(src2, RHS, width)?;
+        {
+            let mut e = X86Emitter::new(&mut self.code);
+            if signed {
+                e.emit_imul(RHS, width);
+            } else {
+                e.emit_mul(RHS, width);
+            }
+        }
+        self.store_reg_to(dst_lo, ACC, width)?;
+        if let Some(dst_hi) = dst_hi {
+            self.store_reg_to(dst_hi, HI, width)?;
+        }
+        Ok(())
+    }
+
     fn lower_logic(
         &mut self,
         dst: VReg,
@@ -980,31 +1021,15 @@ impl Aarch64X86_64Lowerer {
                 src2,
                 width,
                 flags,
-            } => {
-                if flags.updates_any() {
-                    return Err(LowerError::UnsupportedOp {
-                        op: "AArch64 MulU with flags".into(),
-                    });
-                }
-                match width {
-                    OpWidth::W32 | OpWidth::W64 => {}
-                    _ => {
-                        return Err(LowerError::UnsupportedOp {
-                            op: format!("AArch64 MulU width {width:?}"),
-                        });
-                    }
-                }
-                self.load_vreg_to(*src1, ACC, *width)?;
-                self.load_src_to(src2, RHS, *width)?;
-                {
-                    let mut e = X86Emitter::new(&mut self.code);
-                    e.emit_mul(RHS, *width);
-                }
-                self.store_reg_to(*dst_lo, ACC, *width)?;
-                if let Some(dst_hi) = dst_hi {
-                    self.store_reg_to(*dst_hi, HI, *width)?;
-                }
-            }
+            } => self.lower_mul(*dst_lo, *dst_hi, *src1, src2, *width, *flags, false)?,
+            OpKind::MulS {
+                dst_lo,
+                dst_hi,
+                src1,
+                src2,
+                width,
+                flags,
+            } => self.lower_mul(*dst_lo, *dst_hi, *src1, src2, *width, *flags, true)?,
             OpKind::DivU {
                 quot,
                 rem,
@@ -1736,6 +1761,31 @@ mod tests {
         run_func(&b.finish(), &mut regs);
 
         assert_eq!(regs.x[0], 0x8877_6655_4433_2211);
+    }
+
+    #[test]
+    fn muls_x64_writes_signed_high_half() {
+        let mut b = FunctionBuilder::new(FunctionId(0), 0x2fe8);
+        b.push_op(
+            0x2fe8,
+            OpKind::MulS {
+                dst_lo: x(3),
+                dst_hi: Some(x(0)),
+                src1: x(1),
+                src2: SrcOperand::Reg(x(2)),
+                width: OpWidth::W64,
+                flags: FlagUpdate::None,
+            },
+        );
+        b.set_terminator(Terminator::Return { values: vec![] });
+
+        let mut regs = Aarch64GuestRegs::default();
+        regs.x[1] = i64::MIN as u64;
+        regs.x[2] = 2;
+        run_func(&b.finish(), &mut regs);
+
+        assert_eq!(regs.x[0], u64::MAX);
+        assert_eq!(regs.x[3], 0);
     }
 
     #[test]

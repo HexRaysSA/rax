@@ -1019,6 +1019,18 @@ fn smir_aarch64_x86_scalar_lowering_matches_qemu_oracle() {
         ("mul_w_zero_ext", enc_dp3_ra(0, 0b000, 0, 31)),
         ("madd_x", enc_dp3(1, 0b000, 0)),
         ("madd_w_zero_ext", enc_dp3(0, 0b000, 0)),
+        ("msub_x", enc_dp3(1, 0b000, 1)),
+        ("msub_w_zero_ext", enc_dp3(0, 0b000, 1)),
+        ("mneg_x", enc_dp3_ra(1, 0b000, 1, 31)),
+        ("mneg_w_zero_ext", enc_dp3_ra(0, 0b000, 1, 31)),
+        ("smaddl", enc_dp3(1, 0b001, 0)),
+        ("smsubl", enc_dp3(1, 0b001, 1)),
+        ("umaddl", enc_dp3(1, 0b101, 0)),
+        ("umsubl", enc_dp3(1, 0b101, 1)),
+        ("smull", enc_dp3_ra(1, 0b001, 0, 31)),
+        ("umull", enc_dp3_ra(1, 0b101, 0, 31)),
+        ("smulh", enc_dp3_ra(1, 0b010, 0, 31)),
+        ("umulh", enc_dp3_ra(1, 0b110, 0, 31)),
         ("udiv_x", enc_dp2(1, 0b0010)),
         ("udiv_w_zero_ext", enc_dp2(0, 0b0010)),
         ("sdiv_x", enc_dp2(1, 0b0011)),
@@ -1108,6 +1120,39 @@ fn smir_aarch64_x86_scalar_lowering_matches_qemu_oracle() {
     st.x[0] = 0xaaaa_bbbb_cccc_dddd;
     st.x[1] = 0xffff_ffff_1122_3344;
     batch.push(("rev_w_zero_ext_crafted".into(), enc_dp1(0, 0b000010), st));
+
+    let mut st = ArmState::zeroed();
+    st.x[0] = 0xaaaa_bbbb_cccc_dddd;
+    st.x[1] = 3;
+    st.x[2] = 5;
+    st.x[3] = 2;
+    batch.push(("msub_w_zero_ext_crafted".into(), enc_dp3(0, 0b000, 1), st));
+
+    let mut st = ArmState::zeroed();
+    st.x[0] = 0xaaaa_bbbb_cccc_dddd;
+    st.x[1] = 0xffff_ffff;
+    st.x[2] = 2;
+    st.x[3] = 5;
+    batch.push(("smaddl_negative".into(), enc_dp3(1, 0b001, 0), st));
+
+    let mut st = ArmState::zeroed();
+    st.x[0] = 0xaaaa_bbbb_cccc_dddd;
+    st.x[1] = 0xffff_ffff;
+    st.x[2] = 0xffff_ffff;
+    st.x[3] = 1;
+    batch.push(("umaddl_high".into(), enc_dp3(1, 0b101, 0), st));
+
+    let mut st = ArmState::zeroed();
+    st.x[0] = 0xaaaa_bbbb_cccc_dddd;
+    st.x[1] = i64::MIN as u64;
+    st.x[2] = 2;
+    batch.push(("smulh_negative".into(), enc_dp3_ra(1, 0b010, 0, 31), st));
+
+    let mut st = ArmState::zeroed();
+    st.x[0] = 0xaaaa_bbbb_cccc_dddd;
+    st.x[1] = u64::MAX;
+    st.x[2] = 2;
+    batch.push(("umulh_high".into(), enc_dp3_ra(1, 0b110, 0, 31), st));
 
     let mut st = ArmState::zeroed();
     st.x[0] = 0xaaaa_bbbb_cccc_dddd;
