@@ -172,6 +172,20 @@ impl Aarch64Lowerer {
         Ok(())
     }
 
+    fn patch_cond_branch_to_current(
+        &mut self,
+        insn_offset: usize,
+        cond: u32,
+    ) -> Result<(), LowerError> {
+        let target = self.code.position();
+        let imm19 = Self::branch_scaled_imm(insn_offset, target, 19)?;
+        self.code.patch_i32(
+            insn_offset,
+            (0x5400_0000 | (imm19 << 5) | (cond & 0xf)) as i32,
+        );
+        Ok(())
+    }
+
     fn sf(width: OpWidth) -> Result<u32, LowerError> {
         match width {
             OpWidth::W32 => Ok(0),
@@ -3337,6 +3351,11 @@ impl Aarch64Lowerer {
                 op: format!("AArch64 native CMove width {width:?}"),
             });
         }
+
+        if let VReg::Imm(value) = src {
+            return self.lower_cmove_imm(dst, value, cond, width);
+        }
+
         let dst = Self::dst_gpr(dst)?;
         let src = Self::gpr(src)?;
         if matches!(width, OpWidth::W8 | OpWidth::W16) {
@@ -3361,6 +3380,52 @@ impl Aarch64Lowerer {
             0,
             width,
         )
+    }
+
+    fn lower_cmove_imm(
+        &mut self,
+        dst: VReg,
+        value: i64,
+        cond: Condition,
+        width: OpWidth,
+    ) -> Result<(), LowerError> {
+        let dst = Self::dst_gpr(dst)?;
+        if cond == Condition::Always {
+            let mov_width = if width == OpWidth::W64 {
+                OpWidth::W64
+            } else {
+                OpWidth::W32
+            };
+            self.emit_mov_imm(dst, value, mov_width)?;
+            return self.finish_cmove_width(dst, width);
+        }
+
+        let skip_mov = self.code.position();
+        let inverted = Self::inverted_arm_cond_code(cond)?;
+        self.emit(0x5400_0000 | inverted);
+
+        let mov_width = if width == OpWidth::W64 {
+            OpWidth::W64
+        } else {
+            OpWidth::W32
+        };
+        self.emit_mov_imm(dst, value, mov_width)?;
+        self.patch_cond_branch_to_current(skip_mov, inverted)?;
+        self.finish_cmove_width(dst, width)
+    }
+
+    fn finish_cmove_width(&mut self, dst: u8, width: OpWidth) -> Result<(), LowerError> {
+        match width {
+            OpWidth::W8 | OpWidth::W16 => {
+                let imms = if width == OpWidth::W8 { 7 } else { 15 };
+                self.emit_bitfield(dst, dst, 0b10, 0, imms, OpWidth::W32)
+            }
+            OpWidth::W32 => self.emit_mov_reg(dst, dst, OpWidth::W32),
+            OpWidth::W64 => Ok(()),
+            other => Err(LowerError::UnsupportedOp {
+                op: format!("AArch64 native CMove width {other:?}"),
+            }),
+        }
     }
 
     fn lower_select(
@@ -8161,6 +8226,33 @@ mod tests {
 
         let mut expected = Vec::new();
         expected.extend_from_slice(&enc_csel_regs(0, 0, 0, 1, 0, 0, 0).to_le_bytes());
+        expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
+        assert_eq!(code, expected);
+    }
+
+    #[test]
+    fn lowers_cmove_w_imm_with_false_path_zero_ext() {
+        let mut builder = FunctionBuilder::new(FunctionId(0), 0);
+        builder.push_op(
+            0,
+            OpKind::CMove {
+                dst: x(0),
+                src: VReg::Imm(0x1234),
+                cond: Condition::Eq,
+                width: OpWidth::W32,
+            },
+        );
+        builder.set_terminator(Terminator::Return { values: vec![] });
+        let func = builder.finish();
+
+        let mut lowerer = Aarch64Lowerer::new();
+        lowerer.lower_function(&func).unwrap();
+        let code = lowerer.finalize().unwrap();
+
+        let mut expected = Vec::new();
+        expected.extend_from_slice(&enc_b_cond(1, 2).to_le_bytes());
+        expected.extend_from_slice(&enc_mov_wide(0, 0b10, 0, 0x1234, 0).to_le_bytes());
+        expected.extend_from_slice(&enc_mov_reg(0, 0, 0).to_le_bytes());
         expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
         assert_eq!(code, expected);
     }
