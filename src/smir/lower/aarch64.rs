@@ -2334,10 +2334,16 @@ impl Aarch64Lowerer {
             }
 
             let dst_lo = Self::dst_gpr(dst_lo)?;
-            if [dst_lo, dst_hi].contains(&rn) || [dst_lo, dst_hi].contains(&rm) {
+            let lo_aliases_source = dst_lo == rn || dst_lo == rm;
+            let hi_aliases_source = dst_hi == rn || dst_hi == rm;
+            if lo_aliases_source && hi_aliases_source {
                 return Err(LowerError::UnsupportedOp {
                     op: "AArch64 native full-width multiply with overlapping sources".into(),
                 });
+            }
+            if lo_aliases_source {
+                self.emit_dp3(dst_hi, rn, rm, 31, op31, 0, width)?;
+                return self.emit_dp3(dst_lo, rn, rm, 31, 0b000, 0, width);
             }
             self.emit_dp3(dst_lo, rn, rm, 31, 0b000, 0, width)?;
             return self.emit_dp3(dst_hi, rn, rm, 31, op31, 0, width);
@@ -4890,6 +4896,17 @@ mod tests {
         (sf << 31) | (0b0011010110 << 21) | (rm << 16) | (opcode2 << 10) | (rn << 5) | rd
     }
 
+    fn enc_dp3_regs(sf: u32, op31: u32, o0: u32, rd: u32, rn: u32, rm: u32, ra: u32) -> u32 {
+        (sf << 31)
+            | (0b11011 << 24)
+            | (op31 << 21)
+            | (rm << 16)
+            | (o0 << 15)
+            | (ra << 10)
+            | (rn << 5)
+            | rd
+    }
+
     fn enc_bitfield_regs(sf: u32, opc: u32, immr: u32, imms: u32, rn: u32, rd: u32) -> u32 {
         (sf << 31)
             | (opc << 29)
@@ -5074,6 +5091,112 @@ mod tests {
         expected.extend_from_slice(&enc_addsub_imm(0, 1, 0, 1).to_le_bytes());
         expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
         assert_eq!(code, expected);
+    }
+
+    #[test]
+    fn lowers_mulu_full_width_when_low_aliases_src1_as_high_then_low() {
+        let mut builder = FunctionBuilder::new(FunctionId(0), 0);
+        builder.push_op(
+            0,
+            OpKind::MulU {
+                dst_lo: x(1),
+                dst_hi: Some(x(0)),
+                src1: x(1),
+                src2: SrcOperand::Reg(x(2)),
+                width: OpWidth::W64,
+                flags: FlagUpdate::None,
+            },
+        );
+        builder.set_terminator(Terminator::Return { values: vec![] });
+        let func = builder.finish();
+
+        let mut lowerer = Aarch64Lowerer::new();
+        lowerer.lower_function(&func).unwrap();
+        let code = lowerer.finalize().unwrap();
+
+        let mut expected = Vec::new();
+        expected.extend_from_slice(&enc_dp3_regs(1, 0b110, 0, 0, 1, 2, 31).to_le_bytes());
+        expected.extend_from_slice(&enc_dp3_regs(1, 0b000, 0, 1, 1, 2, 31).to_le_bytes());
+        expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
+        assert_eq!(code, expected);
+    }
+
+    #[test]
+    fn lowers_muls_full_width_when_low_aliases_src2_as_high_then_low() {
+        let mut builder = FunctionBuilder::new(FunctionId(0), 0);
+        builder.push_op(
+            0,
+            OpKind::MulS {
+                dst_lo: x(2),
+                dst_hi: Some(x(0)),
+                src1: x(1),
+                src2: SrcOperand::Reg(x(2)),
+                width: OpWidth::W64,
+                flags: FlagUpdate::None,
+            },
+        );
+        builder.set_terminator(Terminator::Return { values: vec![] });
+        let func = builder.finish();
+
+        let mut lowerer = Aarch64Lowerer::new();
+        lowerer.lower_function(&func).unwrap();
+        let code = lowerer.finalize().unwrap();
+
+        let mut expected = Vec::new();
+        expected.extend_from_slice(&enc_dp3_regs(1, 0b010, 0, 0, 1, 2, 31).to_le_bytes());
+        expected.extend_from_slice(&enc_dp3_regs(1, 0b000, 0, 2, 1, 2, 31).to_le_bytes());
+        expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
+        assert_eq!(code, expected);
+    }
+
+    #[test]
+    fn lowers_mulu_full_width_when_high_aliases_src1_as_low_then_high() {
+        let mut builder = FunctionBuilder::new(FunctionId(0), 0);
+        builder.push_op(
+            0,
+            OpKind::MulU {
+                dst_lo: x(0),
+                dst_hi: Some(x(1)),
+                src1: x(1),
+                src2: SrcOperand::Reg(x(2)),
+                width: OpWidth::W64,
+                flags: FlagUpdate::None,
+            },
+        );
+        builder.set_terminator(Terminator::Return { values: vec![] });
+        let func = builder.finish();
+
+        let mut lowerer = Aarch64Lowerer::new();
+        lowerer.lower_function(&func).unwrap();
+        let code = lowerer.finalize().unwrap();
+
+        let mut expected = Vec::new();
+        expected.extend_from_slice(&enc_dp3_regs(1, 0b000, 0, 0, 1, 2, 31).to_le_bytes());
+        expected.extend_from_slice(&enc_dp3_regs(1, 0b110, 0, 1, 1, 2, 31).to_le_bytes());
+        expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
+        assert_eq!(code, expected);
+    }
+
+    #[test]
+    fn rejects_full_width_multiply_when_both_outputs_alias_sources() {
+        let mut builder = FunctionBuilder::new(FunctionId(0), 0);
+        builder.push_op(
+            0,
+            OpKind::MulU {
+                dst_lo: x(1),
+                dst_hi: Some(x(2)),
+                src1: x(1),
+                src2: SrcOperand::Reg(x(2)),
+                width: OpWidth::W64,
+                flags: FlagUpdate::None,
+            },
+        );
+        builder.set_terminator(Terminator::Return { values: vec![] });
+        let func = builder.finish();
+
+        let mut lowerer = Aarch64Lowerer::new();
+        let err = lowerer.lower_function(&func).unwrap_err();
+        assert!(matches!(err, LowerError::UnsupportedOp { .. }));
     }
 
     #[test]

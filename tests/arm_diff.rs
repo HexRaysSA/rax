@@ -644,14 +644,26 @@ fn enc_dp3(sf: u32, op31: u32, o0: u32) -> u32 {
 
 /// Same, but with an explicit Ra field (SMULH/UMULH require Ra = 31/xzr).
 fn enc_dp3_ra(sf: u32, op31: u32, o0: u32, ra: u32) -> u32 {
+    enc_dp3_ra_regs(sf, op31, o0, RD, RN, RM, ra)
+}
+
+fn enc_dp3_ra_regs(
+    sf: u32,
+    op31: u32,
+    o0: u32,
+    rd: u32,
+    rn: u32,
+    rm: u32,
+    ra: u32,
+) -> u32 {
     (sf << 31)
         | (0b11011 << 24)
         | (op31 << 21)
-        | (RM << 16)
+        | ((rm & 0x1f) << 16)
         | (o0 << 15)
-        | (ra << 10)
-        | (RN << 5)
-        | RD
+        | ((ra & 0x1f) << 10)
+        | ((rn & 0x1f) << 5)
+        | (rd & 0x1f)
 }
 
 fn dp3_cases() -> Vec<(String, u32)> {
@@ -7504,6 +7516,75 @@ fn smir_aarch64_native_lowering_matches_qemu_oracle() {
             .unwrap_or_else(|e| panic!("{label}: native lowering failed: {e}"));
         cases.push((label.into(), source, lowered, st));
     };
+
+    let mut st = native_state();
+    st.x[0] = 0xaaaa_bbbb_cccc_dddd;
+    st.x[1] = 0xffff_ffff_ffff_ff00;
+    st.x[2] = 0x100;
+    st.pstate = 0x9000_0000;
+    push_case3(
+        "mulu_full_width_low_aliases_src1_high_then_low_preserves_flags",
+        [
+            enc_dp3_ra_regs(1, 0b110, 0, RD, RN, RM, 31),
+            enc_dp3_ra_regs(1, 0b000, 0, RN, RN, RM, 31),
+            NOP,
+        ],
+        vec![OpKind::MulU {
+            dst_lo: arm_x(1),
+            dst_hi: Some(arm_x(0)),
+            src1: arm_x(1),
+            src2: SrcOperand::Reg(arm_x(2)),
+            width: OpWidth::W64,
+            flags: FlagUpdate::None,
+        }],
+        st,
+    );
+
+    let mut st = native_state();
+    st.x[0] = 0xbbbb_cccc_dddd_eeee;
+    st.x[1] = 0x8000_0000_0000_0001;
+    st.x[2] = 3;
+    st.pstate = 0x2000_0000;
+    push_case3(
+        "muls_full_width_low_aliases_src2_high_then_low_preserves_flags",
+        [
+            enc_dp3_ra_regs(1, 0b010, 0, RD, RN, RM, 31),
+            enc_dp3_ra_regs(1, 0b000, 0, RM, RN, RM, 31),
+            NOP,
+        ],
+        vec![OpKind::MulS {
+            dst_lo: arm_x(2),
+            dst_hi: Some(arm_x(0)),
+            src1: arm_x(1),
+            src2: SrcOperand::Reg(arm_x(2)),
+            width: OpWidth::W64,
+            flags: FlagUpdate::None,
+        }],
+        st,
+    );
+
+    let mut st = native_state();
+    st.x[0] = 0xcccc_dddd_eeee_ffff;
+    st.x[1] = 0xffff_ffff_ffff_ff00;
+    st.x[2] = 0x100;
+    st.pstate = 0x6000_0000;
+    push_case3(
+        "mulu_full_width_high_aliases_src1_low_then_high_preserves_flags",
+        [
+            enc_dp3_ra_regs(1, 0b000, 0, RD, RN, RM, 31),
+            enc_dp3_ra_regs(1, 0b110, 0, RN, RN, RM, 31),
+            NOP,
+        ],
+        vec![OpKind::MulU {
+            dst_lo: arm_x(0),
+            dst_hi: Some(arm_x(1)),
+            src1: arm_x(1),
+            src2: SrcOperand::Reg(arm_x(2)),
+            width: OpWidth::W64,
+            flags: FlagUpdate::None,
+        }],
+        st,
+    );
 
     let cmove_w16_source = [
         enc_csel_form(0, 0, 0, RN, RD, 0),
