@@ -886,6 +886,10 @@ fn enc_logical_shift(sf: u32, opc: u32, shift: u32, n: u32, imm6: u32) -> u32 {
     enc_logical_shift_regs(sf, opc, shift, n, imm6, RD, RN, RM)
 }
 
+fn enc_mov_reg(sf: u32, rd: u32, rm: u32) -> u32 {
+    enc_logical_shift_regs(sf, 0b01, 0, 0, 0, rd, 31, rm)
+}
+
 fn logical_shift_cases() -> Vec<(String, u32)> {
     let mut v = Vec::new();
     for sf in 0..2 {
@@ -4546,6 +4550,21 @@ fn smir_aarch64_native_lowering_matches_qemu_oracle() {
             dst: arm_x(0),
             src: arm_x(1),
             width: OpWidth::W64,
+        }],
+        st,
+    );
+
+    let mut st = native_state();
+    st.x[0] = 0x9999_aaaa_bbbb_cccc;
+    st.x[1] = 0x1234_5678_9abc_def0;
+    st.pstate = 0xd000_0000;
+    push_case(
+        "bswap_w8_opkind_as_mov_preserves_flags",
+        enc_mov_reg(1, RD, RN),
+        vec![OpKind::Bswap {
+            dst: arm_x(0),
+            src: arm_x(1),
+            width: OpWidth::W8,
         }],
         st,
     );
