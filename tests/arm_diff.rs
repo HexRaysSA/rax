@@ -5577,6 +5577,78 @@ fn smir_aarch64_native_lowering_matches_qemu_oracle() {
     );
 
     let mut st = native_state();
+    st.x[0] = 0x2222_3333_4444_5555;
+    st.x[1] = SCRATCH_BASE;
+    st.x[2] = 8;
+    st.scratch[9] = 0x0123_4567_89ab_cdef;
+    st.pstate = 0x7000_0000;
+    push_lifted_case(
+        "ldr_x_reg_lsl0_lifted_preserves_flags",
+        enc_ldst_reg(3, 1, RM, 0b011, 0),
+        st,
+    );
+
+    let mut st = native_state();
+    st.x[0] = 0x3333_4444_5555_6666;
+    st.x[1] = SCRATCH_BASE;
+    st.x[2] = 8;
+    st.scratch[16] = 0x8877_6655_4433_2211;
+    st.pstate = 0x6000_0000;
+    push_lifted_case(
+        "ldr_x_reg_uxtw_lsl3_lifted_preserves_flags",
+        enc_ldst_reg(3, 1, RM, 0b010, 1),
+        st,
+    );
+
+    let mut st = native_state();
+    st.x[0] = 0x0123_4567_89ab_cdef;
+    st.x[1] = SCRATCH_BASE;
+    st.x[2] = (-8i64) as u64;
+    st.scratch[7] = 0;
+    st.pstate = 0x5000_0000;
+    push_lifted_case(
+        "str_x_reg_sxtx_neg8_lifted_preserves_flags_and_memory",
+        enc_ldst_reg(3, 0, RM, 0b111, 0),
+        st,
+    );
+
+    let mut st = native_state();
+    st.x[0] = 0x4444_5555_6666_7777;
+    st.x[1] = SCRATCH_BASE;
+    st.x[2] = 8;
+    st.scratch[9] = 0xffff_ffff_8000_1234;
+    st.pstate = 0x3000_0000;
+    push_lifted_case(
+        "ldr_w_reg_uxtw_lifted_zero_ext_preserves_flags",
+        enc_ldst_reg(2, 1, RM, 0b010, 0),
+        st,
+    );
+
+    let mut st = native_state();
+    st.x[0] = 0x5555_6666_7777_8888;
+    st.x[1] = SCRATCH_BASE;
+    st.x[2] = 4;
+    st.scratch[9] = 0x0000_0000_0000_8001;
+    st.pstate = 0x9000_0000;
+    push_lifted_case(
+        "ldrsh_x_reg_uxtw_lsl1_lifted_sign_ext_preserves_flags",
+        enc_ldst_reg(1, 2, RM, 0b010, 1),
+        st,
+    );
+
+    let mut st = native_state();
+    st.x[0] = 0x6666_7777_8888_99aa;
+    st.x[1] = SCRATCH_BASE;
+    st.x[2] = 15;
+    st.scratch[9] = 0x1122_3344_5566_7788;
+    st.pstate = 0xa000_0000;
+    push_lifted_case(
+        "strb_reg_uxtw_lifted_preserves_flags_and_memory",
+        enc_ldst_reg(0, 0, RM, 0b010, 0),
+        st,
+    );
+
+    let mut st = native_state();
     st.x[0] = 0x1111_2222_3333_4444;
     st.pstate = 0xa000_0000;
     push_lifted_case("clrex_lifted_preserves_arch_state", enc_clrex(), st);

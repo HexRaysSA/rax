@@ -425,6 +425,30 @@ impl Aarch64Lowerer {
         );
     }
 
+    fn emit_ldst_reg_offset(
+        &mut self,
+        rt: u8,
+        rn: u8,
+        rm: u8,
+        size: u32,
+        opc: u32,
+        option: u32,
+        s: u32,
+    ) {
+        self.emit(
+            (size << 30)
+                | (0b111 << 27)
+                | (opc << 22)
+                | (1 << 21)
+                | ((rm as u32) << 16)
+                | (option << 13)
+                | (s << 12)
+                | (0b10 << 10)
+                | ((rn as u32) << 5)
+                | (rt as u32),
+        );
+    }
+
     fn emit_cond_select(
         &mut self,
         dst: u8,
@@ -531,6 +555,86 @@ impl Aarch64Lowerer {
         }
     }
 
+    fn load_opc(width: MemWidth, sign: SignExtend) -> Result<u32, LowerError> {
+        match (sign, width) {
+            (SignExtend::Zero, _) | (SignExtend::Sign, MemWidth::B8) => Ok(0b01),
+            (SignExtend::Sign, MemWidth::B1 | MemWidth::B2 | MemWidth::B4) => Ok(0b10),
+            _ => Err(LowerError::UnsupportedOp {
+                op: format!("AArch64 native signed load width {width:?}"),
+            }),
+        }
+    }
+
+    fn mem_access_parts(
+        kind: &OpKind,
+    ) -> Result<Option<(u8, &Address, u32, u32)>, LowerError> {
+        match kind {
+            OpKind::Load {
+                dst,
+                addr,
+                width,
+                sign,
+            } => Ok(Some((
+                Self::dst_gpr(*dst)?,
+                addr,
+                Self::mem_size(*width)?,
+                Self::load_opc(*width, *sign)?,
+            ))),
+            OpKind::Store { src, addr, width } => Ok(Some((
+                Self::gpr(*src)?,
+                addr,
+                Self::mem_size(*width)?,
+                0b00,
+            ))),
+            _ => Ok(None),
+        }
+    }
+
+    fn direct_addr_reg(addr: &Address) -> Option<VReg> {
+        match addr {
+            Address::Direct(reg) => Some(*reg),
+            _ => None,
+        }
+    }
+
+    fn mem_extend_option(from_width: OpWidth, signed: bool) -> Option<u32> {
+        match (from_width, signed) {
+            (OpWidth::W32, false) => Some(0b010),
+            (OpWidth::W64, false) => Some(0b011),
+            (OpWidth::W32, true) => Some(0b110),
+            (OpWidth::W64, true) => Some(0b111),
+            _ => None,
+        }
+    }
+
+    fn mem_extend_parts(kind: &OpKind) -> Option<(VReg, VReg, u32)> {
+        match kind {
+            OpKind::ZeroExtend {
+                dst,
+                src,
+                from_width,
+                to_width: OpWidth::W64,
+            } => Some((*dst, *src, Self::mem_extend_option(*from_width, false)?)),
+            OpKind::SignExtend {
+                dst,
+                src,
+                from_width,
+                to_width: OpWidth::W64,
+            } => Some((*dst, *src, Self::mem_extend_option(*from_width, true)?)),
+            _ => None,
+        }
+    }
+
+    fn mem_shift_bit(amount: &SrcOperand, size: u32) -> Option<u32> {
+        if Self::src_imm_eq(amount, 0) {
+            Some(0)
+        } else if size != 0 && Self::src_imm_eq(amount, i64::from(size)) {
+            Some(1)
+        } else {
+            None
+        }
+    }
+
     fn lower_mem_access(
         &mut self,
         rt: u8,
@@ -577,15 +681,7 @@ impl Aarch64Lowerer {
     ) -> Result<(), LowerError> {
         let rt = Self::dst_gpr(dst)?;
         let size = Self::mem_size(width)?;
-        let opc = match (sign, width) {
-            (SignExtend::Zero, _) | (SignExtend::Sign, MemWidth::B8) => 0b01,
-            (SignExtend::Sign, MemWidth::B1 | MemWidth::B2 | MemWidth::B4) => 0b10,
-            _ => {
-                return Err(LowerError::UnsupportedOp {
-                    op: format!("AArch64 native signed load width {width:?}"),
-                });
-            }
-        };
+        let opc = Self::load_opc(width, sign)?;
         self.lower_mem_access(rt, addr, size, opc)
     }
 
@@ -593,6 +689,28 @@ impl Aarch64Lowerer {
         let rt = Self::gpr(src)?;
         let size = Self::mem_size(width)?;
         self.lower_mem_access(rt, addr, size, 0b00)
+    }
+
+    fn lower_mem_reg_offset_access(
+        &mut self,
+        rt: u8,
+        base: VReg,
+        index: VReg,
+        size: u32,
+        opc: u32,
+        option: u32,
+        s: u32,
+    ) -> Result<(), LowerError> {
+        self.emit_ldst_reg_offset(
+            rt,
+            Self::base_gpr(base)?,
+            Self::gpr(index)?,
+            size,
+            opc,
+            option,
+            s,
+        );
+        Ok(())
     }
 
     fn lower_mov(&mut self, dst: VReg, src: &SrcOperand, width: OpWidth) -> Result<(), LowerError> {
@@ -1715,6 +1833,173 @@ impl Aarch64Lowerer {
         Ok(Some(4))
     }
 
+    fn try_lower_fused_mem_reg_offset(
+        &mut self,
+        ops: &[SmirOp],
+    ) -> Result<Option<usize>, LowerError> {
+        if let [
+            extend,
+            SmirOp {
+                kind:
+                    OpKind::Shl {
+                        dst: shifted,
+                        src: shift_src,
+                        amount,
+                        width: OpWidth::W64,
+                        flags: shift_flags,
+                    },
+                ..
+            },
+            SmirOp {
+                kind:
+                    OpKind::Add {
+                        dst: addr_tmp,
+                        src1: base,
+                        src2,
+                        width: OpWidth::W64,
+                        flags: add_flags,
+                    },
+                ..
+            },
+            access,
+            ..
+        ] = ops
+        {
+            if !shift_flags.updates_any()
+                && !add_flags.updates_any()
+                && Self::src_reg_eq(src2, *shifted)
+            {
+                if let Some((extended, index, option)) = Self::mem_extend_parts(&extend.kind) {
+                    if shift_src == &extended {
+                        if let Some((rt, addr, size, opc)) =
+                            Self::mem_access_parts(&access.kind)?
+                        {
+                            if Self::direct_addr_reg(addr) == Some(*addr_tmp) {
+                                if let Some(s) = Self::mem_shift_bit(amount, size) {
+                                    self.lower_mem_reg_offset_access(
+                                        rt, *base, index, size, opc, option, s,
+                                    )?;
+                                    return Ok(Some(4));
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        if let [
+            SmirOp {
+                kind:
+                    OpKind::Shl {
+                        dst: shifted,
+                        src: index,
+                        amount,
+                        width: OpWidth::W64,
+                        flags: shift_flags,
+                    },
+                ..
+            },
+            SmirOp {
+                kind:
+                    OpKind::Add {
+                        dst: addr_tmp,
+                        src1: base,
+                        src2,
+                        width: OpWidth::W64,
+                        flags: add_flags,
+                    },
+                ..
+            },
+            access,
+            ..
+        ] = ops
+        {
+            if !shift_flags.updates_any()
+                && !add_flags.updates_any()
+                && Self::src_reg_eq(src2, *shifted)
+            {
+                if let Some((rt, addr, size, opc)) = Self::mem_access_parts(&access.kind)? {
+                    if Self::direct_addr_reg(addr) == Some(*addr_tmp) {
+                        if let Some(s) = Self::mem_shift_bit(amount, size) {
+                            self.lower_mem_reg_offset_access(
+                                rt, *base, *index, size, opc, 0b011, s,
+                            )?;
+                            return Ok(Some(3));
+                        }
+                    }
+                }
+            }
+        }
+
+        if let [
+            extend,
+            SmirOp {
+                kind:
+                    OpKind::Add {
+                        dst: addr_tmp,
+                        src1: base,
+                        src2,
+                        width: OpWidth::W64,
+                        flags,
+                    },
+                ..
+            },
+            access,
+            ..
+        ] = ops
+        {
+            if !flags.updates_any() {
+                if let Some((extended, index, option)) = Self::mem_extend_parts(&extend.kind) {
+                    if Self::src_reg_eq(src2, extended) {
+                        if let Some((rt, addr, size, opc)) =
+                            Self::mem_access_parts(&access.kind)?
+                        {
+                            if Self::direct_addr_reg(addr) == Some(*addr_tmp) {
+                                self.lower_mem_reg_offset_access(
+                                    rt, *base, index, size, opc, option, 0,
+                                )?;
+                                return Ok(Some(3));
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        if let [
+            SmirOp {
+                kind:
+                    OpKind::Add {
+                        dst: addr_tmp,
+                        src1: base,
+                        src2,
+                        width: OpWidth::W64,
+                        flags,
+                    },
+                ..
+            },
+            access,
+            ..
+        ] = ops
+        {
+            if !flags.updates_any() {
+                if let SrcOperand::Reg(index) = src2 {
+                    if let Some((rt, addr, size, opc)) = Self::mem_access_parts(&access.kind)? {
+                        if Self::direct_addr_reg(addr) == Some(*addr_tmp) {
+                            self.lower_mem_reg_offset_access(
+                                rt, *base, *index, size, opc, 0b011, 0,
+                            )?;
+                            return Ok(Some(2));
+                        }
+                    }
+                }
+            }
+        }
+
+        Ok(None)
+    }
+
     fn try_lower_fused_sysreg_access(
         &mut self,
         ops: &[SmirOp],
@@ -2273,6 +2558,10 @@ impl Aarch64Lowerer {
         self.block_offsets.insert(block.id, self.code.position());
         let mut idx = 0;
         while idx < block.ops.len() {
+            if let Some(consumed) = self.try_lower_fused_mem_reg_offset(&block.ops[idx..])? {
+                idx += consumed;
+                continue;
+            }
             if let Some(consumed) = self.try_lower_fused_cls(&block.ops[idx..])? {
                 idx += consumed;
                 continue;
