@@ -8509,6 +8509,51 @@ fn smir_aarch64_native_lowering_matches_qemu_oracle() {
     );
 
     let mut st = native_state();
+    st.x[0] = 0xaaaa_bbbb_cccc_dddd;
+    st.x[1] = 0xffff_ffff_ffff_fe80;
+    st.pstate = 0x2000_0000;
+    push_case3(
+        "divu_w8_imm_one_as_mov_uxtb_preserves_flags",
+        [
+            enc_mov_reg(0, RD, RN),
+            enc_bitfield_regs(0, 0b10, 0, 7, RD, RD),
+            NOP,
+        ],
+        vec![OpKind::DivU {
+            quot: arm_x(0),
+            rem: None,
+            src1: arm_x(1),
+            src2: SrcOperand::Imm(1),
+            width: OpWidth::W8,
+            flags: FlagUpdate::None,
+        }],
+        st,
+    );
+
+    let mut st = native_state();
+    st.x[0] = 0xeeee_ffff_0000_1111;
+    st.x[1] = 0xffff_ffff_ffff_8001;
+    st.x[3] = 0xbbbb_cccc_dddd_eeee;
+    st.pstate = 0xa000_0000;
+    push_case3(
+        "divs_w16_imm_one_with_remainder_as_mov_uxth_zero_preserves_flags",
+        [
+            enc_mov_reg(0, 3, RN),
+            enc_bitfield_regs(0, 0b10, 0, 15, 3, 3),
+            enc_mov_wide(0, 0b10, 0, 0),
+        ],
+        vec![OpKind::DivS {
+            quot: arm_x(3),
+            rem: Some(arm_x(0)),
+            src1: arm_x(1),
+            src2: SrcOperand::Imm64(1),
+            width: OpWidth::W16,
+            flags: FlagUpdate::None,
+        }],
+        st,
+    );
+
+    let mut st = native_state();
     st.x[1] = 0x0fed_cba9_8765_4321;
     st.x[2] = 0x1f3d;
     st.x[3] = 0xcccc_dddd_eeee_ffff;
