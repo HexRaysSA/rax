@@ -801,11 +801,16 @@ fn enc_condcmp(sf: u32, op: u32, imm: bool, rm_imm5: u32, cond: u32, nzcv: u32) 
 
 /// Test and branch: `b5 011011 op b40 imm14 Rt`.
 #[cfg(all(feature = "smir-jit", target_arch = "x86_64"))]
-fn enc_test_branch(op: u32, bit: u32, offset: i32) -> u32 {
+fn enc_test_branch_rt(op: u32, bit: u32, offset: i32, rt: u32) -> u32 {
     let b5 = (bit >> 5) & 1;
     let b40 = bit & 0x1F;
     let imm14 = ((offset >> 2) as u32) & 0x3FFF;
-    (b5 << 31) | (0b011011 << 25) | (op << 24) | (b40 << 19) | (imm14 << 5) | RN
+    (b5 << 31) | (0b011011 << 25) | (op << 24) | (b40 << 19) | (imm14 << 5) | (rt & 0x1f)
+}
+
+#[cfg(all(feature = "smir-jit", target_arch = "x86_64"))]
+fn enc_test_branch(op: u32, bit: u32, offset: i32) -> u32 {
+    enc_test_branch_rt(op, bit, offset, RN)
 }
 
 /// Compare and branch: `sf 011010 op imm19 Rt`.
@@ -7424,6 +7429,86 @@ fn smir_aarch64_native_lowering_matches_qemu_oracle() {
             .unwrap_or_else(|e| panic!("{label}: native lowering failed: {e}"));
         cases.push((label.into(), source, lowered, st));
     };
+
+    let w32_count_guard = |opcode2: u32| {
+        [
+            enc_dp2(0, opcode2),
+            enc_test_branch_rt(0, 5, 8, RM),
+            enc_logical_shift_regs(0, 0b01, 0, 0, 0, RD, 31, 31),
+        ]
+    };
+
+    let mut st = native_state();
+    st.x[0] = 0xaaaa_bbbb_cccc_dddd;
+    st.x[1] = 0xffff_ffff_1234_5678;
+    st.x[2] = 4;
+    st.pstate = 0xa000_0000;
+    push_case3(
+        "shl_w_reg_count_below32_zero_ext_preserves_flags",
+        [enc_dp2(0, 0b1000), NOP, NOP],
+        vec![OpKind::Shl {
+            dst: arm_x(0),
+            src: arm_x(1),
+            amount: SrcOperand::Reg(arm_x(2)),
+            width: OpWidth::W32,
+            flags: FlagUpdate::None,
+        }],
+        st,
+    );
+
+    let mut st = native_state();
+    st.x[0] = 0xbbbb_cccc_dddd_eeee;
+    st.x[1] = 0xffff_ffff_1234_5678;
+    st.x[2] = 32;
+    st.pstate = 0x5000_0000;
+    push_case3(
+        "shl_w_reg_count_32_zero_ext_preserves_flags",
+        w32_count_guard(0b1000),
+        vec![OpKind::Shl {
+            dst: arm_x(0),
+            src: arm_x(1),
+            amount: SrcOperand::Reg(arm_x(2)),
+            width: OpWidth::W32,
+            flags: FlagUpdate::None,
+        }],
+        st,
+    );
+
+    let mut st = native_state();
+    st.x[0] = 0xcccc_dddd_eeee_ffff;
+    st.x[1] = 0xffff_ffff_8765_4321;
+    st.x[2] = 7;
+    st.pstate = 0x6000_0000;
+    push_case3(
+        "shr_w_reg_count_below32_zero_ext_preserves_flags",
+        [enc_dp2(0, 0b1001), NOP, NOP],
+        vec![OpKind::Shr {
+            dst: arm_x(0),
+            src: arm_x(1),
+            amount: SrcOperand::Reg(arm_x(2)),
+            width: OpWidth::W32,
+            flags: FlagUpdate::None,
+        }],
+        st,
+    );
+
+    let mut st = native_state();
+    st.x[0] = 0xdddd_eeee_ffff_0000;
+    st.x[1] = 0xffff_ffff_8765_4321;
+    st.x[2] = 33;
+    st.pstate = 0x9000_0000;
+    push_case3(
+        "shr_w_reg_count_33_zero_ext_preserves_flags",
+        w32_count_guard(0b1001),
+        vec![OpKind::Shr {
+            dst: arm_x(0),
+            src: arm_x(1),
+            amount: SrcOperand::Reg(arm_x(2)),
+            width: OpWidth::W32,
+            flags: FlagUpdate::None,
+        }],
+        st,
+    );
 
     let mut st = native_state();
     st.x[0] = 0xaaaa_bbbb_cccc_dddd;

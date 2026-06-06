@@ -396,6 +396,46 @@ impl Aarch64Lowerer {
         Ok(())
     }
 
+    fn emit_test_branch(
+        &mut self,
+        rt: u8,
+        bit: u32,
+        nonzero: bool,
+        offset: i32,
+    ) -> Result<(), LowerError> {
+        if bit >= 64 {
+            return Err(LowerError::InvalidOperand {
+                op: "AArch64 test branch".into(),
+                operand: format!("bit={bit}"),
+            });
+        }
+        if offset % 4 != 0 {
+            return Err(LowerError::InvalidOperand {
+                op: "AArch64 test branch".into(),
+                operand: format!("offset={offset}"),
+            });
+        }
+        let imm14 = offset / 4;
+        if !(-8192..=8191).contains(&imm14) {
+            return Err(LowerError::InvalidOperand {
+                op: "AArch64 test branch".into(),
+                operand: format!("offset={offset}"),
+            });
+        }
+
+        let b5 = bit >> 5;
+        let b40 = bit & 0x1f;
+        self.emit(
+            (b5 << 31)
+                | (0b011011 << 25)
+                | ((nonzero as u32) << 24)
+                | (b40 << 19)
+                | (((imm14 as u32) & 0x3fff) << 5)
+                | (rt as u32),
+        );
+        Ok(())
+    }
+
     fn emit_dp3(
         &mut self,
         dst: u8,
@@ -2367,12 +2407,34 @@ impl Aarch64Lowerer {
         shift: ShiftOp,
         width: OpWidth,
     ) -> Result<(), LowerError> {
-        if width == OpWidth::W32 && !matches!(shift, ShiftOp::Ror) {
-            return Err(LowerError::UnsupportedOp {
-                op: format!(
-                    "AArch64 native W32 variable {shift:?} count semantics differ from SMIR"
-                ),
-            });
+        if width == OpWidth::W32 {
+            match shift {
+                ShiftOp::Lsl | ShiftOp::Lsr => {
+                    if dst == amount {
+                        return Err(LowerError::UnsupportedOp {
+                            op: format!(
+                                "AArch64 native W32 variable {shift:?} needs a scratch when dst == count"
+                            ),
+                        });
+                    }
+                    let opcode2 = match shift {
+                        ShiftOp::Lsl => 0b1000,
+                        ShiftOp::Lsr => 0b1001,
+                        _ => unreachable!(),
+                    };
+                    self.emit_dp2(dst, src, amount, opcode2, width)?;
+                    self.emit_test_branch(amount, 5, false, 8)?;
+                    return self.emit_mov_reg(dst, 31, width);
+                }
+                ShiftOp::Ror => {}
+                _ => {
+                    return Err(LowerError::UnsupportedOp {
+                        op: format!(
+                            "AArch64 native W32 variable {shift:?} count semantics differ from SMIR"
+                        ),
+                    });
+                }
+            }
         }
 
         let opcode2 = match shift {
@@ -4688,6 +4750,10 @@ mod tests {
         enc_dp1_regs(sf, opcode, 1, 0)
     }
 
+    fn enc_dp2_regs(sf: u32, opcode2: u32, rn: u32, rm: u32, rd: u32) -> u32 {
+        (sf << 31) | (0b0011010110 << 21) | (rm << 16) | (opcode2 << 10) | (rn << 5) | rd
+    }
+
     fn enc_bitfield_regs(sf: u32, opc: u32, immr: u32, imms: u32, rn: u32, rd: u32) -> u32 {
         (sf << 31)
             | (opc << 29)
@@ -4787,6 +4853,18 @@ mod tests {
             | (op2 << 10)
             | (rn << 5)
             | rd
+    }
+
+    fn enc_test_branch(rt: u32, bit: u32, nonzero: bool, offset: i32) -> u32 {
+        let b5 = bit >> 5;
+        let b40 = bit & 0x1f;
+        let imm14 = ((offset >> 2) as u32) & 0x3fff;
+        (b5 << 31)
+            | (0b011011 << 25)
+            | ((nonzero as u32) << 24)
+            | (b40 << 19)
+            | (imm14 << 5)
+            | rt
     }
 
     #[test]
@@ -5918,6 +5996,62 @@ mod tests {
 
         let mut expected = Vec::new();
         expected.extend_from_slice(&enc_extract(0, 1, 1, 25).to_le_bytes());
+        expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
+        assert_eq!(code, expected);
+    }
+
+    #[test]
+    fn lowers_shl_w_reg_with_x86_count_guard() {
+        let mut builder = FunctionBuilder::new(FunctionId(0), 0);
+        builder.push_op(
+            0,
+            OpKind::Shl {
+                dst: x(0),
+                src: x(1),
+                amount: SrcOperand::Reg(x(2)),
+                width: OpWidth::W32,
+                flags: FlagUpdate::None,
+            },
+        );
+        builder.set_terminator(Terminator::Return { values: vec![] });
+        let func = builder.finish();
+
+        let mut lowerer = Aarch64Lowerer::new();
+        lowerer.lower_function(&func).unwrap();
+        let code = lowerer.finalize().unwrap();
+
+        let mut expected = Vec::new();
+        expected.extend_from_slice(&enc_dp2_regs(0, 0b1000, 1, 2, 0).to_le_bytes());
+        expected.extend_from_slice(&enc_test_branch(2, 5, false, 8).to_le_bytes());
+        expected.extend_from_slice(&enc_mov_reg(0, 0, 31).to_le_bytes());
+        expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
+        assert_eq!(code, expected);
+    }
+
+    #[test]
+    fn lowers_shr_w_reg_with_x86_count_guard() {
+        let mut builder = FunctionBuilder::new(FunctionId(0), 0);
+        builder.push_op(
+            0,
+            OpKind::Shr {
+                dst: x(0),
+                src: x(1),
+                amount: SrcOperand::Reg(x(2)),
+                width: OpWidth::W32,
+                flags: FlagUpdate::None,
+            },
+        );
+        builder.set_terminator(Terminator::Return { values: vec![] });
+        let func = builder.finish();
+
+        let mut lowerer = Aarch64Lowerer::new();
+        lowerer.lower_function(&func).unwrap();
+        let code = lowerer.finalize().unwrap();
+
+        let mut expected = Vec::new();
+        expected.extend_from_slice(&enc_dp2_regs(0, 0b1001, 1, 2, 0).to_le_bytes());
+        expected.extend_from_slice(&enc_test_branch(2, 5, false, 8).to_le_bytes());
+        expected.extend_from_slice(&enc_mov_reg(0, 0, 31).to_le_bytes());
         expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
         assert_eq!(code, expected);
     }
@@ -7588,6 +7722,48 @@ mod tests {
                 amount: SrcOperand::Imm(1),
                 width: OpWidth::W64,
                 flags: FlagUpdate::All,
+            },
+        );
+        builder.set_terminator(Terminator::Return { values: vec![] });
+        let func = builder.finish();
+
+        let mut lowerer = Aarch64Lowerer::new();
+        let err = lowerer.lower_function(&func).unwrap_err();
+        assert!(matches!(err, LowerError::UnsupportedOp { .. }));
+    }
+
+    #[test]
+    fn rejects_sar_w_reg_count_lowering() {
+        let mut builder = FunctionBuilder::new(FunctionId(0), 0);
+        builder.push_op(
+            0,
+            OpKind::Sar {
+                dst: x(0),
+                src: x(1),
+                amount: SrcOperand::Reg(x(2)),
+                width: OpWidth::W32,
+                flags: FlagUpdate::None,
+            },
+        );
+        builder.set_terminator(Terminator::Return { values: vec![] });
+        let func = builder.finish();
+
+        let mut lowerer = Aarch64Lowerer::new();
+        let err = lowerer.lower_function(&func).unwrap_err();
+        assert!(matches!(err, LowerError::UnsupportedOp { .. }));
+    }
+
+    #[test]
+    fn rejects_shl_w_reg_count_when_dst_is_count() {
+        let mut builder = FunctionBuilder::new(FunctionId(0), 0);
+        builder.push_op(
+            0,
+            OpKind::Shl {
+                dst: x(2),
+                src: x(1),
+                amount: SrcOperand::Reg(x(2)),
+                width: OpWidth::W32,
+                flags: FlagUpdate::None,
             },
         );
         builder.set_terminator(Terminator::Return { values: vec![] });
