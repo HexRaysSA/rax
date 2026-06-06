@@ -2358,6 +2358,35 @@ impl Aarch64Lowerer {
         }
     }
 
+    fn lower_rol(
+        &mut self,
+        dst: VReg,
+        src: VReg,
+        amount: &SrcOperand,
+        set_flags: bool,
+        width: OpWidth,
+    ) -> Result<(), LowerError> {
+        if set_flags {
+            return Err(LowerError::UnsupportedOp {
+                op: "AArch64 native flag-setting Rol".into(),
+            });
+        }
+
+        let dst = Self::dst_gpr(dst)?;
+        let src = Self::gpr(src)?;
+        let bits = width.bits();
+        match amount {
+            SrcOperand::Imm(imm) | SrcOperand::Imm64(imm) => {
+                let amount = (*imm as u64 & u64::from(bits - 1)) as u32;
+                let ror = if amount == 0 { 0 } else { bits - amount };
+                self.lower_shift_imm(dst, src, i64::from(ror), ShiftOp::Ror, width)
+            }
+            other => Err(LowerError::UnsupportedOp {
+                op: format!("AArch64 native Rol amount {other:?}"),
+            }),
+        }
+    }
+
     fn lower_test_condition(&mut self, dst: VReg, cond: Condition) -> Result<(), LowerError> {
         if cond == Condition::Always {
             return self.emit_mov_imm(Self::dst_gpr(dst)?, 1, OpWidth::W64);
@@ -3818,6 +3847,13 @@ impl Aarch64Lowerer {
                 flags.updates_any(),
                 *width,
             ),
+            OpKind::Rol {
+                dst,
+                src,
+                amount,
+                width,
+                flags,
+            } => self.lower_rol(*dst, *src, amount, flags.updates_any(), *width),
             OpKind::Select {
                 dst,
                 cond,
@@ -4875,6 +4911,58 @@ mod tests {
     }
 
     #[test]
+    fn lowers_rol_x_imm_as_ror() {
+        let mut builder = FunctionBuilder::new(FunctionId(0), 0);
+        builder.push_op(
+            0,
+            OpKind::Rol {
+                dst: x(0),
+                src: x(1),
+                amount: SrcOperand::Imm(13),
+                width: OpWidth::W64,
+                flags: FlagUpdate::None,
+            },
+        );
+        builder.set_terminator(Terminator::Return { values: vec![] });
+        let func = builder.finish();
+
+        let mut lowerer = Aarch64Lowerer::new();
+        lowerer.lower_function(&func).unwrap();
+        let code = lowerer.finalize().unwrap();
+
+        let mut expected = Vec::new();
+        expected.extend_from_slice(&enc_extract(1, 1, 1, 51).to_le_bytes());
+        expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
+        assert_eq!(code, expected);
+    }
+
+    #[test]
+    fn lowers_rol_w_imm_as_ror_zero_ext() {
+        let mut builder = FunctionBuilder::new(FunctionId(0), 0);
+        builder.push_op(
+            0,
+            OpKind::Rol {
+                dst: x(0),
+                src: x(1),
+                amount: SrcOperand::Imm(7),
+                width: OpWidth::W32,
+                flags: FlagUpdate::None,
+            },
+        );
+        builder.set_terminator(Terminator::Return { values: vec![] });
+        let func = builder.finish();
+
+        let mut lowerer = Aarch64Lowerer::new();
+        lowerer.lower_function(&func).unwrap();
+        let code = lowerer.finalize().unwrap();
+
+        let mut expected = Vec::new();
+        expected.extend_from_slice(&enc_extract(0, 1, 1, 25).to_le_bytes());
+        expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
+        assert_eq!(code, expected);
+    }
+
+    #[test]
     fn fuses_lifted_rev16_x_sequence() {
         let lo = VReg::virt(0);
         let hi = VReg::virt(1);
@@ -5410,6 +5498,48 @@ mod tests {
                 amount: SrcOperand::Imm(1),
                 width: OpWidth::W64,
                 flags: FlagUpdate::All,
+            },
+        );
+        builder.set_terminator(Terminator::Return { values: vec![] });
+        let func = builder.finish();
+
+        let mut lowerer = Aarch64Lowerer::new();
+        let err = lowerer.lower_function(&func).unwrap_err();
+        assert!(matches!(err, LowerError::UnsupportedOp { .. }));
+    }
+
+    #[test]
+    fn rejects_flag_setting_rol_lowering() {
+        let mut builder = FunctionBuilder::new(FunctionId(0), 0);
+        builder.push_op(
+            0,
+            OpKind::Rol {
+                dst: x(0),
+                src: x(1),
+                amount: SrcOperand::Imm(1),
+                width: OpWidth::W64,
+                flags: FlagUpdate::All,
+            },
+        );
+        builder.set_terminator(Terminator::Return { values: vec![] });
+        let func = builder.finish();
+
+        let mut lowerer = Aarch64Lowerer::new();
+        let err = lowerer.lower_function(&func).unwrap_err();
+        assert!(matches!(err, LowerError::UnsupportedOp { .. }));
+    }
+
+    #[test]
+    fn rejects_rol_register_amount_lowering() {
+        let mut builder = FunctionBuilder::new(FunctionId(0), 0);
+        builder.push_op(
+            0,
+            OpKind::Rol {
+                dst: x(0),
+                src: x(1),
+                amount: SrcOperand::Reg(x(2)),
+                width: OpWidth::W64,
+                flags: FlagUpdate::None,
             },
         );
         builder.set_terminator(Terminator::Return { values: vec![] });
