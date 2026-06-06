@@ -784,6 +784,12 @@ impl Aarch64Decoder {
             imm19 << 2
         };
 
+        if opc == 0b11 && v == 0 {
+            return Ok(DecodedInsn::new(Mnemonic::PRFM, ExecutionState::Aarch64, raw, 4)
+                .with_operand(Operand::Prfop(PrefetchOp::from_bits(rt)))
+                .with_operand(Operand::Label(offset)));
+        }
+
         let (mnemonic, is_64bit) = match (opc, v) {
             (0b00, 0) => (Mnemonic::LDR, false),  // LDR Wt
             (0b01, 0) => (Mnemonic::LDR, true),   // LDR Xt

@@ -1060,6 +1060,11 @@ fn enc_hint(crm: u32, op2: u32) -> u32 {
 }
 
 #[cfg(all(feature = "smir-jit", target_arch = "x86_64"))]
+fn enc_prfm_lit(rt: u32, imm19: i32) -> u32 {
+    (0b11 << 30) | (0b011 << 27) | (((imm19 as u32) & 0x7ffff) << 5) | (rt & 0x1f)
+}
+
+#[cfg(all(feature = "smir-jit", target_arch = "x86_64"))]
 fn enc_cfinv() -> u32 {
     enc_flagm(0b000)
 }
@@ -1308,6 +1313,9 @@ fn smir_aarch64_x86_scalar_lowering_matches_qemu_oracle() {
         ("bti_c", enc_hint(0b0100, 0b010)),
         ("bti_j", enc_hint(0b0100, 0b100)),
         ("bti_jc", enc_hint(0b0100, 0b110)),
+        ("prfm_lit_pldl1keep", enc_prfm_lit(0, 0)),
+        ("prfm_lit_pstl3strm", enc_prfm_lit(0b10101, 3)),
+        ("prfm_lit_raw31_neg", enc_prfm_lit(31, -1)),
         ("cfinv", enc_cfinv()),
         ("axflag", enc_axflag()),
         ("xaflag", enc_xaflag()),

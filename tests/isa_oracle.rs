@@ -90,6 +90,27 @@ fn decodes_arm_aarch64_bti_hints() {
 }
 
 #[test]
+fn decodes_arm_aarch64_prfm_literal() {
+    let mut opts = OracleOptions::default();
+    opts.isa = OracleIsa::Arm;
+    opts.arm_state = ArmState::Aarch64;
+
+    let cases = [
+        (0xd800_0000u32, "Prfop(PLDL1KEEP)", "Label(0)"),
+        (0xd800_0075u32, "Prfop(PSTL3STRM)", "Label(12)"),
+        (0xd8ff_ffffu32, "Prfop(Raw(31))", "Label(-4)"),
+    ];
+
+    for (raw, prfop, label) in cases {
+        let value = decode_to_json(&raw.to_le_bytes(), &opts).unwrap();
+        let op = &value["decoded_ops"][0];
+        assert_eq!(op["mnemonic"], "prfm");
+        assert_eq!(op["operands"][0], prfop);
+        assert_eq!(op["operands"][1], label);
+    }
+}
+
+#[test]
 fn decodes_x86_with_smir_lift() {
     let mut opts = OracleOptions::default();
     opts.isa = OracleIsa::X86_64;

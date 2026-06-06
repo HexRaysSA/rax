@@ -1543,6 +1543,10 @@ impl Aarch64Lifter {
                 self.lift_store_pair(insn, pc, &mut ops, ctx)?;
             }
 
+            Mnemonic::PRFM => {
+                push_op!(OpKind::Nop);
+            }
+
             // =================================================================
             // Branches
             // =================================================================
