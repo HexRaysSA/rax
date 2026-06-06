@@ -1326,6 +1326,43 @@ impl Aarch64Lifter {
                 }
             }
 
+            Mnemonic::TBZ | Mnemonic::TBNZ => {
+                if let (
+                    Some(Operand::Reg(rt)),
+                    Some(Operand::Imm(bit)),
+                    Some(Operand::Label(offset)),
+                ) = (
+                    insn.operands.get(0),
+                    insn.operands.get(1),
+                    insn.operands.get(2),
+                ) {
+                    let bit = bit.effective_value() as u32;
+                    let target = (pc as i64).wrapping_add(*offset) as u64;
+                    let fallthrough = pc + 4;
+                    let masked = ctx.alloc_vreg();
+                    let mask = (1u64 << bit) as i64;
+
+                    push_op!(OpKind::And {
+                        dst: masked,
+                        src1: self.arm_reg(rt),
+                        src2: SrcOperand::Imm64(mask),
+                        width: self.reg_width(rt),
+                        flags: FlagUpdate::None,
+                    });
+
+                    let (taken, not_taken) = if insn.mnemonic == Mnemonic::TBNZ {
+                        (target, fallthrough)
+                    } else {
+                        (fallthrough, target)
+                    };
+                    control = ControlFlow::CondBranchReg {
+                        cond: masked,
+                        taken,
+                        not_taken,
+                    };
+                }
+            }
+
             // =================================================================
             // System
             // =================================================================
@@ -2253,6 +2290,12 @@ impl crate::smir::lift::SmirLifter for Aarch64Lifter {
             } => {
                 branch_targets.push(*target);
                 branch_targets.push(*fallthrough);
+            }
+            ControlFlow::CondBranchReg {
+                taken, not_taken, ..
+            } => {
+                branch_targets.push(*taken);
+                branch_targets.push(*not_taken);
             }
             ControlFlow::Call {
                 target: CallTarget::GuestAddr(target),
