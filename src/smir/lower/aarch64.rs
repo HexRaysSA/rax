@@ -2004,6 +2004,7 @@ impl Aarch64Lowerer {
         }
 
         let (mask_bits, mask_width) = match width {
+            OpWidth::W8 => (3, OpWidth::W32),
             OpWidth::W16 => (4, OpWidth::W32),
             OpWidth::W32 => (5, OpWidth::W32),
             OpWidth::W64 => (6, OpWidth::W64),
@@ -8291,6 +8292,34 @@ mod tests {
         expected.extend_from_slice(&enc_dp1_regs(0, 0b000000, 0, 0).to_le_bytes());
         expected.extend_from_slice(&enc_dp1_regs(0, 0b000100, 0, 0).to_le_bytes());
         expected.extend_from_slice(&enc_bitfield_regs(0, 0b10, 0, 3, 0, 0).to_le_bytes());
+        expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
+        assert_eq!(code, expected);
+    }
+
+    #[test]
+    fn lowers_bsf_w8_as_sentinel_rbit_clz_ubfx() {
+        let mut builder = FunctionBuilder::new(FunctionId(0), 0);
+        builder.push_op(
+            0,
+            OpKind::Bsf {
+                dst: x(0),
+                src: x(1),
+                width: OpWidth::W8,
+                flags: FlagUpdate::None,
+            },
+        );
+        builder.set_terminator(Terminator::Return { values: vec![] });
+        let func = builder.finish();
+
+        let mut lowerer = Aarch64Lowerer::new();
+        lowerer.lower_function(&func).unwrap();
+        let code = lowerer.finalize().unwrap();
+
+        let mut expected = Vec::new();
+        expected.extend_from_slice(&enc_logical_imm(0, 0b01, 0, 24, 0, 0, 1).to_le_bytes());
+        expected.extend_from_slice(&enc_dp1_regs(0, 0b000000, 0, 0).to_le_bytes());
+        expected.extend_from_slice(&enc_dp1_regs(0, 0b000100, 0, 0).to_le_bytes());
+        expected.extend_from_slice(&enc_bitfield_regs(0, 0b10, 0, 2, 0, 0).to_le_bytes());
         expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
         assert_eq!(code, expected);
     }
