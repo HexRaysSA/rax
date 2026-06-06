@@ -5324,6 +5324,54 @@ fn smir_aarch64_native_lowering_matches_qemu_oracle() {
     );
 
     let mut st = native_state();
+    st.x[0] = 0xaaaa_bbbb_cccc_dddd;
+    st.x[1] = 0x1111_2222_3333_44f0;
+    st.pstate = 0xf000_0000;
+    push_case(
+        "truncate_x_to_w8_as_ubfx_preserves_flags",
+        enc_bitfield_rn(1, 0b10, 0, 7, RN),
+        vec![OpKind::Truncate {
+            dst: arm_x(0),
+            src: arm_x(1),
+            from_width: OpWidth::W64,
+            to_width: OpWidth::W8,
+        }],
+        st,
+    );
+
+    let mut st = native_state();
+    st.x[0] = 0xbbbb_cccc_dddd_eeee;
+    st.x[1] = 0x2222_3333_4444_8ace;
+    st.pstate = 0x6000_0000;
+    push_case(
+        "truncate_x_to_w16_as_ubfx_preserves_flags",
+        enc_bitfield_rn(1, 0b10, 0, 15, RN),
+        vec![OpKind::Truncate {
+            dst: arm_x(0),
+            src: arm_x(1),
+            from_width: OpWidth::W64,
+            to_width: OpWidth::W16,
+        }],
+        st,
+    );
+
+    let mut st = native_state();
+    st.x[0] = 0xcccc_dddd_eeee_ffff;
+    st.x[1] = 0x3333_4444_8765_4321;
+    st.pstate = 0x9000_0000;
+    push_case(
+        "truncate_x_to_w32_as_w_mov_zero_ext_preserves_flags",
+        enc_logical_shift_regs(0, 0b01, 0, 0, 0, RD, 31, RN),
+        vec![OpKind::Truncate {
+            dst: arm_x(0),
+            src: arm_x(1),
+            from_width: OpWidth::W64,
+            to_width: OpWidth::W32,
+        }],
+        st,
+    );
+
+    let mut st = native_state();
     st.x[0] = 0x9999_aaaa_bbbb_cccc;
     st.pstate = 0;
     push_case(
