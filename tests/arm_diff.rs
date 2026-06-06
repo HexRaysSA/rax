@@ -542,8 +542,17 @@ fn three_same_cases() -> Vec<(String, u32)> {
 }
 
 /// Data-processing (2 source): `sf 0 0 11010110 Rm opcode2 Rn Rd`
+fn enc_dp2_regs(sf: u32, opcode2: u32, rn: u32, rm: u32, rd: u32) -> u32 {
+    (sf << 31)
+        | (0b0011010110 << 21)
+        | ((rm & 0x1f) << 16)
+        | (opcode2 << 10)
+        | ((rn & 0x1f) << 5)
+        | (rd & 0x1f)
+}
+
 fn enc_dp2(sf: u32, opcode2: u32) -> u32 {
-    (sf << 31) | (0b0011010110 << 21) | (RM << 16) | (opcode2 << 10) | (RN << 5) | RD
+    enc_dp2_regs(sf, opcode2, RN, RM, RD)
 }
 
 fn enc_crc32_x(castagnoli: bool) -> u32 {
@@ -7505,6 +7514,71 @@ fn smir_aarch64_native_lowering_matches_qemu_oracle() {
             src: arm_x(1),
             amount: SrcOperand::Reg(arm_x(2)),
             width: OpWidth::W32,
+            flags: FlagUpdate::None,
+        }],
+        st,
+    );
+
+    let mut st = native_state();
+    st.x[0] = 0xaaaa_bbbb_cccc_dddd;
+    st.x[1] = 0x0123_4567_89ab_cdef;
+    st.x[2] = 13;
+    st.pstate = 0x3000_0000;
+    push_case3(
+        "rol_x_reg_as_neg_count_rorv_preserves_flags",
+        [
+            enc_addsub_shift_regs(1, 1, 0, 0, 0, RD, 31, RM),
+            enc_dp2_regs(1, 0b1011, RN, RD, RD),
+            NOP,
+        ],
+        vec![OpKind::Rol {
+            dst: arm_x(0),
+            src: arm_x(1),
+            amount: SrcOperand::Reg(arm_x(2)),
+            width: OpWidth::W64,
+            flags: FlagUpdate::None,
+        }],
+        st,
+    );
+
+    let mut st = native_state();
+    st.x[0] = 0xbbbb_cccc_dddd_eeee;
+    st.x[1] = 0xaaaa_bbbb_89ab_cdef;
+    st.x[2] = 9;
+    st.pstate = 0xc000_0000;
+    push_case3(
+        "rol_w_reg_as_neg_count_rorv_zero_ext_preserves_flags",
+        [
+            enc_addsub_shift_regs(0, 1, 0, 0, 0, RD, 31, RM),
+            enc_dp2_regs(0, 0b1011, RN, RD, RD),
+            NOP,
+        ],
+        vec![OpKind::Rol {
+            dst: arm_x(0),
+            src: arm_x(1),
+            amount: SrcOperand::Reg(arm_x(2)),
+            width: OpWidth::W32,
+            flags: FlagUpdate::None,
+        }],
+        st,
+    );
+
+    let mut st = native_state();
+    st.x[1] = 0xfedc_ba98_7654_3210;
+    st.x[2] = 41;
+    st.pstate = 0x5000_0000;
+    push_case3(
+        "rol_x_reg_dst_is_count_preserves_flags",
+        [
+            enc_addsub_shift_regs(1, 1, 0, 0, 0, RM, 31, RM),
+            enc_dp2_regs(1, 0b1011, RN, RM, RM),
+            NOP,
+        ],
+        vec![OpKind::Rol {
+            dst: arm_x(2),
+            src: arm_x(1),
+            amount: SrcOperand::Reg(arm_x(2)),
+            width: OpWidth::W64,
             flags: FlagUpdate::None,
         }],
         st,

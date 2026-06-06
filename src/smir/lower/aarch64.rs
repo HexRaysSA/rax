@@ -2841,6 +2841,17 @@ impl Aarch64Lowerer {
                 let ror = if amount == 0 { 0 } else { bits - amount };
                 self.lower_shift_imm(dst, src, i64::from(ror), ShiftOp::Ror, width)
             }
+            SrcOperand::Reg(reg) => {
+                if dst == src {
+                    return Err(LowerError::UnsupportedOp {
+                        op: "AArch64 native Rol register amount needs a scratch when dst == src"
+                            .into(),
+                    });
+                }
+                let amount = Self::gpr(*reg)?;
+                self.emit_addsub_reg(dst, 31, amount, true, false, width)?;
+                self.emit_dp2(dst, src, dst, 0b1011, width)
+            }
             other => Err(LowerError::UnsupportedOp {
                 op: format!("AArch64 native Rol amount {other:?}"),
             }),
@@ -7796,13 +7807,94 @@ mod tests {
     }
 
     #[test]
-    fn rejects_rol_register_amount_lowering() {
+    fn lowers_rol_x_reg_as_neg_count_rorv() {
         let mut builder = FunctionBuilder::new(FunctionId(0), 0);
         builder.push_op(
             0,
             OpKind::Rol {
                 dst: x(0),
                 src: x(1),
+                amount: SrcOperand::Reg(x(2)),
+                width: OpWidth::W64,
+                flags: FlagUpdate::None,
+            },
+        );
+        builder.set_terminator(Terminator::Return { values: vec![] });
+        let func = builder.finish();
+
+        let mut lowerer = Aarch64Lowerer::new();
+        lowerer.lower_function(&func).unwrap();
+        let code = lowerer.finalize().unwrap();
+
+        let mut expected = Vec::new();
+        expected.extend_from_slice(&enc_addsub_shift_regs(1, 1, 0, 0, 0, 0, 31, 2).to_le_bytes());
+        expected.extend_from_slice(&enc_dp2_regs(1, 0b1011, 1, 0, 0).to_le_bytes());
+        expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
+        assert_eq!(code, expected);
+    }
+
+    #[test]
+    fn lowers_rol_w_reg_as_neg_count_rorv_zero_ext() {
+        let mut builder = FunctionBuilder::new(FunctionId(0), 0);
+        builder.push_op(
+            0,
+            OpKind::Rol {
+                dst: x(0),
+                src: x(1),
+                amount: SrcOperand::Reg(x(2)),
+                width: OpWidth::W32,
+                flags: FlagUpdate::None,
+            },
+        );
+        builder.set_terminator(Terminator::Return { values: vec![] });
+        let func = builder.finish();
+
+        let mut lowerer = Aarch64Lowerer::new();
+        lowerer.lower_function(&func).unwrap();
+        let code = lowerer.finalize().unwrap();
+
+        let mut expected = Vec::new();
+        expected.extend_from_slice(&enc_addsub_shift_regs(0, 1, 0, 0, 0, 0, 31, 2).to_le_bytes());
+        expected.extend_from_slice(&enc_dp2_regs(0, 0b1011, 1, 0, 0).to_le_bytes());
+        expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
+        assert_eq!(code, expected);
+    }
+
+    #[test]
+    fn lowers_rol_x_reg_when_dst_is_count() {
+        let mut builder = FunctionBuilder::new(FunctionId(0), 0);
+        builder.push_op(
+            0,
+            OpKind::Rol {
+                dst: x(2),
+                src: x(1),
+                amount: SrcOperand::Reg(x(2)),
+                width: OpWidth::W64,
+                flags: FlagUpdate::None,
+            },
+        );
+        builder.set_terminator(Terminator::Return { values: vec![] });
+        let func = builder.finish();
+
+        let mut lowerer = Aarch64Lowerer::new();
+        lowerer.lower_function(&func).unwrap();
+        let code = lowerer.finalize().unwrap();
+
+        let mut expected = Vec::new();
+        expected.extend_from_slice(&enc_addsub_shift_regs(1, 1, 0, 0, 0, 2, 31, 2).to_le_bytes());
+        expected.extend_from_slice(&enc_dp2_regs(1, 0b1011, 1, 2, 2).to_le_bytes());
+        expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
+        assert_eq!(code, expected);
+    }
+
+    #[test]
+    fn rejects_rol_register_amount_when_dst_is_src() {
+        let mut builder = FunctionBuilder::new(FunctionId(0), 0);
+        builder.push_op(
+            0,
+            OpKind::Rol {
+                dst: x(0),
+                src: x(0),
                 amount: SrcOperand::Reg(x(2)),
                 width: OpWidth::W64,
                 flags: FlagUpdate::None,
