@@ -3185,10 +3185,51 @@ impl Aarch64Lowerer {
             }
             return Ok(());
         }
-        if !signed && rem.is_none() {
+        if !signed {
             if let Some(imm) = Self::src_imm(src2) {
                 let divisor = (imm as u64) & width.mask();
                 if divisor.is_power_of_two() && divisor > 1 {
+                    if let Some(rem) = rem {
+                        let emit_width = match width {
+                            OpWidth::W32 | OpWidth::W64 => width,
+                            other => {
+                                return Err(LowerError::UnsupportedOp {
+                                    op: format!("AArch64 native divide width {other:?}"),
+                                });
+                            }
+                        };
+                        let quot = Self::dst_gpr(quot)?;
+                        let rem = Self::dst_gpr(rem)?;
+                        if quot == rem {
+                            return Err(LowerError::UnsupportedOp {
+                                op: "AArch64 native divide quotient/remainder overlap".into(),
+                            });
+                        }
+                        let rn = Self::gpr(src1)?;
+                        let shift = divisor.trailing_zeros();
+                        let mask = (divisor - 1) as i64;
+                        let (n, immr, imms) = Self::logical_bitmask_imm(mask, emit_width)?;
+                        if quot == rn {
+                            self.emit_logic_imm(rem, rn, 0b00, n, immr, imms, emit_width)?;
+                            return self.emit_bitfield(
+                                quot,
+                                rn,
+                                0b10,
+                                shift,
+                                emit_width.bits() - 1,
+                                emit_width,
+                            );
+                        }
+                        self.emit_bitfield(
+                            quot,
+                            rn,
+                            0b10,
+                            shift,
+                            emit_width.bits() - 1,
+                            emit_width,
+                        )?;
+                        return self.emit_logic_imm(rem, rn, 0b00, n, immr, imms, emit_width);
+                    }
                     let emit_width = match width {
                         OpWidth::W8 | OpWidth::W16 => OpWidth::W32,
                         OpWidth::W32 | OpWidth::W64 => width,
@@ -7414,6 +7455,112 @@ mod tests {
         expected.extend_from_slice(&enc_bitfield_regs(0, 0b10, 15, 15, 1, 3).to_le_bytes());
         expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
         assert_eq!(code, expected);
+    }
+
+    #[test]
+    fn lowers_divu_x_imm_power_of_two_with_remainder_as_lsr_and() {
+        let mut builder = FunctionBuilder::new(FunctionId(0), 0);
+        builder.push_op(
+            0,
+            OpKind::DivU {
+                quot: x(0),
+                rem: Some(x(3)),
+                src1: x(1),
+                src2: SrcOperand::Imm(8),
+                width: OpWidth::W64,
+                flags: FlagUpdate::None,
+            },
+        );
+        builder.set_terminator(Terminator::Return { values: vec![] });
+        let func = builder.finish();
+
+        let mut lowerer = Aarch64Lowerer::new();
+        lowerer.lower_function(&func).unwrap();
+        let code = lowerer.finalize().unwrap();
+
+        let mut expected = Vec::new();
+        expected.extend_from_slice(&enc_bitfield(1, 0b10, 3, 63).to_le_bytes());
+        expected.extend_from_slice(&enc_logical_imm(1, 0b00, 1, 0, 2, 3, 1).to_le_bytes());
+        expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
+        assert_eq!(code, expected);
+    }
+
+    #[test]
+    fn lowers_divu_w_imm_power_of_two_remainder_before_aliasing_quotient() {
+        let mut builder = FunctionBuilder::new(FunctionId(0), 0);
+        builder.push_op(
+            0,
+            OpKind::DivU {
+                quot: x(1),
+                rem: Some(x(3)),
+                src1: x(1),
+                src2: SrcOperand::Imm64(32),
+                width: OpWidth::W32,
+                flags: FlagUpdate::None,
+            },
+        );
+        builder.set_terminator(Terminator::Return { values: vec![] });
+        let func = builder.finish();
+
+        let mut lowerer = Aarch64Lowerer::new();
+        lowerer.lower_function(&func).unwrap();
+        let code = lowerer.finalize().unwrap();
+
+        let mut expected = Vec::new();
+        expected.extend_from_slice(&enc_logical_imm(0, 0b00, 0, 0, 4, 3, 1).to_le_bytes());
+        expected.extend_from_slice(&enc_bitfield_regs(0, 0b10, 5, 31, 1, 1).to_le_bytes());
+        expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
+        assert_eq!(code, expected);
+    }
+
+    #[test]
+    fn lowers_divu_x_imm_power_of_two_remainder_after_aliasing_dividend() {
+        let mut builder = FunctionBuilder::new(FunctionId(0), 0);
+        builder.push_op(
+            0,
+            OpKind::DivU {
+                quot: x(0),
+                rem: Some(x(1)),
+                src1: x(1),
+                src2: SrcOperand::Imm(16),
+                width: OpWidth::W64,
+                flags: FlagUpdate::None,
+            },
+        );
+        builder.set_terminator(Terminator::Return { values: vec![] });
+        let func = builder.finish();
+
+        let mut lowerer = Aarch64Lowerer::new();
+        lowerer.lower_function(&func).unwrap();
+        let code = lowerer.finalize().unwrap();
+
+        let mut expected = Vec::new();
+        expected.extend_from_slice(&enc_bitfield(1, 0b10, 4, 63).to_le_bytes());
+        expected.extend_from_slice(&enc_logical_imm(1, 0b00, 1, 0, 3, 1, 1).to_le_bytes());
+        expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
+        assert_eq!(code, expected);
+    }
+
+    #[test]
+    fn rejects_divu_imm_power_of_two_when_quotient_aliases_remainder() {
+        let mut builder = FunctionBuilder::new(FunctionId(0), 0);
+        builder.push_op(
+            0,
+            OpKind::DivU {
+                quot: x(0),
+                rem: Some(x(0)),
+                src1: x(1),
+                src2: SrcOperand::Imm(8),
+                width: OpWidth::W64,
+                flags: FlagUpdate::None,
+            },
+        );
+        builder.set_terminator(Terminator::Return { values: vec![] });
+        let func = builder.finish();
+
+        let mut lowerer = Aarch64Lowerer::new();
+        let err = lowerer.lower_function(&func).unwrap_err();
+        assert!(matches!(err, LowerError::UnsupportedOp { .. }));
     }
 
     #[test]
