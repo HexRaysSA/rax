@@ -604,6 +604,21 @@ fn enc_addsub_shift(sf: u32, op: u32, s: u32, shift: u32, imm6: u32) -> u32 {
         | RD
 }
 
+/// Add/subtract (extended register): `sf op S 01011 00 1 Rm option imm3 Rn Rd`
+#[cfg(all(feature = "smir-jit", target_arch = "x86_64"))]
+fn enc_addsub_ext(sf: u32, op: u32, s: u32, option: u32, imm3: u32) -> u32 {
+    (sf << 31)
+        | (op << 30)
+        | (s << 29)
+        | (0b01011 << 24)
+        | (1 << 21)
+        | (RM << 16)
+        | (option << 13)
+        | (imm3 << 10)
+        | (RN << 5)
+        | RD
+}
+
 fn addsub_shift_cases() -> Vec<(String, u32)> {
     let mut v = Vec::new();
     for sf in 0..2 {
@@ -1030,6 +1045,11 @@ fn smir_aarch64_x86_scalar_lowering_matches_qemu_oracle() {
         ("subs_x", enc_addsub_shift(1, 1, 1, 0, 0)),
         ("add_w_zero_ext", enc_addsub_shift(0, 0, 0, 0, 0)),
         ("sub_w_zero_ext", enc_addsub_shift(0, 1, 0, 0, 0)),
+        ("add_x_lsl7", enc_addsub_shift(1, 0, 0, 0, 7)),
+        ("subs_w_asr31_zero_ext", enc_addsub_shift(0, 1, 1, 2, 31)),
+        ("add_x_uxtw", enc_addsub_ext(1, 0, 0, 0b010, 0)),
+        ("add_x_sxtw_lsl2", enc_addsub_ext(1, 0, 0, 0b110, 2)),
+        ("subs_w_uxtb_lsl1_zero_ext", enc_addsub_ext(0, 1, 1, 0b000, 1)),
         ("adc_x", enc_addsub_carry(1, 0, 0)),
         ("adcs_x", enc_addsub_carry(1, 0, 1)),
         ("sbc_x", enc_addsub_carry(1, 1, 0)),
@@ -1042,6 +1062,14 @@ fn smir_aarch64_x86_scalar_lowering_matches_qemu_oracle() {
         ("ands_x", enc_logical_shift(1, 3, 0, 0, 0)),
         ("orr_x", enc_logical_shift(1, 1, 0, 0, 0)),
         ("eor_x", enc_logical_shift(1, 2, 0, 0, 0)),
+        ("bic_x", enc_logical_shift(1, 0, 0, 1, 0)),
+        ("orn_x", enc_logical_shift(1, 1, 0, 1, 0)),
+        ("eon_x", enc_logical_shift(1, 2, 0, 1, 0)),
+        ("and_w_asr31_zero_ext", enc_logical_shift(0, 0, 2, 0, 31)),
+        ("bic_x_lsl4", enc_logical_shift(1, 0, 0, 1, 4)),
+        ("orn_x_lsr8", enc_logical_shift(1, 1, 1, 1, 8)),
+        ("eon_w_ror4_zero_ext", enc_logical_shift(0, 2, 3, 1, 4)),
+        ("ands_x_lsr1", enc_logical_shift(1, 3, 1, 0, 1)),
         ("orr_w_zero_ext", enc_logical_shift(0, 1, 0, 0, 0)),
         ("movz_x_lsl16", enc_mov_wide(1, 0b10, 1, 0x1234)),
         ("movn_w", enc_mov_wide(0, 0b00, 0, 0)),
@@ -1107,6 +1135,73 @@ fn smir_aarch64_x86_scalar_lowering_matches_qemu_oracle() {
             batch.push((label.to_string(), insn, gen_input(&mut rng)));
         }
     }
+
+    let mut st = ArmState::zeroed();
+    st.x[1] = 1;
+    st.x[2] = 1;
+    batch.push(("add_x_lsl4_crafted".into(), enc_addsub_shift(1, 0, 0, 0, 4), st));
+
+    let mut st = ArmState::zeroed();
+    st.x[0] = 0xaaaa_bbbb_cccc_dddd;
+    st.x[1] = 1;
+    st.x[2] = 0x8000_0000;
+    batch.push((
+        "subs_w_asr31_crafted".into(),
+        enc_addsub_shift(0, 1, 1, 2, 31),
+        st,
+    ));
+
+    let mut st = ArmState::zeroed();
+    st.x[1] = 0x1000_0000_0000_0000;
+    st.x[2] = 0xffff_ffff_0000_0100;
+    batch.push(("add_x_uxtw_crafted".into(), enc_addsub_ext(1, 0, 0, 0b010, 0), st));
+
+    let mut st = ArmState::zeroed();
+    st.x[1] = 8;
+    st.x[2] = 0xffff_ffff;
+    batch.push((
+        "add_x_sxtw_lsl2_crafted".into(),
+        enc_addsub_ext(1, 0, 0, 0b110, 2),
+        st,
+    ));
+
+    let mut st = ArmState::zeroed();
+    st.x[0] = 0xaaaa_bbbb_cccc_dddd;
+    st.x[1] = 0x10;
+    st.x[2] = 0xffff_ff0f;
+    batch.push((
+        "subs_w_uxtb_lsl1_crafted".into(),
+        enc_addsub_ext(0, 1, 1, 0b000, 1),
+        st,
+    ));
+
+    let mut st = ArmState::zeroed();
+    st.x[1] = u64::MAX;
+    st.x[2] = 1;
+    batch.push((
+        "bic_x_lsl4_crafted".into(),
+        enc_logical_shift(1, 0, 0, 1, 4),
+        st,
+    ));
+
+    let mut st = ArmState::zeroed();
+    st.x[1] = 0x0000_00ff_0000_0000;
+    st.x[2] = 0xffff_0000_0000_0000;
+    batch.push((
+        "orn_x_lsr8_crafted".into(),
+        enc_logical_shift(1, 1, 1, 1, 8),
+        st,
+    ));
+
+    let mut st = ArmState::zeroed();
+    st.x[0] = 0xaaaa_bbbb_cccc_dddd;
+    st.x[1] = 0x5555_aaaa_0000_ffff;
+    st.x[2] = 0x8000_0001;
+    batch.push((
+        "eon_w_ror4_zero_ext_crafted".into(),
+        enc_logical_shift(0, 2, 3, 1, 4),
+        st,
+    ));
 
     let mut st = ArmState::zeroed();
     st.x[0] = 0xaaaa_bbbb_cccc_dddd;

@@ -102,6 +102,19 @@ impl Aarch64Lifter {
         }
     }
 
+    fn arm_extend(&self, extend: ExtendType) -> ExtendOp {
+        match extend {
+            ExtendType::UXTB => ExtendOp::Uxtb,
+            ExtendType::UXTH => ExtendOp::Uxth,
+            ExtendType::UXTW => ExtendOp::Uxtw,
+            ExtendType::UXTX => ExtendOp::Uxtx,
+            ExtendType::SXTB => ExtendOp::Sxtb,
+            ExtendType::SXTH => ExtendOp::Sxth,
+            ExtendType::SXTW => ExtendOp::Sxtw,
+            ExtendType::SXTX => ExtendOp::Sxtx,
+        }
+    }
+
     // ========================================================================
     // Operand Helpers
     // ========================================================================
@@ -296,6 +309,25 @@ impl Aarch64Lifter {
             Address::Direct(self.arm_reg(&mem.base))
         } else {
             addr
+        }
+    }
+
+    fn materialize_src_operand(
+        &self,
+        src: SrcOperand,
+        width: OpWidth,
+        pc: u64,
+        ops: &mut Vec<SmirOp>,
+        ctx: &mut LiftContext,
+    ) -> VReg {
+        match src {
+            SrcOperand::Reg(reg) => reg,
+            SrcOperand::Imm(value) | SrcOperand::Imm64(value) => VReg::Imm(value),
+            src => {
+                let tmp = ctx.alloc_vreg();
+                Self::push_lifted_op(ops, pc, OpKind::Mov { dst: tmp, src, width });
+                tmp
+            }
         }
     }
 
@@ -762,7 +794,7 @@ impl Aarch64Lifter {
                 });
             }
 
-            Mnemonic::BIC | Mnemonic::BICS => {
+            Mnemonic::BIC | Mnemonic::BICS | Mnemonic::ORN | Mnemonic::EON => {
                 if let (Some(Operand::Reg(rd)), Some(Operand::Reg(rn))) =
                     (insn.operands.get(0), insn.operands.get(1))
                 {
@@ -776,26 +808,45 @@ impl Aarch64Lifter {
                     };
 
                     let src2 = self.parse_operand2(insn, 2, ctx)?;
-                    let tmp = ctx.alloc_vreg();
+                    let src2_reg = self.materialize_src_operand(src2, width, pc, &mut ops, ctx);
+                    let inverted = ctx.alloc_vreg();
 
                     push_op!(OpKind::Not {
-                        dst: tmp,
-                        src: match src2 {
-                            SrcOperand::Reg(r) => r,
-                            SrcOperand::Imm(i) | SrcOperand::Imm64(i) => VReg::Imm(i),
-                            SrcOperand::Shifted { reg, .. } => reg,
-                            SrcOperand::Extended { reg, .. } => reg,
-                        },
+                        dst: inverted,
+                        src: src2_reg,
                         width,
                     });
 
-                    push_op!(OpKind::And {
-                        dst,
-                        src1,
-                        src2: SrcOperand::Reg(tmp),
-                        width,
-                        flags,
-                    });
+                    match insn.mnemonic {
+                        Mnemonic::BIC | Mnemonic::BICS => {
+                            push_op!(OpKind::And {
+                                dst,
+                                src1,
+                                src2: SrcOperand::Reg(inverted),
+                                width,
+                                flags,
+                            });
+                        }
+                        Mnemonic::ORN => {
+                            push_op!(OpKind::Or {
+                                dst,
+                                src1,
+                                src2: SrcOperand::Reg(inverted),
+                                width,
+                                flags,
+                            });
+                        }
+                        Mnemonic::EON => {
+                            push_op!(OpKind::Xor {
+                                dst,
+                                src1,
+                                src2: SrcOperand::Reg(inverted),
+                                width,
+                                flags,
+                            });
+                        }
+                        _ => unreachable!(),
+                    }
                 }
             }
 
@@ -1360,7 +1411,16 @@ impl Aarch64Lifter {
         match insn.operands.get(idx) {
             Some(Operand::Reg(r)) => Ok(SrcOperand::Reg(self.arm_reg(r))),
             Some(Operand::Imm(imm)) => Ok(SrcOperand::Imm(imm.effective_value())),
-            Some(Operand::ShiftedReg(sr)) => Ok(SrcOperand::Reg(self.arm_reg(&sr.reg))),
+            Some(Operand::ShiftedReg(sr)) => Ok(SrcOperand::Shifted {
+                reg: self.arm_reg(&sr.reg),
+                shift: self.arm_shift(sr.shift_type),
+                amount: sr.amount,
+            }),
+            Some(Operand::ExtendedReg(er)) => Ok(SrcOperand::Extended {
+                reg: self.arm_reg(&er.reg),
+                extend: self.arm_extend(er.extend_type),
+                shift: er.shift,
+            }),
             _ => Err(LiftError::Internal("invalid operand2".to_string())),
         }
     }
@@ -1373,7 +1433,16 @@ impl Aarch64Lifter {
         match op {
             Operand::Reg(r) => Ok(SrcOperand::Reg(self.arm_reg(r))),
             Operand::Imm(imm) => Ok(SrcOperand::Imm(imm.effective_value())),
-            Operand::ShiftedReg(sr) => Ok(SrcOperand::Reg(self.arm_reg(&sr.reg))),
+            Operand::ShiftedReg(sr) => Ok(SrcOperand::Shifted {
+                reg: self.arm_reg(&sr.reg),
+                shift: self.arm_shift(sr.shift_type),
+                amount: sr.amount,
+            }),
+            Operand::ExtendedReg(er) => Ok(SrcOperand::Extended {
+                reg: self.arm_reg(&er.reg),
+                extend: self.arm_extend(er.extend_type),
+                shift: er.shift,
+            }),
             _ => Err(LiftError::Internal("invalid operand".to_string())),
         }
     }
