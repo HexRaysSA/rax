@@ -3111,6 +3111,11 @@ fn smir_aarch64_native_lowering_matches_qemu_oracle() {
         offset: 8,
         disp_size: DispSize::Auto,
     };
+    let native_pair_x_addr = Address::BaseOffset {
+        base: arm_x(1),
+        offset: 16,
+        disp_size: DispSize::Auto,
+    };
 
     let mut cases: Vec<(String, [u32; 3], [u32; 3], ArmState)> = Vec::new();
     let mut push_case = |label: &str, source: u32, ops: Vec<OpKind>, st: ArmState| {
@@ -4337,6 +4342,80 @@ fn smir_aarch64_native_lowering_matches_qemu_oracle() {
             src: arm_x(0),
             addr: native_direct_addr.clone(),
             width: MemWidth::B1,
+        }],
+        st,
+    );
+
+    let mut st = native_state();
+    st.x[0] = 0x2222_3333_4444_5555;
+    st.x[1] = SCRATCH_BASE;
+    st.x[2] = 0x3333_4444_5555_6666;
+    st.scratch[10] = 0x0123_4567_89ab_cdef;
+    st.scratch[11] = 0xfedc_ba98_7654_3210;
+    st.pstate = 0x7000_0000;
+    push_case(
+        "ldp_x_base_offset_opkind_preserves_flags",
+        enc_ldp(0b10, 0, 0b10, 1, 2),
+        vec![OpKind::LoadPair {
+            dst1: arm_x(0),
+            dst2: arm_x(2),
+            addr: native_pair_x_addr.clone(),
+            width: MemWidth::B8,
+        }],
+        st,
+    );
+
+    let mut st = native_state();
+    st.x[0] = 0x4444_5555_6666_7777;
+    st.x[1] = SCRATCH_BASE;
+    st.x[2] = 0x5555_6666_7777_8888;
+    st.scratch[8] = 0x8877_6655_4433_2211;
+    st.pstate = 0x3000_0000;
+    push_case(
+        "ldp_w_direct_opkind_zero_ext_preserves_flags",
+        enc_ldp(0b00, 0, 0b10, 1, 0),
+        vec![OpKind::LoadPair {
+            dst1: arm_x(0),
+            dst2: arm_x(2),
+            addr: native_direct_addr.clone(),
+            width: MemWidth::B4,
+        }],
+        st,
+    );
+
+    let mut st = native_state();
+    st.x[0] = 0x0123_4567_89ab_cdef;
+    st.x[1] = SCRATCH_BASE;
+    st.x[2] = 0xfedc_ba98_7654_3210;
+    st.scratch[10] = 0;
+    st.scratch[11] = 0;
+    st.pstate = 0x5000_0000;
+    push_case(
+        "stp_x_base_offset_opkind_preserves_flags_and_memory",
+        enc_ldp(0b10, 0, 0b10, 0, 2),
+        vec![OpKind::StorePair {
+            src1: arm_x(0),
+            src2: arm_x(2),
+            addr: native_pair_x_addr.clone(),
+            width: MemWidth::B8,
+        }],
+        st,
+    );
+
+    let mut st = native_state();
+    st.x[0] = 0xffff_ffff_89ab_cdef;
+    st.x[1] = SCRATCH_BASE;
+    st.x[2] = 0x0123_4567_7654_3210;
+    st.scratch[8] = 0;
+    st.pstate = 0xa000_0000;
+    push_case(
+        "stp_w_direct_opkind_preserves_flags_and_memory",
+        enc_ldp(0b00, 0, 0b10, 0, 0),
+        vec![OpKind::StorePair {
+            src1: arm_x(0),
+            src2: arm_x(2),
+            addr: native_direct_addr.clone(),
+            width: MemWidth::B4,
         }],
         st,
     );
@@ -5645,6 +5724,81 @@ fn smir_aarch64_native_lowering_matches_qemu_oracle() {
     push_lifted_case(
         "strb_reg_uxtw_lifted_preserves_flags_and_memory",
         enc_ldst_reg(0, 0, RM, 0b010, 0),
+        st,
+    );
+
+    let mut st = native_state();
+    st.x[0] = 0x2222_3333_4444_5555;
+    st.x[1] = SCRATCH_BASE;
+    st.x[2] = 0x3333_4444_5555_6666;
+    st.scratch[10] = 0x0123_4567_89ab_cdef;
+    st.scratch[11] = 0xfedc_ba98_7654_3210;
+    st.pstate = 0x7000_0000;
+    push_lifted_case(
+        "ldp_x_base_offset_lifted_preserves_flags",
+        enc_ldp(0b10, 0, 0b10, 1, 2),
+        st,
+    );
+
+    let mut st = native_state();
+    st.x[0] = 0x4444_5555_6666_7777;
+    st.x[1] = SCRATCH_BASE;
+    st.x[2] = 0x5555_6666_7777_8888;
+    st.scratch[8] = 0x8877_6655_4433_2211;
+    st.pstate = 0x3000_0000;
+    push_lifted_case(
+        "ldp_w_direct_lifted_zero_ext_preserves_flags",
+        enc_ldp(0b00, 0, 0b10, 1, 0),
+        st,
+    );
+
+    let mut st = native_state();
+    st.x[0] = 0x0123_4567_89ab_cdef;
+    st.x[1] = SCRATCH_BASE;
+    st.x[2] = 0xfedc_ba98_7654_3210;
+    st.scratch[10] = 0;
+    st.scratch[11] = 0;
+    st.pstate = 0x5000_0000;
+    push_lifted_case(
+        "stp_x_base_offset_lifted_preserves_flags_and_memory",
+        enc_ldp(0b10, 0, 0b10, 0, 2),
+        st,
+    );
+
+    let mut st = native_state();
+    st.x[0] = 0xffff_ffff_89ab_cdef;
+    st.x[1] = SCRATCH_BASE;
+    st.x[2] = 0x0123_4567_7654_3210;
+    st.scratch[8] = 0;
+    st.pstate = 0xa000_0000;
+    push_lifted_case(
+        "stp_w_direct_lifted_preserves_flags_and_memory",
+        enc_ldp(0b00, 0, 0b10, 0, 0),
+        st,
+    );
+
+    let mut st = native_state();
+    st.x[0] = 0x6666_7777_8888_9999;
+    st.x[1] = SCRATCH_BASE;
+    st.x[2] = 0x7777_8888_9999_aaaa;
+    st.scratch[7] = 0x1020_3040_5060_7080;
+    st.scratch[8] = 0x9080_7060_5040_3020;
+    st.pstate = 0x6000_0000;
+    push_lifted_case(
+        "ldnp_x_neg8_lifted_preserves_flags",
+        enc_ldp(0b10, 0, 0b00, 1, ((-1i32) as u32) & 0x7f),
+        st,
+    );
+
+    let mut st = native_state();
+    st.x[0] = 0xffff_ffff_0bad_cafe;
+    st.x[1] = SCRATCH_BASE;
+    st.x[2] = 0xffff_ffff_dead_beef;
+    st.scratch[9] = 0;
+    st.pstate = 0x2000_0000;
+    push_lifted_case(
+        "stnp_w_base_offset_lifted_preserves_flags_and_memory",
+        enc_ldp(0b00, 0, 0b00, 0, 2),
         st,
     );
 

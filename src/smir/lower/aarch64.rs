@@ -449,6 +449,19 @@ impl Aarch64Lowerer {
         );
     }
 
+    fn emit_ldst_pair(&mut self, rt: u8, rt2: u8, rn: u8, opc: u32, load: bool, imm7: i64) {
+        self.emit(
+            (opc << 30)
+                | (0b101 << 27)
+                | (0b10 << 23)
+                | ((load as u32) << 22)
+                | (((imm7 as u32) & 0x7f) << 15)
+                | ((rt2 as u32) << 10)
+                | ((rn as u32) << 5)
+                | (rt as u32),
+        );
+    }
+
     fn emit_cond_select(
         &mut self,
         dst: u8,
@@ -551,6 +564,16 @@ impl Aarch64Lowerer {
             MemWidth::B8 => Ok(3),
             other => Err(LowerError::UnsupportedOp {
                 op: format!("AArch64 native scalar memory width {other:?}"),
+            }),
+        }
+    }
+
+    fn pair_width(width: MemWidth) -> Result<(u32, i64), LowerError> {
+        match width {
+            MemWidth::B4 => Ok((0b00, 4)),
+            MemWidth::B8 => Ok((0b10, 8)),
+            other => Err(LowerError::UnsupportedOp {
+                op: format!("AArch64 native pair memory width {other:?}"),
             }),
         }
     }
@@ -689,6 +712,67 @@ impl Aarch64Lowerer {
         let rt = Self::gpr(src)?;
         let size = Self::mem_size(width)?;
         self.lower_mem_access(rt, addr, size, 0b00)
+    }
+
+    fn lower_pair_mem_access(
+        &mut self,
+        rt: u8,
+        rt2: u8,
+        addr: &Address,
+        width: MemWidth,
+        load: bool,
+    ) -> Result<(), LowerError> {
+        let (base, offset) = match addr {
+            Address::Direct(base) => (Self::base_gpr(*base)?, 0),
+            Address::BaseOffset { base, offset, .. } => (Self::base_gpr(*base)?, *offset),
+            other => {
+                return Err(LowerError::UnsupportedOp {
+                    op: format!("AArch64 native pair memory address {other:?}"),
+                });
+            }
+        };
+        let (opc, scale) = Self::pair_width(width)?;
+        if offset % scale != 0 {
+            return Err(LowerError::InvalidOperand {
+                op: "AArch64 native pair memory offset".into(),
+                operand: format!("{offset:#x} for width {width:?}"),
+            });
+        }
+        let imm7 = offset / scale;
+        if !(-64..=63).contains(&imm7) {
+            return Err(LowerError::InvalidOperand {
+                op: "AArch64 native pair memory offset".into(),
+                operand: format!("{offset:#x} for width {width:?}"),
+            });
+        }
+        self.emit_ldst_pair(rt, rt2, base, opc, load, imm7);
+        Ok(())
+    }
+
+    fn lower_load_pair(
+        &mut self,
+        dst1: VReg,
+        dst2: VReg,
+        addr: &Address,
+        width: MemWidth,
+    ) -> Result<(), LowerError> {
+        self.lower_pair_mem_access(
+            Self::dst_gpr(dst1)?,
+            Self::dst_gpr(dst2)?,
+            addr,
+            width,
+            true,
+        )
+    }
+
+    fn lower_store_pair(
+        &mut self,
+        src1: VReg,
+        src2: VReg,
+        addr: &Address,
+        width: MemWidth,
+    ) -> Result<(), LowerError> {
+        self.lower_pair_mem_access(Self::gpr(src1)?, Self::gpr(src2)?, addr, width, false)
     }
 
     fn lower_mem_reg_offset_access(
@@ -2438,6 +2522,18 @@ impl Aarch64Lowerer {
                 sign,
             } => self.lower_load(*dst, addr, *width, *sign),
             OpKind::Store { src, addr, width } => self.lower_store(*src, addr, *width),
+            OpKind::LoadPair {
+                dst1,
+                dst2,
+                addr,
+                width,
+            } => self.lower_load_pair(*dst1, *dst2, addr, *width),
+            OpKind::StorePair {
+                src1,
+                src2,
+                addr,
+                width,
+            } => self.lower_store_pair(*src1, *src2, addr, *width),
             OpKind::Not { dst, src, width } => self.lower_not(*dst, *src, *width),
             OpKind::Cmp { src1, src2, width } => self.lower_cmp(*src1, src2, *width),
             OpKind::Test { src1, src2, width } => self.lower_test(*src1, src2, *width),
