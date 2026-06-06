@@ -2031,9 +2031,10 @@ impl Aarch64Lowerer {
             });
         }
 
-        if width == OpWidth::W16 {
+        if matches!(width, OpWidth::W8 | OpWidth::W16) {
+            let top_bit = width.bits() - 1;
             let dst = Self::dst_gpr(dst)?;
-            self.emit_bitfield(dst, Self::gpr(src)?, 0b10, 0, 15, OpWidth::W32)?;
+            self.emit_bitfield(dst, Self::gpr(src)?, 0b10, 0, top_bit, OpWidth::W32)?;
             self.emit_orr_imm_one(dst, dst, OpWidth::W32)?;
             self.emit_dp1(dst, dst, 0b000100, OpWidth::W32)?;
             return self.emit_logic_imm(dst, dst, 0b10, 0, 0, 4, OpWidth::W32);
@@ -8373,6 +8374,34 @@ mod tests {
 
         let mut expected = Vec::new();
         expected.extend_from_slice(&enc_bitfield_regs(0, 0b10, 0, 15, 1, 0).to_le_bytes());
+        expected.extend_from_slice(&enc_logical_imm(0, 0b01, 0, 0, 0, 0, 0).to_le_bytes());
+        expected.extend_from_slice(&enc_dp1_regs(0, 0b000100, 0, 0).to_le_bytes());
+        expected.extend_from_slice(&enc_logical_imm(0, 0b10, 0, 0, 4, 0, 0).to_le_bytes());
+        expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
+        assert_eq!(code, expected);
+    }
+
+    #[test]
+    fn lowers_bsr_w8_as_ubfx_orr_clz_eor_mask() {
+        let mut builder = FunctionBuilder::new(FunctionId(0), 0);
+        builder.push_op(
+            0,
+            OpKind::Bsr {
+                dst: x(0),
+                src: x(1),
+                width: OpWidth::W8,
+                flags: FlagUpdate::None,
+            },
+        );
+        builder.set_terminator(Terminator::Return { values: vec![] });
+        let func = builder.finish();
+
+        let mut lowerer = Aarch64Lowerer::new();
+        lowerer.lower_function(&func).unwrap();
+        let code = lowerer.finalize().unwrap();
+
+        let mut expected = Vec::new();
+        expected.extend_from_slice(&enc_bitfield_regs(0, 0b10, 0, 7, 1, 0).to_le_bytes());
         expected.extend_from_slice(&enc_logical_imm(0, 0b01, 0, 0, 0, 0, 0).to_le_bytes());
         expected.extend_from_slice(&enc_dp1_regs(0, 0b000100, 0, 0).to_le_bytes());
         expected.extend_from_slice(&enc_logical_imm(0, 0b10, 0, 0, 4, 0, 0).to_le_bytes());
