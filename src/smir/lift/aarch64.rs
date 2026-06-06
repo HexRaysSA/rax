@@ -29,6 +29,13 @@ enum CondSelectFalseOp {
     Negate,
 }
 
+#[derive(Clone, Copy)]
+enum RevKind {
+    Full,
+    Halfwords,
+    Words,
+}
+
 /// AArch64 instruction lifter
 pub struct Aarch64Lifter {
     /// Whether to use strict mode (fail on unsupported instructions)
@@ -1138,17 +1145,15 @@ impl Aarch64Lifter {
             }
 
             Mnemonic::REV => {
-                if let (Some(Operand::Reg(rd)), Some(Operand::Reg(rn))) =
-                    (insn.operands.get(0), insn.operands.get(1))
-                {
-                    let dst = self.dst_reg(rd, ctx);
-                    let width = self.reg_width(rd);
-                    push_op!(OpKind::Bswap {
-                        dst,
-                        src: self.arm_reg(rn),
-                        width,
-                    });
-                }
+                self.lift_rev(insn, RevKind::Full, pc, &mut ops, ctx)?;
+            }
+
+            Mnemonic::REV16 => {
+                self.lift_rev(insn, RevKind::Halfwords, pc, &mut ops, ctx)?;
+            }
+
+            Mnemonic::REV32 => {
+                self.lift_rev(insn, RevKind::Words, pc, &mut ops, ctx)?;
             }
 
             // =================================================================
@@ -1489,6 +1494,161 @@ impl Aarch64Lifter {
             }),
             _ => Err(LiftError::Internal("invalid operand".to_string())),
         }
+    }
+
+    fn lift_rev(
+        &self,
+        insn: &DecodedInsn,
+        kind: RevKind,
+        pc: u64,
+        ops: &mut Vec<SmirOp>,
+        ctx: &mut LiftContext,
+    ) -> Result<(), LiftError> {
+        let (rd, rn) = match (insn.operands.get(0), insn.operands.get(1)) {
+            (Some(Operand::Reg(rd)), Some(Operand::Reg(rn))) => (rd, rn),
+            _ => return Err(LiftError::Internal("invalid REV operands".to_string())),
+        };
+
+        let dst = self.dst_reg(rd, ctx);
+        let src = self.arm_reg(rn);
+        let width = self.reg_width(rd);
+
+        match kind {
+            RevKind::Full => {
+                Self::push_lifted_op(ops, pc, OpKind::Bswap { dst, src, width });
+            }
+            RevKind::Halfwords => {
+                let lo = ctx.alloc_vreg();
+                let hi = ctx.alloc_vreg();
+                let lo_shifted = ctx.alloc_vreg();
+                let hi_shifted = ctx.alloc_vreg();
+                let (lo_mask, hi_mask) = if width == OpWidth::W64 {
+                    (0x00ff_00ff_00ff_00ff_u64, 0xff00_ff00_ff00_ff00_u64)
+                } else {
+                    (0x00ff_00ff_u64, 0xff00_ff00_u64)
+                };
+
+                Self::push_lifted_op(
+                    ops,
+                    pc,
+                    OpKind::And {
+                        dst: lo,
+                        src1: src,
+                        src2: SrcOperand::Imm64(lo_mask as i64),
+                        width,
+                        flags: FlagUpdate::None,
+                    },
+                );
+                Self::push_lifted_op(
+                    ops,
+                    pc,
+                    OpKind::And {
+                        dst: hi,
+                        src1: src,
+                        src2: SrcOperand::Imm64(hi_mask as i64),
+                        width,
+                        flags: FlagUpdate::None,
+                    },
+                );
+                Self::push_lifted_op(
+                    ops,
+                    pc,
+                    OpKind::Shl {
+                        dst: lo_shifted,
+                        src: lo,
+                        amount: SrcOperand::Imm(8),
+                        width,
+                        flags: FlagUpdate::None,
+                    },
+                );
+                Self::push_lifted_op(
+                    ops,
+                    pc,
+                    OpKind::Shr {
+                        dst: hi_shifted,
+                        src: hi,
+                        amount: SrcOperand::Imm(8),
+                        width,
+                        flags: FlagUpdate::None,
+                    },
+                );
+                Self::push_lifted_op(
+                    ops,
+                    pc,
+                    OpKind::Or {
+                        dst,
+                        src1: lo_shifted,
+                        src2: SrcOperand::Reg(hi_shifted),
+                        width,
+                        flags: FlagUpdate::None,
+                    },
+                );
+            }
+            RevKind::Words => {
+                if width == OpWidth::W32 {
+                    Self::push_lifted_op(ops, pc, OpKind::Bswap { dst, src, width });
+                } else {
+                    let lo_rev = ctx.alloc_vreg();
+                    let hi = ctx.alloc_vreg();
+                    let hi_rev = ctx.alloc_vreg();
+                    let hi_shifted = ctx.alloc_vreg();
+
+                    Self::push_lifted_op(
+                        ops,
+                        pc,
+                        OpKind::Bswap {
+                            dst: lo_rev,
+                            src,
+                            width: OpWidth::W32,
+                        },
+                    );
+                    Self::push_lifted_op(
+                        ops,
+                        pc,
+                        OpKind::Shr {
+                            dst: hi,
+                            src,
+                            amount: SrcOperand::Imm(32),
+                            width,
+                            flags: FlagUpdate::None,
+                        },
+                    );
+                    Self::push_lifted_op(
+                        ops,
+                        pc,
+                        OpKind::Bswap {
+                            dst: hi_rev,
+                            src: hi,
+                            width: OpWidth::W32,
+                        },
+                    );
+                    Self::push_lifted_op(
+                        ops,
+                        pc,
+                        OpKind::Shl {
+                            dst: hi_shifted,
+                            src: hi_rev,
+                            amount: SrcOperand::Imm(32),
+                            width,
+                            flags: FlagUpdate::None,
+                        },
+                    );
+                    Self::push_lifted_op(
+                        ops,
+                        pc,
+                        OpKind::Or {
+                            dst,
+                            src1: hi_shifted,
+                            src2: SrcOperand::Reg(lo_rev),
+                            width,
+                            flags: FlagUpdate::None,
+                        },
+                    );
+                }
+            }
+        }
+
+        Ok(())
     }
 
     fn lift_shift(
