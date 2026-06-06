@@ -150,6 +150,28 @@ impl Aarch64Lowerer {
         Ok(())
     }
 
+    fn patch_branch_to_current(&mut self, insn_offset: usize) -> Result<(), LowerError> {
+        let target = self.code.position();
+        let imm26 = Self::branch_scaled_imm(insn_offset, target, 26)?;
+        self.code
+            .patch_i32(insn_offset, (0x1400_0000 | imm26) as i32);
+        Ok(())
+    }
+
+    fn patch_compare_branch_to_current(
+        &mut self,
+        insn_offset: usize,
+        rt: u8,
+        nonzero: bool,
+    ) -> Result<(), LowerError> {
+        let target = self.code.position();
+        let imm19 = Self::branch_scaled_imm(insn_offset, target, 19)?;
+        let base = if nonzero { 0xb500_0000 } else { 0xb400_0000 };
+        self.code
+            .patch_i32(insn_offset, (base | (imm19 << 5) | (rt as u32)) as i32);
+        Ok(())
+    }
+
     fn sf(width: OpWidth) -> Result<u32, LowerError> {
         match width {
             OpWidth::W32 => Ok(0),
@@ -2858,6 +2880,13 @@ impl Aarch64Lowerer {
         matches!(src, SrcOperand::Imm(imm) | SrcOperand::Imm64(imm) if *imm == value)
     }
 
+    fn vreg_src(reg: VReg) -> SrcOperand {
+        match reg {
+            VReg::Imm(value) => SrcOperand::Imm(value),
+            other => SrcOperand::Reg(other),
+        }
+    }
+
     fn rev16_masks(width: OpWidth) -> Option<(i64, i64)> {
         match width {
             OpWidth::W32 => Some((0x00ff_00ff, 0xff00_ff00)),
@@ -3350,9 +3379,22 @@ impl Aarch64Lowerer {
                 };
                 self.lower_mov(dst, &src, width)
             }
-            other => Err(LowerError::UnsupportedOp {
-                op: format!("AArch64 native Select condition {other:?}"),
-            }),
+            other => {
+                let cond = Self::gpr(other)?;
+                let true_src = Self::vreg_src(src_true);
+                let false_src = Self::vreg_src(src_false);
+
+                let false_branch = self.code.position();
+                self.emit(0xb400_0000 | (cond as u32));
+                self.lower_mov(dst, &true_src, width)?;
+
+                let end_branch = self.code.position();
+                self.emit(0x1400_0000);
+                self.patch_compare_branch_to_current(false_branch, cond, false)?;
+
+                self.lower_mov(dst, &false_src, width)?;
+                self.patch_branch_to_current(end_branch)
+            }
         }
     }
 
@@ -5305,6 +5347,10 @@ mod tests {
 
     fn enc_b_cond(cond: u32, imm19: i32) -> u32 {
         0x5400_0000 | (((imm19 as u32) & 0x7ffff) << 5) | (cond & 0xf)
+    }
+
+    fn enc_cbz(rt: u32, imm19: i32) -> u32 {
+        0xb400_0000 | (((imm19 as u32) & 0x7ffff) << 5) | (rt & 0x1f)
     }
 
     fn enc_cbnz(rt: u32, imm19: i32) -> u32 {
@@ -7987,6 +8033,35 @@ mod tests {
 
         let mut expected = Vec::new();
         expected.extend_from_slice(&enc_mov_wide(1, 0b10, 0, 0x2468, 0).to_le_bytes());
+        expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
+        assert_eq!(code, expected);
+    }
+
+    #[test]
+    fn lowers_register_select_with_aliased_condition() {
+        let mut builder = FunctionBuilder::new(FunctionId(0), 0);
+        builder.push_op(
+            0,
+            OpKind::Select {
+                dst: x(0),
+                cond: x(0),
+                src_true: x(1),
+                src_false: x(2),
+                width: OpWidth::W64,
+            },
+        );
+        builder.set_terminator(Terminator::Return { values: vec![] });
+        let func = builder.finish();
+
+        let mut lowerer = Aarch64Lowerer::new();
+        lowerer.lower_function(&func).unwrap();
+        let code = lowerer.finalize().unwrap();
+
+        let mut expected = Vec::new();
+        expected.extend_from_slice(&enc_cbz(0, 3).to_le_bytes());
+        expected.extend_from_slice(&enc_mov_reg(1, 0, 1).to_le_bytes());
+        expected.extend_from_slice(&enc_b(2).to_le_bytes());
+        expected.extend_from_slice(&enc_mov_reg(1, 0, 2).to_le_bytes());
         expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
         assert_eq!(code, expected);
     }
