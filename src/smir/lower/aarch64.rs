@@ -3289,7 +3289,7 @@ impl Aarch64Lowerer {
                     ),
                 });
             }
-            ShiftOp::Ror if dst == amount => {
+            ShiftOp::Ror if dst == amount && !(width == OpWidth::W16 && dst == src) => {
                 return Err(LowerError::UnsupportedOp {
                     op: format!(
                         "AArch64 native {width:?} variable Ror needs a scratch when dst == count"
@@ -7456,6 +7456,34 @@ mod tests {
         let mut expected = Vec::new();
         expected.extend_from_slice(&enc_bitfield_regs(0, 0b01, 16, 15, 1, 1).to_le_bytes());
         expected.extend_from_slice(&enc_dp2_regs(0, 0b1011, 1, 2, 1).to_le_bytes());
+        expected.extend_from_slice(&enc_bitfield_regs(0, 0b10, 0, 15, 1, 1).to_le_bytes());
+        expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
+        assert_eq!(code, expected);
+    }
+
+    #[test]
+    fn lowers_ror_w16_reg_self_count_in_place() {
+        let mut builder = FunctionBuilder::new(FunctionId(0), 0);
+        builder.push_op(
+            0,
+            OpKind::Ror {
+                dst: x(1),
+                src: x(1),
+                amount: SrcOperand::Reg(x(1)),
+                width: OpWidth::W16,
+                flags: FlagUpdate::None,
+            },
+        );
+        builder.set_terminator(Terminator::Return { values: vec![] });
+        let func = builder.finish();
+
+        let mut lowerer = Aarch64Lowerer::new();
+        lowerer.lower_function(&func).unwrap();
+        let code = lowerer.finalize().unwrap();
+
+        let mut expected = Vec::new();
+        expected.extend_from_slice(&enc_bitfield_regs(0, 0b01, 16, 15, 1, 1).to_le_bytes());
+        expected.extend_from_slice(&enc_dp2_regs(0, 0b1011, 1, 1, 1).to_le_bytes());
         expected.extend_from_slice(&enc_bitfield_regs(0, 0b10, 0, 15, 1, 1).to_le_bytes());
         expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
         assert_eq!(code, expected);
