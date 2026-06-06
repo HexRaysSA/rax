@@ -7117,6 +7117,39 @@ impl X86_64Lifter {
         Ok(LiftResult::fallthrough(ops, prefix.cursor))
     }
 
+    /// Lift BSWAP r32/r64 (0F C8+rd)
+    fn lift_bswap_opcode(
+        &self,
+        opcode: u8,
+        prefix: &X86Prefix,
+        pc: u64,
+    ) -> Result<LiftResult, LiftError> {
+        if prefix.operand_size_override && !prefix.rex_w() {
+            return Err(LiftError::InvalidEncoding {
+                addr: pc,
+                bytes: vec![opcode],
+            });
+        }
+
+        let reg = (opcode & 0x07) | prefix.rex_b();
+        let width = if prefix.rex_w() {
+            OpWidth::W64
+        } else {
+            OpWidth::W32
+        };
+        let ops = vec![SmirOp::new(
+            OpId(0),
+            pc,
+            OpKind::Bswap {
+                dst: self.gpr(reg),
+                src: self.gpr(reg),
+                width,
+            },
+        )];
+
+        Ok(LiftResult::fallthrough(ops, prefix.cursor))
+    }
+
     /// Lift PUSH imm8/imm32 (6A/68)
     fn lift_push_imm(
         &self,
@@ -8709,6 +8742,9 @@ impl X86_64Lifter {
 
             // XADD r/m, r (0F C0/0F C1)
             0xC0 | 0xC1 => self.lift_xadd(opcode2, after_opcode, &prefix2, pc, ctx),
+
+            // BSWAP r32/r64 (0F C8+rd)
+            0xC8..=0xCF => self.lift_bswap_opcode(opcode2, &prefix2, pc),
 
             // MOVZX r, r/m8 (0F B6)
             0xB6 => {
@@ -11305,6 +11341,104 @@ mod tests {
         for bytes in [
             &[0xF0, 0x48, 0x0F, 0xC1, 0xC0][..],
             &[0xF0, 0xD5, 0xD8, 0xC1, 0xC8][..],
+        ] {
+            let err = lifter.lift_insn(0x1000, bytes, &mut ctx).unwrap_err();
+            assert!(matches!(err, LiftError::InvalidEncoding { .. }), "{err:?}");
+        }
+    }
+
+    fn assert_bswap_op(result: &LiftResult, name: &str, reg: VReg, width: OpWidth) {
+        assert_eq!(result.ops.len(), 1, "{name}");
+        match &result.ops[0].kind {
+            OpKind::Bswap {
+                dst,
+                src,
+                width: got_width,
+            } => {
+                assert_eq!(*dst, reg, "{name}");
+                assert_eq!(*src, reg, "{name}");
+                assert_eq!(*got_width, width, "{name}");
+            }
+            other => panic!("expected {name} Bswap, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn lift_bswap_registers_like_llvm() {
+        let mut lifter = X86_64Lifter::strict();
+        let mut ctx = LiftContext::new(SourceArch::X86_64);
+
+        let cases: &[(&[u8], &str, usize, VReg, OpWidth)] = &[
+            (&[0x0F, 0xC8], "bswap_eax", 2, x86_gpr(0), OpWidth::W32),
+            (
+                &[0x48, 0x0F, 0xC8],
+                "bswap_rax",
+                3,
+                x86_gpr(0),
+                OpWidth::W64,
+            ),
+            (
+                &[0xD5, 0x90, 0xC8],
+                "bswap_r16d",
+                3,
+                x86_gpr(16),
+                OpWidth::W32,
+            ),
+            (
+                &[0xD5, 0x98, 0xC8],
+                "bswap_r16",
+                3,
+                x86_gpr(16),
+                OpWidth::W64,
+            ),
+            (
+                &[0xD5, 0x99, 0xC8],
+                "bswap_r24",
+                3,
+                x86_gpr(24),
+                OpWidth::W64,
+            ),
+            (
+                &[0xD5, 0x91, 0xCF],
+                "bswap_r31d",
+                3,
+                x86_gpr(31),
+                OpWidth::W32,
+            ),
+            (
+                &[0xD5, 0x99, 0xCF],
+                "bswap_r31",
+                3,
+                x86_gpr(31),
+                OpWidth::W64,
+            ),
+        ];
+
+        for (bytes, name, bytes_consumed, reg, width) in cases {
+            // LLVM 23 examples:
+            //   `bswap eax`   => 0f c8
+            //   `bswap rax`   => 48 0f c8
+            //   `bswap r16d`  => d5 90 c8
+            //   `bswap r16`   => d5 98 c8
+            //   `bswap r24`   => d5 99 c8
+            //   `bswap r31d`  => d5 91 cf
+            //   `bswap r31`   => d5 99 cf
+            let result = lifter.lift_insn(0x1000, bytes, &mut ctx).unwrap();
+            assert_eq!(result.bytes_consumed, *bytes_consumed, "{name}");
+            assert_bswap_op(&result, name, *reg, *width);
+        }
+    }
+
+    #[test]
+    fn lift_bswap_16bit_rejected_like_spec() {
+        let mut lifter = X86_64Lifter::strict();
+        let mut ctx = LiftContext::new(SourceArch::X86_64);
+
+        // Intel documents BSWAP r16 as undefined; LLVM 23 rejects the assembly
+        // form even though its disassembler can print raw data16-prefixed bytes.
+        for bytes in [
+            &[0x66, 0x0F, 0xC8][..],
+            &[0x66, 0xD5, 0x90, 0xC8][..],
         ] {
             let err = lifter.lift_insn(0x1000, bytes, &mut ctx).unwrap_err();
             assert!(matches!(err, LiftError::InvalidEncoding { .. }), "{err:?}");
