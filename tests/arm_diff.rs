@@ -4688,6 +4688,54 @@ fn smir_aarch64_native_lowering_matches_qemu_oracle() {
     );
 
     let mut st = native_state();
+    st.x[0] = 0xaaaa_bbbb_cccc_dddd;
+    st.x[1] = 0xffff_ffff_ffff_00d4;
+    st.pstate = 0x6000_0000;
+    push_case(
+        "bextr_w8_imm_control_as_ubfx_preserves_flags",
+        enc_bitfield(0, 0b10, 2, 4),
+        vec![OpKind::Bextr {
+            dst: arm_x(0),
+            src: arm_x(1),
+            control: VReg::Imm((3 << 8) | 2),
+            width: OpWidth::W8,
+        }],
+        st,
+    );
+
+    let mut st = native_state();
+    st.x[0] = 0xbbbb_cccc_dddd_eeee;
+    st.x[1] = 0xffff_ffff_0000_f234;
+    st.pstate = 0x9000_0000;
+    push_case(
+        "bextr_w16_imm_control_clips_at_subword_width_preserves_flags",
+        enc_bitfield(0, 0b10, 12, 15),
+        vec![OpKind::Bextr {
+            dst: arm_x(0),
+            src: arm_x(1),
+            control: VReg::Imm((8 << 8) | 12),
+            width: OpWidth::W16,
+        }],
+        st,
+    );
+
+    let mut st = native_state();
+    st.x[0] = 0xcccc_dddd_eeee_ffff;
+    st.x[1] = 0xffff_ffff_ffff_00ff;
+    st.pstate = 0x3000_0000;
+    push_case(
+        "bextr_w8_empty_extract_as_zero_preserves_flags",
+        enc_mov_wide(0, 0b10, 0, 0),
+        vec![OpKind::Bextr {
+            dst: arm_x(0),
+            src: arm_x(1),
+            control: VReg::Imm((1 << 8) | 8),
+            width: OpWidth::W8,
+        }],
+        st,
+    );
+
+    let mut st = native_state();
     st.x[0] = 0x8888_9999_aaaa_bbbb;
     st.x[1] = 0xfedc_ba98_7654_3210;
     st.pstate = 0x1000_0000;

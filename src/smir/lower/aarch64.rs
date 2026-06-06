@@ -2656,7 +2656,15 @@ impl Aarch64Lowerer {
         control: VReg,
         width: OpWidth,
     ) -> Result<(), LowerError> {
-        Self::sf(width)?;
+        let emit_width = match width {
+            OpWidth::W8 | OpWidth::W16 | OpWidth::W32 => OpWidth::W32,
+            OpWidth::W64 => OpWidth::W64,
+            other => {
+                return Err(LowerError::UnsupportedOp {
+                    op: format!("AArch64 native Bextr width {other:?}"),
+                });
+            }
+        };
         let control = match control {
             VReg::Imm(value) => value as u64,
             other => {
@@ -2673,7 +2681,7 @@ impl Aarch64Lowerer {
         let len = ((control >> 8) & 0xff) as u32;
         let dst = Self::dst_gpr(dst)?;
         if start >= bits || len == 0 {
-            return self.emit_mov_imm(dst, 0, width);
+            return self.emit_mov_imm(dst, 0, emit_width);
         }
 
         let width_bits = len.min(bits - start) as u8;
@@ -2683,7 +2691,7 @@ impl Aarch64Lowerer {
             start as u8,
             width_bits,
             false,
-            width,
+            emit_width,
         )
     }
 
@@ -8944,6 +8952,81 @@ mod tests {
 
         let mut expected = Vec::new();
         expected.extend_from_slice(&enc_bitfield_regs(1, 0b10, 4, 15, 1, 0).to_le_bytes());
+        expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
+        assert_eq!(code, expected);
+    }
+
+    #[test]
+    fn lowers_bextr_w8_imm_control_as_ubfx() {
+        let mut builder = FunctionBuilder::new(FunctionId(0), 0);
+        builder.push_op(
+            0,
+            OpKind::Bextr {
+                dst: x(0),
+                src: x(1),
+                control: VReg::Imm((3 << 8) | 2),
+                width: OpWidth::W8,
+            },
+        );
+        builder.set_terminator(Terminator::Return { values: vec![] });
+        let func = builder.finish();
+
+        let mut lowerer = Aarch64Lowerer::new();
+        lowerer.lower_function(&func).unwrap();
+        let code = lowerer.finalize().unwrap();
+
+        let mut expected = Vec::new();
+        expected.extend_from_slice(&enc_bitfield_regs(0, 0b10, 2, 4, 1, 0).to_le_bytes());
+        expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
+        assert_eq!(code, expected);
+    }
+
+    #[test]
+    fn lowers_bextr_w16_imm_control_clips_at_subword_width() {
+        let mut builder = FunctionBuilder::new(FunctionId(0), 0);
+        builder.push_op(
+            0,
+            OpKind::Bextr {
+                dst: x(0),
+                src: x(1),
+                control: VReg::Imm((8 << 8) | 12),
+                width: OpWidth::W16,
+            },
+        );
+        builder.set_terminator(Terminator::Return { values: vec![] });
+        let func = builder.finish();
+
+        let mut lowerer = Aarch64Lowerer::new();
+        lowerer.lower_function(&func).unwrap();
+        let code = lowerer.finalize().unwrap();
+
+        let mut expected = Vec::new();
+        expected.extend_from_slice(&enc_bitfield_regs(0, 0b10, 12, 15, 1, 0).to_le_bytes());
+        expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
+        assert_eq!(code, expected);
+    }
+
+    #[test]
+    fn lowers_bextr_w8_imm_control_empty_extract_as_zero() {
+        let mut builder = FunctionBuilder::new(FunctionId(0), 0);
+        builder.push_op(
+            0,
+            OpKind::Bextr {
+                dst: x(0),
+                src: x(1),
+                control: VReg::Imm((1 << 8) | 8),
+                width: OpWidth::W8,
+            },
+        );
+        builder.set_terminator(Terminator::Return { values: vec![] });
+        let func = builder.finish();
+
+        let mut lowerer = Aarch64Lowerer::new();
+        lowerer.lower_function(&func).unwrap();
+        let code = lowerer.finalize().unwrap();
+
+        let mut expected = Vec::new();
+        expected.extend_from_slice(&enc_mov_wide(0, 0b10, 0, 0, 0).to_le_bytes());
         expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
         assert_eq!(code, expected);
     }
