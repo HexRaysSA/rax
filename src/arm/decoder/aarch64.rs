@@ -1080,6 +1080,57 @@ impl Aarch64Decoder {
         let addr_class = (raw >> 24) & 0x3;
 
         let is_unsigned_imm = addr_class == 0b01;
+        let bit21 = (raw >> 21) & 1;
+        let is_signed_offset = !is_unsigned_imm && bit21 == 0 && op2 == 0b00;
+        let is_register_offset = !is_unsigned_imm && bit21 == 1 && op2 == 0b10;
+
+        if v == 0 && size == 0b11 && opc == 0b10 {
+            let mem = if is_unsigned_imm {
+                let imm12 = ((raw >> 10) & 0xFFF) as i64;
+                MemOperand::imm_offset(Register::with_sp(rn, true), imm12 << 3)
+            } else if is_signed_offset {
+                let imm9 = ((raw >> 12) & 0x1FF) as i64;
+                let imm9 = if imm9 & (1 << 8) != 0 {
+                    imm9 | !0x1FF
+                } else {
+                    imm9
+                };
+                MemOperand::imm_offset(Register::with_sp(rn, true), imm9)
+            } else if is_register_offset {
+                let rm = ((raw >> 16) & 0x1F) as u8;
+                let option = ((raw >> 13) & 0x7) as u8;
+                if option & 0b010 == 0 {
+                    return Ok(DecodedInsn::new(
+                        Mnemonic::UNKNOWN,
+                        ExecutionState::Aarch64,
+                        raw,
+                        4,
+                    ));
+                }
+                let shift = if ((raw >> 12) & 1) != 0 { 3 } else { 0 };
+                let rm_is_64bit = option & 0x3 == 0x3;
+                MemOperand {
+                    base: Register::with_sp(rn, true),
+                    offset: MemOffset::ExtendedReg(ExtendedRegister::new(
+                        Register::with_zr(rm, rm_is_64bit),
+                        ExtendType::from_bits(option),
+                        shift,
+                    )),
+                    mode: AddressingMode::Offset,
+                }
+            } else {
+                return Ok(DecodedInsn::new(
+                    Mnemonic::UNKNOWN,
+                    ExecutionState::Aarch64,
+                    raw,
+                    4,
+                ));
+            };
+
+            return Ok(DecodedInsn::new(Mnemonic::PRFM, ExecutionState::Aarch64, raw, 4)
+                .with_operand(Operand::Prfop(PrefetchOp::from_bits(rt)))
+                .with_operand(Operand::Mem(mem)));
+        }
 
         let (mnemonic, is_64bit) = match (size, v, opc) {
             // Byte

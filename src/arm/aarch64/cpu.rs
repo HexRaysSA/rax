@@ -13925,6 +13925,30 @@ impl AArch64Cpu {
             return Ok(CpuExit::Continue);
         }
 
+        let bit24 = (insn >> 24) & 1;
+        let bit21 = (insn >> 21) & 1;
+        let op2 = (insn >> 10) & 0x3;
+        if size == 0b11 && opc >= 0b10 {
+            let is_unsigned_offset = bit24 == 1;
+            let is_signed_offset = bit24 == 0 && bit21 == 0 && op2 == 0b00;
+            let is_register_offset = bit24 == 0 && bit21 == 1 && op2 == 0b10;
+
+            if opc == 0b10 && (is_unsigned_offset || is_signed_offset || is_register_offset) {
+                if is_register_offset {
+                    let option = ((insn >> 13) & 0x7) as u8;
+                    if option & 0b010 == 0 {
+                        return Err(ArmError::UndefinedInstruction(insn));
+                    }
+                }
+                return Ok(CpuExit::Continue);
+            }
+
+            return Err(ArmError::UndefinedInstruction(insn));
+        }
+        if size == 0b10 && opc == 0b11 {
+            return Err(ArmError::UndefinedInstruction(insn));
+        }
+
         // Determine addressing mode
         let (address, wback, wback_value) = self.decode_address(insn, rn, size)?;
 
