@@ -711,6 +711,22 @@ impl Aarch64Decoder {
         let op2 = ((raw >> 5) & 0x7) as u8;
         let rt = (raw & 0x1F) as u8;
 
+        // Flag manipulation system instructions.
+        if op0 == 0 && op1 == 0 && crn == 4 && crm == 0 && rt == 31 {
+            let mnemonic = match op2 {
+                0b000 => Mnemonic::CFINV,
+                0b001 => Mnemonic::XAFLAG,
+                0b010 => Mnemonic::AXFLAG,
+                _ => Mnemonic::UNDEFINED,
+            };
+            return Ok(DecodedInsn::new(
+                mnemonic,
+                ExecutionState::Aarch64,
+                raw,
+                4,
+            ));
+        }
+
         // Hints: op0 = 0, op1 = 3, CRn = 2, Rt = 31
         if op0 == 0 && op1 == 3 && crn == 2 && rt == 31 {
             return Self::decode_hint_barrier(raw, op1, crm, op2, rt);
@@ -823,7 +839,7 @@ impl Aarch64Decoder {
             (0b0010, 0b000) => Mnemonic::NOP, // ESB
             (0b0010, 0b001) => Mnemonic::NOP, // PSB CSYNC
             (0b0010, 0b010) => Mnemonic::NOP, // TSB CSYNC
-            (0b0010, 0b100) => Mnemonic::CFINV,
+            (0b0010, 0b100) => Mnemonic::NOP, // CSDB
             (0b0011, 0b000) => Mnemonic::NOP, // PACISP
             (0b0011, 0b010) => Mnemonic::BTI,
             (0b0100, _) => {

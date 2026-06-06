@@ -1427,8 +1427,21 @@ impl Aarch64Lifter {
             // =================================================================
             // System
             // =================================================================
-            Mnemonic::NOP => {
+            Mnemonic::NOP
+            | Mnemonic::YIELD
+            | Mnemonic::SEV
+            | Mnemonic::SEVL => {
                 push_op!(OpKind::Nop);
+            }
+
+            Mnemonic::CFINV => {
+                push_op!(OpKind::Xor {
+                    dst: VReg::Arch(ArchReg::Arm(ArmReg::Nzcv)),
+                    src1: VReg::Arch(ArchReg::Arm(ArmReg::Nzcv)),
+                    src2: SrcOperand::Imm(1_i64 << 29),
+                    width: OpWidth::W32,
+                    flags: FlagUpdate::None,
+                });
             }
 
             Mnemonic::SVC => {
