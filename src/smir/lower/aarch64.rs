@@ -4231,7 +4231,7 @@ impl Aarch64Lowerer {
                 Ok(())
             }
             ShiftOp::Ror => {
-                if needs_temp {
+                if needs_temp || temp == src {
                     self.emit_bitfield(temp, src, 0b10, 0, top_bit, OpWidth::W32)?;
                     match width {
                         OpWidth::W8 => {
@@ -4270,8 +4270,6 @@ impl Aarch64Lowerer {
                         }
                         _ => unreachable!(),
                     }
-                } else if width == OpWidth::W16 && temp == src {
-                    self.emit_bitfield(temp, temp, 0b01, 16, top_bit, OpWidth::W32)?;
                 } else {
                     self.emit_bitfield(temp, src, 0b10, 0, top_bit, OpWidth::W32)?;
                     match width {
@@ -4845,15 +4843,33 @@ impl Aarch64Lowerer {
                 self.lower_shift_imm(dst, src, i64::from(ror), ShiftOp::Ror, width)
             }
             SrcOperand::Reg(reg) => {
-                if dst == src {
-                    return Err(LowerError::UnsupportedOp {
-                        op: "AArch64 native Rol register amount needs a scratch when dst == src"
-                            .into(),
-                    });
-                }
                 let amount = Self::gpr(*reg)?;
-                self.emit_addsub_reg(dst, 31, amount, true, false, width)?;
-                self.emit_dp2(dst, src, dst, 0b1011, width)
+                let count_width = if matches!(width, OpWidth::W8 | OpWidth::W16) {
+                    OpWidth::W32
+                } else {
+                    width
+                };
+
+                if dst == src {
+                    let scratches = Self::scratch_regs(&[dst, src, amount], 1)?;
+                    let count = scratches[0];
+                    self.emit_scratch_save(&scratches);
+                    self.emit_addsub_reg(count, 31, amount, true, false, count_width)?;
+                    if matches!(width, OpWidth::W8 | OpWidth::W16) {
+                        self.lower_subword_shift_reg(dst, src, count, ShiftOp::Ror, width)?;
+                    } else {
+                        self.emit_dp2(dst, src, count, 0b1011, width)?;
+                    }
+                    self.emit_scratch_restore(&scratches);
+                    Ok(())
+                } else {
+                    self.emit_addsub_reg(dst, 31, amount, true, false, count_width)?;
+                    if matches!(width, OpWidth::W8 | OpWidth::W16) {
+                        self.lower_subword_shift_reg(dst, src, dst, ShiftOp::Ror, width)
+                    } else {
+                        self.emit_dp2(dst, src, dst, 0b1011, width)
+                    }
+                }
             }
             other => Err(LowerError::UnsupportedOp {
                 op: format!("AArch64 native Rol amount {other:?}"),
@@ -7154,6 +7170,19 @@ mod tests {
         }
     }
 
+    fn ref_rol_reg(src: u64, amount: u64, width: OpWidth) -> u64 {
+        let bits = width.bits();
+        let mask = width_mask(width);
+        let src = src & mask;
+        let cmask = if width == OpWidth::W64 { 0x3f } else { 0x1f };
+        let count = ((amount & cmask) as u32) % bits;
+        if count == 0 {
+            src
+        } else {
+            ((src << count) | (src >> (bits - count))) & mask
+        }
+    }
+
     fn assert_shift_reg_count_alias_lowering(
         label: &str,
         shift: ShiftOp,
@@ -7209,6 +7238,59 @@ mod tests {
         regs.push((amount_reg, amount_value));
 
         let old_nzcv = 0b1011;
+        let (out, out_nzcv, sp) = run_aarch64_code(&code, &regs, old_nzcv);
+        assert_eq!(
+            out[dst_reg as usize] & width_mask(width),
+            expected,
+            "{label}: result"
+        );
+        assert_eq!(out_nzcv, old_nzcv, "{label}: NZCV preserved");
+        assert_eq!(sp, 0x8000, "{label}: stack restored");
+        if src_reg != dst_reg {
+            assert_eq!(out[src_reg as usize], src_value, "{label}: src preserved");
+        }
+        if amount_reg != dst_reg {
+            assert_eq!(
+                out[amount_reg as usize],
+                amount_value,
+                "{label}: count preserved"
+            );
+        }
+        for (reg, value) in sentinels {
+            if reg != src_reg && reg != amount_reg && reg != dst_reg {
+                assert_eq!(out[reg as usize], value, "{label}: x{reg} restored");
+            }
+        }
+    }
+
+    fn assert_rol_reg_lowering(
+        label: &str,
+        src_reg: u8,
+        src_value: u64,
+        amount_reg: u8,
+        amount_value: u64,
+        width: OpWidth,
+        dst_reg: u8,
+    ) {
+        let code = lower_single_op(OpKind::Rol {
+            dst: x(dst_reg),
+            src: x(src_reg),
+            amount: SrcOperand::Reg(x(amount_reg)),
+            width,
+            flags: FlagUpdate::None,
+        });
+        let expected = ref_rol_reg(src_value, amount_value, width);
+        let sentinels = [
+            (16, 0x1616_1616_1616_1616),
+            (17, 0x1717_1717_1717_1717),
+            (15, 0x1515_1515_1515_1515),
+            (14, 0x1414_1414_1414_1414),
+        ];
+        let mut regs = sentinels.to_vec();
+        regs.push((src_reg, src_value));
+        regs.push((amount_reg, amount_value));
+
+        let old_nzcv = 0b0110;
         let (out, out_nzcv, sp) = run_aarch64_code(&code, &regs, old_nzcv);
         assert_eq!(
             out[dst_reg as usize] & width_mask(width),
@@ -7750,6 +7832,27 @@ mod tests {
 
     fn enc_logical_reg_n(sf: u32, opc: u32, n: u32, rd: u32, rn: u32, rm: u32) -> u32 {
         (sf << 31) | (opc << 29) | (0b01010 << 24) | (n << 21) | (rm << 16) | (rn << 5) | rd
+    }
+
+    fn enc_logical_shifted(
+        sf: u32,
+        opc: u32,
+        shift: u32,
+        n: bool,
+        rd: u32,
+        rn: u32,
+        rm: u32,
+        amount: u32,
+    ) -> u32 {
+        (sf << 31)
+            | (opc << 29)
+            | (0b01010 << 24)
+            | (shift << 22)
+            | ((n as u32) << 21)
+            | (rm << 16)
+            | (amount << 10)
+            | (rn << 5)
+            | rd
     }
 
     fn enc_logical_reg(sf: u32, opc: u32, rd: u32, rn: u32, rm: u32) -> u32 {
@@ -9391,7 +9494,8 @@ mod tests {
         let code = lowerer.finalize().unwrap();
 
         let mut expected = Vec::new();
-        expected.extend_from_slice(&enc_bitfield_regs(0, 0b01, 16, 15, 1, 1).to_le_bytes());
+        expected.extend_from_slice(&enc_bitfield_regs(0, 0b10, 0, 15, 1, 1).to_le_bytes());
+        expected.extend_from_slice(&enc_logical_shifted(0, 0b01, 0, false, 1, 1, 1, 16).to_le_bytes());
         expected.extend_from_slice(&enc_dp2_regs(0, 0b1011, 1, 2, 1).to_le_bytes());
         expected.extend_from_slice(&enc_bitfield_regs(0, 0b10, 0, 15, 1, 1).to_le_bytes());
         expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
@@ -14506,24 +14610,66 @@ mod tests {
     }
 
     #[test]
-    fn rejects_rol_register_amount_when_dst_is_src() {
-        let mut builder = FunctionBuilder::new(FunctionId(0), 0);
-        builder.push_op(
+    fn lowers_rol_reg_when_dst_aliases_src() {
+        assert_rol_reg_lowering(
+            "rol_x_dst_aliases_src",
             0,
-            OpKind::Rol {
-                dst: x(0),
-                src: x(0),
-                amount: SrcOperand::Reg(x(2)),
-                width: OpWidth::W64,
-                flags: FlagUpdate::None,
-            },
+            0x8000_0000_0000_0001,
+            2,
+            1,
+            OpWidth::W64,
+            0,
         );
-        builder.set_terminator(Terminator::Return { values: vec![] });
-        let func = builder.finish();
+        assert_rol_reg_lowering(
+            "rol_w_dst_aliases_src",
+            0,
+            0x8000_0001,
+            2,
+            4,
+            OpWidth::W32,
+            0,
+        );
+        assert_rol_reg_lowering(
+            "rol_x_dst_aliases_src_and_count",
+            1,
+            3,
+            1,
+            3,
+            OpWidth::W64,
+            1,
+        );
+    }
 
-        let mut lowerer = Aarch64Lowerer::new();
-        let err = lowerer.lower_function(&func).unwrap_err();
-        assert!(matches!(err, LowerError::UnsupportedOp { .. }));
+    #[test]
+    fn lowers_subword_rol_reg() {
+        assert_rol_reg_lowering("rol_w8_reg", 1, 0x81, 2, 1, OpWidth::W8, 0);
+        assert_rol_reg_lowering(
+            "rol_w8_dst_aliases_count",
+            1,
+            0x81,
+            2,
+            9,
+            OpWidth::W8,
+            2,
+        );
+        assert_rol_reg_lowering(
+            "rol_w8_dst_aliases_src",
+            1,
+            0x81,
+            2,
+            1,
+            OpWidth::W8,
+            1,
+        );
+        assert_rol_reg_lowering(
+            "rol_w16_dst_aliases_src_and_count",
+            1,
+            0x8001,
+            1,
+            0x8001,
+            OpWidth::W16,
+            1,
+        );
     }
 
     #[test]
