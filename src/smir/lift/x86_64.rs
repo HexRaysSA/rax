@@ -3182,6 +3182,64 @@ impl X86_64Lifter {
         ))
     }
 
+    fn lift_apx_count(
+        &self,
+        prefix: ApxEvexPrefix,
+        opcode: u8,
+        bytes: &[u8],
+        pc: u64,
+        ctx: &mut LiftContext,
+    ) -> Result<LiftResult, LiftError> {
+        if prefix.nd || !prefix.nf {
+            return Err(LiftError::Unsupported {
+                addr: pc,
+                mnemonic: "APX count without required NF-only form".to_string(),
+            });
+        }
+
+        let op_size = prefix.op_size(false);
+        let width = self.size_to_width(op_size);
+        let mem_width = self.size_to_memwidth(op_size);
+        let modrm_prefix = prefix.as_modrm_prefix(prefix.bytes + 1);
+        let modrm = decode_modrm(bytes, &modrm_prefix, pc)?;
+        let next_pc = pc + prefix.bytes as u64 + 1 + modrm.bytes_consumed as u64;
+        let mut ops = Vec::new();
+
+        let src = if modrm.is_memory {
+            let x86_addr = modrm.addr.as_ref().unwrap();
+            let (addr, pre_ops) = self.x86_addr_to_smir(x86_addr, next_pc, ctx);
+            ops.extend(pre_ops);
+
+            let tmp = ctx.alloc_vreg();
+            ops.push(SmirOp::new(
+                OpId(ops.len() as u16),
+                pc,
+                OpKind::Load {
+                    dst: tmp,
+                    addr,
+                    width: mem_width,
+                    sign: SignExtend::Zero,
+                },
+            ));
+            tmp
+        } else {
+            self.gpr(modrm.rm)
+        };
+        let dst = self.gpr(modrm.reg);
+        let kind = match opcode {
+            0x88 => OpKind::Popcnt { dst, src, width },
+            0xF4 => OpKind::Ctz { dst, src, width },
+            0xF5 => OpKind::Clz { dst, src, width },
+            _ => unreachable!(),
+        };
+        ops.push(SmirOp::new(OpId(ops.len() as u16), pc, kind));
+
+        Ok(LiftResult::fallthrough(
+            ops,
+            prefix.bytes + 1 + modrm.bytes_consumed,
+        ))
+    }
+
     fn lift_apx_setzucc(
         &self,
         prefix: ApxEvexPrefix,
@@ -3784,6 +3842,12 @@ impl X86_64Lifter {
                 self.lift_apx_imul_imm(prefix, opcode, &bytes[prefix.bytes + 1..], pc, ctx)
             }
             0xAF => self.lift_apx_imul_reg(prefix, &bytes[prefix.bytes + 1..], pc, ctx),
+            0x88 if prefix.nf => {
+                self.lift_apx_count(prefix, opcode, &bytes[prefix.bytes + 1..], pc, ctx)
+            }
+            0xF4 | 0xF5 => {
+                self.lift_apx_count(prefix, opcode, &bytes[prefix.bytes + 1..], pc, ctx)
+            }
             0x8F => self.lift_apx_pop2(prefix, modrm, pc, ctx),
             0xFF => self.lift_apx_push2(prefix, modrm, pc, ctx),
             _ => Err(LiftError::Unsupported {
@@ -7950,6 +8014,125 @@ mod tests {
                 assert_eq!(*base, x86_gpr(0));
             }
             other => panic!("expected APX SETZUcc byte store, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn lift_apx_nf_count_registers_use_count_ops_like_llvm() {
+        let mut lifter = X86_64Lifter::strict();
+        let mut ctx = LiftContext::new(SourceArch::X86_64);
+
+        for (bytes, name) in [
+            ([0x62, 0x74, 0xFC, 0x0C, 0x88, 0xC0], "popcnt"),
+            ([0x62, 0x74, 0xFC, 0x0C, 0xF5, 0xC0], "lzcnt"),
+            ([0x62, 0x74, 0xFC, 0x0C, 0xF4, 0xC0], "tzcnt"),
+        ] {
+            let result = lifter.lift_insn(0x1000, &bytes, &mut ctx).unwrap();
+            assert_eq!(result.bytes_consumed, 6, "{name}");
+            assert_eq!(result.ops.len(), 1, "{name}");
+            match (name, &result.ops[0].kind) {
+                (
+                    "popcnt",
+                    OpKind::Popcnt {
+                        dst,
+                        src,
+                        width: OpWidth::W64,
+                    },
+                )
+                | (
+                    "lzcnt",
+                    OpKind::Clz {
+                        dst,
+                        src,
+                        width: OpWidth::W64,
+                    },
+                )
+                | (
+                    "tzcnt",
+                    OpKind::Ctz {
+                        dst,
+                        src,
+                        width: OpWidth::W64,
+                    },
+                ) => {
+                    assert_eq!(*dst, x86_gpr(8), "{name}");
+                    assert_eq!(*src, x86_gpr(0), "{name}");
+                }
+                other => panic!("expected APX {name} count op, got {other:?}"),
+            }
+        }
+    }
+
+    #[test]
+    fn lift_apx_nf_count_width_and_memory_like_llvm() {
+        let mut lifter = X86_64Lifter::strict();
+        let mut ctx = LiftContext::new(SourceArch::X86_64);
+
+        // LLVM 20: `{nf} popcnt r8w, ax` => 62 74 7d 0c 88 c0.
+        let result = lifter
+            .lift_insn(0x1000, &[0x62, 0x74, 0x7D, 0x0C, 0x88, 0xC0], &mut ctx)
+            .unwrap();
+        assert_eq!(result.bytes_consumed, 6);
+        assert_eq!(result.ops.len(), 1);
+        match &result.ops[0].kind {
+            OpKind::Popcnt {
+                dst,
+                src,
+                width: OpWidth::W16,
+            } => {
+                assert_eq!(*dst, x86_gpr(8));
+                assert_eq!(*src, x86_gpr(0));
+            }
+            other => panic!("expected APX word POPCNT, got {other:?}"),
+        }
+
+        // LLVM 20: `{nf} lzcnt r8, [rbx]` => 62 74 fc 0c f5 03.
+        let result = lifter
+            .lift_insn(0x2000, &[0x62, 0x74, 0xFC, 0x0C, 0xF5, 0x03], &mut ctx)
+            .unwrap();
+        assert_eq!(result.bytes_consumed, 6);
+        assert_eq!(result.ops.len(), 2);
+        let tmp = match &result.ops[0].kind {
+            OpKind::Load {
+                dst,
+                addr: Address::Direct(base),
+                width: MemWidth::B8,
+                sign: SignExtend::Zero,
+            } => {
+                assert_eq!(*base, x86_gpr(3));
+                assert!(matches!(dst, VReg::Virtual(_)));
+                *dst
+            }
+            other => panic!("expected APX LZCNT memory load, got {other:?}"),
+        };
+        match &result.ops[1].kind {
+            OpKind::Clz {
+                dst,
+                src,
+                width: OpWidth::W64,
+            } => {
+                assert_eq!(*dst, x86_gpr(8));
+                assert_eq!(*src, tmp);
+            }
+            other => panic!("expected APX LZCNT memory count op, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn lift_apx_nf_counts_reject_invalid_forms_like_llvm() {
+        let mut lifter = X86_64Lifter::strict();
+        let mut ctx = LiftContext::new(SourceArch::X86_64);
+
+        for (bytes, name) in [
+            ([0x62, 0x74, 0xFC, 0x08, 0x88, 0xC0], "popcnt without nf"),
+            ([0x62, 0x74, 0xFC, 0x08, 0xF4, 0xC0], "tzcnt without nf"),
+            ([0x62, 0x74, 0xFC, 0x1C, 0xF5, 0xC0], "lzcnt with ndd"),
+        ] {
+            let err = lifter.lift_insn(0x1000, &bytes, &mut ctx).unwrap_err();
+            assert!(
+                matches!(err, LiftError::Unsupported { .. }),
+                "{name}: {err:?}"
+            );
         }
     }
 

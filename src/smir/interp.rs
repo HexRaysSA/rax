@@ -1415,7 +1415,7 @@ impl SmirInterpreter {
 
             OpKind::Popcnt { dst, src, width } => {
                 let val = ctx.read_vreg(*src) & width.mask();
-                ctx.write_vreg(*dst, val.count_ones() as u64);
+                Self::write_gpr(ctx, *dst, val.count_ones() as u64, *width);
             }
 
             OpKind::Bswap { dst, src, width } => {

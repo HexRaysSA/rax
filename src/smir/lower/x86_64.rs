@@ -3478,6 +3478,24 @@ impl X86_64Lowerer {
         Ok(())
     }
 
+    fn ensure_count_native_stack_safe(
+        op: &'static str,
+        dst_reg: PhysReg,
+        src_reg: PhysReg,
+    ) -> Result<(), LowerError> {
+        if matches!(dst_reg, PhysReg::Rsp | PhysReg::Rbp)
+            || matches!(src_reg, PhysReg::Rsp | PhysReg::Rbp)
+        {
+            return Err(LowerError::InvalidOperand {
+                op: op.to_string(),
+                operand: "RSP/RBP operands are not safe with flag-preserving count lowering"
+                    .to_string(),
+            });
+        }
+
+        Ok(())
+    }
+
     /// Emit function prologue
     fn emit_prologue(&mut self) {
         let mut emitter = X86Emitter::new(&mut self.code);
@@ -4355,6 +4373,36 @@ impl X86_64Lowerer {
                 let src_reg = self.get_reg(*src)?;
                 let mut emitter = X86Emitter::new(&mut self.code);
                 emitter.emit_bsr(dst_reg, src_reg, *width);
+            }
+
+            OpKind::Clz { dst, src, width } => {
+                let dst_reg = self.get_dst_reg(*dst)?;
+                let src_reg = self.get_reg(*src)?;
+                Self::ensure_count_native_stack_safe("Clz", dst_reg, src_reg)?;
+                self.code.emit_u8(0x9C); // pushfq
+                let mut emitter = X86Emitter::new(&mut self.code);
+                emitter.emit_lzcnt(dst_reg, src_reg, *width);
+                self.code.emit_u8(0x9D); // popfq
+            }
+
+            OpKind::Ctz { dst, src, width } => {
+                let dst_reg = self.get_dst_reg(*dst)?;
+                let src_reg = self.get_reg(*src)?;
+                Self::ensure_count_native_stack_safe("Ctz", dst_reg, src_reg)?;
+                self.code.emit_u8(0x9C); // pushfq
+                let mut emitter = X86Emitter::new(&mut self.code);
+                emitter.emit_tzcnt(dst_reg, src_reg, *width);
+                self.code.emit_u8(0x9D); // popfq
+            }
+
+            OpKind::Popcnt { dst, src, width } => {
+                let dst_reg = self.get_dst_reg(*dst)?;
+                let src_reg = self.get_reg(*src)?;
+                Self::ensure_count_native_stack_safe("Popcnt", dst_reg, src_reg)?;
+                self.code.emit_u8(0x9C); // pushfq
+                let mut emitter = X86Emitter::new(&mut self.code);
+                emitter.emit_popcnt(dst_reg, src_reg, *width);
+                self.code.emit_u8(0x9D); // popfq
             }
 
             // ================================================================
@@ -9788,6 +9836,67 @@ mod tests {
         ]);
         assert!(entry < lowered.len());
         assert!(!lowered.is_empty());
+    }
+
+    #[test]
+    fn lower_apx_nf_count_slice_lowers_without_relocs() {
+        // LLVM 20 APX MAP4 forms:
+        //   {nf} popcnt r8, rax   => 62 74 fc 0c 88 c0
+        //   {nf} lzcnt  r8, rax   => 62 74 fc 0c f5 c0
+        //   {nf} tzcnt  r8, rax   => 62 74 fc 0c f4 c0
+        //   {nf} popcnt r8w, ax   => 62 74 7d 0c 88 c0
+        //   {nf} lzcnt  r8, [rbx] => 62 74 fc 0c f5 03
+        let (lowered, entry) = lower_rex2_block(&[
+            0x62, 0x74, 0xFC, 0x0C, 0x88, 0xC0, 0x62, 0x74, 0xFC, 0x0C, 0xF5, 0xC0,
+            0x62, 0x74, 0xFC, 0x0C, 0xF4, 0xC0, 0x62, 0x74, 0x7D, 0x0C, 0x88, 0xC0,
+            0x62, 0x74, 0xFC, 0x0C, 0xF5, 0x03, 0xF4,
+        ]);
+        assert!(entry < lowered.len());
+        assert!(!lowered.is_empty());
+        assert!(lowered.contains(&0x9C), "count lowering must preserve flags");
+        assert!(lowered.contains(&0x9D), "count lowering must restore flags");
+    }
+
+    #[test]
+    fn lower_count_ops_reject_native_stack_operands() {
+        let rsp = VReg::Arch(ArchReg::X86(X86Reg::Rsp));
+        let rbp = VReg::Arch(ArchReg::X86(X86Reg::Rbp));
+        let rax = VReg::Arch(ArchReg::X86(X86Reg::Rax));
+
+        for (name, kind) in [
+            (
+                "popcnt dst rsp",
+                OpKind::Popcnt {
+                    dst: rsp,
+                    src: rax,
+                    width: OpWidth::W64,
+                },
+            ),
+            (
+                "ctz src rsp",
+                OpKind::Ctz {
+                    dst: rax,
+                    src: rsp,
+                    width: OpWidth::W64,
+                },
+            ),
+            (
+                "clz dst rbp",
+                OpKind::Clz {
+                    dst: rbp,
+                    src: rax,
+                    width: OpWidth::W64,
+                },
+            ),
+        ] {
+            let mut builder = FunctionBuilder::new(FunctionId(0), 0x1000);
+            builder.push_op(0x1000, kind);
+            builder.set_terminator(Terminator::Return { values: vec![] });
+            let func = builder.finish();
+
+            let mut lowerer = X86_64Lowerer::new();
+            assert!(lowerer.lower_function(&func).is_err(), "{name}");
+        }
     }
 
     #[cfg(all(feature = "smir-jit", target_arch = "x86_64"))]
