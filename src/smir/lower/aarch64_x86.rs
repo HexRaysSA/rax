@@ -232,6 +232,7 @@ impl Aarch64X86_64Lowerer {
     }
 
     fn store_reg_to(&mut self, dst: VReg, src: PhysReg, width: OpWidth) -> Result<(), LowerError> {
+        self.emit_normalize_gpr_width(src, width)?;
         match dst {
             VReg::Imm(_) => {}
             VReg::Virtual(id) => {
@@ -256,6 +257,21 @@ impl Aarch64X86_64Lowerer {
                 return Err(LowerError::InvalidRegister(format!(
                     "non-AArch64 destination in AArch64 lowerer: {other:?}"
                 )));
+            }
+        }
+        Ok(())
+    }
+
+    fn emit_normalize_gpr_width(&mut self, reg: PhysReg, width: OpWidth) -> Result<(), LowerError> {
+        let mut e = X86Emitter::new(&mut self.code);
+        match width {
+            OpWidth::W8 | OpWidth::W16 => e.emit_movzx(reg, reg, width, OpWidth::W64),
+            OpWidth::W32 => e.emit_mov_rr(reg, reg, OpWidth::W32),
+            OpWidth::W64 => {}
+            OpWidth::W128 => {
+                return Err(LowerError::UnsupportedOp {
+                    op: "AArch64 scalar store width W128".into(),
+                });
             }
         }
         Ok(())
@@ -673,6 +689,32 @@ impl Aarch64X86_64Lowerer {
                 self.load_vreg_to(*src, ACC, *to_width)?;
                 self.store_reg_to(*dst, ACC, *to_width)?;
             }
+            OpKind::Select {
+                dst,
+                cond,
+                src_true,
+                src_false,
+                width,
+            } => {
+                let cmov_width = match width {
+                    OpWidth::W8 | OpWidth::W16 => OpWidth::W16,
+                    OpWidth::W32 | OpWidth::W64 => *width,
+                    OpWidth::W128 => {
+                        return Err(LowerError::UnsupportedOp {
+                            op: "AArch64 scalar Select width W128".into(),
+                        });
+                    }
+                };
+                self.load_vreg_to(*src_false, ACC, *width)?;
+                self.load_vreg_to(*src_true, RHS, *width)?;
+                self.load_vreg_to(*cond, B0, OpWidth::W64)?;
+                {
+                    let mut e = X86Emitter::new(&mut self.code);
+                    e.emit_test_rr(B0, B0, OpWidth::W64);
+                    e.emit_cmovcc(X86Cond::Ne, ACC, RHS, cmov_width);
+                }
+                self.store_reg_to(*dst, ACC, *width)?;
+            }
             OpKind::TestCondition { dst, cond } | OpKind::SetCC { dst, cond, .. } => {
                 self.emit_condition_to_reg(*cond, ACC)?;
                 self.store_reg_to(*dst, ACC, OpWidth::W64)?;
@@ -907,6 +949,43 @@ mod tests {
 
         assert_eq!(regs.x[0], 0xffff_ffff);
         assert_eq!(regs.pc, 0x2004);
+    }
+
+    #[test]
+    fn select_uses_condition_temp_and_zero_extends_w32_result() {
+        let mut b = FunctionBuilder::new(FunctionId(0), 0x2400);
+        let cond = b.alloc_vreg();
+        b.push_op(
+            0x2400,
+            OpKind::TestCondition {
+                dst: cond,
+                cond: Condition::Eq,
+            },
+        );
+        b.push_op(
+            0x2400,
+            OpKind::Select {
+                dst: x(0),
+                cond,
+                src_true: x(1),
+                src_false: x(2),
+                width: OpWidth::W32,
+            },
+        );
+        b.set_terminator(Terminator::Return { values: vec![] });
+        let func = b.finish();
+
+        let mut regs = Aarch64GuestRegs::default();
+        regs.x[1] = 0xffff_ffff_1234_5678;
+        regs.x[2] = 0xffff_ffff_8765_4321;
+        regs.nzcv = 0;
+        run_func(&func, &mut regs);
+        assert_eq!(regs.x[0], 0x8765_4321);
+
+        regs.x[0] = 0xaaaa_bbbb_cccc_dddd;
+        regs.nzcv = 0x4000_0000;
+        run_func(&func, &mut regs);
+        assert_eq!(regs.x[0], 0x1234_5678);
     }
 
     #[test]

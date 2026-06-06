@@ -755,6 +755,11 @@ fn enc_mov_wide(sf: u32, opc: u32, hw: u32, imm16: u32) -> u32 {
 }
 
 #[cfg(all(feature = "smir-jit", target_arch = "x86_64"))]
+fn enc_csel(sf: u32, cond: u32) -> u32 {
+    (sf << 31) | 0x1a80_0000 | (RM << 16) | (cond << 12) | (RN << 5) | RD
+}
+
+#[cfg(all(feature = "smir-jit", target_arch = "x86_64"))]
 fn compare_smir_scalar_case(
     label: &str,
     insn: u32,
@@ -818,6 +823,12 @@ fn smir_aarch64_x86_scalar_lowering_matches_qemu_oracle() {
         ("movz_x_lsl16", enc_mov_wide(1, 0b10, 1, 0x1234)),
         ("movn_w", enc_mov_wide(0, 0b00, 0, 0)),
         ("movk_x_lsl16", enc_mov_wide(1, 0b11, 1, 0xabcd)),
+        ("csel_x_eq", enc_csel(1, 0)),
+        ("csel_x_ne", enc_csel(1, 1)),
+        ("csel_x_hi", enc_csel(1, 8)),
+        ("csel_x_ge", enc_csel(1, 10)),
+        ("csel_w_lt_zero_ext", enc_csel(0, 11)),
+        ("csel_w_le_zero_ext", enc_csel(0, 13)),
     ];
 
     let mut rng = Rng::new(0x5a11_64c0_de);
