@@ -2229,16 +2229,44 @@ impl X86_64Lifter {
         bytes: &[u8],
         prefix: &X86Prefix,
         pc: u64,
+        ctx: &mut LiftContext,
     ) -> Result<LiftResult, LiftError> {
         let is_byte = opcode == 0x86;
         let op_size = if is_byte { 1 } else { prefix.op_size() };
         let width = self.size_to_width(op_size);
+        let mem_width = self.size_to_memwidth(op_size);
         let modrm = decode_modrm(bytes, prefix, pc)?;
         if modrm.is_memory {
-            return Err(LiftError::Unsupported {
-                addr: pc,
-                mnemonic: "XCHG memory requires atomic exchange".to_string(),
-            });
+            let next_pc = pc + prefix.cursor as u64 + modrm.bytes_consumed as u64;
+            let x86_addr = modrm.addr.as_ref().unwrap();
+            let (addr, mut ops) = self.x86_addr_to_smir(x86_addr, next_pc, ctx);
+            let old = ctx.alloc_vreg();
+            ops.push(SmirOp::new(
+                OpId(ops.len() as u16),
+                pc,
+                OpKind::AtomicRmw {
+                    dst: old,
+                    addr,
+                    src: self.gpr(modrm.reg),
+                    op: AtomicOp::Swap,
+                    width: mem_width,
+                    order: MemoryOrder::SeqCst,
+                },
+            ));
+            ops.push(SmirOp::new(
+                OpId(ops.len() as u16),
+                pc,
+                OpKind::Mov {
+                    dst: self.gpr(modrm.reg),
+                    src: SrcOperand::Reg(old),
+                    width,
+                },
+            ));
+
+            return Ok(LiftResult::fallthrough(
+                ops,
+                prefix.cursor + modrm.bytes_consumed,
+            ));
         }
 
         Ok(LiftResult::fallthrough(
@@ -8058,6 +8086,7 @@ impl X86_64Lifter {
                     ..prefix
                 },
                 pc,
+                ctx,
             ),
             0xC6 | 0xC7 => self.lift_mov_rm_imm(
                 opcode,
@@ -10761,22 +10790,69 @@ mod tests {
     }
 
     #[test]
-    fn lift_rex2_xchg_memory_requires_atomic_exchange_ir() {
+    fn lift_rex2_xchg_memory_uses_atomic_swap_like_llvm() {
         let mut lifter = X86_64Lifter::strict();
         let mut ctx = LiftContext::new(SourceArch::X86_64);
 
-        // LLVM 23: `xchgq %r18, 32(%r16,%r17,4)` => d5 78 87 54 88 20.
-        let err = lifter
-            .lift_insn(
-                0x1000,
-                &[0xD5, 0x78, 0x87, 0x54, 0x88, 0x20],
-                &mut ctx,
-            )
-            .unwrap_err();
-        assert!(
-            matches!(err, LiftError::Unsupported { .. }),
-            "memory XCHG needs atomic exchange modeling: {err:?}"
-        );
+        for (bytes, name, mem_width, op_width) in [
+            (
+                [0xD5, 0x78, 0x87, 0x54, 0x88, 0x20],
+                "xchgq",
+                MemWidth::B8,
+                OpWidth::W64,
+            ),
+            (
+                [0xD5, 0x70, 0x86, 0x54, 0x88, 0x20],
+                "xchgb",
+                MemWidth::B1,
+                OpWidth::W8,
+            ),
+        ] {
+            // LLVM 23:
+            //   `xchgq %r18, 32(%r16,%r17,4)` => d5 78 87 54 88 20
+            //   `xchgb %r18b, 32(%r16,%r17,4)` => d5 70 86 54 88 20
+            let result = lifter.lift_insn(0x1000, &bytes, &mut ctx).unwrap();
+            assert_eq!(result.bytes_consumed, 6, "{name}");
+            assert_eq!(result.ops.len(), 2, "{name}");
+
+            let old_mem = match &result.ops[0].kind {
+                OpKind::AtomicRmw {
+                    dst,
+                    addr:
+                        Address::BaseIndexScale {
+                            base: Some(base),
+                            index,
+                            scale: 4,
+                            disp: 0x20,
+                            disp_size: DispSize::Disp8,
+                        },
+                    src,
+                    op: AtomicOp::Swap,
+                    width,
+                    order: MemoryOrder::SeqCst,
+                } => {
+                    assert_eq!(*base, x86_gpr(16), "{name}");
+                    assert_eq!(*index, x86_gpr(17), "{name}");
+                    assert_eq!(*src, x86_gpr(18), "{name}");
+                    assert_eq!(*width, mem_width, "{name}");
+                    *dst
+                }
+                other => panic!("expected REX2 {name} AtomicRmw Swap, got {other:?}"),
+            };
+
+            match &result.ops[1].kind {
+                OpKind::Mov {
+                    dst,
+                    src: SrcOperand::Reg(src),
+                    width,
+                } => {
+                    assert_eq!(*dst, x86_gpr(18), "{name}");
+                    assert_eq!(*src, old_mem, "{name}");
+                    assert_eq!(*width, op_width, "{name}");
+                }
+                other => panic!("expected REX2 {name} register writeback, got {other:?}"),
+            }
+        }
     }
 
     #[test]
