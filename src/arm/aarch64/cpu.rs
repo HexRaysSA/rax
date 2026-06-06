@@ -1144,8 +1144,12 @@ impl AArch64Cpu {
                     return self.exec_csel(insn);
                 }
                 0b0110 => {
-                    // Data processing (2 source)
-                    return self.exec_dp_2src(insn);
+                    if ((insn >> 30) & 1) == 0 {
+                        // Data processing (2 source)
+                        return self.exec_dp_2src(insn);
+                    }
+                    // Data processing (1 source)
+                    return self.exec_dp_1src(insn);
                 }
                 _ if (op2 & 0b1000) != 0 => {
                     // Data processing (3 source)
@@ -14505,6 +14509,62 @@ impl AArch64Cpu {
                 }
             };
 
+            self.set_w(rd, result);
+        }
+
+        Ok(CpuExit::Continue)
+    }
+
+    fn exec_dp_1src(&mut self, insn: u32) -> Result<CpuExit, ArmError> {
+        let sf = (insn >> 31) & 1;
+        let s = (insn >> 29) & 1;
+        let opcode = (insn >> 10) & 0x3F;
+        let rn = ((insn >> 5) & 0x1F) as u8;
+        let rd = (insn & 0x1F) as u8;
+
+        if s != 0 {
+            return Err(ArmError::UndefinedInstruction(insn));
+        }
+
+        if sf != 0 {
+            let operand = self.get_x(rn);
+            let result = match opcode {
+                0b000000 => operand.reverse_bits(), // RBIT
+                0b000001 => {
+                    // REV16
+                    ((operand & 0x00ff_00ff_00ff_00ff) << 8)
+                        | ((operand & 0xff00_ff00_ff00_ff00) >> 8)
+                }
+                0b000010 => {
+                    // REV32
+                    ((operand & 0x0000_00ff) << 24)
+                        | ((operand & 0x0000_ff00) << 8)
+                        | ((operand & 0x00ff_0000) >> 8)
+                        | ((operand & 0xff00_0000) >> 24)
+                        | ((operand & 0x0000_00ff_0000_0000) << 24)
+                        | ((operand & 0x0000_ff00_0000_0000) << 8)
+                        | ((operand & 0x00ff_0000_0000_0000) >> 8)
+                        | ((operand & 0xff00_0000_0000_0000) >> 24)
+                }
+                0b000011 => operand.swap_bytes(), // REV
+                0b000100 => u64::from(operand.leading_zeros()), // CLZ
+                0b000101 => count_leading_sign(operand, 64), // CLS
+                _ => return Err(ArmError::UndefinedInstruction(insn)),
+            };
+            self.set_x(rd, result);
+        } else {
+            let operand = self.get_w(rn);
+            let result = match opcode {
+                0b000000 => operand.reverse_bits(), // RBIT
+                0b000001 => {
+                    // REV16
+                    ((operand & 0x00ff_00ff) << 8) | ((operand & 0xff00_ff00) >> 8)
+                }
+                0b000010 => operand.swap_bytes(), // REV
+                0b000100 => operand.leading_zeros(), // CLZ
+                0b000101 => count_leading_sign(u64::from(operand), 32) as u32, // CLS
+                _ => return Err(ArmError::UndefinedInstruction(insn)),
+            };
             self.set_w(rd, result);
         }
 

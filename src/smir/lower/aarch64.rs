@@ -2599,7 +2599,8 @@ impl Aarch64Lowerer {
         if matches!(width, OpWidth::W8 | OpWidth::W16) {
             let sentinel = if width == OpWidth::W8 { 0x100 } else { 0x1_0000 };
             let (imm_n, immr, imms) = Self::logical_bitmask_imm(sentinel, OpWidth::W32)?;
-            self.emit_logic_imm(dst, src, 0b01, imm_n, immr, imms, OpWidth::W32)?;
+            self.emit_bitfield(dst, src, 0b10, 0, width.bits() - 1, OpWidth::W32)?;
+            self.emit_logic_imm(dst, dst, 0b01, imm_n, immr, imms, OpWidth::W32)?;
             self.emit_dp1(dst, dst, 0b000000, OpWidth::W32)?;
             return self.emit_dp1(dst, dst, 0b000100, OpWidth::W32);
         }
@@ -2614,12 +2615,6 @@ impl Aarch64Lowerer {
         width: OpWidth,
         flags: FlagUpdate,
     ) -> Result<(), LowerError> {
-        if flags.updates_any() {
-            return Err(LowerError::UnsupportedOp {
-                op: "AArch64 native flag-setting Bsf".into(),
-            });
-        }
-
         let (mask_bits, mask_width) = match width {
             OpWidth::W8 => (3, OpWidth::W32),
             OpWidth::W16 => (4, OpWidth::W32),
@@ -2631,8 +2626,31 @@ impl Aarch64Lowerer {
                 });
             }
         };
+        let dst_reg = Self::dst_gpr(dst)?;
+        let src_reg = Self::gpr(src)?;
+        let saved_src = if flags.updates_any() && dst_reg == src_reg {
+            Self::scratch_regs(&[dst_reg, src_reg], 1)?
+        } else {
+            Vec::new()
+        };
+        self.emit_scratch_save(&saved_src);
+        if let Some(&saved_src) = saved_src.first() {
+            let emit_width = if width == OpWidth::W64 {
+                OpWidth::W64
+            } else {
+                OpWidth::W32
+            };
+            self.emit_mov_reg(saved_src, src_reg, emit_width)?;
+        }
+
         self.lower_ctz(dst, src, width)?;
-        self.lower_bfx(dst, dst, 0, mask_bits, false, mask_width)
+        self.lower_bfx(dst, dst, 0, mask_bits, false, mask_width)?;
+        if flags.updates_any() {
+            let flag_src = saved_src.first().copied().unwrap_or(src_reg);
+            self.emit_logic_flags_from_source(flag_src, width)?;
+        }
+        self.emit_scratch_restore(&saved_src);
+        Ok(())
     }
 
     fn lower_bsr(
@@ -2642,35 +2660,61 @@ impl Aarch64Lowerer {
         width: OpWidth,
         flags: FlagUpdate,
     ) -> Result<(), LowerError> {
-        if flags.updates_any() {
+        if !matches!(
+            width,
+            OpWidth::W8 | OpWidth::W16 | OpWidth::W32 | OpWidth::W64
+        ) {
             return Err(LowerError::UnsupportedOp {
-                op: "AArch64 native flag-setting Bsr".into(),
+                op: format!("AArch64 native Bsr width {width:?}"),
             });
+        }
+
+        let dst_reg = Self::dst_gpr(dst)?;
+        let src_reg = Self::gpr(src)?;
+        let saved_src = if flags.updates_any() && dst_reg == src_reg {
+            Self::scratch_regs(&[dst_reg, src_reg], 1)?
+        } else {
+            Vec::new()
+        };
+        self.emit_scratch_save(&saved_src);
+        if let Some(&saved_src) = saved_src.first() {
+            let emit_width = if width == OpWidth::W64 {
+                OpWidth::W64
+            } else {
+                OpWidth::W32
+            };
+            self.emit_mov_reg(saved_src, src_reg, emit_width)?;
         }
 
         if matches!(width, OpWidth::W8 | OpWidth::W16) {
             let top_bit = width.bits() - 1;
-            let dst = Self::dst_gpr(dst)?;
-            self.emit_bitfield(dst, Self::gpr(src)?, 0b10, 0, top_bit, OpWidth::W32)?;
-            self.emit_orr_imm_one(dst, dst, OpWidth::W32)?;
-            self.emit_dp1(dst, dst, 0b000100, OpWidth::W32)?;
-            return self.emit_logic_imm(dst, dst, 0b10, 0, 0, 4, OpWidth::W32);
+            self.emit_bitfield(dst_reg, src_reg, 0b10, 0, top_bit, OpWidth::W32)?;
+            self.emit_orr_imm_one(dst_reg, dst_reg, OpWidth::W32)?;
+            self.emit_dp1(dst_reg, dst_reg, 0b000100, OpWidth::W32)?;
+            self.emit_logic_imm(dst_reg, dst_reg, 0b10, 0, 0, 4, OpWidth::W32)?;
+            if flags.updates_any() {
+                let flag_src = saved_src.first().copied().unwrap_or(src_reg);
+                self.emit_logic_flags_from_source(flag_src, width)?;
+            }
+            self.emit_scratch_restore(&saved_src);
+            return Ok(());
         }
 
         let mask_imms = match width {
             OpWidth::W32 => 4,
             OpWidth::W64 => 5,
-            other => {
-                return Err(LowerError::UnsupportedOp {
-                    op: format!("AArch64 native Bsr width {other:?}"),
-                });
-            }
+            _ => unreachable!(),
         };
-        let dst = Self::dst_gpr(dst)?;
-        self.emit_orr_imm_one(dst, Self::gpr(src)?, width)?;
-        self.emit_dp1(dst, dst, 0b000100, width)?;
+        self.emit_orr_imm_one(dst_reg, src_reg, width)?;
+        self.emit_dp1(dst_reg, dst_reg, 0b000100, width)?;
         let n = Self::sf(width)?;
-        self.emit_logic_imm(dst, dst, 0b10, n, 0, mask_imms, width)
+        self.emit_logic_imm(dst_reg, dst_reg, 0b10, n, 0, mask_imms, width)?;
+        if flags.updates_any() {
+            let flag_src = saved_src.first().copied().unwrap_or(src_reg);
+            self.emit_logic_flags_from_source(flag_src, width)?;
+        }
+        self.emit_scratch_restore(&saved_src);
+        Ok(())
     }
 
     fn lower_bmi_result_flags(
@@ -2684,6 +2728,48 @@ impl Aarch64Lowerer {
             self.emit_flagm(0b000);
         }
         Ok(())
+    }
+
+    fn emit_logic_flags_from_source(
+        &mut self,
+        src: u8,
+        width: OpWidth,
+    ) -> Result<(), LowerError> {
+        match width {
+            OpWidth::W32 | OpWidth::W64 => {
+                self.emit_logic_reg_n(31, src, src, 0b11, false, width)
+            }
+            OpWidth::W8 | OpWidth::W16 => {
+                let scratch = Self::scratch_regs(&[src], 1)?;
+                let flag_reg = scratch[0];
+                self.emit_scratch_save(&scratch);
+                self.emit_bitfield(flag_reg, src, 0b10, 0, width.bits() - 1, OpWidth::W32)?;
+
+                let nonzero = self.code.position();
+                self.emit(0xb500_0000 | u32::from(flag_reg));
+                self.emit_mov_imm(flag_reg, NZCV_Z, OpWidth::W32)?;
+                let end_zero = self.code.position();
+                self.emit(0x1400_0000);
+
+                self.patch_compare_branch_to_current(nonzero, flag_reg, true)?;
+                let sign_set = self.code.position();
+                self.emit_test_branch(flag_reg, width.bits() - 1, true, 0)?;
+                self.emit_mov_imm(flag_reg, 0, OpWidth::W32)?;
+                let end_clear = self.code.position();
+                self.emit(0x1400_0000);
+
+                self.patch_test_branch_to_current(sign_set, flag_reg, width.bits() - 1, true)?;
+                self.emit_mov_imm(flag_reg, NZCV_N, OpWidth::W32)?;
+                self.patch_branch_to_current(end_zero)?;
+                self.patch_branch_to_current(end_clear)?;
+                self.emit_sysreg(flag_reg, ArmReg::Nzcv, false)?;
+                self.emit_scratch_restore(&scratch);
+                Ok(())
+            }
+            other => Err(LowerError::UnsupportedOp {
+                op: format!("AArch64 native bit-scan flag width {other:?}"),
+            }),
+        }
     }
 
     fn lower_bzhi(
@@ -7404,6 +7490,95 @@ mod tests {
                 shifted & ((1_u64 << len) - 1)
             };
             result & width_mask(width)
+        }
+    }
+
+    fn ref_bsf(src: u64, width: OpWidth) -> u64 {
+        let src = src & width_mask(width);
+        if src == 0 {
+            0
+        } else {
+            u64::from(src.trailing_zeros())
+        }
+    }
+
+    fn ref_bsr(src: u64, width: OpWidth) -> u64 {
+        let src = src & width_mask(width);
+        if src == 0 {
+            0
+        } else {
+            u64::from(u64::BITS - 1 - src.leading_zeros())
+        }
+    }
+
+    fn expected_logic_source_nzcv(
+        old_nzcv: u8,
+        src: u64,
+        width: OpWidth,
+        flags: FlagUpdate,
+    ) -> u8 {
+        if !flags.updates_any() {
+            return old_nzcv;
+        }
+
+        let src = src & width_mask(width);
+        let negative = ((src >> (width.bits() - 1)) & 1) != 0;
+        let zero = src == 0;
+        ((negative as u8) << 3) | ((zero as u8) << 2)
+    }
+
+    fn assert_bit_scan_lowering(
+        label: &str,
+        reverse: bool,
+        dst_reg: u8,
+        src_reg: u8,
+        src_value: u64,
+        width: OpWidth,
+        flags: FlagUpdate,
+        old_nzcv: u8,
+    ) {
+        let op = if reverse {
+            OpKind::Bsr {
+                dst: x(dst_reg),
+                src: x(src_reg),
+                width,
+                flags,
+            }
+        } else {
+            OpKind::Bsf {
+                dst: x(dst_reg),
+                src: x(src_reg),
+                width,
+                flags,
+            }
+        };
+        let code = lower_single_op(op);
+        let expected = if reverse {
+            ref_bsr(src_value, width)
+        } else {
+            ref_bsf(src_value, width)
+        };
+        let expected_nzcv = expected_logic_source_nzcv(old_nzcv, src_value, width, flags);
+        let sentinels = [
+            (16, 0x1616_1616_1616_1616),
+            (17, 0x1717_1717_1717_1717),
+            (15, 0x1515_1515_1515_1515),
+            (14, 0x1414_1414_1414_1414),
+        ];
+        let mut regs = sentinels.to_vec();
+        regs.push((src_reg, src_value));
+
+        let (out, out_nzcv, sp) = run_aarch64_code(&code, &regs, old_nzcv);
+        assert_eq!(out[dst_reg as usize], expected, "{label}: result");
+        assert_eq!(out_nzcv, expected_nzcv, "{label}: NZCV");
+        assert_eq!(sp, 0x8000, "{label}: stack restored");
+        if src_reg != dst_reg {
+            assert_eq!(out[src_reg as usize], src_value, "{label}: src preserved");
+        }
+        for (reg, value) in sentinels {
+            if reg != src_reg && reg != dst_reg {
+                assert_eq!(out[reg as usize], value, "{label}: x{reg} restored");
+            }
         }
     }
 
@@ -15936,7 +16111,8 @@ mod tests {
         let code = lowerer.finalize().unwrap();
 
         let mut expected = Vec::new();
-        expected.extend_from_slice(&enc_logical_imm(0, 0b01, 0, 24, 0, 0, 1).to_le_bytes());
+        expected.extend_from_slice(&enc_bitfield_regs(0, 0b10, 0, 7, 1, 0).to_le_bytes());
+        expected.extend_from_slice(&enc_logical_imm(0, 0b01, 0, 24, 0, 0, 0).to_le_bytes());
         expected.extend_from_slice(&enc_dp1_regs(0, 0b000000, 0, 0).to_le_bytes());
         expected.extend_from_slice(&enc_dp1_regs(0, 0b000100, 0, 0).to_le_bytes());
         expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
@@ -15962,7 +16138,8 @@ mod tests {
         let code = lowerer.finalize().unwrap();
 
         let mut expected = Vec::new();
-        expected.extend_from_slice(&enc_logical_imm(0, 0b01, 0, 16, 0, 0, 1).to_le_bytes());
+        expected.extend_from_slice(&enc_bitfield_regs(0, 0b10, 0, 15, 1, 0).to_le_bytes());
+        expected.extend_from_slice(&enc_logical_imm(0, 0b01, 0, 16, 0, 0, 0).to_le_bytes());
         expected.extend_from_slice(&enc_dp1_regs(0, 0b000000, 0, 0).to_le_bytes());
         expected.extend_from_slice(&enc_dp1_regs(0, 0b000100, 0, 0).to_le_bytes());
         expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
@@ -15970,23 +16147,60 @@ mod tests {
     }
 
     #[test]
-    fn rejects_bsf_flag_setting_lowering() {
-        let mut builder = FunctionBuilder::new(FunctionId(0), 0);
-        builder.push_op(
-            0,
-            OpKind::Bsf {
-                dst: x(0),
-                src: x(1),
-                width: OpWidth::W64,
-                flags: FlagUpdate::All,
-            },
-        );
-        builder.set_terminator(Terminator::Return { values: vec![] });
-        let func = builder.finish();
+    fn lowers_ctz_subword_masks_source_runtime() {
+        let code = lower_single_op(OpKind::Ctz {
+            dst: x(0),
+            src: x(1),
+            width: OpWidth::W8,
+        });
+        let (out, out_nzcv, sp) = run_aarch64_code(&code, &[(1, 0x1000)], 0b1011);
+        assert_eq!(out[0], 8);
+        assert_eq!(out_nzcv, 0b1011);
+        assert_eq!(sp, 0x8000);
 
-        let mut lowerer = Aarch64Lowerer::new();
-        let err = lowerer.lower_function(&func).unwrap_err();
-        assert!(matches!(err, LowerError::UnsupportedOp { .. }));
+        let code = lower_single_op(OpKind::Ctz {
+            dst: x(0),
+            src: x(1),
+            width: OpWidth::W16,
+        });
+        let (out, out_nzcv, sp) = run_aarch64_code(&code, &[(1, 0x20_0000)], 0b0110);
+        assert_eq!(out[0], 16);
+        assert_eq!(out_nzcv, 0b0110);
+        assert_eq!(sp, 0x8000);
+    }
+
+    #[test]
+    fn lowers_bsf_flag_setting_runtime() {
+        assert_bit_scan_lowering(
+            "bsf_x_flags_nonzero_negative_source",
+            false,
+            0,
+            1,
+            0x8000_0000_0000_0010,
+            OpWidth::W64,
+            FlagUpdate::All,
+            0b1111,
+        );
+        assert_bit_scan_lowering(
+            "bsf_w_flags_zero_source",
+            false,
+            0,
+            1,
+            0,
+            OpWidth::W32,
+            FlagUpdate::All,
+            0b1011,
+        );
+        assert_bit_scan_lowering(
+            "bsf_w16_flags_alias_masks_source",
+            false,
+            1,
+            1,
+            0xffff_0000_0000_8000,
+            OpWidth::W16,
+            FlagUpdate::All,
+            0b1111,
+        );
     }
 
     #[test]
@@ -16009,7 +16223,8 @@ mod tests {
         let code = lowerer.finalize().unwrap();
 
         let mut expected = Vec::new();
-        expected.extend_from_slice(&enc_logical_imm(0, 0b01, 0, 16, 0, 0, 1).to_le_bytes());
+        expected.extend_from_slice(&enc_bitfield_regs(0, 0b10, 0, 15, 1, 0).to_le_bytes());
+        expected.extend_from_slice(&enc_logical_imm(0, 0b01, 0, 16, 0, 0, 0).to_le_bytes());
         expected.extend_from_slice(&enc_dp1_regs(0, 0b000000, 0, 0).to_le_bytes());
         expected.extend_from_slice(&enc_dp1_regs(0, 0b000100, 0, 0).to_le_bytes());
         expected.extend_from_slice(&enc_bitfield_regs(0, 0b10, 0, 3, 0, 0).to_le_bytes());
@@ -16037,7 +16252,8 @@ mod tests {
         let code = lowerer.finalize().unwrap();
 
         let mut expected = Vec::new();
-        expected.extend_from_slice(&enc_logical_imm(0, 0b01, 0, 24, 0, 0, 1).to_le_bytes());
+        expected.extend_from_slice(&enc_bitfield_regs(0, 0b10, 0, 7, 1, 0).to_le_bytes());
+        expected.extend_from_slice(&enc_logical_imm(0, 0b01, 0, 24, 0, 0, 0).to_le_bytes());
         expected.extend_from_slice(&enc_dp1_regs(0, 0b000000, 0, 0).to_le_bytes());
         expected.extend_from_slice(&enc_dp1_regs(0, 0b000100, 0, 0).to_le_bytes());
         expected.extend_from_slice(&enc_bitfield_regs(0, 0b10, 0, 2, 0, 0).to_le_bytes());
@@ -16046,23 +16262,37 @@ mod tests {
     }
 
     #[test]
-    fn rejects_bsr_flag_setting_lowering() {
-        let mut builder = FunctionBuilder::new(FunctionId(0), 0);
-        builder.push_op(
+    fn lowers_bsr_flag_setting_runtime() {
+        assert_bit_scan_lowering(
+            "bsr_w_flags_nonzero_negative_source",
+            true,
             0,
-            OpKind::Bsr {
-                dst: x(0),
-                src: x(1),
-                width: OpWidth::W64,
-                flags: FlagUpdate::All,
-            },
+            1,
+            0x8000_0010,
+            OpWidth::W32,
+            FlagUpdate::All,
+            0b1111,
         );
-        builder.set_terminator(Terminator::Return { values: vec![] });
-        let func = builder.finish();
-
-        let mut lowerer = Aarch64Lowerer::new();
-        let err = lowerer.lower_function(&func).unwrap_err();
-        assert!(matches!(err, LowerError::UnsupportedOp { .. }));
+        assert_bit_scan_lowering(
+            "bsr_x_flags_alias_zero_source",
+            true,
+            1,
+            1,
+            0,
+            OpWidth::W64,
+            FlagUpdate::All,
+            0b1011,
+        );
+        assert_bit_scan_lowering(
+            "bsr_w8_flags_alias_masks_source",
+            true,
+            1,
+            1,
+            0xffff_0000_0000_0080,
+            OpWidth::W8,
+            FlagUpdate::All,
+            0b1111,
+        );
     }
 
     #[test]
