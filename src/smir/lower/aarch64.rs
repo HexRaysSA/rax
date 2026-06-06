@@ -910,6 +910,15 @@ impl Aarch64Lowerer {
         self.emit(u32::from(imm16) << 5);
     }
 
+    fn emit_prfm_literal(&mut self, prfop: u8, imm19: i32) {
+        self.emit(
+            (0b11 << 30)
+                | (0b011 << 27)
+                | (((imm19 as u32) & 0x7ffff) << 5)
+                | u32::from(prfop & 0x1f),
+        );
+    }
+
     fn exception_imm16(op: &str, imm: u32) -> Result<u16, LowerError> {
         u16::try_from(imm).map_err(|_| LowerError::InvalidOperand {
             op: format!("AArch64 native {op}"),
@@ -1326,8 +1335,42 @@ impl Aarch64Lowerer {
         self.lower_mem_access(rt, addr, size, 0b00)
     }
 
-    fn lower_prefetch(&mut self, addr: &Address, write: bool) -> Result<(), LowerError> {
+    fn literal_scaled_imm19(op: &str, target: i64, insn_pc: i64) -> Result<i32, LowerError> {
+        let delta = target.wrapping_sub(insn_pc);
+        if delta % 4 != 0 {
+            return Err(LowerError::InvalidOperand {
+                op: op.into(),
+                operand: format!("unaligned PC-relative target {target:#x} from {insn_pc:#x}"),
+            });
+        }
+
+        let imm19 = delta / 4;
+        if !(-(1_i64 << 18)..=(1_i64 << 18) - 1).contains(&imm19) {
+            return Err(LowerError::InvalidOperand {
+                op: op.into(),
+                operand: format!("PC-relative target {target:#x} from {insn_pc:#x}"),
+            });
+        }
+
+        Ok(imm19 as i32)
+    }
+
+    fn lower_prefetch(
+        &mut self,
+        addr: &Address,
+        write: bool,
+        guest_pc: u64,
+    ) -> Result<(), LowerError> {
         let prfop = if write { 0b10000 } else { 0b00000 };
+        if let Address::PcRel { offset, base, .. } = addr {
+            let base = base.unwrap_or(guest_pc) as i64;
+            let target = base.wrapping_add(*offset);
+            let insn_pc = self.code.position() as i64;
+            let imm19 = Self::literal_scaled_imm19("AArch64 PRFM literal", target, insn_pc)?;
+            self.emit_prfm_literal(prfop, imm19);
+            return Ok(());
+        }
+
         self.lower_mem_access(prfop, addr, 3, 0b10)
     }
 
@@ -5307,7 +5350,7 @@ impl Aarch64Lowerer {
                 self.emit(0xd503_3f5f);
                 Ok(())
             }
-            OpKind::Prefetch { addr, write } => self.lower_prefetch(addr, *write),
+            OpKind::Prefetch { addr, write } => self.lower_prefetch(addr, *write, op.guest_pc),
             OpKind::Fence { kind } => {
                 let insn = match kind {
                     FenceKind::ISync => 0xd503_3fdf,
@@ -6041,6 +6084,10 @@ mod tests {
             | (s << 12)
             | (0b10 << 10)
             | (1 << 5)
+    }
+
+    fn enc_prfm_lit(rt: u32, imm19: i32) -> u32 {
+        (0b11 << 30) | (0b011 << 27) | (((imm19 as u32) & 0x7ffff) << 5) | (rt & 0x1f)
     }
 
     fn enc_ldp(opc: u32, mode: u32, load: bool, imm7: i64) -> u32 {
@@ -10906,6 +10953,33 @@ mod tests {
 
         let mut expected = Vec::new();
         expected.extend_from_slice(&enc_msr_sysreg(1, 3, 4, 2, 0).to_le_bytes());
+        expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
+        assert_eq!(code, expected);
+    }
+
+    #[test]
+    fn lowers_prefetch_pcrel_as_prfm_literal() {
+        let mut builder = FunctionBuilder::new(FunctionId(0), 0);
+        builder.push_op(
+            0,
+            OpKind::Prefetch {
+                addr: Address::PcRel {
+                    offset: 12,
+                    disp_size: DispSize::Auto,
+                    base: None,
+                },
+                write: false,
+            },
+        );
+        builder.set_terminator(Terminator::Return { values: vec![] });
+        let func = builder.finish();
+
+        let mut lowerer = Aarch64Lowerer::new();
+        lowerer.lower_function(&func).unwrap();
+        let code = lowerer.finalize().unwrap();
+
+        let mut expected = Vec::new();
+        expected.extend_from_slice(&enc_prfm_lit(0, 3).to_le_bytes());
         expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
         assert_eq!(code, expected);
     }
