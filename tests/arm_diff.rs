@@ -8888,6 +8888,28 @@ fn smir_aarch64_native_lowering_matches_qemu_oracle() {
         st,
     );
 
+    let ror_w16_reg_self_count = [
+        enc_bitfield_regs(0, 0b01, 16, 15, RN, RN),
+        enc_dp2_regs(0, 0b1011, RN, RN, RN),
+        enc_bitfield_regs(0, 0b10, 0, 15, RN, RN),
+    ];
+
+    let mut st = native_state();
+    st.x[1] = 0x3333_4444_5555_a531;
+    st.pstate = 0x4000_0000;
+    push_case3(
+        "ror_w16_reg_self_count_in_place_preserves_flags",
+        ror_w16_reg_self_count,
+        vec![OpKind::Ror {
+            dst: arm_x(1),
+            src: arm_x(1),
+            amount: SrcOperand::Reg(arm_x(1)),
+            width: OpWidth::W16,
+            flags: FlagUpdate::None,
+        }],
+        st,
+    );
+
     let mut st = native_state();
     st.x[0] = 0xaaaa_bbbb_cccc_dddd;
     st.x[1] = 0x1122_3344_5566_7788;
