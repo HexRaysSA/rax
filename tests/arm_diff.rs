@@ -1230,6 +1230,14 @@ fn smir_aarch64_x86_scalar_lowering_matches_qemu_oracle() {
         ("udiv_w_zero_ext", enc_dp2(0, 0b0010)),
         ("sdiv_x", enc_dp2(1, 0b0011)),
         ("sdiv_w_zero_ext", enc_dp2(0, 0b0011)),
+        ("lslv_x", enc_dp2(1, 0b1000)),
+        ("lslv_w_zero_ext", enc_dp2(0, 0b1000)),
+        ("lsrv_x", enc_dp2(1, 0b1001)),
+        ("lsrv_w_zero_ext", enc_dp2(0, 0b1001)),
+        ("asrv_x", enc_dp2(1, 0b1010)),
+        ("asrv_w_zero_ext", enc_dp2(0, 0b1010)),
+        ("rorv_x", enc_dp2(1, 0b1011)),
+        ("rorv_w_zero_ext", enc_dp2(0, 0b1011)),
         ("rbit_x", enc_dp1(1, 0b000000)),
         ("rbit_w_zero_ext", enc_dp1(0, 0b000000)),
         ("rev16_x", enc_dp1(1, 0b000001)),
@@ -1637,6 +1645,30 @@ fn smir_aarch64_x86_scalar_lowering_matches_qemu_oracle() {
     st.x[1] = 0xffff_ffff_8000_0000;
     st.x[2] = u64::MAX;
     batch.push(("sdiv_w_min_overflow".into(), enc_dp2(0, 0b0011), st));
+
+    let mut st = ArmState::zeroed();
+    st.x[0] = 0xaaaa_bbbb_cccc_dddd;
+    st.x[1] = 1;
+    st.x[2] = 36;
+    batch.push(("lslv_w_masked_count_crafted".into(), enc_dp2(0, 0b1000), st));
+
+    let mut st = ArmState::zeroed();
+    st.x[0] = 0xaaaa_bbbb_cccc_dddd;
+    st.x[1] = 0x8000_0000_0000_0000;
+    st.x[2] = 130;
+    batch.push(("lsrv_x_masked_count_crafted".into(), enc_dp2(1, 0b1001), st));
+
+    let mut st = ArmState::zeroed();
+    st.x[0] = 0xaaaa_bbbb_cccc_dddd;
+    st.x[1] = 0xffff_ffff_8000_0000;
+    st.x[2] = 31;
+    batch.push(("asrv_w_sign_crafted".into(), enc_dp2(0, 0b1010), st));
+
+    let mut st = ArmState::zeroed();
+    st.x[0] = 0xaaaa_bbbb_cccc_dddd;
+    st.x[1] = 0x1234_5678_9abc_def0;
+    st.x[2] = 68;
+    batch.push(("rorv_x_masked_count_crafted".into(), enc_dp2(1, 0b1011), st));
 
     let cases: Vec<(u32, u32, ArmState)> =
         batch.iter().map(|(_, insn, st)| (*insn, NOP, *st)).collect();
