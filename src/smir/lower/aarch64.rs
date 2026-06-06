@@ -3037,8 +3037,6 @@ impl Aarch64Lowerer {
         } else {
             OpWidth::W32
         };
-        let op = if deposit { "Pdep" } else { "Pext" };
-
         let mask_imm = match mask {
             VReg::Imm(value) => Some((value as u64) & width.mask()),
             _ => None,
@@ -3064,18 +3062,25 @@ impl Aarch64Lowerer {
             let Some((lsb, width_bits)) = Self::contiguous_bitfield(mask) else {
                 let dst_reg = Self::dst_gpr(dst)?;
                 let src_reg = Self::gpr(src)?;
-                if dst_reg == src_reg {
-                    return Err(LowerError::UnsupportedOp {
-                        op: format!(
-                            "AArch64 native {op} non-contiguous immediate mask needs dst != src"
-                        ),
-                    });
-                }
-                return if deposit {
-                    self.lower_pdep_const_mask(dst_reg, src_reg, mask, bits, emit_width)
+                let scratches = if dst_reg == src_reg {
+                    Self::scratch_regs(&[dst_reg, src_reg], 1)?
                 } else {
-                    self.lower_pext_const_mask(dst_reg, src_reg, mask, bits, emit_width)
+                    Vec::new()
                 };
+                self.emit_scratch_save(&scratches);
+                let src_reg = if let Some(&scratch) = scratches.first() {
+                    self.emit_pdep_pext_operand(scratch, src, width, emit_width)?;
+                    scratch
+                } else {
+                    src_reg
+                };
+                if deposit {
+                    self.lower_pdep_const_mask(dst_reg, src_reg, mask, bits, emit_width)?;
+                } else {
+                    self.lower_pext_const_mask(dst_reg, src_reg, mask, bits, emit_width)?;
+                }
+                self.emit_scratch_restore(&scratches);
+                return Ok(());
             };
 
             return if deposit {
@@ -8236,6 +8241,68 @@ mod tests {
         }
     }
 
+    fn assert_pdep_pext_const_mask_lowering(
+        label: &str,
+        deposit: bool,
+        src_reg: u8,
+        src_value: u64,
+        mask_value: u64,
+        width: OpWidth,
+        dst_reg: u8,
+    ) {
+        let op = if deposit {
+            OpKind::Pdep {
+                dst: x(dst_reg),
+                src: x(src_reg),
+                mask: VReg::Imm(mask_value as i64),
+                width,
+            }
+        } else {
+            OpKind::Pext {
+                dst: x(dst_reg),
+                src: x(src_reg),
+                mask: VReg::Imm(mask_value as i64),
+                width,
+            }
+        };
+        let code = lower_single_op(op);
+        if dst_reg == src_reg {
+            assert!(
+                code.len() > 32,
+                "{label}: aliasing sparse immediate mask should save and restore a scratch register"
+            );
+        }
+
+        let mask_value = mask_value & width_mask(width);
+        let expected = if deposit {
+            Aarch64Lowerer::eval_pdep(src_value & width_mask(width), mask_value, width.bits())
+        } else {
+            Aarch64Lowerer::eval_pext(src_value & width_mask(width), mask_value, width.bits())
+        } & width_mask(width);
+        let sentinels = [
+            (16, 0x1616_1616_1616_1616),
+            (17, 0x1717_1717_1717_1717),
+            (15, 0x1515_1515_1515_1515),
+            (14, 0x1414_1414_1414_1414),
+        ];
+        let mut regs = sentinels.to_vec();
+        regs.push((src_reg, src_value));
+
+        let old_nzcv = 0b0110;
+        let (out, out_nzcv, sp) = run_aarch64_code(&code, &regs, old_nzcv);
+        assert_eq!(out[dst_reg as usize], expected, "{label}: result");
+        assert_eq!(out_nzcv, old_nzcv, "{label}: NZCV preserved");
+        assert_eq!(sp, 0x8000, "{label}: stack restored");
+        if src_reg != dst_reg {
+            assert_eq!(out[src_reg as usize], src_value, "{label}: src preserved");
+        }
+        for (reg, value) in sentinels {
+            if reg != src_reg && reg != dst_reg {
+                assert_eq!(out[reg as usize], value, "{label}: x{reg} restored");
+            }
+        }
+    }
+
     fn enc_ldst_simm(size: u32, opc: u32, mode: u32, imm9: i64) -> u32 {
         (size << 30)
             | (0b111 << 27)
@@ -12702,36 +12769,43 @@ mod tests {
     }
 
     #[test]
-    fn rejects_pdep_pext_non_contiguous_imm_mask_source_aliases() {
-        for (name, kind) in [
-            (
-                "pdep dst aliases source",
-                OpKind::Pdep {
-                    dst: x(0),
-                    src: x(0),
-                    mask: VReg::Imm(0b10110),
-                    width: OpWidth::W64,
-                },
-            ),
-            (
-                "pext dst aliases source",
-                OpKind::Pext {
-                    dst: x(0),
-                    src: x(0),
-                    mask: VReg::Imm(0b10110),
-                    width: OpWidth::W64,
-                },
-            ),
-        ] {
-            let mut builder = FunctionBuilder::new(FunctionId(0), 0);
-            builder.push_op(0, kind);
-            builder.set_terminator(Terminator::Return { values: vec![] });
-            let func = builder.finish();
-
-            let mut lowerer = Aarch64Lowerer::new();
-            let err = lowerer.lower_function(&func).expect_err(name);
-            assert!(matches!(err, LowerError::UnsupportedOp { .. }), "{err:?}");
-        }
+    fn lowers_pdep_pext_non_contiguous_imm_mask_source_aliases() {
+        assert_pdep_pext_const_mask_lowering(
+            "pdep_x_sparse_imm_mask_dst_aliases_src",
+            true,
+            0,
+            0b1011_0110,
+            0b10110,
+            OpWidth::W64,
+            0,
+        );
+        assert_pdep_pext_const_mask_lowering(
+            "pext_x_sparse_imm_mask_dst_aliases_src",
+            false,
+            0,
+            0x8040_0101_0000_1016,
+            0x8040_0101_0000_1016,
+            OpWidth::W64,
+            0,
+        );
+        assert_pdep_pext_const_mask_lowering(
+            "pdep_w16_sparse_imm_mask_dst_aliases_src_masks_source",
+            true,
+            0,
+            0xffff_0000_0000_0005,
+            0xa55a,
+            OpWidth::W16,
+            0,
+        );
+        assert_pdep_pext_const_mask_lowering(
+            "pext_w16_sparse_imm_mask_dst_aliases_src_masks_source",
+            false,
+            0,
+            0xffff_0000_0000_a55a,
+            0xa55a,
+            OpWidth::W16,
+            0,
+        );
     }
 
     #[test]
