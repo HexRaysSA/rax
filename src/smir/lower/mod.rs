@@ -26,6 +26,7 @@
 //! └─────────────────┘
 //! ```
 
+pub mod aarch64;
 pub mod aarch64_x86;
 pub mod avx10;
 pub mod regalloc;

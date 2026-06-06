@@ -28,11 +28,15 @@ use std::process::{Command, Stdio};
 
 use rax::arm::{AArch64Config, AArch64Cpu, ArmCpu, CpuExit, FlatMemory};
 #[cfg(all(feature = "smir-jit", target_arch = "x86_64"))]
+use rax::smir::flags::FlagUpdate;
+#[cfg(all(feature = "smir-jit", target_arch = "x86_64"))]
 use rax::smir::ir::{FunctionBuilder, Terminator};
 #[cfg(all(feature = "smir-jit", target_arch = "x86_64"))]
 use rax::smir::lift::aarch64::Aarch64Lifter;
 #[cfg(all(feature = "smir-jit", target_arch = "x86_64"))]
 use rax::smir::lift::{ControlFlow, LiftContext, SmirLifter};
+#[cfg(all(feature = "smir-jit", target_arch = "x86_64"))]
+use rax::smir::lower::aarch64::Aarch64Lowerer;
 #[cfg(all(feature = "smir-jit", target_arch = "x86_64"))]
 use rax::smir::lower::aarch64_x86::Aarch64X86_64Lowerer;
 #[cfg(all(feature = "smir-jit", target_arch = "x86_64"))]
@@ -40,7 +44,9 @@ use rax::smir::lower::runtime::{Aarch64GuestRegs, ExecMem};
 #[cfg(all(feature = "smir-jit", target_arch = "x86_64"))]
 use rax::smir::lower::SmirLowerer;
 #[cfg(all(feature = "smir-jit", target_arch = "x86_64"))]
-use rax::smir::types::{FunctionId, SourceArch};
+use rax::smir::ops::OpKind;
+#[cfg(all(feature = "smir-jit", target_arch = "x86_64"))]
+use rax::smir::types::{ArchReg, ArmReg, FunctionId, OpWidth, SourceArch, SrcOperand, VReg};
 
 // ---------------------------------------------------------------------------
 // Wire format -- must match tools/arm-diff/oracle.c byte for byte.
@@ -647,6 +653,27 @@ fn enc_addsub_shift_regs(
 
 fn enc_addsub_shift(sf: u32, op: u32, s: u32, shift: u32, imm6: u32) -> u32 {
     enc_addsub_shift_regs(sf, op, s, shift, imm6, RD, RN, RM)
+}
+
+/// Add/subtract (immediate): `sf op S 10001 sh imm12 Rn Rd`.
+#[cfg(all(feature = "smir-jit", target_arch = "x86_64"))]
+fn enc_addsub_imm_regs(
+    sf: u32,
+    op: u32,
+    s: u32,
+    shift: u32,
+    imm12: u32,
+    rd: u32,
+    rn: u32,
+) -> u32 {
+    (sf << 31)
+        | (op << 30)
+        | (s << 29)
+        | (0b10001 << 24)
+        | ((shift & 1) << 22)
+        | ((imm12 & 0xfff) << 10)
+        | ((rn & 0x1f) << 5)
+        | (rd & 0x1f)
 }
 
 /// Add/subtract (extended register): `sf op S 01011 00 1 Rm option imm3 Rn Rd`
@@ -1368,6 +1395,38 @@ fn run_smir_aarch64_x86_control_one(
 }
 
 #[cfg(all(feature = "smir-jit", target_arch = "x86_64"))]
+fn arm_x(n: u8) -> VReg {
+    VReg::Arch(ArchReg::Arm(ArmReg::X(n)))
+}
+
+#[cfg(all(feature = "smir-jit", target_arch = "x86_64"))]
+fn lower_aarch64_native_ops(ops: Vec<OpKind>) -> Result<[u32; 3], String> {
+    let mut builder = FunctionBuilder::new(FunctionId(0), 0);
+    for (idx, kind) in ops.into_iter().enumerate() {
+        builder.push_op((idx as u64) * 4, kind);
+    }
+    builder.set_terminator(Terminator::Return { values: vec![] });
+    let func = builder.finish();
+
+    let mut lowerer = Aarch64Lowerer::new();
+    lowerer
+        .lower_function(&func)
+        .map_err(|e| format!("lower failed: {e:?}"))?;
+    let code = lowerer
+        .finalize()
+        .map_err(|e| format!("finalize failed: {e:?}"))?;
+    if code.len() > 12 || code.len() % 4 != 0 {
+        return Err(format!("unexpected native AArch64 code size {}", code.len()));
+    }
+
+    let mut insns = [NOP; 3];
+    for (idx, chunk) in code.chunks_exact(4).enumerate() {
+        insns[idx] = u32::from_le_bytes([chunk[0], chunk[1], chunk[2], chunk[3]]);
+    }
+    Ok(insns)
+}
+
+#[cfg(all(feature = "smir-jit", target_arch = "x86_64"))]
 fn enc_mov_wide(sf: u32, opc: u32, hw: u32, imm16: u32) -> u32 {
     (sf << 31) | (opc << 29) | (0b100101 << 23) | (hw << 21) | (imm16 << 5) | RD
 }
@@ -1521,6 +1580,62 @@ fn compare_smir_scalar_case(
     if got.fpsr != hw.fpsr {
         diffs.push(format!(
             "fpsr: smir={:#018x} hw={:#018x}",
+            got.fpsr, hw.fpsr
+        ));
+    }
+
+    if !diffs.is_empty() {
+        mismatches.push(Mismatch {
+            label: label.into(),
+            insn,
+            detail: diffs.join("  |  "),
+        });
+    }
+}
+
+#[cfg(all(feature = "smir-jit", target_arch = "x86_64"))]
+fn compare_native_aarch64_case(
+    label: &str,
+    insn: u32,
+    got: &ArmState,
+    hw: &ArmState,
+    mismatches: &mut Vec<Mismatch>,
+) {
+    let mut diffs = Vec::new();
+    for r in 0..31 {
+        if got.x[r] != hw.x[r] {
+            diffs.push(format!(
+                "x{r}: generated={:#018x} source={:#018x}",
+                got.x[r], hw.x[r]
+            ));
+        }
+    }
+    if got.sp != hw.sp {
+        diffs.push(format!(
+            "sp: generated={:#018x} source={:#018x}",
+            got.sp, hw.sp
+        ));
+    }
+    if got.pc != hw.pc {
+        diffs.push(format!(
+            "pc: generated={:#018x} source={:#018x}",
+            got.pc, hw.pc
+        ));
+    }
+    let got_nzcv = (got.pstate >> 28) & 0xF;
+    let hw_nzcv = (hw.pstate >> 28) & 0xF;
+    if got_nzcv != hw_nzcv {
+        diffs.push(format!("nzcv: generated={:#x} source={:#x}", got_nzcv, hw_nzcv));
+    }
+    if got.fpcr != hw.fpcr {
+        diffs.push(format!(
+            "fpcr: generated={:#018x} source={:#018x}",
+            got.fpcr, hw.fpcr
+        ));
+    }
+    if got.fpsr != hw.fpsr {
+        diffs.push(format!(
+            "fpsr: generated={:#018x} source={:#018x}",
             got.fpsr, hw.fpsr
         ));
     }
@@ -2912,6 +3027,238 @@ fn smir_aarch64_x86_test_branch_lowering_matches_qemu_oracle() {
         }
         panic!(
             "smir_aarch64_x86_test_branch: {} divergences vs hardware oracle",
+            mismatches.len()
+        );
+    }
+}
+
+#[cfg(all(feature = "smir-jit", target_arch = "x86_64"))]
+#[test]
+fn smir_aarch64_native_lowering_matches_qemu_oracle() {
+    let oracle = match oracle_path() {
+        Some(p) => p,
+        None => {
+            eprintln!(
+                "[arm_diff] smir_aarch64_native_lowering: qemu/cross-toolchain unavailable -> skipping"
+            );
+            return;
+        }
+    };
+
+    let control_target = 12;
+    let native_state = || {
+        let mut st = ArmState::zeroed();
+        st.pc = PCREL_MAGIC;
+        st.x[30] = pcrel_marker(control_target);
+        st
+    };
+
+    let mut cases: Vec<(String, [u32; 3], [u32; 3], ArmState)> = Vec::new();
+    let mut push_case = |label: &str, source: u32, ops: Vec<OpKind>, st: ArmState| {
+        let lowered = lower_aarch64_native_ops(ops)
+            .unwrap_or_else(|e| panic!("{label}: native lowering failed: {e}"));
+        cases.push((label.into(), [source, NOP, NOP], lowered, st));
+    };
+
+    let mut st = native_state();
+    st.x[0] = 0xffff_ffff_ffff_ffff;
+    st.x[1] = 0x1111_2222_3333_4444;
+    st.x[2] = 0x0101_0202_0303_0404;
+    st.pstate = 0xa000_0000;
+    push_case(
+        "add_x_reg_preserves_flags",
+        enc_addsub_shift_regs(1, 0, 0, 0, 0, RD, RN, RM),
+        vec![OpKind::Add {
+            dst: arm_x(0),
+            src1: arm_x(1),
+            src2: SrcOperand::Reg(arm_x(2)),
+            width: OpWidth::W64,
+            flags: FlagUpdate::None,
+        }],
+        st,
+    );
+
+    let mut st = native_state();
+    st.x[0] = 0xaaaa_bbbb_cccc_dddd;
+    st.x[1] = 0xffff_ffff;
+    st.x[2] = 1;
+    push_case(
+        "adds_w_reg_sets_flags_zero_ext",
+        enc_addsub_shift_regs(0, 0, 1, 0, 0, RD, RN, RM),
+        vec![OpKind::Add {
+            dst: arm_x(0),
+            src1: arm_x(1),
+            src2: SrcOperand::Reg(arm_x(2)),
+            width: OpWidth::W32,
+            flags: FlagUpdate::All,
+        }],
+        st,
+    );
+
+    let mut st = native_state();
+    st.x[1] = 0x1234_5678_9abc_def0;
+    st.pstate = 0xf000_0000;
+    push_case(
+        "sub_x_imm_preserves_flags",
+        enc_addsub_imm_regs(1, 1, 0, 0, 0x123, RD, RN),
+        vec![OpKind::Sub {
+            dst: arm_x(0),
+            src1: arm_x(1),
+            src2: SrcOperand::Imm(0x123),
+            width: OpWidth::W64,
+            flags: FlagUpdate::None,
+        }],
+        st,
+    );
+
+    let mut st = native_state();
+    st.x[1] = 0;
+    st.pstate = 0x6000_0000;
+    push_case(
+        "subs_x_imm_sets_flags",
+        enc_addsub_imm_regs(1, 1, 1, 0, 1, RD, RN),
+        vec![OpKind::Sub {
+            dst: arm_x(0),
+            src1: arm_x(1),
+            src2: SrcOperand::Imm(1),
+            width: OpWidth::W64,
+            flags: FlagUpdate::All,
+        }],
+        st,
+    );
+
+    let mut st = native_state();
+    st.x[0] = 0xffff_ffff_ffff_ffff;
+    st.pstate = 0xb000_0000;
+    push_case(
+        "movz_x_imm_preserves_flags",
+        enc_mov_wide(1, 0b10, 0, 0x7bcd),
+        vec![OpKind::Mov {
+            dst: arm_x(0),
+            src: SrcOperand::Imm(0x7bcd),
+            width: OpWidth::W64,
+        }],
+        st,
+    );
+
+    let mut st = native_state();
+    st.x[1] = 0x0f0f_0000_ffff_0000;
+    st.x[2] = 0xf0f0_1111_0000_2222;
+    st.pstate = 0x2000_0000;
+    push_case(
+        "orr_x_reg_preserves_flags",
+        enc_logical_shift_regs(1, 0b01, 0, 0, 0, RD, RN, RM),
+        vec![OpKind::Or {
+            dst: arm_x(0),
+            src1: arm_x(1),
+            src2: SrcOperand::Reg(arm_x(2)),
+            width: OpWidth::W64,
+            flags: FlagUpdate::None,
+        }],
+        st,
+    );
+
+    let mut st = native_state();
+    st.x[0] = 0xffff_ffff_ffff_ffff;
+    st.x[1] = 0xffff_ffff_aaaa_5555;
+    st.x[2] = 0x1234_5678_0f0f_f0f0;
+    st.pstate = 0xc000_0000;
+    push_case(
+        "eor_w_reg_zero_ext_preserves_flags",
+        enc_logical_shift_regs(0, 0b10, 0, 0, 0, RD, RN, RM),
+        vec![OpKind::Xor {
+            dst: arm_x(0),
+            src1: arm_x(1),
+            src2: SrcOperand::Reg(arm_x(2)),
+            width: OpWidth::W32,
+            flags: FlagUpdate::None,
+        }],
+        st,
+    );
+
+    let mut st = native_state();
+    st.x[1] = 0x8000_0000_0000_0000;
+    st.x[2] = 0xffff_ffff_ffff_ffff;
+    st.pstate = 0x7000_0000;
+    push_case(
+        "ands_x_reg_sets_flags",
+        enc_logical_shift_regs(1, 0b11, 0, 0, 0, RD, RN, RM),
+        vec![OpKind::And {
+            dst: arm_x(0),
+            src1: arm_x(1),
+            src2: SrcOperand::Reg(arm_x(2)),
+            width: OpWidth::W64,
+            flags: FlagUpdate::All,
+        }],
+        st,
+    );
+
+    let source_cases: Vec<(u32, u32, u32, ArmState)> = cases
+        .iter()
+        .map(|(_, source, _, st)| (source[0], source[1], source[2], *st))
+        .collect();
+    let lowered_cases: Vec<(u32, u32, u32, ArmState)> = cases
+        .iter()
+        .map(|(_, _, lowered, st)| (lowered[0], lowered[1], lowered[2], *st))
+        .collect();
+
+    let source_outs = match run_oracle3(&oracle, &source_cases) {
+        Some(o) => o,
+        None => {
+            eprintln!("[arm_diff] smir_aarch64_native_lowering: source oracle run failed -> skipping");
+            return;
+        }
+    };
+    let lowered_outs = match run_oracle3(&oracle, &lowered_cases) {
+        Some(o) => o,
+        None => {
+            eprintln!("[arm_diff] smir_aarch64_native_lowering: generated oracle run failed -> skipping");
+            return;
+        }
+    };
+    assert_eq!(source_outs.len(), cases.len());
+    assert_eq!(lowered_outs.len(), cases.len());
+
+    let mut mismatches = Vec::new();
+    for (i, (label, source, lowered, _st)) in cases.iter().enumerate() {
+        let source_out = &source_outs[i];
+        let lowered_out = &lowered_outs[i];
+        if source_out.trapped != 0 {
+            mismatches.push(Mismatch {
+                label: label.clone(),
+                insn: source[0],
+                detail: format!("source instruction faulted with signal {}", source_out.trapped),
+            });
+            continue;
+        }
+        if lowered_out.trapped != 0 {
+            mismatches.push(Mismatch {
+                label: label.clone(),
+                insn: lowered[0],
+                detail: format!("generated code faulted with signal {}", lowered_out.trapped),
+            });
+            continue;
+        }
+        compare_native_aarch64_case(
+            label,
+            lowered[0],
+            &lowered_out.st,
+            &source_out.st,
+            &mut mismatches,
+        );
+    }
+
+    if !mismatches.is_empty() {
+        eprintln!(
+            "\n==== smir_aarch64_native_lowering: {} mismatches across {} cases ====",
+            mismatches.len(),
+            cases.len()
+        );
+        for m in mismatches.iter().take(25) {
+            eprintln!("  [{}] {:#010x}: {}", m.label, m.insn, m.detail);
+        }
+        panic!(
+            "smir_aarch64_native_lowering: {} divergences vs hardware oracle",
             mismatches.len()
         );
     }
