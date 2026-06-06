@@ -6,7 +6,9 @@ use std::collections::HashMap;
 
 use crate::smir::flags::FlagUpdate;
 use crate::smir::ir::{CallTarget, SmirBlock, SmirFunction, Terminator};
-use crate::smir::ops::{OpKind, X86AluEncoding, X86OpHint, X86SsePrefix, X86VecAlign, X86VecMap};
+use crate::smir::ops::{
+    OpKind, SmirOp, X86AluEncoding, X86OpHint, X86SsePrefix, X86VecAlign, X86VecMap,
+};
 use crate::smir::types::{
     Address, ArchReg, BlockId, Condition, DispSize, GuestAddr, MemWidth, OpWidth, ShiftOp,
     SignExtend, SrcOperand, VReg, VecElementType, VecWidth, X86Reg,
@@ -3513,6 +3515,58 @@ impl X86_64Lowerer {
         Ok(())
     }
 
+    fn emit_jcc_placeholder(&mut self, cond: X86Cond) -> usize {
+        let off = self.code.position();
+        let mut emitter = X86Emitter::new(&mut self.code);
+        emitter.emit_jcc_rel32(cond, 0);
+        off + 2
+    }
+
+    fn patch_rel32_to_current(&mut self, offset: usize) -> Result<(), LowerError> {
+        let target = self.code.position();
+        let rel = target as i64 - offset as i64 - 4;
+        if rel < i32::MIN as i64 || rel > i32::MAX as i64 {
+            return Err(LowerError::RelocationOutOfRange { offset, target });
+        }
+        self.code.patch_i32(offset, rel as i32);
+        Ok(())
+    }
+
+    fn pred_store_src_to_vreg(src: &SrcOperand) -> Result<VReg, LowerError> {
+        match src {
+            SrcOperand::Reg(reg) => Ok(*reg),
+            SrcOperand::Imm(imm) | SrcOperand::Imm64(imm) => Ok(VReg::Imm(*imm)),
+            other => Err(LowerError::UnsupportedOp {
+                op: format!("PredStore source {other:?}"),
+            }),
+        }
+    }
+
+    fn emit_predicated_memory_guard(
+        &mut self,
+        op: &'static str,
+        cond: VReg,
+        addr: &Address,
+        src: Option<&SrcOperand>,
+    ) -> Result<usize, LowerError> {
+        let cond_reg = self.get_reg(cond)?;
+        let mut regs = vec![cond_reg];
+        for reg in addr.regs() {
+            regs.push(self.get_reg(reg)?);
+        }
+        if let Some(SrcOperand::Reg(src)) = src {
+            regs.push(self.get_reg(*src)?);
+        }
+        Self::ensure_flag_stack_operands_safe(op, &regs)?;
+
+        self.code.emit_u8(0x9C); // pushfq
+        {
+            let mut emitter = X86Emitter::new(&mut self.code);
+            emitter.emit_test_ri(cond_reg, 1, OpWidth::W64);
+        }
+        Ok(self.emit_jcc_placeholder(X86Cond::E))
+    }
+
     /// Emit function prologue
     fn emit_prologue(&mut self) {
         let mut emitter = X86Emitter::new(&mut self.code);
@@ -5819,6 +5873,51 @@ impl X86_64Lowerer {
                         });
                     }
                 }
+            }
+
+            OpKind::PredLoad {
+                dst,
+                cond,
+                addr,
+                width,
+                signed,
+            } => {
+                let skip = self.emit_predicated_memory_guard("PredLoad", *cond, addr, None)?;
+                let load = SmirOp::new(
+                    op.id,
+                    op.guest_pc,
+                    OpKind::Load {
+                        dst: *dst,
+                        addr: addr.clone(),
+                        width: *width,
+                        sign: *signed,
+                    },
+                );
+                self.lower_op(&load)?;
+                self.patch_rel32_to_current(skip)?;
+                self.code.emit_u8(0x9D); // popfq
+            }
+
+            OpKind::PredStore {
+                src,
+                cond,
+                addr,
+                width,
+            } => {
+                let skip =
+                    self.emit_predicated_memory_guard("PredStore", *cond, addr, Some(src))?;
+                let store = SmirOp::new(
+                    op.id,
+                    op.guest_pc,
+                    OpKind::Store {
+                        src: Self::pred_store_src_to_vreg(src)?,
+                        addr: addr.clone(),
+                        width: *width,
+                    },
+                );
+                self.lower_op(&store)?;
+                self.patch_rel32_to_current(skip)?;
+                self.code.emit_u8(0x9D); // popfq
             }
 
             OpKind::RepStos {
@@ -10205,6 +10304,34 @@ mod tests {
         ]);
         assert!(entry < lowered.len());
         assert!(!lowered.is_empty());
+    }
+
+    #[test]
+    fn lower_apx_cmov_cfcmov_slice_lowers_without_relocs() {
+        // LLVM 20 APX MAP4 forms:
+        //   cmovbq    %rbx, %rax, %r8  => 62 f4 bc 18 42 c3
+        //   cfcmovbq  %rbx, %rax, %r8  => 62 f4 bc 1c 42 c3
+        //   cfcmovbq  %rbx, %rax       => 62 f4 fc 0c 42 d8
+        //   cfcmovbq  (%rbx), %rax     => 62 f4 fc 08 42 03
+        //   cfcmovbq  %rbx, (%rax)     => 62 f4 fc 0c 42 18
+        //   cfcmovbq  (%rbx), %rax, %r8
+        //                                => 62 f4 bc 1c 42 03
+        let (lowered, entry) = lower_rex2_block(&[
+            0x62, 0xF4, 0xBC, 0x18, 0x42, 0xC3, 0x62, 0xF4, 0xBC, 0x1C, 0x42, 0xC3,
+            0x62, 0xF4, 0xFC, 0x0C, 0x42, 0xD8, 0x62, 0xF4, 0xFC, 0x08, 0x42, 0x03,
+            0x62, 0xF4, 0xFC, 0x0C, 0x42, 0x18, 0x62, 0xF4, 0xBC, 0x1C, 0x42, 0x03,
+            0xF4,
+        ]);
+        assert!(entry < lowered.len());
+        assert!(!lowered.is_empty());
+        assert!(
+            lowered.contains(&0x9C),
+            "CFCMOV/Select lowering must preserve flags"
+        );
+        assert!(
+            lowered.contains(&0x9D),
+            "CFCMOV/Select lowering must restore flags"
+        );
     }
 
     #[test]

@@ -1498,7 +1498,7 @@ impl SmirInterpreter {
             } => {
                 if ctx.flags.eval_condition(*cond) {
                     let val = ctx.read_vreg(*src) & width.mask();
-                    ctx.write_vreg(*dst, val);
+                    Self::write_x86_partial(ctx, *dst, val, *width);
                 }
             }
 
@@ -1515,7 +1515,7 @@ impl SmirInterpreter {
                 } else {
                     ctx.read_vreg(*src_false)
                 };
-                ctx.write_vreg(*dst, result & width.mask());
+                Self::write_x86_partial(ctx, *dst, result, *width);
             }
 
             OpKind::ZeroExtend {

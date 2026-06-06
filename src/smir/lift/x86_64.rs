@@ -189,6 +189,7 @@ struct ApxEvexPrefix {
     r_prime: bool,
     v_prime: bool,
     w: bool,
+    pp: u8,
     operand_size_override: bool,
     nd: bool,
     nf: bool,
@@ -596,6 +597,7 @@ fn decode_apx_evex_prefix(bytes: &[u8], addr: u64) -> Result<ApxEvexPrefix, Lift
         r_prime: (p0 & 0x10) != 0,
         v_prime: (p2 & 0x08) != 0,
         w: (p1 & 0x80) != 0,
+        pp: p1 & 0x03,
         operand_size_override: (p1 & 0x03) == 0x01,
         nd: (p2 & 0x10) != 0,
         nf: (p2 & 0x04) != 0,
@@ -3886,6 +3888,306 @@ impl X86_64Lifter {
         ))
     }
 
+    fn push_apx_condition(
+        &self,
+        ops: &mut Vec<SmirOp>,
+        pc: u64,
+        ctx: &mut LiftContext,
+        cond: Condition,
+    ) -> VReg {
+        let cond_reg = ctx.alloc_vreg();
+        ops.push(SmirOp::new(
+            OpId(ops.len() as u16),
+            pc,
+            OpKind::SetCC {
+                dst: cond_reg,
+                cond,
+                width: OpWidth::W8,
+            },
+        ));
+        cond_reg
+    }
+
+    fn lift_apx_evex_setcc(
+        &self,
+        prefix: ApxEvexPrefix,
+        opcode: u8,
+        bytes: &[u8],
+        pc: u64,
+        ctx: &mut LiftContext,
+    ) -> Result<LiftResult, LiftError> {
+        let cond = self.x86_cond(opcode & 0x0F);
+        let modrm_prefix = prefix.as_modrm_prefix(prefix.bytes + 1);
+        let modrm = decode_modrm(bytes, &modrm_prefix, pc)?;
+        let next_pc = pc + prefix.bytes as u64 + 1 + modrm.bytes_consumed as u64;
+        let mut ops = Vec::new();
+
+        if modrm.is_memory {
+            let x86_addr = modrm.addr.as_ref().unwrap();
+            let (addr, pre_ops) = self.x86_addr_to_smir(x86_addr, next_pc, ctx);
+            ops.extend(pre_ops);
+
+            let tmp = ctx.alloc_vreg();
+            ops.push(SmirOp::new(
+                OpId(ops.len() as u16),
+                pc,
+                OpKind::SetCC {
+                    dst: tmp,
+                    cond,
+                    width: OpWidth::W8,
+                },
+            ));
+            ops.push(SmirOp::new(
+                OpId(ops.len() as u16),
+                pc,
+                OpKind::Store {
+                    src: tmp,
+                    addr,
+                    width: MemWidth::B1,
+                },
+            ));
+        } else {
+            ops.push(SmirOp::new(
+                OpId(0),
+                pc,
+                OpKind::SetCC {
+                    dst: self.gpr(modrm.rm),
+                    cond,
+                    width: OpWidth::W8,
+                },
+            ));
+        }
+
+        Ok(LiftResult::fallthrough(
+            ops,
+            prefix.bytes + 1 + modrm.bytes_consumed,
+        ))
+    }
+
+    fn lift_apx_cmovcc(
+        &self,
+        prefix: ApxEvexPrefix,
+        opcode: u8,
+        bytes: &[u8],
+        pc: u64,
+        ctx: &mut LiftContext,
+    ) -> Result<LiftResult, LiftError> {
+        let cond = self.x86_cond(opcode & 0x0F);
+        let op_size = prefix.op_size(false);
+        let width = self.size_to_width(op_size);
+        let mem_width = self.size_to_memwidth(op_size);
+        let modrm_prefix = prefix.as_modrm_prefix(prefix.bytes + 1);
+        let modrm = decode_modrm(bytes, &modrm_prefix, pc)?;
+        let next_pc = pc + prefix.bytes as u64 + 1 + modrm.bytes_consumed as u64;
+        let mut ops = Vec::new();
+
+        if prefix.nd {
+            let dst = self.gpr(prefix.vvvv_reg());
+            let src1 = self.gpr(modrm.reg);
+
+            if prefix.nf {
+                let cond_reg = self.push_apx_condition(&mut ops, pc, ctx, cond);
+                if modrm.is_memory {
+                    let x86_addr = modrm.addr.as_ref().unwrap();
+                    let (addr, pre_ops) = self.x86_addr_to_smir(x86_addr, next_pc, ctx);
+                    ops.extend(pre_ops);
+
+                    let loaded = ctx.alloc_vreg();
+                    ops.push(SmirOp::new(
+                        OpId(ops.len() as u16),
+                        pc,
+                        OpKind::PredLoad {
+                            dst: loaded,
+                            cond: cond_reg,
+                            addr,
+                            width: mem_width,
+                            signed: SignExtend::Zero,
+                        },
+                    ));
+                    ops.push(SmirOp::new(
+                        OpId(ops.len() as u16),
+                        pc,
+                        OpKind::Select {
+                            dst,
+                            cond: cond_reg,
+                            src_true: loaded,
+                            src_false: src1,
+                            width,
+                        },
+                    ));
+                } else {
+                    let src2 = self.gpr(modrm.rm);
+                    ops.push(SmirOp::new(
+                        OpId(ops.len() as u16),
+                        pc,
+                        OpKind::Select {
+                            dst,
+                            cond: cond_reg,
+                            src_true: src2,
+                            src_false: src1,
+                            width,
+                        },
+                    ));
+                }
+            } else {
+                let src2 = if modrm.is_memory {
+                    let x86_addr = modrm.addr.as_ref().unwrap();
+                    let (addr, pre_ops) = self.x86_addr_to_smir(x86_addr, next_pc, ctx);
+                    ops.extend(pre_ops);
+
+                    let tmp = ctx.alloc_vreg();
+                    ops.push(SmirOp::new(
+                        OpId(ops.len() as u16),
+                        pc,
+                        OpKind::Load {
+                            dst: tmp,
+                            addr,
+                            width: mem_width,
+                            sign: SignExtend::Zero,
+                        },
+                    ));
+                    tmp
+                } else {
+                    self.gpr(modrm.rm)
+                };
+
+                let cond_reg = self.push_apx_condition(&mut ops, pc, ctx, cond);
+                ops.push(SmirOp::new(
+                    OpId(ops.len() as u16),
+                    pc,
+                    OpKind::Select {
+                        dst,
+                        cond: cond_reg,
+                        src_true: src2,
+                        src_false: src1,
+                        width,
+                    },
+                ));
+            }
+        } else if prefix.nf {
+            let src = self.gpr(modrm.reg);
+            let cond_reg = self.push_apx_condition(&mut ops, pc, ctx, cond);
+
+            if modrm.is_memory {
+                let x86_addr = modrm.addr.as_ref().unwrap();
+                let (addr, pre_ops) = self.x86_addr_to_smir(x86_addr, next_pc, ctx);
+                ops.extend(pre_ops);
+
+                ops.push(SmirOp::new(
+                    OpId(ops.len() as u16),
+                    pc,
+                    OpKind::PredStore {
+                        src: SrcOperand::Reg(src),
+                        cond: cond_reg,
+                        addr,
+                        width: mem_width,
+                    },
+                ));
+            } else {
+                let dst = self.gpr(modrm.rm);
+                let zero = ctx.alloc_vreg();
+                ops.push(SmirOp::new(
+                    OpId(ops.len() as u16),
+                    pc,
+                    OpKind::Mov {
+                        dst: zero,
+                        src: SrcOperand::Imm(0),
+                        width,
+                    },
+                ));
+                ops.push(SmirOp::new(
+                    OpId(ops.len() as u16),
+                    pc,
+                    OpKind::Select {
+                        dst,
+                        cond: cond_reg,
+                        src_true: src,
+                        src_false: zero,
+                        width,
+                    },
+                ));
+            }
+        } else {
+            let dst = self.gpr(modrm.reg);
+            let zero = ctx.alloc_vreg();
+            ops.push(SmirOp::new(
+                OpId(ops.len() as u16),
+                pc,
+                OpKind::Mov {
+                    dst: zero,
+                    src: SrcOperand::Imm(0),
+                    width,
+                },
+            ));
+            let cond_reg = self.push_apx_condition(&mut ops, pc, ctx, cond);
+
+            let src = if modrm.is_memory {
+                let x86_addr = modrm.addr.as_ref().unwrap();
+                let (addr, pre_ops) = self.x86_addr_to_smir(x86_addr, next_pc, ctx);
+                ops.extend(pre_ops);
+
+                let loaded = ctx.alloc_vreg();
+                ops.push(SmirOp::new(
+                    OpId(ops.len() as u16),
+                    pc,
+                    OpKind::PredLoad {
+                        dst: loaded,
+                        cond: cond_reg,
+                        addr,
+                        width: mem_width,
+                        signed: SignExtend::Zero,
+                    },
+                ));
+                loaded
+            } else {
+                self.gpr(modrm.rm)
+            };
+
+            ops.push(SmirOp::new(
+                OpId(ops.len() as u16),
+                pc,
+                OpKind::Select {
+                    dst,
+                    cond: cond_reg,
+                    src_true: src,
+                    src_false: zero,
+                    width,
+                },
+            ));
+        }
+
+        Ok(LiftResult::fallthrough(
+            ops,
+            prefix.bytes + 1 + modrm.bytes_consumed,
+        ))
+    }
+
+    fn lift_apx_conditional_map4(
+        &self,
+        prefix: ApxEvexPrefix,
+        opcode: u8,
+        bytes: &[u8],
+        pc: u64,
+        ctx: &mut LiftContext,
+    ) -> Result<LiftResult, LiftError> {
+        if prefix.pp == 0x02 {
+            return Err(LiftError::InvalidEncoding {
+                addr: pc,
+                bytes: bytes[..bytes.len().min(2)].to_vec(),
+            });
+        }
+
+        if prefix.pp == 0x03 && !prefix.nf {
+            if prefix.nd {
+                self.lift_apx_setzucc(prefix, opcode, bytes, pc, ctx)
+            } else {
+                self.lift_apx_evex_setcc(prefix, opcode, bytes, pc, ctx)
+            }
+        } else {
+            self.lift_apx_cmovcc(prefix, opcode, bytes, pc, ctx)
+        }
+    }
+
     fn lift_apx_imul_reg(
         &self,
         prefix: ApxEvexPrefix,
@@ -4431,7 +4733,13 @@ impl X86_64Lifter {
                 self.lift_apx_double_shift(prefix, opcode, &bytes[prefix.bytes + 1..], pc, ctx)
             }
             0x40..=0x4F => {
-                self.lift_apx_setzucc(prefix, opcode, &bytes[prefix.bytes + 1..], pc, ctx)
+                self.lift_apx_conditional_map4(
+                    prefix,
+                    opcode,
+                    &bytes[prefix.bytes + 1..],
+                    pc,
+                    ctx,
+                )
             }
             0x61 => self.lift_apx_movbe(prefix, &bytes[prefix.bytes + 1..], pc),
             0x69 | 0x6B => {
@@ -8691,6 +8999,286 @@ mod tests {
             }
             other => panic!("expected APX SETZUcc byte store, got {other:?}"),
         }
+    }
+
+    #[test]
+    fn lift_apx_evex_setcc_without_zu_keeps_byte_width_like_llvm() {
+        let mut lifter = X86_64Lifter::strict();
+        let mut ctx = LiftContext::new(SourceArch::X86_64);
+
+        // LLVM 20: `{evex} setb %al` => 62 f4 7f 08 42 c0.
+        let result = lifter
+            .lift_insn(0x1000, &[0x62, 0xF4, 0x7F, 0x08, 0x42, 0xC0], &mut ctx)
+            .unwrap();
+        assert_eq!(result.bytes_consumed, 6);
+        assert_eq!(result.ops.len(), 1);
+        match &result.ops[0].kind {
+            OpKind::SetCC {
+                dst,
+                cond: Condition::Ult,
+                width: OpWidth::W8,
+            } => assert_eq!(*dst, x86_gpr(0)),
+            other => panic!("expected EVEX SETcc byte register write, got {other:?}"),
+        }
+
+        // LLVM 20: `{evex} setb (%rax)` => 62 f4 7f 08 42 00.
+        let result = lifter
+            .lift_insn(0x1000, &[0x62, 0xF4, 0x7F, 0x08, 0x42, 0x00], &mut ctx)
+            .unwrap();
+        assert_eq!(result.bytes_consumed, 6);
+        assert_eq!(result.ops.len(), 2);
+        let tmp = match &result.ops[0].kind {
+            OpKind::SetCC {
+                dst,
+                cond: Condition::Ult,
+                width: OpWidth::W8,
+            } => *dst,
+            other => panic!("expected EVEX SETcc byte temp, got {other:?}"),
+        };
+        match &result.ops[1].kind {
+            OpKind::Store {
+                src,
+                addr: Address::Direct(base),
+                width: MemWidth::B1,
+            } => {
+                assert_eq!(*src, tmp);
+                assert_eq!(*base, x86_gpr(0));
+            }
+            other => panic!("expected EVEX SETcc byte store, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn lift_apx_cmov_nd_uses_vvvv_destination_like_llvm() {
+        let mut lifter = X86_64Lifter::strict();
+        let mut ctx = LiftContext::new(SourceArch::X86_64);
+
+        // LLVM 20: `cmovbq %rbx, %rax, %r8` => 62 f4 bc 18 42 c3.
+        let result = lifter
+            .lift_insn(0x1000, &[0x62, 0xF4, 0xBC, 0x18, 0x42, 0xC3], &mut ctx)
+            .unwrap();
+        assert_eq!(result.bytes_consumed, 6);
+        assert_eq!(result.ops.len(), 2);
+        let cond = match &result.ops[0].kind {
+            OpKind::SetCC {
+                dst,
+                cond: Condition::Ult,
+                width: OpWidth::W8,
+            } => *dst,
+            other => panic!("expected CMOV_ND condition, got {other:?}"),
+        };
+        match &result.ops[1].kind {
+            OpKind::Select {
+                dst,
+                cond: got_cond,
+                src_true,
+                src_false,
+                width: OpWidth::W64,
+            } => {
+                assert_eq!(*dst, x86_gpr(8));
+                assert_eq!(*got_cond, cond);
+                assert_eq!(*src_true, x86_gpr(3));
+                assert_eq!(*src_false, x86_gpr(0));
+            }
+            other => panic!("expected CMOV_ND Select, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn lift_apx_cfcmov_two_operand_directions_like_llvm() {
+        let mut lifter = X86_64Lifter::strict();
+        let mut ctx = LiftContext::new(SourceArch::X86_64);
+
+        // LLVM 20: `cfcmovbq %rbx, %rax` => 62 f4 fc 0c 42 d8.
+        let result = lifter
+            .lift_insn(0x1000, &[0x62, 0xF4, 0xFC, 0x0C, 0x42, 0xD8], &mut ctx)
+            .unwrap();
+        assert_eq!(result.bytes_consumed, 6);
+        assert_eq!(result.ops.len(), 3);
+        let cond = match &result.ops[0].kind {
+            OpKind::SetCC {
+                dst,
+                cond: Condition::Ult,
+                width: OpWidth::W8,
+            } => *dst,
+            other => panic!("expected CFCMOV condition, got {other:?}"),
+        };
+        let zero = match &result.ops[1].kind {
+            OpKind::Mov {
+                dst,
+                src: SrcOperand::Imm(0),
+                width: OpWidth::W64,
+            } => *dst,
+            other => panic!("expected CFCMOV false zero temp, got {other:?}"),
+        };
+        match &result.ops[2].kind {
+            OpKind::Select {
+                dst,
+                cond: got_cond,
+                src_true,
+                src_false,
+                width: OpWidth::W64,
+            } => {
+                assert_eq!(*dst, x86_gpr(0));
+                assert_eq!(*got_cond, cond);
+                assert_eq!(*src_true, x86_gpr(3));
+                assert_eq!(*src_false, zero);
+            }
+            other => panic!("expected CFCMOV reg-destination Select, got {other:?}"),
+        }
+
+        // LLVM also decodes clear NF with PP=0 as the opposite reg-reg direction:
+        // `cfcmovbq %rax, %rbx` from 62 f4 fc 08 42 d8.
+        let result = lifter
+            .lift_insn(0x1000, &[0x62, 0xF4, 0xFC, 0x08, 0x42, 0xD8], &mut ctx)
+            .unwrap();
+        match &result.ops[2].kind {
+            OpKind::Select {
+                dst,
+                src_true,
+                width: OpWidth::W64,
+                ..
+            } => {
+                assert_eq!(*dst, x86_gpr(3));
+                assert_eq!(*src_true, x86_gpr(0));
+            }
+            other => panic!("expected opposite CFCMOV direction, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn lift_apx_cfcmov_memory_uses_predicated_access_like_llvm() {
+        let mut lifter = X86_64Lifter::strict();
+        let mut ctx = LiftContext::new(SourceArch::X86_64);
+
+        // LLVM 20: `cfcmovbq (%rbx), %rax` => 62 f4 fc 08 42 03.
+        let result = lifter
+            .lift_insn(0x1000, &[0x62, 0xF4, 0xFC, 0x08, 0x42, 0x03], &mut ctx)
+            .unwrap();
+        assert_eq!(result.bytes_consumed, 6);
+        assert_eq!(result.ops.len(), 4);
+        let cond = match &result.ops[1].kind {
+            OpKind::SetCC {
+                dst,
+                cond: Condition::Ult,
+                width: OpWidth::W8,
+            } => *dst,
+            other => panic!("expected CFCMOVrm condition, got {other:?}"),
+        };
+        let loaded = match &result.ops[2].kind {
+            OpKind::PredLoad {
+                dst,
+                cond: got_cond,
+                addr: Address::Direct(base),
+                width: MemWidth::B8,
+                signed: SignExtend::Zero,
+            } => {
+                assert_eq!(*got_cond, cond);
+                assert_eq!(*base, x86_gpr(3));
+                *dst
+            }
+            other => panic!("expected CFCMOVrm PredLoad, got {other:?}"),
+        };
+        match &result.ops[3].kind {
+            OpKind::Select {
+                dst,
+                src_true,
+                width: OpWidth::W64,
+                ..
+            } => {
+                assert_eq!(*dst, x86_gpr(0));
+                assert_eq!(*src_true, loaded);
+            }
+            other => panic!("expected CFCMOVrm final Select, got {other:?}"),
+        }
+
+        // LLVM 20: `cfcmovbq %rbx, (%rax)` => 62 f4 fc 0c 42 18.
+        let result = lifter
+            .lift_insn(0x1000, &[0x62, 0xF4, 0xFC, 0x0C, 0x42, 0x18], &mut ctx)
+            .unwrap();
+        assert_eq!(result.ops.len(), 2);
+        let cond = match &result.ops[0].kind {
+            OpKind::SetCC {
+                dst,
+                cond: Condition::Ult,
+                width: OpWidth::W8,
+            } => *dst,
+            other => panic!("expected CFCMOVmr condition, got {other:?}"),
+        };
+        match &result.ops[1].kind {
+            OpKind::PredStore {
+                src: SrcOperand::Reg(src),
+                cond: got_cond,
+                addr: Address::Direct(base),
+                width: MemWidth::B8,
+            } => {
+                assert_eq!(*src, x86_gpr(3));
+                assert_eq!(*got_cond, cond);
+                assert_eq!(*base, x86_gpr(0));
+            }
+            other => panic!("expected CFCMOVmr PredStore, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn lift_apx_cfcmov_nd_memory_source_suppresses_false_fault_like_llvm() {
+        let mut lifter = X86_64Lifter::strict();
+        let mut ctx = LiftContext::new(SourceArch::X86_64);
+
+        // LLVM 20: `cfcmovbq (%rbx), %rax, %r8` => 62 f4 bc 1c 42 03.
+        let result = lifter
+            .lift_insn(0x1000, &[0x62, 0xF4, 0xBC, 0x1C, 0x42, 0x03], &mut ctx)
+            .unwrap();
+        assert_eq!(result.bytes_consumed, 6);
+        assert_eq!(result.ops.len(), 3);
+        let cond = match &result.ops[0].kind {
+            OpKind::SetCC {
+                dst,
+                cond: Condition::Ult,
+                width: OpWidth::W8,
+            } => *dst,
+            other => panic!("expected CFCMOV_ND condition, got {other:?}"),
+        };
+        let loaded = match &result.ops[1].kind {
+            OpKind::PredLoad {
+                dst,
+                cond: got_cond,
+                addr: Address::Direct(base),
+                width: MemWidth::B8,
+                signed: SignExtend::Zero,
+            } => {
+                assert_eq!(*got_cond, cond);
+                assert_eq!(*base, x86_gpr(3));
+                *dst
+            }
+            other => panic!("expected CFCMOV_ND PredLoad, got {other:?}"),
+        };
+        match &result.ops[2].kind {
+            OpKind::Select {
+                dst,
+                cond: got_cond,
+                src_true,
+                src_false,
+                width: OpWidth::W64,
+            } => {
+                assert_eq!(*dst, x86_gpr(8));
+                assert_eq!(*got_cond, cond);
+                assert_eq!(*src_true, loaded);
+                assert_eq!(*src_false, x86_gpr(0));
+            }
+            other => panic!("expected CFCMOV_ND final Select, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn lift_apx_conditional_map4_rejects_invalid_pp2_like_llvm() {
+        let mut lifter = X86_64Lifter::strict();
+        let mut ctx = LiftContext::new(SourceArch::X86_64);
+
+        let err = lifter
+            .lift_insn(0x1000, &[0x62, 0xF4, 0x7E, 0x18, 0x42, 0xC0], &mut ctx)
+            .unwrap_err();
+        assert!(matches!(err, LiftError::InvalidEncoding { .. }), "{err:?}");
     }
 
     #[test]

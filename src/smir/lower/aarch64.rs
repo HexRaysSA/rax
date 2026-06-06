@@ -406,6 +406,16 @@ impl Aarch64Lowerer {
         nonzero: bool,
         offset: i32,
     ) -> Result<(), LowerError> {
+        self.emit(Self::test_branch_word(rt, bit, nonzero, offset)?);
+        Ok(())
+    }
+
+    fn test_branch_word(
+        rt: u8,
+        bit: u32,
+        nonzero: bool,
+        offset: i32,
+    ) -> Result<u32, LowerError> {
         if bit >= 64 {
             return Err(LowerError::InvalidOperand {
                 op: "AArch64 test branch".into(),
@@ -428,14 +438,33 @@ impl Aarch64Lowerer {
 
         let b5 = bit >> 5;
         let b40 = bit & 0x1f;
-        self.emit(
+        Ok(
             (b5 << 31)
                 | (0b011011 << 25)
                 | ((nonzero as u32) << 24)
                 | (b40 << 19)
                 | (((imm14 as u32) & 0x3fff) << 5)
                 | (rt as u32),
-        );
+        )
+    }
+
+    fn patch_test_branch_to_current(
+        &mut self,
+        insn_offset: usize,
+        rt: u8,
+        bit: u32,
+        nonzero: bool,
+    ) -> Result<(), LowerError> {
+        let target = self.code.position();
+        let offset = target as i64 - insn_offset as i64;
+        if offset < i32::MIN as i64 || offset > i32::MAX as i64 {
+            return Err(LowerError::RelocationOutOfRange {
+                offset: insn_offset,
+                target,
+            });
+        }
+        let word = Self::test_branch_word(rt, bit, nonzero, offset as i32)?;
+        self.code.patch_i32(insn_offset, word as i32);
         Ok(())
     }
 
@@ -1105,6 +1134,45 @@ impl Aarch64Lowerer {
         let rt = Self::gpr(src)?;
         let size = Self::mem_size(width)?;
         self.lower_mem_access(rt, addr, size, 0b00)
+    }
+
+    fn pred_store_src_to_vreg(src: &SrcOperand) -> Result<VReg, LowerError> {
+        match src {
+            SrcOperand::Reg(reg) => Ok(*reg),
+            SrcOperand::Imm(0) | SrcOperand::Imm64(0) => Ok(VReg::Imm(0)),
+            other => Err(LowerError::UnsupportedOp {
+                op: format!("AArch64 native PredStore source {other:?}"),
+            }),
+        }
+    }
+
+    fn lower_pred_load(
+        &mut self,
+        dst: VReg,
+        cond: VReg,
+        addr: &Address,
+        width: MemWidth,
+        signed: SignExtend,
+    ) -> Result<(), LowerError> {
+        let cond = Self::gpr(cond)?;
+        let branch = self.code.position();
+        self.emit_test_branch(cond, 0, false, 0)?;
+        self.lower_load(dst, addr, width, signed)?;
+        self.patch_test_branch_to_current(branch, cond, 0, false)
+    }
+
+    fn lower_pred_store(
+        &mut self,
+        src: &SrcOperand,
+        cond: VReg,
+        addr: &Address,
+        width: MemWidth,
+    ) -> Result<(), LowerError> {
+        let cond = Self::gpr(cond)?;
+        let branch = self.code.position();
+        self.emit_test_branch(cond, 0, false, 0)?;
+        self.lower_store(Self::pred_store_src_to_vreg(src)?, addr, width)?;
+        self.patch_test_branch_to_current(branch, cond, 0, false)
     }
 
     fn exclusive_base_gpr(addr: &Address) -> Result<u8, LowerError> {
@@ -4472,6 +4540,19 @@ impl Aarch64Lowerer {
                 sign,
             } => self.lower_load(*dst, addr, *width, *sign),
             OpKind::Store { src, addr, width } => self.lower_store(*src, addr, *width),
+            OpKind::PredLoad {
+                dst,
+                cond,
+                addr,
+                width,
+                signed,
+            } => self.lower_pred_load(*dst, *cond, addr, *width, *signed),
+            OpKind::PredStore {
+                src,
+                cond,
+                addr,
+                width,
+            } => self.lower_pred_store(src, *cond, addr, *width),
             OpKind::AtomicLoad {
                 dst,
                 addr,
@@ -5945,6 +6026,59 @@ mod tests {
 
         let mut expected = Vec::new();
         expected.extend_from_slice(&enc_ldst_simm(3, 0b00, 0b01, -8).to_le_bytes());
+        expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
+        assert_eq!(code, expected);
+    }
+
+    #[test]
+    fn lowers_pred_load_with_tbz_guard() {
+        let mut builder = FunctionBuilder::new(FunctionId(0), 0);
+        builder.push_op(
+            0,
+            OpKind::PredLoad {
+                dst: x(0),
+                cond: x(2),
+                addr: Address::Direct(x(1)),
+                width: MemWidth::B8,
+                signed: SignExtend::Zero,
+            },
+        );
+        builder.set_terminator(Terminator::Return { values: vec![] });
+        let func = builder.finish();
+
+        let mut lowerer = Aarch64Lowerer::new();
+        lowerer.lower_function(&func).unwrap();
+        let code = lowerer.finalize().unwrap();
+
+        let mut expected = Vec::new();
+        expected.extend_from_slice(&enc_test_branch(2, 0, false, 8).to_le_bytes());
+        expected.extend_from_slice(&enc_ldst_uimm(3, 0b01, 0).to_le_bytes());
+        expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
+        assert_eq!(code, expected);
+    }
+
+    #[test]
+    fn lowers_pred_store_with_tbz_guard() {
+        let mut builder = FunctionBuilder::new(FunctionId(0), 0);
+        builder.push_op(
+            0,
+            OpKind::PredStore {
+                src: SrcOperand::Reg(x(0)),
+                cond: x(2),
+                addr: Address::Direct(x(1)),
+                width: MemWidth::B8,
+            },
+        );
+        builder.set_terminator(Terminator::Return { values: vec![] });
+        let func = builder.finish();
+
+        let mut lowerer = Aarch64Lowerer::new();
+        lowerer.lower_function(&func).unwrap();
+        let code = lowerer.finalize().unwrap();
+
+        let mut expected = Vec::new();
+        expected.extend_from_slice(&enc_test_branch(2, 0, false, 8).to_le_bytes());
+        expected.extend_from_slice(&enc_ldst_uimm(3, 0b00, 0).to_le_bytes());
         expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
         assert_eq!(code, expected);
     }
