@@ -1979,6 +1979,12 @@ impl Aarch64Lowerer {
     fn lower_ctz(&mut self, dst: VReg, src: VReg, width: OpWidth) -> Result<(), LowerError> {
         let dst = Self::dst_gpr(dst)?;
         let src = Self::gpr(src)?;
+        if width == OpWidth::W16 {
+            let (imm_n, immr, imms) = Self::logical_bitmask_imm(0x1_0000, OpWidth::W32)?;
+            self.emit_logic_imm(dst, src, 0b01, imm_n, immr, imms, OpWidth::W32)?;
+            self.emit_dp1(dst, dst, 0b000000, OpWidth::W32)?;
+            return self.emit_dp1(dst, dst, 0b000100, OpWidth::W32);
+        }
         self.emit_dp1(dst, src, 0b000000, width)?;
         self.emit_dp1(dst, dst, 0b000100, width)
     }
@@ -8188,7 +8194,7 @@ mod tests {
     }
 
     #[test]
-    fn rejects_ctz_w16_partial_width_lowering() {
+    fn lowers_ctz_w16_as_sentinel_rbit_clz() {
         let mut builder = FunctionBuilder::new(FunctionId(0), 0);
         builder.push_op(
             0,
@@ -8202,8 +8208,15 @@ mod tests {
         let func = builder.finish();
 
         let mut lowerer = Aarch64Lowerer::new();
-        let err = lowerer.lower_function(&func).unwrap_err();
-        assert!(matches!(err, LowerError::UnsupportedOp { .. }));
+        lowerer.lower_function(&func).unwrap();
+        let code = lowerer.finalize().unwrap();
+
+        let mut expected = Vec::new();
+        expected.extend_from_slice(&enc_logical_imm(0, 0b01, 0, 16, 0, 0, 1).to_le_bytes());
+        expected.extend_from_slice(&enc_dp1_regs(0, 0b000000, 0, 0).to_le_bytes());
+        expected.extend_from_slice(&enc_dp1_regs(0, 0b000100, 0, 0).to_le_bytes());
+        expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
+        assert_eq!(code, expected);
     }
 
     #[test]
