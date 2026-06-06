@@ -2379,8 +2379,14 @@ impl Aarch64Lowerer {
         src1: VReg,
         src2: &SrcOperand,
         width: OpWidth,
+        flags_set: bool,
         signed: bool,
     ) -> Result<(), LowerError> {
+        if flags_set {
+            return Err(LowerError::UnsupportedOp {
+                op: "AArch64 native flag-setting divide".into(),
+            });
+        }
         let SrcOperand::Reg(src2) = src2 else {
             return Err(LowerError::UnsupportedOp {
                 op: format!("AArch64 native divide source {src2:?}"),
@@ -4401,16 +4407,16 @@ impl Aarch64Lowerer {
                 src1,
                 src2,
                 width,
-                ..
-            } => self.lower_div(*quot, *rem, *src1, src2, *width, false),
+                flags,
+            } => self.lower_div(*quot, *rem, *src1, src2, *width, flags.updates_any(), false),
             OpKind::DivS {
                 quot,
                 rem,
                 src1,
                 src2,
                 width,
-                ..
-            } => self.lower_div(*quot, *rem, *src1, src2, *width, true),
+                flags,
+            } => self.lower_div(*quot, *rem, *src1, src2, *width, flags.updates_any(), true),
             OpKind::Load {
                 dst,
                 addr,
@@ -5338,6 +5344,28 @@ mod tests {
                 src2: SrcOperand::Reg(x(2)),
                 width: OpWidth::W64,
                 flags: FlagUpdate::None,
+            },
+        );
+        builder.set_terminator(Terminator::Return { values: vec![] });
+        let func = builder.finish();
+
+        let mut lowerer = Aarch64Lowerer::new();
+        let err = lowerer.lower_function(&func).unwrap_err();
+        assert!(matches!(err, LowerError::UnsupportedOp { .. }));
+    }
+
+    #[test]
+    fn rejects_flag_setting_div_lowering() {
+        let mut builder = FunctionBuilder::new(FunctionId(0), 0);
+        builder.push_op(
+            0,
+            OpKind::DivU {
+                quot: x(0),
+                rem: Some(x(3)),
+                src1: x(1),
+                src2: SrcOperand::Reg(x(2)),
+                width: OpWidth::W64,
+                flags: FlagUpdate::All,
             },
         );
         builder.set_terminator(Terminator::Return { values: vec![] });
