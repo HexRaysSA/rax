@@ -2587,6 +2587,22 @@ impl Aarch64Lowerer {
         )
     }
 
+    fn lower_setcc(
+        &mut self,
+        dst: VReg,
+        cond: Condition,
+        width: OpWidth,
+    ) -> Result<(), LowerError> {
+        match width {
+            OpWidth::W8 | OpWidth::W16 | OpWidth::W32 | OpWidth::W64 => {
+                self.lower_test_condition(dst, cond)
+            }
+            other => Err(LowerError::UnsupportedOp {
+                op: format!("AArch64 native SetCC width {other:?}"),
+            }),
+        }
+    }
+
     fn lower_select(
         &mut self,
         dst: VReg,
@@ -4090,6 +4106,7 @@ impl Aarch64Lowerer {
                 src_false,
                 width,
             } => self.lower_select(*dst, *cond, *src_true, *src_false, *width),
+            OpKind::SetCC { dst, cond, width } => self.lower_setcc(*dst, *cond, *width),
             OpKind::TestCondition { dst, cond } => self.lower_test_condition(*dst, *cond),
             other => Err(LowerError::UnsupportedOp {
                 op: format!("AArch64 native lowering for {other:?}"),
@@ -4422,6 +4439,17 @@ mod tests {
 
     fn enc_mov_reg(sf: u32, rd: u32, rm: u32) -> u32 {
         (sf << 31) | (0b01 << 29) | (0b01010 << 24) | (31 << 5) | (rm << 16) | rd
+    }
+
+    fn enc_csel_regs(sf: u32, op: u32, op2: u32, rn: u32, rm: u32, cond: u32, rd: u32) -> u32 {
+        (sf << 31)
+            | (op << 30)
+            | (0b11010100 << 21)
+            | (rm << 16)
+            | (cond << 12)
+            | (op2 << 10)
+            | (rn << 5)
+            | rd
     }
 
     #[test]
@@ -5633,6 +5661,30 @@ mod tests {
     }
 
     #[test]
+    fn lowers_setcc_w8_as_cset() {
+        let mut builder = FunctionBuilder::new(FunctionId(0), 0);
+        builder.push_op(
+            0,
+            OpKind::SetCC {
+                dst: x(0),
+                cond: Condition::Ne,
+                width: OpWidth::W8,
+            },
+        );
+        builder.set_terminator(Terminator::Return { values: vec![] });
+        let func = builder.finish();
+
+        let mut lowerer = Aarch64Lowerer::new();
+        lowerer.lower_function(&func).unwrap();
+        let code = lowerer.finalize().unwrap();
+
+        let mut expected = Vec::new();
+        expected.extend_from_slice(&enc_csel_regs(1, 0, 1, 31, 31, 0, 0).to_le_bytes());
+        expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
+        assert_eq!(code, expected);
+    }
+
+    #[test]
     fn lowers_shrd_x_imm_as_extract() {
         let mut builder = FunctionBuilder::new(FunctionId(0), 0);
         builder.push_op(
@@ -6422,6 +6474,44 @@ mod tests {
                 dst: x(0),
                 src: x(1),
                 width: OpWidth::W16,
+            },
+        );
+        builder.set_terminator(Terminator::Return { values: vec![] });
+        let func = builder.finish();
+
+        let mut lowerer = Aarch64Lowerer::new();
+        let err = lowerer.lower_function(&func).unwrap_err();
+        assert!(matches!(err, LowerError::UnsupportedOp { .. }));
+    }
+
+    #[test]
+    fn rejects_setcc_parity_condition_lowering() {
+        let mut builder = FunctionBuilder::new(FunctionId(0), 0);
+        builder.push_op(
+            0,
+            OpKind::SetCC {
+                dst: x(0),
+                cond: Condition::Parity,
+                width: OpWidth::W8,
+            },
+        );
+        builder.set_terminator(Terminator::Return { values: vec![] });
+        let func = builder.finish();
+
+        let mut lowerer = Aarch64Lowerer::new();
+        let err = lowerer.lower_function(&func).unwrap_err();
+        assert!(matches!(err, LowerError::UnsupportedOp { .. }));
+    }
+
+    #[test]
+    fn rejects_setcc_w128_lowering() {
+        let mut builder = FunctionBuilder::new(FunctionId(0), 0);
+        builder.push_op(
+            0,
+            OpKind::SetCC {
+                dst: x(0),
+                cond: Condition::Ne,
+                width: OpWidth::W128,
             },
         );
         builder.set_terminator(Terminator::Return { values: vec![] });
