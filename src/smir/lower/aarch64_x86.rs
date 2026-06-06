@@ -1,0 +1,1015 @@
+//! State-backed AArch64-to-x86_64 SMIR lowerer.
+//!
+//! This lowers AArch64-lifted scalar SMIR into normal x86-64 SysV leaf
+//! functions. RDI is the persistent `*mut Aarch64GuestRegs` state pointer; guest
+//! X/SP/PC/NZCV are read and written through that struct, while SMIR virtual
+//! temporaries are stack slots in the native frame.
+
+use std::collections::{HashMap, HashSet};
+
+use crate::smir::flags::FlagUpdate;
+use crate::smir::ir::{SmirBlock, SmirFunction, Terminator};
+use crate::smir::ops::{OpKind, SmirOp};
+use crate::smir::types::{
+    ArchReg, ArmReg, BlockId, Condition, ExtendOp, OpWidth, ShiftOp, SrcOperand, VReg, VirtualId,
+};
+
+use super::regalloc::PhysReg;
+use super::x86_64::{X86Cond, X86Emitter};
+use super::{CodeBuffer, LowerError, LowerResult, RelocKind, Relocation, SmirLowerer};
+
+const STATE: PhysReg = PhysReg::Rdi;
+const ACC: PhysReg = PhysReg::Rax;
+const RHS: PhysReg = PhysReg::Rcx;
+const B0: PhysReg = PhysReg::R8;
+const B1: PhysReg = PhysReg::R9;
+const B2: PhysReg = PhysReg::R10;
+const B3: PhysReg = PhysReg::R11;
+
+const NZCV_N: i64 = 1_i64 << 31;
+const NZCV_Z: i64 = 1_i64 << 30;
+const NZCV_C: i64 = 1_i64 << 29;
+const NZCV_V: i64 = 1_i64 << 28;
+
+const A64_X0_OFFSET: i32 = 0;
+const A64_SP_OFFSET: i32 = 31 * 8;
+const A64_PC_OFFSET: i32 = 32 * 8;
+const A64_NZCV_OFFSET: i32 = 33 * 8;
+const A64_FPCR_OFFSET: i32 = 34 * 8;
+const A64_FPSR_OFFSET: i32 = 35 * 8;
+const A64_V_OFFSET: i32 = 36 * 8;
+
+#[derive(Clone, Copy, Debug)]
+enum FlagForm {
+    Add,
+    Sub,
+    Logic,
+}
+
+#[derive(Clone, Copy, Debug)]
+enum LogicForm {
+    And,
+    Or,
+    Xor,
+}
+
+/// Lower AArch64 SMIR to x86-64 code using an explicit AArch64 state pointer.
+pub struct Aarch64X86_64Lowerer {
+    code: CodeBuffer,
+    block_offsets: HashMap<BlockId, usize>,
+    pending_jumps: Vec<(usize, BlockId, RelocKind)>,
+    virtual_slots: HashMap<VirtualId, i32>,
+    frame_size: usize,
+    relocations: Vec<Relocation>,
+}
+
+impl Aarch64X86_64Lowerer {
+    pub fn new() -> Self {
+        Self {
+            code: CodeBuffer::with_capacity(4096),
+            block_offsets: HashMap::new(),
+            pending_jumps: Vec::new(),
+            virtual_slots: HashMap::new(),
+            frame_size: 0,
+            relocations: Vec::new(),
+        }
+    }
+
+    fn collect_virtuals(&mut self, func: &SmirFunction) {
+        let mut ids = HashSet::new();
+        for block in &func.blocks {
+            for phi in &block.phis {
+                if let VReg::Virtual(id) = phi.dst {
+                    ids.insert(id);
+                }
+                for (_, src) in &phi.sources {
+                    if let VReg::Virtual(id) = *src {
+                        ids.insert(id);
+                    }
+                }
+            }
+            for op in &block.ops {
+                for v in op.kind.dests().into_iter().chain(op.kind.source_vregs()) {
+                    if let VReg::Virtual(id) = v {
+                        ids.insert(id);
+                    }
+                }
+            }
+            match &block.terminator {
+                Terminator::CondBranch { cond, .. }
+                | Terminator::IndirectBranch { target: cond, .. } => {
+                    if let VReg::Virtual(id) = *cond {
+                        ids.insert(id);
+                    }
+                }
+                Terminator::Return { values } => {
+                    for v in values {
+                        if let VReg::Virtual(id) = *v {
+                            ids.insert(id);
+                        }
+                    }
+                }
+                _ => {}
+            }
+        }
+
+        let mut ids: Vec<_> = ids.into_iter().collect();
+        ids.sort_by_key(|id| id.0);
+        self.virtual_slots.clear();
+        for (idx, id) in ids.into_iter().enumerate() {
+            self.virtual_slots.insert(id, -8 * (idx as i32 + 1));
+        }
+        self.frame_size = align16(self.virtual_slots.len() * 8);
+    }
+
+    fn emit_prologue(&mut self) {
+        let mut e = X86Emitter::new(&mut self.code);
+        e.emit_push(PhysReg::Rbp);
+        e.emit_mov_rr(PhysReg::Rbp, PhysReg::Rsp, OpWidth::W64);
+        if self.frame_size != 0 {
+            e.emit_sub_ri(PhysReg::Rsp, self.frame_size as i64, OpWidth::W64);
+        }
+    }
+
+    fn emit_epilogue(&mut self) {
+        let mut e = X86Emitter::new(&mut self.code);
+        e.emit_mov_rr(PhysReg::Rsp, PhysReg::Rbp, OpWidth::W64);
+        e.emit_pop(PhysReg::Rbp);
+        e.emit_ret();
+    }
+
+    fn arm_offset(reg: ArmReg) -> Result<i32, LowerError> {
+        match reg {
+            ArmReg::X(n) if n < 31 => Ok(A64_X0_OFFSET + i32::from(n) * 8),
+            ArmReg::X(_) => Err(LowerError::InvalidRegister(
+                "x31 must be encoded as XZR".into(),
+            )),
+            ArmReg::Sp => Ok(A64_SP_OFFSET),
+            ArmReg::Pc => Ok(A64_PC_OFFSET),
+            ArmReg::Nzcv => Ok(A64_NZCV_OFFSET),
+            ArmReg::Fpcr => Ok(A64_FPCR_OFFSET),
+            ArmReg::Fpsr => Ok(A64_FPSR_OFFSET),
+            ArmReg::V(n) if n < 32 => Ok(A64_V_OFFSET + i32::from(n) * 16),
+            ArmReg::V(_) | ArmReg::SysReg(_) => {
+                Err(LowerError::InvalidRegister(format!("{reg:?}")))
+            }
+        }
+    }
+
+    fn virtual_slot(&self, id: VirtualId) -> Result<i32, LowerError> {
+        self.virtual_slots
+            .get(&id)
+            .copied()
+            .ok_or_else(|| LowerError::RegisterAllocationFailed {
+                reason: format!("missing stack slot for virtual {:?}", id),
+            })
+    }
+
+    fn emit_mov_imm(&mut self, dst: PhysReg, imm: i64, width: OpWidth) {
+        let mut e = X86Emitter::new(&mut self.code);
+        if width == OpWidth::W64 {
+            e.emit_mov_ri_imm64(dst, imm);
+        } else {
+            e.emit_mov_ri(dst, imm, width);
+        }
+    }
+
+    fn load_vreg_to(&mut self, vreg: VReg, dst: PhysReg, width: OpWidth) -> Result<(), LowerError> {
+        match vreg {
+            VReg::Imm(value) => {
+                self.emit_mov_imm(dst, value, width);
+            }
+            VReg::Virtual(id) => {
+                let off = self.virtual_slot(id)?;
+                let mut e = X86Emitter::new(&mut self.code);
+                e.emit_mov_rm(dst, PhysReg::Rbp, off, OpWidth::W64);
+            }
+            VReg::Arch(ArchReg::Arm(reg)) => {
+                let off = Self::arm_offset(reg)?;
+                let load_width = if reg == ArmReg::Nzcv {
+                    OpWidth::W32
+                } else {
+                    OpWidth::W64
+                };
+                let mut e = X86Emitter::new(&mut self.code);
+                e.emit_mov_rm(dst, STATE, off, load_width);
+            }
+            VReg::Arch(other) => {
+                return Err(LowerError::InvalidRegister(format!(
+                    "non-AArch64 register in AArch64 lowerer: {other:?}"
+                )));
+            }
+        }
+        Ok(())
+    }
+
+    fn load_src_to(
+        &mut self,
+        src: &SrcOperand,
+        dst: PhysReg,
+        width: OpWidth,
+    ) -> Result<(), LowerError> {
+        match src {
+            SrcOperand::Reg(v) => self.load_vreg_to(*v, dst, width),
+            SrcOperand::Imm(value) | SrcOperand::Imm64(value) => {
+                self.emit_mov_imm(dst, *value, width);
+                Ok(())
+            }
+            SrcOperand::Shifted { reg, shift, amount } => {
+                self.load_vreg_to(*reg, dst, width)?;
+                self.emit_shift_imm(dst, *shift, *amount, width)
+            }
+            SrcOperand::Extended { reg, extend, shift } => {
+                self.load_vreg_to(*reg, dst, OpWidth::W64)?;
+                self.emit_extend_in_place(dst, *extend, width)?;
+                if *shift != 0 {
+                    let mut e = X86Emitter::new(&mut self.code);
+                    e.emit_shl_ri(dst, *shift, width);
+                }
+                Ok(())
+            }
+        }
+    }
+
+    fn store_reg_to(&mut self, dst: VReg, src: PhysReg, width: OpWidth) -> Result<(), LowerError> {
+        match dst {
+            VReg::Imm(_) => {}
+            VReg::Virtual(id) => {
+                let off = self.virtual_slot(id)?;
+                let mut e = X86Emitter::new(&mut self.code);
+                e.emit_mov_mr(PhysReg::Rbp, off, src, OpWidth::W64);
+            }
+            VReg::Arch(ArchReg::Arm(reg)) => {
+                let off = Self::arm_offset(reg)?;
+                let store_width = if reg == ArmReg::Nzcv {
+                    OpWidth::W32
+                } else {
+                    match width {
+                        OpWidth::W32 | OpWidth::W64 => OpWidth::W64,
+                        other => other,
+                    }
+                };
+                let mut e = X86Emitter::new(&mut self.code);
+                e.emit_mov_mr(STATE, off, src, store_width);
+            }
+            VReg::Arch(other) => {
+                return Err(LowerError::InvalidRegister(format!(
+                    "non-AArch64 destination in AArch64 lowerer: {other:?}"
+                )));
+            }
+        }
+        Ok(())
+    }
+
+    fn emit_extend_in_place(
+        &mut self,
+        reg: PhysReg,
+        extend: ExtendOp,
+        width: OpWidth,
+    ) -> Result<(), LowerError> {
+        let mut e = X86Emitter::new(&mut self.code);
+        match extend {
+            ExtendOp::Uxtb => e.emit_movzx(reg, reg, OpWidth::W8, width),
+            ExtendOp::Uxth => e.emit_movzx(reg, reg, OpWidth::W16, width),
+            ExtendOp::Uxtw => e.emit_mov_rr(reg, reg, OpWidth::W32),
+            ExtendOp::Uxtx => {}
+            ExtendOp::Sxtb => e.emit_movsx(reg, reg, OpWidth::W8, width),
+            ExtendOp::Sxth => e.emit_movsx(reg, reg, OpWidth::W16, width),
+            ExtendOp::Sxtw => e.emit_movsx(reg, reg, OpWidth::W32, width),
+            ExtendOp::Sxtx => {}
+        }
+        Ok(())
+    }
+
+    fn emit_shift_imm(
+        &mut self,
+        reg: PhysReg,
+        shift: ShiftOp,
+        amount: u8,
+        width: OpWidth,
+    ) -> Result<(), LowerError> {
+        if amount == 0 {
+            return Ok(());
+        }
+        let mut e = X86Emitter::new(&mut self.code);
+        match shift {
+            ShiftOp::Lsl => e.emit_shl_ri(reg, amount, width),
+            ShiftOp::Lsr => e.emit_shr_ri(reg, amount, width),
+            ShiftOp::Asr => e.emit_sar_ri(reg, amount, width),
+            ShiftOp::Ror | ShiftOp::Rrx => e.emit_ror_ri(reg, amount, width),
+        }
+        Ok(())
+    }
+
+    fn emit_shift_src(
+        &mut self,
+        reg: PhysReg,
+        amount: &SrcOperand,
+        kind: ShiftOp,
+        width: OpWidth,
+    ) -> Result<(), LowerError> {
+        match amount {
+            SrcOperand::Imm(value) | SrcOperand::Imm64(value) => {
+                self.emit_shift_imm(reg, kind, *value as u8, width)
+            }
+            _ => {
+                self.load_src_to(amount, RHS, width)?;
+                let mut e = X86Emitter::new(&mut self.code);
+                match kind {
+                    ShiftOp::Lsl => e.emit_shl_cl(reg, width),
+                    ShiftOp::Lsr => e.emit_shr_cl(reg, width),
+                    ShiftOp::Asr => e.emit_sar_cl(reg, width),
+                    ShiftOp::Ror | ShiftOp::Rrx => e.emit_ror_cl(reg, width),
+                }
+                Ok(())
+            }
+        }
+    }
+
+    fn emit_nzcv_from_flags(&mut self, form: FlagForm) {
+        {
+            let mut e = X86Emitter::new(&mut self.code);
+            e.emit_setcc(X86Cond::S, B0);
+            e.emit_setcc(X86Cond::E, B1);
+            match form {
+                FlagForm::Add => e.emit_setcc(X86Cond::B, B2),
+                FlagForm::Sub => e.emit_setcc(X86Cond::Ae, B2),
+                FlagForm::Logic => e.emit_mov_ri(B2, 0, OpWidth::W32),
+            }
+            match form {
+                FlagForm::Add | FlagForm::Sub => e.emit_setcc(X86Cond::O, B3),
+                FlagForm::Logic => e.emit_mov_ri(B3, 0, OpWidth::W32),
+            }
+            e.emit_movzx(B0, B0, OpWidth::W8, OpWidth::W64);
+            e.emit_movzx(B1, B1, OpWidth::W8, OpWidth::W64);
+            e.emit_movzx(B2, B2, OpWidth::W8, OpWidth::W64);
+            e.emit_movzx(B3, B3, OpWidth::W8, OpWidth::W64);
+            e.emit_shl_ri(B0, 31, OpWidth::W64);
+            e.emit_shl_ri(B1, 30, OpWidth::W64);
+            e.emit_shl_ri(B2, 29, OpWidth::W64);
+            e.emit_shl_ri(B3, 28, OpWidth::W64);
+            e.emit_or_rr(B0, B1, OpWidth::W64);
+            e.emit_or_rr(B0, B2, OpWidth::W64);
+            e.emit_or_rr(B0, B3, OpWidth::W64);
+            e.emit_mov_mr(STATE, A64_NZCV_OFFSET, B0, OpWidth::W32);
+        }
+    }
+
+    fn emit_nzcv_test_to_bool(&mut self, mask: i64, set: bool, dst: PhysReg) {
+        let mut e = X86Emitter::new(&mut self.code);
+        e.emit_mov_rm(ACC, STATE, A64_NZCV_OFFSET, OpWidth::W32);
+        e.emit_test_ri(ACC, mask, OpWidth::W32);
+        e.emit_setcc(if set { X86Cond::Ne } else { X86Cond::E }, dst);
+        e.emit_movzx(dst, dst, OpWidth::W8, OpWidth::W64);
+    }
+
+    fn emit_condition_to_reg(&mut self, cond: Condition, dst: PhysReg) -> Result<(), LowerError> {
+        match cond {
+            Condition::Always => {
+                let mut e = X86Emitter::new(&mut self.code);
+                e.emit_mov_ri(dst, 1, OpWidth::W64);
+            }
+            Condition::Eq => self.emit_nzcv_test_to_bool(NZCV_Z, true, dst),
+            Condition::Ne => self.emit_nzcv_test_to_bool(NZCV_Z, false, dst),
+            Condition::Uge => self.emit_nzcv_test_to_bool(NZCV_C, true, dst),
+            Condition::Ult => self.emit_nzcv_test_to_bool(NZCV_C, false, dst),
+            Condition::Negative => self.emit_nzcv_test_to_bool(NZCV_N, true, dst),
+            Condition::Positive => self.emit_nzcv_test_to_bool(NZCV_N, false, dst),
+            Condition::Overflow => self.emit_nzcv_test_to_bool(NZCV_V, true, dst),
+            Condition::NoOverflow => self.emit_nzcv_test_to_bool(NZCV_V, false, dst),
+            Condition::Ule => {
+                self.emit_nzcv_test_to_bool(NZCV_C, false, B0);
+                self.emit_nzcv_test_to_bool(NZCV_Z, true, B1);
+                let mut e = X86Emitter::new(&mut self.code);
+                e.emit_or_rr(B0, B1, OpWidth::W8);
+                e.emit_movzx(dst, B0, OpWidth::W8, OpWidth::W64);
+            }
+            Condition::Ugt => {
+                self.emit_nzcv_test_to_bool(NZCV_C, true, B0);
+                self.emit_nzcv_test_to_bool(NZCV_Z, false, B1);
+                let mut e = X86Emitter::new(&mut self.code);
+                e.emit_and_rr(B0, B1, OpWidth::W8);
+                e.emit_movzx(dst, B0, OpWidth::W8, OpWidth::W64);
+            }
+            Condition::Slt | Condition::Sge | Condition::Sle | Condition::Sgt => {
+                self.emit_nzcv_test_to_bool(NZCV_N, true, B0);
+                self.emit_nzcv_test_to_bool(NZCV_V, true, B1);
+                {
+                    let mut e = X86Emitter::new(&mut self.code);
+                    e.emit_xor_rr(B0, B1, OpWidth::W8);
+                    if matches!(cond, Condition::Sge | Condition::Sgt) {
+                        e.emit_xor_ri(B0, 1, OpWidth::W8);
+                    }
+                }
+                if matches!(cond, Condition::Sle) {
+                    self.emit_nzcv_test_to_bool(NZCV_Z, true, B1);
+                    let mut e = X86Emitter::new(&mut self.code);
+                    e.emit_or_rr(B0, B1, OpWidth::W8);
+                } else if matches!(cond, Condition::Sgt) {
+                    self.emit_nzcv_test_to_bool(NZCV_Z, false, B1);
+                    let mut e = X86Emitter::new(&mut self.code);
+                    e.emit_and_rr(B0, B1, OpWidth::W8);
+                }
+                let mut e = X86Emitter::new(&mut self.code);
+                e.emit_movzx(dst, B0, OpWidth::W8, OpWidth::W64);
+            }
+            Condition::Parity | Condition::NoParity => {
+                return Err(LowerError::UnsupportedOp {
+                    op: format!("AArch64 condition {:?}", cond),
+                });
+            }
+        }
+        Ok(())
+    }
+
+    fn lower_binop(
+        &mut self,
+        dst: VReg,
+        src1: VReg,
+        src2: &SrcOperand,
+        width: OpWidth,
+        flags: FlagUpdate,
+        form: FlagForm,
+    ) -> Result<(), LowerError> {
+        self.load_vreg_to(src1, ACC, width)?;
+        self.load_src_to(src2, RHS, width)?;
+        {
+            let mut e = X86Emitter::new(&mut self.code);
+            match form {
+                FlagForm::Add => e.emit_add_rr(ACC, RHS, width),
+                FlagForm::Sub => e.emit_sub_rr(ACC, RHS, width),
+                FlagForm::Logic => unreachable!(),
+            }
+        }
+        self.store_reg_to(dst, ACC, width)?;
+        if flags.updates_any() {
+            self.emit_nzcv_from_flags(form);
+        }
+        Ok(())
+    }
+
+    fn lower_logic(
+        &mut self,
+        dst: VReg,
+        src1: VReg,
+        src2: &SrcOperand,
+        width: OpWidth,
+        flags: FlagUpdate,
+        op: LogicForm,
+    ) -> Result<(), LowerError> {
+        self.load_vreg_to(src1, ACC, width)?;
+        self.load_src_to(src2, RHS, width)?;
+        {
+            let mut e = X86Emitter::new(&mut self.code);
+            match op {
+                LogicForm::And => e.emit_and_rr(ACC, RHS, width),
+                LogicForm::Or => e.emit_or_rr(ACC, RHS, width),
+                LogicForm::Xor => e.emit_xor_rr(ACC, RHS, width),
+            }
+        }
+        self.store_reg_to(dst, ACC, width)?;
+        if flags.updates_any() {
+            self.emit_nzcv_from_flags(FlagForm::Logic);
+        }
+        Ok(())
+    }
+
+    fn lower_op(&mut self, op: &SmirOp) -> Result<(), LowerError> {
+        match &op.kind {
+            OpKind::Nop => {
+                let mut e = X86Emitter::new(&mut self.code);
+                e.emit_nop();
+            }
+            OpKind::Mov { dst, src, width } => {
+                self.load_src_to(src, ACC, *width)?;
+                self.store_reg_to(*dst, ACC, *width)?;
+            }
+            OpKind::Add {
+                dst,
+                src1,
+                src2,
+                width,
+                flags,
+            } => self.lower_binop(*dst, *src1, src2, *width, *flags, FlagForm::Add)?,
+            OpKind::Sub {
+                dst,
+                src1,
+                src2,
+                width,
+                flags,
+            } => self.lower_binop(*dst, *src1, src2, *width, *flags, FlagForm::Sub)?,
+            OpKind::Neg {
+                dst,
+                src,
+                width,
+                flags,
+            } => {
+                self.load_vreg_to(*src, ACC, *width)?;
+                {
+                    let mut e = X86Emitter::new(&mut self.code);
+                    e.emit_neg(ACC, *width);
+                }
+                self.store_reg_to(*dst, ACC, *width)?;
+                if flags.updates_any() {
+                    self.emit_nzcv_from_flags(FlagForm::Sub);
+                }
+            }
+            OpKind::And {
+                dst,
+                src1,
+                src2,
+                width,
+                flags,
+            } => self.lower_logic(*dst, *src1, src2, *width, *flags, LogicForm::And)?,
+            OpKind::Or {
+                dst,
+                src1,
+                src2,
+                width,
+                flags,
+            } => self.lower_logic(*dst, *src1, src2, *width, *flags, LogicForm::Or)?,
+            OpKind::Xor {
+                dst,
+                src1,
+                src2,
+                width,
+                flags,
+            } => self.lower_logic(*dst, *src1, src2, *width, *flags, LogicForm::Xor)?,
+            OpKind::AndNot {
+                dst,
+                src1,
+                src2,
+                width,
+                flags,
+            } => {
+                self.load_vreg_to(*src1, ACC, *width)?;
+                self.load_src_to(src2, RHS, *width)?;
+                {
+                    let mut e = X86Emitter::new(&mut self.code);
+                    e.emit_not(RHS, *width);
+                    e.emit_and_rr(ACC, RHS, *width);
+                }
+                self.store_reg_to(*dst, ACC, *width)?;
+                if flags.updates_any() {
+                    self.emit_nzcv_from_flags(FlagForm::Logic);
+                }
+            }
+            OpKind::Not { dst, src, width } => {
+                self.load_vreg_to(*src, ACC, *width)?;
+                {
+                    let mut e = X86Emitter::new(&mut self.code);
+                    e.emit_not(ACC, *width);
+                }
+                self.store_reg_to(*dst, ACC, *width)?;
+            }
+            OpKind::Cmp { src1, src2, width } => {
+                self.load_vreg_to(*src1, ACC, *width)?;
+                self.load_src_to(src2, RHS, *width)?;
+                {
+                    let mut e = X86Emitter::new(&mut self.code);
+                    e.emit_cmp_rr(ACC, RHS, *width);
+                }
+                self.emit_nzcv_from_flags(FlagForm::Sub);
+            }
+            OpKind::Test { src1, src2, width } => {
+                self.load_vreg_to(*src1, ACC, *width)?;
+                self.load_src_to(src2, RHS, *width)?;
+                {
+                    let mut e = X86Emitter::new(&mut self.code);
+                    e.emit_test_rr(ACC, RHS, *width);
+                }
+                self.emit_nzcv_from_flags(FlagForm::Logic);
+            }
+            OpKind::Shl {
+                dst,
+                src,
+                amount,
+                width,
+                flags,
+            } => {
+                self.load_vreg_to(*src, ACC, *width)?;
+                self.emit_shift_src(ACC, amount, ShiftOp::Lsl, *width)?;
+                self.store_reg_to(*dst, ACC, *width)?;
+                if flags.updates_any() {
+                    self.emit_nzcv_from_flags(FlagForm::Logic);
+                }
+            }
+            OpKind::Shr {
+                dst,
+                src,
+                amount,
+                width,
+                flags,
+            } => {
+                self.load_vreg_to(*src, ACC, *width)?;
+                self.emit_shift_src(ACC, amount, ShiftOp::Lsr, *width)?;
+                self.store_reg_to(*dst, ACC, *width)?;
+                if flags.updates_any() {
+                    self.emit_nzcv_from_flags(FlagForm::Logic);
+                }
+            }
+            OpKind::Sar {
+                dst,
+                src,
+                amount,
+                width,
+                flags,
+            } => {
+                self.load_vreg_to(*src, ACC, *width)?;
+                self.emit_shift_src(ACC, amount, ShiftOp::Asr, *width)?;
+                self.store_reg_to(*dst, ACC, *width)?;
+                if flags.updates_any() {
+                    self.emit_nzcv_from_flags(FlagForm::Logic);
+                }
+            }
+            OpKind::Ror {
+                dst,
+                src,
+                amount,
+                width,
+                flags,
+            } => {
+                self.load_vreg_to(*src, ACC, *width)?;
+                self.emit_shift_src(ACC, amount, ShiftOp::Ror, *width)?;
+                self.store_reg_to(*dst, ACC, *width)?;
+                if flags.updates_any() {
+                    self.emit_nzcv_from_flags(FlagForm::Logic);
+                }
+            }
+            OpKind::ZeroExtend {
+                dst,
+                src,
+                from_width,
+                to_width,
+            } => {
+                self.load_vreg_to(*src, ACC, *to_width)?;
+                let mut e = X86Emitter::new(&mut self.code);
+                match from_width {
+                    OpWidth::W8 | OpWidth::W16 => e.emit_movzx(ACC, ACC, *from_width, *to_width),
+                    OpWidth::W32 => e.emit_mov_rr(ACC, ACC, OpWidth::W32),
+                    OpWidth::W64 | OpWidth::W128 => {}
+                }
+                self.store_reg_to(*dst, ACC, *to_width)?;
+            }
+            OpKind::SignExtend {
+                dst,
+                src,
+                from_width,
+                to_width,
+            } => {
+                self.load_vreg_to(*src, ACC, *to_width)?;
+                let mut e = X86Emitter::new(&mut self.code);
+                match from_width {
+                    OpWidth::W8 | OpWidth::W16 | OpWidth::W32 => {
+                        e.emit_movsx(ACC, ACC, *from_width, *to_width)
+                    }
+                    OpWidth::W64 | OpWidth::W128 => {}
+                }
+                self.store_reg_to(*dst, ACC, *to_width)?;
+            }
+            OpKind::Truncate {
+                dst, src, to_width, ..
+            } => {
+                self.load_vreg_to(*src, ACC, *to_width)?;
+                self.store_reg_to(*dst, ACC, *to_width)?;
+            }
+            OpKind::TestCondition { dst, cond } | OpKind::SetCC { dst, cond, .. } => {
+                self.emit_condition_to_reg(*cond, ACC)?;
+                self.store_reg_to(*dst, ACC, OpWidth::W64)?;
+            }
+            _ => {
+                return Err(LowerError::UnsupportedOp {
+                    op: format!("AArch64 state-backed lowering for {:?}", op.kind),
+                });
+            }
+        }
+        Ok(())
+    }
+
+    fn lower_terminator(&mut self, block: &SmirBlock) -> Result<(), LowerError> {
+        match &block.terminator {
+            Terminator::Branch { target } => {
+                let off = self.code.position();
+                let mut e = X86Emitter::new(&mut self.code);
+                e.emit_jmp_rel32(0);
+                self.pending_jumps
+                    .push((off + 1, *target, RelocKind::PcRel32));
+            }
+            Terminator::CondBranch {
+                cond,
+                true_target,
+                false_target,
+            } => {
+                self.load_vreg_to(*cond, ACC, OpWidth::W64)?;
+                let jcc_off = self.code.position();
+                {
+                    let mut e = X86Emitter::new(&mut self.code);
+                    e.emit_test_rr(ACC, ACC, OpWidth::W64);
+                    e.emit_jcc_rel32(X86Cond::Ne, 0);
+                }
+                self.pending_jumps
+                    .push((jcc_off + 5, *true_target, RelocKind::PcRel32));
+
+                let jmp_off = self.code.position();
+                {
+                    let mut e = X86Emitter::new(&mut self.code);
+                    e.emit_jmp_rel32(0);
+                }
+                self.pending_jumps
+                    .push((jmp_off + 1, *false_target, RelocKind::PcRel32));
+            }
+            Terminator::Return { .. } => {
+                if let Some(pc) = fallthrough_pc(block) {
+                    let mut e = X86Emitter::new(&mut self.code);
+                    e.emit_mov_ri_imm64(ACC, pc as i64);
+                    e.emit_mov_mr(STATE, A64_PC_OFFSET, ACC, OpWidth::W64);
+                }
+                self.emit_epilogue();
+            }
+            Terminator::Trap { .. } | Terminator::Unreachable => {
+                let mut e = X86Emitter::new(&mut self.code);
+                e.emit_ud2();
+            }
+            other => {
+                return Err(LowerError::UnsupportedOp {
+                    op: format!("AArch64 state-backed terminator {other:?}"),
+                });
+            }
+        }
+        Ok(())
+    }
+
+    fn lower_block(&mut self, block: &SmirBlock) -> Result<(), LowerError> {
+        self.block_offsets.insert(block.id, self.code.position());
+        for op in &block.ops {
+            self.lower_op(op)?;
+        }
+        self.lower_terminator(block)
+    }
+
+    fn fixup_jumps(&mut self) -> Result<(), LowerError> {
+        for (offset, target, kind) in self.pending_jumps.drain(..).collect::<Vec<_>>() {
+            let Some(&target_offset) = self.block_offsets.get(&target) else {
+                return Err(LowerError::UndefinedLabel {
+                    label: format!("block_{}", target.0),
+                });
+            };
+            match kind {
+                RelocKind::PcRel32 => {
+                    let rel = target_offset as i64 - offset as i64 - 4;
+                    if rel < i32::MIN as i64 || rel > i32::MAX as i64 {
+                        return Err(LowerError::RelocationOutOfRange {
+                            offset,
+                            target: target_offset,
+                        });
+                    }
+                    self.code.patch_i32(offset, rel as i32);
+                }
+                RelocKind::PcRel8 => {
+                    let rel = target_offset as i64 - offset as i64 - 1;
+                    if rel < -128 || rel > 127 {
+                        return Err(LowerError::RelocationOutOfRange {
+                            offset,
+                            target: target_offset,
+                        });
+                    }
+                    self.code.data[offset] = rel as i8 as u8;
+                }
+                _ => {}
+            }
+        }
+        Ok(())
+    }
+}
+
+impl Default for Aarch64X86_64Lowerer {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl SmirLowerer for Aarch64X86_64Lowerer {
+    fn target_arch(&self) -> &'static str {
+        "x86_64"
+    }
+
+    fn lower_function(&mut self, func: &SmirFunction) -> Result<LowerResult, LowerError> {
+        self.code.clear();
+        self.block_offsets.clear();
+        self.pending_jumps.clear();
+        self.relocations.clear();
+        self.collect_virtuals(func);
+
+        let entry_offset = self.code.position();
+        self.emit_prologue();
+
+        if let Some(entry) = func.get_block(func.entry) {
+            self.lower_block(entry)?;
+        }
+        for block in &func.blocks {
+            if block.id != func.entry {
+                self.lower_block(block)?;
+            }
+        }
+        self.fixup_jumps()?;
+
+        Ok(LowerResult {
+            code_size: self.code.len(),
+            entry_offset,
+            block_offsets: self.block_offsets.clone(),
+            relocations: self.relocations.clone(),
+            stack_size: self.frame_size,
+        })
+    }
+
+    fn code_buffer(&self) -> &CodeBuffer {
+        &self.code
+    }
+
+    fn finalize(&mut self) -> Result<Vec<u8>, LowerError> {
+        Ok(self.code.data().to_vec())
+    }
+}
+
+fn align16(n: usize) -> usize {
+    (n + 15) & !15
+}
+
+fn fallthrough_pc(block: &SmirBlock) -> Option<u64> {
+    block
+        .ops
+        .last()
+        .map(|op| op.guest_pc + 4)
+        .or(Some(block.guest_pc))
+}
+
+#[cfg(all(test, feature = "smir-jit", target_arch = "x86_64"))]
+mod tests {
+    use super::*;
+    use crate::smir::flags::FlagUpdate;
+    use crate::smir::ir::{FunctionBuilder, Terminator};
+    use crate::smir::lower::runtime::{Aarch64GuestRegs, ExecMem};
+    use crate::smir::types::FunctionId;
+
+    fn x(n: u8) -> VReg {
+        VReg::Arch(ArchReg::Arm(ArmReg::X(n)))
+    }
+
+    fn run_func(func: &SmirFunction, regs: &mut Aarch64GuestRegs) {
+        let mut lowerer = Aarch64X86_64Lowerer::new();
+        let result = lowerer.lower_function(func).expect("lower AArch64 SMIR");
+        let code = lowerer.finalize().expect("finalize");
+        let mem = ExecMem::new(&code).expect("executable memory");
+        mem.run_aarch64(result.entry_offset, regs);
+    }
+
+    #[test]
+    fn add_sets_aarch64_nzcv_and_writes_x() {
+        let mut b = FunctionBuilder::new(FunctionId(0), 0x1000);
+        b.push_op(
+            0x1000,
+            OpKind::Add {
+                dst: x(0),
+                src1: x(1),
+                src2: SrcOperand::Reg(x(2)),
+                width: OpWidth::W64,
+                flags: FlagUpdate::All,
+            },
+        );
+        b.set_terminator(Terminator::Return { values: vec![] });
+
+        let mut regs = Aarch64GuestRegs::default();
+        regs.x[1] = u64::MAX;
+        regs.x[2] = 1;
+        run_func(&b.finish(), &mut regs);
+
+        assert_eq!(regs.x[0], 0);
+        assert_eq!(regs.nzcv & 0xF000_0000, 0x6000_0000, "Z and C set");
+        assert_eq!(regs.pc, 0x1004);
+    }
+
+    #[test]
+    fn w32_write_zero_extends_x_register_storage() {
+        let mut b = FunctionBuilder::new(FunctionId(0), 0x2000);
+        b.push_op(
+            0x2000,
+            OpKind::Mov {
+                dst: x(0),
+                src: SrcOperand::Imm(-1),
+                width: OpWidth::W32,
+            },
+        );
+        b.set_terminator(Terminator::Return { values: vec![] });
+
+        let mut regs = Aarch64GuestRegs::default();
+        regs.x[0] = 0xaaaa_bbbb_cccc_dddd;
+        run_func(&b.finish(), &mut regs);
+
+        assert_eq!(regs.x[0], 0xffff_ffff);
+        assert_eq!(regs.pc, 0x2004);
+    }
+
+    #[test]
+    fn sub_sets_no_borrow_carry_and_signed_overflow() {
+        let mut b = FunctionBuilder::new(FunctionId(0), 0x3000);
+        b.push_op(
+            0x3000,
+            OpKind::Sub {
+                dst: x(0),
+                src1: x(1),
+                src2: SrcOperand::Reg(x(2)),
+                width: OpWidth::W64,
+                flags: FlagUpdate::All,
+            },
+        );
+        b.set_terminator(Terminator::Return { values: vec![] });
+
+        let mut regs = Aarch64GuestRegs::default();
+        regs.x[1] = 0x8000_0000_0000_0000;
+        regs.x[2] = 1;
+        run_func(&b.finish(), &mut regs);
+
+        assert_eq!(regs.x[0], 0x7fff_ffff_ffff_ffff);
+        assert_eq!(regs.nzcv & 0xF000_0000, 0x3000_0000, "C and V set");
+    }
+
+    #[test]
+    fn test_condition_reads_stored_nzcv() {
+        let mut b = FunctionBuilder::new(FunctionId(0), 0x4000);
+        b.push_op(
+            0x4000,
+            OpKind::TestCondition {
+                dst: x(0),
+                cond: Condition::Uge,
+            },
+        );
+        b.set_terminator(Terminator::Return { values: vec![] });
+        let func = b.finish();
+
+        let mut regs = Aarch64GuestRegs::default();
+        regs.nzcv = 0x2000_0000;
+        run_func(&func, &mut regs);
+        assert_eq!(regs.x[0], 1);
+
+        regs.x[0] = 99;
+        regs.nzcv = 0;
+        run_func(&func, &mut regs);
+        assert_eq!(regs.x[0], 0);
+    }
+
+    #[test]
+    fn cond_branch_through_virtual_temp_selects_target() {
+        let mut b = FunctionBuilder::new(FunctionId(0), 0x5000);
+        let taken = b.create_block(0x5010);
+        let not_taken = b.create_block(0x5020);
+        let cond = b.alloc_vreg();
+
+        b.push_op(
+            0x5000,
+            OpKind::TestCondition {
+                dst: cond,
+                cond: Condition::Eq,
+            },
+        );
+        b.set_terminator(Terminator::CondBranch {
+            cond,
+            true_target: taken,
+            false_target: not_taken,
+        });
+
+        b.switch_to_block(taken);
+        b.push_op(
+            0x5010,
+            OpKind::Mov {
+                dst: x(0),
+                src: SrcOperand::Imm(1),
+                width: OpWidth::W64,
+            },
+        );
+        b.set_terminator(Terminator::Return { values: vec![] });
+
+        b.switch_to_block(not_taken);
+        b.push_op(
+            0x5020,
+            OpKind::Mov {
+                dst: x(0),
+                src: SrcOperand::Imm(2),
+                width: OpWidth::W64,
+            },
+        );
+        b.set_terminator(Terminator::Return { values: vec![] });
+
+        let func = b.finish();
+        let mut regs = Aarch64GuestRegs::default();
+        regs.nzcv = 0x4000_0000;
+        run_func(&func, &mut regs);
+        assert_eq!(regs.x[0], 1);
+        assert_eq!(regs.pc, 0x5014);
+
+        regs.x[0] = 0;
+        regs.nzcv = 0;
+        run_func(&func, &mut regs);
+        assert_eq!(regs.x[0], 2);
+        assert_eq!(regs.pc, 0x5024);
+    }
+}

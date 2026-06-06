@@ -27,6 +27,20 @@ use std::path::PathBuf;
 use std::process::{Command, Stdio};
 
 use rax::arm::{AArch64Config, AArch64Cpu, ArmCpu, CpuExit, FlatMemory};
+#[cfg(all(feature = "smir-jit", target_arch = "x86_64"))]
+use rax::smir::ir::{FunctionBuilder, Terminator};
+#[cfg(all(feature = "smir-jit", target_arch = "x86_64"))]
+use rax::smir::lift::aarch64::Aarch64Lifter;
+#[cfg(all(feature = "smir-jit", target_arch = "x86_64"))]
+use rax::smir::lift::{ControlFlow, LiftContext, SmirLifter};
+#[cfg(all(feature = "smir-jit", target_arch = "x86_64"))]
+use rax::smir::lower::aarch64_x86::Aarch64X86_64Lowerer;
+#[cfg(all(feature = "smir-jit", target_arch = "x86_64"))]
+use rax::smir::lower::runtime::{Aarch64GuestRegs, ExecMem};
+#[cfg(all(feature = "smir-jit", target_arch = "x86_64"))]
+use rax::smir::lower::SmirLowerer;
+#[cfg(all(feature = "smir-jit", target_arch = "x86_64"))]
+use rax::smir::types::{FunctionId, SourceArch};
 
 // ---------------------------------------------------------------------------
 // Wire format -- must match tools/arm-diff/oracle.c byte for byte.
@@ -682,6 +696,185 @@ fn run_batch(name: &str, batch: Vec<(String, u32, ArmState)>) {
         }
         panic!(
             "{name}: {} divergences vs hardware oracle",
+            mismatches.len()
+        );
+    }
+}
+
+#[cfg(all(feature = "smir-jit", target_arch = "x86_64"))]
+fn arm_to_smir_regs(st: &ArmState) -> Aarch64GuestRegs {
+    let mut regs = Aarch64GuestRegs::default();
+    regs.x = st.x;
+    regs.sp = st.sp;
+    regs.pc = st.pc;
+    regs.nzcv = st.pstate & 0xF000_0000;
+    regs.fpcr = st.fpcr;
+    regs.fpsr = st.fpsr;
+    regs.v = st.v;
+    regs
+}
+
+#[cfg(all(feature = "smir-jit", target_arch = "x86_64"))]
+fn run_smir_aarch64_x86_one(insn: u32, input: &ArmState) -> Result<Aarch64GuestRegs, String> {
+    let mut lifter = Aarch64Lifter::new();
+    let mut ctx = LiftContext::new(SourceArch::Aarch64);
+    let bytes = insn.to_le_bytes();
+    let lifted = lifter
+        .lift_insn(0, &bytes, &mut ctx)
+        .map_err(|e| format!("lift failed: {e:?}"))?;
+
+    let mut builder = FunctionBuilder::new(FunctionId(0), 0);
+    for op in lifted.ops {
+        builder.push_op(op.guest_pc, op.kind);
+    }
+    match lifted.control_flow {
+        ControlFlow::Fallthrough | ControlFlow::NextInsn => {
+            builder.set_terminator(Terminator::Return { values: vec![] });
+        }
+        other => return Err(format!("unexpected control flow: {other:?}")),
+    }
+    let func = builder.finish();
+
+    let mut lowerer = Aarch64X86_64Lowerer::new();
+    let result = lowerer
+        .lower_function(&func)
+        .map_err(|e| format!("lower failed: {e:?}"))?;
+    let code = lowerer
+        .finalize()
+        .map_err(|e| format!("finalize failed: {e:?}"))?;
+    let mem = ExecMem::new(&code).map_err(|e| format!("exec memory failed: {e:?}"))?;
+
+    let mut regs = arm_to_smir_regs(input);
+    mem.run_aarch64(result.entry_offset, &mut regs);
+    Ok(regs)
+}
+
+#[cfg(all(feature = "smir-jit", target_arch = "x86_64"))]
+fn enc_mov_wide(sf: u32, opc: u32, hw: u32, imm16: u32) -> u32 {
+    (sf << 31) | (opc << 29) | (0b100101 << 23) | (hw << 21) | (imm16 << 5) | RD
+}
+
+#[cfg(all(feature = "smir-jit", target_arch = "x86_64"))]
+fn compare_smir_scalar_case(
+    label: &str,
+    insn: u32,
+    got: &Aarch64GuestRegs,
+    hw: &ArmState,
+    mismatches: &mut Vec<Mismatch>,
+) {
+    let mut diffs = Vec::new();
+    for r in 0..31 {
+        if got.x[r] != hw.x[r] {
+            diffs.push(format!(
+                "x{r}: smir={:#018x} hw={:#018x}",
+                got.x[r], hw.x[r]
+            ));
+        }
+    }
+    if got.sp != hw.sp {
+        diffs.push(format!(
+            "sp: smir={:#018x} hw={:#018x}",
+            got.sp, hw.sp
+        ));
+    }
+    if got.pc != hw.pc {
+        diffs.push(format!(
+            "pc: smir={:#018x} hw={:#018x}",
+            got.pc, hw.pc
+        ));
+    }
+    let got_nzcv = (got.nzcv >> 28) & 0xF;
+    let hw_nzcv = (hw.pstate >> 28) & 0xF;
+    if got_nzcv != hw_nzcv {
+        diffs.push(format!("nzcv: smir={:#x} hw={:#x}", got_nzcv, hw_nzcv));
+    }
+
+    if !diffs.is_empty() {
+        mismatches.push(Mismatch {
+            label: label.into(),
+            insn,
+            detail: diffs.join("  |  "),
+        });
+    }
+}
+
+#[cfg(all(feature = "smir-jit", target_arch = "x86_64"))]
+#[test]
+fn smir_aarch64_x86_scalar_lowering_matches_qemu_oracle() {
+    let oracle = match oracle_path() {
+        Some(p) => p,
+        None => {
+            eprintln!("[arm_diff] smir_aarch64_x86_scalar: qemu/cross-toolchain unavailable -> skipping");
+            return;
+        }
+    };
+
+    let encodings: Vec<(&str, u32)> = vec![
+        ("adds_x", enc_addsub_shift(1, 0, 1, 0, 0)),
+        ("subs_x", enc_addsub_shift(1, 1, 1, 0, 0)),
+        ("add_w_zero_ext", enc_addsub_shift(0, 0, 0, 0, 0)),
+        ("sub_w_zero_ext", enc_addsub_shift(0, 1, 0, 0, 0)),
+        ("and_x", enc_logical_shift(1, 0, 0, 0, 0)),
+        ("ands_x", enc_logical_shift(1, 3, 0, 0, 0)),
+        ("orr_x", enc_logical_shift(1, 1, 0, 0, 0)),
+        ("eor_x", enc_logical_shift(1, 2, 0, 0, 0)),
+        ("orr_w_zero_ext", enc_logical_shift(0, 1, 0, 0, 0)),
+        ("movz_x_lsl16", enc_mov_wide(1, 0b10, 1, 0x1234)),
+        ("movn_w", enc_mov_wide(0, 0b00, 0, 0)),
+        ("movk_x_lsl16", enc_mov_wide(1, 0b11, 1, 0xabcd)),
+    ];
+
+    let mut rng = Rng::new(0x5a11_64c0_de);
+    let mut batch = Vec::new();
+    for (label, insn) in encodings {
+        for _ in 0..8 {
+            batch.push((label.to_string(), insn, gen_input(&mut rng)));
+        }
+    }
+    let cases: Vec<(u32, u32, ArmState)> =
+        batch.iter().map(|(_, insn, st)| (*insn, NOP, *st)).collect();
+    let outs = match run_oracle(&oracle, &cases) {
+        Some(o) => o,
+        None => {
+            eprintln!("[arm_diff] smir_aarch64_x86_scalar: oracle run failed -> skipping");
+            return;
+        }
+    };
+    assert_eq!(outs.len(), cases.len());
+
+    let mut mismatches = Vec::new();
+    for (i, (label, insn, st)) in batch.iter().enumerate() {
+        let out = &outs[i];
+        if out.trapped != 0 {
+            mismatches.push(Mismatch {
+                label: label.clone(),
+                insn: *insn,
+                detail: format!("hardware faulted with signal {}", out.trapped),
+            });
+            continue;
+        }
+
+        match run_smir_aarch64_x86_one(*insn, st) {
+            Ok(got) => compare_smir_scalar_case(label, *insn, &got, &out.st, &mut mismatches),
+            Err(detail) => mismatches.push(Mismatch {
+                label: label.clone(),
+                insn: *insn,
+                detail,
+            }),
+        }
+    }
+
+    if !mismatches.is_empty() {
+        eprintln!(
+            "\n==== smir_aarch64_x86_scalar: {} mismatches across {} cases ====",
+            mismatches.len(),
+            batch.len()
+        );
+        for m in mismatches.iter().take(25) {
+            eprintln!("  [{}] {:#010x}: {}", m.label, m.insn, m.detail);
+        }
+        panic!(
+            "smir_aarch64_x86_scalar: {} divergences vs hardware oracle",
             mismatches.len()
         );
     }
