@@ -968,6 +968,58 @@ fn run_smir_aarch64_x86_mem_one(
 }
 
 #[cfg(all(feature = "smir-jit", target_arch = "x86_64"))]
+fn run_smir_aarch64_x86_mem_pair(
+    insn: u32,
+    insn2: u32,
+    input: &ArmState,
+) -> Result<(Aarch64GuestRegs, [u64; 32]), String> {
+    let mut lifter = Aarch64Lifter::new();
+    let mut ctx = LiftContext::new(SourceArch::Aarch64);
+    let lifted = lifter
+        .lift_insn(0, &insn.to_le_bytes(), &mut ctx)
+        .map_err(|e| format!("first lift failed: {e:?}"))?;
+    let lifted2 = lifter
+        .lift_insn(4, &insn2.to_le_bytes(), &mut ctx)
+        .map_err(|e| format!("second lift failed: {e:?}"))?;
+
+    let mut builder = FunctionBuilder::new(FunctionId(0), 0);
+    for op in lifted.ops {
+        builder.push_op(op.guest_pc, op.kind);
+    }
+    match lifted.control_flow {
+        ControlFlow::Fallthrough | ControlFlow::NextInsn => {}
+        other => return Err(format!("unexpected first control flow: {other:?}")),
+    }
+    for op in lifted2.ops {
+        builder.push_op(op.guest_pc, op.kind);
+    }
+    match lifted2.control_flow {
+        ControlFlow::Fallthrough | ControlFlow::NextInsn => {
+            builder.set_terminator(Terminator::Return { values: vec![] });
+        }
+        other => return Err(format!("unexpected second control flow: {other:?}")),
+    }
+    let func = builder.finish();
+
+    let mut lowerer = Aarch64X86_64Lowerer::new();
+    let result = lowerer
+        .lower_function(&func)
+        .map_err(|e| format!("lower failed: {e:?}"))?;
+    let code = lowerer
+        .finalize()
+        .map_err(|e| format!("finalize failed: {e:?}"))?;
+    let mem = ExecMem::new(&code).map_err(|e| format!("exec mem failed: {e}"))?;
+
+    let mut scratch = SmirA64Mem::from_state(input);
+    let mut regs = arm_to_smir_regs(input);
+    regs.ctx = &mut scratch as *mut SmirA64Mem as usize as u64;
+    regs.load_fn = smir_a64_mem_load as *const () as usize as u64;
+    regs.store_fn = smir_a64_mem_store as *const () as usize as u64;
+    mem.run_aarch64(result.entry_offset, &mut regs);
+    Ok((regs, scratch.scratch_words()))
+}
+
+#[cfg(all(feature = "smir-jit", target_arch = "x86_64"))]
 fn run_smir_aarch64_x86_pair(
     insn: u32,
     insn2: u32,
@@ -2530,6 +2582,16 @@ fn smir_aarch64_x86_memory_lowering_matches_qemu_oracle() {
         }
     }
 
+    for size in 0..4 {
+        for &(release, name) in &[(0, "stxr_unarmed"), (1, "stlxr_unarmed")] {
+            for _ in 0..6 {
+                let mut st = mem_input(&mut rng);
+                st.x[3] = rng.interesting();
+                batch.push((format!("{name} sz{size}"), enc_stxr(size, release), st));
+            }
+        }
+    }
+
     let atomic_swap_ops: &[(u32, u32, &str)] = &[
         (0, 0, "swp"),
         (1, 0, "swpa"),
@@ -2709,6 +2771,22 @@ fn smir_aarch64_x86_memory_lowering_matches_qemu_oracle() {
         st,
     ));
 
+    let mut pair_batch: Vec<(String, u32, u32, ArmState)> = Vec::new();
+    for size in 0..4 {
+        for &(ordered, name) in &[(0, "ldxr_stxr"), (1, "ldaxr_stlxr")] {
+            for _ in 0..6 {
+                let mut st = mem_input(&mut rng);
+                st.x[3] = rng.interesting();
+                pair_batch.push((
+                    format!("{name} sz{size}"),
+                    enc_ldxr_smir(size, ordered),
+                    enc_stxr(size, ordered),
+                    st,
+                ));
+            }
+        }
+    }
+
     let labels: Vec<String> = batch.iter().map(|(label, _, _)| label.clone()).collect();
     let cases: Vec<(u32, u32, ArmState)> =
         batch.iter().map(|(_, insn, st)| (*insn, NOP, *st)).collect();
@@ -2750,11 +2828,56 @@ fn smir_aarch64_x86_memory_lowering_matches_qemu_oracle() {
         }
     }
 
+    let pair_labels: Vec<String> = pair_batch
+        .iter()
+        .map(|(label, _, _, _)| label.clone())
+        .collect();
+    let pair_cases: Vec<(u32, u32, ArmState)> = pair_batch
+        .iter()
+        .map(|(_, insn, insn2, st)| (*insn, *insn2, *st))
+        .collect();
+    let pair_outs = match run_oracle(&oracle, &pair_cases) {
+        Some(o) => o,
+        None => {
+            eprintln!("[arm_diff] smir_aarch64_x86_memory: pair oracle run failed -> skipping");
+            return;
+        }
+    };
+    assert_eq!(pair_outs.len(), pair_cases.len());
+    for (idx, ((insn, insn2, st), out)) in pair_cases.iter().zip(pair_outs.iter()).enumerate() {
+        if out.trapped != 0 {
+            mismatches.push(Mismatch {
+                label: pair_labels[idx].clone(),
+                insn: *insn,
+                detail: format!("hardware faulted with signal {}", out.trapped),
+            });
+            continue;
+        }
+        match run_smir_aarch64_x86_mem_pair(*insn, *insn2, st) {
+            Ok((got, got_scratch)) => {
+                compare_smir_memory_case(
+                    &pair_labels[idx],
+                    *insn,
+                    &got,
+                    &got_scratch,
+                    &out.st,
+                    &mut mismatches,
+                );
+            }
+            Err(e) => mismatches.push(Mismatch {
+                label: pair_labels[idx].clone(),
+                insn: *insn,
+                detail: format!("{e}; second insn {insn2:#010x}"),
+            }),
+        }
+    }
+
     if !mismatches.is_empty() {
+        let total_cases = cases.len() + pair_cases.len();
         eprintln!(
             "\n==== smir_aarch64_x86_memory: {} mismatches across {} cases ====",
             mismatches.len(),
-            cases.len()
+            total_cases
         );
         for m in mismatches.iter().take(25) {
             eprintln!("  [{}] {:#010x}: {}", m.label, m.insn, m.detail);
@@ -3145,9 +3268,9 @@ fn enc_ldxr(size: u32, o0: u32) -> u32 {
 fn enc_ldxr_smir(size: u32, acquire: u32) -> u32 {
     (size << 30)
         | (0b001000 << 24)
-        | ((acquire & 1) << 23)
         | (1 << 22)
         | (0b11111 << 16)
+        | ((acquire & 1) << 15)
         | (0b11111 << 10)
         | (RN << 5)
         | RD
