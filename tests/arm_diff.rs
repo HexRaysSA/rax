@@ -1284,6 +1284,8 @@ fn smir_aarch64_x86_scalar_lowering_matches_qemu_oracle() {
         ("dmb_sy", enc_barrier(0b101)),
         ("isb", enc_barrier(0b110)),
         ("yield", enc_hint(0b0000, 0b001)),
+        ("wfe", enc_hint(0b0000, 0b010)),
+        ("wfi", enc_hint(0b0000, 0b011)),
         ("sev", enc_hint(0b0000, 0b100)),
         ("sevl", enc_hint(0b0000, 0b101)),
         ("csdb", enc_hint(0b0010, 0b100)),

@@ -1664,6 +1664,8 @@ impl Aarch64Lifter {
             // =================================================================
             Mnemonic::NOP
             | Mnemonic::YIELD
+            | Mnemonic::WFE
+            | Mnemonic::WFI
             | Mnemonic::SEV
             | Mnemonic::SEVL => {
                 push_op!(OpKind::Nop);
