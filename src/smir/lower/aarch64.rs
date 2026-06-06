@@ -1472,6 +1472,40 @@ impl Aarch64Lowerer {
         )
     }
 
+    fn lower_bitfield_insert_low(
+        &mut self,
+        dst: VReg,
+        dst_in: VReg,
+        src: VReg,
+        lsb: u8,
+        width_bits: u8,
+        op_width: OpWidth,
+    ) -> Result<(), LowerError> {
+        Self::bitfield_args("Bfxil", lsb, width_bits, op_width)?;
+        let dst = Self::dst_gpr(dst)?;
+        let dst_in = Self::gpr(dst_in)?;
+        let src = Self::gpr(src)?;
+
+        if dst != dst_in {
+            if dst == src {
+                return Err(LowerError::UnsupportedOp {
+                    op: "AArch64 native Bfxil needs a scratch when dst != dst_in and dst == src"
+                        .into(),
+                });
+            }
+            self.emit_mov_reg(dst, dst_in, op_width)?;
+        }
+
+        self.emit_bitfield(
+            dst,
+            src,
+            0b01,
+            u32::from(lsb),
+            u32::from(lsb + width_bits - 1),
+            op_width,
+        )
+    }
+
     fn lower_extend(
         &mut self,
         dst: VReg,
@@ -2687,6 +2721,47 @@ impl Aarch64Lowerer {
         Ok(Some(2))
     }
 
+    fn try_lower_fused_bitfield_insert_low(
+        &mut self,
+        ops: &[SmirOp],
+    ) -> Result<Option<usize>, LowerError> {
+        let [bfx_op, bfi_op, ..] = ops else {
+            return Ok(None);
+        };
+        if bfx_op.guest_pc != bfi_op.guest_pc {
+            return Ok(None);
+        }
+
+        let (
+            OpKind::Bfx {
+                dst: extracted,
+                src,
+                lsb,
+                width_bits,
+                sign_extend: false,
+                op_width,
+            },
+            OpKind::Bfi {
+                dst,
+                dst_in,
+                src: bfi_src,
+                lsb: 0,
+                width_bits: bfi_width_bits,
+                op_width: bfi_width,
+            },
+        ) = (&bfx_op.kind, &bfi_op.kind)
+        else {
+            return Ok(None);
+        };
+
+        if bfi_src != extracted || width_bits != bfi_width_bits || op_width != bfi_width {
+            return Ok(None);
+        }
+
+        self.lower_bitfield_insert_low(*dst, *dst_in, *src, *lsb, *width_bits, *op_width)?;
+        Ok(Some(2))
+    }
+
     fn try_lower_fused_mem_reg_offset(
         &mut self,
         ops: &[SmirOp],
@@ -3458,6 +3533,12 @@ impl Aarch64Lowerer {
             }
             if let Some(consumed) =
                 self.try_lower_fused_bitfield_insert_zero(&block.ops[idx..])?
+            {
+                idx += consumed;
+                continue;
+            }
+            if let Some(consumed) =
+                self.try_lower_fused_bitfield_insert_low(&block.ops[idx..])?
             {
                 idx += consumed;
                 continue;
@@ -4279,6 +4360,45 @@ mod tests {
 
         let mut expected = Vec::new();
         expected.extend_from_slice(&enc_bitfield(0, 0b00, 24, 7).to_le_bytes());
+        expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
+        assert_eq!(code, expected);
+    }
+
+    #[test]
+    fn fuses_lifted_bfxil_sequence() {
+        let extracted = VReg::virt(0);
+        let mut builder = FunctionBuilder::new(FunctionId(0), 0);
+        builder.push_op(
+            0,
+            OpKind::Bfx {
+                dst: extracted,
+                src: x(1),
+                lsb: 8,
+                width_bits: 8,
+                sign_extend: false,
+                op_width: OpWidth::W64,
+            },
+        );
+        builder.push_op(
+            0,
+            OpKind::Bfi {
+                dst: x(0),
+                dst_in: x(0),
+                src: extracted,
+                lsb: 0,
+                width_bits: 8,
+                op_width: OpWidth::W64,
+            },
+        );
+        builder.set_terminator(Terminator::Return { values: vec![] });
+        let func = builder.finish();
+
+        let mut lowerer = Aarch64Lowerer::new();
+        lowerer.lower_function(&func).unwrap();
+        let code = lowerer.finalize().unwrap();
+
+        let mut expected = Vec::new();
+        expected.extend_from_slice(&enc_bitfield(1, 0b01, 8, 15).to_le_bytes());
         expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
         assert_eq!(code, expected);
     }

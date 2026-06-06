@@ -5570,6 +5570,16 @@ fn smir_aarch64_native_lowering_matches_qemu_oracle() {
     );
 
     let mut st = native_state();
+    st.x[0] = 0x4444_5555_6666_7777;
+    st.x[1] = 0x1234_5678_9abc_de77;
+    st.pstate = 0x7000_0000;
+    push_lifted_case(
+        "bfxil_x_lifted_preserves_flags",
+        enc_bitfield(1, 0b01, 8, 15),
+        st,
+    );
+
+    let mut st = native_state();
     st.x[0] = 0x2222_3333_4444_5555;
     st.x[1] = 0xffff_ffff_1234_56ab;
     st.pstate = 0x3000_0000;
