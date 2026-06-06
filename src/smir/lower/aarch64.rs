@@ -2348,6 +2348,72 @@ impl Aarch64Lowerer {
         Ok(None)
     }
 
+    fn try_lower_fused_extract(&mut self, ops: &[SmirOp]) -> Result<Option<usize>, LowerError> {
+        let [lo_op, hi_op, or_op, ..] = ops else {
+            return Ok(None);
+        };
+        if lo_op.guest_pc != hi_op.guest_pc || lo_op.guest_pc != or_op.guest_pc {
+            return Ok(None);
+        }
+
+        let (
+            OpKind::Shr {
+                dst: lo,
+                src: rm,
+                amount: lo_amount,
+                width,
+                flags: lo_flags,
+            },
+            OpKind::Shl {
+                dst: hi,
+                src: rn,
+                amount: hi_amount,
+                width: hi_width,
+                flags: hi_flags,
+            },
+            OpKind::Or {
+                dst,
+                src1,
+                src2: SrcOperand::Reg(src2),
+                width: or_width,
+                flags: or_flags,
+            },
+        ) = (&lo_op.kind, &hi_op.kind, &or_op.kind)
+        else {
+            return Ok(None);
+        };
+
+        if width != hi_width
+            || width != or_width
+            || lo_flags.updates_any()
+            || hi_flags.updates_any()
+            || or_flags.updates_any()
+            || *src1 != *lo
+            || *src2 != *hi
+        {
+            return Ok(None);
+        }
+
+        let bits = i64::from(width.bits());
+        let (Some(lo_amount), Some(hi_amount)) =
+            (Self::src_imm(lo_amount), Self::src_imm(hi_amount))
+        else {
+            return Ok(None);
+        };
+        if !(1..bits).contains(&lo_amount) || hi_amount != bits - lo_amount {
+            return Ok(None);
+        }
+
+        self.emit_extract(
+            Self::dst_gpr(*dst)?,
+            Self::gpr(*rn)?,
+            Self::gpr(*rm)?,
+            lo_amount as u32,
+            *width,
+        )?;
+        Ok(Some(3))
+    }
+
     fn try_lower_fused_mem_reg_offset(
         &mut self,
         ops: &[SmirOp],
@@ -3105,6 +3171,10 @@ impl Aarch64Lowerer {
                 idx += consumed;
                 continue;
             }
+            if let Some(consumed) = self.try_lower_fused_extract(&block.ops[idx..])? {
+                idx += consumed;
+                continue;
+            }
             if let Some(consumed) = self.try_lower_fused_cls(&block.ops[idx..])? {
                 idx += consumed;
                 continue;
@@ -3233,6 +3303,10 @@ mod tests {
             | (((imm7 as u32) & 0x7f) << 15)
             | (2 << 10)
             | (1 << 5)
+    }
+
+    fn enc_extract(sf: u32, rn: u32, rm: u32, lsb: u32) -> u32 {
+        (sf << 31) | (0b100111 << 23) | (sf << 22) | (rm << 16) | (lsb << 10) | (rn << 5)
     }
 
     #[test]
@@ -3526,6 +3600,102 @@ mod tests {
 
         let mut expected = Vec::new();
         expected.extend_from_slice(&enc_ldst_reg(1, 0b11, 2, 0b010, 1).to_le_bytes());
+        expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
+        assert_eq!(code, expected);
+    }
+
+    #[test]
+    fn fuses_lifted_extract_sequence() {
+        let lo = VReg::virt(0);
+        let hi = VReg::virt(1);
+        let mut builder = FunctionBuilder::new(FunctionId(0), 0);
+        builder.push_op(
+            0,
+            OpKind::Shr {
+                dst: lo,
+                src: x(2),
+                amount: SrcOperand::Imm(13),
+                width: OpWidth::W64,
+                flags: FlagUpdate::None,
+            },
+        );
+        builder.push_op(
+            0,
+            OpKind::Shl {
+                dst: hi,
+                src: x(1),
+                amount: SrcOperand::Imm(51),
+                width: OpWidth::W64,
+                flags: FlagUpdate::None,
+            },
+        );
+        builder.push_op(
+            0,
+            OpKind::Or {
+                dst: x(0),
+                src1: lo,
+                src2: SrcOperand::Reg(hi),
+                width: OpWidth::W64,
+                flags: FlagUpdate::None,
+            },
+        );
+        builder.set_terminator(Terminator::Return { values: vec![] });
+        let func = builder.finish();
+
+        let mut lowerer = Aarch64Lowerer::new();
+        lowerer.lower_function(&func).unwrap();
+        let code = lowerer.finalize().unwrap();
+
+        let mut expected = Vec::new();
+        expected.extend_from_slice(&enc_extract(1, 1, 2, 13).to_le_bytes());
+        expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
+        assert_eq!(code, expected);
+    }
+
+    #[test]
+    fn fuses_lifted_ror_w_alias_sequence() {
+        let lo = VReg::virt(0);
+        let hi = VReg::virt(1);
+        let mut builder = FunctionBuilder::new(FunctionId(0), 0);
+        builder.push_op(
+            0,
+            OpKind::Shr {
+                dst: lo,
+                src: x(1),
+                amount: SrcOperand::Imm(7),
+                width: OpWidth::W32,
+                flags: FlagUpdate::None,
+            },
+        );
+        builder.push_op(
+            0,
+            OpKind::Shl {
+                dst: hi,
+                src: x(1),
+                amount: SrcOperand::Imm(25),
+                width: OpWidth::W32,
+                flags: FlagUpdate::None,
+            },
+        );
+        builder.push_op(
+            0,
+            OpKind::Or {
+                dst: x(0),
+                src1: lo,
+                src2: SrcOperand::Reg(hi),
+                width: OpWidth::W32,
+                flags: FlagUpdate::None,
+            },
+        );
+        builder.set_terminator(Terminator::Return { values: vec![] });
+        let func = builder.finish();
+
+        let mut lowerer = Aarch64Lowerer::new();
+        lowerer.lower_function(&func).unwrap();
+        let code = lowerer.finalize().unwrap();
+
+        let mut expected = Vec::new();
+        expected.extend_from_slice(&enc_extract(0, 1, 1, 7).to_le_bytes());
         expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
         assert_eq!(code, expected);
     }
