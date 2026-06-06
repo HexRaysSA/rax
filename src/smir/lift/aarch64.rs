@@ -930,7 +930,11 @@ impl Aarch64Lifter {
             // Load/Store
             // =================================================================
             Mnemonic::LDR => {
-                self.lift_load(insn, MemWidth::B8, SignExtend::Zero, pc, &mut ops, ctx)?;
+                let width = match insn.operands.first() {
+                    Some(Operand::Reg(r)) if !r.is_64bit => MemWidth::B4,
+                    _ => MemWidth::B8,
+                };
+                self.lift_load(insn, width, SignExtend::Zero, pc, &mut ops, ctx)?;
             }
 
             Mnemonic::LDRB => {
@@ -954,7 +958,11 @@ impl Aarch64Lifter {
             }
 
             Mnemonic::STR => {
-                self.lift_store(insn, MemWidth::B8, pc, &mut ops, ctx)?;
+                let width = match insn.operands.first() {
+                    Some(Operand::Reg(r)) if !r.is_64bit => MemWidth::B4,
+                    _ => MemWidth::B8,
+                };
+                self.lift_store(insn, width, pc, &mut ops, ctx)?;
             }
 
             Mnemonic::STRB => {
@@ -1317,12 +1325,17 @@ impl Aarch64Lifter {
             (Some(Operand::Reg(r)), Some(Operand::Mem(m))) => (r, m),
             (Some(Operand::Reg(r)), Some(Operand::Label(off))) => {
                 let dst = self.dst_reg(r, ctx);
+                let load_dst = if extend == SignExtend::Sign && !r.is_64bit {
+                    ctx.alloc_vreg()
+                } else {
+                    dst
+                };
 
                 ops.push(SmirOp::new(
                     OpId(ops.len() as u16),
                     pc,
                     OpKind::Load {
-                        dst,
+                        dst: load_dst,
                         addr: Address::PcRel {
                             offset: *off,
                             disp_size: DispSize::Auto,
@@ -1332,12 +1345,29 @@ impl Aarch64Lifter {
                         sign: extend,
                     },
                 ));
+                if load_dst != dst {
+                    ops.push(SmirOp::new(
+                        OpId(ops.len() as u16),
+                        pc,
+                        OpKind::ZeroExtend {
+                            dst,
+                            src: load_dst,
+                            from_width: OpWidth::W32,
+                            to_width: OpWidth::W64,
+                        },
+                    ));
+                }
                 return Ok(());
             }
             _ => return Err(LiftError::Internal("invalid load operands".to_string())),
         };
 
         let dst = self.dst_reg(rd, ctx);
+        let load_dst = if extend == SignExtend::Sign && !rd.is_64bit {
+            ctx.alloc_vreg()
+        } else {
+            dst
+        };
         let (addr, pre_ops) = self.mem_to_addr(mem, ctx);
 
         for mut op in pre_ops {
@@ -1359,12 +1389,24 @@ impl Aarch64Lifter {
             OpId(ops.len() as u16),
             pc,
             OpKind::Load {
-                dst,
+                dst: load_dst,
                 addr: load_addr,
                 width,
                 sign: extend,
             },
         ));
+        if load_dst != dst {
+            ops.push(SmirOp::new(
+                OpId(ops.len() as u16),
+                pc,
+                OpKind::ZeroExtend {
+                    dst,
+                    src: load_dst,
+                    from_width: OpWidth::W32,
+                    to_width: OpWidth::W64,
+                },
+            ));
+        }
 
         if mem.mode == AddressingMode::PostIndex {
             self.handle_writeback(mem, pc, ops, ctx);

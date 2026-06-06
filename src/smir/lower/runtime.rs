@@ -86,6 +86,12 @@ pub struct Aarch64GuestRegs {
     pub fpsr: u64,
     /// V0-V31 as low/high u64 pairs.
     pub v: [u64; 64],
+    /// Opaque context pointer passed as arg0 to AArch64 memory helpers.
+    pub ctx: u64,
+    /// Address of `fn(ctx, addr, size, signed) -> value`.
+    pub load_fn: u64,
+    /// Address of `fn(ctx, addr, value, size) -> ok`.
+    pub store_fn: u64,
 }
 
 impl Default for Aarch64GuestRegs {
@@ -98,6 +104,9 @@ impl Default for Aarch64GuestRegs {
             fpcr: 0,
             fpsr: 0,
             v: [0; 64],
+            ctx: 0,
+            load_fn: 0,
+            store_fn: 0,
         }
     }
 }
@@ -110,6 +119,9 @@ impl Aarch64GuestRegs {
     pub const FPCR_OFFSET: i32 = 34 * 8;
     pub const FPSR_OFFSET: i32 = 35 * 8;
     pub const V_OFFSET: i32 = 36 * 8;
+    pub const CTX_OFFSET: i32 = Self::V_OFFSET + 64 * 8;
+    pub const LOAD_FN_OFFSET: i32 = Self::CTX_OFFSET + 8;
+    pub const STORE_FN_OFFSET: i32 = Self::LOAD_FN_OFFSET + 8;
 }
 
 // enter_native(rdi = entry ptr, rsi = *mut GuestRegs):

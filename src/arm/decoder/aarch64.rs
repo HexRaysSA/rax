@@ -1065,9 +1065,9 @@ impl Aarch64Decoder {
 
         // Determine if unsigned offset or other addressing mode
         let op2 = (raw >> 10) & 0x3;
-        let op3 = (raw >> 21) & 1;
+        let addr_class = (raw >> 24) & 0x3;
 
-        let is_unsigned_imm = op3 == 1;
+        let is_unsigned_imm = addr_class == 0b01;
 
         let (mnemonic, is_64bit) = match (size, v, opc) {
             // Byte

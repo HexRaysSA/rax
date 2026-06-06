@@ -11,7 +11,8 @@ use crate::smir::flags::FlagUpdate;
 use crate::smir::ir::{SmirBlock, SmirFunction, Terminator};
 use crate::smir::ops::{OpKind, SmirOp};
 use crate::smir::types::{
-    ArchReg, ArmReg, BlockId, Condition, ExtendOp, OpWidth, ShiftOp, SrcOperand, VReg, VirtualId,
+    Address, ArchReg, ArmReg, BlockId, Condition, ExtendOp, MemWidth, OpWidth, ShiftOp,
+    SignExtend, SrcOperand, VReg, VirtualId,
 };
 
 use super::regalloc::PhysReg;
@@ -26,6 +27,7 @@ const B0: PhysReg = PhysReg::R8;
 const B1: PhysReg = PhysReg::R9;
 const B2: PhysReg = PhysReg::R10;
 const B3: PhysReg = PhysReg::R11;
+const ADDR: PhysReg = PhysReg::Rsi;
 
 const NZCV_N: i64 = 1_i64 << 31;
 const NZCV_Z: i64 = 1_i64 << 30;
@@ -39,6 +41,9 @@ const A64_NZCV_OFFSET: i32 = 33 * 8;
 const A64_FPCR_OFFSET: i32 = 34 * 8;
 const A64_FPSR_OFFSET: i32 = 35 * 8;
 const A64_V_OFFSET: i32 = 36 * 8;
+const A64_CTX_OFFSET: i32 = A64_V_OFFSET + 64 * 8;
+const A64_LOAD_FN_OFFSET: i32 = A64_CTX_OFFSET + 8;
+const A64_STORE_FN_OFFSET: i32 = A64_LOAD_FN_OFFSET + 8;
 
 #[derive(Clone, Copy, Debug)]
 enum FlagForm {
@@ -341,6 +346,136 @@ impl Aarch64X86_64Lowerer {
                 Ok(())
             }
         }
+    }
+
+    fn scalar_mem_width(width: MemWidth) -> Result<(OpWidth, i64), LowerError> {
+        match width {
+            MemWidth::B1 => Ok((OpWidth::W8, 1)),
+            MemWidth::B2 => Ok((OpWidth::W16, 2)),
+            MemWidth::B4 => Ok((OpWidth::W32, 4)),
+            MemWidth::B8 => Ok((OpWidth::W64, 8)),
+            _ => Err(LowerError::UnsupportedOp {
+                op: format!("AArch64 scalar memory width {width:?}"),
+            }),
+        }
+    }
+
+    fn emit_add_i64_to_reg(&mut self, reg: PhysReg, imm: i64) {
+        if imm == 0 {
+            return;
+        }
+        let mut e = X86Emitter::new(&mut self.code);
+        if i32::try_from(imm).is_ok() {
+            e.emit_add_ri(reg, imm, OpWidth::W64);
+        } else {
+            drop(e);
+            self.emit_mov_imm(B2, imm, OpWidth::W64);
+            let mut e = X86Emitter::new(&mut self.code);
+            e.emit_add_rr(reg, B2, OpWidth::W64);
+        }
+    }
+
+    fn load_addr_to(&mut self, addr: &Address, dst: PhysReg) -> Result<(), LowerError> {
+        match addr {
+            Address::Direct(base) => self.load_vreg_to(*base, dst, OpWidth::W64)?,
+            Address::BaseOffset { base, offset, .. } => {
+                self.load_vreg_to(*base, dst, OpWidth::W64)?;
+                self.emit_add_i64_to_reg(dst, *offset);
+            }
+            Address::BaseIndexScale {
+                base,
+                index,
+                scale,
+                disp,
+                ..
+            } => {
+                {
+                    let mut e = X86Emitter::new(&mut self.code);
+                    if let Some(base) = base {
+                        drop(e);
+                        self.load_vreg_to(*base, dst, OpWidth::W64)?;
+                    } else {
+                        e.emit_xor_rr(dst, dst, OpWidth::W64);
+                    }
+                }
+                self.load_vreg_to(*index, B2, OpWidth::W64)?;
+                match scale {
+                    1 => {}
+                    2 | 4 | 8 => {
+                        let mut e = X86Emitter::new(&mut self.code);
+                        e.emit_shl_ri(B2, scale.trailing_zeros() as u8, OpWidth::W64);
+                    }
+                    _ => {
+                        return Err(LowerError::UnsupportedOp {
+                            op: format!("AArch64 memory scale {scale}"),
+                        });
+                    }
+                }
+                {
+                    let mut e = X86Emitter::new(&mut self.code);
+                    e.emit_add_rr(dst, B2, OpWidth::W64);
+                }
+                self.emit_add_i64_to_reg(dst, i64::from(*disp));
+            }
+            Address::Absolute(addr) => self.emit_mov_imm(dst, *addr as i64, OpWidth::W64),
+            Address::PcRel { offset, base, .. } => {
+                let addr = base.unwrap_or(0).wrapping_add(*offset as u64);
+                self.emit_mov_imm(dst, addr as i64, OpWidth::W64);
+            }
+            Address::GpRel { .. } | Address::SegmentRel { .. } => {
+                return Err(LowerError::UnsupportedOp {
+                    op: format!("AArch64 memory address {addr:?}"),
+                });
+            }
+        }
+        Ok(())
+    }
+
+    fn emit_mem_helper_call(&mut self, target: PhysReg) {
+        let mut e = X86Emitter::new(&mut self.code);
+        e.emit_push(STATE);
+        e.emit_sub_ri(PhysReg::Rsp, 8, OpWidth::W64);
+        e.emit_mov_rm(STATE, STATE, A64_CTX_OFFSET, OpWidth::W64);
+        e.emit_call_reg(target);
+        e.emit_add_ri(PhysReg::Rsp, 8, OpWidth::W64);
+        e.emit_pop(STATE);
+    }
+
+    fn lower_load(
+        &mut self,
+        dst: VReg,
+        addr: &Address,
+        width: MemWidth,
+        sign: SignExtend,
+    ) -> Result<(), LowerError> {
+        let (_op_width, size) = Self::scalar_mem_width(width)?;
+        self.load_addr_to(addr, ADDR)?;
+        {
+            let mut e = X86Emitter::new(&mut self.code);
+            e.emit_mov_rm(B3, STATE, A64_LOAD_FN_OFFSET, OpWidth::W64);
+            e.emit_mov_ri(HI, size, OpWidth::W64);
+            e.emit_mov_ri(RHS, i64::from(matches!(sign, SignExtend::Sign)), OpWidth::W64);
+        }
+        self.emit_mem_helper_call(B3);
+        self.store_reg_to(dst, ACC, OpWidth::W64)
+    }
+
+    fn lower_store(
+        &mut self,
+        src: VReg,
+        addr: &Address,
+        width: MemWidth,
+    ) -> Result<(), LowerError> {
+        let (op_width, size) = Self::scalar_mem_width(width)?;
+        self.load_addr_to(addr, ADDR)?;
+        self.load_vreg_to(src, HI, op_width)?;
+        {
+            let mut e = X86Emitter::new(&mut self.code);
+            e.emit_mov_rm(B3, STATE, A64_STORE_FN_OFFSET, OpWidth::W64);
+            e.emit_mov_ri(RHS, size, OpWidth::W64);
+        }
+        self.emit_mem_helper_call(B3);
+        Ok(())
     }
 
     fn emit_jcc_placeholder(&mut self, cond: X86Cond) -> usize {
@@ -899,6 +1034,13 @@ impl Aarch64X86_64Lowerer {
                 }
                 self.store_reg_to(*dst, ACC, *width)?;
             }
+            OpKind::Load {
+                dst,
+                addr,
+                width,
+                sign,
+            } => self.lower_load(*dst, addr, *width, *sign)?,
+            OpKind::Store { src, addr, width } => self.lower_store(*src, addr, *width)?,
             OpKind::TestCondition { dst, cond } | OpKind::SetCC { dst, cond, .. } => {
                 self.emit_condition_to_reg(*cond, ACC)?;
                 self.store_reg_to(*dst, ACC, OpWidth::W64)?;
@@ -1089,6 +1231,44 @@ mod tests {
         mem.run_aarch64(result.entry_offset, regs);
     }
 
+    #[repr(C)]
+    struct TestMem {
+        bytes: [u8; 64],
+    }
+
+    unsafe extern "C" fn test_load(ctx: u64, addr: u64, size: u64, signed: u64) -> u64 {
+        let mem = unsafe { &*(ctx as *const TestMem) };
+        let off = addr as usize;
+        let size = size as usize;
+        let mut value = 0u64;
+        for i in 0..size {
+            value |= u64::from(mem.bytes[off + i]) << (i * 8);
+        }
+        if signed != 0 && size < 8 {
+            let bits = size * 8;
+            let sign = 1u64 << (bits - 1);
+            if (value & sign) != 0 {
+                value |= u64::MAX << bits;
+            }
+        }
+        value
+    }
+
+    unsafe extern "C" fn test_store(ctx: u64, addr: u64, value: u64, size: u64) -> u64 {
+        let mem = unsafe { &mut *(ctx as *mut TestMem) };
+        let off = addr as usize;
+        for i in 0..size as usize {
+            mem.bytes[off + i] = (value >> (i * 8)) as u8;
+        }
+        1
+    }
+
+    fn install_test_mem(regs: &mut Aarch64GuestRegs, mem: &mut TestMem) {
+        regs.ctx = mem as *mut TestMem as usize as u64;
+        regs.load_fn = test_load as *const () as usize as u64;
+        regs.store_fn = test_store as *const () as usize as u64;
+    }
+
     #[test]
     fn add_sets_aarch64_nzcv_and_writes_x() {
         let mut b = FunctionBuilder::new(FunctionId(0), 0x1000);
@@ -1245,6 +1425,71 @@ mod tests {
 
         assert_eq!(regs.x[0], 0x8000_0000);
         assert_eq!(regs.pc, 0x2e04);
+    }
+
+    #[test]
+    fn signed_w_load_zero_extends_after_helper_result() {
+        let mut b = FunctionBuilder::new(FunctionId(0), 0x2f00);
+        let tmp = b.alloc_vreg();
+        b.push_op(
+            0x2f00,
+            OpKind::Load {
+                dst: tmp,
+                addr: Address::BaseOffset {
+                    base: x(1),
+                    offset: 4,
+                    disp_size: crate::smir::types::DispSize::Auto,
+                },
+                width: MemWidth::B1,
+                sign: SignExtend::Sign,
+            },
+        );
+        b.push_op(
+            0x2f00,
+            OpKind::ZeroExtend {
+                dst: x(0),
+                src: tmp,
+                from_width: OpWidth::W32,
+                to_width: OpWidth::W64,
+            },
+        );
+        b.set_terminator(Terminator::Return { values: vec![] });
+
+        let mut mem = TestMem { bytes: [0; 64] };
+        mem.bytes[12] = 0x80;
+        let mut regs = Aarch64GuestRegs::default();
+        install_test_mem(&mut regs, &mut mem);
+        regs.x[0] = 0xaaaa_bbbb_cccc_dddd;
+        regs.x[1] = 8;
+        run_func(&b.finish(), &mut regs);
+
+        assert_eq!(regs.x[0], 0xffff_ff80);
+        assert_eq!(regs.pc, 0x2f04);
+    }
+
+    #[test]
+    fn store_w32_truncates_value_through_helper() {
+        let mut b = FunctionBuilder::new(FunctionId(0), 0x2f80);
+        b.push_op(
+            0x2f80,
+            OpKind::Store {
+                src: x(0),
+                addr: Address::Direct(x(1)),
+                width: MemWidth::B4,
+            },
+        );
+        b.set_terminator(Terminator::Return { values: vec![] });
+
+        let mut mem = TestMem { bytes: [0; 64] };
+        let mut regs = Aarch64GuestRegs::default();
+        install_test_mem(&mut regs, &mut mem);
+        regs.x[0] = 0x1122_3344_5566_7788;
+        regs.x[1] = 16;
+        run_func(&b.finish(), &mut regs);
+
+        assert_eq!(&mem.bytes[16..20], &[0x88, 0x77, 0x66, 0x55]);
+        assert_eq!(regs.x[0], 0x1122_3344_5566_7788);
+        assert_eq!(regs.pc, 0x2f84);
     }
 
     #[test]

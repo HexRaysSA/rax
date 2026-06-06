@@ -715,6 +715,80 @@ fn arm_to_smir_regs(st: &ArmState) -> Aarch64GuestRegs {
 }
 
 #[cfg(all(feature = "smir-jit", target_arch = "x86_64"))]
+struct SmirA64Mem {
+    bytes: [u8; 256],
+}
+
+#[cfg(all(feature = "smir-jit", target_arch = "x86_64"))]
+impl SmirA64Mem {
+    fn from_state(st: &ArmState) -> Self {
+        let mut bytes = [0u8; 256];
+        for (idx, word) in st.scratch.iter().enumerate() {
+            bytes[idx * 8..idx * 8 + 8].copy_from_slice(&word.to_le_bytes());
+        }
+        Self { bytes }
+    }
+
+    fn scratch_words(&self) -> [u64; 32] {
+        let mut words = [0u64; 32];
+        for (idx, word) in words.iter_mut().enumerate() {
+            let off = idx * 8;
+            *word = u64::from_le_bytes([
+                self.bytes[off],
+                self.bytes[off + 1],
+                self.bytes[off + 2],
+                self.bytes[off + 3],
+                self.bytes[off + 4],
+                self.bytes[off + 5],
+                self.bytes[off + 6],
+                self.bytes[off + 7],
+            ]);
+        }
+        words
+    }
+}
+
+#[cfg(all(feature = "smir-jit", target_arch = "x86_64"))]
+fn smir_scratch_offset(addr: u64, size: usize) -> Option<usize> {
+    let off = addr.checked_sub(SCRATCH_ADDR)? as usize;
+    (off + size <= 256).then_some(off)
+}
+
+#[cfg(all(feature = "smir-jit", target_arch = "x86_64"))]
+unsafe extern "C" fn smir_a64_mem_load(ctx: u64, addr: u64, size: u64, signed: u64) -> u64 {
+    let mem = unsafe { &*(ctx as *const SmirA64Mem) };
+    let size = size as usize;
+    let Some(off) = smir_scratch_offset(addr, size) else {
+        return 0;
+    };
+    let mut value = 0u64;
+    for idx in 0..size {
+        value |= u64::from(mem.bytes[off + idx]) << (idx * 8);
+    }
+    if signed != 0 && size < 8 {
+        let bits = size * 8;
+        let sign_bit = 1u64 << (bits - 1);
+        if (value & sign_bit) != 0 {
+            value |= u64::MAX << bits;
+        }
+    }
+    value
+}
+
+#[cfg(all(feature = "smir-jit", target_arch = "x86_64"))]
+unsafe extern "C" fn smir_a64_mem_store(ctx: u64, addr: u64, value: u64, size: u64) -> u64 {
+    let mem = unsafe { &mut *(ctx as *mut SmirA64Mem) };
+    let size = size as usize;
+    let Some(off) = smir_scratch_offset(addr, size) else {
+        return 0;
+    };
+    for idx in 0..size {
+        mem.bytes[off + idx] = (value >> (idx * 8)) as u8;
+    }
+    1
+}
+
+#[cfg(all(feature = "smir-jit", target_arch = "x86_64"))]
 fn run_smir_aarch64_x86_one(insn: u32, input: &ArmState) -> Result<Aarch64GuestRegs, String> {
     let mut lifter = Aarch64Lifter::new();
     let mut ctx = LiftContext::new(SourceArch::Aarch64);
@@ -722,7 +796,6 @@ fn run_smir_aarch64_x86_one(insn: u32, input: &ArmState) -> Result<Aarch64GuestR
     let lifted = lifter
         .lift_insn(0, &bytes, &mut ctx)
         .map_err(|e| format!("lift failed: {e:?}"))?;
-
     let mut builder = FunctionBuilder::new(FunctionId(0), 0);
     for op in lifted.ops {
         builder.push_op(op.guest_pc, op.kind);
@@ -747,6 +820,47 @@ fn run_smir_aarch64_x86_one(insn: u32, input: &ArmState) -> Result<Aarch64GuestR
     let mut regs = arm_to_smir_regs(input);
     mem.run_aarch64(result.entry_offset, &mut regs);
     Ok(regs)
+}
+
+#[cfg(all(feature = "smir-jit", target_arch = "x86_64"))]
+fn run_smir_aarch64_x86_mem_one(
+    insn: u32,
+    input: &ArmState,
+) -> Result<(Aarch64GuestRegs, [u64; 32]), String> {
+    let mut lifter = Aarch64Lifter::new();
+    let mut ctx = LiftContext::new(SourceArch::Aarch64);
+    let bytes = insn.to_le_bytes();
+    let lifted = lifter
+        .lift_insn(0, &bytes, &mut ctx)
+        .map_err(|e| format!("lift failed: {e:?}"))?;
+    let mut builder = FunctionBuilder::new(FunctionId(0), 0);
+    for op in lifted.ops {
+        builder.push_op(op.guest_pc, op.kind);
+    }
+    match lifted.control_flow {
+        ControlFlow::Fallthrough | ControlFlow::NextInsn => {
+            builder.set_terminator(Terminator::Return { values: vec![] });
+        }
+        other => return Err(format!("unexpected control flow: {other:?}")),
+    }
+    let func = builder.finish();
+
+    let mut lowerer = Aarch64X86_64Lowerer::new();
+    let result = lowerer
+        .lower_function(&func)
+        .map_err(|e| format!("lower failed: {e:?}"))?;
+    let code = lowerer
+        .finalize()
+        .map_err(|e| format!("finalize failed: {e:?}"))?;
+    let mem = ExecMem::new(&code).map_err(|e| format!("exec memory failed: {e:?}"))?;
+
+    let mut scratch = SmirA64Mem::from_state(input);
+    let mut regs = arm_to_smir_regs(input);
+    regs.ctx = &mut scratch as *mut SmirA64Mem as usize as u64;
+    regs.load_fn = smir_a64_mem_load as *const () as usize as u64;
+    regs.store_fn = smir_a64_mem_store as *const () as usize as u64;
+    mem.run_aarch64(result.entry_offset, &mut regs);
+    Ok((regs, scratch.scratch_words()))
 }
 
 #[cfg(all(feature = "smir-jit", target_arch = "x86_64"))]
@@ -788,6 +902,53 @@ fn compare_smir_scalar_case(
     let hw_nzcv = (hw.pstate >> 28) & 0xF;
     if got_nzcv != hw_nzcv {
         diffs.push(format!("nzcv: smir={:#x} hw={:#x}", got_nzcv, hw_nzcv));
+    }
+
+    if !diffs.is_empty() {
+        mismatches.push(Mismatch {
+            label: label.into(),
+            insn,
+            detail: diffs.join("  |  "),
+        });
+    }
+}
+
+#[cfg(all(feature = "smir-jit", target_arch = "x86_64"))]
+fn compare_smir_memory_case(
+    label: &str,
+    insn: u32,
+    got: &Aarch64GuestRegs,
+    got_scratch: &[u64; 32],
+    hw: &ArmState,
+    mismatches: &mut Vec<Mismatch>,
+) {
+    let mut diffs = Vec::new();
+    for r in 0..31 {
+        if got.x[r] != hw.x[r] {
+            diffs.push(format!(
+                "x{r}: smir={:#018x} hw={:#018x}",
+                got.x[r], hw.x[r]
+            ));
+        }
+    }
+    if got.sp != hw.sp {
+        diffs.push(format!(
+            "sp: smir={:#018x} hw={:#018x}",
+            got.sp, hw.sp
+        ));
+    }
+    let got_nzcv = (got.nzcv >> 28) & 0xF;
+    let hw_nzcv = (hw.pstate >> 28) & 0xF;
+    if got_nzcv != hw_nzcv {
+        diffs.push(format!("nzcv: smir={:#x} hw={:#x}", got_nzcv, hw_nzcv));
+    }
+    for idx in 0..32 {
+        if got_scratch[idx] != hw.scratch[idx] {
+            diffs.push(format!(
+                "scratch[{idx}]: smir={:#018x} hw={:#018x}",
+                got_scratch[idx], hw.scratch[idx]
+            ));
+        }
     }
 
     if !diffs.is_empty() {
@@ -914,6 +1075,116 @@ fn smir_aarch64_x86_scalar_lowering_matches_qemu_oracle() {
         }
         panic!(
             "smir_aarch64_x86_scalar: {} divergences vs hardware oracle",
+            mismatches.len()
+        );
+    }
+}
+
+#[cfg(all(feature = "smir-jit", target_arch = "x86_64"))]
+#[test]
+fn smir_aarch64_x86_memory_lowering_matches_qemu_oracle() {
+    let oracle = match oracle_path() {
+        Some(p) => p,
+        None => {
+            eprintln!(
+                "[arm_diff] smir_aarch64_x86_memory: qemu/cross-toolchain unavailable -> skipping"
+            );
+            return;
+        }
+    };
+
+    let ops: &[(u32, u32, u32, &str)] = &[
+        (3, 0, 0, "str_x"),
+        (3, 0, 1, "ldr_x"),
+        (2, 0, 0, "str_w"),
+        (2, 0, 1, "ldr_w"),
+        (0, 0, 0, "str_b"),
+        (0, 0, 1, "ldr_b"),
+        (1, 0, 0, "str_h"),
+        (1, 0, 1, "ldr_h"),
+        (0, 0, 2, "ldrsb_x"),
+        (0, 0, 3, "ldrsb_w"),
+        (1, 0, 2, "ldrsh_x"),
+        (1, 0, 3, "ldrsh_w"),
+        (2, 0, 2, "ldrsw_x"),
+    ];
+
+    let mut rng = Rng::new(0x5a11_64c0_0c0d_e123);
+    let mut batch: Vec<(String, u32, ArmState)> = Vec::new();
+    for &(size, v, opc, name) in ops {
+        for imm12 in [0u32, 1, 3] {
+            for _ in 0..4 {
+                batch.push((
+                    format!("{name} #{imm12}"),
+                    enc_ldst_uimm(size, v, opc, imm12),
+                    mem_input(&mut rng),
+                ));
+            }
+        }
+    }
+
+    let mut st = mem_input(&mut rng);
+    st.x[0] = 0xaaaa_bbbb_cccc_dddd;
+    st.scratch[8] = 0x0000_0000_0000_0080;
+    batch.push(("ldrsb_w_negative".into(), enc_ldst_uimm(0, 0, 3, 0), st));
+
+    let mut st = mem_input(&mut rng);
+    st.x[0] = 0xaaaa_bbbb_cccc_dddd;
+    st.scratch[8] = 0x0000_0000_0000_8000;
+    batch.push(("ldrsh_w_negative".into(), enc_ldst_uimm(1, 0, 3, 0), st));
+
+    let labels: Vec<String> = batch.iter().map(|(label, _, _)| label.clone()).collect();
+    let cases: Vec<(u32, u32, ArmState)> =
+        batch.iter().map(|(_, insn, st)| (*insn, NOP, *st)).collect();
+    let outs = match run_oracle(&oracle, &cases) {
+        Some(o) => o,
+        None => {
+            eprintln!("[arm_diff] smir_aarch64_x86_memory: oracle run failed -> skipping");
+            return;
+        }
+    };
+    assert_eq!(outs.len(), cases.len());
+
+    let mut mismatches = Vec::new();
+    for (idx, ((insn, _insn2, st), out)) in cases.iter().zip(outs.iter()).enumerate() {
+        if out.trapped != 0 {
+            mismatches.push(Mismatch {
+                label: labels[idx].clone(),
+                insn: *insn,
+                detail: format!("hardware faulted with signal {}", out.trapped),
+            });
+            continue;
+        }
+        match run_smir_aarch64_x86_mem_one(*insn, st) {
+            Ok((got, got_scratch)) => {
+                compare_smir_memory_case(
+                    &labels[idx],
+                    *insn,
+                    &got,
+                    &got_scratch,
+                    &out.st,
+                    &mut mismatches,
+                );
+            }
+            Err(e) => mismatches.push(Mismatch {
+                label: labels[idx].clone(),
+                insn: *insn,
+                detail: e,
+            }),
+        }
+    }
+
+    if !mismatches.is_empty() {
+        eprintln!(
+            "\n==== smir_aarch64_x86_memory: {} mismatches across {} cases ====",
+            mismatches.len(),
+            cases.len()
+        );
+        for m in mismatches.iter().take(25) {
+            eprintln!("  [{}] {:#010x}: {}", m.label, m.insn, m.detail);
+        }
+        panic!(
+            "smir_aarch64_x86_memory: {} divergences vs hardware oracle",
             mismatches.len()
         );
     }
