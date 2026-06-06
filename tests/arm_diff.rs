@@ -4169,6 +4169,169 @@ fn smir_aarch64_native_lowering_matches_qemu_oracle() {
     );
 
     let mut st = native_state();
+    st.x[0] = 0x1111_2222_3333_4444;
+    st.x[1] = 5;
+    st.x[2] = 7;
+    st.pstate = 0x4000_0000;
+    push_case(
+        "ccmp_x_eq_true_opkind_sets_flags",
+        enc_condcmp(1, 1, false, RM, 0, 0),
+        vec![
+            OpKind::TestCondition {
+                dst: VReg::virt(190),
+                cond: Condition::Eq,
+            },
+            OpKind::Sub {
+                dst: VReg::virt(191),
+                src1: arm_x(1),
+                src2: SrcOperand::Reg(arm_x(2)),
+                width: OpWidth::W64,
+                flags: FlagUpdate::All,
+            },
+            OpKind::Mov {
+                dst: VReg::virt(192),
+                src: SrcOperand::Reg(VReg::Arch(ArchReg::Arm(ArmReg::Nzcv))),
+                width: OpWidth::W32,
+            },
+            OpKind::Select {
+                dst: VReg::virt(193),
+                cond: VReg::virt(190),
+                src_true: VReg::virt(192),
+                src_false: VReg::Imm(0),
+                width: OpWidth::W32,
+            },
+            OpKind::Mov {
+                dst: VReg::Arch(ArchReg::Arm(ArmReg::Nzcv)),
+                src: SrcOperand::Reg(VReg::virt(193)),
+                width: OpWidth::W32,
+            },
+        ],
+        st,
+    );
+
+    let mut st = native_state();
+    st.x[0] = 0x2222_3333_4444_5555;
+    st.x[1] = 5;
+    st.x[2] = 7;
+    st.pstate = 0;
+    push_case(
+        "ccmp_x_eq_false_opkind_fallback_z",
+        enc_condcmp(1, 1, false, RM, 0, 0b0100),
+        vec![
+            OpKind::TestCondition {
+                dst: VReg::virt(194),
+                cond: Condition::Eq,
+            },
+            OpKind::Sub {
+                dst: VReg::virt(195),
+                src1: arm_x(1),
+                src2: SrcOperand::Reg(arm_x(2)),
+                width: OpWidth::W64,
+                flags: FlagUpdate::All,
+            },
+            OpKind::Mov {
+                dst: VReg::virt(196),
+                src: SrcOperand::Reg(VReg::Arch(ArchReg::Arm(ArmReg::Nzcv))),
+                width: OpWidth::W32,
+            },
+            OpKind::Select {
+                dst: VReg::virt(197),
+                cond: VReg::virt(194),
+                src_true: VReg::virt(196),
+                src_false: VReg::Imm(0x4000_0000),
+                width: OpWidth::W32,
+            },
+            OpKind::Mov {
+                dst: VReg::Arch(ArchReg::Arm(ArmReg::Nzcv)),
+                src: SrcOperand::Reg(VReg::virt(197)),
+                width: OpWidth::W32,
+            },
+        ],
+        st,
+    );
+
+    let mut st = native_state();
+    st.x[0] = 0x3333_4444_5555_6666;
+    st.x[1] = 0xffff_ffff;
+    st.x[2] = 1;
+    st.pstate = 0x4000_0000;
+    push_case(
+        "ccmn_w_ne_false_opkind_fallback_nv",
+        enc_condcmp(0, 0, false, RM, 1, 0b1001),
+        vec![
+            OpKind::TestCondition {
+                dst: VReg::virt(198),
+                cond: Condition::Ne,
+            },
+            OpKind::Add {
+                dst: VReg::virt(199),
+                src1: arm_x(1),
+                src2: SrcOperand::Reg(arm_x(2)),
+                width: OpWidth::W32,
+                flags: FlagUpdate::All,
+            },
+            OpKind::Mov {
+                dst: VReg::virt(209),
+                src: SrcOperand::Reg(VReg::Arch(ArchReg::Arm(ArmReg::Nzcv))),
+                width: OpWidth::W32,
+            },
+            OpKind::Select {
+                dst: VReg::virt(210),
+                cond: VReg::virt(198),
+                src_true: VReg::virt(209),
+                src_false: VReg::Imm(0x9000_0000),
+                width: OpWidth::W32,
+            },
+            OpKind::Mov {
+                dst: VReg::Arch(ArchReg::Arm(ArmReg::Nzcv)),
+                src: SrcOperand::Reg(VReg::virt(210)),
+                width: OpWidth::W32,
+            },
+        ],
+        st,
+    );
+
+    let mut st = native_state();
+    st.x[0] = 0x4444_5555_6666_7777;
+    st.x[1] = 0x10;
+    st.pstate = 0x2000_0000;
+    push_case(
+        "ccmp_w_imm_hi_true_opkind_sets_flags",
+        enc_condcmp(0, 1, true, 5, 8, 0),
+        vec![
+            OpKind::TestCondition {
+                dst: VReg::virt(211),
+                cond: Condition::Ugt,
+            },
+            OpKind::Sub {
+                dst: VReg::virt(212),
+                src1: arm_x(1),
+                src2: SrcOperand::Imm(5),
+                width: OpWidth::W32,
+                flags: FlagUpdate::All,
+            },
+            OpKind::Mov {
+                dst: VReg::virt(213),
+                src: SrcOperand::Reg(VReg::Arch(ArchReg::Arm(ArmReg::Nzcv))),
+                width: OpWidth::W32,
+            },
+            OpKind::Select {
+                dst: VReg::virt(214),
+                cond: VReg::virt(211),
+                src_true: VReg::virt(213),
+                src_false: VReg::Imm(0),
+                width: OpWidth::W32,
+            },
+            OpKind::Mov {
+                dst: VReg::Arch(ArchReg::Arm(ArmReg::Nzcv)),
+                src: SrcOperand::Reg(VReg::virt(214)),
+                width: OpWidth::W32,
+            },
+        ],
+        st,
+    );
+
+    let mut st = native_state();
     st.x[0] = 0xaaaa_bbbb_cccc_dddd;
     st.x[1] = 0x1111_2222_3333_4444;
     st.x[2] = 0x5555_6666_7777_8888;
@@ -4440,6 +4603,60 @@ fn smir_aarch64_native_lowering_matches_qemu_oracle() {
     push_lifted_case(
         "ngcs_w_carry_clear_lifted_sets_flags_zero_ext",
         enc_addsub_carry_rn(0, 1, 1, 31),
+        st,
+    );
+
+    let mut st = native_state();
+    st.x[0] = 0x1111_2222_3333_4444;
+    st.x[1] = 5;
+    st.x[2] = 7;
+    st.pstate = 0x4000_0000;
+    push_lifted_case(
+        "ccmp_x_eq_true_lifted_sets_flags",
+        enc_condcmp(1, 1, false, RM, 0, 0),
+        st,
+    );
+
+    let mut st = native_state();
+    st.x[0] = 0x2222_3333_4444_5555;
+    st.x[1] = 5;
+    st.x[2] = 7;
+    st.pstate = 0;
+    push_lifted_case(
+        "ccmp_x_eq_false_lifted_fallback_z",
+        enc_condcmp(1, 1, false, RM, 0, 0b0100),
+        st,
+    );
+
+    let mut st = native_state();
+    st.x[0] = 0x3333_4444_5555_6666;
+    st.x[1] = u64::MAX;
+    st.x[2] = 1;
+    st.pstate = 0;
+    push_lifted_case(
+        "ccmn_x_ne_true_lifted_sets_flags",
+        enc_condcmp(1, 0, false, RM, 1, 0),
+        st,
+    );
+
+    let mut st = native_state();
+    st.x[0] = 0x4444_5555_6666_7777;
+    st.x[1] = 0xffff_ffff;
+    st.x[2] = 1;
+    st.pstate = 0x4000_0000;
+    push_lifted_case(
+        "ccmn_w_ne_false_lifted_fallback_nv",
+        enc_condcmp(0, 0, false, RM, 1, 0b1001),
+        st,
+    );
+
+    let mut st = native_state();
+    st.x[0] = 0x5555_6666_7777_8888;
+    st.x[1] = 0x10;
+    st.pstate = 0x2000_0000;
+    push_lifted_case(
+        "ccmp_w_imm_hi_true_lifted_sets_flags",
+        enc_condcmp(0, 1, true, 5, 8, 0),
         st,
     );
 

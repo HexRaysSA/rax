@@ -409,6 +409,30 @@ impl Aarch64Lowerer {
         Ok(())
     }
 
+    fn emit_cond_compare(
+        &mut self,
+        rn: u8,
+        rm_imm5: u8,
+        cond: u32,
+        nzcv: u32,
+        subtract: bool,
+        immediate: bool,
+        width: OpWidth,
+    ) -> Result<(), LowerError> {
+        let sf = Self::sf(width)?;
+        self.emit(
+            (sf << 31)
+                | ((subtract as u32) << 30)
+                | (0b111010010 << 21)
+                | ((rm_imm5 as u32) << 16)
+                | (cond << 12)
+                | ((immediate as u32) << 11)
+                | ((rn as u32) << 5)
+                | (nzcv & 0xf),
+        );
+        Ok(())
+    }
+
     fn bitfield_args(
         op: &str,
         lsb: u8,
@@ -1207,6 +1231,124 @@ impl Aarch64Lowerer {
         }
     }
 
+    fn try_lower_fused_cond_compare(
+        &mut self,
+        ops: &[SmirOp],
+    ) -> Result<Option<usize>, LowerError> {
+        let [
+            SmirOp {
+                kind: OpKind::TestCondition { dst: cond_vreg, cond },
+                ..
+            },
+            cmp_op,
+            SmirOp {
+                kind:
+                    OpKind::Mov {
+                        dst: cmp_nzcv,
+                        src:
+                            SrcOperand::Reg(VReg::Arch(ArchReg::Arm(ArmReg::Nzcv))),
+                        width: OpWidth::W32,
+                    },
+                ..
+            },
+            SmirOp {
+                kind:
+                    OpKind::Select {
+                        dst: final_nzcv,
+                        cond: select_cond,
+                        src_true,
+                        src_false: VReg::Imm(fallback_nzcv),
+                        width: OpWidth::W32,
+                    },
+                ..
+            },
+            SmirOp {
+                kind:
+                    OpKind::Mov {
+                        dst: VReg::Arch(ArchReg::Arm(ArmReg::Nzcv)),
+                        src: SrcOperand::Reg(writeback_nzcv),
+                        width: OpWidth::W32,
+                    },
+                ..
+            },
+            ..
+        ] = ops
+        else {
+            return Ok(None);
+        };
+
+        if select_cond != cond_vreg || src_true != cmp_nzcv || writeback_nzcv != final_nzcv {
+            return Ok(None);
+        }
+
+        let Some((discarded_dst, rn, src2, subtract, width)) =
+            Self::cond_compare_op_args(&cmp_op.kind)
+        else {
+            return Ok(None);
+        };
+        if !matches!(discarded_dst, VReg::Virtual(_)) {
+            return Ok(None);
+        }
+
+        let (rm_imm5, immediate) = Self::cond_compare_src2(src2)?;
+        let nzcv = Self::cond_compare_nzcv(*fallback_nzcv)?;
+        self.emit_cond_compare(
+            Self::gpr(rn)?,
+            rm_imm5,
+            Self::arm_cond_code(*cond)?,
+            nzcv,
+            subtract,
+            immediate,
+            width,
+        )?;
+        Ok(Some(5))
+    }
+
+    fn cond_compare_op_args(
+        op: &OpKind,
+    ) -> Option<(VReg, VReg, &SrcOperand, bool, OpWidth)> {
+        match op {
+            OpKind::Add {
+                dst,
+                src1,
+                src2,
+                width,
+                flags,
+            } if flags.updates_any() => Some((*dst, *src1, src2, false, *width)),
+            OpKind::Sub {
+                dst,
+                src1,
+                src2,
+                width,
+                flags,
+            } if flags.updates_any() => Some((*dst, *src1, src2, true, *width)),
+            _ => None,
+        }
+    }
+
+    fn cond_compare_src2(src2: &SrcOperand) -> Result<(u8, bool), LowerError> {
+        match src2 {
+            SrcOperand::Reg(reg) => Ok((Self::gpr(*reg)?, false)),
+            SrcOperand::Imm(imm) | SrcOperand::Imm64(imm) if (0..=31).contains(imm) => {
+                Ok((*imm as u8, true))
+            }
+            other => Err(LowerError::UnsupportedOp {
+                op: format!("AArch64 native conditional compare source {other:?}"),
+            }),
+        }
+    }
+
+    fn cond_compare_nzcv(nzcv: i64) -> Result<u32, LowerError> {
+        if nzcv >= 0 && (nzcv & !0xf000_0000) == 0 {
+            Ok(((nzcv as u32) >> 28) & 0xf)
+        } else {
+            Err(LowerError::InvalidOperand {
+                op: "AArch64 conditional compare fallback NZCV".into(),
+                operand: format!("{nzcv:#x}"),
+            })
+        }
+    }
+
     fn lower_op(&mut self, op: &SmirOp) -> Result<(), LowerError> {
         match &op.kind {
             OpKind::Nop => {
@@ -1462,6 +1604,10 @@ impl Aarch64Lowerer {
         self.block_offsets.insert(block.id, self.code.position());
         let mut idx = 0;
         while idx < block.ops.len() {
+            if let Some(consumed) = self.try_lower_fused_cond_compare(&block.ops[idx..])? {
+                idx += consumed;
+                continue;
+            }
             if let Some(consumed) = self.try_lower_fused_select(&block.ops[idx..])? {
                 idx += consumed;
                 continue;
