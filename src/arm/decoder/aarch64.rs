@@ -800,7 +800,7 @@ impl Aarch64Decoder {
 
     fn decode_barrier(raw: u32, crm: u8, op2: u8) -> Result<DecodedInsn, DecodeError> {
         let mnemonic = match op2 {
-            0b000 => Mnemonic::CLREX,
+            0b010 => Mnemonic::CLREX,
             0b100 => Mnemonic::DSB,
             0b101 => Mnemonic::DMB,
             0b110 => Mnemonic::ISB,
@@ -2889,6 +2889,14 @@ mod tests {
         .unwrap();
         assert_eq!(insn.mnemonic, Mnemonic::STLR);
         assert_eq!(insn.operands.len(), 2);
+    }
+
+    #[test]
+    fn test_clrex_decode() {
+        // CLREX: d5033f5f.
+        let insn = decode_bytes(&[0x5f, 0x3f, 0x03, 0xd5]).unwrap();
+        assert_eq!(insn.mnemonic, Mnemonic::CLREX);
+        assert_eq!(insn.operands.len(), 1);
     }
 
     #[test]

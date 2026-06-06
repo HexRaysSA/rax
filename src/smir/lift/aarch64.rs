@@ -1943,6 +1943,10 @@ impl Aarch64Lifter {
                 };
             }
 
+            Mnemonic::CLREX => {
+                push_op!(OpKind::ClearExclusive);
+            }
+
             Mnemonic::DMB | Mnemonic::DSB | Mnemonic::ISB => {
                 push_op!(OpKind::Fence {
                     kind: FenceKind::Full,

@@ -14,9 +14,8 @@
  *           count * struct OutCase
  *
  * Each case loads the full architectural register file (X0..X30, SP, NZCV via
- * PSTATE, FPSR, FPCR, V0..V31) from an input block, executes ONE instruction
- * word, and captures the resulting register file. Instructions must be
- * register-only (no memory / branch / system access).
+ * PSTATE, FPSR, FPCR, V0..V31) from an input block, executes up to three
+ * instruction words, and captures the resulting register file.
  *
  * Mechanism: qemu-user restores GPRs from a signal frame but NOT the SIMD/FP
  * registers, so inputs cannot be installed purely through the frame. Instead a
@@ -73,7 +72,9 @@ typedef struct {
 
 typedef struct {
     uint32_t insn;    /* instruction word under test      */
-    uint32_t flags;   /* reserved                         */
+    uint32_t flags;   /* optional second instruction      */
+    uint32_t insn3;   /* optional third instruction       */
+    uint32_t reserved;
     ArmState st;      /* input architectural state        */
 } InCase;
 
@@ -201,6 +202,7 @@ __asm__(
     "harness_testslot:\n"
     "    nop\n"                /* patched with the test instruction  */
     "    nop\n"                /* patched with a second instruction  */
+    "    nop\n"                /* patched with a third instruction   */
     "    brk #0\n"
     "harness_end:\n"
     ".popsection\n"
@@ -348,7 +350,8 @@ int main(void) {
         g_block = in.st;
         code[slot] = in.insn;
         code[slot + 1] = in.flags; /* second instruction (NOP for single tests) */
-        __builtin___clear_cache((char *)(code + slot), (char *)(code + slot + 2));
+        code[slot + 2] = in.insn3; /* third instruction (NOP for one/two-slot tests) */
+        __builtin___clear_cache((char *)(code + slot), (char *)(code + slot + 3));
 
         /* Install the scratch window contents before the test runs. */
         memcpy((void *)SCRATCH_ADDR, in.st.scratch, sizeof in.st.scratch);
