@@ -2943,17 +2943,18 @@ impl Aarch64Lowerer {
         };
 
         let bits = width.bits();
-        if width == OpWidth::W16 {
+        if width == OpWidth::W16 || (width == OpWidth::W8 && left) {
             let amount = (amount as u64 & 0x1f) as u32;
+            let top_bit = bits - 1;
             let dst_reg = Self::dst_gpr(dst)?;
             let rn = Self::gpr(dst)?;
             if amount == 0 {
-                return self.emit_bitfield(dst_reg, rn, 0b10, 0, 15, OpWidth::W32);
+                return self.emit_bitfield(dst_reg, rn, 0b10, 0, top_bit, OpWidth::W32);
             }
             if amount > bits {
                 return Err(LowerError::UnsupportedOp {
                     op: format!(
-                        "AArch64 native W16 {} count greater than width",
+                        "AArch64 native {width:?} {} count greater than width",
                         if left { "Shld" } else { "Shrd" }
                     ),
                 });
@@ -2962,21 +2963,21 @@ impl Aarch64Lowerer {
             if dst_reg == src {
                 return Err(LowerError::UnsupportedOp {
                     op: format!(
-                        "AArch64 native W16 {} needs a scratch when dst == src",
+                        "AArch64 native {width:?} {} needs a scratch when dst == src",
                         if left { "Shld" } else { "Shrd" }
                     ),
                 });
             }
             if left {
                 self.lower_shift_imm(dst_reg, rn, i64::from(amount), ShiftOp::Lsl, OpWidth::W32)?;
-                self.emit_bitfield(dst_reg, src, 0b01, bits - amount, 15, OpWidth::W32)?;
+                self.emit_bitfield(dst_reg, src, 0b01, bits - amount, top_bit, OpWidth::W32)?;
             } else {
                 self.lower_shift_imm(dst_reg, rn, i64::from(amount), ShiftOp::Lsr, OpWidth::W32)?;
                 let lsb = bits - amount;
                 let immr = if lsb == 0 { 0 } else { OpWidth::W32.bits() - lsb };
                 self.emit_bitfield(dst_reg, src, 0b01, immr, amount - 1, OpWidth::W32)?;
             }
-            return self.emit_bitfield(dst_reg, dst_reg, 0b10, 0, 15, OpWidth::W32);
+            return self.emit_bitfield(dst_reg, dst_reg, 0b10, 0, top_bit, OpWidth::W32);
         }
 
         let mask = match width {
@@ -8461,6 +8462,60 @@ mod tests {
     }
 
     #[test]
+    fn lowers_shld_w8_imm_as_shift_bfxil_uxtb() {
+        let mut builder = FunctionBuilder::new(FunctionId(0), 0);
+        builder.push_op(
+            0,
+            OpKind::Shld {
+                dst: x(0),
+                src: x(1),
+                amount: SrcOperand::Imm(3),
+                width: OpWidth::W8,
+                flags: FlagUpdate::None,
+            },
+        );
+        builder.set_terminator(Terminator::Return { values: vec![] });
+        let func = builder.finish();
+
+        let mut lowerer = Aarch64Lowerer::new();
+        lowerer.lower_function(&func).unwrap();
+        let code = lowerer.finalize().unwrap();
+
+        let mut expected = Vec::new();
+        expected.extend_from_slice(&enc_bitfield_regs(0, 0b10, 29, 28, 0, 0).to_le_bytes());
+        expected.extend_from_slice(&enc_bitfield_regs(0, 0b01, 5, 7, 1, 0).to_le_bytes());
+        expected.extend_from_slice(&enc_bitfield_regs(0, 0b10, 0, 7, 0, 0).to_le_bytes());
+        expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
+        assert_eq!(code, expected);
+    }
+
+    #[test]
+    fn lowers_shld_w8_masked_zero_count_as_uxtb() {
+        let mut builder = FunctionBuilder::new(FunctionId(0), 0);
+        builder.push_op(
+            0,
+            OpKind::Shld {
+                dst: x(0),
+                src: x(1),
+                amount: SrcOperand::Imm(32),
+                width: OpWidth::W8,
+                flags: FlagUpdate::None,
+            },
+        );
+        builder.set_terminator(Terminator::Return { values: vec![] });
+        let func = builder.finish();
+
+        let mut lowerer = Aarch64Lowerer::new();
+        lowerer.lower_function(&func).unwrap();
+        let code = lowerer.finalize().unwrap();
+
+        let mut expected = Vec::new();
+        expected.extend_from_slice(&enc_bitfield_regs(0, 0b10, 0, 7, 0, 0).to_le_bytes());
+        expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
+        assert_eq!(code, expected);
+    }
+
+    #[test]
     fn lowers_shrd_w16_imm_as_shift_bfi_uxth() {
         let mut builder = FunctionBuilder::new(FunctionId(0), 0);
         builder.push_op(
@@ -8557,6 +8612,27 @@ mod tests {
     }
 
     #[test]
+    fn rejects_shld_w8_count_greater_than_width() {
+        let mut builder = FunctionBuilder::new(FunctionId(0), 0);
+        builder.push_op(
+            0,
+            OpKind::Shld {
+                dst: x(0),
+                src: x(1),
+                amount: SrcOperand::Imm(9),
+                width: OpWidth::W8,
+                flags: FlagUpdate::None,
+            },
+        );
+        builder.set_terminator(Terminator::Return { values: vec![] });
+        let func = builder.finish();
+
+        let mut lowerer = Aarch64Lowerer::new();
+        let err = lowerer.lower_function(&func).unwrap_err();
+        assert!(matches!(err, LowerError::UnsupportedOp { .. }));
+    }
+
+    #[test]
     fn rejects_shld_w16_aliased_nonzero_count() {
         let mut builder = FunctionBuilder::new(FunctionId(0), 0);
         builder.push_op(
@@ -8566,6 +8642,27 @@ mod tests {
                 src: x(0),
                 amount: SrcOperand::Imm(1),
                 width: OpWidth::W16,
+                flags: FlagUpdate::None,
+            },
+        );
+        builder.set_terminator(Terminator::Return { values: vec![] });
+        let func = builder.finish();
+
+        let mut lowerer = Aarch64Lowerer::new();
+        let err = lowerer.lower_function(&func).unwrap_err();
+        assert!(matches!(err, LowerError::UnsupportedOp { .. }));
+    }
+
+    #[test]
+    fn rejects_shld_w8_aliased_nonzero_count() {
+        let mut builder = FunctionBuilder::new(FunctionId(0), 0);
+        builder.push_op(
+            0,
+            OpKind::Shld {
+                dst: x(0),
+                src: x(0),
+                amount: SrcOperand::Imm(1),
+                width: OpWidth::W8,
                 flags: FlagUpdate::None,
             },
         );

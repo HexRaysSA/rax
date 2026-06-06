@@ -8356,6 +8356,44 @@ fn smir_aarch64_native_lowering_matches_qemu_oracle() {
     );
 
     let mut st = native_state();
+    st.x[0] = 0xffff_ffff_ffff_12a5;
+    st.x[1] = 0xcccc_dddd_eeee_00e7;
+    st.pstate = 0x7000_0000;
+    push_case3(
+        "shld_w8_imm_as_shift_bfxil_uxtb_preserves_flags",
+        [
+            enc_bitfield_rn(0, 0b10, 29, 28, RD),
+            enc_bitfield_rn(0, 0b01, 5, 7, RN),
+            enc_bitfield_rn(0, 0b10, 0, 7, RD),
+        ],
+        vec![OpKind::Shld {
+            dst: arm_x(0),
+            src: arm_x(1),
+            amount: SrcOperand::Imm(3),
+            width: OpWidth::W8,
+            flags: FlagUpdate::None,
+        }],
+        st,
+    );
+
+    let mut st = native_state();
+    st.x[0] = 0xffff_ffff_ffff_34c9;
+    st.x[1] = 0xcccc_dddd_eeee_0015;
+    st.pstate = 0x4000_0000;
+    push_case3(
+        "shld_w8_masked_zero_as_uxtb_preserves_flags",
+        [enc_bitfield_rn(0, 0b10, 0, 7, RD), NOP, NOP],
+        vec![OpKind::Shld {
+            dst: arm_x(0),
+            src: arm_x(1),
+            amount: SrcOperand::Imm(32),
+            width: OpWidth::W8,
+            flags: FlagUpdate::None,
+        }],
+        st,
+    );
+
+    let mut st = native_state();
     st.x[0] = 0xffff_ffff_0123_4567;
     st.x[1] = 0xcccc_dddd_0000_abcd;
     st.pstate = 0x2000_0000;
