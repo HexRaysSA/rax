@@ -2943,7 +2943,7 @@ impl Aarch64Lowerer {
         };
 
         let bits = width.bits();
-        if width == OpWidth::W16 || (width == OpWidth::W8 && left) {
+        if matches!(width, OpWidth::W8 | OpWidth::W16) {
             let amount = (amount as u64 & 0x1f) as u32;
             let top_bit = bits - 1;
             let dst_reg = Self::dst_gpr(dst)?;
@@ -8516,6 +8516,60 @@ mod tests {
     }
 
     #[test]
+    fn lowers_shrd_w8_imm_as_shift_bfi_uxtb() {
+        let mut builder = FunctionBuilder::new(FunctionId(0), 0);
+        builder.push_op(
+            0,
+            OpKind::Shrd {
+                dst: x(0),
+                src: x(1),
+                amount: SrcOperand::Imm(3),
+                width: OpWidth::W8,
+                flags: FlagUpdate::None,
+            },
+        );
+        builder.set_terminator(Terminator::Return { values: vec![] });
+        let func = builder.finish();
+
+        let mut lowerer = Aarch64Lowerer::new();
+        lowerer.lower_function(&func).unwrap();
+        let code = lowerer.finalize().unwrap();
+
+        let mut expected = Vec::new();
+        expected.extend_from_slice(&enc_bitfield_regs(0, 0b10, 3, 31, 0, 0).to_le_bytes());
+        expected.extend_from_slice(&enc_bitfield_regs(0, 0b01, 27, 2, 1, 0).to_le_bytes());
+        expected.extend_from_slice(&enc_bitfield_regs(0, 0b10, 0, 7, 0, 0).to_le_bytes());
+        expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
+        assert_eq!(code, expected);
+    }
+
+    #[test]
+    fn lowers_shrd_w8_masked_zero_count_as_uxtb() {
+        let mut builder = FunctionBuilder::new(FunctionId(0), 0);
+        builder.push_op(
+            0,
+            OpKind::Shrd {
+                dst: x(0),
+                src: x(1),
+                amount: SrcOperand::Imm(32),
+                width: OpWidth::W8,
+                flags: FlagUpdate::None,
+            },
+        );
+        builder.set_terminator(Terminator::Return { values: vec![] });
+        let func = builder.finish();
+
+        let mut lowerer = Aarch64Lowerer::new();
+        lowerer.lower_function(&func).unwrap();
+        let code = lowerer.finalize().unwrap();
+
+        let mut expected = Vec::new();
+        expected.extend_from_slice(&enc_bitfield_regs(0, 0b10, 0, 7, 0, 0).to_le_bytes());
+        expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
+        assert_eq!(code, expected);
+    }
+
+    #[test]
     fn lowers_shrd_w16_imm_as_shift_bfi_uxth() {
         let mut builder = FunctionBuilder::new(FunctionId(0), 0);
         builder.push_op(
@@ -8633,6 +8687,27 @@ mod tests {
     }
 
     #[test]
+    fn rejects_shrd_w8_count_greater_than_width() {
+        let mut builder = FunctionBuilder::new(FunctionId(0), 0);
+        builder.push_op(
+            0,
+            OpKind::Shrd {
+                dst: x(0),
+                src: x(1),
+                amount: SrcOperand::Imm(9),
+                width: OpWidth::W8,
+                flags: FlagUpdate::None,
+            },
+        );
+        builder.set_terminator(Terminator::Return { values: vec![] });
+        let func = builder.finish();
+
+        let mut lowerer = Aarch64Lowerer::new();
+        let err = lowerer.lower_function(&func).unwrap_err();
+        assert!(matches!(err, LowerError::UnsupportedOp { .. }));
+    }
+
+    #[test]
     fn rejects_shld_w16_aliased_nonzero_count() {
         let mut builder = FunctionBuilder::new(FunctionId(0), 0);
         builder.push_op(
@@ -8659,6 +8734,27 @@ mod tests {
         builder.push_op(
             0,
             OpKind::Shld {
+                dst: x(0),
+                src: x(0),
+                amount: SrcOperand::Imm(1),
+                width: OpWidth::W8,
+                flags: FlagUpdate::None,
+            },
+        );
+        builder.set_terminator(Terminator::Return { values: vec![] });
+        let func = builder.finish();
+
+        let mut lowerer = Aarch64Lowerer::new();
+        let err = lowerer.lower_function(&func).unwrap_err();
+        assert!(matches!(err, LowerError::UnsupportedOp { .. }));
+    }
+
+    #[test]
+    fn rejects_shrd_w8_aliased_nonzero_count() {
+        let mut builder = FunctionBuilder::new(FunctionId(0), 0);
+        builder.push_op(
+            0,
+            OpKind::Shrd {
                 dst: x(0),
                 src: x(0),
                 amount: SrcOperand::Imm(1),
