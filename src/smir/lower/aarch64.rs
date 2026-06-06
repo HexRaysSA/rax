@@ -10,8 +10,8 @@ use std::collections::HashMap;
 use crate::smir::ir::{SmirBlock, SmirFunction, Terminator};
 use crate::smir::ops::{OpKind, SmirOp};
 use crate::smir::types::{
-    Address, ArchReg, ArmReg, BlockId, Condition, ExtendOp, FenceKind, MemWidth, OpWidth,
-    ShiftOp, SignExtend, SrcOperand, VReg,
+    Address, ArchReg, ArmReg, AtomicOp, BlockId, Condition, ExtendOp, FenceKind, MemWidth,
+    MemoryOrder, OpWidth, ShiftOp, SignExtend, SrcOperand, VReg,
 };
 
 use super::{CodeBuffer, LowerError, LowerResult, Relocation, SmirLowerer};
@@ -494,6 +494,31 @@ impl Aarch64Lowerer {
                 | (0b001000 << 24)
                 | ((rs as u32) << 16)
                 | (0b11111 << 10)
+                | ((rn as u32) << 5)
+                | (rt as u32),
+        );
+    }
+
+    fn emit_atomic_rmw(
+        &mut self,
+        rt: u8,
+        rn: u8,
+        rs: u8,
+        size: u32,
+        acquire: u32,
+        release: u32,
+        o3: u32,
+        opc: u32,
+    ) {
+        self.emit(
+            (size << 30)
+                | (0b111 << 27)
+                | (acquire << 23)
+                | (release << 22)
+                | (1 << 21)
+                | ((rs as u32) << 16)
+                | (o3 << 15)
+                | (opc << 12)
                 | ((rn as u32) << 5)
                 | (rt as u32),
         );
@@ -992,6 +1017,67 @@ impl Aarch64Lowerer {
         let rn = Self::exclusive_base_gpr(addr)?;
         let size = Self::mem_size(width)?;
         self.emit_store_exclusive(rs, rt, rn, size);
+        Ok(())
+    }
+
+    fn atomic_order_bits(order: MemoryOrder) -> (u32, u32) {
+        match order {
+            MemoryOrder::Relaxed => (0, 0),
+            MemoryOrder::Acquire => (1, 0),
+            MemoryOrder::Release => (0, 1),
+            MemoryOrder::AcqRel | MemoryOrder::SeqCst => (1, 1),
+        }
+    }
+
+    fn atomic_rmw_op_encoding(op: AtomicOp) -> Result<(u32, u32), LowerError> {
+        match op {
+            AtomicOp::Add => Ok((0, 0b000)),
+            AtomicOp::Xor => Ok((0, 0b010)),
+            AtomicOp::Or => Ok((0, 0b011)),
+            AtomicOp::Max => Ok((0, 0b100)),
+            AtomicOp::Min => Ok((0, 0b101)),
+            AtomicOp::Umax => Ok((0, 0b110)),
+            AtomicOp::Umin => Ok((0, 0b111)),
+            AtomicOp::Swap => Ok((1, 0b000)),
+            AtomicOp::And | AtomicOp::Sub | AtomicOp::Nand => Err(LowerError::UnsupportedOp {
+                op: format!("AArch64 native atomic RMW op {op:?}"),
+            }),
+        }
+    }
+
+    fn lower_atomic_rmw(
+        &mut self,
+        dst: VReg,
+        addr: &Address,
+        src: VReg,
+        op: AtomicOp,
+        width: MemWidth,
+        order: MemoryOrder,
+    ) -> Result<(), LowerError> {
+        let rt = Self::dst_gpr(dst)?;
+        let rn = Self::exclusive_base_gpr(addr)?;
+        let rs = Self::gpr(src)?;
+        let size = Self::mem_size(width)?;
+        let (acquire, release) = Self::atomic_order_bits(order);
+        let (o3, opc) = Self::atomic_rmw_op_encoding(op)?;
+        self.emit_atomic_rmw(rt, rn, rs, size, acquire, release, o3, opc);
+        Ok(())
+    }
+
+    fn lower_ldclr(
+        &mut self,
+        dst: VReg,
+        addr: &Address,
+        src: VReg,
+        width: MemWidth,
+        order: MemoryOrder,
+    ) -> Result<(), LowerError> {
+        let rt = Self::dst_gpr(dst)?;
+        let rn = Self::exclusive_base_gpr(addr)?;
+        let rs = Self::gpr(src)?;
+        let size = Self::mem_size(width)?;
+        let (acquire, release) = Self::atomic_order_bits(order);
+        self.emit_atomic_rmw(rt, rn, rs, size, acquire, release, 0, 0b001);
         Ok(())
     }
 
@@ -2994,6 +3080,49 @@ impl Aarch64Lowerer {
         Ok(None)
     }
 
+    fn try_lower_fused_ldclr(&mut self, ops: &[SmirOp]) -> Result<Option<usize>, LowerError> {
+        let [
+            SmirOp {
+                guest_pc,
+                kind:
+                    OpKind::Not {
+                        dst: inverted,
+                        src,
+                        width: not_width,
+                    },
+                ..
+            },
+            SmirOp {
+                guest_pc: atomic_pc,
+                kind:
+                    OpKind::AtomicRmw {
+                        dst,
+                        addr,
+                        src: atomic_src,
+                        op: AtomicOp::And,
+                        width,
+                        order,
+                    },
+                ..
+            },
+            ..
+        ] = ops
+        else {
+            return Ok(None);
+        };
+
+        if guest_pc != atomic_pc
+            || atomic_src != inverted
+            || !matches!(inverted, VReg::Virtual(_))
+            || *not_width != OpWidth::W64
+        {
+            return Ok(None);
+        }
+
+        self.lower_ldclr(*dst, addr, *src, *width, *order)?;
+        Ok(Some(2))
+    }
+
     fn try_lower_fused_sysreg_access(
         &mut self,
         ops: &[SmirOp],
@@ -3441,6 +3570,14 @@ impl Aarch64Lowerer {
                 addr,
                 width,
             } => self.lower_store_exclusive(*status, *src, addr, *width),
+            OpKind::AtomicRmw {
+                dst,
+                addr,
+                src,
+                op,
+                width,
+                order,
+            } => self.lower_atomic_rmw(*dst, addr, *src, *op, *width, *order),
             OpKind::LoadPair {
                 dst1,
                 dst2,
@@ -3590,6 +3727,10 @@ impl Aarch64Lowerer {
                 continue;
             }
             if let Some(consumed) = self.try_lower_fused_mem_reg_offset(&block.ops[idx..])? {
+                idx += consumed;
+                continue;
+            }
+            if let Some(consumed) = self.try_lower_fused_ldclr(&block.ops[idx..])? {
                 idx += consumed;
                 continue;
             }
@@ -3758,6 +3899,18 @@ mod tests {
 
     fn enc_stxr(size: u32) -> u32 {
         (size << 30) | (0b001000 << 24) | (2 << 16) | (0b11111 << 10) | (1 << 5) | 3
+    }
+
+    fn enc_atomic_rmw(size: u32, acquire: u32, release: u32, o3: u32, opc: u32) -> u32 {
+        (size << 30)
+            | (0b111 << 27)
+            | (acquire << 23)
+            | (release << 22)
+            | (1 << 21)
+            | (2 << 16)
+            | (o3 << 15)
+            | (opc << 12)
+            | (1 << 5)
     }
 
     fn enc_extract(sf: u32, rn: u32, rm: u32, lsb: u32) -> u32 {
@@ -4120,6 +4273,117 @@ mod tests {
         expected.extend_from_slice(&enc_stxr(2).to_le_bytes());
         expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
         assert_eq!(code, expected);
+    }
+
+    #[test]
+    fn lowers_atomic_rmw_swap_direct() {
+        let mut builder = FunctionBuilder::new(FunctionId(0), 0);
+        builder.push_op(
+            0,
+            OpKind::AtomicRmw {
+                dst: x(0),
+                addr: Address::Direct(x(1)),
+                src: x(2),
+                op: AtomicOp::Swap,
+                width: MemWidth::B8,
+                order: MemoryOrder::Relaxed,
+            },
+        );
+        builder.set_terminator(Terminator::Return { values: vec![] });
+        let func = builder.finish();
+
+        let mut lowerer = Aarch64Lowerer::new();
+        lowerer.lower_function(&func).unwrap();
+        let code = lowerer.finalize().unwrap();
+
+        let mut expected = Vec::new();
+        expected.extend_from_slice(&enc_atomic_rmw(3, 0, 0, 1, 0b000).to_le_bytes());
+        expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
+        assert_eq!(code, expected);
+    }
+
+    #[test]
+    fn lowers_atomic_rmw_add_acqrel_direct() {
+        let mut builder = FunctionBuilder::new(FunctionId(0), 0);
+        builder.push_op(
+            0,
+            OpKind::AtomicRmw {
+                dst: x(0),
+                addr: Address::Direct(x(1)),
+                src: x(2),
+                op: AtomicOp::Add,
+                width: MemWidth::B4,
+                order: MemoryOrder::AcqRel,
+            },
+        );
+        builder.set_terminator(Terminator::Return { values: vec![] });
+        let func = builder.finish();
+
+        let mut lowerer = Aarch64Lowerer::new();
+        lowerer.lower_function(&func).unwrap();
+        let code = lowerer.finalize().unwrap();
+
+        let mut expected = Vec::new();
+        expected.extend_from_slice(&enc_atomic_rmw(2, 1, 1, 0, 0b000).to_le_bytes());
+        expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
+        assert_eq!(code, expected);
+    }
+
+    #[test]
+    fn fuses_lifted_ldclr_sequence() {
+        let inverted = VReg::virt(0);
+        let mut builder = FunctionBuilder::new(FunctionId(0), 0);
+        builder.push_op(
+            0,
+            OpKind::Not {
+                dst: inverted,
+                src: x(2),
+                width: OpWidth::W64,
+            },
+        );
+        builder.push_op(
+            0,
+            OpKind::AtomicRmw {
+                dst: x(0),
+                addr: Address::Direct(x(1)),
+                src: inverted,
+                op: AtomicOp::And,
+                width: MemWidth::B8,
+                order: MemoryOrder::Release,
+            },
+        );
+        builder.set_terminator(Terminator::Return { values: vec![] });
+        let func = builder.finish();
+
+        let mut lowerer = Aarch64Lowerer::new();
+        lowerer.lower_function(&func).unwrap();
+        let code = lowerer.finalize().unwrap();
+
+        let mut expected = Vec::new();
+        expected.extend_from_slice(&enc_atomic_rmw(3, 0, 1, 0, 0b001).to_le_bytes());
+        expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
+        assert_eq!(code, expected);
+    }
+
+    #[test]
+    fn rejects_unfused_atomic_rmw_and() {
+        let mut builder = FunctionBuilder::new(FunctionId(0), 0);
+        builder.push_op(
+            0,
+            OpKind::AtomicRmw {
+                dst: x(0),
+                addr: Address::Direct(x(1)),
+                src: x(2),
+                op: AtomicOp::And,
+                width: MemWidth::B8,
+                order: MemoryOrder::Relaxed,
+            },
+        );
+        builder.set_terminator(Terminator::Return { values: vec![] });
+        let func = builder.finish();
+
+        let mut lowerer = Aarch64Lowerer::new();
+        assert!(lowerer.lower_function(&func).is_err());
     }
 
     #[test]

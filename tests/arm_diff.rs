@@ -47,8 +47,8 @@ use rax::smir::lower::SmirLowerer;
 use rax::smir::ops::OpKind;
 #[cfg(all(feature = "smir-jit", target_arch = "x86_64"))]
 use rax::smir::types::{
-    Address, ArchReg, ArmReg, Condition, DispSize, ExtendOp, FenceKind, FunctionId, MemWidth,
-    OpWidth, ShiftOp, SignExtend, SourceArch, SrcOperand, VReg,
+    Address, ArchReg, ArmReg, AtomicOp, Condition, DispSize, ExtendOp, FenceKind, FunctionId,
+    MemWidth, MemoryOrder, OpWidth, ShiftOp, SignExtend, SourceArch, SrcOperand, VReg,
 };
 
 // ---------------------------------------------------------------------------
@@ -4381,6 +4381,166 @@ fn smir_aarch64_native_lowering_matches_qemu_oracle() {
     );
 
     let mut st = native_state();
+    st.x[0] = 0xaaaa_bbbb_cccc_dddd;
+    st.x[1] = SCRATCH_BASE;
+    st.x[2] = 0x0102_0304_0506_0708;
+    st.scratch[8] = 0x8877_6655_4433_2211;
+    st.pstate = 0x4000_0000;
+    push_case(
+        "swp_x_direct_opkind_preserves_flags_and_memory",
+        enc_atomic_smir(3, 0, 0, 1, 0b000, 2, RN, RD),
+        vec![OpKind::AtomicRmw {
+            dst: arm_x(0),
+            addr: native_direct_addr.clone(),
+            src: arm_x(2),
+            op: AtomicOp::Swap,
+            width: MemWidth::B8,
+            order: MemoryOrder::Relaxed,
+        }],
+        st,
+    );
+
+    let mut st = native_state();
+    st.x[0] = 0xffff_ffff_aaaa_bbbb;
+    st.x[1] = SCRATCH_BASE;
+    st.x[2] = 0x0000_0000_0000_0007;
+    st.scratch[8] = 0x1122_3344_ffff_fffe;
+    st.pstate = 0x1000_0000;
+    push_case(
+        "ldadd_w_direct_opkind_acqrel_zero_ext_preserves_flags_and_memory",
+        enc_atomic_smir(2, 1, 1, 0, 0b000, 2, RN, RD),
+        vec![OpKind::AtomicRmw {
+            dst: arm_x(0),
+            addr: native_direct_addr.clone(),
+            src: arm_x(2),
+            op: AtomicOp::Add,
+            width: MemWidth::B4,
+            order: MemoryOrder::AcqRel,
+        }],
+        st,
+    );
+
+    let mut st = native_state();
+    st.x[0] = 0x7777_8888_9999_aaaa;
+    st.x[1] = SCRATCH_BASE;
+    st.x[2] = 0x0101_0101_0101_0101;
+    st.scratch[8] = 0xf0f0_0f0f_aaaa_5555;
+    st.pstate = 0x5000_0000;
+    push_case(
+        "ldeor_x_direct_opkind_preserves_flags_and_memory",
+        enc_atomic_smir(3, 0, 0, 0, 0b010, 2, RN, RD),
+        vec![OpKind::AtomicRmw {
+            dst: arm_x(0),
+            addr: native_direct_addr.clone(),
+            src: arm_x(2),
+            op: AtomicOp::Xor,
+            width: MemWidth::B8,
+            order: MemoryOrder::Relaxed,
+        }],
+        st,
+    );
+
+    let mut st = native_state();
+    st.x[0] = 0xbbbb_cccc_dddd_eeee;
+    st.x[1] = SCRATCH_BASE;
+    st.x[2] = 0x0000_0000_0000_00f0;
+    st.scratch[8] = 0xaaaa_bbbb_ccdd_000f;
+    st.pstate = 0x6000_0000;
+    push_case(
+        "ldset_h_direct_opkind_preserves_flags_and_memory",
+        enc_atomic_smir(1, 0, 1, 0, 0b011, 2, RN, RD),
+        vec![OpKind::AtomicRmw {
+            dst: arm_x(0),
+            addr: native_direct_addr.clone(),
+            src: arm_x(2),
+            op: AtomicOp::Or,
+            width: MemWidth::B2,
+            order: MemoryOrder::Release,
+        }],
+        st,
+    );
+
+    let mut st = native_state();
+    st.x[0] = 0xcccc_dddd_eeee_ffff;
+    st.x[1] = SCRATCH_BASE;
+    st.x[2] = 0x0000_0000_0000_0007;
+    st.scratch[8] = 0xaaaa_bbbb_ffff_fff0;
+    st.pstate = 0x3000_0000;
+    push_case(
+        "ldsmax_w_direct_opkind_uses_signed_width_preserves_flags_and_memory",
+        enc_atomic_smir(2, 1, 0, 0, 0b100, 2, RN, RD),
+        vec![OpKind::AtomicRmw {
+            dst: arm_x(0),
+            addr: native_direct_addr.clone(),
+            src: arm_x(2),
+            op: AtomicOp::Max,
+            width: MemWidth::B4,
+            order: MemoryOrder::Acquire,
+        }],
+        st,
+    );
+
+    let mut st = native_state();
+    st.x[0] = 0xdddd_eeee_ffff_0000;
+    st.x[1] = SCRATCH_BASE;
+    st.x[2] = 0xffff_ffff_ffff_fff0;
+    st.scratch[8] = 0x1111_2222_0000_0007;
+    st.pstate = 0xa000_0000;
+    push_case(
+        "ldsmin_w_direct_opkind_uses_signed_width_preserves_flags_and_memory",
+        enc_atomic_smir(2, 0, 0, 0, 0b101, 2, RN, RD),
+        vec![OpKind::AtomicRmw {
+            dst: arm_x(0),
+            addr: native_direct_addr.clone(),
+            src: arm_x(2),
+            op: AtomicOp::Min,
+            width: MemWidth::B4,
+            order: MemoryOrder::Relaxed,
+        }],
+        st,
+    );
+
+    let mut st = native_state();
+    st.x[0] = 0xeeee_ffff_0000_1111;
+    st.x[1] = SCRATCH_BASE;
+    st.x[2] = 0x0000_0000_ffff_ffff;
+    st.scratch[8] = 0xaaaa_bbbb_0000_0001;
+    st.pstate = 0x2000_0000;
+    push_case(
+        "ldumax_w_direct_opkind_uses_unsigned_width_preserves_flags_and_memory",
+        enc_atomic_smir(2, 1, 1, 0, 0b110, 2, RN, RD),
+        vec![OpKind::AtomicRmw {
+            dst: arm_x(0),
+            addr: native_direct_addr.clone(),
+            src: arm_x(2),
+            op: AtomicOp::Umax,
+            width: MemWidth::B4,
+            order: MemoryOrder::SeqCst,
+        }],
+        st,
+    );
+
+    let mut st = native_state();
+    st.x[0] = 0xffff_0000_1111_2222;
+    st.x[1] = SCRATCH_BASE;
+    st.x[2] = 0x0000_0000_0000_0012;
+    st.scratch[8] = 0x3333_4444_5555_6680;
+    st.pstate = 0x8000_0000;
+    push_case(
+        "ldumin_b_direct_opkind_uses_unsigned_width_preserves_flags_and_memory",
+        enc_atomic_smir(0, 0, 0, 0, 0b111, 2, RN, RD),
+        vec![OpKind::AtomicRmw {
+            dst: arm_x(0),
+            addr: native_direct_addr.clone(),
+            src: arm_x(2),
+            op: AtomicOp::Umin,
+            width: MemWidth::B1,
+            order: MemoryOrder::Relaxed,
+        }],
+        st,
+    );
+
+    let mut st = native_state();
     st.x[0] = 0x2222_3333_4444_5555;
     st.x[1] = SCRATCH_BASE;
     st.x[2] = 0x3333_4444_5555_6666;
@@ -5818,6 +5978,114 @@ fn smir_aarch64_native_lowering_matches_qemu_oracle() {
     push_lifted_case(
         "stxr_x_direct_lifted_fails_without_monitor_preserves_flags_and_memory",
         enc_stxr(3, 0),
+        st,
+    );
+
+    let mut st = native_state();
+    st.x[0] = 0xaaaa_bbbb_cccc_dddd;
+    st.x[1] = SCRATCH_BASE;
+    st.x[2] = 0x0102_0304_0506_0708;
+    st.scratch[8] = 0x8877_6655_4433_2211;
+    st.pstate = 0x4000_0000;
+    push_lifted_case(
+        "swp_x_lifted_preserves_flags_and_memory",
+        enc_atomic_smir(3, 0, 0, 1, 0b000, 2, RN, RD),
+        st,
+    );
+
+    let mut st = native_state();
+    st.x[0] = 0xffff_ffff_aaaa_bbbb;
+    st.x[1] = SCRATCH_BASE;
+    st.x[2] = 0x0000_0000_0000_0007;
+    st.scratch[8] = 0x1122_3344_ffff_fffe;
+    st.pstate = 0x1000_0000;
+    push_lifted_case(
+        "ldadd_w_lifted_acqrel_zero_ext_preserves_flags_and_memory",
+        enc_atomic_smir(2, 1, 1, 0, 0b000, 2, RN, RD),
+        st,
+    );
+
+    let mut st = native_state();
+    st.x[0] = 0x1234_5678_9abc_def0;
+    st.x[1] = SCRATCH_BASE;
+    st.x[2] = 0x0000_0000_0000_00ff;
+    st.scratch[8] = 0xff00_ff00_0f0f_f0f0;
+    st.pstate = 0x9000_0000;
+    push_lifted_case(
+        "ldclr_x_lifted_preserves_flags_and_memory",
+        enc_atomic_smir(3, 0, 0, 0, 0b001, 2, RN, RD),
+        st,
+    );
+
+    let mut st = native_state();
+    st.x[0] = 0x7777_8888_9999_aaaa;
+    st.x[1] = SCRATCH_BASE;
+    st.x[2] = 0x0101_0101_0101_0101;
+    st.scratch[8] = 0xf0f0_0f0f_aaaa_5555;
+    st.pstate = 0x5000_0000;
+    push_lifted_case(
+        "ldeor_x_lifted_preserves_flags_and_memory",
+        enc_atomic_smir(3, 0, 0, 0, 0b010, 2, RN, RD),
+        st,
+    );
+
+    let mut st = native_state();
+    st.x[0] = 0xbbbb_cccc_dddd_eeee;
+    st.x[1] = SCRATCH_BASE;
+    st.x[2] = 0x0000_0000_0000_00f0;
+    st.scratch[8] = 0xaaaa_bbbb_ccdd_000f;
+    st.pstate = 0x6000_0000;
+    push_lifted_case(
+        "ldset_h_lifted_preserves_flags_and_memory",
+        enc_atomic_smir(1, 0, 1, 0, 0b011, 2, RN, RD),
+        st,
+    );
+
+    let mut st = native_state();
+    st.x[0] = 0xcccc_dddd_eeee_ffff;
+    st.x[1] = SCRATCH_BASE;
+    st.x[2] = 0x0000_0000_0000_0007;
+    st.scratch[8] = 0xaaaa_bbbb_ffff_fff0;
+    st.pstate = 0x3000_0000;
+    push_lifted_case(
+        "ldsmax_w_lifted_uses_signed_width_preserves_flags_and_memory",
+        enc_atomic_smir(2, 1, 0, 0, 0b100, 2, RN, RD),
+        st,
+    );
+
+    let mut st = native_state();
+    st.x[0] = 0xdddd_eeee_ffff_0000;
+    st.x[1] = SCRATCH_BASE;
+    st.x[2] = 0xffff_ffff_ffff_fff0;
+    st.scratch[8] = 0x1111_2222_0000_0007;
+    st.pstate = 0xa000_0000;
+    push_lifted_case(
+        "ldsmin_w_lifted_uses_signed_width_preserves_flags_and_memory",
+        enc_atomic_smir(2, 0, 0, 0, 0b101, 2, RN, RD),
+        st,
+    );
+
+    let mut st = native_state();
+    st.x[0] = 0xeeee_ffff_0000_1111;
+    st.x[1] = SCRATCH_BASE;
+    st.x[2] = 0x0000_0000_ffff_ffff;
+    st.scratch[8] = 0xaaaa_bbbb_0000_0001;
+    st.pstate = 0x2000_0000;
+    push_lifted_case(
+        "ldumax_w_lifted_uses_unsigned_width_preserves_flags_and_memory",
+        enc_atomic_smir(2, 1, 1, 0, 0b110, 2, RN, RD),
+        st,
+    );
+
+    let mut st = native_state();
+    st.x[0] = 0xffff_0000_1111_2222;
+    st.x[1] = SCRATCH_BASE;
+    st.x[2] = 0x0000_0000_0000_0012;
+    st.scratch[8] = 0x3333_4444_5555_6680;
+    st.pstate = 0x8000_0000;
+    push_lifted_case(
+        "ldumin_b_lifted_uses_unsigned_width_preserves_flags_and_memory",
+        enc_atomic_smir(0, 0, 0, 0, 0b111, 2, RN, RD),
         st,
     );
 
