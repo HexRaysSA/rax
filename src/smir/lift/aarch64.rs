@@ -1759,7 +1759,11 @@ impl Aarch64Lifter {
             }
 
             Mnemonic::RET => {
-                control = ControlFlow::Return;
+                let target = match insn.operands.get(0) {
+                    Some(Operand::Reg(rn)) => self.arm_reg(rn),
+                    _ => VReg::Arch(ArchReg::Arm(ArmReg::X(30))),
+                };
+                control = ControlFlow::IndirectBranch { target };
             }
 
             Mnemonic::BCC => {

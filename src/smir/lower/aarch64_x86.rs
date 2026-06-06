@@ -8,7 +8,7 @@
 use std::collections::{HashMap, HashSet};
 
 use crate::smir::flags::FlagUpdate;
-use crate::smir::ir::{SmirBlock, SmirFunction, Terminator};
+use crate::smir::ir::{CallTarget, SmirBlock, SmirFunction, Terminator};
 use crate::smir::ops::{OpKind, SmirOp};
 use crate::smir::types::{
     Address, ArchReg, ArmReg, AtomicOp, BlockId, Condition, ExtendOp, MemWidth, OpWidth, ShiftOp,
@@ -111,6 +111,20 @@ impl Aarch64X86_64Lowerer {
                         ids.insert(id);
                     }
                 }
+                Terminator::Call { target, .. } | Terminator::TailCall { target, .. } => {
+                    if let CallTarget::Indirect(reg) = target {
+                        if let VReg::Virtual(id) = *reg {
+                            ids.insert(id);
+                        }
+                    }
+                    if let CallTarget::IndirectMem(addr) = target {
+                        for reg in addr.regs() {
+                            if let VReg::Virtual(id) = reg {
+                                ids.insert(id);
+                            }
+                        }
+                    }
+                }
                 Terminator::Return { values } => {
                     for v in values {
                         if let VReg::Virtual(id) = *v {
@@ -145,6 +159,38 @@ impl Aarch64X86_64Lowerer {
         e.emit_mov_rr(PhysReg::Rsp, PhysReg::Rbp, OpWidth::W64);
         e.emit_pop(PhysReg::Rbp);
         e.emit_ret();
+    }
+
+    fn emit_exit_to_acc(&mut self) {
+        {
+            let mut e = X86Emitter::new(&mut self.code);
+            e.emit_mov_mr(STATE, A64_PC_OFFSET, ACC, OpWidth::W64);
+        }
+        self.emit_epilogue();
+    }
+
+    fn emit_exit_to_guest_addr(&mut self, addr: u64) {
+        self.emit_mov_imm(ACC, addr as i64, OpWidth::W64);
+        self.emit_exit_to_acc();
+    }
+
+    fn lower_exit_to_vreg(&mut self, target: VReg) -> Result<(), LowerError> {
+        self.load_vreg_to(target, ACC, OpWidth::W64)?;
+        self.emit_exit_to_acc();
+        Ok(())
+    }
+
+    fn lower_exit_to_call_target(&mut self, target: &CallTarget) -> Result<(), LowerError> {
+        match target {
+            CallTarget::GuestAddr(addr) => {
+                self.emit_exit_to_guest_addr(*addr);
+                Ok(())
+            }
+            CallTarget::Indirect(reg) => self.lower_exit_to_vreg(*reg),
+            other => Err(LowerError::UnsupportedOp {
+                op: format!("AArch64 state-backed call target {other:?}"),
+            }),
+        }
     }
 
     fn arm_offset(reg: ArmReg) -> Result<i32, LowerError> {
@@ -1760,6 +1806,9 @@ impl Aarch64X86_64Lowerer {
                 self.pending_jumps
                     .push((jmp_off + 1, *false_target, RelocKind::PcRel32));
             }
+            Terminator::IndirectBranch { target, .. } => {
+                self.lower_exit_to_vreg(*target)?;
+            }
             Terminator::Return { .. } => {
                 if let Some(pc) = fallthrough_pc(block) {
                     let mut e = X86Emitter::new(&mut self.code);
@@ -1767,6 +1816,9 @@ impl Aarch64X86_64Lowerer {
                     e.emit_mov_mr(STATE, A64_PC_OFFSET, ACC, OpWidth::W64);
                 }
                 self.emit_epilogue();
+            }
+            Terminator::Call { target, .. } | Terminator::TailCall { target, .. } => {
+                self.lower_exit_to_call_target(target)?;
             }
             Terminator::Trap { .. } | Terminator::Unreachable => {
                 let mut e = X86Emitter::new(&mut self.code);
