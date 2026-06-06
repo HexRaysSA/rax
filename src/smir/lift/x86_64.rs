@@ -2059,6 +2059,169 @@ impl X86_64Lifter {
         ))
     }
 
+    /// Lift CMPXCHG r/m, r (0F B0/0F B1).
+    fn lift_cmpxchg(
+        &self,
+        opcode: u8,
+        bytes: &[u8],
+        prefix: &X86Prefix,
+        pc: u64,
+        ctx: &mut LiftContext,
+    ) -> Result<LiftResult, LiftError> {
+        let is_byte = opcode == 0xB0;
+        let op_size = if is_byte { 1 } else { prefix.op_size() };
+        let width = self.size_to_width(op_size);
+        let mem_width = self.size_to_memwidth(op_size);
+        let modrm = decode_modrm(bytes, prefix, pc)?;
+        let next_pc = pc + prefix.cursor as u64 + modrm.bytes_consumed as u64;
+        let mut ops = Vec::new();
+
+        let acc = self.gpr(0);
+        let src = self.gpr(modrm.reg);
+
+        let saved_src = ctx.alloc_vreg();
+        ops.push(SmirOp::new(
+            OpId(ops.len() as u16),
+            pc,
+            OpKind::Mov {
+                dst: saved_src,
+                src: SrcOperand::Reg(src),
+                width,
+            },
+        ));
+
+        let saved_acc = ctx.alloc_vreg();
+        ops.push(SmirOp::new(
+            OpId(ops.len() as u16),
+            pc,
+            OpKind::Mov {
+                dst: saved_acc,
+                src: SrcOperand::Reg(acc),
+                width,
+            },
+        ));
+
+        let (old_dst, dst_reg, dst_addr) = if modrm.is_memory {
+            let x86_addr = modrm.addr.as_ref().unwrap();
+            let (addr, pre_ops) = self.x86_addr_to_smir(x86_addr, next_pc, ctx);
+            ops.extend(pre_ops);
+
+            let tmp = ctx.alloc_vreg();
+            ops.push(SmirOp::new(
+                OpId(ops.len() as u16),
+                pc,
+                OpKind::Load {
+                    dst: tmp,
+                    addr: addr.clone(),
+                    width: mem_width,
+                    sign: SignExtend::Zero,
+                },
+            ));
+            (tmp, None, Some(addr))
+        } else {
+            let dst = self.gpr(modrm.rm);
+            let tmp = ctx.alloc_vreg();
+            ops.push(SmirOp::new(
+                OpId(ops.len() as u16),
+                pc,
+                OpKind::Mov {
+                    dst: tmp,
+                    src: SrcOperand::Reg(dst),
+                    width,
+                },
+            ));
+            (tmp, Some(dst), None)
+        };
+
+        ops.push(SmirOp::new(
+            OpId(ops.len() as u16),
+            pc,
+            OpKind::Cmp {
+                src1: saved_acc,
+                src2: SrcOperand::Reg(old_dst),
+                width,
+            },
+        ));
+
+        let matched = ctx.alloc_vreg();
+        ops.push(SmirOp::new(
+            OpId(ops.len() as u16),
+            pc,
+            OpKind::SetCC {
+                dst: matched,
+                cond: Condition::Eq,
+                width: OpWidth::W8,
+            },
+        ));
+
+        if let Some(addr) = dst_addr {
+            let new_dst = ctx.alloc_vreg();
+            ops.push(SmirOp::new(
+                OpId(ops.len() as u16),
+                pc,
+                OpKind::Select {
+                    dst: new_dst,
+                    cond: matched,
+                    src_true: saved_src,
+                    src_false: old_dst,
+                    width,
+                },
+            ));
+            ops.push(SmirOp::new(
+                OpId(ops.len() as u16),
+                pc,
+                OpKind::PredStore {
+                    src: SrcOperand::Reg(new_dst),
+                    cond: matched,
+                    addr,
+                    width: mem_width,
+                },
+            ));
+            ops.push(SmirOp::new(
+                OpId(ops.len() as u16),
+                pc,
+                OpKind::Select {
+                    dst: acc,
+                    cond: matched,
+                    src_true: saved_acc,
+                    src_false: old_dst,
+                    width,
+                },
+            ));
+        } else if let Some(dst) = dst_reg {
+            ops.push(SmirOp::new(
+                OpId(ops.len() as u16),
+                pc,
+                OpKind::Select {
+                    dst,
+                    cond: matched,
+                    src_true: saved_src,
+                    src_false: old_dst,
+                    width,
+                },
+            ));
+
+            if dst != acc {
+                ops.push(SmirOp::new(
+                    OpId(ops.len() as u16),
+                    pc,
+                    OpKind::Select {
+                        dst: acc,
+                        cond: matched,
+                        src_true: saved_acc,
+                        src_false: old_dst,
+                        width,
+                    },
+                ));
+            }
+        }
+
+        Ok(LiftResult::fallthrough(
+            ops,
+            prefix.cursor + modrm.bytes_consumed,
+        ))
+    }
+
     /// Lift SSE MOVDQA/MOVDQU (0F 6F/7F with prefixes)
     fn lift_sse_mov(
         &self,
@@ -8311,6 +8474,9 @@ impl X86_64Lifter {
                 self.lift_shld_shrd(opcode2, after_opcode, &prefix2, pc, ctx)
             }
 
+            // CMPXCHG r/m, r (0F B0/0F B1)
+            0xB0 | 0xB1 => self.lift_cmpxchg(opcode2, after_opcode, &prefix2, pc, ctx),
+
             // MOVZX r, r/m8 (0F B6)
             0xB6 => {
                 let op_size = prefix.op_size();
@@ -10232,6 +10398,287 @@ mod tests {
                 assert_eq!(*src2, x86_gpr(0));
             }
             other => panic!("expected imul r16, rax, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn lift_rex2_cmpxchg_registers_like_llvm() {
+        let mut lifter = X86_64Lifter::strict();
+        let mut ctx = LiftContext::new(SourceArch::X86_64);
+
+        // LLVM 23: `cmpxchgq %r17, %r16` => d5 d8 b1 c8.
+        let result = lifter
+            .lift_insn(0x1000, &[0xD5, 0xD8, 0xB1, 0xC8], &mut ctx)
+            .unwrap();
+        assert_eq!(result.bytes_consumed, 4);
+        assert_eq!(result.ops.len(), 7);
+
+        let saved_src = match &result.ops[0].kind {
+            OpKind::Mov {
+                dst,
+                src: SrcOperand::Reg(src),
+                width: OpWidth::W64,
+            } => {
+                assert_eq!(*src, x86_gpr(17));
+                *dst
+            }
+            other => panic!("expected CMPXCHG source snapshot, got {other:?}"),
+        };
+        let saved_acc = match &result.ops[1].kind {
+            OpKind::Mov {
+                dst,
+                src: SrcOperand::Reg(src),
+                width: OpWidth::W64,
+            } => {
+                assert_eq!(*src, x86_gpr(0));
+                *dst
+            }
+            other => panic!("expected CMPXCHG accumulator snapshot, got {other:?}"),
+        };
+        let old_dst = match &result.ops[2].kind {
+            OpKind::Mov {
+                dst,
+                src: SrcOperand::Reg(src),
+                width: OpWidth::W64,
+            } => {
+                assert_eq!(*src, x86_gpr(16));
+                *dst
+            }
+            other => panic!("expected CMPXCHG destination snapshot, got {other:?}"),
+        };
+        match &result.ops[3].kind {
+            OpKind::Cmp {
+                src1,
+                src2: SrcOperand::Reg(src2),
+                width: OpWidth::W64,
+            } => {
+                assert_eq!(*src1, saved_acc);
+                assert_eq!(*src2, old_dst);
+            }
+            other => panic!("expected CMPXCHG compare, got {other:?}"),
+        }
+        let matched = match &result.ops[4].kind {
+            OpKind::SetCC {
+                dst,
+                cond: Condition::Eq,
+                width: OpWidth::W8,
+            } => *dst,
+            other => panic!("expected CMPXCHG equality condition, got {other:?}"),
+        };
+        match &result.ops[5].kind {
+            OpKind::Select {
+                dst,
+                cond,
+                src_true,
+                src_false,
+                width: OpWidth::W64,
+            } => {
+                assert_eq!(*dst, x86_gpr(16));
+                assert_eq!(*cond, matched);
+                assert_eq!(*src_true, saved_src);
+                assert_eq!(*src_false, old_dst);
+            }
+            other => panic!("expected CMPXCHG destination select, got {other:?}"),
+        }
+        match &result.ops[6].kind {
+            OpKind::Select {
+                dst,
+                cond,
+                src_true,
+                src_false,
+                width: OpWidth::W64,
+            } => {
+                assert_eq!(*dst, x86_gpr(0));
+                assert_eq!(*cond, matched);
+                assert_eq!(*src_true, saved_acc);
+                assert_eq!(*src_false, old_dst);
+            }
+            other => panic!("expected CMPXCHG accumulator select, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn lift_rex2_cmpxchg_memory_egpr_sib_like_llvm() {
+        let mut lifter = X86_64Lifter::strict();
+        let mut ctx = LiftContext::new(SourceArch::X86_64);
+
+        // LLVM 23: `cmpxchgq %r18, 32(%r16,%r17,4)` => d5 f8 b1 54 88 20.
+        let result = lifter
+            .lift_insn(0x1000, &[0xD5, 0xF8, 0xB1, 0x54, 0x88, 0x20], &mut ctx)
+            .unwrap();
+        assert_eq!(result.bytes_consumed, 6);
+        assert_eq!(result.ops.len(), 8);
+
+        let saved_src = match &result.ops[0].kind {
+            OpKind::Mov {
+                dst,
+                src: SrcOperand::Reg(src),
+                width: OpWidth::W64,
+            } => {
+                assert_eq!(*src, x86_gpr(18));
+                *dst
+            }
+            other => panic!("expected CMPXCHG memory source snapshot, got {other:?}"),
+        };
+        let saved_acc = match &result.ops[1].kind {
+            OpKind::Mov {
+                dst,
+                src: SrcOperand::Reg(src),
+                width: OpWidth::W64,
+            } => {
+                assert_eq!(*src, x86_gpr(0));
+                *dst
+            }
+            other => panic!("expected CMPXCHG memory accumulator snapshot, got {other:?}"),
+        };
+        let old_dst = match &result.ops[2].kind {
+            OpKind::Load {
+                dst,
+                addr:
+                    Address::BaseIndexScale {
+                        base: Some(base),
+                        index,
+                        scale: 4,
+                        disp: 0x20,
+                        ..
+                    },
+                width: MemWidth::B8,
+                sign: SignExtend::Zero,
+            } => {
+                assert_eq!(*base, x86_gpr(16));
+                assert_eq!(*index, x86_gpr(17));
+                *dst
+            }
+            other => panic!("expected CMPXCHG memory destination load, got {other:?}"),
+        };
+        match &result.ops[3].kind {
+            OpKind::Cmp {
+                src1,
+                src2: SrcOperand::Reg(src2),
+                width: OpWidth::W64,
+            } => {
+                assert_eq!(*src1, saved_acc);
+                assert_eq!(*src2, old_dst);
+            }
+            other => panic!("expected CMPXCHG memory compare, got {other:?}"),
+        }
+        let matched = match &result.ops[4].kind {
+            OpKind::SetCC {
+                dst,
+                cond: Condition::Eq,
+                width: OpWidth::W8,
+            } => *dst,
+            other => panic!("expected CMPXCHG memory equality condition, got {other:?}"),
+        };
+        let new_dst = match &result.ops[5].kind {
+            OpKind::Select {
+                dst,
+                cond,
+                src_true,
+                src_false,
+                width: OpWidth::W64,
+            } => {
+                assert_eq!(*cond, matched);
+                assert_eq!(*src_true, saved_src);
+                assert_eq!(*src_false, old_dst);
+                *dst
+            }
+            other => panic!("expected CMPXCHG memory destination select, got {other:?}"),
+        };
+        match &result.ops[6].kind {
+            OpKind::PredStore {
+                src: SrcOperand::Reg(src),
+                cond,
+                addr:
+                    Address::BaseIndexScale {
+                        base: Some(base),
+                        index,
+                        scale: 4,
+                        disp: 0x20,
+                        ..
+                    },
+                width: MemWidth::B8,
+            } => {
+                assert_eq!(*src, new_dst);
+                assert_eq!(*cond, matched);
+                assert_eq!(*base, x86_gpr(16));
+                assert_eq!(*index, x86_gpr(17));
+            }
+            other => panic!("expected CMPXCHG predicated memory store, got {other:?}"),
+        }
+        match &result.ops[7].kind {
+            OpKind::Select {
+                dst,
+                cond,
+                src_true,
+                src_false,
+                width: OpWidth::W64,
+            } => {
+                assert_eq!(*dst, x86_gpr(0));
+                assert_eq!(*cond, matched);
+                assert_eq!(*src_true, saved_acc);
+                assert_eq!(*src_false, old_dst);
+            }
+            other => panic!("expected CMPXCHG memory accumulator select, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn lift_cmpxchg_accumulator_destination_alias_keeps_single_final_write() {
+        let mut lifter = X86_64Lifter::strict();
+        let mut ctx = LiftContext::new(SourceArch::X86_64);
+
+        // LLVM 23: `cmpxchgq %rcx, %rax` => 48 0f b1 c8.
+        let result = lifter
+            .lift_insn(0x1000, &[0x48, 0x0F, 0xB1, 0xC8], &mut ctx)
+            .unwrap();
+        assert_eq!(result.bytes_consumed, 4);
+        assert_eq!(result.ops.len(), 6);
+
+        let saved_src = match &result.ops[0].kind {
+            OpKind::Mov {
+                dst,
+                src: SrcOperand::Reg(src),
+                width: OpWidth::W64,
+            } => {
+                assert_eq!(*src, x86_gpr(1));
+                *dst
+            }
+            other => panic!("expected alias CMPXCHG source snapshot, got {other:?}"),
+        };
+        let old_dst = match &result.ops[2].kind {
+            OpKind::Mov {
+                dst,
+                src: SrcOperand::Reg(src),
+                width: OpWidth::W64,
+            } => {
+                assert_eq!(*src, x86_gpr(0));
+                *dst
+            }
+            other => panic!("expected alias CMPXCHG destination snapshot, got {other:?}"),
+        };
+        let matched = match &result.ops[4].kind {
+            OpKind::SetCC {
+                dst,
+                cond: Condition::Eq,
+                width: OpWidth::W8,
+            } => *dst,
+            other => panic!("expected alias CMPXCHG equality condition, got {other:?}"),
+        };
+        match &result.ops[5].kind {
+            OpKind::Select {
+                dst,
+                cond,
+                src_true,
+                src_false,
+                width: OpWidth::W64,
+            } => {
+                assert_eq!(*dst, x86_gpr(0));
+                assert_eq!(*cond, matched);
+                assert_eq!(*src_true, saved_src);
+                assert_eq!(*src_false, old_dst);
+            }
+            other => panic!("expected one final alias CMPXCHG write, got {other:?}"),
         }
     }
 
