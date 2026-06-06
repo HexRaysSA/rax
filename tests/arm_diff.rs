@@ -1061,7 +1061,22 @@ fn enc_hint(crm: u32, op2: u32) -> u32 {
 
 #[cfg(all(feature = "smir-jit", target_arch = "x86_64"))]
 fn enc_cfinv() -> u32 {
-    0xd500_401f
+    enc_flagm(0b000)
+}
+
+#[cfg(all(feature = "smir-jit", target_arch = "x86_64"))]
+fn enc_axflag() -> u32 {
+    enc_flagm(0b010)
+}
+
+#[cfg(all(feature = "smir-jit", target_arch = "x86_64"))]
+fn enc_xaflag() -> u32 {
+    enc_flagm(0b001)
+}
+
+#[cfg(all(feature = "smir-jit", target_arch = "x86_64"))]
+fn enc_flagm(op2: u32) -> u32 {
+    0xd500_401f | (op2 << 5)
 }
 
 #[cfg(all(feature = "smir-jit", target_arch = "x86_64"))]
@@ -1290,6 +1305,8 @@ fn smir_aarch64_x86_scalar_lowering_matches_qemu_oracle() {
         ("sevl", enc_hint(0b0000, 0b101)),
         ("csdb", enc_hint(0b0010, 0b100)),
         ("cfinv", enc_cfinv()),
+        ("axflag", enc_axflag()),
+        ("xaflag", enc_xaflag()),
     ];
 
     let mut rng = Rng::new(0x5a11_64c0_de);
@@ -1782,6 +1799,18 @@ fn smir_aarch64_x86_scalar_lowering_matches_qemu_oracle() {
     st.x[0] = 0xaaaa_bbbb_cccc_dddd;
     st.pstate = 0x2000_0000;
     batch.push(("cfinv_carry_clear_crafted".into(), enc_cfinv(), st));
+
+    for nzcv in 0..16 {
+        let mut st = ArmState::zeroed();
+        st.x[0] = 0xaaaa_bbbb_cccc_dddd;
+        st.pstate = (nzcv as u64) << 28;
+        batch.push((format!("axflag_nzcv_{nzcv:x}"), enc_axflag(), st));
+
+        let mut st = ArmState::zeroed();
+        st.x[0] = 0xaaaa_bbbb_cccc_dddd;
+        st.pstate = (nzcv as u64) << 28;
+        batch.push((format!("xaflag_nzcv_{nzcv:x}"), enc_xaflag(), st));
+    }
 
     let cases: Vec<(u32, u32, ArmState)> =
         batch.iter().map(|(_, insn, st)| (*insn, NOP, *st)).collect();

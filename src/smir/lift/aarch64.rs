@@ -17,6 +17,11 @@ use crate::smir::memory::MemoryError;
 use crate::smir::ops::{OpKind, SmirOp};
 use crate::smir::types::*;
 
+const NZCV_N: i64 = 1_i64 << 31;
+const NZCV_Z: i64 = 1_i64 << 30;
+const NZCV_C: i64 = 1_i64 << 29;
+const NZCV_V: i64 = 1_i64 << 28;
+
 // ============================================================================
 // AArch64 Lifter
 // ============================================================================
@@ -1675,10 +1680,18 @@ impl Aarch64Lifter {
                 push_op!(OpKind::Xor {
                     dst: VReg::Arch(ArchReg::Arm(ArmReg::Nzcv)),
                     src1: VReg::Arch(ArchReg::Arm(ArmReg::Nzcv)),
-                    src2: SrcOperand::Imm(1_i64 << 29),
+                    src2: SrcOperand::Imm(NZCV_C),
                     width: OpWidth::W32,
                     flags: FlagUpdate::None,
                 });
+            }
+
+            Mnemonic::AXFLAG => {
+                self.lift_axflag(pc, &mut ops, ctx);
+            }
+
+            Mnemonic::XAFLAG => {
+                self.lift_xaflag(pc, &mut ops, ctx);
             }
 
             Mnemonic::SVC => {
@@ -2346,6 +2359,320 @@ impl Aarch64Lifter {
         );
 
         Ok(())
+    }
+
+    fn lift_axflag(&self, pc: u64, ops: &mut Vec<SmirOp>, ctx: &mut LiftContext) {
+        let nzcv = VReg::Arch(ArchReg::Arm(ArmReg::Nzcv));
+
+        let v_to_z = ctx.alloc_vreg();
+        Self::push_lifted_op(
+            ops,
+            pc,
+            OpKind::Shl {
+                dst: v_to_z,
+                src: nzcv,
+                amount: SrcOperand::Imm(2),
+                width: OpWidth::W32,
+                flags: FlagUpdate::None,
+            },
+        );
+
+        let z_or_v = ctx.alloc_vreg();
+        Self::push_lifted_op(
+            ops,
+            pc,
+            OpKind::Or {
+                dst: z_or_v,
+                src1: nzcv,
+                src2: SrcOperand::Reg(v_to_z),
+                width: OpWidth::W32,
+                flags: FlagUpdate::None,
+            },
+        );
+
+        let z_bit = ctx.alloc_vreg();
+        Self::push_lifted_op(
+            ops,
+            pc,
+            OpKind::And {
+                dst: z_bit,
+                src1: z_or_v,
+                src2: SrcOperand::Imm(NZCV_Z),
+                width: OpWidth::W32,
+                flags: FlagUpdate::None,
+            },
+        );
+
+        let v_to_c = ctx.alloc_vreg();
+        Self::push_lifted_op(
+            ops,
+            pc,
+            OpKind::Shl {
+                dst: v_to_c,
+                src: nzcv,
+                amount: SrcOperand::Imm(1),
+                width: OpWidth::W32,
+                flags: FlagUpdate::None,
+            },
+        );
+
+        let c_raw = ctx.alloc_vreg();
+        Self::push_lifted_op(
+            ops,
+            pc,
+            OpKind::And {
+                dst: c_raw,
+                src1: nzcv,
+                src2: SrcOperand::Imm(NZCV_C),
+                width: OpWidth::W32,
+                flags: FlagUpdate::None,
+            },
+        );
+
+        let c_bit = ctx.alloc_vreg();
+        Self::push_lifted_op(
+            ops,
+            pc,
+            OpKind::AndNot {
+                dst: c_bit,
+                src1: c_raw,
+                src2: SrcOperand::Reg(v_to_c),
+                width: OpWidth::W32,
+                flags: FlagUpdate::None,
+            },
+        );
+
+        let result = ctx.alloc_vreg();
+        Self::push_lifted_op(
+            ops,
+            pc,
+            OpKind::Or {
+                dst: result,
+                src1: z_bit,
+                src2: SrcOperand::Reg(c_bit),
+                width: OpWidth::W32,
+                flags: FlagUpdate::None,
+            },
+        );
+
+        Self::push_lifted_op(
+            ops,
+            pc,
+            OpKind::Mov {
+                dst: nzcv,
+                src: SrcOperand::Reg(result),
+                width: OpWidth::W32,
+            },
+        );
+    }
+
+    fn lift_xaflag(&self, pc: u64, ops: &mut Vec<SmirOp>, ctx: &mut LiftContext) {
+        let nzcv = VReg::Arch(ArchReg::Arm(ArmReg::Nzcv));
+
+        let shl1 = ctx.alloc_vreg();
+        Self::push_lifted_op(
+            ops,
+            pc,
+            OpKind::Shl {
+                dst: shl1,
+                src: nzcv,
+                amount: SrcOperand::Imm(1),
+                width: OpWidth::W32,
+                flags: FlagUpdate::None,
+            },
+        );
+
+        let shl2 = ctx.alloc_vreg();
+        Self::push_lifted_op(
+            ops,
+            pc,
+            OpKind::Shl {
+                dst: shl2,
+                src: nzcv,
+                amount: SrcOperand::Imm(2),
+                width: OpWidth::W32,
+                flags: FlagUpdate::None,
+            },
+        );
+
+        let has_c_or_z_as_n = ctx.alloc_vreg();
+        Self::push_lifted_op(
+            ops,
+            pc,
+            OpKind::Or {
+                dst: has_c_or_z_as_n,
+                src1: shl1,
+                src2: SrcOperand::Reg(shl2),
+                width: OpWidth::W32,
+                flags: FlagUpdate::None,
+            },
+        );
+
+        let n_bit = ctx.alloc_vreg();
+        Self::push_lifted_op(
+            ops,
+            pc,
+            OpKind::AndNot {
+                dst: n_bit,
+                src1: VReg::Imm(NZCV_N),
+                src2: SrcOperand::Reg(has_c_or_z_as_n),
+                width: OpWidth::W32,
+                flags: FlagUpdate::None,
+            },
+        );
+
+        let z_raw = ctx.alloc_vreg();
+        Self::push_lifted_op(
+            ops,
+            pc,
+            OpKind::And {
+                dst: z_raw,
+                src1: nzcv,
+                src2: SrcOperand::Imm(NZCV_Z),
+                width: OpWidth::W32,
+                flags: FlagUpdate::None,
+            },
+        );
+
+        let z_bit = ctx.alloc_vreg();
+        Self::push_lifted_op(
+            ops,
+            pc,
+            OpKind::And {
+                dst: z_bit,
+                src1: z_raw,
+                src2: SrcOperand::Reg(shl1),
+                width: OpWidth::W32,
+                flags: FlagUpdate::None,
+            },
+        );
+
+        let shr1 = ctx.alloc_vreg();
+        Self::push_lifted_op(
+            ops,
+            pc,
+            OpKind::Shr {
+                dst: shr1,
+                src: nzcv,
+                amount: SrcOperand::Imm(1),
+                width: OpWidth::W32,
+                flags: FlagUpdate::None,
+            },
+        );
+
+        let c_or_z = ctx.alloc_vreg();
+        Self::push_lifted_op(
+            ops,
+            pc,
+            OpKind::Or {
+                dst: c_or_z,
+                src1: nzcv,
+                src2: SrcOperand::Reg(shr1),
+                width: OpWidth::W32,
+                flags: FlagUpdate::None,
+            },
+        );
+
+        let c_bit = ctx.alloc_vreg();
+        Self::push_lifted_op(
+            ops,
+            pc,
+            OpKind::And {
+                dst: c_bit,
+                src1: c_or_z,
+                src2: SrcOperand::Imm(NZCV_C),
+                width: OpWidth::W32,
+                flags: FlagUpdate::None,
+            },
+        );
+
+        let shr2 = ctx.alloc_vreg();
+        Self::push_lifted_op(
+            ops,
+            pc,
+            OpKind::Shr {
+                dst: shr2,
+                src: nzcv,
+                amount: SrcOperand::Imm(2),
+                width: OpWidth::W32,
+                flags: FlagUpdate::None,
+            },
+        );
+
+        let v_unmasked = ctx.alloc_vreg();
+        Self::push_lifted_op(
+            ops,
+            pc,
+            OpKind::AndNot {
+                dst: v_unmasked,
+                src1: shr2,
+                src2: SrcOperand::Reg(shr1),
+                width: OpWidth::W32,
+                flags: FlagUpdate::None,
+            },
+        );
+
+        let v_bit = ctx.alloc_vreg();
+        Self::push_lifted_op(
+            ops,
+            pc,
+            OpKind::And {
+                dst: v_bit,
+                src1: v_unmasked,
+                src2: SrcOperand::Imm(NZCV_V),
+                width: OpWidth::W32,
+                flags: FlagUpdate::None,
+            },
+        );
+
+        let nz = ctx.alloc_vreg();
+        Self::push_lifted_op(
+            ops,
+            pc,
+            OpKind::Or {
+                dst: nz,
+                src1: n_bit,
+                src2: SrcOperand::Reg(z_bit),
+                width: OpWidth::W32,
+                flags: FlagUpdate::None,
+            },
+        );
+
+        let cv = ctx.alloc_vreg();
+        Self::push_lifted_op(
+            ops,
+            pc,
+            OpKind::Or {
+                dst: cv,
+                src1: c_bit,
+                src2: SrcOperand::Reg(v_bit),
+                width: OpWidth::W32,
+                flags: FlagUpdate::None,
+            },
+        );
+
+        let result = ctx.alloc_vreg();
+        Self::push_lifted_op(
+            ops,
+            pc,
+            OpKind::Or {
+                dst: result,
+                src1: nz,
+                src2: SrcOperand::Reg(cv),
+                width: OpWidth::W32,
+                flags: FlagUpdate::None,
+            },
+        );
+
+        Self::push_lifted_op(
+            ops,
+            pc,
+            OpKind::Mov {
+                dst: nzcv,
+                src: SrcOperand::Reg(result),
+                width: OpWidth::W32,
+            },
+        );
     }
 
     fn lift_cond_select(
