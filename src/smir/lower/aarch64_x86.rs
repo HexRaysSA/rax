@@ -814,6 +814,33 @@ impl Aarch64X86_64Lowerer {
         }
     }
 
+    fn validate_bitfield_args(
+        op: &'static str,
+        lsb: u8,
+        width_bits: u8,
+        op_width: OpWidth,
+    ) -> Result<u8, LowerError> {
+        Self::ensure_bitmanip_width(op_width, op)?;
+        let op_bits = op_width.bits() as u8;
+        if width_bits == 0 || u16::from(lsb) + u16::from(width_bits) > u16::from(op_bits) {
+            return Err(LowerError::UnsupportedOp {
+                op: format!(
+                    "AArch64 {op} field lsb {lsb} width {width_bits} op_width {op_width:?}"
+                ),
+            });
+        }
+        Ok(op_bits)
+    }
+
+    fn low_bit_mask(width_bits: u8, op_width: OpWidth) -> u64 {
+        let op_bits = op_width.bits() as u8;
+        if width_bits >= op_bits {
+            op_width.mask()
+        } else {
+            (1u64 << width_bits) - 1
+        }
+    }
+
     fn lower_bswap(&mut self, dst: VReg, src: VReg, width: OpWidth) -> Result<(), LowerError> {
         Self::ensure_bitmanip_width(width, "Bswap")?;
         self.load_vreg_to(src, ACC, width)?;
@@ -822,6 +849,78 @@ impl Aarch64X86_64Lowerer {
             e.emit_bswap(ACC, width);
         }
         self.store_reg_to(dst, ACC, width)
+    }
+
+    fn lower_bfx(
+        &mut self,
+        dst: VReg,
+        src: VReg,
+        lsb: u8,
+        width_bits: u8,
+        sign_extend: bool,
+        op_width: OpWidth,
+    ) -> Result<(), LowerError> {
+        let op_bits = Self::validate_bitfield_args("Bfx", lsb, width_bits, op_width)?;
+        self.load_vreg_to(src, ACC, op_width)?;
+        {
+            let mut e = X86Emitter::new(&mut self.code);
+            if lsb != 0 {
+                e.emit_shr_ri(ACC, lsb, op_width);
+            }
+        }
+
+        if width_bits < op_bits {
+            if sign_extend {
+                let shift = op_bits - width_bits;
+                let mut e = X86Emitter::new(&mut self.code);
+                e.emit_shl_ri(ACC, shift, op_width);
+                e.emit_sar_ri(ACC, shift, op_width);
+            } else {
+                self.emit_mov_imm(B1, Self::low_bit_mask(width_bits, op_width) as i64, op_width);
+                let mut e = X86Emitter::new(&mut self.code);
+                e.emit_and_rr(ACC, B1, op_width);
+            }
+        }
+
+        self.store_reg_to(dst, ACC, op_width)
+    }
+
+    fn lower_bfi(
+        &mut self,
+        dst: VReg,
+        dst_in: VReg,
+        src: VReg,
+        lsb: u8,
+        width_bits: u8,
+        op_width: OpWidth,
+    ) -> Result<(), LowerError> {
+        let op_bits = Self::validate_bitfield_args("Bfi", lsb, width_bits, op_width)?;
+        if width_bits == op_bits {
+            self.load_vreg_to(src, ACC, op_width)?;
+            return self.store_reg_to(dst, ACC, op_width);
+        }
+
+        let low_mask = Self::low_bit_mask(width_bits, op_width);
+        let field_mask = low_mask << lsb;
+        let clear_mask = (!field_mask) & op_width.mask();
+
+        self.load_vreg_to(dst_in, ACC, op_width)?;
+        self.load_vreg_to(src, RHS, op_width)?;
+        self.emit_mov_imm(B1, low_mask as i64, op_width);
+        {
+            let mut e = X86Emitter::new(&mut self.code);
+            e.emit_and_rr(RHS, B1, op_width);
+            if lsb != 0 {
+                e.emit_shl_ri(RHS, lsb, op_width);
+            }
+        }
+        self.emit_mov_imm(B1, clear_mask as i64, op_width);
+        {
+            let mut e = X86Emitter::new(&mut self.code);
+            e.emit_and_rr(ACC, B1, op_width);
+            e.emit_or_rr(ACC, RHS, op_width);
+        }
+        self.store_reg_to(dst, ACC, op_width)
     }
 
     fn lower_clz(&mut self, dst: VReg, src: VReg, width: OpWidth) -> Result<(), LowerError> {
@@ -1113,6 +1212,22 @@ impl Aarch64X86_64Lowerer {
             OpKind::Clz { dst, src, width } => self.lower_clz(*dst, *src, *width)?,
             OpKind::Bswap { dst, src, width } => self.lower_bswap(*dst, *src, *width)?,
             OpKind::Rbit { dst, src, width } => self.lower_rbit(*dst, *src, *width)?,
+            OpKind::Bfx {
+                dst,
+                src,
+                lsb,
+                width_bits,
+                sign_extend,
+                op_width,
+            } => self.lower_bfx(*dst, *src, *lsb, *width_bits, *sign_extend, *op_width)?,
+            OpKind::Bfi {
+                dst,
+                dst_in,
+                src,
+                lsb,
+                width_bits,
+                op_width,
+            } => self.lower_bfi(*dst, *dst_in, *src, *lsb, *width_bits, *op_width)?,
             OpKind::Shl {
                 dst,
                 src,

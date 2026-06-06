@@ -36,6 +36,14 @@ enum RevKind {
     Words,
 }
 
+#[derive(Clone, Copy)]
+enum BitfieldKind {
+    Extract { sign_extend: bool },
+    Insert,
+    InsertLow,
+    InsertZero { sign_extend: bool },
+}
+
 /// AArch64 instruction lifter
 pub struct Aarch64Lifter {
     /// Whether to use strict mode (fail on unsupported instructions)
@@ -1068,6 +1076,54 @@ impl Aarch64Lifter {
                 self.lift_extract(insn, pc, &mut ops, ctx)?;
             }
 
+            Mnemonic::UBFX => {
+                self.lift_bitfield(
+                    insn,
+                    BitfieldKind::Extract { sign_extend: false },
+                    pc,
+                    &mut ops,
+                    ctx,
+                )?;
+            }
+
+            Mnemonic::SBFX => {
+                self.lift_bitfield(
+                    insn,
+                    BitfieldKind::Extract { sign_extend: true },
+                    pc,
+                    &mut ops,
+                    ctx,
+                )?;
+            }
+
+            Mnemonic::BFI | Mnemonic::BFC => {
+                self.lift_bitfield(insn, BitfieldKind::Insert, pc, &mut ops, ctx)?;
+            }
+
+            Mnemonic::BFXIL => {
+                self.lift_bitfield(insn, BitfieldKind::InsertLow, pc, &mut ops, ctx)?;
+            }
+
+            Mnemonic::UBFIZ => {
+                self.lift_bitfield(
+                    insn,
+                    BitfieldKind::InsertZero { sign_extend: false },
+                    pc,
+                    &mut ops,
+                    ctx,
+                )?;
+            }
+
+            Mnemonic::SBFIZ => {
+                self.lift_bitfield(
+                    insn,
+                    BitfieldKind::InsertZero { sign_extend: true },
+                    pc,
+                    &mut ops,
+                    ctx,
+                )?;
+            }
+
             // =================================================================
             // Conditional Compare
             // =================================================================
@@ -1794,6 +1850,158 @@ impl Aarch64Lifter {
                     flags: FlagUpdate::None,
                 },
             );
+        }
+
+        Ok(())
+    }
+
+    fn lift_bitfield(
+        &self,
+        insn: &DecodedInsn,
+        kind: BitfieldKind,
+        pc: u64,
+        ops: &mut Vec<SmirOp>,
+        ctx: &mut LiftContext,
+    ) -> Result<(), LiftError> {
+        let invalid = || LiftError::Internal("invalid bitfield operands".to_string());
+        let (rd, rn, immr, imms) = match (
+            insn.operands.get(0),
+            insn.operands.get(1),
+            insn.operands.get(2),
+            insn.operands.get(3),
+        ) {
+            (
+                Some(Operand::Reg(rd)),
+                Some(Operand::Reg(rn)),
+                Some(Operand::Imm(immr)),
+                Some(Operand::Imm(imms)),
+            ) => (rd, rn, immr.value, imms.value),
+            _ => return Err(invalid()),
+        };
+        if !(0..=63).contains(&immr) || !(0..=63).contains(&imms) {
+            return Err(invalid());
+        }
+
+        let dst = self.dst_reg(rd, ctx);
+        let dst_in = self.arm_reg(rd);
+        let src = self.arm_reg(rn);
+        let width = self.reg_width(rd);
+        let reg_bits = width.bits() as u8;
+        let immr = immr as u8;
+        let imms = imms as u8;
+        if immr >= reg_bits || imms >= reg_bits {
+            return Err(invalid());
+        }
+
+        match kind {
+            BitfieldKind::Extract { sign_extend } => {
+                if imms < immr {
+                    return Err(invalid());
+                }
+                Self::push_lifted_op(
+                    ops,
+                    pc,
+                    OpKind::Bfx {
+                        dst,
+                        src,
+                        lsb: immr,
+                        width_bits: imms - immr + 1,
+                        sign_extend,
+                        op_width: width,
+                    },
+                );
+            }
+            BitfieldKind::Insert => {
+                if imms >= immr {
+                    return Err(invalid());
+                }
+                Self::push_lifted_op(
+                    ops,
+                    pc,
+                    OpKind::Bfi {
+                        dst,
+                        dst_in,
+                        src,
+                        lsb: reg_bits - immr,
+                        width_bits: imms + 1,
+                        op_width: width,
+                    },
+                );
+            }
+            BitfieldKind::InsertLow => {
+                if imms < immr {
+                    return Err(invalid());
+                }
+                let width_bits = imms - immr + 1;
+                if width_bits == reg_bits {
+                    Self::push_lifted_op(
+                        ops,
+                        pc,
+                        OpKind::Mov {
+                            dst,
+                            src: SrcOperand::Reg(src),
+                            width,
+                        },
+                    );
+                } else {
+                    let extracted = ctx.alloc_vreg();
+                    Self::push_lifted_op(
+                        ops,
+                        pc,
+                        OpKind::Bfx {
+                            dst: extracted,
+                            src,
+                            lsb: immr,
+                            width_bits,
+                            sign_extend: false,
+                            op_width: width,
+                        },
+                    );
+                    Self::push_lifted_op(
+                        ops,
+                        pc,
+                        OpKind::Bfi {
+                            dst,
+                            dst_in,
+                            src: extracted,
+                            lsb: 0,
+                            width_bits,
+                            op_width: width,
+                        },
+                    );
+                }
+            }
+            BitfieldKind::InsertZero { sign_extend } => {
+                if imms >= immr {
+                    return Err(invalid());
+                }
+                let lsb = reg_bits - immr;
+                let width_bits = imms + 1;
+                let extracted = ctx.alloc_vreg();
+                Self::push_lifted_op(
+                    ops,
+                    pc,
+                    OpKind::Bfx {
+                        dst: extracted,
+                        src,
+                        lsb: 0,
+                        width_bits,
+                        sign_extend,
+                        op_width: width,
+                    },
+                );
+                Self::push_lifted_op(
+                    ops,
+                    pc,
+                    OpKind::Shl {
+                        dst,
+                        src: extracted,
+                        amount: SrcOperand::Imm(i64::from(lsb)),
+                        width,
+                        flags: FlagUpdate::None,
+                    },
+                );
+            }
         }
 
         Ok(())
