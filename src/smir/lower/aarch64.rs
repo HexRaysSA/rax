@@ -7,6 +7,7 @@
 
 use std::collections::HashMap;
 
+use crate::smir::flags::FlagUpdate;
 use crate::smir::ir::{SmirBlock, SmirFunction, Terminator};
 use crate::smir::ops::{OpKind, SmirOp};
 use crate::smir::types::{
@@ -1748,6 +1749,32 @@ impl Aarch64Lowerer {
         let src = Self::gpr(src)?;
         self.emit_dp1(dst, src, 0b000000, width)?;
         self.emit_dp1(dst, dst, 0b000100, width)
+    }
+
+    fn lower_bsf(
+        &mut self,
+        dst: VReg,
+        src: VReg,
+        width: OpWidth,
+        flags: FlagUpdate,
+    ) -> Result<(), LowerError> {
+        if flags.updates_any() {
+            return Err(LowerError::UnsupportedOp {
+                op: "AArch64 native flag-setting Bsf".into(),
+            });
+        }
+
+        let mask_bits = match width {
+            OpWidth::W32 => 5,
+            OpWidth::W64 => 6,
+            other => {
+                return Err(LowerError::UnsupportedOp {
+                    op: format!("AArch64 native Bsf width {other:?}"),
+                });
+            }
+        };
+        self.lower_ctz(dst, src, width)?;
+        self.lower_bfx(dst, dst, 0, mask_bits, false, width)
     }
 
     fn lower_cls(&mut self, dst: VReg, src: VReg, width: OpWidth) -> Result<(), LowerError> {
@@ -3998,6 +4025,12 @@ impl Aarch64Lowerer {
             OpKind::Test { src1, src2, width } => self.lower_test(*src1, src2, *width),
             OpKind::Clz { dst, src, width } => self.lower_clz(*dst, *src, *width),
             OpKind::Ctz { dst, src, width } => self.lower_ctz(*dst, *src, *width),
+            OpKind::Bsf {
+                dst,
+                src,
+                width,
+                flags,
+            } => self.lower_bsf(*dst, *src, *width, *flags),
             OpKind::Bswap { dst, src, width } => self.lower_bswap(*dst, *src, *width),
             OpKind::Rbit { dst, src, width } => self.lower_rbit(*dst, *src, *width),
             OpKind::Bfx {
@@ -4408,14 +4441,19 @@ mod tests {
         enc_dp1_regs(sf, opcode, 1, 0)
     }
 
-    fn enc_bitfield(sf: u32, opc: u32, immr: u32, imms: u32) -> u32 {
+    fn enc_bitfield_regs(sf: u32, opc: u32, immr: u32, imms: u32, rn: u32, rd: u32) -> u32 {
         (sf << 31)
             | (opc << 29)
             | (0b100110 << 23)
             | (sf << 22)
             | (immr << 16)
             | (imms << 10)
-            | (1 << 5)
+            | (rn << 5)
+            | rd
+    }
+
+    fn enc_bitfield(sf: u32, opc: u32, immr: u32, imms: u32) -> u32 {
+        enc_bitfield_regs(sf, opc, immr, imms, 1, 0)
     }
 
     fn enc_addsub_imm(sf: u32, op: u32, s: u32, imm12: u32) -> u32 {
@@ -5665,6 +5703,60 @@ mod tests {
     }
 
     #[test]
+    fn lowers_bsf_x_as_rbit_clz_ubfx() {
+        let mut builder = FunctionBuilder::new(FunctionId(0), 0);
+        builder.push_op(
+            0,
+            OpKind::Bsf {
+                dst: x(0),
+                src: x(1),
+                width: OpWidth::W64,
+                flags: FlagUpdate::None,
+            },
+        );
+        builder.set_terminator(Terminator::Return { values: vec![] });
+        let func = builder.finish();
+
+        let mut lowerer = Aarch64Lowerer::new();
+        lowerer.lower_function(&func).unwrap();
+        let code = lowerer.finalize().unwrap();
+
+        let mut expected = Vec::new();
+        expected.extend_from_slice(&enc_dp1_regs(1, 0b000000, 1, 0).to_le_bytes());
+        expected.extend_from_slice(&enc_dp1_regs(1, 0b000100, 0, 0).to_le_bytes());
+        expected.extend_from_slice(&enc_bitfield_regs(1, 0b10, 0, 5, 0, 0).to_le_bytes());
+        expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
+        assert_eq!(code, expected);
+    }
+
+    #[test]
+    fn lowers_bsf_w_as_rbit_clz_ubfx_zero_ext() {
+        let mut builder = FunctionBuilder::new(FunctionId(0), 0);
+        builder.push_op(
+            0,
+            OpKind::Bsf {
+                dst: x(0),
+                src: x(1),
+                width: OpWidth::W32,
+                flags: FlagUpdate::None,
+            },
+        );
+        builder.set_terminator(Terminator::Return { values: vec![] });
+        let func = builder.finish();
+
+        let mut lowerer = Aarch64Lowerer::new();
+        lowerer.lower_function(&func).unwrap();
+        let code = lowerer.finalize().unwrap();
+
+        let mut expected = Vec::new();
+        expected.extend_from_slice(&enc_dp1_regs(0, 0b000000, 1, 0).to_le_bytes());
+        expected.extend_from_slice(&enc_dp1_regs(0, 0b000100, 0, 0).to_le_bytes());
+        expected.extend_from_slice(&enc_bitfield_regs(0, 0b10, 0, 4, 0, 0).to_le_bytes());
+        expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
+        assert_eq!(code, expected);
+    }
+
+    #[test]
     fn lowers_ctz_in_place_as_rbit_clz() {
         let mut builder = FunctionBuilder::new(FunctionId(0), 0);
         builder.push_op(
@@ -6528,6 +6620,46 @@ mod tests {
                 dst: x(0),
                 src: x(1),
                 width: OpWidth::W16,
+            },
+        );
+        builder.set_terminator(Terminator::Return { values: vec![] });
+        let func = builder.finish();
+
+        let mut lowerer = Aarch64Lowerer::new();
+        let err = lowerer.lower_function(&func).unwrap_err();
+        assert!(matches!(err, LowerError::UnsupportedOp { .. }));
+    }
+
+    #[test]
+    fn rejects_bsf_flag_setting_lowering() {
+        let mut builder = FunctionBuilder::new(FunctionId(0), 0);
+        builder.push_op(
+            0,
+            OpKind::Bsf {
+                dst: x(0),
+                src: x(1),
+                width: OpWidth::W64,
+                flags: FlagUpdate::All,
+            },
+        );
+        builder.set_terminator(Terminator::Return { values: vec![] });
+        let func = builder.finish();
+
+        let mut lowerer = Aarch64Lowerer::new();
+        let err = lowerer.lower_function(&func).unwrap_err();
+        assert!(matches!(err, LowerError::UnsupportedOp { .. }));
+    }
+
+    #[test]
+    fn rejects_bsf_w16_partial_width_lowering() {
+        let mut builder = FunctionBuilder::new(FunctionId(0), 0);
+        builder.push_op(
+            0,
+            OpKind::Bsf {
+                dst: x(0),
+                src: x(1),
+                width: OpWidth::W16,
+                flags: FlagUpdate::None,
             },
         );
         builder.set_terminator(Terminator::Return { values: vec![] });
