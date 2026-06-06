@@ -8609,7 +8609,8 @@ mod tests {
         let mut lifter = X86_64Lifter::strict();
         let mut ctx = LiftContext::new(SourceArch::X86_64);
 
-        // LLVM 20: `push r16`
+        // LLVM 20 accepts this non-canonical payload and disassembles it as
+        // `pushp %r16`; the canonical encoding below keeps the APX oracle exact.
         let result = lifter
             .lift_insn(0x1000, &[0xD5, 0x10, 0x50], &mut ctx)
             .unwrap();
@@ -8624,7 +8625,22 @@ mod tests {
             other => panic!("expected push r16 store, got {other:?}"),
         }
 
-        // LLVM 20: `pop r31`
+        // LLVM 20: `pushp %r16` => d5 18 50.
+        let result = lifter
+            .lift_insn(0x1000, &[0xD5, 0x18, 0x50], &mut ctx)
+            .unwrap();
+        assert_eq!(result.bytes_consumed, 3);
+        match &result.ops[1].kind {
+            OpKind::Store {
+                src,
+                addr: Address::Direct(_),
+                width: MemWidth::B8,
+            } => assert_eq!(*src, x86_gpr(16)),
+            other => panic!("expected pushp r16 store, got {other:?}"),
+        }
+
+        // LLVM 20 accepts this non-canonical payload and disassembles it as
+        // `popp %r31`; the canonical encoding for a concrete register follows.
         let result = lifter
             .lift_insn(0x1000, &[0xD5, 0x11, 0x5F], &mut ctx)
             .unwrap();
@@ -8637,6 +8653,21 @@ mod tests {
                 sign: SignExtend::Zero,
             } => assert_eq!(*dst, x86_gpr(31)),
             other => panic!("expected pop r31 load, got {other:?}"),
+        }
+
+        // LLVM 20: `popp %r16` => d5 18 58.
+        let result = lifter
+            .lift_insn(0x1000, &[0xD5, 0x18, 0x58], &mut ctx)
+            .unwrap();
+        assert_eq!(result.bytes_consumed, 3);
+        match &result.ops[0].kind {
+            OpKind::Load {
+                dst,
+                addr: Address::Direct(_),
+                width: MemWidth::B8,
+                sign: SignExtend::Zero,
+            } => assert_eq!(*dst, x86_gpr(16)),
+            other => panic!("expected popp r16 load, got {other:?}"),
         }
     }
 
