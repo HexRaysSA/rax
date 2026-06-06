@@ -782,6 +782,10 @@ impl Aarch64Lowerer {
         self.emit_dp1(Self::dst_gpr(dst)?, Self::gpr(src)?, 0b000100, width)
     }
 
+    fn lower_cls(&mut self, dst: VReg, src: VReg, width: OpWidth) -> Result<(), LowerError> {
+        self.emit_dp1(Self::dst_gpr(dst)?, Self::gpr(src)?, 0b000101, width)
+    }
+
     fn lower_rbit(&mut self, dst: VReg, src: VReg, width: OpWidth) -> Result<(), LowerError> {
         self.emit_dp1(Self::dst_gpr(dst)?, Self::gpr(src)?, 0b000000, width)
     }
@@ -1531,6 +1535,76 @@ impl Aarch64Lowerer {
         Ok(None)
     }
 
+    fn try_lower_fused_cls(&mut self, ops: &[SmirOp]) -> Result<Option<usize>, LowerError> {
+        let [
+            SmirOp {
+                kind:
+                    OpKind::Sar {
+                        dst: sign_mask,
+                        src,
+                        amount,
+                        width,
+                        flags,
+                    },
+                ..
+            },
+            SmirOp {
+                kind:
+                    OpKind::Xor {
+                        dst: normalized,
+                        src1: xor_src,
+                        src2,
+                        width: xor_width,
+                        flags: xor_flags,
+                    },
+                ..
+            },
+            SmirOp {
+                kind:
+                    OpKind::Clz {
+                        dst: leading,
+                        src: clz_src,
+                        width: clz_width,
+                    },
+                ..
+            },
+            SmirOp {
+                kind:
+                    OpKind::Sub {
+                        dst,
+                        src1: sub_src,
+                        src2: sub_amount,
+                        width: sub_width,
+                        flags: sub_flags,
+                    },
+                ..
+            },
+            ..
+        ] = ops
+        else {
+            return Ok(None);
+        };
+
+        if flags.updates_any()
+            || xor_flags.updates_any()
+            || sub_flags.updates_any()
+            || xor_width != width
+            || clz_width != width
+            || sub_width != width
+            || !Self::src_imm_eq(amount, i64::from(width.bits() - 1))
+            || xor_src != src
+            || !Self::src_reg_eq(src2, *sign_mask)
+            || clz_src != normalized
+            || sub_src != leading
+            || !Self::src_imm_eq(sub_amount, 1)
+        {
+            return Ok(None);
+        }
+
+        self.lower_cls(*dst, *src, *width)?;
+        Ok(Some(4))
+    }
+
     fn try_lower_fused_sysreg_access(
         &mut self,
         ops: &[SmirOp],
@@ -2066,6 +2140,10 @@ impl Aarch64Lowerer {
         self.block_offsets.insert(block.id, self.code.position());
         let mut idx = 0;
         while idx < block.ops.len() {
+            if let Some(consumed) = self.try_lower_fused_cls(&block.ops[idx..])? {
+                idx += consumed;
+                continue;
+            }
             if let Some(consumed) = self.try_lower_fused_flagm(&block.ops[idx..])? {
                 idx += consumed;
                 continue;
