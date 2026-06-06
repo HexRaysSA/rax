@@ -2387,15 +2387,34 @@ impl Aarch64Lowerer {
         index: VReg,
         width: OpWidth,
     ) -> Result<(), LowerError> {
-        let guard_bits: &[u32] = match width {
-            OpWidth::W32 => &[5, 6, 7],
-            OpWidth::W64 => &[6, 7],
+        let (bits, guard_bits): (u32, &[u32]) = match width {
+            OpWidth::W32 => (32, &[5, 6, 7]),
+            OpWidth::W64 => (64, &[6, 7]),
             other => {
                 return Err(LowerError::UnsupportedOp {
                     op: format!("AArch64 native Bzhi width {other:?}"),
                 });
             }
         };
+        if let VReg::Imm(value) = index {
+            let index = ((value as u64) & 0xff) as u32;
+            let dst_reg = Self::dst_gpr(dst)?;
+            if index == 0 {
+                return self.emit_mov_imm(dst_reg, 0, width);
+            }
+            if index >= bits {
+                return self.emit_mov_reg(dst_reg, Self::gpr(src)?, width);
+            }
+
+            let mask = (1_u64 << index) - 1;
+            let mask = match width {
+                OpWidth::W32 => SrcOperand::Imm(mask as u32 as i64),
+                OpWidth::W64 => SrcOperand::Imm64(mask as i64),
+                _ => unreachable!(),
+            };
+            return self.lower_logic(dst, src, &mask, 0b00, false, false, width);
+        }
+
         let dst = Self::dst_gpr(dst)?;
         let src = Self::gpr(src)?;
         let index = Self::gpr(index)?;
@@ -8417,6 +8436,81 @@ mod tests {
         expected.extend_from_slice(&enc_logical_reg_n(1, 0b00, 1, 0, 1, 0).to_le_bytes());
         expected.extend_from_slice(&enc_b(2).to_le_bytes());
         expected.extend_from_slice(&enc_mov_reg(1, 0, 1).to_le_bytes());
+        expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
+        assert_eq!(code, expected);
+    }
+
+    #[test]
+    fn lowers_bzhi_x_imm_index_as_and_mask_in_place() {
+        let mut builder = FunctionBuilder::new(FunctionId(0), 0);
+        builder.push_op(
+            0,
+            OpKind::Bzhi {
+                dst: x(0),
+                src: x(0),
+                index: VReg::Imm(13),
+                width: OpWidth::W64,
+            },
+        );
+        builder.set_terminator(Terminator::Return { values: vec![] });
+        let func = builder.finish();
+
+        let mut lowerer = Aarch64Lowerer::new();
+        lowerer.lower_function(&func).unwrap();
+        let code = lowerer.finalize().unwrap();
+
+        let mut expected = Vec::new();
+        expected.extend_from_slice(&enc_logical_imm(1, 0b00, 1, 0, 12, 0, 0).to_le_bytes());
+        expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
+        assert_eq!(code, expected);
+    }
+
+    #[test]
+    fn lowers_bzhi_x_imm_index_zero_as_zero() {
+        let mut builder = FunctionBuilder::new(FunctionId(0), 0);
+        builder.push_op(
+            0,
+            OpKind::Bzhi {
+                dst: x(0),
+                src: x(0),
+                index: VReg::Imm(0),
+                width: OpWidth::W64,
+            },
+        );
+        builder.set_terminator(Terminator::Return { values: vec![] });
+        let func = builder.finish();
+
+        let mut lowerer = Aarch64Lowerer::new();
+        lowerer.lower_function(&func).unwrap();
+        let code = lowerer.finalize().unwrap();
+
+        let mut expected = Vec::new();
+        expected.extend_from_slice(&enc_mov_wide(1, 0b10, 0, 0, 0).to_le_bytes());
+        expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
+        assert_eq!(code, expected);
+    }
+
+    #[test]
+    fn lowers_bzhi_w_imm_index_at_width_as_mov_zero_ext() {
+        let mut builder = FunctionBuilder::new(FunctionId(0), 0);
+        builder.push_op(
+            0,
+            OpKind::Bzhi {
+                dst: x(0),
+                src: x(1),
+                index: VReg::Imm(0x120),
+                width: OpWidth::W32,
+            },
+        );
+        builder.set_terminator(Terminator::Return { values: vec![] });
+        let func = builder.finish();
+
+        let mut lowerer = Aarch64Lowerer::new();
+        lowerer.lower_function(&func).unwrap();
+        let code = lowerer.finalize().unwrap();
+
+        let mut expected = Vec::new();
+        expected.extend_from_slice(&enc_mov_reg(0, 0, 1).to_le_bytes());
         expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
         assert_eq!(code, expected);
     }
