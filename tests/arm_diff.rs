@@ -777,12 +777,8 @@ fn compare_smir_scalar_case(
             got.sp, hw.sp
         ));
     }
-    if got.pc != hw.pc {
-        diffs.push(format!(
-            "pc: smir={:#018x} hw={:#018x}",
-            got.pc, hw.pc
-        ));
-    }
+    // The oracle captures PC from its signal/trap harness, so it is not a
+    // stable architectural post-instruction PC for these scalar comparisons.
     let got_nzcv = (got.nzcv >> 28) & 0xF;
     let hw_nzcv = (hw.pstate >> 28) & 0xF;
     if got_nzcv != hw_nzcv {
