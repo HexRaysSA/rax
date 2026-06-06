@@ -3883,6 +3883,7 @@ impl Aarch64Lowerer {
                 self.emit(0xd503_201f);
                 Ok(())
             }
+            OpKind::MaterializeFlags => Ok(()),
             OpKind::ClearExclusive => {
                 self.emit(0xd503_3f5f);
                 Ok(())
@@ -6077,6 +6078,22 @@ mod tests {
 
         let mut expected = Vec::new();
         expected.extend_from_slice(&enc_flagm(0b000).to_le_bytes());
+        expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
+        assert_eq!(code, expected);
+    }
+
+    #[test]
+    fn lowers_materialize_flags_as_noop() {
+        let mut builder = FunctionBuilder::new(FunctionId(0), 0);
+        builder.push_op(0, OpKind::MaterializeFlags);
+        builder.set_terminator(Terminator::Return { values: vec![] });
+        let func = builder.finish();
+
+        let mut lowerer = Aarch64Lowerer::new();
+        lowerer.lower_function(&func).unwrap();
+        let code = lowerer.finalize().unwrap();
+
+        let mut expected = Vec::new();
         expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
         assert_eq!(code, expected);
     }
