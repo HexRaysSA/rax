@@ -1062,6 +1062,13 @@ impl Aarch64Lifter {
             }
 
             // =================================================================
+            // Conditional Compare
+            // =================================================================
+            Mnemonic::CCMP | Mnemonic::CCMN => {
+                self.lift_cond_compare(insn, pc, &mut ops, ctx)?;
+            }
+
+            // =================================================================
             // Extend
             // =================================================================
             Mnemonic::SXTB => {
@@ -1591,6 +1598,97 @@ impl Aarch64Lifter {
                 },
             );
         }
+
+        Ok(())
+    }
+
+    fn lift_cond_compare(
+        &self,
+        insn: &DecodedInsn,
+        pc: u64,
+        ops: &mut Vec<SmirOp>,
+        ctx: &mut LiftContext,
+    ) -> Result<(), LiftError> {
+        let invalid = || LiftError::Internal("invalid conditional compare operands".to_string());
+        let (rn, op2, nzcv, cond) = match (
+            insn.operands.get(0),
+            insn.operands.get(1),
+            insn.operands.get(2),
+            insn.operands.get(3),
+        ) {
+            (
+                Some(Operand::Reg(rn)),
+                Some(op2),
+                Some(Operand::Imm(nzcv)),
+                Some(Operand::Cond(cond)),
+            ) => (rn, op2, nzcv, cond),
+            _ => return Err(invalid()),
+        };
+
+        let cond_reg = ctx.alloc_vreg();
+        Self::push_lifted_op(
+            ops,
+            pc,
+            OpKind::TestCondition {
+                dst: cond_reg,
+                cond: self.arm_cond(*cond),
+            },
+        );
+
+        let cmp_result = ctx.alloc_vreg();
+        let width = self.reg_width(rn);
+        let src2 = self.operand_to_src(op2, ctx)?;
+        let cmp_op = if insn.mnemonic == Mnemonic::CCMN {
+            OpKind::Add {
+                dst: cmp_result,
+                src1: self.arm_reg(rn),
+                src2,
+                width,
+                flags: FlagUpdate::All,
+            }
+        } else {
+            OpKind::Sub {
+                dst: cmp_result,
+                src1: self.arm_reg(rn),
+                src2,
+                width,
+                flags: FlagUpdate::All,
+            }
+        };
+        Self::push_lifted_op(ops, pc, cmp_op);
+
+        let cmp_nzcv = ctx.alloc_vreg();
+        Self::push_lifted_op(
+            ops,
+            pc,
+            OpKind::Mov {
+                dst: cmp_nzcv,
+                src: SrcOperand::Reg(VReg::Arch(ArchReg::Arm(ArmReg::Nzcv))),
+                width: OpWidth::W32,
+            },
+        );
+
+        let final_nzcv = ctx.alloc_vreg();
+        Self::push_lifted_op(
+            ops,
+            pc,
+            OpKind::Select {
+                dst: final_nzcv,
+                cond: cond_reg,
+                src_true: cmp_nzcv,
+                src_false: VReg::Imm((nzcv.value & 0xF) << 28),
+                width: OpWidth::W32,
+            },
+        );
+        Self::push_lifted_op(
+            ops,
+            pc,
+            OpKind::Mov {
+                dst: VReg::Arch(ArchReg::Arm(ArmReg::Nzcv)),
+                src: SrcOperand::Reg(final_nzcv),
+                width: OpWidth::W32,
+            },
+        );
 
         Ok(())
     }

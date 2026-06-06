@@ -645,6 +645,19 @@ fn enc_addsub_carry(sf: u32, op: u32, s: u32) -> u32 {
     (sf << 31) | (op << 30) | (s << 29) | (0b11010000 << 21) | (RM << 16) | (RN << 5) | RD
 }
 
+/// Conditional compare: `sf op 111010010 Rm/imm5 cond imm 0 Rn 0 nzcv`.
+#[cfg(all(feature = "smir-jit", target_arch = "x86_64"))]
+fn enc_condcmp(sf: u32, op: u32, imm: bool, rm_imm5: u32, cond: u32, nzcv: u32) -> u32 {
+    (sf << 31)
+        | (op << 30)
+        | (0b111010010 << 21)
+        | (rm_imm5 << 16)
+        | (cond << 12)
+        | ((imm as u32) << 11)
+        | (RN << 5)
+        | nzcv
+}
+
 /// Logical (shifted register): `sf opc 01010 shift N Rm imm6 Rn Rd`
 fn enc_logical_shift(sf: u32, opc: u32, shift: u32, n: u32, imm6: u32) -> u32 {
     (sf << 31)
@@ -1058,6 +1071,9 @@ fn smir_aarch64_x86_scalar_lowering_matches_qemu_oracle() {
         ("adcs_w_zero_ext", enc_addsub_carry(0, 0, 1)),
         ("sbc_w_zero_ext", enc_addsub_carry(0, 1, 0)),
         ("sbcs_w_zero_ext", enc_addsub_carry(0, 1, 1)),
+        ("ccmp_x_eq", enc_condcmp(1, 1, false, RM, 0, 0)),
+        ("ccmn_x_ne", enc_condcmp(1, 0, false, RM, 1, 0b1001)),
+        ("ccmp_w_imm_hi", enc_condcmp(0, 1, true, 5, 8, 0b0010)),
         ("and_x", enc_logical_shift(1, 0, 0, 0, 0)),
         ("ands_x", enc_logical_shift(1, 3, 0, 0, 0)),
         ("orr_x", enc_logical_shift(1, 1, 0, 0, 0)),
@@ -1249,6 +1265,47 @@ fn smir_aarch64_x86_scalar_lowering_matches_qemu_oracle() {
     st.x[2] = 1;
     st.pstate = 0;
     batch.push(("sbcs_x_borrow_flags".into(), enc_addsub_carry(1, 1, 1), st));
+
+    let mut st = ArmState::zeroed();
+    st.x[1] = 5;
+    st.x[2] = 5;
+    st.pstate = 0x4000_0000;
+    batch.push(("ccmp_x_eq_true".into(), enc_condcmp(1, 1, false, RM, 0, 0), st));
+
+    let mut st = ArmState::zeroed();
+    st.x[1] = 1;
+    st.x[2] = 2;
+    st.pstate = 0;
+    batch.push((
+        "ccmp_x_eq_false_fallback_z".into(),
+        enc_condcmp(1, 1, false, RM, 0, 0b0100),
+        st,
+    ));
+
+    let mut st = ArmState::zeroed();
+    st.x[1] = u64::MAX;
+    st.x[2] = 1;
+    st.pstate = 0;
+    batch.push(("ccmn_x_ne_true".into(), enc_condcmp(1, 0, false, RM, 1, 0), st));
+
+    let mut st = ArmState::zeroed();
+    st.x[1] = 0x100;
+    st.x[2] = 0x20;
+    st.pstate = 0x4000_0000;
+    batch.push((
+        "ccmn_w_ne_false_fallback_nv".into(),
+        enc_condcmp(0, 0, false, RM, 1, 0b1001),
+        st,
+    ));
+
+    let mut st = ArmState::zeroed();
+    st.x[1] = 7;
+    st.pstate = 0x2000_0000;
+    batch.push((
+        "ccmp_w_imm_hi_true".into(),
+        enc_condcmp(0, 1, true, 5, 8, 0),
+        st,
+    ));
 
     let mut st = ArmState::zeroed();
     st.x[0] = 0xaaaa_bbbb_cccc_dddd;
