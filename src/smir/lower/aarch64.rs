@@ -2988,8 +2988,11 @@ impl Aarch64Lowerer {
     ) -> Result<(), LowerError> {
         match cond {
             VReg::Imm(value) => {
-                let src = if value != 0 { src_true } else { src_false };
-                self.lower_mov(dst, &SrcOperand::Reg(src), width)
+                let src = match if value != 0 { src_true } else { src_false } {
+                    VReg::Imm(value) => SrcOperand::Imm(value),
+                    reg => SrcOperand::Reg(reg),
+                };
+                self.lower_mov(dst, &src, width)
             }
             other => Err(LowerError::UnsupportedOp {
                 op: format!("AArch64 native Select condition {other:?}"),
@@ -6950,6 +6953,32 @@ mod tests {
 
         let mut expected = Vec::new();
         expected.extend_from_slice(&enc_mov_reg(0, 0, 1).to_le_bytes());
+        expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
+        assert_eq!(code, expected);
+    }
+
+    #[test]
+    fn lowers_constant_select_true_imm_as_mov_imm() {
+        let mut builder = FunctionBuilder::new(FunctionId(0), 0);
+        builder.push_op(
+            0,
+            OpKind::Select {
+                dst: x(0),
+                cond: VReg::Imm(1),
+                src_true: VReg::Imm(0x2468),
+                src_false: x(1),
+                width: OpWidth::W64,
+            },
+        );
+        builder.set_terminator(Terminator::Return { values: vec![] });
+        let func = builder.finish();
+
+        let mut lowerer = Aarch64Lowerer::new();
+        lowerer.lower_function(&func).unwrap();
+        let code = lowerer.finalize().unwrap();
+
+        let mut expected = Vec::new();
+        expected.extend_from_slice(&enc_mov_wide(1, 0b10, 0, 0x2468, 0).to_le_bytes());
         expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
         assert_eq!(code, expected);
     }
