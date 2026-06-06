@@ -3095,6 +3095,168 @@ impl X86_64Lifter {
         ))
     }
 
+    fn apx_shift_op(
+        &self,
+        group: u8,
+        dst: VReg,
+        src: VReg,
+        amount: SrcOperand,
+        width: OpWidth,
+        flags: FlagUpdate,
+        pc: u64,
+    ) -> Result<OpKind, LiftError> {
+        match group {
+            0 => Ok(OpKind::Rol {
+                dst,
+                src,
+                amount,
+                width,
+                flags,
+            }),
+            1 => Ok(OpKind::Ror {
+                dst,
+                src,
+                amount,
+                width,
+                flags,
+            }),
+            4 | 6 => Ok(OpKind::Shl {
+                dst,
+                src,
+                amount,
+                width,
+                flags,
+            }),
+            5 => Ok(OpKind::Shr {
+                dst,
+                src,
+                amount,
+                width,
+                flags,
+            }),
+            7 => Ok(OpKind::Sar {
+                dst,
+                src,
+                amount,
+                width,
+                flags,
+            }),
+            2 | 3 => Err(LiftError::Unsupported {
+                addr: pc,
+                mnemonic: "APX carry rotate".to_string(),
+            }),
+            _ => Err(LiftError::Unsupported {
+                addr: pc,
+                mnemonic: format!("APX shift group {group}"),
+            }),
+        }
+    }
+
+    fn lift_apx_shift(
+        &self,
+        prefix: ApxEvexPrefix,
+        opcode: u8,
+        bytes: &[u8],
+        pc: u64,
+        ctx: &mut LiftContext,
+    ) -> Result<LiftResult, LiftError> {
+        let is_byte = matches!(opcode, 0xC0 | 0xD0 | 0xD2);
+        let op_size = prefix.op_size(is_byte);
+        let width = self.size_to_width(op_size);
+        let mem_width = self.size_to_memwidth(op_size);
+        let modrm_prefix = prefix.as_modrm_prefix(prefix.bytes + 1);
+        let modrm = decode_modrm(bytes, &modrm_prefix, pc)?;
+        let group = (modrm.byte >> 3) & 0x07;
+
+        let (amount, imm_size) = match opcode {
+            0xC0 | 0xC1 => {
+                if bytes.len() < modrm.bytes_consumed + 1 {
+                    return Err(LiftError::Incomplete {
+                        addr: pc,
+                        have: bytes.len(),
+                        need: modrm.bytes_consumed + 1,
+                    });
+                }
+                (SrcOperand::Imm(bytes[modrm.bytes_consumed] as i64), 1)
+            }
+            0xD0 | 0xD1 => (SrcOperand::Imm(1), 0),
+            0xD2 | 0xD3 => (SrcOperand::Reg(self.gpr(1)), 0),
+            _ => unreachable!(),
+        };
+
+        let next_pc =
+            pc + prefix.bytes as u64 + 1 + modrm.bytes_consumed as u64 + imm_size as u64;
+        let mut ops = Vec::new();
+        let (legacy_dst, legacy_dst_addr) = if modrm.is_memory {
+            let x86_addr = modrm.addr.as_ref().unwrap();
+            let (addr, pre_ops) = self.x86_addr_to_smir(x86_addr, next_pc, ctx);
+            ops.extend(pre_ops);
+
+            let tmp = ctx.alloc_vreg();
+            ops.push(SmirOp::new(
+                OpId(ops.len() as u16),
+                pc,
+                OpKind::Load {
+                    dst: tmp,
+                    addr: addr.clone(),
+                    width: mem_width,
+                    sign: SignExtend::Zero,
+                },
+            ));
+            (tmp, Some(addr))
+        } else {
+            (self.gpr(modrm.rm), None)
+        };
+
+        let dst = if prefix.nd {
+            self.gpr(prefix.vvvv_reg())
+        } else {
+            legacy_dst
+        };
+        let amount = if prefix.nd && dst == self.gpr(1) {
+            match amount {
+                SrcOperand::Reg(reg) if reg == self.gpr(1) => {
+                    let tmp = ctx.alloc_vreg();
+                    ops.push(SmirOp::new(
+                        OpId(ops.len() as u16),
+                        pc,
+                        OpKind::Mov {
+                            dst: tmp,
+                            src: SrcOperand::Reg(reg),
+                            width: OpWidth::W8,
+                        },
+                    ));
+                    SrcOperand::Reg(tmp)
+                }
+                other => other,
+            }
+        } else {
+            amount
+        };
+        let op_kind =
+            self.apx_shift_op(group, dst, legacy_dst, amount, width, prefix.flags(), pc)?;
+        ops.push(SmirOp::new(OpId(ops.len() as u16), pc, op_kind));
+
+        if !prefix.nd {
+            if let Some(addr) = legacy_dst_addr {
+                ops.push(SmirOp::new(
+                    OpId(ops.len() as u16),
+                    pc,
+                    OpKind::Store {
+                        src: dst,
+                        addr,
+                        width: mem_width,
+                    },
+                ));
+            }
+        }
+
+        Ok(LiftResult::fallthrough(
+            ops,
+            prefix.bytes + 1 + modrm.bytes_consumed + imm_size,
+        ))
+    }
+
     fn lift_apx_evex_map4(
         &self,
         pc: u64,
@@ -3131,6 +3293,9 @@ impl X86_64Lifter {
             }
             0x80 | 0x81 | 0x83 => {
                 self.lift_apx_group1_imm(prefix, opcode, &bytes[prefix.bytes + 1..], pc, ctx)
+            }
+            0xC0 | 0xC1 | 0xD0 | 0xD1 | 0xD2 | 0xD3 => {
+                self.lift_apx_shift(prefix, opcode, &bytes[prefix.bytes + 1..], pc, ctx)
             }
             0x8F => self.lift_apx_pop2(prefix, modrm, pc, ctx),
             0xFF => self.lift_apx_push2(prefix, modrm, pc, ctx),
@@ -6535,6 +6700,261 @@ mod tests {
             ([0x62, 0xF4, 0xBC, 0x1C, 0x83, 0xD0, 0x01], "adc imm"),
             ([0x62, 0xF4, 0xBC, 0x1C, 0x83, 0xD8, 0x01], "sbb imm"),
         ] {
+            let err = lifter.lift_insn(0x1000, &bytes, &mut ctx).unwrap_err();
+            assert!(matches!(err, LiftError::Unsupported { .. }), "{name}: {err:?}");
+        }
+    }
+
+    #[test]
+    fn lift_apx_ndd_shift_rotate_use_group2_ops_like_llvm() {
+        let mut lifter = X86_64Lifter::strict();
+        let mut ctx = LiftContext::new(SourceArch::X86_64);
+
+        for (bytes, name, amount) in [
+            (
+                [0x62, 0xF4, 0xBC, 0x18, 0xC1, 0xE0, 0x04],
+                "shl",
+                SrcOperand::Imm(4),
+            ),
+            (
+                [0x62, 0xF4, 0xBC, 0x18, 0xD3, 0xE8, 0x00],
+                "shr",
+                SrcOperand::Reg(x86_gpr(1)),
+            ),
+            (
+                [0x62, 0xF4, 0xBC, 0x18, 0xD1, 0xF8, 0x00],
+                "sar",
+                SrcOperand::Imm(1),
+            ),
+            (
+                [0x62, 0xF4, 0xBC, 0x18, 0xC1, 0xC0, 0x07],
+                "rol",
+                SrcOperand::Imm(7),
+            ),
+            (
+                [0x62, 0xF4, 0xBC, 0x18, 0xD3, 0xC8, 0x00],
+                "ror",
+                SrcOperand::Reg(x86_gpr(1)),
+            ),
+        ] {
+            // LLVM 20 APX MAP4 NDD forms:
+            //   shlq $4,  %rax, %r8 => 62 f4 bc 18 c1 e0 04
+            //   shrq %cl, %rax, %r8 => 62 f4 bc 18 d3 e8
+            //   sarq      %rax, %r8 => 62 f4 bc 18 d1 f8
+            //   rolq $7,  %rax, %r8 => 62 f4 bc 18 c1 c0 07
+            //   rorq %cl, %rax, %r8 => 62 f4 bc 18 d3 c8
+            let len = if bytes[4] == 0xC1 { 7 } else { 6 };
+            let result = lifter.lift_insn(0x1000, &bytes[..len], &mut ctx).unwrap();
+            assert_eq!(result.bytes_consumed, len, "{name}");
+            assert_eq!(result.ops.len(), 1, "{name}");
+
+            match (name, &result.ops[0].kind) {
+                (
+                    "shl",
+                    OpKind::Shl {
+                        dst,
+                        src,
+                        amount: got_amount,
+                        width: OpWidth::W64,
+                        flags: FlagUpdate::All,
+                    },
+                )
+                | (
+                    "shr",
+                    OpKind::Shr {
+                        dst,
+                        src,
+                        amount: got_amount,
+                        width: OpWidth::W64,
+                        flags: FlagUpdate::All,
+                    },
+                )
+                | (
+                    "sar",
+                    OpKind::Sar {
+                        dst,
+                        src,
+                        amount: got_amount,
+                        width: OpWidth::W64,
+                        flags: FlagUpdate::All,
+                    },
+                )
+                | (
+                    "rol",
+                    OpKind::Rol {
+                        dst,
+                        src,
+                        amount: got_amount,
+                        width: OpWidth::W64,
+                        flags: FlagUpdate::All,
+                    },
+                )
+                | (
+                    "ror",
+                    OpKind::Ror {
+                        dst,
+                        src,
+                        amount: got_amount,
+                        width: OpWidth::W64,
+                        flags: FlagUpdate::All,
+                    },
+                ) => {
+                    assert_eq!(*dst, x86_gpr(8), "{name}");
+                    assert_eq!(*src, x86_gpr(0), "{name}");
+                    assert_eq!(*got_amount, amount, "{name}");
+                }
+                other => panic!("expected APX NDD {name}, got {other:?}"),
+            }
+        }
+    }
+
+    #[test]
+    fn lift_apx_shift_widths_nf_memory_and_cl_alias_like_llvm() {
+        let mut lifter = X86_64Lifter::strict();
+        let mut ctx = LiftContext::new(SourceArch::X86_64);
+
+        // LLVM 20: `shl r8d, eax, 4` => 62 f4 3c 18 c1 e0 04.
+        let shl32 = lifter
+            .lift_insn(
+                0x1000,
+                &[0x62, 0xF4, 0x3C, 0x18, 0xC1, 0xE0, 0x04],
+                &mut ctx,
+            )
+            .unwrap();
+        match &shl32.ops[0].kind {
+            OpKind::Shl {
+                dst,
+                src,
+                amount: SrcOperand::Imm(4),
+                width: OpWidth::W32,
+                flags: FlagUpdate::All,
+            } => {
+                assert_eq!(*dst, x86_gpr(8));
+                assert_eq!(*src, x86_gpr(0));
+            }
+            other => panic!("expected APX NDD shl r32, got {other:?}"),
+        }
+
+        // LLVM 20: `shl r8b, al, 4` => 62 f4 3c 18 c0 e0 04.
+        let shl8 = lifter
+            .lift_insn(
+                0x1000,
+                &[0x62, 0xF4, 0x3C, 0x18, 0xC0, 0xE0, 0x04],
+                &mut ctx,
+            )
+            .unwrap();
+        match &shl8.ops[0].kind {
+            OpKind::Shl {
+                dst,
+                src,
+                amount: SrcOperand::Imm(4),
+                width: OpWidth::W8,
+                flags: FlagUpdate::All,
+            } => {
+                assert_eq!(*dst, x86_gpr(8));
+                assert_eq!(*src, x86_gpr(0));
+            }
+            other => panic!("expected APX NDD shl r8, got {other:?}"),
+        }
+
+        // LLVM 20: `{nf} shr r8, rax, cl` => 62 f4 bc 1c d3 e8.
+        let nf = lifter
+            .lift_insn(0x1000, &[0x62, 0xF4, 0xBC, 0x1C, 0xD3, 0xE8], &mut ctx)
+            .unwrap();
+        match &nf.ops[0].kind {
+            OpKind::Shr {
+                dst,
+                src,
+                amount: SrcOperand::Reg(amount),
+                width: OpWidth::W64,
+                flags: FlagUpdate::None,
+            } => {
+                assert_eq!(*dst, x86_gpr(8));
+                assert_eq!(*src, x86_gpr(0));
+                assert_eq!(*amount, x86_gpr(1));
+            }
+            other => panic!("expected APX NF NDD shr, got {other:?}"),
+        }
+
+        // LLVM 20: `shl r8, qword ptr [rax], 4` => 62 f4 bc 18 c1 20 04.
+        let mem = lifter
+            .lift_insn(
+                0x1000,
+                &[0x62, 0xF4, 0xBC, 0x18, 0xC1, 0x20, 0x04],
+                &mut ctx,
+            )
+            .unwrap();
+        assert_eq!(mem.ops.len(), 2);
+        let tmp = match &mem.ops[0].kind {
+            OpKind::Load {
+                dst,
+                addr: Address::Direct(base),
+                width: MemWidth::B8,
+                sign: SignExtend::Zero,
+            } => {
+                assert_eq!(*base, x86_gpr(0));
+                *dst
+            }
+            other => panic!("expected APX shift memory source load, got {other:?}"),
+        };
+        match &mem.ops[1].kind {
+            OpKind::Shl {
+                dst,
+                src,
+                amount: SrcOperand::Imm(4),
+                width: OpWidth::W64,
+                flags: FlagUpdate::All,
+            } => {
+                assert_eq!(*dst, x86_gpr(8));
+                assert_eq!(*src, tmp);
+            }
+            other => panic!("expected APX memory-source shift, got {other:?}"),
+        }
+
+        // LLVM 20: `shl rcx, rax, cl` => 62 f4 f4 18 d3 e0. Capture CL before
+        // the NDD result can overwrite RCX.
+        let alias = lifter
+            .lift_insn(0x1000, &[0x62, 0xF4, 0xF4, 0x18, 0xD3, 0xE0], &mut ctx)
+            .unwrap();
+        assert_eq!(alias.ops.len(), 2);
+        let tmp = match &alias.ops[0].kind {
+            OpKind::Mov {
+                dst,
+                src: SrcOperand::Reg(src),
+                width: OpWidth::W8,
+            } => {
+                assert_eq!(*src, x86_gpr(1));
+                *dst
+            }
+            other => panic!("expected CL capture before NDD shift, got {other:?}"),
+        };
+        match &alias.ops[1].kind {
+            OpKind::Shl {
+                dst,
+                src,
+                amount: SrcOperand::Reg(amount),
+                width: OpWidth::W64,
+                flags: FlagUpdate::All,
+            } => {
+                assert_eq!(*dst, x86_gpr(1));
+                assert_eq!(*src, x86_gpr(0));
+                assert_eq!(*amount, tmp);
+            }
+            other => panic!("expected APX NDD shift with captured CL, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn lift_apx_carry_rotates_rejected_until_smir_has_rcl_rcr() {
+        let mut lifter = X86_64Lifter::strict();
+        let mut ctx = LiftContext::new(SourceArch::X86_64);
+
+        for (bytes, name) in [
+            ([0x62, 0xF4, 0xBC, 0x18, 0xD1, 0xD0], "rcl"),
+            ([0x62, 0xF4, 0xBC, 0x18, 0xD3, 0xD8], "rcr"),
+        ] {
+            // LLVM 20 accepts these APX NDD carry rotates, but current SMIR has
+            // no RCL/RCR operation with carry-flag input semantics.
             let err = lifter.lift_insn(0x1000, &bytes, &mut ctx).unwrap_err();
             assert!(matches!(err, LiftError::Unsupported { .. }), "{name}: {err:?}");
         }

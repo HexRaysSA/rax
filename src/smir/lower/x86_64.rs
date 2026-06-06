@@ -9594,6 +9594,22 @@ mod tests {
         assert!(!lowered.is_empty());
     }
 
+    #[test]
+    fn lower_apx_ndd_nf_shift_rotate_slice_lowers_without_relocs() {
+        // LLVM 20 APX MAP4 forms:
+        //   shlq $4,  %rax, %r8        => 62 f4 bc 18 c1 e0 04
+        //   {nf} shrq %cl, %rax, %r8   => 62 f4 bc 1c d3 e8
+        //   rolq $7,  %rax, %r8        => 62 f4 bc 18 c1 c0 07
+        //   rorq %cl, %rax, %r8        => 62 f4 bc 18 d3 c8
+        let (lowered, entry) = lower_rex2_block(&[
+            0x62, 0xF4, 0xBC, 0x18, 0xC1, 0xE0, 0x04, 0x62, 0xF4, 0xBC, 0x1C, 0xD3, 0xE8,
+            0x62, 0xF4, 0xBC, 0x18, 0xC1, 0xC0, 0x07, 0x62, 0xF4, 0xBC, 0x18, 0xD3, 0xC8,
+            0xF4,
+        ]);
+        assert!(entry < lowered.len());
+        assert!(!lowered.is_empty());
+    }
+
     #[cfg(all(feature = "smir-jit", target_arch = "x86_64"))]
     #[test]
     fn exec_rex2_mov_egpr_roundtrips_through_jit_state() {
