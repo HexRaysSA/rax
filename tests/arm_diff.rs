@@ -3539,6 +3539,156 @@ fn smir_aarch64_native_lowering_matches_qemu_oracle() {
         st,
     );
 
+    let mut st = native_state();
+    st.x[0] = 0x8888_9999_aaaa_bbbb;
+    st.x[1] = 0x0000_0000_1234_5678;
+    st.x[2] = 0x10;
+    st.pstate = 0x9000_0000;
+    push_case(
+        "mul_x_opkind_preserves_flags",
+        enc_dp3_ra(1, 0b000, 0, 31),
+        vec![OpKind::MulU {
+            dst_lo: arm_x(0),
+            dst_hi: None,
+            src1: arm_x(1),
+            src2: SrcOperand::Reg(arm_x(2)),
+            width: OpWidth::W64,
+            flags: FlagUpdate::None,
+        }],
+        st,
+    );
+
+    let mut st = native_state();
+    st.x[0] = 0x9999_aaaa_bbbb_cccc;
+    st.x[1] = 0xffff_ffff_8000_0000;
+    st.x[2] = 3;
+    st.pstate = 0x2000_0000;
+    push_case(
+        "mul_w_opkind_zero_ext_preserves_flags",
+        enc_dp3_ra(0, 0b000, 0, 31),
+        vec![OpKind::MulS {
+            dst_lo: arm_x(0),
+            dst_hi: None,
+            src1: arm_x(1),
+            src2: SrcOperand::Reg(arm_x(2)),
+            width: OpWidth::W32,
+            flags: FlagUpdate::None,
+        }],
+        st,
+    );
+
+    let mut st = native_state();
+    st.x[0] = 0xaaaa_bbbb_cccc_dddd;
+    st.x[1] = 0x1234;
+    st.x[2] = 0x1000;
+    st.x[3] = 0x55;
+    st.pstate = 0x4000_0000;
+    push_case(
+        "madd_x_opkind_preserves_flags",
+        enc_dp3(1, 0b000, 0),
+        vec![OpKind::MulAdd {
+            dst: arm_x(0),
+            acc: arm_x(3),
+            src1: arm_x(1),
+            src2: arm_x(2),
+            width: OpWidth::W64,
+        }],
+        st,
+    );
+
+    let mut st = native_state();
+    st.x[0] = 0xbbbb_cccc_dddd_eeee;
+    st.x[1] = 0xffff_ffff_ffff_fffd;
+    st.x[2] = 7;
+    st.x[3] = 0x20;
+    st.pstate = 0x6000_0000;
+    push_case(
+        "msub_w_opkind_zero_ext_preserves_flags",
+        enc_dp3(0, 0b000, 1),
+        vec![OpKind::MulSub {
+            dst: arm_x(0),
+            acc: arm_x(3),
+            src1: arm_x(1),
+            src2: arm_x(2),
+            width: OpWidth::W32,
+        }],
+        st,
+    );
+
+    let mut st = native_state();
+    st.x[0] = 0xcccc_dddd_eeee_ffff;
+    st.x[1] = 0x8000_0000_0000_0000;
+    st.x[2] = 3;
+    st.pstate = 0x1000_0000;
+    push_case(
+        "smulh_x_opkind_preserves_flags",
+        enc_dp3_ra(1, 0b010, 0, 31),
+        vec![OpKind::MulS {
+            dst_lo: VReg::virt(0),
+            dst_hi: Some(arm_x(0)),
+            src1: arm_x(1),
+            src2: SrcOperand::Reg(arm_x(2)),
+            width: OpWidth::W64,
+            flags: FlagUpdate::None,
+        }],
+        st,
+    );
+
+    let mut st = native_state();
+    st.x[0] = 0xdddd_eeee_ffff_0000;
+    st.x[1] = 0xffff_ffff_ffff_ff00;
+    st.x[2] = 0x100;
+    st.pstate = 0x3000_0000;
+    push_case(
+        "umulh_x_opkind_preserves_flags",
+        enc_dp3_ra(1, 0b110, 0, 31),
+        vec![OpKind::MulU {
+            dst_lo: VReg::virt(1),
+            dst_hi: Some(arm_x(0)),
+            src1: arm_x(1),
+            src2: SrcOperand::Reg(arm_x(2)),
+            width: OpWidth::W64,
+            flags: FlagUpdate::None,
+        }],
+        st,
+    );
+
+    let mut st = native_state();
+    st.x[0] = 0xeeee_ffff_0000_1111;
+    st.x[1] = 0x1234_5678_9abc_def0;
+    st.x[2] = 0x12345;
+    st.pstate = 0x5000_0000;
+    push_case(
+        "udiv_x_opkind_preserves_flags",
+        enc_dp2(1, 0b0010),
+        vec![OpKind::DivU {
+            quot: arm_x(0),
+            rem: None,
+            src1: arm_x(1),
+            src2: SrcOperand::Reg(arm_x(2)),
+            width: OpWidth::W64,
+        }],
+        st,
+    );
+
+    let mut st = native_state();
+    st.x[0] = 0xffff_0000_1111_2222;
+    st.x[1] = 0xffff_ffff_8000_0100;
+    st.x[2] = 0xffff_ffff_ffff_fffb;
+    st.pstate = 0x7000_0000;
+    push_case(
+        "sdiv_w_opkind_zero_ext_preserves_flags",
+        enc_dp2(0, 0b0011),
+        vec![OpKind::DivS {
+            quot: arm_x(0),
+            rem: None,
+            src1: arm_x(1),
+            src2: SrcOperand::Reg(arm_x(2)),
+            width: OpWidth::W32,
+        }],
+        st,
+    );
+
     let mut push_lifted_case = |label: &str, source: u32, st: ArmState| {
         let lowered = lower_aarch64_native_insn(source)
             .unwrap_or_else(|e| panic!("{label}: native lifted lowering failed: {e}"));
@@ -3759,6 +3909,99 @@ fn smir_aarch64_native_lowering_matches_qemu_oracle() {
     push_lifted_case(
         "sxtw_x_lifted_preserves_flags",
         enc_bitfield(1, 0b00, 0, 31),
+        st,
+    );
+
+    let mut st = native_state();
+    st.x[0] = 0x4444_5555_6666_7777;
+    st.x[1] = 0x0000_0000_1234_5678;
+    st.x[2] = 0x10;
+    st.pstate = 0x9000_0000;
+    push_lifted_case(
+        "mul_x_lifted_preserves_flags",
+        enc_dp3_ra(1, 0b000, 0, 31),
+        st,
+    );
+
+    let mut st = native_state();
+    st.x[0] = 0x5555_6666_7777_8888;
+    st.x[1] = 0xffff_ffff_8000_0000;
+    st.x[2] = 3;
+    st.pstate = 0x2000_0000;
+    push_lifted_case(
+        "mul_w_lifted_zero_ext_preserves_flags",
+        enc_dp3_ra(0, 0b000, 0, 31),
+        st,
+    );
+
+    let mut st = native_state();
+    st.x[0] = 0x6666_7777_8888_9999;
+    st.x[1] = 0x1234;
+    st.x[2] = 0x1000;
+    st.x[3] = 0x55;
+    st.pstate = 0x4000_0000;
+    push_lifted_case("madd_x_lifted_preserves_flags", enc_dp3(1, 0b000, 0), st);
+
+    let mut st = native_state();
+    st.x[0] = 0x7777_8888_9999_aaaa;
+    st.x[1] = 0xffff_ffff_ffff_fffd;
+    st.x[2] = 7;
+    st.x[3] = 0x20;
+    st.pstate = 0x6000_0000;
+    push_lifted_case(
+        "msub_w_lifted_zero_ext_preserves_flags",
+        enc_dp3(0, 0b000, 1),
+        st,
+    );
+
+    let mut st = native_state();
+    st.x[0] = 0x8888_9999_aaaa_bbbb;
+    st.x[1] = 0x1234_5678_9abc_def0;
+    st.x[2] = 5;
+    st.pstate = 0x8000_0000;
+    push_lifted_case(
+        "mneg_x_lifted_preserves_flags",
+        enc_dp3_ra(1, 0b000, 1, 31),
+        st,
+    );
+
+    let mut st = native_state();
+    st.x[0] = 0x9999_aaaa_bbbb_cccc;
+    st.x[1] = 0x8000_0000_0000_0000;
+    st.x[2] = 3;
+    st.pstate = 0x1000_0000;
+    push_lifted_case(
+        "smulh_x_lifted_preserves_flags",
+        enc_dp3_ra(1, 0b010, 0, 31),
+        st,
+    );
+
+    let mut st = native_state();
+    st.x[0] = 0xaaaa_bbbb_cccc_dddd;
+    st.x[1] = 0xffff_ffff_ffff_ff00;
+    st.x[2] = 0x100;
+    st.pstate = 0x3000_0000;
+    push_lifted_case(
+        "umulh_x_lifted_preserves_flags",
+        enc_dp3_ra(1, 0b110, 0, 31),
+        st,
+    );
+
+    let mut st = native_state();
+    st.x[0] = 0xbbbb_cccc_dddd_eeee;
+    st.x[1] = 0x1234_5678_9abc_def0;
+    st.x[2] = 0x12345;
+    st.pstate = 0x5000_0000;
+    push_lifted_case("udiv_x_lifted_preserves_flags", enc_dp2(1, 0b0010), st);
+
+    let mut st = native_state();
+    st.x[0] = 0xcccc_dddd_eeee_ffff;
+    st.x[1] = 0xffff_ffff_8000_0100;
+    st.x[2] = 0xffff_ffff_ffff_fffb;
+    st.pstate = 0x7000_0000;
+    push_lifted_case(
+        "sdiv_w_lifted_zero_ext_preserves_flags",
+        enc_dp2(0, 0b0011),
         st,
     );
 

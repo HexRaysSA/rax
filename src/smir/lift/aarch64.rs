@@ -833,27 +833,24 @@ impl Aarch64Lifter {
                 ) {
                     let dst = self.dst_reg(rd, ctx);
                     let width = self.reg_width(rd);
-                    let product = if insn.mnemonic == Mnemonic::MUL {
-                        dst
-                    } else {
-                        ctx.alloc_vreg()
-                    };
-                    Self::push_mul_op(
-                        &mut ops,
-                        pc,
-                        product,
-                        None,
-                        self.arm_reg(rn),
-                        self.arm_reg(rm),
-                        width,
-                        false,
-                    );
-                    if insn.mnemonic == Mnemonic::MNEG {
-                        push_op!(OpKind::Neg {
+                    if insn.mnemonic == Mnemonic::MUL {
+                        Self::push_mul_op(
+                            &mut ops,
+                            pc,
                             dst,
-                            src: product,
+                            None,
+                            self.arm_reg(rn),
+                            self.arm_reg(rm),
                             width,
-                            flags: FlagUpdate::None,
+                            false,
+                        );
+                    } else {
+                        push_op!(OpKind::MulSub {
+                            dst,
+                            acc: VReg::Imm(0),
+                            src1: self.arm_reg(rn),
+                            src2: self.arm_reg(rm),
+                            width,
                         });
                     }
                 }
@@ -872,35 +869,23 @@ impl Aarch64Lifter {
                     insn.operands.get(3),
                 ) {
                     let dst = self.dst_reg(rd, ctx);
-                    let tmp = ctx.alloc_vreg();
                     let width = self.reg_width(rd);
 
-                    Self::push_mul_op(
-                        &mut ops,
-                        pc,
-                        tmp,
-                        None,
-                        self.arm_reg(rn),
-                        self.arm_reg(rm),
-                        width,
-                        false,
-                    );
-
                     if insn.mnemonic == Mnemonic::MADD {
-                        push_op!(OpKind::Add {
+                        push_op!(OpKind::MulAdd {
                             dst,
-                            src1: self.arm_reg(ra),
-                            src2: SrcOperand::Reg(tmp),
+                            acc: self.arm_reg(ra),
+                            src1: self.arm_reg(rn),
+                            src2: self.arm_reg(rm),
                             width,
-                            flags: FlagUpdate::None,
                         });
                     } else {
-                        push_op!(OpKind::Sub {
+                        push_op!(OpKind::MulSub {
                             dst,
-                            src1: self.arm_reg(ra),
-                            src2: SrcOperand::Reg(tmp),
+                            acc: self.arm_reg(ra),
+                            src1: self.arm_reg(rn),
+                            src2: self.arm_reg(rm),
                             width,
-                            flags: FlagUpdate::None,
                         });
                     }
                 }

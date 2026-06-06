@@ -1393,6 +1393,46 @@ impl Aarch64X86_64Lowerer {
         Ok(())
     }
 
+    fn lower_mul_acc(
+        &mut self,
+        dst: VReg,
+        acc: VReg,
+        src1: VReg,
+        src2: VReg,
+        width: OpWidth,
+        subtract: bool,
+    ) -> Result<(), LowerError> {
+        match width {
+            OpWidth::W32 | OpWidth::W64 => {}
+            _ => {
+                return Err(LowerError::UnsupportedOp {
+                    op: format!("AArch64 multiply-accumulate width {width:?}"),
+                });
+            }
+        }
+
+        self.load_vreg_to(src1, ACC, width)?;
+        self.load_vreg_to(src2, RHS, width)?;
+        {
+            let mut e = X86Emitter::new(&mut self.code);
+            e.emit_imul_rr(ACC, RHS, width);
+        }
+        self.load_vreg_to(acc, RHS, width)?;
+        if subtract {
+            {
+                let mut e = X86Emitter::new(&mut self.code);
+                e.emit_sub_rr(RHS, ACC, width);
+            }
+            self.store_reg_to(dst, RHS, width)
+        } else {
+            {
+                let mut e = X86Emitter::new(&mut self.code);
+                e.emit_add_rr(ACC, RHS, width);
+            }
+            self.store_reg_to(dst, ACC, width)
+        }
+    }
+
     fn lower_logic(
         &mut self,
         dst: VReg,
@@ -1489,6 +1529,20 @@ impl Aarch64X86_64Lowerer {
                 width,
                 flags,
             } => self.lower_mul(*dst_lo, *dst_hi, *src1, src2, *width, *flags, true)?,
+            OpKind::MulAdd {
+                dst,
+                acc,
+                src1,
+                src2,
+                width,
+            } => self.lower_mul_acc(*dst, *acc, *src1, *src2, *width, false)?,
+            OpKind::MulSub {
+                dst,
+                acc,
+                src1,
+                src2,
+                width,
+            } => self.lower_mul_acc(*dst, *acc, *src1, *src2, *width, true)?,
             OpKind::DivU {
                 quot,
                 rem,
