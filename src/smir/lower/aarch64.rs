@@ -708,10 +708,62 @@ impl Aarch64Lowerer {
         }
     }
 
+    fn lifted_ldpsw_pair_parts<'a>(
+        first: &'a SmirOp,
+        second: &'a SmirOp,
+    ) -> Result<Option<(u8, u8, &'a Address)>, LowerError> {
+        if first.guest_pc != second.guest_pc {
+            return Ok(None);
+        }
+
+        match (&first.kind, &second.kind) {
+            (
+                OpKind::Load {
+                    dst: dst1,
+                    addr: addr1,
+                    width,
+                    sign: SignExtend::Sign,
+                },
+                OpKind::Load {
+                    dst: dst2,
+                    addr: addr2,
+                    width: width2,
+                    sign: SignExtend::Sign,
+                },
+            ) if width == width2 => {
+                if *width != MemWidth::B8 {
+                    return Ok(None);
+                }
+                if !Self::addr_plus_eq(addr1, addr2, 8) {
+                    return Ok(None);
+                }
+                Ok(Some((Self::dst_gpr(*dst1)?, Self::dst_gpr(*dst2)?, addr1)))
+            }
+            _ => Ok(None),
+        }
+    }
+
     fn direct_addr_reg(addr: &Address) -> Option<VReg> {
         match addr {
             Address::Direct(reg) => Some(*reg),
             _ => None,
+        }
+    }
+
+    fn addr_base_offset(addr: &Address) -> Option<(VReg, i64)> {
+        match addr {
+            Address::Direct(base) => Some((*base, 0)),
+            Address::BaseOffset { base, offset, .. } => Some((*base, *offset)),
+            _ => None,
+        }
+    }
+
+    fn addr_plus_eq(base_addr: &Address, plus_addr: &Address, delta: i64) -> bool {
+        match (Self::addr_base_offset(base_addr), Self::addr_base_offset(plus_addr)) {
+            (Some((base, offset)), Some((plus_base, plus_offset))) => {
+                base == plus_base && plus_offset == offset + delta
+            }
+            _ => false,
         }
     }
 
@@ -851,6 +903,14 @@ impl Aarch64Lowerer {
         }
     }
 
+    fn ldpsw_scaled_imm(offset: i64) -> Option<i64> {
+        if offset % 4 != 0 {
+            return None;
+        }
+        let imm7 = offset / 4;
+        (-64..=63).contains(&imm7).then_some(imm7)
+    }
+
     fn lower_load(
         &mut self,
         dst: VReg,
@@ -916,6 +976,25 @@ impl Aarch64Lowerer {
 
         let rn = Self::base_gpr(base)?;
         self.emit_ldst_pair(rt, rt2, rn, opc, load, imm7, mode);
+        Ok(())
+    }
+
+    fn lower_ldpsw_pair_access(
+        &mut self,
+        rt: u8,
+        rt2: u8,
+        base: VReg,
+        offset: i64,
+        mode: u32,
+    ) -> Result<(), LowerError> {
+        let Some(imm7) = Self::ldpsw_scaled_imm(offset) else {
+            return Err(LowerError::InvalidOperand {
+                op: "AArch64 native LDPSW pair offset".into(),
+                operand: format!("{offset:#x}"),
+            });
+        };
+
+        self.emit_ldst_pair(rt, rt2, Self::base_gpr(base)?, 0b01, true, imm7, mode);
         Ok(())
     }
 
@@ -2215,6 +2294,60 @@ impl Aarch64Lowerer {
         Ok(None)
     }
 
+    fn try_lower_fused_ldpsw_pair(
+        &mut self,
+        ops: &[SmirOp],
+    ) -> Result<Option<usize>, LowerError> {
+        if let [writeback, first, second, ..] = ops {
+            if writeback.guest_pc == first.guest_pc {
+                if let Some((base, offset)) = Self::writeback_add_parts(&writeback.kind) {
+                    if let Some((rt, rt2, addr)) =
+                        Self::lifted_ldpsw_pair_parts(first, second)?
+                    {
+                        if Self::direct_addr_reg(addr) == Some(base)
+                            && !Self::transfer_reg_aliases_base(rt, base)
+                            && !Self::transfer_reg_aliases_base(rt2, base)
+                            && Self::ldpsw_scaled_imm(offset).is_some()
+                        {
+                            self.lower_ldpsw_pair_access(rt, rt2, base, offset, 0b11)?;
+                            return Ok(Some(3));
+                        }
+                    }
+                }
+            }
+        }
+
+        if let [first, second, writeback, ..] = ops {
+            if writeback.guest_pc == first.guest_pc {
+                if let Some((base, offset)) = Self::writeback_add_parts(&writeback.kind) {
+                    if let Some((rt, rt2, addr)) =
+                        Self::lifted_ldpsw_pair_parts(first, second)?
+                    {
+                        if Self::direct_addr_reg(addr) == Some(base)
+                            && !Self::transfer_reg_aliases_base(rt, base)
+                            && !Self::transfer_reg_aliases_base(rt2, base)
+                            && Self::ldpsw_scaled_imm(offset).is_some()
+                        {
+                            self.lower_ldpsw_pair_access(rt, rt2, base, offset, 0b01)?;
+                            return Ok(Some(3));
+                        }
+                    }
+                }
+            }
+        }
+
+        if let [first, second, ..] = ops {
+            if let Some((rt, rt2, addr)) = Self::lifted_ldpsw_pair_parts(first, second)? {
+                if let Some((base, offset)) = Self::addr_base_offset(addr) {
+                    self.lower_ldpsw_pair_access(rt, rt2, base, offset, 0b10)?;
+                    return Ok(Some(2));
+                }
+            }
+        }
+
+        Ok(None)
+    }
+
     fn try_lower_fused_mem_reg_offset(
         &mut self,
         ops: &[SmirOp],
@@ -2956,6 +3089,10 @@ impl Aarch64Lowerer {
                 idx += consumed;
                 continue;
             }
+            if let Some(consumed) = self.try_lower_fused_ldpsw_pair(&block.ops[idx..])? {
+                idx += consumed;
+                continue;
+            }
             if let Some(consumed) = self.try_lower_fused_mem_indexed(&block.ops[idx..])? {
                 idx += consumed;
                 continue;
@@ -3057,7 +3194,7 @@ mod tests {
     use super::*;
     use crate::smir::flags::FlagUpdate;
     use crate::smir::ir::{FunctionBuilder, Terminator};
-    use crate::smir::types::{FunctionId, SrcOperand};
+    use crate::smir::types::{DispSize, FunctionId, SrcOperand};
 
     fn x(n: u8) -> VReg {
         VReg::Arch(ArchReg::Arm(ArmReg::X(n)))
@@ -3389,6 +3526,140 @@ mod tests {
 
         let mut expected = Vec::new();
         expected.extend_from_slice(&enc_ldst_reg(1, 0b11, 2, 0b010, 1).to_le_bytes());
+        expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
+        assert_eq!(code, expected);
+    }
+
+    #[test]
+    fn fuses_ldpsw_pair_sequence() {
+        let mut builder = FunctionBuilder::new(FunctionId(0), 0);
+        builder.push_op(
+            0,
+            OpKind::Load {
+                dst: x(0),
+                addr: Address::Direct(x(1)),
+                width: MemWidth::B8,
+                sign: SignExtend::Sign,
+            },
+        );
+        builder.push_op(
+            0,
+            OpKind::Load {
+                dst: x(2),
+                addr: Address::BaseOffset {
+                    base: x(1),
+                    offset: 8,
+                    disp_size: DispSize::Auto,
+                },
+                width: MemWidth::B8,
+                sign: SignExtend::Sign,
+            },
+        );
+        builder.set_terminator(Terminator::Return { values: vec![] });
+        let func = builder.finish();
+
+        let mut lowerer = Aarch64Lowerer::new();
+        lowerer.lower_function(&func).unwrap();
+        let code = lowerer.finalize().unwrap();
+
+        let mut expected = Vec::new();
+        expected.extend_from_slice(&enc_ldp(0b01, 0b10, true, 0).to_le_bytes());
+        expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
+        assert_eq!(code, expected);
+    }
+
+    #[test]
+    fn fuses_ldpsw_pre_index_sequence() {
+        let mut builder = FunctionBuilder::new(FunctionId(0), 0);
+        builder.push_op(
+            0,
+            OpKind::Add {
+                dst: x(1),
+                src1: x(1),
+                src2: SrcOperand::Imm(8),
+                width: OpWidth::W64,
+                flags: FlagUpdate::None,
+            },
+        );
+        builder.push_op(
+            0,
+            OpKind::Load {
+                dst: x(0),
+                addr: Address::Direct(x(1)),
+                width: MemWidth::B8,
+                sign: SignExtend::Sign,
+            },
+        );
+        builder.push_op(
+            0,
+            OpKind::Load {
+                dst: x(2),
+                addr: Address::BaseOffset {
+                    base: x(1),
+                    offset: 8,
+                    disp_size: DispSize::Auto,
+                },
+                width: MemWidth::B8,
+                sign: SignExtend::Sign,
+            },
+        );
+        builder.set_terminator(Terminator::Return { values: vec![] });
+        let func = builder.finish();
+
+        let mut lowerer = Aarch64Lowerer::new();
+        lowerer.lower_function(&func).unwrap();
+        let code = lowerer.finalize().unwrap();
+
+        let mut expected = Vec::new();
+        expected.extend_from_slice(&enc_ldp(0b01, 0b11, true, 2).to_le_bytes());
+        expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
+        assert_eq!(code, expected);
+    }
+
+    #[test]
+    fn fuses_ldpsw_post_index_sequence() {
+        let mut builder = FunctionBuilder::new(FunctionId(0), 0);
+        builder.push_op(
+            0,
+            OpKind::Load {
+                dst: x(0),
+                addr: Address::Direct(x(1)),
+                width: MemWidth::B8,
+                sign: SignExtend::Sign,
+            },
+        );
+        builder.push_op(
+            0,
+            OpKind::Load {
+                dst: x(2),
+                addr: Address::BaseOffset {
+                    base: x(1),
+                    offset: 8,
+                    disp_size: DispSize::Auto,
+                },
+                width: MemWidth::B8,
+                sign: SignExtend::Sign,
+            },
+        );
+        builder.push_op(
+            0,
+            OpKind::Add {
+                dst: x(1),
+                src1: x(1),
+                src2: SrcOperand::Imm(-8),
+                width: OpWidth::W64,
+                flags: FlagUpdate::None,
+            },
+        );
+        builder.set_terminator(Terminator::Return { values: vec![] });
+        let func = builder.finish();
+
+        let mut lowerer = Aarch64Lowerer::new();
+        lowerer.lower_function(&func).unwrap();
+        let code = lowerer.finalize().unwrap();
+
+        let mut expected = Vec::new();
+        expected.extend_from_slice(&enc_ldp(0b01, 0b01, true, -2).to_le_bytes());
         expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
         assert_eq!(code, expected);
     }
