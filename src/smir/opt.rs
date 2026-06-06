@@ -146,6 +146,8 @@ fn op_out_width(kind: &OpKind) -> Option<OpWidth> {
         | OpKind::Shrd { width, .. }
         | OpKind::Rol { width, .. }
         | OpKind::Ror { width, .. }
+        | OpKind::Rcl { width, .. }
+        | OpKind::Rcr { width, .. }
         | OpKind::MulU { width, .. }
         | OpKind::MulS { width, .. }
         | OpKind::DivU { width, .. }
@@ -1198,7 +1200,9 @@ fn rewrite_pure_src_vregs(kind: &mut OpKind, f: &dyn Fn(VReg) -> VReg) -> usize 
         | OpKind::Shr { src, amount, .. }
         | OpKind::Sar { src, amount, .. }
         | OpKind::Rol { src, amount, .. }
-        | OpKind::Ror { src, amount, .. } => {
+        | OpKind::Ror { src, amount, .. }
+        | OpKind::Rcl { src, amount, .. }
+        | OpKind::Rcr { src, amount, .. } => {
             do_v(src, &mut n);
             do_s(amount, &mut n);
         }
@@ -1792,6 +1796,8 @@ impl OpKind {
             | OpKind::Shrd { flags, .. }
             | OpKind::Rol { flags, .. }
             | OpKind::Ror { flags, .. }
+            | OpKind::Rcl { flags, .. }
+            | OpKind::Rcr { flags, .. }
             | OpKind::Bsf { flags, .. }
             | OpKind::Bsr { flags, .. }
             | OpKind::MulU { flags, .. }
@@ -1817,12 +1823,17 @@ impl OpKind {
             | OpKind::Sar { flags, .. }
             | OpKind::Shld { flags, .. }
             | OpKind::Shrd { flags, .. }
-            | OpKind::Rol { flags, .. }
-            | OpKind::Ror { flags, .. }
             | OpKind::Bsf { flags, .. }
             | OpKind::Bsr { flags, .. }
             | OpKind::MulU { flags, .. }
             | OpKind::MulS { flags, .. } => flags.as_set(),
+
+            OpKind::Rol { flags, .. }
+            | OpKind::Ror { flags, .. }
+            | OpKind::Rcl { flags, .. }
+            | OpKind::Rcr { flags, .. } => {
+                flags.as_set().intersection(FlagSet::CF.union(FlagSet::OF))
+            }
 
             // INC/DEC update OF/SF/ZF/AF/PF but PRESERVE CF (their defining
             // difference from ADD/SUB by 1). Never report CF as written.
@@ -1858,6 +1869,8 @@ impl OpKind {
             | OpKind::Shrd { .. }
             | OpKind::Rol { .. }
             | OpKind::Ror { .. }
+            | OpKind::Rcl { .. }
+            | OpKind::Rcr { .. }
             | OpKind::MulU { .. }
             | OpKind::MulS { .. }
             | OpKind::Bsf { .. }
@@ -1870,7 +1883,9 @@ impl OpKind {
     pub fn flags_read(&self) -> FlagSet {
         match self {
             // Add/Sub with carry read CF
-            OpKind::Adc { .. } | OpKind::Sbb { .. } => FlagSet::CF,
+            OpKind::Adc { .. } | OpKind::Sbb { .. } | OpKind::Rcl { .. } | OpKind::Rcr { .. } => {
+                FlagSet::CF
+            }
 
             // Conditional move reads flags based on condition
             OpKind::CMove { cond, .. } | OpKind::SetCC { cond, .. } => {
@@ -1974,7 +1989,9 @@ impl OpKind {
             | OpKind::Shr { src, amount, .. }
             | OpKind::Sar { src, amount, .. }
             | OpKind::Rol { src, amount, .. }
-            | OpKind::Ror { src, amount, .. } => {
+            | OpKind::Ror { src, amount, .. }
+            | OpKind::Rcl { src, amount, .. }
+            | OpKind::Rcr { src, amount, .. } => {
                 result.push(*src);
                 if let SrcOperand::Reg(r) = amount {
                     result.push(*r);

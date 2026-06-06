@@ -5,7 +5,7 @@
 use std::collections::HashMap;
 
 use crate::smir::context::{ArchRegState, ExitReason, SmirContext, VecValue};
-use crate::smir::flags::{FlagUpdate, LazyFlagOp, LazyFlags};
+use crate::smir::flags::{LazyFlagOp, LazyFlags};
 use crate::smir::ir::{CallTarget, SmirBlock, SmirFunction, Terminator, TrapKind};
 use crate::smir::memory::{MemoryError, SmirMemory};
 use crate::smir::ops::{HexFpOp, HexFpRecipKind, OpKind, SmirOp};
@@ -190,6 +190,38 @@ impl SmirInterpreter {
             let shift = 128 - bits;
             ((v << shift) as i128) >> shift
         }
+    }
+
+    fn x86_rcl(val: u64, count: u64, carry_in: bool, width: OpWidth) -> (u64, bool, u64) {
+        let bits = width.bits() as u64;
+        let cmask = if bits == 64 { 0x3F } else { 0x1F };
+        let effective = (count & cmask) % (bits + 1);
+        let mut result = val & width.mask();
+        let mut carry = carry_in;
+
+        for _ in 0..effective {
+            let msb = ((result >> (bits - 1)) & 1) != 0;
+            result = ((result << 1) | u64::from(carry)) & width.mask();
+            carry = msb;
+        }
+
+        (result, carry, effective)
+    }
+
+    fn x86_rcr(val: u64, count: u64, carry_in: bool, width: OpWidth) -> (u64, bool, u64) {
+        let bits = width.bits() as u64;
+        let cmask = if bits == 64 { 0x3F } else { 0x1F };
+        let effective = (count & cmask) % (bits + 1);
+        let mut result = val & width.mask();
+        let mut carry = carry_in;
+
+        for _ in 0..effective {
+            let lsb = (result & 1) != 0;
+            result = (result >> 1) | (u64::from(carry) << (bits - 1));
+            carry = lsb;
+        }
+
+        (result & width.mask(), carry, effective)
     }
 
     /// Execute a single operation
@@ -864,6 +896,7 @@ impl SmirInterpreter {
                 // amount (masked mod width) is 0, e.g. ROL r16 by 16. `right`
                 // carries the masked count so OF keys on masked==1.
                 if masked != 0 && flags.updates_any() {
+                    ctx.flags.materialize_all();
                     ctx.flags.lazy = Some(LazyFlags {
                         op: LazyFlagOp::Rotate,
                         result,
@@ -897,6 +930,7 @@ impl SmirInterpreter {
 
                 // CF/OF update iff the MASKED count != 0 (see Rol).
                 if masked != 0 && flags.updates_any() {
+                    ctx.flags.materialize_all();
                     ctx.flags.lazy = Some(LazyFlags {
                         op: LazyFlagOp::Ror,
                         result,
@@ -904,6 +938,60 @@ impl SmirInterpreter {
                         right: masked,
                         width: *width,
                         high: 0,
+                    });
+                }
+            }
+
+            OpKind::Rcl {
+                dst,
+                src,
+                amount,
+                width,
+                flags,
+            } => {
+                let val = ctx.read_vreg(*src) & width.mask();
+                let count = self.read_src_operand(ctx, amount);
+                ctx.flags.materialize_all();
+                let (result, carry, effective) =
+                    Self::x86_rcl(val, count, ctx.flags.materialized.cf, *width);
+
+                Self::write_gpr(ctx, *dst, result, *width);
+
+                if effective != 0 && flags.updates_any() {
+                    ctx.flags.lazy = Some(LazyFlags {
+                        op: LazyFlagOp::Rcl,
+                        result,
+                        left: val,
+                        right: effective,
+                        width: *width,
+                        high: u64::from(carry),
+                    });
+                }
+            }
+
+            OpKind::Rcr {
+                dst,
+                src,
+                amount,
+                width,
+                flags,
+            } => {
+                let val = ctx.read_vreg(*src) & width.mask();
+                let count = self.read_src_operand(ctx, amount);
+                ctx.flags.materialize_all();
+                let (result, carry, effective) =
+                    Self::x86_rcr(val, count, ctx.flags.materialized.cf, *width);
+
+                Self::write_gpr(ctx, *dst, result, *width);
+
+                if effective != 0 && flags.updates_any() {
+                    ctx.flags.lazy = Some(LazyFlags {
+                        op: LazyFlagOp::Rcr,
+                        result,
+                        left: val,
+                        right: effective,
+                        width: *width,
+                        high: u64::from(carry),
                     });
                 }
             }
@@ -6735,9 +6823,121 @@ fn hex_fp_eval(op: HexFpOp, a: u64, b: u64) -> u64 {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::smir::flags::FlagUpdate;
+    use crate::smir::flags::{FlagUpdate, MaterializedFlags};
     use crate::smir::ir::FunctionBuilder;
     use crate::smir::memory::FlatMemory;
+
+    fn exec_x86_rax_op(op: OpKind, rax_value: u64, rcx_value: u64, rflags: u64) -> (u64, u64) {
+        let rax = VReg::Arch(ArchReg::X86(X86Reg::Rax));
+        let rcx = VReg::Arch(ArchReg::X86(X86Reg::Rcx));
+        let mut ctx = SmirContext::new_x86_64();
+        ctx.write_vreg(rax, rax_value);
+        ctx.write_vreg(rcx, rcx_value);
+        ctx.flags.materialized = MaterializedFlags::from_rflags(rflags);
+        ctx.flags.lazy = None;
+
+        let mut memory = FlatMemory::new(0x1000);
+        let interp = SmirInterpreter::new();
+        let mut builder = FunctionBuilder::new(FunctionId(0), 0x1000);
+        builder.push_op(0x1000, op);
+        builder.set_terminator(Terminator::Trap {
+            kind: TrapKind::Halt,
+        });
+        let func = builder.finish();
+        let block = &func.blocks[0];
+
+        let exit = interp.execute_block(&mut ctx, &mut memory, block);
+        assert!(matches!(exit, BlockResult::Exit(ExitReason::Halt)));
+        ctx.flags.materialize_all();
+        (ctx.read_vreg(rax), ctx.flags.materialized.to_rflags())
+    }
+
+    #[test]
+    fn smir_x86_rcl_rcr_match_rotate_through_carry_oracle_cases() {
+        let rax = VReg::Arch(ArchReg::X86(X86Reg::Rax));
+        let rcx = VReg::Arch(ArchReg::X86(X86Reg::Rcx));
+        let preserved = 0x2 | 0x4 | 0x10 | 0x40 | 0x80;
+
+        // Legacy x86 rotate tests assert these same architectural cases:
+        // RCL AL,1 with CF=1: 0x42 -> 0x85, CF=0, OF=1.
+        let (value, flags) = exec_x86_rax_op(
+            OpKind::Rcl {
+                dst: rax,
+                src: rax,
+                amount: SrcOperand::Imm(1),
+                width: OpWidth::W8,
+                flags: FlagUpdate::All,
+            },
+            0x42,
+            0,
+            preserved | 0x1,
+        );
+        assert_eq!(value & 0xFF, 0x85);
+        assert_eq!(flags & 0x8D5, (preserved | 0x800) & 0x8D5);
+
+        // RCR AL,1 with CF=0: 0x81 -> 0x40, CF=1, OF=1.
+        let (value, flags) = exec_x86_rax_op(
+            OpKind::Rcr {
+                dst: rax,
+                src: rax,
+                amount: SrcOperand::Imm(1),
+                width: OpWidth::W8,
+                flags: FlagUpdate::All,
+            },
+            0x81,
+            0,
+            preserved,
+        );
+        assert_eq!(value & 0xFF, 0x40);
+        assert_eq!(flags & 0x8D5, (preserved | 0x1 | 0x800) & 0x8D5);
+
+        // RCR AL,9 is a full 9-bit rotate-through-carry period: value and flags
+        // are unchanged because the effective count is zero.
+        let start_flags = preserved | 0x1 | 0x800;
+        let (value, flags) = exec_x86_rax_op(
+            OpKind::Rcr {
+                dst: rax,
+                src: rax,
+                amount: SrcOperand::Imm(9),
+                width: OpWidth::W8,
+                flags: FlagUpdate::All,
+            },
+            0xA5,
+            0,
+            start_flags,
+        );
+        assert_eq!(value & 0xFF, 0xA5);
+        assert_eq!(flags & 0x8D5, start_flags & 0x8D5);
+
+        // RCL RAX,32 and RCR RAX,CL mirror the legacy emulator's 64-bit cases.
+        let (value, _) = exec_x86_rax_op(
+            OpKind::Rcl {
+                dst: rax,
+                src: rax,
+                amount: SrcOperand::Imm(32),
+                width: OpWidth::W64,
+                flags: FlagUpdate::All,
+            },
+            0x1234_5678_9ABC_DEF0,
+            0,
+            0x2,
+        );
+        assert_eq!(value, 0x9ABC_DEF0_091A_2B3C);
+
+        let (value, _) = exec_x86_rax_op(
+            OpKind::Rcr {
+                dst: rax,
+                src: rax,
+                amount: SrcOperand::Reg(rcx),
+                width: OpWidth::W64,
+                flags: FlagUpdate::All,
+            },
+            0x1234_5678_9ABC_DEF0,
+            16,
+            0x2,
+        );
+        assert_eq!(value, 0xBDE0_1234_5678_9ABC);
+    }
 
     /// Pins a few known (input -> Rd, Pe) pairs for the reciprocal / inverse-sqrt
     /// seed + fixup family. The expected values were derived directly from the

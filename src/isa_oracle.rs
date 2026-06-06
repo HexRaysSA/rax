@@ -1413,6 +1413,20 @@ fn smir_op_kind_json(kind: &OpKind) -> Value {
             width,
             flags,
         } => op_json!("ror", dst, src, amount, width, flags),
+        OpKind::Rcl {
+            dst,
+            src,
+            amount,
+            width,
+            flags,
+        } => op_json!("rcl", dst, src, amount, width, flags),
+        OpKind::Rcr {
+            dst,
+            src,
+            amount,
+            width,
+            flags,
+        } => op_json!("rcr", dst, src, amount, width, flags),
         OpKind::Bt { src, index, width } => op_json!("bt", src, index, width),
         OpKind::Bts {
             dst,

@@ -1698,6 +1698,11 @@ impl Aarch64X86_64Lowerer {
                     self.emit_nzcv_from_flags(FlagForm::Logic);
                 }
             }
+            OpKind::Rcl { .. } | OpKind::Rcr { .. } => {
+                return Err(LowerError::UnsupportedOp {
+                    op: "AArch64-to-x86 RCL/RCR".to_string(),
+                });
+            }
             OpKind::ZeroExtend {
                 dst,
                 src,

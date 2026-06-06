@@ -367,6 +367,24 @@ pub enum OpKind {
         flags: FlagUpdate,
     },
 
+    /// Rotate through carry left
+    Rcl {
+        dst: VReg,
+        src: VReg,
+        amount: SrcOperand,
+        width: OpWidth,
+        flags: FlagUpdate,
+    },
+
+    /// Rotate through carry right
+    Rcr {
+        dst: VReg,
+        src: VReg,
+        amount: SrcOperand,
+        width: OpWidth,
+        flags: FlagUpdate,
+    },
+
     /// Hexagon bidirectional register-amount shift.
     ///
     /// `dst = bidir_shift(src, sxtn7(amount))` where the effective shift count is
@@ -2629,6 +2647,8 @@ impl OpKind {
             | OpKind::Shrd { dst, .. }
             | OpKind::Rol { dst, .. }
             | OpKind::Ror { dst, .. }
+            | OpKind::Rcl { dst, .. }
+            | OpKind::Rcr { dst, .. }
             | OpKind::BidirShift { dst, .. }
             | OpKind::SatN { dst, .. }
             | OpKind::Bts { dst, .. }

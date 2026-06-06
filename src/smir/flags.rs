@@ -122,6 +122,10 @@ pub enum LazyFlagOp {
     Rotate,
     /// Rotate right (ROR): CF = MSB of result
     Ror,
+    /// Rotate through carry left (RCL): CF is stored in `high`
+    Rcl,
+    /// Rotate through carry right (RCR): CF is stored in `high`
+    Rcr,
     /// Double-precision shift left (SHLD): CF = last bit shifted out of dst's
     /// top. `left` = original dst, `right` = masked count.
     Shld,
@@ -393,7 +397,7 @@ impl FlagState {
     /// Get the zero flag
     pub fn get_zf(&mut self) -> bool {
         if let Some(ref lazy) = self.lazy {
-            Self::materialize_zf(lazy)
+            self.materialize_zf(lazy)
         } else {
             self.materialized.zf
         }
@@ -402,7 +406,7 @@ impl FlagState {
     /// Get the sign flag
     pub fn get_sf(&mut self) -> bool {
         if let Some(ref lazy) = self.lazy {
-            Self::materialize_sf(lazy)
+            self.materialize_sf(lazy)
         } else {
             self.materialized.sf
         }
@@ -420,7 +424,7 @@ impl FlagState {
     /// Get the parity flag (x86 only)
     pub fn get_pf(&mut self) -> bool {
         if let Some(ref lazy) = self.lazy {
-            Self::materialize_pf(lazy)
+            self.materialize_pf(lazy)
         } else {
             self.materialized.pf
         }
@@ -490,6 +494,7 @@ impl FlagState {
             LazyFlagOp::Rotate => (lazy.result & 1) != 0,
             // ROR: CF = the bit rotated out of the low end = MSB of the result.
             LazyFlagOp::Ror => (lazy.result & lazy.width.sign_bit()) != 0,
+            LazyFlagOp::Rcl | LazyFlagOp::Rcr => (lazy.high & 1) != 0,
             // SHLD CF = last bit shifted out of the top of dst = bit (width-count).
             LazyFlagOp::Shld => {
                 let bits = lazy.width.bits() as u64;
@@ -516,13 +521,23 @@ impl FlagState {
     }
 
     /// Materialize zero flag
-    fn materialize_zf(lazy: &LazyFlags) -> bool {
-        (lazy.result & lazy.width.mask()) == 0
+    fn materialize_zf(&self, lazy: &LazyFlags) -> bool {
+        match lazy.op {
+            LazyFlagOp::Rotate | LazyFlagOp::Ror | LazyFlagOp::Rcl | LazyFlagOp::Rcr => {
+                self.materialized.zf
+            }
+            _ => (lazy.result & lazy.width.mask()) == 0,
+        }
     }
 
     /// Materialize sign flag
-    fn materialize_sf(lazy: &LazyFlags) -> bool {
-        (lazy.result & lazy.width.sign_bit()) != 0
+    fn materialize_sf(&self, lazy: &LazyFlags) -> bool {
+        match lazy.op {
+            LazyFlagOp::Rotate | LazyFlagOp::Ror | LazyFlagOp::Rcl | LazyFlagOp::Rcr => {
+                self.materialized.sf
+            }
+            _ => (lazy.result & lazy.width.sign_bit()) != 0,
+        }
     }
 
     /// Materialize overflow flag
@@ -596,6 +611,24 @@ impl FlagState {
                     false
                 }
             }
+            LazyFlagOp::Rcl => {
+                if lazy.right == 1 {
+                    let cf = self.materialize_cf(lazy);
+                    let msb = (lazy.result & sign_bit) != 0;
+                    cf != msb
+                } else {
+                    false
+                }
+            }
+            LazyFlagOp::Rcr => {
+                if lazy.right == 1 {
+                    let msb = (lazy.result & sign_bit) != 0;
+                    let second = (lazy.result & (sign_bit >> 1)) != 0;
+                    msb != second
+                } else {
+                    false
+                }
+            }
             // SHLD/SHRD OF (count==1 only): set iff the sign bit of dst changed.
             LazyFlagOp::Shld | LazyFlagOp::Shrd => {
                 if lazy.right == 1 {
@@ -619,9 +652,16 @@ impl FlagState {
     }
 
     /// Materialize parity flag (x86 only)
-    fn materialize_pf(lazy: &LazyFlags) -> bool {
-        let byte = (lazy.result & 0xFF) as u8;
-        byte.count_ones() % 2 == 0
+    fn materialize_pf(&self, lazy: &LazyFlags) -> bool {
+        match lazy.op {
+            LazyFlagOp::Rotate | LazyFlagOp::Ror | LazyFlagOp::Rcl | LazyFlagOp::Rcr => {
+                self.materialized.pf
+            }
+            _ => {
+                let byte = (lazy.result & 0xFF) as u8;
+                byte.count_ones() % 2 == 0
+            }
+        }
     }
 
     /// Materialize auxiliary carry (x86 only)
@@ -646,10 +686,10 @@ impl FlagState {
     pub fn materialize_all(&mut self) {
         if let Some(lazy) = self.lazy.take() {
             self.materialized.cf = self.materialize_cf(&lazy);
-            self.materialized.zf = Self::materialize_zf(&lazy);
-            self.materialized.sf = Self::materialize_sf(&lazy);
+            self.materialized.zf = self.materialize_zf(&lazy);
+            self.materialized.sf = self.materialize_sf(&lazy);
             self.materialized.of = self.materialize_of(&lazy);
-            self.materialized.pf = Self::materialize_pf(&lazy);
+            self.materialized.pf = self.materialize_pf(&lazy);
             self.materialized.af = self.materialize_af(&lazy);
         }
     }

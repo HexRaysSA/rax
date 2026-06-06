@@ -101,6 +101,43 @@ enum ShiftCount {
 }
 
 #[derive(Clone, Copy, Debug)]
+enum ShiftRegOp {
+    Rol,
+    Ror,
+    Rcl,
+    Rcr,
+    Shl,
+    Shr,
+    Sar,
+}
+
+impl ShiftRegOp {
+    fn digit(self) -> u8 {
+        match self {
+            ShiftRegOp::Rol => 0,
+            ShiftRegOp::Ror => 1,
+            ShiftRegOp::Rcl => 2,
+            ShiftRegOp::Rcr => 3,
+            ShiftRegOp::Shl => 4,
+            ShiftRegOp::Shr => 5,
+            ShiftRegOp::Sar => 7,
+        }
+    }
+
+    fn name(self) -> &'static str {
+        match self {
+            ShiftRegOp::Rol => "Rol",
+            ShiftRegOp::Ror => "Ror",
+            ShiftRegOp::Rcl => "Rcl",
+            ShiftRegOp::Rcr => "Rcr",
+            ShiftRegOp::Shl => "Shl",
+            ShiftRegOp::Shr => "Shr",
+            ShiftRegOp::Sar => "Sar",
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug)]
 enum VecEncodingKind {
     Vex,
     Evex,
@@ -2324,6 +2361,74 @@ impl<'a> X86Emitter<'a> {
         self.emit_modrm_digit(0b11, 1, dst);
     }
 
+    /// RCL r/m, imm8
+    pub fn emit_rcl_ri(&mut self, dst: PhysReg, amount: u8, width: OpWidth) {
+        self.emit_rex_for_width(width, PhysReg::Rax, dst);
+
+        if amount == 1 {
+            let opcode = match width {
+                OpWidth::W8 => 0xD0,
+                _ => 0xD1,
+            };
+            self.code.emit_u8(opcode);
+            self.emit_modrm_digit(0b11, 2, dst);
+        } else {
+            let opcode = match width {
+                OpWidth::W8 => 0xC0,
+                _ => 0xC1,
+            };
+            self.code.emit_u8(opcode);
+            self.emit_modrm_digit(0b11, 2, dst);
+            self.code.emit_u8(amount);
+        }
+    }
+
+    /// RCL r/m, CL
+    pub fn emit_rcl_cl(&mut self, dst: PhysReg, width: OpWidth) {
+        self.emit_rex_for_width(width, PhysReg::Rax, dst);
+
+        let opcode = match width {
+            OpWidth::W8 => 0xD2,
+            _ => 0xD3,
+        };
+        self.code.emit_u8(opcode);
+        self.emit_modrm_digit(0b11, 2, dst);
+    }
+
+    /// RCR r/m, imm8
+    pub fn emit_rcr_ri(&mut self, dst: PhysReg, amount: u8, width: OpWidth) {
+        self.emit_rex_for_width(width, PhysReg::Rax, dst);
+
+        if amount == 1 {
+            let opcode = match width {
+                OpWidth::W8 => 0xD0,
+                _ => 0xD1,
+            };
+            self.code.emit_u8(opcode);
+            self.emit_modrm_digit(0b11, 3, dst);
+        } else {
+            let opcode = match width {
+                OpWidth::W8 => 0xC0,
+                _ => 0xC1,
+            };
+            self.code.emit_u8(opcode);
+            self.emit_modrm_digit(0b11, 3, dst);
+            self.code.emit_u8(amount);
+        }
+    }
+
+    /// RCR r/m, CL
+    pub fn emit_rcr_cl(&mut self, dst: PhysReg, width: OpWidth) {
+        self.emit_rex_for_width(width, PhysReg::Rax, dst);
+
+        let opcode = match width {
+            OpWidth::W8 => 0xD2,
+            _ => 0xD3,
+        };
+        self.code.emit_u8(opcode);
+        self.emit_modrm_digit(0b11, 3, dst);
+    }
+
     fn shift_opcode(width: OpWidth, count: ShiftCount) -> u8 {
         match count {
             ShiftCount::One => match width {
@@ -3266,6 +3371,113 @@ impl X86_64Lowerer {
         }
     }
 
+    fn emit_shift_reg_imm(
+        &mut self,
+        kind: ShiftRegOp,
+        dst_reg: PhysReg,
+        imm: u8,
+        width: OpWidth,
+    ) {
+        let mut emitter = X86Emitter::new(&mut self.code);
+        match kind {
+            ShiftRegOp::Rol => emitter.emit_rol_ri(dst_reg, imm, width),
+            ShiftRegOp::Ror => emitter.emit_ror_ri(dst_reg, imm, width),
+            ShiftRegOp::Rcl => emitter.emit_rcl_ri(dst_reg, imm, width),
+            ShiftRegOp::Rcr => emitter.emit_rcr_ri(dst_reg, imm, width),
+            ShiftRegOp::Shl => emitter.emit_shl_ri(dst_reg, imm, width),
+            ShiftRegOp::Shr => emitter.emit_shr_ri(dst_reg, imm, width),
+            ShiftRegOp::Sar => emitter.emit_sar_ri(dst_reg, imm, width),
+        }
+    }
+
+    fn emit_shift_reg_cl(&mut self, kind: ShiftRegOp, dst_reg: PhysReg, width: OpWidth) {
+        let mut emitter = X86Emitter::new(&mut self.code);
+        match kind {
+            ShiftRegOp::Rol => emitter.emit_rol_cl(dst_reg, width),
+            ShiftRegOp::Ror => emitter.emit_ror_cl(dst_reg, width),
+            ShiftRegOp::Rcl => emitter.emit_rcl_cl(dst_reg, width),
+            ShiftRegOp::Rcr => emitter.emit_rcr_cl(dst_reg, width),
+            ShiftRegOp::Shl => emitter.emit_shl_cl(dst_reg, width),
+            ShiftRegOp::Shr => emitter.emit_shr_cl(dst_reg, width),
+            ShiftRegOp::Sar => emitter.emit_sar_cl(dst_reg, width),
+        }
+    }
+
+    fn lower_shift_reg_op(
+        &mut self,
+        kind: ShiftRegOp,
+        dst: VReg,
+        src: VReg,
+        amount: &SrcOperand,
+        width: OpWidth,
+    ) -> Result<(), LowerError> {
+        let dst_reg = self.get_dst_reg(dst)?;
+        let src_reg = self.get_reg(src)?;
+
+        match amount {
+            SrcOperand::Imm(val) => {
+                if dst_reg != src_reg {
+                    let mut emitter = X86Emitter::new(&mut self.code);
+                    emitter.emit_mov_rr(dst_reg, src_reg, width);
+                }
+                self.emit_shift_reg_imm(kind, dst_reg, *val as u8, width);
+            }
+            SrcOperand::Reg(r) => {
+                let amt_reg = self.get_reg(*r)?;
+
+                if dst_reg == PhysReg::Rcx && amt_reg != PhysReg::Rcx {
+                    {
+                        let mut emitter = X86Emitter::new(&mut self.code);
+                        if dst_reg != src_reg {
+                            emitter.emit_mov_rr(dst_reg, src_reg, width);
+                        }
+                        emitter.emit_push(dst_reg);
+                        emitter.emit_mov_rr(PhysReg::Rcx, amt_reg, OpWidth::W8);
+                        emitter.emit_shift_m_disp(
+                            kind.digit(),
+                            PhysReg::Rsp,
+                            0,
+                            DispSize::Auto,
+                            width,
+                            ShiftCount::Cl,
+                        );
+                        emitter.emit_pop(dst_reg);
+                        if width == OpWidth::W32 {
+                            emitter.emit_mov_rr(dst_reg, dst_reg, OpWidth::W32);
+                        }
+                    }
+                    return Ok(());
+                }
+
+                if dst_reg == PhysReg::Rcx && amt_reg == PhysReg::Rcx && src_reg != dst_reg {
+                    return Err(LowerError::InvalidOperand {
+                        op: kind.name().to_string(),
+                        operand: "dst RCX with non-RCX source and CL count requires captured count"
+                            .to_string(),
+                    });
+                }
+
+                if dst_reg != src_reg {
+                    let mut emitter = X86Emitter::new(&mut self.code);
+                    emitter.emit_mov_rr(dst_reg, src_reg, width);
+                }
+
+                if amt_reg != PhysReg::Rcx {
+                    let mut emitter = X86Emitter::new(&mut self.code);
+                    emitter.emit_mov_rr(PhysReg::Rcx, amt_reg, OpWidth::W8);
+                }
+                self.emit_shift_reg_cl(kind, dst_reg, width);
+            }
+            _ => {
+                return Err(LowerError::UnsupportedOp {
+                    op: format!("{} with shifted operand", kind.name()),
+                });
+            }
+        }
+
+        Ok(())
+    }
+
     /// Emit function prologue
     fn emit_prologue(&mut self) {
         let mut emitter = X86Emitter::new(&mut self.code);
@@ -4130,37 +4342,7 @@ impl X86_64Lowerer {
                 amount,
                 width,
                 ..
-            } => {
-                let dst_reg = self.get_dst_reg(*dst)?;
-                let src_reg = self.get_reg(*src)?;
-
-                if dst_reg != src_reg {
-                    let mut emitter = X86Emitter::new(&mut self.code);
-                    emitter.emit_mov_rr(dst_reg, src_reg, *width);
-                }
-
-                match amount {
-                    SrcOperand::Imm(val) => {
-                        let mut emitter = X86Emitter::new(&mut self.code);
-                        emitter.emit_shl_ri(dst_reg, *val as u8, *width);
-                    }
-                    SrcOperand::Reg(r) => {
-                        // Move shift amount to CL
-                        let amt_reg = self.get_reg(*r)?;
-                        if amt_reg != PhysReg::Rcx {
-                            let mut emitter = X86Emitter::new(&mut self.code);
-                            emitter.emit_mov_rr(PhysReg::Rcx, amt_reg, OpWidth::W8);
-                        }
-                        let mut emitter = X86Emitter::new(&mut self.code);
-                        emitter.emit_shl_cl(dst_reg, *width);
-                    }
-                    _ => {
-                        return Err(LowerError::UnsupportedOp {
-                            op: "Shl with shifted operand".to_string(),
-                        });
-                    }
-                }
-            }
+            } => self.lower_shift_reg_op(ShiftRegOp::Shl, *dst, *src, amount, *width)?,
 
             OpKind::Shr {
                 dst,
@@ -4168,36 +4350,7 @@ impl X86_64Lowerer {
                 amount,
                 width,
                 ..
-            } => {
-                let dst_reg = self.get_dst_reg(*dst)?;
-                let src_reg = self.get_reg(*src)?;
-
-                if dst_reg != src_reg {
-                    let mut emitter = X86Emitter::new(&mut self.code);
-                    emitter.emit_mov_rr(dst_reg, src_reg, *width);
-                }
-
-                match amount {
-                    SrcOperand::Imm(val) => {
-                        let mut emitter = X86Emitter::new(&mut self.code);
-                        emitter.emit_shr_ri(dst_reg, *val as u8, *width);
-                    }
-                    SrcOperand::Reg(r) => {
-                        let amt_reg = self.get_reg(*r)?;
-                        if amt_reg != PhysReg::Rcx {
-                            let mut emitter = X86Emitter::new(&mut self.code);
-                            emitter.emit_mov_rr(PhysReg::Rcx, amt_reg, OpWidth::W8);
-                        }
-                        let mut emitter = X86Emitter::new(&mut self.code);
-                        emitter.emit_shr_cl(dst_reg, *width);
-                    }
-                    _ => {
-                        return Err(LowerError::UnsupportedOp {
-                            op: "Shr with shifted operand".to_string(),
-                        });
-                    }
-                }
-            }
+            } => self.lower_shift_reg_op(ShiftRegOp::Shr, *dst, *src, amount, *width)?,
 
             OpKind::Sar {
                 dst,
@@ -4205,36 +4358,7 @@ impl X86_64Lowerer {
                 amount,
                 width,
                 ..
-            } => {
-                let dst_reg = self.get_dst_reg(*dst)?;
-                let src_reg = self.get_reg(*src)?;
-
-                if dst_reg != src_reg {
-                    let mut emitter = X86Emitter::new(&mut self.code);
-                    emitter.emit_mov_rr(dst_reg, src_reg, *width);
-                }
-
-                match amount {
-                    SrcOperand::Imm(val) => {
-                        let mut emitter = X86Emitter::new(&mut self.code);
-                        emitter.emit_sar_ri(dst_reg, *val as u8, *width);
-                    }
-                    SrcOperand::Reg(r) => {
-                        let amt_reg = self.get_reg(*r)?;
-                        if amt_reg != PhysReg::Rcx {
-                            let mut emitter = X86Emitter::new(&mut self.code);
-                            emitter.emit_mov_rr(PhysReg::Rcx, amt_reg, OpWidth::W8);
-                        }
-                        let mut emitter = X86Emitter::new(&mut self.code);
-                        emitter.emit_sar_cl(dst_reg, *width);
-                    }
-                    _ => {
-                        return Err(LowerError::UnsupportedOp {
-                            op: "Sar with shifted operand".to_string(),
-                        });
-                    }
-                }
-            }
+            } => self.lower_shift_reg_op(ShiftRegOp::Sar, *dst, *src, amount, *width)?,
 
             OpKind::Rol {
                 dst,
@@ -4242,36 +4366,7 @@ impl X86_64Lowerer {
                 amount,
                 width,
                 ..
-            } => {
-                let dst_reg = self.get_dst_reg(*dst)?;
-                let src_reg = self.get_reg(*src)?;
-
-                if dst_reg != src_reg {
-                    let mut emitter = X86Emitter::new(&mut self.code);
-                    emitter.emit_mov_rr(dst_reg, src_reg, *width);
-                }
-
-                match amount {
-                    SrcOperand::Imm(val) => {
-                        let mut emitter = X86Emitter::new(&mut self.code);
-                        emitter.emit_rol_ri(dst_reg, *val as u8, *width);
-                    }
-                    SrcOperand::Reg(r) => {
-                        let amt_reg = self.get_reg(*r)?;
-                        if amt_reg != PhysReg::Rcx {
-                            let mut emitter = X86Emitter::new(&mut self.code);
-                            emitter.emit_mov_rr(PhysReg::Rcx, amt_reg, OpWidth::W8);
-                        }
-                        let mut emitter = X86Emitter::new(&mut self.code);
-                        emitter.emit_rol_cl(dst_reg, *width);
-                    }
-                    _ => {
-                        return Err(LowerError::UnsupportedOp {
-                            op: "Rol with shifted operand".to_string(),
-                        });
-                    }
-                }
-            }
+            } => self.lower_shift_reg_op(ShiftRegOp::Rol, *dst, *src, amount, *width)?,
 
             OpKind::Ror {
                 dst,
@@ -4279,36 +4374,23 @@ impl X86_64Lowerer {
                 amount,
                 width,
                 ..
-            } => {
-                let dst_reg = self.get_dst_reg(*dst)?;
-                let src_reg = self.get_reg(*src)?;
+            } => self.lower_shift_reg_op(ShiftRegOp::Ror, *dst, *src, amount, *width)?,
 
-                if dst_reg != src_reg {
-                    let mut emitter = X86Emitter::new(&mut self.code);
-                    emitter.emit_mov_rr(dst_reg, src_reg, *width);
-                }
+            OpKind::Rcl {
+                dst,
+                src,
+                amount,
+                width,
+                ..
+            } => self.lower_shift_reg_op(ShiftRegOp::Rcl, *dst, *src, amount, *width)?,
 
-                match amount {
-                    SrcOperand::Imm(val) => {
-                        let mut emitter = X86Emitter::new(&mut self.code);
-                        emitter.emit_ror_ri(dst_reg, *val as u8, *width);
-                    }
-                    SrcOperand::Reg(r) => {
-                        let amt_reg = self.get_reg(*r)?;
-                        if amt_reg != PhysReg::Rcx {
-                            let mut emitter = X86Emitter::new(&mut self.code);
-                            emitter.emit_mov_rr(PhysReg::Rcx, amt_reg, OpWidth::W8);
-                        }
-                        let mut emitter = X86Emitter::new(&mut self.code);
-                        emitter.emit_ror_cl(dst_reg, *width);
-                    }
-                    _ => {
-                        return Err(LowerError::UnsupportedOp {
-                            op: "Ror with shifted operand".to_string(),
-                        });
-                    }
-                }
-            }
+            OpKind::Rcr {
+                dst,
+                src,
+                amount,
+                width,
+                ..
+            } => self.lower_shift_reg_op(ShiftRegOp::Rcr, *dst, *src, amount, *width)?,
 
             OpKind::Shld {
                 dst,
@@ -7882,6 +7964,20 @@ impl X86_64Lowerer {
                 width,
                 ..
             } => (1, amount, dst, src, width),
+            OpKind::Rcl {
+                dst,
+                src,
+                amount,
+                width,
+                ..
+            } => (2, amount, dst, src, width),
+            OpKind::Rcr {
+                dst,
+                src,
+                amount,
+                width,
+                ..
+            } => (3, amount, dst, src, width),
             OpKind::Shl {
                 dst,
                 src,
@@ -9601,10 +9697,14 @@ mod tests {
         //   {nf} shrq %cl, %rax, %r8   => 62 f4 bc 1c d3 e8
         //   rolq $7,  %rax, %r8        => 62 f4 bc 18 c1 c0 07
         //   rorq %cl, %rax, %r8        => 62 f4 bc 18 d3 c8
+        //   rclq      %rax, %r8        => 62 f4 bc 18 d1 d0
+        //   rcrq %cl, %rax, %r8        => 62 f4 bc 18 d3 d8
+        //   shlq %cl, %rax, %rcx       => 62 f4 f4 18 d3 e0
         let (lowered, entry) = lower_rex2_block(&[
             0x62, 0xF4, 0xBC, 0x18, 0xC1, 0xE0, 0x04, 0x62, 0xF4, 0xBC, 0x1C, 0xD3, 0xE8,
             0x62, 0xF4, 0xBC, 0x18, 0xC1, 0xC0, 0x07, 0x62, 0xF4, 0xBC, 0x18, 0xD3, 0xC8,
-            0xF4,
+            0x62, 0xF4, 0xBC, 0x18, 0xD1, 0xD0, 0x62, 0xF4, 0xBC, 0x18, 0xD3, 0xD8,
+            0x62, 0xF4, 0xF4, 0x18, 0xD3, 0xE0, 0xF4,
         ]);
         assert!(entry < lowered.len());
         assert!(!lowered.is_empty());

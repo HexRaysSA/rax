@@ -4508,6 +4508,9 @@ impl Aarch64Lowerer {
                 width,
                 flags,
             } => self.lower_rol(*dst, *src, amount, flags.updates_any(), *width),
+            OpKind::Rcl { .. } | OpKind::Rcr { .. } => Err(LowerError::UnsupportedOp {
+                op: "AArch64 lower RCL/RCR".to_string(),
+            }),
             OpKind::Select {
                 dst,
                 cond,

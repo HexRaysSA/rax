@@ -5,7 +5,7 @@
 
 use std::collections::HashSet;
 
-use crate::smir::flags::FlagUpdate;
+use crate::smir::flags::{FlagSet, FlagUpdate};
 use crate::smir::ir::{
     CallTarget, CallingConv, FunctionAttrs, SmirBlock, SmirFunction, Terminator, TrapKind,
 };
@@ -17,6 +17,10 @@ use crate::smir::ops::{
     OpKind, SmirOp, X86AluEncoding, X86OpHint, X86SsePrefix, X86VecAlign, X86VecMap,
 };
 use crate::smir::types::*;
+
+fn x86_rotate_flags() -> FlagUpdate {
+    FlagUpdate::Specific(FlagSet::CF.union(FlagSet::OF))
+}
 
 // ============================================================================
 // x86_64 Lifter
@@ -1626,14 +1630,28 @@ impl X86_64Lifter {
                 src,
                 amount: SrcOperand::Imm(imm),
                 width,
-                flags: FlagUpdate::All,
+                flags: x86_rotate_flags(),
             },
             1 => OpKind::Ror {
                 dst: result,
                 src,
                 amount: SrcOperand::Imm(imm),
                 width,
-                flags: FlagUpdate::All,
+                flags: x86_rotate_flags(),
+            },
+            2 => OpKind::Rcl {
+                dst: result,
+                src,
+                amount: SrcOperand::Imm(imm),
+                width,
+                flags: x86_rotate_flags(),
+            },
+            3 => OpKind::Rcr {
+                dst: result,
+                src,
+                amount: SrcOperand::Imm(imm),
+                width,
+                flags: x86_rotate_flags(),
             },
             4 | 6 => OpKind::Shl {
                 dst: result,
@@ -1736,14 +1754,28 @@ impl X86_64Lifter {
                 src,
                 amount: SrcOperand::Imm(1),
                 width,
-                flags: FlagUpdate::All,
+                flags: x86_rotate_flags(),
             },
             1 => OpKind::Ror {
                 dst: result,
                 src,
                 amount: SrcOperand::Imm(1),
                 width,
-                flags: FlagUpdate::All,
+                flags: x86_rotate_flags(),
+            },
+            2 => OpKind::Rcl {
+                dst: result,
+                src,
+                amount: SrcOperand::Imm(1),
+                width,
+                flags: x86_rotate_flags(),
+            },
+            3 => OpKind::Rcr {
+                dst: result,
+                src,
+                amount: SrcOperand::Imm(1),
+                width,
+                flags: x86_rotate_flags(),
             },
             4 | 6 => OpKind::Shl {
                 dst: result,
@@ -1847,14 +1879,28 @@ impl X86_64Lifter {
                 src,
                 amount,
                 width,
-                flags: FlagUpdate::All,
+                flags: x86_rotate_flags(),
             },
             1 => OpKind::Ror {
                 dst: result,
                 src,
                 amount,
                 width,
-                flags: FlagUpdate::All,
+                flags: x86_rotate_flags(),
+            },
+            2 => OpKind::Rcl {
+                dst: result,
+                src,
+                amount,
+                width,
+                flags: x86_rotate_flags(),
+            },
+            3 => OpKind::Rcr {
+                dst: result,
+                src,
+                amount,
+                width,
+                flags: x86_rotate_flags(),
             },
             4 | 6 => OpKind::Shl {
                 dst: result,
@@ -3105,20 +3151,45 @@ impl X86_64Lifter {
         flags: FlagUpdate,
         pc: u64,
     ) -> Result<OpKind, LiftError> {
+        if matches!(group, 2 | 3) && !flags.updates_any() {
+            return Err(LiftError::Unsupported {
+                addr: pc,
+                mnemonic: "APX NF carry rotate".to_string(),
+            });
+        }
+        let rotate_flags = if flags.updates_any() {
+            x86_rotate_flags()
+        } else {
+            FlagUpdate::None
+        };
         match group {
             0 => Ok(OpKind::Rol {
                 dst,
                 src,
                 amount,
                 width,
-                flags,
+                flags: rotate_flags,
             }),
             1 => Ok(OpKind::Ror {
                 dst,
                 src,
                 amount,
                 width,
-                flags,
+                flags: rotate_flags,
+            }),
+            2 => Ok(OpKind::Rcl {
+                dst,
+                src,
+                amount,
+                width,
+                flags: rotate_flags,
+            }),
+            3 => Ok(OpKind::Rcr {
+                dst,
+                src,
+                amount,
+                width,
+                flags: rotate_flags,
             }),
             4 | 6 => Ok(OpKind::Shl {
                 dst,
@@ -3140,10 +3211,6 @@ impl X86_64Lifter {
                 amount,
                 width,
                 flags,
-            }),
-            2 | 3 => Err(LiftError::Unsupported {
-                addr: pc,
-                mnemonic: "APX carry rotate".to_string(),
             }),
             _ => Err(LiftError::Unsupported {
                 addr: pc,
@@ -6778,15 +6845,19 @@ mod tests {
                         width: OpWidth::W64,
                         flags: FlagUpdate::All,
                     },
-                )
-                | (
+                ) => {
+                    assert_eq!(*dst, x86_gpr(8), "{name}");
+                    assert_eq!(*src, x86_gpr(0), "{name}");
+                    assert_eq!(*got_amount, amount, "{name}");
+                }
+                (
                     "rol",
                     OpKind::Rol {
                         dst,
                         src,
                         amount: got_amount,
                         width: OpWidth::W64,
-                        flags: FlagUpdate::All,
+                        flags,
                     },
                 )
                 | (
@@ -6796,12 +6867,13 @@ mod tests {
                         src,
                         amount: got_amount,
                         width: OpWidth::W64,
-                        flags: FlagUpdate::All,
+                        flags,
                     },
                 ) => {
                     assert_eq!(*dst, x86_gpr(8), "{name}");
                     assert_eq!(*src, x86_gpr(0), "{name}");
                     assert_eq!(*got_amount, amount, "{name}");
+                    assert_eq!(*flags, x86_rotate_flags(), "{name}");
                 }
                 other => panic!("expected APX NDD {name}, got {other:?}"),
             }
@@ -6945,19 +7017,62 @@ mod tests {
     }
 
     #[test]
-    fn lift_apx_carry_rotates_rejected_until_smir_has_rcl_rcr() {
+    fn lift_apx_ndd_carry_rotates_use_rcl_rcr_like_llvm() {
         let mut lifter = X86_64Lifter::strict();
         let mut ctx = LiftContext::new(SourceArch::X86_64);
 
-        for (bytes, name) in [
-            ([0x62, 0xF4, 0xBC, 0x18, 0xD1, 0xD0], "rcl"),
-            ([0x62, 0xF4, 0xBC, 0x18, 0xD3, 0xD8], "rcr"),
+        for (bytes, name, amount) in [
+            (
+                [0x62, 0xF4, 0xBC, 0x18, 0xD1, 0xD0],
+                "rcl",
+                SrcOperand::Imm(1),
+            ),
+            (
+                [0x62, 0xF4, 0xBC, 0x18, 0xD3, 0xD8],
+                "rcr",
+                SrcOperand::Reg(x86_gpr(1)),
+            ),
         ] {
-            // LLVM 20 accepts these APX NDD carry rotates, but current SMIR has
-            // no RCL/RCR operation with carry-flag input semantics.
-            let err = lifter.lift_insn(0x1000, &bytes, &mut ctx).unwrap_err();
-            assert!(matches!(err, LiftError::Unsupported { .. }), "{name}: {err:?}");
+            let result = lifter.lift_insn(0x1000, &bytes, &mut ctx).unwrap();
+            assert_eq!(result.bytes_consumed, 6, "{name}");
+            assert_eq!(result.ops.len(), 1, "{name}");
+
+            match (name, &result.ops[0].kind) {
+                (
+                    "rcl",
+                    OpKind::Rcl {
+                        dst,
+                        src,
+                        amount: got_amount,
+                        width: OpWidth::W64,
+                        flags,
+                    },
+                )
+                | (
+                    "rcr",
+                    OpKind::Rcr {
+                        dst,
+                        src,
+                        amount: got_amount,
+                        width: OpWidth::W64,
+                        flags,
+                    },
+                ) => {
+                    assert_eq!(*dst, x86_gpr(8), "{name}");
+                    assert_eq!(*src, x86_gpr(0), "{name}");
+                    assert_eq!(*got_amount, amount, "{name}");
+                    assert_eq!(*flags, x86_rotate_flags(), "{name}");
+                }
+                other => panic!("expected APX NDD {name}, got {other:?}"),
+            }
         }
+
+        // LLVM 20 rejects `{nf} rcl r8, rax, 1`; carry rotates read CF and
+        // cannot be encoded as no-flag-update APX forms.
+        let err = lifter
+            .lift_insn(0x1000, &[0x62, 0xF4, 0xBC, 0x1C, 0xD1, 0xD0], &mut ctx)
+            .unwrap_err();
+        assert!(matches!(err, LiftError::Unsupported { .. }), "{err:?}");
     }
 
     #[test]
