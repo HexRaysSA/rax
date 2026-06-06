@@ -414,15 +414,20 @@ impl Aarch64Lowerer {
         );
     }
 
-    fn emit_ldst_unscaled(&mut self, rt: u8, rn: u8, size: u32, opc: u32, imm9: i64) {
+    fn emit_ldst_simm(&mut self, rt: u8, rn: u8, size: u32, opc: u32, imm9: i64, mode: u32) {
         self.emit(
             (size << 30)
                 | (0b111 << 27)
                 | (opc << 22)
                 | (((imm9 as u32) & 0x1ff) << 12)
+                | (mode << 10)
                 | ((rn as u32) << 5)
                 | (rt as u32),
         );
+    }
+
+    fn emit_ldst_unscaled(&mut self, rt: u8, rn: u8, size: u32, opc: u32, imm9: i64) {
+        self.emit_ldst_simm(rt, rn, size, opc, imm9, 0b00);
     }
 
     fn emit_ldst_reg_offset(
@@ -620,6 +625,32 @@ impl Aarch64Lowerer {
         }
     }
 
+    fn src_imm(src: &SrcOperand) -> Option<i64> {
+        match src {
+            SrcOperand::Imm(imm) | SrcOperand::Imm64(imm) => Some(*imm),
+            _ => None,
+        }
+    }
+
+    fn writeback_add_parts(kind: &OpKind) -> Option<(VReg, i64)> {
+        match kind {
+            OpKind::Add {
+                dst,
+                src1,
+                src2,
+                width: OpWidth::W64,
+                flags,
+            } if *dst == *src1 && !flags.updates_any() => {
+                Some((*dst, Self::src_imm(src2)?))
+            }
+            _ => None,
+        }
+    }
+
+    fn transfer_reg_aliases_base(rt: u8, base: VReg) -> bool {
+        matches!(base, VReg::Arch(ArchReg::Arm(ArmReg::X(n))) if n == rt)
+    }
+
     fn mem_extend_option(from_width: OpWidth, signed: bool) -> Option<u32> {
         match (from_width, signed) {
             (OpWidth::W32, false) => Some(0b010),
@@ -693,6 +724,27 @@ impl Aarch64Lowerer {
             op: "AArch64 native memory offset".into(),
             operand: format!("{offset:#x} for size {size}"),
         })
+    }
+
+    fn lower_mem_indexed_access(
+        &mut self,
+        rt: u8,
+        base: VReg,
+        size: u32,
+        opc: u32,
+        imm9: i64,
+        mode: u32,
+    ) -> Result<(), LowerError> {
+        if !(-256..=255).contains(&imm9) {
+            return Err(LowerError::InvalidOperand {
+                op: "AArch64 native indexed memory offset".into(),
+                operand: format!("{imm9:#x} for size {size}"),
+            });
+        }
+
+        let rn = Self::base_gpr(base)?;
+        self.emit_ldst_simm(rt, rn, size, opc, imm9, mode);
+        Ok(())
     }
 
     fn lower_load(
@@ -1917,6 +1969,41 @@ impl Aarch64Lowerer {
         Ok(Some(4))
     }
 
+    fn try_lower_fused_mem_indexed(
+        &mut self,
+        ops: &[SmirOp],
+    ) -> Result<Option<usize>, LowerError> {
+        if let [writeback, access, ..] = ops {
+            if let Some((base, offset)) = Self::writeback_add_parts(&writeback.kind) {
+                if let Some((rt, addr, size, opc)) = Self::mem_access_parts(&access.kind)? {
+                    if Self::direct_addr_reg(addr) == Some(base)
+                        && !Self::transfer_reg_aliases_base(rt, base)
+                        && (-256..=255).contains(&offset)
+                    {
+                        self.lower_mem_indexed_access(rt, base, size, opc, offset, 0b11)?;
+                        return Ok(Some(2));
+                    }
+                }
+            }
+        }
+
+        if let [access, writeback, ..] = ops {
+            if let Some((base, offset)) = Self::writeback_add_parts(&writeback.kind) {
+                if let Some((rt, addr, size, opc)) = Self::mem_access_parts(&access.kind)? {
+                    if Self::direct_addr_reg(addr) == Some(base)
+                        && !Self::transfer_reg_aliases_base(rt, base)
+                        && (-256..=255).contains(&offset)
+                    {
+                        self.lower_mem_indexed_access(rt, base, size, opc, offset, 0b01)?;
+                        return Ok(Some(2));
+                    }
+                }
+            }
+        }
+
+        Ok(None)
+    }
+
     fn try_lower_fused_mem_reg_offset(
         &mut self,
         ops: &[SmirOp],
@@ -2654,6 +2741,10 @@ impl Aarch64Lowerer {
         self.block_offsets.insert(block.id, self.code.position());
         let mut idx = 0;
         while idx < block.ops.len() {
+            if let Some(consumed) = self.try_lower_fused_mem_indexed(&block.ops[idx..])? {
+                idx += consumed;
+                continue;
+            }
             if let Some(consumed) = self.try_lower_fused_mem_reg_offset(&block.ops[idx..])? {
                 idx += consumed;
                 continue;
@@ -2753,6 +2844,15 @@ mod tests {
         VReg::Arch(ArchReg::Arm(ArmReg::X(n)))
     }
 
+    fn enc_ldst_simm(size: u32, opc: u32, mode: u32, imm9: i64) -> u32 {
+        (size << 30)
+            | (0b111 << 27)
+            | (opc << 22)
+            | (((imm9 as u32) & 0x1ff) << 12)
+            | (mode << 10)
+            | (1 << 5)
+    }
+
     #[test]
     fn lowers_add_register_and_ret() {
         let mut builder = FunctionBuilder::new(FunctionId(0), 0);
@@ -2774,6 +2874,75 @@ mod tests {
         let code = lowerer.finalize().unwrap();
 
         assert_eq!(code, [0x20, 0x00, 0x02, 0x8b, 0xc0, 0x03, 0x5f, 0xd6]);
+    }
+
+    #[test]
+    fn fuses_scalar_pre_index_load_sequence() {
+        let mut builder = FunctionBuilder::new(FunctionId(0), 0);
+        builder.push_op(
+            0,
+            OpKind::Add {
+                dst: x(1),
+                src1: x(1),
+                src2: SrcOperand::Imm(8),
+                width: OpWidth::W64,
+                flags: FlagUpdate::None,
+            },
+        );
+        builder.push_op(
+            0,
+            OpKind::Load {
+                dst: x(0),
+                addr: Address::Direct(x(1)),
+                width: MemWidth::B8,
+                sign: SignExtend::Zero,
+            },
+        );
+        builder.set_terminator(Terminator::Return { values: vec![] });
+        let func = builder.finish();
+
+        let mut lowerer = Aarch64Lowerer::new();
+        lowerer.lower_function(&func).unwrap();
+        let code = lowerer.finalize().unwrap();
+
+        let mut expected = Vec::new();
+        expected.extend_from_slice(&enc_ldst_simm(3, 0b01, 0b11, 8).to_le_bytes());
+        expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
+        assert_eq!(code, expected);
+    }
+
+    #[test]
+    fn fuses_scalar_post_index_store_sequence() {
+        let mut builder = FunctionBuilder::new(FunctionId(0), 0);
+        builder.push_op(
+            0,
+            OpKind::Store {
+                src: x(0),
+                addr: Address::Direct(x(1)),
+                width: MemWidth::B8,
+            },
+        );
+        builder.push_op(
+            0,
+            OpKind::Add {
+                dst: x(1),
+                src1: x(1),
+                src2: SrcOperand::Imm(-8),
+                width: OpWidth::W64,
+                flags: FlagUpdate::None,
+            },
+        );
+        builder.set_terminator(Terminator::Return { values: vec![] });
+        let func = builder.finish();
+
+        let mut lowerer = Aarch64Lowerer::new();
+        lowerer.lower_function(&func).unwrap();
+        let code = lowerer.finalize().unwrap();
+
+        let mut expected = Vec::new();
+        expected.extend_from_slice(&enc_ldst_simm(3, 0b00, 0b01, -8).to_le_bytes());
+        expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
+        assert_eq!(code, expected);
     }
 
     #[test]
