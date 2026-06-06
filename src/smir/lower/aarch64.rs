@@ -1449,6 +1449,29 @@ impl Aarch64Lowerer {
         )
     }
 
+    fn lower_bitfield_insert_zero(
+        &mut self,
+        dst: VReg,
+        src: VReg,
+        lsb: u8,
+        width_bits: u8,
+        sign_extend: bool,
+        op_width: OpWidth,
+    ) -> Result<(), LowerError> {
+        let op_bits = Self::bitfield_args("Bfiz", lsb, width_bits, op_width)?;
+        if lsb == 0 {
+            return self.lower_bfx(dst, src, 0, width_bits, sign_extend, op_width);
+        }
+        self.emit_bitfield(
+            Self::dst_gpr(dst)?,
+            Self::gpr(src)?,
+            if sign_extend { 0b00 } else { 0b10 },
+            op_bits - u32::from(lsb),
+            u32::from(width_bits - 1),
+            op_width,
+        )
+    }
+
     fn lower_extend(
         &mut self,
         dst: VReg,
@@ -2608,6 +2631,62 @@ impl Aarch64Lowerer {
         Ok(Some(5))
     }
 
+    fn try_lower_fused_bitfield_insert_zero(
+        &mut self,
+        ops: &[SmirOp],
+    ) -> Result<Option<usize>, LowerError> {
+        let [bfx_op, shl_op, ..] = ops else {
+            return Ok(None);
+        };
+        if bfx_op.guest_pc != shl_op.guest_pc {
+            return Ok(None);
+        }
+
+        let (
+            OpKind::Bfx {
+                dst: extracted,
+                src,
+                lsb: 0,
+                width_bits,
+                sign_extend,
+                op_width,
+            },
+            OpKind::Shl {
+                dst,
+                src: shl_src,
+                amount,
+                width,
+                flags,
+            },
+        ) = (&bfx_op.kind, &shl_op.kind)
+        else {
+            return Ok(None);
+        };
+
+        let Some(amount) = Self::src_imm(amount) else {
+            return Ok(None);
+        };
+        let bits = i64::from(op_width.bits());
+        if flags.updates_any()
+            || shl_src != extracted
+            || width != op_width
+            || !(1..bits).contains(&amount)
+            || i64::from(*width_bits) + amount > bits
+        {
+            return Ok(None);
+        }
+
+        self.lower_bitfield_insert_zero(
+            *dst,
+            *src,
+            amount as u8,
+            *width_bits,
+            *sign_extend,
+            *op_width,
+        )?;
+        Ok(Some(2))
+    }
+
     fn try_lower_fused_mem_reg_offset(
         &mut self,
         ops: &[SmirOp],
@@ -3377,6 +3456,12 @@ impl Aarch64Lowerer {
                 idx += consumed;
                 continue;
             }
+            if let Some(consumed) =
+                self.try_lower_fused_bitfield_insert_zero(&block.ops[idx..])?
+            {
+                idx += consumed;
+                continue;
+            }
             if let Some(consumed) = self.try_lower_fused_cls(&block.ops[idx..])? {
                 idx += consumed;
                 continue;
@@ -3513,6 +3598,16 @@ mod tests {
 
     fn enc_dp1(sf: u32, opcode: u32) -> u32 {
         (sf << 31) | (0b1011010110 << 21) | (opcode << 10) | (1 << 5)
+    }
+
+    fn enc_bitfield(sf: u32, opc: u32, immr: u32, imms: u32) -> u32 {
+        (sf << 31)
+            | (opc << 29)
+            | (0b100110 << 23)
+            | (sf << 22)
+            | (immr << 16)
+            | (imms << 10)
+            | (1 << 5)
     }
 
     #[test]
@@ -4108,6 +4203,82 @@ mod tests {
 
         let mut expected = Vec::new();
         expected.extend_from_slice(&enc_dp1(1, 0b000010).to_le_bytes());
+        expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
+        assert_eq!(code, expected);
+    }
+
+    #[test]
+    fn fuses_lifted_ubfiz_sequence() {
+        let extracted = VReg::virt(0);
+        let mut builder = FunctionBuilder::new(FunctionId(0), 0);
+        builder.push_op(
+            0,
+            OpKind::Bfx {
+                dst: extracted,
+                src: x(1),
+                lsb: 0,
+                width_bits: 8,
+                sign_extend: false,
+                op_width: OpWidth::W64,
+            },
+        );
+        builder.push_op(
+            0,
+            OpKind::Shl {
+                dst: x(0),
+                src: extracted,
+                amount: SrcOperand::Imm(4),
+                width: OpWidth::W64,
+                flags: FlagUpdate::None,
+            },
+        );
+        builder.set_terminator(Terminator::Return { values: vec![] });
+        let func = builder.finish();
+
+        let mut lowerer = Aarch64Lowerer::new();
+        lowerer.lower_function(&func).unwrap();
+        let code = lowerer.finalize().unwrap();
+
+        let mut expected = Vec::new();
+        expected.extend_from_slice(&enc_bitfield(1, 0b10, 60, 7).to_le_bytes());
+        expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
+        assert_eq!(code, expected);
+    }
+
+    #[test]
+    fn fuses_lifted_sbfiz_w_sequence() {
+        let extracted = VReg::virt(0);
+        let mut builder = FunctionBuilder::new(FunctionId(0), 0);
+        builder.push_op(
+            0,
+            OpKind::Bfx {
+                dst: extracted,
+                src: x(1),
+                lsb: 0,
+                width_bits: 8,
+                sign_extend: true,
+                op_width: OpWidth::W32,
+            },
+        );
+        builder.push_op(
+            0,
+            OpKind::Shl {
+                dst: x(0),
+                src: extracted,
+                amount: SrcOperand::Imm(8),
+                width: OpWidth::W32,
+                flags: FlagUpdate::None,
+            },
+        );
+        builder.set_terminator(Terminator::Return { values: vec![] });
+        let func = builder.finish();
+
+        let mut lowerer = Aarch64Lowerer::new();
+        lowerer.lower_function(&func).unwrap();
+        let code = lowerer.finalize().unwrap();
+
+        let mut expected = Vec::new();
+        expected.extend_from_slice(&enc_bitfield(0, 0b00, 24, 7).to_le_bytes());
         expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
         assert_eq!(code, expected);
     }
