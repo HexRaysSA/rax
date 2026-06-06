@@ -4944,6 +4944,38 @@ impl Aarch64Lowerer {
         Ok(())
     }
 
+    fn lower_switch(
+        &mut self,
+        index: VReg,
+        targets: &[BlockId],
+        default: BlockId,
+    ) -> Result<(), LowerError> {
+        if let VReg::Imm(value) = index {
+            let target = if value >= 0 {
+                targets
+                    .get(value as usize)
+                    .copied()
+                    .unwrap_or(default)
+            } else {
+                default
+            };
+            self.emit_branch_placeholder(target);
+            return Ok(());
+        }
+
+        let index = Self::gpr(index)?;
+        for (case, target) in targets.iter().enumerate() {
+            let case = i64::try_from(case).map_err(|_| LowerError::InvalidOperand {
+                op: "AArch64 native switch case".into(),
+                operand: format!("case index {case}"),
+            })?;
+            self.emit_addsub_imm(31, index, case, true, true, OpWidth::W64)?;
+            self.emit_cond_branch_placeholder(Self::arm_cond_code(Condition::Eq)?, *target);
+        }
+        self.emit_branch_placeholder(default);
+        Ok(())
+    }
+
     fn lower_terminator(
         &mut self,
         block: &SmirBlock,
@@ -4959,6 +4991,11 @@ impl Aarch64Lowerer {
                 true_target,
                 false_target,
             } => self.lower_cond_branch(*cond, *true_target, *false_target, folded_cond),
+            Terminator::Switch {
+                index,
+                targets,
+                default,
+            } => self.lower_switch(*index, targets, *default),
             Terminator::IndirectBranch { target, .. } => {
                 self.emit_br_reg(Self::branch_gpr(*target)?);
                 Ok(())
@@ -8379,6 +8416,72 @@ mod tests {
 
         let mut expected = Vec::new();
         expected.extend_from_slice(&enc_b(2).to_le_bytes());
+        expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
+        expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
+        assert_eq!(code, expected);
+    }
+
+    #[test]
+    fn lowers_register_switch_as_compare_branch_chain() {
+        let mut builder = FunctionBuilder::new(FunctionId(0), 0);
+        let case0 = builder.create_block(4);
+        let case1 = builder.create_block(8);
+        let default = builder.create_block(12);
+        builder.set_terminator(Terminator::Switch {
+            index: x(1),
+            targets: vec![case0, case1],
+            default,
+        });
+        builder.switch_to_block(case0);
+        builder.set_terminator(Terminator::Return { values: vec![] });
+        builder.switch_to_block(case1);
+        builder.set_terminator(Terminator::Return { values: vec![] });
+        builder.switch_to_block(default);
+        builder.set_terminator(Terminator::Return { values: vec![] });
+        let func = builder.finish();
+
+        let mut lowerer = Aarch64Lowerer::new();
+        lowerer.lower_function(&func).unwrap();
+        let code = lowerer.finalize().unwrap();
+
+        let mut expected = Vec::new();
+        expected.extend_from_slice(&enc_addsub_imm_regs(1, 1, 1, 0, 0, 31, 1).to_le_bytes());
+        expected.extend_from_slice(&enc_b_cond(0, 4).to_le_bytes());
+        expected.extend_from_slice(&enc_addsub_imm_regs(1, 1, 1, 0, 1, 31, 1).to_le_bytes());
+        expected.extend_from_slice(&enc_b_cond(0, 3).to_le_bytes());
+        expected.extend_from_slice(&enc_b(3).to_le_bytes());
+        expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
+        expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
+        expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
+        assert_eq!(code, expected);
+    }
+
+    #[test]
+    fn lowers_immediate_switch_as_single_b() {
+        let mut builder = FunctionBuilder::new(FunctionId(0), 0);
+        let case0 = builder.create_block(4);
+        let case1 = builder.create_block(8);
+        let default = builder.create_block(12);
+        builder.set_terminator(Terminator::Switch {
+            index: VReg::Imm(1),
+            targets: vec![case0, case1],
+            default,
+        });
+        builder.switch_to_block(case0);
+        builder.set_terminator(Terminator::Return { values: vec![] });
+        builder.switch_to_block(case1);
+        builder.set_terminator(Terminator::Return { values: vec![] });
+        builder.switch_to_block(default);
+        builder.set_terminator(Terminator::Return { values: vec![] });
+        let func = builder.finish();
+
+        let mut lowerer = Aarch64Lowerer::new();
+        lowerer.lower_function(&func).unwrap();
+        let code = lowerer.finalize().unwrap();
+
+        let mut expected = Vec::new();
+        expected.extend_from_slice(&enc_b(2).to_le_bytes());
+        expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
         expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
         expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
         assert_eq!(code, expected);
