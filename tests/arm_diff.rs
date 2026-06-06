@@ -907,7 +907,19 @@ fn enc_mov_wide(sf: u32, opc: u32, hw: u32, imm16: u32) -> u32 {
 
 #[cfg(all(feature = "smir-jit", target_arch = "x86_64"))]
 fn enc_csel(sf: u32, cond: u32) -> u32 {
-    (sf << 31) | 0x1a80_0000 | (RM << 16) | (cond << 12) | (RN << 5) | RD
+    enc_csel_form(sf, 0, 0, RN, RM, cond)
+}
+
+#[cfg(all(feature = "smir-jit", target_arch = "x86_64"))]
+fn enc_csel_form(sf: u32, op: u32, op2: u32, rn: u32, rm: u32, cond: u32) -> u32 {
+    (sf << 31)
+        | (op << 30)
+        | (0b11010100 << 21)
+        | (rm << 16)
+        | (cond << 12)
+        | (op2 << 10)
+        | (rn << 5)
+        | RD
 }
 
 #[cfg(all(feature = "smir-jit", target_arch = "x86_64"))]
@@ -1040,6 +1052,15 @@ fn smir_aarch64_x86_scalar_lowering_matches_qemu_oracle() {
         ("csel_x_ge", enc_csel(1, 10)),
         ("csel_w_lt_zero_ext", enc_csel(0, 11)),
         ("csel_w_le_zero_ext", enc_csel(0, 13)),
+        ("csinc_x_eq", enc_csel_form(1, 0, 1, RN, RM, 0)),
+        ("csinv_x_ne", enc_csel_form(1, 1, 0, RN, RM, 1)),
+        ("csneg_x_hi", enc_csel_form(1, 1, 1, RN, RM, 8)),
+        ("csinv_w_zero_ext", enc_csel_form(0, 1, 0, RN, RM, 1)),
+        ("cset_x_raw_ne_alias", enc_csel_form(1, 0, 1, 31, 31, 1)),
+        ("csetm_w_raw_ne_alias", enc_csel_form(0, 1, 0, 31, 31, 1)),
+        ("cinc_x_raw_ne_alias", enc_csel_form(1, 0, 1, RN, RN, 1)),
+        ("cinv_x_raw_ne_alias", enc_csel_form(1, 1, 0, RN, RN, 1)),
+        ("cneg_w_raw_ne_alias", enc_csel_form(0, 1, 1, RN, RN, 1)),
         ("mul_x", enc_dp3_ra(1, 0b000, 0, 31)),
         ("mul_w_zero_ext", enc_dp3_ra(0, 0b000, 0, 31)),
         ("madd_x", enc_dp3(1, 0b000, 0)),
@@ -1133,6 +1154,85 @@ fn smir_aarch64_x86_scalar_lowering_matches_qemu_oracle() {
     st.x[2] = 1;
     st.pstate = 0;
     batch.push(("sbcs_x_borrow_flags".into(), enc_addsub_carry(1, 1, 1), st));
+
+    let mut st = ArmState::zeroed();
+    st.x[0] = 0xaaaa_bbbb_cccc_dddd;
+    st.x[1] = 0x1111_2222_3333_4444;
+    st.x[2] = 0xffff_ffff_1234_5678;
+    st.pstate = 0x4000_0000;
+    batch.push((
+        "csinv_w_raw_ne_false_zero_ext".into(),
+        enc_csel_form(0, 1, 0, RN, RM, 1),
+        st,
+    ));
+
+    let mut st = ArmState::zeroed();
+    st.x[0] = 0xaaaa_bbbb_cccc_dddd;
+    st.x[1] = 0x1111_2222_3333_4444;
+    st.x[2] = 5;
+    st.pstate = 0;
+    batch.push((
+        "csneg_x_raw_hi_false".into(),
+        enc_csel_form(1, 1, 1, RN, RM, 8),
+        st,
+    ));
+
+    let mut st = ArmState::zeroed();
+    st.x[0] = 0xaaaa_bbbb_cccc_dddd;
+    st.pstate = 0;
+    batch.push((
+        "cset_x_raw_ne_true_alias".into(),
+        enc_csel_form(1, 0, 1, 31, 31, 1),
+        st,
+    ));
+
+    let mut st = ArmState::zeroed();
+    st.x[0] = 0xaaaa_bbbb_cccc_dddd;
+    st.pstate = 0x4000_0000;
+    batch.push((
+        "cset_x_raw_ne_false_alias".into(),
+        enc_csel_form(1, 0, 1, 31, 31, 1),
+        st,
+    ));
+
+    let mut st = ArmState::zeroed();
+    st.x[0] = 0xaaaa_bbbb_cccc_dddd;
+    st.pstate = 0x4000_0000;
+    batch.push((
+        "csetm_w_raw_ne_false_alias".into(),
+        enc_csel_form(0, 1, 0, 31, 31, 1),
+        st,
+    ));
+
+    let mut st = ArmState::zeroed();
+    st.x[0] = 0xaaaa_bbbb_cccc_dddd;
+    st.x[1] = u64::MAX;
+    st.pstate = 0x4000_0000;
+    batch.push((
+        "cinc_x_raw_ne_false_alias".into(),
+        enc_csel_form(1, 0, 1, RN, RN, 1),
+        st,
+    ));
+
+    let mut st = ArmState::zeroed();
+    st.x[0] = 0xaaaa_bbbb_cccc_dddd;
+    st.x[1] = 0x1122_3344_5566_7788;
+    st.pstate = 0x4000_0000;
+    batch.push((
+        "cinv_x_raw_ne_false_alias".into(),
+        enc_csel_form(1, 1, 0, RN, RN, 1),
+        st,
+    ));
+
+    let mut st = ArmState::zeroed();
+    st.x[0] = 0xaaaa_bbbb_cccc_dddd;
+    st.x[1] = 0xffff_ffff_8000_0001;
+    st.pstate = 0x4000_0000;
+    batch.push((
+        "cneg_w_raw_ne_false_alias".into(),
+        enc_csel_form(0, 1, 1, RN, RN, 1),
+        st,
+    ));
 
     let mut st = ArmState::zeroed();
     st.x[0] = 0xaaaa_bbbb_cccc_dddd;

@@ -1562,8 +1562,10 @@ impl Aarch64Decoder {
         let mut insn = DecodedInsn::new(mnemonic, ExecutionState::Aarch64, raw, 4)
             .with_operand(Operand::Reg(Register::with_zr(rd, is_64bit)));
 
-        // For CSET/CSETM, don't add Rn/Rm
-        if !(rn == 31 && rm == 31 && (op, op2) == (0, 0b01) || (op, op2) == (1, 0b00)) {
+        // For CSET/CSETM, don't add Rn/Rm.
+        let is_cset_alias =
+            rn == 31 && rm == 31 && matches!((op, op2), (0, 0b01) | (1, 0b00));
+        if !is_cset_alias {
             insn = insn.with_operand(Operand::Reg(Register::with_zr(rn, is_64bit)));
 
             // For CINC/CINV/CNEG, don't add Rm (it's same as Rn)
@@ -2753,6 +2755,32 @@ mod tests {
         // CSEL X0, X1, X2, EQ: 9a820020
         let insn = decode_bytes(&[0x20, 0x00, 0x82, 0x9a]).unwrap();
         assert_eq!(insn.mnemonic, Mnemonic::CSEL);
+    }
+
+    #[test]
+    fn test_csinv_keeps_source_operands() {
+        // CSINV X0, X1, X2, NE: da821020
+        let insn = decode_bytes(&[0x20, 0x10, 0x82, 0xda]).unwrap();
+        assert_eq!(insn.mnemonic, Mnemonic::CSINV);
+        assert_eq!(insn.operands.len(), 4);
+        assert!(matches!(insn.operands.get(1), Some(Operand::Reg(reg)) if reg.num == 1));
+        assert!(matches!(insn.operands.get(2), Some(Operand::Reg(reg)) if reg.num == 2));
+        assert!(matches!(
+            insn.operands.get(3),
+            Some(Operand::Cond(Condition::NE))
+        ));
+    }
+
+    #[test]
+    fn test_csetm_omits_source_operands() {
+        // CSETM X0, EQ (CSINV X0, XZR, XZR, NE): da9f13e0
+        let insn = decode_bytes(&[0xe0, 0x13, 0x9f, 0xda]).unwrap();
+        assert_eq!(insn.mnemonic, Mnemonic::CSETM);
+        assert_eq!(insn.operands.len(), 2);
+        assert!(matches!(
+            insn.operands.get(1),
+            Some(Operand::Cond(Condition::NE))
+        ));
     }
 
     #[test]

@@ -21,6 +21,14 @@ use crate::smir::types::*;
 // AArch64 Lifter
 // ============================================================================
 
+#[derive(Clone, Copy)]
+enum CondSelectFalseOp {
+    Identity,
+    Increment,
+    Invert,
+    Negate,
+}
+
 /// AArch64 instruction lifter
 pub struct Aarch64Lifter {
     /// Whether to use strict mode (fail on unsupported instructions)
@@ -1017,75 +1025,16 @@ impl Aarch64Lifter {
             // =================================================================
             // Conditional Select
             // =================================================================
-            Mnemonic::CSEL => {
-                if let (
-                    Some(Operand::Reg(rd)),
-                    Some(Operand::Reg(rn)),
-                    Some(Operand::Reg(rm)),
-                    Some(Operand::Cond(cond)),
-                ) = (
-                    insn.operands.get(0),
-                    insn.operands.get(1),
-                    insn.operands.get(2),
-                    insn.operands.get(3),
-                ) {
-                    let dst = self.dst_reg(rd, ctx);
-                    let width = self.reg_width(rd);
-                    let cmp = ctx.alloc_vreg();
-
-                    push_op!(OpKind::TestCondition {
-                        dst: cmp,
-                        cond: self.arm_cond(*cond),
-                    });
-
-                    push_op!(OpKind::Select {
-                        dst,
-                        cond: cmp,
-                        src_true: self.arm_reg(rn),
-                        src_false: self.arm_reg(rm),
-                        width,
-                    });
-                }
-            }
-
-            Mnemonic::CSINC => {
-                if let (
-                    Some(Operand::Reg(rd)),
-                    Some(Operand::Reg(rn)),
-                    Some(Operand::Reg(rm)),
-                    Some(Operand::Cond(cond)),
-                ) = (
-                    insn.operands.get(0),
-                    insn.operands.get(1),
-                    insn.operands.get(2),
-                    insn.operands.get(3),
-                ) {
-                    let dst = self.dst_reg(rd, ctx);
-                    let width = self.reg_width(rd);
-                    let cmp = ctx.alloc_vreg();
-                    let inc = ctx.alloc_vreg();
-
-                    push_op!(OpKind::TestCondition {
-                        dst: cmp,
-                        cond: self.arm_cond(*cond),
-                    });
-
-                    push_op!(OpKind::Add {
-                        dst: inc,
-                        src1: self.arm_reg(rm),
-                        src2: SrcOperand::Imm(1),
-                        width,
-                        flags: FlagUpdate::None,
-                    });
-
-                    push_op!(OpKind::Select {
-                        dst,
-                        cond: cmp,
-                        src_true: self.arm_reg(rn),
-                        src_false: inc,
-                        width,
-                    });
-                }
+            Mnemonic::CSEL
+            | Mnemonic::CSINC
+            | Mnemonic::CSINV
+            | Mnemonic::CSNEG
+            | Mnemonic::CSET
+            | Mnemonic::CSETM
+            | Mnemonic::CINC
+            | Mnemonic::CINV
+            | Mnemonic::CNEG => {
+                self.lift_cond_select(insn, pc, &mut ops, ctx)?;
             }
 
             // =================================================================
@@ -1562,6 +1511,163 @@ impl Aarch64Lifter {
                 },
             );
         }
+
+        Ok(())
+    }
+
+    fn lift_cond_select(
+        &self,
+        insn: &DecodedInsn,
+        pc: u64,
+        ops: &mut Vec<SmirOp>,
+        ctx: &mut LiftContext,
+    ) -> Result<(), LiftError> {
+        let invalid = || LiftError::Internal("invalid conditional select operands".to_string());
+
+        // Alias mnemonics keep the raw condition from the canonical CS* encoding.
+        let (rd, src_true, src_false_base, false_op, cond) = match insn.mnemonic {
+            Mnemonic::CSEL | Mnemonic::CSINC | Mnemonic::CSINV | Mnemonic::CSNEG => {
+                let (rd, rn, rm, cond) = match (
+                    insn.operands.get(0),
+                    insn.operands.get(1),
+                    insn.operands.get(2),
+                    insn.operands.get(3),
+                ) {
+                    (
+                        Some(Operand::Reg(rd)),
+                        Some(Operand::Reg(rn)),
+                        Some(Operand::Reg(rm)),
+                        Some(Operand::Cond(cond)),
+                    ) => (*rd, *rn, *rm, *cond),
+                    _ => return Err(invalid()),
+                };
+                let false_op = match insn.mnemonic {
+                    Mnemonic::CSEL => CondSelectFalseOp::Identity,
+                    Mnemonic::CSINC => CondSelectFalseOp::Increment,
+                    Mnemonic::CSINV => CondSelectFalseOp::Invert,
+                    Mnemonic::CSNEG => CondSelectFalseOp::Negate,
+                    _ => unreachable!(),
+                };
+                (
+                    rd,
+                    self.arm_reg(&rn),
+                    self.arm_reg(&rm),
+                    false_op,
+                    cond,
+                )
+            }
+            Mnemonic::CINC | Mnemonic::CINV | Mnemonic::CNEG => {
+                let (rd, rn, cond) = match (
+                    insn.operands.get(0),
+                    insn.operands.get(1),
+                    insn.operands.get(2),
+                ) {
+                    (
+                        Some(Operand::Reg(rd)),
+                        Some(Operand::Reg(rn)),
+                        Some(Operand::Cond(cond)),
+                    ) => (*rd, *rn, *cond),
+                    _ => return Err(invalid()),
+                };
+                let false_op = match insn.mnemonic {
+                    Mnemonic::CINC => CondSelectFalseOp::Increment,
+                    Mnemonic::CINV => CondSelectFalseOp::Invert,
+                    Mnemonic::CNEG => CondSelectFalseOp::Negate,
+                    _ => unreachable!(),
+                };
+                (
+                    rd,
+                    self.arm_reg(&rn),
+                    self.arm_reg(&rn),
+                    false_op,
+                    cond,
+                )
+            }
+            Mnemonic::CSET | Mnemonic::CSETM => {
+                let (rd, cond) = match (insn.operands.get(0), insn.operands.get(1)) {
+                    (Some(Operand::Reg(rd)), Some(Operand::Cond(cond))) => (*rd, *cond),
+                    _ => return Err(invalid()),
+                };
+                let false_op = if insn.mnemonic == Mnemonic::CSET {
+                    CondSelectFalseOp::Increment
+                } else {
+                    CondSelectFalseOp::Invert
+                };
+                (rd, VReg::Imm(0), VReg::Imm(0), false_op, cond)
+            }
+            _ => return Err(invalid()),
+        };
+
+        let dst = self.dst_reg(&rd, ctx);
+        let width = self.reg_width(&rd);
+        let cmp = ctx.alloc_vreg();
+
+        Self::push_lifted_op(
+            ops,
+            pc,
+            OpKind::TestCondition {
+                dst: cmp,
+                cond: self.arm_cond(cond),
+            },
+        );
+
+        let src_false = match false_op {
+            CondSelectFalseOp::Identity => src_false_base,
+            CondSelectFalseOp::Increment => {
+                let tmp = ctx.alloc_vreg();
+                Self::push_lifted_op(
+                    ops,
+                    pc,
+                    OpKind::Add {
+                        dst: tmp,
+                        src1: src_false_base,
+                        src2: SrcOperand::Imm(1),
+                        width,
+                        flags: FlagUpdate::None,
+                    },
+                );
+                tmp
+            }
+            CondSelectFalseOp::Invert => {
+                let tmp = ctx.alloc_vreg();
+                Self::push_lifted_op(
+                    ops,
+                    pc,
+                    OpKind::Not {
+                        dst: tmp,
+                        src: src_false_base,
+                        width,
+                    },
+                );
+                tmp
+            }
+            CondSelectFalseOp::Negate => {
+                let tmp = ctx.alloc_vreg();
+                Self::push_lifted_op(
+                    ops,
+                    pc,
+                    OpKind::Neg {
+                        dst: tmp,
+                        src: src_false_base,
+                        width,
+                        flags: FlagUpdate::None,
+                    },
+                );
+                tmp
+            }
+        };
+
+        Self::push_lifted_op(
+            ops,
+            pc,
+            OpKind::Select {
+                dst,
+                cond: cmp,
+                src_true,
+                src_false,
+                width,
+            },
+        );
 
         Ok(())
     }
