@@ -6745,6 +6745,26 @@ fn smir_aarch64_native_lowering_matches_qemu_oracle() {
     ));
 
     let mut st = native_state();
+    st.x[0] = 0xdddd_eeee_ffff_0000;
+    st.pstate = 0xb000_0000;
+    let lowered = lower_aarch64_native_ops(vec![OpKind::Not {
+        dst: arm_x(0),
+        src: VReg::Imm(0),
+        width: OpWidth::W16,
+    }])
+    .unwrap_or_else(|e| panic!("not_w16_zero_as_movz_preserves_flags: native lowering failed: {e}"));
+    cases.push((
+        "not_w16_zero_as_movz_preserves_flags".into(),
+        [
+            enc_logical_shift_regs(0, 0b01, 0, 1, 0, RD, 31, 31),
+            enc_bitfield_regs(0, 0b10, 0, 15, RD, RD),
+            NOP,
+        ],
+        lowered,
+        st,
+    ));
+
+    let mut st = native_state();
     st.x[0] = 0xbbbb_cccc_dddd_eeee;
     st.x[1] = 0x1234_5678_9abc_de81;
     st.pstate = 0xa000_0000;

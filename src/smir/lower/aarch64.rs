@@ -2439,6 +2439,10 @@ impl Aarch64Lowerer {
 
     fn lower_not(&mut self, dst: VReg, src: VReg, width: OpWidth) -> Result<(), LowerError> {
         let dst = Self::dst_gpr(dst)?;
+        if matches!(width, OpWidth::W8 | OpWidth::W16) && src == VReg::Imm(0) {
+            return self.emit_mov_imm(dst, width.mask() as i64, OpWidth::W32);
+        }
+
         let src = Self::gpr(src)?;
         match width {
             OpWidth::W8 | OpWidth::W16 => {
@@ -11388,7 +11392,7 @@ mod tests {
     }
 
     #[test]
-    fn lowers_not_w16_zero_as_mvn_uxth() {
+    fn lowers_not_w16_zero_as_movz() {
         let mut builder = FunctionBuilder::new(FunctionId(0), 0);
         builder.push_op(
             0,
@@ -11406,8 +11410,7 @@ mod tests {
         let code = lowerer.finalize().unwrap();
 
         let mut expected = Vec::new();
-        expected.extend_from_slice(&enc_logical_reg_n(0, 0b01, 1, 0, 31, 31).to_le_bytes());
-        expected.extend_from_slice(&enc_bitfield_regs(0, 0b10, 0, 15, 0, 0).to_le_bytes());
+        expected.extend_from_slice(&enc_mov_wide(0, 0b10, 0, 0xffff, 0).to_le_bytes());
         expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
         assert_eq!(code, expected);
     }
