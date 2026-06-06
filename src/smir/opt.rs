@@ -632,8 +632,7 @@ pub fn constant_propagation(block: &mut SmirBlock) -> usize {
                     }
                 }
                 // Fold the result if both operands are now known constants.
-                let folded = if let (Some(&v1), SrcOperand::Imm(v2)) =
-                    (constants.get(src1), &*src2)
+                let folded = if let (Some(&v1), SrcOperand::Imm(v2)) = (constants.get(src1), &*src2)
                 {
                     let a = (v1 as u64) & width.mask();
                     let b = (*v2 as u64) & width.mask();
@@ -659,10 +658,18 @@ pub fn constant_propagation(block: &mut SmirBlock) -> usize {
             }
 
             OpKind::Shl {
-                dst, src, amount, width, ..
+                dst,
+                src,
+                amount,
+                width,
+                ..
             }
             | OpKind::Shr {
-                dst, src, amount, width, ..
+                dst,
+                src,
+                amount,
+                width,
+                ..
             } => {
                 if let SrcOperand::Reg(r) = amount {
                     if let Some(&val) = constants.get(r) {
@@ -670,7 +677,8 @@ pub fn constant_propagation(block: &mut SmirBlock) -> usize {
                         propagated += 1;
                     }
                 }
-                let folded = if let (Some(&v), SrcOperand::Imm(a)) = (constants.get(src), &*amount) {
+                let folded = if let (Some(&v), SrcOperand::Imm(a)) = (constants.get(src), &*amount)
+                {
                     let count_mask = (width.bits() - 1) as u64;
                     let cnt = (*a as u64) & count_mask;
                     let base = (v as u64) & width.mask();
@@ -1967,6 +1975,16 @@ impl OpKind {
                 result.push(*src2);
             }
 
+            OpKind::Bextr { src, control, .. } => {
+                result.push(*src);
+                result.push(*control);
+            }
+
+            OpKind::Bzhi { src, index, .. } => {
+                result.push(*src);
+                result.push(*index);
+            }
+
             OpKind::Neg { src, .. }
             | OpKind::Inc { src, .. }
             | OpKind::Dec { src, .. }
@@ -2199,7 +2217,11 @@ impl OpKind {
             }
 
             OpKind::HexFpScFma {
-                src1, src2, src3, scale, ..
+                src1,
+                src2,
+                src3,
+                scale,
+                ..
             } => {
                 result.push(*src1);
                 result.push(*src2);
@@ -2208,7 +2230,11 @@ impl OpKind {
             }
 
             OpKind::RvFp {
-                src1, src2, src3, fcsr_src, ..
+                src1,
+                src2,
+                src3,
+                fcsr_src,
+                ..
             } => {
                 result.push(*src1);
                 result.push(*src2);
@@ -2257,8 +2283,22 @@ impl OpKind {
                 }
             }
 
-            OpKind::VWidenMul { src1, src2, dst_lo, dst_hi, acc, .. }
-            | OpKind::VWidenAddSub { src1, src2, dst_lo, dst_hi, acc, .. } => {
+            OpKind::VWidenMul {
+                src1,
+                src2,
+                dst_lo,
+                dst_hi,
+                acc,
+                ..
+            }
+            | OpKind::VWidenAddSub {
+                src1,
+                src2,
+                dst_lo,
+                dst_hi,
+                acc,
+                ..
+            } => {
                 result.push(*src1);
                 result.push(*src2);
                 if *acc {
@@ -2277,7 +2317,9 @@ impl OpKind {
                 result.push(*src2);
             }
 
-            OpKind::VShiftAcc { src, amount, dst, .. } => {
+            OpKind::VShiftAcc {
+                src, amount, dst, ..
+            } => {
                 result.push(*src);
                 // shift-accumulate reads the existing destination lane
                 result.push(*dst);
@@ -2286,9 +2328,33 @@ impl OpKind {
                 }
             }
 
-            OpKind::VPairReduceMul { src_lo, src_hi, src2, dst_lo, dst_hi, acc, .. }
-            | OpKind::VSlideReduceMul { src_lo, src_hi, src2, dst_lo, dst_hi, acc, .. }
-            | OpKind::VRotReduceMulPair { src_lo, src_hi, src2, dst_lo, dst_hi, acc, .. } => {
+            OpKind::VPairReduceMul {
+                src_lo,
+                src_hi,
+                src2,
+                dst_lo,
+                dst_hi,
+                acc,
+                ..
+            }
+            | OpKind::VSlideReduceMul {
+                src_lo,
+                src_hi,
+                src2,
+                dst_lo,
+                dst_hi,
+                acc,
+                ..
+            }
+            | OpKind::VRotReduceMulPair {
+                src_lo,
+                src_hi,
+                src2,
+                dst_lo,
+                dst_hi,
+                acc,
+                ..
+            } => {
                 result.push(*src_lo);
                 result.push(*src_hi);
                 result.push(*src2);
@@ -2298,16 +2364,40 @@ impl OpKind {
                 }
             }
 
-            OpKind::VPairPairReduceMul { src_lo, src_hi, src2_lo, src2_hi, .. } => {
+            OpKind::VPairPairReduceMul {
+                src_lo,
+                src_hi,
+                src2_lo,
+                src2_hi,
+                ..
+            } => {
                 result.push(*src_lo);
                 result.push(*src_hi);
                 result.push(*src2_lo);
                 result.push(*src2_hi);
             }
 
-            OpKind::VReduceMul { src1, src2, dst, acc, .. }
-            | OpKind::VMulEvenWiden { src1, src2, dst, acc, .. }
-            | OpKind::VMulSubLane { src1, src2, dst, acc, .. } => {
+            OpKind::VReduceMul {
+                src1,
+                src2,
+                dst,
+                acc,
+                ..
+            }
+            | OpKind::VMulEvenWiden {
+                src1,
+                src2,
+                dst,
+                acc,
+                ..
+            }
+            | OpKind::VMulSubLane {
+                src1,
+                src2,
+                dst,
+                acc,
+                ..
+            } => {
                 result.push(*src1);
                 result.push(*src2);
                 if *acc {
@@ -2319,7 +2409,14 @@ impl OpKind {
                 result.push(*src);
             }
 
-            OpKind::VLut { src_idx, table, sel, dst, oracc, .. } => {
+            OpKind::VLut {
+                src_idx,
+                table,
+                sel,
+                dst,
+                oracc,
+                ..
+            } => {
                 result.push(*src_idx);
                 result.push(*table);
                 if let SrcOperand::Reg(r) = sel {
@@ -2330,7 +2427,15 @@ impl OpKind {
                 }
             }
 
-            OpKind::VLut16 { src_idx, table, sel, dst_lo, dst_hi, oracc, .. } => {
+            OpKind::VLut16 {
+                src_idx,
+                table,
+                sel,
+                dst_lo,
+                dst_hi,
+                oracc,
+                ..
+            } => {
                 result.push(*src_idx);
                 result.push(*table);
                 if let SrcOperand::Reg(r) = sel {
@@ -2342,8 +2447,18 @@ impl OpKind {
                 }
             }
 
-            OpKind::VShuffVdd { src_lo, src_hi, amount, .. }
-            | OpKind::VDealVdd { src_lo, src_hi, amount, .. } => {
+            OpKind::VShuffVdd {
+                src_lo,
+                src_hi,
+                amount,
+                ..
+            }
+            | OpKind::VDealVdd {
+                src_lo,
+                src_hi,
+                amount,
+                ..
+            } => {
                 result.push(*src_lo);
                 result.push(*src_hi);
                 if let SrcOperand::Reg(r) = amount {
@@ -2357,7 +2472,12 @@ impl OpKind {
             }
 
             // In-place dual-register shuffle/deal reads AND writes both Vy and Vx.
-            OpKind::VShuffleDeal { dst_y, dst_x, amount, .. } => {
+            OpKind::VShuffleDeal {
+                dst_y,
+                dst_x,
+                amount,
+                ..
+            } => {
                 result.push(*dst_y);
                 result.push(*dst_x);
                 if let SrcOperand::Reg(r) = amount {
@@ -2366,7 +2486,12 @@ impl OpKind {
             }
 
             // vunpacko OR-accumulates the source into the existing dst pair.
-            OpKind::VUnpackOAcc { src, dst_lo, dst_hi, .. } => {
+            OpKind::VUnpackOAcc {
+                src,
+                dst_lo,
+                dst_hi,
+                ..
+            } => {
                 result.push(*src);
                 result.push(*dst_lo);
                 result.push(*dst_hi);
@@ -2408,14 +2533,21 @@ impl OpKind {
             }
 
             // vmpa(Vx, Vu, Rtt):sat reads the dst (Vx) accumulator, Vu, and Rtt.
-            OpKind::VMpaHhSat { dst, src, table, .. } => {
+            OpKind::VMpaHhSat {
+                dst, src, table, ..
+            } => {
                 result.push(*dst);
                 result.push(*src);
                 result.push(*table);
             }
 
             // vmpyhsat_acc accumulates into the existing dst pair.
-            OpKind::VMpyHsatAcc { dst_lo, dst_hi, src, scalar } => {
+            OpKind::VMpyHsatAcc {
+                dst_lo,
+                dst_hi,
+                src,
+                scalar,
+            } => {
                 result.push(*dst_lo);
                 result.push(*dst_hi);
                 result.push(*src);
@@ -2423,14 +2555,28 @@ impl OpKind {
             }
 
             // vasr_into shifts Vu into the running accumulator pair (read+write).
-            OpKind::VAsrInto { dst_lo, dst_hi, src, amount } => {
+            OpKind::VAsrInto {
+                dst_lo,
+                dst_hi,
+                src,
+                amount,
+            } => {
                 result.push(*dst_lo);
                 result.push(*dst_hi);
                 result.push(*src);
                 result.push(*amount);
             }
 
-            OpKind::V6Mpy { src_lo, src_hi, src2_lo, src2_hi, dst_lo, dst_hi, acc, .. } => {
+            OpKind::V6Mpy {
+                src_lo,
+                src_hi,
+                src2_lo,
+                src2_hi,
+                dst_lo,
+                dst_hi,
+                acc,
+                ..
+            } => {
                 result.push(*src_lo);
                 result.push(*src_hi);
                 result.push(*src2_lo);
@@ -2457,7 +2603,13 @@ impl OpKind {
                 result.push(*src2);
             }
 
-            OpKind::VMulWord64Pair { src1, src2, dst_lo, dst_hi, mode } => {
+            OpKind::VMulWord64Pair {
+                src1,
+                src2,
+                dst_lo,
+                dst_hi,
+                mode,
+            } => {
                 result.push(*src1);
                 result.push(*src2);
                 // mode 1 (vmpyowh_64_acc) reads the existing dst pair.
@@ -2471,7 +2623,9 @@ impl OpKind {
                 result.push(*src);
             }
 
-            OpKind::VAlign { src1, src2, amount, .. } => {
+            OpKind::VAlign {
+                src1, src2, amount, ..
+            } => {
                 result.push(*src1);
                 result.push(*src2);
                 if let SrcOperand::Reg(r) = amount {
@@ -2484,7 +2638,12 @@ impl OpKind {
                 result.push(*amount);
             }
 
-            OpKind::VNarrowShiftSat { src_lo, src_hi, amount, .. } => {
+            OpKind::VNarrowShiftSat {
+                src_lo,
+                src_hi,
+                amount,
+                ..
+            } => {
                 result.push(*src_lo);
                 result.push(*src_hi);
                 if let SrcOperand::Reg(r) = amount {
@@ -2497,7 +2656,12 @@ impl OpKind {
                 result.push(*src_hi);
             }
 
-            OpKind::VNarrowShiftV { src_lo, src_hi, amount, .. } => {
+            OpKind::VNarrowShiftV {
+                src_lo,
+                src_hi,
+                amount,
+                ..
+            } => {
                 result.push(*src_lo);
                 result.push(*src_hi);
                 result.push(*amount);
@@ -2508,13 +2672,24 @@ impl OpKind {
                 result.push(*src2);
             }
 
-            OpKind::VBlend { mask_q, src_true, src_false, .. } => {
+            OpKind::VBlend {
+                mask_q,
+                src_true,
+                src_false,
+                ..
+            } => {
                 result.push(*mask_q);
                 result.push(*src_true);
                 result.push(*src_false);
             }
 
-            OpKind::VMaskZero { mask_q, src, dst, oracc, .. } => {
+            OpKind::VMaskZero {
+                mask_q,
+                src,
+                dst,
+                oracc,
+                ..
+            } => {
                 result.push(*mask_q);
                 result.push(*src);
                 // oracc (vandqrt_acc) OR-accumulates into the existing dst.
@@ -2523,7 +2698,12 @@ impl OpKind {
                 }
             }
 
-            OpKind::VQFromVAndR { src1, src2, dst, oracc } => {
+            OpKind::VQFromVAndR {
+                src1,
+                src2,
+                dst,
+                oracc,
+            } => {
                 result.push(*src1);
                 result.push(*src2);
                 // oracc (vandvrt_acc) OR-accumulates into the existing dst Q.
@@ -2533,7 +2713,9 @@ impl OpKind {
             }
 
             // Q-predicated conditional add/sub: dst is read-modify-written.
-            OpKind::VLaneCond { dst, src, mask_q, .. } => {
+            OpKind::VLaneCond {
+                dst, src, mask_q, ..
+            } => {
                 result.push(*dst);
                 result.push(*src);
                 result.push(*mask_q);
@@ -2541,7 +2723,13 @@ impl OpKind {
 
             // Carry add/sub: reads both vectors; reads the carry Q when it has a
             // carry-in (carry / carrysat forms).
-            OpKind::VCarry { src1, src2, q_inout, has_cin, .. } => {
+            OpKind::VCarry {
+                src1,
+                src2,
+                q_inout,
+                has_cin,
+                ..
+            } => {
                 result.push(*src1);
                 result.push(*src2);
                 if *has_cin {
@@ -2549,7 +2737,9 @@ impl OpKind {
                 }
             }
 
-            OpKind::VSwap { mask_q, src1, src2, .. } => {
+            OpKind::VSwap {
+                mask_q, src1, src2, ..
+            } => {
                 result.push(*mask_q);
                 result.push(*src1);
                 result.push(*src2);
@@ -2558,7 +2748,14 @@ impl OpKind {
             // Scalar-predicate-gated move/combine: when the gate is false the
             // dest(s) keep their prior value, so they are read; also reads the
             // predicate and the candidate sources.
-            OpKind::VCondMove { dst_lo, dst_hi, src_lo, src_hi, pred, .. } => {
+            OpKind::VCondMove {
+                dst_lo,
+                dst_hi,
+                src_lo,
+                src_hi,
+                pred,
+                ..
+            } => {
                 result.push(*pred);
                 result.push(*src_lo);
                 result.push(*dst_lo);
@@ -2575,7 +2772,12 @@ impl OpKind {
             // The histogram family read-modify-writes the WHOLE V0..V31 file and
             // reads the input vector from memory (the `.tmp` load's address) plus
             // the q-mask for the q-forms.
-            OpKind::VHist { input, mask_q, use_q, .. } => {
+            OpKind::VHist {
+                input,
+                mask_q,
+                use_q,
+                ..
+            } => {
                 result.extend(input.regs());
                 if *use_q {
                     result.push(*mask_q);
@@ -2715,7 +2917,12 @@ impl OpKind {
             // Carry-less multiply: src1/src2 are SrcOperands; the `_acc` forms
             // also read the existing dst/dst_hi (XOR target).
             OpKind::ClMul {
-                src1, src2, dst, dst_hi, acc, ..
+                src1,
+                src2,
+                dst,
+                dst_hi,
+                acc,
+                ..
             } => {
                 if let SrcOperand::Reg(r) = src1 {
                     result.push(*r);
@@ -2733,7 +2940,11 @@ impl OpKind {
 
             // Wide complex multiply: reads both halves of the Rss and Rtt pairs.
             OpKind::CmpyW128Sat {
-                rss_lo, rss_hi, rtt_lo, rtt_hi, ..
+                rss_lo,
+                rss_hi,
+                rtt_lo,
+                rtt_hi,
+                ..
             } => {
                 result.push(*rss_lo);
                 result.push(*rss_hi);

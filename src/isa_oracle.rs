@@ -1,9 +1,9 @@
 //! JSON oracle harness for ISA-specific decoders and SMIR lifters.
 
-use serde_json::{json, Map, Value};
+use serde_json::{Map, Value, json};
 
-use crate::arm::decoder::{Decoder as ArmDecoder, Mnemonic, Operand};
 use crate::arm::ExecutionState;
+use crate::arm::decoder::{Decoder as ArmDecoder, Mnemonic, Operand};
 use crate::backend::emulator::hexagon::decode::{self as hex_decode, DecodedInsn as HexInsn};
 use crate::backend::emulator::hexagon::opcode as hex_opcode;
 use crate::config::{Endianness, HexagonIsa};
@@ -19,7 +19,7 @@ use crate::smir::{
     HexagonLifter, HexagonReg, LiftContext, MemWidth, MemoryOrder, OpId, OpKind, OpWidth,
     RiscVLifter, RiscVReg, ShiftOp, SignExtend, SmirBlock, SmirContext, SmirInterpreter,
     SmirLifter, SmirMemory, SmirOp, SourceArch, SrcOperand, Terminator, TrapKind, VLaneOp, VReg,
-    VShiftVKind, VecCmpCond, VecElementType, VecWidth, X86Reg, X86_64Lifter,
+    VShiftVKind, VecCmpCond, VecElementType, VecWidth, X86_64Lifter, X86Reg,
 };
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -1460,6 +1460,18 @@ fn smir_op_kind_json(kind: &OpKind) -> Value {
             width,
             flags,
         } => op_json!("bsr", dst, src, width, flags),
+        OpKind::Bextr {
+            dst,
+            src,
+            control,
+            width,
+        } => op_json!("bextr", dst, src, control, width),
+        OpKind::Bzhi {
+            dst,
+            src,
+            index,
+            width,
+        } => op_json!("bzhi", dst, src, index, width),
         OpKind::Clz { dst, src, width } => op_json!("clz", dst, src, width),
         OpKind::Ctz { dst, src, width } => op_json!("ctz", dst, src, width),
         OpKind::Popcnt { dst, src, width } => op_json!("popcnt", dst, src, width),
@@ -1873,7 +1885,9 @@ fn smir_op_kind_json(kind: &OpKind) -> Value {
             sel,
             nomatch,
             oracc,
-        } => op_json!("vlut16", dst_lo, dst_hi, src_idx, table, sel, nomatch, oracc),
+        } => op_json!(
+            "vlut16", dst_lo, dst_hi, src_idx, table, sel, nomatch, oracc
+        ),
         OpKind::VLut {
             dst,
             src_idx,
@@ -1940,7 +1954,12 @@ fn smir_op_kind_json(kind: &OpKind) -> Value {
             lanes,
             accumulate,
         } => op_json!("vcmp_to_q", dst, src1, src2, cond, elem, lanes, accumulate),
-        OpKind::VQFromVAndR { dst, src1, src2, oracc } => {
+        OpKind::VQFromVAndR {
+            dst,
+            src1,
+            src2,
+            oracc,
+        } => {
             op_json!("vq_from_v_and_r", dst, src1, src2, oracc)
         }
         OpKind::VMaskZero {

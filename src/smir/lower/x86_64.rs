@@ -273,13 +273,7 @@ impl<'a> X86Emitter<'a> {
     /// still requires a REX prefix to be PRESENT — otherwise ModRM rm 4-7 selects
     /// the legacy high bytes AH/CH/DH/BH. `emit_rex_for_width` keys that rule on
     /// the single operand width, so it misses it here (it sees the wider dst).
-    fn emit_rex_ext(
-        &mut self,
-        dst_width: OpWidth,
-        src_width: OpWidth,
-        dst: PhysReg,
-        src: PhysReg,
-    ) {
+    fn emit_rex_ext(&mut self, dst_width: OpWidth, src_width: OpWidth, dst: PhysReg, src: PhysReg) {
         if matches!(dst_width, OpWidth::W16) {
             self.code.emit_u8(0x66);
         }
@@ -551,9 +545,9 @@ impl<'a> X86Emitter<'a> {
     fn emit_modrm_abs(&mut self, reg: PhysReg, addr: u64) {
         // ModR/M: mod=00, rm=100 (SIB follows)
         self.emit_modrm(0b00, reg, PhysReg::Rsp); // rm=100 signals SIB
-                                                  // SIB: scale=00, index=100 (none), base=101 (disp32)
+        // SIB: scale=00, index=100 (none), base=101 (disp32)
         self.code.emit_u8(0x25); // scale=0, index=RSP(4), base=RBP(5)
-                                 // 32-bit displacement (address)
+        // 32-bit displacement (address)
         self.code.emit_u32(addr as u32);
     }
 
@@ -3226,6 +3220,28 @@ impl<'a> X86Emitter<'a> {
         self.code.emit_u8(0xB8);
         self.emit_modrm_rr(dst, src);
     }
+
+    /// VEX.LZ.0F38.W{0,1} BMI r, r/m, vvvv
+    pub fn emit_vex_bmi_rr(
+        &mut self,
+        opcode: u8,
+        dst: PhysReg,
+        src: PhysReg,
+        control: PhysReg,
+        width: OpWidth,
+    ) {
+        let r = (dst.encoding() >> 3) & 0x1;
+        let b = (src.encoding() >> 3) & 0x1;
+        let vvvv = control.encoding() & 0x0f;
+        let w = u8::from(width == OpWidth::W64);
+
+        self.code.emit_u8(0xC4);
+        self.code
+            .emit_u8((((r ^ 1) & 1) << 7) | (1 << 6) | (((b ^ 1) & 1) << 5) | 0x02);
+        self.code.emit_u8((w << 7) | (((vvvv ^ 0x0f) & 0x0f) << 3));
+        self.code.emit_u8(opcode);
+        self.emit_modrm_rr(dst, src);
+    }
 }
 
 // ============================================================================
@@ -3373,13 +3389,7 @@ impl X86_64Lowerer {
         }
     }
 
-    fn emit_shift_reg_imm(
-        &mut self,
-        kind: ShiftRegOp,
-        dst_reg: PhysReg,
-        imm: u8,
-        width: OpWidth,
-    ) {
+    fn emit_shift_reg_imm(&mut self, kind: ShiftRegOp, dst_reg: PhysReg, imm: u8, width: OpWidth) {
         let mut emitter = X86Emitter::new(&mut self.code);
         match kind {
             ShiftRegOp::Rol => emitter.emit_rol_ri(dst_reg, imm, width),
@@ -4104,10 +4114,7 @@ impl X86_64Lowerer {
                             // Load immediate to a temp register
                             let temp = self.regalloc.get_scratch()?;
                             if preserve_flags {
-                                Self::ensure_flag_stack_operands_safe(
-                                    "MulS",
-                                    &[src1_reg, temp],
-                                )?;
+                                Self::ensure_flag_stack_operands_safe("MulS", &[src1_reg, temp])?;
                             }
                             {
                                 let mut emitter = X86Emitter::new(&mut self.code);
@@ -4230,10 +4237,7 @@ impl X86_64Lowerer {
                     SrcOperand::Reg(r) => {
                         let src2_reg = self.get_reg(*r)?;
                         if preserve_flags {
-                            Self::ensure_flag_stack_operands_safe(
-                                "MulU",
-                                &[src1_reg, src2_reg],
-                            )?;
+                            Self::ensure_flag_stack_operands_safe("MulU", &[src1_reg, src2_reg])?;
                         }
                         {
                             let mut emitter = X86Emitter::new(&mut self.code);
@@ -4316,10 +4320,7 @@ impl X86_64Lowerer {
                     SrcOperand::Reg(r) => {
                         let src2_reg = self.get_reg(*r)?;
                         if preserve_flags {
-                            Self::ensure_flag_stack_operands_safe(
-                                "DivU",
-                                &[src1_reg, src2_reg],
-                            )?;
+                            Self::ensure_flag_stack_operands_safe("DivU", &[src1_reg, src2_reg])?;
                         }
                         {
                             let mut emitter = X86Emitter::new(&mut self.code);
@@ -4415,10 +4416,7 @@ impl X86_64Lowerer {
                     SrcOperand::Reg(r) => {
                         let src2_reg = self.get_reg(*r)?;
                         if preserve_flags {
-                            Self::ensure_flag_stack_operands_safe(
-                                "DivS",
-                                &[src1_reg, src2_reg],
-                            )?;
+                            Self::ensure_flag_stack_operands_safe("DivS", &[src1_reg, src2_reg])?;
                         }
                         {
                             let mut emitter = X86Emitter::new(&mut self.code);
@@ -4684,6 +4682,50 @@ impl X86_64Lowerer {
                 let src_reg = self.get_reg(*src)?;
                 let mut emitter = X86Emitter::new(&mut self.code);
                 emitter.emit_bsr(dst_reg, src_reg, *width);
+            }
+
+            OpKind::Bextr {
+                dst,
+                src,
+                control,
+                width,
+            } => {
+                if !matches!(width, OpWidth::W32 | OpWidth::W64) {
+                    return Err(LowerError::UnsupportedOp {
+                        op: format!("Bextr width {width:?}"),
+                    });
+                }
+                let dst_reg = self.get_dst_reg(*dst)?;
+                let src_reg = self.get_reg(*src)?;
+                let control_reg = self.get_reg(*control)?;
+                Self::ensure_flag_stack_operands_safe("Bextr", &[dst_reg, src_reg, control_reg])?;
+
+                self.code.emit_u8(0x9C); // pushfq
+                let mut emitter = X86Emitter::new(&mut self.code);
+                emitter.emit_vex_bmi_rr(0xF7, dst_reg, src_reg, control_reg, *width);
+                self.code.emit_u8(0x9D); // popfq
+            }
+
+            OpKind::Bzhi {
+                dst,
+                src,
+                index,
+                width,
+            } => {
+                if !matches!(width, OpWidth::W32 | OpWidth::W64) {
+                    return Err(LowerError::UnsupportedOp {
+                        op: format!("Bzhi width {width:?}"),
+                    });
+                }
+                let dst_reg = self.get_dst_reg(*dst)?;
+                let src_reg = self.get_reg(*src)?;
+                let index_reg = self.get_reg(*index)?;
+                Self::ensure_flag_stack_operands_safe("Bzhi", &[dst_reg, src_reg, index_reg])?;
+
+                self.code.emit_u8(0x9C); // pushfq
+                let mut emitter = X86Emitter::new(&mut self.code);
+                emitter.emit_vex_bmi_rr(0xF5, dst_reg, src_reg, index_reg, *width);
+                self.code.emit_u8(0x9D); // popfq
             }
 
             OpKind::Clz { dst, src, width } => {
@@ -5105,7 +5147,7 @@ impl X86_64Lowerer {
                         _ => {
                             return Err(LowerError::UnsupportedOp {
                                 op: format!("VAdd {:?}x{}", elem, lanes),
-                            })
+                            });
                         }
                     };
                     let kind = if self.vec_requires_evex(width, &[dst_reg, src1_reg, src2_reg]) {
@@ -5129,7 +5171,7 @@ impl X86_64Lowerer {
                         _ => {
                             return Err(LowerError::UnsupportedOp {
                                 op: format!("VAdd {:?}x{}", elem, lanes),
-                            })
+                            });
                         }
                     };
                     if dst_reg != src1_reg {
@@ -5179,7 +5221,7 @@ impl X86_64Lowerer {
                         _ => {
                             return Err(LowerError::UnsupportedOp {
                                 op: format!("VSub {:?}x{}", elem, lanes),
-                            })
+                            });
                         }
                     };
                     let kind = if self.vec_requires_evex(width, &[dst_reg, src1_reg, src2_reg]) {
@@ -5203,7 +5245,7 @@ impl X86_64Lowerer {
                         _ => {
                             return Err(LowerError::UnsupportedOp {
                                 op: format!("VSub {:?}x{}", elem, lanes),
-                            })
+                            });
                         }
                     };
                     if dst_reg != src1_reg {
@@ -5252,7 +5294,7 @@ impl X86_64Lowerer {
                         _ => {
                             return Err(LowerError::UnsupportedOp {
                                 op: format!("VMax {:?}x{}", elem, lanes),
-                            })
+                            });
                         }
                     };
                     let kind = if self.vec_requires_evex(width, &[dst_reg, src1_reg, src2_reg]) {
@@ -5275,7 +5317,7 @@ impl X86_64Lowerer {
                         _ => {
                             return Err(LowerError::UnsupportedOp {
                                 op: format!("VMax {:?}x{}", elem, lanes),
-                            })
+                            });
                         }
                     };
                     if dst_reg != src1_reg {
@@ -5325,7 +5367,7 @@ impl X86_64Lowerer {
                         _ => {
                             return Err(LowerError::UnsupportedOp {
                                 op: format!("VMul {:?}x{}", elem, lanes),
-                            })
+                            });
                         }
                     };
                     let kind = if self.vec_requires_evex(width, &[dst_reg, src1_reg, src2_reg]) {
@@ -5367,7 +5409,7 @@ impl X86_64Lowerer {
                         _ => {
                             return Err(LowerError::UnsupportedOp {
                                 op: format!("VMul {:?}x{}", elem, lanes),
-                            })
+                            });
                         }
                     }
                 }
@@ -9044,7 +9086,8 @@ impl X86_64Lowerer {
         }
         self.code.emit_u8(rex);
         self.code.emit_u8(if store { 0x89 } else { 0x8B });
-        self.code.emit_u8(0x80 | ((reg_enc & 7) << 3) | (base.encoding() & 7));
+        self.code
+            .emit_u8(0x80 | ((reg_enc & 7) << 3) | (base.encoding() & 7));
         self.code.emit_u32(off as u32);
     }
 
@@ -9537,11 +9580,13 @@ impl X86_64Lowerer {
         continuation: BlockId,
     ) -> Result<(), LowerError> {
         // Return address pushed by the call = the continuation block's guest PC.
-        let return_pc = *self.block_guest_pcs.get(&continuation).ok_or_else(|| {
-            LowerError::UnsupportedOp {
-                op: "jit-call: continuation guest_pc unknown".to_string(),
-            }
-        })?;
+        let return_pc =
+            *self
+                .block_guest_pcs
+                .get(&continuation)
+                .ok_or_else(|| LowerError::UnsupportedOp {
+                    op: "jit-call: continuation guest_pc unknown".to_string(),
+                })?;
         // Resolve the target form up front (Direct imm vs register-indirect enc).
         enum Tgt {
             Direct(u64),
@@ -10167,13 +10212,12 @@ mod tests {
         //   shrdq %cl, %rbx, %rax, %rcx => 62 f4 f4 18 ad d8
         //   shldq $4, %rbx, %rax, %rbx => 62 f4 e4 18 24 d8 04
         let (lowered, entry) = lower_rex2_block(&[
-            0x62, 0xF4, 0xBC, 0x18, 0xC1, 0xE0, 0x04, 0x62, 0xF4, 0xBC, 0x1C, 0xD3, 0xE8,
-            0x62, 0xF4, 0xBC, 0x18, 0xC1, 0xC0, 0x07, 0x62, 0xF4, 0xBC, 0x18, 0xD3, 0xC8,
-            0x62, 0xF4, 0xBC, 0x18, 0xD1, 0xD0, 0x62, 0xF4, 0xBC, 0x18, 0xD3, 0xD8,
-            0x62, 0xF4, 0xF4, 0x18, 0xD3, 0xE0, 0x62, 0xF4, 0xBC, 0x18, 0x24, 0xD8,
-            0x04, 0x62, 0xF4, 0xBC, 0x1C, 0x24, 0xD8, 0x04, 0x62, 0xF4, 0xBC, 0x18,
-            0xAD, 0xD8, 0x62, 0xF4, 0xF4, 0x18, 0xAD, 0xD8, 0x62, 0xF4, 0xE4, 0x18,
-            0x24, 0xD8, 0x04, 0xF4,
+            0x62, 0xF4, 0xBC, 0x18, 0xC1, 0xE0, 0x04, 0x62, 0xF4, 0xBC, 0x1C, 0xD3, 0xE8, 0x62,
+            0xF4, 0xBC, 0x18, 0xC1, 0xC0, 0x07, 0x62, 0xF4, 0xBC, 0x18, 0xD3, 0xC8, 0x62, 0xF4,
+            0xBC, 0x18, 0xD1, 0xD0, 0x62, 0xF4, 0xBC, 0x18, 0xD3, 0xD8, 0x62, 0xF4, 0xF4, 0x18,
+            0xD3, 0xE0, 0x62, 0xF4, 0xBC, 0x18, 0x24, 0xD8, 0x04, 0x62, 0xF4, 0xBC, 0x1C, 0x24,
+            0xD8, 0x04, 0x62, 0xF4, 0xBC, 0x18, 0xAD, 0xD8, 0x62, 0xF4, 0xF4, 0x18, 0xAD, 0xD8,
+            0x62, 0xF4, 0xE4, 0x18, 0x24, 0xD8, 0x04, 0xF4,
         ]);
         assert!(entry < lowered.len());
         assert!(!lowered.is_empty());
@@ -10190,15 +10234,21 @@ mod tests {
         //   {nf} incq %rax       => 62 f4 fc 0c ff c0
         //   {nf} decq %rax       => 62 f4 fc 0c ff c8
         let (lowered, entry) = lower_rex2_block(&[
-            0x62, 0xF4, 0xBC, 0x18, 0xF7, 0xD0, 0x62, 0xF4, 0xBC, 0x18, 0xF7, 0xD8,
-            0x62, 0xF4, 0xBC, 0x18, 0xFF, 0xC0, 0x62, 0xF4, 0xBC, 0x18, 0xFF, 0xC8,
-            0x62, 0xF4, 0xFC, 0x0C, 0xF7, 0xD8, 0x62, 0xF4, 0xFC, 0x0C, 0xFF, 0xC0,
-            0x62, 0xF4, 0xFC, 0x0C, 0xFF, 0xC8, 0xF4,
+            0x62, 0xF4, 0xBC, 0x18, 0xF7, 0xD0, 0x62, 0xF4, 0xBC, 0x18, 0xF7, 0xD8, 0x62, 0xF4,
+            0xBC, 0x18, 0xFF, 0xC0, 0x62, 0xF4, 0xBC, 0x18, 0xFF, 0xC8, 0x62, 0xF4, 0xFC, 0x0C,
+            0xF7, 0xD8, 0x62, 0xF4, 0xFC, 0x0C, 0xFF, 0xC0, 0x62, 0xF4, 0xFC, 0x0C, 0xFF, 0xC8,
+            0xF4,
         ]);
         assert!(entry < lowered.len());
         assert!(!lowered.is_empty());
-        assert!(lowered.contains(&0x9C), "NF unary lowering must preserve flags");
-        assert!(lowered.contains(&0x9D), "NF unary lowering must restore flags");
+        assert!(
+            lowered.contains(&0x9C),
+            "NF unary lowering must preserve flags"
+        );
+        assert!(
+            lowered.contains(&0x9D),
+            "NF unary lowering must restore flags"
+        );
     }
 
     #[test]
@@ -10209,14 +10259,19 @@ mod tests {
         //   {nf} divq  %rbx => 62 f4 fc 0c f7 f3
         //   {nf} idivq %rbx => 62 f4 fc 0c f7 fb
         let (lowered, entry) = lower_rex2_block(&[
-            0x62, 0xF4, 0xFC, 0x0C, 0xF7, 0xE3, 0x62, 0xF4, 0xFC, 0x0C, 0xF7, 0xEB,
-            0x62, 0xF4, 0xFC, 0x0C, 0xF7, 0xF3, 0x62, 0xF4, 0xFC, 0x0C, 0xF7, 0xFB,
-            0xF4,
+            0x62, 0xF4, 0xFC, 0x0C, 0xF7, 0xE3, 0x62, 0xF4, 0xFC, 0x0C, 0xF7, 0xEB, 0x62, 0xF4,
+            0xFC, 0x0C, 0xF7, 0xF3, 0x62, 0xF4, 0xFC, 0x0C, 0xF7, 0xFB, 0xF4,
         ]);
         assert!(entry < lowered.len());
         assert!(!lowered.is_empty());
-        assert!(lowered.contains(&0x9C), "NF implicit lowering must preserve flags");
-        assert!(lowered.contains(&0x9D), "NF implicit lowering must restore flags");
+        assert!(
+            lowered.contains(&0x9C),
+            "NF implicit lowering must preserve flags"
+        );
+        assert!(
+            lowered.contains(&0x9D),
+            "NF implicit lowering must restore flags"
+        );
     }
 
     #[test]
@@ -10268,9 +10323,9 @@ mod tests {
         //   {nf} imulq $0x12345678, %rax, %r8
         //                                => 62 74 fc 0c 69 c0 78 56 34 12
         let (lowered, entry) = lower_rex2_block(&[
-            0x62, 0xF4, 0xBC, 0x18, 0xAF, 0xC3, 0x62, 0xF4, 0xBC, 0x1C, 0xAF, 0xC3,
-            0x62, 0xF4, 0xE4, 0x18, 0xAF, 0xC3, 0x62, 0x74, 0xFC, 0x0C, 0x6B, 0xC0,
-            0x07, 0x62, 0x74, 0xFC, 0x0C, 0x69, 0xC0, 0x78, 0x56, 0x34, 0x12, 0xF4,
+            0x62, 0xF4, 0xBC, 0x18, 0xAF, 0xC3, 0x62, 0xF4, 0xBC, 0x1C, 0xAF, 0xC3, 0x62, 0xF4,
+            0xE4, 0x18, 0xAF, 0xC3, 0x62, 0x74, 0xFC, 0x0C, 0x6B, 0xC0, 0x07, 0x62, 0x74, 0xFC,
+            0x0C, 0x69, 0xC0, 0x78, 0x56, 0x34, 0x12, 0xF4,
         ]);
         assert!(entry < lowered.len());
         assert!(!lowered.is_empty());
@@ -10283,8 +10338,8 @@ mod tests {
         //   movbel %eax, %r8d => 62 d4 7c 08 61 c0
         //   movbew %ax, %r8w  => 62 d4 7d 08 61 c0
         let (lowered, entry) = lower_rex2_block(&[
-            0x62, 0xD4, 0xFC, 0x08, 0x61, 0xC0, 0x62, 0xD4, 0x7C, 0x08, 0x61, 0xC0,
-            0x62, 0xD4, 0x7D, 0x08, 0x61, 0xC0, 0xF4,
+            0x62, 0xD4, 0xFC, 0x08, 0x61, 0xC0, 0x62, 0xD4, 0x7C, 0x08, 0x61, 0xC0, 0x62, 0xD4,
+            0x7D, 0x08, 0x61, 0xC0, 0xF4,
         ]);
         assert!(entry < lowered.len());
         assert!(!lowered.is_empty());
@@ -10298,9 +10353,8 @@ mod tests {
         //   setzuo  %r8b   => 62 d4 7f 18 40 c0
         //   setzuo  (%rax) => 62 f4 7f 18 40 00
         let (lowered, entry) = lower_rex2_block(&[
-            0x62, 0xF4, 0x7F, 0x18, 0x40, 0xC0, 0x62, 0xF4, 0x7F, 0x18, 0x45, 0xC3,
-            0x62, 0xD4, 0x7F, 0x18, 0x40, 0xC0, 0x62, 0xF4, 0x7F, 0x18, 0x40, 0x00,
-            0xF4,
+            0x62, 0xF4, 0x7F, 0x18, 0x40, 0xC0, 0x62, 0xF4, 0x7F, 0x18, 0x45, 0xC3, 0x62, 0xD4,
+            0x7F, 0x18, 0x40, 0xC0, 0x62, 0xF4, 0x7F, 0x18, 0x40, 0x00, 0xF4,
         ]);
         assert!(entry < lowered.len());
         assert!(!lowered.is_empty());
@@ -10317,10 +10371,9 @@ mod tests {
         //   cfcmovbq  (%rbx), %rax, %r8
         //                                => 62 f4 bc 1c 42 03
         let (lowered, entry) = lower_rex2_block(&[
-            0x62, 0xF4, 0xBC, 0x18, 0x42, 0xC3, 0x62, 0xF4, 0xBC, 0x1C, 0x42, 0xC3,
-            0x62, 0xF4, 0xFC, 0x0C, 0x42, 0xD8, 0x62, 0xF4, 0xFC, 0x08, 0x42, 0x03,
-            0x62, 0xF4, 0xFC, 0x0C, 0x42, 0x18, 0x62, 0xF4, 0xBC, 0x1C, 0x42, 0x03,
-            0xF4,
+            0x62, 0xF4, 0xBC, 0x18, 0x42, 0xC3, 0x62, 0xF4, 0xBC, 0x1C, 0x42, 0xC3, 0x62, 0xF4,
+            0xFC, 0x0C, 0x42, 0xD8, 0x62, 0xF4, 0xFC, 0x08, 0x42, 0x03, 0x62, 0xF4, 0xFC, 0x0C,
+            0x42, 0x18, 0x62, 0xF4, 0xBC, 0x1C, 0x42, 0x03, 0xF4,
         ]);
         assert!(entry < lowered.len());
         assert!(!lowered.is_empty());
@@ -10343,14 +10396,47 @@ mod tests {
         //   {nf} popcnt r8w, ax   => 62 74 7d 0c 88 c0
         //   {nf} lzcnt  r8, [rbx] => 62 74 fc 0c f5 03
         let (lowered, entry) = lower_rex2_block(&[
-            0x62, 0x74, 0xFC, 0x0C, 0x88, 0xC0, 0x62, 0x74, 0xFC, 0x0C, 0xF5, 0xC0,
-            0x62, 0x74, 0xFC, 0x0C, 0xF4, 0xC0, 0x62, 0x74, 0x7D, 0x0C, 0x88, 0xC0,
-            0x62, 0x74, 0xFC, 0x0C, 0xF5, 0x03, 0xF4,
+            0x62, 0x74, 0xFC, 0x0C, 0x88, 0xC0, 0x62, 0x74, 0xFC, 0x0C, 0xF5, 0xC0, 0x62, 0x74,
+            0xFC, 0x0C, 0xF4, 0xC0, 0x62, 0x74, 0x7D, 0x0C, 0x88, 0xC0, 0x62, 0x74, 0xFC, 0x0C,
+            0xF5, 0x03, 0xF4,
         ]);
         assert!(entry < lowered.len());
         assert!(!lowered.is_empty());
-        assert!(lowered.contains(&0x9C), "count lowering must preserve flags");
+        assert!(
+            lowered.contains(&0x9C),
+            "count lowering must preserve flags"
+        );
         assert!(lowered.contains(&0x9D), "count lowering must restore flags");
+    }
+
+    #[test]
+    fn lower_apx_nf_bmi_0f38_slice_lowers_without_relocs() {
+        // LLVM 20 APX EVEX.0F38 NF BMI forms:
+        //   {nf} andn   r8, rax, rbx       => 62 72 fc 0c f2 c3
+        //   {nf} bextr  r8, rax, rbx       => 62 72 e4 0c f7 c0
+        //   {nf} bzhi   r8, rax, rbx       => 62 72 e4 0c f5 c0
+        //   {nf} blsi   r8, rax            => 62 f2 bc 0c f3 d8
+        //   {nf} blsmsk r8, rax            => 62 f2 bc 0c f3 d0
+        //   {nf} blsr   r8, rax            => 62 f2 bc 0c f3 c8
+        //   {nf} bextr  r8, [rbx], rcx     => 62 72 f4 0c f7 03
+        //   {nf} bzhi   r8, [rbx], rcx     => 62 72 f4 0c f5 03
+        //   {nf} blsr   r8, [rbx]          => 62 f2 bc 0c f3 0b
+        let (lowered, entry) = lower_rex2_block(&[
+            0x62, 0x72, 0xFC, 0x0C, 0xF2, 0xC3, 0x62, 0x72, 0xE4, 0x0C, 0xF7, 0xC0, 0x62, 0x72,
+            0xE4, 0x0C, 0xF5, 0xC0, 0x62, 0xF2, 0xBC, 0x0C, 0xF3, 0xD8, 0x62, 0xF2, 0xBC, 0x0C,
+            0xF3, 0xD0, 0x62, 0xF2, 0xBC, 0x0C, 0xF3, 0xC8, 0x62, 0x72, 0xF4, 0x0C, 0xF7, 0x03,
+            0x62, 0x72, 0xF4, 0x0C, 0xF5, 0x03, 0x62, 0xF2, 0xBC, 0x0C, 0xF3, 0x0B, 0xF4,
+        ]);
+        assert!(entry < lowered.len());
+        assert!(!lowered.is_empty());
+        assert!(
+            lowered.contains(&0x9C),
+            "BEXTR/BZHI lowering must preserve flags"
+        );
+        assert!(
+            lowered.contains(&0x9D),
+            "BEXTR/BZHI lowering must restore flags"
+        );
     }
 
     #[test]
@@ -10367,16 +10453,22 @@ mod tests {
         //   ctests {dfv=of,sf} qword ptr [rbx], 0xf0
         //                                      => 62 f4 e4 08 f7 03 f0 00 00 00
         let (lowered, entry) = lower_rex2_block(&[
-            0x62, 0xF4, 0x9C, 0x00, 0x39, 0xD8, 0x62, 0xF4, 0x9C, 0x03, 0x83, 0xF8,
-            0x64, 0x62, 0xF4, 0xE4, 0x05, 0x3B, 0x03, 0x62, 0xF4, 0xE4, 0x03, 0x83,
-            0x3B, 0x64, 0x62, 0xF4, 0xE4, 0x40, 0x85, 0xD8, 0x62, 0xF4, 0xE4, 0x45,
-            0xF7, 0xC0, 0x0F, 0x00, 0x00, 0x00, 0x62, 0xF4, 0xE4, 0x02, 0x85, 0x0B,
-            0x62, 0xF4, 0xE4, 0x08, 0xF7, 0x03, 0xF0, 0x00, 0x00, 0x00, 0xF4,
+            0x62, 0xF4, 0x9C, 0x00, 0x39, 0xD8, 0x62, 0xF4, 0x9C, 0x03, 0x83, 0xF8, 0x64, 0x62,
+            0xF4, 0xE4, 0x05, 0x3B, 0x03, 0x62, 0xF4, 0xE4, 0x03, 0x83, 0x3B, 0x64, 0x62, 0xF4,
+            0xE4, 0x40, 0x85, 0xD8, 0x62, 0xF4, 0xE4, 0x45, 0xF7, 0xC0, 0x0F, 0x00, 0x00, 0x00,
+            0x62, 0xF4, 0xE4, 0x02, 0x85, 0x0B, 0x62, 0xF4, 0xE4, 0x08, 0xF7, 0x03, 0xF0, 0x00,
+            0x00, 0x00, 0xF4,
         ]);
         assert!(entry < lowered.len());
         assert!(!lowered.is_empty());
-        assert!(lowered.contains(&0x9C), "CCMP/CTEST lowering must read/save flags");
-        assert!(lowered.contains(&0x9D), "CCMP/CTEST lowering must write/restore flags");
+        assert!(
+            lowered.contains(&0x9C),
+            "CCMP/CTEST lowering must read/save flags"
+        );
+        assert!(
+            lowered.contains(&0x9D),
+            "CCMP/CTEST lowering must write/restore flags"
+        );
     }
 
     #[test]
@@ -10734,21 +10826,18 @@ mod tests {
         lowerer.lower_function(&func).unwrap();
         let code = lowerer.finalize().unwrap();
 
-        let push = code
-            .iter()
-            .position(|byte| *byte == 0x9C)
-            .expect("pushfq");
+        let push = code.iter().position(|byte| *byte == 0x9C).expect("pushfq");
         let zero_rdx = code
             .windows(3)
             .position(|window| window == [0x48, 0x31, 0xD2])
             .expect("xor rdx, rdx");
-        let pop = code
-            .iter()
-            .position(|byte| *byte == 0x9D)
-            .expect("popfq");
+        let pop = code.iter().position(|byte| *byte == 0x9D).expect("popfq");
 
         assert!(push < zero_rdx, "pushfq must precede flag-clobbering zero");
-        assert!(zero_rdx < pop, "popfq must restore flags after divide setup");
+        assert!(
+            zero_rdx < pop,
+            "popfq must restore flags after divide setup"
+        );
     }
 
     #[test]
