@@ -1104,26 +1104,26 @@ impl Aarch64Lifter {
                     };
 
                     let src2 = self.parse_operand2(insn, 2, ctx)?;
-                    let src2_reg = self.materialize_src_operand(src2, width, pc, &mut ops, ctx);
-                    let inverted = ctx.alloc_vreg();
-
-                    push_op!(OpKind::Not {
-                        dst: inverted,
-                        src: src2_reg,
-                        width,
-                    });
 
                     match insn.mnemonic {
                         Mnemonic::BIC | Mnemonic::BICS => {
-                            push_op!(OpKind::And {
+                            push_op!(OpKind::AndNot {
                                 dst,
                                 src1,
-                                src2: SrcOperand::Reg(inverted),
+                                src2,
                                 width,
                                 flags,
                             });
                         }
                         Mnemonic::ORN => {
+                            let src2_reg =
+                                self.materialize_src_operand(src2, width, pc, &mut ops, ctx);
+                            let inverted = ctx.alloc_vreg();
+                            push_op!(OpKind::Not {
+                                dst: inverted,
+                                src: src2_reg,
+                                width,
+                            });
                             push_op!(OpKind::Or {
                                 dst,
                                 src1,
@@ -1133,6 +1133,14 @@ impl Aarch64Lifter {
                             });
                         }
                         Mnemonic::EON => {
+                            let src2_reg =
+                                self.materialize_src_operand(src2, width, pc, &mut ops, ctx);
+                            let inverted = ctx.alloc_vreg();
+                            push_op!(OpKind::Not {
+                                dst: inverted,
+                                src: src2_reg,
+                                width,
+                            });
                             push_op!(OpKind::Xor {
                                 dst,
                                 src1,

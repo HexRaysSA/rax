@@ -366,12 +366,13 @@ impl Aarch64Lowerer {
         src1: VReg,
         src2: &SrcOperand,
         opc: u32,
+        n: bool,
         set_flags: bool,
         width: OpWidth,
     ) -> Result<(), LowerError> {
         if set_flags && opc != 0b11 {
             return Err(LowerError::UnsupportedOp {
-                op: "AArch64 native logical flags are only supported for ANDS".into(),
+                op: "AArch64 native logical flags are only supported for ANDS/BICS".into(),
             });
         }
         let SrcOperand::Reg(src2) = src2 else {
@@ -384,7 +385,7 @@ impl Aarch64Lowerer {
             Self::gpr(src1)?,
             Self::gpr(*src2)?,
             opc,
-            false,
+            n,
             width,
         )
     }
@@ -816,7 +817,17 @@ impl Aarch64Lowerer {
                 flags,
             } => {
                 let opc = if flags.updates_any() { 0b11 } else { 0b00 };
-                self.lower_logic(*dst, *src1, src2, opc, flags.updates_any(), *width)
+                self.lower_logic(*dst, *src1, src2, opc, false, flags.updates_any(), *width)
+            }
+            OpKind::AndNot {
+                dst,
+                src1,
+                src2,
+                width,
+                flags,
+            } => {
+                let opc = if flags.updates_any() { 0b11 } else { 0b00 };
+                self.lower_logic(*dst, *src1, src2, opc, true, flags.updates_any(), *width)
             }
             OpKind::Or {
                 dst,
@@ -824,14 +835,14 @@ impl Aarch64Lowerer {
                 src2,
                 width,
                 flags,
-            } => self.lower_logic(*dst, *src1, src2, 0b01, flags.updates_any(), *width),
+            } => self.lower_logic(*dst, *src1, src2, 0b01, false, flags.updates_any(), *width),
             OpKind::Xor {
                 dst,
                 src1,
                 src2,
                 width,
                 flags,
-            } => self.lower_logic(*dst, *src1, src2, 0b10, flags.updates_any(), *width),
+            } => self.lower_logic(*dst, *src1, src2, 0b10, false, flags.updates_any(), *width),
             OpKind::Neg {
                 dst,
                 src,

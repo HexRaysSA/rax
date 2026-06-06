@@ -3222,6 +3222,42 @@ fn smir_aarch64_native_lowering_matches_qemu_oracle() {
     );
 
     let mut st = native_state();
+    st.x[0] = 0x1212_3434_5656_7878;
+    st.x[1] = 0xffff_0000_ffff_0000;
+    st.x[2] = 0x00ff_00ff_00ff_00ff;
+    st.pstate = 0x2000_0000;
+    push_case(
+        "bic_x_opkind_preserves_flags",
+        enc_logical_shift_regs(1, 0b00, 0, 1, 0, RD, RN, RM),
+        vec![OpKind::AndNot {
+            dst: arm_x(0),
+            src1: arm_x(1),
+            src2: SrcOperand::Reg(arm_x(2)),
+            width: OpWidth::W64,
+            flags: FlagUpdate::None,
+        }],
+        st,
+    );
+
+    let mut st = native_state();
+    st.x[0] = 0x3434_5656_7878_9a9a;
+    st.x[1] = 0xffff_ffff_8000_00f0;
+    st.x[2] = 0xffff_ffff_0000_00f0;
+    st.pstate = 0x9000_0000;
+    push_case(
+        "bics_w_opkind_sets_flags_zero_ext",
+        enc_logical_shift_regs(0, 0b11, 0, 1, 0, RD, RN, RM),
+        vec![OpKind::AndNot {
+            dst: arm_x(0),
+            src1: arm_x(1),
+            src2: SrcOperand::Reg(arm_x(2)),
+            width: OpWidth::W32,
+            flags: FlagUpdate::All,
+        }],
+        st,
+    );
+
+    let mut st = native_state();
     st.x[0] = 0x6666_7777_8888_9999;
     st.x[1] = 0x10;
     st.x[2] = 0x20;
@@ -3725,6 +3761,28 @@ fn smir_aarch64_native_lowering_matches_qemu_oracle() {
     push_lifted_case(
         "tst_w_lifted_discards_result_sets_flags",
         enc_logical_shift_regs(0, 0b11, 0, 0, 0, 31, RN, RM),
+        st,
+    );
+
+    let mut st = native_state();
+    st.x[0] = 0x5656_7878_9a9a_bcbc;
+    st.x[1] = 0xffff_0000_ffff_0000;
+    st.x[2] = 0x00ff_00ff_00ff_00ff;
+    st.pstate = 0x2000_0000;
+    push_lifted_case(
+        "bic_x_lifted_preserves_flags",
+        enc_logical_shift_regs(1, 0b00, 0, 1, 0, RD, RN, RM),
+        st,
+    );
+
+    let mut st = native_state();
+    st.x[0] = 0x7878_9a9a_bcbc_dede;
+    st.x[1] = 0xffff_ffff_8000_00f0;
+    st.x[2] = 0xffff_ffff_0000_00f0;
+    st.pstate = 0x9000_0000;
+    push_lifted_case(
+        "bics_w_lifted_sets_flags_zero_ext",
+        enc_logical_shift_regs(0, 0b11, 0, 1, 0, RD, RN, RM),
         st,
     );
 
