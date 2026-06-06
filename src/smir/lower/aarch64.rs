@@ -4254,6 +4254,10 @@ impl Aarch64Lowerer {
                 cond,
                 width,
             } => self.lower_cmove(*dst, *src, *cond, *width),
+            OpKind::CmcCF => {
+                self.emit_flagm(0b000);
+                Ok(())
+            }
             OpKind::SetCC { dst, cond, width } => self.lower_setcc(*dst, *cond, *width),
             OpKind::TestCondition { dst, cond } => self.lower_test_condition(*dst, *cond),
             other => Err(LowerError::UnsupportedOp {
@@ -4603,6 +4607,10 @@ mod tests {
 
     fn enc_mov_reg(sf: u32, rd: u32, rm: u32) -> u32 {
         (sf << 31) | (0b01 << 29) | (0b01010 << 24) | (31 << 5) | (rm << 16) | rd
+    }
+
+    fn enc_flagm(op2: u32) -> u32 {
+        0xd500_401f | (op2 << 5)
     }
 
     fn enc_csel_regs(sf: u32, op: u32, op2: u32, rn: u32, rm: u32, cond: u32, rd: u32) -> u32 {
@@ -6052,6 +6060,23 @@ mod tests {
 
         let mut expected = Vec::new();
         expected.extend_from_slice(&enc_csel_regs(1, 0, 0, 1, 0, 0, 0).to_le_bytes());
+        expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
+        assert_eq!(code, expected);
+    }
+
+    #[test]
+    fn lowers_cmc_cf_as_cfinv() {
+        let mut builder = FunctionBuilder::new(FunctionId(0), 0);
+        builder.push_op(0, OpKind::CmcCF);
+        builder.set_terminator(Terminator::Return { values: vec![] });
+        let func = builder.finish();
+
+        let mut lowerer = Aarch64Lowerer::new();
+        lowerer.lower_function(&func).unwrap();
+        let code = lowerer.finalize().unwrap();
+
+        let mut expected = Vec::new();
+        expected.extend_from_slice(&enc_flagm(0b000).to_le_bytes());
         expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
         assert_eq!(code, expected);
     }
