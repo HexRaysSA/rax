@@ -4903,6 +4903,145 @@ impl Aarch64Lowerer {
         result
     }
 
+    fn clmul_source_gpr(src: &SrcOperand) -> Result<Option<u8>, LowerError> {
+        match src {
+            SrcOperand::Reg(reg) => Ok(Some(Self::gpr(*reg)?)),
+            SrcOperand::Imm(_) | SrcOperand::Imm64(_) => Ok(None),
+            other => Err(LowerError::UnsupportedOp {
+                op: format!("AArch64 native ClMul source {other:?}"),
+            }),
+        }
+    }
+
+    fn emit_clmul_operand(&mut self, dst: u8, src: &SrcOperand) -> Result<(), LowerError> {
+        match src {
+            SrcOperand::Reg(reg) => self.emit_mov_reg(dst, Self::gpr(*reg)?, OpWidth::W32),
+            SrcOperand::Imm(imm) | SrcOperand::Imm64(imm) => {
+                self.emit_mov_imm(dst, *imm, OpWidth::W32)
+            }
+            other => Err(LowerError::UnsupportedOp {
+                op: format!("AArch64 native ClMul source {other:?}"),
+            }),
+        }
+    }
+
+    fn lower_clmul_product(
+        &mut self,
+        dst: u8,
+        lhs: u8,
+        rhs: u8,
+        bits: u8,
+        width: OpWidth,
+    ) -> Result<(), LowerError> {
+        self.emit_mov_imm(dst, 0, width)?;
+        for bit in 0..u32::from(bits) {
+            let skip = self.code.position();
+            self.emit_test_branch(rhs, bit, false, 0)?;
+            self.emit_logic_shifted(dst, dst, lhs, 0b10, false, 0, bit, width)?;
+            self.patch_test_branch_to_current(skip, rhs, bit, false)?;
+        }
+        Ok(())
+    }
+
+    fn emit_finish_clmul_word(&mut self, dst: u8, value: u8, acc: bool) -> Result<(), LowerError> {
+        if acc {
+            self.emit_logic_shifted(dst, dst, value, 0b10, false, 0, 0, OpWidth::W32)
+        } else {
+            self.emit_mov_reg(dst, value, OpWidth::W32)
+        }
+    }
+
+    fn lower_clmul(
+        &mut self,
+        dst: VReg,
+        dst_hi: Option<VReg>,
+        src1: &SrcOperand,
+        src2: &SrcOperand,
+        elem_bits: u8,
+        lanes: u8,
+        acc: bool,
+    ) -> Result<(), LowerError> {
+        match (elem_bits, lanes) {
+            (32, 1) | (16, 2) => {}
+            other => {
+                return Err(LowerError::UnsupportedOp {
+                    op: format!("AArch64 native ClMul shape {other:?}"),
+                });
+            }
+        }
+
+        let dst = Self::dst_gpr(dst)?;
+        let dst_hi = dst_hi.map(Self::dst_gpr).transpose()?;
+        let src1_reg = Self::clmul_source_gpr(src1)?;
+        let src2_reg = Self::clmul_source_gpr(src2)?;
+        let mut avoid = vec![dst];
+        if let Some(dst_hi) = dst_hi {
+            avoid.push(dst_hi);
+        }
+        if let Some(src1) = src1_reg {
+            avoid.push(src1);
+        }
+        if let Some(src2) = src2_reg {
+            avoid.push(src2);
+        }
+
+        let scratch_count = if lanes == 1 { 3 } else { 5 };
+        let scratches = Self::scratch_regs(&avoid, scratch_count)?;
+        self.emit_scratch_save(&scratches);
+
+        if lanes == 1 {
+            let product = scratches[0];
+            let lhs = scratches[1];
+            let rhs = scratches[2];
+            self.emit_clmul_operand(lhs, src1)?;
+            self.emit_clmul_operand(rhs, src2)?;
+            self.lower_clmul_product(product, lhs, rhs, 32, OpWidth::W64)?;
+            self.emit_finish_clmul_word(dst, product, acc)?;
+            if let Some(dst_hi) = dst_hi {
+                self.emit_bitfield(lhs, product, 0b10, 32, 63, OpWidth::W64)?;
+                self.emit_finish_clmul_word(dst_hi, lhs, acc)?;
+            }
+        } else {
+            let result_lo = scratches[0];
+            let result_hi = scratches[1];
+            let lhs = scratches[2];
+            let rhs = scratches[3];
+            let product = scratches[4];
+            self.emit_clmul_operand(lhs, src1)?;
+            self.emit_clmul_operand(rhs, src2)?;
+
+            self.emit_bitfield(result_lo, lhs, 0b10, 0, 15, OpWidth::W32)?;
+            self.emit_bitfield(result_hi, rhs, 0b10, 0, 15, OpWidth::W32)?;
+            self.lower_clmul_product(product, result_lo, result_hi, 16, OpWidth::W32)?;
+            self.emit_bitfield(result_lo, product, 0b10, 0, 15, OpWidth::W32)?;
+            self.emit_bitfield(result_hi, product, 0b10, 16, 31, OpWidth::W32)?;
+
+            self.emit_bitfield(lhs, lhs, 0b10, 16, 31, OpWidth::W32)?;
+            self.emit_bitfield(rhs, rhs, 0b10, 16, 31, OpWidth::W32)?;
+            self.lower_clmul_product(product, lhs, rhs, 16, OpWidth::W32)?;
+            self.emit_logic_shifted(
+                result_lo,
+                result_lo,
+                product,
+                0b01,
+                false,
+                0,
+                16,
+                OpWidth::W32,
+            )?;
+            self.emit_bitfield(lhs, product, 0b10, 16, 31, OpWidth::W32)?;
+            self.emit_logic_shifted(result_hi, result_hi, lhs, 0b01, false, 0, 16, OpWidth::W32)?;
+
+            self.emit_finish_clmul_word(dst, result_lo, acc)?;
+            if let Some(dst_hi) = dst_hi {
+                self.emit_finish_clmul_word(dst_hi, result_hi, acc)?;
+            }
+        }
+
+        self.emit_scratch_restore(&scratches);
+        Ok(())
+    }
+
     fn contiguous_bitfield(mask: u64) -> Option<(u8, u8)> {
         if mask == 0 {
             return None;
@@ -9915,6 +10054,15 @@ impl Aarch64Lowerer {
                 mask,
                 width,
             } => self.lower_pdep_pext(*dst, *src, *mask, *width, false),
+            OpKind::ClMul {
+                dst,
+                dst_hi,
+                src1,
+                src2,
+                elem_bits,
+                lanes,
+                acc,
+            } => self.lower_clmul(*dst, *dst_hi, src1, src2, *elem_bits, *lanes, *acc),
             OpKind::Bswap { dst, src, width } => self.lower_bswap(*dst, *src, *width),
             OpKind::Rbit { dst, src, width } => self.lower_rbit(*dst, *src, *width),
             OpKind::Bfx {
@@ -17057,6 +17205,201 @@ mod tests {
                 amount: SrcOperand::Reg(x(2)),
                 kind: 0,
                 width: OpWidth::W16,
+            },
+        );
+        builder.set_terminator(Terminator::Return { values: vec![] });
+        let func = builder.finish();
+        let mut lowerer = Aarch64Lowerer::new();
+        let err = lowerer.lower_function(&func).unwrap_err();
+        assert!(matches!(err, LowerError::UnsupportedOp { .. }));
+    }
+
+    fn ref_clmul_product(a: u32, b: u32, bits: u8) -> u64 {
+        let mut product = 0u64;
+        for bit in 0..bits {
+            if ((b >> bit) & 1) != 0 {
+                product ^= u64::from(a) << bit;
+            }
+        }
+        product
+    }
+
+    fn ref_clmul(
+        a: u32,
+        b: u32,
+        elem_bits: u8,
+        lanes: u8,
+        acc: bool,
+        init: (u32, u32),
+    ) -> (u32, u32) {
+        let (mut lo, mut hi) = if (elem_bits, lanes) == (32, 1) {
+            let product = ref_clmul_product(a, b, 32);
+            (product as u32, (product >> 32) as u32)
+        } else {
+            let p0 = ref_clmul_product(a & 0xffff, b & 0xffff, 16);
+            let p1 = ref_clmul_product(a >> 16, b >> 16, 16);
+            let lo = ((p0 as u32) & 0xffff) | (((p1 as u32) & 0xffff) << 16);
+            let hi = (((p0 >> 16) as u32) & 0xffff) | (((p1 >> 16) as u32) << 16);
+            (lo, hi)
+        };
+        if acc {
+            lo ^= init.0;
+            hi ^= init.1;
+        }
+        (lo, hi)
+    }
+
+    fn assert_clmul_runtime(
+        label: &str,
+        src1: SrcOperand,
+        src2: SrcOperand,
+        a: u32,
+        b: u32,
+        elem_bits: u8,
+        lanes: u8,
+        acc: bool,
+        init: (u32, u32),
+        with_hi: bool,
+    ) {
+        let dst_hi = with_hi.then_some(x(1));
+        let code = lower_single_op(OpKind::ClMul {
+            dst: x(0),
+            dst_hi,
+            src1: src1.clone(),
+            src2: src2.clone(),
+            elem_bits,
+            lanes,
+            acc,
+        });
+        let expected = ref_clmul(a, b, elem_bits, lanes, acc, init);
+        let hi_init = 0x7777_0000_0000_0000u64 | u64::from(init.1);
+        let sentinels = [
+            (16, 0x1616_1616_1616_1616),
+            (17, 0x1717_1717_1717_1717),
+            (15, 0x1515_1515_1515_1515),
+            (14, 0x1414_1414_1414_1414),
+            (13, 0x1313_1313_1313_1313),
+        ];
+        let mut regs = sentinels.to_vec();
+        regs.push((0, 0x5555_0000_0000_0000u64 | u64::from(init.0)));
+        regs.push((1, hi_init));
+        if matches!(src1, SrcOperand::Reg(_)) {
+            regs.push((2, 0xaaaa_0000_0000_0000u64 | u64::from(a)));
+        }
+        if matches!(src2, SrcOperand::Reg(_)) {
+            regs.push((3, 0xbbbb_0000_0000_0000u64 | u64::from(b)));
+        }
+
+        let old_nzcv = 0b0110;
+        let (out, out_nzcv, sp) = run_aarch64_code(&code, &regs, old_nzcv);
+        assert_eq!(out[0], u64::from(expected.0), "{label}: ClMul low result");
+        if with_hi {
+            assert_eq!(
+                out[1],
+                u64::from(expected.1),
+                "{label}: ClMul high result"
+            );
+        } else {
+            assert_eq!(out[1], hi_init, "{label}: x1 preserved without dst_hi");
+        }
+        assert_eq!(out_nzcv, old_nzcv, "{label}: NZCV preserved");
+        assert_eq!(sp, 0x8000, "{label}: stack restored");
+        if matches!(src1, SrcOperand::Reg(_)) {
+            assert_eq!(
+                out[2],
+                0xaaaa_0000_0000_0000u64 | u64::from(a),
+                "{label}: src1 preserved"
+            );
+        }
+        if matches!(src2, SrcOperand::Reg(_)) {
+            assert_eq!(
+                out[3],
+                0xbbbb_0000_0000_0000u64 | u64::from(b),
+                "{label}: src2 preserved"
+            );
+        }
+        for (reg, value) in sentinels {
+            assert_eq!(out[reg as usize], value, "{label}: x{reg} restored");
+        }
+    }
+
+    #[test]
+    fn lowers_clmul_runtime() {
+        assert_clmul_runtime(
+            "pmpyw_identity",
+            SrcOperand::Reg(x(2)),
+            SrcOperand::Reg(x(3)),
+            1,
+            0x1234_5678,
+            32,
+            1,
+            false,
+            (0, 0),
+            true,
+        );
+        assert_clmul_runtime(
+            "pmpyw_high_word",
+            SrcOperand::Reg(x(2)),
+            SrcOperand::Reg(x(3)),
+            0x8000_0000,
+            0x8000_0000,
+            32,
+            1,
+            false,
+            (0, 0),
+            true,
+        );
+        assert_clmul_runtime(
+            "pmpyw_acc",
+            SrcOperand::Reg(x(2)),
+            SrcOperand::Reg(x(3)),
+            0x1234_5678,
+            2,
+            32,
+            1,
+            true,
+            (0xaaaa_aaaa, 0x5555_5555),
+            true,
+        );
+        assert_clmul_runtime(
+            "vpmpyh_interleaved",
+            SrcOperand::Reg(x(2)),
+            SrcOperand::Reg(x(3)),
+            0x0001_ffff,
+            0x0003_0002,
+            16,
+            2,
+            false,
+            (0, 0),
+            true,
+        );
+        assert_clmul_runtime(
+            "immediates_without_high_dst",
+            SrcOperand::Imm(0x1234_5678),
+            SrcOperand::Imm64(2),
+            0x1234_5678,
+            2,
+            32,
+            1,
+            false,
+            (0, 0x9999_9999),
+            false,
+        );
+    }
+
+    #[test]
+    fn rejects_clmul_unsupported_shape() {
+        let mut builder = FunctionBuilder::new(FunctionId(0), 0);
+        builder.push_op(
+            0,
+            OpKind::ClMul {
+                dst: x(0),
+                dst_hi: Some(x(1)),
+                src1: SrcOperand::Reg(x(2)),
+                src2: SrcOperand::Reg(x(3)),
+                elem_bits: 8,
+                lanes: 4,
+                acc: false,
             },
         );
         builder.set_terminator(Terminator::Return { values: vec![] });
