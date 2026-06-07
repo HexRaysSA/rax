@@ -2182,13 +2182,7 @@ impl Aarch64Lowerer {
     ) -> Result<(), LowerError> {
         if matches!(width, OpWidth::W8 | OpWidth::W16) {
             if set_flags {
-                return Err(LowerError::UnsupportedOp {
-                    op: format!("AArch64 native flag-setting subword {}", if subtract {
-                        "Sub"
-                    } else {
-                        "Add"
-                    }),
-                });
+                return self.lower_subword_addsub_with_flags(dst, src1, src2, subtract, width);
             }
             return self.lower_subword_addsub(dst, src1, src2, subtract, width);
         }
@@ -2261,6 +2255,68 @@ impl Aarch64Lowerer {
         }
 
         self.emit_bitfield(dst, dst, 0b10, 0, top_bit, OpWidth::W32)
+    }
+
+    fn emit_shifted_subword_addsub_operand(
+        &mut self,
+        dst: u8,
+        src: u8,
+        width: OpWidth,
+    ) -> Result<(), LowerError> {
+        let top_bit = width.bits() - 1;
+        let shift = OpWidth::W32.bits() - width.bits();
+        self.emit_bitfield(dst, src, 0b10, 0, top_bit, OpWidth::W32)?;
+        self.emit_logic_shifted(dst, 31, dst, 0b01, false, 0, shift, OpWidth::W32)
+    }
+
+    fn lower_subword_addsub_with_flags(
+        &mut self,
+        dst: VReg,
+        src1: VReg,
+        src2: &SrcOperand,
+        subtract: bool,
+        width: OpWidth,
+    ) -> Result<(), LowerError> {
+        let dst_reg = Self::dst_or_zero_for_flags(dst, true)?;
+        let rn = Self::gpr(src1)?;
+        let rm = match src2 {
+            SrcOperand::Reg(reg) => Some(Self::gpr(*reg)?),
+            SrcOperand::Imm(_) | SrcOperand::Imm64(_) => None,
+            other => {
+                return Err(LowerError::UnsupportedOp {
+                    op: format!("AArch64 native subword add/sub source {other:?}"),
+                });
+            }
+        };
+
+        let mut avoid = vec![dst_reg, rn];
+        if let Some(rm) = rm {
+            avoid.push(rm);
+        }
+        let scratches = Self::scratch_regs(&avoid, 2)?;
+        let lhs = scratches[0];
+        let rhs = scratches[1];
+        let shift = OpWidth::W32.bits() - width.bits();
+
+        self.emit_scratch_save(&scratches);
+        self.emit_shifted_subword_addsub_operand(lhs, rn, width)?;
+        match src2 {
+            SrcOperand::Reg(_) => {
+                self.emit_shifted_subword_addsub_operand(rhs, rm.unwrap(), width)?;
+            }
+            SrcOperand::Imm(imm) | SrcOperand::Imm64(imm) => {
+                let imm = ((*imm as u64) & width.mask()) << shift;
+                self.emit_mov_imm(rhs, imm as i64, OpWidth::W32)?;
+            }
+            _ => unreachable!(),
+        }
+
+        self.emit_addsub_reg(dst_reg, lhs, rhs, subtract, true, OpWidth::W32)?;
+        if dst_reg != 31 {
+            self.emit_logic_shifted(dst_reg, 31, dst_reg, 0b01, false, 1, shift, OpWidth::W32)?;
+        }
+        self.emit_scratch_restore(&scratches);
+        Ok(())
     }
 
     fn lower_addsub_carry(
@@ -8850,6 +8906,47 @@ mod tests {
             | (overflow as u8)
     }
 
+    fn ref_addsub(src1: u64, src2: u64, subtract: bool, width: OpWidth) -> u64 {
+        let mask = width_mask(width);
+        let src1 = src1 & mask;
+        let src2 = src2 & mask;
+        if subtract {
+            src1.wrapping_sub(src2) & mask
+        } else {
+            src1.wrapping_add(src2) & mask
+        }
+    }
+
+    fn expected_addsub_nzcv(
+        src1: u64,
+        src2: u64,
+        subtract: bool,
+        width: OpWidth,
+    ) -> u8 {
+        let mask = width_mask(width);
+        let src1 = src1 & mask;
+        let src2 = src2 & mask;
+        let result = ref_addsub(src1, src2, subtract, width);
+        let sign = 1_u64 << (width.bits() - 1);
+        let negative = (result & sign) != 0;
+        let zero = result == 0;
+        let carry = if subtract {
+            src1 >= src2
+        } else {
+            src1 + src2 > mask
+        };
+        let overflow = if subtract {
+            ((src1 ^ src2) & (src1 ^ result) & sign) != 0
+        } else {
+            (!(src1 ^ src2) & (src1 ^ result) & sign) != 0
+        };
+
+        ((negative as u8) << 3)
+            | ((zero as u8) << 2)
+            | ((carry as u8) << 1)
+            | (overflow as u8)
+    }
+
     fn assert_inc_dec_flags_lowering(
         label: &str,
         decrement: bool,
@@ -8899,6 +8996,71 @@ mod tests {
         }
         for (reg, value) in sentinels {
             if reg != dst_reg && reg != src_reg {
+                assert_eq!(out[reg as usize], value, "{label}: x{reg} restored");
+            }
+        }
+    }
+
+    fn assert_subword_addsub_flags_lowering(
+        label: &str,
+        subtract: bool,
+        dst_reg: u8,
+        src1_reg: u8,
+        src1_value: u64,
+        src2: SrcOperand,
+        src2_value: u64,
+        width: OpWidth,
+        old_nzcv: u8,
+    ) {
+        let op = if subtract {
+            OpKind::Sub {
+                dst: x(dst_reg),
+                src1: x(src1_reg),
+                src2: src2.clone(),
+                width,
+                flags: FlagUpdate::All,
+            }
+        } else {
+            OpKind::Add {
+                dst: x(dst_reg),
+                src1: x(src1_reg),
+                src2: src2.clone(),
+                width,
+                flags: FlagUpdate::All,
+            }
+        };
+        let code = lower_single_op(op);
+        let expected = ref_addsub(src1_value, src2_value, subtract, width);
+        let expected_nzcv = expected_addsub_nzcv(src1_value, src2_value, subtract, width);
+        let sentinels = [
+            (16, 0x1616_1616_1616_1616),
+            (17, 0x1717_1717_1717_1717),
+            (15, 0x1515_1515_1515_1515),
+            (14, 0x1414_1414_1414_1414),
+        ];
+        let mut regs = sentinels.to_vec();
+        regs.push((src1_reg, src1_value));
+        let src2_reg = if let SrcOperand::Reg(VReg::Arch(ArchReg::Arm(ArmReg::X(reg)))) = src2 {
+            regs.push((reg, src2_value));
+            Some(reg)
+        } else {
+            None
+        };
+
+        let (out, out_nzcv, sp) = run_aarch64_code(&code, &regs, old_nzcv);
+        assert_eq!(out[dst_reg as usize], expected, "{label}: result");
+        assert_eq!(out_nzcv, expected_nzcv, "{label}: NZCV");
+        assert_eq!(sp, 0x8000, "{label}: stack restored");
+        if src1_reg != dst_reg {
+            assert_eq!(out[src1_reg as usize], src1_value, "{label}: src1 preserved");
+        }
+        if let Some(reg) = src2_reg {
+            if reg != dst_reg {
+                assert_eq!(out[reg as usize], src2_value, "{label}: src2 preserved");
+            }
+        }
+        for (reg, value) in sentinels {
+            if reg != dst_reg && reg != src1_reg && Some(reg) != src2_reg {
                 assert_eq!(out[reg as usize], value, "{label}: x{reg} restored");
             }
         }
@@ -19048,32 +19210,73 @@ mod tests {
     }
 
     #[test]
-    fn rejects_flag_setting_subword_add_sub_lowering() {
-        for kind in [
-            OpKind::Add {
-                dst: x(0),
-                src1: x(1),
-                src2: SrcOperand::Reg(x(2)),
-                width: OpWidth::W8,
-                flags: FlagUpdate::All,
-            },
-            OpKind::Sub {
-                dst: x(0),
-                src1: x(1),
-                src2: SrcOperand::Imm(1),
-                width: OpWidth::W16,
-                flags: FlagUpdate::All,
-            },
-        ] {
-            let mut builder = FunctionBuilder::new(FunctionId(0), 0);
-            builder.push_op(0, kind);
-            builder.set_terminator(Terminator::Return { values: vec![] });
-            let func = builder.finish();
-
-            let mut lowerer = Aarch64Lowerer::new();
-            let err = lowerer.lower_function(&func).unwrap_err();
-            assert!(matches!(err, LowerError::UnsupportedOp { .. }));
-        }
+    fn lowers_flag_setting_subword_add_sub_runtime() {
+        assert_subword_addsub_flags_lowering(
+            "add_w8_sets_zero_and_carry",
+            false,
+            0,
+            1,
+            0xff,
+            SrcOperand::Reg(x(2)),
+            1,
+            OpWidth::W8,
+            0b1010,
+        );
+        assert_subword_addsub_flags_lowering(
+            "add_w8_sets_negative_and_overflow",
+            false,
+            0,
+            1,
+            0x7f,
+            SrcOperand::Reg(x(2)),
+            1,
+            OpWidth::W8,
+            0b0101,
+        );
+        assert_subword_addsub_flags_lowering(
+            "sub_w16_imm_sets_no_borrow_and_overflow",
+            true,
+            0,
+            1,
+            0x8000,
+            SrcOperand::Imm(1),
+            1,
+            OpWidth::W16,
+            0b0000,
+        );
+        assert_subword_addsub_flags_lowering(
+            "sub_w8_reg_sets_borrow_and_negative",
+            true,
+            0,
+            1,
+            0,
+            SrcOperand::Reg(x(2)),
+            1,
+            OpWidth::W8,
+            0b1111,
+        );
+        assert_subword_addsub_flags_lowering(
+            "add_w16_dst_aliases_src2",
+            false,
+            2,
+            1,
+            0x00ff,
+            SrcOperand::Reg(x(2)),
+            0xff01,
+            OpWidth::W16,
+            0b0010,
+        );
+        assert_subword_addsub_flags_lowering(
+            "add_w8_imm_masks_operand",
+            false,
+            0,
+            1,
+            1,
+            SrcOperand::Imm(0x1ff),
+            0x1ff,
+            OpWidth::W8,
+            0b0101,
+        );
     }
 
     #[test]
