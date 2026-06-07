@@ -5298,6 +5298,62 @@ impl Aarch64Lowerer {
         }
     }
 
+    fn carry_rotate_effective_count(amount: i64, width: OpWidth) -> Result<u32, LowerError> {
+        let bits = width.bits();
+        if !matches!(
+            width,
+            OpWidth::W8 | OpWidth::W16 | OpWidth::W32 | OpWidth::W64
+        ) {
+            return Err(LowerError::UnsupportedOp {
+                op: format!("AArch64 native carry rotate width {width:?}"),
+            });
+        }
+        let mask = if bits == 64 { 0x3f } else { 0x1f };
+        Ok(((amount as u64 & mask) % (u64::from(bits) + 1)) as u32)
+    }
+
+    fn lower_carry_rotate(
+        &mut self,
+        op: &str,
+        dst: VReg,
+        src: VReg,
+        amount: &SrcOperand,
+        width: OpWidth,
+    ) -> Result<(), LowerError> {
+        let amount = match amount {
+            SrcOperand::Imm(imm) | SrcOperand::Imm64(imm) => *imm,
+            SrcOperand::Reg(VReg::Imm(imm)) => *imm,
+            other => {
+                return Err(LowerError::UnsupportedOp {
+                    op: format!("AArch64 native {op} amount {other:?}"),
+                });
+            }
+        };
+        if Self::carry_rotate_effective_count(amount, width)? != 0 {
+            return Err(LowerError::UnsupportedOp {
+                op: format!("AArch64 native nonzero-count {op}"),
+            });
+        }
+
+        let dst = Self::dst_gpr(dst)?;
+        if let VReg::Imm(value) = src {
+            let emit_width = match width {
+                OpWidth::W8 | OpWidth::W16 | OpWidth::W32 => OpWidth::W32,
+                OpWidth::W64 => OpWidth::W64,
+                other => {
+                    return Err(LowerError::UnsupportedOp {
+                        op: format!("AArch64 native {op} width {other:?}"),
+                    });
+                }
+            };
+            let result = (value as u64) & width.mask();
+            return self.emit_mov_imm_best(dst, result as i64, emit_width);
+        }
+
+        let src = Self::gpr(src)?;
+        self.lower_shift_imm(dst, src, 0, ShiftOp::Lsl, width)
+    }
+
     fn lower_double_shift(
         &mut self,
         dst: VReg,
@@ -7272,9 +7328,20 @@ impl Aarch64Lowerer {
                 width,
                 flags,
             } => self.lower_rol(*dst, *src, amount, flags.updates_any(), *width),
-            OpKind::Rcl { .. } | OpKind::Rcr { .. } => Err(LowerError::UnsupportedOp {
-                op: "AArch64 lower RCL/RCR".to_string(),
-            }),
+            OpKind::Rcl {
+                dst,
+                src,
+                amount,
+                width,
+                ..
+            } => self.lower_carry_rotate("Rcl", *dst, *src, amount, *width),
+            OpKind::Rcr {
+                dst,
+                src,
+                amount,
+                width,
+                ..
+            } => self.lower_carry_rotate("Rcr", *dst, *src, amount, *width),
             OpKind::Select {
                 dst,
                 cond,
@@ -11764,6 +11831,69 @@ mod tests {
         expected.extend_from_slice(&enc_mov_reg(0, 0, 0).to_le_bytes());
         expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
         assert_eq!(code, expected);
+    }
+
+    #[test]
+    fn lowers_carry_rotate_zero_effective_count_as_identity() {
+        let cases = [
+            (
+                OpKind::Rcl {
+                    dst: x(0),
+                    src: x(0),
+                    amount: SrcOperand::Imm64(64),
+                    width: OpWidth::W64,
+                    flags: FlagUpdate::All,
+                },
+                vec![0xd65f_03c0],
+            ),
+            (
+                OpKind::Rcr {
+                    dst: x(0),
+                    src: x(0),
+                    amount: SrcOperand::Imm(32),
+                    width: OpWidth::W32,
+                    flags: FlagUpdate::All,
+                },
+                vec![enc_mov_reg(0, 0, 0), 0xd65f_03c0],
+            ),
+            (
+                OpKind::Rcl {
+                    dst: x(0),
+                    src: x(1),
+                    amount: SrcOperand::Imm(9),
+                    width: OpWidth::W8,
+                    flags: FlagUpdate::All,
+                },
+                vec![enc_bitfield_regs(0, 0b10, 0, 7, 1, 0), 0xd65f_03c0],
+            ),
+            (
+                OpKind::Rcr {
+                    dst: x(0),
+                    src: VReg::Imm(-1),
+                    amount: SrcOperand::Reg(VReg::Imm(0)),
+                    width: OpWidth::W16,
+                    flags: FlagUpdate::All,
+                },
+                vec![enc_mov_wide(0, 0b10, 0, 0xffff, 0), 0xd65f_03c0],
+            ),
+        ];
+
+        for (kind, expected_words) in cases {
+            let mut builder = FunctionBuilder::new(FunctionId(0), 0);
+            builder.push_op(0, kind);
+            builder.set_terminator(Terminator::Return { values: vec![] });
+            let func = builder.finish();
+
+            let mut lowerer = Aarch64Lowerer::new();
+            lowerer.lower_function(&func).unwrap();
+            let code = lowerer.finalize().unwrap();
+
+            let mut expected = Vec::new();
+            for word in expected_words {
+                expected.extend_from_slice(&word.to_le_bytes());
+            }
+            assert_eq!(code, expected);
+        }
     }
 
     #[test]

@@ -3482,6 +3482,69 @@ fn push_shift_zero_same_reg_native_cases(
 }
 
 #[cfg(all(feature = "smir-jit", target_arch = "x86_64"))]
+fn push_carry_rotate_zero_count_native_cases(
+    cases: &mut Vec<(String, [u32; 3], [u32; 3], ArmState)>,
+    control_target: i32,
+) {
+    let carry_rotate_cases = [
+        (
+            "rcl_x_effective_zero_same_reg_as_noop_preserves_flags",
+            OpKind::Rcl {
+                dst: arm_x(0),
+                src: arm_x(0),
+                amount: SrcOperand::Imm64(64),
+                width: OpWidth::W64,
+                flags: FlagUpdate::All,
+            },
+            [0xd65f_03c0, NOP, NOP],
+            0x0123_4567_89ab_cdef,
+            0,
+            0x3000_0000,
+        ),
+        (
+            "rcr_w_effective_zero_same_reg_as_self_mov_zero_ext_preserves_flags",
+            OpKind::Rcr {
+                dst: arm_x(0),
+                src: arm_x(0),
+                amount: SrcOperand::Imm(32),
+                width: OpWidth::W32,
+                flags: FlagUpdate::All,
+            },
+            [enc_mov_reg(0, RD, RD), NOP, NOP],
+            0xfedc_ba98_7654_3210,
+            0,
+            0x6000_0000,
+        ),
+        (
+            "rcl_w8_effective_zero_extracts_low_bits_preserves_flags",
+            OpKind::Rcl {
+                dst: arm_x(0),
+                src: arm_x(1),
+                amount: SrcOperand::Imm(9),
+                width: OpWidth::W8,
+                flags: FlagUpdate::All,
+            },
+            [enc_bitfield(0, 0b10, 0, 7), NOP, NOP],
+            0xaaaa_bbbb_cccc_dddd,
+            0x1234_5678_9abc_de77,
+            0x9000_0000,
+        ),
+    ];
+
+    for (name, op, expected, x0, x1, pstate) in carry_rotate_cases {
+        let mut st = ArmState::zeroed();
+        st.pc = PCREL_MAGIC;
+        st.x[30] = pcrel_marker(control_target);
+        st.x[0] = x0;
+        st.x[1] = x1;
+        st.pstate = pstate;
+        let lowered = lower_aarch64_native_ops(vec![op])
+            .unwrap_or_else(|e| panic!("{name}: native lowering failed: {e}"));
+        cases.push((name.into(), expected, lowered, st));
+    }
+}
+
+#[cfg(all(feature = "smir-jit", target_arch = "x86_64"))]
 fn push_shift_zero_count_reg_native_cases(
     cases: &mut Vec<(String, [u32; 3], [u32; 3], ArmState)>,
     control_target: i32,
@@ -11657,6 +11720,7 @@ fn smir_aarch64_native_lowering_matches_qemu_oracle() {
     push_addsub_masked_zero_imm_native_cases(&mut cases, control_target);
     push_add_zero_base_reg_native_cases(&mut cases, control_target);
     push_shift_zero_same_reg_native_cases(&mut cases, control_target);
+    push_carry_rotate_zero_count_native_cases(&mut cases, control_target);
     push_shift_zero_count_reg_native_cases(&mut cases, control_target);
     push_rol_zero_count_reg_native_cases(&mut cases, control_target);
     push_double_shift_zero_count_native_cases(&mut cases, control_target);
