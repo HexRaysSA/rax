@@ -5327,6 +5327,316 @@ impl Aarch64Lowerer {
             && Self::flagm_mov_to_nzcv(&ops[15].kind, result)
     }
 
+    fn shift_emit_width(width: OpWidth) -> Result<OpWidth, LowerError> {
+        match width {
+            OpWidth::W8 | OpWidth::W16 | OpWidth::W32 => Ok(OpWidth::W32),
+            OpWidth::W64 => Ok(OpWidth::W64),
+            other => Err(LowerError::UnsupportedOp {
+                op: format!("AArch64 native flag-setting shift width {other:?}"),
+            }),
+        }
+    }
+
+    fn emit_or_nzcv_const(
+        &mut self,
+        flags: u8,
+        temp: u8,
+        value: i64,
+    ) -> Result<(), LowerError> {
+        self.emit_mov_imm(temp, value, OpWidth::W32)?;
+        self.emit_logic_shifted(flags, flags, temp, 0b01, false, 0, 0, OpWidth::W32)
+    }
+
+    fn emit_prepare_shift_flag_source(
+        &mut self,
+        dst: u8,
+        src: u8,
+        width: OpWidth,
+    ) -> Result<(), LowerError> {
+        match width {
+            OpWidth::W8 | OpWidth::W16 | OpWidth::W32 => {
+                self.emit_bitfield(dst, src, 0b00, 0, width.bits() - 1, OpWidth::W64)
+            }
+            OpWidth::W64 => self.emit_mov_reg(dst, src, OpWidth::W64),
+            other => Err(LowerError::UnsupportedOp {
+                op: format!("AArch64 native flag-setting shift width {other:?}"),
+            }),
+        }
+    }
+
+    fn emit_init_shift_nz_flags(
+        &mut self,
+        flags: u8,
+        temp: u8,
+        result: u8,
+        width: OpWidth,
+    ) -> Result<(), LowerError> {
+        let emit_width = Self::shift_emit_width(width)?;
+        let top_bit = width.bits() - 1;
+
+        self.emit_mov_imm(flags, 0, OpWidth::W32)?;
+
+        let sign_clear = self.code.position();
+        self.emit_test_branch(result, top_bit, false, 0)?;
+        self.emit_or_nzcv_const(flags, temp, NZCV_N)?;
+        self.patch_test_branch_to_current(sign_clear, result, top_bit, false)?;
+
+        let zero_reg = if matches!(width, OpWidth::W8 | OpWidth::W16) {
+            self.emit_bitfield(temp, result, 0b10, 0, top_bit, emit_width)?;
+            temp
+        } else {
+            result
+        };
+        let nonzero = self.code.position();
+        self.emit(0xb500_0000 | u32::from(zero_reg));
+        self.emit_or_nzcv_const(flags, temp, NZCV_Z)?;
+        self.patch_compare_branch_to_current(nonzero, zero_reg, true)
+    }
+
+    fn emit_shift_carry_imm(
+        &mut self,
+        flags: u8,
+        temp: u8,
+        original: u8,
+        count: u32,
+        shift: ShiftOp,
+        width: OpWidth,
+    ) -> Result<(), LowerError> {
+        let bits = width.bits();
+        let carry_bit = match shift {
+            ShiftOp::Lsl => (count <= bits).then_some(bits - count),
+            ShiftOp::Lsr => (count <= bits).then_some(count - 1),
+            ShiftOp::Asr => Some(count - 1),
+            ShiftOp::Ror | ShiftOp::Rrx => None,
+        };
+        let Some(carry_bit) = carry_bit else {
+            return Ok(());
+        };
+
+        let no_carry = self.code.position();
+        self.emit_test_branch(original, carry_bit, false, 0)?;
+        self.emit_or_nzcv_const(flags, temp, NZCV_C)?;
+        self.patch_test_branch_to_current(no_carry, original, carry_bit, false)
+    }
+
+    fn emit_shift_carry_reg(
+        &mut self,
+        flags: u8,
+        temp: u8,
+        original: u8,
+        count: u8,
+        shift: ShiftOp,
+        width: OpWidth,
+    ) -> Result<(), LowerError> {
+        let bits = width.bits();
+        let too_large = if !matches!(shift, ShiftOp::Asr) && bits < OpWidth::W64.bits() {
+            self.emit_addsub_imm(31, count, i64::from(bits), true, true, OpWidth::W64)?;
+            let offset = self.code.position();
+            self.emit(0x5400_0000 | Self::arm_cond_code(Condition::Ugt)?);
+            Some(offset)
+        } else {
+            None
+        };
+
+        match shift {
+            ShiftOp::Lsl => {
+                self.emit_mov_imm(temp, i64::from(bits), OpWidth::W64)?;
+                self.emit_addsub_reg(temp, temp, count, true, false, OpWidth::W64)?;
+            }
+            ShiftOp::Lsr | ShiftOp::Asr => {
+                self.emit_addsub_imm(temp, count, 1, true, false, OpWidth::W64)?;
+            }
+            ShiftOp::Ror | ShiftOp::Rrx => unreachable!(),
+        }
+        self.emit_dp2(temp, original, temp, 0b1001, OpWidth::W64)?;
+        self.emit_bitfield(temp, temp, 0b10, 0, 0, OpWidth::W32)?;
+        self.emit_logic_shifted(flags, flags, temp, 0b01, false, 0, 29, OpWidth::W32)?;
+
+        if let Some(offset) = too_large {
+            self.patch_cond_branch_to_current(offset, Self::arm_cond_code(Condition::Ugt)?)?;
+        }
+        Ok(())
+    }
+
+    fn emit_shift_overflow_imm(
+        &mut self,
+        flags: u8,
+        temp: u8,
+        result: u8,
+        original: u8,
+        count: u32,
+        shift: ShiftOp,
+        width: OpWidth,
+    ) -> Result<(), LowerError> {
+        if count != 1 {
+            return Ok(());
+        }
+
+        let top_bit = width.bits() - 1;
+        match shift {
+            ShiftOp::Lsl => {
+                self.emit_logic_shifted(temp, original, result, 0b10, false, 0, 0, OpWidth::W64)?;
+                let no_overflow = self.code.position();
+                self.emit_test_branch(temp, top_bit, false, 0)?;
+                self.emit_or_nzcv_const(flags, temp, NZCV_V)?;
+                self.patch_test_branch_to_current(no_overflow, temp, top_bit, false)
+            }
+            ShiftOp::Lsr => {
+                let no_overflow = self.code.position();
+                self.emit_test_branch(original, top_bit, false, 0)?;
+                self.emit_or_nzcv_const(flags, temp, NZCV_V)?;
+                self.patch_test_branch_to_current(no_overflow, original, top_bit, false)
+            }
+            ShiftOp::Asr => Ok(()),
+            ShiftOp::Ror | ShiftOp::Rrx => unreachable!(),
+        }
+    }
+
+    fn emit_shift_overflow_reg(
+        &mut self,
+        flags: u8,
+        temp: u8,
+        result: u8,
+        original: u8,
+        count: u8,
+        shift: ShiftOp,
+        width: OpWidth,
+    ) -> Result<(), LowerError> {
+        if matches!(shift, ShiftOp::Asr) {
+            return Ok(());
+        }
+
+        self.emit_addsub_imm(31, count, 1, true, true, OpWidth::W64)?;
+        let not_one = self.code.position();
+        self.emit(0x5400_0000 | Self::arm_cond_code(Condition::Ne)?);
+
+        let top_bit = width.bits() - 1;
+        match shift {
+            ShiftOp::Lsl => {
+                self.emit_logic_shifted(temp, original, result, 0b10, false, 0, 0, OpWidth::W64)?;
+                let no_overflow = self.code.position();
+                self.emit_test_branch(temp, top_bit, false, 0)?;
+                self.emit_or_nzcv_const(flags, temp, NZCV_V)?;
+                self.patch_test_branch_to_current(no_overflow, temp, top_bit, false)?;
+            }
+            ShiftOp::Lsr => {
+                let no_overflow = self.code.position();
+                self.emit_test_branch(original, top_bit, false, 0)?;
+                self.emit_or_nzcv_const(flags, temp, NZCV_V)?;
+                self.patch_test_branch_to_current(no_overflow, original, top_bit, false)?;
+            }
+            ShiftOp::Asr | ShiftOp::Ror | ShiftOp::Rrx => unreachable!(),
+        }
+
+        self.patch_cond_branch_to_current(not_one, Self::arm_cond_code(Condition::Ne)?)
+    }
+
+    fn emit_finalize_shift_flags(
+        &mut self,
+        result: u8,
+        original: u8,
+        count_reg: Option<u8>,
+        imm_count: Option<u32>,
+        shift: ShiftOp,
+        width: OpWidth,
+        flags: u8,
+        temp: u8,
+    ) -> Result<(), LowerError> {
+        self.emit_init_shift_nz_flags(flags, temp, result, width)?;
+        if let Some(count) = imm_count {
+            self.emit_shift_carry_imm(flags, temp, original, count, shift, width)?;
+            self.emit_shift_overflow_imm(flags, temp, result, original, count, shift, width)?;
+        } else {
+            let count = count_reg.expect("register-count shift flags need a count register");
+            self.emit_shift_carry_reg(flags, temp, original, count, shift, width)?;
+            self.emit_shift_overflow_reg(flags, temp, result, original, count, shift, width)?;
+        }
+        self.emit_sysreg(flags, ArmReg::Nzcv, false)
+    }
+
+    fn lower_shift_with_flags(
+        &mut self,
+        dst: u8,
+        src: u8,
+        amount: &SrcOperand,
+        shift: ShiftOp,
+        width: OpWidth,
+    ) -> Result<(), LowerError> {
+        if matches!(shift, ShiftOp::Ror | ShiftOp::Rrx) {
+            return Err(LowerError::UnsupportedOp {
+                op: format!("AArch64 native flag-setting {shift:?}"),
+            });
+        }
+        Self::shift_emit_width(width)?;
+
+        match amount {
+            SrcOperand::Imm(imm) | SrcOperand::Imm64(imm) => {
+                let count = (*imm as u64 & 0x3f) as u32;
+                if count == 0 {
+                    return self.lower_shift_imm(dst, src, *imm, shift, width);
+                }
+
+                let scratches = Self::scratch_regs(&[dst, src], 3)?;
+                let original = scratches[0];
+                let flags = scratches[1];
+                let temp = scratches[2];
+                self.emit_scratch_save(&scratches);
+                self.emit_prepare_shift_flag_source(original, src, width)?;
+                self.lower_shift_imm(dst, original, *imm, shift, width)?;
+                self.emit_finalize_shift_flags(
+                    dst,
+                    original,
+                    None,
+                    Some(count),
+                    shift,
+                    width,
+                    flags,
+                    temp,
+                )?;
+                self.emit_scratch_restore(&scratches);
+                Ok(())
+            }
+            SrcOperand::Reg(reg) => {
+                let amount = Self::gpr(*reg)?;
+                let scratches = Self::scratch_regs(&[dst, src, amount], 4)?;
+                let original = scratches[0];
+                let count = scratches[1];
+                let flags = scratches[2];
+                let temp = scratches[3];
+                self.emit_scratch_save(&scratches);
+                self.emit_prepare_shift_flag_source(original, src, width)?;
+                self.emit_mov_reg(count, amount, OpWidth::W64)?;
+                let (imm_n, immr, imms) = Self::logical_bitmask_imm(0x3f, OpWidth::W64)?;
+                self.emit_logic_imm(count, count, 0b00, imm_n, immr, imms, OpWidth::W64)?;
+
+                let zero_count = self.code.position();
+                self.emit(0xb400_0000 | u32::from(count));
+                self.lower_shift_reg(dst, original, count, shift, width)?;
+                self.emit_finalize_shift_flags(
+                    dst,
+                    original,
+                    Some(count),
+                    None,
+                    shift,
+                    width,
+                    flags,
+                    temp,
+                )?;
+                self.emit_scratch_restore(&scratches);
+                let done = self.code.position();
+                self.emit(0x1400_0000);
+
+                self.patch_compare_branch_to_current(zero_count, count, false)?;
+                self.lower_shift_imm(dst, original, 0, shift, width)?;
+                self.emit_scratch_restore(&scratches);
+                self.patch_branch_to_current(done)
+            }
+            other => Err(LowerError::UnsupportedOp {
+                op: format!("AArch64 native shift amount {other:?}"),
+            }),
+        }
+    }
+
     fn lower_shift(
         &mut self,
         dst: VReg,
@@ -5336,14 +5646,12 @@ impl Aarch64Lowerer {
         set_flags: bool,
         width: OpWidth,
     ) -> Result<(), LowerError> {
-        if set_flags {
-            return Err(LowerError::UnsupportedOp {
-                op: format!("AArch64 native flag-setting {shift:?}"),
-            });
-        }
-
         let dst = Self::dst_gpr(dst)?;
         let src = Self::gpr(src)?;
+        if set_flags {
+            return self.lower_shift_with_flags(dst, src, amount, shift, width);
+        }
+
         match amount {
             SrcOperand::Imm(imm) | SrcOperand::Imm64(imm) => {
                 self.lower_shift_imm(dst, src, *imm, shift, width)
@@ -7853,6 +8161,57 @@ mod tests {
         }
     }
 
+    fn shift_flag_left(src: u64, shift: ShiftOp, width: OpWidth) -> u64 {
+        let src = src & width_mask(width);
+        if shift != ShiftOp::Asr || width == OpWidth::W64 {
+            return src;
+        }
+
+        let sign = 1_u64 << (width.bits() - 1);
+        if (src & sign) != 0 {
+            src | !width_mask(width)
+        } else {
+            src
+        }
+    }
+
+    fn expected_shift_nzcv(
+        old_nzcv: u8,
+        src: u64,
+        amount: u64,
+        shift: ShiftOp,
+        width: OpWidth,
+        flags: FlagUpdate,
+    ) -> u8 {
+        let count = amount & 0x3f;
+        if count == 0 || !flags.updates_any() {
+            return old_nzcv;
+        }
+
+        let bits = u64::from(width.bits());
+        let result = ref_shift_reg(src, amount, shift, width);
+        let negative = ((result >> (width.bits() - 1)) & 1) != 0;
+        let zero = result == 0;
+        let left = shift_flag_left(src, shift, width);
+        let carry = match shift {
+            ShiftOp::Lsl => count <= bits && ((left >> (bits - count)) & 1) != 0,
+            ShiftOp::Lsr => count <= bits && ((left >> (count - 1)) & 1) != 0,
+            ShiftOp::Asr => ((left >> (count - 1)) & 1) != 0,
+            ShiftOp::Ror | ShiftOp::Rrx => unreachable!(),
+        };
+        let overflow = match shift {
+            ShiftOp::Lsl if count == 1 => carry != negative,
+            ShiftOp::Lsr if count == 1 => (left & (1_u64 << (width.bits() - 1))) != 0,
+            ShiftOp::Asr | ShiftOp::Lsl | ShiftOp::Lsr => false,
+            ShiftOp::Ror | ShiftOp::Rrx => unreachable!(),
+        };
+
+        ((negative as u8) << 3)
+            | ((zero as u8) << 2)
+            | ((carry as u8) << 1)
+            | (overflow as u8)
+    }
+
     fn ref_rol_reg(src: u64, amount: u64, width: OpWidth) -> u64 {
         let bits = width.bits();
         let mask = width_mask(width);
@@ -8421,6 +8780,88 @@ mod tests {
         }
         for (reg, value) in sentinels {
             if reg != src_reg && reg != amount_reg && reg != dst_reg {
+                assert_eq!(out[reg as usize], value, "{label}: x{reg} restored");
+            }
+        }
+    }
+
+    fn assert_shift_flags_lowering(
+        label: &str,
+        shift: ShiftOp,
+        src_reg: u8,
+        src_value: u64,
+        amount_reg: Option<u8>,
+        amount_value: u64,
+        width: OpWidth,
+        dst_reg: u8,
+        old_nzcv: u8,
+    ) {
+        let amount = amount_reg
+            .map(|reg| SrcOperand::Reg(x(reg)))
+            .unwrap_or_else(|| SrcOperand::Imm(amount_value as i64));
+        let flags = FlagUpdate::All;
+        let op = match shift {
+            ShiftOp::Lsl => OpKind::Shl {
+                dst: x(dst_reg),
+                src: x(src_reg),
+                amount,
+                width,
+                flags,
+            },
+            ShiftOp::Lsr => OpKind::Shr {
+                dst: x(dst_reg),
+                src: x(src_reg),
+                amount,
+                width,
+                flags,
+            },
+            ShiftOp::Asr => OpKind::Sar {
+                dst: x(dst_reg),
+                src: x(src_reg),
+                amount,
+                width,
+                flags,
+            },
+            ShiftOp::Ror | ShiftOp::Rrx => unreachable!(),
+        };
+        let code = lower_single_op(op);
+        let expected = ref_shift_reg(src_value, amount_value, shift, width);
+        let expected_nzcv =
+            expected_shift_nzcv(old_nzcv, src_value, amount_value, shift, width, flags);
+        let sentinels = [
+            (16, 0x1616_1616_1616_1616),
+            (17, 0x1717_1717_1717_1717),
+            (15, 0x1515_1515_1515_1515),
+            (14, 0x1414_1414_1414_1414),
+        ];
+        let mut regs = sentinels.to_vec();
+        regs.push((src_reg, src_value));
+        if let Some(amount_reg) = amount_reg {
+            regs.push((amount_reg, amount_value));
+        }
+
+        let (out, out_nzcv, sp) = run_aarch64_code(&code, &regs, old_nzcv);
+        assert_eq!(
+            out[dst_reg as usize] & width_mask(width),
+            expected,
+            "{label}: result"
+        );
+        assert_eq!(out_nzcv, expected_nzcv, "{label}: NZCV");
+        assert_eq!(sp, 0x8000, "{label}: stack restored");
+        if src_reg != dst_reg {
+            assert_eq!(out[src_reg as usize], src_value, "{label}: src preserved");
+        }
+        if let Some(amount_reg) = amount_reg {
+            if amount_reg != dst_reg {
+                assert_eq!(
+                    out[amount_reg as usize],
+                    amount_value,
+                    "{label}: count preserved"
+                );
+            }
+        }
+        for (reg, value) in sentinels {
+            if reg != src_reg && amount_reg != Some(reg) && reg != dst_reg {
                 assert_eq!(out[reg as usize], value, "{label}: x{reg} restored");
             }
         }
@@ -16272,24 +16713,84 @@ mod tests {
     }
 
     #[test]
-    fn rejects_flag_setting_shift_lowering() {
-        let mut builder = FunctionBuilder::new(FunctionId(0), 0);
-        builder.push_op(
+    fn lowers_flag_setting_shift_runtime() {
+        assert_shift_flags_lowering(
+            "shl_x_imm1_flags",
+            ShiftOp::Lsl,
+            1,
+            0x8000_0000_0000_0001,
+            None,
+            1,
+            OpWidth::W64,
             0,
-            OpKind::Shl {
-                dst: x(0),
-                src: x(1),
-                amount: SrcOperand::Imm(1),
-                width: OpWidth::W64,
-                flags: FlagUpdate::All,
-            },
+            0b1010,
         );
-        builder.set_terminator(Terminator::Return { values: vec![] });
-        let func = builder.finish();
-
-        let mut lowerer = Aarch64Lowerer::new();
-        let err = lowerer.lower_function(&func).unwrap_err();
-        assert!(matches!(err, LowerError::UnsupportedOp { .. }));
+        assert_shift_flags_lowering(
+            "shr_w_imm1_flags",
+            ShiftOp::Lsr,
+            1,
+            0x8000_0000,
+            None,
+            1,
+            OpWidth::W32,
+            0,
+            0b0110,
+        );
+        assert_shift_flags_lowering(
+            "sar_w8_imm63_sign_carry",
+            ShiftOp::Asr,
+            1,
+            0x80,
+            None,
+            63,
+            OpWidth::W8,
+            0,
+            0b0101,
+        );
+        assert_shift_flags_lowering(
+            "shl_w_count32_aliases_count",
+            ShiftOp::Lsl,
+            1,
+            0x8000_0001,
+            Some(2),
+            32,
+            OpWidth::W32,
+            2,
+            0b1001,
+        );
+        assert_shift_flags_lowering(
+            "shr_w_count0_preserves_flags",
+            ShiftOp::Lsr,
+            1,
+            0x1234_5678,
+            Some(2),
+            0,
+            OpWidth::W32,
+            0,
+            0b1011,
+        );
+        assert_shift_flags_lowering(
+            "shr_w8_reg9_zero_carry",
+            ShiftOp::Lsr,
+            1,
+            0xff,
+            Some(2),
+            9,
+            OpWidth::W8,
+            0,
+            0b0011,
+        );
+        assert_shift_flags_lowering(
+            "sar_w16_reg20_sign_carry",
+            ShiftOp::Asr,
+            1,
+            0x8001,
+            Some(2),
+            20,
+            OpWidth::W16,
+            0,
+            0b0101,
+        );
     }
 
     #[test]
