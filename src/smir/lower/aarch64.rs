@@ -2180,6 +2180,10 @@ impl Aarch64Lowerer {
         set_flags: bool,
         width: OpWidth,
     ) -> Result<(), LowerError> {
+        let amount = u32::from(amount) & (width.bits() - 1);
+        if amount == 0 {
+            return self.emit_addsub_reg(dst, rn, rm, subtract, set_flags, width);
+        }
         if dst == 31 {
             return Err(LowerError::UnsupportedOp {
                 op: "AArch64 native add/sub ROR source needs a writable destination scratch"
@@ -9636,6 +9640,56 @@ mod tests {
     }
 
     #[test]
+    fn lowers_addsub_effective_zero_ror_sources_as_register_sources() {
+        let cases = [
+            (
+                OpKind::Add {
+                    dst: x(1),
+                    src1: x(1),
+                    src2: SrcOperand::Shifted {
+                        reg: x(2),
+                        shift: ShiftOp::Ror,
+                        amount: 64,
+                    },
+                    width: OpWidth::W64,
+                    flags: FlagUpdate::None,
+                },
+                enc_addsub_shift_regs(1, 0, 0, 0, 0, 1, 1, 2),
+            ),
+            (
+                OpKind::Sub {
+                    dst: VReg::virt(1),
+                    src1: x(1),
+                    src2: SrcOperand::Shifted {
+                        reg: x(2),
+                        shift: ShiftOp::Ror,
+                        amount: 32,
+                    },
+                    width: OpWidth::W32,
+                    flags: FlagUpdate::All,
+                },
+                enc_addsub_shift_regs(0, 1, 1, 0, 0, 31, 1, 2),
+            ),
+        ];
+
+        for (kind, addsub) in cases {
+            let mut builder = FunctionBuilder::new(FunctionId(0), 0);
+            builder.push_op(0, kind);
+            builder.set_terminator(Terminator::Return { values: vec![] });
+            let func = builder.finish();
+
+            let mut lowerer = Aarch64Lowerer::new();
+            lowerer.lower_function(&func).unwrap();
+            let code = lowerer.finalize().unwrap();
+
+            let mut expected = Vec::new();
+            expected.extend_from_slice(&addsub.to_le_bytes());
+            expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
+            assert_eq!(code, expected);
+        }
+    }
+
+    #[test]
     fn rejects_addsub_ror_source_when_dst_is_base() {
         let mut builder = FunctionBuilder::new(FunctionId(0), 0);
         builder.push_op(
@@ -10129,6 +10183,37 @@ mod tests {
             expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
             assert_eq!(code, expected);
         }
+    }
+
+    #[test]
+    fn lowers_subword_addsub_effective_zero_ror_sources_as_register_sources() {
+        let mut builder = FunctionBuilder::new(FunctionId(0), 0);
+        builder.push_op(
+            0,
+            OpKind::Add {
+                dst: x(1),
+                src1: x(1),
+                src2: SrcOperand::Shifted {
+                    reg: x(2),
+                    shift: ShiftOp::Ror,
+                    amount: 64,
+                },
+                width: OpWidth::W8,
+                flags: FlagUpdate::None,
+            },
+        );
+        builder.set_terminator(Terminator::Return { values: vec![] });
+        let func = builder.finish();
+
+        let mut lowerer = Aarch64Lowerer::new();
+        lowerer.lower_function(&func).unwrap();
+        let code = lowerer.finalize().unwrap();
+
+        let mut expected = Vec::new();
+        expected.extend_from_slice(&enc_addsub_shift_regs(1, 0, 0, 0, 0, 1, 1, 2).to_le_bytes());
+        expected.extend_from_slice(&enc_bitfield_regs(0, 0b10, 0, 7, 1, 1).to_le_bytes());
+        expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
+        assert_eq!(code, expected);
     }
 
     #[test]
