@@ -3443,6 +3443,10 @@ impl Aarch64Lowerer {
         src2: &SrcOperand,
         width: OpWidth,
     ) -> Result<(), LowerError> {
+        if matches!(width, OpWidth::W8 | OpWidth::W16) {
+            return self.lower_subword_addsub_with_flags(VReg::virt(0), src1, src2, true, width);
+        }
+
         let rn = Self::gpr(src1)?;
         match src2 {
             SrcOperand::Reg(_) | SrcOperand::Shifted { .. } => {
@@ -3527,6 +3531,17 @@ impl Aarch64Lowerer {
         src2: &SrcOperand,
         width: OpWidth,
     ) -> Result<(), LowerError> {
+        if matches!(width, OpWidth::W8 | OpWidth::W16) {
+            return self.lower_subword_logic_with_flags(
+                VReg::virt(0),
+                src1,
+                src2,
+                0b00,
+                false,
+                width,
+            );
+        }
+
         match src2 {
             SrcOperand::Imm(imm) | SrcOperand::Imm64(imm) => {
                 let (_, value, all_ones) = Self::logical_imm_value(*imm, width)?;
@@ -10545,6 +10560,94 @@ mod tests {
         assert_eq!(sp, 0x8000, "{label}: stack restored");
         for (reg, value) in sentinels {
             if reg != src1_reg {
+                assert_eq!(out[reg as usize], value, "{label}: x{reg} restored");
+            }
+        }
+    }
+
+    fn assert_cmp_lowering(
+        label: &str,
+        src1_reg: u8,
+        src1_value: u64,
+        src2: SrcOperand,
+        src2_value: u64,
+        width: OpWidth,
+        old_nzcv: u8,
+    ) {
+        let code = lower_single_op(OpKind::Cmp {
+            src1: x(src1_reg),
+            src2: src2.clone(),
+            width,
+        });
+        let expected_nzcv = expected_addsub_nzcv(src1_value, src2_value, true, width);
+        let sentinels = [
+            (16, 0x1616_1616_1616_1616),
+            (17, 0x1717_1717_1717_1717),
+            (15, 0x1515_1515_1515_1515),
+        ];
+        let mut regs = sentinels.to_vec();
+        regs.push((src1_reg, src1_value));
+        let src2_reg = if let SrcOperand::Reg(VReg::Arch(ArchReg::Arm(ArmReg::X(reg)))) = src2 {
+            regs.push((reg, src2_value));
+            Some(reg)
+        } else {
+            None
+        };
+
+        let (out, out_nzcv, sp) = run_aarch64_code(&code, &regs, old_nzcv);
+        assert_eq!(out_nzcv, expected_nzcv, "{label}: NZCV");
+        assert_eq!(out[src1_reg as usize], src1_value, "{label}: src1 preserved");
+        if let Some(reg) = src2_reg {
+            assert_eq!(out[reg as usize], src2_value, "{label}: src2 preserved");
+        }
+        assert_eq!(sp, 0x8000, "{label}: stack restored");
+        for (reg, value) in sentinels {
+            if reg != src1_reg && Some(reg) != src2_reg {
+                assert_eq!(out[reg as usize], value, "{label}: x{reg} restored");
+            }
+        }
+    }
+
+    fn assert_test_lowering(
+        label: &str,
+        src1_reg: u8,
+        src1_value: u64,
+        src2: SrcOperand,
+        src2_value: u64,
+        width: OpWidth,
+        old_nzcv: u8,
+    ) {
+        let code = lower_single_op(OpKind::Test {
+            src1: x(src1_reg),
+            src2: src2.clone(),
+            width,
+        });
+        let result = ref_logic(src1_value, src2_value, 0b00, false, width);
+        let expected_nzcv =
+            expected_logic_source_nzcv(old_nzcv, result, width, FlagUpdate::All);
+        let sentinels = [
+            (16, 0x1616_1616_1616_1616),
+            (17, 0x1717_1717_1717_1717),
+            (15, 0x1515_1515_1515_1515),
+        ];
+        let mut regs = sentinels.to_vec();
+        regs.push((src1_reg, src1_value));
+        let src2_reg = if let SrcOperand::Reg(VReg::Arch(ArchReg::Arm(ArmReg::X(reg)))) = src2 {
+            regs.push((reg, src2_value));
+            Some(reg)
+        } else {
+            None
+        };
+
+        let (out, out_nzcv, sp) = run_aarch64_code(&code, &regs, old_nzcv);
+        assert_eq!(out_nzcv, expected_nzcv, "{label}: NZCV");
+        assert_eq!(out[src1_reg as usize], src1_value, "{label}: src1 preserved");
+        if let Some(reg) = src2_reg {
+            assert_eq!(out[reg as usize], src2_value, "{label}: src2 preserved");
+        }
+        assert_eq!(sp, 0x8000, "{label}: stack restored");
+        for (reg, value) in sentinels {
+            if reg != src1_reg && Some(reg) != src2_reg {
                 assert_eq!(out[reg as usize], value, "{label}: x{reg} restored");
             }
         }
@@ -22839,6 +22942,46 @@ mod tests {
             OpWidth::W32,
             0b1010,
             0b0000,
+        );
+    }
+
+    #[test]
+    fn lowers_subword_cmp_test_runtime() {
+        assert_cmp_lowering(
+            "cmp_w8_imm_sets_zero_and_carry",
+            1,
+            0xff,
+            SrcOperand::Imm(0xff),
+            0xff,
+            OpWidth::W8,
+            0b0001,
+        );
+        assert_cmp_lowering(
+            "cmp_w16_reg_sets_borrow_and_negative",
+            1,
+            0,
+            SrcOperand::Reg(x(2)),
+            1,
+            OpWidth::W16,
+            0b0111,
+        );
+        assert_test_lowering(
+            "test_w8_imm_sets_negative_and_clears_cv",
+            1,
+            0xffff_ffff_ffff_ff80,
+            SrcOperand::Imm(0x80),
+            0x80,
+            OpWidth::W8,
+            0b0011,
+        );
+        assert_test_lowering(
+            "test_w16_reg_sets_zero",
+            1,
+            0x00f0,
+            SrcOperand::Reg(x(2)),
+            0xff00,
+            OpWidth::W16,
+            0b1011,
         );
     }
 
