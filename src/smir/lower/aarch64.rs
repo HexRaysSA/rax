@@ -329,6 +329,16 @@ impl Aarch64Lowerer {
         }
     }
 
+    fn dst_or_zero_for_flags_arm_or_x86(
+        vreg: VReg,
+        set_flags: bool,
+    ) -> Result<u8, LowerError> {
+        match vreg {
+            VReg::Virtual(_) if set_flags => Ok(31),
+            other => Self::dst_gpr_arm_or_x86(other),
+        }
+    }
+
     fn emit_mov_reg(&mut self, dst: u8, src: u8, width: OpWidth) -> Result<(), LowerError> {
         let sf = Self::sf(width)?;
         self.emit(
@@ -4714,8 +4724,8 @@ impl Aarch64Lowerer {
                 if self.lower_logic_special_imm(dst, src1, opc, set_flags, width, imm)? {
                     return Ok(());
                 }
-                let dst = Self::dst_or_zero_for_flags(dst, set_flags)?;
-                let rn = Self::gpr(src1)?;
+                let dst = Self::dst_or_zero_for_flags_arm_or_x86(dst, set_flags)?;
+                let rn = Self::gpr_arm_or_x86(src1)?;
                 match Self::logical_bitmask_imm(imm, width) {
                     Ok((imm_n, immr, imms)) => {
                         self.emit_logic_imm(dst, rn, opc, imm_n, immr, imms, width)
@@ -4729,8 +4739,8 @@ impl Aarch64Lowerer {
             _ => {
                 let (src2, shift, amount) = Self::logical_src2(src2, width)?;
                 self.emit_logic_shifted(
-                    Self::dst_or_zero_for_flags(dst, set_flags)?,
-                    Self::gpr(src1)?,
+                    Self::dst_or_zero_for_flags_arm_or_x86(dst, set_flags)?,
+                    Self::gpr_arm_or_x86(src1)?,
                     src2,
                     opc,
                     n,
@@ -4751,13 +4761,20 @@ impl Aarch64Lowerer {
         n: bool,
         width: OpWidth,
     ) -> Result<(), LowerError> {
-        let dst = Self::dst_gpr(dst)?;
-        let rn = Self::gpr(src1)?;
+        let dst = Self::dst_gpr_arm_or_x86(dst)?;
+        let rn = Self::gpr_arm_or_x86(src1)?;
         let top_bit = width.bits() - 1;
 
         match src2 {
             SrcOperand::Reg(reg) => {
-                self.emit_logic_reg_n(dst, rn, Self::gpr(*reg)?, opc, n, OpWidth::W32)?;
+                self.emit_logic_reg_n(
+                    dst,
+                    rn,
+                    Self::gpr_arm_or_x86(*reg)?,
+                    opc,
+                    n,
+                    OpWidth::W32,
+                )?;
             }
             SrcOperand::Imm(imm) | SrcOperand::Imm64(imm) => {
                 if n && opc != 0b00 {
@@ -4830,15 +4847,15 @@ impl Aarch64Lowerer {
             }
         }
 
-        let dst = Self::dst_or_zero_for_flags(dst, true)?;
-        let rn = Self::gpr(src1)?;
+        let dst = Self::dst_or_zero_for_flags_arm_or_x86(dst, true)?;
+        let rn = Self::gpr_arm_or_x86(src1)?;
         let mut avoid = vec![rn];
         if dst != 31 {
             avoid.push(dst);
         }
         match src2 {
             SrcOperand::Reg(reg) | SrcOperand::Shifted { reg, .. } => {
-                avoid.push(Self::gpr(*reg)?);
+                avoid.push(Self::gpr_arm_or_x86(*reg)?);
             }
             _ => {}
         }
@@ -4938,8 +4955,8 @@ impl Aarch64Lowerer {
             return Ok(false);
         }
 
-        let dst = Self::dst_or_zero_for_flags(dst, set_flags)?;
-        let rn = Self::gpr(src1)?;
+        let dst = Self::dst_or_zero_for_flags_arm_or_x86(dst, set_flags)?;
+        let rn = Self::gpr_arm_or_x86(src1)?;
         match (opc, value == all_ones) {
             (0b00, false) => self.emit_mov_imm(dst, 0, width)?,
             (0b00, true) => self.emit_mov_reg(dst, rn, width)?,
@@ -5634,7 +5651,7 @@ impl Aarch64Lowerer {
     ) -> Result<(u8, u32, u32), LowerError> {
         let bits = width.bits();
         match src2 {
-            SrcOperand::Reg(reg) => Ok((Self::gpr(*reg)?, 0, 0)),
+            SrcOperand::Reg(reg) => Ok((Self::gpr_arm_or_x86(*reg)?, 0, 0)),
             SrcOperand::Shifted { reg, shift, amount } => {
                 let shift = match shift {
                     ShiftOp::Lsl => 0,
@@ -5652,7 +5669,7 @@ impl Aarch64Lowerer {
                         operand: format!("amount={amount}, width={width:?}"),
                     });
                 }
-                Ok((Self::gpr(*reg)?, shift, u32::from(*amount)))
+                Ok((Self::gpr_arm_or_x86(*reg)?, shift, u32::from(*amount)))
             }
             other => Err(LowerError::UnsupportedOp {
                 op: format!("AArch64 native add/sub source {other:?}"),
@@ -6072,7 +6089,7 @@ impl Aarch64Lowerer {
 
         if let VReg::Imm(value) = index {
             let index = ((value as u64) & 0xff) as u32;
-            let dst_reg = Self::dst_gpr(dst)?;
+            let dst_reg = Self::dst_gpr_arm_or_x86(dst)?;
             let emit_width = if width == OpWidth::W64 {
                 OpWidth::W64
             } else {
@@ -6091,7 +6108,7 @@ impl Aarch64Lowerer {
                         self.lower_bfx(dst, src, 0, bits as u8, false, OpWidth::W32)
                     }
                     OpWidth::W32 | OpWidth::W64 => {
-                        self.emit_mov_reg(dst_reg, Self::gpr(src)?, emit_width)
+                        self.emit_mov_reg(dst_reg, Self::gpr_arm_or_x86(src)?, emit_width)
                     }
                     _ => unreachable!(),
                 }?;
@@ -6126,9 +6143,9 @@ impl Aarch64Lowerer {
             }
         };
 
-        let dst = Self::dst_gpr(dst)?;
-        let src = Self::gpr(src)?;
-        let index = Self::gpr(index)?;
+        let dst = Self::dst_gpr_arm_or_x86(dst)?;
+        let src = Self::gpr_arm_or_x86(src)?;
+        let index = Self::gpr_arm_or_x86(index)?;
         let scratches = if dst == src || dst == index {
             Self::scratch_regs(&[dst, src, index], 1)?
         } else {
@@ -6197,7 +6214,7 @@ impl Aarch64Lowerer {
         };
         let start = (control & 0xff) as u32;
         let len = ((control >> 8) & 0xff) as u32;
-        let dst = Self::dst_gpr(dst)?;
+        let dst = Self::dst_gpr_arm_or_x86(dst)?;
         if start >= bits || len == 0 {
             self.emit_mov_imm(dst, 0, emit_width)?;
             if set_flags {
@@ -6231,9 +6248,9 @@ impl Aarch64Lowerer {
         bits: u32,
         set_flags: bool,
     ) -> Result<(), LowerError> {
-        let dst = Self::dst_gpr(dst)?;
-        let src = Self::gpr(src)?;
-        let control = Self::gpr(control)?;
+        let dst = Self::dst_gpr_arm_or_x86(dst)?;
+        let src = Self::gpr_arm_or_x86(src)?;
+        let control = Self::gpr_arm_or_x86(control)?;
         let scratches = Self::scratch_regs(&[dst, src, control], 3)?;
         let start = scratches[0];
         let len = scratches[1];
@@ -27302,6 +27319,108 @@ mod tests {
             bzhi_flags(),
             0b0000,
         );
+    }
+
+    #[test]
+    fn lowers_bextr_bzhi_apx_egpr_operands_runtime() {
+        let ops = vec![
+            OpKind::Bextr {
+                dst: x86(X86Reg::R16),
+                src: x86(X86Reg::R17),
+                control: VReg::Imm((12 << 8) | 4),
+                width: OpWidth::W64,
+                flags: FlagUpdate::None,
+            },
+            OpKind::Bextr {
+                dst: x86(X86Reg::R18),
+                src: x86(X86Reg::R19),
+                control: x86(X86Reg::R20),
+                width: OpWidth::W32,
+                flags: FlagUpdate::None,
+            },
+            OpKind::Bzhi {
+                dst: x86(X86Reg::R21),
+                src: x86(X86Reg::R22),
+                index: VReg::Imm(13),
+                width: OpWidth::W64,
+                flags: FlagUpdate::None,
+            },
+            OpKind::Bzhi {
+                dst: x86(X86Reg::R23),
+                src: x86(X86Reg::R24),
+                index: x86(X86Reg::R25),
+                width: OpWidth::W16,
+                flags: FlagUpdate::None,
+            },
+        ];
+        let code = lower_ops(ops);
+        let regs = [
+            (17, 0xfedc_ba98_7654_3210),
+            (19, 0x7654_3210),
+            (20, (10 << 8) | 3),
+            (22, 0x1234_5678_9abc_0012),
+            (24, 0xffff_80f5),
+            (25, 8),
+            (26, 0x2626_2626_2626_2626),
+        ];
+        let (out, out_nzcv, sp) = run_aarch64_code(&code, &regs, 0b1011);
+
+        assert_eq!(
+            out[16],
+            ref_bextr(0xfedc_ba98_7654_3210, (12 << 8) | 4, OpWidth::W64)
+        );
+        assert_eq!(out[18], ref_bextr(0x7654_3210, (10 << 8) | 3, OpWidth::W32));
+        assert_eq!(
+            out[21],
+            ref_bzhi(0x1234_5678_9abc_0012, 13, OpWidth::W64).0
+        );
+        assert_eq!(out[23], ref_bzhi(0xffff_80f5, 8, OpWidth::W16).0);
+        assert_eq!(out[17], 0xfedc_ba98_7654_3210);
+        assert_eq!(out[19], 0x7654_3210);
+        assert_eq!(out[20], (10 << 8) | 3);
+        assert_eq!(out[22], 0x1234_5678_9abc_0012);
+        assert_eq!(out[24], 0xffff_80f5);
+        assert_eq!(out[25], 8);
+        assert_eq!(out[26], 0x2626_2626_2626_2626);
+        assert_eq!(out_nzcv, 0b1011);
+        assert_eq!(sp, 0x8000);
+    }
+
+    #[test]
+    fn rejects_bextr_bzhi_apx_r31_identity_mapping() {
+        for kind in [
+            OpKind::Bextr {
+                dst: x86(X86Reg::R31),
+                src: x86(X86Reg::R16),
+                control: VReg::Imm((12 << 8) | 4),
+                width: OpWidth::W64,
+                flags: FlagUpdate::None,
+            },
+            OpKind::Bextr {
+                dst: x86(X86Reg::R16),
+                src: x86(X86Reg::R17),
+                control: x86(X86Reg::R31),
+                width: OpWidth::W64,
+                flags: FlagUpdate::None,
+            },
+            OpKind::Bzhi {
+                dst: x86(X86Reg::R16),
+                src: x86(X86Reg::R31),
+                index: VReg::Imm(13),
+                width: OpWidth::W64,
+                flags: FlagUpdate::None,
+            },
+            OpKind::Bzhi {
+                dst: x86(X86Reg::R16),
+                src: x86(X86Reg::R17),
+                index: x86(X86Reg::R31),
+                width: OpWidth::W64,
+                flags: FlagUpdate::None,
+            },
+        ] {
+            let err = try_lower_single_op(kind).unwrap_err();
+            assert!(matches!(err, LowerError::InvalidRegister(_)));
+        }
     }
 
     fn bit_index_reg(index: &SrcOperand) -> Option<u8> {
