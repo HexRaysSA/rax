@@ -25616,6 +25616,106 @@ mod tests {
     }
 
     #[test]
+    fn lowers_apx_push2_pop2_lifted_stack_shapes_runtime() {
+        let stack_slot = 0x9000_u64;
+        let stack_top = stack_slot + 16;
+        let src1 = 0x1122_3344_5566_7788_u64;
+        let src2 = 0x99aa_bbcc_ddee_ff00_u64;
+        let tmp1 = x(9);
+        let tmp2 = x(10);
+        let rsp = x86(X86Reg::Rsp);
+        let code = lower_ops(vec![
+            OpKind::Mov {
+                dst: tmp1,
+                src: SrcOperand::Reg(x86(X86Reg::R16)),
+                width: OpWidth::W64,
+            },
+            OpKind::Mov {
+                dst: tmp2,
+                src: SrcOperand::Reg(x86(X86Reg::R17)),
+                width: OpWidth::W64,
+            },
+            OpKind::Sub {
+                dst: rsp,
+                src1: rsp,
+                src2: SrcOperand::Imm(16),
+                width: OpWidth::W64,
+                flags: FlagUpdate::None,
+            },
+            OpKind::Store {
+                src: tmp1,
+                addr: Address::Direct(rsp),
+                width: MemWidth::B8,
+            },
+            OpKind::Store {
+                src: tmp2,
+                addr: Address::base_off(rsp, 8),
+                width: MemWidth::B8,
+            },
+            OpKind::Load {
+                dst: tmp1,
+                addr: Address::Direct(rsp),
+                width: MemWidth::B8,
+                sign: SignExtend::Zero,
+            },
+            OpKind::Load {
+                dst: tmp2,
+                addr: Address::base_off(rsp, 8),
+                width: MemWidth::B8,
+                sign: SignExtend::Zero,
+            },
+            OpKind::Add {
+                dst: rsp,
+                src1: rsp,
+                src2: SrcOperand::Imm(16),
+                width: OpWidth::W64,
+                flags: FlagUpdate::None,
+            },
+            OpKind::Mov {
+                dst: x86(X86Reg::R20),
+                src: SrcOperand::Reg(tmp1),
+                width: OpWidth::W64,
+            },
+            OpKind::Mov {
+                dst: x86(X86Reg::R21),
+                src: SrcOperand::Reg(tmp2),
+                width: OpWidth::W64,
+            },
+        ]);
+
+        let initial = [0xa5_u8; 16];
+        let regs = [
+            (4, stack_top),
+            (9, 0x0909_0909_0909_0909),
+            (10, 0x0a0a_0a0a_0a0a_0a0a),
+            (16, src1),
+            (17, src2),
+            (20, 0x2020_2020_2020_2020),
+            (21, 0x2121_2121_2121_2121),
+        ];
+        let (out, _, mem) = run_aarch64_code_with_regs_simd_and_memory(
+            &code,
+            &regs,
+            &[],
+            &[(stack_slot, &initial)],
+            stack_slot,
+            16,
+        );
+
+        let mut expected = Vec::new();
+        expected.extend_from_slice(&src1.to_le_bytes());
+        expected.extend_from_slice(&src2.to_le_bytes());
+        assert_eq!(mem, expected);
+        assert_eq!(out[4], stack_top);
+        assert_eq!(out[9], src1);
+        assert_eq!(out[10], src2);
+        assert_eq!(out[16], src1);
+        assert_eq!(out[17], src2);
+        assert_eq!(out[20], src1);
+        assert_eq!(out[21], src2);
+    }
+
+    #[test]
     fn lowers_pair_memory_apx_egpr_value_operands_runtime() {
         let mem_addr = 0x9000;
         let initial = 0x1122_3344_5566_7788;
