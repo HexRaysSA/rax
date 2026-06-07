@@ -2730,6 +2730,16 @@ impl Aarch64Lowerer {
             SrcOperand::Reg(reg) => {
                 self.emit_addsub_carry(dst, rn, Self::gpr(*reg)?, subtract, false, OpWidth::W32)?;
             }
+            SrcOperand::Imm(imm) | SrcOperand::Imm64(imm) => {
+                let scratches = Self::scratch_regs(&[dst, rn], 1)?;
+                let rm = scratches[0];
+
+                self.emit_scratch_save(&scratches);
+                let imm = (i128::from(*imm) & i128::from(width.mask())) as i64;
+                self.emit_mov_imm(rm, imm, OpWidth::W32)?;
+                self.emit_addsub_carry(dst, rn, rm, subtract, false, OpWidth::W32)?;
+                self.emit_scratch_restore(&scratches);
+            }
             other => {
                 return Err(LowerError::UnsupportedOp {
                     op: format!("AArch64 native subword add/sub carry source {other:?}"),
@@ -2802,7 +2812,8 @@ impl Aarch64Lowerer {
         let dst_reg = Self::dst_or_zero_for_flags(dst, true)?;
         let rn = Self::gpr(src1)?;
         let rm = match src2 {
-            SrcOperand::Reg(reg) => Self::gpr(*reg)?,
+            SrcOperand::Reg(reg) => Some(Self::gpr(*reg)?),
+            SrcOperand::Imm(_) | SrcOperand::Imm64(_) => None,
             other => {
                 return Err(LowerError::UnsupportedOp {
                     op: format!("AArch64 native subword add/sub carry source {other:?}"),
@@ -2810,7 +2821,11 @@ impl Aarch64Lowerer {
             }
         };
         let top_bit = width.bits() - 1;
-        let scratches = Self::scratch_regs(&[dst_reg, rn, rm], 6)?;
+        let mut avoid = vec![dst_reg, rn];
+        if let Some(rm) = rm {
+            avoid.push(rm);
+        }
+        let scratches = Self::scratch_regs(&avoid, 6)?;
         let saved_flags = scratches[0];
         let flags = scratches[1];
         let lhs = scratches[2];
@@ -2821,8 +2836,20 @@ impl Aarch64Lowerer {
         self.emit_scratch_save(&scratches);
         self.emit_sysreg(saved_flags, ArmReg::Nzcv, true)?;
         self.emit_bitfield(lhs, rn, 0b10, 0, top_bit, OpWidth::W32)?;
-        self.emit_bitfield(rhs, rm, 0b10, 0, top_bit, OpWidth::W32)?;
-        self.emit_addsub_carry(result, rn, rm, subtract, false, OpWidth::W32)?;
+        let result_src = match src2 {
+            SrcOperand::Reg(_) => {
+                let rm = rm.unwrap();
+                self.emit_bitfield(rhs, rm, 0b10, 0, top_bit, OpWidth::W32)?;
+                rm
+            }
+            SrcOperand::Imm(imm) | SrcOperand::Imm64(imm) => {
+                let imm = (i128::from(*imm) & i128::from(width.mask())) as i64;
+                self.emit_mov_imm(rhs, imm, OpWidth::W32)?;
+                rhs
+            }
+            _ => unreachable!(),
+        };
+        self.emit_addsub_carry(result, rn, result_src, subtract, false, OpWidth::W32)?;
         self.emit_bitfield(result, result, 0b10, 0, top_bit, OpWidth::W32)?;
         if dst_reg != 31 {
             self.emit_mov_reg(dst_reg, result, OpWidth::W32)?;
@@ -10200,6 +10227,8 @@ mod tests {
             (17, 0x1717_1717_1717_1717),
             (15, 0x1515_1515_1515_1515),
             (14, 0x1414_1414_1414_1414),
+            (13, 0x1313_1313_1313_1313),
+            (12, 0x1212_1212_1212_1212),
         ];
         let mut regs = sentinels.to_vec();
         regs.push((src1_reg, src1_value));
@@ -22469,6 +22498,82 @@ mod tests {
             2,
             0,
             0,
+            OpWidth::W8,
+            0b0000,
+        );
+    }
+
+    #[test]
+    fn lowers_subword_addsub_carry_with_immediate_source_runtime() {
+        assert_addsub_carry_lowering(
+            "adc_w8_imm_carry_in_sets_zero_and_carry",
+            false,
+            true,
+            x(0),
+            1,
+            0xff,
+            SrcOperand::Imm(0),
+            0,
+            OpWidth::W8,
+            0b0010,
+        );
+        assert_addsub_carry_lowering(
+            "sbb_w16_imm_uses_borrow",
+            true,
+            true,
+            x(0),
+            1,
+            0,
+            SrcOperand::Imm(1),
+            1,
+            OpWidth::W16,
+            0b0000,
+        );
+        assert_addsub_carry_lowering(
+            "adc_w8_imm_masks_operand",
+            false,
+            true,
+            x(0),
+            1,
+            0x7f,
+            SrcOperand::Imm(0x100),
+            0x100,
+            OpWidth::W8,
+            0b0010,
+        );
+        assert_addsub_carry_lowering(
+            "sbb_w16_imm_no_flags_preserves_nzcv",
+            true,
+            false,
+            x(0),
+            1,
+            0,
+            SrcOperand::Imm64(-1),
+            u64::MAX,
+            OpWidth::W16,
+            0b1011,
+        );
+        assert_addsub_carry_lowering(
+            "adc_w16_imm_virtual_dst_sets_flags",
+            false,
+            true,
+            VReg::virt(0),
+            1,
+            0xffff,
+            SrcOperand::Imm(0),
+            0,
+            OpWidth::W16,
+            0b0010,
+        );
+        assert_addsub_carry_lowering(
+            "adc_w8_imm_dst_aliases_src1",
+            false,
+            false,
+            x(1),
+            1,
+            1,
+            SrcOperand::Imm(1),
+            1,
             OpWidth::W8,
             0b0000,
         );
