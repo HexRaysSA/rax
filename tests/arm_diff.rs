@@ -2049,6 +2049,46 @@ fn push_extract_masked_shift_native_cases(
 }
 
 #[cfg(all(feature = "smir-jit", target_arch = "x86_64"))]
+fn push_bitfield_insert_zero_masked_shift_native_cases(
+    cases: &mut Vec<(String, [u32; 3], [u32; 3], ArmState)>,
+    control_target: i32,
+) {
+    let mut st = ArmState::zeroed();
+    st.pc = PCREL_MAGIC;
+    st.x[30] = pcrel_marker(control_target);
+    st.x[0] = 0xaaaa_bbbb_cccc_dddd;
+    st.x[1] = 0x1234_5678_9abc_de77;
+    st.pstate = 0x6000_0000;
+    let extracted = VReg::virt(0);
+    let lowered = lower_aarch64_native_ops_same_pc(vec![
+        OpKind::Bfx {
+            dst: extracted,
+            src: arm_x(1),
+            lsb: 0,
+            width_bits: 8,
+            sign_extend: false,
+            op_width: OpWidth::W64,
+        },
+        OpKind::Shl {
+            dst: arm_x(0),
+            src: extracted,
+            amount: SrcOperand::Imm64(68),
+            width: OpWidth::W64,
+            flags: FlagUpdate::None,
+        },
+    ])
+    .unwrap_or_else(|e| {
+        panic!("ubfiz_x_lifted_masked_shift_count_preserves_flags: native lowering failed: {e}")
+    });
+    cases.push((
+        "ubfiz_x_lifted_masked_shift_count_preserves_flags".into(),
+        [enc_bitfield(1, 0b10, 60, 7), NOP, NOP],
+        lowered,
+        st,
+    ));
+}
+
+#[cfg(all(feature = "smir-jit", target_arch = "x86_64"))]
 fn push_rev16_imm_movn_native_cases(
     cases: &mut Vec<(String, [u32; 3], [u32; 3], ArmState)>,
     control_target: i32,
@@ -11597,6 +11637,7 @@ fn smir_aarch64_native_lowering_matches_qemu_oracle() {
     push_rbit_imm_movn_native_cases(&mut cases, control_target);
     push_bswap_imm_movn_native_cases(&mut cases, control_target);
     push_extract_masked_shift_native_cases(&mut cases, control_target);
+    push_bitfield_insert_zero_masked_shift_native_cases(&mut cases, control_target);
     push_rev16_imm_movn_native_cases(&mut cases, control_target);
     push_rev32_imm_movn_native_cases(&mut cases, control_target);
     push_truncate_imm_movn_native_cases(&mut cases, control_target);
