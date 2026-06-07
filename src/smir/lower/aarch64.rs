@@ -1971,6 +1971,37 @@ impl Aarch64Lowerer {
         Ok((q, size))
     }
 
+    fn simd_broadcast_shape(elem: VecElementType, lanes: u8) -> Result<(u32, u32), LowerError> {
+        let size = match elem {
+            VecElementType::I8 => 0,
+            VecElementType::I16 => 1,
+            VecElementType::I32 | VecElementType::F32 => 2,
+            VecElementType::I64 | VecElementType::F64 => 3,
+            other => {
+                return Err(LowerError::UnsupportedOp {
+                    op: format!("AArch64 native broadcast element {other:?}"),
+                });
+            }
+        };
+
+        let bytes = elem.bytes() * u32::from(lanes);
+        let q = match bytes {
+            8 => 0,
+            16 => 1,
+            other => {
+                return Err(LowerError::UnsupportedOp {
+                    op: format!("AArch64 native broadcast byte width {other}"),
+                });
+            }
+        };
+        if size == 3 && q == 0 {
+            return Err(LowerError::UnsupportedOp {
+                op: "AArch64 native broadcast 1D arrangement".to_string(),
+            });
+        }
+        Ok((q, size))
+    }
+
     fn simd_lane_imm5(elem: VecElementType, lane: u8) -> Result<(u32, u32), LowerError> {
         let size = match elem {
             VecElementType::I8 => 0,
@@ -2097,7 +2128,7 @@ impl Aarch64Lowerer {
     ) -> Result<(), LowerError> {
         let rd = Self::fp_reg(dst)?;
         let rn = Self::gpr(scalar)?;
-        let (q, size) = Self::simd_integer_shape(elem, lanes)?;
+        let (q, size) = Self::simd_broadcast_shape(elem, lanes)?;
         self.emit_simd_dup_general(rd, rn, q, size);
         Ok(())
     }
@@ -19207,6 +19238,24 @@ mod tests {
                 elem: VecElementType::I16,
                 lanes: 4,
             },
+            OpKind::VBroadcast {
+                dst: v(7),
+                scalar: x(1),
+                elem: VecElementType::F32,
+                lanes: 4,
+            },
+            OpKind::VBroadcast {
+                dst: v(8),
+                scalar: x(1),
+                elem: VecElementType::F32,
+                lanes: 2,
+            },
+            OpKind::VBroadcast {
+                dst: v(9),
+                scalar: x(1),
+                elem: VecElementType::F64,
+                lanes: 2,
+            },
         ]);
 
         let (_, simd, _) = run_aarch64_code_with_regs_and_simd(&code, &[(1, scalar)], &[]);
@@ -19216,6 +19265,9 @@ mod tests {
         assert_eq!(simd[4], splat(scalar, 8, 2));
         assert_eq!(simd[5], splat(scalar, 4, 2));
         assert_eq!(simd[6], (0, 0));
+        assert_eq!(simd[7], splat(scalar, 4, 4));
+        assert_eq!(simd[8], splat(scalar, 4, 2));
+        assert_eq!(simd[9], splat(scalar, 8, 2));
     }
 
     #[test]
@@ -19830,8 +19882,8 @@ mod tests {
         assert_unsupported(OpKind::VBroadcast {
             dst: v(0),
             scalar: x(1),
-            elem: VecElementType::F32,
-            lanes: 4,
+            elem: VecElementType::F64,
+            lanes: 1,
         });
 
         assert_unsupported(OpKind::VShift {
