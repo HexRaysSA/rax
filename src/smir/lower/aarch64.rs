@@ -4913,10 +4913,10 @@ impl Aarch64Lowerer {
         n: bool,
         width: OpWidth,
     ) -> Result<(), LowerError> {
-        let dst = Self::dst_or_zero_for_flags(dst, true)?;
-        let rn = Self::gpr(src1)?;
+        let dst = Self::dst_or_zero_for_flags_arm_or_x86(dst, true)?;
+        let rn = Self::gpr_arm_or_x86(src1)?;
         let rm = match src2 {
-            SrcOperand::Reg(reg) => Some(Self::gpr(*reg)?),
+            SrcOperand::Reg(reg) => Some(Self::gpr_arm_or_x86(*reg)?),
             SrcOperand::Imm(_) | SrcOperand::Imm64(_) => None,
             other => {
                 return Err(LowerError::UnsupportedOp {
@@ -5647,7 +5647,7 @@ impl Aarch64Lowerer {
             return self.lower_subword_addsub_with_flags(VReg::virt(0), src1, src2, true, width);
         }
 
-        let rn = Self::gpr(src1)?;
+        let rn = Self::gpr_arm_or_x86(src1)?;
         match src2 {
             SrcOperand::Reg(_) | SrcOperand::Shifted { .. } => {
                 let (rm, shift, amount) = Self::addsub_src2(src2, width)?;
@@ -5749,10 +5749,10 @@ impl Aarch64Lowerer {
                     return self.emit_logic_reg_n(31, 31, 31, 0b11, false, width);
                 }
                 if value == all_ones {
-                    let rn = Self::gpr(src1)?;
+                    let rn = Self::gpr_arm_or_x86(src1)?;
                     return self.emit_logic_reg_n(31, rn, rn, 0b11, false, width);
                 }
-                let rn = Self::gpr(src1)?;
+                let rn = Self::gpr_arm_or_x86(src1)?;
                 match Self::logical_bitmask_imm(*imm, width) {
                     Ok((n, immr, imms)) => self.emit_logic_imm(31, rn, 0b11, n, immr, imms, width),
                     Err(LowerError::UnsupportedOp { .. }) => {
@@ -5765,7 +5765,7 @@ impl Aarch64Lowerer {
                 let (src2, shift, amount) = Self::logical_src2(src2, width)?;
                 self.emit_logic_shifted(
                     31,
-                    Self::gpr(src1)?,
+                    Self::gpr_arm_or_x86(src1)?,
                     src2,
                     0b11,
                     false,
@@ -5783,7 +5783,7 @@ impl Aarch64Lowerer {
     ) -> Result<(u8, u32, u32), LowerError> {
         let bits = width.bits();
         match src2 {
-            SrcOperand::Reg(reg) => Ok((Self::gpr(*reg)?, 0, 0)),
+            SrcOperand::Reg(reg) => Ok((Self::gpr_arm_or_x86(*reg)?, 0, 0)),
             SrcOperand::Shifted { reg, shift, amount } => {
                 let shift = match shift {
                     ShiftOp::Lsl => 0,
@@ -5802,7 +5802,7 @@ impl Aarch64Lowerer {
                         operand: format!("amount={amount}, width={width:?}"),
                     });
                 }
-                Ok((Self::gpr(*reg)?, shift, u32::from(*amount)))
+                Ok((Self::gpr_arm_or_x86(*reg)?, shift, u32::from(*amount)))
             }
             other => {
                 return Err(LowerError::UnsupportedOp {
@@ -14191,6 +14191,102 @@ mod tests {
             if reg != src1_reg && Some(reg) != src2_reg {
                 assert_eq!(out[reg as usize], value, "{label}: x{reg} restored");
             }
+        }
+    }
+
+    #[test]
+    fn lowers_cmp_test_apx_egpr_operands_runtime() {
+        let cmp_code = lower_single_op(OpKind::Cmp {
+            src1: x86(X86Reg::R16),
+            src2: SrcOperand::Reg(x86(X86Reg::R17)),
+            width: OpWidth::W64,
+        });
+        let cmp_regs = [(16, 5), (17, 7), (18, 0x1818_1818_1818_1818)];
+        let (out, out_nzcv, sp) = run_aarch64_code(&cmp_code, &cmp_regs, 0b1010);
+        assert_eq!(out_nzcv, expected_addsub_nzcv(5, 7, true, OpWidth::W64));
+        assert_eq!(out[16], 5);
+        assert_eq!(out[17], 7);
+        assert_eq!(out[18], 0x1818_1818_1818_1818);
+        assert_eq!(sp, 0x8000);
+
+        let test_code = lower_single_op(OpKind::Test {
+            src1: x86(X86Reg::R19),
+            src2: SrcOperand::Reg(x86(X86Reg::R20)),
+            width: OpWidth::W64,
+        });
+        let test_regs = [
+            (19, 0xf0f0_f0f0_f0f0_f0f0),
+            (20, 0x0f0f_0f0f_0f0f_0f0f),
+            (21, 0x2121_2121_2121_2121),
+        ];
+        let old_nzcv = 0b1011;
+        let (out, out_nzcv, sp) = run_aarch64_code(&test_code, &test_regs, old_nzcv);
+        let test_result = ref_logic(
+            0xf0f0_f0f0_f0f0_f0f0,
+            0x0f0f_0f0f_0f0f_0f0f,
+            0b00,
+            false,
+            OpWidth::W64,
+        );
+        assert_eq!(
+            out_nzcv,
+            expected_logic_source_nzcv(old_nzcv, test_result, OpWidth::W64, FlagUpdate::All)
+        );
+        assert_eq!(out[19], 0xf0f0_f0f0_f0f0_f0f0);
+        assert_eq!(out[20], 0x0f0f_0f0f_0f0f_0f0f);
+        assert_eq!(out[21], 0x2121_2121_2121_2121);
+        assert_eq!(sp, 0x8000);
+
+        let subword_test_code = lower_single_op(OpKind::Test {
+            src1: x86(X86Reg::R22),
+            src2: SrcOperand::Imm(0x80),
+            width: OpWidth::W8,
+        });
+        let subword_regs = [(22, 0xff), (23, 0x2323_2323_2323_2323)];
+        let old_nzcv = 0b0011;
+        let (out, out_nzcv, sp) =
+            run_aarch64_code(&subword_test_code, &subword_regs, old_nzcv);
+        let subword_result = ref_logic(0xff, 0x80, 0b00, false, OpWidth::W8);
+        assert_eq!(
+            out_nzcv,
+            expected_logic_source_nzcv(
+                old_nzcv,
+                subword_result,
+                OpWidth::W8,
+                FlagUpdate::All,
+            )
+        );
+        assert_eq!(out[22], 0xff);
+        assert_eq!(out[23], 0x2323_2323_2323_2323);
+        assert_eq!(sp, 0x8000);
+    }
+
+    #[test]
+    fn rejects_cmp_test_apx_r31_identity_mapping() {
+        for kind in [
+            OpKind::Cmp {
+                src1: x86(X86Reg::R31),
+                src2: SrcOperand::Reg(x86(X86Reg::R16)),
+                width: OpWidth::W64,
+            },
+            OpKind::Cmp {
+                src1: x86(X86Reg::R16),
+                src2: SrcOperand::Reg(x86(X86Reg::R31)),
+                width: OpWidth::W64,
+            },
+            OpKind::Test {
+                src1: x86(X86Reg::R31),
+                src2: SrcOperand::Imm(0xff),
+                width: OpWidth::W32,
+            },
+            OpKind::Test {
+                src1: x86(X86Reg::R16),
+                src2: SrcOperand::Reg(x86(X86Reg::R31)),
+                width: OpWidth::W8,
+            },
+        ] {
+            let err = try_lower_single_op(kind).unwrap_err();
+            assert!(matches!(err, LowerError::InvalidRegister(_)));
         }
     }
 
