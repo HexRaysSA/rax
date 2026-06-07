@@ -2488,9 +2488,7 @@ impl Aarch64Lowerer {
     ) -> Result<(), LowerError> {
         if matches!(width, OpWidth::W8 | OpWidth::W16) {
             if set_flags {
-                return Err(LowerError::UnsupportedOp {
-                    op: "AArch64 native flag-setting subword logical op".into(),
-                });
+                return self.lower_subword_logic_with_flags(dst, src1, src2, opc, n, width);
             }
             return self.lower_subword_logic(dst, src1, src2, opc, n, width);
         }
@@ -2606,6 +2604,64 @@ impl Aarch64Lowerer {
         }
 
         self.emit_bitfield(dst, dst, 0b10, 0, top_bit, OpWidth::W32)
+    }
+
+    fn lower_subword_logic_with_flags(
+        &mut self,
+        dst: VReg,
+        src1: VReg,
+        src2: &SrcOperand,
+        opc: u32,
+        n: bool,
+        width: OpWidth,
+    ) -> Result<(), LowerError> {
+        let dst = Self::dst_or_zero_for_flags(dst, true)?;
+        let rn = Self::gpr(src1)?;
+        let rm = match src2 {
+            SrcOperand::Reg(reg) => Some(Self::gpr(*reg)?),
+            SrcOperand::Imm(_) | SrcOperand::Imm64(_) => None,
+            other => {
+                return Err(LowerError::UnsupportedOp {
+                    op: format!("AArch64 native subword logical source {other:?}"),
+                });
+            }
+        };
+        let mut avoid = vec![rn];
+        if dst != 31 {
+            avoid.push(dst);
+        }
+        if let Some(rm) = rm {
+            avoid.push(rm);
+        }
+        let scratches = Self::scratch_regs(&avoid, 3)?;
+        let result = scratches[0];
+        let flags = scratches[1];
+        let temp = scratches[2];
+        let top_bit = width.bits() - 1;
+
+        self.emit_scratch_save(&scratches);
+        match (src2, rm) {
+            (SrcOperand::Reg(_), Some(rm)) => {
+                self.emit_logic_reg_n(result, rn, rm, opc, n, OpWidth::W32)?;
+            }
+            (SrcOperand::Imm(imm) | SrcOperand::Imm64(imm), None) => {
+                let mut imm = (*imm as u64) & width.mask();
+                if n {
+                    imm = (!imm) & width.mask();
+                }
+                self.emit_mov_imm(temp, imm as i64, OpWidth::W32)?;
+                self.emit_logic_shifted(result, rn, temp, opc, false, 0, 0, OpWidth::W32)?;
+            }
+            _ => unreachable!("subword logical source already classified"),
+        }
+        self.emit_bitfield(result, result, 0b10, 0, top_bit, OpWidth::W32)?;
+        if dst != 31 {
+            self.emit_mov_reg(dst, result, OpWidth::W32)?;
+        }
+        self.emit_init_shift_nz_flags(flags, temp, result, width)?;
+        self.emit_sysreg(flags, ArmReg::Nzcv, false)?;
+        self.emit_scratch_restore(&scratches);
+        Ok(())
     }
 
     fn lower_logic_special_imm(
@@ -9061,6 +9117,21 @@ mod tests {
         ((negative as u8) << 3) | ((zero as u8) << 2)
     }
 
+    fn ref_logic(src1: u64, src2: u64, opc: u32, n: bool, width: OpWidth) -> u64 {
+        let mask = width_mask(width);
+        let src1 = src1 & mask;
+        let mut src2 = src2 & mask;
+        if n {
+            src2 = (!src2) & mask;
+        }
+        (match opc {
+            0b00 | 0b11 => src1 & src2,
+            0b01 => src1 | src2,
+            0b10 => src1 ^ src2,
+            _ => unreachable!("invalid logical opc"),
+        }) & mask
+    }
+
     fn ref_inc_dec(src: u64, decrement: bool, width: OpWidth) -> u64 {
         let mask = width_mask(width);
         let src = src & mask;
@@ -9397,6 +9468,94 @@ mod tests {
         }
         for (reg, value) in sentinels {
             if reg != dst_reg && reg != src1_reg && reg != src2_reg {
+                assert_eq!(out[reg as usize], value, "{label}: x{reg} restored");
+            }
+        }
+    }
+
+    fn assert_subword_logic_flags_lowering(
+        label: &str,
+        opc: u32,
+        n: bool,
+        dst: VReg,
+        src1_reg: u8,
+        src2: SrcOperand,
+        src1_value: u64,
+        src2_value: u64,
+        width: OpWidth,
+        old_nzcv: u8,
+    ) {
+        let op = match (opc, n) {
+            (0b00, false) => OpKind::And {
+                dst,
+                src1: x(src1_reg),
+                src2: src2.clone(),
+                width,
+                flags: FlagUpdate::All,
+            },
+            (0b00, true) => OpKind::AndNot {
+                dst,
+                src1: x(src1_reg),
+                src2: src2.clone(),
+                width,
+                flags: FlagUpdate::All,
+            },
+            (0b01, false) => OpKind::Or {
+                dst,
+                src1: x(src1_reg),
+                src2: src2.clone(),
+                width,
+                flags: FlagUpdate::All,
+            },
+            (0b10, false) => OpKind::Xor {
+                dst,
+                src1: x(src1_reg),
+                src2: src2.clone(),
+                width,
+                flags: FlagUpdate::All,
+            },
+            _ => unreachable!("unsupported logical test shape"),
+        };
+        let dst_reg = if let VReg::Arch(ArchReg::Arm(ArmReg::X(reg))) = dst {
+            Some(reg)
+        } else {
+            None
+        };
+        let code = lower_single_op(op);
+        let expected = ref_logic(src1_value, src2_value, opc, n, width);
+        let expected_nzcv =
+            expected_logic_source_nzcv(old_nzcv, expected, width, FlagUpdate::All);
+        let sentinels = [
+            (16, 0x1616_1616_1616_1616),
+            (17, 0x1717_1717_1717_1717),
+            (15, 0x1515_1515_1515_1515),
+            (14, 0x1414_1414_1414_1414),
+        ];
+        let mut regs = sentinels.to_vec();
+        regs.push((src1_reg, src1_value));
+        let src2_reg = if let SrcOperand::Reg(VReg::Arch(ArchReg::Arm(ArmReg::X(reg)))) = src2 {
+            regs.push((reg, src2_value));
+            Some(reg)
+        } else {
+            None
+        };
+
+        let (out, out_nzcv, sp) = run_aarch64_code(&code, &regs, old_nzcv);
+        if let Some(reg) = dst_reg {
+            assert_eq!(out[reg as usize], expected, "{label}: result");
+        }
+        assert_eq!(out_nzcv, expected_nzcv, "{label}: NZCV");
+        assert_eq!(sp, 0x8000, "{label}: stack restored");
+        if Some(src1_reg) != dst_reg {
+            assert_eq!(out[src1_reg as usize], src1_value, "{label}: src1 preserved");
+        }
+        if let Some(reg) = src2_reg {
+            if Some(reg) != dst_reg {
+                assert_eq!(out[reg as usize], src2_value, "{label}: src2 preserved");
+            }
+        }
+        for (reg, value) in sentinels {
+            if Some(reg) != dst_reg && reg != src1_reg && Some(reg) != src2_reg {
                 assert_eq!(out[reg as usize], value, "{label}: x{reg} restored");
             }
         }
@@ -19857,46 +20016,79 @@ mod tests {
     }
 
     #[test]
-    fn rejects_flag_setting_subword_logical_lowering() {
-        for kind in [
-            OpKind::And {
-                dst: x(0),
-                src1: x(1),
-                src2: SrcOperand::Reg(x(2)),
-                width: OpWidth::W8,
-                flags: FlagUpdate::All,
-            },
-            OpKind::AndNot {
-                dst: x(0),
-                src1: x(1),
-                src2: SrcOperand::Imm(0xff),
-                width: OpWidth::W16,
-                flags: FlagUpdate::All,
-            },
-            OpKind::Or {
-                dst: x(0),
-                src1: x(1),
-                src2: SrcOperand::Reg(x(2)),
-                width: OpWidth::W8,
-                flags: FlagUpdate::All,
-            },
-            OpKind::Xor {
-                dst: x(0),
-                src1: x(1),
-                src2: SrcOperand::Imm(0xff),
-                width: OpWidth::W16,
-                flags: FlagUpdate::All,
-            },
-        ] {
-            let mut builder = FunctionBuilder::new(FunctionId(0), 0);
-            builder.push_op(0, kind);
-            builder.set_terminator(Terminator::Return { values: vec![] });
-            let func = builder.finish();
-
-            let mut lowerer = Aarch64Lowerer::new();
-            let err = lowerer.lower_function(&func).unwrap_err();
-            assert!(matches!(err, LowerError::UnsupportedOp { .. }));
-        }
+    fn lowers_flag_setting_subword_logical_runtime() {
+        assert_subword_logic_flags_lowering(
+            "and_w8_reg_sets_zero",
+            0b00,
+            false,
+            x(0),
+            1,
+            SrcOperand::Reg(x(2)),
+            0xf0,
+            0x0f,
+            OpWidth::W8,
+            0b1011,
+        );
+        assert_subword_logic_flags_lowering(
+            "and_w8_virtual_dst_sets_zero",
+            0b00,
+            false,
+            VReg::virt(0),
+            1,
+            SrcOperand::Reg(x(2)),
+            0xf0,
+            0x0f,
+            OpWidth::W8,
+            0b0011,
+        );
+        assert_subword_logic_flags_lowering(
+            "andnot_w16_imm_clears_carry_overflow",
+            0b00,
+            true,
+            x(0),
+            1,
+            SrcOperand::Imm(0x00ff),
+            0x12ff,
+            0x00ff,
+            OpWidth::W16,
+            0b1111,
+        );
+        assert_subword_logic_flags_lowering(
+            "or_w8_reg_sets_negative",
+            0b01,
+            false,
+            x(0),
+            1,
+            SrcOperand::Reg(x(2)),
+            0x80,
+            0x01,
+            OpWidth::W8,
+            0b0111,
+        );
+        assert_subword_logic_flags_lowering(
+            "xor_w16_imm_sets_zero",
+            0b10,
+            false,
+            x(0),
+            1,
+            SrcOperand::Imm(0xffff),
+            0xffff,
+            0xffff,
+            OpWidth::W16,
+            0b1001,
+        );
+        assert_subword_logic_flags_lowering(
+            "or_w16_dst_aliases_src2",
+            0b01,
+            false,
+            x(2),
+            1,
+            SrcOperand::Reg(x(2)),
+            0x0100,
+            0x8001,
+            OpWidth::W16,
+            0b0011,
+        );
     }
 
     #[test]
