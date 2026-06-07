@@ -1719,6 +1719,41 @@ impl Aarch64Lowerer {
         self.lower_mem_access(rt, addr, size, 0b00)
     }
 
+    fn lower_rep_stos(
+        &mut self,
+        dst: VReg,
+        src: VReg,
+        count: VReg,
+        width: MemWidth,
+    ) -> Result<(), LowerError> {
+        let dst = Self::dst_gpr(dst)?;
+        let src = Self::gpr(src)?;
+        let count = Self::dst_gpr(count)?;
+        let size = Self::mem_size(width)?;
+        let stride = width.bytes() as i64;
+        let scratches = Self::scratch_regs(&[dst, src, count], 2)?;
+        let addr = scratches[0];
+        let remaining = scratches[1];
+
+        self.emit_scratch_save(&scratches);
+        self.emit_mov_reg(addr, dst, OpWidth::W64)?;
+        self.emit_mov_reg(remaining, count, OpWidth::W64)?;
+
+        let loop_start = self.code.position();
+        let done = self.code.position();
+        self.emit(0xb400_0000 | u32::from(remaining));
+        self.emit_ldst_unsigned(src, addr, size, 0b00, 0);
+        self.emit_addsub_imm(addr, addr, stride, false, false, OpWidth::W64)?;
+        self.emit_addsub_imm(remaining, remaining, 1, true, false, OpWidth::W64)?;
+        self.emit_branch_to_offset(loop_start)?;
+
+        self.patch_compare_branch_to_current(done, remaining, false)?;
+        self.emit_mov_reg(dst, addr, OpWidth::W64)?;
+        self.emit_mov_reg(count, remaining, OpWidth::W64)?;
+        self.emit_scratch_restore(&scratches);
+        Ok(())
+    }
+
     fn literal_scaled_imm19(op: &str, target: i64, insn_pc: i64) -> Result<i32, LowerError> {
         let delta = target.wrapping_sub(insn_pc);
         if delta % 4 != 0 {
@@ -9960,6 +9995,12 @@ impl Aarch64Lowerer {
                 addr,
                 width,
             } => self.lower_pred_store(src, *cond, addr, *width),
+            OpKind::RepStos {
+                dst,
+                src,
+                count,
+                width,
+            } => self.lower_rep_stos(*dst, *src, *count, *width),
             OpKind::AtomicLoad {
                 dst,
                 addr,
@@ -18090,6 +18131,138 @@ mod tests {
         assert_eq!(out[17], 0x1717_1717_1717_1717);
         assert_eq!(out_nzcv, old_nzcv);
         assert_eq!(sp, 0x8000);
+    }
+
+    fn ref_rep_stos_window(initial: u64, value: u64, width: MemWidth, count: u64) -> u64 {
+        let mut bytes = initial.to_le_bytes();
+        let store = value.to_le_bytes();
+        let width = width.bytes() as usize;
+        for idx in 0..count as usize {
+            let start = idx * width;
+            let end = start + width;
+            if end <= bytes.len() {
+                bytes[start..end].copy_from_slice(&store[..width]);
+            }
+        }
+        u64::from_le_bytes(bytes)
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    fn assert_rep_stos_runtime(
+        label: &str,
+        width: MemWidth,
+        dst_reg: u8,
+        src_reg: u8,
+        count_reg: u8,
+        base: u64,
+        value: u64,
+        count: u64,
+        initial: u64,
+    ) {
+        let code = lower_single_op(OpKind::RepStos {
+            dst: x(dst_reg),
+            src: x(src_reg),
+            count: x(count_reg),
+            width,
+        });
+        let sentinels = [
+            (16, 0x1616_1616_1616_1616),
+            (17, 0x1717_1717_1717_1717),
+            (15, 0x1515_1515_1515_1515),
+        ];
+        let mut regs = sentinels.to_vec();
+        for (reg, reg_value) in [(dst_reg, base), (src_reg, value), (count_reg, count)] {
+            if let Some((_, existing)) = regs.iter().find(|(existing, _)| *existing == reg) {
+                assert_eq!(*existing, reg_value, "{label}: conflicting x{reg} input");
+            } else {
+                regs.push((reg, reg_value));
+            }
+        }
+
+        let old_nzcv = 0b1101;
+        let (out, out_nzcv, sp, mem) =
+            run_aarch64_code_with_memory(&code, &regs, old_nzcv, base, initial, MemWidth::B8);
+        let expected_mem = ref_rep_stos_window(initial, value, width, count);
+        let expected_dst = base.wrapping_add(u64::from(width.bytes()).wrapping_mul(count));
+
+        assert_eq!(mem, expected_mem, "{label}: memory window");
+        assert_eq!(out[dst_reg as usize], expected_dst, "{label}: final dst");
+        assert_eq!(out[count_reg as usize], 0, "{label}: final count");
+        if src_reg != dst_reg && src_reg != count_reg {
+            assert_eq!(out[src_reg as usize], value, "{label}: source preserved");
+        }
+        assert_eq!(out_nzcv, old_nzcv, "{label}: NZCV preserved");
+        assert_eq!(sp, 0x8000, "{label}: stack restored");
+        for (reg, value) in sentinels {
+            assert_eq!(out[reg as usize], value, "{label}: x{reg} restored");
+        }
+    }
+
+    #[test]
+    fn lowers_rep_stos_runtime() {
+        assert_rep_stos_runtime(
+            "b2_count3",
+            MemWidth::B2,
+            0,
+            1,
+            2,
+            0x9000,
+            0xabcd,
+            3,
+            0x1122_3344_5566_7788,
+        );
+        assert_rep_stos_runtime(
+            "b8_count1",
+            MemWidth::B8,
+            0,
+            1,
+            2,
+            0x9010,
+            0x0123_4567_89ab_cdef,
+            1,
+            0,
+        );
+        assert_rep_stos_runtime(
+            "zero_count",
+            MemWidth::B4,
+            0,
+            1,
+            2,
+            0x9020,
+            0xdead_cafe,
+            0,
+            0x0123_4567_89ab_cdef,
+        );
+        assert_rep_stos_runtime(
+            "dst_src_alias",
+            MemWidth::B8,
+            0,
+            0,
+            2,
+            0x9030,
+            0x9030,
+            1,
+            0,
+        );
+    }
+
+    #[test]
+    fn rejects_rep_stos_unsupported_width() {
+        let mut builder = FunctionBuilder::new(FunctionId(0), 0);
+        builder.push_op(
+            0,
+            OpKind::RepStos {
+                dst: x(0),
+                src: x(1),
+                count: x(2),
+                width: MemWidth::B16,
+            },
+        );
+        builder.set_terminator(Terminator::Return { values: vec![] });
+        let func = builder.finish();
+        let mut lowerer = Aarch64Lowerer::new();
+        let err = lowerer.lower_function(&func).unwrap_err();
+        assert!(matches!(err, LowerError::UnsupportedOp { .. }));
     }
 
     #[test]
