@@ -1268,6 +1268,31 @@ impl Aarch64Lowerer {
         })
     }
 
+    fn lower_base_offset_to_scratch(
+        &mut self,
+        avoid: &[u8],
+        base: VReg,
+        offset: i64,
+    ) -> Result<(Vec<u8>, u8), LowerError> {
+        let base = Self::base_gpr(base)?;
+        let mut avoid = avoid.to_vec();
+        if base != 31 {
+            avoid.push(base);
+        }
+
+        let scratches = Self::scratch_regs(&avoid, 1)?;
+        let addr = scratches[0];
+        self.emit_scratch_save(&scratches);
+        if base == 31 {
+            let saved_sp_delta = (scratches.len() as i64) * 16;
+            self.emit_add_signed_imm(addr, 31, saved_sp_delta, OpWidth::W64)?;
+        } else {
+            self.emit_add_signed_imm(addr, base, 0, OpWidth::W64)?;
+        }
+        self.lower_lea_add_disp(addr, offset)?;
+        Ok((scratches, addr))
+    }
+
     fn lower_mem_access(
         &mut self,
         rt: u8,
@@ -1288,9 +1313,11 @@ impl Aarch64Lowerer {
             );
         }
 
-        let (base, offset) = match addr {
-            Address::Direct(base) => (Self::base_gpr(*base)?, 0),
-            Address::BaseOffset { base, offset, .. } => (Self::base_gpr(*base)?, *offset),
+        let (base_vreg, base, offset) = match addr {
+            Address::Direct(base) => (*base, Self::base_gpr(*base)?, 0),
+            Address::BaseOffset { base, offset, .. } => {
+                (*base, Self::base_gpr(*base)?, *offset)
+            }
             other => {
                 return Err(LowerError::UnsupportedOp {
                     op: format!("AArch64 native memory address {other:?}"),
@@ -1312,10 +1339,10 @@ impl Aarch64Lowerer {
             return Ok(());
         }
 
-        Err(LowerError::InvalidOperand {
-            op: "AArch64 native memory offset".into(),
-            operand: format!("{offset:#x} for size {size}"),
-        })
+        let (scratches, addr) = self.lower_base_offset_to_scratch(&[rt], base_vreg, offset)?;
+        self.emit_ldst_unsigned(rt, addr, size, opc, 0);
+        self.emit_scratch_restore(&scratches);
+        Ok(())
     }
 
     fn lower_mem_indexed_access(
@@ -1890,22 +1917,27 @@ impl Aarch64Lowerer {
         width: MemWidth,
         load: bool,
     ) -> Result<(), LowerError> {
-        let (base, offset) = match addr {
-            Address::Direct(base) => (Self::base_gpr(*base)?, 0),
-            Address::BaseOffset { base, offset, .. } => (Self::base_gpr(*base)?, *offset),
+        let (base_vreg, base, offset) = match addr {
+            Address::Direct(base) => (*base, Self::base_gpr(*base)?, 0),
+            Address::BaseOffset { base, offset, .. } => {
+                (*base, Self::base_gpr(*base)?, *offset)
+            }
             other => {
                 return Err(LowerError::UnsupportedOp {
                     op: format!("AArch64 native pair memory address {other:?}"),
                 });
             }
         };
-        let Some((opc, imm7)) = Self::pair_scaled_imm(width, offset)? else {
-            return Err(LowerError::InvalidOperand {
-                op: "AArch64 native pair memory offset".into(),
-                operand: format!("{offset:#x} for width {width:?}"),
-            });
-        };
-        self.emit_ldst_pair(rt, rt2, base, opc, load, imm7, 0b10);
+        if let Some((opc, imm7)) = Self::pair_scaled_imm(width, offset)? {
+            self.emit_ldst_pair(rt, rt2, base, opc, load, imm7, 0b10);
+            return Ok(());
+        }
+
+        let (opc, _) = Self::pair_width(width)?;
+        let (scratches, addr) =
+            self.lower_base_offset_to_scratch(&[rt, rt2], base_vreg, offset)?;
+        self.emit_ldst_pair(rt, rt2, addr, opc, load, 0, 0b10);
+        self.emit_scratch_restore(&scratches);
         Ok(())
     }
 
@@ -11442,6 +11474,23 @@ mod tests {
             | (1 << 5)
     }
 
+    fn enc_ldst_simm_regs(
+        size: u32,
+        opc: u32,
+        mode: u32,
+        imm9: i64,
+        rt: u32,
+        rn: u32,
+    ) -> u32 {
+        (size << 30)
+            | (0b111 << 27)
+            | (opc << 22)
+            | (((imm9 as u32) & 0x1ff) << 12)
+            | (mode << 10)
+            | (rn << 5)
+            | rt
+    }
+
     fn enc_ldst_uimm(size: u32, opc: u32, imm12: u32) -> u32 {
         (size << 30) | (0b111 << 27) | (0b01 << 24) | (opc << 22) | (imm12 << 10) | (1 << 5)
     }
@@ -11470,6 +11519,25 @@ mod tests {
             | (((imm7 as u32) & 0x7f) << 15)
             | (2 << 10)
             | (1 << 5)
+    }
+
+    fn enc_ldp_regs(
+        opc: u32,
+        mode: u32,
+        load: bool,
+        imm7: i64,
+        rt: u32,
+        rt2: u32,
+        rn: u32,
+    ) -> u32 {
+        (opc << 30)
+            | (0b101 << 27)
+            | (mode << 23)
+            | ((load as u32) << 22)
+            | (((imm7 as u32) & 0x7f) << 15)
+            | (rt2 << 10)
+            | (rn << 5)
+            | rt
     }
 
     fn enc_ldxr(size: u32) -> u32 {
@@ -14473,6 +14541,79 @@ mod tests {
         assert_eq!(out_nzcv, old_nzcv);
         assert_eq!(sp, 0x8000);
         assert_eq!(mem, 0x7abc);
+    }
+
+    #[test]
+    fn lowers_load_large_base_offset_runtime() {
+        let mem_addr = 0x9000_u64;
+        let offset = 0x12345_i64;
+        let base = mem_addr.wrapping_sub(offset as u64);
+        let mem_value = 0x1122_3344_5566_7788;
+        let code = lower_single_op(OpKind::Load {
+            dst: x(0),
+            addr: Address::BaseOffset {
+                base: x(1),
+                offset,
+                disp_size: DispSize::Auto,
+            },
+            width: MemWidth::B8,
+            sign: SignExtend::Zero,
+        });
+
+        let regs = [
+            (1, base),
+            (16, 0x1616_1616_1616_1616),
+            (17, 0x1717_1717_1717_1717),
+        ];
+        let old_nzcv = 0b0011;
+        let (out, out_nzcv, sp, mem) =
+            run_aarch64_code_with_memory(&code, &regs, old_nzcv, mem_addr, mem_value, MemWidth::B8);
+
+        assert_eq!(out[0], mem_value);
+        assert_eq!(out[1], base);
+        assert_eq!(out[16], 0x1616_1616_1616_1616);
+        assert_eq!(out[17], 0x1717_1717_1717_1717);
+        assert_eq!(out_nzcv, old_nzcv);
+        assert_eq!(sp, 0x8000);
+        assert_eq!(mem, mem_value);
+    }
+
+    #[test]
+    fn lowers_store_sp_base_large_offset_runtime() {
+        let offset = -0x1234;
+        let mem_addr = (0x8000_i64 + i64::from(offset)) as u64;
+        let src_value = 0x7abc;
+        let code = lower_single_op(OpKind::Store {
+            src: x(0),
+            addr: Address::BaseOffset {
+                base: VReg::Arch(ArchReg::Arm(ArmReg::Sp)),
+                offset: i64::from(offset),
+                disp_size: DispSize::Auto,
+            },
+            width: MemWidth::B2,
+        });
+
+        let regs = [
+            (0, src_value),
+            (16, 0x1616_1616_1616_1616),
+            (17, 0x1717_1717_1717_1717),
+        ];
+        let old_nzcv = 0b1100;
+        let (out, out_nzcv, sp, mem) = run_aarch64_code_with_memory(
+            &code,
+            &regs,
+            old_nzcv,
+            mem_addr,
+            0x1234,
+            MemWidth::B2,
+        );
+
+        assert_eq!(out[0], src_value);
+        assert_eq!(out[16], 0x1616_1616_1616_1616);
+        assert_eq!(out[17], 0x1717_1717_1717_1717);
+        assert_eq!(out_nzcv, old_nzcv);
+        assert_eq!(sp, 0x8000);
+        assert_eq!(mem, src_value);
     }
 
     #[test]
@@ -18813,6 +18954,39 @@ mod tests {
 
         let mut expected = Vec::new();
         expected.extend_from_slice(&enc_ldp(0b01, 0b01, true, -2).to_le_bytes());
+        expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
+        assert_eq!(code, expected);
+    }
+
+    #[test]
+    fn lowers_load_pair_large_base_offset_via_scratch() {
+        let mut builder = FunctionBuilder::new(FunctionId(0), 0);
+        builder.push_op(
+            0,
+            OpKind::LoadPair {
+                dst1: x(0),
+                dst2: x(2),
+                addr: Address::BaseOffset {
+                    base: x(1),
+                    offset: 0x400,
+                    disp_size: DispSize::Auto,
+                },
+                width: MemWidth::B8,
+            },
+        );
+        builder.set_terminator(Terminator::Return { values: vec![] });
+        let func = builder.finish();
+
+        let mut lowerer = Aarch64Lowerer::new();
+        lowerer.lower_function(&func).unwrap();
+        let code = lowerer.finalize().unwrap();
+
+        let mut expected = Vec::new();
+        expected.extend_from_slice(&enc_ldst_simm_regs(3, 0b00, 0b11, -16, 16, 31).to_le_bytes());
+        expected.extend_from_slice(&enc_addsub_imm_regs(1, 0, 0, 0, 0, 16, 1).to_le_bytes());
+        expected.extend_from_slice(&enc_addsub_imm_regs(1, 0, 0, 0, 0x400, 16, 16).to_le_bytes());
+        expected.extend_from_slice(&enc_ldp_regs(0b10, 0b10, true, 0, 0, 2, 16).to_le_bytes());
+        expected.extend_from_slice(&enc_ldst_simm_regs(3, 0b01, 0b01, 16, 16, 31).to_le_bytes());
         expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
         assert_eq!(code, expected);
     }
