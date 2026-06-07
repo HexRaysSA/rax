@@ -1581,6 +1581,25 @@ impl Aarch64Lowerer {
         }
     }
 
+    fn lower_atomic_addr_to_base(
+        &mut self,
+        avoid: &[u8],
+        addr: &Address,
+    ) -> Result<(Vec<u8>, u8), LowerError> {
+        match addr {
+            Address::Direct(base) => Ok((Vec::new(), Self::base_gpr(*base)?)),
+            Address::BaseOffset { base, offset, .. } if *offset == 0 => {
+                Ok((Vec::new(), Self::base_gpr(*base)?))
+            }
+            Address::BaseOffset { base, offset, .. } => {
+                self.lower_base_offset_to_scratch(avoid, *base, *offset)
+            }
+            other => Err(LowerError::UnsupportedOp {
+                op: format!("AArch64 native atomic memory address {other:?}"),
+            }),
+        }
+    }
+
     fn lower_load_exclusive(
         &mut self,
         dst: VReg,
@@ -1630,8 +1649,9 @@ impl Aarch64Lowerer {
         match order {
             MemoryOrder::Relaxed => self.lower_mem_access(rt, addr, size, 0b01),
             MemoryOrder::Acquire | MemoryOrder::SeqCst => {
-                let rn = Self::exclusive_base_gpr(addr)?;
+                let (scratches, rn) = self.lower_atomic_addr_to_base(&[rt], addr)?;
                 self.emit_atomic_load(rt, rn, size);
+                self.emit_scratch_restore(&scratches);
                 Ok(())
             }
             MemoryOrder::Release | MemoryOrder::AcqRel => Err(LowerError::UnsupportedOp {
@@ -1652,8 +1672,9 @@ impl Aarch64Lowerer {
         match order {
             MemoryOrder::Relaxed => self.lower_mem_access(rt, addr, size, 0b00),
             MemoryOrder::Release | MemoryOrder::SeqCst => {
-                let rn = Self::exclusive_base_gpr(addr)?;
+                let (scratches, rn) = self.lower_atomic_addr_to_base(&[rt], addr)?;
                 self.emit_atomic_store(rt, rn, size);
+                self.emit_scratch_restore(&scratches);
                 Ok(())
             }
             MemoryOrder::Acquire | MemoryOrder::AcqRel => Err(LowerError::UnsupportedOp {
@@ -1689,6 +1710,16 @@ impl Aarch64Lowerer {
         Self::gpr(src)
     }
 
+    fn atomic_rmw_source_avoid(src: VReg) -> Result<Option<u8>, LowerError> {
+        match src {
+            VReg::Arch(ArchReg::Arm(ArmReg::X(reg))) if reg < 31 => Ok(Some(reg)),
+            VReg::Imm(_) => Ok(None),
+            other => Err(LowerError::InvalidRegister(format!(
+                "AArch64 native lowerer expected X register or immediate, got {other:?}"
+            ))),
+        }
+    }
+
     fn lower_atomic_rmw(
         &mut self,
         dst: VReg,
@@ -1699,9 +1730,13 @@ impl Aarch64Lowerer {
         order: MemoryOrder,
     ) -> Result<(), LowerError> {
         let rt = Self::dst_gpr(dst)?;
-        let rn = Self::exclusive_base_gpr(addr)?;
         let size = Self::mem_size(width)?;
         let (acquire, release) = Self::atomic_order_bits(order);
+        let mut addr_avoid = vec![rt];
+        if let Some(src_reg) = Self::atomic_rmw_source_avoid(src)? {
+            addr_avoid.push(src_reg);
+        }
+        let (addr_scratches, rn) = self.lower_atomic_addr_to_base(&addr_avoid, addr)?;
         if let Ok((o3, opc)) = Self::atomic_rmw_op_encoding(op, src) {
             let rs = match Self::atomic_rmw_source_gpr(op, src) {
                 Ok(rs) => rs,
@@ -1724,14 +1759,18 @@ impl Aarch64Lowerer {
                     self.emit_mov_imm(scratch, value, op_width)?;
                     self.emit_atomic_rmw(rt, rn, scratch, size, acquire, release, o3, opc);
                     self.emit_scratch_restore(&scratches);
+                    self.emit_scratch_restore(&addr_scratches);
                     return Ok(());
                 }
             };
             self.emit_atomic_rmw(rt, rn, rs, size, acquire, release, o3, opc);
+            self.emit_scratch_restore(&addr_scratches);
             return Ok(());
         }
 
-        self.lower_atomic_rmw_exclusive_loop(rt, rn, src, op, width, size, acquire, release)
+        self.lower_atomic_rmw_exclusive_loop(rt, rn, src, op, width, size, acquire, release)?;
+        self.emit_scratch_restore(&addr_scratches);
+        Ok(())
     }
 
     fn lower_atomic_rmw_exclusive_loop(
@@ -1845,11 +1884,12 @@ impl Aarch64Lowerer {
         order: MemoryOrder,
     ) -> Result<(), LowerError> {
         let rt = Self::dst_gpr(dst)?;
-        let rn = Self::exclusive_base_gpr(addr)?;
         let rs = Self::gpr(src)?;
         let size = Self::mem_size(width)?;
         let (acquire, release) = Self::atomic_order_bits(order);
+        let (scratches, rn) = self.lower_atomic_addr_to_base(&[rt, rs], addr)?;
         self.emit_atomic_rmw(rt, rn, rs, size, acquire, release, 0, 0b001);
+        self.emit_scratch_restore(&scratches);
         Ok(())
     }
 
@@ -1891,7 +1931,6 @@ impl Aarch64Lowerer {
         let dst_reg = Self::dst_gpr(dst)?;
         let expected_reg = Self::gpr(expected)?;
         let new_reg = Self::gpr(new_val)?;
-        let rn = Self::exclusive_base_gpr(addr)?;
         let size = Self::mem_size(width)?;
         let compare_width = Self::cas_compare_width(width)?;
         let (acquire, release) = Self::atomic_order_bits(order);
@@ -1900,8 +1939,15 @@ impl Aarch64Lowerer {
             other => Some(Self::dst_gpr(other)?),
         };
 
+        let mut addr_avoid = vec![dst_reg, expected_reg, new_reg];
+        if let Some(success_reg) = success_reg {
+            addr_avoid.push(success_reg);
+        }
+        let (addr_scratches, rn) = self.lower_atomic_addr_to_base(&addr_avoid, addr)?;
+
         if dst == expected && success_reg.is_none() {
             self.emit_cas(dst_reg, new_reg, rn, size, acquire, release);
+            self.emit_scratch_restore(&addr_scratches);
             return Ok(());
         }
 
@@ -1988,6 +2034,7 @@ impl Aarch64Lowerer {
             self.emit_sysreg(saved_flags, ArmReg::Nzcv, false)?;
         }
         self.emit_scratch_restore(&scratches);
+        self.emit_scratch_restore(&addr_scratches);
         Ok(())
     }
 
@@ -11595,15 +11642,19 @@ mod tests {
             | (1 << 5)
     }
 
-    fn enc_stlr(size: u32) -> u32 {
+    fn enc_stlr_regs(size: u32, rt: u32, rn: u32) -> u32 {
         (size << 30)
             | (0b001000 << 24)
             | (1 << 23)
             | (0b11111 << 16)
             | (1 << 15)
             | (0b11111 << 10)
-            | (1 << 5)
-            | 3
+            | (rn << 5)
+            | rt
+    }
+
+    fn enc_stlr(size: u32) -> u32 {
+        enc_stlr_regs(size, 3, 1)
     }
 
     fn enc_atomic_rmw_regs(
@@ -14722,6 +14773,41 @@ mod tests {
     }
 
     #[test]
+    fn lowers_atomic_load_acquire_base_offset_runtime() {
+        let mem_addr = 0x9000_u64;
+        let offset = 0x38_i64;
+        let base = mem_addr - offset as u64;
+        let mem_value = 0x1122_3344_5566_7788;
+        let code = lower_single_op(OpKind::AtomicLoad {
+            dst: x(0),
+            addr: Address::BaseOffset {
+                base: x(1),
+                offset,
+                disp_size: DispSize::Auto,
+            },
+            width: MemWidth::B8,
+            order: MemoryOrder::Acquire,
+        });
+
+        let regs = [
+            (1, base),
+            (16, 0x1616_1616_1616_1616),
+            (17, 0x1717_1717_1717_1717),
+        ];
+        let old_nzcv = 0b0110;
+        let (out, out_nzcv, sp, mem) =
+            run_aarch64_code_with_memory(&code, &regs, old_nzcv, mem_addr, mem_value, MemWidth::B8);
+
+        assert_eq!(out[0], mem_value);
+        assert_eq!(out[1], base);
+        assert_eq!(out[16], 0x1616_1616_1616_1616);
+        assert_eq!(out[17], 0x1717_1717_1717_1717);
+        assert_eq!(out_nzcv, old_nzcv);
+        assert_eq!(sp, 0x8000);
+        assert_eq!(mem, mem_value);
+    }
+
+    #[test]
     fn lowers_atomic_load_relaxed_as_plain_load() {
         let mut builder = FunctionBuilder::new(FunctionId(0), 0);
         builder.push_op(
@@ -14790,6 +14876,40 @@ mod tests {
 
         let mut expected = Vec::new();
         expected.extend_from_slice(&enc_stlr(2).to_le_bytes());
+        expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
+        assert_eq!(code, expected);
+    }
+
+    #[test]
+    fn lowers_atomic_store_release_base_offset() {
+        let offset = -0x20_i64;
+        let mut builder = FunctionBuilder::new(FunctionId(0), 0);
+        builder.push_op(
+            0,
+            OpKind::AtomicStore {
+                src: x(0),
+                addr: Address::BaseOffset {
+                    base: x(1),
+                    offset,
+                    disp_size: DispSize::Auto,
+                },
+                width: MemWidth::B4,
+                order: MemoryOrder::Release,
+            },
+        );
+        builder.set_terminator(Terminator::Return { values: vec![] });
+        let func = builder.finish();
+
+        let mut lowerer = Aarch64Lowerer::new();
+        lowerer.lower_function(&func).unwrap();
+        let code = lowerer.finalize().unwrap();
+
+        let mut expected = Vec::new();
+        expected.extend_from_slice(&enc_ldst_simm_regs(3, 0b00, 0b11, -16, 16, 31).to_le_bytes());
+        expected.extend_from_slice(&enc_addsub_imm_regs(1, 0, 0, 0, 0, 16, 1).to_le_bytes());
+        expected.extend_from_slice(&enc_addsub_imm_regs(1, 1, 0, 0, 0x20, 16, 16).to_le_bytes());
+        expected.extend_from_slice(&enc_stlr_regs(2, 0, 16).to_le_bytes());
+        expected.extend_from_slice(&enc_ldst_simm_regs(3, 0b01, 0b01, 16, 16, 31).to_le_bytes());
         expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
         assert_eq!(code, expected);
     }
@@ -14984,6 +15104,48 @@ mod tests {
     }
 
     #[test]
+    fn lowers_atomic_rmw_lse_base_offset_runtime() {
+        let mem_addr = 0x9000_u64;
+        let offset = 0x50_i64;
+        let base = mem_addr - offset as u64;
+        let src_value = 5;
+        let mem_value = 0x1234;
+        let code = lower_single_op(OpKind::AtomicRmw {
+            dst: x(0),
+            addr: Address::BaseOffset {
+                base: x(1),
+                offset,
+                disp_size: DispSize::Auto,
+            },
+            src: x(2),
+            op: AtomicOp::Add,
+            width: MemWidth::B8,
+            order: MemoryOrder::Release,
+        });
+        let (expected_old, expected_mem) =
+            ref_atomic_rmw(mem_value, src_value, MemWidth::B8, AtomicOp::Add);
+
+        let regs = [
+            (1, base),
+            (2, src_value),
+            (16, 0x1616_1616_1616_1616),
+            (17, 0x1717_1717_1717_1717),
+        ];
+        let old_nzcv = 0b0011;
+        let (out, out_nzcv, sp, mem) =
+            run_aarch64_code_with_memory(&code, &regs, old_nzcv, mem_addr, mem_value, MemWidth::B8);
+
+        assert_eq!(out[0], expected_old);
+        assert_eq!(out[1], base);
+        assert_eq!(out[2], src_value);
+        assert_eq!(out[16], 0x1616_1616_1616_1616);
+        assert_eq!(out[17], 0x1717_1717_1717_1717);
+        assert_eq!(out_nzcv, old_nzcv);
+        assert_eq!(sp, 0x8000);
+        assert_eq!(mem, expected_mem);
+    }
+
+    #[test]
     fn lowers_atomic_rmw_lse_with_immediate_source() {
         assert_atomic_rmw_lowering(
             "or_imm",
@@ -15033,6 +15195,65 @@ mod tests {
         expected.extend_from_slice(&enc_atomic_rmw(3, 0, 1, 0, 0b001).to_le_bytes());
         expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
         assert_eq!(code, expected);
+    }
+
+    #[test]
+    fn fuses_lifted_ldclr_base_offset_runtime() {
+        let mem_addr = 0x9000_u64;
+        let offset = 0x28_i64;
+        let base = mem_addr - offset as u64;
+        let src_value = 0x00f0_u64;
+        let mem_value = 0x0ff0_u64;
+        let inverted = VReg::virt(0);
+        let mut builder = FunctionBuilder::new(FunctionId(0), 0);
+        builder.push_op(
+            0,
+            OpKind::Not {
+                dst: inverted,
+                src: x(2),
+                width: OpWidth::W64,
+            },
+        );
+        builder.push_op(
+            0,
+            OpKind::AtomicRmw {
+                dst: x(0),
+                addr: Address::BaseOffset {
+                    base: x(1),
+                    offset,
+                    disp_size: DispSize::Auto,
+                },
+                src: inverted,
+                op: AtomicOp::And,
+                width: MemWidth::B8,
+                order: MemoryOrder::Release,
+            },
+        );
+        builder.set_terminator(Terminator::Return { values: vec![] });
+        let func = builder.finish();
+
+        let mut lowerer = Aarch64Lowerer::new();
+        lowerer.lower_function(&func).unwrap();
+        let code = lowerer.finalize().unwrap();
+
+        let regs = [
+            (1, base),
+            (2, src_value),
+            (16, 0x1616_1616_1616_1616),
+            (17, 0x1717_1717_1717_1717),
+        ];
+        let old_nzcv = 0b1010;
+        let (out, out_nzcv, sp, mem) =
+            run_aarch64_code_with_memory(&code, &regs, old_nzcv, mem_addr, mem_value, MemWidth::B8);
+
+        assert_eq!(out[0], mem_value);
+        assert_eq!(out[1], base);
+        assert_eq!(out[2], src_value);
+        assert_eq!(out[16], 0x1616_1616_1616_1616);
+        assert_eq!(out[17], 0x1717_1717_1717_1717);
+        assert_eq!(out_nzcv, old_nzcv);
+        assert_eq!(sp, 0x8000);
+        assert_eq!(mem, mem_value & !src_value);
     }
 
     #[test]
@@ -15088,6 +15309,50 @@ mod tests {
     }
 
     #[test]
+    fn lowers_atomic_rmw_exclusive_loop_base_offset_runtime() {
+        let mem_addr = 0x9000_u64;
+        let offset = 0x60_i64;
+        let base = mem_addr - offset as u64;
+        let src_value = 3;
+        let mem_value = 10;
+        let code = lower_single_op(OpKind::AtomicRmw {
+            dst: x(0),
+            addr: Address::BaseOffset {
+                base: x(1),
+                offset,
+                disp_size: DispSize::Auto,
+            },
+            src: x(2),
+            op: AtomicOp::Sub,
+            width: MemWidth::B8,
+            order: MemoryOrder::AcqRel,
+        });
+        let (expected_old, expected_mem) =
+            ref_atomic_rmw(mem_value, src_value, MemWidth::B8, AtomicOp::Sub);
+
+        let regs = [
+            (1, base),
+            (2, src_value),
+            (15, 0x1515_1515_1515_1515),
+            (16, 0x1616_1616_1616_1616),
+            (17, 0x1717_1717_1717_1717),
+        ];
+        let old_nzcv = 0b0101;
+        let (out, out_nzcv, sp, mem) =
+            run_aarch64_code_with_memory(&code, &regs, old_nzcv, mem_addr, mem_value, MemWidth::B8);
+
+        assert_eq!(out[0], expected_old);
+        assert_eq!(out[1], base);
+        assert_eq!(out[2], src_value);
+        assert_eq!(out[15], 0x1515_1515_1515_1515);
+        assert_eq!(out[16], 0x1616_1616_1616_1616);
+        assert_eq!(out[17], 0x1717_1717_1717_1717);
+        assert_eq!(out_nzcv, old_nzcv);
+        assert_eq!(sp, 0x8000);
+        assert_eq!(mem, expected_mem);
+    }
+
+    #[test]
     fn lowers_cas_lifted_shape_direct() {
         let success = VReg::virt(0);
         let mut builder = FunctionBuilder::new(FunctionId(0), 0);
@@ -15114,6 +15379,49 @@ mod tests {
         expected.extend_from_slice(&enc_cas(3, 1, 1).to_le_bytes());
         expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
         assert_eq!(code, expected);
+    }
+
+    #[test]
+    fn lowers_cas_lifted_shape_base_offset_runtime() {
+        let mem_addr = 0x9000_u64;
+        let offset = 0x70_i64;
+        let base = mem_addr - offset as u64;
+        let old_value = 0x1111_2222_3333_4444;
+        let new_value = 0x5555_6666_7777_8888;
+        let success = VReg::virt(0);
+        let code = lower_single_op(OpKind::Cas {
+            dst: x(2),
+            success,
+            addr: Address::BaseOffset {
+                base: x(1),
+                offset,
+                disp_size: DispSize::Auto,
+            },
+            expected: x(2),
+            new_val: x(0),
+            width: MemWidth::B8,
+            order: MemoryOrder::AcqRel,
+        });
+
+        let regs = [
+            (0, new_value),
+            (1, base),
+            (2, old_value),
+            (16, 0x1616_1616_1616_1616),
+            (17, 0x1717_1717_1717_1717),
+        ];
+        let old_nzcv = 0b1110;
+        let (out, out_nzcv, sp, mem) =
+            run_aarch64_code_with_memory(&code, &regs, old_nzcv, mem_addr, old_value, MemWidth::B8);
+
+        assert_eq!(out[0], new_value);
+        assert_eq!(out[1], base);
+        assert_eq!(out[2], old_value);
+        assert_eq!(out[16], 0x1616_1616_1616_1616);
+        assert_eq!(out[17], 0x1717_1717_1717_1717);
+        assert_eq!(out_nzcv, old_nzcv);
+        assert_eq!(sp, 0x8000);
+        assert_eq!(mem, new_value);
     }
 
     #[test]
