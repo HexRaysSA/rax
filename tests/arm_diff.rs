@@ -2405,6 +2405,30 @@ fn push_logical_identity_same_reg_native_cases(
             0x9999_aaaa_bbbb_cccc,
             0xc000_0000,
         ),
+        (
+            "and_x_same_reg_as_noop_preserves_flags",
+            OpKind::And {
+                dst: arm_x(0),
+                src1: arm_x(0),
+                src2: SrcOperand::Reg(arm_x(0)),
+                width: OpWidth::W64,
+                flags: FlagUpdate::None,
+            },
+            0x1357_9bdf_2468_ace0,
+            0x1000_0000,
+        ),
+        (
+            "orr_x_same_reg_as_noop_preserves_flags",
+            OpKind::Or {
+                dst: arm_x(0),
+                src1: arm_x(0),
+                src2: SrcOperand::Reg(arm_x(0)),
+                width: OpWidth::W64,
+                flags: FlagUpdate::None,
+            },
+            0xfedc_ba98_7654_3210,
+            0x6000_0000,
+        ),
     ];
 
     for (name, op, x0, pstate) in logical_cases {
@@ -2417,6 +2441,28 @@ fn push_logical_identity_same_reg_native_cases(
             .unwrap_or_else(|e| panic!("{name}: native lowering failed: {e}"));
         cases.push((name.into(), [0xd65f_03c0, NOP, NOP], lowered, st));
     }
+
+    let mut st = ArmState::zeroed();
+    st.pc = PCREL_MAGIC;
+    st.x[30] = pcrel_marker(control_target);
+    st.x[0] = 0xffff_ffff_89ab_cdef;
+    st.pstate = 0x2000_0000;
+    let lowered = lower_aarch64_native_ops(vec![OpKind::And {
+        dst: arm_x(0),
+        src1: arm_x(0),
+        src2: SrcOperand::Reg(arm_x(0)),
+        width: OpWidth::W32,
+        flags: FlagUpdate::None,
+    }])
+    .unwrap_or_else(|e| {
+        panic!("and_w_same_reg_as_self_mov_zero_ext_preserves_flags: native lowering failed: {e}")
+    });
+    cases.push((
+        "and_w_same_reg_as_self_mov_zero_ext_preserves_flags".into(),
+        [enc_mov_reg(0, 0, 0), NOP, NOP],
+        lowered,
+        st,
+    ));
 }
 
 #[cfg(all(feature = "smir-jit", target_arch = "x86_64"))]

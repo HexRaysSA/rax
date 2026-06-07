@@ -2266,6 +2266,21 @@ impl Aarch64Lowerer {
                 op: "AArch64 native logical flags are only supported for ANDS/BICS".into(),
             });
         }
+
+        if !set_flags && !n && matches!(opc, 0b00 | 0b01) {
+            if let SrcOperand::Reg(reg) = src2 {
+                let dst = Self::dst_gpr(dst)?;
+                let rn = Self::gpr(src1)?;
+                let rm = Self::gpr(*reg)?;
+                if dst == rn && rn == rm {
+                    if width == OpWidth::W64 {
+                        return Ok(());
+                    }
+                    return self.emit_mov_reg(dst, rn, width);
+                }
+            }
+        }
+
         match src2 {
             SrcOperand::Imm(imm) | SrcOperand::Imm64(imm) => {
                 let imm = if n {
@@ -15335,6 +15350,20 @@ mod tests {
                 width: OpWidth::W64,
                 flags: FlagUpdate::None,
             },
+            OpKind::And {
+                dst: x(0),
+                src1: x(0),
+                src2: SrcOperand::Reg(x(0)),
+                width: OpWidth::W64,
+                flags: FlagUpdate::None,
+            },
+            OpKind::Or {
+                dst: x(0),
+                src1: x(0),
+                src2: SrcOperand::Reg(x(0)),
+                width: OpWidth::W64,
+                flags: FlagUpdate::None,
+            },
         ];
 
         for kind in cases {
@@ -15348,6 +15377,42 @@ mod tests {
             let code = lowerer.finalize().unwrap();
 
             let mut expected = Vec::new();
+            expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
+            assert_eq!(code, expected);
+        }
+    }
+
+    #[test]
+    fn lowers_logical_reg_identity_w_same_reg_as_self_mov_zero_ext() {
+        let cases = [
+            OpKind::And {
+                dst: x(0),
+                src1: x(0),
+                src2: SrcOperand::Reg(x(0)),
+                width: OpWidth::W32,
+                flags: FlagUpdate::None,
+            },
+            OpKind::Or {
+                dst: x(0),
+                src1: x(0),
+                src2: SrcOperand::Reg(x(0)),
+                width: OpWidth::W32,
+                flags: FlagUpdate::None,
+            },
+        ];
+
+        for kind in cases {
+            let mut builder = FunctionBuilder::new(FunctionId(0), 0);
+            builder.push_op(0, kind);
+            builder.set_terminator(Terminator::Return { values: vec![] });
+            let func = builder.finish();
+
+            let mut lowerer = Aarch64Lowerer::new();
+            lowerer.lower_function(&func).unwrap();
+            let code = lowerer.finalize().unwrap();
+
+            let mut expected = Vec::new();
+            expected.extend_from_slice(&enc_mov_reg(0, 0, 0).to_le_bytes());
             expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
             assert_eq!(code, expected);
         }
