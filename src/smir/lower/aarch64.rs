@@ -4810,6 +4810,13 @@ impl Aarch64Lowerer {
         matches!(src, SrcOperand::Imm(imm) | SrcOperand::Imm64(imm) if *imm == value)
     }
 
+    fn src_masked_imm_eq(src: &SrcOperand, value: i64, width: OpWidth) -> bool {
+        let Some(imm) = Self::src_imm(src) else {
+            return false;
+        };
+        (imm as u64 & width.mask()) == (value as u64 & width.mask())
+    }
+
     fn vreg_src(reg: VReg) -> SrcOperand {
         match reg {
             VReg::Imm(value) => SrcOperand::Imm(value),
@@ -6674,10 +6681,12 @@ impl Aarch64Lowerer {
             OpKind::Add {
                 dst,
                 src1,
-                src2: SrcOperand::Imm(1) | SrcOperand::Imm64(1),
+                src2,
                 width,
                 flags,
-            } if !flags.updates_any() => Some((
+            } if !flags.updates_any()
+                && matches!(width, OpWidth::W32 | OpWidth::W64)
+                && Self::src_masked_imm_eq(src2, 1, *width) => Some((
                 *dst,
                 *src1,
                 CondSelectFalseOp::Increment,
@@ -17770,6 +17779,51 @@ mod tests {
 
         let mut expected = Vec::new();
         expected.extend_from_slice(&enc_csel_regs(1, 0, 1, 1, 2, 1, 0).to_le_bytes());
+        expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
+        assert_eq!(code, expected);
+    }
+
+    #[test]
+    fn lowers_fused_select_true_w_masked_one_increment_as_csinc_inverted_cond() {
+        let cond = VReg::virt(0);
+        let incremented = VReg::virt(1);
+        let mut builder = FunctionBuilder::new(FunctionId(0), 0);
+        builder.push_op(
+            0,
+            OpKind::TestCondition {
+                dst: cond,
+                cond: Condition::Eq,
+            },
+        );
+        builder.push_op(
+            0,
+            OpKind::Add {
+                dst: incremented,
+                src1: x(2),
+                src2: SrcOperand::Imm64(0x1_0000_0001),
+                width: OpWidth::W32,
+                flags: FlagUpdate::None,
+            },
+        );
+        builder.push_op(
+            0,
+            OpKind::Select {
+                dst: x(0),
+                cond,
+                src_true: incremented,
+                src_false: x(1),
+                width: OpWidth::W32,
+            },
+        );
+        builder.set_terminator(Terminator::Return { values: vec![] });
+        let func = builder.finish();
+
+        let mut lowerer = Aarch64Lowerer::new();
+        lowerer.lower_function(&func).unwrap();
+        let code = lowerer.finalize().unwrap();
+
+        let mut expected = Vec::new();
+        expected.extend_from_slice(&enc_csel_regs(0, 0, 1, 1, 2, 1, 0).to_le_bytes());
         expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
         assert_eq!(code, expected);
     }

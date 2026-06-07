@@ -4497,6 +4497,43 @@ fn push_cond_select_true_transform_native_cases(
     let mut st = ArmState::zeroed();
     st.pc = PCREL_MAGIC;
     st.x[30] = pcrel_marker(control_target);
+    st.x[0] = 0xaaaa_bbbb_cccc_dddd;
+    st.x[1] = 0x1111_2222_3333_4444;
+    st.x[2] = 0xaaaa_bbbb_ffff_ffff;
+    st.pstate = 0x4000_0000;
+    let lowered = lower_aarch64_native_ops(vec![
+        OpKind::TestCondition {
+            dst: VReg::virt(216),
+            cond: Condition::Eq,
+        },
+        OpKind::Add {
+            dst: VReg::virt(217),
+            src1: arm_x(2),
+            src2: SrcOperand::Imm64(0x1_0000_0001),
+            width: OpWidth::W32,
+            flags: FlagUpdate::None,
+        },
+        OpKind::Select {
+            dst: arm_x(0),
+            cond: VReg::virt(216),
+            src_true: VReg::virt(217),
+            src_false: arm_x(1),
+            width: OpWidth::W32,
+        },
+    ])
+    .unwrap_or_else(|e| {
+        panic!("csinc_w_masked_one_true_transform_zero_ext_preserves_flags: native lowering failed: {e}")
+    });
+    cases.push((
+        "csinc_w_masked_one_true_transform_zero_ext_preserves_flags".into(),
+        [enc_csel_form(0, 0, 1, RN, RM, 1), NOP, NOP],
+        lowered,
+        st,
+    ));
+
+    let mut st = ArmState::zeroed();
+    st.pc = PCREL_MAGIC;
+    st.x[30] = pcrel_marker(control_target);
     st.x[0] = 0xbcde_ffff_0000_1111;
     st.x[1] = 0x2222_3333_4444_5555;
     st.x[2] = 0xffff_ffff_1234_5678;
