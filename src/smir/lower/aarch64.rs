@@ -2836,6 +2836,72 @@ impl Aarch64Lowerer {
         Ok(())
     }
 
+    fn lower_vmpsadbw(
+        &mut self,
+        dst: VReg,
+        src1: VReg,
+        src2: VReg,
+        width: VecWidth,
+        imm: u8,
+    ) -> Result<(), LowerError> {
+        if width != VecWidth::V128 {
+            return Err(LowerError::UnsupportedOp {
+                op: format!("AArch64 native VMPSADBW width {width:?}"),
+            });
+        }
+
+        let rd = Self::fp_reg(dst)?;
+        let rn = Self::fp_reg(src1)?;
+        let rm = Self::fp_reg(src2)?;
+        let (src1_work, src2_work) = Self::scratch_fp_reg_pair(&[rd, rn, rm])?;
+        let simd_scratches = [src1_work, src2_work];
+        self.emit_simd_scratch_save(&simd_scratches);
+        self.emit_simd_logical(src1_work, rn, rn, VecWidth::V128, SimdLogicOp::Or)?;
+        self.emit_simd_logical(src2_work, rm, rm, VecWidth::V128, SimdLogicOp::Or)?;
+
+        let scratches = Self::scratch_regs(&[], 6)?;
+        self.emit_scratch_save(&scratches);
+        let lhs = scratches[0];
+        let rhs = scratches[1];
+        let diff = scratches[2];
+        let alt = scratches[3];
+        let sum = scratches[4];
+        let saved_flags = scratches[5];
+        self.emit_sysreg(saved_flags, ArmReg::Nzcv, true)?;
+
+        let src1_base = (imm & 0x3) * 4;
+        let src2_base = ((imm >> 2) & 0x3) * 4;
+        let uge = Self::arm_cond_code(Condition::Uge)?;
+        for lane in 0..8 {
+            self.emit_mov_imm(sum, 0, OpWidth::W32)?;
+            for offset in 0..4 {
+                let (_, src1_imm5) =
+                    Self::simd_lane_imm5(VecElementType::I8, src1_base + offset)?;
+                self.emit_simd_umov(lhs, src1_work, src1_imm5, false);
+
+                let src2_lane = src2_base + lane + offset;
+                if src2_lane < 16 {
+                    let (_, src2_imm5) = Self::simd_lane_imm5(VecElementType::I8, src2_lane)?;
+                    self.emit_simd_umov(rhs, src2_work, src2_imm5, false);
+                } else {
+                    self.emit_mov_imm(rhs, 0, OpWidth::W32)?;
+                }
+
+                self.emit_addsub_reg(diff, lhs, rhs, true, true, OpWidth::W32)?;
+                self.emit_addsub_reg(alt, rhs, lhs, true, false, OpWidth::W32)?;
+                self.emit_cond_select(diff, diff, alt, uge, 0, 0, OpWidth::W32)?;
+                self.emit_addsub_reg(sum, sum, diff, false, false, OpWidth::W32)?;
+            }
+            let (_, dst_imm5) = Self::simd_lane_imm5(VecElementType::I16, lane)?;
+            self.emit_simd_ins_general(rd, sum, dst_imm5);
+        }
+
+        self.emit_sysreg(saved_flags, ArmReg::Nzcv, false)?;
+        self.emit_scratch_restore(&scratches);
+        self.emit_simd_scratch_restore(&simd_scratches);
+        Ok(())
+    }
+
     fn lower_vpermute_mask_indices(
         &mut self,
         rd: u8,
@@ -11462,6 +11528,13 @@ impl Aarch64Lowerer {
                 width,
                 high,
             } => self.lower_vmultiply_add52(*dst, *acc, *src1, *src2, *width, *high),
+            OpKind::VMpsadbw {
+                dst,
+                src1,
+                src2,
+                width,
+                imm,
+            } => self.lower_vmpsadbw(*dst, *src1, *src2, *width, *imm),
             OpKind::VPermute {
                 dst,
                 src1,
@@ -20384,6 +20457,115 @@ mod tests {
     }
 
     #[test]
+    fn lowers_vmpsadbw_v128_runtime() {
+        fn pair_bytes(pair: (u64, u64)) -> [u8; 16] {
+            let mut bytes = [0u8; 16];
+            bytes[..8].copy_from_slice(&pair.0.to_le_bytes());
+            bytes[8..].copy_from_slice(&pair.1.to_le_bytes());
+            bytes
+        }
+
+        fn pair_from_bytes(bytes: [u8; 16]) -> (u64, u64) {
+            (
+                u64::from_le_bytes(bytes[..8].try_into().unwrap()),
+                u64::from_le_bytes(bytes[8..].try_into().unwrap()),
+            )
+        }
+
+        fn ref_vmpsadbw(src1: (u64, u64), src2: (u64, u64), imm: u8) -> (u64, u64) {
+            let src1 = pair_bytes(src1);
+            let src2 = pair_bytes(src2);
+            let src1_blk = (imm & 0x3) as usize;
+            let src2_blk = ((imm >> 2) & 0x3) as usize;
+            let src1_offset = src1_blk * 4;
+            let mut out = [0u8; 16];
+            for lane in 0..8 {
+                let mut sad = 0u16;
+                let src2_start = src2_blk * 4 + lane;
+                for offset in 0..4 {
+                    let lhs = src1[src1_offset + offset] as i16;
+                    let rhs_lane = src2_start + offset;
+                    let rhs = if rhs_lane < 16 {
+                        src2[rhs_lane] as i16
+                    } else {
+                        0
+                    };
+                    sad = sad.wrapping_add((lhs - rhs).unsigned_abs());
+                }
+                out[lane * 2..lane * 2 + 2].copy_from_slice(&sad.to_le_bytes());
+            }
+            pair_from_bytes(out)
+        }
+
+        let nzcv = VReg::Arch(ArchReg::Arm(ArmReg::Nzcv));
+        let initial_nzcv = NZCV_N | NZCV_C;
+        let src1 = (0x00ff_1020_3040_5060, 0x7f80_90a0_b0c0_d0e0);
+        let src2 = (0xf0e0_d0c0_b0a0_9080, 0x0011_2233_4455_6677);
+        let alias_src1 = (0x0102_0304_0506_0708, 0xf1e2_d3c4_b5a6_9788);
+        let alias_src2 = (0x8877_6655_4433_2211, 0x1020_3040_5060_7080);
+        let scratch30 = (0x3030_3030_3030_3030, 0x3030_3030_3030_3030);
+        let scratch31 = (0x3131_3131_3131_3131, 0x3131_3131_3131_3131);
+        let code = lower_ops(vec![
+            OpKind::Mov {
+                dst: nzcv,
+                src: SrcOperand::Imm(initial_nzcv),
+                width: OpWidth::W32,
+            },
+            OpKind::VMpsadbw {
+                dst: v(0),
+                src1: v(1),
+                src2: v(2),
+                width: VecWidth::V128,
+                imm: 0b00_10,
+            },
+            OpKind::VMpsadbw {
+                dst: v(3),
+                src1: v(3),
+                src2: v(2),
+                width: VecWidth::V128,
+                imm: 0b11_01,
+            },
+            OpKind::VMpsadbw {
+                dst: v(4),
+                src1: v(1),
+                src2: v(4),
+                width: VecWidth::V128,
+                imm: 0b11_10,
+            },
+            OpKind::Mov {
+                dst: x(0),
+                src: SrcOperand::Reg(nzcv),
+                width: OpWidth::W32,
+            },
+        ]);
+
+        let (regs, simd, sp) = run_aarch64_code_with_regs_and_simd(
+            &code,
+            &[(12, 0x1212_1212_1212_1212), (16, 0x1616_1616_1616_1616)],
+            &[
+                (1, src1.0, src1.1),
+                (2, src2.0, src2.1),
+                (3, alias_src1.0, alias_src1.1),
+                (4, alias_src2.0, alias_src2.1),
+                (30, scratch30.0, scratch30.1),
+                (31, scratch31.0, scratch31.1),
+            ],
+        );
+
+        assert_eq!(simd[0], ref_vmpsadbw(src1, src2, 0b00_10));
+        assert_eq!(simd[1], src1);
+        assert_eq!(simd[2], src2);
+        assert_eq!(simd[3], ref_vmpsadbw(alias_src1, src2, 0b11_01));
+        assert_eq!(simd[4], ref_vmpsadbw(src1, alias_src2, 0b11_10));
+        assert_eq!(simd[30], scratch30);
+        assert_eq!(simd[31], scratch31);
+        assert_eq!(regs[0] & NZCV_MASK as u64, initial_nzcv as u64);
+        assert_eq!(regs[12], 0x1212_1212_1212_1212);
+        assert_eq!(regs[16], 0x1616_1616_1616_1616);
+        assert_eq!(sp, 0x8000);
+    }
+
+    #[test]
     fn lowers_vlane_unary_integer_runtime() {
         fn apply_vlane_unary(
             src_low: u64,
@@ -21314,6 +21496,14 @@ mod tests {
             src2: v(2),
             width: VecWidth::V256,
             high: false,
+        });
+
+        assert_unsupported(OpKind::VMpsadbw {
+            dst: v(0),
+            src1: v(1),
+            src2: v(2),
+            width: VecWidth::V256,
+            imm: 0,
         });
 
         assert_unsupported(OpKind::VPermute {
