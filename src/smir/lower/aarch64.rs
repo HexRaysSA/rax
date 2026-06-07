@@ -2014,6 +2014,26 @@ impl Aarch64Lowerer {
             }
 
             match src2 {
+                SrcOperand::Shifted {
+                    reg,
+                    shift: ShiftOp::Ror,
+                    amount,
+                } => {
+                    if !matches!(width, OpWidth::W32 | OpWidth::W64) {
+                        return Err(LowerError::UnsupportedOp {
+                            op: format!("AArch64 native zero-base add/sub width {width:?}"),
+                        });
+                    }
+                    return self.lower_addsub_materialized_ror_src2(
+                        dst,
+                        31,
+                        Self::gpr(*reg)?,
+                        *amount,
+                        subtract,
+                        set_flags,
+                        width,
+                    );
+                }
                 SrcOperand::Reg(_) | SrcOperand::Shifted { .. } => {
                     if !matches!(width, OpWidth::W32 | OpWidth::W64) {
                         return Err(LowerError::UnsupportedOp {
@@ -2118,6 +2138,19 @@ impl Aarch64Lowerer {
             }
         }
         match src2 {
+            SrcOperand::Shifted {
+                reg,
+                shift: ShiftOp::Ror,
+                amount,
+            } => self.lower_addsub_materialized_ror_src2(
+                dst,
+                rn,
+                Self::gpr(*reg)?,
+                *amount,
+                subtract,
+                set_flags,
+                width,
+            ),
             SrcOperand::Reg(_) | SrcOperand::Shifted { .. } => {
                 let (rm, shift, amount) = Self::addsub_src2(src2, width)?;
                 self.emit_addsub_shifted(dst, rn, rm, subtract, set_flags, shift, amount, width)
@@ -2135,6 +2168,31 @@ impl Aarch64Lowerer {
                 op: format!("AArch64 native add/sub source {other:?}"),
             }),
         }
+    }
+
+    fn lower_addsub_materialized_ror_src2(
+        &mut self,
+        dst: u8,
+        rn: u8,
+        rm: u8,
+        amount: u8,
+        subtract: bool,
+        set_flags: bool,
+        width: OpWidth,
+    ) -> Result<(), LowerError> {
+        if dst == 31 {
+            return Err(LowerError::UnsupportedOp {
+                op: "AArch64 native add/sub ROR source needs a writable destination scratch"
+                    .into(),
+            });
+        }
+        if dst == rn {
+            return Err(LowerError::UnsupportedOp {
+                op: "AArch64 native add/sub ROR source with destination aliased to base".into(),
+            });
+        }
+        self.lower_shift_imm(dst, rm, i64::from(amount), ShiftOp::Ror, width)?;
+        self.emit_addsub_reg(dst, rn, dst, subtract, set_flags, width)
     }
 
     fn lower_subword_addsub(
@@ -2187,6 +2245,22 @@ impl Aarch64Lowerer {
                     )?;
                     return self.emit_bitfield(dst, dst, 0b10, 0, top_bit, OpWidth::W32);
                 }
+                SrcOperand::Shifted {
+                    reg,
+                    shift: ShiftOp::Ror,
+                    amount,
+                } => {
+                    self.lower_addsub_materialized_ror_src2(
+                        dst,
+                        31,
+                        Self::gpr(*reg)?,
+                        *amount,
+                        subtract,
+                        false,
+                        OpWidth::W64,
+                    )?;
+                    return self.emit_bitfield(dst, dst, 0b10, 0, top_bit, OpWidth::W32);
+                }
                 SrcOperand::Shifted { .. } => {
                     let (rm, shift, amount) = Self::addsub_src2(src2, OpWidth::W64)?;
                     self.emit_addsub_shifted(
@@ -2224,6 +2298,21 @@ impl Aarch64Lowerer {
         match src2 {
             SrcOperand::Reg(reg) => {
                 self.emit_addsub_reg(dst, rn, Self::gpr(*reg)?, subtract, false, OpWidth::W32)?;
+            }
+            SrcOperand::Shifted {
+                reg,
+                shift: ShiftOp::Ror,
+                amount,
+            } => {
+                self.lower_addsub_materialized_ror_src2(
+                    dst,
+                    rn,
+                    Self::gpr(*reg)?,
+                    *amount,
+                    subtract,
+                    false,
+                    OpWidth::W64,
+                )?;
             }
             SrcOperand::Shifted { .. } => {
                 let (rm, shift, amount) = Self::addsub_src2(src2, OpWidth::W64)?;
@@ -9436,6 +9525,36 @@ mod tests {
         let mut builder = FunctionBuilder::new(FunctionId(0), 0);
         builder.push_op(
             0,
+            OpKind::Sub {
+                dst: x(0),
+                src1: VReg::Imm(0),
+                src2: SrcOperand::Shifted {
+                    reg: x(1),
+                    shift: ShiftOp::Ror,
+                    amount: 9,
+                },
+                width: OpWidth::W64,
+                flags: FlagUpdate::None,
+            },
+        );
+        builder.set_terminator(Terminator::Return { values: vec![] });
+        let func = builder.finish();
+
+        let mut lowerer = Aarch64Lowerer::new();
+        lowerer.lower_function(&func).unwrap();
+        let code = lowerer.finalize().unwrap();
+
+        let mut expected = Vec::new();
+        expected.extend_from_slice(&enc_extract(1, 1, 1, 9).to_le_bytes());
+        expected.extend_from_slice(
+            &enc_addsub_shift_regs(1, 1, 0, 0, 0, 0, 31, 0).to_le_bytes(),
+        );
+        expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
+        assert_eq!(code, expected);
+
+        let mut builder = FunctionBuilder::new(FunctionId(0), 0);
+        builder.push_op(
+            0,
             OpKind::Add {
                 dst: x(0),
                 src1: VReg::Imm(0),
@@ -9461,6 +9580,84 @@ mod tests {
         );
         expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
         assert_eq!(code, expected);
+    }
+
+    #[test]
+    fn lowers_addsub_ror_sources() {
+        let cases = [
+            (
+                OpKind::Add {
+                    dst: x(0),
+                    src1: x(1),
+                    src2: SrcOperand::Shifted {
+                        reg: x(2),
+                        shift: ShiftOp::Ror,
+                        amount: 13,
+                    },
+                    width: OpWidth::W64,
+                    flags: FlagUpdate::None,
+                },
+                enc_extract(1, 2, 2, 13),
+                enc_addsub_shift_regs(1, 0, 0, 0, 0, 0, 1, 0),
+            ),
+            (
+                OpKind::Sub {
+                    dst: x(0),
+                    src1: x(1),
+                    src2: SrcOperand::Shifted {
+                        reg: x(2),
+                        shift: ShiftOp::Ror,
+                        amount: 7,
+                    },
+                    width: OpWidth::W32,
+                    flags: FlagUpdate::None,
+                },
+                enc_extract(0, 2, 2, 7),
+                enc_addsub_shift_regs(0, 1, 0, 0, 0, 0, 1, 0),
+            ),
+        ];
+
+        for (kind, rotate, addsub) in cases {
+            let mut builder = FunctionBuilder::new(FunctionId(0), 0);
+            builder.push_op(0, kind);
+            builder.set_terminator(Terminator::Return { values: vec![] });
+            let func = builder.finish();
+
+            let mut lowerer = Aarch64Lowerer::new();
+            lowerer.lower_function(&func).unwrap();
+            let code = lowerer.finalize().unwrap();
+
+            let mut expected = Vec::new();
+            expected.extend_from_slice(&rotate.to_le_bytes());
+            expected.extend_from_slice(&addsub.to_le_bytes());
+            expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
+            assert_eq!(code, expected);
+        }
+    }
+
+    #[test]
+    fn rejects_addsub_ror_source_when_dst_is_base() {
+        let mut builder = FunctionBuilder::new(FunctionId(0), 0);
+        builder.push_op(
+            0,
+            OpKind::Add {
+                dst: x(1),
+                src1: x(1),
+                src2: SrcOperand::Shifted {
+                    reg: x(2),
+                    shift: ShiftOp::Ror,
+                    amount: 13,
+                },
+                width: OpWidth::W64,
+                flags: FlagUpdate::None,
+            },
+        );
+        builder.set_terminator(Terminator::Return { values: vec![] });
+        let func = builder.finish();
+
+        let mut lowerer = Aarch64Lowerer::new();
+        let err = lowerer.lower_function(&func).unwrap_err();
+        assert!(matches!(err, LowerError::UnsupportedOp { .. }));
     }
 
     #[test]
@@ -9872,6 +10069,62 @@ mod tests {
 
             let mut expected = Vec::new();
             expected.extend_from_slice(&first.to_le_bytes());
+            expected.extend_from_slice(&trunc.to_le_bytes());
+            expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
+            assert_eq!(code, expected);
+        }
+    }
+
+    #[test]
+    fn lowers_subword_addsub_ror_sources() {
+        let cases = [
+            (
+                OpKind::Sub {
+                    dst: x(0),
+                    src1: VReg::Imm(0),
+                    src2: SrcOperand::Shifted {
+                        reg: x(1),
+                        shift: ShiftOp::Ror,
+                        amount: 13,
+                    },
+                    width: OpWidth::W8,
+                    flags: FlagUpdate::None,
+                },
+                enc_extract(1, 1, 1, 13),
+                enc_addsub_shift_regs(1, 1, 0, 0, 0, 0, 31, 0),
+                enc_bitfield_regs(0, 0b10, 0, 7, 0, 0),
+            ),
+            (
+                OpKind::Add {
+                    dst: x(0),
+                    src1: x(1),
+                    src2: SrcOperand::Shifted {
+                        reg: x(2),
+                        shift: ShiftOp::Ror,
+                        amount: 52,
+                    },
+                    width: OpWidth::W16,
+                    flags: FlagUpdate::None,
+                },
+                enc_extract(1, 2, 2, 52),
+                enc_addsub_shift_regs(1, 0, 0, 0, 0, 0, 1, 0),
+                enc_bitfield_regs(0, 0b10, 0, 15, 0, 0),
+            ),
+        ];
+
+        for (kind, rotate, addsub, trunc) in cases {
+            let mut builder = FunctionBuilder::new(FunctionId(0), 0);
+            builder.push_op(0, kind);
+            builder.set_terminator(Terminator::Return { values: vec![] });
+            let func = builder.finish();
+
+            let mut lowerer = Aarch64Lowerer::new();
+            lowerer.lower_function(&func).unwrap();
+            let code = lowerer.finalize().unwrap();
+
+            let mut expected = Vec::new();
+            expected.extend_from_slice(&rotate.to_le_bytes());
+            expected.extend_from_slice(&addsub.to_le_bytes());
             expected.extend_from_slice(&trunc.to_le_bytes());
             expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
             assert_eq!(code, expected);

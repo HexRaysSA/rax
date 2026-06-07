@@ -5888,6 +5888,28 @@ fn push_addsub_zero_base_reg_operand_native_cases(
             0xf000_0000,
         ),
         (
+            "sub_x_zero_base_ror9_as_sub_preserves_flags",
+            OpKind::Sub {
+                dst: arm_x(0),
+                src1: VReg::Imm(0),
+                src2: SrcOperand::Shifted {
+                    reg: arm_x(1),
+                    shift: ShiftOp::Ror,
+                    amount: 9,
+                },
+                width: OpWidth::W64,
+                flags: FlagUpdate::None,
+            },
+            [
+                enc_extract(1, RN, RN, 9),
+                enc_addsub_shift_regs(1, 1, 0, 0, 0, RD, 31, RD),
+                NOP,
+            ],
+            0x5555_6666_7777_8888,
+            0x0123_4567_89ab_cdef,
+            0x5000_0000,
+        ),
+        (
             "add_x_zero_base_uxtw_lsl2_as_add_extended_preserves_flags",
             OpKind::Add {
                 dst: arm_x(0),
@@ -5989,6 +6011,28 @@ fn push_subword_addsub_zero_base_reg_operand_native_cases(
             0xc000_0000,
         ),
         (
+            "sub_w8_zero_base_ror13_as_sub_uxtb_preserves_flags",
+            OpKind::Sub {
+                dst: arm_x(0),
+                src1: VReg::Imm(0),
+                src2: SrcOperand::Shifted {
+                    reg: arm_x(1),
+                    shift: ShiftOp::Ror,
+                    amount: 13,
+                },
+                width: OpWidth::W8,
+                flags: FlagUpdate::None,
+            },
+            [
+                enc_extract(1, RN, RN, 13),
+                enc_addsub_shift_regs(1, 1, 0, 0, 0, RD, 31, RD),
+                enc_bitfield_regs(0, 0b10, 0, 7, RD, RD),
+            ],
+            0x8888_9999_aaaa_bbbb,
+            0x0123_4567_89ab_cdef,
+            0x5000_0000,
+        ),
+        (
             "sub_w8_zero_base_uxtb_lsl1_as_sub_uxtb_preserves_flags",
             OpKind::Sub {
                 dst: arm_x(0),
@@ -6076,6 +6120,29 @@ fn push_subword_addsub_reg_operand_native_cases(
             0xffff_ffff_0000_00f1,
             0xaaaa_bbbb_ccdd_0300,
             0x6000_0000,
+        ),
+        (
+            "add_w16_ror52_as_add_uxth_preserves_flags",
+            OpKind::Add {
+                dst: arm_x(0),
+                src1: arm_x(1),
+                src2: SrcOperand::Shifted {
+                    reg: arm_x(2),
+                    shift: ShiftOp::Ror,
+                    amount: 52,
+                },
+                width: OpWidth::W16,
+                flags: FlagUpdate::None,
+            },
+            [
+                enc_extract(1, RM, RM, 52),
+                enc_addsub_shift_regs(1, 0, 0, 0, 0, RD, RN, RD),
+                enc_bitfield_regs(0, 0b10, 0, 15, RD, RD),
+            ],
+            0xaaaa_bbbb_cccc_dddd,
+            0xffff_ffff_0000_0100,
+            0x0123_4567_89ab_cdef,
+            0x9000_0000,
         ),
         (
             "sub_w16_asr36_as_sub_uxth_preserves_flags",
