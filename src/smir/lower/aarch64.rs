@@ -7362,9 +7362,9 @@ impl Aarch64Lowerer {
         op_width: OpWidth,
     ) -> Result<(), LowerError> {
         let op_bits = Self::bitfield_args("Bfi", lsb, width_bits, op_width)?;
-        let dst = Self::dst_gpr(dst)?;
-        let dst_in = Self::gpr(dst_in)?;
-        let src = Self::gpr(src)?;
+        let dst = Self::dst_gpr_arm_or_x86(dst)?;
+        let dst_in = Self::gpr_arm_or_x86(dst_in)?;
+        let src = Self::gpr_arm_or_x86(src)?;
 
         if u32::from(width_bits) == op_bits && lsb == 0 {
             return self.emit_mov_reg(dst, src, op_width);
@@ -7431,9 +7431,9 @@ impl Aarch64Lowerer {
         op_width: OpWidth,
     ) -> Result<(), LowerError> {
         let op_bits = Self::bitfield_args("Bfxil", lsb, width_bits, op_width)?;
-        let dst = Self::dst_gpr(dst)?;
-        let dst_in = Self::gpr(dst_in)?;
-        let src = Self::gpr(src)?;
+        let dst = Self::dst_gpr_arm_or_x86(dst)?;
+        let dst_in = Self::gpr_arm_or_x86(dst_in)?;
+        let src = Self::gpr_arm_or_x86(src)?;
 
         if u32::from(width_bits) == op_bits && lsb == 0 {
             return self.emit_mov_reg(dst, src, op_width);
@@ -7492,8 +7492,8 @@ impl Aarch64Lowerer {
             });
         }
 
-        let dst = Self::dst_gpr(dst)?;
-        let src = Self::gpr(src)?;
+        let dst = Self::dst_gpr_arm_or_x86(dst)?;
+        let src = Self::gpr_arm_or_x86(src)?;
         if from_bits == to_bits {
             if matches!(to_width, OpWidth::W8 | OpWidth::W16) {
                 return self.emit_bitfield(dst, src, 0b10, 0, from_bits - 1, OpWidth::W32);
@@ -7530,7 +7530,11 @@ impl Aarch64Lowerer {
                 self.lower_bfx(dst, src, 0, to_width.bits() as u8, false, OpWidth::W64)
             }
             OpWidth::W32 | OpWidth::W64 => {
-                self.emit_mov_reg(Self::dst_gpr(dst)?, Self::gpr(src)?, to_width)
+                self.emit_mov_reg(
+                    Self::dst_gpr_arm_or_x86(dst)?,
+                    Self::gpr_arm_or_x86(src)?,
+                    to_width,
+                )
             }
             other => Err(LowerError::UnsupportedOp {
                 op: format!("AArch64 native Truncate width {other:?}"),
@@ -29675,6 +29679,178 @@ mod tests {
         expected.extend_from_slice(&enc_bitfield_regs(0, 0b10, 0, 15, 0, 0).to_le_bytes());
         expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
         assert_eq!(code, expected);
+    }
+
+    #[test]
+    fn lowers_bitfield_extend_truncate_apx_egpr_operands_runtime() {
+        let extracted = VReg::virt(0);
+        let bfi_dst_in = 0xaaaa_bbbb_ccdd_eeff;
+        let bfi_src = 0x1234_5678_9abc_def0;
+        let bfxil_src = 0x0fed_cba9_8765_4321;
+        let bfxil_dst_in = 0x1111_2222_3333_4444;
+        let zext_src = 0xffff_ffff_ffff_12ab;
+        let sext_src = 0x91;
+        let trunc_src = 0x1234_5678_9abc_def0;
+        let code = lower_ops(vec![
+            OpKind::Bfi {
+                dst: x86(X86Reg::R16),
+                dst_in: x86(X86Reg::R17),
+                src: x86(X86Reg::R18),
+                lsb: 8,
+                width_bits: 12,
+                op_width: OpWidth::W64,
+            },
+            OpKind::Bfx {
+                dst: extracted,
+                src: x86(X86Reg::R20),
+                lsb: 16,
+                width_bits: 8,
+                sign_extend: false,
+                op_width: OpWidth::W64,
+            },
+            OpKind::Bfi {
+                dst: x86(X86Reg::R19),
+                dst_in: x86(X86Reg::R21),
+                src: extracted,
+                lsb: 0,
+                width_bits: 8,
+                op_width: OpWidth::W64,
+            },
+            OpKind::ZeroExtend {
+                dst: x86(X86Reg::R22),
+                src: x86(X86Reg::R23),
+                from_width: OpWidth::W8,
+                to_width: OpWidth::W64,
+            },
+            OpKind::SignExtend {
+                dst: x86(X86Reg::R24),
+                src: x86(X86Reg::R25),
+                from_width: OpWidth::W8,
+                to_width: OpWidth::W16,
+            },
+            OpKind::Truncate {
+                dst: x86(X86Reg::R26),
+                src: x86(X86Reg::R27),
+                from_width: OpWidth::W64,
+                to_width: OpWidth::W32,
+            },
+        ]);
+        let regs = [
+            (17, bfi_dst_in),
+            (18, bfi_src),
+            (20, bfxil_src),
+            (21, bfxil_dst_in),
+            (23, zext_src),
+            (25, sext_src),
+            (27, trunc_src),
+            (15, 0x1515_1515_1515_1515),
+        ];
+        let old_nzcv = 0b1001;
+        let (out, out_nzcv, sp) = run_aarch64_code(&code, &regs, old_nzcv);
+
+        assert_eq!(out[16], ref_bfi(bfi_dst_in, bfi_src, 8, 12, OpWidth::W64));
+        assert_eq!(
+            out[19],
+            ref_bfxil(bfxil_dst_in, bfxil_src, 16, 8, OpWidth::W64)
+        );
+        assert_eq!(out[22], zext_src & width_mask(OpWidth::W8));
+        assert_eq!(
+            out[24],
+            sign_extend_width(sext_src, OpWidth::W8) as u64 & width_mask(OpWidth::W16)
+        );
+        assert_eq!(out[26], trunc_src & width_mask(OpWidth::W32));
+        assert_eq!(out[17], bfi_dst_in);
+        assert_eq!(out[18], bfi_src);
+        assert_eq!(out[20], bfxil_src);
+        assert_eq!(out[21], bfxil_dst_in);
+        assert_eq!(out[23], zext_src);
+        assert_eq!(out[25], sext_src);
+        assert_eq!(out[27], trunc_src);
+        assert_eq!(out[15], 0x1515_1515_1515_1515);
+        assert_eq!(out_nzcv, old_nzcv);
+        assert_eq!(sp, 0x8000);
+    }
+
+    #[test]
+    fn rejects_bitfield_extend_truncate_apx_r31_identity_mapping() {
+        for kind in [
+            OpKind::Bfi {
+                dst: x86(X86Reg::R31),
+                dst_in: x86(X86Reg::R16),
+                src: x86(X86Reg::R17),
+                lsb: 8,
+                width_bits: 8,
+                op_width: OpWidth::W64,
+            },
+            OpKind::Bfi {
+                dst: x86(X86Reg::R16),
+                dst_in: x86(X86Reg::R31),
+                src: x86(X86Reg::R17),
+                lsb: 8,
+                width_bits: 8,
+                op_width: OpWidth::W64,
+            },
+            OpKind::Bfi {
+                dst: x86(X86Reg::R16),
+                dst_in: x86(X86Reg::R17),
+                src: x86(X86Reg::R31),
+                lsb: 8,
+                width_bits: 8,
+                op_width: OpWidth::W64,
+            },
+            OpKind::ZeroExtend {
+                dst: x86(X86Reg::R31),
+                src: x86(X86Reg::R16),
+                from_width: OpWidth::W8,
+                to_width: OpWidth::W64,
+            },
+            OpKind::SignExtend {
+                dst: x86(X86Reg::R16),
+                src: x86(X86Reg::R31),
+                from_width: OpWidth::W8,
+                to_width: OpWidth::W16,
+            },
+            OpKind::Truncate {
+                dst: x86(X86Reg::R31),
+                src: x86(X86Reg::R16),
+                from_width: OpWidth::W64,
+                to_width: OpWidth::W32,
+            },
+        ] {
+            let err = try_lower_single_op(kind).unwrap_err();
+            assert!(matches!(err, LowerError::InvalidRegister(_)));
+        }
+
+        let extracted = VReg::virt(0);
+        let mut builder = FunctionBuilder::new(FunctionId(0), 0);
+        builder.push_op(
+            0,
+            OpKind::Bfx {
+                dst: extracted,
+                src: x86(X86Reg::R16),
+                lsb: 8,
+                width_bits: 8,
+                sign_extend: false,
+                op_width: OpWidth::W64,
+            },
+        );
+        builder.push_op(
+            0,
+            OpKind::Bfi {
+                dst: x86(X86Reg::R17),
+                dst_in: x86(X86Reg::R31),
+                src: extracted,
+                lsb: 0,
+                width_bits: 8,
+                op_width: OpWidth::W64,
+            },
+        );
+        builder.set_terminator(Terminator::Return { values: vec![] });
+        let func = builder.finish();
+
+        let mut lowerer = Aarch64Lowerer::new();
+        let err = lowerer.lower_function(&func).unwrap_err();
+        assert!(matches!(err, LowerError::InvalidRegister(_)));
     }
 
     #[test]
