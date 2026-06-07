@@ -4154,14 +4154,18 @@ impl Aarch64Lowerer {
             let rn = Self::gpr(src1)?;
             match width {
                 OpWidth::W8 | OpWidth::W16 => {
-                    self.emit_mov_reg(quot, rn, OpWidth::W32)?;
+                    if quot != rn {
+                        self.emit_mov_reg(quot, rn, OpWidth::W32)?;
+                    }
                     self.emit_bitfield(quot, quot, 0b10, 0, width.bits() - 1, OpWidth::W32)?;
                     if let Some(rem) = rem {
                         self.emit_mov_imm(Self::dst_gpr(rem)?, 0, OpWidth::W32)?;
                     }
                 }
                 OpWidth::W32 | OpWidth::W64 => {
-                    self.emit_mov_reg(quot, rn, width)?;
+                    if width != OpWidth::W64 || quot != rn {
+                        self.emit_mov_reg(quot, rn, width)?;
+                    }
                     if let Some(rem) = rem {
                         self.emit_mov_imm(Self::dst_gpr(rem)?, 0, width)?;
                     }
@@ -10446,6 +10450,62 @@ mod tests {
         expected.extend_from_slice(&enc_mov_reg(1, 0, 1).to_le_bytes());
         expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
         assert_eq!(code, expected);
+    }
+
+    #[test]
+    fn lowers_div_one_same_reg_as_noop_or_zero_ext() {
+        let div_cases = [
+            (
+                OpKind::DivU {
+                    quot: x(0),
+                    rem: None,
+                    src1: x(0),
+                    src2: SrcOperand::Imm(1),
+                    width: OpWidth::W64,
+                    flags: FlagUpdate::None,
+                },
+                vec![0xd65f_03c0u32],
+            ),
+            (
+                OpKind::DivS {
+                    quot: x(0),
+                    rem: None,
+                    src1: x(0),
+                    src2: SrcOperand::Imm64(1),
+                    width: OpWidth::W32,
+                    flags: FlagUpdate::None,
+                },
+                vec![enc_mov_reg(0, 0, 0), 0xd65f_03c0u32],
+            ),
+            (
+                OpKind::DivU {
+                    quot: x(0),
+                    rem: None,
+                    src1: x(0),
+                    src2: SrcOperand::Imm(1),
+                    width: OpWidth::W8,
+                    flags: FlagUpdate::None,
+                },
+                vec![enc_bitfield_regs(0, 0b10, 0, 7, 0, 0), 0xd65f_03c0u32],
+            ),
+        ];
+
+        for (op, expected_words) in div_cases {
+            let mut builder = FunctionBuilder::new(FunctionId(0), 0);
+            builder.push_op(0, op);
+            builder.set_terminator(Terminator::Return { values: vec![] });
+            let func = builder.finish();
+
+            let mut lowerer = Aarch64Lowerer::new();
+            lowerer.lower_function(&func).unwrap();
+            let code = lowerer.finalize().unwrap();
+
+            let mut expected = Vec::new();
+            for word in expected_words {
+                expected.extend_from_slice(&word.to_le_bytes());
+            }
+            assert_eq!(code, expected);
+        }
     }
 
     #[test]

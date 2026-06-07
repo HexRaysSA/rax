@@ -2268,6 +2268,68 @@ fn push_divs_imm_movn_native_cases(
 }
 
 #[cfg(all(feature = "smir-jit", target_arch = "x86_64"))]
+fn push_div_one_same_reg_native_cases(
+    cases: &mut Vec<(String, [u32; 3], [u32; 3], ArmState)>,
+    control_target: i32,
+) {
+    let div_cases = [
+        (
+            "divu_x_imm_one_same_dst_as_noop_preserves_flags",
+            OpKind::DivU {
+                quot: arm_x(0),
+                rem: None,
+                src1: arm_x(0),
+                src2: SrcOperand::Imm(1),
+                width: OpWidth::W64,
+                flags: FlagUpdate::None,
+            },
+            [0xd65f_03c0u32, NOP, NOP],
+            0x1111_2222_3333_4444,
+            0x3000_0000,
+        ),
+        (
+            "divs_w_imm_one_same_dst_as_self_mov_zero_ext_preserves_flags",
+            OpKind::DivS {
+                quot: arm_x(0),
+                rem: None,
+                src1: arm_x(0),
+                src2: SrcOperand::Imm64(1),
+                width: OpWidth::W32,
+                flags: FlagUpdate::None,
+            },
+            [enc_mov_reg(0, RD, RD), NOP, NOP],
+            0xffff_ffff_8765_4321,
+            0x6000_0000,
+        ),
+        (
+            "divu_w8_imm_one_same_dst_as_uxtb_preserves_flags",
+            OpKind::DivU {
+                quot: arm_x(0),
+                rem: None,
+                src1: arm_x(0),
+                src2: SrcOperand::Imm(1),
+                width: OpWidth::W8,
+                flags: FlagUpdate::None,
+            },
+            [enc_bitfield_regs(0, 0b10, 0, 7, RD, RD), NOP, NOP],
+            0xaaaa_bbbb_cccc_dd81,
+            0x9000_0000,
+        ),
+    ];
+
+    for (name, op, source, x0, pstate) in div_cases {
+        let mut st = ArmState::zeroed();
+        st.pc = PCREL_MAGIC;
+        st.x[30] = pcrel_marker(control_target);
+        st.x[0] = x0;
+        st.pstate = pstate;
+        let lowered = lower_aarch64_native_ops(vec![op])
+            .unwrap_or_else(|e| panic!("{name}: native lowering failed: {e}"));
+        cases.push((name.into(), source, lowered, st));
+    }
+}
+
+#[cfg(all(feature = "smir-jit", target_arch = "x86_64"))]
 fn push_mov_imm_movn_native_cases(
     cases: &mut Vec<(String, [u32; 3], [u32; 3], ArmState)>,
     control_target: i32,
@@ -10476,6 +10538,7 @@ fn smir_aarch64_native_lowering_matches_qemu_oracle() {
     push_truncate_imm_movn_native_cases(&mut cases, control_target);
     push_divu_imm_movn_native_cases(&mut cases, control_target);
     push_divs_imm_movn_native_cases(&mut cases, control_target);
+    push_div_one_same_reg_native_cases(&mut cases, control_target);
     push_mov_imm_movn_native_cases(&mut cases, control_target);
     push_mov_same_reg_native_cases(&mut cases, control_target);
     push_xchg_same_reg_native_cases(&mut cases, control_target);
