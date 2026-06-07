@@ -3140,6 +3140,34 @@ impl Aarch64Lowerer {
         Ok(())
     }
 
+    fn lower_bzhi_result_flags(
+        &mut self,
+        dst: u8,
+        result_width: OpWidth,
+        emit_width: OpWidth,
+        carry: bool,
+        subword_sign_known_clear: bool,
+    ) -> Result<(), LowerError> {
+        match result_width {
+            OpWidth::W8 | OpWidth::W16 if subword_sign_known_clear => {
+                self.lower_bmi_result_flags(dst, emit_width, carry)
+            }
+            OpWidth::W8 | OpWidth::W16 => {
+                let shift = OpWidth::W32.bits() - result_width.bits();
+                self.lower_shift_imm(dst, dst, i64::from(shift), ShiftOp::Lsl, OpWidth::W32)?;
+                self.emit_logic_reg_n(31, dst, dst, 0b11, false, OpWidth::W32)?;
+                if carry {
+                    self.emit_flagm(0b000);
+                }
+                self.lower_shift_imm(dst, dst, i64::from(shift), ShiftOp::Lsr, OpWidth::W32)
+            }
+            OpWidth::W32 | OpWidth::W64 => self.lower_bmi_result_flags(dst, emit_width, carry),
+            other => Err(LowerError::UnsupportedOp {
+                op: format!("AArch64 native Bzhi flag width {other:?}"),
+            }),
+        }
+    }
+
     fn lower_bzhi(
         &mut self,
         dst: VReg,
@@ -3157,11 +3185,6 @@ impl Aarch64Lowerer {
                 });
             }
         };
-        if set_flags && matches!(width, OpWidth::W8 | OpWidth::W16) {
-            return Err(LowerError::UnsupportedOp {
-                op: "AArch64 native flag-setting subword Bzhi".into(),
-            });
-        }
 
         if let VReg::Imm(value) = index {
             let index = ((value as u64) & 0xff) as u32;
@@ -3182,7 +3205,13 @@ impl Aarch64Lowerer {
                     self.emit_mov_imm(dst_reg, result as i64, emit_width)?;
                 }
                 if set_flags {
-                    self.lower_bmi_result_flags(dst_reg, emit_width, index >= bits)?;
+                    self.lower_bzhi_result_flags(
+                        dst_reg,
+                        width,
+                        emit_width,
+                        index >= bits,
+                        index < bits,
+                    )?;
                 }
                 return Ok(());
             }
@@ -3190,7 +3219,7 @@ impl Aarch64Lowerer {
             if index == 0 {
                 self.emit_mov_imm(dst_reg, 0, emit_width)?;
                 if set_flags {
-                    self.lower_bmi_result_flags(dst_reg, emit_width, false)?;
+                    self.lower_bzhi_result_flags(dst_reg, width, emit_width, false, true)?;
                 }
                 return Ok(());
             }
@@ -3205,7 +3234,7 @@ impl Aarch64Lowerer {
                     _ => unreachable!(),
                 }?;
                 if set_flags {
-                    self.lower_bmi_result_flags(dst_reg, emit_width, true)?;
+                    self.lower_bzhi_result_flags(dst_reg, width, emit_width, true, false)?;
                 }
                 return Ok(());
             }
@@ -3218,7 +3247,7 @@ impl Aarch64Lowerer {
             };
             self.lower_logic(dst, src, &mask, 0b00, false, false, width)?;
             if set_flags {
-                self.lower_bmi_result_flags(dst_reg, emit_width, false)?;
+                self.lower_bzhi_result_flags(dst_reg, width, emit_width, false, true)?;
             }
             return Ok(());
         }
@@ -3253,7 +3282,7 @@ impl Aarch64Lowerer {
         self.emit_dp2(dst, dst, index, 0b1000, width)?;
         self.emit_logic_reg_n(dst, src, dst, 0b00, true, width)?;
         if set_flags {
-            self.lower_bmi_result_flags(dst, width, false)?;
+            self.lower_bzhi_result_flags(dst, width, width, false, false)?;
         }
         let end_branch = self.code.position();
         self.emit(0x1400_0000);
@@ -3262,7 +3291,7 @@ impl Aarch64Lowerer {
         }
         self.emit_mov_reg(dst, src, width)?;
         if set_flags {
-            self.lower_bmi_result_flags(dst, width, true)?;
+            self.lower_bzhi_result_flags(dst, width, width, true, false)?;
         }
         self.patch_branch_to_current(end_branch)
     }
@@ -15939,6 +15968,64 @@ mod tests {
         let mut expected = Vec::new();
         expected.extend_from_slice(&enc_logical_imm(1, 0b00, 1, 0, 12, 0, 1).to_le_bytes());
         expected.extend_from_slice(&enc_logical_reg_n(1, 0b11, 0, 31, 0, 0).to_le_bytes());
+        expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
+        assert_eq!(code, expected);
+    }
+
+    #[test]
+    fn lowers_bzhi_w8_imm_index_with_flags_as_and_uxtb_ands() {
+        let mut builder = FunctionBuilder::new(FunctionId(0), 0);
+        builder.push_op(
+            0,
+            OpKind::Bzhi {
+                dst: x(0),
+                src: x(1),
+                index: VReg::Imm(5),
+                width: OpWidth::W8,
+                flags: bzhi_flags(),
+            },
+        );
+        builder.set_terminator(Terminator::Return { values: vec![] });
+        let func = builder.finish();
+
+        let mut lowerer = Aarch64Lowerer::new();
+        lowerer.lower_function(&func).unwrap();
+        let code = lowerer.finalize().unwrap();
+
+        let mut expected = Vec::new();
+        expected.extend_from_slice(&enc_logical_imm(0, 0b00, 0, 0, 4, 0, 1).to_le_bytes());
+        expected.extend_from_slice(&enc_bitfield_regs(0, 0b10, 0, 7, 0, 0).to_le_bytes());
+        expected.extend_from_slice(&enc_logical_reg_n(0, 0b11, 0, 31, 0, 0).to_le_bytes());
+        expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
+        assert_eq!(code, expected);
+    }
+
+    #[test]
+    fn lowers_bzhi_w16_imm_index_at_width_with_flags_sets_carry() {
+        let mut builder = FunctionBuilder::new(FunctionId(0), 0);
+        builder.push_op(
+            0,
+            OpKind::Bzhi {
+                dst: x(0),
+                src: x(1),
+                index: VReg::Imm(16),
+                width: OpWidth::W16,
+                flags: bzhi_flags(),
+            },
+        );
+        builder.set_terminator(Terminator::Return { values: vec![] });
+        let func = builder.finish();
+
+        let mut lowerer = Aarch64Lowerer::new();
+        lowerer.lower_function(&func).unwrap();
+        let code = lowerer.finalize().unwrap();
+
+        let mut expected = Vec::new();
+        expected.extend_from_slice(&enc_bitfield_regs(0, 0b10, 0, 15, 1, 0).to_le_bytes());
+        expected.extend_from_slice(&enc_bitfield_regs(0, 0b10, 16, 15, 0, 0).to_le_bytes());
+        expected.extend_from_slice(&enc_logical_reg_n(0, 0b11, 0, 31, 0, 0).to_le_bytes());
+        expected.extend_from_slice(&enc_flagm(0b000).to_le_bytes());
+        expected.extend_from_slice(&enc_bitfield_regs(0, 0b10, 16, 31, 0, 0).to_le_bytes());
         expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
         assert_eq!(code, expected);
     }
