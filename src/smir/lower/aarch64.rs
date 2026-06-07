@@ -5007,6 +5007,11 @@ impl Aarch64Lowerer {
                 return self.lower_mul_imm(dst_lo, src1, imm, width);
             }
         }
+        if let Some(dst_hi) = dst_hi {
+            if let Some(imm) = Self::src_imm(src2) {
+                return self.lower_mul_full_imm(dst_lo, dst_hi, src1, imm, width, signed);
+            }
+        }
         let SrcOperand::Reg(src2) = src2 else {
             return Err(LowerError::UnsupportedOp {
                 op: format!("AArch64 native multiply source {src2:?}"),
@@ -5106,6 +5111,61 @@ impl Aarch64Lowerer {
         self.emit_dp3(dst_lo, rn, rm, 31, 0b000, 0, emit_width)?;
         if matches!(width, OpWidth::W8 | OpWidth::W16) {
             self.emit_bitfield(dst_lo, dst_lo, 0b10, 0, width.bits() - 1, OpWidth::W32)?;
+        }
+        self.emit_scratch_restore(&scratches);
+        Ok(())
+    }
+
+    fn lower_mul_full_imm(
+        &mut self,
+        dst_lo: VReg,
+        dst_hi: VReg,
+        src1: VReg,
+        imm: i64,
+        width: OpWidth,
+        signed: bool,
+    ) -> Result<(), LowerError> {
+        if width != OpWidth::W64 {
+            return Err(LowerError::UnsupportedOp {
+                op: format!("AArch64 native high-half multiply width {width:?}"),
+            });
+        }
+
+        let dst_hi = Self::dst_gpr(dst_hi)?;
+        let rn = Self::gpr(src1)?;
+        let dst_lo = if matches!(dst_lo, VReg::Virtual(_)) {
+            None
+        } else {
+            Some(Self::dst_gpr(dst_lo)?)
+        };
+        if dst_lo == Some(dst_hi) {
+            return Err(LowerError::UnsupportedOp {
+                op: "AArch64 native full-width multiply with shared outputs".into(),
+            });
+        }
+
+        let mut avoid = vec![dst_hi, rn];
+        if let Some(dst_lo) = dst_lo {
+            avoid.push(dst_lo);
+        }
+        let scratches = Self::scratch_regs(&avoid, 1)?;
+        let rm = scratches[0];
+        let op31 = if signed { 0b010 } else { 0b110 };
+
+        self.emit_scratch_save(&scratches);
+        self.emit_mov_imm(rm, imm, width)?;
+        match dst_lo {
+            Some(dst_lo) if dst_lo == rn => {
+                self.emit_dp3(dst_hi, rn, rm, 31, op31, 0, width)?;
+                self.emit_dp3(dst_lo, rn, rm, 31, 0b000, 0, width)?;
+            }
+            Some(dst_lo) => {
+                self.emit_dp3(dst_lo, rn, rm, 31, 0b000, 0, width)?;
+                self.emit_dp3(dst_hi, rn, rm, 31, op31, 0, width)?;
+            }
+            None => {
+                self.emit_dp3(dst_hi, rn, rm, 31, op31, 0, width)?;
+            }
         }
         self.emit_scratch_restore(&scratches);
         Ok(())
@@ -10418,6 +10478,65 @@ mod tests {
         }
     }
 
+    fn assert_full_width_mul_imm_lowering(
+        label: &str,
+        signed: bool,
+        dst_lo: u8,
+        dst_hi: u8,
+        src1_reg: u8,
+        src1_value: u64,
+        src2: SrcOperand,
+        src2_value: u64,
+    ) {
+        let op = if signed {
+            OpKind::MulS {
+                dst_lo: x(dst_lo),
+                dst_hi: Some(x(dst_hi)),
+                src1: x(src1_reg),
+                src2,
+                width: OpWidth::W64,
+                flags: FlagUpdate::None,
+            }
+        } else {
+            OpKind::MulU {
+                dst_lo: x(dst_lo),
+                dst_hi: Some(x(dst_hi)),
+                src1: x(src1_reg),
+                src2,
+                width: OpWidth::W64,
+                flags: FlagUpdate::None,
+            }
+        };
+        let code = lower_single_op(op);
+        let product = if signed {
+            (src1_value as i64 as i128 * src2_value as i64 as i128) as u128
+        } else {
+            (src1_value as u128) * (src2_value as u128)
+        };
+        let expected_lo = product as u64;
+        let expected_hi = (product >> 64) as u64;
+        let sentinels = [
+            (16, 0x1616_1616_1616_1616),
+            (17, 0x1717_1717_1717_1717),
+            (15, 0x1515_1515_1515_1515),
+            (14, 0x1414_1414_1414_1414),
+        ];
+        let mut regs = sentinels.to_vec();
+        regs.push((src1_reg, src1_value));
+
+        let old_nzcv = 0b1010;
+        let (out, out_nzcv, sp) = run_aarch64_code(&code, &regs, old_nzcv);
+        assert_eq!(out[dst_lo as usize], expected_lo, "{label}: low half");
+        assert_eq!(out[dst_hi as usize], expected_hi, "{label}: high half");
+        assert_eq!(out_nzcv, old_nzcv, "{label}: NZCV preserved");
+        assert_eq!(sp, 0x8000, "{label}: stack restored");
+        for (reg, value) in sentinels {
+            if reg != dst_lo && reg != dst_hi && reg != src1_reg {
+                assert_eq!(out[reg as usize], value, "{label}: x{reg} restored");
+            }
+        }
+    }
+
     fn assert_div_w64_lowering(
         label: &str,
         signed: bool,
@@ -13076,6 +13195,50 @@ mod tests {
             2,
             0xffff_ffff_ffff_f123,
             0x0000_0000_0000_1357,
+        );
+    }
+
+    #[test]
+    fn lowers_full_width_multiply_with_immediate_source() {
+        assert_full_width_mul_imm_lowering(
+            "mulu_full_width_imm",
+            false,
+            0,
+            3,
+            1,
+            0xffff_0000_0000_0101,
+            SrcOperand::Imm64(0x0002_0000_0000_0011),
+            0x0002_0000_0000_0011,
+        );
+        assert_full_width_mul_imm_lowering(
+            "muls_full_width_negative_imm",
+            true,
+            0,
+            3,
+            1,
+            0xffff_ffff_ffff_f123,
+            SrcOperand::Imm(-7),
+            (-7_i64) as u64,
+        );
+        assert_full_width_mul_imm_lowering(
+            "mulu_full_width_imm_low_aliases_src1",
+            false,
+            1,
+            0,
+            1,
+            0x1234_5678_9abc_def0,
+            SrcOperand::Imm64(0x12345),
+            0x12345,
+        );
+        assert_full_width_mul_imm_lowering(
+            "muls_full_width_imm_high_aliases_src1",
+            true,
+            0,
+            1,
+            1,
+            0xffff_ffff_ffff_f123,
+            SrcOperand::Imm(-3),
+            (-3_i64) as u64,
         );
     }
 
