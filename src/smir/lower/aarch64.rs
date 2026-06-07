@@ -3249,6 +3249,48 @@ impl Aarch64Lowerer {
         Ok(())
     }
 
+    fn lower_rep_movs(
+        &mut self,
+        dst: VReg,
+        src: VReg,
+        count: VReg,
+        width: MemWidth,
+    ) -> Result<(), LowerError> {
+        let dst = Self::dst_gpr_arm_or_x86(dst)?;
+        let src = Self::dst_gpr_arm_or_x86(src)?;
+        let count = Self::dst_gpr_arm_or_x86(count)?;
+        let size = Self::mem_size(width)?;
+        let load_opc = Self::load_opc(width, SignExtend::Zero)?;
+        let stride = width.bytes() as i64;
+        let scratches = Self::scratch_regs(&[dst, src, count], 4)?;
+        let dst_addr = scratches[0];
+        let src_addr = scratches[1];
+        let remaining = scratches[2];
+        let value = scratches[3];
+
+        self.emit_scratch_save(&scratches);
+        self.emit_mov_reg(dst_addr, dst, OpWidth::W64)?;
+        self.emit_mov_reg(src_addr, src, OpWidth::W64)?;
+        self.emit_mov_reg(remaining, count, OpWidth::W64)?;
+
+        let loop_start = self.code.position();
+        let done = self.code.position();
+        self.emit(0xb400_0000 | u32::from(remaining));
+        self.emit_ldst_unsigned(value, src_addr, size, load_opc, 0);
+        self.emit_ldst_unsigned(value, dst_addr, size, 0b00, 0);
+        self.emit_addsub_imm(dst_addr, dst_addr, stride, false, false, OpWidth::W64)?;
+        self.emit_addsub_imm(src_addr, src_addr, stride, false, false, OpWidth::W64)?;
+        self.emit_addsub_imm(remaining, remaining, 1, true, false, OpWidth::W64)?;
+        self.emit_branch_to_offset(loop_start)?;
+
+        self.patch_compare_branch_to_current(done, remaining, false)?;
+        self.emit_mov_reg(dst, dst_addr, OpWidth::W64)?;
+        self.emit_mov_reg(src, src_addr, OpWidth::W64)?;
+        self.emit_mov_reg(count, remaining, OpWidth::W64)?;
+        self.emit_scratch_restore(&scratches);
+        Ok(())
+    }
+
     fn lower_leave(&mut self) -> Result<(), LowerError> {
         const X86_RSP_INDEX: u8 = 4;
         const X86_RBP_INDEX: u8 = 5;
@@ -12059,6 +12101,12 @@ impl Aarch64Lowerer {
                 count,
                 width,
             } => self.lower_rep_stos(*dst, *src, *count, *width),
+            OpKind::RepMovs {
+                dst,
+                src,
+                count,
+                width,
+            } => self.lower_rep_movs(*dst, *src, *count, *width),
             OpKind::Leave => self.lower_leave(),
             OpKind::IoIn { dst, width, .. } => self.lower_io_in(*dst, *width),
             OpKind::IoOut { width, .. } => self.lower_io_out(*width),
@@ -26437,6 +26485,194 @@ mod tests {
         builder.push_op(
             0,
             OpKind::RepStos {
+                dst: x(0),
+                src: x(1),
+                count: x(2),
+                width: MemWidth::B16,
+            },
+        );
+        builder.set_terminator(Terminator::Return { values: vec![] });
+        let func = builder.finish();
+        let mut lowerer = Aarch64Lowerer::new();
+        let err = lowerer.lower_function(&func).unwrap_err();
+        assert!(matches!(err, LowerError::UnsupportedOp { .. }));
+    }
+
+    fn ref_rep_movs_window(mut dst: Vec<u8>, src: &[u8], width: MemWidth, count: u64) -> Vec<u8> {
+        let width = width.bytes() as usize;
+        for idx in 0..count as usize {
+            let start = idx * width;
+            let end = start + width;
+            if end <= dst.len() && end <= src.len() {
+                dst[start..end].copy_from_slice(&src[start..end]);
+            }
+        }
+        dst
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    fn assert_rep_movs_runtime(
+        label: &str,
+        width: MemWidth,
+        dst_reg: u8,
+        src_reg: u8,
+        count_reg: u8,
+        dst_base: u64,
+        src_base: u64,
+        count: u64,
+    ) {
+        let code = lower_single_op(OpKind::RepMovs {
+            dst: x(dst_reg),
+            src: x(src_reg),
+            count: x(count_reg),
+            width,
+        });
+        let mut dst_initial = vec![0xa5u8; 16];
+        for (idx, byte) in dst_initial.iter_mut().enumerate() {
+            *byte ^= idx as u8;
+        }
+        let mut src_initial = vec![0u8; 16];
+        for (idx, byte) in src_initial.iter_mut().enumerate() {
+            *byte = (idx as u8).wrapping_mul(3).wrapping_add(1);
+        }
+        let sentinels = [
+            (16, 0x1616_1616_1616_1616),
+            (17, 0x1717_1717_1717_1717),
+            (15, 0x1515_1515_1515_1515),
+            (14, 0x1414_1414_1414_1414),
+        ];
+        let mut regs = sentinels.to_vec();
+        for (reg, reg_value) in [(dst_reg, dst_base), (src_reg, src_base), (count_reg, count)] {
+            if let Some((_, existing)) = regs.iter().find(|(existing, _)| *existing == reg) {
+                assert_eq!(*existing, reg_value, "{label}: conflicting x{reg} input");
+            } else {
+                regs.push((reg, reg_value));
+            }
+        }
+
+        let (out, _, out_mem) = run_aarch64_code_with_regs_simd_and_memory(
+            &code,
+            &regs,
+            &[],
+            &[(dst_base, &dst_initial), (src_base, &src_initial)],
+            dst_base,
+            dst_initial.len(),
+        );
+        let expected_dst = ref_rep_movs_window(dst_initial, &src_initial, width, count);
+        let expected_delta = u64::from(width.bytes()).wrapping_mul(count);
+
+        assert_eq!(out_mem, expected_dst, "{label}: destination memory");
+        assert_eq!(
+            out[dst_reg as usize],
+            dst_base.wrapping_add(expected_delta),
+            "{label}: final dst"
+        );
+        assert_eq!(
+            out[src_reg as usize],
+            src_base.wrapping_add(expected_delta),
+            "{label}: final src"
+        );
+        assert_eq!(out[count_reg as usize], 0, "{label}: final count");
+        assert_eq!(out[30], code.len() as u64, "{label}: link register");
+        assert_eq!(out[16], 0x1616_1616_1616_1616, "{label}: x16 restored");
+        assert_eq!(out[17], 0x1717_1717_1717_1717, "{label}: x17 restored");
+        assert_eq!(out[15], 0x1515_1515_1515_1515, "{label}: x15 restored");
+        assert_eq!(out[14], 0x1414_1414_1414_1414, "{label}: x14 restored");
+    }
+
+    #[test]
+    fn lowers_rep_movs_runtime() {
+        assert_rep_movs_runtime("b2_count3", MemWidth::B2, 0, 1, 2, 0x9100, 0x9000, 3);
+        assert_rep_movs_runtime("zero_count", MemWidth::B4, 0, 1, 2, 0x9140, 0x9040, 0);
+    }
+
+    #[test]
+    fn lowers_rep_movs_apx_egpr_operands_runtime() {
+        let code = lower_single_op(OpKind::RepMovs {
+            dst: x86(X86Reg::R16),
+            src: x86(X86Reg::R17),
+            count: x86(X86Reg::R18),
+            width: MemWidth::B4,
+        });
+        let dst_base = 0x9100;
+        let src_base = 0x9000;
+        let count = 2;
+        let dst_initial = [
+            0xf0, 0xf1, 0xf2, 0xf3, 0xf4, 0xf5, 0xf6, 0xf7, 0xf8, 0xf9, 0xfa, 0xfb,
+        ];
+        let src_initial = [
+            0x10, 0x11, 0x12, 0x13, 0x20, 0x21, 0x22, 0x23, 0x30, 0x31, 0x32, 0x33,
+        ];
+        let regs = [
+            (0, 0x0101_0101_0101_0101),
+            (1, 0x0202_0202_0202_0202),
+            (16, dst_base),
+            (17, src_base),
+            (18, count),
+            (19, 0x1919_1919_1919_1919),
+        ];
+        let (out, _, out_mem) = run_aarch64_code_with_regs_simd_and_memory(
+            &code,
+            &regs,
+            &[],
+            &[(dst_base, &dst_initial), (src_base, &src_initial)],
+            dst_base,
+            dst_initial.len(),
+        );
+
+        let expected_dst =
+            ref_rep_movs_window(dst_initial.to_vec(), &src_initial, MemWidth::B4, count);
+        assert_eq!(out_mem, expected_dst);
+        assert_eq!(out[16], dst_base + count * u64::from(MemWidth::B4.bytes()));
+        assert_eq!(out[17], src_base + count * u64::from(MemWidth::B4.bytes()));
+        assert_eq!(out[18], 0);
+        assert_eq!(out[19], 0x1919_1919_1919_1919);
+        assert_eq!(out[0], 0x0101_0101_0101_0101);
+        assert_eq!(out[1], 0x0202_0202_0202_0202);
+    }
+
+    #[test]
+    fn rejects_rep_movs_apx_r31_identity_mapping() {
+        for (label, dst, src, count) in [
+            (
+                "dst",
+                x86(X86Reg::R31),
+                x86(X86Reg::R17),
+                x86(X86Reg::R18),
+            ),
+            (
+                "src",
+                x86(X86Reg::R16),
+                x86(X86Reg::R31),
+                x86(X86Reg::R18),
+            ),
+            (
+                "count",
+                x86(X86Reg::R16),
+                x86(X86Reg::R17),
+                x86(X86Reg::R31),
+            ),
+        ] {
+            let err = try_lower_single_op(OpKind::RepMovs {
+                dst,
+                src,
+                count,
+                width: MemWidth::B8,
+            })
+            .unwrap_err();
+            assert!(
+                matches!(err, LowerError::InvalidRegister(_)),
+                "{label}: {err:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn rejects_rep_movs_unsupported_width() {
+        let mut builder = FunctionBuilder::new(FunctionId(0), 0);
+        builder.push_op(
+            0,
+            OpKind::RepMovs {
                 dst: x(0),
                 src: x(1),
                 count: x(2),
