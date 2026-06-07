@@ -5554,6 +5554,173 @@ impl Aarch64Lowerer {
         self.emit_sysreg(flags, ArmReg::Nzcv, false)
     }
 
+    fn rotate_count_mask(width: OpWidth) -> Result<u64, LowerError> {
+        match width {
+            OpWidth::W8 | OpWidth::W16 | OpWidth::W32 => Ok(0x1f),
+            OpWidth::W64 => Ok(0x3f),
+            other => Err(LowerError::UnsupportedOp {
+                op: format!("AArch64 native flag-setting rotate width {other:?}"),
+            }),
+        }
+    }
+
+    fn emit_rotate_overflow_from_result(
+        &mut self,
+        flags: u8,
+        temp: u8,
+        result: u8,
+        width: OpWidth,
+        right: bool,
+    ) -> Result<(), LowerError> {
+        let emit_width = Self::shift_emit_width(width)?;
+        let top_bit = width.bits() - 1;
+        if right {
+            self.emit_logic_shifted(temp, result, result, 0b10, false, 0, 1, emit_width)?;
+            let no_overflow = self.code.position();
+            self.emit_test_branch(temp, top_bit, false, 0)?;
+            self.emit_or_nzcv_const(flags, temp, NZCV_V)?;
+            self.patch_test_branch_to_current(no_overflow, temp, top_bit, false)
+        } else {
+            self.emit_logic_shifted(temp, result, result, 0b10, false, 1, top_bit, emit_width)?;
+            let no_overflow = self.code.position();
+            self.emit_test_branch(temp, 0, false, 0)?;
+            self.emit_or_nzcv_const(flags, temp, NZCV_V)?;
+            self.patch_test_branch_to_current(no_overflow, temp, 0, false)
+        }
+    }
+
+    fn emit_finalize_rotate_flags(
+        &mut self,
+        saved_flags: u8,
+        flags: u8,
+        temp: u8,
+        result: u8,
+        count_reg: Option<u8>,
+        imm_count: Option<u32>,
+        width: OpWidth,
+        right: bool,
+    ) -> Result<(), LowerError> {
+        let top_bit = width.bits() - 1;
+        self.emit_keep_nz_flags(flags, saved_flags)?;
+
+        let carry_bit = if right { top_bit } else { 0 };
+        let no_carry = self.code.position();
+        self.emit_test_branch(result, carry_bit, false, 0)?;
+        self.emit_or_nzcv_const(flags, temp, NZCV_C)?;
+        self.patch_test_branch_to_current(no_carry, result, carry_bit, false)?;
+
+        if let Some(count) = imm_count {
+            if count == 1 {
+                self.emit_rotate_overflow_from_result(flags, temp, result, width, right)?;
+            }
+        } else {
+            let count = count_reg.expect("register-count rotate flags need a count register");
+            self.emit_addsub_imm(31, count, 1, true, true, OpWidth::W64)?;
+            let not_one = self.code.position();
+            self.emit(0x5400_0000 | Self::arm_cond_code(Condition::Ne)?);
+            self.emit_rotate_overflow_from_result(flags, temp, result, width, right)?;
+            self.patch_cond_branch_to_current(not_one, Self::arm_cond_code(Condition::Ne)?)?;
+        }
+
+        self.emit_sysreg(flags, ArmReg::Nzcv, false)
+    }
+
+    fn lower_rotate_with_flags(
+        &mut self,
+        dst: u8,
+        src: u8,
+        amount: &SrcOperand,
+        width: OpWidth,
+        right: bool,
+    ) -> Result<(), LowerError> {
+        Self::shift_emit_width(width)?;
+        let mask = Self::rotate_count_mask(width)?;
+        let bits = width.bits();
+
+        match amount {
+            SrcOperand::Imm(imm) | SrcOperand::Imm64(imm) => {
+                let count = (*imm as u64 & mask) as u32;
+                let rotate = count % bits;
+                let ror = if right {
+                    rotate
+                } else if rotate == 0 {
+                    0
+                } else {
+                    bits - rotate
+                };
+                if count == 0 {
+                    return self.lower_shift_imm(dst, src, i64::from(ror), ShiftOp::Ror, width);
+                }
+
+                let scratches = Self::scratch_regs(&[dst, src], 3)?;
+                let saved_flags = scratches[0];
+                let flags = scratches[1];
+                let temp = scratches[2];
+                self.emit_scratch_save(&scratches);
+                self.emit_sysreg(saved_flags, ArmReg::Nzcv, true)?;
+                self.lower_shift_imm(dst, src, i64::from(ror), ShiftOp::Ror, width)?;
+                self.emit_finalize_rotate_flags(
+                    saved_flags,
+                    flags,
+                    temp,
+                    dst,
+                    None,
+                    Some(count),
+                    width,
+                    right,
+                )?;
+                self.emit_scratch_restore(&scratches);
+                Ok(())
+            }
+            SrcOperand::Reg(reg) => {
+                let amount = Self::gpr(*reg)?;
+                let scratch_count = if right { 4 } else { 5 };
+                let scratches = Self::scratch_regs(&[dst, src, amount], scratch_count)?;
+                let saved_flags = scratches[0];
+                let flags = scratches[1];
+                let temp = scratches[2];
+                let count = scratches[3];
+                self.emit_scratch_save(&scratches);
+                self.emit_sysreg(saved_flags, ArmReg::Nzcv, true)?;
+                self.emit_mov_reg(count, amount, OpWidth::W64)?;
+                let (imm_n, immr, imms) = Self::logical_bitmask_imm(mask as i64, OpWidth::W64)?;
+                self.emit_logic_imm(count, count, 0b00, imm_n, immr, imms, OpWidth::W64)?;
+
+                let zero_count = self.code.position();
+                self.emit(0xb400_0000 | u32::from(count));
+                let rotate_count = if right {
+                    count
+                } else {
+                    let rotate_count = scratches[4];
+                    self.emit_addsub_reg(rotate_count, 31, count, true, false, OpWidth::W64)?;
+                    rotate_count
+                };
+                self.lower_shift_reg(dst, src, rotate_count, ShiftOp::Ror, width)?;
+                self.emit_finalize_rotate_flags(
+                    saved_flags,
+                    flags,
+                    temp,
+                    dst,
+                    Some(count),
+                    None,
+                    width,
+                    right,
+                )?;
+                self.emit_scratch_restore(&scratches);
+                let done = self.code.position();
+                self.emit(0x1400_0000);
+
+                self.patch_compare_branch_to_current(zero_count, count, false)?;
+                self.lower_shift_imm(dst, src, 0, ShiftOp::Ror, width)?;
+                self.emit_scratch_restore(&scratches);
+                self.patch_branch_to_current(done)
+            }
+            other => Err(LowerError::UnsupportedOp {
+                op: format!("AArch64 native rotate amount {other:?}"),
+            }),
+        }
+    }
+
     fn lower_shift_with_flags(
         &mut self,
         dst: u8,
@@ -5562,7 +5729,10 @@ impl Aarch64Lowerer {
         shift: ShiftOp,
         width: OpWidth,
     ) -> Result<(), LowerError> {
-        if matches!(shift, ShiftOp::Ror | ShiftOp::Rrx) {
+        if shift == ShiftOp::Ror {
+            return self.lower_rotate_with_flags(dst, src, amount, width, true);
+        }
+        if shift == ShiftOp::Rrx {
             return Err(LowerError::UnsupportedOp {
                 op: format!("AArch64 native flag-setting {shift:?}"),
             });
@@ -5671,14 +5841,12 @@ impl Aarch64Lowerer {
         set_flags: bool,
         width: OpWidth,
     ) -> Result<(), LowerError> {
-        if set_flags {
-            return Err(LowerError::UnsupportedOp {
-                op: "AArch64 native flag-setting Rol".into(),
-            });
-        }
-
         let dst = Self::dst_gpr(dst)?;
         let src = Self::gpr(src)?;
+        if set_flags {
+            return self.lower_rotate_with_flags(dst, src, amount, width, false);
+        }
+
         let bits = width.bits();
         match amount {
             SrcOperand::Imm(imm) | SrcOperand::Imm64(imm) => {
@@ -8225,6 +8393,53 @@ mod tests {
         }
     }
 
+    fn ref_ror_reg(src: u64, amount: u64, width: OpWidth) -> u64 {
+        let bits = width.bits();
+        let mask = width_mask(width);
+        let src = src & mask;
+        let cmask = if width == OpWidth::W64 { 0x3f } else { 0x1f };
+        let count = ((amount & cmask) as u32) % bits;
+        if count == 0 {
+            src
+        } else {
+            ((src >> count) | (src << (bits - count))) & mask
+        }
+    }
+
+    fn expected_rotate_nzcv(
+        old_nzcv: u8,
+        result: u64,
+        amount: u64,
+        width: OpWidth,
+        flags: FlagUpdate,
+        right: bool,
+    ) -> u8 {
+        let cmask = if width == OpWidth::W64 { 0x3f } else { 0x1f };
+        let masked = amount & cmask;
+        if masked == 0 || !flags.updates_any() {
+            return old_nzcv;
+        }
+
+        let sign = 1_u64 << (width.bits() - 1);
+        let carry = if right {
+            (result & sign) != 0
+        } else {
+            (result & 1) != 0
+        };
+        let overflow = if masked == 1 {
+            if right {
+                let second = (result & (sign >> 1)) != 0;
+                carry != second
+            } else {
+                carry != ((result & sign) != 0)
+            }
+        } else {
+            false
+        };
+
+        (old_nzcv & 0b1100) | ((carry as u8) << 1) | (overflow as u8)
+    }
+
     fn ref_double_shift_imm(dst: u64, src: u64, amount: i64, left: bool, width: OpWidth) -> u64 {
         let bits = width.bits();
         let mask = width_mask(width);
@@ -8828,6 +9043,85 @@ mod tests {
         let expected = ref_shift_reg(src_value, amount_value, shift, width);
         let expected_nzcv =
             expected_shift_nzcv(old_nzcv, src_value, amount_value, shift, width, flags);
+        let sentinels = [
+            (16, 0x1616_1616_1616_1616),
+            (17, 0x1717_1717_1717_1717),
+            (15, 0x1515_1515_1515_1515),
+            (14, 0x1414_1414_1414_1414),
+        ];
+        let mut regs = sentinels.to_vec();
+        regs.push((src_reg, src_value));
+        if let Some(amount_reg) = amount_reg {
+            regs.push((amount_reg, amount_value));
+        }
+
+        let (out, out_nzcv, sp) = run_aarch64_code(&code, &regs, old_nzcv);
+        assert_eq!(
+            out[dst_reg as usize] & width_mask(width),
+            expected,
+            "{label}: result"
+        );
+        assert_eq!(out_nzcv, expected_nzcv, "{label}: NZCV");
+        assert_eq!(sp, 0x8000, "{label}: stack restored");
+        if src_reg != dst_reg {
+            assert_eq!(out[src_reg as usize], src_value, "{label}: src preserved");
+        }
+        if let Some(amount_reg) = amount_reg {
+            if amount_reg != dst_reg {
+                assert_eq!(
+                    out[amount_reg as usize],
+                    amount_value,
+                    "{label}: count preserved"
+                );
+            }
+        }
+        for (reg, value) in sentinels {
+            if reg != src_reg && amount_reg != Some(reg) && reg != dst_reg {
+                assert_eq!(out[reg as usize], value, "{label}: x{reg} restored");
+            }
+        }
+    }
+
+    fn assert_rotate_flags_lowering(
+        label: &str,
+        right: bool,
+        src_reg: u8,
+        src_value: u64,
+        amount_reg: Option<u8>,
+        amount_value: u64,
+        width: OpWidth,
+        dst_reg: u8,
+        old_nzcv: u8,
+    ) {
+        let amount = amount_reg
+            .map(|reg| SrcOperand::Reg(x(reg)))
+            .unwrap_or_else(|| SrcOperand::Imm(amount_value as i64));
+        let flags = FlagUpdate::All;
+        let op = if right {
+            OpKind::Ror {
+                dst: x(dst_reg),
+                src: x(src_reg),
+                amount,
+                width,
+                flags,
+            }
+        } else {
+            OpKind::Rol {
+                dst: x(dst_reg),
+                src: x(src_reg),
+                amount,
+                width,
+                flags,
+            }
+        };
+        let code = lower_single_op(op);
+        let expected = if right {
+            ref_ror_reg(src_value, amount_value, width)
+        } else {
+            ref_rol_reg(src_value, amount_value, width)
+        };
+        let expected_nzcv =
+            expected_rotate_nzcv(old_nzcv, expected, amount_value, width, flags, right);
         let sentinels = [
             (16, 0x1616_1616_1616_1616),
             (17, 0x1717_1717_1717_1717),
@@ -16876,24 +17170,73 @@ mod tests {
     }
 
     #[test]
-    fn rejects_flag_setting_rol_lowering() {
-        let mut builder = FunctionBuilder::new(FunctionId(0), 0);
-        builder.push_op(
+    fn lowers_flag_setting_rotate_runtime() {
+        assert_rotate_flags_lowering(
+            "rol_x_imm1_flags",
+            false,
+            1,
+            0x8000_0000_0000_0001,
+            None,
+            1,
+            OpWidth::W64,
             0,
-            OpKind::Rol {
-                dst: x(0),
-                src: x(1),
-                amount: SrcOperand::Imm(1),
-                width: OpWidth::W64,
-                flags: FlagUpdate::All,
-            },
+            0b1100,
         );
-        builder.set_terminator(Terminator::Return { values: vec![] });
-        let func = builder.finish();
-
-        let mut lowerer = Aarch64Lowerer::new();
-        let err = lowerer.lower_function(&func).unwrap_err();
-        assert!(matches!(err, LowerError::UnsupportedOp { .. }));
+        assert_rotate_flags_lowering(
+            "ror_w_imm1_flags",
+            true,
+            1,
+            0x3,
+            None,
+            1,
+            OpWidth::W32,
+            0,
+            0b0100,
+        );
+        assert_rotate_flags_lowering(
+            "rol_w16_imm16_updates_carry_and_clears_overflow",
+            false,
+            1,
+            0x8001,
+            None,
+            16,
+            OpWidth::W16,
+            0,
+            0b1001,
+        );
+        assert_rotate_flags_lowering(
+            "ror_w8_reg32_preserves_flags",
+            true,
+            1,
+            0x81,
+            Some(2),
+            32,
+            OpWidth::W8,
+            0,
+            0b1011,
+        );
+        assert_rotate_flags_lowering(
+            "rol_w8_reg9_aliases_count",
+            false,
+            1,
+            0x81,
+            Some(2),
+            9,
+            OpWidth::W8,
+            2,
+            0b0100,
+        );
+        assert_rotate_flags_lowering(
+            "ror_x_reg4_flags",
+            true,
+            1,
+            0x10,
+            Some(2),
+            4,
+            OpWidth::W64,
+            0,
+            0b1001,
+        );
     }
 
     #[test]
