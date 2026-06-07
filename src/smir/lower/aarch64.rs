@@ -2327,9 +2327,13 @@ impl Aarch64Lowerer {
                 let width = Self::simd_lane_width(elem, lanes)?;
                 self.lower_vlogic(dst, src1, src2, width, SimdLogicOp::OrNot)
             }
-            VLaneOp::Not => Err(LowerError::UnsupportedOp {
-                op: "AArch64 native VLane Not".to_string(),
-            }),
+            VLaneOp::Not => {
+                let rd = Self::fp_reg(dst)?;
+                let rn = Self::fp_reg(src1)?;
+                let q = Self::simd_vec_q(Self::simd_lane_width(elem, lanes)?)?;
+                self.emit_simd_two_reg_misc(rd, rn, q, 1, 0, 0b00101);
+                Ok(())
+            }
             VLaneOp::AddSat => {
                 self.lower_vlane_three_same(dst, src1, src2, elem, lanes, signed, 0b00001, true)
             }
@@ -18561,6 +18565,16 @@ mod tests {
                 signed: true,
                 set_ovf: false,
             },
+            OpKind::VLane {
+                dst: v(12),
+                src1: v(1),
+                src2: v(2),
+                elem: VecElementType::I64,
+                lanes: 2,
+                op: VLaneOp::Not,
+                signed: false,
+                set_ovf: false,
+            },
         ]);
 
         let (_, simd, _) = run_aarch64_code_with_regs_and_simd(
@@ -18607,6 +18621,10 @@ mod tests {
         assert_eq!(
             simd[11],
             apply_vlane(a_low, a_high, b_low, b_high, 2, 4, VLaneOp::Mul, true)
+        );
+        assert_eq!(
+            simd[12],
+            apply_vlane(a_low, a_high, b_low, b_high, 8, 2, VLaneOp::Not, false)
         );
     }
 
@@ -19441,17 +19459,6 @@ mod tests {
             elem: VecElementType::I32,
             lanes: 8,
             op: VLaneOp::And,
-            signed: false,
-            set_ovf: false,
-        });
-
-        assert_unsupported(OpKind::VLane {
-            dst: v(0),
-            src1: v(1),
-            src2: v(2),
-            elem: VecElementType::I32,
-            lanes: 4,
-            op: VLaneOp::Not,
             signed: false,
             set_ovf: false,
         });
