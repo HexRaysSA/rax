@@ -5250,7 +5250,7 @@ impl Aarch64Lowerer {
         signed: bool,
     ) -> Result<(), LowerError> {
         let rd = Self::fp_reg(dst)?;
-        let rn = Self::gpr(src)?;
+        let rn = Self::gpr_arm_or_x86(src)?;
         match int_width {
             OpWidth::W32 | OpWidth::W64 => {
                 self.emit_int_to_fp(rd, rn, int_width, fp_precision, signed)
@@ -5286,7 +5286,7 @@ impl Aarch64Lowerer {
         signed: bool,
         _round: FpRoundMode,
     ) -> Result<(), LowerError> {
-        let rd = Self::dst_gpr(dst)?;
+        let rd = Self::dst_gpr_arm_or_x86(dst)?;
         let rn = Self::fp_reg(src)?;
         match int_width {
             OpWidth::W8 | OpWidth::W16 => {
@@ -19412,6 +19412,110 @@ mod tests {
             4_294_967_297.0,
             1,
         );
+    }
+
+    #[test]
+    fn lowers_scalar_fp_int_conversion_apx_egpr_operands_runtime() {
+        let code = lower_ops(vec![
+            OpKind::IntToFp {
+                dst: v(2),
+                src: x86(X86Reg::R17),
+                int_width: OpWidth::W64,
+                fp_precision: FpPrecision::F64,
+                signed: false,
+            },
+            OpKind::IntToFp {
+                dst: v(3),
+                src: x86(X86Reg::R18),
+                int_width: OpWidth::W8,
+                fp_precision: FpPrecision::F32,
+                signed: true,
+            },
+            OpKind::FpToInt {
+                dst: x86(X86Reg::R19),
+                src: v(4),
+                fp_precision: FpPrecision::F32,
+                int_width: OpWidth::W32,
+                signed: true,
+                round: FpRoundMode::RoundTowardZero,
+            },
+            OpKind::FpToInt {
+                dst: x86(X86Reg::R20),
+                src: v(5),
+                fp_precision: FpPrecision::F64,
+                int_width: OpWidth::W16,
+                signed: false,
+                round: FpRoundMode::RoundNearest,
+            },
+        ]);
+        let regs = [
+            (16, 0x1616_1616_1616_1616),
+            (17, 1_234_567_890_123),
+            (18, 0xff),
+            (21, 0x2121_2121_2121_2121),
+        ];
+        let simd_regs = [
+            (2, 0xffff_ffff_ffff_ffff, 0x2222_2222_2222_2222),
+            (3, 0xffff_ffff_ffff_ffff, 0x3333_3333_3333_3333),
+            (
+                4,
+                u64::from((-7.9_f32).to_bits()),
+                0x4444_4444_4444_4444,
+            ),
+            (5, 65_537.0_f64.to_bits(), 0x5555_5555_5555_5555),
+        ];
+        let (regs, simd, sp) = run_aarch64_code_with_regs_and_simd(&code, &regs, &simd_regs);
+
+        assert_eq!(simd[2], (1_234_567_890_123.0_f64.to_bits(), 0));
+        assert_eq!(simd[3], (u64::from((-1.0_f32).to_bits()), 0));
+        assert_eq!(regs[19], u64::from((-7_i32) as u32));
+        assert_eq!(regs[20], 1);
+        assert_eq!(regs[16], 0x1616_1616_1616_1616);
+        assert_eq!(regs[17], 1_234_567_890_123);
+        assert_eq!(regs[18], 0xff);
+        assert_eq!(regs[21], 0x2121_2121_2121_2121);
+        assert_eq!(simd[4], (u64::from((-7.9_f32).to_bits()), 0x4444_4444_4444_4444));
+        assert_eq!(simd[5], (65_537.0_f64.to_bits(), 0x5555_5555_5555_5555));
+        assert_eq!(sp, 0x8000);
+    }
+
+    #[test]
+    fn rejects_scalar_fp_int_conversion_apx_r31_identity_mapping() {
+        for kind in [
+            OpKind::IntToFp {
+                dst: v(0),
+                src: x86(X86Reg::R31),
+                int_width: OpWidth::W64,
+                fp_precision: FpPrecision::F64,
+                signed: false,
+            },
+            OpKind::IntToFp {
+                dst: v(0),
+                src: x86(X86Reg::R31),
+                int_width: OpWidth::W8,
+                fp_precision: FpPrecision::F32,
+                signed: true,
+            },
+            OpKind::FpToInt {
+                dst: x86(X86Reg::R31),
+                src: v(0),
+                fp_precision: FpPrecision::F64,
+                int_width: OpWidth::W64,
+                signed: false,
+                round: FpRoundMode::RoundTowardZero,
+            },
+            OpKind::FpToInt {
+                dst: x86(X86Reg::R31),
+                src: v(0),
+                fp_precision: FpPrecision::F32,
+                int_width: OpWidth::W8,
+                signed: true,
+                round: FpRoundMode::RoundTowardZero,
+            },
+        ] {
+            let err = try_lower_single_op(kind).unwrap_err();
+            assert!(matches!(err, LowerError::InvalidRegister(_)));
+        }
     }
 
     #[test]
