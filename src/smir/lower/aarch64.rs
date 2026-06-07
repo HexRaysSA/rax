@@ -1293,6 +1293,88 @@ impl Aarch64Lowerer {
         Ok((scratches, addr))
     }
 
+    fn lower_base_index_scale_to_scratch(
+        &mut self,
+        avoid: &[u8],
+        base: Option<VReg>,
+        index: VReg,
+        scale: u8,
+        disp: i32,
+    ) -> Result<(Vec<u8>, u8), LowerError> {
+        let shift = Self::lea_scale_shift(scale)?;
+        let base_reg = base.map(Self::base_gpr).transpose()?;
+        let index_reg = Self::gpr(index)?;
+        let disp = i64::from(disp);
+        let needs_disp_reg = disp != 0 && !Self::signed_addsub_imm_fits(disp);
+
+        let mut avoid = avoid.to_vec();
+        if let Some(base_reg) = base_reg {
+            if base_reg < 31 {
+                avoid.push(base_reg);
+            }
+        }
+        if index_reg < 31 {
+            avoid.push(index_reg);
+        }
+
+        let scratches = Self::scratch_regs(&avoid, 1 + usize::from(needs_disp_reg))?;
+        let addr = scratches[0];
+        let disp_reg = scratches.get(1).copied();
+        self.emit_scratch_save(&scratches);
+
+        match base_reg {
+            Some(31) => {
+                let saved_sp_delta = (scratches.len() as i64) * 16;
+                self.emit_add_signed_imm(addr, 31, saved_sp_delta, OpWidth::W64)?;
+                self.emit_addsub_shifted(
+                    addr,
+                    addr,
+                    index_reg,
+                    false,
+                    false,
+                    0,
+                    shift,
+                    OpWidth::W64,
+                )?;
+            }
+            Some(base_reg) => {
+                self.emit_addsub_shifted(
+                    addr,
+                    base_reg,
+                    index_reg,
+                    false,
+                    false,
+                    0,
+                    shift,
+                    OpWidth::W64,
+                )?;
+            }
+            None => {
+                self.emit_addsub_shifted(
+                    addr,
+                    31,
+                    index_reg,
+                    false,
+                    false,
+                    0,
+                    shift,
+                    OpWidth::W64,
+                )?;
+            }
+        }
+
+        if disp != 0 {
+            if let Some(disp_reg) = disp_reg {
+                self.emit_mov_imm(disp_reg, disp, OpWidth::W64)?;
+                self.emit_addsub_reg(addr, addr, disp_reg, false, false, OpWidth::W64)?;
+            } else {
+                self.emit_add_signed_imm(addr, addr, disp, OpWidth::W64)?;
+            }
+        }
+
+        Ok((scratches, addr))
+    }
+
     fn lower_mem_access(
         &mut self,
         rt: u8,
@@ -1917,6 +1999,22 @@ impl Aarch64Lowerer {
         width: MemWidth,
         load: bool,
     ) -> Result<(), LowerError> {
+        if let Address::BaseIndexScale {
+            base,
+            index,
+            scale,
+            disp,
+            ..
+        } = addr
+        {
+            let (opc, _) = Self::pair_width(width)?;
+            let (scratches, addr) =
+                self.lower_base_index_scale_to_scratch(&[rt, rt2], *base, *index, *scale, *disp)?;
+            self.emit_ldst_pair(rt, rt2, addr, opc, load, 0, 0b10);
+            self.emit_scratch_restore(&scratches);
+            return Ok(());
+        }
+
         let (base_vreg, base, offset) = match addr {
             Address::Direct(base) => (*base, Self::base_gpr(*base)?, 0),
             Address::BaseOffset { base, offset, .. } => {
@@ -2052,80 +2150,13 @@ impl Aarch64Lowerer {
         size: u32,
         opc: u32,
     ) -> Result<(), LowerError> {
-        let shift = Self::lea_scale_shift(scale)?;
-        let base_reg = base.map(Self::base_gpr).transpose()?;
-        let index_reg = Self::gpr(index)?;
-        let disp = i64::from(disp);
-        let needs_disp_reg = disp != 0 && !Self::signed_addsub_imm_fits(disp);
-
         let mut avoid = Vec::new();
         if rt < 31 {
             avoid.push(rt);
         }
-        if let Some(base_reg) = base_reg {
-            if base_reg < 31 {
-                avoid.push(base_reg);
-            }
-        }
-        if index_reg < 31 {
-            avoid.push(index_reg);
-        }
 
-        let scratches = Self::scratch_regs(&avoid, 1 + usize::from(needs_disp_reg))?;
-        let addr = scratches[0];
-        let disp_reg = scratches.get(1).copied();
-        self.emit_scratch_save(&scratches);
-
-        match base_reg {
-            Some(31) => {
-                let saved_sp_delta = (scratches.len() as i64) * 16;
-                self.emit_add_signed_imm(addr, 31, saved_sp_delta, OpWidth::W64)?;
-                self.emit_addsub_shifted(
-                    addr,
-                    addr,
-                    index_reg,
-                    false,
-                    false,
-                    0,
-                    shift,
-                    OpWidth::W64,
-                )?;
-            }
-            Some(base_reg) => {
-                self.emit_addsub_shifted(
-                    addr,
-                    base_reg,
-                    index_reg,
-                    false,
-                    false,
-                    0,
-                    shift,
-                    OpWidth::W64,
-                )?;
-            }
-            None => {
-                self.emit_addsub_shifted(
-                    addr,
-                    31,
-                    index_reg,
-                    false,
-                    false,
-                    0,
-                    shift,
-                    OpWidth::W64,
-                )?;
-            }
-        }
-
-        if disp != 0 {
-            if let Some(disp_reg) = disp_reg {
-                self.emit_mov_imm(disp_reg, disp, OpWidth::W64)?;
-                self.emit_addsub_reg(addr, addr, disp_reg, false, false, OpWidth::W64)?;
-            } else {
-                self.emit_add_signed_imm(addr, addr, disp, OpWidth::W64)?;
-            }
-        }
-
+        let (scratches, addr) =
+            self.lower_base_index_scale_to_scratch(&avoid, base, index, scale, disp)?;
         self.emit_ldst_unsigned(rt, addr, size, opc, 0);
         self.emit_scratch_restore(&scratches);
         Ok(())
@@ -18989,6 +19020,85 @@ mod tests {
         expected.extend_from_slice(&enc_ldst_simm_regs(3, 0b01, 0b01, 16, 16, 31).to_le_bytes());
         expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
         assert_eq!(code, expected);
+    }
+
+    #[test]
+    fn lowers_load_pair_base_index_scale_via_scratch() {
+        let mut builder = FunctionBuilder::new(FunctionId(0), 0);
+        builder.push_op(
+            0,
+            OpKind::LoadPair {
+                dst1: x(0),
+                dst2: x(2),
+                addr: Address::BaseIndexScale {
+                    base: Some(x(1)),
+                    index: x(3),
+                    scale: 8,
+                    disp: 0,
+                    disp_size: DispSize::Auto,
+                },
+                width: MemWidth::B8,
+            },
+        );
+        builder.set_terminator(Terminator::Return { values: vec![] });
+        let func = builder.finish();
+
+        let mut lowerer = Aarch64Lowerer::new();
+        lowerer.lower_function(&func).unwrap();
+        let code = lowerer.finalize().unwrap();
+
+        let mut expected = Vec::new();
+        expected.extend_from_slice(&enc_ldst_simm_regs(3, 0b00, 0b11, -16, 16, 31).to_le_bytes());
+        expected.extend_from_slice(&enc_addsub_shift_regs(1, 0, 0, 0, 3, 16, 1, 3).to_le_bytes());
+        expected.extend_from_slice(&enc_ldp_regs(0b10, 0b10, true, 0, 0, 2, 16).to_le_bytes());
+        expected.extend_from_slice(&enc_ldst_simm_regs(3, 0b01, 0b01, 16, 16, 31).to_le_bytes());
+        expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
+        assert_eq!(code, expected);
+    }
+
+    #[test]
+    fn lowers_store_pair_base_index_scale_disp_runtime() {
+        let mem_addr = 0x9000_u64;
+        let index = 6_u64;
+        let disp = 0x20_i32;
+        let base = mem_addr - index * 4 - disp as u64;
+        let src1 = 0xaaaa_bbbb_1122_3344;
+        let src2 = 0xcccc_dddd_5566_7788;
+        let expected_mem = ((src2 & 0xffff_ffff) << 32) | (src1 & 0xffff_ffff);
+        let code = lower_single_op(OpKind::StorePair {
+            src1: x(0),
+            src2: x(2),
+            addr: Address::BaseIndexScale {
+                base: Some(x(1)),
+                index: x(3),
+                scale: 4,
+                disp,
+                disp_size: DispSize::Auto,
+            },
+            width: MemWidth::B4,
+        });
+
+        let regs = [
+            (0, src1),
+            (1, base),
+            (2, src2),
+            (3, index),
+            (16, 0x1616_1616_1616_1616),
+            (17, 0x1717_1717_1717_1717),
+        ];
+        let old_nzcv = 0b1001;
+        let (out, out_nzcv, sp, mem) =
+            run_aarch64_code_with_memory(&code, &regs, old_nzcv, mem_addr, 0, MemWidth::B8);
+
+        assert_eq!(out[0], src1);
+        assert_eq!(out[1], base);
+        assert_eq!(out[2], src2);
+        assert_eq!(out[3], index);
+        assert_eq!(out[16], 0x1616_1616_1616_1616);
+        assert_eq!(out[17], 0x1717_1717_1717_1717);
+        assert_eq!(out_nzcv, old_nzcv);
+        assert_eq!(sp, 0x8000);
+        assert_eq!(mem, expected_mem);
     }
 
     #[test]
