@@ -26396,6 +26396,7 @@ mod tests {
         for (label, dst, dst_reg, width) in [
             ("arm_dst", x(1), 1, MemWidth::B1),
             ("x86_dst", x86(X86Reg::Rax), 0, MemWidth::B4),
+            ("apx_dst", x86(X86Reg::R18), 18, MemWidth::B2),
         ] {
             let code = lower_single_op(OpKind::IoIn {
                 dst,
@@ -26407,6 +26408,7 @@ mod tests {
                 (2, 0x03f8),
                 (16, 0x1616_1616_1616_1616),
                 (17, 0x1717_1717_1717_1717),
+                (18, 0x1818_1818_1818_1818),
             ];
             let (out, out_nzcv, sp) = run_aarch64_code(&code, &regs, old_nzcv);
 
@@ -26417,6 +26419,17 @@ mod tests {
             assert_eq!(out_nzcv, old_nzcv, "{label}: NZCV");
             assert_eq!(sp, 0x8000, "{label}: stack pointer");
         }
+    }
+
+    #[test]
+    fn rejects_io_in_apx_r31_destination_mapping() {
+        let err = try_lower_single_op(OpKind::IoIn {
+            dst: x86(X86Reg::R31),
+            port: x86(X86Reg::Rdx),
+            width: MemWidth::B4,
+        })
+        .unwrap_err();
+        assert!(matches!(err, LowerError::InvalidRegister(_)));
     }
 
     #[test]
