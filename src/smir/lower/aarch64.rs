@@ -3299,6 +3299,25 @@ impl Aarch64Lowerer {
         self.emit_sysreg(flags, ArmReg::Nzcv, false)
     }
 
+    fn lower_set_cf(&mut self, value: bool) -> Result<(), LowerError> {
+        let scratches = Self::scratch_regs(&[], 1)?;
+        let flags = scratches[0];
+        let mask = if value {
+            NZCV_C
+        } else {
+            !(NZCV_C as u32) as i64
+        };
+        let opc = if value { 0b01 } else { 0b00 };
+        let (imm_n, immr, imms) = Self::logical_bitmask_imm(mask, OpWidth::W32)?;
+
+        self.emit_scratch_save(&scratches);
+        self.emit_sysreg(flags, ArmReg::Nzcv, true)?;
+        self.emit_logic_imm(flags, flags, opc, imm_n, immr, imms, OpWidth::W32)?;
+        self.emit_sysreg(flags, ArmReg::Nzcv, false)?;
+        self.emit_scratch_restore(&scratches);
+        Ok(())
+    }
+
     fn lower_subword_inc_dec_with_flags(
         &mut self,
         dst: VReg,
@@ -9288,6 +9307,7 @@ impl Aarch64Lowerer {
                 cond,
                 width,
             } => self.lower_cmove(*dst, *src, *cond, *width),
+            OpKind::SetCF { value } => self.lower_set_cf(*value),
             OpKind::CmcCF => {
                 self.emit_flagm(0b000);
                 Ok(())
@@ -19641,6 +19661,31 @@ mod tests {
         expected.extend_from_slice(&enc_bitfield_regs(0, 0b10, 0, 7, 0, 0).to_le_bytes());
         expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
         assert_eq!(code, expected);
+    }
+
+    #[test]
+    fn lowers_set_cf_runtime() {
+        for (label, value, old_nzcv) in [
+            ("set clear carry", true, 0b1001),
+            ("set existing carry", true, 0b0110),
+            ("clear set carry", false, 0b1111),
+            ("clear existing clear", false, 0b0101),
+        ] {
+            let code = lower_single_op(OpKind::SetCF { value });
+            let sentinels = [
+                (16, 0x1616_1616_1616_1616),
+                (17, 0x1717_1717_1717_1717),
+                (15, 0x1515_1515_1515_1515),
+            ];
+            let expected_nzcv = (old_nzcv & !0b0010) | if value { 0b0010 } else { 0 };
+
+            let (out, out_nzcv, sp) = run_aarch64_code(&code, &sentinels, old_nzcv);
+            assert_eq!(out_nzcv, expected_nzcv, "{label}: NZCV");
+            assert_eq!(sp, 0x8000, "{label}: stack restored");
+            for (reg, value) in sentinels {
+                assert_eq!(out[reg as usize], value, "{label}: x{reg} restored");
+            }
+        }
     }
 
     #[test]
