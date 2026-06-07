@@ -3144,6 +3144,21 @@ impl Aarch64Lowerer {
     }
 
     fn lower_bswap(&mut self, dst: VReg, src: VReg, width: OpWidth) -> Result<(), LowerError> {
+        if let VReg::Imm(value) = src {
+            let (result, emit_width) = match width {
+                OpWidth::W8 => (value as u64, OpWidth::W64),
+                OpWidth::W16 => ((value as u16).swap_bytes() as u64, OpWidth::W32),
+                OpWidth::W32 => ((value as u32).swap_bytes() as u64, OpWidth::W32),
+                OpWidth::W64 => ((value as u64).swap_bytes(), OpWidth::W64),
+                other => {
+                    return Err(LowerError::UnsupportedOp {
+                        op: format!("AArch64 native Bswap width {other:?}"),
+                    });
+                }
+            };
+            return self.emit_mov_imm(Self::dst_gpr(dst)?, result as i64, emit_width);
+        }
+
         let opcode = match width {
             OpWidth::W8 => {
                 return self.emit_mov_reg(
@@ -14758,6 +14773,30 @@ mod tests {
     }
 
     #[test]
+    fn lowers_bswap_w8_imm_as_movz_full_imm() {
+        let mut builder = FunctionBuilder::new(FunctionId(0), 0);
+        builder.push_op(
+            0,
+            OpKind::Bswap {
+                dst: x(0),
+                src: VReg::Imm(0x1234),
+                width: OpWidth::W8,
+            },
+        );
+        builder.set_terminator(Terminator::Return { values: vec![] });
+        let func = builder.finish();
+
+        let mut lowerer = Aarch64Lowerer::new();
+        lowerer.lower_function(&func).unwrap();
+        let code = lowerer.finalize().unwrap();
+
+        let mut expected = Vec::new();
+        expected.extend_from_slice(&enc_mov_wide(1, 0b10, 0, 0x1234, 0).to_le_bytes());
+        expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
+        assert_eq!(code, expected);
+    }
+
+    #[test]
     fn lowers_rbit_w8_as_mov_reg() {
         let mut builder = FunctionBuilder::new(FunctionId(0), 0);
         builder.push_op(
@@ -14826,6 +14865,30 @@ mod tests {
         let mut expected = Vec::new();
         expected.extend_from_slice(&enc_dp1(0, 0b000001).to_le_bytes());
         expected.extend_from_slice(&enc_bitfield_regs(0, 0b10, 0, 15, 0, 0).to_le_bytes());
+        expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
+        assert_eq!(code, expected);
+    }
+
+    #[test]
+    fn lowers_bswap_w16_imm_as_movz_swapped() {
+        let mut builder = FunctionBuilder::new(FunctionId(0), 0);
+        builder.push_op(
+            0,
+            OpKind::Bswap {
+                dst: x(0),
+                src: VReg::Imm(0x1_0000_1234),
+                width: OpWidth::W16,
+            },
+        );
+        builder.set_terminator(Terminator::Return { values: vec![] });
+        let func = builder.finish();
+
+        let mut lowerer = Aarch64Lowerer::new();
+        lowerer.lower_function(&func).unwrap();
+        let code = lowerer.finalize().unwrap();
+
+        let mut expected = Vec::new();
+        expected.extend_from_slice(&enc_mov_wide(0, 0b10, 0, 0x3412, 0).to_le_bytes());
         expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
         assert_eq!(code, expected);
     }
