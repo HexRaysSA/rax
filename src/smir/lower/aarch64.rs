@@ -12,8 +12,8 @@ use crate::smir::ir::{SmirBlock, SmirFunction, Terminator, TrapKind};
 use crate::smir::ops::{OpKind, SmirOp};
 use crate::smir::types::{
     Address, ArchReg, ArmReg, AtomicOp, BlockId, Condition, ExtendOp, FenceKind, MemWidth,
-    FpPrecision, FpRoundMode, MemoryOrder, OpWidth, ShiftOp, SignExtend, SrcOperand, VecWidth,
-    VReg,
+    FpPrecision, FpRoundMode, MemoryOrder, OpWidth, ShiftOp, SignExtend, SrcOperand,
+    VecElementType, VecWidth, VReg,
 };
 
 use super::{CodeBuffer, LowerError, LowerResult, Relocation, SmirLowerer};
@@ -906,6 +906,28 @@ impl Aarch64Lowerer {
         self.emit_simd_ldst_simm(rt, rn, size, opc, imm9, 0b00);
     }
 
+    fn emit_simd_three_same(
+        &mut self,
+        rd: u8,
+        rn: u8,
+        rm: u8,
+        q: u32,
+        u: u32,
+        size: u32,
+        opcode: u32,
+    ) {
+        self.emit(
+            0x0e20_0400
+                | (q << 30)
+                | (u << 29)
+                | (size << 22)
+                | ((rm as u32) << 16)
+                | (opcode << 11)
+                | ((rn as u32) << 5)
+                | (rd as u32),
+        );
+    }
+
     fn emit_simd_logical(
         &mut self,
         rd: u8,
@@ -1788,6 +1810,40 @@ impl Aarch64Lowerer {
         }
     }
 
+    fn simd_integer_shape(
+        elem: VecElementType,
+        lanes: u8,
+    ) -> Result<(u32, u32), LowerError> {
+        let size = match elem {
+            VecElementType::I8 => 0,
+            VecElementType::I16 => 1,
+            VecElementType::I32 => 2,
+            VecElementType::I64 => 3,
+            other => {
+                return Err(LowerError::UnsupportedOp {
+                    op: format!("AArch64 native integer vector element {other:?}"),
+                });
+            }
+        };
+
+        let bytes = elem.bytes() * u32::from(lanes);
+        let q = match bytes {
+            8 => 0,
+            16 => 1,
+            other => {
+                return Err(LowerError::UnsupportedOp {
+                    op: format!("AArch64 native integer vector byte width {other}"),
+                });
+            }
+        };
+        if size == 3 && q == 0 {
+            return Err(LowerError::UnsupportedOp {
+                op: "AArch64 native integer vector 1D arrangement".to_string(),
+            });
+        }
+        Ok((q, size))
+    }
+
     fn lower_simd_mem_access(
         &mut self,
         rt: u8,
@@ -1881,6 +1937,35 @@ impl Aarch64Lowerer {
         let rn = Self::fp_reg(src1)?;
         let rm = Self::fp_reg(src2)?;
         self.emit_simd_logical(rd, rn, rm, width, op)
+    }
+
+    fn lower_varith(
+        &mut self,
+        dst: VReg,
+        src1: VReg,
+        src2: VReg,
+        elem: VecElementType,
+        lanes: u8,
+        op: SimdArithmeticOp,
+    ) -> Result<(), LowerError> {
+        let rd = Self::fp_reg(dst)?;
+        let rn = Self::fp_reg(src1)?;
+        let rm = Self::fp_reg(src2)?;
+        let (q, size) = Self::simd_integer_shape(elem, lanes)?;
+        let (u, opcode) = match op {
+            SimdArithmeticOp::Add => (0, 0b10000),
+            SimdArithmeticOp::Sub => (1, 0b10000),
+            SimdArithmeticOp::Mul => {
+                if size == 3 {
+                    return Err(LowerError::UnsupportedOp {
+                        op: "AArch64 native integer vector multiply I64".to_string(),
+                    });
+                }
+                (0, 0b10011)
+            }
+        };
+        self.emit_simd_three_same(rd, rn, rm, q, u, size, opcode);
+        Ok(())
     }
 
     fn lower_rep_stos(
@@ -10252,6 +10337,27 @@ impl Aarch64Lowerer {
                 src,
                 precision,
             } => self.lower_fp_unary(*dst, *src, *precision, 0b00011),
+            OpKind::VAdd {
+                dst,
+                src1,
+                src2,
+                elem,
+                lanes,
+            } => self.lower_varith(*dst, *src1, *src2, *elem, *lanes, SimdArithmeticOp::Add),
+            OpKind::VSub {
+                dst,
+                src1,
+                src2,
+                elem,
+                lanes,
+            } => self.lower_varith(*dst, *src1, *src2, *elem, *lanes, SimdArithmeticOp::Sub),
+            OpKind::VMul {
+                dst,
+                src1,
+                src2,
+                elem,
+                lanes,
+            } => self.lower_varith(*dst, *src1, *src2, *elem, *lanes, SimdArithmeticOp::Mul),
             OpKind::VMov { dst, src, width } => self.lower_vmov(*dst, *src, *width),
             OpKind::VAnd {
                 dst,
@@ -10848,6 +10954,13 @@ enum SimdLogicOp {
     And,
     Or,
     Xor,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum SimdArithmeticOp {
+    Add,
+    Sub,
+    Mul,
 }
 
 #[derive(Clone, Copy)]
@@ -17106,6 +17219,132 @@ mod tests {
     }
 
     #[test]
+    fn lowers_vector_integer_arithmetic_runtime() {
+        fn apply_lanes<F: Fn(u64, u64) -> u64>(
+            a_low: u64,
+            a_high: u64,
+            b_low: u64,
+            b_high: u64,
+            elem_bytes: usize,
+            lanes: usize,
+            op: F,
+        ) -> (u64, u64) {
+            fn read_lane(bytes: &[u8; 16], offset: usize, len: usize) -> u64 {
+                let mut word = [0u8; 8];
+                word[..len].copy_from_slice(&bytes[offset..offset + len]);
+                u64::from_le_bytes(word)
+            }
+
+            let mut a = [0u8; 16];
+            let mut b = [0u8; 16];
+            let mut out = [0u8; 16];
+            a[..8].copy_from_slice(&a_low.to_le_bytes());
+            a[8..].copy_from_slice(&a_high.to_le_bytes());
+            b[..8].copy_from_slice(&b_low.to_le_bytes());
+            b[8..].copy_from_slice(&b_high.to_le_bytes());
+
+            let mask = if elem_bytes == 8 {
+                u64::MAX
+            } else {
+                (1u64 << (elem_bytes * 8)) - 1
+            };
+            for lane in 0..lanes {
+                let off = lane * elem_bytes;
+                let value = op(
+                    read_lane(&a, off, elem_bytes),
+                    read_lane(&b, off, elem_bytes),
+                ) & mask;
+                out[off..off + elem_bytes].copy_from_slice(&value.to_le_bytes()[..elem_bytes]);
+            }
+
+            let mut low = [0u8; 8];
+            let mut high = [0u8; 8];
+            low.copy_from_slice(&out[..8]);
+            high.copy_from_slice(&out[8..]);
+            (u64::from_le_bytes(low), u64::from_le_bytes(high))
+        }
+
+        let a_low = 0xfedc_ba98_7654_3210;
+        let a_high = 0x0123_4567_89ab_cdef;
+        let b_low = 0x1020_3040_5060_7080;
+        let b_high = 0x8877_6655_4433_2211;
+        let code = lower_ops(vec![
+            OpKind::VAdd {
+                dst: v(0),
+                src1: v(1),
+                src2: v(2),
+                elem: VecElementType::I8,
+                lanes: 16,
+            },
+            OpKind::VSub {
+                dst: v(3),
+                src1: v(1),
+                src2: v(2),
+                elem: VecElementType::I16,
+                lanes: 8,
+            },
+            OpKind::VMul {
+                dst: v(4),
+                src1: v(1),
+                src2: v(2),
+                elem: VecElementType::I32,
+                lanes: 4,
+            },
+            OpKind::VAdd {
+                dst: v(5),
+                src1: v(1),
+                src2: v(2),
+                elem: VecElementType::I32,
+                lanes: 2,
+            },
+            OpKind::VSub {
+                dst: v(6),
+                src1: v(1),
+                src2: v(2),
+                elem: VecElementType::I64,
+                lanes: 2,
+            },
+            OpKind::VMul {
+                dst: v(7),
+                src1: v(1),
+                src2: v(2),
+                elem: VecElementType::I16,
+                lanes: 4,
+            },
+        ]);
+
+        let (_, simd, _) = run_aarch64_code_with_regs_and_simd(
+            &code,
+            &[],
+            &[(1, a_low, a_high), (2, b_low, b_high)],
+        );
+        assert_eq!(
+            simd[0],
+            apply_lanes(a_low, a_high, b_low, b_high, 1, 16, u64::wrapping_add)
+        );
+        assert_eq!(
+            simd[3],
+            apply_lanes(a_low, a_high, b_low, b_high, 2, 8, u64::wrapping_sub)
+        );
+        assert_eq!(
+            simd[4],
+            apply_lanes(a_low, a_high, b_low, b_high, 4, 4, u64::wrapping_mul)
+        );
+        assert_eq!(
+            simd[5],
+            apply_lanes(a_low, a_high, b_low, b_high, 4, 2, u64::wrapping_add)
+        );
+        assert_eq!(
+            simd[6],
+            apply_lanes(a_low, a_high, b_low, b_high, 8, 2, u64::wrapping_sub)
+        );
+        assert_eq!(
+            simd[7],
+            apply_lanes(a_low, a_high, b_low, b_high, 2, 4, u64::wrapping_mul)
+        );
+    }
+
+    #[test]
     fn lowers_vector_load_store_runtime() {
         fn le_u64(bytes: &[u8], offset: usize) -> u64 {
             let mut word = [0u8; 8];
@@ -17177,38 +17416,61 @@ mod tests {
 
     #[test]
     fn rejects_vector_unsupported_widths() {
-        let mut builder = FunctionBuilder::new(FunctionId(0), 0);
-        builder.push_op(
-            0,
-            OpKind::VLoad {
-                dst: v(0),
-                addr: Address::Direct(x(1)),
-                width: VecWidth::V256,
-            },
-        );
-        builder.set_terminator(Terminator::Return { values: vec![] });
-        let func = builder.finish();
+        fn assert_unsupported(kind: OpKind) {
+            let mut builder = FunctionBuilder::new(FunctionId(0), 0);
+            builder.push_op(0, kind);
+            builder.set_terminator(Terminator::Return { values: vec![] });
+            let func = builder.finish();
 
-        let mut lowerer = Aarch64Lowerer::new();
-        let err = lowerer.lower_function(&func).unwrap_err();
-        assert!(matches!(err, LowerError::UnsupportedOp { .. }));
+            let mut lowerer = Aarch64Lowerer::new();
+            let err = lowerer.lower_function(&func).unwrap_err();
+            assert!(matches!(err, LowerError::UnsupportedOp { .. }));
+        }
 
-        let mut builder = FunctionBuilder::new(FunctionId(0), 0);
-        builder.push_op(
-            0,
-            OpKind::VXor {
-                dst: v(0),
-                src1: v(1),
-                src2: v(2),
-                width: VecWidth::V512,
-            },
-        );
-        builder.set_terminator(Terminator::Return { values: vec![] });
-        let func = builder.finish();
+        assert_unsupported(OpKind::VLoad {
+            dst: v(0),
+            addr: Address::Direct(x(1)),
+            width: VecWidth::V256,
+        });
 
-        let mut lowerer = Aarch64Lowerer::new();
-        let err = lowerer.lower_function(&func).unwrap_err();
-        assert!(matches!(err, LowerError::UnsupportedOp { .. }));
+        assert_unsupported(OpKind::VXor {
+            dst: v(0),
+            src1: v(1),
+            src2: v(2),
+            width: VecWidth::V512,
+        });
+
+        assert_unsupported(OpKind::VAdd {
+            dst: v(0),
+            src1: v(1),
+            src2: v(2),
+            elem: VecElementType::I32,
+            lanes: 8,
+        });
+
+        assert_unsupported(OpKind::VAdd {
+            dst: v(0),
+            src1: v(1),
+            src2: v(2),
+            elem: VecElementType::F32,
+            lanes: 4,
+        });
+
+        assert_unsupported(OpKind::VSub {
+            dst: v(0),
+            src1: v(1),
+            src2: v(2),
+            elem: VecElementType::I64,
+            lanes: 1,
+        });
+
+        assert_unsupported(OpKind::VMul {
+            dst: v(0),
+            src1: v(1),
+            src2: v(2),
+            elem: VecElementType::I64,
+            lanes: 2,
+        });
     }
 
     #[test]
