@@ -326,16 +326,6 @@ impl Aarch64Lowerer {
         }
     }
 
-    fn dst_or_zero_for_flags(vreg: VReg, set_flags: bool) -> Result<u8, LowerError> {
-        match vreg {
-            VReg::Arch(ArchReg::Arm(ArmReg::X(n))) if n < 31 => Ok(n),
-            VReg::Virtual(_) if set_flags => Ok(31),
-            other => Err(LowerError::InvalidRegister(format!(
-                "AArch64 native lowerer expected writable X register, got {other:?}"
-            ))),
-        }
-    }
-
     fn dst_or_zero_for_flags_arm_or_x86(
         vreg: VReg,
         set_flags: bool,
@@ -5102,16 +5092,23 @@ impl Aarch64Lowerer {
                 return self.lower_subword_neg_with_flags(dst, src, width);
             }
 
-            let dst = Self::dst_gpr(dst)?;
-            self.emit_addsub_reg(dst, 31, Self::gpr(src)?, true, false, OpWidth::W32)?;
+            let dst = Self::dst_gpr_arm_or_x86(dst)?;
+            self.emit_addsub_reg(
+                dst,
+                31,
+                Self::gpr_arm_or_x86(src)?,
+                true,
+                false,
+                OpWidth::W32,
+            )?;
             let imms = if width == OpWidth::W8 { 7 } else { 15 };
             return self.emit_bitfield(dst, dst, 0b10, 0, imms, OpWidth::W32);
         }
 
         self.emit_addsub_reg(
-            Self::dst_gpr(dst)?,
+            Self::dst_gpr_arm_or_x86(dst)?,
             31,
-            Self::gpr(src)?,
+            Self::gpr_arm_or_x86(src)?,
             true,
             set_flags,
             width,
@@ -5124,8 +5121,8 @@ impl Aarch64Lowerer {
         src: VReg,
         width: OpWidth,
     ) -> Result<(), LowerError> {
-        let dst_reg = Self::dst_or_zero_for_flags(dst, true)?;
-        let rn = Self::gpr(src)?;
+        let dst_reg = Self::dst_or_zero_for_flags_arm_or_x86(dst, true)?;
+        let rn = Self::gpr_arm_or_x86(src)?;
         let scratches = Self::scratch_regs(&[dst_reg, rn], 1)?;
         let rhs = scratches[0];
         let shift = OpWidth::W32.bits() - width.bits();
@@ -5517,8 +5514,8 @@ impl Aarch64Lowerer {
         decrement: bool,
         width: OpWidth,
     ) -> Result<(), LowerError> {
-        let dst_reg = Self::dst_or_zero_for_flags(dst, true)?;
-        let rn = Self::gpr(src)?;
+        let dst_reg = Self::dst_or_zero_for_flags_arm_or_x86(dst, true)?;
+        let rn = Self::gpr_arm_or_x86(src)?;
         let scratches = Self::scratch_regs(&[dst_reg, rn], 4)?;
         let saved_flags = scratches[0];
         let flags = scratches[1];
@@ -5552,15 +5549,22 @@ impl Aarch64Lowerer {
                 return self.lower_subword_inc_dec_with_flags(dst, src, decrement, width);
             }
 
-            let dst = Self::dst_gpr(dst)?;
-            self.emit_addsub_imm(dst, Self::gpr(src)?, 1, decrement, false, OpWidth::W32)?;
+            let dst = Self::dst_gpr_arm_or_x86(dst)?;
+            self.emit_addsub_imm(
+                dst,
+                Self::gpr_arm_or_x86(src)?,
+                1,
+                decrement,
+                false,
+                OpWidth::W32,
+            )?;
             let imms = if width == OpWidth::W8 { 7 } else { 15 };
             return self.emit_bitfield(dst, dst, 0b10, 0, imms, OpWidth::W32);
         }
 
         if set_flags {
-            let dst = Self::dst_or_zero_for_flags(dst, true)?;
-            let src = Self::gpr(src)?;
+            let dst = Self::dst_or_zero_for_flags_arm_or_x86(dst, true)?;
+            let src = Self::gpr_arm_or_x86(src)?;
             let scratches = Self::scratch_regs(&[dst, src], 2)?;
             let saved_flags = scratches[0];
             let flags = scratches[1];
@@ -34013,6 +34017,120 @@ mod tests {
             OpWidth::W16,
             0b0000,
         );
+    }
+
+    #[test]
+    fn lowers_unary_arithmetic_apx_egpr_operands_runtime() {
+        let neg_x_src = 0x0000_0000_0000_0011;
+        let neg_b_src = 0x91;
+        let neg_h_flags_src = 0x8000;
+        let inc_b_flags_src = 0x7f;
+        let dec_x_flags_src = 0x8000_0000_0000_0000;
+        let code = lower_ops(vec![
+            OpKind::Neg {
+                dst: x86(X86Reg::R16),
+                src: x86(X86Reg::R17),
+                width: OpWidth::W64,
+                flags: FlagUpdate::None,
+            },
+            OpKind::Neg {
+                dst: x86(X86Reg::R18),
+                src: x86(X86Reg::R19),
+                width: OpWidth::W8,
+                flags: FlagUpdate::None,
+            },
+            OpKind::Neg {
+                dst: x86(X86Reg::R20),
+                src: x86(X86Reg::R21),
+                width: OpWidth::W16,
+                flags: FlagUpdate::All,
+            },
+            OpKind::Inc {
+                dst: x86(X86Reg::R22),
+                src: x86(X86Reg::R23),
+                width: OpWidth::W8,
+                flags: FlagUpdate::All,
+            },
+            OpKind::Dec {
+                dst: x86(X86Reg::R24),
+                src: x86(X86Reg::R25),
+                width: OpWidth::W64,
+                flags: FlagUpdate::All,
+            },
+        ]);
+        let regs = [
+            (17, neg_x_src),
+            (19, neg_b_src),
+            (21, neg_h_flags_src),
+            (23, inc_b_flags_src),
+            (25, dec_x_flags_src),
+            (13, 0x1313_1313_1313_1313),
+            (14, 0x1414_1414_1414_1414),
+            (15, 0x1515_1515_1515_1515),
+        ];
+        let old_nzcv = 0b0010;
+        let (out, out_nzcv, sp) = run_aarch64_code(&code, &regs, old_nzcv);
+
+        assert_eq!(out[16], ref_addsub(0, neg_x_src, true, OpWidth::W64));
+        assert_eq!(out[18], ref_addsub(0, neg_b_src, true, OpWidth::W8));
+        assert_eq!(out[20], ref_addsub(0, neg_h_flags_src, true, OpWidth::W16));
+        assert_eq!(out[22], ref_inc_dec(inc_b_flags_src, false, OpWidth::W8));
+        assert_eq!(out[24], ref_inc_dec(dec_x_flags_src, true, OpWidth::W64));
+        let after_neg_h_nzcv = expected_addsub_nzcv(0, neg_h_flags_src, true, OpWidth::W16);
+        let after_inc_b_nzcv =
+            expected_inc_dec_nzcv(after_neg_h_nzcv, inc_b_flags_src, false, OpWidth::W8);
+        assert_eq!(
+            out_nzcv,
+            expected_inc_dec_nzcv(after_inc_b_nzcv, dec_x_flags_src, true, OpWidth::W64)
+        );
+        assert_eq!(out[17], neg_x_src);
+        assert_eq!(out[19], neg_b_src);
+        assert_eq!(out[21], neg_h_flags_src);
+        assert_eq!(out[23], inc_b_flags_src);
+        assert_eq!(out[25], dec_x_flags_src);
+        assert_eq!(out[13], 0x1313_1313_1313_1313);
+        assert_eq!(out[14], 0x1414_1414_1414_1414);
+        assert_eq!(out[15], 0x1515_1515_1515_1515);
+        assert_eq!(sp, 0x8000);
+    }
+
+    #[test]
+    fn rejects_unary_arithmetic_apx_r31_identity_mapping() {
+        for kind in [
+            OpKind::Neg {
+                dst: x86(X86Reg::R31),
+                src: x86(X86Reg::R16),
+                width: OpWidth::W64,
+                flags: FlagUpdate::None,
+            },
+            OpKind::Neg {
+                dst: x86(X86Reg::R16),
+                src: x86(X86Reg::R31),
+                width: OpWidth::W8,
+                flags: FlagUpdate::All,
+            },
+            OpKind::Inc {
+                dst: x86(X86Reg::R31),
+                src: x86(X86Reg::R16),
+                width: OpWidth::W16,
+                flags: FlagUpdate::All,
+            },
+            OpKind::Inc {
+                dst: x86(X86Reg::R16),
+                src: x86(X86Reg::R31),
+                width: OpWidth::W8,
+                flags: FlagUpdate::None,
+            },
+            OpKind::Dec {
+                dst: x86(X86Reg::R16),
+                src: x86(X86Reg::R31),
+                width: OpWidth::W64,
+                flags: FlagUpdate::All,
+            },
+        ] {
+            let err = try_lower_single_op(kind).unwrap_err();
+            assert!(matches!(err, LowerError::InvalidRegister(_)));
+        }
     }
 
     #[test]
