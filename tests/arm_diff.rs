@@ -3471,6 +3471,50 @@ fn push_materialized_logical_imm_native_cases(
             0xffff_ffff_1234_5680,
             0x8000_0000,
         ),
+        (
+            "orr_w8_non_contiguous_imm_destination_scratch_zero_ext_preserves_flags",
+            OpKind::Or {
+                dst: arm_x(0),
+                src1: arm_x(1),
+                src2: SrcOperand::Imm(0x5a),
+                width: OpWidth::W8,
+                flags: FlagUpdate::None,
+            },
+            [
+                enc_mov_wide(0, 0b10, 0, 0x5a),
+                enc_logical_shift_regs(0, 0b01, 0, 0, 0, RD, RN, RD),
+                enc_bitfield_regs(0, 0b10, 0, 7, RD, RD),
+            ],
+            [
+                enc_mov_wide(0, 0b10, 0, 0x5a),
+                enc_logical_shift_regs(0, 0b01, 0, 0, 0, RD, RN, RD),
+                enc_bitfield_regs(0, 0b10, 0, 7, RD, RD),
+            ],
+            0xffff_ffff_ffff_ff20,
+            0x1000_0000,
+        ),
+        (
+            "bic_w16_unencodable_inverse_imm_destination_scratch_zero_ext_preserves_flags",
+            OpKind::AndNot {
+                dst: arm_x(0),
+                src1: arm_x(1),
+                src2: SrcOperand::Imm64(!0x5a_i64),
+                width: OpWidth::W16,
+                flags: FlagUpdate::None,
+            },
+            [
+                enc_mov_wide(0, 0b10, 0, 0x5a),
+                enc_logical_shift_regs(0, 0b00, 0, 0, 0, RD, RN, RD),
+                enc_bitfield_regs(0, 0b10, 0, 15, RD, RD),
+            ],
+            [
+                enc_mov_wide(0, 0b10, 0, 0x5a),
+                enc_logical_shift_regs(0, 0b00, 0, 0, 0, RD, RN, RD),
+                enc_bitfield_regs(0, 0b10, 0, 15, RD, RD),
+            ],
+            0xffff_ffff_0000_f5ff,
+            0xe000_0000,
+        ),
     ];
 
     for (name, op, source, expected_lowered, x1, pstate) in test_cases {

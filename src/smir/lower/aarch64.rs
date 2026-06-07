@@ -2641,9 +2641,14 @@ impl Aarch64Lowerer {
                     }
                     return Ok(());
                 } else {
-                    let (imm_n, immr, imms) =
-                        Self::logical_bitmask_imm(imm as i64, OpWidth::W32)?;
-                    self.emit_logic_imm(dst, rn, opc, imm_n, immr, imms, OpWidth::W32)?;
+                    match Self::logical_bitmask_imm(imm as i64, OpWidth::W32) {
+                        Ok((imm_n, immr, imms)) => {
+                            self.emit_logic_imm(dst, rn, opc, imm_n, immr, imms, OpWidth::W32)?;
+                        }
+                        Err(_) => {
+                            self.lower_materialized_subword_logic_imm(dst, rn, opc, imm)?;
+                        }
+                    }
                 }
             }
             other => {
@@ -2664,6 +2669,23 @@ impl Aarch64Lowerer {
             )?;
         }
         Ok(())
+    }
+
+    fn lower_materialized_subword_logic_imm(
+        &mut self,
+        dst: u8,
+        rn: u8,
+        opc: u32,
+        imm: u64,
+    ) -> Result<(), LowerError> {
+        if dst == rn {
+            return Err(LowerError::UnsupportedOp {
+                op: "AArch64 native materialized subword logical immediate needs dst != src1"
+                    .into(),
+            });
+        }
+        self.emit_mov_imm_best(dst, imm as i64, OpWidth::W32)?;
+        self.emit_logic_reg_n(dst, rn, dst, opc, false, OpWidth::W32)
     }
 
     fn lower_logic_special_imm(
@@ -20344,6 +20366,91 @@ mod tests {
     }
 
     #[test]
+    fn lowers_or_w8_non_contiguous_imm_with_destination_scratch() {
+        let mut builder = FunctionBuilder::new(FunctionId(0), 0);
+        builder.push_op(
+            0,
+            OpKind::Or {
+                dst: x(0),
+                src1: x(1),
+                src2: SrcOperand::Imm(0x5a),
+                width: OpWidth::W8,
+                flags: FlagUpdate::None,
+            },
+        );
+        builder.set_terminator(Terminator::Return { values: vec![] });
+        let func = builder.finish();
+
+        let mut lowerer = Aarch64Lowerer::new();
+        lowerer.lower_function(&func).unwrap();
+        let code = lowerer.finalize().unwrap();
+
+        let mut expected = Vec::new();
+        expected.extend_from_slice(&enc_mov_wide(0, 0b10, 0, 0x5a, 0).to_le_bytes());
+        expected.extend_from_slice(&enc_logical_reg(0, 0b01, 0, 1, 0).to_le_bytes());
+        expected.extend_from_slice(&enc_bitfield_regs(0, 0b10, 0, 7, 0, 0).to_le_bytes());
+        expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
+        assert_eq!(code, expected);
+    }
+
+    #[test]
+    fn lowers_andnot_w16_unencodable_inverse_imm_with_destination_scratch() {
+        let mut builder = FunctionBuilder::new(FunctionId(0), 0);
+        builder.push_op(
+            0,
+            OpKind::AndNot {
+                dst: x(0),
+                src1: x(1),
+                src2: SrcOperand::Imm64(!0x5a_i64),
+                width: OpWidth::W16,
+                flags: FlagUpdate::None,
+            },
+        );
+        builder.set_terminator(Terminator::Return { values: vec![] });
+        let func = builder.finish();
+
+        let mut lowerer = Aarch64Lowerer::new();
+        lowerer.lower_function(&func).unwrap();
+        let code = lowerer.finalize().unwrap();
+
+        let mut expected = Vec::new();
+        expected.extend_from_slice(&enc_mov_wide(0, 0b10, 0, 0x5a, 0).to_le_bytes());
+        expected.extend_from_slice(&enc_logical_reg(0, 0b00, 0, 1, 0).to_le_bytes());
+        expected.extend_from_slice(&enc_bitfield_regs(0, 0b10, 0, 15, 0, 0).to_le_bytes());
+        expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
+        assert_eq!(code, expected);
+    }
+
+    #[test]
+    fn lowers_ands_w8_non_contiguous_imm_with_destination_scratch() {
+        let mut builder = FunctionBuilder::new(FunctionId(0), 0);
+        builder.push_op(
+            0,
+            OpKind::And {
+                dst: x(0),
+                src1: x(1),
+                src2: SrcOperand::Imm(0x5a),
+                width: OpWidth::W8,
+                flags: FlagUpdate::All,
+            },
+        );
+        builder.set_terminator(Terminator::Return { values: vec![] });
+        let func = builder.finish();
+
+        let mut lowerer = Aarch64Lowerer::new();
+        lowerer.lower_function(&func).unwrap();
+        let code = lowerer.finalize().unwrap();
+
+        let mut expected = Vec::new();
+        expected.extend_from_slice(&enc_mov_wide(0, 0b10, 0, 0x5a, 0).to_le_bytes());
+        expected.extend_from_slice(&enc_logical_reg(0, 0b00, 0, 1, 0).to_le_bytes());
+        expected.extend_from_slice(&enc_bitfield_regs(0, 0b10, 0, 7, 0, 0).to_le_bytes());
+        expected.extend_from_slice(&enc_logical_reg_n(0, 0b11, 0, 31, 0, 0).to_le_bytes());
+        expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
+        assert_eq!(code, expected);
+    }
+
+    #[test]
     fn rejects_materialized_logical_immediate_when_dst_aliases_src1() {
         let mut builder = FunctionBuilder::new(FunctionId(0), 0);
         builder.push_op(
@@ -20353,6 +20460,27 @@ mod tests {
                 src1: x(1),
                 src2: SrcOperand::Imm(0x55),
                 width: OpWidth::W64,
+                flags: FlagUpdate::None,
+            },
+        );
+        builder.set_terminator(Terminator::Return { values: vec![] });
+        let func = builder.finish();
+
+        let mut lowerer = Aarch64Lowerer::new();
+        let err = lowerer.lower_function(&func).unwrap_err();
+        assert!(matches!(err, LowerError::UnsupportedOp { .. }));
+    }
+
+    #[test]
+    fn rejects_materialized_subword_logical_immediate_when_dst_aliases_src1() {
+        let mut builder = FunctionBuilder::new(FunctionId(0), 0);
+        builder.push_op(
+            0,
+            OpKind::Or {
+                dst: x(1),
+                src1: x(1),
+                src2: SrcOperand::Imm(0x5a),
+                width: OpWidth::W8,
                 flags: FlagUpdate::None,
             },
         );
