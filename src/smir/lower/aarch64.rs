@@ -2506,16 +2506,20 @@ impl Aarch64Lowerer {
                 if self.lower_logic_special_imm(dst, src1, opc, set_flags, width, imm)? {
                     return Ok(());
                 }
-                let (imm_n, immr, imms) = Self::logical_bitmask_imm(imm, width)?;
-                self.emit_logic_imm(
-                    Self::dst_or_zero_for_flags(dst, set_flags)?,
-                    Self::gpr(src1)?,
-                    opc,
-                    imm_n,
-                    immr,
-                    imms,
-                    width,
-                )
+                match Self::logical_bitmask_imm(imm, width) {
+                    Ok((imm_n, immr, imms)) => self.emit_logic_imm(
+                        Self::dst_or_zero_for_flags(dst, set_flags)?,
+                        Self::gpr(src1)?,
+                        opc,
+                        imm_n,
+                        immr,
+                        imms,
+                        width,
+                    ),
+                    Err(_) => self.lower_materialized_logic_imm(
+                        dst, src1, opc, set_flags, width, imm,
+                    ),
+                }
             }
             _ => {
                 let (src2, shift, amount) = Self::logical_src2(src2, width)?;
@@ -2531,6 +2535,36 @@ impl Aarch64Lowerer {
                 )
             }
         }
+    }
+
+    fn lower_materialized_logic_imm(
+        &mut self,
+        dst: VReg,
+        src1: VReg,
+        opc: u32,
+        set_flags: bool,
+        width: OpWidth,
+        imm: i64,
+    ) -> Result<(), LowerError> {
+        let dst = if set_flags && opc != 0b11 {
+            Self::dst_gpr(dst)?
+        } else {
+            Self::dst_or_zero_for_flags(dst, set_flags)?
+        };
+        if dst == 31 {
+            return Err(LowerError::UnsupportedOp {
+                op: "AArch64 native materialized logical immediate needs a destination scratch"
+                    .into(),
+            });
+        }
+        let rn = Self::gpr(src1)?;
+        if dst == rn {
+            return Err(LowerError::UnsupportedOp {
+                op: "AArch64 native materialized logical immediate needs dst != src1".into(),
+            });
+        }
+        self.emit_mov_imm_best(dst, imm, width)?;
+        self.emit_logic_reg_n(dst, rn, dst, opc, false, width)
     }
 
     fn lower_subword_logic(
@@ -20229,7 +20263,7 @@ mod tests {
     }
 
     #[test]
-    fn rejects_non_contiguous_logical_immediate() {
+    fn lowers_or_x_non_contiguous_imm_with_destination_scratch() {
         let mut builder = FunctionBuilder::new(FunctionId(0), 0);
         builder.push_op(
             0,
@@ -20245,12 +20279,18 @@ mod tests {
         let func = builder.finish();
 
         let mut lowerer = Aarch64Lowerer::new();
-        let err = lowerer.lower_function(&func).unwrap_err();
-        assert!(matches!(err, LowerError::UnsupportedOp { .. }));
+        lowerer.lower_function(&func).unwrap();
+        let code = lowerer.finalize().unwrap();
+
+        let mut expected = Vec::new();
+        expected.extend_from_slice(&enc_mov_wide(1, 0b10, 0, 0x55, 0).to_le_bytes());
+        expected.extend_from_slice(&enc_logical_reg(1, 0b01, 0, 1, 0).to_le_bytes());
+        expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
+        assert_eq!(code, expected);
     }
 
     #[test]
-    fn rejects_inverted_logical_immediate_with_unencodable_inverse() {
+    fn lowers_andnot_x_unencodable_inverse_imm_with_destination_scratch() {
         let mut builder = FunctionBuilder::new(FunctionId(0), 0);
         builder.push_op(
             0,
@@ -20258,6 +20298,60 @@ mod tests {
                 dst: x(0),
                 src1: x(1),
                 src2: SrcOperand::Imm64(!0x55_i64),
+                width: OpWidth::W64,
+                flags: FlagUpdate::None,
+            },
+        );
+        builder.set_terminator(Terminator::Return { values: vec![] });
+        let func = builder.finish();
+
+        let mut lowerer = Aarch64Lowerer::new();
+        lowerer.lower_function(&func).unwrap();
+        let code = lowerer.finalize().unwrap();
+
+        let mut expected = Vec::new();
+        expected.extend_from_slice(&enc_mov_wide(1, 0b10, 0, 0x55, 0).to_le_bytes());
+        expected.extend_from_slice(&enc_logical_reg(1, 0b00, 0, 1, 0).to_le_bytes());
+        expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
+        assert_eq!(code, expected);
+    }
+
+    #[test]
+    fn lowers_ands_x_non_contiguous_imm_with_destination_scratch() {
+        let mut builder = FunctionBuilder::new(FunctionId(0), 0);
+        builder.push_op(
+            0,
+            OpKind::And {
+                dst: x(0),
+                src1: x(1),
+                src2: SrcOperand::Imm(0x55),
+                width: OpWidth::W64,
+                flags: FlagUpdate::All,
+            },
+        );
+        builder.set_terminator(Terminator::Return { values: vec![] });
+        let func = builder.finish();
+
+        let mut lowerer = Aarch64Lowerer::new();
+        lowerer.lower_function(&func).unwrap();
+        let code = lowerer.finalize().unwrap();
+
+        let mut expected = Vec::new();
+        expected.extend_from_slice(&enc_mov_wide(1, 0b10, 0, 0x55, 0).to_le_bytes());
+        expected.extend_from_slice(&enc_logical_reg_n(1, 0b11, 0, 0, 1, 0).to_le_bytes());
+        expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
+        assert_eq!(code, expected);
+    }
+
+    #[test]
+    fn rejects_materialized_logical_immediate_when_dst_aliases_src1() {
+        let mut builder = FunctionBuilder::new(FunctionId(0), 0);
+        builder.push_op(
+            0,
+            OpKind::Or {
+                dst: x(1),
+                src1: x(1),
+                src2: SrcOperand::Imm(0x55),
                 width: OpWidth::W64,
                 flags: FlagUpdate::None,
             },
