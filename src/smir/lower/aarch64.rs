@@ -970,6 +970,10 @@ impl Aarch64Lowerer {
         );
     }
 
+    fn emit_simd_bfcvtn(&mut self, rd: u8, rn: u8, q: u32) {
+        self.emit(0x0ea1_6800 | (q << 30) | ((rn as u32) << 5) | (rd as u32));
+    }
+
     fn emit_simd_two_reg_misc(
         &mut self,
         rd: u8,
@@ -2395,6 +2399,37 @@ impl Aarch64Lowerer {
             }
         };
         self.emit_simd_fp16_three_same(rd, rn, rm, q, u, a, opcode);
+        Ok(())
+    }
+
+    fn lower_vcvt_fp32_to_bf16(
+        &mut self,
+        dst: VReg,
+        src1: VReg,
+        src2: Option<VReg>,
+        width: VecWidth,
+    ) -> Result<(), LowerError> {
+        if width != VecWidth::V128 {
+            return Err(LowerError::UnsupportedOp {
+                op: format!("AArch64 native FP32-to-BF16 vector width {width:?}"),
+            });
+        }
+
+        let rd = Self::fp_reg(dst)?;
+        let rn1 = Self::fp_reg(src1)?;
+        match src2 {
+            Some(src2) => {
+                if rd == rn1 {
+                    return Err(LowerError::UnsupportedOp {
+                        op: "AArch64 native FP32-to-BF16 src1 alias".to_string(),
+                    });
+                }
+                let rn2 = Self::fp_reg(src2)?;
+                self.emit_simd_bfcvtn(rd, rn2, 0);
+                self.emit_simd_bfcvtn(rd, rn1, 1);
+            }
+            None => self.emit_simd_bfcvtn(rd, rn1, 0),
+        }
         Ok(())
     }
 
@@ -11114,6 +11149,12 @@ impl Aarch64Lowerer {
                 op,
                 width,
             } => self.lower_vfp16_arith(*dst, *src1, *src2, *op, *width),
+            OpKind::VCvtFP32ToBF16 {
+                dst,
+                src1,
+                src2,
+                width,
+            } => self.lower_vcvt_fp32_to_bf16(*dst, *src1, *src2, *width),
             OpKind::VPopcnt {
                 dst,
                 src,
@@ -12224,6 +12265,14 @@ mod tests {
         simd_pair_from_bytes(bytes)
     }
 
+    fn simd_pair_from_f32_bits(values: [u32; 4]) -> (u64, u64) {
+        let mut bytes = [0u8; 16];
+        for (idx, value) in values.iter().enumerate() {
+            bytes[idx * 4..idx * 4 + 4].copy_from_slice(&value.to_le_bytes());
+        }
+        simd_pair_from_bytes(bytes)
+    }
+
     fn simd_pair_from_f64(values: [f64; 2]) -> (u64, u64) {
         let mut bytes = [0u8; 16];
         for (idx, value) in values.iter().enumerate() {
@@ -12273,6 +12322,34 @@ mod tests {
         let mut out = [0u16; 8];
         for lane in 0..lanes {
             out[lane] = ref_f16_binop(a[lane], b[lane], op);
+        }
+        simd_pair_from_f16(out)
+    }
+
+    fn bf16_from_f32_bits(bits: u32) -> u16 {
+        if (bits & 0x7f80_0000) == 0x7f80_0000 {
+            if (bits & 0x007f_ffff) != 0 {
+                return ((bits >> 16) as u16) | 0x0040;
+            }
+            return (bits >> 16) as u16;
+        }
+        let lsb = (bits >> 16) & 1;
+        (bits.wrapping_add(0x7fff + lsb) >> 16) as u16
+    }
+
+    fn bf16_pair_from_f32_bits(values: [u32; 4]) -> (u64, u64) {
+        let mut out = [0u16; 8];
+        for lane in 0..4 {
+            out[lane] = bf16_from_f32_bits(values[lane]);
+        }
+        simd_pair_from_f16(out)
+    }
+
+    fn bf16_pair_from_two_f32_bits(low_src: [u32; 4], high_src: [u32; 4]) -> (u64, u64) {
+        let mut out = [0u16; 8];
+        for lane in 0..4 {
+            out[lane] = bf16_from_f32_bits(low_src[lane]);
+            out[lane + 4] = bf16_from_f32_bits(high_src[lane]);
         }
         simd_pair_from_f16(out)
     }
@@ -18695,6 +18772,69 @@ mod tests {
     }
 
     #[test]
+    fn lowers_vector_bf16_conversion_encodings() {
+        let code = lower_ops(vec![
+            OpKind::VCvtFP32ToBF16 {
+                dst: v(0),
+                src1: v(1),
+                src2: None,
+                width: VecWidth::V128,
+            },
+            OpKind::VCvtFP32ToBF16 {
+                dst: v(3),
+                src1: v(4),
+                src2: Some(v(5)),
+                width: VecWidth::V128,
+            },
+        ]);
+        let words = code_words(&code);
+
+        assert_eq!(words[0], 0x0ea1_6800 | (1 << 5));
+        assert_eq!(words[1], 0x0ea1_6800 | (5 << 5) | 3);
+        assert_eq!(words[2], 0x4ea1_6800 | (4 << 5) | 3);
+        assert_eq!(words[3], 0xd65f_03c0);
+    }
+
+    #[test]
+    fn lowers_vector_bf16_conversion_runtime() {
+        let src1 = [0x3f80_0000, 0xbf80_0000, 0x3f80_8000, 0x3f81_8000];
+        let src2 = [0xc020_0000, 0x0080_0000, 0x0000_0001, 0x7fc0_1234];
+        let code = lower_ops(vec![
+            OpKind::VCvtFP32ToBF16 {
+                dst: v(0),
+                src1: v(1),
+                src2: None,
+                width: VecWidth::V128,
+            },
+            OpKind::VCvtFP32ToBF16 {
+                dst: v(3),
+                src1: v(1),
+                src2: Some(v(2)),
+                width: VecWidth::V128,
+            },
+            OpKind::VCvtFP32ToBF16 {
+                dst: v(2),
+                src1: v(1),
+                src2: Some(v(2)),
+                width: VecWidth::V128,
+            },
+        ]);
+
+        let (_, simd, _) = run_aarch64_code_with_regs_and_simd(
+            &code,
+            &[],
+            &[
+                (1, simd_pair_from_f32_bits(src1).0, simd_pair_from_f32_bits(src1).1),
+                (2, simd_pair_from_f32_bits(src2).0, simd_pair_from_f32_bits(src2).1),
+            ],
+        );
+
+        assert_eq!(simd[0], bf16_pair_from_f32_bits(src1));
+        assert_eq!(simd[3], bf16_pair_from_two_f32_bits(src2, src1));
+        assert_eq!(simd[2], bf16_pair_from_two_f32_bits(src2, src1));
+    }
+
+    #[test]
     fn lowers_vector_float_fma_runtime() {
         fn apply_f32(
             a: [f32; 4],
@@ -20190,6 +20330,27 @@ mod tests {
             src1: v(1),
             src2: v(2),
             op: Avx10FP16Op::Min,
+            width: VecWidth::V128,
+        });
+
+        assert_unsupported(OpKind::VCvtFP32ToBF16 {
+            dst: v(0),
+            src1: v(1),
+            src2: None,
+            width: VecWidth::V64,
+        });
+
+        assert_unsupported(OpKind::VCvtFP32ToBF16 {
+            dst: v(0),
+            src1: v(1),
+            src2: None,
+            width: VecWidth::V256,
+        });
+
+        assert_unsupported(OpKind::VCvtFP32ToBF16 {
+            dst: v(1),
+            src1: v(1),
+            src2: Some(v(2)),
             width: VecWidth::V128,
         });
 
