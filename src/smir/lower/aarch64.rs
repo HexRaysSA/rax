@@ -4863,7 +4863,7 @@ impl Aarch64Lowerer {
         matches!(src, SrcOperand::Reg(src) if *src == reg)
     }
 
-    fn flagm_shl(op: &OpKind, dst: VReg, src: VReg, amount: i64) -> bool {
+    fn flagm_shl(op: &OpKind, dst: VReg, src: VReg, amount: u32) -> bool {
         matches!(
             op,
             OpKind::Shl {
@@ -4874,12 +4874,12 @@ impl Aarch64Lowerer {
                 flags,
             } if *op_dst == dst
                 && *op_src == src
-                && Self::src_imm_eq(op_amount, amount)
+                && Self::src_shift_count_eq(op_amount, amount)
                 && !flags.updates_any()
         )
     }
 
-    fn flagm_shr(op: &OpKind, dst: VReg, src: VReg, amount: i64) -> bool {
+    fn flagm_shr(op: &OpKind, dst: VReg, src: VReg, amount: u32) -> bool {
         matches!(
             op,
             OpKind::Shr {
@@ -4890,7 +4890,7 @@ impl Aarch64Lowerer {
                 flags,
             } if *op_dst == dst
                 && *op_src == src
-                && Self::src_imm_eq(op_amount, amount)
+                && Self::src_shift_count_eq(op_amount, amount)
                 && !flags.updates_any()
         )
     }
@@ -18401,6 +18401,234 @@ mod tests {
 
         let mut expected = Vec::new();
         expected.extend_from_slice(&enc_flagm(0b000).to_le_bytes());
+        expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
+        assert_eq!(code, expected);
+    }
+
+    #[test]
+    fn fuses_axflag_with_masked_shift_counts() {
+        let nzcv = VReg::Arch(ArchReg::Arm(ArmReg::Nzcv));
+        let v_to_z = VReg::virt(0);
+        let z_or_v = VReg::virt(1);
+        let z_bit = VReg::virt(2);
+        let v_to_c = VReg::virt(3);
+        let c_raw = VReg::virt(4);
+        let c_bit = VReg::virt(5);
+        let result = VReg::virt(6);
+        let mut builder = FunctionBuilder::new(FunctionId(0), 0);
+        for kind in [
+            OpKind::Shl {
+                dst: v_to_z,
+                src: nzcv,
+                amount: SrcOperand::Imm64(66),
+                width: OpWidth::W32,
+                flags: FlagUpdate::None,
+            },
+            OpKind::Or {
+                dst: z_or_v,
+                src1: nzcv,
+                src2: SrcOperand::Reg(v_to_z),
+                width: OpWidth::W32,
+                flags: FlagUpdate::None,
+            },
+            OpKind::And {
+                dst: z_bit,
+                src1: z_or_v,
+                src2: SrcOperand::Imm64(0x1_4000_0000),
+                width: OpWidth::W32,
+                flags: FlagUpdate::None,
+            },
+            OpKind::Shl {
+                dst: v_to_c,
+                src: nzcv,
+                amount: SrcOperand::Imm64(65),
+                width: OpWidth::W32,
+                flags: FlagUpdate::None,
+            },
+            OpKind::And {
+                dst: c_raw,
+                src1: nzcv,
+                src2: SrcOperand::Imm64(0x1_2000_0000),
+                width: OpWidth::W32,
+                flags: FlagUpdate::None,
+            },
+            OpKind::AndNot {
+                dst: c_bit,
+                src1: c_raw,
+                src2: SrcOperand::Reg(v_to_c),
+                width: OpWidth::W32,
+                flags: FlagUpdate::None,
+            },
+            OpKind::Or {
+                dst: result,
+                src1: z_bit,
+                src2: SrcOperand::Reg(c_bit),
+                width: OpWidth::W32,
+                flags: FlagUpdate::None,
+            },
+            OpKind::Mov {
+                dst: nzcv,
+                src: SrcOperand::Reg(result),
+                width: OpWidth::W32,
+            },
+        ] {
+            builder.push_op(0, kind);
+        }
+        builder.set_terminator(Terminator::Return { values: vec![] });
+        let func = builder.finish();
+
+        let mut lowerer = Aarch64Lowerer::new();
+        lowerer.lower_function(&func).unwrap();
+        let code = lowerer.finalize().unwrap();
+
+        let mut expected = Vec::new();
+        expected.extend_from_slice(&enc_flagm(0b010).to_le_bytes());
+        expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
+        assert_eq!(code, expected);
+    }
+
+    #[test]
+    fn fuses_xaflag_with_masked_shift_counts() {
+        let nzcv = VReg::Arch(ArchReg::Arm(ArmReg::Nzcv));
+        let shl1 = VReg::virt(0);
+        let shl2 = VReg::virt(1);
+        let has_c_or_z_as_n = VReg::virt(2);
+        let n_bit = VReg::virt(3);
+        let z_raw = VReg::virt(4);
+        let z_bit = VReg::virt(5);
+        let shr1 = VReg::virt(6);
+        let c_or_z = VReg::virt(7);
+        let c_bit = VReg::virt(8);
+        let shr2 = VReg::virt(9);
+        let v_unmasked = VReg::virt(10);
+        let v_bit = VReg::virt(11);
+        let nz = VReg::virt(12);
+        let cv = VReg::virt(13);
+        let result = VReg::virt(14);
+        let mut builder = FunctionBuilder::new(FunctionId(0), 0);
+        for kind in [
+            OpKind::Shl {
+                dst: shl1,
+                src: nzcv,
+                amount: SrcOperand::Imm64(65),
+                width: OpWidth::W32,
+                flags: FlagUpdate::None,
+            },
+            OpKind::Shl {
+                dst: shl2,
+                src: nzcv,
+                amount: SrcOperand::Imm64(66),
+                width: OpWidth::W32,
+                flags: FlagUpdate::None,
+            },
+            OpKind::Or {
+                dst: has_c_or_z_as_n,
+                src1: shl1,
+                src2: SrcOperand::Reg(shl2),
+                width: OpWidth::W32,
+                flags: FlagUpdate::None,
+            },
+            OpKind::AndNot {
+                dst: n_bit,
+                src1: VReg::Imm(NZCV_N),
+                src2: SrcOperand::Reg(has_c_or_z_as_n),
+                width: OpWidth::W32,
+                flags: FlagUpdate::None,
+            },
+            OpKind::And {
+                dst: z_raw,
+                src1: nzcv,
+                src2: SrcOperand::Imm64(0x1_4000_0000),
+                width: OpWidth::W32,
+                flags: FlagUpdate::None,
+            },
+            OpKind::And {
+                dst: z_bit,
+                src1: z_raw,
+                src2: SrcOperand::Reg(shl1),
+                width: OpWidth::W32,
+                flags: FlagUpdate::None,
+            },
+            OpKind::Shr {
+                dst: shr1,
+                src: nzcv,
+                amount: SrcOperand::Imm64(65),
+                width: OpWidth::W32,
+                flags: FlagUpdate::None,
+            },
+            OpKind::Or {
+                dst: c_or_z,
+                src1: nzcv,
+                src2: SrcOperand::Reg(shr1),
+                width: OpWidth::W32,
+                flags: FlagUpdate::None,
+            },
+            OpKind::And {
+                dst: c_bit,
+                src1: c_or_z,
+                src2: SrcOperand::Imm64(0x1_2000_0000),
+                width: OpWidth::W32,
+                flags: FlagUpdate::None,
+            },
+            OpKind::Shr {
+                dst: shr2,
+                src: nzcv,
+                amount: SrcOperand::Imm64(66),
+                width: OpWidth::W32,
+                flags: FlagUpdate::None,
+            },
+            OpKind::AndNot {
+                dst: v_unmasked,
+                src1: shr2,
+                src2: SrcOperand::Reg(shr1),
+                width: OpWidth::W32,
+                flags: FlagUpdate::None,
+            },
+            OpKind::And {
+                dst: v_bit,
+                src1: v_unmasked,
+                src2: SrcOperand::Imm64(0x1_1000_0000),
+                width: OpWidth::W32,
+                flags: FlagUpdate::None,
+            },
+            OpKind::Or {
+                dst: nz,
+                src1: n_bit,
+                src2: SrcOperand::Reg(z_bit),
+                width: OpWidth::W32,
+                flags: FlagUpdate::None,
+            },
+            OpKind::Or {
+                dst: cv,
+                src1: c_bit,
+                src2: SrcOperand::Reg(v_bit),
+                width: OpWidth::W32,
+                flags: FlagUpdate::None,
+            },
+            OpKind::Or {
+                dst: result,
+                src1: nz,
+                src2: SrcOperand::Reg(cv),
+                width: OpWidth::W32,
+                flags: FlagUpdate::None,
+            },
+            OpKind::Mov {
+                dst: nzcv,
+                src: SrcOperand::Reg(result),
+                width: OpWidth::W32,
+            },
+        ] {
+            builder.push_op(0, kind);
+        }
+        builder.set_terminator(Terminator::Return { values: vec![] });
+        let func = builder.finish();
+
+        let mut lowerer = Aarch64Lowerer::new();
+        lowerer.lower_function(&func).unwrap();
+        let code = lowerer.finalize().unwrap();
+
+        let mut expected = Vec::new();
+        expected.extend_from_slice(&enc_flagm(0b001).to_le_bytes());
         expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
         assert_eq!(code, expected);
     }

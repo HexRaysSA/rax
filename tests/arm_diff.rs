@@ -4665,6 +4665,234 @@ fn push_flagm_masked_imm_native_cases(
 }
 
 #[cfg(all(feature = "smir-jit", target_arch = "x86_64"))]
+fn push_flagm_masked_shift_native_cases(
+    cases: &mut Vec<(String, [u32; 3], [u32; 3], ArmState)>,
+    control_target: i32,
+) {
+    let nzcv = VReg::Arch(ArchReg::Arm(ArmReg::Nzcv));
+
+    let v_to_z = VReg::virt(240);
+    let z_or_v = VReg::virt(241);
+    let z_bit = VReg::virt(242);
+    let v_to_c = VReg::virt(243);
+    let c_raw = VReg::virt(244);
+    let c_bit = VReg::virt(245);
+    let ax_result = VReg::virt(246);
+    let mut st = ArmState::zeroed();
+    st.pc = PCREL_MAGIC;
+    st.x[30] = pcrel_marker(control_target);
+    st.x[0] = 0xaaaa_bbbb_cccc_dddd;
+    st.pstate = 0x9000_0000;
+    let lowered = lower_aarch64_native_ops_same_pc(vec![
+        OpKind::Shl {
+            dst: v_to_z,
+            src: nzcv,
+            amount: SrcOperand::Imm64(66),
+            width: OpWidth::W32,
+            flags: FlagUpdate::None,
+        },
+        OpKind::Or {
+            dst: z_or_v,
+            src1: nzcv,
+            src2: SrcOperand::Reg(v_to_z),
+            width: OpWidth::W32,
+            flags: FlagUpdate::None,
+        },
+        OpKind::And {
+            dst: z_bit,
+            src1: z_or_v,
+            src2: SrcOperand::Imm64(0x1_4000_0000),
+            width: OpWidth::W32,
+            flags: FlagUpdate::None,
+        },
+        OpKind::Shl {
+            dst: v_to_c,
+            src: nzcv,
+            amount: SrcOperand::Imm64(65),
+            width: OpWidth::W32,
+            flags: FlagUpdate::None,
+        },
+        OpKind::And {
+            dst: c_raw,
+            src1: nzcv,
+            src2: SrcOperand::Imm64(0x1_2000_0000),
+            width: OpWidth::W32,
+            flags: FlagUpdate::None,
+        },
+        OpKind::AndNot {
+            dst: c_bit,
+            src1: c_raw,
+            src2: SrcOperand::Reg(v_to_c),
+            width: OpWidth::W32,
+            flags: FlagUpdate::None,
+        },
+        OpKind::Or {
+            dst: ax_result,
+            src1: z_bit,
+            src2: SrcOperand::Reg(c_bit),
+            width: OpWidth::W32,
+            flags: FlagUpdate::None,
+        },
+        OpKind::Mov {
+            dst: nzcv,
+            src: SrcOperand::Reg(ax_result),
+            width: OpWidth::W32,
+        },
+    ])
+    .unwrap_or_else(|e| {
+        panic!("axflag_lifted_masked_shift_counts_preserves_regs: native lowering failed: {e}")
+    });
+    cases.push((
+        "axflag_lifted_masked_shift_counts_preserves_regs".into(),
+        [enc_axflag(), NOP, NOP],
+        lowered,
+        st,
+    ));
+
+    let shl1 = VReg::virt(250);
+    let shl2 = VReg::virt(251);
+    let has_c_or_z_as_n = VReg::virt(252);
+    let n_bit = VReg::virt(253);
+    let z_raw = VReg::virt(254);
+    let z_bit = VReg::virt(255);
+    let shr1 = VReg::virt(256);
+    let c_or_z = VReg::virt(257);
+    let c_bit = VReg::virt(258);
+    let shr2 = VReg::virt(259);
+    let v_unmasked = VReg::virt(260);
+    let v_bit = VReg::virt(261);
+    let nz = VReg::virt(262);
+    let cv = VReg::virt(263);
+    let xa_result = VReg::virt(264);
+    let mut st = ArmState::zeroed();
+    st.pc = PCREL_MAGIC;
+    st.x[30] = pcrel_marker(control_target);
+    st.x[0] = 0xbbbb_cccc_dddd_eeee;
+    st.pstate = 0x6000_0000;
+    let lowered = lower_aarch64_native_ops_same_pc(vec![
+        OpKind::Shl {
+            dst: shl1,
+            src: nzcv,
+            amount: SrcOperand::Imm64(65),
+            width: OpWidth::W32,
+            flags: FlagUpdate::None,
+        },
+        OpKind::Shl {
+            dst: shl2,
+            src: nzcv,
+            amount: SrcOperand::Imm64(66),
+            width: OpWidth::W32,
+            flags: FlagUpdate::None,
+        },
+        OpKind::Or {
+            dst: has_c_or_z_as_n,
+            src1: shl1,
+            src2: SrcOperand::Reg(shl2),
+            width: OpWidth::W32,
+            flags: FlagUpdate::None,
+        },
+        OpKind::AndNot {
+            dst: n_bit,
+            src1: VReg::Imm(0x8000_0000),
+            src2: SrcOperand::Reg(has_c_or_z_as_n),
+            width: OpWidth::W32,
+            flags: FlagUpdate::None,
+        },
+        OpKind::And {
+            dst: z_raw,
+            src1: nzcv,
+            src2: SrcOperand::Imm64(0x1_4000_0000),
+            width: OpWidth::W32,
+            flags: FlagUpdate::None,
+        },
+        OpKind::And {
+            dst: z_bit,
+            src1: z_raw,
+            src2: SrcOperand::Reg(shl1),
+            width: OpWidth::W32,
+            flags: FlagUpdate::None,
+        },
+        OpKind::Shr {
+            dst: shr1,
+            src: nzcv,
+            amount: SrcOperand::Imm64(65),
+            width: OpWidth::W32,
+            flags: FlagUpdate::None,
+        },
+        OpKind::Or {
+            dst: c_or_z,
+            src1: nzcv,
+            src2: SrcOperand::Reg(shr1),
+            width: OpWidth::W32,
+            flags: FlagUpdate::None,
+        },
+        OpKind::And {
+            dst: c_bit,
+            src1: c_or_z,
+            src2: SrcOperand::Imm64(0x1_2000_0000),
+            width: OpWidth::W32,
+            flags: FlagUpdate::None,
+        },
+        OpKind::Shr {
+            dst: shr2,
+            src: nzcv,
+            amount: SrcOperand::Imm64(66),
+            width: OpWidth::W32,
+            flags: FlagUpdate::None,
+        },
+        OpKind::AndNot {
+            dst: v_unmasked,
+            src1: shr2,
+            src2: SrcOperand::Reg(shr1),
+            width: OpWidth::W32,
+            flags: FlagUpdate::None,
+        },
+        OpKind::And {
+            dst: v_bit,
+            src1: v_unmasked,
+            src2: SrcOperand::Imm64(0x1_1000_0000),
+            width: OpWidth::W32,
+            flags: FlagUpdate::None,
+        },
+        OpKind::Or {
+            dst: nz,
+            src1: n_bit,
+            src2: SrcOperand::Reg(z_bit),
+            width: OpWidth::W32,
+            flags: FlagUpdate::None,
+        },
+        OpKind::Or {
+            dst: cv,
+            src1: c_bit,
+            src2: SrcOperand::Reg(v_bit),
+            width: OpWidth::W32,
+            flags: FlagUpdate::None,
+        },
+        OpKind::Or {
+            dst: xa_result,
+            src1: nz,
+            src2: SrcOperand::Reg(cv),
+            width: OpWidth::W32,
+            flags: FlagUpdate::None,
+        },
+        OpKind::Mov {
+            dst: nzcv,
+            src: SrcOperand::Reg(xa_result),
+            width: OpWidth::W32,
+        },
+    ])
+    .unwrap_or_else(|e| {
+        panic!("xaflag_lifted_masked_shift_counts_preserves_regs: native lowering failed: {e}")
+    });
+    cases.push((
+        "xaflag_lifted_masked_shift_counts_preserves_regs".into(),
+        [enc_xaflag(), NOP, NOP],
+        lowered,
+        st,
+    ));
+}
+
+#[cfg(all(feature = "smir-jit", target_arch = "x86_64"))]
 fn push_cls_masked_imm_native_cases(
     cases: &mut Vec<(String, [u32; 3], [u32; 3], ArmState)>,
     control_target: i32,
@@ -11130,6 +11358,7 @@ fn smir_aarch64_native_lowering_matches_qemu_oracle() {
     push_select_dst_arm_native_cases(&mut cases, control_target);
     push_cond_select_true_transform_native_cases(&mut cases, control_target);
     push_flagm_masked_imm_native_cases(&mut cases, control_target);
+    push_flagm_masked_shift_native_cases(&mut cases, control_target);
     push_cls_masked_imm_native_cases(&mut cases, control_target);
     push_cond_compare_inverted_native_cases(&mut cases, control_target);
     push_sar_imm_movn_native_cases(&mut cases, control_target);
