@@ -3389,7 +3389,7 @@ impl Aarch64Lowerer {
         addr: &Address,
         width: MemWidth,
     ) -> Result<(), LowerError> {
-        let rt = Self::dst_gpr(dst)?;
+        let rt = Self::dst_gpr_arm_or_x86(dst)?;
         let rn = Self::exclusive_base_gpr(addr)?;
         let size = Self::mem_size(width)?;
         self.emit_load_exclusive(rt, rn, size);
@@ -3403,8 +3403,8 @@ impl Aarch64Lowerer {
         addr: &Address,
         width: MemWidth,
     ) -> Result<(), LowerError> {
-        let rs = Self::dst_gpr(status)?;
-        let rt = Self::gpr(src)?;
+        let rs = Self::dst_gpr_arm_or_x86(status)?;
+        let rt = Self::gpr_arm_or_x86(src)?;
         let rn = Self::exclusive_base_gpr(addr)?;
         let size = Self::mem_size(width)?;
         self.emit_store_exclusive(rs, rt, rn, size);
@@ -16424,16 +16424,30 @@ mod tests {
     }
 
     fn enc_ldxr(size: u32) -> u32 {
+        enc_ldxr_regs(size, 0, 1)
+    }
+
+    fn enc_ldxr_regs(size: u32, rt: u32, rn: u32) -> u32 {
         (size << 30)
             | (0b001000 << 24)
             | (1 << 22)
             | (0b11111 << 16)
             | (0b11111 << 10)
-            | (1 << 5)
+            | (rn << 5)
+            | rt
     }
 
     fn enc_stxr(size: u32) -> u32 {
-        (size << 30) | (0b001000 << 24) | (2 << 16) | (0b11111 << 10) | (1 << 5) | 3
+        enc_stxr_regs(size, 2, 3, 1)
+    }
+
+    fn enc_stxr_regs(size: u32, rs: u32, rt: u32, rn: u32) -> u32 {
+        (size << 30)
+            | (0b001000 << 24)
+            | (rs << 16)
+            | (0b11111 << 10)
+            | (rn << 5)
+            | rt
     }
 
     fn enc_ldar(size: u32) -> u32 {
@@ -26682,6 +26696,55 @@ mod tests {
         expected.extend_from_slice(&enc_stxr(2).to_le_bytes());
         expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
         assert_eq!(code, expected);
+    }
+
+    #[test]
+    fn lowers_exclusive_memory_apx_egpr_value_operands() {
+        let load = lower_single_op(OpKind::LoadExclusive {
+            dst: x86(X86Reg::R16),
+            addr: Address::Direct(x(1)),
+            width: MemWidth::B8,
+        });
+        let words = code_words(&load);
+        assert_eq!(words[0], enc_ldxr_regs(3, 16, 1));
+
+        let store = lower_single_op(OpKind::StoreExclusive {
+            status: x86(X86Reg::R17),
+            src: x86(X86Reg::R18),
+            addr: Address::Direct(x(1)),
+            width: MemWidth::B4,
+        });
+        let words = code_words(&store);
+        assert_eq!(words[0], enc_stxr_regs(2, 17, 18, 1));
+    }
+
+    #[test]
+    fn rejects_exclusive_memory_apx_r31_value_mapping() {
+        let err = try_lower_single_op(OpKind::LoadExclusive {
+            dst: x86(X86Reg::R31),
+            addr: Address::Direct(x(1)),
+            width: MemWidth::B8,
+        })
+        .unwrap_err();
+        assert!(matches!(err, LowerError::InvalidRegister(_)));
+
+        for kind in [
+            OpKind::StoreExclusive {
+                status: x86(X86Reg::R31),
+                src: x86(X86Reg::R16),
+                addr: Address::Direct(x(1)),
+                width: MemWidth::B8,
+            },
+            OpKind::StoreExclusive {
+                status: x86(X86Reg::R16),
+                src: x86(X86Reg::R31),
+                addr: Address::Direct(x(1)),
+                width: MemWidth::B8,
+            },
+        ] {
+            let err = try_lower_single_op(kind).unwrap_err();
+            assert!(matches!(err, LowerError::InvalidRegister(_)));
+        }
     }
 
     #[test]
