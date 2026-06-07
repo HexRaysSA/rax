@@ -1543,6 +1543,18 @@ fn lower_aarch64_native_ops(ops: Vec<OpKind>) -> Result<[u32; 3], String> {
 }
 
 #[cfg(all(feature = "smir-jit", target_arch = "x86_64"))]
+fn lower_aarch64_native_ops_same_pc(ops: Vec<OpKind>) -> Result<[u32; 3], String> {
+    let mut builder = FunctionBuilder::new(FunctionId(0), 0);
+    for kind in ops {
+        builder.push_op(0, kind);
+    }
+    builder.set_terminator(Terminator::Return { values: vec![] });
+    let func = builder.finish();
+
+    lower_aarch64_native_function(&func)
+}
+
+#[cfg(all(feature = "smir-jit", target_arch = "x86_64"))]
 fn lower_aarch64_native_insn(insn: u32) -> Result<[u32; 3], String> {
     let mut lifter = Aarch64Lifter::new();
     let mut ctx = LiftContext::new(SourceArch::Aarch64);
@@ -11090,6 +11102,118 @@ fn smir_aarch64_native_lowering_matches_qemu_oracle() {
         }],
         st,
     );
+
+    let rev16_lo = VReg::virt(0);
+    let rev16_hi = VReg::virt(1);
+    let rev16_lo_shifted = VReg::virt(2);
+    let rev16_hi_shifted = VReg::virt(3);
+    let rev16_src = VReg::Imm(0x12);
+    let mut st = native_state();
+    st.x[0] = 0xbbbb_cccc_dddd_eeee;
+    st.pstate = 0x6000_0000;
+    drop(push_case3);
+
+    let rev16_label = "rev16_x_lifted_imm_src_as_movz_preserves_flags";
+    let lowered = lower_aarch64_native_ops_same_pc(vec![
+        OpKind::And {
+            dst: rev16_lo,
+            src1: rev16_src,
+            src2: SrcOperand::Imm64(0x00ff_00ff_00ff_00ff),
+            width: OpWidth::W64,
+            flags: FlagUpdate::None,
+        },
+        OpKind::And {
+            dst: rev16_hi,
+            src1: rev16_src,
+            src2: SrcOperand::Imm64(0xff00_ff00_ff00_ff00_u64 as i64),
+            width: OpWidth::W64,
+            flags: FlagUpdate::None,
+        },
+        OpKind::Shl {
+            dst: rev16_lo_shifted,
+            src: rev16_lo,
+            amount: SrcOperand::Imm(8),
+            width: OpWidth::W64,
+            flags: FlagUpdate::None,
+        },
+        OpKind::Shr {
+            dst: rev16_hi_shifted,
+            src: rev16_hi,
+            amount: SrcOperand::Imm(8),
+            width: OpWidth::W64,
+            flags: FlagUpdate::None,
+        },
+        OpKind::Or {
+            dst: arm_x(0),
+            src1: rev16_lo_shifted,
+            src2: SrcOperand::Reg(rev16_hi_shifted),
+            width: OpWidth::W64,
+            flags: FlagUpdate::None,
+        },
+    ])
+    .unwrap_or_else(|e| panic!("{rev16_label}: native lowering failed: {e}"));
+    cases.push((
+        rev16_label.into(),
+        [enc_mov_wide(1, 0b10, 0, 0x1200), NOP, NOP],
+        lowered,
+        st,
+    ));
+
+    let rev32_lo_rev = VReg::virt(0);
+    let rev32_hi = VReg::virt(1);
+    let rev32_hi_rev = VReg::virt(2);
+    let rev32_hi_shifted = VReg::virt(3);
+    let rev32_src = VReg::Imm(0x1200_0000);
+    let mut st = native_state();
+    st.x[0] = 0xcccc_dddd_eeee_ffff;
+    st.pstate = 0xa000_0000;
+    let rev32_label = "rev32_x_lifted_imm_src_as_movz_preserves_flags";
+    let lowered = lower_aarch64_native_ops_same_pc(vec![
+        OpKind::Bswap {
+            dst: rev32_lo_rev,
+            src: rev32_src,
+            width: OpWidth::W32,
+        },
+        OpKind::Shr {
+            dst: rev32_hi,
+            src: rev32_src,
+            amount: SrcOperand::Imm(32),
+            width: OpWidth::W64,
+            flags: FlagUpdate::None,
+        },
+        OpKind::Bswap {
+            dst: rev32_hi_rev,
+            src: rev32_hi,
+            width: OpWidth::W32,
+        },
+        OpKind::Shl {
+            dst: rev32_hi_shifted,
+            src: rev32_hi_rev,
+            amount: SrcOperand::Imm(32),
+            width: OpWidth::W64,
+            flags: FlagUpdate::None,
+        },
+        OpKind::Or {
+            dst: arm_x(0),
+            src1: rev32_hi_shifted,
+            src2: SrcOperand::Reg(rev32_lo_rev),
+            width: OpWidth::W64,
+            flags: FlagUpdate::None,
+        },
+    ])
+    .unwrap_or_else(|e| panic!("{rev32_label}: native lowering failed: {e}"));
+    cases.push((
+        rev32_label.into(),
+        [enc_mov_wide(1, 0b10, 0, 0x12), NOP, NOP],
+        lowered,
+        st,
+    ));
+
+    let mut push_case3 = |label: &str, source: [u32; 3], ops: Vec<OpKind>, st: ArmState| {
+        let lowered = lower_aarch64_native_ops(ops)
+            .unwrap_or_else(|e| panic!("{label}: native lowering failed: {e}"));
+        cases.push((label.into(), source, lowered, st));
+    };
 
     let mut st = native_state();
     st.x[0] = 0xaaaa_bbbb_cccc_dddd;
