@@ -924,6 +924,14 @@ impl Aarch64Lowerer {
         self.emit_simd_ldst_simm(rt, rn, size, opc, imm9, 0b00);
     }
 
+    fn emit_simd_push_scratch(&mut self, rt: u8) {
+        self.emit_simd_ldst_simm(rt, 31, 0b00, 0b10, -16, 0b11);
+    }
+
+    fn emit_simd_pop_scratch(&mut self, rt: u8) {
+        self.emit_simd_ldst_simm(rt, 31, 0b00, 0b11, 16, 0b01);
+    }
+
     fn emit_simd_three_same(
         &mut self,
         rd: u8,
@@ -2775,37 +2783,13 @@ impl Aarch64Lowerer {
         )
     }
 
-    fn lower_vpermute(
+    fn lower_vpermute_mask_indices(
         &mut self,
-        dst: VReg,
-        src1: VReg,
-        src2: Option<VReg>,
-        indices: VReg,
-        elem: VecElementType,
-        width: VecWidth,
-        overwrite_table: bool,
+        rd: u8,
+        rm: u8,
+        mask: i64,
     ) -> Result<(), LowerError> {
-        if elem != VecElementType::I8 || width != VecWidth::V128 {
-            return Err(LowerError::UnsupportedOp {
-                op: format!("AArch64 native vector permute elem={elem:?} width={width:?}"),
-            });
-        }
-        if src2.is_some() || overwrite_table {
-            return Err(LowerError::UnsupportedOp {
-                op: "AArch64 native two-table vector permute".to_string(),
-            });
-        }
-
-        let rd = Self::fp_reg(dst)?;
-        let rn = Self::fp_reg(src1)?;
-        let rm = Self::fp_reg(indices)?;
-        if rd == rn {
-            return Err(LowerError::UnsupportedOp {
-                op: "AArch64 native vector permute table alias".to_string(),
-            });
-        }
-
-        let (imm_n, immr, imms) = Self::logical_bitmask_imm(0x0f, OpWidth::W32)?;
+        let (imm_n, immr, imms) = Self::logical_bitmask_imm(mask, OpWidth::W32)?;
         let mut lane_imm5 = Vec::with_capacity(16);
         for lane in 0..16 {
             let (_, imm5) = Self::simd_lane_imm5(VecElementType::I8, lane)?;
@@ -2821,7 +2805,54 @@ impl Aarch64Lowerer {
             self.emit_simd_ins_general(rd, scratch, imm5);
         }
         self.emit_scratch_restore(&scratches);
-        self.emit_simd_tbl(rd, rn, rd, 1, 0, 0);
+        Ok(())
+    }
+
+    fn lower_vpermute(
+        &mut self,
+        dst: VReg,
+        src1: VReg,
+        src2: Option<VReg>,
+        indices: VReg,
+        elem: VecElementType,
+        width: VecWidth,
+        overwrite_table: bool,
+    ) -> Result<(), LowerError> {
+        if elem != VecElementType::I8 || width != VecWidth::V128 {
+            return Err(LowerError::UnsupportedOp {
+                op: format!("AArch64 native vector permute elem={elem:?} width={width:?}"),
+            });
+        }
+        if src2.is_none() && overwrite_table {
+            return Err(LowerError::UnsupportedOp {
+                op: "AArch64 native vector permute missing second table".to_string(),
+            });
+        }
+
+        let rd = Self::fp_reg(dst)?;
+        let rn = Self::fp_reg(src1)?;
+        let rm = Self::fp_reg(indices)?;
+        if let Some(src2) = src2 {
+            let r2 = Self::fp_reg(src2)?;
+            let (table0, table1) = Self::scratch_fp_reg_pair(&[rd, rn, r2, rm])?;
+            let tables = [table0, table1];
+            self.emit_simd_scratch_save(&tables);
+            self.emit_simd_logical(table0, rn, rn, VecWidth::V128, SimdLogicOp::Or)?;
+            self.emit_simd_logical(table1, r2, r2, VecWidth::V128, SimdLogicOp::Or)?;
+            self.lower_vpermute_mask_indices(rd, rm, 0x1f)?;
+            self.emit_simd_tbl(rd, table0, rd, 1, 1, 0);
+            self.emit_simd_scratch_restore(&tables);
+        } else if rd == rn {
+            let table = Self::scratch_fp_reg(&[rd, rm])?;
+            self.emit_simd_scratch_save(&[table]);
+            self.emit_simd_logical(table, rn, rn, VecWidth::V128, SimdLogicOp::Or)?;
+            self.lower_vpermute_mask_indices(rd, rm, 0x0f)?;
+            self.emit_simd_tbl(rd, table, rd, 1, 0, 0);
+            self.emit_simd_scratch_restore(&[table]);
+        } else {
+            self.lower_vpermute_mask_indices(rd, rm, 0x0f)?;
+            self.emit_simd_tbl(rd, rn, rd, 1, 0, 0);
+        }
         Ok(())
     }
 
@@ -6380,6 +6411,31 @@ impl Aarch64Lowerer {
         })
     }
 
+    fn scratch_fp_reg(avoid: &[u8]) -> Result<u8, LowerError> {
+        for reg in (0_u8..=31).rev() {
+            if !avoid.contains(&reg) {
+                return Ok(reg);
+            }
+        }
+
+        Err(LowerError::UnsupportedOp {
+            op: "AArch64 native lowering needs a SIMD scratch register".to_string(),
+        })
+    }
+
+    fn scratch_fp_reg_pair(avoid: &[u8]) -> Result<(u8, u8), LowerError> {
+        for first in (0_u8..31).rev() {
+            let second = first + 1;
+            if !avoid.contains(&first) && !avoid.contains(&second) {
+                return Ok((first, second));
+            }
+        }
+
+        Err(LowerError::UnsupportedOp {
+            op: "AArch64 native lowering needs a consecutive SIMD scratch pair".to_string(),
+        })
+    }
+
     fn emit_scratch_save(&mut self, regs: &[u8]) {
         for &reg in regs {
             self.emit_push_scratch(reg);
@@ -6389,6 +6445,18 @@ impl Aarch64Lowerer {
     fn emit_scratch_restore(&mut self, regs: &[u8]) {
         for &reg in regs.iter().rev() {
             self.emit_pop_scratch(reg);
+        }
+    }
+
+    fn emit_simd_scratch_save(&mut self, regs: &[u8]) {
+        for &reg in regs {
+            self.emit_simd_push_scratch(reg);
+        }
+    }
+
+    fn emit_simd_scratch_restore(&mut self, regs: &[u8]) {
+        for &reg in regs.iter().rev() {
+            self.emit_simd_pop_scratch(reg);
         }
     }
 
@@ -15575,6 +15643,24 @@ mod tests {
             | rt
     }
 
+    fn enc_simd_ldst_simm_regs(
+        size: u32,
+        opc: u32,
+        mode: u32,
+        imm9: i64,
+        rt: u32,
+        rn: u32,
+    ) -> u32 {
+        (size << 30)
+            | (0b111 << 27)
+            | (1 << 26)
+            | (opc << 22)
+            | (((imm9 as u32) & 0x1ff) << 12)
+            | (mode << 10)
+            | (rn << 5)
+            | rt
+    }
+
     fn enc_ldst_uimm(size: u32, opc: u32, imm12: u32) -> u32 {
         (size << 30) | (0b111 << 27) | (0b01 << 24) | (opc << 22) | (imm12 << 10) | (1 << 5)
     }
@@ -15844,6 +15930,10 @@ mod tests {
 
     fn enc_simd_tbl(rd: u32, rn: u32, rm: u32, q: u32, len: u32, op: u32) -> u32 {
         (q << 30) | (0b01110 << 24) | (rm << 16) | (len << 13) | (op << 12) | (rn << 5) | rd
+    }
+
+    fn enc_simd_orr(rd: u32, rn: u32, rm: u32) -> u32 {
+        0x0e20_0400 | (1 << 30) | (0b10 << 22) | (rm << 16) | (0b00011 << 11) | (rn << 5) | rd
     }
 
     fn enc_addsub_shift_regs(
@@ -19949,30 +20039,120 @@ mod tests {
     }
 
     #[test]
-    fn lowers_vpermute_v128_runtime() {
-        fn ref_vpermb(table: (u64, u64), indices: (u64, u64)) -> (u64, u64) {
-            fn pair_bytes(pair: (u64, u64)) -> [u8; 16] {
-                let mut bytes = [0u8; 16];
-                bytes[..8].copy_from_slice(&pair.0.to_le_bytes());
-                bytes[8..].copy_from_slice(&pair.1.to_le_bytes());
-                bytes
+    fn lowers_vpermute_v128_alias_and_two_table_encodings() {
+        fn append_masked_index_build(
+            expected: &mut Vec<u32>,
+            dst: u32,
+            indices: u32,
+            mask: i64,
+        ) {
+            let (imm_n, immr, imms) =
+                Aarch64Lowerer::logical_bitmask_imm(mask, OpWidth::W32).unwrap();
+            expected.push(enc_ldst_simm_regs(3, 0b00, 0b11, -16, 16, 31));
+            for lane in 0..16 {
+                let imm5 = (lane << 1) | 1;
+                expected.push(enc_simd_umov(16, indices, imm5, false));
+                expected.push(enc_logical_imm(0, 0b00, imm_n, immr, imms, 16, 16));
+                expected.push(enc_simd_ins_general(dst, 16, imm5));
             }
+            expected.push(enc_ldst_simm_regs(3, 0b01, 0b01, 16, 16, 31));
+        }
 
+        let alias_words = code_words(&lower_single_op(OpKind::VPermute {
+            dst: v(1),
+            src1: v(1),
+            src2: None,
+            indices: v(2),
+            elem: VecElementType::I8,
+            width: VecWidth::V128,
+            overwrite_table: false,
+        }));
+        let mut alias_expected = vec![
+            enc_simd_ldst_simm_regs(0, 0b10, 0b11, -16, 31, 31),
+            enc_simd_orr(31, 1, 1),
+        ];
+        append_masked_index_build(&mut alias_expected, 1, 2, 0x0f);
+        alias_expected.push(enc_simd_tbl(1, 31, 1, 1, 0, 0));
+        alias_expected.push(enc_simd_ldst_simm_regs(0, 0b11, 0b01, 16, 31, 31));
+        alias_expected.push(0xd65f_03c0);
+        assert_eq!(alias_words, alias_expected);
+
+        let two_table_words = code_words(&lower_single_op(OpKind::VPermute {
+            dst: v(0),
+            src1: v(1),
+            src2: Some(v(2)),
+            indices: v(3),
+            elem: VecElementType::I8,
+            width: VecWidth::V128,
+            overwrite_table: false,
+        }));
+        let mut two_table_expected = vec![
+            enc_simd_ldst_simm_regs(0, 0b10, 0b11, -16, 30, 31),
+            enc_simd_ldst_simm_regs(0, 0b10, 0b11, -16, 31, 31),
+            enc_simd_orr(30, 1, 1),
+            enc_simd_orr(31, 2, 2),
+        ];
+        append_masked_index_build(&mut two_table_expected, 0, 3, 0x1f);
+        two_table_expected.push(enc_simd_tbl(0, 30, 0, 1, 1, 0));
+        two_table_expected.push(enc_simd_ldst_simm_regs(0, 0b11, 0b01, 16, 31, 31));
+        two_table_expected.push(enc_simd_ldst_simm_regs(0, 0b11, 0b01, 16, 30, 31));
+        two_table_expected.push(0xd65f_03c0);
+        assert_eq!(two_table_words, two_table_expected);
+    }
+
+    #[test]
+    fn lowers_vpermute_v128_runtime() {
+        fn pair_bytes(pair: (u64, u64)) -> [u8; 16] {
+            let mut bytes = [0u8; 16];
+            bytes[..8].copy_from_slice(&pair.0.to_le_bytes());
+            bytes[8..].copy_from_slice(&pair.1.to_le_bytes());
+            bytes
+        }
+
+        fn pair_from_bytes(bytes: [u8; 16]) -> (u64, u64) {
+            (
+                u64::from_le_bytes(bytes[..8].try_into().unwrap()),
+                u64::from_le_bytes(bytes[8..].try_into().unwrap()),
+            )
+        }
+
+        fn ref_vpermb(table: (u64, u64), indices: (u64, u64)) -> (u64, u64) {
             let table_bytes = pair_bytes(table);
             let index_bytes = pair_bytes(indices);
             let mut out = [0u8; 16];
             for lane in 0..16 {
                 out[lane] = table_bytes[(index_bytes[lane] & 0x0f) as usize];
             }
-            (
-                u64::from_le_bytes(out[..8].try_into().unwrap()),
-                u64::from_le_bytes(out[8..].try_into().unwrap()),
-            )
+            pair_from_bytes(out)
+        }
+
+        fn ref_vpermb2(
+            table1: (u64, u64),
+            table2: (u64, u64),
+            indices: (u64, u64),
+        ) -> (u64, u64) {
+            let table1_bytes = pair_bytes(table1);
+            let table2_bytes = pair_bytes(table2);
+            let index_bytes = pair_bytes(indices);
+            let mut table = [0u8; 32];
+            table[..16].copy_from_slice(&table1_bytes);
+            table[16..].copy_from_slice(&table2_bytes);
+            let mut out = [0u8; 16];
+            for lane in 0..16 {
+                out[lane] = table[(index_bytes[lane] & 0x1f) as usize];
+            }
+            pair_from_bytes(out)
         }
 
         let table = (0x7060_5040_3020_1000, 0xf0e0_d0c0_b0a0_9080);
+        let table2 = (0x1716_1514_1312_1110, 0x1f1e_1d1c_1b1a_1918);
+        let alias_table = (0x8765_4321_0fed_cba9, 0x7766_5544_3322_1100);
+        let overwrite_table = (0x1020_3040_5060_7080, 0x90a0_b0c0_d0e0_f001);
         let indices = (0x0f10_1102_0304_0506, 0x0718_091a_0b1c_0d0e);
         let alias_indices = (0xfefd_fc03_0211_100f, 0x8e8d_8c8b_8a89_8887);
+        let two_table_indices = (0x1f20_0011_1203_1405, 0x1607_1809_1a0b_1c0d);
+        let scratch30 = (0x3030_3030_3030_3030, 0x3030_3030_3030_3030);
+        let scratch31 = (0x3131_3131_3131_3131, 0x3131_3131_3131_3131);
         let code = lower_ops(vec![
             OpKind::VPermute {
                 dst: v(0),
@@ -19992,6 +20172,33 @@ mod tests {
                 width: VecWidth::V128,
                 overwrite_table: false,
             },
+            OpKind::VPermute {
+                dst: v(4),
+                src1: v(4),
+                src2: None,
+                indices: v(2),
+                elem: VecElementType::I8,
+                width: VecWidth::V128,
+                overwrite_table: false,
+            },
+            OpKind::VPermute {
+                dst: v(5),
+                src1: v(1),
+                src2: Some(v(6)),
+                indices: v(5),
+                elem: VecElementType::I8,
+                width: VecWidth::V128,
+                overwrite_table: false,
+            },
+            OpKind::VPermute {
+                dst: v(7),
+                src1: v(7),
+                src2: Some(v(6)),
+                indices: v(2),
+                elem: VecElementType::I8,
+                width: VecWidth::V128,
+                overwrite_table: true,
+            },
         ]);
 
         let (regs, simd, sp) = run_aarch64_code_with_regs_and_simd(
@@ -20001,12 +20208,24 @@ mod tests {
                 (1, table.0, table.1),
                 (2, indices.0, indices.1),
                 (3, alias_indices.0, alias_indices.1),
+                (4, alias_table.0, alias_table.1),
+                (5, two_table_indices.0, two_table_indices.1),
+                (6, table2.0, table2.1),
+                (7, overwrite_table.0, overwrite_table.1),
+                (30, scratch30.0, scratch30.1),
+                (31, scratch31.0, scratch31.1),
             ],
         );
         assert_eq!(simd[0], ref_vpermb(table, indices));
         assert_eq!(simd[1], table);
         assert_eq!(simd[2], indices);
         assert_eq!(simd[3], ref_vpermb(table, alias_indices));
+        assert_eq!(simd[4], ref_vpermb(alias_table, indices));
+        assert_eq!(simd[5], ref_vpermb2(table, table2, two_table_indices));
+        assert_eq!(simd[6], table2);
+        assert_eq!(simd[7], ref_vpermb2(overwrite_table, table2, indices));
+        assert_eq!(simd[30], scratch30);
+        assert_eq!(simd[31], scratch31);
         assert_eq!(regs[16], 0x1616_1616_1616_1616);
         assert_eq!(sp, 0x8000);
     }
@@ -20958,21 +21177,11 @@ mod tests {
         assert_unsupported(OpKind::VPermute {
             dst: v(0),
             src1: v(1),
-            src2: Some(v(3)),
-            indices: v(2),
-            elem: VecElementType::I8,
-            width: VecWidth::V128,
-            overwrite_table: false,
-        });
-
-        assert_unsupported(OpKind::VPermute {
-            dst: v(1),
-            src1: v(1),
             src2: None,
             indices: v(2),
             elem: VecElementType::I8,
             width: VecWidth::V128,
-            overwrite_table: false,
+            overwrite_table: true,
         });
 
         assert_unsupported(OpKind::VLane {
