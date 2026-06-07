@@ -2454,7 +2454,11 @@ impl Aarch64Lowerer {
                     }
                 };
                 let value = 0_u64.wrapping_sub((value as u64) & width.mask()) & width.mask();
-                return self.emit_mov_imm(Self::dst_gpr(dst)?, value as i64, emit_width);
+                let dst = Self::dst_gpr(dst)?;
+                if self.try_emit_movn_single(dst, value, emit_width)? {
+                    return Ok(());
+                }
+                return self.emit_mov_imm(dst, value as i64, emit_width);
             }
         }
 
@@ -8671,7 +8675,7 @@ mod tests {
     }
 
     #[test]
-    fn lowers_neg_w_imm_as_movz_movk() {
+    fn lowers_neg_w_imm_as_movn() {
         let mut builder = FunctionBuilder::new(FunctionId(0), 0);
         builder.push_op(
             0,
@@ -8690,8 +8694,32 @@ mod tests {
         let code = lowerer.finalize().unwrap();
 
         let mut expected = Vec::new();
-        expected.extend_from_slice(&enc_mov_wide(0, 0b10, 0, 0xedcc, 0).to_le_bytes());
-        expected.extend_from_slice(&enc_mov_wide(0, 0b11, 1, 0xffff, 0).to_le_bytes());
+        expected.extend_from_slice(&enc_mov_wide(0, 0b00, 0, 0x1233, 0).to_le_bytes());
+        expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
+        assert_eq!(code, expected);
+    }
+
+    #[test]
+    fn lowers_neg_x_imm_as_movn() {
+        let mut builder = FunctionBuilder::new(FunctionId(0), 0);
+        builder.push_op(
+            0,
+            OpKind::Neg {
+                dst: x(0),
+                src: VReg::Imm(0x1234),
+                width: OpWidth::W64,
+                flags: FlagUpdate::None,
+            },
+        );
+        builder.set_terminator(Terminator::Return { values: vec![] });
+        let func = builder.finish();
+
+        let mut lowerer = Aarch64Lowerer::new();
+        lowerer.lower_function(&func).unwrap();
+        let code = lowerer.finalize().unwrap();
+
+        let mut expected = Vec::new();
+        expected.extend_from_slice(&enc_mov_wide(1, 0b00, 0, 0x1233, 0).to_le_bytes());
         expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
         assert_eq!(code, expected);
     }

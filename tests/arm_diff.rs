@@ -7876,6 +7876,40 @@ fn smir_aarch64_native_lowering_matches_qemu_oracle() {
     ));
 
     let mut st = native_state();
+    st.x[0] = 0xeeee_ffff_0000_1111;
+    st.pstate = 0x2000_0000;
+    let lowered = lower_aarch64_native_ops(vec![OpKind::Neg {
+        dst: arm_x(0),
+        src: VReg::Imm(0x1234),
+        width: OpWidth::W32,
+        flags: FlagUpdate::None,
+    }])
+    .unwrap_or_else(|e| panic!("neg_w_imm_as_movn_preserves_flags: native lowering failed: {e}"));
+    cases.push((
+        "neg_w_imm_as_movn_preserves_flags".into(),
+        [enc_mov_wide(0, 0b00, 0, 0x1233), NOP, NOP],
+        lowered,
+        st,
+    ));
+
+    let mut st = native_state();
+    st.x[0] = 0x1111_2222_3333_4444;
+    st.pstate = 0x6000_0000;
+    let lowered = lower_aarch64_native_ops(vec![OpKind::Neg {
+        dst: arm_x(0),
+        src: VReg::Imm(0x1234),
+        width: OpWidth::W64,
+        flags: FlagUpdate::None,
+    }])
+    .unwrap_or_else(|e| panic!("neg_x_imm_as_movn_preserves_flags: native lowering failed: {e}"));
+    cases.push((
+        "neg_x_imm_as_movn_preserves_flags".into(),
+        [enc_mov_wide(1, 0b00, 0, 0x1233), NOP, NOP],
+        lowered,
+        st,
+    ));
+
+    let mut st = native_state();
     st.x[0] = 0x1111_2222_3333_4444;
     st.pstate = 0x9000_0000;
     let lowered = lower_aarch64_native_ops(vec![OpKind::Neg {
