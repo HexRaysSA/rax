@@ -5587,8 +5587,8 @@ impl Aarch64Lowerer {
         }
         let bits = width.bits();
         self.lower_shift_imm(
-            Self::dst_gpr(dst)?,
-            Self::gpr(src)?,
+            Self::dst_gpr_arm_or_x86(dst)?,
+            Self::gpr_arm_or_x86(src)?,
             i64::from(bits - 1),
             ShiftOp::Asr,
             width,
@@ -5620,8 +5620,8 @@ impl Aarch64Lowerer {
     }
 
     fn lower_not(&mut self, dst: VReg, src: VReg, width: OpWidth) -> Result<(), LowerError> {
-        let dst = Self::dst_gpr(dst)?;
-        let src = Self::gpr(src)?;
+        let dst = Self::dst_gpr_arm_or_x86(dst)?;
+        let src = Self::gpr_arm_or_x86(src)?;
         match width {
             OpWidth::W8 | OpWidth::W16 => {
                 self.emit_logic_reg_n(dst, 31, src, 0b01, true, OpWidth::W32)?;
@@ -5813,8 +5813,8 @@ impl Aarch64Lowerer {
     }
 
     fn lower_clz(&mut self, dst: VReg, src: VReg, width: OpWidth) -> Result<(), LowerError> {
-        let dst = Self::dst_gpr(dst)?;
-        let src = Self::gpr(src)?;
+        let dst = Self::dst_gpr_arm_or_x86(dst)?;
+        let src = Self::gpr_arm_or_x86(src)?;
         if matches!(width, OpWidth::W8 | OpWidth::W16) {
             let bits = width.bits();
             self.emit_bitfield(dst, src, 0b10, bits, bits - 1, OpWidth::W32)?;
@@ -5827,8 +5827,8 @@ impl Aarch64Lowerer {
     }
 
     fn lower_ctz(&mut self, dst: VReg, src: VReg, width: OpWidth) -> Result<(), LowerError> {
-        let dst = Self::dst_gpr(dst)?;
-        let src = Self::gpr(src)?;
+        let dst = Self::dst_gpr_arm_or_x86(dst)?;
+        let src = Self::gpr_arm_or_x86(src)?;
         if matches!(width, OpWidth::W8 | OpWidth::W16) {
             let sentinel = if width == OpWidth::W8 { 0x100 } else { 0x1_0000 };
             let (imm_n, immr, imms) = Self::logical_bitmask_imm(sentinel, OpWidth::W32)?;
@@ -5842,8 +5842,8 @@ impl Aarch64Lowerer {
     }
 
     fn lower_popcnt(&mut self, dst: VReg, src: VReg, width: OpWidth) -> Result<(), LowerError> {
-        let dst = Self::dst_gpr(dst)?;
-        let src = Self::gpr(src)?;
+        let dst = Self::dst_gpr_arm_or_x86(dst)?;
+        let src = Self::gpr_arm_or_x86(src)?;
         let emit_width = match width {
             OpWidth::W8 | OpWidth::W16 | OpWidth::W32 => OpWidth::W32,
             OpWidth::W64 => OpWidth::W64,
@@ -5921,8 +5921,8 @@ impl Aarch64Lowerer {
                 });
             }
         };
-        let dst_reg = Self::dst_gpr(dst)?;
-        let src_reg = Self::gpr(src)?;
+        let dst_reg = Self::dst_gpr_arm_or_x86(dst)?;
+        let src_reg = Self::gpr_arm_or_x86(src)?;
         let saved_src = if flags.updates_any() && dst_reg == src_reg {
             Self::scratch_regs(&[dst_reg, src_reg], 1)?
         } else {
@@ -5964,8 +5964,8 @@ impl Aarch64Lowerer {
             });
         }
 
-        let dst_reg = Self::dst_gpr(dst)?;
-        let src_reg = Self::gpr(src)?;
+        let dst_reg = Self::dst_gpr_arm_or_x86(dst)?;
+        let src_reg = Self::gpr_arm_or_x86(src)?;
         let saved_src = if flags.updates_any() && dst_reg == src_reg {
             Self::scratch_regs(&[dst_reg, src_reg], 1)?
         } else {
@@ -7193,28 +7193,42 @@ impl Aarch64Lowerer {
     }
 
     fn lower_cls(&mut self, dst: VReg, src: VReg, width: OpWidth) -> Result<(), LowerError> {
-        self.emit_dp1(Self::dst_gpr(dst)?, Self::gpr(src)?, 0b000101, width)
+        self.emit_dp1(
+            Self::dst_gpr_arm_or_x86(dst)?,
+            Self::gpr_arm_or_x86(src)?,
+            0b000101,
+            width,
+        )
     }
 
     fn lower_rbit(&mut self, dst: VReg, src: VReg, width: OpWidth) -> Result<(), LowerError> {
         if matches!(width, OpWidth::W8 | OpWidth::W16) {
-            return self.emit_mov_reg(Self::dst_gpr(dst)?, Self::gpr(src)?, OpWidth::W64);
+            return self.emit_mov_reg(
+                Self::dst_gpr_arm_or_x86(dst)?,
+                Self::gpr_arm_or_x86(src)?,
+                OpWidth::W64,
+            );
         }
-        self.emit_dp1(Self::dst_gpr(dst)?, Self::gpr(src)?, 0b000000, width)
+        self.emit_dp1(
+            Self::dst_gpr_arm_or_x86(dst)?,
+            Self::gpr_arm_or_x86(src)?,
+            0b000000,
+            width,
+        )
     }
 
     fn lower_bswap(&mut self, dst: VReg, src: VReg, width: OpWidth) -> Result<(), LowerError> {
         let opcode = match width {
             OpWidth::W8 => {
                 return self.emit_mov_reg(
-                    Self::dst_gpr(dst)?,
-                    Self::gpr(src)?,
+                    Self::dst_gpr_arm_or_x86(dst)?,
+                    Self::gpr_arm_or_x86(src)?,
                     OpWidth::W64,
                 );
             }
             OpWidth::W16 => {
-                let dst = Self::dst_gpr(dst)?;
-                self.emit_dp1(dst, Self::gpr(src)?, 0b000001, OpWidth::W32)?;
+                let dst = Self::dst_gpr_arm_or_x86(dst)?;
+                self.emit_dp1(dst, Self::gpr_arm_or_x86(src)?, 0b000001, OpWidth::W32)?;
                 return self.emit_bitfield(dst, dst, 0b10, 0, 15, OpWidth::W32);
             }
             OpWidth::W32 => 0b000010,
@@ -7225,13 +7239,23 @@ impl Aarch64Lowerer {
                 });
             }
         };
-        self.emit_dp1(Self::dst_gpr(dst)?, Self::gpr(src)?, opcode, width)
+        self.emit_dp1(
+            Self::dst_gpr_arm_or_x86(dst)?,
+            Self::gpr_arm_or_x86(src)?,
+            opcode,
+            width,
+        )
     }
 
     fn lower_rev16(&mut self, dst: VReg, src: VReg, width: OpWidth) -> Result<(), LowerError> {
         match width {
             OpWidth::W32 | OpWidth::W64 => {
-                self.emit_dp1(Self::dst_gpr(dst)?, Self::gpr(src)?, 0b000001, width)
+                self.emit_dp1(
+                    Self::dst_gpr_arm_or_x86(dst)?,
+                    Self::gpr_arm_or_x86(src)?,
+                    0b000001,
+                    width,
+                )
             }
             other => Err(LowerError::UnsupportedOp {
                 op: format!("AArch64 native Rev16 width {other:?}"),
@@ -7242,7 +7266,12 @@ impl Aarch64Lowerer {
     fn lower_rev32(&mut self, dst: VReg, src: VReg, width: OpWidth) -> Result<(), LowerError> {
         match width {
             OpWidth::W32 | OpWidth::W64 => {
-                self.emit_dp1(Self::dst_gpr(dst)?, Self::gpr(src)?, 0b000010, width)
+                self.emit_dp1(
+                    Self::dst_gpr_arm_or_x86(dst)?,
+                    Self::gpr_arm_or_x86(src)?,
+                    0b000010,
+                    width,
+                )
             }
             other => Err(LowerError::UnsupportedOp {
                 op: format!("AArch64 native Rev32 width {other:?}"),
@@ -32423,6 +32452,158 @@ mod tests {
         assert_eq!(out[0], 16);
         assert_eq!(out_nzcv, 0b0110);
         assert_eq!(sp, 0x8000);
+    }
+
+    #[test]
+    fn lowers_unary_bit_apx_egpr_operands_runtime() {
+        let ops = vec![
+            OpKind::Not {
+                dst: x86(X86Reg::R16),
+                src: x86(X86Reg::R17),
+                width: OpWidth::W16,
+            },
+            OpKind::Clz {
+                dst: x86(X86Reg::R18),
+                src: x86(X86Reg::R19),
+                width: OpWidth::W32,
+            },
+            OpKind::Ctz {
+                dst: x86(X86Reg::R20),
+                src: x86(X86Reg::R21),
+                width: OpWidth::W64,
+            },
+            OpKind::Popcnt {
+                dst: x86(X86Reg::R22),
+                src: x86(X86Reg::R23),
+                width: OpWidth::W64,
+            },
+            OpKind::Bswap {
+                dst: x86(X86Reg::R24),
+                src: x86(X86Reg::R25),
+                width: OpWidth::W32,
+            },
+            OpKind::Rbit {
+                dst: x86(X86Reg::R26),
+                src: x86(X86Reg::R27),
+                width: OpWidth::W64,
+            },
+        ];
+        let code = lower_ops(ops);
+        let regs = [
+            (17, 0x1234),
+            (19, 0x0000_00f0),
+            (21, 0x1000),
+            (23, 0xf0f0_0000_0000_0001),
+            (25, 0x1234_5678),
+            (27, 0x0123_4567_89ab_cdef),
+        ];
+        let old_nzcv = 0b1011;
+        let (out, out_nzcv, sp) = run_aarch64_code(&code, &regs, old_nzcv);
+
+        assert_eq!(out[16], !0x1234 & width_mask(OpWidth::W16));
+        assert_eq!(out[18], (0x0000_00f0_u32).leading_zeros() as u64);
+        assert_eq!(out[20], (0x1000_u64).trailing_zeros() as u64);
+        assert_eq!(out[22], 0xf0f0_0000_0000_0001_u64.count_ones() as u64);
+        assert_eq!(out[24], (0x1234_5678_u32).swap_bytes() as u64);
+        assert_eq!(out[26], 0x0123_4567_89ab_cdef_u64.reverse_bits());
+        assert_eq!(out[17], 0x1234);
+        assert_eq!(out[19], 0x0000_00f0);
+        assert_eq!(out[21], 0x1000);
+        assert_eq!(out[23], 0xf0f0_0000_0000_0001);
+        assert_eq!(out[25], 0x1234_5678);
+        assert_eq!(out[27], 0x0123_4567_89ab_cdef);
+        assert_eq!(out_nzcv, old_nzcv);
+        assert_eq!(sp, 0x8000);
+    }
+
+    #[test]
+    fn lowers_bit_scan_apx_egpr_operands_runtime() {
+        let bsf_code = lower_single_op(OpKind::Bsf {
+            dst: x86(X86Reg::R16),
+            src: x86(X86Reg::R17),
+            width: OpWidth::W64,
+            flags: FlagUpdate::All,
+        });
+        let old_nzcv = 0b1111;
+        let src_value = 0x8000_0000_0000_0010;
+        let (out, out_nzcv, sp) =
+            run_aarch64_code(&bsf_code, &[(17, src_value), (18, 0x1818)], old_nzcv);
+        assert_eq!(out[16], ref_bsf(src_value, OpWidth::W64));
+        assert_eq!(
+            out_nzcv,
+            expected_logic_source_nzcv(old_nzcv, src_value, OpWidth::W64, FlagUpdate::All)
+        );
+        assert_eq!(out[17], src_value);
+        assert_eq!(out[18], 0x1818);
+        assert_eq!(sp, 0x8000);
+
+        let bsr_code = lower_single_op(OpKind::Bsr {
+            dst: x86(X86Reg::R19),
+            src: x86(X86Reg::R20),
+            width: OpWidth::W8,
+            flags: FlagUpdate::All,
+        });
+        let old_nzcv = 0b0011;
+        let src_value = 0x80;
+        let (out, out_nzcv, sp) = run_aarch64_code(&bsr_code, &[(20, src_value)], old_nzcv);
+        assert_eq!(out[19], ref_bsr(src_value, OpWidth::W8));
+        assert_eq!(
+            out_nzcv,
+            expected_logic_source_nzcv(old_nzcv, src_value, OpWidth::W8, FlagUpdate::All)
+        );
+        assert_eq!(out[20], src_value);
+        assert_eq!(sp, 0x8000);
+    }
+
+    #[test]
+    fn rejects_unary_bit_apx_r31_identity_mapping() {
+        for kind in [
+            OpKind::Not {
+                dst: x86(X86Reg::R31),
+                src: x86(X86Reg::R16),
+                width: OpWidth::W64,
+            },
+            OpKind::Clz {
+                dst: x86(X86Reg::R16),
+                src: x86(X86Reg::R31),
+                width: OpWidth::W32,
+            },
+            OpKind::Ctz {
+                dst: x86(X86Reg::R16),
+                src: x86(X86Reg::R31),
+                width: OpWidth::W64,
+            },
+            OpKind::Popcnt {
+                dst: x86(X86Reg::R31),
+                src: x86(X86Reg::R16),
+                width: OpWidth::W64,
+            },
+            OpKind::Bswap {
+                dst: x86(X86Reg::R16),
+                src: x86(X86Reg::R31),
+                width: OpWidth::W32,
+            },
+            OpKind::Rbit {
+                dst: x86(X86Reg::R31),
+                src: x86(X86Reg::R16),
+                width: OpWidth::W64,
+            },
+            OpKind::Bsf {
+                dst: x86(X86Reg::R16),
+                src: x86(X86Reg::R31),
+                width: OpWidth::W64,
+                flags: FlagUpdate::All,
+            },
+            OpKind::Bsr {
+                dst: x86(X86Reg::R31),
+                src: x86(X86Reg::R16),
+                width: OpWidth::W8,
+                flags: FlagUpdate::All,
+            },
+        ] {
+            let err = try_lower_single_op(kind).unwrap_err();
+            assert!(matches!(err, LowerError::InvalidRegister(_)));
+        }
     }
 
     fn assert_popcnt_lowering(
