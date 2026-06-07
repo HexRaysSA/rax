@@ -36169,6 +36169,54 @@ mod tests {
     }
 
     #[test]
+    fn lowers_apx_count_lifted_memory_shape_runtime() {
+        let mem_addr = 0x9000_u64;
+        let mem_value = 0x00ff_0000_0000_0010_u64;
+        let index = 5_u64;
+        let disp = -0x28_i32;
+        let base = mem_addr - index * 8 + 0x28;
+        let loaded = x(9);
+        let code = lower_ops(vec![
+            OpKind::Load {
+                dst: loaded,
+                addr: Address::sib(Some(x86(X86Reg::R16)), x86(X86Reg::R17), 8, disp),
+                width: MemWidth::B8,
+                sign: SignExtend::Zero,
+            },
+            OpKind::Clz {
+                dst: x86(X86Reg::R18),
+                src: loaded,
+                width: OpWidth::W64,
+            },
+            OpKind::Ctz {
+                dst: x86(X86Reg::R19),
+                src: loaded,
+                width: OpWidth::W64,
+            },
+            OpKind::Popcnt {
+                dst: x86(X86Reg::R20),
+                src: loaded,
+                width: OpWidth::W64,
+            },
+        ]);
+
+        let regs = [(16, base), (17, index), (18, 0x1818), (19, 0x1919), (20, 0x2020)];
+        let old_nzcv = 0b1010;
+        let (out, out_nzcv, sp, mem) =
+            run_aarch64_code_with_memory(&code, &regs, old_nzcv, mem_addr, mem_value, MemWidth::B8);
+
+        assert_eq!(out[9], mem_value);
+        assert_eq!(out[16], base);
+        assert_eq!(out[17], index);
+        assert_eq!(out[18], mem_value.leading_zeros() as u64);
+        assert_eq!(out[19], mem_value.trailing_zeros() as u64);
+        assert_eq!(out[20], mem_value.count_ones() as u64);
+        assert_eq!(out_nzcv, old_nzcv);
+        assert_eq!(sp, 0x8000);
+        assert_eq!(mem, mem_value);
+    }
+
+    #[test]
     fn lowers_bit_scan_apx_egpr_operands_runtime() {
         let bsf_code = lower_single_op(OpKind::Bsf {
             dst: x86(X86Reg::R16),
