@@ -12,7 +12,7 @@ use crate::smir::ir::{SmirBlock, SmirFunction, Terminator, TrapKind};
 use crate::smir::ops::{OpKind, SmirOp};
 use crate::smir::types::{
     Address, ArchReg, ArmReg, AtomicOp, BlockId, Condition, ExtendOp, FenceKind, MemWidth,
-    FpPrecision, MemoryOrder, OpWidth, ShiftOp, SignExtend, SrcOperand, VReg,
+    FpPrecision, FpRoundMode, MemoryOrder, OpWidth, ShiftOp, SignExtend, SrcOperand, VReg,
 };
 
 use super::{CodeBuffer, LowerError, LowerResult, Relocation, SmirLowerer};
@@ -3486,6 +3486,17 @@ impl Aarch64Lowerer {
         let rd = Self::fp_reg(dst)?;
         let rn = Self::fp_reg(src)?;
         self.emit_fp_one_source(rd, rn, opcode, precision)
+    }
+
+    fn lower_fp_round(
+        &mut self,
+        dst: VReg,
+        src: VReg,
+        precision: FpPrecision,
+        _mode: FpRoundMode,
+    ) -> Result<(), LowerError> {
+        // SMIR currently ignores the mode and rounds to nearest with ties away.
+        self.lower_fp_unary(dst, src, precision, 0b01100)
     }
 
     fn lower_fp_compare(
@@ -9532,6 +9543,12 @@ impl Aarch64Lowerer {
                 fp_precision,
                 signed,
             } => self.lower_int_to_fp(*dst, *src, *int_width, *fp_precision, *signed),
+            OpKind::FRound {
+                dst,
+                src,
+                precision,
+                mode,
+            } => self.lower_fp_round(*dst, *src, *precision, *mode),
             OpKind::FAbs {
                 dst,
                 src,
@@ -15819,6 +15836,22 @@ mod tests {
             precision: FpPrecision::F64,
         }));
         assert_eq!(words, vec![0x1e61_c083, 0xd65f_03c0]);
+
+        let words = code_words(&lower_single_op(OpKind::FRound {
+            dst: v(0),
+            src: v(1),
+            precision: FpPrecision::F32,
+            mode: FpRoundMode::RoundDown,
+        }));
+        assert_eq!(words, vec![0x1e26_4020, 0xd65f_03c0]);
+
+        let words = code_words(&lower_single_op(OpKind::FRound {
+            dst: v(2),
+            src: v(3),
+            precision: FpPrecision::F64,
+            mode: FpRoundMode::RoundTowardZero,
+        }));
+        assert_eq!(words, vec![0x1e66_4062, 0xd65f_03c0]);
     }
 
     #[test]
@@ -15851,6 +15884,17 @@ mod tests {
                 precision: FpPrecision::F32,
             },
             9.0,
+            3.0,
+        );
+        assert_fp_unary_f32(
+            "frinta_s_mode_ignored",
+            OpKind::FRound {
+                dst: v(0),
+                src: v(1),
+                precision: FpPrecision::F32,
+                mode: FpRoundMode::RoundDown,
+            },
+            2.5,
             3.0,
         );
     }
@@ -15887,6 +15931,17 @@ mod tests {
             9.0,
             3.0,
         );
+        assert_fp_unary_f64(
+            "frinta_d_mode_ignored",
+            OpKind::FRound {
+                dst: v(0),
+                src: v(1),
+                precision: FpPrecision::F64,
+                mode: FpRoundMode::RoundUp,
+            },
+            -2.5,
+            -3.0,
+        );
     }
 
     #[test]
@@ -15898,6 +15953,23 @@ mod tests {
                 dst: v(0),
                 src: v(1),
                 precision: FpPrecision::F80,
+            },
+        );
+        builder.set_terminator(Terminator::Return { values: vec![] });
+        let func = builder.finish();
+
+        let mut lowerer = Aarch64Lowerer::new();
+        let err = lowerer.lower_function(&func).unwrap_err();
+        assert!(matches!(err, LowerError::UnsupportedOp { .. }));
+
+        let mut builder = FunctionBuilder::new(FunctionId(0), 0);
+        builder.push_op(
+            0,
+            OpKind::FRound {
+                dst: v(0),
+                src: v(1),
+                precision: FpPrecision::F80,
+                mode: FpRoundMode::RoundNearest,
             },
         );
         builder.set_terminator(Terminator::Return { values: vec![] });
