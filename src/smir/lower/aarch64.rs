@@ -1942,6 +1942,35 @@ impl Aarch64Lowerer {
         Ok((q, size))
     }
 
+    fn simd_float_shape(elem: VecElementType, lanes: u8) -> Result<(u32, u32), LowerError> {
+        let size = match elem {
+            VecElementType::F32 => 0,
+            VecElementType::F64 => 1,
+            other => {
+                return Err(LowerError::UnsupportedOp {
+                    op: format!("AArch64 native FP vector element {other:?}"),
+                });
+            }
+        };
+
+        let bytes = elem.bytes() * u32::from(lanes);
+        let q = match bytes {
+            8 => 0,
+            16 => 1,
+            other => {
+                return Err(LowerError::UnsupportedOp {
+                    op: format!("AArch64 native FP vector byte width {other}"),
+                });
+            }
+        };
+        if elem == VecElementType::F64 && q == 0 {
+            return Err(LowerError::UnsupportedOp {
+                op: "AArch64 native FP vector 1D arrangement".to_string(),
+            });
+        }
+        Ok((q, size))
+    }
+
     fn simd_lane_imm5(elem: VecElementType, lane: u8) -> Result<(u32, u32), LowerError> {
         let size = match elem {
             VecElementType::I8 => 0,
@@ -2213,6 +2242,10 @@ impl Aarch64Lowerer {
         lanes: u8,
         op: SimdArithmeticOp,
     ) -> Result<(), LowerError> {
+        if matches!(elem, VecElementType::F32 | VecElementType::F64) {
+            return self.lower_vfloat_arith(dst, src1, src2, elem, lanes, op);
+        }
+
         let rd = Self::fp_reg(dst)?;
         let rn = Self::fp_reg(src1)?;
         let rm = Self::fp_reg(src2)?;
@@ -2244,6 +2277,30 @@ impl Aarch64Lowerer {
                 }
                 (if signed { 0 } else { 1 }, 0b01101)
             }
+        };
+        self.emit_simd_three_same(rd, rn, rm, q, u, size, opcode);
+        Ok(())
+    }
+
+    fn lower_vfloat_arith(
+        &mut self,
+        dst: VReg,
+        src1: VReg,
+        src2: VReg,
+        elem: VecElementType,
+        lanes: u8,
+        op: SimdArithmeticOp,
+    ) -> Result<(), LowerError> {
+        let rd = Self::fp_reg(dst)?;
+        let rn = Self::fp_reg(src1)?;
+        let rm = Self::fp_reg(src2)?;
+        let (q, elem_size) = Self::simd_float_shape(elem, lanes)?;
+        let (u, size, opcode) = match op {
+            SimdArithmeticOp::Add => (0, elem_size, 0b11010),
+            SimdArithmeticOp::Sub => (0, elem_size | 0b10, 0b11010),
+            SimdArithmeticOp::Mul => (1, elem_size, 0b11011),
+            SimdArithmeticOp::Max => (0, elem_size, 0b11110),
+            SimdArithmeticOp::Min { .. } => (0, elem_size | 0b10, 0b11110),
         };
         self.emit_simd_three_same(rd, rn, rm, q, u, size, opcode);
         Ok(())
@@ -11993,6 +12050,22 @@ mod tests {
         (((value << shift) as i64) >> shift) as u64
     }
 
+    fn simd_pair_from_f32(values: [f32; 4]) -> (u64, u64) {
+        let mut bytes = [0u8; 16];
+        for (idx, value) in values.iter().enumerate() {
+            bytes[idx * 4..idx * 4 + 4].copy_from_slice(&value.to_bits().to_le_bytes());
+        }
+        simd_pair_from_bytes(bytes)
+    }
+
+    fn simd_pair_from_f64(values: [f64; 2]) -> (u64, u64) {
+        let mut bytes = [0u8; 16];
+        for (idx, value) in values.iter().enumerate() {
+            bytes[idx * 8..idx * 8 + 8].copy_from_slice(&value.to_bits().to_le_bytes());
+        }
+        simd_pair_from_bytes(bytes)
+    }
+
     fn ref_shift_reg(src: u64, amount: u64, shift: ShiftOp, width: OpWidth) -> u64 {
         let bits = width.bits();
         let mask = width_mask(width);
@@ -18165,6 +18238,146 @@ mod tests {
     }
 
     #[test]
+    fn lowers_vector_float_arithmetic_runtime() {
+        fn apply_f32<F: Fn(f32, f32) -> f32>(
+            a: [f32; 4],
+            b: [f32; 4],
+            op: F,
+        ) -> (u64, u64) {
+            simd_pair_from_f32([
+                op(a[0], b[0]),
+                op(a[1], b[1]),
+                op(a[2], b[2]),
+                op(a[3], b[3]),
+            ])
+        }
+
+        fn apply_f64<F: Fn(f64, f64) -> f64>(
+            a: [f64; 2],
+            b: [f64; 2],
+            op: F,
+        ) -> (u64, u64) {
+            simd_pair_from_f64([op(a[0], b[0]), op(a[1], b[1])])
+        }
+
+        let a32 = [1.5, -2.25, 8.0, -0.5];
+        let b32 = [2.25, 3.5, -1.5, 4.0];
+        let a32x2 = [0.75, -3.0, 99.0, -99.0];
+        let b32x2 = [1.25, 2.5, -7.0, 11.0];
+        let a64 = [-7.0, 2.5];
+        let b64 = [3.0, -1.25];
+        let code = lower_ops(vec![
+            OpKind::VAdd {
+                dst: v(0),
+                src1: v(1),
+                src2: v(2),
+                elem: VecElementType::F32,
+                lanes: 4,
+            },
+            OpKind::VSub {
+                dst: v(3),
+                src1: v(1),
+                src2: v(2),
+                elem: VecElementType::F32,
+                lanes: 4,
+            },
+            OpKind::VMul {
+                dst: v(4),
+                src1: v(1),
+                src2: v(2),
+                elem: VecElementType::F32,
+                lanes: 4,
+            },
+            OpKind::VMax {
+                dst: v(5),
+                src1: v(1),
+                src2: v(2),
+                elem: VecElementType::F32,
+                lanes: 4,
+            },
+            OpKind::VMin {
+                dst: v(6),
+                src1: v(1),
+                src2: v(2),
+                elem: VecElementType::F32,
+                lanes: 4,
+                signed: false,
+            },
+            OpKind::VAdd {
+                dst: v(9),
+                src1: v(7),
+                src2: v(8),
+                elem: VecElementType::F32,
+                lanes: 2,
+            },
+            OpKind::VAdd {
+                dst: v(10),
+                src1: v(11),
+                src2: v(12),
+                elem: VecElementType::F64,
+                lanes: 2,
+            },
+            OpKind::VSub {
+                dst: v(13),
+                src1: v(11),
+                src2: v(12),
+                elem: VecElementType::F64,
+                lanes: 2,
+            },
+            OpKind::VMul {
+                dst: v(14),
+                src1: v(11),
+                src2: v(12),
+                elem: VecElementType::F64,
+                lanes: 2,
+            },
+            OpKind::VMax {
+                dst: v(15),
+                src1: v(11),
+                src2: v(12),
+                elem: VecElementType::F64,
+                lanes: 2,
+            },
+            OpKind::VMin {
+                dst: v(16),
+                src1: v(11),
+                src2: v(12),
+                elem: VecElementType::F64,
+                lanes: 2,
+                signed: false,
+            },
+        ]);
+
+        let (_, simd, _) = run_aarch64_code_with_regs_and_simd(
+            &code,
+            &[],
+            &[
+                (1, simd_pair_from_f32(a32).0, simd_pair_from_f32(a32).1),
+                (2, simd_pair_from_f32(b32).0, simd_pair_from_f32(b32).1),
+                (7, simd_pair_from_f32(a32x2).0, simd_pair_from_f32(a32x2).1),
+                (8, simd_pair_from_f32(b32x2).0, simd_pair_from_f32(b32x2).1),
+                (11, simd_pair_from_f64(a64).0, simd_pair_from_f64(a64).1),
+                (12, simd_pair_from_f64(b64).0, simd_pair_from_f64(b64).1),
+            ],
+        );
+
+        assert_eq!(simd[0], apply_f32(a32, b32, |a, b| a + b));
+        assert_eq!(simd[3], apply_f32(a32, b32, |a, b| a - b));
+        assert_eq!(simd[4], apply_f32(a32, b32, |a, b| a * b));
+        assert_eq!(simd[5], apply_f32(a32, b32, f32::max));
+        assert_eq!(simd[6], apply_f32(a32, b32, f32::min));
+        assert_eq!(
+            simd[9],
+            simd_pair_from_f32([a32x2[0] + b32x2[0], a32x2[1] + b32x2[1], 0.0, 0.0])
+        );
+        assert_eq!(simd[10], apply_f64(a64, b64, |a, b| a + b));
+        assert_eq!(simd[13], apply_f64(a64, b64, |a, b| a - b));
+        assert_eq!(simd[14], apply_f64(a64, b64, |a, b| a * b));
+        assert_eq!(simd[15], apply_f64(a64, b64, f64::max));
+        assert_eq!(simd[16], apply_f64(a64, b64, f64::min));
+    }
+
+    #[test]
     fn lowers_vector_integer_max_runtime() {
         fn apply_max(
             a_low: u64,
@@ -19397,8 +19610,8 @@ mod tests {
             dst: v(0),
             src1: v(1),
             src2: v(2),
-            elem: VecElementType::F32,
-            lanes: 4,
+            elem: VecElementType::F64,
+            lanes: 1,
         });
 
         assert_unsupported(OpKind::VSub {
@@ -19429,8 +19642,8 @@ mod tests {
             dst: v(0),
             src1: v(1),
             src2: v(2),
-            elem: VecElementType::F32,
-            lanes: 4,
+            elem: VecElementType::F64,
+            lanes: 1,
         });
 
         assert_unsupported(OpKind::VMax {
@@ -19454,8 +19667,8 @@ mod tests {
             dst: v(0),
             src1: v(1),
             src2: v(2),
-            elem: VecElementType::F32,
-            lanes: 4,
+            elem: VecElementType::F64,
+            lanes: 1,
             signed: false,
         });
 
