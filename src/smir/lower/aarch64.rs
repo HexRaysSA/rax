@@ -359,6 +359,26 @@ impl Aarch64Lowerer {
         Ok(())
     }
 
+    fn emit_fp_one_source(
+        &mut self,
+        rd: u8,
+        rn: u8,
+        opcode: u32,
+        precision: FpPrecision,
+    ) -> Result<(), LowerError> {
+        let fp_type = Self::fp_type(precision)?;
+        self.emit(
+            (0b00011110 << 24)
+                | (fp_type << 22)
+                | (1 << 21)
+                | ((opcode & 0x1f) << 15)
+                | (0b10000 << 10)
+                | ((rn as u32) << 5)
+                | (rd as u32),
+        );
+        Ok(())
+    }
+
     fn emit_addsub_shifted(
         &mut self,
         dst: u8,
@@ -3379,6 +3399,18 @@ impl Aarch64Lowerer {
         let rn = Self::fp_reg(src1)?;
         let rm = Self::fp_reg(src2)?;
         self.emit_fp_two_source(rd, rn, rm, opcode, precision)
+    }
+
+    fn lower_fp_unary(
+        &mut self,
+        dst: VReg,
+        src: VReg,
+        precision: FpPrecision,
+        opcode: u32,
+    ) -> Result<(), LowerError> {
+        let rd = Self::fp_reg(dst)?;
+        let rn = Self::fp_reg(src)?;
+        self.emit_fp_one_source(rd, rn, opcode, precision)
     }
 
     fn bit_test_emit_width(width: OpWidth) -> Result<OpWidth, LowerError> {
@@ -9324,6 +9356,21 @@ impl Aarch64Lowerer {
                 src2,
                 precision,
             } => self.lower_fp_binary(*dst, *src1, *src2, *precision, 0b0100),
+            OpKind::FAbs {
+                dst,
+                src,
+                precision,
+            } => self.lower_fp_unary(*dst, *src, *precision, 0b00001),
+            OpKind::FNeg {
+                dst,
+                src,
+                precision,
+            } => self.lower_fp_unary(*dst, *src, *precision, 0b00010),
+            OpKind::FSqrt {
+                dst,
+                src,
+                precision,
+            } => self.lower_fp_unary(*dst, *src, *precision, 0b00011),
             OpKind::Load {
                 dst,
                 addr,
@@ -14764,6 +14811,48 @@ mod tests {
         );
     }
 
+    fn assert_fp_unary_f32(label: &str, kind: OpKind, src: f32, expected: f32) {
+        let src_bits = u64::from(src.to_bits());
+        let expected_bits = u64::from(expected.to_bits());
+        let code = lower_single_op(kind);
+        let out = run_aarch64_code_with_simd(
+            &code,
+            &[
+                (0, 0xffff_ffff_ffff_ffff, 0xaaaa_aaaa_aaaa_aaaa),
+                (1, src_bits, 0x1111_1111_1111_1111),
+            ],
+        );
+
+        assert_eq!(out[0].0, expected_bits, "{label}: low result");
+        assert_eq!(out[0].1, 0, "{label}: high result");
+        assert_eq!(
+            out[1],
+            (src_bits, 0x1111_1111_1111_1111),
+            "{label}: src preserved",
+        );
+    }
+
+    fn assert_fp_unary_f64(label: &str, kind: OpKind, src: f64, expected: f64) {
+        let src_bits = src.to_bits();
+        let expected_bits = expected.to_bits();
+        let code = lower_single_op(kind);
+        let out = run_aarch64_code_with_simd(
+            &code,
+            &[
+                (0, 0xffff_ffff_ffff_ffff, 0xaaaa_aaaa_aaaa_aaaa),
+                (1, src_bits, 0x1111_1111_1111_1111),
+            ],
+        );
+
+        assert_eq!(out[0].0, expected_bits, "{label}: low result");
+        assert_eq!(out[0].1, 0, "{label}: high result");
+        assert_eq!(
+            out[1],
+            (src_bits, 0x1111_1111_1111_1111),
+            "{label}: src preserved",
+        );
+    }
+
     #[test]
     fn lowers_scalar_fp_binary_encodings() {
         let words = code_words(&lower_single_op(OpKind::FAdd {
@@ -14944,6 +15033,110 @@ mod tests {
                 dst: v(0),
                 src1: v(1),
                 src2: v(2),
+                precision: FpPrecision::F80,
+            },
+        );
+        builder.set_terminator(Terminator::Return { values: vec![] });
+        let func = builder.finish();
+
+        let mut lowerer = Aarch64Lowerer::new();
+        let err = lowerer.lower_function(&func).unwrap_err();
+        assert!(matches!(err, LowerError::UnsupportedOp { .. }));
+    }
+
+    #[test]
+    fn lowers_scalar_fp_unary_encodings() {
+        let words = code_words(&lower_single_op(OpKind::FAbs {
+            dst: v(0),
+            src: v(1),
+            precision: FpPrecision::F32,
+        }));
+        assert_eq!(words, vec![0x1e20_c020, 0xd65f_03c0]);
+
+        let words = code_words(&lower_single_op(OpKind::FSqrt {
+            dst: v(3),
+            src: v(4),
+            precision: FpPrecision::F64,
+        }));
+        assert_eq!(words, vec![0x1e61_c083, 0xd65f_03c0]);
+    }
+
+    #[test]
+    fn lowers_scalar_fp_unary_f32_runtime() {
+        assert_fp_unary_f32(
+            "fabs_s",
+            OpKind::FAbs {
+                dst: v(0),
+                src: v(1),
+                precision: FpPrecision::F32,
+            },
+            -7.25,
+            7.25,
+        );
+        assert_fp_unary_f32(
+            "fneg_s",
+            OpKind::FNeg {
+                dst: v(0),
+                src: v(1),
+                precision: FpPrecision::F32,
+            },
+            3.5,
+            -3.5,
+        );
+        assert_fp_unary_f32(
+            "fsqrt_s",
+            OpKind::FSqrt {
+                dst: v(0),
+                src: v(1),
+                precision: FpPrecision::F32,
+            },
+            9.0,
+            3.0,
+        );
+    }
+
+    #[test]
+    fn lowers_scalar_fp_unary_f64_runtime() {
+        assert_fp_unary_f64(
+            "fabs_d",
+            OpKind::FAbs {
+                dst: v(0),
+                src: v(1),
+                precision: FpPrecision::F64,
+            },
+            -7.25,
+            7.25,
+        );
+        assert_fp_unary_f64(
+            "fneg_d",
+            OpKind::FNeg {
+                dst: v(0),
+                src: v(1),
+                precision: FpPrecision::F64,
+            },
+            3.5,
+            -3.5,
+        );
+        assert_fp_unary_f64(
+            "fsqrt_d",
+            OpKind::FSqrt {
+                dst: v(0),
+                src: v(1),
+                precision: FpPrecision::F64,
+            },
+            9.0,
+            3.0,
+        );
+    }
+
+    #[test]
+    fn rejects_scalar_fp_unary_unsupported_precision() {
+        let mut builder = FunctionBuilder::new(FunctionId(0), 0);
+        builder.push_op(
+            0,
+            OpKind::FAbs {
+                dst: v(0),
+                src: v(1),
                 precision: FpPrecision::F80,
             },
         );
