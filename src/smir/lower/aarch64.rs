@@ -1075,6 +1075,18 @@ impl Aarch64Lowerer {
         Ok(())
     }
 
+    fn emit_simd_tbl(&mut self, rd: u8, rn: u8, rm: u8, q: u32, len: u32, op: u32) {
+        self.emit(
+            (q << 30)
+                | (0b01110 << 24)
+                | ((rm as u32) << 16)
+                | (len << 13)
+                | (op << 12)
+                | ((rn as u32) << 5)
+                | (rd as u32),
+        );
+    }
+
     fn emit_push_scratch(&mut self, rt: u8) {
         self.emit_ldst_simm(rt, 31, 3, 0b00, -16, 0b11);
     }
@@ -2761,6 +2773,56 @@ impl Aarch64Lowerer {
             0b00101,
             false,
         )
+    }
+
+    fn lower_vpermute(
+        &mut self,
+        dst: VReg,
+        src1: VReg,
+        src2: Option<VReg>,
+        indices: VReg,
+        elem: VecElementType,
+        width: VecWidth,
+        overwrite_table: bool,
+    ) -> Result<(), LowerError> {
+        if elem != VecElementType::I8 || width != VecWidth::V128 {
+            return Err(LowerError::UnsupportedOp {
+                op: format!("AArch64 native vector permute elem={elem:?} width={width:?}"),
+            });
+        }
+        if src2.is_some() || overwrite_table {
+            return Err(LowerError::UnsupportedOp {
+                op: "AArch64 native two-table vector permute".to_string(),
+            });
+        }
+
+        let rd = Self::fp_reg(dst)?;
+        let rn = Self::fp_reg(src1)?;
+        let rm = Self::fp_reg(indices)?;
+        if rd == rn {
+            return Err(LowerError::UnsupportedOp {
+                op: "AArch64 native vector permute table alias".to_string(),
+            });
+        }
+
+        let (imm_n, immr, imms) = Self::logical_bitmask_imm(0x0f, OpWidth::W32)?;
+        let mut lane_imm5 = Vec::with_capacity(16);
+        for lane in 0..16 {
+            let (_, imm5) = Self::simd_lane_imm5(VecElementType::I8, lane)?;
+            lane_imm5.push(imm5);
+        }
+
+        let scratches = Self::scratch_regs(&[], 1)?;
+        self.emit_scratch_save(&scratches);
+        let scratch = scratches[0];
+        for imm5 in lane_imm5 {
+            self.emit_simd_umov(scratch, rm, imm5, false);
+            self.emit_logic_imm(scratch, scratch, 0b00, imm_n, immr, imms, OpWidth::W32)?;
+            self.emit_simd_ins_general(rd, scratch, imm5);
+        }
+        self.emit_scratch_restore(&scratches);
+        self.emit_simd_tbl(rd, rn, rd, 1, 0, 0);
+        Ok(())
     }
 
     fn lower_rep_stos(
@@ -11271,6 +11333,23 @@ impl Aarch64Lowerer {
                 elem,
                 width,
             } => self.lower_vpopcnt(*dst, *src, *elem, *width),
+            OpKind::VPermute {
+                dst,
+                src1,
+                src2,
+                indices,
+                elem,
+                width,
+                overwrite_table,
+            } => self.lower_vpermute(
+                *dst,
+                *src1,
+                *src2,
+                *indices,
+                *elem,
+                *width,
+                *overwrite_table,
+            ),
             OpKind::VLane {
                 dst,
                 src1,
@@ -15763,6 +15842,10 @@ mod tests {
         0x4e00_1c00 | (imm5 << 16) | (rn << 5) | rd
     }
 
+    fn enc_simd_tbl(rd: u32, rn: u32, rm: u32, q: u32, len: u32, op: u32) -> u32 {
+        (q << 30) | (0b01110 << 24) | (rm << 16) | (len << 13) | (op << 12) | (rn << 5) | rd
+    }
+
     fn enc_addsub_shift_regs(
         sf: u32,
         op: u32,
@@ -19838,6 +19921,97 @@ mod tests {
     }
 
     #[test]
+    fn lowers_vpermute_v128_encodings() {
+        let words = code_words(&lower_single_op(OpKind::VPermute {
+            dst: v(0),
+            src1: v(1),
+            src2: None,
+            indices: v(2),
+            elem: VecElementType::I8,
+            width: VecWidth::V128,
+            overwrite_table: false,
+        }));
+
+        let (imm_n, immr, imms) =
+            Aarch64Lowerer::logical_bitmask_imm(0x0f, OpWidth::W32).unwrap();
+        let mut expected = vec![enc_ldst_simm_regs(3, 0b00, 0b11, -16, 16, 31)];
+        for lane in 0..16 {
+            let imm5 = (lane << 1) | 1;
+            expected.push(enc_simd_umov(16, 2, imm5, false));
+            expected.push(enc_logical_imm(0, 0b00, imm_n, immr, imms, 16, 16));
+            expected.push(enc_simd_ins_general(0, 16, imm5));
+        }
+        expected.push(enc_ldst_simm_regs(3, 0b01, 0b01, 16, 16, 31));
+        expected.push(enc_simd_tbl(0, 1, 0, 1, 0, 0));
+        expected.push(0xd65f_03c0);
+
+        assert_eq!(words, expected);
+    }
+
+    #[test]
+    fn lowers_vpermute_v128_runtime() {
+        fn ref_vpermb(table: (u64, u64), indices: (u64, u64)) -> (u64, u64) {
+            fn pair_bytes(pair: (u64, u64)) -> [u8; 16] {
+                let mut bytes = [0u8; 16];
+                bytes[..8].copy_from_slice(&pair.0.to_le_bytes());
+                bytes[8..].copy_from_slice(&pair.1.to_le_bytes());
+                bytes
+            }
+
+            let table_bytes = pair_bytes(table);
+            let index_bytes = pair_bytes(indices);
+            let mut out = [0u8; 16];
+            for lane in 0..16 {
+                out[lane] = table_bytes[(index_bytes[lane] & 0x0f) as usize];
+            }
+            (
+                u64::from_le_bytes(out[..8].try_into().unwrap()),
+                u64::from_le_bytes(out[8..].try_into().unwrap()),
+            )
+        }
+
+        let table = (0x7060_5040_3020_1000, 0xf0e0_d0c0_b0a0_9080);
+        let indices = (0x0f10_1102_0304_0506, 0x0718_091a_0b1c_0d0e);
+        let alias_indices = (0xfefd_fc03_0211_100f, 0x8e8d_8c8b_8a89_8887);
+        let code = lower_ops(vec![
+            OpKind::VPermute {
+                dst: v(0),
+                src1: v(1),
+                src2: None,
+                indices: v(2),
+                elem: VecElementType::I8,
+                width: VecWidth::V128,
+                overwrite_table: false,
+            },
+            OpKind::VPermute {
+                dst: v(3),
+                src1: v(1),
+                src2: None,
+                indices: v(3),
+                elem: VecElementType::I8,
+                width: VecWidth::V128,
+                overwrite_table: false,
+            },
+        ]);
+
+        let (regs, simd, sp) = run_aarch64_code_with_regs_and_simd(
+            &code,
+            &[(16, 0x1616_1616_1616_1616)],
+            &[
+                (1, table.0, table.1),
+                (2, indices.0, indices.1),
+                (3, alias_indices.0, alias_indices.1),
+            ],
+        );
+        assert_eq!(simd[0], ref_vpermb(table, indices));
+        assert_eq!(simd[1], table);
+        assert_eq!(simd[2], indices);
+        assert_eq!(simd[3], ref_vpermb(table, alias_indices));
+        assert_eq!(regs[16], 0x1616_1616_1616_1616);
+        assert_eq!(sp, 0x8000);
+    }
+
+    #[test]
     fn lowers_vlane_unary_integer_runtime() {
         fn apply_vlane_unary(
             src_low: u64,
@@ -20759,6 +20933,46 @@ mod tests {
             src: v(1),
             elem: VecElementType::I8,
             width: VecWidth::V256,
+        });
+
+        assert_unsupported(OpKind::VPermute {
+            dst: v(0),
+            src1: v(1),
+            src2: None,
+            indices: v(2),
+            elem: VecElementType::I16,
+            width: VecWidth::V128,
+            overwrite_table: false,
+        });
+
+        assert_unsupported(OpKind::VPermute {
+            dst: v(0),
+            src1: v(1),
+            src2: None,
+            indices: v(2),
+            elem: VecElementType::I8,
+            width: VecWidth::V256,
+            overwrite_table: false,
+        });
+
+        assert_unsupported(OpKind::VPermute {
+            dst: v(0),
+            src1: v(1),
+            src2: Some(v(3)),
+            indices: v(2),
+            elem: VecElementType::I8,
+            width: VecWidth::V128,
+            overwrite_table: false,
+        });
+
+        assert_unsupported(OpKind::VPermute {
+            dst: v(1),
+            src1: v(1),
+            src2: None,
+            indices: v(2),
+            elem: VecElementType::I8,
+            width: VecWidth::V128,
+            overwrite_table: false,
         });
 
         assert_unsupported(OpKind::VLane {
