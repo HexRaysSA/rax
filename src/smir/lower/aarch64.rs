@@ -5266,7 +5266,8 @@ impl Aarch64Lowerer {
         if !signed {
             if let Some(imm) = Self::src_imm(src2) {
                 let divisor = (imm as u64) & width.mask();
-                if divisor.is_power_of_two() && divisor > 1 {
+                let subword_rem = rem.is_some() && matches!(width, OpWidth::W8 | OpWidth::W16);
+                if divisor.is_power_of_two() && divisor > 1 && !subword_rem {
                     if let Some(rem) = rem {
                         let emit_width = match width {
                             OpWidth::W32 | OpWidth::W64 => width,
@@ -5326,14 +5327,49 @@ impl Aarch64Lowerer {
                 }
             }
         }
-        let SrcOperand::Reg(src2) = src2 else {
-            return Err(LowerError::UnsupportedOp {
-                op: format!("AArch64 native divide source {src2:?}"),
-            });
-        };
+        if matches!(width, OpWidth::W8 | OpWidth::W16) {
+            return self.lower_subword_div(quot, rem, src1, src2, width, signed);
+        }
         let quot = Self::dst_gpr(quot)?;
         let rn = Self::gpr(src1)?;
-        let rm = Self::gpr(*src2)?;
+        let mut scratch = None;
+        let rm = match src2 {
+            SrcOperand::Reg(src2) => Self::gpr(*src2)?,
+            SrcOperand::Imm(imm) | SrcOperand::Imm64(imm) => {
+                let mut avoid = vec![quot, rn];
+                if let Some(rem) = rem {
+                    avoid.push(Self::dst_gpr(rem)?);
+                }
+                let scratches = Self::scratch_regs(&avoid, 1)?;
+                let rm = scratches[0];
+                self.emit_scratch_save(&scratches);
+                let divisor = (i128::from(*imm) & i128::from(width.mask())) as i64;
+                self.emit_mov_imm(rm, divisor, width)?;
+                scratch = Some(scratches);
+                rm
+            }
+            other => {
+                return Err(LowerError::UnsupportedOp {
+                    op: format!("AArch64 native divide source {other:?}"),
+                });
+            }
+        };
+        self.lower_div_regs(quot, rem, rn, rm, width, signed)?;
+        if let Some(scratch) = scratch {
+            self.emit_scratch_restore(&scratch);
+        }
+        Ok(())
+    }
+
+    fn lower_div_regs(
+        &mut self,
+        quot: u8,
+        rem: Option<VReg>,
+        rn: u8,
+        rm: u8,
+        width: OpWidth,
+        signed: bool,
+    ) -> Result<(), LowerError> {
         let opcode2 = if signed { 0b0011 } else { 0b0010 };
         if let Some(rem) = rem {
             let rem = Self::dst_gpr(rem)?;
@@ -5360,6 +5396,75 @@ impl Aarch64Lowerer {
             return self.emit_dp3(rem, quot, rm, rn, 0b000, 1, width);
         }
         self.emit_dp2(quot, rn, rm, opcode2, width)
+    }
+
+    fn lower_subword_div(
+        &mut self,
+        quot: VReg,
+        rem: Option<VReg>,
+        src1: VReg,
+        src2: &SrcOperand,
+        width: OpWidth,
+        signed: bool,
+    ) -> Result<(), LowerError> {
+        let quot = Self::dst_gpr(quot)?;
+        let rem = rem.map(Self::dst_gpr).transpose()?;
+        let src1 = Self::gpr(src1)?;
+        let src2_reg = match src2 {
+            SrcOperand::Reg(reg) => Some(Self::gpr(*reg)?),
+            SrcOperand::Imm(_) | SrcOperand::Imm64(_) => None,
+            other => {
+                return Err(LowerError::UnsupportedOp {
+                    op: format!("AArch64 native divide source {other:?}"),
+                });
+            }
+        };
+
+        let mut avoid = vec![quot, src1];
+        if let Some(rem) = rem {
+            avoid.push(rem);
+        }
+        if let Some(src2_reg) = src2_reg {
+            avoid.push(src2_reg);
+        }
+        let scratches = Self::scratch_regs(&avoid, 2)?;
+        let rn = scratches[0];
+        let rm = scratches[1];
+        let top_bit = width.bits() - 1;
+        let opc = if signed { 0b00 } else { 0b10 };
+
+        self.emit_scratch_save(&scratches);
+        self.emit_bitfield(rn, src1, opc, 0, top_bit, OpWidth::W32)?;
+        match (src2, src2_reg) {
+            (SrcOperand::Reg(_), Some(src2_reg)) => {
+                self.emit_bitfield(rm, src2_reg, opc, 0, top_bit, OpWidth::W32)?;
+            }
+            (SrcOperand::Imm(imm) | SrcOperand::Imm64(imm), None) => {
+                let divisor = if signed {
+                    let mask = width.mask() as i64;
+                    let sign = 1_i64 << top_bit;
+                    ((*imm & mask) ^ sign) - sign
+                } else {
+                    *imm & width.mask() as i64
+                };
+                self.emit_mov_imm(rm, divisor, OpWidth::W32)?;
+            }
+            _ => unreachable!("subword divide source already classified"),
+        }
+
+        let opcode2 = if signed { 0b0011 } else { 0b0010 };
+        self.emit_dp2(quot, rn, rm, opcode2, OpWidth::W32)?;
+        if let Some(rem) = rem {
+            self.emit_dp3(rem, quot, rm, rn, 0b000, 1, OpWidth::W32)?;
+        }
+        if rem != Some(quot) {
+            self.emit_bitfield(quot, quot, 0b10, 0, top_bit, OpWidth::W32)?;
+        }
+        if let Some(rem) = rem {
+            self.emit_bitfield(rem, rem, 0b10, 0, top_bit, OpWidth::W32)?;
+        }
+        self.emit_scratch_restore(&scratches);
+        Ok(())
     }
 
     fn lower_subword_shift_imm(
@@ -9721,6 +9826,22 @@ mod tests {
         }
     }
 
+    fn ref_div(src1: u64, src2: u64, signed: bool, width: OpWidth) -> (u64, u64) {
+        let mask = width_mask(width);
+        if signed {
+            let dividend = sign_extend_width(src1, width) as i128;
+            let divisor = sign_extend_width(src2, width) as i128;
+            (
+                (dividend / divisor) as u64 & mask,
+                (dividend % divisor) as u64 & mask,
+            )
+        } else {
+            let dividend = src1 & mask;
+            let divisor = src2 & mask;
+            (dividend / divisor, dividend % divisor)
+        }
+    }
+
     fn expected_mul_nzcv(src1: u64, src2: u64, signed: bool, width: OpWidth) -> u8 {
         let mask = width_mask(width);
         let result = ref_mul(src1, src2, signed, width);
@@ -10283,6 +10404,84 @@ mod tests {
         }
         assert_eq!(out_nzcv, old_nzcv, "{label}: NZCV preserved");
         assert_eq!(sp, 0x8000, "{label}: stack restored");
+        for (reg, value) in sentinels {
+            if reg != quot
+                && rem != Some(reg)
+                && reg != src1_reg
+                && src2_reg != Some(reg)
+            {
+                assert_eq!(out[reg as usize], value, "{label}: x{reg} restored");
+            }
+        }
+    }
+
+    fn assert_div_runtime_lowering(
+        label: &str,
+        signed: bool,
+        quot: u8,
+        rem: Option<u8>,
+        src1_reg: u8,
+        src2: SrcOperand,
+        src2_reg: Option<u8>,
+        src1_value: u64,
+        src2_value: u64,
+        width: OpWidth,
+    ) {
+        let op = if signed {
+            OpKind::DivS {
+                quot: x(quot),
+                rem: rem.map(x),
+                src1: x(src1_reg),
+                src2,
+                width,
+                flags: FlagUpdate::None,
+            }
+        } else {
+            OpKind::DivU {
+                quot: x(quot),
+                rem: rem.map(x),
+                src1: x(src1_reg),
+                src2,
+                width,
+                flags: FlagUpdate::None,
+            }
+        };
+        let code = lower_single_op(op);
+        let (expected_quot, expected_rem) = ref_div(src1_value, src2_value, signed, width);
+        let sentinels = [
+            (16, 0x1616_1616_1616_1616),
+            (17, 0x1717_1717_1717_1717),
+            (15, 0x1515_1515_1515_1515),
+            (14, 0x1414_1414_1414_1414),
+        ];
+        let mut regs = sentinels.to_vec();
+        regs.push((src1_reg, src1_value));
+        if let Some(src2_reg) = src2_reg {
+            regs.push((src2_reg, src2_value));
+        }
+
+        let old_nzcv = 0b0101;
+        let (out, out_nzcv, sp) = run_aarch64_code(&code, &regs, old_nzcv);
+        if rem != Some(quot) {
+            assert_eq!(out[quot as usize], expected_quot, "{label}: quotient");
+        }
+        if let Some(rem) = rem {
+            assert_eq!(out[rem as usize], expected_rem, "{label}: remainder");
+        }
+        assert_eq!(out_nzcv, old_nzcv, "{label}: NZCV preserved");
+        assert_eq!(sp, 0x8000, "{label}: stack restored");
+        if src1_reg != quot && rem != Some(src1_reg) {
+            assert_eq!(out[src1_reg as usize], src1_value, "{label}: src1 preserved");
+        }
+        if let Some(src2_reg) = src2_reg {
+            if src2_reg != quot && rem != Some(src2_reg) {
+                assert_eq!(
+                    out[src2_reg as usize],
+                    src2_value,
+                    "{label}: src2 preserved"
+                );
+            }
+        }
         for (reg, value) in sentinels {
             if reg != quot
                 && rem != Some(reg)
@@ -13248,6 +13447,62 @@ mod tests {
         expected.extend_from_slice(&enc_mov_wide(0, 0b10, 0, 0, 0).to_le_bytes());
         expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
         assert_eq!(code, expected);
+    }
+
+    #[test]
+    fn lowers_general_immediate_div_runtime() {
+        assert_div_runtime_lowering(
+            "divu_x_general_imm_with_remainder",
+            false,
+            0,
+            Some(3),
+            1,
+            SrcOperand::Imm64(0x12345),
+            None,
+            0x1234_5678_9abc_def0,
+            0x12345,
+            OpWidth::W64,
+        );
+        assert_div_runtime_lowering(
+            "divs_w_general_imm_with_remainder",
+            true,
+            0,
+            Some(3),
+            1,
+            SrcOperand::Imm(7),
+            None,
+            0xffff_ff85,
+            7,
+            OpWidth::W32,
+        );
+    }
+
+    #[test]
+    fn lowers_subword_div_runtime() {
+        assert_div_runtime_lowering(
+            "divu_w8_reg_with_remainder",
+            false,
+            0,
+            Some(3),
+            1,
+            SrcOperand::Reg(x(2)),
+            Some(2),
+            0xaa55_aa55_aa55_00f3,
+            10,
+            OpWidth::W8,
+        );
+        assert_div_runtime_lowering(
+            "divs_w16_general_imm_with_remainder",
+            true,
+            0,
+            Some(3),
+            1,
+            SrcOperand::Imm(7),
+            None,
+            0xffff_ff85,
+            7,
+            OpWidth::W16,
+        );
     }
 
     #[test]
