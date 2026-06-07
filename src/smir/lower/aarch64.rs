@@ -30350,6 +30350,80 @@ mod tests {
     }
 
     #[test]
+    fn lowers_apx_bextr_bzhi_lifted_memory_shape_runtime() {
+        let mem_addr = 0x9000_u64;
+        let mem_value = 0xfedc_ba98_7654_3210_u64;
+        let index = 3_u64;
+        let disp = 0x30_i32;
+        let base = mem_addr - index * 8 - disp as u64;
+        let loaded = x(9);
+        let control = (10 << 8) | 3;
+        let code = lower_ops(vec![
+            OpKind::Load {
+                dst: loaded,
+                addr: Address::sib(Some(x86(X86Reg::R16)), x86(X86Reg::R17), 8, disp),
+                width: MemWidth::B8,
+                sign: SignExtend::Zero,
+            },
+            OpKind::Bextr {
+                dst: x86(X86Reg::R18),
+                src: loaded,
+                control: VReg::Imm((12 << 8) | 4),
+                width: OpWidth::W64,
+                flags: FlagUpdate::None,
+            },
+            OpKind::Bextr {
+                dst: x86(X86Reg::R19),
+                src: loaded,
+                control: x86(X86Reg::R20),
+                width: OpWidth::W32,
+                flags: FlagUpdate::None,
+            },
+            OpKind::Bzhi {
+                dst: x86(X86Reg::R21),
+                src: loaded,
+                index: VReg::Imm(13),
+                width: OpWidth::W64,
+                flags: FlagUpdate::None,
+            },
+            OpKind::Bzhi {
+                dst: x86(X86Reg::R22),
+                src: loaded,
+                index: x86(X86Reg::R23),
+                width: OpWidth::W16,
+                flags: FlagUpdate::None,
+            },
+        ]);
+
+        let regs = [
+            (16, base),
+            (17, index),
+            (18, 0x1818),
+            (19, 0x1919),
+            (20, control),
+            (21, 0x2121),
+            (22, 0x2222),
+            (23, 8),
+        ];
+        let old_nzcv = 0b1011;
+        let (out, out_nzcv, sp, mem) =
+            run_aarch64_code_with_memory(&code, &regs, old_nzcv, mem_addr, mem_value, MemWidth::B8);
+
+        assert_eq!(out[9], mem_value);
+        assert_eq!(out[16], base);
+        assert_eq!(out[17], index);
+        assert_eq!(out[18], ref_bextr(mem_value, (12 << 8) | 4, OpWidth::W64));
+        assert_eq!(out[19], ref_bextr(mem_value, control, OpWidth::W32));
+        assert_eq!(out[20], control);
+        assert_eq!(out[21], ref_bzhi(mem_value, 13, OpWidth::W64).0);
+        assert_eq!(out[22], ref_bzhi(mem_value, 8, OpWidth::W16).0);
+        assert_eq!(out[23], 8);
+        assert_eq!(out_nzcv, old_nzcv);
+        assert_eq!(sp, 0x8000);
+        assert_eq!(mem, mem_value);
+    }
+
+    #[test]
     fn rejects_bextr_bzhi_apx_r31_identity_mapping() {
         for kind in [
             OpKind::Bextr {
