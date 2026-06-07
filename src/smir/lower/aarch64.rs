@@ -2417,6 +2417,29 @@ impl Aarch64Lowerer {
         }
     }
 
+    fn lower_vpopcnt(
+        &mut self,
+        dst: VReg,
+        src: VReg,
+        elem: VecElementType,
+        width: VecWidth,
+    ) -> Result<(), LowerError> {
+        if elem != VecElementType::I8 {
+            return Err(LowerError::UnsupportedOp {
+                op: format!("AArch64 native VPopcnt element {elem:?}"),
+            });
+        }
+        self.lower_vlane_unary_two_reg(
+            dst,
+            src,
+            elem,
+            width.lanes(elem) as u8,
+            0,
+            0b00101,
+            false,
+        )
+    }
+
     fn lower_rep_stos(
         &mut self,
         dst: VReg,
@@ -10866,6 +10889,12 @@ impl Aarch64Lowerer {
                 *lanes,
                 SimdArithmeticOp::Min { signed: *signed },
             ),
+            OpKind::VPopcnt {
+                dst,
+                src,
+                elem,
+                width,
+            } => self.lower_vpopcnt(*dst, *src, *elem, *width),
             OpKind::VLane {
                 dst,
                 src1,
@@ -18830,6 +18859,46 @@ mod tests {
     }
 
     #[test]
+    fn lowers_vector_popcnt_byte_runtime() {
+        fn byte_popcnt(pair: (u64, u64), width: VecWidth) -> (u64, u64) {
+            let mut bytes = simd_pair_bytes(pair);
+            let count = width.bytes() as usize;
+            for byte in bytes[..count].iter_mut() {
+                *byte = byte.count_ones() as u8;
+            }
+            for byte in bytes[count..].iter_mut() {
+                *byte = 0;
+            }
+            simd_pair_from_bytes(bytes)
+        }
+
+        let src128 = (0xfedc_ba98_7654_3210, 0x0123_4567_89ab_cdef);
+        let src64 = (0x8081_7f7e_0001_fffe, 0xeeee_dddd_cccc_bbbb);
+        let code = lower_ops(vec![
+            OpKind::VPopcnt {
+                dst: v(0),
+                src: v(1),
+                elem: VecElementType::I8,
+                width: VecWidth::V128,
+            },
+            OpKind::VPopcnt {
+                dst: v(2),
+                src: v(3),
+                elem: VecElementType::I8,
+                width: VecWidth::V64,
+            },
+        ]);
+
+        let (_, simd, _) = run_aarch64_code_with_regs_and_simd(
+            &code,
+            &[],
+            &[(1, src128.0, src128.1), (3, src64.0, src64.1)],
+        );
+        assert_eq!(simd[0], byte_popcnt(src128, VecWidth::V128));
+        assert_eq!(simd[2], byte_popcnt(src64, VecWidth::V64));
+    }
+
+    #[test]
     fn lowers_vector_broadcast_runtime() {
         fn splat(scalar: u64, elem_bytes: usize, lanes: usize) -> (u64, u64) {
             let mut out = [0u8; 16];
@@ -19327,6 +19396,20 @@ mod tests {
             elem: VecElementType::I32,
             lanes: 8,
             signed: false,
+        });
+
+        assert_unsupported(OpKind::VPopcnt {
+            dst: v(0),
+            src: v(1),
+            elem: VecElementType::I16,
+            width: VecWidth::V128,
+        });
+
+        assert_unsupported(OpKind::VPopcnt {
+            dst: v(0),
+            src: v(1),
+            elem: VecElementType::I8,
+            width: VecWidth::V256,
         });
 
         assert_unsupported(OpKind::VLane {
