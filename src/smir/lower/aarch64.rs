@@ -1565,8 +1565,8 @@ impl Aarch64Lowerer {
                 addr,
                 width,
             } => Ok(Some((
-                Self::dst_gpr(*dst1)?,
-                Self::dst_gpr(*dst2)?,
+                Self::dst_gpr_arm_or_x86(*dst1)?,
+                Self::dst_gpr_arm_or_x86(*dst2)?,
                 addr,
                 *width,
                 true,
@@ -1577,8 +1577,8 @@ impl Aarch64Lowerer {
                 addr,
                 width,
             } => Ok(Some((
-                Self::gpr(*src1)?,
-                Self::gpr(*src2)?,
+                Self::gpr_arm_or_x86(*src1)?,
+                Self::gpr_arm_or_x86(*src2)?,
                 addr,
                 *width,
                 false,
@@ -1616,7 +1616,11 @@ impl Aarch64Lowerer {
                 if !Self::addr_plus_eq(addr1, addr2, 8) {
                     return Ok(None);
                 }
-                Ok(Some((Self::dst_gpr(*dst1)?, Self::dst_gpr(*dst2)?, addr1)))
+                Ok(Some((
+                    Self::dst_gpr_arm_or_x86(*dst1)?,
+                    Self::dst_gpr_arm_or_x86(*dst2)?,
+                    addr1,
+                )))
             }
             _ => Ok(None),
         }
@@ -4027,8 +4031,8 @@ impl Aarch64Lowerer {
         width: MemWidth,
     ) -> Result<(), LowerError> {
         self.lower_pair_mem_access(
-            Self::dst_gpr(dst1)?,
-            Self::dst_gpr(dst2)?,
+            Self::dst_gpr_arm_or_x86(dst1)?,
+            Self::dst_gpr_arm_or_x86(dst2)?,
             addr,
             width,
             true,
@@ -4042,7 +4046,13 @@ impl Aarch64Lowerer {
         addr: &Address,
         width: MemWidth,
     ) -> Result<(), LowerError> {
-        self.lower_pair_mem_access(Self::gpr(src1)?, Self::gpr(src2)?, addr, width, false)
+        self.lower_pair_mem_access(
+            Self::gpr_arm_or_x86(src1)?,
+            Self::gpr_arm_or_x86(src2)?,
+            addr,
+            width,
+            false,
+        )
     }
 
     fn lower_mem_base_index_scale_access(
@@ -25277,6 +25287,165 @@ mod tests {
                 src: tmp,
                 from_width: OpWidth::W32,
                 to_width: OpWidth::W64,
+            },
+        ])
+        .unwrap_err();
+        assert!(matches!(err, LowerError::InvalidRegister(_)));
+    }
+
+    #[test]
+    fn lowers_pair_memory_apx_egpr_value_operands_runtime() {
+        let mem_addr = 0x9000;
+        let initial = 0x1122_3344_5566_7788;
+        let src1 = 0xaabb_ccdd_eeff_0011;
+        let src2 = 0x2233_4455_6677_8899;
+        let code = lower_ops(vec![
+            OpKind::LoadPair {
+                dst1: x86(X86Reg::R16),
+                dst2: x86(X86Reg::R17),
+                addr: Address::Direct(x(1)),
+                width: MemWidth::B4,
+            },
+            OpKind::StorePair {
+                src1: x86(X86Reg::R18),
+                src2: x86(X86Reg::R19),
+                addr: Address::Direct(x(2)),
+                width: MemWidth::B4,
+            },
+        ]);
+        let words = code_words(&code);
+        assert_eq!(words[0], enc_ldp_regs(0b00, 0b10, true, 0, 16, 17, 1));
+        assert_eq!(words[1], enc_ldp_regs(0b00, 0b10, false, 0, 18, 19, 2));
+
+        let old_nzcv = 0b0011;
+        let regs = [
+            (1, mem_addr),
+            (2, mem_addr),
+            (18, src1),
+            (19, src2),
+            (20, 0x2020_2020_2020_2020),
+        ];
+        let (out, out_nzcv, sp, mem) =
+            run_aarch64_code_with_memory(&code, &regs, old_nzcv, mem_addr, initial, MemWidth::B8);
+        let expected_mem = ((src2 & 0xffff_ffff) << 32) | (src1 & 0xffff_ffff);
+        assert_eq!(out[16], initial & 0xffff_ffff);
+        assert_eq!(out[17], initial >> 32);
+        assert_eq!(out[18], src1);
+        assert_eq!(out[19], src2);
+        assert_eq!(out[20], 0x2020_2020_2020_2020);
+        assert_eq!(out_nzcv, old_nzcv);
+        assert_eq!(sp, 0x8000);
+        assert_eq!(mem, expected_mem);
+    }
+
+    #[test]
+    fn fuses_pair_memory_apx_egpr_value_operands() {
+        let pre_index = lower_ops(vec![
+            OpKind::Add {
+                dst: x(1),
+                src1: x(1),
+                src2: SrcOperand::Imm(16),
+                width: OpWidth::W64,
+                flags: FlagUpdate::None,
+            },
+            OpKind::LoadPair {
+                dst1: x86(X86Reg::R16),
+                dst2: x86(X86Reg::R17),
+                addr: Address::Direct(x(1)),
+                width: MemWidth::B8,
+            },
+        ]);
+        let words = code_words(&pre_index);
+        assert_eq!(words[0], enc_ldp_regs(0b10, 0b11, true, 2, 16, 17, 1));
+
+        let post_index = lower_ops(vec![
+            OpKind::StorePair {
+                src1: x86(X86Reg::R18),
+                src2: x86(X86Reg::R19),
+                addr: Address::Direct(x(1)),
+                width: MemWidth::B4,
+            },
+            OpKind::Add {
+                dst: x(1),
+                src1: x(1),
+                src2: SrcOperand::Imm(-8),
+                width: OpWidth::W64,
+                flags: FlagUpdate::None,
+            },
+        ]);
+        let words = code_words(&post_index);
+        assert_eq!(words[0], enc_ldp_regs(0b00, 0b01, false, -2, 18, 19, 1));
+
+        let ldpsw = lower_ops(vec![
+            OpKind::Load {
+                dst: x86(X86Reg::R20),
+                addr: Address::Direct(x(1)),
+                width: MemWidth::B8,
+                sign: SignExtend::Sign,
+            },
+            OpKind::Load {
+                dst: x86(X86Reg::R21),
+                addr: Address::BaseOffset {
+                    base: x(1),
+                    offset: 8,
+                    disp_size: DispSize::Auto,
+                },
+                width: MemWidth::B8,
+                sign: SignExtend::Sign,
+            },
+        ]);
+        let words = code_words(&ldpsw);
+        assert_eq!(words[0], enc_ldp_regs(0b01, 0b10, true, 0, 20, 21, 1));
+    }
+
+    #[test]
+    fn rejects_pair_memory_apx_r31_value_mapping() {
+        for kind in [
+            OpKind::LoadPair {
+                dst1: x86(X86Reg::R31),
+                dst2: x86(X86Reg::R16),
+                addr: Address::Direct(x(1)),
+                width: MemWidth::B8,
+            },
+            OpKind::LoadPair {
+                dst1: x86(X86Reg::R16),
+                dst2: x86(X86Reg::R31),
+                addr: Address::Direct(x(1)),
+                width: MemWidth::B8,
+            },
+            OpKind::StorePair {
+                src1: x86(X86Reg::R31),
+                src2: x86(X86Reg::R16),
+                addr: Address::Direct(x(1)),
+                width: MemWidth::B8,
+            },
+            OpKind::StorePair {
+                src1: x86(X86Reg::R16),
+                src2: x86(X86Reg::R31),
+                addr: Address::Direct(x(1)),
+                width: MemWidth::B8,
+            },
+        ] {
+            let err = try_lower_single_op(kind).unwrap_err();
+            assert!(matches!(err, LowerError::InvalidRegister(_)));
+        }
+
+        let err = try_lower_ops(vec![
+            OpKind::Load {
+                dst: x86(X86Reg::R31),
+                addr: Address::Direct(x(1)),
+                width: MemWidth::B8,
+                sign: SignExtend::Sign,
+            },
+            OpKind::Load {
+                dst: x86(X86Reg::R16),
+                addr: Address::BaseOffset {
+                    base: x(1),
+                    offset: 8,
+                    disp_size: DispSize::Auto,
+                },
+                width: MemWidth::B8,
+                sign: SignExtend::Sign,
             },
         ])
         .unwrap_err();
