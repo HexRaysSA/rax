@@ -7471,6 +7471,184 @@ impl Aarch64Lowerer {
         }
     }
 
+    fn bidir_shift_op(kind: u8, negative_count: bool) -> ShiftOp {
+        match kind {
+            0 => {
+                if negative_count {
+                    ShiftOp::Asr
+                } else {
+                    ShiftOp::Lsl
+                }
+            }
+            1 => {
+                if negative_count {
+                    ShiftOp::Lsl
+                } else {
+                    ShiftOp::Asr
+                }
+            }
+            2 => {
+                if negative_count {
+                    ShiftOp::Lsr
+                } else {
+                    ShiftOp::Lsl
+                }
+            }
+            _ => {
+                if negative_count {
+                    ShiftOp::Lsl
+                } else {
+                    ShiftOp::Lsr
+                }
+            }
+        }
+    }
+
+    fn bidir_count_imm(imm: i64) -> i64 {
+        let low7 = imm & 0x7f;
+        (low7 << 57) >> 57
+    }
+
+    fn lower_bidir_full_count(
+        &mut self,
+        dst: u8,
+        src: u8,
+        shift: ShiftOp,
+        width: OpWidth,
+    ) -> Result<(), LowerError> {
+        match shift {
+            ShiftOp::Asr => {
+                let top_bit = width.bits() - 1;
+                self.emit_bitfield(dst, src, 0b00, top_bit, top_bit, width)
+            }
+            ShiftOp::Lsl | ShiftOp::Lsr => self.emit_mov_imm(dst, 0, width),
+            ShiftOp::Ror | ShiftOp::Rrx => unreachable!("BidirShift never rotates"),
+        }
+    }
+
+    fn lower_bidir_shift_imm(
+        &mut self,
+        dst: u8,
+        src: u8,
+        count: i64,
+        kind: u8,
+        width: OpWidth,
+    ) -> Result<(), LowerError> {
+        let negative_count = count < 0;
+        let shift = Self::bidir_shift_op(kind, negative_count);
+        let magnitude = count.abs();
+        if magnitude == 64 {
+            return self.lower_bidir_full_count(dst, src, shift, width);
+        }
+        self.lower_shift_imm(dst, src, magnitude, shift, width)
+    }
+
+    fn lower_bidir_shift_reg_path(
+        &mut self,
+        dst: u8,
+        src: u8,
+        count: u8,
+        kind: u8,
+        negative_count: bool,
+        width: OpWidth,
+    ) -> Result<(), LowerError> {
+        let shift = Self::bidir_shift_op(kind, negative_count);
+        self.lower_shift_reg(dst, src, count, shift, width)
+    }
+
+    fn lower_bidir_shift(
+        &mut self,
+        dst: VReg,
+        src: &SrcOperand,
+        amount: &SrcOperand,
+        kind: u8,
+        width: OpWidth,
+    ) -> Result<(), LowerError> {
+        match width {
+            OpWidth::W32 | OpWidth::W64 => {}
+            other => {
+                return Err(LowerError::UnsupportedOp {
+                    op: format!("AArch64 native BidirShift width {other:?}"),
+                });
+            }
+        }
+
+        let dst = Self::dst_gpr(dst)?;
+        if let Some(amount) = Self::src_imm(amount) {
+            let count = Self::bidir_count_imm(amount);
+            return match src {
+                SrcOperand::Reg(src) => {
+                    self.lower_bidir_shift_imm(dst, Self::gpr(*src)?, count, kind, width)
+                }
+                SrcOperand::Imm(imm) | SrcOperand::Imm64(imm) => {
+                    let scratches = Self::scratch_regs(&[dst], 1)?;
+                    let src = scratches[0];
+                    self.emit_scratch_save(&scratches);
+                    self.emit_mov_imm(src, *imm, width)?;
+                    self.lower_bidir_shift_imm(dst, src, count, kind, width)?;
+                    self.emit_scratch_restore(&scratches);
+                    Ok(())
+                }
+                other => Err(LowerError::UnsupportedOp {
+                    op: format!("AArch64 native BidirShift source {other:?}"),
+                }),
+            };
+        }
+
+        let SrcOperand::Reg(amount) = amount else {
+            return Err(LowerError::UnsupportedOp {
+                op: format!("AArch64 native BidirShift amount {amount:?}"),
+            });
+        };
+        let amount = Self::gpr(*amount)?;
+        let mut avoid = vec![dst, amount];
+        if let SrcOperand::Reg(src) = src {
+            avoid.push(Self::gpr(*src)?);
+        }
+        let src_needs_scratch = matches!(src, SrcOperand::Imm(_) | SrcOperand::Imm64(_));
+        let scratches = Self::scratch_regs(&avoid, if src_needs_scratch { 2 } else { 1 })?;
+        let count = scratches[0];
+
+        self.emit_scratch_save(&scratches);
+        let src = match src {
+            SrcOperand::Reg(src) => Self::gpr(*src)?,
+            SrcOperand::Imm(imm) | SrcOperand::Imm64(imm) => {
+                let src = scratches[1];
+                self.emit_mov_imm(src, *imm, width)?;
+                src
+            }
+            other => {
+                self.emit_scratch_restore(&scratches);
+                return Err(LowerError::UnsupportedOp {
+                    op: format!("AArch64 native BidirShift source {other:?}"),
+                });
+            }
+        };
+
+        self.emit_bitfield(count, amount, 0b00, 0, 6, OpWidth::W64)?;
+        let negative = self.code.position();
+        self.emit_test_branch(count, 63, true, 0)?;
+        self.lower_bidir_shift_reg_path(dst, src, count, kind, false, width)?;
+        let done_positive = self.code.position();
+        self.emit(0x1400_0000);
+
+        self.patch_test_branch_to_current(negative, count, 63, true)?;
+        self.emit_addsub_reg(count, 31, count, true, false, OpWidth::W64)?;
+        let full_count = self.code.position();
+        self.emit_test_branch(count, 6, true, 0)?;
+        self.lower_bidir_shift_reg_path(dst, src, count, kind, true, width)?;
+        let done_negative = self.code.position();
+        self.emit(0x1400_0000);
+
+        self.patch_test_branch_to_current(full_count, count, 6, true)?;
+        let shift = Self::bidir_shift_op(kind, true);
+        self.lower_bidir_full_count(dst, src, shift, width)?;
+        self.patch_branch_to_current(done_positive)?;
+        self.patch_branch_to_current(done_negative)?;
+        self.emit_scratch_restore(&scratches);
+        Ok(())
+    }
+
     fn lower_rol(
         &mut self,
         dst: VReg,
@@ -9878,6 +10056,13 @@ impl Aarch64Lowerer {
                 width,
                 flags,
             } => self.lower_rotate_carry(*dst, *src, amount, *width, *flags, true),
+            OpKind::BidirShift {
+                dst,
+                src,
+                amount,
+                kind,
+                width,
+            } => self.lower_bidir_shift(*dst, src, amount, *kind, *width),
             OpKind::Bt { src, index, width } => {
                 self.lower_bit_test(None, *src, index, BitTestAction::Test, *width)
             }
@@ -10530,6 +10715,51 @@ mod tests {
             }
             ShiftOp::Rrx => unreachable!(),
         }
+    }
+
+    fn ref_bidir_shift(src: u64, amount: u64, kind: u8, width: OpWidth) -> u64 {
+        let bits = width.bits();
+        let mask = width_mask(width);
+        let src = src & mask;
+        let low7 = (amount & 0x7f) as i64;
+        let count = (low7 << 57) >> 57;
+        let signed = if width == OpWidth::W64 {
+            src as i64 as i128
+        } else {
+            (((src as i64) << (64 - bits)) >> (64 - bits)) as i128
+        };
+        let unsigned = src as u128;
+        let result = match kind {
+            0 => {
+                if count < 0 {
+                    signed >> (-count as u32)
+                } else {
+                    signed << (count as u32)
+                }
+            }
+            1 => {
+                if count < 0 {
+                    signed << (-count as u32)
+                } else {
+                    signed >> (count as u32)
+                }
+            }
+            2 => {
+                if count < 0 {
+                    (unsigned >> (-count as u32)) as i128
+                } else {
+                    (unsigned << (count as u32)) as i128
+                }
+            }
+            _ => {
+                if count < 0 {
+                    (unsigned << (-count as u32)) as i128
+                } else {
+                    (unsigned >> (count as u32)) as i128
+                }
+            }
+        };
+        result as u64 & mask
     }
 
     fn shift_flag_left(src: u64, shift: ShiftOp, width: OpWidth) -> u64 {
@@ -16694,6 +16924,146 @@ mod tests {
             OpWidth::W8,
             1,
         );
+    }
+
+    fn assert_bidir_shift_runtime(
+        label: &str,
+        src: SrcOperand,
+        amount: SrcOperand,
+        src_value: u64,
+        amount_value: u64,
+        kind: u8,
+        width: OpWidth,
+    ) {
+        let code = lower_single_op(OpKind::BidirShift {
+            dst: x(0),
+            src: src.clone(),
+            amount: amount.clone(),
+            kind,
+            width,
+        });
+        let expected = ref_bidir_shift(src_value, amount_value, kind, width);
+        let sentinels = [
+            (16, 0x1616_1616_1616_1616),
+            (17, 0x1717_1717_1717_1717),
+            (15, 0x1515_1515_1515_1515),
+        ];
+        let mut regs = sentinels.to_vec();
+        if matches!(src, SrcOperand::Reg(_)) {
+            regs.push((1, src_value));
+        }
+        if matches!(amount, SrcOperand::Reg(_)) {
+            regs.push((2, amount_value));
+        }
+
+        let old_nzcv = 0b1011;
+        let (out, out_nzcv, sp) = run_aarch64_code(&code, &regs, old_nzcv);
+        assert_eq!(
+            out[0] & width_mask(width),
+            expected,
+            "{label}: BidirShift result"
+        );
+        assert_eq!(out_nzcv, old_nzcv, "{label}: NZCV preserved");
+        assert_eq!(sp, 0x8000, "{label}: stack restored");
+        if matches!(src, SrcOperand::Reg(_)) {
+            assert_eq!(out[1], src_value, "{label}: source preserved");
+        }
+        if matches!(amount, SrcOperand::Reg(_)) {
+            assert_eq!(out[2], amount_value, "{label}: count preserved");
+        }
+        for (reg, value) in sentinels {
+            assert_eq!(out[reg as usize], value, "{label}: x{reg} restored");
+        }
+    }
+
+    #[test]
+    fn lowers_bidir_shift_immediate_encoding() {
+        let words = code_words(&lower_single_op(OpKind::BidirShift {
+            dst: x(0),
+            src: SrcOperand::Reg(x(1)),
+            amount: SrcOperand::Imm(3),
+            kind: 2,
+            width: OpWidth::W64,
+        }));
+        assert_eq!(words, vec![enc_bitfield_regs(1, 0b10, 61, 60, 1, 0), 0xd65f_03c0]);
+    }
+
+    #[test]
+    fn lowers_bidir_shift_runtime() {
+        assert_bidir_shift_runtime(
+            "w64_positive_logical_left",
+            SrcOperand::Reg(x(1)),
+            SrcOperand::Reg(x(2)),
+            0x0123_4567_89ab_cdef,
+            0xffff_0000_0000_0004,
+            2,
+            OpWidth::W64,
+        );
+        assert_bidir_shift_runtime(
+            "w64_negative_arithmetic_right",
+            SrcOperand::Reg(x(1)),
+            SrcOperand::Reg(x(2)),
+            0x8000_0000_0000_0000,
+            0x5a5a_5a5a_5a5a_5a7d,
+            0,
+            OpWidth::W64,
+        );
+        assert_bidir_shift_runtime(
+            "w64_negative_full_arithmetic_right",
+            SrcOperand::Reg(x(1)),
+            SrcOperand::Reg(x(2)),
+            0x8000_0000_0000_0001,
+            0x40,
+            0,
+            OpWidth::W64,
+        );
+        assert_bidir_shift_runtime(
+            "w64_negative_full_logical_right",
+            SrcOperand::Reg(x(1)),
+            SrcOperand::Reg(x(2)),
+            0xffff_ffff_ffff_ffff,
+            0x40,
+            2,
+            OpWidth::W64,
+        );
+        assert_bidir_shift_runtime(
+            "w32_positive_count_above_width",
+            SrcOperand::Reg(x(1)),
+            SrcOperand::Reg(x(2)),
+            0x8000_0001,
+            36,
+            3,
+            OpWidth::W32,
+        );
+        assert_bidir_shift_runtime(
+            "w32_immediate_source",
+            SrcOperand::Imm(0x1234),
+            SrcOperand::Reg(x(2)),
+            0x1234,
+            4,
+            2,
+            OpWidth::W32,
+        );
+    }
+
+    #[test]
+    fn rejects_bidir_shift_unsupported_width() {
+        let mut builder = FunctionBuilder::new(FunctionId(0), 0);
+        builder.push_op(
+            0,
+            OpKind::BidirShift {
+                dst: x(0),
+                src: SrcOperand::Reg(x(1)),
+                amount: SrcOperand::Reg(x(2)),
+                kind: 0,
+                width: OpWidth::W16,
+            },
+        );
+        builder.set_terminator(Terminator::Return { values: vec![] });
+        let func = builder.finish();
+        let mut lowerer = Aarch64Lowerer::new();
+        let err = lowerer.lower_function(&func).unwrap_err();
+        assert!(matches!(err, LowerError::UnsupportedOp { .. }));
     }
 
     #[test]
