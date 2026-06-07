@@ -3490,16 +3490,13 @@ impl Aarch64Lowerer {
             return Ok(31);
         }
 
-        Self::gpr(src)
+        Self::gpr_arm_or_x86(src)
     }
 
     fn atomic_rmw_source_avoid(src: VReg) -> Result<Option<u8>, LowerError> {
         match src {
-            VReg::Arch(ArchReg::Arm(ArmReg::X(reg))) if reg < 31 => Ok(Some(reg)),
             VReg::Imm(_) => Ok(None),
-            other => Err(LowerError::InvalidRegister(format!(
-                "AArch64 native lowerer expected X register or immediate, got {other:?}"
-            ))),
+            other => Ok(Some(Self::gpr_arm_or_x86(other)?)),
         }
     }
 
@@ -3512,7 +3509,7 @@ impl Aarch64Lowerer {
         width: MemWidth,
         order: MemoryOrder,
     ) -> Result<(), LowerError> {
-        let rt = Self::dst_gpr(dst)?;
+        let rt = Self::dst_gpr_arm_or_x86(dst)?;
         let size = Self::mem_size(width)?;
         let (acquire, release) = Self::atomic_order_bits(order);
         let mut addr_avoid = vec![rt];
@@ -3587,14 +3584,9 @@ impl Aarch64Lowerer {
         }
 
         let src_reg = match src {
-            VReg::Arch(ArchReg::Arm(ArmReg::X(reg))) if reg < 31 => Some(reg),
             VReg::Imm(0) => Some(31),
             VReg::Imm(_) => None,
-            other => {
-                return Err(LowerError::InvalidRegister(format!(
-                    "AArch64 native lowerer expected X register or immediate, got {other:?}"
-                )));
-            }
+            other => Some(Self::gpr_arm_or_x86(other)?),
         };
 
         let need_base = rt == rn;
@@ -3666,8 +3658,8 @@ impl Aarch64Lowerer {
         width: MemWidth,
         order: MemoryOrder,
     ) -> Result<(), LowerError> {
-        let rt = Self::dst_gpr(dst)?;
-        let rs = Self::gpr(src)?;
+        let rt = Self::dst_gpr_arm_or_x86(dst)?;
+        let rs = Self::gpr_arm_or_x86(src)?;
         let size = Self::mem_size(width)?;
         let (acquire, release) = Self::atomic_order_bits(order);
         let (scratches, rn) = self.lower_atomic_addr_to_base(&[rt, rs], addr)?;
@@ -27260,6 +27252,48 @@ mod tests {
     }
 
     #[test]
+    fn lowers_atomic_rmw_apx_egpr_lse_value_operands() {
+        let code = lower_single_op(OpKind::AtomicRmw {
+            dst: x86(X86Reg::R16),
+            addr: Address::Direct(x(1)),
+            src: x86(X86Reg::R17),
+            op: AtomicOp::Add,
+            width: MemWidth::B8,
+            order: MemoryOrder::AcqRel,
+        });
+        let words = code_words(&code);
+        assert_eq!(
+            words[0],
+            enc_atomic_rmw_regs(3, 1, 1, 0, 0b000, 17, 1, 16)
+        );
+    }
+
+    #[test]
+    fn rejects_atomic_rmw_apx_r31_value_mapping() {
+        for kind in [
+            OpKind::AtomicRmw {
+                dst: x86(X86Reg::R31),
+                addr: Address::Direct(x(1)),
+                src: x86(X86Reg::R16),
+                op: AtomicOp::Add,
+                width: MemWidth::B8,
+                order: MemoryOrder::Relaxed,
+            },
+            OpKind::AtomicRmw {
+                dst: x86(X86Reg::R16),
+                addr: Address::Direct(x(1)),
+                src: x86(X86Reg::R31),
+                op: AtomicOp::Add,
+                width: MemWidth::B8,
+                order: MemoryOrder::Relaxed,
+            },
+        ] {
+            let err = try_lower_single_op(kind).unwrap_err();
+            assert!(matches!(err, LowerError::InvalidRegister(_)));
+        }
+    }
+
+    #[test]
     fn lowers_atomic_rmw_lse_base_offset_runtime() {
         let mem_addr = 0x9000_u64;
         let offset = 0x50_i64;
@@ -27396,6 +27430,44 @@ mod tests {
 
         let mut expected = Vec::new();
         expected.extend_from_slice(&enc_atomic_rmw(3, 0, 1, 0, 0b001).to_le_bytes());
+        expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
+        assert_eq!(code, expected);
+    }
+
+    #[test]
+    fn fuses_lifted_ldclr_apx_egpr_value_operands() {
+        let inverted = VReg::virt(0);
+        let mut builder = FunctionBuilder::new(FunctionId(0), 0);
+        builder.push_op(
+            0,
+            OpKind::Not {
+                dst: inverted,
+                src: x86(X86Reg::R18),
+                width: OpWidth::W64,
+            },
+        );
+        builder.push_op(
+            0,
+            OpKind::AtomicRmw {
+                dst: x86(X86Reg::R16),
+                addr: Address::Direct(x(1)),
+                src: inverted,
+                op: AtomicOp::And,
+                width: MemWidth::B8,
+                order: MemoryOrder::Release,
+            },
+        );
+        builder.set_terminator(Terminator::Return { values: vec![] });
+        let func = builder.finish();
+
+        let mut lowerer = Aarch64Lowerer::new();
+        lowerer.lower_function(&func).unwrap();
+        let code = lowerer.finalize().unwrap();
+
+        let mut expected = Vec::new();
+        expected.extend_from_slice(
+            &enc_atomic_rmw_regs(3, 0, 1, 0, 0b001, 18, 1, 16).to_le_bytes(),
+        );
         expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
         assert_eq!(code, expected);
     }
@@ -27573,6 +27645,43 @@ mod tests {
             MemoryOrder::SeqCst,
             0x3c,
         );
+    }
+
+    #[test]
+    fn lowers_atomic_rmw_apx_egpr_exclusive_loop_runtime() {
+        let mem_addr = 0x9000_u64;
+        let src_value = 3;
+        let mem_value = 10;
+        let code = lower_single_op(OpKind::AtomicRmw {
+            dst: x86(X86Reg::R16),
+            addr: Address::Direct(x(1)),
+            src: x86(X86Reg::R17),
+            op: AtomicOp::Sub,
+            width: MemWidth::B8,
+            order: MemoryOrder::AcqRel,
+        });
+        let (expected_old, expected_mem) =
+            ref_atomic_rmw(mem_value, src_value, MemWidth::B8, AtomicOp::Sub);
+
+        let regs = [
+            (1, mem_addr),
+            (15, 0x1515_1515_1515_1515),
+            (16, 0x1616_1616_1616_1616),
+            (17, src_value),
+            (18, 0x1818_1818_1818_1818),
+        ];
+        let old_nzcv = 0b0110;
+        let (out, out_nzcv, sp, mem) =
+            run_aarch64_code_with_memory(&code, &regs, old_nzcv, mem_addr, mem_value, MemWidth::B8);
+
+        assert_eq!(out[1], mem_addr);
+        assert_eq!(out[15], 0x1515_1515_1515_1515);
+        assert_eq!(out[16], expected_old);
+        assert_eq!(out[17], src_value);
+        assert_eq!(out[18], 0x1818_1818_1818_1818);
+        assert_eq!(out_nzcv, old_nzcv);
+        assert_eq!(sp, 0x8000);
+        assert_eq!(mem, expected_mem);
     }
 
     #[test]
