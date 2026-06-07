@@ -25616,6 +25616,88 @@ mod tests {
     }
 
     #[test]
+    fn lowers_apx_movbe_movrs_lifted_memory_shapes_runtime() {
+        let movbe_load_addr = 0x9000_u64;
+        let movbe_store_addr = 0x9020_u64;
+        let movrs_addr = 0x9040_u64;
+        let movbe_load_value = 0x1122_3344_u32;
+        let movbe_store_value = 0x0102_0304_0506_0708_u64;
+        let movrs_value = 0xabcd_u16;
+        let tmp_load = x(9);
+        let tmp_store = x(10);
+        let code = lower_ops(vec![
+            OpKind::Load {
+                dst: tmp_load,
+                addr: Address::Direct(x86(X86Reg::R17)),
+                width: MemWidth::B4,
+                sign: SignExtend::Zero,
+            },
+            OpKind::Bswap {
+                dst: x86(X86Reg::R16),
+                src: tmp_load,
+                width: OpWidth::W32,
+            },
+            OpKind::Bswap {
+                dst: tmp_store,
+                src: x86(X86Reg::R18),
+                width: OpWidth::W64,
+            },
+            OpKind::Store {
+                src: tmp_store,
+                addr: Address::base_off(x86(X86Reg::R19), 8),
+                width: MemWidth::B8,
+            },
+            OpKind::Load {
+                dst: x86(X86Reg::R20),
+                addr: Address::sib(Some(x86(X86Reg::R21)), x86(X86Reg::R22), 2, -0x10),
+                width: MemWidth::B2,
+                sign: SignExtend::Zero,
+            },
+        ]);
+
+        let regs = [
+            (9, 0x0909_0909_0909_0909),
+            (10, 0x0a0a_0a0a_0a0a_0a0a),
+            (17, movbe_load_addr),
+            (18, movbe_store_value),
+            (19, movbe_store_addr - 8),
+            (20, 0x2020_2020_2020_2020),
+            (21, movrs_addr),
+            (22, 8),
+        ];
+        let (out, _, mem) = run_aarch64_code_with_regs_simd_and_memory(
+            &code,
+            &regs,
+            &[],
+            &[
+                (movbe_load_addr, &movbe_load_value.to_le_bytes()),
+                (movrs_addr, &movrs_value.to_le_bytes()),
+            ],
+            movbe_load_addr,
+            0x48,
+        );
+
+        assert_eq!(out[9], movbe_load_value as u64);
+        assert_eq!(out[10], movbe_store_value.swap_bytes());
+        assert_eq!(out[16], movbe_load_value.swap_bytes() as u64);
+        assert_eq!(out[17], movbe_load_addr);
+        assert_eq!(out[18], movbe_store_value);
+        assert_eq!(out[19], movbe_store_addr - 8);
+        assert_eq!(out[20], movrs_value as u64);
+        assert_eq!(out[21], movrs_addr);
+        assert_eq!(out[22], 8);
+
+        let store_off = (movbe_store_addr - movbe_load_addr) as usize;
+        let movrs_off = (movrs_addr - movbe_load_addr) as usize;
+        assert_eq!(&mem[..4], &movbe_load_value.to_le_bytes());
+        assert_eq!(
+            &mem[store_off..store_off + 8],
+            &movbe_store_value.to_be_bytes()
+        );
+        assert_eq!(&mem[movrs_off..movrs_off + 2], &movrs_value.to_le_bytes());
+    }
+
+    #[test]
     fn lowers_apx_push2_pop2_lifted_stack_shapes_runtime() {
         let stack_slot = 0x9000_u64;
         let stack_top = stack_slot + 16;
