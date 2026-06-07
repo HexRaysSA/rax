@@ -26023,6 +26023,67 @@ mod tests {
     }
 
     #[test]
+    fn lowers_predicated_memory_apx_egpr_address_operands_runtime() {
+        let mem_addr = 0x9000_u64;
+        let initial = 0x1122_3344_5566_7788;
+        let store_value = 0xaabb_ccdd_eeff_0011;
+        let index = 3_u64;
+        let disp = -0x10_i32;
+        let sib_base = mem_addr - index * 8 + 0x10;
+        let code = lower_ops(vec![
+            OpKind::PredLoad {
+                dst: x86(X86Reg::R16),
+                cond: x(2),
+                addr: Address::Direct(x86(X86Reg::R17)),
+                width: MemWidth::B8,
+                signed: SignExtend::Zero,
+            },
+            OpKind::PredStore {
+                src: SrcOperand::Reg(x86(X86Reg::R19)),
+                cond: x(3),
+                addr: Address::base_off(x86(X86Reg::R18), 0x20),
+                width: MemWidth::B8,
+            },
+            OpKind::PredLoad {
+                dst: x86(X86Reg::R22),
+                cond: x(4),
+                addr: Address::sib(Some(x86(X86Reg::R20)), x86(X86Reg::R21), 8, disp),
+                width: MemWidth::B8,
+                signed: SignExtend::Zero,
+            },
+        ]);
+
+        let regs = [
+            (2, 1),
+            (3, 1),
+            (4, 1),
+            (17, mem_addr),
+            (18, mem_addr - 0x20),
+            (19, store_value),
+            (20, sib_base),
+            (21, index),
+            (22, 0x2222_2222_2222_2222),
+        ];
+        let old_nzcv = 0b0101;
+        let (out, out_nzcv, sp, mem) =
+            run_aarch64_code_with_memory(&code, &regs, old_nzcv, mem_addr, initial, MemWidth::B8);
+
+        assert_eq!(out[2], 1);
+        assert_eq!(out[3], 1);
+        assert_eq!(out[4], 1);
+        assert_eq!(out[16], initial);
+        assert_eq!(out[17], mem_addr);
+        assert_eq!(out[18], mem_addr - 0x20);
+        assert_eq!(out[19], store_value);
+        assert_eq!(out[20], sib_base);
+        assert_eq!(out[21], index);
+        assert_eq!(out[22], store_value);
+        assert_eq!(out_nzcv, old_nzcv);
+        assert_eq!(sp, 0x8000);
+        assert_eq!(mem, store_value);
+    }
+
+    #[test]
     fn rejects_predicated_memory_apx_r31_condition() {
         let load_err = try_lower_single_op(OpKind::PredLoad {
             dst: x(0),
@@ -26042,6 +26103,35 @@ mod tests {
         })
         .unwrap_err();
         assert!(matches!(store_err, LowerError::InvalidRegister(_)));
+    }
+
+    #[test]
+    fn rejects_predicated_memory_apx_r31_address_mapping() {
+        for kind in [
+            OpKind::PredLoad {
+                dst: x86(X86Reg::R16),
+                cond: x(2),
+                addr: Address::Direct(x86(X86Reg::R31)),
+                width: MemWidth::B8,
+                signed: SignExtend::Zero,
+            },
+            OpKind::PredStore {
+                src: SrcOperand::Reg(x86(X86Reg::R16)),
+                cond: x(2),
+                addr: Address::base_off(x86(X86Reg::R31), 0x20),
+                width: MemWidth::B8,
+            },
+            OpKind::PredLoad {
+                dst: x86(X86Reg::R16),
+                cond: x(2),
+                addr: Address::sib(Some(x86(X86Reg::R17)), x86(X86Reg::R31), 8, 0),
+                width: MemWidth::B8,
+                signed: SignExtend::Zero,
+            },
+        ] {
+            let err = try_lower_single_op(kind).unwrap_err();
+            assert!(matches!(err, LowerError::InvalidRegister(_)));
+        }
     }
 
     #[test]
