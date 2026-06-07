@@ -1599,6 +1599,31 @@ impl Aarch64Lowerer {
         Ok(())
     }
 
+    fn cas_compare_width(width: MemWidth) -> Result<OpWidth, LowerError> {
+        match width {
+            MemWidth::B1 | MemWidth::B2 | MemWidth::B4 => Ok(OpWidth::W32),
+            MemWidth::B8 => Ok(OpWidth::W64),
+            other => Err(LowerError::UnsupportedOp {
+                op: format!("AArch64 native CAS width {other:?}"),
+            }),
+        }
+    }
+
+    fn emit_mask_cas_compare_value(
+        &mut self,
+        reg: u8,
+        width: MemWidth,
+    ) -> Result<(), LowerError> {
+        match width {
+            MemWidth::B1 => self.emit_bitfield(reg, reg, 0b10, 0, 7, OpWidth::W32),
+            MemWidth::B2 => self.emit_bitfield(reg, reg, 0b10, 0, 15, OpWidth::W32),
+            MemWidth::B4 | MemWidth::B8 => Ok(()),
+            other => Err(LowerError::UnsupportedOp {
+                op: format!("AArch64 native CAS width {other:?}"),
+            }),
+        }
+    }
+
     fn lower_cas(
         &mut self,
         dst: VReg,
@@ -1609,24 +1634,106 @@ impl Aarch64Lowerer {
         width: MemWidth,
         order: MemoryOrder,
     ) -> Result<(), LowerError> {
-        if dst != expected {
-            return Err(LowerError::InvalidOperand {
-                op: "AArch64 native CAS compare/destination register".into(),
-                operand: format!("dst={dst:?}, expected={expected:?}"),
-            });
-        }
-        if !matches!(success, VReg::Virtual(_)) {
-            return Err(LowerError::UnsupportedOp {
-                op: format!("AArch64 native CAS observable success {success:?}"),
-            });
-        }
-
-        let rs = Self::dst_gpr(dst)?;
-        let rt = Self::gpr(new_val)?;
+        let dst_reg = Self::dst_gpr(dst)?;
+        let expected_reg = Self::gpr(expected)?;
+        let new_reg = Self::gpr(new_val)?;
         let rn = Self::exclusive_base_gpr(addr)?;
         let size = Self::mem_size(width)?;
+        let compare_width = Self::cas_compare_width(width)?;
         let (acquire, release) = Self::atomic_order_bits(order);
-        self.emit_cas(rs, rt, rn, size, acquire, release);
+        let success_reg = match success {
+            VReg::Virtual(_) => None,
+            other => Some(Self::dst_gpr(other)?),
+        };
+
+        if dst == expected && success_reg.is_none() {
+            self.emit_cas(dst_reg, new_reg, rn, size, acquire, release);
+            return Ok(());
+        }
+
+        let need_compare = dst != expected;
+        let need_saved_expected = success_reg.is_some() && dst == expected;
+        let need_masked_expected = success_reg.is_some()
+            && dst != expected
+            && matches!(width, MemWidth::B1 | MemWidth::B2);
+        let need_saved_flags = success_reg.is_some();
+        let scratch_count = usize::from(need_compare)
+            + usize::from(need_saved_expected)
+            + usize::from(need_masked_expected)
+            + usize::from(need_saved_flags);
+
+        let mut avoid = vec![dst_reg, expected_reg, new_reg, rn];
+        if let Some(success_reg) = success_reg {
+            avoid.push(success_reg);
+        }
+        let scratches = Self::scratch_regs(&avoid, scratch_count)?;
+        let mut scratch_index = 0;
+        let compare_reg = if need_compare {
+            let reg = scratches[scratch_index];
+            scratch_index += 1;
+            reg
+        } else {
+            dst_reg
+        };
+        let saved_expected = if need_saved_expected {
+            let reg = scratches[scratch_index];
+            scratch_index += 1;
+            Some(reg)
+        } else {
+            None
+        };
+        let masked_expected = if need_masked_expected {
+            let reg = scratches[scratch_index];
+            scratch_index += 1;
+            Some(reg)
+        } else {
+            None
+        };
+        let saved_flags = if need_saved_flags {
+            Some(scratches[scratch_index])
+        } else {
+            None
+        };
+
+        self.emit_scratch_save(&scratches);
+        if need_compare {
+            self.emit_mov_reg(compare_reg, expected_reg, compare_width)?;
+        }
+        if let Some(saved_expected) = saved_expected {
+            self.emit_mov_reg(saved_expected, expected_reg, compare_width)?;
+            self.emit_mask_cas_compare_value(saved_expected, width)?;
+        }
+
+        self.emit_cas(compare_reg, new_reg, rn, size, acquire, release);
+        if need_compare {
+            self.emit_mov_reg(dst_reg, compare_reg, compare_width)?;
+        }
+        if let Some(success_reg) = success_reg {
+            let expected_for_compare = if let Some(saved_expected) = saved_expected {
+                saved_expected
+            } else if let Some(masked_expected) = masked_expected {
+                self.emit_mov_reg(masked_expected, expected_reg, OpWidth::W32)?;
+                self.emit_mask_cas_compare_value(masked_expected, width)?;
+                masked_expected
+            } else {
+                expected_reg
+            };
+            let saved_flags = saved_flags.expect("observable CAS success saves flags");
+            self.emit_sysreg(saved_flags, ArmReg::Nzcv, true)?;
+            self.emit_addsub_shifted(
+                31,
+                compare_reg,
+                expected_for_compare,
+                true,
+                true,
+                0,
+                0,
+                compare_width,
+            )?;
+            self.lower_test_condition(Self::arm_x_reg(success_reg), Condition::Eq)?;
+            self.emit_sysreg(saved_flags, ArmReg::Nzcv, false)?;
+        }
+        self.emit_scratch_restore(&scratches);
         Ok(())
     }
 
@@ -7442,6 +7549,65 @@ mod tests {
         (out, out_nzcv, cpu.current_sp())
     }
 
+    fn run_aarch64_code_with_memory(
+        code: &[u8],
+        regs: &[(u8, u64)],
+        nzcv: u8,
+        mem_addr: u64,
+        mem_value: u64,
+        width: MemWidth,
+    ) -> ([u64; 31], u8, u64, u64) {
+        let mut image = vec![0u8; 0x10000];
+        image[..code.len()].copy_from_slice(code);
+        image[code.len()..code.len() + 4].copy_from_slice(&0xd460_0000u32.to_le_bytes());
+        let mem_len = width.bytes() as usize;
+        let mem_offset = mem_addr as usize;
+        image[mem_offset..mem_offset + mem_len]
+            .copy_from_slice(&mem_value.to_le_bytes()[..mem_len]);
+
+        let memory = FlatMemory::with_data(0, image);
+        let mut cpu = AArch64Cpu::new(AArch64Config::default(), Box::new(memory));
+        cpu.set_pc(0);
+        cpu.set_current_sp(0x8000);
+        cpu.set_x(30, code.len() as u64);
+        cpu.set_nzcv(
+            (nzcv & 0b1000) != 0,
+            (nzcv & 0b0100) != 0,
+            (nzcv & 0b0010) != 0,
+            (nzcv & 0b0001) != 0,
+        );
+        for &(reg, value) in regs {
+            cpu.set_x(reg, value);
+        }
+
+        let max_steps = code.len() / 4 + 4096;
+        let mut saw_break = false;
+        for _ in 0..max_steps {
+            match cpu.step().unwrap() {
+                CpuExit::Continue => {}
+                CpuExit::Breakpoint(_) => {
+                    saw_break = true;
+                    break;
+                }
+                other => panic!("unexpected AArch64 CPU exit: {other:?}"),
+            }
+        }
+        assert!(saw_break, "lowered code did not return to BRK sentinel");
+
+        let mut out = [0u64; 31];
+        for reg in 0..31 {
+            out[reg] = cpu.get_x(reg as u8);
+        }
+        let out_nzcv = ((cpu.get_n() as u8) << 3)
+            | ((cpu.get_z() as u8) << 2)
+            | ((cpu.get_c() as u8) << 1)
+            | (cpu.get_v() as u8);
+        let mem = cpu.read_memory(mem_addr, mem_len).unwrap();
+        let mut bytes = [0u8; 8];
+        bytes[..mem_len].copy_from_slice(&mem);
+        (out, out_nzcv, cpu.current_sp(), u64::from_le_bytes(bytes))
+    }
+
     fn width_mask(width: OpWidth) -> u64 {
         match width {
             OpWidth::W64 => u64::MAX,
@@ -7760,6 +7926,84 @@ mod tests {
                 && rem != Some(reg)
                 && reg != src1_reg
                 && src2_reg != Some(reg)
+            {
+                assert_eq!(out[reg as usize], value, "{label}: x{reg} restored");
+            }
+        }
+    }
+
+    fn assert_cas_lowering(
+        label: &str,
+        dst: u8,
+        success: Option<u8>,
+        expected: u8,
+        new_val: u8,
+        width: MemWidth,
+        mem_value: u64,
+        expected_value: u64,
+        new_value: u64,
+    ) {
+        let success_vreg = success.map(x).unwrap_or_else(|| VReg::virt(0));
+        let code = lower_single_op(OpKind::Cas {
+            dst: x(dst),
+            success: success_vreg,
+            addr: Address::Direct(x(1)),
+            expected: x(expected),
+            new_val: x(new_val),
+            width,
+            order: MemoryOrder::AcqRel,
+        });
+        let mask = match width {
+            MemWidth::B1 => 0xff,
+            MemWidth::B2 => 0xffff,
+            MemWidth::B4 => 0xffff_ffff,
+            MemWidth::B8 => u64::MAX,
+            other => panic!("unsupported CAS test width {other:?}"),
+        };
+        let old = mem_value & mask;
+        let expected_masked = expected_value & mask;
+        let new_masked = new_value & mask;
+        let succeeded = old == expected_masked;
+        let expected_mem = if succeeded { new_masked } else { old };
+        let mem_addr = 0x9000;
+        let sentinels = [
+            (16, 0x1616_1616_1616_1616),
+            (17, 0x1717_1717_1717_1717),
+            (15, 0x1515_1515_1515_1515),
+            (14, 0x1414_1414_1414_1414),
+        ];
+        let mut regs = sentinels.to_vec();
+        regs.push((1, mem_addr));
+        regs.push((expected, expected_value));
+        regs.push((new_val, new_value));
+
+        let old_nzcv = 0b1011;
+        let (out, out_nzcv, sp, mem) =
+            run_aarch64_code_with_memory(&code, &regs, old_nzcv, mem_addr, mem_value, width);
+        if success != Some(dst) {
+            assert_eq!(out[dst as usize], old, "{label}: old value");
+        }
+        if let Some(success) = success {
+            assert_eq!(out[success as usize], succeeded as u64, "{label}: success");
+        }
+        if expected != dst && success != Some(expected) {
+            assert_eq!(
+                out[expected as usize],
+                expected_value,
+                "{label}: expected preserved"
+            );
+        }
+        if new_val != dst && success != Some(new_val) && new_val != expected {
+            assert_eq!(out[new_val as usize], new_value, "{label}: new value preserved");
+        }
+        assert_eq!(mem, expected_mem, "{label}: memory");
+        assert_eq!(out_nzcv, old_nzcv, "{label}: NZCV preserved");
+        assert_eq!(sp, 0x8000, "{label}: stack restored");
+        for (reg, value) in sentinels {
+            if reg != dst
+                && success != Some(reg)
+                && reg != expected
+                && reg != new_val
             {
                 assert_eq!(out[reg as usize], value, "{label}: x{reg} restored");
             }
@@ -11697,48 +11941,77 @@ mod tests {
     }
 
     #[test]
-    fn rejects_cas_with_observable_success() {
-        let mut builder = FunctionBuilder::new(FunctionId(0), 0);
-        builder.push_op(
+    fn lowers_cas_with_observable_success() {
+        assert_cas_lowering(
+            "cas_observable_success",
+            2,
+            Some(3),
+            2,
             0,
-            OpKind::Cas {
-                dst: x(2),
-                success: x(3),
-                addr: Address::Direct(x(1)),
-                expected: x(2),
-                new_val: x(0),
-                width: MemWidth::B8,
-                order: MemoryOrder::Relaxed,
-            },
+            MemWidth::B8,
+            0x1111_2222_3333_4444,
+            0x1111_2222_3333_4444,
+            0x5555_6666_7777_8888,
         );
-        builder.set_terminator(Terminator::Return { values: vec![] });
-        let func = builder.finish();
-
-        let mut lowerer = Aarch64Lowerer::new();
-        assert!(lowerer.lower_function(&func).is_err());
+        assert_cas_lowering(
+            "cas_observable_failure",
+            2,
+            Some(3),
+            2,
+            0,
+            MemWidth::B8,
+            0x9999_aaaa_bbbb_cccc,
+            0x1111_2222_3333_4444,
+            0x5555_6666_7777_8888,
+        );
+        assert_cas_lowering(
+            "cas_observable_success_aliases_destination",
+            2,
+            Some(2),
+            2,
+            0,
+            MemWidth::B8,
+            0x1111_2222_3333_4444,
+            0x1111_2222_3333_4444,
+            0x5555_6666_7777_8888,
+        );
     }
 
     #[test]
-    fn rejects_cas_with_split_compare_and_destination() {
-        let success = VReg::virt(0);
-        let mut builder = FunctionBuilder::new(FunctionId(0), 0);
-        builder.push_op(
+    fn lowers_cas_with_split_compare_and_destination() {
+        assert_cas_lowering(
+            "cas_split_destination",
+            3,
+            None,
+            2,
             0,
-            OpKind::Cas {
-                dst: x(3),
-                success,
-                addr: Address::Direct(x(1)),
-                expected: x(2),
-                new_val: x(0),
-                width: MemWidth::B8,
-                order: MemoryOrder::Relaxed,
-            },
+            MemWidth::B8,
+            0x1111_2222_3333_4444,
+            0x1111_2222_3333_4444,
+            0x5555_6666_7777_8888,
         );
-        builder.set_terminator(Terminator::Return { values: vec![] });
-        let func = builder.finish();
-
-        let mut lowerer = Aarch64Lowerer::new();
-        assert!(lowerer.lower_function(&func).is_err());
+        assert_cas_lowering(
+            "cas_split_observable_byte_masks_expected",
+            3,
+            Some(4),
+            2,
+            0,
+            MemWidth::B1,
+            0x7f,
+            0x1234_5678_9abc_de7f,
+            0xaa,
+        );
+        assert_cas_lowering(
+            "cas_split_success_aliases_destination",
+            3,
+            Some(3),
+            2,
+            0,
+            MemWidth::B8,
+            0x1111_2222_3333_4444,
+            0x1111_2222_3333_4444,
+            0x5555_6666_7777_8888,
+        );
     }
 
     #[test]
