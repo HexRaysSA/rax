@@ -397,6 +397,16 @@ impl Aarch64Lowerer {
         Ok(())
     }
 
+    fn fp_convert_opcode(to: FpPrecision) -> Result<u32, LowerError> {
+        match to {
+            FpPrecision::F32 => Ok(0b00100),
+            FpPrecision::F64 => Ok(0b00101),
+            other => Err(LowerError::UnsupportedOp {
+                op: format!("AArch64 native FP conversion destination {other:?}"),
+            }),
+        }
+    }
+
     fn emit_fp_three_source(
         &mut self,
         rd: u8,
@@ -3464,6 +3474,23 @@ impl Aarch64Lowerer {
         let rn = Self::fp_reg(src1)?;
         let rm = Self::fp_reg(src2)?;
         self.emit_fp_compare(rn, rm, precision)
+    }
+
+    fn lower_fp_convert(
+        &mut self,
+        dst: VReg,
+        src: VReg,
+        from: FpPrecision,
+        to: FpPrecision,
+    ) -> Result<(), LowerError> {
+        let rd = Self::fp_reg(dst)?;
+        let rn = Self::fp_reg(src)?;
+        if from == to {
+            self.emit_fp_one_source(rd, rn, 0, from)
+        } else {
+            let opcode = Self::fp_convert_opcode(to)?;
+            self.emit_fp_one_source(rd, rn, opcode, from)
+        }
     }
 
     fn lower_fp_fma(
@@ -9436,6 +9463,9 @@ impl Aarch64Lowerer {
                 src2,
                 precision,
             } => self.lower_fp_compare(*src1, *src2, *precision),
+            OpKind::FConvert { dst, src, from, to } => {
+                self.lower_fp_convert(*dst, *src, *from, *to)
+            }
             OpKind::FAbs {
                 dst,
                 src,
@@ -15095,6 +15125,80 @@ mod tests {
         );
     }
 
+    fn assert_fp_convert_f32_to_f64(label: &str, src: f32) {
+        let src_bits = u64::from(src.to_bits());
+        let expected_bits = (src as f64).to_bits();
+        let code = lower_single_op(OpKind::FConvert {
+            dst: v(0),
+            src: v(1),
+            from: FpPrecision::F32,
+            to: FpPrecision::F64,
+        });
+        let out = run_aarch64_code_with_simd(
+            &code,
+            &[
+                (0, 0xffff_ffff_ffff_ffff, 0xaaaa_aaaa_aaaa_aaaa),
+                (1, src_bits, 0x1111_1111_1111_1111),
+            ],
+        );
+
+        assert_eq!(out[0], (expected_bits, 0), "{label}: converted result");
+        assert_eq!(
+            out[1],
+            (src_bits, 0x1111_1111_1111_1111),
+            "{label}: src preserved",
+        );
+    }
+
+    fn assert_fp_convert_f64_to_f32(label: &str, src: f64) {
+        let src_bits = src.to_bits();
+        let expected_bits = u64::from((src as f32).to_bits());
+        let code = lower_single_op(OpKind::FConvert {
+            dst: v(0),
+            src: v(1),
+            from: FpPrecision::F64,
+            to: FpPrecision::F32,
+        });
+        let out = run_aarch64_code_with_simd(
+            &code,
+            &[
+                (0, 0xffff_ffff_ffff_ffff, 0xaaaa_aaaa_aaaa_aaaa),
+                (1, src_bits, 0x1111_1111_1111_1111),
+            ],
+        );
+
+        assert_eq!(out[0], (expected_bits, 0), "{label}: converted result");
+        assert_eq!(
+            out[1],
+            (src_bits, 0x1111_1111_1111_1111),
+            "{label}: src preserved",
+        );
+    }
+
+    fn assert_fp_convert_same_f32(label: &str, src: f32) {
+        let src_bits = u64::from(src.to_bits());
+        let code = lower_single_op(OpKind::FConvert {
+            dst: v(0),
+            src: v(1),
+            from: FpPrecision::F32,
+            to: FpPrecision::F32,
+        });
+        let out = run_aarch64_code_with_simd(
+            &code,
+            &[
+                (0, 0xffff_ffff_ffff_ffff, 0xaaaa_aaaa_aaaa_aaaa),
+                (1, src_bits, 0x1111_1111_1111_1111),
+            ],
+        );
+
+        assert_eq!(out[0], (src_bits, 0), "{label}: copied result");
+        assert_eq!(
+            out[1],
+            (src_bits, 0x1111_1111_1111_1111),
+            "{label}: src preserved",
+        );
+    }
+
     #[test]
     fn lowers_scalar_fp_binary_encodings() {
         let words = code_words(&lower_single_op(OpKind::FAdd {
@@ -15326,6 +15430,54 @@ mod tests {
                 src1: v(1),
                 src2: v(2),
                 precision: FpPrecision::F80,
+            },
+        );
+        builder.set_terminator(Terminator::Return { values: vec![] });
+        let func = builder.finish();
+
+        let mut lowerer = Aarch64Lowerer::new();
+        let err = lowerer.lower_function(&func).unwrap_err();
+        assert!(matches!(err, LowerError::UnsupportedOp { .. }));
+    }
+
+    #[test]
+    fn lowers_scalar_fp_convert_encodings() {
+        let words = code_words(&lower_single_op(OpKind::FConvert {
+            dst: v(0),
+            src: v(1),
+            from: FpPrecision::F32,
+            to: FpPrecision::F64,
+        }));
+        assert_eq!(words, vec![0x1e22_c020, 0xd65f_03c0]);
+
+        let words = code_words(&lower_single_op(OpKind::FConvert {
+            dst: v(2),
+            src: v(3),
+            from: FpPrecision::F64,
+            to: FpPrecision::F32,
+        }));
+        assert_eq!(words, vec![0x1e62_4062, 0xd65f_03c0]);
+    }
+
+    #[test]
+    fn lowers_scalar_fp_convert_runtime() {
+        assert_fp_convert_f32_to_f64("fcvt_d_s_positive", 3.5);
+        assert_fp_convert_f32_to_f64("fcvt_d_s_negative", -0.25);
+        assert_fp_convert_f64_to_f32("fcvt_s_d_positive", 1.25);
+        assert_fp_convert_f64_to_f32("fcvt_s_d_rounded", 1.0 + f64::EPSILON);
+        assert_fp_convert_same_f32("fcvt_s_s_copy", -2.75);
+    }
+
+    #[test]
+    fn rejects_scalar_fp_convert_unsupported_precision() {
+        let mut builder = FunctionBuilder::new(FunctionId(0), 0);
+        builder.push_op(
+            0,
+            OpKind::FConvert {
+                dst: v(0),
+                src: v(1),
+                from: FpPrecision::F32,
+                to: FpPrecision::F80,
             },
         );
         builder.set_terminator(Terminator::Return { values: vec![] });
