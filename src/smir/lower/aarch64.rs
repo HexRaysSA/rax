@@ -1986,19 +1986,117 @@ impl Aarch64Lowerer {
         size: u32,
         opc: u32,
     ) -> Result<(), LowerError> {
-        let Some(base) = base else {
-            return Err(LowerError::UnsupportedOp {
-                op: "AArch64 native memory index without base".into(),
-            });
-        };
-        if disp != 0 {
-            return Err(LowerError::UnsupportedOp {
-                op: format!("AArch64 native memory index displacement {disp:#x}"),
-            });
+        if let Some(base) = base {
+            if disp == 0 {
+                if let Ok(s) = Self::mem_index_scale_bit(scale, size) {
+                    return self.lower_mem_reg_offset_access(rt, base, index, size, opc, 0b011, s);
+                }
+            }
         }
 
-        let s = Self::mem_index_scale_bit(scale, size)?;
-        self.lower_mem_reg_offset_access(rt, base, index, size, opc, 0b011, s)
+        self.lower_mem_base_index_scale_scratch_access(rt, base, index, scale, disp, size, opc)
+    }
+
+    fn signed_addsub_imm_fits(offset: i64) -> bool {
+        let imm = if offset < 0 {
+            match offset.checked_neg() {
+                Some(value) => value,
+                None => return false,
+            }
+        } else {
+            offset
+        } as u64;
+
+        imm <= 0xfff || (imm & 0xfff == 0 && (imm >> 12) <= 0xfff)
+    }
+
+    fn lower_mem_base_index_scale_scratch_access(
+        &mut self,
+        rt: u8,
+        base: Option<VReg>,
+        index: VReg,
+        scale: u8,
+        disp: i32,
+        size: u32,
+        opc: u32,
+    ) -> Result<(), LowerError> {
+        let shift = Self::lea_scale_shift(scale)?;
+        let base_reg = base.map(Self::base_gpr).transpose()?;
+        let index_reg = Self::gpr(index)?;
+        let disp = i64::from(disp);
+        let needs_disp_reg = disp != 0 && !Self::signed_addsub_imm_fits(disp);
+
+        let mut avoid = Vec::new();
+        if rt < 31 {
+            avoid.push(rt);
+        }
+        if let Some(base_reg) = base_reg {
+            if base_reg < 31 {
+                avoid.push(base_reg);
+            }
+        }
+        if index_reg < 31 {
+            avoid.push(index_reg);
+        }
+
+        let scratches = Self::scratch_regs(&avoid, 1 + usize::from(needs_disp_reg))?;
+        let addr = scratches[0];
+        let disp_reg = scratches.get(1).copied();
+        self.emit_scratch_save(&scratches);
+
+        match base_reg {
+            Some(31) => {
+                let saved_sp_delta = (scratches.len() as i64) * 16;
+                self.emit_add_signed_imm(addr, 31, saved_sp_delta, OpWidth::W64)?;
+                self.emit_addsub_shifted(
+                    addr,
+                    addr,
+                    index_reg,
+                    false,
+                    false,
+                    0,
+                    shift,
+                    OpWidth::W64,
+                )?;
+            }
+            Some(base_reg) => {
+                self.emit_addsub_shifted(
+                    addr,
+                    base_reg,
+                    index_reg,
+                    false,
+                    false,
+                    0,
+                    shift,
+                    OpWidth::W64,
+                )?;
+            }
+            None => {
+                self.emit_addsub_shifted(
+                    addr,
+                    31,
+                    index_reg,
+                    false,
+                    false,
+                    0,
+                    shift,
+                    OpWidth::W64,
+                )?;
+            }
+        }
+
+        if disp != 0 {
+            if let Some(disp_reg) = disp_reg {
+                self.emit_mov_imm(disp_reg, disp, OpWidth::W64)?;
+                self.emit_addsub_reg(addr, addr, disp_reg, false, false, OpWidth::W64)?;
+            } else {
+                self.emit_add_signed_imm(addr, addr, disp, OpWidth::W64)?;
+            }
+        }
+
+        self.emit_ldst_unsigned(rt, addr, size, opc, 0);
+        self.emit_scratch_restore(&scratches);
+        Ok(())
     }
 
     fn lower_mem_reg_offset_access(
@@ -14062,6 +14160,169 @@ mod tests {
         expected.extend_from_slice(&enc_ldst_reg(2, 0b00, 2, 0b011, 0).to_le_bytes());
         expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
         assert_eq!(code, expected);
+    }
+
+    #[test]
+    fn lowers_load_base_index_scale_mismatch_with_scratch_runtime() {
+        let mem_addr = 0x9000;
+        let index = 3;
+        let base = mem_addr - index * 4;
+        let mem_value = 0x1122_3344_5566_7788;
+        let code = lower_single_op(OpKind::Load {
+            dst: x(0),
+            addr: Address::BaseIndexScale {
+                base: Some(x(1)),
+                index: x(2),
+                scale: 4,
+                disp: 0,
+                disp_size: DispSize::Auto,
+            },
+            width: MemWidth::B8,
+            sign: SignExtend::Zero,
+        });
+
+        let regs = [
+            (1, base),
+            (2, index),
+            (16, 0x1616_1616_1616_1616),
+            (17, 0x1717_1717_1717_1717),
+        ];
+        let old_nzcv = 0b1011;
+        let (out, out_nzcv, sp, mem) =
+            run_aarch64_code_with_memory(&code, &regs, old_nzcv, mem_addr, mem_value, MemWidth::B8);
+
+        assert_eq!(out[0], mem_value);
+        assert_eq!(out[1], base);
+        assert_eq!(out[2], index);
+        assert_eq!(out[16], 0x1616_1616_1616_1616);
+        assert_eq!(out[17], 0x1717_1717_1717_1717);
+        assert_eq!(out_nzcv, old_nzcv);
+        assert_eq!(sp, 0x8000);
+        assert_eq!(mem, mem_value);
+    }
+
+    #[test]
+    fn lowers_store_base_index_scale_disp_with_scratch_runtime() {
+        let mem_addr = 0x9000;
+        let index = 5;
+        let disp = 0x20;
+        let base = mem_addr - index * 8 - disp;
+        let src_value = 0xaabb_ccdd;
+        let code = lower_single_op(OpKind::Store {
+            src: x(0),
+            addr: Address::BaseIndexScale {
+                base: Some(x(1)),
+                index: x(2),
+                scale: 8,
+                disp: disp as i32,
+                disp_size: DispSize::Auto,
+            },
+            width: MemWidth::B4,
+        });
+
+        let regs = [
+            (0, src_value),
+            (1, base),
+            (2, index),
+            (16, 0x1616_1616_1616_1616),
+            (17, 0x1717_1717_1717_1717),
+        ];
+        let old_nzcv = 0b0110;
+        let (out, out_nzcv, sp, mem) = run_aarch64_code_with_memory(
+            &code,
+            &regs,
+            old_nzcv,
+            mem_addr,
+            0x1122_3344,
+            MemWidth::B4,
+        );
+
+        assert_eq!(out[0], src_value);
+        assert_eq!(out[1], base);
+        assert_eq!(out[2], index);
+        assert_eq!(out[16], 0x1616_1616_1616_1616);
+        assert_eq!(out[17], 0x1717_1717_1717_1717);
+        assert_eq!(out_nzcv, old_nzcv);
+        assert_eq!(sp, 0x8000);
+        assert_eq!(mem, src_value);
+    }
+
+    #[test]
+    fn lowers_load_index_scale_disp_without_base_runtime() {
+        let mem_addr = 0x9000;
+        let index = 0x10;
+        let disp = 0x8fe0;
+        let code = lower_single_op(OpKind::Load {
+            dst: x(0),
+            addr: Address::BaseIndexScale {
+                base: None,
+                index: x(2),
+                scale: 2,
+                disp,
+                disp_size: DispSize::Auto,
+            },
+            width: MemWidth::B1,
+            sign: SignExtend::Zero,
+        });
+
+        let regs = [
+            (2, index),
+            (16, 0x1616_1616_1616_1616),
+            (17, 0x1717_1717_1717_1717),
+        ];
+        let old_nzcv = 0b0101;
+        let (out, out_nzcv, sp, mem) =
+            run_aarch64_code_with_memory(&code, &regs, old_nzcv, mem_addr, 0xab, MemWidth::B1);
+
+        assert_eq!(out[0], 0xab);
+        assert_eq!(out[2], index);
+        assert_eq!(out[16], 0x1616_1616_1616_1616);
+        assert_eq!(out[17], 0x1717_1717_1717_1717);
+        assert_eq!(out_nzcv, old_nzcv);
+        assert_eq!(sp, 0x8000);
+        assert_eq!(mem, 0xab);
+    }
+
+    #[test]
+    fn lowers_load_sp_base_index_scale_disp_runtime() {
+        let mem_addr = 0x9000;
+        let index = 0x20;
+        let disp = 0xf80;
+        let code = lower_single_op(OpKind::Load {
+            dst: x(0),
+            addr: Address::BaseIndexScale {
+                base: Some(VReg::Arch(ArchReg::Arm(ArmReg::Sp))),
+                index: x(2),
+                scale: 4,
+                disp,
+                disp_size: DispSize::Auto,
+            },
+            width: MemWidth::B2,
+            sign: SignExtend::Zero,
+        });
+
+        let regs = [
+            (2, index),
+            (16, 0x1616_1616_1616_1616),
+            (17, 0x1717_1717_1717_1717),
+        ];
+        let old_nzcv = 0b1100;
+        let (out, out_nzcv, sp, mem) = run_aarch64_code_with_memory(
+            &code,
+            &regs,
+            old_nzcv,
+            mem_addr,
+            0x7abc,
+            MemWidth::B2,
+        );
+
+        assert_eq!(out[0], 0x7abc);
+        assert_eq!(out[2], index);
+        assert_eq!(out[16], 0x1616_1616_1616_1616);
+        assert_eq!(out[17], 0x1717_1717_1717_1717);
+        assert_eq!(out_nzcv, old_nzcv);
+        assert_eq!(sp, 0x8000);
+        assert_eq!(mem, 0x7abc);
     }
 
     #[test]
