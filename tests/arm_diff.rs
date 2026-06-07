@@ -3203,6 +3203,53 @@ fn push_test_zero_imm_operand_native_cases(
 }
 
 #[cfg(all(feature = "smir-jit", target_arch = "x86_64"))]
+fn push_test_all_ones_left_imm_native_cases(
+    cases: &mut Vec<(String, [u32; 3], [u32; 3], ArmState)>,
+    control_target: i32,
+) {
+    let test_cases = [
+        (
+            "test_x_all_ones_left_imm_reg_opkind_sets_flags",
+            OpKind::Test {
+                src1: VReg::Imm(-1),
+                src2: SrcOperand::Reg(arm_x(2)),
+                width: OpWidth::W64,
+            },
+            [enc_logical_shift_regs(1, 0b11, 0, 0, 0, 31, RM, RM), NOP, NOP],
+            0x8000_0000_0000_1234,
+            0x4000_0000,
+        ),
+        (
+            "test_w_masked_all_ones_left_imm_reg_opkind_sets_flags",
+            OpKind::Test {
+                src1: VReg::Imm(0x1_ffff_ffff),
+                src2: SrcOperand::Reg(arm_x(2)),
+                width: OpWidth::W32,
+            },
+            [enc_logical_shift_regs(0, 0b11, 0, 0, 0, 31, RM, RM), NOP, NOP],
+            0xffff_ffff_8000_1234,
+            0,
+        ),
+    ];
+
+    for (name, op, source, x2, pstate) in test_cases {
+        let mut st = ArmState::zeroed();
+        st.pc = PCREL_MAGIC;
+        st.x[30] = pcrel_marker(control_target);
+        st.x[2] = x2;
+        st.pstate = pstate;
+        let lowered = lower_aarch64_native_ops(vec![op])
+            .unwrap_or_else(|e| panic!("{name}: native lowering failed: {e}"));
+        assert_eq!(
+            lowered,
+            [source[0], 0xd65f_03c0, NOP],
+            "{name}: unexpected lowering"
+        );
+        cases.push((name.into(), source, lowered, st));
+    }
+}
+
+#[cfg(all(feature = "smir-jit", target_arch = "x86_64"))]
 fn push_logical_same_source_zero_native_cases(
     cases: &mut Vec<(String, [u32; 3], [u32; 3], ArmState)>,
     control_target: i32,
@@ -13039,6 +13086,7 @@ fn smir_aarch64_native_lowering_matches_qemu_oracle() {
     push_logical_identity_same_reg_native_cases(&mut cases, control_target);
     push_logical_zero_base_reg_native_cases(&mut cases, control_target);
     push_test_zero_imm_operand_native_cases(&mut cases, control_target);
+    push_test_all_ones_left_imm_native_cases(&mut cases, control_target);
     push_logical_same_source_zero_native_cases(&mut cases, control_target);
     push_subword_logical_flag_native_cases(&mut cases, control_target);
     push_or_xor_flag_native_cases(&mut cases, control_target);
