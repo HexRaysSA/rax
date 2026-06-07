@@ -1594,6 +1594,13 @@ impl Aarch64Lowerer {
             Address::BaseOffset { base, offset, .. } => {
                 self.lower_base_offset_to_scratch(avoid, *base, *offset)
             }
+            Address::BaseIndexScale {
+                base,
+                index,
+                scale,
+                disp,
+                ..
+            } => self.lower_base_index_scale_to_scratch(avoid, *base, *index, *scale, *disp),
             other => Err(LowerError::UnsupportedOp {
                 op: format!("AArch64 native atomic memory address {other:?}"),
             }),
@@ -14808,6 +14815,43 @@ mod tests {
     }
 
     #[test]
+    fn lowers_atomic_load_acquire_base_index_scale_runtime() {
+        let mem_addr = 0x9000_u64;
+        let disp = 0x40_i32;
+        let index = (mem_addr - disp as u64) / 8;
+        let mem_value = 0x8877_6655_4433_2211;
+        let code = lower_single_op(OpKind::AtomicLoad {
+            dst: x(0),
+            addr: Address::BaseIndexScale {
+                base: None,
+                index: x(3),
+                scale: 8,
+                disp,
+                disp_size: DispSize::Auto,
+            },
+            width: MemWidth::B8,
+            order: MemoryOrder::Acquire,
+        });
+
+        let regs = [
+            (3, index),
+            (16, 0x1616_1616_1616_1616),
+            (17, 0x1717_1717_1717_1717),
+        ];
+        let old_nzcv = 0b1000;
+        let (out, out_nzcv, sp, mem) =
+            run_aarch64_code_with_memory(&code, &regs, old_nzcv, mem_addr, mem_value, MemWidth::B8);
+
+        assert_eq!(out[0], mem_value);
+        assert_eq!(out[3], index);
+        assert_eq!(out[16], 0x1616_1616_1616_1616);
+        assert_eq!(out[17], 0x1717_1717_1717_1717);
+        assert_eq!(out_nzcv, old_nzcv);
+        assert_eq!(sp, 0x8000);
+        assert_eq!(mem, mem_value);
+    }
+
+    #[test]
     fn lowers_atomic_load_relaxed_as_plain_load() {
         let mut builder = FunctionBuilder::new(FunctionId(0), 0);
         builder.push_op(
@@ -14908,6 +14952,42 @@ mod tests {
         expected.extend_from_slice(&enc_ldst_simm_regs(3, 0b00, 0b11, -16, 16, 31).to_le_bytes());
         expected.extend_from_slice(&enc_addsub_imm_regs(1, 0, 0, 0, 0, 16, 1).to_le_bytes());
         expected.extend_from_slice(&enc_addsub_imm_regs(1, 1, 0, 0, 0x20, 16, 16).to_le_bytes());
+        expected.extend_from_slice(&enc_stlr_regs(2, 0, 16).to_le_bytes());
+        expected.extend_from_slice(&enc_ldst_simm_regs(3, 0b01, 0b01, 16, 16, 31).to_le_bytes());
+        expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
+        assert_eq!(code, expected);
+    }
+
+    #[test]
+    fn lowers_atomic_store_release_base_index_scale() {
+        let disp = 0x20_i32;
+        let mut builder = FunctionBuilder::new(FunctionId(0), 0);
+        builder.push_op(
+            0,
+            OpKind::AtomicStore {
+                src: x(0),
+                addr: Address::BaseIndexScale {
+                    base: Some(x(1)),
+                    index: x(3),
+                    scale: 4,
+                    disp,
+                    disp_size: DispSize::Auto,
+                },
+                width: MemWidth::B4,
+                order: MemoryOrder::Release,
+            },
+        );
+        builder.set_terminator(Terminator::Return { values: vec![] });
+        let func = builder.finish();
+
+        let mut lowerer = Aarch64Lowerer::new();
+        lowerer.lower_function(&func).unwrap();
+        let code = lowerer.finalize().unwrap();
+
+        let mut expected = Vec::new();
+        expected.extend_from_slice(&enc_ldst_simm_regs(3, 0b00, 0b11, -16, 16, 31).to_le_bytes());
+        expected.extend_from_slice(&enc_addsub_shift_regs(1, 0, 0, 0, 2, 16, 1, 3).to_le_bytes());
+        expected.extend_from_slice(&enc_addsub_imm_regs(1, 0, 0, 0, 0x20, 16, 16).to_le_bytes());
         expected.extend_from_slice(&enc_stlr_regs(2, 0, 16).to_le_bytes());
         expected.extend_from_slice(&enc_ldst_simm_regs(3, 0b01, 0b01, 16, 16, 31).to_le_bytes());
         expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
@@ -15146,6 +15226,53 @@ mod tests {
     }
 
     #[test]
+    fn lowers_atomic_rmw_lse_base_index_scale_runtime() {
+        let mem_addr = 0x9000_u64;
+        let index = 7_u64;
+        let disp = 0x18_i32;
+        let base = mem_addr - index * 8 - disp as u64;
+        let src_value = 9;
+        let mem_value = 0x4567;
+        let code = lower_single_op(OpKind::AtomicRmw {
+            dst: x(0),
+            addr: Address::BaseIndexScale {
+                base: Some(x(1)),
+                index: x(3),
+                scale: 8,
+                disp,
+                disp_size: DispSize::Auto,
+            },
+            src: x(2),
+            op: AtomicOp::Add,
+            width: MemWidth::B8,
+            order: MemoryOrder::Release,
+        });
+        let (expected_old, expected_mem) =
+            ref_atomic_rmw(mem_value, src_value, MemWidth::B8, AtomicOp::Add);
+
+        let regs = [
+            (1, base),
+            (2, src_value),
+            (3, index),
+            (16, 0x1616_1616_1616_1616),
+            (17, 0x1717_1717_1717_1717),
+        ];
+        let old_nzcv = 0b0100;
+        let (out, out_nzcv, sp, mem) =
+            run_aarch64_code_with_memory(&code, &regs, old_nzcv, mem_addr, mem_value, MemWidth::B8);
+
+        assert_eq!(out[0], expected_old);
+        assert_eq!(out[1], base);
+        assert_eq!(out[2], src_value);
+        assert_eq!(out[3], index);
+        assert_eq!(out[16], 0x1616_1616_1616_1616);
+        assert_eq!(out[17], 0x1717_1717_1717_1717);
+        assert_eq!(out_nzcv, old_nzcv);
+        assert_eq!(sp, 0x8000);
+        assert_eq!(mem, expected_mem);
+    }
+
+    #[test]
     fn lowers_atomic_rmw_lse_with_immediate_source() {
         assert_atomic_rmw_lowering(
             "or_imm",
@@ -15257,6 +15384,70 @@ mod tests {
     }
 
     #[test]
+    fn fuses_lifted_ldclr_base_index_scale_runtime() {
+        let mem_addr = 0x9000_u64;
+        let index = 5_u64;
+        let disp = 0x28_i32;
+        let base = mem_addr - index * 4 - disp as u64;
+        let src_value = 0x00f0_u64;
+        let mem_value = 0x0ff0_u64;
+        let inverted = VReg::virt(0);
+        let mut builder = FunctionBuilder::new(FunctionId(0), 0);
+        builder.push_op(
+            0,
+            OpKind::Not {
+                dst: inverted,
+                src: x(2),
+                width: OpWidth::W64,
+            },
+        );
+        builder.push_op(
+            0,
+            OpKind::AtomicRmw {
+                dst: x(0),
+                addr: Address::BaseIndexScale {
+                    base: Some(x(1)),
+                    index: x(3),
+                    scale: 4,
+                    disp,
+                    disp_size: DispSize::Auto,
+                },
+                src: inverted,
+                op: AtomicOp::And,
+                width: MemWidth::B8,
+                order: MemoryOrder::Release,
+            },
+        );
+        builder.set_terminator(Terminator::Return { values: vec![] });
+        let func = builder.finish();
+
+        let mut lowerer = Aarch64Lowerer::new();
+        lowerer.lower_function(&func).unwrap();
+        let code = lowerer.finalize().unwrap();
+
+        let regs = [
+            (1, base),
+            (2, src_value),
+            (3, index),
+            (16, 0x1616_1616_1616_1616),
+            (17, 0x1717_1717_1717_1717),
+        ];
+        let old_nzcv = 0b0010;
+        let (out, out_nzcv, sp, mem) =
+            run_aarch64_code_with_memory(&code, &regs, old_nzcv, mem_addr, mem_value, MemWidth::B8);
+
+        assert_eq!(out[0], mem_value);
+        assert_eq!(out[1], base);
+        assert_eq!(out[2], src_value);
+        assert_eq!(out[3], index);
+        assert_eq!(out[16], 0x1616_1616_1616_1616);
+        assert_eq!(out[17], 0x1717_1717_1717_1717);
+        assert_eq!(out_nzcv, old_nzcv);
+        assert_eq!(sp, 0x8000);
+        assert_eq!(mem, mem_value & !src_value);
+    }
+
+    #[test]
     fn lowers_unfused_atomic_rmw_with_exclusive_loop() {
         assert_atomic_rmw_lowering(
             "and_reg",
@@ -15353,6 +15544,55 @@ mod tests {
     }
 
     #[test]
+    fn lowers_atomic_rmw_exclusive_loop_base_index_scale_runtime() {
+        let mem_addr = 0x9000_u64;
+        let index = 9_u64;
+        let disp = 0x30_i32;
+        let base = mem_addr - index * 8 - disp as u64;
+        let src_value = 4;
+        let mem_value = 20;
+        let code = lower_single_op(OpKind::AtomicRmw {
+            dst: x(0),
+            addr: Address::BaseIndexScale {
+                base: Some(x(1)),
+                index: x(3),
+                scale: 8,
+                disp,
+                disp_size: DispSize::Auto,
+            },
+            src: x(2),
+            op: AtomicOp::Sub,
+            width: MemWidth::B8,
+            order: MemoryOrder::AcqRel,
+        });
+        let (expected_old, expected_mem) =
+            ref_atomic_rmw(mem_value, src_value, MemWidth::B8, AtomicOp::Sub);
+
+        let regs = [
+            (1, base),
+            (2, src_value),
+            (3, index),
+            (15, 0x1515_1515_1515_1515),
+            (16, 0x1616_1616_1616_1616),
+            (17, 0x1717_1717_1717_1717),
+        ];
+        let old_nzcv = 0b1011;
+        let (out, out_nzcv, sp, mem) =
+            run_aarch64_code_with_memory(&code, &regs, old_nzcv, mem_addr, mem_value, MemWidth::B8);
+
+        assert_eq!(out[0], expected_old);
+        assert_eq!(out[1], base);
+        assert_eq!(out[2], src_value);
+        assert_eq!(out[3], index);
+        assert_eq!(out[15], 0x1515_1515_1515_1515);
+        assert_eq!(out[16], 0x1616_1616_1616_1616);
+        assert_eq!(out[17], 0x1717_1717_1717_1717);
+        assert_eq!(out_nzcv, old_nzcv);
+        assert_eq!(sp, 0x8000);
+        assert_eq!(mem, expected_mem);
+    }
+
+    #[test]
     fn lowers_cas_lifted_shape_direct() {
         let success = VReg::virt(0);
         let mut builder = FunctionBuilder::new(FunctionId(0), 0);
@@ -15417,6 +15657,54 @@ mod tests {
         assert_eq!(out[0], new_value);
         assert_eq!(out[1], base);
         assert_eq!(out[2], old_value);
+        assert_eq!(out[16], 0x1616_1616_1616_1616);
+        assert_eq!(out[17], 0x1717_1717_1717_1717);
+        assert_eq!(out_nzcv, old_nzcv);
+        assert_eq!(sp, 0x8000);
+        assert_eq!(mem, new_value);
+    }
+
+    #[test]
+    fn lowers_cas_lifted_shape_base_index_scale_runtime() {
+        let mem_addr = 0x9000_u64;
+        let index = 11_u64;
+        let disp = 0x38_i32;
+        let base = mem_addr - index * 8 - disp as u64;
+        let old_value = 0x1111_2222_3333_4444;
+        let new_value = 0x9999_aaaa_bbbb_cccc;
+        let success = VReg::virt(0);
+        let code = lower_single_op(OpKind::Cas {
+            dst: x(2),
+            success,
+            addr: Address::BaseIndexScale {
+                base: Some(x(1)),
+                index: x(3),
+                scale: 8,
+                disp,
+                disp_size: DispSize::Auto,
+            },
+            expected: x(2),
+            new_val: x(0),
+            width: MemWidth::B8,
+            order: MemoryOrder::AcqRel,
+        });
+
+        let regs = [
+            (0, new_value),
+            (1, base),
+            (2, old_value),
+            (3, index),
+            (16, 0x1616_1616_1616_1616),
+            (17, 0x1717_1717_1717_1717),
+        ];
+        let old_nzcv = 0b1101;
+        let (out, out_nzcv, sp, mem) =
+            run_aarch64_code_with_memory(&code, &regs, old_nzcv, mem_addr, old_value, MemWidth::B8);
+
+        assert_eq!(out[0], new_value);
+        assert_eq!(out[1], base);
+        assert_eq!(out[2], old_value);
+        assert_eq!(out[3], index);
         assert_eq!(out[16], 0x1616_1616_1616_1616);
         assert_eq!(out[17], 0x1717_1717_1717_1717);
         assert_eq!(out_nzcv, old_nzcv);
