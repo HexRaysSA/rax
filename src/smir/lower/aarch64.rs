@@ -3715,15 +3715,15 @@ impl Aarch64Lowerer {
         width: MemWidth,
         order: MemoryOrder,
     ) -> Result<(), LowerError> {
-        let dst_reg = Self::dst_gpr(dst)?;
-        let expected_reg = Self::gpr(expected)?;
-        let new_reg = Self::gpr(new_val)?;
+        let dst_reg = Self::dst_gpr_arm_or_x86(dst)?;
+        let expected_reg = Self::gpr_arm_or_x86(expected)?;
+        let new_reg = Self::gpr_arm_or_x86(new_val)?;
         let size = Self::mem_size(width)?;
         let compare_width = Self::cas_compare_width(width)?;
         let (acquire, release) = Self::atomic_order_bits(order);
         let success_reg = match success {
             VReg::Virtual(_) => None,
-            other => Some(Self::dst_gpr(other)?),
+            other => Some(Self::dst_gpr_arm_or_x86(other)?),
         };
 
         let mut addr_avoid = vec![dst_reg, expected_reg, new_reg];
@@ -3835,9 +3835,9 @@ impl Aarch64Lowerer {
         width: MemWidth,
         order: MemoryOrder,
     ) -> Result<(), LowerError> {
-        let dst_reg = Self::dst_gpr(dst_old)?;
-        let cmp_reg = Self::gpr(cmp)?;
-        let add_reg = Self::gpr(add)?;
+        let dst_reg = Self::dst_gpr_arm_or_x86(dst_old)?;
+        let cmp_reg = Self::gpr_arm_or_x86(cmp)?;
+        let add_reg = Self::gpr_arm_or_x86(add)?;
         let size = Self::mem_size(width)?;
         let flags_width = Self::atomic_cmpxadd_flags_width(width)?;
         let emit_width = Self::cas_compare_width(width)?;
@@ -16500,15 +16500,20 @@ mod tests {
     }
 
     fn enc_cas(size: u32, acquire: u32, release: u32) -> u32 {
+        enc_cas_regs(size, acquire, release, 2, 1, 0)
+    }
+
+    fn enc_cas_regs(size: u32, acquire: u32, release: u32, rs: u32, rn: u32, rt: u32) -> u32 {
         (size << 30)
             | (0b001000 << 24)
             | (1 << 23)
             | (acquire << 22)
             | (1 << 21)
-            | (2 << 16)
+            | (rs << 16)
             | (release << 15)
             | (0b11111 << 10)
-            | (1 << 5)
+            | (rn << 5)
+            | rt
     }
 
     fn enc_extract(sf: u32, rn: u32, rm: u32, lsb: u32) -> u32 {
@@ -27807,6 +27812,106 @@ mod tests {
     }
 
     #[test]
+    fn lowers_cas_apx_egpr_lifted_shape_direct() {
+        let success = VReg::virt(0);
+        let code = lower_single_op(OpKind::Cas {
+            dst: x86(X86Reg::R16),
+            success,
+            addr: Address::Direct(x(1)),
+            expected: x86(X86Reg::R16),
+            new_val: x86(X86Reg::R17),
+            width: MemWidth::B8,
+            order: MemoryOrder::AcqRel,
+        });
+        let words = code_words(&code);
+        assert_eq!(words[0], enc_cas_regs(3, 1, 1, 16, 1, 17));
+    }
+
+    #[test]
+    fn lowers_cas_apx_egpr_observable_success_runtime() {
+        let mem_addr = 0x9000_u64;
+        let old_value = 0x1111_2222_3333_4444;
+        let new_value = 0x5555_6666_7777_8888;
+        let code = lower_single_op(OpKind::Cas {
+            dst: x86(X86Reg::R16),
+            success: x86(X86Reg::R18),
+            addr: Address::Direct(x(1)),
+            expected: x86(X86Reg::R16),
+            new_val: x86(X86Reg::R17),
+            width: MemWidth::B8,
+            order: MemoryOrder::AcqRel,
+        });
+
+        let regs = [
+            (1, mem_addr),
+            (14, 0x1414_1414_1414_1414),
+            (15, 0x1515_1515_1515_1515),
+            (16, old_value),
+            (17, new_value),
+            (18, 0x1818_1818_1818_1818),
+        ];
+        let old_nzcv = 0b1011;
+        let (out, out_nzcv, sp, mem) =
+            run_aarch64_code_with_memory(&code, &regs, old_nzcv, mem_addr, old_value, MemWidth::B8);
+
+        assert_eq!(out[1], mem_addr);
+        assert_eq!(out[14], 0x1414_1414_1414_1414);
+        assert_eq!(out[15], 0x1515_1515_1515_1515);
+        assert_eq!(out[16], old_value);
+        assert_eq!(out[17], new_value);
+        assert_eq!(out[18], 1);
+        assert_eq!(out_nzcv, old_nzcv);
+        assert_eq!(sp, 0x8000);
+        assert_eq!(mem, new_value);
+    }
+
+    #[test]
+    fn rejects_cas_apx_r31_value_mapping() {
+        let success = VReg::virt(0);
+        for kind in [
+            OpKind::Cas {
+                dst: x86(X86Reg::R31),
+                success,
+                addr: Address::Direct(x(1)),
+                expected: x86(X86Reg::R16),
+                new_val: x86(X86Reg::R17),
+                width: MemWidth::B8,
+                order: MemoryOrder::AcqRel,
+            },
+            OpKind::Cas {
+                dst: x86(X86Reg::R16),
+                success,
+                addr: Address::Direct(x(1)),
+                expected: x86(X86Reg::R31),
+                new_val: x86(X86Reg::R17),
+                width: MemWidth::B8,
+                order: MemoryOrder::AcqRel,
+            },
+            OpKind::Cas {
+                dst: x86(X86Reg::R16),
+                success,
+                addr: Address::Direct(x(1)),
+                expected: x86(X86Reg::R16),
+                new_val: x86(X86Reg::R31),
+                width: MemWidth::B8,
+                order: MemoryOrder::AcqRel,
+            },
+            OpKind::Cas {
+                dst: x86(X86Reg::R16),
+                success: x86(X86Reg::R31),
+                addr: Address::Direct(x(1)),
+                expected: x86(X86Reg::R16),
+                new_val: x86(X86Reg::R17),
+                width: MemWidth::B8,
+                order: MemoryOrder::AcqRel,
+            },
+        ] {
+            let err = try_lower_single_op(kind).unwrap_err();
+            assert!(matches!(err, LowerError::InvalidRegister(_)));
+        }
+    }
+
+    #[test]
     fn lowers_cas_lifted_shape_base_offset_runtime() {
         let mem_addr = 0x9000_u64;
         let offset = 0x70_i64;
@@ -28033,6 +28138,83 @@ mod tests {
             1,
             2,
         );
+    }
+
+    #[test]
+    fn lowers_atomic_cmpxadd_apx_egpr_value_operands_runtime() {
+        let mem_addr = 0x9000_u64;
+        let mem_value = 5;
+        let cmp_value = 5;
+        let add_value = 3;
+        let code = lower_single_op(OpKind::AtomicCmpXadd {
+            dst_old: x86(X86Reg::R16),
+            addr: Address::Direct(x(1)),
+            cmp: x86(X86Reg::R17),
+            add: x86(X86Reg::R18),
+            cond: Condition::Eq,
+            width: MemWidth::B8,
+            order: MemoryOrder::SeqCst,
+        });
+        let (expected_old, expected_mem, expected_nzcv) =
+            ref_atomic_cmpxadd(mem_value, cmp_value, add_value, Condition::Eq, MemWidth::B8);
+
+        let regs = [
+            (1, mem_addr),
+            (14, 0x1414_1414_1414_1414),
+            (15, 0x1515_1515_1515_1515),
+            (16, 0x1616_1616_1616_1616),
+            (17, cmp_value),
+            (18, add_value),
+        ];
+        let old_nzcv = 0b0110;
+        let (out, out_nzcv, sp, mem) =
+            run_aarch64_code_with_memory(&code, &regs, old_nzcv, mem_addr, mem_value, MemWidth::B8);
+
+        assert_eq!(out[1], mem_addr);
+        assert_eq!(out[14], 0x1414_1414_1414_1414);
+        assert_eq!(out[15], 0x1515_1515_1515_1515);
+        assert_eq!(out[16], expected_old);
+        assert_eq!(out[17], cmp_value);
+        assert_eq!(out[18], add_value);
+        assert_eq!(out_nzcv, expected_nzcv);
+        assert_eq!(sp, 0x8000);
+        assert_eq!(mem, expected_mem);
+    }
+
+    #[test]
+    fn rejects_atomic_cmpxadd_apx_r31_value_mapping() {
+        for kind in [
+            OpKind::AtomicCmpXadd {
+                dst_old: x86(X86Reg::R31),
+                addr: Address::Direct(x(1)),
+                cmp: x86(X86Reg::R17),
+                add: x86(X86Reg::R18),
+                cond: Condition::Eq,
+                width: MemWidth::B8,
+                order: MemoryOrder::SeqCst,
+            },
+            OpKind::AtomicCmpXadd {
+                dst_old: x86(X86Reg::R16),
+                addr: Address::Direct(x(1)),
+                cmp: x86(X86Reg::R31),
+                add: x86(X86Reg::R18),
+                cond: Condition::Eq,
+                width: MemWidth::B8,
+                order: MemoryOrder::SeqCst,
+            },
+            OpKind::AtomicCmpXadd {
+                dst_old: x86(X86Reg::R16),
+                addr: Address::Direct(x(1)),
+                cmp: x86(X86Reg::R17),
+                add: x86(X86Reg::R31),
+                cond: Condition::Eq,
+                width: MemWidth::B8,
+                order: MemoryOrder::SeqCst,
+            },
+        ] {
+            let err = try_lower_single_op(kind).unwrap_err();
+            assert!(matches!(err, LowerError::InvalidRegister(_)));
+        }
     }
 
     #[test]
