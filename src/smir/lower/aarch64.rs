@@ -762,11 +762,16 @@ impl Aarch64Lowerer {
     }
 
     fn emit_load_exclusive(&mut self, rt: u8, rn: u8, size: u32) {
+        self.emit_load_exclusive_ordered(rt, rn, size, 0);
+    }
+
+    fn emit_load_exclusive_ordered(&mut self, rt: u8, rn: u8, size: u32, acquire: u32) {
         self.emit(
             (size << 30)
                 | (0b001000 << 24)
                 | (1 << 22)
                 | (0b11111 << 16)
+                | (acquire << 15)
                 | (0b11111 << 10)
                 | ((rn as u32) << 5)
                 | (rt as u32),
@@ -774,10 +779,22 @@ impl Aarch64Lowerer {
     }
 
     fn emit_store_exclusive(&mut self, rs: u8, rt: u8, rn: u8, size: u32) {
+        self.emit_store_exclusive_ordered(rs, rt, rn, size, 0);
+    }
+
+    fn emit_store_exclusive_ordered(
+        &mut self,
+        rs: u8,
+        rt: u8,
+        rn: u8,
+        size: u32,
+        release: u32,
+    ) {
         self.emit(
             (size << 30)
                 | (0b001000 << 24)
                 | ((rs as u32) << 16)
+                | (release << 15)
                 | (0b11111 << 10)
                 | ((rn as u32) << 5)
                 | (rt as u32),
@@ -1574,11 +1591,139 @@ impl Aarch64Lowerer {
     ) -> Result<(), LowerError> {
         let rt = Self::dst_gpr(dst)?;
         let rn = Self::exclusive_base_gpr(addr)?;
-        let rs = Self::atomic_rmw_source_gpr(op, src)?;
         let size = Self::mem_size(width)?;
         let (acquire, release) = Self::atomic_order_bits(order);
-        let (o3, opc) = Self::atomic_rmw_op_encoding(op, src)?;
-        self.emit_atomic_rmw(rt, rn, rs, size, acquire, release, o3, opc);
+        if let Ok((o3, opc)) = Self::atomic_rmw_op_encoding(op, src) {
+            let rs = match Self::atomic_rmw_source_gpr(op, src) {
+                Ok(rs) => rs,
+                Err(err) => {
+                    let VReg::Imm(value) = src else {
+                        return Err(err);
+                    };
+                    let op_width = match width {
+                        MemWidth::B1 | MemWidth::B2 | MemWidth::B4 => OpWidth::W32,
+                        MemWidth::B8 => OpWidth::W64,
+                        other => {
+                            return Err(LowerError::UnsupportedOp {
+                                op: format!("AArch64 native atomic RMW width {other:?}"),
+                            });
+                        }
+                    };
+                    let scratches = Self::scratch_regs(&[rt, rn], 1)?;
+                    let scratch = scratches[0];
+                    self.emit_scratch_save(&scratches);
+                    self.emit_mov_imm(scratch, value, op_width)?;
+                    self.emit_atomic_rmw(rt, rn, scratch, size, acquire, release, o3, opc);
+                    self.emit_scratch_restore(&scratches);
+                    return Ok(());
+                }
+            };
+            self.emit_atomic_rmw(rt, rn, rs, size, acquire, release, o3, opc);
+            return Ok(());
+        }
+
+        self.lower_atomic_rmw_exclusive_loop(rt, rn, src, op, width, size, acquire, release)
+    }
+
+    fn lower_atomic_rmw_exclusive_loop(
+        &mut self,
+        rt: u8,
+        rn: u8,
+        src: VReg,
+        op: AtomicOp,
+        width: MemWidth,
+        size: u32,
+        acquire: u32,
+        release: u32,
+    ) -> Result<(), LowerError> {
+        let op_width = match width {
+            MemWidth::B1 | MemWidth::B2 | MemWidth::B4 => OpWidth::W32,
+            MemWidth::B8 => OpWidth::W64,
+            other => {
+                return Err(LowerError::UnsupportedOp {
+                    op: format!("AArch64 native atomic RMW width {other:?}"),
+                });
+            }
+        };
+
+        match op {
+            AtomicOp::And | AtomicOp::Sub | AtomicOp::Nand => {}
+            other => {
+                return Err(LowerError::UnsupportedOp {
+                    op: format!("AArch64 native atomic RMW op {other:?}"),
+                });
+            }
+        }
+
+        let src_reg = match src {
+            VReg::Arch(ArchReg::Arm(ArmReg::X(reg))) if reg < 31 => Some(reg),
+            VReg::Imm(0) => Some(31),
+            VReg::Imm(_) => None,
+            other => {
+                return Err(LowerError::InvalidRegister(format!(
+                    "AArch64 native lowerer expected X register or immediate, got {other:?}"
+                )));
+            }
+        };
+
+        let need_base = rt == rn;
+        let need_operand = src_reg.is_none() || src_reg == Some(rt);
+        let scratch_count = 2 + usize::from(need_base) + usize::from(need_operand);
+        let mut avoid = vec![rt, rn];
+        if let Some(src_reg) = src_reg {
+            avoid.push(src_reg);
+        }
+        let scratches = Self::scratch_regs(&avoid, scratch_count)?;
+        let mut scratch_index = 0;
+        let work = scratches[scratch_index];
+        scratch_index += 1;
+        let status = scratches[scratch_index];
+        scratch_index += 1;
+        let base = if need_base {
+            let reg = scratches[scratch_index];
+            scratch_index += 1;
+            reg
+        } else {
+            rn
+        };
+        let operand = if need_operand {
+            Some(scratches[scratch_index])
+        } else {
+            None
+        };
+
+        self.emit_scratch_save(&scratches);
+        if need_base {
+            self.emit_mov_reg(base, rn, OpWidth::W64)?;
+        }
+        let operand = if let Some(operand) = operand {
+            match src {
+                VReg::Imm(value) => self.emit_mov_imm(operand, value, op_width)?,
+                _ => self.emit_mov_reg(operand, src_reg.unwrap(), op_width)?,
+            }
+            operand
+        } else {
+            src_reg.unwrap()
+        };
+
+        let loop_start = self.code.position();
+        self.emit_load_exclusive_ordered(rt, base, size, acquire);
+        match op {
+            AtomicOp::And => {
+                self.emit_logic_shifted(work, rt, operand, 0b00, false, 0, 0, op_width)?;
+            }
+            AtomicOp::Sub => {
+                self.emit_addsub_reg(work, rt, operand, true, false, op_width)?;
+            }
+            AtomicOp::Nand => {
+                self.emit_logic_shifted(work, rt, operand, 0b00, false, 0, 0, op_width)?;
+                self.emit_logic_shifted(work, 31, work, 0b01, true, 0, 0, op_width)?;
+            }
+            _ => unreachable!(),
+        }
+        self.emit_store_exclusive_ordered(status, work, base, size, release);
+        self.emit_compare_branch_to_offset(status, true, loop_start)?;
+        self.emit_scratch_restore(&scratches);
         Ok(())
     }
 
@@ -8010,6 +8155,95 @@ mod tests {
         }
     }
 
+    fn mem_width_mask(width: MemWidth) -> u64 {
+        let bits = width.bytes() * 8;
+        if bits >= 64 { u64::MAX } else { (1_u64 << bits) - 1 }
+    }
+
+    fn ref_atomic_rmw(old: u64, operand: u64, width: MemWidth, op: AtomicOp) -> (u64, u64) {
+        let bits = width.bytes() * 8;
+        let mask = mem_width_mask(width);
+        let old = old & mask;
+        let operand = operand & mask;
+        let sext = |value: u64| -> i64 {
+            if bits >= 64 {
+                value as i64
+            } else {
+                ((value << (64 - bits)) as i64) >> (64 - bits)
+            }
+        };
+        let new = match op {
+            AtomicOp::Add => old.wrapping_add(operand),
+            AtomicOp::Sub => old.wrapping_sub(operand),
+            AtomicOp::And => old & operand,
+            AtomicOp::Or => old | operand,
+            AtomicOp::Xor => old ^ operand,
+            AtomicOp::Nand => !(old & operand),
+            AtomicOp::Max => std::cmp::max(sext(old), sext(operand)) as u64,
+            AtomicOp::Min => std::cmp::min(sext(old), sext(operand)) as u64,
+            AtomicOp::Umax => std::cmp::max(old, operand),
+            AtomicOp::Umin => std::cmp::min(old, operand),
+            AtomicOp::Swap => operand,
+        } & mask;
+        (old, new)
+    }
+
+    fn assert_atomic_rmw_lowering(
+        label: &str,
+        op: AtomicOp,
+        dst: u8,
+        base: u8,
+        src: VReg,
+        src_reg: Option<u8>,
+        src_value: u64,
+        width: MemWidth,
+        order: MemoryOrder,
+        mem_value: u64,
+    ) {
+        let code = lower_single_op(OpKind::AtomicRmw {
+            dst: x(dst),
+            addr: Address::Direct(x(base)),
+            src,
+            op,
+            width,
+            order,
+        });
+        let (expected_old, expected_mem) = ref_atomic_rmw(mem_value, src_value, width, op);
+        let mem_addr = 0x9000;
+        let sentinels = [
+            (16, 0x1616_1616_1616_1616),
+            (17, 0x1717_1717_1717_1717),
+            (15, 0x1515_1515_1515_1515),
+            (14, 0x1414_1414_1414_1414),
+        ];
+        let mut regs = sentinels.to_vec();
+        regs.push((base, mem_addr));
+        if let Some(src_reg) = src_reg {
+            regs.push((src_reg, src_value));
+        }
+
+        let old_nzcv = 0b0111;
+        let (out, out_nzcv, sp, mem) =
+            run_aarch64_code_with_memory(&code, &regs, old_nzcv, mem_addr, mem_value, width);
+        assert_eq!(out[dst as usize], expected_old, "{label}: old value");
+        assert_eq!(mem, expected_mem, "{label}: memory");
+        assert_eq!(out_nzcv, old_nzcv, "{label}: NZCV preserved");
+        assert_eq!(sp, 0x8000, "{label}: stack restored");
+        if base != dst {
+            assert_eq!(out[base as usize], mem_addr, "{label}: base preserved");
+        }
+        if let Some(src_reg) = src_reg {
+            if src_reg != dst {
+                assert_eq!(out[src_reg as usize], src_value, "{label}: src preserved");
+            }
+        }
+        for (reg, value) in sentinels {
+            if reg != dst && reg != base && src_reg != Some(reg) {
+                assert_eq!(out[reg as usize], value, "{label}: x{reg} restored");
+            }
+        }
+    }
+
     fn assert_bit_scan_lowering(
         label: &str,
         reverse: bool,
@@ -11855,6 +12089,22 @@ mod tests {
     }
 
     #[test]
+    fn lowers_atomic_rmw_lse_with_immediate_source() {
+        assert_atomic_rmw_lowering(
+            "or_imm",
+            AtomicOp::Or,
+            0,
+            1,
+            VReg::Imm(0x55),
+            None,
+            0x55,
+            MemWidth::B8,
+            MemoryOrder::Release,
+            0x100,
+        );
+    }
+
+    #[test]
     fn fuses_lifted_ldclr_sequence() {
         let inverted = VReg::virt(0);
         let mut builder = FunctionBuilder::new(FunctionId(0), 0);
@@ -11891,24 +12141,55 @@ mod tests {
     }
 
     #[test]
-    fn rejects_unfused_atomic_rmw_and() {
-        let mut builder = FunctionBuilder::new(FunctionId(0), 0);
-        builder.push_op(
+    fn lowers_unfused_atomic_rmw_with_exclusive_loop() {
+        assert_atomic_rmw_lowering(
+            "and_reg",
+            AtomicOp::And,
             0,
-            OpKind::AtomicRmw {
-                dst: x(0),
-                addr: Address::Direct(x(1)),
-                src: x(2),
-                op: AtomicOp::And,
-                width: MemWidth::B8,
-                order: MemoryOrder::Relaxed,
-            },
+            1,
+            x(2),
+            Some(2),
+            0x0ff0,
+            MemWidth::B8,
+            MemoryOrder::Relaxed,
+            0xf0f0,
         );
-        builder.set_terminator(Terminator::Return { values: vec![] });
-        let func = builder.finish();
-
-        let mut lowerer = Aarch64Lowerer::new();
-        assert!(lowerer.lower_function(&func).is_err());
+        assert_atomic_rmw_lowering(
+            "sub_dst_aliases_src",
+            AtomicOp::Sub,
+            0,
+            1,
+            x(0),
+            Some(0),
+            3,
+            MemWidth::B8,
+            MemoryOrder::Acquire,
+            10,
+        );
+        assert_atomic_rmw_lowering(
+            "and_dst_aliases_base",
+            AtomicOp::And,
+            1,
+            1,
+            x(2),
+            Some(2),
+            0xffff,
+            MemWidth::B8,
+            MemoryOrder::AcqRel,
+            0x1234_5678,
+        );
+        assert_atomic_rmw_lowering(
+            "nand_b1_imm",
+            AtomicOp::Nand,
+            0,
+            1,
+            VReg::Imm(-1),
+            None,
+            u64::MAX,
+            MemWidth::B1,
+            MemoryOrder::SeqCst,
+            0x3c,
+        );
     }
 
     #[test]
