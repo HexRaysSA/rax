@@ -1487,7 +1487,7 @@ impl Aarch64Lowerer {
                 width,
                 sign,
             } => Ok(Some((
-                Self::dst_gpr(*dst)?,
+                Self::dst_gpr_arm_or_x86(*dst)?,
                 addr,
                 Self::mem_size(*width)?,
                 Self::load_opc(*width, *sign)?,
@@ -1497,7 +1497,7 @@ impl Aarch64Lowerer {
                 ..
             } => Ok(None),
             OpKind::Store { src, addr, width } => Ok(Some((
-                Self::gpr(*src)?,
+                Self::gpr_arm_or_x86(*src)?,
                 addr,
                 Self::mem_size(*width)?,
                 0b00,
@@ -1529,7 +1529,7 @@ impl Aarch64Lowerer {
                     MemWidth::B1 | MemWidth::B2 => Self::mem_size(*width)?,
                     _ => return Ok(None),
                 };
-                Ok(Some((Self::dst_gpr(*dst)?, addr, size, 0b11)))
+                Ok(Some((Self::dst_gpr_arm_or_x86(*dst)?, addr, size, 0b11)))
             }
             _ => Ok(None),
         }
@@ -1932,7 +1932,7 @@ impl Aarch64Lowerer {
         width: MemWidth,
         sign: SignExtend,
     ) -> Result<(), LowerError> {
-        let rt = Self::dst_gpr(dst)?;
+        let rt = Self::dst_gpr_arm_or_x86(dst)?;
         let size = Self::mem_size(width)?;
         let opc = Self::load_opc(width, sign)?;
         self.lower_mem_access(rt, addr, size, opc)
@@ -1997,7 +1997,7 @@ impl Aarch64Lowerer {
             return self.lower_store_imm(value, addr, width);
         }
 
-        let rt = Self::gpr(src)?;
+        let rt = Self::gpr_arm_or_x86(src)?;
         let size = Self::mem_size(width)?;
         self.lower_mem_access(rt, addr, size, 0b00)
     }
@@ -25147,6 +25147,140 @@ mod tests {
             let err = try_lower_single_op(kind).unwrap_err();
             assert!(matches!(err, LowerError::InvalidRegister(_)));
         }
+    }
+
+    #[test]
+    fn lowers_scalar_memory_apx_egpr_value_operands_runtime() {
+        let mem_addr = 0x9000;
+        let initial = 0x1122_3344_5566_7788;
+        let store_value = 0xaabb_ccdd_eeff_0011;
+        let code = lower_ops(vec![
+            OpKind::Load {
+                dst: x86(X86Reg::R16),
+                addr: Address::Direct(x(1)),
+                width: MemWidth::B8,
+                sign: SignExtend::Zero,
+            },
+            OpKind::Store {
+                src: x86(X86Reg::R17),
+                addr: Address::Direct(x(2)),
+                width: MemWidth::B4,
+            },
+        ]);
+        let words = code_words(&code);
+        assert_eq!(words[0], enc_ldst_uimm_regs(3, 0b01, 0, 16, 1));
+        assert_eq!(words[1], enc_ldst_uimm_regs(2, 0b00, 0, 17, 2));
+
+        let old_nzcv = 0b1011;
+        let regs = [
+            (1, mem_addr),
+            (2, mem_addr),
+            (17, store_value),
+            (18, 0x1818_1818_1818_1818),
+        ];
+        let (out, out_nzcv, sp, mem) =
+            run_aarch64_code_with_memory(&code, &regs, old_nzcv, mem_addr, initial, MemWidth::B8);
+        let expected_mem = (initial & !0xffff_ffff) | (store_value & 0xffff_ffff);
+        assert_eq!(out[16], initial);
+        assert_eq!(out[17], store_value);
+        assert_eq!(out[18], 0x1818_1818_1818_1818);
+        assert_eq!(out_nzcv, old_nzcv);
+        assert_eq!(sp, 0x8000);
+        assert_eq!(mem, expected_mem);
+    }
+
+    #[test]
+    fn fuses_scalar_memory_apx_egpr_value_operands() {
+        let pre_index = lower_ops(vec![
+            OpKind::Add {
+                dst: x(1),
+                src1: x(1),
+                src2: SrcOperand::Imm(8),
+                width: OpWidth::W64,
+                flags: FlagUpdate::None,
+            },
+            OpKind::Load {
+                dst: x86(X86Reg::R16),
+                addr: Address::Direct(x(1)),
+                width: MemWidth::B8,
+                sign: SignExtend::Zero,
+            },
+        ]);
+        let words = code_words(&pre_index);
+        assert_eq!(words[0], enc_ldst_simm_regs(3, 0b01, 0b11, 8, 16, 1));
+
+        let post_index = lower_ops(vec![
+            OpKind::Store {
+                src: x86(X86Reg::R17),
+                addr: Address::Direct(x(1)),
+                width: MemWidth::B8,
+            },
+            OpKind::Add {
+                dst: x(1),
+                src1: x(1),
+                src2: SrcOperand::Imm(-8),
+                width: OpWidth::W64,
+                flags: FlagUpdate::None,
+            },
+        ]);
+        let words = code_words(&post_index);
+        assert_eq!(words[0], enc_ldst_simm_regs(3, 0b00, 0b01, -8, 17, 1));
+
+        let tmp = VReg::virt(0);
+        let signed_load = lower_ops(vec![
+            OpKind::Load {
+                dst: tmp,
+                addr: Address::Direct(x(1)),
+                width: MemWidth::B1,
+                sign: SignExtend::Sign,
+            },
+            OpKind::ZeroExtend {
+                dst: x86(X86Reg::R18),
+                src: tmp,
+                from_width: OpWidth::W32,
+                to_width: OpWidth::W64,
+            },
+        ]);
+        let words = code_words(&signed_load);
+        assert_eq!(words[0], enc_ldst_uimm_regs(0, 0b11, 0, 18, 1));
+    }
+
+    #[test]
+    fn rejects_scalar_memory_apx_r31_value_mapping() {
+        for kind in [
+            OpKind::Load {
+                dst: x86(X86Reg::R31),
+                addr: Address::Direct(x(1)),
+                width: MemWidth::B8,
+                sign: SignExtend::Zero,
+            },
+            OpKind::Store {
+                src: x86(X86Reg::R31),
+                addr: Address::Direct(x(1)),
+                width: MemWidth::B8,
+            },
+        ] {
+            let err = try_lower_single_op(kind).unwrap_err();
+            assert!(matches!(err, LowerError::InvalidRegister(_)));
+        }
+
+        let tmp = VReg::virt(0);
+        let err = try_lower_ops(vec![
+            OpKind::Load {
+                dst: tmp,
+                addr: Address::Direct(x(1)),
+                width: MemWidth::B1,
+                sign: SignExtend::Sign,
+            },
+            OpKind::ZeroExtend {
+                dst: x86(X86Reg::R31),
+                src: tmp,
+                from_width: OpWidth::W32,
+                to_width: OpWidth::W64,
+            },
+        ])
+        .unwrap_err();
+        assert!(matches!(err, LowerError::InvalidRegister(_)));
     }
 
     #[test]
