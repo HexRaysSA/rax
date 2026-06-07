@@ -2615,6 +2615,75 @@ fn push_double_shift_zero_count_native_cases(
 }
 
 #[cfg(all(feature = "smir-jit", target_arch = "x86_64"))]
+fn push_mul_one_same_reg_native_cases(
+    cases: &mut Vec<(String, [u32; 3], [u32; 3], ArmState)>,
+    control_target: i32,
+) {
+    let mul_noop_cases = [
+        (
+            "mulu_x_imm_one_same_reg_as_noop_preserves_flags",
+            OpKind::MulU {
+                dst_lo: arm_x(0),
+                dst_hi: None,
+                src1: arm_x(0),
+                src2: SrcOperand::Imm(1),
+                width: OpWidth::W64,
+                flags: FlagUpdate::None,
+            },
+            0x0123_4567_89ab_cdef,
+            0x2000_0000,
+        ),
+        (
+            "muls_x_left_imm_one_same_reg_as_noop_preserves_flags",
+            OpKind::MulS {
+                dst_lo: arm_x(0),
+                dst_hi: None,
+                src1: VReg::Imm(1),
+                src2: SrcOperand::Reg(arm_x(0)),
+                width: OpWidth::W64,
+                flags: FlagUpdate::None,
+            },
+            0xfedc_ba98_7654_3210,
+            0x9000_0000,
+        ),
+    ];
+
+    for (name, op, x0, pstate) in mul_noop_cases {
+        let mut st = ArmState::zeroed();
+        st.pc = PCREL_MAGIC;
+        st.x[30] = pcrel_marker(control_target);
+        st.x[0] = x0;
+        st.pstate = pstate;
+        let lowered = lower_aarch64_native_ops(vec![op])
+            .unwrap_or_else(|e| panic!("{name}: native lowering failed: {e}"));
+        cases.push((name.into(), [0xd65f_03c0, NOP, NOP], lowered, st));
+    }
+
+    let mut st = ArmState::zeroed();
+    st.pc = PCREL_MAGIC;
+    st.x[30] = pcrel_marker(control_target);
+    st.x[0] = 0xffff_ffff_89ab_cdef;
+    st.pstate = 0x6000_0000;
+    let lowered = lower_aarch64_native_ops(vec![OpKind::MulU {
+        dst_lo: arm_x(0),
+        dst_hi: None,
+        src1: arm_x(0),
+        src2: SrcOperand::Imm(1),
+        width: OpWidth::W32,
+        flags: FlagUpdate::None,
+    }])
+    .unwrap_or_else(|e| {
+        panic!("mulu_w_imm_one_same_reg_as_self_mov_zero_ext_preserves_flags: native lowering failed: {e}")
+    });
+    cases.push((
+        "mulu_w_imm_one_same_reg_as_self_mov_zero_ext_preserves_flags".into(),
+        [enc_mov_reg(0, RD, RD), NOP, NOP],
+        lowered,
+        st,
+    ));
+}
+
+#[cfg(all(feature = "smir-jit", target_arch = "x86_64"))]
 fn push_lea_absolute_movn_native_cases(
     cases: &mut Vec<(String, [u32; 3], [u32; 3], ArmState)>,
     control_target: i32,
@@ -9788,6 +9857,7 @@ fn smir_aarch64_native_lowering_matches_qemu_oracle() {
     push_addsub_zero_same_reg_native_cases(&mut cases, control_target);
     push_shift_zero_same_reg_native_cases(&mut cases, control_target);
     push_double_shift_zero_count_native_cases(&mut cases, control_target);
+    push_mul_one_same_reg_native_cases(&mut cases, control_target);
     push_lea_absolute_movn_native_cases(&mut cases, control_target);
     push_lea_pcrel_movn_native_cases(&mut cases, control_target);
     push_bfi_full_width_movn_native_cases(&mut cases, control_target);
