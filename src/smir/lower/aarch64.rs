@@ -2053,6 +2053,14 @@ impl Aarch64Lowerer {
                 }
                 (0, 0b10011)
             }
+            SimdArithmeticOp::Max => {
+                if size == 3 {
+                    return Err(LowerError::UnsupportedOp {
+                        op: "AArch64 native integer vector max I64".to_string(),
+                    });
+                }
+                (1, 0b01100)
+            }
         };
         self.emit_simd_three_same(rd, rn, rm, q, u, size, opcode);
         Ok(())
@@ -10448,6 +10456,13 @@ impl Aarch64Lowerer {
                 elem,
                 lanes,
             } => self.lower_varith(*dst, *src1, *src2, *elem, *lanes, SimdArithmeticOp::Mul),
+            OpKind::VMax {
+                dst,
+                src1,
+                src2,
+                elem,
+                lanes,
+            } => self.lower_varith(*dst, *src1, *src2, *elem, *lanes, SimdArithmeticOp::Max),
             OpKind::VBroadcast {
                 dst,
                 scalar,
@@ -11065,6 +11080,7 @@ enum SimdArithmeticOp {
     Add,
     Sub,
     Mul,
+    Max,
 }
 
 #[derive(Clone, Copy)]
@@ -17449,6 +17465,90 @@ mod tests {
     }
 
     #[test]
+    fn lowers_vector_integer_max_runtime() {
+        fn apply_max(
+            a_low: u64,
+            a_high: u64,
+            b_low: u64,
+            b_high: u64,
+            elem_bytes: usize,
+            lanes: usize,
+        ) -> (u64, u64) {
+            fn read_lane(bytes: &[u8; 16], offset: usize, len: usize) -> u64 {
+                let mut word = [0u8; 8];
+                word[..len].copy_from_slice(&bytes[offset..offset + len]);
+                u64::from_le_bytes(word)
+            }
+
+            let mut a = [0u8; 16];
+            let mut b = [0u8; 16];
+            let mut out = [0u8; 16];
+            a[..8].copy_from_slice(&a_low.to_le_bytes());
+            a[8..].copy_from_slice(&a_high.to_le_bytes());
+            b[..8].copy_from_slice(&b_low.to_le_bytes());
+            b[8..].copy_from_slice(&b_high.to_le_bytes());
+
+            for lane in 0..lanes {
+                let off = lane * elem_bytes;
+                let value = read_lane(&a, off, elem_bytes)
+                    .max(read_lane(&b, off, elem_bytes));
+                out[off..off + elem_bytes].copy_from_slice(&value.to_le_bytes()[..elem_bytes]);
+            }
+
+            let mut low = [0u8; 8];
+            let mut high = [0u8; 8];
+            low.copy_from_slice(&out[..8]);
+            high.copy_from_slice(&out[8..]);
+            (u64::from_le_bytes(low), u64::from_le_bytes(high))
+        }
+
+        let a_low = 0x807f_00ff_7f80_ff00;
+        let a_high = 0x0001_ffff_8000_7fff;
+        let b_low = 0x7f80_ff00_0080_00ff;
+        let b_high = 0xffff_0001_7fff_8000;
+        let code = lower_ops(vec![
+            OpKind::VMax {
+                dst: v(0),
+                src1: v(1),
+                src2: v(2),
+                elem: VecElementType::I8,
+                lanes: 16,
+            },
+            OpKind::VMax {
+                dst: v(3),
+                src1: v(1),
+                src2: v(2),
+                elem: VecElementType::I16,
+                lanes: 8,
+            },
+            OpKind::VMax {
+                dst: v(4),
+                src1: v(1),
+                src2: v(2),
+                elem: VecElementType::I32,
+                lanes: 4,
+            },
+            OpKind::VMax {
+                dst: v(5),
+                src1: v(1),
+                src2: v(2),
+                elem: VecElementType::I32,
+                lanes: 2,
+            },
+        ]);
+
+        let (_, simd, _) = run_aarch64_code_with_regs_and_simd(
+            &code,
+            &[],
+            &[(1, a_low, a_high), (2, b_low, b_high)],
+        );
+        assert_eq!(simd[0], apply_max(a_low, a_high, b_low, b_high, 1, 16));
+        assert_eq!(simd[3], apply_max(a_low, a_high, b_low, b_high, 2, 8));
+        assert_eq!(simd[4], apply_max(a_low, a_high, b_low, b_high, 4, 4));
+        assert_eq!(simd[5], apply_max(a_low, a_high, b_low, b_high, 4, 2));
+    }
+
+    #[test]
     fn lowers_vector_broadcast_runtime() {
         fn splat(scalar: u64, elem_bytes: usize, lanes: usize) -> (u64, u64) {
             let mut out = [0u8; 16];
@@ -17767,6 +17867,30 @@ mod tests {
             src2: v(2),
             elem: VecElementType::I64,
             lanes: 2,
+        });
+
+        assert_unsupported(OpKind::VMax {
+            dst: v(0),
+            src1: v(1),
+            src2: v(2),
+            elem: VecElementType::I64,
+            lanes: 2,
+        });
+
+        assert_unsupported(OpKind::VMax {
+            dst: v(0),
+            src1: v(1),
+            src2: v(2),
+            elem: VecElementType::F32,
+            lanes: 4,
+        });
+
+        assert_unsupported(OpKind::VMax {
+            dst: v(0),
+            src1: v(1),
+            src2: v(2),
+            elem: VecElementType::I32,
+            lanes: 8,
         });
 
         assert_unsupported(OpKind::VBroadcast {
