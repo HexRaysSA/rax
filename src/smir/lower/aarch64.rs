@@ -2467,6 +2467,9 @@ impl Aarch64Lowerer {
         let rt = match src {
             SrcOperand::Reg(src) => Self::gpr(*src)?,
             SrcOperand::Imm(0) | SrcOperand::Imm64(0) => 31,
+            SrcOperand::Imm(value) | SrcOperand::Imm64(value) => {
+                return self.lower_sysreg_write_imm(reg, *value, width);
+            }
             other => {
                 return Err(LowerError::UnsupportedOp {
                     op: format!("AArch64 native system register write source {other:?}"),
@@ -2474,6 +2477,25 @@ impl Aarch64Lowerer {
             }
         };
         self.emit_sysreg(rt, reg, false)
+    }
+
+    fn lower_sysreg_write_imm(
+        &mut self,
+        reg: ArmReg,
+        value: i64,
+        width: OpWidth,
+    ) -> Result<(), LowerError> {
+        if value == 0 {
+            return self.emit_sysreg(31, reg, false);
+        }
+
+        let scratches = Self::scratch_regs(&[], 1)?;
+        let rt = scratches[0];
+        self.emit_scratch_save(&scratches);
+        self.emit_mov_imm(rt, value, width)?;
+        self.emit_sysreg(rt, reg, false)?;
+        self.emit_scratch_restore(&scratches);
+        Ok(())
     }
 
     fn lower_raw_sysreg_read(&mut self, dst: VReg, reg: u32) -> Result<(), LowerError> {
@@ -2491,6 +2513,15 @@ impl Aarch64Lowerer {
                 op: format!("AArch64 native MSR sysreg {reg:#06x}"),
             });
         };
+        if let VReg::Imm(value) = src {
+            let Some(info) = Self::sysreg_info(reg) else {
+                return Err(LowerError::UnsupportedOp {
+                    op: format!("AArch64 native MSR sysreg {reg:?}"),
+                });
+            };
+            return self.lower_sysreg_write_imm(reg, value, info.write_width);
+        }
+
         self.emit_sysreg(Self::gpr(src)?, reg, false)
     }
 
@@ -18979,6 +19010,49 @@ mod tests {
         expected.extend_from_slice(&enc_msr_sysreg(1, 3, 4, 2, 0).to_le_bytes());
         expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
         assert_eq!(code, expected);
+    }
+
+    #[test]
+    fn lowers_write_sysreg_nzcv_imm_direct() {
+        let mut builder = FunctionBuilder::new(FunctionId(0), 0);
+        builder.push_op(
+            0,
+            OpKind::WriteSysReg {
+                reg: SYSREG_NZCV,
+                src: VReg::Imm(NZCV_N | NZCV_C),
+            },
+        );
+        builder.set_terminator(Terminator::Return { values: vec![] });
+        let func = builder.finish();
+
+        let mut lowerer = Aarch64Lowerer::new();
+        lowerer.lower_function(&func).unwrap();
+        let code = lowerer.finalize().unwrap();
+
+        let mut expected = Vec::new();
+        expected.extend_from_slice(&enc_ldst_simm_regs(3, 0b00, 0b11, -16, 16, 31).to_le_bytes());
+        expected.extend_from_slice(&enc_mov_wide(0, 0b10, 0, 0, 16).to_le_bytes());
+        expected.extend_from_slice(&enc_mov_wide(0, 0b11, 1, 0xa000, 16).to_le_bytes());
+        expected.extend_from_slice(&enc_msr_sysreg(16, 3, 4, 2, 0).to_le_bytes());
+        expected.extend_from_slice(&enc_ldst_simm_regs(3, 0b01, 0b01, 16, 16, 31).to_le_bytes());
+        expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
+        assert_eq!(code, expected);
+    }
+
+    #[test]
+    fn lowers_named_sysreg_nzcv_imm_runtime() {
+        let code = lower_single_op(OpKind::Mov {
+            dst: VReg::Arch(ArchReg::Arm(ArmReg::Nzcv)),
+            src: SrcOperand::Imm(NZCV_Z | NZCV_V),
+            width: OpWidth::W32,
+        });
+
+        let (out, out_nzcv, sp) =
+            run_aarch64_code(&code, &[(16, 0x1616_1616_1616_1616)], 0b1010);
+
+        assert_eq!(out_nzcv, 0b0101);
+        assert_eq!(out[16], 0x1616_1616_1616_1616);
+        assert_eq!(sp, 0x8000);
     }
 
     #[test]
