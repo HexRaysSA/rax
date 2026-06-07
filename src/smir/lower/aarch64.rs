@@ -2261,7 +2261,7 @@ impl Aarch64Lowerer {
         lanes: u8,
     ) -> Result<(), LowerError> {
         let rd = Self::fp_reg(dst)?;
-        let rn = Self::gpr(scalar)?;
+        let rn = Self::gpr_arm_or_x86(scalar)?;
         let (q, size) = Self::simd_broadcast_shape(elem, lanes)?;
         self.emit_simd_dup_general(rd, rn, q, size);
         Ok(())
@@ -2277,7 +2277,7 @@ impl Aarch64Lowerer {
     ) -> Result<(), LowerError> {
         let rd = Self::fp_reg(dst)?;
         let rn = Self::fp_reg(vec)?;
-        let rm = Self::gpr(scalar)?;
+        let rm = Self::gpr_arm_or_x86(scalar)?;
         let (_, imm5) = Self::simd_lane_imm5(elem, lane)?;
         if rd != rn {
             self.lower_vmov(dst, vec, VecWidth::V128)?;
@@ -2294,7 +2294,7 @@ impl Aarch64Lowerer {
         elem: VecElementType,
         sign: SignExtend,
     ) -> Result<(), LowerError> {
-        let rd = Self::dst_gpr(dst)?;
+        let rd = Self::dst_gpr_arm_or_x86(dst)?;
         let rn = Self::fp_reg(vec)?;
         let (size, imm5) = Self::simd_lane_imm5(elem, lane)?;
         match (sign, size) {
@@ -19952,6 +19952,103 @@ mod tests {
         assert_eq!(regs[6], source.1);
         assert_eq!(simd[1], source);
         assert_eq!(sp, 0x8000);
+    }
+
+    #[test]
+    fn lowers_vector_lane_scalar_apx_egpr_operands_runtime() {
+        fn splat(scalar: u64, elem: VecElementType, lanes: usize) -> (u64, u64) {
+            let mut bytes = [0u8; 16];
+            let elem_bytes = elem.bytes() as usize;
+            for lane in 0..lanes {
+                let offset = lane * elem_bytes;
+                bytes[offset..offset + elem_bytes]
+                    .copy_from_slice(&scalar.to_le_bytes()[..elem_bytes]);
+            }
+            simd_pair_from_bytes(bytes)
+        }
+
+        let insert_src = (0x0123_4567_89ab_cdef, 0xfedc_ba98_7654_3210);
+        let extract_src = (0x7654_3210_89ab_cdef, 0x8000_0001_7fff_8001);
+        let code = lower_ops(vec![
+            OpKind::VBroadcast {
+                dst: v(0),
+                scalar: x86(X86Reg::R16),
+                elem: VecElementType::I32,
+                lanes: 4,
+            },
+            OpKind::VInsertLane {
+                dst: v(1),
+                vec: v(1),
+                scalar: x86(X86Reg::R17),
+                lane: 2,
+                elem: VecElementType::I32,
+            },
+            OpKind::VExtractLane {
+                dst: x86(X86Reg::R18),
+                vec: v(2),
+                lane: 3,
+                elem: VecElementType::I32,
+                sign: SignExtend::Sign,
+            },
+        ]);
+        let words = code_words(&code);
+        assert_eq!(words.len(), 4);
+        assert_eq!(words[0] & 0x1f, 0);
+        assert_eq!((words[0] >> 5) & 0x1f, 16);
+        assert_eq!(words[1] & 0x1f, 1);
+        assert_eq!((words[1] >> 5) & 0x1f, 17);
+        assert_eq!(words[2] & 0x1f, 18);
+        assert_eq!((words[2] >> 5) & 0x1f, 2);
+
+        let r16 = 0x8877_6655_4433_2211;
+        let r17 = 0xaaaa_bbbb_ffff_eeee;
+        let sentinel = 0x1919_1919_1919_1919;
+        let (regs, simd, sp) = run_aarch64_code_with_regs_and_simd(
+            &code,
+            &[(16, r16), (17, r17), (19, sentinel)],
+            &[(1, insert_src.0, insert_src.1), (2, extract_src.0, extract_src.1)],
+        );
+        let s3 = get_simd_lane(extract_src, VecElementType::I32, 3);
+        assert_eq!(simd[0], splat(r16, VecElementType::I32, 4));
+        assert_eq!(
+            simd[1],
+            set_simd_lane(insert_src, VecElementType::I32, 2, r17)
+        );
+        assert_eq!(simd[2], extract_src);
+        assert_eq!(regs[16], r16);
+        assert_eq!(regs[17], r17);
+        assert_eq!(regs[18], sign_extend_simd_lane(s3, VecElementType::I32));
+        assert_eq!(regs[19], sentinel);
+        assert_eq!(sp, 0x8000);
+    }
+
+    #[test]
+    fn rejects_vector_lane_scalar_apx_r31_identity_mapping() {
+        for kind in [
+            OpKind::VBroadcast {
+                dst: v(0),
+                scalar: x86(X86Reg::R31),
+                elem: VecElementType::I32,
+                lanes: 4,
+            },
+            OpKind::VInsertLane {
+                dst: v(0),
+                vec: v(1),
+                scalar: x86(X86Reg::R31),
+                lane: 0,
+                elem: VecElementType::I32,
+            },
+            OpKind::VExtractLane {
+                dst: x86(X86Reg::R31),
+                vec: v(1),
+                lane: 0,
+                elem: VecElementType::I32,
+                sign: SignExtend::Zero,
+            },
+        ] {
+            let err = try_lower_single_op(kind).unwrap_err();
+            assert!(matches!(err, LowerError::InvalidRegister(_)));
+        }
     }
 
     #[test]
