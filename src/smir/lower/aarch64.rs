@@ -48,6 +48,14 @@ enum BranchFixupKind {
     CompareAndBranch { rt: u8, nonzero: bool },
 }
 
+#[derive(Clone, Copy)]
+enum BitTestAction {
+    Test,
+    Set,
+    Reset,
+    Toggle,
+}
+
 impl Aarch64Lowerer {
     pub fn new() -> Self {
         Self {
@@ -3314,6 +3322,192 @@ impl Aarch64Lowerer {
         self.emit_sysreg(flags, ArmReg::Nzcv, true)?;
         self.emit_logic_imm(flags, flags, opc, imm_n, immr, imms, OpWidth::W32)?;
         self.emit_sysreg(flags, ArmReg::Nzcv, false)?;
+        self.emit_scratch_restore(&scratches);
+        Ok(())
+    }
+
+    fn bit_test_emit_width(width: OpWidth) -> Result<OpWidth, LowerError> {
+        match width {
+            OpWidth::W8 | OpWidth::W16 | OpWidth::W32 => Ok(OpWidth::W32),
+            OpWidth::W64 => Ok(OpWidth::W64),
+            other => Err(LowerError::UnsupportedOp {
+                op: format!("AArch64 native bit test width {other:?}"),
+            }),
+        }
+    }
+
+    fn bit_test_single_bit_imm(bit: u32, width: OpWidth) -> i64 {
+        if width == OpWidth::W64 {
+            (1_u64 << bit) as i64
+        } else {
+            i64::from(1_u32 << bit)
+        }
+    }
+
+    fn finish_bit_test_result_width(&mut self, dst: u8, width: OpWidth) -> Result<(), LowerError> {
+        match width {
+            OpWidth::W8 | OpWidth::W16 => {
+                self.emit_bitfield(dst, dst, 0b10, 0, width.bits() - 1, OpWidth::W32)
+            }
+            OpWidth::W32 | OpWidth::W64 => Ok(()),
+            other => Err(LowerError::UnsupportedOp {
+                op: format!("AArch64 native bit test result width {other:?}"),
+            }),
+        }
+    }
+
+    fn emit_write_c_from_low_bit(&mut self, flags: u8, bit: u8) -> Result<(), LowerError> {
+        let (imm_n, immr, imms) =
+            Self::logical_bitmask_imm(!(NZCV_C as u32) as i64, OpWidth::W32)?;
+        self.emit_sysreg(flags, ArmReg::Nzcv, true)?;
+        self.emit_logic_imm(flags, flags, 0b00, imm_n, immr, imms, OpWidth::W32)?;
+        self.emit_logic_shifted(flags, flags, bit, 0b01, false, 0, 29, OpWidth::W32)?;
+        self.emit_sysreg(flags, ArmReg::Nzcv, false)
+    }
+
+    fn apply_bit_test_imm_action(
+        &mut self,
+        dst: Option<u8>,
+        src: u8,
+        bit: u32,
+        action: BitTestAction,
+        width: OpWidth,
+    ) -> Result<(), LowerError> {
+        let Some(dst) = dst else {
+            return Ok(());
+        };
+        let emit_width = Self::bit_test_emit_width(width)?;
+        let bit_mask = Self::bit_test_single_bit_imm(bit, emit_width);
+        let (opc, imm) = match action {
+            BitTestAction::Test => return Ok(()),
+            BitTestAction::Set => (0b01, bit_mask),
+            BitTestAction::Reset => (0b00, Self::inverted_logical_imm(bit_mask, emit_width)?),
+            BitTestAction::Toggle => (0b10, bit_mask),
+        };
+        let (imm_n, immr, imms) = Self::logical_bitmask_imm(imm, emit_width)?;
+        self.emit_logic_imm(dst, src, opc, imm_n, immr, imms, emit_width)?;
+        self.finish_bit_test_result_width(dst, width)
+    }
+
+    fn apply_bit_test_reg_action(
+        &mut self,
+        dst: Option<u8>,
+        src: u8,
+        mask: u8,
+        action: BitTestAction,
+        width: OpWidth,
+    ) -> Result<(), LowerError> {
+        let Some(dst) = dst else {
+            return Ok(());
+        };
+        let emit_width = Self::bit_test_emit_width(width)?;
+        match action {
+            BitTestAction::Test => return Ok(()),
+            BitTestAction::Set => {
+                self.emit_logic_reg_n(dst, src, mask, 0b01, false, emit_width)?;
+            }
+            BitTestAction::Reset => {
+                self.emit_logic_reg_n(dst, src, mask, 0b00, true, emit_width)?;
+            }
+            BitTestAction::Toggle => {
+                self.emit_logic_reg_n(dst, src, mask, 0b10, false, emit_width)?;
+            }
+        }
+        self.finish_bit_test_result_width(dst, width)
+    }
+
+    fn lower_bit_test(
+        &mut self,
+        dst: Option<VReg>,
+        src: VReg,
+        index: &SrcOperand,
+        action: BitTestAction,
+        width: OpWidth,
+    ) -> Result<(), LowerError> {
+        Self::bit_test_emit_width(width)?;
+        let src = Self::gpr(src)?;
+        let dst = match dst {
+            Some(dst) => Some(Self::dst_gpr(dst)?),
+            None => None,
+        };
+
+        match index {
+            SrcOperand::Imm(value) | SrcOperand::Imm64(value) => {
+                self.lower_bit_test_imm(dst, src, *value, action, width)
+            }
+            SrcOperand::Reg(index) => {
+                self.lower_bit_test_reg(dst, src, Self::gpr(*index)?, action, width)
+            }
+            other => Err(LowerError::UnsupportedOp {
+                op: format!("AArch64 native bit test index {other:?}"),
+            }),
+        }
+    }
+
+    fn lower_bit_test_imm(
+        &mut self,
+        dst: Option<u8>,
+        src: u8,
+        index: i64,
+        action: BitTestAction,
+        width: OpWidth,
+    ) -> Result<(), LowerError> {
+        let emit_width = Self::bit_test_emit_width(width)?;
+        let bit = ((index as u64) & u64::from(width.bits() - 1)) as u32;
+        let mut avoid = vec![src];
+        if let Some(dst) = dst {
+            avoid.push(dst);
+        }
+        let scratches = Self::scratch_regs(&avoid, 2)?;
+        let flags = scratches[0];
+        let bit_reg = scratches[1];
+
+        self.emit_scratch_save(&scratches);
+        self.emit_bitfield(bit_reg, src, 0b10, bit, bit, emit_width)?;
+        self.apply_bit_test_imm_action(dst, src, bit, action, width)?;
+        self.emit_write_c_from_low_bit(flags, bit_reg)?;
+        self.emit_scratch_restore(&scratches);
+        Ok(())
+    }
+
+    fn lower_bit_test_reg(
+        &mut self,
+        dst: Option<u8>,
+        src: u8,
+        index: u8,
+        action: BitTestAction,
+        width: OpWidth,
+    ) -> Result<(), LowerError> {
+        let emit_width = Self::bit_test_emit_width(width)?;
+        let amount_width = if width == OpWidth::W64 {
+            OpWidth::W64
+        } else {
+            OpWidth::W32
+        };
+        let mut avoid = vec![src, index];
+        if let Some(dst) = dst {
+            avoid.push(dst);
+        }
+        let needs_mask = !matches!(action, BitTestAction::Test);
+        let scratches = Self::scratch_regs(&avoid, 3 + usize::from(needs_mask))?;
+        let flags = scratches[0];
+        let bit_reg = scratches[1];
+        let amount = scratches[2];
+        let mask = scratches.get(3).copied();
+
+        self.emit_scratch_save(&scratches);
+        let (imm_n, immr, imms) =
+            Self::logical_bitmask_imm(i64::from(width.bits() - 1), amount_width)?;
+        self.emit_logic_imm(amount, index, 0b00, imm_n, immr, imms, amount_width)?;
+        self.emit_dp2(bit_reg, src, amount, 0b1001, emit_width)?;
+        let (imm_n, immr, imms) = Self::logical_bitmask_imm(1, OpWidth::W32)?;
+        self.emit_logic_imm(bit_reg, bit_reg, 0b00, imm_n, immr, imms, OpWidth::W32)?;
+        if let Some(mask) = mask {
+            self.emit_mov_imm(mask, 1, emit_width)?;
+            self.emit_dp2(mask, mask, amount, 0b1000, emit_width)?;
+            self.apply_bit_test_reg_action(dst, src, mask, action, width)?;
+        }
+        self.emit_write_c_from_low_bit(flags, bit_reg)?;
         self.emit_scratch_restore(&scratches);
         Ok(())
     }
@@ -9294,6 +9488,27 @@ impl Aarch64Lowerer {
                 width,
                 flags,
             } => self.lower_rotate_carry(*dst, *src, amount, *width, *flags, true),
+            OpKind::Bt { src, index, width } => {
+                self.lower_bit_test(None, *src, index, BitTestAction::Test, *width)
+            }
+            OpKind::Bts {
+                dst,
+                src,
+                index,
+                width,
+            } => self.lower_bit_test(Some(*dst), *src, index, BitTestAction::Set, *width),
+            OpKind::Btr {
+                dst,
+                src,
+                index,
+                width,
+            } => self.lower_bit_test(Some(*dst), *src, index, BitTestAction::Reset, *width),
+            OpKind::Btc {
+                dst,
+                src,
+                index,
+                width,
+            } => self.lower_bit_test(Some(*dst), *src, index, BitTestAction::Toggle, *width),
             OpKind::Select {
                 dst,
                 cond,
@@ -10000,6 +10215,27 @@ mod tests {
         } else {
             u64::from(u64::BITS - 1 - src.leading_zeros())
         }
+    }
+
+    fn bit_test_index(index: u64, width: OpWidth) -> u32 {
+        (index & u64::from(width.bits() - 1)) as u32
+    }
+
+    fn expected_bit_test_nzcv(old_nzcv: u8, src: u64, index: u64, width: OpWidth) -> u8 {
+        let src = src & width_mask(width);
+        let bit = ((src >> bit_test_index(index, width)) & 1) as u8;
+        (old_nzcv & !0b0010) | (bit << 1)
+    }
+
+    fn ref_bit_update(src: u64, index: u64, action: BitTestAction, width: OpWidth) -> u64 {
+        let src = src & width_mask(width);
+        let mask = 1_u64 << bit_test_index(index, width);
+        (match action {
+            BitTestAction::Test => src,
+            BitTestAction::Set => src | mask,
+            BitTestAction::Reset => src & !mask,
+            BitTestAction::Toggle => src ^ mask,
+        }) & width_mask(width)
     }
 
     fn expected_logic_source_nzcv(
@@ -18222,6 +18458,224 @@ mod tests {
             2,
             bzhi_flags(),
             0b0000,
+        );
+    }
+
+    fn bit_index_reg(index: &SrcOperand) -> Option<u8> {
+        if let SrcOperand::Reg(VReg::Arch(ArchReg::Arm(ArmReg::X(reg)))) = index {
+            Some(*reg)
+        } else {
+            None
+        }
+    }
+
+    fn assert_bt_lowering(
+        label: &str,
+        src_reg: u8,
+        src_value: u64,
+        index: SrcOperand,
+        index_value: u64,
+        width: OpWidth,
+        old_nzcv: u8,
+    ) {
+        let code = lower_single_op(OpKind::Bt {
+            src: x(src_reg),
+            index: index.clone(),
+            width,
+        });
+        let sentinels = [
+            (16, 0x1616_1616_1616_1616),
+            (17, 0x1717_1717_1717_1717),
+            (15, 0x1515_1515_1515_1515),
+            (14, 0x1414_1414_1414_1414),
+        ];
+        let mut regs = sentinels.to_vec();
+        regs.push((src_reg, src_value));
+        let index_reg = bit_index_reg(&index);
+        if let Some(reg) = index_reg {
+            regs.push((reg, index_value));
+        }
+
+        let (out, out_nzcv, sp) = run_aarch64_code(&code, &regs, old_nzcv);
+        let expected_nzcv = expected_bit_test_nzcv(old_nzcv, src_value, index_value, width);
+        assert_eq!(out_nzcv, expected_nzcv, "{label}: NZCV");
+        assert_eq!(out[src_reg as usize], src_value, "{label}: src preserved");
+        if let Some(reg) = index_reg {
+            assert_eq!(out[reg as usize], index_value, "{label}: index preserved");
+        }
+        assert_eq!(sp, 0x8000, "{label}: stack restored");
+        for (reg, value) in sentinels {
+            if reg != src_reg && Some(reg) != index_reg {
+                assert_eq!(out[reg as usize], value, "{label}: x{reg} restored");
+            }
+        }
+    }
+
+    fn assert_bit_update_lowering(
+        label: &str,
+        action: BitTestAction,
+        dst_reg: u8,
+        src_reg: u8,
+        src_value: u64,
+        index: SrcOperand,
+        index_value: u64,
+        width: OpWidth,
+        old_nzcv: u8,
+    ) {
+        let dst = x(dst_reg);
+        let src = x(src_reg);
+        let kind = match action {
+            BitTestAction::Set => OpKind::Bts {
+                dst,
+                src,
+                index: index.clone(),
+                width,
+            },
+            BitTestAction::Reset => OpKind::Btr {
+                dst,
+                src,
+                index: index.clone(),
+                width,
+            },
+            BitTestAction::Toggle => OpKind::Btc {
+                dst,
+                src,
+                index: index.clone(),
+                width,
+            },
+            BitTestAction::Test => unreachable!("bit update helper requires an update action"),
+        };
+        let sentinels = [
+            (16, 0x1616_1616_1616_1616),
+            (17, 0x1717_1717_1717_1717),
+            (15, 0x1515_1515_1515_1515),
+            (14, 0x1414_1414_1414_1414),
+        ];
+        let mut regs = sentinels.to_vec();
+        regs.push((src_reg, src_value));
+        let index_reg = bit_index_reg(&index);
+        if let Some(reg) = index_reg {
+            regs.push((reg, index_value));
+        }
+
+        let code = lower_single_op(kind);
+        let (out, out_nzcv, sp) = run_aarch64_code(&code, &regs, old_nzcv);
+        let expected = ref_bit_update(src_value, index_value, action, width);
+        let expected_nzcv = expected_bit_test_nzcv(old_nzcv, src_value, index_value, width);
+        assert_eq!(out[dst_reg as usize], expected, "{label}: result");
+        assert_eq!(out_nzcv, expected_nzcv, "{label}: NZCV");
+        if src_reg != dst_reg {
+            assert_eq!(out[src_reg as usize], src_value, "{label}: src preserved");
+        }
+        if let Some(reg) = index_reg {
+            if reg != dst_reg && reg != src_reg {
+                assert_eq!(out[reg as usize], index_value, "{label}: index preserved");
+            }
+        }
+        assert_eq!(sp, 0x8000, "{label}: stack restored");
+        for (reg, value) in sentinels {
+            if reg != dst_reg && reg != src_reg && Some(reg) != index_reg {
+                assert_eq!(out[reg as usize], value, "{label}: x{reg} restored");
+            }
+        }
+    }
+
+    #[test]
+    fn lowers_bit_test_runtime() {
+        assert_bt_lowering(
+            "bt_w8_imm_wrap_sets_carry",
+            1,
+            0x102,
+            SrcOperand::Imm(9),
+            9,
+            OpWidth::W8,
+            0b1001,
+        );
+        assert_bt_lowering(
+            "bt_w16_reg_wrap_clears_carry",
+            1,
+            0x7fff,
+            SrcOperand::Reg(x(2)),
+            31,
+            OpWidth::W16,
+            0b0011,
+        );
+        assert_bt_lowering(
+            "bt_w32_negative_imm_uses_high_bit",
+            1,
+            0x8000_0000,
+            SrcOperand::Imm(-1),
+            u64::MAX,
+            OpWidth::W32,
+            0b0100,
+        );
+        assert_bt_lowering(
+            "bt_x_reg_uses_bit63",
+            1,
+            0x8000_0000_0000_0000,
+            SrcOperand::Reg(x(3)),
+            127,
+            OpWidth::W64,
+            0b0000,
+        );
+    }
+
+    #[test]
+    fn lowers_bit_test_update_runtime() {
+        assert_bit_update_lowering(
+            "btr_w8_dst_aliases_src_masks_result",
+            BitTestAction::Reset,
+            1,
+            1,
+            0x1ff,
+            SrcOperand::Imm(0),
+            0,
+            OpWidth::W8,
+            0b0101,
+        );
+        assert_bit_update_lowering(
+            "bts_w16_reg_index_sets_bit_and_clears_carry",
+            BitTestAction::Set,
+            0,
+            1,
+            0x8001,
+            SrcOperand::Reg(x(2)),
+            20,
+            OpWidth::W16,
+            0b1111,
+        );
+        assert_bit_update_lowering(
+            "btr_w16_dst_aliases_index",
+            BitTestAction::Reset,
+            2,
+            1,
+            0xffff,
+            SrcOperand::Reg(x(2)),
+            20,
+            OpWidth::W16,
+            0b0000,
+        );
+        assert_bit_update_lowering(
+            "btc_w32_imm_toggles_and_sets_carry",
+            BitTestAction::Toggle,
+            0,
+            1,
+            0xffff_ffff,
+            SrcOperand::Imm(5),
+            5,
+            OpWidth::W32,
+            0b1000,
+        );
+        assert_bit_update_lowering(
+            "btc_x_dst_aliases_src_high_bit",
+            BitTestAction::Toggle,
+            1,
+            1,
+            0x8000_0000_0000_0003,
+            SrcOperand::Reg(x(2)),
+            63,
+            OpWidth::W64,
+            0b0100,
         );
     }
 
