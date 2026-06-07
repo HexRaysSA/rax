@@ -5002,6 +5002,11 @@ impl Aarch64Lowerer {
         if dst_hi.is_none() && Self::src_imm(src2) == Some(-1) {
             return self.lower_neg(dst_lo, src1, false, width);
         }
+        if dst_hi.is_none() {
+            if let Some(imm) = Self::src_imm(src2) {
+                return self.lower_mul_imm(dst_lo, src1, imm, width);
+            }
+        }
         let SrcOperand::Reg(src2) = src2 else {
             return Err(LowerError::UnsupportedOp {
                 op: format!("AArch64 native multiply source {src2:?}"),
@@ -5073,6 +5078,37 @@ impl Aarch64Lowerer {
         }
 
         self.emit_dp3(Self::dst_gpr(dst_lo)?, rn, rm, 31, 0b000, 0, width)
+    }
+
+    fn lower_mul_imm(
+        &mut self,
+        dst_lo: VReg,
+        src1: VReg,
+        imm: i64,
+        width: OpWidth,
+    ) -> Result<(), LowerError> {
+        let emit_width = match width {
+            OpWidth::W8 | OpWidth::W16 | OpWidth::W32 => OpWidth::W32,
+            OpWidth::W64 => OpWidth::W64,
+            other => {
+                return Err(LowerError::UnsupportedOp {
+                    op: format!("AArch64 native multiply width {other:?}"),
+                });
+            }
+        };
+        let dst_lo = Self::dst_gpr(dst_lo)?;
+        let rn = Self::gpr(src1)?;
+        let scratches = Self::scratch_regs(&[dst_lo, rn], 1)?;
+        let rm = scratches[0];
+
+        self.emit_scratch_save(&scratches);
+        self.emit_mov_imm(rm, ((imm as u64) & width.mask()) as i64, emit_width)?;
+        self.emit_dp3(dst_lo, rn, rm, 31, 0b000, 0, emit_width)?;
+        if matches!(width, OpWidth::W8 | OpWidth::W16) {
+            self.emit_bitfield(dst_lo, dst_lo, 0b10, 0, width.bits() - 1, OpWidth::W32)?;
+        }
+        self.emit_scratch_restore(&scratches);
+        Ok(())
     }
 
     fn lower_subword_mul_with_flags(
@@ -12552,6 +12588,54 @@ mod tests {
         expected.extend_from_slice(&enc_bitfield_regs(0, 0b10, 0, 15, 0, 0).to_le_bytes());
         expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
         assert_eq!(code, expected);
+    }
+
+    #[test]
+    fn lowers_mulu_x_general_imm_runtime() {
+        let src = 0x1020_3040_5060_7080;
+        let imm = 0x1234_5678_9abc_def0_u64 as i64;
+        let code = lower_single_op(OpKind::MulU {
+            dst_lo: x(0),
+            dst_hi: None,
+            src1: x(1),
+            src2: SrcOperand::Imm64(imm),
+            width: OpWidth::W64,
+            flags: FlagUpdate::None,
+        });
+
+        let old_nzcv = 0b1010;
+        let (out, out_nzcv, sp) =
+            run_aarch64_code(&code, &[(1, src), (16, 0x1616_1616_1616_1616)], old_nzcv);
+
+        assert_eq!(out[0], ref_mul(src, imm as u64, false, OpWidth::W64));
+        assert_eq!(out[1], src);
+        assert_eq!(out[16], 0x1616_1616_1616_1616);
+        assert_eq!(out_nzcv, old_nzcv);
+        assert_eq!(sp, 0x8000);
+    }
+
+    #[test]
+    fn lowers_muls_w8_general_imm_runtime() {
+        let src = 0xaa55_aa55_aa55_0091;
+        let imm = -7;
+        let code = lower_single_op(OpKind::MulS {
+            dst_lo: x(0),
+            dst_hi: None,
+            src1: x(16),
+            src2: SrcOperand::Imm(imm),
+            width: OpWidth::W8,
+            flags: FlagUpdate::None,
+        });
+
+        let old_nzcv = 0b0101;
+        let (out, out_nzcv, sp) =
+            run_aarch64_code(&code, &[(16, src), (17, 0x1717_1717_1717_1717)], old_nzcv);
+
+        assert_eq!(out[0], ref_mul(src, imm as u64, true, OpWidth::W8));
+        assert_eq!(out[16], src);
+        assert_eq!(out[17], 0x1717_1717_1717_1717);
+        assert_eq!(out_nzcv, old_nzcv);
+        assert_eq!(sp, 0x8000);
     }
 
     #[test]
