@@ -10107,10 +10107,10 @@ impl Aarch64Lowerer {
 
     fn lower_test_condition(&mut self, dst: VReg, cond: Condition) -> Result<(), LowerError> {
         if cond == Condition::Always {
-            return self.emit_mov_imm(Self::dst_gpr(dst)?, 1, OpWidth::W64);
+            return self.emit_mov_imm(Self::dst_gpr_arm_or_x86(dst)?, 1, OpWidth::W64);
         }
         self.emit_cond_select(
-            Self::dst_gpr(dst)?,
+            Self::dst_gpr_arm_or_x86(dst)?,
             31,
             31,
             Self::inverted_arm_cond_code(cond)?,
@@ -10156,8 +10156,8 @@ impl Aarch64Lowerer {
             return self.lower_cmove_imm(dst, value, cond, width);
         }
 
-        let dst = Self::dst_gpr(dst)?;
-        let src = Self::gpr(src)?;
+        let dst = Self::dst_gpr_arm_or_x86(dst)?;
+        let src = Self::gpr_arm_or_x86(src)?;
         if matches!(width, OpWidth::W8 | OpWidth::W16) {
             self.emit_cond_select(
                 dst,
@@ -10189,7 +10189,7 @@ impl Aarch64Lowerer {
         cond: Condition,
         width: OpWidth,
     ) -> Result<(), LowerError> {
-        let dst = Self::dst_gpr(dst)?;
+        let dst = Self::dst_gpr_arm_or_x86(dst)?;
         if cond == Condition::Always {
             let mov_width = if width == OpWidth::W64 {
                 OpWidth::W64
@@ -29459,6 +29459,94 @@ mod tests {
         expected.extend_from_slice(&enc_bitfield_regs(0, 0b10, 0, 7, 0, 0).to_le_bytes());
         expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
         assert_eq!(code, expected);
+    }
+
+    #[test]
+    fn lowers_setcc_cmove_apx_egpr_operands_runtime() {
+        let code = lower_ops(vec![
+            OpKind::TestCondition {
+                dst: x86(X86Reg::R16),
+                cond: Condition::Eq,
+            },
+            OpKind::SetCC {
+                dst: x86(X86Reg::R17),
+                cond: Condition::Ne,
+                width: OpWidth::W8,
+            },
+            OpKind::CMove {
+                dst: x86(X86Reg::R18),
+                src: x86(X86Reg::R19),
+                cond: Condition::Eq,
+                width: OpWidth::W64,
+            },
+            OpKind::CMove {
+                dst: x86(X86Reg::R20),
+                src: VReg::Imm(0x3456),
+                cond: Condition::Ne,
+                width: OpWidth::W32,
+            },
+            OpKind::CMove {
+                dst: x86(X86Reg::R21),
+                src: VReg::Imm(0xabcd),
+                cond: Condition::Eq,
+                width: OpWidth::W16,
+            },
+        ]);
+        let old_nzcv = 0b0110;
+        let regs = [
+            (18, 0x1818_1818_1818_1818),
+            (19, 0x1919_1919_1919_1919),
+            (20, 0xffff_ffff_8765_4321),
+            (21, 0x2121_2121_2121_2121),
+            (22, 0x2222_2222_2222_2222),
+        ];
+        let (out, out_nzcv, sp) = run_aarch64_code(&code, &regs, old_nzcv);
+
+        assert_eq!(out[16], 1);
+        assert_eq!(out[17], 0);
+        assert_eq!(out[18], 0x1919_1919_1919_1919);
+        assert_eq!(out[19], 0x1919_1919_1919_1919);
+        assert_eq!(out[20], 0x8765_4321);
+        assert_eq!(out[21], 0xabcd);
+        assert_eq!(out[22], 0x2222_2222_2222_2222);
+        assert_eq!(out_nzcv, old_nzcv);
+        assert_eq!(sp, 0x8000);
+    }
+
+    #[test]
+    fn rejects_setcc_cmove_apx_r31_identity_mapping() {
+        for kind in [
+            OpKind::TestCondition {
+                dst: x86(X86Reg::R31),
+                cond: Condition::Eq,
+            },
+            OpKind::SetCC {
+                dst: x86(X86Reg::R31),
+                cond: Condition::Ne,
+                width: OpWidth::W8,
+            },
+            OpKind::CMove {
+                dst: x86(X86Reg::R31),
+                src: x86(X86Reg::R16),
+                cond: Condition::Eq,
+                width: OpWidth::W64,
+            },
+            OpKind::CMove {
+                dst: x86(X86Reg::R16),
+                src: x86(X86Reg::R31),
+                cond: Condition::Eq,
+                width: OpWidth::W64,
+            },
+            OpKind::CMove {
+                dst: x86(X86Reg::R31),
+                src: VReg::Imm(1),
+                cond: Condition::Eq,
+                width: OpWidth::W32,
+            },
+        ] {
+            let err = try_lower_single_op(kind).unwrap_err();
+            assert!(matches!(err, LowerError::InvalidRegister(_)));
+        }
     }
 
     #[test]
