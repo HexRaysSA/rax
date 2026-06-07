@@ -2606,6 +2606,26 @@ impl Aarch64Lowerer {
         )
     }
 
+    fn emit_preserve_saved_c_flag(&mut self, saved_flags: u8, flags: u8) -> Result<(), LowerError> {
+        let (imm_n, immr, imms) =
+            Self::logical_bitmask_imm(!(NZCV_C as u32) as i64, OpWidth::W32)?;
+        self.emit_sysreg(flags, ArmReg::Nzcv, true)?;
+        self.emit_logic_imm(flags, flags, 0b00, imm_n, immr, imms, OpWidth::W32)?;
+
+        let (imm_n, immr, imms) = Self::logical_bitmask_imm(NZCV_C, OpWidth::W32)?;
+        self.emit_logic_imm(
+            saved_flags,
+            saved_flags,
+            0b00,
+            imm_n,
+            immr,
+            imms,
+            OpWidth::W32,
+        )?;
+        self.emit_logic_shifted(flags, flags, saved_flags, 0b01, false, 0, 0, OpWidth::W32)?;
+        self.emit_sysreg(flags, ArmReg::Nzcv, false)
+    }
+
     fn lower_inc_dec(
         &mut self,
         dst: VReg,
@@ -2614,21 +2634,35 @@ impl Aarch64Lowerer {
         set_flags: bool,
         width: OpWidth,
     ) -> Result<(), LowerError> {
-        if set_flags {
-            return Err(LowerError::UnsupportedOp {
-                op: if decrement {
-                    "AArch64 native flag-setting Dec".into()
-                } else {
-                    "AArch64 native flag-setting Inc".into()
-                },
-            });
-        }
-
         if matches!(width, OpWidth::W8 | OpWidth::W16) {
+            if set_flags {
+                return Err(LowerError::UnsupportedOp {
+                    op: if decrement {
+                        "AArch64 native flag-setting subword Dec".into()
+                    } else {
+                        "AArch64 native flag-setting subword Inc".into()
+                    },
+                });
+            }
+
             let dst = Self::dst_gpr(dst)?;
             self.emit_addsub_imm(dst, Self::gpr(src)?, 1, decrement, false, OpWidth::W32)?;
             let imms = if width == OpWidth::W8 { 7 } else { 15 };
             return self.emit_bitfield(dst, dst, 0b10, 0, imms, OpWidth::W32);
+        }
+
+        if set_flags {
+            let dst = Self::dst_or_zero_for_flags(dst, true)?;
+            let src = Self::gpr(src)?;
+            let scratches = Self::scratch_regs(&[dst, src], 2)?;
+            let saved_flags = scratches[0];
+            let flags = scratches[1];
+            self.emit_scratch_save(&scratches);
+            self.emit_sysreg(saved_flags, ArmReg::Nzcv, true)?;
+            self.emit_addsub_imm(dst, src, 1, decrement, true, width)?;
+            self.emit_preserve_saved_c_flag(saved_flags, flags)?;
+            self.emit_scratch_restore(&scratches);
+            return Ok(());
         }
 
         self.lower_addsub(
@@ -8780,6 +8814,94 @@ mod tests {
         let negative = ((src >> (width.bits() - 1)) & 1) != 0;
         let zero = src == 0;
         ((negative as u8) << 3) | ((zero as u8) << 2)
+    }
+
+    fn ref_inc_dec(src: u64, decrement: bool, width: OpWidth) -> u64 {
+        let mask = width_mask(width);
+        let src = src & mask;
+        if decrement {
+            src.wrapping_sub(1) & mask
+        } else {
+            src.wrapping_add(1) & mask
+        }
+    }
+
+    fn expected_inc_dec_nzcv(
+        old_nzcv: u8,
+        src: u64,
+        decrement: bool,
+        width: OpWidth,
+    ) -> u8 {
+        let mask = width_mask(width);
+        let src = src & mask;
+        let result = ref_inc_dec(src, decrement, width);
+        let sign = 1_u64 << (width.bits() - 1);
+        let negative = (result & sign) != 0;
+        let zero = result == 0;
+        let overflow = if decrement {
+            src == sign
+        } else {
+            src == sign - 1
+        };
+
+        ((negative as u8) << 3)
+            | ((zero as u8) << 2)
+            | (old_nzcv & 0b0010)
+            | (overflow as u8)
+    }
+
+    fn assert_inc_dec_flags_lowering(
+        label: &str,
+        decrement: bool,
+        dst_reg: u8,
+        src_reg: u8,
+        src_value: u64,
+        width: OpWidth,
+        old_nzcv: u8,
+    ) {
+        let op = if decrement {
+            OpKind::Dec {
+                dst: x(dst_reg),
+                src: x(src_reg),
+                width,
+                flags: FlagUpdate::All,
+            }
+        } else {
+            OpKind::Inc {
+                dst: x(dst_reg),
+                src: x(src_reg),
+                width,
+                flags: FlagUpdate::All,
+            }
+        };
+        let code = lower_single_op(op);
+        let expected = ref_inc_dec(src_value, decrement, width);
+        let expected_nzcv = expected_inc_dec_nzcv(old_nzcv, src_value, decrement, width);
+        let sentinels = [
+            (16, 0x1616_1616_1616_1616),
+            (17, 0x1717_1717_1717_1717),
+            (15, 0x1515_1515_1515_1515),
+            (14, 0x1414_1414_1414_1414),
+        ];
+        let mut regs = sentinels.to_vec();
+        regs.push((src_reg, src_value));
+
+        let (out, out_nzcv, sp) = run_aarch64_code(&code, &regs, old_nzcv);
+        assert_eq!(
+            out[dst_reg as usize] & width_mask(width),
+            expected,
+            "{label}: result"
+        );
+        assert_eq!(out_nzcv, expected_nzcv, "{label}: NZCV");
+        assert_eq!(sp, 0x8000, "{label}: stack restored");
+        if src_reg != dst_reg {
+            assert_eq!(out[src_reg as usize], src_value, "{label}: src preserved");
+        }
+        for (reg, value) in sentinels {
+            if reg != dst_reg && reg != src_reg {
+                assert_eq!(out[reg as usize], value, "{label}: x{reg} restored");
+            }
+        }
     }
 
     fn assert_sparse_logic_imm_lowering(
@@ -18877,30 +18999,52 @@ mod tests {
     }
 
     #[test]
-    fn rejects_flag_setting_inc_dec_lowering() {
-        for kind in [
-            OpKind::Inc {
-                dst: x(0),
-                src: x(1),
-                width: OpWidth::W64,
-                flags: FlagUpdate::All,
-            },
-            OpKind::Dec {
-                dst: x(0),
-                src: x(1),
-                width: OpWidth::W64,
-                flags: FlagUpdate::All,
-            },
-        ] {
-            let mut builder = FunctionBuilder::new(FunctionId(0), 0);
-            builder.push_op(0, kind);
-            builder.set_terminator(Terminator::Return { values: vec![] });
-            let func = builder.finish();
-
-            let mut lowerer = Aarch64Lowerer::new();
-            let err = lowerer.lower_function(&func).unwrap_err();
-            assert!(matches!(err, LowerError::UnsupportedOp { .. }));
-        }
+    fn lowers_flag_setting_inc_dec_runtime() {
+        assert_inc_dec_flags_lowering(
+            "inc_x_preserves_set_c_and_sets_overflow",
+            false,
+            0,
+            1,
+            0x7fff_ffff_ffff_ffff,
+            OpWidth::W64,
+            0b0010,
+        );
+        assert_inc_dec_flags_lowering(
+            "dec_x_preserves_clear_c_and_sets_overflow",
+            true,
+            0,
+            1,
+            0x8000_0000_0000_0000,
+            OpWidth::W64,
+            0b1101,
+        );
+        assert_inc_dec_flags_lowering(
+            "inc_w_sets_zero_and_preserves_c",
+            false,
+            0,
+            1,
+            0xffff_ffff,
+            OpWidth::W32,
+            0b1010,
+        );
+        assert_inc_dec_flags_lowering(
+            "dec_w_sets_negative_and_preserves_clear_c",
+            true,
+            0,
+            1,
+            0,
+            OpWidth::W32,
+            0b0101,
+        );
+        assert_inc_dec_flags_lowering(
+            "inc_x_dst_aliases_src_flags",
+            false,
+            1,
+            1,
+            41,
+            OpWidth::W64,
+            0b0010,
+        );
     }
 
     #[test]
