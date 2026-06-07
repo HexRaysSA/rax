@@ -11,8 +11,8 @@ use crate::smir::flags::FlagUpdate;
 use crate::smir::ir::{SmirBlock, SmirFunction, Terminator, TrapKind};
 use crate::smir::ops::{OpKind, SmirOp};
 use crate::smir::types::{
-    Address, ArchReg, ArmReg, AtomicOp, BlockId, Condition, ExtendOp, FenceKind, MemWidth,
-    FpPrecision, FpRoundMode, MemoryOrder, OpWidth, ShiftOp, SignExtend, SrcOperand,
+    Address, ArchReg, ArmReg, AtomicOp, Avx10FP16Op, BlockId, Condition, ExtendOp, FenceKind,
+    MemWidth, FpPrecision, FpRoundMode, MemoryOrder, OpWidth, ShiftOp, SignExtend, SrcOperand,
     VecElementType, VecWidth, VLaneOp, VReg,
 };
 
@@ -941,6 +941,30 @@ impl Aarch64Lowerer {
                 | (size << 22)
                 | ((rm as u32) << 16)
                 | (opcode << 11)
+                | ((rn as u32) << 5)
+                | (rd as u32),
+        );
+    }
+
+    fn emit_simd_fp16_three_same(
+        &mut self,
+        rd: u8,
+        rn: u8,
+        rm: u8,
+        q: u32,
+        u: u32,
+        a: u32,
+        opcode: u32,
+    ) {
+        self.emit(
+            (0b01110 << 24)
+                | (q << 30)
+                | (u << 29)
+                | (a << 23)
+                | (1 << 22)
+                | ((rm as u32) << 16)
+                | (opcode << 11)
+                | (1 << 10)
                 | ((rn as u32) << 5)
                 | (rd as u32),
         );
@@ -1971,6 +1995,16 @@ impl Aarch64Lowerer {
         Ok((q, size))
     }
 
+    fn simd_fp16_shape(width: VecWidth) -> Result<u32, LowerError> {
+        match width {
+            VecWidth::V64 => Ok(0),
+            VecWidth::V128 => Ok(1),
+            other => Err(LowerError::UnsupportedOp {
+                op: format!("AArch64 native FP16 vector width {other:?}"),
+            }),
+        }
+    }
+
     fn simd_broadcast_shape(elem: VecElementType, lanes: u8) -> Result<(u32, u32), LowerError> {
         let size = match elem {
             VecElementType::I8 => 0,
@@ -2334,6 +2368,33 @@ impl Aarch64Lowerer {
             SimdArithmeticOp::Min { .. } => (0, elem_size | 0b10, 0b11110),
         };
         self.emit_simd_three_same(rd, rn, rm, q, u, size, opcode);
+        Ok(())
+    }
+
+    fn lower_vfp16_arith(
+        &mut self,
+        dst: VReg,
+        src1: VReg,
+        src2: VReg,
+        op: Avx10FP16Op,
+        width: VecWidth,
+    ) -> Result<(), LowerError> {
+        let rd = Self::fp_reg(dst)?;
+        let rn = Self::fp_reg(src1)?;
+        let rm = Self::fp_reg(src2)?;
+        let q = Self::simd_fp16_shape(width)?;
+        let (u, a, opcode) = match op {
+            Avx10FP16Op::Add => (0, 0, 0b010),
+            Avx10FP16Op::Sub => (0, 1, 0b010),
+            Avx10FP16Op::Mul => (1, 0, 0b011),
+            Avx10FP16Op::Div => (1, 0, 0b111),
+            other => {
+                return Err(LowerError::UnsupportedOp {
+                    op: format!("AArch64 native AVX10 FP16 operation {other:?}"),
+                });
+            }
+        };
+        self.emit_simd_fp16_three_same(rd, rn, rm, q, u, a, opcode);
         Ok(())
     }
 
@@ -11046,6 +11107,13 @@ impl Aarch64Lowerer {
                 *negate_product,
                 *negate_acc,
             ),
+            OpKind::VFP16Arith {
+                dst,
+                src1,
+                src2,
+                op,
+                width,
+            } => self.lower_vfp16_arith(*dst, *src1, *src2, *op, *width),
             OpKind::VPopcnt {
                 dst,
                 src,
@@ -11783,6 +11851,9 @@ mod tests {
     use crate::arm::aarch64::{AArch64Config, AArch64Cpu};
     use crate::arm::cpu_trait::{ArmCpu, CpuExit};
     use crate::arm::memory::FlatMemory;
+    use crate::riscv::float::{
+        fcvt_round, sf_add, sf_div, sf_mul, sf_sub, RoundingMode, F16, F32,
+    };
     use crate::smir::flags::{FlagSet, FlagUpdate};
     use crate::smir::ir::{FunctionBuilder, Terminator, TrapKind};
     use crate::smir::types::{DispSize, FunctionId, SrcOperand, X86Reg};
@@ -12159,6 +12230,51 @@ mod tests {
             bytes[idx * 8..idx * 8 + 8].copy_from_slice(&value.to_bits().to_le_bytes());
         }
         simd_pair_from_bytes(bytes)
+    }
+
+    fn f16_bits(value: f32) -> u16 {
+        let mut flags = 0;
+        fcvt_round(
+            F32,
+            F16,
+            value.to_bits() as u64,
+            RoundingMode::Rne,
+            &mut flags,
+        ) as u16
+    }
+
+    fn simd_pair_from_f16(values: [u16; 8]) -> (u64, u64) {
+        let mut bytes = [0u8; 16];
+        for (idx, value) in values.iter().enumerate() {
+            bytes[idx * 2..idx * 2 + 2].copy_from_slice(&value.to_le_bytes());
+        }
+        simd_pair_from_bytes(bytes)
+    }
+
+    fn ref_f16_binop(a: u16, b: u16, op: Avx10FP16Op) -> u16 {
+        let mut flags = 0;
+        let a = a as u64;
+        let b = b as u64;
+        (match op {
+            Avx10FP16Op::Add => sf_add(F16, a, b, RoundingMode::Rne, &mut flags),
+            Avx10FP16Op::Sub => sf_sub(F16, a, b, RoundingMode::Rne, &mut flags),
+            Avx10FP16Op::Mul => sf_mul(F16, a, b, RoundingMode::Rne, &mut flags),
+            Avx10FP16Op::Div => sf_div(F16, a, b, RoundingMode::Rne, &mut flags),
+            other => panic!("unsupported FP16 reference op {other:?}"),
+        }) as u16
+    }
+
+    fn apply_f16_lanes(
+        a: [u16; 8],
+        b: [u16; 8],
+        lanes: usize,
+        op: Avx10FP16Op,
+    ) -> (u64, u64) {
+        let mut out = [0u16; 8];
+        for lane in 0..lanes {
+            out[lane] = ref_f16_binop(a[lane], b[lane], op);
+        }
+        simd_pair_from_f16(out)
     }
 
     fn ref_shift_reg(src: u64, amount: u64, shift: ShiftOp, width: OpWidth) -> u64 {
@@ -18473,6 +18589,112 @@ mod tests {
     }
 
     #[test]
+    fn lowers_vector_fp16_arithmetic_runtime() {
+        let a128 = [
+            f16_bits(1.5),
+            f16_bits(-2.0),
+            f16_bits(0.5),
+            f16_bits(4.0),
+            f16_bits(8.0),
+            f16_bits(-0.25),
+            f16_bits(16.0),
+            f16_bits(-32.0),
+        ];
+        let b128 = [
+            f16_bits(2.0),
+            f16_bits(3.0),
+            f16_bits(-1.5),
+            f16_bits(0.5),
+            f16_bits(-4.0),
+            f16_bits(-0.75),
+            f16_bits(0.5),
+            f16_bits(-2.0),
+        ];
+        let a64 = [
+            f16_bits(3.0),
+            f16_bits(-4.0),
+            f16_bits(0.5),
+            f16_bits(-0.25),
+            f16_bits(12.0),
+            f16_bits(13.0),
+            f16_bits(14.0),
+            f16_bits(15.0),
+        ];
+        let b64 = [
+            f16_bits(0.5),
+            f16_bits(2.0),
+            f16_bits(-8.0),
+            f16_bits(-0.5),
+            f16_bits(16.0),
+            f16_bits(17.0),
+            f16_bits(18.0),
+            f16_bits(19.0),
+        ];
+        let code = lower_ops(vec![
+            OpKind::VFP16Arith {
+                dst: v(0),
+                src1: v(1),
+                src2: v(2),
+                op: Avx10FP16Op::Add,
+                width: VecWidth::V128,
+            },
+            OpKind::VFP16Arith {
+                dst: v(3),
+                src1: v(1),
+                src2: v(2),
+                op: Avx10FP16Op::Sub,
+                width: VecWidth::V128,
+            },
+            OpKind::VFP16Arith {
+                dst: v(4),
+                src1: v(1),
+                src2: v(2),
+                op: Avx10FP16Op::Mul,
+                width: VecWidth::V128,
+            },
+            OpKind::VFP16Arith {
+                dst: v(5),
+                src1: v(1),
+                src2: v(2),
+                op: Avx10FP16Op::Div,
+                width: VecWidth::V128,
+            },
+            OpKind::VFP16Arith {
+                dst: v(8),
+                src1: v(6),
+                src2: v(7),
+                op: Avx10FP16Op::Add,
+                width: VecWidth::V64,
+            },
+            OpKind::VFP16Arith {
+                dst: v(9),
+                src1: v(6),
+                src2: v(7),
+                op: Avx10FP16Op::Div,
+                width: VecWidth::V64,
+            },
+        ]);
+
+        let (_, simd, _) = run_aarch64_code_with_regs_and_simd(
+            &code,
+            &[],
+            &[
+                (1, simd_pair_from_f16(a128).0, simd_pair_from_f16(a128).1),
+                (2, simd_pair_from_f16(b128).0, simd_pair_from_f16(b128).1),
+                (6, simd_pair_from_f16(a64).0, simd_pair_from_f16(a64).1),
+                (7, simd_pair_from_f16(b64).0, simd_pair_from_f16(b64).1),
+            ],
+        );
+
+        assert_eq!(simd[0], apply_f16_lanes(a128, b128, 8, Avx10FP16Op::Add));
+        assert_eq!(simd[3], apply_f16_lanes(a128, b128, 8, Avx10FP16Op::Sub));
+        assert_eq!(simd[4], apply_f16_lanes(a128, b128, 8, Avx10FP16Op::Mul));
+        assert_eq!(simd[5], apply_f16_lanes(a128, b128, 8, Avx10FP16Op::Div));
+        assert_eq!(simd[8], apply_f16_lanes(a64, b64, 4, Avx10FP16Op::Add));
+        assert_eq!(simd[9], apply_f16_lanes(a64, b64, 4, Avx10FP16Op::Div));
+    }
+
+    #[test]
     fn lowers_vector_float_fma_runtime() {
         fn apply_f32(
             a: [f32; 4],
@@ -19953,6 +20175,22 @@ mod tests {
             lanes: 4,
             negate_product: false,
             negate_acc: false,
+        });
+
+        assert_unsupported(OpKind::VFP16Arith {
+            dst: v(0),
+            src1: v(1),
+            src2: v(2),
+            op: Avx10FP16Op::Add,
+            width: VecWidth::V256,
+        });
+
+        assert_unsupported(OpKind::VFP16Arith {
+            dst: v(0),
+            src1: v(1),
+            src2: v(2),
+            op: Avx10FP16Op::Min,
+            width: VecWidth::V128,
         });
 
         assert_unsupported(OpKind::VPopcnt {
