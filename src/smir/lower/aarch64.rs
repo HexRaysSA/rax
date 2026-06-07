@@ -2902,6 +2902,30 @@ impl Aarch64Lowerer {
         Ok(())
     }
 
+    fn lower_vminmax(
+        &mut self,
+        dst: VReg,
+        src1: VReg,
+        src2: VReg,
+        elem: VecElementType,
+        width: VecWidth,
+        imm: u8,
+    ) -> Result<(), LowerError> {
+        if !matches!(elem, VecElementType::F32 | VecElementType::F64) {
+            return Err(LowerError::UnsupportedOp {
+                op: format!("AArch64 native VMINMAX element {elem:?}"),
+            });
+        }
+
+        let lanes = width.lanes(elem) as u8;
+        let op = if imm & 1 == 0 {
+            SimdArithmeticOp::Min { signed: false }
+        } else {
+            SimdArithmeticOp::Max
+        };
+        self.lower_vfloat_arith(dst, src1, src2, elem, lanes, op)
+    }
+
     fn lower_vpermute_mask_indices(
         &mut self,
         rd: u8,
@@ -11535,6 +11559,14 @@ impl Aarch64Lowerer {
                 width,
                 imm,
             } => self.lower_vmpsadbw(*dst, *src1, *src2, *width, *imm),
+            OpKind::VMinMax {
+                dst,
+                src1,
+                src2,
+                elem,
+                width,
+                imm,
+            } => self.lower_vminmax(*dst, *src1, *src2, *elem, *width, *imm),
             OpKind::VPermute {
                 dst,
                 src1,
@@ -19136,6 +19168,90 @@ mod tests {
     }
 
     #[test]
+    fn lowers_vector_minmax_runtime() {
+        fn apply_f32<F: Fn(f32, f32) -> f32>(
+            a: [f32; 4],
+            b: [f32; 4],
+            op: F,
+        ) -> (u64, u64) {
+            simd_pair_from_f32([
+                op(a[0], b[0]),
+                op(a[1], b[1]),
+                op(a[2], b[2]),
+                op(a[3], b[3]),
+            ])
+        }
+
+        fn apply_f64<F: Fn(f64, f64) -> f64>(
+            a: [f64; 2],
+            b: [f64; 2],
+            op: F,
+        ) -> (u64, u64) {
+            simd_pair_from_f64([op(a[0], b[0]), op(a[1], b[1])])
+        }
+
+        let a32 = [1.5, -2.25, 8.0, -0.5];
+        let b32 = [2.25, 3.5, -1.5, 4.0];
+        let a64 = [-7.0, 2.5];
+        let b64 = [3.0, -1.25];
+        let code = lower_ops(vec![
+            OpKind::VMinMax {
+                dst: v(0),
+                src1: v(1),
+                src2: v(2),
+                elem: VecElementType::F32,
+                width: VecWidth::V128,
+                imm: 0,
+            },
+            OpKind::VMinMax {
+                dst: v(3),
+                src1: v(1),
+                src2: v(2),
+                elem: VecElementType::F32,
+                width: VecWidth::V128,
+                imm: 5,
+            },
+            OpKind::VMinMax {
+                dst: v(4),
+                src1: v(5),
+                src2: v(6),
+                elem: VecElementType::F64,
+                width: VecWidth::V128,
+                imm: 2,
+            },
+            OpKind::VMinMax {
+                dst: v(7),
+                src1: v(5),
+                src2: v(6),
+                elem: VecElementType::F64,
+                width: VecWidth::V128,
+                imm: 3,
+            },
+        ]);
+
+        let (_, simd, sp) = run_aarch64_code_with_regs_and_simd(
+            &code,
+            &[],
+            &[
+                (1, simd_pair_from_f32(a32).0, simd_pair_from_f32(a32).1),
+                (2, simd_pair_from_f32(b32).0, simd_pair_from_f32(b32).1),
+                (5, simd_pair_from_f64(a64).0, simd_pair_from_f64(a64).1),
+                (6, simd_pair_from_f64(b64).0, simd_pair_from_f64(b64).1),
+            ],
+        );
+
+        assert_eq!(simd[0], apply_f32(a32, b32, f32::min));
+        assert_eq!(simd[3], apply_f32(a32, b32, f32::max));
+        assert_eq!(simd[4], apply_f64(a64, b64, f64::min));
+        assert_eq!(simd[7], apply_f64(a64, b64, f64::max));
+        assert_eq!(simd[1], simd_pair_from_f32(a32));
+        assert_eq!(simd[2], simd_pair_from_f32(b32));
+        assert_eq!(simd[5], simd_pair_from_f64(a64));
+        assert_eq!(simd[6], simd_pair_from_f64(b64));
+        assert_eq!(sp, 0x8000);
+    }
+
+    #[test]
     fn lowers_vector_fp16_arithmetic_runtime() {
         let a128 = [
             f16_bits(1.5),
@@ -21503,6 +21619,24 @@ mod tests {
             src1: v(1),
             src2: v(2),
             width: VecWidth::V256,
+            imm: 0,
+        });
+
+        assert_unsupported(OpKind::VMinMax {
+            dst: v(0),
+            src1: v(1),
+            src2: v(2),
+            elem: VecElementType::F32,
+            width: VecWidth::V256,
+            imm: 0,
+        });
+
+        assert_unsupported(OpKind::VMinMax {
+            dst: v(0),
+            src1: v(1),
+            src2: v(2),
+            elem: VecElementType::I32,
+            width: VecWidth::V128,
             imm: 0,
         });
 
