@@ -2783,6 +2783,59 @@ impl Aarch64Lowerer {
         )
     }
 
+    fn lower_vmultiply_add52(
+        &mut self,
+        dst: VReg,
+        acc: VReg,
+        src1: VReg,
+        src2: VReg,
+        width: VecWidth,
+        high: bool,
+    ) -> Result<(), LowerError> {
+        if width != VecWidth::V128 {
+            return Err(LowerError::UnsupportedOp {
+                op: format!("AArch64 native vector IFMA52 width {width:?}"),
+            });
+        }
+
+        let rd = Self::fp_reg(dst)?;
+        let ra_vec = Self::fp_reg(acc)?;
+        let rn_vec = Self::fp_reg(src1)?;
+        let rm_vec = Self::fp_reg(src2)?;
+        let (imm_n, immr, imms) =
+            Self::logical_bitmask_imm(0x000f_ffff_ffff_ffff, OpWidth::W64)?;
+        let scratches = Self::scratch_regs(&[], 5)?;
+        self.emit_scratch_save(&scratches);
+        let lhs = scratches[0];
+        let rhs = scratches[1];
+        let part = scratches[2];
+        let upper = scratches[3];
+        let accum = scratches[4];
+
+        for lane in 0..2 {
+            let (_, imm5) = Self::simd_lane_imm5(VecElementType::I64, lane)?;
+            self.emit_simd_umov(lhs, rn_vec, imm5, true);
+            self.emit_simd_umov(rhs, rm_vec, imm5, true);
+            self.emit_simd_umov(accum, ra_vec, imm5, true);
+            self.emit_logic_imm(lhs, lhs, 0b00, imm_n, immr, imms, OpWidth::W64)?;
+            self.emit_logic_imm(rhs, rhs, 0b00, imm_n, immr, imms, OpWidth::W64)?;
+            self.emit_dp3(part, lhs, rhs, 31, 0b000, 0, OpWidth::W64)?;
+            if high {
+                self.emit_dp3(upper, lhs, rhs, 31, 0b110, 0, OpWidth::W64)?;
+                self.emit_bitfield(part, part, 0b10, 52, 63, OpWidth::W64)?;
+                self.emit_bitfield(upper, upper, 0b10, 52, 51, OpWidth::W64)?;
+                self.emit_logic_reg_n(part, part, upper, 0b01, false, OpWidth::W64)?;
+            } else {
+                self.emit_logic_imm(part, part, 0b00, imm_n, immr, imms, OpWidth::W64)?;
+            }
+            self.emit_addsub_reg(part, accum, part, false, false, OpWidth::W64)?;
+            self.emit_simd_ins_general(rd, part, imm5);
+        }
+
+        self.emit_scratch_restore(&scratches);
+        Ok(())
+    }
+
     fn lower_vpermute_mask_indices(
         &mut self,
         rd: u8,
@@ -11401,6 +11454,14 @@ impl Aarch64Lowerer {
                 elem,
                 width,
             } => self.lower_vpopcnt(*dst, *src, *elem, *width),
+            OpKind::VMultiplyAdd52 {
+                dst,
+                acc,
+                src1,
+                src2,
+                width,
+                high,
+            } => self.lower_vmultiply_add52(*dst, *acc, *src1, *src2, *width, *high),
             OpKind::VPermute {
                 dst,
                 src1,
@@ -20231,6 +20292,98 @@ mod tests {
     }
 
     #[test]
+    fn lowers_vmultiply_add52_v128_runtime() {
+        const MASK52: u64 = 0x000f_ffff_ffff_ffff;
+
+        fn ref_ifma52_lane(acc: u64, lhs: u64, rhs: u64, high: bool) -> u64 {
+            let product = ((lhs & MASK52) as u128) * ((rhs & MASK52) as u128);
+            let addend = if high {
+                ((product >> 52) & MASK52 as u128) as u64
+            } else {
+                (product & MASK52 as u128) as u64
+            };
+            acc.wrapping_add(addend)
+        }
+
+        fn ref_ifma52(
+            acc: (u64, u64),
+            lhs: (u64, u64),
+            rhs: (u64, u64),
+            high: bool,
+        ) -> (u64, u64) {
+            (
+                ref_ifma52_lane(acc.0, lhs.0, rhs.0, high),
+                ref_ifma52_lane(acc.1, lhs.1, rhs.1, high),
+            )
+        }
+
+        let acc_low = (0xffff_ffff_ffff_ff00, 0x0102_0304_0506_0708);
+        let acc_high = (0x1111_2222_3333_4444, 0xffff_0000_ffff_0001);
+        let alias_acc = (0x4444_3333_2222_1111, 0x8080_7070_6060_5050);
+        let lhs = (0xffff_ffff_ffff_ffff, 0x000f_edcb_a987_6543);
+        let rhs = (0x0012_3456_789a_bcde, 0x000f_ffff_ffff_ffff);
+        let alias_rhs = (0x000f_0000_0000_0003, 0x0000_ffff_ffff_fff1);
+        let code = lower_ops(vec![
+            OpKind::VMultiplyAdd52 {
+                dst: v(0),
+                acc: v(1),
+                src1: v(2),
+                src2: v(3),
+                width: VecWidth::V128,
+                high: false,
+            },
+            OpKind::VMultiplyAdd52 {
+                dst: v(4),
+                acc: v(5),
+                src1: v(2),
+                src2: v(3),
+                width: VecWidth::V128,
+                high: true,
+            },
+            OpKind::VMultiplyAdd52 {
+                dst: v(6),
+                acc: v(6),
+                src1: v(6),
+                src2: v(7),
+                width: VecWidth::V128,
+                high: true,
+            },
+        ]);
+
+        let (regs, simd, sp) = run_aarch64_code_with_regs_and_simd(
+            &code,
+            &[
+                (13, 0x1313_1313_1313_1313),
+                (14, 0x1414_1414_1414_1414),
+                (15, 0x1515_1515_1515_1515),
+                (16, 0x1616_1616_1616_1616),
+                (17, 0x1717_1717_1717_1717),
+            ],
+            &[
+                (1, acc_low.0, acc_low.1),
+                (2, lhs.0, lhs.1),
+                (3, rhs.0, rhs.1),
+                (5, acc_high.0, acc_high.1),
+                (6, alias_acc.0, alias_acc.1),
+                (7, alias_rhs.0, alias_rhs.1),
+            ],
+        );
+
+        assert_eq!(simd[0], ref_ifma52(acc_low, lhs, rhs, false));
+        assert_eq!(simd[4], ref_ifma52(acc_high, lhs, rhs, true));
+        assert_eq!(simd[6], ref_ifma52(alias_acc, alias_acc, alias_rhs, true));
+        assert_eq!(simd[1], acc_low);
+        assert_eq!(simd[2], lhs);
+        assert_eq!(simd[3], rhs);
+        assert_eq!(regs[13], 0x1313_1313_1313_1313);
+        assert_eq!(regs[14], 0x1414_1414_1414_1414);
+        assert_eq!(regs[15], 0x1515_1515_1515_1515);
+        assert_eq!(regs[16], 0x1616_1616_1616_1616);
+        assert_eq!(regs[17], 0x1717_1717_1717_1717);
+        assert_eq!(sp, 0x8000);
+    }
+
+    #[test]
     fn lowers_vlane_unary_integer_runtime() {
         fn apply_vlane_unary(
             src_low: u64,
@@ -21152,6 +21305,15 @@ mod tests {
             src: v(1),
             elem: VecElementType::I8,
             width: VecWidth::V256,
+        });
+
+        assert_unsupported(OpKind::VMultiplyAdd52 {
+            dst: v(0),
+            acc: v(0),
+            src1: v(1),
+            src2: v(2),
+            width: VecWidth::V256,
+            high: false,
         });
 
         assert_unsupported(OpKind::VPermute {
