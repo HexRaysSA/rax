@@ -928,6 +928,19 @@ impl Aarch64Lowerer {
         );
     }
 
+    fn emit_simd_dup_general(&mut self, rd: u8, rn: u8, q: u32, size: u32) {
+        let imm5 = 1_u32 << size;
+        self.emit(
+            0x0e00_0000
+                | (q << 30)
+                | (imm5 << 16)
+                | (0b0001 << 11)
+                | (1 << 10)
+                | ((rn as u32) << 5)
+                | (rd as u32),
+        );
+    }
+
     fn emit_simd_logical(
         &mut self,
         rd: u8,
@@ -1937,6 +1950,20 @@ impl Aarch64Lowerer {
         let rn = Self::fp_reg(src1)?;
         let rm = Self::fp_reg(src2)?;
         self.emit_simd_logical(rd, rn, rm, width, op)
+    }
+
+    fn lower_vbroadcast(
+        &mut self,
+        dst: VReg,
+        scalar: VReg,
+        elem: VecElementType,
+        lanes: u8,
+    ) -> Result<(), LowerError> {
+        let rd = Self::fp_reg(dst)?;
+        let rn = Self::gpr(scalar)?;
+        let (q, size) = Self::simd_integer_shape(elem, lanes)?;
+        self.emit_simd_dup_general(rd, rn, q, size);
+        Ok(())
     }
 
     fn lower_varith(
@@ -10358,6 +10385,12 @@ impl Aarch64Lowerer {
                 elem,
                 lanes,
             } => self.lower_varith(*dst, *src1, *src2, *elem, *lanes, SimdArithmeticOp::Mul),
+            OpKind::VBroadcast {
+                dst,
+                scalar,
+                elem,
+                lanes,
+            } => self.lower_vbroadcast(*dst, *scalar, *elem, *lanes),
             OpKind::VMov { dst, src, width } => self.lower_vmov(*dst, *src, *width),
             OpKind::VAnd {
                 dst,
@@ -17345,6 +17378,72 @@ mod tests {
     }
 
     #[test]
+    fn lowers_vector_broadcast_runtime() {
+        fn splat(scalar: u64, elem_bytes: usize, lanes: usize) -> (u64, u64) {
+            let mut out = [0u8; 16];
+            let bytes = scalar.to_le_bytes();
+            for lane in 0..lanes {
+                let off = lane * elem_bytes;
+                out[off..off + elem_bytes].copy_from_slice(&bytes[..elem_bytes]);
+            }
+
+            let mut low = [0u8; 8];
+            let mut high = [0u8; 8];
+            low.copy_from_slice(&out[..8]);
+            high.copy_from_slice(&out[8..]);
+            (u64::from_le_bytes(low), u64::from_le_bytes(high))
+        }
+
+        let scalar = 0x8877_6655_4433_2211;
+        let code = lower_ops(vec![
+            OpKind::VBroadcast {
+                dst: v(0),
+                scalar: x(1),
+                elem: VecElementType::I8,
+                lanes: 16,
+            },
+            OpKind::VBroadcast {
+                dst: v(2),
+                scalar: x(1),
+                elem: VecElementType::I16,
+                lanes: 8,
+            },
+            OpKind::VBroadcast {
+                dst: v(3),
+                scalar: x(1),
+                elem: VecElementType::I32,
+                lanes: 4,
+            },
+            OpKind::VBroadcast {
+                dst: v(4),
+                scalar: x(1),
+                elem: VecElementType::I64,
+                lanes: 2,
+            },
+            OpKind::VBroadcast {
+                dst: v(5),
+                scalar: x(1),
+                elem: VecElementType::I32,
+                lanes: 2,
+            },
+            OpKind::VBroadcast {
+                dst: v(6),
+                scalar: VReg::Imm(0),
+                elem: VecElementType::I16,
+                lanes: 4,
+            },
+        ]);
+
+        let (_, simd, _) = run_aarch64_code_with_regs_and_simd(&code, &[(1, scalar)], &[]);
+        assert_eq!(simd[0], splat(scalar, 1, 16));
+        assert_eq!(simd[2], splat(scalar, 2, 8));
+        assert_eq!(simd[3], splat(scalar, 4, 4));
+        assert_eq!(simd[4], splat(scalar, 8, 2));
+        assert_eq!(simd[5], splat(scalar, 4, 2));
+        assert_eq!(simd[6], (0, 0));
+    }
+
+    #[test]
     fn lowers_vector_load_store_runtime() {
         fn le_u64(bytes: &[u8], offset: usize) -> u64 {
             let mut word = [0u8; 8];
@@ -17470,6 +17569,20 @@ mod tests {
             src2: v(2),
             elem: VecElementType::I64,
             lanes: 2,
+        });
+
+        assert_unsupported(OpKind::VBroadcast {
+            dst: v(0),
+            scalar: x(1),
+            elem: VecElementType::I32,
+            lanes: 32,
+        });
+
+        assert_unsupported(OpKind::VBroadcast {
+            dst: v(0),
+            scalar: x(1),
+            elem: VecElementType::F32,
+            lanes: 4,
         });
     }
 
