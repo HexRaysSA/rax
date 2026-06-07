@@ -12,7 +12,8 @@ use crate::smir::ir::{SmirBlock, SmirFunction, Terminator, TrapKind};
 use crate::smir::ops::{OpKind, SmirOp};
 use crate::smir::types::{
     Address, ArchReg, ArmReg, AtomicOp, BlockId, Condition, ExtendOp, FenceKind, MemWidth,
-    FpPrecision, FpRoundMode, MemoryOrder, OpWidth, ShiftOp, SignExtend, SrcOperand, VReg,
+    FpPrecision, FpRoundMode, MemoryOrder, OpWidth, ShiftOp, SignExtend, SrcOperand, VecWidth,
+    VReg,
 };
 
 use super::{CodeBuffer, LowerError, LowerResult, Relocation, SmirLowerer};
@@ -875,6 +876,54 @@ impl Aarch64Lowerer {
         self.emit_ldst_simm(rt, rn, size, opc, imm9, 0b00);
     }
 
+    fn emit_simd_ldst_unsigned(&mut self, rt: u8, rn: u8, size: u32, opc: u32, imm12: u32) {
+        self.emit(
+            (size << 30)
+                | (0b111 << 27)
+                | (1 << 26)
+                | (0b01 << 24)
+                | (opc << 22)
+                | (imm12 << 10)
+                | ((rn as u32) << 5)
+                | (rt as u32),
+        );
+    }
+
+    fn emit_simd_ldst_simm(&mut self, rt: u8, rn: u8, size: u32, opc: u32, imm9: i64, mode: u32) {
+        self.emit(
+            (size << 30)
+                | (0b111 << 27)
+                | (1 << 26)
+                | (opc << 22)
+                | (((imm9 as u32) & 0x1ff) << 12)
+                | (mode << 10)
+                | ((rn as u32) << 5)
+                | (rt as u32),
+        );
+    }
+
+    fn emit_simd_ldst_unscaled(&mut self, rt: u8, rn: u8, size: u32, opc: u32, imm9: i64) {
+        self.emit_simd_ldst_simm(rt, rn, size, opc, imm9, 0b00);
+    }
+
+    fn emit_simd_logical(
+        &mut self,
+        rd: u8,
+        rn: u8,
+        rm: u8,
+        width: VecWidth,
+        op: SimdLogicOp,
+    ) -> Result<(), LowerError> {
+        let q = Self::simd_vec_q(width)?;
+        let base = match op {
+            SimdLogicOp::And => 0x0e20_1c00,
+            SimdLogicOp::Or => 0x0ea0_1c00,
+            SimdLogicOp::Xor => 0x2e20_1c00,
+        };
+        self.emit(base | (q << 30) | ((rm as u32) << 16) | ((rn as u32) << 5) | rd as u32);
+        Ok(())
+    }
+
     fn emit_push_scratch(&mut self, rt: u8) {
         self.emit_ldst_simm(rt, 31, 3, 0b00, -16, 0b11);
     }
@@ -1717,6 +1766,121 @@ impl Aarch64Lowerer {
         let rt = Self::gpr(src)?;
         let size = Self::mem_size(width)?;
         self.lower_mem_access(rt, addr, size, 0b00)
+    }
+
+    fn simd_vec_q(width: VecWidth) -> Result<u32, LowerError> {
+        match width {
+            VecWidth::V64 => Ok(0),
+            VecWidth::V128 => Ok(1),
+            other => Err(LowerError::UnsupportedOp {
+                op: format!("AArch64 native vector width {other:?}"),
+            }),
+        }
+    }
+
+    fn simd_mem_fields(width: VecWidth, load: bool) -> Result<(u32, u32, u32), LowerError> {
+        match width {
+            VecWidth::V64 => Ok((0b11, load as u32, 3)),
+            VecWidth::V128 => Ok((0b00, 0b10 | load as u32, 4)),
+            other => Err(LowerError::UnsupportedOp {
+                op: format!("AArch64 native vector memory width {other:?}"),
+            }),
+        }
+    }
+
+    fn lower_simd_mem_access(
+        &mut self,
+        rt: u8,
+        addr: &Address,
+        width: VecWidth,
+        load: bool,
+    ) -> Result<(), LowerError> {
+        let (size, opc, scale_shift) = Self::simd_mem_fields(width, load)?;
+        if let Address::BaseIndexScale {
+            base,
+            index,
+            scale,
+            disp,
+            ..
+        } = addr
+        {
+            let (scratches, addr) =
+                self.lower_base_index_scale_to_scratch(&[], *base, *index, *scale, *disp)?;
+            self.emit_simd_ldst_unsigned(rt, addr, size, opc, 0);
+            self.emit_scratch_restore(&scratches);
+            return Ok(());
+        }
+
+        let (base_vreg, base, offset) = match addr {
+            Address::Direct(base) => (*base, Self::base_gpr(*base)?, 0),
+            Address::BaseOffset { base, offset, .. } => {
+                (*base, Self::base_gpr(*base)?, *offset)
+            }
+            other => {
+                return Err(LowerError::UnsupportedOp {
+                    op: format!("AArch64 native vector memory address {other:?}"),
+                });
+            }
+        };
+
+        let scale = 1_i64 << scale_shift;
+        if offset >= 0 && offset % scale == 0 {
+            let imm12 = offset / scale;
+            if imm12 <= 0xfff {
+                self.emit_simd_ldst_unsigned(rt, base, size, opc, imm12 as u32);
+                return Ok(());
+            }
+        }
+
+        if (-256..=255).contains(&offset) {
+            self.emit_simd_ldst_unscaled(rt, base, size, opc, offset);
+            return Ok(());
+        }
+
+        let (scratches, addr) = self.lower_base_offset_to_scratch(&[], base_vreg, offset)?;
+        self.emit_simd_ldst_unsigned(rt, addr, size, opc, 0);
+        self.emit_scratch_restore(&scratches);
+        Ok(())
+    }
+
+    fn lower_vload(
+        &mut self,
+        dst: VReg,
+        addr: &Address,
+        width: VecWidth,
+    ) -> Result<(), LowerError> {
+        let rt = Self::fp_reg(dst)?;
+        self.lower_simd_mem_access(rt, addr, width, true)
+    }
+
+    fn lower_vstore(
+        &mut self,
+        src: VReg,
+        addr: &Address,
+        width: VecWidth,
+    ) -> Result<(), LowerError> {
+        let rt = Self::fp_reg(src)?;
+        self.lower_simd_mem_access(rt, addr, width, false)
+    }
+
+    fn lower_vmov(&mut self, dst: VReg, src: VReg, width: VecWidth) -> Result<(), LowerError> {
+        let rd = Self::fp_reg(dst)?;
+        let rn = Self::fp_reg(src)?;
+        self.emit_simd_logical(rd, rn, rn, width, SimdLogicOp::Or)
+    }
+
+    fn lower_vlogic(
+        &mut self,
+        dst: VReg,
+        src1: VReg,
+        src2: VReg,
+        width: VecWidth,
+        op: SimdLogicOp,
+    ) -> Result<(), LowerError> {
+        let rd = Self::fp_reg(dst)?;
+        let rn = Self::fp_reg(src1)?;
+        let rm = Self::fp_reg(src2)?;
+        self.emit_simd_logical(rd, rn, rm, width, op)
     }
 
     fn lower_rep_stos(
@@ -10088,6 +10252,27 @@ impl Aarch64Lowerer {
                 src,
                 precision,
             } => self.lower_fp_unary(*dst, *src, *precision, 0b00011),
+            OpKind::VMov { dst, src, width } => self.lower_vmov(*dst, *src, *width),
+            OpKind::VAnd {
+                dst,
+                src1,
+                src2,
+                width,
+            } => self.lower_vlogic(*dst, *src1, *src2, *width, SimdLogicOp::And),
+            OpKind::VOr {
+                dst,
+                src1,
+                src2,
+                width,
+            } => self.lower_vlogic(*dst, *src1, *src2, *width, SimdLogicOp::Or),
+            OpKind::VXor {
+                dst,
+                src1,
+                src2,
+                width,
+            } => self.lower_vlogic(*dst, *src1, *src2, *width, SimdLogicOp::Xor),
+            OpKind::VLoad { dst, addr, width } => self.lower_vload(*dst, addr, *width),
+            OpKind::VStore { src, addr, width } => self.lower_vstore(*src, addr, *width),
             OpKind::Load {
                 dst,
                 addr,
@@ -10658,6 +10843,13 @@ enum CondCompareSource {
     Immediate(i64),
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum SimdLogicOp {
+    And,
+    Or,
+    Xor,
+}
+
 #[derive(Clone, Copy)]
 struct SysRegInfo {
     op1: u32,
@@ -10913,6 +11105,60 @@ mod tests {
             out_simd[reg] = cpu.get_simd_reg(reg as u8).unwrap();
         }
         (out_regs, out_simd, cpu.current_sp())
+    }
+
+    fn run_aarch64_code_with_regs_simd_and_memory(
+        code: &[u8],
+        regs: &[(u8, u64)],
+        simd_regs: &[(u8, u64, u64)],
+        mem_init: &[(u64, &[u8])],
+        mem_read_addr: u64,
+        mem_read_len: usize,
+    ) -> ([u64; 31], [(u64, u64); 32], Vec<u8>) {
+        let mut image = vec![0u8; 0x10000];
+        image[..code.len()].copy_from_slice(code);
+        image[code.len()..code.len() + 4].copy_from_slice(&0xd460_0000u32.to_le_bytes());
+        for &(addr, data) in mem_init {
+            let offset = addr as usize;
+            image[offset..offset + data.len()].copy_from_slice(data);
+        }
+
+        let memory = FlatMemory::with_data(0, image);
+        let mut cpu = AArch64Cpu::new(AArch64Config::default(), Box::new(memory));
+        cpu.set_pc(0);
+        cpu.set_current_sp(0x8000);
+        cpu.set_x(30, code.len() as u64);
+        for &(reg, value) in regs {
+            cpu.set_x(reg, value);
+        }
+        for &(reg, low, high) in simd_regs {
+            cpu.set_simd_reg(reg, low, high).unwrap();
+        }
+
+        let max_steps = code.len() / 4 + 4096;
+        let mut saw_break = false;
+        for _ in 0..max_steps {
+            match cpu.step().unwrap() {
+                CpuExit::Continue => {}
+                CpuExit::Breakpoint(_) => {
+                    saw_break = true;
+                    break;
+                }
+                other => panic!("unexpected AArch64 CPU exit: {other:?}"),
+            }
+        }
+        assert!(saw_break, "lowered code did not return to BRK sentinel");
+
+        let mut out_regs = [0u64; 31];
+        for reg in 0..31 {
+            out_regs[reg] = cpu.get_x(reg as u8);
+        }
+        let mut out_simd = [(0u64, 0u64); 32];
+        for reg in 0..32 {
+            out_simd[reg] = cpu.get_simd_reg(reg as u8).unwrap();
+        }
+        let mem = cpu.read_memory(mem_read_addr, mem_read_len).unwrap();
+        (out_regs, out_simd, mem)
     }
 
     fn run_aarch64_code_with_memory(
@@ -16800,6 +17046,161 @@ mod tests {
                 src: v(1),
                 precision: FpPrecision::F80,
                 mode: FpRoundMode::RoundNearest,
+            },
+        );
+        builder.set_terminator(Terminator::Return { values: vec![] });
+        let func = builder.finish();
+
+        let mut lowerer = Aarch64Lowerer::new();
+        let err = lowerer.lower_function(&func).unwrap_err();
+        assert!(matches!(err, LowerError::UnsupportedOp { .. }));
+    }
+
+    #[test]
+    fn lowers_vector_move_and_logic_runtime() {
+        let a_low = 0x0123_4567_89ab_cdef;
+        let a_high = 0xfedc_ba98_7654_3210;
+        let b_low = 0x0f0f_f0f0_55aa_aa55;
+        let b_high = 0x3333_cccc_9696_6969;
+        let code = lower_ops(vec![
+            OpKind::VMov {
+                dst: v(0),
+                src: v(1),
+                width: VecWidth::V128,
+            },
+            OpKind::VMov {
+                dst: v(6),
+                src: v(1),
+                width: VecWidth::V64,
+            },
+            OpKind::VAnd {
+                dst: v(2),
+                src1: v(1),
+                src2: v(3),
+                width: VecWidth::V128,
+            },
+            OpKind::VOr {
+                dst: v(4),
+                src1: v(1),
+                src2: v(3),
+                width: VecWidth::V64,
+            },
+            OpKind::VXor {
+                dst: v(5),
+                src1: v(1),
+                src2: v(3),
+                width: VecWidth::V128,
+            },
+        ]);
+
+        let (_, simd, _) = run_aarch64_code_with_regs_and_simd(
+            &code,
+            &[],
+            &[(1, a_low, a_high), (3, b_low, b_high)],
+        );
+        assert_eq!(simd[0], (a_low, a_high));
+        assert_eq!(simd[6], (a_low, 0));
+        assert_eq!(simd[2], (a_low & b_low, a_high & b_high));
+        assert_eq!(simd[4], (a_low | b_low, 0));
+        assert_eq!(simd[5], (a_low ^ b_low, a_high ^ b_high));
+    }
+
+    #[test]
+    fn lowers_vector_load_store_runtime() {
+        fn le_u64(bytes: &[u8], offset: usize) -> u64 {
+            let mut word = [0u8; 8];
+            word.copy_from_slice(&bytes[offset..offset + 8]);
+            u64::from_le_bytes(word)
+        }
+
+        let mem_addr = 0x400;
+        let mut mem = [0u8; 128];
+        for (idx, byte) in mem.iter_mut().enumerate() {
+            *byte = (idx as u8).wrapping_mul(3).wrapping_add(1);
+        }
+        let v7_low: u64 = 0x1122_3344_5566_7788;
+        let v7_high: u64 = 0x99aa_bbcc_ddee_ff00;
+        let mut v7_bytes = [0u8; 16];
+        v7_bytes[..8].copy_from_slice(&v7_low.to_le_bytes());
+        v7_bytes[8..].copy_from_slice(&v7_high.to_le_bytes());
+
+        let code = lower_ops(vec![
+            OpKind::VLoad {
+                dst: v(0),
+                addr: Address::Direct(x(1)),
+                width: VecWidth::V128,
+            },
+            OpKind::VLoad {
+                dst: v(2),
+                addr: Address::base_off(x(1), 16),
+                width: VecWidth::V64,
+            },
+            OpKind::VLoad {
+                dst: v(4),
+                addr: Address::base_off(x(2), -16),
+                width: VecWidth::V128,
+            },
+            OpKind::VStore {
+                src: v(0),
+                addr: Address::base_off(x(1), 48),
+                width: VecWidth::V128,
+            },
+            OpKind::VStore {
+                src: v(2),
+                addr: Address::base_off(x(1), 64),
+                width: VecWidth::V64,
+            },
+            OpKind::VStore {
+                src: v(7),
+                addr: Address::sib(Some(x(1)), x(3), 8, 80),
+                width: VecWidth::V128,
+            },
+        ]);
+
+        let (_, simd, out_mem) = run_aarch64_code_with_regs_simd_and_memory(
+            &code,
+            &[(1, mem_addr), (2, mem_addr + 32), (3, 2)],
+            &[(7, v7_low, v7_high)],
+            &[(mem_addr, &mem)],
+            mem_addr,
+            mem.len(),
+        );
+
+        assert_eq!(simd[0], (le_u64(&mem, 0), le_u64(&mem, 8)));
+        assert_eq!(simd[2], (le_u64(&mem, 16), 0));
+        assert_eq!(simd[4], (le_u64(&mem, 16), le_u64(&mem, 24)));
+        assert_eq!(&out_mem[48..64], &mem[0..16]);
+        assert_eq!(&out_mem[64..72], &mem[16..24]);
+        assert_eq!(&out_mem[72..80], &mem[72..80]);
+        assert_eq!(&out_mem[96..112], &v7_bytes);
+    }
+
+    #[test]
+    fn rejects_vector_unsupported_widths() {
+        let mut builder = FunctionBuilder::new(FunctionId(0), 0);
+        builder.push_op(
+            0,
+            OpKind::VLoad {
+                dst: v(0),
+                addr: Address::Direct(x(1)),
+                width: VecWidth::V256,
+            },
+        );
+        builder.set_terminator(Terminator::Return { values: vec![] });
+        let func = builder.finish();
+
+        let mut lowerer = Aarch64Lowerer::new();
+        let err = lowerer.lower_function(&func).unwrap_err();
+        assert!(matches!(err, LowerError::UnsupportedOp { .. }));
+
+        let mut builder = FunctionBuilder::new(FunctionId(0), 0);
+        builder.push_op(
+            0,
+            OpKind::VXor {
+                dst: v(0),
+                src1: v(1),
+                src2: v(2),
+                width: VecWidth::V512,
             },
         );
         builder.set_terminator(Terminator::Return { values: vec![] });
