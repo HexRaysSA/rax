@@ -22949,6 +22949,75 @@ mod tests {
     }
 
     #[test]
+    fn lowers_vector_memory_apx_egpr_address_operands_runtime() {
+        fn le_u64(bytes: &[u8], offset: usize) -> u64 {
+            let mut word = [0u8; 8];
+            word.copy_from_slice(&bytes[offset..offset + 8]);
+            u64::from_le_bytes(word)
+        }
+
+        let mem_addr = 0x500;
+        let mut mem = [0u8; 160];
+        for (idx, byte) in mem.iter_mut().enumerate() {
+            *byte = (idx as u8).wrapping_mul(5).wrapping_add(7);
+        }
+        let v5_low: u64 = 0x0102_0304_0506_0708;
+        let v5_high: u64 = 0x1112_1314_1516_1718;
+        let mut v5_bytes = [0u8; 16];
+        v5_bytes[..8].copy_from_slice(&v5_low.to_le_bytes());
+        v5_bytes[8..].copy_from_slice(&v5_high.to_le_bytes());
+
+        let code = lower_ops(vec![
+            OpKind::VLoad {
+                dst: v(1),
+                addr: Address::Direct(x86(X86Reg::R16)),
+                width: VecWidth::V128,
+            },
+            OpKind::VLoad {
+                dst: v(3),
+                addr: Address::base_off(x86(X86Reg::R17), -16),
+                width: VecWidth::V64,
+            },
+            OpKind::VStore {
+                src: v(3),
+                addr: Address::base_off(x86(X86Reg::R16), 64),
+                width: VecWidth::V64,
+            },
+            OpKind::VStore {
+                src: v(5),
+                addr: Address::sib(Some(x86(X86Reg::R16)), x86(X86Reg::R18), 8, 80),
+                width: VecWidth::V128,
+            },
+        ]);
+
+        let (_, simd, out_mem) = run_aarch64_code_with_regs_simd_and_memory(
+            &code,
+            &[(16, mem_addr), (17, mem_addr + 48), (18, 2)],
+            &[(5, v5_low, v5_high)],
+            &[(mem_addr, &mem)],
+            mem_addr,
+            mem.len(),
+        );
+
+        assert_eq!(simd[1], (le_u64(&mem, 0), le_u64(&mem, 8)));
+        assert_eq!(simd[3], (le_u64(&mem, 32), 0));
+        assert_eq!(&out_mem[64..72], &mem[32..40]);
+        assert_eq!(&out_mem[72..80], &mem[72..80]);
+        assert_eq!(&out_mem[96..112], &v5_bytes);
+    }
+
+    #[test]
+    fn rejects_vector_memory_apx_r31_address_mapping() {
+        let err = try_lower_single_op(OpKind::VLoad {
+            dst: v(0),
+            addr: Address::Direct(x86(X86Reg::R31)),
+            width: VecWidth::V128,
+        })
+        .unwrap_err();
+        assert!(matches!(err, LowerError::InvalidRegister(_)));
+    }
+
+    #[test]
     fn rejects_vector_unsupported_widths() {
         fn assert_unsupported(kind: OpKind) {
             let mut builder = FunctionBuilder::new(FunctionId(0), 0);
