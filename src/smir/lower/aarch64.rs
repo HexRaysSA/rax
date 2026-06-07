@@ -30424,6 +30424,53 @@ mod tests {
     }
 
     #[test]
+    fn lowers_apx_blsr_lifted_memory_shape_runtime() {
+        let mem_addr = 0x9000_u64;
+        let mem_value = 0xfedc_ba98_7654_3210_u64;
+        let index = 4_u64;
+        let disp = -0x20_i32;
+        let base = mem_addr - index * 4 + 0x20;
+        let loaded = x(9);
+        let minus_one = x(10);
+        let code = lower_ops(vec![
+            OpKind::Load {
+                dst: loaded,
+                addr: Address::sib(Some(x86(X86Reg::R16)), x86(X86Reg::R17), 4, disp),
+                width: MemWidth::B8,
+                sign: SignExtend::Zero,
+            },
+            OpKind::Sub {
+                dst: minus_one,
+                src1: loaded,
+                src2: SrcOperand::Imm(1),
+                width: OpWidth::W64,
+                flags: FlagUpdate::None,
+            },
+            OpKind::And {
+                dst: x86(X86Reg::R18),
+                src1: loaded,
+                src2: SrcOperand::Reg(minus_one),
+                width: OpWidth::W64,
+                flags: FlagUpdate::None,
+            },
+        ]);
+
+        let regs = [(16, base), (17, index), (18, 0x1818)];
+        let old_nzcv = 0b0110;
+        let (out, out_nzcv, sp, mem) =
+            run_aarch64_code_with_memory(&code, &regs, old_nzcv, mem_addr, mem_value, MemWidth::B8);
+
+        assert_eq!(out[9], mem_value);
+        assert_eq!(out[10], mem_value.wrapping_sub(1));
+        assert_eq!(out[16], base);
+        assert_eq!(out[17], index);
+        assert_eq!(out[18], mem_value & mem_value.wrapping_sub(1));
+        assert_eq!(out_nzcv, old_nzcv);
+        assert_eq!(sp, 0x8000);
+        assert_eq!(mem, mem_value);
+    }
+
+    #[test]
     fn rejects_bextr_bzhi_apx_r31_identity_mapping() {
         for kind in [
             OpKind::Bextr {
