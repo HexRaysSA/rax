@@ -5309,6 +5309,81 @@ fn push_bit_scan_flag_native_cases(
 }
 
 #[cfg(all(feature = "smir-jit", target_arch = "x86_64"))]
+fn push_bextr_zero_imm_source_reg_control_native_cases(
+    cases: &mut Vec<(String, [u32; 3], [u32; 3], ArmState)>,
+    control_target: i32,
+) {
+    let bextr_cases = [
+        (
+            "bextr_x_zero_imm_source_reg_control_as_movz_preserves_flags",
+            OpKind::Bextr {
+                dst: arm_x(0),
+                src: VReg::Imm(0),
+                control: arm_x(2),
+                width: OpWidth::W64,
+                flags: FlagUpdate::None,
+            },
+            [enc_mov_wide(1, 0b10, 0, 0), NOP, NOP],
+            [enc_mov_wide(1, 0b10, 0, 0), 0xd65f_03c0, NOP],
+            0xaaaa_bbbb_cccc_dddd,
+            0x1234,
+            0x8000_0000,
+        ),
+        (
+            "bextr_w_masked_zero_imm_source_self_control_sets_zf",
+            OpKind::Bextr {
+                dst: arm_x(0),
+                src: VReg::Imm(0x1_0000_0000),
+                control: arm_x(0),
+                width: OpWidth::W32,
+                flags: bextr_flags(),
+            },
+            [
+                enc_mov_wide(0, 0b10, 0, 0),
+                enc_logical_reg_n(0, 0b11, 0, 31, RD, RD),
+                NOP,
+            ],
+            [
+                enc_mov_wide(0, 0b10, 0, 0),
+                enc_logical_reg_n(0, 0b11, 0, 31, RD, RD),
+                0xd65f_03c0,
+            ],
+            0xbbbb_cccc_dddd_eeee,
+            0,
+            0x2000_0000,
+        ),
+        (
+            "bextr_w8_masked_zero_imm_source_reg_control_as_movz_preserves_flags",
+            OpKind::Bextr {
+                dst: arm_x(0),
+                src: VReg::Imm(0x100),
+                control: arm_x(2),
+                width: OpWidth::W8,
+                flags: FlagUpdate::None,
+            },
+            [enc_mov_wide(0, 0b10, 0, 0), NOP, NOP],
+            [enc_mov_wide(0, 0b10, 0, 0), 0xd65f_03c0, NOP],
+            0xcccc_dddd_eeee_ffff,
+            0x87,
+            0x4000_0000,
+        ),
+    ];
+
+    for (name, op, source, expected, x0, x2, pstate) in bextr_cases {
+        let mut st = ArmState::zeroed();
+        st.pc = PCREL_MAGIC;
+        st.x[30] = pcrel_marker(control_target);
+        st.x[0] = x0;
+        st.x[2] = x2;
+        st.pstate = pstate;
+        let lowered = lower_aarch64_native_ops(vec![op])
+            .unwrap_or_else(|e| panic!("{name}: native lowering failed: {e}"));
+        assert_eq!(lowered, expected, "{name}: unexpected lowering");
+        cases.push((name.into(), source, lowered, st));
+    }
+}
+
+#[cfg(all(feature = "smir-jit", target_arch = "x86_64"))]
 fn push_bzhi_zero_imm_source_reg_index_native_cases(
     cases: &mut Vec<(String, [u32; 3], [u32; 3], ArmState)>,
     control_target: i32,
@@ -12933,6 +13008,7 @@ fn smir_aarch64_native_lowering_matches_qemu_oracle() {
     push_bit_permute_contiguous_mask_native_cases(&mut cases, control_target);
     push_bit_permute_imm_source_arbitrary_mask_native_cases(&mut cases, control_target);
     push_bit_scan_flag_native_cases(&mut cases, control_target);
+    push_bextr_zero_imm_source_reg_control_native_cases(&mut cases, control_target);
     push_bzhi_zero_imm_source_reg_index_native_cases(&mut cases, control_target);
     push_bzhi_subword_flag_native_cases(&mut cases, control_target);
     push_cmove_imm_movn_native_cases(&mut cases, control_target);

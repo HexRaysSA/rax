@@ -3401,6 +3401,16 @@ impl Aarch64Lowerer {
                 });
             }
         };
+        if let VReg::Imm(value) = src {
+            if (value as u64 & width.mask()) == 0 {
+                let dst = Self::dst_gpr(dst)?;
+                self.emit_mov_imm(dst, 0, emit_width)?;
+                if set_flags {
+                    self.lower_bmi_result_flags(dst, emit_width, false)?;
+                }
+                return Ok(());
+            }
+        }
         let control = match control {
             VReg::Imm(value) => value as u64,
             other => {
@@ -16107,6 +16117,63 @@ mod tests {
         expected.extend_from_slice(&enc_logical_reg_n(1, 0b11, 0, 31, 0, 0).to_le_bytes());
         expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
         assert_eq!(code, expected);
+    }
+
+    #[test]
+    fn lowers_bextr_zero_imm_source_reg_control_as_zero() {
+        let cases = [
+            (
+                OpKind::Bextr {
+                    dst: x(0),
+                    src: VReg::Imm(0),
+                    control: x(2),
+                    width: OpWidth::W64,
+                    flags: FlagUpdate::None,
+                },
+                vec![enc_mov_wide(1, 0b10, 0, 0, 0), 0xd65f_03c0u32],
+            ),
+            (
+                OpKind::Bextr {
+                    dst: x(0),
+                    src: VReg::Imm(0x1_0000_0000),
+                    control: x(0),
+                    width: OpWidth::W32,
+                    flags: bextr_flags(),
+                },
+                vec![
+                    enc_mov_wide(0, 0b10, 0, 0, 0),
+                    enc_logical_reg_n(0, 0b11, 0, 31, 0, 0),
+                    0xd65f_03c0u32,
+                ],
+            ),
+            (
+                OpKind::Bextr {
+                    dst: x(1),
+                    src: VReg::Imm(0x100),
+                    control: x(2),
+                    width: OpWidth::W8,
+                    flags: FlagUpdate::None,
+                },
+                vec![enc_mov_wide(0, 0b10, 0, 0, 1), 0xd65f_03c0u32],
+            ),
+        ];
+
+        for (kind, expected_words) in cases {
+            let mut builder = FunctionBuilder::new(FunctionId(0), 0);
+            builder.push_op(0, kind);
+            builder.set_terminator(Terminator::Return { values: vec![] });
+            let func = builder.finish();
+
+            let mut lowerer = Aarch64Lowerer::new();
+            lowerer.lower_function(&func).unwrap();
+            let code = lowerer.finalize().unwrap();
+
+            let mut expected = Vec::new();
+            for word in expected_words {
+                expected.extend_from_slice(&word.to_le_bytes());
+            }
+            assert_eq!(code, expected);
+        }
     }
 
     #[test]
