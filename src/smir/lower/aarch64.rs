@@ -8687,17 +8687,23 @@ impl Aarch64Lowerer {
             return Ok(None);
         }
 
-        let (rm_imm5, immediate) = Self::cond_compare_src2(src2)?;
+        let src2 = Self::cond_compare_src2(src2)?;
         let nzcv = Self::cond_compare_nzcv(*fallback_nzcv)?;
-        self.emit_cond_compare(
-            Self::gpr(rn)?,
-            rm_imm5,
-            Self::arm_cond_code(*cond)?,
-            nzcv,
-            subtract,
-            immediate,
-            width,
-        )?;
+        let rn = Self::gpr(rn)?;
+        let cond = Self::arm_cond_code(*cond)?;
+        match src2 {
+            CondCompareSource::Encoded { rm_imm5, immediate } => {
+                self.emit_cond_compare(rn, rm_imm5, cond, nzcv, subtract, immediate, width)?;
+            }
+            CondCompareSource::Immediate(imm) => {
+                let scratches = Self::scratch_regs(&[rn], 1)?;
+                let rm = scratches[0];
+                self.emit_scratch_save(&scratches);
+                self.emit_mov_imm(rm, imm, width)?;
+                self.emit_cond_compare(rn, rm, cond, nzcv, subtract, false, width)?;
+                self.emit_scratch_restore(&scratches);
+            }
+        }
         Ok(Some(5))
     }
 
@@ -8723,11 +8729,20 @@ impl Aarch64Lowerer {
         }
     }
 
-    fn cond_compare_src2(src2: &SrcOperand) -> Result<(u8, bool), LowerError> {
+    fn cond_compare_src2(src2: &SrcOperand) -> Result<CondCompareSource, LowerError> {
         match src2 {
-            SrcOperand::Reg(reg) => Ok((Self::gpr(*reg)?, false)),
+            SrcOperand::Reg(reg) => Ok(CondCompareSource::Encoded {
+                rm_imm5: Self::gpr(*reg)?,
+                immediate: false,
+            }),
             SrcOperand::Imm(imm) | SrcOperand::Imm64(imm) if (0..=31).contains(imm) => {
-                Ok((*imm as u8, true))
+                Ok(CondCompareSource::Encoded {
+                    rm_imm5: *imm as u8,
+                    immediate: true,
+                })
+            }
+            SrcOperand::Imm(imm) | SrcOperand::Imm64(imm) => {
+                Ok(CondCompareSource::Immediate(*imm))
             }
             other => Err(LowerError::UnsupportedOp {
                 op: format!("AArch64 native conditional compare source {other:?}"),
@@ -9438,6 +9453,12 @@ enum CondSelectFalseOp {
     Negate,
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum CondCompareSource {
+    Encoded { rm_imm5: u8, immediate: bool },
+    Immediate(i64),
+}
+
 #[derive(Clone, Copy)]
 struct SysRegInfo {
     op1: u32,
@@ -9989,6 +10010,43 @@ mod tests {
             | (overflow as u8)
     }
 
+    fn condition_holds_nzcv(cond: Condition, nzcv: u8) -> bool {
+        let n = (nzcv & 0b1000) != 0;
+        let z = (nzcv & 0b0100) != 0;
+        let c = (nzcv & 0b0010) != 0;
+        let v = (nzcv & 0b0001) != 0;
+        match cond {
+            Condition::Eq => z,
+            Condition::Ne => !z,
+            Condition::Uge => c,
+            Condition::Ult => !c,
+            Condition::Negative => n,
+            Condition::Positive => !n,
+            Condition::Overflow => v,
+            Condition::NoOverflow => !v,
+            Condition::Ugt => c && !z,
+            Condition::Ule => !c || z,
+            Condition::Sge => n == v,
+            Condition::Slt => n != v,
+            Condition::Sgt => !z && n == v,
+            Condition::Sle => z || n != v,
+            Condition::Always => true,
+            Condition::Parity | Condition::NoParity => {
+                unreachable!("unsupported AArch64 condition")
+            }
+        }
+    }
+
+    fn find_cond_compare_word(code: &[u8]) -> Option<u32> {
+        code.chunks_exact(4)
+            .map(|chunk| u32::from_le_bytes([chunk[0], chunk[1], chunk[2], chunk[3]]))
+            .find(|word| {
+                ((word >> 21) & 0x1ff) == 0b111010010
+                    && ((word >> 10) & 1) == 0
+                    && ((word >> 4) & 1) == 0
+            })
+    }
+
     fn ref_addsub_carry(
         src1: u64,
         src2: u64,
@@ -10398,6 +10456,95 @@ mod tests {
         }
         for (reg, value) in sentinels {
             if reg != dst_reg && reg != src1_reg && reg != src2_reg {
+                assert_eq!(out[reg as usize], value, "{label}: x{reg} restored");
+            }
+        }
+    }
+
+    fn assert_cond_compare_imm_lowering(
+        label: &str,
+        subtract: bool,
+        cond: Condition,
+        src1_reg: u8,
+        src1_value: u64,
+        src2: SrcOperand,
+        src2_value: u64,
+        width: OpWidth,
+        old_nzcv: u8,
+        fallback_nzcv: u8,
+    ) {
+        let cond_vreg = VReg::virt(0);
+        let cmp_nzcv = VReg::virt(2);
+        let final_nzcv = VReg::virt(3);
+        let cmp_op = if subtract {
+            OpKind::Sub {
+                dst: VReg::virt(1),
+                src1: x(src1_reg),
+                src2: src2.clone(),
+                width,
+                flags: FlagUpdate::All,
+            }
+        } else {
+            OpKind::Add {
+                dst: VReg::virt(1),
+                src1: x(src1_reg),
+                src2: src2.clone(),
+                width,
+                flags: FlagUpdate::All,
+            }
+        };
+        let code = lower_ops(vec![
+            OpKind::TestCondition {
+                dst: cond_vreg,
+                cond,
+            },
+            cmp_op,
+            OpKind::Mov {
+                dst: cmp_nzcv,
+                src: SrcOperand::Reg(VReg::Arch(ArchReg::Arm(ArmReg::Nzcv))),
+                width: OpWidth::W32,
+            },
+            OpKind::Select {
+                dst: final_nzcv,
+                cond: cond_vreg,
+                src_true: cmp_nzcv,
+                src_false: VReg::Imm(i64::from(fallback_nzcv & 0xf) << 28),
+                width: OpWidth::W32,
+            },
+            OpKind::Mov {
+                dst: VReg::Arch(ArchReg::Arm(ArmReg::Nzcv)),
+                src: SrcOperand::Reg(final_nzcv),
+                width: OpWidth::W32,
+            },
+        ]);
+        let cond_compare = find_cond_compare_word(&code)
+            .unwrap_or_else(|| panic!("{label}: expected fused conditional compare"));
+        assert_eq!(
+            (cond_compare >> 11) & 1,
+            0,
+            "{label}: expected register-form conditional compare"
+        );
+
+        let expected_nzcv = if condition_holds_nzcv(cond, old_nzcv) {
+            expected_addsub_nzcv(src1_value, src2_value, subtract, width)
+        } else {
+            fallback_nzcv & 0xf
+        };
+        let sentinels = [
+            (16, 0x1616_1616_1616_1616),
+            (17, 0x1717_1717_1717_1717),
+            (15, 0x1515_1515_1515_1515),
+            (14, 0x1414_1414_1414_1414),
+        ];
+        let mut regs = sentinels.to_vec();
+        regs.push((src1_reg, src1_value));
+
+        let (out, out_nzcv, sp) = run_aarch64_code(&code, &regs, old_nzcv);
+        assert_eq!(out_nzcv, expected_nzcv, "{label}: NZCV");
+        assert_eq!(out[src1_reg as usize], src1_value, "{label}: src1 preserved");
+        assert_eq!(sp, 0x8000, "{label}: stack restored");
+        for (reg, value) in sentinels {
+            if reg != src1_reg {
                 assert_eq!(out[reg as usize], value, "{label}: x{reg} restored");
             }
         }
@@ -22639,6 +22786,58 @@ mod tests {
             SrcOperand::Imm64(i64::MIN),
             0x8000_0000_0000_0000,
             OpWidth::W64,
+            0b0000,
+        );
+    }
+
+    #[test]
+    fn lowers_fused_cond_compare_with_large_immediate_source_runtime() {
+        assert_cond_compare_imm_lowering(
+            "ccmp_x_large_imm_true",
+            true,
+            Condition::Eq,
+            1,
+            0x1234,
+            SrcOperand::Imm64(0x40),
+            0x40,
+            OpWidth::W64,
+            0b0100,
+            0b0010,
+        );
+        assert_cond_compare_imm_lowering(
+            "ccmp_x_large_imm_false_uses_fallback",
+            true,
+            Condition::Eq,
+            1,
+            0x1234,
+            SrcOperand::Imm64(0x40),
+            0x40,
+            OpWidth::W64,
+            0b0000,
+            0b1010,
+        );
+        assert_cond_compare_imm_lowering(
+            "ccmn_w_large_imm_masks_operand",
+            false,
+            Condition::Ne,
+            1,
+            0xffff_fffe,
+            SrcOperand::Imm64(0x1_0000_0003),
+            0x1_0000_0003,
+            OpWidth::W32,
+            0b0000,
+            0b1111,
+        );
+        assert_cond_compare_imm_lowering(
+            "ccmp_w_negative_imm_avoids_source_scratch",
+            true,
+            Condition::Always,
+            16,
+            0,
+            SrcOperand::Imm64(-1),
+            u64::MAX,
+            OpWidth::W32,
+            0b1010,
             0b0000,
         );
     }
