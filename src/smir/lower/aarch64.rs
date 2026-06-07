@@ -5419,9 +5419,9 @@ impl Aarch64Lowerer {
         width: OpWidth,
     ) -> Result<(), LowerError> {
         Self::bit_test_emit_width(width)?;
-        let src = Self::gpr(src)?;
+        let src = Self::gpr_arm_or_x86(src)?;
         let dst = match dst {
-            Some(dst) => Some(Self::dst_gpr(dst)?),
+            Some(dst) => Some(Self::dst_gpr_arm_or_x86(dst)?),
             None => None,
         };
 
@@ -5429,9 +5429,13 @@ impl Aarch64Lowerer {
             SrcOperand::Imm(value) | SrcOperand::Imm64(value) => {
                 self.lower_bit_test_imm(dst, src, *value, action, width)
             }
-            SrcOperand::Reg(index) => {
-                self.lower_bit_test_reg(dst, src, Self::gpr(*index)?, action, width)
-            }
+            SrcOperand::Reg(index) => self.lower_bit_test_reg(
+                dst,
+                src,
+                Self::gpr_arm_or_x86(*index)?,
+                action,
+                width,
+            ),
             other => Err(LowerError::UnsupportedOp {
                 op: format!("AArch64 native bit test index {other:?}"),
             }),
@@ -28551,6 +28555,107 @@ mod tests {
             OpWidth::W64,
             0b0100,
         );
+    }
+
+    #[test]
+    fn lowers_bit_test_apx_egpr_operands_runtime() {
+        let bt_src = 0x10;
+        let bts_src = 0x0000_0001;
+        let bts_index = 31;
+        let btr_src = 0x1ff;
+        let btc_src = 0x8001;
+        let btc_index = 15;
+        let code = lower_ops(vec![
+            OpKind::Bt {
+                src: x86(X86Reg::R16),
+                index: SrcOperand::Imm(68),
+                width: OpWidth::W64,
+            },
+            OpKind::Bts {
+                dst: x86(X86Reg::R17),
+                src: x86(X86Reg::R18),
+                index: SrcOperand::Reg(x86(X86Reg::R19)),
+                width: OpWidth::W32,
+            },
+            OpKind::Btr {
+                dst: x86(X86Reg::R20),
+                src: x86(X86Reg::R21),
+                index: SrcOperand::Imm(0),
+                width: OpWidth::W8,
+            },
+            OpKind::Btc {
+                dst: x86(X86Reg::R22),
+                src: x86(X86Reg::R23),
+                index: SrcOperand::Reg(x86(X86Reg::R24)),
+                width: OpWidth::W16,
+            },
+        ]);
+        let regs = [
+            (16, bt_src),
+            (18, bts_src),
+            (19, bts_index),
+            (21, btr_src),
+            (23, btc_src),
+            (24, btc_index),
+            (13, 0x1313_1313_1313_1313),
+            (14, 0x1414_1414_1414_1414),
+            (15, 0x1515_1515_1515_1515),
+        ];
+        let old_nzcv = 0b0101;
+        let (out, out_nzcv, sp) = run_aarch64_code(&code, &regs, old_nzcv);
+
+        assert_eq!(
+            out_nzcv,
+            expected_bit_test_nzcv(old_nzcv, btc_src, btc_index, OpWidth::W16)
+        );
+        assert_eq!(out[17], ref_bit_update(bts_src, bts_index, BitTestAction::Set, OpWidth::W32));
+        assert_eq!(out[20], ref_bit_update(btr_src, 0, BitTestAction::Reset, OpWidth::W8));
+        assert_eq!(
+            out[22],
+            ref_bit_update(btc_src, btc_index, BitTestAction::Toggle, OpWidth::W16)
+        );
+        assert_eq!(out[16], bt_src);
+        assert_eq!(out[18], bts_src);
+        assert_eq!(out[19], bts_index);
+        assert_eq!(out[21], btr_src);
+        assert_eq!(out[23], btc_src);
+        assert_eq!(out[24], btc_index);
+        assert_eq!(out[13], 0x1313_1313_1313_1313);
+        assert_eq!(out[14], 0x1414_1414_1414_1414);
+        assert_eq!(out[15], 0x1515_1515_1515_1515);
+        assert_eq!(sp, 0x8000);
+    }
+
+    #[test]
+    fn rejects_bit_test_apx_r31_identity_mapping() {
+        for kind in [
+            OpKind::Bt {
+                src: x86(X86Reg::R31),
+                index: SrcOperand::Imm(0),
+                width: OpWidth::W64,
+            },
+            OpKind::Bts {
+                dst: x86(X86Reg::R31),
+                src: x86(X86Reg::R16),
+                index: SrcOperand::Imm(0),
+                width: OpWidth::W64,
+            },
+            OpKind::Btr {
+                dst: x86(X86Reg::R16),
+                src: x86(X86Reg::R31),
+                index: SrcOperand::Imm(0),
+                width: OpWidth::W64,
+            },
+            OpKind::Btc {
+                dst: x86(X86Reg::R16),
+                src: x86(X86Reg::R17),
+                index: SrcOperand::Reg(x86(X86Reg::R31)),
+                width: OpWidth::W64,
+            },
+        ] {
+            let err = try_lower_single_op(kind).unwrap_err();
+            assert!(matches!(err, LowerError::InvalidRegister(_)));
+        }
     }
 
     #[test]
