@@ -2178,9 +2178,9 @@ impl Aarch64Lowerer {
         let rd = Self::fp_reg(dst)?;
         let rn = Self::fp_reg(src)?;
         let (q, size) = Self::simd_integer_shape(elem, lanes)?;
-        if q == 0 {
+        if q == 0 && size == 3 {
             return Err(LowerError::UnsupportedOp {
-                op: "AArch64 native vector shift-acc V64".to_string(),
+                op: "AArch64 native vector shift-acc I64x1".to_string(),
             });
         }
 
@@ -19117,6 +19117,7 @@ mod tests {
             src_low: u64,
             src_high: u64,
             elem_bytes: usize,
+            lanes: usize,
             amount: i64,
             shift: ShiftOp,
         ) -> (u64, u64) {
@@ -19139,7 +19140,6 @@ mod tests {
             } else {
                 (1u64 << elem_bits) - 1
             };
-            let lanes = 16 / elem_bytes;
             let amount = (amount as u32) % elem_bits as u32;
             for lane in 0..lanes {
                 let off = lane * elem_bytes;
@@ -19160,6 +19160,9 @@ mod tests {
                 let prev = read_lane(&dst, off, elem_bytes);
                 let result = prev.wrapping_add(shifted) & mask;
                 dst[off..off + elem_bytes].copy_from_slice(&result.to_le_bytes()[..elem_bytes]);
+            }
+            for byte in dst[lanes * elem_bytes..].iter_mut() {
+                *byte = 0;
             }
 
             let mut low = [0u8; 8];
@@ -19206,6 +19209,22 @@ mod tests {
                 elem: VecElementType::I64,
                 lanes: 2,
             },
+            OpKind::VShiftAcc {
+                dst: v(5),
+                src: v(1),
+                amount: SrcOperand::Imm(4),
+                shift: ShiftOp::Lsr,
+                elem: VecElementType::I32,
+                lanes: 2,
+            },
+            OpKind::VShiftAcc {
+                dst: v(6),
+                src: v(1),
+                amount: SrcOperand::Imm(3),
+                shift: ShiftOp::Asr,
+                elem: VecElementType::I16,
+                lanes: 4,
+            },
         ]);
 
         let (_, simd, _) = run_aarch64_code_with_regs_and_simd(
@@ -19217,23 +19236,33 @@ mod tests {
                 (2, dst_low, dst_high),
                 (3, dst_low, dst_high),
                 (4, dst_low, dst_high),
+                (5, dst_low, dst_high),
+                (6, dst_low, dst_high),
             ],
         );
         assert_eq!(
             simd[0],
-            apply_shift_acc(dst_low, dst_high, src_low, src_high, 1, 3, ShiftOp::Lsr)
+            apply_shift_acc(dst_low, dst_high, src_low, src_high, 1, 16, 3, ShiftOp::Lsr)
         );
         assert_eq!(
             simd[2],
-            apply_shift_acc(dst_low, dst_high, src_low, src_high, 2, 4, ShiftOp::Asr)
+            apply_shift_acc(dst_low, dst_high, src_low, src_high, 2, 8, 4, ShiftOp::Asr)
         );
         assert_eq!(
             simd[3],
-            apply_shift_acc(dst_low, dst_high, src_low, src_high, 4, 32, ShiftOp::Lsr)
+            apply_shift_acc(dst_low, dst_high, src_low, src_high, 4, 4, 32, ShiftOp::Lsr)
         );
         assert_eq!(
             simd[4],
-            apply_shift_acc(dst_low, dst_high, src_low, src_high, 8, -1, ShiftOp::Asr)
+            apply_shift_acc(dst_low, dst_high, src_low, src_high, 8, 2, -1, ShiftOp::Asr)
+        );
+        assert_eq!(
+            simd[5],
+            apply_shift_acc(dst_low, dst_high, src_low, src_high, 4, 2, 4, ShiftOp::Lsr)
+        );
+        assert_eq!(
+            simd[6],
+            apply_shift_acc(dst_low, dst_high, src_low, src_high, 2, 4, 3, ShiftOp::Asr)
         );
     }
 
@@ -19628,8 +19657,8 @@ mod tests {
             src: v(1),
             amount: SrcOperand::Imm(1),
             shift: ShiftOp::Lsr,
-            elem: VecElementType::I32,
-            lanes: 2,
+            elem: VecElementType::I64,
+            lanes: 1,
         });
 
         assert_unsupported(OpKind::VShiftAcc {
