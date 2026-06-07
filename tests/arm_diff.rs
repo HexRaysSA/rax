@@ -3247,6 +3247,64 @@ fn push_subword_logical_flag_native_cases(
 }
 
 #[cfg(all(feature = "smir-jit", target_arch = "x86_64"))]
+fn push_or_xor_flag_native_cases(
+    cases: &mut Vec<(String, [u32; 3], [u32; 3], ArmState)>,
+    control_target: i32,
+) {
+    let mut st = ArmState::zeroed();
+    st.pc = PCREL_MAGIC;
+    st.x[30] = pcrel_marker(control_target);
+    st.x[0] = 0x1111_2222_3333_4444;
+    st.x[1] = 0x8000_0000_0000_0000;
+    st.x[2] = 0x0000_0000_0000_0001;
+    st.pstate = 0x7000_0000;
+    let lowered = lower_aarch64_native_ops(vec![OpKind::Or {
+        dst: arm_x(0),
+        src1: arm_x(1),
+        src2: SrcOperand::Reg(arm_x(2)),
+        width: OpWidth::W64,
+        flags: FlagUpdate::All,
+    }])
+    .unwrap_or_else(|e| panic!("orrs_x_reg_as_orr_ands: native lowering failed: {e}"));
+    cases.push((
+        "orrs_x_reg_as_orr_ands".into(),
+        [
+            enc_logical_shift_regs(1, 0b01, 0, 0, 0, RD, RN, RM),
+            enc_logical_reg_n(1, 0b11, 0, 31, RD, RD),
+            NOP,
+        ],
+        lowered,
+        st,
+    ));
+
+    let mut st = ArmState::zeroed();
+    st.pc = PCREL_MAGIC;
+    st.x[30] = pcrel_marker(control_target);
+    st.x[0] = 0xffff_ffff_ffff_ffff;
+    st.x[1] = 0xaaaa_bbbb_1234_5678;
+    st.x[2] = 0xcccc_dddd_1234_5678;
+    st.pstate = 0xf000_0000;
+    let lowered = lower_aarch64_native_ops(vec![OpKind::Xor {
+        dst: arm_x(0),
+        src1: arm_x(1),
+        src2: SrcOperand::Reg(arm_x(2)),
+        width: OpWidth::W32,
+        flags: FlagUpdate::All,
+    }])
+    .unwrap_or_else(|e| panic!("eors_w_reg_as_eor_ands: native lowering failed: {e}"));
+    cases.push((
+        "eors_w_reg_as_eor_ands".into(),
+        [
+            enc_logical_shift_regs(0, 0b10, 0, 0, 0, RD, RN, RM),
+            enc_logical_reg_n(0, 0b11, 0, 31, RD, RD),
+            NOP,
+        ],
+        lowered,
+        st,
+    ));
+}
+
+#[cfg(all(feature = "smir-jit", target_arch = "x86_64"))]
 fn push_addsub_zero_same_reg_native_cases(
     cases: &mut Vec<(String, [u32; 3], [u32; 3], ArmState)>,
     control_target: i32,
@@ -12227,6 +12285,7 @@ fn smir_aarch64_native_lowering_matches_qemu_oracle() {
     push_logical_zero_base_reg_native_cases(&mut cases, control_target);
     push_logical_same_source_zero_native_cases(&mut cases, control_target);
     push_subword_logical_flag_native_cases(&mut cases, control_target);
+    push_or_xor_flag_native_cases(&mut cases, control_target);
     push_addsub_zero_same_reg_native_cases(&mut cases, control_target);
     push_addsub_masked_zero_imm_native_cases(&mut cases, control_target);
     push_add_zero_base_reg_native_cases(&mut cases, control_target);
