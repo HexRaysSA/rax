@@ -244,6 +244,24 @@ impl Aarch64Lowerer {
         }
     }
 
+    fn dst_gpr_arm_or_x86(vreg: VReg) -> Result<u8, LowerError> {
+        match vreg {
+            VReg::Arch(ArchReg::Arm(ArmReg::X(n))) if n < 31 => Ok(n),
+            VReg::Arch(ArchReg::X86(reg)) => {
+                reg.gpr_index()
+                    .filter(|&n| n < 31)
+                    .ok_or_else(|| {
+                        LowerError::InvalidRegister(format!(
+                            "AArch64 native lowerer expected writable GPR, got X86({reg:?})"
+                        ))
+                    })
+            }
+            other => Err(LowerError::InvalidRegister(format!(
+                "AArch64 native lowerer expected writable GPR, got {other:?}"
+            ))),
+        }
+    }
+
     fn fp_reg(vreg: VReg) -> Result<u8, LowerError> {
         match vreg {
             VReg::Arch(ArchReg::Arm(ArmReg::V(n))) if n < 32 => Ok(n),
@@ -2363,6 +2381,25 @@ impl Aarch64Lowerer {
         )?;
         self.emit_ldst_unsigned(X86_RBP_INDEX, X86_RBP_INDEX, size, opc, 0);
         Ok(())
+    }
+
+    fn io_width(width: MemWidth) -> Result<(), LowerError> {
+        match width {
+            MemWidth::B1 | MemWidth::B2 | MemWidth::B4 => Ok(()),
+            other => Err(LowerError::UnsupportedOp {
+                op: format!("AArch64 native I/O width {other:?}"),
+            }),
+        }
+    }
+
+    fn lower_io_in(&mut self, dst: VReg, width: MemWidth) -> Result<(), LowerError> {
+        Self::io_width(width)?;
+        let dst = Self::dst_gpr_arm_or_x86(dst)?;
+        self.emit_mov_imm(dst, 0, OpWidth::W64)
+    }
+
+    fn lower_io_out(&mut self, width: MemWidth) -> Result<(), LowerError> {
+        Self::io_width(width)
     }
 
     fn literal_scaled_imm19(op: &str, target: i64, insn_pc: i64) -> Result<i32, LowerError> {
@@ -10823,6 +10860,8 @@ impl Aarch64Lowerer {
                 width,
             } => self.lower_rep_stos(*dst, *src, *count, *width),
             OpKind::Leave => self.lower_leave(),
+            OpKind::IoIn { dst, width, .. } => self.lower_io_in(*dst, *width),
+            OpKind::IoOut { width, .. } => self.lower_io_out(*width),
             OpKind::AtomicLoad {
                 dst,
                 addr,
@@ -11443,10 +11482,14 @@ mod tests {
     use crate::arm::memory::FlatMemory;
     use crate::smir::flags::{FlagSet, FlagUpdate};
     use crate::smir::ir::{FunctionBuilder, Terminator, TrapKind};
-    use crate::smir::types::{DispSize, FunctionId, SrcOperand};
+    use crate::smir::types::{DispSize, FunctionId, SrcOperand, X86Reg};
 
     fn x(n: u8) -> VReg {
         VReg::Arch(ArchReg::Arm(ArmReg::X(n)))
+    }
+
+    fn x86(reg: X86Reg) -> VReg {
+        VReg::Arch(ArchReg::X86(reg))
     }
 
     fn v(n: u8) -> VReg {
@@ -20742,6 +20785,83 @@ mod tests {
         assert_eq!(out_nzcv, old_nzcv);
         assert_eq!(sp, 0x8000);
         assert_eq!(mem, saved_rbp);
+    }
+
+    #[test]
+    fn lowers_io_in_runtime() {
+        let old_nzcv = 0b1011;
+        for (label, dst, dst_reg, width) in [
+            ("arm_dst", x(1), 1, MemWidth::B1),
+            ("x86_dst", x86(X86Reg::Rax), 0, MemWidth::B4),
+        ] {
+            let code = lower_single_op(OpKind::IoIn {
+                dst,
+                port: x86(X86Reg::Rdx),
+                width,
+            });
+            let regs = [
+                (dst_reg, 0xffff_ffff_ffff_ffff),
+                (2, 0x03f8),
+                (16, 0x1616_1616_1616_1616),
+                (17, 0x1717_1717_1717_1717),
+            ];
+            let (out, out_nzcv, sp) = run_aarch64_code(&code, &regs, old_nzcv);
+
+            assert_eq!(out[dst_reg as usize], 0, "{label}: destination");
+            assert_eq!(out[2], 0x03f8, "{label}: port preserved");
+            assert_eq!(out[16], 0x1616_1616_1616_1616, "{label}: x16");
+            assert_eq!(out[17], 0x1717_1717_1717_1717, "{label}: x17");
+            assert_eq!(out_nzcv, old_nzcv, "{label}: NZCV");
+            assert_eq!(sp, 0x8000, "{label}: stack pointer");
+        }
+    }
+
+    #[test]
+    fn lowers_io_out_runtime() {
+        let code = lower_single_op(OpKind::IoOut {
+            port: x86(X86Reg::Rdx),
+            value: x86(X86Reg::Rax),
+            width: MemWidth::B2,
+        });
+        let old_nzcv = 0b1101;
+        let regs = [
+            (0, 0xfeed_face_cafe_beef),
+            (2, 0x03f8),
+            (16, 0x1616_1616_1616_1616),
+            (17, 0x1717_1717_1717_1717),
+        ];
+        let (out, out_nzcv, sp) = run_aarch64_code(&code, &regs, old_nzcv);
+
+        assert_eq!(out[0], 0xfeed_face_cafe_beef);
+        assert_eq!(out[2], 0x03f8);
+        assert_eq!(out[16], 0x1616_1616_1616_1616);
+        assert_eq!(out[17], 0x1717_1717_1717_1717);
+        assert_eq!(out_nzcv, old_nzcv);
+        assert_eq!(sp, 0x8000);
+    }
+
+    #[test]
+    fn rejects_io_unsupported_widths() {
+        for kind in [
+            OpKind::IoIn {
+                dst: x86(X86Reg::Rax),
+                port: x86(X86Reg::Rdx),
+                width: MemWidth::B8,
+            },
+            OpKind::IoOut {
+                port: x86(X86Reg::Rdx),
+                value: x86(X86Reg::Rax),
+                width: MemWidth::B8,
+            },
+        ] {
+            let mut builder = FunctionBuilder::new(FunctionId(0), 0);
+            builder.push_op(0, kind);
+            builder.set_terminator(Terminator::Return { values: vec![] });
+            let func = builder.finish();
+            let mut lowerer = Aarch64Lowerer::new();
+            let err = lowerer.lower_function(&func).unwrap_err();
+            assert!(matches!(err, LowerError::UnsupportedOp { .. }));
+        }
     }
 
     #[test]
