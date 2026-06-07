@@ -431,6 +431,29 @@ impl Aarch64Lowerer {
         Ok(())
     }
 
+    fn emit_int_to_fp(
+        &mut self,
+        rd: u8,
+        rn: u8,
+        int_width: OpWidth,
+        fp_precision: FpPrecision,
+        signed: bool,
+    ) -> Result<(), LowerError> {
+        let sf = Self::sf(int_width)?;
+        let ptype = Self::fp_type(fp_precision)?;
+        let opcode = if signed { 0b010 } else { 0b011 };
+        self.emit(
+            (sf << 31)
+                | (0b0011110 << 24)
+                | (ptype << 22)
+                | (1 << 21)
+                | (opcode << 16)
+                | ((rn as u32) << 5)
+                | (rd as u32),
+        );
+        Ok(())
+    }
+
     fn emit_addsub_shifted(
         &mut self,
         dst: u8,
@@ -3490,6 +3513,42 @@ impl Aarch64Lowerer {
         } else {
             let opcode = Self::fp_convert_opcode(to)?;
             self.emit_fp_one_source(rd, rn, opcode, from)
+        }
+    }
+
+    fn lower_int_to_fp(
+        &mut self,
+        dst: VReg,
+        src: VReg,
+        int_width: OpWidth,
+        fp_precision: FpPrecision,
+        signed: bool,
+    ) -> Result<(), LowerError> {
+        let rd = Self::fp_reg(dst)?;
+        let rn = Self::gpr(src)?;
+        match int_width {
+            OpWidth::W32 | OpWidth::W64 => {
+                self.emit_int_to_fp(rd, rn, int_width, fp_precision, signed)
+            }
+            OpWidth::W8 | OpWidth::W16 => {
+                let scratches = Self::scratch_regs(&[rn], 1)?;
+                let scratch = scratches[0];
+                self.emit_scratch_save(&scratches);
+                self.emit_bitfield(
+                    scratch,
+                    rn,
+                    if signed { 0b00 } else { 0b10 },
+                    0,
+                    int_width.bits() - 1,
+                    OpWidth::W32,
+                )?;
+                self.emit_int_to_fp(rd, scratch, OpWidth::W32, fp_precision, signed)?;
+                self.emit_scratch_restore(&scratches);
+                Ok(())
+            }
+            other => Err(LowerError::UnsupportedOp {
+                op: format!("AArch64 native IntToFp width {other:?}"),
+            }),
         }
     }
 
@@ -9466,6 +9525,13 @@ impl Aarch64Lowerer {
             OpKind::FConvert { dst, src, from, to } => {
                 self.lower_fp_convert(*dst, *src, *from, *to)
             }
+            OpKind::IntToFp {
+                dst,
+                src,
+                int_width,
+                fp_precision,
+                signed,
+            } => self.lower_int_to_fp(*dst, *src, *int_width, *fp_precision, *signed),
             OpKind::FAbs {
                 dst,
                 src,
@@ -10229,6 +10295,52 @@ mod tests {
             | ((cpu.get_c() as u8) << 1)
             | (cpu.get_v() as u8);
         (out, out_nzcv)
+    }
+
+    fn run_aarch64_code_with_regs_and_simd(
+        code: &[u8],
+        regs: &[(u8, u64)],
+        simd_regs: &[(u8, u64, u64)],
+    ) -> ([u64; 31], [(u64, u64); 32], u64) {
+        let mut image = vec![0u8; 0x10000];
+        image[..code.len()].copy_from_slice(code);
+        image[code.len()..code.len() + 4].copy_from_slice(&0xd460_0000u32.to_le_bytes());
+
+        let memory = FlatMemory::with_data(0, image);
+        let mut cpu = AArch64Cpu::new(AArch64Config::default(), Box::new(memory));
+        cpu.set_pc(0);
+        cpu.set_current_sp(0x8000);
+        cpu.set_x(30, code.len() as u64);
+        for &(reg, value) in regs {
+            cpu.set_x(reg, value);
+        }
+        for &(reg, low, high) in simd_regs {
+            cpu.set_simd_reg(reg, low, high).unwrap();
+        }
+
+        let max_steps = code.len() / 4 + 4096;
+        let mut saw_break = false;
+        for _ in 0..max_steps {
+            match cpu.step().unwrap() {
+                CpuExit::Continue => {}
+                CpuExit::Breakpoint(_) => {
+                    saw_break = true;
+                    break;
+                }
+                other => panic!("unexpected AArch64 CPU exit: {other:?}"),
+            }
+        }
+        assert!(saw_break, "lowered code did not return to BRK sentinel");
+
+        let mut out_regs = [0u64; 31];
+        for reg in 0..31 {
+            out_regs[reg] = cpu.get_x(reg as u8);
+        }
+        let mut out_simd = [(0u64, 0u64); 32];
+        for reg in 0..32 {
+            out_simd[reg] = cpu.get_simd_reg(reg as u8).unwrap();
+        }
+        (out_regs, out_simd, cpu.current_sp())
     }
 
     fn run_aarch64_code_with_memory(
@@ -15199,6 +15311,38 @@ mod tests {
         );
     }
 
+    fn assert_int_to_fp_f32(label: &str, kind: OpKind, src_value: u64, expected: f32) {
+        let code = lower_single_op(kind);
+        let (regs, simd, sp) = run_aarch64_code_with_regs_and_simd(
+            &code,
+            &[(1, src_value), (16, 0x1234_5678_9abc_def0)],
+            &[(0, 0xffff_ffff_ffff_ffff, 0xaaaa_aaaa_aaaa_aaaa)],
+        );
+
+        assert_eq!(
+            simd[0],
+            (u64::from(expected.to_bits()), 0),
+            "{label}: converted result",
+        );
+        assert_eq!(regs[1], src_value, "{label}: src preserved");
+        assert_eq!(regs[16], 0x1234_5678_9abc_def0, "{label}: scratch restored");
+        assert_eq!(sp, 0x8000, "{label}: sp restored");
+    }
+
+    fn assert_int_to_fp_f64(label: &str, kind: OpKind, src_value: u64, expected: f64) {
+        let code = lower_single_op(kind);
+        let (regs, simd, sp) = run_aarch64_code_with_regs_and_simd(
+            &code,
+            &[(1, src_value), (16, 0x1234_5678_9abc_def0)],
+            &[(0, 0xffff_ffff_ffff_ffff, 0xaaaa_aaaa_aaaa_aaaa)],
+        );
+
+        assert_eq!(simd[0], (expected.to_bits(), 0), "{label}: converted result");
+        assert_eq!(regs[1], src_value, "{label}: src preserved");
+        assert_eq!(regs[16], 0x1234_5678_9abc_def0, "{label}: scratch restored");
+        assert_eq!(sp, 0x8000, "{label}: sp restored");
+    }
+
     #[test]
     fn lowers_scalar_fp_binary_encodings() {
         let words = code_words(&lower_single_op(OpKind::FAdd {
@@ -15478,6 +15622,100 @@ mod tests {
                 src: v(1),
                 from: FpPrecision::F32,
                 to: FpPrecision::F80,
+            },
+        );
+        builder.set_terminator(Terminator::Return { values: vec![] });
+        let func = builder.finish();
+
+        let mut lowerer = Aarch64Lowerer::new();
+        let err = lowerer.lower_function(&func).unwrap_err();
+        assert!(matches!(err, LowerError::UnsupportedOp { .. }));
+    }
+
+    #[test]
+    fn lowers_scalar_int_to_fp_encodings() {
+        let words = code_words(&lower_single_op(OpKind::IntToFp {
+            dst: v(0),
+            src: x(1),
+            int_width: OpWidth::W32,
+            fp_precision: FpPrecision::F32,
+            signed: true,
+        }));
+        assert_eq!(words, vec![0x1e22_0020, 0xd65f_03c0]);
+
+        let words = code_words(&lower_single_op(OpKind::IntToFp {
+            dst: v(2),
+            src: x(3),
+            int_width: OpWidth::W64,
+            fp_precision: FpPrecision::F64,
+            signed: false,
+        }));
+        assert_eq!(words, vec![0x9e63_0062, 0xd65f_03c0]);
+    }
+
+    #[test]
+    fn lowers_scalar_int_to_fp_runtime() {
+        assert_int_to_fp_f32(
+            "scvtf_s_w",
+            OpKind::IntToFp {
+                dst: v(0),
+                src: x(1),
+                int_width: OpWidth::W32,
+                fp_precision: FpPrecision::F32,
+                signed: true,
+            },
+            u64::from((-7_i32) as u32),
+            -7.0,
+        );
+        assert_int_to_fp_f64(
+            "ucvtf_d_x",
+            OpKind::IntToFp {
+                dst: v(0),
+                src: x(1),
+                int_width: OpWidth::W64,
+                fp_precision: FpPrecision::F64,
+                signed: false,
+            },
+            1_234_567_890_123,
+            1_234_567_890_123.0,
+        );
+        assert_int_to_fp_f32(
+            "scvtf_s_b",
+            OpKind::IntToFp {
+                dst: v(0),
+                src: x(1),
+                int_width: OpWidth::W8,
+                fp_precision: FpPrecision::F32,
+                signed: true,
+            },
+            0x80,
+            -128.0,
+        );
+        assert_int_to_fp_f64(
+            "ucvtf_d_h",
+            OpKind::IntToFp {
+                dst: v(0),
+                src: x(1),
+                int_width: OpWidth::W16,
+                fp_precision: FpPrecision::F64,
+                signed: false,
+            },
+            0xffff,
+            65_535.0,
+        );
+    }
+
+    #[test]
+    fn rejects_scalar_int_to_fp_unsupported_precision() {
+        let mut builder = FunctionBuilder::new(FunctionId(0), 0);
+        builder.push_op(
+            0,
+            OpKind::IntToFp {
+                dst: v(0),
+                src: x(1),
+                int_width: OpWidth::W32,
+                fp_precision: FpPrecision::F80,
+                signed: true,
             },
         );
         builder.set_terminator(Terminator::Return { values: vec![] });
