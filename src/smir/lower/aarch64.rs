@@ -6602,7 +6602,7 @@ impl Aarch64Lowerer {
 
     fn clmul_source_gpr(src: &SrcOperand) -> Result<Option<u8>, LowerError> {
         match src {
-            SrcOperand::Reg(reg) => Ok(Some(Self::gpr(*reg)?)),
+            SrcOperand::Reg(reg) => Ok(Some(Self::gpr_arm_or_x86(*reg)?)),
             SrcOperand::Imm(_) | SrcOperand::Imm64(_) => Ok(None),
             other => Err(LowerError::UnsupportedOp {
                 op: format!("AArch64 native ClMul source {other:?}"),
@@ -6612,7 +6612,9 @@ impl Aarch64Lowerer {
 
     fn emit_clmul_operand(&mut self, dst: u8, src: &SrcOperand) -> Result<(), LowerError> {
         match src {
-            SrcOperand::Reg(reg) => self.emit_mov_reg(dst, Self::gpr(*reg)?, OpWidth::W32),
+            SrcOperand::Reg(reg) => {
+                self.emit_mov_reg(dst, Self::gpr_arm_or_x86(*reg)?, OpWidth::W32)
+            }
             SrcOperand::Imm(imm) | SrcOperand::Imm64(imm) => {
                 self.emit_mov_imm(dst, *imm, OpWidth::W32)
             }
@@ -6667,8 +6669,8 @@ impl Aarch64Lowerer {
             }
         }
 
-        let dst = Self::dst_gpr(dst)?;
-        let dst_hi = dst_hi.map(Self::dst_gpr).transpose()?;
+        let dst = Self::dst_gpr_arm_or_x86(dst)?;
+        let dst_hi = dst_hi.map(Self::dst_gpr_arm_or_x86).transpose()?;
         let src1_reg = Self::clmul_source_gpr(src1)?;
         let src2_reg = Self::clmul_source_gpr(src2)?;
         let mut avoid = vec![dst];
@@ -24208,6 +24210,121 @@ mod tests {
             (0, 0x9999_9999),
             false,
         );
+    }
+
+    #[test]
+    fn lowers_clmul_apx_egpr_operands_runtime() {
+        let word_a = 0x1234_5678;
+        let word_b = 0x8000_0003;
+        let half_a = 0x0001_ffff;
+        let half_b = 0x0003_0002;
+        let acc_a = 0xf0f0_00ff;
+        let acc_init = 0xa5a5_5a5a;
+        let code = lower_ops(vec![
+            OpKind::ClMul {
+                dst: x86(X86Reg::R16),
+                dst_hi: Some(x86(X86Reg::R17)),
+                src1: SrcOperand::Reg(x86(X86Reg::R18)),
+                src2: SrcOperand::Reg(x86(X86Reg::R19)),
+                elem_bits: 32,
+                lanes: 1,
+                acc: false,
+            },
+            OpKind::ClMul {
+                dst: x86(X86Reg::R20),
+                dst_hi: Some(x86(X86Reg::R21)),
+                src1: SrcOperand::Reg(x86(X86Reg::R22)),
+                src2: SrcOperand::Reg(x86(X86Reg::R23)),
+                elem_bits: 16,
+                lanes: 2,
+                acc: false,
+            },
+            OpKind::ClMul {
+                dst: x86(X86Reg::R24),
+                dst_hi: None,
+                src1: SrcOperand::Reg(x86(X86Reg::R25)),
+                src2: SrcOperand::Imm64(2),
+                elem_bits: 32,
+                lanes: 1,
+                acc: true,
+            },
+        ]);
+        let regs = [
+            (18, 0xaaaa_0000_0000_0000u64 | u64::from(word_a)),
+            (19, 0xbbbb_0000_0000_0000u64 | u64::from(word_b)),
+            (22, 0xcccc_0000_0000_0000u64 | u64::from(half_a)),
+            (23, 0xdddd_0000_0000_0000u64 | u64::from(half_b)),
+            (24, 0xeeee_0000_0000_0000u64 | u64::from(acc_init)),
+            (25, 0xffff_0000_0000_0000u64 | u64::from(acc_a)),
+            (13, 0x1313_1313_1313_1313),
+            (14, 0x1414_1414_1414_1414),
+            (15, 0x1515_1515_1515_1515),
+        ];
+        let (out, out_nzcv, sp) = run_aarch64_code(&code, &regs, 0b0110);
+        let word_expected = ref_clmul(word_a, word_b, 32, 1, false, (0, 0));
+        let half_expected = ref_clmul(half_a, half_b, 16, 2, false, (0, 0));
+        let acc_expected = ref_clmul(acc_a, 2, 32, 1, true, (acc_init, 0));
+
+        assert_eq!(out[16], u64::from(word_expected.0));
+        assert_eq!(out[17], u64::from(word_expected.1));
+        assert_eq!(out[20], u64::from(half_expected.0));
+        assert_eq!(out[21], u64::from(half_expected.1));
+        assert_eq!(out[24], u64::from(acc_expected.0));
+        assert_eq!(out[18], 0xaaaa_0000_0000_0000u64 | u64::from(word_a));
+        assert_eq!(out[19], 0xbbbb_0000_0000_0000u64 | u64::from(word_b));
+        assert_eq!(out[22], 0xcccc_0000_0000_0000u64 | u64::from(half_a));
+        assert_eq!(out[23], 0xdddd_0000_0000_0000u64 | u64::from(half_b));
+        assert_eq!(out[25], 0xffff_0000_0000_0000u64 | u64::from(acc_a));
+        assert_eq!(out[13], 0x1313_1313_1313_1313);
+        assert_eq!(out[14], 0x1414_1414_1414_1414);
+        assert_eq!(out[15], 0x1515_1515_1515_1515);
+        assert_eq!(out_nzcv, 0b0110);
+        assert_eq!(sp, 0x8000);
+    }
+
+    #[test]
+    fn rejects_clmul_apx_r31_identity_mapping() {
+        for kind in [
+            OpKind::ClMul {
+                dst: x86(X86Reg::R31),
+                dst_hi: None,
+                src1: SrcOperand::Reg(x86(X86Reg::R16)),
+                src2: SrcOperand::Reg(x86(X86Reg::R17)),
+                elem_bits: 32,
+                lanes: 1,
+                acc: false,
+            },
+            OpKind::ClMul {
+                dst: x86(X86Reg::R16),
+                dst_hi: Some(x86(X86Reg::R31)),
+                src1: SrcOperand::Reg(x86(X86Reg::R17)),
+                src2: SrcOperand::Reg(x86(X86Reg::R18)),
+                elem_bits: 32,
+                lanes: 1,
+                acc: false,
+            },
+            OpKind::ClMul {
+                dst: x86(X86Reg::R16),
+                dst_hi: None,
+                src1: SrcOperand::Reg(x86(X86Reg::R31)),
+                src2: SrcOperand::Reg(x86(X86Reg::R17)),
+                elem_bits: 32,
+                lanes: 1,
+                acc: false,
+            },
+            OpKind::ClMul {
+                dst: x86(X86Reg::R16),
+                dst_hi: None,
+                src1: SrcOperand::Reg(x86(X86Reg::R17)),
+                src2: SrcOperand::Reg(x86(X86Reg::R31)),
+                elem_bits: 16,
+                lanes: 2,
+                acc: false,
+            },
+        ] {
+            let err = try_lower_single_op(kind).unwrap_err();
+            assert!(matches!(err, LowerError::InvalidRegister(_)));
+        }
     }
 
     #[test]
