@@ -3196,9 +3196,9 @@ impl Aarch64Lowerer {
         count: VReg,
         width: MemWidth,
     ) -> Result<(), LowerError> {
-        let dst = Self::dst_gpr(dst)?;
-        let src = Self::gpr(src)?;
-        let count = Self::dst_gpr(count)?;
+        let dst = Self::dst_gpr_arm_or_x86(dst)?;
+        let src = Self::gpr_arm_or_x86(src)?;
+        let count = Self::dst_gpr_arm_or_x86(count)?;
         let size = Self::mem_size(width)?;
         let stride = width.bytes() as i64;
         let scratches = Self::scratch_regs(&[dst, src, count], 2)?;
@@ -25532,6 +25532,81 @@ mod tests {
             1,
             0,
         );
+    }
+
+    #[test]
+    fn lowers_rep_stos_apx_egpr_operands_runtime() {
+        let base = 0x9000;
+        let value = 0xbeef;
+        let count = 3;
+        let initial = 0x1122_3344_5566_7788;
+        let code = lower_single_op(OpKind::RepStos {
+            dst: x86(X86Reg::R16),
+            src: x86(X86Reg::R17),
+            count: x86(X86Reg::R18),
+            width: MemWidth::B2,
+        });
+
+        let regs = [
+            (0, 0x0101_0101_0101_0101),
+            (1, 0x0202_0202_0202_0202),
+            (16, base),
+            (17, value),
+            (18, count),
+            (19, 0x1919_1919_1919_1919),
+        ];
+        let old_nzcv = 0b0110;
+        let (out, out_nzcv, sp, mem) =
+            run_aarch64_code_with_memory(&code, &regs, old_nzcv, base, initial, MemWidth::B8);
+
+        assert_eq!(
+            mem,
+            ref_rep_stos_window(initial, value, MemWidth::B2, count)
+        );
+        assert_eq!(out[16], base + count * u64::from(MemWidth::B2.bytes()));
+        assert_eq!(out[17], value);
+        assert_eq!(out[18], 0);
+        assert_eq!(out[19], 0x1919_1919_1919_1919);
+        assert_eq!(out[0], 0x0101_0101_0101_0101);
+        assert_eq!(out[1], 0x0202_0202_0202_0202);
+        assert_eq!(out_nzcv, old_nzcv);
+        assert_eq!(sp, 0x8000);
+    }
+
+    #[test]
+    fn rejects_rep_stos_apx_r31_identity_mapping() {
+        for (label, dst, src, count) in [
+            (
+                "dst",
+                x86(X86Reg::R31),
+                x86(X86Reg::R17),
+                x86(X86Reg::R18),
+            ),
+            (
+                "src",
+                x86(X86Reg::R16),
+                x86(X86Reg::R31),
+                x86(X86Reg::R18),
+            ),
+            (
+                "count",
+                x86(X86Reg::R16),
+                x86(X86Reg::R17),
+                x86(X86Reg::R31),
+            ),
+        ] {
+            let err = try_lower_single_op(OpKind::RepStos {
+                dst,
+                src,
+                count,
+                width: MemWidth::B8,
+            })
+            .unwrap_err();
+            assert!(
+                matches!(err, LowerError::InvalidRegister(_)),
+                "{label}: {err:?}"
+            );
+        }
     }
 
     #[test]
