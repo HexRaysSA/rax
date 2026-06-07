@@ -7566,11 +7566,11 @@ impl Aarch64Lowerer {
                     });
                 }
             };
-            return self.emit_mov_imm(Self::dst_gpr(dst_lo)?, 0, emit_width);
+            return self.emit_mov_imm(Self::dst_gpr_arm_or_x86(dst_lo)?, 0, emit_width);
         }
         if dst_hi.is_none() && Self::src_imm(src2) == Some(1) {
-            let dst = Self::dst_gpr(dst_lo)?;
-            let rn = Self::gpr(src1)?;
+            let dst = Self::dst_gpr_arm_or_x86(dst_lo)?;
+            let rn = Self::gpr_arm_or_x86(src1)?;
             return match width {
                 OpWidth::W8 | OpWidth::W16 => {
                     self.emit_mov_reg(dst, rn, OpWidth::W32)?;
@@ -7600,8 +7600,8 @@ impl Aarch64Lowerer {
                 op: format!("AArch64 native multiply source {src2:?}"),
             });
         };
-        let rn = Self::gpr(src1)?;
-        let rm = Self::gpr(*src2)?;
+        let rn = Self::gpr_arm_or_x86(src1)?;
+        let rm = Self::gpr_arm_or_x86(*src2)?;
 
         if matches!(width, OpWidth::W8 | OpWidth::W16) {
             if dst_hi.is_some() {
@@ -7609,7 +7609,7 @@ impl Aarch64Lowerer {
                     op: format!("AArch64 native high-half multiply width {width:?}"),
                 });
             }
-            let dst_lo = Self::dst_gpr(dst_lo)?;
+            let dst_lo = Self::dst_gpr_arm_or_x86(dst_lo)?;
             self.emit_dp3(dst_lo, rn, rm, 31, 0b000, 0, OpWidth::W32)?;
             return self.emit_bitfield(dst_lo, dst_lo, 0b10, 0, width.bits() - 1, OpWidth::W32);
         }
@@ -7620,13 +7620,13 @@ impl Aarch64Lowerer {
                     op: format!("AArch64 native high-half multiply width {width:?}"),
                 });
             }
-            let dst_hi = Self::dst_gpr(dst_hi)?;
+            let dst_hi = Self::dst_gpr_arm_or_x86(dst_hi)?;
             let op31 = if signed { 0b010 } else { 0b110 };
             if matches!(dst_lo, VReg::Virtual(_)) {
                 return self.emit_dp3(dst_hi, rn, rm, 31, op31, 0, width);
             }
 
-            let dst_lo = Self::dst_gpr(dst_lo)?;
+            let dst_lo = Self::dst_gpr_arm_or_x86(dst_lo)?;
             let lo_aliases_source = dst_lo == rn || dst_lo == rm;
             let hi_aliases_source = dst_hi == rn || dst_hi == rm;
             if lo_aliases_source && hi_aliases_source {
@@ -7665,7 +7665,15 @@ impl Aarch64Lowerer {
             return self.emit_dp3(dst_hi, rn, rm, 31, op31, 0, width);
         }
 
-        self.emit_dp3(Self::dst_gpr(dst_lo)?, rn, rm, 31, 0b000, 0, width)
+        self.emit_dp3(
+            Self::dst_gpr_arm_or_x86(dst_lo)?,
+            rn,
+            rm,
+            31,
+            0b000,
+            0,
+            width,
+        )
     }
 
     fn lower_mul_imm(
@@ -7684,8 +7692,8 @@ impl Aarch64Lowerer {
                 });
             }
         };
-        let dst_lo = Self::dst_gpr(dst_lo)?;
-        let rn = Self::gpr(src1)?;
+        let dst_lo = Self::dst_gpr_arm_or_x86(dst_lo)?;
+        let rn = Self::gpr_arm_or_x86(src1)?;
         let scratches = Self::scratch_regs(&[dst_lo, rn], 1)?;
         let rm = scratches[0];
 
@@ -7714,12 +7722,12 @@ impl Aarch64Lowerer {
             });
         }
 
-        let dst_hi = Self::dst_gpr(dst_hi)?;
-        let rn = Self::gpr(src1)?;
+        let dst_hi = Self::dst_gpr_arm_or_x86(dst_hi)?;
+        let rn = Self::gpr_arm_or_x86(src1)?;
         let dst_lo = if matches!(dst_lo, VReg::Virtual(_)) {
             None
         } else {
-            Some(Self::dst_gpr(dst_lo)?)
+            Some(Self::dst_gpr_arm_or_x86(dst_lo)?)
         };
         if dst_lo == Some(dst_hi) {
             return Err(LowerError::UnsupportedOp {
@@ -7762,10 +7770,10 @@ impl Aarch64Lowerer {
         width: OpWidth,
         signed: bool,
     ) -> Result<(), LowerError> {
-        let dst = Self::dst_gpr(dst_lo)?;
-        let rn = Self::gpr(src1)?;
+        let dst = Self::dst_gpr_arm_or_x86(dst_lo)?;
+        let rn = Self::gpr_arm_or_x86(src1)?;
         let rm = match src2 {
-            SrcOperand::Reg(reg) => Some(Self::gpr(*reg)?),
+            SrcOperand::Reg(reg) => Some(Self::gpr_arm_or_x86(*reg)?),
             SrcOperand::Imm(_) | SrcOperand::Imm64(_) => None,
             other => {
                 return Err(LowerError::UnsupportedOp {
@@ -7852,10 +7860,10 @@ impl Aarch64Lowerer {
         width: OpWidth,
         subtract: bool,
     ) -> Result<(), LowerError> {
-        let dst = Self::dst_gpr(dst)?;
-        let rn = Self::gpr(src1)?;
-        let rm = Self::gpr(src2)?;
-        let ra = Self::gpr(acc)?;
+        let dst = Self::dst_gpr_arm_or_x86(dst)?;
+        let rn = Self::gpr_arm_or_x86(src1)?;
+        let rm = Self::gpr_arm_or_x86(src2)?;
+        let ra = Self::gpr_arm_or_x86(acc)?;
         if matches!(width, OpWidth::W8 | OpWidth::W16) {
             self.emit_dp3(dst, rn, rm, ra, 0b000, subtract as u32, OpWidth::W32)?;
             return self.emit_bitfield(dst, dst, 0b10, 0, width.bits() - 1, OpWidth::W32);
@@ -17687,6 +17695,134 @@ mod tests {
             SrcOperand::Imm(-3),
             (-3_i64) as u64,
         );
+    }
+
+    #[test]
+    fn lowers_mul_apx_egpr_operands_runtime() {
+        let full_src1 = 0xffff_0000_0000_0101;
+        let full_src2 = 0x0002_0000_0000_0011;
+        let full_product = (full_src1 as u128) * (full_src2 as u128);
+        let flag_src1 = 0xff;
+        let flag_src2 = 2;
+        let code = lower_ops(vec![
+            OpKind::MulU {
+                dst_lo: x86(X86Reg::R16),
+                dst_hi: None,
+                src1: x86(X86Reg::R17),
+                src2: SrcOperand::Reg(x86(X86Reg::R18)),
+                width: OpWidth::W64,
+                flags: FlagUpdate::None,
+            },
+            OpKind::MulS {
+                dst_lo: x86(X86Reg::R19),
+                dst_hi: None,
+                src1: x86(X86Reg::R20),
+                src2: SrcOperand::Imm(-7),
+                width: OpWidth::W8,
+                flags: FlagUpdate::None,
+            },
+            OpKind::MulU {
+                dst_lo: x86(X86Reg::R21),
+                dst_hi: Some(x86(X86Reg::R22)),
+                src1: x86(X86Reg::R23),
+                src2: SrcOperand::Reg(x86(X86Reg::R24)),
+                width: OpWidth::W64,
+                flags: FlagUpdate::None,
+            },
+            OpKind::MulAdd {
+                dst: x86(X86Reg::R25),
+                acc: x86(X86Reg::R26),
+                src1: x86(X86Reg::R27),
+                src2: x86(X86Reg::R28),
+                width: OpWidth::W16,
+            },
+            OpKind::MulU {
+                dst_lo: x86(X86Reg::R29),
+                dst_hi: None,
+                src1: x86(X86Reg::R17),
+                src2: SrcOperand::Reg(x86(X86Reg::R18)),
+                width: OpWidth::W8,
+                flags: FlagUpdate::All,
+            },
+        ]);
+        let regs = [
+            (17, flag_src1),
+            (18, flag_src2),
+            (20, 0x91),
+            (23, full_src1),
+            (24, full_src2),
+            (26, 5),
+            (27, 7),
+            (28, 9),
+            (15, 0x1515_1515_1515_1515),
+        ];
+        let (out, out_nzcv, sp) = run_aarch64_code(&code, &regs, 0b0101);
+
+        assert_eq!(out[16], ref_mul(flag_src1, flag_src2, false, OpWidth::W64));
+        assert_eq!(out[19], ref_mul(0x91, (-7_i64) as u64, true, OpWidth::W8));
+        assert_eq!(out[21], full_product as u64);
+        assert_eq!(out[22], (full_product >> 64) as u64);
+        assert_eq!(out[25], (5 + 7 * 9) & OpWidth::W16.mask());
+        assert_eq!(out[29], ref_mul(flag_src1, flag_src2, false, OpWidth::W8));
+        assert_eq!(out[15], 0x1515_1515_1515_1515);
+        assert_eq!(out_nzcv, expected_mul_nzcv(flag_src1, flag_src2, false, OpWidth::W8));
+        assert_eq!(sp, 0x8000);
+    }
+
+    #[test]
+    fn rejects_mul_apx_r31_identity_mapping() {
+        for kind in [
+            OpKind::MulU {
+                dst_lo: x86(X86Reg::R31),
+                dst_hi: None,
+                src1: x86(X86Reg::R16),
+                src2: SrcOperand::Reg(x86(X86Reg::R17)),
+                width: OpWidth::W64,
+                flags: FlagUpdate::None,
+            },
+            OpKind::MulU {
+                dst_lo: x86(X86Reg::R16),
+                dst_hi: None,
+                src1: x86(X86Reg::R31),
+                src2: SrcOperand::Reg(x86(X86Reg::R17)),
+                width: OpWidth::W64,
+                flags: FlagUpdate::None,
+            },
+            OpKind::MulU {
+                dst_lo: x86(X86Reg::R16),
+                dst_hi: None,
+                src1: x86(X86Reg::R17),
+                src2: SrcOperand::Reg(x86(X86Reg::R31)),
+                width: OpWidth::W64,
+                flags: FlagUpdate::None,
+            },
+            OpKind::MulS {
+                dst_lo: x86(X86Reg::R16),
+                dst_hi: Some(x86(X86Reg::R31)),
+                src1: x86(X86Reg::R17),
+                src2: SrcOperand::Imm(-3),
+                width: OpWidth::W64,
+                flags: FlagUpdate::None,
+            },
+            OpKind::MulU {
+                dst_lo: x86(X86Reg::R16),
+                dst_hi: None,
+                src1: x86(X86Reg::R17),
+                src2: SrcOperand::Reg(x86(X86Reg::R31)),
+                width: OpWidth::W8,
+                flags: FlagUpdate::All,
+            },
+            OpKind::MulAdd {
+                dst: x86(X86Reg::R16),
+                acc: x86(X86Reg::R31),
+                src1: x86(X86Reg::R17),
+                src2: x86(X86Reg::R18),
+                width: OpWidth::W64,
+            },
+        ] {
+            let err = try_lower_single_op(kind).unwrap_err();
+            assert!(matches!(err, LowerError::InvalidRegister(_)));
+        }
     }
 
     #[test]
