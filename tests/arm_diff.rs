@@ -2635,6 +2635,78 @@ fn push_cmove_always_reg_native_cases(
 }
 
 #[cfg(all(feature = "smir-jit", target_arch = "x86_64"))]
+fn push_cmove_same_reg_native_cases(
+    cases: &mut Vec<(String, [u32; 3], [u32; 3], ArmState)>,
+    control_target: i32,
+) {
+    let cmove_x = lower_aarch64_native_ops(vec![OpKind::CMove {
+        dst: arm_x(0),
+        src: arm_x(0),
+        cond: Condition::Eq,
+        width: OpWidth::W64,
+    }])
+    .unwrap_or_else(|e| {
+        panic!("cmove_x_same_reg_as_noop_preserves_flags: native lowering failed: {e}")
+    });
+
+    let mut st = ArmState::zeroed();
+    st.pc = PCREL_MAGIC;
+    st.x[30] = pcrel_marker(control_target);
+    st.x[0] = 0xaaaa_bbbb_cccc_dddd;
+    st.pstate = 0;
+    cases.push((
+        "cmove_x_same_reg_as_noop_preserves_flags".into(),
+        [0xd65f_03c0, NOP, NOP],
+        cmove_x,
+        st,
+    ));
+
+    let cmove_w = lower_aarch64_native_ops(vec![OpKind::CMove {
+        dst: arm_x(0),
+        src: arm_x(0),
+        cond: Condition::Eq,
+        width: OpWidth::W32,
+    }])
+    .unwrap_or_else(|e| {
+        panic!("cmove_w_same_reg_as_self_mov_zero_ext_preserves_flags: native lowering failed: {e}")
+    });
+
+    let mut st = ArmState::zeroed();
+    st.pc = PCREL_MAGIC;
+    st.x[30] = pcrel_marker(control_target);
+    st.x[0] = 0xbbbb_cccc_dddd_eeee;
+    st.pstate = 0;
+    cases.push((
+        "cmove_w_same_reg_as_self_mov_zero_ext_preserves_flags".into(),
+        [enc_mov_reg(0, RD, RD), NOP, NOP],
+        cmove_w,
+        st,
+    ));
+
+    let cmove_w8 = lower_aarch64_native_ops(vec![OpKind::CMove {
+        dst: arm_x(0),
+        src: arm_x(0),
+        cond: Condition::Eq,
+        width: OpWidth::W8,
+    }])
+    .unwrap_or_else(|e| {
+        panic!("cmove_w8_same_reg_as_uxtb_preserves_flags: native lowering failed: {e}")
+    });
+
+    let mut st = ArmState::zeroed();
+    st.pc = PCREL_MAGIC;
+    st.x[30] = pcrel_marker(control_target);
+    st.x[0] = 0xcccc_dddd_eeee_ff80;
+    st.pstate = 0x9000_0000;
+    cases.push((
+        "cmove_w8_same_reg_as_uxtb_preserves_flags".into(),
+        [enc_bitfield_regs(0, 0b10, 0, 7, RD, RD), NOP, NOP],
+        cmove_w8,
+        st,
+    ));
+}
+
+#[cfg(all(feature = "smir-jit", target_arch = "x86_64"))]
 fn push_select_identical_arm_native_cases(
     cases: &mut Vec<(String, [u32; 3], [u32; 3], ArmState)>,
     control_target: i32,
@@ -9300,6 +9372,7 @@ fn smir_aarch64_native_lowering_matches_qemu_oracle() {
     push_cmove_imm_movn_native_cases(&mut cases, control_target);
     push_cmove_imm_csel_native_cases(&mut cases, control_target);
     push_cmove_always_reg_native_cases(&mut cases, control_target);
+    push_cmove_same_reg_native_cases(&mut cases, control_target);
 
     let mut st = native_state();
     st.x[0] = 0xaaaa_bbbb_cccc_dddd;
