@@ -12920,7 +12920,8 @@ impl AArch64Cpu {
             }
             0b01 => {
                 // BFM
-                (dst & !tmask) | (bot & wmask & tmask)
+                let mask = wmask & tmask;
+                (dst & !mask) | (bot & mask)
             }
             0b10 => {
                 // UBFM
@@ -19253,15 +19254,36 @@ mod tests {
     #[test]
     fn test_bfm() {
         // BFM X0, X1, #4, #7 - insert bits
-        let insn = 0xB3041C20; // BFM X0, X1, #4, #7
+        let insn = 0xB344_1C20; // BFM X0, X1, #4, #7
         let mut cpu = create_cpu_with_insn(insn);
         cpu.set_x(0, 0xFFFF_FFFF_FFFF_0000);
         cpu.set_x(1, 0x00AB);
         cpu.step().unwrap();
-        // Bits 7:4 of X1 (0xA) inserted at appropriate position
-        let result = cpu.get_x(0);
-        // BFM behavior depends on the exact encoding
-        assert_ne!(result, 0xFFFF_FFFF_FFFF_0000); // Changed
+        assert_eq!(cpu.get_x(0), 0xFFFF_FFFF_FFFF_000A);
+    }
+
+    #[test]
+    fn test_bfm_bfi_inserts_without_clearing_lower_bits() {
+        // BFI W0, W1, #8, #8 inserts the low byte of W1 into bits 15:8.
+        let insn = 0x3318_1C20;
+        let mut cpu = create_cpu_with_insn(insn);
+        cpu.set_w(0, 0xA5A5_1234);
+        cpu.set_w(1, 0x0000_00CC);
+        cpu.step().unwrap();
+        assert_eq!(cpu.get_w(0), 0xA5A5_CC34);
+    }
+
+    #[test]
+    fn test_bfm_self_bfi_replicates_byte() {
+        let mut cpu = create_test_cpu();
+        write_insn(&mut cpu, 0, 0x3318_1C00); // BFI W0, W0, #8, #8
+        write_insn(&mut cpu, 4, 0x3310_1C00); // BFI W0, W0, #16, #8
+        write_insn(&mut cpu, 8, 0x3308_1C00); // BFI W0, W0, #24, #8
+        cpu.set_w(0, 0x81);
+        cpu.step().unwrap();
+        cpu.step().unwrap();
+        cpu.step().unwrap();
+        assert_eq!(cpu.get_w(0), 0x8181_8181);
     }
 
     // -------------------------------------------------------------------------
