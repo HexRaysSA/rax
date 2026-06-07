@@ -12,7 +12,7 @@ use crate::smir::ir::{SmirBlock, SmirFunction, Terminator, TrapKind};
 use crate::smir::ops::{OpKind, SmirOp};
 use crate::smir::types::{
     Address, ArchReg, ArmReg, AtomicOp, BlockId, Condition, ExtendOp, FenceKind, MemWidth,
-    MemoryOrder, OpWidth, ShiftOp, SignExtend, SrcOperand, VReg,
+    FpPrecision, MemoryOrder, OpWidth, ShiftOp, SignExtend, SrcOperand, VReg,
 };
 
 use super::{CodeBuffer, LowerError, LowerResult, Relocation, SmirLowerer};
@@ -243,6 +243,25 @@ impl Aarch64Lowerer {
         }
     }
 
+    fn fp_reg(vreg: VReg) -> Result<u8, LowerError> {
+        match vreg {
+            VReg::Arch(ArchReg::Arm(ArmReg::V(n))) if n < 32 => Ok(n),
+            other => Err(LowerError::InvalidRegister(format!(
+                "AArch64 native lowerer expected V register, got {other:?}"
+            ))),
+        }
+    }
+
+    fn fp_type(precision: FpPrecision) -> Result<u32, LowerError> {
+        match precision {
+            FpPrecision::F32 => Ok(0b00),
+            FpPrecision::F64 => Ok(0b01),
+            other => Err(LowerError::UnsupportedOp {
+                op: format!("AArch64 native FP precision {other:?}"),
+            }),
+        }
+    }
+
     fn branch_gpr(vreg: VReg) -> Result<u8, LowerError> {
         match vreg {
             VReg::Arch(ArchReg::Arm(ArmReg::X(n))) if n < 31 => Ok(n),
@@ -315,6 +334,28 @@ impl Aarch64Lowerer {
     fn emit_movn_zero(&mut self, dst: u8, width: OpWidth) -> Result<(), LowerError> {
         let sf = Self::sf(width)?;
         self.emit((sf << 31) | (0b100101 << 23) | (dst as u32));
+        Ok(())
+    }
+
+    fn emit_fp_two_source(
+        &mut self,
+        rd: u8,
+        rn: u8,
+        rm: u8,
+        opcode: u32,
+        precision: FpPrecision,
+    ) -> Result<(), LowerError> {
+        let fp_type = Self::fp_type(precision)?;
+        self.emit(
+            (0b00011110 << 24)
+                | (fp_type << 22)
+                | (1 << 21)
+                | ((rm as u32) << 16)
+                | ((opcode & 0xf) << 12)
+                | (0b10 << 10)
+                | ((rn as u32) << 5)
+                | (rd as u32),
+        );
         Ok(())
     }
 
@@ -3324,6 +3365,20 @@ impl Aarch64Lowerer {
         self.emit_sysreg(flags, ArmReg::Nzcv, false)?;
         self.emit_scratch_restore(&scratches);
         Ok(())
+    }
+
+    fn lower_fp_binary(
+        &mut self,
+        dst: VReg,
+        src1: VReg,
+        src2: VReg,
+        precision: FpPrecision,
+        opcode: u32,
+    ) -> Result<(), LowerError> {
+        let rd = Self::fp_reg(dst)?;
+        let rn = Self::fp_reg(src1)?;
+        let rm = Self::fp_reg(src2)?;
+        self.emit_fp_two_source(rd, rn, rm, opcode, precision)
     }
 
     fn bit_test_emit_width(width: OpWidth) -> Result<OpWidth, LowerError> {
@@ -9233,6 +9288,42 @@ impl Aarch64Lowerer {
                 width,
                 flags,
             } => self.lower_div(*quot, *rem, *src1, src2, *width, flags.updates_any(), true),
+            OpKind::FAdd {
+                dst,
+                src1,
+                src2,
+                precision,
+            } => self.lower_fp_binary(*dst, *src1, *src2, *precision, 0b0010),
+            OpKind::FSub {
+                dst,
+                src1,
+                src2,
+                precision,
+            } => self.lower_fp_binary(*dst, *src1, *src2, *precision, 0b0011),
+            OpKind::FMul {
+                dst,
+                src1,
+                src2,
+                precision,
+            } => self.lower_fp_binary(*dst, *src1, *src2, *precision, 0b0000),
+            OpKind::FDiv {
+                dst,
+                src1,
+                src2,
+                precision,
+            } => self.lower_fp_binary(*dst, *src1, *src2, *precision, 0b0001),
+            OpKind::FMin {
+                dst,
+                src1,
+                src2,
+                precision,
+            } => self.lower_fp_binary(*dst, *src1, *src2, *precision, 0b0101),
+            OpKind::FMax {
+                dst,
+                src1,
+                src2,
+                precision,
+            } => self.lower_fp_binary(*dst, *src1, *src2, *precision, 0b0100),
             OpKind::Load {
                 dst,
                 addr,
@@ -9837,6 +9928,10 @@ mod tests {
         VReg::Arch(ArchReg::Arm(ArmReg::X(n)))
     }
 
+    fn v(n: u8) -> VReg {
+        VReg::Arch(ArchReg::Arm(ArmReg::V(n)))
+    }
+
     fn bextr_flags() -> FlagUpdate {
         FlagUpdate::Specific(FlagSet::CF.union(FlagSet::ZF).union(FlagSet::OF))
     }
@@ -9869,6 +9964,12 @@ mod tests {
         let mut lowerer = Aarch64Lowerer::new();
         lowerer.lower_function(&func).unwrap();
         lowerer.finalize().unwrap()
+    }
+
+    fn code_words(code: &[u8]) -> Vec<u32> {
+        code.chunks_exact(4)
+            .map(|chunk| u32::from_le_bytes([chunk[0], chunk[1], chunk[2], chunk[3]]))
+            .collect()
     }
 
     fn run_aarch64_code(
@@ -9918,6 +10019,41 @@ mod tests {
             | ((cpu.get_c() as u8) << 1)
             | (cpu.get_v() as u8);
         (out, out_nzcv, cpu.current_sp())
+    }
+
+    fn run_aarch64_code_with_simd(code: &[u8], simd_regs: &[(u8, u64, u64)]) -> [(u64, u64); 32] {
+        let mut image = vec![0u8; 0x10000];
+        image[..code.len()].copy_from_slice(code);
+        image[code.len()..code.len() + 4].copy_from_slice(&0xd460_0000u32.to_le_bytes());
+
+        let memory = FlatMemory::with_data(0, image);
+        let mut cpu = AArch64Cpu::new(AArch64Config::default(), Box::new(memory));
+        cpu.set_pc(0);
+        cpu.set_current_sp(0x8000);
+        cpu.set_x(30, code.len() as u64);
+        for &(reg, low, high) in simd_regs {
+            cpu.set_simd_reg(reg, low, high).unwrap();
+        }
+
+        let max_steps = code.len() / 4 + 4096;
+        let mut saw_break = false;
+        for _ in 0..max_steps {
+            match cpu.step().unwrap() {
+                CpuExit::Continue => {}
+                CpuExit::Breakpoint(_) => {
+                    saw_break = true;
+                    break;
+                }
+                other => panic!("unexpected AArch64 CPU exit: {other:?}"),
+            }
+        }
+        assert!(saw_break, "lowered code did not return to BRK sentinel");
+
+        let mut out = [(0u64, 0u64); 32];
+        for reg in 0..32 {
+            out[reg] = cpu.get_simd_reg(reg as u8).unwrap();
+        }
+        out
     }
 
     fn run_aarch64_code_with_memory(
@@ -14570,6 +14706,253 @@ mod tests {
             1,
             FlagUpdate::All,
         );
+    }
+
+    fn assert_fp_binary_f32(label: &str, kind: OpKind, src1: f32, src2: f32, expected: f32) {
+        let src1_bits = u64::from(src1.to_bits());
+        let src2_bits = u64::from(src2.to_bits());
+        let expected_bits = u64::from(expected.to_bits());
+        let code = lower_single_op(kind);
+        let out = run_aarch64_code_with_simd(
+            &code,
+            &[
+                (0, 0xffff_ffff_ffff_ffff, 0xaaaa_aaaa_aaaa_aaaa),
+                (1, src1_bits, 0x1111_1111_1111_1111),
+                (2, src2_bits, 0x2222_2222_2222_2222),
+            ],
+        );
+
+        assert_eq!(out[0].0, expected_bits, "{label}: low result");
+        assert_eq!(out[0].1, 0, "{label}: high result");
+        assert_eq!(
+            out[1],
+            (src1_bits, 0x1111_1111_1111_1111),
+            "{label}: src1 preserved",
+        );
+        assert_eq!(
+            out[2],
+            (src2_bits, 0x2222_2222_2222_2222),
+            "{label}: src2 preserved",
+        );
+    }
+
+    fn assert_fp_binary_f64(label: &str, kind: OpKind, src1: f64, src2: f64, expected: f64) {
+        let src1_bits = src1.to_bits();
+        let src2_bits = src2.to_bits();
+        let expected_bits = expected.to_bits();
+        let code = lower_single_op(kind);
+        let out = run_aarch64_code_with_simd(
+            &code,
+            &[
+                (0, 0xffff_ffff_ffff_ffff, 0xaaaa_aaaa_aaaa_aaaa),
+                (1, src1_bits, 0x1111_1111_1111_1111),
+                (2, src2_bits, 0x2222_2222_2222_2222),
+            ],
+        );
+
+        assert_eq!(out[0].0, expected_bits, "{label}: low result");
+        assert_eq!(out[0].1, 0, "{label}: high result");
+        assert_eq!(
+            out[1],
+            (src1_bits, 0x1111_1111_1111_1111),
+            "{label}: src1 preserved",
+        );
+        assert_eq!(
+            out[2],
+            (src2_bits, 0x2222_2222_2222_2222),
+            "{label}: src2 preserved",
+        );
+    }
+
+    #[test]
+    fn lowers_scalar_fp_binary_encodings() {
+        let words = code_words(&lower_single_op(OpKind::FAdd {
+            dst: v(0),
+            src1: v(1),
+            src2: v(2),
+            precision: FpPrecision::F32,
+        }));
+        assert_eq!(words, vec![0x1e22_2820, 0xd65f_03c0]);
+
+        let words = code_words(&lower_single_op(OpKind::FDiv {
+            dst: v(3),
+            src1: v(4),
+            src2: v(5),
+            precision: FpPrecision::F64,
+        }));
+        assert_eq!(words, vec![0x1e65_1883, 0xd65f_03c0]);
+    }
+
+    #[test]
+    fn lowers_scalar_fp_binary_f32_runtime() {
+        assert_fp_binary_f32(
+            "fadd_s",
+            OpKind::FAdd {
+                dst: v(0),
+                src1: v(1),
+                src2: v(2),
+                precision: FpPrecision::F32,
+            },
+            1.5,
+            2.25,
+            3.75,
+        );
+        assert_fp_binary_f32(
+            "fsub_s",
+            OpKind::FSub {
+                dst: v(0),
+                src1: v(1),
+                src2: v(2),
+                precision: FpPrecision::F32,
+            },
+            5.5,
+            1.25,
+            4.25,
+        );
+        assert_fp_binary_f32(
+            "fmul_s",
+            OpKind::FMul {
+                dst: v(0),
+                src1: v(1),
+                src2: v(2),
+                precision: FpPrecision::F32,
+            },
+            -3.0,
+            2.0,
+            -6.0,
+        );
+        assert_fp_binary_f32(
+            "fdiv_s",
+            OpKind::FDiv {
+                dst: v(0),
+                src1: v(1),
+                src2: v(2),
+                precision: FpPrecision::F32,
+            },
+            7.5,
+            2.5,
+            3.0,
+        );
+        assert_fp_binary_f32(
+            "fmin_s",
+            OpKind::FMin {
+                dst: v(0),
+                src1: v(1),
+                src2: v(2),
+                precision: FpPrecision::F32,
+            },
+            -4.0,
+            1.0,
+            -4.0,
+        );
+        assert_fp_binary_f32(
+            "fmax_s",
+            OpKind::FMax {
+                dst: v(0),
+                src1: v(1),
+                src2: v(2),
+                precision: FpPrecision::F32,
+            },
+            -4.0,
+            1.0,
+            1.0,
+        );
+    }
+
+    #[test]
+    fn lowers_scalar_fp_binary_f64_runtime() {
+        assert_fp_binary_f64(
+            "fadd_d",
+            OpKind::FAdd {
+                dst: v(0),
+                src1: v(1),
+                src2: v(2),
+                precision: FpPrecision::F64,
+            },
+            1.5,
+            2.25,
+            3.75,
+        );
+        assert_fp_binary_f64(
+            "fsub_d",
+            OpKind::FSub {
+                dst: v(0),
+                src1: v(1),
+                src2: v(2),
+                precision: FpPrecision::F64,
+            },
+            5.5,
+            1.25,
+            4.25,
+        );
+        assert_fp_binary_f64(
+            "fmul_d",
+            OpKind::FMul {
+                dst: v(0),
+                src1: v(1),
+                src2: v(2),
+                precision: FpPrecision::F64,
+            },
+            -3.0,
+            2.0,
+            -6.0,
+        );
+        assert_fp_binary_f64(
+            "fdiv_d",
+            OpKind::FDiv {
+                dst: v(0),
+                src1: v(1),
+                src2: v(2),
+                precision: FpPrecision::F64,
+            },
+            7.5,
+            2.5,
+            3.0,
+        );
+        assert_fp_binary_f64(
+            "fmin_d",
+            OpKind::FMin {
+                dst: v(0),
+                src1: v(1),
+                src2: v(2),
+                precision: FpPrecision::F64,
+            },
+            -4.0,
+            1.0,
+            -4.0,
+        );
+        assert_fp_binary_f64(
+            "fmax_d",
+            OpKind::FMax {
+                dst: v(0),
+                src1: v(1),
+                src2: v(2),
+                precision: FpPrecision::F64,
+            },
+            -4.0,
+            1.0,
+            1.0,
+        );
+    }
+
+    #[test]
+    fn rejects_scalar_fp_binary_unsupported_precision() {
+        let mut builder = FunctionBuilder::new(FunctionId(0), 0);
+        builder.push_op(
+            0,
+            OpKind::FAdd {
+                dst: v(0),
+                src1: v(1),
+                src2: v(2),
+                precision: FpPrecision::F80,
+            },
+        );
+        builder.set_terminator(Terminator::Return { values: vec![] });
+        let func = builder.finish();
+
+        let mut lowerer = Aarch64Lowerer::new();
+        let err = lowerer.lower_function(&func).unwrap_err();
+        assert!(matches!(err, LowerError::UnsupportedOp { .. }));
     }
 
     #[test]
