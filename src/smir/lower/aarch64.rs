@@ -32628,6 +32628,46 @@ mod tests {
     }
 
     #[test]
+    fn lowers_apx_setzucc_lifted_memory_shape_runtime() {
+        let mem_addr = 0x9000_u64;
+        let index = 3_u64;
+        let disp = -5_i32;
+        let base = mem_addr - index + 5;
+        let tmp = x(9);
+        let code = lower_ops(vec![
+            OpKind::SetCC {
+                dst: tmp,
+                cond: Condition::Eq,
+                width: OpWidth::W8,
+            },
+            OpKind::Store {
+                src: tmp,
+                addr: Address::sib(Some(x86(X86Reg::R16)), x86(X86Reg::R17), 1, disp),
+                width: MemWidth::B1,
+            },
+        ]);
+
+        let regs = [(9, 0x0909_0909_0909_0909), (16, base), (17, index)];
+        let (out, out_nzcv, sp, mem) =
+            run_aarch64_code_with_memory(&code, &regs, 0b0100, mem_addr, 0xaa, MemWidth::B1);
+        assert_eq!(mem, 1);
+        assert_eq!(out[9], 1);
+        assert_eq!(out[16], base);
+        assert_eq!(out[17], index);
+        assert_eq!(out_nzcv, 0b0100);
+        assert_eq!(sp, 0x8000);
+
+        let (out, out_nzcv, sp, mem) =
+            run_aarch64_code_with_memory(&code, &regs, 0, mem_addr, 0xaa, MemWidth::B1);
+        assert_eq!(mem, 0);
+        assert_eq!(out[9], 0);
+        assert_eq!(out[16], base);
+        assert_eq!(out[17], index);
+        assert_eq!(out_nzcv, 0);
+        assert_eq!(sp, 0x8000);
+    }
+
+    #[test]
     fn rejects_setcc_cmove_apx_r31_identity_mapping() {
         for kind in [
             OpKind::TestCondition {
