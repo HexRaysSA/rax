@@ -2337,6 +2337,51 @@ impl Aarch64Lowerer {
         Ok(())
     }
 
+    fn lower_vfma(
+        &mut self,
+        dst: VReg,
+        src1: VReg,
+        src2: VReg,
+        acc: VReg,
+        elem: VecElementType,
+        lanes: u8,
+        negate_product: bool,
+        negate_acc: bool,
+    ) -> Result<(), LowerError> {
+        if negate_acc {
+            return Err(LowerError::UnsupportedOp {
+                op: "AArch64 native vector FMA negated accumulator".to_string(),
+            });
+        }
+
+        let rd = Self::fp_reg(dst)?;
+        let rn = Self::fp_reg(src1)?;
+        let rm = Self::fp_reg(src2)?;
+        let ra = Self::fp_reg(acc)?;
+        let (q, elem_size) = Self::simd_float_shape(elem, lanes)?;
+        if rd != ra {
+            if rd == rn || rd == rm {
+                return Err(LowerError::UnsupportedOp {
+                    op: "AArch64 native vector FMA accumulator copy alias".to_string(),
+                });
+            }
+            let width = if q == 1 {
+                VecWidth::V128
+            } else {
+                VecWidth::V64
+            };
+            self.lower_vmov(dst, acc, width)?;
+        }
+
+        let size = if negate_product {
+            elem_size | 0b10
+        } else {
+            elem_size
+        };
+        self.emit_simd_three_same(rd, rn, rm, q, 0, size, 0b11001);
+        Ok(())
+    }
+
     fn lower_vlane_three_same(
         &mut self,
         dst: VReg,
@@ -10982,6 +11027,25 @@ impl Aarch64Lowerer {
                 *lanes,
                 SimdArithmeticOp::Min { signed: *signed },
             ),
+            OpKind::VFma {
+                dst,
+                src1,
+                src2,
+                acc,
+                elem,
+                lanes,
+                negate_product,
+                negate_acc,
+            } => self.lower_vfma(
+                *dst,
+                *src1,
+                *src2,
+                *acc,
+                *elem,
+                *lanes,
+                *negate_product,
+                *negate_acc,
+            ),
             OpKind::VPopcnt {
                 dst,
                 src,
@@ -18409,6 +18473,131 @@ mod tests {
     }
 
     #[test]
+    fn lowers_vector_float_fma_runtime() {
+        fn apply_f32(
+            a: [f32; 4],
+            b: [f32; 4],
+            acc: [f32; 4],
+            negate_product: bool,
+        ) -> (u64, u64) {
+            let lhs = |value: f32| if negate_product { -value } else { value };
+            simd_pair_from_f32([
+                lhs(a[0]).mul_add(b[0], acc[0]),
+                lhs(a[1]).mul_add(b[1], acc[1]),
+                lhs(a[2]).mul_add(b[2], acc[2]),
+                lhs(a[3]).mul_add(b[3], acc[3]),
+            ])
+        }
+
+        fn apply_f64(
+            a: [f64; 2],
+            b: [f64; 2],
+            acc: [f64; 2],
+            negate_product: bool,
+        ) -> (u64, u64) {
+            let lhs = |value: f64| if negate_product { -value } else { value };
+            simd_pair_from_f64([
+                lhs(a[0]).mul_add(b[0], acc[0]),
+                lhs(a[1]).mul_add(b[1], acc[1]),
+            ])
+        }
+
+        let a32 = [1.5, -2.0, 0.25, 4.0];
+        let b32 = [2.0, 3.0, -8.0, 0.5];
+        let acc32 = [0.25, 10.0, 1.0, -1.0];
+        let a32x2 = [3.0, -4.0, 77.0, -99.0];
+        let b32x2 = [0.5, 2.0, 1.0, 1.0];
+        let acc32x2 = [1.25, -2.0, 5.0, 6.0];
+        let a64 = [1.5, -3.0];
+        let b64 = [4.0, -2.0];
+        let acc64 = [-0.5, 7.0];
+        let code = lower_ops(vec![
+            OpKind::VFma {
+                dst: v(3),
+                src1: v(1),
+                src2: v(2),
+                acc: v(3),
+                elem: VecElementType::F32,
+                lanes: 4,
+                negate_product: false,
+                negate_acc: false,
+            },
+            OpKind::VFma {
+                dst: v(4),
+                src1: v(1),
+                src2: v(2),
+                acc: v(13),
+                elem: VecElementType::F32,
+                lanes: 4,
+                negate_product: true,
+                negate_acc: false,
+            },
+            OpKind::VFma {
+                dst: v(7),
+                src1: v(5),
+                src2: v(6),
+                acc: v(7),
+                elem: VecElementType::F32,
+                lanes: 2,
+                negate_product: false,
+                negate_acc: false,
+            },
+            OpKind::VFma {
+                dst: v(10),
+                src1: v(8),
+                src2: v(9),
+                acc: v(10),
+                elem: VecElementType::F64,
+                lanes: 2,
+                negate_product: false,
+                negate_acc: false,
+            },
+            OpKind::VFma {
+                dst: v(12),
+                src1: v(8),
+                src2: v(9),
+                acc: v(14),
+                elem: VecElementType::F64,
+                lanes: 2,
+                negate_product: true,
+                negate_acc: false,
+            },
+        ]);
+
+        let (_, simd, _) = run_aarch64_code_with_regs_and_simd(
+            &code,
+            &[],
+            &[
+                (1, simd_pair_from_f32(a32).0, simd_pair_from_f32(a32).1),
+                (2, simd_pair_from_f32(b32).0, simd_pair_from_f32(b32).1),
+                (3, simd_pair_from_f32(acc32).0, simd_pair_from_f32(acc32).1),
+                (5, simd_pair_from_f32(a32x2).0, simd_pair_from_f32(a32x2).1),
+                (6, simd_pair_from_f32(b32x2).0, simd_pair_from_f32(b32x2).1),
+                (7, simd_pair_from_f32(acc32x2).0, simd_pair_from_f32(acc32x2).1),
+                (8, simd_pair_from_f64(a64).0, simd_pair_from_f64(a64).1),
+                (9, simd_pair_from_f64(b64).0, simd_pair_from_f64(b64).1),
+                (10, simd_pair_from_f64(acc64).0, simd_pair_from_f64(acc64).1),
+                (13, simd_pair_from_f32(acc32).0, simd_pair_from_f32(acc32).1),
+                (14, simd_pair_from_f64(acc64).0, simd_pair_from_f64(acc64).1),
+            ],
+        );
+
+        assert_eq!(simd[3], apply_f32(a32, b32, acc32, false));
+        assert_eq!(simd[4], apply_f32(a32, b32, acc32, true));
+        assert_eq!(
+            simd[7],
+            simd_pair_from_f32([
+                a32x2[0].mul_add(b32x2[0], acc32x2[0]),
+                a32x2[1].mul_add(b32x2[1], acc32x2[1]),
+                0.0,
+                0.0,
+            ])
+        );
+        assert_eq!(simd[10], apply_f64(a64, b64, acc64, false));
+        assert_eq!(simd[12], apply_f64(a64, b64, acc64, true));
+    }
+
+    #[test]
     fn lowers_vector_integer_max_runtime() {
         fn apply_max(
             a_low: u64,
@@ -19731,6 +19920,39 @@ mod tests {
             elem: VecElementType::I32,
             lanes: 8,
             signed: false,
+        });
+
+        assert_unsupported(OpKind::VFma {
+            dst: v(0),
+            src1: v(1),
+            src2: v(2),
+            acc: v(3),
+            elem: VecElementType::F64,
+            lanes: 1,
+            negate_product: false,
+            negate_acc: false,
+        });
+
+        assert_unsupported(OpKind::VFma {
+            dst: v(0),
+            src1: v(1),
+            src2: v(2),
+            acc: v(3),
+            elem: VecElementType::F32,
+            lanes: 4,
+            negate_product: false,
+            negate_acc: true,
+        });
+
+        assert_unsupported(OpKind::VFma {
+            dst: v(1),
+            src1: v(1),
+            src2: v(2),
+            acc: v(3),
+            elem: VecElementType::F32,
+            lanes: 4,
+            negate_product: false,
+            negate_acc: false,
         });
 
         assert_unsupported(OpKind::VPopcnt {
