@@ -2855,6 +2855,35 @@ impl Aarch64Lowerer {
         self.emit_sysreg(flags, ArmReg::Nzcv, false)
     }
 
+    fn lower_subword_inc_dec_with_flags(
+        &mut self,
+        dst: VReg,
+        src: VReg,
+        decrement: bool,
+        width: OpWidth,
+    ) -> Result<(), LowerError> {
+        let dst_reg = Self::dst_or_zero_for_flags(dst, true)?;
+        let rn = Self::gpr(src)?;
+        let scratches = Self::scratch_regs(&[dst_reg, rn], 4)?;
+        let saved_flags = scratches[0];
+        let flags = scratches[1];
+        let lhs = scratches[2];
+        let rhs = scratches[3];
+        let shift = OpWidth::W32.bits() - width.bits();
+
+        self.emit_scratch_save(&scratches);
+        self.emit_sysreg(saved_flags, ArmReg::Nzcv, true)?;
+        self.emit_shifted_subword_addsub_operand(lhs, rn, width)?;
+        self.emit_mov_imm(rhs, 1_i64 << shift, OpWidth::W32)?;
+        self.emit_addsub_reg(dst_reg, lhs, rhs, decrement, true, OpWidth::W32)?;
+        if dst_reg != 31 {
+            self.emit_logic_shifted(dst_reg, 31, dst_reg, 0b01, false, 1, shift, OpWidth::W32)?;
+        }
+        self.emit_preserve_saved_c_flag(saved_flags, flags)?;
+        self.emit_scratch_restore(&scratches);
+        Ok(())
+    }
+
     fn lower_inc_dec(
         &mut self,
         dst: VReg,
@@ -2865,13 +2894,7 @@ impl Aarch64Lowerer {
     ) -> Result<(), LowerError> {
         if matches!(width, OpWidth::W8 | OpWidth::W16) {
             if set_flags {
-                return Err(LowerError::UnsupportedOp {
-                    op: if decrement {
-                        "AArch64 native flag-setting subword Dec".into()
-                    } else {
-                        "AArch64 native flag-setting subword Inc".into()
-                    },
-                });
+                return self.lower_subword_inc_dec_with_flags(dst, src, decrement, width);
             }
 
             let dst = Self::dst_gpr(dst)?;
@@ -19788,6 +19811,42 @@ mod tests {
             41,
             OpWidth::W64,
             0b0010,
+        );
+        assert_inc_dec_flags_lowering(
+            "inc_w8_sets_overflow_and_preserves_clear_c",
+            false,
+            0,
+            1,
+            0x7f,
+            OpWidth::W8,
+            0b0000,
+        );
+        assert_inc_dec_flags_lowering(
+            "inc_w8_sets_zero_and_preserves_set_c",
+            false,
+            0,
+            1,
+            0xff,
+            OpWidth::W8,
+            0b0010,
+        );
+        assert_inc_dec_flags_lowering(
+            "dec_w16_sets_overflow_and_preserves_set_c",
+            true,
+            0,
+            1,
+            0x8000,
+            OpWidth::W16,
+            0b0010,
+        );
+        assert_inc_dec_flags_lowering(
+            "dec_w16_dst_aliases_src_preserves_clear_c",
+            true,
+            1,
+            1,
+            0,
+            OpWidth::W16,
+            0b0000,
         );
     }
 
