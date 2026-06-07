@@ -2806,6 +2806,16 @@ impl Aarch64Lowerer {
                     if is_zero {
                         return self.emit_addsub_reg(31, 31, 31, true, true, width);
                     }
+                    if matches!(width, OpWidth::W32 | OpWidth::W64) {
+                        let value = match width {
+                            OpWidth::W32 => u64::from(*imm as u32),
+                            OpWidth::W64 => *imm as u64,
+                            _ => unreachable!(),
+                        };
+                        if (value & width.sign_bit()) != 0 && value != width.sign_bit() {
+                            return self.emit_sysreg(31, ArmReg::Nzcv, false);
+                        }
+                    }
                     return Err(LowerError::UnsupportedOp {
                         op: "AArch64 native CMP zero base with nonzero immediate".into(),
                     });
@@ -9118,6 +9128,54 @@ mod tests {
         expected.extend_from_slice(
             &enc_addsub_shift_regs(0, 1, 1, 0, 0, 31, 31, 31).to_le_bytes(),
         );
+        expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
+        assert_eq!(code, expected);
+    }
+
+    #[test]
+    fn lowers_cmp_x_zero_base_neg_one_imm_as_msr_nzcv_xzr() {
+        let mut builder = FunctionBuilder::new(FunctionId(0), 0);
+        builder.push_op(
+            0,
+            OpKind::Cmp {
+                src1: VReg::Imm(0),
+                src2: SrcOperand::Imm(-1),
+                width: OpWidth::W64,
+            },
+        );
+        builder.set_terminator(Terminator::Return { values: vec![] });
+        let func = builder.finish();
+
+        let mut lowerer = Aarch64Lowerer::new();
+        lowerer.lower_function(&func).unwrap();
+        let code = lowerer.finalize().unwrap();
+
+        let mut expected = Vec::new();
+        expected.extend_from_slice(&enc_msr_sysreg(31, 3, 4, 2, 0).to_le_bytes());
+        expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
+        assert_eq!(code, expected);
+    }
+
+    #[test]
+    fn lowers_cmp_w_zero_base_masked_neg_one_imm_as_msr_nzcv_xzr() {
+        let mut builder = FunctionBuilder::new(FunctionId(0), 0);
+        builder.push_op(
+            0,
+            OpKind::Cmp {
+                src1: VReg::Imm(0),
+                src2: SrcOperand::Imm64(0xffff_ffff),
+                width: OpWidth::W32,
+            },
+        );
+        builder.set_terminator(Terminator::Return { values: vec![] });
+        let func = builder.finish();
+
+        let mut lowerer = Aarch64Lowerer::new();
+        lowerer.lower_function(&func).unwrap();
+        let code = lowerer.finalize().unwrap();
+
+        let mut expected = Vec::new();
+        expected.extend_from_slice(&enc_msr_sysreg(31, 3, 4, 2, 0).to_le_bytes());
         expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
         assert_eq!(code, expected);
     }

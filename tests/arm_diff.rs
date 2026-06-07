@@ -3481,6 +3481,52 @@ fn push_addsub_zero_base_nonzero_imm_flag_native_cases(
 }
 
 #[cfg(all(feature = "smir-jit", target_arch = "x86_64"))]
+fn push_cmp_zero_base_neg_imm_native_cases(
+    cases: &mut Vec<(String, [u32; 3], [u32; 3], ArmState)>,
+    control_target: i32,
+) {
+    let mut st = ArmState::zeroed();
+    st.pc = PCREL_MAGIC;
+    st.x[30] = pcrel_marker(control_target);
+    st.x[0] = 0xaaaa_bbbb_cccc_dddd;
+    st.pstate = 0xf000_0000;
+    let lowered = lower_aarch64_native_ops(vec![OpKind::Cmp {
+        src1: VReg::Imm(0),
+        src2: SrcOperand::Imm(-1),
+        width: OpWidth::W64,
+    }])
+    .unwrap_or_else(|e| {
+        panic!("cmp_x_zero_base_neg_one_imm_as_msr_nzcv_xzr_clears_flags: native lowering failed: {e}")
+    });
+    cases.push((
+        "cmp_x_zero_base_neg_one_imm_as_msr_nzcv_xzr_clears_flags".into(),
+        [enc_msr_nzcv(31), NOP, NOP],
+        lowered,
+        st,
+    ));
+
+    let mut st = ArmState::zeroed();
+    st.pc = PCREL_MAGIC;
+    st.x[30] = pcrel_marker(control_target);
+    st.x[0] = 0xbbbb_cccc_dddd_eeee;
+    st.pstate = 0x7000_0000;
+    let lowered = lower_aarch64_native_ops(vec![OpKind::Cmp {
+        src1: VReg::Imm(0),
+        src2: SrcOperand::Imm64(0xffff_ffff),
+        width: OpWidth::W32,
+    }])
+    .unwrap_or_else(|e| {
+        panic!("cmp_w_zero_base_masked_neg_one_imm_as_msr_nzcv_xzr_clears_flags: native lowering failed: {e}")
+    });
+    cases.push((
+        "cmp_w_zero_base_masked_neg_one_imm_as_msr_nzcv_xzr_clears_flags".into(),
+        [enc_msr_nzcv(31), NOP, NOP],
+        lowered,
+        st,
+    ));
+}
+
+#[cfg(all(feature = "smir-jit", target_arch = "x86_64"))]
 fn push_add_zero_base_reg_native_cases(
     cases: &mut Vec<(String, [u32; 3], [u32; 3], ArmState)>,
     control_target: i32,
@@ -12347,6 +12393,7 @@ fn smir_aarch64_native_lowering_matches_qemu_oracle() {
     push_addsub_zero_same_reg_native_cases(&mut cases, control_target);
     push_addsub_masked_zero_imm_native_cases(&mut cases, control_target);
     push_addsub_zero_base_nonzero_imm_flag_native_cases(&mut cases, control_target);
+    push_cmp_zero_base_neg_imm_native_cases(&mut cases, control_target);
     push_add_zero_base_reg_native_cases(&mut cases, control_target);
     push_shift_zero_same_reg_native_cases(&mut cases, control_target);
     push_carry_rotate_zero_count_native_cases(&mut cases, control_target);
