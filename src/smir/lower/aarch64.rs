@@ -979,6 +979,19 @@ impl Aarch64Lowerer {
         );
     }
 
+    fn emit_simd_ins_general(&mut self, rd: u8, rn: u8, imm5: u32) {
+        self.emit(0x4e00_1c00 | (imm5 << 16) | ((rn as u32) << 5) | (rd as u32));
+    }
+
+    fn emit_simd_umov(&mut self, rd: u8, rn: u8, imm5: u32, to_x: bool) {
+        let base = if to_x { 0x4e00_3c00 } else { 0x0e00_3c00 };
+        self.emit(base | (imm5 << 16) | ((rn as u32) << 5) | (rd as u32));
+    }
+
+    fn emit_simd_smov(&mut self, rd: u8, rn: u8, imm5: u32) {
+        self.emit(0x4e00_2c00 | (imm5 << 16) | ((rn as u32) << 5) | (rd as u32));
+    }
+
     fn emit_simd_shift_imm(
         &mut self,
         rd: u8,
@@ -1929,6 +1942,28 @@ impl Aarch64Lowerer {
         Ok((q, size))
     }
 
+    fn simd_lane_imm5(elem: VecElementType, lane: u8) -> Result<(u32, u32), LowerError> {
+        let size = match elem {
+            VecElementType::I8 => 0,
+            VecElementType::I16 => 1,
+            VecElementType::I32 => 2,
+            VecElementType::I64 => 3,
+            other => {
+                return Err(LowerError::UnsupportedOp {
+                    op: format!("AArch64 native vector lane element {other:?}"),
+                });
+            }
+        };
+        let max_lanes = 16_u8 >> size;
+        if lane >= max_lanes {
+            return Err(LowerError::InvalidOperand {
+                op: "AArch64 native vector lane".into(),
+                operand: format!("lane={lane}, elem={elem:?}"),
+            });
+        }
+        Ok((size, (u32::from(lane) << (size + 1)) | (1 << size)))
+    }
+
     fn lower_simd_mem_access(
         &mut self,
         rt: u8,
@@ -2035,6 +2070,50 @@ impl Aarch64Lowerer {
         let rn = Self::gpr(scalar)?;
         let (q, size) = Self::simd_integer_shape(elem, lanes)?;
         self.emit_simd_dup_general(rd, rn, q, size);
+        Ok(())
+    }
+
+    fn lower_vinsert_lane(
+        &mut self,
+        dst: VReg,
+        vec: VReg,
+        scalar: VReg,
+        lane: u8,
+        elem: VecElementType,
+    ) -> Result<(), LowerError> {
+        let rd = Self::fp_reg(dst)?;
+        let rn = Self::fp_reg(vec)?;
+        let rm = Self::gpr(scalar)?;
+        let (_, imm5) = Self::simd_lane_imm5(elem, lane)?;
+        if rd != rn {
+            self.lower_vmov(dst, vec, VecWidth::V128)?;
+        }
+        self.emit_simd_ins_general(rd, rm, imm5);
+        Ok(())
+    }
+
+    fn lower_vextract_lane(
+        &mut self,
+        dst: VReg,
+        vec: VReg,
+        lane: u8,
+        elem: VecElementType,
+        sign: SignExtend,
+    ) -> Result<(), LowerError> {
+        let rd = Self::dst_gpr(dst)?;
+        let rn = Self::fp_reg(vec)?;
+        let (size, imm5) = Self::simd_lane_imm5(elem, lane)?;
+        match (sign, size) {
+            (SignExtend::Zero, 3) | (SignExtend::Sign, 3) => {
+                self.emit_simd_umov(rd, rn, imm5, true);
+            }
+            (SignExtend::Zero, _) => {
+                self.emit_simd_umov(rd, rn, imm5, false);
+            }
+            (SignExtend::Sign, _) => {
+                self.emit_simd_smov(rd, rn, imm5);
+            }
+        }
         Ok(())
     }
 
@@ -10813,6 +10892,20 @@ impl Aarch64Lowerer {
                 lanes,
             } => self.lower_vshift_acc(*dst, *src, amount.clone(), *shift, *elem, *lanes),
             OpKind::VMov { dst, src, width } => self.lower_vmov(*dst, *src, *width),
+            OpKind::VInsertLane {
+                dst,
+                vec,
+                scalar,
+                lane,
+                elem,
+            } => self.lower_vinsert_lane(*dst, *vec, *scalar, *lane, *elem),
+            OpKind::VExtractLane {
+                dst,
+                vec,
+                lane,
+                elem,
+                sign,
+            } => self.lower_vextract_lane(*dst, *vec, *lane, *elem, *sign),
             OpKind::VAnd {
                 dst,
                 src1,
@@ -11802,6 +11895,44 @@ mod tests {
             OpWidth::W64 => u64::MAX,
             _ => (1_u64 << width.bits()) - 1,
         }
+    }
+
+    fn simd_pair_bytes(pair: (u64, u64)) -> [u8; 16] {
+        let mut bytes = [0u8; 16];
+        bytes[..8].copy_from_slice(&pair.0.to_le_bytes());
+        bytes[8..].copy_from_slice(&pair.1.to_le_bytes());
+        bytes
+    }
+
+    fn simd_pair_from_bytes(bytes: [u8; 16]) -> (u64, u64) {
+        let mut low = [0u8; 8];
+        let mut high = [0u8; 8];
+        low.copy_from_slice(&bytes[..8]);
+        high.copy_from_slice(&bytes[8..]);
+        (u64::from_le_bytes(low), u64::from_le_bytes(high))
+    }
+
+    fn set_simd_lane(pair: (u64, u64), elem: VecElementType, lane: u8, value: u64) -> (u64, u64) {
+        let mut bytes = simd_pair_bytes(pair);
+        let elem_bytes = elem.bytes() as usize;
+        let base = lane as usize * elem_bytes;
+        bytes[base..base + elem_bytes].copy_from_slice(&value.to_le_bytes()[..elem_bytes]);
+        simd_pair_from_bytes(bytes)
+    }
+
+    fn get_simd_lane(pair: (u64, u64), elem: VecElementType, lane: u8) -> u64 {
+        let bytes = simd_pair_bytes(pair);
+        let elem_bytes = elem.bytes() as usize;
+        let base = lane as usize * elem_bytes;
+        let mut value = [0u8; 8];
+        value[..elem_bytes].copy_from_slice(&bytes[base..base + elem_bytes]);
+        u64::from_le_bytes(value)
+    }
+
+    fn sign_extend_simd_lane(value: u64, elem: VecElementType) -> u64 {
+        let bits = elem.bytes() * 8;
+        let shift = 64 - bits;
+        (((value << shift) as i64) >> shift) as u64
     }
 
     fn ref_shift_reg(src: u64, amount: u64, shift: ShiftOp, width: OpWidth) -> u64 {
@@ -17680,6 +17811,173 @@ mod tests {
         assert_eq!(simd[2], (a_low & b_low, a_high & b_high));
         assert_eq!(simd[4], (a_low | b_low, 0));
         assert_eq!(simd[5], (a_low ^ b_low, a_high ^ b_high));
+    }
+
+    #[test]
+    fn lowers_vector_insert_lane_runtime() {
+        let src = (0x0123_4567_89ab_cdef, 0xfedc_ba98_7654_3210);
+        let inplace = (0x1111_2222_3333_4444, 0x5555_6666_7777_8888);
+        let code = lower_ops(vec![
+            OpKind::VInsertLane {
+                dst: v(0),
+                vec: v(1),
+                scalar: x(2),
+                lane: 3,
+                elem: VecElementType::I8,
+            },
+            OpKind::VInsertLane {
+                dst: v(3),
+                vec: v(1),
+                scalar: x(4),
+                lane: 7,
+                elem: VecElementType::I16,
+            },
+            OpKind::VInsertLane {
+                dst: v(5),
+                vec: v(5),
+                scalar: x(6),
+                lane: 3,
+                elem: VecElementType::I32,
+            },
+            OpKind::VInsertLane {
+                dst: v(7),
+                vec: v(1),
+                scalar: x(8),
+                lane: 1,
+                elem: VecElementType::I64,
+            },
+        ]);
+
+        let (_, simd, sp) = run_aarch64_code_with_regs_and_simd(
+            &code,
+            &[
+                (2, 0xaa),
+                (4, 0xbeef),
+                (6, 0xfeed_face_cafe_babe),
+                (8, 0x8877_6655_4433_2211),
+            ],
+            &[(1, src.0, src.1), (5, inplace.0, inplace.1)],
+        );
+
+        assert_eq!(simd[0], set_simd_lane(src, VecElementType::I8, 3, 0xaa));
+        assert_eq!(simd[3], set_simd_lane(src, VecElementType::I16, 7, 0xbeef));
+        assert_eq!(
+            simd[5],
+            set_simd_lane(inplace, VecElementType::I32, 3, 0xcafe_babe)
+        );
+        assert_eq!(
+            simd[7],
+            set_simd_lane(src, VecElementType::I64, 1, 0x8877_6655_4433_2211)
+        );
+        assert_eq!(simd[1], src);
+        assert_eq!(sp, 0x8000);
+    }
+
+    #[test]
+    fn lowers_vector_extract_lane_runtime() {
+        let source = (
+            0x1122_3344_5566_7788,
+            0x8000_0001_7fff_8001,
+        );
+        let code = lower_ops(vec![
+            OpKind::VExtractLane {
+                dst: x(0),
+                vec: v(1),
+                lane: 15,
+                elem: VecElementType::I8,
+                sign: SignExtend::Zero,
+            },
+            OpKind::VExtractLane {
+                dst: x(2),
+                vec: v(1),
+                lane: 15,
+                elem: VecElementType::I8,
+                sign: SignExtend::Sign,
+            },
+            OpKind::VExtractLane {
+                dst: x(3),
+                vec: v(1),
+                lane: 4,
+                elem: VecElementType::I16,
+                sign: SignExtend::Sign,
+            },
+            OpKind::VExtractLane {
+                dst: x(4),
+                vec: v(1),
+                lane: 2,
+                elem: VecElementType::I32,
+                sign: SignExtend::Zero,
+            },
+            OpKind::VExtractLane {
+                dst: x(5),
+                vec: v(1),
+                lane: 3,
+                elem: VecElementType::I32,
+                sign: SignExtend::Sign,
+            },
+            OpKind::VExtractLane {
+                dst: x(6),
+                vec: v(1),
+                lane: 1,
+                elem: VecElementType::I64,
+                sign: SignExtend::Sign,
+            },
+        ]);
+
+        let (regs, simd, sp) =
+            run_aarch64_code_with_regs_and_simd(&code, &[], &[(1, source.0, source.1)]);
+
+        let b15 = get_simd_lane(source, VecElementType::I8, 15);
+        let h4 = get_simd_lane(source, VecElementType::I16, 4);
+        let s2 = get_simd_lane(source, VecElementType::I32, 2);
+        let s3 = get_simd_lane(source, VecElementType::I32, 3);
+        assert_eq!(regs[0], b15);
+        assert_eq!(regs[2], sign_extend_simd_lane(b15, VecElementType::I8));
+        assert_eq!(regs[3], sign_extend_simd_lane(h4, VecElementType::I16));
+        assert_eq!(regs[4], s2);
+        assert_eq!(regs[5], sign_extend_simd_lane(s3, VecElementType::I32));
+        assert_eq!(regs[6], source.1);
+        assert_eq!(simd[1], source);
+        assert_eq!(sp, 0x8000);
+    }
+
+    #[test]
+    fn rejects_vector_lane_invalid_operands() {
+        let mut builder = FunctionBuilder::new(FunctionId(0), 0);
+        builder.push_op(
+            0,
+            OpKind::VInsertLane {
+                dst: v(0),
+                vec: v(1),
+                scalar: x(2),
+                lane: 16,
+                elem: VecElementType::I8,
+            },
+        );
+        builder.set_terminator(Terminator::Return { values: vec![] });
+        let func = builder.finish();
+
+        let mut lowerer = Aarch64Lowerer::new();
+        let err = lowerer.lower_function(&func).unwrap_err();
+        assert!(matches!(err, LowerError::InvalidOperand { .. }));
+
+        let mut builder = FunctionBuilder::new(FunctionId(0), 0);
+        builder.push_op(
+            0,
+            OpKind::VExtractLane {
+                dst: x(0),
+                vec: v(1),
+                lane: 0,
+                elem: VecElementType::F32,
+                sign: SignExtend::Zero,
+            },
+        );
+        builder.set_terminator(Terminator::Return { values: vec![] });
+        let func = builder.finish();
+
+        let mut lowerer = Aarch64Lowerer::new();
+        let err = lowerer.lower_function(&func).unwrap_err();
+        assert!(matches!(err, LowerError::UnsupportedOp { .. }));
     }
 
     #[test]
