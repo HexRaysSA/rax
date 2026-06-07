@@ -2473,6 +2473,66 @@ fn push_extend_same_width_native_cases(
 }
 
 #[cfg(all(feature = "smir-jit", target_arch = "x86_64"))]
+fn push_truncate_same_reg_native_cases(
+    cases: &mut Vec<(String, [u32; 3], [u32; 3], ArmState)>,
+    control_target: i32,
+) {
+    let truncate_cases = [
+        (
+            "truncate_x_same_reg_as_noop_preserves_flags",
+            OpKind::Truncate {
+                dst: arm_x(0),
+                src: arm_x(0),
+                from_width: OpWidth::W64,
+                to_width: OpWidth::W64,
+            },
+            [0xd65f_03c0u32, NOP, NOP],
+            0x1111_2222_3333_4444,
+            0,
+            0x9000_0000,
+        ),
+        (
+            "truncate_x_to_w_same_reg_as_self_mov_zero_ext_preserves_flags",
+            OpKind::Truncate {
+                dst: arm_x(0),
+                src: arm_x(0),
+                from_width: OpWidth::W64,
+                to_width: OpWidth::W32,
+            },
+            [enc_mov_reg(0, RD, RD), NOP, NOP],
+            0xffff_ffff_8765_4321,
+            0,
+            0x3000_0000,
+        ),
+        (
+            "truncate_x_as_mov_preserves_flags",
+            OpKind::Truncate {
+                dst: arm_x(0),
+                src: arm_x(1),
+                from_width: OpWidth::W64,
+                to_width: OpWidth::W64,
+            },
+            [enc_mov_reg(1, RD, RN), NOP, NOP],
+            0xaaaa_bbbb_cccc_dddd,
+            0x8000_0000_0000_0001,
+            0x6000_0000,
+        ),
+    ];
+
+    for (name, op, source, x0, x1, pstate) in truncate_cases {
+        let mut st = ArmState::zeroed();
+        st.pc = PCREL_MAGIC;
+        st.x[30] = pcrel_marker(control_target);
+        st.x[0] = x0;
+        st.x[1] = x1;
+        st.pstate = pstate;
+        let lowered = lower_aarch64_native_ops(vec![op])
+            .unwrap_or_else(|e| panic!("{name}: native lowering failed: {e}"));
+        cases.push((name.into(), source, lowered, st));
+    }
+}
+
+#[cfg(all(feature = "smir-jit", target_arch = "x86_64"))]
 fn push_xchg_same_reg_native_cases(
     cases: &mut Vec<(String, [u32; 3], [u32; 3], ArmState)>,
     control_target: i32,
@@ -10747,6 +10807,7 @@ fn smir_aarch64_native_lowering_matches_qemu_oracle() {
     push_mov_imm_movn_native_cases(&mut cases, control_target);
     push_mov_same_reg_native_cases(&mut cases, control_target);
     push_extend_same_width_native_cases(&mut cases, control_target);
+    push_truncate_same_reg_native_cases(&mut cases, control_target);
     push_xchg_same_reg_native_cases(&mut cases, control_target);
     push_logical_identity_same_reg_native_cases(&mut cases, control_target);
     push_logical_zero_base_reg_native_cases(&mut cases, control_target);

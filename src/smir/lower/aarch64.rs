@@ -3784,7 +3784,12 @@ impl Aarch64Lowerer {
                 self.lower_bfx(dst, src, 0, to_width.bits() as u8, false, OpWidth::W64)
             }
             OpWidth::W32 | OpWidth::W64 => {
-                self.emit_mov_reg(Self::dst_gpr(dst)?, Self::gpr(src)?, to_width)
+                let dst = Self::dst_gpr(dst)?;
+                let src = Self::gpr(src)?;
+                if to_width == OpWidth::W64 && dst == src {
+                    return Ok(());
+                }
+                self.emit_mov_reg(dst, src, to_width)
             }
             other => Err(LowerError::UnsupportedOp {
                 op: format!("AArch64 native Truncate width {other:?}"),
@@ -16834,6 +16839,56 @@ mod tests {
         expected.extend_from_slice(&enc_mov_reg(0, 0, 1).to_le_bytes());
         expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
         assert_eq!(code, expected);
+    }
+
+    #[test]
+    fn lowers_truncate_as_mov_or_noop() {
+        let truncate_cases = [
+            (
+                OpKind::Truncate {
+                    dst: x(0),
+                    src: x(0),
+                    from_width: OpWidth::W64,
+                    to_width: OpWidth::W64,
+                },
+                vec![0xd65f_03c0u32],
+            ),
+            (
+                OpKind::Truncate {
+                    dst: x(0),
+                    src: x(0),
+                    from_width: OpWidth::W64,
+                    to_width: OpWidth::W32,
+                },
+                vec![enc_mov_reg(0, 0, 0), 0xd65f_03c0u32],
+            ),
+            (
+                OpKind::Truncate {
+                    dst: x(0),
+                    src: x(1),
+                    from_width: OpWidth::W64,
+                    to_width: OpWidth::W64,
+                },
+                vec![enc_mov_reg(1, 0, 1), 0xd65f_03c0u32],
+            ),
+        ];
+
+        for (op, expected_words) in truncate_cases {
+            let mut builder = FunctionBuilder::new(FunctionId(0), 0);
+            builder.push_op(0, op);
+            builder.set_terminator(Terminator::Return { values: vec![] });
+            let func = builder.finish();
+
+            let mut lowerer = Aarch64Lowerer::new();
+            lowerer.lower_function(&func).unwrap();
+            let code = lowerer.finalize().unwrap();
+
+            let mut expected = Vec::new();
+            for word in expected_words {
+                expected.extend_from_slice(&word.to_le_bytes());
+            }
+            assert_eq!(code, expected);
+        }
     }
 
     #[test]
