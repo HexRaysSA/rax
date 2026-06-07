@@ -32668,6 +32668,134 @@ mod tests {
     }
 
     #[test]
+    fn lowers_apx_cfcmov_lifted_memory_shapes_runtime() {
+        let mem_addr = 0x9000_u64;
+        let mem_value = 0xaabb_ccdd_eeff_0011;
+        let index = 4_u64;
+        let disp = -0x20_i32;
+        let base = mem_addr - index * 8 + 0x20;
+        let cond = x(9);
+        let loaded = x(10);
+        let load_code = lower_ops(vec![
+            OpKind::SetCC {
+                dst: cond,
+                cond: Condition::Eq,
+                width: OpWidth::W8,
+            },
+            OpKind::PredLoad {
+                dst: loaded,
+                cond,
+                addr: Address::sib(Some(x86(X86Reg::R16)), x86(X86Reg::R17), 8, disp),
+                width: MemWidth::B8,
+                signed: SignExtend::Zero,
+            },
+            OpKind::Select {
+                dst: x86(X86Reg::R18),
+                cond,
+                src_true: loaded,
+                src_false: x86(X86Reg::R19),
+                width: OpWidth::W64,
+            },
+        ]);
+
+        let regs_true = [
+            (16, base),
+            (17, index),
+            (18, 0x1818_1818_1818_1818),
+            (19, 0x1919_1919_1919_1919),
+        ];
+        let (out, out_nzcv, sp, mem) = run_aarch64_code_with_memory(
+            &load_code,
+            &regs_true,
+            0b0100,
+            mem_addr,
+            mem_value,
+            MemWidth::B8,
+        );
+        assert_eq!(out[16], base);
+        assert_eq!(out[17], index);
+        assert_eq!(out[18], mem_value);
+        assert_eq!(out[19], 0x1919_1919_1919_1919);
+        assert_eq!(out[9], 1);
+        assert_eq!(out[10], mem_value);
+        assert_eq!(out_nzcv, 0b0100);
+        assert_eq!(sp, 0x8000);
+        assert_eq!(mem, mem_value);
+
+        let regs_false = [
+            (16, 0xffff_0000),
+            (17, index),
+            (18, 0x1818_1818_1818_1818),
+            (19, 0x1919_1919_1919_1919),
+        ];
+        let (out, out_nzcv, sp, mem) = run_aarch64_code_with_memory(
+            &load_code,
+            &regs_false,
+            0,
+            mem_addr,
+            mem_value,
+            MemWidth::B8,
+        );
+        assert_eq!(out[16], 0xffff_0000);
+        assert_eq!(out[17], index);
+        assert_eq!(out[18], 0x1919_1919_1919_1919);
+        assert_eq!(out[19], 0x1919_1919_1919_1919);
+        assert_eq!(out[9], 0);
+        assert_eq!(out_nzcv, 0);
+        assert_eq!(sp, 0x8000);
+        assert_eq!(mem, mem_value);
+
+        let cond = x(9);
+        let store_code = lower_ops(vec![
+            OpKind::SetCC {
+                dst: cond,
+                cond: Condition::Eq,
+                width: OpWidth::W8,
+            },
+            OpKind::PredStore {
+                src: SrcOperand::Reg(x86(X86Reg::R20)),
+                cond,
+                addr: Address::sib(Some(x86(X86Reg::R16)), x86(X86Reg::R17), 8, disp),
+                width: MemWidth::B8,
+            },
+        ]);
+
+        let regs_true = [(16, base), (17, index), (20, 0x1122_3344_5566_7788)];
+        let (out, out_nzcv, sp, mem) = run_aarch64_code_with_memory(
+            &store_code,
+            &regs_true,
+            0b0100,
+            mem_addr,
+            mem_value,
+            MemWidth::B8,
+        );
+        assert_eq!(out[16], base);
+        assert_eq!(out[17], index);
+        assert_eq!(out[20], 0x1122_3344_5566_7788);
+        assert_eq!(out[9], 1);
+        assert_eq!(out_nzcv, 0b0100);
+        assert_eq!(sp, 0x8000);
+        assert_eq!(mem, 0x1122_3344_5566_7788);
+
+        let regs_false = [(16, 0xffff_0000), (17, index), (20, 0x1122_3344_5566_7788)];
+        let (out, out_nzcv, sp, mem) = run_aarch64_code_with_memory(
+            &store_code,
+            &regs_false,
+            0,
+            mem_addr,
+            mem_value,
+            MemWidth::B8,
+        );
+        assert_eq!(out[16], 0xffff_0000);
+        assert_eq!(out[17], index);
+        assert_eq!(out[20], 0x1122_3344_5566_7788);
+        assert_eq!(out[9], 0);
+        assert_eq!(out_nzcv, 0);
+        assert_eq!(sp, 0x8000);
+        assert_eq!(mem, mem_value);
+    }
+
+    #[test]
     fn rejects_setcc_cmove_apx_r31_identity_mapping() {
         for kind in [
             OpKind::TestCondition {
