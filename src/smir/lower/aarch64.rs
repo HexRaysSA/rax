@@ -3537,6 +3537,51 @@ impl Aarch64Lowerer {
                     return Ok(());
                 }
             }
+        } else if let (VReg::Imm(dividend), Some(divisor)) = (src1, Self::src_imm(src2)) {
+            let emit_width = match width {
+                OpWidth::W8 | OpWidth::W16 | OpWidth::W32 => OpWidth::W32,
+                OpWidth::W64 => OpWidth::W64,
+                other => {
+                    return Err(LowerError::UnsupportedOp {
+                        op: format!("AArch64 native divide width {other:?}"),
+                    });
+                }
+            };
+            let bits = width.bits();
+            let mask = width.mask();
+            let sign_extend = |value: u64| -> i128 {
+                let shift = 128 - bits;
+                (((value & mask) as u128) << shift) as i128 >> shift
+            };
+            let dividend = sign_extend(dividend as u64);
+            let divisor = sign_extend(divisor as u64);
+            if divisor == 0 {
+                return Err(LowerError::UnsupportedOp {
+                    op: "AArch64 native signed immediate divide by zero".into(),
+                });
+            }
+            let quotient = dividend / divisor;
+            let remainder = dividend % divisor;
+            let qmin = -(1_i128 << (bits - 1));
+            let qmax = (1_i128 << (bits - 1)) - 1;
+            if quotient < qmin || quotient > qmax {
+                return Err(LowerError::UnsupportedOp {
+                    op: "AArch64 native signed immediate divide overflow".into(),
+                });
+            }
+            self.emit_mov_imm(
+                Self::dst_gpr(quot)?,
+                ((quotient as u64) & mask) as i64,
+                emit_width,
+            )?;
+            if let Some(rem) = rem {
+                self.emit_mov_imm(
+                    Self::dst_gpr(rem)?,
+                    ((remainder as u64) & mask) as i64,
+                    emit_width,
+                )?;
+            }
+            return Ok(());
         }
         if Self::src_imm(src2).map(|imm| (imm as u64) & width.mask()) == Some(1) {
             let quot = Self::dst_gpr(quot)?;
@@ -8963,6 +9008,56 @@ mod tests {
         expected.extend_from_slice(&enc_mov_wide(0, 0b10, 0, 5, 0).to_le_bytes());
         expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
         assert_eq!(code, expected);
+    }
+
+    #[test]
+    fn lowers_divs_w8_two_imms_as_mov_quot_rem() {
+        let mut builder = FunctionBuilder::new(FunctionId(0), 0);
+        builder.push_op(
+            0,
+            OpKind::DivS {
+                quot: x(0),
+                rem: Some(x(3)),
+                src1: VReg::Imm(0xf6),
+                src2: SrcOperand::Imm(3),
+                width: OpWidth::W8,
+                flags: FlagUpdate::None,
+            },
+        );
+        builder.set_terminator(Terminator::Return { values: vec![] });
+        let func = builder.finish();
+
+        let mut lowerer = Aarch64Lowerer::new();
+        lowerer.lower_function(&func).unwrap();
+        let code = lowerer.finalize().unwrap();
+
+        let mut expected = Vec::new();
+        expected.extend_from_slice(&enc_mov_wide(0, 0b10, 0, 0xfd, 0).to_le_bytes());
+        expected.extend_from_slice(&enc_mov_wide(0, 0b10, 0, 0xff, 3).to_le_bytes());
+        expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
+        assert_eq!(code, expected);
+    }
+
+    #[test]
+    fn rejects_divs_w8_two_imms_overflow() {
+        let mut builder = FunctionBuilder::new(FunctionId(0), 0);
+        builder.push_op(
+            0,
+            OpKind::DivS {
+                quot: x(0),
+                rem: None,
+                src1: VReg::Imm(0x80),
+                src2: SrcOperand::Imm(0xff),
+                width: OpWidth::W8,
+                flags: FlagUpdate::None,
+            },
+        );
+        builder.set_terminator(Terminator::Return { values: vec![] });
+        let func = builder.finish();
+
+        let mut lowerer = Aarch64Lowerer::new();
+        let err = lowerer.lower_function(&func).unwrap_err();
+        assert!(matches!(err, LowerError::UnsupportedOp { .. }));
     }
 
     #[test]
