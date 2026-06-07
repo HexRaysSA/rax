@@ -7034,6 +7034,16 @@ impl Aarch64Lowerer {
         left: bool,
         width: OpWidth,
     ) -> Result<(), LowerError> {
+        if matches!(width, OpWidth::W8 | OpWidth::W16) {
+            return self.lower_subword_double_shift_reg(
+                Self::dst_gpr(dst)?,
+                Self::gpr(src)?,
+                amount,
+                left,
+                width,
+            );
+        }
+
         let mask = match width {
             OpWidth::W32 => 0x1f,
             OpWidth::W64 => 0x3f,
@@ -7070,6 +7080,74 @@ impl Aarch64Lowerer {
         }
         self.emit_logic_shifted(dst_reg, left_part, right_part, 0b01, false, 0, 0, width)?;
         self.patch_compare_branch_to_current(zero_count, count, false)?;
+        self.emit_scratch_restore(&scratches);
+        Ok(())
+    }
+
+    fn lower_subword_double_shift_reg(
+        &mut self,
+        dst: u8,
+        src: u8,
+        amount: u8,
+        left: bool,
+        width: OpWidth,
+    ) -> Result<(), LowerError> {
+        let bits = width.bits();
+        let top_bit = bits - 1;
+        let scratches = Self::scratch_regs(&[dst, src, amount], 4)?;
+        let original = scratches[0];
+        let source = scratches[1];
+        let count = scratches[2];
+        let temp = scratches[3];
+
+        self.emit_scratch_save(&scratches);
+        self.emit_bitfield(original, dst, 0b10, 0, top_bit, OpWidth::W32)?;
+        self.emit_bitfield(source, src, 0b10, 0, top_bit, OpWidth::W32)?;
+        let (imm_n, immr, imms) = Self::logical_bitmask_imm(0x1f, OpWidth::W64)?;
+        self.emit_logic_imm(count, amount, 0b00, imm_n, immr, imms, OpWidth::W64)?;
+
+        let zero_count = self.code.position();
+        self.emit(0xb400_0000 | u32::from(count));
+        let source_count_bits: &[u32] = match width {
+            OpWidth::W8 => &[3, 4],
+            OpWidth::W16 => &[4],
+            _ => unreachable!("subword double shift width already checked"),
+        };
+        let mut source_count = Vec::with_capacity(source_count_bits.len());
+        for &bit in source_count_bits {
+            let offset = self.code.position();
+            self.emit_test_branch(count, bit, true, 0)?;
+            source_count.push((offset, bit));
+        }
+
+        if left {
+            self.emit_dp2(dst, original, count, 0b1000, OpWidth::W32)?;
+            self.emit_mov_imm(temp, i64::from(bits), OpWidth::W64)?;
+            self.emit_addsub_reg(temp, temp, count, true, false, OpWidth::W64)?;
+            self.emit_dp2(temp, source, temp, 0b1001, OpWidth::W32)?;
+        } else {
+            self.emit_dp2(dst, original, count, 0b1001, OpWidth::W32)?;
+            self.emit_mov_imm(temp, i64::from(bits), OpWidth::W64)?;
+            self.emit_addsub_reg(temp, temp, count, true, false, OpWidth::W64)?;
+            self.emit_dp2(temp, source, temp, 0b1000, OpWidth::W32)?;
+        }
+        self.emit_logic_shifted(dst, dst, temp, 0b01, false, 0, 0, OpWidth::W32)?;
+        self.emit_bitfield(dst, dst, 0b10, 0, top_bit, OpWidth::W32)?;
+        let done_main = self.code.position();
+        self.emit(0x1400_0000);
+
+        for (offset, bit) in source_count {
+            self.patch_test_branch_to_current(offset, count, bit, true)?;
+        }
+        self.emit_mov_reg(dst, source, OpWidth::W32)?;
+        let done_source = self.code.position();
+        self.emit(0x1400_0000);
+
+        self.patch_compare_branch_to_current(zero_count, count, false)?;
+        self.emit_mov_reg(dst, original, OpWidth::W32)?;
+
+        self.patch_branch_to_current(done_main)?;
+        self.patch_branch_to_current(done_source)?;
         self.emit_scratch_restore(&scratches);
         Ok(())
     }
@@ -11076,6 +11154,8 @@ mod tests {
         let count = (amount & count_mask) as u32;
         if count == 0 {
             dst
+        } else if count >= bits {
+            src
         } else if left {
             ((dst << count) | (src >> (bits - count))) & mask
         } else {
@@ -20826,6 +20906,50 @@ mod tests {
             1,
             4,
             OpWidth::W32,
+        );
+        assert_double_shift_reg_lowering(
+            "shld_w16_reg_count_greater_than_width",
+            true,
+            0,
+            0x1234,
+            1,
+            0xabcd,
+            2,
+            17,
+            OpWidth::W16,
+        );
+        assert_double_shift_reg_lowering(
+            "shrd_w8_reg_count_greater_than_width",
+            false,
+            0,
+            0x12,
+            1,
+            0xab,
+            2,
+            9,
+            OpWidth::W8,
+        );
+        assert_double_shift_reg_lowering(
+            "shld_w8_reg_nonzero_count",
+            true,
+            0,
+            0x12,
+            1,
+            0xab,
+            2,
+            3,
+            OpWidth::W8,
+        );
+        assert_double_shift_reg_lowering(
+            "shrd_w16_dst_aliases_count",
+            false,
+            2,
+            5,
+            1,
+            0xabcd,
+            2,
+            5,
+            OpWidth::W16,
         );
     }
 
