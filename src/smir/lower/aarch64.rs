@@ -2697,6 +2697,17 @@ impl Aarch64Lowerer {
             SrcOperand::Reg(reg) => {
                 self.emit_addsub_carry(dst, rn, Self::gpr(*reg)?, subtract, set_flags, width)
             }
+            SrcOperand::Imm(imm) | SrcOperand::Imm64(imm) => {
+                let scratches = Self::scratch_regs(&[dst, rn], 1)?;
+                let rm = scratches[0];
+
+                self.emit_scratch_save(&scratches);
+                let imm = (i128::from(*imm) & i128::from(width.mask())) as i64;
+                self.emit_mov_imm(rm, imm, width)?;
+                self.emit_addsub_carry(dst, rn, rm, subtract, set_flags, width)?;
+                self.emit_scratch_restore(&scratches);
+                Ok(())
+            }
             other => Err(LowerError::UnsupportedOp {
                 op: format!("AArch64 native add/sub carry source {other:?}"),
             }),
@@ -9984,9 +9995,9 @@ mod tests {
         let negative = (result & sign) != 0;
         let zero = result == 0;
         let carry = if subtract {
-            src1 >= src2 + u64::from(!carry_in)
+            u128::from(src1) >= u128::from(src2) + u128::from(!carry_in)
         } else {
-            src1 + src2 + u64::from(carry_in) > mask
+            u128::from(src1) + u128::from(src2) + u128::from(carry_in) > u128::from(mask)
         };
         let overflow = if subtract {
             ((src1 ^ src2) & (src1 ^ result) & sign) != 0
@@ -10213,6 +10224,89 @@ mod tests {
         }
         for (reg, value) in sentinels {
             if reg != dst_reg && reg != src1_reg && Some(reg) != src2_reg {
+                assert_eq!(out[reg as usize], value, "{label}: x{reg} restored");
+            }
+        }
+    }
+
+    fn assert_addsub_carry_lowering(
+        label: &str,
+        subtract: bool,
+        set_flags: bool,
+        dst: VReg,
+        src1_reg: u8,
+        src1_value: u64,
+        src2: SrcOperand,
+        src2_value: u64,
+        width: OpWidth,
+        old_nzcv: u8,
+    ) {
+        let flags = if set_flags {
+            FlagUpdate::All
+        } else {
+            FlagUpdate::None
+        };
+        let op = if subtract {
+            OpKind::Sbb {
+                dst,
+                src1: x(src1_reg),
+                src2: src2.clone(),
+                width,
+                flags,
+            }
+        } else {
+            OpKind::Adc {
+                dst,
+                src1: x(src1_reg),
+                src2: src2.clone(),
+                width,
+                flags,
+            }
+        };
+        let dst_reg = if let VReg::Arch(ArchReg::Arm(ArmReg::X(reg))) = dst {
+            Some(reg)
+        } else {
+            None
+        };
+        let code = lower_single_op(op);
+        let carry_in = (old_nzcv & 0b0010) != 0;
+        let expected = ref_addsub_carry(src1_value, src2_value, carry_in, subtract, width);
+        let expected_nzcv = if set_flags {
+            expected_addsub_carry_nzcv(src1_value, src2_value, carry_in, subtract, width)
+        } else {
+            old_nzcv
+        };
+        let sentinels = [
+            (16, 0x1616_1616_1616_1616),
+            (17, 0x1717_1717_1717_1717),
+            (15, 0x1515_1515_1515_1515),
+            (14, 0x1414_1414_1414_1414),
+        ];
+        let mut regs = sentinels.to_vec();
+        regs.push((src1_reg, src1_value));
+        let src2_reg = if let SrcOperand::Reg(VReg::Arch(ArchReg::Arm(ArmReg::X(reg)))) = src2 {
+            regs.push((reg, src2_value));
+            Some(reg)
+        } else {
+            None
+        };
+
+        let (out, out_nzcv, sp) = run_aarch64_code(&code, &regs, old_nzcv);
+        if let Some(reg) = dst_reg {
+            assert_eq!(out[reg as usize], expected, "{label}: result");
+        }
+        assert_eq!(out_nzcv, expected_nzcv, "{label}: NZCV");
+        assert_eq!(sp, 0x8000, "{label}: stack restored");
+        if Some(src1_reg) != dst_reg {
+            assert_eq!(out[src1_reg as usize], src1_value, "{label}: src1 preserved");
+        }
+        if let Some(reg) = src2_reg {
+            if Some(reg) != dst_reg {
+                assert_eq!(out[reg as usize], src2_value, "{label}: src2 preserved");
+            }
+        }
+        for (reg, value) in sentinels {
+            if Some(reg) != dst_reg && reg != src1_reg && Some(reg) != src2_reg {
                 assert_eq!(out[reg as usize], value, "{label}: x{reg} restored");
             }
         }
@@ -22376,6 +22470,70 @@ mod tests {
             0,
             0,
             OpWidth::W8,
+            0b0000,
+        );
+    }
+
+    #[test]
+    fn lowers_full_width_addsub_carry_with_immediate_source_runtime() {
+        assert_addsub_carry_lowering(
+            "adc_x_imm_carry_in_wraps_to_zero",
+            false,
+            true,
+            x(0),
+            1,
+            u64::MAX,
+            SrcOperand::Imm64(0),
+            0,
+            OpWidth::W64,
+            0b0010,
+        );
+        assert_addsub_carry_lowering(
+            "sbb_w_imm_uses_borrow",
+            true,
+            true,
+            x(0),
+            1,
+            0,
+            SrcOperand::Imm(1),
+            1,
+            OpWidth::W32,
+            0b0000,
+        );
+        assert_addsub_carry_lowering(
+            "adc_w_imm_no_flags_preserves_nzcv",
+            false,
+            false,
+            x(1),
+            1,
+            0x7fff_ffff,
+            SrcOperand::Imm(2),
+            2,
+            OpWidth::W32,
+            0b1001,
+        );
+        assert_addsub_carry_lowering(
+            "sbb_x_imm_neg_one_virtual_dst_sets_flags",
+            true,
+            true,
+            VReg::virt(0),
+            1,
+            0x10,
+            SrcOperand::Imm64(-1),
+            u64::MAX,
+            OpWidth::W64,
+            0b0010,
+        );
+        assert_addsub_carry_lowering(
+            "adc_x_imm_sign_bit_sets_negative",
+            false,
+            true,
+            x(0),
+            1,
+            0,
+            SrcOperand::Imm64(i64::MIN),
+            0x8000_0000_0000_0000,
+            OpWidth::W64,
             0b0000,
         );
     }
