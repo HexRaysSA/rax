@@ -32916,6 +32916,55 @@ mod tests {
     }
 
     #[test]
+    fn lowers_prefetch_apx_egpr_address_operands() {
+        let code = lower_ops(vec![
+            OpKind::Prefetch {
+                addr: Address::BaseOffset {
+                    base: x86(X86Reg::R16),
+                    offset: 24,
+                    disp_size: DispSize::Auto,
+                },
+                write: false,
+            },
+            OpKind::Prefetch {
+                addr: Address::BaseIndexScale {
+                    base: Some(x86(X86Reg::R16)),
+                    index: x86(X86Reg::R17),
+                    scale: 8,
+                    disp: 0,
+                    disp_size: DispSize::Auto,
+                },
+                write: true,
+            },
+        ]);
+
+        let mut expected = Vec::new();
+        expected.extend_from_slice(&enc_ldst_uimm_regs(3, 0b10, 3, 0, 16).to_le_bytes());
+        expected.extend_from_slice(
+            &enc_ldst_reg_regs(3, 0b10, 17, 16, 0b10000, 0b011, 1).to_le_bytes(),
+        );
+        expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
+        assert_eq!(code, expected);
+    }
+
+    #[test]
+    fn rejects_prefetch_apx_r31_address_mapping() {
+        for addr in [
+            Address::Direct(x86(X86Reg::R31)),
+            Address::BaseIndexScale {
+                base: Some(x86(X86Reg::R16)),
+                index: x86(X86Reg::R31),
+                scale: 8,
+                disp: 0,
+                disp_size: DispSize::Auto,
+            },
+        ] {
+            let err = try_lower_single_op(OpKind::Prefetch { addr, write: false }).unwrap_err();
+            assert!(matches!(err, LowerError::InvalidRegister(_)));
+        }
+    }
+
+    #[test]
     fn lowers_shrd_x_imm_as_extract() {
         let mut builder = FunctionBuilder::new(FunctionId(0), 0);
         builder.push_op(
