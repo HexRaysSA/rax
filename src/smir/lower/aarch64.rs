@@ -10274,7 +10274,7 @@ impl Aarch64Lowerer {
                 self.lower_select_mov(dst, &src, width)
             }
             other => {
-                let cond = Self::gpr(other)?;
+                let cond = Self::gpr_arm_or_x86(other)?;
                 let true_src = Self::vreg_src(src_true);
                 let false_src = Self::vreg_src(src_false);
 
@@ -10315,7 +10315,7 @@ impl Aarch64Lowerer {
         match width {
             OpWidth::W8 | OpWidth::W16 => {
                 let imms = if width == OpWidth::W8 { 7 } else { 15 };
-                let dst = Self::dst_gpr(dst)?;
+                let dst = Self::dst_gpr_arm_or_x86(dst)?;
                 self.emit_bitfield(dst, dst, 0b10, 0, imms, OpWidth::W32)
             }
             OpWidth::W32 | OpWidth::W64 => Ok(()),
@@ -10341,9 +10341,9 @@ impl Aarch64Lowerer {
             CondSelectFalseOp::Negate => (1, 1),
         };
         self.emit_cond_select(
-            Self::dst_gpr(dst)?,
-            Self::gpr(src_true)?,
-            Self::gpr(src_false_base)?,
+            Self::dst_gpr_arm_or_x86(dst)?,
+            Self::gpr_arm_or_x86(src_true)?,
+            Self::gpr_arm_or_x86(src_false_base)?,
             Self::arm_cond_code(cond)?,
             op,
             op2,
@@ -12699,8 +12699,14 @@ mod tests {
     }
 
     fn try_lower_single_op(kind: OpKind) -> Result<Vec<u8>, LowerError> {
+        try_lower_ops(vec![kind])
+    }
+
+    fn try_lower_ops(kinds: Vec<OpKind>) -> Result<Vec<u8>, LowerError> {
         let mut builder = FunctionBuilder::new(FunctionId(0), 0);
-        builder.push_op(0, kind);
+        for kind in kinds {
+            builder.push_op(0, kind);
+        }
         builder.set_terminator(Terminator::Return { values: vec![] });
         let func = builder.finish();
 
@@ -30190,6 +30196,168 @@ mod tests {
         expected.extend_from_slice(&enc_bitfield_regs(0, 0b10, 0, 15, 0, 0).to_le_bytes());
         expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
         assert_eq!(code, expected);
+    }
+
+    #[test]
+    fn lowers_select_apx_egpr_operands_runtime() {
+        let cond_eq = VReg::virt(0);
+        let cond_ne = VReg::virt(1);
+        let inc_tmp = VReg::virt(2);
+        let code = lower_ops(vec![
+            OpKind::Select {
+                dst: x86(X86Reg::R21),
+                cond: x86(X86Reg::R16),
+                src_true: x86(X86Reg::R18),
+                src_false: x86(X86Reg::R19),
+                width: OpWidth::W64,
+            },
+            OpKind::Select {
+                dst: x86(X86Reg::R22),
+                cond: x86(X86Reg::R17),
+                src_true: x86(X86Reg::R18),
+                src_false: x86(X86Reg::R19),
+                width: OpWidth::W16,
+            },
+            OpKind::Select {
+                dst: x86(X86Reg::R23),
+                cond: VReg::Imm(0),
+                src_true: x86(X86Reg::R18),
+                src_false: VReg::Imm(0xabcd),
+                width: OpWidth::W8,
+            },
+            OpKind::TestCondition {
+                dst: cond_eq,
+                cond: Condition::Eq,
+            },
+            OpKind::Select {
+                dst: x86(X86Reg::R24),
+                cond: cond_eq,
+                src_true: x86(X86Reg::R25),
+                src_false: x86(X86Reg::R26),
+                width: OpWidth::W64,
+            },
+            OpKind::TestCondition {
+                dst: cond_ne,
+                cond: Condition::Ne,
+            },
+            OpKind::Add {
+                dst: inc_tmp,
+                src1: x86(X86Reg::R28),
+                src2: SrcOperand::Imm(1),
+                width: OpWidth::W64,
+                flags: FlagUpdate::None,
+            },
+            OpKind::Select {
+                dst: x86(X86Reg::R27),
+                cond: cond_ne,
+                src_true: x86(X86Reg::R18),
+                src_false: inc_tmp,
+                width: OpWidth::W64,
+            },
+        ]);
+        let words = code_words(&code);
+        assert!(words.contains(&enc_csel_regs(1, 0, 0, 25, 26, 0, 24)));
+        assert!(words.contains(&enc_csel_regs(1, 0, 1, 18, 28, 1, 27)));
+
+        let regs = [
+            (16, 1),
+            (17, 0),
+            (18, 0x1818_1818_1818_1818),
+            (19, 0x1919_1919_1919_4321),
+            (20, 0x2020_2020_2020_2020),
+            (25, 0x2525_2525_2525_2525),
+            (26, 0x2626_2626_2626_2626),
+            (28, 0x2828_2828_2828_2828),
+        ];
+        let old_nzcv = 0b0100;
+        let (out, out_nzcv, sp) = run_aarch64_code(&code, &regs, old_nzcv);
+
+        assert_eq!(out[21], 0x1818_1818_1818_1818);
+        assert_eq!(out[22], 0x4321);
+        assert_eq!(out[23], 0xcd);
+        assert_eq!(out[24], 0x2525_2525_2525_2525);
+        assert_eq!(out[27], 0x2828_2828_2828_2829);
+        assert_eq!(out[16], 1);
+        assert_eq!(out[17], 0);
+        assert_eq!(out[18], 0x1818_1818_1818_1818);
+        assert_eq!(out[19], 0x1919_1919_1919_4321);
+        assert_eq!(out[20], 0x2020_2020_2020_2020);
+        assert_eq!(out[25], 0x2525_2525_2525_2525);
+        assert_eq!(out[26], 0x2626_2626_2626_2626);
+        assert_eq!(out[28], 0x2828_2828_2828_2828);
+        assert_eq!(out_nzcv, old_nzcv);
+        assert_eq!(sp, 0x8000);
+    }
+
+    #[test]
+    fn rejects_select_apx_r31_identity_mapping() {
+        for kind in [
+            OpKind::Select {
+                dst: x86(X86Reg::R16),
+                cond: x86(X86Reg::R31),
+                src_true: x86(X86Reg::R17),
+                src_false: x86(X86Reg::R18),
+                width: OpWidth::W64,
+            },
+            OpKind::Select {
+                dst: x86(X86Reg::R31),
+                cond: VReg::Imm(1),
+                src_true: x86(X86Reg::R17),
+                src_false: x86(X86Reg::R18),
+                width: OpWidth::W8,
+            },
+            OpKind::Select {
+                dst: x86(X86Reg::R16),
+                cond: x86(X86Reg::R17),
+                src_true: x86(X86Reg::R31),
+                src_false: x86(X86Reg::R18),
+                width: OpWidth::W64,
+            },
+            OpKind::Select {
+                dst: x86(X86Reg::R16),
+                cond: x86(X86Reg::R17),
+                src_true: x86(X86Reg::R18),
+                src_false: x86(X86Reg::R31),
+                width: OpWidth::W64,
+            },
+        ] {
+            let err = try_lower_single_op(kind).unwrap_err();
+            assert!(matches!(err, LowerError::InvalidRegister(_)));
+        }
+
+        let cond = VReg::virt(0);
+        let err = try_lower_ops(vec![
+            OpKind::TestCondition {
+                dst: cond,
+                cond: Condition::Eq,
+            },
+            OpKind::Select {
+                dst: x86(X86Reg::R31),
+                cond,
+                src_true: x86(X86Reg::R16),
+                src_false: x86(X86Reg::R17),
+                width: OpWidth::W64,
+            },
+        ])
+        .unwrap_err();
+        assert!(matches!(err, LowerError::InvalidRegister(_)));
+
+        let cond = VReg::virt(0);
+        let err = try_lower_ops(vec![
+            OpKind::TestCondition {
+                dst: cond,
+                cond: Condition::Eq,
+            },
+            OpKind::Select {
+                dst: x86(X86Reg::R16),
+                cond,
+                src_true: x86(X86Reg::R31),
+                src_false: x86(X86Reg::R17),
+                width: OpWidth::W64,
+            },
+        ])
+        .unwrap_err();
+        assert!(matches!(err, LowerError::InvalidRegister(_)));
     }
 
     #[test]
