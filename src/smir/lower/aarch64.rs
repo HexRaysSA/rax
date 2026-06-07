@@ -7890,20 +7890,20 @@ impl Aarch64Lowerer {
         signed: bool,
     ) -> Result<(), LowerError> {
         if Self::src_imm(src2) == Some(1) {
-            let quot = Self::dst_gpr(quot)?;
-            let rn = Self::gpr(src1)?;
+            let quot = Self::dst_gpr_arm_or_x86(quot)?;
+            let rn = Self::gpr_arm_or_x86(src1)?;
             match width {
                 OpWidth::W8 | OpWidth::W16 => {
                     self.emit_mov_reg(quot, rn, OpWidth::W32)?;
                     self.emit_bitfield(quot, quot, 0b10, 0, width.bits() - 1, OpWidth::W32)?;
                     if let Some(rem) = rem {
-                        self.emit_mov_imm(Self::dst_gpr(rem)?, 0, OpWidth::W32)?;
+                        self.emit_mov_imm(Self::dst_gpr_arm_or_x86(rem)?, 0, OpWidth::W32)?;
                     }
                 }
                 OpWidth::W32 | OpWidth::W64 => {
                     self.emit_mov_reg(quot, rn, width)?;
                     if let Some(rem) = rem {
-                        self.emit_mov_imm(Self::dst_gpr(rem)?, 0, width)?;
+                        self.emit_mov_imm(Self::dst_gpr_arm_or_x86(rem)?, 0, width)?;
                     }
                 }
                 other => {
@@ -7928,9 +7928,9 @@ impl Aarch64Lowerer {
                                 });
                             }
                         };
-                        let quot = Self::dst_gpr(quot)?;
-                        let rem = Self::dst_gpr(rem)?;
-                        let rn = Self::gpr(src1)?;
+                        let quot = Self::dst_gpr_arm_or_x86(quot)?;
+                        let rem = Self::dst_gpr_arm_or_x86(rem)?;
+                        let rn = Self::gpr_arm_or_x86(src1)?;
                         let shift = divisor.trailing_zeros();
                         let mask = (divisor - 1) as i64;
                         let (n, immr, imms) = Self::logical_bitmask_imm(mask, emit_width)?;
@@ -7968,8 +7968,8 @@ impl Aarch64Lowerer {
                         }
                     };
                     return self.emit_bitfield(
-                        Self::dst_gpr(quot)?,
-                        Self::gpr(src1)?,
+                        Self::dst_gpr_arm_or_x86(quot)?,
+                        Self::gpr_arm_or_x86(src1)?,
                         0b10,
                         divisor.trailing_zeros(),
                         width.bits() - 1,
@@ -7981,15 +7981,15 @@ impl Aarch64Lowerer {
         if matches!(width, OpWidth::W8 | OpWidth::W16) {
             return self.lower_subword_div(quot, rem, src1, src2, width, signed);
         }
-        let quot = Self::dst_gpr(quot)?;
-        let rn = Self::gpr(src1)?;
+        let quot = Self::dst_gpr_arm_or_x86(quot)?;
+        let rn = Self::gpr_arm_or_x86(src1)?;
         let mut scratch = None;
         let rm = match src2 {
-            SrcOperand::Reg(src2) => Self::gpr(*src2)?,
+            SrcOperand::Reg(src2) => Self::gpr_arm_or_x86(*src2)?,
             SrcOperand::Imm(imm) | SrcOperand::Imm64(imm) => {
                 let mut avoid = vec![quot, rn];
                 if let Some(rem) = rem {
-                    avoid.push(Self::dst_gpr(rem)?);
+                    avoid.push(Self::dst_gpr_arm_or_x86(rem)?);
                 }
                 let scratches = Self::scratch_regs(&avoid, 1)?;
                 let rm = scratches[0];
@@ -8023,7 +8023,7 @@ impl Aarch64Lowerer {
     ) -> Result<(), LowerError> {
         let opcode2 = if signed { 0b0011 } else { 0b0010 };
         if let Some(rem) = rem {
-            let rem = Self::dst_gpr(rem)?;
+            let rem = Self::dst_gpr_arm_or_x86(rem)?;
             if quot == rn || quot == rm {
                 if rem == rn || rem == rm {
                     let scratches = Self::scratch_regs(&[quot, rem, rn, rm], 1)?;
@@ -8058,11 +8058,11 @@ impl Aarch64Lowerer {
         width: OpWidth,
         signed: bool,
     ) -> Result<(), LowerError> {
-        let quot = Self::dst_gpr(quot)?;
-        let rem = rem.map(Self::dst_gpr).transpose()?;
-        let src1 = Self::gpr(src1)?;
+        let quot = Self::dst_gpr_arm_or_x86(quot)?;
+        let rem = rem.map(Self::dst_gpr_arm_or_x86).transpose()?;
+        let src1 = Self::gpr_arm_or_x86(src1)?;
         let src2_reg = match src2 {
-            SrcOperand::Reg(reg) => Some(Self::gpr(*reg)?),
+            SrcOperand::Reg(reg) => Some(Self::gpr_arm_or_x86(*reg)?),
             SrcOperand::Imm(_) | SrcOperand::Imm64(_) => None,
             other => {
                 return Err(LowerError::UnsupportedOp {
@@ -18409,6 +18409,143 @@ mod tests {
             1,
             FlagUpdate::All,
         );
+    }
+
+    #[test]
+    fn lowers_div_apx_egpr_operands_runtime() {
+        let divu_src1 = 0x1234_5678_9abc_def0;
+        let divu_src2 = 10;
+        let divs_src1 = 0xffff_ff85;
+        let divs_src2 = (-7_i64) as u64;
+        let pow2_no_rem_src = 0x4567_89ab_cdef_0120;
+        let pow2_rem_src = 0xfedc_ba98_7654_3217;
+        let code = lower_ops(vec![
+            OpKind::DivU {
+                quot: x86(X86Reg::R16),
+                rem: Some(x86(X86Reg::R17)),
+                src1: x86(X86Reg::R18),
+                src2: SrcOperand::Reg(x86(X86Reg::R19)),
+                width: OpWidth::W64,
+                flags: FlagUpdate::None,
+            },
+            OpKind::DivS {
+                quot: x86(X86Reg::R20),
+                rem: Some(x86(X86Reg::R21)),
+                src1: x86(X86Reg::R22),
+                src2: SrcOperand::Imm(-7),
+                width: OpWidth::W32,
+                flags: FlagUpdate::None,
+            },
+            OpKind::DivU {
+                quot: x86(X86Reg::R23),
+                rem: None,
+                src1: x86(X86Reg::R24),
+                src2: SrcOperand::Imm(8),
+                width: OpWidth::W64,
+                flags: FlagUpdate::None,
+            },
+            OpKind::DivU {
+                quot: x86(X86Reg::R25),
+                rem: Some(x86(X86Reg::R26)),
+                src1: x86(X86Reg::R27),
+                src2: SrcOperand::Imm(16),
+                width: OpWidth::W64,
+                flags: FlagUpdate::None,
+            },
+            OpKind::DivU {
+                quot: x86(X86Reg::R28),
+                rem: Some(x86(X86Reg::R29)),
+                src1: x86(X86Reg::R18),
+                src2: SrcOperand::Reg(x86(X86Reg::R19)),
+                width: OpWidth::W8,
+                flags: FlagUpdate::All,
+            },
+        ]);
+        let regs = [
+            (18, divu_src1),
+            (19, divu_src2),
+            (22, divs_src1),
+            (24, pow2_no_rem_src),
+            (27, pow2_rem_src),
+            (15, 0x1515_1515_1515_1515),
+        ];
+        let old_nzcv = 0b1010;
+        let (out, out_nzcv, sp) = run_aarch64_code(&code, &regs, old_nzcv);
+        let (divu_quot, divu_rem) = ref_div(divu_src1, divu_src2, false, OpWidth::W64);
+        let (divs_quot, divs_rem) = ref_div(divs_src1, divs_src2, true, OpWidth::W32);
+        let (subword_quot, subword_rem) = ref_div(divu_src1, divu_src2, false, OpWidth::W8);
+
+        assert_eq!(out[16], divu_quot);
+        assert_eq!(out[17], divu_rem);
+        assert_eq!(out[20], divs_quot);
+        assert_eq!(out[21], divs_rem);
+        assert_eq!(out[23], pow2_no_rem_src / 8);
+        assert_eq!(out[25], pow2_rem_src / 16);
+        assert_eq!(out[26], pow2_rem_src % 16);
+        assert_eq!(out[28], subword_quot);
+        assert_eq!(out[29], subword_rem);
+        assert_eq!(out[18], divu_src1);
+        assert_eq!(out[19], divu_src2);
+        assert_eq!(out[15], 0x1515_1515_1515_1515);
+        assert_eq!(out_nzcv, old_nzcv);
+        assert_eq!(sp, 0x8000);
+    }
+
+    #[test]
+    fn rejects_div_apx_r31_identity_mapping() {
+        for kind in [
+            OpKind::DivU {
+                quot: x86(X86Reg::R31),
+                rem: None,
+                src1: x86(X86Reg::R16),
+                src2: SrcOperand::Reg(x86(X86Reg::R17)),
+                width: OpWidth::W64,
+                flags: FlagUpdate::None,
+            },
+            OpKind::DivU {
+                quot: x86(X86Reg::R16),
+                rem: Some(x86(X86Reg::R31)),
+                src1: x86(X86Reg::R17),
+                src2: SrcOperand::Imm(1),
+                width: OpWidth::W64,
+                flags: FlagUpdate::None,
+            },
+            OpKind::DivU {
+                quot: x86(X86Reg::R16),
+                rem: None,
+                src1: x86(X86Reg::R31),
+                src2: SrcOperand::Imm(8),
+                width: OpWidth::W64,
+                flags: FlagUpdate::None,
+            },
+            OpKind::DivU {
+                quot: x86(X86Reg::R16),
+                rem: Some(x86(X86Reg::R17)),
+                src1: x86(X86Reg::R18),
+                src2: SrcOperand::Reg(x86(X86Reg::R31)),
+                width: OpWidth::W64,
+                flags: FlagUpdate::None,
+            },
+            OpKind::DivS {
+                quot: x86(X86Reg::R16),
+                rem: Some(x86(X86Reg::R17)),
+                src1: x86(X86Reg::R18),
+                src2: SrcOperand::Reg(x86(X86Reg::R31)),
+                width: OpWidth::W16,
+                flags: FlagUpdate::None,
+            },
+            OpKind::DivU {
+                quot: x86(X86Reg::R16),
+                rem: Some(x86(X86Reg::R17)),
+                src1: x86(X86Reg::R31),
+                src2: SrcOperand::Imm(7),
+                width: OpWidth::W16,
+                flags: FlagUpdate::None,
+            },
+        ] {
+            let err = try_lower_single_op(kind).unwrap_err();
+            assert!(matches!(err, LowerError::InvalidRegister(_)));
+        }
     }
 
     fn assert_fp_binary_f32(label: &str, kind: OpKind, src1: f32, src2: f32, expected: f32) {
