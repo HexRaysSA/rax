@@ -379,6 +379,30 @@ impl Aarch64Lowerer {
         Ok(())
     }
 
+    fn emit_fp_three_source(
+        &mut self,
+        rd: u8,
+        rn: u8,
+        rm: u8,
+        ra: u8,
+        o1: u32,
+        o0: u32,
+        precision: FpPrecision,
+    ) -> Result<(), LowerError> {
+        let fp_type = Self::fp_type(precision)?;
+        self.emit(
+            (0b00011111 << 24)
+                | (fp_type << 22)
+                | ((o1 & 1) << 21)
+                | ((rm as u32) << 16)
+                | ((o0 & 1) << 15)
+                | ((ra as u32) << 10)
+                | ((rn as u32) << 5)
+                | (rd as u32),
+        );
+        Ok(())
+    }
+
     fn emit_addsub_shifted(
         &mut self,
         dst: u8,
@@ -3411,6 +3435,21 @@ impl Aarch64Lowerer {
         let rd = Self::fp_reg(dst)?;
         let rn = Self::fp_reg(src)?;
         self.emit_fp_one_source(rd, rn, opcode, precision)
+    }
+
+    fn lower_fp_fma(
+        &mut self,
+        dst: VReg,
+        src1: VReg,
+        src2: VReg,
+        src3: VReg,
+        precision: FpPrecision,
+    ) -> Result<(), LowerError> {
+        let rd = Self::fp_reg(dst)?;
+        let rn = Self::fp_reg(src1)?;
+        let rm = Self::fp_reg(src2)?;
+        let ra = Self::fp_reg(src3)?;
+        self.emit_fp_three_source(rd, rn, rm, ra, 0, 0, precision)
     }
 
     fn bit_test_emit_width(width: OpWidth) -> Result<OpWidth, LowerError> {
@@ -9344,6 +9383,13 @@ impl Aarch64Lowerer {
                 src2,
                 precision,
             } => self.lower_fp_binary(*dst, *src1, *src2, *precision, 0b0001),
+            OpKind::FFma {
+                dst,
+                src1,
+                src2,
+                src3,
+                precision,
+            } => self.lower_fp_fma(*dst, *src1, *src2, *src3, *precision),
             OpKind::FMin {
                 dst,
                 src1,
@@ -14811,6 +14857,90 @@ mod tests {
         );
     }
 
+    fn assert_fp_fma_f32(
+        label: &str,
+        kind: OpKind,
+        src1: f32,
+        src2: f32,
+        src3: f32,
+        expected: f32,
+    ) {
+        let src1_bits = u64::from(src1.to_bits());
+        let src2_bits = u64::from(src2.to_bits());
+        let src3_bits = u64::from(src3.to_bits());
+        let expected_bits = u64::from(expected.to_bits());
+        let code = lower_single_op(kind);
+        let out = run_aarch64_code_with_simd(
+            &code,
+            &[
+                (0, 0xffff_ffff_ffff_ffff, 0xaaaa_aaaa_aaaa_aaaa),
+                (1, src1_bits, 0x1111_1111_1111_1111),
+                (2, src2_bits, 0x2222_2222_2222_2222),
+                (3, src3_bits, 0x3333_3333_3333_3333),
+            ],
+        );
+
+        assert_eq!(out[0].0, expected_bits, "{label}: low result");
+        assert_eq!(out[0].1, 0, "{label}: high result");
+        assert_eq!(
+            out[1],
+            (src1_bits, 0x1111_1111_1111_1111),
+            "{label}: src1 preserved",
+        );
+        assert_eq!(
+            out[2],
+            (src2_bits, 0x2222_2222_2222_2222),
+            "{label}: src2 preserved",
+        );
+        assert_eq!(
+            out[3],
+            (src3_bits, 0x3333_3333_3333_3333),
+            "{label}: src3 preserved",
+        );
+    }
+
+    fn assert_fp_fma_f64(
+        label: &str,
+        kind: OpKind,
+        src1: f64,
+        src2: f64,
+        src3: f64,
+        expected: f64,
+    ) {
+        let src1_bits = src1.to_bits();
+        let src2_bits = src2.to_bits();
+        let src3_bits = src3.to_bits();
+        let expected_bits = expected.to_bits();
+        let code = lower_single_op(kind);
+        let out = run_aarch64_code_with_simd(
+            &code,
+            &[
+                (0, 0xffff_ffff_ffff_ffff, 0xaaaa_aaaa_aaaa_aaaa),
+                (1, src1_bits, 0x1111_1111_1111_1111),
+                (2, src2_bits, 0x2222_2222_2222_2222),
+                (3, src3_bits, 0x3333_3333_3333_3333),
+            ],
+        );
+
+        assert_eq!(out[0].0, expected_bits, "{label}: low result");
+        assert_eq!(out[0].1, 0, "{label}: high result");
+        assert_eq!(
+            out[1],
+            (src1_bits, 0x1111_1111_1111_1111),
+            "{label}: src1 preserved",
+        );
+        assert_eq!(
+            out[2],
+            (src2_bits, 0x2222_2222_2222_2222),
+            "{label}: src2 preserved",
+        );
+        assert_eq!(
+            out[3],
+            (src3_bits, 0x3333_3333_3333_3333),
+            "{label}: src3 preserved",
+        );
+    }
+
     fn assert_fp_unary_f32(label: &str, kind: OpKind, src: f32, expected: f32) {
         let src_bits = u64::from(src.to_bits());
         let expected_bits = u64::from(expected.to_bits());
@@ -15033,6 +15163,84 @@ mod tests {
                 dst: v(0),
                 src1: v(1),
                 src2: v(2),
+                precision: FpPrecision::F80,
+            },
+        );
+        builder.set_terminator(Terminator::Return { values: vec![] });
+        let func = builder.finish();
+
+        let mut lowerer = Aarch64Lowerer::new();
+        let err = lowerer.lower_function(&func).unwrap_err();
+        assert!(matches!(err, LowerError::UnsupportedOp { .. }));
+    }
+
+    #[test]
+    fn lowers_scalar_fp_fma_encodings() {
+        let words = code_words(&lower_single_op(OpKind::FFma {
+            dst: v(0),
+            src1: v(1),
+            src2: v(2),
+            src3: v(3),
+            precision: FpPrecision::F32,
+        }));
+        assert_eq!(words, vec![0x1f02_0c20, 0xd65f_03c0]);
+
+        let words = code_words(&lower_single_op(OpKind::FFma {
+            dst: v(4),
+            src1: v(5),
+            src2: v(6),
+            src3: v(7),
+            precision: FpPrecision::F64,
+        }));
+        assert_eq!(words, vec![0x1f46_1ca4, 0xd65f_03c0]);
+    }
+
+    #[test]
+    fn lowers_scalar_fp_fma_f32_runtime() {
+        assert_fp_fma_f32(
+            "ffma_s",
+            OpKind::FFma {
+                dst: v(0),
+                src1: v(1),
+                src2: v(2),
+                src3: v(3),
+                precision: FpPrecision::F32,
+            },
+            1.5,
+            2.0,
+            0.25,
+            3.25,
+        );
+    }
+
+    #[test]
+    fn lowers_scalar_fp_fma_f64_runtime() {
+        assert_fp_fma_f64(
+            "ffma_d",
+            OpKind::FFma {
+                dst: v(0),
+                src1: v(1),
+                src2: v(2),
+                src3: v(3),
+                precision: FpPrecision::F64,
+            },
+            -3.0,
+            2.0,
+            0.5,
+            -5.5,
+        );
+    }
+
+    #[test]
+    fn rejects_scalar_fp_fma_unsupported_precision() {
+        let mut builder = FunctionBuilder::new(FunctionId(0), 0);
+        builder.push_op(
+            0,
+            OpKind::FFma {
+                dst: v(0),
+                src1: v(1),
+                src2: v(2),
+                src3: v(3),
                 precision: FpPrecision::F80,
             },
         );
