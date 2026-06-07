@@ -4367,8 +4367,8 @@ impl Aarch64Lowerer {
             return self.lower_subword_addsub(dst, src1, src2, subtract, width);
         }
 
-        let dst = Self::dst_or_zero_for_flags(dst, set_flags)?;
-        let rn = Self::gpr(src1)?;
+        let dst = Self::dst_or_zero_for_flags_arm_or_x86(dst, set_flags)?;
+        let rn = Self::gpr_arm_or_x86(src1)?;
         match src2 {
             SrcOperand::Reg(_) | SrcOperand::Shifted { .. } => {
                 let (rm, shift, amount) = Self::addsub_src2(src2, width)?;
@@ -4395,13 +4395,20 @@ impl Aarch64Lowerer {
         subtract: bool,
         width: OpWidth,
     ) -> Result<(), LowerError> {
-        let dst = Self::dst_gpr(dst)?;
-        let rn = Self::gpr(src1)?;
+        let dst = Self::dst_gpr_arm_or_x86(dst)?;
+        let rn = Self::gpr_arm_or_x86(src1)?;
         let top_bit = width.bits() - 1;
 
         match src2 {
             SrcOperand::Reg(reg) => {
-                self.emit_addsub_reg(dst, rn, Self::gpr(*reg)?, subtract, false, OpWidth::W32)?;
+                self.emit_addsub_reg(
+                    dst,
+                    rn,
+                    Self::gpr_arm_or_x86(*reg)?,
+                    subtract,
+                    false,
+                    OpWidth::W32,
+                )?;
             }
             SrcOperand::Imm(imm) | SrcOperand::Imm64(imm) => {
                 let imm = (*imm as u64) & width.mask();
@@ -4457,10 +4464,10 @@ impl Aarch64Lowerer {
         subtract: bool,
         width: OpWidth,
     ) -> Result<(), LowerError> {
-        let dst_reg = Self::dst_or_zero_for_flags(dst, true)?;
-        let rn = Self::gpr(src1)?;
+        let dst_reg = Self::dst_or_zero_for_flags_arm_or_x86(dst, true)?;
+        let rn = Self::gpr_arm_or_x86(src1)?;
         let rm = match src2 {
-            SrcOperand::Reg(reg) => Some(Self::gpr(*reg)?),
+            SrcOperand::Reg(reg) => Some(Self::gpr_arm_or_x86(*reg)?),
             SrcOperand::Imm(_) | SrcOperand::Imm64(_) => None,
             other => {
                 return Err(LowerError::UnsupportedOp {
@@ -4517,11 +4524,18 @@ impl Aarch64Lowerer {
             return self.lower_subword_addsub_carry(dst, src1, src2, subtract, width);
         }
 
-        let dst = Self::dst_or_zero_for_flags(dst, set_flags)?;
-        let rn = Self::gpr(src1)?;
+        let dst = Self::dst_or_zero_for_flags_arm_or_x86(dst, set_flags)?;
+        let rn = Self::gpr_arm_or_x86(src1)?;
         match src2 {
             SrcOperand::Reg(reg) => {
-                self.emit_addsub_carry(dst, rn, Self::gpr(*reg)?, subtract, set_flags, width)
+                self.emit_addsub_carry(
+                    dst,
+                    rn,
+                    Self::gpr_arm_or_x86(*reg)?,
+                    subtract,
+                    set_flags,
+                    width,
+                )
             }
             SrcOperand::Imm(imm) | SrcOperand::Imm64(imm) => {
                 let scratches = Self::scratch_regs(&[dst, rn], 1)?;
@@ -4548,13 +4562,20 @@ impl Aarch64Lowerer {
         subtract: bool,
         width: OpWidth,
     ) -> Result<(), LowerError> {
-        let dst = Self::dst_gpr(dst)?;
-        let rn = Self::gpr(src1)?;
+        let dst = Self::dst_gpr_arm_or_x86(dst)?;
+        let rn = Self::gpr_arm_or_x86(src1)?;
         let top_bit = width.bits() - 1;
 
         match src2 {
             SrcOperand::Reg(reg) => {
-                self.emit_addsub_carry(dst, rn, Self::gpr(*reg)?, subtract, false, OpWidth::W32)?;
+                self.emit_addsub_carry(
+                    dst,
+                    rn,
+                    Self::gpr_arm_or_x86(*reg)?,
+                    subtract,
+                    false,
+                    OpWidth::W32,
+                )?;
             }
             SrcOperand::Imm(imm) | SrcOperand::Imm64(imm) => {
                 let scratches = Self::scratch_regs(&[dst, rn], 1)?;
@@ -4635,10 +4656,10 @@ impl Aarch64Lowerer {
         subtract: bool,
         width: OpWidth,
     ) -> Result<(), LowerError> {
-        let dst_reg = Self::dst_or_zero_for_flags(dst, true)?;
-        let rn = Self::gpr(src1)?;
+        let dst_reg = Self::dst_or_zero_for_flags_arm_or_x86(dst, true)?;
+        let rn = Self::gpr_arm_or_x86(src1)?;
         let rm = match src2 {
-            SrcOperand::Reg(reg) => Some(Self::gpr(*reg)?),
+            SrcOperand::Reg(reg) => Some(Self::gpr_arm_or_x86(*reg)?),
             SrcOperand::Imm(_) | SrcOperand::Imm64(_) => None,
             other => {
                 return Err(LowerError::UnsupportedOp {
@@ -5696,7 +5717,7 @@ impl Aarch64Lowerer {
                         operand: format!("shift={shift}"),
                     });
                 }
-                Ok((Self::gpr(*reg)?, option, u32::from(*shift)))
+                Ok((Self::gpr_arm_or_x86(*reg)?, option, u32::from(*shift)))
             }
             other => Err(LowerError::UnsupportedOp {
                 op: format!("AArch64 native add/sub extended source {other:?}"),
@@ -16760,6 +16781,130 @@ mod tests {
         expected.extend_from_slice(&enc_bitfield_regs(0, 0b10, 0, 15, 0, 0).to_le_bytes());
         expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
         assert_eq!(code, expected);
+    }
+
+    #[test]
+    fn lowers_addsub_carry_apx_egpr_operands_runtime() {
+        let ops = vec![
+            OpKind::Add {
+                dst: x86(X86Reg::R16),
+                src1: x86(X86Reg::R17),
+                src2: SrcOperand::Reg(x86(X86Reg::R18)),
+                width: OpWidth::W64,
+                flags: FlagUpdate::None,
+            },
+            OpKind::Adc {
+                dst: x86(X86Reg::R19),
+                src1: x86(X86Reg::R20),
+                src2: SrcOperand::Reg(x86(X86Reg::R21)),
+                width: OpWidth::W64,
+                flags: FlagUpdate::None,
+            },
+            OpKind::Sbb {
+                dst: x86(X86Reg::R22),
+                src1: x86(X86Reg::R23),
+                src2: SrcOperand::Imm(0x34),
+                width: OpWidth::W16,
+                flags: FlagUpdate::None,
+            },
+            OpKind::Sub {
+                dst: x86(X86Reg::R25),
+                src1: x86(X86Reg::R26),
+                src2: SrcOperand::Reg(x86(X86Reg::R27)),
+                width: OpWidth::W32,
+                flags: FlagUpdate::All,
+            },
+        ];
+        let code = lower_ops(ops);
+        let regs = [
+            (17, 0x1111_2222_3333_4444),
+            (18, 0x0102_0304_0506_0708),
+            (20, 0x100),
+            (21, 0x10),
+            (23, 0x80f5),
+            (24, 0x2424_2424_2424_2424),
+            (26, 0x8000_0000),
+            (27, 1),
+        ];
+        let old_nzcv = 0b0010;
+        let carry_in = true;
+        let (out, out_nzcv, sp) = run_aarch64_code(&code, &regs, old_nzcv);
+
+        assert_eq!(
+            out[16],
+            ref_addsub(
+                0x1111_2222_3333_4444,
+                0x0102_0304_0506_0708,
+                false,
+                OpWidth::W64,
+            )
+        );
+        assert_eq!(
+            out[19],
+            ref_addsub_carry(0x100, 0x10, carry_in, false, OpWidth::W64)
+        );
+        assert_eq!(
+            out[22],
+            ref_addsub_carry(0x80f5, 0x34, carry_in, true, OpWidth::W16)
+        );
+        assert_eq!(out[25], ref_addsub(0x8000_0000, 1, true, OpWidth::W32));
+        assert_eq!(
+            out_nzcv,
+            expected_addsub_nzcv(0x8000_0000, 1, true, OpWidth::W32)
+        );
+        assert_eq!(out[17], 0x1111_2222_3333_4444);
+        assert_eq!(out[18], 0x0102_0304_0506_0708);
+        assert_eq!(out[20], 0x100);
+        assert_eq!(out[21], 0x10);
+        assert_eq!(out[23], 0x80f5);
+        assert_eq!(out[24], 0x2424_2424_2424_2424);
+        assert_eq!(out[26], 0x8000_0000);
+        assert_eq!(out[27], 1);
+        assert_eq!(sp, 0x8000);
+    }
+
+    #[test]
+    fn rejects_addsub_carry_apx_r31_identity_mapping() {
+        for kind in [
+            OpKind::Add {
+                dst: x86(X86Reg::R31),
+                src1: x86(X86Reg::R16),
+                src2: SrcOperand::Reg(x86(X86Reg::R17)),
+                width: OpWidth::W64,
+                flags: FlagUpdate::None,
+            },
+            OpKind::Sub {
+                dst: x86(X86Reg::R16),
+                src1: x86(X86Reg::R31),
+                src2: SrcOperand::Imm(1),
+                width: OpWidth::W32,
+                flags: FlagUpdate::All,
+            },
+            OpKind::Add {
+                dst: x86(X86Reg::R16),
+                src1: x86(X86Reg::R17),
+                src2: SrcOperand::Reg(x86(X86Reg::R31)),
+                width: OpWidth::W64,
+                flags: FlagUpdate::None,
+            },
+            OpKind::Adc {
+                dst: x86(X86Reg::R16),
+                src1: x86(X86Reg::R17),
+                src2: SrcOperand::Reg(x86(X86Reg::R31)),
+                width: OpWidth::W64,
+                flags: FlagUpdate::None,
+            },
+            OpKind::Sbb {
+                dst: x86(X86Reg::R31),
+                src1: x86(X86Reg::R17),
+                src2: SrcOperand::Imm(1),
+                width: OpWidth::W16,
+                flags: FlagUpdate::None,
+            },
+        ] {
+            let err = try_lower_single_op(kind).unwrap_err();
+            assert!(matches!(err, LowerError::InvalidRegister(_)));
+        }
     }
 
     #[test]
