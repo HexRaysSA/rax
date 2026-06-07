@@ -6577,16 +6577,8 @@ impl Aarch64Lowerer {
             if amount == 0 {
                 return self.emit_bitfield(dst_reg, rn, 0b10, 0, top_bit, OpWidth::W32);
             }
-            if amount > bits {
-                return Err(LowerError::UnsupportedOp {
-                    op: format!(
-                        "AArch64 native {width:?} {} count greater than width",
-                        if left { "Shld" } else { "Shrd" }
-                    ),
-                });
-            }
             let src = Self::gpr(src)?;
-            if amount == bits {
+            if amount >= bits {
                 return self.emit_bitfield(dst_reg, src, 0b10, 0, top_bit, OpWidth::W32);
             }
             let scratches = if dst_reg == src {
@@ -19184,87 +19176,47 @@ mod tests {
     }
 
     #[test]
-    fn rejects_shld_w16_count_greater_than_width() {
-        let mut builder = FunctionBuilder::new(FunctionId(0), 0);
-        builder.push_op(
+    fn lowers_subword_double_shift_count_greater_than_width_as_source() {
+        assert_double_shift_imm_lowering(
+            "shld_w16_count_greater_than_width",
+            true,
             0,
-            OpKind::Shld {
-                dst: x(0),
-                src: x(1),
-                amount: SrcOperand::Imm(17),
-                width: OpWidth::W16,
-                flags: FlagUpdate::None,
-            },
+            0x1234,
+            1,
+            0xabcd,
+            17,
+            OpWidth::W16,
         );
-        builder.set_terminator(Terminator::Return { values: vec![] });
-        let func = builder.finish();
-
-        let mut lowerer = Aarch64Lowerer::new();
-        let err = lowerer.lower_function(&func).unwrap_err();
-        assert!(matches!(err, LowerError::UnsupportedOp { .. }));
-    }
-
-    #[test]
-    fn rejects_shrd_w16_count_greater_than_width() {
-        let mut builder = FunctionBuilder::new(FunctionId(0), 0);
-        builder.push_op(
+        assert_double_shift_imm_lowering(
+            "shrd_w16_count_greater_than_width",
+            false,
             0,
-            OpKind::Shrd {
-                dst: x(0),
-                src: x(1),
-                amount: SrcOperand::Imm(17),
-                width: OpWidth::W16,
-                flags: FlagUpdate::None,
-            },
+            0x1234,
+            1,
+            0xabcd,
+            17,
+            OpWidth::W16,
         );
-        builder.set_terminator(Terminator::Return { values: vec![] });
-        let func = builder.finish();
-
-        let mut lowerer = Aarch64Lowerer::new();
-        let err = lowerer.lower_function(&func).unwrap_err();
-        assert!(matches!(err, LowerError::UnsupportedOp { .. }));
-    }
-
-    #[test]
-    fn rejects_shld_w8_count_greater_than_width() {
-        let mut builder = FunctionBuilder::new(FunctionId(0), 0);
-        builder.push_op(
+        assert_double_shift_imm_lowering(
+            "shld_w8_count_greater_than_width",
+            true,
             0,
-            OpKind::Shld {
-                dst: x(0),
-                src: x(1),
-                amount: SrcOperand::Imm(9),
-                width: OpWidth::W8,
-                flags: FlagUpdate::None,
-            },
+            0x12,
+            1,
+            0xab,
+            9,
+            OpWidth::W8,
         );
-        builder.set_terminator(Terminator::Return { values: vec![] });
-        let func = builder.finish();
-
-        let mut lowerer = Aarch64Lowerer::new();
-        let err = lowerer.lower_function(&func).unwrap_err();
-        assert!(matches!(err, LowerError::UnsupportedOp { .. }));
-    }
-
-    #[test]
-    fn rejects_shrd_w8_count_greater_than_width() {
-        let mut builder = FunctionBuilder::new(FunctionId(0), 0);
-        builder.push_op(
+        assert_double_shift_imm_lowering(
+            "shrd_w8_count_greater_than_width",
+            false,
             0,
-            OpKind::Shrd {
-                dst: x(0),
-                src: x(1),
-                amount: SrcOperand::Imm(9),
-                width: OpWidth::W8,
-                flags: FlagUpdate::None,
-            },
+            0x12,
+            1,
+            0xab,
+            9,
+            OpWidth::W8,
         );
-        builder.set_terminator(Terminator::Return { values: vec![] });
-        let func = builder.finish();
-
-        let mut lowerer = Aarch64Lowerer::new();
-        let err = lowerer.lower_function(&func).unwrap_err();
-        assert!(matches!(err, LowerError::UnsupportedOp { .. }));
     }
 
     #[test]
