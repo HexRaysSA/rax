@@ -974,6 +974,19 @@ impl Aarch64Lowerer {
         self.emit(0x0ea1_6800 | (q << 30) | ((rn as u32) << 5) | (rd as u32));
     }
 
+    fn emit_simd_i8_dot(&mut self, rd: u8, rn: u8, rm: u8, q: u32, src1_unsigned: bool) {
+        let opcode = if src1_unsigned { 0b100111 } else { 0b100101 };
+        self.emit(
+            (0b01110 << 24)
+                | (q << 30)
+                | (0b10 << 22)
+                | ((rm as u32) << 16)
+                | (opcode << 10)
+                | ((rn as u32) << 5)
+                | (rd as u32),
+        );
+    }
+
     fn emit_simd_two_reg_misc(
         &mut self,
         rd: u8,
@@ -2399,6 +2412,45 @@ impl Aarch64Lowerer {
             }
         };
         self.emit_simd_fp16_three_same(rd, rn, rm, q, u, a, opcode);
+        Ok(())
+    }
+
+    fn lower_vdotproduct(
+        &mut self,
+        dst: VReg,
+        acc: VReg,
+        src1: VReg,
+        src2: VReg,
+        src_elem: VecElementType,
+        acc_elem: VecElementType,
+        width: VecWidth,
+        src1_unsigned: bool,
+        saturate: bool,
+    ) -> Result<(), LowerError> {
+        if src_elem != VecElementType::I8 || acc_elem != VecElementType::I32 || saturate {
+            return Err(LowerError::UnsupportedOp {
+                op: format!(
+                    "AArch64 native vector dot src={src_elem:?} \
+                     acc={acc_elem:?} saturate={saturate}"
+                ),
+            });
+        }
+
+        let q = Self::simd_vec_q(width)?;
+        let rd = Self::fp_reg(dst)?;
+        let ra = Self::fp_reg(acc)?;
+        let rn = Self::fp_reg(src1)?;
+        let rm = Self::fp_reg(src2)?;
+        if rd != ra {
+            if rd == rn || rd == rm {
+                return Err(LowerError::UnsupportedOp {
+                    op: "AArch64 native vector dot accumulator copy alias".to_string(),
+                });
+            }
+            self.lower_vmov(dst, acc, width)?;
+        }
+
+        self.emit_simd_i8_dot(rd, rn, rm, q, src1_unsigned);
         Ok(())
     }
 
@@ -11142,6 +11194,27 @@ impl Aarch64Lowerer {
                 *negate_product,
                 *negate_acc,
             ),
+            OpKind::VDotProduct {
+                dst,
+                acc,
+                src1,
+                src2,
+                src_elem,
+                acc_elem,
+                width,
+                src1_unsigned,
+                saturate,
+            } => self.lower_vdotproduct(
+                *dst,
+                *acc,
+                *src1,
+                *src2,
+                *src_elem,
+                *acc_elem,
+                *width,
+                *src1_unsigned,
+                *saturate,
+            ),
             OpKind::VFP16Arith {
                 dst,
                 src1,
@@ -12273,6 +12346,14 @@ mod tests {
         simd_pair_from_bytes(bytes)
     }
 
+    fn simd_pair_from_i32(values: [i32; 4]) -> (u64, u64) {
+        let mut bytes = [0u8; 16];
+        for (idx, value) in values.iter().enumerate() {
+            bytes[idx * 4..idx * 4 + 4].copy_from_slice(&value.to_le_bytes());
+        }
+        simd_pair_from_bytes(bytes)
+    }
+
     fn simd_pair_from_f64(values: [f64; 2]) -> (u64, u64) {
         let mut bytes = [0u8; 16];
         for (idx, value) in values.iter().enumerate() {
@@ -12324,6 +12405,31 @@ mod tests {
             out[lane] = ref_f16_binop(a[lane], b[lane], op);
         }
         simd_pair_from_f16(out)
+    }
+
+    fn ref_i8_dot(
+        acc: [i32; 4],
+        src1: [u8; 16],
+        src2: [u8; 16],
+        src1_unsigned: bool,
+        lanes: usize,
+    ) -> (u64, u64) {
+        let mut out = [0i32; 4];
+        for lane in 0..lanes {
+            let mut sum = acc[lane];
+            for elem in 0..4 {
+                let idx = lane * 4 + elem;
+                let a = if src1_unsigned {
+                    src1[idx] as i32
+                } else {
+                    src1[idx] as i8 as i32
+                };
+                let b = src2[idx] as i8 as i32;
+                sum = sum.wrapping_add(a * b);
+            }
+            out[lane] = sum;
+        }
+        simd_pair_from_i32(out)
     }
 
     fn bf16_from_f32_bits(bits: u32) -> u16 {
@@ -18835,6 +18941,111 @@ mod tests {
     }
 
     #[test]
+    fn lowers_vector_i8_dot_product_encodings() {
+        let code = lower_ops(vec![
+            OpKind::VDotProduct {
+                dst: v(0),
+                acc: v(0),
+                src1: v(1),
+                src2: v(2),
+                src_elem: VecElementType::I8,
+                acc_elem: VecElementType::I32,
+                width: VecWidth::V128,
+                src1_unsigned: true,
+                saturate: false,
+            },
+            OpKind::VDotProduct {
+                dst: v(3),
+                acc: v(3),
+                src1: v(4),
+                src2: v(5),
+                src_elem: VecElementType::I8,
+                acc_elem: VecElementType::I32,
+                width: VecWidth::V64,
+                src1_unsigned: false,
+                saturate: false,
+            },
+        ]);
+        let words = code_words(&code);
+
+        assert_eq!(words[0], 0x4e80_9c00 | (2 << 16) | (1 << 5));
+        assert_eq!(words[1], 0x0e80_9400 | (5 << 16) | (4 << 5) | 3);
+        assert_eq!(words[2], 0xd65f_03c0);
+    }
+
+    #[test]
+    fn lowers_vector_i8_dot_product_runtime() {
+        let acc0 = [1000, -2000, 0x7fff_ff00u32 as i32, i32::MIN + 16];
+        let src1_unsigned = [1, 2, 3, 4, 255, 128, 0, 7, 10, 20, 30, 40, 5, 6, 7, 8];
+        let src2_signed = [
+            0xff, 2, 0xfe, 4, 1, 0x80, 0x7f, 0, 3, 4, 5, 6, 0x80, 0x80, 2, 3,
+        ];
+        let acc1 = [17, -33, 44, -55];
+        let src1_signed = [
+            0xff, 2, 0x80, 0x7f, 9, 0xf0, 0x10, 0x80, 1, 3, 5, 7, 0x7f, 0x80, 0, 4,
+        ];
+        let src2_signed_2 = [
+            2, 0xfe, 3, 0xff, 0x80, 4, 0xfc, 5, 6, 0xfa, 8, 0xf8, 0xff, 2, 3, 4,
+        ];
+        let acc64 = [123, -456, 0x1111_1111, 0x2222_2222];
+        let code = lower_ops(vec![
+            OpKind::VDotProduct {
+                dst: v(0),
+                acc: v(0),
+                src1: v(1),
+                src2: v(2),
+                src_elem: VecElementType::I8,
+                acc_elem: VecElementType::I32,
+                width: VecWidth::V128,
+                src1_unsigned: true,
+                saturate: false,
+            },
+            OpKind::VDotProduct {
+                dst: v(3),
+                acc: v(4),
+                src1: v(5),
+                src2: v(6),
+                src_elem: VecElementType::I8,
+                acc_elem: VecElementType::I32,
+                width: VecWidth::V128,
+                src1_unsigned: false,
+                saturate: false,
+            },
+            OpKind::VDotProduct {
+                dst: v(7),
+                acc: v(7),
+                src1: v(8),
+                src2: v(9),
+                src_elem: VecElementType::I8,
+                acc_elem: VecElementType::I32,
+                width: VecWidth::V64,
+                src1_unsigned: true,
+                saturate: false,
+            },
+        ]);
+
+        let (_, simd, _) = run_aarch64_code_with_regs_and_simd(
+            &code,
+            &[],
+            &[
+                (0, simd_pair_from_i32(acc0).0, simd_pair_from_i32(acc0).1),
+                (1, simd_pair_from_bytes(src1_unsigned).0, simd_pair_from_bytes(src1_unsigned).1),
+                (2, simd_pair_from_bytes(src2_signed).0, simd_pair_from_bytes(src2_signed).1),
+                (4, simd_pair_from_i32(acc1).0, simd_pair_from_i32(acc1).1),
+                (5, simd_pair_from_bytes(src1_signed).0, simd_pair_from_bytes(src1_signed).1),
+                (6, simd_pair_from_bytes(src2_signed_2).0, simd_pair_from_bytes(src2_signed_2).1),
+                (7, simd_pair_from_i32(acc64).0, simd_pair_from_i32(acc64).1),
+                (8, simd_pair_from_bytes(src1_unsigned).0, simd_pair_from_bytes(src1_unsigned).1),
+                (9, simd_pair_from_bytes(src2_signed).0, simd_pair_from_bytes(src2_signed).1),
+            ],
+        );
+
+        assert_eq!(simd[0], ref_i8_dot(acc0, src1_unsigned, src2_signed, true, 4));
+        assert_eq!(simd[3], ref_i8_dot(acc1, src1_signed, src2_signed_2, false, 4));
+        assert_eq!(simd[7], ref_i8_dot(acc64, src1_unsigned, src2_signed, true, 2));
+    }
+
+    #[test]
     fn lowers_vector_float_fma_runtime() {
         fn apply_f32(
             a: [f32; 4],
@@ -20304,6 +20515,66 @@ mod tests {
             lanes: 4,
             negate_product: false,
             negate_acc: true,
+        });
+
+        assert_unsupported(OpKind::VDotProduct {
+            dst: v(0),
+            acc: v(0),
+            src1: v(1),
+            src2: v(2),
+            src_elem: VecElementType::I8,
+            acc_elem: VecElementType::I32,
+            width: VecWidth::V256,
+            src1_unsigned: true,
+            saturate: false,
+        });
+
+        assert_unsupported(OpKind::VDotProduct {
+            dst: v(0),
+            acc: v(0),
+            src1: v(1),
+            src2: v(2),
+            src_elem: VecElementType::I16,
+            acc_elem: VecElementType::I32,
+            width: VecWidth::V128,
+            src1_unsigned: false,
+            saturate: false,
+        });
+
+        assert_unsupported(OpKind::VDotProduct {
+            dst: v(0),
+            acc: v(0),
+            src1: v(1),
+            src2: v(2),
+            src_elem: VecElementType::I8,
+            acc_elem: VecElementType::I16,
+            width: VecWidth::V128,
+            src1_unsigned: true,
+            saturate: false,
+        });
+
+        assert_unsupported(OpKind::VDotProduct {
+            dst: v(0),
+            acc: v(0),
+            src1: v(1),
+            src2: v(2),
+            src_elem: VecElementType::I8,
+            acc_elem: VecElementType::I32,
+            width: VecWidth::V128,
+            src1_unsigned: true,
+            saturate: true,
+        });
+
+        assert_unsupported(OpKind::VDotProduct {
+            dst: v(1),
+            acc: v(0),
+            src1: v(1),
+            src2: v(2),
+            src_elem: VecElementType::I8,
+            acc_elem: VecElementType::I32,
+            width: VecWidth::V128,
+            src1_unsigned: true,
+            saturate: false,
         });
 
         assert_unsupported(OpKind::VFma {
