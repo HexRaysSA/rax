@@ -184,6 +184,8 @@ pub struct X86RegState {
     pub gs_base: u64,
     /// XMM/YMM/ZMM registers (up to 512-bit each)
     pub xmm: [VecValue; 32],
+    /// AVX-512 opmask registers K0-K7.
+    pub k: [u64; 8],
     /// MXCSR (SSE control/status)
     pub mxcsr: u32,
 }
@@ -248,6 +250,7 @@ impl X86RegState {
             X86Reg::FsBase => self.fs_base,
             X86Reg::GsBase => self.gs_base,
             X86Reg::Xmm(n) | X86Reg::Ymm(n) | X86Reg::Zmm(n) => self.xmm[n as usize][0],
+            X86Reg::K(n) => self.k[n as usize & 0x7],
             _ => 0,
         }
     }
@@ -292,6 +295,7 @@ impl X86RegState {
             X86Reg::FsBase => self.fs_base = val,
             X86Reg::GsBase => self.gs_base = val,
             X86Reg::Xmm(n) | X86Reg::Ymm(n) | X86Reg::Zmm(n) => self.xmm[n as usize][0] = val,
+            X86Reg::K(n) => self.k[n as usize & 0x7] = val,
             _ => {}
         }
     }
@@ -730,6 +734,11 @@ mod tests {
         let vreg = VReg::Arch(ArchReg::X86(X86Reg::Rbx));
         ctx.write_vreg(vreg, 100);
         assert_eq!(ctx.read_vreg(vreg), 100);
+
+        // Opmask register
+        let kreg = VReg::Arch(ArchReg::X86(X86Reg::K(3)));
+        ctx.write_vreg(kreg, 0x55aa);
+        assert_eq!(ctx.read_vreg(kreg), 0x55aa);
 
         // Virtual register
         let virt = VReg::Virtual(VirtualId(0));
