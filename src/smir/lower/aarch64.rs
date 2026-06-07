@@ -12377,7 +12377,7 @@ impl Aarch64Lowerer {
             return Ok(());
         }
 
-        self.emit_compare_branch_placeholder(Self::gpr(cond)?, true, true_target);
+        self.emit_compare_branch_placeholder(Self::gpr_arm_or_x86(cond)?, true, true_target);
         self.emit_branch_placeholder(false_target);
         Ok(())
     }
@@ -12401,7 +12401,7 @@ impl Aarch64Lowerer {
             return Ok(());
         }
 
-        let index = Self::gpr(index)?;
+        let index = Self::gpr_arm_or_x86(index)?;
         for (case, target) in targets.iter().enumerate() {
             let case = i64::try_from(case).map_err(|_| LowerError::InvalidOperand {
                 op: "AArch64 native switch case".into(),
@@ -31098,6 +31098,157 @@ mod tests {
         expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
         expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
         assert_eq!(code, expected);
+    }
+
+    #[test]
+    fn lowers_control_flow_apx_egpr_operands_runtime() {
+        let cond_sentinel = 0x1234_5678_9abc_def0;
+        let mut builder = FunctionBuilder::new(FunctionId(0), 0);
+        let true_target = builder.create_block(4);
+        let false_target = builder.create_block(8);
+        builder.set_terminator(Terminator::CondBranch {
+            cond: x86(X86Reg::R16),
+            true_target,
+            false_target,
+        });
+        builder.switch_to_block(true_target);
+        builder.push_op(
+            4,
+            OpKind::Mov {
+                dst: x86(X86Reg::R17),
+                src: SrcOperand::Imm(0x1111),
+                width: OpWidth::W64,
+            },
+        );
+        builder.set_terminator(Terminator::Return { values: vec![] });
+        builder.switch_to_block(false_target);
+        builder.push_op(
+            8,
+            OpKind::Mov {
+                dst: x86(X86Reg::R17),
+                src: SrcOperand::Imm(0x2222),
+                width: OpWidth::W64,
+            },
+        );
+        builder.set_terminator(Terminator::Return { values: vec![] });
+        let cond_func = builder.finish();
+
+        let mut lowerer = Aarch64Lowerer::new();
+        lowerer.lower_function(&cond_func).unwrap();
+        let cond_code = lowerer.finalize().unwrap();
+
+        let (out, _, sp) =
+            run_aarch64_code(&cond_code, &[(16, 1), (18, cond_sentinel)], 0);
+        assert_eq!(out[16], 1);
+        assert_eq!(out[17], 0x1111);
+        assert_eq!(out[18], cond_sentinel);
+        assert_eq!(sp, 0x8000);
+
+        let (out, _, sp) =
+            run_aarch64_code(&cond_code, &[(16, 0), (18, cond_sentinel)], 0);
+        assert_eq!(out[16], 0);
+        assert_eq!(out[17], 0x2222);
+        assert_eq!(out[18], cond_sentinel);
+        assert_eq!(sp, 0x8000);
+
+        let switch_sentinel = 0x0fed_cba9_8765_4321;
+        let mut builder = FunctionBuilder::new(FunctionId(0), 0);
+        let case0 = builder.create_block(4);
+        let case1 = builder.create_block(8);
+        let default = builder.create_block(12);
+        builder.set_terminator(Terminator::Switch {
+            index: x86(X86Reg::R18),
+            targets: vec![case0, case1],
+            default,
+        });
+        builder.switch_to_block(case0);
+        builder.push_op(
+            4,
+            OpKind::Mov {
+                dst: x86(X86Reg::R19),
+                src: SrcOperand::Imm(0x1000),
+                width: OpWidth::W64,
+            },
+        );
+        builder.set_terminator(Terminator::Return { values: vec![] });
+        builder.switch_to_block(case1);
+        builder.push_op(
+            8,
+            OpKind::Mov {
+                dst: x86(X86Reg::R19),
+                src: SrcOperand::Imm(0x1001),
+                width: OpWidth::W64,
+            },
+        );
+        builder.set_terminator(Terminator::Return { values: vec![] });
+        builder.switch_to_block(default);
+        builder.push_op(
+            12,
+            OpKind::Mov {
+                dst: x86(X86Reg::R19),
+                src: SrcOperand::Imm(0xdddd),
+                width: OpWidth::W64,
+            },
+        );
+        builder.set_terminator(Terminator::Return { values: vec![] });
+        let switch_func = builder.finish();
+
+        let mut lowerer = Aarch64Lowerer::new();
+        lowerer.lower_function(&switch_func).unwrap();
+        let switch_code = lowerer.finalize().unwrap();
+
+        let (out, _, sp) =
+            run_aarch64_code(&switch_code, &[(18, 1), (16, switch_sentinel)], 0);
+        assert_eq!(out[16], switch_sentinel);
+        assert_eq!(out[18], 1);
+        assert_eq!(out[19], 0x1001);
+        assert_eq!(sp, 0x8000);
+
+        let (out, _, sp) =
+            run_aarch64_code(&switch_code, &[(18, 7), (16, switch_sentinel)], 0);
+        assert_eq!(out[16], switch_sentinel);
+        assert_eq!(out[18], 7);
+        assert_eq!(out[19], 0xdddd);
+        assert_eq!(sp, 0x8000);
+    }
+
+    #[test]
+    fn rejects_control_flow_apx_r31_identity_mapping() {
+        let mut builder = FunctionBuilder::new(FunctionId(0), 0);
+        let true_target = builder.create_block(4);
+        let false_target = builder.create_block(8);
+        builder.set_terminator(Terminator::CondBranch {
+            cond: x86(X86Reg::R31),
+            true_target,
+            false_target,
+        });
+        builder.switch_to_block(true_target);
+        builder.set_terminator(Terminator::Return { values: vec![] });
+        builder.switch_to_block(false_target);
+        builder.set_terminator(Terminator::Return { values: vec![] });
+        let func = builder.finish();
+
+        let mut lowerer = Aarch64Lowerer::new();
+        let err = lowerer.lower_function(&func).unwrap_err();
+        assert!(matches!(err, LowerError::InvalidRegister(_)));
+
+        let mut builder = FunctionBuilder::new(FunctionId(0), 0);
+        let case0 = builder.create_block(4);
+        let default = builder.create_block(8);
+        builder.set_terminator(Terminator::Switch {
+            index: x86(X86Reg::R31),
+            targets: vec![case0],
+            default,
+        });
+        builder.switch_to_block(case0);
+        builder.set_terminator(Terminator::Return { values: vec![] });
+        builder.switch_to_block(default);
+        builder.set_terminator(Terminator::Return { values: vec![] });
+        let func = builder.finish();
+
+        let mut lowerer = Aarch64Lowerer::new();
+        let err = lowerer.lower_function(&func).unwrap_err();
+        assert!(matches!(err, LowerError::InvalidRegister(_)));
     }
 
     #[test]
