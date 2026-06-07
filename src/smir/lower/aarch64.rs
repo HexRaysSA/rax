@@ -6331,18 +6331,22 @@ impl Aarch64Lowerer {
                 } else {
                     Self::eval_pext(src, mask, bits)
                 };
-                return self.emit_mov_imm(Self::dst_gpr(dst)?, result as i64, emit_width);
+                return self.emit_mov_imm(
+                    Self::dst_gpr_arm_or_x86(dst)?,
+                    result as i64,
+                    emit_width,
+                );
             }
         }
 
         if let Some(mask) = mask_imm {
             if mask == 0 {
-                return self.emit_mov_imm(Self::dst_gpr(dst)?, 0, emit_width);
+                return self.emit_mov_imm(Self::dst_gpr_arm_or_x86(dst)?, 0, emit_width);
             }
 
             let Some((lsb, width_bits)) = Self::contiguous_bitfield(mask) else {
-                let dst_reg = Self::dst_gpr(dst)?;
-                let src_reg = Self::gpr(src)?;
+                let dst_reg = Self::dst_gpr_arm_or_x86(dst)?;
+                let src_reg = Self::gpr_arm_or_x86(src)?;
                 let scratches = if dst_reg == src_reg {
                     Self::scratch_regs(&[dst_reg, src_reg], 1)?
                 } else {
@@ -6392,7 +6396,7 @@ impl Aarch64Lowerer {
                 emit_width,
             ),
             _ => {
-                let src = Self::gpr(value)?;
+                let src = Self::gpr_arm_or_x86(value)?;
                 match width {
                     OpWidth::W8 | OpWidth::W16 => {
                         self.emit_bitfield(dst, src, 0b10, 0, width.bits() - 1, OpWidth::W32)
@@ -6433,12 +6437,12 @@ impl Aarch64Lowerer {
         width: OpWidth,
         emit_width: OpWidth,
     ) -> Result<(), LowerError> {
-        let dst_reg = Self::dst_gpr(dst)?;
+        let dst_reg = Self::dst_gpr_arm_or_x86(dst)?;
         let src_reg = match src {
             VReg::Imm(_) => None,
-            _ => Some(Self::gpr(src)?),
+            _ => Some(Self::gpr_arm_or_x86(src)?),
         };
-        let mask_reg = Self::gpr(mask)?;
+        let mask_reg = Self::gpr_arm_or_x86(mask)?;
         let mut avoid = vec![dst_reg, mask_reg];
         if let Some(src_reg) = src_reg {
             avoid.push(src_reg);
@@ -6487,12 +6491,12 @@ impl Aarch64Lowerer {
         width: OpWidth,
         emit_width: OpWidth,
     ) -> Result<(), LowerError> {
-        let dst_reg = Self::dst_gpr(dst)?;
+        let dst_reg = Self::dst_gpr_arm_or_x86(dst)?;
         let src_reg = match src {
             VReg::Imm(_) => None,
-            _ => Some(Self::gpr(src)?),
+            _ => Some(Self::gpr_arm_or_x86(src)?),
         };
-        let mask_reg = Self::gpr(mask)?;
+        let mask_reg = Self::gpr_arm_or_x86(mask)?;
         let mut avoid = vec![dst_reg, mask_reg];
         if let Some(src_reg) = src_reg {
             avoid.push(src_reg);
@@ -7220,8 +7224,8 @@ impl Aarch64Lowerer {
         Self::bitfield_args("Bfx", lsb, width_bits, op_width)?;
         let opc = if sign_extend { 0b00 } else { 0b10 };
         self.emit_bitfield(
-            Self::dst_gpr(dst)?,
-            Self::gpr(src)?,
+            Self::dst_gpr_arm_or_x86(dst)?,
+            Self::gpr_arm_or_x86(src)?,
             opc,
             u32::from(lsb),
             u32::from(lsb + width_bits - 1),
@@ -7334,8 +7338,8 @@ impl Aarch64Lowerer {
             return self.lower_bfx(dst, src, 0, width_bits, sign_extend, op_width);
         }
         self.emit_bitfield(
-            Self::dst_gpr(dst)?,
-            Self::gpr(src)?,
+            Self::dst_gpr_arm_or_x86(dst)?,
+            Self::gpr_arm_or_x86(src)?,
             if sign_extend { 0b00 } else { 0b10 },
             op_bits - u32::from(lsb),
             u32::from(width_bits - 1),
@@ -27749,6 +27753,104 @@ mod tests {
             OpWidth::W16,
             0,
         );
+    }
+
+    #[test]
+    fn lowers_pdep_pext_apx_egpr_operands_runtime() {
+        let ops = vec![
+            OpKind::Pdep {
+                dst: x86(X86Reg::R16),
+                src: x86(X86Reg::R17),
+                mask: VReg::Imm(0x1f0),
+                width: OpWidth::W64,
+            },
+            OpKind::Pext {
+                dst: x86(X86Reg::R18),
+                src: x86(X86Reg::R19),
+                mask: VReg::Imm(0x8040_0101_0000_1016_u64 as i64),
+                width: OpWidth::W64,
+            },
+            OpKind::Pdep {
+                dst: x86(X86Reg::R20),
+                src: x86(X86Reg::R21),
+                mask: x86(X86Reg::R22),
+                width: OpWidth::W32,
+            },
+            OpKind::Pext {
+                dst: x86(X86Reg::R23),
+                src: x86(X86Reg::R24),
+                mask: x86(X86Reg::R25),
+                width: OpWidth::W16,
+            },
+        ];
+        let code = lower_ops(ops);
+        let regs = [
+            (17, 0b1011_0110),
+            (19, 0xf0f1_2233_4455_6677),
+            (21, 0xffff_0001),
+            (22, 0x8080_00f1),
+            (24, 0xffff_1234),
+            (25, 0xa55a),
+            (26, 0x2626_2626_2626_2626),
+        ];
+        let (out, out_nzcv, sp) = run_aarch64_code(&code, &regs, 0b0110);
+
+        assert_eq!(
+            out[16],
+            Aarch64Lowerer::eval_pdep(0b1011_0110, 0x1f0, 64)
+        );
+        assert_eq!(
+            out[18],
+            Aarch64Lowerer::eval_pext(
+                0xf0f1_2233_4455_6677,
+                0x8040_0101_0000_1016,
+                64,
+            )
+        );
+        assert_eq!(
+            out[20],
+            Aarch64Lowerer::eval_pdep(0xffff_0001, 0x8080_00f1, 32)
+        );
+        assert_eq!(
+            out[23],
+            Aarch64Lowerer::eval_pext(0x1234, 0xa55a, 16)
+        );
+        assert_eq!(out[17], 0b1011_0110);
+        assert_eq!(out[19], 0xf0f1_2233_4455_6677);
+        assert_eq!(out[21], 0xffff_0001);
+        assert_eq!(out[22], 0x8080_00f1);
+        assert_eq!(out[24], 0xffff_1234);
+        assert_eq!(out[25], 0xa55a);
+        assert_eq!(out[26], 0x2626_2626_2626_2626);
+        assert_eq!(out_nzcv, 0b0110);
+        assert_eq!(sp, 0x8000);
+    }
+
+    #[test]
+    fn rejects_pdep_pext_apx_r31_identity_mapping() {
+        for kind in [
+            OpKind::Pdep {
+                dst: x86(X86Reg::R31),
+                src: x86(X86Reg::R16),
+                mask: VReg::Imm(0x1f0),
+                width: OpWidth::W64,
+            },
+            OpKind::Pext {
+                dst: x86(X86Reg::R16),
+                src: x86(X86Reg::R31),
+                mask: VReg::Imm(0x1f0),
+                width: OpWidth::W64,
+            },
+            OpKind::Pdep {
+                dst: x86(X86Reg::R16),
+                src: x86(X86Reg::R17),
+                mask: x86(X86Reg::R31),
+                width: OpWidth::W64,
+            },
+        ] {
+            let err = try_lower_single_op(kind).unwrap_err();
+            assert!(matches!(err, LowerError::InvalidRegister(_)));
+        }
     }
 
     #[test]
