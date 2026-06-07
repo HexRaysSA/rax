@@ -2175,6 +2175,18 @@ impl Aarch64Lowerer {
         }
     }
 
+    fn atomic_cmpxadd_flags_width(width: MemWidth) -> Result<OpWidth, LowerError> {
+        match width {
+            MemWidth::B1 => Ok(OpWidth::W8),
+            MemWidth::B2 => Ok(OpWidth::W16),
+            MemWidth::B4 => Ok(OpWidth::W32),
+            MemWidth::B8 => Ok(OpWidth::W64),
+            other => Err(LowerError::UnsupportedOp {
+                op: format!("AArch64 native AtomicCmpXadd width {other:?}"),
+            }),
+        }
+    }
+
     fn emit_mask_cas_compare_value(
         &mut self,
         reg: u8,
@@ -2305,6 +2317,107 @@ impl Aarch64Lowerer {
             self.lower_test_condition(Self::arm_x_reg(success_reg), Condition::Eq)?;
             self.emit_sysreg(saved_flags, ArmReg::Nzcv, false)?;
         }
+        self.emit_scratch_restore(&scratches);
+        self.emit_scratch_restore(&addr_scratches);
+        Ok(())
+    }
+
+    fn lower_atomic_cmpxadd(
+        &mut self,
+        dst_old: VReg,
+        addr: &Address,
+        cmp: VReg,
+        add: VReg,
+        cond: Condition,
+        width: MemWidth,
+        order: MemoryOrder,
+    ) -> Result<(), LowerError> {
+        let dst_reg = Self::dst_gpr(dst_old)?;
+        let cmp_reg = Self::gpr(cmp)?;
+        let add_reg = Self::gpr(add)?;
+        let size = Self::mem_size(width)?;
+        let flags_width = Self::atomic_cmpxadd_flags_width(width)?;
+        let emit_width = Self::cas_compare_width(width)?;
+        let cond_code = Self::arm_cond_code(cond)?;
+        let (acquire, release) = Self::atomic_order_bits(order);
+
+        let (addr_scratches, rn) =
+            self.lower_atomic_addr_to_base(&[dst_reg, cmp_reg, add_reg], addr)?;
+        let need_base = rn == dst_reg;
+        let need_saved_cmp = cmp_reg == dst_reg;
+        let need_saved_add = add_reg == dst_reg;
+        let need_subword_compare = matches!(flags_width, OpWidth::W8 | OpWidth::W16);
+
+        let scratch_count = 2
+            + usize::from(need_base)
+            + usize::from(need_saved_cmp)
+            + usize::from(need_saved_add)
+            + if need_subword_compare { 2 } else { 0 };
+        let scratches = Self::scratch_regs(&[dst_reg, rn, cmp_reg, add_reg], scratch_count)?;
+        let mut scratch_index = 0;
+        let work = scratches[scratch_index];
+        scratch_index += 1;
+        let status = scratches[scratch_index];
+        scratch_index += 1;
+        let base = if need_base {
+            let reg = scratches[scratch_index];
+            scratch_index += 1;
+            reg
+        } else {
+            rn
+        };
+        let cmp_operand = if need_saved_cmp {
+            let reg = scratches[scratch_index];
+            scratch_index += 1;
+            reg
+        } else {
+            cmp_reg
+        };
+        let add_operand = if need_saved_add {
+            let reg = scratches[scratch_index];
+            scratch_index += 1;
+            reg
+        } else {
+            add_reg
+        };
+        let compare_lhs = if need_subword_compare {
+            let reg = scratches[scratch_index];
+            scratch_index += 1;
+            Some(reg)
+        } else {
+            None
+        };
+        let compare_rhs = if need_subword_compare {
+            Some(scratches[scratch_index])
+        } else {
+            None
+        };
+
+        self.emit_scratch_save(&scratches);
+        if need_base {
+            self.emit_mov_reg(base, rn, OpWidth::W64)?;
+        }
+        if need_saved_cmp {
+            self.emit_mov_reg(cmp_operand, cmp_reg, emit_width)?;
+        }
+        if need_saved_add {
+            self.emit_mov_reg(add_operand, add_reg, emit_width)?;
+        }
+
+        let loop_start = self.code.position();
+        self.emit_load_exclusive_ordered(dst_reg, base, size, acquire);
+        if let (Some(lhs), Some(rhs)) = (compare_lhs, compare_rhs) {
+            self.emit_shifted_subword_addsub_operand(lhs, dst_reg, flags_width)?;
+            self.emit_shifted_subword_addsub_operand(rhs, cmp_operand, flags_width)?;
+            self.emit_addsub_reg(31, lhs, rhs, true, true, OpWidth::W32)?;
+        } else {
+            self.emit_addsub_reg(31, dst_reg, cmp_operand, true, true, emit_width)?;
+        }
+        self.emit_addsub_reg(work, dst_reg, add_operand, false, false, emit_width)?;
+        self.emit_cond_select(work, work, dst_reg, cond_code, 0, 0, emit_width)?;
+        self.emit_store_exclusive_ordered(status, work, base, size, release);
+        self.emit_compare_branch_to_offset(status, true, loop_start)?;
+
         self.emit_scratch_restore(&scratches);
         self.emit_scratch_restore(&addr_scratches);
         Ok(())
@@ -10039,6 +10152,15 @@ impl Aarch64Lowerer {
                 width,
                 order,
             } => self.lower_cas(*dst, *success, addr, *expected, *new_val, *width, *order),
+            OpKind::AtomicCmpXadd {
+                dst_old,
+                addr,
+                cmp,
+                add,
+                cond,
+                width,
+                order,
+            } => self.lower_atomic_cmpxadd(*dst_old, addr, *cmp, *add, *cond, *width, *order),
             OpKind::LoadPair {
                 dst1,
                 dst2,
@@ -12425,6 +12547,99 @@ mod tests {
                 && reg != expected
                 && reg != new_val
             {
+                assert_eq!(out[reg as usize], value, "{label}: x{reg} restored");
+            }
+        }
+    }
+
+    fn set_initial_reg(regs: &mut Vec<(u8, u64)>, reg: u8, value: u64) {
+        if let Some(entry) = regs.iter_mut().find(|(existing, _)| *existing == reg) {
+            entry.1 = value;
+        } else {
+            regs.push((reg, value));
+        }
+    }
+
+    fn ref_atomic_cmpxadd(
+        old: u64,
+        cmp: u64,
+        add: u64,
+        cond: Condition,
+        width: MemWidth,
+    ) -> (u64, u64, u8) {
+        let flags_width = match width {
+            MemWidth::B1 => OpWidth::W8,
+            MemWidth::B2 => OpWidth::W16,
+            MemWidth::B4 => OpWidth::W32,
+            MemWidth::B8 => OpWidth::W64,
+            other => panic!("unsupported AtomicCmpXadd test width {other:?}"),
+        };
+        let mask = mem_width_mask(width);
+        let old = old & mask;
+        let cmp = cmp & mask;
+        let add = add & mask;
+        let nzcv = expected_addsub_nzcv(old, cmp, true, flags_width);
+        let new = if condition_holds_nzcv(cond, nzcv) {
+            old.wrapping_add(add) & mask
+        } else {
+            old
+        };
+        (old, new, nzcv)
+    }
+
+    fn assert_atomic_cmpxadd_lowering(
+        label: &str,
+        dst_old: u8,
+        base: u8,
+        cmp: u8,
+        add: u8,
+        cond: Condition,
+        width: MemWidth,
+        mem_value: u64,
+        cmp_value: u64,
+        add_value: u64,
+    ) {
+        let code = lower_single_op(OpKind::AtomicCmpXadd {
+            dst_old: x(dst_old),
+            addr: Address::Direct(x(base)),
+            cmp: x(cmp),
+            add: x(add),
+            cond,
+            width,
+            order: MemoryOrder::SeqCst,
+        });
+        let (expected_old, expected_mem, expected_nzcv) =
+            ref_atomic_cmpxadd(mem_value, cmp_value, add_value, cond, width);
+        let mem_addr = 0x9000;
+        let sentinels = [
+            (16, 0x1616_1616_1616_1616),
+            (17, 0x1717_1717_1717_1717),
+            (15, 0x1515_1515_1515_1515),
+            (14, 0x1414_1414_1414_1414),
+        ];
+        let mut regs = sentinels.to_vec();
+        set_initial_reg(&mut regs, base, mem_addr);
+        set_initial_reg(&mut regs, cmp, cmp_value);
+        set_initial_reg(&mut regs, add, add_value);
+
+        let old_nzcv = 0b0110;
+        let (out, out_nzcv, sp, mem) =
+            run_aarch64_code_with_memory(&code, &regs, old_nzcv, mem_addr, mem_value, width);
+        assert_eq!(out[dst_old as usize], expected_old, "{label}: old value");
+        assert_eq!(mem, expected_mem, "{label}: memory");
+        assert_eq!(out_nzcv, expected_nzcv, "{label}: NZCV");
+        assert_eq!(sp, 0x8000, "{label}: stack restored");
+        if base != dst_old && base != cmp && base != add {
+            assert_eq!(out[base as usize], mem_addr, "{label}: base preserved");
+        }
+        if cmp != dst_old && cmp != base {
+            assert_eq!(out[cmp as usize], cmp_value, "{label}: cmp preserved");
+        }
+        if add != dst_old && add != base && add != cmp {
+            assert_eq!(out[add as usize], add_value, "{label}: add preserved");
+        }
+        for (reg, value) in sentinels {
+            if reg != dst_old && reg != base && reg != cmp && reg != add {
                 assert_eq!(out[reg as usize], value, "{label}: x{reg} restored");
             }
         }
@@ -19844,6 +20059,117 @@ mod tests {
             0x1111_2222_3333_4444,
             0x5555_6666_7777_8888,
         );
+    }
+
+    #[test]
+    fn lowers_atomic_cmpxadd_runtime() {
+        assert_atomic_cmpxadd_lowering(
+            "cmpxadd_b4_true",
+            0,
+            1,
+            2,
+            3,
+            Condition::Ule,
+            MemWidth::B4,
+            5,
+            7,
+            3,
+        );
+        assert_atomic_cmpxadd_lowering(
+            "cmpxadd_cmp_alias_false",
+            2,
+            1,
+            2,
+            3,
+            Condition::Ugt,
+            MemWidth::B4,
+            1,
+            2,
+            99,
+        );
+        assert_atomic_cmpxadd_lowering(
+            "cmpxadd_add_alias_true",
+            2,
+            1,
+            3,
+            2,
+            Condition::Ugt,
+            MemWidth::B8,
+            5,
+            1,
+            3,
+        );
+        assert_atomic_cmpxadd_lowering(
+            "cmpxadd_base_alias_true",
+            1,
+            1,
+            2,
+            3,
+            Condition::Eq,
+            MemWidth::B8,
+            4,
+            4,
+            1,
+        );
+        assert_atomic_cmpxadd_lowering(
+            "cmpxadd_b1_signed_condition",
+            0,
+            1,
+            2,
+            3,
+            Condition::Slt,
+            MemWidth::B1,
+            0x80,
+            1,
+            2,
+        );
+    }
+
+    #[test]
+    fn rejects_atomic_cmpxadd_unsupported_forms() {
+        let mut builder = FunctionBuilder::new(FunctionId(0), 0);
+        builder.push_op(
+            0,
+            OpKind::AtomicCmpXadd {
+                dst_old: x(0),
+                addr: Address::Direct(x(1)),
+                cmp: x(2),
+                add: x(3),
+                cond: Condition::Eq,
+                width: MemWidth::B16,
+                order: MemoryOrder::SeqCst,
+            },
+        );
+        builder.set_terminator(Terminator::Return { values: vec![] });
+        let func = builder.finish();
+
+        let mut lowerer = Aarch64Lowerer::new();
+        assert!(matches!(
+            lowerer.lower_function(&func),
+            Err(LowerError::UnsupportedOp { .. })
+        ));
+
+        let mut builder = FunctionBuilder::new(FunctionId(0), 0);
+        builder.push_op(
+            0,
+            OpKind::AtomicCmpXadd {
+                dst_old: x(0),
+                addr: Address::Direct(x(1)),
+                cmp: x(2),
+                add: x(3),
+                cond: Condition::Parity,
+                width: MemWidth::B8,
+                order: MemoryOrder::SeqCst,
+            },
+        );
+        builder.set_terminator(Terminator::Return { values: vec![] });
+        let func = builder.finish();
+
+        let mut lowerer = Aarch64Lowerer::new();
+        assert!(matches!(
+            lowerer.lower_function(&func),
+            Err(LowerError::UnsupportedOp { .. })
+        ));
     }
 
     #[test]
