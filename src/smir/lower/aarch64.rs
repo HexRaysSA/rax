@@ -3297,7 +3297,30 @@ impl Aarch64Lowerer {
         width: OpWidth,
         carry: bool,
     ) -> Result<(), LowerError> {
-        self.emit_logic_reg_n(31, dst, dst, 0b11, false, width)?;
+        match width {
+            OpWidth::W8 | OpWidth::W16 => {
+                self.emit_logic_flags_from_source(dst, width)?;
+                if carry {
+                    let scratches = Self::scratch_regs(&[dst], 2)?;
+                    let flags = scratches[0];
+                    let temp = scratches[1];
+                    self.emit_scratch_save(&scratches);
+                    self.emit_sysreg(flags, ArmReg::Nzcv, true)?;
+                    self.emit_or_nzcv_const(flags, temp, NZCV_C)?;
+                    self.emit_sysreg(flags, ArmReg::Nzcv, false)?;
+                    self.emit_scratch_restore(&scratches);
+                }
+                return Ok(());
+            }
+            OpWidth::W32 | OpWidth::W64 => {
+                self.emit_logic_reg_n(31, dst, dst, 0b11, false, width)?;
+            }
+            other => {
+                return Err(LowerError::UnsupportedOp {
+                    op: format!("AArch64 native BMI result flag width {other:?}"),
+                });
+            }
+        }
         if carry {
             self.emit_flagm(0b000);
         }
@@ -3363,11 +3386,6 @@ impl Aarch64Lowerer {
                 });
             }
         };
-        if set_flags && matches!(width, OpWidth::W8 | OpWidth::W16) {
-            return Err(LowerError::UnsupportedOp {
-                op: "AArch64 native flag-setting subword Bzhi".into(),
-            });
-        }
 
         if let VReg::Imm(value) = index {
             let index = ((value as u64) & 0xff) as u32;
@@ -3380,7 +3398,7 @@ impl Aarch64Lowerer {
             if index == 0 {
                 self.emit_mov_imm(dst_reg, 0, emit_width)?;
                 if set_flags {
-                    self.lower_bmi_result_flags(dst_reg, emit_width, false)?;
+                    self.lower_bmi_result_flags(dst_reg, width, false)?;
                 }
                 return Ok(());
             }
@@ -3395,7 +3413,7 @@ impl Aarch64Lowerer {
                     _ => unreachable!(),
                 }?;
                 if set_flags {
-                    self.lower_bmi_result_flags(dst_reg, emit_width, true)?;
+                    self.lower_bmi_result_flags(dst_reg, width, true)?;
                 }
                 return Ok(());
             }
@@ -3408,14 +3426,16 @@ impl Aarch64Lowerer {
             };
             self.lower_logic(dst, src, &mask, 0b00, false, false, width)?;
             if set_flags {
-                self.lower_bmi_result_flags(dst_reg, emit_width, false)?;
+                self.lower_bmi_result_flags(dst_reg, width, false)?;
             }
             return Ok(());
         }
 
-        let guard_bits: &[u32] = match width {
-            OpWidth::W32 => &[5, 6, 7],
-            OpWidth::W64 => &[6, 7],
+        let (emit_width, guard_bits): (OpWidth, &[u32]) = match width {
+            OpWidth::W8 => (OpWidth::W32, &[3, 4, 5, 6, 7]),
+            OpWidth::W16 => (OpWidth::W32, &[4, 5, 6, 7]),
+            OpWidth::W32 => (OpWidth::W32, &[5, 6, 7]),
+            OpWidth::W64 => (OpWidth::W64, &[6, 7]),
             other => {
                 return Err(LowerError::UnsupportedOp {
                     op: format!("AArch64 native register-index Bzhi width {other:?}"),
@@ -3441,9 +3461,9 @@ impl Aarch64Lowerer {
             guards.push((offset, bit));
         }
 
-        self.emit_movn_zero(mask_reg, width)?;
-        self.emit_dp2(mask_reg, mask_reg, index, 0b1000, width)?;
-        self.emit_logic_reg_n(dst, src, mask_reg, 0b00, true, width)?;
+        self.emit_movn_zero(mask_reg, emit_width)?;
+        self.emit_dp2(mask_reg, mask_reg, index, 0b1000, emit_width)?;
+        self.emit_logic_reg_n(dst, src, mask_reg, 0b00, true, emit_width)?;
         if set_flags {
             self.lower_bmi_result_flags(dst, width, false)?;
         }
@@ -3452,7 +3472,11 @@ impl Aarch64Lowerer {
         for (offset, bit) in guards {
             self.patch_test_branch_to_current(offset, index, bit, true)?;
         }
-        self.emit_mov_reg(dst, src, width)?;
+        if matches!(width, OpWidth::W8 | OpWidth::W16) {
+            self.emit_bitfield(dst, src, 0b10, 0, bits - 1, OpWidth::W32)?;
+        } else {
+            self.emit_mov_reg(dst, src, width)?;
+        }
         if set_flags {
             self.lower_bmi_result_flags(dst, width, true)?;
         }
@@ -10863,6 +10887,49 @@ mod tests {
         expected_bzhi_nzcv(old_nzcv, result, false, flag_width, flags)
     }
 
+    fn assert_bzhi_imm_index_lowering(
+        label: &str,
+        src_reg: u8,
+        src_value: u64,
+        index: i64,
+        width: OpWidth,
+        dst_reg: u8,
+        flags: FlagUpdate,
+        old_nzcv: u8,
+    ) {
+        let code = lower_single_op(OpKind::Bzhi {
+            dst: x(dst_reg),
+            src: x(src_reg),
+            index: VReg::Imm(index),
+            width,
+            flags,
+        });
+
+        let (expected, carry) = ref_bzhi(src_value, index as u64, width);
+        let expected_nzcv = expected_bzhi_nzcv(old_nzcv, expected, carry, width, flags);
+        let sentinels = [
+            (16, 0x1616_1616_1616_1616),
+            (17, 0x1717_1717_1717_1717),
+            (15, 0x1515_1515_1515_1515),
+            (14, 0x1414_1414_1414_1414),
+        ];
+        let mut regs = sentinels.to_vec();
+        regs.push((src_reg, src_value));
+
+        let (out, out_nzcv, sp) = run_aarch64_code(&code, &regs, old_nzcv);
+        assert_eq!(out[dst_reg as usize], expected, "{label}: result");
+        assert_eq!(out_nzcv, expected_nzcv, "{label}: NZCV");
+        assert_eq!(sp, 0x8000, "{label}: stack restored");
+        if src_reg != dst_reg {
+            assert_eq!(out[src_reg as usize], src_value, "{label}: src preserved");
+        }
+        for (reg, value) in sentinels {
+            if reg != src_reg && reg != dst_reg {
+                assert_eq!(out[reg as usize], value, "{label}: x{reg} restored");
+            }
+        }
+    }
+
     fn assert_bextr_runtime_control_lowering(
         label: &str,
         dst_reg: u8,
@@ -15505,6 +15572,40 @@ mod tests {
     }
 
     #[test]
+    fn lowers_bzhi_subword_imm_index_with_flags_runtime() {
+        assert_bzhi_imm_index_lowering(
+            "bzhi_w8_imm_index_at_width_sets_subword_negative_and_carry",
+            1,
+            0xffff_ffff_ffff_ff80,
+            8,
+            OpWidth::W8,
+            0,
+            bzhi_flags(),
+            0b0101,
+        );
+        assert_bzhi_imm_index_lowering(
+            "bzhi_w8_imm_index_zero_sets_zero",
+            1,
+            0xff,
+            0,
+            OpWidth::W8,
+            0,
+            bzhi_flags(),
+            0b1010,
+        );
+        assert_bzhi_imm_index_lowering(
+            "bzhi_w16_imm_index_masks_and_clears_carry",
+            1,
+            0xffff_ffff_ffff_80f5,
+            8,
+            OpWidth::W16,
+            0,
+            bzhi_flags(),
+            0b1111,
+        );
+    }
+
+    #[test]
     fn lowers_bzhi_w_imm_index_at_width_as_mov_zero_ext() {
         let mut builder = FunctionBuilder::new(FunctionId(0), 0);
         builder.push_op(
@@ -15575,6 +15676,39 @@ mod tests {
             1,
             FlagUpdate::None,
             0b0110,
+        );
+        assert_bzhi_runtime_index_lowering(
+            "bzhi_w8_runtime_index_sets_subword_negative_and_carry",
+            1,
+            0xffff_ffff_ffff_ff80,
+            2,
+            8,
+            OpWidth::W8,
+            0,
+            bzhi_flags(),
+            0b0101,
+        );
+        assert_bzhi_runtime_index_lowering(
+            "bzhi_w16_runtime_index_masks_and_clears_carry",
+            1,
+            0xffff_ffff_ffff_80f5,
+            2,
+            8,
+            OpWidth::W16,
+            0,
+            bzhi_flags(),
+            0b1111,
+        );
+        assert_bzhi_runtime_index_lowering(
+            "bzhi_w16_dst_aliases_index_passes_masked_source",
+            1,
+            0xffff_ffff_ffff_8001,
+            2,
+            16,
+            OpWidth::W16,
+            2,
+            bzhi_flags(),
+            0b0000,
         );
     }
 
