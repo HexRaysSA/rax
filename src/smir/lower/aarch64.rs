@@ -2848,9 +2848,7 @@ impl Aarch64Lowerer {
         }
 
         if set_flags && opc != 0b11 {
-            return Err(LowerError::UnsupportedOp {
-                op: "AArch64 native logical flags are only supported for ANDS/BICS".into(),
-            });
+            return self.lower_logic_with_synth_flags(dst, src1, src2, opc, n, width);
         }
         match src2 {
             SrcOperand::Imm(imm) | SrcOperand::Imm64(imm) => {
@@ -2958,6 +2956,60 @@ impl Aarch64Lowerer {
         }
 
         self.emit_bitfield(dst, dst, 0b10, 0, top_bit, OpWidth::W32)
+    }
+
+    fn lower_logic_with_synth_flags(
+        &mut self,
+        dst: VReg,
+        src1: VReg,
+        src2: &SrcOperand,
+        opc: u32,
+        n: bool,
+        width: OpWidth,
+    ) -> Result<(), LowerError> {
+        match width {
+            OpWidth::W32 | OpWidth::W64 => {}
+            other => {
+                return Err(LowerError::UnsupportedOp {
+                    op: format!("AArch64 native logical flags width {other:?}"),
+                });
+            }
+        }
+
+        let dst = Self::dst_or_zero_for_flags(dst, true)?;
+        let rn = Self::gpr(src1)?;
+        let mut avoid = vec![rn];
+        if dst != 31 {
+            avoid.push(dst);
+        }
+        match src2 {
+            SrcOperand::Reg(reg) | SrcOperand::Shifted { reg, .. } => {
+                avoid.push(Self::gpr(*reg)?);
+            }
+            _ => {}
+        }
+        let scratches = Self::scratch_regs(&avoid, 3)?;
+        let result = scratches[0];
+        let flags = scratches[1];
+        let temp = scratches[2];
+
+        self.emit_scratch_save(&scratches);
+        self.lower_logic(
+            VReg::Arch(ArchReg::Arm(ArmReg::X(result))),
+            src1,
+            src2,
+            opc,
+            n,
+            false,
+            width,
+        )?;
+        if dst != 31 {
+            self.emit_mov_reg(dst, result, width)?;
+        }
+        self.emit_init_shift_nz_flags(flags, temp, result, width)?;
+        self.emit_sysreg(flags, ArmReg::Nzcv, false)?;
+        self.emit_scratch_restore(&scratches);
+        Ok(())
     }
 
     fn lower_subword_logic_with_flags(
@@ -22504,6 +22556,70 @@ mod tests {
             0x8001,
             OpWidth::W16,
             0b0011,
+        );
+    }
+
+    #[test]
+    fn lowers_flag_setting_full_width_logical_runtime() {
+        assert_subword_logic_flags_lowering(
+            "or_x_reg_sets_negative",
+            0b01,
+            false,
+            x(0),
+            1,
+            SrcOperand::Reg(x(2)),
+            0x8000_0000_0000_0000,
+            0x0000_0000_0000_0001,
+            OpWidth::W64,
+            0b0111,
+        );
+        assert_subword_logic_flags_lowering(
+            "xor_w_imm_sets_zero",
+            0b10,
+            false,
+            x(0),
+            1,
+            SrcOperand::Imm(-1),
+            0xffff_ffff,
+            0xffff_ffff,
+            OpWidth::W32,
+            0b1011,
+        );
+        assert_subword_logic_flags_lowering(
+            "or_x_virtual_dst_sets_zero",
+            0b01,
+            false,
+            VReg::virt(0),
+            1,
+            SrcOperand::Imm(0),
+            0,
+            0,
+            OpWidth::W64,
+            0b1011,
+        );
+        assert_subword_logic_flags_lowering(
+            "xor_x_dst_aliases_src1",
+            0b10,
+            false,
+            x(1),
+            1,
+            SrcOperand::Reg(x(2)),
+            0x1234_5678_9abc_def0,
+            0x1234_5678_9abc_def0,
+            OpWidth::W64,
+            0b1111,
+        );
+        assert_subword_logic_flags_lowering(
+            "or_x_sparse_imm_sets_negative",
+            0b01,
+            false,
+            x(0),
+            1,
+            SrcOperand::Imm64(0x0001_0000_0000_0001),
+            0x8000_0000_0000_0000,
+            0x0001_0000_0000_0001,
+            OpWidth::W64,
+            0b0101,
         );
     }
 
