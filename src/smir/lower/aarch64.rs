@@ -303,8 +303,17 @@ impl Aarch64Lowerer {
     fn branch_gpr(vreg: VReg) -> Result<u8, LowerError> {
         match vreg {
             VReg::Arch(ArchReg::Arm(ArmReg::X(n))) if n < 31 => Ok(n),
+            VReg::Arch(ArchReg::X86(reg)) => {
+                reg.gpr_index()
+                    .filter(|&n| n < 31)
+                    .ok_or_else(|| {
+                        LowerError::InvalidRegister(format!(
+                            "AArch64 native lowerer expected branch target GPR, got X86({reg:?})"
+                        ))
+                    })
+            }
             other => Err(LowerError::InvalidRegister(format!(
-                "AArch64 native lowerer expected branch target X register, got {other:?}"
+                "AArch64 native lowerer expected branch target GPR, got {other:?}"
             ))),
         }
     }
@@ -32604,10 +32613,42 @@ mod tests {
     }
 
     #[test]
+    fn lowers_indirect_branch_apx_egpr_target_as_br() {
+        let mut builder = FunctionBuilder::new(FunctionId(0), 0);
+        builder.set_terminator(Terminator::IndirectBranch {
+            target: x86(X86Reg::R16),
+            possible_targets: vec![],
+        });
+        let func = builder.finish();
+
+        let mut lowerer = Aarch64Lowerer::new();
+        lowerer.lower_function(&func).unwrap();
+        let code = lowerer.finalize().unwrap();
+
+        let mut expected = Vec::new();
+        expected.extend_from_slice(&enc_br(16).to_le_bytes());
+        assert_eq!(code, expected);
+    }
+
+    #[test]
     fn rejects_indirect_branch_immediate_target() {
         let mut builder = FunctionBuilder::new(FunctionId(0), 0);
         builder.set_terminator(Terminator::IndirectBranch {
             target: VReg::Imm(0),
+            possible_targets: vec![],
+        });
+        let func = builder.finish();
+
+        let mut lowerer = Aarch64Lowerer::new();
+        let err = lowerer.lower_function(&func).unwrap_err();
+        assert!(matches!(err, LowerError::InvalidRegister(_)));
+    }
+
+    #[test]
+    fn rejects_indirect_branch_apx_r31_target_mapping() {
+        let mut builder = FunctionBuilder::new(FunctionId(0), 0);
+        builder.set_terminator(Terminator::IndirectBranch {
+            target: x86(X86Reg::R31),
             possible_targets: vec![],
         });
         let func = builder.finish();
