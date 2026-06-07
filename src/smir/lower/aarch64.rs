@@ -10696,9 +10696,9 @@ impl Aarch64Lowerer {
         }
 
         self.emit_extract(
-            Self::dst_gpr(*dst)?,
-            Self::gpr(*rn)?,
-            Self::gpr(*rm)?,
+            Self::dst_gpr_arm_or_x86(*dst)?,
+            Self::gpr_arm_or_x86(*rn)?,
+            Self::gpr_arm_or_x86(*rm)?,
             lo_amount as u32,
             *width,
         )?;
@@ -11396,7 +11396,7 @@ impl Aarch64Lowerer {
 
         let src2 = Self::cond_compare_src2(src2)?;
         let nzcv = Self::cond_compare_nzcv(*fallback_nzcv)?;
-        let rn = Self::gpr(rn)?;
+        let rn = Self::gpr_arm_or_x86(rn)?;
         let cond = Self::arm_cond_code(*cond)?;
         match src2 {
             CondCompareSource::Encoded { rm_imm5, immediate } => {
@@ -11439,7 +11439,7 @@ impl Aarch64Lowerer {
     fn cond_compare_src2(src2: &SrcOperand) -> Result<CondCompareSource, LowerError> {
         match src2 {
             SrcOperand::Reg(reg) => Ok(CondCompareSource::Encoded {
-                rm_imm5: Self::gpr(*reg)?,
+                rm_imm5: Self::gpr_arm_or_x86(*reg)?,
                 immediate: false,
             }),
             SrcOperand::Imm(imm) | SrcOperand::Imm64(imm) if (0..=31).contains(imm) => {
@@ -31576,6 +31576,56 @@ mod tests {
     }
 
     #[test]
+    fn fuses_lifted_extract_apx_egpr_operands_runtime() {
+        let lo = VReg::virt(0);
+        let hi = VReg::virt(1);
+        let hi_value = 0x0123_4567_89ab_cdef;
+        let lo_value = 0xfedc_ba98_7654_3210;
+        let code = lower_ops(vec![
+            OpKind::Shr {
+                dst: lo,
+                src: x86(X86Reg::R18),
+                amount: SrcOperand::Imm(8),
+                width: OpWidth::W64,
+                flags: FlagUpdate::None,
+            },
+            OpKind::Shl {
+                dst: hi,
+                src: x86(X86Reg::R17),
+                amount: SrcOperand::Imm(56),
+                width: OpWidth::W64,
+                flags: FlagUpdate::None,
+            },
+            OpKind::Or {
+                dst: x86(X86Reg::R16),
+                src1: lo,
+                src2: SrcOperand::Reg(hi),
+                width: OpWidth::W64,
+                flags: FlagUpdate::None,
+            },
+        ]);
+        let words = code_words(&code);
+        assert_eq!(words.len(), 2);
+        assert_eq!(words[0] & 0x1f, 16);
+        assert_eq!((words[0] >> 5) & 0x1f, 17);
+        assert_eq!((words[0] >> 10) & 0x3f, 8);
+        assert_eq!((words[0] >> 16) & 0x1f, 18);
+        assert_eq!(words[0] >> 31, 1);
+
+        let sentinel = 0x1515_1515_1515_1515;
+        let (out, _, sp) = run_aarch64_code(
+            &code,
+            &[(17, hi_value), (18, lo_value), (21, sentinel)],
+            0,
+        );
+        assert_eq!(out[16], (lo_value >> 8) | (hi_value << 56));
+        assert_eq!(out[17], hi_value);
+        assert_eq!(out[18], lo_value);
+        assert_eq!(out[21], sentinel);
+        assert_eq!(sp, 0x8000);
+    }
+
+    #[test]
     fn lowers_shrd_w_masked_zero_count_as_self_mov() {
         let mut builder = FunctionBuilder::new(FunctionId(0), 0);
         builder.push_op(
@@ -34886,6 +34936,143 @@ mod tests {
             0b1010,
             0b0000,
         );
+    }
+
+    #[test]
+    fn lowers_fused_cond_compare_apx_egpr_operands_runtime() {
+        let cond_vreg = VReg::virt(0);
+        let cmp_nzcv = VReg::virt(2);
+        let final_nzcv = VReg::virt(3);
+        let code = lower_ops(vec![
+            OpKind::TestCondition {
+                dst: cond_vreg,
+                cond: Condition::Eq,
+            },
+            OpKind::Sub {
+                dst: VReg::virt(1),
+                src1: x86(X86Reg::R16),
+                src2: SrcOperand::Reg(x86(X86Reg::R17)),
+                width: OpWidth::W64,
+                flags: FlagUpdate::All,
+            },
+            OpKind::Mov {
+                dst: cmp_nzcv,
+                src: SrcOperand::Reg(VReg::Arch(ArchReg::Arm(ArmReg::Nzcv))),
+                width: OpWidth::W32,
+            },
+            OpKind::Select {
+                dst: final_nzcv,
+                cond: cond_vreg,
+                src_true: cmp_nzcv,
+                src_false: VReg::Imm(i64::from(0b1010) << 28),
+                width: OpWidth::W32,
+            },
+            OpKind::Mov {
+                dst: VReg::Arch(ArchReg::Arm(ArmReg::Nzcv)),
+                src: SrcOperand::Reg(final_nzcv),
+                width: OpWidth::W32,
+            },
+        ]);
+        let cond_compare = find_cond_compare_word(&code)
+            .expect("expected fused conditional compare");
+        assert_eq!(cond_compare >> 31, 1);
+        assert_eq!((cond_compare >> 30) & 1, 1);
+        assert_eq!((cond_compare >> 16) & 0x1f, 17);
+        assert_eq!((cond_compare >> 11) & 1, 0);
+        assert_eq!((cond_compare >> 5) & 0x1f, 16);
+
+        let sentinel = 0x1818_1818_1818_1818;
+        let (out, out_nzcv, sp) = run_aarch64_code(
+            &code,
+            &[(16, 0x20), (17, 0x20), (18, sentinel)],
+            0b0100,
+        );
+        assert_eq!(
+            out_nzcv,
+            expected_addsub_nzcv(0x20, 0x20, true, OpWidth::W64)
+        );
+        assert_eq!(out[16], 0x20);
+        assert_eq!(out[17], 0x20);
+        assert_eq!(out[18], sentinel);
+        assert_eq!(sp, 0x8000);
+
+        let (out, out_nzcv, sp) = run_aarch64_code(
+            &code,
+            &[(16, 0x20), (17, 0x21), (18, sentinel)],
+            0,
+        );
+        assert_eq!(out_nzcv, 0b1010);
+        assert_eq!(out[16], 0x20);
+        assert_eq!(out[17], 0x21);
+        assert_eq!(out[18], sentinel);
+        assert_eq!(sp, 0x8000);
+    }
+
+    #[test]
+    fn rejects_fused_apx_r31_identity_mapping() {
+        let lo = VReg::virt(0);
+        let hi = VReg::virt(1);
+        let err = try_lower_ops(vec![
+            OpKind::Shr {
+                dst: lo,
+                src: x86(X86Reg::R31),
+                amount: SrcOperand::Imm(8),
+                width: OpWidth::W64,
+                flags: FlagUpdate::None,
+            },
+            OpKind::Shl {
+                dst: hi,
+                src: x86(X86Reg::R17),
+                amount: SrcOperand::Imm(56),
+                width: OpWidth::W64,
+                flags: FlagUpdate::None,
+            },
+            OpKind::Or {
+                dst: x86(X86Reg::R16),
+                src1: lo,
+                src2: SrcOperand::Reg(hi),
+                width: OpWidth::W64,
+                flags: FlagUpdate::None,
+            },
+        ])
+        .unwrap_err();
+        assert!(matches!(err, LowerError::InvalidRegister(_)));
+
+        let cond_vreg = VReg::virt(0);
+        let cmp_nzcv = VReg::virt(2);
+        let final_nzcv = VReg::virt(3);
+        let err = try_lower_ops(vec![
+            OpKind::TestCondition {
+                dst: cond_vreg,
+                cond: Condition::Eq,
+            },
+            OpKind::Sub {
+                dst: VReg::virt(1),
+                src1: x86(X86Reg::R16),
+                src2: SrcOperand::Reg(x86(X86Reg::R31)),
+                width: OpWidth::W64,
+                flags: FlagUpdate::All,
+            },
+            OpKind::Mov {
+                dst: cmp_nzcv,
+                src: SrcOperand::Reg(VReg::Arch(ArchReg::Arm(ArmReg::Nzcv))),
+                width: OpWidth::W32,
+            },
+            OpKind::Select {
+                dst: final_nzcv,
+                cond: cond_vreg,
+                src_true: cmp_nzcv,
+                src_false: VReg::Imm(i64::from(0b1010) << 28),
+                width: OpWidth::W32,
+            },
+            OpKind::Mov {
+                dst: VReg::Arch(ArchReg::Arm(ArmReg::Nzcv)),
+                src: SrcOperand::Reg(final_nzcv),
+                width: OpWidth::W32,
+            },
+        ])
+        .unwrap_err();
+        assert!(matches!(err, LowerError::InvalidRegister(_)));
     }
 
     #[test]
