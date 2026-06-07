@@ -5039,9 +5039,30 @@ impl Aarch64Lowerer {
             }
             return Ok(());
         }
-        if signed && rem.is_none() {
+        if signed {
             if let Some(imm) = Self::src_imm(src2) {
                 if ((imm as u64) & width.mask()) == width.mask() {
+                    if let Some(rem) = rem {
+                        if quot == rem {
+                            return Err(LowerError::UnsupportedOp {
+                                op: "AArch64 native signed neg-one divide quotient/remainder overlap"
+                                    .into(),
+                            });
+                        }
+                        self.lower_neg(quot, src1, false, width)?;
+                        let emit_width = match width {
+                            OpWidth::W8 | OpWidth::W16 | OpWidth::W32 => OpWidth::W32,
+                            OpWidth::W64 => OpWidth::W64,
+                            other => {
+                                return Err(LowerError::UnsupportedOp {
+                                    op: format!(
+                                        "AArch64 native signed neg-one divide width {other:?}"
+                                    ),
+                                });
+                            }
+                        };
+                        return self.emit_mov_imm(Self::dst_gpr(rem)?, 0, emit_width);
+                    }
                     return match width {
                         OpWidth::W8 | OpWidth::W16 | OpWidth::W32 | OpWidth::W64 => {
                             self.lower_neg(quot, src1, false, width)
@@ -13378,6 +13399,89 @@ mod tests {
         expected.extend_from_slice(&enc_bitfield_regs(0, 0b10, 0, 15, 3, 3).to_le_bytes());
         expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
         assert_eq!(code, expected);
+    }
+
+    #[test]
+    fn lowers_divs_x_imm_neg_one_with_remainder_as_neg_zero() {
+        let mut builder = FunctionBuilder::new(FunctionId(0), 0);
+        builder.push_op(
+            0,
+            OpKind::DivS {
+                quot: x(0),
+                rem: Some(x(3)),
+                src1: x(1),
+                src2: SrcOperand::Imm(-1),
+                width: OpWidth::W64,
+                flags: FlagUpdate::None,
+            },
+        );
+        builder.set_terminator(Terminator::Return { values: vec![] });
+        let func = builder.finish();
+
+        let mut lowerer = Aarch64Lowerer::new();
+        lowerer.lower_function(&func).unwrap();
+        let code = lowerer.finalize().unwrap();
+
+        let mut expected = Vec::new();
+        expected.extend_from_slice(
+            &enc_addsub_shift_regs(1, 1, 0, 0, 0, 0, 31, 1).to_le_bytes(),
+        );
+        expected.extend_from_slice(&enc_mov_wide(1, 0b10, 0, 0, 3).to_le_bytes());
+        expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
+        assert_eq!(code, expected);
+    }
+
+    #[test]
+    fn lowers_divs_w16_imm_neg_one_with_remainder_aliasing_source() {
+        let mut builder = FunctionBuilder::new(FunctionId(0), 0);
+        builder.push_op(
+            0,
+            OpKind::DivS {
+                quot: x(3),
+                rem: Some(x(1)),
+                src1: x(1),
+                src2: SrcOperand::Imm64(0x1_ffff),
+                width: OpWidth::W16,
+                flags: FlagUpdate::None,
+            },
+        );
+        builder.set_terminator(Terminator::Return { values: vec![] });
+        let func = builder.finish();
+
+        let mut lowerer = Aarch64Lowerer::new();
+        lowerer.lower_function(&func).unwrap();
+        let code = lowerer.finalize().unwrap();
+
+        let mut expected = Vec::new();
+        expected.extend_from_slice(
+            &enc_addsub_shift_regs(0, 1, 0, 0, 0, 3, 31, 1).to_le_bytes(),
+        );
+        expected.extend_from_slice(&enc_bitfield_regs(0, 0b10, 0, 15, 3, 3).to_le_bytes());
+        expected.extend_from_slice(&enc_mov_wide(0, 0b10, 0, 0, 1).to_le_bytes());
+        expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
+        assert_eq!(code, expected);
+    }
+
+    #[test]
+    fn rejects_divs_imm_neg_one_when_quotient_overlaps_remainder() {
+        let mut builder = FunctionBuilder::new(FunctionId(0), 0);
+        builder.push_op(
+            0,
+            OpKind::DivS {
+                quot: x(0),
+                rem: Some(x(0)),
+                src1: x(1),
+                src2: SrcOperand::Imm(-1),
+                width: OpWidth::W64,
+                flags: FlagUpdate::None,
+            },
+        );
+        builder.set_terminator(Terminator::Return { values: vec![] });
+        let func = builder.finish();
+
+        let mut lowerer = Aarch64Lowerer::new();
+        let err = lowerer.lower_function(&func).unwrap_err();
+        assert!(matches!(err, LowerError::UnsupportedOp { .. }));
     }
 
     #[test]
