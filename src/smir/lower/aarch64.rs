@@ -2174,6 +2174,23 @@ impl Aarch64Lowerer {
         }
     }
 
+    fn lower_lea_add_disp(&mut self, dst: u8, disp: i64) -> Result<(), LowerError> {
+        if disp == 0 {
+            return Ok(());
+        }
+        if Self::signed_addsub_imm_fits(disp) {
+            return self.emit_add_signed_imm(dst, dst, disp, OpWidth::W64);
+        }
+
+        let scratches = Self::scratch_regs(&[dst], 1)?;
+        let scratch = scratches[0];
+        self.emit_scratch_save(&scratches);
+        self.emit_mov_imm(scratch, disp, OpWidth::W64)?;
+        self.emit_addsub_reg(dst, dst, scratch, false, false, OpWidth::W64)?;
+        self.emit_scratch_restore(&scratches);
+        Ok(())
+    }
+
     fn lower_lea(&mut self, dst: VReg, addr: &Address) -> Result<(), LowerError> {
         let dst = Self::dst_gpr(dst)?;
         match addr {
@@ -2181,7 +2198,13 @@ impl Aarch64Lowerer {
                 self.emit_add_signed_imm(dst, Self::base_gpr(*base)?, 0, OpWidth::W64)
             }
             Address::BaseOffset { base, offset, .. } => {
-                self.emit_add_signed_imm(dst, Self::base_gpr(*base)?, *offset, OpWidth::W64)
+                let base = Self::base_gpr(*base)?;
+                if Self::signed_addsub_imm_fits(*offset) {
+                    self.emit_add_signed_imm(dst, base, *offset, OpWidth::W64)
+                } else {
+                    self.emit_add_signed_imm(dst, base, 0, OpWidth::W64)?;
+                    self.lower_lea_add_disp(dst, *offset)
+                }
             }
             Address::BaseIndexScale {
                 base,
@@ -2191,25 +2214,48 @@ impl Aarch64Lowerer {
                 ..
             } => {
                 let shift = Self::lea_scale_shift(*scale)?;
-                let rn = match base {
-                    Some(base) => Self::base_gpr(*base)?,
-                    None => 31,
-                };
-                self.emit_addsub_shifted(
-                    dst,
-                    rn,
-                    Self::gpr(*index)?,
-                    false,
-                    false,
-                    0,
-                    shift,
-                    OpWidth::W64,
-                )?;
-                if *disp == 0 {
-                    Ok(())
-                } else {
-                    self.emit_add_signed_imm(dst, dst, i64::from(*disp), OpWidth::W64)
+                let index = Self::gpr(*index)?;
+                match base {
+                    Some(base) => {
+                        let base = Self::base_gpr(*base)?;
+                        if base == 31 {
+                            self.emit_addsub_extended(
+                                dst,
+                                31,
+                                index,
+                                false,
+                                false,
+                                0b011,
+                                shift,
+                                OpWidth::W64,
+                            )?;
+                        } else {
+                            self.emit_addsub_shifted(
+                                dst,
+                                base,
+                                index,
+                                false,
+                                false,
+                                0,
+                                shift,
+                                OpWidth::W64,
+                            )?;
+                        }
+                    }
+                    None => {
+                        self.emit_addsub_shifted(
+                            dst,
+                            31,
+                            index,
+                            false,
+                            false,
+                            0,
+                            shift,
+                            OpWidth::W64,
+                        )?;
+                    }
                 }
+                self.lower_lea_add_disp(dst, i64::from(*disp))
             }
             Address::Absolute(addr) => self.emit_mov_imm(dst, *addr as i64, OpWidth::W64),
             Address::PcRel { offset, base, .. } => {
@@ -13774,6 +13820,110 @@ mod tests {
         expected.extend_from_slice(&enc_addsub_shift_regs(1, 0, 0, 0, 3, 0, 31, 2).to_le_bytes());
         expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
         assert_eq!(code, expected);
+    }
+
+    #[test]
+    fn lowers_lea_sp_base_index_scale_runtime() {
+        let index = 5;
+        let disp = 0x20;
+        let code = lower_single_op(OpKind::Lea {
+            dst: x(0),
+            addr: Address::BaseIndexScale {
+                base: Some(VReg::Arch(ArchReg::Arm(ArmReg::Sp))),
+                index: x(2),
+                scale: 4,
+                disp,
+                disp_size: DispSize::Auto,
+            },
+        });
+
+        let old_nzcv = 0b1010;
+        let (out, out_nzcv, sp) = run_aarch64_code(&code, &[(2, index)], old_nzcv);
+
+        assert_eq!(out[0], 0x8000 + index * 4 + disp as u64);
+        assert_eq!(out[2], index);
+        assert_eq!(out_nzcv, old_nzcv);
+        assert_eq!(sp, 0x8000);
+    }
+
+    #[test]
+    fn lowers_lea_sp_base_index_scale_aliases_index_runtime() {
+        let index = 7;
+        let disp = -0x20;
+        let code = lower_single_op(OpKind::Lea {
+            dst: x(2),
+            addr: Address::BaseIndexScale {
+                base: Some(VReg::Arch(ArchReg::Arm(ArmReg::Sp))),
+                index: x(2),
+                scale: 8,
+                disp,
+                disp_size: DispSize::Auto,
+            },
+        });
+
+        let old_nzcv = 0b0101;
+        let (out, out_nzcv, sp) = run_aarch64_code(&code, &[(2, index)], old_nzcv);
+        let expected = (0x8000_i64 + (index as i64) * 8 + i64::from(disp)) as u64;
+
+        assert_eq!(out[2], expected);
+        assert_eq!(out_nzcv, old_nzcv);
+        assert_eq!(sp, 0x8000);
+    }
+
+    #[test]
+    fn lowers_lea_large_base_offset_runtime() {
+        let base = 0x1000;
+        let offset = 0x12345;
+        let code = lower_single_op(OpKind::Lea {
+            dst: x(1),
+            addr: Address::BaseOffset {
+                base: x(1),
+                offset,
+                disp_size: DispSize::Auto,
+            },
+        });
+
+        let regs = [(1, base), (16, 0x1616_1616_1616_1616)];
+        let old_nzcv = 0b1100;
+        let (out, out_nzcv, sp) = run_aarch64_code(&code, &regs, old_nzcv);
+
+        assert_eq!(out[1], base + offset as u64);
+        assert_eq!(out[16], 0x1616_1616_1616_1616);
+        assert_eq!(out_nzcv, old_nzcv);
+        assert_eq!(sp, 0x8000);
+    }
+
+    #[test]
+    fn lowers_lea_large_base_index_disp_runtime() {
+        let base = 0x200000;
+        let index = 3;
+        let disp = -0x12345;
+        let code = lower_single_op(OpKind::Lea {
+            dst: x(0),
+            addr: Address::BaseIndexScale {
+                base: Some(x(1)),
+                index: x(2),
+                scale: 2,
+                disp,
+                disp_size: DispSize::Auto,
+            },
+        });
+
+        let regs = [
+            (1, base),
+            (2, index),
+            (16, 0x1616_1616_1616_1616),
+        ];
+        let old_nzcv = 0b0011;
+        let (out, out_nzcv, sp) = run_aarch64_code(&code, &regs, old_nzcv);
+        let expected = (base as i64 + (index as i64) * 2 + i64::from(disp)) as u64;
+
+        assert_eq!(out[0], expected);
+        assert_eq!(out[1], base);
+        assert_eq!(out[2], index);
+        assert_eq!(out[16], 0x1616_1616_1616_1616);
+        assert_eq!(out_nzcv, old_nzcv);
+        assert_eq!(sp, 0x8000);
     }
 
     #[test]
