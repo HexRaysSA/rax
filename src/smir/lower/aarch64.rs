@@ -454,6 +454,30 @@ impl Aarch64Lowerer {
         Ok(())
     }
 
+    fn emit_fp_to_int(
+        &mut self,
+        rd: u8,
+        rn: u8,
+        fp_precision: FpPrecision,
+        int_width: OpWidth,
+        signed: bool,
+    ) -> Result<(), LowerError> {
+        let sf = Self::sf(int_width)?;
+        let ptype = Self::fp_type(fp_precision)?;
+        let opcode = if signed { 0b000 } else { 0b001 };
+        self.emit(
+            (sf << 31)
+                | (0b0011110 << 24)
+                | (ptype << 22)
+                | (1 << 21)
+                | (0b11 << 19)
+                | (opcode << 16)
+                | ((rn as u32) << 5)
+                | (rd as u32),
+        );
+        Ok(())
+    }
+
     fn emit_addsub_shifted(
         &mut self,
         dst: u8,
@@ -3559,6 +3583,31 @@ impl Aarch64Lowerer {
             }
             other => Err(LowerError::UnsupportedOp {
                 op: format!("AArch64 native IntToFp width {other:?}"),
+            }),
+        }
+    }
+
+    fn lower_fp_to_int(
+        &mut self,
+        dst: VReg,
+        src: VReg,
+        fp_precision: FpPrecision,
+        int_width: OpWidth,
+        signed: bool,
+        _round: FpRoundMode,
+    ) -> Result<(), LowerError> {
+        let rd = Self::dst_gpr(dst)?;
+        let rn = Self::fp_reg(src)?;
+        match int_width {
+            OpWidth::W8 | OpWidth::W16 => {
+                self.emit_fp_to_int(rd, rn, fp_precision, OpWidth::W64, signed)?;
+                self.emit_bitfield(rd, rd, 0b10, 0, int_width.bits() - 1, OpWidth::W32)
+            }
+            OpWidth::W32 | OpWidth::W64 => {
+                self.emit_fp_to_int(rd, rn, fp_precision, int_width, signed)
+            }
+            other => Err(LowerError::UnsupportedOp {
+                op: format!("AArch64 native FpToInt width {other:?}"),
             }),
         }
     }
@@ -9543,6 +9592,16 @@ impl Aarch64Lowerer {
                 fp_precision,
                 signed,
             } => self.lower_int_to_fp(*dst, *src, *int_width, *fp_precision, *signed),
+            OpKind::FpToInt {
+                dst,
+                src,
+                fp_precision,
+                int_width,
+                signed,
+                round,
+            } => {
+                self.lower_fp_to_int(*dst, *src, *fp_precision, *int_width, *signed, *round)
+            }
             OpKind::FRound {
                 dst,
                 src,
@@ -15360,6 +15419,42 @@ mod tests {
         assert_eq!(sp, 0x8000, "{label}: sp restored");
     }
 
+    fn assert_fp_to_int_f32(label: &str, kind: OpKind, src: f32, expected: u64) {
+        let src_bits = u64::from(src.to_bits());
+        let code = lower_single_op(kind);
+        let (regs, simd, sp) = run_aarch64_code_with_regs_and_simd(
+            &code,
+            &[(0, 0x1234_5678_9abc_def0)],
+            &[(1, src_bits, 0x1111_1111_1111_1111)],
+        );
+
+        assert_eq!(regs[0], expected, "{label}: converted result");
+        assert_eq!(
+            simd[1],
+            (src_bits, 0x1111_1111_1111_1111),
+            "{label}: src preserved",
+        );
+        assert_eq!(sp, 0x8000, "{label}: sp restored");
+    }
+
+    fn assert_fp_to_int_f64(label: &str, kind: OpKind, src: f64, expected: u64) {
+        let src_bits = src.to_bits();
+        let code = lower_single_op(kind);
+        let (regs, simd, sp) = run_aarch64_code_with_regs_and_simd(
+            &code,
+            &[(0, 0x1234_5678_9abc_def0)],
+            &[(1, src_bits, 0x1111_1111_1111_1111)],
+        );
+
+        assert_eq!(regs[0], expected, "{label}: converted result");
+        assert_eq!(
+            simd[1],
+            (src_bits, 0x1111_1111_1111_1111),
+            "{label}: src preserved",
+        );
+        assert_eq!(sp, 0x8000, "{label}: sp restored");
+    }
+
     #[test]
     fn lowers_scalar_fp_binary_encodings() {
         let words = code_words(&lower_single_op(OpKind::FAdd {
@@ -15733,6 +15828,107 @@ mod tests {
                 int_width: OpWidth::W32,
                 fp_precision: FpPrecision::F80,
                 signed: true,
+            },
+        );
+        builder.set_terminator(Terminator::Return { values: vec![] });
+        let func = builder.finish();
+
+        let mut lowerer = Aarch64Lowerer::new();
+        let err = lowerer.lower_function(&func).unwrap_err();
+        assert!(matches!(err, LowerError::UnsupportedOp { .. }));
+    }
+
+    #[test]
+    fn lowers_scalar_fp_to_int_encodings() {
+        let words = code_words(&lower_single_op(OpKind::FpToInt {
+            dst: x(0),
+            src: v(1),
+            fp_precision: FpPrecision::F32,
+            int_width: OpWidth::W32,
+            signed: true,
+            round: FpRoundMode::RoundDown,
+        }));
+        assert_eq!(words, vec![0x1e38_0020, 0xd65f_03c0]);
+
+        let words = code_words(&lower_single_op(OpKind::FpToInt {
+            dst: x(2),
+            src: v(3),
+            fp_precision: FpPrecision::F64,
+            int_width: OpWidth::W64,
+            signed: false,
+            round: FpRoundMode::RoundUp,
+        }));
+        assert_eq!(words, vec![0x9e79_0062, 0xd65f_03c0]);
+    }
+
+    #[test]
+    fn lowers_scalar_fp_to_int_runtime() {
+        assert_fp_to_int_f32(
+            "fcvtzs_w_s_round_ignored",
+            OpKind::FpToInt {
+                dst: x(0),
+                src: v(1),
+                fp_precision: FpPrecision::F32,
+                int_width: OpWidth::W32,
+                signed: true,
+                round: FpRoundMode::RoundDown,
+            },
+            -7.9,
+            u64::from((-7_i32) as u32),
+        );
+        assert_fp_to_int_f64(
+            "fcvtzu_x_d",
+            OpKind::FpToInt {
+                dst: x(0),
+                src: v(1),
+                fp_precision: FpPrecision::F64,
+                int_width: OpWidth::W64,
+                signed: false,
+                round: FpRoundMode::RoundNearest,
+            },
+            1_234_567_890_123.75,
+            1_234_567_890_123,
+        );
+        assert_fp_to_int_f64(
+            "fcvtzs_b_d_large_low_bits",
+            OpKind::FpToInt {
+                dst: x(0),
+                src: v(1),
+                fp_precision: FpPrecision::F64,
+                int_width: OpWidth::W8,
+                signed: true,
+                round: FpRoundMode::RoundTowardZero,
+            },
+            4_294_967_297.0,
+            1,
+        );
+        assert_fp_to_int_f64(
+            "fcvtzu_h_d_large_low_bits",
+            OpKind::FpToInt {
+                dst: x(0),
+                src: v(1),
+                fp_precision: FpPrecision::F64,
+                int_width: OpWidth::W16,
+                signed: false,
+                round: FpRoundMode::RoundTowardZero,
+            },
+            4_294_967_297.0,
+            1,
+        );
+    }
+
+    #[test]
+    fn rejects_scalar_fp_to_int_unsupported_precision() {
+        let mut builder = FunctionBuilder::new(FunctionId(0), 0);
+        builder.push_op(
+            0,
+            OpKind::FpToInt {
+                dst: x(0),
+                src: v(1),
+                fp_precision: FpPrecision::F80,
+                int_width: OpWidth::W32,
+                signed: true,
+                round: FpRoundMode::RoundTowardZero,
             },
         );
         builder.set_terminator(Terminator::Return { values: vec![] });
