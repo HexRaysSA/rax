@@ -1041,6 +1041,10 @@ impl Aarch64Lowerer {
                 Self::mem_size(*width)?,
                 Self::load_opc(*width, *sign)?,
             ))),
+            OpKind::Store {
+                src: VReg::Imm(_),
+                ..
+            } => Ok(None),
             OpKind::Store { src, addr, width } => Ok(Some((
                 Self::gpr(*src)?,
                 addr,
@@ -1483,7 +1487,65 @@ impl Aarch64Lowerer {
         self.lower_mem_access(rt, addr, size, opc)
     }
 
+    fn lower_store_imm_addr_to_base(
+        &mut self,
+        addr: &Address,
+    ) -> Result<(Vec<u8>, u8), LowerError> {
+        match addr {
+            Address::Direct(base) => self.lower_base_offset_to_scratch(&[], *base, 0),
+            Address::BaseOffset { base, offset, .. } => {
+                self.lower_base_offset_to_scratch(&[], *base, *offset)
+            }
+            Address::BaseIndexScale {
+                base,
+                index,
+                scale,
+                disp,
+                ..
+            } => self.lower_base_index_scale_to_scratch(&[], *base, *index, *scale, *disp),
+            other => Err(LowerError::UnsupportedOp {
+                op: format!("AArch64 native immediate store address {other:?}"),
+            }),
+        }
+    }
+
+    fn lower_store_imm(
+        &mut self,
+        value: i64,
+        addr: &Address,
+        width: MemWidth,
+    ) -> Result<(), LowerError> {
+        let size = Self::mem_size(width)?;
+        if value == 0 {
+            self.lower_mem_access(31, addr, size, 0b00)?;
+            return Ok(());
+        }
+
+        let op_width = match width {
+            MemWidth::B1 | MemWidth::B2 | MemWidth::B4 => OpWidth::W32,
+            MemWidth::B8 => OpWidth::W64,
+            other => {
+                return Err(LowerError::UnsupportedOp {
+                    op: format!("AArch64 native immediate store width {other:?}"),
+                });
+            }
+        };
+        let (addr_scratches, rn) = self.lower_store_imm_addr_to_base(addr)?;
+        let value_scratches = Self::scratch_regs(&addr_scratches, 1)?;
+        let rt = value_scratches[0];
+        self.emit_scratch_save(&value_scratches);
+        self.emit_mov_imm(rt, value, op_width)?;
+        self.emit_ldst_unsigned(rt, rn, size, 0b00, 0);
+        self.emit_scratch_restore(&value_scratches);
+        self.emit_scratch_restore(&addr_scratches);
+        Ok(())
+    }
+
     fn lower_store(&mut self, src: VReg, addr: &Address, width: MemWidth) -> Result<(), LowerError> {
+        if let VReg::Imm(value) = src {
+            return self.lower_store_imm(value, addr, width);
+        }
+
         let rt = Self::gpr(src)?;
         let size = Self::mem_size(width)?;
         self.lower_mem_access(rt, addr, size, 0b00)
@@ -1531,7 +1593,7 @@ impl Aarch64Lowerer {
     fn pred_store_src_to_vreg(src: &SrcOperand) -> Result<VReg, LowerError> {
         match src {
             SrcOperand::Reg(reg) => Ok(*reg),
-            SrcOperand::Imm(0) | SrcOperand::Imm64(0) => Ok(VReg::Imm(0)),
+            SrcOperand::Imm(imm) | SrcOperand::Imm64(imm) => Ok(VReg::Imm(*imm)),
             other => Err(LowerError::UnsupportedOp {
                 op: format!("AArch64 native PredStore source {other:?}"),
             }),
@@ -11580,6 +11642,16 @@ mod tests {
         (size << 30) | (0b111 << 27) | (0b01 << 24) | (opc << 22) | (imm12 << 10) | (1 << 5)
     }
 
+    fn enc_ldst_uimm_regs(size: u32, opc: u32, imm12: u32, rt: u32, rn: u32) -> u32 {
+        (size << 30)
+            | (0b111 << 27)
+            | (0b01 << 24)
+            | (opc << 22)
+            | (imm12 << 10)
+            | (rn << 5)
+            | rt
+    }
+
     fn enc_ldst_reg(size: u32, opc: u32, rm: u32, option: u32, s: u32) -> u32 {
         (size << 30)
             | (0b111 << 27)
@@ -14203,6 +14275,147 @@ mod tests {
         expected.extend_from_slice(&enc_ldst_uimm(3, 0b00, 0).to_le_bytes());
         expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
         assert_eq!(code, expected);
+    }
+
+    #[test]
+    fn lowers_pred_store_imm_with_tbz_guard() {
+        let mut builder = FunctionBuilder::new(FunctionId(0), 0);
+        builder.push_op(
+            0,
+            OpKind::PredStore {
+                src: SrcOperand::Imm(0x1234),
+                cond: x(2),
+                addr: Address::Direct(x(1)),
+                width: MemWidth::B4,
+            },
+        );
+        builder.set_terminator(Terminator::Return { values: vec![] });
+        let func = builder.finish();
+
+        let mut lowerer = Aarch64Lowerer::new();
+        lowerer.lower_function(&func).unwrap();
+        let code = lowerer.finalize().unwrap();
+
+        let mut expected = Vec::new();
+        expected.extend_from_slice(&enc_test_branch(2, 0, false, 32).to_le_bytes());
+        expected.extend_from_slice(&enc_ldst_simm_regs(3, 0b00, 0b11, -16, 16, 31).to_le_bytes());
+        expected.extend_from_slice(&enc_addsub_imm_regs(1, 0, 0, 0, 0, 16, 1).to_le_bytes());
+        expected.extend_from_slice(&enc_ldst_simm_regs(3, 0b00, 0b11, -16, 17, 31).to_le_bytes());
+        expected.extend_from_slice(&enc_mov_wide(0, 0b10, 0, 0x1234, 17).to_le_bytes());
+        expected.extend_from_slice(&enc_ldst_uimm_regs(2, 0b00, 0, 17, 16).to_le_bytes());
+        expected.extend_from_slice(&enc_ldst_simm_regs(3, 0b01, 0b01, 16, 17, 31).to_le_bytes());
+        expected.extend_from_slice(&enc_ldst_simm_regs(3, 0b01, 0b01, 16, 16, 31).to_le_bytes());
+        expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
+        assert_eq!(code, expected);
+    }
+
+    #[test]
+    fn lowers_store_immediate_runtime() {
+        let mem_addr = 0x9000;
+        let value = 0x1122_3344_5566_7788;
+        let code = lower_single_op(OpKind::Store {
+            src: VReg::Imm(value as i64),
+            addr: Address::Direct(x(1)),
+            width: MemWidth::B8,
+        });
+
+        let old_nzcv = 0b0111;
+        let regs = [
+            (1, mem_addr),
+            (16, 0x1616_1616_1616_1616),
+            (17, 0x1717_1717_1717_1717),
+        ];
+        let (out, out_nzcv, sp, mem) =
+            run_aarch64_code_with_memory(&code, &regs, old_nzcv, mem_addr, 0, MemWidth::B8);
+
+        assert_eq!(mem, value);
+        assert_eq!(out[1], mem_addr);
+        assert_eq!(out[16], 0x1616_1616_1616_1616);
+        assert_eq!(out[17], 0x1717_1717_1717_1717);
+        assert_eq!(out_nzcv, old_nzcv);
+        assert_eq!(sp, 0x8000);
+    }
+
+    #[test]
+    fn lowers_store_immediate_sp_base_runtime() {
+        let mem_addr = 0x8020;
+        let value = 0x3456_789a;
+        let code = lower_single_op(OpKind::Store {
+            src: VReg::Imm(value),
+            addr: Address::BaseOffset {
+                base: VReg::Arch(ArchReg::Arm(ArmReg::Sp)),
+                offset: 0x20,
+                disp_size: DispSize::Auto,
+            },
+            width: MemWidth::B4,
+        });
+
+        let old_nzcv = 0b1001;
+        let regs = [
+            (16, 0x1616_1616_1616_1616),
+            (17, 0x1717_1717_1717_1717),
+        ];
+        let (out, out_nzcv, sp, mem) =
+            run_aarch64_code_with_memory(&code, &regs, old_nzcv, mem_addr, 0, MemWidth::B4);
+
+        assert_eq!(mem, value as u64);
+        assert_eq!(out[16], 0x1616_1616_1616_1616);
+        assert_eq!(out[17], 0x1717_1717_1717_1717);
+        assert_eq!(out_nzcv, old_nzcv);
+        assert_eq!(sp, 0x8000);
+    }
+
+    #[test]
+    fn lowers_pred_store_immediate_runtime() {
+        let mem_addr = 0x9000;
+        let value = 0x5566_7788;
+        let code = lower_single_op(OpKind::PredStore {
+            src: SrcOperand::Imm(value),
+            cond: x(2),
+            addr: Address::Direct(x(1)),
+            width: MemWidth::B4,
+        });
+
+        let old_nzcv = 0b0011;
+        let regs_true = [
+            (1, mem_addr),
+            (2, 1),
+            (16, 0x1616_1616_1616_1616),
+            (17, 0x1717_1717_1717_1717),
+        ];
+        let (out, out_nzcv, sp, mem) =
+            run_aarch64_code_with_memory(&code, &regs_true, old_nzcv, mem_addr, 0, MemWidth::B4);
+
+        assert_eq!(mem, value as u64);
+        assert_eq!(out[1], mem_addr);
+        assert_eq!(out[2], 1);
+        assert_eq!(out[16], 0x1616_1616_1616_1616);
+        assert_eq!(out[17], 0x1717_1717_1717_1717);
+        assert_eq!(out_nzcv, old_nzcv);
+        assert_eq!(sp, 0x8000);
+
+        let regs_false = [
+            (1, mem_addr),
+            (2, 0),
+            (16, 0x1616_1616_1616_1616),
+            (17, 0x1717_1717_1717_1717),
+        ];
+        let (out, out_nzcv, sp, mem) = run_aarch64_code_with_memory(
+            &code,
+            &regs_false,
+            old_nzcv,
+            mem_addr,
+            0xaabb_ccdd,
+            MemWidth::B4,
+        );
+
+        assert_eq!(mem, 0xaabb_ccdd);
+        assert_eq!(out[1], mem_addr);
+        assert_eq!(out[2], 0);
+        assert_eq!(out[16], 0x1616_1616_1616_1616);
+        assert_eq!(out[17], 0x1717_1717_1717_1717);
+        assert_eq!(out_nzcv, old_nzcv);
+        assert_eq!(sp, 0x8000);
     }
 
     #[test]
