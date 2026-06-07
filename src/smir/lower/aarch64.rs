@@ -3409,6 +3409,35 @@ impl Aarch64Lowerer {
         if src2 == VReg::Imm(-1) {
             return self.lower_addsub(dst, acc, &as_src_operand(src1), !subtract, false, width);
         }
+        if let (VReg::Imm(lhs), VReg::Imm(rhs)) = (src1, src2) {
+            if matches!(
+                width,
+                OpWidth::W8 | OpWidth::W16 | OpWidth::W32 | OpWidth::W64
+            ) {
+                let product =
+                    ((lhs as u64) & width.mask()).wrapping_mul((rhs as u64) & width.mask())
+                        & width.mask();
+                let product = product as i64;
+                let encodable = match width {
+                    OpWidth::W8 | OpWidth::W16 => true,
+                    OpWidth::W32 | OpWidth::W64 => {
+                        acc == VReg::Imm(0)
+                            || Self::canonical_addsub_imm(product, subtract, width).is_some()
+                    }
+                    _ => false,
+                };
+                if encodable {
+                    return self.lower_addsub(
+                        dst,
+                        acc,
+                        &SrcOperand::Imm64(product),
+                        subtract,
+                        false,
+                        width,
+                    );
+                }
+            }
+        }
         let shifted_factor = |factor, other| {
             let VReg::Imm(imm) = factor else {
                 return None;
@@ -8520,6 +8549,58 @@ mod tests {
         let mut expected = Vec::new();
         expected.extend_from_slice(&enc_addsub_shift_regs(0, 1, 0, 0, 2, 0, 3, 1).to_le_bytes());
         expected.extend_from_slice(&enc_bitfield_regs(0, 0b10, 0, 15, 0, 0).to_le_bytes());
+        expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
+        assert_eq!(code, expected);
+    }
+
+    #[test]
+    fn lowers_muladd_x_two_imms_negative_product_as_sub_imm() {
+        let mut builder = FunctionBuilder::new(FunctionId(0), 0);
+        builder.push_op(
+            0,
+            OpKind::MulAdd {
+                dst: x(0),
+                acc: x(3),
+                src1: VReg::Imm(-3),
+                src2: VReg::Imm(5),
+                width: OpWidth::W64,
+            },
+        );
+        builder.set_terminator(Terminator::Return { values: vec![] });
+        let func = builder.finish();
+
+        let mut lowerer = Aarch64Lowerer::new();
+        lowerer.lower_function(&func).unwrap();
+        let code = lowerer.finalize().unwrap();
+
+        let mut expected = Vec::new();
+        expected.extend_from_slice(&enc_addsub_imm_regs(1, 1, 0, 0, 15, 0, 3).to_le_bytes());
+        expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
+        assert_eq!(code, expected);
+    }
+
+    #[test]
+    fn lowers_mulsub_w8_two_imms_wrapping_zero_product_as_acc_uxtb() {
+        let mut builder = FunctionBuilder::new(FunctionId(0), 0);
+        builder.push_op(
+            0,
+            OpKind::MulSub {
+                dst: x(0),
+                acc: x(3),
+                src1: VReg::Imm(16),
+                src2: VReg::Imm(16),
+                width: OpWidth::W8,
+            },
+        );
+        builder.set_terminator(Terminator::Return { values: vec![] });
+        let func = builder.finish();
+
+        let mut lowerer = Aarch64Lowerer::new();
+        lowerer.lower_function(&func).unwrap();
+        let code = lowerer.finalize().unwrap();
+
+        let mut expected = Vec::new();
+        expected.extend_from_slice(&enc_bitfield_regs(0, 0b10, 0, 7, 3, 0).to_le_bytes());
         expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
         assert_eq!(code, expected);
     }
