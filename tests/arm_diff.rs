@@ -7233,6 +7233,38 @@ fn smir_aarch64_native_lowering_matches_qemu_oracle() {
     ));
 
     let mut st = native_state();
+    st.x[0] = 0xaaaa_bbbb_cccc_dddd;
+    st.pstate = 0x3000_0000;
+    let lowered = lower_aarch64_native_ops(vec![OpKind::Not {
+        dst: arm_x(0),
+        src: VReg::Imm(0x3c),
+        width: OpWidth::W8,
+    }])
+    .unwrap_or_else(|e| panic!("not_w8_imm_as_movz_preserves_flags: native lowering failed: {e}"));
+    cases.push((
+        "not_w8_imm_as_movz_preserves_flags".into(),
+        [enc_mov_wide(0, 0b10, 0, 0xc3), NOP, NOP],
+        lowered,
+        st,
+    ));
+
+    let mut st = native_state();
+    st.x[0] = 0xbbbb_cccc_dddd_eeee;
+    st.pstate = 0xc000_0000;
+    let lowered = lower_aarch64_native_ops(vec![OpKind::Not {
+        dst: arm_x(0),
+        src: VReg::Imm(-16),
+        width: OpWidth::W64,
+    }])
+    .unwrap_or_else(|e| panic!("not_x_imm_as_movz_preserves_flags: native lowering failed: {e}"));
+    cases.push((
+        "not_x_imm_as_movz_preserves_flags".into(),
+        [enc_mov_wide(1, 0b10, 0, 15), NOP, NOP],
+        lowered,
+        st,
+    ));
+
+    let mut st = native_state();
     st.x[0] = 0xbbbb_cccc_dddd_eeee;
     st.x[1] = 0x1234_5678_9abc_de81;
     st.pstate = 0xa000_0000;
