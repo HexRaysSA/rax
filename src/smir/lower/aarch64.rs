@@ -11745,6 +11745,9 @@ impl Aarch64Lowerer {
             } => self.lower_vcvt_fp_to_int_sat(
                 *dst, *src, *fp_elem, *int_elem, *width, *signed,
             ),
+            OpKind::VShuffleBitQM { .. } => Err(LowerError::UnsupportedOp {
+                op: "VShuffleBitQM requires x86 opmask K-register state".into(),
+            }),
             OpKind::VPopcnt {
                 dst,
                 src,
@@ -22185,6 +22188,13 @@ mod tests {
             width: VecWidth::V128,
             src1_unsigned: true,
             saturate: false,
+        });
+
+        assert_unsupported(OpKind::VShuffleBitQM {
+            dst: x86(X86Reg::K(1)),
+            src: v(1),
+            indices: v(2),
+            width: VecWidth::V128,
         });
 
         assert_unsupported(OpKind::VDotProductExt {
