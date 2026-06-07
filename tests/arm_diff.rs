@@ -2282,6 +2282,52 @@ fn push_mov_imm_movn_native_cases(
 }
 
 #[cfg(all(feature = "smir-jit", target_arch = "x86_64"))]
+fn push_mov_same_reg_native_cases(
+    cases: &mut Vec<(String, [u32; 3], [u32; 3], ArmState)>,
+    control_target: i32,
+) {
+    let mut st = ArmState::zeroed();
+    st.pc = PCREL_MAGIC;
+    st.x[30] = pcrel_marker(control_target);
+    st.x[0] = 0x1111_2222_3333_4444;
+    st.pstate = 0xa000_0000;
+    let lowered = lower_aarch64_native_ops(vec![OpKind::Mov {
+        dst: arm_x(0),
+        src: SrcOperand::Reg(arm_x(0)),
+        width: OpWidth::W64,
+    }])
+    .unwrap_or_else(|e| {
+        panic!("mov_x_same_reg_as_noop_preserves_flags: native lowering failed: {e}")
+    });
+    cases.push((
+        "mov_x_same_reg_as_noop_preserves_flags".into(),
+        [0xd65f_03c0, NOP, NOP],
+        lowered,
+        st,
+    ));
+
+    let mut st = ArmState::zeroed();
+    st.pc = PCREL_MAGIC;
+    st.x[30] = pcrel_marker(control_target);
+    st.x[0] = 0xffff_ffff_9999_aaaa;
+    st.pstate = 0x3000_0000;
+    let lowered = lower_aarch64_native_ops(vec![OpKind::Mov {
+        dst: arm_x(0),
+        src: SrcOperand::Reg(arm_x(0)),
+        width: OpWidth::W32,
+    }])
+    .unwrap_or_else(|e| {
+        panic!("mov_w_same_reg_as_self_mov_zero_ext_preserves_flags: native lowering failed: {e}")
+    });
+    cases.push((
+        "mov_w_same_reg_as_self_mov_zero_ext_preserves_flags".into(),
+        [enc_mov_reg(0, RD, RD), NOP, NOP],
+        lowered,
+        st,
+    ));
+}
+
+#[cfg(all(feature = "smir-jit", target_arch = "x86_64"))]
 fn push_lea_absolute_movn_native_cases(
     cases: &mut Vec<(String, [u32; 3], [u32; 3], ArmState)>,
     control_target: i32,
@@ -9366,6 +9412,7 @@ fn smir_aarch64_native_lowering_matches_qemu_oracle() {
     push_divu_imm_movn_native_cases(&mut cases, control_target);
     push_divs_imm_movn_native_cases(&mut cases, control_target);
     push_mov_imm_movn_native_cases(&mut cases, control_target);
+    push_mov_same_reg_native_cases(&mut cases, control_target);
     push_lea_absolute_movn_native_cases(&mut cases, control_target);
     push_lea_pcrel_movn_native_cases(&mut cases, control_target);
     push_bfi_full_width_movn_native_cases(&mut cases, control_target);
