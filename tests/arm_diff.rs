@@ -4665,6 +4665,59 @@ fn push_flagm_masked_imm_native_cases(
 }
 
 #[cfg(all(feature = "smir-jit", target_arch = "x86_64"))]
+fn push_cls_masked_imm_native_cases(
+    cases: &mut Vec<(String, [u32; 3], [u32; 3], ArmState)>,
+    control_target: i32,
+) {
+    let sign_mask = VReg::virt(230);
+    let normalized = VReg::virt(231);
+    let leading = VReg::virt(232);
+    let mut st = ArmState::zeroed();
+    st.pc = PCREL_MAGIC;
+    st.x[30] = pcrel_marker(control_target);
+    st.x[0] = 0x3333_4444_5555_6666;
+    st.x[1] = 0xffff_ffff_8000_0001;
+    st.pstate = 0xa000_0000;
+    let lowered = lower_aarch64_native_ops_same_pc(vec![
+        OpKind::Sar {
+            dst: sign_mask,
+            src: arm_x(1),
+            amount: SrcOperand::Imm64(95),
+            width: OpWidth::W32,
+            flags: FlagUpdate::None,
+        },
+        OpKind::Xor {
+            dst: normalized,
+            src1: arm_x(1),
+            src2: SrcOperand::Reg(sign_mask),
+            width: OpWidth::W32,
+            flags: FlagUpdate::None,
+        },
+        OpKind::Clz {
+            dst: leading,
+            src: normalized,
+            width: OpWidth::W32,
+        },
+        OpKind::Sub {
+            dst: arm_x(0),
+            src1: leading,
+            src2: SrcOperand::Imm64(0x1_0000_0001),
+            width: OpWidth::W32,
+            flags: FlagUpdate::None,
+        },
+    ])
+    .unwrap_or_else(|e| {
+        panic!("cls_w_lifted_masked_imms_as_cls_preserves_flags: native lowering failed: {e}")
+    });
+    cases.push((
+        "cls_w_lifted_masked_imms_as_cls_preserves_flags".into(),
+        [enc_dp1(0, 0b000101), NOP, NOP],
+        lowered,
+        st,
+    ));
+}
+
+#[cfg(all(feature = "smir-jit", target_arch = "x86_64"))]
 fn push_cond_compare_inverted_native_cases(
     cases: &mut Vec<(String, [u32; 3], [u32; 3], ArmState)>,
     control_target: i32,
@@ -11077,6 +11130,7 @@ fn smir_aarch64_native_lowering_matches_qemu_oracle() {
     push_select_dst_arm_native_cases(&mut cases, control_target);
     push_cond_select_true_transform_native_cases(&mut cases, control_target);
     push_flagm_masked_imm_native_cases(&mut cases, control_target);
+    push_cls_masked_imm_native_cases(&mut cases, control_target);
     push_cond_compare_inverted_native_cases(&mut cases, control_target);
     push_sar_imm_movn_native_cases(&mut cases, control_target);
     push_ror_imm_movn_native_cases(&mut cases, control_target);
