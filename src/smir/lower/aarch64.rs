@@ -3318,7 +3318,7 @@ impl Aarch64Lowerer {
         width: MemWidth,
         signed: SignExtend,
     ) -> Result<(), LowerError> {
-        let cond = Self::gpr(cond)?;
+        let cond = Self::gpr_arm_or_x86(cond)?;
         let branch = self.code.position();
         self.emit_test_branch(cond, 0, false, 0)?;
         self.lower_load(dst, addr, width, signed)?;
@@ -3332,7 +3332,7 @@ impl Aarch64Lowerer {
         addr: &Address,
         width: MemWidth,
     ) -> Result<(), LowerError> {
-        let cond = Self::gpr(cond)?;
+        let cond = Self::gpr_arm_or_x86(cond)?;
         let branch = self.code.position();
         self.emit_test_branch(cond, 0, false, 0)?;
         self.lower_store(Self::pred_store_src_to_vreg(src)?, addr, width)?;
@@ -25204,6 +25204,112 @@ mod tests {
         expected.extend_from_slice(&enc_ldst_simm_regs(3, 0b01, 0b01, 16, 16, 31).to_le_bytes());
         expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
         assert_eq!(code, expected);
+    }
+
+    #[test]
+    fn lowers_predicated_memory_apx_egpr_condition_runtime() {
+        let mem_addr = 0x9000;
+        let load_code = lower_single_op(OpKind::PredLoad {
+            dst: x(0),
+            cond: x86(X86Reg::R18),
+            addr: Address::Direct(x(1)),
+            width: MemWidth::B8,
+            signed: SignExtend::Zero,
+        });
+        let load_words = code_words(&load_code);
+        assert_eq!(load_words[0], enc_test_branch(18, 0, false, 8));
+
+        let old_nzcv = 0b1010;
+        let regs_true = [(0, 0x1111), (1, mem_addr), (18, 1)];
+        let (out, out_nzcv, sp, mem) = run_aarch64_code_with_memory(
+            &load_code,
+            &regs_true,
+            old_nzcv,
+            mem_addr,
+            0xaabb_ccdd_eeff_0011,
+            MemWidth::B8,
+        );
+        assert_eq!(out[0], 0xaabb_ccdd_eeff_0011);
+        assert_eq!(out[18], 1);
+        assert_eq!(out_nzcv, old_nzcv);
+        assert_eq!(sp, 0x8000);
+        assert_eq!(mem, 0xaabb_ccdd_eeff_0011);
+
+        let regs_false = [(0, 0x2222), (1, mem_addr), (18, 0)];
+        let (out, out_nzcv, sp, mem) = run_aarch64_code_with_memory(
+            &load_code,
+            &regs_false,
+            old_nzcv,
+            mem_addr,
+            0x1234_5678_9abc_def0,
+            MemWidth::B8,
+        );
+        assert_eq!(out[0], 0x2222);
+        assert_eq!(out[18], 0);
+        assert_eq!(out_nzcv, old_nzcv);
+        assert_eq!(sp, 0x8000);
+        assert_eq!(mem, 0x1234_5678_9abc_def0);
+
+        let store_code = lower_single_op(OpKind::PredStore {
+            src: SrcOperand::Reg(x(2)),
+            cond: x86(X86Reg::R19),
+            addr: Address::Direct(x(1)),
+            width: MemWidth::B4,
+        });
+        let store_words = code_words(&store_code);
+        assert_eq!(store_words[0], enc_test_branch(19, 0, false, 8));
+
+        let regs_true = [(1, mem_addr), (2, 0x5566_7788), (19, 1)];
+        let (out, out_nzcv, sp, mem) = run_aarch64_code_with_memory(
+            &store_code,
+            &regs_true,
+            old_nzcv,
+            mem_addr,
+            0xaabb_ccdd,
+            MemWidth::B4,
+        );
+        assert_eq!(mem, 0x5566_7788);
+        assert_eq!(out[2], 0x5566_7788);
+        assert_eq!(out[19], 1);
+        assert_eq!(out_nzcv, old_nzcv);
+        assert_eq!(sp, 0x8000);
+
+        let regs_false = [(1, mem_addr), (2, 0x5566_7788), (19, 0)];
+        let (out, out_nzcv, sp, mem) = run_aarch64_code_with_memory(
+            &store_code,
+            &regs_false,
+            old_nzcv,
+            mem_addr,
+            0xaabb_ccdd,
+            MemWidth::B4,
+        );
+        assert_eq!(mem, 0xaabb_ccdd);
+        assert_eq!(out[2], 0x5566_7788);
+        assert_eq!(out[19], 0);
+        assert_eq!(out_nzcv, old_nzcv);
+        assert_eq!(sp, 0x8000);
+    }
+
+    #[test]
+    fn rejects_predicated_memory_apx_r31_condition() {
+        let load_err = try_lower_single_op(OpKind::PredLoad {
+            dst: x(0),
+            cond: x86(X86Reg::R31),
+            addr: Address::Direct(x(1)),
+            width: MemWidth::B8,
+            signed: SignExtend::Zero,
+        })
+        .unwrap_err();
+        assert!(matches!(load_err, LowerError::InvalidRegister(_)));
+
+        let store_err = try_lower_single_op(OpKind::PredStore {
+            src: SrcOperand::Reg(x(2)),
+            cond: x86(X86Reg::R31),
+            addr: Address::Direct(x(1)),
+            width: MemWidth::B4,
+        })
+        .unwrap_err();
+        assert!(matches!(store_err, LowerError::InvalidRegister(_)));
     }
 
     #[test]
