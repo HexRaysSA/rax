@@ -2786,6 +2786,22 @@ impl Aarch64Lowerer {
     }
 
     fn lower_clz(&mut self, dst: VReg, src: VReg, width: OpWidth) -> Result<(), LowerError> {
+        if let VReg::Imm(value) = src {
+            let emit_width = match width {
+                OpWidth::W8 | OpWidth::W16 | OpWidth::W32 => OpWidth::W32,
+                OpWidth::W64 => OpWidth::W64,
+                other => {
+                    return Err(LowerError::UnsupportedOp {
+                        op: format!("AArch64 native Clz width {other:?}"),
+                    });
+                }
+            };
+            let value = (value as u64) & width.mask();
+            let extra_bits = 64 - width.bits();
+            let result = value.leading_zeros() - extra_bits;
+            return self.emit_mov_imm(Self::dst_gpr(dst)?, i64::from(result), emit_width);
+        }
+
         let dst = Self::dst_gpr(dst)?;
         let src = Self::gpr(src)?;
         if matches!(width, OpWidth::W8 | OpWidth::W16) {
@@ -11837,6 +11853,30 @@ mod tests {
         expected.extend_from_slice(&enc_bitfield_regs(0, 0b10, 16, 15, 1, 0).to_le_bytes());
         expected.extend_from_slice(&enc_logical_imm(0, 0b01, 0, 17, 0, 0, 0).to_le_bytes());
         expected.extend_from_slice(&enc_dp1_regs(0, 0b000100, 0, 0).to_le_bytes());
+        expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
+        assert_eq!(code, expected);
+    }
+
+    #[test]
+    fn lowers_clz_w16_imm_as_movz() {
+        let mut builder = FunctionBuilder::new(FunctionId(0), 0);
+        builder.push_op(
+            0,
+            OpKind::Clz {
+                dst: x(0),
+                src: VReg::Imm(0x1_0000_0080),
+                width: OpWidth::W16,
+            },
+        );
+        builder.set_terminator(Terminator::Return { values: vec![] });
+        let func = builder.finish();
+
+        let mut lowerer = Aarch64Lowerer::new();
+        lowerer.lower_function(&func).unwrap();
+        let code = lowerer.finalize().unwrap();
+
+        let mut expected = Vec::new();
+        expected.extend_from_slice(&enc_mov_wide(0, 0b10, 0, 8, 0).to_le_bytes());
         expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
         assert_eq!(code, expected);
     }

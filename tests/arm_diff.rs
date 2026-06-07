@@ -4780,6 +4780,20 @@ fn smir_aarch64_native_lowering_matches_qemu_oracle() {
 
     let mut st = native_state();
     st.x[0] = 0x2222_3333_4444_5555;
+    st.pstate = 0x9000_0000;
+    push_case(
+        "clz_x_imm_zero_as_width_preserves_flags",
+        enc_mov_wide(1, 0b10, 0, 64),
+        vec![OpKind::Clz {
+            dst: arm_x(0),
+            src: VReg::Imm(0),
+            width: OpWidth::W64,
+        }],
+        st,
+    );
+
+    let mut st = native_state();
+    st.x[0] = 0x2222_3333_4444_5555;
     st.x[1] = 0xffff_ffff_ffff_f000;
     st.pstate = 0x6000_0000;
     push_case(
@@ -10895,6 +10909,20 @@ fn smir_aarch64_native_lowering_matches_qemu_oracle() {
         vec![OpKind::Clz {
             dst: arm_x(0),
             src: arm_x(1),
+            width: OpWidth::W16,
+        }],
+        st,
+    );
+
+    let mut st = native_state();
+    st.x[0] = 0xeeee_ffff_0000_1111;
+    st.pstate = 0xb000_0000;
+    push_case3(
+        "clz_w16_imm_masked_as_movz_preserves_flags",
+        [enc_mov_wide(0, 0b10, 0, 8), NOP, NOP],
+        vec![OpKind::Clz {
+            dst: arm_x(0),
+            src: VReg::Imm(0x1_0000_0080),
             width: OpWidth::W16,
         }],
         st,
