@@ -5153,6 +5153,15 @@ impl Aarch64Lowerer {
 
         let dst = Self::dst_gpr(dst)?;
         let src = Self::gpr(src)?;
+        if matches!(amount, SrcOperand::Reg(VReg::Imm(0)))
+            && matches!(
+                shift,
+                ShiftOp::Lsl | ShiftOp::Lsr | ShiftOp::Asr | ShiftOp::Ror
+            )
+        {
+            return self.lower_shift_imm(dst, src, 0, shift, width);
+        }
+
         match amount {
             SrcOperand::Imm(imm) | SrcOperand::Imm64(imm) => {
                 self.lower_shift_imm(dst, src, *imm, shift, width)
@@ -11518,6 +11527,69 @@ mod tests {
         expected.extend_from_slice(&enc_mov_reg(0, 0, 0).to_le_bytes());
         expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
         assert_eq!(code, expected);
+    }
+
+    #[test]
+    fn lowers_shift_zero_count_reg_as_immediate_zero() {
+        let cases = [
+            (
+                OpKind::Shl {
+                    dst: x(0),
+                    src: x(0),
+                    amount: SrcOperand::Reg(VReg::Imm(0)),
+                    width: OpWidth::W64,
+                    flags: FlagUpdate::None,
+                },
+                vec![0xd65f_03c0],
+            ),
+            (
+                OpKind::Shr {
+                    dst: x(0),
+                    src: x(0),
+                    amount: SrcOperand::Reg(VReg::Imm(0)),
+                    width: OpWidth::W32,
+                    flags: FlagUpdate::None,
+                },
+                vec![enc_mov_reg(0, 0, 0), 0xd65f_03c0],
+            ),
+            (
+                OpKind::Sar {
+                    dst: x(0),
+                    src: x(1),
+                    amount: SrcOperand::Reg(VReg::Imm(0)),
+                    width: OpWidth::W64,
+                    flags: FlagUpdate::None,
+                },
+                vec![enc_mov_reg(1, 0, 1), 0xd65f_03c0],
+            ),
+            (
+                OpKind::Ror {
+                    dst: x(0),
+                    src: x(1),
+                    amount: SrcOperand::Reg(VReg::Imm(0)),
+                    width: OpWidth::W8,
+                    flags: FlagUpdate::None,
+                },
+                vec![enc_bitfield_regs(0, 0b10, 0, 7, 1, 0), 0xd65f_03c0],
+            ),
+        ];
+
+        for (kind, expected_words) in cases {
+            let mut builder = FunctionBuilder::new(FunctionId(0), 0);
+            builder.push_op(0, kind);
+            builder.set_terminator(Terminator::Return { values: vec![] });
+            let func = builder.finish();
+
+            let mut lowerer = Aarch64Lowerer::new();
+            lowerer.lower_function(&func).unwrap();
+            let code = lowerer.finalize().unwrap();
+
+            let mut expected = Vec::new();
+            for word in expected_words {
+                expected.extend_from_slice(&word.to_le_bytes());
+            }
+            assert_eq!(code, expected);
+        }
     }
 
     #[test]
