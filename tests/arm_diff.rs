@@ -5492,6 +5492,71 @@ fn push_cmp_two_imm_native_cases(
 }
 
 #[cfg(all(feature = "smir-jit", target_arch = "x86_64"))]
+fn push_cmp_zero_base_reg_native_cases(
+    cases: &mut Vec<(String, [u32; 3], [u32; 3], ArmState)>,
+    control_target: i32,
+) {
+    let cmp_cases = [
+        (
+            "cmp_x_zero_base_reg_as_subs_zero_reg_sets_flags",
+            OpKind::Cmp {
+                src1: VReg::Imm(0),
+                src2: SrcOperand::Reg(arm_x(1)),
+                width: OpWidth::W64,
+            },
+            [enc_addsub_shift_regs(1, 1, 1, 0, 0, 31, 31, RN), NOP, NOP],
+            0x1111_2222_3333_4444,
+            0x0123_4567_89ab_cdef,
+            0xf000_0000,
+        ),
+        (
+            "cmp_w_zero_base_lsl3_as_subs_zero_shifted_sets_flags",
+            OpKind::Cmp {
+                src1: VReg::Imm(0),
+                src2: SrcOperand::Shifted {
+                    reg: arm_x(1),
+                    shift: ShiftOp::Lsl,
+                    amount: 3,
+                },
+                width: OpWidth::W32,
+            },
+            [enc_addsub_shift_regs(0, 1, 1, 0, 3, 31, 31, RN), NOP, NOP],
+            0x2222_3333_4444_5555,
+            0x0000_0000_1000_0001,
+            0,
+        ),
+        (
+            "cmp_x_zero_base_uxtw_lsl2_as_subs_zero_extended_sets_flags",
+            OpKind::Cmp {
+                src1: VReg::Imm(0),
+                src2: SrcOperand::Extended {
+                    reg: arm_x(1),
+                    extend: ExtendOp::Uxtw,
+                    shift: 2,
+                },
+                width: OpWidth::W64,
+            },
+            [enc_addsub_ext_regs(1, 1, 1, 0b010, 2, 31, 31, RN), NOP, NOP],
+            0x3333_4444_5555_6666,
+            0xffff_ffff_8000_0001,
+            0x6000_0000,
+        ),
+    ];
+
+    for (name, op, source, x0, x1, pstate) in cmp_cases {
+        let mut st = ArmState::zeroed();
+        st.pc = PCREL_MAGIC;
+        st.x[30] = pcrel_marker(control_target);
+        st.x[0] = x0;
+        st.x[1] = x1;
+        st.pstate = pstate;
+        let lowered = lower_aarch64_native_ops(vec![op])
+            .unwrap_or_else(|e| panic!("{name}: native lowering failed: {e}"));
+        cases.push((name.into(), source, lowered, st));
+    }
+}
+
+#[cfg(all(feature = "smir-jit", target_arch = "x86_64"))]
 fn push_addsub_carry_nonzero_imm_native_cases(
     cases: &mut Vec<(String, [u32; 3], [u32; 3], ArmState)>,
     control_target: i32,
@@ -14921,6 +14986,7 @@ fn smir_aarch64_native_lowering_matches_qemu_oracle() {
     push_addsub_zero_base_nonzero_imm_flag_native_cases(&mut cases, control_target);
     push_cmp_zero_base_neg_imm_native_cases(&mut cases, control_target);
     push_cmp_two_imm_native_cases(&mut cases, control_target);
+    push_cmp_zero_base_reg_native_cases(&mut cases, control_target);
     push_addsub_carry_nonzero_imm_native_cases(&mut cases, control_target);
     push_add_zero_base_reg_native_cases(&mut cases, control_target);
     push_shift_zero_same_reg_native_cases(&mut cases, control_target);

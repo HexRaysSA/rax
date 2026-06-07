@@ -3055,6 +3055,28 @@ impl Aarch64Lowerer {
                         op: "AArch64 native CMP zero base with nonzero immediate".into(),
                     });
                 }
+                SrcOperand::Reg(_) | SrcOperand::Shifted { .. } => {
+                    if !matches!(width, OpWidth::W32 | OpWidth::W64) {
+                        return Err(LowerError::UnsupportedOp {
+                            op: format!("AArch64 native CMP zero base source width {width:?}"),
+                        });
+                    }
+                    let (rm, shift, amount) = Self::addsub_src2(src2, width)?;
+                    return self.emit_addsub_shifted(
+                        31, 31, rm, true, true, shift, amount, width,
+                    );
+                }
+                SrcOperand::Extended { .. } => {
+                    if !matches!(width, OpWidth::W32 | OpWidth::W64) {
+                        return Err(LowerError::UnsupportedOp {
+                            op: format!("AArch64 native CMP zero base source width {width:?}"),
+                        });
+                    }
+                    let (rm, option, amount) = Self::addsub_ext_src2(src2)?;
+                    return self.emit_addsub_extended(
+                        31, 31, rm, true, true, option, amount, width,
+                    );
+                }
                 _ => {}
             }
         }
@@ -9771,6 +9793,105 @@ mod tests {
         expected.extend_from_slice(&enc_condcmp(0, 1, false, 31, 1, 31, 0b1001).to_le_bytes());
         expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
         assert_eq!(code, expected);
+    }
+
+    #[test]
+    fn lowers_cmp_zero_base_register_sources() {
+        let mut builder = FunctionBuilder::new(FunctionId(0), 0);
+        builder.push_op(
+            0,
+            OpKind::Cmp {
+                src1: VReg::Imm(0),
+                src2: SrcOperand::Reg(x(1)),
+                width: OpWidth::W64,
+            },
+        );
+        builder.set_terminator(Terminator::Return { values: vec![] });
+        let func = builder.finish();
+
+        let mut lowerer = Aarch64Lowerer::new();
+        lowerer.lower_function(&func).unwrap();
+        let code = lowerer.finalize().unwrap();
+
+        let mut expected = Vec::new();
+        expected.extend_from_slice(
+            &enc_addsub_shift_regs(1, 1, 1, 0, 0, 31, 31, 1).to_le_bytes(),
+        );
+        expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
+        assert_eq!(code, expected);
+
+        let mut builder = FunctionBuilder::new(FunctionId(0), 0);
+        builder.push_op(
+            0,
+            OpKind::Cmp {
+                src1: VReg::Imm(0),
+                src2: SrcOperand::Shifted {
+                    reg: x(1),
+                    shift: ShiftOp::Lsl,
+                    amount: 3,
+                },
+                width: OpWidth::W32,
+            },
+        );
+        builder.set_terminator(Terminator::Return { values: vec![] });
+        let func = builder.finish();
+
+        let mut lowerer = Aarch64Lowerer::new();
+        lowerer.lower_function(&func).unwrap();
+        let code = lowerer.finalize().unwrap();
+
+        let mut expected = Vec::new();
+        expected.extend_from_slice(
+            &enc_addsub_shift_regs(0, 1, 1, 0, 3, 31, 31, 1).to_le_bytes(),
+        );
+        expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
+        assert_eq!(code, expected);
+
+        let mut builder = FunctionBuilder::new(FunctionId(0), 0);
+        builder.push_op(
+            0,
+            OpKind::Cmp {
+                src1: VReg::Imm(0),
+                src2: SrcOperand::Extended {
+                    reg: x(1),
+                    extend: ExtendOp::Uxtw,
+                    shift: 2,
+                },
+                width: OpWidth::W64,
+            },
+        );
+        builder.set_terminator(Terminator::Return { values: vec![] });
+        let func = builder.finish();
+
+        let mut lowerer = Aarch64Lowerer::new();
+        lowerer.lower_function(&func).unwrap();
+        let code = lowerer.finalize().unwrap();
+
+        let mut expected = Vec::new();
+        expected.extend_from_slice(
+            &enc_addsub_ext_regs(1, 1, 1, 0b010, 2, 31, 31, 1).to_le_bytes(),
+        );
+        expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
+        assert_eq!(code, expected);
+    }
+
+    #[test]
+    fn rejects_cmp_zero_base_subword_register_source_without_scratch() {
+        let mut builder = FunctionBuilder::new(FunctionId(0), 0);
+        builder.push_op(
+            0,
+            OpKind::Cmp {
+                src1: VReg::Imm(0),
+                src2: SrcOperand::Reg(x(1)),
+                width: OpWidth::W8,
+            },
+        );
+        builder.set_terminator(Terminator::Return { values: vec![] });
+        let func = builder.finish();
+
+        let mut lowerer = Aarch64Lowerer::new();
+        let err = lowerer.lower_function(&func).unwrap_err();
+        assert!(matches!(err, LowerError::UnsupportedOp { .. }));
     }
 
     #[test]
