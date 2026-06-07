@@ -2347,6 +2347,24 @@ impl Aarch64Lowerer {
         Ok(())
     }
 
+    fn lower_leave(&mut self) -> Result<(), LowerError> {
+        const X86_RSP_INDEX: u8 = 4;
+        const X86_RBP_INDEX: u8 = 5;
+
+        let size = Self::mem_size(MemWidth::B8)?;
+        let opc = Self::load_opc(MemWidth::B8, SignExtend::Zero)?;
+        self.emit_addsub_imm(
+            X86_RSP_INDEX,
+            X86_RBP_INDEX,
+            8,
+            false,
+            false,
+            OpWidth::W64,
+        )?;
+        self.emit_ldst_unsigned(X86_RBP_INDEX, X86_RBP_INDEX, size, opc, 0);
+        Ok(())
+    }
+
     fn literal_scaled_imm19(op: &str, target: i64, insn_pc: i64) -> Result<i32, LowerError> {
         let delta = target.wrapping_sub(insn_pc);
         if delta % 4 != 0 {
@@ -10804,6 +10822,7 @@ impl Aarch64Lowerer {
                 count,
                 width,
             } => self.lower_rep_stos(*dst, *src, *count, *width),
+            OpKind::Leave => self.lower_leave(),
             OpKind::AtomicLoad {
                 dst,
                 addr,
@@ -20693,6 +20712,36 @@ mod tests {
         let mut lowerer = Aarch64Lowerer::new();
         let err = lowerer.lower_function(&func).unwrap_err();
         assert!(matches!(err, LowerError::UnsupportedOp { .. }));
+    }
+
+    #[test]
+    fn lowers_leave_runtime() {
+        let code = lower_single_op(OpKind::Leave);
+        let frame = 0x9040;
+        let saved_rbp = 0x1234_5678_9abc_def0;
+        let old_nzcv = 0b1011;
+        let regs = [
+            (4, 0x4444_4444_4444_4444),
+            (5, frame),
+            (16, 0x1616_1616_1616_1616),
+            (17, 0x1717_1717_1717_1717),
+        ];
+        let (out, out_nzcv, sp, mem) = run_aarch64_code_with_memory(
+            &code,
+            &regs,
+            old_nzcv,
+            frame,
+            saved_rbp,
+            MemWidth::B8,
+        );
+
+        assert_eq!(out[4], frame + 8);
+        assert_eq!(out[5], saved_rbp);
+        assert_eq!(out[16], 0x1616_1616_1616_1616);
+        assert_eq!(out[17], 0x1717_1717_1717_1717);
+        assert_eq!(out_nzcv, old_nzcv);
+        assert_eq!(sp, 0x8000);
+        assert_eq!(mem, saved_rbp);
     }
 
     #[test]
