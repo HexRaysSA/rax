@@ -7030,6 +7030,61 @@ fn push_mul_zero_source_reg_native_cases(
             .unwrap_or_else(|e| panic!("{name}: native lowering failed: {e}"));
         cases.push((name.into(), source, lowered, st));
     }
+
+    let mut st = ArmState::zeroed();
+    st.pc = PCREL_MAGIC;
+    st.x[30] = pcrel_marker(control_target);
+    st.x[0] = 0xaaaa_bbbb_cccc_dddd;
+    st.x[1] = 0x8000_0000_0000_0001;
+    st.pstate = 0x5000_0000;
+    let lowered = lower_aarch64_native_ops(vec![OpKind::MulS {
+        dst_lo: VReg::virt(0),
+        dst_hi: Some(arm_x(0)),
+        src1: arm_x(1),
+        src2: SrcOperand::Reg(VReg::Imm(0)),
+        width: OpWidth::W64,
+        flags: FlagUpdate::None,
+    }])
+    .unwrap_or_else(|e| {
+        panic!("smulh_x_zero_source_reg_as_movz_preserves_flags: native lowering failed: {e}")
+    });
+    cases.push((
+        "smulh_x_zero_source_reg_as_movz_preserves_flags".into(),
+        [enc_dp3_ra_regs(1, 0b010, 0, 0, 1, 31, 31), NOP, NOP],
+        lowered,
+        st,
+    ));
+
+    let mut st = ArmState::zeroed();
+    st.pc = PCREL_MAGIC;
+    st.x[30] = pcrel_marker(control_target);
+    st.x[0] = 0x1111_2222_3333_4444;
+    st.x[1] = 0x0123_4567_89ab_cdef;
+    st.x[2] = 0xfedc_ba98_7654_3210;
+    st.pstate = 0xb000_0000;
+    let lowered = lower_aarch64_native_ops(vec![OpKind::MulU {
+        dst_lo: arm_x(1),
+        dst_hi: Some(arm_x(2)),
+        src1: arm_x(1),
+        src2: SrcOperand::Reg(VReg::Imm(0)),
+        width: OpWidth::W64,
+        flags: FlagUpdate::None,
+    }])
+    .unwrap_or_else(|e| {
+        panic!(
+            "mulu_full_width_zero_source_reg_outputs_alias_sources_as_movz_preserves_flags: native lowering failed: {e}"
+        )
+    });
+    cases.push((
+        "mulu_full_width_zero_source_reg_outputs_alias_sources_as_movz_preserves_flags".into(),
+        [
+            enc_dp3_ra_regs(1, 0b000, 0, 1, 1, 31, 31),
+            enc_dp3_ra_regs(1, 0b110, 0, 2, 1, 31, 31),
+            NOP,
+        ],
+        lowered,
+        st,
+    ));
 }
 
 #[cfg(all(feature = "smir-jit", target_arch = "x86_64"))]
