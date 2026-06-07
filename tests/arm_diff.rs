@@ -2601,6 +2601,45 @@ fn push_logical_zero_base_reg_native_cases(
             0xffff_ffff_0123_4567,
             0x9000_0000,
         ),
+        (
+            "orr_x_zero_source_same_dst_as_noop_preserves_flags",
+            OpKind::Or {
+                dst: arm_x(0),
+                src1: arm_x(0),
+                src2: SrcOperand::Reg(VReg::Imm(0)),
+                width: OpWidth::W64,
+                flags: FlagUpdate::None,
+            },
+            [enc_logical_shift_regs(1, 0b01, 0, 0, 0, 0, 0, 31), NOP, NOP],
+            0x2468_ace0_1357_9bdf,
+            0x7000_0000,
+        ),
+        (
+            "eor_x_zero_source_same_dst_as_noop_preserves_flags",
+            OpKind::Xor {
+                dst: arm_x(0),
+                src1: arm_x(0),
+                src2: SrcOperand::Reg(VReg::Imm(0)),
+                width: OpWidth::W64,
+                flags: FlagUpdate::None,
+            },
+            [enc_logical_shift_regs(1, 0b10, 0, 0, 0, 0, 0, 31), NOP, NOP],
+            0xfedc_0123_7654_89ab,
+            0x4000_0000,
+        ),
+        (
+            "orr_w_zero_source_same_dst_as_self_mov_zero_ext_preserves_flags",
+            OpKind::Or {
+                dst: arm_x(0),
+                src1: arm_x(0),
+                src2: SrcOperand::Reg(VReg::Imm(0)),
+                width: OpWidth::W32,
+                flags: FlagUpdate::None,
+            },
+            [enc_logical_shift_regs(0, 0b01, 0, 0, 0, 0, 0, 31), NOP, NOP],
+            0xffff_ffff_7654_3210,
+            0xd000_0000,
+        ),
     ];
 
     for (name, op, source, x0, pstate) in logical_cases {
