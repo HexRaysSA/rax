@@ -2674,7 +2674,10 @@ impl SmirInterpreter {
                         5 => {
                             let v = (av & mask) << (64 - elem_bits);
                             let nv = (!av & mask) << (64 - elem_bits);
-                            let n = v.leading_zeros().max(nv.leading_zeros());
+                            let n = v
+                                .leading_zeros()
+                                .min(elem_bits)
+                                .max(nv.leading_zeros().min(elem_bits));
                             (n - 1) as u64
                         }
                         // Neg (two's complement)
@@ -8492,6 +8495,11 @@ mod tests {
         assert_eq!(
             run([0x0001_0001_0001_0001u64; 16], VecElementType::I16, 64, 5),
             [0x000E_000E_000E_000Eu64; 16]
+        );
+        // NormAmt of -1 halfword: all redundant sign bits -> 15 (op 5)
+        assert_eq!(
+            run([0xFFFF_FFFF_FFFF_FFFFu64; 16], VecElementType::I16, 64, 5),
+            [0x000F_000F_000F_000Fu64; 16]
         );
     }
 

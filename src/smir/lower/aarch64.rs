@@ -2414,6 +2414,7 @@ impl Aarch64Lowerer {
                 }
                 self.lower_vlane_unary_two_reg(dst, src, elem, lanes, 0, 0b00101, false)
             }
+            5 => self.lower_vlane_unary_two_reg(dst, src, elem, lanes, 0, 0b00100, false),
             6 => self.lower_vlane_unary_two_reg(dst, src, elem, lanes, 1, 0b01011, true),
             other => Err(LowerError::UnsupportedOp {
                 op: format!("AArch64 native VLaneUnary op {other}"),
@@ -18798,7 +18799,11 @@ mod tests {
                     5 => {
                         let v = (av & mask) << (64 - elem_bits);
                         let nv = (!av & mask) << (64 - elem_bits);
-                        (v.leading_zeros().max(nv.leading_zeros()) - 1) as u64
+                        let n = v
+                            .leading_zeros()
+                            .min(elem_bits as u32)
+                            .max(nv.leading_zeros().min(elem_bits as u32));
+                        (n - 1) as u64
                     }
                     6 => sx(av).wrapping_neg() as u64,
                     _ => av,
@@ -18864,6 +18869,22 @@ mod tests {
                 op: 6,
                 signed: true,
             },
+            OpKind::VLaneUnary {
+                dst: v(7),
+                src: v(1),
+                elem: VecElementType::I16,
+                lanes: 8,
+                op: 5,
+                signed: false,
+            },
+            OpKind::VLaneUnary {
+                dst: v(8),
+                src: v(1),
+                elem: VecElementType::I32,
+                lanes: 2,
+                op: 5,
+                signed: false,
+            },
         ]);
 
         let (_, simd, _) =
@@ -18874,6 +18895,8 @@ mod tests {
         assert_eq!(simd[4], apply_vlane_unary(src_low, src_high, 4, 4, 3));
         assert_eq!(simd[5], apply_vlane_unary(src_low, src_high, 1, 16, 4));
         assert_eq!(simd[6], apply_vlane_unary(src_low, src_high, 8, 2, 6));
+        assert_eq!(simd[7], apply_vlane_unary(src_low, src_high, 2, 8, 5));
+        assert_eq!(simd[8], apply_vlane_unary(src_low, src_high, 4, 2, 5));
     }
 
     #[test]
@@ -19551,8 +19574,8 @@ mod tests {
         assert_unsupported(OpKind::VLaneUnary {
             dst: v(0),
             src: v(1),
-            elem: VecElementType::I16,
-            lanes: 8,
+            elem: VecElementType::I64,
+            lanes: 2,
             op: 5,
             signed: false,
         });
