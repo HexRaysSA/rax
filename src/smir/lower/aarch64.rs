@@ -319,6 +319,13 @@ impl Aarch64Lowerer {
         }
     }
 
+    fn lea_base_gpr(vreg: VReg) -> Result<u8, LowerError> {
+        match vreg {
+            VReg::Arch(ArchReg::Arm(ArmReg::Sp)) => Ok(31),
+            other => Self::gpr_arm_or_x86(other),
+        }
+    }
+
     fn dst_or_zero_for_flags(vreg: VReg, set_flags: bool) -> Result<u8, LowerError> {
         match vreg {
             VReg::Arch(ArchReg::Arm(ArmReg::X(n))) if n < 31 => Ok(n),
@@ -4197,13 +4204,13 @@ impl Aarch64Lowerer {
     }
 
     fn lower_lea(&mut self, dst: VReg, addr: &Address) -> Result<(), LowerError> {
-        let dst = Self::dst_gpr(dst)?;
+        let dst = Self::dst_gpr_arm_or_x86(dst)?;
         match addr {
             Address::Direct(base) => {
-                self.emit_add_signed_imm(dst, Self::base_gpr(*base)?, 0, OpWidth::W64)
+                self.emit_add_signed_imm(dst, Self::lea_base_gpr(*base)?, 0, OpWidth::W64)
             }
             Address::BaseOffset { base, offset, .. } => {
-                let base = Self::base_gpr(*base)?;
+                let base = Self::lea_base_gpr(*base)?;
                 if Self::signed_addsub_imm_fits(*offset) {
                     self.emit_add_signed_imm(dst, base, *offset, OpWidth::W64)
                 } else {
@@ -4219,10 +4226,10 @@ impl Aarch64Lowerer {
                 ..
             } => {
                 let shift = Self::lea_scale_shift(*scale)?;
-                let index = Self::gpr(*index)?;
+                let index = Self::gpr_arm_or_x86(*index)?;
                 match base {
                     Some(base) => {
-                        let base = Self::base_gpr(*base)?;
+                        let base = Self::lea_base_gpr(*base)?;
                         if base == 31 {
                             self.emit_addsub_extended(
                                 dst,
@@ -24304,6 +24311,112 @@ mod tests {
         assert_eq!(out[16], 0x1616_1616_1616_1616);
         assert_eq!(out_nzcv, old_nzcv);
         assert_eq!(sp, 0x8000);
+    }
+
+    #[test]
+    fn lowers_lea_apx_egpr_operands_runtime() {
+        let code = lower_ops(vec![
+            OpKind::Lea {
+                dst: x86(X86Reg::R16),
+                addr: Address::Direct(x86(X86Reg::R17)),
+            },
+            OpKind::Lea {
+                dst: x86(X86Reg::R18),
+                addr: Address::BaseOffset {
+                    base: x86(X86Reg::R19),
+                    offset: -0x28,
+                    disp_size: DispSize::Auto,
+                },
+            },
+            OpKind::Lea {
+                dst: x86(X86Reg::R20),
+                addr: Address::BaseIndexScale {
+                    base: Some(x86(X86Reg::R21)),
+                    index: x86(X86Reg::R22),
+                    scale: 8,
+                    disp: 0x30,
+                    disp_size: DispSize::Auto,
+                },
+            },
+            OpKind::Lea {
+                dst: x86(X86Reg::R23),
+                addr: Address::BaseIndexScale {
+                    base: None,
+                    index: x86(X86Reg::R24),
+                    scale: 4,
+                    disp: -0x10,
+                    disp_size: DispSize::Auto,
+                },
+            },
+        ]);
+        let regs = [
+            (17, 0x1700),
+            (19, 0x1900),
+            (21, 0x2100),
+            (22, 3),
+            (24, 0x24),
+            (25, 0x2525_2525_2525_2525),
+        ];
+        let old_nzcv = 0b1011;
+        let (out, out_nzcv, sp) = run_aarch64_code(&code, &regs, old_nzcv);
+
+        assert_eq!(out[16], 0x1700);
+        assert_eq!(out[17], 0x1700);
+        assert_eq!(out[18], 0x1900 - 0x28);
+        assert_eq!(out[19], 0x1900);
+        assert_eq!(out[20], 0x2100 + 3 * 8 + 0x30);
+        assert_eq!(out[21], 0x2100);
+        assert_eq!(out[22], 3);
+        assert_eq!(out[23], 0x24 * 4 - 0x10);
+        assert_eq!(out[24], 0x24);
+        assert_eq!(out[25], 0x2525_2525_2525_2525);
+        assert_eq!(out_nzcv, old_nzcv);
+        assert_eq!(sp, 0x8000);
+    }
+
+    #[test]
+    fn rejects_lea_apx_r31_identity_mapping() {
+        for kind in [
+            OpKind::Lea {
+                dst: x86(X86Reg::R31),
+                addr: Address::Direct(x86(X86Reg::R16)),
+            },
+            OpKind::Lea {
+                dst: x86(X86Reg::R16),
+                addr: Address::Direct(x86(X86Reg::R31)),
+            },
+            OpKind::Lea {
+                dst: x86(X86Reg::R16),
+                addr: Address::BaseOffset {
+                    base: x86(X86Reg::R31),
+                    offset: 1,
+                    disp_size: DispSize::Auto,
+                },
+            },
+            OpKind::Lea {
+                dst: x86(X86Reg::R16),
+                addr: Address::BaseIndexScale {
+                    base: Some(x86(X86Reg::R31)),
+                    index: x86(X86Reg::R17),
+                    scale: 2,
+                    disp: 0,
+                    disp_size: DispSize::Auto,
+                },
+            },
+            OpKind::Lea {
+                dst: x86(X86Reg::R16),
+                addr: Address::BaseIndexScale {
+                    base: Some(x86(X86Reg::R17)),
+                    index: x86(X86Reg::R31),
+                    scale: 2,
+                    disp: 0,
+                    disp_size: DispSize::Auto,
+                },
+            },
+        ] {
+            let err = try_lower_single_op(kind).unwrap_err();
+            assert!(matches!(err, LowerError::InvalidRegister(_)));
+        }
     }
 
     #[test]
