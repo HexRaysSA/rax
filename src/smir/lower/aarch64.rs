@@ -313,6 +313,15 @@ impl Aarch64Lowerer {
         match vreg {
             VReg::Arch(ArchReg::Arm(ArmReg::X(n))) if n < 31 => Ok(n),
             VReg::Arch(ArchReg::Arm(ArmReg::Sp)) => Ok(31),
+            VReg::Arch(ArchReg::X86(reg)) => {
+                reg.gpr_index()
+                    .filter(|&n| n < 31)
+                    .ok_or_else(|| {
+                        LowerError::InvalidRegister(format!(
+                            "AArch64 native lowerer expected memory base register, got X86({reg:?})"
+                        ))
+                    })
+            }
             other => Err(LowerError::InvalidRegister(format!(
                 "AArch64 native lowerer expected memory base register, got {other:?}"
             ))),
@@ -1673,7 +1682,10 @@ impl Aarch64Lowerer {
     }
 
     fn transfer_reg_aliases_base(rt: u8, base: VReg) -> bool {
-        matches!(base, VReg::Arch(ArchReg::Arm(ArmReg::X(n))) if n == rt)
+        match Self::base_gpr(base) {
+            Ok(rn) => rn == rt,
+            Err(_) => false,
+        }
     }
 
     fn mem_extend_option(from_width: OpWidth, signed: bool) -> Option<u32> {
@@ -1762,7 +1774,7 @@ impl Aarch64Lowerer {
     ) -> Result<(Vec<u8>, u8), LowerError> {
         let shift = Self::lea_scale_shift(scale)?;
         let base_reg = base.map(Self::base_gpr).transpose()?;
-        let index_reg = Self::gpr(index)?;
+        let index_reg = Self::gpr_arm_or_x86(index)?;
         let disp = i64::from(disp);
         let needs_disp_reg = disp != 0 && !Self::signed_addsub_imm_fits(disp);
 
@@ -4116,7 +4128,7 @@ impl Aarch64Lowerer {
         self.emit_ldst_reg_offset(
             rt,
             Self::base_gpr(base)?,
-            Self::gpr(index)?,
+            Self::gpr_arm_or_x86(index)?,
             size,
             opc,
             option,
@@ -16371,6 +16383,18 @@ mod tests {
     }
 
     fn enc_ldst_reg(size: u32, opc: u32, rm: u32, option: u32, s: u32) -> u32 {
+        enc_ldst_reg_regs(size, opc, rm, 1, 0, option, s)
+    }
+
+    fn enc_ldst_reg_regs(
+        size: u32,
+        opc: u32,
+        rm: u32,
+        rn: u32,
+        rt: u32,
+        option: u32,
+        s: u32,
+    ) -> u32 {
         (size << 30)
             | (0b111 << 27)
             | (opc << 22)
@@ -16379,7 +16403,8 @@ mod tests {
             | (option << 13)
             | (s << 12)
             | (0b10 << 10)
-            | (1 << 5)
+            | (rn << 5)
+            | rt
     }
 
     fn enc_prfm_lit(rt: u32, imm19: i32) -> u32 {
@@ -25310,6 +25335,161 @@ mod tests {
     }
 
     #[test]
+    fn lowers_scalar_memory_apx_egpr_address_operands_runtime() {
+        let mem_addr = 0x9000_u64;
+        let initial = 0x1122_3344_5566_7788;
+        let store_value = 0xaabb_ccdd_eeff_0011;
+        let index = 3_u64;
+        let offset = 0x28_i64;
+        let disp = -0x10_i32;
+        let sib_base = (mem_addr as i64 - (index as i64) * 8 - i64::from(disp)) as u64;
+        let code = lower_ops(vec![
+            OpKind::Load {
+                dst: x86(X86Reg::R17),
+                addr: Address::Direct(x86(X86Reg::R16)),
+                width: MemWidth::B8,
+                sign: SignExtend::Zero,
+            },
+            OpKind::Store {
+                src: x86(X86Reg::R19),
+                addr: Address::BaseOffset {
+                    base: x86(X86Reg::R18),
+                    offset,
+                    disp_size: DispSize::Auto,
+                },
+                width: MemWidth::B8,
+            },
+            OpKind::Load {
+                dst: x86(X86Reg::R22),
+                addr: Address::BaseIndexScale {
+                    base: Some(x86(X86Reg::R20)),
+                    index: x86(X86Reg::R21),
+                    scale: 8,
+                    disp,
+                    disp_size: DispSize::Auto,
+                },
+                width: MemWidth::B8,
+                sign: SignExtend::Zero,
+            },
+        ]);
+
+        let regs = [
+            (14, 0x1414_1414_1414_1414),
+            (15, 0x1515_1515_1515_1515),
+            (16, mem_addr),
+            (18, mem_addr - offset as u64),
+            (19, store_value),
+            (20, sib_base),
+            (21, index),
+            (22, 0x2222_2222_2222_2222),
+        ];
+        let old_nzcv = 0b0110;
+        let (out, out_nzcv, sp, mem) =
+            run_aarch64_code_with_memory(&code, &regs, old_nzcv, mem_addr, initial, MemWidth::B8);
+
+        assert_eq!(out[14], 0x1414_1414_1414_1414);
+        assert_eq!(out[15], 0x1515_1515_1515_1515);
+        assert_eq!(out[16], mem_addr);
+        assert_eq!(out[17], initial);
+        assert_eq!(out[18], mem_addr - offset as u64);
+        assert_eq!(out[19], store_value);
+        assert_eq!(out[20], sib_base);
+        assert_eq!(out[21], index);
+        assert_eq!(out[22], store_value);
+        assert_eq!(out_nzcv, old_nzcv);
+        assert_eq!(sp, 0x8000);
+        assert_eq!(mem, store_value);
+    }
+
+    #[test]
+    fn lowers_scalar_memory_apx_egpr_reg_offset_address_shape() {
+        let code = lower_single_op(OpKind::Load {
+            dst: x86(X86Reg::R16),
+            addr: Address::BaseIndexScale {
+                base: Some(x86(X86Reg::R17)),
+                index: x86(X86Reg::R18),
+                scale: 8,
+                disp: 0,
+                disp_size: DispSize::Auto,
+            },
+            width: MemWidth::B8,
+            sign: SignExtend::Zero,
+        });
+        let words = code_words(&code);
+        assert_eq!(words[0], enc_ldst_reg_regs(3, 0b01, 18, 17, 16, 0b011, 1));
+    }
+
+    #[test]
+    fn avoids_scalar_memory_apx_writeback_fusion_when_transfer_aliases_base() {
+        let code = lower_ops(vec![
+            OpKind::Add {
+                dst: x86(X86Reg::R16),
+                src1: x86(X86Reg::R16),
+                src2: SrcOperand::Imm(8),
+                width: OpWidth::W64,
+                flags: FlagUpdate::None,
+            },
+            OpKind::Load {
+                dst: x86(X86Reg::R16),
+                addr: Address::Direct(x86(X86Reg::R16)),
+                width: MemWidth::B8,
+                sign: SignExtend::Zero,
+            },
+        ]);
+        let words = code_words(&code);
+        assert_eq!(words[0], enc_addsub_imm_regs(1, 0, 0, 0, 8, 16, 16));
+        assert_eq!(words[1], enc_ldst_uimm_regs(3, 0b01, 0, 16, 16));
+    }
+
+    #[test]
+    fn rejects_scalar_memory_apx_r31_address_mapping() {
+        for kind in [
+            OpKind::Load {
+                dst: x86(X86Reg::R16),
+                addr: Address::Direct(x86(X86Reg::R31)),
+                width: MemWidth::B8,
+                sign: SignExtend::Zero,
+            },
+            OpKind::Store {
+                src: x86(X86Reg::R16),
+                addr: Address::BaseOffset {
+                    base: x86(X86Reg::R31),
+                    offset: 8,
+                    disp_size: DispSize::Auto,
+                },
+                width: MemWidth::B8,
+            },
+            OpKind::Load {
+                dst: x86(X86Reg::R16),
+                addr: Address::BaseIndexScale {
+                    base: Some(x86(X86Reg::R31)),
+                    index: x86(X86Reg::R17),
+                    scale: 8,
+                    disp: 0,
+                    disp_size: DispSize::Auto,
+                },
+                width: MemWidth::B8,
+                sign: SignExtend::Zero,
+            },
+            OpKind::Load {
+                dst: x86(X86Reg::R16),
+                addr: Address::BaseIndexScale {
+                    base: Some(x86(X86Reg::R17)),
+                    index: x86(X86Reg::R31),
+                    scale: 8,
+                    disp: 0,
+                    disp_size: DispSize::Auto,
+                },
+                width: MemWidth::B8,
+                sign: SignExtend::Zero,
+            },
+        ] {
+            let err = try_lower_single_op(kind).unwrap_err();
+            assert!(matches!(err, LowerError::InvalidRegister(_)));
+        }
+    }
+
+    #[test]
     fn lowers_pair_memory_apx_egpr_value_operands_runtime() {
         let mem_addr = 0x9000;
         let initial = 0x1122_3344_5566_7788;
@@ -25349,6 +25529,64 @@ mod tests {
         assert_eq!(out[18], src1);
         assert_eq!(out[19], src2);
         assert_eq!(out[20], 0x2020_2020_2020_2020);
+        assert_eq!(out_nzcv, old_nzcv);
+        assert_eq!(sp, 0x8000);
+        assert_eq!(mem, expected_mem);
+    }
+
+    #[test]
+    fn lowers_pair_memory_apx_egpr_address_operands_runtime() {
+        let mem_addr = 0x9000_u64;
+        let initial = 0x1122_3344_5566_7788;
+        let src1 = 0xaabb_ccdd_eeff_0011;
+        let src2 = 0x2233_4455_6677_8899;
+        let index = 5_u64;
+        let disp = 0x20_i32;
+        let sib_base = mem_addr - index * 4 - disp as u64;
+        let code = lower_ops(vec![
+            OpKind::LoadPair {
+                dst1: x86(X86Reg::R16),
+                dst2: x86(X86Reg::R17),
+                addr: Address::Direct(x86(X86Reg::R18)),
+                width: MemWidth::B4,
+            },
+            OpKind::StorePair {
+                src1: x86(X86Reg::R20),
+                src2: x86(X86Reg::R21),
+                addr: Address::BaseIndexScale {
+                    base: Some(x86(X86Reg::R22)),
+                    index: x86(X86Reg::R23),
+                    scale: 4,
+                    disp,
+                    disp_size: DispSize::Auto,
+                },
+                width: MemWidth::B4,
+            },
+        ]);
+
+        let regs = [
+            (14, 0x1414_1414_1414_1414),
+            (15, 0x1515_1515_1515_1515),
+            (18, mem_addr),
+            (20, src1),
+            (21, src2),
+            (22, sib_base),
+            (23, index),
+        ];
+        let old_nzcv = 0b1001;
+        let (out, out_nzcv, sp, mem) =
+            run_aarch64_code_with_memory(&code, &regs, old_nzcv, mem_addr, initial, MemWidth::B8);
+        let expected_mem = ((src2 & 0xffff_ffff) << 32) | (src1 & 0xffff_ffff);
+
+        assert_eq!(out[14], 0x1414_1414_1414_1414);
+        assert_eq!(out[15], 0x1515_1515_1515_1515);
+        assert_eq!(out[16], initial & 0xffff_ffff);
+        assert_eq!(out[17], initial >> 32);
+        assert_eq!(out[18], mem_addr);
+        assert_eq!(out[20], src1);
+        assert_eq!(out[21], src2);
+        assert_eq!(out[22], sib_base);
+        assert_eq!(out[23], index);
         assert_eq!(out_nzcv, old_nzcv);
         assert_eq!(sp, 0x8000);
         assert_eq!(mem, expected_mem);
@@ -27687,6 +27925,84 @@ mod tests {
         assert_eq!(out_nzcv, old_nzcv);
         assert_eq!(sp, 0x8000);
         assert_eq!(mem, expected_mem);
+    }
+
+    #[test]
+    fn lowers_atomic_rmw_apx_egpr_address_operands_runtime() {
+        let mem_addr = 0x9000_u64;
+        let index = 4_u64;
+        let disp = -0x18_i32;
+        let sib_base = (mem_addr as i64 - (index as i64) * 8 - i64::from(disp)) as u64;
+        let src_value = 7;
+        let mem_value = 11;
+        let code = lower_single_op(OpKind::AtomicRmw {
+            dst: x86(X86Reg::R16),
+            addr: Address::BaseIndexScale {
+                base: Some(x86(X86Reg::R17)),
+                index: x86(X86Reg::R18),
+                scale: 8,
+                disp,
+                disp_size: DispSize::Auto,
+            },
+            src: x86(X86Reg::R19),
+            op: AtomicOp::Add,
+            width: MemWidth::B8,
+            order: MemoryOrder::AcqRel,
+        });
+        let (expected_old, expected_mem) =
+            ref_atomic_rmw(mem_value, src_value, MemWidth::B8, AtomicOp::Add);
+
+        let regs = [
+            (14, 0x1414_1414_1414_1414),
+            (15, 0x1515_1515_1515_1515),
+            (17, sib_base),
+            (18, index),
+            (19, src_value),
+        ];
+        let old_nzcv = 0b1100;
+        let (out, out_nzcv, sp, mem) =
+            run_aarch64_code_with_memory(&code, &regs, old_nzcv, mem_addr, mem_value, MemWidth::B8);
+
+        assert_eq!(out[14], 0x1414_1414_1414_1414);
+        assert_eq!(out[15], 0x1515_1515_1515_1515);
+        assert_eq!(out[16], expected_old);
+        assert_eq!(out[17], sib_base);
+        assert_eq!(out[18], index);
+        assert_eq!(out[19], src_value);
+        assert_eq!(out_nzcv, old_nzcv);
+        assert_eq!(sp, 0x8000);
+        assert_eq!(mem, expected_mem);
+    }
+
+    #[test]
+    fn rejects_atomic_rmw_apx_r31_address_mapping() {
+        for kind in [
+            OpKind::AtomicRmw {
+                dst: x86(X86Reg::R16),
+                addr: Address::Direct(x86(X86Reg::R31)),
+                src: x86(X86Reg::R17),
+                op: AtomicOp::Add,
+                width: MemWidth::B8,
+                order: MemoryOrder::AcqRel,
+            },
+            OpKind::AtomicRmw {
+                dst: x86(X86Reg::R16),
+                addr: Address::BaseIndexScale {
+                    base: Some(x86(X86Reg::R17)),
+                    index: x86(X86Reg::R31),
+                    scale: 8,
+                    disp: 0,
+                    disp_size: DispSize::Auto,
+                },
+                src: x86(X86Reg::R18),
+                op: AtomicOp::Add,
+                width: MemWidth::B8,
+                order: MemoryOrder::AcqRel,
+            },
+        ] {
+            let err = try_lower_single_op(kind).unwrap_err();
+            assert!(matches!(err, LowerError::InvalidRegister(_)));
+        }
     }
 
     #[test]
