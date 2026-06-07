@@ -2472,6 +2472,32 @@ fn push_logical_zero_base_reg_native_cases(
 ) {
     let logical_cases = [
         (
+            "and_x_zero_base_as_movz_zero_preserves_flags",
+            OpKind::And {
+                dst: arm_x(0),
+                src1: VReg::Imm(0),
+                src2: SrcOperand::Reg(arm_x(0)),
+                width: OpWidth::W64,
+                flags: FlagUpdate::None,
+            },
+            [enc_logical_shift_regs(1, 0b00, 0, 0, 0, 0, 31, 0), NOP, NOP],
+            0x1234_5678_9abc_def0,
+            0xe000_0000,
+        ),
+        (
+            "and_w_zero_source_as_movz_zero_preserves_flags",
+            OpKind::And {
+                dst: arm_x(0),
+                src1: arm_x(0),
+                src2: SrcOperand::Reg(VReg::Imm(0)),
+                width: OpWidth::W32,
+                flags: FlagUpdate::None,
+            },
+            [enc_logical_shift_regs(0, 0b00, 0, 0, 0, 0, 0, 31), NOP, NOP],
+            0xffff_ffff_89ab_cdef,
+            0x5000_0000,
+        ),
+        (
             "orr_x_zero_base_same_dst_as_noop_preserves_flags",
             OpKind::Or {
                 dst: arm_x(0),
