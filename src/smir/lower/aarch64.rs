@@ -2292,7 +2292,7 @@ impl Aarch64Lowerer {
                         return self.emit_mov_reg(dst, rm, width);
                     }
                 }
-                if n && opc == 0b00 && rn == rm {
+                if n && opc == 0b00 && (rn == 31 || rn == rm) {
                     return self.emit_mov_imm(dst, 0, width);
                 }
             }
@@ -15524,6 +15524,48 @@ mod tests {
                     dst: x(0),
                     src1: x(1),
                     src2: SrcOperand::Reg(VReg::Imm(0)),
+                    width: OpWidth::W32,
+                    flags: FlagUpdate::None,
+                },
+                0,
+            ),
+        ];
+
+        for (kind, sf) in cases {
+            let mut builder = FunctionBuilder::new(FunctionId(0), 0);
+            builder.push_op(0, kind);
+            builder.set_terminator(Terminator::Return { values: vec![] });
+            let func = builder.finish();
+
+            let mut lowerer = Aarch64Lowerer::new();
+            lowerer.lower_function(&func).unwrap();
+            let code = lowerer.finalize().unwrap();
+
+            let mut expected = Vec::new();
+            expected.extend_from_slice(&enc_mov_wide(sf, 0b10, 0, 0, 0).to_le_bytes());
+            expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
+            assert_eq!(code, expected);
+        }
+    }
+
+    #[test]
+    fn lowers_andnot_zero_base_reg_as_movz_zero() {
+        let cases = [
+            (
+                OpKind::AndNot {
+                    dst: x(0),
+                    src1: VReg::Imm(0),
+                    src2: SrcOperand::Reg(x(1)),
+                    width: OpWidth::W64,
+                    flags: FlagUpdate::None,
+                },
+                1,
+            ),
+            (
+                OpKind::AndNot {
+                    dst: x(0),
+                    src1: VReg::Imm(0),
+                    src2: SrcOperand::Reg(x(1)),
                     width: OpWidth::W32,
                     flags: FlagUpdate::None,
                 },
