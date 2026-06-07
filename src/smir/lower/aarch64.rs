@@ -2612,6 +2612,25 @@ impl Aarch64Lowerer {
         Ok(())
     }
 
+    fn lower_vcvt_bf16_to_fp32(
+        &mut self,
+        dst: VReg,
+        src: VReg,
+        width: VecWidth,
+    ) -> Result<(), LowerError> {
+        if width != VecWidth::V128 {
+            return Err(LowerError::UnsupportedOp {
+                op: format!("AArch64 native BF16-to-FP32 vector width {width:?}"),
+            });
+        }
+
+        let rd = Self::fp_reg(dst)?;
+        let rn = Self::fp_reg(src)?;
+        self.emit_simd_shift_imm(rd, rn, 0, 1, 0b0010, 0, 0b10100);
+        self.emit_simd_shift_imm(rd, rd, 1, 0, 0b0110, 0, 0b01010);
+        Ok(())
+    }
+
     fn lower_vcvt_fp_to_int_sat(
         &mut self,
         dst: VReg,
@@ -11713,6 +11732,9 @@ impl Aarch64Lowerer {
                 src2,
                 width,
             } => self.lower_vcvt_fp32_to_bf16(*dst, *src1, *src2, *width),
+            OpKind::VCvtBF16ToFP32 { dst, src, width } => {
+                self.lower_vcvt_bf16_to_fp32(*dst, *src, *width)
+            }
             OpKind::VCvtFpToIntSat {
                 dst,
                 src,
@@ -16341,6 +16363,25 @@ mod tests {
         0x0e20_0800 | (q << 30) | (u << 29) | (size << 22) | (opcode << 12) | (rn << 5) | rd
     }
 
+    fn enc_simd_shift_imm(
+        rd: u32,
+        rn: u32,
+        q: u32,
+        u: u32,
+        immh: u32,
+        immb: u32,
+        opcode: u32,
+    ) -> u32 {
+        0x0f00_0400
+            | (q << 30)
+            | (u << 29)
+            | (immh << 19)
+            | (immb << 16)
+            | (opcode << 11)
+            | (rn << 5)
+            | rd
+    }
+
     fn enc_simd_umov(rd: u32, rn: u32, imm5: u32, to_x: bool) -> u32 {
         let base = if to_x { 0x4e00_3c00 } else { 0x0e00_3c00 };
         base | (imm5 << 16) | (rn << 5) | rd
@@ -19677,6 +19718,48 @@ mod tests {
     }
 
     #[test]
+    fn lowers_vector_bf16_to_fp32_conversion_encodings() {
+        let code = lower_ops(vec![OpKind::VCvtBF16ToFP32 {
+            dst: v(0),
+            src: v(1),
+            width: VecWidth::V128,
+        }]);
+        let words = code_words(&code);
+
+        assert_eq!(words[0], enc_simd_shift_imm(0, 1, 0, 1, 0b0010, 0, 0b10100));
+        assert_eq!(words[1], enc_simd_shift_imm(0, 0, 1, 0, 0b0110, 0, 0b01010));
+        assert_eq!(words[2], 0xd65f_03c0);
+    }
+
+    #[test]
+    fn lowers_vector_bf16_to_fp32_conversion_runtime() {
+        let src = [
+            0x3f80, 0xbf80, 0x7fc1, 0x0080, 0x4000, 0xc040, 0x0001, 0x7f80,
+        ];
+        let expected = [
+            0x3f80_0000,
+            0xbf80_0000,
+            0x7fc1_0000,
+            0x0080_0000,
+        ];
+        let code = lower_ops(vec![OpKind::VCvtBF16ToFP32 {
+            dst: v(0),
+            src: v(1),
+            width: VecWidth::V128,
+        }]);
+
+        let (_, simd, sp) = run_aarch64_code_with_regs_and_simd(
+            &code,
+            &[],
+            &[(1, simd_pair_from_bf16(src).0, simd_pair_from_bf16(src).1)],
+        );
+
+        assert_eq!(simd[0], simd_pair_from_f32_bits(expected));
+        assert_eq!(simd[1], simd_pair_from_bf16(src));
+        assert_eq!(sp, 0x8000);
+    }
+
+    #[test]
     fn lowers_vector_saturating_fp_to_int_conversion_encodings() {
         let code = lower_ops(vec![
             OpKind::VCvtFpToIntSat {
@@ -22218,6 +22301,18 @@ mod tests {
             src1: v(1),
             src2: Some(v(2)),
             width: VecWidth::V128,
+        });
+
+        assert_unsupported(OpKind::VCvtBF16ToFP32 {
+            dst: v(0),
+            src: v(1),
+            width: VecWidth::V64,
+        });
+
+        assert_unsupported(OpKind::VCvtBF16ToFP32 {
+            dst: v(0),
+            src: v(1),
+            width: VecWidth::V256,
         });
 
         assert_unsupported(OpKind::VCvtFpToIntSat {
