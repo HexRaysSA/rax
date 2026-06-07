@@ -4443,14 +4443,9 @@ impl Aarch64Lowerer {
         src1: VReg,
         src2: &SrcOperand,
         width: OpWidth,
-        flags_set: bool,
+        _flags_set: bool,
         signed: bool,
     ) -> Result<(), LowerError> {
-        if flags_set {
-            return Err(LowerError::UnsupportedOp {
-                op: "AArch64 native flag-setting divide".into(),
-            });
-        }
         if Self::src_imm(src2) == Some(1) {
             let quot = Self::dst_gpr(quot)?;
             let rn = Self::gpr(src1)?;
@@ -8064,6 +8059,7 @@ mod tests {
         src2_reg: Option<u8>,
         src1_value: u64,
         src2_value: u64,
+        flags: FlagUpdate,
     ) {
         let op = if signed {
             OpKind::DivS {
@@ -8072,7 +8068,7 @@ mod tests {
                 src1: x(src1_reg),
                 src2,
                 width: OpWidth::W64,
-                flags: FlagUpdate::None,
+                flags,
             }
         } else {
             OpKind::DivU {
@@ -8081,7 +8077,7 @@ mod tests {
                 src1: x(src1_reg),
                 src2,
                 width: OpWidth::W64,
-                flags: FlagUpdate::None,
+                flags,
             }
         };
         let code = lower_single_op(op);
@@ -10551,6 +10547,7 @@ mod tests {
             None,
             0xfedc_ba98_7654_3217,
             8,
+            FlagUpdate::None,
         );
     }
 
@@ -10623,6 +10620,7 @@ mod tests {
             Some(2),
             0x1234_5678_9abc_def0,
             0x101,
+            FlagUpdate::None,
         );
         assert_div_w64_lowering(
             "divu_outputs_alias_both_sources",
@@ -10634,6 +10632,7 @@ mod tests {
             Some(2),
             0x1234_5678_9abc_def0,
             0x101,
+            FlagUpdate::None,
         );
         assert_div_w64_lowering(
             "divs_outputs_alias_both_sources",
@@ -10645,29 +10644,48 @@ mod tests {
             Some(2),
             0xffff_ffff_f8a4_32eb,
             0x141,
+            FlagUpdate::None,
         );
     }
 
     #[test]
-    fn rejects_flag_setting_div_lowering() {
-        let mut builder = FunctionBuilder::new(FunctionId(0), 0);
-        builder.push_op(
+    fn lowers_flag_setting_div_without_touching_nzcv() {
+        assert_div_w64_lowering(
+            "divu_reg_flags",
+            false,
             0,
-            OpKind::DivU {
-                quot: x(0),
-                rem: Some(x(3)),
-                src1: x(1),
-                src2: SrcOperand::Reg(x(2)),
-                width: OpWidth::W64,
-                flags: FlagUpdate::All,
-            },
+            Some(3),
+            1,
+            SrcOperand::Reg(x(2)),
+            Some(2),
+            0x1234_5678_9abc_def0,
+            0x101,
+            FlagUpdate::All,
         );
-        builder.set_terminator(Terminator::Return { values: vec![] });
-        let func = builder.finish();
-
-        let mut lowerer = Aarch64Lowerer::new();
-        let err = lowerer.lower_function(&func).unwrap_err();
-        assert!(matches!(err, LowerError::UnsupportedOp { .. }));
+        assert_div_w64_lowering(
+            "divs_outputs_alias_both_sources_flags",
+            true,
+            2,
+            Some(1),
+            1,
+            SrcOperand::Reg(x(2)),
+            Some(2),
+            0xffff_ffff_f8a4_32eb,
+            0x141,
+            FlagUpdate::All,
+        );
+        assert_div_w64_lowering(
+            "divu_imm_one_flags",
+            false,
+            0,
+            Some(3),
+            1,
+            SrcOperand::Imm(1),
+            None,
+            0x1234_5678_9abc_def0,
+            1,
+            FlagUpdate::All,
+        );
     }
 
     #[test]
