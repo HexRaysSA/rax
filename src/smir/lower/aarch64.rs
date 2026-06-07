@@ -928,6 +928,26 @@ impl Aarch64Lowerer {
         );
     }
 
+    fn emit_simd_two_reg_misc(
+        &mut self,
+        rd: u8,
+        rn: u8,
+        q: u32,
+        u: u32,
+        size: u32,
+        opcode: u32,
+    ) {
+        self.emit(
+            0x0e20_0800
+                | (q << 30)
+                | (u << 29)
+                | (size << 22)
+                | (opcode << 12)
+                | ((rn as u32) << 5)
+                | (rd as u32),
+        );
+    }
+
     fn emit_simd_dup_general(&mut self, rd: u8, rn: u8, q: u32, size: u32) {
         let imm5 = 1_u32 << size;
         self.emit(
@@ -2174,6 +2194,63 @@ impl Aarch64Lowerer {
             VLaneOp::AbsDiff => {
                 self.lower_vlane_three_same(dst, src1, src2, elem, lanes, signed, 0b01110, false)
             }
+        }
+    }
+
+    fn lower_vlane_unary_two_reg(
+        &mut self,
+        dst: VReg,
+        src: VReg,
+        elem: VecElementType,
+        lanes: u8,
+        u: u32,
+        opcode: u32,
+        allow_i64: bool,
+    ) -> Result<(), LowerError> {
+        let rd = Self::fp_reg(dst)?;
+        let rn = Self::fp_reg(src)?;
+        let (q, size) = Self::simd_integer_shape(elem, lanes)?;
+        if size == 3 && !allow_i64 {
+            return Err(LowerError::UnsupportedOp {
+                op: format!("AArch64 native VLaneUnary opcode {opcode:#07b} I64"),
+            });
+        }
+        self.emit_simd_two_reg_misc(rd, rn, q, u, size, opcode);
+        Ok(())
+    }
+
+    fn lower_vlane_unary(
+        &mut self,
+        dst: VReg,
+        src: VReg,
+        elem: VecElementType,
+        lanes: u8,
+        op: u8,
+        _signed: bool,
+    ) -> Result<(), LowerError> {
+        match op {
+            0 => {
+                let rd = Self::fp_reg(dst)?;
+                let rn = Self::fp_reg(src)?;
+                let q = Self::simd_vec_q(Self::simd_lane_width(elem, lanes)?)?;
+                self.emit_simd_two_reg_misc(rd, rn, q, 1, 0, 0b00101);
+                Ok(())
+            }
+            1 => self.lower_vlane_unary_two_reg(dst, src, elem, lanes, 0, 0b01011, true),
+            2 => self.lower_vlane_unary_two_reg(dst, src, elem, lanes, 0, 0b00111, true),
+            3 => self.lower_vlane_unary_two_reg(dst, src, elem, lanes, 1, 0b00100, false),
+            4 => {
+                if elem != VecElementType::I8 {
+                    return Err(LowerError::UnsupportedOp {
+                        op: format!("AArch64 native VLaneUnary popcount element {elem:?}"),
+                    });
+                }
+                self.lower_vlane_unary_two_reg(dst, src, elem, lanes, 0, 0b00101, false)
+            }
+            6 => self.lower_vlane_unary_two_reg(dst, src, elem, lanes, 1, 0b01011, true),
+            other => Err(LowerError::UnsupportedOp {
+                op: format!("AArch64 native VLaneUnary op {other}"),
+            }),
         }
     }
 
@@ -10584,6 +10661,14 @@ impl Aarch64Lowerer {
                 signed,
                 set_ovf,
             } => self.lower_vlane(*dst, *src1, *src2, *elem, *lanes, *op, *signed, *set_ovf),
+            OpKind::VLaneUnary {
+                dst,
+                src,
+                elem,
+                lanes,
+                op,
+                signed,
+            } => self.lower_vlane_unary(*dst, *src, *elem, *lanes, *op, *signed),
             OpKind::VBroadcast {
                 dst,
                 scalar,
@@ -17923,6 +18008,136 @@ mod tests {
     }
 
     #[test]
+    fn lowers_vlane_unary_integer_runtime() {
+        fn apply_vlane_unary(
+            src_low: u64,
+            src_high: u64,
+            elem_bytes: usize,
+            lanes: usize,
+            op: u8,
+        ) -> (u64, u64) {
+            fn read_lane(bytes: &[u8; 16], offset: usize, len: usize) -> u64 {
+                let mut word = [0u8; 8];
+                word[..len].copy_from_slice(&bytes[offset..offset + len]);
+                u64::from_le_bytes(word)
+            }
+
+            let mut src = [0u8; 16];
+            let mut out = [0u8; 16];
+            src[..8].copy_from_slice(&src_low.to_le_bytes());
+            src[8..].copy_from_slice(&src_high.to_le_bytes());
+
+            let elem_bits = elem_bytes * 8;
+            let mask = if elem_bits == 64 {
+                u64::MAX
+            } else {
+                (1u64 << elem_bits) - 1
+            };
+            let sx = |value: u64| -> i128 {
+                if elem_bits == 64 {
+                    value as i64 as i128
+                } else {
+                    let shift = 64 - elem_bits;
+                    ((value << shift) as i64 >> shift) as i128
+                }
+            };
+            let smax = if elem_bits == 64 {
+                i64::MAX as i128
+            } else {
+                (1i128 << (elem_bits - 1)) - 1
+            };
+
+            for lane in 0..lanes {
+                let off = lane * elem_bytes;
+                let av = read_lane(&src, off, elem_bytes);
+                let result = match op {
+                    0 => !av,
+                    1 => sx(av).wrapping_abs() as u64,
+                    2 => sx(av).abs().min(smax) as u64,
+                    3 => ((av & mask) << (64 - elem_bits)).leading_zeros() as u64,
+                    4 => (av & mask).count_ones() as u64,
+                    5 => {
+                        let v = (av & mask) << (64 - elem_bits);
+                        let nv = (!av & mask) << (64 - elem_bits);
+                        (v.leading_zeros().max(nv.leading_zeros()) - 1) as u64
+                    }
+                    6 => sx(av).wrapping_neg() as u64,
+                    _ => av,
+                } & mask;
+                out[off..off + elem_bytes].copy_from_slice(&result.to_le_bytes()[..elem_bytes]);
+            }
+
+            let mut low = [0u8; 8];
+            let mut high = [0u8; 8];
+            low.copy_from_slice(&out[..8]);
+            high.copy_from_slice(&out[8..]);
+            (u64::from_le_bytes(low), u64::from_le_bytes(high))
+        }
+
+        let src_low = 0x8001_7fff_00f0_8000;
+        let src_high = 0xffff_0001_8000_7f00;
+        let code = lower_ops(vec![
+            OpKind::VLaneUnary {
+                dst: v(0),
+                src: v(1),
+                elem: VecElementType::I32,
+                lanes: 4,
+                op: 0,
+                signed: false,
+            },
+            OpKind::VLaneUnary {
+                dst: v(2),
+                src: v(1),
+                elem: VecElementType::I8,
+                lanes: 16,
+                op: 1,
+                signed: true,
+            },
+            OpKind::VLaneUnary {
+                dst: v(3),
+                src: v(1),
+                elem: VecElementType::I16,
+                lanes: 8,
+                op: 2,
+                signed: true,
+            },
+            OpKind::VLaneUnary {
+                dst: v(4),
+                src: v(1),
+                elem: VecElementType::I32,
+                lanes: 4,
+                op: 3,
+                signed: false,
+            },
+            OpKind::VLaneUnary {
+                dst: v(5),
+                src: v(1),
+                elem: VecElementType::I8,
+                lanes: 16,
+                op: 4,
+                signed: false,
+            },
+            OpKind::VLaneUnary {
+                dst: v(6),
+                src: v(1),
+                elem: VecElementType::I64,
+                lanes: 2,
+                op: 6,
+                signed: true,
+            },
+        ]);
+
+        let (_, simd, _) =
+            run_aarch64_code_with_regs_and_simd(&code, &[], &[(1, src_low, src_high)]);
+        assert_eq!(simd[0], apply_vlane_unary(src_low, src_high, 4, 4, 0));
+        assert_eq!(simd[2], apply_vlane_unary(src_low, src_high, 1, 16, 1));
+        assert_eq!(simd[3], apply_vlane_unary(src_low, src_high, 2, 8, 2));
+        assert_eq!(simd[4], apply_vlane_unary(src_low, src_high, 4, 4, 3));
+        assert_eq!(simd[5], apply_vlane_unary(src_low, src_high, 1, 16, 4));
+        assert_eq!(simd[6], apply_vlane_unary(src_low, src_high, 8, 2, 6));
+    }
+
+    #[test]
     fn lowers_vector_broadcast_runtime() {
         fn splat(scalar: u64, elem_bytes: usize, lanes: usize) -> (u64, u64) {
             let mut out = [0u8; 16];
@@ -18320,6 +18535,60 @@ mod tests {
             op: VLaneOp::AddSat,
             signed: false,
             set_ovf: true,
+        });
+
+        assert_unsupported(OpKind::VLaneUnary {
+            dst: v(0),
+            src: v(1),
+            elem: VecElementType::I64,
+            lanes: 2,
+            op: 3,
+            signed: false,
+        });
+
+        assert_unsupported(OpKind::VLaneUnary {
+            dst: v(0),
+            src: v(1),
+            elem: VecElementType::I16,
+            lanes: 8,
+            op: 4,
+            signed: false,
+        });
+
+        assert_unsupported(OpKind::VLaneUnary {
+            dst: v(0),
+            src: v(1),
+            elem: VecElementType::I16,
+            lanes: 8,
+            op: 5,
+            signed: false,
+        });
+
+        assert_unsupported(OpKind::VLaneUnary {
+            dst: v(0),
+            src: v(1),
+            elem: VecElementType::I16,
+            lanes: 8,
+            op: 7,
+            signed: false,
+        });
+
+        assert_unsupported(OpKind::VLaneUnary {
+            dst: v(0),
+            src: v(1),
+            elem: VecElementType::I32,
+            lanes: 8,
+            op: 0,
+            signed: false,
+        });
+
+        assert_unsupported(OpKind::VLaneUnary {
+            dst: v(0),
+            src: v(1),
+            elem: VecElementType::F32,
+            lanes: 4,
+            op: 1,
+            signed: true,
         });
 
         assert_unsupported(OpKind::VBroadcast {
