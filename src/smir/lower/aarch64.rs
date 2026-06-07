@@ -2236,6 +2236,14 @@ impl Aarch64Lowerer {
                 }
                 (1, 0b01100)
             }
+            SimdArithmeticOp::Min { signed } => {
+                if size == 3 {
+                    return Err(LowerError::UnsupportedOp {
+                        op: "AArch64 native integer vector min I64".to_string(),
+                    });
+                }
+                (if signed { 0 } else { 1 }, 0b01101)
+            }
         };
         self.emit_simd_three_same(rd, rn, rm, q, u, size, opcode);
         Ok(())
@@ -10843,6 +10851,21 @@ impl Aarch64Lowerer {
                 elem,
                 lanes,
             } => self.lower_varith(*dst, *src1, *src2, *elem, *lanes, SimdArithmeticOp::Max),
+            OpKind::VMin {
+                dst,
+                src1,
+                src2,
+                elem,
+                lanes,
+                signed,
+            } => self.lower_varith(
+                *dst,
+                *src1,
+                *src2,
+                *elem,
+                *lanes,
+                SimdArithmeticOp::Min { signed: *signed },
+            ),
             OpKind::VLane {
                 dst,
                 src1,
@@ -11514,6 +11537,7 @@ enum SimdArithmeticOp {
     Sub,
     Mul,
     Max,
+    Min { signed: bool },
 }
 
 #[derive(Clone, Copy)]
@@ -18191,6 +18215,122 @@ mod tests {
     }
 
     #[test]
+    fn lowers_vector_integer_min_runtime() {
+        fn apply_min(
+            a_low: u64,
+            a_high: u64,
+            b_low: u64,
+            b_high: u64,
+            elem_bytes: usize,
+            lanes: usize,
+            signed: bool,
+        ) -> (u64, u64) {
+            fn read_lane(bytes: &[u8; 16], offset: usize, len: usize) -> u64 {
+                let mut word = [0u8; 8];
+                word[..len].copy_from_slice(&bytes[offset..offset + len]);
+                u64::from_le_bytes(word)
+            }
+
+            fn sign_extend(value: u64, bits: usize) -> i64 {
+                let shift = 64 - bits;
+                ((value << shift) as i64) >> shift
+            }
+
+            let mut a = [0u8; 16];
+            let mut b = [0u8; 16];
+            let mut out = [0u8; 16];
+            a[..8].copy_from_slice(&a_low.to_le_bytes());
+            a[8..].copy_from_slice(&a_high.to_le_bytes());
+            b[..8].copy_from_slice(&b_low.to_le_bytes());
+            b[8..].copy_from_slice(&b_high.to_le_bytes());
+
+            let elem_bits = elem_bytes * 8;
+            for lane in 0..lanes {
+                let off = lane * elem_bytes;
+                let av = read_lane(&a, off, elem_bytes);
+                let bv = read_lane(&b, off, elem_bytes);
+                let value = if signed {
+                    if sign_extend(av, elem_bits) <= sign_extend(bv, elem_bits) {
+                        av
+                    } else {
+                        bv
+                    }
+                } else {
+                    av.min(bv)
+                };
+                out[off..off + elem_bytes].copy_from_slice(&value.to_le_bytes()[..elem_bytes]);
+            }
+
+            let mut low = [0u8; 8];
+            let mut high = [0u8; 8];
+            low.copy_from_slice(&out[..8]);
+            high.copy_from_slice(&out[8..]);
+            (u64::from_le_bytes(low), u64::from_le_bytes(high))
+        }
+
+        let a_low = 0x807f_00ff_7f80_ff00;
+        let a_high = 0x0001_ffff_8000_7fff;
+        let b_low = 0x7f80_ff00_0080_00ff;
+        let b_high = 0xffff_0001_7fff_8000;
+        let code = lower_ops(vec![
+            OpKind::VMin {
+                dst: v(0),
+                src1: v(1),
+                src2: v(2),
+                elem: VecElementType::I8,
+                lanes: 16,
+                signed: false,
+            },
+            OpKind::VMin {
+                dst: v(3),
+                src1: v(1),
+                src2: v(2),
+                elem: VecElementType::I16,
+                lanes: 8,
+                signed: false,
+            },
+            OpKind::VMin {
+                dst: v(4),
+                src1: v(1),
+                src2: v(2),
+                elem: VecElementType::I8,
+                lanes: 16,
+                signed: true,
+            },
+            OpKind::VMin {
+                dst: v(5),
+                src1: v(1),
+                src2: v(2),
+                elem: VecElementType::I32,
+                lanes: 4,
+                signed: true,
+            },
+        ]);
+
+        let (_, simd, _) = run_aarch64_code_with_regs_and_simd(
+            &code,
+            &[],
+            &[(1, a_low, a_high), (2, b_low, b_high)],
+        );
+        assert_eq!(
+            simd[0],
+            apply_min(a_low, a_high, b_low, b_high, 1, 16, false)
+        );
+        assert_eq!(
+            simd[3],
+            apply_min(a_low, a_high, b_low, b_high, 2, 8, false)
+        );
+        assert_eq!(
+            simd[4],
+            apply_min(a_low, a_high, b_low, b_high, 1, 16, true)
+        );
+        assert_eq!(
+            simd[5],
+            apply_min(a_low, a_high, b_low, b_high, 4, 4, true)
+        );
+    }
+
+    #[test]
     fn lowers_vlane_integer_runtime() {
         fn apply_vlane(
             a_low: u64,
@@ -19160,6 +19300,33 @@ mod tests {
             src2: v(2),
             elem: VecElementType::I32,
             lanes: 8,
+        });
+
+        assert_unsupported(OpKind::VMin {
+            dst: v(0),
+            src1: v(1),
+            src2: v(2),
+            elem: VecElementType::I64,
+            lanes: 2,
+            signed: true,
+        });
+
+        assert_unsupported(OpKind::VMin {
+            dst: v(0),
+            src1: v(1),
+            src2: v(2),
+            elem: VecElementType::F32,
+            lanes: 4,
+            signed: false,
+        });
+
+        assert_unsupported(OpKind::VMin {
+            dst: v(0),
+            src1: v(1),
+            src2: v(2),
+            elem: VecElementType::I32,
+            lanes: 8,
+            signed: false,
         });
 
         assert_unsupported(OpKind::VLane {
