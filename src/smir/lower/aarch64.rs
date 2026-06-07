@@ -2794,9 +2794,7 @@ impl Aarch64Lowerer {
     ) -> Result<(), LowerError> {
         if matches!(width, OpWidth::W8 | OpWidth::W16) {
             if set_flags {
-                return Err(LowerError::UnsupportedOp {
-                    op: "AArch64 native flag-setting subword Neg".into(),
-                });
+                return self.lower_subword_neg_with_flags(dst, src, width);
             }
 
             let dst = Self::dst_gpr(dst)?;
@@ -2813,6 +2811,28 @@ impl Aarch64Lowerer {
             set_flags,
             width,
         )
+    }
+
+    fn lower_subword_neg_with_flags(
+        &mut self,
+        dst: VReg,
+        src: VReg,
+        width: OpWidth,
+    ) -> Result<(), LowerError> {
+        let dst_reg = Self::dst_or_zero_for_flags(dst, true)?;
+        let rn = Self::gpr(src)?;
+        let scratches = Self::scratch_regs(&[dst_reg, rn], 1)?;
+        let rhs = scratches[0];
+        let shift = OpWidth::W32.bits() - width.bits();
+
+        self.emit_scratch_save(&scratches);
+        self.emit_shifted_subword_addsub_operand(rhs, rn, width)?;
+        self.emit_addsub_reg(dst_reg, 31, rhs, true, true, OpWidth::W32)?;
+        if dst_reg != 31 {
+            self.emit_logic_shifted(dst_reg, 31, dst_reg, 0b01, false, 1, shift, OpWidth::W32)?;
+        }
+        self.emit_scratch_restore(&scratches);
+        Ok(())
     }
 
     fn emit_preserve_saved_c_flag(&mut self, saved_flags: u8, flags: u8) -> Result<(), LowerError> {
@@ -9341,6 +9361,53 @@ mod tests {
         }
         for (reg, value) in sentinels {
             if reg != dst_reg && reg != src_reg {
+                assert_eq!(out[reg as usize], value, "{label}: x{reg} restored");
+            }
+        }
+    }
+
+    fn assert_subword_neg_flags_lowering(
+        label: &str,
+        dst: VReg,
+        src_reg: u8,
+        src_value: u64,
+        width: OpWidth,
+        old_nzcv: u8,
+    ) {
+        let op = OpKind::Neg {
+            dst,
+            src: x(src_reg),
+            width,
+            flags: FlagUpdate::All,
+        };
+        let dst_reg = if let VReg::Arch(ArchReg::Arm(ArmReg::X(reg))) = dst {
+            Some(reg)
+        } else {
+            None
+        };
+        let code = lower_single_op(op);
+        let expected = ref_addsub(0, src_value, true, width);
+        let expected_nzcv = expected_addsub_nzcv(0, src_value, true, width);
+        let sentinels = [
+            (16, 0x1616_1616_1616_1616),
+            (17, 0x1717_1717_1717_1717),
+            (15, 0x1515_1515_1515_1515),
+            (14, 0x1414_1414_1414_1414),
+        ];
+        let mut regs = sentinels.to_vec();
+        regs.push((src_reg, src_value));
+
+        let (out, out_nzcv, sp) = run_aarch64_code(&code, &regs, old_nzcv);
+        if let Some(reg) = dst_reg {
+            assert_eq!(out[reg as usize], expected, "{label}: result");
+        }
+        assert_eq!(out_nzcv, expected_nzcv, "{label}: NZCV");
+        assert_eq!(sp, 0x8000, "{label}: stack restored");
+        if Some(src_reg) != dst_reg {
+            assert_eq!(out[src_reg as usize], src_value, "{label}: src preserved");
+        }
+        for (reg, value) in sentinels {
+            if Some(reg) != dst_reg && reg != src_reg {
                 assert_eq!(out[reg as usize], value, "{label}: x{reg} restored");
             }
         }
@@ -20092,23 +20159,39 @@ mod tests {
     }
 
     #[test]
-    fn rejects_flag_setting_subword_neg_lowering() {
-        let mut builder = FunctionBuilder::new(FunctionId(0), 0);
-        builder.push_op(
+    fn lowers_flag_setting_subword_neg_runtime() {
+        assert_subword_neg_flags_lowering(
+            "neg_w8_zero_sets_zero_and_carry",
+            x(0),
+            1,
             0,
-            OpKind::Neg {
-                dst: x(0),
-                src: x(1),
-                width: OpWidth::W8,
-                flags: FlagUpdate::All,
-            },
+            OpWidth::W8,
+            0b1001,
         );
-        builder.set_terminator(Terminator::Return { values: vec![] });
-        let func = builder.finish();
-
-        let mut lowerer = Aarch64Lowerer::new();
-        let err = lowerer.lower_function(&func).unwrap_err();
-        assert!(matches!(err, LowerError::UnsupportedOp { .. }));
+        assert_subword_neg_flags_lowering(
+            "neg_w8_min_sets_overflow",
+            x(0),
+            1,
+            0x80,
+            OpWidth::W8,
+            0b0110,
+        );
+        assert_subword_neg_flags_lowering(
+            "neg_w8_virtual_dst_sets_negative",
+            VReg::virt(0),
+            1,
+            1,
+            OpWidth::W8,
+            0b0111,
+        );
+        assert_subword_neg_flags_lowering(
+            "neg_w16_dst_aliases_src",
+            x(1),
+            1,
+            0x1234,
+            OpWidth::W16,
+            0b1111,
+        );
     }
 
     #[test]
