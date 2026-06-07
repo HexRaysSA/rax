@@ -2330,13 +2330,9 @@ impl Aarch64Lowerer {
     ) -> Result<(), LowerError> {
         if matches!(width, OpWidth::W8 | OpWidth::W16) {
             if set_flags {
-                return Err(LowerError::UnsupportedOp {
-                    op: format!("AArch64 native flag-setting subword {}", if subtract {
-                        "Sbb"
-                    } else {
-                        "Adc"
-                    }),
-                });
+                return self.lower_subword_addsub_carry_with_flags(
+                    dst, src1, src2, subtract, width,
+                );
             }
             return self.lower_subword_addsub_carry(dst, src1, src2, subtract, width);
         }
@@ -2377,6 +2373,107 @@ impl Aarch64Lowerer {
         }
 
         self.emit_bitfield(dst, dst, 0b10, 0, top_bit, OpWidth::W32)
+    }
+
+    fn emit_finalize_subword_addsub_carry_flags(
+        &mut self,
+        saved_flags: u8,
+        flags: u8,
+        lhs: u8,
+        rhs: u8,
+        result: u8,
+        temp: u8,
+        subtract: bool,
+        width: OpWidth,
+    ) -> Result<(), LowerError> {
+        self.emit_init_shift_nz_flags(flags, temp, result, width)?;
+
+        self.emit_ubfx_bit_to_low(temp, saved_flags, 29, OpWidth::W32)?;
+        if subtract {
+            let (imm_n, immr, imms) = Self::logical_bitmask_imm(1, OpWidth::W32)?;
+            self.emit_logic_imm(temp, temp, 0b10, imm_n, immr, imms, OpWidth::W32)?;
+            self.emit_addsub_reg(temp, rhs, temp, false, false, OpWidth::W32)?;
+            self.emit_addsub_reg(31, lhs, temp, true, true, OpWidth::W32)?;
+        } else {
+            self.emit_addsub_reg(temp, temp, lhs, false, false, OpWidth::W32)?;
+            self.emit_addsub_reg(temp, temp, rhs, false, false, OpWidth::W32)?;
+            self.emit_addsub_imm(
+                31,
+                temp,
+                (width.mask() + 1) as i64,
+                true,
+                true,
+                OpWidth::W32,
+            )?;
+        }
+        let no_carry = self.code.position();
+        self.emit(0x5400_0000 | Self::arm_cond_code(Condition::Ult)?);
+        self.emit_or_nzcv_const(flags, temp, NZCV_C)?;
+        self.patch_cond_branch_to_current(no_carry, Self::arm_cond_code(Condition::Ult)?)?;
+
+        if subtract {
+            self.emit_logic_shifted(temp, lhs, rhs, 0b10, false, 0, 0, OpWidth::W32)?;
+        } else {
+            self.emit_logic_shifted(temp, lhs, rhs, 0b10, true, 0, 0, OpWidth::W32)?;
+        }
+        self.emit_logic_shifted(saved_flags, lhs, result, 0b10, false, 0, 0, OpWidth::W32)?;
+        self.emit_logic_shifted(temp, temp, saved_flags, 0b00, false, 0, 0, OpWidth::W32)?;
+        let no_overflow = self.code.position();
+        self.emit_test_branch(temp, width.bits() - 1, false, 0)?;
+        self.emit_or_nzcv_const(flags, temp, NZCV_V)?;
+        self.patch_test_branch_to_current(no_overflow, temp, width.bits() - 1, false)?;
+
+        self.emit_sysreg(flags, ArmReg::Nzcv, false)
+    }
+
+    fn lower_subword_addsub_carry_with_flags(
+        &mut self,
+        dst: VReg,
+        src1: VReg,
+        src2: &SrcOperand,
+        subtract: bool,
+        width: OpWidth,
+    ) -> Result<(), LowerError> {
+        let dst_reg = Self::dst_or_zero_for_flags(dst, true)?;
+        let rn = Self::gpr(src1)?;
+        let rm = match src2 {
+            SrcOperand::Reg(reg) => Self::gpr(*reg)?,
+            other => {
+                return Err(LowerError::UnsupportedOp {
+                    op: format!("AArch64 native subword add/sub carry source {other:?}"),
+                });
+            }
+        };
+        let top_bit = width.bits() - 1;
+        let scratches = Self::scratch_regs(&[dst_reg, rn, rm], 6)?;
+        let saved_flags = scratches[0];
+        let flags = scratches[1];
+        let lhs = scratches[2];
+        let rhs = scratches[3];
+        let result = scratches[4];
+        let temp = scratches[5];
+
+        self.emit_scratch_save(&scratches);
+        self.emit_sysreg(saved_flags, ArmReg::Nzcv, true)?;
+        self.emit_bitfield(lhs, rn, 0b10, 0, top_bit, OpWidth::W32)?;
+        self.emit_bitfield(rhs, rm, 0b10, 0, top_bit, OpWidth::W32)?;
+        self.emit_addsub_carry(result, rn, rm, subtract, false, OpWidth::W32)?;
+        self.emit_bitfield(result, result, 0b10, 0, top_bit, OpWidth::W32)?;
+        if dst_reg != 31 {
+            self.emit_mov_reg(dst_reg, result, OpWidth::W32)?;
+        }
+        self.emit_finalize_subword_addsub_carry_flags(
+            saved_flags,
+            flags,
+            lhs,
+            rhs,
+            result,
+            temp,
+            subtract,
+            width,
+        )?;
+        self.emit_scratch_restore(&scratches);
+        Ok(())
     }
 
     fn lower_logic(
@@ -8947,6 +9044,55 @@ mod tests {
             | (overflow as u8)
     }
 
+    fn ref_addsub_carry(
+        src1: u64,
+        src2: u64,
+        carry_in: bool,
+        subtract: bool,
+        width: OpWidth,
+    ) -> u64 {
+        let mask = width_mask(width);
+        let src1 = src1 & mask;
+        let src2 = src2 & mask;
+        if subtract {
+            let borrow = u64::from(!carry_in);
+            src1.wrapping_sub(src2).wrapping_sub(borrow) & mask
+        } else {
+            src1.wrapping_add(src2).wrapping_add(u64::from(carry_in)) & mask
+        }
+    }
+
+    fn expected_addsub_carry_nzcv(
+        src1: u64,
+        src2: u64,
+        carry_in: bool,
+        subtract: bool,
+        width: OpWidth,
+    ) -> u8 {
+        let mask = width_mask(width);
+        let src1 = src1 & mask;
+        let src2 = src2 & mask;
+        let result = ref_addsub_carry(src1, src2, carry_in, subtract, width);
+        let sign = 1_u64 << (width.bits() - 1);
+        let negative = (result & sign) != 0;
+        let zero = result == 0;
+        let carry = if subtract {
+            src1 >= src2 + u64::from(!carry_in)
+        } else {
+            src1 + src2 + u64::from(carry_in) > mask
+        };
+        let overflow = if subtract {
+            ((src1 ^ src2) & (src1 ^ result) & sign) != 0
+        } else {
+            (!(src1 ^ src2) & (src1 ^ result) & sign) != 0
+        };
+
+        ((negative as u8) << 3)
+            | ((zero as u8) << 2)
+            | ((carry as u8) << 1)
+            | (overflow as u8)
+    }
+
     fn assert_inc_dec_flags_lowering(
         label: &str,
         decrement: bool,
@@ -9061,6 +9207,68 @@ mod tests {
         }
         for (reg, value) in sentinels {
             if reg != dst_reg && reg != src1_reg && Some(reg) != src2_reg {
+                assert_eq!(out[reg as usize], value, "{label}: x{reg} restored");
+            }
+        }
+    }
+
+    fn assert_subword_addsub_carry_flags_lowering(
+        label: &str,
+        subtract: bool,
+        dst_reg: u8,
+        src1_reg: u8,
+        src2_reg: u8,
+        src1_value: u64,
+        src2_value: u64,
+        width: OpWidth,
+        old_nzcv: u8,
+    ) {
+        let op = if subtract {
+            OpKind::Sbb {
+                dst: x(dst_reg),
+                src1: x(src1_reg),
+                src2: SrcOperand::Reg(x(src2_reg)),
+                width,
+                flags: FlagUpdate::All,
+            }
+        } else {
+            OpKind::Adc {
+                dst: x(dst_reg),
+                src1: x(src1_reg),
+                src2: SrcOperand::Reg(x(src2_reg)),
+                width,
+                flags: FlagUpdate::All,
+            }
+        };
+        let code = lower_single_op(op);
+        let carry_in = (old_nzcv & 0b0010) != 0;
+        let expected = ref_addsub_carry(src1_value, src2_value, carry_in, subtract, width);
+        let expected_nzcv =
+            expected_addsub_carry_nzcv(src1_value, src2_value, carry_in, subtract, width);
+        let sentinels = [
+            (16, 0x1616_1616_1616_1616),
+            (17, 0x1717_1717_1717_1717),
+            (15, 0x1515_1515_1515_1515),
+            (14, 0x1414_1414_1414_1414),
+            (13, 0x1313_1313_1313_1313),
+            (12, 0x1212_1212_1212_1212),
+        ];
+        let mut regs = sentinels.to_vec();
+        regs.push((src1_reg, src1_value));
+        regs.push((src2_reg, src2_value));
+
+        let (out, out_nzcv, sp) = run_aarch64_code(&code, &regs, old_nzcv);
+        assert_eq!(out[dst_reg as usize], expected, "{label}: result");
+        assert_eq!(out_nzcv, expected_nzcv, "{label}: NZCV");
+        assert_eq!(sp, 0x8000, "{label}: stack restored");
+        if src1_reg != dst_reg {
+            assert_eq!(out[src1_reg as usize], src1_value, "{label}: src1 preserved");
+        }
+        if src2_reg != dst_reg {
+            assert_eq!(out[src2_reg as usize], src2_value, "{label}: src2 preserved");
+        }
+        for (reg, value) in sentinels {
+            if reg != dst_reg && reg != src1_reg && reg != src2_reg {
                 assert_eq!(out[reg as usize], value, "{label}: x{reg} restored");
             }
         }
@@ -19280,32 +19488,73 @@ mod tests {
     }
 
     #[test]
-    fn rejects_flag_setting_subword_addsub_carry_lowering() {
-        for kind in [
-            OpKind::Adc {
-                dst: x(0),
-                src1: x(1),
-                src2: SrcOperand::Reg(x(2)),
-                width: OpWidth::W8,
-                flags: FlagUpdate::All,
-            },
-            OpKind::Sbb {
-                dst: x(0),
-                src1: x(1),
-                src2: SrcOperand::Reg(x(2)),
-                width: OpWidth::W16,
-                flags: FlagUpdate::All,
-            },
-        ] {
-            let mut builder = FunctionBuilder::new(FunctionId(0), 0);
-            builder.push_op(0, kind);
-            builder.set_terminator(Terminator::Return { values: vec![] });
-            let func = builder.finish();
-
-            let mut lowerer = Aarch64Lowerer::new();
-            let err = lowerer.lower_function(&func).unwrap_err();
-            assert!(matches!(err, LowerError::UnsupportedOp { .. }));
-        }
+    fn lowers_flag_setting_subword_addsub_carry_runtime() {
+        assert_subword_addsub_carry_flags_lowering(
+            "adc_w8_carry_in_sets_zero_and_carry",
+            false,
+            0,
+            1,
+            2,
+            0xff,
+            0,
+            OpWidth::W8,
+            0b0010,
+        );
+        assert_subword_addsub_carry_flags_lowering(
+            "adc_w8_carry_in_sets_negative_and_overflow",
+            false,
+            0,
+            1,
+            2,
+            0x7f,
+            0,
+            OpWidth::W8,
+            0b1010,
+        );
+        assert_subword_addsub_carry_flags_lowering(
+            "sbb_w16_no_borrow_sets_no_borrow_and_overflow",
+            true,
+            0,
+            1,
+            2,
+            0x8000,
+            1,
+            OpWidth::W16,
+            0b0010,
+        );
+        assert_subword_addsub_carry_flags_lowering(
+            "sbb_w8_borrow_in_sets_borrow_and_negative",
+            true,
+            0,
+            1,
+            2,
+            0,
+            0,
+            OpWidth::W8,
+            0b0000,
+        );
+        assert_subword_addsub_carry_flags_lowering(
+            "adc_w16_dst_aliases_src2",
+            false,
+            2,
+            1,
+            2,
+            0xffff,
+            0,
+            OpWidth::W16,
+            0b0010,
+        );
+        assert_subword_addsub_carry_flags_lowering(
+            "sbb_w8_dst_aliases_src1",
+            true,
+            1,
+            1,
+            2,
+            0,
+            0,
+            OpWidth::W8,
+            0b0000,
+        );
     }
 
     #[test]
