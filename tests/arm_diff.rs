@@ -2225,6 +2225,31 @@ fn push_mov_imm_movn_native_cases(
 }
 
 #[cfg(all(feature = "smir-jit", target_arch = "x86_64"))]
+fn push_lea_absolute_movn_native_cases(
+    cases: &mut Vec<(String, [u32; 3], [u32; 3], ArmState)>,
+    control_target: i32,
+) {
+    let mut st = ArmState::zeroed();
+    st.pc = PCREL_MAGIC;
+    st.x[30] = pcrel_marker(control_target);
+    st.x[0] = 0x4444_5555_6666_7777;
+    st.pstate = 0xa000_0000;
+    let lowered = lower_aarch64_native_ops(vec![OpKind::Lea {
+        dst: arm_x(0),
+        addr: Address::Absolute(0xffff_ffff_ffff_fff1),
+    }])
+    .unwrap_or_else(|e| {
+        panic!("lea_absolute_negative_as_movn_preserves_flags: native lowering failed: {e}")
+    });
+    cases.push((
+        "lea_absolute_negative_as_movn_preserves_flags".into(),
+        [enc_mov_wide(1, 0b00, 0, 0xe), NOP, NOP],
+        lowered,
+        st,
+    ));
+}
+
+#[cfg(all(feature = "smir-jit", target_arch = "x86_64"))]
 fn enc_csel(sf: u32, cond: u32) -> u32 {
     enc_csel_form(sf, 0, 0, RN, RM, cond)
 }
@@ -8515,6 +8540,7 @@ fn smir_aarch64_native_lowering_matches_qemu_oracle() {
     push_divu_imm_movn_native_cases(&mut cases, control_target);
     push_divs_imm_movn_native_cases(&mut cases, control_target);
     push_mov_imm_movn_native_cases(&mut cases, control_target);
+    push_lea_absolute_movn_native_cases(&mut cases, control_target);
 
     let mut st = native_state();
     st.x[0] = 0xaaaa_bbbb_cccc_dddd;
