@@ -5418,6 +5418,54 @@ impl Aarch64Lowerer {
         }
     }
 
+    fn lower_double_shift_reg(
+        &mut self,
+        dst: VReg,
+        src: VReg,
+        amount: u8,
+        left: bool,
+        width: OpWidth,
+    ) -> Result<(), LowerError> {
+        let mask = match width {
+            OpWidth::W32 => 0x1f,
+            OpWidth::W64 => 0x3f,
+            other => {
+                return Err(LowerError::UnsupportedOp {
+                    op: format!("AArch64 native register-count double shift width {other:?}"),
+                });
+            }
+        };
+
+        let dst_reg = Self::dst_gpr(dst)?;
+        let src_reg = Self::gpr(src)?;
+        let scratches = Self::scratch_regs(&[dst_reg, src_reg, amount], 3)?;
+        let count = scratches[0];
+        let left_part = scratches[1];
+        let right_part = scratches[2];
+
+        self.emit_scratch_save(&scratches);
+        self.emit_mov_reg(left_part, dst_reg, width)?;
+        let (imm_n, immr, imms) = Self::logical_bitmask_imm(mask, width)?;
+        self.emit_logic_imm(count, amount, 0b00, imm_n, immr, imms, width)?;
+        self.emit_mov_reg(dst_reg, left_part, width)?;
+        let zero_count = self.code.position();
+        self.emit(0xb400_0000 | u32::from(count));
+
+        if left {
+            self.emit_dp2(left_part, left_part, count, 0b1000, width)?;
+            self.emit_addsub_reg(count, 31, count, true, false, width)?;
+            self.emit_dp2(right_part, src_reg, count, 0b1001, width)?;
+        } else {
+            self.emit_dp2(left_part, left_part, count, 0b1001, width)?;
+            self.emit_addsub_reg(count, 31, count, true, false, width)?;
+            self.emit_dp2(right_part, src_reg, count, 0b1000, width)?;
+        }
+        self.emit_logic_shifted(dst_reg, left_part, right_part, 0b01, false, 0, 0, width)?;
+        self.patch_compare_branch_to_current(zero_count, count, false)?;
+        self.emit_scratch_restore(&scratches);
+        Ok(())
+    }
+
     fn lower_double_shift(
         &mut self,
         dst: VReg,
@@ -5431,6 +5479,9 @@ impl Aarch64Lowerer {
             return Err(LowerError::UnsupportedOp {
                 op: "AArch64 native flag-setting double shift".into(),
             });
+        }
+        if let SrcOperand::Reg(amount) = amount {
+            return self.lower_double_shift_reg(dst, src, Self::gpr(*amount)?, left, width);
         }
         let Some(amount) = Self::src_imm(amount) else {
             return Err(LowerError::UnsupportedOp {
@@ -8485,6 +8536,95 @@ mod tests {
         }
         for (reg, value) in sentinels {
             if reg != src_reg && reg != dst_reg {
+                assert_eq!(out[reg as usize], value, "{label}: x{reg} restored");
+            }
+        }
+    }
+
+    fn ref_double_shift_reg(dst: u64, src: u64, amount: u64, left: bool, width: OpWidth) -> u64 {
+        let bits = width.bits();
+        let mask = width_mask(width);
+        let dst = dst & mask;
+        let src = src & mask;
+        let count_mask = if width == OpWidth::W64 { 0x3f } else { 0x1f };
+        let count = (amount & count_mask) as u32;
+        if count == 0 {
+            dst
+        } else if left {
+            ((dst << count) | (src >> (bits - count))) & mask
+        } else {
+            ((dst >> count) | (src << (bits - count))) & mask
+        }
+    }
+
+    fn assert_double_shift_reg_lowering(
+        label: &str,
+        left: bool,
+        dst_reg: u8,
+        dst_value: u64,
+        src_reg: u8,
+        src_value: u64,
+        amount_reg: u8,
+        amount_value: u64,
+        width: OpWidth,
+    ) {
+        if dst_reg == src_reg {
+            assert_eq!(dst_value, src_value, "{label}: aliased dst/src setup");
+        }
+        if dst_reg == amount_reg {
+            assert_eq!(dst_value, amount_value, "{label}: aliased dst/count setup");
+        }
+        if src_reg == amount_reg {
+            assert_eq!(src_value, amount_value, "{label}: aliased src/count setup");
+        }
+
+        let op = if left {
+            OpKind::Shld {
+                dst: x(dst_reg),
+                src: x(src_reg),
+                amount: SrcOperand::Reg(x(amount_reg)),
+                width,
+                flags: FlagUpdate::None,
+            }
+        } else {
+            OpKind::Shrd {
+                dst: x(dst_reg),
+                src: x(src_reg),
+                amount: SrcOperand::Reg(x(amount_reg)),
+                width,
+                flags: FlagUpdate::None,
+            }
+        };
+        let code = lower_single_op(op);
+        let expected = ref_double_shift_reg(dst_value, src_value, amount_value, left, width);
+        let sentinels = [
+            (16, 0x1616_1616_1616_1616),
+            (17, 0x1717_1717_1717_1717),
+            (15, 0x1515_1515_1515_1515),
+            (14, 0x1414_1414_1414_1414),
+        ];
+        let mut regs = sentinels.to_vec();
+        regs.push((dst_reg, dst_value));
+        regs.push((src_reg, src_value));
+        regs.push((amount_reg, amount_value));
+
+        let old_nzcv = 0b1010;
+        let (out, out_nzcv, sp) = run_aarch64_code(&code, &regs, old_nzcv);
+        assert_eq!(out[dst_reg as usize], expected, "{label}: result");
+        assert_eq!(out_nzcv, old_nzcv, "{label}: NZCV preserved");
+        assert_eq!(sp, 0x8000, "{label}: stack restored");
+        if src_reg != dst_reg {
+            assert_eq!(out[src_reg as usize], src_value, "{label}: src preserved");
+        }
+        if amount_reg != dst_reg {
+            assert_eq!(
+                out[amount_reg as usize],
+                amount_value,
+                "{label}: count preserved"
+            );
+        }
+        for (reg, value) in sentinels {
+            if reg != dst_reg && reg != src_reg && reg != amount_reg {
                 assert_eq!(out[reg as usize], value, "{label}: x{reg} restored");
             }
         }
@@ -16366,24 +16506,62 @@ mod tests {
     }
 
     #[test]
-    fn rejects_shld_register_amount_lowering() {
-        let mut builder = FunctionBuilder::new(FunctionId(0), 0);
-        builder.push_op(
+    fn lowers_double_shift_register_amount() {
+        assert_double_shift_reg_lowering(
+            "shld_x_reg",
+            true,
             0,
-            OpKind::Shld {
-                dst: x(0),
-                src: x(1),
-                amount: SrcOperand::Reg(x(2)),
-                width: OpWidth::W64,
-                flags: FlagUpdate::None,
-            },
+            0x1234_5678_9abc_def0,
+            1,
+            0xfedc_ba98_7654_3210,
+            2,
+            4,
+            OpWidth::W64,
         );
-        builder.set_terminator(Terminator::Return { values: vec![] });
-        let func = builder.finish();
-
-        let mut lowerer = Aarch64Lowerer::new();
-        let err = lowerer.lower_function(&func).unwrap_err();
-        assert!(matches!(err, LowerError::UnsupportedOp { .. }));
+        assert_double_shift_reg_lowering(
+            "shld_x_masked_zero",
+            true,
+            0,
+            0x1234_5678_9abc_def0,
+            1,
+            0xfedc_ba98_7654_3210,
+            2,
+            64,
+            OpWidth::W64,
+        );
+        assert_double_shift_reg_lowering(
+            "shrd_x_dst_aliases_count",
+            false,
+            2,
+            4,
+            1,
+            0x8000_0000_0000_0001,
+            2,
+            4,
+            OpWidth::W64,
+        );
+        assert_double_shift_reg_lowering(
+            "shld_w_reg_masked_count",
+            true,
+            0,
+            0x8000_0001,
+            1,
+            0x1234_5678,
+            2,
+            36,
+            OpWidth::W32,
+        );
+        assert_double_shift_reg_lowering(
+            "shrd_w_dst_aliases_src_and_count",
+            false,
+            1,
+            4,
+            1,
+            4,
+            1,
+            4,
+            OpWidth::W32,
+        );
     }
 
     #[test]
