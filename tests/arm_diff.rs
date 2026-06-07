@@ -4154,6 +4154,61 @@ fn push_shift_zero_imm_source_reg_count_native_cases(
 }
 
 #[cfg(all(feature = "smir-jit", target_arch = "x86_64"))]
+fn push_shift_all_ones_imm_source_reg_count_native_cases(
+    cases: &mut Vec<(String, [u32; 3], [u32; 3], ArmState)>,
+    control_target: i32,
+) {
+    let shift_cases = [
+        (
+            "asrv_w_all_ones_imm_source_reg_count_as_movn_preserves_flags",
+            OpKind::Sar {
+                dst: arm_x(0),
+                src: VReg::Imm(-1),
+                amount: SrcOperand::Reg(arm_x(2)),
+                width: OpWidth::W32,
+                flags: FlagUpdate::None,
+            },
+            [enc_dp2_regs(0, 0b1010, RN, RM, RD), NOP, NOP],
+            [enc_mov_wide(0, 0b00, 0, 0), 0xd65f_03c0, NOP],
+            0xaaaa_bbbb_cccc_dddd,
+            0xffff_ffff,
+            13,
+            0x8000_0000,
+        ),
+        (
+            "rorv_x_all_ones_imm_source_reg_count_as_movn_preserves_flags",
+            OpKind::Ror {
+                dst: arm_x(0),
+                src: VReg::Imm(-1),
+                amount: SrcOperand::Reg(arm_x(2)),
+                width: OpWidth::W64,
+                flags: FlagUpdate::None,
+            },
+            [enc_dp2_regs(1, 0b1011, RN, RM, RD), NOP, NOP],
+            [enc_mov_wide(1, 0b00, 0, 0), 0xd65f_03c0, NOP],
+            0xbbbb_cccc_dddd_eeee,
+            u64::MAX,
+            65,
+            0x5000_0000,
+        ),
+    ];
+
+    for (name, op, source, expected, x0, x1, x2, pstate) in shift_cases {
+        let mut st = ArmState::zeroed();
+        st.pc = PCREL_MAGIC;
+        st.x[30] = pcrel_marker(control_target);
+        st.x[0] = x0;
+        st.x[1] = x1;
+        st.x[2] = x2;
+        st.pstate = pstate;
+        let lowered = lower_aarch64_native_ops(vec![op])
+            .unwrap_or_else(|e| panic!("{name}: native lowering failed: {e}"));
+        assert_eq!(lowered, expected, "{name}: unexpected lowering");
+        cases.push((name.into(), source, lowered, st));
+    }
+}
+
+#[cfg(all(feature = "smir-jit", target_arch = "x86_64"))]
 fn push_rol_zero_count_reg_native_cases(
     cases: &mut Vec<(String, [u32; 3], [u32; 3], ArmState)>,
     control_target: i32,
@@ -12736,6 +12791,7 @@ fn smir_aarch64_native_lowering_matches_qemu_oracle() {
     push_carry_rotate_zero_count_native_cases(&mut cases, control_target);
     push_shift_zero_count_reg_native_cases(&mut cases, control_target);
     push_shift_zero_imm_source_reg_count_native_cases(&mut cases, control_target);
+    push_shift_all_ones_imm_source_reg_count_native_cases(&mut cases, control_target);
     push_rol_zero_count_reg_native_cases(&mut cases, control_target);
     push_double_shift_zero_count_native_cases(&mut cases, control_target);
     push_mul_one_same_reg_native_cases(&mut cases, control_target);

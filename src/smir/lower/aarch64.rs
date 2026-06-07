@@ -5254,6 +5254,24 @@ impl Aarch64Lowerer {
             return self.emit_mov_imm_best(Self::dst_gpr(dst)?, 0, emit_width);
         }
 
+        if matches!(shift, ShiftOp::Asr | ShiftOp::Ror) {
+            if let VReg::Imm(value) = src {
+                let emit_width = match width {
+                    OpWidth::W8 | OpWidth::W16 | OpWidth::W32 => OpWidth::W32,
+                    OpWidth::W64 => OpWidth::W64,
+                    other => {
+                        return Err(LowerError::UnsupportedOp {
+                            op: format!("AArch64 native all-ones-source shift width {other:?}"),
+                        });
+                    }
+                };
+                let result = width.mask();
+                if (value as u64 & result) == result {
+                    return self.emit_mov_imm_best(Self::dst_gpr(dst)?, result as i64, emit_width);
+                }
+            }
+        }
+
         if shift == ShiftOp::Lsl {
             if let (VReg::Imm(value), Some(amount)) = (src, Self::src_imm(amount)) {
                 let emit_width = match width {
@@ -12718,6 +12736,68 @@ mod tests {
                     flags: FlagUpdate::None,
                 },
                 enc_mov_wide(1, 0b10, 0, 0, 3),
+            ),
+        ];
+
+        for (kind, expected_word) in cases {
+            let mut builder = FunctionBuilder::new(FunctionId(0), 0);
+            builder.push_op(0, kind);
+            builder.set_terminator(Terminator::Return { values: vec![] });
+            let func = builder.finish();
+
+            let mut lowerer = Aarch64Lowerer::new();
+            lowerer.lower_function(&func).unwrap();
+            let code = lowerer.finalize().unwrap();
+
+            let mut expected = Vec::new();
+            expected.extend_from_slice(&expected_word.to_le_bytes());
+            expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
+            assert_eq!(code, expected);
+        }
+    }
+
+    #[test]
+    fn lowers_all_ones_imm_source_reg_count_asr_ror_as_constant() {
+        let cases = [
+            (
+                OpKind::Sar {
+                    dst: x(0),
+                    src: VReg::Imm(-1),
+                    amount: SrcOperand::Reg(x(2)),
+                    width: OpWidth::W32,
+                    flags: FlagUpdate::None,
+                },
+                enc_mov_wide(0, 0b00, 0, 0, 0),
+            ),
+            (
+                OpKind::Sar {
+                    dst: x(1),
+                    src: VReg::Imm(0xffff),
+                    amount: SrcOperand::Reg(x(2)),
+                    width: OpWidth::W16,
+                    flags: FlagUpdate::None,
+                },
+                enc_mov_wide(0, 0b10, 0, 0xffff, 1),
+            ),
+            (
+                OpKind::Ror {
+                    dst: x(2),
+                    src: VReg::Imm(-1),
+                    amount: SrcOperand::Reg(x(3)),
+                    width: OpWidth::W64,
+                    flags: FlagUpdate::None,
+                },
+                enc_mov_wide(1, 0b00, 0, 0, 2),
+            ),
+            (
+                OpKind::Ror {
+                    dst: x(3),
+                    src: VReg::Imm(0xff),
+                    amount: SrcOperand::Reg(x(2)),
+                    width: OpWidth::W8,
+                    flags: FlagUpdate::None,
+                },
+                enc_mov_wide(0, 0b10, 0, 0xff, 3),
             ),
         ];
 
