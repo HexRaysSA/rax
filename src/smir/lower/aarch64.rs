@@ -10552,6 +10552,22 @@ mod tests {
     }
 
     #[test]
+    fn executes_divu_x_imm_power_of_two_with_remainder() {
+        assert_div_w64_lowering(
+            "divu_imm_power_of_two_runtime",
+            false,
+            0,
+            Some(3),
+            1,
+            SrcOperand::Imm(32),
+            None,
+            0x1234_5678_9abc_def0,
+            32,
+            FlagUpdate::None,
+        );
+    }
+
+    #[test]
     fn lowers_divu_w8_imm_one_as_mov_uxtb() {
         let mut builder = FunctionBuilder::new(FunctionId(0), 0);
         builder.push_op(

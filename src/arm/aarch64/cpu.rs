@@ -12924,7 +12924,7 @@ impl AArch64Cpu {
             }
             0b10 => {
                 // UBFM
-                bot & wmask
+                bot & tmask
             }
             _ => return Err(ArmError::UndefinedInstruction(insn)),
         };
@@ -19197,6 +19197,16 @@ mod tests {
         cpu.set_x(1, 0xF0);
         cpu.step().unwrap();
         assert_eq!(cpu.get_x(0), 0x0F);
+    }
+
+    #[test]
+    fn test_ubfm_lsr_zero_fills_rotated_high_bits() {
+        // UBFM X0, X1, #5, #63 is the LSR #5 alias.
+        let insn = 0xD345FC20;
+        let mut cpu = create_cpu_with_insn(insn);
+        cpu.set_x(1, 0x1234_5678_9ABC_DEF0);
+        cpu.step().unwrap();
+        assert_eq!(cpu.get_x(0), 0x0091_A2B3_C4D5_E6F7);
     }
 
     #[test]
