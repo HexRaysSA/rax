@@ -13,7 +13,7 @@ use crate::smir::ops::{OpKind, SmirOp};
 use crate::smir::types::{
     Address, ArchReg, ArmReg, AtomicOp, BlockId, Condition, ExtendOp, FenceKind, MemWidth,
     FpPrecision, FpRoundMode, MemoryOrder, OpWidth, ShiftOp, SignExtend, SrcOperand,
-    VecElementType, VecWidth, VReg,
+    VecElementType, VecWidth, VLaneOp, VReg,
 };
 
 use super::{CodeBuffer, LowerError, LowerResult, Relocation, SmirLowerer};
@@ -972,12 +972,14 @@ impl Aarch64Lowerer {
         op: SimdLogicOp,
     ) -> Result<(), LowerError> {
         let q = Self::simd_vec_q(width)?;
-        let base = match op {
-            SimdLogicOp::And => 0x0e20_1c00,
-            SimdLogicOp::Or => 0x0ea0_1c00,
-            SimdLogicOp::Xor => 0x2e20_1c00,
+        let (u, size) = match op {
+            SimdLogicOp::And => (0, 0b00),
+            SimdLogicOp::AndNot => (0, 0b01),
+            SimdLogicOp::Or => (0, 0b10),
+            SimdLogicOp::OrNot => (0, 0b11),
+            SimdLogicOp::Xor => (1, 0b00),
         };
-        self.emit(base | (q << 30) | ((rm as u32) << 16) | ((rn as u32) << 5) | rd as u32);
+        self.emit_simd_three_same(rd, rn, rm, q, u, size, 0b00011);
         Ok(())
     }
 
@@ -1835,6 +1837,16 @@ impl Aarch64Lowerer {
         }
     }
 
+    fn simd_lane_width(elem: VecElementType, lanes: u8) -> Result<VecWidth, LowerError> {
+        match elem.bytes() * u32::from(lanes) {
+            8 => Ok(VecWidth::V64),
+            16 => Ok(VecWidth::V128),
+            other => Err(LowerError::UnsupportedOp {
+                op: format!("AArch64 native vector lane byte width {other}"),
+            }),
+        }
+    }
+
     fn simd_mem_fields(width: VecWidth, load: bool) -> Result<(u32, u32, u32), LowerError> {
         match width {
             VecWidth::V64 => Ok((0b11, load as u32, 3)),
@@ -2064,6 +2076,105 @@ impl Aarch64Lowerer {
         };
         self.emit_simd_three_same(rd, rn, rm, q, u, size, opcode);
         Ok(())
+    }
+
+    fn lower_vlane_three_same(
+        &mut self,
+        dst: VReg,
+        src1: VReg,
+        src2: VReg,
+        elem: VecElementType,
+        lanes: u8,
+        signed: bool,
+        opcode: u32,
+        allow_i64: bool,
+    ) -> Result<(), LowerError> {
+        let rd = Self::fp_reg(dst)?;
+        let rn = Self::fp_reg(src1)?;
+        let rm = Self::fp_reg(src2)?;
+        let (q, size) = Self::simd_integer_shape(elem, lanes)?;
+        if size == 3 && !allow_i64 {
+            return Err(LowerError::UnsupportedOp {
+                op: format!("AArch64 native VLane opcode {opcode:#07b} I64"),
+            });
+        }
+        let u = if signed { 0 } else { 1 };
+        self.emit_simd_three_same(rd, rn, rm, q, u, size, opcode);
+        Ok(())
+    }
+
+    fn lower_vlane(
+        &mut self,
+        dst: VReg,
+        src1: VReg,
+        src2: VReg,
+        elem: VecElementType,
+        lanes: u8,
+        op: VLaneOp,
+        signed: bool,
+        set_ovf: bool,
+    ) -> Result<(), LowerError> {
+        if set_ovf {
+            return Err(LowerError::UnsupportedOp {
+                op: "AArch64 native VLane Hexagon OVF side effect".to_string(),
+            });
+        }
+
+        match op {
+            VLaneOp::Add => {
+                self.lower_varith(dst, src1, src2, elem, lanes, SimdArithmeticOp::Add)
+            }
+            VLaneOp::Sub => {
+                self.lower_varith(dst, src1, src2, elem, lanes, SimdArithmeticOp::Sub)
+            }
+            VLaneOp::Mul => {
+                self.lower_varith(dst, src1, src2, elem, lanes, SimdArithmeticOp::Mul)
+            }
+            VLaneOp::Min => {
+                self.lower_vlane_three_same(dst, src1, src2, elem, lanes, signed, 0b01101, false)
+            }
+            VLaneOp::Max => {
+                self.lower_vlane_three_same(dst, src1, src2, elem, lanes, signed, 0b01100, false)
+            }
+            VLaneOp::And => {
+                let width = Self::simd_lane_width(elem, lanes)?;
+                self.lower_vlogic(dst, src1, src2, width, SimdLogicOp::And)
+            }
+            VLaneOp::Or => {
+                let width = Self::simd_lane_width(elem, lanes)?;
+                self.lower_vlogic(dst, src1, src2, width, SimdLogicOp::Or)
+            }
+            VLaneOp::Xor => {
+                let width = Self::simd_lane_width(elem, lanes)?;
+                self.lower_vlogic(dst, src1, src2, width, SimdLogicOp::Xor)
+            }
+            VLaneOp::AndNot => {
+                let width = Self::simd_lane_width(elem, lanes)?;
+                self.lower_vlogic(dst, src1, src2, width, SimdLogicOp::AndNot)
+            }
+            VLaneOp::OrNot => {
+                let width = Self::simd_lane_width(elem, lanes)?;
+                self.lower_vlogic(dst, src1, src2, width, SimdLogicOp::OrNot)
+            }
+            VLaneOp::Not => Err(LowerError::UnsupportedOp {
+                op: "AArch64 native VLane Not".to_string(),
+            }),
+            VLaneOp::AddSat => {
+                self.lower_vlane_three_same(dst, src1, src2, elem, lanes, signed, 0b00001, true)
+            }
+            VLaneOp::SubSat => {
+                self.lower_vlane_three_same(dst, src1, src2, elem, lanes, signed, 0b00101, true)
+            }
+            VLaneOp::Avg => {
+                self.lower_vlane_three_same(dst, src1, src2, elem, lanes, signed, 0b00000, false)
+            }
+            VLaneOp::AvgRnd => {
+                self.lower_vlane_three_same(dst, src1, src2, elem, lanes, signed, 0b00010, false)
+            }
+            VLaneOp::AbsDiff => {
+                self.lower_vlane_three_same(dst, src1, src2, elem, lanes, signed, 0b01110, false)
+            }
+        }
     }
 
     fn lower_rep_stos(
@@ -10463,6 +10574,16 @@ impl Aarch64Lowerer {
                 elem,
                 lanes,
             } => self.lower_varith(*dst, *src1, *src2, *elem, *lanes, SimdArithmeticOp::Max),
+            OpKind::VLane {
+                dst,
+                src1,
+                src2,
+                elem,
+                lanes,
+                op,
+                signed,
+                set_ovf,
+            } => self.lower_vlane(*dst, *src1, *src2, *elem, *lanes, *op, *signed, *set_ovf),
             OpKind::VBroadcast {
                 dst,
                 scalar,
@@ -11071,7 +11192,9 @@ enum CondCompareSource {
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum SimdLogicOp {
     And,
+    AndNot,
     Or,
+    OrNot,
     Xor,
 }
 
@@ -17549,6 +17672,257 @@ mod tests {
     }
 
     #[test]
+    fn lowers_vlane_integer_runtime() {
+        fn apply_vlane(
+            a_low: u64,
+            a_high: u64,
+            b_low: u64,
+            b_high: u64,
+            elem_bytes: usize,
+            lanes: usize,
+            op: VLaneOp,
+            signed: bool,
+        ) -> (u64, u64) {
+            fn read_lane(bytes: &[u8; 16], offset: usize, len: usize) -> u64 {
+                let mut word = [0u8; 8];
+                word[..len].copy_from_slice(&bytes[offset..offset + len]);
+                u64::from_le_bytes(word)
+            }
+
+            let mut a = [0u8; 16];
+            let mut b = [0u8; 16];
+            let mut out = [0u8; 16];
+            a[..8].copy_from_slice(&a_low.to_le_bytes());
+            a[8..].copy_from_slice(&a_high.to_le_bytes());
+            b[..8].copy_from_slice(&b_low.to_le_bytes());
+            b[8..].copy_from_slice(&b_high.to_le_bytes());
+
+            let elem_bits = elem_bytes * 8;
+            let mask = if elem_bits == 64 {
+                u64::MAX
+            } else {
+                (1u64 << elem_bits) - 1
+            };
+            let sx = |value: u64| -> i128 {
+                if elem_bits == 64 {
+                    value as i64 as i128
+                } else {
+                    let shift = 64 - elem_bits;
+                    ((value << shift) as i64 >> shift) as i128
+                }
+            };
+            let smin = if elem_bits == 64 {
+                i64::MIN as i128
+            } else {
+                -(1i128 << (elem_bits - 1))
+            };
+            let smax = if elem_bits == 64 {
+                i64::MAX as i128
+            } else {
+                (1i128 << (elem_bits - 1)) - 1
+            };
+
+            for lane in 0..lanes {
+                let off = lane * elem_bytes;
+                let av = read_lane(&a, off, elem_bytes);
+                let bv = read_lane(&b, off, elem_bytes);
+                let result = match op {
+                    VLaneOp::Add => av.wrapping_add(bv),
+                    VLaneOp::Sub => av.wrapping_sub(bv),
+                    VLaneOp::Mul => av.wrapping_mul(bv),
+                    VLaneOp::Min if signed => sx(av).min(sx(bv)) as u64,
+                    VLaneOp::Min => (av & mask).min(bv & mask),
+                    VLaneOp::Max if signed => sx(av).max(sx(bv)) as u64,
+                    VLaneOp::Max => (av & mask).max(bv & mask),
+                    VLaneOp::And => av & bv,
+                    VLaneOp::Or => av | bv,
+                    VLaneOp::Xor => av ^ bv,
+                    VLaneOp::AndNot => av & !bv,
+                    VLaneOp::OrNot => av | !bv,
+                    VLaneOp::Not => !av,
+                    VLaneOp::AddSat if signed => (sx(av) + sx(bv)).clamp(smin, smax) as u64,
+                    VLaneOp::AddSat => {
+                        ((av & mask) as u128 + (bv & mask) as u128).min(mask as u128) as u64
+                    }
+                    VLaneOp::SubSat if signed => (sx(av) - sx(bv)).clamp(smin, smax) as u64,
+                    VLaneOp::SubSat => (av & mask).saturating_sub(bv & mask),
+                    VLaneOp::Avg if signed => ((sx(av) + sx(bv)) >> 1) as u64,
+                    VLaneOp::Avg => (((av & mask) as u128 + (bv & mask) as u128) >> 1) as u64,
+                    VLaneOp::AvgRnd if signed => ((sx(av) + sx(bv) + 1) >> 1) as u64,
+                    VLaneOp::AvgRnd => {
+                        (((av & mask) as u128 + (bv & mask) as u128 + 1) >> 1) as u64
+                    }
+                    VLaneOp::AbsDiff if signed => (sx(av) - sx(bv)).unsigned_abs() as u64,
+                    VLaneOp::AbsDiff => {
+                        let (x, y) = (av & mask, bv & mask);
+                        if x >= y { x - y } else { y - x }
+                    }
+                } & mask;
+                out[off..off + elem_bytes].copy_from_slice(&result.to_le_bytes()[..elem_bytes]);
+            }
+
+            let mut low = [0u8; 8];
+            let mut high = [0u8; 8];
+            low.copy_from_slice(&out[..8]);
+            high.copy_from_slice(&out[8..]);
+            (u64::from_le_bytes(low), u64::from_le_bytes(high))
+        }
+
+        let a_low = 0x807f_00ff_7f80_ff00;
+        let a_high = 0x7fff_8000_ffff_0001;
+        let b_low = 0x7f80_ff00_0080_00ff;
+        let b_high = 0x8000_7fff_0001_ffff;
+        let code = lower_ops(vec![
+            OpKind::VLane {
+                dst: v(0),
+                src1: v(1),
+                src2: v(2),
+                elem: VecElementType::I8,
+                lanes: 16,
+                op: VLaneOp::Max,
+                signed: true,
+                set_ovf: false,
+            },
+            OpKind::VLane {
+                dst: v(3),
+                src1: v(1),
+                src2: v(2),
+                elem: VecElementType::I16,
+                lanes: 8,
+                op: VLaneOp::Min,
+                signed: false,
+                set_ovf: false,
+            },
+            OpKind::VLane {
+                dst: v(4),
+                src1: v(1),
+                src2: v(2),
+                elem: VecElementType::I8,
+                lanes: 16,
+                op: VLaneOp::AddSat,
+                signed: true,
+                set_ovf: false,
+            },
+            OpKind::VLane {
+                dst: v(5),
+                src1: v(1),
+                src2: v(2),
+                elem: VecElementType::I16,
+                lanes: 8,
+                op: VLaneOp::SubSat,
+                signed: false,
+                set_ovf: false,
+            },
+            OpKind::VLane {
+                dst: v(6),
+                src1: v(1),
+                src2: v(2),
+                elem: VecElementType::I16,
+                lanes: 8,
+                op: VLaneOp::Avg,
+                signed: true,
+                set_ovf: false,
+            },
+            OpKind::VLane {
+                dst: v(7),
+                src1: v(1),
+                src2: v(2),
+                elem: VecElementType::I32,
+                lanes: 2,
+                op: VLaneOp::AvgRnd,
+                signed: false,
+                set_ovf: false,
+            },
+            OpKind::VLane {
+                dst: v(8),
+                src1: v(1),
+                src2: v(2),
+                elem: VecElementType::I32,
+                lanes: 4,
+                op: VLaneOp::AbsDiff,
+                signed: true,
+                set_ovf: false,
+            },
+            OpKind::VLane {
+                dst: v(9),
+                src1: v(1),
+                src2: v(2),
+                elem: VecElementType::I64,
+                lanes: 1,
+                op: VLaneOp::AndNot,
+                signed: false,
+                set_ovf: false,
+            },
+            OpKind::VLane {
+                dst: v(10),
+                src1: v(1),
+                src2: v(2),
+                elem: VecElementType::I32,
+                lanes: 4,
+                op: VLaneOp::OrNot,
+                signed: false,
+                set_ovf: false,
+            },
+            OpKind::VLane {
+                dst: v(11),
+                src1: v(1),
+                src2: v(2),
+                elem: VecElementType::I16,
+                lanes: 4,
+                op: VLaneOp::Mul,
+                signed: true,
+                set_ovf: false,
+            },
+        ]);
+
+        let (_, simd, _) = run_aarch64_code_with_regs_and_simd(
+            &code,
+            &[],
+            &[(1, a_low, a_high), (2, b_low, b_high)],
+        );
+        assert_eq!(
+            simd[0],
+            apply_vlane(a_low, a_high, b_low, b_high, 1, 16, VLaneOp::Max, true)
+        );
+        assert_eq!(
+            simd[3],
+            apply_vlane(a_low, a_high, b_low, b_high, 2, 8, VLaneOp::Min, false)
+        );
+        assert_eq!(
+            simd[4],
+            apply_vlane(a_low, a_high, b_low, b_high, 1, 16, VLaneOp::AddSat, true)
+        );
+        assert_eq!(
+            simd[5],
+            apply_vlane(a_low, a_high, b_low, b_high, 2, 8, VLaneOp::SubSat, false)
+        );
+        assert_eq!(
+            simd[6],
+            apply_vlane(a_low, a_high, b_low, b_high, 2, 8, VLaneOp::Avg, true)
+        );
+        assert_eq!(
+            simd[7],
+            apply_vlane(a_low, a_high, b_low, b_high, 4, 2, VLaneOp::AvgRnd, false)
+        );
+        assert_eq!(
+            simd[8],
+            apply_vlane(a_low, a_high, b_low, b_high, 4, 4, VLaneOp::AbsDiff, true)
+        );
+        assert_eq!(
+            simd[9],
+            apply_vlane(a_low, a_high, b_low, b_high, 8, 1, VLaneOp::AndNot, false)
+        );
+        assert_eq!(
+            simd[10],
+            apply_vlane(a_low, a_high, b_low, b_high, 4, 4, VLaneOp::OrNot, false)
+        );
+        assert_eq!(
+            simd[11],
+            apply_vlane(a_low, a_high, b_low, b_high, 2, 4, VLaneOp::Mul, true)
+        );
+    }
+
+    #[test]
     fn lowers_vector_broadcast_runtime() {
         fn splat(scalar: u64, elem_bytes: usize, lanes: usize) -> (u64, u64) {
             let mut out = [0u8; 16];
@@ -17891,6 +18265,61 @@ mod tests {
             src2: v(2),
             elem: VecElementType::I32,
             lanes: 8,
+        });
+
+        assert_unsupported(OpKind::VLane {
+            dst: v(0),
+            src1: v(1),
+            src2: v(2),
+            elem: VecElementType::I64,
+            lanes: 2,
+            op: VLaneOp::Min,
+            signed: true,
+            set_ovf: false,
+        });
+
+        assert_unsupported(OpKind::VLane {
+            dst: v(0),
+            src1: v(1),
+            src2: v(2),
+            elem: VecElementType::F32,
+            lanes: 4,
+            op: VLaneOp::Avg,
+            signed: false,
+            set_ovf: false,
+        });
+
+        assert_unsupported(OpKind::VLane {
+            dst: v(0),
+            src1: v(1),
+            src2: v(2),
+            elem: VecElementType::I32,
+            lanes: 8,
+            op: VLaneOp::And,
+            signed: false,
+            set_ovf: false,
+        });
+
+        assert_unsupported(OpKind::VLane {
+            dst: v(0),
+            src1: v(1),
+            src2: v(2),
+            elem: VecElementType::I32,
+            lanes: 4,
+            op: VLaneOp::Not,
+            signed: false,
+            set_ovf: false,
+        });
+
+        assert_unsupported(OpKind::VLane {
+            dst: v(0),
+            src1: v(1),
+            src2: v(2),
+            elem: VecElementType::I32,
+            lanes: 4,
+            op: VLaneOp::AddSat,
+            signed: false,
+            set_ovf: true,
         });
 
         assert_unsupported(OpKind::VBroadcast {
