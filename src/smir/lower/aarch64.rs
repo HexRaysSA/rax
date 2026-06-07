@@ -3427,7 +3427,7 @@ impl Aarch64Lowerer {
         width: MemWidth,
         order: MemoryOrder,
     ) -> Result<(), LowerError> {
-        let rt = Self::dst_gpr(dst)?;
+        let rt = Self::dst_gpr_arm_or_x86(dst)?;
         let size = Self::mem_size(width)?;
         match order {
             MemoryOrder::Relaxed => self.lower_mem_access(rt, addr, size, 0b01),
@@ -3450,7 +3450,7 @@ impl Aarch64Lowerer {
         width: MemWidth,
         order: MemoryOrder,
     ) -> Result<(), LowerError> {
-        let rt = Self::gpr(src)?;
+        let rt = Self::gpr_arm_or_x86(src)?;
         let size = Self::mem_size(width)?;
         match order {
             MemoryOrder::Relaxed => self.lower_mem_access(rt, addr, size, 0b00),
@@ -16451,6 +16451,10 @@ mod tests {
     }
 
     fn enc_ldar(size: u32) -> u32 {
+        enc_ldar_regs(size, 0, 1)
+    }
+
+    fn enc_ldar_regs(size: u32, rt: u32, rn: u32) -> u32 {
         (size << 30)
             | (0b001000 << 24)
             | (1 << 23)
@@ -16458,7 +16462,8 @@ mod tests {
             | (0b11111 << 16)
             | (1 << 15)
             | (0b11111 << 10)
-            | (1 << 5)
+            | (rn << 5)
+            | rt
     }
 
     fn enc_stlr_regs(size: u32, rt: u32, rn: u32) -> u32 {
@@ -26874,6 +26879,45 @@ mod tests {
     }
 
     #[test]
+    fn lowers_atomic_load_apx_egpr_value_operands() {
+        let acquire = lower_single_op(OpKind::AtomicLoad {
+            dst: x86(X86Reg::R16),
+            addr: Address::Direct(x(1)),
+            width: MemWidth::B8,
+            order: MemoryOrder::Acquire,
+        });
+        let words = code_words(&acquire);
+        assert_eq!(words[0], enc_ldar_regs(3, 16, 1));
+
+        let relaxed = lower_single_op(OpKind::AtomicLoad {
+            dst: x86(X86Reg::R17),
+            addr: Address::BaseOffset {
+                base: x(1),
+                offset: 16,
+                disp_size: DispSize::Auto,
+            },
+            width: MemWidth::B8,
+            order: MemoryOrder::Relaxed,
+        });
+        let words = code_words(&relaxed);
+        assert_eq!(words[0], enc_ldst_uimm_regs(3, 0b01, 2, 17, 1));
+    }
+
+    #[test]
+    fn rejects_atomic_load_apx_r31_value_mapping() {
+        for order in [MemoryOrder::Acquire, MemoryOrder::Relaxed] {
+            let err = try_lower_single_op(OpKind::AtomicLoad {
+                dst: x86(X86Reg::R31),
+                addr: Address::Direct(x(1)),
+                width: MemWidth::B8,
+                order,
+            })
+            .unwrap_err();
+            assert!(matches!(err, LowerError::InvalidRegister(_)));
+        }
+    }
+
+    #[test]
     fn rejects_atomic_load_release_order() {
         let mut builder = FunctionBuilder::new(FunctionId(0), 0);
         builder.push_op(
@@ -27014,6 +27058,45 @@ mod tests {
         expected.extend_from_slice(&enc_ldst_uimm(3, 0b00, 2).to_le_bytes());
         expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
         assert_eq!(code, expected);
+    }
+
+    #[test]
+    fn lowers_atomic_store_apx_egpr_value_operands() {
+        let release = lower_single_op(OpKind::AtomicStore {
+            src: x86(X86Reg::R18),
+            addr: Address::Direct(x(1)),
+            width: MemWidth::B4,
+            order: MemoryOrder::Release,
+        });
+        let words = code_words(&release);
+        assert_eq!(words[0], enc_stlr_regs(2, 18, 1));
+
+        let relaxed = lower_single_op(OpKind::AtomicStore {
+            src: x86(X86Reg::R19),
+            addr: Address::BaseOffset {
+                base: x(1),
+                offset: 16,
+                disp_size: DispSize::Auto,
+            },
+            width: MemWidth::B8,
+            order: MemoryOrder::Relaxed,
+        });
+        let words = code_words(&relaxed);
+        assert_eq!(words[0], enc_ldst_uimm_regs(3, 0b00, 2, 19, 1));
+    }
+
+    #[test]
+    fn rejects_atomic_store_apx_r31_value_mapping() {
+        for order in [MemoryOrder::Release, MemoryOrder::Relaxed] {
+            let err = try_lower_single_op(OpKind::AtomicStore {
+                src: x86(X86Reg::R31),
+                addr: Address::Direct(x(1)),
+                width: MemWidth::B8,
+                order,
+            })
+            .unwrap_err();
+            assert!(matches!(err, LowerError::InvalidRegister(_)));
+        }
     }
 
     #[test]
