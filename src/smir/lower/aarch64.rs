@@ -982,6 +982,19 @@ impl Aarch64Lowerer {
         self.emit(0x0ea1_6800 | (q << 30) | ((rn as u32) << 5) | (rd as u32));
     }
 
+    fn emit_simd_bfdot(&mut self, rd: u8, rn: u8, rm: u8, q: u32) {
+        self.emit(
+            (q << 30)
+                | (1 << 29)
+                | (0b01110 << 24)
+                | (0b01 << 22)
+                | ((rm as u32) << 16)
+                | (0b111111 << 10)
+                | ((rn as u32) << 5)
+                | (rd as u32),
+        );
+    }
+
     fn emit_simd_i8_dot_kind(
         &mut self,
         rd: u8,
@@ -2541,6 +2554,31 @@ impl Aarch64Lowerer {
                 (rn, rm, src1_signed, src2_signed)
             };
         self.emit_simd_i8_dot_kind(rd, dot_rn, dot_rm, q, dot_rn_signed, dot_rm_signed)
+    }
+
+    fn lower_vdotproduct_bf16(
+        &mut self,
+        dst: VReg,
+        acc: VReg,
+        src1: VReg,
+        src2: VReg,
+        width: VecWidth,
+    ) -> Result<(), LowerError> {
+        let q = Self::simd_vec_q(width)?;
+        let rd = Self::fp_reg(dst)?;
+        let ra = Self::fp_reg(acc)?;
+        let rn = Self::fp_reg(src1)?;
+        let rm = Self::fp_reg(src2)?;
+        if rd != ra {
+            if rd == rn || rd == rm {
+                return Err(LowerError::UnsupportedOp {
+                    op: "AArch64 native BF16 dot accumulator copy alias".to_string(),
+                });
+            }
+            self.lower_vmov(dst, acc, width)?;
+        }
+        self.emit_simd_bfdot(rd, rn, rm, q);
+        Ok(())
     }
 
     fn lower_vcvt_fp32_to_bf16(
@@ -11617,6 +11655,13 @@ impl Aarch64Lowerer {
                 *src2_signed,
                 *saturate,
             ),
+            OpKind::VDotProductBF16 {
+                dst,
+                acc,
+                src1,
+                src2,
+                width,
+            } => self.lower_vdotproduct_bf16(*dst, *acc, *src1, *src2, *width),
             OpKind::VFP16Arith {
                 dst,
                 src1,
@@ -12823,6 +12868,14 @@ mod tests {
         simd_pair_from_bytes(bytes)
     }
 
+    fn simd_pair_from_bf16(values: [u16; 8]) -> (u64, u64) {
+        let mut bytes = [0u8; 16];
+        for (idx, value) in values.iter().enumerate() {
+            bytes[idx * 2..idx * 2 + 2].copy_from_slice(&value.to_le_bytes());
+        }
+        simd_pair_from_bytes(bytes)
+    }
+
     fn ref_f16_binop(a: u16, b: u16, op: Avx10FP16Op) -> u16 {
         let mut flags = 0;
         let a = a as u64;
@@ -12902,6 +12955,23 @@ mod tests {
             out[lane] = sum;
         }
         simd_pair_from_i32(out)
+    }
+
+    fn ref_bf16_dot(
+        acc: [f32; 4],
+        src1: [u16; 8],
+        src2: [u16; 8],
+        lanes: usize,
+    ) -> (u64, u64) {
+        let mut out = [0f32; 4];
+        for lane in 0..lanes {
+            let a0 = f32::from_bits((src1[lane * 2] as u32) << 16);
+            let a1 = f32::from_bits((src1[lane * 2 + 1] as u32) << 16);
+            let b0 = f32::from_bits((src2[lane * 2] as u32) << 16);
+            let b1 = f32::from_bits((src2[lane * 2 + 1] as u32) << 16);
+            out[lane] = acc[lane] + a0 * b0 + a1 * b1;
+        }
+        simd_pair_from_f32(out)
     }
 
     fn bf16_from_f32_bits(bits: u32) -> u16 {
@@ -19543,6 +19613,87 @@ mod tests {
     }
 
     #[test]
+    fn lowers_vector_bf16_dot_product_encodings() {
+        let code = lower_ops(vec![
+            OpKind::VDotProductBF16 {
+                dst: v(0),
+                acc: v(0),
+                src1: v(1),
+                src2: v(2),
+                width: VecWidth::V128,
+            },
+            OpKind::VDotProductBF16 {
+                dst: v(3),
+                acc: v(4),
+                src1: v(5),
+                src2: v(6),
+                width: VecWidth::V64,
+            },
+        ]);
+        let words = code_words(&code);
+
+        assert_eq!(words[0], 0x6e40_fc00 | (2 << 16) | (1 << 5));
+        assert_eq!(words[1], 0x0ea4_1c83);
+        assert_eq!(words[2], 0x2e40_fc00 | (6 << 16) | (5 << 5) | 3);
+        assert_eq!(words[3], 0xd65f_03c0);
+    }
+
+    #[test]
+    fn lowers_vector_bf16_dot_product_runtime() {
+        let acc0 = [10.0, -20.0, 0.5, 1000.0];
+        let src1 = [
+            0x3f80, 0x4000, 0xc040, 0x4080, 0x4100, 0xc100, 0x3f00, 0xbf80,
+        ];
+        let src2 = [
+            0x4040, 0xbf80, 0x4000, 0x3f80, 0xc000, 0xc040, 0x4080, 0x4000,
+        ];
+        let acc1 = [1.0, -2.0, 0.0, 0.0];
+        let src3 = [
+            0x3f80, 0xbf80, 0x4000, 0x4040, 0x3f00, 0xc000, 0x4080, 0x4100,
+        ];
+        let src4 = [
+            0x4000, 0x4000, 0xc000, 0x3f80, 0x3f80, 0x3f80, 0x4000, 0x4000,
+        ];
+        let code = lower_ops(vec![
+            OpKind::VDotProductBF16 {
+                dst: v(0),
+                acc: v(0),
+                src1: v(1),
+                src2: v(2),
+                width: VecWidth::V128,
+            },
+            OpKind::VDotProductBF16 {
+                dst: v(3),
+                acc: v(4),
+                src1: v(5),
+                src2: v(6),
+                width: VecWidth::V64,
+            },
+        ]);
+
+        let (_, simd, sp) = run_aarch64_code_with_regs_and_simd(
+            &code,
+            &[],
+            &[
+                (0, simd_pair_from_f32(acc0).0, simd_pair_from_f32(acc0).1),
+                (1, simd_pair_from_bf16(src1).0, simd_pair_from_bf16(src1).1),
+                (2, simd_pair_from_bf16(src2).0, simd_pair_from_bf16(src2).1),
+                (4, simd_pair_from_f32(acc1).0, simd_pair_from_f32(acc1).1),
+                (5, simd_pair_from_bf16(src3).0, simd_pair_from_bf16(src3).1),
+                (6, simd_pair_from_bf16(src4).0, simd_pair_from_bf16(src4).1),
+            ],
+        );
+
+        assert_eq!(simd[0], ref_bf16_dot(acc0, src1, src2, 4));
+        assert_eq!(simd[3], ref_bf16_dot(acc1, src3, src4, 2));
+        assert_eq!(simd[1], simd_pair_from_bf16(src1));
+        assert_eq!(simd[2], simd_pair_from_bf16(src2));
+        assert_eq!(simd[5], simd_pair_from_bf16(src3));
+        assert_eq!(simd[6], simd_pair_from_bf16(src4));
+        assert_eq!(sp, 0x8000);
+    }
+
+    #[test]
     fn lowers_vector_i8_dot_product_encodings() {
         let code = lower_ops(vec![
             OpKind::VDotProduct {
@@ -21804,6 +21955,22 @@ mod tests {
             src1_signed: false,
             src2_signed: false,
             saturate: false,
+        });
+
+        assert_unsupported(OpKind::VDotProductBF16 {
+            dst: v(0),
+            acc: v(0),
+            src1: v(1),
+            src2: v(2),
+            width: VecWidth::V256,
+        });
+
+        assert_unsupported(OpKind::VDotProductBF16 {
+            dst: v(1),
+            acc: v(0),
+            src1: v(1),
+            src2: v(2),
+            width: VecWidth::V128,
         });
 
         assert_unsupported(OpKind::VFma {
