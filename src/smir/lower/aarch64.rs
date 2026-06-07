@@ -235,6 +235,25 @@ impl Aarch64Lowerer {
         }
     }
 
+    fn gpr_arm_or_x86(vreg: VReg) -> Result<u8, LowerError> {
+        match vreg {
+            VReg::Arch(ArchReg::Arm(ArmReg::X(n))) if n < 31 => Ok(n),
+            VReg::Arch(ArchReg::X86(reg)) => {
+                reg.gpr_index()
+                    .filter(|&n| n < 31)
+                    .ok_or_else(|| {
+                        LowerError::InvalidRegister(format!(
+                            "AArch64 native lowerer expected GPR, got X86({reg:?})"
+                        ))
+                    })
+            }
+            VReg::Imm(0) => Ok(31),
+            other => Err(LowerError::InvalidRegister(format!(
+                "AArch64 native lowerer expected GPR, got {other:?}"
+            ))),
+        }
+    }
+
     fn dst_gpr(vreg: VReg) -> Result<u8, LowerError> {
         match vreg {
             VReg::Arch(ArchReg::Arm(ArmReg::X(n))) if n < 31 => Ok(n),
@@ -4107,9 +4126,9 @@ impl Aarch64Lowerer {
             }
         }
 
-        let dst = Self::dst_gpr(dst)?;
+        let dst = Self::dst_gpr_arm_or_x86(dst)?;
         match src {
-            SrcOperand::Reg(reg) => self.emit_mov_reg(dst, Self::gpr(*reg)?, width),
+            SrcOperand::Reg(reg) => self.emit_mov_reg(dst, Self::gpr_arm_or_x86(*reg)?, width),
             SrcOperand::Imm(imm) | SrcOperand::Imm64(imm) => self.emit_mov_imm(dst, *imm, width),
             other => Err(LowerError::UnsupportedOp {
                 op: format!("AArch64 native Mov source {other:?}"),
@@ -12565,6 +12584,17 @@ mod tests {
         lower_ops(vec![kind])
     }
 
+    fn try_lower_single_op(kind: OpKind) -> Result<Vec<u8>, LowerError> {
+        let mut builder = FunctionBuilder::new(FunctionId(0), 0);
+        builder.push_op(0, kind);
+        builder.set_terminator(Terminator::Return { values: vec![] });
+        let func = builder.finish();
+
+        let mut lowerer = Aarch64Lowerer::new();
+        lowerer.lower_function(&func)?;
+        lowerer.finalize()
+    }
+
     fn lower_ops(kinds: Vec<OpKind>) -> Vec<u8> {
         let mut builder = FunctionBuilder::new(FunctionId(0), 0);
         for kind in kinds {
@@ -16522,6 +16552,59 @@ mod tests {
             | (b40 << 19)
             | (imm14 << 5)
             | rt
+    }
+
+    #[test]
+    fn lowers_mov_apx_egpr_dst_as_identity_gpr() {
+        let code = lower_single_op(OpKind::Mov {
+            dst: x86(X86Reg::R16),
+            src: SrcOperand::Imm(0x1234),
+            width: OpWidth::W64,
+        });
+
+        let mut expected = Vec::new();
+        expected.extend_from_slice(&enc_mov_wide(1, 0b10, 0, 0x1234, 16).to_le_bytes());
+        expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
+        assert_eq!(code, expected);
+    }
+
+    #[test]
+    fn lowers_mov_apx_egpr_register_runtime() {
+        let code = lower_single_op(OpKind::Mov {
+            dst: x86(X86Reg::R16),
+            src: SrcOperand::Reg(x86(X86Reg::R17)),
+            width: OpWidth::W64,
+        });
+
+        let (out, out_nzcv, sp) = run_aarch64_code(
+            &code,
+            &[(16, 0x1616_1616_1616_1616), (17, 0xfeed_face_cafe_beef)],
+            0b1010,
+        );
+
+        assert_eq!(out[16], 0xfeed_face_cafe_beef);
+        assert_eq!(out[17], 0xfeed_face_cafe_beef);
+        assert_eq!(out_nzcv, 0b1010);
+        assert_eq!(sp, 0x8000);
+    }
+
+    #[test]
+    fn rejects_mov_apx_r31_identity_mapping() {
+        for kind in [
+            OpKind::Mov {
+                dst: x86(X86Reg::R31),
+                src: SrcOperand::Imm(0x1234),
+                width: OpWidth::W64,
+            },
+            OpKind::Mov {
+                dst: x(0),
+                src: SrcOperand::Reg(x86(X86Reg::R31)),
+                width: OpWidth::W64,
+            },
+        ] {
+            let err = try_lower_single_op(kind).unwrap_err();
+            assert!(matches!(err, LowerError::InvalidRegister(_)));
+        }
     }
 
     #[test]
