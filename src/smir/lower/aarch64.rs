@@ -3641,6 +3641,68 @@ impl Aarch64Lowerer {
         self.emit_dp1(dst, dst, 0b000100, width)
     }
 
+    fn lower_popcnt(&mut self, dst: VReg, src: VReg, width: OpWidth) -> Result<(), LowerError> {
+        let dst = Self::dst_gpr(dst)?;
+        let src = Self::gpr(src)?;
+        let emit_width = match width {
+            OpWidth::W8 | OpWidth::W16 | OpWidth::W32 => OpWidth::W32,
+            OpWidth::W64 => OpWidth::W64,
+            other => {
+                return Err(LowerError::UnsupportedOp {
+                    op: format!("AArch64 native Popcnt width {other:?}"),
+                });
+            }
+        };
+        let (m1, m2, m4, final_mask) = match width {
+            OpWidth::W8 => (0x5555_5555, 0x3333_3333, 0x0f0f_0f0f, 0x0f),
+            OpWidth::W16 => (0x5555_5555, 0x3333_3333, 0x0f0f_0f0f, 0x1f),
+            OpWidth::W32 => (0x5555_5555, 0x3333_3333, 0x0f0f_0f0f, 0x3f),
+            OpWidth::W64 => (
+                0x5555_5555_5555_5555,
+                0x3333_3333_3333_3333,
+                0x0f0f_0f0f_0f0f_0f0f,
+                0x7f,
+            ),
+            _ => unreachable!(),
+        };
+        let scratches = Self::scratch_regs(&[dst, src], 1)?;
+        let temp = scratches[0];
+
+        self.emit_scratch_save(&scratches);
+        if matches!(width, OpWidth::W8 | OpWidth::W16) {
+            self.emit_bitfield(dst, src, 0b10, 0, width.bits() - 1, OpWidth::W32)?;
+        } else {
+            self.emit_mov_reg(dst, src, emit_width)?;
+        }
+
+        self.emit_bitfield(temp, dst, 0b10, 1, emit_width.bits() - 1, emit_width)?;
+        let (imm_n, immr, imms) = Self::logical_bitmask_imm(m1, emit_width)?;
+        self.emit_logic_imm(temp, temp, 0b00, imm_n, immr, imms, emit_width)?;
+        self.emit_addsub_reg(dst, dst, temp, true, false, emit_width)?;
+
+        let (imm_n, immr, imms) = Self::logical_bitmask_imm(m2, emit_width)?;
+        self.emit_logic_imm(temp, dst, 0b00, imm_n, immr, imms, emit_width)?;
+        self.emit_bitfield(dst, dst, 0b10, 2, emit_width.bits() - 1, emit_width)?;
+        self.emit_logic_imm(dst, dst, 0b00, imm_n, immr, imms, emit_width)?;
+        self.emit_addsub_reg(dst, temp, dst, false, false, emit_width)?;
+
+        self.emit_bitfield(temp, dst, 0b10, 4, emit_width.bits() - 1, emit_width)?;
+        self.emit_addsub_reg(dst, dst, temp, false, false, emit_width)?;
+        let (imm_n, immr, imms) = Self::logical_bitmask_imm(m4, emit_width)?;
+        self.emit_logic_imm(dst, dst, 0b00, imm_n, immr, imms, emit_width)?;
+
+        for shift in [8, 16, 32] {
+            if shift < width.bits() {
+                self.emit_bitfield(temp, dst, 0b10, shift, emit_width.bits() - 1, emit_width)?;
+                self.emit_addsub_reg(dst, dst, temp, false, false, emit_width)?;
+            }
+        }
+        let (imm_n, immr, imms) = Self::logical_bitmask_imm(final_mask, emit_width)?;
+        self.emit_logic_imm(dst, dst, 0b00, imm_n, immr, imms, emit_width)?;
+        self.emit_scratch_restore(&scratches);
+        Ok(())
+    }
+
     fn lower_bsf(
         &mut self,
         dst: VReg,
@@ -9033,6 +9095,7 @@ impl Aarch64Lowerer {
             OpKind::Test { src1, src2, width } => self.lower_test(*src1, src2, *width),
             OpKind::Clz { dst, src, width } => self.lower_clz(*dst, *src, *width),
             OpKind::Ctz { dst, src, width } => self.lower_ctz(*dst, *src, *width),
+            OpKind::Popcnt { dst, src, width } => self.lower_popcnt(*dst, *src, *width),
             OpKind::Bsf {
                 dst,
                 src,
@@ -22266,6 +22329,77 @@ mod tests {
         assert_eq!(out[0], 16);
         assert_eq!(out_nzcv, 0b0110);
         assert_eq!(sp, 0x8000);
+    }
+
+    fn assert_popcnt_lowering(
+        name: &str,
+        dst: u8,
+        src: u8,
+        value: u64,
+        width: OpWidth,
+    ) {
+        let code = lower_single_op(OpKind::Popcnt {
+            dst: x(dst),
+            src: x(src),
+            width,
+        });
+        let scratch16 = 0x1616_1616_1616_1616;
+        let scratch17 = 0x1717_1717_1717_1717;
+        let old_nzcv = 0b1011;
+        let expected = (value & width_mask(width)).count_ones() as u64;
+        let (out, out_nzcv, sp) = run_aarch64_code(
+            &code,
+            &[(src, value), (16, scratch16), (17, scratch17)],
+            old_nzcv,
+        );
+
+        assert_eq!(out[dst as usize], expected, "{name}: result");
+        if dst != src {
+            assert_eq!(out[src as usize], value, "{name}: source preserved");
+        }
+        assert_eq!(out[16], scratch16, "{name}: x16 restored");
+        assert_eq!(out[17], scratch17, "{name}: x17 preserved");
+        assert_eq!(out_nzcv, old_nzcv, "{name}: flags preserved");
+        assert_eq!(sp, 0x8000, "{name}: stack restored");
+    }
+
+    #[test]
+    fn lowers_popcnt_runtime() {
+        assert_popcnt_lowering(
+            "popcnt_w8_masks_source",
+            0,
+            1,
+            0xffff_ffff_ffff_ffb6,
+            OpWidth::W8,
+        );
+        assert_popcnt_lowering(
+            "popcnt_w16_counts_low_halfword",
+            0,
+            1,
+            0x1234_5678_0000_f0f1,
+            OpWidth::W16,
+        );
+        assert_popcnt_lowering(
+            "popcnt_w32_counts_low_word",
+            0,
+            1,
+            0xffff_ffff_8000_0001,
+            OpWidth::W32,
+        );
+        assert_popcnt_lowering(
+            "popcnt_x_counts_full_register",
+            0,
+            1,
+            0xffff_ffff_0000_8001,
+            OpWidth::W64,
+        );
+        assert_popcnt_lowering(
+            "popcnt_x_in_place",
+            2,
+            2,
+            0x8421_ffff_0000_0001,
+            OpWidth::W64,
+        );
     }
 
     #[test]
