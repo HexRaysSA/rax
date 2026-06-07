@@ -2610,6 +2610,136 @@ fn push_cond_select_true_transform_native_cases(
 }
 
 #[cfg(all(feature = "smir-jit", target_arch = "x86_64"))]
+fn push_cond_compare_inverted_native_cases(
+    cases: &mut Vec<(String, [u32; 3], [u32; 3], ArmState)>,
+    control_target: i32,
+) {
+    let ccmp_source = [enc_condcmp(1, 1, false, RM, 1, 0b0100), NOP, NOP];
+    let ccmp_lowered = lower_aarch64_native_ops(vec![
+        OpKind::TestCondition {
+            dst: VReg::virt(223),
+            cond: Condition::Eq,
+        },
+        OpKind::Sub {
+            dst: VReg::virt(224),
+            src1: arm_x(1),
+            src2: SrcOperand::Reg(arm_x(2)),
+            width: OpWidth::W64,
+            flags: FlagUpdate::All,
+        },
+        OpKind::Mov {
+            dst: VReg::virt(225),
+            src: SrcOperand::Reg(VReg::Arch(ArchReg::Arm(ArmReg::Nzcv))),
+            width: OpWidth::W32,
+        },
+        OpKind::Select {
+            dst: VReg::virt(226),
+            cond: VReg::virt(223),
+            src_true: VReg::Imm(0x4000_0000),
+            src_false: VReg::virt(225),
+            width: OpWidth::W32,
+        },
+        OpKind::Mov {
+            dst: VReg::Arch(ArchReg::Arm(ArmReg::Nzcv)),
+            src: SrcOperand::Reg(VReg::virt(226)),
+            width: OpWidth::W32,
+        },
+    ])
+    .unwrap_or_else(|e| {
+        panic!("ccmp_x_ne_inverted_select_fallback_z: native lowering failed: {e}")
+    });
+
+    let mut st = ArmState::zeroed();
+    st.pc = PCREL_MAGIC;
+    st.x[30] = pcrel_marker(control_target);
+    st.x[0] = 0x1111_2222_3333_4444;
+    st.x[1] = 5;
+    st.x[2] = 7;
+    st.pstate = 0x4000_0000;
+    cases.push((
+        "ccmp_x_ne_inverted_select_fallback_z".into(),
+        ccmp_source,
+        ccmp_lowered,
+        st,
+    ));
+
+    let mut st = ArmState::zeroed();
+    st.pc = PCREL_MAGIC;
+    st.x[30] = pcrel_marker(control_target);
+    st.x[0] = 0x2222_3333_4444_5555;
+    st.x[1] = 9;
+    st.x[2] = 3;
+    st.pstate = 0;
+    cases.push((
+        "ccmp_x_ne_inverted_select_compares".into(),
+        ccmp_source,
+        ccmp_lowered,
+        st,
+    ));
+
+    let ccmn_source = [enc_condcmp(0, 0, true, 5, 9, 0b1001), NOP, NOP];
+    let ccmn_lowered = lower_aarch64_native_ops(vec![
+        OpKind::TestCondition {
+            dst: VReg::virt(227),
+            cond: Condition::Ugt,
+        },
+        OpKind::Add {
+            dst: VReg::virt(228),
+            src1: arm_x(1),
+            src2: SrcOperand::Imm(5),
+            width: OpWidth::W32,
+            flags: FlagUpdate::All,
+        },
+        OpKind::Mov {
+            dst: VReg::virt(229),
+            src: SrcOperand::Reg(VReg::Arch(ArchReg::Arm(ArmReg::Nzcv))),
+            width: OpWidth::W32,
+        },
+        OpKind::Select {
+            dst: VReg::virt(230),
+            cond: VReg::virt(227),
+            src_true: VReg::Imm(0x9000_0000),
+            src_false: VReg::virt(229),
+            width: OpWidth::W32,
+        },
+        OpKind::Mov {
+            dst: VReg::Arch(ArchReg::Arm(ArmReg::Nzcv)),
+            src: SrcOperand::Reg(VReg::virt(230)),
+            width: OpWidth::W32,
+        },
+    ])
+    .unwrap_or_else(|e| {
+        panic!("ccmn_w_ls_inverted_select_fallback_nv: native lowering failed: {e}")
+    });
+
+    let mut st = ArmState::zeroed();
+    st.pc = PCREL_MAGIC;
+    st.x[30] = pcrel_marker(control_target);
+    st.x[0] = 0x3333_4444_5555_6666;
+    st.x[1] = 0xffff_ffff;
+    st.pstate = 0x2000_0000;
+    cases.push((
+        "ccmn_w_ls_inverted_select_fallback_nv".into(),
+        ccmn_source,
+        ccmn_lowered,
+        st,
+    ));
+
+    let mut st = ArmState::zeroed();
+    st.pc = PCREL_MAGIC;
+    st.x[30] = pcrel_marker(control_target);
+    st.x[0] = 0x4444_5555_6666_7777;
+    st.x[1] = 0xffff_ffff;
+    st.pstate = 0;
+    cases.push((
+        "ccmn_w_ls_inverted_select_compares".into(),
+        ccmn_source,
+        ccmn_lowered,
+        st,
+    ));
+}
+
+#[cfg(all(feature = "smir-jit", target_arch = "x86_64"))]
 fn enc_csel(sf: u32, cond: u32) -> u32 {
     enc_csel_form(sf, 0, 0, RN, RM, cond)
 }
@@ -8889,6 +9019,7 @@ fn smir_aarch64_native_lowering_matches_qemu_oracle() {
     drop(push_case);
 
     push_cond_select_true_transform_native_cases(&mut cases, control_target);
+    push_cond_compare_inverted_native_cases(&mut cases, control_target);
     push_sar_imm_movn_native_cases(&mut cases, control_target);
     push_ror_imm_movn_native_cases(&mut cases, control_target);
     push_rol_imm_movn_native_cases(&mut cases, control_target);

@@ -6514,7 +6514,7 @@ impl Aarch64Lowerer {
                         dst: final_nzcv,
                         cond: select_cond,
                         src_true,
-                        src_false: VReg::Imm(fallback_nzcv),
+                        src_false,
                         width: OpWidth::W32,
                     },
                 ..
@@ -6534,7 +6534,7 @@ impl Aarch64Lowerer {
             return Ok(None);
         };
 
-        if select_cond != cond_vreg || src_true != cmp_nzcv || writeback_nzcv != final_nzcv {
+        if select_cond != cond_vreg || writeback_nzcv != final_nzcv {
             return Ok(None);
         }
 
@@ -6548,11 +6548,28 @@ impl Aarch64Lowerer {
         }
 
         let (rm_imm5, immediate) = Self::cond_compare_src2(src2)?;
-        let nzcv = Self::cond_compare_nzcv(*fallback_nzcv)?;
+        let (fallback_nzcv, cond) = if src_true == cmp_nzcv {
+            let VReg::Imm(fallback_nzcv) = src_false else {
+                return Ok(None);
+            };
+            (*fallback_nzcv, Self::arm_cond_code(*cond)?)
+        } else if src_false == cmp_nzcv {
+            let VReg::Imm(fallback_nzcv) = src_true else {
+                return Ok(None);
+            };
+            let cond = match Self::inverted_arm_cond_code(*cond) {
+                Ok(cond) => cond,
+                Err(_) => return Ok(None),
+            };
+            (*fallback_nzcv, cond)
+        } else {
+            return Ok(None);
+        };
+        let nzcv = Self::cond_compare_nzcv(fallback_nzcv)?;
         self.emit_cond_compare(
             Self::gpr(rn)?,
             rm_imm5,
-            Self::arm_cond_code(*cond)?,
+            cond,
             nzcv,
             subtract,
             immediate,
@@ -7631,6 +7648,25 @@ mod tests {
 
     fn enc_flagm(op2: u32) -> u32 {
         0xd500_401f | (op2 << 5)
+    }
+
+    fn enc_condcmp(
+        sf: u32,
+        op: u32,
+        imm: bool,
+        rm_imm5: u32,
+        cond: u32,
+        rn: u32,
+        nzcv: u32,
+    ) -> u32 {
+        (sf << 31)
+            | (op << 30)
+            | (0b111010010 << 21)
+            | (rm_imm5 << 16)
+            | (cond << 12)
+            | ((imm as u32) << 11)
+            | (rn << 5)
+            | (nzcv & 0xf)
     }
 
     fn enc_brk(imm16: u32) -> u32 {
@@ -15815,6 +15851,132 @@ mod tests {
 
         let mut expected = Vec::new();
         expected.extend_from_slice(&enc_csel_regs(1, 0, 1, 31, 31, 0, 0).to_le_bytes());
+        expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
+        assert_eq!(code, expected);
+    }
+
+    #[test]
+    fn lowers_fused_cond_compare_false_compare_as_inverted_ccmp() {
+        let cond = VReg::virt(0);
+        let cmp_result = VReg::virt(1);
+        let cmp_nzcv = VReg::virt(2);
+        let final_nzcv = VReg::virt(3);
+        let mut builder = FunctionBuilder::new(FunctionId(0), 0);
+        builder.push_op(
+            0,
+            OpKind::TestCondition {
+                dst: cond,
+                cond: Condition::Eq,
+            },
+        );
+        builder.push_op(
+            0,
+            OpKind::Sub {
+                dst: cmp_result,
+                src1: x(1),
+                src2: SrcOperand::Reg(x(2)),
+                width: OpWidth::W64,
+                flags: FlagUpdate::All,
+            },
+        );
+        builder.push_op(
+            0,
+            OpKind::Mov {
+                dst: cmp_nzcv,
+                src: SrcOperand::Reg(VReg::Arch(ArchReg::Arm(ArmReg::Nzcv))),
+                width: OpWidth::W32,
+            },
+        );
+        builder.push_op(
+            0,
+            OpKind::Select {
+                dst: final_nzcv,
+                cond,
+                src_true: VReg::Imm(0x4000_0000),
+                src_false: cmp_nzcv,
+                width: OpWidth::W32,
+            },
+        );
+        builder.push_op(
+            0,
+            OpKind::Mov {
+                dst: VReg::Arch(ArchReg::Arm(ArmReg::Nzcv)),
+                src: SrcOperand::Reg(final_nzcv),
+                width: OpWidth::W32,
+            },
+        );
+        builder.set_terminator(Terminator::Return { values: vec![] });
+        let func = builder.finish();
+
+        let mut lowerer = Aarch64Lowerer::new();
+        lowerer.lower_function(&func).unwrap();
+        let code = lowerer.finalize().unwrap();
+
+        let mut expected = Vec::new();
+        expected.extend_from_slice(&enc_condcmp(1, 1, false, 2, 1, 1, 4).to_le_bytes());
+        expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
+        assert_eq!(code, expected);
+    }
+
+    #[test]
+    fn lowers_fused_cond_compare_false_compare_as_inverted_ccmn_imm() {
+        let cond = VReg::virt(0);
+        let cmp_result = VReg::virt(1);
+        let cmp_nzcv = VReg::virt(2);
+        let final_nzcv = VReg::virt(3);
+        let mut builder = FunctionBuilder::new(FunctionId(0), 0);
+        builder.push_op(
+            0,
+            OpKind::TestCondition {
+                dst: cond,
+                cond: Condition::Ugt,
+            },
+        );
+        builder.push_op(
+            0,
+            OpKind::Add {
+                dst: cmp_result,
+                src1: x(1),
+                src2: SrcOperand::Imm(5),
+                width: OpWidth::W32,
+                flags: FlagUpdate::All,
+            },
+        );
+        builder.push_op(
+            0,
+            OpKind::Mov {
+                dst: cmp_nzcv,
+                src: SrcOperand::Reg(VReg::Arch(ArchReg::Arm(ArmReg::Nzcv))),
+                width: OpWidth::W32,
+            },
+        );
+        builder.push_op(
+            0,
+            OpKind::Select {
+                dst: final_nzcv,
+                cond,
+                src_true: VReg::Imm(0x9000_0000),
+                src_false: cmp_nzcv,
+                width: OpWidth::W32,
+            },
+        );
+        builder.push_op(
+            0,
+            OpKind::Mov {
+                dst: VReg::Arch(ArchReg::Arm(ArmReg::Nzcv)),
+                src: SrcOperand::Reg(final_nzcv),
+                width: OpWidth::W32,
+            },
+        );
+        builder.set_terminator(Terminator::Return { values: vec![] });
+        let func = builder.finish();
+
+        let mut lowerer = Aarch64Lowerer::new();
+        lowerer.lower_function(&func).unwrap();
+        let code = lowerer.finalize().unwrap();
+
+        let mut expected = Vec::new();
+        expected.extend_from_slice(&enc_condcmp(0, 0, true, 5, 9, 1, 9).to_le_bytes());
         expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
         assert_eq!(code, expected);
     }
