@@ -1588,6 +1588,11 @@ fn enc_mov_wide_regs(sf: u32, opc: u32, hw: u32, imm16: u32, rd: u32) -> u32 {
 }
 
 #[cfg(all(feature = "smir-jit", target_arch = "x86_64"))]
+fn enc_b_cond(cond: u32, imm19: i32) -> u32 {
+    0x5400_0000 | (((imm19 as u32) & 0x7ffff) << 5) | (cond & 0xf)
+}
+
+#[cfg(all(feature = "smir-jit", target_arch = "x86_64"))]
 fn push_not_imm_movn_native_cases(
     cases: &mut Vec<(String, [u32; 3], [u32; 3], ArmState)>,
     control_target: i32,
@@ -2377,6 +2382,81 @@ fn push_bfi_full_width_movn_native_cases(
     cases.push((
         "bfi_x_full_width_negative_imm_src_as_movn_preserves_flags".into(),
         [enc_mov_wide(1, 0b00, 0, 0xe), NOP, NOP],
+        lowered,
+        st,
+    ));
+}
+
+#[cfg(all(feature = "smir-jit", target_arch = "x86_64"))]
+fn push_cmove_imm_movn_native_cases(
+    cases: &mut Vec<(String, [u32; 3], [u32; 3], ArmState)>,
+    control_target: i32,
+) {
+    let mut st = ArmState::zeroed();
+    st.pc = PCREL_MAGIC;
+    st.x[30] = pcrel_marker(control_target);
+    st.x[0] = 0x1111_2222_3333_4444;
+    st.pstate = 0x8000_0000;
+    let lowered = lower_aarch64_native_ops(vec![OpKind::CMove {
+        dst: arm_x(0),
+        src: VReg::Imm(-15),
+        cond: Condition::Always,
+        width: OpWidth::W64,
+    }])
+    .unwrap_or_else(|e| {
+        panic!("cmove_x_always_negative_imm_as_movn_preserves_flags: native lowering failed: {e}")
+    });
+    cases.push((
+        "cmove_x_always_negative_imm_as_movn_preserves_flags".into(),
+        [enc_mov_wide(1, 0b00, 0, 0xe), NOP, NOP],
+        lowered,
+        st,
+    ));
+
+    let source = [
+        enc_b_cond(1, 2),
+        enc_mov_wide(0, 0b00, 0, 0xe),
+        enc_mov_reg(0, RD, RD),
+    ];
+
+    let mut st = ArmState::zeroed();
+    st.pc = PCREL_MAGIC;
+    st.x[30] = pcrel_marker(control_target);
+    st.x[0] = 0xaaaa_bbbb_cccc_dddd;
+    st.pstate = 0x4000_0000;
+    let lowered = lower_aarch64_native_ops(vec![OpKind::CMove {
+        dst: arm_x(0),
+        src: VReg::Imm(-15),
+        cond: Condition::Eq,
+        width: OpWidth::W32,
+    }])
+    .unwrap_or_else(|e| {
+        panic!("cmove_w_eq_true_negative_imm_as_movn_preserves_flags: native lowering failed: {e}")
+    });
+    cases.push((
+        "cmove_w_eq_true_negative_imm_as_movn_preserves_flags".into(),
+        source,
+        lowered,
+        st,
+    ));
+
+    let mut st = ArmState::zeroed();
+    st.pc = PCREL_MAGIC;
+    st.x[30] = pcrel_marker(control_target);
+    st.x[0] = 0xaaaa_bbbb_cccc_dddd;
+    st.pstate = 0;
+    let lowered = lower_aarch64_native_ops(vec![OpKind::CMove {
+        dst: arm_x(0),
+        src: VReg::Imm(-15),
+        cond: Condition::Eq,
+        width: OpWidth::W32,
+    }])
+    .unwrap_or_else(|e| {
+        panic!("cmove_w_eq_false_negative_imm_zero_ext_preserves_flags: native lowering failed: {e}")
+    });
+    cases.push((
+        "cmove_w_eq_false_negative_imm_zero_ext_preserves_flags".into(),
+        source,
         lowered,
         st,
     ));
@@ -8677,6 +8757,7 @@ fn smir_aarch64_native_lowering_matches_qemu_oracle() {
     push_lea_absolute_movn_native_cases(&mut cases, control_target);
     push_lea_pcrel_movn_native_cases(&mut cases, control_target);
     push_bfi_full_width_movn_native_cases(&mut cases, control_target);
+    push_cmove_imm_movn_native_cases(&mut cases, control_target);
 
     let mut st = native_state();
     st.x[0] = 0xaaaa_bbbb_cccc_dddd;
