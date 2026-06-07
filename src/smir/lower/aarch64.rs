@@ -7016,10 +7016,10 @@ impl Aarch64Lowerer {
         flags: FlagUpdate,
         right: bool,
     ) -> Result<(), LowerError> {
-        let dst_reg = Self::dst_gpr(dst)?;
-        let src_reg = Self::gpr(src)?;
+        let dst_reg = Self::dst_gpr_arm_or_x86(dst)?;
+        let src_reg = Self::gpr_arm_or_x86(src)?;
         let amount_reg = match amount {
-            SrcOperand::Reg(reg) => Some(Self::gpr(*reg)?),
+            SrcOperand::Reg(reg) => Some(Self::gpr_arm_or_x86(*reg)?),
             SrcOperand::Imm(_) | SrcOperand::Imm64(_) => None,
             other => {
                 return Err(LowerError::UnsupportedOp {
@@ -9177,7 +9177,7 @@ impl Aarch64Lowerer {
                 Ok(())
             }
             SrcOperand::Reg(reg) => {
-                let amount = Self::gpr(*reg)?;
+                let amount = Self::gpr_arm_or_x86(*reg)?;
                 let scratch_count = if right { 4 } else { 5 };
                 let scratches = Self::scratch_regs(&[dst, src, amount], scratch_count)?;
                 let saved_flags = scratches[0];
@@ -9271,7 +9271,7 @@ impl Aarch64Lowerer {
                 Ok(())
             }
             SrcOperand::Reg(reg) => {
-                let amount = Self::gpr(*reg)?;
+                let amount = Self::gpr_arm_or_x86(*reg)?;
                 let scratches = Self::scratch_regs(&[dst, src, amount], 4)?;
                 let original = scratches[0];
                 let count = scratches[1];
@@ -9320,8 +9320,8 @@ impl Aarch64Lowerer {
         set_flags: bool,
         width: OpWidth,
     ) -> Result<(), LowerError> {
-        let dst = Self::dst_gpr(dst)?;
-        let src = Self::gpr(src)?;
+        let dst = Self::dst_gpr_arm_or_x86(dst)?;
+        let src = Self::gpr_arm_or_x86(src)?;
         if set_flags {
             return self.lower_shift_with_flags(dst, src, amount, shift, width);
         }
@@ -9330,7 +9330,9 @@ impl Aarch64Lowerer {
             SrcOperand::Imm(imm) | SrcOperand::Imm64(imm) => {
                 self.lower_shift_imm(dst, src, *imm, shift, width)
             }
-            SrcOperand::Reg(reg) => self.lower_shift_reg(dst, src, Self::gpr(*reg)?, shift, width),
+            SrcOperand::Reg(reg) => {
+                self.lower_shift_reg(dst, src, Self::gpr_arm_or_x86(*reg)?, shift, width)
+            }
             other => Err(LowerError::UnsupportedOp {
                 op: format!("AArch64 native shift amount {other:?}"),
             }),
@@ -9439,12 +9441,18 @@ impl Aarch64Lowerer {
             }
         }
 
-        let dst = Self::dst_gpr(dst)?;
+        let dst = Self::dst_gpr_arm_or_x86(dst)?;
         if let Some(amount) = Self::src_imm(amount) {
             let count = Self::bidir_count_imm(amount);
             return match src {
                 SrcOperand::Reg(src) => {
-                    self.lower_bidir_shift_imm(dst, Self::gpr(*src)?, count, kind, width)
+                    self.lower_bidir_shift_imm(
+                        dst,
+                        Self::gpr_arm_or_x86(*src)?,
+                        count,
+                        kind,
+                        width,
+                    )
                 }
                 SrcOperand::Imm(imm) | SrcOperand::Imm64(imm) => {
                     let scratches = Self::scratch_regs(&[dst], 1)?;
@@ -9466,10 +9474,10 @@ impl Aarch64Lowerer {
                 op: format!("AArch64 native BidirShift amount {amount:?}"),
             });
         };
-        let amount = Self::gpr(*amount)?;
+        let amount = Self::gpr_arm_or_x86(*amount)?;
         let mut avoid = vec![dst, amount];
         if let SrcOperand::Reg(src) = src {
-            avoid.push(Self::gpr(*src)?);
+            avoid.push(Self::gpr_arm_or_x86(*src)?);
         }
         let src_needs_scratch = matches!(src, SrcOperand::Imm(_) | SrcOperand::Imm64(_));
         let scratches = Self::scratch_regs(&avoid, if src_needs_scratch { 2 } else { 1 })?;
@@ -9477,7 +9485,7 @@ impl Aarch64Lowerer {
 
         self.emit_scratch_save(&scratches);
         let src = match src {
-            SrcOperand::Reg(src) => Self::gpr(*src)?,
+            SrcOperand::Reg(src) => Self::gpr_arm_or_x86(*src)?,
             SrcOperand::Imm(imm) | SrcOperand::Imm64(imm) => {
                 let src = scratches[1];
                 self.emit_mov_imm(src, *imm, width)?;
@@ -9523,8 +9531,8 @@ impl Aarch64Lowerer {
         set_flags: bool,
         width: OpWidth,
     ) -> Result<(), LowerError> {
-        let dst = Self::dst_gpr(dst)?;
-        let src = Self::gpr(src)?;
+        let dst = Self::dst_gpr_arm_or_x86(dst)?;
+        let src = Self::gpr_arm_or_x86(src)?;
         if set_flags {
             return self.lower_rotate_with_flags(dst, src, amount, width, false);
         }
@@ -9537,7 +9545,7 @@ impl Aarch64Lowerer {
                 self.lower_shift_imm(dst, src, i64::from(ror), ShiftOp::Ror, width)
             }
             SrcOperand::Reg(reg) => {
-                let amount = Self::gpr(*reg)?;
+                let amount = Self::gpr_arm_or_x86(*reg)?;
                 let count_width = if matches!(width, OpWidth::W8 | OpWidth::W16) {
                     OpWidth::W32
                 } else {
@@ -9821,8 +9829,8 @@ impl Aarch64Lowerer {
     ) -> Result<(), LowerError> {
         if matches!(width, OpWidth::W8 | OpWidth::W16) {
             return self.lower_subword_double_shift_reg(
-                Self::dst_gpr(dst)?,
-                Self::gpr(src)?,
+                Self::dst_gpr_arm_or_x86(dst)?,
+                Self::gpr_arm_or_x86(src)?,
                 amount,
                 left,
                 width,
@@ -9839,8 +9847,8 @@ impl Aarch64Lowerer {
             }
         };
 
-        let dst_reg = Self::dst_gpr(dst)?;
-        let src_reg = Self::gpr(src)?;
+        let dst_reg = Self::dst_gpr_arm_or_x86(dst)?;
+        let src_reg = Self::gpr_arm_or_x86(src)?;
         let scratches = Self::scratch_regs(&[dst_reg, src_reg, amount], 3)?;
         let count = scratches[0];
         let left_part = scratches[1];
@@ -9947,13 +9955,13 @@ impl Aarch64Lowerer {
         width: OpWidth,
     ) -> Result<(), LowerError> {
         if set_flags {
-            let dst_reg = Self::dst_gpr(dst)?;
-            let src_reg = Self::gpr(src)?;
+            let dst_reg = Self::dst_gpr_arm_or_x86(dst)?;
+            let src_reg = Self::gpr_arm_or_x86(src)?;
             return match amount {
                 SrcOperand::Reg(amount) => self.lower_double_shift_reg_with_flags(
                     dst_reg,
                     src_reg,
-                    Self::gpr(*amount)?,
+                    Self::gpr_arm_or_x86(*amount)?,
                     left,
                     width,
                 ),
@@ -9965,7 +9973,13 @@ impl Aarch64Lowerer {
             };
         }
         if let SrcOperand::Reg(amount) = amount {
-            return self.lower_double_shift_reg(dst, src, Self::gpr(*amount)?, left, width);
+            return self.lower_double_shift_reg(
+                dst,
+                src,
+                Self::gpr_arm_or_x86(*amount)?,
+                left,
+                width,
+            );
         }
         let Some(amount) = Self::src_imm(amount) else {
             return Err(LowerError::UnsupportedOp {
@@ -9977,12 +9991,12 @@ impl Aarch64Lowerer {
         if matches!(width, OpWidth::W8 | OpWidth::W16) {
             let amount = (amount as u64 & 0x1f) as u32;
             let top_bit = bits - 1;
-            let dst_reg = Self::dst_gpr(dst)?;
-            let rn = Self::gpr(dst)?;
+            let dst_reg = Self::dst_gpr_arm_or_x86(dst)?;
+            let rn = Self::gpr_arm_or_x86(dst)?;
             if amount == 0 {
                 return self.emit_bitfield(dst_reg, rn, 0b10, 0, top_bit, OpWidth::W32);
             }
-            let src = Self::gpr(src)?;
+            let src = Self::gpr_arm_or_x86(src)?;
             if amount >= bits {
                 return self.emit_bitfield(dst_reg, src, 0b10, 0, top_bit, OpWidth::W32);
             }
@@ -10047,13 +10061,13 @@ impl Aarch64Lowerer {
             }
         };
         let amount = (amount as u64 & mask) as u32;
-        let dst_reg = Self::dst_gpr(dst)?;
-        let rn = Self::gpr(dst)?;
+        let dst_reg = Self::dst_gpr_arm_or_x86(dst)?;
+        let rn = Self::gpr_arm_or_x86(dst)?;
         if amount == 0 {
             return self.emit_mov_reg(dst_reg, rn, width);
         }
 
-        let src = Self::gpr(src)?;
+        let src = Self::gpr_arm_or_x86(src)?;
         let (rn, rm, lsb) = if left {
             (rn, src, bits - amount)
         } else {
@@ -30922,6 +30936,286 @@ mod tests {
         expected.extend_from_slice(&enc_ldp(0b00, 0b01, false, -2).to_le_bytes());
         expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
         assert_eq!(code, expected);
+    }
+
+    #[test]
+    fn lowers_shift_rotate_apx_egpr_operands_runtime() {
+        let ops = vec![
+            OpKind::Shl {
+                dst: x86(X86Reg::R16),
+                src: x86(X86Reg::R17),
+                amount: SrcOperand::Reg(x86(X86Reg::R18)),
+                width: OpWidth::W64,
+                flags: FlagUpdate::None,
+            },
+            OpKind::Shr {
+                dst: x86(X86Reg::R19),
+                src: x86(X86Reg::R20),
+                amount: SrcOperand::Imm(4),
+                width: OpWidth::W32,
+                flags: FlagUpdate::None,
+            },
+            OpKind::Sar {
+                dst: x86(X86Reg::R21),
+                src: x86(X86Reg::R22),
+                amount: SrcOperand::Reg(x86(X86Reg::R23)),
+                width: OpWidth::W8,
+                flags: FlagUpdate::All,
+            },
+            OpKind::Ror {
+                dst: x86(X86Reg::R24),
+                src: x86(X86Reg::R25),
+                amount: SrcOperand::Reg(x86(X86Reg::R26)),
+                width: OpWidth::W16,
+                flags: FlagUpdate::None,
+            },
+            OpKind::Rol {
+                dst: x86(X86Reg::R27),
+                src: x86(X86Reg::R28),
+                amount: SrcOperand::Imm(9),
+                width: OpWidth::W64,
+                flags: FlagUpdate::None,
+            },
+        ];
+        let code = lower_ops(ops);
+        let regs = [
+            (17, 0x0123_4567_89ab_cdef),
+            (18, 4),
+            (20, 0x8000_0010),
+            (22, 0x80),
+            (23, 3),
+            (25, 0x8001),
+            (26, 4),
+            (28, 0x8000_0000_0000_0001),
+        ];
+        let old_nzcv = 0b1011;
+        let (out, out_nzcv, sp) = run_aarch64_code(&code, &regs, old_nzcv);
+
+        assert_eq!(
+            out[16],
+            ref_shift_reg(0x0123_4567_89ab_cdef, 4, ShiftOp::Lsl, OpWidth::W64)
+        );
+        assert_eq!(
+            out[19] & width_mask(OpWidth::W32),
+            ref_shift_reg(0x8000_0010, 4, ShiftOp::Lsr, OpWidth::W32)
+        );
+        assert_eq!(
+            out[21] & width_mask(OpWidth::W8),
+            ref_shift_reg(0x80, 3, ShiftOp::Asr, OpWidth::W8)
+        );
+        assert_eq!(
+            out_nzcv,
+            expected_shift_nzcv(
+                old_nzcv,
+                0x80,
+                3,
+                ShiftOp::Asr,
+                OpWidth::W8,
+                FlagUpdate::All,
+            )
+        );
+        assert_eq!(
+            out[24] & width_mask(OpWidth::W16),
+            ref_ror_reg(0x8001, 4, OpWidth::W16)
+        );
+        assert_eq!(
+            out[27],
+            ref_rol_reg(0x8000_0000_0000_0001, 9, OpWidth::W64)
+        );
+        assert_eq!(out[17], 0x0123_4567_89ab_cdef);
+        assert_eq!(out[18], 4);
+        assert_eq!(out[20], 0x8000_0010);
+        assert_eq!(out[22], 0x80);
+        assert_eq!(out[23], 3);
+        assert_eq!(out[25], 0x8001);
+        assert_eq!(out[26], 4);
+        assert_eq!(out[28], 0x8000_0000_0000_0001);
+        assert_eq!(sp, 0x8000);
+    }
+
+    #[test]
+    fn lowers_double_bidir_and_carry_rotate_apx_egpr_operands_runtime() {
+        let ops = vec![
+            OpKind::Shld {
+                dst: x86(X86Reg::R16),
+                src: x86(X86Reg::R17),
+                amount: SrcOperand::Reg(x86(X86Reg::R18)),
+                width: OpWidth::W64,
+                flags: FlagUpdate::None,
+            },
+            OpKind::Shrd {
+                dst: x86(X86Reg::R19),
+                src: x86(X86Reg::R20),
+                amount: SrcOperand::Imm(5),
+                width: OpWidth::W16,
+                flags: FlagUpdate::None,
+            },
+            OpKind::BidirShift {
+                dst: x86(X86Reg::R22),
+                src: SrcOperand::Reg(x86(X86Reg::R23)),
+                amount: SrcOperand::Reg(x86(X86Reg::R24)),
+                kind: 2,
+                width: OpWidth::W64,
+            },
+        ];
+        let code = lower_ops(ops);
+        let regs = [
+            (16, 0x1234_5678_9abc_def0),
+            (17, 0xfedc_ba98_7654_3210),
+            (18, 12),
+            (19, 0x1234),
+            (20, 0xabcd),
+            (23, 0x0123_4567_89ab_cdef),
+            (24, 0xffff_ffff_ffff_fffa),
+        ];
+        let old_nzcv = 0b0110;
+        let (out, out_nzcv, sp) = run_aarch64_code(&code, &regs, old_nzcv);
+
+        assert_eq!(
+            out[16],
+            ref_double_shift_reg(
+                0x1234_5678_9abc_def0,
+                0xfedc_ba98_7654_3210,
+                12,
+                true,
+                OpWidth::W64,
+            )
+        );
+        assert_eq!(
+            out[19] & width_mask(OpWidth::W16),
+            ref_double_shift_imm(0x1234, 0xabcd, 5, false, OpWidth::W16)
+        );
+        assert_eq!(
+            out[22],
+            ref_bidir_shift(0x0123_4567_89ab_cdef, 0xffff_ffff_ffff_fffa, 2, OpWidth::W64)
+        );
+        assert_eq!(out_nzcv, old_nzcv);
+        assert_eq!(out[17], 0xfedc_ba98_7654_3210);
+        assert_eq!(out[18], 12);
+        assert_eq!(out[20], 0xabcd);
+        assert_eq!(out[23], 0x0123_4567_89ab_cdef);
+        assert_eq!(out[24], 0xffff_ffff_ffff_fffa);
+        assert_eq!(sp, 0x8000);
+
+        let rcl_code = lower_single_op(OpKind::Rcl {
+            dst: x86(X86Reg::R16),
+            src: x86(X86Reg::R17),
+            amount: SrcOperand::Reg(x86(X86Reg::R18)),
+            width: OpWidth::W8,
+            flags: FlagUpdate::All,
+        });
+        let old_nzcv = 0b0010;
+        let (expected, carry, effective) =
+            ref_rotate_carry(0x81, 2, true, OpWidth::W8, false);
+        let (out, out_nzcv, sp) = run_aarch64_code(
+            &rcl_code,
+            &[(17, 0x81), (18, 2), (19, 0x1919_1919_1919_1919)],
+            old_nzcv,
+        );
+        assert_eq!(out[16] & width_mask(OpWidth::W8), expected);
+        assert_eq!(
+            out_nzcv,
+            expected_rotate_carry_nzcv(
+                old_nzcv,
+                expected,
+                carry,
+                effective,
+                OpWidth::W8,
+                FlagUpdate::All,
+                false,
+            )
+        );
+        assert_eq!(out[17], 0x81);
+        assert_eq!(out[18], 2);
+        assert_eq!(out[19], 0x1919_1919_1919_1919);
+        assert_eq!(sp, 0x8000);
+
+        let rcr_code = lower_single_op(OpKind::Rcr {
+            dst: x86(X86Reg::R20),
+            src: x86(X86Reg::R21),
+            amount: SrcOperand::Reg(x86(X86Reg::R22)),
+            width: OpWidth::W16,
+            flags: FlagUpdate::All,
+        });
+        let old_nzcv = 0b0000;
+        let (expected, carry, effective) =
+            ref_rotate_carry(0x8001, 1, false, OpWidth::W16, true);
+        let (out, out_nzcv, sp) =
+            run_aarch64_code(&rcr_code, &[(21, 0x8001), (22, 1)], old_nzcv);
+        assert_eq!(out[20] & width_mask(OpWidth::W16), expected);
+        assert_eq!(
+            out_nzcv,
+            expected_rotate_carry_nzcv(
+                old_nzcv,
+                expected,
+                carry,
+                effective,
+                OpWidth::W16,
+                FlagUpdate::All,
+                true,
+            )
+        );
+        assert_eq!(out[21], 0x8001);
+        assert_eq!(out[22], 1);
+        assert_eq!(sp, 0x8000);
+    }
+
+    #[test]
+    fn rejects_shift_rotate_apx_r31_identity_mapping() {
+        for kind in [
+            OpKind::Shl {
+                dst: x86(X86Reg::R31),
+                src: x86(X86Reg::R16),
+                amount: SrcOperand::Imm(1),
+                width: OpWidth::W64,
+                flags: FlagUpdate::None,
+            },
+            OpKind::Shr {
+                dst: x86(X86Reg::R16),
+                src: x86(X86Reg::R31),
+                amount: SrcOperand::Imm(1),
+                width: OpWidth::W64,
+                flags: FlagUpdate::None,
+            },
+            OpKind::Sar {
+                dst: x86(X86Reg::R16),
+                src: x86(X86Reg::R17),
+                amount: SrcOperand::Reg(x86(X86Reg::R31)),
+                width: OpWidth::W64,
+                flags: FlagUpdate::None,
+            },
+            OpKind::Rol {
+                dst: x86(X86Reg::R31),
+                src: x86(X86Reg::R16),
+                amount: SrcOperand::Reg(x86(X86Reg::R17)),
+                width: OpWidth::W64,
+                flags: FlagUpdate::None,
+            },
+            OpKind::BidirShift {
+                dst: x86(X86Reg::R16),
+                src: SrcOperand::Reg(x86(X86Reg::R31)),
+                amount: SrcOperand::Reg(x86(X86Reg::R17)),
+                kind: 2,
+                width: OpWidth::W64,
+            },
+            OpKind::Shld {
+                dst: x86(X86Reg::R16),
+                src: x86(X86Reg::R17),
+                amount: SrcOperand::Reg(x86(X86Reg::R31)),
+                width: OpWidth::W64,
+                flags: FlagUpdate::None,
+            },
+            OpKind::Rcr {
+                dst: x86(X86Reg::R16),
+                src: x86(X86Reg::R17),
+                amount: SrcOperand::Reg(x86(X86Reg::R31)),
+                width: OpWidth::W16,
+                flags: FlagUpdate::All,
+            },
+        ] {
+            let err = try_lower_single_op(kind).unwrap_err();
+            assert!(matches!(err, LowerError::InvalidRegister(_)));
+        }
     }
 
     #[test]
