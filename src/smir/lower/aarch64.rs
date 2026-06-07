@@ -5581,10 +5581,10 @@ impl Aarch64Lowerer {
     fn lower_cwd(&mut self, dst: VReg, src: VReg, width: OpWidth) -> Result<(), LowerError> {
         if matches!(width, OpWidth::W8 | OpWidth::W16) {
             let sign_bit = width.bits() - 1;
-            let dst = Self::dst_gpr(dst)?;
+            let dst = Self::dst_gpr_arm_or_x86(dst)?;
             self.emit_bitfield(
                 dst,
-                Self::gpr(src)?,
+                Self::gpr_arm_or_x86(src)?,
                 0b00,
                 sign_bit,
                 sign_bit,
@@ -23134,6 +23134,68 @@ mod tests {
         expected.extend_from_slice(&enc_bitfield_regs(0, 0b10, 0, 15, 0, 0).to_le_bytes());
         expected.extend_from_slice(&0xd65f_03c0u32.to_le_bytes());
         assert_eq!(code, expected);
+    }
+
+    #[test]
+    fn lowers_cwd_apx_egpr_operands_runtime() {
+        let code = lower_ops(vec![
+            OpKind::Cwd {
+                dst: x86(X86Reg::R16),
+                src: x86(X86Reg::R17),
+                width: OpWidth::W8,
+            },
+            OpKind::Cwd {
+                dst: x86(X86Reg::R18),
+                src: x86(X86Reg::R19),
+                width: OpWidth::W16,
+            },
+            OpKind::Cwd {
+                dst: x86(X86Reg::R20),
+                src: x86(X86Reg::R21),
+                width: OpWidth::W32,
+            },
+            OpKind::Cwd {
+                dst: x86(X86Reg::R22),
+                src: x86(X86Reg::R23),
+                width: OpWidth::W64,
+            },
+        ]);
+        let regs = [
+            (17, 0x80),
+            (19, 0x7fff),
+            (21, 0x8000_0000),
+            (23, 0x8000_0000_0000_0000),
+            (24, 0x2424_2424_2424_2424),
+        ];
+        let old_nzcv = 0b1010;
+        let (out, out_nzcv, sp) = run_aarch64_code(&code, &regs, old_nzcv);
+
+        assert_eq!(out[16], 0xff);
+        assert_eq!(out[18], 0);
+        assert_eq!(out[20], 0xffff_ffff);
+        assert_eq!(out[22], u64::MAX);
+        assert_eq!(out[24], 0x2424_2424_2424_2424);
+        assert_eq!(out_nzcv, old_nzcv);
+        assert_eq!(sp, 0x8000);
+    }
+
+    #[test]
+    fn rejects_cwd_apx_r31_identity_mapping() {
+        for kind in [
+            OpKind::Cwd {
+                dst: x86(X86Reg::R31),
+                src: x86(X86Reg::R16),
+                width: OpWidth::W8,
+            },
+            OpKind::Cwd {
+                dst: x86(X86Reg::R16),
+                src: x86(X86Reg::R31),
+                width: OpWidth::W16,
+            },
+        ] {
+            let err = try_lower_single_op(kind).unwrap_err();
+            assert!(matches!(err, LowerError::InvalidRegister(_)));
+        }
     }
 
     #[test]
