@@ -2667,6 +2667,42 @@ impl Aarch64Lowerer {
         Ok(())
     }
 
+    fn lower_vlane_unary_clb(
+        &mut self,
+        dst: VReg,
+        src: VReg,
+        elem: VecElementType,
+        lanes: u8,
+    ) -> Result<(), LowerError> {
+        let rd = Self::fp_reg(dst)?;
+        let rn = Self::fp_reg(src)?;
+        let (q, size) = Self::simd_integer_shape(elem, lanes)?;
+        if size == 3 {
+            return Err(LowerError::UnsupportedOp {
+                op: "AArch64 native VLaneUnary Clb I64".to_string(),
+            });
+        }
+
+        let mut lane_imm5 = Vec::with_capacity(lanes as usize);
+        for lane in 0..lanes {
+            let (_, imm5) = Self::simd_lane_imm5(elem, lane)?;
+            lane_imm5.push(imm5);
+        }
+
+        self.emit_simd_two_reg_misc(rd, rn, q, 0, size, 0b00100);
+
+        let scratches = Self::scratch_regs(&[], 1)?;
+        self.emit_scratch_save(&scratches);
+        let scratch = scratches[0];
+        for imm5 in lane_imm5 {
+            self.emit_simd_umov(scratch, rd, imm5, false);
+            self.emit_addsub_imm(scratch, scratch, 1, false, false, OpWidth::W32)?;
+            self.emit_simd_ins_general(rd, scratch, imm5);
+        }
+        self.emit_scratch_restore(&scratches);
+        Ok(())
+    }
+
     fn lower_vlane_unary(
         &mut self,
         dst: VReg,
@@ -2697,6 +2733,7 @@ impl Aarch64Lowerer {
             }
             5 => self.lower_vlane_unary_two_reg(dst, src, elem, lanes, 0, 0b00100, false),
             6 => self.lower_vlane_unary_two_reg(dst, src, elem, lanes, 1, 0b01011, true),
+            7 => self.lower_vlane_unary_clb(dst, src, elem, lanes),
             other => Err(LowerError::UnsupportedOp {
                 op: format!("AArch64 native VLaneUnary op {other}"),
             }),
@@ -15706,6 +15743,26 @@ mod tests {
             | rd
     }
 
+    fn enc_simd_two_reg_misc(
+        rd: u32,
+        rn: u32,
+        q: u32,
+        u: u32,
+        size: u32,
+        opcode: u32,
+    ) -> u32 {
+        0x0e20_0800 | (q << 30) | (u << 29) | (size << 22) | (opcode << 12) | (rn << 5) | rd
+    }
+
+    fn enc_simd_umov(rd: u32, rn: u32, imm5: u32, to_x: bool) -> u32 {
+        let base = if to_x { 0x4e00_3c00 } else { 0x0e00_3c00 };
+        base | (imm5 << 16) | (rn << 5) | rd
+    }
+
+    fn enc_simd_ins_general(rd: u32, rn: u32, imm5: u32) -> u32 {
+        0x4e00_1c00 | (imm5 << 16) | (rn << 5) | rd
+    }
+
     fn enc_addsub_shift_regs(
         sf: u32,
         op: u32,
@@ -19754,6 +19811,33 @@ mod tests {
     }
 
     #[test]
+    fn lowers_vlane_unary_clb_encodings() {
+        let words = code_words(&lower_single_op(OpKind::VLaneUnary {
+            dst: v(0),
+            src: v(1),
+            elem: VecElementType::I16,
+            lanes: 8,
+            op: 7,
+            signed: false,
+        }));
+
+        let mut expected = vec![
+            enc_simd_two_reg_misc(0, 1, 1, 0, 1, 0b00100),
+            enc_ldst_simm_regs(3, 0b00, 0b11, -16, 16, 31),
+        ];
+        for lane in 0..8 {
+            let imm5 = (lane << 2) | 2;
+            expected.push(enc_simd_umov(16, 0, imm5, false));
+            expected.push(enc_addsub_imm_regs(0, 0, 0, 0, 1, 16, 16));
+            expected.push(enc_simd_ins_general(0, 16, imm5));
+        }
+        expected.push(enc_ldst_simm_regs(3, 0b01, 0b01, 16, 16, 31));
+        expected.push(0xd65f_03c0);
+
+        assert_eq!(words, expected);
+    }
+
+    #[test]
     fn lowers_vlane_unary_integer_runtime() {
         fn apply_vlane_unary(
             src_low: u64,
@@ -19812,6 +19896,12 @@ mod tests {
                         (n - 1) as u64
                     }
                     6 => sx(av).wrapping_neg() as u64,
+                    7 => {
+                        let lj = (av & mask) << (64 - elem_bits);
+                        let zeros = lj.leading_zeros().min(elem_bits as u32);
+                        let ones = lj.leading_ones().min(elem_bits as u32);
+                        zeros.max(ones) as u64
+                    }
                     _ => av,
                 } & mask;
                 out[off..off + elem_bytes].copy_from_slice(&result.to_le_bytes()[..elem_bytes]);
@@ -19891,10 +19981,37 @@ mod tests {
                 op: 5,
                 signed: false,
             },
+            OpKind::VLaneUnary {
+                dst: v(9),
+                src: v(1),
+                elem: VecElementType::I16,
+                lanes: 8,
+                op: 7,
+                signed: false,
+            },
+            OpKind::VLaneUnary {
+                dst: v(10),
+                src: v(1),
+                elem: VecElementType::I32,
+                lanes: 2,
+                op: 7,
+                signed: false,
+            },
+            OpKind::VLaneUnary {
+                dst: v(11),
+                src: v(1),
+                elem: VecElementType::I8,
+                lanes: 16,
+                op: 7,
+                signed: false,
+            },
         ]);
 
-        let (_, simd, _) =
-            run_aarch64_code_with_regs_and_simd(&code, &[], &[(1, src_low, src_high)]);
+        let (regs, simd, sp) = run_aarch64_code_with_regs_and_simd(
+            &code,
+            &[(16, 0x1616_1616_1616_1616)],
+            &[(1, src_low, src_high)],
+        );
         assert_eq!(simd[0], apply_vlane_unary(src_low, src_high, 4, 4, 0));
         assert_eq!(simd[2], apply_vlane_unary(src_low, src_high, 1, 16, 1));
         assert_eq!(simd[3], apply_vlane_unary(src_low, src_high, 2, 8, 2));
@@ -19903,6 +20020,11 @@ mod tests {
         assert_eq!(simd[6], apply_vlane_unary(src_low, src_high, 8, 2, 6));
         assert_eq!(simd[7], apply_vlane_unary(src_low, src_high, 2, 8, 5));
         assert_eq!(simd[8], apply_vlane_unary(src_low, src_high, 4, 2, 5));
+        assert_eq!(simd[9], apply_vlane_unary(src_low, src_high, 2, 8, 7));
+        assert_eq!(simd[10], apply_vlane_unary(src_low, src_high, 4, 2, 7));
+        assert_eq!(simd[11], apply_vlane_unary(src_low, src_high, 1, 16, 7));
+        assert_eq!(regs[16], 0x1616_1616_1616_1616);
+        assert_eq!(sp, 0x8000);
     }
 
     #[test]
@@ -20740,8 +20862,8 @@ mod tests {
         assert_unsupported(OpKind::VLaneUnary {
             dst: v(0),
             src: v(1),
-            elem: VecElementType::I16,
-            lanes: 8,
+            elem: VecElementType::I64,
+            lanes: 2,
             op: 7,
             signed: false,
         });
