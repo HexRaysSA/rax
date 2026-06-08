@@ -4,25 +4,25 @@
 //! to match the spec.
 
 use crate::cpu::VcpuExit;
-use crate::error::{Error, Result};
+use crate::error::Result;
 
 use super::super::super::cpu::{InsnContext, X86_64Vcpu};
 use super::super::super::flags;
 
-fn ensure_not_long_mode(vcpu: &X86_64Vcpu, mnemonic: &str) -> Result<()> {
+fn ensure_not_long_mode(vcpu: &mut X86_64Vcpu) -> Result<bool> {
     if vcpu.sregs.cs.l {
-        return Err(Error::Emulator(format!(
-            "{} is invalid in 64-bit mode",
-            mnemonic
-        )));
+        vcpu.inject_exception(6, None)?;
+        return Ok(false);
     }
-    Ok(())
+    Ok(true)
 }
 
 /// DAA - Decimal Adjust AL after Addition (0x27)
 /// Adjusts AL after BCD addition
 pub fn daa(vcpu: &mut X86_64Vcpu, ctx: &mut InsnContext) -> Result<Option<VcpuExit>> {
-    ensure_not_long_mode(vcpu, "DAA")?;
+    if !ensure_not_long_mode(vcpu)? {
+        return Ok(None);
+    }
     vcpu.materialize_flags();
     let old_al = (vcpu.regs.rax & 0xFF) as u8;
     let old_cf = (vcpu.regs.rflags & flags::bits::CF) != 0;
@@ -72,7 +72,9 @@ pub fn daa(vcpu: &mut X86_64Vcpu, ctx: &mut InsnContext) -> Result<Option<VcpuEx
 /// DAS - Decimal Adjust AL after Subtraction (0x2F)
 /// Adjusts AL after BCD subtraction
 pub fn das(vcpu: &mut X86_64Vcpu, ctx: &mut InsnContext) -> Result<Option<VcpuExit>> {
-    ensure_not_long_mode(vcpu, "DAS")?;
+    if !ensure_not_long_mode(vcpu)? {
+        return Ok(None);
+    }
     vcpu.materialize_flags();
     let old_al = (vcpu.regs.rax & 0xFF) as u8;
     let old_cf = (vcpu.regs.rflags & flags::bits::CF) != 0;
@@ -122,7 +124,9 @@ pub fn das(vcpu: &mut X86_64Vcpu, ctx: &mut InsnContext) -> Result<Option<VcpuEx
 /// AAA - ASCII Adjust After Addition (0x37)
 /// Adjusts AL and AH after unpacked BCD addition
 pub fn aaa(vcpu: &mut X86_64Vcpu, ctx: &mut InsnContext) -> Result<Option<VcpuExit>> {
-    ensure_not_long_mode(vcpu, "AAA")?;
+    if !ensure_not_long_mode(vcpu)? {
+        return Ok(None);
+    }
     vcpu.materialize_flags();
     let al = (vcpu.regs.rax & 0xFF) as u8;
     let ah = ((vcpu.regs.rax >> 8) & 0xFF) as u8;
@@ -161,7 +165,9 @@ pub fn aaa(vcpu: &mut X86_64Vcpu, ctx: &mut InsnContext) -> Result<Option<VcpuEx
 /// AAS - ASCII Adjust After Subtraction (0x3F)
 /// Adjusts AL and AH after unpacked BCD subtraction
 pub fn aas(vcpu: &mut X86_64Vcpu, ctx: &mut InsnContext) -> Result<Option<VcpuExit>> {
-    ensure_not_long_mode(vcpu, "AAS")?;
+    if !ensure_not_long_mode(vcpu)? {
+        return Ok(None);
+    }
     vcpu.materialize_flags();
     let al = (vcpu.regs.rax & 0xFF) as u8;
     let ah = ((vcpu.regs.rax >> 8) & 0xFF) as u8;
@@ -201,7 +207,9 @@ pub fn aas(vcpu: &mut X86_64Vcpu, ctx: &mut InsnContext) -> Result<Option<VcpuEx
 /// AAM - ASCII Adjust AX after Multiply (0xD4 imm8)
 /// AH = AL / imm8, AL = AL % imm8
 pub fn aam(vcpu: &mut X86_64Vcpu, ctx: &mut InsnContext) -> Result<Option<VcpuExit>> {
-    ensure_not_long_mode(vcpu, "AAM")?;
+    if !ensure_not_long_mode(vcpu)? {
+        return Ok(None);
+    }
     let imm8 = ctx.consume_u8()?;
 
     // Division by zero causes #DE
@@ -229,7 +237,9 @@ pub fn aam(vcpu: &mut X86_64Vcpu, ctx: &mut InsnContext) -> Result<Option<VcpuEx
 /// AAD - ASCII Adjust AX before Division (0xD5 imm8)
 /// AL = (AL + (AH * imm8)) & 0xFF, AH = 0
 pub fn aad(vcpu: &mut X86_64Vcpu, ctx: &mut InsnContext) -> Result<Option<VcpuExit>> {
-    ensure_not_long_mode(vcpu, "AAD")?;
+    if !ensure_not_long_mode(vcpu)? {
+        return Ok(None);
+    }
     let imm8 = ctx.consume_u8()? as u16;
 
     let al = (vcpu.regs.rax & 0xFF) as u16;

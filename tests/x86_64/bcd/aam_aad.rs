@@ -5,6 +5,21 @@
 
 use crate::common::*;
 
+fn assert_invalid_bcd_opcode_raises_ud(opcode: &[u8]) {
+    let mut code = Vec::from(opcode);
+    code.extend_from_slice(&[
+        0x48, 0xc7, 0xc0, 0xff, 0x00, 0x00, 0x00, // MOV RAX, 0xFF
+        0xf4, // HLT
+    ]);
+    let (mut vcpu, _) = setup_vm_no_idt(&code, None);
+
+    match vcpu.run() {
+        Ok(VcpuExit::Hlt) => panic!("BCD opcode {opcode:x?} must raise #UD in 64-bit mode"),
+        Ok(VcpuExit::Shutdown) | Err(_) => {}
+        _ => {}
+    }
+}
+
 // ============================================================================
 // AAM - ASCII Adjust AX After Multiply
 // ============================================================================
@@ -205,4 +220,9 @@ fn test_aam_aad_custom_base_roundtrip() {
     run_test(&mut cpu);
 
     assert_eq!(cpu.get_rax() & 0xFF, 55, "AAM/AAD roundtrip base 7");
+}
+
+#[test]
+fn test_aam_invalid_in_64bit_mode_raises_ud() {
+    assert_invalid_bcd_opcode_raises_ud(&[0xd4, 0x0a]);
 }

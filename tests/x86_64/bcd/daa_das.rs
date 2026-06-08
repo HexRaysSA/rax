@@ -2,6 +2,21 @@
 
 use crate::common::*;
 
+fn assert_invalid_bcd_opcode_raises_ud(opcode: u8) {
+    let code = [
+        opcode,
+        0x48, 0xc7, 0xc0, 0xff, 0x00, 0x00, 0x00, // MOV RAX, 0xFF
+        0xf4, // HLT
+    ];
+    let (mut vcpu, _) = setup_vm_no_idt(&code, None);
+
+    match vcpu.run() {
+        Ok(VcpuExit::Hlt) => panic!("BCD opcode {opcode:#x} must raise #UD in 64-bit mode"),
+        Ok(VcpuExit::Shutdown) | Err(_) => {}
+        _ => {}
+    }
+}
+
 // ============================================================================
 // DAA - Decimal Adjust AL after Addition
 // ============================================================================
@@ -68,4 +83,11 @@ fn test_das_no_adjustment() {
         0x23,
         "DAS: 0x35 - 0x12 = 0x23 (no adjustment)"
     );
+}
+
+#[test]
+fn test_daa_das_aaa_aas_invalid_in_64bit_mode_raise_ud() {
+    for opcode in [0x27, 0x2f, 0x37, 0x3f] {
+        assert_invalid_bcd_opcode_raises_ud(opcode);
+    }
 }
