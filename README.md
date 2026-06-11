@@ -14,12 +14,12 @@ runs, and now boots all the way to a BusyBox shell. It covers the ISA out to AVX
 Intel APX, and behind it sits SMIR, a shared multi-architecture IR whose hot-block JIT lifts hot<br/>
 x86-64 loops to native code at ~80× the interpreter.<br/>
 <br/>
-Three more software CPUs run alongside: a fully oracle-verified Hexagon (every opcode, scalar + HVX),<br/>
-an AArch64 with complete SVE, and a correctly-rounded RV64GC. RISC-V and Hexagon are bootable<br/>
-emulator backends in their own right.
+Three more CPUs run alongside: an AArch64 that also boots Linux (near-native on Apple Silicon via<br/>
+HVF, or fully emulated at EL0/EL1) with complete SVE, a fully oracle-verified Hexagon (every opcode,<br/>
+scalar + HVX), and a correctly-rounded RV64GC. Hexagon and RISC-V boot bare-metal programs too.
 </h5>
 
-<div align="center"><code>Rust</code> • <code>x86-64 · AArch64+SVE · Hexagon+HVX · RV64GC</code> • <code>boots Linux</code> • <code>hot-block JIT</code> • <code>121k+ tests</code></div>
+<div align="center"><code>Rust</code> • <code>x86-64 · AArch64+SVE · Hexagon+HVX · RV64GC</code> • <code>boots Linux</code> • <code>hot-block JIT</code> • <code>122k+ tests</code></div>
 
 ---
 
