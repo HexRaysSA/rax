@@ -146,7 +146,7 @@ Write *(UINT64*)0x9000 = 0x000000000000a003
 
 x86-64 is the complete VM target: it boots Linux, with the full device platform, boot protocol, tracing,
 GDB, snapshots, and the JIT. Hexagon and RISC-V are bootable emulator backends for bare-metal programs.
-AArch64 boots Linux two ways: on the software emulator (full EL0/EL1 system emulation — MMU,
+AArch64 boots Linux two ways: on the software emulator (full EL0/EL1 system emulation: MMU,
 exception delivery, GICv3 distributor+redistributor+ICC, generic timer, PL011) and near-native on
 Apple Silicon through the HVF backend (in-kernel GICv3). Both share the generated DTB, PSCI, and
 PL011 console. All four also have SMIR lifters.
@@ -156,7 +156,7 @@ PL011 console. All four also have SMIR lifters.
 | **x86-64** | ~54k LOC | **boots Linux** (KVM/HVF/emulator) + JIT | Legacy → SSE/AVX/AVX2 → AVX-512 → AVX10.1/10.2 → APX; x87; AES/SHA/GFNI; XSAVE | KVM (real hardware) |
 | **Hexagon** | ~38k LOC | bare-metal (`--arch hexagon`) | V73 scalar + VLIW packets + HVX, **every opcode verified** | qemu-hexagon |
 | **RISC-V** | ~11k LOC | bare-metal (`--arch riscv64`) | full RVA23 *scalar* set (RV64GC + Zfh/Zicond/Zfa/Zbk\*/Zcb + scalar crypto + vector-config) | qemu-riscv64 |
-| **AArch64 / ARM** | ~62k LOC | **boots Linux** (emulator + HVF on Apple Silicon) | A64 base, **complete SVE + SVE2 + SVE2.1**, NEON/VFP, FP16; AArch32/Thumb; Cortex-M (M0-M85) | qemu-aarch64 + ASL |
+| **AArch64 / ARM** | ~64k LOC | **boots Linux** (emulator + HVF on Apple Silicon) | A64 base, **complete SVE + SVE2 + SVE2.1**, NEON/VFP, FP16; AArch32/Thumb; Cortex-M (M0-M85) | qemu-aarch64 + ASL |
 
 ### x86-64: the complete machine
 
@@ -204,7 +204,7 @@ non-control-flow opcode space.
 
 ### AArch64 / ARM: the deepest core
 
-The largest and most thoroughly tested ISA, even though it isn't a runnable backend yet:
+The largest and most thoroughly tested ISA, and now a runnable backend that boots Linux:
 
 - **SVE** is **complete**: no valid SVE encoding is unhandled. The full data-processing set (predicate
   generation/logical, predicated integer & FP ALU, reductions, permutes, CPY/SEL/CMP, shifts), the
@@ -216,9 +216,12 @@ The largest and most thoroughly tested ISA, even though it isn't a runnable back
   FEAT_LUT remain (the register-only oracle can't reach them).
 - **NEON / VFP**: full Advanced SIMD and scalar FP including FP16, bit-exact against the oracle on a
   3939-instruction sweep (`tests/neon_gen.rs`); full crypto (AES, SHA1/256/512, SHA3, SM3, SM4).
+- **Modern A64 extensions**: MTE (memory tagging), PAuth (pointer authentication), FlagM, LRCPC (RCpc
+  release-consistency atomics), and FP8 (FP8FMA).
 - **AArch32 / Thumb / Cortex-M (M0-M85)**: the A32 + Thumb (T16/T32) integer ISA is bit-exact against a
   new qemu-arm oracle (`tests/arm_diff32.rs`, a 1666-encoding sweep), now with VFP and NEON (Advanced
-  SIMD) execution and hardware exception routing; Cortex-M adds NVIC/SysTick/SCB/MPU, ARMv6-M to v8.1-M.
+  SIMD) execution and hardware exception routing; Cortex-M adds NVIC/SysTick/SCB/MPU, ARMv6-M to v8.1-M,
+  and there is an ARMv6 core (CP15 + MMU) with an emulated S3C64xx SoC machine.
 
 ---
 
@@ -516,7 +519,7 @@ src/
 │       ├── x86_64/ # ~54k LOC: decoder, mmu, flags, dispatch/{legacy,twobyte,vex,evex}, insn/ (88 files), JIT integration
 │       ├── hexagon/# ~38k LOC: scalar core, VLIW packets, full HVX, every opcode verified
 │       └── riscv/  # RiscVVcpu bridges the rax::riscv interpreter into the VMM
-├── arm/            # ~62k LOC: aarch64 (complete SVE) · cortex_m · decoder · vfp · sysreg · cp15
+├── arm/            # ~64k LOC: aarch64 (complete SVE) · cortex_m · decoder · vfp · sysreg · cp15
 ├── riscv/          # ~11k LOC: RV64GC + RVA23 scalar · cpu · decode · rvc · float · csr · crypto · disasm
 ├── smir/           # ~140k LOC: ir · ops · types · interp · opt · lift/ · lower/ (x86_64 · aarch64 · regalloc · runtime)
 ├── devices/        # serial·pit·pic·lapic·ioapic·rtc·hpet·pci·fw_cfg  +  ahci·nvme·ide·virtio·e1000·vga·ac97·uhci·fdc·dma
@@ -540,16 +543,16 @@ docs/specifications/# smir/ (the IR spec) · riscv/ (vendored RISC-V specs) · a
 | **x86-64 (software)** | Boots Linux to a BusyBox shell; full modern ISA; 463 differential cases vs. KVM; native JIT (`smir-jit`) at ~80× on hot loops |
 | **Hexagon** | **Every opcode** (scalar + HVX) verified vs. qemu-hexagon; bootable bare-metal backend |
 | **RISC-V** | Full RVA23 scalar set + crypto; bootable `--arch riscv64` backend; verified vs. qemu-riscv64 |
-| **AArch64 / ARM** | AArch64 (NEON + SVE/SVE2/SVE2.1) and AArch32 (A32/Thumb) both bit-exact vs qemu; ~92k ASL tests; not yet a runnable backend |
+| **AArch64 / ARM** | **Boots Linux**: HVF near-native on Apple Silicon + full EL0/EL1 software emulation (GICv3, generic timer, PL011, PSCI/DTB); AArch64 + AArch32 bit-exact vs qemu; ~92k ASL tests |
 | **SMIR** | JIT on by default, auto-triggered, fail-safe (integer + memory hot regions native, bit-exact vs. KVM); lowers to x86-64 **and** AArch64 hosts; RISC-V (incl. RVV) and Hexagon lifts complete |
 | **Platform** | Legacy PC devices wired; PCI host bridge + `--pci-devices` (e1000 `eth0`, AHCI/NVMe/UHCI/AC97); interactive console + full `.rxc` machine checkpoint/resume |
 | **Legacy boot** | Real-mode mini-BIOS + El-Torito CD boot; **TempleOS V5.03** boots real to long mode, mounts its CD, runs its HolyC compiler |
 
 ### What's missing
 
-A production hypervisor this is not, by design. Only x86-64 boots a general-purpose OS, and the ARM
-core, though the most thoroughly tested, is validated only through its oracle and isn't a runnable
-backend yet. There is no SMP (one vCPU executes), VGA isn't wired (serial console only), and PCI
+A production hypervisor this is not, by design. x86-64 and AArch64 both boot a general-purpose OS;
+Hexagon and RISC-V run bare-metal only, and the 32-bit AArch32 core is validated through its oracle but
+not yet wired as a backend. There is no SMP (one vCPU executes), VGA isn't wired (serial console only), and PCI
 interrupts run in polled mode. The JIT now compiles integer and memory hot regions; the double-width DIV and native block
 chaining are still future work. RISC-V lacks the RVV vector data path and
 a privileged/Sv39 MMU. The **software** Linux boot reaches a BusyBox shell on a mitigations-off ELF
