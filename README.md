@@ -40,9 +40,9 @@ cargo build --release
 # 3. ...and trace every instruction the kernel executes, SDE-compatible.
 ./target/release/rax --backend emulator --kernel vmlinux --trace boot.trace
 
-# 4. The native JIT is on by default (it accelerates hot loops ~80×, bailing to the interpreter
-#    for anything it can't prove correct). Audit it live with RAX_JIT_VERIFY=1, or disable: RAX_NO_JIT=1.
-RAX_JIT_VERIFY=1 ./target/release/rax --backend emulator --kernel vmlinux --initrd initrd.cpio
+# 4. Boot AArch64 Linux: the architecture is sniffed from the kernel image, and a DTB with
+#    GICv3, PL011, generic timer, and PSCI is generated on the fly. Works on any host.
+./target/release/rax --kernel linux-aarch64/Image --initrd initramfs.cpio
 
 # 5. Boot something that isn't Linux: a bootable ISO, through the real-mode mini-BIOS. rax takes
 #    TempleOS V5.03 from real mode to its 64-bit HolyC shell (El-Torito boot + ATAPI CD-ROM).
@@ -145,11 +145,9 @@ Write *(UINT64*)0x9000 = 0x000000000000a003
 ## Four CPUs
 
 x86-64 is the complete VM target: it boots Linux, with the full device platform, boot protocol, tracing,
-GDB, snapshots, and the JIT. Hexagon and RISC-V are bootable emulator backends for bare-metal programs.
-AArch64 boots Linux two ways: on the software emulator (full EL0/EL1 system emulation: MMU,
-exception delivery, GICv3 distributor+redistributor+ICC, generic timer, PL011) and near-native on
-Apple Silicon through the HVF backend (in-kernel GICv3). Both share the generated DTB, PSCI, and
-PL011 console. All four also have SMIR lifters.
+GDB, snapshots, and the JIT. AArch64 boots Linux too, near-native on Apple Silicon via HVF or fully
+emulated at EL0/EL1 (details under "How the machines work"). Hexagon and RISC-V are bootable emulator
+backends for bare-metal programs. All four also have SMIR lifters.
 
 | Core | Size | Runnable? | Coverage | Oracle |
 |------|-----:|-----------|----------|--------|
@@ -192,7 +190,7 @@ the oracle). It takes the hard parts seriously:
 
 ### RISC-V: small, correct, and bootable
 
-A complete **RV64GC** core (~7k lines) wired into the VMM as a real `--arch riscv64 --backend emulator`
+A complete **RV64GC** core (~11k lines) wired into the VMM as a real `--arch riscv64 --backend emulator`
 target: it loads an ELF, drives a 16550 UART over MMIO, and halts on `ecall`. Coverage is the **entire
 RVA23 scalar set**: RV64I/M/A/F/D, **Zfh** half-precision, C (compressed), Zicsr/Zifencei,
 Zba/Zbb/Zbc/Zbs, Zicond, Zfa, Zbkb/Zbkx/Zcb, the full scalar **crypto** suite (Zknh SHA-256/512, Zksh
@@ -271,8 +269,8 @@ exhaustive instruction tests from it, which is how 92,000+ ARM cases exist at al
 **SMIR** (Sigma Machine IR, `src/smir/`, ~140k LOC; spec in
 [`docs/specifications/smir/`](docs/specifications/smir/)) is the layer that makes "four CPUs" one
 project. Each guest architecture has a *lifter* that translates its instructions into a common set of
-100+ typed operations; the IR is interpreted directly, optimized, and, for x86-64, lowered to native
-host machine code.
+200+ typed operations; the IR is interpreted directly, optimized, and lowered to native machine code on
+both x86-64 and ARM64 hosts.
 
 ```text
   ┌─────────────────────────────────────────────────┐
@@ -292,20 +290,24 @@ The native JIT is real, integrated, and **on by default**. The `X86_64Vcpu` run 
 loops (a back-edge counter promotes a region at a threshold of 64), lifts the region to SMIR, runs the
 O2 optimizer over it, lowers it to native x86-64, caches the compiled block, and runs it through a W^X
 `mmap` trampoline. On the bench loop the lowered body is one native instruction per guest instruction:
-**~80× the interpreter (~11,000 MIPS)**, bit-identical to interpreting it. It boots Linux to userspace,
-and `RAX_JIT_VERIFY=1` proves it by re-running every region on the interpreter and diffing.
+**~80× the interpreter (~11,000 MIPS)**, bit-identical to interpreting it, and `RAX_JIT_VERIFY=1`
+proves that live by re-running every region on the interpreter and diffing.
 
 What makes that safe to ship is a **fail-safe gate**: a region compiles only from operations proven
 equal to KVM, and anything else makes it **bail back to the interpreter**, so native code never runs
-unless it is known correct. The gate now covers the integer core (ALU, shifts, multiply, mov/extend,
-LEA, BSF/BSR, setcc/cmov, branches) *and* memory: loads and stores lower to MMU helper calls that bail
-cleanly on a page fault or a write to a code page (FS/GS segment-relative accesses are handled, via the
-segment base threaded into the JIT runtime). What still bails is RSP/RBP-relative frames, locked/RMW and
-FP/SIMD ops, and the double-width DIV the IR can't yet model.
-Self-modifying code evicts compiled blocks via the MMU's dirty-page journal, and a frontier-less spin
-loop is refused so native code can't trap the vcpu. Heads that keep coming back ineligible are memoized,
-so the JIT stops re-attempting them and self-modifying-heavy guests like TempleOS don't thrash the
-compiler (a ~31% boot speedup).
+unless it is known correct. The gate covers the integer core (ALU, shifts, multiply, mov/extend, LEA,
+BSF/BSR, setcc/cmov, branches) and memory, FS/GS segment-relative accesses included: loads and stores
+lower to MMU helper calls that bail cleanly on a page fault or a write to a code page. Still
+interpreter-only: RSP/RBP-relative frames, locked/RMW and FP/SIMD ops, and the double-width DIV the IR
+can't yet model. Self-modifying code evicts compiled blocks via the MMU's dirty-page journal,
+persistently-ineligible region heads are memoized so SMC-heavy guests like TempleOS don't thrash the
+compiler, and a frontier-less spin loop is refused so native code can't trap the vcpu.
+
+The lowerer is retargetable. Alongside the x86-64 host backend sits a full **AArch64 host backend**
+(`lower/aarch64.rs`, ~51k LOC, 800+ lowering tests) that emits native ARM64 for the entire SMIR op set,
+x86-64 guest semantics included (APX, atomics, REP MOVS, vector/FP), plus an AArch64-guest-to-x86
+lowerer: the groundwork for JIT-compiling a guest across host ISAs (x86 on ARM, ARM on x86). The live
+exec runtime is x86-host today.
 
 | Piece | Where | State |
 |-------|-------|-------|
@@ -315,28 +317,22 @@ compiler (a ~31% boot speedup).
 | **JIT lowering** | `lower/x86_64.rs`, `lower/aarch64.rs`, `lower/regalloc.rs`, `lower/runtime.rs` | x86-64 emitter **and** a ~51k-LOC AArch64 host emitter (SMIR to native ARM64, x86 guest semantics included), plus an ARM-guest-to-x86 lowerer; 1:1 register map, W^X exec runtime + trampoline |
 | **JIT integration** | `backend/.../x86_64/cpu.rs` (on by default) | hot-loop detection, region cache, memory via MMU helpers, safety gate, SMC eviction |
 
-> **Good to know** The lowerer is retargetable. Alongside the x86-64 host backend there is now a full
-> **AArch64 host backend** (`lower/aarch64.rs`, ~51k LOC, 800+ lowering tests) that emits native ARM64 for
-> the entire SMIR op set, x86-64 guest semantics included (APX, atomics, REP MOVS, vector/FP), plus an
-> AArch64-guest-to-x86 lowerer. That is the groundwork for JIT-compiling a guest across host ISAs (x86 on
-> ARM, ARM on x86); the live exec runtime is x86-host today.
+The lifters are verified too, not just the JIT's native output: `tests/riscv_smir_lift.rs` and
+`tests/hexagon_smir_lift.rs` lift each instruction to SMIR, interpret it, and diff against that
+architecture's own qemu-verified interpreter. RISC-V lifts its entire user-mode RV64GCV (scalar, the
+full RVV vector ISA, FP, the Zb*/Zk* bit-manip and crypto extensions, and CSRs) at zero divergence over
+~180k instructions; Hexagon lifts its entire ISA across 305 verified families.
 
 > **Good to know** The JIT accelerates without changing behaviour: a kernel boots identically with it on
 > or off, because every region it can't prove correct degrades gracefully to the interpreter, and
 > `RAX_JIT_VERIFY=1` audits that equivalence live. What remains is the double-width DIV model and native
 > block-to-block chaining.
 
-> **Good to know** The lifters are checked too, not just the JIT's native output. `tests/riscv_smir_lift.rs`
-> and `tests/hexagon_smir_lift.rs` lift each instruction to SMIR, interpret it, and diff against that
-> architecture's own qemu-verified interpreter: RISC-V lifts its entire user-mode RV64GCV, scalar plus the full RVV vector ISA (FP, the Zb*/Zk*
-> bit-manip and crypto extensions, and CSRs included), at zero divergence over ~180k instructions, and Hexagon lifts its
-> entire ISA, every composable scalar op and all of HVX, across 305 verified families.
-
 ---
 
-## How the x86-64 machine works
+## How the machines work
 
-### Booting
+### Booting x86-64
 
 The fast path loads a Linux kernel (ELF or bzImage) straight into 64-bit mode: kernel at physical
 `0x1000000` (16 MiB), initrd at `0x4000000`, initial page tables (identity-mapped first 8 GiB via 1 GiB
@@ -349,7 +345,16 @@ and lets the guest walk itself up through protected mode into long mode. That pa
 V5.03** from its ISO: real to protected to long to 64-bit kernel init, mounting its RedSea CD as drive
 `T:` and running its own HolyC JIT compiler.
 
-### The interpreter loop
+### The AArch64 machine
+
+An AArch64 guest needs no flags: rax sniffs the architecture from the kernel image, generates a DTB
+(RAM, GICv3, PL011, armv8 generic timer, PSCI) on the fly, and boots it. On the software emulator,
+that means full EL0/EL1 system emulation: the stage-1 MMU, exception delivery, a GICv3 distributor +
+redistributor + ICC system registers, the generic timer, and a PL011 console. On Apple Silicon the same
+guest runs near-native through Hypervisor.framework with the in-kernel GICv3. Both paths share the
+generated DTB, PSCI, and PL011 wiring.
+
+### The x86-64 interpreter loop
 
 Fetch / decode / execute, with two twists that make it both fast and honest:
 
@@ -461,14 +466,8 @@ cargo build --release --no-default-features
 # Fastest local interpreter (uses your host's full ISA).
 RUSTFLAGS="-C target-cpu=native" cargo build --release
 
-# AArch64 Linux: boots on the software emulator on any host (the architecture
-# is sniffed from the kernel's magic; a DTB with RAM, GICv3, PL011, armv8
-# timer, and PSCI is generated on the fly):
-./target/release/rax --kernel linux-aarch64/Image --initrd initramfs.cpio
-
-# Apple Silicon: the same guest near-native on Hypervisor.framework (in-kernel
-# GICv3, macOS 15+). The binary must carry the hypervisor entitlement after
-# every build:
+# Apple Silicon (AArch64 guests near-native on Hypervisor.framework, macOS 15+):
+# the binary must carry the hypervisor entitlement after every build.
 cargo build --release --features hvf
 codesign -s - -f --entitlements rax.entitlements target/release/rax
 ./target/release/rax --backend hvf --kernel linux-aarch64/Image --initrd initramfs.cpio
@@ -522,11 +521,11 @@ src/
 ├── arm/            # ~64k LOC: aarch64 (complete SVE) · cortex_m · decoder · vfp · sysreg · cp15
 ├── riscv/          # ~11k LOC: RV64GC + RVA23 scalar · cpu · decode · rvc · float · csr · crypto · disasm
 ├── smir/           # ~140k LOC: ir · ops · types · interp · opt · lift/ · lower/ (x86_64 · aarch64 · regalloc · runtime)
-├── devices/        # serial·pit·pic·lapic·ioapic·rtc·hpet·pci·fw_cfg  +  ahci·nvme·ide·virtio·e1000·vga·ac97·uhci·fdc·dma
+├── devices/        # serial·pit·pic·lapic·ioapic·rtc·hpet·pci·fw_cfg·pl011·s3c64xx  +  ahci·nvme·ide·virtio·e1000·vga·ac97·uhci·fdc·dma
 ├── gdb/            # Remote Serial Protocol server      (--features debug)
 └── profiling/      # per-mnemonic profiler              (--features profiling)
 
-tests/              # differential (x86↔KVM) · arm_diff/riscv_diff/hexagon_*_diff (↔QEMU) · smir_jit_vcpu · riscv_boot
+tests/              # differential (x86↔KVM) · arm_diff/arm_diff32/riscv_diff/hexagon_*_diff (↔QEMU) · smir_jit_vcpu · realmode_boot · riscv_boot
                     # x86_64/ (28,554) · arm/generated (92,131, from ASL) · diff_fuzz · smir_avx10_roundtrip
 tools/              # asl-parser (ARM ASL → tests) · arm-diff · riscv-diff · hexagon-diff (QEMU oracles)
 microkernel/        # bare-metal x86-64 test kernel
@@ -543,7 +542,7 @@ docs/specifications/# smir/ (the IR spec) · riscv/ (vendored RISC-V specs) · a
 | **x86-64 (software)** | Boots Linux to a BusyBox shell; full modern ISA; 463 differential cases vs. KVM; native JIT (`smir-jit`) at ~80× on hot loops |
 | **Hexagon** | **Every opcode** (scalar + HVX) verified vs. qemu-hexagon; bootable bare-metal backend |
 | **RISC-V** | Full RVA23 scalar set + crypto; bootable `--arch riscv64` backend; verified vs. qemu-riscv64 |
-| **AArch64 / ARM** | **Boots Linux**: HVF near-native on Apple Silicon + full EL0/EL1 software emulation (GICv3, generic timer, PL011, PSCI/DTB); AArch64 + AArch32 bit-exact vs qemu; ~92k ASL tests |
+| **AArch64 / ARM** | **Boots Linux** (HVF near-native on Apple Silicon, or full EL0/EL1 software emulation); AArch64 + AArch32 bit-exact vs qemu; ~92k ASL tests |
 | **SMIR** | JIT on by default, auto-triggered, fail-safe (integer + memory hot regions native, bit-exact vs. KVM); lowers to x86-64 **and** AArch64 hosts; RISC-V (incl. RVV) and Hexagon lifts complete |
 | **Platform** | Legacy PC devices wired; PCI host bridge + `--pci-devices` (e1000 `eth0`, AHCI/NVMe/UHCI/AC97); interactive console + full `.rxc` machine checkpoint/resume |
 | **Legacy boot** | Real-mode mini-BIOS + El-Torito CD boot; **TempleOS V5.03** boots real to long mode, mounts its CD, runs its HolyC compiler |
@@ -552,12 +551,12 @@ docs/specifications/# smir/ (the IR spec) · riscv/ (vendored RISC-V specs) · a
 
 A production hypervisor this is not, by design. x86-64 and AArch64 both boot a general-purpose OS;
 Hexagon and RISC-V run bare-metal only, and the 32-bit AArch32 core is validated through its oracle but
-not yet wired as a backend. There is no SMP (one vCPU executes), VGA isn't wired (serial console only), and PCI
-interrupts run in polled mode. The JIT now compiles integer and memory hot regions; the double-width DIV and native block
-chaining are still future work. RISC-V lacks the RVV vector data path and
-a privileged/Sv39 MMU. The **software** Linux boot reaches a BusyBox shell on a mitigations-off ELF
-kernel; wider configurations (CFI/FineIBT, bzImage real-mode entry) are still being worked through, and
-the KVM path boots cleanly throughout.
+not yet wired as a backend. There is no SMP (one vCPU executes), VGA isn't wired (serial console only),
+and PCI interrupts run in polled mode. The JIT compiles integer and memory hot regions; the double-width
+DIV model and native block-to-block chaining are still future work. RISC-V lacks the RVV vector data
+path and a privileged/Sv39 MMU. The **software** Linux boot reaches a BusyBox shell on a mitigations-off
+ELF kernel; wider configurations (CFI/FineIBT, bzImage real-mode entry) are still being worked through,
+and the KVM path boots cleanly throughout.
 
 ---
 
