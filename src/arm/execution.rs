@@ -630,6 +630,10 @@ pub struct Armv7Cpu {
 
     /// VFP/NEON register file and FP system registers.
     pub vfp: VfpState,
+
+    /// CP15 system-control coprocessor (SCTLR/TTBR/DACR/FSR/FAR/...): the
+    /// source of truth for MCR/MRC p15 and the v6 MMU configuration.
+    pub cp15: crate::arm::cp15::Cp15State,
 }
 
 impl Default for Armv7Cpu {
@@ -662,6 +666,7 @@ impl Armv7Cpu {
             carry_out: false,
             overflow: false,
             vfp: VfpState::new(),
+            cp15: crate::arm::cp15::Cp15State::new(),
         };
         // Start in Supervisor mode with IRQ/FIQ disabled
         cpu.cpsr.mode = ProcessorMode::Supervisor as u8;

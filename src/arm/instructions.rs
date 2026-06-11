@@ -2016,6 +2016,22 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
             };
         }
 
+        if cp == 15 {
+            let crm = (insn.raw & 0xF) as u8;
+            let opc2 = ((insn.raw >> 5) & 0x7) as u8;
+            let value = self.reg(t);
+            // WFI (MCR p15, 0, Rt, c7, c0, 4): ARMv6 wait-for-interrupt.
+            if opc1 == 0 && reg == 7 && crm == 0 && opc2 == 4 {
+                self.cpu.is_halted = true;
+                return ExecResult::Halt;
+            }
+            let enc = crate::arm::sysreg::Cp15Encoding::new(reg, opc1, crm, opc2);
+            // Cache/TLB maintenance (CRn 7/8) and unmodelled registers are
+            // accepted as no-ops; everything modelled lands in Cp15State.
+            let _ = self.cpu.cp15.write(enc, value);
+            return ExecResult::Continue;
+        }
+
         // For now, just consume the value (would write to coprocessor)
         let _value = self.reg(t);
 
@@ -2053,6 +2069,23 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
                 self.cpu.cpsr.v = (value & (1 << 28)) != 0;
             } else if t != 15 {
                 self.cpu.regs[t] = value;
+            }
+            return ExecResult::Continue;
+        }
+
+        if cp == 15 {
+            let crm = (insn.raw & 0xF) as u8;
+            let opc2 = ((insn.raw >> 5) & 0x7) as u8;
+            let enc = crate::arm::sysreg::Cp15Encoding::new(reg, opc1, crm, opc2);
+            let value = self.cpu.cp15.read(enc).unwrap_or(0);
+            if t != 15 {
+                self.cpu.regs[t] = value;
+            } else {
+                // MRC with Rt=15 moves bits[31:28] into the CPSR flags.
+                self.cpu.cpsr.n = (value & (1 << 31)) != 0;
+                self.cpu.cpsr.z = (value & (1 << 30)) != 0;
+                self.cpu.cpsr.c = (value & (1 << 29)) != 0;
+                self.cpu.cpsr.v = (value & (1 << 28)) != 0;
             }
             return ExecResult::Continue;
         }

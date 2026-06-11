@@ -43,6 +43,7 @@ pub mod features;
 pub mod instructions;
 pub mod isa;
 pub mod memory;
+pub mod mmu_v6;
 pub mod state;
 pub mod sysreg;
 pub mod vfp;
