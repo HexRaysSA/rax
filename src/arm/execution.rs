@@ -507,6 +507,20 @@ impl Psr {
 /// | 1101 | LE     | Z == 1 || N != V   | Signed <=                  |
 /// | 1110 | AL     | -                  | Always (unconditional)     |
 /// | 1111 | NV     | -                  | Never (or unconditional)   |
+/// Map a register operand index to its AArch32 register file slot.
+///
+/// The instruction decoder is shared with AArch64, where the stack pointer is
+/// encoding 31. In AArch32 there are only 16 GPRs and SP is r13, so an operand
+/// that arrives as 31 (e.g. Thumb `ADD Rd, SP, #imm`) must fold to 13.
+#[inline]
+pub fn aarch32_reg_index(i: usize) -> usize {
+    if i == 31 {
+        13
+    } else {
+        i
+    }
+}
+
 pub fn condition_passed(cond: u8, n: bool, z: bool, c: bool, v: bool) -> bool {
     let result = match cond >> 1 {
         0 => z,              // EQ/NE
@@ -685,15 +699,19 @@ impl Armv7Cpu {
         self.regs[15].wrapping_add(8)
     }
 
+
+
     /// Get register value, handling PC specially.
     #[inline]
     pub fn reg(&self, i: usize) -> u32 {
+        let i = aarch32_reg_index(i);
         if i == 15 { self.get_pc() } else { self.regs[i] }
     }
 
     /// Set register value. Writing to PC sets branch_to instead.
     #[inline]
     pub fn set_reg(&mut self, i: usize, value: u32) {
+        let i = aarch32_reg_index(i);
         if i == 15 {
             self.branch_to = Some(value);
         } else {

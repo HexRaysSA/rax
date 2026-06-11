@@ -442,6 +442,91 @@ pub const ARMV7A_DTB_ADDR: u64 = 0x5300_0000;
 /// Where the initrd/initramfs is placed.
 pub const ARMV7A_INITRD_ADDR: u64 = 0x5400_0000;
 
+// S5L8900 (iPod Touch 1G) firmware load addresses.
+const S5L_IBOOT_BASE: u64 = 0x1800_0000;
+const S5L_VROM_BASE: u64 = 0x2000_0000;
+const S5L_LLB_BASE: u64 = 0x2200_0000;
+const S5L_NOR_BASE: u64 = 0x2400_0000;
+const S5L_ENGINE_8900_BASE: u32 = 0x3F00_0000;
+
+/// Load the S5L8900 firmware images and apply the bootrom-call patches the
+/// QEMU iPod Touch reference uses, then boot iBoot directly.
+///
+/// `config.kernel` points at the iBoot binary (`iboot_204_n45ap.bin`); the
+/// bootrom (`bootrom_s5l8900`) and NOR (`nor_n45ap.bin`) are discovered as
+/// siblings in the same directory.
+fn load_s5l8900_firmware(mem: &GuestMemoryMmap, config: &VmConfig) -> Result<BootInfo> {
+    let iboot_path = &config.kernel;
+    let dir = iboot_path
+        .parent()
+        .ok_or_else(|| Error::InvalidConfig("iboot path has no parent directory".to_string()))?;
+
+    let read = |p: &std::path::Path| -> Result<Vec<u8>> {
+        let mut v = Vec::new();
+        File::open(p)?.read_to_end(&mut v)?;
+        Ok(v)
+    };
+
+    let iboot = read(iboot_path)?;
+    mem.write_slice(&iboot, GuestAddress(S5L_IBOOT_BASE))?;
+
+    // Bootrom (VROM). Optional — iBoot is entered directly, but the bootrom
+    // function table is patched so iBoot's image-decrypt calls land on our
+    // routines.
+    let bootrom_path = dir.join("bootrom_s5l8900");
+    if bootrom_path.exists() {
+        let bootrom = read(&bootrom_path)?;
+        mem.write_slice(&bootrom, GuestAddress(S5L_VROM_BASE))?;
+    }
+
+    // NOR flash (holds the device tree / NVRAM / boot images iBoot reads).
+    let nor_path = dir.join("nor_n45ap.bin");
+    if nor_path.exists() {
+        let nor = read(&nor_path)?;
+        mem.write_slice(&nor, GuestAddress(S5L_NOR_BASE))?;
+    }
+
+    let w32 = |addr: u64, val: u32| -> Result<()> {
+        mem.write_slice(&val.to_le_bytes(), GuestAddress(addr))?;
+        Ok(())
+    };
+
+    // Patch the bootrom function-pointer table to point at our LLB routines.
+    w32(0x2000_008c, (S5L_LLB_BASE + 0x80) as u32)?;
+    w32(0x2000_0090, (S5L_LLB_BASE + 0x100) as u32)?;
+
+    // LLB+0x80: MOVS R0, #1 ; BX LR  (8900 signature check → success).
+    w32(S5L_LLB_BASE + 0x80, 0xe3b0_0001)?;
+    w32(S5L_LLB_BASE + 0x84, 0xe12f_ff1e)?;
+
+    // LLB+0x100: LDR r1,[pc,#0x100] ; STR r0,[r1] ; MOVS R0,#1 ; BX lr
+    // (writes the image address to the 8900 engine MMIO, triggering decrypt).
+    w32(S5L_LLB_BASE + 0x100, 0xe59f_1100)?;
+    w32(S5L_LLB_BASE + 0x104, 0xe581_0000)?;
+    w32(S5L_LLB_BASE + 0x108, 0xe3b0_0001)?;
+    w32(S5L_LLB_BASE + 0x10c, 0xe12f_ff1e)?;
+
+    // LLB+0x208: the 8900 engine base address loaded by the routine above.
+    w32(S5L_LLB_BASE + 0x208, S5L_ENGINE_8900_BASE)?;
+
+    tracing::info!(
+        entry = format!("{:#x}", S5L_IBOOT_BASE),
+        iboot = %iboot_path.display(),
+        iboot_size = iboot.len(),
+        bootrom = bootrom_path.exists(),
+        nor = nor_path.exists(),
+        "S5L8900 iBoot boot layout"
+    );
+
+    Ok(BootInfo::Arm(ArmBootInfo {
+        entry_point: S5L_IBOOT_BASE,
+        load_addr: S5L_IBOOT_BASE,
+        image_size: iboot.len() as u64,
+        dtb_addr: None,
+        initial_sp: None,
+    }))
+}
+
 /// Insert `linux,initrd-start`/`linux,initrd-end` into a flattened device
 /// tree's `/chosen` node (creating the node if absent), rebuilding the blob.
 fn fdt_set_initrd(dtb: &[u8], start: u32, end: u32) -> Result<Vec<u8>> {
@@ -575,6 +660,12 @@ impl Arch for Armv7aArch {
 
         if buf.len() < 4 {
             return Err(Error::KernelLoad("image is too small".to_string()));
+        }
+
+        // S5L8900 (iPod Touch 1G) firmware machine: load bootrom/iBoot/NOR and
+        // boot iBoot directly, instead of the Linux DT boot protocol.
+        if std::env::var("RAX_MACHINE").as_deref() == Ok("s5l8900") {
+            return load_s5l8900_firmware(mem, config);
         }
 
         // 32-bit ARM boot protocol (DT): uncompressed Image at RAM base +

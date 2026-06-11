@@ -576,7 +576,7 @@ impl ThumbDecoder {
             DecodedInsn::new(mnemonic, ExecutionState::Thumb, raw as u32, 2)
                 .with_operand(Operand::Reg(Self::low_reg(rt)))
                 .with_operand(Operand::Mem(MemOperand::imm_offset(
-                    Register::sp(false),
+                    Register::sp32(),
                     offset,
                 ))),
         )
@@ -604,7 +604,7 @@ impl ThumbDecoder {
         Ok(
             DecodedInsn::new(Mnemonic::ADD, ExecutionState::Thumb, raw as u32, 2)
                 .with_operand(Operand::Reg(Self::low_reg(rd)))
-                .with_operand(Operand::Reg(Register::sp(false)))
+                .with_operand(Operand::Reg(Register::sp32()))
                 .with_operand(Operand::Imm(Immediate::new(offset))),
         )
     }
@@ -623,8 +623,8 @@ impl ThumbDecoder {
                 let mnemonic = if s == 0 { Mnemonic::ADD } else { Mnemonic::SUB };
                 Ok(
                     DecodedInsn::new(mnemonic, ExecutionState::Thumb, raw as u32, 2)
-                        .with_operand(Operand::Reg(Register::sp(false)))
-                        .with_operand(Operand::Reg(Register::sp(false)))
+                        .with_operand(Operand::Reg(Register::sp32()))
+                        .with_operand(Operand::Reg(Register::sp32()))
                         .with_operand(Operand::Imm(Immediate::new(offset))),
                 )
             }
@@ -1806,7 +1806,7 @@ impl ThumbDecoder {
     /// Create any register (r0-r15).
     fn any_reg(num: u8) -> Register {
         if num == 13 {
-            Register::sp(false)
+            Register::sp32()
         } else {
             Register::raw(num & 0xF, false, false)
         }

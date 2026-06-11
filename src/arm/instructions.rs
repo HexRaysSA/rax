@@ -733,6 +733,7 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
 
     /// Set register value, with S bit handling for PC (exception return).
     fn set_reg_with_s(&mut self, r: usize, value: u32, s_bit: bool) -> ExecResult {
+        let r = crate::arm::execution::aarch32_reg_index(r);
         if r == 15 {
             if s_bit && !self.cpu.is_user_or_system() {
                 // Exception return
@@ -1186,8 +1187,13 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
     }
 
     fn exec_bl(&mut self, insn: &DecodedInsn) -> ExecResult {
-        let return_addr = self.cpu.regs[15].wrapping_add(4);
-        self.cpu.regs[14] = return_addr;
+        // The return address is the instruction after this BL. In Thumb state
+        // LR must carry bit0 = 1 so the eventual `BX LR` resumes in Thumb.
+        if insn.state.is_thumb() {
+            self.cpu.regs[14] = self.cpu.regs[15].wrapping_add(4) | 1;
+        } else {
+            self.cpu.regs[14] = self.cpu.regs[15].wrapping_add(4);
+        }
 
         if let Some(target) = self.decode_branch_target(insn) {
             ExecResult::Branch(target)
@@ -1207,19 +1213,32 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
     }
 
     fn exec_blx(&mut self, insn: &DecodedInsn) -> ExecResult {
-        let return_addr = self.cpu.regs[15].wrapping_add(4);
+        let thumb = insn.state.is_thumb();
 
         if let Some(m) = self.decode_reg_operand(insn, 0) {
-            // Read the target BEFORE writing LR: `blx lr` must branch to the
-            // old LR value.
+            // BLX Rm: target state comes from bit0 of Rm. Read the target
+            // BEFORE writing LR (`blx lr`). The register form is 2 bytes in
+            // Thumb, 4 in ARM.
             let target = self.reg(m);
-            self.cpu.regs[14] = return_addr;
+            let ret = self.cpu.regs[15].wrapping_add(if thumb { 2 } else { 4 });
+            self.cpu.regs[14] = if thumb { ret | 1 } else { ret };
             self.cpu.cpsr.t = (target & 1) != 0;
             ExecResult::Branch(target & !1)
         } else if let Some(target) = self.decode_branch_target(insn) {
-            self.cpu.regs[14] = return_addr;
-            self.cpu.cpsr.t = true;
-            ExecResult::Branch(target)
+            // BLX (immediate): always toggles instruction set. The 4-byte
+            // encoding exists in both states.
+            let ret = self.cpu.regs[15].wrapping_add(4);
+            self.cpu.regs[14] = if thumb { ret | 1 } else { ret };
+            if thumb {
+                // Thumb → ARM: the branch target is word-aligned.
+                self.cpu.cpsr.t = false;
+                let align = self.cpu.regs[15].wrapping_add(4) & 3;
+                ExecResult::Branch(target.wrapping_sub(align))
+            } else {
+                // ARM → Thumb.
+                self.cpu.cpsr.t = true;
+                ExecResult::Branch(target)
+            }
         } else {
             ExecResult::Undefined
         }
@@ -9575,6 +9594,17 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
 
     /// Decode branch target from instruction.
     fn decode_branch_target(&self, insn: &DecodedInsn) -> Option<u32> {
+        // Thumb B/BL/BLX/BCC: the (already scaled and sign-extended) byte
+        // offset is in the Label operand and the branch base is PC+4.
+        if insn.state.is_thumb() {
+            let off = insn.operands.iter().find_map(|o| match o {
+                crate::arm::decoder::Operand::Label(l) => Some(*l),
+                _ => None,
+            })?;
+            let base = self.cpu.regs[15].wrapping_add(4);
+            return Some((base as i64).wrapping_add(off) as u32);
+        }
+        // ARM B/BL: 24-bit signed offset scaled by 4, relative to PC+8.
         let imm24 = insn.raw & 0x00FFFFFF;
         let imm26 = imm24 << 2;
         let imm32 = if (imm26 & 0x02000000) != 0 {
@@ -9603,9 +9633,19 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
     fn decode_mem_thumb(&self, insn: &DecodedInsn) -> Option<(usize, u32, Option<(usize, u32)>)> {
         use crate::arm::decoder::{AddressingMode, MemOffset, Operand};
         let t = insn.operands.iter().find_map(|o| match o {
-            Operand::Reg(r) => Some(r.num as usize),
+            Operand::Reg(r) => Some(crate::arm::execution::aarch32_reg_index(r.num as usize)),
             _ => None,
         })?;
+        // Thumb LDR (literal): `LDR Rt, [PC, #imm]` is decoded as a Label
+        // operand holding the byte offset. The base is Align(PC+4, 4).
+        if let Some(off) = insn.operands.iter().find_map(|o| match o {
+            Operand::Label(l) => Some(*l),
+            _ => None,
+        }) {
+            let base = self.cpu.regs[15].wrapping_add(4) & !0x3;
+            let address = base.wrapping_add(off as u32);
+            return Some((t, address, None));
+        }
         let mem = insn.operands.iter().find_map(|o| match o {
             Operand::Mem(m) => Some(m),
             _ => None,
@@ -9761,6 +9801,15 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
 
     /// Decode register list for PUSH/POP.
     fn decode_reglist(&self, insn: &DecodedInsn) -> Option<u16> {
+        // Prefer the decoded register-list operand: for 16-bit Thumb PUSH/POP
+        // the raw word's high bits are opcode, not list bits (e.g. POP
+        // {r2,r3,r4} = 0xbc1c, whose bit15 would wrongly read as PC).
+        if let Some(mask) = insn.operands.iter().find_map(|o| match o {
+            crate::arm::decoder::Operand::RegList(rl) => Some(rl.mask),
+            _ => None,
+        }) {
+            return Some(mask as u16);
+        }
         Some((insn.raw & 0xFFFF) as u16)
     }
 }

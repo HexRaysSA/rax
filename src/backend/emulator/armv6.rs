@@ -430,28 +430,37 @@ impl Armv6Vcpu {
         self.pc_ring_idx = (self.pc_ring_idx + 1) % self.pc_ring.len();
         let is_thumb = self.cpu.cpsr.t;
 
-        // Fetch (with prefetch-abort delivery).
+        // Fetch (with prefetch-abort delivery). Decode bytes are kept in
+        // MEMORY order (hw1 then hw2) — the decoder reads hw1 from bytes[0..2]
+        // and hw2 from bytes[2..4], so a 32-bit Thumb word must not be packed
+        // as (hw1<<16)|hw2 and little-endian-serialised (that swaps the
+        // halfwords).
         let mut insn_len = 4u32;
+        let mut decode_bytes = [0u8; 4];
         let raw = if is_thumb {
             let hw1 = match self.bridge.read_halfword(pc) {
                 Ok(v) => v,
                 Err(_) => return self.prefetch_abort(pc),
             };
+            decode_bytes[0..2].copy_from_slice(&hw1.to_le_bytes());
             if (hw1 >> 11) >= 0x1D {
                 let hw2 = match self.bridge.read_halfword(pc.wrapping_add(2)) {
                     Ok(v) => v,
                     Err(_) => return self.prefetch_abort(pc),
                 };
+                decode_bytes[2..4].copy_from_slice(&hw2.to_le_bytes());
                 ((hw1 as u32) << 16) | hw2 as u32
             } else {
                 insn_len = 2;
                 hw1 as u32
             }
         } else {
-            match self.bridge.read_word(pc) {
+            let w = match self.bridge.read_word(pc) {
                 Ok(v) => v,
                 Err(_) => return self.prefetch_abort(pc),
-            }
+            };
+            decode_bytes.copy_from_slice(&w.to_le_bytes());
+            w
         };
         // Patch up the fetch's fault classification (translate() recorded a
         // data-style fault; prefetch aborts report via IFSR/IFAR instead).
@@ -480,8 +489,11 @@ impl Armv6Vcpu {
         } else {
             ExecutionState::Aarch32
         };
-        let bytes = raw.to_le_bytes();
-        let slice: &[u8] = if insn_len == 2 { &bytes[..2] } else { &bytes };
+        let slice: &[u8] = if insn_len == 2 {
+            &decode_bytes[..2]
+        } else {
+            &decode_bytes
+        };
         self.decoder.set_state(state);
         let insn = match self.decoder.decode(slice) {
             Ok(i) => i,

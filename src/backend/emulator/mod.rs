@@ -6,6 +6,7 @@ pub mod aarch64;
 pub mod armv6;
 pub mod hexagon;
 pub mod riscv;
+pub mod s5l8900;
 pub mod x86_64;
 
 use std::any::Any;
@@ -81,7 +82,13 @@ impl Vm for EmulatorVm {
             ))),
             ArchKind::Riscv64 => Ok(Box::new(riscv::RiscVVcpu::new(id, mem))),
             ArchKind::Aarch64 => Ok(Box::new(aarch64::Aarch64Vcpu::new(id, mem))),
-            ArchKind::Armv7a => Ok(Box::new(armv6::Armv6Vcpu::new(id, mem))),
+            ArchKind::Armv7a => {
+                if std::env::var("RAX_MACHINE").as_deref() == Ok("s5l8900") {
+                    Ok(Box::new(s5l8900::S5L8900Vcpu::new(id, mem)))
+                } else {
+                    Ok(Box::new(armv6::Armv6Vcpu::new(id, mem)))
+                }
+            }
             _ => Err(Error::Emulator(format!(
                 "Unsupported architecture: {:?}",
                 self.arch

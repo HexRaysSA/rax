@@ -115,6 +115,18 @@ impl Register {
         }
     }
 
+    /// Create the AArch32 stack pointer (r13). Unlike AArch64, where SP is
+    /// encoding 31, the 32-bit architecture's SP is general register 13, so
+    /// the operand must carry `num = 13` for the AArch32 executor.
+    pub fn sp32() -> Self {
+        Register {
+            num: 13,
+            is_64bit: false,
+            is_sp: true,
+            kind: RegisterKind::Sp,
+        }
+    }
+
     /// Create the zero register (XZR or WZR).
     pub fn zr(is_64bit: bool) -> Self {
         Register {
