@@ -1331,7 +1331,14 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
                 if let Some((n, addr)) = writeback {
                     self.cpu.regs[n] = addr;
                 }
-                self.set_reg(t, data)
+                if t == 15 {
+                    // LDR pc is an interworking branch (ARMv5+): bit0 of the
+                    // loaded value selects ARM (0) or Thumb (1).
+                    self.cpu.cpsr.t = (data & 1) != 0;
+                    ExecResult::Branch(data & !1)
+                } else {
+                    self.set_reg(t, data)
+                }
             }
             Err(e) => ExecResult::MemoryFault(e),
         }
@@ -1751,7 +1758,15 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
         }
 
         if let Some(target) = branch_target {
-            ExecResult::Branch(target)
+            if exception_return {
+                // CPSR (incl. T) was restored from SPSR; PC is the saved value.
+                ExecResult::Branch(target)
+            } else {
+                // LDM {pc} is an interworking branch (ARMv5+): bit0 selects the
+                // instruction set.
+                self.cpu.cpsr.t = (target & 1) != 0;
+                ExecResult::Branch(target & !1)
+            }
         } else {
             ExecResult::Continue
         }
@@ -1938,8 +1953,30 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
 
         self.cpu.regs[13] = address;
 
+        // A32 `LDM sp!, {..., pc}^` (the S-bit form, e.g. an IRQ handler's
+        // exception-return `e8fd900f`) is decoded here as a POP. With PC in the
+        // list and the S bit set, it additionally restores CPSR from the
+        // current mode's SPSR — without this the CPU stays in the handler's
+        // mode (e.g. IRQ) on return, corrupting the resumed context.
+        let s_bit =
+            insn.state == crate::arm::ExecutionState::Aarch32 && (insn.raw >> 22) & 1 == 1;
+        let exception_return =
+            s_bit && (reglist & 0x8000) != 0 && !self.cpu.is_user_or_system();
+
         if let Some(target) = branch_target {
-            ExecResult::Branch(target)
+            if exception_return {
+                // CPSR (including the T bit) is restored from SPSR; PC is the
+                // loaded value verbatim.
+                let spsr = self.current_spsr_bits();
+                self.write_cpsr_all(spsr);
+                ExecResult::Branch(target)
+            } else {
+                // POP {pc} is an interworking branch (ARMv5+): the loaded PC's
+                // bit0 selects ARM (0) or Thumb (1). Set the state explicitly so
+                // a Thumb→ARM return (bit0 = 0) actually leaves Thumb.
+                self.cpu.cpsr.t = (target & 1) != 0;
+                ExecResult::Branch(target & !1)
+            }
         } else {
             ExecResult::Continue
         }

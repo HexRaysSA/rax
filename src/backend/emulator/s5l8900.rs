@@ -22,8 +22,10 @@ use crate::cpu::{
     Aarch32CpuState, Aarch32Registers, Aarch32SystemRegisters, CpuState, VCpu, VcpuExit,
 };
 use crate::devices::s3c64xx::S3cUart;
+use crate::devices::crypto::{aes_cbc_decrypt, sha1, AesKey};
 use crate::devices::s5l8900::{
-    Pl192, S5lChipId, S5lClock, S5lGpio, S5lI2c, S5lLcd, S5lSpi, S5lSysic, S5lTimer,
+    AesKeyType, Pl192, S5lAes, S5lChipId, S5lClock, S5lDmac, S5lGpio, S5lI2c, S5lLcd, S5lNand,
+    S5lNandEcc, S5lSpi, S5lSysic, S5lTimer, AES_UID_KEY, NAND_BYTES_PER_SPARE,
 };
 use crate::error::{Error, Result};
 
@@ -43,13 +45,24 @@ const SPI0_BASE: u32 = 0x3C30_0000;
 const SPI1_BASE: u32 = 0x3CE0_0000;
 const SPI2_BASE: u32 = 0x3D20_0000;
 const LCD_BASE: u32 = 0x3890_0000;
+const NAND_BASE: u32 = 0x38A0_0000;
+const NAND_ECC_BASE: u32 = 0x38F0_0000;
+const ADM_BASE: u32 = 0x3880_0000;
+const DMAC0_BASE: u32 = 0x3820_0000;
 const ENGINE_8900_BASE: u32 = 0x3F00_0000;
+const AES_BASE: u32 = 0x38C0_0000;
 
 const IBOOT_BASE: u32 = 0x1800_0000;
 const LLB_BASE: u32 = 0x2200_0000;
 
 // IRQ line numbers on VIC0.
 const TIMER1_IRQ: u32 = 0x7;
+const SPI0_IRQ: u32 = 0x9;
+const SPI1_IRQ: u32 = 0xA;
+const SPI2_IRQ: u32 = 0xB;
+const DMAC0_IRQ: u32 = 0x10;
+/// NAND ECC engine: global IRQ 0x2B, i.e. VIC1 line (0x2B - 32) = 11.
+const NAND_ECC_VIC1_LINE: u32 = 0x2B - 32;
 const LCD_IRQ: u32 = 0xD;
 const UART0_IRQ: u32 = 24;
 
@@ -68,6 +81,28 @@ fn timer_speedup() -> u64 {
         .unwrap_or(256)
 }
 
+/// Parsed-once write-watchpoint range (addr, len) from RAX_S5L_WATCH=hex:hex.
+fn watch_range() -> &'static Option<(u32, u32)> {
+    static WATCH: std::sync::OnceLock<Option<(u32, u32)>> = std::sync::OnceLock::new();
+    WATCH.get_or_init(|| {
+        let v = std::env::var("RAX_S5L_WATCH").ok()?;
+        let (a, l) = v.split_once(':')?;
+        let addr = u32::from_str_radix(a.trim_start_matches("0x"), 16).ok()?;
+        let len = u32::from_str_radix(l.trim_start_matches("0x"), 16).ok()?;
+        Some((addr, len))
+    })
+}
+
+/// The directory holding the NAND `bank<n>/<page>.page` dumps. From
+/// RAX_S5L_NAND, else the iPod Touch reference dump next to the firmware.
+fn nand_dir() -> Option<std::path::PathBuf> {
+    if let Ok(p) = std::env::var("RAX_S5L_NAND") {
+        return Some(std::path::PathBuf::from(p));
+    }
+    let default = std::path::PathBuf::from("docs/hardware/apple/iPodTouch1/nand");
+    default.is_dir().then_some(default)
+}
+
 /// Last memory fault recorded by the bridge (for DFSR/DFAR reporting).
 #[derive(Clone, Copy, Default)]
 struct LastFault {
@@ -81,6 +116,8 @@ struct LastFault {
 struct BridgeInner {
     mmu: V6MmuConfig,
     privileged: bool,
+    /// PC of the instruction currently executing, for the write-watchpoint log.
+    cur_pc: u32,
     last_fault: LastFault,
     clock0: S5lClock,
     clock1: S5lClock,
@@ -95,6 +132,15 @@ struct BridgeInner {
     spi1: S5lSpi,
     spi2: S5lSpi,
     lcd: S5lLcd,
+    nand: S5lNand,
+    nand_ecc: S5lNandEcc,
+    aes: S5lAes,
+    dmac0: S5lDmac,
+    /// ADM (Apple Data Mover) DMA data-section addresses.
+    adm_data2: u32,
+    adm_data3: u32,
+    /// Pending ADM operation (ctrl value written), serviced by the vCPU step.
+    adm_req: Option<u32>,
     uart: Arc<OnceLock<Arc<Mutex<S3cUart>>>>,
     /// Pending 8900-engine decryption request: the physical address of the
     /// image header written to the engine MMIO. Serviced by the vCPU step.
@@ -192,6 +238,20 @@ impl BridgeInner {
             _ if (LCD_BASE..LCD_BASE + 0x1000).contains(&pa) => {
                 Some(self.lcd.read(off(LCD_BASE)))
             }
+            _ if (NAND_BASE..NAND_BASE + 0x1000).contains(&pa) => {
+                Some(self.nand.read(off(NAND_BASE)))
+            }
+            _ if (NAND_ECC_BASE..NAND_ECC_BASE + 0x1000).contains(&pa) => {
+                Some(self.nand_ecc.read(off(NAND_ECC_BASE)))
+            }
+            _ if (DMAC0_BASE..DMAC0_BASE + 0x1000).contains(&pa) => {
+                Some(self.dmac0.read(off(DMAC0_BASE)))
+            }
+            _ if (ADM_BASE..ADM_BASE + 0x1000).contains(&pa) => Some(match off(ADM_BASE) {
+                0x0 => 0x2,  // CTRL: device ready
+                0x4 => 0x10, // CTRL2: upload event finished
+                _ => 0,
+            }),
             _ if (UART0_BASE..UART0_BASE + 0x1000).contains(&pa) => Some(
                 self.uart
                     .get()
@@ -199,6 +259,7 @@ impl BridgeInner {
                     .unwrap_or(0),
             ),
             _ if (ENGINE_8900_BASE..ENGINE_8900_BASE + 0x100).contains(&pa) => Some(0),
+            _ if (AES_BASE..AES_BASE + 0x100).contains(&pa) => Some(self.aes.read(off(AES_BASE))),
             // Plain memory.
             _ if is_memory(pa) => None,
             // Unmapped MMIO: open bus (read as zero).
@@ -270,6 +331,27 @@ impl BridgeInner {
                 self.lcd.write(off(LCD_BASE), value);
                 true
             }
+            _ if (NAND_BASE..NAND_BASE + 0x1000).contains(&pa) => {
+                self.nand.write(off(NAND_BASE), value);
+                true
+            }
+            _ if (NAND_ECC_BASE..NAND_ECC_BASE + 0x1000).contains(&pa) => {
+                self.nand_ecc.write(off(NAND_ECC_BASE), value);
+                true
+            }
+            _ if (DMAC0_BASE..DMAC0_BASE + 0x1000).contains(&pa) => {
+                self.dmac0.write(off(DMAC0_BASE), value);
+                true
+            }
+            _ if (ADM_BASE..ADM_BASE + 0x1000).contains(&pa) => {
+                match off(ADM_BASE) {
+                    0x88 => self.adm_data2 = value,
+                    0x8C => self.adm_data3 = value,
+                    0x0 | 0x4 => self.adm_req = Some((off(ADM_BASE) << 28) | (value & 0xFF)),
+                    _ => {}
+                }
+                true
+            }
             _ if (UART0_BASE..UART0_BASE + 0x1000).contains(&pa) => {
                 if let Some(u) = self.uart.get() {
                     if let Ok(mut u) = u.lock() {
@@ -284,6 +366,10 @@ impl BridgeInner {
                 if off(ENGINE_8900_BASE) == 0 {
                     self.engine_8900_req = Some(value);
                 }
+                true
+            }
+            _ if (AES_BASE..AES_BASE + 0x100).contains(&pa) => {
+                self.aes.write(off(AES_BASE), value);
                 true
             }
             _ if is_memory(pa) => false,
@@ -327,6 +413,21 @@ impl BridgeInner {
         pa: u32,
         data: &[u8],
     ) -> std::result::Result<(), MemoryError> {
+        // Optional write-watchpoint (RAX_S5L_WATCH=hexaddr:hexlen): log writes
+        // that land in [addr, addr+len) so heap/free-list corruption can be
+        // traced to the offending store.
+        if let Some((wa, wl)) = *watch_range() {
+            if pa >= wa && pa < wa.wrapping_add(wl) {
+                let mut v = [0u8; 4];
+                v[..data.len().min(4)].copy_from_slice(&data[..data.len().min(4)]);
+                debug!(
+                    pa = format!("{pa:#x}"),
+                    val = format!("{:#x}", u32::from_le_bytes(v)),
+                    pc = format!("{:#x}", self.cur_pc),
+                    "watch write"
+                );
+            }
+        }
         if data.len() <= 4 && !is_memory(pa) {
             let reg = pa & !0x3;
             let lane = (pa & 0x3) as usize;
@@ -337,11 +438,75 @@ impl BridgeInner {
                 }
             }
             if self.dev_write(reg, u32::from_le_bytes(cur)) {
+                // A channel-enable write to DMAC0 schedules a transfer; run it
+                // now (here we have the guest-memory handle the transfer needs).
+                if let Some(ch) = self.dmac0.take_pending() {
+                    self.dma_run(mem, ch as usize);
+                }
                 return Ok(());
             }
         }
         mem.write_slice(data, GuestAddress(pa as u64))
             .map_err(|_| MemoryError::BusError(pa))
+    }
+
+    /// Perform a PL080 channel transfer synchronously. iBoot's use is a
+    /// peripheral-to-memory stream (NAND FIFO at a fixed source address into an
+    /// incrementing RAM buffer); we also handle memory-to-memory. The transfer
+    /// honours the source/destination increment flags and the transfer width.
+    fn dma_run(&mut self, mem: &GuestMemoryMmap, ch: usize) {
+        let src = self.dmac0.src[ch];
+        let dst = self.dmac0.dst[ch];
+        let ctl = self.dmac0.control[ch];
+        let count = ctl & 0xFFF; // number of transfers
+        let swidth = 1u32 << ((ctl >> 18) & 7).min(2); // src transfer width (bytes)
+        let s_inc = (ctl >> 26) & 1 != 0;
+        let d_inc = (ctl >> 27) & 1 != 0;
+        let total = (count * swidth) as usize; // total bytes to move
+        if total == 0 {
+            self.dmac0.complete(ch);
+            return;
+        }
+
+        // Gather the source bytes.
+        let mut buf = vec![0u8; total];
+        if !s_inc && !is_memory(src) {
+            // Peripheral FIFO (e.g. NAND data register): drain it word-by-word.
+            let mut i = 0;
+            while i < total {
+                let mut word = [0u8; 4];
+                let _ = self.read_pa(mem, src, &mut word);
+                let n = (total - i).min(4);
+                buf[i..i + n].copy_from_slice(&word[..n]);
+                i += 4;
+            }
+        } else {
+            for (i, b) in buf.iter_mut().enumerate() {
+                let a = if s_inc { src.wrapping_add(i as u32) } else { src };
+                let mut byte = [0u8; 1];
+                let _ = self.read_pa(mem, a, &mut byte);
+                *b = byte[0];
+            }
+        }
+
+        // Scatter to the destination.
+        if d_inc && is_memory(dst) {
+            let _ = mem.write_slice(&buf, GuestAddress(dst as u64));
+        } else {
+            for (i, b) in buf.iter().enumerate() {
+                let a = if d_inc { dst.wrapping_add(i as u32) } else { dst };
+                let _ = self.write_pa(mem, a, &[*b]);
+            }
+        }
+
+        debug!(
+            ch = ch,
+            src = format!("{src:#x}"),
+            dst = format!("{dst:#x}"),
+            bytes = total,
+            "dma_run"
+        );
+        self.dmac0.complete(ch);
     }
 }
 
@@ -418,11 +583,23 @@ pub struct S5L8900Vcpu {
     zero_slide: u32,
     trace_pcs: Vec<u32>,
     trace_log_budget: u32,
+    trace_start_insn: u64,
     fault_log_budget: u32,
     last_heartbeat: std::time::Instant,
     boot_instant: std::time::Instant,
     timer_speedup: u64,
+    /// When set, derive guest µs from the instruction count instead of the
+    /// host clock so that boots are fully deterministic (reproducible for
+    /// debugging). `det_timer` holds the instructions-per-µs divisor.
+    det_timer: u64,
+    /// Multiplier on the µs counter — iBoot treats the timer as a 12 MHz tick
+    /// counter (it reads freq=12000000 and computes elapsed = ticks*1e6/freq),
+    /// so providing 12 ticks/µs makes its time math correct. From RAX_S5L_TIMER_MUL.
+    timer_mul: u64,
     input_seeded: bool,
+    timer_irq: bool,
+    timer_irq_ready: u64,
+    timer_irq_interval: u64,
     shutdown: bool,
 }
 
@@ -441,6 +618,7 @@ impl S5L8900Vcpu {
             inner: RefCell::new(BridgeInner {
                 mmu: V6MmuConfig::default(),
                 privileged: true,
+                cur_pc: 0,
                 last_fault: LastFault::default(),
                 clock0: S5lClock::new(),
                 clock1: S5lClock::new(),
@@ -455,6 +633,13 @@ impl S5L8900Vcpu {
                 spi1: S5lSpi::new(1), // LCD panel
                 spi2: S5lSpi::new(2), // multitouch
                 lcd: S5lLcd::new(),
+                nand: S5lNand::new(nand_dir()),
+                nand_ecc: S5lNandEcc::new(),
+                aes: S5lAes::new(),
+                dmac0: S5lDmac::new(),
+                adm_data2: 0,
+                adm_data3: 0,
+                adm_req: None,
                 uart: uart.clone(),
                 engine_8900_req: None,
                 openbus_log_budget: std::env::var("RAX_S5L_OPENBUS_LOG")
@@ -487,12 +672,36 @@ impl S5L8900Vcpu {
                         .collect()
                 })
                 .unwrap_or_default(),
-            trace_log_budget: 400,
+            trace_log_budget: std::env::var("RAX_S5L_TRACE_BUDGET")
+                .ok()
+                .and_then(|v| v.parse().ok())
+                .unwrap_or(400),
+            trace_start_insn: std::env::var("RAX_S5L_TRACE_START")
+                .ok()
+                .and_then(|v| v.parse().ok())
+                .unwrap_or(0),
             fault_log_budget: 64,
             last_heartbeat: std::time::Instant::now(),
             boot_instant: std::time::Instant::now(),
             timer_speedup: timer_speedup(),
+            timer_mul: std::env::var("RAX_S5L_TIMER_MUL")
+                .ok()
+                .and_then(|v| v.parse().ok())
+                .filter(|&n| n > 0)
+                .unwrap_or(1),
+            det_timer: std::env::var("RAX_S5L_DET_TIMER")
+                .ok()
+                .map(|v| v.parse().ok().filter(|&n| n > 0).unwrap_or(32))
+                .unwrap_or(0),
             input_seeded: false,
+            // The system-tick IRQ drives iBoot's cooperative scheduler (it wakes
+            // tasks blocked in task_sleep). It self-gates on the timer's `started`
+            // flag, which iBoot sets by writing START to TIMER_4 STATE only after
+            // the scheduler is up — so it is safe to enable by default. Opt out
+            // with RAX_S5L_NO_TIMER_IRQ for regression isolation.
+            timer_irq: !std::env::var("RAX_S5L_NO_TIMER_IRQ").is_ok(),
+            timer_irq_ready: std::env::var("RAX_S5L_IRQ_READY").ok().and_then(|v| v.parse().ok()).unwrap_or(0),
+            timer_irq_interval: std::env::var("RAX_S5L_IRQ_INTERVAL").ok().and_then(|v| v.parse().ok()).unwrap_or(50_000),
             shutdown: false,
         }
     }
@@ -521,9 +730,19 @@ impl S5L8900Vcpu {
         let mut inner = self.bridge.inner.borrow_mut();
         let timer_lvl = inner.timer.irq_pending();
         let lcd_lvl = inner.lcd.irq_pending();
+        let spi0_lvl = inner.spi0.irq_pending();
+        let spi1_lvl = inner.spi1.irq_pending();
+        let spi2_lvl = inner.spi2.irq_pending();
+        let dmac0_lvl = inner.dmac0.irq_pending();
+        let nand_ecc_lvl = inner.nand_ecc.irq_pending();
         inner.vic0.set_line(TIMER1_IRQ, timer_lvl);
         inner.vic0.set_line(LCD_IRQ, lcd_lvl);
         inner.vic0.set_line(UART0_IRQ, uart_lvl);
+        inner.vic0.set_line(SPI0_IRQ, spi0_lvl);
+        inner.vic0.set_line(SPI1_IRQ, spi1_lvl);
+        inner.vic0.set_line(SPI2_IRQ, spi2_lvl);
+        inner.vic0.set_line(DMAC0_IRQ, dmac0_lvl);
+        inner.vic1.set_line(NAND_ECC_VIC1_LINE, nand_ecc_lvl);
         // VIC1 daisy-chains into VIC0.
         let daisy = inner.vic1.irq_asserted();
         inner.vic0.daisy_input = daisy;
@@ -545,18 +764,125 @@ impl S5L8900Vcpu {
         }
     }
 
+    fn phys_r32(&self, pa: u32) -> u32 {
+        let mut b = [0u8; 4];
+        let _ = self.bridge.mem.read_slice(&mut b, GuestAddress(pa as u64));
+        u32::from_le_bytes(b)
+    }
+
+    fn phys_w(&self, pa: u32, data: &[u8]) {
+        let _ = self.bridge.mem.write_slice(data, GuestAddress(pa as u64));
+    }
+
+    /// Service a pending ADM (Apple Data Mover) command. The ADM is the
+    /// high-level NAND DMA: iBoot writes a command structure into a data
+    /// section in RAM, then pokes a control register; the ADM reads it, sets
+    /// the NAND controller up for the page read, and deposits the page spare.
+    fn service_adm(&mut self) {
+        let req = self.bridge.inner.borrow_mut().adm_req.take();
+        let Some(req) = req else { return };
+        let off = req >> 28;
+        let value = req & 0xFF;
+        let (data2, data3) = {
+            let i = self.bridge.inner.borrow();
+            (i.adm_data2, i.adm_data3)
+        };
+
+        if off == 0 {
+            // ADM_CTRL: start-up — mark device started and banks present.
+            if value == 0x3 {
+                self.phys_w(data2, &0x50u32.to_le_bytes());
+                let mut chip = Vec::with_capacity(32);
+                for _ in 0..8 {
+                    chip.extend_from_slice(&0xA514_D3ADu32.to_le_bytes());
+                }
+                self.phys_w(data3, &chip);
+            }
+            return;
+        }
+        // ADM_CTRL2: execute the queued command.
+        if value != 0x2 {
+            return;
+        }
+        let cmd = self.phys_r32(data2 + 0x1104 + 0x24);
+        let num_pages = {
+            let v = self.phys_r32(data2 + 0x1104 + 0x28) as u16;
+            v.swap_bytes()
+        };
+        let bswap = |p: u32| p.swap_bytes();
+
+        match cmd {
+            0x300 if num_pages == 1 => {
+                let bank = (self.phys_r32(data2 + 0x1104 + 0x44) & 0xFF) as u32;
+                let page = bswap(self.phys_r32(data2 + 0x1104 + 0x244));
+                let mut inner = self.bridge.inner.borrow_mut();
+                inner.nand.reading_multiple_pages = false;
+                inner.nand.set_bank(bank);
+                inner.nand.write(0x30, 0x800 - 1); // FMDNUM
+                inner.nand.write(0xC, page << 16); // FMADDR0
+                inner.nand.write(0x10, (page >> 16) & 0xFF); // FMADDR1
+                inner.nand.write(0x8, 0x30); // CMD = READ
+                inner.nand.set_buffered_page(page);
+                let spare = inner.nand.spare_buffer.clone();
+                drop(inner);
+                self.phys_w(data3, &spare[..NAND_BYTES_PER_SPARE]);
+            }
+            0x300 | 0x200 => {
+                // Scattered / multi-page read: queue the page/bank list.
+                let n = num_pages as usize;
+                let mut inner = self.bridge.inner.borrow_mut();
+                inner.nand.reading_multiple_pages = true;
+                for i in 0..n.min(512) {
+                    let page = if cmd == 0x200 {
+                        // Same starting page across all 8 banks per group.
+                        let base = bswap(self.phys_r32(data2 + 0x1104 + 0x244));
+                        base + (i / 8) as u32
+                    } else {
+                        bswap(self.phys_r32(data2 + 0x1104 + 0x244 + 4 * i as u32))
+                    };
+                    let bank = if cmd == 0x200 {
+                        (i % 8) as u32
+                    } else {
+                        (self.phys_r32(data2 + 0x1104 + 0x44 + i as u32) & 0xFF) as u32
+                    };
+                    inner.nand.pages_to_read[i] = page;
+                    inner.nand.banks_to_read[i] = bank;
+                }
+                inner.nand.fmdnum = num_pages as u32 * 0x800;
+                inner.nand.cur_bank_reading = -1;
+                drop(inner);
+                // Mark each scattered page's spare slot as readable.
+                for i in 0..n {
+                    let mut sbuf = [0u8; 0xC];
+                    sbuf[10] = 0xFF;
+                    self.phys_w(data3 + i as u32 * 0xC, &sbuf);
+                }
+            }
+            _ => {}
+        }
+    }
+
     fn step(&mut self) -> StepOutcome {
         self.sync_mmu();
         {
             let mut inner = self.bridge.inner.borrow_mut();
             inner.lcd.tick(1);
+            // The synthesized system-tick IRQ drives iBoot's cooperative
+            // scheduler. tick_irq self-gates on the timer's `started` flag, so
+            // it only fires once iBoot has armed TIMER_4 (i.e. the scheduler is
+            // up). This is what wakes tasks blocked in task_sleep.
+            if self.timer_irq {
+                inner.timer.tick_irq(self.insn_count, self.timer_irq_ready, self.timer_irq_interval);
+            }
             // Update the µs timer from the host clock periodically (not every
             // instruction) so it tracks real time but stays stable across a
             // guest atomic counter read. The speedup factor makes firmware
             // delays elapse in a fraction of real time.
-            if self.insn_count & 0xFF == 0 {
+            if self.det_timer != 0 {
+                inner.timer.set_micros(self.insn_count / self.det_timer * self.timer_mul);
+            } else if self.insn_count & 0xFF == 0 {
                 let us = self.boot_instant.elapsed().as_micros() as u64;
-                inner.timer.set_micros(us.wrapping_mul(self.timer_speedup));
+                inner.timer.set_micros(us.wrapping_mul(self.timer_speedup) * self.timer_mul);
             }
         }
 
@@ -564,19 +890,46 @@ impl S5L8900Vcpu {
         if irq_pending {
             self.cpu.is_halted = false;
         }
-        if irq_pending && !self.cpu.cpsr.i {
+        // Only deliver an IRQ once the guest has actually installed its
+        // exception vectors at the active vector base. iBoot runs from
+        // 0x18000000 and maps virtual 0 -> its in-place vector table only after
+        // early init; before that the IRQ vector reads back as zeros and the
+        // CPU would walk off into low memory. The real IRQ instruction is
+        // `LDR pc, [pc, #0x18]` (0xe59ff018), so gate on seeing it. This
+        // replaces the fragile fixed-instruction-count readiness heuristic.
+        let vectors_ready = {
+            let vbar = self.cpu.cp15.sctlr.vector_base();
+            matches!(self.bridge.read_word(vbar.wrapping_add(0x18)), Ok(0xe59f_f018))
+        };
+        if irq_pending && !self.cpu.cpsr.i && vectors_ready {
+            let from = self.cpu.regs[15];
+            let from_cpsr = self.cpu.cpsr.to_u32();
+            let vbar = self.cpu.cp15.sctlr.vector_base();
             self.take_exception(ExceptionType::Irq);
+            if self.fault_log_budget > 0 {
+                self.fault_log_budget -= 1;
+                debug!(
+                    from = format!("{from:#x}"),
+                    from_cpsr = format!("{from_cpsr:#x}"),
+                    spsr_irq = format!("{:#x}", self.cpu.spsr_irq.to_u32()),
+                    vbar = format!("{vbar:#x}"),
+                    to = format!("{:#x}", self.cpu.regs[15]),
+                    irq_sp = format!("{:#x}", self.cpu.regs[13]),
+                    insns = self.insn_count,
+                    "irq delivered"
+                );
+            }
             return StepOutcome::Progress;
         }
 
         if self.cpu.is_halted {
-            let us = self.boot_instant.elapsed().as_micros() as u64;
-            let sp = self.timer_speedup;
-            self.bridge
-                .inner
-                .borrow_mut()
-                .timer
-                .set_micros(us.wrapping_mul(sp));
+            let micros = if self.det_timer != 0 {
+                self.insn_count / self.det_timer * self.timer_mul
+            } else {
+                let us = self.boot_instant.elapsed().as_micros() as u64;
+                us.wrapping_mul(self.timer_speedup)
+            };
+            self.bridge.inner.borrow_mut().timer.set_micros(micros);
             return StepOutcome::Idle;
         }
 
@@ -654,15 +1007,25 @@ impl S5L8900Vcpu {
             self.zero_slide = 0;
         }
 
-        if std::env::var("RAX_S5L_TRACE").is_ok() {
+        if std::env::var("RAX_S5L_TRACE").is_ok()
+            && self.insn_count >= self.trace_start_insn
+            && self.trace_log_budget > 0
+        {
+            self.trace_log_budget -= 1;
             debug!(
                 pc = format!("{pc:#x}"),
                 raw = format!("{raw:#010x}"),
+                lr = format!("{:#x}", self.cpu.regs[14]),
+                cpsr = format!("{:#x}", self.cpu.cpsr.to_u32()),
+                spsr_irq = format!("{:#x}", self.cpu.spsr_irq.to_u32()),
                 insns = self.insn_count,
                 "insn"
             );
         }
-        if self.trace_pcs.contains(&pc) && self.trace_log_budget > 0 {
+        if self.trace_pcs.contains(&pc)
+            && self.trace_log_budget > 0
+            && self.insn_count >= self.trace_start_insn
+        {
             self.trace_log_budget -= 1;
             let regs: Vec<String> =
                 (0..16).map(|i| format!("r{i}={:#x}", self.cpu.regs[i])).collect();
@@ -693,6 +1056,9 @@ impl S5L8900Vcpu {
             }
         };
 
+        if watch_range().is_some() {
+            self.bridge.inner.borrow_mut().cur_pc = pc;
+        }
         let vbar = self.cpu.cp15.sctlr.vector_base();
         let mut exec = Executor::with_vbar(&mut self.cpu, &mut self.bridge, vbar);
         exec.exclusive_monitor = self.excl.clone();
@@ -703,6 +1069,14 @@ impl S5L8900Vcpu {
         // Service any decryption request the just-executed store triggered.
         if self.bridge.inner.borrow().engine_8900_req.is_some() {
             self.service_engine_8900();
+        }
+        // Service an AES-engine GO the just-executed store triggered.
+        if self.bridge.inner.borrow().aes.pending_go {
+            self.service_aes();
+        }
+        // Service any ADM/NAND DMA command the just-executed store triggered.
+        if self.bridge.inner.borrow().adm_req.is_some() {
+            self.service_adm();
         }
 
         match result {
@@ -925,5 +1299,90 @@ impl S5L8900Vcpu {
             self.fault_log_budget -= 1;
             debug!(addr = format!("{addr:#x}"), "8900 decrypt request (stub)");
         }
+    }
+
+    /// Service an AES-engine `AES_GO`: DMA `insize` bytes from `inaddr`, AES-CBC
+    /// decrypt them with the selected key, and write the plaintext to `outaddr`
+    /// (in guest physical memory). The GID key, which is not in the QEMU
+    /// reference, may be supplied as 16/24/32 hex bytes via `RAX_S5L_GID_KEY`.
+    fn service_aes(&mut self) {
+        let (inaddr, outaddr, insize, keytype, custkey, ivec) = {
+            let inner = self.bridge.inner.borrow();
+            let a = &inner.aes;
+            (a.inaddr, a.outaddr, a.insize, a.keytype, a.custkey, a.ivec)
+        };
+
+        // Resolve the decryption key.
+        let key_bytes: Option<Vec<u8>> = match keytype {
+            AesKeyType::Uid => Some(AES_UID_KEY.to_vec()),
+            AesKeyType::Custom => {
+                // Custom key length follows the AES key-length register; default
+                // to AES-256 (the engine's widest) using all 32 bytes.
+                Some(custkey.to_vec())
+            }
+            AesKeyType::Gid => std::env::var("RAX_S5L_GID_KEY").ok().and_then(|h| {
+                let h = h.trim().trim_start_matches("0x");
+                if h.len() % 2 != 0 {
+                    return None;
+                }
+                (0..h.len())
+                    .step_by(2)
+                    .map(|i| u8::from_str_radix(&h[i..i + 2], 16).ok())
+                    .collect::<Option<Vec<u8>>>()
+            }),
+        };
+
+        let len = insize as usize;
+        let mut ok = false;
+        if let Some(kb) = key_bytes {
+            if let Some(key) = AesKey::new(&kb) {
+                if len > 0 && len % 16 == 0 {
+                    let mut buf = vec![0u8; len];
+                    if self
+                        .bridge
+                        .mem
+                        .read_slice(&mut buf, GuestAddress(inaddr as u64))
+                        .is_ok()
+                    {
+                        aes_cbc_decrypt(&key, &ivec, &mut buf);
+                        ok = self
+                            .bridge
+                            .mem
+                            .write_slice(&buf, GuestAddress(outaddr as u64))
+                            .is_ok();
+                    }
+                }
+            }
+        }
+
+        if self.fault_log_budget > 0 {
+            self.fault_log_budget -= 1;
+            debug!(
+                inaddr = format!("{inaddr:#x}"),
+                outaddr = format!("{outaddr:#x}"),
+                insize = len,
+                keytype = match keytype {
+                    AesKeyType::Uid => "uid",
+                    AesKeyType::Gid => "gid",
+                    AesKeyType::Custom => "custom",
+                },
+                ok,
+                "aes engine decrypt"
+            );
+        }
+
+        let mut inner = self.bridge.inner.borrow_mut();
+        inner.aes.pending_go = false;
+        inner.aes.outsize = insize;
+        inner.aes.finish();
+    }
+
+    /// Compute the SHA-1 digest of a guest physical region (for the SHA engine
+    /// / image-hash verification path). Returns the 20-byte digest.
+    #[allow(dead_code)]
+    fn sha1_region(&self, addr: u32, len: u32) -> Option<[u8; 20]> {
+        let mut buf = vec![0u8; len as usize];
+        self.bridge.mem.read_slice(&mut buf, GuestAddress(addr as u64)).ok()?;
+        Some(sha1(&buf))
     }
 }

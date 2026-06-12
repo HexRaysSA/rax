@@ -509,6 +509,16 @@ fn load_s5l8900_firmware(mem: &GuestMemoryMmap, config: &VmConfig) -> Result<Boo
     // LLB+0x208: the 8900 engine base address loaded by the routine above.
     w32(S5L_LLB_BASE + 0x208, S5L_ENGINE_8900_BASE)?;
 
+    // Optional: force the boot path. This iBoot, loaded directly (bypassing
+    // the bootrom→LLB chain), drops to its USB-DFU recovery console instead of
+    // auto-booting. Redirect the console-entry call (`BL 0x1800a7b8` at
+    // 0x1800079a) to `do_fsboot` (0x18004300) so it reads the kernelcache from
+    // NAND. Gated by RAX_S5L_FORCE_FSBOOT.
+    if std::env::var("RAX_S5L_FORCE_FSBOOT").is_ok() {
+        // Thumb BL 0x1800079a -> 0x18004300 : hw1=0xf003, hw2=0xfdb1.
+        mem.write_slice(&[0x03, 0xf0, 0xb1, 0xfd], GuestAddress(0x1800_079a))?;
+    }
+
     tracing::info!(
         entry = format!("{:#x}", S5L_IBOOT_BASE),
         iboot = %iboot_path.display(),

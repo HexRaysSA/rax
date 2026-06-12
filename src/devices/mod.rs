@@ -1,6 +1,7 @@
 pub mod ac97;
 pub mod ahci;
 pub mod bus;
+pub mod crypto;
 pub mod debug;
 pub mod dma;
 pub mod e1000;
