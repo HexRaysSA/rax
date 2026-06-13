@@ -21,11 +21,11 @@ use vm_memory::{Bytes, GuestAddress, GuestMemoryMmap};
 use crate::arm::execution::{ArmMemory, MemoryError};
 use crate::arm::mmu_v6::{self, V6Access, V6Fault, V6MmuConfig};
 use crate::arm::{
-    Armv7Cpu, Decoder, ExceptionType, ExecResult, ExecutionState, Executor, Mnemonic,
-    ProcessorMode,
+    Armv7Cpu, Decoder, ExceptionType, ExecResult, ExecutionState, Executor, Mnemonic, ProcessorMode,
 };
-use crate::cpu::{Aarch32CpuState, Aarch32Registers, Aarch32SystemRegisters, CpuState, VCpu,
-    VcpuExit};
+use crate::cpu::{
+    Aarch32CpuState, Aarch32Registers, Aarch32SystemRegisters, CpuState, VCpu, VcpuExit,
+};
 use crate::devices::s3c64xx::{Pl192Vic, S3cPwmTimer, S3cSyscon, S3cUart};
 use crate::error::{Error, Result};
 
@@ -109,7 +109,6 @@ impl S3cBridge {
             }
         }
     }
-
 }
 
 impl BridgeInner {
@@ -131,9 +130,7 @@ impl BridgeInner {
                     .and_then(|u| u.lock().ok().map(|mut u| u.read(pa - UART0_BASE)))
                     .unwrap_or(0),
             ),
-            _ if (PWM_BASE..PWM_BASE + 0x1000).contains(&pa) => {
-                Some(self.pwm.read(pa - PWM_BASE))
-            }
+            _ if (PWM_BASE..PWM_BASE + 0x1000).contains(&pa) => Some(self.pwm.read(pa - PWM_BASE)),
             // RAM?
             _ if (S3C_RAM_BASE..S3C_RAM_BASE + S3C_RAM_SIZE).contains(&pa) => None,
             // Anything else: open bus, reads as zero (probing drivers cope
@@ -467,9 +464,15 @@ impl Armv6Vcpu {
 
         if self.trace_pcs.contains(&pc) && self.trace_log_budget > 0 {
             self.trace_log_budget -= 1;
-            let regs: Vec<String> =
-                (0..16).map(|i| format!("r{i}={:#x}", self.cpu.regs[i])).collect();
-            debug!(regs = regs.join(" "), cpsr = format!("{:#x}", self.cpu.cpsr.to_u32()), insns = self.insn_count, "trace-pc hit");
+            let regs: Vec<String> = (0..16)
+                .map(|i| format!("r{i}={:#x}", self.cpu.regs[i]))
+                .collect();
+            debug!(
+                regs = regs.join(" "),
+                cpsr = format!("{:#x}", self.cpu.cpsr.to_u32()),
+                insns = self.insn_count,
+                "trace-pc hit"
+            );
         }
         if pc >= 0xFFFF_0000 && self.vector_log_budget > 0 {
             self.vector_log_budget -= 1;
@@ -590,9 +593,14 @@ impl Armv6Vcpu {
                             let idx = (self.pc_ring_idx + i) % self.pc_ring.len();
                             trace.push(format!("{:#x}", self.pc_ring[idx]));
                         }
-                        let regs: Vec<String> =
-                            (0..16).map(|i| format!("r{i}={:#x}", self.cpu.regs[i])).collect();
-                        debug!(trace = trace.join(" "), regs = regs.join(" "), "pc trace before data abort");
+                        let regs: Vec<String> = (0..16)
+                            .map(|i| format!("r{i}={:#x}", self.cpu.regs[i]))
+                            .collect();
+                        debug!(
+                            trace = trace.join(" "),
+                            regs = regs.join(" "),
+                            "pc trace before data abort"
+                        );
                     }
                 }
                 // DFSR: FS[3:0] | domain[7:4] | WnR (bit 11). The kernel's
@@ -624,9 +632,14 @@ impl Armv6Vcpu {
                     let idx = (self.pc_ring_idx + i) % self.pc_ring.len();
                     trace.push(format!("{:#x}", self.pc_ring[idx]));
                 }
-                let regs: Vec<String> =
-                    (0..16).map(|i| format!("r{i}={:#x}", self.cpu.regs[i])).collect();
-                debug!(trace = trace.join(" "), regs = regs.join(" "), "pc trace before abort");
+                let regs: Vec<String> = (0..16)
+                    .map(|i| format!("r{i}={:#x}", self.cpu.regs[i]))
+                    .collect();
+                debug!(
+                    trace = trace.join(" "),
+                    regs = regs.join(" "),
+                    "pc trace before abort"
+                );
             }
         }
         self.cpu.cp15.ifsr = f.fsr | (f.domain << 4);

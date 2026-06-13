@@ -57,13 +57,13 @@ fn ap_permits(ap2: u32, ap10: u32, privileged: bool, access: V6Access) -> bool {
     // v6 AP[2:0] model (SCTLR.AFE=0). AP2 = read-only flag.
     let write = access == V6Access::Write;
     match (ap2, ap10) {
-        (0, 0b00) => false,                       // no access
-        (0, 0b01) => privileged,                  // privileged RW
-        (0, 0b10) => privileged || !write,        // priv RW, user RO
-        (0, 0b11) => true,                        // full RW
-        (1, 0b00) => false,                       // reserved
-        (1, 0b01) => privileged && !write,        // privileged RO
-        (1, 0b10) | (1, 0b11) => !write,          // read-only
+        (0, 0b00) => false,                // no access
+        (0, 0b01) => privileged,           // privileged RW
+        (0, 0b10) => privileged || !write, // priv RW, user RO
+        (0, 0b11) => true,                 // full RW
+        (1, 0b00) => false,                // reserved
+        (1, 0b01) => privileged && !write, // privileged RO
+        (1, 0b10) | (1, 0b11) => !write,   // read-only
         _ => false,
     }
 }
@@ -191,8 +191,7 @@ where
                 }
             };
             if dac != 0b11 {
-                if (access == V6Access::Execute && xn)
-                    || !ap_permits(ap2, ap10, privileged, access)
+                if (access == V6Access::Execute && xn) || !ap_permits(ap2, ap10, privileged, access)
                 {
                     return Err(V6Fault {
                         fsr: FS_PERMISSION_PAGE,

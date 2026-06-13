@@ -264,7 +264,10 @@ mod tests {
     use super::*;
 
     fn hex(s: &str) -> Vec<u8> {
-        (0..s.len()).step_by(2).map(|i| u8::from_str_radix(&s[i..i + 2], 16).unwrap()).collect()
+        (0..s.len())
+            .step_by(2)
+            .map(|i| u8::from_str_radix(&s[i..i + 2], 16).unwrap())
+            .collect()
     }
 
     #[test]
@@ -314,7 +317,10 @@ mod tests {
             sha1(b"abc"),
             hex("a9993e364706816aba3e25717850c26c9cd0d89d")[..]
         );
-        assert_eq!(sha1(b"")[..], hex("da39a3ee5e6b4b0d3255bfef95601890afd80709")[..]);
+        assert_eq!(
+            sha1(b"")[..],
+            hex("da39a3ee5e6b4b0d3255bfef95601890afd80709")[..]
+        );
         assert_eq!(
             sha1(b"abcdbcdecdefdefgefghfghighijhijkijkljklmklmnlmnomnopnopq")[..],
             hex("84983e441c3bd26ebaae4aa1f95129e5e54670f1")[..]

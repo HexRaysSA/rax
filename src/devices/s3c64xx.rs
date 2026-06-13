@@ -284,8 +284,8 @@ impl S3cPwmTimer {
             if (self.tcon >> start) & 1 == 0 {
                 continue; // not started
             }
-            let reload = (self.tcon >> (start + 3)) & 1 == 1
-                || (t == 0 && (self.tcon >> 3) & 1 == 1);
+            let reload =
+                (self.tcon >> (start + 3)) & 1 == 1 || (t == 0 && (self.tcon >> 3) & 1 == 1);
             let mut remaining = self.tcnt[t] >> 16;
             let mut budget = ticks;
             loop {

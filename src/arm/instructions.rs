@@ -657,6 +657,9 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
         // Calculate return address based on exception type
         let return_addr = match &exception {
             ExceptionType::SupervisorCall(_) => self.cpu.regs[15].wrapping_add(4),
+            ExceptionType::UndefinedInstruction if self.cpu.cpsr.t => {
+                self.cpu.regs[15].wrapping_add(2)
+            }
             ExceptionType::UndefinedInstruction => self.cpu.regs[15].wrapping_add(4),
             ExceptionType::PrefetchAbort(_) => self.cpu.regs[15].wrapping_add(4),
             ExceptionType::DataAbort(_) => self.cpu.regs[15].wrapping_add(8),
@@ -1593,7 +1596,10 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
             if let Err(e) = self.mem.write_word(address, self.reg(t)) {
                 return ExecResult::MemoryFault(e);
             }
-            if let Err(e) = self.mem.write_word(address.wrapping_add(4), self.reg(t + 1)) {
+            if let Err(e) = self
+                .mem
+                .write_word(address.wrapping_add(4), self.reg(t + 1))
+            {
                 return ExecResult::MemoryFault(e);
             }
             self.cpu.regs[d] = 0; // Success
@@ -1958,10 +1964,8 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
         // list and the S bit set, it additionally restores CPSR from the
         // current mode's SPSR — without this the CPU stays in the handler's
         // mode (e.g. IRQ) on return, corrupting the resumed context.
-        let s_bit =
-            insn.state == crate::arm::ExecutionState::Aarch32 && (insn.raw >> 22) & 1 == 1;
-        let exception_return =
-            s_bit && (reglist & 0x8000) != 0 && !self.cpu.is_user_or_system();
+        let s_bit = insn.state == crate::arm::ExecutionState::Aarch32 && (insn.raw >> 22) & 1 == 1;
+        let exception_return = s_bit && (reglist & 0x8000) != 0 && !self.cpu.is_user_or_system();
 
         if let Some(target) = branch_target {
             if exception_return {
@@ -2074,7 +2078,6 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
         if (mask & 1) != 0 && self.cpu.is_privileged() {
             self.cpu.cpsr.i = ((value >> 7) & 1) != 0;
             self.cpu.cpsr.f = ((value >> 6) & 1) != 0;
-            self.cpu.cpsr.t = ((value >> 5) & 1) != 0;
 
             let new_mode = value & 0x1F;
             if let Some(mode) = ProcessorMode::from_bits(new_mode as u8) {
@@ -2125,15 +2128,27 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
         match imod {
             0b10 => {
                 // CPSIE: enable = clear mask bits
-                if a == 1 { self.cpu.cpsr.a = false; }
-                if i == 1 { self.cpu.cpsr.i = false; }
-                if f == 1 { self.cpu.cpsr.f = false; }
+                if a == 1 {
+                    self.cpu.cpsr.a = false;
+                }
+                if i == 1 {
+                    self.cpu.cpsr.i = false;
+                }
+                if f == 1 {
+                    self.cpu.cpsr.f = false;
+                }
             }
             0b11 => {
                 // CPSID: disable = set mask bits
-                if a == 1 { self.cpu.cpsr.a = true; }
-                if i == 1 { self.cpu.cpsr.i = true; }
-                if f == 1 { self.cpu.cpsr.f = true; }
+                if a == 1 {
+                    self.cpu.cpsr.a = true;
+                }
+                if i == 1 {
+                    self.cpu.cpsr.i = true;
+                }
+                if f == 1 {
+                    self.cpu.cpsr.f = true;
+                }
             }
             _ => {}
         }
@@ -2156,10 +2171,10 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
         let cur_mode = self.cpu.cpsr.mode;
         let sp = self.banked_sp(mode_bits);
         let low = match (p, u) {
-            (false, true) => sp,                      // IA
-            (true, true) => sp.wrapping_add(4),       // IB
-            (false, false) => sp.wrapping_sub(4),     // DA
-            (true, false) => sp.wrapping_sub(8),      // DB
+            (false, true) => sp,                  // IA
+            (true, true) => sp.wrapping_add(4),   // IB
+            (false, false) => sp.wrapping_sub(4), // DA
+            (true, false) => sp.wrapping_sub(8),  // DB
         };
         let lr = self.cpu.regs[14];
         let spsr = self.current_spsr_bits();
@@ -2170,7 +2185,11 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
             return ExecResult::MemoryFault(e);
         }
         if w {
-            let nb = if u { sp.wrapping_add(8) } else { sp.wrapping_sub(8) };
+            let nb = if u {
+                sp.wrapping_add(8)
+            } else {
+                sp.wrapping_sub(8)
+            };
             self.set_banked_sp(mode_bits, nb);
         }
         let _ = cur_mode;
@@ -2200,7 +2219,11 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
             Err(e) => return ExecResult::MemoryFault(e),
         };
         if w {
-            let nb = if u { base.wrapping_add(8) } else { base.wrapping_sub(8) };
+            let nb = if u {
+                base.wrapping_add(8)
+            } else {
+                base.wrapping_sub(8)
+            };
             self.cpu.regs[n] = nb;
         }
         self.write_cpsr_all(new_cpsr);
@@ -9631,16 +9654,25 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
 
     /// Decode branch target from instruction.
     fn decode_branch_target(&self, insn: &DecodedInsn) -> Option<u32> {
-        // Thumb B/BL/BLX/BCC: the (already scaled and sign-extended) byte
-        // offset is in the Label operand and the branch base is PC+4.
-        if insn.state.is_thumb() {
-            let off = insn.operands.iter().find_map(|o| match o {
-                crate::arm::decoder::Operand::Label(l) => Some(*l),
-                _ => None,
-            })?;
-            let base = self.cpu.regs[15].wrapping_add(4);
+        if let Some(off) = insn.operands.iter().find_map(|o| match o {
+            crate::arm::decoder::Operand::Label(l) => Some(*l),
+            _ => None,
+        }) {
+            let base = if insn.state.is_thumb() {
+                // Thumb B/BL/BLX/BCC offsets are relative to PC+4.
+                self.cpu.regs[15].wrapping_add(4)
+            } else {
+                // A32 B/BL/BLX offsets are relative to PC+8. BLX immediate
+                // needs the decoded Label operand because bit 24 is H, not L.
+                self.cpu.get_pc()
+            };
             return Some((base as i64).wrapping_add(off) as u32);
         }
+
+        if insn.state.is_thumb() {
+            return None;
+        }
+
         // ARM B/BL: 24-bit signed offset scaled by 4, relative to PC+8.
         let imm24 = insn.raw & 0x00FFFFFF;
         let imm26 = imm24 << 2;
@@ -10030,6 +10062,68 @@ mod tests {
         } else {
             panic!("Expected Branch result");
         }
+    }
+
+    #[test]
+    fn test_a32_blx_immediate_preserves_halfword_target() {
+        let mut cpu = make_cpu();
+        let mut mem = make_mem();
+
+        cpu.regs[15] = 0xc016_0864;
+
+        let insn = DecodedInsn::new(Mnemonic::BLX, ExecutionState::Aarch32, 0xfbff_fa91, 4)
+            .with_operand(crate::arm::decoder::Operand::Label(-0x15ba));
+        let mut exec = Executor::new(&mut cpu, &mut mem);
+        let result = exec.execute(&insn);
+
+        if let ExecResult::Branch(target) = result {
+            assert_eq!(target, 0xc015_f2b2);
+            assert_eq!(cpu.regs[14], 0xc016_0868);
+            assert!(cpu.cpsr.t);
+        } else {
+            panic!("Expected Branch result");
+        }
+    }
+
+    #[test]
+    fn test_thumb_undefined_exception_lr_points_after_halfword() {
+        let mut cpu = make_cpu();
+        let mut mem = make_mem();
+
+        cpu.regs[15] = 0x2000;
+        cpu.cpsr.t = true;
+        cpu.cpsr.mode = ProcessorMode::Supervisor as u8;
+        let mut exec = Executor::new(&mut cpu, &mut mem);
+        exec.take_exception(ExceptionType::UndefinedInstruction);
+
+        assert_eq!(cpu.regs[14], 0x2002);
+        assert_eq!(cpu.regs[15], 0x04);
+        assert_eq!(cpu.cpsr.mode, ProcessorMode::Undefined as u8);
+        assert!(!cpu.cpsr.t);
+        assert_eq!(cpu.spsr_und.t, true);
+    }
+
+    #[test]
+    fn test_msr_cpsr_control_does_not_change_execution_state() {
+        let mut cpu = make_cpu();
+        let mut mem = make_mem();
+
+        cpu.cpsr.t = false;
+        cpu.cpsr.mode = ProcessorMode::Irq as u8;
+        cpu.regs_irq[0] = 0x2000;
+        cpu.regs_svc[0] = 0x3000;
+        cpu.regs[0] = (ProcessorMode::Supervisor as u32) | (1 << 7) | (1 << 6) | (1 << 5);
+
+        let insn = DecodedInsn::new(Mnemonic::MSR, ExecutionState::Aarch32, 0xe121_07f0, 4);
+        let mut exec = Executor::new(&mut cpu, &mut mem);
+        let result = exec.execute(&insn);
+
+        assert!(matches!(result, ExecResult::Continue));
+        assert_eq!(cpu.cpsr.mode, ProcessorMode::Supervisor as u8);
+        assert!(cpu.cpsr.i);
+        assert!(cpu.cpsr.f);
+        assert!(!cpu.cpsr.t);
+        assert_eq!(cpu.regs[13], 0x3000);
     }
 
     #[test]

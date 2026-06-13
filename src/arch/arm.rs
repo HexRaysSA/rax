@@ -257,10 +257,18 @@ impl Aarch64Arch {
         fdt.prop_cells(
             "interrupts",
             &[
-                GIC_PPI, 13, IRQ_LEVEL_HI, // secure physical
-                GIC_PPI, 14, IRQ_LEVEL_HI, // non-secure physical
-                GIC_PPI, 11, IRQ_LEVEL_HI, // virtual
-                GIC_PPI, 10, IRQ_LEVEL_HI, // hypervisor
+                GIC_PPI,
+                13,
+                IRQ_LEVEL_HI, // secure physical
+                GIC_PPI,
+                14,
+                IRQ_LEVEL_HI, // non-secure physical
+                GIC_PPI,
+                11,
+                IRQ_LEVEL_HI, // virtual
+                GIC_PPI,
+                10,
+                IRQ_LEVEL_HI, // hypervisor
             ],
         );
         fdt.prop_empty("always-on");
@@ -555,9 +563,7 @@ fn fdt_set_initrd(dtb: &[u8], start: u32, end: u32) -> Result<Vec<u8>> {
     // Locate `/chosen`: depth-1 BEGIN_NODE named "chosen". Token stream:
     // BEGIN_NODE(1) name..pad4 | END_NODE(2) | PROP(3) len nameoff data..pad4
     // | NOP(4) | END(9).
-    let tok = |p: usize| -> u32 {
-        u32::from_be_bytes(structure[p..p + 4].try_into().unwrap())
-    };
+    let tok = |p: usize| -> u32 { u32::from_be_bytes(structure[p..p + 4].try_into().unwrap()) };
     let mut p = 0usize;
     let mut depth = 0usize;
     let mut chosen_body: Option<usize> = None; // offset right after the node name

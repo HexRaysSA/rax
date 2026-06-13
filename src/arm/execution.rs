@@ -514,11 +514,7 @@ impl Psr {
 /// that arrives as 31 (e.g. Thumb `ADD Rd, SP, #imm`) must fold to 13.
 #[inline]
 pub fn aarch32_reg_index(i: usize) -> usize {
-    if i == 31 {
-        13
-    } else {
-        i
-    }
+    if i == 31 { 13 } else { i }
 }
 
 pub fn condition_passed(cond: u8, n: bool, z: bool, c: bool, v: bool) -> bool {
@@ -698,8 +694,6 @@ impl Armv7Cpu {
     pub fn get_pc(&self) -> u32 {
         self.regs[15].wrapping_add(8)
     }
-
-
 
     /// Get register value, handling PC specially.
     #[inline]

@@ -202,9 +202,7 @@ mod tests {
         let first = u32::from_be_bytes(blob[struct_off..struct_off + 4].try_into().unwrap());
         assert_eq!(first, 0x1);
         // Last token is FDT_END.
-        let end = u32::from_be_bytes(
-            blob[strings_off - 4..strings_off].try_into().unwrap(),
-        );
+        let end = u32::from_be_bytes(blob[strings_off - 4..strings_off].try_into().unwrap());
         assert_eq!(end, 0x9);
         // Strings table contains deduplicated property names.
         let strings = &blob[strings_off..];

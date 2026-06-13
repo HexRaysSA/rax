@@ -163,9 +163,9 @@ impl S5lTimer {
         let t = self.micros;
         match offset {
             0x80 => (t >> 32) as u32, // TICKSHIGH
-            0x84 => t as u32,          // TICKSLOW
-            0x10000 => !0,             // IRQSTAT
-            0xF8 => 0xFFFF_FFFF,       // IRQLATCH
+            0x84 => t as u32,         // TICKSLOW
+            0x10000 => !0,            // IRQSTAT
+            0xF8 => 0xFFFF_FFFF,      // IRQLATCH
             _ => 0,
         }
     }
@@ -263,13 +263,13 @@ impl S5lDmac {
 
     pub fn read(&self, offset: u32) -> u32 {
         match offset {
-            0x000 => self.tc_status,         // IntStatus
-            0x004 => self.tc_status,         // IntTCStatus
-            0x00C => 0,                      // IntErrorStatus
-            0x014 => self.tc_status,         // RawIntTCStatus
-            0x018 => 0,                      // RawIntErrorStatus
-            0x01C => self.enbld,             // EnbldChns
-            0x030 => self.global_config,     // DMACConfiguration
+            0x000 => self.tc_status,     // IntStatus
+            0x004 => self.tc_status,     // IntTCStatus
+            0x00C => 0,                  // IntErrorStatus
+            0x014 => self.tc_status,     // RawIntTCStatus
+            0x018 => 0,                  // RawIntErrorStatus
+            0x01C => self.enbld,         // EnbldChns
+            0x030 => self.global_config, // DMACConfiguration
             _ if (0x100..0x200).contains(&offset) => {
                 let ch = ((offset - 0x100) / 0x20) as usize;
                 match (offset - 0x100) % 0x20 {
@@ -316,6 +316,283 @@ impl S5lDmac {
 }
 
 impl Default for S5lDmac {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+// =============================================================================
+// USB OTG (Synopsys DWC) + USB PHY — minimal stub
+// =============================================================================
+
+const USB_NUM_ENDPOINTS: usize = 8;
+const USB_NUM_FIFOS: usize = 16;
+
+const USB_GOTGINT: u32 = 0x004;
+const USB_GAHBCFG: u32 = 0x008;
+const USB_GUSBCFG: u32 = 0x00c;
+const USB_GRSTCTL: u32 = 0x010;
+const USB_GINTSTS: u32 = 0x014;
+const USB_GINTMSK: u32 = 0x018;
+const USB_GRXSTSR: u32 = 0x01c;
+const USB_GRXSTSP: u32 = 0x020;
+const USB_GRXFSIZ: u32 = 0x024;
+const USB_GNPTXFSIZ: u32 = 0x028;
+const USB_GNPTXFSTS: u32 = 0x02c;
+const USB_GHWCFG1: u32 = 0x044;
+const USB_GHWCFG2: u32 = 0x048;
+const USB_GHWCFG3: u32 = 0x04c;
+const USB_GHWCFG4: u32 = 0x050;
+const USB_DIEPTXF1: u32 = 0x104;
+const USB_DCFG: u32 = 0x800;
+const USB_DCTL: u32 = 0x804;
+const USB_DSTS: u32 = 0x808;
+const USB_DIEPMSK: u32 = 0x810;
+const USB_DOEPMSK: u32 = 0x814;
+const USB_DAINTSTS: u32 = 0x818;
+const USB_DAINTMSK: u32 = 0x81c;
+const USB_INREGS: u32 = 0x900;
+const USB_OUTREGS: u32 = 0xb00;
+const USB_EPREGS_SIZE: u32 = 0x200;
+const USB_PCGCCTL: u32 = 0xe00;
+const USB_FIFO_START: u32 = 0x1000;
+const USB_FIFO_SIZE: u32 = 0x100 * (USB_NUM_FIFOS as u32 + 1);
+const USB_FIFO_END: u32 = USB_FIFO_START + USB_FIFO_SIZE;
+
+const USB_GRSTCTL_AHBIDLE: u32 = 1 << 31;
+const USB_GRSTCTL_CORESOFTRESET: u32 = 1;
+const USB_GINTMSK_GINNAKEFF: u32 = 1 << 6;
+const USB_GINTMSK_GOUTNAKEFF: u32 = 1 << 7;
+const USB_GINTMSK_RESET: u32 = 1 << 12;
+const USB_DCTL_SGNPINNAK: u32 = 1 << 7;
+const USB_DCTL_SGOUTNAK: u32 = 1 << 9;
+const USB_EPCON_ENABLE: u32 = 1 << 31;
+const USB_EPCON_DISABLE: u32 = 1 << 30;
+const USB_EPCON_SETNAK: u32 = 1 << 27;
+const USB_EPCON_NAKSTS: u32 = 1 << 17;
+const USB_EPINT_INEP_NAK_EFF: u32 = 0x40;
+const USB_EPINT_EP_DISBLD: u32 = 0x2;
+
+#[derive(Clone, Copy, Default)]
+struct S5lUsbEp {
+    control: u32,
+    interrupt_status: u32,
+    tx_size: u32,
+    dma_address: u32,
+    dma_buffer: u32,
+}
+
+/// Minimal Synopsys DWC USB OTG (0x38400000) + USB PHY (0x3C400000). iBoot
+/// initialises the USB controller during early boot (for DFU/recovery) and
+/// polls the core soft-reset to complete; without it the boot task blocks
+/// forever. The kernel also probes AppleSynopsysOTG2, so mirror the QEMU
+/// reference's reset values for the hardware-configuration and FIFO registers.
+pub struct S5lUsb {
+    otg: std::collections::HashMap<u32, u32>,
+    fifos: Vec<u8>,
+    in_eps: [S5lUsbEp; USB_NUM_ENDPOINTS],
+    out_eps: [S5lUsbEp; USB_NUM_ENDPOINTS],
+    phy: std::collections::HashMap<u32, u32>,
+}
+
+impl S5lUsb {
+    pub fn new() -> Self {
+        let mut usb = S5lUsb {
+            otg: std::collections::HashMap::with_capacity(64),
+            fifos: vec![0; USB_FIFO_SIZE as usize],
+            in_eps: [S5lUsbEp::default(); USB_NUM_ENDPOINTS],
+            out_eps: [S5lUsbEp::default(); USB_NUM_ENDPOINTS],
+            phy: std::collections::HashMap::new(),
+        };
+        usb.reset_otg();
+        usb
+    }
+
+    fn reset_otg(&mut self) {
+        self.otg.clear();
+        self.otg.insert(USB_PCGCCTL, 3);
+        self.otg.insert(USB_GAHBCFG, 0);
+        self.otg.insert(USB_GUSBCFG, 0);
+        self.otg.insert(USB_GRSTCTL, 0);
+        self.otg.insert(USB_GINTSTS, 0);
+        self.otg.insert(USB_GINTMSK, 0);
+        self.otg.insert(USB_GRXFSIZ, 0x100);
+        self.otg.insert(USB_GNPTXFSIZ, (0x100 << 16) | 0x100);
+        self.otg.insert(USB_GHWCFG1, 0);
+        self.otg.insert(USB_GHWCFG2, 0x7a8f_60d0);
+        self.otg.insert(USB_GHWCFG3, 0x0820_00e8);
+        self.otg.insert(USB_GHWCFG4, 0x01f0_8024);
+        self.otg.insert(USB_DCFG, 0);
+        self.otg.insert(USB_DCTL, 0);
+        self.otg.insert(USB_DSTS, 0);
+        self.otg.insert(USB_DIEPMSK, 0);
+        self.otg.insert(USB_DOEPMSK, 0);
+        self.otg.insert(USB_DAINTSTS, 0);
+        self.otg.insert(USB_DAINTMSK, 0);
+
+        let mut counter = 0x200;
+        for fifo in 0..USB_NUM_FIFOS {
+            self.otg
+                .insert(USB_DIEPTXF1 + fifo as u32 * 4, (counter << 16) | 0x100);
+            counter += 0x100;
+        }
+
+        self.in_eps = [S5lUsbEp::default(); USB_NUM_ENDPOINTS];
+        self.out_eps = [S5lUsbEp::default(); USB_NUM_ENDPOINTS];
+        self.fifos.fill(0);
+    }
+
+    pub fn otg_read(&self, off: u32) -> u32 {
+        match off {
+            USB_GRXSTSR | USB_GRXSTSP => 0,
+            USB_GNPTXFSTS => 0xffff_ffff,
+            off if (USB_INREGS..USB_INREGS + USB_EPREGS_SIZE).contains(&off) => {
+                Self::ep_read(&self.in_eps, off - USB_INREGS)
+            }
+            off if (USB_OUTREGS..USB_OUTREGS + USB_EPREGS_SIZE).contains(&off) => {
+                Self::ep_read(&self.out_eps, off - USB_OUTREGS)
+            }
+            off if (USB_FIFO_START..USB_FIFO_END).contains(&off) => {
+                let idx = (off - USB_FIFO_START) as usize;
+                self.fifos
+                    .get(idx..idx + 4)
+                    .map(|bytes| u32::from_le_bytes(bytes.try_into().unwrap()))
+                    .unwrap_or(0)
+            }
+            _ => self.otg.get(&off).copied().unwrap_or(0),
+        }
+    }
+
+    pub fn otg_write(&mut self, off: u32, val: u32) {
+        match off {
+            USB_GOTGINT | USB_GINTSTS | USB_DAINTSTS => {
+                let cur = self.otg.get(&off).copied().unwrap_or(0);
+                self.otg.insert(off, cur & !val);
+            }
+            USB_GRSTCTL => {
+                if val & USB_GRSTCTL_CORESOFTRESET != 0 {
+                    self.otg.insert(USB_GRSTCTL, USB_GRSTCTL_AHBIDLE);
+                    let cur = self.otg.get(&USB_GINTSTS).copied().unwrap_or(0);
+                    self.otg.insert(USB_GINTSTS, cur | USB_GINTMSK_RESET);
+                } else if val == 0 {
+                    self.otg.insert(USB_GRSTCTL, 0);
+                } else {
+                    self.otg.insert(USB_GRSTCTL, USB_GRSTCTL_AHBIDLE);
+                }
+            }
+            USB_DCTL => {
+                let cur = self.otg.get(&USB_DCTL).copied().unwrap_or(0);
+                let mut next = val;
+                let mut gintsts = self.otg.get(&USB_GINTSTS).copied().unwrap_or(0);
+                if val & USB_DCTL_SGNPINNAK != 0 && cur & USB_DCTL_SGNPINNAK == 0 {
+                    gintsts |= USB_GINTMSK_GINNAKEFF;
+                    next &= !USB_DCTL_SGNPINNAK;
+                }
+                if val & USB_DCTL_SGOUTNAK != 0 && cur & USB_DCTL_SGOUTNAK == 0 {
+                    gintsts |= USB_GINTMSK_GOUTNAKEFF;
+                    next &= !USB_DCTL_SGOUTNAK;
+                }
+                self.otg.insert(USB_DCTL, next);
+                self.otg.insert(USB_GINTSTS, gintsts);
+            }
+            off if (USB_INREGS..USB_INREGS + USB_EPREGS_SIZE).contains(&off) => {
+                Self::ep_write(&mut self.in_eps, off - USB_INREGS, val);
+                self.update_daintsts();
+            }
+            off if (USB_OUTREGS..USB_OUTREGS + USB_EPREGS_SIZE).contains(&off) => {
+                Self::ep_write(&mut self.out_eps, off - USB_OUTREGS, val);
+                self.update_daintsts();
+            }
+            off if (USB_FIFO_START..USB_FIFO_END).contains(&off) => {
+                let idx = (off - USB_FIFO_START) as usize;
+                if let Some(bytes) = self.fifos.get_mut(idx..idx + 4) {
+                    bytes.copy_from_slice(&val.to_le_bytes());
+                }
+            }
+            _ => {
+                self.otg.insert(off, val);
+            }
+        }
+    }
+
+    pub fn irq_pending(&self) -> bool {
+        let gintsts = self.otg.get(&USB_GINTSTS).copied().unwrap_or(0);
+        let gintmsk = self.otg.get(&USB_GINTMSK).copied().unwrap_or(0);
+        let daintsts = self.otg.get(&USB_DAINTSTS).copied().unwrap_or(0);
+        let daintmsk = self.otg.get(&USB_DAINTMSK).copied().unwrap_or(0);
+        (gintsts & gintmsk) != 0 || (daintsts & daintmsk) != 0
+    }
+
+    fn ep_read(eps: &[S5lUsbEp; USB_NUM_ENDPOINTS], off: u32) -> u32 {
+        let ep = (off / 0x20) as usize;
+        let reg = off & 0x1f;
+        let Some(ep) = eps.get(ep) else {
+            return 0;
+        };
+
+        match reg {
+            0x00 => ep.control,
+            0x08 => ep.interrupt_status,
+            0x10 => ep.tx_size,
+            0x14 => ep.dma_address,
+            0x1c => ep.dma_buffer,
+            _ => 0,
+        }
+    }
+
+    fn ep_write(eps: &mut [S5lUsbEp; USB_NUM_ENDPOINTS], off: u32, val: u32) {
+        let ep = (off / 0x20) as usize;
+        let reg = off & 0x1f;
+        let Some(ep) = eps.get_mut(ep) else {
+            return;
+        };
+
+        match reg {
+            0x00 => {
+                ep.control = val;
+                if ep.control & USB_EPCON_SETNAK != 0 {
+                    ep.control |= USB_EPCON_NAKSTS;
+                    ep.control &= !USB_EPCON_SETNAK;
+                    ep.interrupt_status |= USB_EPINT_INEP_NAK_EFF;
+                }
+                if ep.control & USB_EPCON_DISABLE != 0 {
+                    ep.interrupt_status |= USB_EPINT_EP_DISBLD;
+                    ep.control &= !(USB_EPCON_DISABLE | USB_EPCON_ENABLE);
+                }
+            }
+            0x08 => ep.interrupt_status &= !val,
+            0x10 => ep.tx_size = val,
+            0x14 => ep.dma_address = val,
+            0x1c => ep.dma_buffer = val,
+            _ => {}
+        }
+    }
+
+    fn update_daintsts(&mut self) {
+        let mut daint = 0;
+        for (idx, ep) in self.in_eps.iter().enumerate() {
+            if ep.interrupt_status != 0 {
+                daint |= 1 << idx;
+            }
+        }
+        for (idx, ep) in self.out_eps.iter().enumerate() {
+            if ep.interrupt_status != 0 {
+                daint |= 1 << (16 + idx);
+            }
+        }
+        self.otg.insert(USB_DAINTSTS, daint);
+    }
+
+    pub fn phy_read(&self, off: u32) -> u32 {
+        self.phy.get(&off).copied().unwrap_or(0)
+    }
+
+    pub fn phy_write(&mut self, off: u32, val: u32) {
+        self.phy.insert(off, val);
+    }
+}
+
+impl Default for S5lUsb {
     fn default() -> Self {
         Self::new()
     }
@@ -396,8 +673,8 @@ impl S5lSysic {
 
     pub fn read(&self, offset: u32) -> u32 {
         match offset {
-            0x44 => 2 << 0x18,                  // POWER_ID
-            0x08 | 0x14 => self.power_state,    // POWER_SETSTATE / POWER_STATE
+            0x44 => 2 << 0x18,               // POWER_ID
+            0x08 | 0x14 => self.power_state, // POWER_SETSTATE / POWER_STATE
             0x7a | 0x7c => 1,
             0x80..=0x9C => self.gpio_int_level[((offset - 0x80) / 4) as usize],
             0xA0..=0xBC => self.gpio_int_status[((offset - 0xA0) / 4) as usize],
@@ -438,6 +715,9 @@ impl Default for S5lSysic {
 // =============================================================================
 
 const PL192_INT_SOURCES: usize = 32;
+const PL192_DAISY_IRQ: u32 = PL192_INT_SOURCES as u32;
+const PL192_NO_IRQ: u32 = PL192_INT_SOURCES as u32 + 1;
+const PL192_PRIO_LEVELS: usize = 16;
 
 /// ARM PrimeCell PL192 VIC, as used by the S5L8900 (two instances chained:
 /// VIC1's parent output daisy-chains into VIC0, which drives the CPU).
@@ -458,6 +738,15 @@ pub struct Pl192 {
     /// Daisy input level from the downstream controller (VIC1 → VIC0).
     pub daisy_input: bool,
     pub daisy_vectaddr: u32,
+    irq_line: bool,
+    fiq_line: bool,
+    current: u32,
+    current_highest: u32,
+    priority: u32,
+    priority_stack: [u32; PL192_INT_SOURCES + 2],
+    irq_stack: [u32; PL192_INT_SOURCES + 2],
+    stack_i: usize,
+    priority_mode: bool,
 }
 
 impl Pl192 {
@@ -477,7 +766,102 @@ impl Pl192 {
             address: 0,
             daisy_input: false,
             daisy_vectaddr: 0,
+            irq_line: false,
+            fiq_line: false,
+            current: PL192_NO_IRQ,
+            current_highest: PL192_NO_IRQ,
+            stack_i: 0,
+            priority_stack: [0x10; PL192_INT_SOURCES + 2],
+            irq_stack: [PL192_NO_IRQ; PL192_INT_SOURCES + 2],
+            priority: 0x10,
+            priority_mode: false,
         }
+    }
+
+    pub fn set_priority_mode(&mut self, enabled: bool) {
+        self.priority_mode = enabled;
+    }
+
+    fn priority_for(&self, irq: u32) -> u32 {
+        match irq {
+            0..=31 => self.vect_priority[irq as usize],
+            PL192_DAISY_IRQ => self.daisy_priority,
+            _ => 0x10,
+        }
+    }
+
+    fn highest_pending(&self) -> u32 {
+        let mut prio_irq = [PL192_NO_IRQ; PL192_PRIO_LEVELS];
+        if self.daisy_input {
+            prio_irq[self.daisy_priority as usize] = PL192_DAISY_IRQ;
+        }
+        for i in (0..PL192_INT_SOURCES).rev() {
+            if (self.irq_status & (1 << i)) != 0 {
+                prio_irq[self.vect_priority[i] as usize] = i as u32;
+            }
+        }
+        for (priority, irq) in prio_irq.iter().enumerate() {
+            if (self.sw_priority_mask & (1 << priority)) != 0 && *irq <= PL192_DAISY_IRQ {
+                return *irq;
+            }
+        }
+        PL192_NO_IRQ
+    }
+
+    fn mask_current_priority(&mut self) {
+        if self.current <= PL192_DAISY_IRQ && self.stack_i + 1 < self.priority_stack.len() {
+            self.stack_i += 1;
+            self.priority = self.priority_for(self.current);
+            self.priority_stack[self.stack_i] = self.priority;
+            self.irq_stack[self.stack_i] = self.current;
+        }
+    }
+
+    fn unmask_current_priority(&mut self) {
+        if self.stack_i >= 1 {
+            self.stack_i -= 1;
+            self.priority = self.priority_stack[self.stack_i];
+            self.current = self.irq_stack[self.stack_i];
+        }
+    }
+
+    pub fn acknowledge(&mut self) -> (u32, bool) {
+        let res = self.address;
+        if !self.priority_mode {
+            return (res, false);
+        }
+        let is_daisy = self.current_highest == PL192_DAISY_IRQ;
+        self.current = self.current_highest;
+        self.mask_current_priority();
+        self.update();
+        (res, is_daisy)
+    }
+
+    pub fn finish_irq(&mut self) -> bool {
+        if !self.priority_mode {
+            return false;
+        }
+        let is_daisy = self.current == PL192_DAISY_IRQ;
+        self.unmask_current_priority();
+        self.update();
+        is_daisy
+    }
+
+    pub fn acknowledge_daisy_child(&mut self) {
+        if !self.priority_mode {
+            return;
+        }
+        self.current = self.current_highest;
+        self.mask_current_priority();
+        self.update();
+    }
+
+    pub fn finish_daisy_child(&mut self) {
+        if !self.priority_mode {
+            return;
+        }
+        self.unmask_current_priority();
+        self.update();
     }
 
     /// Recompute IRQ/FIQ status from raw/soft inputs and the masks.
@@ -485,23 +869,41 @@ impl Pl192 {
         let active = (self.rawintr | self.softint) & self.intenable;
         self.irq_status = active & !self.intselect;
         self.fiq_status = active & self.intselect;
-        // Latch the vector for the lowest-numbered pending IRQ (priority is
-        // not modelled in detail — early firmware does not depend on it).
-        if self.irq_status != 0 {
-            let n = self.irq_status.trailing_zeros() as usize;
-            self.address = self.vect_addr[n];
-        } else if self.daisy_input {
-            self.address = self.daisy_vectaddr;
+        self.fiq_line = self.fiq_status != 0;
+        if self.irq_status != 0 || self.daisy_input {
+            self.current_highest = self.highest_pending();
+            self.address = match self.current_highest {
+                0..=31 => self.vect_addr[self.current_highest as usize],
+                PL192_DAISY_IRQ => self.daisy_vectaddr,
+                _ => self.address,
+            };
+            if self.current_highest <= PL192_DAISY_IRQ {
+                if self.current_highest != self.current
+                    && self.priority_for(self.current_highest) >= self.priority
+                {
+                    return;
+                }
+                self.irq_line = true;
+            } else {
+                self.irq_line = false;
+            }
+        } else {
+            self.current_highest = PL192_NO_IRQ;
+            self.irq_line = false;
         }
     }
 
     /// CPU IRQ line level contributed by this controller (excluding daisy).
     pub fn irq_asserted(&self) -> bool {
-        self.irq_status != 0 || self.daisy_input
+        if self.priority_mode {
+            self.irq_line
+        } else {
+            self.irq_status != 0 || self.daisy_input
+        }
     }
 
     pub fn fiq_asserted(&self) -> bool {
-        self.fiq_status != 0
+        self.fiq_line
     }
 
     pub fn set_line(&mut self, irq: u32, level: bool) {
@@ -537,8 +939,8 @@ impl Pl192 {
             0x20 => self.protection,
             0x24 => self.sw_priority_mask,
             0x28 => self.daisy_priority,
-            0x14 => 0, // INTENCLEAR
-            0xF00 => self.address, // VECTADDR (ack)
+            0x14 => 0,                     // INTENCLEAR
+            0xF00 => self.acknowledge().0, // VECTADDR (ack)
             _ => 0,
         }
     }
@@ -563,7 +965,10 @@ impl Pl192 {
             0x20 => self.protection = value & 1,
             0x24 => self.sw_priority_mask = value & 0xffff,
             0x28 => self.daisy_priority = value & 0xf,
-            0xF00 => {} // VECTADDR finish: no priority stack modelled
+            0xF00 => {
+                self.finish_irq();
+                return;
+            }
             _ => {}
         }
         self.update();
@@ -583,10 +988,13 @@ impl Default for Pl192 {
 pub const NAND_NUM_BANKS: u32 = 8;
 pub const NAND_BYTES_PER_PAGE: usize = 2048;
 pub const NAND_BYTES_PER_SPARE: usize = 64;
+const NAND_PAGES_PER_BLOCK: u32 = 128;
 const NAND_CHIP_ID: u32 = 0xA514_D3AD;
 const NAND_CMD_ID: u32 = 0x90;
 const NAND_CMD_READ: u32 = 0x30;
 const NAND_CMD_READSTATUS: u32 = 0x70;
+const NAND_DEVICEINFO_BBT_MAGIC: &[u8; 16] = b"DEVICEINFOBBT\0\0\0";
+const NAND_VFL_CONTEXT_SPARE_TYPE: u8 = 0x80;
 
 /// S5L8900 NAND controller. iBoot's flash driver programs a bank/page/command
 /// then drains the page through the FMFIFO register; the ADM DMA sets those
@@ -611,6 +1019,8 @@ pub struct S5lNand {
     pub cur_bank_reading: i64,
     pub banks_to_read: Vec<u32>,
     pub pages_to_read: Vec<u32>,
+    sparse_vfl_context_blocks: Vec<Option<Vec<u32>>>,
+    kernel_started: bool,
 }
 
 impl S5lNand {
@@ -634,6 +1044,8 @@ impl S5lNand {
             cur_bank_reading: -1,
             banks_to_read: vec![0u32; 512],
             pages_to_read: vec![0u32; 512],
+            sparse_vfl_context_blocks: vec![None; NAND_NUM_BANKS as usize],
+            kernel_started: false,
         }
     }
 
@@ -678,6 +1090,8 @@ impl S5lNand {
                     self.spare_buffer[..s]
                         .copy_from_slice(&data[NAND_BYTES_PER_PAGE..NAND_BYTES_PER_PAGE + s]);
                 }
+                self.normalize_deviceinfo_bbt(bank, page);
+                self.rewrite_kernel_pmbr_as_fdisk(bank, page);
             } else {
                 tracing::debug!(bank, page, "nand page MISS (erased)");
                 // Missing page: mark the FTL byte so empty pages look erased.
@@ -688,6 +1102,189 @@ impl S5lNand {
         }
         self.buffered_bank = bank;
         self.buffered_page = page as i64;
+    }
+
+    fn normalize_deviceinfo_bbt(&mut self, bank: i64, page: u32) {
+        if !self.page_buffer.starts_with(NAND_DEVICEINFO_BBT_MAGIC) {
+            return;
+        }
+        if !self.page_buffer[NAND_DEVICEINFO_BBT_MAGIC.len()..]
+            .iter()
+            .all(|&b| b == 0)
+        {
+            return;
+        }
+
+        let all_good = self.kernel_started && std::env::var_os("RAX_S5L_BBT_ALL_GOOD").is_some();
+        let good_upto = self.kernel_started
+            && std::env::var("RAX_S5L_BBT_GOOD_UPTO")
+                .ok()
+                .and_then(|value| value.parse::<u32>().ok())
+                .is_some();
+        let blocks = if all_good {
+            Vec::new()
+        } else if good_upto {
+            let upto = std::env::var("RAX_S5L_BBT_GOOD_UPTO")
+                .ok()
+                .and_then(|value| value.parse::<u32>().ok())
+                .unwrap();
+            (0..=upto).collect()
+        } else {
+            self.sparse_vfl_context_blocks(bank)
+        };
+        if !all_good && !good_upto && blocks.is_empty() {
+            tracing::debug!(bank, page, "nand DeviceInfo BBT is empty");
+            return;
+        }
+
+        // This sparse n45ap dump preserves the DeviceInfo BBT header but not
+        // its bitmap. Keep the map narrow so the VFL scan lands on the context
+        // block; widening it to every sparse data block corrupts the FTL's
+        // startup assumptions and can panic the kernel during AppleNANDFTL::start.
+        self.page_buffer[NAND_DEVICEINFO_BBT_MAGIC.len()..].fill(0);
+        if all_good {
+            self.page_buffer[NAND_DEVICEINFO_BBT_MAGIC.len()..].fill(0xff);
+            tracing::debug!(bank, page, "nand synthesized all-good DeviceInfo BBT");
+            return;
+        }
+
+        for block in &blocks {
+            let byte_idx = NAND_DEVICEINFO_BBT_MAGIC.len() + (*block as usize / 8);
+            if let Some(byte) = self.page_buffer.get_mut(byte_idx) {
+                *byte |= 1 << (*block & 7);
+            }
+        }
+        tracing::debug!(
+            bank,
+            page,
+            blocks = ?blocks,
+            "nand synthesized sparse DeviceInfo BBT"
+        );
+    }
+
+    fn rewrite_kernel_pmbr_as_fdisk(&mut self, bank: i64, page: u32) {
+        if std::env::var_os("RAX_S5L_REWRITE_PMBR_AS_FDISK").is_none() {
+            return;
+        }
+        if !self.kernel_started {
+            return;
+        }
+        if self.page_buffer.len() < 512 || self.page_buffer[510..512] != [0x55, 0xaa] {
+            return;
+        }
+
+        let mut used = 0;
+        let mut pmbr_index = None;
+        for index in 0..4 {
+            let offset = 446 + index * 16;
+            let systid = self.page_buffer[offset + 4];
+            let numsect = u32::from_le_bytes(
+                self.page_buffer[offset + 12..offset + 16]
+                    .try_into()
+                    .unwrap(),
+            );
+            if systid != 0 && numsect != 0 {
+                used += 1;
+                if systid == 0xee {
+                    pmbr_index = Some(index);
+                }
+            }
+        }
+
+        let Some(index) = pmbr_index else {
+            return;
+        };
+        if used != 1 {
+            return;
+        }
+
+        let offset = 446 + index * 16;
+        let mut relsect = u32::from_le_bytes(
+            self.page_buffer[offset + 8..offset + 12]
+                .try_into()
+                .unwrap(),
+        );
+        let mut numsect = u32::from_le_bytes(
+            self.page_buffer[offset + 12..offset + 16]
+                .try_into()
+                .unwrap(),
+        );
+        if let Ok(value) = std::env::var("RAX_S5L_FDISK_RELSECT") {
+            if let Ok(value) = value.parse::<u32>() {
+                relsect = value;
+                self.page_buffer[offset + 8..offset + 12].copy_from_slice(&relsect.to_le_bytes());
+            }
+        }
+        if let Ok(value) = std::env::var("RAX_S5L_FDISK_NUMSECT") {
+            if let Ok(value) = value.parse::<u32>() {
+                numsect = value;
+                self.page_buffer[offset + 12..offset + 16].copy_from_slice(&numsect.to_le_bytes());
+            }
+        }
+        self.page_buffer[offset + 4] = 0xaf;
+        tracing::debug!(
+            bank,
+            page,
+            relsect,
+            numsect,
+            "nand rewrote sparse PMBR as FDisk Apple_HFS"
+        );
+    }
+
+    pub fn set_kernel_started(&mut self, enabled: bool) {
+        self.kernel_started = enabled;
+    }
+
+    pub fn buffered_page_prefix(&self, len: usize) -> &[u8] {
+        &self.page_buffer[..len.min(self.page_buffer.len())]
+    }
+
+    pub fn sparse_vfl_context_blocks(&mut self, bank: i64) -> Vec<u32> {
+        let Ok(bank_idx) = usize::try_from(bank) else {
+            return Vec::new();
+        };
+        if bank_idx >= self.sparse_vfl_context_blocks.len() {
+            return Vec::new();
+        }
+        if let Some(blocks) = &self.sparse_vfl_context_blocks[bank_idx] {
+            return blocks.clone();
+        }
+
+        let mut blocks = Vec::new();
+        if let Some(dir) = &self.nand_path {
+            let bank_dir = dir.join(format!("bank{bank}"));
+            if let Ok(entries) = std::fs::read_dir(bank_dir) {
+                for entry in entries.flatten() {
+                    let path = entry.path();
+                    if path.extension().and_then(|ext| ext.to_str()) != Some("page") {
+                        continue;
+                    }
+                    let Some(page) = path
+                        .file_stem()
+                        .and_then(|stem| stem.to_str())
+                        .and_then(|stem| stem.parse::<u32>().ok())
+                    else {
+                        continue;
+                    };
+                    let Ok(data) = std::fs::read(&path) else {
+                        continue;
+                    };
+                    if data.len() <= NAND_BYTES_PER_PAGE + 9 {
+                        continue;
+                    }
+                    if data[NAND_BYTES_PER_PAGE + 8] == 0
+                        && data[NAND_BYTES_PER_PAGE + 9] == NAND_VFL_CONTEXT_SPARE_TYPE
+                    {
+                        blocks.push(page / NAND_PAGES_PER_BLOCK);
+                    }
+                }
+            }
+        }
+
+        blocks.sort_unstable();
+        blocks.dedup();
+        self.sparse_vfl_context_blocks[bank_idx] = Some(blocks.clone());
+        blocks
     }
 
     fn page_word(&self, idx: usize) -> u32 {
@@ -739,8 +1336,8 @@ impl S5lNand {
                     let page = (self.fmaddr1 << 16) | (self.fmaddr0 >> 16);
                     self.set_buffered_page(page);
                     if self.reading_spare {
-                        read_val = self
-                            .spare_word((NAND_BYTES_PER_SPARE - self.fmdnum as usize - 1) / 4);
+                        read_val =
+                            self.spare_word((NAND_BYTES_PER_SPARE - self.fmdnum as usize - 1) / 4);
                     } else {
                         read_val =
                             self.page_word((NAND_BYTES_PER_PAGE - self.fmdnum as usize - 1) / 4);
@@ -750,18 +1347,20 @@ impl S5lNand {
                 read_val
             }
             // FMCSTAT: everything ready, all eight banks present.
-            0x48 => (1 << 1)
-                | (1 << 2)
-                | (1 << 3)
-                | (1 << 4)
-                | (1 << 5)
-                | (1 << 6)
-                | (1 << 7)
-                | (1 << 8)
-                | (1 << 9)
-                | (1 << 10)
-                | (1 << 11)
-                | (1 << 12),
+            0x48 => {
+                (1 << 1)
+                    | (1 << 2)
+                    | (1 << 3)
+                    | (1 << 4)
+                    | (1 << 5)
+                    | (1 << 6)
+                    | (1 << 7)
+                    | (1 << 8)
+                    | (1 << 9)
+                    | (1 << 10)
+                    | (1 << 11)
+                    | (1 << 12)
+            }
             0x100 => self.rsctrl,
             _ => 0,
         }
@@ -808,7 +1407,7 @@ impl S5lNandEcc {
 
     pub fn write(&mut self, offset: u32, _val: u32) {
         match offset {
-            0xC => self.irq = true,  // START
+            0xC => self.irq = true,   // START
             0x40 => self.irq = false, // CLEARINT
             _ => {}
         }
@@ -979,14 +1578,29 @@ impl Pcf50633 {
 
     /// I2C write: the first byte selects the register index.
     pub fn send(&mut self, data: u8) {
+        if std::env::var("RAX_S5L_PMULOG").is_ok() {
+            eprintln!("PMU send reg {data:#x}");
+        }
         self.cmd = data;
     }
 
     /// I2C read: return the current register's value, then post-increment.
     pub fn recv(&mut self) -> u8 {
+        let rtc = Pcf50633Rtc::now();
         let res: u8 = match self.cmd {
-            0x67 => 1, // enable the debug UARTs (serial console)
-            _ => 0,    // battery/charge/RTC registers: 0 is acceptable early
+            0x4B => 0,          // MBCS1: battery power source
+            0x57 => 0,          // ADCC1: battery charge voltage
+            0x59 => rtc.second, // RTCSC: seconds, BCD
+            0x5A => rtc.minute, // RTCMN: minutes, BCD
+            0x5B => rtc.hour,   // RTCHR: hours, BCD
+            0x5C => 0,          // RTCWD: QEMU leaves weekday unimplemented
+            0x5D => rtc.day,    // RTCDT: day, BCD
+            0x5E => rtc.month,  // RTCMT: month, BCD
+            0x5F => rtc.year,   // RTCYR: year since 2000, BCD
+            0x67 => 1,          // enable the debug UARTs (serial console)
+            0x69 => 0,          // boot/panic fail count
+            0x76 => 0,          // observed but unknown in the reference model
+            _ => 0,
         };
         if std::env::var("RAX_S5L_PMULOG").is_ok() {
             eprintln!("PMU recv reg {:#x} -> {res:#x}", self.cmd);
@@ -996,7 +1610,85 @@ impl Pcf50633 {
     }
 }
 
+#[derive(Clone, Copy)]
+struct Pcf50633Rtc {
+    second: u8,
+    minute: u8,
+    hour: u8,
+    day: u8,
+    month: u8,
+    year: u8,
+}
+
+impl Pcf50633Rtc {
+    fn now() -> Self {
+        #[cfg(unix)]
+        {
+            let mut now: libc::time_t = 0;
+            let time = unsafe { libc::time(&mut now) };
+            if time != -1 {
+                let mut tm: libc::tm = unsafe { std::mem::zeroed() };
+                let tm_ptr = unsafe { libc::localtime_r(&time, &mut tm) };
+                if !tm_ptr.is_null() {
+                    return Self {
+                        second: int_to_bcd(tm.tm_sec),
+                        minute: int_to_bcd(tm.tm_min),
+                        hour: int_to_bcd(tm.tm_hour),
+                        day: int_to_bcd(tm.tm_mday),
+                        month: int_to_bcd(tm.tm_mon + 1),
+                        year: int_to_bcd(tm.tm_year - 100),
+                    };
+                }
+            }
+        }
+
+        // Keep a valid fallback date for non-Unix hosts or failed libc calls.
+        Self {
+            second: 0x00,
+            minute: 0x00,
+            hour: 0x12,
+            day: 0x12,
+            month: 0x06,
+            year: 0x26,
+        }
+    }
+}
+
+fn int_to_bcd(value: i32) -> u8 {
+    let value = value.clamp(0, 99) as u8;
+    ((value / 10) << 4) | (value % 10)
+}
+
 impl Default for Pcf50633 {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+/// LIS302DL accelerometer stub on I2C0. The kernel only needs the identity
+/// register during probe; unmodeled registers read as zero like the reference.
+pub struct Lis302dl {
+    cmd: u8,
+}
+
+impl Lis302dl {
+    pub fn new() -> Self {
+        Lis302dl { cmd: 0 }
+    }
+
+    pub fn send(&mut self, data: u8) {
+        self.cmd = data;
+    }
+
+    pub fn recv(&mut self) -> u8 {
+        match self.cmd {
+            0x0F => 0x3B, // WHOAMI
+            _ => 0,
+        }
+    }
+}
+
+impl Default for Lis302dl {
     fn default() -> Self {
         Self::new()
     }
@@ -1007,9 +1699,12 @@ impl Default for Pcf50633 {
 // =============================================================================
 
 const IICCON_ACKEN: u8 = 1 << 7;
+const IICCON_IRQPEND: u8 = 1 << 4;
 const IICSTAT_START: u8 = 1 << 5;
 const IICSTAT_TXRXEN: u8 = 1 << 4;
 const IICSTAT_LASTBIT: u8 = 1 << 0;
+const IICSTAT_MR_MODE: u8 = 0x2;
+const IICSTAT_MT_MODE: u8 = 0x3;
 
 /// S5L8900 I2C master controller. Models enough of the register protocol for
 /// iBoot's polled PMU transactions: the `iicreg20` "transfer active" flag the
@@ -1022,13 +1717,16 @@ pub struct S5lI2c {
     line_ctrl: u8,
     iicreg20: u32,
     active: bool,
+    irq: bool,
+    irq_pulse: u8,
     addressed: u8,
+    accel: Option<Lis302dl>,
     /// The PMU slave (present on I2C1; None on buses without one).
     pmu: Option<Pcf50633>,
 }
 
 impl S5lI2c {
-    pub fn new(pmu: bool) -> Self {
+    pub fn new(pmu: bool, accel: bool) -> Self {
         S5lI2c {
             control: 0,
             status: 0,
@@ -1037,21 +1735,64 @@ impl S5lI2c {
             line_ctrl: 0,
             iicreg20: 0,
             active: false,
+            irq: false,
+            irq_pulse: 0,
             addressed: 0,
+            accel: accel.then(Lis302dl::new),
             pmu: pmu.then(Pcf50633::new),
         }
     }
 
+    fn update_irq(&mut self) {
+        // The reference model pulses the controller IRQ for transfer progress
+        // even when the guest leaves the nominal IRQ enable bit clear. Keep it
+        // level-like, but key it only off an active master transfer and the
+        // guest's pending-bit clear.
+        let level = (self.status & IICSTAT_START) != 0 && (self.control & IICCON_IRQPEND) == 0;
+        self.irq = level;
+    }
+
+    fn log_pmu_bus(&self, message: &str) {
+        if self.pmu.is_some() && std::env::var("RAX_S5L_I2CLOG").is_ok() {
+            eprintln!("{message}");
+        }
+    }
+
+    pub fn irq_pending(&self) -> bool {
+        match self.irq_pulse {
+            2 => false,
+            1 => true,
+            _ => self.irq,
+        }
+    }
+
+    pub fn advance_irq_sample(&mut self) {
+        if self.irq_pulse != 0 {
+            self.irq_pulse -= 1;
+        }
+    }
+
     fn slave_recv(&mut self) -> u8 {
-        match (self.addressed, self.pmu.as_mut()) {
-            (0x73, Some(pmu)) => pmu.recv(),
+        match self.addressed {
+            0x1d => self.accel.as_mut().map(|accel| accel.recv()).unwrap_or(0),
+            0x73 => self.pmu.as_mut().map(|pmu| pmu.recv()).unwrap_or(0),
             _ => 0,
         }
     }
 
     fn slave_send(&mut self, data: u8) {
-        if let (0x73, Some(pmu)) = (self.addressed, self.pmu.as_mut()) {
-            pmu.send(data);
+        match self.addressed {
+            0x1d => {
+                if let Some(accel) = self.accel.as_mut() {
+                    accel.send(data);
+                }
+            }
+            0x73 => {
+                if let Some(pmu) = self.pmu.as_mut() {
+                    pmu.send(data);
+                }
+            }
+            _ => {}
         }
     }
 
@@ -1062,8 +1803,16 @@ impl S5lI2c {
             0x08 => self.address as u32,
             0x0c => {
                 // I2CDS read: fetch the next byte from the slave.
+                let before = self.data;
                 self.iicreg20 |= 0x100;
                 self.data = self.slave_recv();
+                self.update_irq();
+                if self.pmu.is_some() && std::env::var("RAX_S5L_I2CLOG").is_ok() {
+                    eprintln!(
+                        "I2C1 read I2CDS addressed={:#x} before={:#x} -> {:#x} status={:#x} control={:#x} active={}",
+                        self.addressed, before, self.data, self.status, self.control, self.active
+                    );
+                }
                 self.data as u32
             }
             0x10 => self.line_ctrl as u32,
@@ -1072,6 +1821,17 @@ impl S5lI2c {
                 let tmp = self.iicreg20;
                 self.iicreg20 &= !0x100;
                 self.iicreg20 &= !0x2000;
+                if self.pmu.is_some() && std::env::var("RAX_S5L_I2CLOG").is_ok() {
+                    eprintln!(
+                        "I2C1 read IICREG20 -> {tmp:#x} after={:#x} status={:#x} control={:#x} active={} addressed={:#x} irq={}",
+                        self.iicreg20,
+                        self.status,
+                        self.control,
+                        self.active,
+                        self.addressed,
+                        self.irq
+                    );
+                }
                 tmp
             }
             _ => 0,
@@ -1080,9 +1840,17 @@ impl S5lI2c {
 
     pub fn write(&mut self, offset: u32, value: u32) {
         let v = value as u8;
+        self.irq = false;
         match offset {
             0x00 => {
                 // I2CCON
+                if self.pmu.is_some() && std::env::var("RAX_S5L_I2CLOG").is_ok() {
+                    eprintln!(
+                        "I2C1 write I2CCON value={:#x} old_control={:#x} status={:#x} active={} addressed={:#x}",
+                        v, self.control, self.status, self.active, self.addressed
+                    );
+                }
+                let pmu_transfer_ack = self.addressed == 0x73;
                 if value & !(IICCON_ACKEN as u32) != 0 {
                     self.iicreg20 |= 0x100;
                 }
@@ -1090,9 +1858,45 @@ impl S5lI2c {
                     self.iicreg20 |= 0x2000;
                 }
                 self.control = v;
+                self.update_irq();
+                // QEMU raises the I2C IRQ on every I2CCON write. Keep the
+                // compatibility pulse scoped to PMU transfers, which are the
+                // kernel path that relies on that behavior. The explicit
+                // low/high pulse lets the PL192 observe QEMU's lower-then-raise
+                // edge even though this emulator samples device lines.
+                if pmu_transfer_ack {
+                    self.irq = true;
+                    self.irq_pulse = 2;
+                }
+                if self.pmu.is_some() && std::env::var("RAX_S5L_I2CLOG").is_ok() {
+                    eprintln!(
+                        "I2C1 after I2CCON status={:#x} control={:#x} iicreg20={:#x} active={} irq={} pulse={}",
+                        self.status,
+                        self.control,
+                        self.iicreg20,
+                        self.active,
+                        self.irq_pending(),
+                        self.irq_pulse
+                    );
+                }
             }
             0x04 => {
                 // I2CSTAT: mode + start/stop control.
+                let old_mode = (self.status >> 6) & 0x3;
+                let new_mode = (v >> 6) & 0x3;
+                if self.pmu.is_some() && std::env::var("RAX_S5L_I2CLOG").is_ok() {
+                    eprintln!(
+                        "I2C1 write I2CSTAT value={:#x} old_status={:#x} old_mode={} new_mode={} active={} data={:#x} addressed={:#x}",
+                        v, self.status, old_mode, new_mode, self.active, self.data, self.addressed
+                    );
+                }
+                if !self.active && old_mode != new_mode {
+                    self.status = v;
+                } else if self.active && old_mode != new_mode {
+                    self.active = false;
+                    self.status = v | IICSTAT_TXRXEN;
+                    return;
+                }
                 let mode = (self.status >> 6) & 0x3;
                 if (value as u8) & IICSTAT_TXRXEN != 0 {
                     match mode {
@@ -1100,28 +1904,55 @@ impl S5lI2c {
                             // Slave receive/transmit: pull a byte.
                             self.data = self.slave_recv();
                         }
-                        2 | 3 => {
+                        IICSTAT_MR_MODE | IICSTAT_MT_MODE => {
                             if (value as u8) & IICSTAT_START != 0 {
                                 self.status &= !IICSTAT_LASTBIT;
                                 self.iicreg20 |= 0x100;
                                 self.active = true;
                                 self.addressed = self.data >> 1;
+                                if self.pmu.is_some() && std::env::var("RAX_S5L_I2CLOG").is_ok() {
+                                    eprintln!(
+                                        "I2C1 start mode={} addressed={:#x} rw={} data={:#x}",
+                                        mode,
+                                        self.addressed,
+                                        self.data & 1,
+                                        self.data
+                                    );
+                                }
                             } else {
                                 self.active = false;
                                 self.status |= IICSTAT_TXRXEN;
+                                self.log_pmu_bus("I2C1 stop transfer");
                             }
                         }
                         _ => {}
                     }
                 }
                 self.status = v;
+                self.update_irq();
             }
             0x08 => self.address = v,
             0x0c => {
                 // I2CDS write: send a byte to the slave.
                 self.iicreg20 |= 0x100;
                 self.data = v;
-                self.slave_send(v);
+                let mode = (self.status >> 6) & 0x3;
+                if self.pmu.is_some() && std::env::var("RAX_S5L_I2CLOG").is_ok() {
+                    eprintln!(
+                        "I2C1 write I2CDS value={:#x} status={:#x} mode={} control={:#x} active={} addressed={:#x} will_send={}",
+                        v,
+                        self.status,
+                        mode,
+                        self.control,
+                        self.active,
+                        self.addressed,
+                        self.active && mode == IICSTAT_MT_MODE
+                    );
+                }
+                if self.active && mode == IICSTAT_MT_MODE {
+                    self.slave_send(v);
+                }
+                self.update_irq();
             }
             0x10 => self.line_ctrl = v,
             _ => {}
@@ -1131,7 +1962,7 @@ impl S5lI2c {
 
 impl Default for S5lI2c {
     fn default() -> Self {
-        Self::new(false)
+        Self::new(false, false)
     }
 }
 
@@ -1154,9 +1985,7 @@ impl SpiPeripheral {
         match self {
             SpiPeripheral::None | SpiPeripheral::Multitouch => 0,
             SpiPeripheral::LcdPanel { cur_cmd } => {
-                if *cur_cmd == 0
-                    && matches!(value, 0x95 | 0xDA | 0xDB | 0xDC)
-                {
+                if *cur_cmd == 0 && matches!(value, 0x95 | 0xDA | 0xDB | 0xDC) {
                     *cur_cmd = value;
                     return 0;
                 }
@@ -1535,10 +2364,13 @@ impl Default for S5lUart {
 #[cfg(test)]
 mod aes_engine_tests {
     use super::*;
-    use crate::devices::crypto::{aes_cbc_decrypt, AesKey};
+    use crate::devices::crypto::{AesKey, aes_cbc_decrypt};
 
     fn hex(s: &str) -> Vec<u8> {
-        (0..s.len()).step_by(2).map(|i| u8::from_str_radix(&s[i..i + 2], 16).unwrap()).collect()
+        (0..s.len())
+            .step_by(2)
+            .map(|i| u8::from_str_radix(&s[i..i + 2], 16).unwrap())
+            .collect()
     }
 
     /// Program the AES engine through its MMIO registers exactly as iBoot does
