@@ -13,7 +13,7 @@ use std::process::{Command, Stdio};
 #[path = "x86_64/common/mod.rs"]
 mod common;
 
-use common::{run_until_hlt, setup_vm, Bytes, GuestAddress, Registers};
+use common::{Bytes, GuestAddress, Registers, run_until_hlt, setup_vm};
 
 const WIRE_MAGIC: u32 = 0x5845_5645; // 'E','V','E','X'
 const ZMM_REGS: usize = 32;
@@ -879,12 +879,20 @@ fn assemble_case(llvm_mc: &Path, asm: &str) -> Option<Vec<u8>> {
 
 fn assembled_cases(llvm_mc: &Path) -> Vec<DiffCase> {
     let mut cases = Vec::new();
+    let mut failures = Vec::new();
     let specs = generated_specs();
 
     for spec in specs {
         let Some(op) = assemble_case(llvm_mc, &spec.asm) else {
+            failures.push(format!("{}: {}", spec.label, spec.asm));
             continue;
         };
+        assert!(
+            op.first() == Some(&0x62),
+            "{} assembled outside EVEX encoding: {:02x?}",
+            spec.label,
+            op
+        );
         let id = cases.len() as u32;
         cases.push(DiffCase {
             id,
@@ -894,6 +902,12 @@ fn assembled_cases(llvm_mc: &Path) -> Vec<DiffCase> {
             input: input_for(id, spec.profile),
         });
     }
+
+    assert!(
+        failures.is_empty(),
+        "EVEX differential corpus failed to assemble:\n{}",
+        failures.join("\n")
+    );
 
     cases
 }
