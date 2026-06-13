@@ -1115,7 +1115,7 @@ impl X86_64Vcpu {
         let zmm_dst = if !evex.r_prime { zmm_dst + 16 } else { zmm_dst } as usize;
 
         // Source1 from vvvv (first multiplicand)
-        let zmm_src1 = (evex.vvvv ^ 0xF) as usize;
+        let zmm_src1 = ctx.evex_vvvv() as usize;
 
         // Vector length from L'L
         let vl = match evex.ll {
@@ -1187,7 +1187,7 @@ impl X86_64Vcpu {
         let zmm_dst = if !evex.r { reg + 8 } else { reg };
         let zmm_dst = if !evex.r_prime { zmm_dst + 16 } else { zmm_dst } as usize;
 
-        let zmm_src1 = (evex.vvvv ^ 0xF) as usize;
+        let zmm_src1 = ctx.evex_vvvv() as usize;
 
         let vl = match evex.ll {
             0 => 16,
@@ -1257,7 +1257,7 @@ impl X86_64Vcpu {
         let zmm_dst = if !evex.r { reg + 8 } else { reg };
         let zmm_dst = if !evex.r_prime { zmm_dst + 16 } else { zmm_dst } as usize;
 
-        let zmm_src1 = (evex.vvvv ^ 0xF) as usize;
+        let zmm_src1 = ctx.evex_vvvv() as usize;
 
         let vl = match evex.ll {
             0 => 16,
@@ -1426,7 +1426,7 @@ impl X86_64Vcpu {
         let zmm_dst = if !evex.r { reg + 8 } else { reg };
         let zmm_dst = if !evex.r_prime { zmm_dst + 16 } else { zmm_dst } as usize;
 
-        let zmm_idx = (evex.vvvv ^ 0xF) as usize;
+        let zmm_idx = ctx.evex_vvvv() as usize;
 
         let vl = match evex.ll {
             0 => 16,
@@ -1472,7 +1472,7 @@ impl X86_64Vcpu {
         let zmm_idx = if !evex.r { reg + 8 } else { reg };
         let zmm_idx = if !evex.r_prime { zmm_idx + 16 } else { zmm_idx } as usize;
 
-        let zmm_src1 = (evex.vvvv ^ 0xF) as usize;
+        let zmm_src1 = ctx.evex_vvvv() as usize;
 
         let vl = match evex.ll {
             0 => 16,
@@ -1525,7 +1525,7 @@ impl X86_64Vcpu {
         let zmm_dst = if !evex.r { reg + 8 } else { reg };
         let zmm_dst = if !evex.r_prime { zmm_dst + 16 } else { zmm_dst } as usize;
 
-        let zmm_idx = (evex.vvvv ^ 0xF) as usize;
+        let zmm_idx = ctx.evex_vvvv() as usize;
 
         let vl = match evex.ll {
             0 => 16,
@@ -1581,7 +1581,7 @@ impl X86_64Vcpu {
 
         let k_dst = reg as usize & 0x7;
 
-        let zmm_src1 = (evex.vvvv ^ 0xF) as usize;
+        let zmm_src1 = ctx.evex_vvvv() as usize;
 
         let vl = match evex.ll {
             0 => 16,
@@ -1634,7 +1634,7 @@ impl X86_64Vcpu {
         let zmm_dst = if !evex.r { reg + 8 } else { reg };
         let zmm_dst = if !evex.r_prime { zmm_dst + 16 } else { zmm_dst } as usize;
 
-        let zmm_src1 = (evex.vvvv ^ 0xF) as usize;
+        let zmm_src1 = ctx.evex_vvvv() as usize;
 
         let vl = match evex.ll {
             0 => 16,
@@ -1748,7 +1748,7 @@ impl X86_64Vcpu {
         let zmm_dst = if !evex.r { reg + 8 } else { reg };
         let zmm_dst = if !evex.r_prime { zmm_dst + 16 } else { zmm_dst } as usize;
 
-        let zmm_src1 = (evex.vvvv ^ 0xF) as usize;
+        let zmm_src1 = ctx.evex_vvvv() as usize;
 
         let vl = match evex.ll {
             0 => 16,
@@ -1826,7 +1826,7 @@ impl X86_64Vcpu {
         let zmm_dst = if !evex.r { reg + 8 } else { reg };
         let zmm_dst = if !evex.r_prime { zmm_dst + 16 } else { zmm_dst } as usize;
 
-        let zmm_src1 = (evex.vvvv ^ 0xF) as usize;
+        let zmm_src1 = ctx.evex_vvvv() as usize;
 
         let vl = match evex.ll {
             0 => 16,
@@ -1907,7 +1907,7 @@ impl X86_64Vcpu {
         let zmm_dst = if !evex.r { reg + 8 } else { reg };
         let zmm_dst = if !evex.r_prime { zmm_dst + 16 } else { zmm_dst } as usize;
 
-        let zmm_src1 = (evex.vvvv ^ 0xF) as usize;
+        let zmm_src1 = ctx.evex_vvvv() as usize;
 
         let vl = match evex.ll {
             0 => 16,
@@ -1964,7 +1964,7 @@ impl X86_64Vcpu {
         let zmm_dst = if !evex.r { reg + 8 } else { reg };
         let zmm_dst = if !evex.r_prime { zmm_dst + 16 } else { zmm_dst } as usize;
 
-        let zmm_src1 = (evex.vvvv ^ 0xF) as usize;
+        let zmm_src1 = ctx.evex_vvvv() as usize;
 
         let vl = match evex.ll {
             0 => 16,
@@ -2037,7 +2037,7 @@ impl X86_64Vcpu {
         let zmm_dst = if !evex.r { reg + 8 } else { reg };
         let zmm_dst = if !evex.r_prime { zmm_dst + 16 } else { zmm_dst } as usize;
 
-        let zmm_src1 = (evex.vvvv ^ 0xF) as usize;
+        let zmm_src1 = ctx.evex_vvvv() as usize;
 
         let b_val = if is_memory {
             let bytes = self.load_zmm_data(addr, 4)?;
@@ -2085,7 +2085,7 @@ impl X86_64Vcpu {
         let zmm_dst = if !evex.r { reg + 8 } else { reg };
         let zmm_dst = if !evex.r_prime { zmm_dst + 16 } else { zmm_dst } as usize;
 
-        let zmm_src1 = (evex.vvvv ^ 0xF) as usize;
+        let zmm_src1 = ctx.evex_vvvv() as usize;
 
         let b_val = if is_memory {
             let bytes = self.load_zmm_data(addr, 8)?;
@@ -2387,7 +2387,7 @@ impl X86_64Vcpu {
         let zmm_dst = if !evex.r { reg + 8 } else { reg };
         let zmm_dst = if !evex.r_prime { zmm_dst + 16 } else { zmm_dst } as usize;
 
-        let zmm_src1 = (evex.vvvv ^ 0xF) as usize;
+        let zmm_src1 = ctx.evex_vvvv() as usize;
 
         let vl = match evex.ll {
             0 => 16,
@@ -2455,7 +2455,7 @@ impl X86_64Vcpu {
         let zmm_dst = if !evex.r { reg + 8 } else { reg };
         let zmm_dst = if !evex.r_prime { zmm_dst + 16 } else { zmm_dst } as usize;
 
-        let zmm_src1 = (evex.vvvv ^ 0xF) as usize;
+        let zmm_src1 = ctx.evex_vvvv() as usize;
 
         let vl = match evex.ll {
             0 => 16,
@@ -2523,7 +2523,7 @@ impl X86_64Vcpu {
         let zmm_dst = if !evex.r { reg + 8 } else { reg };
         let zmm_dst = if !evex.r_prime { zmm_dst + 16 } else { zmm_dst } as usize;
 
-        let zmm_src1 = (evex.vvvv ^ 0xF) as usize;
+        let zmm_src1 = ctx.evex_vvvv() as usize;
 
         let vl = match evex.ll {
             0 => 16,
@@ -2591,7 +2591,7 @@ impl X86_64Vcpu {
         let zmm_dst = if !evex.r { reg + 8 } else { reg };
         let zmm_dst = if !evex.r_prime { zmm_dst + 16 } else { zmm_dst } as usize;
 
-        let zmm_src1 = (evex.vvvv ^ 0xF) as usize;
+        let zmm_src1 = ctx.evex_vvvv() as usize;
 
         let vl = match evex.ll {
             0 => 16,
@@ -2661,7 +2661,7 @@ impl X86_64Vcpu {
         let zmm_dst = if !evex.r { reg + 8 } else { reg };
         let zmm_dst = if !evex.r_prime { zmm_dst + 16 } else { zmm_dst } as usize;
 
-        let zmm_src1 = (evex.vvvv ^ 0xF) as usize;
+        let zmm_src1 = ctx.evex_vvvv() as usize;
 
         let vl = match evex.ll {
             0 => 16,
@@ -2731,7 +2731,7 @@ impl X86_64Vcpu {
         let zmm_dst = if !evex.r { reg + 8 } else { reg };
         let zmm_dst = if !evex.r_prime { zmm_dst + 16 } else { zmm_dst } as usize;
 
-        let zmm_src1 = (evex.vvvv ^ 0xF) as usize;
+        let zmm_src1 = ctx.evex_vvvv() as usize;
 
         let vl = match evex.ll {
             0 => 16,

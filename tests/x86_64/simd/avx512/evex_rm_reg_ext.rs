@@ -77,6 +77,16 @@ fn test_evex_rm_register_decode_stays_centralized() {
 }
 
 #[test]
+fn test_evex_vector_vvvv_decode_stays_centralized() {
+    let dispatch = include_str!("../../../../src/backend/emulator/x86_64/dispatch/evex.rs");
+
+    assert!(
+        !dispatch.contains("(evex.vvvv ^ 0xF) as usize"),
+        "EVEX vector vvvv decode must use ctx.evex_vvvv() so EVEX.V' is not dropped"
+    );
+}
+
+#[test]
 fn test_evex_rm_register_uses_x_b_for_vmovaps_source() {
     // Encodings from:
     //   llvm-mc -triple=x86_64 -mcpu=skylake-avx512 -show-encoding
