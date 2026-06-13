@@ -464,7 +464,7 @@ impl VCpu for Aarch64Vcpu {
     }
 
     fn get_state(&self) -> Result<CpuState> {
-        use crate::cpu::{Aarch64Registers, Aarch64SystemRegisters};
+        use crate::cpu::Aarch64Registers;
         let mut regs = Aarch64Registers::default();
         for i in 0..31 {
             regs.x[i] = self.cpu.get_gpr(i as u8);
@@ -472,8 +472,7 @@ impl VCpu for Aarch64Vcpu {
         regs.pc = self.cpu.get_pc();
         regs.sp = self.cpu.get_sp();
         regs.pstate = self.cpu.get_pstate().to_pstate();
-        let sregs = Aarch64SystemRegisters::default();
-        Ok(CpuState::aarch64(regs, sregs))
+        Ok(CpuState::aarch64(regs, self.cpu.export_sregs()))
     }
 
     fn set_state(&mut self, state: &CpuState) -> Result<()> {
@@ -488,10 +487,14 @@ impl VCpu for Aarch64Vcpu {
         self.cpu.reset();
         self.cpu
             .set_pstate(ProcessorState::from_pstate(state.regs.pstate));
+        self.cpu.import_sregs(&state.sregs);
         for i in 0..31 {
             self.cpu.set_gpr(i as u8, state.regs.x[i]);
         }
         self.cpu.set_pc(state.regs.pc);
+        // `regs.sp` is the canonical current SP. The banked SPs in `sregs`
+        // are restored first so non-current SPs survive, then current SP is
+        // overlaid for compatibility with existing initial-state callers.
         self.cpu.set_sp(state.regs.sp);
         self.shutdown = false;
         Ok(())
@@ -511,5 +514,164 @@ impl VCpu for Aarch64Vcpu {
 
     fn instruction_count(&self) -> u64 {
         self.insn_count.load(Ordering::Relaxed)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::sync::Arc;
+
+    use vm_memory::{GuestAddress, GuestMemoryMmap};
+
+    use super::*;
+    use crate::arm::cpu_trait::ArmCpu;
+    use crate::cpu::{Aarch64Registers, Aarch64SystemRegisters, CpuState, VcpuExit};
+
+    fn test_vcpu() -> Aarch64Vcpu {
+        let mem =
+            Arc::new(GuestMemoryMmap::<()>::from_ranges(&[(GuestAddress(0), 0x10000)]).unwrap());
+        Aarch64Vcpu::new(0, mem)
+    }
+
+    fn write_insns(vcpu: &mut Aarch64Vcpu, insns: &[u32]) {
+        for (i, insn) in insns.iter().enumerate() {
+            vcpu.cpu
+                .write_memory((i * 4) as u64, &insn.to_le_bytes())
+                .unwrap();
+        }
+    }
+
+    fn encode_mrs(rt: u8, op0: u8, op1: u8, crn: u8, crm: u8, op2: u8) -> u32 {
+        (0x354 << 22)
+            | (1 << 21)
+            | ((op0 as u32) << 19)
+            | ((op1 as u32) << 16)
+            | ((crn as u32) << 12)
+            | ((crm as u32) << 8)
+            | ((op2 as u32) << 5)
+            | rt as u32
+    }
+
+    fn encode_msr(rt: u8, op0: u8, op1: u8, crn: u8, crm: u8, op2: u8) -> u32 {
+        (0x354 << 22)
+            | ((op0 as u32) << 19)
+            | ((op1 as u32) << 16)
+            | ((crn as u32) << 12)
+            | ((crm as u32) << 8)
+            | ((op2 as u32) << 5)
+            | rt as u32
+    }
+
+    fn hlt() -> u32 {
+        0xd440_0000
+    }
+
+    fn tpidr_el0(rt: u8) -> u32 {
+        encode_mrs(rt, 3, 3, 13, 0, 2)
+    }
+
+    fn tpidrro_el0(rt: u8) -> u32 {
+        encode_mrs(rt, 3, 3, 13, 0, 3)
+    }
+
+    fn msr_tpidr_el0(rt: u8) -> u32 {
+        encode_msr(rt, 3, 3, 13, 0, 2)
+    }
+
+    #[test]
+    fn set_state_round_trips_modeled_sregs() {
+        let mut vcpu = test_vcpu();
+        let mut regs = Aarch64Registers::default();
+        regs.pc = 0x1000;
+        regs.sp = 0x8000;
+        regs.x[0] = 0x1234;
+
+        let mut sregs = Aarch64SystemRegisters::default();
+        sregs.sctlr_el1 = 0x2;
+        sregs.tcr_el1 = 0x8080_3518;
+        sregs.ttbr0_el1 = 0x4000_0000;
+        sregs.ttbr1_el1 = 0xffff_0000_4000_0000;
+        sregs.mair_el1 = 0xff00_0400;
+        sregs.vbar_el1 = 0xffff_0000_0000_0000;
+        sregs.esr_el1 = 0x9600_0004;
+        sregs.far_el1 = 0xdead_beef_cafe_babe;
+        sregs.elr_el1 = 0xffff_0000_0000_1000;
+        sregs.spsr_el1 = 0x3c5;
+        sregs.sp_el0 = 0x7000;
+        sregs.sp_el1 = regs.sp;
+        sregs.tpidr_el0 = 0x1111_2222_3333_4444;
+        sregs.tpidr_el1 = 0x5555_6666_7777_8888;
+        sregs.tpidrro_el0 = 0x9999_aaaa_bbbb_cccc;
+        sregs.cntp_ctl_el0 = 0x3;
+        sregs.cntp_cval_el0 = 0x1234_5678_9abc_def0;
+        sregs.cntv_ctl_el0 = 0x1;
+        sregs.cntv_cval_el0 = 0x0fed_cba9_8765_4321;
+
+        vcpu.set_state(&CpuState::aarch64(regs, sregs.clone()))
+            .unwrap();
+
+        let CpuState::Aarch64(state) = vcpu.get_state().unwrap() else {
+            panic!("expected aarch64 state");
+        };
+
+        assert_eq!(state.regs.x[0], 0x1234);
+        assert_eq!(state.regs.pc, 0x1000);
+        assert_eq!(state.regs.sp, 0x8000);
+        assert_eq!(state.sregs.sctlr_el1, sregs.sctlr_el1);
+        assert_eq!(state.sregs.tcr_el1, sregs.tcr_el1);
+        assert_eq!(state.sregs.ttbr0_el1, sregs.ttbr0_el1);
+        assert_eq!(state.sregs.ttbr1_el1, sregs.ttbr1_el1);
+        assert_eq!(state.sregs.mair_el1, sregs.mair_el1);
+        assert_eq!(state.sregs.vbar_el1, sregs.vbar_el1);
+        assert_eq!(state.sregs.esr_el1, sregs.esr_el1);
+        assert_eq!(state.sregs.far_el1, sregs.far_el1);
+        assert_eq!(state.sregs.elr_el1, sregs.elr_el1);
+        assert_eq!(state.sregs.spsr_el1, sregs.spsr_el1);
+        assert_eq!(state.sregs.sp_el0, sregs.sp_el0);
+        assert_eq!(state.sregs.sp_el1, sregs.sp_el1);
+        assert_eq!(state.sregs.tpidr_el0, sregs.tpidr_el0);
+        assert_eq!(state.sregs.tpidr_el1, sregs.tpidr_el1);
+        assert_eq!(state.sregs.tpidrro_el0, sregs.tpidrro_el0);
+        assert_eq!(state.sregs.cntp_ctl_el0, sregs.cntp_ctl_el0);
+        assert_eq!(state.sregs.cntp_cval_el0, sregs.cntp_cval_el0);
+        assert_eq!(state.sregs.cntv_ctl_el0, sregs.cntv_ctl_el0);
+        assert_eq!(state.sregs.cntv_cval_el0, sregs.cntv_cval_el0);
+    }
+
+    #[test]
+    fn seeded_thread_id_registers_are_guest_visible() {
+        let mut vcpu = test_vcpu();
+        write_insns(&mut vcpu, &[tpidr_el0(5), tpidrro_el0(6), hlt()]);
+
+        let regs = Aarch64Registers::default();
+        let mut sregs = Aarch64SystemRegisters::default();
+        sregs.tpidr_el0 = 0x1111_2222_3333_4444;
+        sregs.tpidrro_el0 = 0x5555_6666_7777_8888;
+        vcpu.set_state(&CpuState::aarch64(regs, sregs)).unwrap();
+
+        assert!(matches!(vcpu.run().unwrap(), VcpuExit::Shutdown));
+        let CpuState::Aarch64(state) = vcpu.get_state().unwrap() else {
+            panic!("expected aarch64 state");
+        };
+        assert_eq!(state.regs.x[5], 0x1111_2222_3333_4444);
+        assert_eq!(state.regs.x[6], 0x5555_6666_7777_8888);
+    }
+
+    #[test]
+    fn guest_thread_id_writes_are_reflected_in_state() {
+        let mut vcpu = test_vcpu();
+        write_insns(&mut vcpu, &[msr_tpidr_el0(1), tpidr_el0(2), hlt()]);
+
+        let mut regs = Aarch64Registers::default();
+        regs.x[1] = 0xfeed_face_cafe_beef;
+        vcpu.set_state(&CpuState::aarch64(regs, Aarch64SystemRegisters::default()))
+            .unwrap();
+
+        assert!(matches!(vcpu.run().unwrap(), VcpuExit::Shutdown));
+        let CpuState::Aarch64(state) = vcpu.get_state().unwrap() else {
+            panic!("expected aarch64 state");
+        };
+        assert_eq!(state.regs.x[2], 0xfeed_face_cafe_beef);
+        assert_eq!(state.sregs.tpidr_el0, 0xfeed_face_cafe_beef);
     }
 }

@@ -25,6 +25,7 @@ use crate::arm::cpu_trait::{
 use crate::arm::features::ArmFeatures;
 use crate::arm::memory::ArmMemory;
 use crate::arm::sysreg::Aarch64SysRegEncoding;
+use crate::cpu::Aarch64SystemRegisters;
 
 // =============================================================================
 // CPU Configuration
@@ -1159,6 +1160,55 @@ impl AArch64Cpu {
                 encoding
             )))
         }
+    }
+
+    /// Export the backend-agnostic subset of modeled AArch64 system state.
+    pub fn export_sregs(&self) -> Aarch64SystemRegisters {
+        Aarch64SystemRegisters {
+            sctlr_el1: self.sysregs.el1.sctlr,
+            tcr_el1: self.sysregs.el1.tcr,
+            ttbr0_el1: self.sysregs.el1.ttbr0,
+            ttbr1_el1: self.sysregs.el1.ttbr1,
+            mair_el1: self.sysregs.el1.mair,
+            vbar_el1: self.sysregs.el1.vbar,
+            esr_el1: self.sysregs.el1.esr,
+            far_el1: self.sysregs.el1.far,
+            elr_el1: self.sysregs.el1.elr,
+            spsr_el1: self.sysregs.el1.spsr,
+            sp_el0: self.sp_el[0],
+            sp_el1: self.sp_el[1],
+            tpidr_el0: self.sysregs.tpidr_el0,
+            tpidr_el1: self.sysregs.el1.tpidr,
+            tpidrro_el0: self.sysregs.tpidrro_el0,
+            cntp_ctl_el0: self.sysregs.cntp_ctl_el0 & 0x3,
+            cntp_cval_el0: self.sysregs.cntp_cval_el0,
+            cntv_ctl_el0: self.sysregs.cntv_ctl_el0 & 0x3,
+            cntv_cval_el0: self.sysregs.cntv_cval_el0,
+        }
+    }
+
+    /// Import the backend-agnostic subset of modeled AArch64 system state.
+    pub fn import_sregs(&mut self, sregs: &Aarch64SystemRegisters) {
+        self.sysregs.el1.sctlr = sregs.sctlr_el1;
+        self.sysregs.el1.tcr = sregs.tcr_el1;
+        self.sysregs.el1.ttbr0 = sregs.ttbr0_el1;
+        self.sysregs.el1.ttbr1 = sregs.ttbr1_el1;
+        self.sysregs.el1.mair = sregs.mair_el1;
+        self.sysregs.el1.vbar = sregs.vbar_el1;
+        self.sysregs.el1.esr = sregs.esr_el1;
+        self.sysregs.el1.far = sregs.far_el1;
+        self.sysregs.el1.elr = sregs.elr_el1;
+        self.sysregs.el1.spsr = sregs.spsr_el1;
+        self.sp_el[0] = sregs.sp_el0;
+        self.sp_el[1] = sregs.sp_el1;
+        self.sysregs.tpidr_el0 = sregs.tpidr_el0;
+        self.sysregs.el1.tpidr = sregs.tpidr_el1;
+        self.sysregs.tpidrro_el0 = sregs.tpidrro_el0;
+        self.sysregs.cntp_ctl_el0 = sregs.cntp_ctl_el0 & 0x3;
+        self.sysregs.cntp_cval_el0 = sregs.cntp_cval_el0;
+        self.sysregs.cntv_ctl_el0 = sregs.cntv_ctl_el0 & 0x3;
+        self.sysregs.cntv_cval_el0 = sregs.cntv_cval_el0;
+        self.update_mmu_config();
     }
 
     /// Update MMU configuration from system registers.
