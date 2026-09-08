@@ -1,6 +1,74 @@
 use super::*;
 
 #[test]
+fn scalar_fp16_complex_memory_replay_canonicalizes_llig_crash_encodings() {
+    // Full-suite run 34016200409 at db124b723b343f0fe7dfe04ddf10e12ed11fc9c4
+    // trapped with SIGILL at 62 F6 0E E1 57 04 24: scalar VFMADDCSH with
+    // L'L=11b. Intel SDM Vol. 2A 2.8.9 assigns these scalar operations to
+    // E10, which ignores L'L. Emit the equivalent canonical L'L=00b form.
+    // Each expected image below is independently assembled with LLVM 22.1.7:
+    // {vfmaddcsh,vfcmaddcsh,vfmulcsh,vfcmulcsh} xmm0{k1}{z},xmm30,[rsp].
+    let anchors = [
+        (
+            ComplexOperation::Accumulate,
+            [0x62, 0xF6, 0x0E, 0x81, 0x57, 0x04, 0x24],
+        ),
+        (
+            ComplexOperation::ConjugateAccumulate,
+            [0x62, 0xF6, 0x0F, 0x81, 0x57, 0x04, 0x24],
+        ),
+        (
+            ComplexOperation::Multiply,
+            [0x62, 0xF6, 0x0E, 0x81, 0xD7, 0x04, 0x24],
+        ),
+        (
+            ComplexOperation::ConjugateMultiply,
+            [0x62, 0xF6, 0x0F, 0x81, 0xD7, 0x04, 0x24],
+        ),
+    ];
+    for (operation, expected) in anchors {
+        for ll in 0..=3 {
+            let case = ScalarComplexMemoryCase {
+                operation,
+                source1: 30,
+                ll,
+                control: MaskControl::Zero,
+            };
+            let source = X86InstructionBytes::new(&case.bytes()).unwrap();
+            let encoding = source.evex_packed_fp16_complex_memory_encoding().unwrap();
+            let X86EvexPackedFp16ComplexMemoryReplay::Broadcast { stack_instruction } =
+                encoding.replay
+            else {
+                panic!("{case:?}: scalar complex source was not helper-staged")
+            };
+            assert_eq!(stack_instruction.as_slice(), expected, "{case:?}");
+            for level in LEVELS {
+                let function = optimize(lift_scalar_case(case), level);
+                assert_eq!(function.x86_instruction_bytes[&(BlockId(0), PC)], source);
+                let (code, _) = lower_scalar(&function, case);
+                assert_eq!(
+                    code.windows(expected.len())
+                        .filter(|window| *window == expected)
+                        .count(),
+                    1,
+                    "{level:?} {case:?}: missing canonical scalar complex replay"
+                );
+                if ll != 0 {
+                    let mut noncanonical = expected;
+                    noncanonical[3] |= ll << 5;
+                    assert!(
+                        !code
+                            .windows(noncanonical.len())
+                            .any(|window| window == noncanonical),
+                        "{level:?} {case:?}: ignored guest L'L leaked into native replay"
+                    );
+                }
+            }
+        }
+    }
+}
+
+#[test]
 fn scalar_fp16_complex_classifier_exhaustively_rewrites_952_320_control_and_apx_cells() {
     let mut accepted = 0usize;
     for operation in ComplexOperation::ALL {
@@ -70,7 +138,6 @@ fn scalar_fp16_complex_classifier_exhaustively_rewrites_952_320_control_and_apx_
                                             operation,
                                             destination,
                                             source1,
-                                            ll,
                                             mask,
                                             zeroing,
                                         ),

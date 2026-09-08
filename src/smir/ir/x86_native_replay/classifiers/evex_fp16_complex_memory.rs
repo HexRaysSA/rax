@@ -152,8 +152,11 @@ impl X86InstructionBytes {
                 (p0 & 0x97) | 0x60,
                 // Preserve W0/vvvv/F2-or-F3 and restore ordinary EVEX.U.
                 p1 | 0x04,
-                // Preserve z, L'L, b, V', and aaa exactly.
-                p2,
+                // Scalar Type E10 ignores L'L (Intel SDM Vol. 2A 2.8.9).
+                // Canonicalize it to 00b: preserving 11b faults on hosts
+                // that otherwise support AVX-512-FP16. Packed L'L retains
+                // its vector-length meaning. Preserve z, b, V', and aaa.
+                if scalar { p2 & !0x60 } else { p2 },
                 opcode,
                 (modrm & 0x38) | 0x04,
                 0x24,

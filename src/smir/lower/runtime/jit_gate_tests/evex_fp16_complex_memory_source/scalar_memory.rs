@@ -57,7 +57,6 @@ impl ScalarComplexMemoryCase {
             self.operation,
             self.destination(),
             self.source1,
-            self.ll,
             self.mask(),
             self.zeroing(),
         )
@@ -103,12 +102,10 @@ fn scalar_stack_encoding(
     operation: ComplexOperation,
     destination: u8,
     source1: u8,
-    ll: u8,
     mask: u8,
     zeroing: bool,
 ) -> [u8; 7] {
-    let mut encoding =
-        scalar_memory_encoding(operation, destination, source1, ll, mask, zeroing, 4);
+    let mut encoding = scalar_memory_encoding(operation, destination, source1, 0, mask, zeroing, 4);
     encoding[1] |= 0x20;
     [
         encoding[0],

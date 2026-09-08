@@ -15,19 +15,22 @@ fn native_scalar_fp16_complex_memory_matches_interpretation_faults_and_bit_zero_
     }
 
     // Scalar AVX-512-FP16 does not require AVX-512VL. Every operation and
-    // mask control is represented, and the LLIG images include 11b.
+    // mask control is crossed with all four guest LLIG images, including
+    // 11b. The host memory replay must canonicalize these ignored bits.
     let mut cases = Vec::new();
-    for (operation_index, operation) in ComplexOperation::ALL.into_iter().enumerate() {
-        for (control_index, control) in MaskControl::ALL.into_iter().enumerate() {
-            cases.push(ScalarComplexMemoryCase {
-                operation,
-                source1: [1, 17, 30][control_index],
-                ll: ((operation_index + control_index) & 3) as u8,
-                control,
-            });
+    for operation in ComplexOperation::ALL {
+        for ll in 0..=3 {
+            for (control_index, control) in MaskControl::ALL.into_iter().enumerate() {
+                cases.push(ScalarComplexMemoryCase {
+                    operation,
+                    source1: [1, 17, 30][control_index],
+                    ll,
+                    control,
+                });
+            }
         }
     }
-    assert_eq!(cases.len(), 12);
+    assert_eq!(cases.len(), 4 * 4 * 3);
     assert!(cases.iter().any(|case| case.ll == 3));
 
     let mut successes = 0usize;
@@ -119,7 +122,7 @@ fn native_scalar_fp16_complex_memory_matches_interpretation_faults_and_bit_zero_
             }
         }
     }
-    assert_eq!(successes, 12 * 2);
+    assert_eq!(successes, 4 * 4 * 3 * 2);
     assert_eq!(faults, successes);
-    assert_eq!(suppressions, 4 * 2 * 2);
+    assert_eq!(suppressions, 4 * 4 * 2 * 2);
 }
