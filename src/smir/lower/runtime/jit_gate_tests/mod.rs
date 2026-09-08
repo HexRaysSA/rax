@@ -199,6 +199,8 @@ mod evex_packed_rotate_memory_source;
 #[cfg(test)]
 mod evex_packed_rotate_replay;
 #[cfg(test)]
+mod evex_packed_shift_imm_memory_source;
+#[cfg(test)]
 mod evex_packed_variable_shift_memory_source;
 #[cfg(test)]
 mod evex_permute_replay;

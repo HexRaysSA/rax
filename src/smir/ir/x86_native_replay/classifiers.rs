@@ -49,6 +49,7 @@ mod evex_packed_fp16_convert_memory;
 mod evex_packed_fp_unary_memory;
 mod evex_packed_funnel_shift_memory;
 mod evex_packed_rotate_memory;
+mod evex_packed_shift_imm_memory;
 mod evex_packed_variable_shift_memory;
 mod evex_psadbw_memory;
 mod evex_range_memory;
@@ -277,6 +278,9 @@ pub(crate) use evex_packed_funnel_shift_memory::{
 };
 pub(crate) use evex_packed_rotate_memory::{
     X86EvexPackedRotateMemoryEncoding, X86EvexPackedRotateMemoryReplay,
+};
+pub(crate) use evex_packed_shift_imm_memory::{
+    X86EvexPackedShiftImmMemoryEncoding, X86EvexPackedShiftImmMemoryReplay,
 };
 pub(crate) use evex_packed_variable_shift_memory::{
     X86EvexPackedVariableShiftMemoryEncoding, X86EvexPackedVariableShiftMemoryReplay,
