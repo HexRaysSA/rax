@@ -355,55 +355,18 @@ impl X86_64Lifter {
         };
         let dst = self.vec_reg(dst_number, result_width);
         let index = self.vec_reg(index_number, index_width);
-        let old_dst = ctx.alloc_vreg();
-        let mut ops = vec![SmirOp::new(
-            OpId(0),
-            pc,
-            OpKind::VMov {
-                dst: old_dst,
-                src: dst,
-                width: result_width,
-            },
-        )];
-
-        // Normalize destination width before the first potentially faulting
-        // access. Intel permits unused high portions to be cleared even when
-        // the instruction suspends before gathering its first element.
-        let initial_dst = self.append_zero_vector(result_width, data_elem, pc, ctx, &mut ops);
-        for lane in 0..lanes {
-            let old = ctx.alloc_vreg();
-            ops.push(SmirOp::new(
-                OpId(ops.len() as u16),
-                pc,
-                OpKind::VExtractLane {
-                    dst: old,
-                    vec: old_dst,
-                    lane,
-                    elem: data_elem,
-                    sign: SignExtend::Zero,
-                },
-            ));
-            ops.push(SmirOp::new(
-                OpId(ops.len() as u16),
-                pc,
-                OpKind::VInsertLane {
-                    dst: initial_dst,
-                    vec: initial_dst,
-                    scalar: old,
-                    lane,
-                    elem: data_elem,
-                },
-            ));
-        }
-        ops.push(SmirOp::new(
-            OpId(ops.len() as u16),
-            pc,
-            OpKind::VMov {
+        let mut ops = Vec::new();
+        if prefix.encoding == VecEncodingKind::Vex {
+            self.append_gather_destination_normalization(
                 dst,
-                src: initial_dst,
-                width: result_width,
-            },
-        ));
+                result_width,
+                data_elem,
+                lanes,
+                pc,
+                ctx,
+                &mut ops,
+            );
+        }
 
         let scalar_zero = ctx.alloc_vreg();
         ops.push(SmirOp::new(
@@ -507,17 +470,6 @@ impl X86_64Lifter {
                     dst: snapshot,
                     src: SrcOperand::Reg(mask),
                     width: OpWidth::W64,
-                },
-            ));
-            ops.push(SmirOp::new(
-                OpId(ops.len() as u16),
-                pc,
-                OpKind::And {
-                    dst: mask,
-                    src1: mask,
-                    src2: SrcOperand::Imm(((1u64 << lanes) - 1) as i64),
-                    width: OpWidth::W64,
-                    flags: FlagUpdate::None,
                 },
             ));
             for lane in 0..lanes {
@@ -626,7 +578,93 @@ impl X86_64Lifter {
             }
         }
 
+        if prefix.encoding == VecEncodingKind::Evex {
+            // Intel SDM 086, VGATHER/VPGATHER Operation: unused destination
+            // and opmask bits are cleared after ENDFOR. Defer both until all
+            // accesses succeed, including mixed widths where early clearing
+            // of unused destination elements is also permitted. Each earlier
+            // completed lane and its cleared mask bit remain visible on fault.
+            self.append_gather_destination_normalization(
+                dst,
+                result_width,
+                data_elem,
+                lanes,
+                pc,
+                ctx,
+                &mut ops,
+            );
+            let mask = VReg::Arch(ArchReg::X86(X86Reg::K(prefix.aaa)));
+            ops.push(SmirOp::new(
+                OpId(ops.len() as u16),
+                pc,
+                OpKind::And {
+                    dst: mask,
+                    src1: mask,
+                    src2: SrcOperand::Imm(((1u64 << lanes) - 1) as i64),
+                    width: OpWidth::W64,
+                    flags: FlagUpdate::None,
+                },
+            ));
+        }
+
         Ok(LiftResult::fallthrough(ops, cursor + modrm.bytes_consumed))
+    }
+
+    fn append_gather_destination_normalization(
+        &self,
+        dst: VReg,
+        width: VecWidth,
+        elem: VecElementType,
+        lanes: u8,
+        pc: u64,
+        ctx: &mut LiftContext,
+        ops: &mut Vec<SmirOp>,
+    ) {
+        let old_dst = ctx.alloc_vreg();
+        ops.push(SmirOp::new(
+            OpId(ops.len() as u16),
+            pc,
+            OpKind::VMov {
+                dst: old_dst,
+                src: dst,
+                width,
+            },
+        ));
+        let normalized = self.append_zero_vector(width, elem, pc, ctx, ops);
+        for lane in 0..lanes {
+            let old = ctx.alloc_vreg();
+            ops.push(SmirOp::new(
+                OpId(ops.len() as u16),
+                pc,
+                OpKind::VExtractLane {
+                    dst: old,
+                    vec: old_dst,
+                    lane,
+                    elem,
+                    sign: SignExtend::Zero,
+                },
+            ));
+            ops.push(SmirOp::new(
+                OpId(ops.len() as u16),
+                pc,
+                OpKind::VInsertLane {
+                    dst: normalized,
+                    vec: normalized,
+                    scalar: old,
+                    lane,
+                    elem,
+                },
+            ));
+        }
+        ops.push(SmirOp::new(
+            OpId(ops.len() as u16),
+            pc,
+            OpKind::VMov {
+                dst,
+                src: normalized,
+                width,
+            },
+        ));
     }
 
     pub(crate) fn lift_vec_movntdqa(

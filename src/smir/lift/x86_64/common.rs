@@ -103,9 +103,21 @@ impl X86_64Lifter {
         if result.bytes_consumed <= cursor {
             return Ok(result);
         }
-        let modrm = decode_modrm(&bytes[cursor..], &prefix.modrm_prefix(cursor), pc)?;
+        let mut modrm = decode_modrm(&bytes[cursor..], &prefix.modrm_prefix(cursor), pc)?;
         if cursor + modrm.bytes_consumed > result.bytes_consumed {
             return Ok(result);
+        }
+
+        if prefix.map == X86VecMap::Map0F38
+            && matches!(bytes.get(prefix.bytes), Some(0x90..=0x93 | 0xA0..=0xA3))
+        {
+            // APX 355828-007US section 3.1.2.3.3/Table 3.3: the VSIB
+            // index is a vector register selected by V'/X/SIB.index. X4
+            // is unused, not an EGPR index extension. Only an actual B4
+            // base can require APX; no-base B4 is likewise ignored.
+            if let Some(addr) = &mut modrm.addr {
+                addr.index = None;
+            }
         }
 
         Ok(self.retain_evex_memory_apx_requirement(&modrm, pc, result))

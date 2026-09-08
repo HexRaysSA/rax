@@ -233,12 +233,6 @@ impl X86_64Lifter {
         let index_number =
             ((sib >> 3) & 7) | modrm_prefix.rex_x() | if prefix.v_high { 16 } else { 0 };
         let source_number = modrm.reg + if prefix.reg_high { 16 } else { 0 };
-        if source_number == index_number {
-            return Err(LiftError::InvalidEncoding {
-                addr: pc,
-                bytes: bytes.to_vec(),
-            });
-        }
 
         let data_elem = if prefix.w {
             VecElementType::I64
@@ -268,28 +262,15 @@ impl X86_64Lifter {
         let mask = VReg::Arch(ArchReg::X86(X86Reg::K(prefix.aaa)));
         let snapshot = ctx.alloc_vreg();
         let valid_mask = (1u64 << lanes) - 1;
-        let mut ops = vec![
-            SmirOp::new(
-                OpId(0),
-                pc,
-                OpKind::Mov {
-                    dst: snapshot,
-                    src: SrcOperand::Reg(mask),
-                    width: OpWidth::W64,
-                },
-            ),
-            SmirOp::new(
-                OpId(1),
-                pc,
-                OpKind::And {
-                    dst: mask,
-                    src1: mask,
-                    src2: SrcOperand::Imm(valid_mask as i64),
-                    width: OpWidth::W64,
-                    flags: FlagUpdate::None,
-                },
-            ),
-        ];
+        let mut ops = vec![SmirOp::new(
+            OpId(0),
+            pc,
+            OpKind::Mov {
+                dst: snapshot,
+                src: SrcOperand::Reg(mask),
+                width: OpWidth::W64,
+            },
+        )];
         let mut x86_addr = modrm.addr.unwrap();
         x86_addr.index = None;
         if x86_addr.disp_size == DispSize::Disp8 {
@@ -361,6 +342,19 @@ impl X86_64Lifter {
                 },
             ));
         }
+        // The SDM clears k[MAX_KL-1:KL] after ENDFOR. A fault leaves high
+        // mask bits unchanged and retains every preceding lane's mask clear.
+        ops.push(SmirOp::new(
+            OpId(ops.len() as u16),
+            pc,
+            OpKind::And {
+                dst: mask,
+                src1: mask,
+                src2: SrcOperand::Imm(valid_mask as i64),
+                width: OpWidth::W64,
+                flags: FlagUpdate::None,
+            },
+        ));
         Ok(LiftResult::fallthrough(ops, cursor + modrm.bytes_consumed))
     }
 

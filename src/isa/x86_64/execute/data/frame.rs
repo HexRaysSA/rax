@@ -163,6 +163,18 @@ pub fn leave(vcpu: &mut X86_64Vcpu, ctx: &mut InsnContext) -> Result<Option<Vcpu
     Ok(None)
 }
 
+fn evex_vsib_memory_extensions(ctx: &InsnContext, map: u8, pp: u8, opcode_offset: usize) -> bool {
+    let bytes = &ctx.bytes[..ctx.bytes_len];
+    map == 2
+        && pp == 1
+        && bytes
+            .get(opcode_offset)
+            .is_some_and(|opcode| matches!(opcode, 0x90..=0x93 | 0xA0..=0xA3))
+        && bytes
+            .get(opcode_offset + 1)
+            .is_some_and(|modrm| modrm >> 6 != 3 && modrm & 7 == 4)
+}
+
 fn looks_like_evex_prefix(vcpu: &X86_64Vcpu, ctx: &InsnContext) -> bool {
     if ctx.cursor + 3 > ctx.bytes_len {
         return false;
@@ -178,9 +190,12 @@ fn looks_like_evex_prefix(vcpu: &X86_64Vcpu, ctx: &InsnContext) -> bool {
             .copied()
             .is_some_and(|opcode| matches!(opcode, 0xE0..=0xEF));
     let apx_mode = (mm == 4 && vcpu.apx_enabled()) || promoted_cmpccxadd;
+    let vsib_memory_extensions = evex_vsib_memory_extensions(ctx, mm, p1 & 3, ctx.cursor + 3);
     let supported_map = matches!(mm, 1 | 2 | 3 | 5 | 6) || apx_mode;
 
-    supported_map && ((p0 & 0x08) == 0 || apx_mode) && ((p1 & 0x04) != 0 || apx_mode)
+    supported_map
+        && ((p0 & 0x08) == 0 || apx_mode || vsib_memory_extensions)
+        && ((p1 & 0x04) != 0 || apx_mode || vsib_memory_extensions)
 }
 
 /// BOUND (legacy/compatibility) or EVEX prefix (0x62)
@@ -224,12 +239,15 @@ pub fn bound_or_evex(vcpu: &mut X86_64Vcpu, ctx: &mut InsnContext) -> Result<Opt
                 .copied()
                 .is_some_and(|opcode| matches!(opcode, 0xE0..=0xEF));
         let apx_mode = mm == 4 || promoted_cmpccxadd;
+        let vsib_memory_extensions = evex_vsib_memory_extensions(ctx, mm, p1 & 3, ctx.cursor);
 
         // Validate EVEX format:
         // P0 bit 3 is fixed zero for standard EVEX, but APX MAP4 and promoted
         // CMPccXADD reuse it as B4. P1 bit 2 is fixed one for standard EVEX,
-        // but those APX encodings reuse it as X4.
-        if ((p0 & 0x08) != 0 && !apx_mode) || ((p1 & 0x04) == 0 && !apx_mode) {
+        // but those APX encodings reuse it as X4. Existing EVEX VSIB gather/
+        // scatter memory forms also accept B4; their unused X4 is ignored.
+        // The VSIB handler checks APX enablement only for an actual EGPR base.
+        if (((p0 & 0x08) != 0 || (p1 & 0x04) == 0) && !apx_mode) && !vsib_memory_extensions {
             return vcpu.inject_undefined_instruction();
         }
 
@@ -268,6 +286,11 @@ pub fn bound_or_evex(vcpu: &mut X86_64Vcpu, ctx: &mut InsnContext) -> Result<Opt
             let b4_bit = (p0 & 0x08) != 0;
             let x4_bit = (p1 & 0x04) != 0;
             (nf_bit, nd_bit, b4_bit, x4_bit)
+        } else if vsib_memory_extensions {
+            // APX 355828-007US §3.1.2.3.3/Table 3.3: BASE uses B4/B3,
+            // whereas VIDX uses V4/X3, not X4. Preserve ordinary EVEX
+            // opmask/broadcast meanings rather than enabling NF or ND.
+            (false, false, (p0 & 0x08) != 0, (p1 & 0x04) != 0)
         } else {
             (false, false, false, false)
         };

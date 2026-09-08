@@ -302,21 +302,23 @@ fn evex_scalar_moves_preserve_and_guard_apx_base_and_index_extensions() {
 }
 
 #[test]
-fn evex_vsib_ignores_x4_for_vector_index_but_still_requires_apx() {
-    // Intel APX Table 3.3 keeps VIDX in EVEX.V4:X3:SIB.index. X4 is
-    // ignored for VSIB addressing, but its non-reserved encoding remains
-    // dynamically gated by APX_F.
+fn evex_vsib_ignores_x4_and_requires_apx_only_for_an_egpr_base() {
+    // Intel APX 355828-007US section 3.1.2.3.3/Table 3.3 keeps VIDX in
+    // EVEX.V4:X3:SIB.index. Unused X4 is ignored; only an actual EGPR
+    // base selected by B4 requires APX_F.
     for (name, opcode) in [("VGATHERDPS", 0x92), ("VSCATTERDPS", 0xA2)] {
         for (p0, expected_base) in [(0xF2, x86_gpr(0)), (0xFA, x86_gpr(16))] {
             let bytes = [0x62, p0, 0x79, 0x09, opcode, 0x04, 0x08];
             let result = lift_single(&bytes)
                 .unwrap_or_else(|error| panic!("{name} {bytes:02X?}: {error:?}"));
             assert_eq!(result.bytes_consumed, bytes.len(), "{name} {bytes:02X?}");
-            assert!(
+            let requires_apx = p0 & 0x08 != 0;
+            assert_eq!(
                 matches!(
                     result.ops.first().map(|op| &op.kind),
                     Some(OpKind::X86RequireApx)
                 ),
+                requires_apx,
                 "{name} {bytes:02X?}: {:#?}",
                 result.ops
             );
@@ -326,7 +328,7 @@ fn evex_vsib_ignores_x4_for_vector_index_but_still_requires_apx() {
                     .iter()
                     .filter(|op| matches!(op.kind, OpKind::X86RequireApx))
                     .count(),
-                1,
+                usize::from(requires_apx),
                 "{name} {bytes:02X?}"
             );
 

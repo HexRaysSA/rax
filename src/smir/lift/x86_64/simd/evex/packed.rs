@@ -439,6 +439,21 @@ impl X86_64Lifter {
                 sign: SignExtend::Sign,
             },
         ));
+        if width == OpWidth::W32 {
+            // Even no-base/scale-one/disp-zero VSIB addresses truncate the
+            // signed index modulo 2^32 before the segment base is added.
+            let truncated = ctx.alloc_vreg();
+            ops.push(SmirOp::new(
+                OpId(ops.len() as u16),
+                pc,
+                OpKind::Mov {
+                    dst: truncated,
+                    src: SrcOperand::Reg(offset),
+                    width,
+                },
+            ));
+            offset = truncated;
+        }
         if x86_addr.scale != 1 {
             let scaled = ctx.alloc_vreg();
             ops.push(SmirOp::new(
