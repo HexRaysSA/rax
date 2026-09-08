@@ -434,18 +434,9 @@ fn assert_exact_lift_and_sequence(function: &SmirFunction, case: ConvertCase, le
         } => {
             assert_eq!(addr, &expected_address(case), "{case:?}");
             assert_eq!(*width, case.source_width(), "{case:?}");
-            assert_eq!(
-                block.ops[0].x86_hint,
-                if level != OptLevel::O2
-                    || !matches!(case.base, 4 | 5)
-                    || case.source_width() == VecWidth::V256
-                {
-                    None
-                } else {
-                    Some(X86OpHint::VecAlign(X86VecAlign::Aligned))
-                },
-                "{case:?} at {level:?}"
-            );
+            // Byte provenance owns the absent encoding hint at every level.
+            // An incoming RSP/RBP value has no proven local alignment.
+            assert_eq!(block.ops[0].x86_hint, None, "{case:?} at {level:?}");
             *loaded
         }
         other => panic!("{case:?}: expected VLoad, got {other:?}"),
