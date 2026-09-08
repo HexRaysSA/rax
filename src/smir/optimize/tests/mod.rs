@@ -16,6 +16,8 @@ mod strength;
 #[cfg(test)]
 mod vector;
 #[cfg(test)]
+mod vector_alignment;
+#[cfg(test)]
 mod x86_fma;
 #[cfg(test)]
 mod xop;

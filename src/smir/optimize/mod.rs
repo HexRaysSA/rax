@@ -11,7 +11,7 @@ use crate::smir::ir::ops::{
     OpKind, SmirOp, X86AdxKind, X86LmswOp, X86LmswSource, X86MonitorMwaitOp, X86OpHint, X86RepMode,
     X86SelectorQueryOp, X86SelectorQuerySource, X86SelectorVerifyOp, X86SelectorVerifySource,
     X86SmswOp, X86SmswTarget, X86StringKind, X86SystemSelectorLoadOp, X86SystemSelectorSource,
-    X86SystemSelectorStoreOp, X86SystemSelectorTarget, X86ThreeDNowKind, X86VecAlign, X86WaitPkgOp,
+    X86SystemSelectorStoreOp, X86SystemSelectorTarget, X86ThreeDNowKind, X86WaitPkgOp,
     X86X87DataKind,
 };
 use crate::smir::ir::types::{
@@ -24,6 +24,9 @@ use crate::smir::ir::{CallTarget, SmirBlock, SmirFunction, Terminator};
 mod liveness;
 #[cfg(test)]
 mod tests;
+mod vector_alignment;
+
+pub use vector_alignment::vector_alignment_inference;
 
 use liveness::{
     compute_liveness, op_fully_defines, op_has_precise_deopt_edge, op_out_width,
@@ -211,7 +214,8 @@ pub fn optimize_function_with_stats(func: &mut SmirFunction, level: OptLevel) ->
     }
 
     if o2 {
-        // Hint-only pass (no IR mutation) — run once at the end.
+        // Local proof pass for generic, unhinted vector moves. Source encoding
+        // hints and provenance-covered operations remain unchanged.
         stats.vector_alignments_inferred += vector_alignment_inference(func);
     }
 
@@ -1431,244 +1435,6 @@ pub fn redundant_load_elimination(func: &mut SmirFunction) -> usize {
     }
 
     eliminated
-}
-
-// ============================================================================
-// Vector Alignment Inference
-// ============================================================================
-
-/// Infer vector alignment hints for VLoad/VStore ops.
-pub fn vector_alignment_inference(func: &mut SmirFunction) -> usize {
-    let mut inferred = 0;
-
-    for block in &mut func.blocks {
-        inferred += vector_alignment_inference_block(block);
-    }
-
-    inferred
-}
-
-fn vector_alignment_inference_block(block: &mut SmirBlock) -> usize {
-    let mut inferred = 0;
-    let mut alignments = seed_x86_alignments();
-
-    for op in &mut block.ops {
-        inferred += apply_vec_align_hint(op, &alignments);
-        update_pointer_alignment(op, &mut alignments);
-    }
-
-    inferred
-}
-
-fn seed_x86_alignments() -> HashMap<VReg, usize> {
-    let mut alignments = HashMap::new();
-    alignments.insert(VReg::Arch(ArchReg::X86(X86Reg::Rsp)), 16);
-    alignments.insert(VReg::Arch(ArchReg::X86(X86Reg::Rbp)), 16);
-    alignments
-}
-
-fn apply_vec_align_hint(op: &mut SmirOp, alignments: &HashMap<VReg, usize>) -> usize {
-    let (addr, width) = match &op.kind {
-        OpKind::VLoad { addr, width, .. } | OpKind::VStore { addr, width, .. } => (addr, width),
-        _ => return 0,
-    };
-
-    match op.x86_hint {
-        None | Some(X86OpHint::VecAlign(X86VecAlign::Unaligned)) => {}
-        _ => return 0,
-    }
-
-    let required = vec_width_bytes(*width);
-    if let Some(alignment) = address_alignment(addr, alignments) {
-        if alignment >= required {
-            op.x86_hint = Some(X86OpHint::VecAlign(X86VecAlign::Aligned));
-            return 1;
-        }
-    }
-
-    0
-}
-
-fn update_pointer_alignment(op: &SmirOp, alignments: &mut HashMap<VReg, usize>) {
-    let mut computed = HashMap::new();
-
-    match &op.kind {
-        OpKind::Mov { dst, src, width } if *width == OpWidth::W64 => {
-            if let Some(src_reg) = src.as_reg() {
-                if let Some(&alignment) = alignments.get(&src_reg) {
-                    computed.insert(*dst, alignment);
-                }
-            } else if let Some(imm) = src.as_imm() {
-                if imm >= 0 {
-                    computed.insert(*dst, alignment_from_addr(imm as u64));
-                }
-            }
-        }
-        OpKind::Add {
-            dst,
-            src1,
-            src2,
-            width,
-            ..
-        }
-        | OpKind::Sub {
-            dst,
-            src1,
-            src2,
-            width,
-            ..
-        } if *width == OpWidth::W64 => {
-            if let Some(&src_align) = alignments.get(src1) {
-                if let Some(imm) = src2.as_imm() {
-                    computed.insert(*dst, gcd(src_align, imm.unsigned_abs() as usize));
-                } else if let Some(src2_reg) = src2.as_reg() {
-                    if let Some(&src2_align) = alignments.get(&src2_reg) {
-                        computed.insert(*dst, gcd(src_align, src2_align));
-                    }
-                }
-            }
-        }
-        OpKind::Shl {
-            dst,
-            src,
-            amount,
-            width,
-            ..
-        } if *width == OpWidth::W64 => {
-            if let (Some(&src_align), Some(shift)) = (alignments.get(src), amount.as_imm()) {
-                if let Ok(shift) = u32::try_from(shift) {
-                    if let Some(alignment) = src_align.checked_shl(shift) {
-                        computed.insert(*dst, alignment);
-                    }
-                }
-            }
-        }
-        OpKind::And {
-            dst,
-            src1,
-            src2,
-            width,
-            ..
-        } if *width == OpWidth::W64 => {
-            if let Some(imm) = src2.as_imm() {
-                let mask = imm as u64;
-                let mut alignment = if mask == 0 {
-                    1
-                } else {
-                    1usize << mask.trailing_zeros()
-                };
-                if let Some(&src_align) = alignments.get(src1) {
-                    alignment = alignment.max(src_align);
-                }
-                computed.insert(*dst, alignment);
-            }
-        }
-        OpKind::CMove {
-            dst, src, width, ..
-        } if *width == OpWidth::W64 => {
-            if let (Some(&dst_align), Some(&src_align)) = (alignments.get(dst), alignments.get(src))
-            {
-                computed.insert(*dst, gcd(dst_align, src_align));
-            }
-        }
-        OpKind::Select {
-            dst,
-            src_true,
-            src_false,
-            width,
-            ..
-        } if *width == OpWidth::W64 => {
-            if let (Some(&a), Some(&b)) = (alignments.get(src_true), alignments.get(src_false)) {
-                computed.insert(*dst, gcd(a, b));
-            }
-        }
-        OpKind::Lea { dst, addr } | OpKind::X86Lea { dst, addr, .. } => {
-            if let Some(alignment) = address_alignment(addr, alignments) {
-                computed.insert(*dst, alignment);
-            }
-        }
-        _ => {}
-    }
-
-    for dst in op.kind.dests() {
-        if let Some(&alignment) = computed.get(&dst) {
-            alignments.insert(dst, alignment);
-        } else {
-            alignments.remove(&dst);
-        }
-    }
-}
-
-fn vec_width_bytes(width: VecWidth) -> usize {
-    match width {
-        VecWidth::V64 => 8,
-        VecWidth::V128 => 16,
-        VecWidth::V256 => 32,
-        VecWidth::V512 => 64,
-    }
-}
-
-fn address_alignment(addr: &Address, alignments: &HashMap<VReg, usize>) -> Option<usize> {
-    match addr {
-        Address::Direct(base) => alignments.get(base).copied(),
-        Address::BaseOffset { base, offset, .. } => {
-            let base_align = alignments.get(base).copied()?;
-            Some(gcd(base_align, offset.unsigned_abs() as usize))
-        }
-        Address::BaseIndexScale {
-            base,
-            index,
-            scale,
-            disp,
-            ..
-        } => {
-            let index_align = alignments.get(index).copied()?;
-            let scaled = index_align.checked_mul(*scale as usize)?;
-            let mut alignment = scaled;
-            if let Some(base_reg) = base {
-                let base_align = alignments.get(base_reg).copied()?;
-                alignment = gcd(alignment, base_align);
-            }
-            alignment = gcd(alignment, (*disp as i64).unsigned_abs() as usize);
-            Some(alignment)
-        }
-        Address::PcRel { offset, base, .. } => {
-            let base_addr = match base {
-                Some(base_addr) => *base_addr as i128,
-                None => return None,
-            };
-            let target = base_addr + *offset as i128;
-            if target < 0 {
-                None
-            } else {
-                Some(alignment_from_addr(target as u64))
-            }
-        }
-        Address::Absolute(addr) => Some(alignment_from_addr(*addr)),
-        _ => None,
-    }
-}
-
-fn alignment_from_addr(addr: u64) -> usize {
-    if addr == 0 {
-        return 1;
-    }
-    1usize << addr.trailing_zeros()
-}
-
-fn gcd(mut a: usize, mut b: usize) -> usize {
-    if a == 0 {
-        return b;
-    }
-    if b == 0 {
-        return a;
-    }
-    while b != 0 {
-        let tmp = a % b;
-        a = b;
-        b = tmp;
-    }
-    a
 }
 
 fn redundant_load_elimination_block(block: &mut SmirBlock) -> usize {
