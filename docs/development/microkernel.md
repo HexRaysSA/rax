@@ -35,6 +35,17 @@ make
 
 The freestanding Rust build requires a nightly toolchain with `rust-src` because it builds core/runtime components for custom targets. An appropriate `objcopy` is needed to produce the final image forms.
 
+The x86-64 image retains `x86_64-unknown-none`'s soft-float code-generation
+baseline. Its SSE/AVX/AVX2/AVX-512 instruction probes use explicit inline
+assembly with memory operands and declared vector scratch registers. Do not
+enable SSE-implying `#[target_feature]` attributes on these functions: current
+nightly rejects that combination with `x86_softfloat_sse`. The explicit probes
+still execute unconditionally, so their test guest must provide the named ISA
+features and corresponding vector state. The scalar comparison code continues
+to use the target's software arithmetic. See the [archived Rust compiler and
+inline-assembly references](microkernel-references/README.md) for provenance and
+the captured compilation regression.
+
 ## Run all architectures
 
 ```sh

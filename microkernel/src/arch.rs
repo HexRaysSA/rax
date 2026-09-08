@@ -280,6 +280,9 @@ fn isa_impl(h: &mut Harness) {
     let pa = [10i32, -20, 30, -40];
     let pb = [1i32, 2, 3, 4];
     let mut pr = [0i32; 4];
+    // SAFETY: The x86 test guest provides SSE4.1. Each unaligned access is
+    // within a live 16-byte local array; pr is separate and exclusively held.
+    // Both vector scratch registers are declared, and the asm cannot unwind.
     unsafe {
         asm!(
             "movdqu xmm0, [{a}]",
@@ -288,6 +291,7 @@ fn isa_impl(h: &mut Harness) {
             "pmulld xmm0, xmm1",
             "movdqu [{r}], xmm0",
             a = in(reg) pa.as_ptr(), b = in(reg) pb.as_ptr(), r = in(reg) pr.as_mut_ptr(),
+            out("xmm0") _, out("xmm1") _,
             options(nostack, preserves_flags),
         );
     }
@@ -295,10 +299,14 @@ fn isa_impl(h: &mut Harness) {
     h.check("sse_paddd_pmulld", pr == exp);
 
     // AVX (128) float add/mul vs scalar f32.
+    // SAFETY: These are unconditional ISA probes for the x86 test guest, which
+    // must provide AVX, AVX2 and AVX-512F with the corresponding vector state.
     unsafe { avx_check(h) };
     // AVX2 (256) integer vs scalar.
+    // SAFETY: The same test-guest feature contract applies here.
     unsafe { avx2_check(h) };
     // AVX-512 (512) float vs scalar.
+    // SAFETY: The same test-guest feature contract applies here.
     unsafe { avx512_check(h) };
 
     // CPUID leaf 0: max leaf and a non-empty vendor string.
@@ -307,13 +315,20 @@ fn isa_impl(h: &mut Harness) {
     h.check("cpuid_vendor", vendor_nonzero);
 }
 
+// Keep compiler-generated code on x86_64-unknown-none's soft-float baseline:
+// target_feature enabling AVX also enables SSE, which LLVM cannot combine with
+// soft-float. Explicit asm performs the vector probes with memory operands and
+// discarded register outputs, so no SIMD value crosses the Rust/asm boundary.
+// See docs/development/microkernel.md for the compiler/reference provenance.
 #[cfg(all(not(feature = "usermode"), target_arch = "x86_64"))]
-#[target_feature(enable = "avx")]
-fn avx_check(h: &mut Harness) {
+unsafe fn avx_check(h: &mut Harness) {
     use core::arch::asm;
     let a = [1.0f32, 2.0, 3.0, 4.0];
     let b = [5.0f32, 6.0, 7.0, 8.0];
     let mut r = [0f32; 4];
+    // SAFETY: The caller supplies an AVX-capable guest with vector state
+    // enabled. The unaligned accesses cover three distinct, live 16-byte
+    // arrays; r is exclusive. Scratch registers are declared; no calls unwind.
     unsafe {
         asm!(
             "vmovups xmm0, [{a}]",
@@ -322,7 +337,8 @@ fn avx_check(h: &mut Harness) {
             "vmulps xmm0, xmm0, xmm1",
             "vmovups [{r}], xmm0",
             a = in(reg) a.as_ptr(), b = in(reg) b.as_ptr(), r = in(reg) r.as_mut_ptr(),
-            options(nostack, preserves_flags),
+            out("xmm0") _, out("xmm1") _,
+            options(nostack),
         );
     }
     let ok = (0..4).all(|i| r[i].to_bits() == ((a[i] + b[i]) * b[i]).to_bits());
@@ -330,12 +346,14 @@ fn avx_check(h: &mut Harness) {
 }
 
 #[cfg(all(not(feature = "usermode"), target_arch = "x86_64"))]
-#[target_feature(enable = "avx2")]
-fn avx2_check(h: &mut Harness) {
+unsafe fn avx2_check(h: &mut Harness) {
     use core::arch::asm;
     let a: [i32; 8] = core::array::from_fn(|i| i as i32 + 1);
     let b: [i32; 8] = core::array::from_fn(|i| (i as i32 + 1) * 2);
     let mut r = [0i32; 8];
+    // SAFETY: The caller supplies an AVX2-capable guest with vector state
+    // enabled. The unaligned accesses cover three distinct, live 32-byte
+    // arrays; r is exclusive. Scratch registers are declared; no calls unwind.
     unsafe {
         asm!(
             "vmovdqu ymm0, [{a}]",
@@ -344,6 +362,7 @@ fn avx2_check(h: &mut Harness) {
             "vpslld ymm0, ymm0, 1",
             "vmovdqu [{r}], ymm0",
             a = in(reg) a.as_ptr(), b = in(reg) b.as_ptr(), r = in(reg) r.as_mut_ptr(),
+            out("ymm0") _, out("ymm1") _,
             options(nostack, preserves_flags),
         );
     }
@@ -352,12 +371,14 @@ fn avx2_check(h: &mut Harness) {
 }
 
 #[cfg(all(not(feature = "usermode"), target_arch = "x86_64"))]
-#[target_feature(enable = "avx512f")]
-fn avx512_check(h: &mut Harness) {
+unsafe fn avx512_check(h: &mut Harness) {
     use core::arch::asm;
     let a: [f32; 16] = core::array::from_fn(|i| i as f32 + 1.0);
     let b: [f32; 16] = core::array::from_fn(|i| 16.0 - i as f32);
     let mut r = [0f32; 16];
+    // SAFETY: The caller supplies an AVX-512F-capable guest with vector state
+    // enabled. The unaligned accesses cover three distinct, live 64-byte
+    // arrays; r is exclusive. Scratch registers are declared; no calls unwind.
     unsafe {
         asm!(
             "vmovups zmm0, [{a}]",
@@ -366,7 +387,8 @@ fn avx512_check(h: &mut Harness) {
             "vmulps zmm0, zmm0, zmm1",
             "vmovups [{r}], zmm0",
             a = in(reg) a.as_ptr(), b = in(reg) b.as_ptr(), r = in(reg) r.as_mut_ptr(),
-            options(nostack, preserves_flags),
+            out("zmm0") _, out("zmm1") _,
+            options(nostack),
         );
     }
     let ok = (0..16).all(|i| r[i].to_bits() == ((a[i] + b[i]) * b[i]).to_bits());
