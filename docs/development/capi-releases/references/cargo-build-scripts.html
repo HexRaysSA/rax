@@ -1,0 +1,674 @@
+<!DOCTYPE HTML>
+<html lang="en" class="light sidebar-visible" dir="ltr">
+    <head>
+        <!-- Book generated using mdBook -->
+        <meta charset="UTF-8">
+        <title>Build Scripts - The Cargo Book</title>
+
+
+        <!-- Custom HTML head -->
+        <style>
+            dd {
+                margin-bottom: 1em;
+            }
+        </style>
+
+        <meta name="description" content="">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="theme-color" content="#ffffff">
+
+        <link rel="shortcut icon" href="../favicon-ba9a2803.png">
+        <link rel="stylesheet" href="../css/variables-8adf115d.css">
+        <link rel="stylesheet" href="../css/general-0392ca55.css">
+        <link rel="stylesheet" href="../css/chrome-fc474251.css">
+        <link rel="stylesheet" href="../css/print-9e4910d8.css" media="print">
+
+        <!-- Fonts -->
+        <link rel="stylesheet" href="../fonts/fonts-9644e21d.css">
+
+        <!-- Highlight.js Stylesheets -->
+        <link rel="stylesheet" id="mdbook-highlight-css" href="../highlight-493f70e1.css">
+        <link rel="stylesheet" id="mdbook-tomorrow-night-css" href="../tomorrow-night-4c0ae647.css">
+        <link rel="stylesheet" id="mdbook-ayu-highlight-css" href="../ayu-highlight-3fdfc3ac.css">
+
+        <!-- Custom theme stylesheets -->
+        <link rel="stylesheet" href="../theme/cargo-d13f5220.css">
+
+
+        <!-- Provide site root and default themes to javascript -->
+        <script>
+            const path_to_root = "../";
+            const default_light_theme = "light";
+            const default_dark_theme = "navy";
+            window.path_to_searchindex_js = "../searchindex-d0035ae7.js";
+        </script>
+        <!-- Start loading toc.js asap -->
+        <script src="../toc-0e7001e7.js"></script>
+    </head>
+    <body>
+    <div id="mdbook-help-container">
+        <div id="mdbook-help-popup">
+            <h2 class="mdbook-help-title">Keyboard shortcuts</h2>
+            <div>
+                <p>Press <kbd>←</kbd> or <kbd>→</kbd> to navigate between chapters</p>
+                <p>Press <kbd>S</kbd> or <kbd>/</kbd> to search in the book</p>
+                <p>Press <kbd>?</kbd> to show this help</p>
+                <p>Press <kbd>Esc</kbd> to hide this help</p>
+            </div>
+        </div>
+    </div>
+    <div id="mdbook-body-container">
+        <!-- Work around some values being stored in localStorage wrapped in quotes -->
+        <script>
+            try {
+                let theme = localStorage.getItem('mdbook-theme');
+                let sidebar = localStorage.getItem('mdbook-sidebar');
+
+                if (theme.startsWith('"') && theme.endsWith('"')) {
+                    localStorage.setItem('mdbook-theme', theme.slice(1, theme.length - 1));
+                }
+
+                if (sidebar.startsWith('"') && sidebar.endsWith('"')) {
+                    localStorage.setItem('mdbook-sidebar', sidebar.slice(1, sidebar.length - 1));
+                }
+            } catch (e) { }
+        </script>
+
+        <!-- Set the theme before any content is loaded, prevents flash -->
+        <script>
+            const default_theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? default_dark_theme : default_light_theme;
+            let theme;
+            try { theme = localStorage.getItem('mdbook-theme'); } catch(e) { }
+            if (theme === null || theme === undefined) { theme = default_theme; }
+            const html = document.documentElement;
+            html.classList.remove('light')
+            html.classList.add(theme);
+            html.classList.add("js");
+        </script>
+
+        <input type="checkbox" id="mdbook-sidebar-toggle-anchor" class="hidden">
+
+        <!-- Hide / unhide sidebar before it is displayed -->
+        <script>
+            let sidebar = null;
+            const sidebar_toggle = document.getElementById("mdbook-sidebar-toggle-anchor");
+            if (document.body.clientWidth >= 1080) {
+                try { sidebar = localStorage.getItem('mdbook-sidebar'); } catch(e) { }
+                sidebar = sidebar || 'visible';
+            } else {
+                sidebar = 'hidden';
+                sidebar_toggle.checked = false;
+            }
+            if (sidebar === 'visible') {
+                sidebar_toggle.checked = true;
+            } else {
+                html.classList.remove('sidebar-visible');
+            }
+        </script>
+
+        <nav id="mdbook-sidebar" class="sidebar" aria-label="Table of contents">
+            <!-- populated by js -->
+            <mdbook-sidebar-scrollbox class="sidebar-scrollbox"></mdbook-sidebar-scrollbox>
+            <noscript>
+                <iframe class="sidebar-iframe-outer" src="../toc.html"></iframe>
+            </noscript>
+            <div id="mdbook-sidebar-resize-handle" class="sidebar-resize-handle">
+                <div class="sidebar-resize-indicator"></div>
+            </div>
+        </nav>
+
+        <div id="mdbook-page-wrapper" class="page-wrapper">
+
+            <div class="page">
+                <div id="mdbook-menu-bar-hover-placeholder"></div>
+                <div id="mdbook-menu-bar" class="menu-bar sticky">
+                    <div class="left-buttons">
+                        <label id="mdbook-sidebar-toggle" class="icon-button" for="mdbook-sidebar-toggle-anchor" title="Toggle Table of Contents" aria-label="Toggle Table of Contents" aria-controls="mdbook-sidebar">
+                            <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M0 96C0 78.3 14.3 64 32 64H416c17.7 0 32 14.3 32 32s-14.3 32-32 32H32C14.3 128 0 113.7 0 96zM0 256c0-17.7 14.3-32 32-32H416c17.7 0 32 14.3 32 32s-14.3 32-32 32H32c-17.7 0-32-14.3-32-32zM448 416c0 17.7-14.3 32-32 32H32c-17.7 0-32-14.3-32-32s14.3-32 32-32H416c17.7 0 32 14.3 32 32z"/></svg></span>
+                        </label>
+                        <button id="mdbook-theme-toggle" class="icon-button" type="button" title="Change theme" aria-label="Change theme" aria-haspopup="true" aria-expanded="false" aria-controls="mdbook-theme-list">
+                            <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 576 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M371.3 367.1c27.3-3.9 51.9-19.4 67.2-42.9L600.2 74.1c12.6-19.5 9.4-45.3-7.6-61.2S549.7-4.4 531.1 9.6L294.4 187.2c-24 18-38.2 46.1-38.4 76.1L371.3 367.1zm-19.6 25.4l-116-104.4C175.9 290.3 128 339.6 128 400c0 3.9 .2 7.8 .6 11.6c1.8 17.5-10.2 36.4-27.8 36.4H96c-17.7 0-32 14.3-32 32s14.3 32 32 32H240c61.9 0 112-50.1 112-112c0-2.5-.1-5-.2-7.5z"/></svg></span>
+                        </button>
+                        <ul id="mdbook-theme-list" class="theme-popup" aria-label="Themes" role="menu">
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-default_theme">Auto</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-light">Light</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-rust">Rust</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-coal">Coal</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-navy">Navy</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-ayu">Ayu</button></li>
+                        </ul>
+                        <button id="mdbook-search-toggle" class="icon-button" type="button" title="Search (`/`)" aria-label="Toggle Searchbar" aria-expanded="false" aria-keyshortcuts="/ s" aria-controls="mdbook-searchbar">
+                            <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M416 208c0 45.9-14.9 88.3-40 122.7L502.6 457.4c12.5 12.5 12.5 32.8 0 45.3s-32.8 12.5-45.3 0L330.7 376c-34.4 25.2-76.8 40-122.7 40C93.1 416 0 322.9 0 208S93.1 0 208 0S416 93.1 416 208zM208 352c79.5 0 144-64.5 144-144s-64.5-144-144-144S64 128.5 64 208s64.5 144 144 144z"/></svg></span>
+                        </button>
+                    </div>
+
+                    <h1 class="menu-title">The Cargo Book</h1>
+
+                    <div class="right-buttons">
+                        <a href="../print.html" title="Print this book" aria-label="Print this book">
+                            <span class=fa-svg id="print-button"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M128 0C92.7 0 64 28.7 64 64v96h64V64H354.7L384 93.3V160h64V93.3c0-17-6.7-33.3-18.7-45.3L400 18.7C388 6.7 371.7 0 354.7 0H128zM384 352v32 64H128V384 368 352H384zm64 32h32c17.7 0 32-14.3 32-32V256c0-35.3-28.7-64-64-64H64c-35.3 0-64 28.7-64 64v96c0 17.7 14.3 32 32 32H64v64c0 35.3 28.7 64 64 64H384c35.3 0 64-28.7 64-64V384zm-16-88c-13.3 0-24-10.7-24-24s10.7-24 24-24s24 10.7 24 24s-10.7 24-24 24z"/></svg></span>
+                        </a>
+                        <a href="https://github.com/rust-lang/cargo/tree/master/src/doc/src" title="Git repository" aria-label="Git repository">
+                            <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 496 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M165.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6zm-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3zm44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9zM244.8 8C106.1 8 0 113.3 0 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C428.2 457.8 496 362.9 496 252 496 113.3 383.5 8 244.8 8zM97.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1zm-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7zm32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1zm-11.4-14.7c-1.6 1-1.6 3.6 0 5.9 1.6 2.3 4.3 3.3 5.6 2.3 1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2z"/></svg></span>
+                        </a>
+                        <a href="https://github.com/rust-lang/cargo/edit/master/src/doc/src/reference/build-scripts.md" title="Suggest an edit" aria-label="Suggest an edit" rel="edit">
+                            <span class=fa-svg id="git-edit-button"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M421.7 220.3l-11.3 11.3-22.6 22.6-205 205c-6.6 6.6-14.8 11.5-23.8 14.1L30.8 511c-8.4 2.5-17.5 .2-23.7-6.1S-1.5 489.7 1 481.2L38.7 353.1c2.6-9 7.5-17.2 14.1-23.8l205-205 22.6-22.6 11.3-11.3 33.9 33.9 62.1 62.1 33.9 33.9zM96 353.9l-9.3 9.3c-.9 .9-1.6 2.1-2 3.4l-25.3 86 86-25.3c1.3-.4 2.5-1.1 3.4-2l9.3-9.3H112c-8.8 0-16-7.2-16-16V353.9zM453.3 19.3l39.4 39.4c25 25 25 65.5 0 90.5l-14.5 14.5-22.6 22.6-11.3 11.3-33.9-33.9-62.1-62.1L314.3 67.7l11.3-11.3 22.6-22.6 14.5-14.5c25-25 65.5-25 90.5 0z"/></svg></span>
+                        </a>
+
+                    </div>
+                </div>
+
+                <div id="mdbook-search-wrapper" class="hidden">
+                    <form id="mdbook-searchbar-outer" class="searchbar-outer">
+                        <div class="search-wrapper">
+                            <input type="search" id="mdbook-searchbar" name="searchbar" placeholder="Search this book ..." aria-controls="mdbook-searchresults-outer" aria-describedby="searchresults-header">
+                            <div class="spinner-wrapper">
+                                <span class=fa-svg id="fa-spin"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M304 48c0-26.5-21.5-48-48-48s-48 21.5-48 48s21.5 48 48 48s48-21.5 48-48zm0 416c0-26.5-21.5-48-48-48s-48 21.5-48 48s21.5 48 48 48s48-21.5 48-48zM48 304c26.5 0 48-21.5 48-48s-21.5-48-48-48s-48 21.5-48 48s21.5 48 48 48zm464-48c0-26.5-21.5-48-48-48s-48 21.5-48 48s21.5 48 48 48s48-21.5 48-48zM142.9 437c18.7-18.7 18.7-49.1 0-67.9s-49.1-18.7-67.9 0s-18.7 49.1 0 67.9s49.1 18.7 67.9 0zm0-294.2c18.7-18.7 18.7-49.1 0-67.9S93.7 56.2 75 75s-18.7 49.1 0 67.9s49.1 18.7 67.9 0zM369.1 437c18.7 18.7 49.1 18.7 67.9 0s18.7-49.1 0-67.9s-49.1-18.7-67.9 0s-18.7 49.1 0 67.9z"/></svg></span>
+                            </div>
+                        </div>
+                    </form>
+                    <div id="mdbook-searchresults-outer" class="searchresults-outer hidden">
+                        <div id="mdbook-searchresults-header" class="searchresults-header"></div>
+                        <ul id="mdbook-searchresults">
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Apply ARIA attributes after the sidebar and the sidebar toggle button are added to the DOM -->
+                <script>
+                    document.getElementById('mdbook-sidebar-toggle').setAttribute('aria-expanded', sidebar === 'visible');
+                    document.getElementById('mdbook-sidebar').setAttribute('aria-hidden', sidebar !== 'visible');
+                    Array.from(document.querySelectorAll('#mdbook-sidebar a')).forEach(function(link) {
+                        link.setAttribute('tabIndex', sidebar === 'visible' ? 0 : -1);
+                    });
+                </script>
+
+                <div id="mdbook-content" class="content">
+                    <main>
+                        <h1 id="build-scripts"><a class="header" href="#build-scripts">Build Scripts</a></h1>
+<p>Some packages need to compile third-party non-Rust code, for example C
+libraries. Other packages need to link to C libraries which can either be
+located on the system or possibly need to be built from source. Others still
+need facilities for functionality such as code generation before building (think
+parser generators).</p>
+<p>Cargo does not aim to replace other tools that are well-optimized for these
+tasks, but it does integrate with them with custom build scripts. Placing a
+file named <code>build.rs</code> in the root of a package will cause Cargo to compile
+that script and execute it just before building the package.</p>
+<pre><code class="language-rust ignore">// Example custom build script.
+fn main() {
+    // Tell Cargo that if the given file changes, to rerun this build script.
+    println!("cargo::rerun-if-changed=src/hello.c");
+    // Use the `cc` crate to build a C file and statically link it.
+    cc::Build::new()
+        .file("src/hello.c")
+        .compile("hello");
+}</code></pre>
+<p>Some example use cases of build scripts are:</p>
+<ul>
+<li>Building a bundled C library.</li>
+<li>Finding a C library on the host system.</li>
+<li>Generating a Rust module from a specification.</li>
+<li>Performing any platform-specific configuration needed for the crate.</li>
+</ul>
+<p>The sections below describe how build scripts work, and the <a href="build-script-examples.html">examples
+chapter</a> shows a variety of examples on how to write
+scripts.</p>
+<blockquote>
+<p>Note: The <a href="manifest.html#the-build-field"><code>package.build</code> manifest key</a> can be
+used to change the name of the build script, or disable it entirely.</p>
+</blockquote>
+<h2 id="life-cycle-of-a-build-script"><a class="header" href="#life-cycle-of-a-build-script">Life Cycle of a Build Script</a></h2>
+<p>Just before a package is built, Cargo will compile a build script into an
+executable (if it has not already been built). It will then run the script,
+which may perform any number of tasks. The script may communicate with Cargo
+by printing specially formatted commands prefixed with <code>cargo::</code> to stdout.</p>
+<p>The build script will be rebuilt if any of its source files or dependencies
+change.</p>
+<p>By default, Cargo will re-run the build script if any of the files in the
+package changes. Typically it is best to use the <code>rerun-if</code> commands,
+described in the <a href="#change-detection">change detection</a> section below, to
+narrow the focus of what triggers a build script to run again.</p>
+<p>Once the build script successfully finishes executing, the rest of the package
+will be compiled. Scripts should exit with a non-zero exit code to halt the
+build if there is an error, in which case the build script’s output will be
+displayed on the terminal.</p>
+<h2 id="inputs-to-the-build-script"><a class="header" href="#inputs-to-the-build-script">Inputs to the Build Script</a></h2>
+<p>When the build script is run, there are a number of inputs to the build script,
+all passed in the form of <a href="environment-variables.html#environment-variables-cargo-sets-for-build-scripts">environment variables</a>.</p>
+<p>In addition to environment variables, the build script’s current directory is
+the root directory of the build script’s package.</p>
+<blockquote>
+<p><strong>Note:</strong> When checking <a href="../../reference/conditional-compilation.html">configuration options</a> like <code>target_os</code> or <code>target_arch</code>
+in a build script, do not use the <code>cfg!</code> macro or <code>#[cfg]</code> attribute, these
+check the <strong>host</strong> machine (where the build script runs), not the <strong>target</strong>
+platform you’re compiling for. This distinction matters when cross-compiling.</p>
+<p>Instead, read the corresponding <a href="environment-variables.html#environment-variables-cargo-sets-for-build-scripts"><code>CARGO_CFG_*</code></a> environment variables,
+which correctly reflect the target’s configuration. For a typed API, consider
+using the <a href="https://crates.io/crates/build-rs"><code>build-rs</code></a> crate. See the <a href="build-script-examples.html#conditional-compilation">build script examples</a> for more details.</p>
+</blockquote>
+<h2 id="outputs-of-the-build-script"><a class="header" href="#outputs-of-the-build-script">Outputs of the Build Script</a></h2>
+<p>Build scripts may save any output files or intermediate artifacts in the
+directory specified in the <a href="environment-variables.html#environment-variables-cargo-sets-for-build-scripts"><code>OUT_DIR</code> environment variable</a>. Scripts
+should not modify any files outside of that directory.</p>
+<blockquote>
+<p><strong>Note:</strong> Cargo does not clean or reset <code>OUT_DIR</code> between builds. The contents
+of this directory may persist across rebuilds, even if the build script is
+re-run. This behavior is intentional to support incremental builds, such as
+native code compilation.</p>
+<p>Build scripts should not rely on <code>OUT_DIR</code> being empty, as its contents may
+persist across rebuilds. If a script requires a clean directory, it is currently
+responsible for managing or cleaning up any files or subdirectories it creates.
+Future improvements in this area are being discussed (see
+<a href="https://github.com/rust-lang/cargo/issues/16427">#16427</a> and
+<a href="https://github.com/rust-lang/cargo/issues/9661">#9661</a>).</p>
+</blockquote>
+<p>Build scripts communicate with Cargo by printing to stdout. Cargo will
+interpret each line that starts with <code>cargo::</code> as an instruction that will
+influence compilation of the package. All other lines are ignored.</p>
+<blockquote>
+<p>The order of <code>cargo::</code> instructions printed by the build script <em>may</em>
+affect the order of arguments that <code>cargo</code> passes to <code>rustc</code>. In turn, the
+order of arguments passed to <code>rustc</code> may affect the order of arguments passed
+to the linker. Therefore, you will want to pay attention to the order of the
+build script’s instructions. For example, if object <code>foo</code> needs to link against
+library <code>bar</code>, you may want to make sure that library <code>bar</code>’s
+<a href="#rustc-link-lib"><code>cargo::rustc-link-lib</code></a> instruction appears <em>after</em>
+instructions to link object <code>foo</code>.</p>
+</blockquote>
+<p>The output of the script is hidden from the terminal during normal
+compilation. If you would like to see the output directly in your terminal,
+invoke Cargo as “very verbose” with the <code>-vv</code> flag. This only happens when the
+build script is run. If Cargo determines nothing has changed, it will not
+re-run the script, see <a href="#change-detection">change detection</a> below for more.</p>
+<p>All the lines printed to stdout by a build script are written to a file like
+<code>target/debug/build/&lt;pkg&gt;/output</code> (the precise location may depend on your
+configuration). The stderr output is also saved in that same directory.</p>
+<p>The following is a summary of the instructions that Cargo recognizes, with each
+one detailed below.</p>
+<ul>
+<li><a href="#rerun-if-changed"><code>cargo::rerun-if-changed=PATH</code></a> — Tells Cargo when to
+re-run the script.</li>
+<li><a href="#rerun-if-env-changed"><code>cargo::rerun-if-env-changed=VAR</code></a> — Tells Cargo when
+to re-run the script.</li>
+<li><a href="#rustc-link-arg"><code>cargo::rustc-link-arg=FLAG</code></a> — Passes custom flags to a
+linker for benchmarks, binaries, <code>cdylib</code> crates, examples, and tests.</li>
+<li><a href="#rustc-cdylib-link-arg"><code>cargo::rustc-link-arg-cdylib=FLAG</code></a> — Passes custom
+flags to a linker for cdylib crates.</li>
+<li><a href="#rustc-link-arg-bin"><code>cargo::rustc-link-arg-bin=BIN=FLAG</code></a> — Passes custom
+flags to a linker for the binary <code>BIN</code>.</li>
+<li><a href="#rustc-link-arg-bins"><code>cargo::rustc-link-arg-bins=FLAG</code></a> — Passes custom
+flags to a linker for binaries.</li>
+<li><a href="#rustc-link-arg-tests"><code>cargo::rustc-link-arg-tests=FLAG</code></a> — Passes custom
+flags to a linker for tests.</li>
+<li><a href="#rustc-link-arg-examples"><code>cargo::rustc-link-arg-examples=FLAG</code></a> — Passes custom
+flags to a linker for examples.</li>
+<li><a href="#rustc-link-arg-benches"><code>cargo::rustc-link-arg-benches=FLAG</code></a> — Passes custom
+flags to a linker for benchmarks.</li>
+<li><a href="#rustc-link-lib"><code>cargo::rustc-link-lib=LIB</code></a> — Adds a library to
+link.</li>
+<li><a href="#rustc-link-search"><code>cargo::rustc-link-search=[KIND=]PATH</code></a> — Adds to the
+library search path.</li>
+<li><a href="#rustc-flags"><code>cargo::rustc-flags=FLAGS</code></a> — Passes certain flags to the
+compiler.</li>
+<li><a href="#rustc-cfg"><code>cargo::rustc-cfg=KEY[="VALUE"]</code></a> — Enables compile-time <code>cfg</code>
+settings.</li>
+<li><a href="#rustc-check-cfg"><code>cargo::rustc-check-cfg=CHECK_CFG</code></a> – Register custom <code>cfg</code>s as
+expected for compile-time checking of configs.</li>
+<li><a href="#rustc-env"><code>cargo::rustc-env=VAR=VALUE</code></a> — Sets an environment variable.</li>
+</ul>
+<ul>
+<li><a href="#cargo-error"><code>cargo::error=MESSAGE</code></a> — Displays an error on the terminal.</li>
+</ul>
+<ul>
+<li><a href="#cargo-warning"><code>cargo::warning=MESSAGE</code></a> — Displays a warning on the
+terminal.</li>
+<li><a href="#the-links-manifest-key"><code>cargo::metadata=KEY=VALUE</code></a> — Metadata, used by <code>links</code>
+scripts.</li>
+</ul>
+<blockquote>
+<p><strong>MSRV:</strong> 1.77 is required for <code>cargo::KEY=VALUE</code> syntax.
+To support older versions, use the <code>cargo:KEY=VALUE</code> syntax.</p>
+</blockquote>
+<h3 id="rustc-link-arg"><a class="header" href="#rustc-link-arg"><code>cargo::rustc-link-arg=FLAG</code></a></h3>
+<p>The <code>rustc-link-arg</code> instruction tells Cargo to pass the <a href="../../rustc/codegen-options/index.html#link-arg"><code>-C link-arg=FLAG</code>
+option</a> to the compiler, but only when building supported targets
+(benchmarks, binaries, <code>cdylib</code> crates, examples, and tests). Its usage is
+highly platform specific. It is useful to set the shared library version or
+linker script.</p>
+<h3 id="rustc-cdylib-link-arg"><a class="header" href="#rustc-cdylib-link-arg"><code>cargo::rustc-link-arg-cdylib=FLAG</code></a></h3>
+<p>The <code>rustc-link-arg-cdylib</code> instruction tells Cargo to pass the <a href="../../rustc/codegen-options/index.html#link-arg"><code>-C link-arg=FLAG</code> option</a> to the compiler, but only when building a
+<code>cdylib</code> library target. Its usage is highly platform specific. It is useful
+to set the shared library version or the runtime-path.</p>
+<p>For historical reasons, the <code>cargo::rustc-cdylib-link-arg</code> form is an alias
+for <code>cargo::rustc-link-arg-cdylib</code>, and has the same meaning.</p>
+<h3 id="rustc-link-arg-bin"><a class="header" href="#rustc-link-arg-bin"><code>cargo::rustc-link-arg-bin=BIN=FLAG</code></a></h3>
+<p>The <code>rustc-link-arg-bin</code> instruction tells Cargo to pass the <a href="../../rustc/codegen-options/index.html#link-arg"><code>-C link-arg=FLAG</code> option</a> to the compiler, but only when building
+the binary target with name <code>BIN</code>. Its usage is highly platform specific. It is useful
+to set a linker script or other linker options.</p>
+<h3 id="rustc-link-arg-bins"><a class="header" href="#rustc-link-arg-bins"><code>cargo::rustc-link-arg-bins=FLAG</code></a></h3>
+<p>The <code>rustc-link-arg-bins</code> instruction tells Cargo to pass the <a href="../../rustc/codegen-options/index.html#link-arg"><code>-C link-arg=FLAG</code> option</a> to the compiler, but only when building a
+binary target. Its usage is highly platform specific. It is useful
+to set a linker script or other linker options.</p>
+<h3 id="rustc-link-arg-tests"><a class="header" href="#rustc-link-arg-tests"><code>cargo::rustc-link-arg-tests=FLAG</code></a></h3>
+<p>The <code>rustc-link-arg-tests</code> instruction tells Cargo to pass the <a href="../../rustc/codegen-options/index.html#link-arg"><code>-C link-arg=FLAG</code> option</a> to the compiler, but only when building a
+tests target.</p>
+<h3 id="rustc-link-arg-examples"><a class="header" href="#rustc-link-arg-examples"><code>cargo::rustc-link-arg-examples=FLAG</code></a></h3>
+<p>The <code>rustc-link-arg-examples</code> instruction tells Cargo to pass the <a href="../../rustc/codegen-options/index.html#link-arg"><code>-C link-arg=FLAG</code> option</a> to the compiler, but only when building an examples
+target.</p>
+<h3 id="rustc-link-arg-benches"><a class="header" href="#rustc-link-arg-benches"><code>cargo::rustc-link-arg-benches=FLAG</code></a></h3>
+<p>The <code>rustc-link-arg-benches</code> instruction tells Cargo to pass the <a href="../../rustc/codegen-options/index.html#link-arg"><code>-C link-arg=FLAG</code> option</a> to the compiler, but only when building a benchmark
+target.</p>
+<h3 id="rustc-link-lib"><a class="header" href="#rustc-link-lib"><code>cargo::rustc-link-lib=LIB</code></a></h3>
+<p>The <code>rustc-link-lib</code> instruction tells Cargo to link the given library using
+the compiler’s <a href="../../rustc/command-line-arguments.html#option-l-link-lib"><code>-l</code> flag</a>. This is typically used to link a
+native library using <a href="../../nomicon/ffi.html">FFI</a>.</p>
+<p>The <code>LIB</code> string is passed directly to rustc, so it supports any syntax that
+<code>-l</code> does. <br>Currently the fully supported syntax for <code>LIB</code> is <code>[KIND[:MODIFIERS]=]NAME[:RENAME]</code>.</p>
+<p>The <code>-l</code> flag is only passed to the library target of the package, unless
+there is no library target, in which case it is passed to all targets. This is
+done because all other targets have an implicit dependency on the library
+target, and the given library to link should only be included once. This means
+that if a package has both a library and a binary target, the <em>library</em> has
+access to the symbols from the given lib, and the binary should access them
+through the library target’s public API.</p>
+<p>The optional <code>KIND</code> may be one of <code>dylib</code>, <code>static</code>, or <code>framework</code>. See the
+<a href="../../rustc/command-line-arguments.html#option-l-link-lib">rustc book</a> for more detail.</p>
+<h3 id="rustc-link-search"><a class="header" href="#rustc-link-search"><code>cargo::rustc-link-search=[KIND=]PATH</code></a></h3>
+<p>The <code>rustc-link-search</code> instruction tells Cargo to pass the <a href="../../rustc/command-line-arguments.html#option-l-search-path"><code>-L</code>
+flag</a> to the compiler to add a directory to the library search
+path.</p>
+<p>The optional <code>KIND</code> may be one of <code>dependency</code>, <code>crate</code>, <code>native</code>,
+<code>framework</code>, or <code>all</code>. See the <a href="../../rustc/command-line-arguments.html#option-l-search-path">rustc book</a> for more detail.</p>
+<p>These paths are also added to the <a href="environment-variables.html#dynamic-library-paths">dynamic library search path environment
+variable</a> if they are within
+the <code>OUT_DIR</code>. Depending on this behavior is discouraged since this makes it
+difficult to use the resulting binary. In general, it is best to avoid
+creating dynamic libraries in a build script (using existing system libraries
+is fine).</p>
+<h3 id="rustc-flags"><a class="header" href="#rustc-flags"><code>cargo::rustc-flags=FLAGS</code></a></h3>
+<p>The <code>rustc-flags</code> instruction tells Cargo to pass the given space-separated
+flags to the compiler. This only allows the <code>-l</code> and <code>-L</code> flags, and is
+equivalent to using <a href="#rustc-link-lib"><code>rustc-link-lib</code></a> and
+<a href="#rustc-link-search"><code>rustc-link-search</code></a>.</p>
+<h3 id="rustc-cfg"><a class="header" href="#rustc-cfg"><code>cargo::rustc-cfg=KEY[="VALUE"]</code></a></h3>
+<p>The <code>rustc-cfg</code> instruction tells Cargo to pass the given value to the
+<a href="../../rustc/command-line-arguments.html#option-cfg"><code>--cfg</code> flag</a> to the compiler. This may be used for compile-time
+detection of features to enable <a href="../../reference/conditional-compilation.html">conditional compilation</a>. Custom cfgs
+must either be expected using the <a href="#rustc-check-cfg"><code>cargo::rustc-check-cfg</code></a>
+instruction or usage will need to allow the <a href="../../rustc/lints/listing/warn-by-default.html#unexpected-cfgs"><code>unexpected_cfgs</code></a>
+lint to avoid unexpected cfgs warnings.</p>
+<p>Note that this does <em>not</em> affect Cargo’s dependency resolution. This cannot be
+used to enable an optional dependency, or enable other Cargo features.</p>
+<p>Be aware that <a href="features.html">Cargo features</a> use the form <code>feature="foo"</code>. <code>cfg</code> values
+passed with this flag are not restricted to that form, and may provide just a
+single identifier, or any arbitrary key/value pair. For example, emitting
+<code>cargo::rustc-cfg=abc</code> will then allow code to use <code>#[cfg(abc)]</code> (note the lack
+of <code>feature=</code>). Or an arbitrary key/value pair may be used with an <code>=</code> symbol
+like <code>cargo::rustc-cfg=my_component="foo"</code>. The key should be a Rust
+identifier, the value should be a string.</p>
+<h3 id="rustc-check-cfg"><a class="header" href="#rustc-check-cfg"><code>cargo::rustc-check-cfg=CHECK_CFG</code></a></h3>
+<p>Add to the list of expected config names and values that is used when checking
+the <em>reachable</em> cfg expressions with the <a href="../../rustc/lints/listing/warn-by-default.html#unexpected-cfgs"><code>unexpected_cfgs</code></a> lint.</p>
+<p>The syntax of <code>CHECK_CFG</code> mirrors the <code>rustc</code> <a href="../../rustc/command-line-arguments.html#option-check-cfg"><code>--check-cfg</code> flag</a>, see
+<a href="../../rustc/check-cfg.html">Checking conditional configurations</a> for more details.</p>
+<p>The instruction can be used like this:</p>
+<pre class="playground"><code class="language-rust no_run"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>// build.rs
+println!("cargo::rustc-check-cfg=cfg(foo, values(\"bar\"))");
+if foo_bar_condition {
+    println!("cargo::rustc-cfg=foo=\"bar\"");
+}
+<span class="boring">}</span></code></pre>
+<p>Note that all possible cfgs should be defined, regardless of which cfgs are
+currently enabled. This includes all possible values of a given cfg name.</p>
+<p>It is recommended to group the <code>cargo::rustc-check-cfg</code> and
+<a href="../../rustc/command-line-arguments.html#option-cfg"><code>cargo::rustc-cfg</code></a> instructions as closely as possible in order to
+avoid typos, missing check-cfg, stale cfgs…</p>
+<p>See also the
+<a href="build-script-examples.html#conditional-compilation">conditional compilation</a> example.</p>
+<blockquote>
+<p><strong>MSRV:</strong> Respected as of 1.80</p>
+</blockquote>
+<h3 id="rustc-env"><a class="header" href="#rustc-env"><code>cargo::rustc-env=VAR=VALUE</code></a></h3>
+<p>The <code>rustc-env</code> instruction tells Cargo to set the given environment variable
+when compiling the package. The value can be then retrieved by the <a href="../../std/macro.env.html"><code>env!</code>
+macro</a> in the compiled crate. This is useful for embedding
+additional metadata in crate’s code, such as the hash of git HEAD or the
+unique identifier of a continuous integration server.</p>
+<p>See also the <a href="environment-variables.html#environment-variables-cargo-sets-for-crates">environment variables automatically included by
+Cargo</a>.</p>
+<blockquote>
+<p><strong>Note</strong>: These environment variables are also set when running an
+executable with <code>cargo run</code> or <code>cargo test</code>. However, this usage is
+discouraged since it ties the executable to Cargo’s execution environment.
+Normally, these environment variables should only be checked at compile-time
+with the <code>env!</code> macro.</p>
+</blockquote>
+<h3 id="cargo-error"><a class="header" href="#cargo-error"><code>cargo::error=MESSAGE</code></a></h3>
+<p>The <code>error</code> instruction tells Cargo to display an error after the build script
+has finished running, and then fail the build.</p>
+<blockquote>
+<p>Note: Build script libraries should carefully consider if they want to
+use <code>cargo::error</code> versus returning a <code>Result</code>. It may be better to return
+a <code>Result</code>, and allow the caller to decide if the error is fatal or not.
+The caller can then decide whether or not to display the <code>Err</code> variant
+using <code>cargo::error</code>.</p>
+</blockquote>
+<blockquote>
+<p><strong>MSRV:</strong> Respected as of 1.84</p>
+</blockquote>
+<h3 id="cargo-warning"><a class="header" href="#cargo-warning"><code>cargo::warning=MESSAGE</code></a></h3>
+<p>The <code>warning</code> instruction tells Cargo to display a warning after the build
+script has finished running. Warnings are only shown for <code>path</code> dependencies
+(that is, those you’re working on locally), so for example warnings printed
+out in <a href="https://crates.io/">crates.io</a> crates are not emitted by default, unless the build fails.
+The <code>-vv</code> “very verbose” flag may be used to have Cargo display warnings for
+all crates.</p>
+<h2 id="build-dependencies"><a class="header" href="#build-dependencies">Build Dependencies</a></h2>
+<p>Build scripts are also allowed to have dependencies on other Cargo-based crates.
+Dependencies are declared through the <code>build-dependencies</code> section of the
+manifest.</p>
+<pre><code class="language-toml">[build-dependencies]
+cc = "1.0.46"
+</code></pre>
+<p>The build script <strong>does not</strong> have access to the dependencies listed in the
+<code>dependencies</code> or <code>dev-dependencies</code> section (they’re not built yet!). Also,
+build dependencies are not available to the package itself unless also
+explicitly added in the <code>[dependencies]</code> table.</p>
+<p>It is recommended to carefully consider each dependency you add, weighing
+against the impact on compile time, licensing, maintenance, etc. Cargo will
+attempt to reuse a dependency if it is shared between build dependencies and
+normal dependencies. However, this is not always possible, for example when
+cross-compiling, so keep that in consideration of the impact on compile time.</p>
+<h2 id="change-detection"><a class="header" href="#change-detection">Change Detection</a></h2>
+<p>When rebuilding a package, Cargo does not necessarily know if the build script
+needs to be run again. By default, it takes a conservative approach of always
+re-running the build script if any file within the package is changed (or the
+list of files controlled by the <a href="manifest.html#the-exclude-and-include-fields"><code>exclude</code> and <code>include</code> fields</a>). For most
+cases, this is not a good choice, so it is recommended that every build script
+emit at least one of the <code>rerun-if</code> instructions (described below). If these
+are emitted, then Cargo will only re-run the script if the given value has
+changed. If Cargo is re-running the build scripts of your own crate or a
+dependency and you don’t know why, see <a href="../faq.html#why-is-cargo-rebuilding-my-code">“Why is Cargo rebuilding my code?” in the
+FAQ</a>.</p>
+<h3 id="rerun-if-changed"><a class="header" href="#rerun-if-changed"><code>cargo::rerun-if-changed=PATH</code></a></h3>
+<p>The <code>rerun-if-changed</code> instruction tells Cargo to re-run the build script if
+the file at the given path has changed. Currently, Cargo only uses the
+filesystem last-modified “mtime” timestamp to determine if the file has
+changed. It compares against an internal cached timestamp of when the build
+script last ran.</p>
+<p>If the path points to a directory, it will scan the entire directory for
+any modifications.</p>
+<p>If the build script inherently does not need to re-run under any circumstance,
+then emitting <code>cargo::rerun-if-changed=build.rs</code> is a simple way to prevent it
+from being re-run (otherwise, the default if no <code>rerun-if</code> instructions are
+emitted is to scan the entire package directory for changes). Cargo
+automatically handles whether or not the script itself needs to be recompiled,
+and of course the script will be re-run after it has been recompiled.
+Otherwise, specifying <code>build.rs</code> is redundant and unnecessary.</p>
+<h3 id="rerun-if-env-changed"><a class="header" href="#rerun-if-env-changed"><code>cargo::rerun-if-env-changed=NAME</code></a></h3>
+<p>The <code>rerun-if-env-changed</code> instruction tells Cargo to re-run the build script
+if the value of an environment variable of the given name has changed.</p>
+<p>Note that the environment variables here are intended for global environment
+variables like <code>CC</code> and such, it is not possible to use this for environment
+variables like <code>TARGET</code> that <a href="environment-variables.html#environment-variables-cargo-sets-for-build-scripts">Cargo sets for build scripts</a>. The
+environment variables in use are those received by <code>cargo</code> invocations, not
+those received by the executable of the build script.</p>
+<p>As of 1.46, using <a href="../../std/macro.env.html"><code>env!</code></a> and <a href="../../std/macro.option_env.html"><code>option_env!</code></a> in
+source code will automatically detect changes and trigger rebuilds.
+<code>rerun-if-env-changed</code> is no longer needed for variables already referenced by
+these macros.</p>
+<h2 id="the-links-manifest-key"><a class="header" href="#the-links-manifest-key">The <code>links</code> Manifest Key</a></h2>
+<p>The <code>package.links</code> key may be set in the <code>Cargo.toml</code> manifest to declare
+that the package links with the given native library. The purpose of this
+manifest key is to give Cargo an understanding about the set of native
+dependencies that a package has, as well as providing a principled system of
+passing metadata between package build scripts.</p>
+<pre><code class="language-toml">[package]
+# ...
+links = "foo"
+</code></pre>
+<p>This manifest states that the package links to the <code>libfoo</code> native library.
+When using the <code>links</code> key, the package must have a build script, and the
+build script should use the <a href="#rustc-link-lib"><code>rustc-link-lib</code> instruction</a> to
+link the library.</p>
+<p>Primarily, Cargo requires that there is at most one package per <code>links</code> value.
+In other words, it is forbidden to have two packages link to the same native
+library. This helps prevent duplicate symbols between crates. Note, however,
+that there are <a href="#-sys-packages">conventions in place</a> to alleviate this.</p>
+<p>Build scripts can generate an arbitrary set of metadata in the form of
+key-value pairs. This metadata is set with the <code>cargo::metadata=KEY=VALUE</code>
+instruction.</p>
+<p>The metadata is passed to the build scripts of <strong>dependent</strong> packages. For
+example, if the package <code>foo</code> depends on <code>bar</code>, which links <code>baz</code>, then if
+<code>bar</code> generates <code>key=value</code> as part of its build script metadata, then the
+build script of <code>foo</code> will have the environment variables <code>DEP_BAZ_KEY=value</code>
+(note that the value of the <code>links</code> key is used and the case change for <code>key</code>).
+See the <a href="build-script-examples.html#using-another-sys-crate">“Using another <code>sys</code> crate”</a> for an example of
+how this can be used.</p>
+<p>Note that metadata is only passed to immediate dependents, not transitive
+dependents.</p>
+<blockquote>
+<p><strong>MSRV:</strong> 1.77 is required for <code>cargo::metadata=KEY=VALUE</code>.
+To support older versions, use <code>cargo:KEY=VALUE</code> (unsupported directives are assumed to be metadata keys).</p>
+</blockquote>
+<h2 id="-sys-packages"><a class="header" href="#-sys-packages"><code>*-sys</code> Packages</a></h2>
+<p>Some Cargo packages that link to system libraries have a naming convention of
+having a <code>-sys</code> suffix. Any package named <code>foo-sys</code> should provide two major
+pieces of functionality:</p>
+<ul>
+<li>The library crate should link to the native library <code>libfoo</code>. This will often
+probe the current system for <code>libfoo</code> before resorting to building from
+source.</li>
+<li>The library crate should provide <strong>declarations</strong> for types and functions in
+<code>libfoo</code>, but <strong>not</strong> higher-level abstractions.</li>
+</ul>
+<p>The set of <code>*-sys</code> packages provides a common set of dependencies for linking
+to native libraries. There are a number of benefits earned from having this
+convention of native-library-related packages:</p>
+<ul>
+<li>Common dependencies on <code>foo-sys</code> alleviates the rule about one package per
+value of <code>links</code>.</li>
+<li>Other <code>-sys</code> packages can take advantage of the <code>DEP_LINKS_KEY=value</code>
+environment variables to better integrate with other packages. See the
+<a href="build-script-examples.html#using-another-sys-crate">“Using another <code>sys</code> crate”</a> example.</li>
+<li>A common dependency allows centralizing logic on discovering <code>libfoo</code> itself
+(or building it from source).</li>
+<li>These dependencies are easily <a href="#overriding-build-scripts">overridable</a>.</li>
+</ul>
+<p>It is common to have a companion package without the <code>-sys</code> suffix that
+provides a safe, high-level abstractions on top of the sys package. For
+example, the <a href="https://crates.io/crates/git2"><code>git2</code> crate</a> provides a high-level interface to the
+<a href="https://crates.io/crates/libgit2-sys"><code>libgit2-sys</code> crate</a>.</p>
+<h2 id="overriding-build-scripts"><a class="header" href="#overriding-build-scripts">Overriding Build Scripts</a></h2>
+<p>If a manifest contains a <code>links</code> key, then Cargo supports overriding the build
+script specified with a custom library. The purpose of this functionality is to
+prevent running the build script in question altogether and instead supply the
+metadata ahead of time.</p>
+<p>To override a build script, place the following configuration in any acceptable <a href="config.html"><code>config.toml</code></a> file.</p>
+<pre><code class="language-toml">[target.x86_64-unknown-linux-gnu.foo]
+rustc-link-lib = ["foo"]
+rustc-link-search = ["/path/to/foo"]
+rustc-flags = "-L /some/path"
+rustc-cfg = ['key="value"']
+rustc-env = {key = "value"}
+rustc-cdylib-link-arg = ["…"]
+metadata_key1 = "value"
+metadata_key2 = "value"
+</code></pre>
+<p>With this configuration, if a package declares that it links to <code>foo</code> then the
+build script will <strong>not</strong> be compiled or run, and the metadata specified will
+be used instead.</p>
+<p>The <code>warning</code>, <code>rerun-if-changed</code>, and <code>rerun-if-env-changed</code> keys should not
+be used and will be ignored.</p>
+<h2 id="jobserver"><a class="header" href="#jobserver">Jobserver</a></h2>
+<p>Cargo and <code>rustc</code> use the <a href="http://make.mad-scientist.net/papers/jobserver-implementation/">jobserver protocol</a>, developed for GNU make, to
+coordinate concurrency across processes. It is essentially a semaphore that
+controls the number of jobs running concurrently. The concurrency may be set
+with the <code>--jobs</code> flag, which defaults to the number of logical CPUs.</p>
+<p>Each build script inherits one job slot from Cargo, and should endeavor to
+only use one CPU while it runs. If the script wants to use more CPUs in
+parallel, it should use the <a href="https://crates.io/crates/jobserver"><code>jobserver</code> crate</a> to coordinate with Cargo.</p>
+<p>As an example, the <a href="https://crates.io/crates/cc"><code>cc</code> crate</a> may enable the optional <code>parallel</code> feature
+which will use the jobserver protocol to attempt to build multiple C files
+at the same time.</p>
+
+                    </main>
+
+                    <nav class="nav-wrapper" aria-label="Page navigation">
+                        <!-- Mobile navigation buttons -->
+                            <a rel="prev" href="../reference/environment-variables.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                                <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M41.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l160 160c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L109.3 256 246.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-160 160z"/></svg></span>
+                            </a>
+
+                            <a rel="next prefetch" href="../reference/build-script-examples.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                                <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M278.6 233.4c12.5 12.5 12.5 32.8 0 45.3l-160 160c-12.5 12.5-32.8 12.5-45.3 0s-12.5-32.8 0-45.3L210.7 256 73.4 118.6c-12.5-12.5-12.5-32.8 0-45.3s32.8-12.5 45.3 0l160 160z"/></svg></span>
+                            </a>
+
+                        <div style="clear: both"></div>
+                    </nav>
+                </div>
+            </div>
+
+            <nav class="nav-wide-wrapper" aria-label="Page navigation">
+                    <a rel="prev" href="../reference/environment-variables.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                        <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M41.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l160 160c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L109.3 256 246.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-160 160z"/></svg></span>
+                    </a>
+
+                    <a rel="next prefetch" href="../reference/build-script-examples.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                        <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M278.6 233.4c12.5 12.5 12.5 32.8 0 45.3l-160 160c-12.5 12.5-32.8 12.5-45.3 0s-12.5-32.8 0-45.3L210.7 256 73.4 118.6c-12.5-12.5-12.5-32.8 0-45.3s32.8-12.5 45.3 0l160 160z"/></svg></span>
+                    </a>
+            </nav>
+
+        </div>
+
+        <template id=fa-eye><span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 576 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M288 32c-80.8 0-145.5 36.8-192.6 80.6C48.6 156 17.3 208 2.5 243.7c-3.3 7.9-3.3 16.7 0 24.6C17.3 304 48.6 356 95.4 399.4C142.5 443.2 207.2 480 288 480s145.5-36.8 192.6-80.6c46.8-43.5 78.1-95.4 93-131.1c3.3-7.9 3.3-16.7 0-24.6c-14.9-35.7-46.2-87.7-93-131.1C433.5 68.8 368.8 32 288 32zM432 256c0 79.5-64.5 144-144 144s-144-64.5-144-144s64.5-144 144-144s144 64.5 144 144zM288 192c0 35.3-28.7 64-64 64c-11.5 0-22.3-3-31.6-8.4c-.2 2.8-.4 5.5-.4 8.4c0 53 43 96 96 96s96-43 96-96s-43-96-96-96c-2.8 0-5.6 .1-8.4 .4c5.3 9.3 8.4 20.1 8.4 31.6z"/></svg></span></template>
+        <template id=fa-eye-slash><span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M38.8 5.1C28.4-3.1 13.3-1.2 5.1 9.2S-1.2 34.7 9.2 42.9l592 464c10.4 8.2 25.5 6.3 33.7-4.1s6.3-25.5-4.1-33.7L525.6 386.7c39.6-40.6 66.4-86.1 79.9-118.4c3.3-7.9 3.3-16.7 0-24.6c-14.9-35.7-46.2-87.7-93-131.1C465.5 68.8 400.8 32 320 32c-68.2 0-125 26.3-169.3 60.8L38.8 5.1zM223.1 149.5C248.6 126.2 282.7 112 320 112c79.5 0 144 64.5 144 144c0 24.9-6.3 48.3-17.4 68.7L408 294.5c5.2-11.8 8-24.8 8-38.5c0-53-43-96-96-96c-2.8 0-5.6 .1-8.4 .4c5.3 9.3 8.4 20.1 8.4 31.6c0 10.2-2.4 19.8-6.6 28.3l-90.3-70.8zm223.1 298L373 389.9c-16.4 6.5-34.3 10.1-53 10.1c-79.5 0-144-64.5-144-144c0-6.9 .5-13.6 1.4-20.2L83.1 161.5C60.3 191.2 44 220.8 34.5 243.7c-3.3 7.9-3.3 16.7 0 24.6c14.9 35.7 46.2 87.7 93 131.1C174.5 443.2 239.2 480 320 480c47.8 0 89.9-12.9 126.2-32.5z"/></svg></span></template>
+        <template id=fa-copy><span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M502.6 70.63l-61.25-61.25C435.4 3.371 427.2 0 418.7 0H255.1c-35.35 0-64 28.66-64 64l.0195 256C192 355.4 220.7 384 256 384h192c35.2 0 64-28.8 64-64V93.25C512 84.77 508.6 76.63 502.6 70.63zM464 320c0 8.836-7.164 16-16 16H255.1c-8.838 0-16-7.164-16-16L239.1 64.13c0-8.836 7.164-16 16-16h128L384 96c0 17.67 14.33 32 32 32h47.1V320zM272 448c0 8.836-7.164 16-16 16H63.1c-8.838 0-16-7.164-16-16L47.98 192.1c0-8.836 7.164-16 16-16H160V128H63.99c-35.35 0-64 28.65-64 64l.0098 256C.002 483.3 28.66 512 64 512h192c35.2 0 64-28.8 64-64v-32h-47.1L272 448z"/></svg></span></template>
+        <template id=fa-play><span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 384 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M73 39c-14.8-9.1-33.4-9.4-48.5-.9S0 62.6 0 80V432c0 17.4 9.4 33.4 24.5 41.9s33.7 8.1 48.5-.9L361 297c14.3-8.7 23-24.2 23-41s-8.7-32.2-23-41L73 39z"/></svg></span></template>
+        <template id=fa-clock-rotate-left><span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M75 75L41 41C25.9 25.9 0 36.6 0 57.9V168c0 13.3 10.7 24 24 24H134.1c21.4 0 32.1-25.9 17-41l-30.8-30.8C155 85.5 203 64 256 64c106 0 192 86 192 192s-86 192-192 192c-40.8 0-78.6-12.7-109.7-34.4c-14.5-10.1-34.4-6.6-44.6 7.9s-6.6 34.4 7.9 44.6C151.2 495 201.7 512 256 512c141.4 0 256-114.6 256-256S397.4 0 256 0C185.3 0 121.3 28.7 75 75zm181 53c-13.3 0-24 10.7-24 24V256c0 6.4 2.5 12.5 7 17l72 72c9.4 9.4 24.6 9.4 33.9 0s9.4-24.6 0-33.9l-65-65V152c0-13.3-10.7-24-24-24z"/></svg></span></template>
+
+
+
+        <script>
+            window.playground_copyable = true;
+        </script>
+
+
+        <script src="../elasticlunr-ef4e11c1.min.js"></script>
+        <script src="../mark-09e88c2c.min.js"></script>
+        <script src="../searcher-09f2665d.js"></script>
+
+        <script src="../clipboard-1626706a.min.js"></script>
+        <script src="../highlight-abc7f01d.js"></script>
+        <script src="../book-c22b7243.js"></script>
+
+        <!-- Custom JS scripts -->
+
+
+
+    </div>
+    </body>
+</html>

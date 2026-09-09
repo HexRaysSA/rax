@@ -14,6 +14,7 @@ include(CMakeFindDependencyMacro)
 
 set(_rax_incdir "@PACKAGE_CMAKE_INSTALL_INCLUDEDIR@")
 set(_rax_libdir "@PACKAGE_CMAKE_INSTALL_LIBDIR@")
+set(_rax_bindir "@PACKAGE_CMAKE_INSTALL_BINDIR@")
 
 if(NOT WIN32)
     set(THREADS_PREFER_PTHREAD_FLAG ON)
@@ -21,22 +22,25 @@ if(NOT WIN32)
 endif()
 
 # Shared target (optional — present only if the .so/.dylib was installed).
-if(APPLE)
-    set(_rax_shared "${_rax_libdir}/librax.dylib")
-elseif(WIN32)
-    set(_rax_shared "${_rax_libdir}/rax.dll")
-else()
-    set(_rax_shared "${_rax_libdir}/librax.so")
+set(_rax_shared "${_rax_libdir}/@_rax_shared_name@")
+if(WIN32)
+    set(_rax_shared "${_rax_bindir}/@_rax_shared_name@")
 endif()
 if(EXISTS "${_rax_shared}" AND NOT TARGET rax::rax)
     add_library(rax::rax SHARED IMPORTED)
     set_target_properties(rax::rax PROPERTIES
         IMPORTED_LOCATION "${_rax_shared}"
         INTERFACE_INCLUDE_DIRECTORIES "${_rax_incdir}")
+    if(WIN32)
+        set_and_check(_rax_implib "${_rax_libdir}/@_rax_implib_name@")
+        set_target_properties(rax::rax PROPERTIES
+            IMPORTED_IMPLIB "${_rax_implib}"
+            INTERFACE_COMPILE_DEFINITIONS RAX_DLL)
+    endif()
 endif()
 
 # Static target (optional) with the platform system libraries it requires.
-set(_rax_static "${_rax_libdir}/librax.a")
+set(_rax_static "${_rax_libdir}/@_rax_static_name@")
 if(EXISTS "${_rax_static}" AND NOT TARGET rax::rax_static)
     if(APPLE)
         set(_rax_static_syslibs

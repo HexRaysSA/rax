@@ -15,14 +15,13 @@ build sweep over many more ISAs via cross-compilation.
 | [`kvm.yml`](kvm.yml) | push (kvm paths), nightly | Enables `/dev/kvm`, gates the **KVM backend** + release build, and retains host-dependent silicon differentials as nightly diagnostics. |
 | [`sanitizers.yml`](sanitizers.yml) | nightly, dispatch | **ASan/UBSan** on a core slice + a **stable/beta/nightly** toolchain sweep. |
 | [`microkernel.yml`](microkernel.yml) | every push, PR | Builds the **bare-metal microkernel test suite** for **x86_64, AArch64 and ARMv6** (nightly + build-std; custom ARMv6 target) and **boots each under the emulator**, asserting `RESULT PASS` and an identical cross-arch n-body checksum. |
+| [`capi-release.yml`](capi-release.yml) | `v*` tags, packaging PRs, dispatch | Builds and tests relocated shared/static SDKs on five native platforms. Publishes a GitHub release only for validated version tags after every platform passes. |
 
 ## Platform coverage
 
-> **Scope:** rax is **unix + 64-bit only**. Its `vm-memory` dependency is
-> `compile_error!`-gated to 64-bit targets and has no Windows rawfd/mmap backend,
-> so Windows and all 32-bit triples cannot build. Those matrix entries are left
-> **commented out** (not deleted) in `ci.yml` / `cross.yml` so they can be
-> re-enabled the day upstream support lands.
+RAX requires 64-bit targets. The patched memory dependency supports Windows;
+`capi-release.yml` builds and runs the interpreter C API on Windows MSVC.
+The broader ISA/JIT core matrix below remains Linux/macOS only.
 
 Native run/build (GA runners, pinned — `macos-latest` is mid-migration in 2026):
 
@@ -58,3 +57,11 @@ ppc64le, s390x, x86_64-musl, and best-effort tier-3 (sparc64, mips64/mips64el).
   `ci.yml` green without them; `differential.yml` installs them so the diffs run.
 - **Shared setup** lives in [`../actions/setup-rust`](../actions/setup-rust):
   toolchain install + `Swatinem/rust-cache` + CI build defaults.
+
+## C API binary releases
+
+See [the C API distribution contract](../../capi/README.md#binary-distributions)
+for tag/version rules, target baselines, archive contents, and local validation.
+Release jobs override the development x86-64-v3 baseline explicitly and use
+stable Rust with locked dependencies. PR/dispatch runs upload test artifacts
+without creating releases. The publish job alone has `contents: write`.

@@ -9,10 +9,8 @@
 # built by `cross`'s per-target toolchain images, so no manual gcc setup is
 # needed.
 #
-# Scope note: rax's `vm-memory` dependency is `compile_error!`-gated to 64-bit
-# targets and unsupported on Windows, so 32-bit triples (i686/arm/armv7/mipsel/
-# powerpc/wasm32) and *-pc-windows-* are intentionally excluded — they cannot
-# build regardless of CI config.
+# Scope note: vm-memory requires 64-bit targets. Windows C API builds and
+# native consumers are covered separately by capi-release.yml.
 name: Cross-build
 
 on:
@@ -50,12 +48,11 @@ jobs:
           - powerpc64le-unknown-linux-gnu
           - s390x-unknown-linux-gnu
           - x86_64-unknown-linux-musl
-          # Blocked upstream by `vm-memory` (64-bit only; no Windows backend).
-          # Re-enable when rax builds on 32-bit / Windows:
+          # Blocked upstream by vm-memory's 64-bit requirement:
           # - armv7-unknown-linux-gnueabihf   # 32-bit
           # - arm-unknown-linux-gnueabihf     # 32-bit
           # - i686-unknown-linux-gnu          # 32-bit
-          # - x86_64-pc-windows-gnu           # Windows: no vm-memory rawfd backend
+          # Windows native SDK coverage is in capi-release.yml.
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
       - uses: ./.github/actions/setup-rust

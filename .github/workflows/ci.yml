@@ -1,10 +1,10 @@
 # Primary push/PR gate for rax.
 #
 # Breadth over every GitHub-hosted OS x CPU-architecture combination that can run
-# rax natively. rax is effectively unix + 64-bit only: its `vm-memory` dependency
-# is `compile_error!`-gated to 64-bit targets and its rawfd/mmap backend does not
-# support Windows (no `std::os::fd`). So the native matrix is x64 + arm64 Linux
-# and Intel + Apple-Silicon macOS (no Windows; no 32-bit). Each platform builds
+# rax natively. The core matrix covers 64-bit Linux and macOS. Windows C API
+# build/runtime coverage lives in capi-release.yml; the patched vm-memory
+# dependency supports Windows, but the full ISA/JIT suite is not admitted here.
+# Each core platform builds
 # *all* targets (lib, bins, examples, and every one of the ~34 integration-test
 # binaries, including the ~1 MB generated tables) and then runs a fast,
 # representative core slice. The exhaustive 124k-test run lives in
@@ -77,8 +77,8 @@ jobs:
           - { name: linux-arm64, os: ubuntu-24.04-arm, features: "--no-default-features --features x86_64-suite,smir-jit" }
           - { name: macos-intel, os: macos-15-intel,   features: "--no-default-features --features x86_64-suite" } # portable CI selection; targeted Mach-O JIT runs are separate
           - { name: macos-arm64, os: macos-15,         features: "--no-default-features --features x86_64-suite,smir-jit" }
-          # Windows is blocked upstream: `vm-memory`'s rawfd/mmap backend has no
-          # Windows support (no std::os::fd). Re-enable when that lands.
+          # Windows C API is tested in capi-release.yml; these full-suite lanes
+          # remain unvalidated (including host-specific test/assembler code).
           # - { name: windows-x64,   os: windows-2025,   features: "--no-default-features --features x86_64-suite" }
           # - { name: windows-arm64, os: windows-11-arm, features: "--no-default-features --features x86_64-suite" }
     steps:
@@ -111,7 +111,7 @@ jobs:
           - { name: linux-arm64, os: ubuntu-24.04-arm, features: "--no-default-features --features x86_64-suite,smir-jit" }
           - { name: macos-intel, os: macos-15-intel,   features: "--no-default-features --features x86_64-suite" } # portable CI selection; targeted Mach-O JIT runs are separate
           - { name: macos-arm64, os: macos-15,         features: "--no-default-features --features x86_64-suite,smir-jit" }
-          # Windows blocked upstream (vm-memory has no Windows rawfd/mmap backend).
+          # Windows C API is tested separately in capi-release.yml.
           # - { name: windows-x64,   os: windows-2025,   features: "--no-default-features --features x86_64-suite" }
           # - { name: windows-arm64, os: windows-11-arm, features: "--no-default-features --features x86_64-suite" }
     steps:

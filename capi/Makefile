@@ -19,6 +19,7 @@ PROFILE     ?= release
 HERE        := $(dir $(abspath $(lastword $(MAKEFILE_LIST))))
 TARGET_DIR  ?= $(HERE)../target
 INCDIR      := $(HERE)include
+PKG_VERSION := $(shell sed -n 's/^\#define RAX_API_[A-Z]* \([0-9]*\)u/\1/p' "$(INCDIR)/rax.h" | paste -sd. -)
 EXAMPLE_DIR := $(HERE)examples
 TEST_DIR    := $(HERE)tests
 
@@ -61,13 +62,13 @@ CXXFLAGS    ?= -O2 -Wall -Wextra -std=c++17
 all: release
 
 release:
-	$(CARGO) build --package rax-capi --release
+	$(CARGO) build --locked --package rax-capi --release
 
 debug:
-	$(CARGO) build --package rax-capi
+	$(CARGO) build --locked --package rax-capi
 
 lib:
-	$(CARGO) build --package rax-capi $(CARGO_FLAGS)
+	$(CARGO) build --locked --package rax-capi $(CARGO_FLAGS)
 
 # Build the library, compile all examples against the dynamic lib, run them.
 test: lib abi-test examples
@@ -98,9 +99,10 @@ install: lib
 	@[ -f "$(INCDIR)/rax.hpp" ] && install -m 0644 "$(INCDIR)/rax.hpp" "$(PREFIX)/include/rax.hpp" || true
 	@[ -f "$(DYLIB)" ] && install -m 0755 "$(DYLIB)" "$(PREFIX)/lib/" || true
 	@[ -f "$(STATICLIB)" ] && install -m 0644 "$(STATICLIB)" "$(PREFIX)/lib/" || true
-	@sed -e 's#@PKG_PREFIX@#$(PREFIX)#g' \
-	     -e 's#@PKG_LIBDIR@#$(PREFIX)/lib#g' \
-	     -e 's#@PKG_INCLUDEDIR@#$(PREFIX)/include#g' \
+	@sed -e 's#@PKG_PREFIX@#$${pcfiledir}/../..#g' \
+	     -e 's#@PKG_LIBDIR@#$${prefix}/lib#g' \
+	     -e 's#@PKG_INCLUDEDIR@#$${prefix}/include#g' \
+	     -e 's#@PKG_VERSION@#$(PKG_VERSION)#g' \
 	     -e 's#@PKG_PRIVATE_LIBS@#$(PRIVATE_LIBS)#g' \
 	     "$(HERE)rax.pc.in" > "$(PREFIX)/lib/pkgconfig/rax.pc"
 	@echo "installed rax to $(PREFIX)"

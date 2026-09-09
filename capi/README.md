@@ -61,49 +61,141 @@ uint64_t result = e.regU64(RAX_X86_REG_RAX);
 
 ## Building
 
-The library is produced by Cargo from the `rax-capi` crate; the artifacts are
-`librax.a`, `librax.so` / `librax.dylib`, in `target/{debug,release}/`.
+The library is produced by Cargo from the `rax-capi` crate:
 
 ```sh
-cargo build -p rax-capi --release      # or: make -C capi release
+cargo build -p rax-capi --release --locked
 ```
 
-Link against the dynamic library (recommended — it embeds its system deps):
+| Target toolchain | Shared library | Static archive |
+|---|---|---|
+| macOS | `librax.dylib` | `librax.a` |
+| Linux | `librax.so` | `librax.a` |
+| Windows MSVC | `rax.dll` + `rax.dll.lib` import library | `rax.lib` |
+| Windows GNU/MinGW | `rax.dll` + `librax.dll.a` import library | `librax.a` |
 
-```sh
-cc  -I capi/include app.c   -L target/release -lrax -o app           # C
-c++ -std=c++17 -I capi/include app.cpp -L target/release -lrax -o app # C++
-```
-
-Linking the **static** `librax.a` additionally requires the platform's system
-libraries (handled automatically by the provided CMake/pkg-config):
-
-- macOS: `-framework CoreFoundation -framework Security -framework SystemConfiguration -liconv -lobjc -lpthread`
-- Linux: `-lpthread -ldl -lm -lrt -lutil`
+Artifacts are in `target/release/`, or `target/<triple>/release/` when using
+`--target`. An import library links to the DLL; it does not contain the static
+implementation. The `rlib` is for Rust tooling and is not part of the native SDK.
+The package version in Cargo and the C ABI version in `rax.h` are independent.
 
 ### CMake
 
 ```sh
-cmake -S capi -B build -DCMAKE_INSTALL_PREFIX=/usr/local
-cmake --build build && cmake --install build
+cmake -S capi -B build -DCMAKE_INSTALL_PREFIX=/path/to/sdk
+cmake --build build --config Release
+cmake --install build --config Release
 ```
 
-Downstream:
+Both library forms are installed by default. `RAX_BUILD_SHARED` and
+`RAX_BUILD_STATIC` select installed targets; Cargo still produces its declared
+crate types. `RAX_CARGO_TARGET` selects a Rust triple and must match the CMake
+C/C++ toolchain. `RAX_FEATURES` accepts a semicolon-separated feature list.
+Builds use `--locked` and rerun Cargo's freshness check for source changes.
+
+Downstream, no Rust installation or source checkout is required:
 
 ```cmake
-find_package(rax REQUIRED)
-target_link_libraries(myapp PRIVATE rax::rax)          # dynamic
-# or                                  rax::rax_static  # static + system deps
+find_package(rax 1.3 REQUIRED CONFIG)
+target_link_libraries(myapp PRIVATE rax::rax)         # shared
+# or: target_link_libraries(myapp PRIVATE rax::rax_static)
 ```
 
-### pkg-config / Makefile
+Set `CMAKE_PREFIX_PATH` to the extracted SDK. Shared targets expose the Windows
+import library and `RAX_DLL` definition automatically. On Windows, deploy
+`bin/rax.dll` beside the executable or add that directory to the loader search
+path. MSVC archives use the dynamic CRT (`/MD`); keep the application toolchain
+and runtime configuration compatible. GNU/MinGW SDKs use their own import/static
+archive formats and are not interchangeable with MSVC static archives.
+
+On macOS the dylib identity is `@rpath/librax.dylib`; configure the application's
+runtime search path for its deployment layout. On Linux the SONAME is
+`librax.so`; configure an appropriate RUNPATH or system library installation.
+CMake supplies build-tree runtime paths when linking these imported targets.
+
+### pkg-config / Makefile (Unix)
 
 ```sh
-make -C capi install PREFIX=/usr/local
+make -C capi install PREFIX=/path/to/sdk
+```
+
+Export `PKG_CONFIG_PATH` before compiling:
+
+```sh
+export PKG_CONFIG_PATH=/path/to/sdk/lib/pkgconfig
 cc app.c $(pkg-config --cflags --libs rax) -o app
 ```
 
-`make -C capi test` builds the library and compiles+runs every example.
+The `.pc` and CMake package paths are relative to their installed location, so
+SDKs can be moved. Static Unix linking requires platform system libraries:
+macOS CoreFoundation/Security/SystemConfiguration, iconv, objc and pthread;
+Linux pthread, dl, m, rt and util. `pkg-config --static --libs rax` supplies
+these dependencies; use the explicit `librax.a` path when both library forms
+are present and static linking is required. CMake's `rax::rax_static` selects
+the archive unambiguously. Shared libraries still depend on OS libraries.
+
+`make -C capi test` builds the library and compiles/runs the examples.
+
+## Binary distributions
+
+[The release workflow](../.github/workflows/capi-release.yml) runs on `v*` tag
+pushes. Tags must be exactly `v<version>` from `capi/Cargo.toml`, for example
+`v0.1.0`. To release a prerelease, use matching versions such as package
+`0.2.0-rc.1` and tag `v0.2.0-rc.1`; GitHub marks it as a prerelease. Mismatched
+or malformed tags fail before building. This does not change the independent
+C ABI version (currently 1.3.0).
+
+| SDK triple | Build/runtime-test host | Compilation baseline |
+|---|---|---|
+| `x86_64-unknown-linux-gnu` | Ubuntu 22.04 | x86-64; glibc |
+| `aarch64-unknown-linux-gnu` | Ubuntu 24.04 ARM | generic AArch64; glibc |
+| `x86_64-apple-darwin` | macOS 15 Intel | x86-64; deployment target 11.0 |
+| `aarch64-apple-darwin` | macOS 15 Apple Silicon | generic AArch64; deployment target 11.0 |
+| `x86_64-pc-windows-msvc` | Windows Server 2022 | x86-64; dynamic MSVC CRT |
+
+These are **host** triples, independent of the guest ISA being emulated.
+Older Linux/glibc versions are not runtime-certified; exact ELF symbol-version
+requirements are recorded in each SDK. macOS 11.0 is a compilation deployment
+target, while execution is checked on the listed runner. Windows GNU/MinGW is
+supported by CMake packaging but is not in the automated release matrix.
+
+Release builds explicitly override the repository's development x86-64-v3
+setting with `-C target-cpu=x86-64`. ARM builds select `generic`. The development
+configuration is unchanged. Releases use stable Rust, locked dependencies,
+`panic=unwind`, and the default interpreter-only C API feature set. They do not
+include JIT, KVM, HVF or trace. Feature-specific SDKs require separate validation.
+
+Archives are named `rax-capi-<version>-<triple>.tar.gz` (Unix) or `.zip` (Windows)
+and contain:
+
+- `include/rax.h` and `include/rax.hpp`;
+- shared/static libraries under `lib/`, plus Windows `bin/rax.dll` and its import library;
+- `lib/cmake/rax/` and `lib/pkgconfig/rax.pc` metadata;
+- `README.md`, `build-info.json`, and an internal `SHA256SUMS` manifest.
+
+An adjacent `.sha256` file checks the archive itself. Build metadata records
+the commit, package/ABI versions, target, toolchain, feature set, compiler flags,
+OS, dependency information and Cargo.lock checksum.
+
+Every release lane runs the complete Rust C API tests and builds/runs C and
+C++ consumers with both linkage modes after moving the SDK to a path containing
+spaces and hiding the original Cargo output directory. Unix lanes also exercise
+pkg-config linking. Only after all lanes succeed does the publishing job
+validate the complete asset set, upload it to a draft, and publish the release.
+Failed uploads leave a draft that can be retried; published assets are not
+replaced. PR and manual-dispatch runs build/test artifacts without publishing.
+
+To reproduce a native SDK build (Python 3.11+, CMake, Rust, C/C++ toolchain,
+and pkg-config on Unix):
+
+```sh
+RUSTUP_TOOLCHAIN=stable python3 tools/capi/package.py \
+  --target aarch64-apple-darwin \
+  --work-dir /tmp/rax-sdk-build --output-dir /tmp/rax-sdk-dist
+```
+
+The work directory must not already exist. Select the target matching the host;
+the script requires native execution and does not certify cross-built binaries.
 
 ## Optional Cargo features
 

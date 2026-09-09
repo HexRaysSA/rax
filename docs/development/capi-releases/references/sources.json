@@ -1,0 +1,30 @@
+[
+  {
+    "file": "cargo-build-scripts.html",
+    "source": "https://doc.rust-lang.org/cargo/reference/build-scripts.html",
+    "retrieved": "2026-09-09",
+    "revision": "live documentation at retrieval",
+    "sha256": "a7ddd6b990309a2b7f07838b99d192f04592c053c14c94f8cca5e75a0424c81e"
+  },
+  {
+    "file": "cmake-package-config-helpers.html",
+    "source": "https://cmake.org/cmake/help/latest/module/CMakePackageConfigHelpers.html",
+    "retrieved": "2026-09-09",
+    "revision": "live documentation at retrieval",
+    "sha256": "09fe928651b72724886670a37bab59daede7eadce87436853820a25fb9ec841d"
+  },
+  {
+    "file": "cmake-imported-implib.html",
+    "source": "https://cmake.org/cmake/help/latest/prop_tgt/IMPORTED_IMPLIB.html",
+    "retrieved": "2026-09-09",
+    "revision": "live documentation at retrieval",
+    "sha256": "6016e845d999f8cb9f760cadb71125f4c6f140caf10d248143b2534e76594766"
+  },
+  {
+    "file": "github-workflow-syntax.md",
+    "source": "https://docs.github.com/api/article/body?pathname=/en/actions/reference/workflows-and-actions/workflow-syntax",
+    "retrieved": "2026-09-09",
+    "revision": "live documentation at retrieval",
+    "sha256": "41215981c04199a2989981abcbe1977c3002a4a5d7a51d68a14915619aa1171c"
+  }
+]
