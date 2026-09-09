@@ -74,7 +74,7 @@ fn native_lea_applies_encoded_destination_width() {
 }
 
 #[test]
-fn native_constant_folded_w64_alu_immediates_match_direct_execution() {
+fn native_movabs_w64_alu_sequences_match_direct_execution() {
     for opcode in [0x01, 0x09, 0x11, 0x19, 0x21, 0x29, 0x31, 0x39, 0x85] {
         for value in [
             0x8000_0000i64,
@@ -88,8 +88,9 @@ fn native_constant_folded_w64_alu_immediates_match_direct_execution() {
                     GuestMemoryMmap::<()>::from_ranges(&[(GuestAddress(0), 0x10000)]).unwrap(),
                 );
                 // MOVABS RCX,imm64; ALU/CMP/TEST RBX,RCX; JMP next; HLT.
-                // O2 propagates RCX into the scalar operation, producing a
-                // semantic constant that cannot be encoded by its imm32 form.
+                // This checks the CPU MOVABS/register-ALU path. Imm64 MOVABS
+                // is not tracked by constant propagation; the handcrafted
+                // SMIR matrices separately exercise full-width immediates.
                 let mut code = vec![0x48, 0xB9];
                 code.extend_from_slice(&value.to_le_bytes());
                 code.extend_from_slice(&[0x48, opcode, 0xCB, 0xEB, 0x00, 0xF4]);
@@ -108,7 +109,7 @@ fn native_constant_folded_w64_alu_immediates_match_direct_execution() {
                     assert!(
                         direct
                             .step()
-                            .expect("direct constant-folded scalar sequence")
+                            .expect("direct MOVABS scalar sequence")
                             .is_none()
                     );
                 }
