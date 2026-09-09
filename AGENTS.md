@@ -806,9 +806,12 @@ cargo +stable fmt --all --check
 cargo +stable test --no-default-features --features x86_64-suite,smir-jit --lib
 ```
 
-On Intel macOS, omit `smir-jit` from portable build/test commands because the
-current x86-64 trampoline uses assembler directives unsupported by Apple's
-assembler. Follow the feature matrix in `.github/workflows/ci.yml`.
+The Intel macOS portable CI lane currently omits `smir-jit`; use its exact
+feature selection for CI parity. The x86-64 trampoline has Mach-O-specific
+assembly support, so targeted macOS x86-64 JIT builds and execution are separate
+validation paths, not coverage established by that CI lane. Execution through
+Rosetta exercises emitted x86-64 code but is not a physical-x86 architectural
+oracle.
 
 ### 12.2 Targeted integration tests
 

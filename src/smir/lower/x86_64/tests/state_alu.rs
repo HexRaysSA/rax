@@ -193,7 +193,7 @@ fn state_backed_group1_reads_computes_and_commits_through_the_guest_file() {
 }
 
 #[test]
-fn state_backed_group1_rejects_every_unmodeled_shape() {
+fn legacy_state_backed_group1_predicate_rejects_shapes_owned_by_other_paths() {
     for (name, kind) in [
         (
             "64-bit immediate that is not a sign-extended imm32",
@@ -253,6 +253,19 @@ fn state_backed_group1_rejects_every_unmodeled_shape() {
             !x86_state_backed_stack_group1_valid(&op),
             "{name} must not be admitted"
         );
+        if matches!(
+            name,
+            "64-bit immediate that is not a sign-extended imm32" | "Imm64 source operand"
+        ) {
+            assert!(
+                x86_scalar_alu_immediate_valid(&op),
+                "dedicated W64 path: {name}"
+            );
+            assert!(
+                !lower_single_op(op.kind.clone()).is_empty(),
+                "dedicated W64 lowering: {name}"
+            );
+        }
     }
 
     // Byte-lane and MULX hints leave the modeled shape even when the operands

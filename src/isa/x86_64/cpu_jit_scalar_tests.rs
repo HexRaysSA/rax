@@ -74,26 +74,64 @@ fn native_lea_applies_encoded_destination_width() {
 }
 
 #[test]
-fn jit_rejects_constant_folded_unencodable_w64_alu_immediate() {
-    let memory =
-        Arc::new(GuestMemoryMmap::<()>::from_ranges(&[(GuestAddress(0), 0x10000)]).unwrap());
-    // mov eax,80000000h; add rbx,rax; jmp next; hlt. O2 propagates RAX into
-    // ADD as +80000000h, which cannot use x86-64's sign-extending imm32 form.
-    memory
-        .write_slice(
-            &[
-                0xb8, 0x00, 0x00, 0x00, 0x80, 0x48, 0x01, 0xc3, 0xeb, 0x00, 0xf4,
-            ],
-            GuestAddress(0),
-        )
-        .unwrap();
-    let mut vcpu = long_mode_vcpu(memory);
-    vcpu.regs.rbx = 0xffff_8880_0483_f000;
-
-    assert!(
-        vcpu.jit_compile_region().unwrap().is_none(),
-        "native admission must fail closed for an unencodable W64 immediate"
-    );
+fn native_constant_folded_w64_alu_immediates_match_direct_execution() {
+    for opcode in [0x01, 0x09, 0x11, 0x19, 0x21, 0x29, 0x31, 0x39, 0x85] {
+        for value in [
+            0x8000_0000i64,
+            i32::MIN as i64 - 1,
+            i64::MIN,
+            i64::MAX,
+            0x0123_4567_89AB_CDEF,
+        ] {
+            for carry in [false, true] {
+                let memory = Arc::new(
+                    GuestMemoryMmap::<()>::from_ranges(&[(GuestAddress(0), 0x10000)]).unwrap(),
+                );
+                // MOVABS RCX,imm64; ALU/CMP/TEST RBX,RCX; JMP next; HLT.
+                // O2 propagates RCX into the scalar operation, producing a
+                // semantic constant that cannot be encoded by its imm32 form.
+                let mut code = vec![0x48, 0xB9];
+                code.extend_from_slice(&value.to_le_bytes());
+                code.extend_from_slice(&[0x48, opcode, 0xCB, 0xEB, 0x00, 0xF4]);
+                memory.write_slice(&code, GuestAddress(0)).unwrap();
+                let mut direct = long_mode_vcpu(memory.clone());
+                let mut native = long_mode_vcpu(memory);
+                for vcpu in [&mut direct, &mut native] {
+                    vcpu.regs.rax = 0x0123_4567_89AB_CDEF;
+                    vcpu.regs.rbx = 0xFFFF_8880_0483_F000;
+                    vcpu.regs.rsp = 0x8000;
+                    vcpu.regs.rbp = 0xFEDC_BA98_7654_3210;
+                    vcpu.regs.r11 = 0xAA55_AA55_1122_3344;
+                    vcpu.regs.rflags = 0x8D6 | u64::from(carry);
+                }
+                for _ in 0..3 {
+                    assert!(
+                        direct
+                            .step()
+                            .expect("direct constant-folded scalar sequence")
+                            .is_none()
+                    );
+                }
+                let region = native
+                    .jit_compile_region()
+                    .expect("compile full-width constant scalar sequence")
+                    .expect("full-width scalar constants must be native eligible");
+                native.jit_run_region_native(&region);
+                // Logical AF is architecturally undefined. Preserve all other
+                // fields, including the complete source/scratch GPR file.
+                direct.materialize_flags();
+                if matches!(opcode, 0x09 | 0x21 | 0x31 | 0x85) {
+                    direct.regs.rflags = (direct.regs.rflags & !0x10) | (native.regs.rflags & 0x10);
+                }
+                assert_eq!(
+                    serde_json::to_value(native.get_regs().unwrap()).unwrap(),
+                    serde_json::to_value(direct.get_regs().unwrap()).unwrap(),
+                    "opcode={opcode:#x} value={value:#x} carry={carry}",
+                );
+                assert_eq!(native.regs.rip, code.len() as u64 - 1);
+            }
+        }
+    }
 }
 
 #[test]

@@ -325,14 +325,52 @@ fn unmodeled_locked_shapes_fail_closed() {
         ]),
         None
     );
-    // A 64-bit immediate wider than imm32 has no Group-1 encoding.
+    // A narrower materializer is not the exact W64 source contract.
     assert_eq!(
         sequence_len(vec![
-            mov_imm(virt(0), 0x8000_0000, OpWidth::W64),
+            mov_imm(virt(0), -1, OpWidth::W32),
             atomic(virt(1), virt(0), AtomicOp::Or, MemWidth::B8),
         ]),
         None
     );
+}
+
+#[test]
+fn full_width_locked_immediates_use_exact_materialized_sources() {
+    for op in [
+        AtomicOp::Add,
+        AtomicOp::Or,
+        AtomicOp::And,
+        AtomicOp::Sub,
+        AtomicOp::Xor,
+        AtomicOp::Swap,
+    ] {
+        for value in [0x8000_0000, i32::MIN as i64 - 1, i64::MIN, i64::MAX] {
+            for source in [SrcOperand::Imm(value), SrcOperand::Imm64(value)] {
+                let ops = vec![
+                    OpKind::Mov {
+                        dst: virt(0),
+                        src: source,
+                        width: OpWidth::W64,
+                    },
+                    atomic(virt(1), virt(0), op, MemWidth::B8),
+                ];
+                assert_eq!(sequence_len(ops.clone()), Some(2), "{op:?} {value:#x}");
+                assert!(gate(ops.clone(), true), "{op:?} {value:#x}");
+                assert!(!gate(ops.clone(), false), "memory helpers are required");
+                let mut malformed = function(ops);
+                malformed.blocks[0].ops[0].x86_hint = Some(X86OpHint::RexByteReg);
+                assert!(
+                    !is_native_clobber_safe_excluding(
+                        &malformed,
+                        &std::collections::HashMap::new(),
+                        true
+                    ),
+                    "materializer metadata {op:?} {value:#x}"
+                );
+            }
+        }
+    }
 }
 
 #[test]

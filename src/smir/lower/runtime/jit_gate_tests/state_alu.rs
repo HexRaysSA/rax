@@ -8,7 +8,8 @@
 use super::*;
 use crate::smir::lower::SmirLowerer;
 use crate::smir::lower::x86_64::{
-    x86_state_backed_stack_group1_candidate, x86_state_backed_stack_group1_valid,
+    x86_scalar_alu_immediate_valid, x86_state_backed_stack_group1_candidate,
+    x86_state_backed_stack_group1_valid,
 };
 
 fn x86(reg: X86Reg) -> VReg {
@@ -132,7 +133,7 @@ fn group1_stack_operations_are_admitted_and_lower_natively() {
 }
 
 #[test]
-fn unmodeled_group1_stack_operands_still_fail_closed() {
+fn full_width_group1_stack_immediates_use_the_dedicated_scalar_path() {
     for (name, kind) in [
         (
             "64-bit immediate wider than imm32",
@@ -154,6 +155,31 @@ fn unmodeled_group1_stack_operands_still_fail_closed() {
                 flags: FlagUpdate::All,
             },
         ),
+    ] {
+        let op = crate::smir::ir::ops::SmirOp::new(
+            crate::smir::ir::types::OpId(0),
+            0x1000,
+            kind.clone(),
+        );
+        assert!(x86_state_backed_stack_group1_candidate(&op), "{name}");
+        // The legacy RI-only classifier remains narrow. Complete W64
+        // constants now have a separate, non-truncating native path.
+        assert!(!x86_state_backed_stack_group1_valid(&op), "{name}");
+        assert!(x86_scalar_alu_immediate_valid(&op), "{name}");
+        assert!(x86_gate(kind.clone()), "{name}");
+
+        let mut builder = FunctionBuilder::new(FunctionId(0), 0x1000);
+        builder.push_op(0x1000, kind);
+        builder.set_terminator(Terminator::Return { values: vec![] });
+        crate::smir::lower::x86_64::X86_64Lowerer::new()
+            .lower_function(&builder.finish())
+            .unwrap_or_else(|error| panic!("{name} lowering: {error:?}"));
+    }
+}
+
+#[test]
+fn unmodeled_group1_stack_operands_still_fail_closed() {
+    for (name, kind) in [
         (
             "shifted source operand",
             OpKind::Xor {

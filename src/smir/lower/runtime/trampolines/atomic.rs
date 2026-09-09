@@ -75,14 +75,19 @@ pub(crate) fn x86_jit_mem_atomic_rmw_sequence<'a>(
     let mut cursor = index;
     let mut source_imm = 0i64;
     let mut immediate_source: Option<VReg> = None;
+    let mut immediate_width = None;
     if let Some(OpKind::Mov {
         dst: dst @ VReg::Virtual(_),
-        src: SrcOperand::Imm(value),
-        ..
+        src: SrcOperand::Imm(value) | SrcOperand::Imm64(value),
+        width,
     }) = block.ops.get(index).map(|op| &op.kind)
     {
         source_imm = *value;
         immediate_source = Some(*dst);
+        immediate_width = Some(*width);
+        if block.ops.get(index)?.x86_hint.is_some() || virtual_definitions.get(dst) != Some(&1) {
+            return None;
+        }
         cursor += 1;
     }
 
@@ -125,7 +130,7 @@ pub(crate) fn x86_jit_mem_atomic_rmw_sequence<'a>(
         }
         _ => return None,
     };
-    if source_reg.is_none() && width == OpWidth::W64 && i32::try_from(source_imm).is_err() {
+    if immediate_width.is_some_and(|materialized_width| materialized_width != width) {
         return None;
     }
 
@@ -179,13 +184,18 @@ pub(crate) fn x86_jit_mem_atomic_rmw_sequence<'a>(
             // into the replay's source operand, leaving the materializing MOV
             // with a single use.
             let folded_immediate =
-                immediate_source.is_some() && replay_source == SrcOperand::Imm(source_imm);
+                immediate_source.is_some() && replay_source.as_imm() == Some(source_imm);
             if replay_tag == tag
                 && matches!(flags_result, VReg::Virtual(_))
                 && replay_old == *old
                 && (replay_source == expected_source || folded_immediate)
                 && replay_width == width
                 && replay_flags == crate::smir::ir::flags::FlagUpdate::All
+                && (width != OpWidth::W64
+                    || matches!(
+                        replay.x86_hint,
+                        None | Some(crate::smir::ir::ops::X86OpHint::AluEncoding(_))
+                    ))
                 && virtual_definitions.get(&flags_result) == Some(&1)
                 && !virtual_uses.contains_key(&flags_result)
             {

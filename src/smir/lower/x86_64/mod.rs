@@ -303,7 +303,14 @@ mod ops;
 pub use emitter::*;
 pub(crate) use ops::x86_x87_state_shape_valid;
 mod jit;
+mod jit_scalar_alu_rmw;
+mod jit_scalar_alu_source;
+mod scalar_alu_immediate;
 pub use jit::*;
+pub(crate) use scalar_alu_immediate::{
+    X86ScalarAluImmediate, scalar_alu_immediate_is_encodable, x86_scalar_alu_immediate_candidate,
+    x86_scalar_alu_immediate_shape, x86_scalar_alu_immediate_valid,
+};
 #[cfg(feature = "smir-jit")]
 mod jit_mul;
 #[cfg(feature = "smir-jit")]
@@ -1657,6 +1664,15 @@ impl SmirLowerer for X86_64Lowerer {
     fn lower_function(&mut self, func: &SmirFunction) -> Result<LowerResult, LowerError> {
         // Reset state
         self.code.clear();
+        #[cfg(feature = "smir-jit")]
+        if self.mem_helpers
+            && !crate::smir::lower::runtime::x86_jit_scalar_alu_function_virtuals_closed(func)
+        {
+            return Err(LowerError::InvalidOperand {
+                op: "scalar ALU memory".to_string(),
+                operand: "an elided scalar virtual escapes through a phi, terminator, or another instruction/block".to_string(),
+            });
+        }
         self.regalloc.reset();
         self.block_offsets.clear();
         self.relocations.clear();

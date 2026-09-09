@@ -35,6 +35,7 @@ impl X86_64Lowerer {
                 OpKind::X86Opmask(opmask) if x86_opmask_native_shape_valid(opmask)
             )
             || Self::alu_touches_state_backed_stack_gpr(&op.kind)
+            || x86_scalar_alu_immediate_valid(op)
             || x86_state_backed_gpr_lea_valid(op)
             || x86_state_backed_stack_group1_valid(op)
             || x86_state_backed_gpr_extend_valid(op)

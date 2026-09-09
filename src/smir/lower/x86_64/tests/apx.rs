@@ -293,6 +293,28 @@ fn lower_apx_nf_binary_alu_preserves_flags_for_aliases_and_immediates() {
             1,
         ),
         (
+            "adc",
+            OpKind::Adc {
+                dst: r8,
+                src1: rax,
+                src2: SrcOperand::Imm(7),
+                width: OpWidth::W64,
+                flags: FlagUpdate::None,
+            },
+            2,
+        ),
+        (
+            "sbb",
+            OpKind::Sbb {
+                dst: r8,
+                src1: rax,
+                src2: SrcOperand::Imm(7),
+                width: OpWidth::W64,
+                flags: FlagUpdate::None,
+            },
+            3,
+        ),
+        (
             "and",
             OpKind::And {
                 dst: r8,
@@ -327,11 +349,14 @@ fn lower_apx_nf_binary_alu_preserves_flags_for_aliases_and_immediates() {
         ),
     ] {
         let code = lower_single_op(op);
+        // The complete W64 immediate path saves flags before copying src1.
+        // MOV is flag-neutral, so ADC/SBB still consume the incoming CF and
+        // POPFQ restores every status bit after the ALU instruction.
         let expected = [
+            0x9C,
             0x49,
             0x89,
             0xC0,
-            0x9C,
             0x49,
             0x83,
             0xC0 | digit << 3,
@@ -359,6 +384,95 @@ fn lower_apx_nf_binary_alu_preserves_flags_for_aliases_and_immediates() {
         );
     }
 }
+
+#[cfg(all(feature = "smir-jit", target_arch = "x86_64"))]
+#[test]
+fn native_apx_nf_immediates_preserve_the_source_and_every_status_flag() {
+    use crate::smir::lower::runtime::{ExecMem, GuestRegs};
+
+    let src1 = VReg::Arch(ArchReg::X86(X86Reg::Rax));
+    let mut executions = 0;
+    for group in 0..=6 {
+        for destination in [X86Reg::Rax, X86Reg::R8] {
+            let dst = VReg::Arch(ArchReg::X86(destination));
+            for value in [7i64, 0x8000_0000, 0x1234_5678_9ABC_DEF0] {
+                for src2 in [SrcOperand::Imm(value), SrcOperand::Imm64(value)] {
+                    macro_rules! alu {
+                        ($kind:ident) => {
+                            OpKind::$kind {
+                                dst,
+                                src1,
+                                src2: src2.clone(),
+                                width: OpWidth::W64,
+                                flags: FlagUpdate::None,
+                            }
+                        };
+                    }
+                    let kind = match group {
+                        0 => alu!(Add),
+                        1 => alu!(Or),
+                        2 => alu!(Adc),
+                        3 => alu!(Sbb),
+                        4 => alu!(And),
+                        5 => alu!(Sub),
+                        6 => alu!(Xor),
+                        _ => unreachable!("seven Group-1 arithmetic operations"),
+                    };
+                    let mut builder = FunctionBuilder::new(FunctionId(0), 0x1000);
+                    builder.push_op(0x1000, kind);
+                    builder.set_terminator(Terminator::Return { values: vec![] });
+                    let mut lowerer = X86_64Lowerer::new();
+                    let lowered = lowerer.lower_function(&builder.finish()).unwrap();
+                    let exec = ExecMem::new(&lowerer.finalize().unwrap()).unwrap();
+
+                    // Enumerate all 2^6 arithmetic-status images; retain IF
+                    // and DF as non-arithmetic state. Values include unsigned
+                    // wrap and the signed overflow boundary.
+                    for pattern in 0u64..64 {
+                        let mut regs = GuestRegs {
+                            gpr: core::array::from_fn(|index| 0x1234_5678_0000_0000 | index as u64),
+                            rflags: [0, 2, 4, 6, 7, 11]
+                                .into_iter()
+                                .enumerate()
+                                .fold(0x602, |flags, (index, bit)| {
+                                    flags | (((pattern >> index) & 1) << bit)
+                                }),
+                            ..GuestRegs::default()
+                        };
+                        let lhs = [0, u64::MAX, i64::MAX as u64, i64::MIN as u64]
+                            [(pattern as usize >> 1) & 3];
+                        regs.gpr[0] = lhs;
+                        let mut expected = regs;
+                        let rhs = value as u64;
+                        let carry = regs.rflags & 1;
+                        // Modulo-2^64 arithmetic is independent of the emitted
+                        // instruction and preserves the input flag image.
+                        expected.gpr[destination.gpr_index().unwrap() as usize] = match group {
+                            0 => lhs.wrapping_add(rhs),
+                            1 => lhs | rhs,
+                            2 => lhs.wrapping_add(rhs).wrapping_add(carry),
+                            3 => lhs.wrapping_sub(rhs).wrapping_sub(carry),
+                            4 => lhs & rhs,
+                            5 => lhs.wrapping_sub(rhs),
+                            6 => lhs ^ rhs,
+                            _ => unreachable!(),
+                        };
+                        exec.run(lowered.entry_offset, &mut regs);
+                        expected.host_mxcsr = regs.host_mxcsr;
+                        assert_eq!(
+                            regs, expected,
+                            "group={group} dst={destination:?} value={value:#x} src2={src2:?} flags={pattern:#x}"
+                        );
+                        executions += 1;
+                    }
+                }
+            }
+        }
+    }
+    assert_eq!(executions, 7 * 2 * 3 * 2 * 64);
+    eprintln!("executed {executions} native APX NF immediate differentials");
+}
+
 #[test]
 fn lower_apx_ndd_imul_alias_second_source_covers_widths_and_nf() {
     let rax = VReg::Arch(ArchReg::X86(X86Reg::Rax));

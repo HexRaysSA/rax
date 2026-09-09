@@ -5,7 +5,7 @@ use crate::smir::lower::runtime::jit_gate_tests::*;
 use crate::smir::lower::runtime::*;
 
 #[test]
-fn scalar_alu_immediate_gate_requires_exact_w64_sign_extended_imm32() {
+fn scalar_alu_immediate_gate_accepts_w64_values_without_imm32_truncation() {
     let add = |value, width| OpKind::Add {
         dst: x86(X86Reg::Rbx),
         src1: x86(X86Reg::Rbx),
@@ -22,8 +22,8 @@ fn scalar_alu_immediate_gate_requires_exact_w64_sign_extended_imm32() {
 
     assert!(native(add(i64::from(i32::MIN), OpWidth::W64)));
     assert!(native(add(i64::from(i32::MAX), OpWidth::W64)));
-    assert!(!native(add(0x8000_0000, OpWidth::W64)));
-    assert!(!native(add(i64::from(i32::MIN) - 1, OpWidth::W64)));
+    assert!(native(add(0x8000_0000, OpWidth::W64)));
+    assert!(native(add(i64::from(i32::MIN) - 1, OpWidth::W64)));
     assert!(native(add(0x8000_0000, OpWidth::W32)));
 }
 
