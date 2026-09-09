@@ -452,6 +452,14 @@ pub struct X86_64Vcpu {
     /// re-run's trace, then diffs them to pinpoint the exact diverging access.
     #[cfg(all(feature = "smir-jit", target_arch = "x86_64"))]
     jit_mem_trace: Option<Vec<(u8, u64, u8, u64)>>,
+    /// Verification-only intra-instruction frontier; absent during execution.
+    #[cfg(any(test, all(feature = "smir-jit", target_arch = "x86_64")))]
+    pub(in crate::isa::x86_64) jit_verify_vsib_stop: Option<JitVerifyVsibStop>,
+    /// One-shot direct restart after a native VSIB lane/helper or mode guard
+    /// defers at its instruction PC. This prevents cached-entry re-entry from
+    /// retrying the same deferred access indefinitely.
+    #[cfg(all(feature = "smir-jit", target_arch = "x86_64"))]
+    jit_vsib_resume_pc: Option<u64>,
 }
 
 /// Pending I/O operation.
@@ -1073,6 +1081,10 @@ impl X86_64Vcpu {
             jit_mem_log: None,
             #[cfg(all(feature = "smir-jit", target_arch = "x86_64"))]
             jit_mem_trace: None,
+            #[cfg(any(test, all(feature = "smir-jit", target_arch = "x86_64")))]
+            jit_verify_vsib_stop: None,
+            #[cfg(all(feature = "smir-jit", target_arch = "x86_64"))]
+            jit_vsib_resume_pc: None,
         }
     }
 
@@ -3153,6 +3165,10 @@ impl X86_64Vcpu {
     /// attached guest memory. Mirrors the field initialisation in [`new`] for
     /// every architectural and cache field touched by execution.
     pub fn reset_state(&mut self) {
+        #[cfg(all(feature = "smir-jit", target_arch = "x86_64"))]
+        {
+            self.jit_vsib_resume_pc = None;
+        }
         self.insn_count = 0;
         self.regs = Registers::default();
         self.sregs = SystemRegisters::default();
@@ -3187,170 +3203,12 @@ impl X86_64Vcpu {
     }
 }
 
+#[path = "cpu_run.rs"]
+mod run_loop;
+
 impl VCpu for X86_64Vcpu {
     fn run(&mut self) -> Result<VcpuExit> {
-        #[cfg(all(feature = "smir-jit", target_arch = "x86_64"))]
-        maybe_spawn_mips_reporter();
-        let start_time = std::time::Instant::now();
-        let mut batch: u64 = 0;
-        loop {
-            // Periodic housekeeping on a stride keeps the per-instruction path
-            // free of clock reads, RefCell borrows and 64-bit division.
-            batch = batch.wrapping_add(1);
-            if batch % LAPIC_POLL_STRIDE == 0 {
-                // Yield to the VMM (~1ms wall-clock slices) so timers/IRQs get
-                // serviced. Real-time paced: the guest clock (TSC, elapsed_nanos)
-                // tracks host wall time, so delays and timers complete in real
-                // time rather than being tied to emulator instruction throughput.
-                if self.poll_periodic_housekeeping(&start_time) {
-                    publish_instruction_count(self.insn_count);
-                    return Ok(VcpuExit::Hlt);
-                }
-            }
-
-            if self.halted {
-                publish_instruction_count(self.insn_count);
-                // If halted but an interrupt is pending, keep spinning lightly.
-                if self.mmu.has_lapic_pending() {
-                    std::thread::yield_now();
-                    continue;
-                }
-                return Ok(VcpuExit::Hlt);
-            }
-
-            // Self-modifying-code: drain the MMU's write journal and invalidate
-            // decode + JIT caches for any code page written since the previous
-            // instruction, so a freshly-modified opcode is re-decoded (and any
-            // stale native region dropped) before it next executes. Guarded —
-            // zero work when no code page has been written. Sits on the
-            // run-loop path (where real guest execution and the JIT live); for
-            // a JIT'd hot loop it costs one guarded check per native run-loop
-            // slice. This is now the SOLE SMC invalidation point on
-            // the run path: `note_smc` (in every MMU `write_u*`) journals the
-            // page and this drain invalidates it once — deduplicated — before
-            // the next fetch, so no per-store immediate scan is needed.
-            self.drain_smc();
-
-            #[cfg(feature = "debug")]
-            if !self.single_step {
-                if let Some(addr) = self.debug_breakpoint_at_current_rip() {
-                    publish_instruction_count(self.insn_count);
-                    return Ok(VcpuExit::GdbBreakpoint { addr });
-                }
-            }
-
-            // SMIR hot-block JIT fast path: if the region at RIP has been
-            // compiled, run it natively until a frontier/yield exit and continue.
-            // Cheap O(1) guard keeps the interpreter path untouched until any
-            // region has actually been promoted. `_jit_rip_before` snapshots RIP
-            // so the post-step back-edge sampler can spot loop heads.
-            #[cfg(all(
-                feature = "smir-jit",
-                any(target_arch = "x86_64", target_arch = "aarch64")
-            ))]
-            let _jit_rip_before = {
-                let rip = self.regs.rip;
-                if !self.interrupt_inhibit
-                    && !self.jit_disabled_for_debugger()
-                    && !self.jit_cache.is_empty()
-                {
-                    let key = (rip, self.jit_mode_tag());
-                    if let Some(slot) = self.jit_cache.get(&key).cloned() {
-                        if let Some(region) = slot {
-                            self.jit_run_region(&region);
-                            // A lift-through-calls call-out may have bailed with a
-                            // VMM-bound exit (I/O, HLT, …) from a callee — propagate it.
-                            if let Some(exit) = self.jit_callout_exit.take() {
-                                publish_instruction_count(self.insn_count);
-                                return Ok(exit);
-                            }
-                            continue;
-                        }
-                        // None ⇒ known-ineligible: fall through to the interpreter.
-                    }
-                }
-                rip
-            };
-
-            match self.step() {
-                Ok(Some(exit)) => {
-                    publish_instruction_count(self.insn_count);
-                    return Ok(exit);
-                }
-                Ok(None) => {
-                    #[cfg(all(
-                        feature = "smir-jit",
-                        any(target_arch = "x86_64", target_arch = "aarch64")
-                    ))]
-                    {
-                        if !self.jit_disabled_for_debugger() {
-                            self.jit_sample_backedge(_jit_rip_before);
-                        }
-                        // A region run on promotion may have bailed a call-out exit.
-                        if let Some(exit) = self.jit_callout_exit.take() {
-                            publish_instruction_count(self.insn_count);
-                            return Ok(exit);
-                        }
-                    }
-                    // Check for single-step mode (GDB debugging)
-                    #[cfg(feature = "debug")]
-                    if self.single_step {
-                        publish_instruction_count(self.insn_count);
-                        return Ok(VcpuExit::GdbStep);
-                    }
-                    continue;
-                }
-                Err(Error::PageFault { vaddr, error_code }) => {
-                    // Inject the page fault exception into the guest
-                    match self.inject_page_fault(vaddr, error_code) {
-                        Ok(()) => continue,
-                        Err(Error::PageFault {
-                            vaddr: _df_vaddr, ..
-                        }) => {
-                            // Page fault during page fault delivery = double fault
-                            // Try to inject #DF (vector 8)
-                            match self.inject_exception(8, Some(0)) {
-                                Ok(()) => continue,
-                                Err(e) => {
-                                    // Triple fault - CPU should reset
-                                    return Err(Error::Emulator(format!(
-                                        "Triple fault at RIP={:#x} (double fault delivery failed: {:?}, original #PF at {:#x})",
-                                        self.regs.rip, e, vaddr
-                                    )));
-                                }
-                            }
-                        }
-                        Err(e) => {
-                            // IDT entry not present or other error during #PF injection
-                            return Err(Error::Emulator(format!(
-                                "#PF at vaddr={:#x} (error_code={:#x}, RIP={:#x}): {}",
-                                vaddr, error_code, self.regs.rip, e
-                            )));
-                        }
-                    }
-                }
-                Err(Error::GeneralProtection { error_code }) => {
-                    // Inject #GP (vector 13) into the guest. RIP still points at
-                    // the faulting instruction (it is advanced only after an
-                    // instruction retires), so the pushed frame restarts it.
-                    // Unlike #PF, a #GP does not set CR2.
-                    match self.inject_exception(13, Some(error_code)) {
-                        Ok(()) => continue,
-                        Err(e) => {
-                            publish_instruction_count(self.insn_count);
-                            return Err(Error::Emulator(format!(
-                                "#GP (error_code={:#x}, RIP={:#x}) delivery failed: {}",
-                                error_code, self.regs.rip, e
-                            )));
-                        }
-                    }
-                }
-                Err(e) => {
-                    publish_instruction_count(self.insn_count);
-                    return Err(e);
-                }
-            }
-        }
+        self.run_loop()
     }
 
     fn get_state(&self) -> Result<CpuState> {
@@ -3375,6 +3233,10 @@ impl VCpu for X86_64Vcpu {
         };
         self.regs = state.regs.clone();
         self.sregs = state.sregs.clone();
+        #[cfg(all(feature = "smir-jit", target_arch = "x86_64"))]
+        {
+            self.jit_vsib_resume_pc = None;
+        }
         // External state injection is a serializing boundary and does not carry
         // the emulator-private STI/MOV-SS interrupt shadow.
         self.interrupt_inhibit = false;
@@ -3620,6 +3482,10 @@ impl VCpu for X86_64Vcpu {
     }
 
     fn set_emulator_state(&mut self, state: &crate::vm::snapshot::EmulatorState) -> Result<()> {
+        #[cfg(all(feature = "smir-jit", target_arch = "x86_64"))]
+        {
+            self.jit_vsib_resume_pc = None;
+        }
         // Restore FPU state
         self.fpu.control_word = state.fpu.control_word;
         self.fpu.status_word = state.fpu.status_word;
@@ -3745,10 +3611,26 @@ use jit_state::JitRegion;
 use jit_state::{jit_mxcsr_masks_all_exceptions, merge_native_rflags};
 
 #[cfg(all(feature = "smir-jit", target_arch = "x86_64"))]
+#[path = "cpu_jit_verify.rs"]
+mod jit_verify;
+
+#[cfg(any(test, all(feature = "smir-jit", target_arch = "x86_64")))]
+#[path = "cpu_jit_vsib_verify.rs"]
+mod jit_vsib_verify;
+#[cfg(any(test, all(feature = "smir-jit", target_arch = "x86_64")))]
+pub(in crate::isa::x86_64) use jit_vsib_verify::JitVerifyVsibStop;
+
+#[cfg(all(feature = "smir-jit", target_arch = "x86_64"))]
 #[path = "cpu_jit_mem_load.rs"]
 mod jit_mem_load;
 #[cfg(all(feature = "smir-jit", target_arch = "x86_64"))]
 use jit_mem_load::rax_jit_mem_load;
+
+#[cfg(all(feature = "smir-jit", target_arch = "x86_64"))]
+#[path = "cpu_jit_mem_store.rs"]
+mod jit_mem_store;
+#[cfg(all(feature = "smir-jit", target_arch = "x86_64"))]
+use jit_mem_store::rax_jit_mem_store;
 
 #[cfg(all(feature = "smir-jit", target_arch = "x86_64"))]
 #[path = "cpu_jit_cmpccxadd.rs"]
@@ -4012,49 +3894,6 @@ fn jit_install_crash_handler() {
         libc::sigaction(libc::SIGBUS, &sa, std::ptr::null_mut());
         libc::sigaction(libc::SIGILL, &sa, std::ptr::null_mut());
     });
-}
-
-/// JIT memory-store helper: translate + write `size` bytes of `value` at guest
-/// `addr` via the vcpu MMU. Returns 1 on success, 0 on fault/MMIO/unmapped.
-#[cfg(all(feature = "smir-jit", target_arch = "x86_64"))]
-unsafe extern "C" fn rax_jit_mem_store(
-    ctx: *mut X86_64Vcpu,
-    addr: u64,
-    value: u64,
-    size: u32,
-) -> u64 {
-    let vcpu = unsafe { &mut *ctx };
-    let Some(last) = (match size {
-        1 | 2 | 4 | 8 => addr.checked_add(u64::from(size) - 1),
-        _ => None,
-    }) else {
-        return 0;
-    };
-    // A store to a code page is self-modifying code (e.g. the kernel's
-    // text_poke / alternatives patching). Bail to the interpreter so the full
-    // SMC + instruction-patching semantics (decode/JIT invalidation ordering,
-    // int3 batching) are handled there rather than mid-native-region.
-    if vcpu.mmu.is_code_page(addr) || vcpu.mmu.is_code_page(last) {
-        return 0;
-    }
-    // Verify mode: record the pre-store value so the region's writes can be
-    // undone and the interpreter re-run for a store-sound differential. The
-    // old-value read must NOT pollute the access trace (it is bookkeeping, not
-    // a guest access), so the trace is suspended around it.
-    if vcpu.jit_mem_log.is_some() {
-        let saved_trace = vcpu.jit_mem_trace.take();
-        let old = vcpu.read_mem(addr, size as u8);
-        vcpu.jit_mem_trace = saved_trace;
-        match old {
-            Ok(old) => vcpu.push_jit_mem_log((addr, size as u8, old)),
-            // Can't snapshot this store → can't soundly verify; abort logging.
-            Err(_) => vcpu.jit_mem_log = None,
-        }
-    }
-    match vcpu.write_mem(addr, value, size as u8) {
-        Ok(()) => 1,
-        Err(_) => 0,
-    }
 }
 
 /// JIT APX POP2 helper. A complete aligned 16-byte read is staged before any
@@ -4826,6 +4665,12 @@ impl X86_64Vcpu {
             #[cfg(target_arch = "x86_64")]
             let uses_io = JitRegion::uses_io_excluding(&func, &exits);
             #[cfg(target_arch = "x86_64")]
+            let Some(vsib_instructions) =
+                JitRegion::collect_vsib_instructions_excluding(&func, &exits)
+            else {
+                continue 'modes;
+            };
+            #[cfg(target_arch = "x86_64")]
             if uses_mmx && !x86_native_mmx_features_supported_excluding(&func, &exits) {
                 if jit_bail_log() {
                     eprintln!("[JIT-BAIL] host-mmx-features @ {entry:#x} (call={cm})");
@@ -4942,6 +4787,8 @@ impl X86_64Vcpu {
                 entry_offset: res.entry_offset,
                 source_pages,
                 #[cfg(target_arch = "x86_64")]
+                vsib_instructions,
+                #[cfg(target_arch = "x86_64")]
                 uses_vector,
                 #[cfg(target_arch = "x86_64")]
                 uses_xmm_state,
@@ -4997,9 +4844,10 @@ impl X86_64Vcpu {
 
     /// Native-only execution of a compiled region (the production path).
     #[cfg(target_arch = "x86_64")]
-    pub(super) fn jit_run_region_native(&mut self, region: &JitRegion) {
+    pub(super) fn jit_run_region_native(&mut self, region: &JitRegion) -> (u64, u64) {
         use crate::smir::lower::runtime::GuestRegs;
 
+        self.jit_vsib_resume_pc = None;
         self.jit_enter_region(region);
 
         // Crash diagnostic (RAX_JIT_TRACE=1): record the region entry about to run
@@ -5224,7 +5072,7 @@ impl X86_64Vcpu {
                 op: LazyFlagOp::None,
                 ..Default::default()
             };
-            return;
+            return (0, 0);
         }
 
         // Stateful control instructions and interpreter callouts commit through
@@ -5322,6 +5170,18 @@ impl X86_64Vcpu {
         };
         self.interrupt_inhibit = gr.interrupt_inhibit != 0;
         self.regs.rip = gr.exit_pc;
+        let vsib_guard_deferred = region
+            .vsib_instructions
+            .binary_search_by_key(&gr.exit_pc, |&(pc, _)| pc)
+            .ok()
+            .and_then(|index| {
+                region.vsib_instructions[index]
+                    .1
+                    .evex_vsib_memory_encoding()
+            })
+            .is_some_and(|encoding| gr.cs_l == 0 || (encoding.requires_apx && gr.apx_enabled == 0));
+        self.jit_vsib_resume_pc =
+            (gr.x86_vsib_frontier_lane_plus_one != 0 || vsib_guard_deferred).then_some(gr.exit_pc);
         // The native region produced fully-materialized RFLAGS. Mark the lazy
         // state as materialized so the interpreter, on resume, reads
         // `self.regs.rflags` (the JIT result) instead of recomputing from a
@@ -5333,6 +5193,10 @@ impl X86_64Vcpu {
         };
         self.jit_leave_region();
         self.complete_jit_io_request(&mut gr);
+        (
+            gr.x86_vsib_frontier_lane_plus_one,
+            gr.x86_vsib_instruction_ordinal,
+        )
     }
 
     /// Execute x86-lifted scalar SMIR as AArch64 identity-mapped code. Legacy
@@ -5382,512 +5246,6 @@ impl X86_64Vcpu {
             ..Default::default()
         };
         self.jit_leave_region();
-    }
-
-    /// Verify a compiled region against the interpreter (RAX_JIT_VERIFY=1).
-    #[cfg(target_arch = "x86_64")]
-    fn jit_run_region_verified(&mut self, region: &JitRegion) {
-        // RDTSC/RDTSCP read the real-time guest clock. A second interpreter
-        // execution cannot reproduce the earlier native value, and that value
-        // can influence arbitrary later data/control flow in the same region.
-        // Execute these regions normally; dedicated deterministic helper tests
-        // validate their native semantics without producing false divergences.
-        if region.uses_timestamp || region.uses_io {
-            self.jit_run_region_native(region);
-            return;
-        }
-        let entry_pc = self.regs.rip;
-        let snap = self.regs.clone();
-        let snap_fpu = self.fpu.clone();
-        let snap_lf = self.lazy_flags;
-        let snap_fs_base = self.sregs.fs.base;
-        let snap_gs_base = self.sregs.gs.base;
-        let snap_kernel_gs_base = self.kernel_gs_base;
-        let snap_tsc_adjust = self.tsc_adjust;
-        let snap_tsc_aux = self.tsc_aux;
-        let snap_misc_enable = self.misc_enable;
-        let snap_pat = self.pat;
-        let snap_umwait_control = self.umwait_control;
-        let snap_pkru = self.pkru;
-        let snap_cr0 = self.sregs.cr0;
-        let snap_cr2 = self.sregs.cr2;
-        let snap_cr3 = self.sregs.cr3;
-        let snap_cr4 = self.sregs.cr4;
-        let snap_cr8 = self.sregs.cr8;
-        let snap_efer = self.sregs.efer;
-        let snap_star = self.sregs.star;
-        let snap_lstar = self.sregs.lstar;
-        let snap_cstar = self.sregs.cstar;
-        let snap_fmask = self.sregs.fmask;
-        let snap_sysenter_cs = self.sregs.sysenter_cs;
-        let snap_sysenter_esp = self.sregs.sysenter_esp;
-        let snap_sysenter_eip = self.sregs.sysenter_eip;
-        let snap_dr0 = self.sregs.dr0;
-        let snap_dr1 = self.sregs.dr1;
-        let snap_dr2 = self.sregs.dr2;
-        let snap_dr3 = self.sregs.dr3;
-        let snap_dr6 = self.sregs.dr6;
-        let snap_dr7 = self.sregs.dr7;
-        let snap_descriptor_state = self.descriptor_state_snapshot();
-        let snap_interrupt_inhibit = self.interrupt_inhibit;
-
-        // 1) Run natively with store-logging (to UNDO writes) and an access
-        //    trace (to diff against the interpreter's access sequence).
-        self.jit_mem_log = Some(Vec::new());
-        self.jit_mem_trace = Some(Vec::new());
-        self.jit_run_region_native(region);
-        let jit = self.regs.clone();
-        let jit_fpu = self.fpu.clone();
-        let jit_fs_base = self.sregs.fs.base;
-        let jit_gs_base = self.sregs.gs.base;
-        let jit_kernel_gs_base = self.kernel_gs_base;
-        let jit_tsc_adjust = self.tsc_adjust;
-        let jit_tsc_aux = self.tsc_aux;
-        let jit_misc_enable = self.misc_enable;
-        let jit_pat = self.pat;
-        let jit_umwait_control = self.umwait_control;
-        let jit_pkru = self.pkru;
-        let jit_cr0 = self.sregs.cr0;
-        let jit_cr2 = self.sregs.cr2;
-        let jit_cr3 = self.sregs.cr3;
-        let jit_cr4 = self.sregs.cr4;
-        let jit_cr8 = self.sregs.cr8;
-        let jit_efer = self.sregs.efer;
-        let jit_star = self.sregs.star;
-        let jit_lstar = self.sregs.lstar;
-        let jit_cstar = self.sregs.cstar;
-        let jit_fmask = self.sregs.fmask;
-        let jit_sysenter_cs = self.sregs.sysenter_cs;
-        let jit_sysenter_esp = self.sregs.sysenter_esp;
-        let jit_sysenter_eip = self.sregs.sysenter_eip;
-        let jit_dr0 = self.sregs.dr0;
-        let jit_dr1 = self.sregs.dr1;
-        let jit_dr2 = self.sregs.dr2;
-        let jit_dr3 = self.sregs.dr3;
-        let jit_dr6 = self.sregs.dr6;
-        let jit_dr7 = self.sregs.dr7;
-        let jit_descriptor_state = self.descriptor_state_snapshot();
-        let jit_interrupt_inhibit = self.interrupt_inhibit;
-        let jit_rflags = self.regs.rflags; // already materialized by the native bridge
-        let exit_pc = self.regs.rip;
-        // Take the native trace NOW, before the undo/re-read loops add to it.
-        let jit_trace = self.jit_mem_trace.take();
-        let log = match self.jit_mem_log.take() {
-            Some(l) => l,
-            // Logging aborted (unreadable store target) → can't undo → adopt
-            // the native result unverified.
-            None => {
-                self.regs = jit;
-                self.fpu = jit_fpu;
-                self.pkru = jit_pkru;
-                return;
-            }
-        };
-        // Capture the native final value at each written address, then UNDO the
-        // region's writes (reverse order handles overlapping stores) so the
-        // interpreter re-runs from the original memory image.
-        let mut native_writes: Vec<(u64, u8, u64)> = Vec::with_capacity(log.len());
-        for &(addr, size, _old) in &log {
-            if let Ok(v) = self.read_mem(addr, size) {
-                native_writes.push((addr, size, v));
-            }
-        }
-        for &(addr, size, old) in log.iter().rev() {
-            let _ = self.write_mem(addr, old, size);
-        }
-
-        // 2) Re-run the interpreter from the same entry up to the exit PC,
-        //    restoring the LAZY flag state (the interpreter's source of truth).
-        self.regs = snap.clone();
-        self.fpu = snap_fpu;
-        self.lazy_flags = snap_lf;
-        self.sregs.fs.base = snap_fs_base;
-        self.sregs.gs.base = snap_gs_base;
-        self.kernel_gs_base = snap_kernel_gs_base;
-        self.tsc_adjust = snap_tsc_adjust;
-        self.tsc_aux = snap_tsc_aux;
-        self.misc_enable = snap_misc_enable;
-        self.pat = snap_pat;
-        self.umwait_control = snap_umwait_control;
-        self.pkru = snap_pkru;
-        self.sregs.cr0 = snap_cr0;
-        self.sregs.cr2 = snap_cr2;
-        self.sregs.cr3 = snap_cr3;
-        self.sregs.cr4 = snap_cr4;
-        self.sregs.cr8 = snap_cr8;
-        self.sregs.efer = snap_efer;
-        self.sregs.star = snap_star;
-        self.sregs.lstar = snap_lstar;
-        self.sregs.cstar = snap_cstar;
-        self.sregs.fmask = snap_fmask;
-        self.sregs.sysenter_cs = snap_sysenter_cs;
-        self.sregs.sysenter_esp = snap_sysenter_esp;
-        self.sregs.sysenter_eip = snap_sysenter_eip;
-        self.sregs.dr0 = snap_dr0;
-        self.sregs.dr1 = snap_dr1;
-        self.sregs.dr2 = snap_dr2;
-        self.sregs.dr3 = snap_dr3;
-        self.sregs.dr6 = snap_dr6;
-        self.sregs.dr7 = snap_dr7;
-        self.interrupt_inhibit = snap_interrupt_inhibit;
-        snap_descriptor_state.restore(self);
-        // A lift-through-call callee can update translation controls through
-        // the direct interpreter. The verification replay must not reuse TLB
-        // entries created under the native run's CR0/CR3/CR4 state.
-        self.mmu.flush_tlb();
-        self.jit_mem_trace = Some(Vec::new());
-        let cap = 50_000_000u64;
-        let mut steps = 0u64;
-        let mut reached = true;
-        let expects_backward_exit = region
-            .yielded_backward_exit_pcs
-            .binary_search(&exit_pc)
-            .is_ok();
-        let mut observed_backward_exit = false;
-        let mut active_callout_return = None;
-        // A yielded edge can resume at the entry PC or at an internal block
-        // that the interpreter reaches earlier by a forward edge. PC equality
-        // alone therefore does not identify the native handoff. For an exit
-        // synthesized from a CFG backedge, replay through the actual backward
-        // transition (including a self-edge) before comparing state.
-        while self.regs.rip != exit_pc
-            || (expects_backward_exit && !observed_backward_exit)
-            || active_callout_return.is_some()
-        {
-            if steps >= cap {
-                reached = false;
-                break;
-            }
-            // SMC: mirror the run-loop drain (this verify re-step bypasses it).
-            self.drain_smc();
-            let rip_before = self.regs.rip;
-            let entering_callout = active_callout_return.is_none().then(|| {
-                region
-                    .callout_boundaries
-                    .binary_search_by_key(&rip_before, |&(call_pc, _)| call_pc)
-                    .ok()
-                    .map(|index| region.callout_boundaries[index].1)
-            });
-            match self.step() {
-                Ok(None) => {}
-                _ => {
-                    reached = false;
-                    break;
-                }
-            }
-            steps += 1;
-            if let Some(return_pc) = entering_callout.flatten() {
-                active_callout_return = Some(return_pc);
-            }
-            if active_callout_return == Some(self.regs.rip) {
-                active_callout_return = None;
-            }
-            observed_backward_exit |=
-                expects_backward_exit && self.regs.rip == exit_pc && self.regs.rip <= rip_before;
-        }
-        let interp_trace = self.jit_mem_trace.take();
-
-        if reached {
-            // Retain the first per-access mismatch for a possible architectural
-            // divergence report. Some direct handlers use typed MMU accessors
-            // outside read_mem/write_mem, so a trace-only length/order mismatch
-            // is diagnostic rather than proof of a JIT error and must not flood
-            // a long verification run.
-            let trace_diff_at =
-                if let (Some(jit_trace), Some(interp_trace)) = (&jit_trace, &interp_trace) {
-                    let n = jit_trace.len().min(interp_trace.len());
-                    let mut diff_at: Option<usize> = None;
-                    for i in 0..n {
-                        if jit_trace[i] != interp_trace[i] {
-                            diff_at = Some(i);
-                            break;
-                        }
-                    }
-                    if diff_at.is_some() || jit_trace.len() != interp_trace.len() {
-                        Some((diff_at, n))
-                    } else {
-                        None
-                    }
-                } else {
-                    None
-                };
-
-            // Status flags (CF/PF/AF/ZF/SF/OF), DF, and every virtualized
-            // interrupt-control field. CLI may clear IF or VIF; every other
-            // admitted operation must preserve IF/IOPL/VM/VIF/VIP. Comparing
-            // the complete shadow catches native bridge corruption at the
-            // exact handoff frontier.
-            const MASK: u64 = flags::bits::CF
-                | flags::bits::PF
-                | flags::bits::AF
-                | flags::bits::ZF
-                | flags::bits::SF
-                | flags::bits::OF
-                | flags::bits::DF
-                | crate::isa::x86_64::execute::system::X86_INTERRUPT_CONTROL_RFLAGS_MASK;
-            let g = [
-                ("rax", self.regs.rax, jit.rax),
-                ("rcx", self.regs.rcx, jit.rcx),
-                ("rdx", self.regs.rdx, jit.rdx),
-                ("rbx", self.regs.rbx, jit.rbx),
-                ("rsp", self.regs.rsp, jit.rsp),
-                ("rbp", self.regs.rbp, jit.rbp),
-                ("rsi", self.regs.rsi, jit.rsi),
-                ("rdi", self.regs.rdi, jit.rdi),
-                ("r8", self.regs.r8, jit.r8),
-                ("r9", self.regs.r9, jit.r9),
-                ("r10", self.regs.r10, jit.r10),
-                ("r11", self.regs.r11, jit.r11),
-                ("r12", self.regs.r12, jit.r12),
-                ("r13", self.regs.r13, jit.r13),
-                ("r14", self.regs.r14, jit.r14),
-                ("r15", self.regs.r15, jit.r15),
-            ];
-            let mut diffs: Vec<String> = Vec::new();
-            for (name, interp, native) in g {
-                if interp != native {
-                    diffs.push(format!("{name}: interp={interp:#x} jit={native:#x}"));
-                }
-            }
-            for (name, interp, native) in [
-                ("fs_base", self.sregs.fs.base, jit_fs_base),
-                ("gs_base", self.sregs.gs.base, jit_gs_base),
-                ("kernel_gs_base", self.kernel_gs_base, jit_kernel_gs_base),
-                ("tsc_adjust", self.tsc_adjust, jit_tsc_adjust),
-                ("tsc_aux", u64::from(self.tsc_aux), u64::from(jit_tsc_aux)),
-                ("misc_enable", self.misc_enable, jit_misc_enable),
-                ("pat", self.pat, jit_pat),
-                ("umwait_control", self.umwait_control, jit_umwait_control),
-                ("pkru", u64::from(self.pkru), u64::from(jit_pkru)),
-                ("cr0", self.sregs.cr0, jit_cr0),
-                ("cr2", self.sregs.cr2, jit_cr2),
-                ("cr3", self.sregs.cr3, jit_cr3),
-                ("cr4", self.sregs.cr4, jit_cr4),
-                ("cr8", self.sregs.cr8, jit_cr8),
-                ("efer", self.sregs.efer, jit_efer),
-                ("star", self.sregs.star, jit_star),
-                ("lstar", self.sregs.lstar, jit_lstar),
-                ("cstar", self.sregs.cstar, jit_cstar),
-                ("fmask", self.sregs.fmask, jit_fmask),
-                ("sysenter_cs", self.sregs.sysenter_cs, jit_sysenter_cs),
-                ("sysenter_esp", self.sregs.sysenter_esp, jit_sysenter_esp),
-                ("sysenter_eip", self.sregs.sysenter_eip, jit_sysenter_eip),
-                ("dr0", self.sregs.dr0, jit_dr0),
-                ("dr1", self.sregs.dr1, jit_dr1),
-                ("dr2", self.sregs.dr2, jit_dr2),
-                ("dr3", self.sregs.dr3, jit_dr3),
-                ("dr6", self.sregs.dr6, jit_dr6),
-                ("dr7", self.sregs.dr7, jit_dr7),
-            ] {
-                if interp != native {
-                    diffs.push(format!("{name}: interp={interp:#x} jit={native:#x}"));
-                }
-            }
-            jit_descriptor_state.append_verify_diffs(self, &mut diffs);
-            if self.interrupt_inhibit != jit_interrupt_inhibit {
-                diffs.push(format!(
-                    "interrupt_inhibit: interp={} jit={}",
-                    self.interrupt_inhibit, jit_interrupt_inhibit
-                ));
-            }
-            // Vector (XMM/YMM/ZMM) + opmask (k) state. A masked-EVEX miscompile —
-            // or any vector divergence — surfaces here. The interpreter result is
-            // in self.regs, the native result in `jit`; the GPR/flags/memory checks
-            // above are blind to ZMM/k.
-            for i in 0..16 {
-                if self.regs.xmm[i] != jit.xmm[i] {
-                    diffs.push(format!(
-                        "xmm{i}: interp={:016x?} jit={:016x?}",
-                        self.regs.xmm[i], jit.xmm[i]
-                    ));
-                }
-                if self.regs.ymm_high[i] != jit.ymm_high[i] {
-                    diffs.push(format!(
-                        "ymm_hi{i}: interp={:016x?} jit={:016x?}",
-                        self.regs.ymm_high[i], jit.ymm_high[i]
-                    ));
-                }
-                if self.regs.zmm_high[i] != jit.zmm_high[i] {
-                    diffs.push(format!(
-                        "zmm_hi{i}: interp={:016x?} jit={:016x?}",
-                        self.regs.zmm_high[i], jit.zmm_high[i]
-                    ));
-                }
-                if self.regs.zmm_ext[i] != jit.zmm_ext[i] {
-                    diffs.push(format!(
-                        "zmm{}: interp={:016x?} jit={:016x?}",
-                        i + 16,
-                        self.regs.zmm_ext[i],
-                        jit.zmm_ext[i]
-                    ));
-                }
-            }
-            for i in 0..8 {
-                if self.regs.k[i] != jit.k[i] {
-                    diffs.push(format!(
-                        "k{i}: interp={:#x} jit={:#x}",
-                        self.regs.k[i], jit.k[i]
-                    ));
-                }
-                if self.regs.mm[i] != jit.mm[i] {
-                    diffs.push(format!(
-                        "mm{i}: interp={:#x} jit={:#x}",
-                        self.regs.mm[i], jit.mm[i]
-                    ));
-                }
-            }
-            self.fpu.append_jit_verify_diffs(&jit_fpu, &mut diffs);
-            // A flags-ONLY divergence (registers + memory all match) is a benign
-            // dead-flag artifact: the optimizer drops a flag update it proved
-            // dead across the FULL lifted function, but the JIT region is
-            // truncated at a frontier, so at the hand-off PC the stale flags are
-            // still visible — yet the interpreter resumes into the very blocks
-            // that overwrite them before any read. Log, don't abort.
-            let interp_rflags = self.compute_materialized_rflags();
-            let flag_diff = if (interp_rflags & MASK) != (jit_rflags & MASK) {
-                Some(format!(
-                    "rflags: interp={:#x} jit={:#x}",
-                    interp_rflags & MASK,
-                    jit_rflags & MASK
-                ))
-            } else {
-                None
-            };
-            // Memory: compare the interpreter's final value at each address the
-            // native region wrote.
-            for &(addr, size, native_v) in &native_writes {
-                if let Ok(interp_v) = self.read_mem(addr, size) {
-                    if interp_v != native_v {
-                        diffs.push(format!(
-                            "mem[{addr:#x}/{size}B]: interp={interp_v:#x} jit={native_v:#x}"
-                        ));
-                    }
-                }
-            }
-            if !diffs.is_empty() {
-                let code = self.read_bytes(entry_pc, 256).unwrap_or_default();
-                eprintln!(
-                    "\n[JIT-VERIFY] DIVERGENCE entry={entry_pc:#x} exit={exit_pc:#x} steps={steps}"
-                );
-                eprintln!(
-                    "[JIT-VERIFY] entry regs: rax={:#x} rcx={:#x} rdx={:#x} rbx={:#x} rsi={:#x} rdi={:#x} r8={:#x} r9={:#x} r10={:#x} r11={:#x}",
-                    snap.rax,
-                    snap.rcx,
-                    snap.rdx,
-                    snap.rbx,
-                    snap.rsi,
-                    snap.rdi,
-                    snap.r8,
-                    snap.r9,
-                    snap.r10,
-                    snap.r11
-                );
-                eprintln!("[JIT-VERIFY] code@entry[256] = {code:02x?}");
-                if let (Some((diff_at, common_len)), Some(jit_trace), Some(interp_trace)) =
-                    (trace_diff_at, &jit_trace, &interp_trace)
-                {
-                    let kindname = |kind: u8| if kind == 0 { "load " } else { "store" };
-                    eprintln!(
-                        "[JIT-VERIFY] memory trace: jit={} interp={} first_diff={diff_at:?}",
-                        jit_trace.len(),
-                        interp_trace.len()
-                    );
-                    let center = diff_at.unwrap_or(common_len.saturating_sub(1));
-                    let lo = center.saturating_sub(4);
-                    let hi = (center + 4).min(jit_trace.len().max(interp_trace.len()));
-                    for index in lo..hi {
-                        let native = jit_trace.get(index).map(|&(kind, addr, size, value)| {
-                            format!("{} [{addr:#x}/{size}B]={value:#x}", kindname(kind))
-                        });
-                        let interpreted =
-                            interp_trace.get(index).map(|&(kind, addr, size, value)| {
-                                format!("{} [{addr:#x}/{size}B]={value:#x}", kindname(kind))
-                            });
-                        let mark = if jit_trace.get(index) != interp_trace.get(index) {
-                            "<<<"
-                        } else {
-                            ""
-                        };
-                        eprintln!(
-                            "[JIT-VERIFY]   #{index:<3} jit={:<34} interp={:<34} {mark}",
-                            native.unwrap_or_else(|| "-".into()),
-                            interpreted.unwrap_or_else(|| "-".into())
-                        );
-                    }
-                }
-                // The JIT's load trace reconstructs the memory the region reads
-                // (the helper funnels every JIT access through read_mem).
-                let loads: Vec<String> = jit_trace
-                    .as_ref()
-                    .map(|trace| {
-                        trace
-                            .iter()
-                            .filter(|&&(k, _, _, _)| k == 0)
-                            .map(|&(_, a, s, v)| format!("[{a:#x}/{s}B]={v:#x}"))
-                            .collect()
-                    })
-                    .unwrap_or_default();
-                eprintln!("[JIT-VERIFY] jit loads ({}): {:?}", loads.len(), loads);
-                eprintln!(
-                    "[JIT-VERIFY] lifted+optimized region:\n{}",
-                    self.jit_dump_region(entry_pc)
-                );
-                for d in &diffs {
-                    eprintln!("[JIT-VERIFY]   {d}");
-                }
-                eprintln!("[JIT-VERIFY] aborting (first divergence).");
-                std::process::exit(70);
-            }
-
-            // Registers + memory matched. A residual flags-only difference is a
-            // benign dead-flag artifact (see above) — log a throttled sample and
-            // carry on with the native result, exactly as a non-verify run would.
-            if let Some(d) = flag_diff {
-                use std::sync::atomic::{AtomicUsize, Ordering};
-                static N: AtomicUsize = AtomicUsize::new(0);
-                let n = N.fetch_add(1, Ordering::Relaxed);
-                if n < 8 {
-                    eprintln!(
-                        "[JIT-VERIFY] benign dead-flag diff #{n} entry={entry_pc:#x} exit={exit_pc:#x}: {d}"
-                    );
-                }
-            }
-        }
-
-        // Matched (or unverifiable within the cap): adopt the native result.
-        self.regs = jit;
-        self.fpu = jit_fpu;
-        self.sregs.fs.base = jit_fs_base;
-        self.sregs.gs.base = jit_gs_base;
-        self.kernel_gs_base = jit_kernel_gs_base;
-        self.tsc_adjust = jit_tsc_adjust;
-        self.tsc_aux = jit_tsc_aux;
-        self.misc_enable = jit_misc_enable;
-        self.pat = jit_pat;
-        self.umwait_control = jit_umwait_control;
-        self.pkru = jit_pkru;
-        self.sregs.cr0 = jit_cr0;
-        self.sregs.cr2 = jit_cr2;
-        self.sregs.cr3 = jit_cr3;
-        self.sregs.cr4 = jit_cr4;
-        self.sregs.cr8 = jit_cr8;
-        self.sregs.efer = jit_efer;
-        self.sregs.star = jit_star;
-        self.sregs.lstar = jit_lstar;
-        self.sregs.cstar = jit_cstar;
-        self.sregs.fmask = jit_fmask;
-        self.sregs.sysenter_cs = jit_sysenter_cs;
-        self.sregs.sysenter_esp = jit_sysenter_esp;
-        self.sregs.sysenter_eip = jit_sysenter_eip;
-        self.sregs.dr0 = jit_dr0;
-        self.sregs.dr1 = jit_dr1;
-        self.sregs.dr2 = jit_dr2;
-        self.sregs.dr3 = jit_dr3;
-        self.sregs.dr6 = jit_dr6;
-        self.sregs.dr7 = jit_dr7;
-        self.interrupt_inhibit = jit_interrupt_inhibit;
-        jit_descriptor_state.restore(self);
-        self.mmu.flush_tlb();
     }
 
     /// Re-lift + optimize the region at `entry` and pretty-print its blocks/ops
@@ -6417,6 +5775,10 @@ mod jit_enter_tests;
 #[cfg(all(test, feature = "smir-jit", target_arch = "x86_64"))]
 #[path = "cpu_jit_leave_tests.rs"]
 mod jit_leave_tests;
+
+#[cfg(all(test, feature = "smir-jit", target_arch = "x86_64"))]
+#[path = "cpu_jit_vsib_tests.rs"]
+mod jit_vsib_tests;
 
 #[cfg(all(test, feature = "smir-jit", target_arch = "x86_64"))]
 #[path = "cpu_jit_stack_flags_tests.rs"]

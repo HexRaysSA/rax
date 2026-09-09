@@ -269,6 +269,12 @@ pub const X86_GUEST_X87_STATE_ACTIVE_OFFSET: i32 = X86_GUEST_X87_LAST_OPCODE_OFF
 pub const X86_GUEST_X87_PAYLOAD_OFFSET: i32 = X86_GUEST_X87_STATE_ACTIVE_OFFSET + 8;
 /// Offset of the append-only x87 payload call-through synchronization marker.
 pub const X86_GUEST_X87_PAYLOAD_ACTIVE_OFFSET: i32 = X86_GUEST_X87_PAYLOAD_OFFSET + 8 * 8;
+/// Offset of the append-only native VSIB partial-completion frontier marker.
+pub const X86_GUEST_VSIB_FRONTIER_LANE_PLUS_ONE_OFFSET: i32 =
+    X86_GUEST_X87_PAYLOAD_ACTIVE_OFFSET + 8;
+/// Offset of the append-only native VSIB dynamic instruction ordinal.
+pub const X86_GUEST_VSIB_INSTRUCTION_ORDINAL_OFFSET: i32 =
+    X86_GUEST_VSIB_FRONTIER_LANE_PLUS_ONE_OFFSET + 8;
 /// Internal `vec_load_fn` destination namespace for
 /// [`runtime::GuestRegs::vector_scratch`]. Architectural ZMM indices remain
 /// exactly 0..=31. For `vec_store_fn`, this tag names an unmasked scratch

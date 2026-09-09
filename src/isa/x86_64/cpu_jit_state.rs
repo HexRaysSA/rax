@@ -111,9 +111,38 @@ pub(super) struct JitRegion {
     /// the helper's own run-until-return contract.
     #[cfg(target_arch = "x86_64")]
     pub(super) callout_boundaries: Vec<(u64, u64)>,
+    /// Sorted exact source encodings for admitted VSIB instructions. The
+    /// verifier validates a partial-lane marker against these bytes and the
+    /// independently reconstructed pre-instruction state before replaying it.
+    #[cfg(target_arch = "x86_64")]
+    pub(super) vsib_instructions: Vec<(u64, crate::smir::ir::X86InstructionBytes)>,
 }
 
 impl JitRegion {
+    #[cfg(any(test, target_arch = "x86_64"))]
+    pub(super) fn collect_vsib_instructions_excluding(
+        func: &SmirFunction,
+        excluded: &std::collections::HashMap<crate::smir::ir::types::BlockId, u64>,
+    ) -> Option<Vec<(u64, crate::smir::ir::X86InstructionBytes)>> {
+        let mut instructions: Vec<_> = func
+            .x86_instruction_bytes
+            .iter()
+            .filter_map(|(&(block, pc), bytes)| {
+                (!excluded.contains_key(&block) && bytes.evex_vsib_memory_encoding().is_some())
+                    .then_some((pc, *bytes))
+            })
+            .collect();
+        instructions.sort_unstable_by_key(|&(pc, _)| pc);
+        if instructions
+            .windows(2)
+            .any(|pair| pair[0].0 == pair[1].0 && pair[0].1 != pair[1].1)
+        {
+            return None;
+        }
+        instructions.dedup();
+        Some(instructions)
+    }
+
     #[cfg(target_arch = "x86_64")]
     pub(super) fn uses_io_excluding(
         func: &SmirFunction,
@@ -310,6 +339,7 @@ mod tests {
             uses_io: false,
             yielded_backward_exit_pcs: Vec::new(),
             callout_boundaries: Vec::new(),
+            vsib_instructions: Vec::new(),
         };
         vcpu.jit_cache
             .insert((head, register_only), Some(Arc::new(cached)));
@@ -345,6 +375,99 @@ mod tests {
         assert!(!vcpu.jit_ineligible.contains_key(&(head, unmasked)));
         vcpu.mxcsr |= 1 << 7;
         assert_eq!(vcpu.jit_mode_tag(), register_only);
+    }
+
+    #[test]
+    fn vsib_source_collection_filters_non_vsib_reserved_and_excluded_metadata() {
+        let mut function = SmirFunction::new(FunctionId(0), BlockId(0), 0);
+        let no_exclusions = std::collections::HashMap::new();
+        assert_eq!(
+            JitRegion::collect_vsib_instructions_excluding(&function, &no_exclusions),
+            Some(Vec::new())
+        );
+        let gather = X86InstructionBytes::new(&[0x62, 0xF2, 0x7D, 0x4B, 0x90, 0x0C, 0x10]).unwrap();
+        let scatter =
+            X86InstructionBytes::new(&[0x62, 0xF2, 0x7D, 0x4B, 0xA0, 0x0C, 0x10]).unwrap();
+        for (block, pc, bytes) in [
+            (0, 0x3000, gather),
+            (0, 0x1000, scatter),
+            (1, 0x3000, gather),
+            (2, 0x2500, scatter),
+            (0, 0x1800, X86InstructionBytes::new(&[0x90]).unwrap()),
+            (
+                0,
+                0x2000,
+                // k0 is reserved for gather/scatter.
+                X86InstructionBytes::new(&[0x62, 0xF2, 0x7D, 0x48, 0x90, 0x0C, 0x10]).unwrap(),
+            ),
+            (
+                0,
+                0x2100,
+                // VSIB requires a memory ModRM and SIB.
+                X86InstructionBytes::new(&[0x62, 0xF2, 0x7D, 0x4B, 0x90, 0xCC]).unwrap(),
+            ),
+            (
+                0,
+                0x2200,
+                X86InstructionBytes::new(&[0x62, 0xF2, 0x7D, 0x4B, 0x90, 0x0C]).unwrap(),
+            ),
+        ] {
+            function
+                .x86_instruction_bytes
+                .insert((BlockId(block), pc), bytes);
+        }
+        assert_eq!(
+            JitRegion::collect_vsib_instructions_excluding(
+                &function,
+                &std::collections::HashMap::from([(BlockId(2), 0x2500)]),
+            ),
+            Some(vec![(0x1000, scatter), (0x3000, gather)]),
+            "source output is sorted, deduplicated, valid, and non-excluded"
+        );
+    }
+
+    #[test]
+    fn vsib_source_collection_rejects_conflicting_exact_bytes_for_one_pc() {
+        let gather = X86InstructionBytes::new(&[0x62, 0xF2, 0x7D, 0x4B, 0x90, 0x0C, 0x10]).unwrap();
+        let scatter =
+            X86InstructionBytes::new(&[0x62, 0xF2, 0x7D, 0x4B, 0xA0, 0x0C, 0x10]).unwrap();
+        let unused_x4 =
+            X86InstructionBytes::new(&[0x62, 0xF2, 0x79, 0x4B, 0x90, 0x0C, 0x10]).unwrap();
+        assert_eq!(
+            gather.evex_vsib_memory_encoding(),
+            unused_x4.evex_vsib_memory_encoding(),
+            "ignored X4 differs in exact bytes, not VSIB semantics"
+        );
+        for other in [scatter, unused_x4] {
+            for reverse_insertion in [false, true] {
+                let mut function = SmirFunction::new(FunctionId(0), BlockId(0), 0x1000);
+                let mut entries = [(0, gather), (1, gather), (2, other)];
+                if reverse_insertion {
+                    entries.reverse();
+                }
+                for (block, bytes) in entries {
+                    function
+                        .x86_instruction_bytes
+                        .insert((BlockId(block), 0x1000), bytes);
+                }
+                assert_eq!(
+                    JitRegion::collect_vsib_instructions_excluding(
+                        &function,
+                        &std::collections::HashMap::new(),
+                    ),
+                    None,
+                    "the runtime PC must identify one exact instruction"
+                );
+                assert_eq!(
+                    JitRegion::collect_vsib_instructions_excluding(
+                        &function,
+                        &std::collections::HashMap::from([(BlockId(2), 0x1000)]),
+                    ),
+                    Some(vec![(0x1000, gather)]),
+                    "an excluded conflicting entry cannot execute natively"
+                );
+            }
+        }
     }
 
     #[test]

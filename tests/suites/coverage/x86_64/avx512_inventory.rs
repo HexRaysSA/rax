@@ -13,7 +13,10 @@ use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 
 #[cfg(feature = "smir-jit")]
-use rax::smir::lower::runtime::is_native_clobber_safe_excluding;
+use rax::smir::lower::runtime::{
+    is_native_clobber_safe_excluding, uses_x86_native_vectors_excluding,
+    x86_native_vector_uses_k16_opmasks_excluding,
+};
 use rax::smir::{
     BlockId, FunctionId, LiftContext, OpKind, OptLevel, SmirBlock, SmirFunction, SmirLifter,
     SmirLowerer, SourceArch, Terminator, X86_64Lifter, X86_64Lowerer, X86InstructionBytes,
@@ -845,6 +848,7 @@ fn report_evex_spec_forms_rejected_by_smir_lifter() {
             .collect::<Vec<_>>()
             .join("\n")
     );
+    eprintln!("EVEX specification forms: lifted {accepted}, rejected 0");
 }
 
 /// Diagnostic for the second half of the native-admission boundary. Every
@@ -918,6 +922,18 @@ fn report_evex_spec_forms_accepted_by_lifter_but_rejected_by_lowerer() {
             lowerer.set_preserve_vector_mem_helpers(true);
             lowerer.set_guest_pcrel_lea_immediates(true);
             lowerer.set_jit_fault_deopt_guards(true);
+            #[cfg(feature = "smir-jit")]
+            {
+                // Mirror the production bridge decision, not only memory
+                // helper preservation. VSIB commits state even on empty masks.
+                let excluded = std::collections::HashMap::new();
+                let uses_vector = uses_x86_native_vectors_excluding(&function, &excluded);
+                lowerer.set_native_vector_state_active(uses_vector);
+                lowerer.set_narrow_vector_opmask_helpers(
+                    uses_vector
+                        && x86_native_vector_uses_k16_opmasks_excluding(&function, &excluded),
+                );
+            }
             match lowerer.lower_function(&function) {
                 Ok(_) => lowered += 1,
                 Err(error) => {
@@ -934,6 +950,10 @@ fn report_evex_spec_forms_accepted_by_lifter_but_rejected_by_lowerer() {
         }
     }
 
+    eprintln!(
+        "EVEX specification forms: lifted {lifted}, admitted {admitted}, lowered {lowered}; runtime gate enabled: {}",
+        cfg!(feature = "smir-jit")
+    );
     assert!(
         register_gate_failures.is_empty()
             && memory_gate_failures.is_empty()

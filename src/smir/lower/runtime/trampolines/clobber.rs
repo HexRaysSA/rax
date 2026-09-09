@@ -62,6 +62,9 @@ pub fn is_native_clobber_safe_excluding(
     excluded: &std::collections::HashMap<crate::smir::ir::types::BlockId, u64>,
     allow_mem: bool,
 ) -> bool {
+    if !x86_jit_vsib_function_virtuals_closed(func) {
+        return false;
+    }
     if allow_mem && !x86_jit_scalar_alu_function_virtuals_closed(func) {
         return false;
     }

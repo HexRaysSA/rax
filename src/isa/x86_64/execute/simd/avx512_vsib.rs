@@ -198,6 +198,10 @@ pub fn evex_gather(
         if (mask >> lane) & 1 == 0 {
             continue;
         }
+        #[cfg(any(test, all(feature = "smir-jit", target_arch = "x86_64")))]
+        if vcpu.jit_verify_stop_before_vsib_lane(lane as u8) {
+            return Ok(None);
+        }
         let addr = evex_vsib_lane_addr(&vsib, &index_bytes, lane, index_size);
         let value = vcpu.read_mem(addr, data_size as u8)?;
         write_lane_bits(&mut result, lane, data_size, value);
@@ -239,6 +243,10 @@ pub fn evex_scatter(
     for lane in 0..num_elems {
         if (mask >> lane) & 1 == 0 {
             continue;
+        }
+        #[cfg(any(test, all(feature = "smir-jit", target_arch = "x86_64")))]
+        if vcpu.jit_verify_stop_before_vsib_lane(lane as u8) {
+            return Ok(None);
         }
         let addr = evex_vsib_lane_addr(&vsib, &index_bytes, lane, index_size);
         let value = read_lane_u64(&src_bytes, lane, data_size);

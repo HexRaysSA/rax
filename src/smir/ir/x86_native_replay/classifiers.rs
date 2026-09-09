@@ -68,6 +68,7 @@ mod evex_two_table_permute_memory;
 mod evex_variable_permute_memory;
 mod evex_vector_align_memory;
 mod evex_vpshufbitqmb_memory;
+mod evex_vsib_memory;
 mod fp16_narrow;
 mod fp16_widen;
 mod fp32_fp64_convert;
@@ -313,6 +314,7 @@ pub(crate) use evex_vector_align_memory::{
 pub(crate) use evex_vpshufbitqmb_memory::{
     X86EvexVpshufbitqmbMemoryEncoding, X86EvexVpshufbitqmbMemoryReplay,
 };
+pub(crate) use evex_vsib_memory::X86EvexVsibMemoryEncoding;
 pub(crate) use fp_class::{X86EvexFpClassMemoryEncoding, X86EvexFpClassMemoryReplay};
 pub(crate) use fp_compare::{
     X86LegacyFpFlagCompareReplay, x86_legacy_fp_flag_compare_shape_matches,

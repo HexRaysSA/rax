@@ -136,6 +136,12 @@ The x86 VCPU hot-block JIT is on by default on supported x86-64 and AArch64 host
 
 A native exit records a resume PC plus an explicit valid bit in runtime state and returns to the host dispatcher. The valid bit distinguishes guest PC zero from an ordinary return. Exits can replace a complete frontier block or a specific `(source block, target block)` edge. Edge exits let auto-promoted regions yield on backward edges without globally replacing the target block. Native exits are also used for helper faults, call-helper bails, interworking branches, and unsupported frontiers.
 
+EVEX gather/scatter can return within an instruction after earlier lanes have
+committed. Their append-only lane and dynamic-instruction-ordinal metadata
+allow verification to reconstruct the same partial frontier, including native
+loops. See [native EVEX VSIB boundaries](../../development/emulation/x86-native-vsib.md)
+for the lowering, state, source-validation, and trace contracts.
+
 ## 11. Cache invalidation
 
 Self-modifying code must invalidate decode/lift/JIT caches. Store helpers must detect writes to code pages and bail if needed.

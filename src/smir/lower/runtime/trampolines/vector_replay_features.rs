@@ -58,7 +58,19 @@ pub(crate) fn x86_native_replay_feature_requirements(
         }
         let mut index = 0usize;
         while index < block.ops.len() {
-            if let Some(consumed) =
+            if let Some(sequence) = super::x86_jit_evex_vsib_memory_sequence(
+                block, index, true, &func.x86_instruction_bytes,
+                &virtual_definitions, &virtual_uses,
+            ) {
+                requirements.any = true;
+                requirements.needs_avx = true;
+                // Native VSIB uses scalar MMU helpers and full ZMM moves,
+                // never a host gather/scatter. Only AVX512F is required,
+                // including narrow-width and qword guest encodings.
+                requirements.has_k16_opmask_span = true;
+                all_spans_support_avx_ymm16 = false;
+                index += sequence.consumed;
+            } else if let Some(consumed) =
                 super::evex_broadcast_memory_features::accumulate_evex_broadcast_memory_requirements(
                     block,
                     index,

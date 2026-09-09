@@ -43,6 +43,7 @@ fn jit_native_region_synchronizes_mmx_values_and_precise_guest_tags() {
         uses_io: false,
         yielded_backward_exit_pcs: Vec::new(),
         callout_boundaries: Vec::new(),
+        vsib_instructions: Vec::new(),
     };
     let mut vcpu = test_vcpu();
     vcpu.regs.rip = 0x1000;

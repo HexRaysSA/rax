@@ -19,7 +19,12 @@ impl X86_64Lowerer {
         self.avx_ymm16_vector_state = on;
     }
 
-    fn emit_unaligned_vector_load(&mut self, register: PhysReg, width: VecWidth, offset: i32) {
+    pub(super) fn emit_unaligned_vector_load(
+        &mut self,
+        register: PhysReg,
+        width: VecWidth,
+        offset: i32,
+    ) {
         let mut emitter = X86Emitter::new(&mut self.code);
         match width {
             VecWidth::V128 | VecWidth::V256 => {
@@ -55,7 +60,12 @@ impl X86_64Lowerer {
         emitter.emit_modrm_mem_disp(register, PhysReg::Rax, offset, DispSize::Disp32);
     }
 
-    fn emit_unaligned_vector_store(&mut self, register: PhysReg, width: VecWidth, offset: i32) {
+    pub(super) fn emit_unaligned_vector_store(
+        &mut self,
+        register: PhysReg,
+        width: VecWidth,
+        offset: i32,
+    ) {
         let mut emitter = X86Emitter::new(&mut self.code);
         match width {
             VecWidth::V128 | VecWidth::V256 => {

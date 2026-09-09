@@ -224,12 +224,22 @@ fn sse4a_state_detection_layout_and_o2_retention_are_exact() {
         std::mem::offset_of!(GuestRegs, cpuid_xop),
         std::mem::offset_of!(GuestRegs, cpuid_tbm) + std::mem::size_of::<u64>()
     );
+    assert_eq!(
+        std::mem::offset_of!(GuestRegs, x86_vsib_frontier_lane_plus_one),
+        crate::smir::lower::X86_GUEST_VSIB_FRONTIER_LANE_PLUS_ONE_OFFSET as usize
+    );
+    assert_eq!(GuestRegs::default().x86_vsib_frontier_lane_plus_one, 0);
+    assert_eq!(
+        std::mem::offset_of!(GuestRegs, x86_vsib_instruction_ordinal),
+        crate::smir::lower::X86_GUEST_VSIB_INSTRUCTION_ORDINAL_OFFSET as usize
+    );
+    assert_eq!(GuestRegs::default().x86_vsib_instruction_ordinal, 0);
     let field_end =
-        std::mem::offset_of!(GuestRegs, x87_payload_active) + std::mem::size_of::<u64>();
+        std::mem::offset_of!(GuestRegs, x86_vsib_instruction_ordinal) + std::mem::size_of::<u64>();
     assert!(field_end <= std::mem::size_of::<GuestRegs>());
     assert!(
         std::mem::size_of::<GuestRegs>() - field_end < std::mem::align_of::<GuestRegs>(),
-        "only trailing repr(C) alignment padding may follow append-only x87 payload state"
+        "only trailing repr(C) alignment padding may follow append-only VSIB metadata"
     );
 
     let mut function = function_with(bitfield(

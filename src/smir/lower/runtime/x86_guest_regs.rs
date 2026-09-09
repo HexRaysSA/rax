@@ -314,6 +314,16 @@ pub struct GuestRegs {
     /// behavior of legacy manually constructed call frames that carry only the
     /// environment channel.
     pub x87_payload_active: u64,
+    /// Exact partial-completion frontier for native EVEX gather/scatter.
+    /// Zero denotes an ordinary instruction boundary; values 1..=16 encode
+    /// the failed/deferred lane index plus one. Only a failed lane helper
+    /// publishes this marker, after all lower active lanes have committed.
+    /// It is execution metadata, never architectural state or a replay mask.
+    pub x86_vsib_frontier_lane_plus_one: u64,
+    /// Dynamic ordinal of the last native VSIB instruction entered in this
+    /// region. Incremented after its mode/feature guards and before lane work;
+    /// distinguishes repeated visits to one guest PC in a native loop.
+    pub x86_vsib_instruction_ordinal: u64,
 }
 
 pub const X86_VECTOR_STATE_INACTIVE: u64 = 0;
@@ -420,6 +430,8 @@ impl Default for GuestRegs {
             x87_state_active: 0,
             x87_payload: [0; 8],
             x87_payload_active: 0,
+            x86_vsib_frontier_lane_plus_one: 0,
+            x86_vsib_instruction_ordinal: 0,
         }
     }
 }

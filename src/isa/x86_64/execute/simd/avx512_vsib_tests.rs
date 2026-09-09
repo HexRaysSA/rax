@@ -7,7 +7,7 @@
 //! is also permitted. These tests assert that deterministic implementation choice.
 
 use crate::error::Error;
-use crate::isa::x86_64::cpu::X86_64Vcpu;
+use crate::isa::x86_64::cpu::{JitVerifyVsibStop, X86_64Vcpu};
 use crate::vm::vcpu::MemAccess;
 use std::sync::Arc;
 use vm_memory::{Bytes, GuestAddress, GuestMemoryMmap};
@@ -201,6 +201,161 @@ fn assert_pf(vcpu: &mut X86_64Vcpu, shape: Shape) {
         "{shape:?}: expected nonpresent-page fault at {FAULT:#x}, got {result:?}"
     );
     assert_eq!(vcpu.regs.rip, CODE, "{shape:?}: faulting instruction PC");
+}
+
+#[test]
+fn vsib_verifier_replays_independent_prefix_without_accessing_terminal_lane() {
+    let mut cases = 0;
+    for shape in shapes() {
+        let code = shape.encoding(DEST, INDEX);
+        for stop in [0, shape.lanes() - 1] {
+            for sparse in [false, true] {
+                let (mut vcpu, memory) = cpu(&code, true);
+                let mut indices = [0; 64];
+                for element in 0..shape.lanes() {
+                    let offset = if element == stop {
+                        FAULT - DATA
+                    } else {
+                        element as u64 * 8
+                    };
+                    put_lane(&mut indices, element, shape.index_bytes, offset);
+                    write_phys(
+                        &memory,
+                        DATA + element as u64 * 8,
+                        0x1122_3344,
+                        shape.data_bytes,
+                    );
+                }
+                write_phys(&memory, FAULT, 0x9988_7766, shape.data_bytes);
+                put_vector(&mut vcpu, INDEX, &indices);
+                let active = if sparse {
+                    1 | (1 << (shape.lanes() - 1))
+                } else {
+                    (1 << shape.lanes()) - 1
+                };
+                vcpu.regs.k[MASK] = HIGH_MASK | active;
+                let original = vector(&vcpu, DEST);
+                let old_masks = vcpu.regs.k;
+                let old_flags = vcpu.regs.rflags;
+                let old_mxcsr = vcpu.mxcsr;
+                let gprs: [u64; 32] = std::array::from_fn(|reg| vcpu.get_reg(reg as u8, 8));
+                let mut expected_vectors: [[u8; 64]; 32] =
+                    std::array::from_fn(|reg| vector(&vcpu, reg as u8));
+                let mut expected_accesses = Vec::new();
+                for element in 0..stop {
+                    if active & (1 << element) == 0 {
+                        continue;
+                    }
+                    let value = if shape.scatter {
+                        lane(&original, element, shape.data_bytes)
+                    } else {
+                        put_lane(
+                            &mut expected_vectors[usize::from(DEST)],
+                            element,
+                            shape.data_bytes,
+                            0x1122_3344,
+                        );
+                        0x1122_3344
+                    };
+                    expected_accesses.push((
+                        if shape.scatter {
+                            MemAccess::Write
+                        } else {
+                            MemAccess::Read
+                        },
+                        DATA + element as u64 * 8,
+                        shape.data_bytes as u8,
+                        value,
+                    ));
+                }
+                vcpu.jit_verify_vsib_stop = Some(JitVerifyVsibStop::Requested {
+                    pc: CODE,
+                    lane: stop as u8,
+                });
+                vcpu.mmu.set_mem_recording(true);
+                assert!(
+                    vcpu.step().unwrap().is_none(),
+                    "{shape:?} stop={stop} sparse={sparse}"
+                );
+                assert_eq!(vcpu.regs.rip, CODE);
+                assert_eq!(
+                    vcpu.jit_verify_vsib_stop,
+                    Some(JitVerifyVsibStop::Reached {
+                        pc: CODE,
+                        lane: stop as u8
+                    })
+                );
+                assert_eq!(data_records(&mut vcpu), expected_accesses);
+                for register in 0..32 {
+                    assert_eq!(vcpu.get_reg(register as u8, 8), gprs[register]);
+                    assert_eq!(vector(&vcpu, register as u8), expected_vectors[register]);
+                }
+                for (register, old) in old_masks.into_iter().enumerate() {
+                    assert_eq!(
+                        vcpu.regs.k[register],
+                        if register == MASK {
+                            old & !((1 << stop) - 1)
+                        } else {
+                            old
+                        }
+                    );
+                }
+                assert_eq!(vcpu.regs.rflags, old_flags);
+                assert_eq!(vcpu.mxcsr, old_mxcsr);
+                for element in 0..shape.lanes() {
+                    let expected =
+                        if shape.scatter && element < stop && active & (1 << element) != 0 {
+                            lane(&original, element, shape.data_bytes)
+                        } else {
+                            0x1122_3344
+                        };
+                    assert_eq!(
+                        read_phys(&memory, DATA + element as u64 * 8, shape.data_bytes),
+                        expected
+                    );
+                }
+                assert_eq!(read_phys(&memory, FAULT, shape.data_bytes), 0x9988_7766);
+                // Removing the verifier request resumes normal architectural
+                // execution at the still-active missing-page lane, which faults.
+                vcpu.jit_verify_vsib_stop = None;
+                assert_pf(&mut vcpu, shape);
+                assert!(
+                    data_records(&mut vcpu).is_empty(),
+                    "completed lanes repeated"
+                );
+                cases += 1;
+            }
+        }
+    }
+    assert_eq!(cases, 48 * 2 * 2);
+}
+
+#[test]
+fn vsib_verifier_never_reaches_wrong_pc_inactive_or_out_of_range_lane() {
+    for shape in shapes() {
+        let code = shape.encoding(DEST, INDEX);
+        for (pc, requested_lane, active) in [
+            (CODE + 1, 0, 1),
+            (CODE, 16, 1),
+            (CODE, 0, 2),
+            (CODE, 63, 0),
+            (CODE, 0, 0),
+        ] {
+            let (mut vcpu, memory) = cpu(&code, false);
+            put_vector(&mut vcpu, INDEX, &[0; 64]);
+            write_phys(&memory, DATA, 0x1122_3344, shape.data_bytes);
+            vcpu.regs.k[MASK] = HIGH_MASK | active;
+            let request = Some(JitVerifyVsibStop::Requested {
+                pc,
+                lane: requested_lane,
+            });
+            vcpu.jit_verify_vsib_stop = request;
+            assert!(vcpu.step().unwrap().is_none(), "{shape:?}: {request:?}");
+            assert_eq!(vcpu.jit_verify_vsib_stop, request);
+            assert_eq!(vcpu.regs.rip, CODE + code.len() as u64);
+            assert_eq!(vcpu.regs.k[MASK], 0);
+        }
+    }
 }
 
 #[test]
