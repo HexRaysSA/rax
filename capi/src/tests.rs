@@ -1491,3 +1491,6 @@ fn riscv_open_config_ext_survives_reset() {
         rax_engine_close(e);
     }
 }
+
+#[path = "tests/arm64_faultin.rs"]
+mod arm64_faultin;

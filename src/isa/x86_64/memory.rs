@@ -11,6 +11,9 @@ use crate::error::{Error, Result};
 use crate::vm::timing;
 use crate::vm::vcpu::SystemRegisters;
 
+#[path = "memory_fault.rs"]
+mod fault;
+
 #[cfg(feature = "profiling")]
 use crate::observability::profiling;
 
@@ -1315,7 +1318,7 @@ impl Mmu {
 
         self.memory
             .read_slice(buf, GuestAddress(paddr))
-            .map_err(|e| Error::Emulator(format!("failed to read at {:#x}: {}", paddr, e)))
+            .map_err(|source| Error::Emulator(fault::guest_access_error("read", paddr, source)))
     }
 
     /// Write bytes to guest memory (physical address).
@@ -1383,7 +1386,7 @@ impl Mmu {
 
         self.memory
             .write_slice(buf, GuestAddress(paddr))
-            .map_err(|e| Error::Emulator(format!("failed to write at {:#x}: {}", paddr, e)))
+            .map_err(|source| Error::Emulator(fault::guest_access_error("write", paddr, source)))
     }
 
     /// Read bytes from guest memory (virtual address).
