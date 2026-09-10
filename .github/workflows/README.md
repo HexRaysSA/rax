@@ -15,7 +15,7 @@ build sweep over many more ISAs via cross-compilation.
 | [`kvm.yml`](kvm.yml) | push (kvm paths), nightly | Enables `/dev/kvm`, gates the **KVM backend** + release build, and retains host-dependent silicon differentials as nightly diagnostics. |
 | [`sanitizers.yml`](sanitizers.yml) | nightly, dispatch | **ASan/UBSan** on a core slice + a **stable/beta/nightly** toolchain sweep. |
 | [`microkernel.yml`](microkernel.yml) | every push, PR | Builds the **bare-metal microkernel test suite** for **x86_64, AArch64 and ARMv6** (nightly + build-std; custom ARMv6 target) and **boots each under the emulator**, asserting `RESULT PASS` and an identical cross-arch n-body checksum. |
-| [`capi-release.yml`](capi-release.yml) | `v*` tags, packaging PRs, dispatch | Builds and tests relocated shared/static SDKs on five native platforms. Publishes a GitHub release only for validated version tags after every platform passes. |
+| [`capi-release.yml`](capi-release.yml) | `v*` tags, packaging PRs, dispatch | Five mandatory native SDKs plus seven experimental candidates (Windows ARM64, two native musl, four GNU/Linux cross targets executed under QEMU). Publishes validated tags after mandatory lanes pass; only fully tested candidate artifacts are included. |
 
 ## Platform coverage
 

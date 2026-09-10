@@ -11,11 +11,15 @@ from package import ROOT, TARGETS, digest, validate_tag
 
 def verify_assets(dist, version):
     expected = set()
-    for target in TARGETS:
+    for target, spec in TARGETS.items():
         suffix = "zip" if "windows" in target else "tar.gz"
         name = f"rax-capi-{version}-{target}.{suffix}"
         archive = dist / name
         checksum = dist / (name + ".sha256")
+        # Candidate lanes upload only after the same execution gates pass.
+        # Absence is allowed; a partial or corrupt pair is always an error.
+        if spec.experimental and not archive.exists() and not checksum.exists():
+            continue
         if not archive.is_file() or not checksum.is_file():
             raise ValueError(f"missing release asset: {name} or checksum")
         if checksum.read_text().strip() != f"{digest(archive)}  {name}":

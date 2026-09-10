@@ -19,12 +19,14 @@
 
 #include "rax.h"
 
+#include <algorithm>
 #include <cstdint>
 #include <cstring>
 #include <functional>
 #include <memory>
 #include <stdexcept>
 #include <string>
+#include <type_traits>
 #include <vector>
 
 namespace rax {
@@ -96,6 +98,17 @@ inline void check(rax_status s, const char* ctx = nullptr) {
 class Engine; // fwd
 
 namespace detail {
+
+// The C ABI transfers raw register buffers little-endian. Arithmetic/enum
+// template arguments represent native scalar values; other trivially copyable
+// arguments (for example vector byte arrays) retain their byte representation.
+template <class T> void convertScalarByteOrder(unsigned char* bytes) {
+    if constexpr (std::is_arithmetic_v<T> || std::is_enum_v<T>) {
+        const uint16_t one = 1;
+        if (*reinterpret_cast<const unsigned char*>(&one) == 0)
+            std::reverse(bytes, bytes + sizeof(T));
+    }
+}
 
 struct Hook {
     Engine* owner = nullptr;
@@ -215,15 +228,22 @@ public:
     size_t regSize(int regid) const { return rax_reg_size(rax_engine_arch(h_), regid); }
 
     // Typed scalar read/write (T must be trivially copyable and match the
-    // register's natural width).
+    // register's natural width). Arithmetic/enum values use native byte order;
+    // aggregate values retain the C API's raw byte representation.
     template <class T> T reg(int regid) {
+        static_assert(std::is_trivially_copyable_v<T>, "register type must be trivially copyable");
         T v{};
         size_t out = 0;
         check(rax_reg_read(h_, regid, &v, &out), "reg_read");
+        detail::convertScalarByteOrder<T>(reinterpret_cast<unsigned char*>(&v));
         return v;
     }
     template <class T> void setReg(int regid, const T& v) {
-        check(rax_reg_write(h_, regid, &v), "reg_write");
+        static_assert(std::is_trivially_copyable_v<T>, "register type must be trivially copyable");
+        unsigned char bytes[sizeof(T)];
+        std::memcpy(bytes, &v, sizeof(T));
+        detail::convertScalarByteOrder<T>(bytes);
+        check(rax_reg_write(h_, regid, bytes), "reg_write");
     }
     uint64_t regU64(int regid) {
         uint64_t v = 0;

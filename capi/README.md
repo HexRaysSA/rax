@@ -46,6 +46,11 @@ int main(void) {
 
 ## Quick start (C++)
 
+Typed arithmetic and enum register values use native C++ scalar representation
+on little- and big-endian hosts. Raw register buffers and aggregate template
+arguments retain the C ABI's little-endian byte representation. Template types
+must be trivially copyable and match the register's natural byte width.
+
 ```cpp
 #include <rax.hpp>
 
@@ -153,6 +158,33 @@ C ABI version (currently 1.3.0).
 | `aarch64-apple-darwin` | macOS 15 Apple Silicon | generic AArch64; deployment target 11.0 |
 | `x86_64-pc-windows-msvc` | Windows Server 2022 | x86-64; dynamic MSVC CRT |
 
+The five targets above are mandatory. The following **experimental candidate**
+lanes also build on each release run. A candidate archive is included only if
+its complete Rust tests and relocated C/C++ shared/static consumers pass;
+failure leaves that candidate absent without blocking the mandatory SDKs.
+
+| Candidate SDK triple | Build and execution environment |
+|---|---|
+| `aarch64-pc-windows-msvc` | Native Windows 11 ARM64; generic AArch64, dynamic MSVC CRT |
+| `x86_64-unknown-linux-musl` | Native x86-64 Rust/Alpine container; baseline x86-64 |
+| `aarch64-unknown-linux-musl` | Native AArch64 Rust/Alpine container; generic AArch64 |
+| `riscv64gc-unknown-linux-gnu` | Rust/Debian cross toolchain; `qemu-riscv64` with target sysroot |
+| `powerpc64le-unknown-linux-gnu` | Rust/Debian cross toolchain; `qemu-ppc64le` with target sysroot |
+| `powerpc64-unknown-linux-gnu` | Rust/Debian cross toolchain; `qemu-ppc64` with target sysroot; big-endian host ABI |
+| `s390x-unknown-linux-gnu` | Rust/Debian cross toolchain; `qemu-s390x` with target sysroot; big-endian host ABI |
+
+Linux candidate containers are pinned by manifest digest in the workflow. GNU
+cross builds retain Rust/GCC target defaults. QEMU execution establishes
+emulated user-space coverage, not testing on physical target hardware. Each
+archive records its experimental status, execution command/version, compiler
+host, and Rust test counts in `build-info.json`. Promotion to the mandatory set
+is an explicit change to `tools/capi/targets.py` and the workflow.
+
+musl SDKs include both `.so` and `.a` libraries and use the dynamic musl CRT
+(`-C target-feature=-crt-static`). They require a musl environment; they are
+not glibc libraries, and the static archive does not promise a fully static
+downstream executable. 32-bit hosts remain blocked by `vm-memory`.
+
 These are **host** triples, independent of the guest ISA being emulated.
 Older Linux/glibc versions are not runtime-certified; exact ELF symbol-version
 requirements are recorded in each SDK. macOS 11.0 is a compilation deployment
@@ -177,11 +209,14 @@ An adjacent `.sha256` file checks the archive itself. Build metadata records
 the commit, package/ABI versions, target, toolchain, feature set, compiler flags,
 OS, dependency information and Cargo.lock checksum.
 
-Every release lane runs the complete Rust C API tests and builds/runs C and
+Every successful release lane runs the complete Rust C API tests and builds/runs C and
 C++ consumers with both linkage modes after moving the SDK to a path containing
 spaces and hiding the original Cargo output directory. Unix lanes also exercise
-pkg-config linking. Only after all lanes succeed does the publishing job
-validate the complete asset set, upload it to a draft, and publish the release.
+pkg-config linking. Empty, ignored, or filtered Rust test runs cannot produce an
+SDK. After all lanes finish, the publishing job requires every mandatory SDK
+and checks every present candidate archive/checksum pair before uploading to a
+draft and publishing the release. Partial or corrupt candidate pairs fail
+publication; candidate absence is permitted.
 Failed uploads leave a draft that can be retried; published assets are not
 replaced. PR and manual-dispatch runs build/test artifacts without publishing.
 
@@ -194,8 +229,13 @@ RUSTUP_TOOLCHAIN=stable python3 tools/capi/package.py \
   --work-dir /tmp/rax-sdk-build --output-dir /tmp/rax-sdk-dist
 ```
 
-The work directory must not already exist. Select the target matching the host;
-the script requires native execution and does not certify cross-built binaries.
+The work directory must not already exist. Native builds require the target to
+match the Rust compiler host. The four registered GNU/Linux cross targets use
+`--cross-linux`, which requires a Linux build host, the matching cross GCC/G++
+toolchain and sysroot under `/usr/<toolchain-triple>`, and QEMU user emulation.
+The same execution command is used by Cargo, CTest, and pkg-config consumers.
+`tools/capi/cross-linux.sh` and `tools/capi/musl.sh` reproduce the container
+setup used by CI; see the workflow for image digests and mounts.
 
 ## Optional Cargo features
 
@@ -326,6 +366,7 @@ See `examples/`:
 - `x86_64_memhook.c` — per-access memory read/write watchpoints.
 - `mem_and_context.c` — sparse mapping, region enumeration, snapshots.
 - `cpp_engine.cpp` — the C++ wrapper with a lambda hook and a context round‑trip.
+- `cpp_registers.cpp` — scalar/byte-buffer register agreement across host byte orders.
 
 ## License
 

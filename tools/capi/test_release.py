@@ -6,11 +6,19 @@ import subprocess
 
 import publish
 
-from package import TARGETS, digest, validate_tag
+from package import TARGETS, digest, validate_tag, test_counts
 from publish import verify_assets
 
 
 class ReleaseValidation(unittest.TestCase):
+    def test_execution_evidence_rejects_empty_ignored_or_filtered_runs(self):
+        summary = "test result: ok. {} passed; 0 failed; {} ignored; 0 measured; {} filtered out"
+        for text in ("", summary.format(0, 0, 0), summary.format(12, 1, 0), summary.format(12, 0, 1)):
+            with self.assertRaisesRegex(RuntimeError, "execution incomplete"):
+                test_counts(text)
+        counts = test_counts(summary.format(12, 0, 0) + "\n" + summary.format(0, 0, 0))
+        self.assertEqual(counts["passed"], 12)
+
     def test_tags_must_match_package_version(self):
         for version in ("0.1.0", "1.2.3-rc.1"):
             validate_tag("v" + version, version)
@@ -37,6 +45,42 @@ class ReleaseValidation(unittest.TestCase):
             archive.write_bytes(b"corrupt")
             with self.assertRaises(ValueError):
                 verify_assets(dist, "0.1.0")
+
+    def test_optional_assets_are_absent_or_complete_never_partial(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            dist = Path(temporary)
+            for target, spec in TARGETS.items():
+                if not spec.experimental:
+                    self.add_asset(dist, target)
+            required_count = 2 * sum(not spec.experimental for spec in TARGETS.values())
+            self.assertEqual(len(verify_assets(dist, "0.1.0")), required_count)
+            for target, spec in TARGETS.items():
+                if not spec.experimental:
+                    continue
+                archive, checksum = self.add_asset(dist, target)
+                self.assertEqual(len(verify_assets(dist, "0.1.0")), required_count + 2)
+                checksum.unlink()
+                with self.assertRaisesRegex(ValueError, "missing release asset"):
+                    verify_assets(dist, "0.1.0")
+                self.add_asset(dist, target)
+                archive.unlink()
+                with self.assertRaisesRegex(ValueError, "missing release asset"):
+                    verify_assets(dist, "0.1.0")
+                self.add_asset(dist, target)
+                archive.write_bytes(b"corrupt")
+                with self.assertRaisesRegex(ValueError, "checksum mismatch"):
+                    verify_assets(dist, "0.1.0")
+                archive.unlink()
+                checksum.unlink()
+
+    @staticmethod
+    def add_asset(dist, target):
+        suffix = "zip" if "windows" in target else "tar.gz"
+        archive = dist / f"rax-capi-0.1.0-{target}.{suffix}"
+        checksum = archive.with_name(archive.name + ".sha256")
+        archive.write_bytes(target.encode())
+        checksum.write_text(f"{digest(archive)}  {archive.name}\n")
+        return archive, checksum
 
 
 class PublishOrdering(unittest.TestCase):

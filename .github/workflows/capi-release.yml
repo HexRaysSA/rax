@@ -27,6 +27,7 @@ jobs:
     name: SDK (${{ matrix.target }})
     runs-on: ${{ matrix.os }}
     timeout-minutes: 75
+    continue-on-error: ${{ matrix.experimental || false }}
     strategy:
       fail-fast: false
       matrix:
@@ -36,6 +37,7 @@ jobs:
           - { os: macos-15-intel, target: x86_64-apple-darwin }
           - { os: macos-15, target: aarch64-apple-darwin }
           - { os: windows-2022, target: x86_64-pc-windows-msvc }
+          - { os: windows-11-arm, target: aarch64-pc-windows-msvc, experimental: true }
     defaults:
       run:
         shell: bash
@@ -45,6 +47,9 @@ jobs:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
         with:
           persist-credentials: false
+      - name: Select native Windows ARM64 Rust host
+        if: matrix.target == 'aarch64-pc-windows-msvc'
+        run: rustup set default-host aarch64-pc-windows-msvc
       - uses: ./.github/actions/setup-rust
         with:
           toolchain: stable
@@ -70,10 +75,83 @@ jobs:
           if-no-files-found: error
           compression-level: 0
 
+  cross-linux:
+    name: Candidate SDK (${{ matrix.target }}, QEMU)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    continue-on-error: true
+    env:
+      SDK_BUILD_IMAGE: rust:slim-trixie@sha256:bce1476d4be4d78b83705bc5f428b86d640eeeea33e9dadafbc037b5703a53bf
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { target: riscv64gc-unknown-linux-gnu, toolchain: riscv64-linux-gnu }
+          - { target: powerpc64le-unknown-linux-gnu, toolchain: powerpc64le-linux-gnu }
+          - { target: powerpc64-unknown-linux-gnu, toolchain: powerpc64-linux-gnu }
+          - { target: s390x-unknown-linux-gnu, toolchain: s390x-linux-gnu }
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+        with:
+          persist-credentials: false
+      - name: Build and execute SDK with Debian cross toolchain
+        env:
+          RELEASE_TAG: ${{ github.ref_type == 'tag' && github.ref_name || '' }}
+          SDK_TARGET: ${{ matrix.target }}
+          TOOLCHAIN: ${{ matrix.toolchain }}
+        run: |
+          mkdir -p dist
+          docker run --rm -e RELEASE_TAG -e SDK_TARGET -e TOOLCHAIN -e SDK_BUILD_IMAGE \
+            -v "$GITHUB_WORKSPACE:/source:ro" -v "$GITHUB_WORKSPACE/dist:/dist" -w /source \
+            "$SDK_BUILD_IMAGE" \
+            sh tools/capi/cross-linux.sh
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: sdk-${{ matrix.target }}
+          path: dist/*
+          if-no-files-found: error
+          compression-level: 0
+
+  musl:
+    name: Candidate SDK (${{ matrix.target }}, native musl)
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 90
+    continue-on-error: true
+    env:
+      SDK_BUILD_IMAGE: rust:alpine@sha256:1716b3aa042d735f4566d14dc54e8037de9d69556e2d5dd58131d93a613d173d
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: ubuntu-24.04, target: x86_64-unknown-linux-musl }
+          - { os: ubuntu-24.04-arm, target: aarch64-unknown-linux-musl }
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+        with:
+          persist-credentials: false
+      - name: Build and execute SDK in native Alpine container
+        env:
+          RELEASE_TAG: ${{ github.ref_type == 'tag' && github.ref_name || '' }}
+          SDK_TARGET: ${{ matrix.target }}
+        run: |
+          mkdir -p dist
+          docker run --rm -e RELEASE_TAG -e SDK_TARGET -e SDK_BUILD_IMAGE \
+            -v "$GITHUB_WORKSPACE:/source:ro" -v "$GITHUB_WORKSPACE/dist:/dist" -w /source \
+            "$SDK_BUILD_IMAGE" \
+            sh tools/capi/musl.sh
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: sdk-${{ matrix.target }}
+          path: dist/*
+          if-no-files-found: error
+          compression-level: 0
+
   publish:
     # Dispatch and PR runs exercise the same builds but never publish.
-    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
-    needs: build
+    # Candidate failures must not skip publication. verify_assets still requires
+    # all five mandatory archives and validates every present candidate pair.
+    if: ${{ !cancelled() && github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v') }}
+    needs: [build, cross-linux, musl]
     runs-on: ubuntu-24.04
     permissions:
       contents: write

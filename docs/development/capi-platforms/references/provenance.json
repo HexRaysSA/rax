@@ -1,0 +1,47 @@
+[
+  {
+    "file": "cmake-emulator.html",
+    "title": "CMAKE_CROSSCOMPILING_EMULATOR",
+    "issuer": "Kitware / CMake",
+    "url": "https://cmake.org/cmake/help/latest/variable/CMAKE_CROSSCOMPILING_EMULATOR.html",
+    "retrieved": "2026-09-10",
+    "revision": "Unversioned upstream documentation at retrieval; embedded version retained",
+    "sha256": "3756369216301a38fb8e746287184152386f692c98a5b08c92d91e5fd4950b88"
+  },
+  {
+    "file": "cargo-configuration.html",
+    "title": "Configuration \u2014 The Cargo Book",
+    "issuer": "Rust Project",
+    "url": "https://doc.rust-lang.org/cargo/reference/config.html",
+    "retrieved": "2026-09-10",
+    "revision": "Unversioned upstream documentation at retrieval; embedded version retained",
+    "sha256": "dd1cea051687c60c64f2e070e86bc235592b82afa7c3f1d2dec33c5912364f74"
+  },
+  {
+    "file": "rust-linkage.html",
+    "title": "Linkage \u2014 The Rust Reference",
+    "issuer": "Rust Project",
+    "url": "https://doc.rust-lang.org/reference/linkage.html",
+    "retrieved": "2026-09-10",
+    "revision": "Unversioned upstream documentation at retrieval; embedded version retained",
+    "sha256": "4b958f21730f046078043d293800464d9a9ab7ec097e98c5b1ea2360183d8131"
+  },
+  {
+    "file": "windows-arm64-runner.md",
+    "title": "Windows 11 ARM64 runner software inventory",
+    "issuer": "GitHub Actions",
+    "url": "https://raw.githubusercontent.com/actions/runner-images/main/images/windows/Windows11-Arm64-Readme.md",
+    "retrieved": "2026-09-10",
+    "revision": "Upstream main/trixie at retrieval; embedded versions retained",
+    "sha256": "8a07b4231d0337efab5f4b6389578d1e6ac2f0ed33a532e330362813eb5b234b"
+  },
+  {
+    "file": "debian-ppc64-compiler.html",
+    "title": "gcc-powerpc64-linux-gnu \u2014 Debian trixie",
+    "issuer": "Debian Project",
+    "url": "https://packages.debian.org/trixie/gcc-powerpc64-linux-gnu",
+    "retrieved": "2026-09-10",
+    "revision": "Upstream main/trixie at retrieval; embedded versions retained",
+    "sha256": "cf33f3b522760d7daa8d46f40d50a979579b3fac51372548f9ca21886b871585"
+  }
+]

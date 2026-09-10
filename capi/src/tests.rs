@@ -238,11 +238,10 @@ fn register_widths_and_subregisters() {
             rax_reg_write_u64(e, RAX, 0xAAAA_BBBB_CCCC_DDDD),
             RaxStatus::Ok
         );
-        let eax: u32 = 0x1122_3344;
-        assert_eq!(
-            rax_reg_write(e, EAX, &eax as *const u32 as *const u8),
-            RaxStatus::Ok
-        );
+        // Raw register buffers follow the C ABI's little-endian contract,
+        // independently of the host's integer representation.
+        let eax = 0x1122_3344u32.to_le_bytes();
+        assert_eq!(rax_reg_write(e, EAX, eax.as_ptr()), RaxStatus::Ok);
         assert_eq!(rd_u64(e, RAX), 0x1122_3344);
 
         // AH writes bits 15:8.
