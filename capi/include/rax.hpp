@@ -64,6 +64,7 @@ enum class Status : int {
 };
 
 using Exit = rax_exit;
+using FaultInfo = rax_fault_info;
 using MemRegion = rax_mem_region;
 
 inline const char* strerror(Status s) { return rax_strerror(static_cast<int>(s)); }
@@ -287,6 +288,13 @@ public:
         std::memset(&e, 0, sizeof(e));
         rax_emu_last_exit(h_, &e);
         return e;
+    }
+    FaultInfo lastFault() const {
+        FaultInfo f{};
+        f.struct_size = sizeof(f);
+        f.version = RAX_FAULT_INFO_VERSION;
+        check(rax_emu_last_fault(h_, &f), "emu_last_fault");
+        return f;
     }
     uint64_t icount() const noexcept { return rax_emu_icount(h_); }
 

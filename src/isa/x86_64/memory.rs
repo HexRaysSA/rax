@@ -7,7 +7,7 @@ use crate::devices::pci::PciStub;
 
 use vm_memory::{Bytes, GuestAddress, GuestMemory, GuestMemoryMmap};
 
-use crate::error::{Error, Result};
+use crate::error::{Error, GuestMemoryFault, MemoryAccessKind, Result};
 use crate::vm::timing;
 use crate::vm::vcpu::SystemRegisters;
 
@@ -891,9 +891,9 @@ impl Mmu {
                 || self.in_ram(paddr, chunk)
                 || self.memory.check_range(GuestAddress(paddr), chunk);
             if !physical_range_valid {
-                return Err(Error::Emulator(format!(
-                    "failed to preflight write at {paddr:#x}: physical range is unmapped"
-                )));
+                return Err(
+                    GuestMemoryFault::unmapped(paddr, chunk, MemoryAccessKind::Write).into(),
+                );
             }
             remaining -= chunk;
             current = current.wrapping_add(chunk as u64);
@@ -1318,7 +1318,9 @@ impl Mmu {
 
         self.memory
             .read_slice(buf, GuestAddress(paddr))
-            .map_err(|source| Error::Emulator(fault::guest_access_error("read", paddr, source)))
+            .map_err(|source| {
+                fault::guest_access_fault(MemoryAccessKind::Read, paddr, buf.len(), source)
+            })
     }
 
     /// Write bytes to guest memory (physical address).
@@ -1386,7 +1388,9 @@ impl Mmu {
 
         self.memory
             .write_slice(buf, GuestAddress(paddr))
-            .map_err(|source| Error::Emulator(fault::guest_access_error("write", paddr, source)))
+            .map_err(|source| {
+                fault::guest_access_fault(MemoryAccessKind::Write, paddr, buf.len(), source)
+            })
     }
 
     /// Read bytes from guest memory (virtual address).
@@ -1540,9 +1544,12 @@ impl Mmu {
                 || self.in_ram(paddr, bytes_in_page)
                 || self.memory.check_range(GuestAddress(paddr), bytes_in_page);
             if !physical_range_valid {
-                return Err(Error::Emulator(format!(
-                    "failed to write at {paddr:#x}: physical range is unmapped"
-                )));
+                return Err(GuestMemoryFault::unmapped(
+                    paddr,
+                    bytes_in_page,
+                    MemoryAccessKind::Write,
+                )
+                .into());
             }
             chunks.push((paddr, offset, bytes_in_page));
 

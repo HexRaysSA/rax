@@ -260,6 +260,11 @@ impl Engine {
             let _ = v.set_emulator_state(&es);
         }
 
+        // Rebuilding physical backing must not reset the embedding counter.
+        self.icount_base = self
+            .icount_base
+            .saturating_add(self.vcpu.instruction_count())
+            .saturating_sub(v.instruction_count());
         self.vcpu = v;
         self.mem = new_mem;
         self.regions = new_regions;

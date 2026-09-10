@@ -52,7 +52,7 @@ C_SRCS      := $(wildcard $(EXAMPLE_DIR)/*.c)
 CXX_SRCS    := $(wildcard $(EXAMPLE_DIR)/*.cpp)
 C_BINS      := $(patsubst $(EXAMPLE_DIR)/%.c,$(EXAMPLE_DIR)/%,$(C_SRCS))
 CXX_BINS    := $(patsubst $(EXAMPLE_DIR)/%.cpp,$(EXAMPLE_DIR)/%,$(CXX_SRCS))
-ABI_TEST_OBJ := $(TEST_DIR)/analyze_abi.o
+ABI_TEST_OBJ := $(TEST_DIR)/analyze_abi.o $(TEST_DIR)/fault_abi.o
 
 CFLAGS      ?= -O2 -Wall -Wextra
 CXXFLAGS    ?= -O2 -Wall -Wextra -std=c++17
@@ -83,7 +83,7 @@ examples: $(C_BINS) $(CXX_BINS)
 
 abi-test: $(ABI_TEST_OBJ)
 
-$(ABI_TEST_OBJ): $(TEST_DIR)/analyze_abi.c $(INCDIR)/rax.h
+$(TEST_DIR)/%.o: $(TEST_DIR)/%.c $(INCDIR)/rax.h
 	$(CC) -std=c11 -Wall -Wextra -Wpedantic -Wconversion -Werror \
 	      -I$(INCDIR) -c $< -o $@
 

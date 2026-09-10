@@ -47,6 +47,8 @@ pub struct Engine {
     pub(crate) hooks: HookTable,
     /// The most recent execution stop/exit descriptor.
     pub(crate) last_exit: ExitInfo,
+    pub(crate) last_fault: crate::fault::RaxFaultInfo,
+    pub(crate) icount_base: u64,
     /// Cooperative stop flag honoured by the run loop.
     pub(crate) stop_flag: std::cell::Cell<bool>,
     /// True while inside the run loop (re-entrancy guard for control calls).
@@ -151,6 +153,8 @@ fn open_internal(
         vcpu,
         hooks: HookTable::new(),
         last_exit: ExitInfo::none(),
+        last_fault: crate::fault::RaxFaultInfo::default(),
+        icount_base: 0,
         stop_flag: std::cell::Cell::new(false),
         running: false,
         err_msg: String::new(),
@@ -353,6 +357,8 @@ pub extern "C" fn rax_engine_reset(engine: *mut Engine) -> RaxStatus {
         }
         e.vcpu = vcpu;
         e.last_exit = ExitInfo::none();
+        e.last_fault = crate::fault::RaxFaultInfo::default();
+        e.icount_base = 0;
         e.stop_flag.set(false);
         RaxStatus::Ok
     })

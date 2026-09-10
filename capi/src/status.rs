@@ -92,7 +92,10 @@ pub(crate) fn status_from_engine_error(e: &rax_engine::Error) -> RaxStatus {
     match e {
         E::Io(_) => RaxStatus::Io,
         E::InvalidConfig(_) => RaxStatus::Arg,
-        E::Emulator(_) => RaxStatus::Fault,
+        E::Emulator(_)
+        | E::GuestAccess(_)
+        | E::InvalidInstruction { .. }
+        | E::FaultDelivery { .. } => RaxStatus::Fault,
         E::PageFault { .. } => RaxStatus::Fault,
         E::GeneralProtection { .. } => RaxStatus::Fault,
         E::GuestMemory(_) => RaxStatus::Map,

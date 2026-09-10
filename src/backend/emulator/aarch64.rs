@@ -18,7 +18,7 @@ use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex, OnceLock};
 
 use tracing::{debug, info};
-use vm_memory::{Bytes, GuestAddress, GuestMemoryMmap};
+use vm_memory::{Bytes, GuestAddress, GuestMemory, GuestMemoryMmap, GuestMemoryRegion};
 
 use crate::devices::pl011::{Pl011, Pl011MmioDevice};
 use crate::error::{Error, Result};
@@ -250,8 +250,9 @@ impl GuestBridge {
         }
         self.mem
             .read_slice(buf, GuestAddress(addr))
-            .map_err(|error| MemoryError::OutOfBounds {
+            .map_err(|error| MemoryError::Unmapped {
                 addr: Self::failed_address(addr, error),
+                access: AccessType::Read,
                 size: buf.len(),
             })
     }
@@ -289,10 +290,31 @@ impl ArmMemory for GuestBridge {
             self.recorder.record(MemAccess::Write, addr, data);
             return Ok(());
         }
+        // Preflight all ordinary RAM before an ordinary crossing store. Do not
+        // publish its first bytes if a later region is missing.
+        let mut done = 0usize;
+        while done < data.len() {
+            let current = addr.checked_add(done as u64).ok_or(MemoryError::Unmapped {
+                addr,
+                size: data.len(),
+                access: AccessType::Write,
+            })?;
+            let region =
+                self.mem
+                    .find_region(GuestAddress(current))
+                    .ok_or(MemoryError::Unmapped {
+                        addr: current,
+                        size: data.len() - done,
+                        access: AccessType::Write,
+                    })?;
+            let available = region.len() - (current - region.start_addr().0);
+            done += (available as usize).min(data.len() - done);
+        }
         self.mem
             .write_slice(data, GuestAddress(addr))
-            .map_err(|error| MemoryError::OutOfBounds {
+            .map_err(|error| MemoryError::Unmapped {
                 addr: Self::failed_address(addr, error),
+                access: AccessType::Write,
                 size: data.len(),
             })?;
         self.recorder.record(MemAccess::Write, addr, data);
@@ -300,7 +322,15 @@ impl ArmMemory for GuestBridge {
     }
 
     fn fetch(&self, addr: u64, buf: &mut [u8]) -> MemResult<()> {
-        self.read_unrecorded(addr, buf)?;
+        self.read_unrecorded(addr, buf)
+            .map_err(|error| match error {
+                MemoryError::Unmapped { addr, size, .. } => MemoryError::Unmapped {
+                    addr,
+                    size,
+                    access: AccessType::InstructionFetch,
+                },
+                other => other,
+            })?;
         self.recorder.record(MemAccess::Exec, addr, buf);
         Ok(())
     }
@@ -415,15 +445,30 @@ impl Aarch64Vcpu {
                 self.cpu.get_pc()
             ))),
             Err(ArmError::MemoryError(info)) => {
+                use crate::error::{GuestMemoryFault, MemoryAccessKind, MemoryFaultKind};
+                use crate::isa::arm::common::cpu::MemoryFaultType;
                 let access = match info.access {
-                    AccessType::Write | AccessType::Atomic => "write",
-                    AccessType::Read | AccessType::InstructionFetch => "read",
+                    AccessType::Write | AccessType::Atomic => MemoryAccessKind::Write,
+                    AccessType::Read => MemoryAccessKind::Read,
+                    AccessType::InstructionFetch => MemoryAccessKind::Fetch,
                 };
-                Err(Error::Emulator(format!(
-                    "failed to {access} at {:#x}: AArch64 {:?} fault",
-                    info.address, info.fault_type
-                )))
+                let kind = match info.fault_type {
+                    MemoryFaultType::Translation => MemoryFaultKind::Unmapped,
+                    MemoryFaultType::Permission => MemoryFaultKind::Permission,
+                    _ => MemoryFaultKind::Other,
+                };
+                Err(GuestMemoryFault {
+                    address: info.address,
+                    size: 0,
+                    access,
+                    kind,
+                }
+                .into())
             }
+            Err(ArmError::UndefinedInstruction(instruction)) => Err(Error::InvalidInstruction {
+                pc: self.cpu.get_pc(),
+                diagnosis: format!("undefined AArch64 encoding {instruction:#x}"),
+            }),
             Err(error) => Err(Error::Emulator(format!(
                 "AArch64 instruction failed at {:#x}: {error}",
                 self.cpu.get_pc()

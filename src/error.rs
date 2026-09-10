@@ -1,3 +1,7 @@
+#[path = "error_memory.rs"]
+mod memory;
+pub use memory::{GuestMemoryFault, MemoryAccessKind, MemoryFaultKind};
+
 use thiserror::Error;
 
 #[derive(Error, Debug)]
@@ -25,6 +29,15 @@ pub enum Error {
     DeviceNotFound { port: u16, size: u8 },
     #[error("Kernel load error: {0}")]
     KernelLoad(String),
+    #[error("Emulator error: {0}")]
+    GuestAccess(#[from] GuestMemoryFault),
+    #[error("invalid instruction at {pc:#x}: {diagnosis}")]
+    InvalidInstruction { pc: u64, diagnosis: String },
+    #[error("Emulator error: {diagnosis}")]
+    FaultDelivery {
+        fault: Box<Error>,
+        diagnosis: String,
+    },
     #[error("Emulator error: {0}")]
     Emulator(String),
     #[error("Page fault at vaddr {vaddr:#x} (error_code={error_code:#x})")]

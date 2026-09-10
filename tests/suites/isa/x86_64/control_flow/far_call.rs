@@ -1181,9 +1181,10 @@ fn test_far_call_preflights_every_stack_write_before_accessed_or_frame_commit() 
         .step()
         .expect_err("second frame qword lies in the sparse-memory hole");
     assert!(
-        error
-            .to_string()
-            .contains("failed to preflight write at 0x1fff8"),
+        matches!(&error, rax::error::Error::GuestAccess(fault)
+            if fault.address == 0x1fff8 && fault.size == 8
+                && fault.access == rax::error::MemoryAccessKind::Write
+                && fault.kind == rax::error::MemoryFaultKind::Unmapped),
         "{error}"
     );
     let regs = vcpu.get_regs().unwrap();

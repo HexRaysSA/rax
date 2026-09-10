@@ -2,7 +2,7 @@
 #
 # Breadth over every GitHub-hosted OS x CPU-architecture combination that can run
 # rax natively. The core matrix covers 64-bit Linux and macOS. Windows C API
-# build/runtime coverage lives in capi-release.yml; the patched vm-memory
+# build/runtime coverage runs below and in capi-release.yml; the patched vm-memory
 # dependency supports Windows, but the full ISA/JIT suite is not admitted here.
 # Each core platform builds
 # *all* targets (lib, bins, examples, and every one of the ~34 integration-test
@@ -162,11 +162,45 @@ jobs:
             --test smir_jit_vcpu \
             -- --include-ignored --test-threads=1 --nocapture
 
+  # Every push must exercise the embedding API and installed C/C++ consumers
+  # natively on all supported operating systems, including both link modes.
+  test-capi:
+    name: test-capi (${{ matrix.name }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { name: linux-x64, os: ubuntu-24.04 }
+          - { name: macos-arm64, os: macos-15 }
+          - { name: windows-x64, os: windows-2022 }
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+      - uses: ./.github/actions/setup-rust
+        with:
+          toolchain: stable
+          cache-key: test-capi-${{ matrix.name }}
+      - name: C API semantic regressions
+        run: cargo test --locked -p rax-capi --no-default-features
+      - name: Configure native SDK
+        run: cmake -S capi -B capi-build -DRAX_CARGO_PROFILE=dev -DCMAKE_INSTALL_PREFIX=${{ github.workspace }}/capi-install
+      - name: Build native SDK
+        run: cmake --build capi-build --config Release
+      - name: Install SDK
+        run: cmake --install capi-build --config Release
+      - name: Configure installed consumers
+        run: cmake -S capi/tests/consumer -B capi-consumers -DCMAKE_PREFIX_PATH=${{ github.workspace }}/capi-install
+      - name: Compile C ABI and C++ consumers
+        run: cmake --build capi-consumers --config Release
+      - name: Run shared and static consumers
+        run: ctest --test-dir capi-consumers -C Release --output-on-failure --no-tests=error
+
   # Aggregate gate: a single required check that depends on the whole matrix.
   ci-success:
     name: CI success
     if: always()
-    needs: [lint, build, test-core]
+    needs: [lint, build, test-core, test-capi]
     runs-on: ubuntu-24.04
     steps:
       - name: Verify all matrix jobs succeeded

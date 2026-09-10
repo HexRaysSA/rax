@@ -28,6 +28,12 @@ pub type MemResult<T> = Result<T, MemoryError>;
 pub enum MemoryError {
     /// Address is outside valid memory.
     OutOfBounds { addr: u64, size: usize },
+    /// Sparse physical backing with an explicit access direction.
+    Unmapped {
+        addr: u64,
+        size: usize,
+        access: AccessType,
+    },
     /// Alignment error.
     Alignment { addr: u64, required: usize },
     /// Permission denied.
@@ -49,6 +55,9 @@ pub enum MemoryError {
 impl std::fmt::Display for MemoryError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
+            MemoryError::Unmapped { addr, size, access } => {
+                write!(f, "unmapped {access:?} at {addr:#x}, size {size}")
+            }
             MemoryError::OutOfBounds { addr, size } => {
                 write!(
                     f,
@@ -95,6 +104,9 @@ impl std::error::Error for MemoryError {}
 impl From<MemoryError> for ArmError {
     fn from(e: MemoryError) -> Self {
         let (addr, access, fault_type) = match &e {
+            MemoryError::Unmapped { addr, access, .. } => {
+                (*addr, *access, MemoryFaultType::Translation)
+            }
             MemoryError::OutOfBounds { addr, .. } => {
                 (*addr, AccessType::Read, MemoryFaultType::Translation)
             }

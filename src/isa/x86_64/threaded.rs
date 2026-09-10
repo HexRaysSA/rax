@@ -73,9 +73,11 @@ impl X86_64Vcpu {
         let cached = self.decode_cache[cache_idx];
         let mut fetched_miss = None;
         if cached.bytes_len != 0 && cached.rip == rip && cached.mode_tag == mode_tag {
-            let (bytes, bytes_len, boundary_gp) = self.fetch()?;
+            let (bytes, bytes_len, boundary_gp, boundary_fault) = self.fetch()?;
 
-            if Self::decode_cache_bytes_current(&cached, &bytes, bytes_len, boundary_gp) {
+            if boundary_fault.is_none()
+                && Self::decode_cache_bytes_current(&cached, &bytes, bytes_len, boundary_gp)
+            {
                 let mut ctx = InsnContext {
                     bytes,
                     bytes_len,
@@ -97,20 +99,27 @@ impl X86_64Vcpu {
                     // Boundary-truncated instructions are never cached, so a hit
                     // always carries the full instruction.
                     boundary_gp: false,
+                    boundary_fault: None,
                 };
                 return self.dispatch_threaded(cached.opcode, cached.has_lock, &mut ctx);
             }
 
             self.decode_cache[cache_idx] = Default::default();
-            fetched_miss = Some((bytes, bytes_len, boundary_gp));
+            fetched_miss = Some((bytes, bytes_len, boundary_gp, boundary_fault));
         }
 
         // Cache miss - full decode
-        let (bytes, bytes_len, boundary_gp) = match fetched_miss {
+        let (bytes, bytes_len, boundary_gp, boundary_fault) = match fetched_miss {
             Some(fetched) => fetched,
             None => self.fetch()?,
         };
-        let mut ctx = Decoder::decode_prefixes(bytes, bytes_len, boundary_gp, self.sregs.cs.l)?;
+        let mut ctx = Decoder::decode_prefixes_with_fault(
+            bytes,
+            bytes_len,
+            boundary_gp,
+            self.sregs.cs.l,
+            boundary_fault,
+        )?;
 
         // Determine operand size
         ctx.op_size = if self.sregs.cs.l {
@@ -145,7 +154,7 @@ impl X86_64Vcpu {
         // Update cache. Never cache a boundary-truncated fetch (its short byte
         // window would lose the boundary_gp flag on a later hit and turn the
         // architectural #GP back into a fatal error).
-        if !boundary_gp {
+        if !boundary_gp && boundary_fault.is_none() {
             self.decode_cache[cache_idx] = crate::isa::x86_64::cpu::DecodeCacheEntry {
                 rip,
                 mode_tag,

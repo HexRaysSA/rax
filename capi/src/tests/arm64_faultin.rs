@@ -1,6 +1,7 @@
 //! C API micro-emulation must expose a recoverable fault at its exact PC.
 use super::*;
 use crate::engine::rax_engine_errmsg;
+use crate::fault::*;
 
 #[test]
 fn arm64_unmapped_global_load_retries_at_faulting_instruction() {
@@ -101,6 +102,19 @@ fn arm64_read_write_and_fetch_faults_are_reported_before_retry() {
             RaxStatus::Ok
         );
         let page = (address & !0xfff) + if address & 0xfff > 0xff8 { 0x1000 } else { 0 };
+        let mut typed = RaxFaultInfo::default();
+        assert_eq!(rax_emu_last_fault(e, &mut typed), RaxStatus::Ok);
+        assert_eq!(typed.kind, RAX_FAULT_UNMAPPED);
+        assert_eq!(
+            typed.access,
+            if writing {
+                RAX_FAULT_ACCESS_WRITE
+            } else {
+                RAX_FAULT_ACCESS_READ
+            }
+        );
+        assert_eq!(typed.address, page);
+        assert_eq!(typed.retired_instructions, 0);
         let mut message = [0 as std::ffi::c_char; 256];
         assert!(rax_engine_errmsg(e, message.as_mut_ptr(), message.len()) > 0);
         let message = unsafe { std::ffi::CStr::from_ptr(message.as_ptr()) }.to_string_lossy();
@@ -131,6 +145,8 @@ fn arm64_read_write_and_fetch_faults_are_reported_before_retry() {
             RaxStatus::Ok
         );
         assert_eq!(unsafe { rd_u64(e, 0x0011) }, 0x400_0000);
+        assert_eq!(rax_emu_last_fault(e, &mut typed), RaxStatus::Ok);
+        assert_eq!(typed.access, RAX_FAULT_ACCESS_FETCH);
         rax_engine_close(e);
     }
 }

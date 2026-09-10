@@ -148,7 +148,7 @@ pushes. Tags must be exactly `v<version>` from `capi/Cargo.toml`, for example
 `v0.1.0`. To release a prerelease, use matching versions such as package
 `0.2.0-rc.1` and tag `v0.2.0-rc.1`; GitHub marks it as a prerelease. Mismatched
 or malformed tags fail before building. This does not change the independent
-C ABI version (currently 1.3.0).
+C ABI version (currently 1.4.0).
 
 | SDK triple | Build/runtime-test host | Compilation baseline |
 |---|---|---|
@@ -367,7 +367,30 @@ See `examples/`:
 - `mem_and_context.c` — sparse mapping, region enumeration, snapshots.
 - `cpp_engine.cpp` — the C++ wrapper with a lambda hook and a context round‑trip.
 - `cpp_registers.cpp` — scalar/byte-buffer register agreement across host byte orders.
+- `cpp_fault_recovery.cpp` — typed sparse fetch recovery with retirement checks.
 
 ## License
 
 MIT (matching the RAX engine).
+
+
+### Sparse guest execution and fault diagnostics (ABI 1.4)
+
+`rax_emu_last_fault` / C++ `Engine::lastFault()` returns a versioned
+`rax_fault_info`. Initialize `struct_size` and `version` before the C call.
+Only `RAX_FAULT_UNMAPPED` with `RAX_FAULT_ADDRESS_VALID` identifies missing
+physical backing eligible for an external map-and-retry operation. Its address
+is the first inaccessible byte, which can be on the next instruction page.
+Permission, invalid-instruction, and other faults must not be "recovered" by
+mapping a guessed page. A width of zero means the backend cannot supply it.
+
+The query does not clear error text. Host register/memory operations preserve
+the record; run/step, reset, and context restoration clear it. Unknown query
+versions and short output buffers fail without writing output; extension tails
+remain untouched. Existing ABI structures and callback signatures are unchanged.
+Code/block hooks remain **pre-execution** notifications, not proof of retirement.
+`retired_instructions` counts completed steps in the last run/step, including
+I/O stops where `rax_exit.value` has another meaning. Failed fetches/accesses
+retire nothing; architecturally completed REP elements remain committed for
+retry. Mapping changes preserve the cumulative `rax_emu_icount`; reset/context
+restoration starts its count again at zero.

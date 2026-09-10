@@ -256,6 +256,8 @@ impl Engine {
         self.mem = new_mem;
         self.regions = regions;
         self.last_exit = crate::run::ExitInfo::none();
+        self.last_fault = crate::fault::RaxFaultInfo::default();
+        self.icount_base = 0;
         self.stop_flag.set(false);
         RaxStatus::Ok
     }
