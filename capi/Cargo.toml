@@ -1,6 +1,6 @@
 [package]
 name = "rax-capi"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2024"
 description = "Stable, embeddable C and C++ API/ABI for the RAX emulation engine"
 license = "MIT"
