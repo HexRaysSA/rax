@@ -104,6 +104,15 @@ JIT, KVM and HVF suites were not run because those execution planes are unchange
 
 ## Bounded findings
 
+Remote CI at `79c4d4470831ae2ab31da08a1cb5cae50001e9c6` exposed a
+portability defect in the newly merged upstream ARM64 fault-retry test:
+`arm64_faultin.rs` allocated its C error-message buffer as `i8`, while the
+s390x and PPC64 target signatures require unsigned `c_char`. Both SDK jobs
+failed with Rust E0308 before test execution. The buffer now uses
+`std::ffi::c_char`, matching both `rax_engine_errmsg` and `CStr::from_ptr`.
+This changes only the test fixture; its assertions and engine behavior remain
+unchanged. The platform SDK lanes provide the cross-target falsification probe.
+
 | Impact | Finding and evidence | Task effect |
 |---|---|---|
 | High | Pre-existing `rax_reg_read_u64` in `capi/src/reg.rs` calls `rax_reg_read` with an 8-byte buffer before checking whether the register width exceeds 8 bytes. The latter copies the natural register width. Passing an XMM register therefore exceeds that buffer before the later rejection. This is source-level evidence; no overflow execution was attempted. | Separate API defect, unchanged here. Valid scalar-register callers used by SDK tests do not trigger it; no new target qualification relies on wide-register use of this helper. |

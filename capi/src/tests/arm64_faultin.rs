@@ -101,7 +101,7 @@ fn arm64_read_write_and_fetch_faults_are_reported_before_retry() {
             RaxStatus::Ok
         );
         let page = (address & !0xfff) + if address & 0xfff > 0xff8 { 0x1000 } else { 0 };
-        let mut message = [0_i8; 256];
+        let mut message = [0 as std::ffi::c_char; 256];
         assert!(rax_engine_errmsg(e, message.as_mut_ptr(), message.len()) > 0);
         let message = unsafe { std::ffi::CStr::from_ptr(message.as_ptr()) }.to_string_lossy();
         assert!(message.contains(&format!("at {page:#x}")), "{message}");
