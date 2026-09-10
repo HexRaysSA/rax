@@ -23,7 +23,7 @@ use vm_memory::{Bytes, GuestAddress, GuestMemoryMmap};
 use crate::devices::pl011::{Pl011, Pl011MmioDevice};
 use crate::error::{Error, Result};
 use crate::isa::arm::aarch64::{AArch64Config, AArch64Cpu, Gic};
-use crate::isa::arm::cpu_trait::{ArmCpu, CpuExit, ProcessorState};
+use crate::isa::arm::cpu_trait::{AccessType, ArmCpu, ArmError, CpuExit, ProcessorState};
 use crate::isa::arm::memory::{ArmMemory, MemResult, MemoryError, MmioHandler};
 use crate::machine::arm_virt::{AARCH64_GICD_BASE, AARCH64_GICR_BASE, AARCH64_UART_IRQ};
 use crate::vm::vcpu::{CpuState, MemAccess, MemRecord, VCpu, VcpuExit};
@@ -128,6 +128,9 @@ struct GuestBridge {
     mem: Arc<GuestMemoryMmap>,
     late: Arc<LateBound>,
     recorder: Arc<MemRecorder>,
+    /// Full-machine construction owns fixed UART/GIC windows; an instruction
+    /// embedder owns its complete address space through explicit mappings.
+    devices_enabled: bool,
     /// Local exclusive monitor: (address, size) of the open reservation.
     exclusive: Mutex<Option<(u64, u8)>>,
 }
@@ -217,8 +220,18 @@ impl GuestBridge {
         }
     }
 
+    fn failed_address(addr: u64, error: vm_memory::GuestMemoryError) -> u64 {
+        match error {
+            vm_memory::GuestMemoryError::PartialBuffer { completed, .. } => {
+                addr.saturating_add(completed as u64)
+            }
+            vm_memory::GuestMemoryError::InvalidGuestAddress(address) => address.0,
+            _ => addr,
+        }
+    }
+
     fn read_unrecorded(&self, addr: u64, buf: &mut [u8]) -> MemResult<()> {
-        if in_window(addr, UART_BASE, UART_SIZE) {
+        if self.devices_enabled && in_window(addr, UART_BASE, UART_SIZE) {
             if let Some(uart) = self.late.uart.get() {
                 let mut dev = Pl011MmioDevice::new(UART_BASE, uart.clone());
                 crate::devices::bus::MmioDevice::read(&mut dev, addr, buf);
@@ -228,16 +241,17 @@ impl GuestBridge {
             self.sync_uart_irq();
             return Ok(());
         }
-        if in_window(addr, AARCH64_GICD_BASE, GICD_SIZE)
-            || in_window(addr, AARCH64_GICR_BASE, GICR_SIZE)
+        if self.devices_enabled
+            && (in_window(addr, AARCH64_GICD_BASE, GICD_SIZE)
+                || in_window(addr, AARCH64_GICR_BASE, GICR_SIZE))
         {
             self.gic_read(addr, buf);
             return Ok(());
         }
         self.mem
             .read_slice(buf, GuestAddress(addr))
-            .map_err(|_| MemoryError::OutOfBounds {
-                addr,
+            .map_err(|error| MemoryError::OutOfBounds {
+                addr: Self::failed_address(addr, error),
                 size: buf.len(),
             })
     }
@@ -258,7 +272,7 @@ impl ArmMemory for GuestBridge {
                 debug!(addr = format!("{addr:#x}"), ?data, "watch: store");
             }
         }
-        if in_window(addr, UART_BASE, UART_SIZE) {
+        if self.devices_enabled && in_window(addr, UART_BASE, UART_SIZE) {
             if let Some(uart) = self.late.uart.get() {
                 let mut dev = Pl011MmioDevice::new(UART_BASE, uart.clone());
                 crate::devices::bus::MmioDevice::write(&mut dev, addr, data);
@@ -267,8 +281,9 @@ impl ArmMemory for GuestBridge {
             self.recorder.record(MemAccess::Write, addr, data);
             return Ok(());
         }
-        if in_window(addr, AARCH64_GICD_BASE, GICD_SIZE)
-            || in_window(addr, AARCH64_GICR_BASE, GICR_SIZE)
+        if self.devices_enabled
+            && (in_window(addr, AARCH64_GICD_BASE, GICD_SIZE)
+                || in_window(addr, AARCH64_GICR_BASE, GICR_SIZE))
         {
             self.gic_write(addr, data);
             self.recorder.record(MemAccess::Write, addr, data);
@@ -276,8 +291,8 @@ impl ArmMemory for GuestBridge {
         }
         self.mem
             .write_slice(data, GuestAddress(addr))
-            .map_err(|_| MemoryError::OutOfBounds {
-                addr,
+            .map_err(|error| MemoryError::OutOfBounds {
+                addr: Self::failed_address(addr, error),
                 size: data.len(),
             })?;
         self.recorder.record(MemAccess::Write, addr, data);
@@ -334,16 +349,23 @@ pub struct Aarch64Vcpu {
     /// Last value seen by the register tracer.
     trace_reg_last: u64,
     shutdown: bool,
+    /// C API instruction execution reports faults instead of entering guest vectors.
+    fault_exits: bool,
 }
 
 impl Aarch64Vcpu {
     pub fn new(id: u32, mem: Arc<GuestMemoryMmap>) -> Self {
+        Self::with_machine_devices(id, mem, true)
+    }
+
+    fn with_machine_devices(id: u32, mem: Arc<GuestMemoryMmap>, devices_enabled: bool) -> Self {
         let late = Arc::new(LateBound::default());
         let recorder = Arc::new(MemRecorder::default());
         let bridge = GuestBridge {
             mem,
             late: late.clone(),
             recorder: recorder.clone(),
+            devices_enabled,
             exclusive: Mutex::new(None),
         };
         let cpu = AArch64Cpu::new(AArch64Config::default(), Box::new(bridge));
@@ -361,7 +383,55 @@ impl Aarch64Vcpu {
             last_heartbeat: std::time::Instant::now(),
             trace_reg_last: 0,
             shutdown: false,
+            fault_exits: !devices_enabled,
         }
+    }
+
+    /// Instruction-level engine for embedders without a guest exception handler.
+    /// The ordinary constructor retains full-machine architectural delivery.
+    pub fn new_micro(id: u32, mem: Arc<GuestMemoryMmap>) -> Self {
+        Self::with_machine_devices(id, mem, false)
+    }
+
+    fn step_micro(&mut self) -> Result<Option<VcpuExit>> {
+        self.sync_uart_irq();
+        let result = match self.cpu.step_system_with_fault_exit() {
+            Ok(CpuExit::Continue) => Ok(None),
+            Ok(CpuExit::Wfi | CpuExit::Wfe) => Ok(Some(VcpuExit::Hlt)),
+            Ok(CpuExit::Hvc(_) | CpuExit::Smc(_)) => {
+                if let Some(exit) = self.handle_psci() {
+                    self.shutdown = true;
+                    Ok(Some(exit))
+                } else {
+                    Ok(None)
+                }
+            }
+            Ok(CpuExit::Halt | CpuExit::Shutdown) => {
+                self.shutdown = true;
+                Ok(Some(VcpuExit::Shutdown))
+            }
+            Ok(other) => Err(Error::Emulator(format!(
+                "unhandled AArch64 instruction exit at {:#x}: {other:?}",
+                self.cpu.get_pc()
+            ))),
+            Err(ArmError::MemoryError(info)) => {
+                let access = match info.access {
+                    AccessType::Write | AccessType::Atomic => "write",
+                    AccessType::Read | AccessType::InstructionFetch => "read",
+                };
+                Err(Error::Emulator(format!(
+                    "failed to {access} at {:#x}: AArch64 {:?} fault",
+                    info.address, info.fault_type
+                )))
+            }
+            Err(error) => Err(Error::Emulator(format!(
+                "AArch64 instruction failed at {:#x}: {error}",
+                self.cpu.get_pc()
+            ))),
+        };
+        self.insn_count
+            .store(self.cpu.instruction_count(), Ordering::Relaxed);
+        result
     }
 
     /// Boot-debug heartbeat: where is the guest and how fast is it going?
@@ -447,6 +517,15 @@ impl VCpu for Aarch64Vcpu {
     fn run(&mut self) -> Result<VcpuExit> {
         if self.shutdown {
             return Ok(VcpuExit::Shutdown);
+        }
+
+        if self.fault_exits {
+            for _ in 0..BATCH {
+                if let Some(exit) = self.step_micro()? {
+                    return Ok(exit);
+                }
+            }
+            return Ok(VcpuExit::Debug);
         }
 
         // Pick up console input the VMM queued since the last batch.
@@ -660,6 +739,9 @@ impl VCpu for Aarch64Vcpu {
         if self.shutdown {
             return Ok(Some(VcpuExit::Shutdown));
         }
+        if self.fault_exits {
+            return self.step_micro();
+        }
         // Pick up console input the VMM queued (mirrors one run() iteration).
         self.sync_uart_irq();
         let r = match self.cpu.step_system() {
@@ -707,6 +789,33 @@ mod tests {
         let mem =
             Arc::new(GuestMemoryMmap::<()>::from_ranges(&[(GuestAddress(0), 0x10000)]).unwrap());
         Aarch64Vcpu::new(0, mem)
+    }
+
+    #[test]
+    fn fault_exit_preserves_system_delivery_for_other_events() {
+        for micro in [false, true] {
+            let mem = Arc::new(
+                GuestMemoryMmap::<()>::from_ranges(&[(GuestAddress(0), 0x10000)]).unwrap(),
+            );
+            let mut vcpu = if micro {
+                Aarch64Vcpu::new_micro(0, mem)
+            } else {
+                Aarch64Vcpu::new(0, mem)
+            };
+            // SVC still enters the architectural vector in either mode.
+            write_insns(&mut vcpu, &[0xd400_0001]);
+            assert!(vcpu.step_insn().unwrap().is_none());
+            assert_eq!(vcpu.cpu.get_pc(), 0x200);
+        }
+    }
+
+    #[test]
+    fn ordinary_machine_delivers_unmapped_fault_to_guest() {
+        let mut vcpu = test_vcpu();
+        write_insns(&mut vcpu, &[0xf940_0020]); // LDR X0,[X1]
+        vcpu.cpu.set_gpr(1, 0x200_0000);
+        assert!(vcpu.step_insn().unwrap().is_none());
+        assert_eq!(vcpu.cpu.get_pc(), 0x200);
     }
 
     fn write_insns(vcpu: &mut Aarch64Vcpu, insns: &[u32]) {

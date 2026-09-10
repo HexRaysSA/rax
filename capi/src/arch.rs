@@ -161,6 +161,13 @@ pub fn build_vcpu(
     riscv_config: Option<RiscVConfig>,
 ) -> rax_engine::Result<Box<dyn rax_engine::cpu::VCpu>> {
     use rax_engine::backend::Backend;
+    // The C API is an instruction engine: return guest faults to the embedder
+    // at the retry PC. Full-machine VMM construction still uses system mode.
+    if arch == RaxArch::Arm64 {
+        return Ok(Box::new(
+            rax_engine::backend::emulator::aarch64::Aarch64Vcpu::new_micro(0, mem),
+        ));
+    }
     let backend = match riscv_config {
         Some(cfg) => rax_engine::backend::emulator::EmulatorBackend::with_riscv_config(
             arch.to_kind(),
