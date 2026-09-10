@@ -429,16 +429,20 @@ fn dynamic_alignment_and_noncanonical_faults_deopt_without_commit_and_keep_prior
             memory_before,
             "{name}: native guard memory"
         );
-        let error = exception_without_idt(&mut native);
+        let error = native.step().expect_err("fault must remain noncommitting");
         if let Some(expected_vector) = expected_vector {
             assert!(
-                error.contains(&format!("IDT entry {expected_vector} not present")),
+                error
+                    .to_string()
+                    .contains(&format!("IDT entry {expected_vector} not present")),
                 "{name}: {error}"
             );
         } else {
             assert!(
-                error.contains("failed to read at 0x10000")
-                    && error.contains("invalid guest address 65536"),
+                matches!(error, crate::error::Error::GuestAccess(fault)
+                    if fault.address == 0x10000
+                        && fault.access == crate::error::MemoryAccessKind::Read
+                        && fault.kind == crate::error::MemoryFaultKind::Unmapped),
                 "{name}: {error}"
             );
         }
@@ -629,4 +633,26 @@ fn apx_noncanonical_ss_range_precedes_natural_alignment_without_commit() {
         memory.read_obj::<u32>(GuestAddress(DATA)).unwrap(),
         before_memory
     );
+}
+
+#[test]
+fn crossing_backing_fault_has_typed_identity_without_jit_execution() {
+    let code = instruction(9, 10, 3, 4, 5, false);
+    let memory = memory(&code, DATA, 5, 4);
+    let mut cpu = vcpu(memory.clone());
+    cpu.regs.rbx = 0xffff;
+    let before_gprs = gprs(&cpu.regs);
+    let before_flags = cpu.regs.rflags;
+    let error = cpu.step().expect_err("crossing read must fault");
+    assert!(
+        matches!(error, crate::error::Error::GuestAccess(fault)
+        if fault.address == 0x10000
+            && fault.access == crate::error::MemoryAccessKind::Read
+            && fault.kind == crate::error::MemoryFaultKind::Unmapped),
+        "{error}"
+    );
+    assert_eq!(gprs(&cpu.regs), before_gprs);
+    assert_eq!(cpu.regs.rflags, before_flags);
+    assert_eq!(cpu.regs.rip, 0);
+    assert_eq!(memory.read_obj::<u32>(GuestAddress(DATA)).unwrap(), 5);
 }

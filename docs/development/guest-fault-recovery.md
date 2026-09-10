@@ -86,3 +86,19 @@ passed. `cargo fmt --all --check`, C API all-target Clippy, strict C ABI
 compilation and `make -C capi test` passed. Native CI remains the publication
 gate for the other operating systems. Baseline sparse-fetch and failed-PUSH
 regressions failed before the implementation changes.
+
+## Native JIT diagnostic regression
+
+The Linux x86-64 core CI run for `90a4d1f2` passed 8,706 library cases and
+failed one CMPccXADD assertion that still required the removed decimal-address
+suffix. The native guard's GPR, RFLAGS, RIP and memory assertions preceding it
+passed. The fault assertion now checks `GuestAccess`, physical address
+`0x10000`, read access and unmapped kind. An additional direct-execution case
+checks that same identity and unchanged GPRs, flags, RIP and memory without
+requiring native JIT execution.
+
+The direct case passes in the local Linux x86-64 container. Executing the JIT
+case through the Apple-hosted x86 container changes RFLAGS bit 4 at the first
+alignment guard, before reaching the diagnostic assertion. This translated-host
+result is not native Linux evidence; the physical Linux CI lane remains the
+required native guard gate. No architectural assertion is masked or skipped.
