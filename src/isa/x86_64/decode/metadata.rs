@@ -399,6 +399,9 @@ fn decode_inner(bits: u32, pc: u64, bytes: &[u8], unsupported: &mut bool) -> Opt
                 4 | 5 => Flow::IndirectJump,
                 _ => Flow::Next,
             };
+            if group == 2 || group == 6 {
+                out.stack_pointer_increment = -(near as i32);
+            }
             lockable = group <= 1 && rm.kind == OperandKind::Memory;
             out.operands.push(read_write(rm, true, group <= 1));
             if group == 3 || group == 5 {

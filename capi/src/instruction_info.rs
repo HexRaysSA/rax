@@ -235,6 +235,21 @@ mod tests {
         }
     }
     #[test]
+    fn indirect_call_and_push_stack_widths() {
+        for (mode, width) in [(RAX_MODE_16, 2), (RAX_MODE_32, 4), (RAX_MODE_64, 8)] {
+            for modrm in [0xd0, 0x10, 0xf0, 0x30] {
+                let x = decode(mode, &[0xff, modrm]);
+                assert_eq!(x.decoded.valid, 1);
+                assert_eq!(x.stack_pointer_increment, -width);
+                let narrow = decode(mode, &[0x66, 0xff, modrm]);
+                assert_eq!(
+                    narrow.stack_pointer_increment,
+                    if width == 2 { -4 } else { -2 }
+                );
+            }
+        }
+    }
+    #[test]
     fn ret_modes_and_stack_cleanup() {
         for (mode, width) in [(RAX_MODE_16, 2), (RAX_MODE_32, 4), (RAX_MODE_64, 8)] {
             for (bytes, size, cleanup) in [
