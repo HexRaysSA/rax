@@ -360,7 +360,13 @@ fn decode_inner(bits: u32, pc: u64, bytes: &[u8], unsupported: &mut bool) -> Opt
                 1
             };
             relative = Some(immediate(&mut ctx, imm_width, true)?.value);
-            branch_bits = near as u32 * 8;
+            // LOOP/JCXZ select their counter through address size; 66 does
+            // not narrow their instruction pointer like the near Jcc family.
+            branch_bits = if (0xe0..=0xe3).contains(&opcode) {
+                bits
+            } else {
+                near as u32 * 8
+            };
             if opcode == 0xe8 {
                 out.stack_pointer_increment = -(near as i32);
             }

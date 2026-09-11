@@ -222,6 +222,19 @@ mod tests {
         out
     }
     #[test]
+    fn loop_operand_prefix_preserves_code_address_width() {
+        for bits in [32, 64] {
+            for opcode in 0xe0..=0xe3 {
+                let x = decode_x86(bits, 0x1_0000, &[0x66, opcode, 2]);
+                assert_eq!(x.decoded.valid, 1);
+                assert_eq!(
+                    (x.decoded.fallthrough, x.decoded.target),
+                    (0x1_0003, 0x1_0005)
+                );
+            }
+        }
+    }
+    #[test]
     fn ret_modes_and_stack_cleanup() {
         for (mode, width) in [(RAX_MODE_16, 2), (RAX_MODE_32, 4), (RAX_MODE_64, 8)] {
             for (bytes, size, cleanup) in [
