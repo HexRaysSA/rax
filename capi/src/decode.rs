@@ -289,6 +289,21 @@ pub extern "C" fn rax_decode(
         };
 
         let slice = unsafe { slice::from_raw_parts(bytes as *const u8, len) };
+        if arch == RaxArch::X86 {
+            // Same code-size selection as oracle_options: rax_decode reports
+            // mode errors for no architecture, so unknown bits default to 64.
+            let bits = match mode & (RAX_MODE_16 | RAX_MODE_32 | RAX_MODE_64) {
+                RAX_MODE_16 => 16,
+                RAX_MODE_32 => 32,
+                _ => 64,
+            };
+            let info = crate::instruction_info::decode_x86(bits, pc, &slice[..slice.len().min(15)]);
+            // SAFETY: caller supplied a writable RaxDecoded, validated above.
+            unsafe {
+                *out = info.decoded;
+            }
+            return RaxStatus::Ok;
+        }
         let opts = oracle_options(arch, mode, pc);
 
         match decode_to_json(slice, &opts) {

@@ -42,6 +42,7 @@ mod decode;
 mod engine;
 mod fault;
 mod hook;
+mod instruction_info;
 mod mem;
 mod reg;
 mod run;
@@ -54,6 +55,7 @@ mod x87;
 mod tests;
 
 pub use fault::*;
+pub use instruction_info::*;
 pub use status::RaxStatus;
 
 // Re-export the FFI surface and ABI constants from each module so they form a

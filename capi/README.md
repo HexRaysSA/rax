@@ -315,7 +315,7 @@ cargo build -p rax-capi --release --features jit
 | Hooks | `rax_hook_add_code`/`block`/`intr`/`io_in`/`io_out`/`mmio_read`/`mmio_write`/`invalid`/`mem`/`syscall`, `rax_hook_del` |
 | Context | `rax_context_save`, `rax_context_restore` |
 | User mode (ABI 1.5) | `RAX_MODE_USER`, `rax_hook_add_syscall`, `RAX_STOP_SYSCALL`, `rax_emu_last_exception` |
-| Stateless analysis | `rax_decode`, `rax_analyze` (C++: `rax::decode`, `rax::analyze`) |
+| Stateless analysis | `rax_decode`, `rax_instruction_info`, `rax_analyze` (C++: `rax::decode`, `rax::instructionInfo`, `rax::analyze`) |
 
 ### Stateless instruction analysis
 
@@ -558,3 +558,29 @@ Context format: ABI 1.5 writes context format 2, whose x86 state keeps the x87
 registers in their exact 80‑bit encoding. Contexts written by ABI 1.4 and
 earlier (format 1, binary64 x87 registers) still restore, each register
 widened exactly; ABI 1.4 libraries cannot read format 2.
+
+### Native x86 instruction metadata (ABI 1.5)
+
+`rax_instruction_info` and `rax::instructionInfo` expose a stateless projection
+of RAX's native x86 decoder. There is no external decoder dependency. Mode is
+explicit (`RAX_MODE_16`, `RAX_MODE_32`, `RAX_MODE_64`); zero selects 64-bit mode,
+and a user-mode engine's `RAX_MODE_USER` mode is accepted as its code size.
+`rax_decode` uses the same projection for x86. `ret` denotes near C2/C3 returns;
+far returns and interrupt returns have distinct mnemonics. Return stack adjustment
+includes the unsigned immediate cleanup. Instruction bytes are read anew per call.
+
+Initialize `struct_size` and `abi_version`. The 576-byte v1 record contains the
+unchanged 40-byte `rax_decoded`, inline strings and up to five 96-byte operands.
+Larger caller tails remain untouched; smaller or unknown versions are rejected.
+`BASIC_COMPLETE` means mnemonic/length/flow are represented; `OPERANDS_COMPLETE`
+means explicit operands are represented, not implicit effects or full execution
+semantics. Unsupported native metadata is not evidence of unsupported execution.
+For unprojected 64-bit encodings the existing RAX SMIR projection can supply
+length/flow with both completeness flags clear and `UNREPRESENTED` set. Legacy modes never pass through
+the long-mode lifter. Unrepresented, invalid and truncated encodings never acquire
+invented mnemonics. Consumers must inspect completeness flags.
+
+The C API tests exercise prefixes, modes, truncation, memory/register branch
+operands and size/version negotiation. The installed SDK consumer builds the C
+layout guard and executes the C++ example with both static and shared libraries
+on the existing platform matrix.
