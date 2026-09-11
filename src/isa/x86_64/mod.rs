@@ -5,6 +5,7 @@ pub mod bios;
 mod cpu;
 mod cpu_fetch;
 mod decode;
+pub use decode::metadata as instruction_metadata;
 mod exception;
 pub(crate) mod execute;
 pub mod flags;

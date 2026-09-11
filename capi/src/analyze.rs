@@ -1183,6 +1183,9 @@ pub extern "C" fn rax_analyze(
             Some(arch) => arch,
             None => return RaxStatus::Arch,
         };
+        if arch == RaxArch::X86 && crate::instruction_info::bitness(mode).is_none() {
+            return RaxStatus::Mode;
+        }
         let mode = match normalize_mode(arch, mode) {
             Some(mode) => mode,
             None => return RaxStatus::Mode,
@@ -1192,11 +1195,18 @@ pub extern "C" fn rax_analyze(
         let opts = oracle_options(arch, mode, pc);
         let value = match decode_to_json(input, &opts) {
             Ok(value) => value,
-            Err(_) => return RaxStatus::Ok,
+            Err(_) => Value::Null,
         };
 
         let mut summary = RaxAnalysis::zeroed();
-        fill_from_json(&value, &mut summary.decoded);
+        if arch == RaxArch::X86 {
+            let bits = crate::instruction_info::bitness(mode).unwrap();
+            summary.decoded =
+                crate::instruction_info::decode_x86(bits, pc, &input[..input.len().min(15)])
+                    .decoded;
+        } else {
+            fill_from_json(&value, &mut summary.decoded);
+        }
         if summary.decoded.valid != 0 {
             summary.flags |= RAX_ANALYSIS_VALID;
         }
@@ -1210,7 +1220,12 @@ pub extern "C" fn rax_analyze(
             .get("available")
             .and_then(Value::as_bool)
             .unwrap_or(false);
-        let lift_ok = available && smir.get("error").is_none();
+        let lift_size_matches =
+            smir.get("bytes_consumed").and_then(Value::as_u64) == Some(summary.decoded.size as u64);
+        let lift_ok = available
+            && smir.get("error").is_none()
+            && summary.decoded.valid != 0
+            && lift_size_matches;
         let mut analyzer = Analyzer::new(arch, pc);
 
         if rich_arch && lift_ok {

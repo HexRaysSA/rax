@@ -280,6 +280,17 @@ pub extern "C" fn rax_decode(
         };
 
         let slice = unsafe { slice::from_raw_parts(bytes as *const u8, len) };
+        if arch == RaxArch::X86 {
+            let Some(bits) = crate::instruction_info::bitness(mode) else {
+                return RaxStatus::Mode;
+            };
+            let info = crate::instruction_info::decode_x86(bits, pc, &slice[..slice.len().min(15)]);
+            // SAFETY: caller supplied a writable RaxDecoded, validated above.
+            unsafe {
+                *out = info.decoded;
+            }
+            return RaxStatus::Ok;
+        }
         let opts = oracle_options(arch, mode, pc);
 
         match decode_to_json(slice, &opts) {

@@ -49,7 +49,7 @@ extern "C" {
  * Versioning
  * ======================================================================== */
 #define RAX_API_MAJOR 1u
-#define RAX_API_MINOR 4u
+#define RAX_API_MINOR 5u
 #define RAX_API_PATCH 0u
 
 /* ===========================================================================
@@ -611,6 +611,49 @@ typedef struct rax_decoded {
  * error status only for a bad argument (NULL out/bytes, unsupported arch). */
 RAX_API rax_status rax_decode(int arch, uint32_t mode, uint64_t pc,
                               const void *bytes, size_t len, rax_decoded *out);
+
+/* Versioned static instruction metadata. ABI 1.5+, initially x86 16/32/64.
+ * No engine or execution support is implied. All strings are lower-case ASCII,
+ * NUL-terminated inline storage. Invalid/truncated bytes return OK, valid=0.
+ * Unsupported architecture returns ERR_ARCH. Invalid mode returns ERR_MODE.
+ * Caller initializes struct_size and abi_version; too-small/version mismatch
+ * returns ERR_ARG without touching output. Larger caller tails are untouched.
+ * Operand metadata describes explicit operands, not complete semantic effects.
+ * Memory displacement is unsigned two's-complement, reduced to address_bits;
+ * for IP-relative memory, displacement is the resolved absolute address and
+ * base is empty. A segment base must still be added according to guest mode.
+ */
+#define RAX_INSTRUCTION_INFO_VERSION 1u
+#define RAX_INSTRUCTION_BASIC_COMPLETE 1u
+#define RAX_INSTRUCTION_OPERANDS_COMPLETE 2u
+#define RAX_INSTRUCTION_UNREPRESENTED 4u /* encoding not exported by native metadata */
+#define RAX_OPERAND_REGISTER 1u
+#define RAX_OPERAND_MEMORY 2u
+#define RAX_OPERAND_IMMEDIATE 3u
+#define RAX_OPERAND_TARGET 4u
+#define RAX_OPERAND_READ 1u
+#define RAX_OPERAND_WRITE 2u
+#define RAX_OPERAND_CONDITIONAL 4u
+
+typedef struct rax_instruction_operand {
+    uint32_t kind, access, width_bits, address_bits;
+    char reg[16], base[16], index[16], segment[8];
+    uint32_t scale, _reserved;
+    uint64_t displacement, value;
+} rax_instruction_operand;
+
+typedef struct rax_instruction_info_t {
+    uint32_t struct_size, abi_version;
+    rax_decoded decoded;
+    char mnemonic[32];
+    uint32_t flags, operand_count;
+    int32_t stack_pointer_increment; /* 0 if not a fixed stack adjustment */
+    uint32_t _reserved;
+    rax_instruction_operand operands[5];
+} rax_instruction_info_t;
+
+RAX_API rax_status rax_instruction_info(int arch, uint32_t mode, uint64_t pc,
+    const void *bytes, size_t len, rax_instruction_info_t *out);
 
 /* ===========================================================================
  * Stateless instruction-effect analysis (since API 1.3)

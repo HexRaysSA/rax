@@ -1,6 +1,7 @@
 //! x86_64 instruction decoder with LUT-based prefix detection.
 
 mod dispatch;
+pub mod metadata;
 
 use crate::error::{Error, Result};
 use crate::isa::x86_64::apx::rex2_reserved_opcode_len;

@@ -90,6 +90,18 @@ inline void check(rax_status s, const char* ctx = nullptr) {
     if (s != RAX_OK) throw Error(static_cast<Status>(s), ctx ? ctx : "");
 }
 
+// Stateless metadata uses the same guest mode as the native RAX decoder.
+using InstructionInfo = rax_instruction_info_t;
+inline InstructionInfo instructionInfo(Arch arch, uint32_t mode, uint64_t pc,
+                                       const void* bytes, size_t len) {
+    InstructionInfo info{};
+    info.struct_size = sizeof(info);
+    info.abi_version = RAX_INSTRUCTION_INFO_VERSION;
+    check(rax_instruction_info(static_cast<int>(arch), mode, pc, bytes, len, &info),
+          "rax_instruction_info");
+    return info;
+}
+
 // --- Hook thunks ----------------------------------------------------------
 //
 // std::function hooks are owned by the Engine. Each is heap-allocated so its

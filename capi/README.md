@@ -148,7 +148,7 @@ pushes. Tags must be exactly `v<version>` from `capi/Cargo.toml`, for example
 `v0.1.0`. To release a prerelease, use matching versions such as package
 `0.2.0-rc.1` and tag `v0.2.0-rc.1`; GitHub marks it as a prerelease. Mismatched
 or malformed tags fail before building. This does not change the independent
-C ABI version (currently 1.4.0).
+C ABI version (currently 1.5.0).
 
 | SDK triple | Build/runtime-test host | Compilation baseline |
 |---|---|---|
@@ -266,7 +266,7 @@ cargo build -p rax-capi --release --features jit
 | Interrupts | `rax_interrupt`, `rax_nmi`, `rax_can_interrupt` |
 | Hooks | `rax_hook_add_code`/`block`/`intr`/`io_in`/`io_out`/`mmio_read`/`mmio_write`/`invalid`/`mem`, `rax_hook_del` |
 | Context | `rax_context_save`, `rax_context_restore` |
-| Stateless analysis | `rax_decode`, `rax_analyze` |
+| Stateless analysis | `rax_decode`, `rax_instruction_info`, `rax_analyze` |
 
 ### Stateless instruction analysis
 
@@ -394,3 +394,28 @@ I/O stops where `rax_exit.value` has another meaning. Failed fetches/accesses
 retire nothing; architecturally completed REP elements remain committed for
 retry. Mapping changes preserve the cumulative `rax_emu_icount`; reset/context
 restoration starts its count again at zero.
+
+### Native x86 instruction metadata (ABI 1.5)
+
+`rax_instruction_info` and `rax::instructionInfo` expose a stateless projection
+of RAX's native x86 decoder. There is no external decoder dependency. Mode is
+explicit (`RAX_MODE_16`, `RAX_MODE_32`, `RAX_MODE_64`); zero selects 64-bit mode.
+`rax_decode` uses the same projection for x86. `ret` denotes near C2/C3 returns;
+far returns and interrupt returns have distinct mnemonics. Return stack adjustment
+includes the unsigned immediate cleanup. Instruction bytes are read anew per call.
+
+Initialize `struct_size` and `abi_version`. The 576-byte v1 record contains the
+unchanged 40-byte `rax_decoded`, inline strings and up to five 96-byte operands.
+Larger caller tails remain untouched; smaller or unknown versions are rejected.
+`BASIC_COMPLETE` means mnemonic/length/flow are represented; `OPERANDS_COMPLETE`
+means explicit operands are represented, not implicit effects or full execution
+semantics. Unsupported native metadata is not evidence of unsupported execution.
+For unprojected 64-bit encodings the existing RAX SMIR projection can supply
+length/flow with both completeness flags clear and `UNREPRESENTED` set. Legacy modes never pass through
+the long-mode lifter. Unrepresented, invalid and truncated encodings never acquire
+invented mnemonics. Consumers must inspect completeness flags.
+
+The C API tests exercise prefixes, modes, truncation, memory/register branch
+operands and size/version negotiation. The installed SDK consumer builds the C
+layout guard and executes the C++ example with both static and shared libraries
+on the existing platform matrix.

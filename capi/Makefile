@@ -52,7 +52,7 @@ C_SRCS      := $(wildcard $(EXAMPLE_DIR)/*.c)
 CXX_SRCS    := $(wildcard $(EXAMPLE_DIR)/*.cpp)
 C_BINS      := $(patsubst $(EXAMPLE_DIR)/%.c,$(EXAMPLE_DIR)/%,$(C_SRCS))
 CXX_BINS    := $(patsubst $(EXAMPLE_DIR)/%.cpp,$(EXAMPLE_DIR)/%,$(CXX_SRCS))
-ABI_TEST_OBJ := $(TEST_DIR)/analyze_abi.o $(TEST_DIR)/fault_abi.o
+ABI_TEST_OBJ := $(TEST_DIR)/analyze_abi.o $(TEST_DIR)/fault_abi.o $(TEST_DIR)/instruction_info_abi.o
 
 CFLAGS      ?= -O2 -Wall -Wextra
 CXXFLAGS    ?= -O2 -Wall -Wextra -std=c++17
