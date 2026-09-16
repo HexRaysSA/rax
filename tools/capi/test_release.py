@@ -32,19 +32,19 @@ class ReleaseValidation(unittest.TestCase):
             with self.assertRaises(ValueError):
                 verify_assets(dist, "0.1.0")
             for target in TARGETS:
-                suffix = "zip" if "windows" in target else "tar.gz"
-                archive = dist / f"rax-capi-0.1.0-{target}.{suffix}"
-                archive.write_bytes(target.encode())
-                archive.with_name(archive.name + ".sha256").write_text(f"{digest(archive)}  {archive.name}\n")
-            self.assertEqual(len(verify_assets(dist, "0.1.0")), 2 * len(TARGETS))
+                archives = self.add_asset(dist, target)
+            self.assertEqual(len(verify_assets(dist, "0.1.0")), 4 * len(TARGETS))
             extra = dist / "unexpected"
             extra.touch()
             with self.assertRaises(ValueError):
                 verify_assets(dist, "0.1.0")
             extra.unlink()
-            archive.write_bytes(b"corrupt")
-            with self.assertRaises(ValueError):
-                verify_assets(dist, "0.1.0")
+            for archive, _ in archives:
+                original = archive.read_bytes()
+                archive.write_bytes(b"corrupt")
+                with self.assertRaisesRegex(ValueError, "checksum mismatch"):
+                    verify_assets(dist, "0.1.0")
+                archive.write_bytes(original)
 
     def test_optional_assets_are_absent_or_complete_never_partial(self):
         with tempfile.TemporaryDirectory() as temporary:
@@ -52,35 +52,35 @@ class ReleaseValidation(unittest.TestCase):
             for target, spec in TARGETS.items():
                 if not spec.experimental:
                     self.add_asset(dist, target)
-            required_count = 2 * sum(not spec.experimental for spec in TARGETS.values())
+            required_count = 4 * sum(not spec.experimental for spec in TARGETS.values())
             self.assertEqual(len(verify_assets(dist, "0.1.0")), required_count)
             for target, spec in TARGETS.items():
                 if not spec.experimental:
                     continue
-                archive, checksum = self.add_asset(dist, target)
-                self.assertEqual(len(verify_assets(dist, "0.1.0")), required_count + 2)
-                checksum.unlink()
-                with self.assertRaisesRegex(ValueError, "missing release asset"):
-                    verify_assets(dist, "0.1.0")
-                self.add_asset(dist, target)
-                archive.unlink()
-                with self.assertRaisesRegex(ValueError, "missing release asset"):
-                    verify_assets(dist, "0.1.0")
-                self.add_asset(dist, target)
-                archive.write_bytes(b"corrupt")
-                with self.assertRaisesRegex(ValueError, "checksum mismatch"):
-                    verify_assets(dist, "0.1.0")
-                archive.unlink()
-                checksum.unlink()
+                archives = self.add_asset(dist, target)
+                self.assertEqual(len(verify_assets(dist, "0.1.0")), required_count + 4)
+                # A lane that delivered only half of its pair is never publishable,
+                # so a missing debug bundle fails exactly like a missing SDK.
+                for missing in [path for pair in archives for path in pair]:
+                    missing.unlink()
+                    with self.assertRaisesRegex(ValueError, "missing release asset"):
+                        verify_assets(dist, "0.1.0")
+                    self.add_asset(dist, target)
+                for path in [path for pair in archives for path in pair]:
+                    path.unlink()
 
     @staticmethod
     def add_asset(dist, target):
+        """Write the complete SDK + debug asset set one lane uploads."""
         suffix = "zip" if "windows" in target else "tar.gz"
-        archive = dist / f"rax-capi-0.1.0-{target}.{suffix}"
-        checksum = archive.with_name(archive.name + ".sha256")
-        archive.write_bytes(target.encode())
-        checksum.write_text(f"{digest(archive)}  {archive.name}\n")
-        return archive, checksum
+        assets = []
+        for kind in ("", "-debug"):
+            archive = dist / f"rax-capi-0.1.0-{target}{kind}.{suffix}"
+            checksum = archive.with_name(archive.name + ".sha256")
+            archive.write_bytes((target + kind).encode())
+            checksum.write_text(f"{digest(archive)}  {archive.name}\n")
+            assets.append((archive, checksum))
+        return assets
 
 
 class PublishOrdering(unittest.TestCase):

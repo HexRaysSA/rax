@@ -3,7 +3,7 @@
 set -eu
 apt-get update
 apt-get install -y --no-install-recommends "gcc-$TOOLCHAIN" "g++-$TOOLCHAIN" \
-    qemu-user cmake make pkg-config python3 git ca-certificates
+    "binutils-$TOOLCHAIN" qemu-user cmake make pkg-config python3 git ca-certificates
 rustup target add "$SDK_TARGET"
 git config --global --add safe.directory /source
 export PYTHONDONTWRITEBYTECODE=1

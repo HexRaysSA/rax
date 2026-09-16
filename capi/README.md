@@ -209,14 +209,53 @@ An adjacent `.sha256` file checks the archive itself. Build metadata records
 the commit, package/ABI versions, target, toolchain, feature set, compiler flags,
 OS, dependency information and Cargo.lock checksum.
 
+### Debug symbols
+
+The shipped libraries stay stripped, so every lane also publishes
+`rax-capi-<version>-<triple>-debug.tar.gz` (or `.zip`) built from the same
+compilation, carrying the debug information split out of that SDK:
+
+| SDK triple | Debug archive contents |
+|---|---|
+| Linux (glibc and musl) | `lib/librax.so.debug` and the unstripped `lib/librax.a` |
+| macOS | `lib/librax.dylib.dSYM/` and the unstripped `lib/librax.a` |
+| Windows MSVC | `bin/rax.pdb` (the static `rax.lib` keeps its own CodeView records) |
+
+Both halves carry the same `build-info.json`, whose `debug_info` field lists
+the sidecars and `debug` records the level, plus its own `SHA256SUMS`. The
+debug archive is not needed to use the SDK and can be downloaded later:
+symbols are matched to the shipped library by the GNU debug link, the Mach-O
+UUID, or the PDB signature, so the exact release archive stays usable
+unchanged.
+
+Releases are built with Cargo's `limited` debug level: function names, source
+files and line numbers, which is what symbolicated backtraces, profilers and
+crash reports need. Local variable and full type descriptions are not
+included. Producing them would require fusing the engine crate under fat LTO
+with complete DWARF, which needs far more memory than a release runner has;
+build the crate yourself with `debug = 2` if you need to inspect values.
+
+- **GDB/LLDB on Linux**: unpack the debug archive so `librax.so.debug` sits
+  beside the installed `librax.so`, or point the debugger at it with
+  `set debug-file-directory` / `target symbols add`.
+- **LLDB on macOS**: keep `librax.dylib.dSYM` next to the `dylib`, or register
+  it with `target symbols add librax.dylib.dSYM`. Spotlight also resolves it by
+  UUID from anywhere it has indexed.
+- **Windows**: add the archive's `bin/` to `_NT_SYMBOL_PATH`, or load
+  `rax.pdb` from the debugger.
+- **Static linking**: replace the SDK's stripped `lib/librax.a` with the
+  unstripped copy from the debug archive; the two are otherwise identical.
+
 Every successful release lane runs the complete Rust C API tests and builds/runs C and
 C++ consumers with both linkage modes after moving the SDK to a path containing
 spaces and hiding the original Cargo output directory. Unix lanes also exercise
 pkg-config linking. Empty, ignored, or filtered Rust test runs cannot produce an
-SDK. After all lanes finish, the publishing job requires every mandatory SDK
-and checks every present candidate archive/checksum pair before uploading to a
-draft and publishing the release. Partial or corrupt candidate pairs fail
-publication; candidate absence is permitted.
+SDK. Consumers are built and executed against the stripped libraries the SDK
+archive actually ships, after the debug information has been split out. After
+all lanes finish, the publishing job requires every mandatory SDK and its debug
+archive, and checks every present candidate's archive/checksum pairs before
+uploading to a draft and publishing the release. A lane that delivers a partial
+or corrupt set fails publication; candidate absence is permitted.
 Failed uploads leave a draft that can be retried; published assets are not
 replaced. PR and manual-dispatch runs build/test artifacts without publishing.
 
@@ -229,8 +268,8 @@ RUSTUP_TOOLCHAIN=stable python3 tools/capi/package.py \
   --work-dir /tmp/rax-sdk-build --output-dir /tmp/rax-sdk-dist
 ```
 
-The work directory must not already exist. Native builds require the target to
-match the Rust compiler host. The four registered GNU/Linux cross targets use
+This writes both the SDK and its `-debug` archive. The work directory must not
+already exist. Native builds require the target to match the Rust compiler host. The four registered GNU/Linux cross targets use
 `--cross-linux`, which requires a Linux build host, the matching cross GCC/G++
 toolchain and sysroot under `/usr/<toolchain-triple>`, and QEMU user emulation.
 The same execution command is used by Cargo, CTest, and pkg-config consumers.

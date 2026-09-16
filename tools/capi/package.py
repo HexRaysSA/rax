@@ -58,7 +58,72 @@ def digest(path):
         return hashlib.file_digest(stream, "sha256").hexdigest()
 
 
-def validate_sdk(target, work, name, env, cmake_args, runner, cc):
+def collect(source, destination):
+    """Copy a Cargo artifact, which is uplifted as a symlink into the build tree.
+
+    Moving the link instead would ship a dangling relative path, and nothing
+    downstream reads through a broken symlink to notice.
+    """
+    source = source.resolve(strict=True)
+    (shutil.copytree if source.is_dir() else shutil.copy2)(source, destination)
+
+
+def split_debug_info(target, native, sdk, work, binutils):
+    """Move the installed libraries' debug info into a sidecar bundle.
+
+    The SDK archive keeps the stripped libraries consumers link against; the
+    sidecars (.dSYM / .so.debug / .pdb) ship as a separate archive so a
+    debugger or crash reporter can recover full symbols on demand. Splitting
+    before the relocated consumer tests means those gates run against exactly
+    the libraries the SDK archive delivers.
+    """
+    debug = work / "debug bundle" / (sdk.name + "-debug")
+    (debug / "lib").mkdir(parents=True)
+    if "apple" in target:
+        # The build environment selects split-debuginfo=packed, so rustc already
+        # ran dsymutil for the cdylib; the archive carries DWARF in its members.
+        collect(native / "librax.dylib.dSYM", debug / "lib/librax.dylib.dSYM")
+        shutil.copy2(sdk / "lib/librax.a", debug / "lib/librax.a")
+        run("strip", "-x", "-S", sdk / "lib/librax.dylib")
+        run("strip", "-S", sdk / "lib/librax.a")
+        run("ranlib", sdk / "lib/librax.a")
+    elif "windows" in target:
+        # MSVC keeps debug info out of the DLL entirely; the static library's
+        # CodeView records live in its own members and stay with the SDK.
+        (debug / "bin").mkdir()
+        pdb, = native.glob("*.pdb")  # Anything but the cdylib's PDB is a packaging bug.
+        collect(pdb, debug / "bin" / pdb.name)
+    else:
+        objcopy, strip = binutils + "objcopy", binutils + "strip"
+        shared, sidecar = sdk / "lib/librax.so", debug / "lib/librax.so.debug"
+        run(objcopy, "--only-keep-debug", shared, sidecar)
+        shutil.copy2(sdk / "lib/librax.a", debug / "lib/librax.a")
+        run(strip, "--strip-unneeded", shared)
+        # --strip-unneeded would discard the static archive's external symbols.
+        run(strip, "--strip-debug", sdk / "lib/librax.a")
+        # The link section records only the sidecar's base name; a debugger
+        # resolves it beside the library or under .debug/.
+        run(objcopy, f"--add-gnu-debuglink={sidecar}", shared)
+    return debug
+
+
+def seal(bundle, dist, target):
+    """Checksum every file in a bundle, then archive and checksum the archive."""
+    # A link would leave the archive depending on a build tree nobody receives,
+    # and would be skipped by the checksum manifest rather than reported.
+    links = sorted(str(path.relative_to(bundle)) for path in bundle.rglob("*") if path.is_symlink())
+    if links:
+        raise RuntimeError(f"{bundle.name} references paths outside the archive: {links}")
+    files = sorted(path for path in bundle.rglob("*") if path.is_file())
+    (bundle / "SHA256SUMS").write_text(
+        "".join(f"{digest(p)}  {p.relative_to(bundle).as_posix()}\n" for p in files))
+    archive = Path(shutil.make_archive(str(dist / bundle.name), "zip" if "windows" in target else "gztar",
+                                       root_dir=bundle.parent, base_dir=bundle.name))
+    archive.with_name(archive.name + ".sha256").write_text(f"{digest(archive)}  {archive.name}\n")
+    return archive
+
+
+def validate_sdk(target, work, name, env, cmake_args, runner, cc, binutils):
     """Execute the Rust suite and relocated consumers for an already-built SDK."""
     build = work / "build"
     original = work / "original-prefix"
@@ -69,8 +134,9 @@ def validate_sdk(target, work, name, env, cmake_args, runner, cc):
     sdk = work / "relocated SDK" / name
     sdk.parent.mkdir()
     shutil.move(str(original), sdk)
-    # Eliminate the original libraries as a possible loader fallback.
     native = build / "cargo" / target / "release"
+    debug = split_debug_info(target, native, sdk, work, binutils)
+    # Eliminate the original libraries as a possible loader fallback.
     hidden_native = native.with_name("release-hidden")
     native.rename(hidden_native)
     consumer = work / "consumer"
@@ -93,7 +159,7 @@ def validate_sdk(target, work, name, env, cmake_args, runner, cc):
                 run(*runner, executable, env=pc_env)
     finally:
         hidden_native.rename(native)
-    return sdk, counts
+    return sdk, debug, counts
 
 
 def main():
@@ -116,16 +182,16 @@ def main():
     dist = args.output_dir.resolve()
     dist.mkdir(parents=True, exist_ok=True)
     name = f"rax-capi-{version}-{args.target}"
-    archive_base = dist / name
-    if any(dist.glob(name + ".*")):
-        raise FileExistsError(f"archive already exists: {archive_base}")
+    if any(dist.glob(name + "*")):
+        raise FileExistsError(f"archive already exists: {dist / name}")
     build = work / "build"
     original = work / "original-prefix"
     run("cmake", "-S", ROOT / "capi", "-B", build,
         f"-DCMAKE_INSTALL_PREFIX={original}", "-DCMAKE_INSTALL_LIBDIR=lib",
         f"-DRAX_CARGO_TARGET={args.target}", *cmake_args, env=env)
     run("cmake", "--build", build, "--config", "Release", env=env)
-    sdk, counts = validate_sdk(args.target, work, name, env, cmake_args, runner, cc)
+    binutils = f"{TARGETS[args.target].cross_prefix}-" if args.cross_linux else ""
+    sdk, debug, counts = validate_sdk(args.target, work, name, env, cmake_args, runner, cc, binutils)
     # Capture loader dependencies as part of the SDK's build provenance.
     if "apple" in args.target:
         dependencies = output("otool", "-L", str(sdk / "lib/librax.dylib"))
@@ -137,7 +203,6 @@ def main():
     else:
         compiler = Path((build / "rax-native-toolchain.txt").read_text().splitlines()[0])
         dependencies = output(str(compiler.with_name("dumpbin.exe")), "/DEPENDENTS", str(sdk / "bin/rax.dll"))
-    shutil.copy2(ROOT / "capi/README.md", sdk / "README.md")
     manifest = {
         "package_version": version, "tag": args.tag,
         "abi_version": ".".join(re.search(rf"#define RAX_API_{part} ([0-9]+)u", (ROOT / "capi/include/rax.h").read_text()).group(1)
@@ -155,15 +220,15 @@ def main():
         "build_image": env.get("SDK_BUILD_IMAGE"),
         "build_distribution": platform.freedesktop_os_release() if platform.system() == "Linux" else None,
         "cargo_lock_sha256": digest(ROOT / "Cargo.lock"), "dependencies": dependencies,
+        "debug": env["CARGO_PROFILE_RELEASE_DEBUG"],
+        "debug_info": sorted(p.relative_to(debug).as_posix() for d in debug.iterdir() for p in d.iterdir()),
         "validation": ["cargo test -p rax-capi --release", "relocated C/C++ shared/static consumers"],
     }
-    (sdk / "build-info.json").write_text(json.dumps(manifest, indent=2) + "\n")
-    files = sorted(path for path in sdk.rglob("*") if path.is_file())
-    (sdk / "SHA256SUMS").write_text("".join(f"{digest(p)}  {p.relative_to(sdk).as_posix()}\n" for p in files))
-    archive = Path(shutil.make_archive(str(archive_base), "zip" if "windows" in args.target else "gztar",
-                                       root_dir=sdk.parent, base_dir=sdk.name))
-    archive.with_name(archive.name + ".sha256").write_text(f"{digest(archive)}  {archive.name}\n")
-    print(f"Validated SDK: {archive}")
+    for bundle in (sdk, debug):
+        # One manifest describes both halves: they come from the same build.
+        shutil.copy2(ROOT / "capi/README.md", bundle / "README.md")
+        (bundle / "build-info.json").write_text(json.dumps(manifest, indent=2) + "\n")
+        print(f"Validated bundle: {seal(bundle, dist, args.target)}")
 
 
 if __name__ == "__main__":

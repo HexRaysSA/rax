@@ -53,10 +53,21 @@ def build_configuration(target, host, cross_linux, inherited_env):
         # promise that downstream executables are fully static.
         env["RUSTFLAGS"] += " -C target-feature=-crt-static"
     env["CARGO_INCREMENTAL"] = "0"
+    # Release libraries still ship stripped; packaging splits this debug info
+    # out into sidecars (.dSYM / .so.debug / .pdb) published as separate
+    # archives, so the shipped SDK stays small but stays symbolicatable.
+    # "limited" keeps function, file and line information for backtraces and
+    # profilers. Full DWARF needs well over 16 GB to fuse the engine crate
+    # under fat LTO, which no release runner has.
+    env["CARGO_PROFILE_RELEASE_DEBUG"] = "limited"
+    env["CARGO_PROFILE_RELEASE_STRIP"] = "none"
     env["CFLAGS"] = spec.cflags
     env["CXXFLAGS"] = spec.cflags
     if "apple" in target:
         env["MACOSX_DEPLOYMENT_TARGET"] = "11.0"
+        # Let rustc run dsymutil, so the bundle never depends on intermediate
+        # object files surviving the build tree.
+        env["CARGO_PROFILE_RELEASE_SPLIT_DEBUGINFO"] = "packed"
     if target == "aarch64-pc-windows-msvc":
         env["CMAKE_GENERATOR_PLATFORM"] = "ARM64"
     cmake = []

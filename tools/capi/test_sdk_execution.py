@@ -23,6 +23,7 @@ class SDKExecution(unittest.TestCase):
                 original = work / "original-prefix"
                 (original / "lib").mkdir(parents=True)
                 (original / "lib/librax.so").write_bytes(b"fixture")
+                (original / "lib/librax.a").write_bytes(b"fixture archive")
                 env, cmake, runner, cc = build_configuration(target, "x86_64-unknown-linux-gnu", True, {})
                 commands = []
 
@@ -39,12 +40,26 @@ class SDKExecution(unittest.TestCase):
                 with patch.object(package, "run", side_effect=run), \
                      patch.object(package, "run_cargo_tests", return_value={"passed": 56}), \
                      patch.object(package.subprocess, "check_output", return_value="-lrax"):
+                    binutils = "s390x-linux-gnu-"
                     if fail_ctest:
                         with self.assertRaises(subprocess.CalledProcessError):
-                            package.validate_sdk(target, work, name, env, cmake, runner, cc)
+                            package.validate_sdk(target, work, name, env, cmake, runner, cc, binutils)
                     else:
-                        sdk, counts = package.validate_sdk(target, work, name, env, cmake, runner, cc)
+                        sdk, debug, counts = package.validate_sdk(
+                            target, work, name, env, cmake, runner, cc, binutils)
                         self.assertEqual(counts["passed"], 56)
+                        # The consumer gates must run against the stripped SDK,
+                        # so the split precedes the first compile.
+                        tools = (binutils + "objcopy", binutils + "strip")
+                        split = [c for c in commands if c[0] in tools]
+                        self.assertLess(commands.index(split[-1]), commands.index(
+                            next(c for c in commands if c[0] == cc)))
+                        self.assertEqual(
+                            [(c[0][len(binutils):], c[1]) for c in split],
+                            [("objcopy", "--only-keep-debug"), ("strip", "--strip-unneeded"),
+                             ("strip", "--strip-debug"),
+                             ("objcopy", f"--add-gnu-debuglink={debug / 'lib/librax.so.debug'}")])
+                        self.assertEqual((debug / "lib/librax.a").read_bytes(), b"fixture archive")
                         executions = [c for c in commands if c[0] == runner[0]]
                         self.assertEqual(len(executions), 2)
                         self.assertTrue(all(list(c[:3]) == runner for c in executions))
@@ -56,6 +71,24 @@ class SDKExecution(unittest.TestCase):
                 self.assertTrue(native.exists(), "restore the original build even if CTest fails")
                 if fail_ctest:
                     self.assertFalse(any(c[0] == runner[0] for c in commands))
+
+    def test_archives_never_ship_unresolved_build_tree_links(self):
+        """Cargo uplifts artifacts as symlinks; sealing one would ship a dead path."""
+        with tempfile.TemporaryDirectory() as temporary:
+            work = Path(temporary)
+            bundle = work / "rax-capi-0.1.0-x86_64-unknown-linux-gnu-debug"
+            (bundle / "lib").mkdir(parents=True)
+            uplifted = bundle / "lib/librax.so.debug"
+            uplifted.symlink_to("build/deps/librax.so.debug")
+            with self.assertRaisesRegex(RuntimeError, "outside the archive"):
+                package.seal(bundle, work, "x86_64-unknown-linux-gnu")
+            uplifted.unlink()
+            uplifted.write_bytes(b"debug info")
+            archive = package.seal(bundle, work, "x86_64-unknown-linux-gnu")
+            self.assertEqual(archive.name, bundle.name + ".tar.gz")
+            self.assertIn("lib/librax.so.debug", (bundle / "SHA256SUMS").read_text())
+            self.assertEqual(archive.with_name(archive.name + ".sha256").read_text().split()[1],
+                             archive.name)
 
     def test_cargo_failure_remains_visible_and_stops_validation(self):
         failure = subprocess.CompletedProcess(["cargo", "test"], 101, stdout="test failure details\n")

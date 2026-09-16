@@ -26,7 +26,7 @@ jobs:
   build:
     name: SDK (${{ matrix.target }})
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 75
+    timeout-minutes: 100
     continue-on-error: ${{ matrix.experimental || false }}
     strategy:
       fail-fast: false
@@ -78,7 +78,7 @@ jobs:
   cross-linux:
     name: Candidate SDK (${{ matrix.target }}, QEMU)
     runs-on: ubuntu-24.04
-    timeout-minutes: 90
+    timeout-minutes: 120
     continue-on-error: true
     env:
       SDK_BUILD_IMAGE: rust:slim-trixie@sha256:bce1476d4be4d78b83705bc5f428b86d640eeeea33e9dadafbc037b5703a53bf
@@ -115,7 +115,7 @@ jobs:
   musl:
     name: Candidate SDK (${{ matrix.target }}, native musl)
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 90
+    timeout-minutes: 120
     continue-on-error: true
     env:
       SDK_BUILD_IMAGE: rust:alpine@sha256:1716b3aa042d735f4566d14dc54e8037de9d69556e2d5dd58131d93a613d173d
@@ -149,7 +149,7 @@ jobs:
   publish:
     # Dispatch and PR runs exercise the same builds but never publish.
     # Candidate failures must not skip publication. verify_assets still requires
-    # all five mandatory archives and validates every present candidate pair.
+    # all five mandatory SDK/debug archive sets and validates every candidate's.
     if: ${{ !cancelled() && github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v') }}
     needs: [build, cross-linux, musl]
     runs-on: ubuntu-24.04

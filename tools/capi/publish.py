@@ -13,18 +13,19 @@ def verify_assets(dist, version):
     expected = set()
     for target, spec in TARGETS.items():
         suffix = "zip" if "windows" in target else "tar.gz"
-        name = f"rax-capi-{version}-{target}.{suffix}"
-        archive = dist / name
-        checksum = dist / (name + ".sha256")
+        # Every lane publishes an SDK and its matching debug-info sidecars.
+        names = [f"rax-capi-{version}-{target}{kind}.{suffix}" for kind in ("", "-debug")]
+        assets = [(dist / name, dist / (name + ".sha256")) for name in names]
         # Candidate lanes upload only after the same execution gates pass.
-        # Absence is allowed; a partial or corrupt pair is always an error.
-        if spec.experimental and not archive.exists() and not checksum.exists():
+        # Absence is allowed; a partial or corrupt set is always an error.
+        if spec.experimental and not any(path.exists() for pair in assets for path in pair):
             continue
-        if not archive.is_file() or not checksum.is_file():
-            raise ValueError(f"missing release asset: {name} or checksum")
-        if checksum.read_text().strip() != f"{digest(archive)}  {name}":
-            raise ValueError(f"checksum mismatch: {name}")
-        expected.update((archive.name, checksum.name))
+        for archive, checksum in assets:
+            if not archive.is_file() or not checksum.is_file():
+                raise ValueError(f"missing release asset: {archive.name} or checksum")
+            if checksum.read_text().strip() != f"{digest(archive)}  {archive.name}":
+                raise ValueError(f"checksum mismatch: {archive.name}")
+            expected.update((archive.name, checksum.name))
     if {p.name for p in dist.iterdir()} != expected:
         raise ValueError("unexpected files in release asset directory")
     return [dist / name for name in sorted(expected)]
