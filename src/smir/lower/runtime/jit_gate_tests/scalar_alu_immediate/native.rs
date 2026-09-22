@@ -222,6 +222,7 @@ struct Memory {
     load_ok: u64,
     store_ok: u64,
     calls: Vec<(bool, u64, u64, u64)>,
+    atomic_calls: Vec<(u64, u64, u32, u32)>,
 }
 
 extern "C" fn load_helper(
@@ -259,7 +260,48 @@ fn memory_regs(memory: &mut Memory, base: u8, carry: bool) -> GuestRegs {
     regs.ctx = (memory as *mut Memory) as u64;
     regs.load_fn = load_helper as *const () as u64;
     regs.store_fn = store_helper as *const () as u64;
+    regs.atomic_rmw_fn = atomic_helper as *const () as u64;
     regs
+}
+
+extern "C" fn atomic_helper(
+    context: *mut Memory,
+    address: u64,
+    operand: u64,
+    size: u32,
+    operation: u32,
+) -> crate::smir::lower::runtime::X86AtomicRmwRet {
+    // SAFETY: memory_regs supplies a live exclusive context; this serial test
+    // callback completes before ExecMem::run returns or Memory is accessed.
+    let memory = unsafe { &mut *context };
+    memory
+        .atomic_calls
+        .push((address, operand, size, operation));
+    if memory.load_ok == 0 || memory.store_ok == 0 {
+        return crate::smir::lower::runtime::X86AtomicRmwRet::default();
+    }
+    let old_value = memory.value;
+    memory.value = match operation {
+        0 => old_value.wrapping_add(operand),
+        1 => old_value | operand,
+        2 => old_value & operand,
+        3 => old_value.wrapping_sub(operand),
+        4 => old_value ^ operand,
+        5 => operand,
+        _ => return crate::smir::lower::runtime::X86AtomicRmwRet::default(),
+    };
+    crate::smir::lower::runtime::X86AtomicRmwRet { old_value, ok: 1 }
+}
+
+fn atomic_operation(group: u8) -> u32 {
+    match group {
+        0 => 0,
+        1 => 1,
+        4 => 2,
+        5 => 3,
+        6 => 4,
+        _ => unreachable!("five atomic arithmetic groups"),
+    }
 }
 
 fn source_function(
@@ -333,6 +375,7 @@ fn memory_source_immediates_match_interpretation_and_fault_before_destination_co
                                 );
                                 exec.run(entry, &mut regs);
                                 assert_state(regs, expected, mask, &label);
+                                assert!(memory.atomic_calls.is_empty(), "{label}");
                                 assert_eq!(memory.calls, [(false, 0x2000, 8, 0)], "{label}");
                                 assert_eq!(memory.value, old, "{label}");
                                 successes += 1;
@@ -344,6 +387,7 @@ fn memory_source_immediates_match_interpretation_and_fault_before_destination_co
                                 expected.exit_pc = PC;
                                 exec.run(entry, &mut regs);
                                 assert_state(regs, expected, u64::MAX, &format!("fault {label}"));
+                                assert!(memory.atomic_calls.is_empty(), "fault {label}");
                                 assert_eq!(memory.calls, [(false, 0x2000, 8, 0)], "fault {label}");
                                 assert_eq!(memory.value, old, "fault {label}");
                                 faults += 1;
@@ -492,15 +536,26 @@ fn check_rmw(atomic: bool) {
                                 exec.run(entry, &mut regs);
                                 assert_state(regs, expected, mask, &label);
                                 assert_eq!(memory.value, result, "{label}");
-                                assert_eq!(
-                                    memory.calls,
-                                    [(false, 0x2000, 8, 0), (true, 0x2000, 8, result)],
-                                    "{label}"
-                                );
+                                if atomic {
+                                    assert!(memory.calls.is_empty(), "{label}");
+                                    assert_eq!(
+                                        memory.atomic_calls,
+                                        [(0x2000, value as u64, 8, atomic_operation(group))],
+                                        "{label}"
+                                    );
+                                } else {
+                                    assert!(memory.atomic_calls.is_empty(), "{label}");
+                                    assert_eq!(
+                                        memory.calls,
+                                        [(false, 0x2000, 8, 0), (true, 0x2000, 8, result)],
+                                        "{label}"
+                                    );
+                                }
                                 successes += 1;
 
                                 for fault_load in [true, false] {
                                     memory.calls.clear();
+                                    memory.atomic_calls.clear();
                                     memory.value = old;
                                     memory.load_ok = u64::from(!fault_load);
                                     memory.store_ok = 0;
@@ -516,8 +571,18 @@ fn check_rmw(atomic: bool) {
                                     );
                                     assert_eq!(memory.value, old, "fault {label}");
                                     let mut expected_calls = vec![(false, 0x2000, 8, 0)];
-                                    if !fault_load {
-                                        expected_calls.push((true, 0x2000, 8, result));
+                                    if atomic {
+                                        expected_calls.clear();
+                                        assert_eq!(
+                                            memory.atomic_calls,
+                                            [(0x2000, value as u64, 8, atomic_operation(group))],
+                                            "fault {label}"
+                                        );
+                                    } else {
+                                        assert!(memory.atomic_calls.is_empty(), "fault {label}");
+                                        if !fault_load {
+                                            expected_calls.push((true, 0x2000, 8, result));
+                                        }
                                     }
                                     assert_eq!(memory.calls, expected_calls, "fault {label}");
                                     faults += 1;
@@ -603,11 +668,12 @@ fn existing_atomic_swap_full_width_immediates_preserve_flags_and_fault_frontiers
                         }
                         exec.run(entry, &mut regs);
                         assert_state(regs, expected, u64::MAX, &label);
-                        let mut calls = vec![(false, 0x2000, 8, 0)];
-                        if load_ok != 0 {
-                            calls.push((true, 0x2000, 8, value as u64));
-                        }
-                        assert_eq!(memory.calls, calls, "{label}");
+                        assert!(memory.calls.is_empty(), "{label}");
+                        assert_eq!(
+                            memory.atomic_calls,
+                            [(0x2000, value as u64, 8, 5)],
+                            "{label}"
+                        );
                         assert_eq!(
                             memory.value,
                             if load_ok != 0 && store_ok != 0 {

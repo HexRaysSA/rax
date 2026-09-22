@@ -41,9 +41,28 @@ fn count(bytes: &[u8], needle: &[u8]) -> usize {
     bytes.windows(needle.len()).filter(|w| *w == needle).count()
 }
 
+fn assert_one_atomic_call(bytes: &[u8]) {
+    let mut slot = vec![0x4C, 0x8B, 0x98]; // mov r11,[rax+atomic_rmw_fn]
+    slot.extend_from_slice(&crate::smir::lower::X86_GUEST_ATOMIC_RMW_FN_OFFSET.to_le_bytes());
+    assert_eq!(count(bytes, &slot), 1, "one atomic callback selection");
+    assert_eq!(count(bytes, &[0x41, 0xFF, 0xD3]), 1, "one call r11");
+    for offset in [
+        crate::smir::lower::X86_GUEST_LOAD_FN_OFFSET,
+        crate::smir::lower::X86_GUEST_STORE_FN_OFFSET,
+    ] {
+        let mut ordinary_call = vec![0xFF, 0x90];
+        ordinary_call.extend_from_slice(&offset.to_le_bytes());
+        assert_eq!(
+            count(bytes, &ordinary_call),
+            0,
+            "no ordinary helper substitution"
+        );
+    }
+}
+
 #[test]
 fn locked_or_fuses_into_the_helper_backed_frame() {
-    // `lock or byte [rdi+8],1` with dead flags: one compute, no replay.
+    // `lock or byte [rdi+8],1` with dead flags: one transaction, no replay.
     let (flag_dead, _) = lower(vec![
         OpKind::Mov {
             dst: virt(0),
@@ -65,14 +84,15 @@ fn locked_or_fuses_into_the_helper_backed_frame() {
             .any(|b| b == [0x48, 0x8D, 0x64, 0x24, 0xE0]),
         "must reserve the 32-byte caller frame: {flag_dead:02X?}"
     );
-    // `or al, 1` is 80 /1 ib against the scratch accumulator.
+    assert_one_atomic_call(&flag_dead);
+    // All memory computation is inside the transaction callback.
     assert_eq!(
         count(&flag_dead, &[0x80, 0xC8, 0x01]),
-        1,
-        "flag-dead form computes exactly once: {flag_dead:02X?}"
+        0,
+        "flag-dead form must not compute or replay natively: {flag_dead:02X?}"
     );
 
-    // With the flags live, the same operation is replayed after the store.
+    // With flags live, replay once against the retained source stack slot.
     let (flag_live, _) = lower(vec![
         OpKind::Mov {
             dst: virt(0),
@@ -95,15 +115,16 @@ fn locked_or_fuses_into_the_helper_backed_frame() {
             flags: FlagUpdate::All,
         },
     ]);
+    assert_one_atomic_call(&flag_live);
     assert_eq!(
-        count(&flag_live, &[0x80, 0xC8, 0x01]),
-        2,
-        "flag-publishing form computes and replays: {flag_live:02X?}"
+        count(&flag_live, &[0x0A, 0x44, 0x24, 0x10]),
+        1,
+        "or al,[rsp+16] publishes flags only after transaction success"
     );
 }
 
 #[test]
-fn locked_xadd_writes_the_pre_operation_value_back_after_the_store() {
+fn locked_xadd_writes_the_pre_operation_value_back_after_the_transaction() {
     let (bytes, _) = lower(vec![
         OpKind::Mov {
             dst: virt(0),
@@ -124,11 +145,7 @@ fn locked_xadd_writes_the_pre_operation_value_back_after_the_store() {
             width: OpWidth::W32,
         },
     ]);
-    // `add eax, 1` computes the stored value.
-    assert!(
-        bytes.windows(3).any(|b| b == [0x83, 0xC0, 0x01]),
-        "must add the materialized immediate: {bytes:02X?}"
-    );
+    assert_one_atomic_call(&bytes);
     // `mov ecx, [rsp]` delivers the pre-operation memory value, zero-extended.
     assert!(
         bytes.windows(4).any(|b| b == [0x8B, 0x0C, 0x24, 0x48]),
@@ -137,7 +154,7 @@ fn locked_xadd_writes_the_pre_operation_value_back_after_the_store() {
     // The write-back is flag neutral: no PUSHFQ/POPFQ pair is added for it.
     assert_eq!(
         count(&bytes, &[0x83, 0xC0, 0x01]),
-        1,
+        0,
         "a flag-dead XADD must not replay: {bytes:02X?}"
     );
 }
@@ -165,12 +182,8 @@ fn locked_dec_replays_the_unary_flag_contract() {
             flags: FlagUpdate::All,
         },
     ]);
-    // The memory value is produced with `sub eax, 1` (83 /5 ib) ...
-    assert!(
-        bytes.windows(3).any(|b| b == [0x83, 0xE8, 0x01]),
-        "must subtract one from the loaded value: {bytes:02X?}"
-    );
-    // ... while the published flags come from `dec eax` (FF /1), which leaves
+    assert_one_atomic_call(&bytes);
+    // Published flags come from `dec eax` (FF /1), which leaves
     // CF unchanged exactly as the architecture requires.
     assert!(
         bytes.windows(2).any(|b| b == [0xFF, 0xC8]),
@@ -178,7 +191,7 @@ fn locked_dec_replays_the_unary_flag_contract() {
     );
     assert_eq!(
         count(&bytes, &[0x83, 0xE8, 0x01]),
-        1,
+        0,
         "the Group-1 form must not also replay: {bytes:02X?}"
     );
 }
@@ -186,6 +199,7 @@ fn locked_dec_replays_the_unary_flag_contract() {
 #[cfg(all(feature = "smir-jit", target_arch = "x86_64"))]
 #[derive(Default)]
 struct MemoryContext {
+    transactions: u64,
     loads: u64,
     stores: u64,
     last_addr: u64,
@@ -193,6 +207,38 @@ struct MemoryContext {
     load_ok: u64,
     store_ok: u64,
     stored: u64,
+}
+
+#[cfg(all(feature = "smir-jit", target_arch = "x86_64"))]
+extern "C" fn atomic_transaction(
+    context: *mut MemoryContext,
+    addr: u64,
+    operand: u64,
+    size: u32,
+    operation: u32,
+) -> crate::smir::lower::runtime::X86AtomicRmwRet {
+    // SAFETY: the test keeps this exclusive, initialized context live and
+    // unmoved throughout synchronous native execution.
+    let context = unsafe { &mut *context };
+    context.transactions += 1;
+    context.last_addr = addr;
+    if context.load_ok == 0 || context.store_ok == 0 {
+        return crate::smir::lower::runtime::X86AtomicRmwRet::default();
+    }
+    let mask = ((1u128 << (size * 8)) - 1) as u64;
+    let old_value = context.value & mask;
+    let result = match operation {
+        0 => old_value.wrapping_add(operand),
+        1 => old_value | operand,
+        2 => old_value & operand,
+        3 => old_value.wrapping_sub(operand),
+        4 => old_value ^ operand,
+        5 => operand,
+        _ => return crate::smir::lower::runtime::X86AtomicRmwRet::default(),
+    };
+    context.stored = result & mask;
+    context.value = (context.value & !mask) | context.stored;
+    crate::smir::lower::runtime::X86AtomicRmwRet { old_value, ok: 1 }
 }
 
 #[cfg(all(feature = "smir-jit", target_arch = "x86_64"))]
@@ -281,10 +327,12 @@ fn native_locked_rmw_updates_memory_publishes_flags_and_writes_back() {
         regs.ctx = (&mut context as *mut MemoryContext) as u64;
         regs.load_fn = load as usize as u64;
         regs.store_fn = store as usize as u64;
+        regs.atomic_rmw_fn = atomic_transaction as usize as u64;
         exec.run(entry, &mut regs);
 
-        assert_eq!(context.loads, 1);
-        assert_eq!(context.stores, 1);
+        assert_eq!(context.transactions, 1);
+        assert_eq!(context.loads, 0);
+        assert_eq!(context.stores, 0);
         assert_eq!(context.last_addr, 0x3008);
         assert_eq!(context.stored, u64::from((value as u32).wrapping_add(1)));
         assert_eq!(regs.gpr[1], value, "pre-operation value written back");
@@ -307,8 +355,18 @@ fn native_locked_rmw_updates_memory_publishes_flags_and_writes_back() {
     regs.ctx = (&mut context as *mut MemoryContext) as u64;
     regs.load_fn = load as usize as u64;
     regs.store_fn = store as usize as u64;
+    regs.atomic_rmw_fn = atomic_transaction as usize as u64;
     exec.run(entry, &mut regs);
     assert_eq!(regs.gpr, initial, "faulting store must not commit");
+    assert_eq!(
+        (context.transactions, context.loads, context.stores),
+        (1, 0, 0)
+    );
+    assert_eq!(context.value, 7, "failed transaction must not write");
+    assert_eq!(
+        regs.rflags, FLAGS,
+        "failed transaction must not publish flags"
+    );
     assert_eq!(regs.exit_pc, PC);
 }
 
@@ -369,10 +427,12 @@ fn native_exchange_replaces_the_element_and_leaves_flags_untouched() {
         regs.ctx = (&mut context as *mut MemoryContext) as u64;
         regs.load_fn = load as usize as u64;
         regs.store_fn = store as usize as u64;
+        regs.atomic_rmw_fn = atomic_transaction as usize as u64;
         exec.run(entry, &mut regs);
 
-        assert_eq!(context.loads, 1, "{mem_width:?}");
-        assert_eq!(context.stores, 1, "{mem_width:?}");
+        assert_eq!(context.transactions, 1, "{mem_width:?}");
+        assert_eq!(context.loads, 0, "{mem_width:?}");
+        assert_eq!(context.stores, 0, "{mem_width:?}");
         assert_eq!(context.last_addr, 0x8008);
         assert_eq!(
             context.stored,
@@ -409,7 +469,18 @@ fn native_exchange_replaces_the_element_and_leaves_flags_untouched() {
     regs.ctx = (&mut context as *mut MemoryContext) as u64;
     regs.load_fn = load as usize as u64;
     regs.store_fn = store as usize as u64;
+    regs.atomic_rmw_fn = atomic_transaction as usize as u64;
     exec.run(entry, &mut regs);
     assert_eq!(regs.gpr, initial, "faulting exchange must not write back");
+    assert_eq!(
+        (context.transactions, context.loads, context.stores),
+        (1, 0, 0)
+    );
+    assert_eq!(context.value, MEMORY, "failed transaction must not write");
+    assert_eq!(
+        regs.rflags,
+        0x2 | FLAGS,
+        "failed transaction preserves every flag"
+    );
     assert_eq!(regs.exit_pc, PC);
 }

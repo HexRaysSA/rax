@@ -3633,6 +3633,12 @@ mod jit_mem_store;
 use jit_mem_store::rax_jit_mem_store;
 
 #[cfg(all(feature = "smir-jit", target_arch = "x86_64"))]
+#[path = "cpu_jit_mem_atomic.rs"]
+mod jit_mem_atomic;
+#[cfg(all(feature = "smir-jit", target_arch = "x86_64"))]
+use jit_mem_atomic::rax_jit_mem_atomic_rmw;
+
+#[cfg(all(feature = "smir-jit", target_arch = "x86_64"))]
 #[path = "cpu_jit_cmpccxadd.rs"]
 mod jit_cmpccxadd;
 #[cfg(all(feature = "smir-jit", target_arch = "x86_64"))]
@@ -4901,6 +4907,7 @@ impl X86_64Vcpu {
         gr.ctx = self as *mut X86_64Vcpu as u64;
         gr.load_fn = rax_jit_mem_load as usize as u64;
         gr.store_fn = rax_jit_mem_store as usize as u64;
+        gr.atomic_rmw_fn = rax_jit_mem_atomic_rmw as usize as u64;
         gr.vec_load_fn = rax_jit_vec_load as usize as u64;
         gr.vec_store_fn = rax_jit_vec_store as usize as u64;
         gr.pair_load_fn = rax_jit_pair_load as usize as u64;

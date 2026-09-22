@@ -15,6 +15,7 @@ mod aes_memory_source;
 mod ah_flags;
 #[cfg(test)]
 mod apx_bmi2_shift;
+mod atomic_callback;
 #[cfg(test)]
 mod atomic_rmw;
 #[cfg(test)]

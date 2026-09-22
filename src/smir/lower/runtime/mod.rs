@@ -47,6 +47,8 @@ mod trampolines;
 pub use trampolines::*;
 mod x86_guest_regs;
 pub use x86_guest_regs::*;
+mod x86_atomic_rmw;
+pub use x86_atomic_rmw::*;
 #[cfg(target_arch = "x86_64")]
 mod x86_ymm_trampoline;
 

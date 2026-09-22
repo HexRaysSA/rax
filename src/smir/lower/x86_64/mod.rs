@@ -306,6 +306,8 @@ pub(crate) use ops::x86_x87_state_shape_valid;
 mod jit;
 mod jit_scalar_alu_rmw;
 mod jit_scalar_alu_source;
+#[cfg(feature = "smir-jit")]
+mod jit_scalar_atomic;
 mod scalar_alu_immediate;
 pub(crate) use scalar_alu_immediate::{
     X86ScalarAluImmediate, scalar_alu_immediate_is_encodable, x86_scalar_alu_immediate_candidate,

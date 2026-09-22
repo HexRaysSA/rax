@@ -86,8 +86,8 @@ impl X86_64Lowerer {
         Ok(Some(consumed))
     }
 
-    /// Emit the fault-precise helper-backed memory read-modify-write body
-    /// shared by the plain and LOCK-prefixed forms. `replay` regenerates the
+    /// Emit the fault-precise unlocked memory read-modify-write body. AtomicRmw
+    /// has a separate single-transaction callback. `replay` regenerates the
     /// architectural flags after a successful store; a caller whose flag result
     /// was proven dead passes `false`.
     #[cfg(feature = "smir-jit")]
@@ -375,50 +375,5 @@ impl X86_64Lowerer {
         }
         emitter.emit_lea(PhysReg::Rsp, PhysReg::Rsp, 32);
         Ok(())
-    }
-
-    /// Fuse the LOCK-prefixed memory read-modify-write emitted by the x86
-    /// lifter. The emulator realizes a locked ALU as an ordinary
-    /// read-modify-write through the vCPU MMU in both interpreters, so the
-    /// fused native form reproduces interpretation exactly.
-    #[cfg(feature = "smir-jit")]
-    pub(crate) fn try_lower_jit_mem_atomic_rmw(
-        &mut self,
-        block: &SmirBlock,
-        idx: usize,
-        virtual_definitions: &HashMap<VReg, usize>,
-        virtual_uses: &HashMap<VReg, usize>,
-    ) -> Result<Option<usize>, LowerError> {
-        let Some(sequence) = crate::smir::lower::runtime::x86_jit_mem_atomic_rmw_sequence(
-            block,
-            idx,
-            true,
-            virtual_definitions,
-            virtual_uses,
-        ) else {
-            return Ok(None);
-        };
-        let source = match sequence.source_reg {
-            Some(reg) => SrcOperand::Reg(reg),
-            None => SrcOperand::Imm(sequence.source_imm),
-        };
-        let writeback = match sequence.writeback {
-            Some(dst) => Some((self.get_dst_reg(dst)?, sequence.width)),
-            None => None,
-        };
-        self.emit_fused_mem_alu_rmw_swap(
-            sequence.guest_pc,
-            sequence.addr,
-            sequence.mem_width,
-            sequence.width,
-            sequence.opcode,
-            sequence.digit,
-            &source,
-            sequence.replay,
-            sequence.replay_unary,
-            writeback,
-            sequence.swap,
-        )?;
-        Ok(Some(sequence.consumed))
     }
 }

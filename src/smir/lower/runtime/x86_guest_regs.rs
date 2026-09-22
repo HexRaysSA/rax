@@ -324,6 +324,12 @@ pub struct GuestRegs {
     /// region. Incremented after its mode/feature guards and before lane work;
     /// distinguishes repeated visits to one guest PC in a native loop.
     pub x86_vsib_instruction_ordinal: u64,
+    /// Address of [`super::X86AtomicRmwFn`]. One call executes the entire
+    /// admitted SeqCst scalar AtomicRmw transaction and returns its original
+    /// memory value. Zero or callback failure deoptimizes before flags or
+    /// register writeback; ordinary load/store callbacks are never substituted.
+    /// Append-only execution metadata, not serialized architectural state.
+    pub atomic_rmw_fn: u64,
 }
 
 pub const X86_VECTOR_STATE_INACTIVE: u64 = 0;
@@ -432,6 +438,7 @@ impl Default for GuestRegs {
             x87_payload_active: 0,
             x86_vsib_frontier_lane_plus_one: 0,
             x86_vsib_instruction_ordinal: 0,
+            atomic_rmw_fn: 0,
         }
     }
 }

@@ -5,11 +5,11 @@
 //! The trailing operation exists only to publish the architectural flags and is
 //! deleted by optimization when they are dead.
 //!
-//! Both the direct x86 interpreter and the SMIR interpreter realize a locked
-//! ALU as an ordinary read-modify-write through the vCPU MMU — the emulator
-//! provides no stronger indivisibility guarantee — so the fused native form
-//! (helper load, native compute, helper store, optional flag replay) matches
-//! interpretation exactly, including MMIO ordering and fault precision.
+//! Native execution invokes one atomic-transaction callback, then optionally
+//! replays the arithmetic solely to publish flags. The canonical vCPU callback
+//! retains the direct engine's serial MMU contract; concurrent custom memory
+//! backends provide their own indivisible, sequentially consistent transaction,
+//! as they already do for the SMIR memory interface's `atomic_rmw` method.
 
 use crate::smir::ir::SmirBlock;
 use crate::smir::ir::types::{Address, AtomicOp, MemWidth, MemoryOrder, OpWidth, VReg};
