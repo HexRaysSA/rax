@@ -10,6 +10,7 @@ use crate::isa::x86_64::flags;
 use crate::isa::x86_64::mxcsr_value_is_valid;
 
 const CR0_TS: u64 = 1 << 3;
+const CR0_EM: u64 = 1 << 2;
 const CR4_TSD: u64 = 1 << 2;
 const CR4_FSGSBASE: u64 = 1 << 16;
 const CR4_OSXSAVE: u64 = 1 << 18;
@@ -620,7 +621,22 @@ impl X86_64Vcpu {
                     if !self.require_cr0_ts_clear_for_nm()? {
                         return Ok(None);
                     }
+                    if self.sregs.cr0 & CR0_EM != 0 {
+                        self.inject_exception(7, None)?;
+                        return Ok(None);
+                    }
+                    if addr & 0xF != 0 {
+                        self.inject_exception(13, Some(0))?;
+                        return Ok(None);
+                    }
                     // FXRSTOR - restore FPU/SSE state (512 bytes)
+                    // SDM 086 Vol. 1 §10.5.3: reject an illegal MXCSR before
+                    // loading x87/SSE state. MXCSR_MASK in the image is ignored.
+                    let mxcsr = self.read_mem32(addr + 24)?;
+                    if !mxcsr_value_is_valid(mxcsr) {
+                        self.inject_exception(13, Some(0))?;
+                        return Ok(None);
+                    }
                     // FCW at offset 0
                     self.fpu.control_word = self.read_mem16(addr)?;
                     // FSW at offset 2
@@ -643,7 +659,7 @@ impl X86_64Vcpu {
                     // FDP at offset 16
                     self.fpu.data_ptr = self.read_mem64(addr + 16)?;
                     // MXCSR at offset 24
-                    self.mxcsr = self.read_mem32(addr + 24)?;
+                    self.mxcsr = mxcsr;
                     // ST0-ST7 at offset 32
                     for i in 0..8 {
                         let bytes = self.read_bytes(addr + 32 + (i as u64) * 16, 10)?;
@@ -797,15 +813,17 @@ impl X86_64Vcpu {
                         return Ok(None);
                     }
                     // XRSTOR - restore x87/SSE/AVX/AVX-512 state selected by (EDX:EAX) & XCR0.
-                    if self.read_mem64(addr + 520)? & (1u64 << 63) != 0 {
-                        if self.restore_xsave_compacted_area(addr)? {
-                            self.regs.rip += ctx.cursor as u64;
-                        }
+                    let Some(restore) = self.prepare_xsave_restore(addr, false)? else {
+                        return Ok(None);
+                    };
+                    if restore.compacted {
+                        self.restore_xsave_compacted_area(addr, restore)?;
+                        self.regs.rip += ctx.cursor as u64;
                         return Ok(None);
                     }
 
-                    let rfbm = ((self.regs.rax & 0xFFFF_FFFF) | (self.regs.rdx << 32)) & self.xcr0;
-                    let xstate_bv = self.read_mem64(addr + 512)?;
+                    let rfbm = restore.requested;
+                    let xstate_bv = restore.present;
                     if rfbm & 0x1 != 0 {
                         if xstate_bv & 0x1 != 0 {
                             self.fpu.control_word = self.read_mem16(addr)?;
@@ -830,9 +848,11 @@ impl X86_64Vcpu {
                             self.fpu.init();
                         }
                     }
+                    if let Some(mxcsr) = restore.mxcsr {
+                        self.mxcsr = mxcsr;
+                    }
                     if rfbm & 0x2 != 0 {
                         if xstate_bv & 0x2 != 0 {
-                            self.mxcsr = self.read_mem32(addr + 24)?;
                             for i in 0..16 {
                                 self.regs.xmm[i][0] =
                                     self.read_mem64(addr + 160 + (i as u64) * 16)?;
@@ -840,7 +860,6 @@ impl X86_64Vcpu {
                                     self.read_mem64(addr + 160 + (i as u64) * 16 + 8)?;
                             }
                         } else {
-                            self.mxcsr = 0x1F80;
                             for i in 0..16 {
                                 self.regs.xmm[i] = [0, 0];
                             }

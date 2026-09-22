@@ -378,7 +378,7 @@ impl SmirInterpreter {
         let enabled = restored.xcr0 & Self::X86_XSAVE_SUPPORTED;
         let malformed = if compacted {
             format & !enabled != 0
-                || xstate_bv & !format != 0
+                || xstate_bv & !xcomp_bv != 0
                 || header[16..].iter().any(|byte| *byte != 0)
         } else {
             xstate_bv & !enabled != 0 || header[8..24].iter().any(|byte| *byte != 0)

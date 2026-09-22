@@ -11,6 +11,8 @@ use crate::smir::ir::types::ShiftOp;
 #[cfg(test)]
 mod control;
 #[cfg(test)]
+mod fxsave_restore;
+#[cfg(test)]
 mod part1;
 #[cfg(test)]
 mod part2;

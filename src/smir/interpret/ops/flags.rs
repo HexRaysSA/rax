@@ -518,19 +518,21 @@ impl SmirInterpreter {
             OpKind::X86FxRstor { addr, rex_w } => {
                 let effective_addr = self.compute_address(ctx, addr);
                 if effective_addr & 0xF != 0 {
-                    return Err(MemoryError::Alignment {
-                        addr: effective_addr,
-                        required: 16,
+                    ctx.request_exit(ExitReason::GeneralProtection {
+                        addr: op.guest_pc,
+                        error_code: 0,
                     });
+                    return Ok(());
                 }
                 let mut image = [0u8; 512];
                 memory.read(effective_addr, &mut image)?;
                 let mxcsr = u32::from_le_bytes(image[24..28].try_into().unwrap());
                 if mxcsr & !0x0000_FFFF != 0 {
-                    return Err(MemoryError::AccessViolation {
-                        addr: effective_addr,
-                        write: false,
+                    ctx.request_exit(ExitReason::GeneralProtection {
+                        addr: op.guest_pc,
+                        error_code: 0,
                     });
+                    return Ok(());
                 }
                 // Commit only after the complete image and MXCSR validation
                 // succeed, preserving architectural state on a restore fault.
