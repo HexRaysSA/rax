@@ -79,13 +79,17 @@ pub fn escape_dd(vcpu: &mut X86_64Vcpu, ctx: &mut InsnContext) -> Result<Option<
             }
             0xD0..=0xD7 => {
                 // FST ST(i)
-                let st0 = vcpu.fpu.get_st(0);
-                vcpu.fpu.set_st(rm, st0);
+                if !super::require_waiting_x87_available(vcpu)? {
+                    return Ok(None);
+                }
+                super::store_x87_register(vcpu, rm, false, 0x05D0 + u16::from(rm));
             }
             0xD8..=0xDF => {
                 // FSTP ST(i)
-                let st0 = vcpu.fpu.pop();
-                vcpu.fpu.set_st(rm.wrapping_sub(1) & 7, st0);
+                if !super::require_waiting_x87_available(vcpu)? {
+                    return Ok(None);
+                }
+                super::store_x87_register(vcpu, rm, true, 0x05D8 + u16::from(rm));
             }
             0xE0..=0xE7 => {
                 // FUCOM ST(i)

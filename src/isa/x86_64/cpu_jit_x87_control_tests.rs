@@ -7,6 +7,159 @@ use vm_memory::{Bytes, GuestAddress, GuestMemoryMmap};
 
 const STACK: u64 = 0x8000;
 
+fn register_store_forms() -> impl Iterator<Item = (u8, u8, bool, u16)> {
+    [
+        (0xDD, 0xD0, false, 0x05D0),
+        (0xDD, 0xD8, true, 0x05D8),
+        (0xDF, 0xD0, true, 0x07D0),
+    ]
+    .into_iter()
+    .flat_map(|(escape, base, pop, fop)| {
+        (0..8u8).map(move |st| (escape, base + st, pop, fop + u16::from(st)))
+    })
+}
+
+#[test]
+fn x87_register_store_preserves_physical_tags_and_masked_unmasked_stack_responses() {
+    for (escape, modrm, pop, fop) in register_store_forms() {
+        for top in 0..8u8 {
+            for tag in 0..4u16 {
+                for masked in [false, true] {
+                    let mut cpu = test_vcpu(memory_with_code(&[escape, modrm, 0xF4]));
+                    cpu.fpu.top = top;
+                    cpu.fpu.status_word = (u16::from(top) << 11) | 0x4700;
+                    cpu.fpu.control_word = 0x037E | u16::from(masked);
+                    cpu.fpu.tag_word = (0x6996 & !(3 << (top * 2))) | (tag << (top * 2));
+                    cpu.fpu.st[usize::from(top)] = f64::from_bits(0xFFF0_A5A5_5A5A_1234);
+                    let mut expected = fpu_image(&cpu);
+                    expected.instr_ptr = 0;
+                    expected.last_opcode = fop;
+                    expected.status_word &= !0x0200;
+                    let empty = tag == 3;
+                    if empty {
+                        expected.status_word |= 0x0041;
+                        if !masked {
+                            expected.status_word |= 0x8080;
+                        }
+                    }
+                    if !empty || masked {
+                        let destination = (top + (modrm & 7)) & 7;
+                        expected.st[usize::from(destination)] = if empty {
+                            0xFFF8_0000_0000_0000
+                        } else {
+                            expected.st[usize::from(top)]
+                        };
+                        let result_tag = if empty { 2 } else { tag };
+                        expected.tag_word = (expected.tag_word & !(3 << (destination * 2)))
+                            | (result_tag << (destination * 2));
+                        if pop {
+                            expected.tag_word |= 3 << (top * 2);
+                            expected.top = (top + 1) & 7;
+                            expected.status_word =
+                                (expected.status_word & !0x3800) | (u16::from(expected.top) << 11);
+                        }
+                    }
+                    assert!(cpu.step().unwrap().is_none());
+                    assert_eq!(cpu.regs.rip, 2);
+                    assert_eq!(
+                        fpu_image(&cpu),
+                        expected,
+                        "{escape:02X} {modrm:02X}, TOP={top}, tag={tag}, masked={masked}"
+                    );
+                }
+            }
+        }
+    }
+}
+
+#[test]
+fn x87_register_store_waiting_faults_are_precise_and_noncommitting() {
+    for (escape, modrm, _, _) in register_store_forms() {
+        for (cr0, pending, vector) in [
+            (4, false, 7),
+            (8, false, 7),
+            (0x2C, true, 7),
+            (0x20, true, 16),
+        ] {
+            let mut cpu = test_vcpu(memory_with_code(&[escape, modrm, 0xF4]));
+            cpu.sregs.cr0 = cr0;
+            cpu.fpu.status_word &= !0x8080;
+            if pending {
+                cpu.fpu.status_word |= 0x8080;
+            }
+            let before = fpu_image(&cpu);
+            let mut native = test_vcpu(memory_with_code(&[escape, modrm, 0xEB, 0x00, 0xF4]));
+            let region = native
+                .jit_compile_region()
+                .unwrap()
+                .expect("guarded native store");
+            native.sregs.cr0 = cr0;
+            native.fpu = cpu.fpu.clone();
+            let registers_before = register_image(&native);
+            native.jit_run_region_native(&region);
+            assert_eq!(register_image(&native), registers_before);
+            assert_eq!(fpu_image(&native), before);
+            let error = exception_without_idt(&mut cpu);
+            assert!(
+                error.contains(&format!("IDT entry {vector} not present")),
+                "{error}"
+            );
+            assert_eq!(
+                fpu_image(&cpu),
+                before,
+                "{escape:02X} {modrm:02X}, CR0={cr0:#x}"
+            );
+            assert_eq!(cpu.regs.rip, 0);
+        }
+    }
+}
+
+#[test]
+fn jit_x87_register_store_matches_direct_and_deopts_empty_sources_without_commit() {
+    for (escape, modrm, _, _) in register_store_forms() {
+        for top in 0..8u8 {
+            for (tag, masked) in
+                (0..4u16).flat_map(|tag| [false, true].map(move |masked| (tag, masked)))
+            {
+                let code = [escape, modrm, 0xEB, 0x00, 0xF4];
+                let mut direct = test_vcpu(memory_with_code(&code));
+                let mut native = test_vcpu(memory_with_code(&code));
+                for cpu in [&mut direct, &mut native] {
+                    cpu.fpu.top = top;
+                    cpu.fpu.status_word = (u16::from(top) << 11) | 0x4700;
+                    cpu.fpu.control_word = 0x037E | u16::from(masked);
+                    cpu.fpu.tag_word = (0x6996 & !(3 << (top * 2))) | (tag << (top * 2));
+                    cpu.fpu.st[usize::from(top)] = f64::from_bits(0xFFF0_A5A5_5A5A_1234);
+                    cpu.regs.r8 = 0x8877_6655_4433_2211;
+                }
+                let before = fpu_image(&native);
+                let before_registers = register_image(&native);
+                let region = native
+                    .jit_compile_region()
+                    .unwrap()
+                    .expect("native register store admission");
+                assert!(region.uses_x87_environment_state);
+                native.jit_run_region_native(&region);
+                if tag == 3 {
+                    assert_eq!(native.regs.rip, 0);
+                    assert_eq!(fpu_image(&native), before);
+                    assert_eq!(register_image(&native), before_registers);
+                    run_direct_to(&mut native, 4);
+                } else {
+                    assert_eq!(native.regs.rip, 4);
+                }
+                run_direct_to(&mut direct, 4);
+                assert_eq!(
+                    fpu_image(&native),
+                    fpu_image(&direct),
+                    "{escape:02X} {modrm:02X}, TOP={top}, tag={tag}"
+                );
+                assert_eq!(register_image(&native), register_image(&direct));
+            }
+        }
+    }
+}
+
 #[derive(Clone, Debug, PartialEq, Eq)]
 struct FpuImage {
     control_word: u16,
@@ -316,6 +469,9 @@ fn x87_encoding_faults_precede_cr0_device_not_available() {
         ("FFREEP ST(3)", &[0xDF, 0xC3][..]),
         ("FCHS", &[0xD9, 0xE0][..]),
         ("FABS", &[0xD9, 0xE1][..]),
+        ("FST ST(3)", &[0xDD, 0xD3][..]),
+        ("FSTP ST(3)", &[0xDD, 0xDB][..]),
+        ("FSTP ST(3) alias", &[0xDF, 0xD3][..]),
     ] {
         let mut locked = vec![0xF0];
         locked.extend_from_slice(instruction);

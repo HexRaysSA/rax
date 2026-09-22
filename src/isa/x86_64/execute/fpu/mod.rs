@@ -78,3 +78,33 @@ fn signal_x87_stack_underflow(vcpu: &mut crate::isa::x86_64::cpu::X86_64Vcpu) ->
     }
     masked
 }
+
+/// Copy the physical payload/tag selected before any pop. The caller has
+/// completed encoding and waiting-instruction checks. In particular, FSTP
+/// ST(0) must leave its old physical slot empty, including masked underflow.
+fn store_x87_register(vcpu: &mut crate::isa::x86_64::cpu::X86_64Vcpu, st: u8, pop: bool, fop: u16) {
+    let source = vcpu.fpu.st_index(0);
+    let destination = vcpu.fpu.st_index(st);
+    let source_shift = (source as u16) * 2;
+    let destination_shift = (destination as u16) * 2;
+    let tag = (vcpu.fpu.tag_word >> source_shift) & 3;
+    let (payload, tag) = if tag == 3 {
+        if !signal_x87_stack_underflow(vcpu) {
+            record_x87_data_op(vcpu, fop);
+            return;
+        }
+        (f64::from_bits(0xFFF8_0000_0000_0000), 2)
+    } else {
+        vcpu.fpu.status_word &= !FSW_C1;
+        (vcpu.fpu.st[source], tag)
+    };
+    vcpu.fpu.st[destination] = payload;
+    vcpu.fpu.tag_word =
+        (vcpu.fpu.tag_word & !(3 << destination_shift)) | (tag << destination_shift);
+    if pop {
+        vcpu.fpu.tag_word |= 3 << source_shift;
+        vcpu.fpu.top = (vcpu.fpu.top + 1) & 7;
+        vcpu.fpu.status_word = (vcpu.fpu.status_word & !0x3800) | (u16::from(vcpu.fpu.top) << 11);
+    }
+    record_x87_data_op(vcpu, fop);
+}

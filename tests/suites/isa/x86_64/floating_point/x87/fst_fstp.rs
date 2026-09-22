@@ -18,6 +18,52 @@ use vm_memory::{Bytes, GuestAddress, GuestMemoryMmap};
 
 const DATA_ADDR: u64 = 0x2000;
 
+#[test]
+fn register_store_copies_before_pop_for_every_top_and_destination() {
+    // Intel SDM, FST/FSTP: DEST := ST(0), then PopRegisterStack for FSTP.
+    // FXSAVE64 observes physical occupancy independently of logical TOP.
+    for (escape, base, pop) in [(0xDD, 0xD0, false), (0xDD, 0xD8, true), (0xDF, 0xD0, true)] {
+        for depth in 1..=8usize {
+            for st in 0..8usize {
+                let mut code = vec![0xDB, 0xE3]; // FNINIT
+                for _ in 0..depth {
+                    code.extend_from_slice(&[0xD9, 0xE8]); // FLD1
+                }
+                code.extend_from_slice(&[escape, base + st as u8]);
+                code.extend_from_slice(&[
+                    0x48, 0x0F, 0xAE, 0x04, 0x25, 0x00, 0x20, 0x00, 0x00,
+                    0xF4, // FXSAVE64 [0x2000]; HLT
+                ]);
+                let (mut vcpu, memory) = setup_vm(&code, None);
+                run_until_hlt(&mut vcpu).unwrap();
+                let mut image = [0u8; 512];
+                memory
+                    .read_slice(&mut image, GuestAddress(DATA_ADDR))
+                    .unwrap();
+                let status = u16::from_le_bytes(image[2..4].try_into().unwrap());
+                let old_top = 8 - depth;
+                let destination = (old_top + st) & 7;
+                let mut occupancy = 0u8;
+                for physical in old_top..8 {
+                    occupancy |= 1 << physical;
+                }
+                occupancy |= 1 << destination;
+                if pop {
+                    occupancy &= !(1 << old_top);
+                }
+                let top = (old_top + usize::from(pop)) & 7;
+                assert_eq!(usize::from((status >> 11) & 7), top);
+                assert_eq!(
+                    image[4],
+                    occupancy,
+                    "{escape:02X} {:02X}, old TOP={old_top}",
+                    base + st as u8
+                );
+            }
+        }
+    }
+}
+
 // Helper to write f64 to memory
 fn write_f64(mem: &Arc<GuestMemoryMmap>, addr: u64, value: f64) {
     mem.write_slice(&value.to_le_bytes(), GuestAddress(addr))

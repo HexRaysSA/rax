@@ -366,6 +366,118 @@ impl X86_64Lowerer {
         Ok(())
     }
 
+    /// Register stores use the pre-pop physical source and destination. TOP is
+    /// masked to 0..7, so each eight-byte access stays in the 64-byte payload.
+    /// Empty sources exit before all commits for precise direct #IS handling.
+    fn emit_x86_x87_store_operation(
+        &mut self,
+        st: u8,
+        pop: bool,
+        fop: u16,
+        guest_pc: u64,
+    ) -> Result<(), LowerError> {
+        self.emit_x86_x87_available_guard(guest_pc, true)?;
+        for byte in [0x9C, 0x50, 0x51, 0x52, 0x41, 0x50] {
+            self.code.emit_u8(byte); // pushfq; push rax, rcx, rdx, r8
+        }
+        self.emit_load_state_ptr_rax();
+        {
+            let mut e = X86Emitter::new(&mut self.code);
+            e.emit_mov_rm(
+                PhysReg::Rcx,
+                PhysReg::Rax,
+                X86_GUEST_X87_STATUS_WORD_OFFSET,
+                OpWidth::W64,
+            );
+            e.emit_shr_ri(PhysReg::Rcx, 11, OpWidth::W64);
+            e.emit_and_ri(PhysReg::Rcx, 7, OpWidth::W64);
+            e.emit_shl_ri(PhysReg::Rcx, 1, OpWidth::W64);
+            e.emit_mov_rm(
+                PhysReg::R8,
+                PhysReg::Rax,
+                X86_GUEST_X87_TAG_WORD_OFFSET,
+                OpWidth::W64,
+            );
+            e.emit_shr_cl(PhysReg::R8, OpWidth::W64);
+            e.emit_and_ri(PhysReg::R8, 3, OpWidth::W64);
+            e.emit_cmp_ri(PhysReg::R8, 3, OpWidth::W64);
+        }
+        let nonempty = self.emit_jcc_placeholder(X86Cond::Ne);
+        for byte in [0x41, 0x58, 0x5A, 0x59, 0x58, 0x9D] {
+            self.code.emit_u8(byte); // pop r8, rdx, rcx, rax; popfq
+        }
+        self.emit_native_exit(guest_pc);
+        self.patch_rel32_to_current(nonempty)?;
+        {
+            let mut e = X86Emitter::new(&mut self.code);
+            e.emit_shr_ri(PhysReg::Rcx, 1, OpWidth::W64);
+            e.emit_lea_sib(
+                PhysReg::Rdx,
+                Some(PhysReg::Rax),
+                PhysReg::Rcx,
+                8,
+                X86_GUEST_X87_PAYLOAD_OFFSET,
+            );
+            e.emit_mov_rm(PhysReg::Rdx, PhysReg::Rdx, 0, OpWidth::W64);
+            e.emit_add_ri(PhysReg::Rcx, i64::from(st), OpWidth::W64);
+            e.emit_and_ri(PhysReg::Rcx, 7, OpWidth::W64);
+            // Both copies use pre-pop TOP; R8 retains the original source tag.
+            e.emit_lea_sib(
+                PhysReg::Rcx,
+                Some(PhysReg::Rax),
+                PhysReg::Rcx,
+                8,
+                X86_GUEST_X87_PAYLOAD_OFFSET,
+            );
+            e.emit_mov_mr(PhysReg::Rcx, 0, PhysReg::Rdx, OpWidth::W64);
+            e.emit_mov_rm(
+                PhysReg::Rcx,
+                PhysReg::Rax,
+                X86_GUEST_X87_STATUS_WORD_OFFSET,
+                OpWidth::W64,
+            );
+            e.emit_shr_ri(PhysReg::Rcx, 11, OpWidth::W64);
+            e.emit_add_ri(PhysReg::Rcx, i64::from(st), OpWidth::W64);
+            e.emit_and_ri(PhysReg::Rcx, 7, OpWidth::W64);
+            e.emit_shl_ri(PhysReg::Rcx, 1, OpWidth::W64);
+            e.emit_shl_cl(PhysReg::R8, OpWidth::W64);
+            e.emit_mov_ri(PhysReg::Rdx, 3, OpWidth::W64);
+            e.emit_shl_cl(PhysReg::Rdx, OpWidth::W64);
+            e.emit_not(PhysReg::Rdx, OpWidth::W64);
+            e.emit_mov_rm(
+                PhysReg::Rcx,
+                PhysReg::Rax,
+                X86_GUEST_X87_TAG_WORD_OFFSET,
+                OpWidth::W64,
+            );
+            e.emit_and_rr(PhysReg::Rcx, PhysReg::Rdx, OpWidth::W64);
+            e.emit_or_rr(PhysReg::Rcx, PhysReg::R8, OpWidth::W64);
+            e.emit_mov_mr(
+                PhysReg::Rax,
+                X86_GUEST_X87_TAG_WORD_OFFSET,
+                PhysReg::Rcx,
+                OpWidth::W64,
+            );
+            e.emit_alu_mi_disp(
+                4,
+                PhysReg::Rax,
+                X86_GUEST_X87_STATUS_WORD_OFFSET,
+                DispSize::Auto,
+                !0x0200,
+                OpWidth::W64,
+            );
+        }
+        if pop {
+            self.emit_x86_x87_free_tag(0);
+            self.emit_x86_x87_rotate_top(true, true);
+        }
+        self.emit_x86_x87_record_data_op(guest_pc, fop);
+        for byte in [0x41, 0x58, 0x5A, 0x59, 0x58, 0x9D] {
+            self.code.emit_u8(byte);
+        }
+        Ok(())
+    }
+
     pub(crate) fn lower_op_x87(&mut self, op: &SmirOp) -> Result<(), LowerError> {
         match &op.kind {
             OpKind::X86X87Control { kind, .. }
@@ -424,6 +536,25 @@ impl X86_64Lowerer {
                     });
                 }
                 self.emit_x86_x87_sign_operation(*kind, *fop, op.guest_pc)
+            }
+            OpKind::X86X87Data {
+                kind: kind @ (X86X87DataKind::StoreRegister | X86X87DataKind::StorePopRegister),
+                st,
+                fop,
+                ..
+            } => {
+                if !x86_x87_state_shape_valid(op) {
+                    return Err(LowerError::InvalidOperand {
+                        op: format!("X86X87Data {kind:?}"),
+                        operand: "requires an exact unhinted register encoding".to_string(),
+                    });
+                }
+                self.emit_x86_x87_store_operation(
+                    *st,
+                    *kind == X86X87DataKind::StorePopRegister,
+                    *fop,
+                    op.guest_pc,
+                )
             }
             _ => self.lower_op_misc(op),
         }

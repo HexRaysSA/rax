@@ -78,8 +78,10 @@ pub fn escape_df(vcpu: &mut X86_64Vcpu, ctx: &mut InsnContext) -> Result<Option<
             }
             0xD0..=0xD7 => {
                 // Legacy FSTP ST(i) alias.
-                let st0 = vcpu.fpu.pop();
-                vcpu.fpu.set_st(rm.wrapping_sub(1) & 7, st0);
+                if !super::require_waiting_x87_available(vcpu)? {
+                    return Ok(None);
+                }
+                super::store_x87_register(vcpu, rm, true, 0x07D0 + u16::from(rm));
             }
             0xE0 => {
                 // FNSTSW AX

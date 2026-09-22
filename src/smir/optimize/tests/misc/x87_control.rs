@@ -60,6 +60,19 @@ fn sign_payload_forms() -> [([u8; 2], X86X87DataKind, u8, u16); 2] {
     ]
 }
 
+fn register_store_forms() -> Vec<([u8; 2], X86X87DataKind, u8, u16)> {
+    [
+        (0xDD, 0xD0, X86X87DataKind::StoreRegister, 0x05D0),
+        (0xDD, 0xD8, X86X87DataKind::StorePopRegister, 0x05D8),
+        (0xDF, 0xD0, X86X87DataKind::StorePopRegister, 0x07D0),
+    ]
+    .into_iter()
+    .flat_map(|(escape, base, kind, fop)| {
+        (0..8u8).map(move |st| ([escape, base + st], kind, st, fop + u16::from(st)))
+    })
+    .collect()
+}
+
 fn lifted(bytes: &[u8]) -> SmirFunction {
     let mut lifter = X86_64Lifter::strict();
     let mut lift_ctx = LiftContext::new(SourceArch::X86_64);
@@ -178,7 +191,10 @@ fn o2_preserves_every_rex2_apx_guard_before_every_x87_stack_metadata_operation()
 #[test]
 fn every_optimizer_level_preserves_every_prefixed_x87_sign_payload_operation() {
     for level in [OptLevel::O0, OptLevel::O1, OptLevel::O2] {
-        for (bytes, expected, st, fop) in sign_payload_forms() {
+        for (bytes, expected, st, fop) in sign_payload_forms()
+            .into_iter()
+            .chain(register_store_forms())
+        {
             for prefix in LEGACY_PREFIXES {
                 let encoded = prefix.iter().copied().chain(bytes).collect::<Vec<_>>();
                 let mut function = lifted(&encoded);
@@ -192,7 +208,10 @@ fn every_optimizer_level_preserves_every_prefixed_x87_sign_payload_operation() {
 #[test]
 fn o2_preserves_every_rex2_apx_guard_before_every_x87_sign_payload_operation() {
     for payload in 0x00..=0x7F {
-        for (bytes, expected, st, fop) in sign_payload_forms() {
+        for (bytes, expected, st, fop) in sign_payload_forms()
+            .into_iter()
+            .chain(register_store_forms())
+        {
             let mut encoded = vec![0xD5, payload];
             encoded.extend_from_slice(&bytes);
             let mut function = lifted(&encoded);

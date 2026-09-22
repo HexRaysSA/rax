@@ -21,8 +21,9 @@ fn assert_single_x87_alias(bytes: &[u8], expected: X86X87DataKind, st: u8, fop: 
             ..
         }] if *kind == expected && *actual_st == st && *actual_fop == fop
     ));
-    assert!(!result.ops[0].kind.is_jit_safe(), "{bytes:02X?}");
-    assert!(!result.ops[0].is_jit_safe(), "{bytes:02X?}");
+    let native = expected == X86X87DataKind::StorePopRegister;
+    assert_eq!(result.ops[0].kind.is_jit_safe(), native, "{bytes:02X?}");
+    assert_eq!(result.ops[0].is_jit_safe(), native, "{bytes:02X?}");
 }
 
 fn assert_ffreep_op(ops: &[SmirOp], st: u8, guest_pc: u64) {

@@ -705,6 +705,8 @@ pub fn uses_x86_x87_environment_state_excluding(
                         | X86X87DataKind::FreePop
                         | X86X87DataKind::ChangeSign
                         | X86X87DataKind::Absolute
+                        | X86X87DataKind::StoreRegister
+                        | X86X87DataKind::StorePopRegister
                         | X86X87DataKind::DecrementTop
                         | X86X87DataKind::IncrementTop,
                     addr: None,

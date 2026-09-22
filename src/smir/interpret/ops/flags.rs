@@ -465,7 +465,13 @@ impl SmirInterpreter {
 
             OpKind::X86X87Data { kind, .. }
                 if (kind.is_stack_metadata()
-                    || matches!(kind, X86X87DataKind::ChangeSign | X86X87DataKind::Absolute))
+                    || matches!(
+                        kind,
+                        X86X87DataKind::ChangeSign
+                            | X86X87DataKind::Absolute
+                            | X86X87DataKind::StoreRegister
+                            | X86X87DataKind::StorePopRegister
+                    ))
                     && matches!(
                         &ctx.arch_regs,
                         ArchRegState::X86_64(x86)

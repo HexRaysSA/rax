@@ -283,6 +283,10 @@ impl super::OpKind {
                 X86X87DataKind::FreePop => *st < 8 && *fop == 0x07C0 + u16::from(*st),
                 X86X87DataKind::ChangeSign => *st == 0 && *fop == 0x01E0,
                 X86X87DataKind::Absolute => *st == 1 && *fop == 0x01E1,
+                X86X87DataKind::StoreRegister => *st < 8 && *fop == 0x05D0 + u16::from(*st),
+                X86X87DataKind::StorePopRegister => {
+                    *st < 8 && (*fop == 0x05D8 + u16::from(*st) || *fop == 0x07D0 + u16::from(*st))
+                }
                 X86X87DataKind::DecrementTop => *st == 6 && *fop == 0x01F6,
                 X86X87DataKind::IncrementTop => *st == 7 && *fop == 0x01F7,
                 _ => false,

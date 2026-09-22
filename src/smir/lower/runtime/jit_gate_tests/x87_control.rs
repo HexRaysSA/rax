@@ -160,6 +160,32 @@ fn x87_sign_payload_shapes_are_narrowly_x86_native_safe() {
 }
 
 #[test]
+fn x87_register_store_shapes_require_exact_register_encoding_and_x86_host() {
+    for (kind, base) in [
+        (X86X87DataKind::StoreRegister, 0x05D0),
+        (X86X87DataKind::StorePopRegister, 0x05D8),
+        (X86X87DataKind::StorePopRegister, 0x07D0),
+    ] {
+        for st in 0..8 {
+            let op = metadata(kind, st, base + u16::from(st));
+            assert!(op.is_jit_safe());
+            assert!(x86_gate(op.clone()));
+            assert!(!aarch64_gate(vec![op.clone()], false));
+            assert!(!x86_aarch64_gate(op));
+            for invalid in [
+                metadata(kind, 8, base + 8),
+                metadata(kind, st, base ^ 0x0100),
+            ] {
+                assert!(!invalid.is_jit_safe());
+                assert!(!x86_gate(invalid.clone()));
+                assert!(!aarch64_gate(vec![invalid.clone()], false));
+                assert!(!x86_aarch64_gate(invalid));
+            }
+        }
+    }
+}
+
+#[test]
 fn x87_environment_detector_honors_native_exit_exclusion() {
     for (index, kind) in [
         X86X87ControlKind::Init,
