@@ -44,6 +44,37 @@ fn external_github_actions_are_pinned_to_full_commit_shas() {
 }
 
 #[test]
+fn licensing_resolves_locked_dependencies_for_fresh_runners() {
+    let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    let workflow = fs::read_to_string(root.join(".github/workflows/licensing.yml"))
+        .expect("failed to read licensing workflow");
+    assert!(
+        workflow.contains("run: python tools/licensing/check.py"),
+        "licensing workflow must run its distribution check"
+    );
+
+    let checker = fs::read_to_string(root.join("tools/licensing/check.py"))
+        .expect("failed to read licensing checker");
+    assert!(
+        checker.contains("'--locked'"),
+        "package check must preserve locked dependency resolution"
+    );
+    assert!(
+        !checker.contains("'--offline'"),
+        "fresh runners must be allowed to fetch locked git dependencies"
+    );
+
+    for workflow in ["ci.yml", "full-suite.yml"] {
+        let contents = fs::read_to_string(root.join(".github/workflows").join(workflow))
+            .unwrap_or_else(|err| panic!("failed to read {workflow}: {err}"));
+        assert!(
+            contents.contains("--test ci_actions_pinned"),
+            "{workflow} must run workflow regression tests"
+        );
+    }
+}
+
+#[test]
 fn scheduled_differential_separates_oracles_diagnostics_and_assembler_capabilities() {
     let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
     let workflow = root.join(".github/workflows/differential.yml");

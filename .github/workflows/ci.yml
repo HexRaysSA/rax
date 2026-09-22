@@ -130,6 +130,7 @@ jobs:
         run: |
           cargo test ${{ matrix.features }} \
             --lib \
+            --test ci_actions_pinned \
             --test x86_64 \
             --test asm_instructions \
             --test arm \

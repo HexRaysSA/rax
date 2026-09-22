@@ -57,7 +57,7 @@ def main():
     check_notices(root)
     for package in ('rax', 'rax-capi'):
         result = subprocess.run(
-            ['cargo', 'package', '-p', package, '--list', '--locked', '--allow-dirty', '--offline'],
+            ['cargo', 'package', '-p', package, '--list', '--locked', '--allow-dirty'],
             cwd=root, check=True, stdout=subprocess.PIPE, text=True)
         paths = result.stdout.splitlines()
         validate_payload(package, paths)
