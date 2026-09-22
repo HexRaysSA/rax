@@ -47,6 +47,39 @@ fn run_direct_to(vcpu: &mut X86_64Vcpu, target: u64) {
     panic!("direct execution did not reach {target:#x}");
 }
 
+#[test]
+fn jit_unmasked_mxcsr_executes_exception_free_replay_and_rejects_fp_arithmetic() {
+    let safe = [0x66, 0x0F, 0x38, 0x17, 0xC1, 0xEB, 0x00, 0xF4]; // PTEST XMM0,XMM1
+    let unsafe_fp = [0x0F, 0x58, 0xC1, 0xEB, 0x00, 0xF4]; // ADDPS XMM0,XMM1
+    for mxcsr in [0x0041, 0x0000, 0x1F00] {
+        let mut direct = test_vcpu(memory_with_code(&safe));
+        let mut native = test_vcpu(memory_with_code(&safe));
+        for cpu in [&mut direct, &mut native] {
+            cpu.mxcsr = mxcsr;
+            cpu.regs.xmm[0] = [0x7FF0_0000_0000_0001, u64::MAX];
+            cpu.regs.xmm[1] = [u64::MAX, 0];
+        }
+        run_direct_to(&mut direct, 7);
+        let mut rejected = test_vcpu(memory_with_code(&unsafe_fp));
+        rejected.mxcsr = mxcsr;
+        assert!(rejected.jit_compile_region().unwrap().is_none());
+        if !crate::smir::lower::runtime::x86_native_unmasked_mxcsr_supported() {
+            assert!(native.jit_compile_region().unwrap().is_none());
+            continue;
+        }
+        let region = native
+            .jit_compile_region()
+            .expect("compile safe replay")
+            .expect("unmasked exception-free replay must be admitted");
+        assert!(region.uses_vector);
+        native.jit_run_region_native(&region);
+        assert_eq!(native.regs.rip, direct.regs.rip);
+        assert_eq!(native.regs.rflags, direct.regs.rflags);
+        assert_eq!(native.regs.xmm, direct.regs.xmm);
+        assert_eq!(native.mxcsr, direct.mxcsr);
+    }
+}
+
 fn exception_without_idt(vcpu: &mut X86_64Vcpu) -> String {
     format!(
         "{:#}",

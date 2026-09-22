@@ -4227,6 +4227,7 @@ impl X86_64Vcpu {
             x86_native_mmx_features_supported_excluding, x86_native_mmx_pairs_valid_excluding,
             x86_native_scalar_features_supported_excluding,
             x86_native_vector_features_supported_excluding,
+            x86_native_vector_mask_independent_excluding,
             x86_native_vector_uses_avx_ymm16_only_excluding,
             x86_native_vector_uses_k16_opmasks_excluding,
         };
@@ -4551,7 +4552,11 @@ impl X86_64Vcpu {
                     }
                     continue 'modes;
                 }
-                if uses_vector && !jit_mxcsr_masks_all_exceptions(self.mxcsr) {
+                if uses_vector
+                    && !jit_mxcsr_masks_all_exceptions(self.mxcsr)
+                    && (!crate::smir::lower::runtime::x86_native_unmasked_mxcsr_supported()
+                        || !x86_native_vector_mask_independent_excluding(&func, &exits))
+                {
                     if jit_bail_log() {
                         eprintln!("[JIT-BAIL] unmasked-mxcsr @ {entry:#x} (call={cm})");
                     }

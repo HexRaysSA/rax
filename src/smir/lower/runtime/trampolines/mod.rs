@@ -129,6 +129,10 @@ mod movrs;
 pub use movrs::*;
 mod mxcsr;
 pub use mxcsr::*;
+mod mxcsr_replay_policy;
+pub(crate) use mxcsr_replay_policy::{
+    x86_native_replay_is_mxcsr_mask_independent, x86_native_vector_mask_independent_excluding,
+};
 mod push_value;
 pub use push_value::*;
 mod tbm;

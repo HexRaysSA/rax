@@ -80,6 +80,20 @@ fn running_under_rosetta() -> bool {
     })
 }
 
+/// Rosetta does not preserve unmasked MXCSR mask bits across native execution;
+/// keep the unmasked-vector fast path on physical x86-64 hosts only.
+#[cfg(target_arch = "x86_64")]
+pub(crate) fn x86_native_unmasked_mxcsr_supported() -> bool {
+    #[cfg(target_os = "macos")]
+    {
+        !running_under_rosetta()
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+        true
+    }
+}
+
 /// compiler-rt instruction-cache flush (Linux/aarch64), same purpose as the
 /// Apple `sys_icache_invalidate` above.
 #[cfg(all(target_arch = "aarch64", target_os = "linux"))]

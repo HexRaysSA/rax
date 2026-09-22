@@ -370,6 +370,8 @@ mod movbe;
 #[cfg(test)]
 mod msr;
 #[cfg(test)]
+mod mxcsr_replay_policy;
+#[cfg(test)]
 mod mxcsr_store;
 #[cfg(test)]
 mod non_memory_prefix_replay;
