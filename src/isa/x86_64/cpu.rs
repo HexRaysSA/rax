@@ -599,6 +599,7 @@ pub(super) struct InsnContext {
     /// — instead of a fatal internal "instruction too short" error. See
     /// `out_of_bytes()`.
     pub boundary_gp: bool,
+    pub boundary_fault: Option<super::cpu_fetch::DeferredFetchFault>,
 }
 
 /// REX2 prefix decoded fields (2-byte prefix for APX EGPR access)
@@ -906,6 +907,8 @@ impl InsnContext {
     pub(super) fn out_of_bytes(&self) -> Error {
         if self.boundary_gp {
             Error::GeneralProtection { error_code: 0 }
+        } else if let Some(fault) = self.boundary_fault {
+            fault.error()
         } else {
             Error::Emulator("instruction too short".to_string())
         }
@@ -1551,103 +1554,6 @@ impl X86_64Vcpu {
         }
     }
 
-    /// Fetch instruction bytes from RIP into a stack buffer.
-    /// Returns (buffer, actual_length).
-    #[inline]
-    /// Fetch instruction bytes at RIP. Returns `(buf, len, boundary_gp)` where
-    /// `boundary_gp` is true when the byte window was truncated to `len` because
-    /// the bytes beyond it cross into non-canonical linear space (a #GP, not #PF).
-    /// The decoder defers that #GP until/unless it actually needs a truncated byte,
-    /// so a short instruction that merely sits near the boundary still executes.
-    pub(super) fn fetch(&mut self) -> Result<([u8; MAX_INSN_LEN], usize, bool)> {
-        // The fetch linear address is CS.base + RIP. In 64-bit mode (CS.L=1) the
-        // CS base is architecturally ignored for address generation (treated as
-        // 0) even if a descriptor load recorded a non-zero base — so a far
-        // transfer that adopts a based 64-bit segment still fetches flat. In
-        // every other mode (IA-32e compatibility, legacy protected, real) the
-        // base IS applied (selector<<4 in real mode, descriptor base otherwise).
-        let cs_base = if self.sregs.cs.l {
-            0
-        } else {
-            self.sregs.cs.base
-        };
-        let rip = cs_base.wrapping_add(self.regs.rip);
-        // Mark this page as containing code for self-modifying code detection
-        self.mmu.mark_code_page(rip);
-
-        // Suppress per-access recording for the fetch-window read; the fetch is
-        // reported once below (one Exec record per instruction, not Reads of the
-        // 15-byte window). Zero cost when recording is off.
-        self.mmu.set_fetch_active(true);
-        let result = self.fetch_window(rip);
-        self.mmu.set_fetch_active(false);
-        if let Ok((_, len, _)) = &result {
-            self.mmu.record_fetch(rip, (*len).min(MAX_INSN_LEN) as u8);
-        }
-        result
-    }
-
-    /// Reads the up-to-15-byte instruction window at linear address `rip`,
-    /// retrying shorter lengths near a page/canonical boundary.
-    fn fetch_window(&mut self, rip: u64) -> Result<([u8; MAX_INSN_LEN], usize, bool)> {
-        let mut buf = [0u8; MAX_INSN_LEN];
-        let mut last_err = None;
-        match self.mmu.read(rip, &mut buf, &self.sregs) {
-            Ok(()) => return Ok((buf, MAX_INSN_LEN, false)),
-            Err(Error::PageFault { vaddr, error_code }) => {
-                // Instruction fetch page fault - add instruction fetch bit to error code
-                return Err(Error::PageFault {
-                    vaddr,
-                    error_code: error_code | 0x10,
-                });
-            }
-            Err(e) => last_err = Some(e), // Try smaller amounts
-        }
-        // If we can't read 15 bytes, try smaller amounts
-        for len in (1..MAX_INSN_LEN).rev() {
-            match self.mmu.read(rip, &mut buf[..len], &self.sregs) {
-                Ok(()) => {
-                    // A shorter read succeeded only because the bytes past `len`
-                    // were unreadable. #PF is returned eagerly above, so the only
-                    // way to land here with a pending fault is a non-canonical
-                    // boundary (#GP). Flag it so the decoder, if it needs one of the
-                    // missing bytes, raises #GP(0) instead of a fatal "instruction
-                    // too short" — but a short instruction that fits in `len` bytes
-                    // still executes normally.
-                    let boundary_gp = matches!(last_err, Some(Error::GeneralProtection { .. }));
-                    return Ok((buf, len, boundary_gp));
-                }
-                Err(Error::PageFault { vaddr, error_code }) => {
-                    return Err(Error::PageFault {
-                        vaddr,
-                        error_code: error_code | 0x10,
-                    });
-                }
-                Err(e) => last_err = Some(e),
-            }
-        }
-        // If not even a single byte was fetchable, the failure is architectural,
-        // not internal. A non-canonical RIP fails every length above with #GP;
-        // surface that fault so the run loop delivers it instead of aborting the
-        // VM with a generic emulator error. (#PF already returned above; the
-        // smaller-length retries handle a short instruction whose 15-byte fetch
-        // window merely spills past a page or canonical boundary.)
-        if let Some(e @ Error::GeneralProtection { .. }) = last_err {
-            return Err(e);
-        }
-        // Debug: print the actual error
-        if let Some(e) = &last_err {
-            eprintln!(
-                "[FETCH FAIL] RIP={:#x} CR3={:#x} CR0={:#x} EFER={:#x} error: {:?}",
-                rip, self.sregs.cr3, self.sregs.cr0, self.sregs.efer, e
-            );
-        }
-        Err(Error::Emulator(format!(
-            "failed to fetch instruction at RIP={:#x}",
-            rip
-        )))
-    }
-
     /// Compute decode cache index from RIP
     #[inline(always)]
     fn decode_cache_index(rip: u64) -> usize {
@@ -1699,7 +1605,13 @@ impl X86_64Vcpu {
     /// consume the shadow because delivery of that event ends inhibition.
     pub fn step(&mut self) -> Result<Option<VcpuExit>> {
         self.interrupt_inhibit = false;
-        self.step_inner()
+        let result = self.step_inner();
+        if result.is_err() {
+            // A failed attempt (including a partially completed REP) did not
+            // retire the instruction. Its architectural partial state remains.
+            self.insn_count = self.insn_count.wrapping_sub(1);
+        }
+        result
     }
 
     #[inline]
@@ -1742,8 +1654,10 @@ impl X86_64Vcpu {
             // Validate the hit against the current MMU state. This preserves
             // instruction-fetch faults and catches remaps or permission changes
             // that are not represented in the cache key.
-            let (bytes, bytes_len, boundary_gp) = self.fetch()?;
-            if Self::decode_cache_bytes_current(&cached, &bytes, bytes_len, boundary_gp) {
+            let (bytes, bytes_len, boundary_gp, boundary_fault) = self.fetch()?;
+            if boundary_fault.is_none()
+                && Self::decode_cache_bytes_current(&cached, &bytes, bytes_len, boundary_gp)
+            {
                 // Cache hit! Record for profiling only after validation, so a
                 // stale entry that falls through to full decode counts as a miss.
                 #[cfg(feature = "profiling")]
@@ -1770,6 +1684,7 @@ impl X86_64Vcpu {
                     // Boundary-truncated instructions are never cached (see the fill
                     // path below), so a cache hit always has the full instruction.
                     boundary_gp: false,
+                    boundary_fault: None,
                 };
 
                 if self.reject_invalid_rex2_prefix_order(&ctx)? {
@@ -1817,20 +1732,26 @@ impl X86_64Vcpu {
             // now boundary-truncated. Drop the stale entry and fall through to a
             // full decode using the fresh fetch.
             self.decode_cache[cache_idx] = DecodeCacheEntry::default();
-            fetched_miss = Some((bytes, bytes_len, boundary_gp));
+            fetched_miss = Some((bytes, bytes_len, boundary_gp, boundary_fault));
         }
 
         // Cache miss - do full decode
         #[cfg(feature = "profiling")]
         profiling::record_cache_miss();
 
-        let (bytes, bytes_len, boundary_gp) = match fetched_miss {
+        let (bytes, bytes_len, boundary_gp, boundary_fault) = match fetched_miss {
             Some(fetched) => fetched,
             None => self.fetch()?,
         };
 
         // Decode prefixes (mode-aware: 0xD5 is REX2 in long mode, AAD otherwise)
-        let mut ctx = Decoder::decode_prefixes(bytes, bytes_len, boundary_gp, self.sregs.cs.l)?;
+        let mut ctx = Decoder::decode_prefixes_with_fault(
+            bytes,
+            bytes_len,
+            boundary_gp,
+            self.sregs.cs.l,
+            boundary_fault,
+        )?;
 
         // Determine operand size (64-bit mode defaults to 32-bit; compat depends on CS.D).
         ctx.op_size = if self.sregs.cs.l {
@@ -1875,7 +1796,7 @@ impl X86_64Vcpu {
         // later cache hit would re-run the handler and hit "instruction too short"
         // without the boundary_gp flag, turning the architectural #GP back into a
         // fatal error. A fresh decode re-derives boundary_gp every time instead.
-        if !boundary_gp {
+        if !boundary_gp && boundary_fault.is_none() {
             self.decode_cache[cache_idx] = DecodeCacheEntry {
                 rip,
                 mode_tag,
@@ -3140,21 +3061,30 @@ impl X86_64Vcpu {
                     Ok(()) => Ok(None),
                     Err(Error::PageFault { .. }) => {
                         // Fault during #PF delivery: escalate to #DF (vector 8).
-                        self.inject_exception(8, Some(0)).map_err(|e| {
-                            Error::Emulator(format!(
-                                "double fault delivery failed at RIP={:#x}: {e}",
-                                self.regs.rip
-                            ))
-                        })?;
+                        self.inject_exception(8, Some(0))
+                            .map_err(|e| Error::FaultDelivery {
+                                fault: Box::new(Error::PageFault { vaddr, error_code }),
+                                diagnosis: format!(
+                                    "double fault delivery failed at RIP={:#x}: {e}",
+                                    self.regs.rip
+                                ),
+                            })?;
                         Ok(None)
                     }
-                    Err(e) => Err(Error::Emulator(format!(
-                        "#PF delivery failed at vaddr={vaddr:#x} (error_code={error_code:#x}): {e}"
-                    ))),
+                    Err(e) => Err(Error::FaultDelivery {
+                        fault: Box::new(Error::PageFault { vaddr, error_code }),
+                        diagnosis: format!(
+                            "#PF delivery failed at vaddr={vaddr:#x} (error_code={error_code:#x}): {e}"
+                        ),
+                    }),
                 }
             }
             Err(Error::GeneralProtection { error_code }) => {
-                self.inject_exception(13, Some(error_code))?;
+                self.inject_exception(13, Some(error_code))
+                    .map_err(|e| Error::FaultDelivery {
+                        fault: Box::new(Error::GeneralProtection { error_code }),
+                        diagnosis: format!("#GP (error_code={error_code:#x}) delivery failed: {e}"),
+                    })?;
                 Ok(None)
             }
             Err(e) => Err(e),

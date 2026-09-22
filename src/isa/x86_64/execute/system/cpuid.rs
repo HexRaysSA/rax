@@ -425,6 +425,7 @@ mod tests {
             evex: None,
             opcode: 0xa2,
             boundary_gp: false,
+            boundary_fault: None,
         }
     }
 

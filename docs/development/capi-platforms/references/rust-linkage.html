@@ -1,0 +1,477 @@
+<!DOCTYPE HTML>
+<html lang="en" class="light sidebar-visible" dir="ltr">
+    <head>
+        <!-- Book generated using mdBook -->
+        <meta charset="UTF-8">
+        <title>Linkage - The Rust Reference</title>
+
+
+        <!-- Custom HTML head -->
+
+        <meta name="description" content="">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="theme-color" content="#ffffff">
+
+        <link rel="icon" href="favicon-de23e50b.svg">
+        <link rel="shortcut icon" href="favicon-8114d1fc.png">
+        <link rel="stylesheet" href="css/variables-8adf115d.css">
+        <link rel="stylesheet" href="css/general-0392ca55.css">
+        <link rel="stylesheet" href="css/chrome-fc474251.css">
+        <link rel="stylesheet" href="css/print-9e4910d8.css" media="print">
+
+        <!-- Fonts -->
+        <link rel="stylesheet" href="fonts/fonts-9644e21d.css">
+
+        <!-- Highlight.js Stylesheets -->
+        <link rel="stylesheet" id="mdbook-highlight-css" href="highlight-493f70e1.css">
+        <link rel="stylesheet" id="mdbook-tomorrow-night-css" href="tomorrow-night-4c0ae647.css">
+        <link rel="stylesheet" id="mdbook-ayu-highlight-css" href="ayu-highlight-3fdfc3ac.css">
+
+        <!-- Custom theme stylesheets -->
+        <link rel="stylesheet" href="theme/reference-bb0bdaf8.css">
+
+
+        <!-- Provide site root and default themes to javascript -->
+        <script>
+            const path_to_root = "";
+            const default_light_theme = "light";
+            const default_dark_theme = "navy";
+            window.path_to_searchindex_js = "searchindex-6147445c.js";
+        </script>
+        <!-- Start loading toc.js asap -->
+        <script src="toc-824727da.js"></script>
+    </head>
+    <body>
+    <div id="mdbook-help-container">
+        <div id="mdbook-help-popup">
+            <h2 class="mdbook-help-title">Keyboard shortcuts</h2>
+            <div>
+                <p>Press <kbd>←</kbd> or <kbd>→</kbd> to navigate between chapters</p>
+                <p>Press <kbd>S</kbd> or <kbd>/</kbd> to search in the book</p>
+                <p>Press <kbd>?</kbd> to show this help</p>
+                <p>Press <kbd>Esc</kbd> to hide this help</p>
+            </div>
+        </div>
+    </div>
+    <div id="mdbook-body-container">
+        <!-- Work around some values being stored in localStorage wrapped in quotes -->
+        <script>
+            try {
+                let theme = localStorage.getItem('mdbook-theme');
+                let sidebar = localStorage.getItem('mdbook-sidebar');
+
+                if (theme.startsWith('"') && theme.endsWith('"')) {
+                    localStorage.setItem('mdbook-theme', theme.slice(1, theme.length - 1));
+                }
+
+                if (sidebar.startsWith('"') && sidebar.endsWith('"')) {
+                    localStorage.setItem('mdbook-sidebar', sidebar.slice(1, sidebar.length - 1));
+                }
+            } catch (e) { }
+        </script>
+
+        <!-- Set the theme before any content is loaded, prevents flash -->
+        <script>
+            const default_theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? default_dark_theme : default_light_theme;
+            let theme;
+            try { theme = localStorage.getItem('mdbook-theme'); } catch(e) { }
+            if (theme === null || theme === undefined) { theme = default_theme; }
+            const html = document.documentElement;
+            html.classList.remove('light')
+            html.classList.add(theme);
+            html.classList.add("js");
+        </script>
+
+        <input type="checkbox" id="mdbook-sidebar-toggle-anchor" class="hidden">
+
+        <!-- Hide / unhide sidebar before it is displayed -->
+        <script>
+            let sidebar = null;
+            const sidebar_toggle = document.getElementById("mdbook-sidebar-toggle-anchor");
+            if (document.body.clientWidth >= 1080) {
+                try { sidebar = localStorage.getItem('mdbook-sidebar'); } catch(e) { }
+                sidebar = sidebar || 'visible';
+            } else {
+                sidebar = 'hidden';
+                sidebar_toggle.checked = false;
+            }
+            if (sidebar === 'visible') {
+                sidebar_toggle.checked = true;
+            } else {
+                html.classList.remove('sidebar-visible');
+            }
+        </script>
+
+        <nav id="mdbook-sidebar" class="sidebar" aria-label="Table of contents">
+            <!-- populated by js -->
+            <mdbook-sidebar-scrollbox class="sidebar-scrollbox"></mdbook-sidebar-scrollbox>
+            <noscript>
+                <iframe class="sidebar-iframe-outer" src="toc.html"></iframe>
+            </noscript>
+            <div id="mdbook-sidebar-resize-handle" class="sidebar-resize-handle">
+                <div class="sidebar-resize-indicator"></div>
+            </div>
+        </nav>
+
+        <div id="mdbook-page-wrapper" class="page-wrapper">
+
+            <div class="page">
+                <div id="mdbook-menu-bar-hover-placeholder"></div>
+                <div id="mdbook-menu-bar" class="menu-bar sticky">
+                    <div class="left-buttons">
+                        <label id="mdbook-sidebar-toggle" class="icon-button" for="mdbook-sidebar-toggle-anchor" title="Toggle Table of Contents" aria-label="Toggle Table of Contents" aria-controls="mdbook-sidebar">
+                            <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M0 96C0 78.3 14.3 64 32 64H416c17.7 0 32 14.3 32 32s-14.3 32-32 32H32C14.3 128 0 113.7 0 96zM0 256c0-17.7 14.3-32 32-32H416c17.7 0 32 14.3 32 32s-14.3 32-32 32H32c-17.7 0-32-14.3-32-32zM448 416c0 17.7-14.3 32-32 32H32c-17.7 0-32-14.3-32-32s14.3-32 32-32H416c17.7 0 32 14.3 32 32z"/></svg></span>
+                        </label>
+                        <button id="mdbook-theme-toggle" class="icon-button" type="button" title="Change theme" aria-label="Change theme" aria-haspopup="true" aria-expanded="false" aria-controls="mdbook-theme-list">
+                            <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 576 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M371.3 367.1c27.3-3.9 51.9-19.4 67.2-42.9L600.2 74.1c12.6-19.5 9.4-45.3-7.6-61.2S549.7-4.4 531.1 9.6L294.4 187.2c-24 18-38.2 46.1-38.4 76.1L371.3 367.1zm-19.6 25.4l-116-104.4C175.9 290.3 128 339.6 128 400c0 3.9 .2 7.8 .6 11.6c1.8 17.5-10.2 36.4-27.8 36.4H96c-17.7 0-32 14.3-32 32s14.3 32 32 32H240c61.9 0 112-50.1 112-112c0-2.5-.1-5-.2-7.5z"/></svg></span>
+                        </button>
+                        <ul id="mdbook-theme-list" class="theme-popup" aria-label="Themes" role="menu">
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-default_theme">Auto</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-light">Light</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-rust">Rust</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-coal">Coal</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-navy">Navy</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-ayu">Ayu</button></li>
+                        </ul>
+                        <button id="mdbook-search-toggle" class="icon-button" type="button" title="Search (`/`)" aria-label="Toggle Searchbar" aria-expanded="false" aria-keyshortcuts="/ s" aria-controls="mdbook-searchbar">
+                            <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M416 208c0 45.9-14.9 88.3-40 122.7L502.6 457.4c12.5 12.5 12.5 32.8 0 45.3s-32.8 12.5-45.3 0L330.7 376c-34.4 25.2-76.8 40-122.7 40C93.1 416 0 322.9 0 208S93.1 0 208 0S416 93.1 416 208zM208 352c79.5 0 144-64.5 144-144s-64.5-144-144-144S64 128.5 64 208s64.5 144 144 144z"/></svg></span>
+                        </button>
+                    </div>
+
+                    <h1 class="menu-title">The Rust Reference</h1>
+
+                    <div class="right-buttons">
+                        <a href="print.html" title="Print this book" aria-label="Print this book">
+                            <span class=fa-svg id="print-button"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M128 0C92.7 0 64 28.7 64 64v96h64V64H354.7L384 93.3V160h64V93.3c0-17-6.7-33.3-18.7-45.3L400 18.7C388 6.7 371.7 0 354.7 0H128zM384 352v32 64H128V384 368 352H384zm64 32h32c17.7 0 32-14.3 32-32V256c0-35.3-28.7-64-64-64H64c-35.3 0-64 28.7-64 64v96c0 17.7 14.3 32 32 32H64v64c0 35.3 28.7 64 64 64H384c35.3 0 64-28.7 64-64V384zm-16-88c-13.3 0-24-10.7-24-24s10.7-24 24-24s24 10.7 24 24s-10.7 24-24 24z"/></svg></span>
+                        </a>
+                        <a href="https://github.com/rust-lang/reference/" title="Git repository" aria-label="Git repository">
+                            <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 496 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M165.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6zm-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3zm44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9zM244.8 8C106.1 8 0 113.3 0 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C428.2 457.8 496 362.9 496 252 496 113.3 383.5 8 244.8 8zM97.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1zm-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7zm32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1zm-11.4-14.7c-1.6 1-1.6 3.6 0 5.9 1.6 2.3 4.3 3.3 5.6 2.3 1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2z"/></svg></span>
+                        </a>
+                        <a href="https://github.com/rust-lang/reference/edit/master/src/linkage.md" title="Suggest an edit" aria-label="Suggest an edit" rel="edit">
+                            <span class=fa-svg id="git-edit-button"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M421.7 220.3l-11.3 11.3-22.6 22.6-205 205c-6.6 6.6-14.8 11.5-23.8 14.1L30.8 511c-8.4 2.5-17.5 .2-23.7-6.1S-1.5 489.7 1 481.2L38.7 353.1c2.6-9 7.5-17.2 14.1-23.8l205-205 22.6-22.6 11.3-11.3 33.9 33.9 62.1 62.1 33.9 33.9zM96 353.9l-9.3 9.3c-.9 .9-1.6 2.1-2 3.4l-25.3 86 86-25.3c1.3-.4 2.5-1.1 3.4-2l9.3-9.3H112c-8.8 0-16-7.2-16-16V353.9zM453.3 19.3l39.4 39.4c25 25 25 65.5 0 90.5l-14.5 14.5-22.6 22.6-11.3 11.3-33.9-33.9-62.1-62.1L314.3 67.7l11.3-11.3 22.6-22.6 14.5-14.5c25-25 65.5-25 90.5 0z"/></svg></span>
+                        </a>
+
+                    </div>
+                </div>
+
+                <div id="mdbook-search-wrapper" class="hidden">
+                    <form id="mdbook-searchbar-outer" class="searchbar-outer">
+                        <div class="search-wrapper">
+                            <input type="search" id="mdbook-searchbar" name="searchbar" placeholder="Search this book ..." aria-controls="mdbook-searchresults-outer" aria-describedby="searchresults-header">
+                            <div class="spinner-wrapper">
+                                <span class=fa-svg id="fa-spin"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M304 48c0-26.5-21.5-48-48-48s-48 21.5-48 48s21.5 48 48 48s48-21.5 48-48zm0 416c0-26.5-21.5-48-48-48s-48 21.5-48 48s21.5 48 48 48s48-21.5 48-48zM48 304c26.5 0 48-21.5 48-48s-21.5-48-48-48s-48 21.5-48 48s21.5 48 48 48zm464-48c0-26.5-21.5-48-48-48s-48 21.5-48 48s21.5 48 48 48s48-21.5 48-48zM142.9 437c18.7-18.7 18.7-49.1 0-67.9s-49.1-18.7-67.9 0s-18.7 49.1 0 67.9s49.1 18.7 67.9 0zm0-294.2c18.7-18.7 18.7-49.1 0-67.9S93.7 56.2 75 75s-18.7 49.1 0 67.9s49.1 18.7 67.9 0zM369.1 437c18.7 18.7 49.1 18.7 67.9 0s18.7-49.1 0-67.9s-49.1-18.7-67.9 0s-18.7 49.1 0 67.9z"/></svg></span>
+                            </div>
+                        </div>
+                    </form>
+                    <div id="mdbook-searchresults-outer" class="searchresults-outer hidden">
+                        <div id="mdbook-searchresults-header" class="searchresults-header"></div>
+                        <ul id="mdbook-searchresults">
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Apply ARIA attributes after the sidebar and the sidebar toggle button are added to the DOM -->
+                <script>
+                    document.getElementById('mdbook-sidebar-toggle').setAttribute('aria-expanded', sidebar === 'visible');
+                    document.getElementById('mdbook-sidebar').setAttribute('aria-hidden', sidebar !== 'visible');
+                    Array.from(document.querySelectorAll('#mdbook-sidebar a')).forEach(function(link) {
+                        link.setAttribute('tabIndex', sidebar === 'visible' ? 0 : -1);
+                    });
+                </script>
+
+                <div id="mdbook-content" class="content">
+                    <main>
+                        <div class="rule" id="r-link"><a class="rule-link" href="#r-link" title="link"><span>[link]</span></a>
+</div>
+
+<h1 id="linkage"><a class="header" href="#linkage">Linkage</a></h1>
+<div class="alert alert-note">
+<blockquote>
+<p class="alert-title"><svg viewbox="0 0 16 16" width="18" height="18"><path d="M0 8a8 8 0 1 1 16 0A8 8 0 0 1 0 8Zm8-6.5a6.5 6.5 0 1 0 0 13 6.5 6.5 0 0 0 0-13ZM6.5 7.75A.75.75 0 0 1 7.25 7h1a.75.75 0 0 1 .75.75v2.75h.25a.75.75 0 0 1 0 1.5h-2a.75.75 0 0 1 0-1.5h.25v-2h-.25a.75.75 0 0 1-.75-.75ZM8 6a1 1 0 1 1 0-2 1 1 0 0 1 0 2Z"></path></svg>Note</p>
+
+<p>This section is described more in terms of the compiler than of the language.</p>
+</blockquote>
+</div>
+
+<div class="rule" id="r-link.intro"><a class="rule-link" href="#r-link.intro" title="link.intro"><span>[link<wbr>.intro]</span></a>
+</div>
+
+<p>The compiler supports various methods to link crates together both statically and dynamically. This section will explore the various methods to link crates together, and more information about native libraries can be found in the <a href="../book/ch20-01-unsafe-rust.html#using-extern-functions-to-call-external-code">FFI section of the book</a>.</p>
+<div class="rule" id="r-link.type"><a class="rule-link" href="#r-link.type" title="link.type"><span>[link<wbr>.type]</span></a>
+</div>
+
+<p>In one session of compilation, the compiler can generate multiple artifacts through the use of either command line flags or the <code>crate_type</code> attribute. If one or more command line flags are specified, all <code>crate_type</code> attributes will be ignored in favor of only building the artifacts specified by command line.</p>
+<div class="rule" id="r-link.bin"><a class="rule-link" href="#r-link.bin" title="link.bin"><span>[link<wbr>.bin]</span></a>
+</div>
+
+<ul>
+<li><code>--crate-type=bin</code>, <code>#![crate_type = "bin"]</code> - A runnable executable will be produced. This requires that there is a <code>main</code> function in the crate which will be run when the program begins executing. This will link in all Rust and native dependencies, producing a single distributable binary. This is the default crate type.</li>
+</ul>
+<div class="rule" id="r-link.lib"><a class="rule-link" href="#r-link.lib" title="link.lib"><span>[link<wbr>.lib]</span></a>
+</div>
+
+<ul>
+<li><code>--crate-type=lib</code>, <code>#![crate_type = "lib"]</code> - A Rust library will be produced. This is an ambiguous concept as to what exactly is produced because a library can manifest itself in several forms. The purpose of this generic <code>lib</code> option is to generate the “compiler recommended” style of library. The output library will always be usable by rustc, but the actual type of library may change from time-to-time. The remaining output types are all different flavors of libraries, and the <code>lib</code> type can be seen as an alias for one of them (but the actual one is compiler-defined).</li>
+</ul>
+<div class="rule" id="r-link.dylib"><a class="rule-link" href="#r-link.dylib" title="link.dylib"><span>[link<wbr>.dylib]</span></a>
+</div>
+
+<ul>
+<li><code>--crate-type=dylib</code>, <code>#![crate_type = "dylib"]</code> - A dynamic Rust library will be produced. This is different from the <code>lib</code> output type in that this forces dynamic library generation. The resulting dynamic library can be used as a dependency for other libraries and/or executables. This output type will create <code>*.so</code> files on Linux, <code>*.dylib</code> files on macOS, and <code>*.dll</code> files on Windows.</li>
+</ul>
+<div class="rule" id="r-link.staticlib"><a class="rule-link" href="#r-link.staticlib" title="link.staticlib"><span>[link<wbr>.staticlib]</span></a>
+</div>
+
+<ul>
+<li>
+<p><code>--crate-type=staticlib</code>, <code>#![crate_type = "staticlib"]</code> - A static system library will be produced. This is different from other library outputs in that the compiler will never attempt to link to <code>staticlib</code> outputs. The purpose of this output type is to create a static library containing all of the local crate’s code along with all upstream dependencies. This output type will create <code>*.a</code> files on Linux, macOS and Windows (MinGW), and <code>*.lib</code> files on Windows (MSVC). This format is recommended for use in situations such as linking Rust code into an existing non-Rust application because it will not have dynamic dependencies on other Rust code.</p>
+<p>Note that any dynamic dependencies that the static library may have (such as dependencies on system libraries, or dependencies on Rust libraries that are compiled as dynamic libraries) will have to be specified manually when linking that static library from somewhere. The <code>--print=native-static-libs</code> flag may help with this.</p>
+<p>Note that, because the resulting static library contains the code of all the dependencies, including the standard library, and also exports all public symbols of them, linking the static library into an executable or shared library may need special care. In case of a shared library the list of exported symbols will have to be limited via e.g. a linker or symbol version script, exported symbols list (macOS), or module definition file (Windows). Additionally, unused sections can be removed to remove all code of dependencies that is not actually used (e.g. <code>--gc-sections</code> or <code>-dead_strip</code> for macOS).</p>
+</li>
+</ul>
+<div class="rule" id="r-link.cdylib"><a class="rule-link" href="#r-link.cdylib" title="link.cdylib"><span>[link<wbr>.cdylib]</span></a>
+</div>
+
+<ul>
+<li><code>--crate-type=cdylib</code>, <code>#![crate_type = "cdylib"]</code> - A dynamic system library will be produced.  This is used when compiling a dynamic library to be loaded from another language.  This output type will create <code>*.so</code> files on Linux, <code>*.dylib</code> files on macOS, and <code>*.dll</code> files on Windows.</li>
+</ul>
+<div class="rule" id="r-link.rlib"><a class="rule-link" href="#r-link.rlib" title="link.rlib"><span>[link<wbr>.rlib]</span></a>
+</div>
+
+<ul>
+<li><code>--crate-type=rlib</code>, <code>#![crate_type = "rlib"]</code> - A “Rust library” file will be produced. This is used as an intermediate artifact and can be thought of as a “static Rust library”. These <code>rlib</code> files, unlike <code>staticlib</code> files, are interpreted by the compiler in future linkage. This essentially means that <code>rustc</code> will look for metadata in <code>rlib</code> files like it looks for metadata in dynamic libraries. This form of output is used to produce statically linked executables as well as <code>staticlib</code> outputs.</li>
+</ul>
+<div class="rule" id="r-link.proc-macro"><a class="rule-link" href="#r-link.proc-macro" title="link.proc-macro"><span>[link<wbr>.proc-macro]</span></a>
+</div>
+
+<ul>
+<li><code>--crate-type=proc-macro</code>, <code>#![crate_type = "proc-macro"]</code> - The output produced is not specified, but if a <code>-L</code> path is provided to it then the compiler will recognize the output artifacts as a macro and it can be loaded for a program. Crates compiled with this crate type  must only export <a href="procedural-macros.html">procedural macros</a>. The compiler will automatically set the <code>proc_macro</code> <a href="conditional-compilation.html">configuration option</a>. The crates are always compiled with the same target that the compiler itself was built with. For example, if you are executing the compiler from Linux with an <code>x86_64</code> CPU, the target will be <code>x86_64-unknown-linux-gnu</code> even if the crate is a dependency of another crate being built for a different target.</li>
+</ul>
+<div class="rule" id="r-link.repetition"><a class="rule-link" href="#r-link.repetition" title="link.repetition"><span>[link<wbr>.repetition]</span></a>
+</div>
+
+<p>Note that these outputs are stackable in the sense that if multiple are specified, then the compiler will produce each form of output without having to recompile. However, this only applies for outputs specified by the same method. If only <code>crate_type</code> attributes are specified, then they will all be built, but if one or more <code>--crate-type</code> command line flags are specified, then only those outputs will be built.</p>
+<div class="rule" id="r-link.dependency"><a class="rule-link" href="#r-link.dependency" title="link.dependency"><span>[link<wbr>.dependency]</span></a>
+</div>
+
+<p>With all these different kinds of outputs, if crate A depends on crate B, then the compiler could find B in various different forms throughout the system. The only forms looked for by the compiler, however, are the <code>rlib</code> format and the dynamic library format. With these two options for a dependent library, the compiler must at some point make a choice between these two formats. With this in mind, the compiler follows these rules when determining what format of dependencies will be used:</p>
+<div class="rule" id="r-link.dependency-staticlib"><a class="rule-link" href="#r-link.dependency-staticlib" title="link.dependency-staticlib"><span>[link<wbr>.dependency-staticlib]</span></a>
+</div>
+
+<ol>
+<li>
+<p>If a static library is being produced, all upstream dependencies are required to be available in <code>rlib</code> formats. This requirement stems from the reason that a dynamic library cannot be converted into a static format.</p>
+<p>Note that it is impossible to link in native dynamic dependencies to a static library, and in this case warnings will be printed about all unlinked native dynamic dependencies.</p>
+</li>
+</ol>
+<div class="rule" id="r-link.dependency-rlib"><a class="rule-link" href="#r-link.dependency-rlib" title="link.dependency-rlib"><span>[link<wbr>.dependency-rlib]</span></a>
+</div>
+
+<ol start="2">
+<li>
+<p>If an <code>rlib</code> file is being produced, then there are no restrictions on what format the upstream dependencies are available in. It is simply required that all upstream dependencies be available for reading metadata from.</p>
+<p>The reason for this is that <code>rlib</code> files do not contain any of their upstream dependencies. It wouldn’t be very efficient for all <code>rlib</code> files to contain a copy of <code>libstd.rlib</code>!</p>
+</li>
+</ol>
+<div class="rule" id="r-link.dependency-prefer-dynamic"><a class="rule-link" href="#r-link.dependency-prefer-dynamic" title="link.dependency-prefer-dynamic"><span>[link<wbr>.dependency-prefer-dynamic]</span></a>
+</div>
+
+<ol start="3">
+<li>If an executable is being produced and the <code>-C prefer-dynamic</code> flag is not specified, then dependencies are first attempted to be found in the <code>rlib</code> format. If some dependencies are not available in an rlib format, then dynamic linking is attempted (see below).</li>
+</ol>
+<div class="rule" id="r-link.dependency-dynamic"><a class="rule-link" href="#r-link.dependency-dynamic" title="link.dependency-dynamic"><span>[link<wbr>.dependency-dynamic]</span></a>
+</div>
+
+<ol start="4">
+<li>
+<p>If a dynamic library or an executable that is being dynamically linked is being produced, then the compiler will attempt to reconcile the available dependencies in either the rlib or dylib format to create a final product.</p>
+<p>A major goal of the compiler is to ensure that a library never appears more than once in any artifact. For example, if dynamic libraries B and C were each statically linked to library A, then a crate could not link to B and C together because there would be two copies of A. The compiler allows mixing the rlib and dylib formats, but this restriction must be satisfied.</p>
+<p>The compiler currently implements no method of hinting what format a library should be linked with. When dynamically linking, the compiler will attempt to maximize dynamic dependencies while still allowing some dependencies to be linked in via an rlib.</p>
+<p>For most situations, having all libraries available as a dylib is recommended if dynamically linking. For other situations, the compiler will emit a warning if it is unable to determine which formats to link each library with.</p>
+</li>
+</ol>
+<p>In general, <code>--crate-type=bin</code> or <code>--crate-type=lib</code> should be sufficient for all compilation needs, and the other options are just available if more fine-grained control is desired over the output format of a crate.</p>
+<div class="rule" id="r-link.crt"><a class="rule-link" href="#r-link.crt" title="link.crt"><span>[link<wbr>.crt]</span></a>
+</div>
+
+<h2 id="static-and-dynamic-c-runtimes"><a class="header" href="#static-and-dynamic-c-runtimes">Static and dynamic C runtimes</a></h2>
+<div class="rule" id="r-link.crt.intro"><a class="rule-link" href="#r-link.crt.intro" title="link.crt.intro"><span>[link<wbr>.crt<wbr>.intro]</span></a>
+</div>
+
+<p>The standard library in general strives to support both statically linked and dynamically linked C runtimes for targets as appropriate. For example the <code>x86_64-pc-windows-msvc</code> and <code>x86_64-unknown-linux-musl</code> targets typically come with both runtimes and the user selects which one they’d like. All targets in the compiler have a default mode of linking to the C runtime. Typically targets are linked dynamically by default, but there are exceptions which are static by default such as:</p>
+<ul>
+<li><code>arm-unknown-linux-musleabi</code></li>
+<li><code>arm-unknown-linux-musleabihf</code></li>
+<li><code>armv7-unknown-linux-musleabihf</code></li>
+<li><code>i686-unknown-linux-musl</code></li>
+<li><code>x86_64-unknown-linux-musl</code></li>
+</ul>
+<div class="rule" id="r-link.crt.crt-static"><a class="rule-link" href="#r-link.crt.crt-static" title="link.crt.crt-static"><span>[link<wbr>.crt<wbr>.crt-static]</span></a>
+</div>
+
+<p>The linkage of the C runtime is configured to respect the <code>crt-static</code> target feature. These target features are typically configured from the command line via flags to the compiler itself. For example to enable a static runtime you would execute:</p>
+<pre><code class="language-sh">rustc -C target-feature=+crt-static foo.rs
+</code></pre>
+<p>whereas to link dynamically to the C runtime you would execute:</p>
+<pre><code class="language-sh">rustc -C target-feature=-crt-static foo.rs
+</code></pre>
+<div class="rule" id="r-link.crt.ineffective"><a class="rule-link" href="#r-link.crt.ineffective" title="link.crt.ineffective"><span>[link<wbr>.crt<wbr>.ineffective]</span></a>
+</div>
+
+<p>Targets which do not support switching between linkage of the C runtime will ignore this flag. It’s recommended to inspect the resulting binary to ensure that it’s linked as you would expect after the compiler succeeds.</p>
+<div class="rule" id="r-link.crt.target_feature"><a class="rule-link" href="#r-link.crt.target_feature" title="link.crt.target_feature"><span>[link<wbr>.crt<wbr>.target_feature]</span></a>
+</div>
+
+<p>Crates may also learn about how the C runtime is being linked. Code on MSVC, for example, needs to be compiled differently (e.g. with <code>/MT</code> or <code>/MD</code>) depending on the runtime being linked. This is exported currently through the <a href="conditional-compilation.html#target_feature"><code>cfg</code> attribute <code>target_feature</code> option</a>:</p>
+<pre class="playground"><code class="language-rust edition2024"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>#[cfg(target_feature = "crt-static")]
+fn foo() {
+    println!("the C runtime should be statically linked");
+}
+
+#[cfg(not(target_feature = "crt-static"))]
+fn foo() {
+    println!("the C runtime should be dynamically linked");
+}
+<span class="boring">}</span></code></pre>
+<p>Also note that Cargo build scripts can learn about this feature through <a href="../cargo/reference/environment-variables.html#environment-variables-cargo-sets-for-build-scripts">environment variables</a>. In a build script you can detect the linkage via:</p>
+<pre class="playground"><code class="language-rust edition2024">use std::env;
+
+fn main() {
+    let linkage = env::var("CARGO_CFG_TARGET_FEATURE").unwrap_or(String::new());
+
+    if linkage.contains("crt-static") {
+        println!("the C runtime will be statically linked");
+    } else {
+        println!("the C runtime will be dynamically linked");
+    }
+}</code></pre>
+<p>To use this feature locally, you typically will use the <code>RUSTFLAGS</code> environment variable to specify flags to the compiler through Cargo. For example to compile a statically linked binary on MSVC you would execute:</p>
+<pre><code class="language-sh">RUSTFLAGS='-C target-feature=+crt-static' cargo build --target x86_64-pc-windows-msvc
+</code></pre>
+<div class="rule" id="r-link.foreign-code"><a class="rule-link" href="#r-link.foreign-code" title="link.foreign-code"><span>[link<wbr>.foreign-code]</span></a>
+</div>
+
+<h2 id="mixed-rust-and-foreign-codebases"><a class="header" href="#mixed-rust-and-foreign-codebases">Mixed Rust and foreign codebases</a></h2>
+<div class="rule" id="r-link.foreign-code.foreign-linkers"><a class="rule-link" href="#r-link.foreign-code.foreign-linkers" title="link.foreign-code.foreign-linkers"><span>[link<wbr>.foreign-code<wbr>.foreign-linkers]</span></a>
+</div>
+
+<p>If you are mixing Rust with foreign code (e.g. C, C++) and wish to make a single binary containing both types of code, you have two approaches for the final binary link:</p>
+<ul>
+<li>Use <code>rustc</code>. Pass any non-Rust libraries using <code>-L &lt;directory&gt;</code> and <code>-l&lt;library&gt;</code> rustc arguments, and/or <code>#[link]</code> directives in your Rust code. If you need to link against <code>.o</code> files you can use <code>-Clink-arg=file.o</code>.</li>
+<li>Use your foreign linker. In this case, you first need to generate a Rust <code>staticlib</code> target and pass that into your foreign linker invocation. If you need to link multiple Rust subsystems, you will need to generate a <em>single</em> <code>staticlib</code> perhaps using lots of <code>extern crate</code> statements to include multiple Rust <code>rlib</code>s. Multiple Rust <code>staticlib</code> files are likely to conflict.</li>
+</ul>
+<p>Passing <code>rlib</code>s directly into your foreign linker is currently unsupported.</p>
+<div class="alert alert-note">
+<blockquote>
+<p class="alert-title"><svg viewbox="0 0 16 16" width="18" height="18"><path d="M0 8a8 8 0 1 1 16 0A8 8 0 0 1 0 8Zm8-6.5a6.5 6.5 0 1 0 0 13 6.5 6.5 0 0 0 0-13ZM6.5 7.75A.75.75 0 0 1 7.25 7h1a.75.75 0 0 1 .75.75v2.75h.25a.75.75 0 0 1 0 1.5h-2a.75.75 0 0 1 0-1.5h.25v-2h-.25a.75.75 0 0 1-.75-.75ZM8 6a1 1 0 1 1 0-2 1 1 0 0 1 0 2Z"></path></svg>Note</p>
+
+<p>Rust code compiled or linked with a different instance of the Rust runtime counts as “foreign code” for the purpose of this section.</p>
+</blockquote>
+</div>
+
+<div class="rule" id="r-link.unwinding"><a class="rule-link" href="#r-link.unwinding" title="link.unwinding"><span>[link<wbr>.unwinding]</span></a>
+</div>
+
+<h3 id="prohibited-linkage-and-unwinding"><a class="header" href="#prohibited-linkage-and-unwinding">Prohibited linkage and unwinding</a></h3>
+<div class="rule" id="r-link.unwinding.intro"><a class="rule-link" href="#r-link.unwinding.intro" title="link.unwinding.intro"><span>[link<wbr>.unwinding<wbr>.intro]</span></a>
+</div>
+
+<p>Panic unwinding can only be used if the binary is built consistently according to the following rules.</p>
+<div class="rule" id="r-link.unwinding.potential"><a class="rule-link" href="#r-link.unwinding.potential" title="link.unwinding.potential"><span>[link<wbr>.unwinding<wbr>.potential]</span></a>
+</div>
+
+<p>A Rust artifact is called <em>potentially unwinding</em> if any of the following conditions is met:</p>
+<ul>
+<li>The artifact uses the <a href="panic.html#r-panic.panic_handler"><code>unwind</code> panic handler</a>.</li>
+<li>The artifact contains a crate built with the <code>unwind</code> <a href="panic.html#panic-strategy">panic strategy</a> that makes a call to a function using a <code>-unwind</code> ABI.</li>
+<li>The artifact makes a <code>"Rust"</code> ABI call to code running in another Rust artifact that has a separate copy of the Rust runtime, and that other artifact is potentially unwinding.</li>
+</ul>
+<div class="alert alert-note">
+<blockquote>
+<p class="alert-title"><svg viewbox="0 0 16 16" width="18" height="18"><path d="M0 8a8 8 0 1 1 16 0A8 8 0 0 1 0 8Zm8-6.5a6.5 6.5 0 1 0 0 13 6.5 6.5 0 0 0 0-13ZM6.5 7.75A.75.75 0 0 1 7.25 7h1a.75.75 0 0 1 .75.75v2.75h.25a.75.75 0 0 1 0 1.5h-2a.75.75 0 0 1 0-1.5h.25v-2h-.25a.75.75 0 0 1-.75-.75ZM8 6a1 1 0 1 1 0-2 1 1 0 0 1 0 2Z"></path></svg>Note</p>
+
+<p>This definition captures whether a <code>"Rust"</code> ABI call inside a Rust artifact can ever unwind.</p>
+</blockquote>
+</div>
+
+<div class="rule" id="r-link.unwinding.prohibited"><a class="rule-link" href="#r-link.unwinding.prohibited" title="link.unwinding.prohibited"><span>[link<wbr>.unwinding<wbr>.prohibited]</span></a>
+</div>
+
+<p>If a Rust artifact is potentially unwinding, then all its crates must be built with the <code>unwind</code> <a href="panic.html#panic-strategy">panic strategy</a>. Otherwise, unwinding can cause undefined behavior.</p>
+<div class="alert alert-note">
+<blockquote>
+<p class="alert-title"><svg viewbox="0 0 16 16" width="18" height="18"><path d="M0 8a8 8 0 1 1 16 0A8 8 0 0 1 0 8Zm8-6.5a6.5 6.5 0 1 0 0 13 6.5 6.5 0 0 0 0-13ZM6.5 7.75A.75.75 0 0 1 7.25 7h1a.75.75 0 0 1 .75.75v2.75h.25a.75.75 0 0 1 0 1.5h-2a.75.75 0 0 1 0-1.5h.25v-2h-.25a.75.75 0 0 1-.75-.75ZM8 6a1 1 0 1 1 0-2 1 1 0 0 1 0 2Z"></path></svg>Note</p>
+
+<p>If you are using <code>rustc</code> to link, these rules are enforced automatically. If you are <em>not</em> using <code>rustc</code> to link, you must take care to ensure that unwinding is handled consistently across the entire binary. Linking without <code>rustc</code> includes using <code>dlopen</code> or similar facilities where linking is done by the system runtime without <code>rustc</code> being involved. This can only happen when mixing code with different <a href="../rustc/codegen-options/index.html#panic"><code>-C panic</code></a> flags, so most users do not have to be concerned about this.</p>
+</blockquote>
+</div>
+
+<div class="alert alert-note">
+<blockquote>
+<p class="alert-title"><svg viewbox="0 0 16 16" width="18" height="18"><path d="M0 8a8 8 0 1 1 16 0A8 8 0 0 1 0 8Zm8-6.5a6.5 6.5 0 1 0 0 13 6.5 6.5 0 0 0 0-13ZM6.5 7.75A.75.75 0 0 1 7.25 7h1a.75.75 0 0 1 .75.75v2.75h.25a.75.75 0 0 1 0 1.5h-2a.75.75 0 0 1 0-1.5h.25v-2h-.25a.75.75 0 0 1-.75-.75ZM8 6a1 1 0 1 1 0-2 1 1 0 0 1 0 2Z"></path></svg>Note</p>
+
+<p>To guarantee that a library will be sound (and linkable with <code>rustc</code>) regardless of the panic runtime used at link-time, the <a href="../rustc/lints/listing/allowed-by-default.html#ffi-unwind-calls"><code>ffi_unwind_calls</code> lint</a> may be used. The lint flags any calls to <code>-unwind</code> foreign functions or function pointers.</p>
+</blockquote>
+</div>
+
+
+                    </main>
+
+                    <nav class="nav-wrapper" aria-label="Page navigation">
+                        <!-- Mobile navigation buttons -->
+                            <a rel="prev" href="panic.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                                <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M41.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l160 160c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L109.3 256 246.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-160 160z"/></svg></span>
+                            </a>
+
+                            <a rel="next prefetch" href="inline-assembly.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                                <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M278.6 233.4c12.5 12.5 12.5 32.8 0 45.3l-160 160c-12.5 12.5-32.8 12.5-45.3 0s-12.5-32.8 0-45.3L210.7 256 73.4 118.6c-12.5-12.5-12.5-32.8 0-45.3s32.8-12.5 45.3 0l160 160z"/></svg></span>
+                            </a>
+
+                        <div style="clear: both"></div>
+                    </nav>
+                </div>
+            </div>
+
+            <nav class="nav-wide-wrapper" aria-label="Page navigation">
+                    <a rel="prev" href="panic.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                        <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M41.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l160 160c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L109.3 256 246.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-160 160z"/></svg></span>
+                    </a>
+
+                    <a rel="next prefetch" href="inline-assembly.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                        <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M278.6 233.4c12.5 12.5 12.5 32.8 0 45.3l-160 160c-12.5 12.5-32.8 12.5-45.3 0s-12.5-32.8 0-45.3L210.7 256 73.4 118.6c-12.5-12.5-12.5-32.8 0-45.3s32.8-12.5 45.3 0l160 160z"/></svg></span>
+                    </a>
+            </nav>
+
+        </div>
+
+        <template id=fa-eye><span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 576 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M288 32c-80.8 0-145.5 36.8-192.6 80.6C48.6 156 17.3 208 2.5 243.7c-3.3 7.9-3.3 16.7 0 24.6C17.3 304 48.6 356 95.4 399.4C142.5 443.2 207.2 480 288 480s145.5-36.8 192.6-80.6c46.8-43.5 78.1-95.4 93-131.1c3.3-7.9 3.3-16.7 0-24.6c-14.9-35.7-46.2-87.7-93-131.1C433.5 68.8 368.8 32 288 32zM432 256c0 79.5-64.5 144-144 144s-144-64.5-144-144s64.5-144 144-144s144 64.5 144 144zM288 192c0 35.3-28.7 64-64 64c-11.5 0-22.3-3-31.6-8.4c-.2 2.8-.4 5.5-.4 8.4c0 53 43 96 96 96s96-43 96-96s-43-96-96-96c-2.8 0-5.6 .1-8.4 .4c5.3 9.3 8.4 20.1 8.4 31.6z"/></svg></span></template>
+        <template id=fa-eye-slash><span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M38.8 5.1C28.4-3.1 13.3-1.2 5.1 9.2S-1.2 34.7 9.2 42.9l592 464c10.4 8.2 25.5 6.3 33.7-4.1s6.3-25.5-4.1-33.7L525.6 386.7c39.6-40.6 66.4-86.1 79.9-118.4c3.3-7.9 3.3-16.7 0-24.6c-14.9-35.7-46.2-87.7-93-131.1C465.5 68.8 400.8 32 320 32c-68.2 0-125 26.3-169.3 60.8L38.8 5.1zM223.1 149.5C248.6 126.2 282.7 112 320 112c79.5 0 144 64.5 144 144c0 24.9-6.3 48.3-17.4 68.7L408 294.5c5.2-11.8 8-24.8 8-38.5c0-53-43-96-96-96c-2.8 0-5.6 .1-8.4 .4c5.3 9.3 8.4 20.1 8.4 31.6c0 10.2-2.4 19.8-6.6 28.3l-90.3-70.8zm223.1 298L373 389.9c-16.4 6.5-34.3 10.1-53 10.1c-79.5 0-144-64.5-144-144c0-6.9 .5-13.6 1.4-20.2L83.1 161.5C60.3 191.2 44 220.8 34.5 243.7c-3.3 7.9-3.3 16.7 0 24.6c14.9 35.7 46.2 87.7 93 131.1C174.5 443.2 239.2 480 320 480c47.8 0 89.9-12.9 126.2-32.5z"/></svg></span></template>
+        <template id=fa-copy><span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M502.6 70.63l-61.25-61.25C435.4 3.371 427.2 0 418.7 0H255.1c-35.35 0-64 28.66-64 64l.0195 256C192 355.4 220.7 384 256 384h192c35.2 0 64-28.8 64-64V93.25C512 84.77 508.6 76.63 502.6 70.63zM464 320c0 8.836-7.164 16-16 16H255.1c-8.838 0-16-7.164-16-16L239.1 64.13c0-8.836 7.164-16 16-16h128L384 96c0 17.67 14.33 32 32 32h47.1V320zM272 448c0 8.836-7.164 16-16 16H63.1c-8.838 0-16-7.164-16-16L47.98 192.1c0-8.836 7.164-16 16-16H160V128H63.99c-35.35 0-64 28.65-64 64l.0098 256C.002 483.3 28.66 512 64 512h192c35.2 0 64-28.8 64-64v-32h-47.1L272 448z"/></svg></span></template>
+        <template id=fa-play><span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 384 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M73 39c-14.8-9.1-33.4-9.4-48.5-.9S0 62.6 0 80V432c0 17.4 9.4 33.4 24.5 41.9s33.7 8.1 48.5-.9L361 297c14.3-8.7 23-24.2 23-41s-8.7-32.2-23-41L73 39z"/></svg></span></template>
+        <template id=fa-clock-rotate-left><span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M75 75L41 41C25.9 25.9 0 36.6 0 57.9V168c0 13.3 10.7 24 24 24H134.1c21.4 0 32.1-25.9 17-41l-30.8-30.8C155 85.5 203 64 256 64c106 0 192 86 192 192s-86 192-192 192c-40.8 0-78.6-12.7-109.7-34.4c-14.5-10.1-34.4-6.6-44.6 7.9s-6.6 34.4 7.9 44.6C151.2 495 201.7 512 256 512c141.4 0 256-114.6 256-256S397.4 0 256 0C185.3 0 121.3 28.7 75 75zm181 53c-13.3 0-24 10.7-24 24V256c0 6.4 2.5 12.5 7 17l72 72c9.4 9.4 24.6 9.4 33.9 0s9.4-24.6 0-33.9l-65-65V152c0-13.3-10.7-24-24-24z"/></svg></span></template>
+
+
+
+        <script>
+            window.playground_copyable = true;
+        </script>
+
+
+        <script src="elasticlunr-ef4e11c1.min.js"></script>
+        <script src="mark-09e88c2c.min.js"></script>
+        <script src="searcher-09f2665d.js"></script>
+
+        <script src="clipboard-1626706a.min.js"></script>
+        <script src="highlight-abc7f01d.js"></script>
+        <script src="book-c22b7243.js"></script>
+
+        <!-- Custom JS scripts -->
+        <script src="theme/reference-da60281b.js"></script>
+
+
+
+    </div>
+    </body>
+</html>

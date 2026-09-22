@@ -94,7 +94,7 @@ fn version_and_strerror() {
     let (mut a, mut b, mut c) = (0u32, 0u32, 0u32);
     let v = crate::rax_version(&mut a, &mut b, &mut c);
     assert_eq!(v, (a << 16) | (b << 8) | c);
-    assert_eq!((a, b, c), (1, 3, 0));
+    assert_eq!((a, b, c), (1, 4, 0));
     let s = crate::rax_strerror(0);
     assert!(!s.is_null());
     let version_string = unsafe { std::ffi::CStr::from_ptr(crate::rax_version_string()) };
@@ -102,7 +102,7 @@ fn version_and_strerror() {
         version_string
             .to_bytes()
             .windows(5)
-            .any(|part| part == b"1.3.0")
+            .any(|part| part == b"1.4.0")
     );
 }
 
@@ -238,11 +238,10 @@ fn register_widths_and_subregisters() {
             rax_reg_write_u64(e, RAX, 0xAAAA_BBBB_CCCC_DDDD),
             RaxStatus::Ok
         );
-        let eax: u32 = 0x1122_3344;
-        assert_eq!(
-            rax_reg_write(e, EAX, &eax as *const u32 as *const u8),
-            RaxStatus::Ok
-        );
+        // Raw register buffers follow the C ABI's little-endian contract,
+        // independently of the host's integer representation.
+        let eax = 0x1122_3344u32.to_le_bytes();
+        assert_eq!(rax_reg_write(e, EAX, eax.as_ptr()), RaxStatus::Ok);
         assert_eq!(rd_u64(e, RAX), 0x1122_3344);
 
         // AH writes bits 15:8.
@@ -1492,3 +1491,9 @@ fn riscv_open_config_ext_survives_reset() {
         rax_engine_close(e);
     }
 }
+
+#[path = "tests/arm64_faultin.rs"]
+mod arm64_faultin;
+
+#[path = "tests/x86_faultin.rs"]
+mod x86_faultin;

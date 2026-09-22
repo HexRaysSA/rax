@@ -3,6 +3,7 @@
 pub(crate) mod apx;
 pub mod bios;
 mod cpu;
+mod cpu_fetch;
 mod decode;
 mod exception;
 pub(crate) mod execute;

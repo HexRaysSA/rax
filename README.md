@@ -88,7 +88,7 @@ This root `README.md` is the **single complete documentation entrypoint**. There
 - [TOML configuration reference](docs/reference/configuration.md) — file schema, exact enum spellings, defaults, profile selectors, load/entry fields, validation, and CLI precedence.
 - [Cargo features and build profiles](docs/reference/build-features.md) — root feature table, recommended combinations, host gating, release profile, compiler baseline, workspace relationship, and C API feature-name differences.
 - [Environment variables](docs/reference/environment-variables.md) — logging, JIT diagnostics, machine selection, `run.sh`, compiler/PGO controls, microkernel tooling, and reproduction records.
-- [Status and limitations](docs/reference/status-and-limitations.md) — consolidated execution matrix, architecture-specific qualifications, machine/device/JIT/testing boundaries, security posture, embedding scope, and licensing gap.
+- [Status and limitations](docs/reference/status-and-limitations.md) — consolidated execution matrix, architecture-specific qualifications, machine/device/JIT/testing boundaries, security posture, embedding scope, and licensing scope.
 - [Embedding through C and C++](docs/embedding.md) — library versus full-machine scope, builds, CMake/pkg-config, lifecycle, ABI, memory/register/exit contracts, hooks, stateless analysis, threading, and downstream validation.
 
 ## Common build profiles
@@ -156,6 +156,11 @@ External-reference and host-specific tests can self-skip when `/dev/kvm`, a requ
 
 `RAX` is the x86-64 accumulator register. The project began with an x86-64 focus and retained the name as additional guest architectures were added.
 
-## License status
+## License
 
-The project documentation describes `rax` as MIT-licensed. The audited root tree did not contain a root `LICENSE` file and the root package metadata did not declare `license = "MIT"`. Add both artifacts before relying on the statement as the repository’s packaged redistributable license grant.
+RAX is licensed under the [MIT License](LICENSE).
+Third-party components are covered by their respective licenses; see
+[THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for contribution terms and
+[SECURITY.md](SECURITY.md) for vulnerability reporting.

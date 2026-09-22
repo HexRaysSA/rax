@@ -187,6 +187,7 @@ mod tests {
             evex: None,
             opcode,
             boundary_gp: false,
+            boundary_fault: None,
         }
     }
 

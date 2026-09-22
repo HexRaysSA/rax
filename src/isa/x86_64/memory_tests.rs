@@ -6,6 +6,28 @@ use std::sync::Arc;
 use vm_memory::{Bytes, GuestAddress, GuestMemoryMmap};
 
 #[test]
+fn physical_access_fault_names_the_unmapped_address_once() {
+    let memory =
+        Arc::new(GuestMemoryMmap::<()>::from_ranges(&[(GuestAddress(0), 0x1000)]).unwrap());
+    let mmu = Mmu::new(memory);
+    let mut byte = [0u8; 1];
+    for (operation, result) in [
+        ("read", mmu.read_phys(0x2000, &mut byte)),
+        ("write", mmu.write_phys(0x2000, &byte)),
+    ] {
+        let error = result.unwrap_err().to_string();
+        assert!(
+            error.contains(&format!(
+                "failed to {operation} at 0x2000: physical range is unmapped"
+            )),
+            "{error}"
+        );
+        assert_eq!(error.matches("0x2000").count(), 1, "{error}");
+        assert!(!error.contains("8192"), "{error}");
+    }
+}
+
+#[test]
 fn crossing_write_preflights_all_pages_before_committing_ram() {
     let memory =
         Arc::new(GuestMemoryMmap::<()>::from_ranges(&[(GuestAddress(0), 0x1000)]).unwrap());

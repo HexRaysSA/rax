@@ -444,7 +444,20 @@ fn becomes_double_fault(first: u8, second: u8) -> bool {
 
 impl X86_64Vcpu {
     pub fn inject_exception(&mut self, vector: u8, error_code: Option<u64>) -> Result<()> {
+        let pc = self.regs.rip;
         self.deliver_event(vector, error_code, EventSource::Exception, None)
+            .map_err(|error| {
+                // A failed #UD delivery must not be mistaken for an ordinary
+                // sparse guest access and "repaired" with fabricated IDT bytes.
+                if vector == 6 {
+                    Error::InvalidInstruction {
+                        pc,
+                        diagnosis: error.to_string(),
+                    }
+                } else {
+                    error
+                }
+            })
     }
 
     pub(super) fn inject_software_interrupt(

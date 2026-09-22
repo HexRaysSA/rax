@@ -262,6 +262,7 @@ fn run_emulation(
         let e = unsafe { &mut *eptr };
         e.clear_err();
         e.last_exit = ExitInfo::none();
+        e.last_fault = crate::fault::RaxFaultInfo::default();
         e.stop_flag.set(false);
         e.running = true;
         if let Some(b) = set_begin {
@@ -359,8 +360,10 @@ fn run_emulation(
                 break;
             }
 
+            let before = unsafe { (*eptr).vcpu.instruction_count() };
             let res = unsafe { (*eptr).vcpu.step_insn() };
-            executed += 1;
+            let after = unsafe { (*eptr).vcpu.instruction_count() };
+            executed = executed.saturating_add(after.wrapping_sub(before));
 
             // Surface the memory accesses this instruction made (re-entrancy is
             // safe: we hold no Rust borrow of the engine here).
@@ -399,10 +402,15 @@ fn run_emulation(
                     let msg = err.to_string();
                     unsafe {
                         (*eptr).err_msg = msg;
+                        (*eptr).last_fault = crate::fault::RaxFaultInfo::from_error(pc, &err);
+                        (*eptr).last_fault.retired_instructions = executed;
                     }
                     if let Some(h) = invalid_hooks.first() {
                         let handled = (h.cb)(eptr, pc, h.user);
                         if handled != 0 {
+                            unsafe {
+                                (*eptr).last_fault = crate::fault::RaxFaultInfo::default();
+                            }
                             continue 'step;
                         }
                     }
@@ -434,8 +442,11 @@ fn run_emulation(
                 exit_info = ExitInfo::stop(RAX_STOP_TIMEOUT);
                 break;
             }
-            let pc = unsafe { (*eptr).vcpu.current_pc() };
+            let before = unsafe { (*eptr).vcpu.instruction_count() };
             let res = unsafe { (*eptr).vcpu.run() };
+            let after = unsafe { (*eptr).vcpu.instruction_count() };
+            executed = executed.saturating_add(after.wrapping_sub(before));
+            let pc = unsafe { (*eptr).vcpu.current_pc() };
             match res {
                 Ok(exit) => match dispatch_exit(
                     eptr,
@@ -460,10 +471,15 @@ fn run_emulation(
                     let msg = err.to_string();
                     unsafe {
                         (*eptr).err_msg = msg;
+                        (*eptr).last_fault = crate::fault::RaxFaultInfo::from_error(pc, &err);
+                        (*eptr).last_fault.retired_instructions = executed;
                     }
                     if let Some(h) = invalid_hooks.first() {
                         let handled = (h.cb)(eptr, pc, h.user);
                         if handled != 0 {
+                            unsafe {
+                                (*eptr).last_fault = crate::fault::RaxFaultInfo::default();
+                            }
                             continue;
                         }
                     }
@@ -479,7 +495,7 @@ fn run_emulation(
     }
 
     // ---- teardown (single transient borrow) ----
-    // For non-I/O control stops, `value` is an unambiguous attempted-step
+    // For non-I/O control stops, `value` is an unambiguous retired-step
     // count. I/O/MMIO exits retain their protocol-specific value.
     if matches!(
         exit_info.reason,
@@ -499,6 +515,11 @@ fn run_emulation(
         let e = unsafe { &mut *eptr };
         e.running = false;
         e.last_exit = exit_info;
+        e.last_fault.retired_instructions = executed;
+        if exit_info.reason == RAX_STOP_EXCEPTION && exit_info.intno == 6 {
+            e.last_fault.kind = crate::fault::RAX_FAULT_INVALID_INSTRUCTION;
+            e.last_fault.pc = exit_info.address;
+        }
         if !mem_hooks.is_empty() {
             e.vcpu.set_mem_recording(false);
         }
@@ -619,7 +640,7 @@ pub extern "C" fn rax_emu_last_exit(engine: *const Engine, out: *mut ExitInfo) -
 #[unsafe(no_mangle)]
 pub extern "C" fn rax_emu_icount(engine: *const Engine) -> u64 {
     crate::guard_val(0, || match unsafe { crate::engine::engine_ref(engine) } {
-        Some(e) => e.vcpu.instruction_count(),
+        Some(e) => e.icount_base.saturating_add(e.vcpu.instruction_count()),
         None => 0,
     })
 }

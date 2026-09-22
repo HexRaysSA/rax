@@ -1,0 +1,14 @@
+[
+  {
+    "path": "LICENSES/GPL-2.0.txt",
+    "source": "https://raw.githubusercontent.com/qemu/qemu/v9.0.0/COPYING",
+    "retrieved": "2026-09-22",
+    "sha256": "6f04ae8364d0079a192b14635f4b1da294ce18724c034c39a6a41d1b09df6100"
+  },
+  {
+    "path": "LICENSES/LGPL-2.1.txt",
+    "source": "https://raw.githubusercontent.com/spdx/license-list-data/v3.25.0/text/LGPL-2.1-or-later.txt",
+    "retrieved": "2026-09-22",
+    "sha256": "5749785c8bdefafcb5d798270ed0a967036fe2ca63dcedade1627565dfef81d2"
+  }
+]

@@ -135,19 +135,25 @@ impl X86_64Vcpu {
                                 Ok(()) => continue,
                                 Err(e) => {
                                     // Triple fault - CPU should reset
-                                    return Err(Error::Emulator(format!(
-                                        "Triple fault at RIP={:#x} (double fault delivery failed: {:?}, original #PF at {:#x})",
-                                        self.regs.rip, e, vaddr
-                                    )));
+                                    return Err(Error::FaultDelivery {
+                                        fault: Box::new(Error::PageFault { vaddr, error_code }),
+                                        diagnosis: format!(
+                                            "Triple fault at RIP={:#x} (double fault delivery failed: {:?}, original #PF at {:#x})",
+                                            self.regs.rip, e, vaddr
+                                        ),
+                                    });
                                 }
                             }
                         }
                         Err(e) => {
                             // IDT entry not present or other error during #PF injection
-                            return Err(Error::Emulator(format!(
-                                "#PF at vaddr={:#x} (error_code={:#x}, RIP={:#x}): {}",
-                                vaddr, error_code, self.regs.rip, e
-                            )));
+                            return Err(Error::FaultDelivery {
+                                fault: Box::new(Error::PageFault { vaddr, error_code }),
+                                diagnosis: format!(
+                                    "#PF at vaddr={:#x} (error_code={:#x}, RIP={:#x}): {}",
+                                    vaddr, error_code, self.regs.rip, e
+                                ),
+                            });
                         }
                     }
                 }
@@ -160,10 +166,13 @@ impl X86_64Vcpu {
                         Ok(()) => continue,
                         Err(e) => {
                             publish_instruction_count(self.insn_count);
-                            return Err(Error::Emulator(format!(
-                                "#GP (error_code={:#x}, RIP={:#x}) delivery failed: {}",
-                                error_code, self.regs.rip, e
-                            )));
+                            return Err(Error::FaultDelivery {
+                                fault: Box::new(Error::GeneralProtection { error_code }),
+                                diagnosis: format!(
+                                    "#GP (error_code={:#x}, RIP={:#x}) delivery failed: {}",
+                                    error_code, self.regs.rip, e
+                                ),
+                            });
                         }
                     }
                 }

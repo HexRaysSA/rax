@@ -70,12 +70,25 @@ impl Decoder {
         boundary_gp: bool,
         is_long_mode: bool,
     ) -> Result<InsnContext> {
+        Self::decode_prefixes_with_fault(bytes, bytes_len, boundary_gp, is_long_mode, None)
+    }
+
+    pub(super) fn decode_prefixes_with_fault(
+        bytes: [u8; crate::isa::x86_64::cpu::MAX_INSN_LEN],
+        bytes_len: usize,
+        boundary_gp: bool,
+        is_long_mode: bool,
+        boundary_fault: Option<super::cpu_fetch::DeferredFetchFault>,
+    ) -> Result<InsnContext> {
         if bytes_len == 0 {
             // A zero-length fetch only reaches here defensively; a non-canonical
             // RIP is already surfaced as #GP by fetch(). Preserve boundary_gp so
             // the fault, if any, is the architectural #GP rather than a fatal error.
             if boundary_gp {
                 return Err(Error::GeneralProtection { error_code: 0 });
+            }
+            if let Some(fault) = boundary_fault {
+                return Err(fault.error());
             }
             return Err(Error::Emulator("instruction too short".to_string()));
         }
@@ -99,6 +112,7 @@ impl Decoder {
                 evex: None,
                 opcode: 0,
                 boundary_gp,
+                boundary_fault,
             });
         }
 
@@ -118,6 +132,7 @@ impl Decoder {
             evex: None,
             opcode: 0,
             boundary_gp,
+            boundary_fault,
         };
 
         loop {

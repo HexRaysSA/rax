@@ -49,7 +49,7 @@ extern "C" {
  * Versioning
  * ======================================================================== */
 #define RAX_API_MAJOR 1u
-#define RAX_API_MINOR 3u
+#define RAX_API_MINOR 4u
 #define RAX_API_PATCH 0u
 
 /* ===========================================================================
@@ -205,12 +205,46 @@ typedef struct rax_exit {
     int32_t  reason;    /* RAX_STOP_* */
     int32_t  status;    /* rax_status if reason == RAX_STOP_ERROR */
     uint64_t address;   /* PC at stop, or fault/MMIO address */
-    uint64_t value;     /* I/O/MMIO value; attempted steps for control stops */
+    uint64_t value;     /* I/O/MMIO value; retired steps for control stops */
     uint32_t size;      /* access size in bytes (I/O / MMIO) */
     uint32_t port;      /* I/O port (IO_IN / IO_OUT) */
     uint32_t intno;     /* interrupt/exception vector */
     uint32_t _reserved;
 } rax_exit;
+
+/* Typed execution-fault query, added in ABI 1.4. Existing structs are unchanged. */
+#define RAX_FAULT_INFO_VERSION 1u
+#define RAX_FAULT_NONE 0u
+#define RAX_FAULT_UNMAPPED 1u
+#define RAX_FAULT_PERMISSION 2u
+#define RAX_FAULT_INVALID_INSTRUCTION 3u
+#define RAX_FAULT_OTHER 4u
+#define RAX_FAULT_ACCESS_NONE 0u
+#define RAX_FAULT_ACCESS_READ 1u
+#define RAX_FAULT_ACCESS_WRITE 2u
+#define RAX_FAULT_ACCESS_FETCH 3u
+#define RAX_FAULT_ADDRESS_VALID 1u
+
+typedef struct rax_fault_info {
+    uint32_t struct_size; /* caller: sizeof(rax_fault_info); output: v1 size */
+    uint32_t version;     /* caller: RAX_FAULT_INFO_VERSION */
+    uint32_t kind;        /* RAX_FAULT_* */
+    uint32_t access;      /* RAX_FAULT_ACCESS_* */
+    uint64_t pc;          /* instruction start */
+    uint64_t address;     /* first inaccessible byte, valid only with flag */
+    uint32_t size;        /* inaccessible access width in bytes; 0 = unknown */
+    uint32_t flags;       /* RAX_FAULT_ADDRESS_VALID; other bits zero */
+    uint64_t retired_instructions; /* successful steps in the last run/step */
+} rax_fault_info;
+
+/* Retained across host memory/register queries; reset by the next run/step or
+ * engine reset. Callable from the invalid hook. Does not clear error text.
+ * Initialize struct_size and version. NULL/short output returns ARG, unknown
+ * version returns UNSUPPORTED; output remains unchanged on failure. Writes
+ * exactly the v1 size, preserving any caller-owned extension tail.
+ * Only UNMAPPED names missing physical backing eligible for external fault-in.
+ * Guest translation/decoder/internal faults must not trigger guessed mappings. */
+RAX_API rax_status rax_emu_last_fault(const rax_engine *engine, rax_fault_info *out);
 
 /* ===========================================================================
  * Hook callback types
@@ -228,7 +262,8 @@ typedef void     (*rax_mmio_write_cb)(rax_engine *e, uint64_t addr, uint32_t siz
 typedef int      (*rax_invalid_cb)(rax_engine *e, uint64_t address, void *user);
 /* Per-access memory hook: `kind` is RAX_MEM_READ/WRITE/FETCH; `value` is the
  * data read/written (low 8 bytes, little-endian; 0 for fetch). Fires once per
- * access, after the instruction retires — callbacks may re-enter the API. */
+ * access after the step attempt, including completed REP elements before a
+ * later fault. A callback does not prove instruction retirement. */
 typedef void     (*rax_mem_cb)(rax_engine *e, int kind, uint64_t addr, uint32_t size, uint64_t value, void *user);
 
 /* ===========================================================================

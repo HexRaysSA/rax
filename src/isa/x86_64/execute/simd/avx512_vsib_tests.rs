@@ -579,7 +579,7 @@ fn assert_ud(code: &[u8]) {
     let vectors: [[u8; 64]; 32] = std::array::from_fn(|reg| vector(&vcpu, reg as u8));
     let result = vcpu.step();
     assert!(
-        matches!(&result, Err(Error::Emulator(message)) if message.contains("IDT entry 6 not present")),
+        matches!(&result, Err(Error::InvalidInstruction { pc, diagnosis }) if *pc == CODE && diagnosis.contains("IDT entry 6 not present")),
         "{code:02X?}: expected #UD before memory access, got {result:?}"
     );
     assert_eq!(vcpu.regs.rip, CODE, "{code:02X?}");
@@ -629,7 +629,7 @@ fn vsib_gather_rejects_destination_index_alias_even_for_an_empty_mask() {
             vcpu.regs.k[MASK] = 0;
             let result = vcpu.step();
             assert!(
-                matches!(&result, Err(Error::Emulator(message)) if message.contains("IDT entry 6 not present")),
+                matches!(&result, Err(Error::InvalidInstruction { pc, diagnosis }) if *pc == CODE && diagnosis.contains("IDT entry 6 not present")),
                 "{code:02X?}: alias with zero mask must #UD: {result:?}"
             );
             assert_eq!(vcpu.regs.rip, CODE, "{code:02X?}");
@@ -857,7 +857,7 @@ fn vsib_32bit_mode_uses_default_ds_or_ss_and_rejects_16bit_addresses() {
             invalid.regs.k[MASK] = 0;
             let result = invalid.step();
             assert!(
-                matches!(&result, Err(Error::Emulator(message)) if message.contains("IDT entry 6 not present")),
+                matches!(&result, Err(Error::InvalidInstruction { pc, diagnosis }) if *pc == CODE && diagnosis.contains("IDT entry 6 not present")),
                 "{shape:?}: 16-bit address size must #UD: {result:?}"
             );
             assert_eq!(invalid.regs.rip, CODE, "{shape:?}");
@@ -911,7 +911,7 @@ fn vsib_32bit_mode_ignores_r_prime_and_b_but_rejects_v_prime_zero() {
             let original = vector(&invalid, 1);
             let result = invalid.step();
             assert!(
-                matches!(&result, Err(Error::Emulator(message)) if message.contains("IDT entry 6 not present")),
+                matches!(&result, Err(Error::InvalidInstruction { pc, diagnosis }) if *pc == CODE && diagnosis.contains("IDT entry 6 not present")),
                 "{shape:?}: non-64-bit V'=0 must #UD: {result:?}"
             );
             assert_eq!(invalid.regs.rip, CODE, "{shape:?}");
@@ -1014,7 +1014,7 @@ fn vsib_apx_actual_egpr_base_requires_apx_and_64bit_mode_even_when_mask_is_zero(
             let original = vector(&vcpu, 1);
             let result = vcpu.step();
             assert!(
-                matches!(&result, Err(Error::Emulator(message)) if message.contains("IDT entry 6 not present")),
+                matches!(&result, Err(Error::InvalidInstruction { pc, diagnosis }) if *pc == CODE && diagnosis.contains("IDT entry 6 not present")),
                 "{shape:?}: APX={apx}, long_mode={long_mode}: {result:?}"
             );
             assert_eq!(vcpu.regs.rip, CODE);

@@ -248,11 +248,13 @@ Before security-sensitive deployment, independently evaluate:
 - external debugger exposure;
 - supply-chain and dependency policy.
 
-The current repository root does not package a dedicated security policy in this documentation overlay. Do not interpret absence of a published vulnerability history as evidence of security.
+See [SECURITY.md](../../SECURITY.md) for private vulnerability reporting and maintenance scope.
 
 ## Licensing boundary
 
-The project prose and C API README say MIT, but the audited root tree did not contain a root `LICENSE` file and the root package metadata did not declare `license = "MIT"`. Until those artifacts are added, the intended license statement is not a complete redistributable grant. This is a packaging/legal-documentation issue, not a conclusion that the maintainers intended another license.
+RAX is licensed under the [MIT License](../../LICENSE).
+Third-party components are covered by their respective licenses; see
+[THIRD_PARTY_NOTICES.md](../../THIRD_PARTY_NOTICES.md).
 
 ## Adoption checklist
 
