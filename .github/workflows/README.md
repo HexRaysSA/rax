@@ -8,6 +8,7 @@ build sweep over many more ISAs via cross-compilation.
 
 | Workflow | Trigger | What it does |
 |---|---|---|
+| [`licensing.yml`](licensing.yml) | push, PR, dispatch | Checks crate contents, license/notice synchronization and packaging regressions on Linux/macOS/Windows. |
 | [`ci.yml`](ci.yml) | push, PR | Fast gate. Required `rustfmt` + `clippy`, then **build all targets** and run a **core test slice**, including EVEX masking/JIT regressions, on every native platform. |
 | [`full-suite.yml`](full-suite.yml) | nightly, dispatch | The **entire ~124k-test suite**, sharded by test binary across parallel jobs, on every unix native platform. |
 | [`cross.yml`](cross.yml) | push, PR, nightly | **Cross-compile** the core to many CPU architectures (build-only) to guard portability. |
@@ -65,3 +66,5 @@ for tag/version rules, target baselines, archive contents, and local validation.
 Release jobs override the development x86-64-v3 baseline explicitly and use
 stable Rust with locked dependencies. PR/dispatch runs upload test artifacts
 without creating releases. The publish job alone has `contents: write`.
+
+To enforce the licensing checks at merge time, add their job names to the repository's required status checks.

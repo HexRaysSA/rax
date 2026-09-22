@@ -1,3 +1,6 @@
+import tarfile
+import zipfile
+import shutil
 import tempfile
 from pathlib import Path
 import unittest
@@ -6,11 +9,39 @@ import subprocess
 
 import publish
 
-from package import TARGETS, digest, validate_tag, test_counts
+from package import ROOT, TARGETS, digest, validate_tag, test_counts, seal
 from publish import verify_assets
 
 
 class ReleaseValidation(unittest.TestCase):
+    def test_sealing_requires_notices_and_archives_them_verbatim(self):
+        for target in ('x86_64-unknown-linux-gnu', 'x86_64-pc-windows-msvc'):
+            with self.subTest(target=target), tempfile.TemporaryDirectory() as temporary:
+                work = Path(temporary)
+                bundle = work / 'bundle'
+                bundle.mkdir()
+                (bundle / 'librax.a').write_bytes(b'fixture library')
+                with self.assertRaisesRegex(RuntimeError, 'legal file'):
+                    seal(bundle, work, target)
+                for name in ('LICENSE', 'THIRD_PARTY_NOTICES.md'):
+                    shutil.copy2(ROOT / name, bundle / name)
+                (bundle / 'LICENSE').write_text('stale license')
+                with self.assertRaisesRegex(RuntimeError, 'legal file'):
+                    seal(bundle, work, target)
+                shutil.copy2(ROOT / 'LICENSE', bundle / 'LICENSE')
+                archive = seal(bundle, work, target)
+                if target.endswith('msvc'):
+                    with zipfile.ZipFile(archive) as stream:
+                        contents = {name: stream.read('bundle/' + name)
+                                    for name in ('LICENSE', 'THIRD_PARTY_NOTICES.md')}
+                else:
+                    with tarfile.open(archive) as stream:
+                        contents = {name: stream.extractfile('bundle/' + name).read()
+                                    for name in ('LICENSE', 'THIRD_PARTY_NOTICES.md')}
+                for name, content in contents.items():
+                    self.assertEqual(content, (ROOT / name).read_bytes())
+                    self.assertIn(name, (bundle / 'SHA256SUMS').read_text())
+
     def test_execution_evidence_rejects_empty_ignored_or_filtered_runs(self):
         summary = "test result: ok. {} passed; 0 failed; {} ignored; 0 measured; {} filtered out"
         for text in ("", summary.format(0, 0, 0), summary.format(12, 1, 0), summary.format(12, 0, 1)):

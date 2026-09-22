@@ -13,6 +13,19 @@ name = "rax"
 version = "0.1.0"
 edition = "2024"
 autotests = false
+description = "Multi-ISA emulator and virtual-machine monitor"
+license = "MIT AND BSD-3-Clause"
+repository = "https://github.com/HexRaysSA/rax"
+readme = "README.md"
+# Ship engine source, not reference documents, guest images or local research.
+include = [
+    "/src/**/*.rs",
+    "/Cargo.toml",
+    "/Cargo.lock",
+    "/README.md",
+    "/LICENSE",
+    "/THIRD_PARTY_NOTICES.md",
+]
 
 [[bin]]
 name = "rax-isa-oracle"

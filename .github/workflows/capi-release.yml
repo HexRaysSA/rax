@@ -10,6 +10,9 @@ on:
       - 'tools/capi/**'
       - 'Cargo.toml'
       - 'Cargo.lock'
+      - 'LICENSE'
+      - 'THIRD_PARTY_NOTICES.md'
+      - 'tools/licensing/**'
       - '.cargo/config.toml'
       - '.github/workflows/capi-release.yml'
       - '.github/actions/setup-rust/**'
@@ -59,6 +62,8 @@ jobs:
           python-version: '3.12'
       - name: Validate packaging helpers
         run: python3 -m unittest discover -s tools/capi -p 'test_*.py' -v
+      - name: Check license and crate boundaries
+        run: python3 tools/licensing/check.py
       - name: Build and test relocated SDK
         env:
           RELEASE_TAG: ${{ github.ref_type == 'tag' && github.ref_name || '' }}

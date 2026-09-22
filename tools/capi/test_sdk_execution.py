@@ -3,6 +3,7 @@ import contextlib
 import io
 from pathlib import Path
 import subprocess
+import shutil
 import tempfile
 import unittest
 from unittest.mock import patch
@@ -84,6 +85,8 @@ class SDKExecution(unittest.TestCase):
                 package.seal(bundle, work, "x86_64-unknown-linux-gnu")
             uplifted.unlink()
             uplifted.write_bytes(b"debug info")
+            for name in ("LICENSE", "THIRD_PARTY_NOTICES.md"):
+                shutil.copy2(package.ROOT / name, bundle / name)
             archive = package.seal(bundle, work, "x86_64-unknown-linux-gnu")
             self.assertEqual(archive.name, bundle.name + ".tar.gz")
             self.assertIn("lib/librax.so.debug", (bundle / "SHA256SUMS").read_text())

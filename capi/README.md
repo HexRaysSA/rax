@@ -410,7 +410,12 @@ See `examples/`:
 
 ## License
 
-MIT (matching the RAX engine).
+The C API wrapper is [MIT-licensed](LICENSE). See
+[THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) for the engine's third-party
+components. Include both files when redistributing RAX binaries.
+
+SDK and debug archives include these files. CMake installs them under
+`share/licenses/rax`.
 
 
 ### Sparse guest execution and fault diagnostics (ABI 1.4)

@@ -114,6 +114,10 @@ def seal(bundle, dist, target):
     links = sorted(str(path.relative_to(bundle)) for path in bundle.rglob("*") if path.is_symlink())
     if links:
         raise RuntimeError(f"{bundle.name} references paths outside the archive: {links}")
+    for name in ("LICENSE", "THIRD_PARTY_NOTICES.md"):
+        path = bundle / name
+        if not path.is_file() or path.read_bytes() != (ROOT / name).read_bytes():
+            raise RuntimeError(f"{bundle.name}: missing or stale legal file {name}")
     files = sorted(path for path in bundle.rglob("*") if path.is_file())
     (bundle / "SHA256SUMS").write_text(
         "".join(f"{digest(p)}  {p.relative_to(bundle).as_posix()}\n" for p in files))
@@ -227,6 +231,8 @@ def main():
     for bundle in (sdk, debug):
         # One manifest describes both halves: they come from the same build.
         shutil.copy2(ROOT / "capi/README.md", bundle / "README.md")
+        for name in ("LICENSE", "THIRD_PARTY_NOTICES.md"):
+            shutil.copy2(ROOT / name, bundle / name)
         (bundle / "build-info.json").write_text(json.dumps(manifest, indent=2) + "\n")
         print(f"Validated bundle: {seal(bundle, dist, args.target)}")
 

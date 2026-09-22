@@ -6,6 +6,25 @@ description = "Stable, embeddable C and C++ API/ABI for the RAX emulation engine
 license = "MIT"
 repository = "https://github.com/HexRaysSA/rax"
 readme = "README.md"
+include = [
+    "/src/**/*.rs",
+    "/include/*.h",
+    "/include/*.hpp",
+    "/tests/*.c",
+    "/tests/consumer/CMakeLists.txt",
+    "/examples/*.c",
+    "/examples/*.cpp",
+    "/cmake/*.in",
+    "/CMakeLists.txt",
+    "/build.rs",
+    "/rax.pc.in",
+    "/Makefile",
+    "/Cargo.toml",
+    "/Cargo.lock",
+    "/README.md",
+    "/LICENSE",
+    "/THIRD_PARTY_NOTICES.md",
+]
 
 # The produced native library is `librax` (librax.a / librax.so / librax.dylib),
 # so embedders link with `-lrax`. The engine crate is pulled in under the alias

@@ -196,6 +196,13 @@ endif()
 # ----------------------------------------------------------------------------
 # Install: headers, libraries, pkg-config, CMake package config
 # ----------------------------------------------------------------------------
+# Keep standalone CMake installs covered as well as release archives.
+install(FILES
+    "${CMAKE_CURRENT_SOURCE_DIR}/LICENSE"
+    "${CMAKE_CURRENT_SOURCE_DIR}/THIRD_PARTY_NOTICES.md"
+    DESTINATION "${CMAKE_INSTALL_DATADIR}/licenses/rax"
+    COMPONENT licenses)
+
 install(FILES
     "${CMAKE_CURRENT_SOURCE_DIR}/include/rax.h"
     "${CMAKE_CURRENT_SOURCE_DIR}/include/rax.hpp"
