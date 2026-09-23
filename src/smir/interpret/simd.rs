@@ -650,10 +650,16 @@ impl SmirInterpreter {
         if inexact && imm & 8 == 0 {
             status |= 1 << 5;
         }
-        // Only the FP16 forms can produce a tiny grid result (M <= 15). Their
-        // operation reports underflow independently of SPE when the grid
-        // rounding was inexact, including a rounded signed-zero result.
-        if format.total_bits == 16 && inexact && rounded.bits & exponent_mask == 0 {
+        // Only the FP16 forms can produce a tiny grid result: M = 15 selects
+        // 2^-15, below the FP16 minimum normal 2^-14. Their operation reports
+        // underflow independently of SPE when the grid rounding was inexact.
+        // A tiny result is non-zero (SDM Vol. 1 4.9.1.5), so a grid result
+        // rounded to signed zero reports only precision.
+        if format.total_bits == 16
+            && inexact
+            && rounded.bits & exponent_mask == 0
+            && rounded.bits & !sign_mask != 0
+        {
             status |= 1 << 4;
         }
         X86SimdFpResult {

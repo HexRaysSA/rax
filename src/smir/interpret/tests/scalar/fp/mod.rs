@@ -17,3 +17,5 @@ mod x86_fp_convert;
 mod x86_fp_to_int;
 #[cfg(test)]
 mod x86_int_to_fp;
+#[cfg(test)]
+mod x86_round_scale;
