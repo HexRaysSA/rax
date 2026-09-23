@@ -21,13 +21,16 @@ Run from the repository root with Python 3.11 or later, Cargo and Git installed:
 
 ```sh
 python3 tools/licensing/check.py
+python3 -m unittest discover -s tools/licensing -p 'test_*.py' -v
 python3 -m unittest discover -s tools/capi -p 'test_*.py' -v
 ```
 
 The package checker compares the Intel notice against
 `src/smir/interpret/mod.rs`, checks root/C API synchronization and validates
-Cargo's package file lists. The CI workflow runs these checks on Linux, macOS
-and Windows.
+Cargo's package file lists. Cargo lists package files with host path
+separators; the checker validates them as `/`-separated archive paths (see
+[`cargo-package-list.md`](cargo-package-list.md)). The CI workflow runs these
+checks on Linux, macOS and Windows.
 
 ## Source records
 
