@@ -44,7 +44,10 @@ fn scatter_code_page_progress(verified: bool) {
     } else {
         vcpu.jit_run_region_native(&region);
     }
-    assert!(vcpu.mmu.is_code_page(0), "JIT entry must mark its source page");
+    assert!(
+        vcpu.mmu.is_code_page(0),
+        "JIT entry must mark its source page"
+    );
 
     assert_eq!(
         vcpu.regs.rip, 0,
@@ -305,7 +308,10 @@ fn jit_vsib_cached_run_scatter_smc_completes_once_and_executes_replacement_bytes
     // No manual jit_run_region/step handoff: the production cache-hit loop
     // must run lane 0 natively, defer lane 1, and consume the one-shot fallback.
     run_to_architectural_halt(&mut vcpu, "cached scatter SMC");
-    assert!(vcpu.mmu.is_code_page(0), "JIT entry must mark its source page");
+    assert!(
+        vcpu.mmu.is_code_page(0),
+        "JIT entry must mark its source page"
+    );
     assert_eq!(vcpu.regs.rip, 8);
     assert_eq!(vcpu.regs.k[3], 0);
     assert_eq!(vcpu.regs.rflags, 0xCD7);
