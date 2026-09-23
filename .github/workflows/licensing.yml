@@ -32,4 +32,5 @@ jobs:
       # The package checker resolves locked git dependencies on fresh runners.
       # Do not force Cargo offline before their first checkout.
       - run: python tools/licensing/check.py
+      - run: python -m unittest discover -s tools/licensing -p 'test_*.py' -v
       - run: python -m unittest discover -s tools/capi -p 'test_*.py' -v

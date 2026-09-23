@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Check licensing metadata, notice propagation and Cargo file boundaries."""
 import argparse
+import os
 from pathlib import Path, PurePosixPath
 import subprocess
 import tomllib
@@ -8,6 +9,15 @@ import tomllib
 ROOT = Path(__file__).resolve().parents[2]
 LEGAL_FILES = ('LICENSE', 'THIRD_PARTY_NOTICES.md')
 COMMON = {*LEGAL_FILES, 'Cargo.toml', 'Cargo.toml.orig', 'Cargo.lock', 'README.md', '.cargo_vcs_info.json'}
+
+
+def package_paths(listing, separator=os.sep):
+    """Return `cargo package --list` entries as archive-relative POSIX paths.
+
+    Cargo prints each entry with the host path separator, so Windows lists
+    `src\\lib.rs` for the archive member `src/lib.rs`.
+    """
+    return [line.replace(separator, '/') for line in listing.splitlines()]
 
 
 def validate_payload(package, paths):
@@ -59,7 +69,7 @@ def main():
         result = subprocess.run(
             ['cargo', 'package', '-p', package, '--list', '--locked', '--allow-dirty'],
             cwd=root, check=True, stdout=subprocess.PIPE, text=True)
-        paths = result.stdout.splitlines()
+        paths = package_paths(result.stdout)
         validate_payload(package, paths)
         print(f'{package}: {len(paths)} package files; notices and boundaries verified')
 

@@ -52,6 +52,10 @@ fn licensing_resolves_locked_dependencies_for_fresh_runners() {
         workflow.contains("run: python tools/licensing/check.py"),
         "licensing workflow must run its distribution check"
     );
+    assert!(
+        workflow.contains("run: python -m unittest discover -s tools/licensing"),
+        "licensing workflow must run the checker's host-path regression tests"
+    );
 
     let checker = fs::read_to_string(root.join("tools/licensing/check.py"))
         .expect("failed to read licensing checker");
