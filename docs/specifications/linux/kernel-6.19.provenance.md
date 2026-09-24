@@ -10,8 +10,8 @@
 - Retrieved: 24 September 2026
 - Integrity: `kernel-6.19.sha256` lists the SHA-256 of every imported file,
   relative to `kernel-6.19/`.
-- License: each file carries an SPDX identifier: `GPL-2.0` (41 files),
-  `GPL-2.0-only` (25), `GPL-2.0-or-later` (11), `GPL-2.0+` (1), or
+- License: each file carries an SPDX identifier: `GPL-2.0` (42 files),
+  `GPL-2.0-only` (25), `GPL-2.0-or-later` (18), `GPL-2.0+` (1), or
   `GPL-1.0+` (1). The license texts are the kernel tree's `LICENSES/preferred/GPL-2.0`
   and `LICENSES/deprecated/GPL-1.0`. The files are reference material for an
   independent implementation; no RAX source is derived from their text.
@@ -37,6 +37,7 @@ behavior it reproduces beyond what the UAPI headers
 | Sleeping, timers, and restarts | `kernel/time/hrtimer.c`, `kernel/time/itimer.c`, `kernel/time/posix-timers.{c,h}`, `include/linux/posix-timers.h`, `kernel/time/posix-cpu-timers.c`, `kernel/time/alarmtimer.c`, `kernel/time/time.c`, `include/linux/restart_block.h` |
 | Timer, event, and signal descriptors | `fs/timerfd.c`, `fs/eventfd.c`, `fs/signalfd.c`, `fs/anon_inodes.c`, `fs/libfs.c` (`alloc_anon_inode`), `include/linux/{eventfd,timerfd}.h` (flag sets) |
 | `epoll` | `fs/eventpoll.c` |
+| Sockets | `net/socket.c`, `net/unix/af_unix.c`, `net/core/sock.c`, `net/core/scm.c`, `net/ipv4/af_inet.c`, `net/ipv6/af_inet6.c`, `include/linux/socket.h`, `include/net/sock.h` |
 | Blocking I/O, `poll`, and `select` | `fs/select.c`, `fs/pipe.c`, `drivers/tty/n_tty.c` |
 | Threads: creation, exit, and scheduling | `kernel/fork.c`, `kernel/exit.c`, `include/linux/sched/task.h`, `kernel/sched/syscalls.c` (`sched_yield`), `arch/x86/kernel/{process.c,process_64.c}`, `arch/arm64/kernel/process.c`, `arch/riscv/kernel/process.c` (`copy_thread`) |
 | Futexes and robust lists | `kernel/futex/{core.c,futex.h,syscalls.c,waitwake.c,requeue.c,pi.c}` |
