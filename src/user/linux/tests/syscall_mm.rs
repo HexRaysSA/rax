@@ -98,11 +98,19 @@ fn remove_requires_a_shared_mapping_that_may_be_written() {
         assert_eq!(h.err(Sysno::Madvise, &[pf, P, MADV_REMOVE]), EACCES);
         let sf = h.map_file(ro, P, PROT_READ, MAP_SHARED);
         assert_eq!(h.err(Sysno::Madvise, &[sf, P, MADV_REMOVE]), EACCES);
-        // A host file cannot be punched portably; the filesystem-level
-        // refusal is reported (a deliberate, documented deviation).
-        let rw = h.file("remove-rw", P as usize, 1, O_RDWR);
-        let swf = h.map_file(rw, P, RW, MAP_SHARED);
-        assert_eq!(h.err(Sysno::Madvise, &[swf, P, MADV_REMOVE]), EOPNOTSUPP);
+        // A writable shared file mapping: the file is punched (its bytes
+        // read back as zero, its size kept), through the mapping and the
+        // file alike.
+        let rw = h.file("remove-rw", 2 * P as usize, 1, O_RDWR);
+        let swf = h.map_file(rw, 2 * P, RW, MAP_SHARED);
+        assert_eq!(h.byte(swf), 1);
+        h.ok(Sysno::Madvise, &[swf, P, MADV_REMOVE]);
+        assert_eq!((h.byte(swf), h.byte(swf + P)), (0, 1));
+        let fs = h.ok(Sysno::Fstat, &[rw, h.scratch]);
+        assert_eq!(fs, 0);
+        let buf = h.scratch + 0x800;
+        assert_eq!(h.ok(Sysno::Pread64, &[rw, buf, 2, P - 1]), 2);
+        assert_eq!((h.byte(buf), h.byte(buf + 1)), (0, 1));
     });
 }
 
@@ -315,5 +323,117 @@ fn read_implies_exec_grants_exec_to_readable_mappings() {
                 .translate(after, MemoryAccessKind::Fetch)
                 .is_ok()
         );
+    });
+}
+
+const MREMAP_MAYMOVE: u64 = 1;
+const MREMAP_DONTUNMAP: u64 = 4;
+const MS_SYNC: u64 = 4;
+
+/// The whole of `/proc/self/maps`.
+fn maps(h: &mut Harness) -> String {
+    let at = h.scratch;
+    h.proc
+        .state
+        .space
+        .write_raw(at, b"/proc/self/maps\0")
+        .unwrap();
+    let fd = h.ok(Sysno::Openat, &[AT_FDCWD, at, O_RDONLY, 0]);
+    let buf = h.anon(16 * P, RW, false);
+    let n = h.ok(Sysno::Read, &[fd, buf, 16 * P]);
+    h.ok(Sysno::Close, &[fd]);
+    let mut b = vec![0u8; n as usize];
+    h.proc.state.space.read(buf, &mut b).unwrap();
+    String::from_utf8(b).unwrap()
+}
+
+#[test]
+fn shared_anonymous_memory_is_one_shmem_object() {
+    each_abi(|abi| {
+        let mut h = Harness::new(abi);
+        let s = h.anon(2 * P, RW, true);
+        let m = maps(&mut h);
+        let line = m
+            .lines()
+            .find(|l| l.starts_with(&format!("{s:08x}-")))
+            .unwrap()
+            .to_string();
+        assert!(line.contains(" rw-s 00000000 00:01 "), "{abi:?}: {line}");
+        assert!(line.ends_with(" /dev/zero (deleted)"), "{line}");
+        // mremap of zero bytes: a second mapping of the same pages, with
+        // the checks in do_mremap's order.
+        assert_eq!(
+            h.err(Sysno::Mremap, &[0x10000, 0, P, MREMAP_MAYMOVE, 0]),
+            EFAULT
+        );
+        assert_eq!(h.err(Sysno::Mremap, &[s, 0, P, 0, 0]), ENOMEM);
+        let flags = MREMAP_MAYMOVE | MREMAP_DONTUNMAP;
+        assert_eq!(h.err(Sysno::Mremap, &[s, 0, P, flags, 0]), EINVAL);
+        let d = h.ok(Sysno::Mremap, &[s + P, 0, P, MREMAP_MAYMOVE, 0]);
+        h.fill(d, 1, 0x5a);
+        assert_eq!(h.byte(s + P), 0x5a);
+        let private = h.anon(P, RW, false);
+        assert_eq!(
+            h.err(Sysno::Mremap, &[private, 0, P, MREMAP_MAYMOVE, 0]),
+            EINVAL
+        );
+        // Grown past the object: the new pages are bus errors.
+        let g = h.ok(Sysno::Mremap, &[s, 2 * P, 3 * P, MREMAP_MAYMOVE, 0]);
+        assert_eq!(h.byte(g + P), 0x5a);
+        assert_eq!(
+            h.proc
+                .state
+                .space
+                .classify_fault(g + 2 * P, MemoryAccessKind::Read),
+            crate::user::mm::FaultClass::BeyondSource
+        );
+    });
+}
+
+#[test]
+fn shared_file_mappings_are_the_files_pages() {
+    each_abi(|abi| {
+        let mut h = Harness::new(abi);
+        let fd = h.file("writeback", 2 * P as usize, b'a', O_RDWR);
+        let m = h.map_file(fd, 2 * P, RW, MAP_SHARED);
+        // Stores reach pread; pwrite reaches the mapping.
+        h.fill(m + 3, 1, b'X');
+        let buf = h.scratch + 0x800;
+        assert_eq!(h.ok(Sysno::Pread64, &[fd, buf, 1, 3]), 1);
+        assert_eq!(h.byte(buf), b'X');
+        h.proc.state.space.write_raw(buf, b"Y").unwrap();
+        assert_eq!(h.ok(Sysno::Pwrite64, &[fd, buf, 1, P + 1]), 1);
+        assert_eq!(h.byte(m + P + 1), b'Y');
+        assert_eq!(h.ok(Sysno::Msync, &[m, 2 * P, MS_SYNC]), 0);
+        // MREMAP_DONTUNMAP leaves the old range mapping the file.
+        let flags = MREMAP_MAYMOVE | MREMAP_DONTUNMAP;
+        let moved = h.ok(Sysno::Mremap, &[m, 2 * P, 2 * P, flags, 0]);
+        assert_eq!((h.byte(moved + 3), h.byte(m + 3)), (b'X', b'X'), "{abi:?}");
+        // Truncation drops the pages past the new end (ftruncate).
+        h.ok(Sysno::Ftruncate, &[fd, P]);
+        let space = &h.proc.state.space;
+        assert_eq!(
+            space.classify_fault(moved + P, MemoryAccessKind::Read),
+            crate::user::mm::FaultClass::BeyondSource
+        );
+        assert!(space.read(moved + P, &mut [0u8]).is_err());
+        assert_eq!(h.byte(moved + 3), b'X');
+        // ...and through truncate(2) and O_TRUNC.
+        h.ok(Sysno::Ftruncate, &[fd, 2 * P]);
+        assert_eq!(h.byte(moved + P + 1), 0);
+        let path = h.scratch + 0x100;
+        let host = std::env::temp_dir().join(format!(
+            "rax-user-mm-{}-writeback-{abi:?}",
+            std::process::id()
+        ));
+        let name = format!("{}\0", host.display());
+        h.proc.state.space.write_raw(path, name.as_bytes()).unwrap();
+        h.ok(Sysno::Truncate, &[path, P]);
+        assert!(h.proc.state.space.read(moved + P, &mut [0u8]).is_err());
+        h.ok(Sysno::Ftruncate, &[fd, 2 * P]);
+        assert_eq!(h.byte(moved + P), 0);
+        let again = h.ok(Sysno::Openat, &[AT_FDCWD, path, O_RDWR | 0o1000, 0]);
+        assert!(h.proc.state.space.read(moved, &mut [0u8]).is_err());
+        h.ok(Sysno::Close, &[again]);
     });
 }

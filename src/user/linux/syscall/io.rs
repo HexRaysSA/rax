@@ -7,6 +7,7 @@ use std::time::{Duration, Instant};
 use super::super::abi::errno::Errno;
 use super::super::abi::errno_table::*;
 use super::super::abi::open::*;
+use super::super::fs;
 use super::super::fs::fd::{FileObject, FileType, OpenFile};
 use super::super::host;
 use super::super::signal::deliver::restart::{ERESTART_RESTARTBLOCK, ERESTARTNOHAND, ERESTARTSYS};
@@ -1450,7 +1451,11 @@ pub fn ftruncate(c: &mut Ctx<'_>, fd: i32, len: i64) -> SysResult {
         return Err(Errno(EINVAL));
     }
     match &file.object {
-        FileObject::Host(f) => f.set_len(len as u64).map(|_| 0).map_err(Errno::from),
+        FileObject::Host(f) => {
+            f.set_len(len as u64)?;
+            c.p.space.truncated(fs::identity(f)?, len as u64);
+            Ok(0)
+        }
         _ => Err(Errno(EINVAL)),
     }
 }

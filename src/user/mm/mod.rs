@@ -8,11 +8,13 @@
 //! - a lock-free [`pagetable`] caching the frames of pages that have been
 //!   touched, so a CPU's translation is a few atomic loads;
 //! - a [`FrameArena`] of host-backed 4 KiB frames addressed as guest-physical
-//!   memory.
+//!   memory, and of extents where shared objects are attached.
 //!
 //! Pages are populated on first touch, as with demand paging: an access to
 //! a mapped but unpopulated page allocates a zeroed frame and fills it from
-//! the range's [`Backing`]. Faults are classified exactly as Linux does:
+//! the range's [`Backing`]; a page of a shared object is instead the
+//! object's own page, in an extent of the object attached to the arena and
+//! shared by every page (of any mapping) that lies in it. Faults are classified exactly as Linux does:
 //! an address outside every VMA is *unmapped* (`SEGV_MAPERR`), an access the
 //! VMA's permissions forbid is a *permission* fault (`SEGV_ACCERR`), and a
 //! file-backed page wholly past end of file is a bus error (`SIGBUS`).
@@ -38,16 +40,18 @@
 mod arena;
 mod backing;
 pub mod pagetable;
+mod shared;
 mod vma;
 
 #[cfg(test)]
 mod tests;
 
-pub use arena::FrameArena;
+pub use arena::{EXTENT, FrameArena};
 pub use backing::{Backing, BytesSource, HostFileSource, PageSource, SourceIdentity};
+pub use shared::SharedObject;
 pub use vma::{Vma, VmaMap};
 
-use std::collections::VecDeque;
+use std::collections::{BTreeMap, HashMap, VecDeque};
 use std::fmt;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex, MutexGuard};
@@ -199,6 +203,28 @@ struct CodeLog {
     entries: VecDeque<(u64, u64)>,
 }
 
+/// An object extent attached to the arena.
+#[derive(Debug)]
+struct Attached {
+    /// The object's identity and the extent's offset in it.
+    key: (u64, u64, u64),
+    /// The object (kept open while attached).
+    object: Arc<SharedObject>,
+    /// Pages pointing into the extent.
+    refs: u64,
+    /// Attached for writing.
+    writable: bool,
+}
+
+/// The attached extents: by object extent, and by arena address.
+#[derive(Debug, Default)]
+struct Extents {
+    by_key: HashMap<(u64, u64, u64), u64>,
+    at: BTreeMap<u64, Attached>,
+    /// Pages pointing into any extent.
+    pages: u64,
+}
+
 struct Inner {
     va_limit: u64,
     arena: FrameArena,
@@ -206,6 +232,7 @@ struct Inner {
     vmas: Mutex<VmaMap>,
     code: Mutex<CodeLog>,
     epoch: AtomicU64,
+    extents: Mutex<Extents>,
 }
 
 /// A guest process's user address space. Clones share the same space.
@@ -268,6 +295,7 @@ impl AddressSpace {
                     entries: VecDeque::new(),
                 }),
                 epoch: AtomicU64::new(0),
+                extents: Mutex::new(Extents::default()),
             }),
         })
     }
@@ -283,9 +311,15 @@ impl AddressSpace {
         self.inner.arena.memory()
     }
 
-    /// Frames currently populated.
+    /// Pages currently populated: private frames and pages of attached
+    /// shared objects.
     pub fn resident_pages(&self) -> u64 {
-        self.inner.arena.frames_in_use()
+        self.inner.arena.frames_in_use() + self.inner.extents.lock().unwrap().pages
+    }
+
+    /// Host extents attached for shared objects.
+    pub fn attached_extents(&self) -> usize {
+        self.inner.extents.lock().unwrap().at.len()
     }
 
     /// Whether two handles refer to the same address space.
@@ -438,17 +472,135 @@ impl AddressSpace {
         addr < self.inner.va_limit && self.inner.table.get(addr >> 12) & PTE_VALID != 0
     }
 
-    /// Frees every populated frame in `[start, end)`. Caller holds the VMA lock.
+    /// Frees every populated frame in `[start, end)`, and drops the pages'
+    /// references to attached extents. Caller holds the VMA lock.
     fn release_pages(&self, start: u64, end: u64) {
         let arena = &self.inner.arena;
+        let mut shared = Vec::new();
         self.inner
             .table
             .for_each_populated(start >> 12, end >> 12, |_, slot| {
                 let pte = slot.swap(0, Ordering::AcqRel);
                 if pte & PTE_VALID != 0 {
-                    arena.free(pte & PTE_FRAME);
+                    let frame = pte & PTE_FRAME;
+                    if arena.is_extent(frame) {
+                        shared.push(frame & !(EXTENT - 1));
+                    } else {
+                        arena.free(frame);
+                    }
                 }
             });
+        if !shared.is_empty() {
+            let mut ext = self.inner.extents.lock().unwrap();
+            for base in shared {
+                self.unref_extent(&mut ext, base);
+            }
+        }
+    }
+
+    /// Drops one page's reference to the extent at `base`, detaching it
+    /// when none is left.
+    fn unref_extent(&self, ext: &mut Extents, base: u64) {
+        ext.pages -= 1;
+        let Some(a) = ext.at.get_mut(&base) else {
+            return;
+        };
+        a.refs -= 1;
+        if a.refs == 0 {
+            let key = a.key;
+            ext.at.remove(&base);
+            ext.by_key.remove(&key);
+            #[cfg(unix)]
+            self.inner.arena.detach(base);
+            self.inner.arena.free_extent(base);
+        }
+    }
+
+    /// The arena address of the extent of `object` holding byte `offset`,
+    /// attached if it is not yet (and re-attached for writing if the object
+    /// can be written and was attached read-only), with a page's reference
+    /// added.
+    fn ref_extent(&self, object: &Arc<SharedObject>, offset: u64) -> Result<u64, MmError> {
+        let id = object.identity();
+        let start = offset & !(EXTENT - 1);
+        let key = (id.dev, id.ino, start);
+        let mut ext = self.inner.extents.lock().unwrap();
+        let arena = &self.inner.arena;
+        if let Some(&base) = ext.by_key.get(&key) {
+            let a = ext.at.get_mut(&base).expect("keyed extents are attached");
+            if object.writable() && !a.writable {
+                attach(arena, base, object, start)?;
+                a.object = object.clone();
+                a.writable = true;
+            }
+            a.refs += 1;
+            ext.pages += 1;
+            return Ok(base);
+        }
+        let base = arena.alloc_extent()?;
+        if let Err(e) = attach(arena, base, object, start) {
+            arena.free_extent(base);
+            return Err(e);
+        }
+        ext.by_key.insert(key, base);
+        ext.at.insert(
+            base,
+            Attached {
+                key,
+                object: object.clone(),
+                refs: 1,
+                writable: object.writable(),
+            },
+        );
+        ext.pages += 1;
+        Ok(base)
+    }
+
+    /// Object `id` was truncated to `size` bytes: the pages of shared
+    /// mappings of it that now lie wholly past its end are dropped, so the
+    /// next access is a bus error, as after Linux's `truncate_pagecache`
+    /// (and never a touch of a host page the object no longer has).
+    pub fn truncated(&self, id: SourceIdentity, size: u64) {
+        let vmas = self.vmas();
+        let keep = size.div_ceil(PAGE_SIZE) * PAGE_SIZE;
+        let gone: Vec<(u64, u64)> = vmas
+            .iter()
+            .filter_map(|v| match &v.backing {
+                Backing::Shared { object, offset } if object.identity() == id => {
+                    let first = if *offset >= keep {
+                        v.start
+                    } else {
+                        v.start.saturating_add(keep - offset)
+                    };
+                    (first < v.end).then_some((first, v.end))
+                }
+                _ => None,
+            })
+            .collect();
+        for (start, end) in gone {
+            self.release_pages(start, end);
+        }
+    }
+
+    /// Writes the modified pages of the shared objects mapped in
+    /// `[start, start + len)` to them (`msync` with `MS_SYNC`).
+    pub fn sync(&self, start: u64, len: u64) -> std::io::Result<()> {
+        let end = start.saturating_add(len).min(self.inner.va_limit);
+        let arena = &self.inner.arena;
+        let mut bases = std::collections::BTreeSet::new();
+        self.inner
+            .table
+            .for_each_populated(start >> 12, end.div_ceil(PAGE_SIZE), |_, slot| {
+                let pte = slot.load(Ordering::Acquire);
+                if pte & PTE_VALID != 0 && arena.is_extent(pte & PTE_FRAME) {
+                    bases.insert((pte & PTE_FRAME) & !(EXTENT - 1));
+                }
+            });
+        #[cfg(unix)]
+        for base in bases {
+            arena.sync(base)?;
+        }
+        Ok(())
     }
 
     // ------------------------------------------------------------------
@@ -506,9 +658,9 @@ impl AddressSpace {
         if !vma.perms.allows(access) {
             return FaultClass::Protection;
         }
-        if let Backing::Source { source, offset } = &vma.backing {
-            let file_offset = offset + ((addr & !PAGE_MASK) - vma.start);
-            if file_offset >= source.len().div_ceil(PAGE_SIZE) * PAGE_SIZE {
+        if let Some(end) = vma.backing.end() {
+            let file_offset = vma.backing.offset() + ((addr & !PAGE_MASK) - vma.start);
+            if file_offset >= end {
                 return FaultClass::BeyondSource;
             }
         }
@@ -552,12 +704,37 @@ impl AddressSpace {
         }
         let pte = self.inner.table.get(addr >> 12);
         if pte & PTE_VALID != 0 {
-            if access == MemoryAccessKind::Write && pte & u64::from(Perms::EXEC.bits()) != 0 {
-                self.log_code_change(addr & !PAGE_MASK, PAGE_SIZE);
+            if access == MemoryAccessKind::Write {
+                self.check_raw_write(addr, pte & PTE_FRAME)?;
+                if pte & u64::from(Perms::EXEC.bits()) != 0 {
+                    self.log_code_change(addr & !PAGE_MASK, PAGE_SIZE);
+                }
             }
             return Ok((pte & PTE_FRAME) | (addr & PAGE_MASK));
         }
-        self.populate(addr, access, true)
+        let pa = self.populate(addr, access, true)?;
+        if access == MemoryAccessKind::Write {
+            self.check_raw_write(addr, pa & !PAGE_MASK)?;
+        }
+        Ok(pa)
+    }
+
+    /// A write ignoring permissions still cannot store into a shared
+    /// object attached read-only (a file not open for writing): as a
+    /// forced write to such a mapping, it is refused.
+    fn check_raw_write(&self, addr: u64, frame: u64) -> Result<(), GuestMemoryFault> {
+        if !self.inner.arena.is_extent(frame) {
+            return Ok(());
+        }
+        let ext = self.inner.extents.lock().unwrap();
+        match ext.at.get(&(frame & !(EXTENT - 1))) {
+            Some(a) if !a.writable => Err(fault(
+                addr,
+                MemoryAccessKind::Write,
+                MemoryFaultKind::Permission,
+            )),
+            _ => Ok(()),
+        }
     }
 
     #[cold]
@@ -582,6 +759,21 @@ impl AddressSpace {
             return Ok((existing & PTE_FRAME) | (addr & PAGE_MASK));
         }
         let arena = &self.inner.arena;
+        if let Backing::Shared { object, offset } = &vma.backing {
+            let file_offset = offset + (page - vma.start);
+            if vma.backing.end().is_some_and(|end| file_offset >= end) {
+                return Err(fault(addr, access, MemoryFaultKind::Other));
+            }
+            let base = self
+                .ref_extent(object, file_offset)
+                .map_err(|_| fault(addr, access, MemoryFaultKind::Other))?;
+            let frame = base + (file_offset & (EXTENT - 1));
+            slot.store(make_pte(frame, vma.perms), Ordering::Release);
+            if access == MemoryAccessKind::Write && vma.perms.contains(Perms::EXEC) {
+                self.log_code_change(page, PAGE_SIZE);
+            }
+            return Ok(frame | (addr & PAGE_MASK));
+        }
         let frame = arena
             .alloc_zeroed()
             .map_err(|_| fault(addr, access, MemoryFaultKind::Other))?;
@@ -772,6 +964,27 @@ impl AddressSpace {
             CodeChanges::Ranges(log.entries.iter().skip(skip).copied().collect()),
             now,
         )
+    }
+}
+
+/// Attaches the extent of `object` at `start` over arena extent `base`.
+fn attach(arena: &FrameArena, base: u64, object: &SharedObject, start: u64) -> Result<(), MmError> {
+    #[cfg(unix)]
+    {
+        use std::os::fd::AsRawFd;
+        arena
+            .attach(
+                base,
+                object.host_file().as_raw_fd(),
+                start,
+                object.writable(),
+            )
+            .map_err(|_| MmError::OutOfMemory)
+    }
+    #[cfg(not(unix))]
+    {
+        let _ = (arena, base, object, start);
+        Err(MmError::OutOfMemory)
     }
 }
 

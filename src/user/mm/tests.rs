@@ -819,3 +819,166 @@ fn randomized_operations_match_a_reference_model() {
         assert!(s.resident_pages() <= mapped);
     }
 }
+
+// ------------------------------------------------------- Shared objects
+
+#[cfg(unix)]
+mod shared_objects {
+    use super::*;
+    use std::os::unix::fs::FileExt;
+
+    fn space() -> AddressSpace {
+        AddressSpace::new(SpaceConfig {
+            va_limit: 1 << 47,
+            arena_bytes: 16 << 20,
+            reserved_phys: vec![],
+        })
+        .unwrap()
+    }
+
+    /// A temporary host file holding `bytes`, open for reading and writing.
+    fn file(tag: &str, bytes: &[u8]) -> (std::path::PathBuf, std::fs::File) {
+        let path = std::env::temp_dir().join(format!("rax-mm-{}-{tag}", std::process::id()));
+        std::fs::write(&path, bytes).unwrap();
+        let f = std::fs::OpenOptions::new()
+            .read(true)
+            .write(true)
+            .open(&path)
+            .unwrap();
+        (path, f)
+    }
+
+    fn shared(object: &Arc<SharedObject>, offset: u64, perms: Perms) -> Mapping {
+        Mapping {
+            perms,
+            backing: Backing::Shared {
+                object: object.clone(),
+                offset,
+            },
+            shared: true,
+            name: None,
+            flags: 0,
+        }
+    }
+
+    fn byte(s: &AddressSpace, addr: u64) -> u8 {
+        let mut b = [0u8];
+        s.read(addr, &mut b).unwrap();
+        b[0]
+    }
+
+    #[test]
+    fn shared_file_pages_are_the_files_own() {
+        let (path, f) = file("own", &[0x11; 3 * P as usize]);
+        let s = space();
+        let obj = Arc::new(SharedObject::file(f.try_clone().unwrap(), true).unwrap());
+        // Pages at file offsets P, 2P, and 3P (past the end).
+        s.map(0x10000, 3 * P, shared(&obj, P, RW)).unwrap();
+        assert_eq!(byte(&s, 0x10000), 0x11);
+        // Stores reach the file; the file's changes reach the mapping.
+        s.write(0x10000, &[0xaa]).unwrap();
+        assert_eq!(std::fs::read(&path).unwrap()[P as usize], 0xaa);
+        f.write_all_at(&[0xbb], P + 1).unwrap();
+        assert_eq!(byte(&s, 0x10001), 0xbb);
+        // A second mapping of the object shares the pages and the extent.
+        s.map(0x40000, P, shared(&obj, P, Perms::READ)).unwrap();
+        assert_eq!(byte(&s, 0x40000), 0xaa);
+        assert_eq!(s.attached_extents(), 1);
+        assert_eq!(s.resident_pages(), 2);
+        s.sync(0x10000, 3 * P).unwrap();
+        // A page wholly past the end is a bus error.
+        let mut b = [0u8];
+        assert!(s.read(0x10000 + 2 * P, &mut b).is_err());
+        assert_eq!(
+            s.classify_fault(0x10000 + 2 * P, MemoryAccessKind::Read),
+            FaultClass::BeyondSource
+        );
+        // Once no page points into it, the extent is detached; the file
+        // keeps the stores.
+        s.unmap(0x10000, 3 * P).unwrap();
+        assert_eq!(s.attached_extents(), 1);
+        s.unmap(0x40000, P).unwrap();
+        assert_eq!((s.attached_extents(), s.resident_pages()), (0, 0));
+        assert_eq!(std::fs::read(&path).unwrap()[P as usize], 0xaa);
+        let _ = std::fs::remove_file(path);
+    }
+
+    #[test]
+    fn read_only_objects_refuse_every_store() {
+        let (path, _) = file("ro", &[0x22; P as usize]);
+        let ro = std::fs::File::open(&path).unwrap();
+        let s = space();
+        let obj = Arc::new(SharedObject::file(ro, false).unwrap());
+        s.map(0x10000, P, shared(&obj, 0, Perms::READ)).unwrap();
+        assert_eq!(byte(&s, 0x10000), 0x22);
+        // A forced write cannot store into a file not open for writing.
+        let err = s.write_raw(0x10000, &[1]).unwrap_err();
+        assert_eq!(err.kind, MemoryFaultKind::Permission);
+        assert!(s.write(0x10000, &[1]).is_err());
+        // Nor before the page is populated.
+        let s2 = space();
+        s2.map(0x10000, P, shared(&obj, 0, Perms::READ)).unwrap();
+        assert!(s2.write_raw(0x10000, &[1]).is_err());
+        assert_eq!(std::fs::read(&path).unwrap()[0], 0x22);
+        let _ = std::fs::remove_file(path);
+    }
+
+    #[test]
+    fn a_read_only_extent_is_reattached_for_writing() {
+        let (path, f) = file("upgrade", &[0x33; P as usize]);
+        let ro = std::fs::File::open(&path).unwrap();
+        let s = space();
+        let r = Arc::new(SharedObject::file(ro, false).unwrap());
+        let w = Arc::new(SharedObject::file(f, true).unwrap());
+        s.map(0x10000, P, shared(&r, 0, Perms::READ)).unwrap();
+        assert_eq!(byte(&s, 0x10000), 0x33);
+        s.map(0x20000, P, shared(&w, 0, RW)).unwrap();
+        s.write(0x20000, &[0x44]).unwrap();
+        // One extent, now writable, seen through both mappings.
+        assert_eq!(s.attached_extents(), 1);
+        assert_eq!(byte(&s, 0x10000), 0x44);
+        let _ = std::fs::remove_file(path);
+    }
+
+    #[test]
+    fn anonymous_objects_are_zero_and_shared_between_mappings() {
+        let s = space();
+        let obj = Arc::new(SharedObject::anonymous(2 * P).unwrap());
+        s.map(0x10000, 2 * P, shared(&obj, 0, RW)).unwrap();
+        s.map(0x30000, 2 * P, shared(&obj, 0, RW)).unwrap();
+        assert_eq!(byte(&s, 0x10000 + P), 0);
+        s.write(0x10000 + P, &[7]).unwrap();
+        assert_eq!(byte(&s, 0x30000 + P), 7);
+        // A moved range keeps its pages.
+        s.remap(0x10000, 2 * P, 0x50000).unwrap();
+        assert_eq!(byte(&s, 0x50000 + P), 7);
+        s.write(0x50000, &[9]).unwrap();
+        assert_eq!(byte(&s, 0x30000), 9);
+        // Discarding re-reads the object: shared contents stay.
+        s.discard(0x50000, 2 * P).unwrap();
+        assert_eq!(byte(&s, 0x50000), 9);
+        assert_eq!(s.attached_extents(), 1);
+    }
+
+    #[test]
+    fn extents_and_frames_share_the_arena_without_overlap() {
+        let arena = FrameArena::new(2 * EXTENT, &[]).unwrap();
+        let e = arena.alloc_extent().unwrap();
+        assert_eq!(e, EXTENT);
+        assert!(arena.is_extent(e) && !arena.is_extent(e - P));
+        // The frames below fill up to the extent, not into it.
+        let frames: Vec<u64> = (0..EXTENT / P)
+            .map(|_| arena.alloc_zeroed().unwrap())
+            .collect();
+        assert!(frames.iter().all(|&f| f < e));
+        assert!(arena.alloc_zeroed().is_err());
+        assert!(arena.alloc_extent().is_err());
+        // A freed extent is reused.
+        arena.free_extent(e);
+        assert_eq!(arena.alloc_extent().unwrap(), e);
+        // An arena smaller than an extent still hands out frames.
+        let small = FrameArena::new(4 * P, &[]).unwrap();
+        assert!(small.alloc_zeroed().is_ok());
+        assert!(small.alloc_extent().is_err());
+    }
+}

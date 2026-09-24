@@ -15,7 +15,9 @@ use super::super::fs::fd::{FileObject, FileType};
 use super::super::loader::prot_to_perms;
 use super::{Ctx, SysResult};
 use crate::error::MemoryAccessKind;
-use crate::user::mm::{Backing, FaultClass, HostFileSource, Mapping, MmError, PageSource, Perms};
+use crate::user::mm::{
+    Backing, FaultClass, HostFileSource, Mapping, MmError, PageSource, Perms, SharedObject,
+};
 
 /// `mmap`/`mprotect` constants (`asm-generic/mman-common.h`, `mman.h`).
 pub mod mman {
@@ -247,19 +249,33 @@ pub fn mmap(
                     }
                     vm_flags |= vma_flags::DENY_WRITE;
                 }
-                let source: Arc<dyn PageSource> =
-                    Arc::new(HostFileSource::new(f.try_clone()?).map_err(Errno::from)?);
-                backing = Backing::Source {
-                    source,
-                    offset: off,
+                backing = if shared && file.ftype == FileType::Regular {
+                    // The file's own pages (write-back and coherence).
+                    let object =
+                        SharedObject::file(f.try_clone()?, file.writable()).map_err(Errno::from)?;
+                    Backing::Shared {
+                        object: Arc::new(object),
+                        offset: off,
+                    }
+                } else {
+                    let source: Arc<dyn PageSource> =
+                        Arc::new(HostFileSource::new(f.try_clone()?).map_err(Errno::from)?);
+                    Backing::Source {
+                        source,
+                        offset: off,
+                    }
                 };
                 name = Some(match &file.host_path {
                     Some(h) => c.p.vfs.guest_path_of(h).into(),
                     None => file.path.as_str().into(),
                 });
             }
-            // /dev/zero maps anonymous memory.
-            (FileObject::Host(_), FileType::CharDevice) if file.path.ends_with("/dev/zero") => {}
+            // /dev/zero maps anonymous memory (shared: shmem_zero_setup).
+            (FileObject::Host(_), FileType::CharDevice) if file.path.ends_with("/dev/zero") => {
+                if shared {
+                    (backing, name) = shmem(len)?;
+                }
+            }
             (FileObject::Synthetic(d), FileType::Regular) => {
                 backing = Backing::Source {
                     source: Arc::new(crate::user::mm::BytesSource::new(d.clone())),
@@ -272,6 +288,8 @@ pub fn mmap(
     } else if flags & MAP_HUGETLB != 0 {
         // No huge pages are reserved (vm.nr_hugepages = 0).
         return Err(Errno(ENOMEM));
+    } else if shared {
+        (backing, name) = shmem(len)?;
     }
 
     let task = c.p.abi.task_size();
@@ -306,6 +324,19 @@ pub fn mmap(
         )
         .map_err(map_err)?;
     Ok(start)
+}
+
+/// Anonymous shared memory of `len` bytes (`shmem_zero_setup`): a new
+/// object, named as `/proc/<pid>/maps` shows it.
+fn shmem(len: u64) -> Result<(Backing, Option<Arc<str>>), Errno> {
+    let object = SharedObject::anonymous(len).map_err(|_| Errno(ENOMEM))?;
+    Ok((
+        Backing::Shared {
+            object: Arc::new(object),
+            offset: 0,
+        },
+        Some("/dev/zero (deleted)".into()),
+    ))
 }
 
 /// `munmap`.
@@ -428,14 +459,16 @@ pub fn mremap(
     if flags & MREMAP_DONTUNMAP != 0 && old_len != new_len {
         return Err(Errno(EINVAL));
     }
-    // Duplicating a mapping (old_len == 0) requires a shared mapping whose
-    // pages two addresses can share; the frame model keeps one address per
-    // frame.
-    if old_len == 0 {
-        return Err(Errno(EINVAL));
-    }
     let task = c.p.abi.task_size();
     let vma = c.p.space.vma_at(old).ok_or(Errno(EFAULT))?;
+    // Duplicating a mapping (old_len == 0): only a shared one, whose pages
+    // the new mapping shares (mremap_to or a new area).
+    if old_len == 0 {
+        if !vma.shared {
+            return Err(Errno(EINVAL));
+        }
+        return duplicate(c, old, new_len, flags, new_addr, &vma);
+    }
     if old.checked_add(old_len).is_none_or(|end| end > vma.end) {
         return Err(Errno(EFAULT));
     }
@@ -508,6 +541,54 @@ pub fn mremap(
     Ok(dest)
 }
 
+/// `mremap` of zero bytes of a shared mapping: a second mapping of the
+/// same pages from `old`, at `new_addr` (`MREMAP_FIXED`) or a free area
+/// (`MREMAP_MAYMOVE`); without either it cannot grow in place (`ENOMEM`).
+fn duplicate(
+    c: &mut Ctx<'_>,
+    old: u64,
+    new_len: u64,
+    flags: u32,
+    new_addr: u64,
+    vma: &crate::user::mm::Vma,
+) -> SysResult {
+    const MREMAP_MAYMOVE: u32 = 1;
+    const MREMAP_FIXED: u32 = 2;
+    const MREMAP_DONTUNMAP: u32 = 4;
+    if flags & MREMAP_DONTUNMAP != 0 {
+        return Err(Errno(EINVAL));
+    }
+    if flags & MREMAP_MAYMOVE == 0 {
+        return Err(Errno(ENOMEM));
+    }
+    let task = c.p.abi.task_size();
+    let dest = if flags & MREMAP_FIXED != 0 {
+        if new_addr & PAGE_MASK != 0 || new_len > task || new_addr > task - new_len {
+            return Err(Errno(EINVAL));
+        }
+        if new_addr < MMAP_MIN_ADDR {
+            return Err(Errno(EPERM));
+        }
+        new_addr
+    } else {
+        unmapped_area(c, 0, new_len, 0)?
+    };
+    c.p.space
+        .map(
+            dest,
+            new_len,
+            Mapping {
+                perms: vma.perms,
+                backing: vma.backing.advanced(old - vma.start),
+                shared: true,
+                name: vma.name.clone(),
+                flags: vma.flags,
+            },
+        )
+        .map_err(map_err)?;
+    Ok(dest)
+}
+
 /// Moves pages, optionally leaving an empty mapping behind
 /// (`MREMAP_DONTUNMAP`).
 fn move_range(
@@ -520,13 +601,20 @@ fn move_range(
 ) -> Result<(), Errno> {
     c.p.space.remap(old, len, dest).map_err(map_err)?;
     if dontunmap {
+        // The range stays mapped, emptied: private memory reads as zero, a
+        // shared mapping faults the object's pages in again.
+        let backing = if vma.shared {
+            vma.backing.advanced(old - vma.start)
+        } else {
+            Backing::Anonymous
+        };
         c.p.space
             .map(
                 old,
                 len,
                 Mapping {
                     perms: vma.perms,
-                    backing: Backing::Anonymous,
+                    backing,
                     shared: vma.shared,
                     name: vma.name.clone(),
                     flags: vma.flags,
@@ -608,7 +696,11 @@ pub fn madvise(c: &mut Ctx<'_>, addr: u64, len: u64, advice: u32) -> SysResult {
         hole |= vma.start > cursor;
         let (lo, hi) = (vma.start.max(addr), vma.end.min(end));
         cursor = hi;
-        let anonymous = matches!(vma.backing, Backing::Anonymous);
+        let anonymous = match &vma.backing {
+            Backing::Anonymous => true,
+            Backing::Shared { object, .. } => object.is_anonymous(),
+            Backing::Source { .. } => false,
+        };
         let discard = match advice {
             // Private pages are dropped: the next touch sees zero (anonymous)
             // or the file. Shared pages live on in the page cache or shmem,
@@ -619,18 +711,23 @@ pub fn madvise(c: &mut Ctx<'_>, addr: u64, len: u64, advice: u32) -> SysResult {
             // outcome.
             MADV_FREE if !anonymous || vma.shared => return Err(Errno(EINVAL)),
             MADV_FREE => true,
-            // `madvise_remove`: punches a hole in the file behind a shared
-            // mapping that may be written (private anonymous memory has no
-            // file). Shared anonymous memory is shmem, so its pages read
-            // back as zero; host files would need `fallocate(PUNCH_HOLE)`,
-            // which is not portable, so they report the filesystem-level
-            // EOPNOTSUPP.
+            // `madvise_remove`: punches a hole in the object behind a
+            // shared mapping that may be written (private anonymous memory
+            // has no file), so its pages read back as zero; the object's
+            // bytes are zeroed, its size kept (FALLOC_FL_KEEP_SIZE).
             MADV_REMOVE if anonymous && !vma.shared => return Err(Errno(EINVAL)),
             MADV_REMOVE if !vma.shared || vma.flags & vma_flags::DENY_WRITE != 0 => {
                 return Err(Errno(EACCES));
             }
-            MADV_REMOVE if !anonymous => return Err(Errno(EOPNOTSUPP)),
-            MADV_REMOVE => true,
+            MADV_REMOVE => match &vma.backing {
+                Backing::Shared { object, offset } => {
+                    let at = offset + (lo - vma.start);
+                    object.zero_range(at, hi - lo).map_err(Errno::from)?;
+                    false
+                }
+                // A shared mapping of a device.
+                _ => return Err(Errno(EOPNOTSUPP)),
+            },
             _ => false,
         };
         if discard {
@@ -657,6 +754,11 @@ pub fn msync(c: &mut Ctx<'_>, addr: u64, len: u64, flags: u32) -> SysResult {
     let len = page_align(len).ok_or(Errno(ENOMEM))?;
     if len != 0 && c.p.space.first_unmapped(addr, len).is_some() {
         return Err(Errno(ENOMEM));
+    }
+    // The pages are the objects' own; MS_SYNC writes them out
+    // (vfs_fsync_range), MS_ASYNC and MS_INVALIDATE have nothing to do.
+    if flags & MS_SYNC != 0 && len != 0 {
+        c.p.space.sync(addr, len).map_err(Errno::from)?;
     }
     Ok(0)
 }

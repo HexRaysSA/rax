@@ -4,6 +4,7 @@ use std::fmt;
 use std::sync::Arc;
 
 use super::PAGE_SIZE;
+use super::shared::SharedObject;
 
 /// Identity of a mapped object, shown in `/proc/self/maps`.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
@@ -146,6 +147,12 @@ pub enum Backing {
         source: Arc<dyn PageSource>,
         offset: u64,
     },
+    /// The pages of a shared object themselves; the range's first byte is
+    /// at `offset`.
+    Shared {
+        object: Arc<SharedObject>,
+        offset: u64,
+    },
 }
 
 impl Backing {
@@ -155,6 +162,10 @@ impl Backing {
             Backing::Anonymous => Backing::Anonymous,
             Backing::Source { source, offset } => Backing::Source {
                 source: source.clone(),
+                offset: offset + delta,
+            },
+            Backing::Shared { object, offset } => Backing::Shared {
+                object: object.clone(),
                 offset: offset + delta,
             },
         }
@@ -172,7 +183,24 @@ impl Backing {
                     offset: next_offset,
                 },
             ) => Arc::ptr_eq(source, next_source) && offset + len == *next_offset,
+            (
+                Backing::Shared { object, offset },
+                Backing::Shared {
+                    object: next_object,
+                    offset: next_offset,
+                },
+            ) => Arc::ptr_eq(object, next_object) && offset + len == *next_offset,
             _ => false,
+        }
+    }
+
+    /// The object's size a page lies beyond when an access to it is a bus
+    /// error: the source's or shared object's size, rounded up to a page.
+    pub fn end(&self) -> Option<u64> {
+        match self {
+            Backing::Anonymous => None,
+            Backing::Source { source, .. } => Some(source.len().div_ceil(PAGE_SIZE) * PAGE_SIZE),
+            Backing::Shared { object, .. } => Some(object.len().div_ceil(PAGE_SIZE) * PAGE_SIZE),
         }
     }
 
@@ -196,6 +224,15 @@ impl Backing {
                 page[n..].fill(0);
                 Ok(true)
             }
+            Backing::Shared { object, offset } => {
+                let file_offset = offset + delta;
+                if file_offset >= object.len().div_ceil(PAGE_SIZE) * PAGE_SIZE {
+                    return Ok(false);
+                }
+                let n = object.read_at(file_offset, page)?;
+                page[n..].fill(0);
+                Ok(true)
+            }
         }
     }
 
@@ -204,6 +241,7 @@ impl Backing {
         match self {
             Backing::Anonymous => SourceIdentity::default(),
             Backing::Source { source, .. } => source.identity(),
+            Backing::Shared { object, .. } => object.identity(),
         }
     }
 
@@ -211,7 +249,7 @@ impl Backing {
     pub fn offset(&self) -> u64 {
         match self {
             Backing::Anonymous => 0,
-            Backing::Source { offset, .. } => *offset,
+            Backing::Source { offset, .. } | Backing::Shared { offset, .. } => *offset,
         }
     }
 }

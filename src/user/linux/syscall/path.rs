@@ -343,6 +343,9 @@ fn open_target(
             }
             opts.custom_flags(custom);
             let file = opts.open(&host)?;
+            if flags & O_TRUNC != 0 && file.metadata().is_ok_and(|m| m.is_file()) {
+                c.p.space.truncated(fs::identity(&file)?, 0);
+            }
             let ftype = fs::file_type_of(&file.metadata()?);
             if flags & layout.directory != 0 && ftype != FileType::Directory {
                 return Err(Errno(ENOTDIR));
@@ -727,10 +730,9 @@ pub fn truncate(c: &mut Ctx<'_>, path: u64, len: i64) -> SysResult {
     if std::fs::metadata(&host)?.is_dir() {
         return Err(Errno(EISDIR));
     }
-    std::fs::OpenOptions::new()
-        .write(true)
-        .open(&host)?
-        .set_len(len as u64)?;
+    let f = std::fs::OpenOptions::new().write(true).open(&host)?;
+    f.set_len(len as u64)?;
+    c.p.space.truncated(fs::identity(&f)?, len as u64);
     Ok(0)
 }
 

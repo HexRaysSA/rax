@@ -71,12 +71,12 @@ pub fn maps(p: &ProcState) -> Vec<u8> {
     let mut out = String::new();
     for v in p.space.vma_snapshot() {
         let id = v.backing.identity();
-        let offset = match v.backing {
-            Backing::Anonymous => 0,
-            Backing::Source { offset, .. } => offset,
+        let offset = v.backing.offset();
+        let (major, minor) = match &v.backing {
+            // Anonymous shared memory is a shmem inode (device 0:1).
+            Backing::Shared { object, .. } if object.is_anonymous() => (0, 1),
+            _ => (((id.dev >> 8) & 0xfff) as u32, (id.dev & 0xff) as u32),
         };
-        let major = ((id.dev >> 8) & 0xfff) as u32;
-        let minor = (id.dev & 0xff) as u32;
         let mut line = format!(
             "{:08x}-{:08x} {}{}{}{} {:08x} {:02x}:{:02x} {} ",
             v.start,

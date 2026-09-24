@@ -20,6 +20,7 @@ events   events   -
 epoll    epoll    -
 sockets  sockets  -
 sockmsg  sockmsg  -
+shmem    shmem    -
 stdin    stdin    input/fox.txt
 segv     segv     -
 abort    abort    -

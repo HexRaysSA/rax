@@ -99,6 +99,12 @@ target = "x86_64-linux-musl"
 sha256 = "3bb30d8317aafc8d221e02a65d63b932c5f3a476bd969073b8932c99dace9a8a"
 
 [[fixture]]
+path = "bin/x86_64/shmem"
+source = "src/shmem.c"
+target = "x86_64-linux-musl"
+sha256 = "30372fe69f98fd0b62d06c8cb45a877b7e645f836df9138cb41a1ca59dd92b96"
+
+[[fixture]]
 path = "bin/x86_64/stdin"
 source = "src/stdin.c"
 target = "x86_64-linux-musl"
@@ -219,6 +225,12 @@ target = "aarch64-linux-musl"
 sha256 = "091be48436b0b82900ea11d368187f1c8666ef77f78630de0f608fa7dc7875bb"
 
 [[fixture]]
+path = "bin/aarch64/shmem"
+source = "src/shmem.c"
+target = "aarch64-linux-musl"
+sha256 = "2c53362799c2801a130dc6e82e9d2a7db6db023262cc95dad3bbd2d189ddd691"
+
+[[fixture]]
 path = "bin/aarch64/stdin"
 source = "src/stdin.c"
 target = "aarch64-linux-musl"
@@ -337,6 +349,12 @@ path = "bin/riscv64/sockmsg"
 source = "src/sockmsg.c"
 target = "riscv64-linux-musl"
 sha256 = "126f03332ad89b58a15b5ecf60b6b7f2e899045a2c63994b6874c2eb64cbe3e4"
+
+[[fixture]]
+path = "bin/riscv64/shmem"
+source = "src/shmem.c"
+target = "riscv64-linux-musl"
+sha256 = "3ac33de29173e2669727fdd2bf72cb883235a49df6d2ba9fef8556ff63451d7e"
 
 [[fixture]]
 path = "bin/riscv64/stdin"

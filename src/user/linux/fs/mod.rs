@@ -170,6 +170,17 @@ impl Vfs {
     }
 }
 
+/// A host file's identity (device, inode), as the address space knows the
+/// objects of shared mappings.
+pub fn identity(f: &std::fs::File) -> Result<crate::user::mm::SourceIdentity, Errno> {
+    use std::os::unix::fs::MetadataExt;
+    let m = f.metadata()?;
+    Ok(crate::user::mm::SourceIdentity {
+        dev: m.dev(),
+        ino: m.ino(),
+    })
+}
+
 /// Splits a host `dev_t` into Linux major/minor numbers.
 #[cfg(target_os = "linux")]
 fn host_dev(dev: u64) -> (u32, u32) {

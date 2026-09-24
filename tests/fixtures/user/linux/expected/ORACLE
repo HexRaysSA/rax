@@ -32,3 +32,5 @@ override: x86_64/epoll from aarch64 (Rosetta converts the packed x86-64 struct e
 override: riscv64/epoll from aarch64 (qemu-riscv64 does not apply epoll_pwait's signal mask for the wait, so the timer signal interrupts it; fs/eventpoll.c is architecture-independent and the native aarch64 run passes every check)
 override: riscv64/sockets from aarch64 (qemu-riscv64 drops unknown socket type flag bits and writes socketpair's descriptors only on success)
 override: riscv64/sockmsg from aarch64 (qemu-riscv64 ignores recvmmsg's timeout argument)
+override: x86_64/shmem from aarch64 (Rosetta dies of SIGTRAP on mremap with an old length of 0)
+override: riscv64/shmem from aarch64 (qemu-riscv64 refuses mremap's zero old length before MREMAP_MAYMOVE and does not implement MADV_REMOVE)
