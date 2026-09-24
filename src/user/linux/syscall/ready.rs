@@ -95,24 +95,26 @@ fn host_mask(file: &OpenFile, r: host::Readiness, queued: u64) -> u32 {
         }
         return m;
     }
-    // pipe_poll, by the description's access mode. The host reports its
-    // hang-up as the other side's absence.
+    // pipe_poll, by the description's access mode. The host reports the
+    // other side's absence as a hang-up (and Linux hosts a pipe without
+    // readers as an error).
     let (reads, writes) = (file.readable(), file.writable());
+    let gone = r.hangup || r.error;
     let mut m = 0;
     if reads {
         if queued > 0 {
             m |= IN | RDNORM;
         }
-        if r.hangup && !writes {
+        if gone && !writes {
             m |= HUP;
         }
     }
     if writes {
         // A pipe without readers takes no data but is not full.
-        if r.writable || r.hangup {
+        if r.writable || gone {
             m |= OUT | WRNORM;
         }
-        if r.hangup && !reads {
+        if gone && !reads {
             m |= ERR;
         }
     }
