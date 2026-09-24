@@ -344,20 +344,20 @@ static void interrupted(void) {
     socketpair(AF_UNIX, SOCK_STREAM, 0, sv);
     struct sigaction sa = {.sa_handler = on_alarm, .sa_flags = SA_RESTART};
     sigaction(SIGALRM, &sa, 0);
-    /* SA_RESTART: the receive continues after the handler; the data
-     * arrives from a timer-driven child... here, from a second alarm's
-     * absence: the timeout ends it instead. */
-    struct timeval tv = {0, 200000};
+    /* A tick every 20 ms, so one lands while the receive waits however
+     * the process is scheduled. */
+    struct itimerval it = {{0, 20000}, {0, 20000}};
+    struct timeval tv = {5, 0};
     setsockopt(sv[1], SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof tv);
-    struct itimerval it = {{0, 0}, {0, 50000}};
     setitimer(ITIMER_REAL, &it, 0);
     char c;
     /* A timeout set: EINTR even with SA_RESTART. */
     CHECK_ERR("timeout-eintr", recv(sv[1], &c, 1, 0), EINTR);
-    CHECK("timeout-alarm", alarms == 1);
-    /* No timeout: restarted; the child's byte ends it. */
+    CHECK("timeout-alarm", alarms >= 1);
+    /* No timeout: restarted after each tick; the child's byte ends it. */
     tv = (struct timeval){0, 0};
     setsockopt(sv[1], SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof tv);
+    int before = alarms;
     pid_t pid = fork();
     if (pid == 0) {
         struct timespec d = {0, 150 * 1000000};
@@ -365,8 +365,9 @@ static void interrupted(void) {
         write(sv[0], "r", 1);
         _exit(0);
     }
-    setitimer(ITIMER_REAL, &it, 0);
-    CHECK("restarted", recv(sv[1], &c, 1, 0) == 1 && c == 'r' && alarms == 2);
+    CHECK("restarted", recv(sv[1], &c, 1, 0) == 1 && c == 'r' && alarms > before);
+    struct itimerval off = {{0, 0}, {0, 0}};
+    setitimer(ITIMER_REAL, &off, 0);
     waitpid(pid, 0, 0);
     close(sv[0]);
     close(sv[1]);

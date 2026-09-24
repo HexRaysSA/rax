@@ -96,7 +96,7 @@ sha256 = "eea103ae9305b39aba0ee8bb8d92d21878c855e034f7295f07120c1be6fa3cde"
 path = "bin/x86_64/sockmsg"
 source = "src/sockmsg.c"
 target = "x86_64-linux-musl"
-sha256 = "3bb30d8317aafc8d221e02a65d63b932c5f3a476bd969073b8932c99dace9a8a"
+sha256 = "944b0210cb0b19d3406d3eb8a96b0506c741c5f72a4bb6fea6107bcc020811b4"
 
 [[fixture]]
 path = "bin/x86_64/shmem"
@@ -222,7 +222,7 @@ sha256 = "fad31dac060e0f55a61c870954162bbb763155e154375c8bc3b975bf62cee511"
 path = "bin/aarch64/sockmsg"
 source = "src/sockmsg.c"
 target = "aarch64-linux-musl"
-sha256 = "091be48436b0b82900ea11d368187f1c8666ef77f78630de0f608fa7dc7875bb"
+sha256 = "429cd6da235c53689bd9f2d56b609333b9caace07c7c7a2ad56dee5e4e61c178"
 
 [[fixture]]
 path = "bin/aarch64/shmem"
@@ -348,7 +348,7 @@ sha256 = "f1af2db1fd58b6d6e7739e907ae60fa648f7880d884f72de445d6fc01876a9ed"
 path = "bin/riscv64/sockmsg"
 source = "src/sockmsg.c"
 target = "riscv64-linux-musl"
-sha256 = "126f03332ad89b58a15b5ecf60b6b7f2e899045a2c63994b6874c2eb64cbe3e4"
+sha256 = "36a13cf094dc09c841a03d46ef4e3b52d078f163e4c38e0293e23fd55cba2317"
 
 [[fixture]]
 path = "bin/riscv64/shmem"
