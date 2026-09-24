@@ -680,15 +680,45 @@ pub fn status_pipe() -> Result<(std::os::fd::OwnedFd, std::os::fd::OwnedFd), Err
 /// child gets its own wake pipe (the inherited one is the parent's) and no
 /// pending host events. The emulator runs one host thread, so the child is
 /// a complete copy.
+///
+/// The forwarded host signals and `SIGCHLD` stay blocked from before the
+/// fork until each process is ready: a signal sent to the child as soon as
+/// it exists (the parent may `kill` it at once) stays pending in the host
+/// kernel until the child has discarded the parent's records, instead of
+/// being recorded and then discarded with them.
 pub fn fork_process() -> Result<Option<i32>, Errno> {
+    // SAFETY: the sets are fully initialized by sigemptyset before use;
+    // pthread_sigmask only reads `block` and writes `old`.
+    let old = unsafe {
+        let mut block: libc::sigset_t = std::mem::zeroed();
+        let mut old: libc::sigset_t = std::mem::zeroed();
+        libc::sigemptyset(&mut block);
+        for &sig in FORWARDED {
+            if let Some(host) = host_signal(sig) {
+                libc::sigaddset(&mut block, host);
+            }
+        }
+        libc::sigaddset(&mut block, libc::SIGCHLD);
+        libc::pthread_sigmask(libc::SIG_BLOCK, &block, &mut old);
+        old
+    };
+    let restore = || {
+        // SAFETY: `old` is the mask pthread_sigmask returned above.
+        unsafe {
+            libc::pthread_sigmask(libc::SIG_SETMASK, &old, std::ptr::null_mut());
+        }
+    };
     // SAFETY: fork(2) in a single-threaded process; the child only uses
     // async-signal-safe calls until it has reinitialized the state below,
     // and then continues the same single-threaded program.
     let pid = unsafe { libc::fork() };
     if pid < 0 {
-        return Err(last_errno());
+        let e = last_errno();
+        restore();
+        return Err(e);
     }
     if pid > 0 {
+        restore();
         return Ok(Some(pid));
     }
     // The child: its own wake pipe, no inherited events.
@@ -708,10 +738,13 @@ pub fn fork_process() -> Result<Option<i32>, Errno> {
     }
     HOST_PENDING.store(0, Ordering::SeqCst);
     CHILD_EVENT.store(false, Ordering::SeqCst);
-    if old_r >= 0 {
-        ensure_wake_pipe()?;
-    }
-    Ok(None)
+    let pipe = if old_r >= 0 {
+        ensure_wake_pipe()
+    } else {
+        Ok(())
+    };
+    restore();
+    pipe.map(|()| None)
 }
 
 /// A child process's state change, as `waitpid` reports it, in Linux

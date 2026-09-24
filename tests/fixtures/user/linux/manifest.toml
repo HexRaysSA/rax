@@ -72,7 +72,7 @@ sha256 = "73b92160e3cdeb8a353340063a6f19f5d3521d884be42a234ff58d12cc8ea3fe"
 path = "bin/x86_64/fork"
 source = "src/fork.c"
 target = "x86_64-linux-musl"
-sha256 = "92b89f3b7e86dc280349b724d85d15c1ccb6ae8068bc541cabcc4eabdb83cee6"
+sha256 = "bdc9f5c9ac668671b41e5f93ec6b8e4edb81eb4e25e383a25162d53c252f252a"
 
 [[fixture]]
 path = "bin/x86_64/stdin"
@@ -168,7 +168,7 @@ sha256 = "bbbab2f7ae7ba2a8575c5b201d6b2c1134124379fccfc03ab0f229c7b70a5cb7"
 path = "bin/aarch64/fork"
 source = "src/fork.c"
 target = "aarch64-linux-musl"
-sha256 = "15972ec3eacbfba2cb404919a9b42486f846bcf5e934e28fbd8dc19a157364e1"
+sha256 = "6ad809e6390e314047581643211e3bd0d8a10005ee0751a74a9c6a69a33aaf21"
 
 [[fixture]]
 path = "bin/aarch64/stdin"
@@ -264,7 +264,7 @@ sha256 = "2f9bb5ecbf0debc4cb6fdc4d883e6be1078c5e8f8d354cb61fc7ac2cd71da9ad"
 path = "bin/riscv64/fork"
 source = "src/fork.c"
 target = "riscv64-linux-musl"
-sha256 = "5365bdc1b5aceed8880edafbcde1b6f41ce4ae49b560d0be82dc30fff4747c21"
+sha256 = "ac7d9684c86cfd217d59cec8345eaea97a3a1f8c7d64306993eeca4e538ced13"
 
 [[fixture]]
 path = "bin/riscv64/stdin"

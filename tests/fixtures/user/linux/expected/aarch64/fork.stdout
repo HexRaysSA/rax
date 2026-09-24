@@ -26,6 +26,7 @@ ok clone-child-wclone
 ok kill-group
 ok nocldstop
 ok fork-in-thread
+ok kill-at-fork
 ok autoreap
 ok children-rusage
 PASSED

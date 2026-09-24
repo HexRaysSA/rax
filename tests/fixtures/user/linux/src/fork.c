@@ -2,7 +2,7 @@
  * fork in a second thread; waitpid/waitid statuses for exits, signals,
  * stops, and continuations; SIGCHLD and its siginfo, SA_NOCLDSTOP, and
  * automatic reaping when SIGCHLD is ignored; pipes between processes;
- * process groups and kill(0).
+ * process groups and kill(0); signals sent to a child as it is created.
  * Children report through exit codes and pipes; only the parent prints.
  * The program first makes itself a process-group leader, so signals to
  * its group reach only its own processes. */
@@ -225,6 +225,26 @@ int main(int argc, char **argv) {
         if (r < 0 && errno == ECHILD) sleep_ms(1);
     }
     CHECK("fork-in-thread", tp > 0 && r == tp && WIFEXITED(st) && WEXITSTATUS(st) == 30);
+
+    /* A signal sent to a child the moment it exists reaches it: each of
+     * 100 children is killed right after fork. */
+    int died = 0;
+    for (int i = 0; i < 100; i++) {
+        p = fork();
+        if (p == 0) {
+            for (;;) pause();
+        }
+        kill(p, SIGTERM);
+        int w = 0;
+        for (int t = 0; t < 5000 && (w = waitpid(p, &st, WNOHANG)) == 0; t++) sleep_ms(1);
+        if (w == 0) {
+            kill(p, SIGKILL);
+            waitpid(p, &st, 0);
+        } else if (WIFSIGNALED(st) && WTERMSIG(st) == SIGTERM) {
+            died++;
+        }
+    }
+    CHECK("kill-at-fork", died == 100);
 
     /* SIGCHLD ignored: children are reaped as they exit. */
     signal(SIGCHLD, SIG_IGN);

@@ -1,7 +1,7 @@
 image: alpine:latest
 kernel: Linux 7.0.14-orbstack-00380-ga7e0a2dc9535 #1 SMP PREEMPT Fri Aug  7 03:48:40 UTC 2026 aarch64
 docker: 29.4.0 linux/arm64
-recorded: 2026-09-24T11:00:19Z
+recorded: 2026-09-24T12:28:23Z
 native-arch: aarch64
 translated: every other architecture runs through the Docker host's binfmt_misc handler
 binfmt: mac-macho-arm64 enabled interpreter [mac] 
