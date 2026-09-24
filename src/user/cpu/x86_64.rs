@@ -96,6 +96,11 @@ impl X86UserCpu {
         self.vcpu.user_regs().rip
     }
 
+    /// Discards every cached decode and compiled region.
+    pub fn discard_native_code(&mut self) {
+        self.vcpu.invalidate_all_code();
+    }
+
     /// Runs until an operating-system event or the end of the time slice.
     pub fn run(&mut self) -> X86Exit {
         match take_code_changes(&self.space, &mut self.code_epoch) {

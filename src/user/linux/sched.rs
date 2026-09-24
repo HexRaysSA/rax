@@ -199,6 +199,7 @@ impl LinuxProcess {
                 self.threads.clear();
                 self.threads.push(t);
                 self.threads[0].cpu.set_syscall_result(0);
+                self.threads[0].cpu.discard_native_code();
                 self.state.forked = Some(me);
                 return After::Gone;
             }

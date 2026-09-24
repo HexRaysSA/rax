@@ -185,6 +185,11 @@ impl A64UserCpu {
         &self.cpu
     }
 
+    /// Discards the core's compiled native code.
+    pub fn discard_native_code(&mut self) {
+        self.cpu.clear_jit_cache();
+    }
+
     /// Mutable access to the underlying core.
     pub fn core_mut(&mut self) -> &mut AArch64Cpu {
         &mut self.cpu

@@ -457,6 +457,26 @@ fn rv_jit_and_interpreter_agree_on_exits() {
     assert_eq!(interp.core().x(17), jit.core().x(17));
 }
 
+/// A forked process drops the native code it inherited (see
+/// `GuestCpu::discard_native_code`) and runs on, compiling again.
+#[cfg(all(
+    feature = "smir-jit",
+    any(target_arch = "x86_64", target_arch = "aarch64")
+))]
+#[test]
+fn rv_discarding_native_code_empties_the_jit_cache() {
+    let prog = cat(&[&RV_LI_A7_93, &RV_ECALL]);
+    let mut cpu = rv(&prog);
+    cpu.set_jit(true);
+    let first = cpu.run(100);
+    assert!(cpu.core().jit_stats().cache_entries > 0);
+    cpu.discard_native_code();
+    assert_eq!(cpu.core().jit_stats().cache_entries, 0);
+    cpu.core_mut().set_pc(CODE);
+    assert_eq!(cpu.run(100), first);
+    assert!(cpu.core().jit_stats().cache_entries > 0, "compiled again");
+}
+
 // ------------------------------------------------------------------- x86-64
 
 fn x86(code: &[u8]) -> X86UserCpu {

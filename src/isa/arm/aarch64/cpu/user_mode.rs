@@ -85,6 +85,18 @@ impl AArch64Cpu {
         self.memory.clear_exclusive();
     }
 
+    /// Discards every compiled region and its promotion state; code runs
+    /// interpreted until it is hot again.
+    pub fn clear_jit_cache(&mut self) {
+        #[cfg(all(feature = "smir-jit", target_arch = "aarch64"))]
+        {
+            self.jit.cache.clear();
+            self.jit.hot.clear();
+            self.jit.code_pages.clear();
+            self.jit.smc_dirty = false;
+        }
+    }
+
     /// NZCV as the four-bit field of PSTATE (N in bit 3).
     pub fn nzcv_bits(&self) -> u8 {
         self.nzcv & 0xF

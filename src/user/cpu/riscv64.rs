@@ -164,6 +164,15 @@ impl RvUserCpu {
         child
     }
 
+    /// Discards the core's compiled native code.
+    pub fn discard_native_code(&mut self) {
+        #[cfg(all(
+            feature = "smir-jit",
+            any(target_arch = "x86_64", target_arch = "aarch64")
+        ))]
+        self.cpu.clear_jit_cache();
+    }
+
     /// Executes through the SMIR JIT where the host supports it. The JIT
     /// lifts each region on every entry, so it is opt-in.
     pub fn set_jit(&mut self, on: bool) {

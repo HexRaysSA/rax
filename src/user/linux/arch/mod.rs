@@ -105,6 +105,19 @@ pub fn fault_signal(fault: &AccessFault) -> SigInfo {
 }
 
 impl GuestCpu {
+    /// Discards compiled native code, which a process created by forking
+    /// the host process must not run: on Apple-Silicon macOS, JIT code
+    /// inherited across the host `fork` intermittently faults on its first
+    /// execution (`SIGBUS` on the instruction fetch at a region's entry).
+    /// The code is compiled again as it becomes hot.
+    pub fn discard_native_code(&mut self) {
+        match self {
+            GuestCpu::X86_64(cpu) => cpu.discard_native_code(),
+            GuestCpu::Aarch64(cpu) => cpu.discard_native_code(),
+            GuestCpu::Riscv64(cpu) => cpu.discard_native_code(),
+        }
+    }
+
     /// A CPU for `abi` in the `execve` register state over `space`.
     pub fn new(abi: LinuxAbi, space: &AddressSpace, options: &CpuOptions) -> Self {
         match abi {
