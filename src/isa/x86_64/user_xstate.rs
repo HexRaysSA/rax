@@ -330,8 +330,10 @@ impl X86_64Vcpu {
         self.fpu.data_ptr = quad(16);
         for i in 0..8 {
             let at = 32 + i * 16;
-            self.fpu
-                .set_st(i as u8, execute::fpu::f80_to_f64_pub(&b[at..at + 10]));
+            // Stack order; the abridged tag word above says which
+            // registers are empty, so set_st (which retags) is not used.
+            let idx = self.fpu.st_index(i as u8);
+            self.fpu.st[idx] = execute::fpu::f80_to_f64_pub(&b[at..at + 10]);
         }
     }
 

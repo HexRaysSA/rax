@@ -689,3 +689,52 @@ fn xrstor_image_matches_the_xrstor_instruction() {
     assert_eq!(by_image.vcpu.regs.ymm_high[0], [0, 0]);
     assert_eq!(by_image.vcpu.regs.k[0], 0);
 }
+
+#[test]
+fn x87_restores_keep_empty_registers_empty() {
+    // FXRSTOR/XRSTOR load the tag word from the abridged FTW: registers it
+    // marks empty stay empty (SDM Vol. 1 §10.5.1.1), whatever the image
+    // holds in their slots. Two values pushed: TOP = 6, ST0-ST1 valid.
+    // fxsave64 [rdi] ; fxrstor64 [rdi] ; xsave64 [rsi] ; xrstor64 [rsi] ;
+    // syscall
+    let code = [
+        0x48, 0x0F, 0xAE, 0x07, 0x48, 0x0F, 0xAE, 0x0F, 0x48, 0x0F, 0xAE, 0x26, 0x48, 0x0F, 0xAE,
+        0x2E, 0x0F, 0x05,
+    ];
+    let mut h = harness(&code);
+    h.vcpu.fpu.push(1.5);
+    h.vcpu.fpu.push(-2.25);
+    let want = (
+        h.vcpu.fpu.tag_word,
+        h.vcpu.fpu.top,
+        h.vcpu.fpu.get_st(0),
+        h.vcpu.fpu.get_st(1),
+    );
+    assert_eq!(want.0, 0x0FFF, "physical registers 6 and 7 valid");
+    h.vcpu.regs.rdi = DATA;
+    h.vcpu.regs.rsi = DATA + 0x200;
+    h.vcpu.regs.rax = 0xFFFF_FFFF;
+    h.vcpu.regs.rdx = 0xFFFF_FFFF;
+    assert!(matches!(run(&mut h.vcpu).unwrap(), VcpuExit::SystemCall));
+    let got = (
+        h.vcpu.fpu.tag_word,
+        h.vcpu.fpu.top,
+        h.vcpu.fpu.get_st(0),
+        h.vcpu.fpu.get_st(1),
+    );
+    assert_eq!(got, want, "instruction round trips");
+    // The kernel-side image path agrees.
+    let image = h.vcpu.xsave_image(u64::MAX).bytes;
+    h.vcpu.init_user_xstate(u64::MAX);
+    h.vcpu.xrstor_image(&image, u64::MAX).unwrap();
+    assert_eq!(
+        (
+            h.vcpu.fpu.tag_word,
+            h.vcpu.fpu.top,
+            h.vcpu.fpu.get_st(0),
+            h.vcpu.fpu.get_st(1),
+        ),
+        want,
+        "image round trip"
+    );
+}

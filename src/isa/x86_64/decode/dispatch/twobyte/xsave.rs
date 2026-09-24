@@ -236,8 +236,9 @@ impl X86_64Vcpu {
         self.fpu.data_ptr = self.read_mem64(area_addr + 16)?;
         for i in 0..8 {
             let bytes = self.read_bytes(area_addr + 32 + (i as u64) * 16, 10)?;
-            self.fpu
-                .set_st(i as u8, execute::fpu::f80_to_f64_pub(&bytes));
+            // Stack order; keep the tags the abridged tag word restored.
+            let idx = self.fpu.st_index(i as u8);
+            self.fpu.st[idx] = execute::fpu::f80_to_f64_pub(&bytes);
         }
         Ok(())
     }
