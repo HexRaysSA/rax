@@ -33,6 +33,7 @@ every architecture and requires a byte-for-byte match.
 | `exec` | A chain of `execve` stages: kept descriptors, closed close-on-exec ones, reset handlers, kept ignored signals, mask, pending signals, and interval timers, a cleared alternate stack, `AT_EXECFN` and `comm`; the error order (missing file, directory, no execute permission, unknown format, bad `#!` lines, a missing interpreter, a script loop, a bad `argv`, an over-long argument, bad `execveat` flags); a `#!` script run with its interpreter's arguments; `execveat` through a descriptor; `execve` from a second thread |
 | `fork` | `fork`, `vfork` (resuming at `execve`), `posix_spawn`, `clone` with a non-`SIGCHLD` exit signal, and `fork` in a second thread (whose child, once the thread exits, the main thread waits for with `__WNOTHREAD`); `waitpid`/`waitid` for exits, signal deaths, faults, stops, and continuations (each reported once), `WNOHANG`, `WNOWAIT`, `__WCLONE`, and `ECHILD`; `SIGCHLD` `siginfo`, `SA_NOCLDSTOP`, and automatic reaping; pipes between processes; `kill(0)` to the process group; 100 children killed the moment they exist |
 | `events` | `eventfd` counters and semaphores (limits, sizes, `lseek`/`pread`, readiness, a blocking read ended by another thread, one counter shared with a child process); `timerfd` one-shot and periodic ticks, `gettime`/`settime` old values, absolute times, `TFD_IOC_SET_TICKS`, blocking reads, and `TFD_TIMER_CANCEL_ON_SET`; `signalfd` reads of blocked signals with their `siginfo`, mask updates, `SIGKILL`/`SIGSTOP` in a mask, and a blocking read ended by another process's signal; POSIX timers with each notification kind, one queued signal and its overrun count, a stale signal dropped after `timer_settime`, `SIGEV_THREAD_ID`, and timers not inherited by a child; the error cases of each call |
+| `epoll` | Instances and their checks; level-triggered, edge-triggered, and one-shot items over pipes, `eventfd`, `timerfd`, and `signalfd`; hang-up and error; the ready-list order and `maxevents` rotation; items that outlive a `dup`'d descriptor's close; nested instances, loops, and the depth limit; a wait ended by another thread, by a timeout, and by a handler (`EINTR` despite `SA_RESTART`); `epoll_pwait`'s mask and `epoll_pwait2`'s timeout; an instance in `poll` |
 | `hostsig` | Not a recorded case: the `user_linux` `host_signals` tests send it host signals and follow its output (`siginfo` of a `kill`, a blocking `read` of standard input interrupted by a handler, death by `SIGTERM`) |
 | `signals` | Handlers with `siginfo` from `raise`/`kill`/`sigqueue`, the mask during and after a handler, `SA_NODEFER`, `SA_RESETHAND`, delivery order of several unblocked signals, real-time queueing with `sigtimedwait`, `sigsuspend`, ignored signals, `SA_ONSTACK` alternate stacks, recovering from `SIGSEGV` (MAPERR, ACCERR), `SIGBUS`, and traps with `siglongjmp`, a handler editing the saved PC to skip a faulting store, `SIGPIPE`, and `abort()` after its handler returns (status 134) |
 | `stdin` | Reading standard input to end of file |
@@ -50,7 +51,7 @@ every architecture and requires a byte-for-byte match.
 - The build is reproducible: running `build.sh` twice produces identical
   `manifest.toml` hashes, and adding a program leaves the others' hashes
   unchanged.
-- Size: 51 binaries (17 programs × 3 architectures), 1,516 KiB in total; each
+- Size: 54 binaries (18 programs × 3 architectures), 1,652 KiB in total; each
   is stripped and statically linked so that no guest sysroot is needed.
 - The expected results were recorded with `record-expected.sh` on the
   Linux kernel named in `expected/ORACLE` (OrbStack Linux 7.0.14, arm64).
@@ -71,8 +72,11 @@ every architecture and requires a byte-for-byte match.
   threads), or runs executed programs through `binfmt_misc` (`exec`), or
   mishandles process exit signals and `SA_NOCLDSTOP` (QEMU, `fork`), or
   lacks `TFD_IOC_SET_TICKS`, `signalfd4`'s mask-size check, and the
-  kernel's POSIX timer IDs (QEMU, `events`), the native AArch64 result is
-  used for architecture-independent kernel code. Rosetta has once, in
+  kernel's POSIX timer IDs (QEMU, `events`), or converts
+  `struct epoll_event` itself and faults on a bad pointer (Rosetta,
+  `epoll`), or does not apply `epoll_pwait`'s mask during the wait (QEMU,
+  `epoll`), the native AArch64 result is used for architecture-independent
+  kernel code. Rosetta has once, in
   about ten recordings, lost a stopped child continued by `SIGCONT`
   (`fork`); a recording is kept only when it matches the native AArch64
   result.

@@ -25,6 +25,7 @@
 //! "unsupported" and fall back.
 
 pub mod child;
+pub mod epoll;
 pub mod events;
 pub mod exec;
 pub mod futex;
@@ -594,6 +595,14 @@ fn call_handler(c: &mut Ctx<'_>, s: Sysno, a: [u64; 6]) -> Result<Outcome, Errno
         S::TimerfdGettime => r(events::timerfd_gettime(c, fd(a[0]), a[1])),
         S::Signalfd => r(events::signalfd4(c, fd(a[0]), a[1], a[2], 0)),
         S::Signalfd4 => r(events::signalfd4(c, fd(a[0]), a[1], a[2], a[3] as u32)),
+        S::EpollCreate => r(epoll::epoll_create(c, a[0] as i32)),
+        S::EpollCreate1 => r(epoll::epoll_create1(c, a[0] as u32)),
+        S::EpollCtl => r(epoll::epoll_ctl(c, fd(a[0]), a[1] as i32, fd(a[2]), a[3])),
+        S::EpollWait => epoll::epoll_wait(c, fd(a[0]), a[1], a[2] as i32, a[3] as i32),
+        S::EpollPwait => {
+            epoll::epoll_pwait(c, fd(a[0]), a[1], a[2] as i32, a[3] as i32, a[4], a[5])
+        }
+        S::EpollPwait2 => epoll::epoll_pwait2(c, fd(a[0]), a[1], a[2] as i32, a[3], a[4], a[5]),
 
         // -------------------------------------------------------- signal
         S::RtSigaction => r(signal::rt_sigaction(c, a[0] as i32, a[1], a[2], a[3])),

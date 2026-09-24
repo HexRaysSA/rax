@@ -248,6 +248,8 @@ pub fn read(c: &mut Ctx<'_>, file: &OpenFile, vecs: &[(u64, u64)]) -> SysResult 
             let Some(v) = ev.read() else {
                 return Err(wait_or(c, file, Wait::fd(ev.readable_fd(), true, false)));
             };
+            // Room for writers.
+            file.woke(super::ready::ev::OUT | super::ready::ev::WRNORM);
             // The count is taken even if the copy then faults.
             if copy_out(c, vecs, 0, &v.to_le_bytes()) != 8 {
                 return Err(Errno(EFAULT));
@@ -267,6 +269,7 @@ pub fn read(c: &mut Ctx<'_>, file: &OpenFile, vecs: &[(u64, u64)]) -> SysResult 
                 n => Ok(n),
             }
         }
+        Anon::Epoll(_) => Err(Errno(EINVAL)),
         Anon::Signal(s) => {
             let count = len / SIGNALFD_SIZE;
             if count == 0 {
@@ -311,6 +314,9 @@ pub fn read_call(c: &mut Ctx<'_>, file: &OpenFile, buf: u64, count: u64) -> SysR
     if !file.readable() {
         return Err(Errno(EBADF));
     }
+    if !can_read(file) {
+        return Err(Errno(EINVAL));
+    }
     if !access_ok(c, buf, count) {
         return Err(Errno(EFAULT));
     }
@@ -330,6 +336,11 @@ pub fn write_call(c: &mut Ctx<'_>, file: &OpenFile, buf: u64, count: u64) -> Sys
         return Err(Errno(EFAULT));
     }
     write(c, file, &[(buf, count.min(MAX_RW_COUNT))])
+}
+
+/// Whether the file has a read operation (`FMODE_CAN_READ`).
+pub fn can_read(file: &OpenFile) -> bool {
+    !matches!(file.object, FileObject::Anon(Anon::Epoll(_)))
 }
 
 /// Whether the file has a write operation (`FMODE_CAN_WRITE`).
@@ -455,6 +466,7 @@ fn eventfd_write(c: &mut Ctx<'_>, file: &OpenFile, ev: &EventFd, buf: u64, len: 
         return Err(Errno(EINVAL));
     }
     if ev.write(v) {
+        file.woke(super::ready::ev::IN | super::ready::ev::RDNORM);
         return Ok(8);
     }
     Err(wait_or(c, file, Wait::fd(ev.writable_fd(), true, false)))
@@ -470,6 +482,7 @@ pub fn poll(c: &Ctx<'_>, anon: &Anon, events: u32) -> (Polled, Wait) {
     let mut wait = Wait::event();
     let mut p = Polled::default();
     match anon {
+        Anon::Epoll(ep) => return super::epoll::poll_instance(c, ep, events),
         Anon::Event(ev) => {
             let (r, w, err) = ev.poll();
             if r {
@@ -523,5 +536,6 @@ pub fn set_ticks(c: &mut Ctx<'_>, file: &OpenFile, arg: u64) -> SysResult {
         return Err(Errno(EINVAL));
     }
     t.set_ticks(n, &clock_now);
+    file.woke(super::ready::ev::IN | super::ready::ev::RDNORM);
     Ok(0)
 }

@@ -96,6 +96,15 @@ pub struct FileState {
     pub comm_of: Option<i32>,
 }
 
+/// An `epoll` item watching a description: its instance and item.
+#[derive(Clone, Debug)]
+pub struct Watch {
+    /// The instance's description.
+    pub ep: std::sync::Weak<OpenFile>,
+    /// The item.
+    pub id: u64,
+}
+
 /// A Linux open file description.
 pub struct OpenFile {
     /// The underlying object.
@@ -108,6 +117,23 @@ pub struct OpenFile {
     pub host_path: Option<std::path::PathBuf>,
     /// Mutable state.
     pub state: Mutex<FileState>,
+    /// The other end of a pipe the guest created, whose readers or writers
+    /// a transfer here wakes.
+    pub peer: Mutex<std::sync::Weak<OpenFile>>,
+    /// The `epoll` items watching this description (its wait queue).
+    pub watchers: Mutex<Vec<Watch>>,
+}
+
+impl Drop for OpenFile {
+    /// The last descriptor of a pipe end is closed: the other end's
+    /// readers see a hang-up, its writers an error (`pipe_release`).
+    fn drop(&mut self) {
+        match self.object {
+            FileObject::PipeWrite(_) => self.wake_peer(0x010),
+            FileObject::PipeRead(_) => self.wake_peer(0x008),
+            _ => {}
+        }
+    }
 }
 
 impl std::fmt::Debug for OpenFile {
@@ -137,7 +163,42 @@ impl OpenFile {
                 flags,
                 ..Default::default()
             }),
+            peer: Mutex::new(std::sync::Weak::new()),
+            watchers: Mutex::new(Vec::new()),
         })
+    }
+
+    /// Registers an `epoll` item as a watcher (`ep_ptable_queue_proc`).
+    pub fn watch(&self, w: Watch) {
+        self.watchers.lock().unwrap().push(w);
+    }
+
+    /// A wake-up of the description's waiters with the events `key`
+    /// (`wake_up_poll`): each watching `epoll` item that wants one of them
+    /// joins its instance's ready list (`ep_poll_callback`).
+    pub fn woke(&self, key: u32) {
+        let watchers: Vec<Watch> = {
+            let mut w = self.watchers.lock().unwrap();
+            w.retain(|x| x.ep.strong_count() > 0);
+            w.clone()
+        };
+        for w in watchers {
+            if let Some(ep) = w.ep.upgrade()
+                && let FileObject::Anon(super::anon::Anon::Epoll(inst)) = &ep.object
+                && inst.callback(w.id, self, key)
+            {
+                // The instance became readable: its own watchers wake.
+                ep.woke(0x001 | 0x040);
+            }
+        }
+    }
+
+    /// Wakes the other end of a pipe with `key`.
+    fn wake_peer(&self, key: u32) {
+        let peer = self.peer.lock().unwrap().upgrade();
+        if let Some(p) = peer {
+            p.woke(key);
+        }
     }
 
     /// Status flags.
@@ -170,7 +231,12 @@ impl OpenFile {
         }
         match &self.object {
             FileObject::Host(f) => Ok((&*f).read(buf)?),
-            FileObject::PipeRead(p) => Ok((&*p).read(buf)?),
+            FileObject::PipeRead(p) => {
+                let n = (&*p).read(buf)?;
+                // Room for writers (EPOLLOUT | EPOLLWRNORM).
+                self.wake_peer(0x004 | 0x100);
+                Ok(n)
+            }
             FileObject::PipeWrite(_) | FileObject::PathOnly => Err(Errno(EBADF)),
             FileObject::Anon(_) => Err(Errno(EINVAL)),
             FileObject::Synthetic(data) => {
@@ -197,7 +263,12 @@ impl OpenFile {
                 }
                 Ok((&*f).write(data)?)
             }
-            FileObject::PipeWrite(p) => Ok((&*p).write(data)?),
+            FileObject::PipeWrite(p) => {
+                let n = (&*p).write(data)?;
+                // Data for readers (EPOLLIN | EPOLLRDNORM).
+                self.wake_peer(0x001 | 0x040);
+                Ok(n)
+            }
             FileObject::PipeRead(_) | FileObject::PathOnly => Err(Errno(EBADF)),
             FileObject::Synthetic(_) => Err(Errno(EACCES)),
             FileObject::Anon(_) => Err(Errno(EINVAL)),

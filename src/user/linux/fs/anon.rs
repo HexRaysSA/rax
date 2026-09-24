@@ -30,6 +30,8 @@ pub enum Anon {
     Timer(TimerFd),
     /// `signalfd`.
     Signal(SignalFd),
+    /// `epoll`.
+    Epoll(super::epoll::Epoll),
 }
 
 impl Anon {
@@ -39,6 +41,7 @@ impl Anon {
             Anon::Event(_) => "[eventfd]",
             Anon::Timer(_) => "[timerfd]",
             Anon::Signal(_) => "[signalfd]",
+            Anon::Epoll(_) => "[eventpoll]",
         }
     }
 }

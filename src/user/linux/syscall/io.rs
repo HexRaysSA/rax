@@ -321,6 +321,9 @@ pub fn readv(c: &mut Ctx<'_>, fd: i32, iov: u64, cnt: u64) -> SysResult {
     if !file.readable() {
         return Err(Errno(EBADF));
     }
+    if !super::events::can_read(&file) {
+        return Err(Errno(EINVAL));
+    }
     let iovecs = read_iovecs(c, iov, cnt)?;
     let total: u64 = iovecs.iter().map(|&(_, l)| l).sum();
     if total == 0 {
@@ -765,6 +768,8 @@ pub fn pipe2(c: &mut Ctx<'_>, fds: u64, flags: u32) -> SysResult {
         None,
         O_WRONLY | nb,
     );
+    *rf.peer.lock().unwrap() = Arc::downgrade(&wf);
+    *wf.peer.lock().unwrap() = Arc::downgrade(&rf);
     let cloexec = flags & O_CLOEXEC != 0;
     let limit = nofile(c);
     let rfd = c.p.fds.install(rf, cloexec, limit)?;
@@ -937,7 +942,7 @@ pub fn poll_restart(
 
 /// `set_user_sigmask`: installs a temporary mask for the call, saving the
 /// old one to come back on the return to user mode.
-fn set_user_sigmask(c: &mut Ctx<'_>, mask: u64, size: u64) -> Result<(), Errno> {
+pub(super) fn set_user_sigmask(c: &mut Ctx<'_>, mask: u64, size: u64) -> Result<(), Errno> {
     if mask == 0 {
         return Ok(());
     }

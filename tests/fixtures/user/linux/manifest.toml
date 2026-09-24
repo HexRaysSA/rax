@@ -81,6 +81,12 @@ target = "x86_64-linux-musl"
 sha256 = "ac7e7fb7a99a960267314e9855a92705e90174df023a3712ed176e960c4e7f85"
 
 [[fixture]]
+path = "bin/x86_64/epoll"
+source = "src/epoll.c"
+target = "x86_64-linux-musl"
+sha256 = "4a45e9176e045a81abc4240e0e39e630fe3864350025f73b6032735c7ebd4ab5"
+
+[[fixture]]
 path = "bin/x86_64/stdin"
 source = "src/stdin.c"
 target = "x86_64-linux-musl"
@@ -183,6 +189,12 @@ target = "aarch64-linux-musl"
 sha256 = "43a661c8107d3786e95fb65b4b42299fe80b22f987a7e88c4f453b005a06c04f"
 
 [[fixture]]
+path = "bin/aarch64/epoll"
+source = "src/epoll.c"
+target = "aarch64-linux-musl"
+sha256 = "407d031e38a0710a305519a951cb1cecca80b7fc65a6a266138ac7c8c2b88a80"
+
+[[fixture]]
 path = "bin/aarch64/stdin"
 source = "src/stdin.c"
 target = "aarch64-linux-musl"
@@ -283,6 +295,12 @@ path = "bin/riscv64/events"
 source = "src/events.c"
 target = "riscv64-linux-musl"
 sha256 = "f791595779d181e0463ddf5d4768eb28dedc7c157a0f00820c9f9a8df2856e72"
+
+[[fixture]]
+path = "bin/riscv64/epoll"
+source = "src/epoll.c"
+target = "riscv64-linux-musl"
+sha256 = "931e11d83d3aa2fb844a5837e12b1a0c461f0354d1ef83ee7557935ae7f4d1e4"
 
 [[fixture]]
 path = "bin/riscv64/stdin"

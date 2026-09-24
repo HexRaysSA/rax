@@ -12,6 +12,7 @@
 //! personality).
 
 pub mod anon;
+pub mod epoll;
 pub mod fd;
 
 use std::path::{Component, Path, PathBuf};

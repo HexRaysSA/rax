@@ -17,6 +17,7 @@ threadexit-kill    threadexit  -  kill
 exec     exec     -
 fork     fork     -
 events   events   -
+epoll    epoll    -
 stdin    stdin    input/fox.txt
 segv     segv     -
 abort    abort    -
