@@ -37,6 +37,7 @@ d8e08441a167e1ae71918fce30b3ed3ea5ed72f49a2f713b3f5e798f3210bf1c  ./any-linux-an
 24539ea5f55bd5963f45e1a9ba2fd2ab25ce64ecd48c6954cb4abb8cf382295d  ./any-linux-any/linux/futex.h
 9d2d3c1e64373338b3deb89c773b47ef9b7e506012151a6d5b7c0f3500701c9a  ./any-linux-any/linux/in.h
 bdf4d76eb252ec7d00c9ba233e6a335d7637eb0c1fb716ab5b14be1a75368900  ./any-linux-any/linux/in6.h
+40d3b236cd08f99f78f1a40c91ffda19b7e3eedfd85666e78b3bce966b679564  ./any-linux-any/linux/limits.h
 8120e5fa28c7910ac3e9ec2a62889b7c82a555d7fc26b15ba4cb392e7a590068  ./any-linux-any/linux/membarrier.h
 332eebacb4c0a823a65af55ea091db61b676c3aead57906ddccc8647fb4bbe1e  ./any-linux-any/linux/memfd.h
 0eea3f047801b23ccd990e8437c7b50b73c45f37252e07c1def8453766eb05c2  ./any-linux-any/linux/mman.h
@@ -62,6 +63,7 @@ b6469740fcfc93929abd30fd4fc2f41713cc1dffd238e1b2b1d487dd47b56b12  ./any-linux-an
 335c42c16c9de78cfe865419a2056159cf9e47354de1cd660631789171320fc3  ./any-linux-any/linux/utsname.h
 fe4e39da1ed8ac1faecbc43737f076c7bdade7323c5cbc6d7651dda1346a2b52  ./any-linux-any/linux/version.h
 1ed0701822e2d1cd8ce2cbef3a5672f13a2303b4ab4e9a9af6ed75577425e839  ./any-linux-any/linux/wait.h
+ddf570736a12697914b459f883e211d2eeaa557783b35c7854fd2078e61dc926  ./any-linux-any/linux/xattr.h
 91e5bd4e5104a2b40cedf3a6979dee3964085d289b549128969b9c82e34e0976  ./arm-linux-any/asm/auxvec.h
 725834493bfa6a98756635dd4b549b8ac0d6f8a936401206eca2576f24edfcae  ./arm-linux-any/asm/fcntl.h
 60a2b76f60060e024c000293b660313a4815b479283c849e817ba98387c50699  ./arm-linux-any/asm/hwcap.h
