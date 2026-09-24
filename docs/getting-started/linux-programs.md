@@ -73,11 +73,24 @@ Sizes accept `K`, `M`, `G`, and `T` suffixes (powers of 1024).
 - **Initial stack and auxiliary vector.** Byte-for-byte the layout of
   `create_elf_tables` for the vector RAX produces (no `AT_SYSINFO_EHDR`,
   because no vDSO is mapped; C libraries then use system calls for time).
-- **CPU.** One CPU executes every guest thread. `sched_getaffinity` reports
-  CPU 0 only, and `/proc/cpuinfo` describes that CPU.
+- **CPU and threads.** One CPU executes every guest thread, in time slices
+  (`--slice` on AArch64 and RV64, about 1 ms on x86-64), so guest atomic
+  instructions stay atomic and a program's interleaving depends only on
+  where slices end. `sched_getaffinity` reports CPU 0 only, and
+  `/proc/cpuinfo` describes that CPU. Threads come from `clone` and `clone3`
+  with the flags threads libraries pass (musl and glibc `pthread_create`),
+  with Linux's register state, TLS, and TID words; futexes (every `futex`
+  operation except the requeue-PI pair, `futex_waitv`, and the `futex2`
+  calls), robust and priority-inheritance mutexes, thread-directed and
+  process-directed signals (a process signal goes to a thread that does not
+  block it, as `complete_signal` chooses), thread exit with its
+  `clear_child_tid` wake, and the `/proc/self/task/<tid>` views (with
+  per-thread names) behave as on Linux. A system call that must sleep
+  parks its thread while the others run.
 - **Files.** Host files, directories, pipes, and terminals, with Linux
   `errno` values. `/proc/self` (`exe`, `maps`, `auxv`, `cmdline`, `environ`,
-  `stat`, `status`, `comm`, `fd/`), `/proc/cpuinfo`, `/proc/meminfo`,
+  `stat`, `status`, `comm`, `fd/`, `task/<tid>/`), `/proc/thread-self`,
+  `/proc/<tid>`, `/proc/cpuinfo`, `/proc/meminfo`,
   `/proc/uptime`, `/proc/version`, and the CPU-topology files under
   `/sys/devices/system/cpu` are synthesized.
 - **Identity.** The host process ID, user, and group IDs.
@@ -113,9 +126,19 @@ and in the [user-mode architecture page](../architecture/user-mode.md):
   diagnostic. POSIX timers (`timer_create`) and `timerfd` are not yet
   implemented. A stop signal's default action stops the `rax-user` process
   itself.
-- A single guest thread runs; `clone`, `fork`, `vfork`, and `execve` are not
-  yet implemented, and a futex wait with no timeout ends the process with a
-  deadlock diagnostic.
+- New processes (`fork`, `vfork`, `clone` without `CLONE_THREAD`) and
+  `execve` are not yet implemented (`ENOSYS`). A thread must share the
+  descriptor table and file-system context (`CLONE_FILES | CLONE_FS`,
+  otherwise `EINVAL`); `CLONE_PIDFD` and `CLONE_INTO_CGROUP` are `EINVAL`
+  and namespace flags `EPERM`. `FUTEX_WAIT_REQUEUE_PI` and
+  `FUTEX_CMP_REQUEUE_PI` return `ENOSYS`; an absolute `CLOCK_REALTIME`
+  futex timeout does not follow later changes of the host clock.
+- Pipes the guest creates never block the host (their blocking is
+  emulated), but a write to an inherited pipe or terminal whose reader is
+  slow (standard output into a pager) holds every guest thread until it
+  completes. On macOS hosts, whose `PIPE_BUF` is 512 bytes, a pipe write of
+  513 to 4,096 bytes into a nearly full pipe can be split, which another
+  writer to the same pipe could observe.
 - The 32-bit `INT 0x80` system-call ABI on x86-64 returns `-ENOSYS`.
 - Creating sockets, `epoll`, `eventfd`, and writable `MAP_SHARED` file
   mappings (writes do not reach the file) are not implemented.
