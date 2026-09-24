@@ -154,6 +154,21 @@ code comments name the kernel function each rule comes from.
   wake pipe, and the nearest deadline; a wait nothing can end ends the
   process with a diagnostic. Pipes the guest creates are non-blocking on
   the host, so one thread's transfer never stops the others.
+- **Processes** (`children`, `exec`). A new process forks the host
+  process: the child continues the guest child with a copy of the
+  address space and descriptor table, one thread, and no pending signals
+  or interval timers (`copy_process`). It reports to its parent through a
+  status pipe — `E` when a `CLONE_VFORK` child calls `execve`, `X` with
+  the Linux wait status when it ends, which the host's exit status cannot
+  express — and ends the host process itself, so a forked child never
+  returns to the embedder. The parent watches its children through the
+  host `SIGCHLD`, keeps exited ones as zombies for `wait4`/`waitid`
+  (`wait_task_zombie`, `wait_task_stopped`, `wait_task_continued`), and
+  generates the guest's `SIGCHLD` as `do_notify_parent` does. `execve`
+  builds a complete new image (`exec::load_image`, shared with the
+  initial program) before replacing anything, so an error leaves the
+  caller intact, then does what the point of no return does
+  (`commit_exec`).
 - **Signal targeting.** A signal is queued for a thread or for the process;
   `complete_signal` then wakes the thread that should take it — the
   suggested thread if it wants it (unblocked, and running or without a
@@ -175,9 +190,9 @@ code comments name the kernel function each rule comes from.
   `poll` save a `restart_block` so `restart_syscall` resumes them with the
   remaining time; `select` and `poll` write back the time left and
   `revents` as `poll_select_finish` and `do_sys_poll` do.
-- **System calls.** 177 calls across descriptors and I/O, paths and
+- **System calls.** 183 calls across descriptors and I/O, paths and
   metadata, memory management, identity and limits, clocks, signals,
-  threads, and futexes,
+  threads, futexes, and processes,
   each validated in the kernel's order so the first failing
   check determines the `errno`. Host `errno` values are translated by name.
   Memory calls act VMA by VMA as `mm/mprotect.c` and `mm/madvise.c` do,
@@ -205,11 +220,12 @@ code comments name the kernel function each rule comes from.
 | Loader and stack layout | `src/user/linux/tests/{loader,stack}.rs` with addresses derived by hand from the kernel algorithms |
 | Signals | `src/user/linux/signal/tests.rs` (records, queues, alternate stacks) and `src/user/linux/tests/signals.rs` (frames, `rt_sigreturn`, restart, and the signal calls on every ABI, with offsets from the UAPI structures) |
 | Threads, futexes, and signal targeting | `src/user/linux/tests/threads.rs` (13 tests): `clone`/`clone3` register state and validation on every ABI, futex wait/wake/bitset/requeue/wake-op/PI and interrupted waits, robust-list and `clear_child_tid` handling at exit, `complete_signal` choice and retargeting, thread and process exit status, `CLONE_VFORK`, and the `/proc` thread views |
+| `execve` and waits | `src/user/linux/tests/exec.rs`: `#!` parsing edge cases of `load_script`, `execve`/`execveat` error order on every ABI, the argument space charged to the byte (pointers, an empty `argv`, a script's rewritten arguments), a script named by a close-on-exec descriptor, the image replacement with a script and what survives it, `wait4`/`waitid` argument checks and `siginfo_t` writes on errors, children passing to a live thread (`__WNOTHREAD`) on thread exit and `execve`, and processes unavailable without host processes |
 | Timers and blocking | `src/user/linux/tests/waits.rs`: interval timers, `alarm` rounding, interrupted sleeps and `restart_syscall`, `clock_nanosleep` clocks, `poll`/`select`/`ppoll`/`pselect6` interruption, write-back, clamping, and temporary masks, interruptible pipe reads, `sigtimedwait` woken by a timer, and the deadlock diagnostic |
 | Host signals | `user_linux` `host_signals`: `kill` from the test process reaches the `hostsig` guest with `SI_USER` and the sender on every ISA, interrupts a blocking `read` of a pipe with `EINTR`, and a default-action `SIGTERM` ends `rax-user` with `SIGTERM`; with `--no-signal-forwarding` the host default applies |
 | Memory-management system calls | `src/user/linux/tests/syscall_mm.rs`: `mprotect`, `madvise`, and `personality` driven through `dispatch` on every ABI, expectations from the named kernel functions |
 | Syscall and errno numbering | `user_linux` `abi_tables` against the vendored UAPI headers |
-| End-to-end behavior | `user_linux` `fixtures`: 16 cases × 3 ISAs match stdout and exit status recorded on Linux (RV64 `mman` uses the AArch64 kernel's result because QEMU user mode, the RV64 translator, emulates `madvise`; x86-64 `signals` runs under QEMU user mode because Rosetta, the x86-64 translator, mishandles `SA_RESETHAND`; x86-64 and RV64 `threads` use the AArch64 kernel's result because Rosetta and QEMU lack `clone3` and `futex_waitv` and QEMU robust lists; see `oracle-overrides.txt`) (also with the x86-64 JIT disabled, the RISC-V JIT enabled, and 64-instruction scheduling slices); an opt-in live Docker differential (`RAX_USER_DOCKER_ORACLE=1`) |
+| End-to-end behavior | `user_linux` `fixtures`: 18 cases × 3 ISAs match stdout and exit status recorded on Linux (RV64 `mman` uses the AArch64 kernel's result because QEMU user mode, the RV64 translator, emulates `madvise`; x86-64 `signals` runs under QEMU user mode because Rosetta, the x86-64 translator, mishandles `SA_RESETHAND`; x86-64 and RV64 `threads` use the AArch64 kernel's result because Rosetta and QEMU lack `clone3` and `futex_waitv` and QEMU robust lists, as do their `exec` results because both run executed programs through `binfmt_misc`, and RV64 `fork` because QEMU ignores `clone` exit signals and `SA_NOCLDSTOP`; see `oracle-overrides.txt`) (also with the x86-64 JIT disabled, the RISC-V JIT enabled, and 64-instruction scheduling slices); an opt-in live Docker differential (`RAX_USER_DOCKER_ORACLE=1`) |
 
 **Differential-tested** here means that, for the fixture programs and
 inputs in `tests/fixtures/user/linux`, output and exit status equal what the

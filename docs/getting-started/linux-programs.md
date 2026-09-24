@@ -94,6 +94,17 @@ Sizes accept `K`, `M`, `G`, and `T` suffixes (powers of 1024).
   `/proc/uptime`, `/proc/version`, and the CPU-topology files under
   `/sys/devices/system/cpu` are synthesized.
 - **Identity.** The host process ID, user, and group IDs.
+- **Processes.** `fork`, `vfork`, and `clone`/`clone3` without
+  `CLONE_THREAD` fork `rax-user`: each guest process is a host process,
+  so guest PIDs, parent PIDs, process groups, and sessions are the host's.
+  `wait4` and `waitid` report exits, signal deaths, stops, and
+  continuations with Linux statuses; `SIGCHLD` carries the child's
+  `siginfo`, honors `SA_NOCLDSTOP`, and an ignored `SIGCHLD` or
+  `SA_NOCLDWAIT` reaps children automatically. `execve` and `execveat`
+  run ELF programs of any of the three ABIs (as a kernel with
+  `binfmt_misc` handlers for the other two would) and `#!` scripts, and
+  keep, reset, and close what Linux does. A forked child that dies prints
+  no diagnostic; its parent sees its status.
 - **Host signals.** `SIGHUP`, `SIGINT`, `SIGQUIT`, `SIGUSR1`, `SIGUSR2`,
   `SIGALRM`, `SIGTERM`, `SIGCONT`, `SIGTSTP`, `SIGTTIN`, `SIGTTOU`,
   `SIGURG`, `SIGXCPU`, `SIGXFSZ`, `SIGVTALRM`, `SIGPROF`, `SIGWINCH`, and
@@ -126,13 +137,27 @@ and in the [user-mode architecture page](../architecture/user-mode.md):
   diagnostic. POSIX timers (`timer_create`) and `timerfd` are not yet
   implemented. A stop signal's default action stops the `rax-user` process
   itself.
-- New processes (`fork`, `vfork`, `clone` without `CLONE_THREAD`) and
-  `execve` are not yet implemented (`ENOSYS`). A thread must share the
-  descriptor table and file-system context (`CLONE_FILES | CLONE_FS`,
-  otherwise `EINVAL`); `CLONE_PIDFD` and `CLONE_INTO_CGROUP` are `EINVAL`
-  and namespace flags `EPERM`. `FUTEX_WAIT_REQUEUE_PI` and
-  `FUTEX_CMP_REQUEUE_PI` return `ENOSYS`; an absolute `CLOCK_REALTIME`
-  futex timeout does not follow later changes of the host clock.
+- A process sharing memory with its parent (`CLONE_VM`) is a copy: with
+  `CLONE_VFORK` (`vfork`, `posix_spawn`) the parent still sleeps until the
+  child calls `execve` or exits, but does not see the child's stores (a
+  glibc `posix_spawn` whose `execve` fails therefore reports success and
+  the child exits with 127). Without `CLONE_VFORK` such a process, and one
+  sharing descriptors, file-system context, or handlers (`CLONE_FILES`,
+  `CLONE_FS`, `CLONE_SIGHAND` without `CLONE_THREAD`), `CLONE_PARENT`, and
+  pidfds are not supported.
+- Signals to other processes are host signals: they arrive as `SI_USER`
+  from the sender, without a `sigqueue` value; a real-time signal the host
+  lacks reaches only the sending process; a thread of another process
+  other than its leader cannot be named; `kill(-1)` reaches the caller's
+  children.
+- `/proc` describes only the calling process. `PR_SET_PDEATHSIG` is
+  recorded but never delivered.
+- A thread must share the descriptor table and file-system context
+  (`CLONE_FILES | CLONE_FS`, otherwise `EINVAL`); `CLONE_PIDFD` and
+  `CLONE_INTO_CGROUP` are `EINVAL` and namespace flags `EPERM`.
+  `FUTEX_WAIT_REQUEUE_PI` and `FUTEX_CMP_REQUEUE_PI` return `ENOSYS`; an
+  absolute `CLOCK_REALTIME` futex timeout does not follow later changes of
+  the host clock.
 - Pipes the guest creates never block the host (their blocking is
   emulated), but a write to an inherited pipe or terminal whose reader is
   slow (standard output into a pager) holds every guest thread until it
