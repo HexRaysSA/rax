@@ -12,6 +12,7 @@ use super::super::fs::fd::{FileObject, FileType, OpenFile};
 use super::super::host;
 use super::super::signal::deliver::restart::{ERESTART_RESTARTBLOCK, ERESTARTNOHAND, ERESTARTSYS};
 use super::super::wait::{Resume, Wait};
+use super::ready::raw_fd;
 use super::{Ctx, Outcome, RestartBlock, SysResult, is_blocked, read_iovecs};
 use crate::error::MemoryAccessKind;
 
@@ -797,15 +798,6 @@ mod pe {
     pub const POLLWRNORM: u16 = 0x100;
 }
 
-fn raw_fd(file: &OpenFile) -> Option<i32> {
-    match &file.object {
-        FileObject::Host(f) => Some(f.as_raw_fd()),
-        FileObject::PipeRead(p) => Some(p.as_raw_fd()),
-        FileObject::PipeWrite(p) => Some(p.as_raw_fd()),
-        _ => None,
-    }
-}
-
 /// How a poll ended.
 enum Polled {
     /// Revents per request; possibly all zero (timeout).
@@ -815,76 +807,37 @@ enum Polled {
 }
 
 /// `do_poll`: `revents` for `(fd, events)` pairs, sleeping until `deadline`
-/// (`None` waits indefinitely) for one to be ready. Regular files,
-/// directories, and synthesized files are always ready; a descriptor that
-/// is not open reports `POLLNVAL`. The thread sleeps (the internal errno)
-/// with `Resume::Until(deadline)`.
+/// (`None` waits indefinitely) for one to be ready. Each file's mask
+/// ([`ready::poll_files`](super::ready::poll_files)) is filtered by the
+/// events asked for, plus `POLLERR` and `POLLHUP`; a descriptor that is
+/// not open, or open with `O_PATH`, reports `POLLNVAL` (`fdget` refuses
+/// it). The thread sleeps (the internal errno) with
+/// `Resume::Until(deadline)`.
 fn poll_fds(
     c: &mut Ctx<'_>,
     req: &[(i32, u16)],
     deadline: Option<Instant>,
 ) -> Result<Polled, Errno> {
-    use pe::*;
+    use super::ready::ev;
     let mut out = vec![0u16; req.len()];
-    let mut host_idx = Vec::new();
-    let mut host_req = Vec::new();
-    // What anonymous-inode files add to the wait.
-    let mut extra = Wait::fds(Vec::new(), deadline);
+    let mut files = Vec::new();
+    let mut at = Vec::new();
     for (i, &(fd, events)) in req.iter().enumerate() {
         if fd < 0 {
             continue;
         }
-        let Ok(file) = c.p.fds.file(fd) else {
-            out[i] = POLLNVAL;
-            continue;
-        };
-        if let FileObject::Anon(anon) = &file.object {
-            let (ready, wait) = super::events::poll(c, anon, events);
-            out[i] = ready;
-            extra.fds.extend(wait.fds);
-            extra.signals |= wait.signals;
-            extra.deadline = match (extra.deadline, wait.deadline) {
-                (Some(a), Some(b)) => Some(a.min(b)),
-                (a, b) => a.or(b),
-            };
-            continue;
-        }
-        let want_r = events & (POLLIN | POLLRDNORM | POLLPRI) != 0;
-        let want_w = events & (POLLOUT | POLLWRNORM) != 0;
-        match (file.ftype, raw_fd(&file)) {
-            (FileType::Regular | FileType::Directory, _) | (_, None) => {
-                out[i] = events & (POLLIN | POLLRDNORM | POLLOUT | POLLWRNORM);
+        match c.p.fds.file(fd) {
+            Ok(file) => {
+                files.push((file, u32::from(events)));
+                at.push(i);
             }
-            (_, Some(raw)) => {
-                host_idx.push(i);
-                host_req.push((raw, want_r, want_w));
-            }
+            Err(_) => out[i] = pe::POLLNVAL,
         }
     }
-    let revents = |rs: &[host::Readiness], out: &mut Vec<u16>| {
-        for (k, r) in rs.iter().enumerate() {
-            let i = host_idx[k];
-            let events = req[i].1;
-            let mut rev = 0;
-            if r.readable {
-                rev |= events & (POLLIN | POLLRDNORM);
-            }
-            if r.writable {
-                rev |= events & (POLLOUT | POLLWRNORM);
-            }
-            if r.hangup {
-                rev |= POLLHUP;
-            }
-            if r.error {
-                rev |= POLLERR;
-            }
-            out[i] = rev;
-        }
-    };
-    if !host_req.is_empty()
-        && let Ok(rs) = host::poll(&host_req, 0)
-    {
-        revents(&rs, &mut out);
+    let refs: Vec<(&OpenFile, u32)> = files.iter().map(|(f, e)| (&**f, *e)).collect();
+    let (polled, mut wait) = super::ready::poll_files(c, &refs);
+    for ((&i, &(_, events)), p) in at.iter().zip(&refs).zip(&polled) {
+        out[i] = (p.mask & (events | ev::ERR | ev::HUP | ev::NVAL)) as u16;
     }
     if out.iter().any(|&r| r != 0) || deadline.is_some_and(|d| d <= Instant::now()) {
         return Ok(Polled::Done(out));
@@ -892,10 +845,9 @@ fn poll_fds(
     if c.signal_pending() {
         return Ok(Polled::Interrupted);
     }
-    // An anonymous file's deadline (a timer expiry) ends the sleep early,
-    // and the poll looks again.
-    let mut wait = extra;
-    wait.fds.extend(host_req);
+    // A file's own deadline (a timer expiry) ends the sleep early, and the
+    // poll looks again.
+    wait.deadline = super::ready::earlier(wait.deadline, deadline);
     Err(c.block(wait, Resume::Until(deadline)))
 }
 

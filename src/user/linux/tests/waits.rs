@@ -386,3 +386,54 @@ fn a_wait_nothing_can_end_is_reported() {
     assert_eq!(h.dispatch(Sysno::Pause, &[]), ret(ERESTARTNOHAND));
     assert!(start.elapsed() >= Duration::from_millis(900));
 }
+
+/// `revents` of one descriptor from a non-blocking `ppoll`.
+fn poll_one(h: &mut Harness, fd: u64, events: u16) -> u16 {
+    let (pfd, ts) = (h.scratch + 0x600, h.scratch + 0x640);
+    let mut rec = [0u8; 8];
+    rec[..4].copy_from_slice(&(fd as i32).to_le_bytes());
+    rec[4..6].copy_from_slice(&events.to_le_bytes());
+    h.proc.state.space.write_raw(pfd, &rec).unwrap();
+    h.proc.state.space.write_raw(ts, &[0u8; 16]).unwrap();
+    h.ok(Sysno::Ppoll, &[pfd, 1, ts, 0, 8]);
+    let mut out = [0u8; 2];
+    h.proc.state.space.read(pfd + 6, &mut out).unwrap();
+    u16::from_le_bytes(out)
+}
+
+#[test]
+fn pipes_poll_as_pipe_poll_reports() {
+    const IN: u16 = 0x1;
+    const OUT: u16 = 0x4;
+    const ERR: u16 = 0x8;
+    const HUP: u16 = 0x10;
+    const NVAL: u16 = 0x20;
+    const RDNORM: u16 = 0x40;
+    each_abi(|abi| {
+        let mut h = Harness::new(abi);
+        let fds = h.scratch + 0x700;
+        h.ok(Sysno::Pipe2, &[fds, 0]);
+        let (r, w) = (u64_at(&h, fds) & 0xffff_ffff, u64_at(&h, fds) >> 32);
+        assert_eq!(poll_one(&mut h, r, IN | OUT), 0, "{abi:?}: empty");
+        assert_eq!(poll_one(&mut h, w, IN | OUT), OUT, "{abi:?}: room");
+        h.proc.state.space.write_raw(h.scratch, b"ab").unwrap();
+        h.ok(Sysno::Write, &[w, h.scratch, 2]);
+        assert_eq!(poll_one(&mut h, r, IN | RDNORM), IN | RDNORM, "{abi:?}");
+        // No writer: data still reads (and hangs up); then only HUP.
+        h.ok(Sysno::Close, &[w]);
+        assert_eq!(poll_one(&mut h, r, IN), IN | HUP, "{abi:?}: data left");
+        h.ok(Sysno::Read, &[r, h.scratch, 2]);
+        assert_eq!(poll_one(&mut h, r, IN), HUP, "{abi:?}: drained");
+        // No reader: the write end reports an error (and room).
+        h.ok(Sysno::Pipe2, &[fds, 0]);
+        let (r, w) = (u64_at(&h, fds) & 0xffff_ffff, u64_at(&h, fds) >> 32);
+        h.ok(Sysno::Close, &[r]);
+        assert_eq!(poll_one(&mut h, w, OUT), OUT | ERR, "{abi:?}: widowed");
+        assert_eq!(poll_one(&mut h, w, 0), ERR, "{abi:?}: always reported");
+        // An O_PATH descriptor is not a pollable file (fdget).
+        let path = h.scratch + 0x800;
+        h.proc.state.space.write_raw(path, b"/\0").unwrap();
+        let o = h.ok(Sysno::Openat, &[-100i64 as u64, path, 0o10000000, 0]);
+        assert_eq!(poll_one(&mut h, o, IN), NVAL, "{abi:?}: O_PATH");
+    });
+}

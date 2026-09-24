@@ -414,9 +414,15 @@ impl TimerFd {
 
     /// `timerfd_poll`: whether a read would not block.
     pub fn readable(&self, now: &dyn Fn(Base) -> i64) -> bool {
+        self.pending_ticks(now) != 0
+    }
+
+    /// The expirations a read would count now, before the periods a
+    /// periodic timer has missed since it fired.
+    pub fn pending_ticks(&self, now: &dyn Fn(Base) -> i64) -> u64 {
         let l = Locked::new(self.words.words());
         self.refresh(&l, now);
-        l.get(TF_TICKS) != 0
+        l.get(TF_TICKS)
     }
 
     /// When an armed timer expires.

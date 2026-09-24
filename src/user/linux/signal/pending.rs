@@ -165,6 +165,14 @@ impl SigPending {
         self.set = signal | retain;
     }
 
+    /// Number of queued records of the signals in `mask`.
+    pub fn queued_in(&self, mask: u64) -> usize {
+        self.queue
+            .iter()
+            .filter(|q| sigmask(q.info.signo) & mask != 0)
+            .count()
+    }
+
     /// Number of queued records.
     pub fn queued(&self) -> usize {
         self.queue.len()

@@ -23,6 +23,7 @@ use super::super::signal::info::Layout;
 use super::super::signal::{KERNEL_ONLY_MASK, SigInfo, deliver};
 use super::super::wait::{Resume, Wait};
 use super::io::install;
+use super::ready::Polled;
 use super::timer::{read_itimerspec, timespec_ns, timespec_valid, write_itimerspec};
 use super::{Ctx, SysResult};
 
@@ -459,30 +460,28 @@ fn eventfd_write(c: &mut Ctx<'_>, file: &OpenFile, ev: &EventFd, buf: u64, len: 
     Err(wait_or(c, file, Wait::fd(ev.writable_fd(), true, false)))
 }
 
-/// `poll` of an anonymous-inode file: the ready events among `events`
-/// (plus errors), and what a sleeping `poll` waits for otherwise.
-pub fn poll(c: &Ctx<'_>, anon: &Anon, events: u16) -> (u16, Wait) {
-    const POLLIN: u16 = 0x001;
-    const POLLOUT: u16 = 0x004;
-    const POLLERR: u16 = 0x008;
-    const POLLRDNORM: u16 = 0x040;
-    const POLLWRNORM: u16 = 0x100;
-    let want_r = events & (POLLIN | POLLRDNORM) != 0;
-    let want_w = events & (POLLOUT | POLLWRNORM) != 0;
+/// `poll` of an anonymous-inode file: its mask, its level (the counter,
+/// pending ticks, or queued signals of its mask), and what a sleeper that
+/// asks for `events` waits on.
+pub fn poll(c: &Ctx<'_>, anon: &Anon, events: u32) -> (Polled, Wait) {
+    use super::ready::ev::*;
+    let want_r = events & (IN | RDNORM) != 0;
+    let want_w = events & (OUT | WRNORM) != 0;
     let mut wait = Wait::event();
-    let mut ready = 0u16;
+    let mut p = Polled::default();
     match anon {
         Anon::Event(ev) => {
             let (r, w, err) = ev.poll();
             if r {
-                ready |= POLLIN | POLLRDNORM;
+                p.mask |= IN | RDNORM;
             }
             if w {
-                ready |= POLLOUT | POLLWRNORM;
+                p.mask |= OUT | WRNORM;
             }
             if err {
-                ready |= POLLERR;
+                p.mask |= ERR;
             }
+            p.level = ev.count();
             if want_r {
                 wait.fds.push((ev.readable_fd(), true, false));
             }
@@ -491,8 +490,9 @@ pub fn poll(c: &Ctx<'_>, anon: &Anon, events: u16) -> (u16, Wait) {
             }
         }
         Anon::Timer(t) => {
-            if t.readable(&clock_now) {
-                ready |= POLLIN | POLLRDNORM;
+            p.level = t.pending_ticks(&clock_now);
+            if p.level != 0 {
+                p.mask |= IN | RDNORM;
             }
             if want_r {
                 wait.fds.push((t.readable_fd(), true, false));
@@ -501,15 +501,16 @@ pub fn poll(c: &Ctx<'_>, anon: &Anon, events: u16) -> (u16, Wait) {
         }
         Anon::Signal(s) => {
             let mask = s.mask();
-            if (c.t.pending.set() | c.p.shared_pending.set()) & mask != 0 {
-                ready |= POLLIN | POLLRDNORM;
+            p.level = (c.t.pending.queued_in(mask) + c.p.shared_pending.queued_in(mask)) as u64;
+            if p.level != 0 {
+                p.mask |= IN | RDNORM;
             }
             if want_r {
                 wait.signals = mask;
             }
         }
     }
-    (ready & (events | POLLERR), wait)
+    (p, wait)
 }
 
 /// `TFD_IOC_SET_TICKS` on a `timerfd`.
