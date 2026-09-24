@@ -524,9 +524,9 @@ pub fn fcntl(c: &mut Ctx<'_>, fd: i32, cmd: u32, arg: u64) -> SysResult {
             Ok(0)
         }
         F_GETFL => {
-            let file = c.p.fds.file(fd)?;
-            // O_LARGEFILE is always set on 64-bit kernels.
-            Ok(u64::from(file.flags() | c.p.abi.open_flags().largefile))
+            // f_flags as the file was created: open() forces O_LARGEFILE;
+            // pipes have none.
+            Ok(u64::from(c.p.fds.file(fd)?.flags()))
         }
         F_SETFL => {
             // SETFL_MASK: O_APPEND | O_NONBLOCK | O_DIRECT | O_NOATIME | FASYNC.

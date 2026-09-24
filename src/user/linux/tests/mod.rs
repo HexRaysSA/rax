@@ -1,6 +1,7 @@
 //! Linux personality unit tests.
 
 mod exec;
+mod files;
 mod harness;
 mod loader;
 mod signals;

@@ -182,17 +182,33 @@ fn open_target(
 ) -> Result<Arc<OpenFile>, Errno> {
     let layout = c.p.abi.open_flags();
     let accmode = flags & O_ACCMODE;
-    // f_flags keeps the status and access bits, not the creation bits.
-    let status = flags
-        & (O_ACCMODE
-            | O_APPEND
-            | O_NONBLOCK
-            | O_DSYNC
-            | O_SYNC_BIT
-            | FASYNC
-            | O_NOATIME
-            | O_PATH
-            | layout.direct);
+    // f_flags (build_open_how, build_open_flags, do_dentry_open): the
+    // valid open flags with O_LARGEFILE forced, as on every 64-bit kernel,
+    // less the creation-time flags and O_CLOEXEC; an O_PATH open keeps
+    // only O_PATH, O_DIRECTORY, and O_NOFOLLOW.
+    let valid = O_ACCMODE
+        | O_CREAT
+        | O_EXCL
+        | O_NOCTTY
+        | O_TRUNC
+        | O_APPEND
+        | O_NONBLOCK
+        | O_DSYNC
+        | O_SYNC_BIT
+        | FASYNC
+        | O_NOATIME
+        | O_CLOEXEC
+        | O_PATH
+        | O_TMPFILE_BIT
+        | layout.direct
+        | layout.largefile
+        | layout.directory
+        | layout.nofollow;
+    let status = if flags & O_PATH != 0 {
+        flags & (O_PATH | layout.directory | layout.nofollow)
+    } else {
+        (flags & valid | layout.largefile) & !(O_CREAT | O_EXCL | O_NOCTTY | O_TRUNC | O_CLOEXEC)
+    };
     match target {
         Target::Fd(file) => Ok(file),
         Target::Proc(ProcEntry::File(data), guest) => {
@@ -267,7 +283,7 @@ fn open_target(
                     ftype,
                     guest,
                     Some(host),
-                    O_PATH,
+                    status,
                 ));
             }
             let mut opts = std::fs::OpenOptions::new();
