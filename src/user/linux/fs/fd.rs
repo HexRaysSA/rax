@@ -401,6 +401,8 @@ impl OpenFile {
                 }
                 Ok(target as u64)
             }
+            // pidfs has no llseek operation.
+            FileObject::Anon(super::anon::Anon::Pid(_)) => Err(Errno(ESPIPE)),
             // noop_llseek: the position stays 0.
             FileObject::Anon(_) => Ok(0),
             FileObject::Synthetic(data) => {

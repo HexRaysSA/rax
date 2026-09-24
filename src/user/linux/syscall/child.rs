@@ -8,8 +8,7 @@
 //! semantics: the parent sleeps until the child calls `execve` or ends, but
 //! does not see the child's stores. Processes that share memory without
 //! `CLONE_VFORK`, a descriptor table, a file-system context, or handlers
-//! with their parent, and `CLONE_PARENT` and `CLONE_PIDFD`, are not
-//! supported.
+//! with their parent, and `CLONE_PARENT`, are not supported.
 
 use super::super::abi::errno::Errno;
 use super::super::abi::errno_table::*;
@@ -61,6 +60,8 @@ pub struct ForkArgs {
     pub parent_tid: u64,
     /// `CLONE_CHILD_SETTID`/`CLONE_CHILD_CLEARTID` address.
     pub child_tid: u64,
+    /// `CLONE_PIDFD` address.
+    pub pidfd: u64,
     /// `set_tid`.
     pub set_tid: Vec<i32>,
 }
@@ -76,10 +77,7 @@ pub fn fork(c: &mut Ctx<'_>, args: ForkArgs) -> Result<Outcome, Errno> {
     if flags & CLONE_VM != 0 && flags & CLONE_VFORK == 0 {
         return Err(Errno(ENOSYS));
     }
-    if flags
-        & (CLONE_FILES | CLONE_FS | CLONE_SIGHAND | CLONE_PARENT | CLONE_PIDFD | CLONE_INTO_CGROUP)
-        != 0
-    {
+    if flags & (CLONE_FILES | CLONE_FS | CLONE_SIGHAND | CLONE_PARENT | CLONE_INTO_CGROUP) != 0 {
         return Err(Errno(EINVAL));
     }
     if flags & CLONE_SETTLS != 0
@@ -96,6 +94,11 @@ pub fn fork(c: &mut Ctx<'_>, args: ForkArgs) -> Result<Outcome, Errno> {
         }
         return Err(Errno(if c.p.creds.1 != 0 { EPERM } else { EINVAL }));
     }
+    // The pidfd is prepared before the child exists (and is not the
+    // child's): its descriptor and result word must be available.
+    if flags & CLONE_PIDFD != 0 {
+        super::pidfd::clone_check(c, args.pidfd)?;
+    }
     host::watch_children()?;
     let (read, write) = host::status_pipe()?;
     match host::fork_process()? {
@@ -104,6 +107,9 @@ pub fn fork(c: &mut Ctx<'_>, args: ForkArgs) -> Result<Outcome, Errno> {
             let (tid, exec_id) = (c.t.tid, c.p.exec_id);
             c.p.children
                 .add(pid, read, args.exit_signal as i32, tid, exec_id);
+            if flags & CLONE_PIDFD != 0 {
+                super::pidfd::clone_install(c, pid, pid, args.pidfd)?;
+            }
             if flags & CLONE_PARENT_SETTID != 0 {
                 let _ = c.write_u32(args.parent_tid, pid as u32);
             }
@@ -128,6 +134,7 @@ pub fn fork(c: &mut Ctx<'_>, args: ForkArgs) -> Result<Outcome, Errno> {
 /// threads; the child's stack, TLS, and TID words.
 fn become_child(c: &mut Ctx<'_>, args: &ForkArgs) {
     let pid = host::pid();
+    c.p.pidfds.forked(pid);
     let p = &mut *c.p;
     p.pid = pid;
     p.ppid = host::ppid();
@@ -218,6 +225,7 @@ fn fork_like(c: &mut Ctx<'_>, flags: u64) -> Result<Outcome, Errno> {
             tls: 0,
             parent_tid: 0,
             child_tid: 0,
+            pidfd: 0,
             set_tid: Vec::new(),
         },
     )
@@ -234,6 +242,10 @@ pub fn refresh(p: &mut ProcState, th: &mut Threads<'_>) {
         return;
     }
     let chld = p.sigactions[(SIGCHLD - 1) as usize];
+    // A child named by a pidfd became readable: its pollers look again.
+    let polled = events
+        .iter()
+        .any(|e| matches!(e, ChildEvent::Exited(pid) if p.pidfds.names_process(*pid)));
     for e in events {
         match e {
             ChildEvent::Exited(pid) => {
@@ -262,7 +274,7 @@ pub fn refresh(p: &mut ProcState, th: &mut Threads<'_>) {
                     sig = 0;
                 }
                 if autoreap {
-                    p.children.reap(pid);
+                    reap(p, pid);
                 }
                 if sig > 0 && sig <= 64 {
                     info.signo = sig;
@@ -286,10 +298,20 @@ pub fn refresh(p: &mut ProcState, th: &mut Threads<'_>) {
     }
     for t in th.iter_mut() {
         if let Some(b) = t.blocked.as_mut()
-            && matches!(b.resume, Resume::WaitChild | Resume::VforkChild { .. })
+            && (matches!(b.resume, Resume::WaitChild | Resume::VforkChild { .. })
+                || (polled && matches!(b.resume, Resume::Until(_))))
         {
             b.woken = true;
         }
+    }
+}
+
+/// `release_task` for a child: its record goes, and its pidfds see it gone
+/// with its wait status (`pidfs_exit`).
+fn reap(p: &mut ProcState, pid: i32) {
+    if let Some(ch) = p.children.reap(pid) {
+        p.pidfds
+            .task_ended(pid, pid, ch.zombie.map(|(status, _)| status));
     }
 }
 
@@ -310,6 +332,8 @@ enum Select {
     Any,
     Pid(i32),
     Pgid(i32),
+    /// A task that is no child (a pidfd's thread, or a task that is gone).
+    Nothing,
 }
 
 /// What a wait found: the child, its wait status, `si_code`, `si_status`,
@@ -339,6 +363,7 @@ fn do_wait(c: &mut Ctx<'_>, sel: Select, flags: u32) -> Result<Option<Found>, Er
             Select::Any => true,
             Select::Pid(pid) => ch.pid == pid,
             Select::Pgid(g) => ch.pgid == g,
+            Select::Nothing => false,
         };
         let kind = flags & WALL != 0 || ((ch.exit_signal != SIGCHLD) == (flags & WCLONE != 0));
         let thread = flags & WNOTHREAD == 0 || ch.creator == me;
@@ -403,7 +428,7 @@ fn do_wait(c: &mut Ctx<'_>, sel: Select, flags: u32) -> Result<Option<Found>, Er
     }
     if let Some((f, exited)) = found {
         if exited && flags & WNOWAIT == 0 {
-            c.p.children.reap(f.pid);
+            reap(c.p, f.pid);
         }
         return Ok(Some(f));
     }
@@ -482,8 +507,15 @@ pub fn waitid(
     options: u32,
     ru: u64,
 ) -> Result<Outcome, Errno> {
-    let found = match waitid_select(which, id, options) {
-        Ok(sel) => do_wait(c, sel, options),
+    let found = match waitid_select(c, which, id, options) {
+        // A non-blocking pidfd does not sleep, and says so with EAGAIN.
+        Ok((sel, nohang)) if nohang && options & WNOHANG == 0 => {
+            match do_wait(c, sel, options | WNOHANG) {
+                Ok(None) => Err(Errno(EAGAIN)),
+                other => other,
+            }
+        }
+        Ok((sel, _)) => do_wait(c, sel, options),
         Err(e) => Err(e),
     };
     // A sleeping wait writes nothing until it finishes.
@@ -518,8 +550,8 @@ pub fn waitid(
 }
 
 /// `kernel_waitid_prepare`: the options and the children `which` and `id`
-/// select.
-fn waitid_select(which: i32, id: i32, options: u32) -> Result<Select, Errno> {
+/// select, and whether a non-blocking pidfd adds `WNOHANG`.
+fn waitid_select(c: &Ctx<'_>, which: i32, id: i32, options: u32) -> Result<(Select, bool), Errno> {
     const P_ALL: i32 = 0;
     const P_PID: i32 = 1;
     const P_PGID: i32 = 2;
@@ -532,16 +564,20 @@ fn waitid_select(which: i32, id: i32, options: u32) -> Result<Select, Errno> {
     if options & (WEXITED | WUNTRACED | WCONTINUED) == 0 {
         return Err(Errno(EINVAL));
     }
-    match which {
-        P_ALL => Ok(Select::Any),
-        P_PID if id <= 0 => Err(Errno(EINVAL)),
-        P_PID => Ok(Select::Pid(id)),
-        P_PGID if id < 0 => Err(Errno(EINVAL)),
-        P_PGID if id == 0 => Ok(Select::Pgid(own_pgid()?)),
-        P_PGID => Ok(Select::Pgid(id)),
-        // No descriptor is a pidfd (pidfd_get_pid).
-        P_PIDFD if id < 0 => Err(Errno(EINVAL)),
-        P_PIDFD => Err(Errno(EBADF)),
-        _ => Err(Errno(EINVAL)),
-    }
+    let sel = match which {
+        P_ALL => Select::Any,
+        P_PID if id <= 0 => return Err(Errno(EINVAL)),
+        P_PID => Select::Pid(id),
+        P_PGID if id < 0 => return Err(Errno(EINVAL)),
+        P_PGID if id == 0 => Select::Pgid(own_pgid()?),
+        P_PGID => Select::Pgid(id),
+        P_PIDFD if id < 0 => return Err(Errno(EINVAL)),
+        // The pidfd's task (PIDTYPE_PID): a child only if it names one.
+        P_PIDFD => {
+            let (child, nonblock) = super::pidfd::wait_target(c, id)?;
+            return Ok((child.map_or(Select::Nothing, Select::Pid), nonblock));
+        }
+        _ => return Err(Errno(EINVAL)),
+    };
+    Ok((sel, false))
 }

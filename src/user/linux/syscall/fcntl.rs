@@ -177,6 +177,13 @@ pub fn ioctl(c: &mut Ctx<'_>, fd: i32, req: u32, arg: u64) -> SysResult {
     {
         return super::net::ioctl(c, s, req, arg);
     }
+    // do_vfs_ioctl handles these for every file; FIONREAD only for regular
+    // files, which a pidfd is not to it.
+    if let FileObject::Anon(super::super::fs::anon::Anon::Pid(t)) = &file.object
+        && !matches!(req, FIOCLEX | FIONCLEX | FIONBIO)
+    {
+        return super::pidfd::ioctl(c, t, req, arg);
+    }
     match req {
         FIOCLEX | FIONCLEX => {
             c.p.fds.get_mut(fd)?.cloexec = req == FIOCLEX;

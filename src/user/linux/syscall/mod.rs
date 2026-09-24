@@ -37,6 +37,7 @@ pub mod mem;
 pub mod memfd;
 pub mod net;
 pub mod path;
+pub mod pidfd;
 pub mod process;
 pub mod ready;
 pub mod signal;
@@ -656,6 +657,15 @@ fn call_handler(c: &mut Ctx<'_>, s: Sysno, a: [u64; 6]) -> Result<Outcome, Errno
         S::RtSigtimedwait => signal::rt_sigtimedwait(c, a[0], a[1], a[2], a[3]),
         S::RtSigreturn => signal::rt_sigreturn(c),
         S::RestartSyscall => signal::restart_syscall(c),
+        S::PidfdOpen => r(pidfd::pidfd_open(c, a[0] as i32, a[1] as u32)),
+        S::PidfdSendSignal => r(pidfd::pidfd_send_signal(
+            c,
+            a[0] as i32,
+            a[1] as i32,
+            a[2],
+            a[3] as u32,
+        )),
+        S::PidfdGetfd => r(pidfd::pidfd_getfd(c, a[0] as i32, a[1] as i32, a[2] as u32)),
 
         // --------------------------------------------------------- futex
         S::Futex => futex::futex(c, a[0], a[1] as u32, a[2] as u32, a[3], a[4], a[5] as u32),

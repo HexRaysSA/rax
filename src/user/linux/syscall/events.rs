@@ -269,7 +269,7 @@ pub fn read(c: &mut Ctx<'_>, file: &OpenFile, vecs: &[(u64, u64)]) -> SysResult 
                 n => Ok(n),
             }
         }
-        Anon::Epoll(_) => Err(Errno(EINVAL)),
+        Anon::Epoll(_) | Anon::Pid(_) => Err(Errno(EINVAL)),
         Anon::Signal(s) => {
             let count = len / SIGNALFD_SIZE;
             if count == 0 {
@@ -340,7 +340,7 @@ pub fn write_call(c: &mut Ctx<'_>, file: &OpenFile, buf: u64, count: u64) -> Sys
 
 /// Whether the file has a read operation (`FMODE_CAN_READ`).
 pub fn can_read(file: &OpenFile) -> bool {
-    !matches!(file.object, FileObject::Anon(Anon::Epoll(_)))
+    !matches!(file.object, FileObject::Anon(Anon::Epoll(_) | Anon::Pid(_)))
 }
 
 /// Whether the file has a write operation (`FMODE_CAN_WRITE`).
@@ -483,6 +483,7 @@ pub fn poll(c: &Ctx<'_>, anon: &Anon, events: u32) -> (Polled, Wait) {
     let mut p = Polled::default();
     match anon {
         Anon::Epoll(ep) => return super::epoll::poll_instance(c, ep, events),
+        Anon::Pid(t) => return super::pidfd::poll(c, t),
         Anon::Event(ev) => {
             let (r, w, err) = ev.poll();
             if r {

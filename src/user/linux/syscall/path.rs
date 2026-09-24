@@ -142,6 +142,16 @@ pub fn stat_file(c: &Ctx<'_>, file: &OpenFile) -> Result<Stat, Errno> {
             blksize: 4096,
             ..Default::default()
         }),
+        // pidfs_init_inode: mode 0700 shown without a file type
+        // (anon_inode_getattr), owned by root, one inode per task.
+        FileObject::Anon(super::super::fs::anon::Anon::Pid(t)) => Ok(Stat {
+            dev_minor: super::pidfd::PIDFS_DEV_MINOR,
+            ino: t.ino(),
+            mode: 0o700,
+            nlink: 1,
+            blksize: 4096,
+            ..Default::default()
+        }),
         // alloc_anon_inode: mode 0600 without a file type, one link, the
         // caller's IDs; the one anon_inode_fs inode all of them share (its
         // device and inode numbers are fixed at boot).
@@ -677,6 +687,8 @@ pub fn fchmod(c: &mut Ctx<'_>, fd: i32, perm: u32) -> SysResult {
             Ok(0)
         }
         FileObject::PathOnly => Err(Errno(EBADF)),
+        // anon_inode_setattr (pidfs_setattr calls it too).
+        FileObject::Anon(_) => Err(Errno(EOPNOTSUPP)),
         _ => Ok(0),
     }
 }
@@ -720,6 +732,8 @@ pub fn fchown(c: &mut Ctx<'_>, fd: i32, uid: u32, gid: u32) -> SysResult {
             Ok(0)
         }
         FileObject::PathOnly => Err(Errno(EBADF)),
+        // anon_inode_setattr.
+        FileObject::Anon(_) => Err(Errno(EOPNOTSUPP)),
         _ => Ok(0),
     }
 }
@@ -845,6 +859,8 @@ pub fn fstatfs(c: &mut Ctx<'_>, fd: i32, buf: u64) -> SysResult {
     };
     let magic = if file.host_path.is_some() {
         EXT4_SUPER_MAGIC
+    } else if super::pidfd::target_of(&file).is_some() {
+        super::pidfd::PID_FS_MAGIC
     } else {
         PROC_SUPER_MAGIC
     };

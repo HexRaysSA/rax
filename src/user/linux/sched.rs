@@ -333,6 +333,21 @@ impl LinuxProcess {
             }
         }
         self.threads.remove(idx);
+        // A thread other than the leader is released as it exits: its
+        // pidfds report it gone, and their pollers look again.
+        if tid != self.state.pid
+            && self.state.pidfds.task_ended(
+                self.state.pid,
+                tid,
+                Some(super::children::exited_status(code)),
+            )
+        {
+            for b in self.threads.iter_mut().filter_map(|t| t.blocked.as_mut()) {
+                if matches!(b.resume, wait::Resume::Until(_)) {
+                    b.woken = true;
+                }
+            }
+        }
         // forget_original_parent: its children pass to the first live
         // thread (find_new_reaper), whose __WNOTHREAD waits then see them.
         if let Some(heir) = self.threads.first().map(|t| t.tid) {

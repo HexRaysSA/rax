@@ -1,5 +1,7 @@
 //! Anonymous-inode files: `eventfd` (`fs/eventfd.c`), `timerfd`
-//! (`fs/timerfd.c`), and `signalfd` (`fs/signalfd.c`).
+//! (`fs/timerfd.c`), and `signalfd` (`fs/signalfd.c`), and the pidfds
+//! (`fs/pidfs.c`, [`pidfd`](super::pidfd)) and `epoll` instances that
+//! share their shape.
 //!
 //! Their state lives in memory shared with forked processes
 //! ([`SharedWords`]), so that a parent and a child holding the same
@@ -32,6 +34,8 @@ pub enum Anon {
     Signal(SignalFd),
     /// `epoll`.
     Epoll(super::epoll::Epoll),
+    /// A pidfd.
+    Pid(std::sync::Arc<super::pidfd::Target>),
 }
 
 impl Anon {
@@ -42,6 +46,7 @@ impl Anon {
             Anon::Timer(_) => "[timerfd]",
             Anon::Signal(_) => "[signalfd]",
             Anon::Epoll(_) => "[eventpoll]",
+            Anon::Pid(_) => "[pidfd]",
         }
     }
 }

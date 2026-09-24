@@ -22,6 +22,7 @@ sockets  sockets  -
 sockmsg  sockmsg  -
 shmem    shmem    -
 memfd    memfd    -
+pidfd    pidfd    -
 stdin    stdin    input/fox.txt
 segv     segv     -
 abort    abort    -

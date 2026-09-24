@@ -6,6 +6,7 @@ mod exec;
 mod files;
 mod harness;
 mod loader;
+mod pidfd;
 mod posix_timers;
 mod signals;
 mod sockets;

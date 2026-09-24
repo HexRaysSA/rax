@@ -1044,3 +1044,164 @@ pub fn take_byte(fd: i32) {
         libc::read(fd, b.as_mut_ptr().cast(), 1);
     }
 }
+
+/// A watch for the end of a host process: a descriptor that becomes
+/// readable, and stays so, once the process has exited — a pidfd on Linux,
+/// a kqueue holding an `EVFILT_PROC`/`NOTE_EXIT` filter on macOS.
+///
+/// A macOS kqueue does not survive `fork` (the child's copy of the
+/// descriptor is closed, and its number may be reused), so a watch is only
+/// used and closed by the process that made it there.
+#[derive(Debug)]
+pub struct ExitWatch {
+    fd: libc::c_int,
+    owner: i32,
+}
+
+impl ExitWatch {
+    /// Watches process `target`; `Ok(None)` when it no longer exists (or
+    /// has already exited).
+    pub fn new(target: i32) -> Result<Option<Self>, Errno> {
+        use super::abi::errno_table::ESRCH;
+        let gone = |e: Errno| if e.0 == ESRCH { Ok(None) } else { Err(e) };
+        #[cfg(target_os = "linux")]
+        let fd = {
+            // SAFETY: pidfd_open takes two integers and returns a new
+            // close-on-exec descriptor or -1.
+            let fd = unsafe {
+                libc::syscall(
+                    libc::SYS_pidfd_open,
+                    target as libc::c_long,
+                    0 as libc::c_long,
+                )
+            };
+            if fd < 0 {
+                return gone(last_errno());
+            }
+            fd as libc::c_int
+        };
+        #[cfg(not(target_os = "linux"))]
+        let fd = {
+            // SAFETY: kqueue takes no arguments.
+            let kq = unsafe { libc::kqueue() };
+            if kq < 0 {
+                return Err(last_errno());
+            }
+            // SAFETY: kevent is plain data.
+            let mut ev: libc::kevent = unsafe { std::mem::zeroed() };
+            ev.ident = target as libc::uintptr_t;
+            ev.filter = libc::EVFILT_PROC;
+            ev.flags = libc::EV_ADD;
+            ev.fflags = libc::NOTE_EXIT;
+            // SAFETY: one fully initialized change record is read; no
+            // events are written (count 0).
+            let r = unsafe { libc::kevent(kq, &ev, 1, std::ptr::null_mut(), 0, std::ptr::null()) };
+            if r != 0 {
+                let e = last_errno();
+                // SAFETY: the descriptor kqueue just returned, owned here.
+                unsafe { libc::close(kq) };
+                return gone(e);
+            }
+            // SAFETY: integer arguments on the descriptor owned here.
+            unsafe { libc::fcntl(kq, libc::F_SETFD, libc::FD_CLOEXEC) };
+            kq
+        };
+        Ok(Some(ExitWatch { fd, owner: pid() }))
+    }
+
+    /// Whether this process may use the descriptor.
+    fn usable(&self) -> bool {
+        cfg!(target_os = "linux") || self.owner == pid()
+    }
+
+    /// The descriptor, readable once the process has exited; `None` in a
+    /// process that cannot use it.
+    pub fn fd(&self) -> Option<i32> {
+        self.usable().then_some(self.fd)
+    }
+
+    /// Whether the process has exited; `None` in a process that cannot use
+    /// the watch.
+    pub fn exited(&self) -> Option<bool> {
+        let fd = self.fd()?;
+        Some(poll(&[(fd, true, false)], 0).is_ok_and(|r| r.first().is_some_and(|x| x.readable)))
+    }
+}
+
+impl Drop for ExitWatch {
+    fn drop(&mut self) {
+        if self.usable() {
+            // SAFETY: the descriptor `new` made, closed once by its owner.
+            unsafe {
+                libc::close(self.fd);
+            }
+        }
+    }
+}
+
+/// What the host reports of another process: its parent and its real,
+/// effective, and saved user and group IDs.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct ProcIds {
+    /// Parent process ID.
+    pub ppid: i32,
+    /// Real, effective, and saved user IDs.
+    pub uids: (u32, u32, u32),
+    /// Real, effective, and saved group IDs.
+    pub gids: (u32, u32, u32),
+}
+
+/// The parent and credentials of host process `pid`.
+#[cfg(target_os = "linux")]
+pub fn proc_ids(pid: i32) -> Result<ProcIds, Errno> {
+    let text = std::fs::read_to_string(format!("/proc/{pid}/status"))?;
+    let mut ids = ProcIds::default();
+    let field = |line: &str, i: usize| -> u32 {
+        line.split_whitespace()
+            .nth(i)
+            .and_then(|v| v.parse().ok())
+            .unwrap_or(0)
+    };
+    for line in text.lines() {
+        if line.starts_with("PPid:") {
+            ids.ppid = field(line, 1) as i32;
+        } else if line.starts_with("Uid:") {
+            ids.uids = (field(line, 1), field(line, 2), field(line, 3));
+        } else if line.starts_with("Gid:") {
+            ids.gids = (field(line, 1), field(line, 2), field(line, 3));
+        }
+    }
+    Ok(ids)
+}
+
+/// The parent and credentials of host process `pid`.
+#[cfg(not(target_os = "linux"))]
+pub fn proc_ids(pid: i32) -> Result<ProcIds, Errno> {
+    // SAFETY: proc_bsdinfo is plain data.
+    let mut info: libc::proc_bsdinfo = unsafe { std::mem::zeroed() };
+    let size = std::mem::size_of::<libc::proc_bsdinfo>() as libc::c_int;
+    // SAFETY: `info` is writable for `size` bytes, which proc_pidinfo fills
+    // at most.
+    let n = unsafe {
+        libc::proc_pidinfo(
+            pid,
+            libc::PROC_PIDTBSDINFO,
+            0,
+            (&mut info as *mut libc::proc_bsdinfo).cast(),
+            size,
+        )
+    };
+    if n != size {
+        let e = last_errno();
+        return Err(if e.0 == 0 {
+            Errno(super::abi::errno_table::ESRCH)
+        } else {
+            e
+        });
+    }
+    Ok(ProcIds {
+        ppid: info.pbi_ppid as i32,
+        uids: (info.pbi_ruid, info.pbi_uid, info.pbi_svuid),
+        gids: (info.pbi_rgid, info.pbi_gid, info.pbi_svgid),
+    })
+}

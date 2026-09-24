@@ -393,7 +393,7 @@ pub fn pread(c: &mut Ctx<'_>, fd: i32, buf: u64, count: u64, pos: i64) -> SysRes
         return Err(Errno(EINVAL));
     }
     if matches!(file.object, FileObject::Anon(_)) {
-        return Err(Errno(ESPIPE));
+        return Err(Errno(positional(&file)));
     }
     read_into(c, &file, buf, count, Some(pos as u64))
 }
@@ -405,9 +405,20 @@ pub fn pwrite(c: &mut Ctx<'_>, fd: i32, buf: u64, count: u64, pos: i64) -> SysRe
         return Err(Errno(EINVAL));
     }
     if matches!(file.object, FileObject::Anon(_)) {
-        return Err(Errno(ESPIPE));
+        return Err(Errno(positional(&file)));
     }
     write_from(c, &file, buf, count, Some(pos as u64))
+}
+
+/// Why a positioned transfer on an anonymous-inode file fails: most have
+/// no position (`FMODE_PREAD` is not set: `ESPIPE`); a pidfd has one but
+/// cannot be read or written (`EINVAL`).
+fn positional(file: &OpenFile) -> i32 {
+    if super::pidfd::target_of(file).is_some() {
+        EINVAL
+    } else {
+        ESPIPE
+    }
 }
 
 /// `RWF_*` flags accepted by `preadv2`/`pwritev2`.
@@ -424,7 +435,7 @@ pub fn preadv(c: &mut Ctx<'_>, fd: i32, iov: u64, cnt: u64, pos: i64, flags: u64
     }
     if matches!(file.object, FileObject::Anon(_)) {
         return if pos >= 0 {
-            Err(Errno(ESPIPE))
+            Err(Errno(positional(&file)))
         } else {
             readv(c, fd, iov, cnt)
         };
@@ -452,7 +463,7 @@ pub fn pwritev(c: &mut Ctx<'_>, fd: i32, iov: u64, cnt: u64, pos: i64, flags: u6
     }
     if matches!(file.object, FileObject::Anon(_)) {
         return if pos >= 0 {
-            Err(Errno(ESPIPE))
+            Err(Errno(positional(&file)))
         } else {
             writev(c, fd, iov, cnt)
         };
@@ -1217,6 +1228,11 @@ pub fn ftruncate(c: &mut Ctx<'_>, fd: i32, len: i64) -> SysResult {
     if len < 0 {
         return Err(Errno(EINVAL));
     }
+    // A pidfd's inode is a regular file to the VFS, which pidfs_setattr
+    // refuses to change.
+    if super::pidfd::target_of(&file).is_some() {
+        return Err(Errno(EOPNOTSUPP));
+    }
     if !file.writable() || file.ftype != FileType::Regular {
         return Err(Errno(EINVAL));
     }
@@ -1244,6 +1260,10 @@ pub fn fallocate(c: &mut Ctx<'_>, fd: i32, mode: u32, off: i64, len: i64) -> Sys
     }
     if !file.writable() {
         return Err(Errno(EBADF));
+    }
+    // A pidfd is a regular file to vfs_fallocate, without the operation.
+    if super::pidfd::target_of(&file).is_some() {
+        return Err(Errno(EOPNOTSUPP));
     }
     if file.ftype != FileType::Regular {
         return Err(Errno(ENODEV));

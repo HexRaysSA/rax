@@ -146,7 +146,7 @@ pub fn rt_sigpending(c: &mut Ctx<'_>, set: u64, size: u64) -> SysResult {
 }
 
 /// `prepare_kill_siginfo`: the sender's TGID and real UID.
-fn kill_info(c: &Ctx<'_>, sig: i32, code: i32) -> SigInfo {
+pub(super) fn kill_info(c: &Ctx<'_>, sig: i32, code: i32) -> SigInfo {
     SigInfo::kill(sig, code, c.p.pid, c.p.creds.0)
 }
 
@@ -157,7 +157,7 @@ fn process_target(c: &Ctx<'_>, pid: i32) -> Option<i32> {
 }
 
 /// Sends `info` to the process through thread `target`.
-fn send_process(c: &mut Ctx<'_>, info: SigInfo, target: i32) {
+pub(super) fn send_process(c: &mut Ctx<'_>, info: SigInfo, target: i32) {
     let (p, mut th) = c.split();
     deliver::send_signal(p, &mut th, info, Dest::Process(target), false);
 }
@@ -241,7 +241,7 @@ pub fn kill(c: &mut Ctx<'_>, pid: i32, sig: i32) -> SysResult {
 /// process's records (the host has reaped its PID and may reuse it): it is
 /// still found, and the signal goes nowhere, as `group_send_sig_info` to a
 /// zombie does; it is never asked of the host.
-fn other_process(c: &Ctx<'_>, pid: i32, sig: i32) -> SysResult {
+pub(super) fn other_process(c: &Ctx<'_>, pid: i32, sig: i32) -> SysResult {
     use super::super::host;
     let zombie = c.p.children.list.iter().any(|ch| {
         ch.zombie.is_some()
@@ -295,7 +295,7 @@ pub fn tkill(c: &mut Ctx<'_>, tid: i32, sig: i32) -> SysResult {
 /// `do_send_specific`: a signal to one thread, `tgid <= 0` matching any
 /// thread group. The exited leader is still found (a zombie); a signal
 /// sent to it is never delivered.
-fn send_specific(
+pub(super) fn send_specific(
     c: &mut Ctx<'_>,
     tgid: i32,
     tid: i32,
@@ -328,7 +328,7 @@ fn send_specific(
 
 /// `__copy_siginfo_from_user`: the record with `si_signo` replaced by
 /// `sig`; an unknown layout must not use bytes 48-127.
-fn read_user_siginfo(c: &Ctx<'_>, sig: i32, addr: u64) -> Result<SigInfo, Errno> {
+pub(super) fn read_user_siginfo(c: &Ctx<'_>, sig: i32, addr: u64) -> Result<SigInfo, Errno> {
     let b = c.read_mem(addr, KERNEL_SIGINFO_SIZE)?;
     let mut info = SigInfo::decode(&b);
     info.signo = sig;

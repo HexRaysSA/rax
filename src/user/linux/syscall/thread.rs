@@ -268,12 +268,12 @@ fn kernel_clone(c: &mut Ctx<'_>, args: CloneArgs) -> Result<Outcome, Errno> {
                 tls: args.tls,
                 parent_tid: args.parent_tid,
                 child_tid: args.child_tid,
+                pidfd: args.pidfd,
                 set_tid: args.set_tid,
             },
         );
     }
-    if flags & (CLONE_FILES | CLONE_FS) != CLONE_FILES | CLONE_FS
-        || flags & (CLONE_PIDFD | CLONE_INTO_CGROUP) != 0
+    if flags & (CLONE_FILES | CLONE_FS) != CLONE_FILES | CLONE_FS || flags & CLONE_INTO_CGROUP != 0
     {
         return Err(Errno(EINVAL));
     }
@@ -300,6 +300,11 @@ fn kernel_clone(c: &mut Ctx<'_>, args: CloneArgs) -> Result<Outcome, Errno> {
         }
         _ => return Err(Errno(EINVAL)),
     };
+    // pidfd_prepare with PIDFD_THREAD, then its number for the caller.
+    if flags & CLONE_PIDFD != 0 {
+        super::pidfd::clone_check(c, args.pidfd)?;
+        super::pidfd::clone_install(c, c.p.pid, tid, args.pidfd)?;
+    }
     let mut cpu = c.t.cpu.clone_thread();
     cpu.set_syscall_result(0);
     if args.stack != 0 {

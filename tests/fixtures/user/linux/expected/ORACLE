@@ -35,3 +35,5 @@ override: riscv64/sockmsg from aarch64 (qemu-riscv64 ignores recvmmsg's timeout 
 override: x86_64/shmem from aarch64 (Rosetta dies of SIGTRAP on mremap with an old length of 0)
 override: riscv64/shmem from aarch64 (qemu-riscv64 refuses mremap's zero old length before MREMAP_MAYMOVE and does not implement MADV_REMOVE)
 override: riscv64/memfd from aarch64 (qemu-riscv64 does not implement MADV_REMOVE)
+override: x86_64/pidfd from aarch64 (Rosetta returns ENOSYS for pidfd_getfd and clone3)
+override: riscv64/pidfd from aarch64 (qemu-riscv64 does not translate PIDFD_GET_INFO or FS_IOC_GETVERSION, writes waitid's siginfo on failure, returns ENOSYS for clone3, and accepts CLONE_DETACHED with CLONE_PIDFD)

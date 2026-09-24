@@ -15,6 +15,7 @@ pub mod anon;
 pub mod epoll;
 pub mod fd;
 pub mod memfd;
+pub mod pidfd;
 
 use std::path::{Component, Path, PathBuf};
 

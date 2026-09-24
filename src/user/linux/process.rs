@@ -354,6 +354,8 @@ pub struct ProcState {
     pub leader_exit: Option<u64>,
     /// Child processes.
     pub children: super::children::Children,
+    /// The tasks this process's pidfds name.
+    pub pidfds: super::fs::pidfd::Registry,
     /// Set in a forked process: its end of the status pipe to its parent.
     pub forked: Option<super::children::ForkedSelf>,
     /// `self_exec_id`: how many times the process called `execve`.
@@ -654,6 +656,7 @@ impl LinuxProcess {
             curr_target: pid,
             leader_exit: None,
             children: Default::default(),
+            pidfds: Default::default(),
             forked: None,
             exec_id: 0,
         };
