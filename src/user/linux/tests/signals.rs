@@ -1077,13 +1077,15 @@ fn writing_to_a_widowed_pipe_raises_sigpipe() {
         let (rd, wr) = (u32_at(&h, fds) as u64, u32_at(&h, fds + 4) as u64);
         h.ok(Sysno::Close, &[rd]);
         assert_eq!(h.err(Sysno::Write, &[wr, fds, 1]), EPIPE);
-        let info = h.proc.state.shared_pending.dequeue(0).expect("SIGPIPE");
+        // send_sig is PIDTYPE_PID: the writing thread's own queue.
+        assert!(h.proc.state.shared_pending.dequeue(0).is_none());
+        let info = h.proc.threads[0].pending.dequeue(0).expect("SIGPIPE");
         assert_eq!((info.signo, info.code), (SIGPIPE, code::SI_USER));
         assert_eq!(info.pid(), h.proc.state.pid);
         // Ignored, it is not even queued.
         install(&mut h, SIGPIPE, SIG_IGN, 0, 0);
         assert_eq!(h.err(Sysno::Write, &[wr, fds, 1]), EPIPE);
-        assert!(h.proc.state.shared_pending.dequeue(0).is_none());
+        assert!(h.proc.threads[0].pending.dequeue(0).is_none());
     });
 }
 
@@ -1097,7 +1099,7 @@ fn proc_status_reports_the_signal_sets() {
     raise(&mut h, SIGUSR2);
     let pid = h.proc.state.pid as u64;
     h.ok(Sysno::Kill, &[pid, SIGUSR2 as u64]);
-    let status = crate::user::linux::procfs::status(&h.proc.state, &h.proc.threads[0]);
+    let status = crate::user::linux::procfs::status(&h.proc.state, &h.proc.threads[0], 1);
     let status = String::from_utf8(status).unwrap();
     for line in [
         "SigQ:\t2/63000",

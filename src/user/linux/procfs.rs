@@ -3,9 +3,10 @@
 //! The host's `/proc` describes the emulator (on Linux) or does not exist
 //! (on macOS), so every entry a guest reads about itself is generated from
 //! the personality's state: `/proc/self` and `/proc/<pid>` for the guest's
-//! process ID, `/proc/thread-self`, and the handful of system-wide files
-//! C libraries and language runtimes consult. Formats follow
-//! `fs/proc/task_mmu.c`, `fs/proc/array.c`, and `fs/proc/base.c`.
+//! process (as its leader thread shows it), `/proc/self/task/<tid>`,
+//! `/proc/thread-self`, and `/proc/<tid>` for each thread, and the handful
+//! of system-wide files C libraries and language runtimes consult. Formats
+//! follow `fs/proc/task_mmu.c`, `fs/proc/array.c`, and `fs/proc/base.c`.
 
 use std::fmt::Write as _;
 
@@ -19,6 +20,14 @@ use crate::user::mm::{Backing, Perms};
 pub enum ProcEntry {
     /// A regular file with this content.
     File(Vec<u8>),
+    /// A thread's `comm` file: its name and a newline, writable by the
+    /// process's threads (`comm_write`).
+    Comm {
+        /// The thread.
+        tid: i32,
+        /// Current content.
+        text: Vec<u8>,
+    },
     /// A symbolic link with this target.
     Link(String),
     /// A directory with these entries.
@@ -41,10 +50,16 @@ fn dir(names: &[&str]) -> ProcEntry {
             name: b"..".to_vec(),
         },
     ];
+    use super::fs::fd::dt::{DT_DIR, DT_LNK, DT_REG};
     for (i, n) in names.iter().enumerate() {
+        let dtype = match *n {
+            "fd" | "task" | "self" | "thread-self" => DT_DIR,
+            "exe" | "cwd" | "root" => DT_LNK,
+            _ => DT_REG,
+        };
         v.push(DirEntry {
             ino: PROC_INO + 1 + i as u64,
-            dtype: super::fs::fd::dt::DT_REG,
+            dtype,
             name: n.as_bytes().to_vec(),
         });
     }
@@ -110,18 +125,29 @@ pub fn auxv(p: &ProcState) -> Vec<u8> {
         .collect()
 }
 
-/// `/proc/self/stat` (`do_task_stat`), 52 fields.
-pub fn stat(p: &ProcState, t: &Thread) -> Vec<u8> {
-    let comm = String::from_utf8_lossy(&p.comm);
+/// A thread's scheduler state letter (`task_state_array`): sleeping in a
+/// system call, or runnable.
+fn state(t: &Thread) -> (&'static str, &'static str) {
+    if t.blocked.is_some() {
+        ("S", "S (sleeping)")
+    } else {
+        ("R", "R (running)")
+    }
+}
+
+/// `/proc/<pid>/stat` (`do_task_stat`), 52 fields, for thread `t` of a
+/// process with `threads` threads.
+pub fn stat(p: &ProcState, t: &Thread, threads: usize) -> Vec<u8> {
+    let comm = String::from_utf8_lossy(&t.comm);
     let mm = &p.mm;
     let st = &mm.stack;
     let prog = &mm.program;
     let vsize: u64 = p.space.vma_snapshot().iter().map(|v| v.end - v.start).sum();
     let rss = p.space.resident_pages();
     let fields: Vec<String> = vec![
-        p.pid.to_string(),
+        t.tid.to_string(),
         format!("({comm})"),
-        "R".into(),
+        state(t).0.into(),
         p.ppid.to_string(),
         p.pid.to_string(), // pgrp
         p.pid.to_string(), // session
@@ -137,10 +163,10 @@ pub fn stat(p: &ProcState, t: &Thread) -> Vec<u8> {
         "0".into(),
         "0".into(), // utime stime cutime cstime
         "20".into(),
-        "0".into(), // priority nice
-        "1".into(), // num_threads
-        "0".into(), // itrealvalue
-        "0".into(), // starttime
+        "0".into(),          // priority nice
+        threads.to_string(), // num_threads
+        "0".into(),          // itrealvalue
+        "0".into(),          // starttime
         vsize.to_string(),
         rss.to_string(),
         u64::MAX.to_string(), // rsslim
@@ -177,16 +203,17 @@ pub fn stat(p: &ProcState, t: &Thread) -> Vec<u8> {
     s.into_bytes()
 }
 
-/// `/proc/self/status` (the fields programs commonly parse).
-pub fn status(p: &ProcState, t: &Thread) -> Vec<u8> {
-    let comm = String::from_utf8_lossy(&p.comm);
+/// `/proc/<pid>/status` (the fields programs commonly parse) for thread
+/// `t` of a process with `threads` threads.
+pub fn status(p: &ProcState, t: &Thread, threads: usize) -> Vec<u8> {
+    let comm = String::from_utf8_lossy(&t.comm);
     let (uid, euid, gid, egid) = p.creds;
     let vsize: u64 = p.space.vma_snapshot().iter().map(|v| v.end - v.start).sum();
     let rss_kb = p.space.resident_pages() * 4;
     let mut s = String::new();
     let _ = writeln!(s, "Name:\t{comm}");
     let _ = writeln!(s, "Umask:\t{:04o}", p.umask);
-    let _ = writeln!(s, "State:\tR (running)");
+    let _ = writeln!(s, "State:\t{}", state(t).1);
     let _ = writeln!(s, "Tgid:\t{}", p.pid);
     let _ = writeln!(s, "Ngid:\t0");
     let _ = writeln!(s, "Pid:\t{}", t.tid);
@@ -199,7 +226,7 @@ pub fn status(p: &ProcState, t: &Thread) -> Vec<u8> {
     let _ = writeln!(s, "VmPeak:\t{:8} kB", vsize / 1024);
     let _ = writeln!(s, "VmSize:\t{:8} kB", vsize / 1024);
     let _ = writeln!(s, "VmRSS:\t{:8} kB", rss_kb);
-    let _ = writeln!(s, "Threads:\t1");
+    let _ = writeln!(s, "Threads:\t{threads}");
     // task_sig: queued records against RLIMIT_SIGPENDING, then the pending,
     // blocked, ignored, and caught sets.
     let queued = t.pending.queued() + p.shared_pending.queued();
@@ -276,26 +303,35 @@ pub fn cpuinfo(abi: LinuxAbi) -> Vec<u8> {
     }
 }
 
-/// Looks up a synthesized path. `guest` is absolute and lexically joined.
-/// Returns `None` for paths the personality does not synthesize.
-pub fn lookup(p: &ProcState, t: &Thread, guest: &str) -> Option<ProcEntry> {
+/// Looks up a synthesized path for thread `cur` of a process whose threads
+/// are `threads` (in list order, `cur` among them). `guest` is absolute and
+/// lexically joined. Returns `None` for paths the personality does not
+/// synthesize.
+pub fn lookup(p: &ProcState, cur: &Thread, threads: &[&Thread], guest: &str) -> Option<ProcEntry> {
     let path = guest.trim_end_matches('/');
-    let pid = p.pid.to_string();
-    // Normalize the process's own directories to "self".
-    let rest = if let Some(r) = path.strip_prefix("/proc/self") {
-        Some(r)
-    } else if let Some(r) = path.strip_prefix("/proc/thread-self") {
-        Some(r)
-    } else if let Some(r) = path.strip_prefix(&format!("/proc/{pid}")) {
-        Some(r)
-    } else {
-        None
+    let find = |tid: i32| threads.iter().copied().find(|t| t.tid == tid);
+    // The process directory shows the leader (the caller once the leader
+    // has exited).
+    let leader = find(p.pid).unwrap_or(cur);
+    let under = |prefix: &str| -> Option<&str> {
+        let rest = path.strip_prefix(prefix)?;
+        (rest.is_empty() || rest.starts_with('/')).then(|| rest.trim_start_matches('/'))
     };
-    if let Some(rest) = rest {
-        if !(rest.is_empty() || rest.starts_with('/')) {
-            return None;
+    if let Some(rest) = under("/proc/self") {
+        return process_entry(p, leader, threads, rest);
+    }
+    if let Some(rest) = under("/proc/thread-self") {
+        return thread_entry(p, cur, threads.len(), rest, false);
+    }
+    if let Some(num) = path.strip_prefix("/proc/") {
+        let (id, rest) = num.split_once('/').unwrap_or((num, ""));
+        if let Ok(id) = id.parse::<i32>() {
+            if id == p.pid {
+                return process_entry(p, leader, threads, rest);
+            }
+            // /proc/<tid> of another thread: not listed, but present.
+            return find(id).and_then(|t| thread_entry(p, t, threads.len(), rest, true));
         }
-        return self_entry(p, t, rest.trim_start_matches('/'));
     }
     match path {
         "/proc" => Some(dir(&[
@@ -346,13 +382,72 @@ pub fn lookup(p: &ProcState, t: &Thread, guest: &str) -> Option<ProcEntry> {
     }
 }
 
-fn self_entry(p: &ProcState, t: &Thread, rest: &str) -> Option<ProcEntry> {
+/// An entry of the process directory: its `task` directory, or what
+/// thread `t` (the leader) shows.
+fn process_entry(p: &ProcState, t: &Thread, threads: &[&Thread], rest: &str) -> Option<ProcEntry> {
+    if rest == "task" {
+        let mut v = dot_entries();
+        for th in threads {
+            v.push(DirEntry {
+                ino: PROC_INO + 0x10_0000 + th.tid as u64,
+                dtype: super::fs::fd::dt::DT_DIR,
+                name: th.tid.to_string().into_bytes(),
+            });
+        }
+        return Some(ProcEntry::Dir(v));
+    }
+    if let Some(task) = rest.strip_prefix("task/") {
+        let (id, rest) = task.split_once('/').unwrap_or((task, ""));
+        let id = id.parse::<i32>().ok()?;
+        let th = threads.iter().copied().find(|t| t.tid == id)?;
+        return thread_entry(p, th, threads.len(), rest, false);
+    }
+    // The process's comm is the leader's, kept after it exits.
+    if rest == "comm" && t.tid != p.pid {
+        let mut text = p.comm.clone();
+        text.push(b'\n');
+        return Some(ProcEntry::Comm { tid: p.pid, text });
+    }
+    thread_entry(p, t, threads.len(), rest, true)
+}
+
+/// `.` and `..`.
+fn dot_entries() -> Vec<DirEntry> {
+    vec![
+        DirEntry {
+            ino: PROC_INO,
+            dtype: super::fs::fd::dt::DT_DIR,
+            name: b".".to_vec(),
+        },
+        DirEntry {
+            ino: PROC_INO,
+            dtype: super::fs::fd::dt::DT_DIR,
+            name: b"..".to_vec(),
+        },
+    ]
+}
+
+/// An entry of thread `t`'s directory (`/proc/<pid>` when `process`, which
+/// also lists `task`; `/proc/<pid>/task/<tid>` otherwise).
+fn thread_entry(
+    p: &ProcState,
+    t: &Thread,
+    threads: usize,
+    rest: &str,
+    process: bool,
+) -> Option<ProcEntry> {
     let file = |v: Vec<u8>| Some(ProcEntry::File(v));
     match rest {
-        "" => Some(dir(&[
-            "auxv", "cmdline", "comm", "cwd", "environ", "exe", "fd", "maps", "root", "stat",
-            "status",
-        ])),
+        "" => {
+            let mut names = vec![
+                "auxv", "cmdline", "comm", "cwd", "environ", "exe", "fd", "maps", "root", "stat",
+                "status",
+            ];
+            if process {
+                names.push("task");
+            }
+            Some(dir(&names))
+        }
         "exe" => Some(ProcEntry::Link(p.exe_path.clone())),
         "cwd" => Some(ProcEntry::Link(p.vfs.cwd().to_string())),
         "root" => Some(ProcEntry::Link("/".into())),
@@ -361,25 +456,14 @@ fn self_entry(p: &ProcState, t: &Thread, rest: &str) -> Option<ProcEntry> {
         "cmdline" => file(p.cmdline.clone()),
         "environ" => file(p.environ.clone()),
         "comm" => {
-            let mut c = p.comm.clone();
-            c.push(b'\n');
-            file(c)
+            let mut text = t.comm.clone();
+            text.push(b'\n');
+            Some(ProcEntry::Comm { tid: t.tid, text })
         }
-        "stat" => file(stat(p, t)),
-        "status" => file(status(p, t)),
+        "stat" => file(stat(p, t, threads)),
+        "status" => file(status(p, t, threads)),
         "fd" => {
-            let mut v = vec![
-                DirEntry {
-                    ino: PROC_INO,
-                    dtype: super::fs::fd::dt::DT_DIR,
-                    name: b".".to_vec(),
-                },
-                DirEntry {
-                    ino: PROC_INO,
-                    dtype: super::fs::fd::dt::DT_DIR,
-                    name: b"..".to_vec(),
-                },
-            ];
+            let mut v = dot_entries();
             for fd in p.fds.open_fds() {
                 v.push(DirEntry {
                     ino: PROC_INO + 0x1000 + fd as u64,

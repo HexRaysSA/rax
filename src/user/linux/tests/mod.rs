@@ -5,4 +5,5 @@ mod loader;
 mod signals;
 mod stack;
 mod syscall_mm;
+mod threads;
 mod waits;

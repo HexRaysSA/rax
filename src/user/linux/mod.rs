@@ -16,20 +16,24 @@
 //! | [`stack`] | Initial stack and auxiliary vector |
 //! | [`fs`] | Guest paths, the sysroot overlay, open files, descriptors |
 //! | [`procfs`] | Synthesized `/proc` and `/sys` entries |
-//! | [`process`] | Processes, threads, and the execution loop |
+//! | [`process`] | Processes and threads |
+//! | [`sched`] | Running threads on the one emulated CPU |
 //! | [`syscall`] | System-call dispatch and handlers |
 //! | [`signal`] | Signals: records, queues, frames, delivery |
+//! | [`futex`] | Futex wait queues, PI ownership, robust lists |
 //! | [`timers`] | Interval timers |
-//! | [`wait`] | Blocking on descriptors, deadlines, and signals |
+//! | [`wait`] | Sleeping in system calls on descriptors, deadlines, and signals |
 //! | [`host`] | The host services `std` does not expose |
 
 pub mod abi;
 pub mod arch;
 pub mod fs;
+pub mod futex;
 pub mod host;
 pub mod loader;
 pub mod process;
 pub mod procfs;
+pub mod sched;
 pub mod signal;
 pub mod stack;
 pub mod syscall;

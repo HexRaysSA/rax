@@ -5,7 +5,7 @@ use super::loader::{Seg, image};
 use crate::user::image::elf::{EM_AARCH64, EM_RISCV, EM_X86_64, ET_EXEC, PF_R, PF_W, PF_X};
 use crate::user::linux::abi::{LinuxAbi, Sysno};
 use crate::user::linux::loader::ImageFile;
-use crate::user::linux::syscall::{Outcome, dispatch};
+use crate::user::linux::syscall::Outcome;
 use crate::user::linux::{LinuxConfig, LinuxProcess};
 use crate::user::mm::Perms;
 
@@ -76,23 +76,55 @@ impl Harness {
 
     /// Raw result register value, as a signed integer.
     pub(crate) fn call(&mut self, s: Sysno, args: &[u64]) -> i64 {
-        let mut a = [0u64; 6];
-        a[..args.len()].copy_from_slice(args);
-        let nr = self.abi().number(s).unwrap();
-        let (p, t) = (&mut self.proc.state, &mut self.proc.threads[0]);
-        match dispatch(p, t, nr, a) {
+        match self.dispatch(s, args) {
             Outcome::Return(v) => v as i64,
             other => panic!("{s:?} did not return: {other:?}"),
         }
     }
 
-    /// The raw outcome of a call.
+    /// The final outcome of a call of the first thread, sleeping on the
+    /// host while it sleeps.
     pub(crate) fn dispatch(&mut self, s: Sysno, args: &[u64]) -> Outcome {
+        self.dispatch_on(0, s, args)
+    }
+
+    /// The final outcome of a call of thread `idx`.
+    pub(crate) fn dispatch_on(&mut self, idx: usize, s: Sysno, args: &[u64]) -> Outcome {
         let mut a = [0u64; 6];
         a[..args.len()].copy_from_slice(args);
         let nr = self.abi().number(s).unwrap();
-        let (p, t) = (&mut self.proc.state, &mut self.proc.threads[0]);
-        dispatch(p, t, nr, a)
+        self.proc.dispatch_to_completion(idx, nr, a)
+    }
+
+    /// Runs a call of thread `idx` as the scheduler would: `Some(result
+    /// register)` if it completed, `None` if the thread now sleeps.
+    pub(crate) fn start(&mut self, idx: usize, s: Sysno, args: &[u64]) -> Option<i64> {
+        let mut a = [0u64; 6];
+        a[..args.len()].copy_from_slice(args);
+        let nr = self.abi().number(s).unwrap();
+        let tid = self.proc.threads[idx].tid;
+        self.proc
+            .syscall(idx, crate::user::linux::syscall::Call::new(nr, a));
+        // A thread that exited is gone from the list.
+        let idx = self.proc.threads.iter().position(|t| t.tid == tid)?;
+        self.proc.threads[idx]
+            .blocked
+            .is_none()
+            .then(|| self.result(idx))
+    }
+
+    /// Thread `idx`'s result register, as a signed integer.
+    pub(crate) fn result(&self, idx: usize) -> i64 {
+        self.proc.threads[idx].cpu.syscall_return_value() as i64
+    }
+
+    /// The list index of the thread with TID `tid`.
+    pub(crate) fn index_of(&self, tid: i32) -> usize {
+        self.proc
+            .threads
+            .iter()
+            .position(|t| t.tid == tid)
+            .expect("thread exists")
     }
 
     pub(crate) fn ok(&mut self, s: Sysno, args: &[u64]) -> u64 {

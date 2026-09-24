@@ -87,6 +87,8 @@ pub struct FileState {
     pub dir: Option<(Vec<DirEntry>, usize)>,
     /// Position within synthetic content.
     pub synth_pos: u64,
+    /// The thread whose `/proc` `comm` file this description writes.
+    pub comm_of: Option<i32>,
 }
 
 /// A Linux open file description.

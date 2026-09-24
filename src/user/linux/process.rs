@@ -12,7 +12,7 @@ use std::sync::Arc;
 
 use super::abi::errno::Errno;
 use super::abi::{DEFAULT_STACK_LIMIT, LinuxAbi};
-use super::arch::{CpuEvent, CpuOptions, GuestCpu};
+use super::arch::{CpuOptions, GuestCpu};
 use super::fs::Vfs;
 use super::fs::fd::{FdTable, FileObject, FileType, NOFILE_HARD, NOFILE_SOFT, OpenFile};
 use super::loader::{ImageFile, LoadError, LoadedProgram, load_program};
@@ -21,6 +21,7 @@ use super::signal::frame::FaultState;
 use super::signal::{AltStack, SigInfo, SigPending, signal_name};
 use super::stack::{AuxInfo, InitialStack, StackError, map_stack, write_initial_stack};
 use super::syscall;
+use super::wait::Blocked;
 use crate::user::cpu::x86_64::RESERVED_PHYS;
 use crate::user::image::elf::identify;
 use crate::user::mm::{AddressSpace, SpaceConfig};
@@ -291,7 +292,8 @@ pub struct ProcState {
     pub umask: u32,
     /// Signal dispositions, indexed by signal number minus one.
     pub sigactions: [SigAction; 64],
-    /// `prctl(PR_SET_NAME)` value.
+    /// The thread-group leader's `comm`, kept for `/proc/<pid>/comm` after
+    /// the leader exits; each thread's own is [`Thread::comm`].
     pub comm: Vec<u8>,
     /// Guest path of the executable.
     pub exe_path: String,
@@ -332,6 +334,15 @@ pub struct ProcState {
     pub unkillable: bool,
     /// Interval timers.
     pub itimers: super::timers::Itimers,
+    /// Futex wait queues.
+    pub futex: super::futex::FutexTable,
+    /// `signal->curr_target`: the thread where the search for one to take a
+    /// process-directed signal starts.
+    pub curr_target: i32,
+    /// The thread-group leader's final signal mask once it has exited while
+    /// other threads run: it remains a zombie (`delay_group_leader`) that
+    /// signals can still name.
+    pub leader_exit: Option<u64>,
 }
 
 /// A Linux thread.
@@ -361,6 +372,23 @@ pub struct Thread {
     /// How `restart_syscall` continues an interrupted call
     /// (`restart_block`); `None` is `do_no_restart_syscall`.
     pub restart: Option<syscall::RestartBlock>,
+    /// `TIF_SIGPENDING`: a signal may be pending for the thread. Set when a
+    /// signal is sent that the thread should take (`signal_wake_up`) and
+    /// recomputed from its mask (`recalc_sigpending`); a sleeping call ends
+    /// when it is set.
+    pub sigpending: bool,
+    /// `real_blocked`: the mask `rt_sigtimedwait` replaced while it sleeps
+    /// with the waited-for signals unblocked.
+    pub real_blocked: u64,
+    /// The system call the thread sleeps in.
+    pub blocked: Option<Blocked>,
+    /// `set_child_tid` (`CLONE_CHILD_SETTID`): receives the TID before the
+    /// thread first returns to user mode.
+    pub set_child_tid: u64,
+    /// The `CLONE_VFORK` parent sleeping until this thread exits.
+    pub vfork_parent: Option<i32>,
+    /// `comm`: the thread's name (at most 15 bytes).
+    pub comm: Vec<u8>,
 }
 
 impl Thread {
@@ -379,7 +407,117 @@ impl Thread {
             syscall: None,
             fault: FaultState::default(),
             restart: None,
+            sigpending: false,
+            real_blocked: 0,
+            blocked: None,
+            set_child_tid: 0,
+            vfork_parent: None,
+            comm: Vec::new(),
         }
+    }
+}
+
+/// The threads other than the one running a system call.
+pub struct Peers<'a> {
+    /// Threads before it in the list.
+    pub lo: &'a mut [Thread],
+    /// Threads after it.
+    pub hi: &'a mut [Thread],
+}
+
+impl Peers<'_> {
+    /// No other threads.
+    pub fn none() -> Self {
+        Peers {
+            lo: &mut [],
+            hi: &mut [],
+        }
+    }
+}
+
+/// Every thread of a process, one of which may be borrowed separately as
+/// the running thread (`current`). Iteration follows the thread list: the
+/// order of creation, the leader first.
+pub struct Threads<'a> {
+    lo: &'a mut [Thread],
+    cur: Option<&'a mut Thread>,
+    hi: &'a mut [Thread],
+}
+
+impl<'a> Threads<'a> {
+    /// `threads`, with the one at index `running` as the current thread.
+    pub fn split(threads: &'a mut [Thread], running: Option<usize>) -> Self {
+        match running {
+            None => Threads {
+                lo: threads,
+                cur: None,
+                hi: &mut [],
+            },
+            Some(i) => {
+                let (lo, rest) = threads.split_at_mut(i);
+                let (cur, hi) = rest.split_first_mut().expect("running index is valid");
+                Threads {
+                    lo,
+                    cur: Some(cur),
+                    hi,
+                }
+            }
+        }
+    }
+
+    /// The running thread `cur` and the others.
+    pub fn with_current(cur: &'a mut Thread, peers: Peers<'a>) -> Self {
+        Threads {
+            lo: peers.lo,
+            cur: Some(cur),
+            hi: peers.hi,
+        }
+    }
+
+    /// The running thread.
+    pub fn current(&mut self) -> Option<&mut Thread> {
+        self.cur.as_deref_mut()
+    }
+
+    /// The running thread's TID.
+    pub fn running(&self) -> Option<i32> {
+        self.cur.as_ref().map(|t| t.tid)
+    }
+
+    /// The thread with TID `tid`.
+    pub fn get_mut(&mut self, tid: i32) -> Option<&mut Thread> {
+        self.iter_mut().find(|t| t.tid == tid)
+    }
+
+    /// Whether a thread with TID `tid` exists.
+    pub fn contains(&self, tid: i32) -> bool {
+        self.iter().any(|t| t.tid == tid)
+    }
+
+    /// The threads in list order.
+    pub fn iter(&self) -> impl Iterator<Item = &Thread> {
+        self.lo
+            .iter()
+            .chain(self.cur.as_deref())
+            .chain(self.hi.iter())
+    }
+
+    /// The threads in list order, mutably.
+    pub fn iter_mut(&mut self) -> impl Iterator<Item = &mut Thread> {
+        self.lo
+            .iter_mut()
+            .chain(self.cur.as_deref_mut())
+            .chain(self.hi.iter_mut())
+    }
+
+    /// The number of threads.
+    pub fn len(&self) -> usize {
+        self.lo.len() + usize::from(self.cur.is_some()) + self.hi.len()
+    }
+
+    /// Whether there are no threads.
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
     }
 }
 
@@ -570,10 +708,15 @@ impl LinuxProcess {
             sigtramp,
             unkillable: pid == 1,
             itimers: Default::default(),
+            futex: Default::default(),
+            curr_target: pid,
+            leader_exit: None,
         };
+        let mut leader = Thread::new(pid, cpu);
+        leader.comm = state.comm.clone();
         Ok(LinuxProcess {
             state,
-            threads: vec![Thread::new(pid, cpu)],
+            threads: vec![leader],
         })
     }
 
@@ -585,74 +728,5 @@ impl LinuxProcess {
     /// The address space.
     pub fn space(&self) -> &AddressSpace {
         &self.state.space
-    }
-
-    /// Runs until the process exits.
-    pub fn run(&mut self) -> ExitStatus {
-        let slice = self.state.config.slice_insns;
-        let mut current = 0usize;
-        loop {
-            if let Some(status) = &self.state.exit {
-                return status.clone();
-            }
-            if self.threads.is_empty() {
-                return ExitStatus::Exited(0);
-            }
-            current %= self.threads.len();
-            // The return to user mode: restart processing and signals.
-            self.deliver_signals(current);
-            if self.state.exit.is_some() {
-                continue;
-            }
-            let event = self.threads[current].cpu.run(slice);
-            match event {
-                CpuEvent::Syscall { nr, args } => {
-                    self.threads[current].syscall = Some(SyscallEntry { nr, arg0: args[0] });
-                    let outcome =
-                        syscall::dispatch(&mut self.state, &mut self.threads[current], nr, args);
-                    self.apply(current, outcome);
-                }
-                CpuEvent::CompatSyscall { nr, args } => {
-                    let outcome = syscall::dispatch_compat(
-                        &mut self.state,
-                        &mut self.threads[current],
-                        nr,
-                        args,
-                    );
-                    self.apply(current, outcome);
-                }
-                CpuEvent::Signal(info, update) => self.trap_signal(current, info, update),
-                CpuEvent::Yield => current += 1,
-                CpuEvent::Internal(why) => {
-                    let pc = self.threads[current].cpu.pc();
-                    self.state.exit = Some(ExitStatus::Internal(format!("{why} (pc {pc:#x})")));
-                }
-            }
-        }
-    }
-
-    /// Applies a system call's outcome to the calling thread.
-    fn apply(&mut self, current: usize, outcome: syscall::Outcome) {
-        match outcome {
-            syscall::Outcome::Return(value) => self.threads[current].cpu.set_syscall_result(value),
-            syscall::Outcome::Unchanged => {
-                // The call replaced the register state (rt_sigreturn):
-                // nothing is left to restart.
-                self.threads[current].syscall = None;
-            }
-            syscall::Outcome::ExitThread(code) => {
-                // The last thread's exit ends the process with its code.
-                if self.threads.len() == 1 {
-                    self.state.exit = Some(ExitStatus::Exited(code));
-                }
-                self.threads.remove(current);
-            }
-            syscall::Outcome::ExitGroup(code) => {
-                self.state.exit = Some(ExitStatus::Exited(code));
-            }
-            syscall::Outcome::Fatal(why) => {
-                self.state.exit = Some(ExitStatus::Internal(why));
-            }
-        }
     }
 }

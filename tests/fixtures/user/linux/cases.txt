@@ -9,6 +9,11 @@ mman     mman     -
 process  process  -
 signals  signals  -
 timers   timers   -
+threads  threads  -
+threadexit-leader  threadexit  -  leader
+threadexit-group   threadexit  -  group
+threadexit-segv    threadexit  -  segv
+threadexit-kill    threadexit  -  kill
 stdin    stdin    input/fox.txt
 segv     segv     -
 abort    abort    -

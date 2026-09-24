@@ -1,10 +1,19 @@
 //! Signal generation and delivery.
 //!
-//! Generation follows `__send_signal_locked`/`prepare_signal` and
-//! `force_sig_info_to_task` in `kernel/signal.c`; delivery follows
-//! `get_signal`, `signal_delivered`, and the architectures'
-//! `arch_do_signal_or_restart`, which the kernel runs on every return to
-//! user mode with a signal pending. The personality calls
+//! Generation follows `__send_signal_locked`/`prepare_signal`,
+//! `complete_signal`, and `force_sig_info_to_task` in `kernel/signal.c`: a
+//! signal is queued for one thread or for the process, and the thread that
+//! should take it is woken (`signal_wake_up` sets its
+//! [`sigpending`](crate::user::linux::process::Thread::sigpending) flag,
+//! `TIF_SIGPENDING`), which ends a system call it sleeps in. A process
+//! signal goes to the suggested thread if it wants it (`wants_signal`),
+//! otherwise to the next thread in the list that does, starting from
+//! `signal->curr_target`; one whose default action is fatal (and does not
+//! dump core) takes the whole process down at once.
+//!
+//! Delivery follows `get_signal`, `signal_delivered`, and the
+//! architectures' `arch_do_signal_or_restart`, which the kernel runs on
+//! every return to user mode with the flag set. The personality calls
 //! [`LinuxProcess::deliver_signals`] before resuming a thread.
 //!
 //! System calls interrupted by a signal return one of the kernel-internal
@@ -20,7 +29,7 @@ use super::{
     signal_name, ss,
 };
 use crate::user::linux::abi::errno_table::EINTR;
-use crate::user::linux::process::{ExitStatus, LinuxProcess, ProcState, Thread};
+use crate::user::linux::process::{ExitStatus, LinuxProcess, ProcState, Thread, Threads};
 
 /// Kernel-internal restart codes (`include/linux/errno.h`), returned by
 /// interrupted system calls and resolved before the return to user mode.
@@ -70,11 +79,21 @@ pub enum ForceMode {
     Default,
 }
 
-/// Whether `sig` is ignored for delivery to `t` (`sig_ignored`): blocked
-/// signals are never ignored, since the handler may change before they are
-/// unblocked.
-fn sig_ignored(p: &ProcState, t: &Thread, sig: i32, force: bool) -> bool {
-    if t.sigmask & sigmask(sig) != 0 {
+/// Where a signal is sent.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Dest {
+    /// One thread (`PIDTYPE_PID`: `tgkill`, faults, `SIGPIPE`).
+    Thread(i32),
+    /// The process (`PIDTYPE_TGID`), through the thread with this TID if
+    /// it wants the signal (`kill` of that TID; the leader otherwise).
+    Process(i32),
+}
+
+/// Whether `sig` is ignored for delivery to a thread with mask `blocked`
+/// (`sig_ignored`): blocked signals are never ignored, since the handler
+/// may change before they are unblocked.
+fn sig_ignored(p: &ProcState, blocked: u64, sig: i32, force: bool) -> bool {
+    if blocked & sigmask(sig) != 0 {
         return false;
     }
     let handler = p.sigactions[(sig - 1) as usize].handler;
@@ -86,85 +105,241 @@ fn sig_ignored(p: &ProcState, t: &Thread, sig: i32, force: bool) -> bool {
     handler == SIG_IGN || (handler == SIG_DFL && default_ignored(sig))
 }
 
-/// `prepare_signal`: stop and continue signals cancel each other, and an
-/// ignored signal is dropped at generation.
-fn prepare_signal(p: &mut ProcState, t: &mut Thread, sig: i32, force: bool) -> bool {
-    let stops = sigmask(SIGSTOP) | sigmask(SIGTSTP) | sigmask(SIGTTIN) | sigmask(SIGTTOU);
-    if default_stops(sig) {
-        p.shared_pending.flush(sigmask(SIGCONT));
-        t.pending.flush(sigmask(SIGCONT));
-    } else if sig == SIGCONT {
-        p.shared_pending.flush(stops);
-        t.pending.flush(stops);
-    }
-    !sig_ignored(p, t, sig, force)
+/// `sig_fatal`: the default action of `sig`, which has no handler, ends
+/// the process.
+fn sig_fatal(p: &ProcState, sig: i32) -> bool {
+    p.sigactions[(sig - 1) as usize].handler == SIG_DFL
+        && !default_ignored(sig)
+        && !default_stops(sig)
 }
 
-/// Generates `info` for the process (`to_thread == false`, `PIDTYPE_TGID`)
-/// or for thread `t` (`PIDTYPE_PID`). `force` marks kernel-generated
-/// signals that a namespace init cannot ignore. Returns whether the
-/// signal is now pending.
-pub fn send_signal(
+/// The mask of the thread a signal is aimed at, for `sig_ignored`: the
+/// thread's own, or the exited leader's final mask.
+fn target_mask(p: &ProcState, th: &Threads<'_>, tid: i32) -> Option<u64> {
+    th.iter()
+        .find(|t| t.tid == tid)
+        .map(|t| t.sigmask | t.real_blocked)
+        .or_else(|| (tid == p.pid).then_some(p.leader_exit).flatten())
+}
+
+/// `prepare_signal`: stop and continue signals cancel each other in every
+/// queue, and an ignored signal is dropped at generation.
+fn prepare_signal(
     p: &mut ProcState,
-    t: &mut Thread,
-    info: SigInfo,
-    to_thread: bool,
+    th: &mut Threads<'_>,
+    sig: i32,
+    mask: u64,
     force: bool,
 ) -> bool {
-    if !prepare_signal(p, t, info.signo, force) {
+    let stops = sigmask(SIGSTOP) | sigmask(SIGTSTP) | sigmask(SIGTTIN) | sigmask(SIGTTOU);
+    let flush = if default_stops(sig) {
+        sigmask(SIGCONT)
+    } else if sig == SIGCONT {
+        stops
+    } else {
+        0
+    };
+    if flush != 0 {
+        p.shared_pending.flush(flush);
+        for t in th.iter_mut() {
+            t.pending.flush(flush);
+        }
+    }
+    !sig_ignored(p, mask, sig, force)
+}
+
+/// `signal_wake_up`: the thread should take a signal; a system call it
+/// sleeps in ends.
+pub fn signal_wake_up(t: &mut Thread) {
+    t.sigpending = true;
+}
+
+/// `recalc_sigpending_tsk`: whether a signal the thread does not block is
+/// pending for it or for the process.
+pub fn recalc_sigpending(p: &ProcState, t: &Thread) -> bool {
+    t.pending.next(t.sigmask).is_some() || p.shared_pending.next(t.sigmask).is_some()
+}
+
+/// `wants_signal`: an unblocked thread takes the signal if it is running
+/// or has no signal pending yet (`SIGKILL` always).
+fn wants_signal(sig: i32, t: &Thread, running: Option<i32>) -> bool {
+    if t.sigmask & sigmask(sig) != 0 {
         return false;
     }
-    if to_thread {
-        t.pending.enqueue(info);
+    sig == SIGKILL || running == Some(t.tid) || !t.sigpending
+}
+
+/// `complete_signal`: finds the thread to wake for `info`, now queued for
+/// `dest`; a fatal signal without a core dump ends the process at once.
+fn complete_signal(p: &mut ProcState, th: &mut Threads<'_>, info: &SigInfo, dest: Dest) {
+    let sig = info.signo;
+    let running = th.running();
+    let suggested = match dest {
+        Dest::Thread(tid) | Dest::Process(tid) => tid,
+    };
+    let chosen = if th
+        .iter()
+        .any(|t| t.tid == suggested && wants_signal(sig, t, running))
+    {
+        suggested
+    } else if matches!(dest, Dest::Thread(_)) || th.len() <= 1 {
+        // One thread, or a thread signal: it will dequeue unblocked
+        // signals before it runs again.
+        return;
     } else {
-        p.shared_pending.enqueue(info);
+        // Search from curr_target in list order.
+        let tids: Vec<i32> = th.iter().map(|t| t.tid).collect();
+        let start = tids.iter().position(|&t| t == p.curr_target).unwrap_or(0);
+        let found = (0..tids.len())
+            .map(|i| tids[(start + i) % tids.len()])
+            .find(|&tid| {
+                th.iter()
+                    .any(|t| t.tid == tid && wants_signal(sig, t, running))
+            });
+        let Some(tid) = found else {
+            return;
+        };
+        p.curr_target = tid;
+        tid
+    };
+    let t = th.get_mut(chosen).expect("chosen thread exists");
+    if sig_fatal(p, sig)
+        && p.exit.is_none()
+        && t.real_blocked & sigmask(sig) == 0
+        && !default_dumps_core(sig)
+    {
+        // The signal will be fatal to the whole group: start the group
+        // exit now rather than after the thread dequeues it.
+        p.exit = Some(ExitStatus::Signaled {
+            info: *info,
+            pc: t.cpu.pc(),
+            core: false,
+        });
+        return;
     }
+    signal_wake_up(t);
+}
+
+/// Generates `info` for `dest` (`__send_signal_locked`). `force` marks
+/// kernel-generated signals that a namespace init cannot ignore. Returns
+/// whether the signal is now pending.
+pub fn send_signal(
+    p: &mut ProcState,
+    th: &mut Threads<'_>,
+    info: SigInfo,
+    dest: Dest,
+    force: bool,
+) -> bool {
+    let target = match dest {
+        Dest::Thread(tid) | Dest::Process(tid) => tid,
+    };
+    let mask = target_mask(p, th, target).unwrap_or(0);
+    if !prepare_signal(p, th, info.signo, mask, force) {
+        return false;
+    }
+    match dest {
+        Dest::Thread(tid) => {
+            let Some(t) = th.get_mut(tid) else {
+                return false;
+            };
+            t.pending.enqueue(info);
+        }
+        Dest::Process(_) => {
+            p.shared_pending.enqueue(info);
+        }
+    }
+    complete_signal(p, th, &info, dest);
     true
 }
 
-/// `force_sig_info_to_task`: a synchronous signal the thread cannot block
-/// or ignore; a blocked or ignored signal (or any, with
+/// `retarget_shared_pending`: process signals in `which` that the current
+/// thread will not take (it exits, or now blocks them) wake other threads
+/// that can.
+pub fn retarget_shared_pending(p: &ProcState, th: &mut Threads<'_>, which: u64) {
+    let mut retarget = p.shared_pending.set() & which;
+    if retarget == 0 {
+        return;
+    }
+    let me = th.running();
+    for t in th.iter_mut() {
+        if Some(t.tid) == me {
+            continue;
+        }
+        if retarget & !t.sigmask == 0 {
+            continue;
+        }
+        retarget &= t.sigmask;
+        if !t.sigpending {
+            signal_wake_up(t);
+        }
+        if retarget == 0 {
+            break;
+        }
+    }
+}
+
+/// `__set_current_blocked` for the current thread: signals it newly blocks
+/// that the process has pending are retargeted, and its flag recomputed.
+pub fn set_blocked(p: &ProcState, th: &mut Threads<'_>, new: u64) {
+    let new = new & !KERNEL_ONLY_MASK;
+    let t = th.current().expect("a current thread");
+    let (old, pending) = (t.sigmask, t.sigpending);
+    if pending && th.len() > 1 {
+        retarget_shared_pending(p, th, new & !old);
+    }
+    let t = th.current().expect("a current thread");
+    t.sigmask = new;
+    t.sigpending = recalc_sigpending(p, t);
+}
+
+/// `force_sig_info_to_task` for the current thread: a synchronous signal it
+/// cannot block or ignore; a blocked or ignored signal (or any, with
 /// [`ForceMode::Default`]) is reset to its default action and unblocked.
-pub fn force_signal(p: &mut ProcState, t: &mut Thread, info: SigInfo, mode: ForceMode) {
+pub fn force_signal(p: &mut ProcState, th: &mut Threads<'_>, info: SigInfo, mode: ForceMode) {
     let idx = (info.signo - 1) as usize;
-    let action = &mut p.sigactions[idx];
+    let t = th.current().expect("a current thread");
+    let tid = t.tid;
     let blocked = t.sigmask & sigmask(info.signo) != 0;
+    let action = &mut p.sigactions[idx];
     if blocked || action.handler == SIG_IGN || mode != ForceMode::Current {
         action.handler = SIG_DFL;
         if blocked {
             t.sigmask &= !sigmask(info.signo);
+            t.sigpending = recalc_sigpending(p, t);
         }
     }
     if p.sigactions[idx].handler == SIG_DFL {
         p.unkillable = false;
     }
     let force = info.code == super::code::SI_KERNEL;
-    send_signal(p, t, info, true, force);
+    send_signal(p, th, info, Dest::Thread(tid), force);
 }
 
 /// `force_sigsegv`: after a handler frame could not be written. A failure
 /// delivering `SIGSEGV` itself makes it fatal.
-pub fn force_sigsegv(p: &mut ProcState, t: &mut Thread, sig: i32) {
+pub fn force_sigsegv(p: &mut ProcState, th: &mut Threads<'_>, sig: i32) {
     let mode = if sig == SIGSEGV {
         ForceMode::Default
     } else {
         ForceMode::Current
     };
-    force_signal(p, t, SigInfo::kernel(SIGSEGV), mode);
+    force_signal(p, th, SigInfo::kernel(SIGSEGV), mode);
 }
 
 /// Generates the signals of events outside the process: forwarded host
 /// signals (`SI_USER` with the sender when another process sent them with
 /// `kill`, else `SI_KERNEL`, as terminal-generated signals are) and expired
-/// interval timers (`SEND_SIG_PRIV`).
-pub fn collect_async(p: &mut ProcState, t: &mut Thread) {
+/// interval timers (`SEND_SIG_PRIV`), all aimed at the process through its
+/// leader.
+pub fn collect_async(p: &mut ProcState, th: &mut Threads<'_>) {
+    let leader = p.pid;
     for hs in crate::user::linux::host::take_host_signals() {
         let info = match hs.sender {
             Some((pid, uid)) => SigInfo::kill(hs.sig, super::code::SI_USER, pid, uid),
             None => SigInfo::kernel(hs.sig),
         };
         let force = info.code == super::code::SI_KERNEL;
-        send_signal(p, t, info, false, force);
+        send_signal(p, th, info, Dest::Process(leader), force);
     }
     if p.itimers.next_deadline().is_some() || p.itimers.cpu_armed() {
         let fired = p.itimers.expire(
@@ -172,7 +347,7 @@ pub fn collect_async(p: &mut ProcState, t: &mut Thread) {
             crate::user::linux::timers::cpu_samples,
         );
         for sig in fired {
-            send_signal(p, t, SigInfo::kernel(sig), false, true);
+            send_signal(p, th, SigInfo::kernel(sig), Dest::Process(leader), true);
         }
     }
 }
@@ -214,16 +389,19 @@ fn trace_signal(tid: i32, info: &SigInfo) {
 }
 
 impl LinuxProcess {
+    /// Generates the signals of events outside the process
+    /// ([`collect_async`]), with thread `running` (an index) current.
+    pub fn collect_async(&mut self, running: Option<usize>) {
+        let mut th = Threads::split(&mut self.threads, running);
+        collect_async(&mut self.state, &mut th);
+    }
+
     /// Whether thread `idx` has work at its return to user mode: a signal
-    /// it does not block, a system call to finish, or a mask to restore.
-    /// Signals of external events are generated first.
-    fn signal_work(&mut self, idx: usize) -> bool {
-        collect_async(&mut self.state, &mut self.threads[idx]);
+    /// to take (`TIF_SIGPENDING`), a system call to finish, or a mask to
+    /// restore.
+    fn signal_work(&self, idx: usize) -> bool {
         let t = &self.threads[idx];
-        t.syscall.is_some()
-            || t.saved_sigmask.is_some()
-            || t.pending.next(t.sigmask).is_some()
-            || self.state.shared_pending.next(t.sigmask).is_some()
+        t.sigpending || t.syscall.is_some() || t.saved_sigmask.is_some()
     }
 
     /// `get_signal`: dequeues signals for thread `idx` until one has a
@@ -285,27 +463,38 @@ impl LinuxProcess {
     /// `handle_signal` minus the restart fixups: builds the frame, then
     /// `signal_setup_done`.
     fn handle_signal(&mut self, idx: usize, d: &Delivery) {
-        let (p, t) = (&mut self.state, &mut self.threads[idx]);
+        let mut th = Threads::split(&mut self.threads, Some(idx));
+        let p = &mut self.state;
+        let t = th.current().expect("running thread");
         if frame::setup_rt_frame(t, &p.space, d, p.sigtramp).is_err() {
-            force_sigsegv(p, t, d.sig);
+            force_sigsegv(p, &mut th, d.sig);
             return;
         }
+        let t = th.current().expect("running thread");
         // signal_delivered.
         t.saved_sigmask = None;
         let mut blocked = t.sigmask | d.action.mask;
         if d.action.flags & sa::NODEFER == 0 {
             blocked |= sigmask(d.sig);
         }
-        t.sigmask = blocked & !KERNEL_ONLY_MASK;
         if t.altstack.flags & ss::AUTODISARM != 0 {
             t.altstack = AltStack::DISABLED;
         }
+        set_blocked(p, &mut th, blocked);
     }
 
     /// The work the kernel does on return to user mode for thread `idx`:
-    /// system-call restart, then delivery of every signal it does not
-    /// block. Handlers nest: each delivery builds a frame below the last.
+    /// `set_child_tid`, system-call restart, then delivery of every signal
+    /// it does not block. Handlers nest: each delivery builds a frame below
+    /// the last.
     pub fn deliver_signals(&mut self, idx: usize) {
+        // schedule_tail: CLONE_CHILD_SETTID is written as the new thread
+        // first runs.
+        let t = &mut self.threads[idx];
+        if t.set_child_tid != 0 {
+            let addr = std::mem::take(&mut t.set_child_tid);
+            let _ = self.state.space.write(addr, &(t.tid as u32).to_le_bytes());
+        }
         if !self.signal_work(idx) {
             return;
         }
@@ -345,8 +534,11 @@ impl LinuxProcess {
                     }
                     // restore_saved_sigmask.
                     if let Some(mask) = t.saved_sigmask.take() {
-                        t.sigmask = mask;
+                        let mut th = Threads::split(&mut self.threads, Some(idx));
+                        set_blocked(&self.state, &mut th, mask);
                     }
+                    let t = &mut self.threads[idx];
+                    t.sigpending = recalc_sigpending(&self.state, t);
                     return;
                 }
             }
@@ -355,8 +547,8 @@ impl LinuxProcess {
 
     /// Delivers a CPU-raised synchronous signal to thread `idx`.
     pub fn trap_signal(&mut self, idx: usize, info: SigInfo, update: FaultUpdate) {
-        let (p, t) = (&mut self.state, &mut self.threads[idx]);
-        t.fault.apply(update);
-        force_signal(p, t, info, ForceMode::Current);
+        self.threads[idx].fault.apply(update);
+        let mut th = Threads::split(&mut self.threads, Some(idx));
+        force_signal(&mut self.state, &mut th, info, ForceMode::Current);
     }
 }

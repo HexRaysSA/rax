@@ -9,25 +9,35 @@
 //! | [`io`] | descriptors, `read`/`write` families, pipes, `fcntl`, `ioctl`, polling |
 //! | [`path`] | `open`, `stat`, directory and name operations, working directory |
 //! | [`mem`] | `brk`, `mmap` family, `madvise` |
-//! | [`process`] | identity, limits, `uname`, `prctl`, `arch_prctl`, thread setup, exit |
+//! | [`process`] | identity, limits, `uname`, `prctl`, `arch_prctl` |
+//! | [`thread`] | `clone`/`clone3`, thread exit, `set_tid_address`, `sched_yield` |
+//! | [`futex`] | `futex`, `futex_waitv`, the `futex2` calls, robust lists |
 //! | [`time`] | clocks and sleeping |
 //! | [`signal`] | signal dispositions and masks |
+//!
+//! A handler that must sleep records what it waits for with
+//! [`Ctx::block`]; the thread is parked and the call dispatched again,
+//! with its [`Resume`] record in [`Ctx::resume`], when the wait can end
+//! (see [`wait`](super::wait)).
 //!
 //! Unknown numbers, and calls RAX does not implement, return `-ENOSYS`, which
 //! is what a kernel built without the call returns; C libraries treat it as
 //! "unsupported" and fall back.
 
+pub mod futex;
 pub mod io;
 pub mod mem;
 pub mod path;
 pub mod process;
 pub mod signal;
+pub mod thread;
 pub mod time;
 
 use super::abi::Sysno;
 use super::abi::errno::Errno;
 use super::abi::errno_table::*;
-use super::process::{ProcState, Thread};
+use super::process::{Peers, ProcState, Thread, Threads};
+use super::wait::{Resume, Wait};
 
 /// What a system call did to its thread.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -40,9 +50,14 @@ pub enum Outcome {
     ExitThread(i32),
     /// The process exits with this code (`exit_group`).
     ExitGroup(i32),
-    /// The process cannot continue (for example every thread would block
-    /// forever); the process ends with an emulator diagnostic.
+    /// The process cannot continue; the process ends with an emulator
+    /// diagnostic.
     Fatal(String),
+    /// The thread sleeps until the wait can end; the call is then
+    /// dispatched again with the record.
+    Block(Wait, Resume),
+    /// Store this value and let the next thread run (`sched_yield`).
+    Yield(u64),
 }
 
 /// How `restart_syscall` continues a call a signal interrupted
@@ -66,20 +81,136 @@ pub enum RestartBlock {
         /// Absolute timeout, if any.
         deadline: Option<std::time::Instant>,
     },
+    /// `futex_wait_restart`: wait on `uaddr` for value `val` until
+    /// `deadline`.
+    Futex {
+        /// The futex word.
+        uaddr: u64,
+        /// The expected value.
+        val: u32,
+        /// The wait mask.
+        bitset: u32,
+        /// A shared key.
+        shared: bool,
+        /// Absolute timeout.
+        deadline: std::time::Instant,
+    },
+}
+
+/// Internal errno a handler returns after [`Ctx::block`]; never reaches the
+/// guest.
+const BLOCKED: i32 = i32::MIN;
+
+/// Whether a handler's result says the thread sleeps.
+pub fn is_blocked<T>(r: &Result<T, Errno>) -> bool {
+    matches!(r, Err(Errno(BLOCKED)))
 }
 
 /// The value or error of an ordinary call.
 pub type SysResult = Result<u64, Errno>;
 
-/// Handler context: the process and the calling thread.
+/// Handler context: the process, the calling thread, and the others.
 pub struct Ctx<'a> {
     /// Process-wide state.
     pub p: &'a mut ProcState,
     /// The calling thread.
     pub t: &'a mut Thread,
+    /// The other threads.
+    pub peers: Peers<'a>,
+    /// Threads the call created, appended to the list after it returns.
+    pub spawned: &'a mut Vec<Thread>,
+    /// The record the call left when it last slept, if it is running again
+    /// after a wake.
+    pub resume: Option<Resume>,
+    /// Another thread reported the event the call slept for.
+    pub woken: bool,
+    block: Option<(Wait, Resume)>,
+}
+
+impl<'a> Ctx<'a> {
+    /// A context for thread `t` of `p`.
+    pub fn new(
+        p: &'a mut ProcState,
+        t: &'a mut Thread,
+        peers: Peers<'a>,
+        spawned: &'a mut Vec<Thread>,
+    ) -> Self {
+        Ctx {
+            p,
+            t,
+            peers,
+            spawned,
+            resume: None,
+            woken: false,
+            block: None,
+        }
+    }
 }
 
 impl Ctx<'_> {
+    /// Parks the thread until `wait` can end; returns the internal errno the
+    /// handler passes up. The call runs again with `resume` in
+    /// [`Ctx::resume`].
+    pub fn block(&mut self, wait: Wait, resume: Resume) -> Errno {
+        self.block = Some((wait, resume));
+        Errno(BLOCKED)
+    }
+
+    /// `signal_pending(current)`: the thread's `TIF_SIGPENDING`.
+    pub fn signal_pending(&self) -> bool {
+        self.t.sigpending
+    }
+
+    /// The process state and every thread, the caller current.
+    pub fn split(&mut self) -> (&mut ProcState, Threads<'_>) {
+        (
+            &mut *self.p,
+            Threads::with_current(
+                &mut *self.t,
+                Peers {
+                    lo: &mut *self.peers.lo,
+                    hi: &mut *self.peers.hi,
+                },
+            ),
+        )
+    }
+
+    /// Generates signals of events outside the process and reports whether
+    /// the caller now has a signal to take (after a host call ended with
+    /// `EINTR`).
+    pub fn check_async(&mut self) -> bool {
+        let (p, mut th) = self.split();
+        super::signal::deliver::collect_async(p, &mut th);
+        self.t.sigpending
+    }
+
+    /// Every thread, the caller among them, in list order.
+    pub fn thread_refs(&self) -> Vec<&Thread> {
+        self.peers
+            .lo
+            .iter()
+            .chain(std::iter::once(&*self.t))
+            .chain(self.peers.hi.iter())
+            .collect()
+    }
+
+    /// Whether `tid` is a thread of this process.
+    pub fn is_own_tid(&self, tid: i32) -> bool {
+        tid == self.t.tid
+            || self
+                .peers
+                .lo
+                .iter()
+                .chain(self.peers.hi.iter())
+                .any(|t| t.tid == tid)
+    }
+
+    /// `set_current_blocked` for the caller.
+    pub fn set_blocked(&mut self, mask: u64) {
+        let (p, mut th) = self.split();
+        super::signal::deliver::set_blocked(p, &mut th, mask);
+    }
+
     /// Reads `len` bytes of guest memory (`copy_from_user`).
     pub fn read_mem(&self, addr: u64, len: usize) -> Result<Vec<u8>, Errno> {
         let mut buf = vec![0u8; len];
@@ -156,7 +287,7 @@ pub fn read_iovecs(c: &Ctx<'_>, iov: u64, count: u64) -> Result<Vec<(u64, u64)>,
     Ok(out)
 }
 
-fn call(c: &mut Ctx<'_>, s: Sysno, a: [u64; 6]) -> Result<Outcome, Errno> {
+fn call_handler(c: &mut Ctx<'_>, s: Sysno, a: [u64; 6]) -> Result<Outcome, Errno> {
     use Sysno as S;
     let r = |v: SysResult| v.map(Outcome::Return);
     let fd = |x: u64| x as i32;
@@ -164,6 +295,11 @@ fn call(c: &mut Ctx<'_>, s: Sysno, a: [u64; 6]) -> Result<Outcome, Errno> {
         // ---------------------------------------------------------- exit
         S::Exit => Ok(Outcome::ExitThread(a[0] as i32)),
         S::ExitGroup => Ok(Outcome::ExitGroup(a[0] as i32)),
+
+        // ------------------------------------------------------- threads
+        S::Clone => thread::clone(c, a),
+        S::Clone3 => thread::clone3(c, a[0], a[1]),
+        S::SchedYield => Ok(Outcome::Yield(0)),
 
         // ------------------------------------------------------------ io
         S::Read => r(io::read(c, fd(a[0]), a[1], a[2])),
@@ -360,9 +496,9 @@ fn call(c: &mut Ctx<'_>, s: Sysno, a: [u64; 6]) -> Result<Outcome, Errno> {
         S::Getsid => r(process::getpgid(c, a[0] as i32)),
         S::Setpgid => r(process::setpgid(c, a[0] as i32, a[1] as i32)),
         S::Setsid => r(Err(Errno(EPERM))),
-        S::SetTidAddress => r(process::set_tid_address(c, a[0])),
-        S::SetRobustList => r(process::set_robust_list(c, a[0], a[1])),
-        S::GetRobustList => r(process::get_robust_list(c, a[0] as i32, a[1], a[2])),
+        S::SetTidAddress => r(thread::set_tid_address(c, a[0])),
+        S::SetRobustList => r(futex::set_robust_list(c, a[0], a[1])),
+        S::GetRobustList => r(futex::get_robust_list(c, a[0] as i32, a[1], a[2])),
         S::Uname => r(process::uname(c, a[0])),
         S::Sysinfo => r(process::sysinfo(c, a[0])),
         S::Getrlimit => r(process::prlimit(c, 0, a[0] as u32, 0, a[1])),
@@ -376,7 +512,6 @@ fn call(c: &mut Ctx<'_>, s: Sysno, a: [u64; 6]) -> Result<Outcome, Errno> {
         S::Getrandom => r(process::getrandom(c, a[0], a[1], a[2] as u32)),
         S::SchedGetaffinity => r(process::sched_getaffinity(c, a[0] as i32, a[1], a[2])),
         S::SchedSetaffinity => r(process::sched_setaffinity(c, a[0] as i32, a[1], a[2])),
-        S::SchedYield => r(Ok(0)),
         S::Getcpu => r(process::getcpu(c, a[0], a[1])),
         S::SchedGetscheduler => r(process::for_self(c, a[0] as i32, 0)),
         S::SchedGetparam => r(process::sched_getparam(c, a[0] as i32, a[1])),
@@ -429,26 +564,78 @@ fn call(c: &mut Ctx<'_>, s: Sysno, a: [u64; 6]) -> Result<Outcome, Errno> {
         S::RtSigreturn => signal::rt_sigreturn(c),
         S::RestartSyscall => signal::restart_syscall(c),
 
-        // A single-threaded process has nothing to wait for; the caller's
-        // futex word is re-checked on wake anyway.
-        S::Futex => process::futex(c, a[0], a[1] as u32, a[2] as u32, a[3], a[4], a[5] as u32),
+        // --------------------------------------------------------- futex
+        S::Futex => futex::futex(c, a[0], a[1] as u32, a[2] as u32, a[3], a[4], a[5] as u32),
+        S::FutexWaitv => futex::futex_waitv(c, a[0], a[1] as u32, a[2] as u32, a[3], a[4] as i32),
+        S::FutexWake => futex::futex_wake(c, a[0], a[1], a[2] as i32, a[3] as u32),
+        S::FutexWait => futex::futex_wait(c, a[0], a[1], a[2], a[3] as u32, a[4], a[5] as i32),
+        S::FutexRequeue => futex::futex_requeue(c, a[0], a[1] as u32, a[2] as i32, a[3] as i32),
 
         // Calls intentionally reported as unsupported.
         _ => Err(Errno(ENOSYS)),
     }
 }
 
-/// Dispatches the native-ABI system call `nr` for thread `t`.
-pub fn dispatch(p: &mut ProcState, t: &mut Thread, nr: u64, args: [u64; 6]) -> Outcome {
+/// A system call to run: its number and arguments, and when it runs again
+/// after sleeping, its record.
+#[derive(Clone, Debug)]
+pub struct Call {
+    /// The number.
+    pub nr: u64,
+    /// The arguments.
+    pub args: [u64; 6],
+    /// The record left when it slept.
+    pub resume: Option<Resume>,
+    /// Another thread reported the event it slept for.
+    pub woken: bool,
+}
+
+impl Call {
+    /// A new call.
+    pub fn new(nr: u64, args: [u64; 6]) -> Self {
+        Call {
+            nr,
+            args,
+            resume: None,
+            woken: false,
+        }
+    }
+}
+
+/// Dispatches the native-ABI system call for thread `t`; `peers` are the
+/// other threads, and threads the call creates are appended to `spawned`.
+pub fn dispatch(
+    p: &mut ProcState,
+    t: &mut Thread,
+    peers: Peers<'_>,
+    spawned: &mut Vec<Thread>,
+    call: Call,
+) -> Outcome {
+    let (nr, args) = (call.nr, call.args);
+    let resumed = call.resume.is_some();
     let abi = p.abi;
     let strace = p.config.strace;
     let sysno = abi.sysno(nr);
     let tid = t.tid;
-    let mut c = Ctx { p, t };
+    let mut c = Ctx::new(p, t, peers, spawned);
+    c.resume = call.resume;
+    c.woken = call.woken;
     let result = match sysno {
-        Some(s) => call(&mut c, s, args),
+        Some(s) => call_handler(&mut c, s, args),
         None => Err(Errno(ENOSYS)),
     };
+    if let Some((wait, resume)) = c.block.take() {
+        debug_assert_eq!(result, Err(Errno(BLOCKED)));
+        if strace && !resumed {
+            trace_unfinished(tid, sysno, nr, &args);
+        }
+        return Outcome::Block(wait, resume);
+    }
+    debug_assert_ne!(
+        result,
+        Err(Errno(BLOCKED)),
+        "a handler blocked without a wait"
+    );
     // pipe_write and the socket send paths: EPIPE comes with SIGPIPE
     // (send_sig with SEND_SIG_NOINFO: SI_USER from the writer itself).
     if matches!(result, Err(Errno(EPIPE)))
@@ -465,20 +652,28 @@ pub fn dispatch(p: &mut ProcState, t: &mut Thread, nr: u64, args: [u64; 6]) -> O
             )
         )
     {
+        // send_sig: a signal to the calling thread.
         let info = super::signal::SigInfo::kill(
             super::signal::SIGPIPE,
             super::signal::code::SI_USER,
             c.p.pid,
             c.p.creds.0,
         );
-        super::signal::deliver::send_signal(c.p, c.t, info, false, false);
+        let (p, mut th) = c.split();
+        super::signal::deliver::send_signal(
+            p,
+            &mut th,
+            info,
+            super::signal::deliver::Dest::Thread(tid),
+            false,
+        );
     }
     let outcome = match result {
         Ok(o) => o,
         Err(e) => Outcome::Return(e.as_return()),
     };
     if strace {
-        trace(tid, sysno, nr, &args, &outcome);
+        trace(tid, sysno, nr, &args, &outcome, resumed);
     }
     outcome
 }
@@ -497,14 +692,34 @@ pub fn dispatch_compat(p: &mut ProcState, t: &mut Thread, nr: u64, args: [u64; 6
     outcome
 }
 
-/// Writes one `strace`-style line.
-fn trace(tid: i32, sysno: Option<Sysno>, nr: u64, args: &[u64; 6], outcome: &Outcome) {
-    let name = sysno.map_or_else(|| format!("syscall_{nr}"), |s| s.name().to_string());
-    let args = args
-        .iter()
+fn trace_name(sysno: Option<Sysno>, nr: u64) -> String {
+    sysno.map_or_else(|| format!("syscall_{nr}"), |s| s.name().to_string())
+}
+
+fn trace_args(args: &[u64; 6]) -> String {
+    args.iter()
         .map(|a| format!("{a:#x}"))
         .collect::<Vec<_>>()
-        .join(", ");
+        .join(", ")
+}
+
+/// Writes the `strace` line of a call that went to sleep.
+fn trace_unfinished(tid: i32, sysno: Option<Sysno>, nr: u64, args: &[u64; 6]) {
+    let name = trace_name(sysno, nr);
+    eprintln!("[{tid}] {name}({}) <unfinished ...>", trace_args(args));
+}
+
+/// Writes one `strace`-style line; a call that slept is shown as resumed.
+fn trace(
+    tid: i32,
+    sysno: Option<Sysno>,
+    nr: u64,
+    args: &[u64; 6],
+    outcome: &Outcome,
+    resumed: bool,
+) {
+    let name = trace_name(sysno, nr);
+    let args = trace_args(args);
     let result = match outcome {
         // Kernel-internal restart codes, as strace shows them.
         Outcome::Return(v) if super::signal::deliver::restart::is_restart(*v) => {
@@ -519,10 +734,14 @@ fn trace(tid: i32, sysno: Option<Sysno>, nr: u64, args: &[u64; 6], outcome: &Out
             let e = Errno(-(*v as i64) as i32);
             format!("-1 {}", e.name())
         }
-        Outcome::Return(v) => format!("{v:#x}"),
-        Outcome::Unchanged => "?".into(),
+        Outcome::Return(v) | Outcome::Yield(v) => format!("{v:#x}"),
+        Outcome::Unchanged | Outcome::Block(..) => "?".into(),
         Outcome::ExitThread(code) | Outcome::ExitGroup(code) => format!("? (exit {code})"),
         Outcome::Fatal(why) => format!("? ({why})"),
     };
-    eprintln!("[{tid}] {name}({args}) = {result}");
+    if resumed {
+        eprintln!("[{tid}] <... {name} resumed> = {result}");
+    } else {
+        eprintln!("[{tid}] {name}({args}) = {result}");
+    }
 }

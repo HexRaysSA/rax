@@ -67,7 +67,7 @@ pub fn resolve_str(c: &Ctx<'_>, dirfd: i32, path: &str, follow: bool) -> Result<
     } else {
         join_guest(&base_dir(c, dirfd)?, path)
     };
-    if let Some(entry) = procfs::lookup(c.p, c.t, &guest) {
+    if let Some(entry) = procfs::lookup(c.p, c.t, &c.thread_refs(), &guest) {
         return Ok(Target::Proc(entry, guest));
     }
     let host = c.p.vfs.host_path(&guest, follow);
@@ -101,6 +101,7 @@ pub fn resolve(
 fn proc_stat(c: &Ctx<'_>, e: &ProcEntry) -> Stat {
     let (m, size) = match e {
         ProcEntry::File(d) => (mode::S_IFREG | 0o444, d.len() as i64),
+        ProcEntry::Comm { .. } => (mode::S_IFREG | 0o644, 0),
         ProcEntry::Link(t) => (mode::S_IFLNK | 0o777, t.len() as i64),
         ProcEntry::Dir(_) => (mode::S_IFDIR | 0o555, 0),
     };
@@ -208,6 +209,22 @@ fn open_target(
                 None,
                 status,
             ))
+        }
+        Target::Proc(ProcEntry::Comm { tid, text }, guest) => {
+            if flags & layout.directory != 0 {
+                return Err(Errno(ENOTDIR));
+            }
+            let f = OpenFile::new(
+                FileObject::Synthetic(text.into()),
+                FileType::Regular,
+                guest,
+                None,
+                status,
+            );
+            if accmode != O_RDONLY {
+                f.state.lock().unwrap().comm_of = Some(tid);
+            }
+            Ok(f)
         }
         Target::Proc(ProcEntry::Dir(entries), guest) => {
             if accmode != O_RDONLY {

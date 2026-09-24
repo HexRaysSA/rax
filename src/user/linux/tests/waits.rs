@@ -47,7 +47,21 @@ fn read_itimerval_us(h: &Harness, at: u64) -> (u64, u64) {
     (w[0] * 1_000_000 + w[1], w[2] * 1_000_000 + w[3])
 }
 
+/// Installs a handler for `sig` (a default action could be fatal, which
+/// takes the process down as the signal is sent) and sends it to the
+/// first thread.
 fn raise(h: &mut Harness, sig: i32) {
+    let act = h.scratch + 0xf00;
+    let abi = h.abi();
+    let mut words = vec![0x40_1000];
+    if abi.has_sa_restorer() {
+        words.extend([sa::RESTORER, 0x40_1100]);
+    } else {
+        words.push(0);
+    }
+    words.push(0);
+    put_u64s(h, act, &words);
+    h.ok(Sysno::RtSigaction, &[sig as u64, act, 0, 8]);
     let (pid, tid) = (h.proc.state.pid as u64, h.proc.threads[0].tid as u64);
     h.ok(Sysno::Tgkill, &[pid, tid, sig as u64]);
 }
@@ -157,7 +171,9 @@ fn restart_syscall_resumes_the_remaining_sleep() {
         );
         let left = u64_at(&h, rem + 8);
         assert!((50_000_000..=60_000_000).contains(&left), "rem {left}");
+        // Taken without running its handler: nothing is pending any more.
         h.proc.threads[0].pending.flush(u64::MAX);
+        h.proc.threads[0].sigpending = false;
         let start = Instant::now();
         assert_eq!(h.dispatch(Sysno::RestartSyscall, &[]), Outcome::Return(0));
         assert!(start.elapsed() >= Duration::from_millis(40));

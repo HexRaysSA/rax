@@ -1,109 +1,209 @@
-//! Blocking: a thread sleeps in the host's `poll` until a watched
-//! descriptor is ready, a signal it does not block becomes pending, or a
-//! deadline passes.
+//! Sleeping in system calls.
 //!
-//! Signals come from the process itself, from expiring interval timers, and
-//! from host signals when forwarding is installed
-//! ([`forward_host_signals`](super::host::forward_host_signals)); the wait
-//! watches the host-signal wake pipe and the nearest timer deadline so none
-//! of them is missed. As in the kernel (`do_poll`, `pipe_read`), a ready
-//! descriptor takes precedence over a pending signal, and a pending signal
-//! over the deadline.
+//! Every thread of a process runs on one emulated CPU, so a call that must
+//! sleep cannot block the host. Its handler records what it waits for (a
+//! [`Wait`]) and its progress (a [`Resume`] record) and returns; the thread
+//! is parked in [`Blocked`] and the scheduler runs other threads. When the
+//! wait can end — a descriptor is ready, the deadline passed, a signal was
+//! sent to the thread (`TIF_SIGPENDING`), or another thread reported the
+//! event it waits for ([`Blocked::woken`], as `FUTEX_WAKE` does) — the call
+//! is dispatched again with its record, as a kernel task returns from
+//! `schedule()` into the same system call, and re-evaluates its condition
+//! in the kernel's order: a ready descriptor before a pending signal
+//! (`do_poll`, `pipe_read`), a pending signal before the timeout.
+//!
+//! When every thread sleeps, [`sleep`] waits in the host's `poll` for the
+//! earliest event that can wake one: their descriptors, the forwarded
+//! host-signal wake pipe
+//! ([`forward_host_signals`](super::host::forward_host_signals)), and the
+//! nearest deadline of a wait or interval timer.
 
 use std::time::{Duration, Instant};
 
+use super::futex::FutexWait;
 use super::host::{self, Readiness};
-use super::process::{ProcState, Thread};
-use super::signal::deliver::collect_async;
 
-/// How a wait ended.
+/// What a sleeping call waits for besides the events other threads report
+/// through [`Blocked::woken`].
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub enum Wake {
-    /// A watched descriptor is ready; its readiness, in request order.
-    Ready(Vec<Readiness>),
-    /// A signal outside the wait's mask is pending.
-    Signal,
-    /// The deadline passed.
-    Timeout,
+pub struct Wait {
+    /// Host descriptors, each with the readiness it waits for
+    /// (`(fd, readable, writable)`).
+    pub fds: Vec<(i32, bool, bool)>,
+    /// When the call's timeout expires.
+    pub deadline: Option<Instant>,
+    /// A signal ends the wait (`TASK_INTERRUPTIBLE`); otherwise only the
+    /// process's exit does (`TASK_KILLABLE`).
+    pub interruptible: bool,
 }
 
-/// Nothing can end the wait: no descriptor, deadline, timer, or host-signal
-/// source exists.
+impl Wait {
+    /// A wait for a signal or another thread's event only.
+    pub fn event() -> Self {
+        Wait::until(None)
+    }
+
+    /// A wait for a signal, an event, or `deadline`.
+    pub fn until(deadline: Option<Instant>) -> Self {
+        Wait {
+            fds: Vec::new(),
+            deadline,
+            interruptible: true,
+        }
+    }
+
+    /// A wait for readiness of host descriptors, a signal, or `deadline`.
+    pub fn fds(fds: Vec<(i32, bool, bool)>, deadline: Option<Instant>) -> Self {
+        Wait {
+            fds,
+            deadline,
+            interruptible: true,
+        }
+    }
+
+    /// A wait for readiness of one host descriptor or a signal.
+    pub fn fd(fd: i32, read: bool, write: bool) -> Self {
+        Wait::fds(vec![(fd, read, write)], None)
+    }
+
+    /// A wait only another thread's event (or the process's exit) ends.
+    pub fn uninterruptible() -> Self {
+        Wait {
+            fds: Vec::new(),
+            deadline: None,
+            interruptible: false,
+        }
+    }
+}
+
+/// A handler's progress, handed back when its thread wakes.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum Resume {
+    /// Nothing beyond the arguments: evaluate the call again.
+    Retry,
+    /// A sleep, `poll`, or `select` ending at the instant (never if `None`)
+    /// whose temporary signal mask, if any, is already installed.
+    Until(Option<Instant>),
+    /// A write to a pipe or socket that has transferred this many bytes.
+    Written(u64),
+    /// `rt_sigtimedwait`: its deadline and the mask it replaced
+    /// (`real_blocked`).
+    SigWait {
+        /// End of the wait.
+        deadline: Option<Instant>,
+        /// The mask to restore.
+        real_blocked: u64,
+    },
+    /// A futex wait.
+    Futex(FutexWait),
+    /// A `CLONE_VFORK` parent waiting for its child to exit or `execve`,
+    /// then returning the child's TID.
+    Vfork {
+        /// The child.
+        child: i32,
+    },
+}
+
+/// A thread asleep in a system call.
+#[derive(Clone, Debug)]
+pub struct Blocked {
+    /// The system-call number.
+    pub nr: u64,
+    /// The arguments.
+    pub args: [u64; 6],
+    /// What ends the wait.
+    pub wait: Wait,
+    /// The call's progress.
+    pub resume: Resume,
+    /// Another thread reported the event the call waits for.
+    pub woken: bool,
+    /// A watched descriptor was found ready.
+    pub ready: bool,
+}
+
+impl Blocked {
+    /// Whether the thread may run its call again at `now`, given its
+    /// `TIF_SIGPENDING` flag. Descriptor readiness is found by
+    /// [`poll_ready`].
+    pub fn can_wake(&self, sigpending: bool, now: Instant) -> bool {
+        self.woken
+            || self.ready
+            || (sigpending && self.wait.interruptible)
+            || self.wait.deadline.is_some_and(|d| now >= d)
+    }
+}
+
+/// Marks each sleeping call whose descriptors are ready now (one host
+/// `poll` with a zero timeout for all of them).
+pub fn poll_ready<'a>(blocked: impl Iterator<Item = &'a mut Blocked>) {
+    let mut owners: Vec<&mut Blocked> = blocked.filter(|b| !b.wait.fds.is_empty()).collect();
+    if owners.is_empty() {
+        return;
+    }
+    let fds: Vec<(i32, bool, bool)> = owners
+        .iter()
+        .flat_map(|b| b.wait.fds.iter().copied())
+        .collect();
+    let Ok(r) = host::poll(&fds, 0) else {
+        return;
+    };
+    let mut at = 0;
+    for b in owners.iter_mut() {
+        let n = b.wait.fds.len();
+        if r[at..at + n].iter().any(Readiness::any) {
+            b.ready = true;
+        }
+        at += n;
+    }
+}
+
+/// Nothing can end the wait: no descriptor, deadline, timer, or
+/// host-signal source exists.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Deadlock;
 
 impl Deadlock {
     /// The diagnostic a process ends with.
     pub fn message(self) -> String {
-        "the only thread blocks and nothing can wake it (no descriptor, deadline, timer, or \
+        "every thread sleeps and nothing can wake one (no descriptor, deadline, timer, or \
          forwarded host signal)"
             .into()
     }
-}
-
-/// `signal_pending` with `blocked` as the mask: a signal outside it is
-/// pending for the thread or the process.
-pub fn signal_pending(p: &ProcState, t: &Thread, blocked: u64) -> bool {
-    t.pending.next(blocked).is_some() || p.shared_pending.next(blocked).is_some()
 }
 
 /// Sub-millisecond waits without descriptors sleep directly: `poll`'s
 /// timeout has millisecond resolution.
 const PRECISE_SLEEP: Duration = Duration::from_millis(2);
 
-/// Blocks thread `t` until one of `fds` (`(host fd, read, write)`) is
-/// ready, a signal outside `blocked` is pending, or `deadline` passes.
-pub fn block(
-    p: &mut ProcState,
-    t: &mut Thread,
-    fds: &[(i32, bool, bool)],
-    deadline: Option<Instant>,
-    blocked: u64,
-) -> Result<Wake, Deadlock> {
-    loop {
-        collect_async(p, t);
-        if !fds.is_empty() {
-            let r = host::poll(fds, 0).unwrap_or_default();
-            if r.iter().any(Readiness::any) {
-                return Ok(Wake::Ready(r));
-            }
-        }
-        if signal_pending(p, t, blocked) {
-            return Ok(Wake::Signal);
-        }
-        let now = Instant::now();
-        if deadline.is_some_and(|d| now >= d) {
-            return Ok(Wake::Timeout);
-        }
-        // CPU-time timers cannot expire while the process sleeps.
-        let limit = [deadline, p.itimers.next_deadline()]
-            .into_iter()
-            .flatten()
-            .min();
-        let wake = host::wake_fd();
-        if fds.is_empty() && wake.is_none() && limit.is_none() {
-            return Err(Deadlock);
-        }
-        let left = limit.map(|l| l.saturating_duration_since(now));
-        if fds.is_empty() && left.is_some_and(|d| d < PRECISE_SLEEP || wake.is_none()) {
-            std::thread::sleep(left.unwrap());
-            continue;
-        }
-        let timeout_ms = left.map_or(-1, |d| {
-            i32::try_from(d.as_nanos().div_ceil(1_000_000)).unwrap_or(i32::MAX)
-        });
-        let mut all = fds.to_vec();
-        if let Some(w) = wake {
-            all.push((w, true, false));
-        }
-        if let Ok(r) = host::poll(&all, timeout_ms) {
-            if wake.is_some() && r.last().is_some_and(|x| x.readable) {
-                host::drain_wake();
-            }
-            if r[..fds.len()].iter().any(Readiness::any) {
-                return Ok(Wake::Ready(r[..fds.len()].to_vec()));
-            }
-        }
-        // EINTR (a host signal arrived) or a timeout: re-evaluate.
+/// Sleeps the host until one of `fds` is ready, `deadline` passes, or a
+/// forwarded host signal arrives (its wake-pipe byte is drained). Returns
+/// early, without error, when the host `poll` is interrupted.
+pub fn sleep(fds: &[(i32, bool, bool)], deadline: Option<Instant>) -> Result<(), Deadlock> {
+    let wake = host::wake_fd();
+    if fds.is_empty() && wake.is_none() && deadline.is_none() {
+        return Err(Deadlock);
     }
+    let now = Instant::now();
+    let left = deadline.map(|d| d.saturating_duration_since(now));
+    if left.is_some_and(|d| d.is_zero()) {
+        return Ok(());
+    }
+    if fds.is_empty() && left.is_some_and(|d| d < PRECISE_SLEEP || wake.is_none()) {
+        std::thread::sleep(left.unwrap());
+        return Ok(());
+    }
+    let timeout_ms = left.map_or(-1, |d| {
+        i32::try_from(d.as_nanos().div_ceil(1_000_000)).unwrap_or(i32::MAX)
+    });
+    let mut all = fds.to_vec();
+    if let Some(w) = wake {
+        all.push((w, true, false));
+    }
+    if let Ok(r) = host::poll(&all, timeout_ms)
+        && wake.is_some()
+        && r.last().is_some_and(|x| x.readable)
+    {
+        host::drain_wake();
+    }
+    Ok(())
 }

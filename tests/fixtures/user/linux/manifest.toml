@@ -51,6 +51,18 @@ target = "x86_64-linux-musl"
 sha256 = "d554045c62950d234d02a5e9aefe80262439368528492a007b10c8170cc10b18"
 
 [[fixture]]
+path = "bin/x86_64/threads"
+source = "src/threads.c"
+target = "x86_64-linux-musl"
+sha256 = "b5e582c616f347056dfcca8078c9e757ee0f7d4ab9c2042bdf354ceaea886e4d"
+
+[[fixture]]
+path = "bin/x86_64/threadexit"
+source = "src/threadexit.c"
+target = "x86_64-linux-musl"
+sha256 = "fe78ce0b91b3fe24396b23b7489ed346b183ffadbdded3dd8703181b7491dea2"
+
+[[fixture]]
 path = "bin/x86_64/stdin"
 source = "src/stdin.c"
 target = "x86_64-linux-musl"
@@ -123,6 +135,18 @@ target = "aarch64-linux-musl"
 sha256 = "f5e195fa55df1f83d5a8275154ced0ebd6e023f4ad4e095d94d2eb37c4fe39aa"
 
 [[fixture]]
+path = "bin/aarch64/threads"
+source = "src/threads.c"
+target = "aarch64-linux-musl"
+sha256 = "2c7aa693846b2246f6de8aeaed1835b1cecd322024da1a74eb9c2c0bca6e1741"
+
+[[fixture]]
+path = "bin/aarch64/threadexit"
+source = "src/threadexit.c"
+target = "aarch64-linux-musl"
+sha256 = "cbd450c2d014ac520122df7143852e1f7a1141539248e138434765acc245e157"
+
+[[fixture]]
 path = "bin/aarch64/stdin"
 source = "src/stdin.c"
 target = "aarch64-linux-musl"
@@ -193,6 +217,18 @@ path = "bin/riscv64/hostsig"
 source = "src/hostsig.c"
 target = "riscv64-linux-musl"
 sha256 = "53b6a76426c609a3d0301ff5a00c8eaea6248b18b86d0c8c867f50d5b8610caa"
+
+[[fixture]]
+path = "bin/riscv64/threads"
+source = "src/threads.c"
+target = "riscv64-linux-musl"
+sha256 = "7d343b217e95bab7fc38d6d2d02785b083644c2fdd520a68898be764206db0ff"
+
+[[fixture]]
+path = "bin/riscv64/threadexit"
+source = "src/threadexit.c"
+target = "riscv64-linux-musl"
+sha256 = "2fa4dcab8b6358db11e07f15d748a744ce41fb0a67c5ea8984fdf8e6e643edcc"
 
 [[fixture]]
 path = "bin/riscv64/stdin"

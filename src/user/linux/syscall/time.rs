@@ -8,7 +8,7 @@ use super::super::abi::types::Timespec;
 use super::super::host::{self, HostClock};
 use super::super::signal::deliver::restart::{ERESTART_RESTARTBLOCK, ERESTARTNOHAND};
 use super::super::timers::{ITIMER_PROF, ITIMER_REAL, ITIMER_VIRTUAL, ItimerSpec, cpu_samples};
-use super::super::wait;
+use super::super::wait::{Resume, Wait};
 use super::{Ctx, Outcome, RestartBlock, SysResult};
 
 /// Linux clock IDs (`linux/time.h`).
@@ -134,29 +134,38 @@ fn duration(t: Timespec) -> Duration {
 /// pending `-ERESTART_RESTARTBLOCK` after writing the remaining time to
 /// `rmtp` (when nonzero) and arming `hrtimer_nanosleep_restart`.
 fn sleep_until(c: &mut Ctx<'_>, deadline: Instant, rmtp: u64) -> Result<Outcome, Errno> {
-    let blocked = c.t.sigmask;
-    match wait::block(c.p, c.t, &[], Some(deadline), blocked) {
-        Ok(wait::Wake::Signal) => {
-            let left = deadline.saturating_duration_since(Instant::now());
-            if left.is_zero() {
-                return Ok(Outcome::Return(0));
-            }
-            if rmtp != 0 {
-                let rem = Timespec {
-                    sec: left.as_secs() as i64,
-                    nsec: i64::from(left.subsec_nanos()),
-                };
-                c.write_mem(rmtp, &rem.encode())?;
-            }
-            c.t.restart = Some(RestartBlock::Nanosleep { deadline, rmtp });
-            Err(Errno(ERESTART_RESTARTBLOCK))
-        }
-        _ => Ok(Outcome::Return(0)),
+    let left = deadline.saturating_duration_since(Instant::now());
+    if left.is_zero() {
+        return Ok(Outcome::Return(0));
+    }
+    if !c.signal_pending() {
+        return Err(c.block(Wait::until(Some(deadline)), Resume::Until(Some(deadline))));
+    }
+    if rmtp != 0 {
+        let rem = Timespec {
+            sec: left.as_secs() as i64,
+            nsec: i64::from(left.subsec_nanos()),
+        };
+        c.write_mem(rmtp, &rem.encode())?;
+    }
+    c.t.restart = Some(RestartBlock::Nanosleep { deadline, rmtp });
+    Err(Errno(ERESTART_RESTARTBLOCK))
+}
+
+/// The deadline a sleep computed when it started, if it is running again
+/// after sleeping.
+fn resumed(c: &mut Ctx<'_>) -> Option<Instant> {
+    match c.resume.take() {
+        Some(Resume::Until(d)) => d,
+        _ => None,
     }
 }
 
 /// `nanosleep` (on `CLOCK_MONOTONIC`).
 pub fn nanosleep(c: &mut Ctx<'_>, req: u64, rmtp: u64) -> Result<Outcome, Errno> {
+    if let Some(deadline) = resumed(c) {
+        return sleep_until(c, deadline, rmtp);
+    }
     let t = read_timespec(c, req)?;
     c.t.restart = None;
     sleep_until(c, Instant::now() + duration(t), rmtp)
@@ -164,17 +173,17 @@ pub fn nanosleep(c: &mut Ctx<'_>, req: u64, rmtp: u64) -> Result<Outcome, Errno>
 
 /// `restart_syscall` for an interrupted sleep.
 pub fn nanosleep_restart(c: &mut Ctx<'_>, deadline: Instant, rmtp: u64) -> Result<Outcome, Errno> {
+    let deadline = resumed(c).unwrap_or(deadline);
     sleep_until(c, deadline, rmtp)
 }
 
-/// Waits for a signal: the CPU-time clocks do not advance while the only
-/// thread sleeps.
+/// Waits for a signal: the process CPU-time clock does not advance while
+/// every thread sleeps (`-ERESTARTNOHAND`).
 fn sleep_on_cpu_clock(c: &mut Ctx<'_>) -> Result<Outcome, Errno> {
-    let blocked = c.t.sigmask;
-    match wait::block(c.p, c.t, &[], None, blocked) {
-        Err(dead) => Ok(Outcome::Fatal(dead.message())),
-        Ok(_) => Err(Errno(ERESTARTNOHAND)),
+    if c.signal_pending() {
+        return Err(Errno(ERESTARTNOHAND));
     }
+    Err(c.block(Wait::event(), Resume::Retry))
 }
 
 /// `clock_nanosleep`.
@@ -193,19 +202,33 @@ pub fn clock_nanosleep(
         id if id < 0 && id & 4 != 0 => return Err(Errno(EINVAL)),
         _ => host_clock(c, id)?,
     };
-    let t = read_timespec(c, req)?;
     let rmtp = if flags & TIMER_ABSTIME != 0 { 0 } else { rmtp };
-    c.t.restart = None;
     if clock == HostClock::ProcessCpu {
+        if c.resume.take().is_none() {
+            read_timespec(c, req)?;
+            c.t.restart = None;
+        }
         return sleep_on_cpu_clock(c);
     }
+    let deadline = match resumed(c) {
+        Some(d) => d,
+        None => {
+            let t = read_timespec(c, req)?;
+            c.t.restart = None;
+            if flags & TIMER_ABSTIME != 0 {
+                let n = now(clock);
+                let target = t.sec as i128 * 1_000_000_000 + t.nsec as i128;
+                let cur = n.sec as i128 * 1_000_000_000 + n.nsec as i128;
+                Instant::now()
+                    + Duration::from_nanos((target - cur).clamp(0, u64::MAX as i128) as u64)
+            } else {
+                Instant::now() + duration(t)
+            }
+        }
+    };
     if flags & TIMER_ABSTIME != 0 {
         // An absolute sleep is not restarted through restart_syscall.
-        let n = now(clock);
-        let target = t.sec as i128 * 1_000_000_000 + t.nsec as i128;
-        let cur = n.sec as i128 * 1_000_000_000 + n.nsec as i128;
-        let left = Duration::from_nanos((target - cur).clamp(0, u64::MAX as i128) as u64);
-        return match sleep_until(c, Instant::now() + left, 0) {
+        return match sleep_until(c, deadline, 0) {
             Err(Errno(ERESTART_RESTARTBLOCK)) => {
                 c.t.restart = None;
                 Err(Errno(ERESTARTNOHAND))
@@ -213,7 +236,7 @@ pub fn clock_nanosleep(
             other => other,
         };
     }
-    sleep_until(c, Instant::now() + duration(t), rmtp)
+    sleep_until(c, deadline, rmtp)
 }
 
 // ---------------------------------------------------------- itimers

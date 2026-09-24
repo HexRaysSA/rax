@@ -2,15 +2,15 @@
 
 use super::super::abi::errno::Errno;
 use super::super::abi::errno_table::*;
-use super::super::abi::types::{Encoder, SysInfo, Timespec, encode_utsname};
+use super::super::abi::types::{Encoder, SysInfo, encode_utsname};
 use super::super::abi::{LinuxAbi, Sysno};
 use super::super::arch::GuestCpu;
 use super::super::host;
 use super::super::process::RLIM_INFINITY;
-use super::{Ctx, Outcome, SysResult};
+use super::{Ctx, SysResult};
 
 fn is_self(c: &Ctx<'_>, pid: i32) -> bool {
-    pid == 0 || pid == c.p.pid || pid == c.t.tid
+    pid == 0 || pid == c.p.pid || c.is_own_tid(pid)
 }
 
 /// Returns `value` for the calling process (`pid` 0 or its own ID), else
@@ -116,34 +116,6 @@ pub fn setpgid(c: &mut Ctx<'_>, pid: i32, pgid: i32) -> SysResult {
         return Err(Errno(EINVAL));
     }
     for_self(c, pid, 0)
-}
-
-/// `set_tid_address`.
-pub fn set_tid_address(c: &mut Ctx<'_>, tidptr: u64) -> SysResult {
-    c.t.clear_child_tid = tidptr;
-    Ok(c.t.tid as u64)
-}
-
-/// `sizeof(struct robust_list_head)` on 64-bit ABIs.
-const ROBUST_LIST_HEAD_SIZE: u64 = 24;
-
-/// `set_robust_list`.
-pub fn set_robust_list(c: &mut Ctx<'_>, head: u64, len: u64) -> SysResult {
-    if len != ROBUST_LIST_HEAD_SIZE {
-        return Err(Errno(EINVAL));
-    }
-    c.t.robust_list = (head, len);
-    Ok(0)
-}
-
-/// `get_robust_list`.
-pub fn get_robust_list(c: &mut Ctx<'_>, pid: i32, head: u64, len: u64) -> SysResult {
-    if !is_self(c, pid) {
-        return Err(Errno(ESRCH));
-    }
-    c.write_u64(head, c.t.robust_list.0)?;
-    c.write_u64(len, ROBUST_LIST_HEAD_SIZE)?;
-    Ok(0)
 }
 
 /// `uname`.
@@ -301,20 +273,21 @@ pub fn prctl(c: &mut Ctx<'_>, option: i32, a2: u64, a3: u64, a4: u64, a5: u64) -
             Ok(0)
         }
         PR_SET_NAME => {
-            let mut name = c.read_cstr_raw(a2, 4096).or_else(|e| {
-                // The kernel copies 16 bytes without requiring a NUL.
-                if e.0 == ENAMETOOLONG {
-                    c.read_mem(a2, 16)
-                } else {
-                    Err(e)
-                }
-            })?;
+            // strncpy_from_user of at most 15 bytes: no NUL is required.
+            let mut name = match c.p.space.read_cstr(a2, 15) {
+                Ok(Some(s)) => s,
+                Ok(None) => c.read_mem(a2, 15)?,
+                Err(_) => return Err(Errno(EFAULT)),
+            };
             name.truncate(15);
-            c.p.comm = name;
+            if c.t.tid == c.p.pid {
+                c.p.comm = name.clone();
+            }
+            c.t.comm = name;
             Ok(0)
         }
         PR_GET_NAME => {
-            let mut b = c.p.comm.clone();
+            let mut b = c.t.comm.clone();
             b.resize(16, 0);
             c.write_mem(a2, &b)?;
             Ok(0)
@@ -623,142 +596,5 @@ pub fn membarrier(cmd: i32, flags: u32) -> SysResult {
         QUERY => Ok(SUPPORTED),
         c if c > 0 && (c as u64) & SUPPORTED == c as u64 && (c as u64).is_power_of_two() => Ok(0),
         _ => Err(Errno(EINVAL)),
-    }
-}
-
-/// `futex` for a process whose other threads cannot run: a wait whose
-/// value matches can only time out, and without a timeout the process can
-/// never make progress.
-pub fn futex(
-    c: &mut Ctx<'_>,
-    uaddr: u64,
-    op: u32,
-    val: u32,
-    timeout: u64,
-    uaddr2: u64,
-    val3: u32,
-) -> Result<Outcome, Errno> {
-    const FUTEX_WAIT: u32 = 0;
-    const FUTEX_WAKE: u32 = 1;
-    const FUTEX_REQUEUE: u32 = 3;
-    const FUTEX_CMP_REQUEUE: u32 = 4;
-    const FUTEX_WAKE_OP: u32 = 5;
-    const FUTEX_LOCK_PI: u32 = 6;
-    const FUTEX_UNLOCK_PI: u32 = 7;
-    const FUTEX_TRYLOCK_PI: u32 = 8;
-    const FUTEX_WAIT_BITSET: u32 = 9;
-    const FUTEX_WAKE_BITSET: u32 = 10;
-    const FUTEX_LOCK_PI2: u32 = 13;
-    const FUTEX_PRIVATE_FLAG: u32 = 128;
-    const FUTEX_CLOCK_REALTIME: u32 = 256;
-    const FUTEX_TID_MASK: u32 = 0x3fff_ffff;
-    let cmd = op & !(FUTEX_PRIVATE_FLAG | FUTEX_CLOCK_REALTIME);
-    if uaddr & 3 != 0 {
-        return Err(Errno(EINVAL));
-    }
-    let ret = |v: u64| Ok(Outcome::Return(v));
-    match cmd {
-        FUTEX_WAKE | FUTEX_WAKE_BITSET => {
-            if cmd == FUTEX_WAKE_BITSET && val3 == 0 {
-                return Err(Errno(EINVAL));
-            }
-            ret(0)
-        }
-        FUTEX_REQUEUE => ret(0),
-        FUTEX_CMP_REQUEUE => {
-            if c.read_u32(uaddr)? != val3 {
-                return Err(Errno(EAGAIN));
-            }
-            ret(0)
-        }
-        FUTEX_WAKE_OP => {
-            // No waiter can exist, but the encoded operation on *uaddr2
-            // still happens (futex_atomic_op_inuser).
-            if uaddr2 & 3 != 0 {
-                return Err(Errno(EINVAL));
-            }
-            let sext12 = |v: u32| ((v << 20) as i32 >> 20) as u32;
-            let mut oparg = sext12((val3 >> 12) & 0xfff);
-            let fop = (val3 >> 28) & 0xf;
-            if fop & 8 != 0 {
-                oparg = 1u32.wrapping_shl(oparg & 31);
-            }
-            let old = c.read_u32(uaddr2)?;
-            let new = match fop & 7 {
-                0 => oparg,
-                1 => old.wrapping_add(oparg),
-                2 => old | oparg,
-                3 => old & !oparg,
-                4 => old ^ oparg,
-                _ => return Err(Errno(ENOSYS)),
-            };
-            let cmp = (val3 >> 24) & 0xf;
-            if cmp > 5 {
-                return Err(Errno(ENOSYS));
-            }
-            c.write_u32(uaddr2, new)?;
-            ret(0)
-        }
-        FUTEX_WAIT | FUTEX_WAIT_BITSET => {
-            if cmd == FUTEX_WAIT_BITSET && val3 == 0 {
-                return Err(Errno(EINVAL));
-            }
-            if c.read_u32(uaddr)? != val {
-                return Err(Errno(EAGAIN));
-            }
-            if timeout == 0 {
-                return Ok(Outcome::Fatal(format!(
-                    "deadlock: futex wait on {uaddr:#x} (value {val:#x}) with no other thread to wake it"
-                )));
-            }
-            let b = c.read_mem(timeout, 16)?;
-            let ts = Timespec::decode(&b.try_into().unwrap());
-            if ts.sec < 0 || !(0..1_000_000_000).contains(&ts.nsec) {
-                return Err(Errno(EINVAL));
-            }
-            let dur = if cmd == FUTEX_WAIT_BITSET {
-                // Absolute deadline on CLOCK_MONOTONIC or CLOCK_REALTIME.
-                let clock = if op & FUTEX_CLOCK_REALTIME != 0 {
-                    host::HostClock::Realtime
-                } else {
-                    host::HostClock::Monotonic
-                };
-                let (s, ns) = host::clock_gettime(clock);
-                let now = s as i128 * 1_000_000_000 + ns as i128;
-                let deadline = ts.sec as i128 * 1_000_000_000 + ts.nsec as i128;
-                std::time::Duration::from_nanos((deadline - now).max(0) as u64)
-            } else {
-                std::time::Duration::new(ts.sec as u64, ts.nsec as u32)
-            };
-            std::thread::sleep(dur);
-            Err(Errno(ETIMEDOUT))
-        }
-        FUTEX_LOCK_PI | FUTEX_LOCK_PI2 | FUTEX_TRYLOCK_PI => {
-            let word = c.read_u32(uaddr)?;
-            let tid = c.t.tid as u32;
-            if word & FUTEX_TID_MASK == 0 {
-                c.write_u32(uaddr, tid)?;
-                return ret(0);
-            }
-            if word & FUTEX_TID_MASK == tid {
-                return Err(Errno(EDEADLK));
-            }
-            if cmd == FUTEX_TRYLOCK_PI {
-                return Err(Errno(EAGAIN));
-            }
-            Ok(Outcome::Fatal(format!(
-                "deadlock: PI futex at {uaddr:#x} is owned by thread {} which cannot run",
-                word & FUTEX_TID_MASK
-            )))
-        }
-        FUTEX_UNLOCK_PI => {
-            let word = c.read_u32(uaddr)?;
-            if word & FUTEX_TID_MASK != c.t.tid as u32 {
-                return Err(Errno(EPERM));
-            }
-            c.write_u32(uaddr, 0)?;
-            ret(0)
-        }
-        _ => Err(Errno(ENOSYS)),
     }
 }

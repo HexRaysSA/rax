@@ -19,3 +19,5 @@
 # Columns: architecture  case  source  reason...
 riscv64  mman  aarch64  mm/madvise.c and mm/mprotect.c are generic; QEMU 'target_madvise' ignores most advice and QEMU validates mprotect's prot before its length
 x86_64   signals  qemu-x86_64  Rosetta resets an SA_RESETHAND disposition before the handler runs, so the process dies of SIGUSR2; get_signal in kernel/signal.c is architecture-independent and the native aarch64 run shows the handler running once
+x86_64   threads  aarch64  Rosetta returns ENOSYS for clone3 and futex_waitv; the checked behavior is in architecture-independent kernel/fork.c, kernel/futex/, kernel/signal.c, and fs/proc/base.c, and the native aarch64 run passes every check
+riscv64  threads  aarch64  qemu-riscv64 returns ENOSYS for clone3, futex_waitv, and the robust-list calls, and its /proc/self/task lists the emulator's own threads; the checked behavior is in architecture-independent kernel/fork.c, kernel/futex/, kernel/signal.c, and fs/proc/base.c
