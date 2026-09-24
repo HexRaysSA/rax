@@ -148,7 +148,9 @@ Sizes accept `K`, `M`, `G`, and `T` suffixes (powers of 1024).
   process or another, see the same bytes; `msync` flushes them.
   Anonymous shared memory and shared `/dev/zero` mappings stay shared
   with forked children. `mremap` can duplicate a shared mapping, and
-  `MADV_REMOVE` punches its object.
+  `MADV_REMOVE` punches its object. `memfd_create` makes such an object
+  as a file, with Linux's seals (`F_ADD_SEALS`, `F_GET_SEALS`) enforced
+  on writes, size changes, mappings, and mode changes.
 - **Sockets.** `AF_UNIX` (stream and datagram, and sequenced-packet
   where the host has it), `AF_INET`, and `AF_INET6` sockets are host
   sockets, so the loopback and real networks work: `socket`,
@@ -217,6 +219,12 @@ and in the [user-mode architecture page](../architecture/user-mode.md):
   513 to 4,096 bytes into a nearly full pipe can be split, which another
   writer to the same pipe could observe.
 - The 32-bit `INT 0x80` system-call ABI on x86-64 returns `-ENOSYS`.
+- A `memfd` is one object for this process, its children, and
+  descriptors passed within the process; one passed to another process
+  with `SCM_RIGHTS`, or opened again through `/proc/self/fd`, is an
+  ordinary file there, without seals. `F_SEAL_WRITE` is refused only for
+  writable shared mappings in the calling process. An `MFD_HUGETLB`
+  `memfd` cannot be mapped (the huge-page pool is empty).
 - A private file mapping copies a page from the file at its first touch,
   so later changes to the file never reach that page (Linux shows them
   until the page is written). A shared mapping of a block device is a
