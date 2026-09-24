@@ -89,7 +89,8 @@ Sizes accept `K`, `M`, `G`, and `T` suffixes (powers of 1024).
   parks its thread while the others run.
 - **Files.** Host files, directories, pipes, and terminals, with Linux
   `errno` values. `/proc/self` (`exe`, `maps`, `auxv`, `cmdline`, `environ`,
-  `stat`, `status`, `comm`, `fd/`, `task/<tid>/`), `/proc/thread-self`,
+  `stat`, `status`, `comm`, `fd/`, `fdinfo/`, `task/<tid>/`),
+  `/proc/thread-self`,
   `/proc/<tid>`, `/proc/cpuinfo`, `/proc/meminfo`,
   `/proc/uptime`, `/proc/version`, and the CPU-topology files under
   `/sys/devices/system/cpu` are synthesized.
@@ -187,7 +188,10 @@ and in the [user-mode architecture page](../architecture/user-mode.md):
   refused (`EINVAL`). The alarm clocks need root (`CAP_WAKE_ALARM`), and a
   real-time clock is assumed. `TFD_TIMER_CANCEL_ON_SET` is accepted, but
   changes of the host clock are not observed, so no `timerfd` is
-  canceled. `/proc/<pid>/fdinfo` is not provided.
+  canceled. In `/proc/<pid>/fdinfo`, mount IDs only tell file systems
+  apart (there is no `mountinfo`), file locks and sockets' `scm_fds` are
+  not shown, and an `epoll` instance lists its items in the order they
+  were added.
 - An `epoll` instance is copied, not shared, by `fork`. Readiness the
   emulator does not cause itself (input from a terminal or another
   process, a timer's expiry, a signal) is found when a wait looks, so an
