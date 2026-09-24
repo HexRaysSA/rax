@@ -11,7 +11,7 @@
 - Integrity: `kernel-6.19.sha256` lists the SHA-256 of every imported file,
   relative to `kernel-6.19/`.
 - License: each file carries an SPDX identifier: `GPL-2.0` (35 files),
-  `GPL-2.0-only` (21), `GPL-2.0-or-later` (10), `GPL-2.0+` (1), or
+  `GPL-2.0-only` (22), `GPL-2.0-or-later` (10), `GPL-2.0+` (1), or
   `GPL-1.0+` (1). The license texts are the kernel tree's `LICENSES/preferred/GPL-2.0`
   and `LICENSES/deprecated/GPL-1.0`. The files are reference material for an
   independent implementation; no RAX source is derived from their text.
@@ -29,7 +29,7 @@ behavior it reproduces beyond what the UAPI headers
 
 | Area | Files |
 |---|---|
-| `execve` loading, initial stack, auxiliary vector | `fs/binfmt_elf.c`, `fs/exec.c`, `arch/{x86,arm64,riscv}/include/asm/elf.h` |
+| `execve` loading, initial stack, auxiliary vector, `#!` scripts | `fs/binfmt_elf.c`, `fs/binfmt_script.c`, `fs/exec.c`, `arch/{x86,arm64,riscv}/include/asm/elf.h` |
 | Address-space layout | `mm/util.c` (`mmap_base`), `arch/x86/mm/mmap.c`, `arch/x86/include/asm/page_64_types.h`, `arch/arm64/include/asm/processor.h`, `arch/riscv/include/asm/{processor,pgtable}.h` |
 | Memory-management system calls | `mm/mmap.c`, `mm/vma.c`, `mm/mprotect.c`, `mm/madvise.c`, `mm/mremap.c`, `arch/arm64/include/asm/mman.h` |
 | Signal generation, queueing, and delivery | `kernel/signal.c`, `include/linux/signal.h`, `include/linux/signal_types.h`, `include/linux/sched/signal.h`, `kernel/entry/common.c`, `include/linux/entry-common.h` |
