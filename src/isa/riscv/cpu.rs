@@ -762,15 +762,19 @@ impl RiscVCpu {
             | Op::CboFlush
             | Op::PrefetchI
             | Op::PrefetchR
-            | Op::PrefetchW
-            | Op::SfenceVma
+            | Op::PrefetchW => {}
+            Op::SfenceVma
             | Op::SinvalVma
             | Op::SfenceWInval
             | Op::SfenceInvalIr
             | Op::HfenceVvma
             | Op::HfenceGvma
             | Op::HinvalVvma
-            | Op::HinvalGvma => {}
+            | Op::HinvalGvma => {
+                if self.priv_ == Priv::User {
+                    return Err(Trap::illegal(insn.raw));
+                }
+            }
             Op::CboZero => {
                 let base = a & !0x3f;
                 self.mem.write(base, &[0; 64]).map_err(|_| Trap {
@@ -947,7 +951,12 @@ impl RiscVCpu {
             }
             Op::WrsNto | Op::WrsSto => {}
             Op::Uret | Op::SfenceVm => return Err(Trap::illegal(insn.raw)),
-            Op::Mret => self.mret(),
+            Op::Mret => {
+                if self.priv_ != Priv::Machine {
+                    return Err(Trap::illegal(insn.raw));
+                }
+                self.mret();
+            }
             Op::Sret => self.sret(insn)?,
 
             // ---- Zicsr ----
@@ -5291,6 +5300,40 @@ mod tests {
         assert_eq!(c.x(10), 0x4000);
         assert_eq!(c.x(11), 0x22);
         assert_eq!(c.pc(), 0x300 + 8 * 4);
+    }
+
+    #[test]
+    fn privileged_instruction_gates_match_current_privilege() {
+        let sys =
+            |funct7: u32, rs2: u32, rs1: u32| (funct7 << 25) | (rs2 << 20) | (rs1 << 15) | 0x73;
+        let fences = [
+            sys(0x09, 0, 0),
+            sys(0x0b, 0, 0),
+            sys(0x0c, 0, 0),
+            sys(0x11, 0, 0),
+        ];
+        for raw in fences {
+            let mut user = cpu();
+            user.priv_ = Priv::User;
+            assert_eq!(run_one(&mut user, raw), RiscVExit::Trap(Trap::illegal(raw)));
+
+            let mut machine = cpu();
+            assert_eq!(run_one(&mut machine, raw), RiscVExit::Continue);
+        }
+        for raw in [0x0000_000f, 0x0000_100f] {
+            let mut user = cpu();
+            user.priv_ = Priv::User;
+            assert_eq!(run_one(&mut user, raw), RiscVExit::Continue);
+        }
+
+        let mret = 0x3020_0073;
+        for privilege in [Priv::User, Priv::Supervisor] {
+            let mut c = cpu();
+            c.priv_ = privilege;
+            assert_eq!(run_one(&mut c, mret), RiscVExit::Trap(Trap::illegal(mret)));
+        }
+        let mut machine = cpu();
+        assert_eq!(run_one(&mut machine, mret), RiscVExit::Continue);
     }
 
     #[test]
