@@ -452,11 +452,13 @@ extern "C" fn on_host_signal(host: libc::c_int, info: *mut libc::siginfo_t, _: *
     // errno_location is the thread's errno slot.
     let (saved, code, pid, uid) =
         unsafe { (*errno, (*info).si_code, (*info).si_pid(), (*info).si_uid()) };
-    let from_process = HOST_SI_USER.contains(&code) && pid > 0;
-    let packed = if from_process {
-        (1 << 63) | ((pid as u64 & 0x7fff_ffff) << 32) | u64::from(uid)
-    } else {
-        0
+    // A rax-user sender's own record first (see `sigmail`), then the
+    // host's report of a process's kill.
+    let sender = super::sigmail::claim(sig)
+        .or_else(|| (HOST_SI_USER.contains(&code) && pid > 0).then_some((pid, uid)));
+    let packed = match sender {
+        Some((pid, uid)) => (1 << 63) | ((pid as u64 & 0x7fff_ffff) << 32) | u64::from(uid),
+        None => 0,
     };
     HOST_SENDER[(sig - 1) as usize].store(packed, Ordering::Relaxed);
     HOST_PENDING.fetch_or(1 << (sig - 1), Ordering::SeqCst);
@@ -528,6 +530,7 @@ pub fn forward_host_signals() -> Result<(), Errno> {
     if FORWARDING.swap(true, Ordering::SeqCst) {
         return Ok(());
     }
+    super::sigmail::init()?;
     ensure_wake_pipe()?;
     for &sig in FORWARDED {
         let Some(host) = host_signal(sig) else {
@@ -708,6 +711,8 @@ pub fn fork_process() -> Result<Option<i32>, Errno> {
             libc::pthread_sigmask(libc::SIG_SETMASK, &old, std::ptr::null_mut());
         }
     };
+    // Records posted from now on may be for the child.
+    let stamp = super::sigmail::stamp();
     // SAFETY: fork(2) in a single-threaded process; the child only uses
     // async-signal-safe calls until it has reinitialized the state below,
     // and then continues the same single-threaded program.
@@ -738,6 +743,7 @@ pub fn fork_process() -> Result<Option<i32>, Errno> {
     }
     HOST_PENDING.store(0, Ordering::SeqCst);
     CHILD_EVENT.store(false, Ordering::SeqCst);
+    super::sigmail::set_floor(stamp);
     let pipe = if old_r >= 0 {
         ensure_wake_pipe()
     } else {
@@ -803,6 +809,20 @@ pub fn wait_child(pid: i32) -> Result<Option<(HostWait, ChildRusage)>, Errno> {
         ru.ru_maxrss as u64
     };
     Ok(Some((w, (us(ru.ru_utime), us(ru.ru_stime), maxrss))))
+}
+
+/// Linux signal `sig` from process `sender` (`(pid, real UID)`) to process
+/// `pid` through the host, its sender posted for a `rax-user` target (see
+/// [`sigmail`](super::sigmail)).
+pub fn send(pid: i32, sig: i32, sender: (i32, u32)) -> Result<(), Errno> {
+    let post = super::sigmail::post(pid, sig, sender);
+    let r = kill(pid, sig);
+    if r.is_err()
+        && let Some(p) = post
+    {
+        super::sigmail::withdraw(p);
+    }
+    r
 }
 
 /// `kill(pid, sig)` on the host with Linux signal `sig` (0 probes). A

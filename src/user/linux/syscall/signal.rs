@@ -213,8 +213,9 @@ pub fn kill(c: &mut Ctx<'_>, pid: i32, sig: i32) -> SysResult {
     if pid == -1 {
         let children: Vec<i32> = c.p.children.list.iter().map(|ch| ch.pid).collect();
         let mut sent = false;
+        let me = (c.p.pid, c.p.creds.0);
         for child in children {
-            sent |= host::kill(child, sig).is_ok();
+            sent |= host::send(child, sig, me).is_ok();
         }
         return if sent { Ok(0) } else { Err(Errno(ESRCH)) };
     }
@@ -268,6 +269,9 @@ fn other_process(c: &Ctx<'_>, pid: i32, sig: i32) -> SysResult {
     probe?;
     if sig == 0 {
         return Ok(0);
+    }
+    if pid > 0 {
+        return host::send(pid, sig, (c.p.pid, c.p.creds.0)).map(|()| 0);
     }
     host::kill(pid, sig).map(|()| 0)
 }

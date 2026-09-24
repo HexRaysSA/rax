@@ -26,6 +26,7 @@
 //! | [`timers`] | Interval timers |
 //! | [`wait`] | Sleeping in system calls on descriptors, deadlines, and signals |
 //! | [`host`] | The host services `std` does not expose |
+//! | [`sigmail`] | Senders of signals between `rax-user` processes |
 
 pub mod abi;
 pub mod arch;
@@ -40,6 +41,7 @@ pub mod posix_timers;
 pub mod process;
 pub mod procfs;
 pub mod sched;
+pub mod sigmail;
 pub mod signal;
 pub mod stack;
 pub mod syscall;
