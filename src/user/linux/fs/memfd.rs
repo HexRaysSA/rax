@@ -65,14 +65,15 @@ impl Memfd {
         Ok(m)
     }
 
-    /// The `memfd` whose object is `id`, if this process has it.
+    /// The `memfd` whose object is `id`, if this process has it (a
+    /// closed one whose identity the host gave again is not it).
     pub fn find(id: SourceIdentity) -> Option<Arc<Memfd>> {
         REGISTRY
             .lock()
             .unwrap()
             .iter()
-            .find(|(i, _)| *i == id)
-            .and_then(|(_, w)| w.upgrade())
+            .filter(|(i, _)| *i == id)
+            .find_map(|(_, w)| w.upgrade())
     }
 
     /// The seals.
@@ -155,6 +156,16 @@ mod tests {
         assert_eq!(m.write_len(PAGE, 10, PAGE + 5), Err(Errno(EPERM)));
         m.add(seal::FUTURE_WRITE);
         assert_eq!(m.write_len(0, 1, 100), Err(Errno(EPERM)));
+    }
+
+    #[test]
+    fn a_closed_memfd_does_not_hide_a_live_one() {
+        let id = SourceIdentity { dev: 1, ino: 3 };
+        let old = Memfd::new(0, false, id).unwrap();
+        let new = Memfd::new(seal::GROW, false, id).unwrap();
+        drop(old);
+        let found = Memfd::find(id).expect("the live memfd");
+        assert!(Arc::ptr_eq(&found, &new));
     }
 
     #[test]
