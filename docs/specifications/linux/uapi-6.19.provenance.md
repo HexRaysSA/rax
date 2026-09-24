@@ -19,8 +19,9 @@
   `GPL-2.0-only WITH Linux-syscall-note` (5 files), or
   `GPL-2.0+ WITH Linux-syscall-note` (2 files) SPDX identifiers; the eight
   generated syscall tables have no SPDX line and are derived from kernel
-  sources under the same terms. The GPL-2.0 text is `LICENSES/GPL-2.0.txt`.
-  The Linux-syscall-note states that user programs using kernel services by
+  sources under the same terms. The license and exception texts are the
+  kernel tree's `LICENSES/preferred/GPL-2.0` and
+  `LICENSES/exceptions/Linux-syscall-note`. The Linux-syscall-note states that user programs using kernel services by
   normal system calls are not derived works of the kernel.
 
 ## Use in RAX
