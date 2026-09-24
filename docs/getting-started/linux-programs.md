@@ -151,6 +151,13 @@ Sizes accept `K`, `M`, `G`, and `T` suffixes (powers of 1024).
   `MADV_REMOVE` punches its object. `memfd_create` makes such an object
   as a file, with Linux's seals (`F_ADD_SEALS`, `F_GET_SEALS`) enforced
   on writes, size changes, mappings, and mode changes.
+- **pidfds.** `pidfd_open`, `pidfd_send_signal`, `pidfd_getfd`,
+  `CLONE_PIDFD` (`clone`, `clone3`), and `waitid(P_PIDFD)` work on the
+  process's own threads, its children, and other processes; a pidfd
+  polls readable when its task exits and hung up when it is gone, so
+  `poll`, `select`, and `epoll` can wait for a process to end, and it
+  names that process even after the host reuses its PID.
+  `PIDFD_GET_INFO` reports identifiers, credentials, and exit status.
 - **Sockets.** `AF_UNIX` (stream and datagram, and sequenced-packet
   where the host has it), `AF_INET`, and `AF_INET6` sockets are host
   sockets, so the loopback and real networks work: `socket`,
@@ -194,8 +201,16 @@ and in the [user-mode architecture page](../architecture/user-mode.md):
   glibc `posix_spawn` whose `execve` fails therefore reports success and
   the child exits with 127). Without `CLONE_VFORK` such a process, and one
   sharing descriptors, file-system context, or handlers (`CLONE_FILES`,
-  `CLONE_FS`, `CLONE_SIGHAND` without `CLONE_THREAD`), `CLONE_PARENT`, and
-  pidfds are not supported.
+  `CLONE_FS`, `CLONE_SIGHAND` without `CLONE_THREAD`), and `CLONE_PARENT`
+  are not supported.
+- A pidfd sees a process that is not the caller's child as gone as soon
+  as it exits (its parent alone knows it as a zombie until it is reaped),
+  and names no thread of another process. `pidfd_getfd` takes only the
+  caller's own descriptors (`EPERM` for another process's). In
+  `PIDFD_GET_INFO`, there is no cgroup ID, another process's credentials
+  and parent are the host's, and exit information exists only for the
+  caller's threads and the children it reaped. The namespace `ioctl`s
+  report no namespaces (`EOPNOTSUPP`).
 - Signals to other processes are host signals: they arrive as `SI_USER`
   from the sender, without a `sigqueue` value; a real-time signal the host
   lacks reaches only the sending process; a thread of another process

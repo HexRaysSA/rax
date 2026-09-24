@@ -244,6 +244,28 @@ code comments name the kernel function each rule comes from.
   reading thread's pending signals; queueing a signal wakes threads
   sleeping on a `signalfd` of it, even while the signal is blocked
   (`signalfd_notify`).
+- **pidfds** (`fs::pidfd`, `syscall::pidfd`). A pidfd is an
+  anonymous-inode file of `pidfs` (mode `0700` without a file type, owned
+  by root, one inode per task, `anon_inode:[pidfd]` in `/proc/<pid>/fd`)
+  naming a task by its process's host PID and its thread ID. What it
+  reports depends on where the task lives. A thread of the calling
+  process and a child of it are known exactly from the process's own
+  records; a thread's exit and a child's reaping reach every pidfd of it
+  through the process's registry of its pidfds' tasks (as `pidfs_exit`
+  does), with the wait status, and wake threads sleeping in `poll`,
+  `select`, or `epoll`. Any other process is watched through the host
+  from the moment the pidfd is made (a host pidfd on Linux, a kqueue with
+  an `EVFILT_PROC` filter on macOS), so a PID the host reuses is never
+  taken for it; it is gone once it exits, since only its parent's records
+  know its zombie. A forked child watches the tasks of the pidfds it
+  inherits the same way from the fork on (a kqueue does not survive
+  `fork`), and a task that had the child's new PID is gone.
+  `pidfd_send_signal` finds the task by its ID and directs the signal at
+  it or at its thread group through the paths of `tgkill` and `kill`;
+  `waitid(P_PIDFD)` selects the child a pidfd names, `WNOHANG` and then
+  `EAGAIN` for a non-blocking pidfd; `CLONE_PIDFD` checks the free
+  descriptor and the result word before the task exists, so neither
+  failure leaves a task behind.
 - **Readiness and `epoll`** (`syscall::ready`, `fs::epoll`). Each file
   reports the mask its `f_op->poll` computes (`pipe_poll` for pipes, with
   the queued bytes read by `FIONREAD`, since the host's `poll` reports
@@ -306,10 +328,10 @@ code comments name the kernel function each rule comes from.
   `poll` save a `restart_block` so `restart_syscall` resumes them with the
   remaining time; `select` and `poll` write back the time left and
   `revents` as `poll_select_finish` and `do_sys_poll` do.
-- **System calls.** 220 calls across descriptors and I/O, paths and
+- **System calls.** 223 calls across descriptors and I/O, paths and
   metadata, memory management (with `memfd_create`), identity and limits,
-  clocks, signals, threads, futexes, processes, POSIX timers, event,
-  timer, and signal descriptors, `epoll`, and sockets,
+  clocks, signals, threads, futexes, processes (with pidfds), POSIX
+  timers, event, timer, and signal descriptors, `epoll`, and sockets,
   each validated in the kernel's order so the first failing
   check determines the `errno`. Host `errno` values are translated by name.
   Memory calls act VMA by VMA as `mm/mprotect.c` and `mm/madvise.c` do,
@@ -342,11 +364,12 @@ code comments name the kernel function each rule comes from.
 | Sockets | `src/user/linux/tests/sockets.rs` (15 tests on every ABI): `__sock_create` and `inet_create` checks in order, `socketpair` writing its reserved descriptors first, Unix names (relative and over-long paths, node permissions, rebinding, abstract names in use and freed, autobind), `move_addr_to_user` copies, IP `bind`/`connect` address checks, `copy_msghdr_from_user` checks, `scm_detach_fds` installation and `MSG_CTRUNC`, descriptions shared within the process, `SCM_CREDENTIALS` checks and `SO_PASSCRED` delivery, timeouts and signal interruption, `sk_setsockopt`/`sk_getsockopt` rules, `SIGPIPE` by protocol, `sendmmsg`/`recvmmsg`, readiness and the socket `ioctl`s, IPv6; unit tests of the address codec, control-message framing, name mapping, and timeouts in `src/user/linux/net/` |
 | POSIX timers | `src/user/linux/tests/posix_timers.rs`: the state machine driven by explicit times against `hrtimer_forward` arithmetic (overrun counts, one-shot and `SIGEV_NONE` `gettime`, the 1 ns of a fired but unqueued timer, stale signals, CPU timers set in the past, parked ignored signals), `timer_create` error order and ID use on every ABI, the other calls' checks, one queued record per timer, stale-record drops, re-queueing when `SIG_IGN` is replaced, thread targets, and `execve`'s flush |
 | Event, timer, and signal descriptors | `src/user/linux/tests/events.rs`: `eventfd` limits, semaphores, zero-length and faulting transfers, `readv`/`writev` segments, and levels; `timerfd` ticks driven by explicit times, `TFD_IOC_SET_TICKS`, and argument order on every ABI; anonymous-inode `fstat` and `/proc` names; `signalfd` checks, reads in order, lost records at a fault, every `siginfo_t` layout's `struct signalfd_siginfo`, and wake-ups of blocked readers and pollers. `src/user/linux/tests/files.rs`: `F_GETFL` of regular, `O_PATH`, directory, pipe, and `eventfd` descriptions |
+| pidfds | `src/user/linux/tests/pidfd.rs` (9 tests): `pidfd_open`'s checks and file on every ABI, the operations a pidfd refuses and its `fstat`/`fstatfs`, the `ioctl`s (`PIDFD_GET_INFO` fields, sizes, and request checks; `FS_IOC_GETVERSION`; the namespace requests), a thread's pidfd through its exit (a sleeping `ppoll` woken by it, the exit status kept), `CLONE_PIDFD` for threads (the result word, `EFAULT` and `EMFILE` leaving no thread), `pidfd_send_signal`'s scope, record, and descriptor rules, `pidfd_getfd`, `waitid(P_PIDFD)` checks, and a host process watched to its end. `src/user/linux/fs/pidfd.rs`: inode numbers and the registry |
 | Timers and blocking | `src/user/linux/tests/waits.rs`: interval timers, `alarm` rounding, interrupted sleeps and `restart_syscall`, `clock_nanosleep` clocks, `poll`/`select`/`ppoll`/`pselect6` interruption, write-back, clamping, and temporary masks, interruptible pipe reads, `sigtimedwait` woken by a timer, and the deadlock diagnostic |
 | Host signals | `user_linux` `host_signals`: `kill` from the test process reaches the `hostsig` guest with `SI_USER` and the sender on every ISA, interrupts a blocking `read` of a pipe with `EINTR`, and a default-action `SIGTERM` ends `rax-user` with `SIGTERM`; with `--no-signal-forwarding` the host default applies. `src/user/linux/sigmail.rs`: sender records claimed oldest first, only by their target, withdrawn when unsent, and ignored below the target's floor |
 | Memory-management system calls | `src/user/linux/tests/syscall_mm.rs`: `mprotect`, `madvise`, and `personality` driven through `dispatch` on every ABI, expectations from the named kernel functions; shared anonymous memory as a `shmem` object (its `/proc/self/maps` line, `mremap` duplication and its checks, growth past the object), and shared file mappings (write-back through `pread`/`pwrite`, `msync`, `MREMAP_DONTUNMAP`, pages dropped by `ftruncate`, `truncate`, and `O_TRUNC`); `memfd_create`'s flag and name checks, `MFD_HUGETLB`'s empty pool, and seals on `ftruncate` and `mmap`/`mprotect`. `src/user/linux/fs/memfd.rs`: the seal rules of `shmem_write_begin` and `shmem_setattr` |
 | Syscall and errno numbering | `user_linux` `abi_tables` against the vendored UAPI headers |
-| End-to-end behavior | `user_linux` `fixtures`: 24 cases × 3 ISAs match stdout and exit status recorded on Linux (RV64 `mman` uses the AArch64 kernel's result because QEMU user mode, the RV64 translator, emulates `madvise`; x86-64 `signals` runs under QEMU user mode because Rosetta, the x86-64 translator, mishandles `SA_RESETHAND`; x86-64 and RV64 `threads` use the AArch64 kernel's result because Rosetta and QEMU lack `clone3` and `futex_waitv` and QEMU robust lists, as do their `exec` results because both run executed programs through `binfmt_misc`, RV64 `fork` because QEMU ignores `clone` exit signals and `SA_NOCLDSTOP`, RV64 `events` because QEMU lacks `TFD_IOC_SET_TICKS`, the `signalfd4` size check, and the kernel's timer IDs, x86-64 and RV64 `epoll` because Rosetta faults converting `struct epoll_event` and QEMU does not apply `epoll_pwait`'s mask, RV64 `sockets` and `sockmsg` because QEMU drops unknown socket type flags, writes `socketpair`'s descriptors only on success, and ignores `recvmmsg`'s timeout, x86-64 and RV64 `shmem` because Rosetta traps duplicating a mapping with `mremap` and QEMU checks the zero length first and lacks `MADV_REMOVE`, and RV64 `memfd` because QEMU lacks `MADV_REMOVE`; see `oracle-overrides.txt`) (also with the x86-64 JIT disabled, the RISC-V JIT enabled, and 64-instruction scheduling slices); an opt-in live Docker differential (`RAX_USER_DOCKER_ORACLE=1`) |
+| End-to-end behavior | `user_linux` `fixtures`: 25 cases × 3 ISAs match stdout and exit status recorded on Linux (RV64 `mman` uses the AArch64 kernel's result because QEMU user mode, the RV64 translator, emulates `madvise`; x86-64 `signals` runs under QEMU user mode because Rosetta, the x86-64 translator, mishandles `SA_RESETHAND`; x86-64 and RV64 `threads` use the AArch64 kernel's result because Rosetta and QEMU lack `clone3` and `futex_waitv` and QEMU robust lists, as do their `exec` results because both run executed programs through `binfmt_misc`, RV64 `fork` because QEMU ignores `clone` exit signals and `SA_NOCLDSTOP`, RV64 `events` because QEMU lacks `TFD_IOC_SET_TICKS`, the `signalfd4` size check, and the kernel's timer IDs, x86-64 and RV64 `epoll` because Rosetta faults converting `struct epoll_event` and QEMU does not apply `epoll_pwait`'s mask, RV64 `sockets` and `sockmsg` because QEMU drops unknown socket type flags, writes `socketpair`'s descriptors only on success, and ignores `recvmmsg`'s timeout, x86-64 and RV64 `shmem` because Rosetta traps duplicating a mapping with `mremap` and QEMU checks the zero length first and lacks `MADV_REMOVE`, RV64 `memfd` because QEMU lacks `MADV_REMOVE`, and x86-64 and RV64 `pidfd` because Rosetta lacks `pidfd_getfd` and `clone3` and QEMU the pidfd `ioctl`s; see `oracle-overrides.txt`) (also with the x86-64 JIT disabled, the RISC-V JIT enabled, and 64-instruction scheduling slices); an opt-in live Docker differential (`RAX_USER_DOCKER_ORACLE=1`) |
 
 **Differential-tested** here means that, for the fixture programs and
 inputs in `tests/fixtures/user/linux`, output and exit status equal what the
