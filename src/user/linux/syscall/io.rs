@@ -1,7 +1,6 @@
 //! Descriptor and data-transfer system calls.
 
 use std::io::IsTerminal;
-use std::os::fd::AsRawFd;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
@@ -255,6 +254,9 @@ pub fn read(c: &mut Ctx<'_>, fd: i32, buf: u64, count: u64) -> SysResult {
     if matches!(file.object, FileObject::Anon(_)) {
         return super::events::read_call(c, &file, buf, count);
     }
+    if matches!(file.object, FileObject::Socket(_)) {
+        return super::net::io::read(c, &file, &[(buf, count.min(MAX_RW_COUNT))]);
+    }
     if count == 0 {
         return if file.readable() {
             Ok(0)
@@ -270,6 +272,9 @@ pub fn write(c: &mut Ctx<'_>, fd: i32, buf: u64, count: u64) -> SysResult {
     let file = c.p.fds.file(fd)?;
     if matches!(file.object, FileObject::Anon(_)) {
         return super::events::write_call(c, &file, buf, count);
+    }
+    if matches!(file.object, FileObject::Socket(_)) {
+        return super::net::io::write(c, &file, &[(buf, count.min(MAX_RW_COUNT))]);
     }
     if count == 0 {
         return if file.writable() {
@@ -302,7 +307,7 @@ fn scatter(c: &Ctx<'_>, iovecs: &[(u64, u64)], data: &[u8]) -> SysResult {
 }
 
 /// The bytes the iovecs can receive before the first unwritable one.
-fn iovec_room(c: &Ctx<'_>, iovecs: &[(u64, u64)]) -> u64 {
+pub(super) fn iovec_room(c: &Ctx<'_>, iovecs: &[(u64, u64)]) -> u64 {
     let mut room = 0u64;
     for &(base, len) in iovecs {
         let ok = writable_prefix(c, base, len);
@@ -332,6 +337,9 @@ pub fn readv(c: &mut Ctx<'_>, fd: i32, iov: u64, cnt: u64) -> SysResult {
     if matches!(file.object, FileObject::Anon(_)) {
         return super::events::read(c, &file, &iovecs);
     }
+    if matches!(file.object, FileObject::Socket(_)) {
+        return super::net::io::read(c, &file, &iovecs);
+    }
     let room = iovec_room(c, &iovecs);
     if room == 0 {
         return Err(Errno(EFAULT));
@@ -352,6 +360,9 @@ pub fn writev(c: &mut Ctx<'_>, fd: i32, iov: u64, cnt: u64) -> SysResult {
         return Err(Errno(EINVAL));
     }
     let vecs = read_iovecs(c, iov, cnt)?;
+    if matches!(file.object, FileObject::Socket(_)) {
+        return super::net::io::write(c, &file, &vecs);
+    }
     if anon {
         if vecs.iter().all(|&(_, l)| l == 0) {
             return Ok(0);
@@ -622,7 +633,10 @@ fn set_host_nonblocking(file: &OpenFile, on: bool) -> Result<(), Errno> {
     match &file.object {
         FileObject::Host(f) => host::set_nonblocking(f, on),
         FileObject::PipeRead(_) | FileObject::PipeWrite(_) => Ok(()),
-        FileObject::Synthetic(_) | FileObject::PathOnly | FileObject::Anon(_) => Ok(()),
+        FileObject::Synthetic(_)
+        | FileObject::PathOnly
+        | FileObject::Anon(_)
+        | FileObject::Socket(_) => Ok(()),
     }
 }
 
@@ -674,6 +688,11 @@ fn is_tty(file: &OpenFile) -> bool {
 pub fn ioctl(c: &mut Ctx<'_>, fd: i32, req: u32, arg: u64) -> SysResult {
     use tio::*;
     let file = c.p.fds.file(fd)?;
+    if let FileObject::Socket(s) = &file.object
+        && !matches!(req, FIOCLEX | FIONCLEX | FIONBIO)
+    {
+        return super::net::ioctl(c, s, req, arg);
+    }
     match req {
         FIOCLEX | FIONCLEX => {
             c.p.fds.get_mut(fd)?.cloexec = req == FIOCLEX;

@@ -8,6 +8,7 @@ mod harness;
 mod loader;
 mod posix_timers;
 mod signals;
+mod sockets;
 mod stack;
 mod syscall_mm;
 mod threads;

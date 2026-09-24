@@ -87,6 +87,18 @@ target = "x86_64-linux-musl"
 sha256 = "4a45e9176e045a81abc4240e0e39e630fe3864350025f73b6032735c7ebd4ab5"
 
 [[fixture]]
+path = "bin/x86_64/sockets"
+source = "src/sockets.c"
+target = "x86_64-linux-musl"
+sha256 = "eea103ae9305b39aba0ee8bb8d92d21878c855e034f7295f07120c1be6fa3cde"
+
+[[fixture]]
+path = "bin/x86_64/sockmsg"
+source = "src/sockmsg.c"
+target = "x86_64-linux-musl"
+sha256 = "3bb30d8317aafc8d221e02a65d63b932c5f3a476bd969073b8932c99dace9a8a"
+
+[[fixture]]
 path = "bin/x86_64/stdin"
 source = "src/stdin.c"
 target = "x86_64-linux-musl"
@@ -195,6 +207,18 @@ target = "aarch64-linux-musl"
 sha256 = "407d031e38a0710a305519a951cb1cecca80b7fc65a6a266138ac7c8c2b88a80"
 
 [[fixture]]
+path = "bin/aarch64/sockets"
+source = "src/sockets.c"
+target = "aarch64-linux-musl"
+sha256 = "fad31dac060e0f55a61c870954162bbb763155e154375c8bc3b975bf62cee511"
+
+[[fixture]]
+path = "bin/aarch64/sockmsg"
+source = "src/sockmsg.c"
+target = "aarch64-linux-musl"
+sha256 = "091be48436b0b82900ea11d368187f1c8666ef77f78630de0f608fa7dc7875bb"
+
+[[fixture]]
 path = "bin/aarch64/stdin"
 source = "src/stdin.c"
 target = "aarch64-linux-musl"
@@ -301,6 +325,18 @@ path = "bin/riscv64/epoll"
 source = "src/epoll.c"
 target = "riscv64-linux-musl"
 sha256 = "931e11d83d3aa2fb844a5837e12b1a0c461f0354d1ef83ee7557935ae7f4d1e4"
+
+[[fixture]]
+path = "bin/riscv64/sockets"
+source = "src/sockets.c"
+target = "riscv64-linux-musl"
+sha256 = "f1af2db1fd58b6d6e7739e907ae60fa648f7880d884f72de445d6fc01876a9ed"
+
+[[fixture]]
+path = "bin/riscv64/sockmsg"
+source = "src/sockmsg.c"
+target = "riscv64-linux-musl"
+sha256 = "126f03332ad89b58a15b5ecf60b6b7f2e899045a2c63994b6874c2eb64cbe3e4"
 
 [[fixture]]
 path = "bin/riscv64/stdin"

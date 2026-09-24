@@ -18,6 +18,8 @@ exec     exec     -
 fork     fork     -
 events   events   -
 epoll    epoll    -
+sockets  sockets  -
+sockmsg  sockmsg  -
 stdin    stdin    input/fox.txt
 segv     segv     -
 abort    abort    -

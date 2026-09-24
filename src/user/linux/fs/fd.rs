@@ -60,6 +60,8 @@ pub enum FileObject {
     /// An anonymous-inode object (`eventfd`, `timerfd`, `signalfd`),
     /// whose I/O the system calls perform.
     Anon(super::anon::Anon),
+    /// A socket, whose transfers the socket calls perform.
+    Socket(super::super::net::Socket),
 }
 
 /// What kind of file an open description refers to.
@@ -239,6 +241,7 @@ impl OpenFile {
             }
             FileObject::PipeWrite(_) | FileObject::PathOnly => Err(Errno(EBADF)),
             FileObject::Anon(_) => Err(Errno(EINVAL)),
+            FileObject::Socket(s) => Ok((&s.file).read(buf)?),
             FileObject::Synthetic(data) => {
                 let mut st = self.state.lock().unwrap();
                 let pos = st.synth_pos.min(data.len() as u64) as usize;
@@ -272,6 +275,7 @@ impl OpenFile {
             FileObject::PipeRead(_) | FileObject::PathOnly => Err(Errno(EBADF)),
             FileObject::Synthetic(_) => Err(Errno(EACCES)),
             FileObject::Anon(_) => Err(Errno(EINVAL)),
+            FileObject::Socket(s) => Ok((&s.file).write(data)?),
         }
     }
 
@@ -474,6 +478,22 @@ impl FdTable {
         }
         self.slots[fd] = Some(Fd { file, cloexec });
         Ok(fd as i32)
+    }
+
+    /// The `n` lowest free descriptors below `limit` (`EMFILE` when there
+    /// are fewer), for a call that reserves descriptors before it creates
+    /// their files.
+    pub fn free_fds(&self, n: usize, limit: u64) -> Result<Vec<i32>, Errno> {
+        let limit = limit.min(i32::MAX as u64) as usize;
+        let free: Vec<i32> = (0..limit)
+            .filter(|&i| self.slots.get(i).is_none_or(Option::is_none))
+            .take(n)
+            .map(|i| i as i32)
+            .collect();
+        if free.len() < n {
+            return Err(Errno(EMFILE));
+        }
+        Ok(free)
     }
 
     /// Installs at the lowest free descriptor.

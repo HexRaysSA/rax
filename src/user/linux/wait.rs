@@ -82,6 +82,21 @@ impl Wait {
     }
 }
 
+/// The progress of a socket call that sleeps: what it transferred and when
+/// its waiting ends (`sock_rcvtimeo`, `sock_sndtimeo`, the `recvmmsg`
+/// timeout).
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct SockWait {
+    /// Bytes of the current message transferred.
+    pub done: u64,
+    /// End of the socket timeout of the current wait (never if `None`).
+    pub deadline: Option<Instant>,
+    /// Messages completed (`sendmmsg`, `recvmmsg`).
+    pub count: u32,
+    /// End of the `recvmmsg` timeout.
+    pub end: Option<Instant>,
+}
+
 /// A handler's progress, handed back when its thread wakes.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Resume {
@@ -92,6 +107,8 @@ pub enum Resume {
     Until(Option<Instant>),
     /// A write to a pipe or socket that has transferred this many bytes.
     Written(u64),
+    /// A socket call's progress.
+    Socket(SockWait),
     /// `rt_sigtimedwait`: its deadline and the mask it replaced
     /// (`real_blocked`).
     SigWait {

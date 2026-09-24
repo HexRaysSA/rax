@@ -9,6 +9,7 @@
 //! | Pipes and FIFOs (`pipe_poll`) | reading: `EPOLLIN` while bytes are queued, `EPOLLHUP` once no writer is left; writing: `EPOLLOUT` while there is room, `EPOLLERR` once no reader is left |
 //! | Other host descriptors (terminals, devices) | the host's readiness |
 //! | Anonymous-inode files | their own ([`events::poll`](super::events::poll)) |
+//! | Sockets | `sock_poll`'s ([`net::poll`](super::super::net::poll)) |
 //!
 //! Host `poll` alone does not give the pipe rules (macOS reports an empty
 //! pipe whose writers are gone as readable, and a pipe whose readers are
@@ -63,6 +64,7 @@ pub fn raw_fd(file: &OpenFile) -> Option<i32> {
         FileObject::Host(f) => Some(f.as_raw_fd()),
         FileObject::PipeRead(p) => Some(p.as_raw_fd()),
         FileObject::PipeWrite(p) => Some(p.as_raw_fd()),
+        FileObject::Socket(s) => Some(s.raw()),
         _ => None,
     }
 }
@@ -139,6 +141,18 @@ pub fn poll_files(c: &Ctx<'_>, files: &[(&OpenFile, u32)]) -> (Vec<Polled>, Wait
                 wait.deadline = earlier(wait.deadline, w.deadline);
             }
             FileObject::PathOnly => out[i].mask = ev::NVAL,
+            FileObject::Socket(s) => {
+                let mask = super::super::net::poll::mask(s);
+                let level = super::super::net::sys::inq(&s.file, s.connected_type())
+                    .unwrap_or(0)
+                    .max(0) as u64;
+                out[i] = Polled { mask, level };
+                wait.fds.push((
+                    s.raw(),
+                    events & (ev::READS | ev::ERR | ev::HUP) != 0,
+                    events & ev::WRITES != 0,
+                ));
+            }
             _ => match raw_fd(file) {
                 Some(raw) if !matches!(file.ftype, FileType::Regular | FileType::Directory) => {
                     host_at.push(i);

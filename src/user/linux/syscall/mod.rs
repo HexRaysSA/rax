@@ -14,6 +14,7 @@
 //! | [`futex`] | `futex`, `futex_waitv`, the `futex2` calls, robust lists |
 //! | [`time`] | clocks and sleeping |
 //! | [`signal`] | signal dispositions and masks |
+//! | [`net`] | sockets |
 //!
 //! A handler that must sleep records what it waits for with
 //! [`Ctx::block`]; the thread is parked and the call dispatched again,
@@ -31,6 +32,7 @@ pub mod exec;
 pub mod futex;
 pub mod io;
 pub mod mem;
+pub mod net;
 pub mod path;
 pub mod process;
 pub mod ready;
@@ -152,6 +154,9 @@ pub struct Ctx<'a> {
     pub resume: Option<Resume>,
     /// Another thread reported the event the call slept for.
     pub woken: bool,
+    /// The call decided itself whether its `EPIPE` raises `SIGPIPE` (the
+    /// socket protocols do).
+    pub sigpipe_decided: bool,
     block: Option<(Wait, Resume)>,
 }
 
@@ -170,6 +175,7 @@ impl<'a> Ctx<'a> {
             spawned,
             resume: None,
             woken: false,
+            sigpipe_decided: false,
             block: None,
         }
     }
@@ -182,6 +188,27 @@ impl Ctx<'_> {
     pub fn block(&mut self, wait: Wait, resume: Resume) -> Errno {
         self.block = Some((wait, resume));
         Errno(BLOCKED)
+    }
+
+    /// `send_sig(SIGPIPE, current, 0)`: `SIGPIPE` to the calling thread,
+    /// as sent by the kernel (`SEND_SIG_NOINFO`: `SI_USER` from the caller
+    /// itself).
+    pub fn send_sigpipe(&mut self) {
+        let info = super::signal::SigInfo::kill(
+            super::signal::SIGPIPE,
+            super::signal::code::SI_USER,
+            self.p.pid,
+            self.p.creds.0,
+        );
+        let tid = self.t.tid;
+        let (p, mut th) = self.split();
+        super::signal::deliver::send_signal(
+            p,
+            &mut th,
+            info,
+            super::signal::deliver::Dest::Thread(tid),
+            false,
+        );
     }
 
     /// `signal_pending(current)`: the thread's `TIF_SIGPENDING`.
@@ -633,6 +660,75 @@ fn call_handler(c: &mut Ctx<'_>, s: Sysno, a: [u64; 6]) -> Result<Outcome, Errno
         S::FutexWait => futex::futex_wait(c, a[0], a[1], a[2], a[3] as u32, a[4], a[5] as i32),
         S::FutexRequeue => futex::futex_requeue(c, a[0], a[1] as u32, a[2] as i32, a[3] as i32),
 
+        // ------------------------------------------------------- sockets
+        S::Socket => r(net::socket(c, a[0] as i32, a[1] as i32, a[2] as i32)),
+        S::Socketpair => r(net::socketpair(
+            c,
+            a[0] as i32,
+            a[1] as i32,
+            a[2] as i32,
+            a[3],
+        )),
+        S::Bind => r(net::bind(c, fd(a[0]), a[1], a[2] as i32)),
+        S::Listen => r(net::listen(c, fd(a[0]), a[1] as i32)),
+        S::Accept => r(net::accept4(c, fd(a[0]), a[1], a[2], 0)),
+        S::Accept4 => r(net::accept4(c, fd(a[0]), a[1], a[2], a[3] as i32)),
+        S::Connect => r(net::connect(c, fd(a[0]), a[1], a[2] as i32)),
+        S::Getsockname => r(net::getname(c, fd(a[0]), a[1], a[2], false)),
+        S::Getpeername => r(net::getname(c, fd(a[0]), a[1], a[2], true)),
+        S::Sendto => r(net::io::sendto(
+            c,
+            fd(a[0]),
+            a[1],
+            a[2],
+            a[3] as u32,
+            a[4],
+            a[5] as i32,
+        )),
+        S::Recvfrom => r(net::io::recvfrom(
+            c,
+            fd(a[0]),
+            a[1],
+            a[2],
+            a[3] as u32,
+            a[4],
+            a[5],
+        )),
+        S::Sendmsg => r(net::io::sendmsg(c, fd(a[0]), a[1], a[2] as u32)),
+        S::Recvmsg => r(net::io::recvmsg(c, fd(a[0]), a[1], a[2] as u32)),
+        S::Sendmmsg => r(net::io::sendmmsg(
+            c,
+            fd(a[0]),
+            a[1],
+            a[2] as u32,
+            a[3] as u32,
+        )),
+        S::Recvmmsg => r(net::io::recvmmsg(
+            c,
+            fd(a[0]),
+            a[1],
+            a[2] as u32,
+            a[3] as u32,
+            a[4],
+        )),
+        S::Shutdown => r(net::shutdown(c, fd(a[0]), a[1] as i32)),
+        S::Setsockopt => r(net::setsockopt(
+            c,
+            fd(a[0]),
+            a[1] as i32,
+            a[2] as i32,
+            a[3],
+            a[4] as i32,
+        )),
+        S::Getsockopt => r(net::getsockopt(
+            c,
+            fd(a[0]),
+            a[1] as i32,
+            a[2] as i32,
+            a[3],
+            a[4],
+        )),
+
         // Calls intentionally reported as unsupported.
         _ => Err(Errno(ENOSYS)),
     }
@@ -698,9 +794,10 @@ pub fn dispatch(
         Err(Errno(BLOCKED)),
         "a handler blocked without a wait"
     );
-    // pipe_write and the socket send paths: EPIPE comes with SIGPIPE
-    // (send_sig with SEND_SIG_NOINFO: SI_USER from the writer itself).
+    // pipe_write: EPIPE comes with SIGPIPE (the socket protocols decide
+    // for themselves).
     if matches!(result, Err(Errno(EPIPE)))
+        && !c.sigpipe_decided
         && matches!(
             sysno,
             Some(
@@ -714,21 +811,7 @@ pub fn dispatch(
             )
         )
     {
-        // send_sig: a signal to the calling thread.
-        let info = super::signal::SigInfo::kill(
-            super::signal::SIGPIPE,
-            super::signal::code::SI_USER,
-            c.p.pid,
-            c.p.creds.0,
-        );
-        let (p, mut th) = c.split();
-        super::signal::deliver::send_signal(
-            p,
-            &mut th,
-            info,
-            super::signal::deliver::Dest::Thread(tid),
-            false,
-        );
+        c.send_sigpipe();
     }
     let outcome = match result {
         Ok(o) => o,

@@ -155,6 +155,18 @@ pub fn stat_file(c: &Ctx<'_>, file: &OpenFile) -> Result<Stat, Errno> {
             blksize: 4096,
             ..Default::default()
         }),
+        // sock_alloc: S_IFSOCK with every permission, the caller's IDs,
+        // on sockfs.
+        FileObject::Socket(s) => Ok(Stat {
+            dev_minor: 0x8,
+            ino: s.ino,
+            mode: mode::S_IFSOCK | 0o777,
+            nlink: 1,
+            uid: c.p.creds.1,
+            gid: c.p.creds.3,
+            blksize: 4096,
+            ..Default::default()
+        }),
         FileObject::Synthetic(d) => Ok(proc_stat(
             c,
             &if file.ftype == FileType::Directory {
