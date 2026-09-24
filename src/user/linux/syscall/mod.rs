@@ -6,7 +6,8 @@
 //!
 //! | Module | Calls |
 //! |---|---|
-//! | [`io`] | descriptors, `read`/`write` families, pipes, `fcntl`, `ioctl`, polling |
+//! | [`io`] | descriptors, `read`/`write` families, pipes, polling |
+//! | [`fcntl`] | `fcntl`, `ioctl` |
 //! | [`path`] | `open`, `stat`, directory and name operations, working directory |
 //! | [`mem`] | `brk`, `mmap` family, `madvise` |
 //! | [`process`] | identity, limits, `uname`, `prctl`, `arch_prctl` |
@@ -29,6 +30,7 @@ pub mod child;
 pub mod epoll;
 pub mod events;
 pub mod exec;
+pub mod fcntl;
 pub mod futex;
 pub mod io;
 pub mod mem;
@@ -379,8 +381,8 @@ fn call_handler(c: &mut Ctx<'_>, s: Sysno, a: [u64; 6]) -> Result<Outcome, Errno
         S::Dup => r(io::dup(c, fd(a[0]))),
         S::Dup2 => r(io::dup2(c, fd(a[0]), fd(a[1]))),
         S::Dup3 => r(io::dup3(c, fd(a[0]), fd(a[1]), a[2] as u32)),
-        S::Fcntl => r(io::fcntl(c, fd(a[0]), a[1] as u32, a[2])),
-        S::Ioctl => r(io::ioctl(c, fd(a[0]), a[1] as u32, a[2])),
+        S::Fcntl => r(fcntl::fcntl(c, fd(a[0]), a[1] as u32, a[2])),
+        S::Ioctl => r(fcntl::ioctl(c, fd(a[0]), a[1] as u32, a[2])),
         S::Pipe => r(io::pipe2(c, a[0], 0)),
         S::Pipe2 => r(io::pipe2(c, a[0], a[1] as u32)),
         S::Poll => io::poll(c, a[0], a[1], a[2] as i32 as i64),
