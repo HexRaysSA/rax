@@ -3,13 +3,18 @@
 use std::io::IsTerminal;
 use std::os::fd::AsRawFd;
 use std::sync::Arc;
+use std::time::{Duration, Instant};
 
 use super::super::abi::errno::Errno;
 use super::super::abi::errno_table::*;
 use super::super::abi::open::*;
 use super::super::fs::fd::{FileObject, FileType, OpenFile};
 use super::super::host;
-use super::{Ctx, SysResult, read_iovecs};
+use super::super::signal::deliver::collect_async;
+use super::super::signal::deliver::restart::{ERESTART_RESTARTBLOCK, ERESTARTNOHAND, ERESTARTSYS};
+use super::super::wait;
+use super::{Ctx, Outcome, RestartBlock, SysResult, read_iovecs};
+use crate::error::MemoryAccessKind;
 
 /// `MAX_RW_COUNT`: `INT_MAX & PAGE_MASK`.
 pub const MAX_RW_COUNT: u64 = 0x7fff_f000;
@@ -21,62 +26,178 @@ fn nofile(c: &Ctx<'_>) -> u64 {
     c.p.rlimits[7].0
 }
 
-/// Reads up to `count` bytes into guest memory at `buf`. Regular files are
-/// read until `count` or end of file, as the kernel's page-cache path does;
-/// other files return whatever one host read produced.
-fn read_into(c: &Ctx<'_>, file: &OpenFile, buf: u64, count: u64, pos: Option<u64>) -> SysResult {
-    let count = count.min(MAX_RW_COUNT);
-    let mut done = 0u64;
-    let mut tmp = vec![0u8; (count as usize).min(CHUNK)];
-    while done < count {
-        let want = ((count - done) as usize).min(tmp.len());
-        let n = match pos {
-            Some(p) => file.read_at(&mut tmp[..want], p + done)?,
-            None => file.read(&mut tmp[..want])?,
-        };
-        if n == 0 {
-            break;
-        }
-        if c.write_mem(buf + done, &tmp[..n]).is_err() {
-            return if done > 0 {
-                Ok(done)
-            } else {
-                Err(Errno(EFAULT))
-            };
-        }
-        done += n as u64;
-        if file.ftype != FileType::Regular || n < want {
-            break;
-        }
-    }
-    Ok(done)
+/// Whether a transfer on `file` can block: pipes, FIFOs, sockets, and
+/// character devices (terminals) without `O_NONBLOCK`.
+fn may_block(file: &OpenFile) -> bool {
+    matches!(
+        file.ftype,
+        FileType::Fifo | FileType::Socket | FileType::CharDevice
+    ) && file.flags() & O_NONBLOCK == 0
 }
 
-/// Writes `count` bytes from guest memory at `buf`.
-fn write_from(c: &Ctx<'_>, file: &OpenFile, buf: u64, count: u64, pos: Option<u64>) -> SysResult {
+/// Sleeps until `file` is ready for reading (or writing) or a signal the
+/// thread does not block is pending, which is `-ERESTARTSYS` as
+/// `pipe_read`, `pipe_write`, and `n_tty_read` return it.
+fn wait_ready(c: &mut Ctx<'_>, file: &OpenFile, write: bool) -> Result<(), Errno> {
+    let Some(fd) = raw_fd(file) else {
+        return Ok(());
+    };
+    let blocked = c.t.sigmask;
+    match wait::block(c.p, c.t, &[(fd, !write, write)], None, blocked) {
+        Ok(wait::Wake::Signal) => Err(Errno(ERESTARTSYS)),
+        _ => Ok(()),
+    }
+}
+
+/// After a host call failed with `EINTR` (a forwarded host signal arrived
+/// during it): whether the guest now has a signal to handle. Otherwise the
+/// call is retried, as the kernel would have kept sleeping.
+fn interrupted(c: &mut Ctx<'_>) -> bool {
+    collect_async(c.p, c.t);
+    wait::signal_pending(c.p, c.t, c.t.sigmask)
+}
+
+/// The number of bytes from `addr` the guest may write before the first
+/// fault (`copy_to_user` stops there).
+fn writable_prefix(c: &Ctx<'_>, addr: u64, len: u64) -> u64 {
+    match c.p.space.probe(addr, len as usize, MemoryAccessKind::Write) {
+        Ok(()) => len,
+        Err(f) => f.address.saturating_sub(addr).min(len),
+    }
+}
+
+/// Reads up to `count` bytes from `file`. Regular files are read until
+/// `count` or end of file, as the kernel's page-cache path does; other files
+/// return what one read produces, after waiting for data unless
+/// `O_NONBLOCK` is set.
+fn read_bytes(
+    c: &mut Ctx<'_>,
+    file: &OpenFile,
+    count: u64,
+    pos: Option<u64>,
+) -> Result<Vec<u8>, Errno> {
     let count = count.min(MAX_RW_COUNT);
-    let mut done = 0u64;
-    while done < count {
-        let want = ((count - done) as usize).min(CHUNK);
-        let data = match c.read_mem(buf + done, want) {
-            Ok(d) => d,
-            Err(e) => return if done > 0 { Ok(done) } else { Err(e) },
-        };
-        let n = match pos {
-            Some(p) => file.write_at(&data, p + done),
-            None => file.write(&data),
+    if pos.is_none() && may_block(file) {
+        wait_ready(c, file, false)?;
+    }
+    let mut out = Vec::new();
+    let mut tmp = vec![0u8; (count as usize).min(CHUNK)];
+    while (out.len() as u64) < count {
+        let want = ((count - out.len() as u64) as usize).min(tmp.len());
+        let at = pos.map(|p| p + out.len() as u64);
+        let n = match at {
+            Some(p) => file.read_at(&mut tmp[..want], p),
+            None => file.read(&mut tmp[..want]),
         };
         let n = match n {
             Ok(n) => n,
-            Err(e) if done > 0 && e.0 != EPIPE => return Ok(done),
-            Err(e) => return Err(e),
+            Err(Errno(EINTR)) => {
+                if interrupted(c) {
+                    return if out.is_empty() {
+                        Err(Errno(ERESTARTSYS))
+                    } else {
+                        Ok(out)
+                    };
+                }
+                continue;
+            }
+            Err(e) if out.is_empty() => return Err(e),
+            Err(_) => break,
         };
-        done += n as u64;
-        if n < want {
+        out.extend_from_slice(&tmp[..n]);
+        if n == 0 || file.ftype != FileType::Regular || n < want {
             break;
         }
     }
-    Ok(done)
+    Ok(out)
+}
+
+/// Reads up to `count` bytes into guest memory at `buf`. Only as many bytes
+/// as the guest can store are taken from the file, so a bad buffer does not
+/// consume pipe or terminal input.
+fn read_into(
+    c: &mut Ctx<'_>,
+    file: &OpenFile,
+    buf: u64,
+    count: u64,
+    pos: Option<u64>,
+) -> SysResult {
+    let room = writable_prefix(c, buf, count.min(MAX_RW_COUNT));
+    if room == 0 {
+        return Err(Errno(EFAULT));
+    }
+    let data = read_bytes(c, file, room, pos)?;
+    c.write_mem(buf, &data)?;
+    Ok(data.len() as u64)
+}
+
+/// Whether `file` can take data now (`POLLOUT`).
+fn writable_now(file: &OpenFile) -> bool {
+    raw_fd(file).is_none_or(|fd| {
+        host::poll(&[(fd, false, true)], 0).is_ok_and(|r| r[0].writable || r[0].error)
+    })
+}
+
+/// Writes `data` to `file`. A pipe or socket without `O_NONBLOCK` that
+/// has no room waits for it; a signal ends the write with the bytes written
+/// so far, or `-ERESTARTSYS` when there are none.
+fn write_bytes(c: &mut Ctx<'_>, file: &OpenFile, data: &[u8], pos: Option<u64>) -> SysResult {
+    let waits =
+        pos.is_none() && may_block(file) && matches!(file.ftype, FileType::Fifo | FileType::Socket);
+    let mut done = 0usize;
+    while done < data.len() {
+        if waits && !writable_now(file) {
+            if let Err(e) = wait_ready(c, file, true) {
+                return if done > 0 { Ok(done as u64) } else { Err(e) };
+            }
+        }
+        let chunk = &data[done..(done + CHUNK).min(data.len())];
+        let n = match pos {
+            Some(p) => file.write_at(chunk, p + done as u64),
+            None => file.write(chunk),
+        };
+        let n = match n {
+            Ok(n) => n,
+            Err(Errno(EINTR)) => {
+                if interrupted(c) {
+                    return if done > 0 {
+                        Ok(done as u64)
+                    } else {
+                        Err(Errno(ERESTARTSYS))
+                    };
+                }
+                continue;
+            }
+            Err(e) if done > 0 && e.0 != EPIPE => return Ok(done as u64),
+            Err(e) => return Err(e),
+        };
+        done += n;
+        if n < chunk.len() && !waits {
+            break;
+        }
+    }
+    Ok(done as u64)
+}
+
+/// Writes `count` bytes from guest memory at `buf`; a buffer that faults
+/// part way writes the readable prefix.
+fn write_from(
+    c: &mut Ctx<'_>,
+    file: &OpenFile,
+    buf: u64,
+    count: u64,
+    pos: Option<u64>,
+) -> SysResult {
+    let count = count.min(MAX_RW_COUNT);
+    let readable = match c.p.space.probe(buf, count as usize, MemoryAccessKind::Read) {
+        Ok(()) => count,
+        Err(f) => f.address.saturating_sub(buf).min(count),
+    };
+    if readable == 0 {
+        return Err(Errno(EFAULT));
+    }
+    let data = c.read_mem(buf, readable as usize)?;
+    write_bytes(c, file, &data, pos)
 }
 
 /// `read`.
@@ -105,34 +226,66 @@ pub fn write(c: &mut Ctx<'_>, fd: i32, buf: u64, count: u64) -> SysResult {
     write_from(c, &file, buf, count, None)
 }
 
-/// `readv`.
+/// Scatters `data` over `iovecs`, stopping at the first fault.
+fn scatter(c: &Ctx<'_>, iovecs: &[(u64, u64)], data: &[u8]) -> SysResult {
+    let mut done = 0usize;
+    for &(base, len) in iovecs {
+        if done == data.len() {
+            break;
+        }
+        let take = (len as usize).min(data.len() - done);
+        if c.write_mem(base, &data[done..done + take]).is_err() {
+            return if done > 0 {
+                Ok(done as u64)
+            } else {
+                Err(Errno(EFAULT))
+            };
+        }
+        done += take;
+    }
+    Ok(done as u64)
+}
+
+/// The bytes the iovecs can receive before the first unwritable one.
+fn iovec_room(c: &Ctx<'_>, iovecs: &[(u64, u64)]) -> u64 {
+    let mut room = 0u64;
+    for &(base, len) in iovecs {
+        let ok = writable_prefix(c, base, len);
+        room += ok;
+        if ok < len {
+            break;
+        }
+    }
+    room.min(MAX_RW_COUNT)
+}
+
+/// `readv`: one transfer scattered over the vectors, as the kernel's
+/// `iov_iter` does.
 pub fn readv(c: &mut Ctx<'_>, fd: i32, iov: u64, cnt: u64) -> SysResult {
     let file = c.p.fds.file(fd)?;
     if !file.readable() {
         return Err(Errno(EBADF));
     }
-    let mut total = 0;
-    for (base, len) in read_iovecs(c, iov, cnt)? {
-        if len == 0 {
-            continue;
-        }
-        let n = read_into(c, &file, base, len, None)?;
-        total += n;
-        if n < len {
-            break;
-        }
+    let iovecs = read_iovecs(c, iov, cnt)?;
+    let total: u64 = iovecs.iter().map(|&(_, l)| l).sum();
+    if total == 0 {
+        return Ok(0);
     }
-    Ok(total)
+    let room = iovec_room(c, &iovecs);
+    if room == 0 {
+        return Err(Errno(EFAULT));
+    }
+    let data = read_bytes(c, &file, room, None)?;
+    scatter(c, &iovecs, &data)
 }
 
-/// `writev`.
+/// `writev`: the vectors are gathered so the data reaches the file in one
+/// write, as the kernel's `iov_iter` does for pipes and terminals.
 pub fn writev(c: &mut Ctx<'_>, fd: i32, iov: u64, cnt: u64) -> SysResult {
     let file = c.p.fds.file(fd)?;
     if !file.writable() {
         return Err(Errno(EBADF));
     }
-    // Gather first so the data reaches the file in one write, as the
-    // kernel's iov_iter does for pipes and terminals.
     let vecs = read_iovecs(c, iov, cnt)?;
     let mut data = Vec::new();
     for (base, len) in vecs {
@@ -148,7 +301,7 @@ pub fn writev(c: &mut Ctx<'_>, fd: i32, iov: u64, cnt: u64) -> SysResult {
     if data.is_empty() {
         return Ok(0);
     }
-    Ok(file.write(&data)? as u64)
+    write_bytes(c, &file, &data, None)
 }
 
 /// `pread64`.
@@ -555,8 +708,21 @@ fn raw_fd(file: &OpenFile) -> Option<i32> {
     }
 }
 
-/// Computes `revents` for `(fd, events)` pairs, waiting up to `timeout_ms`.
-fn poll_fds(c: &Ctx<'_>, req: &[(i32, u16)], timeout_ms: i64) -> Result<Vec<u16>, Errno> {
+/// How a poll ended.
+enum Polled {
+    /// Revents per request; possibly all zero (timeout).
+    Done(Vec<u16>),
+    /// A signal interrupted it before anything was ready.
+    Interrupted,
+    /// Nothing can ever wake it.
+    Deadlock(String),
+}
+
+/// `do_poll`: `revents` for `(fd, events)` pairs, waiting until `deadline`
+/// (`None` waits indefinitely) for one to be ready. Regular files,
+/// directories, and synthesized files are always ready; a descriptor that
+/// is not open reports `POLLNVAL`.
+fn poll_fds(c: &mut Ctx<'_>, req: &[(i32, u16)], deadline: Option<Instant>) -> Polled {
     use pe::*;
     let mut out = vec![0u16; req.len()];
     let mut host_idx = Vec::new();
@@ -572,7 +738,6 @@ fn poll_fds(c: &Ctx<'_>, req: &[(i32, u16)], timeout_ms: i64) -> Result<Vec<u16>
         let want_r = events & (POLLIN | POLLRDNORM | POLLPRI) != 0;
         let want_w = events & (POLLOUT | POLLWRNORM) != 0;
         match (file.ftype, raw_fd(&file)) {
-            // Regular files and directories are always ready.
             (FileType::Regular | FileType::Directory, _) | (_, None) => {
                 out[i] = events & (POLLIN | POLLRDNORM | POLLOUT | POLLWRNORM);
             }
@@ -583,14 +748,8 @@ fn poll_fds(c: &Ctx<'_>, req: &[(i32, u16)], timeout_ms: i64) -> Result<Vec<u16>
         }
     }
     let ready_now = out.iter().any(|&r| r != 0);
-    if !host_req.is_empty() {
-        let timeout = if ready_now {
-            0
-        } else {
-            timeout_ms.clamp(-1, i32::MAX as i64) as i32
-        };
-        let res = host::poll(&host_req, timeout)?;
-        for (k, r) in res.into_iter().enumerate() {
+    let revents = |rs: &[host::Readiness], out: &mut Vec<u16>| {
+        for (k, r) in rs.iter().enumerate() {
             let i = host_idx[k];
             let events = req[i].1;
             let mut rev = 0;
@@ -608,18 +767,43 @@ fn poll_fds(c: &Ctx<'_>, req: &[(i32, u16)], timeout_ms: i64) -> Result<Vec<u16>
             }
             out[i] = rev;
         }
-    } else if !ready_now && timeout_ms != 0 {
-        if timeout_ms < 0 {
-            // Nothing can ever become ready: a single-threaded process with
-            // no pollable descriptors would block forever.
-            return Err(Errno(EINTR));
+    };
+    if ready_now || deadline.is_some_and(|d| d <= Instant::now()) {
+        if !host_req.is_empty() {
+            let rs = host::poll(&host_req, 0).unwrap_or_default();
+            revents(&rs, &mut out);
         }
-        std::thread::sleep(std::time::Duration::from_millis(timeout_ms as u64));
+        return Polled::Done(out);
     }
-    Ok(out)
+    let blocked = c.t.sigmask;
+    match wait::block(c.p, c.t, &host_req, deadline, blocked) {
+        Ok(wait::Wake::Ready(rs)) => {
+            revents(&rs, &mut out);
+            Polled::Done(out)
+        }
+        Ok(wait::Wake::Timeout) => Polled::Done(out),
+        Ok(wait::Wake::Signal) => Polled::Interrupted,
+        Err(dead) => Polled::Deadlock(dead.message()),
+    }
 }
 
-fn poll_common(c: &Ctx<'_>, fds: u64, nfds: u64, timeout_ms: i64) -> SysResult {
+/// An absolute deadline `sec`/`nsec` from now (`poll_select_set_timeout`);
+/// `None` for an invalid time.
+fn timeout_deadline(sec: i64, nsec: i64) -> Option<Instant> {
+    if sec < 0 || !(0..1_000_000_000).contains(&nsec) {
+        return None;
+    }
+    Some(Instant::now() + Duration::new(sec as u64, nsec as u32))
+}
+
+/// `do_sys_poll`: polls the `struct pollfd` array and writes every
+/// `revents` back, zero when interrupted.
+fn sys_poll(
+    c: &mut Ctx<'_>,
+    fds: u64,
+    nfds: u64,
+    deadline: Option<Instant>,
+) -> Result<Outcome, Errno> {
     if nfds > c.p.rlimits[7].0 {
         return Err(Errno(EINVAL));
     }
@@ -633,56 +817,153 @@ fn poll_common(c: &Ctx<'_>, fds: u64, nfds: u64, timeout_ms: i64) -> SysResult {
             )
         })
         .collect();
-    let rev = poll_fds(c, &req, timeout_ms)?;
-    let mut out = raw.clone();
-    let mut n = 0;
+    let (rev, result) = match poll_fds(c, &req, deadline) {
+        Polled::Done(rev) => {
+            let n = rev.iter().filter(|&&r| r != 0).count() as u64;
+            (rev, Ok(Outcome::Return(n)))
+        }
+        Polled::Interrupted => (vec![0; req.len()], Err(Errno(ERESTARTNOHAND))),
+        Polled::Deadlock(why) => return Ok(Outcome::Fatal(why)),
+    };
+    let mut out = raw;
     for (i, r) in rev.iter().enumerate() {
         out[i * 8 + 6..i * 8 + 8].copy_from_slice(&r.to_le_bytes());
-        if *r != 0 {
-            n += 1;
-        }
     }
     c.write_mem(fds, &out)?;
-    Ok(n)
+    result
 }
 
-/// `poll`.
-pub fn poll(c: &mut Ctx<'_>, fds: u64, nfds: u64, timeout_ms: i64) -> SysResult {
-    poll_common(c, fds, nfds, timeout_ms)
+/// `poll`. An interrupted poll continues through `do_restart_poll` unless a
+/// handler runs.
+pub fn poll(c: &mut Ctx<'_>, fds: u64, nfds: u64, timeout_ms: i64) -> Result<Outcome, Errno> {
+    let deadline =
+        (timeout_ms >= 0).then(|| Instant::now() + Duration::from_millis(timeout_ms as u64));
+    poll_restart(c, fds, nfds, deadline)
 }
 
-/// `ppoll` (the signal mask argument is accepted; RAX delivers no
-/// asynchronous signals while a call blocks).
-pub fn ppoll(c: &mut Ctx<'_>, fds: u64, nfds: u64, tsp: u64) -> SysResult {
-    let timeout_ms = if tsp == 0 {
-        -1
+/// `do_restart_poll`, and `poll` itself.
+pub fn poll_restart(
+    c: &mut Ctx<'_>,
+    fds: u64,
+    nfds: u64,
+    deadline: Option<Instant>,
+) -> Result<Outcome, Errno> {
+    match sys_poll(c, fds, nfds, deadline) {
+        Err(Errno(ERESTARTNOHAND)) => {
+            c.t.restart = Some(RestartBlock::Poll {
+                fds,
+                nfds,
+                deadline,
+            });
+            Err(Errno(ERESTART_RESTARTBLOCK))
+        }
+        other => other,
+    }
+}
+
+/// `set_user_sigmask`: installs a temporary mask for the call, saving the
+/// old one to come back on the return to user mode.
+fn set_user_sigmask(c: &mut Ctx<'_>, mask: u64, size: u64) -> Result<(), Errno> {
+    if mask == 0 {
+        return Ok(());
+    }
+    if size != 8 {
+        return Err(Errno(EINVAL));
+    }
+    let set = c.read_u64(mask)?;
+    c.t.saved_sigmask = Some(c.t.sigmask);
+    c.t.sigmask = set & !crate::user::linux::signal::KERNEL_ONLY_MASK;
+    Ok(())
+}
+
+/// How `poll_select_finish` reports the remaining time.
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum TimeFormat {
+    /// `struct timeval`.
+    Timeval,
+    /// `struct timespec`.
+    Timespec,
+}
+
+/// `poll_select_finish`: restores a temporary mask unless a signal
+/// interrupted the call (the handler frame saves it), and writes the time
+/// left back to `user` for a nonzero timeout. If that write faults the call
+/// cannot be restarted, so `-ERESTARTNOHAND` becomes `-EINTR`.
+fn poll_select_finish(
+    c: &mut Ctx<'_>,
+    deadline: Option<Instant>,
+    zero_timeout: bool,
+    user: u64,
+    format: TimeFormat,
+    result: Result<Outcome, Errno>,
+) -> Result<Outcome, Errno> {
+    let interrupted = matches!(result, Err(Errno(ERESTARTNOHAND)));
+    if !interrupted && let Some(saved) = c.t.saved_sigmask.take() {
+        c.t.sigmask = saved;
+    }
+    let (Some(deadline), false) = (deadline, zero_timeout || user == 0) else {
+        return result;
+    };
+    let left = deadline.saturating_duration_since(Instant::now());
+    let mut b = [0u8; 16];
+    b[..8].copy_from_slice(&(left.as_secs() as i64).to_le_bytes());
+    let frac = match format {
+        TimeFormat::Timeval => i64::from(left.subsec_micros()),
+        TimeFormat::Timespec => i64::from(left.subsec_nanos()),
+    };
+    b[8..].copy_from_slice(&frac.to_le_bytes());
+    if c.write_mem(user, &b).is_ok() {
+        return result;
+    }
+    if interrupted {
+        Err(Errno(EINTR))
+    } else {
+        result
+    }
+}
+
+/// `ppoll`: `poll` with a timespec timeout and a temporary signal mask; an
+/// interruption is `-ERESTARTNOHAND` with the time left written back.
+pub fn ppoll(
+    c: &mut Ctx<'_>,
+    fds: u64,
+    nfds: u64,
+    tsp: u64,
+    mask: u64,
+    size: u64,
+) -> Result<Outcome, Errno> {
+    let (deadline, zero) = if tsp == 0 {
+        (None, false)
     } else {
         let b = c.read_mem(tsp, 16)?;
         let ts = super::super::abi::types::Timespec::decode(&b.try_into().unwrap());
-        if ts.sec < 0 || !(0..1_000_000_000).contains(&ts.nsec) {
-            return Err(Errno(EINVAL));
-        }
-        ts.sec.saturating_mul(1000) + (ts.nsec + 999_999) / 1_000_000
+        (
+            Some(timeout_deadline(ts.sec, ts.nsec).ok_or(Errno(EINVAL))?),
+            ts.sec == 0 && ts.nsec == 0,
+        )
     };
-    poll_common(c, fds, nfds, timeout_ms)
+    set_user_sigmask(c, mask, size)?;
+    let result = sys_poll(c, fds, nfds, deadline);
+    poll_select_finish(c, deadline, zero, tsp, TimeFormat::Timespec, result)
 }
 
-/// `select` and `pselect6` (`timespec` timeout when `ts` is true).
-pub fn select(
+/// `core_sys_select`: `nfds` is clamped to the descriptor table size; a set
+/// bit for a descriptor that is not open is `EBADF`. An interrupted select
+/// leaves the sets as they were.
+fn core_sys_select(
     c: &mut Ctx<'_>,
     nfds: i32,
     rd: u64,
     wr: u64,
     ex: u64,
-    timeout: u64,
-    ts: bool,
-) -> SysResult {
-    // FD_SETSIZE bounds the bitmap; max_fds is the table size.
-    if !(0..=1024).contains(&nfds) {
+    deadline: Option<Instant>,
+) -> Result<Outcome, Errno> {
+    if nfds < 0 {
         return Err(Errno(EINVAL));
     }
-    let words = (nfds as usize).div_ceil(64);
-    let read_set = |addr: u64| -> Result<Vec<u64>, Errno> {
+    let n = (nfds as usize).min(c.p.fds.max_fds());
+    let words = n.div_ceil(64);
+    let read_set = |c: &Ctx<'_>, addr: u64| -> Result<Vec<u64>, Errno> {
         if addr == 0 {
             return Ok(vec![0; words]);
         }
@@ -691,26 +972,10 @@ pub fn select(
             .map(|w| u64::from_le_bytes(w.try_into().unwrap()))
             .collect())
     };
-    let (rs, ws, es) = (read_set(rd)?, read_set(wr)?, read_set(ex)?);
-    let timeout_ms = if timeout == 0 {
-        -1
-    } else {
-        let b = c.read_mem(timeout, 16)?;
-        let sec = i64::from_le_bytes(b[..8].try_into().unwrap());
-        let frac = i64::from_le_bytes(b[8..].try_into().unwrap());
-        let (limit, per_ms) = if ts {
-            (1_000_000_000, 1_000_000)
-        } else {
-            (1_000_000, 1000)
-        };
-        if sec < 0 || !(0..limit).contains(&frac) {
-            return Err(Errno(EINVAL));
-        }
-        sec.saturating_mul(1000) + (frac + per_ms - 1) / per_ms
-    };
-    let bit = |set: &[u64], fd: i32| set[fd as usize / 64] >> (fd % 64) & 1 != 0;
+    let (rs, ws, es) = (read_set(c, rd)?, read_set(c, wr)?, read_set(c, ex)?);
+    let bit = |set: &[u64], fd: usize| set[fd / 64] >> (fd % 64) & 1 != 0;
     let mut req = Vec::new();
-    for fd in 0..nfds {
+    for fd in 0..n {
         let mut ev = 0u16;
         if bit(&rs, fd) {
             ev |= pe::POLLIN;
@@ -722,45 +987,106 @@ pub fn select(
             ev |= pe::POLLPRI;
         }
         if ev != 0 {
-            if c.p.fds.get(fd).is_err() {
+            // max_select_fd: every selected descriptor must be open.
+            if c.p.fds.get(fd as i32).is_err() {
                 return Err(Errno(EBADF));
             }
-            req.push((fd, ev));
+            req.push((fd as i32, ev));
         }
     }
-    let rev = poll_fds(c, &req, timeout_ms)?;
+    let rev = match poll_fds(c, &req, deadline) {
+        Polled::Done(rev) => rev,
+        Polled::Interrupted => return Err(Errno(ERESTARTNOHAND)),
+        Polled::Deadlock(why) => return Ok(Outcome::Fatal(why)),
+    };
     let (mut ro, mut wo, mut eo) = (vec![0u64; words], vec![0u64; words], vec![0u64; words]);
-    let mut n = 0;
+    let mut count = 0;
     for (&(fd, ev), r) in req.iter().zip(rev) {
         let set = |v: &mut Vec<u64>| v[fd as usize / 64] |= 1 << (fd % 64);
         if ev & pe::POLLIN != 0 && r & (pe::POLLIN | pe::POLLHUP | pe::POLLERR) != 0 {
             set(&mut ro);
-            n += 1;
+            count += 1;
         }
         if ev & pe::POLLOUT != 0 && r & (pe::POLLOUT | pe::POLLERR) != 0 {
             set(&mut wo);
-            n += 1;
+            count += 1;
         }
         if ev & pe::POLLPRI != 0 && r & pe::POLLPRI != 0 {
             set(&mut eo);
-            n += 1;
+            count += 1;
         }
     }
-    let write_set = |addr: u64, v: &[u64]| -> Result<(), Errno> {
+    for (addr, v) in [(rd, &ro), (wr, &wo), (ex, &eo)] {
         if addr != 0 {
             let b: Vec<u8> = v.iter().flat_map(|w| w.to_le_bytes()).collect();
             c.write_mem(addr, &b)?;
         }
-        Ok(())
-    };
-    write_set(rd, &ro)?;
-    write_set(wr, &wo)?;
-    write_set(ex, &eo)?;
-    if timeout != 0 && n == 0 {
-        // Timed out: the remaining time is zero.
-        c.write_mem(timeout, &[0u8; 16])?;
     }
-    Ok(n)
+    Ok(Outcome::Return(count))
+}
+
+/// `select` (`struct timeval` timeout; microseconds beyond a second are
+/// carried into seconds, as `kern_select` does).
+pub fn select(
+    c: &mut Ctx<'_>,
+    nfds: i32,
+    rd: u64,
+    wr: u64,
+    ex: u64,
+    tvp: u64,
+) -> Result<Outcome, Errno> {
+    let (deadline, zero) = if tvp == 0 {
+        (None, false)
+    } else {
+        let b = c.read_mem(tvp, 16)?;
+        let sec = i64::from_le_bytes(b[..8].try_into().unwrap());
+        let usec = i64::from_le_bytes(b[8..].try_into().unwrap());
+        let (sec, nsec) = (
+            sec.checked_add(usec / 1_000_000).ok_or(Errno(EINVAL))?,
+            (usec % 1_000_000) * 1000,
+        );
+        (
+            Some(timeout_deadline(sec, nsec).ok_or(Errno(EINVAL))?),
+            sec == 0 && nsec == 0,
+        )
+    };
+    let result = core_sys_select(c, nfds, rd, wr, ex, deadline);
+    poll_select_finish(c, deadline, zero, tvp, TimeFormat::Timeval, result)
+}
+
+/// `pselect6`: `select` with a timespec timeout and a temporary signal mask
+/// passed as `{const sigset_t *ss; size_t ss_len;}`.
+pub fn pselect6(
+    c: &mut Ctx<'_>,
+    nfds: i32,
+    rd: u64,
+    wr: u64,
+    ex: u64,
+    tsp: u64,
+    sig: u64,
+) -> Result<Outcome, Errno> {
+    let (mask, size) = if sig != 0 {
+        let b = c.read_mem(sig, 16)?;
+        (
+            u64::from_le_bytes(b[..8].try_into().unwrap()),
+            u64::from_le_bytes(b[8..].try_into().unwrap()),
+        )
+    } else {
+        (0, 0)
+    };
+    let (deadline, zero) = if tsp == 0 {
+        (None, false)
+    } else {
+        let b = c.read_mem(tsp, 16)?;
+        let ts = super::super::abi::types::Timespec::decode(&b.try_into().unwrap());
+        (
+            Some(timeout_deadline(ts.sec, ts.nsec).ok_or(Errno(EINVAL))?),
+            ts.sec == 0 && ts.nsec == 0,
+        )
+    };
+    set_user_sigmask(c, mask, size)?;
+    let result = core_sys_select(c, nfds, rd, wr, ex, deadline);
+    poll_select_finish(c, deadline, zero, tsp, TimeFormat::Timespec, result)
 }
 
 /// `sendfile`.

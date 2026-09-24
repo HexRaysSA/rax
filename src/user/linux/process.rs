@@ -330,6 +330,8 @@ pub struct ProcState {
     /// `SIGNAL_UNKILLABLE`: the process is its PID namespace's init (PID 1)
     /// and default-action signals do not kill it.
     pub unkillable: bool,
+    /// Interval timers.
+    pub itimers: super::timers::Itimers,
 }
 
 /// A Linux thread.
@@ -356,6 +358,9 @@ pub struct Thread {
     pub syscall: Option<SyscallEntry>,
     /// Architectural fault record for signal frames.
     pub fault: FaultState,
+    /// How `restart_syscall` continues an interrupted call
+    /// (`restart_block`); `None` is `do_no_restart_syscall`.
+    pub restart: Option<syscall::RestartBlock>,
 }
 
 impl Thread {
@@ -373,6 +378,7 @@ impl Thread {
             saved_sigmask: None,
             syscall: None,
             fault: FaultState::default(),
+            restart: None,
         }
     }
 }
@@ -563,6 +569,7 @@ impl LinuxProcess {
             shared_pending: SigPending::new(),
             sigtramp,
             unkillable: pid == 1,
+            itimers: Default::default(),
         };
         Ok(LinuxProcess {
             state,

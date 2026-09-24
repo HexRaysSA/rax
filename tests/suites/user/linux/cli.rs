@@ -99,7 +99,9 @@ fn strace_logs_system_calls() {
 fn fatal_signals_are_reported() {
     let segv = fixtures().join("bin/x86_64/segv");
     let r = run(&[segv.to_str().unwrap()], &[], None, T);
-    assert_eq!(r.status, Some(139));
+    // A core-dumping signal is reported as the shell would (128 + N) with
+    // an exit, not re-raised, so no host crash report is produced.
+    assert_eq!((r.status, r.signal), (Some(139), None));
     assert!(
         r.stderr
             .contains("killed by SIGSEGV (si_code 1, address 0x8)"),
@@ -109,7 +111,7 @@ fn fatal_signals_are_reported() {
     // abort() sends SIGABRT with tkill: the report names the sender.
     let abort = fixtures().join("bin/aarch64/abort");
     let r = run(&[abort.to_str().unwrap()], &[], None, T);
-    assert_eq!(r.status, Some(134));
+    assert_eq!((r.status, r.signal), (Some(134), None));
     assert!(
         r.stderr
             .contains("killed by SIGABRT (si_code -6, sent by pid "),

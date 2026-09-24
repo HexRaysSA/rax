@@ -18,7 +18,9 @@
 //! | [`procfs`] | Synthesized `/proc` and `/sys` entries |
 //! | [`process`] | Processes, threads, and the execution loop |
 //! | [`syscall`] | System-call dispatch and handlers |
-//! | [`signal`] | Signal numbers and signal records |
+//! | [`signal`] | Signals: records, queues, frames, delivery |
+//! | [`timers`] | Interval timers |
+//! | [`wait`] | Blocking on descriptors, deadlines, and signals |
 //! | [`host`] | The host services `std` does not expose |
 
 pub mod abi;
@@ -31,6 +33,8 @@ pub mod procfs;
 pub mod signal;
 pub mod stack;
 pub mod syscall;
+pub mod timers;
+pub mod wait;
 
 #[cfg(test)]
 mod tests;

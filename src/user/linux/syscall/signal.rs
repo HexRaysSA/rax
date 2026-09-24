@@ -15,7 +15,8 @@ use super::super::signal::{
     AltStack, KERNEL_ONLY_MASK, SIG_DFL, SIG_IGN, SigInfo, code, default_ignored, minsigstksz,
     sigmask, uapi_sa_flags, valid_signal,
 };
-use super::{Ctx, Outcome, SysResult};
+use super::super::wait::{self, Wake};
+use super::{Ctx, Outcome, RestartBlock, SysResult};
 
 /// `sizeof(sigset_t)` in the kernel ABI.
 const SIGSET_SIZE: u64 = 8;
@@ -255,47 +256,15 @@ pub fn rt_tgsigqueueinfo(c: &mut Ctx<'_>, tgid: i32, tid: i32, sig: i32, uinfo: 
     send_specific(c, tgid, tid, sig, Some(info))
 }
 
-/// Whether a signal outside `blocked` is pending for the thread
-/// (`signal_pending` after `recalc_sigpending`).
-fn signal_pending(c: &Ctx<'_>, blocked: u64) -> bool {
-    c.t.pending.next(blocked).is_some() || c.p.shared_pending.next(blocked).is_some()
-}
-
-/// How an interruptible wait ended.
-enum Wake {
-    /// A signal became pending.
-    Signal,
-    /// The deadline passed.
-    Timeout,
-}
-
-/// Sleeps until a signal outside `blocked` is pending or `deadline`
-/// passes. Nothing but the thread itself generates signals in the emulated
-/// system, so a wait without a deadline can never end.
-fn wait_for_signal(c: &Ctx<'_>, blocked: u64, deadline: Option<Instant>) -> Result<Wake, String> {
-    if signal_pending(c, blocked) {
-        return Ok(Wake::Signal);
-    }
-    match deadline {
-        Some(at) => {
-            let now = Instant::now();
-            if at > now {
-                std::thread::sleep(at - now);
-            }
-            Ok(Wake::Timeout)
-        }
-        None => Err("the only thread waits for a signal that nothing can send".into()),
-    }
-}
-
 /// `sigsuspend`: waits with `set` as the mask and returns
 /// `-ERESTARTNOHAND`; the old mask comes back on the return to user mode
 /// unless a handler frame records it.
 fn sigsuspend(c: &mut Ctx<'_>, set: u64) -> Result<Outcome, Errno> {
     let saved = c.t.sigmask;
     c.t.sigmask = set & !KERNEL_ONLY_MASK;
-    if let Err(why) = wait_for_signal(c, c.t.sigmask, None) {
-        return Ok(Outcome::Fatal(why));
+    let blocked = c.t.sigmask;
+    if let Err(dead) = wait::block(c.p, c.t, &[], None, blocked) {
+        return Ok(Outcome::Fatal(dead.message()));
     }
     c.t.saved_sigmask = Some(saved);
     Ok(Outcome::Return(-(ERESTARTNOHAND as i64) as u64))
@@ -312,8 +281,9 @@ pub fn rt_sigsuspend(c: &mut Ctx<'_>, set: u64, size: u64) -> Result<Outcome, Er
 
 /// `pause` (x86-64).
 pub fn pause(c: &mut Ctx<'_>) -> Result<Outcome, Errno> {
-    if let Err(why) = wait_for_signal(c, c.t.sigmask, None) {
-        return Ok(Outcome::Fatal(why));
+    let blocked = c.t.sigmask;
+    if let Err(dead) = wait::block(c.p, c.t, &[], None, blocked) {
+        return Ok(Outcome::Fatal(dead.message()));
     }
     Ok(Outcome::Return(-(ERESTARTNOHAND as i64) as u64))
 }
@@ -343,21 +313,18 @@ pub fn rt_sigtimedwait(
     };
     // The waited-for signals count as unblocked for dequeueing.
     let mask = !these;
-    let dequeue = |c: &mut Ctx<'_>| {
-        c.t.pending
-            .dequeue(mask)
-            .or_else(|| c.p.shared_pending.dequeue(mask))
-    };
-    let mut got = dequeue(c);
+    let mut got = deliver::dequeue_signal(c.p, c.t, mask);
     if got.is_none() && timeout != Some(Duration::ZERO) {
         // While waiting, the set is also unblocked for wakeups.
         let deadline = timeout.map(|d| Instant::now() + d);
-        match wait_for_signal(c, c.t.sigmask & mask, deadline) {
-            Err(why) => return Ok(Outcome::Fatal(why)),
-            Ok(Wake::Signal) => got = dequeue(c),
-            Ok(Wake::Timeout) => {}
-        }
-        if got.is_none() && signal_pending(c, c.t.sigmask) {
+        let blocked = c.t.sigmask & mask;
+        let interrupted = match wait::block(c.p, c.t, &[], deadline, blocked) {
+            Err(dead) => return Ok(Outcome::Fatal(dead.message())),
+            Ok(Wake::Signal) => true,
+            Ok(_) => false,
+        };
+        got = deliver::dequeue_signal(c.p, c.t, mask);
+        if got.is_none() && interrupted {
             return Err(Errno(EINTR));
         }
     }
@@ -373,6 +340,8 @@ pub fn rt_sigtimedwait(
 /// `rt_sigreturn`: restores the frame at the stack pointer. On a bad frame
 /// the result register is zero and `SIGSEGV` is forced.
 pub fn rt_sigreturn(c: &mut Ctx<'_>) -> Result<Outcome, Errno> {
+    // "Always make any pending restarted system calls return -EINTR."
+    c.t.restart = None;
     match frame::rt_sigreturn(c.t, &c.p.space, minsigstksz(c.p.abi)) {
         Ok(()) => Ok(Outcome::Unchanged),
         Err(SigreturnError::Bad(bad)) => {
@@ -385,8 +354,18 @@ pub fn rt_sigreturn(c: &mut Ctx<'_>) -> Result<Outcome, Errno> {
     }
 }
 
-/// `restart_syscall`: no interrupted call ever leaves a restart block
-/// behind (`do_no_restart_syscall`).
-pub fn restart_syscall() -> SysResult {
-    Err(Errno(EINTR))
+/// `restart_syscall`: continues the interrupted call the thread's restart
+/// block describes; without one (`do_no_restart_syscall`) it is `-EINTR`.
+pub fn restart_syscall(c: &mut Ctx<'_>) -> Result<Outcome, Errno> {
+    match c.t.restart.take() {
+        Some(RestartBlock::Nanosleep { deadline, rmtp }) => {
+            super::time::nanosleep_restart(c, deadline, rmtp)
+        }
+        Some(RestartBlock::Poll {
+            fds,
+            nfds,
+            deadline,
+        }) => super::io::poll_restart(c, fds, nfds, deadline),
+        None => Err(Errno(EINTR)),
+    }
 }

@@ -1,0 +1,17 @@
+ok pause
+ok alarm-fired
+ok alarm-code-kernel
+ok periodic
+ok getitimer
+ok disarmed
+ok nanosleep-eintr
+ok nanosleep-remaining
+ok read-eintr
+ok read-restarted
+ok poll-eintr
+ok pselect-eintr
+ok pselect-time-left
+ok sigtimedwait-timer
+ok clock-nanosleep-thread-cpu
+ok clock-nanosleep-mono
+PASSED

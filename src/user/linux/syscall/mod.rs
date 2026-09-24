@@ -45,6 +45,29 @@ pub enum Outcome {
     Fatal(String),
 }
 
+/// How `restart_syscall` continues a call a signal interrupted
+/// (`struct restart_block`).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum RestartBlock {
+    /// `hrtimer_nanosleep_restart`: sleep until `deadline`, reporting the
+    /// remaining time through `rmtp` (when nonzero) on another interruption.
+    Nanosleep {
+        /// Absolute end of the sleep.
+        deadline: std::time::Instant,
+        /// `rmtp`.
+        rmtp: u64,
+    },
+    /// `do_restart_poll`: poll `fds` again until `deadline`.
+    Poll {
+        /// `struct pollfd` array.
+        fds: u64,
+        /// Entries.
+        nfds: u64,
+        /// Absolute timeout, if any.
+        deadline: Option<std::time::Instant>,
+    },
+}
+
 /// The value or error of an ordinary call.
 pub type SysResult = Result<u64, Errno>;
 
@@ -163,10 +186,10 @@ fn call(c: &mut Ctx<'_>, s: Sysno, a: [u64; 6]) -> Result<Outcome, Errno> {
         S::Ioctl => r(io::ioctl(c, fd(a[0]), a[1] as u32, a[2])),
         S::Pipe => r(io::pipe2(c, a[0], 0)),
         S::Pipe2 => r(io::pipe2(c, a[0], a[1] as u32)),
-        S::Poll => r(io::poll(c, a[0], a[1], a[2] as i32 as i64)),
-        S::Ppoll => r(io::ppoll(c, a[0], a[1], a[2])),
-        S::Select => r(io::select(c, a[0] as i32, a[1], a[2], a[3], a[4], false)),
-        S::Pselect6 => r(io::select(c, a[0] as i32, a[1], a[2], a[3], a[4], true)),
+        S::Poll => io::poll(c, a[0], a[1], a[2] as i32 as i64),
+        S::Ppoll => io::ppoll(c, a[0], a[1], a[2], a[3], a[4]),
+        S::Select => io::select(c, a[0] as i32, a[1], a[2], a[3], a[4]),
+        S::Pselect6 => io::pselect6(c, a[0] as i32, a[1], a[2], a[3], a[4], a[5]),
         S::Sendfile => r(io::sendfile(c, fd(a[0]), fd(a[1]), a[2], a[3])),
         S::CopyFileRange => r(io::copy_file_range(c, fd(a[0]), a[1], fd(a[2]), a[3], a[4])),
         S::Fsync | S::Fdatasync => r(io::fsync(c, fd(a[0]))),
@@ -378,14 +401,11 @@ fn call(c: &mut Ctx<'_>, s: Sysno, a: [u64; 6]) -> Result<Outcome, Errno> {
         S::ClockGetres => r(time::clock_getres(c, a[0] as i32, a[1])),
         S::Gettimeofday => r(time::gettimeofday(c, a[0], a[1])),
         S::Time => r(time::time(c, a[0])),
-        S::Nanosleep => r(time::nanosleep(c, a[0], a[1])),
-        S::ClockNanosleep => r(time::clock_nanosleep(
-            c,
-            a[0] as i32,
-            a[1] as u32,
-            a[2],
-            a[3],
-        )),
+        S::Nanosleep => time::nanosleep(c, a[0], a[1]),
+        S::Alarm => r(time::alarm(c, a[0] as u32)),
+        S::Getitimer => r(time::getitimer(c, a[0] as i32, a[1])),
+        S::Setitimer => r(time::setitimer(c, a[0] as i32, a[1], a[2])),
+        S::ClockNanosleep => time::clock_nanosleep(c, a[0] as i32, a[1] as u32, a[2], a[3]),
 
         // -------------------------------------------------------- signal
         S::RtSigaction => r(signal::rt_sigaction(c, a[0] as i32, a[1], a[2], a[3])),
@@ -407,7 +427,7 @@ fn call(c: &mut Ctx<'_>, s: Sysno, a: [u64; 6]) -> Result<Outcome, Errno> {
         S::Pause => signal::pause(c),
         S::RtSigtimedwait => signal::rt_sigtimedwait(c, a[0], a[1], a[2], a[3]),
         S::RtSigreturn => signal::rt_sigreturn(c),
-        S::RestartSyscall => r(signal::restart_syscall()),
+        S::RestartSyscall => signal::restart_syscall(c),
 
         // A single-threaded process has nothing to wait for; the caller's
         // futex word is re-checked on wake anyway.

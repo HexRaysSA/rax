@@ -434,6 +434,17 @@ impl FdTable {
             .ok_or(Errno(EBADF))
     }
 
+    /// `fdt->max_fds`: the table holds `BITS_PER_LONG` (64) descriptors
+    /// until one above that is allocated, then the smallest power of two
+    /// covering the highest descriptor ever allocated (`alloc_fdtable`).
+    pub fn max_fds(&self) -> usize {
+        if self.slots.len() <= 64 {
+            64
+        } else {
+            self.slots.len().next_power_of_two()
+        }
+    }
+
     /// Descriptors currently open, ascending.
     pub fn open_fds(&self) -> Vec<i32> {
         self.slots

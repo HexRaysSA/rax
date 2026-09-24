@@ -6,6 +6,8 @@
 //!   (`tests/fixtures/user/linux`) produce, byte for byte, the output and
 //!   exit status recorded on a real Linux kernel.
 //! - `cli`: command-line contract of the `rax-user` binary.
+//! - `host_signals`: signals sent to `rax-user` reach the guest, or act on
+//!   `rax-user` itself with `--no-signal-forwarding`.
 //!
 //! Run with:
 //!
@@ -17,5 +19,6 @@
 mod abi_tables;
 mod cli;
 mod fixtures;
+mod host_signals;
 mod sha256;
 mod support;

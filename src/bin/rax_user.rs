@@ -5,9 +5,13 @@
 //! ```
 //!
 //! The guest ABI (x86-64, AArch64, or RV64) is taken from the ELF header.
-//! The exit status is the guest's: its `exit` code, `128 + N` when a signal
-//! `N` killed it, 125 for an emulator failure, 126 when the program cannot
-//! be executed, and 127 when it cannot be found.
+//! The exit status is the guest's: its `exit` code; when a signal killed it,
+//! death by the same signal, or `128 + N` for a signal whose default action
+//! dumps core (so the host records no crash of the emulator) or that the
+//! host lacks; 125 for an emulator failure; 126 when the program cannot be
+//! executed; and 127 when it cannot be found. Asynchronous host signals
+//! (terminal interrupts, `kill` from other processes, window changes, ...)
+//! are forwarded to the guest.
 
 #[cfg(unix)]
 mod unix {
@@ -92,6 +96,11 @@ their interpreter and libraries through --sysroot, as with QEMU's -L.",
         /// Instructions per scheduling slice for AArch64 and RV64 guests.
         #[arg(long, value_name = "N")]
         slice: Option<u64>,
+        /// Leave host signals at their host dispositions instead of
+        /// forwarding them to the guest, and report every guest killed by a
+        /// signal with exit status 128 + N.
+        #[arg(long)]
+        no_signal_forwarding: bool,
         /// The Linux executable.
         #[arg(value_name = "PROGRAM")]
         program: PathBuf,
@@ -165,6 +174,12 @@ their interpreter and libraries through --sysroot, as with QEMU's -L.",
         if let Some(n) = cli.slice {
             config.slice_insns = n.max(1);
         }
+        if !cli.no_signal_forwarding
+            && let Err(e) = rax::user::linux::host::forward_host_signals()
+        {
+            eprintln!("rax-user: cannot forward host signals: {e:?}");
+            return 125;
+        }
         let mut process = match LinuxProcess::spawn(config, ImageFile::new(bytes, program.clone()))
         {
             Ok(p) => p,
@@ -176,6 +191,18 @@ their interpreter and libraries through --sysroot, as with QEMU's -L.",
         let status = process.run();
         if !matches!(status, ExitStatus::Exited(_)) {
             eprintln!("rax-user: {program}: {status}");
+        }
+        if let ExitStatus::Signaled { info, core, .. } = &status
+            && !cli.no_signal_forwarding
+            && !core
+        {
+            // Die by the guest's signal so the parent sees a signal death.
+            // Core-dumping signals are reported as 128 + N instead, so the
+            // host records no crash of the emulator.
+            use std::io::Write;
+            let _ = std::io::stdout().flush();
+            let _ = std::io::stderr().flush();
+            rax::user::linux::host::die_by_signal(info.signo);
         }
         status.shell_code()
     }

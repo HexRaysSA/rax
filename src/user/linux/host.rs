@@ -255,6 +255,13 @@ pub struct Readiness {
     pub error: bool,
 }
 
+impl Readiness {
+    /// Whether any condition is reported.
+    pub fn any(&self) -> bool {
+        self.readable || self.writable || self.hangup || self.error
+    }
+}
+
 /// Polls host descriptors for readiness, waiting at most `timeout_ms`
 /// milliseconds (negative waits indefinitely).
 pub fn poll(fds: &[(i32, bool, bool)], timeout_ms: i32) -> Result<Vec<Readiness>, Errno> {
@@ -336,5 +343,247 @@ mod tests {
         assert!(ready[0].readable);
         assert_eq!(bytes_readable(&r).unwrap(), 1);
         set_nonblocking(&r, true).unwrap();
+    }
+}
+
+// ---------------------------------------------------------------------
+// Host signals
+// ---------------------------------------------------------------------
+
+/// Linux signal numbers and the host's numbers for the same signals. The
+/// numbering differs between Linux and other Unix hosts (for example
+/// `SIGUSR1` is 10 on Linux and 30 on macOS).
+const SIGNAL_MAP: &[(i32, libc::c_int)] = &[
+    (1, libc::SIGHUP),
+    (2, libc::SIGINT),
+    (3, libc::SIGQUIT),
+    (4, libc::SIGILL),
+    (5, libc::SIGTRAP),
+    (6, libc::SIGABRT),
+    (7, libc::SIGBUS),
+    (8, libc::SIGFPE),
+    (9, libc::SIGKILL),
+    (10, libc::SIGUSR1),
+    (11, libc::SIGSEGV),
+    (12, libc::SIGUSR2),
+    (13, libc::SIGPIPE),
+    (14, libc::SIGALRM),
+    (15, libc::SIGTERM),
+    (17, libc::SIGCHLD),
+    (18, libc::SIGCONT),
+    (19, libc::SIGSTOP),
+    (20, libc::SIGTSTP),
+    (21, libc::SIGTTIN),
+    (22, libc::SIGTTOU),
+    (23, libc::SIGURG),
+    (24, libc::SIGXCPU),
+    (25, libc::SIGXFSZ),
+    (26, libc::SIGVTALRM),
+    (27, libc::SIGPROF),
+    (28, libc::SIGWINCH),
+    (29, libc::SIGIO),
+    (31, libc::SIGSYS),
+];
+
+/// The host signals forwarded to the guest: the asynchronous signals other
+/// processes, the terminal, and host resource limits send. Fault signals
+/// (`SIGSEGV`, `SIGBUS`, `SIGILL`, `SIGFPE`, `SIGTRAP`) and `SIGABRT` keep
+/// their host dispositions: on the host they mean the emulator itself
+/// failed. `SIGPIPE` stays ignored (the personality raises the guest's
+/// `SIGPIPE` itself) and `SIGCHLD` has no guest children to report.
+const FORWARDED: &[i32] = &[
+    1, 2, 3, 10, 12, 14, 15, 18, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29,
+];
+
+/// The host `si_code` values of a signal another process sent with `kill`.
+/// XNU's header defines `SI_USER` as 0x10001, but its `kill(2)` delivers
+/// `si_code` 0 (observed on Darwin 27.0.0); both are accepted.
+#[cfg(target_vendor = "apple")]
+const HOST_SI_USER: [libc::c_int; 2] = [0, 0x10001];
+#[cfg(not(target_vendor = "apple"))]
+const HOST_SI_USER: [libc::c_int; 1] = [libc::SI_USER];
+
+/// The host signal number of Linux signal `sig`.
+pub fn host_signal(sig: i32) -> Option<libc::c_int> {
+    SIGNAL_MAP.iter().find(|&&(l, _)| l == sig).map(|&(_, h)| h)
+}
+
+/// The Linux signal number of host signal `host`.
+pub fn linux_signal(host: libc::c_int) -> Option<i32> {
+    SIGNAL_MAP
+        .iter()
+        .find(|&&(_, h)| h == host)
+        .map(|&(l, _)| l)
+}
+
+use std::sync::atomic::{AtomicI32, AtomicU64, Ordering};
+
+/// Linux-numbered bits of forwarded signals received and not yet taken.
+static HOST_PENDING: AtomicU64 = AtomicU64::new(0);
+/// Per signal, the sender as `pid << 32 | uid` and a flag in bit 63's
+/// place: whether the host reported a `kill` from a process.
+static HOST_SENDER: [AtomicU64; 64] = [const { AtomicU64::new(0) }; 64];
+/// The write end of the wake pipe (-1 before installation).
+static WAKE_WRITE: AtomicI32 = AtomicI32::new(-1);
+/// The read end of the wake pipe.
+static WAKE_READ: AtomicI32 = AtomicI32::new(-1);
+
+#[cfg(target_vendor = "apple")]
+fn errno_location() -> *mut libc::c_int {
+    // SAFETY: returns the calling thread's errno slot; always valid.
+    unsafe { libc::__error() }
+}
+
+#[cfg(not(target_vendor = "apple"))]
+fn errno_location() -> *mut libc::c_int {
+    // SAFETY: returns the calling thread's errno slot; always valid.
+    unsafe { libc::__errno_location() }
+}
+
+/// The handler of forwarded host signals. It is async-signal-safe: it
+/// only touches lock-free atomics and calls `write(2)`, and it preserves
+/// `errno` for the interrupted code.
+extern "C" fn on_host_signal(host: libc::c_int, info: *mut libc::siginfo_t, _: *mut libc::c_void) {
+    let Some(sig) = linux_signal(host) else {
+        return;
+    };
+    let errno = errno_location();
+    // SAFETY: the kernel passes a valid siginfo_t for SA_SIGINFO handlers;
+    // errno_location is the thread's errno slot.
+    let (saved, code, pid, uid) =
+        unsafe { (*errno, (*info).si_code, (*info).si_pid(), (*info).si_uid()) };
+    let from_process = HOST_SI_USER.contains(&code) && pid > 0;
+    let packed = if from_process {
+        (1 << 63) | ((pid as u64 & 0x7fff_ffff) << 32) | u64::from(uid)
+    } else {
+        0
+    };
+    HOST_SENDER[(sig - 1) as usize].store(packed, Ordering::Relaxed);
+    HOST_PENDING.fetch_or(1 << (sig - 1), Ordering::SeqCst);
+    let fd = WAKE_WRITE.load(Ordering::Relaxed);
+    if fd >= 0 {
+        let byte = 1u8;
+        // SAFETY: write(2) is async-signal-safe; `byte` is valid for one
+        // byte. A full pipe (EAGAIN) already wakes its reader.
+        unsafe {
+            libc::write(fd, (&raw const byte).cast(), 1);
+        }
+    }
+    // SAFETY: as above.
+    unsafe {
+        *errno = saved;
+    }
+}
+
+/// Installs the forwarding handler for [`FORWARDED`] signals and creates the
+/// wake pipe. Handlers are installed without `SA_RESTART`, so a blocking
+/// host call returns `EINTR` and a wait on the wake pipe ends. Calling it
+/// again has no effect.
+pub fn forward_host_signals() -> Result<(), Errno> {
+    if WAKE_READ.load(Ordering::SeqCst) >= 0 {
+        return Ok(());
+    }
+    let mut fds = [0 as libc::c_int; 2];
+    // SAFETY: `fds` is a valid two-element array; F_SETFL/F_SETFD take
+    // integer flags on the descriptors pipe(2) just returned.
+    unsafe {
+        if libc::pipe(fds.as_mut_ptr()) != 0 {
+            return Err(last_errno());
+        }
+        for fd in fds {
+            libc::fcntl(
+                fd,
+                libc::F_SETFL,
+                libc::fcntl(fd, libc::F_GETFL) | libc::O_NONBLOCK,
+            );
+            libc::fcntl(fd, libc::F_SETFD, libc::FD_CLOEXEC);
+        }
+    }
+    WAKE_READ.store(fds[0], Ordering::SeqCst);
+    WAKE_WRITE.store(fds[1], Ordering::SeqCst);
+    for &sig in FORWARDED {
+        let Some(host) = host_signal(sig) else {
+            continue;
+        };
+        // SAFETY: `sa` is fully initialized (zeroed, then handler, flags,
+        // and an empty mask set); the handler has the SA_SIGINFO signature.
+        unsafe {
+            let mut sa: libc::sigaction = std::mem::zeroed();
+            sa.sa_sigaction = on_host_signal as usize;
+            sa.sa_flags = libc::SA_SIGINFO;
+            libc::sigemptyset(&mut sa.sa_mask);
+            if libc::sigaction(host, &sa, std::ptr::null_mut()) != 0 {
+                return Err(last_errno());
+            }
+        }
+    }
+    Ok(())
+}
+
+/// The read end of the wake pipe, once [`forward_host_signals`] ran.
+pub fn wake_fd() -> Option<i32> {
+    let fd = WAKE_READ.load(Ordering::SeqCst);
+    (fd >= 0).then_some(fd)
+}
+
+/// Empties the wake pipe.
+pub fn drain_wake() {
+    let Some(fd) = wake_fd() else {
+        return;
+    };
+    let mut buf = [0u8; 64];
+    // SAFETY: `buf` is writable for its length; the descriptor is the
+    // non-blocking wake pipe this module owns.
+    while unsafe { libc::read(fd, buf.as_mut_ptr().cast(), buf.len()) } > 0 {}
+}
+
+/// A forwarded host signal: the Linux number and, when another process
+/// sent it with `kill`, that process's PID and real UID.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct HostSignal {
+    /// Linux signal number.
+    pub sig: i32,
+    /// `(pid, uid)` of a sending process.
+    pub sender: Option<(i32, u32)>,
+}
+
+/// Takes the forwarded signals received since the last call, lowest number
+/// first.
+pub fn take_host_signals() -> Vec<HostSignal> {
+    let pending = HOST_PENDING.swap(0, Ordering::SeqCst);
+    (0..64)
+        .filter(|i| pending & (1 << i) != 0)
+        .map(|i| {
+            let packed = HOST_SENDER[i].load(Ordering::Relaxed);
+            let sender =
+                (packed >> 63 != 0).then(|| (((packed >> 32) & 0x7fff_ffff) as i32, packed as u32));
+            HostSignal {
+                sig: i as i32 + 1,
+                sender,
+            }
+        })
+        .collect()
+}
+
+/// Ends the emulator process by Linux signal `sig` as the guest was ended,
+/// so the parent observes a signal death: the host disposition is reset,
+/// the signal unblocked, and the signal raised. Returns only if the host
+/// has no equivalent signal or the process survived it. Callers use it for
+/// signals whose default action does not dump core: a core-dumping death of
+/// the emulator would make the host record a crash report or core of the
+/// emulator itself (macOS ReportCrash, a piped `core_pattern`).
+pub fn die_by_signal(sig: i32) {
+    let Some(host) = host_signal(sig) else {
+        return;
+    };
+    // SAFETY: plain integer and fully initialized sigset arguments; the
+    // process is about to terminate.
+    unsafe {
+        libc::signal(host, libc::SIG_DFL);
+        let mut set: libc::sigset_t = std::mem::zeroed();
+        libc::sigemptyset(&mut set);
+        libc::sigaddset(&mut set, host);
+        libc::pthread_sigmask(libc::SIG_UNBLOCK, &set, std::ptr::null_mut());
+        libc::raise(host);
     }
 }

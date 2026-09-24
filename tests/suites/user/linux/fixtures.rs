@@ -81,10 +81,10 @@ fn overrides() -> BTreeMap<(String, String), String> {
 
 #[test]
 fn fixture_binaries_match_manifest() {
+    // Every binary is listed with its hash, and every case's program exists
+    // for every architecture (hostsig, driven by the CLI tests, has no
+    // recorded case).
     let m = manifest();
-    let programs: std::collections::BTreeSet<String> =
-        cases().into_iter().map(|c| c.program).collect();
-    assert_eq!(m.len(), ARCHES.len() * programs.len(), "manifest entries");
     for (path, want) in &m {
         let bytes = std::fs::read(fixtures().join(path)).unwrap();
         assert_eq!(
@@ -93,6 +93,17 @@ fn fixture_binaries_match_manifest() {
             "{path} does not match manifest.toml"
         );
     }
+    for case in cases() {
+        for arch in ARCHES {
+            let path = format!("bin/{arch}/{}", case.program);
+            assert!(m.contains_key(&path), "{path} is not in manifest.toml");
+        }
+    }
+    assert_eq!(
+        m.len() % ARCHES.len(),
+        0,
+        "every program is built for every architecture"
+    );
 }
 
 #[test]

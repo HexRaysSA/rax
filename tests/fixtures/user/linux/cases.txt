@@ -8,6 +8,7 @@ memory   memory   -
 mman     mman     -
 process  process  -
 signals  signals  -
+timers   timers   -
 stdin    stdin    input/fox.txt
 segv     segv     -
 abort    abort    -

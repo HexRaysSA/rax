@@ -39,6 +39,18 @@ target = "x86_64-linux-musl"
 sha256 = "00496209f4c1a3f2ef52ca5c09ae4650942b221b7f82adfdd85fea8ad4909388"
 
 [[fixture]]
+path = "bin/x86_64/timers"
+source = "src/timers.c"
+target = "x86_64-linux-musl"
+sha256 = "cb9c8406fcd34063555ffb8e10e06c0d0a2e5782ede1622f83bbbf73e62a481c"
+
+[[fixture]]
+path = "bin/x86_64/hostsig"
+source = "src/hostsig.c"
+target = "x86_64-linux-musl"
+sha256 = "d554045c62950d234d02a5e9aefe80262439368528492a007b10c8170cc10b18"
+
+[[fixture]]
 path = "bin/x86_64/stdin"
 source = "src/stdin.c"
 target = "x86_64-linux-musl"
@@ -99,6 +111,18 @@ target = "aarch64-linux-musl"
 sha256 = "c2bcd957ec0235c2369abb26053ea21e9027fd6479dcbd03963bb06f8793f8cc"
 
 [[fixture]]
+path = "bin/aarch64/timers"
+source = "src/timers.c"
+target = "aarch64-linux-musl"
+sha256 = "adb9860cea372a698da8461eef450e16b10421af87bf8ff44e3265c1a4908736"
+
+[[fixture]]
+path = "bin/aarch64/hostsig"
+source = "src/hostsig.c"
+target = "aarch64-linux-musl"
+sha256 = "f5e195fa55df1f83d5a8275154ced0ebd6e023f4ad4e095d94d2eb37c4fe39aa"
+
+[[fixture]]
 path = "bin/aarch64/stdin"
 source = "src/stdin.c"
 target = "aarch64-linux-musl"
@@ -157,6 +181,18 @@ path = "bin/riscv64/signals"
 source = "src/signals.c"
 target = "riscv64-linux-musl"
 sha256 = "2acf83c15cdbfb94065bd3747dafc224784a959f0e8dc471d10a6723c4be7ddb"
+
+[[fixture]]
+path = "bin/riscv64/timers"
+source = "src/timers.c"
+target = "riscv64-linux-musl"
+sha256 = "90e13a9ea5a187a10f9361492474f443e764c9c29967e6ff4312977d4830f8c0"
+
+[[fixture]]
+path = "bin/riscv64/hostsig"
+source = "src/hostsig.c"
+target = "riscv64-linux-musl"
+sha256 = "53b6a76426c609a3d0301ff5a00c8eaea6248b18b86d0c8c867f50d5b8610caa"
 
 [[fixture]]
 path = "bin/riscv64/stdin"

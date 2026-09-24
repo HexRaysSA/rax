@@ -22,8 +22,25 @@ pub struct Run {
     pub stdout: Vec<u8>,
     /// Standard error.
     pub stderr: String,
-    /// Exit status (`None` if killed by a host signal or timed out).
+    /// Exit status as a shell reports it: the exit code, or `128 + N` when
+    /// the process died of Linux signal `N` (the recorded Linux results
+    /// report signal deaths the same way). `None` if it timed out.
     pub status: Option<i32>,
+    /// The Linux number of the signal that killed the process, if one did.
+    pub signal: Option<i32>,
+}
+
+/// A host wait status as `(shell status, Linux signal)`.
+pub fn shell_status(s: std::process::ExitStatus) -> (Option<i32>, Option<i32>) {
+    use std::os::unix::process::ExitStatusExt;
+    match (s.code(), s.signal()) {
+        (Some(code), _) => (Some(code), None),
+        (None, Some(host)) => {
+            let linux = rax::user::linux::host::linux_signal(host).unwrap_or(host);
+            (Some(128 + linux), Some(linux))
+        }
+        (None, None) => (None, None),
+    }
 }
 
 /// Runs `rax-user` with `args`, extra environment, and `stdin`, killing it
@@ -54,14 +71,14 @@ pub fn run(args: &[&str], env: &[(&str, &str)], stdin: Option<&Path>, timeout: D
         v
     });
     let start = Instant::now();
-    let status = loop {
+    let (status, signal) = loop {
         if let Some(s) = child.try_wait().expect("wait") {
-            break s.code();
+            break shell_status(s);
         }
         if start.elapsed() > timeout {
             let _ = child.kill();
             let _ = child.wait();
-            break None;
+            break (None, None);
         }
         std::thread::sleep(Duration::from_millis(5));
     };
@@ -71,6 +88,7 @@ pub fn run(args: &[&str], env: &[(&str, &str)], stdin: Option<&Path>, timeout: D
         stdout,
         stderr,
         status,
+        signal,
     }
 }
 

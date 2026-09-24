@@ -153,6 +153,43 @@ pub fn force_sigsegv(p: &mut ProcState, t: &mut Thread, sig: i32) {
     force_signal(p, t, SigInfo::kernel(SIGSEGV), mode);
 }
 
+/// Generates the signals of events outside the process: forwarded host
+/// signals (`SI_USER` with the sender when another process sent them with
+/// `kill`, else `SI_KERNEL`, as terminal-generated signals are) and expired
+/// interval timers (`SEND_SIG_PRIV`).
+pub fn collect_async(p: &mut ProcState, t: &mut Thread) {
+    for hs in crate::user::linux::host::take_host_signals() {
+        let info = match hs.sender {
+            Some((pid, uid)) => SigInfo::kill(hs.sig, super::code::SI_USER, pid, uid),
+            None => SigInfo::kernel(hs.sig),
+        };
+        let force = info.code == super::code::SI_KERNEL;
+        send_signal(p, t, info, false, force);
+    }
+    if p.itimers.next_deadline().is_some() || p.itimers.cpu_armed() {
+        let fired = p.itimers.expire(
+            std::time::Instant::now(),
+            crate::user::linux::timers::cpu_samples,
+        );
+        for sig in fired {
+            send_signal(p, t, SigInfo::kernel(sig), false, true);
+        }
+    }
+}
+
+/// `dequeue_signal`: the thread's pending signals, then the process's; a
+/// `SIGALRM` taken from the process queue re-arms `ITIMER_REAL`.
+pub fn dequeue_signal(p: &mut ProcState, t: &mut Thread, blocked: u64) -> Option<SigInfo> {
+    if let Some(info) = t.pending.dequeue(blocked) {
+        return Some(info);
+    }
+    let info = p.shared_pending.dequeue(blocked)?;
+    if info.signo == super::SIGALRM {
+        p.itimers.rearm_real(std::time::Instant::now());
+    }
+    Some(info)
+}
+
 /// What `get_signal` found.
 enum Next {
     /// Nothing deliverable.
@@ -179,7 +216,9 @@ fn trace_signal(tid: i32, info: &SigInfo) {
 impl LinuxProcess {
     /// Whether thread `idx` has work at its return to user mode: a signal
     /// it does not block, a system call to finish, or a mask to restore.
-    fn signal_work(&self, idx: usize) -> bool {
+    /// Signals of external events are generated first.
+    fn signal_work(&mut self, idx: usize) -> bool {
+        collect_async(&mut self.state, &mut self.threads[idx]);
         let t = &self.threads[idx];
         t.syscall.is_some()
             || t.saved_sigmask.is_some()
@@ -192,11 +231,11 @@ impl LinuxProcess {
     fn get_signal(&mut self, idx: usize) -> Next {
         loop {
             let (p, t) = (&mut self.state, &mut self.threads[idx]);
-            let info = t
-                .pending
-                .dequeue_synchronous(t.sigmask)
-                .or_else(|| t.pending.dequeue(t.sigmask))
-                .or_else(|| p.shared_pending.dequeue(t.sigmask));
+            let blocked = t.sigmask;
+            let info = match t.pending.dequeue_synchronous(blocked) {
+                Some(info) => Some(info),
+                None => dequeue_signal(p, t, blocked),
+            };
             let Some(info) = info else {
                 return Next::None;
             };
