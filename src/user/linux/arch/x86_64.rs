@@ -8,8 +8,11 @@
 //! - Exceptions become signals as in `arch/x86/kernel/traps.c`.
 
 use super::{ArchCaps, CpuEvent, fault_signal};
+use crate::error::MemoryAccessKind;
 use crate::isa::x86_64::{X86EventSource, X86SyscallInsn, X86UserEvent};
 use crate::user::cpu::x86_64::{X86Exit, X86UserCpu};
+use crate::user::cpu::{AccessFault, AccessFaultKind};
+use crate::user::linux::signal::frame::FaultUpdate;
 use crate::user::linux::signal::{SIGBUS, SIGFPE, SIGILL, SIGSEGV, SIGTRAP, SigInfo, code};
 
 /// `sizeof(struct rt_sigframe)` on x86-64: `pretcode` (8) + `struct
@@ -99,6 +102,42 @@ fn event_signal(e: &X86UserEvent, mxcsr: u32) -> Result<SigInfo, ()> {
     }
 }
 
+/// The `thread.trap_nr`/`thread.error_code` a trap leaves (`do_trap`,
+/// `gp_user_force_sig_segv`, `math_error`): a DPL-0 `INT n` gate is
+/// #GP(n * 8 + 2).
+pub(crate) fn trap_record(e: &X86UserEvent) -> FaultUpdate {
+    let (trap_nr, error_code) = match (e.source, e.vector) {
+        (X86EventSource::SoftwareInterrupt, v) if v != 3 && v != 4 => (13, u64::from(v) * 8 + 2),
+        (_, v @ (16 | 19)) => (u64::from(v), 0),
+        (_, v) => (u64::from(v), e.error_code.unwrap_or(0)),
+    };
+    FaultUpdate::X86 {
+        trap_nr,
+        error_code,
+        cr2: None,
+    }
+}
+
+/// `set_signal_archinfo` for a page fault: vector 14, the #PF error code
+/// (P for protection violations, W for writes, U always, I for
+/// instruction fetches; P is forced at or above `TASK_SIZE_MAX`), and cr2.
+pub(crate) fn page_fault_record(f: &AccessFault) -> FaultUpdate {
+    let mut error_code = 1 << 2;
+    if f.kind == AccessFaultKind::Permission || f.addr >= (1 << 47) - 4096 {
+        error_code |= 1;
+    }
+    match f.access {
+        MemoryAccessKind::Write => error_code |= 1 << 1,
+        MemoryAccessKind::Fetch => error_code |= 1 << 4,
+        MemoryAccessKind::Read => {}
+    }
+    FaultUpdate::X86 {
+        trap_nr: 14,
+        error_code,
+        cr2: Some(f.addr),
+    }
+}
+
 /// Runs one time slice.
 pub fn run(cpu: &mut X86UserCpu) -> CpuEvent {
     match cpu.run() {
@@ -120,7 +159,14 @@ pub fn run(cpu: &mut X86UserCpu) -> CpuEvent {
             // 32-bit compat path with a vDSO-relative return on Intel, which a
             // vDSO-less process cannot use; report it as the #UD it is on AMD.
             cpu.vcpu_mut().user_regs_mut().rip = insn_rip;
-            CpuEvent::Signal(SigInfo::fault(SIGILL, code::ILL_ILLOPN, insn_rip))
+            CpuEvent::Signal(
+                SigInfo::fault(SIGILL, code::ILL_ILLOPN, insn_rip),
+                FaultUpdate::X86 {
+                    trap_nr: 6,
+                    error_code: 0,
+                    cr2: None,
+                },
+            )
         }
         X86Exit::Event(e) if e.source == X86EventSource::SoftwareInterrupt && e.vector == 0x80 => {
             let r = cpu.vcpu_mut().user_regs_mut();
@@ -149,11 +195,11 @@ pub fn run(cpu: &mut X86UserCpu) -> CpuEvent {
                     _ => e.return_rip,
                 };
                 cpu.vcpu_mut().user_regs_mut().rip = rip;
-                CpuEvent::Signal(info)
+                CpuEvent::Signal(info, trap_record(&e))
             }
             Err(()) => CpuEvent::Internal(format!("unexpected x86 event {e:?}")),
         },
-        X86Exit::Fault(f) => CpuEvent::Signal(fault_signal(&f)),
+        X86Exit::Fault(f) => CpuEvent::Signal(fault_signal(&f), page_fault_record(&f)),
         X86Exit::Yield => CpuEvent::Yield,
         X86Exit::Internal(e) => CpuEvent::Internal(e.to_string()),
     }

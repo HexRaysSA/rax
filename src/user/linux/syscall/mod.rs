@@ -28,7 +28,6 @@ use super::abi::Sysno;
 use super::abi::errno::Errno;
 use super::abi::errno_table::*;
 use super::process::{ProcState, Thread};
-use super::signal::SigInfo;
 
 /// What a system call did to its thread.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -41,12 +40,6 @@ pub enum Outcome {
     ExitThread(i32),
     /// The process exits with this code (`exit_group`).
     ExitGroup(i32),
-    /// Deliver this synchronous signal to the thread (the call itself
-    /// faulted); it cannot be blocked or ignored.
-    Signal(SigInfo),
-    /// Send this signal to the process (`kill`, `tgkill`); dispositions and
-    /// the signal mask apply.
-    Kill(SigInfo),
     /// The process cannot continue (for example every thread would block
     /// forever); the process ends with an emulator diagnostic.
     Fatal(String),
@@ -399,9 +392,22 @@ fn call(c: &mut Ctx<'_>, s: Sysno, a: [u64; 6]) -> Result<Outcome, Errno> {
         S::RtSigprocmask => r(signal::rt_sigprocmask(c, a[0] as i32, a[1], a[2], a[3])),
         S::Sigaltstack => r(signal::sigaltstack(c, a[0], a[1])),
         S::RtSigpending => r(signal::rt_sigpending(c, a[0], a[1])),
-        S::Kill => signal::kill(c, a[0] as i32, a[1] as i32),
-        S::Tkill => signal::tgkill(c, c.p.pid, a[0] as i32, a[1] as i32),
-        S::Tgkill => signal::tgkill(c, a[0] as i32, a[1] as i32, a[2] as i32),
+        S::Kill => r(signal::kill(c, a[0] as i32, a[1] as i32)),
+        S::Tkill => r(signal::tkill(c, a[0] as i32, a[1] as i32)),
+        S::Tgkill => r(signal::tgkill(c, a[0] as i32, a[1] as i32, a[2] as i32)),
+        S::RtSigqueueinfo => r(signal::rt_sigqueueinfo(c, a[0] as i32, a[1] as i32, a[2])),
+        S::RtTgsigqueueinfo => r(signal::rt_tgsigqueueinfo(
+            c,
+            a[0] as i32,
+            a[1] as i32,
+            a[2] as i32,
+            a[3],
+        )),
+        S::RtSigsuspend => signal::rt_sigsuspend(c, a[0], a[1]),
+        S::Pause => signal::pause(c),
+        S::RtSigtimedwait => signal::rt_sigtimedwait(c, a[0], a[1], a[2], a[3]),
+        S::RtSigreturn => signal::rt_sigreturn(c),
+        S::RestartSyscall => r(signal::restart_syscall()),
 
         // A single-threaded process has nothing to wait for; the caller's
         // futex word is re-checked on wake anyway.
@@ -423,6 +429,30 @@ pub fn dispatch(p: &mut ProcState, t: &mut Thread, nr: u64, args: [u64; 6]) -> O
         Some(s) => call(&mut c, s, args),
         None => Err(Errno(ENOSYS)),
     };
+    // pipe_write and the socket send paths: EPIPE comes with SIGPIPE
+    // (send_sig with SEND_SIG_NOINFO: SI_USER from the writer itself).
+    if matches!(result, Err(Errno(EPIPE)))
+        && matches!(
+            sysno,
+            Some(
+                Sysno::Write
+                    | Sysno::Writev
+                    | Sysno::Pwritev2
+                    | Sysno::Sendfile
+                    | Sysno::Splice
+                    | Sysno::Tee
+                    | Sysno::Vmsplice
+            )
+        )
+    {
+        let info = super::signal::SigInfo::kill(
+            super::signal::SIGPIPE,
+            super::signal::code::SI_USER,
+            c.p.pid,
+            c.p.creds.0,
+        );
+        super::signal::deliver::send_signal(c.p, c.t, info, false, false);
+    }
     let outcome = match result {
         Ok(o) => o,
         Err(e) => Outcome::Return(e.as_return()),
@@ -456,6 +486,15 @@ fn trace(tid: i32, sysno: Option<Sysno>, nr: u64, args: &[u64; 6], outcome: &Out
         .collect::<Vec<_>>()
         .join(", ");
     let result = match outcome {
+        // Kernel-internal restart codes, as strace shows them.
+        Outcome::Return(v) if super::signal::deliver::restart::is_restart(*v) => {
+            match -(*v as i64) {
+                512 => "? ERESTARTSYS (To be restarted if SA_RESTART is set)".into(),
+                513 => "? ERESTARTNOINTR (To be restarted)".into(),
+                514 => "? ERESTARTNOHAND (To be restarted if no handler)".into(),
+                _ => "? ERESTART_RESTARTBLOCK (Interrupted by signal)".into(),
+            }
+        }
         Outcome::Return(v) if (*v as i64) < 0 && (*v as i64) >= -4095 => {
             let e = Errno(-(*v as i64) as i32);
             format!("-1 {}", e.name())
@@ -463,9 +502,6 @@ fn trace(tid: i32, sysno: Option<Sysno>, nr: u64, args: &[u64; 6], outcome: &Out
         Outcome::Return(v) => format!("{v:#x}"),
         Outcome::Unchanged => "?".into(),
         Outcome::ExitThread(code) | Outcome::ExitGroup(code) => format!("? (exit {code})"),
-        Outcome::Signal(info) | Outcome::Kill(info) => {
-            format!("? ({})", super::signal::signal_name(info.signo))
-        }
         Outcome::Fatal(why) => format!("? ({why})"),
     };
     eprintln!("[{tid}] {name}({args}) = {result}");

@@ -16,7 +16,9 @@ use super::arch::{CpuEvent, CpuOptions, GuestCpu};
 use super::fs::Vfs;
 use super::fs::fd::{FdTable, FileObject, FileType, NOFILE_HARD, NOFILE_SOFT, OpenFile};
 use super::loader::{ImageFile, LoadError, LoadedProgram, load_program};
-use super::signal::{SigInfo, default_dumps_core, signal_name};
+use super::signal::deliver::SyscallEntry;
+use super::signal::frame::FaultState;
+use super::signal::{AltStack, SigInfo, SigPending, signal_name};
 use super::stack::{AuxInfo, InitialStack, StackError, map_stack, write_initial_stack};
 use super::syscall;
 use crate::user::cpu::x86_64::RESERVED_PHYS;
@@ -98,7 +100,9 @@ pub enum ExitStatus {
         info: SigInfo,
         /// PC of the thread that received it.
         pc: u64,
-        /// Whether the default action dumps core.
+        /// Whether the signal's default action is to dump core
+        /// (`sig_kernel_coredump`). No core file is written: the default
+        /// `RLIMIT_CORE` soft limit is zero.
         core: bool,
     },
     /// The emulator could not continue.
@@ -120,15 +124,26 @@ impl std::fmt::Display for ExitStatus {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             ExitStatus::Exited(code) => write!(f, "exited with status {}", code & 0xff),
-            ExitStatus::Signaled { info, pc, core } => write!(
-                f,
-                "killed by {} (si_code {}, address {:#x}) at pc {:#x}{}",
-                signal_name(info.signo),
-                info.code,
-                info.addr,
-                pc,
-                if *core { ", core dumped" } else { "" }
-            ),
+            ExitStatus::Signaled { info, pc, core } => {
+                write!(
+                    f,
+                    "killed by {} (si_code {}",
+                    signal_name(info.signo),
+                    info.code
+                )?;
+                // Faults carry si_addr; signals sent by a process carry its
+                // PID (SI_USER, SI_TKILL, SI_QUEUE, ...).
+                if info.code > 0 && info.code != super::signal::code::SI_KERNEL {
+                    write!(f, ", address {:#x}", info.addr())?;
+                } else if info.code <= 0 {
+                    write!(f, ", sent by pid {}", info.pid())?;
+                }
+                write!(
+                    f,
+                    ") at pc {pc:#x}{}",
+                    if *core { "; core not dumped" } else { "" }
+                )
+            }
             ExitStatus::Internal(why) => write!(f, "emulator error: {why}"),
         }
     }
@@ -306,6 +321,15 @@ pub struct ProcState {
     pub pdeathsig: i32,
     /// `prctl(PR_SET_TIMERSLACK)` value in nanoseconds.
     pub timerslack: u64,
+    /// Signals pending for the process (`signal->shared_pending`).
+    pub shared_pending: SigPending,
+    /// Address of the signal-return trampoline in the `[vdso]` page (arm64
+    /// `__kernel_rt_sigreturn`, riscv `__vdso_rt_sigreturn`); zero on x86-64,
+    /// whose handlers must supply `SA_RESTORER`.
+    pub sigtramp: u64,
+    /// `SIGNAL_UNKILLABLE`: the process is its PID namespace's init (PID 1)
+    /// and default-action signals do not kill it.
+    pub unkillable: bool,
 }
 
 /// A Linux thread.
@@ -320,8 +344,37 @@ pub struct Thread {
     pub robust_list: (u64, u64),
     /// Blocked signals.
     pub sigmask: u64,
-    /// `sigaltstack`: `(ss_sp, ss_flags, ss_size)`.
-    pub altstack: (u64, u32, u64),
+    /// Signals pending for this thread (`task->pending`).
+    pub pending: SigPending,
+    /// The alternate signal stack.
+    pub altstack: AltStack,
+    /// The mask a signal-waiting call replaced, restored on the return to
+    /// user mode unless a handler frame saved it (`saved_sigmask` with
+    /// `TIF_RESTORE_SIGMASK`).
+    pub saved_sigmask: Option<u64>,
+    /// The system call being returned from, for restart processing.
+    pub syscall: Option<SyscallEntry>,
+    /// Architectural fault record for signal frames.
+    pub fault: FaultState,
+}
+
+impl Thread {
+    /// A thread with `cpu` in its initial signal state: nothing blocked or
+    /// pending and no alternate stack.
+    pub fn new(tid: i32, cpu: GuestCpu) -> Self {
+        Thread {
+            tid,
+            cpu,
+            clear_child_tid: 0,
+            robust_list: (0, 0),
+            sigmask: 0,
+            pending: SigPending::new(),
+            altstack: AltStack::DISABLED,
+            saved_sigmask: None,
+            syscall: None,
+            fault: FaultState::default(),
+        }
+    }
 }
 
 /// A running Linux process.
@@ -401,6 +454,10 @@ impl LinuxProcess {
         };
         let program = load_program(abi, &space, &image, &mut resolver, config.stack_limit)
             .map_err(SpawnError::Load)?;
+        // ARCH_SETUP_ADDITIONAL_PAGES follows the image and interpreter.
+        let sigtramp =
+            super::signal::frame::map_sigtramp(abi, &space, abi.mmap_base(config.stack_limit))
+                .map_err(SpawnError::Memory)?;
 
         let caps = cpu.caps();
         let creds = super::host::credentials();
@@ -503,17 +560,13 @@ impl LinuxProcess {
             no_new_privs: false,
             pdeathsig: 0,
             timerslack: 50_000,
+            shared_pending: SigPending::new(),
+            sigtramp,
+            unkillable: pid == 1,
         };
         Ok(LinuxProcess {
             state,
-            threads: vec![Thread {
-                tid: pid,
-                cpu,
-                clear_child_tid: 0,
-                robust_list: (0, 0),
-                sigmask: 0,
-                altstack: (0, 2, 0),
-            }],
+            threads: vec![Thread::new(pid, cpu)],
         })
     }
 
@@ -539,9 +592,15 @@ impl LinuxProcess {
                 return ExitStatus::Exited(0);
             }
             current %= self.threads.len();
+            // The return to user mode: restart processing and signals.
+            self.deliver_signals(current);
+            if self.state.exit.is_some() {
+                continue;
+            }
             let event = self.threads[current].cpu.run(slice);
             match event {
                 CpuEvent::Syscall { nr, args } => {
+                    self.threads[current].syscall = Some(SyscallEntry { nr, arg0: args[0] });
                     let outcome =
                         syscall::dispatch(&mut self.state, &mut self.threads[current], nr, args);
                     self.apply(current, outcome);
@@ -555,7 +614,7 @@ impl LinuxProcess {
                     );
                     self.apply(current, outcome);
                 }
-                CpuEvent::Signal(info) => self.force_signal(current, info),
+                CpuEvent::Signal(info, update) => self.trap_signal(current, info, update),
                 CpuEvent::Yield => current += 1,
                 CpuEvent::Internal(why) => {
                     let pc = self.threads[current].cpu.pc();
@@ -569,7 +628,11 @@ impl LinuxProcess {
     fn apply(&mut self, current: usize, outcome: syscall::Outcome) {
         match outcome {
             syscall::Outcome::Return(value) => self.threads[current].cpu.set_syscall_result(value),
-            syscall::Outcome::Unchanged => {}
+            syscall::Outcome::Unchanged => {
+                // The call replaced the register state (rt_sigreturn):
+                // nothing is left to restart.
+                self.threads[current].syscall = None;
+            }
             syscall::Outcome::ExitThread(code) => {
                 // The last thread's exit ends the process with its code.
                 if self.threads.len() == 1 {
@@ -580,56 +643,9 @@ impl LinuxProcess {
             syscall::Outcome::ExitGroup(code) => {
                 self.state.exit = Some(ExitStatus::Exited(code));
             }
-            syscall::Outcome::Signal(info) => self.force_signal(current, info),
-            syscall::Outcome::Kill(info) => {
-                self.threads[current].cpu.set_syscall_result(0);
-                self.send_signal(current, info);
-            }
             syscall::Outcome::Fatal(why) => {
                 self.state.exit = Some(ExitStatus::Internal(why));
             }
         }
-    }
-
-    /// Sends an asynchronous signal to the process. Ignored signals are
-    /// discarded, stop signals continue immediately (there is no job
-    /// control), and every other signal takes its default action.
-    fn send_signal(&mut self, current: usize, info: SigInfo) {
-        use super::signal::{SIGCONT, SIGSTOP, SIGTSTP, SIGTTIN, SIGTTOU, default_ignored};
-        let idx = (info.signo - 1) as usize;
-        let action = self.state.sigactions[idx];
-        if action.handler == 1 || (action.handler == 0 && default_ignored(info.signo)) {
-            return;
-        }
-        if action.handler == 0
-            && matches!(info.signo, SIGSTOP | SIGTSTP | SIGTTIN | SIGTTOU | SIGCONT)
-        {
-            return;
-        }
-        let pc = self.threads[current].cpu.pc();
-        self.state.exit = Some(ExitStatus::Signaled {
-            info,
-            pc,
-            core: default_dumps_core(info.signo),
-        });
-    }
-
-    /// `force_sig_fault`: delivers a synchronous signal to the thread. A
-    /// blocked or ignored synchronous signal is unblocked and reset to its
-    /// default action, as the kernel does, so it cannot be lost.
-    fn force_signal(&mut self, current: usize, info: SigInfo) {
-        let idx = (info.signo - 1) as usize;
-        let action = self.state.sigactions[idx];
-        let blocked = self.threads[current].sigmask & (1u64 << idx) != 0;
-        if blocked || action.handler == 1 {
-            self.state.sigactions[idx].handler = 0;
-            self.threads[current].sigmask &= !(1u64 << idx);
-        }
-        let pc = self.threads[current].cpu.pc();
-        self.state.exit = Some(ExitStatus::Signaled {
-            info,
-            pc,
-            core: default_dumps_core(info.signo),
-        });
     }
 }

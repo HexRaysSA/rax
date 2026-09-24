@@ -1,0 +1,33 @@
+ok raise-runs-handler
+ok raise-si-code
+ok raise-si-pid
+ok mask-in-handler
+ok mask-restored
+ok kill-si-code
+ok nodefer-nests
+ok defer-serializes
+ok resethand
+ok pending-set
+ok unblock-delivers-all
+delivery order: 15 12 10
+ok timedwait-lowest-first
+ok rt-queue-in-order
+ok timedwait-empty
+ok timedwait-einval
+ok sigsuspend
+ok sigsuspend-ran-handler
+ok sigsuspend-restores-mask
+ok ignored-signals
+ok sigaltstack
+ok onstack-runs-on-altstack
+ok onstack-flags
+ok altstack-kept
+ok segv-maperr
+ok segv-accerr
+ok longjmp-restored-mask
+ok sigbus-adrerr
+trap caught: signal 4 code 2
+ok edited-context
+ok epipe
+ok sigpipe
+aborting

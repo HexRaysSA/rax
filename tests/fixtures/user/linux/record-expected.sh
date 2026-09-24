@@ -10,8 +10,10 @@
 # binfmt handler used for non-native architectures are recorded in
 # expected/ORACLE. Containers run without Docker's default seccomp profile,
 # which refuses some valid arguments (for example personality(2) flags) with
-# EPERM. oracle-overrides.txt then replaces results a system-call-emulating
-# binfmt handler cannot provide faithfully.
+# EPERM. oracle-overrides.txt names the cases a binfmt handler cannot run
+# faithfully and the oracle used instead (QEMU user mode, installed in the
+# container with apk, which needs network access, or another
+# architecture's result).
 set -euo pipefail
 
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -36,38 +38,63 @@ mkdir -p expected
          for f in *; do
              case "$f" in register|status) continue ;; esac
              echo "binfmt: $f $(sed -n 1,2p "$f" | tr "\n" " ")"
-         done' | LC_ALL=C sort | cat -v || echo "binfmt: unavailable"
+         done' | LC_ALL=C sort | LC_ALL=C cat -v || echo "binfmt: unavailable"
     echo "seccomp: unconfined"
 } > expected/ORACLE
+
+# run_case ARCH PROG INPUT RUNNER ARGS...: runs one case in a container,
+# directly (RUNNER "-") or under a QEMU user-mode binary installed with apk,
+# and prints its standard output; the exit status is the program's.
+run_case() {
+    local arch="$1" prog="$2" input="$3" runner="$4"
+    shift 4
+    local stdin=/dev/null
+    [[ "$input" != "-" ]] && stdin="$input"
+    local cmd=(/w/"$arch"/"$prog" "$@")
+    if [[ "$runner" != "-" ]]; then
+        cmd=(sh -c 'apk add -q "$0" >/dev/null 2>&1 && exec "$@"' "$runner" "$runner" "${cmd[@]}")
+    fi
+    timeout 300 docker run -i --rm --init --security-opt seccomp=unconfined \
+        -e RAX_FIXTURE_VAR=set -v "$here/bin:/w:ro" "$image" "${cmd[@]}" \
+        2>/dev/null < "$stdin"
+}
+
+# override ARCH CASE: the source oracle-overrides.txt gives, if any.
+override() {
+    grep -v '^#' oracle-overrides.txt | awk -v a="$1" -v c="$2" '$1 == a && $2 == c { print $3 }'
+}
 
 grep -v '^#' cases.txt | while read -r name prog input args; do
     [[ -z "$name" ]] && continue
     for arch in x86_64 aarch64 riscv64; do
         mkdir -p "expected/$arch"
         out="expected/$arch/$name"
+        runner=-
+        source="$(override "$arch" "$name")"
+        [[ "$source" == qemu-* ]] && runner="$source"
+        status=0
         # shellcheck disable=SC2086
-        if [[ "$input" == "-" ]]; then
-            status=0
-            timeout 120 docker run --rm --init --security-opt seccomp=unconfined \
-                -e RAX_FIXTURE_VAR=set \
-                -v "$here/bin:/w:ro" "$image" /w/"$arch"/"$prog" $args \
-                > "$out.stdout" 2>/dev/null < /dev/null || status=$?
-        else
-            status=0
-            timeout 120 docker run -i --rm --init --security-opt seccomp=unconfined \
-                -e RAX_FIXTURE_VAR=set \
-                -v "$here/bin:/w:ro" "$image" /w/"$arch"/"$prog" $args \
-                > "$out.stdout" 2>/dev/null < "$input" || status=$?
-        fi
+        run_case "$arch" "$prog" "$input" "$runner" $args > "$out.stdout" || status=$?
         echo "$status" > "$out.status"
-        echo "$arch $name -> $status"
+        echo "$arch $name -> $status${source:+ ($source)}"
     done
 done
 
+# Overrides: a QEMU user-mode run (recorded above, with its version noted
+# here) or a copy of another architecture's result.
 grep -v '^#' oracle-overrides.txt | while read -r arch name source reason; do
     [[ -z "$arch" ]] && continue
-    cp "expected/$source/$name.stdout" "expected/$arch/$name.stdout"
-    cp "expected/$source/$name.status" "expected/$arch/$name.status"
-    echo "override: $arch/$name from $source ($reason)" >> expected/ORACLE
-    echo "$arch $name <- $source"
+    case "$source" in
+        qemu-*)
+            version="$(docker run --rm "$image" sh -c \
+                "apk add -q $source >/dev/null 2>&1 && $source --version" | head -1)"
+            echo "override: $arch/$name run under $version ($reason)" >> expected/ORACLE
+            ;;
+        *)
+            cp "expected/$source/$name.stdout" "expected/$arch/$name.stdout"
+            cp "expected/$source/$name.status" "expected/$arch/$name.status"
+            echo "override: $arch/$name from $source ($reason)" >> expected/ORACLE
+            echo "$arch $name <- $source"
+            ;;
+    esac
 done

@@ -27,6 +27,7 @@ every architecture and requires a byte-for-byte match.
 | `memory` | `malloc` across the mmap threshold, `brk`, anonymous and private file mappings, `mprotect`, `madvise(MADV_DONTNEED)`, `munmap` holes, `mincore`, `MAP_FIXED`/`MAP_FIXED_NOREPLACE`, `mremap` with move, argument errors |
 | `mman` | Per-VMA `madvise` (`DONTNEED` on private and shared memory, `FREE`, `REMOVE`, `POPULATE_READ`/`WRITE`, holes, a refusing VMA ending the walk), `mprotect` validation order, partial application up to a hole, `PROT_GROWSDOWN` on the stack, shared mappings of read-only files, `personality` |
 | `process` | IDs, `uname`, auxiliary vector, clocks and `nanosleep`, resource limits, affinity, `getrandom`, `prctl`, `umask`, `/proc/self/exe`, `/proc/self/maps`, `ENOSYS`/`EBADF`/`EFAULT` |
+| `signals` | Handlers with `siginfo` from `raise`/`kill`/`sigqueue`, the mask during and after a handler, `SA_NODEFER`, `SA_RESETHAND`, delivery order of several unblocked signals, real-time queueing with `sigtimedwait`, `sigsuspend`, ignored signals, `SA_ONSTACK` alternate stacks, recovering from `SIGSEGV` (MAPERR, ACCERR), `SIGBUS`, and traps with `siglongjmp`, a handler editing the saved PC to skip a faulting store, `SIGPIPE`, and `abort()` after its handler returns (status 134) |
 | `stdin` | Reading standard input to end of file |
 | `segv` | Fatal `SIGSEGV` (status 139) |
 | `abort` | `abort()` → `tgkill(SIGABRT)` (status 134) |
@@ -42,7 +43,7 @@ every architecture and requires a byte-for-byte match.
 - The build is reproducible: running `build.sh` twice produces identical
   `manifest.toml` hashes, and adding a program leaves the others' hashes
   unchanged.
-- Size: 27 binaries (9 programs × 3 architectures), 664 KiB in total; each
+- Size: 30 binaries (10 programs × 3 architectures), 776 KiB in total; each
   is stripped and statically linked so that no guest sysroot is needed.
 - The expected results were recorded with `record-expected.sh` on the
   Linux kernel named in `expected/ORACLE` (OrbStack Linux 7.0.14, arm64).
@@ -54,6 +55,10 @@ every architecture and requires a byte-for-byte match.
   calls itself (for example, it ignores most `madvise` advice). Where that
   emulation diverges from Linux in architecture-independent kernel code,
   `oracle-overrides.txt` substitutes the native result and says why.
+  Where the x86-64 translator (Rosetta) diverges, the case runs under
+  `qemu-x86_64` user mode installed in the container instead (its version
+  is in `expected/ORACLE`): Rosetta resets an `SA_RESETHAND` disposition
+  before running the handler.
 - Containers ran with `--init` so the fixture was not the PID-namespace
   init (the kernel ignores default-action signals sent to an init, which
   would make `abort()` loop), and with `--security-opt seccomp=unconfined`

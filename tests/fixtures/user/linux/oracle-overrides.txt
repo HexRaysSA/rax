@@ -1,5 +1,6 @@
-# Expected results taken from another architecture's run instead of the
-# architecture's own, read by record-expected.sh after recording.
+# Cases whose expected result does not come from running the program through
+# the Docker host's binfmt_misc handler for its architecture, read by
+# record-expected.sh and by the user_linux tests.
 #
 # The Docker host runs non-native architectures through binfmt_misc. When the
 # handler is QEMU user mode, system calls are emulated by QEMU rather than
@@ -10,5 +11,11 @@
 # divergence. The per-architecture unit tests in
 # src/user/linux/tests/syscall_mm.rs cover the same semantics independently.
 #
-# Columns: architecture  case  source-architecture  reason...
+# A source is either another architecture, whose recorded result is copied,
+# or qemu-<arch>: the case runs under that QEMU user-mode emulator in the
+# container instead of the registered handler, for architectures whose
+# handler (Rosetta for x86-64) diverges from Linux where QEMU does not.
+#
+# Columns: architecture  case  source  reason...
 riscv64  mman  aarch64  mm/madvise.c and mm/mprotect.c are generic; QEMU 'target_madvise' ignores most advice and QEMU validates mprotect's prot before its length
+x86_64   signals  qemu-x86_64  Rosetta resets an SA_RESETHAND disposition before the handler runs, so the process dies of SIGUSR2; get_signal in kernel/signal.c is architecture-independent and the native aarch64 run shows the handler running once

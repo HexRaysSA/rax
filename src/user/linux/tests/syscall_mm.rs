@@ -3,14 +3,10 @@
 //! 6.19 sources named in each test (`mm/mprotect.c`, `mm/madvise.c`,
 //! `mm/mmap.c`, `kernel/exec_domain.c`), not the implementation.
 
-use super::loader::{Seg, image};
+use super::harness::{Harness, each_abi};
 use crate::error::MemoryAccessKind;
-use crate::user::image::elf::{EM_AARCH64, EM_RISCV, EM_X86_64, ET_EXEC, PF_R, PF_X};
 use crate::user::linux::abi::errno_table::*;
 use crate::user::linux::abi::{LinuxAbi, READ_IMPLIES_EXEC, Sysno, vma_flags};
-use crate::user::linux::loader::ImageFile;
-use crate::user::linux::syscall::{Outcome, dispatch};
-use crate::user::linux::{LinuxConfig, LinuxProcess};
 use crate::user::mm::Perms;
 
 const P: u64 = 4096;
@@ -34,131 +30,6 @@ const MADV_REMOVE: u64 = 9;
 const MADV_POPULATE_READ: u64 = 22;
 const MADV_POPULATE_WRITE: u64 = 23;
 const MADV_GUARD_INSTALL: u64 = 102;
-
-struct Harness {
-    proc: LinuxProcess,
-    scratch: u64,
-    files: Vec<std::path::PathBuf>,
-}
-
-impl Drop for Harness {
-    fn drop(&mut self) {
-        for f in &self.files {
-            let _ = std::fs::remove_file(f);
-        }
-    }
-}
-
-impl Harness {
-    fn new(abi: LinuxAbi) -> Self {
-        let machine = match abi {
-            LinuxAbi::X86_64 => EM_X86_64,
-            LinuxAbi::Aarch64 => EM_AARCH64,
-            LinuxAbi::Riscv64 => EM_RISCV,
-        };
-        let bytes = image(
-            machine,
-            ET_EXEC,
-            0x40_1000,
-            &[Seg::load(0x40_0000, 0, 0x2000, 0x2000, PF_R | PF_X)],
-            None,
-        );
-        let mut config = LinuxConfig::new("/prog", vec![b"prog".to_vec()], vec![]);
-        config.arena_bytes = 256 << 20;
-        config.seed = Some(1);
-        let proc = LinuxProcess::spawn(config, ImageFile::new(bytes, "/prog")).unwrap();
-        let mut h = Harness {
-            proc,
-            scratch: 0,
-            files: Vec::new(),
-        };
-        h.scratch = h.ok(
-            Sysno::Mmap,
-            &[0, P, RW, MAP_PRIVATE | MAP_ANONYMOUS, u64::MAX, 0],
-        );
-        h
-    }
-
-    fn abi(&self) -> LinuxAbi {
-        self.proc.state.abi
-    }
-
-    /// Raw result register value, as a signed integer.
-    fn call(&mut self, s: Sysno, args: &[u64]) -> i64 {
-        let mut a = [0u64; 6];
-        a[..args.len()].copy_from_slice(args);
-        let nr = self.abi().number(s).unwrap();
-        let (p, t) = (&mut self.proc.state, &mut self.proc.threads[0]);
-        match dispatch(p, t, nr, a) {
-            Outcome::Return(v) => v as i64,
-            other => panic!("{s:?} did not return: {other:?}"),
-        }
-    }
-
-    fn ok(&mut self, s: Sysno, args: &[u64]) -> u64 {
-        let r = self.call(s, args);
-        assert!(r >= 0, "{s:?}{args:x?} failed with errno {}", -r);
-        r as u64
-    }
-
-    fn err(&mut self, s: Sysno, args: &[u64]) -> i32 {
-        let r = self.call(s, args);
-        assert!(r < 0, "{s:?}{args:x?} succeeded with {r:#x}");
-        (-r) as i32
-    }
-
-    fn anon(&mut self, len: u64, prot: u64, shared: bool) -> u64 {
-        let kind = if shared { MAP_SHARED } else { MAP_PRIVATE };
-        self.ok(
-            Sysno::Mmap,
-            &[0, len, prot, kind | MAP_ANONYMOUS, u64::MAX, 0],
-        )
-    }
-
-    /// Creates a host file of `len` bytes of `fill` and opens it in the
-    /// guest with `flags`.
-    fn file(&mut self, name: &str, len: usize, fill: u8, flags: u64) -> u64 {
-        let path = std::env::temp_dir().join(format!(
-            "rax-user-mm-{}-{name}-{:?}",
-            std::process::id(),
-            self.abi()
-        ));
-        std::fs::write(&path, vec![fill; len]).unwrap();
-        self.files.push(path.clone());
-        let mut s = path.to_string_lossy().into_owned().into_bytes();
-        s.push(0);
-        self.proc.state.space.write_raw(self.scratch, &s).unwrap();
-        self.ok(Sysno::Openat, &[AT_FDCWD, self.scratch, flags, 0])
-    }
-
-    fn map_file(&mut self, fd: u64, len: u64, prot: u64, kind: u64) -> u64 {
-        self.ok(Sysno::Mmap, &[0, len, prot, kind, fd, 0])
-    }
-
-    fn fill(&self, addr: u64, len: u64, byte: u8) {
-        self.proc
-            .state
-            .space
-            .write(addr, &vec![byte; len as usize])
-            .unwrap();
-    }
-
-    fn byte(&self, addr: u64) -> u8 {
-        let mut b = [0u8];
-        self.proc.state.space.read(addr, &mut b).unwrap();
-        b[0]
-    }
-
-    fn perms(&self, addr: u64) -> Perms {
-        self.proc.state.space.vma_at(addr).unwrap().perms
-    }
-}
-
-fn each_abi(f: impl Fn(LinuxAbi)) {
-    for abi in LinuxAbi::ALL {
-        f(abi);
-    }
-}
 
 // ------------------------------------------------------------------ madvise
 

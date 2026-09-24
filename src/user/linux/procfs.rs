@@ -200,7 +200,23 @@ pub fn status(p: &ProcState, t: &Thread) -> Vec<u8> {
     let _ = writeln!(s, "VmSize:\t{:8} kB", vsize / 1024);
     let _ = writeln!(s, "VmRSS:\t{:8} kB", rss_kb);
     let _ = writeln!(s, "Threads:\t1");
+    // task_sig: queued records against RLIMIT_SIGPENDING, then the pending,
+    // blocked, ignored, and caught sets.
+    let queued = t.pending.queued() + p.shared_pending.queued();
+    let _ = writeln!(s, "SigQ:\t{queued}/{}", p.rlimits[11].0);
+    let (mut ignored, mut caught) = (0u64, 0u64);
+    for (i, a) in p.sigactions.iter().enumerate() {
+        match a.handler {
+            super::signal::SIG_DFL => {}
+            super::signal::SIG_IGN => ignored |= 1 << i,
+            _ => caught |= 1 << i,
+        }
+    }
+    let _ = writeln!(s, "SigPnd:\t{:016x}", t.pending.set());
+    let _ = writeln!(s, "ShdPnd:\t{:016x}", p.shared_pending.set());
     let _ = writeln!(s, "SigBlk:\t{:016x}", t.sigmask);
+    let _ = writeln!(s, "SigIgn:\t{ignored:016x}");
+    let _ = writeln!(s, "SigCgt:\t{caught:016x}");
     let _ = writeln!(s, "Seccomp:\t0");
     let _ = writeln!(s, "Cpus_allowed:\t1");
     let _ = writeln!(s, "Cpus_allowed_list:\t0");

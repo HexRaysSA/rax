@@ -12,6 +12,8 @@ pub mod x86_64;
 
 use super::abi::LinuxAbi;
 use super::signal::SigInfo;
+use super::signal::frame::FaultUpdate;
+use crate::isa::arm::common::cpu::ArmCpu;
 use crate::isa::riscv::RiscVConfig;
 use crate::user::cpu::aarch64::A64UserCpu;
 use crate::user::cpu::riscv64::RvUserCpu;
@@ -38,10 +40,11 @@ pub enum CpuEvent {
         /// `EBX`, `ECX`, `EDX`, `ESI`, `EDI`, `EBP`, zero-extended.
         args: [u64; 6],
     },
-    /// A synchronous signal. The PC is where the kernel's signal frame
-    /// records it (the faulting instruction for faults, the following
-    /// instruction for traps).
-    Signal(SigInfo),
+    /// A synchronous signal and the fault record the trap leaves in the
+    /// thread. The PC is where the kernel's signal frame records it (the
+    /// faulting instruction for faults, the following instruction for
+    /// traps).
+    Signal(SigInfo, FaultUpdate),
     /// The time slice ended.
     Yield,
     /// The emulator failed in a way no guest program can cause.
@@ -158,6 +161,65 @@ impl GuestCpu {
             GuestCpu::X86_64(cpu) => cpu.vcpu_mut().user_regs_mut().rax = value,
             GuestCpu::Aarch64(cpu) => cpu.core_mut().set_x(0, value),
             GuestCpu::Riscv64(cpu) => cpu.core_mut().set_x(10, value),
+        }
+    }
+
+    /// The system-call result register (RAX, X0, a0).
+    pub fn syscall_return_value(&self) -> u64 {
+        match self {
+            GuestCpu::X86_64(cpu) => cpu.vcpu().user_regs().rax,
+            GuestCpu::Aarch64(cpu) => cpu.core().get_x(0),
+            GuestCpu::Riscv64(cpu) => cpu.core().x(10),
+        }
+    }
+
+    /// Length of the system-call instruction (`SYSCALL` 2, `SVC`/`ECALL`
+    /// 4 bytes).
+    pub fn syscall_insn_len(&self) -> u64 {
+        match self {
+            GuestCpu::X86_64(_) => 2,
+            GuestCpu::Aarch64(_) | GuestCpu::Riscv64(_) => 4,
+        }
+    }
+
+    /// Prepares to re-execute the system call just returned from: the PC
+    /// goes back to the call instruction and the register the call
+    /// overwrote gets its entry value back (x86 `orig_ax`, the number; arm64
+    /// `orig_x0` and riscv `orig_a0`, the first argument).
+    pub fn rewind_syscall(&mut self, nr: u64, arg0: u64) {
+        let pc = self.pc().wrapping_sub(self.syscall_insn_len());
+        match self {
+            GuestCpu::X86_64(cpu) => {
+                let r = cpu.vcpu_mut().user_regs_mut();
+                r.rax = nr;
+                r.rip = pc;
+            }
+            GuestCpu::Aarch64(cpu) => {
+                cpu.core_mut().set_x(0, arg0);
+                cpu.core_mut().set_pc(pc);
+            }
+            GuestCpu::Riscv64(cpu) => {
+                cpu.core_mut().set_x(10, arg0);
+                cpu.core_mut().set_pc(pc);
+            }
+        }
+    }
+
+    /// Sets the system-call number register (RAX, X8, a7).
+    pub fn set_syscall_number(&mut self, nr: u64) {
+        match self {
+            GuestCpu::X86_64(cpu) => cpu.vcpu_mut().user_regs_mut().rax = nr,
+            GuestCpu::Aarch64(cpu) => cpu.core_mut().set_x(8, nr),
+            GuestCpu::Riscv64(cpu) => cpu.core_mut().set_x(17, nr),
+        }
+    }
+
+    /// Sets the program counter.
+    pub fn set_pc(&mut self, pc: u64) {
+        match self {
+            GuestCpu::X86_64(cpu) => cpu.vcpu_mut().user_regs_mut().rip = pc,
+            GuestCpu::Aarch64(cpu) => cpu.core_mut().set_pc(pc),
+            GuestCpu::Riscv64(cpu) => cpu.core_mut().set_pc(pc),
         }
     }
 

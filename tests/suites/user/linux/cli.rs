@@ -106,6 +106,16 @@ fn fatal_signals_are_reported() {
         "{}",
         r.stderr
     );
+    // abort() sends SIGABRT with tkill: the report names the sender.
+    let abort = fixtures().join("bin/aarch64/abort");
+    let r = run(&[abort.to_str().unwrap()], &[], None, T);
+    assert_eq!(r.status, Some(134));
+    assert!(
+        r.stderr
+            .contains("killed by SIGABRT (si_code -6, sent by pid "),
+        "{}",
+        r.stderr
+    );
 }
 
 #[test]

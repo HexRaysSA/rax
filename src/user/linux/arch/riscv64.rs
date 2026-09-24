@@ -8,6 +8,7 @@
 
 use super::{ArchCaps, CpuEvent, fault_signal};
 use crate::user::cpu::riscv64::{RvExit, RvUserCpu};
+use crate::user::linux::signal::frame::FaultUpdate;
 use crate::user::linux::signal::{SIGBUS, SIGILL, SIGTRAP, SigInfo, code};
 
 /// `COMPAT_HWCAP_ISA_*` bit for a single-letter extension: `1 << (c - 'a')`.
@@ -81,15 +82,20 @@ pub fn run(cpu: &mut RvUserCpu, budget: u64) -> CpuEvent {
                 args: [c.x(10), c.x(11), c.x(12), c.x(13), c.x(14), c.x(15)],
             }
         }
-        RvExit::Ebreak { pc } => CpuEvent::Signal(SigInfo::fault(SIGTRAP, code::TRAP_BRKPT, pc)),
-        RvExit::Illegal { pc, .. } => {
-            CpuEvent::Signal(SigInfo::fault(SIGILL, code::ILL_ILLOPC, pc))
-        }
+        RvExit::Ebreak { pc } => CpuEvent::Signal(
+            SigInfo::fault(SIGTRAP, code::TRAP_BRKPT, pc),
+            FaultUpdate::None,
+        ),
+        RvExit::Illegal { pc, .. } => CpuEvent::Signal(
+            SigInfo::fault(SIGILL, code::ILL_ILLOPC, pc),
+            FaultUpdate::None,
+        ),
         // DO_ERROR_INFO(..., SIGBUS, BUS_ADRALN, ...) reports regs->epc.
-        RvExit::Misaligned { pc, .. } => {
-            CpuEvent::Signal(SigInfo::fault(SIGBUS, code::BUS_ADRALN, pc))
-        }
-        RvExit::Fault(f) => CpuEvent::Signal(fault_signal(&f)),
+        RvExit::Misaligned { pc, .. } => CpuEvent::Signal(
+            SigInfo::fault(SIGBUS, code::BUS_ADRALN, pc),
+            FaultUpdate::None,
+        ),
+        RvExit::Fault(f) => CpuEvent::Signal(fault_signal(&f), FaultUpdate::None),
         RvExit::Yield => CpuEvent::Yield,
         RvExit::Internal(e) => CpuEvent::Internal(e),
     }

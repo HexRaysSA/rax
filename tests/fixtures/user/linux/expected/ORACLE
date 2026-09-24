@@ -1,7 +1,7 @@
 image: alpine:latest
 kernel: Linux 7.0.14-orbstack-00380-ga7e0a2dc9535 #1 SMP PREEMPT Fri Aug  7 03:48:40 UTC 2026 aarch64
 docker: 29.4.0 linux/arm64
-recorded: 2026-09-24T05:45:59Z
+recorded: 2026-09-24T06:57:21Z
 native-arch: aarch64
 translated: every other architecture runs through the Docker host's binfmt_misc handler
 binfmt: mac-macho-arm64 enabled interpreter [mac] 
@@ -21,3 +21,4 @@ binfmt: rosettaM-bM-^@M-^K enabled interpreter [rosetta]
 binfmt: rosettaM-bM-^@M-^KM-bM-^@M-^K enabled interpreter [rosetta] 
 seccomp: unconfined
 override: riscv64/mman from aarch64 (mm/madvise.c and mm/mprotect.c are generic; QEMU 'target_madvise' ignores most advice and QEMU validates mprotect's prot before its length)
+override: x86_64/signals run under qemu-x86_64 version 11.0.3 (Rosetta resets an SA_RESETHAND disposition before the handler runs, so the process dies of SIGUSR2; get_signal in kernel/signal.c is architecture-independent and the native aarch64 run shows the handler running once)

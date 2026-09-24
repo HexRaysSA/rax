@@ -90,6 +90,17 @@ pub fn pid() -> i32 {
     std::process::id() as i32
 }
 
+/// Stops the emulator process as a group stop stops a Linux process
+/// (`raise(SIGSTOP)`); it resumes when the host continues it.
+pub fn stop_self() {
+    // SAFETY: raise has no memory-safety preconditions; SIGSTOP cannot be
+    // caught, so no handler runs and the call returns once the process is
+    // continued.
+    unsafe {
+        libc::raise(libc::SIGSTOP);
+    }
+}
+
 /// The parent process ID.
 pub fn ppid() -> i32 {
     // SAFETY: takes no arguments and always succeeds.

@@ -427,6 +427,12 @@ impl AddressSpace {
         Ok(())
     }
 
+    /// `access_ok`: whether `[addr, addr + len)` lies below the limit.
+    pub fn range_ok(&self, addr: u64, len: u64) -> bool {
+        addr.checked_add(len)
+            .is_some_and(|end| end <= self.inner.va_limit)
+    }
+
     /// Whether the page containing `addr` holds a frame.
     pub fn is_resident(&self, addr: u64) -> bool {
         addr < self.inner.va_limit && self.inner.table.get(addr >> 12) & PTE_VALID != 0

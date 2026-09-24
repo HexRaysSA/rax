@@ -61,7 +61,8 @@ fn manifest() -> BTreeMap<String, String> {
     out
 }
 
-/// Parses `oracle-overrides.txt` into `(arch, case) -> source arch`.
+/// Parses `oracle-overrides.txt` into `(arch, case) -> source`: another
+/// architecture, or `qemu-<arch>` for a run under QEMU user mode.
 fn overrides() -> BTreeMap<(String, String), String> {
     let text = std::fs::read_to_string(fixtures().join("oracle-overrides.txt")).unwrap();
     text.lines()
@@ -95,15 +96,32 @@ fn fixture_binaries_match_manifest() {
 }
 
 #[test]
-fn oracle_overrides_copy_real_kernel_results() {
-    // An overridden expectation is the source architecture's recording.
+fn oracle_overrides_are_consistent() {
+    // A copied expectation is the source architecture's recording; a QEMU
+    // run uses the emulator for the case's own architecture and its version
+    // is recorded.
     let root = fixtures().join("expected");
+    let oracle = std::fs::read_to_string(root.join("ORACLE")).unwrap();
     for ((arch, case), source) in overrides() {
-        assert!(ARCHES.contains(&arch.as_str()) && ARCHES.contains(&source.as_str()));
+        assert!(
+            ARCHES.contains(&arch.as_str()),
+            "unknown architecture {arch}"
+        );
         assert!(
             cases().iter().any(|c| c.name == case),
             "unknown case {case}"
         );
+        if let Some(qemu_arch) = source.strip_prefix("qemu-") {
+            assert_eq!(qemu_arch, arch, "{arch}/{case} must run under its own QEMU");
+            assert!(
+                oracle.contains(&format!(
+                    "override: {arch}/{case} run under {source} version"
+                )),
+                "expected/ORACLE records the QEMU version for {arch}/{case}"
+            );
+            continue;
+        }
+        assert!(ARCHES.contains(&source.as_str()), "unknown source {source}");
         for ext in ["stdout", "status"] {
             let file = format!("{case}.{ext}");
             assert_eq!(
@@ -219,9 +237,12 @@ fn live_docker_oracle() {
         for case in cases() {
             // Same container setup and oracle substitutions as
             // record-expected.sh.
-            let oracle_arch = overrides
-                .get(&(arch.to_string(), case.name.clone()))
-                .map_or(arch, String::as_str);
+            let source = overrides.get(&(arch.to_string(), case.name.clone()));
+            let oracle_arch = match source {
+                Some(s) if !s.starts_with("qemu-") => s.as_str(),
+                _ => arch,
+            };
+            let program = format!("/w/{oracle_arch}/{}", case.program);
             let mut cmd = Command::new("docker");
             cmd.args([
                 "run",
@@ -235,9 +256,21 @@ fn live_docker_oracle() {
                 "-v",
             ])
             .arg(format!("{}:/w:ro", root.join("bin").display()))
-            .arg("alpine:latest")
-            .arg(format!("/w/{oracle_arch}/{}", case.program))
-            .args(&case.args);
+            .arg("alpine:latest");
+            match source {
+                Some(qemu) if qemu.starts_with("qemu-") => {
+                    cmd.args([
+                        "sh",
+                        "-c",
+                        "apk add -q \"$0\" >/dev/null 2>&1 && exec \"$@\"",
+                    ])
+                    .args([qemu.as_str(), qemu.as_str(), &program]);
+                }
+                _ => {
+                    cmd.arg(&program);
+                }
+            }
+            cmd.args(&case.args);
             cmd.stdin(match &case.stdin {
                 Some(p) => std::process::Stdio::from(std::fs::File::open(root.join(p)).unwrap()),
                 None => std::process::Stdio::null(),

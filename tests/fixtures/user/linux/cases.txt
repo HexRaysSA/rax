@@ -7,6 +7,7 @@ fileio   fileio   -
 memory   memory   -
 mman     mman     -
 process  process  -
+signals  signals  -
 stdin    stdin    input/fox.txt
 segv     segv     -
 abort    abort    -

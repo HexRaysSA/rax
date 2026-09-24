@@ -245,9 +245,9 @@ pub struct RiscVCpu {
 }
 
 /// Vector register length in bits (matches the qemu-riscv64 default).
-const VLEN: u64 = 128;
+pub const VLEN: u64 = 128;
 /// Vector register length in bytes.
-const VLENB: u64 = VLEN / 8;
+pub const VLENB: u64 = VLEN / 8;
 const SSTATUS_BASE_MASK: u64 = (1 << 1) // SIE
     | (1 << 5) // SPIE
     | (1 << 6) // UBE

@@ -1,63 +1,82 @@
-//! Signal-disposition and signal-mask system calls.
+//! Signal system calls (`kernel/signal.c`): dispositions, masks, the
+//! alternate stack, generation (`kill`, `tgkill`, `rt_sigqueueinfo`),
+//! waiting (`rt_sigsuspend`, `pause`, `rt_sigtimedwait`), and
+//! `rt_sigreturn`.
+
+use std::time::{Duration, Instant};
 
 use super::super::abi::errno::Errno;
 use super::super::abi::errno_table::*;
 use super::super::process::SigAction;
-use super::super::signal::{NSIG, SIGKILL, SIGSTOP, SigInfo, code};
+use super::super::signal::deliver::{self, restart::ERESTARTNOHAND};
+use super::super::signal::frame::{self, SigreturnError};
+use super::super::signal::info::{KERNEL_SIGINFO_SIZE, SIGINFO_SIZE};
+use super::super::signal::{
+    AltStack, KERNEL_ONLY_MASK, SIG_DFL, SIG_IGN, SigInfo, code, default_ignored, minsigstksz,
+    sigmask, uapi_sa_flags, valid_signal,
+};
 use super::{Ctx, Outcome, SysResult};
 
 /// `sizeof(sigset_t)` in the kernel ABI.
 const SIGSET_SIZE: u64 = 8;
 
-/// Signals that cannot be caught, blocked, or ignored.
-const UNBLOCKABLE: u64 = (1 << (SIGKILL - 1)) | (1 << (SIGSTOP - 1));
-
-/// `rt_sigaction`. The structure is `{handler, flags, restorer, mask}`
-/// where the ABI has `SA_RESTORER` and `{handler, flags, mask}` on riscv.
+/// `rt_sigaction`. The user structure is `{handler, flags, restorer,
+/// mask}` where the ABI has `SA_RESTORER`, `{handler, flags, mask}` on
+/// riscv.
 pub fn rt_sigaction(c: &mut Ctx<'_>, sig: i32, act: u64, oact: u64, size: u64) -> SysResult {
     if size != SIGSET_SIZE {
         return Err(Errno(EINVAL));
     }
-    if !(1..=NSIG).contains(&sig) || (act != 0 && (sig == SIGKILL || sig == SIGSTOP)) {
-        return Err(Errno(EINVAL));
-    }
-    let restorer = c.p.abi.has_sa_restorer();
-    let len = if restorer { 32 } else { 24 };
+    let has_restorer = c.p.abi.has_sa_restorer();
+    let len = if has_restorer { 32 } else { 24 };
     let new = if act != 0 {
         let b = c.read_mem(act, len)?;
         let w = |i: usize| u64::from_le_bytes(b[i * 8..i * 8 + 8].try_into().unwrap());
-        Some(if restorer {
+        Some(if has_restorer {
             SigAction {
                 handler: w(0),
                 flags: w(1),
                 restorer: w(2),
-                mask: w(3) & !UNBLOCKABLE,
+                mask: w(3),
             }
         } else {
             SigAction {
                 handler: w(0),
                 flags: w(1),
                 restorer: 0,
-                mask: w(2) & !UNBLOCKABLE,
+                mask: w(2),
             }
         })
     } else {
         None
     };
-    let idx = (sig - 1) as usize;
-    if oact != 0 {
-        let o = c.p.sigactions[idx];
-        let mut b = Vec::with_capacity(len);
-        b.extend_from_slice(&o.handler.to_le_bytes());
-        b.extend_from_slice(&o.flags.to_le_bytes());
-        if restorer {
-            b.extend_from_slice(&o.restorer.to_le_bytes());
-        }
-        b.extend_from_slice(&o.mask.to_le_bytes());
-        c.write_mem(oact, &b)?;
+    // do_sigaction.
+    if !valid_signal(sig) || (new.is_some() && sigmask(sig) & KERNEL_ONLY_MASK != 0) {
+        return Err(Errno(EINVAL));
     }
-    if let Some(a) = new {
+    let idx = (sig - 1) as usize;
+    let old = c.p.sigactions[idx];
+    if let Some(mut a) = new {
+        // Unknown flag bits are cleared so user space can detect them.
+        a.flags &= uapi_sa_flags(c.p.abi);
+        a.mask &= !KERNEL_ONLY_MASK;
         c.p.sigactions[idx] = a;
+        // POSIX 3.3.1.3: setting a pending signal's action to ignore
+        // discards it, whether or not it is blocked.
+        if a.handler == SIG_IGN || (a.handler == SIG_DFL && default_ignored(sig)) {
+            c.p.shared_pending.flush(sigmask(sig));
+            c.t.pending.flush(sigmask(sig));
+        }
+    }
+    if oact != 0 {
+        let mut b = Vec::with_capacity(len);
+        b.extend_from_slice(&old.handler.to_le_bytes());
+        b.extend_from_slice(&old.flags.to_le_bytes());
+        if has_restorer {
+            b.extend_from_slice(&old.restorer.to_le_bytes());
+        }
+        b.extend_from_slice(&old.mask.to_le_bytes());
+        c.write_mem(oact, &b)?;
     }
     Ok(0)
 }
@@ -72,14 +91,13 @@ pub fn rt_sigprocmask(c: &mut Ctx<'_>, how: i32, set: u64, oset: u64, size: u64)
     }
     let old = c.t.sigmask;
     if set != 0 {
-        let s = c.read_u64(set)?;
-        let new = match how {
+        let s = c.read_u64(set)? & !KERNEL_ONLY_MASK;
+        c.t.sigmask = match how {
             SIG_BLOCK => old | s,
             SIG_UNBLOCK => old & !s,
             SIG_SETMASK => s,
             _ => return Err(Errno(EINVAL)),
         };
-        c.t.sigmask = new & !UNBLOCKABLE;
     }
     if oset != 0 {
         c.write_u64(oset, old)?;
@@ -88,89 +106,287 @@ pub fn rt_sigprocmask(c: &mut Ctx<'_>, how: i32, set: u64, oset: u64, size: u64)
 }
 
 /// `sigaltstack` (`stack_t`: `ss_sp`, `ss_flags`, `ss_size`; 24 bytes).
+/// The old stack is written only after a successful change.
 pub fn sigaltstack(c: &mut Ctx<'_>, ss: u64, old: u64) -> SysResult {
-    const SS_ONSTACK: u32 = 1;
-    const SS_DISABLE: u32 = 2;
-    const SS_AUTODISARM: u32 = 1 << 31;
-    let (sp, flags, size) = c.t.altstack;
-    let cur_sp = c.t.cpu.sp();
-    let on_stack = flags & SS_DISABLE == 0 && cur_sp > sp && cur_sp - sp <= size;
-    if old != 0 {
-        let reported = if on_stack {
-            SS_ONSTACK | (flags & SS_AUTODISARM)
-        } else {
-            flags
-        };
-        let mut b = [0u8; 24];
-        b[..8].copy_from_slice(&sp.to_le_bytes());
-        b[8..12].copy_from_slice(&reported.to_le_bytes());
-        b[16..].copy_from_slice(&size.to_le_bytes());
-        c.write_mem(old, &b)?;
+    let new = if ss != 0 {
+        let b: [u8; 24] = c.read_mem(ss, 24)?.try_into().unwrap();
+        Some(AltStack::decode_stack_t(&b))
+    } else {
+        None
+    };
+    let sp = c.t.cpu.sp();
+    let reported = c.t.altstack.report(sp);
+    if let Some(new) = new {
+        c.t.altstack
+            .install(new, sp, minsigstksz(c.p.abi))
+            .map_err(Errno)?;
     }
-    if ss != 0 {
-        let b = c.read_mem(ss, 24)?;
-        let new_sp = u64::from_le_bytes(b[..8].try_into().unwrap());
-        let new_flags = u32::from_le_bytes(b[8..12].try_into().unwrap());
-        let new_size = u64::from_le_bytes(b[16..].try_into().unwrap());
-        if on_stack {
-            return Err(Errno(EPERM));
-        }
-        let mode = new_flags & !SS_AUTODISARM;
-        if mode != 0 && mode != SS_DISABLE && mode != SS_ONSTACK {
-            return Err(Errno(EINVAL));
-        }
-        if mode == SS_DISABLE {
-            c.t.altstack = (0, SS_DISABLE, 0);
-        } else {
-            // MINSIGSTKSZ: 5120 on arm64, 2048 on x86-64 and riscv.
-            let min = if c.p.abi == super::super::abi::LinuxAbi::Aarch64 {
-                5120
-            } else {
-                2048
-            };
-            if new_size < min {
-                return Err(Errno(ENOMEM));
-            }
-            c.t.altstack = (new_sp, new_flags & SS_AUTODISARM, new_size);
-        }
+    if old != 0 {
+        let (s, f, z) = reported;
+        c.write_mem(old, &AltStack::encode_stack_t(s, f, z))?;
     }
     Ok(0)
 }
 
-/// `rt_sigpending`: no signal is ever left pending.
+/// `rt_sigpending`: the thread's and the process's pending signals that
+/// are blocked.
 pub fn rt_sigpending(c: &mut Ctx<'_>, set: u64, size: u64) -> SysResult {
     if size > SIGSET_SIZE {
         return Err(Errno(EINVAL));
     }
-    c.write_mem(set, &vec![0u8; size as usize])?;
+    let pending = (c.t.pending.set() | c.p.shared_pending.set()) & c.t.sigmask;
+    c.write_mem(set, &pending.to_le_bytes()[..size as usize])?;
     Ok(0)
 }
 
-/// `kill`: only the calling process exists to receive signals.
-pub fn kill(c: &mut Ctx<'_>, pid: i32, sig: i32) -> Result<Outcome, Errno> {
-    if !(0..=NSIG).contains(&sig) {
-        return Err(Errno(EINVAL));
-    }
-    let own = pid == c.p.pid || pid == 0 || pid == -1 || pid == -c.p.pid;
-    if !own {
-        return Err(Errno(ESRCH));
-    }
-    if sig == 0 {
-        return Ok(Outcome::Return(0));
-    }
-    Ok(Outcome::Kill(SigInfo::fault(sig, code::SI_USER, 0)))
+/// `prepare_kill_siginfo`: the sender's TGID and real UID.
+fn kill_info(c: &Ctx<'_>, sig: i32, code: i32) -> SigInfo {
+    SigInfo::kill(sig, code, c.p.pid, c.p.creds.0)
 }
 
-/// `tgkill` (and `tkill` with the process's own thread group).
-pub fn tgkill(c: &mut Ctx<'_>, tgid: i32, tid: i32, sig: i32) -> Result<Outcome, Errno> {
-    if tgid <= 0 || tid <= 0 || !(0..=NSIG).contains(&sig) {
-        return Err(Errno(EINVAL));
-    }
-    if tgid != c.p.pid || tid != c.t.tid {
+/// `kill`. Only this process exists in the emulated system, so it is the
+/// only target a positive PID, its own process group (0 or `-pgid`), or
+/// `-1` (every process but the caller) can reach.
+pub fn kill(c: &mut Ctx<'_>, pid: i32, sig: i32) -> SysResult {
+    let own_group = pid == 0 || pid == -c.p.pid;
+    if pid == -1 || pid == i32::MIN || !(pid == c.p.pid || own_group) {
         return Err(Errno(ESRCH));
     }
-    if sig == 0 {
-        return Ok(Outcome::Return(0));
+    if !valid_signal(sig) && sig != 0 {
+        return Err(Errno(EINVAL));
     }
-    Ok(Outcome::Kill(SigInfo::fault(sig, code::SI_TKILL, 0)))
+    if sig != 0 {
+        let info = kill_info(c, sig, code::SI_USER);
+        deliver::send_signal(c.p, c.t, info, false, false);
+    }
+    Ok(0)
+}
+
+/// `tgkill`.
+pub fn tgkill(c: &mut Ctx<'_>, tgid: i32, tid: i32, sig: i32) -> SysResult {
+    if tid <= 0 || tgid <= 0 {
+        return Err(Errno(EINVAL));
+    }
+    send_specific(c, tgid, tid, sig, None)
+}
+
+/// `tkill`: `tgkill` without a thread-group check.
+pub fn tkill(c: &mut Ctx<'_>, tid: i32, sig: i32) -> SysResult {
+    if tid <= 0 {
+        return Err(Errno(EINVAL));
+    }
+    send_specific(c, 0, tid, sig, None)
+}
+
+/// `do_send_specific`: a signal to one thread, `tgid <= 0` matching any
+/// thread group.
+fn send_specific(
+    c: &mut Ctx<'_>,
+    tgid: i32,
+    tid: i32,
+    sig: i32,
+    info: Option<SigInfo>,
+) -> SysResult {
+    if tid != c.t.tid || (tgid > 0 && tgid != c.p.pid) {
+        return Err(Errno(ESRCH));
+    }
+    if !valid_signal(sig) && sig != 0 {
+        return Err(Errno(EINVAL));
+    }
+    if sig != 0 {
+        let info = info.unwrap_or_else(|| kill_info(c, sig, code::SI_TKILL));
+        deliver::send_signal(c.p, c.t, info, true, false);
+    }
+    Ok(0)
+}
+
+/// `__copy_siginfo_from_user`: the record with `si_signo` replaced by
+/// `sig`; an unknown layout must not use bytes 48-127.
+fn read_user_siginfo(c: &Ctx<'_>, sig: i32, addr: u64) -> Result<SigInfo, Errno> {
+    let b = c.read_mem(addr, KERNEL_SIGINFO_SIZE)?;
+    let mut info = SigInfo::decode(&b);
+    info.signo = sig;
+    if !info.known_layout() {
+        let rest = c.read_mem(
+            addr + KERNEL_SIGINFO_SIZE as u64,
+            SIGINFO_SIZE - KERNEL_SIGINFO_SIZE,
+        )?;
+        if rest.iter().any(|&x| x != 0) {
+            return Err(Errno(E2BIG));
+        }
+    }
+    Ok(info)
+}
+
+/// Whether a user-supplied record may be sent to `pid`: not even root may
+/// forge a kernel-, `kill`-, or `tgkill`-generated signal to another
+/// process.
+fn may_queue(c: &Ctx<'_>, info: &SigInfo, pid: i32) -> bool {
+    !((info.code >= 0 || info.code == code::SI_TKILL) && pid != c.p.pid)
+}
+
+/// `rt_sigqueueinfo`.
+pub fn rt_sigqueueinfo(c: &mut Ctx<'_>, pid: i32, sig: i32, uinfo: u64) -> SysResult {
+    let info = read_user_siginfo(c, sig, uinfo)?;
+    if !may_queue(c, &info, pid) {
+        return Err(Errno(EPERM));
+    }
+    if pid != c.p.pid {
+        return Err(Errno(ESRCH));
+    }
+    if !valid_signal(sig) && sig != 0 {
+        return Err(Errno(EINVAL));
+    }
+    if sig != 0 {
+        deliver::send_signal(c.p, c.t, info, false, false);
+    }
+    Ok(0)
+}
+
+/// `rt_tgsigqueueinfo`.
+pub fn rt_tgsigqueueinfo(c: &mut Ctx<'_>, tgid: i32, tid: i32, sig: i32, uinfo: u64) -> SysResult {
+    let info = read_user_siginfo(c, sig, uinfo)?;
+    if tid <= 0 || tgid <= 0 {
+        return Err(Errno(EINVAL));
+    }
+    if !may_queue(c, &info, tid) {
+        return Err(Errno(EPERM));
+    }
+    send_specific(c, tgid, tid, sig, Some(info))
+}
+
+/// Whether a signal outside `blocked` is pending for the thread
+/// (`signal_pending` after `recalc_sigpending`).
+fn signal_pending(c: &Ctx<'_>, blocked: u64) -> bool {
+    c.t.pending.next(blocked).is_some() || c.p.shared_pending.next(blocked).is_some()
+}
+
+/// How an interruptible wait ended.
+enum Wake {
+    /// A signal became pending.
+    Signal,
+    /// The deadline passed.
+    Timeout,
+}
+
+/// Sleeps until a signal outside `blocked` is pending or `deadline`
+/// passes. Nothing but the thread itself generates signals in the emulated
+/// system, so a wait without a deadline can never end.
+fn wait_for_signal(c: &Ctx<'_>, blocked: u64, deadline: Option<Instant>) -> Result<Wake, String> {
+    if signal_pending(c, blocked) {
+        return Ok(Wake::Signal);
+    }
+    match deadline {
+        Some(at) => {
+            let now = Instant::now();
+            if at > now {
+                std::thread::sleep(at - now);
+            }
+            Ok(Wake::Timeout)
+        }
+        None => Err("the only thread waits for a signal that nothing can send".into()),
+    }
+}
+
+/// `sigsuspend`: waits with `set` as the mask and returns
+/// `-ERESTARTNOHAND`; the old mask comes back on the return to user mode
+/// unless a handler frame records it.
+fn sigsuspend(c: &mut Ctx<'_>, set: u64) -> Result<Outcome, Errno> {
+    let saved = c.t.sigmask;
+    c.t.sigmask = set & !KERNEL_ONLY_MASK;
+    if let Err(why) = wait_for_signal(c, c.t.sigmask, None) {
+        return Ok(Outcome::Fatal(why));
+    }
+    c.t.saved_sigmask = Some(saved);
+    Ok(Outcome::Return(-(ERESTARTNOHAND as i64) as u64))
+}
+
+/// `rt_sigsuspend`.
+pub fn rt_sigsuspend(c: &mut Ctx<'_>, set: u64, size: u64) -> Result<Outcome, Errno> {
+    if size != SIGSET_SIZE {
+        return Err(Errno(EINVAL));
+    }
+    let set = c.read_u64(set)?;
+    sigsuspend(c, set)
+}
+
+/// `pause` (x86-64).
+pub fn pause(c: &mut Ctx<'_>) -> Result<Outcome, Errno> {
+    if let Err(why) = wait_for_signal(c, c.t.sigmask, None) {
+        return Ok(Outcome::Fatal(why));
+    }
+    Ok(Outcome::Return(-(ERESTARTNOHAND as i64) as u64))
+}
+
+/// `rt_sigtimedwait`: dequeues a pending signal in `set`, waiting until the
+/// timeout for one to arrive.
+pub fn rt_sigtimedwait(
+    c: &mut Ctx<'_>,
+    set: u64,
+    uinfo: u64,
+    uts: u64,
+    size: u64,
+) -> Result<Outcome, Errno> {
+    if size != SIGSET_SIZE {
+        return Err(Errno(EINVAL));
+    }
+    let these = c.read_u64(set)? & !KERNEL_ONLY_MASK;
+    let timeout = if uts != 0 {
+        let b: [u8; 16] = c.read_mem(uts, 16)?.try_into().unwrap();
+        let t = super::super::abi::types::Timespec::decode(&b);
+        if t.sec < 0 || !(0..1_000_000_000).contains(&t.nsec) {
+            return Err(Errno(EINVAL));
+        }
+        Some(Duration::new(t.sec as u64, t.nsec as u32))
+    } else {
+        None
+    };
+    // The waited-for signals count as unblocked for dequeueing.
+    let mask = !these;
+    let dequeue = |c: &mut Ctx<'_>| {
+        c.t.pending
+            .dequeue(mask)
+            .or_else(|| c.p.shared_pending.dequeue(mask))
+    };
+    let mut got = dequeue(c);
+    if got.is_none() && timeout != Some(Duration::ZERO) {
+        // While waiting, the set is also unblocked for wakeups.
+        let deadline = timeout.map(|d| Instant::now() + d);
+        match wait_for_signal(c, c.t.sigmask & mask, deadline) {
+            Err(why) => return Ok(Outcome::Fatal(why)),
+            Ok(Wake::Signal) => got = dequeue(c),
+            Ok(Wake::Timeout) => {}
+        }
+        if got.is_none() && signal_pending(c, c.t.sigmask) {
+            return Err(Errno(EINTR));
+        }
+    }
+    let Some(info) = got else {
+        return Err(Errno(EAGAIN));
+    };
+    if uinfo != 0 {
+        c.write_mem(uinfo, &info.encode())?;
+    }
+    Ok(Outcome::Return(info.signo as u64))
+}
+
+/// `rt_sigreturn`: restores the frame at the stack pointer. On a bad frame
+/// the result register is zero and `SIGSEGV` is forced.
+pub fn rt_sigreturn(c: &mut Ctx<'_>) -> Result<Outcome, Errno> {
+    match frame::rt_sigreturn(c.t, &c.p.space, minsigstksz(c.p.abi)) {
+        Ok(()) => Ok(Outcome::Unchanged),
+        Err(SigreturnError::Bad(bad)) => {
+            c.t.cpu.set_syscall_result(0);
+            c.t.fault.apply(bad.fault);
+            deliver::force_signal(c.p, c.t, bad.info, deliver::ForceMode::Current);
+            Ok(Outcome::Unchanged)
+        }
+        Err(SigreturnError::Unsupported(why)) => Ok(Outcome::Fatal(why.into())),
+    }
+}
+
+/// `restart_syscall`: no interrupted call ever leaves a restart block
+/// behind (`do_no_restart_syscall`).
+pub fn restart_syscall() -> SysResult {
+    Err(Errno(EINTR))
 }

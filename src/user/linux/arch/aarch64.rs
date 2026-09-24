@@ -6,8 +6,11 @@
 //!   `arch/arm64/mm/fault.c`.
 
 use super::{ArchCaps, CpuEvent, fault_signal};
+use crate::error::MemoryAccessKind;
 use crate::isa::arm::common::cpu::ArmCpu;
 use crate::user::cpu::aarch64::{A64Exit, A64UserCpu};
+use crate::user::cpu::{AccessFault, AccessFaultKind};
+use crate::user::linux::signal::frame::FaultUpdate;
 use crate::user::linux::signal::{SIGILL, SIGTRAP, SigInfo, code};
 
 /// `arch/arm64/include/uapi/asm/hwcap.h` bits advertised for the emulated
@@ -79,6 +82,29 @@ pub fn start(cpu: &mut A64UserCpu, entry: u64, sp: u64) {
     cpu.set_sp(sp);
 }
 
+/// The `ESR_EL1` of an EL0 abort (Arm ARM D24.2.40): EC 0x20
+/// (instruction abort from a lower EL) or 0x24 (data abort), IL = 1, WnR
+/// for writes, and the fault status code: a level-3 translation fault
+/// (0x07) for unmapped pages and pages the kernel cannot populate, a
+/// level-3 permission fault (0x0F), or an alignment fault (0x21). Linux
+/// reports the level at which its page-table walk stopped; the emulated
+/// address space has no page tables, so level 3 is reported for every
+/// translation and permission fault.
+pub fn abort_esr(f: &AccessFault) -> u64 {
+    let ec: u64 = if f.access == MemoryAccessKind::Fetch {
+        0x20
+    } else {
+        0x24
+    };
+    let fsc: u64 = match f.kind {
+        AccessFaultKind::Unmapped | AccessFaultKind::Bus => 0x07,
+        AccessFaultKind::Permission => 0x0F,
+        AccessFaultKind::Alignment => 0x21,
+    };
+    let wnr = u64::from(f.access == MemoryAccessKind::Write);
+    (ec << 26) | (1 << 25) | (wnr << 6) | fsc
+}
+
 /// Runs up to `budget` instructions.
 pub fn run(cpu: &mut A64UserCpu, budget: u64) -> CpuEvent {
     match cpu.run(budget) {
@@ -97,12 +123,25 @@ pub fn run(cpu: &mut A64UserCpu, budget: u64) -> CpuEvent {
             }
         }
         // brk_handler → arm64_force_sig_fault(SIGTRAP, TRAP_BRKPT, pc).
-        A64Exit::Brk { pc, .. } => CpuEvent::Signal(SigInfo::fault(SIGTRAP, code::TRAP_BRKPT, pc)),
-        // do_el0_undef → force_signal_inject(SIGILL, ILL_ILLOPC, pc).
-        A64Exit::Undefined { pc, .. } => {
-            CpuEvent::Signal(SigInfo::fault(SIGILL, code::ILL_ILLOPC, pc))
-        }
-        A64Exit::Fault(f) => CpuEvent::Signal(fault_signal(&f)),
+        // The fault record is untouched (send_user_sigtrap).
+        A64Exit::Brk { pc, .. } => CpuEvent::Signal(
+            SigInfo::fault(SIGTRAP, code::TRAP_BRKPT, pc),
+            FaultUpdate::None,
+        ),
+        // do_el0_undef → force_signal_inject(SIGILL, ILL_ILLOPC, pc, 0),
+        // whose arm64_notify_die clears the fault record.
+        A64Exit::Undefined { pc, .. } => CpuEvent::Signal(
+            SigInfo::fault(SIGILL, code::ILL_ILLOPC, pc),
+            FaultUpdate::Arm64 { address: 0, esr: 0 },
+        ),
+        // do_page_fault / do_bad_area → set_thread_esr(far, esr).
+        A64Exit::Fault(f) => CpuEvent::Signal(
+            fault_signal(&f),
+            FaultUpdate::Arm64 {
+                address: f.addr,
+                esr: abort_esr(&f),
+            },
+        ),
         A64Exit::Yield => CpuEvent::Yield,
         A64Exit::Internal(e) => CpuEvent::Internal(e),
     }
