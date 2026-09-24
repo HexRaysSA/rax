@@ -198,9 +198,10 @@ and in the [user-mode architecture page](../architecture/user-mode.md):
   from the sender, without a `sigqueue` value; a real-time signal the host
   lacks reaches only the sending process; a thread of another process
   other than its leader cannot be named; `kill(-1)` reaches the caller's
-  children. A signal sent to a child while the host is still creating it
-  (a `kill` right after `fork`) is delivered, but on macOS hosts it can
-  arrive without its sender, as `SI_KERNEL` (about 1% of such kills).
+  children. Between `rax-user` processes the sender is exact (its UID the
+  guest's); a signal from a process outside `rax-user` carries the host's
+  report, which on macOS hosts is lost (`SI_KERNEL`) when the signal
+  arrives while the target forks or a child of the target exits.
 - `/proc` describes only the calling process. `PR_SET_PDEATHSIG` is
   recorded but never delivered.
 - A thread must share the descriptor table and file-system context

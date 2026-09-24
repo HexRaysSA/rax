@@ -145,7 +145,17 @@ code comments name the kernel function each rule comes from.
   atomics and writes a byte to a non-blocking close-on-exec wake pipe; the
   personality turns them into process-directed Linux signals
   (`SI_USER` with the sender, else `SI_KERNEL`) before every delivery and
-  every wait. Signals that report an emulator failure (`SIGSEGV`, `SIGBUS`,
+  every wait. Between `rax-user` processes the sender does not come from
+  the host (`sigmail`): XNU keeps a signal's `siginfo` in per-process
+  fields that a child's exit overwrites (a signal whose sender exits at
+  once arrives as `CLD_EXITED`), and one that arrives while the target is
+  forking has none. So before its host `kill`, a `rax-user` sender posts
+  the target, signal, its PID, and its guest UID in a table shared by every
+  process forked from the first, and the target's handler claims the
+  record; records older than the target (a reused PID) or than two seconds
+  (a duplicate a pending signal absorbed) are ignored. A signal from
+  another process keeps the host's report.
+  Signals that report an emulator failure (`SIGSEGV`, `SIGBUS`,
   `SIGILL`, `SIGFPE`, `SIGTRAP`, `SIGABRT`) keep their host dispositions.
   A guest killed by a signal without a core dump ends `rax-user` with the
   same host signal.
@@ -324,7 +334,7 @@ code comments name the kernel function each rule comes from.
 | POSIX timers | `src/user/linux/tests/posix_timers.rs`: the state machine driven by explicit times against `hrtimer_forward` arithmetic (overrun counts, one-shot and `SIGEV_NONE` `gettime`, the 1 ns of a fired but unqueued timer, stale signals, CPU timers set in the past, parked ignored signals), `timer_create` error order and ID use on every ABI, the other calls' checks, one queued record per timer, stale-record drops, re-queueing when `SIG_IGN` is replaced, thread targets, and `execve`'s flush |
 | Event, timer, and signal descriptors | `src/user/linux/tests/events.rs`: `eventfd` limits, semaphores, zero-length and faulting transfers, `readv`/`writev` segments, and levels; `timerfd` ticks driven by explicit times, `TFD_IOC_SET_TICKS`, and argument order on every ABI; anonymous-inode `fstat` and `/proc` names; `signalfd` checks, reads in order, lost records at a fault, every `siginfo_t` layout's `struct signalfd_siginfo`, and wake-ups of blocked readers and pollers. `src/user/linux/tests/files.rs`: `F_GETFL` of regular, `O_PATH`, directory, pipe, and `eventfd` descriptions |
 | Timers and blocking | `src/user/linux/tests/waits.rs`: interval timers, `alarm` rounding, interrupted sleeps and `restart_syscall`, `clock_nanosleep` clocks, `poll`/`select`/`ppoll`/`pselect6` interruption, write-back, clamping, and temporary masks, interruptible pipe reads, `sigtimedwait` woken by a timer, and the deadlock diagnostic |
-| Host signals | `user_linux` `host_signals`: `kill` from the test process reaches the `hostsig` guest with `SI_USER` and the sender on every ISA, interrupts a blocking `read` of a pipe with `EINTR`, and a default-action `SIGTERM` ends `rax-user` with `SIGTERM`; with `--no-signal-forwarding` the host default applies |
+| Host signals | `user_linux` `host_signals`: `kill` from the test process reaches the `hostsig` guest with `SI_USER` and the sender on every ISA, interrupts a blocking `read` of a pipe with `EINTR`, and a default-action `SIGTERM` ends `rax-user` with `SIGTERM`; with `--no-signal-forwarding` the host default applies. `src/user/linux/sigmail.rs`: sender records claimed oldest first, only by their target, withdrawn when unsent, and ignored below the target's floor |
 | Memory-management system calls | `src/user/linux/tests/syscall_mm.rs`: `mprotect`, `madvise`, and `personality` driven through `dispatch` on every ABI, expectations from the named kernel functions; shared anonymous memory as a `shmem` object (its `/proc/self/maps` line, `mremap` duplication and its checks, growth past the object), and shared file mappings (write-back through `pread`/`pwrite`, `msync`, `MREMAP_DONTUNMAP`, pages dropped by `ftruncate`, `truncate`, and `O_TRUNC`) |
 | Syscall and errno numbering | `user_linux` `abi_tables` against the vendored UAPI headers |
 | End-to-end behavior | `user_linux` `fixtures`: 23 cases × 3 ISAs match stdout and exit status recorded on Linux (RV64 `mman` uses the AArch64 kernel's result because QEMU user mode, the RV64 translator, emulates `madvise`; x86-64 `signals` runs under QEMU user mode because Rosetta, the x86-64 translator, mishandles `SA_RESETHAND`; x86-64 and RV64 `threads` use the AArch64 kernel's result because Rosetta and QEMU lack `clone3` and `futex_waitv` and QEMU robust lists, as do their `exec` results because both run executed programs through `binfmt_misc`, RV64 `fork` because QEMU ignores `clone` exit signals and `SA_NOCLDSTOP`, RV64 `events` because QEMU lacks `TFD_IOC_SET_TICKS`, the `signalfd4` size check, and the kernel's timer IDs, x86-64 and RV64 `epoll` because Rosetta faults converting `struct epoll_event` and QEMU does not apply `epoll_pwait`'s mask, RV64 `sockets` and `sockmsg` because QEMU drops unknown socket type flags, writes `socketpair`'s descriptors only on success, and ignores `recvmmsg`'s timeout, and x86-64 and RV64 `shmem` because Rosetta traps duplicating a mapping with `mremap` and QEMU checks the zero length first and lacks `MADV_REMOVE`; see `oracle-overrides.txt`) (also with the x86-64 JIT disabled, the RISC-V JIT enabled, and 64-instruction scheduling slices); an opt-in live Docker differential (`RAX_USER_DOCKER_ORACLE=1`) |
