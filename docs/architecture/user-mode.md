@@ -221,6 +221,32 @@ code comments name the kernel function each rule comes from.
   file's level as a wake-up. Reporting follows `ep_send_events`: items
   re-polled at the head of the ready list, level-triggered ones queued
   again at the tail after those there was no room for.
+- **Sockets** (`net`, `syscall::net`). `AF_UNIX`, `AF_INET`, and
+  `AF_INET6` sockets are host sockets, always non-blocking on the host;
+  the personality keeps what Linux has and the host lacks (the name a
+  Unix socket was bound to, the timeouts, Linux's reported buffer sizes,
+  the listening state, its own shutdowns) and translates addresses,
+  flags, options, and errors. A call that would block sleeps on the
+  socket (`Resume::Socket` records the bytes transferred, the timeout's
+  end, and a batch position), so `SO_RCVTIMEO`/`SO_SNDTIMEO` end it with
+  `EAGAIN` and a signal with `-ERESTARTSYS`, or `EINTR` once a timeout is
+  set (`sock_intr_errno`). Unix paths resolve through the VFS to
+  absolute host paths; a host path longer than the host's `sun_path` is
+  reached through its directory (a `/proc/self/fd` link on Linux, a
+  short-lived symbolic link on macOS). The abstract namespace is the
+  host's on Linux; on macOS an abstract name is a socket file in a
+  per-user directory named by a hash, with the name recorded beside it
+  and a lock file the binding socket holds, so a name is taken exactly
+  while its socket lives. `SCM_RIGHTS` descriptors travel as host
+  descriptors, so they reach other processes; each send also records the
+  description by its host object's identity, so a receiver in the same
+  process gets the same description (shared status flags), and a
+  description without a host descriptor travels as a stand-in socket
+  only that record resolves. Readiness is `sock_poll`'s: the host's mask
+  on Linux; on macOS, whose masks differ (no `POLLRDHUP`, `POLLHUP` after
+  one shutdown, no `POLLOUT` after a shutdown, nothing for a new stream
+  socket), it is derived from the `unix_poll`/`tcp_poll`/`datagram_poll`
+  rules and the socket's state (`net::poll`).
 - **Signal targeting.** A signal is queued for a thread or for the process;
   `complete_signal` then wakes the thread that should take it — the
   suggested thread if it wants it (unblocked, and running or without a
@@ -242,10 +268,10 @@ code comments name the kernel function each rule comes from.
   `poll` save a `restart_block` so `restart_syscall` resumes them with the
   remaining time; `select` and `poll` write back the time left and
   `revents` as `poll_select_finish` and `do_sys_poll` do.
-- **System calls.** 201 calls across descriptors and I/O, paths and
+- **System calls.** 219 calls across descriptors and I/O, paths and
   metadata, memory management, identity and limits, clocks, signals,
   threads, futexes, processes, POSIX timers, event, timer, and signal
-  descriptors, and `epoll`,
+  descriptors, `epoll`, and sockets,
   each validated in the kernel's order so the first failing
   check determines the `errno`. Host `errno` values are translated by name.
   Memory calls act VMA by VMA as `mm/mprotect.c` and `mm/madvise.c` do,
@@ -275,13 +301,14 @@ code comments name the kernel function each rule comes from.
 | Threads, futexes, and signal targeting | `src/user/linux/tests/threads.rs` (13 tests): `clone`/`clone3` register state and validation on every ABI, futex wait/wake/bitset/requeue/wake-op/PI and interrupted waits, robust-list and `clear_child_tid` handling at exit, `complete_signal` choice and retargeting, thread and process exit status, `CLONE_VFORK`, and the `/proc` thread views |
 | `execve` and waits | `src/user/linux/tests/exec.rs`: `#!` parsing edge cases of `load_script`, `execve`/`execveat` error order on every ABI, the argument space charged to the byte (pointers, an empty `argv`, a script's rewritten arguments), a script named by a close-on-exec descriptor, the image replacement with a script and what survives it, `wait4`/`waitid` argument checks and `siginfo_t` writes on errors, children passing to a live thread (`__WNOTHREAD`) on thread exit and `execve`, and processes unavailable without host processes |
 | `epoll` and readiness | `src/user/linux/tests/epoll.rs`: `do_epoll_ctl` and `do_epoll_wait` checks in order on every ABI, each ABI's `struct epoll_event`, level-triggered, edge-triggered (including a write from outside the emulator), and one-shot items, hang-up and error, the ready-list order, `maxevents` rotation, and a faulting buffer, items keyed by description, nesting and loop depth, and sleeping, `EINTR`, and `epoll_pwait`'s mask. `src/user/linux/tests/waits.rs`: pipes in `ppoll` as `pipe_poll` reports them |
+| Sockets | `src/user/linux/tests/sockets.rs` (15 tests on every ABI): `__sock_create` and `inet_create` checks in order, `socketpair` writing its reserved descriptors first, Unix names (relative and over-long paths, node permissions, rebinding, abstract names in use and freed, autobind), `move_addr_to_user` copies, IP `bind`/`connect` address checks, `copy_msghdr_from_user` checks, `scm_detach_fds` installation and `MSG_CTRUNC`, descriptions shared within the process, `SCM_CREDENTIALS` checks and `SO_PASSCRED` delivery, timeouts and signal interruption, `sk_setsockopt`/`sk_getsockopt` rules, `SIGPIPE` by protocol, `sendmmsg`/`recvmmsg`, readiness and the socket `ioctl`s, IPv6; unit tests of the address codec, control-message framing, name mapping, and timeouts in `src/user/linux/net/` |
 | POSIX timers | `src/user/linux/tests/posix_timers.rs`: the state machine driven by explicit times against `hrtimer_forward` arithmetic (overrun counts, one-shot and `SIGEV_NONE` `gettime`, the 1 ns of a fired but unqueued timer, stale signals, CPU timers set in the past, parked ignored signals), `timer_create` error order and ID use on every ABI, the other calls' checks, one queued record per timer, stale-record drops, re-queueing when `SIG_IGN` is replaced, thread targets, and `execve`'s flush |
 | Event, timer, and signal descriptors | `src/user/linux/tests/events.rs`: `eventfd` limits, semaphores, zero-length and faulting transfers, `readv`/`writev` segments, and levels; `timerfd` ticks driven by explicit times, `TFD_IOC_SET_TICKS`, and argument order on every ABI; anonymous-inode `fstat` and `/proc` names; `signalfd` checks, reads in order, lost records at a fault, every `siginfo_t` layout's `struct signalfd_siginfo`, and wake-ups of blocked readers and pollers. `src/user/linux/tests/files.rs`: `F_GETFL` of regular, `O_PATH`, directory, pipe, and `eventfd` descriptions |
 | Timers and blocking | `src/user/linux/tests/waits.rs`: interval timers, `alarm` rounding, interrupted sleeps and `restart_syscall`, `clock_nanosleep` clocks, `poll`/`select`/`ppoll`/`pselect6` interruption, write-back, clamping, and temporary masks, interruptible pipe reads, `sigtimedwait` woken by a timer, and the deadlock diagnostic |
 | Host signals | `user_linux` `host_signals`: `kill` from the test process reaches the `hostsig` guest with `SI_USER` and the sender on every ISA, interrupts a blocking `read` of a pipe with `EINTR`, and a default-action `SIGTERM` ends `rax-user` with `SIGTERM`; with `--no-signal-forwarding` the host default applies |
 | Memory-management system calls | `src/user/linux/tests/syscall_mm.rs`: `mprotect`, `madvise`, and `personality` driven through `dispatch` on every ABI, expectations from the named kernel functions |
 | Syscall and errno numbering | `user_linux` `abi_tables` against the vendored UAPI headers |
-| End-to-end behavior | `user_linux` `fixtures`: 20 cases × 3 ISAs match stdout and exit status recorded on Linux (RV64 `mman` uses the AArch64 kernel's result because QEMU user mode, the RV64 translator, emulates `madvise`; x86-64 `signals` runs under QEMU user mode because Rosetta, the x86-64 translator, mishandles `SA_RESETHAND`; x86-64 and RV64 `threads` use the AArch64 kernel's result because Rosetta and QEMU lack `clone3` and `futex_waitv` and QEMU robust lists, as do their `exec` results because both run executed programs through `binfmt_misc`, RV64 `fork` because QEMU ignores `clone` exit signals and `SA_NOCLDSTOP`, RV64 `events` because QEMU lacks `TFD_IOC_SET_TICKS`, the `signalfd4` size check, and the kernel's timer IDs, and x86-64 and RV64 `epoll` because Rosetta faults converting `struct epoll_event` and QEMU does not apply `epoll_pwait`'s mask; see `oracle-overrides.txt`) (also with the x86-64 JIT disabled, the RISC-V JIT enabled, and 64-instruction scheduling slices); an opt-in live Docker differential (`RAX_USER_DOCKER_ORACLE=1`) |
+| End-to-end behavior | `user_linux` `fixtures`: 22 cases × 3 ISAs match stdout and exit status recorded on Linux (RV64 `mman` uses the AArch64 kernel's result because QEMU user mode, the RV64 translator, emulates `madvise`; x86-64 `signals` runs under QEMU user mode because Rosetta, the x86-64 translator, mishandles `SA_RESETHAND`; x86-64 and RV64 `threads` use the AArch64 kernel's result because Rosetta and QEMU lack `clone3` and `futex_waitv` and QEMU robust lists, as do their `exec` results because both run executed programs through `binfmt_misc`, RV64 `fork` because QEMU ignores `clone` exit signals and `SA_NOCLDSTOP`, RV64 `events` because QEMU lacks `TFD_IOC_SET_TICKS`, the `signalfd4` size check, and the kernel's timer IDs, x86-64 and RV64 `epoll` because Rosetta faults converting `struct epoll_event` and QEMU does not apply `epoll_pwait`'s mask, and RV64 `sockets` and `sockmsg` because QEMU drops unknown socket type flags, writes `socketpair`'s descriptors only on success, and ignores `recvmmsg`'s timeout; see `oracle-overrides.txt`) (also with the x86-64 JIT disabled, the RISC-V JIT enabled, and 64-instruction scheduling slices); an opt-in live Docker differential (`RAX_USER_DOCKER_ORACLE=1`) |
 
 **Differential-tested** here means that, for the fixture programs and
 inputs in `tests/fixtures/user/linux`, output and exit status equal what the

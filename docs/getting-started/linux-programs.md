@@ -143,6 +143,19 @@ Sizes accept `K`, `M`, `G`, and `T` suffixes (powers of 1024).
   items that follow the open file description rather than the
   descriptor, `EINTR` without restart, and every argument check in the
   kernel's order.
+- **Sockets.** `AF_UNIX` (stream and datagram, and sequenced-packet
+  where the host has it), `AF_INET`, and `AF_INET6` sockets are host
+  sockets, so the loopback and real networks work: `socket`,
+  `socketpair`, `bind`, `listen`, `accept`/`accept4`, `connect`, the name
+  and option calls, `shutdown`, and every send and receive call,
+  `sendmmsg` and `recvmmsg` included. Unix paths resolve through the
+  sysroot and the working directory; the abstract namespace and autobind
+  work on every host. Blocking, `SO_RCVTIMEO`/`SO_SNDTIMEO`,
+  `MSG_WAITALL`, `MSG_PEEK`, `MSG_TRUNC`, and signal interruption behave
+  as on Linux; `SCM_RIGHTS` passes descriptors, also to other processes;
+  `SO_PASSCRED` delivers the peer's credentials; `SIGPIPE` follows the
+  protocol; `poll`, `select`, and `epoll` report sockets as `sock_poll`
+  does, including `POLLRDHUP`.
 
 ## Current limitations
 
@@ -197,7 +210,26 @@ and in the [user-mode architecture page](../architecture/user-mode.md):
   513 to 4,096 bytes into a nearly full pipe can be split, which another
   writer to the same pipe could observe.
 - The 32-bit `INT 0x80` system-call ABI on x86-64 returns `-ENOSYS`.
-- Creating sockets, `epoll`, and writable `MAP_SHARED` file mappings
-  (writes do not reach the file) are not implemented.
+- Writable `MAP_SHARED` file mappings (writes do not reach the file) are
+  not implemented.
+- Socket families other than `AF_UNIX`, `AF_INET`, and `AF_INET6`
+  (netlink, packet, ...) are `EAFNOSUPPORT`, so interface lists through
+  netlink are unavailable, and the interface `ioctl`s report no device.
+  Options without a host counterpart (`SO_TIMESTAMP`, `IP_PKTINFO`,
+  `TCP_QUICKACK`, ...) and IP-level control messages are accepted but
+  have no effect. A description without a host descriptor (`eventfd`,
+  `timerfd`, `signalfd`, `epoll`, a `/proc` file) passed with
+  `SCM_RIGHTS` reaches only its own process, and one passed to another
+  process arrives with its access mode and `O_APPEND` but not its other
+  status flags. `SO_PASSCRED` reports the connected peer's credentials,
+  not each sender's. Peers see a socket bound by a relative path under
+  its absolute path. The timeouts count whole milliseconds (a 1000 Hz
+  kernel), and `MSG_CMSG_COMPAT` is an ordinary bit, as in a kernel
+  without 32-bit system calls.
+- On macOS hosts an abstract socket name is a file in a per-user temporary
+  directory, a path longer than 103 bytes is bound through a temporary
+  link that peers see, sequenced-packet Unix sockets are unavailable, the
+  peer's `SHUT_RD` does not show in `poll`, and a datagram to a full
+  receiver is retried every millisecond until it fits.
 - Terminal attribute changes (`TCSETS*`) are accepted but not applied to the
   host terminal; `TCGETS` reports Linux's default terminal settings.
