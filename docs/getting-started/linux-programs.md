@@ -34,7 +34,8 @@ host's. The exit status is the guest's:
 | Status | Meaning |
 |---|---|
 | `0`–`255` | The program called `exit`/`exit_group` with this value (mod 256). |
-| `128 + N` | Signal `N` killed the program (for example 139 for `SIGSEGV`). A diagnostic line with the signal, `si_code`, the fault address or sending PID, and the PC goes to standard error. |
+| `128 + N` | Signal `N` killed the program with a core-dumping default action (for example 139 for `SIGSEGV`, 134 for `SIGABRT`), or any signal with `--no-signal-forwarding`. A diagnostic line with the signal, `si_code`, the fault address or sending PID, and the PC goes to standard error. `rax-user` exits instead of re-raising the signal, so the host records no crash of the emulator. |
+| killed by `N` | Any other signal `N` killed the program: after the same diagnostic line, `rax-user` dies of the host's `N`, so its parent sees a signal death. A shell reports `128` plus the host's signal number, which on macOS differs from Linux's for some signals (`SIGUSR1` is 30, `SIGTSTP` 18). A signal the host lacks (for example `SIGPWR` on macOS, or a real-time signal) exits with `128 + N`. |
 | `125` | The emulator could not continue (for example a deadlock with no runnable thread). |
 | `126` | The file is not an executable for a supported ABI, or loading it failed. |
 | `127` | The file does not exist. |
@@ -56,6 +57,7 @@ host's. The exit status is the guest's:
 | `--riscv-jit` | Execute RISC-V guests through the SMIR JIT where the host supports it. |
 | `--kernel-release R` | `uname -r` value (default `6.19.0`). |
 | `--slice N` | Instructions per scheduling slice for AArch64 and RV64 guests. |
+| `--no-signal-forwarding` | Leave host signals at their host dispositions (Ctrl-C then ends `rax-user` directly) and report every signal death as `128 + N`. |
 
 Sizes accept `K`, `M`, `G`, and `T` suffixes (powers of 1024).
 
@@ -79,25 +81,43 @@ Sizes accept `K`, `M`, `G`, and `T` suffixes (powers of 1024).
   `/proc/uptime`, `/proc/version`, and the CPU-topology files under
   `/sys/devices/system/cpu` are synthesized.
 - **Identity.** The host process ID, user, and group IDs.
+- **Host signals.** `SIGHUP`, `SIGINT`, `SIGQUIT`, `SIGUSR1`, `SIGUSR2`,
+  `SIGALRM`, `SIGTERM`, `SIGCONT`, `SIGTSTP`, `SIGTTIN`, `SIGTTOU`,
+  `SIGURG`, `SIGXCPU`, `SIGXFSZ`, `SIGVTALRM`, `SIGPROF`, `SIGWINCH`, and
+  `SIGIO` sent to `rax-user` (Ctrl-C, Ctrl-Z, `kill`, a terminal resize)
+  are delivered to the guest as Linux would deliver them: `si_code`
+  `SI_USER` with the sender's PID and UID for `kill`, `SI_KERNEL`
+  otherwise. The synchronous error signals (`SIGSEGV`, `SIGBUS`, `SIGILL`,
+  `SIGFPE`, `SIGTRAP`) and `SIGABRT` keep their host dispositions, because
+  on the host they report a failure of the emulator; `SIGPIPE` stays
+  ignored on the host and is raised in the guest on `EPIPE`.
+- **Timers and blocking calls.** `alarm` and `setitimer`/`getitimer`:
+  `ITIMER_REAL` runs on the monotonic clock; `ITIMER_VIRTUAL` and
+  `ITIMER_PROF` count `rax-user`'s host CPU time, which includes emulation
+  overhead. Reads and writes of pipes, terminals, and sockets without
+  `O_NONBLOCK`, `poll`, `ppoll`, `select`, `pselect6`, `nanosleep`,
+  `clock_nanosleep`, `pause`, `sigsuspend`, and `sigtimedwait` sleep until
+  their condition or a signal, and an interrupted call returns `EINTR` or
+  restarts exactly as on Linux (`SA_RESTART`; `restart_syscall` for
+  `nanosleep` and `poll`; `poll` and `select` never restart after a
+  handler).
 
 ## Current limitations
 
 These are tracked in [Status and limitations](../reference/status-and-limitations.md)
 and in the [user-mode architecture page](../architecture/user-mode.md):
 
-- Signals come only from the guest itself (faults, `kill`/`tgkill`/
-  `sigqueue` to its own PID, `SIGPIPE`): host signals such as Ctrl-C act on
-  `rax-user` with their host default, `kill` of any other PID fails with
-  `ESRCH`, and a wait for a signal with no timeout (`pause`, `sigsuspend`)
-  that nothing can end stops the process with a diagnostic. There are no
-  interval timers (`alarm`, `setitimer`, `timer_create`). A stop signal's
-  default action stops the `rax-user` process itself.
+- `kill` of any PID other than the guest's own fails with `ESRCH`. With
+  `--no-signal-forwarding`, a wait for a signal with no timeout (`pause`,
+  `sigsuspend`) that no timer can end stops the process with a
+  diagnostic. POSIX timers (`timer_create`) and `timerfd` are not yet
+  implemented. A stop signal's default action stops the `rax-user` process
+  itself.
 - A single guest thread runs; `clone`, `fork`, `vfork`, and `execve` are not
   yet implemented, and a futex wait with no timeout ends the process with a
   deadlock diagnostic.
 - The 32-bit `INT 0x80` system-call ABI on x86-64 returns `-ENOSYS`.
-- Sockets, `epoll`, `eventfd`, timers delivered as signals, and writable
-  `MAP_SHARED` file mappings (writes do not reach the file) are not
-  implemented.
+- Creating sockets, `epoll`, `eventfd`, and writable `MAP_SHARED` file
+  mappings (writes do not reach the file) are not implemented.
 - Terminal attribute changes (`TCSETS*`) are accepted but not applied to the
   host terminal; `TCGETS` reports Linux's default terminal settings.
